@@ -43,24 +43,29 @@ const CATALOG_REL = 'packages/types/src/capability-catalog.ts'
 const CENTRAL_FILES = new Set(['apps/api/src/plugins/require-permission.ts'])
 
 /**
- * RULE-1 存量白名单(2026-09-21 盘点登记 34 文件 / 74 处;O13b 试点批迁出
+ * 存量白名单(2026-09-21 盘点登记 34 文件 / 74 处;O13b 各批迁出后,2026-09-24 按
+ * 「来源排除」新判据重算 → 8 文件 / 23 处 → 5 文件 / 12 处 → 同日把 4 处真闸门
+ * 收进集中谓词 isSystemAdmin 后 → **1 文件 / 1 处**(仅 idor-guard,理由见表内 reason))。
+ * **额度取"实判红"而非"文本命中数"** —— 入参校验形态(如 `parseNum(q.roleId)` → 400)
+ * 已被 classifyRawRoleIdHits 按来源排除,不再占用额度;role-routes / rbac-queries / auth
+ * 三条因此归零并删除(留 count=0 会被本文件 self-test 的表卫生断言拦下)。
+ * 盘点流水(自 34 文件起):O13b 试点批迁出
  * earnings-routes/security/health 3 文件后 31 文件 / 68 处;T0 批删 16 个"实测 0 处
  * 裸比较"的纯条目文件后 15 文件 / 42 处;T1 批把 finance/finance-extended/
  * withdrawal-routes/developer-routes 共 14 处真闸门收进集中封装后 15→11 文件;
  * T2 批把 trader/oss/student-profile-routes 3 处"属主‖管理员"混合闸的特权读数
- * 收进集中谓词 isSystemAdmin(属主分支留调用处)后,现 8 文件 / 23 处,裸 roleId 比较 34→17)。
+ * 收进集中谓词 isSystemAdmin(属主分支留调用处)后一度为 8 文件 / 23 处,裸 roleId 比较 34→17;
+ * 2026-09-24 再按来源排除重算 → 5 文件 / 12 处:17 处文本命中里 5 处是入参校验,
+ * 按新判据不再占用额度,故 role-routes / rbac-queries / auth 三条归零删除)。
  * count = 登记时裸比较条数,只减不增;reason 说明该处 roleId 数值判定的存在理由。
  * 收敛路径:迁移到 requirePermission(...)/requireAdmin 后,把条目整体删除。
  */
 export const LEGACY_RAW_ROLEGATE = {
-  'apps/api/src/routes/agents.ts': { count: 6, reason: 'O13b 存量:agent 所有权+管理员豁免混判,待收敛' },
-  'apps/api/src/routes/admin-sys/role-routes.ts': { count: 6, reason: 'O13b 存量:RBAC 管理路由内 roleId===1 超管保护,待收敛' },
-  'apps/api/src/routes/groups.ts': { count: 4, reason: 'O13b 存量:群组管理员(业务 roleId,非 admin 面),保留语义复核' },
-  'apps/api/src/plugins/business-metrics.ts': { count: 2, reason: 'O13b 存量:指标采集侧内部判定(非请求鉴权路径)' },
-  'apps/api/src/db/rbac-queries.ts': { count: 2, reason: 'RBAC 数据层:roleId===1 超管通配权限解析点(resolveUserPermissions),是"集中判定"的数据侧同族,保留' },
-  'apps/api/src/utils/idor-guard.ts': { count: 1, reason: 'O13b 存量:IDOR 豁免判定' },
-  'apps/api/src/routes/auth.ts': { count: 1, reason: 'O13b 存量:登录返回权限解析(roleId>=1 → 通配),属响应装配非闸门' },
-  'apps/api/src/routes/admin-sys/menu-routers-routes.ts': { count: 1, reason: 'O13b 存量' },
+  'apps/api/src/utils/idor-guard.ts': {
+    count: 1,
+    reason:
+      'O13b 存量:IDOR 豁免判定。**为何不收敛到 isSystemAdmin**:idor-guard 在 utils/,引 plugins/require-permission.js 属反向依赖,会把 auth → api-key-auth → key-rate-window-service 整条链拖进 tests/idor-guard.test.ts 的 @ihui/database mock 图,实测该 mock 缺 developerApiKeys 导出 ⇒ 17 例整档崩(HEAD 版 17/17 通过、加此导入后 fail,已 A/B 实锤)。正解是抽无依赖叶子模块(ADMIN_ROLE_ID 现于 require-permission 内联、community/_shared 另有一份,本就是要归一的),属独立重构票,不在额度收敛范围内顺手做。',
+  },
 }
 
 /** RULE-2 存量白名单:集中封装之外定义本地 requireAdmin 的历史文件。

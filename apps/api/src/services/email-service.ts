@@ -52,7 +52,7 @@ function resolveTemplateId(scene?: string): number | undefined {
  * 1. smtp   — 通用 SMTP(nodemailer),兜底通道
  * 2. resend  — Resend REST API(国外邮箱优先)
  * 3. tencent — 腾讯云 SES V3 签名(国内邮箱优先)
- * 4. stub    — 无任何 provider 配置时,只记录日志(开发环境)
+ * 4. stub    — 无任何 provider 配置时,不发送;logger.warn 点名缺失配置(见 SendEmailResult.reasons)
  *
  * 智能路由(MAIL_PROVIDER=auto):
  * - 收件域名 ∈ DOMESTIC_EMAIL_DOMAINS → tencent(若配置)→ smtp → stub
@@ -82,11 +82,34 @@ export interface SendEmailOptions {
   templateVariables?: Record<string, unknown>
 }
 
+/** 邮件发送通道。'stub' = 当前配置下该收件人路由上无任何可用通道(未发送)。 */
+export type EmailProvider = 'smtp' | 'resend' | 'tencent' | 'stub'
+
+/**
+ * provider=stub(未发送)的根因枚举。精确联合而非 string 兜底:
+ * 每一项对应一个具体的配置缺失,上层告警与运维工具可按值处置。
+ */
+export type EmailNotSentReason =
+  /** SMTP_ENABLED=false(配置默认值):SMTP 兜底通道整体未开启 — 2026-09-23 全站静默事故根因 */
+  | 'smtp_disabled'
+  /** SMTP_ENABLED=true 但 SMTP_HOST 为空:兜底通道只配了一半 */
+  | 'smtp_host_missing'
+  /** 海外收件人路由:RESEND_API_KEY 未配置 */
+  | 'resend_api_key_missing'
+  /** 国内收件人路由:TENCENT_SES_SECRET_ID / TENCENT_SES_SECRET_KEY 未配置 */
+  | 'tencent_ses_keys_missing'
+
 export interface SendEmailResult {
   sent: boolean
   stub: boolean
-  provider: 'smtp' | 'resend' | 'tencent' | 'stub'
+  provider: EmailProvider
   error?: string
+  /**
+   * provider=stub 时:该收件人路由链上全部缺失配置的清单
+   * (SMTP 兜底缺口在前、首选通道缺口在后)。纯新增可选字段,
+   * 现有调用方语义不变;新调用方据此判定"为什么没发"并决定是否告警。
+   */
+  reasons?: EmailNotSentReason[]
 }
 
 export type EmailCodeScene = 'register' | 'login' | 'reset'
@@ -143,27 +166,118 @@ export function isDomesticEmail(email: string): boolean {
 }
 
 /**
- * 解析最终使用的 provider。
+ * 解析最终使用的 provider 及其路由链上的配置缺口(单一真相源)。
  * 优先级:显式 MAIL_PROVIDER > auto 智能路由 > stub。
  */
-export function resolveProvider(email: string): 'resend' | 'tencent' | 'smtp' | 'stub' {
+interface ProviderResolution {
+  provider: EmailProvider
+  /** provider='stub' 时非空:该收件人路由链上每一处被跳过的通道缺什么配置 */
+  blockers: EmailNotSentReason[]
+}
+
+/** SMTP 通道(SMTP_ENABLED && SMTP_HOST)的缺口;null = 可用 */
+function smtpBlocker(): EmailNotSentReason | null {
+  if (!config.SMTP_ENABLED) return 'smtp_disabled'
+  if (!config.SMTP_HOST) return 'smtp_host_missing'
+  return null
+}
+
+/** Resend 通道(RESEND_API_KEY)的缺口;null = 可用 */
+function resendBlocker(): EmailNotSentReason | null {
+  return config.RESEND_API_KEY ? null : 'resend_api_key_missing'
+}
+
+/** 腾讯云 SES 通道(SECRET_ID && SECRET_KEY)的缺口;null = 可用 */
+function tencentBlocker(): EmailNotSentReason | null {
+  return config.TENCENT_SES_SECRET_ID && config.TENCENT_SES_SECRET_KEY
+    ? null
+    : 'tencent_ses_keys_missing'
+}
+
+function resolveProviderWithBlockers(email: string): ProviderResolution {
   const forced = config.MAIL_PROVIDER
-  if (forced === 'resend' && config.RESEND_API_KEY) return 'resend'
-  if (forced === 'tencent' && config.TENCENT_SES_SECRET_ID && config.TENCENT_SES_SECRET_KEY)
-    return 'tencent'
-  if (forced === 'smtp' && config.SMTP_ENABLED && config.SMTP_HOST) return 'smtp'
+  // 显式指定:凭据缺失即 stub(与历史行为逐分支等价,不自动落到其他通道)
+  if (forced === 'resend') {
+    const b = resendBlocker()
+    return b ? { provider: 'stub', blockers: [b] } : { provider: 'resend', blockers: [] }
+  }
+  if (forced === 'tencent') {
+    const b = tencentBlocker()
+    return b ? { provider: 'stub', blockers: [b] } : { provider: 'tencent', blockers: [] }
+  }
+  if (forced === 'smtp') {
+    const b = smtpBlocker()
+    return b ? { provider: 'stub', blockers: [b] } : { provider: 'smtp', blockers: [] }
+  }
 
   // auto:按收件域名智能路由
-  if (forced === 'auto') {
-    if (isDomesticEmail(email)) {
-      if (config.TENCENT_SES_SECRET_ID && config.TENCENT_SES_SECRET_KEY) return 'tencent'
-      if (config.SMTP_ENABLED && config.SMTP_HOST) return 'smtp'
-    } else {
-      if (config.RESEND_API_KEY) return 'resend'
-      if (config.SMTP_ENABLED && config.SMTP_HOST) return 'smtp'
-    }
+  const smtpB = smtpBlocker()
+  if (isDomesticEmail(email)) {
+    const b = tencentBlocker()
+    if (!b) return { provider: 'tencent', blockers: [] }
+    if (!smtpB) return { provider: 'smtp', blockers: [] }
+    // SMTP 是全域名兜底,其缺口排在首位 — 静默事故的根因几乎总在"没开",而非首选通道
+    return { provider: 'stub', blockers: [smtpB, b] }
   }
-  return 'stub'
+  const b = resendBlocker()
+  if (!b) return { provider: 'resend', blockers: [] }
+  if (!smtpB) return { provider: 'smtp', blockers: [] }
+  return { provider: 'stub', blockers: [smtpB, b] }
+}
+
+export function resolveProvider(email: string): EmailProvider {
+  return resolveProviderWithBlockers(email).provider
+}
+
+/**
+ * 缺口枚举 → 运维可读提示。只写"缺哪个配置键",绝不带键值(防密钥进日志)。
+ */
+const BLOCKER_HINTS: Record<EmailNotSentReason, string> = {
+  smtp_disabled: 'SMTP_ENABLED=false(SMTP 兜底通道未开启)',
+  smtp_host_missing: 'SMTP_HOST 未配置(SMTP_ENABLED 已开)',
+  resend_api_key_missing: 'RESEND_API_KEY 未配置(海外收件人通道)',
+  tencent_ses_keys_missing: 'TENCENT_SES_SECRET_ID/KEY 未配置(国内收件人首选通道)',
+}
+
+function formatBlockerHints(blockers: EmailNotSentReason[]): string {
+  return blockers.map((b) => BLOCKER_HINTS[b]).join(' | ')
+}
+
+export interface MailTransportDiagnosis {
+  providerForDomestic: EmailProvider
+  providerForOverseas: EmailProvider
+  blockers: EmailNotSentReason[]
+}
+
+// 探测用代表地址:resolveProvider 只看域名,不会真的向这两个地址发任何东西
+const DIAGNOSTIC_DOMESTIC = 'transport-probe@qq.com'
+const DIAGNOSTIC_OVERSEAS = 'transport-probe@gmail.com'
+
+/**
+ * 全局邮件通道体检(纯函数、零副作用、任意时刻可调,含单测):
+ * 分别探测国内/海外代表域名的最终路由,并汇总两条链路上的配置缺口。
+ */
+export function diagnoseMailTransport(): MailTransportDiagnosis {
+  const domestic = resolveProviderWithBlockers(DIAGNOSTIC_DOMESTIC)
+  const overseas = resolveProviderWithBlockers(DIAGNOSTIC_OVERSEAS)
+  return {
+    providerForDomestic: domestic.provider,
+    providerForOverseas: overseas.provider,
+    blockers: [...new Set([...domestic.blockers, ...overseas.blockers])],
+  }
+}
+
+// "两条路都 stub" 是全局性故障,此前只以每封邮件一行静默 stub 的形态存在
+// (无人看 console.info)—— 进程加载时响一次。克制原则:非测试环境才跑、
+// 只 logger.warn 一行、不抛错、不联网、不读文件(全部判据来自已加载的 config)。
+if (config.NODE_ENV !== 'test') {
+  const startup = diagnoseMailTransport()
+  if (startup.providerForDomestic === 'stub' && startup.providerForOverseas === 'stub') {
+    logger.warn(
+      `[email-transport] 事务邮件通道全局不可用:国内与海外路由均落到 stub,` +
+        `验证码/账单/通知等所有邮件将静默不发送。缺失配置: ${formatBlockerHints(startup.blockers)}`,
+    )
+  }
 }
 
 /**
@@ -172,12 +286,18 @@ export function resolveProvider(email: string): 'resend' | 'tencent' | 'smtp' | 
  * 每次发送都会异步写入 email_logs 审计(写日志失败不影响发送结果)。
  */
 export async function sendEmail(options: SendEmailOptions): Promise<SendEmailResult> {
-  const primary = resolveProvider(options.to)
+  const resolution = resolveProviderWithBlockers(options.to)
+  const primary = resolution.provider
 
   let result: SendEmailResult
   if (primary === 'stub') {
-    console.info(`[email-stub] To: ${maskEmail(options.to)}, Subject: ${options.subject}`)
-    result = { sent: false, stub: true, provider: 'stub' }
+    // 用 warn 而非 info:静默不发是事务邮件最恶劣的故障形态,日志行必须让
+    // 运维一眼看出"缺哪条配置"(如 SMTP_ENABLED=false),而非误诊为"邮件服务商挂了"。
+    logger.warn(
+      `[email-stub] 邮件未发送(该收件人路由无任何可用通道) To: ${maskEmail(options.to)}, ` +
+        `scene: ${options.scene ?? 'unspecified'}, 缺失配置: ${formatBlockerHints(resolution.blockers)}`,
+    )
+    result = { sent: false, stub: true, provider: 'stub', reasons: resolution.blockers }
   } else {
     result = await dispatch(options, primary)
 
