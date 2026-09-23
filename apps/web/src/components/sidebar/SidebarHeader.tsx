@@ -13,6 +13,7 @@ import { Button, ThemeLogo } from '@ihui/ui-react'
 import { useDesktop } from '@/hooks/use-desktop'
 import { armWindowDragOnFirstMove, isDraggableBlankArea } from '@/lib/window-drag'
 import { Tooltip } from '@/components/feedback'
+import { rnRadius } from '@ihui/design-tokens'
 
 interface SidebarHeaderProps {
   variant: 'desktop' | 'mobile'
@@ -41,7 +42,7 @@ function PanelLeftRounded({
       aria-hidden="true"
       {...props}
     >
-      <rect width="18" height="18" x="3" y="3" rx="5" />
+      <rect width="18" height="18" x="3" y="3" rx={rnRadius.sm} />
       <path d="M7.5 8v8" />
       {open ? <path d="m14 9 3 3-3 3" /> : <path d="m16 15-3-3 3-3" />}
     </svg>

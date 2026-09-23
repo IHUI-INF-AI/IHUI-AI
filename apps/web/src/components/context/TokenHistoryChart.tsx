@@ -7,6 +7,7 @@
 import * as React from 'react'
 import type { VisualizationData } from '@ihui/shared/context/index'
 import { formatDateByTemplate } from '@ihui/shared'
+import { rnRadius } from '@ihui/design-tokens'
 import { TOKEN_COLORS, TOKEN_LABELS } from './TokenPieChart'
 
 interface TokenHistoryChartProps {
@@ -137,7 +138,7 @@ export function TokenHistoryChart({ data, width = 720, height = 240 }: TokenHist
                   y={yOf(p[k]) - 2}
                   width={4}
                   height={4}
-                  rx={1}
+                  rx={rnRadius.xs}
                   fill={TOKEN_COLORS[k]}
                 />
               ))}

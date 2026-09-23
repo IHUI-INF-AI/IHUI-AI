@@ -11,7 +11,7 @@
  * 渲染规则:
  * - 色值全部来自 chart-colors 同源调色板(CHART_PALETTE / chartText / chartAxis / chartBg),
  *   组件内零硬编码图表色 —— 明暗主题经 isDark 一刀切切换,与 8 端 token 同源;
- * - 形状圆角统一 rx=2(rounded-sm 对应值),字体继承容器(不设 font-family),
+ * - 形状圆角统一 rx=2(rounded-xs 对应值),字体继承容器(不设 font-family),
  *   圆角/字体规范守门天然通过;
  * - 数据行内数字缺失/非法的行跳过渲染(降级不炸),整体形状仍成立;
  * - 自由 HTML 产物不走本组件(保持既有 iframe 沙箱路径,见 artifact-canvas)。
@@ -24,13 +24,14 @@ import {
   chartAxis,
   chartBg,
   chartTemplateMeta,
+  rnRadius,
   type ChartTemplatePayload,
 } from '@ihui/design-tokens'
 
 const W = 560
 const H = 280
 const PAD = { top: 16, right: 16, bottom: 28, left: 88 }
-const BAR_RX = 2
+const BAR_RX = rnRadius.xs
 
 type Item = Record<string, unknown>
 
@@ -67,7 +68,7 @@ function color(i: number): string {
 function Svg({ children, isDark }: { children: React.ReactNode; isDark: boolean }) {
   return (
     <svg viewBox={`0 0 ${W} ${H}`} role="img" className="h-auto w-full" data-chart-template-svg>
-      <rect x={0} y={0} width={W} height={H} fill={chartBg(isDark)} rx={4} />
+      <rect x={0} y={0} width={W} height={H} fill={chartBg(isDark)} rx={rnRadius.sm} />
       {children}
     </svg>
   )
@@ -76,7 +77,7 @@ function Svg({ children, isDark }: { children: React.ReactNode; isDark: boolean 
 function Empty({ isDark }: { isDark: boolean }) {
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" data-chart-template-empty>
-      <rect x={0} y={0} width={W} height={H} fill={chartBg(isDark)} rx={4} />
+      <rect x={0} y={0} width={W} height={H} fill={chartBg(isDark)} rx={rnRadius.sm} />
       <text x={W / 2} y={H / 2} textAnchor="middle" fontSize="11" fill={chartText(isDark)}>
         --
       </text>
@@ -88,7 +89,9 @@ function Empty({ isDark }: { isDark: boolean }) {
 function Gantt({ rows, isDark }: { rows: readonly Item[]; isDark: boolean }) {
   const pts = rows
     .map((r) => ({ label: str(r, 'label'), s: scalar(r['start']), e: scalar(r['end']) }))
-    .filter((p): p is { label: string | null; s: number; e: number } => p.s !== null && p.e !== null)
+    .filter(
+      (p): p is { label: string | null; s: number; e: number } => p.s !== null && p.e !== null,
+    )
   if (pts.length === 0) return <Empty isDark={isDark} />
   const min = Math.min(...pts.map((p) => Math.min(p.s, p.e)))
   const max = Math.max(...pts.map((p) => Math.max(p.s, p.e)))
@@ -103,7 +106,13 @@ function Gantt({ rows, isDark }: { rows: readonly Item[]; isDark: boolean }) {
         return (
           <g key={i}>
             {p.label !== null && (
-              <text x={PAD.left - 6} y={y + 9} textAnchor="end" fontSize="10" fill={chartText(isDark)}>
+              <text
+                x={PAD.left - 6}
+                y={y + 9}
+                textAnchor="end"
+                fontSize="10"
+                fill={chartText(isDark)}
+              >
                 {p.label}
               </text>
             )}
@@ -193,16 +202,34 @@ function Radar({ rows, isDark }: { rows: readonly Item[]; isDark: boolean }) {
   const R = Math.min(H / 2 - 34, 100)
   const angle = (i: number) => (Math.PI * 2 * i) / pts.length - Math.PI / 2
   const poly = (f: (i: number) => number): string =>
-    pts.map((_, i) => `${cx + Math.cos(angle(i)) * f(i)},${cy + Math.sin(angle(i)) * f(i)}`).join(' ')
+    pts
+      .map((_, i) => `${cx + Math.cos(angle(i)) * f(i)},${cy + Math.sin(angle(i)) * f(i)}`)
+      .join(' ')
   return (
     <Svg isDark={isDark}>
       {[0.33, 0.66, 1].map((k) => (
-        <polygon key={k} points={poly(() => R * k)} fill="none" stroke={chartAxis(isDark)} strokeWidth={1} />
+        <polygon
+          key={k}
+          points={poly(() => R * k)}
+          fill="none"
+          stroke={chartAxis(isDark)}
+          strokeWidth={1}
+        />
       ))}
       {pts.map((_, i) => {
         const x = cx + Math.cos(angle(i)) * R
         const y = cy + Math.sin(angle(i)) * R
-        return <line key={`ax-${i}`} x1={cx} y1={cy} x2={x} y2={y} stroke={chartAxis(isDark)} strokeWidth={1} />
+        return (
+          <line
+            key={`ax-${i}`}
+            x1={cx}
+            y1={cy}
+            x2={x}
+            y2={y}
+            stroke={chartAxis(isDark)}
+            strokeWidth={1}
+          />
+        )
       })}
       <polygon
         points={poly((i) => (R * Math.max(0, Math.min(100, pts[i]?.v ?? 0))) / 100)}
@@ -215,7 +242,14 @@ function Radar({ rows, isDark }: { rows: readonly Item[]; isDark: boolean }) {
         const lx = cx + Math.cos(angle(i)) * (R + 16)
         const ly = cy + Math.sin(angle(i)) * (R + 12)
         return p.label !== null ? (
-          <text key={`lb-${i}`} x={lx} y={ly} textAnchor="middle" fontSize="10" fill={chartText(isDark)}>
+          <text
+            key={`lb-${i}`}
+            x={lx}
+            y={ly}
+            textAnchor="middle"
+            fontSize="10"
+            fill={chartText(isDark)}
+          >
             {p.label}
           </text>
         ) : null
@@ -238,7 +272,8 @@ function Heatmap({ rows, isDark }: { rows: readonly Item[]; isDark: boolean }) {
     if (!colNames.includes(col)) colNames.push(col)
     cells.push({ row, col, v })
   }
-  if (cells.length === 0 || rowNames.length === 0 || colNames.length === 0) return <Empty isDark={isDark} />
+  if (cells.length === 0 || rowNames.length === 0 || colNames.length === 0)
+    return <Empty isDark={isDark} />
   const min = Math.min(...cells.map((c) => c.v))
   const max = Math.max(...cells.map((c) => c.v))
   const span = max - min || 1
@@ -286,7 +321,14 @@ function Heatmap({ rows, isDark }: { rows: readonly Item[]; isDark: boolean }) {
         </text>
       ))}
       {colNames.map((c, i) => (
-        <text key={`c-${i}`} x={PAD.left + i * cw + cw / 2 - 1} y={H - 10} textAnchor="middle" fontSize="10" fill={chartText(isDark)}>
+        <text
+          key={`c-${i}`}
+          x={PAD.left + i * cw + cw / 2 - 1}
+          y={H - 10}
+          textAnchor="middle"
+          fontSize="10"
+          fill={chartText(isDark)}
+        >
           {c}
         </text>
       ))}
@@ -319,7 +361,13 @@ function Funnel({ rows, isDark }: { rows: readonly Item[]; isDark: boolean }) {
               fill={color(i)}
               fillOpacity={0.9}
             />
-            <text x={midX} y={y + layerH / 2 + 3.5} textAnchor="middle" fontSize="10" fill={chartBg(isDark)}>
+            <text
+              x={midX}
+              y={y + layerH / 2 + 3.5}
+              textAnchor="middle"
+              fontSize="10"
+              fill={chartBg(isDark)}
+            >
               {p.label !== null ? `${p.label} · ${p.v}` : `${p.v}`}
             </text>
           </g>
@@ -345,14 +393,28 @@ function Timeseries({ rows, isDark }: { rows: readonly Item[]; isDark: boolean }
   const labelEvery = Math.ceil(pts.length / 8)
   return (
     <Svg isDark={isDark}>
-      <line x1={PAD.left - 20} y1={y(min)} x2={W - PAD.right} y2={y(min)} stroke={chartAxis(isDark)} strokeWidth={1} />
+      <line
+        x1={PAD.left - 20}
+        y1={y(min)}
+        x2={W - PAD.right}
+        y2={y(min)}
+        stroke={chartAxis(isDark)}
+        strokeWidth={1}
+      />
       <polyline points={line} fill="none" stroke={color(0)} strokeWidth={2} />
       {pts.map((p, i) => (
         <circle key={i} cx={x(i)} cy={y(p.v)} r={2.5} fill={color(0)} />
       ))}
       {pts.map((p, i) =>
         i % labelEvery === 0 ? (
-          <text key={`l-${i}`} x={x(i)} y={H - 10} textAnchor="middle" fontSize="9" fill={chartText(isDark)}>
+          <text
+            key={`l-${i}`}
+            x={x(i)}
+            y={H - 10}
+            textAnchor="middle"
+            fontSize="9"
+            fill={chartText(isDark)}
+          >
             {p.label}
           </text>
         ) : null,
@@ -383,7 +445,15 @@ function Treeflow({ rows, isDark }: { rows: readonly Item[]; isDark: boolean }) 
         const y = PAD.top + i * rH + rH / 2
         return (
           <g key={`r-${i}`}>
-            <rect x={rootX - 40} y={y - 9} width={80} height={18} rx={BAR_RX} fill={color(0)} fillOpacity={0.85} />
+            <rect
+              x={rootX - 40}
+              y={y - 9}
+              width={80}
+              height={18}
+              rx={BAR_RX}
+              fill={color(0)}
+              fillOpacity={0.85}
+            />
             <text x={rootX} y={y + 3.5} textAnchor="middle" fontSize="10" fill={chartBg(isDark)}>
               {n.label}
             </text>
@@ -404,8 +474,22 @@ function Treeflow({ rows, isDark }: { rows: readonly Item[]; isDark: boolean }) 
               strokeWidth={1.5}
               strokeOpacity={0.6}
             />
-            <rect x={childX - 4} y={y - 9} width={80} height={18} rx={BAR_RX} fill={color(1)} fillOpacity={0.85} />
-            <text x={childX + 36} y={y + 3.5} textAnchor="middle" fontSize="10" fill={chartBg(isDark)}>
+            <rect
+              x={childX - 4}
+              y={y - 9}
+              width={80}
+              height={18}
+              rx={BAR_RX}
+              fill={color(1)}
+              fillOpacity={0.85}
+            />
+            <text
+              x={childX + 36}
+              y={y + 3.5}
+              textAnchor="middle"
+              fontSize="10"
+              fill={chartBg(isDark)}
+            >
               {n.label}
             </text>
           </g>
@@ -434,16 +518,46 @@ function Comparison({ rows, isDark }: { rows: readonly Item[]; isDark: boolean }
         return (
           <g key={i}>
             {p.label !== null && (
-              <text x={PAD.left - 6} y={y + rowH / 2 + 3.5} textAnchor="end" fontSize="10" fill={chartText(isDark)}>
+              <text
+                x={PAD.left - 6}
+                y={y + rowH / 2 + 3.5}
+                textAnchor="end"
+                fontSize="10"
+                fill={chartText(isDark)}
+              >
                 {p.label}
               </text>
             )}
-            <rect x={PAD.left} y={y + 4} width={Math.max(2, wa)} height={9} rx={BAR_RX} fill={color(0)} />
-            <rect x={PAD.left} y={y + 16} width={Math.max(2, wb)} height={9} rx={BAR_RX} fill={color(1)} />
-            <text x={PAD.left + Math.max(2, wa) + 5} y={y + 12} fontSize="9" fill={chartText(isDark)}>
+            <rect
+              x={PAD.left}
+              y={y + 4}
+              width={Math.max(2, wa)}
+              height={9}
+              rx={BAR_RX}
+              fill={color(0)}
+            />
+            <rect
+              x={PAD.left}
+              y={y + 16}
+              width={Math.max(2, wb)}
+              height={9}
+              rx={BAR_RX}
+              fill={color(1)}
+            />
+            <text
+              x={PAD.left + Math.max(2, wa) + 5}
+              y={y + 12}
+              fontSize="9"
+              fill={chartText(isDark)}
+            >
               {p.a}
             </text>
-            <text x={PAD.left + Math.max(2, wb) + 5} y={y + 24} fontSize="9" fill={chartText(isDark)}>
+            <text
+              x={PAD.left + Math.max(2, wb) + 5}
+              y={y + 24}
+              fontSize="9"
+              fill={chartText(isDark)}
+            >
               {p.b}
             </text>
           </g>
@@ -485,7 +599,11 @@ export function ChartTemplateCard({ payload }: { payload: ChartTemplatePayload }
         <span className="text-[10px] text-muted-foreground/50">{payload.data.length}</span>
       </div>
       <div className="p-1">
-        {Render !== undefined ? <Render rows={payload.data} isDark={isDark} /> : <Empty isDark={isDark} />}
+        {Render !== undefined ? (
+          <Render rows={payload.data} isDark={isDark} />
+        ) : (
+          <Empty isDark={isDark} />
+        )}
       </div>
     </div>
   )
