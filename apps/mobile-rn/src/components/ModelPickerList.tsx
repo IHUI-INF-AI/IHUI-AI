@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 8,
     gap: 8,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.inputBg,
   },
   searchInput: {
     flex: 1,
