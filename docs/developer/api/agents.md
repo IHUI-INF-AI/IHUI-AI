@@ -142,14 +142,8 @@ Agent 高级执行,支持 PermissionGuard 与迭代控制。
 | agentId | string | 是 | Agent ID |
 | input | string | 是 | 输入内容 |
 | sessionId | string | 否 | 会话 ID |
-| permissionMode | string | 否 | 权限模式:`default`/`acceptEdits`/`bypassPermissions`/`plan`/`manual`;历史与文档别名 `auto`→`acceptEdits`、`read-only`/`plan-only`→`plan`、`accept-all`→`bypassPermissions`、kebab 拼写(`accept-edits`/`bypass-permissions`)自动归一 |
+| permissionMode | string | 否 | 权限模式:`read-only`/`accept-edits`/`accept-all`/`bypass-permissions`/`plan-only` |
 | maxIterations | number | 否 | 最大迭代轮数 |
-
-> **权限模式说明(G-161 收口)**:取值由 `packages/types/src/permission-mode.ts` 与
-> `apps/ai-service/app/core/permission_mode.py` 两侧同一份注册表判定,认不出的取值
-> 直接 400(过去会被静默丢弃,调用方以为自己设了高危档、服务端一直按 `default` 跑)。
-> 权限档只在 **`POST /v1/agents/execute/stream`** 生效:非流式 `/execute` 走的是已弃用的
-> 单轮执行器,不含审批门,请求了非 `default` 档会返回 400 而不是被忽略。
 
 ### 响应(200)
 
