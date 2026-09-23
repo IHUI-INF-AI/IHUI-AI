@@ -417,7 +417,7 @@ export default function NewsScreenWrapper() {
         onListRef={(ref) => {
           listRef.current = ref as FlatList<ArticleItem> | null
         }}
-        onBack={handleBack}
+        hideHeader
       />
       <FloatBox
         visible={floatBox.visible}
