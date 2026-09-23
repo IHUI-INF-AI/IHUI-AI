@@ -6,7 +6,17 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { ClipboardList, Check, Pencil, Play, Flag, Undo2, RotateCcw, FileEdit } from 'lucide-react'
+import {
+  ClipboardList,
+  Check,
+  Pencil,
+  Play,
+  Flag,
+  Undo2,
+  RotateCcw,
+  FileEdit,
+  ExternalLink,
+} from 'lucide-react'
 
 import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
@@ -66,6 +76,13 @@ interface PlanReviewPanelProps {
   onApprove?: () => void
   /** 修改(回退到草稿)时触发(兼容既有审批回调) */
   onModify?: () => void
+  /**
+   * D98④:PR 入口复用 D15 数据 —— 调用方传入环境面板同一 PR URL
+   * (snapshot.pullRequest.url),本面板只做跳转展示,不另建 PR 数据面/查询。
+   * 缺省不渲染入口(既有调用方零改动)。
+   */
+  pullRequestUrl?: string
+  pullRequestNumber?: number
 }
 
 interface PhaseAction {
@@ -100,6 +117,8 @@ export function PlanReviewPanel({
   onPhaseChange,
   onApprove,
   onModify,
+  pullRequestUrl,
+  pullRequestNumber,
 }: PlanReviewPanelProps) {
   const t = useTranslations('planReview')
   // 非受控默认从 review 起步(计划产出即进入评审)
@@ -125,6 +144,22 @@ export function PlanReviewPanel({
       <div className="flex items-center gap-2 px-4 py-2.5">
         <ClipboardList className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-semibold">{t('title')}</h3>
+        {/* D98④:查看 PR(与 D15 同 URL 源,仅跳转) */}
+        {pullRequestUrl && (
+          <a
+            href={pullRequestUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+            data-testid="plan-review-pr-link"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            <span>
+              {t('viewPullRequest')}
+              {pullRequestNumber !== undefined ? ` #${pullRequestNumber}` : ''}
+            </span>
+          </a>
+        )}
       </div>
       {/* 五阶段徽章轨道:已过阶段 primary/10,当前阶段 primary 实心,未到阶段 muted */}
       <div className="flex items-center gap-1 px-4 pb-2" data-testid="plan-phase-track">
