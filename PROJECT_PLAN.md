@@ -4050,3 +4050,13 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 守门 75 的 R3 棘轮已把**增量**锁死(基线 154 文件/260 处只减不增),因此族二/三族一的存量迁移
 **不再有时效风险**(不会边迁边长)。剩余存量按"逐屏复核"推进,与 §3572 既定策略一致,
 不做一次性批处理 —— 静态判据在"品牌底/饱和底/媒体底"三类上不可靠,盲批会造新错配。
+
+## P1 工作区存续自愈被"暂存删除"打崩已修 + 244 处判读子代理超时未交付(产物已量化交接)(2026-09-23 立并完成 ✅,单端工程治理:scripts)
+
+- [x] ✅(2026-09-23) **自愈崩溃已修(严重度高于表面)**:`refreshStaleIndex()` 把 `git diff --cached HEAD` 的**全部**路径喂给 `git hash-object --stdin-paths`,而其中含**暂存删除**类路径(工作区根本没有该文件)⇒ 整条命令 `fatal: could not open ... No such file or directory` 退出 ⇒ **`--align-drift` 与守护每轮巡检都崩在这里,工作区存续恢复通道实际处于停摆状态**(触发文件:`scripts/tests/gitdir-archive-paths.test.mjs`,正是 §5b 描述的宿主清理产物 —— 也就是"最该被自愈救回的文件"把自愈打崩了)。修法:先 `existsSync` 过滤,再对 hash 失败 try/catch 退化为"不刷新该路径(held)",**绝不在看不到现场时动索引**;缺失路径归删除恢复通道管,不属索引刷新通道。
+- [x] ✅(2026-09-23) **self-test 加 ⑬ 例并做变异取证**:构造"提交后 `git rm` 造成索引=删除态、工作区无文件",断言 `refreshStaleIndex` 不抛。退回旧写法该例必崩(实测),修复版 **14 例全绿**(⑨⑩ 落后索引刷新、⑫ 工作区==HEAD 新形态、⑧/⑪ 两条反向对照"真编辑不覆盖 / 他人真暂存不刷新"均保持)。
+- [x] ✅(2026-09-23) **过程自曝**:我第一版 ⑬ 用例把断言后的临时仓库善后写成 `git checkout HEAD~1 -- gone.ts`,而 `HEAD~1` 里根本没有该文件 ⇒ 自测**被我的测试代码自己**打崩(断言其实已过)。临时仓库无需还原,删掉两行即可 —— 记下来是因为这类"测试夹具比被测代码更脆"的坑本仓已多次出现。
+- **244 处 `brand.DEFAULT` 填充判读子代理:撞 150 轮上限未交付**,返回内容停在"Now I'll write the final classifier with hand-verified overrides:"。**产物未丢**,已落盘 `.ihui-agent/tmp/rn-dark-cta/decisions.json`(260 条,字段齐全:`file/line/styleName/kind/fg/action/note`;分布 `CTA 195 / BORDER 33 / BADGE 31 / MEDIA 1`)+ `decisions-auto.json`(纯自动分类前版本)。
+- **该产物的可信度已量化,不可直接执行**:逐条回读原文核验得 **行号+styleName 命中率 182/260 = 70.0%**(78 条不中;成因一半是并发圆角会话正在移位、一半是代理自身错)。同一代理的另一项交付(媒体前景清单)被实测点出**两个根本不存在的落点**(`AigcCoverScreen.tsx:174`、`ImageGenHistoryScreen.tsx:338` 处 `grep surface.light` 均 0 命中)。故本文件只能当**待核验的起点**,按 §11 的"子代理交付须回读原文核验"逐条过,不得批量执行。
+- **族一/族二仍被并发会话整体阻塞**(判据见上一节):149 个含 `surface.light` 前景的文件**当前无一干净**。守门 75 的 R3 棘轮已锁住增量,故这些存量迁移**没有时效风险**(不会边迁边长),可安全等待。
+- 验证:`node scripts/heal-worktree-tracked.mjs --self-test` 14/14;`--align-drift` 不再崩;`node scripts/check-brand-foreground.mjs` 全量绿。

@@ -134,12 +134,22 @@ export function refreshStaleIndex(repoRoot, { dryRun = false } = {}) {
       }),
   )
   const wtBlob = new Map()
-  const hashOut = g(['hash-object', '--stdin-paths'], {
-    input: staged.map((p) => resolve(repoRoot, p)).join('\n') + '\n',
-  })
-    .split('\n')
-    .filter(Boolean)
-  if (hashOut.length === staged.length) staged.forEach((p, i) => wtBlob.set(p, hashOut[i]))
+  // 暂存删除(diff-filter=D)的路径在工作区里根本不存在,把它们一起喂给
+  // `hash-object --stdin-paths` 会让整条命令 fatal 退出 ⇒ 本自愈每轮都崩在同一处,
+  // 工作区存续恢复通道等于停摆(2026-09-23 实测:scripts/tests/gitdir-archive-paths.test.mjs)。
+  const present = staged.filter((p) => existsSync(resolve(repoRoot, p)))
+  if (present.length) {
+    try {
+      const hashOut = g(['hash-object', '--stdin-paths'], {
+        input: present.map((p) => resolve(repoRoot, p)).join('\n') + '\n',
+      })
+        .split('\n')
+        .filter(Boolean)
+      if (hashOut.length === present.length) present.forEach((p, i) => wtBlob.set(p, hashOut[i]))
+    } catch {
+      // 取不到工作区 blob ⇒ 宁可不刷新(held),也不要在看不到现场时动索引
+    }
+  }
 
   const refreshable = []
   let held = 0
@@ -305,6 +315,20 @@ function selfTestRun() {
         indexAfter === g(['rev-parse', 'HEAD:keep.ts']).trim() &&
         readFileSync(join(tmp, 'keep.ts'), 'utf8') === 'v11\n',
     )
+
+    // ⑬ 暂存删除(工作区根本没有该文件)不得把刷新整条打崩
+    //     —— hash-object --stdin-paths 遇到缺失文件会 fatal 退出,曾使本自愈每轮必崩。
+    writeFileSync(join(tmp, 'gone.ts'), 'to be deleted\n')
+    g(['add', 'gone.ts'])
+    g(['commit', '-qm', 'F: 新增 gone.ts'])
+    g(['rm', '-q', 'gone.ts']) // 索引=删除态,工作区无文件
+    let threw = false
+    try {
+      refreshStaleIndex(tmp)
+    } catch {
+      threw = true
+    }
+    check('⑬ 暂存删除不使刷新崩溃', !threw)
 
     // ⑪ 他人真暂存的新内容(blob 不是任何历史版本)⇒ 绝不刷新
     writeFileSync(join(tmp, 'keep.ts'), '他人暂存的新工作\n')
