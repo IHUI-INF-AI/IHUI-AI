@@ -384,11 +384,12 @@ function SwipeableConversationItem({
       {/* 内容(上层,跟随手势平移) */}
       <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
         <Pressable
-          className="flex-row items-center px-4 py-3 bg-white"
+          className="flex-row items-center px-4 py-3"
+          style={{ backgroundColor: tokens.surface.card }}
           onPress={handleSelect}
           android_ripple={{ color: tokens.surface.muted }}
         >
-          <Text className="flex-1 text-[14px] text-gray-900" numberOfLines={1}>
+          <Text className="flex-1 text-[14px]" style={{ color: tokens.text.primary }} numberOfLines={1}>
             {item.title}
           </Text>
         </Pressable>
@@ -583,12 +584,13 @@ export function Drawer(props: DrawerProps) {
         {/* 抽屉主体(左侧滑入) */}
         <Animated.View style={[styles.drawer, { width: drawerWidth, transform: [{ translateX }] }]}>
           <View
-            className="flex-1 bg-white"
+            className="flex-1"
             style={{
               paddingTop: insets.top,
               paddingBottom: insets.bottom,
               borderTopRightRadius: 15,
               borderBottomRightRadius: 15,
+              backgroundColor: tokens.surface.card,
             }}
           >
             <ScrollView
@@ -624,7 +626,7 @@ export function Drawer(props: DrawerProps) {
                   ) : null}
                 </View>
                 <View className="flex-1">
-                  <Text className="text-[15px] font-semibold text-gray-900" numberOfLines={1}>
+                  <Text className="text-[15px] font-semibold" style={{ color: tokens.text.primary }} numberOfLines={1}>
                     {nickname}
                   </Text>
                   <View className="mt-1">
@@ -851,7 +853,10 @@ export function Drawer(props: DrawerProps) {
             </ScrollView>
 
             {/* 7. 底部操作区:回到主页 + 设置 + 消息(对齐 Uniapp back_index_btn + bottom_userInfo) */}
-            <View className="px-4 py-3 flex-row items-center justify-between bg-white">
+            <View
+              className="px-4 py-3 flex-row items-center justify-between"
+              style={{ backgroundColor: tokens.surface.card }}
+            >
               <Pressable
                 className="flex-row items-center gap-1.5 py-1.5 px-2 rounded-lg"
                 onPress={onGoHome}
