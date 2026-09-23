@@ -5,13 +5,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Suspense } from 'react'
 import Script from 'next/script'
-import { cookies } from 'next/headers'
-import {
-  DEFAULT_LOCALE,
-  LOCALE_COOKIE,
-  isSupportedLocale,
-  type LocaleCode,
-} from '@/lib/locale-cookie'
 import { Toaster } from '@/components/common'
 
 import './globals.css'
@@ -222,16 +215,8 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // 2026-07-27:语言切换改为客户端 I18nProvider 驱动(响应 useLanguageStore.locale 变化)。
   // 服务端不再调用 getMessages/getLocale(原 i18n/request.ts 硬编码 zh-CN,Provider 无法响应切换)。
-  // 2026-09-22:首帧 lang 不再写死 —— 客户端把偏好镜像进 `locale` cookie(见 @/lib/locale-cookie),
-  // 这里读它决定 <html lang>。lang 是真值依赖:number-format.ts 与 ai-news 4 个组件都读
-  // documentElement.lang 判定取词口径,读屏/GEO 也按它标语种。
-  // suppressHydrationWarning 保留:cookie 缺失/被清时服务端落回 zh-CN,挂载后 I18nProvider 纠正。
-  // output:'export'(EXPORT_STATIC / GITHUB_PAGES,判据同 next.config.ts)不支持 cookies() 这类动态服务端
-  // API —— src/i18n/request.ts 已因同一原因构建期落回默认 locale。静态导出下不读 cookie,首帧 lang 用
-  // DEFAULT_LOCALE,挂载后由 I18nProvider 纠正;服务端模式(next build + next start)行为不变。
-  const isStaticExport = process.env.EXPORT_STATIC === 'true' || process.env.GITHUB_PAGES === 'true'
-  const cookieLocale = isStaticExport ? undefined : (await cookies()).get(LOCALE_COOKIE)?.value
-  const locale: LocaleCode = isSupportedLocale(cookieLocale) ? cookieLocale : DEFAULT_LOCALE
+  // html lang 固定 'zh-CN' 作为 SSR 默认值,客户端挂载后由 I18nProvider 接管,suppressHydrationWarning 兼容。
+  const locale = 'zh-CN'
 
   return (
     <html lang={locale} suppressHydrationWarning>
@@ -363,7 +348,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   featureList:
                     '8 端同源分发 (Web / API / AI Service / CLI / Desktop / Browser Extension / Mobile / Miniapp),AI Agent 市场,可视化拖拽 Agent 构建器,知识库 RAG,多模型统一调度(OpenAI/Claude/通义/DeepSeek/智谱/文心/豆包/Kimi/Ollama/Mistral/Llama),MCP 工具协议,工作流编排,团队协作,积分通兑,SSO/OAuth,Apache 2.0 开源,私有化部署,Docker Compose 一键部署',
                   screenshot: 'https://aizhs.top/images/logo.png',
-                  softwareRequirements: 'Node.js 20+, PostgreSQL 18+, Redis 7+',
+                  softwareRequirements: 'Node.js 20+, PostgreSQL 16+, Redis 7+',
                   memoryRequirements: '4GB RAM minimum, 8GB recommended',
                   storageRequirements: '20GB available disk space',
                   author: { '@id': 'https://aizhs.top/#organization' },

@@ -1615,26 +1615,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(result))
   })
 
-  // O13c(2026-09-23):自助删除三闸 —— 参数先行校验 + 存在性 + 所有权。
-  //此前直调 deleteOAuthApp:跨 owner / 不存在的 clientId 都恒返 200 fail-open
-  //（谎报 deleted:true,实际 0 行变更);且 .parse 抛 ZodError 要依赖全局
-  // errorHandler 才变 400,语义不自洽。现与 agents.ts 同族端点同口径:
-  // 不存在 → 404,非 owner → 403。owner_uuid 为 NULL 的 DCR 应用走
-  // RFC 7592 DELETE /oauth/register/:clientId(客户端凭证),本面一律 403。
   server.delete('/auth/oauth/apps/:clientId', async (request, reply) => {
     await authenticate(request)
-    const paramParsed = z.object({ clientId: z.string().min(1).max(100) }).safeParse(request.params)
-    if (!paramParsed.success) {
-      return reply.status(400).send(error(400, paramParsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const { clientId } = paramParsed.data
-    const existing = await findOAuthAppByClientId(clientId)
-    if (!existing) return reply.status(404).send(error(404, 'OAuth 应用不存在'))
-    if (existing.ownerUuid !== request.userId) {
-      return reply.status(403).send(error(403, '无权删除此应用'))
-    }
+    const { clientId } = z.object({ clientId: z.string() }).parse(request.params)
     await deleteOAuthApp(clientId, request.userId!)
-    return reply.send(success({ deleted: true, clientId }))
+    return reply.send(success({ deleted: true }))
   })
 
   // 已授权应用
