@@ -39,6 +39,7 @@ import {
   parseConversationImport,
 } from '@ihui/api-client';
 import { formatTime } from './import.js';
+import { t } from '../i18n/index.js';
 
 // =============================================================================
 // 来源配置(枚举复用 @ihui/api-client 的 ConversationImportSource,此处只挂 CLI 侧元信息)
@@ -56,26 +57,26 @@ interface SessionSourceConfig {
 const SESSION_SOURCE_CONFIG: Record<ConversationImportSource, SessionSourceConfig> = {
   claude_code: {
     label: 'Claude Code',
-    description: 'Claude Code 的会话 transcript',
+    description: t('cliImportSessions.sourceClaude'),
     extensions: ['.jsonl', '.json'],
     roots: () => [path.join(os.homedir(), '.claude', 'projects')],
   },
   codex: {
     label: 'Codex CLI',
-    description: 'Codex CLI 的 rollout 会话日志',
+    description: t('cliImportSessions.sourceCodex'),
     extensions: ['.jsonl', '.json'],
     roots: () => [path.join(os.homedir(), '.codex', 'sessions')],
   },
   cursor: {
     label: 'Cursor',
-    description: 'Cursor 导出的 chat JSON / state.vscdb(SQLite) / cursor-agent 转写',
+    description: t('cliImportSessions.sourceCursor'),
     // 与 ai-service 路由白名单一致:三种库后缀同义,agent-transcripts 是 .jsonl
     extensions: ['.json', '.jsonl', '.vscdb', '.db', '.sqlite'],
     roots: () => [path.join(cursorStorageParent(), 'Cursor', 'User', 'globalStorage')],
   },
   aider: {
     label: 'Aider',
-    description: 'Aider 写在仓库内的 chat markdown 记录',
+    description: t('cliImportSessions.sourceAider'),
     extensions: ['.md', '.json', '.jsonl'],
     roots: () => [process.cwd()],
   },
@@ -106,9 +107,9 @@ export function isSessionSource(value: string): value is ConversationImportSourc
 
 function toSessionSource(value: string): ConversationImportSource | null {
   if (isSessionSource(value)) return value;
-  console.error(chalk.red(`无效的会话来源: ${value}`));
-  console.error(chalk.dim(`  有效值: ${SESSION_SOURCE_VALUES.join(', ')}`));
-  console.error(chalk.dim('  查看各来源说明: ihui import sessions sources'));
+  console.error(chalk.red(t('cliImportSessions.invalidSource', { valueValue: value })));
+  console.error(chalk.dim(t('cliImportSessions.validValues', { values: SESSION_SOURCE_VALUES.join(', ') })));
+  console.error(chalk.dim(t('cliImportSessions.sourcesHint')));
   return null;
 }
 
@@ -140,7 +141,8 @@ async function collectFromDir(
   try {
     entries = await readdir(dir, { withFileTypes: true });
   } catch {
-    return; // 不可读/不存在 → 静默跳过,由调用方统一给出"未发现文件"提示
+      // 不可读/不存在 → 静默跳过,由调用方统一给出 noFilesFound 提示
+      return;
   }
   for (const entry of entries) {
     if (budget.left <= 0) return;
@@ -200,8 +202,8 @@ export async function discoverSessionFiles(
 
 async function pickCandidate(candidates: string[]): Promise<string | null> {
   if (!process.stdin.isTTY) {
-    console.error(chalk.red(`发现 ${candidates.length} 个候选导出文件,非交互环境无法选择。`));
-    console.error(chalk.dim('  请把目标文件路径直接作为参数传入:ihui import sessions parse <source> <文件路径>'));
+    console.error(chalk.red(t('cliImportSessions.ambiguousNonInteractive', { length: candidates.length })));
+    console.error(chalk.dim(t('cliImportSessions.passPathExplicitly')));
     return null;
   }
   const { default: inquirer } = await import('inquirer');
@@ -210,7 +212,7 @@ async function pickCandidate(candidates: string[]): Promise<string | null> {
     {
       type: 'select',
       name: 'file',
-      message: '选择要导入的导出文件:',
+      message: t('cliImportSessions.chooseExportFile'),
       choices: candidates.map((c) => ({ name: c, value: c })),
       pageSize: 15,
     },
@@ -227,7 +229,7 @@ export async function resolveExportFile(
     const abs = path.resolve(expandTilde(inputPath));
     const st = await stat(abs).catch(() => null);
     if (!st) {
-      console.error(chalk.red(`路径不存在: ${abs}`));
+      console.error(chalk.red(t('cliImportSessions.pathNotFound', { abs: abs })));
       return null;
     }
     if (st.isFile()) return abs;
@@ -236,18 +238,18 @@ export async function resolveExportFile(
   if (candidates.length === 0) {
     const cfg = SESSION_SOURCE_CONFIG[source];
     const scanned = inputPath ? [path.resolve(expandTilde(inputPath))] : cfg.roots();
-    console.error(chalk.red('未找到可导入的导出文件。'));
-    console.error(chalk.dim(`  已扫描: ${scanned.join(', ')}`));
-    console.error(chalk.dim(`  可接受后缀: ${cfg.extensions.join(', ')}`));
-    console.error(chalk.dim(`  也可显式指定文件路径:ihui import sessions parse ${source} <文件路径>`));
+    console.error(chalk.red(t('cliImportSessions.noImportableFile')));
+    console.error(chalk.dim(t('cliImportSessions.scannedPaths', { scanned: scanned.join(', ') })));
+    console.error(chalk.dim(t('cliImportSessions.acceptedExtensions', { extensions: cfg.extensions.join(', ') })));
+    console.error(chalk.dim(t('cliImportSessions.alsoSpecifyPath', { source: source })));
     return null;
   }
   const [first] = candidates;
   if (candidates.length === 1 && first) {
-    console.info(chalk.dim(`自动发现导出文件: ${first}`));
+    console.info(chalk.dim(t('cliImportSessions.autoDiscovered', { first: first })));
     return first;
   }
-  console.info(chalk.dim(`发现 ${candidates.length} 个候选导出文件(按修改时间倒序):`));
+  console.info(chalk.dim(t('cliImportSessions.candidatesListed', { length: candidates.length })));
   candidates.forEach((c, i) => console.info(chalk.dim(`  ${i + 1}. ${c}`)));
   return pickCandidate(candidates);
 }
@@ -260,7 +262,7 @@ export async function resolveExportFile(
 export function checkUploadSize(sizeInBytes: number): string | null {
   if (sizeInBytes <= MAX_FILE_SIZE) return null;
   const limitMb = MAX_FILE_SIZE / 1024 / 1024;
-  return `文件过大: ${(sizeInBytes / 1024 / 1024).toFixed(1)}MB,上限 ${limitMb}MB,请先拆分后再导入。`;
+  return t('cliImportSessions.fileTooLarge', { size: (sizeInBytes / 1024 / 1024).toFixed(1), limitMb: limitMb });
 }
 
 async function uploadAndParse(
@@ -269,7 +271,7 @@ async function uploadAndParse(
 ): Promise<ConversationImportParseResult | null> {
   const st = await stat(absFile).catch(() => null);
   if (!st) {
-    console.error(chalk.red(`文件不存在: ${absFile}`));
+    console.error(chalk.red(t('cliImportSessions.fileMissing', { absFile: absFile })));
     return null;
   }
   const oversize = checkUploadSize(st.size);
@@ -281,23 +283,23 @@ async function uploadAndParse(
   try {
     buffer = await readFile(absFile);
   } catch (err) {
-    console.error(chalk.red(`读取文件失败: ${(err as Error).message}`));
+    console.error(chalk.red(t('cliImportSessions.readFailed', { reason: (err as Error).message })));
     return null;
   }
   const file = new File([new Uint8Array(buffer)], path.basename(absFile));
   const res = await parseConversationImport(file, source);
   if (!res.success) {
-    console.error(chalk.red(`解析失败: ${res.error}`));
+    console.error(chalk.red(t('cliImportSessions.parseFailed', { error: res.error })));
     return null;
   }
   return res.data;
 }
 
 function describeConversation(index: number, conv: ParsedImportConversation): string {
-  const title = conv.title?.trim() || '(无标题)';
+  const title = conv.title?.trim() || t('cliImportSessions.untitled');
   const model = conv.model?.trim() || '—';
   const startedAt = conv.sourceCreatedAt ?? conv.sourceUpdatedAt;
-  return `  ${String(index).padStart(3)}. ${title} ${chalk.dim(`· ${conv.messages.length} 条消息 · 模型 ${model} · 起始 ${startedAt ? formatTime(startedAt) : '—'}`)}`;
+  return `  ${String(index).padStart(3)}. ${title} ${chalk.dim(t('cliImportSessions.conversationMeta', { count: conv.messages.length, model, started: startedAt ? formatTime(startedAt) : '—' }))}`;
 }
 
 function printParsePreview(
@@ -306,21 +308,21 @@ function printParsePreview(
   result: ConversationImportParseResult,
 ): void {
   const cfg = SESSION_SOURCE_CONFIG[source];
-  console.info(chalk.cyan(`\n会话解析预览(${cfg.label})`));
-  console.info(chalk.dim(`  文件: ${absFile}`));
+  console.info(chalk.cyan(t('cliImportSessions.previewHeader', { label: cfg.label })));
+  console.info(chalk.dim(t('cliImportSessions.previewFile', { absFile: absFile })));
   if (result.truncated) {
-    console.info(chalk.yellow('  ⚠ 导出过大,服务端已截断,落库消息可能不完整'));
+    console.info(chalk.yellow(t('cliImportSessions.truncatedWarning')));
   }
   if (result.warnings.length > 0) {
-    console.info(chalk.yellow('  警告:'));
+    console.info(chalk.yellow(t('cliImportSessions.warningsHeader')));
     for (const w of result.warnings) console.info(chalk.yellow(`    - ${w}`));
   }
   if (result.conversations.length === 0) {
-    console.info(chalk.dim('  未解析到任何会话'));
+    console.info(chalk.dim(t('cliImportSessions.noSessionsParsed')));
     console.info('');
     return;
   }
-  console.info(chalk.cyan(`\n  共 ${result.conversations.length} 个会话(仅展示元信息,不展示消息正文):`));
+  console.info(chalk.cyan(t('cliImportSessions.sessionsCountLine', { length: result.conversations.length })));
   result.conversations.forEach((c, i) => console.info(describeConversation(i + 1, c)));
   console.info('');
 }
@@ -368,8 +370,8 @@ async function commitSelected(
     const payload = buildCommitPayload(conv, source, fileName);
     if (!payload) {
       outcome.failed += 1;
-      outcome.failures.push({ index, reason: '无有效消息内容' });
-      console.info(chalk.red(`  ✗ #${index} 无有效消息内容,已跳过`));
+      outcome.failures.push({ index, reason: t('cliImportSessions.noValidContent') });
+      console.info(chalk.red(t('cliImportSessions.skipNoContent', { index: index })));
       continue;
     }
     try {
@@ -377,19 +379,19 @@ async function commitSelected(
       if (r.success) {
         outcome.imported += 1;
         console.info(
-          chalk.green(`  ✓ #${index} ${conv.title?.trim() || '(无标题)'}`) +
-            chalk.dim(` · 会话 ${r.data.conversationId} · ${r.data.importedMessages} 条消息`),
+          chalk.green(t('cliImportSessions.importedLine', { index: index, detail: conv.title?.trim() || t('cliImportSessions.untitled') })) +
+            chalk.dim(t('cliImportSessions.importedSuffix', { conversationId: r.data.conversationId, importedMessages: r.data.importedMessages })),
         );
       } else {
         outcome.failed += 1;
         outcome.failures.push({ index, reason: r.error });
-        console.info(chalk.red(`  ✗ #${index} 导入失败: ${r.error}`));
+        console.info(chalk.red(t('cliImportSessions.importFailed', { index: index, error: r.error })));
       }
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
       outcome.failed += 1;
       outcome.failures.push({ index, reason });
-      console.info(chalk.red(`  ✗ #${index} 导入异常: ${reason}`));
+      console.info(chalk.red(t('cliImportSessions.importError', { index: index, reason: reason })));
     }
   }
   return outcome;
@@ -442,7 +444,7 @@ export function resolveSelection(
   if (!parsed) return null;
   const outOfRange = parsed.filter((n) => n > total);
   if (outOfRange.length > 0) {
-    console.error(chalk.red(`序号超出范围: ${outOfRange.join(', ')}(本次解析到 ${total} 个会话)`));
+    console.error(chalk.red(t('cliImportSessions.indexOutOfRange', { index: outOfRange.join(', '), total: total })));
     return { all: false, indices: parsed.filter((n) => n <= total) };
   }
   return { all: false, indices: parsed };
@@ -453,14 +455,14 @@ export function resolveSelection(
 // =============================================================================
 
 export async function runSessionsSources(): Promise<boolean> {
-  console.info(chalk.cyan('\n支持的历史会话来源:'));
+  console.info(chalk.cyan(t('cliImportSessions.supportedSources')));
   for (const source of SESSION_SOURCE_VALUES) {
     const cfg = SESSION_SOURCE_CONFIG[source];
     console.info(`  ${chalk.bold(source)} ${chalk.dim(`- ${cfg.label}:${cfg.description}`)}`);
-    console.info(chalk.dim(`      后缀: ${cfg.extensions.join(', ')}`));
-    console.info(chalk.dim(`      常见导出目录: ${cfg.roots().join(', ')}`));
+    console.info(chalk.dim(t('cliImportSessions.sourceExtensions', { extensions: cfg.extensions.join(', ') })));
+    console.info(chalk.dim(t('cliImportSessions.sourceDirs', { dirs: cfg.roots().join(', ') })));
   }
-  console.info(chalk.dim('\n  解析/落库由后端完成,CLI 只负责上传与展示元信息。'));
+  console.info(chalk.dim(t('cliImportSessions.backendDoesParsing')));
   console.info('');
   return true;
 }
@@ -485,7 +487,7 @@ export async function runSessionsDiscover(
     console.info(chalk.cyan(`\n${source} ${chalk.dim(`(${cfg.label})`)}`));
     if (candidates.length === 0) {
       const scanned = opts.path ? [path.resolve(expandTilde(opts.path))] : cfg.roots();
-      console.info(chalk.dim(`  未发现导出文件(已扫描 ${scanned.join(', ')})`));
+      console.info(chalk.dim(t('cliImportSessions.noneDiscovered', { scanned: scanned.join(', ') })));
       continue;
     }
     totalFound += candidates.length;
@@ -494,7 +496,7 @@ export async function runSessionsDiscover(
     });
   }
   if (totalFound > 0) {
-    console.info(chalk.dim('\n  导入:ihui import sessions parse <source> <文件路径>'));
+    console.info(chalk.dim(t('cliImportSessions.hintParse')));
   }
   console.info('');
   return true;
@@ -513,7 +515,7 @@ export async function runSessionsParse(
   printParsePreview(source, abs, result);
   if (result.conversations.length > 0) {
     console.info(
-      chalk.dim(`  落库:ihui import sessions commit ${source} "${abs}" --all(或 --only 1,3)\n`),
+      chalk.dim(t('cliImportSessions.hintCommit', { source: source, abs: abs })),
     );
   }
   return true;
@@ -527,15 +529,15 @@ export async function runSessionsCommit(
   const source = toSessionSource(sourceArg);
   if (!source) return false;
   if (!opts.all && !opts.only) {
-    console.error(chalk.red('请显式指定导入范围:--all 或 --only <序号>。'));
-    console.error(chalk.dim('  例:ihui import sessions commit claude_code --all'));
-    console.error(chalk.dim('  例:ihui import sessions commit claude_code export.jsonl --only 1,3-5'));
-    console.error(chalk.dim('  序号来自解析预览,先用 ihui import sessions parse 查看。'));
+    console.error(chalk.red(t('cliImportSessions.scopeRequired')));
+    console.error(chalk.dim(t('cliImportSessions.exampleAll')));
+    console.error(chalk.dim(t('cliImportSessions.exampleOnly')));
+    console.error(chalk.dim(t('cliImportSessions.indexesFromPreview')));
     return false;
   }
   if (opts.only && !parseOnlySpec(opts.only)) {
-    console.error(chalk.red(`无效的 --only 取值: ${opts.only}`));
-    console.error(chalk.dim('  格式:逗号分隔的序号,支持区间,如 1,3,5-8'));
+    console.error(chalk.red(t('cliImportSessions.invalidOnly', { only: opts.only })));
+    console.error(chalk.dim(t('cliImportSessions.onlyFormat')));
     return false;
   }
 
@@ -551,17 +553,17 @@ export async function runSessionsCommit(
     ? result.conversations.map((_, i) => i + 1)
     : selection.indices;
   if (indices.length === 0) {
-    console.error(chalk.red('没有可导入的会话。'));
+    console.error(chalk.red(t('cliImportSessions.nothingToImport')));
     return false;
   }
 
-  console.info(chalk.cyan(`\n开始导入 ${indices.length} 个会话(串行,单条失败不中断):`));
+  console.info(chalk.cyan(t('cliImportSessions.startImport', { length: indices.length })));
   const outcome = await commitSelected(source, abs, result.conversations, indices);
-  console.info(chalk.green('\n导入完成:'));
-  console.info(`  成功: ${chalk.bold(outcome.imported)}`);
-  console.info(`  失败: ${chalk.bold(outcome.failed)}`);
+  console.info(chalk.green(t('cliImportSessions.importDone')));
+  console.info(t('cliImportSessions.importSucceeded', { imported: chalk.bold(outcome.imported) }));
+  console.info(t('cliImportSessions.importFailedCount', { failed: chalk.bold(outcome.failed) }));
   if (outcome.failures.length > 0) {
-    console.info(chalk.yellow('\n  失败详情:'));
+    console.info(chalk.yellow(t('cliImportSessions.failureDetails')));
     for (const f of outcome.failures) console.info(`    #${f.index}: ${f.reason}`);
   }
   console.info('');
@@ -576,13 +578,13 @@ export async function runSessionsHistory(): Promise<boolean> {
   }
   const list: ConversationImportHistoryItem[] = res.data.list;
   if (list.length === 0) {
-    console.info(chalk.dim('\n暂无会话导入记录'));
+    console.info(chalk.dim(t('cliImportSessions.noImportHistory')));
     console.info('');
     return true;
   }
   // 服务端固定 limit 50 且 total=rows.length,报"共 N 条"会等于已显示条数而误导为全量
   console.info(
-    chalk.cyan(`\n会话导入历史(按导入时间倒序,显示 ${list.length} 条${list.length >= 50 ? ',已达服务端 50 条上限' : ''}):`),
+    chalk.cyan(t('cliImportSessions.importHistoryHeader', { length: list.length, suffix: list.length >= 50 ? t('cliImportSessions.historyCappedSuffix') : '' })),
   );
   for (const h of list) {
     const statusColor =
@@ -593,7 +595,7 @@ export async function runSessionsHistory(): Promise<boolean> {
     console.info(chalk.dim(`    ${h.fileName ?? '—'}`));
     const error = h.errorMessage ? ` · ${h.errorMessage}` : '';
     console.info(
-      chalk.dim(`    解析 ${h.parsedCount} · 成功 ${h.importedCount} · 失败 ${h.failedCount}${error}`),
+      chalk.dim(t('cliImportSessions.importHistoryRow', { parsedCount: h.parsedCount, importedCount: h.importedCount, failedCount: h.failedCount, error: error })),
     );
   }
   console.info('');
@@ -607,43 +609,43 @@ export async function runSessionsHistory(): Promise<boolean> {
 export function attachSessionImportCommands(importCmd: Command): void {
   const sessions = importCmd
     .command('sessions')
-    .description('外部历史会话导入(Claude Code / Codex / Cursor / Aider)');
+    .description(t('cliImportSessions.cmdDesc'));
 
   sessions
     .command('sources')
-    .description('列出支持的会话来源、可接受后缀与常见导出目录')
+    .description(t('cliImportSessions.sourcesDesc'))
     .action(async () => {
       await runSessionsSources();
     });
 
   sessions
     .command('discover [source]')
-    .description('自动发现本地导出文件候选(省略 source 则扫描全部来源)')
-    .option('--path <dir>', '自定义扫描目录(默认取该来源的常见导出目录)')
-    .option('--limit <n>', `最多列出条数(默认 ${DEFAULT_DISCOVER_LIMIT})`)
+    .description(t('cliImportSessions.discoverDesc'))
+    .option('--path <dir>', t('cliImportSessions.scanDirDesc'))
+    .option('--limit <n>', t('cliImportSessions.limitDesc', { DEFAULT_DISCOVER_LIMIT: DEFAULT_DISCOVER_LIMIT }))
     .action(async (source: string | undefined, opts: { path?: string; limit?: string }) => {
       if (!(await runSessionsDiscover(source, opts))) process.exitCode = 1;
     });
 
   sessions
     .command('parse <source> [file]')
-    .description('上传解析并预览会话(不落库,不打印消息正文)')
+    .description(t('cliImportSessions.parseDesc'))
     .action(async (source: string, file: string | undefined) => {
       if (!(await runSessionsParse(source, file))) process.exitCode = 1;
     });
 
   sessions
     .command('commit <source> [file]')
-    .description('解析 + 逐会话串行落库')
-    .option('-a, --all', '导入本次解析出的全部会话')
-    .option('-o, --only <indices>', '仅导入指定序号,如 1,3,5-8')
+    .description(t('cliImportSessions.commitDesc'))
+    .option('-a, --all', t('cliImportSessions.allDesc'))
+    .option('-o, --only <indices>', t('cliImportSessions.onlyDesc'))
     .action(async (source: string, file: string | undefined, opts: { all?: boolean; only?: string }) => {
       if (!(await runSessionsCommit(source, file, opts))) process.exitCode = 1;
     });
 
   sessions
     .command('history')
-    .description('查询会话导入历史(最近 50 条)')
+    .description(t('cliImportSessions.historyDesc'))
     .action(async () => {
       if (!(await runSessionsHistory())) process.exitCode = 1;
     });

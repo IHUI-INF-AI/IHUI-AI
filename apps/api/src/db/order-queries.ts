@@ -205,6 +205,23 @@ export async function findOrders(
   return { list, total, page, pageSize }
 }
 
+/**
+ * 金额以订单为准做上限:路由侧 `payAmount` / `refundAmount` 由客户端携带,
+ * `priceSchema` 只验格式(`/^\d+(\.\d{1,2})?$/`)不验上限,故原样入库等于"用户自定退款/支付金额"。
+ * 这里允许下调(部分支付/部分退款照旧),越界一律回落到订单自身金额。
+ */
+export function capToOrderAmount(
+  requested: string | null | undefined,
+  orderAmount: string | null | undefined,
+): string | null {
+  if (requested === undefined || requested === null) return orderAmount ?? null
+  const value = Number(requested)
+  if (!Number.isFinite(value) || value <= 0) return orderAmount ?? null
+  const cap = Number(orderAmount ?? 0)
+  if (!Number.isFinite(cap) || value <= cap) return requested
+  return orderAmount ?? null
+}
+
 // =============================================================================
 // Payments 支付
 // =============================================================================
@@ -225,7 +242,7 @@ export async function createPayment(
     const orderRows = await tx
       .select()
       .from(eduOrders)
-      .where(eq(eduOrders.id, data.orderId))
+      .where(and(eq(eduOrders.id, data.orderId), eq(eduOrders.userId, data.userId)))
       .for('update')
       .limit(1)
     const order = orderRows[0]
@@ -240,7 +257,7 @@ export async function createPayment(
         orderType: order.orderType,
         userId: data.userId,
         payType: data.payType,
-        payAmount: data.payAmount ?? order.payAmount,
+        payAmount: capToOrderAmount(data.payAmount, order.payAmount) ?? order.payAmount,
         payUrl: data.payUrl,
         status: 'created',
       })
@@ -323,7 +340,7 @@ export async function applyRefund(
     const orderRows = await tx
       .select()
       .from(eduOrders)
-      .where(eq(eduOrders.id, data.orderId))
+      .where(and(eq(eduOrders.id, data.orderId), eq(eduOrders.userId, data.userId)))
       .for('update')
       .limit(1)
     const order = orderRows[0]
@@ -338,7 +355,7 @@ export async function applyRefund(
         orderNo: order.orderNo,
         userId: data.userId,
         reason: data.reason,
-        refundAmount: data.refundAmount ?? order.payAmount,
+        refundAmount: capToOrderAmount(data.refundAmount, order.payAmount) ?? order.payAmount,
         refundType: data.refundType ?? 'original',
         status: 'pending',
         applyTime: new Date(),
