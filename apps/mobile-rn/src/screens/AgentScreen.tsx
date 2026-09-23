@@ -52,7 +52,7 @@ import NavBar from '../components/NavBar'
 import RecentAgents, { type RecentAgentItem } from '../components/RecentAgents'
 import MyAgents, { type MyAgentItem } from '../components/MyAgents'
 import IntelligentAssistant from '../components/IntelligentAssistant'
-import { SearchInput } from '@ihui/rn-app'
+import { SearchInput, CategoryInlineBar, type CategoryItem } from '@ihui/rn-app'
 import type { CarouselItem } from '@ihui/ui-native'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
@@ -443,6 +443,14 @@ export function AgentScreen() {
     },
     [activeCategory, loadAgents],
   )
+  const trackCategoryItems = useMemo<CategoryItem[]>(
+    () => agentCategoryList.map((cat) => ({ id: cat.id, label: cat.name })),
+    [agentCategoryList],
+  )
+  const mainCategoryItems = useMemo<CategoryItem[]>(
+    () => agentMainCategoryList.map((main) => ({ id: main.id, label: main.name })),
+    [agentMainCategoryList],
+  )
 
   // ── Drawer 历史对话懒加载(对齐 ProfileScreen loadDrawerConversations:
   // 首次打开 Drawer 时拉取,后续复用缓存) ──
@@ -790,39 +798,24 @@ export function AgentScreen() {
         <View style={styles.trackOverlay}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setTagWrapVisible(false)} />
           <View style={styles.trackContent}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {agentCategoryList.map((cat) => {
-                const selected = activeCategory === cat.id
-                return (
-                  <Pressable
-                    key={cat.id || 'all-company'}
-                    style={[styles.trackBtn, selected && styles.trackBtnActive]}
-                    onPress={() => handleCategorySelect(cat.id)}
-                  >
-                    <Text style={selected ? styles.trackBtnTextActive : styles.trackBtnText}>
-                      {cat.name}
-                    </Text>
-                  </Pressable>
-                )
-              })}
-            </ScrollView>
-            <View style={styles.trackDivider} />
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {agentMainCategoryList.map((main) => {
-                const selected = activeMain === main.id
-                return (
-                  <Pressable
-                    key={main.id}
-                    style={[styles.trackBtn, selected && styles.trackBtnActive]}
-                    onPress={() => handleMainSelect(main.id)}
-                  >
-                    <Text style={selected ? styles.trackBtnTextActive : styles.trackBtnText}>
-                      {main.name}
-                    </Text>
-                  </Pressable>
-                )
-              })}
-            </ScrollView>
+            <CategoryInlineBar
+              items={trackCategoryItems}
+              selectedId={activeCategory}
+              onSelect={handleCategorySelect}
+              colorScheme={resolvedTheme}
+              contentPaddingHorizontal={0}
+              itemGap={6}
+              testID="agent-track-bar"
+            />
+            <CategoryInlineBar
+              items={mainCategoryItems}
+              selectedId={activeMain}
+              onSelect={handleMainSelect}
+              colorScheme={resolvedTheme}
+              contentPaddingHorizontal={0}
+              itemGap={6}
+              testID="agent-main-category-bar"
+            />
           </View>
         </View>
       </Modal>
@@ -927,32 +920,7 @@ const styles = StyleSheet.create({
     paddingVertical: rpx(10),
     borderBottomLeftRadius: rnRadius.xl,
     borderBottomRightRadius: rnRadius.xl,
-  },
-  trackBtn: {
-    paddingHorizontal: rpx(8),
-    height: 22,
-    justifyContent: 'center',
-    borderRadius: rnRadius.sm,
-    borderWidth: 1,
-    borderColor: tokens.surface.light,
-    backgroundColor: 'transparent',
-    marginRight: rpx(6),
-  },
-  trackBtnActive: {
-    backgroundColor: 'rgba(248, 249, 252, 0.65)',
-    borderColor: tokens.brandAccent.light,
-    shadowColor: tokens.gray.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  trackBtnText: { fontSize: 11, color: tokens.overlay.modal },
-  trackBtnTextActive: { fontSize: 11, color: tokens.gray.black, fontWeight: '700' },
-  trackDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: tokens.surface.muted,
-    marginVertical: rpx(10),
+    gap: rpx(10),
   },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -32,6 +32,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { ChevronRight, Search } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
 import { getRnTokens, type RnThemeTokens, rnRadius } from '@ihui/design-tokens'
+import { CategoryInlineBar } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
@@ -192,23 +193,15 @@ export function TopicListScreen() {
                 onSubmitEditing={onSubmitSearch}
               />
             </View>
-            <View style={styles.tabRow}>
-              {tabs.map((tab) => (
-                <Pressable
-                  key={tab.key}
-                  style={[styles.tab, activeTab === tab.key ? styles.tabActive : null]}
-                  onPress={() => setActiveTab(tab.key)}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: activeTab === tab.key }}
-                >
-                  <Text
-                    style={[styles.tabText, activeTab === tab.key ? styles.tabTextActive : null]}
-                  >
-                    {tab.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+            <CategoryInlineBar
+              items={tabs.map((tab) => ({ id: tab.key, label: tab.label }))}
+              selectedId={activeTab}
+              onSelect={(id) => setActiveTab(id as TabKey)}
+              colorScheme={resolvedTheme}
+              contentPaddingHorizontal={0}
+              itemGap={16}
+              style={styles.tabRow}
+            />
           </View>
         }
         ListEmptyComponent={
@@ -267,25 +260,6 @@ const createStyles = (tk: RnThemeTokens) =>
       gap: rpx(16),
       marginHorizontal: rpx(24),
       marginBottom: rpx(20),
-    },
-    tab: {
-      flex: 1,
-      height: rpx(64),
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: rnRadius.lg, // 原 rpx(20)=10,R1 吸附至 lg(8)
-      backgroundColor: tk.surface.card,
-    },
-    tabActive: {
-      backgroundColor: tk.surface.muted,
-    },
-    tabText: {
-      fontSize: 13,
-      color: tk.text.tertiary,
-    },
-    tabTextActive: {
-      color: tk.text.primary,
-      fontWeight: '600',
     },
     card: {
       flexDirection: 'row',
