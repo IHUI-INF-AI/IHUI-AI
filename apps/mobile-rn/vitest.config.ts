@@ -23,7 +23,11 @@ export default defineConfig({
         __dirname,
         'tests/__mocks__/async-storage.ts',
       ),
-      '@ihui/design-tokens': resolve(__dirname, 'tests/__mocks__/design-tokens.ts'),
+      '@ihui/design-tokens': resolve(__dirname, '../../packages/design-tokens/src/index.ts'),
+      // expo-file-system 入口 import expo-modules-core(原生模块),vitest 下解析失败会
+      // 让**整个测试文件加载不进来**(报 "Test Files N failed",但一条断言都没跑)。
+      // src/theme/active-tokens.ts 与 5 个 screen 引它 ⇒ 替身必须存在。
+      'expo-file-system': resolve(__dirname, 'tests/__mocks__/expo-file-system.ts'),
       '@ihui/api-client': resolve(__dirname, 'tests/__mocks__/ihui-api-client.ts'),
       // Sub-path aliases must come BEFORE their parent/base alias (longest match first)
       '@ihui/shared/auth/sso-core': resolve(
