@@ -59,7 +59,10 @@ const I18nContext = createContext<I18nContextValue>({
 
 // 各 locale 的合并 messages:shared 作 base,miniapp-taro 覆盖(端 key 优先)。
 // zh-CN 仍静态打包(中文为默认语言,无体积大头);非中文 4 语言运行时惰性解压。
-const zhCNMessages: Messages = mergeMessages(sharedZhCN as Messages, miniappZhCN as Messages)
+const zhCNMessages: Messages = mergeMessages(
+  sharedZhCN as Messages,
+  miniappZhCN as Messages,
+)
 
 // 非中文语言包惰性解压缓存:首次访问某 locale 时解压并缓存,后续复用同一引用
 const remoteCache = new Map<Locale, Messages>()

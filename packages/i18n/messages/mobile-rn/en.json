@@ -583,6 +583,8 @@
     }
   },
   "chatDisclosure": {
+    "steerTitle": "Steered {count} times",
+    "steerMore": "{count} more",
     "citationTitle": "Sources",
     "injectionTitle": "Context used in this turn",
     "kindDeveloper": "Custom instructions",
