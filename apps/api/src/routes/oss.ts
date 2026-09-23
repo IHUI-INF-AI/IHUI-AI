@@ -6,7 +6,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { eq, and, ilike, isNull } from 'drizzle-orm'
 import { checkAuth } from '../plugins/auth.js'
-import { requireAdmin } from '../plugins/require-permission.js'
+import { requireAdmin, isSystemAdmin } from '../plugins/require-permission.js'
 import {
   findOssDrivers,
   findOssDriverById,
@@ -219,7 +219,6 @@ export const ossRoutes: FastifyPluginAsync = async (server) => {
       }
       const url = body.data.url
       const userId = request.userId
-      const roleId = request.jwtPayload?.roleId ?? 0
       try {
         // 按 path 精确匹配或后缀匹配(防止误删,只用 ilike 匹配结尾)
         const rows = await db
@@ -229,8 +228,11 @@ export const ossRoutes: FastifyPluginAsync = async (server) => {
           .limit(5)
         const target = rows[0]
         if (target) {
-          // 权限校验:本人或管理员
-          if (target.uploadedBy !== userId && roleId < 1) {
+          // 权限校验:本人或管理员(管理员档位走集中封装)
+          if (
+            target.uploadedBy !== userId &&
+            !isSystemAdmin(request, { includeInternalChannel: false })
+          ) {
             return reply.status(403).send(error(403, '无权删除该文件'))
           }
           await db
