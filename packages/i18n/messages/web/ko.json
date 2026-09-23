@@ -10919,7 +10919,10 @@
       "buyCreditDesc": "잔액 충전 또는 플랜 구독",
       "viewUsage": "사용량 보기",
       "viewUsageDesc": "모델 / 날짜별 상세",
-      "noSubscription": "활성 플랜 없음, 잔액 창 없음"
+      "noSubscription": "활성 플랜 없음, 잔액 창 없음",
+      "countdownHoursMinutes": "{h}시간 {m}분",
+      "countdownMinutesSeconds": "{m}분 {sec}초",
+      "countdownSecondsOnly": "{sec}초"
     },
     "errorCodes": {
       "title": "API 오류 코드",
@@ -24213,5 +24216,12 @@
       }
     },
     "vividTail": ", 금방 끝납니다"
-  }
+  },
+  "upload": {
+    "oversizeSingle": "파일이 크기 한도를 초과했습니다: {name}",
+    "uploadFailedWithReason": "업로드 실패: {error}",
+    "unknownError": "알 수 없는 오류",
+    "missingFileId": "업로드 응답에 file.id가 없습니다",
+    "maxAttachmentsReached": "첨부 파일은 최대 {count}개까지입니다"
+}
 }

@@ -10919,7 +10919,10 @@
       "buyCreditDesc": "充值余额或订阅套餐",
       "viewUsage": "查看用量",
       "viewUsageDesc": "按模型 / 日期查看明细",
-      "noSubscription": "未订阅套餐,暂无额度窗口"
+      "noSubscription": "未订阅套餐,暂无额度窗口",
+      "countdownHoursMinutes": "{h}小时{m}分",
+      "countdownMinutesSeconds": "{m}分{sec}秒",
+      "countdownSecondsOnly": "{sec}秒"
     },
     "errorCodes": {
       "title": "API 错误码",
@@ -24201,5 +24204,12 @@
       }
     },
     "vividTail": "，马上就好"
-  }
+  },
+  "upload": {
+    "oversizeSingle": "文件超过大小上限:{name}",
+    "uploadFailedWithReason": "上传失败:{error}",
+    "unknownError": "未知错误",
+    "missingFileId": "上传响应缺少 file.id",
+    "maxAttachmentsReached": "最多 {count} 个附件"
+}
 }
