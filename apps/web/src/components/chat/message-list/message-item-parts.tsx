@@ -2,13 +2,36 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Tooltip } from '@/components/feedback'
 import type { ChatMessage } from '@/stores/chat'
 import { useChatStore } from '@/stores/chat'
 import { describeToolCall } from '@ihui/shared/chat'
+import {
+  resolveWaitingText,
+  type WaitingLocale,
+  type WaitingPhase,
+  type WaitingQuadrant,
+} from '@ihui/shared/chat'
 import { StreamRow, useLiveElapsed } from '@/components/chat/stream/stream-ui'
 import { computeMessageCostCny, formatCompactTokens, useModelPriceCny } from './use-model-price'
+
+/**
+ * next-intl locale → 等待池 locale;未知回退 zh-CN(不抛错)。
+ * D79 返工:文案走 shared 词表 waiting 命名空间,此处仅作回退口径。
+ */
+function toWaitingLocale(locale: string): WaitingLocale {
+  if (
+    locale === 'zh-CN' ||
+    locale === 'zh-TW' ||
+    locale === 'en' ||
+    locale === 'ja' ||
+    locale === 'ko'
+  ) {
+    return locale
+  }
+  return 'zh-CN'
+}
 
 /**
  * 2026-09-01 立,工具调用过程流式可视化:i18n 化等待态文案。
@@ -20,12 +43,24 @@ import { computeMessageCostCny, formatCompactTokens, useModelPriceCny } from './
 export function TypingIndicator({
   reasoning,
   toolCalls,
+  waitSeed,
+  waitQuadrant,
+  waitPhase,
 }: {
   reasoning?: string
   toolCalls?: ChatMessage['toolCalls']
+  /**
+   * D79 等待池轮换键(缺省不传即沿用单一固定串,存量调用方零影响)。
+   * 传 quadrant + phase 即按 seed 取模轮换;seed 常取消息 turnId。
+   */
+  waitSeed?: number | string
+  waitQuadrant?: WaitingQuadrant
+  waitPhase?: WaitingPhase
 }) {
   const t = useTranslations('ai.toolCall')
   const tStream = useTranslations('taskStatus')
+  const tWaiting = useTranslations('waiting')
+  const locale = useLocale()
   const runningTool = toolCalls?.find((tc) => tc.status === 'running')
   const liveMs = useLiveElapsed(runningTool !== undefined, null)
 
@@ -55,11 +90,32 @@ export function TypingIndicator({
         : reasoning
       : ''
 
+  // D79 返工:分象限轮换池走 shared 词表,t 注入进纯函数;缺键回退英文,永不回显 key。
+  // aria-hidden:轮换是纯视觉反馈,读屏唯一播报口是 sr-stream-announcer,此处隐藏防重复播报。
+  const waitingText =
+    waitQuadrant !== undefined && waitPhase !== undefined
+      ? resolveWaitingText({
+          quadrant: waitQuadrant,
+          phase: waitPhase,
+          locale: toWaitingLocale(locale),
+          seed: waitSeed ?? 0,
+          t: (key: string) => {
+            const shortKey = key.startsWith('waiting.') ? key.slice('waiting.'.length) : key
+            try {
+              const value = tWaiting(shortKey)
+              return value === shortKey ? undefined : value
+            } catch {
+              return undefined
+            }
+          },
+        })
+      : null
+
   return (
-    <div className="flex items-center gap-2 py-1" data-testid="typing-indicator">
+    <div className="flex items-center gap-2 py-1" data-testid="typing-indicator" aria-hidden="true">
       {/* 2026-08-29:文字光线扫描动效(.text-shimmer),流式等待态视觉反馈 */}
       <span className="text-shimmer text-xs font-medium">
-        {preview ? t('thinking', { preview }) : t('waitingResponse')}
+        {preview ? t('thinking', { preview }) : (waitingText ?? t('waitingResponse'))}
       </span>
     </div>
   )
