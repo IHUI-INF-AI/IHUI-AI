@@ -2816,6 +2816,13 @@ R2 用基线棘轮拦"浅色当容器底":`surface.light` 背景 / α≥0.5 的�
 `HUSKY_SKIP_STALE_REVERT_GUARD=1`;**确属有意回退请改用 `git revert` 生成前向提交**。
 
 
+### 工作区存续自愈(`scripts/heal-worktree-tracked.mjs`,2026-09-23)
+
+守门只能"拦住",这一层负责"补回来"。本机宿主清理层会**成批删除工作区里的已跟踪目录**——实测同一天三轮:137 个 → 27 个 → 1 个,命中 `tests/`、`__tests__/` 整目录与安装器位图资源。缺失只体现为 `git status` 一片 ` D`,而**下一次提交就会把这些文件从版本树里删掉**,等价于一次静默回滚。`.git` 指针、真 gitdir、嵌套 ref 早有 `git-guardian` 分层自愈,工作区文件存续性此前是空白。
+
+判据三条同时成立才恢复:① 工作区缺该文件;② **索引 blob == HEAD blob**(说明没人对它暂存过任何改动,包括 `git rm` 的暂存删除);③ HEAD 中该路径存在。因此被恢复的内容按定义**零独有数据**;他人已在索引里登记的删除只报数、不代裁。触发点挂在 `git-guardian` 巡检的**健康轮次早退之前** —— 计划任务实际执行的是 `main()` 单轮(`startDaemon` 未启用),挂错位置等于永不执行;`--check` 口径保持零副作用。
+
+故障演练实测:删除 `scripts/brand-foreground-baseline.json` → 跑一轮守护 → 文件自动找回,并留下审计行 `✅ 工作区存续自愈:恢复 1 个被外部删除的跟踪文件`;`--self-test` 5 例含反向对照"他人暂存的删除不被插手"。手动:`node scripts/heal-worktree-tracked.mjs [--dry-run|--json|--self-test]`;跳过 `IHUI_SKIP_WORKTREE_HEAL=1`。
 ## 🛡️ Commit 丢失防护(AGENTS.md §22 强化,2026-07-26)
 
 多 agent 并行环境下,`git reset HEAD~` 可能把整个 commit 链一并丢弃(2026-07-25 真实事故:丢失 3 个 commit)。本项目建立 4 道防护:
