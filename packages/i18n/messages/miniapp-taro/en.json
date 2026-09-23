@@ -593,13 +593,11 @@
       "downloadSuccess": "Saved to album",
       "downloading": "Downloading",
       "edit": "Edit",
-      "errorCardTitle": "Request failed",
       "favorited": "Favorited",
       "me": "Me",
       "needAlbumAuth": "Album permission is required to save images. Please enable it in settings.",
       "noContent": "Nothing to copy",
       "regenerate": "Regenerate",
-      "retry": "Retry",
       "reuse": "Reuse",
       "share": "Share",
       "speak": "Speak",
@@ -783,7 +781,6 @@
       },
       "terminal": {
         "title": "Terminal",
-        "isolation": "Commands run in an isolated sandbox; network access is off by default",
         "copy": "Copy",
         "copied": "Copied",
         "exitCode": "Exit code: {code}",
@@ -4077,148 +4074,5 @@
   },
   "shareInformationItem": {
     "z1": "views"
-  },
-  "permissionTier": {
-    "label": "Permission tier",
-    "mode": {
-      "default": {
-        "title": "Default mode",
-        "desc": "Every action requires manual approval; safest"
-      },
-      "plan": {
-        "title": "Read-only plan",
-        "desc": "Only reading and search allowed; file writes and commands are denied"
-      },
-      "accept-edits": {
-        "title": "Accept edits",
-        "desc": "Allowlisted actions run automatically; anything else asks first"
-      },
-      "bypass-permissions": {
-        "title": "Bypass permissions",
-        "desc": "Full access with no confirmations (high risk)"
-      },
-      "unknown": {
-        "title": "Unknown mode",
-        "desc": "Unrecognized permission mode; treated as default"
-      }
-    }
-  },
-  "waiting": {
-    "agent": {
-      "first": {
-        "0": "Preparing a reply…",
-        "1": "Organizing my thoughts…",
-        "2": "Got it, thinking through a response…",
-        "3": "Generating a reply for you…",
-        "4": "Question received, working on it…"
-      },
-      "middle": {
-        "0": "Still working on it…",
-        "1": "Picking up where we left off…",
-        "2": "Putting together the rest of the reply…",
-        "3": "Following up on your question…",
-        "4": "Generating what comes next…"
-      },
-      "followup": {
-        "0": "Reading your follow-up…",
-        "1": "Thinking it through with context…",
-        "2": "Organizing a reply to your follow-up…",
-        "3": "Follow-up received, on it…",
-        "4": "Adding to my answer…"
-      }
-    },
-    "computer": {
-      "first": {
-        "0": "Allocating compute…",
-        "1": "Initializing the runtime…",
-        "2": "Starting the pipeline…",
-        "3": "Spinning up processing…",
-        "4": "Running the first pass…"
-      },
-      "middle": {
-        "0": "Executing…",
-        "1": "Crunching the numbers…",
-        "2": "Working through intermediate results…",
-        "3": "Still running, making progress…",
-        "4": "Computing, one moment…"
-      },
-      "followup": {
-        "0": "Recomputing…",
-        "1": "Continuing with your new input…",
-        "2": "Processing the addition…",
-        "3": "Updating the results…",
-        "4": "Handling the follow-up request…"
-      }
-    },
-    "context": {
-      "first": {
-        "0": "Reviewing conversation context…",
-        "1": "Loading relevant context…",
-        "2": "Sorting through background…",
-        "3": "Recalling related details…",
-        "4": "Gathering context…"
-      },
-      "middle": {
-        "0": "Connecting with earlier context…",
-        "1": "Thinking with context in mind…",
-        "2": "Glancing back at the thread…",
-        "3": "Context ready, working on it…",
-        "4": "Cross-checking previous messages…"
-      },
-      "followup": {
-        "0": "Reading your follow-up in context…",
-        "1": "Looking back at relevant context…",
-        "2": "Linking to earlier discussion…",
-        "3": "Checking against the thread…",
-        "4": "Working on it with context…"
-      }
-    },
-    "plan": {
-      "first": {
-        "0": "Drafting a plan…",
-        "1": "Breaking down your request…",
-        "2": "Mapping out the steps…",
-        "3": "Analyzing the key points…",
-        "4": "Outlining the reply…"
-      },
-      "middle": {
-        "0": "Working through the plan…",
-        "1": "Moving to the next step…",
-        "2": "Plan in progress…",
-        "3": "Processing step by step…",
-        "4": "Carrying out the remaining steps…"
-      },
-      "followup": {
-        "0": "Adjusting the plan…",
-        "1": "Updating steps for your follow-up…",
-        "2": "Replanning…",
-        "3": "Filling in plan details…",
-        "4": "Following up on the new ask…"
-      }
-    },
-    "detail": {
-      "first": {
-        "0": "Preparing a detailed answer…",
-        "1": "Organizing the details…",
-        "2": "Sorting the key points…",
-        "3": "Generating an in-depth reply…",
-        "4": "Fleshing out the answer…"
-      },
-      "middle": {
-        "0": "Adding details…",
-        "1": "Expanding the explanation…",
-        "2": "Polishing what comes next…",
-        "3": "Details in progress…",
-        "4": "Refining the reply…"
-      },
-      "followup": {
-        "0": "Adding the details you asked for…",
-        "1": "Expanding on your follow-up…",
-        "2": "Fleshing out the explanation…",
-        "3": "Preparing a supplement…",
-        "4": "Rounding out the follow-up answer…"
-      }
-    },
-    "vividTail": ", almost there"
   }
 }
