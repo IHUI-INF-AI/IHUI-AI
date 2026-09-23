@@ -8,7 +8,8 @@
 
 > 面向第三方 Agent 开发者。本文只写**代码里真实存在的处置手段**,每条都带落点。
 > 结论先行:平台当前的处置能力全部是**凭据级 + IP 级 + 窗口级**的自动化闸门,
-> 外加管理员手工封禁;**没有任何"人工审核工单→恢复"的自助申诉链路**(见第 6 节)。
+> 外加管理员手工封禁;自助解除**只覆盖 IP 自动封禁**(人机验证),按 key 与账号的处置
+> 仍**没有"人工审核工单→恢复"的自助申诉链路**(见第 6 节)。
 > 能力清单与红线 scope 见 [capabilities.md](./capabilities.md) 第 4 节与
 > [data-classes.md](./data-classes.md) 第 7 节,本文不重复,只讲"踩了会怎样"。
 
@@ -188,7 +189,7 @@ Key 级窗口(5h/1d/7d)与余额熔断都挂在**单把 key**上;多把 key 只�
 | 扫描器特征          | `/.env` `/.git` `/.aws` `/.ssh` `/wp-admin` `/phpmyadmin` 等    | `apps/api/src/plugins/anti-automation.ts:73-80`                  |
 | 威胁检测(信誉分)   | score ≥ 80 自动封禁(递增时长),score ≥ 60 告警放行;响应头 `X-Block-Reason` / `X-Threat-Score` | `apps/api/src/plugins/threat-detector.ts:31-33,125,143-181`     |
 | 异常行为检测(6 维) | request-frequency / time-distribution / geo-anomaly / 指纹 / 扫描器 / 基线,加权分 `>80` block、`>60` challenge、`≥30` monitor | `apps/api/src/services/anomaly-detector.ts:152-190`             |
-| IP 信誉存储         | `recordBadEvent(ip, reason)` 30 天 TTL;`blockIp(ip, durationSec)` / `unblockIp` | `apps/api/src/services/ip-reputation.ts:11-12,318,358,375`      |
+| IP 信誉存储         | `recordBadEvent(ip, reason)` 30 天 TTL;`blockIp(ip, durationSec, reason)` / `getBlockInfo(ip)` / `unblockIp` / `unblockIfAuto` | `apps/api/src/services/ip-reputation.ts:11-13,329,374,402,432,440` |
 | 管理员手工封禁      | `POST /api/security/block-ip`(`duration` 默认 3600,上限 30 天)、`DELETE /api/security/block-ip/:ip`,均需 `roleId >= 1` | `apps/api/src/routes/security.ts:44-53,143-164`,前缀 `/api/security`(`apps/api/src/routes/index.ts:1123`) |
 | 插件顺序            | 反自动化必须最先(onRequest 拦截),威胁检测其次,异常检测再次      | `apps/api/src/server.ts:593-601`                                 |
 
@@ -224,7 +225,7 @@ Key 级窗口(5h/1d/7d)与余额熔断都挂在**单把 key**上;多把 key 只�
 | 换掉 secret,保留 key   | `POST .../keys/:id/reset`(3.5)   | 该 key 的 secret             | 0        |
 | 只禁某来源地址调此 key | `blockedIps`(3.2)                | 单 key × 地址/CIDR          | 0        |
 | 给此 key 套总量上限    | `rate_limit_5h/1d/7d`(3.3)       | 单 key 窗口内请求数          | 0        |
-| 全平台封某 IP          | `POST /api/security/block-ip`(3.4) | 该 IP 的所有请求            | 下一请求(`isIpBlocked` 快速路径) |
+| 全平台封某 IP          | `POST /api/security/block-ip`(3.4) | 该 IP 的所有请求            | 下一请求(`getBlockInfo` 快速路径) |
 | 只收紧匿名探测         | `gateway_anon_zone 5r/s`(3.4)     | 未带凭据的 `/v1`、`/v1beta` | 需加载该 nginx 配置 |
 
 ## 5. 取证与归因:你能被追到,别人也能
@@ -248,13 +249,15 @@ Key 级窗口(5h/1d/7d)与余额熔断都挂在**单把 key**上;多把 key 只�
 
 ## 6. 申诉与复核通道
 
-**诚实口径:代码里没有面向第三方开发者的自助申诉/复核通道。** 逐条说明:
+**诚实口径:面向第三方开发者的自助申诉/复核通道,只有"IP 自动封禁"这一格是通的**,
+其余(按 key 的处置、账号处置)仍然没有。逐条说明:
 
 | 你可能以为有的        | 实际情况                                                                                                     |
 | --------------------- | ------------------------------------------------------------------------------------------------------------ |
+| IP 被封后的自助解除   | **有,但只覆盖自动封禁**。`POST /api/security/challenge` 取挑战 → `POST /api/security/verify-challenge` 答对,即解除来源为 `rate-limit-block` / `scanner-detected` / `high-threat-score` 的封禁(判据 `AUTO_LIFTABLE_REASONS`,`apps/api/src/services/ip-reputation.ts:432`)。**管理员 `block-ip` 下的封禁不在其中** —— 否则人机验证就成了绕过处置的后门。这两条路径在封禁钩子的豁免表内(`apps/api/src/utils/block-exempt-paths.ts`),所以被封的 IP 够得着它们 |
 | Key 被封后的自助申诉  | **暂无**。没有"提交复核请求"的端点;`developer*` 路由下只有管理(创建/更新/轮换/吊销/分组/充值)与查询(用量/日志/收益),无申诉类端点 |
 | 吊销原因回显          | **暂无**。401 固定文案 `Invalid or revoked API key`(`apps/api/src/plugins/api-key-auth.ts:913`),不区分"不存在/已吊销",这是**防枚举的有意设计**,也就带不了原因 |
-| 封禁时长/到期查询     | **暂无对外端点**。`GET /api/security/ip-reputation/:ip` 与 `GET /api/security/anomalies` 都要求 `roleId >= 1`(管理员),见 `apps/api/src/routes/security.ts:139,166` 与守卫 `:70-82` |
+| 封禁时长/到期查询     | **被处置方看得见时长**:403 响应带 `Retry-After` 头与 `retryAfterSec` 字段(`apps/api/src/plugins/anti-automation.ts:140-145`、`apps/api/src/plugins/threat-detector.ts:125-130`)。**但没有"查我这台机器还剩多久"的端点** —— `GET /api/security/ip-reputation/:ip` 与 `GET /api/security/anomalies` 都要求 `roleId >= 1`(管理员),见守卫 `apps/api/src/routes/security.ts:74-87` |
 | 被吊销 key 的自助恢复 | **技术上存在**:`PATCH /api/developer/relay/keys/:id` 可把 `status` 改回 `active`(`apps/api/src/services/developer-api-keys-service.ts:221`)。**但这是归属人对自己 key 的写权限,不是平台的"复核通过"机制** —— 平台侧没有阻止被处置者自行复活的逻辑,这是当前设计的真实边界 |
 | 面向用户的工单        | 有**反馈**入口 `POST /api/feedbacks`(需登录,`apps/api/src/routes/comments.ts:417-418`;插件级鉴权 `:93-95`),但它是产品反馈,不是凭据申诉;admin 侧工单只有列表/状态/回复(`apps/api/src/routes/admin-support-tickets.ts:57,106,145,190`),**没有面向被处置方的建单端点** |
 | 可疑活动上报          | **有,且匿名可用**:`POST /api/security/report`(无认证,同 IP 5 次/分钟限流)—— 落点 `apps/api/src/routes/security.ts:181-215`,限流常量 `:236-237`。它是"**你举报别人**",不是"你为自己被处置申诉" |
