@@ -1950,7 +1950,7 @@ const checks = [
   // (本门脚本与测试必含字面量)/ >2MB / 二进制,三类均如实计数不静默。
   // 自检:node scripts/check-no-conflict-markers.mjs --self-test(26 例含正反成对对照 + E1 豁免与混搭反例 + 真实 merge 未合并路径现场)。
   {
-    id: '77',
+    id: '79',
     label: '🔀 提交内容含 Git 冲突标记(blocking,成对 <<<<====>>>> 标记一旦入树即拦)',
     script: 'check-no-conflict-markers.mjs',
     args: [],
