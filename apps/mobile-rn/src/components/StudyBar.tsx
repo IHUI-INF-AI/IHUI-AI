@@ -9,10 +9,10 @@
  * - 灰色容器(color_cont:#eee)内等宽排布若干 Tab(bar_item flex:1,justify-content:space-between)。
  * - 未选:浅灰文字;选中:白底卡片 + 深色加粗文字(对齐历史 .select)。
  * - 点击切换 → onChange(key);受控组件(activeKey 驱动)。
- * - 浅色优雅风,无霓虹/无渐变;颜色全部走 @ihui/design-tokens 的 rnLightTokens;禁用 purple/indigo。
+ * - 浅色优雅风,无霓虹/无渐变;颜色全部走 theme/active-tokens 的主题 token;禁用 purple/indigo。
  * - 类型零 any,精确标注。
  */
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 
 export interface StudyBarItem {

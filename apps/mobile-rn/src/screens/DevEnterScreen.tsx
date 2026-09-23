@@ -37,7 +37,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { getAgents, fetchApi, type Agent, type AgentStatus } from '@ihui/api-client'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { NavBar } from '../components/NavBar'
