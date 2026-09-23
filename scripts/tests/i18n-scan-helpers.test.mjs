@@ -126,6 +126,21 @@ describe('STATIC_T_RE — 静态 t("a.b.c") 全路径点分识别', () => {
     assert.equal(matchFirst(STATIC_T_RE, "t('a/b.c')"), null)
   })
 
+  // 2026-09-24 动词组补 tr:packages/app/src/components/PayButton.tsx:313 定义了
+  // `const tr = (key, fallback) => (t ? t(key) : fallback)`,真消费者写的是 tr('pay.payNow', …)。
+  // 此前扫描器只认 t/tt ⇒ 6 枚 pay.* 被判死,代理据此给出 "delete 39" 结论;若照做即删掉在线文案。
+  test("tr('pay.subscribeTip', fallback) 注入式包装器取词 → 命中(2026-09-24)", () => {
+    assert.equal(
+      matchFirst(STATIC_T_RE, "tr('pay.subscribeTip', textStyles.subscribeTip())"),
+      'pay.subscribeTip',
+    )
+  })
+
+  test("反例:extra('a.b') 等以 tr 结尾的其它函数名不得被当成取词动词", () => {
+    assert.equal(matchFirst(STATIC_T_RE, "extra('a.b')"), null)
+    assert.equal(matchFirst(STATIC_T_RE, "transform('a.b')"), null)
+  })
+
   test("titleKey: 'permissionTier.mode.accept-edits.title' 属性形态也认连字符", () => {
     assert.equal(
       matchFirst(PROP_KEY_RE, "titleKey: 'permissionTier.mode.accept-edits.title'"),
