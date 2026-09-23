@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkText: {
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontSize: 12,
     fontWeight: '700',
     lineHeight: 14,
