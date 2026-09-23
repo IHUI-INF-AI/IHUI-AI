@@ -154,13 +154,6 @@ const ACTIONS: readonly ToolbarAction[] = [
   { icon: Minus, labelKey: 'editor.quote', wrap: ['\n---\n', ''] },
 ]
 
-/** 本编辑器自有 chord 的键位(从 ACTIONS 派生,与工具条标签同源不漂移) */
-const EDITOR_OWNED_CHORDS = new Set(
-  ACTIONS.map((a) => a.shortcut?.split('+').pop()?.toLowerCase()).filter((k): k is string =>
-    Boolean(k),
-  ),
-)
-
 export function RichTextEditor({
   value,
   onChange,
@@ -200,10 +193,6 @@ export function RichTextEditor({
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (!e.ctrlKey && !e.metaKey) return
       const k = e.key.toLowerCase()
-      // 本编辑器自有的 chord 必须截断冒泡:React 根容器监听早于 window,
-      // 不截断则同一次按键还会再命中 use-global-shortcuts 的全局注册表
-      // (Ctrl+1/2/3 = 切对话模式,Ctrl+K = 命令面板),造成"一次按键两件事"。
-      if (EDITOR_OWNED_CHORDS.has(k)) e.stopPropagation()
       if (k === 'b') {
         e.preventDefault()
         applyWrap(['**', '**'])
