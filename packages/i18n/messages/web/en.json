@@ -7510,6 +7510,490 @@
       },
       "toolSummaryShowMore": "More",
       "toolSummaryShowLess": "Collapse",
+      "handoff": {
+        "title": "Failure diagnosis handoff",
+        "ariaLabel": "Failure diagnosis handoff",
+        "section": {
+          "diagnosis": "Diagnosis method",
+          "fixSteps": "Fix steps attempted",
+          "evidence": "Redacted evidence:",
+          "productSurface": "Product surface"
+        },
+        "source": {
+          "local": "Local evidence",
+          "external": "Auxiliary signal"
+        },
+        "externalCaveat": "An external service reporting down is an auxiliary signal only and never a conclusion on its own (network unreachable ≠ failure).",
+        "localUnknown": "No deterministic local evidence; no conclusion was drawn",
+        "empty": {
+          "fixSteps": "No fix steps were attempted",
+          "evidence": "No evidence available",
+          "productSurface": "No product surface information provided",
+          "incidents": "No possibly related incidents"
+        },
+        "incidentLine": "Status: possibly related incidents: {incidentNames}",
+        "truncated": "{count} characters truncated",
+        "degraded": "Data source unreachable; this handoff contains only locally available information (network unreachable ≠ failure)",
+        "redacted": "This handoff has been redacted (keys / tokens / emails / IPs replaced)",
+        "copy": "Copy handoff",
+        "copied": "Handoff copied"
+      },
+      "turnStatus": {
+        "title": "Turn status",
+        "state": {
+          "queued": "Queued",
+          "preparing": "Preparing",
+          "thinking": "Thinking",
+          "usingTool": "Using tool",
+          "waitingConfirm": "Waiting for confirmation",
+          "backgroundRunning": "Running in background",
+          "stopping": "Stopping",
+          "completed": "Completed",
+          "failed": "Failed",
+          "stopped": "Stopped"
+        },
+        "aria": {
+          "queued": "This turn is queued; it starts once earlier requests finish",
+          "preparing": "Preparing context for this turn",
+          "thinking": "The model is thinking",
+          "usingTool": "A tool is being used",
+          "waitingConfirm": "This turn is paused and will not continue until you confirm",
+          "backgroundRunning": "This turn moved to the background; you can keep sending new input",
+          "stopping": "Stopping this turn",
+          "completed": "This turn is complete",
+          "failed": "This turn failed; you can retry",
+          "stopped": "This turn was stopped; you can continue"
+        },
+        "hint": {
+          "queued": "It starts automatically once earlier requests finish",
+          "waitingConfirm": "Paused until you confirm; it will not continue on its own",
+          "backgroundRunning": "Still running in the background; your new input is not blocked",
+          "stopping": "Wrapping up; it will stop shortly"
+        },
+        "action": {
+          "stop": "Stop",
+          "retry": "Retry",
+          "resume": "Continue"
+        }
+      },
+      "errorCatalog": {
+        "ACCOUNT_RESTRICTED": {
+          "title": "Account is restricted",
+          "action": "Contact the administrator"
+        },
+        "API_BRIDGE_ERROR": {
+          "title": "API bridge call failed",
+          "action": "Retry later"
+        },
+        "BAD_PARAMS": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "BUDGET_EXHAUSTED": {
+          "title": "Quota exhausted",
+          "action": "Try later or switch to a free model"
+        },
+        "CAPTURE_FAILED": {
+          "title": "Tool execution failed",
+          "action": "Retry"
+        },
+        "CDP_DISABLED": {
+          "title": "Browser debug channel unavailable",
+          "action": "Enable it and retry"
+        },
+        "CDP_UNAVAILABLE": {
+          "title": "Browser debug channel unavailable",
+          "action": "Enable it and retry"
+        },
+        "CONCURRENCY_LIMIT_EXCEEDED": {
+          "title": "Too many requests",
+          "action": "Retry later"
+        },
+        "CONTEXT_TOO_LONG": {
+          "title": "Context is too long",
+          "action": "Shorten the context"
+        },
+        "CRON_NOT_SUPPORTED": {
+          "title": "Schedule configuration is invalid",
+          "action": "Fix the schedule and retry"
+        },
+        "DANGEROUS_COMMAND": {
+          "title": "This action was blocked by a security policy",
+          "action": "Adjust and retry"
+        },
+        "DANGEROUS_COMMAND_BLOCKED": {
+          "title": "This action was blocked by a security policy",
+          "action": "Adjust and retry"
+        },
+        "DELEGATE_ERROR": {
+          "title": "Subtask execution failed",
+          "action": "Retry"
+        },
+        "DELEGATE_NO_RESULT": {
+          "title": "Subtask execution failed",
+          "action": "Retry"
+        },
+        "DELEGATE_TIMEOUT": {
+          "title": "Request timed out",
+          "action": "Retry"
+        },
+        "DEP_MISSING": {
+          "title": "A dependency is missing",
+          "action": "Install it and retry"
+        },
+        "DOWNLOAD_FAILED": {
+          "title": "Network request failed",
+          "action": "Check your connection and retry"
+        },
+        "DUAL_MODE": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "EMPTY_AUDIO": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "EMPTY_DIFF": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "EMPTY_OLD_STRING": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "EMPTY_RESULT": {
+          "title": "There is no result to show",
+          "action": "Adjust and retry"
+        },
+        "EMPTY_TASKS": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "ENCODING_ERROR": {
+          "title": "File read/write failed",
+          "action": "Check the file and retry"
+        },
+        "ENGINE_ERROR": {
+          "title": "Internal service error",
+          "action": "Retry"
+        },
+        "ENGINE_UNAVAILABLE": {
+          "title": "Model service is temporarily unavailable",
+          "action": "Switch model or retry later"
+        },
+        "EXECUTION_EXCEPTION": {
+          "title": "Internal service error",
+          "action": "Retry"
+        },
+        "EXECUTION_FAILED": {
+          "title": "Internal service error",
+          "action": "Retry"
+        },
+        "EXECUTOR_DISABLED": {
+          "title": "This feature is disabled",
+          "action": "Contact the administrator"
+        },
+        "EXEC_POLICY_DENIED": {
+          "title": "This action was blocked by a security policy",
+          "action": "Adjust and retry"
+        },
+        "EXEC_POLICY_NEEDS_APPROVAL": {
+          "title": "This action needs your confirmation first",
+          "action": "Confirm now"
+        },
+        "FALLBACK_FAILED": {
+          "title": "Model service is temporarily unavailable",
+          "action": "Switch model or retry later"
+        },
+        "FETCH_FAILED": {
+          "title": "Network request failed",
+          "action": "Check your connection and retry"
+        },
+        "FILE_NOT_FOUND": {
+          "title": "Target resource not found",
+          "action": "Check and retry"
+        },
+        "FILE_TOO_LARGE": {
+          "title": "File is too large",
+          "action": "Shrink the file and retry"
+        },
+        "GENERATION_FAILED": {
+          "title": "Generation failed",
+          "action": "Retry"
+        },
+        "GITHUB_API_ERROR": {
+          "title": "External service call failed",
+          "action": "Retry later"
+        },
+        "IMAGE_FETCH_FAILED": {
+          "title": "Network request failed",
+          "action": "Check your connection and retry"
+        },
+        "IMAGE_TOO_LARGE": {
+          "title": "Image is too large",
+          "action": "Compress the image and retry"
+        },
+        "INTERNAL_AUTH_UNAVAILABLE": {
+          "title": "Your session has expired",
+          "action": "Sign in again"
+        },
+        "INTERNAL_ERROR": {
+          "title": "Internal service error",
+          "action": "Retry"
+        },
+        "INVALID_ARGS": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "INVALID_ARGUMENT": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "INVALID_CHART_TYPE": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "INVALID_CONFIG": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "INVALID_DATA": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "INVALID_OUTPUT_DIR": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "INVALID_PARAMS": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "INVALID_PR": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "INVALID_PROVIDER": {
+          "title": "Model service is temporarily unavailable",
+          "action": "Switch model or retry later"
+        },
+        "INVALID_REPO": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "INVALID_TRIGGER": {
+          "title": "Schedule configuration is invalid",
+          "action": "Fix the schedule and retry"
+        },
+        "IS_A_DIRECTORY": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "LLM_ERROR": {
+          "title": "Model service is temporarily unavailable",
+          "action": "Switch model or retry later"
+        },
+        "LLM_FAILED": {
+          "title": "Model service is temporarily unavailable",
+          "action": "Switch model or retry later"
+        },
+        "MEDIA_COUNT_EXCEEDED": {
+          "title": "Too many media files",
+          "action": "Reduce attachments and retry"
+        },
+        "MISSING_DATA": {
+          "title": "Required parameters are missing",
+          "action": "Fill them in and retry"
+        },
+        "MISSING_PARAMS": {
+          "title": "Required parameters are missing",
+          "action": "Fill them in and retry"
+        },
+        "MISSING_PATH_PARAM": {
+          "title": "Required parameters are missing",
+          "action": "Fill them in and retry"
+        },
+        "MISSING_SECRET": {
+          "title": "No model service configured",
+          "action": "Configure a model service first"
+        },
+        "MISSING_TITLE": {
+          "title": "Required parameters are missing",
+          "action": "Fill them in and retry"
+        },
+        "MODEL_NOT_CONFIGURED": {
+          "title": "No model service configured",
+          "action": "Configure a model service first"
+        },
+        "MODEL_REFUSED": {
+          "title": "The current model refused this request",
+          "action": "Switch model"
+        },
+        "MULTIPLE_MATCHES": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "NESTING_DEPTH_EXCEEDED": {
+          "title": "Nesting is deeper than we can handle",
+          "action": "Simplify and retry"
+        },
+        "NETWORK_APPROVAL_DENIED": {
+          "title": "This action needs your confirmation first",
+          "action": "Confirm now"
+        },
+        "NETWORK_ERROR": {
+          "title": "Network request failed",
+          "action": "Check your connection and retry"
+        },
+        "NOT_A_DIRECTORY": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "NOT_FOUND": {
+          "title": "Target resource not found",
+          "action": "Check and retry"
+        },
+        "NO_FILE_VERSIONS": {
+          "title": "File version unavailable",
+          "action": "Select a version and retry"
+        },
+        "OLD_STRING_NOT_FOUND": {
+          "title": "Target resource not found",
+          "action": "Check and retry"
+        },
+        "PATH_NOT_ALLOWED": {
+          "title": "The path is outside the allowed scope",
+          "action": "Use another path and retry"
+        },
+        "PATH_NOT_IN_WORKSPACE": {
+          "title": "The path is outside the allowed scope",
+          "action": "Use another path and retry"
+        },
+        "PERMISSION_DENIED": {
+          "title": "You do not have permission for this action",
+          "action": "Contact the administrator"
+        },
+        "PROVIDER_ERROR": {
+          "title": "Model service is temporarily unavailable",
+          "action": "Switch model or retry later"
+        },
+        "PROVIDER_NOT_CONFIGURED": {
+          "title": "No model service configured",
+          "action": "Configure a model service first"
+        },
+        "PROVIDER_QUOTA_EXHAUSTED": {
+          "title": "Quota exhausted",
+          "action": "Try later or switch to a free model"
+        },
+        "PR_NOT_FOUND": {
+          "title": "Target resource not found",
+          "action": "Check and retry"
+        },
+        "RATE_LIMITED": {
+          "title": "Too many requests",
+          "action": "Retry later"
+        },
+        "REQUEST_TIMEOUT": {
+          "title": "Request timed out",
+          "action": "Retry"
+        },
+        "RESOURCE_NOT_REGISTERED": {
+          "title": "Target resource not found",
+          "action": "Check and retry"
+        },
+        "RISK_CONFIRM_REQUIRED": {
+          "title": "This action needs your confirmation first",
+          "action": "Confirm now"
+        },
+        "SCHEME_REJECTED": {
+          "title": "This address is not allowed",
+          "action": "Use another address and retry"
+        },
+        "SCREENSHOT_FAILED": {
+          "title": "Tool execution failed",
+          "action": "Retry"
+        },
+        "SENSITIVE_FILE_BLOCKED": {
+          "title": "This action was blocked by a security policy",
+          "action": "Adjust and retry"
+        },
+        "SSRF_BLOCKED": {
+          "title": "This address is not allowed",
+          "action": "Use another address and retry"
+        },
+        "STEP_FAILED": {
+          "title": "Tool execution failed",
+          "action": "Retry"
+        },
+        "SUBAGENT_FAILED": {
+          "title": "Subtask execution failed",
+          "action": "Retry"
+        },
+        "TASK_FAILED": {
+          "title": "Subtask execution failed",
+          "action": "Retry"
+        },
+        "TEXT_TOO_LONG": {
+          "title": "Context is too long",
+          "action": "Shorten the context"
+        },
+        "TIMEOUT": {
+          "title": "Request timed out",
+          "action": "Retry"
+        },
+        "TOKEN_EXPIRED": {
+          "title": "Your session has expired",
+          "action": "Sign in again"
+        },
+        "TOOL_FAILED": {
+          "title": "Tool execution failed",
+          "action": "Retry"
+        },
+        "TOOL_NOT_FOUND": {
+          "title": "Target resource not found",
+          "action": "Check and retry"
+        },
+        "TOO_LARGE": {
+          "title": "File is too large",
+          "action": "Shrink the file and retry"
+        },
+        "TRIAL_QUOTA_EXCEEDED": {
+          "title": "Quota exhausted",
+          "action": "Try later or switch to a free model"
+        },
+        "UNKNOWN_API_TOOL": {
+          "title": "Target resource not found",
+          "action": "Check and retry"
+        },
+        "UNSUPPORTED_FORMAT": {
+          "title": "This file format is not supported",
+          "action": "Use a supported format and retry"
+        },
+        "UNSUPPORTED_IMAGE_FORMAT": {
+          "title": "This file format is not supported",
+          "action": "Use a supported format and retry"
+        },
+        "VERSION_NOT_FOUND": {
+          "title": "File version unavailable",
+          "action": "Select a version and retry"
+        },
+        "VERSION_SELECTOR_REQUIRED": {
+          "title": "File version unavailable",
+          "action": "Select a version and retry"
+        },
+        "VERSION_TOO_LOW": {
+          "title": "Version is too old",
+          "action": "Upgrade to the latest version"
+        },
+        "VIDEO_FETCH_FAILED": {
+          "title": "Network request failed",
+          "action": "Check your connection and retry"
+        },
+        "WRITE_FAILED": {
+          "title": "File read/write failed",
+          "action": "Check the file and retry"
+        }
+      },
       "worktree": {
         "title": "Worktree",
         "state": {
@@ -7534,6 +8018,49 @@
           "dismiss": "Got it"
         },
         "ariaLabel": "Worktree lifecycle"
+      },
+      "sideTask": {
+        "title": "Side task",
+        "ariaLabel": "Side task lifecycle",
+        "ephemeralNotice": "This is a temporary task: it disappears once closed and will not be kept for your next visit.",
+        "empty": "No side tasks yet",
+        "state": {
+          "running": "Running",
+          "completed": "Completed",
+          "expired": "Expired",
+          "cleaned": "Cleaned up"
+        },
+        "aria": {
+          "running": "Side task is running",
+          "completed": "Side task is completed",
+          "expired": "Side task has expired",
+          "cleaned": "Side task has been cleaned up"
+        },
+        "hint": {
+          "expired": "Its temporary-task retention window has passed, so it can be cleaned up.",
+          "cleaned": "Its content is no longer retrievable; only the title is kept."
+        },
+        "location": {
+          "label": "Runs in",
+          "sameFolder": "The same folder as the main task",
+          "sameEnvironment": "The same environment as the main task"
+        },
+        "cleanedFrom": "From cleaned-up {title}",
+        "files": {
+          "label": "Changed files",
+          "changedCount": "{count} file changed",
+          "empty": "This side task did not change any files"
+        },
+        "action": {
+          "close": "Close task",
+          "cleanup": "Clean up expired tasks"
+        },
+        "closeConfirm": {
+          "title": "Close this side task?",
+          "desc": "This temporary task has {artifacts} unsaved artifact(s) and {children} subprocess(es) still running. Once closed it disappears for good and cannot be recovered.",
+          "confirm": "Close anyway",
+          "cancel": "Not now"
+        }
       },
       "writingBlock": {
         "title": "Writing block",
@@ -8470,6 +8997,12 @@
     },
     "metaDescription": "Aggregating 41 authoritative sources (Weibo/Zhihu/36Kr/HackerNews/TechCrunch/OpenAI Blog/Arxiv etc.), auto-collecting every 6 hours, with model/product/industry/paper categories and real-time trend signals.",
     "metaTitle": "AI News · Real-time Aggregation",
+    "priceChart": {
+      "inputPrice": "{name} · Input price: {price}",
+      "outputPrice": "{name} · Output price: {price}",
+      "legendInput": "Input",
+      "legendOutput": "Output"
+    },
     "trendChart": {
       "days": "d",
       "hotValue": "Hotness",
