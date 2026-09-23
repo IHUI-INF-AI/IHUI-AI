@@ -44,6 +44,18 @@ interface Family {
    * 写成额度而不是把该族整个移出测试:多一处就红,比一刀切豁免严。
    */
   maxHits?: number
+  /**
+   * 族内叶子**白名单**。给"命名空间被多人共用"的族用(如 `aiGeneration` 241 叶里我只新增 15 枚):
+   * 不设白名单会把别人在用的键判成我的孤儿键。设了以后**必须**同时给 `minReferenced = 白名单长度`,
+   * 并有"白名单每个键都真实存在"的反空转断言兜底 —— 否则键被人删光时 zhLeaves 变空集,
+   * 所有断言会集体空转恒绿(这类"自测恒真"在本仓咬过不止一次)。
+   */
+  onlyKeys?: string[]
+  /**
+   * 他人持有文件的命中上限**取守门 70 台账里该文件的额度**,而不是我在测试里另抄一个数。
+   * 抄数 = 替人平账 + 台账下调后测试与台账漂移;读台账则随台账一起收紧。
+   */
+  capFromLedger?: boolean
 }
 
 const FAMILIES: Family[] = [
@@ -129,7 +141,13 @@ const FAMILIES: Family[] = [
     name: 'eduParent',
     nsLiteral: 'eduParent',
     nsPath: ['eduParent'],
-    sources: ['app/(main)/edu/parent/page.tsx'],
+    sources: [
+      'app/(main)/edu/parent/page.tsx',
+      'app/(main)/edu/parent/children/[childId]/attendance/PageClient.tsx',
+      'app/(main)/edu/parent/children/[childId]/courses/PageClient.tsx',
+      'app/(main)/edu/parent/children/[childId]/meals/PageClient.tsx',
+      'app/(main)/edu/parent/children/[childId]/study-plans/PageClient.tsx',
+    ],
     minReferenced: 45,
   },
   {
@@ -188,6 +206,7 @@ const FAMILIES: Family[] = [
       'app/(main)/edu/edu-management/study-plan/PlanItemEditDialog.tsx',
       'app/(main)/edu/edu-management/study-plan/TermDialog.tsx',
       'app/(main)/edu/edu-management/study-plan/ClassDialog.tsx',
+      'app/(main)/edu/edu-management/study-plan/StudyPlanPage.tsx',
     ],
     minReferenced: 80,
   },
@@ -204,6 +223,177 @@ const FAMILIES: Family[] = [
     nsPath: ['eduCourses'],
     sources: ['app/(main)/edu/courses/[id]/PageClient.tsx'],
     minReferenced: 4,
+  },
+  // aiGeneration(6 文件族内新增 15 枚;块内另有 226 枚属他人在用,故 onlyKeys 收窄)
+  {
+    name: 'aiGeneration(b10)',
+    nsLiteral: 'aiGeneration',
+    nsPath: ['aiGeneration'],
+    sources: [
+      'app/(main)/ai-generation/page.tsx',
+      'app/(main)/ai-generation/video-tasks/status-badge.tsx',
+      'app/(main)/ai-generation/video-tasks/video-task-row.tsx',
+      'src/components/ai-generation/generation-type-selector.tsx',
+      'src/components/ai-generation/image-generator.tsx',
+      'src/components/ai-generation/vision-analysis.tsx',
+    ],
+    minReferenced: 15,
+    onlyKeys: [
+      'typeAuto',
+      'typeImage',
+      'typeVideo',
+      'type3d',
+      'typeVision',
+      'typeVoice',
+      'typeMusic',
+      'statusAccepted',
+      'statusGenerating',
+      'imageMaxSize',
+      'selectImageFile',
+      'metaTitle',
+      'metaDescription',
+      'metaOgTitle',
+      'metaOgDescription',
+    ],
+  },
+
+  // videoTasksPage(5 枚;消费方含 HEAD 既有的 video-tasks/page.tsx)
+  {
+    name: 'videoTasksPage(b10)',
+    nsLiteral: 'videoTasksPage',
+    nsPath: ['videoTasksPage'],
+    sources: [
+      'app/(main)/ai-generation/video-tasks/page.tsx',
+      'app/(main)/ai-generation/video-tasks/video-task-row.tsx',
+    ],
+    minReferenced: 5,
+    // page.tsx 是 HEAD 既有消费方(他人持有),命中上限取其台账额度
+    capFromLedger: true,
+    onlyKeys: ['volcanoTaskId', 'updatedAt', 'message', 'noVideoUrlExtracted', 'syncingStatus'],
+  },
+
+  // apiKeyPerms(专属块 62 枚,root useTranslations() + 全路径字面量接线)
+  {
+    name: 'apiKeyPerms',
+    nsLiteral: 'apiKeyPerms',
+    nsPath: ['apiKeyPerms'],
+    sources: [
+      'app/(main)/settings/api-keys/PermissionSelector.tsx',
+      'app/(main)/settings/api-keys/ApiKeyListCard.tsx',
+    ],
+    minReferenced: 62,
+  },
+  {
+    // 同页 chrome 词表(root useTranslations() + 'apiKeysPage.*' 全路径字面量接线)
+    name: 'apiKeysPage',
+    nsLiteral: 'apiKeysPage',
+    nsPath: ['apiKeysPage'],
+    sources: ['app/(main)/settings/api-keys/ApiKeyListCard.tsx'],
+    minReferenced: 15,
+  },
+
+  // dispatchDialog(整块 143 枚,全仓只有这 2 个文件绑定该 ns)
+  {
+    name: 'dispatchDialog',
+    nsLiteral: 'dispatchDialog',
+    nsPath: ['dispatchDialog'],
+    sources: [
+      'src/components/ai/dispatch-subagent-dialog.tsx',
+      'src/components/subagents/DispatchForm.tsx',
+    ],
+    minReferenced: 143,
+  },
+
+  // developer.relayKeys(专属嵌套块 43 枚,单一消费文件)
+  {
+    name: 'relayKeys',
+    nsLiteral: 'developer.relayKeys',
+    nsPath: ['developer', 'relayKeys'],
+    sources: ['app/(main)/developer/relay/keys/page.tsx'],
+    minReferenced: 43,
+  },
+
+  // developer.relayUsage(专属嵌套块 40 枚,单一消费文件)
+  {
+    name: 'relayUsage',
+    nsLiteral: 'developer.relayUsage',
+    nsPath: ['developer', 'relayUsage'],
+    sources: ['app/(main)/developer/relay/usage/PageClient.tsx'],
+    minReferenced: 40,
+  },
+
+  // ide.diffReview(承 40cf4af4a5 "D98 审阅态五族"补票:该票改了源码没加词表,36 处取词五语言全回显键路径)
+  {
+    name: 'ide.diffReview(D98 补票)',
+    nsLiteral: 'ide',
+    nsPath: ['ide', 'diffReview'],
+    sources: [
+      'src/components/ide/diff-file-list.tsx',
+      'src/components/ide/diff-viewer-pane.tsx',
+      'src/components/ai/inline-diff-card.tsx',
+    ],
+    minReferenced: 24,
+    onlyKeys: [
+      'copyGitApply',
+      'copyGitApplyToast',
+      'copyGitApplyFailed',
+      'copyGitApplyEmpty',
+      'markAsViewed',
+      'markAsUnviewed',
+      'markedAsViewed',
+      'markAllViewed',
+      'unmarkAll',
+      'reviewedCount',
+      'jumpToFile',
+      'jumpToFileEmpty',
+      'renderError',
+      'retry',
+      'loading',
+      'loadFailedAfterRetrying',
+      'fullContentLoadFailed',
+      'hideGenerated',
+      'copyPath',
+      'pathCopied',
+      'openWithSplit',
+      'openWithUnified',
+      'openInEditor',
+      'viewPullRequest',
+    ],
+    // 这三个文件由并发会话持有,命中上限取守门 70 台账里该文件的额度(不另抄数,随台账一起收紧)
+    capFromLedger: true,
+  },
+
+  // planReview.viewPullRequest(同一补票)
+  {
+    name: 'planReview(D98 补票)',
+    nsLiteral: 'planReview',
+    nsPath: ['planReview'],
+    sources: ['src/components/ai/plan-review-panel.tsx'],
+    minReferenced: 1,
+    onlyKeys: ['viewPullRequest'],
+  },
+
+  // chatHistory + ai.toolCall(承 4c4c58e38e "D53 注意力徽章"补票,两 ns 都是共享块 ⇒ onlyKeys 收窄)
+  {
+    name: 'chatHistory.attention(D53 补票)',
+    nsLiteral: 'chatHistory',
+    nsPath: ['chatHistory'],
+    sources: [
+      'src/components/chat/conversation-list.tsx',
+      'src/components/sidebar-chat-history.tsx',
+    ],
+    minReferenced: 3,
+    onlyKeys: ['attentionWaiting', 'attentionUnread', 'batchAttentionSummary'],
+    capFromLedger: true,
+  },
+  {
+    name: 'ai.toolCall.rollback(D53 补票)',
+    nsLiteral: 'ai.toolCall',
+    nsPath: ['ai', 'toolCall'],
+    sources: ['src/components/ai/tool-call-card.tsx'],
+    minReferenced: 3,
+    onlyKeys: ['rollbackAdded', 'rollbackModified', 'rollbackDeleted'],
+    capFromLedger: true,
   },
 ]
 
@@ -251,25 +441,40 @@ function referencedKeys(src: string, famNs: string): Set<string> {
     for (const m of src.matchAll(new RegExp(`\\b${v}\\(\\s*\\\`([A-Za-z0-9_]+)[.$\\\`]`, 'g')))
       dynRoots.add(m[1] as string)
   }
+  /**
+   * **root `useTranslations()` + 表内全路径字面量**(`'apiKeyPerms.agentsRead'`)这一路接线。
+   * 上面按变量名回溯 ns 的规则对它失效(绑定时不带 ns 实参),故直接按族 ns 前缀收字面量。
+   */
+  const nsEsc = famNs.replace(/\./g, '\\.')
+  for (const m of src.matchAll(new RegExp(`['"\`]${nsEsc}\\.([A-Za-z0-9_.]+)['"\`]`, 'g')))
+    keys.add(m[1] as string)
   // 非组件常量表:任何 *Key 字段的值(labelKey / titleKey / descKey… 渲染处 t(x.key) 取词)
   // 允许带点:`scheduling` 族把嵌套路径整体存进表里('weekdays.weekdayMon'),那样扫描器才看得见字面键
   for (const m of src.matchAll(/\b\w*[Kk]ey:\s*'([A-Za-z0-9_.]+)'/g)) keys.add(m[1] as string)
   /**
    * 常量表两种形态:对象表与数组表,且**允许带类型标注**
    * (`const MEAL_TYPE_KEYS: Record<string, string> = { … }` —— 不带这条就会把 16 个在用键误判成孤儿键)。
+   * **允许单数 `KEY` 结尾**:`status-badge.tsx` 的表叫 `STATUS_LABEL_KEY`(不是 `KEYS`),
+   * 只认复数会把 2 个在用键打成孤儿键。
    */
-  for (const block of src.matchAll(/const\s+([A-Z0-9_]*KEYS[A-Z0-9_]*)\s*(?::[^=\n]+)?=\s*\{([\s\S]*?)\n\}/g)) {
+  for (const block of src.matchAll(
+    /const\s+([A-Z0-9_]*KEY[S]?[A-Z0-9_]*)\s*(?::[^=\n]+)?=\s*\{([\s\S]*?)\n\}/g,
+  )) {
     /** 加了"名字"捕获组之后,内容组下标从 1 变成 2 —— 写错会让采集静默变空并把在用键打成孤儿键 */
     for (const m of (block[2] ?? '').matchAll(/:\s*'([A-Za-z0-9_.]+)'/g)) keys.add(m[1] as string)
   }
-  for (const block of src.matchAll(/const\s+[A-Z0-9_]*KEYS[A-Z0-9_]*\s*(?::[^=\n]+)?=\s*\[([\s\S]*?)\n\]/g)) {
+  for (const block of src.matchAll(
+    /const\s+[A-Z0-9_]*KEY[S]?[A-Z0-9_]*\s*(?::[^=\n]+)?=\s*\[([\s\S]*?)\n\]/g,
+  )) {
     for (const m of (block[1] ?? '').matchAll(/'([A-Za-z0-9_.]+)'/g)) keys.add(m[1] as string)
   }
   /**
    * **单行**形态的键表:`const AI_STEP_KEYS = ['ai.step1','ai.step2'] as const`。
    * 上面两条要求 `]` / `}` 另起一行,单行表整表采不到,会把在用键误判成孤儿键(实测咬过 eduProcurement)。
    */
-  for (const m of src.matchAll(/const\s+[A-Z0-9_]*KEYS[A-Z0-9_]*\s*(?::[^=\n]+)?=\s*[[{]([^\]}]*)[\]}]/g)) {
+  for (const m of src.matchAll(
+    /const\s+[A-Z0-9_]*KEY[S]?[A-Z0-9_]*\s*(?::[^=\n]+)?=\s*[[{]([^\]}]*)[\]}]/g,
+  )) {
     for (const q of (m[1] ?? '').matchAll(/'([A-Za-z0-9_.]+)'/g)) keys.add(q[1] as string)
   }
   return new Set([...keys, ...dynRoots])
@@ -288,8 +493,10 @@ function flatLeaves(obj: unknown, prefix = ''): Record<string, string> {
 const HAN = /[一-鿿]/
 const ph = (s: string): string => (s.match(/\{[A-Za-z0-9_]+\}/g) ?? []).sort().join(',')
 
-/** 权威调用守门 70(不复刻判据),返回 file → 命中数 */
+/** 权威调用守门 70(不复刻判据),返回 file → 命中数。整仓扫一次即够,按结果缓存。 */
+let gate70Cache: Map<string, number> | null = null
 function gate70Counts(): Map<string, number> {
+  if (gate70Cache) return gate70Cache
   const out = path.join(REPO_ROOT, '.ihui-agent/tmp/vitest-zh-scan.json')
   execFileSync(process.execPath, ['scripts/scan-hardcoded-zh.mjs', '--json', out], {
     cwd: REPO_ROOT,
@@ -303,7 +510,19 @@ function gate70Counts(): Map<string, number> {
   }
   const map = new Map<string, number>()
   for (const row of parsed.files ?? []) map.set(row.file, row.count)
+  gate70Cache = map
   return map
+}
+
+/** 守门 70 的台账(每文件额度)。他人持有族的 cap 从这里取,测试里不另抄数字。 */
+let ledgerCache: Map<string, number> | null = null
+function ledgerAllowance(): Map<string, number> {
+  if (ledgerCache) return ledgerCache
+  const raw = JSON.parse(
+    readFileSync(path.join(REPO_ROOT, 'scripts/hardcoded-zh-baseline.json'), 'utf8'),
+  ) as { files?: Record<string, number> }
+  ledgerCache = new Map(Object.entries(raw.files ?? {}))
+  return ledgerCache
 }
 
 describe.each(FAMILIES)('家族 $name 取词契约', (fam: Family) => {
@@ -311,8 +530,29 @@ describe.each(FAMILIES)('家族 $name 取词契约', (fam: Family) => {
     f,
     keys: referencedKeys(readFileSync(path.join(WEB_ROOT, f), 'utf8'), fam.nsLiteral),
   }))
-  const raw = new Set(perFile.flatMap((p) => [...p.keys]))
-  const zhLeaves = flatLeaves(at(pack('zh-CN'), fam.nsPath) ?? {})
+  /**
+   * `nsLiteral` 是父 ns、`nsPath` 指到子块时的形态(`useTranslations('ide')` + `t('diffReview.x')`,
+   * 包在 `ide.diffReview` 下):采集到的是 `diffReview.x`,而子树叶子是 `x`,不剥前缀会把
+   * 全部在用键判成孤儿键(实测第一版就这样全红)。仅在"字面 ns == 路径首段且路径更深"时剥。
+   */
+  const trimPrefix =
+    fam.nsPath.length > 1 && fam.nsLiteral === fam.nsPath[0]
+      ? `${fam.nsPath.slice(1).join('.')}.`
+      : null
+  const raw = new Set(
+    perFile.flatMap((p) => [
+      ...[...p.keys].map((k) =>
+        trimPrefix && k.startsWith(trimPrefix) ? k.slice(trimPrefix.length) : k,
+      ),
+    ]),
+  )
+  const zhLeavesAll = flatLeaves(at(pack('zh-CN'), fam.nsPath) ?? {})
+  /** `onlyKeys` 收窄后的"本族治理面";未设则整棵子树都归本族管 */
+  const governed = fam.onlyKeys ? new Set(fam.onlyKeys) : null
+  const pick = (l: Record<string, string>) =>
+    governed ? Object.fromEntries(Object.entries(l).filter(([k]) => governed.has(k))) : l
+  const zhLeaves = pick(zhLeavesAll)
+  const leavesOf = (loc: Locale) => pick(flatLeaves(at(pack(loc), fam.nsPath) ?? {}))
 
   /**
    * 动态取词(如 t(`errorCodes.${code}.meaning`))只能按"根段"识别,这里把根段展开成它
@@ -326,6 +566,14 @@ describe.each(FAMILIES)('家族 $name 取词契约', (fam: Family) => {
   }
 
   it('哨兵:引用键数量达到下限(整体改动丢失时这里先红)', () => {
+    if (governed) {
+      /** 反空转:白名单键若被人从包里删掉,zhLeaves 会静默变空 ⇒ 后面所有断言集体空转恒绿 */
+      const absent = [...governed].filter((k) => !(k in zhLeavesAll))
+      expect(
+        absent,
+        `${fam.name} 白名单有 ${absent.length} 枚键在包中不存在:${absent.slice(0, 6).join(', ')}`,
+      ).toEqual([])
+    }
     expect(
       referenced.size,
       `${fam.name} 只解析到 ${referenced.size} 个取词键`,
@@ -334,7 +582,7 @@ describe.each(FAMILIES)('家族 $name 取词契约', (fam: Family) => {
 
   it('引用的每个键在五语言包该命名空间下都有非空值', () => {
     for (const loc of LOCALES) {
-      const leaves = flatLeaves(at(pack(loc), fam.nsPath) ?? {})
+      const leaves = leavesOf(loc)
       const missing = [...referenced].filter(
         (k) => typeof leaves[k] !== 'string' || leaves[k] === '',
       )
@@ -349,10 +597,7 @@ describe.each(FAMILIES)('家族 $name 取词契约', (fam: Family) => {
     const base = Object.keys(zhLeaves).sort()
     expect(base.length).toBeGreaterThanOrEqual(fam.minReferenced)
     for (const loc of LOCALES) {
-      expect(
-        Object.keys(flatLeaves(at(pack(loc), fam.nsPath) ?? {})).sort(),
-        `${loc} 键集合漂移`,
-      ).toEqual(base)
+      expect(Object.keys(leavesOf(loc)).sort(), `${loc} 键集合漂移`).toEqual(base)
     }
   })
 
@@ -371,13 +616,13 @@ describe.each(FAMILIES)('家族 $name 取词契约', (fam: Family) => {
 
   it('ko/en 值无汉字,且 ICU 占位符各语言逐一保留', () => {
     for (const loc of ['ko', 'en'] as Locale[]) {
-      const leaves = flatLeaves(at(pack(loc), fam.nsPath) ?? {})
+      const leaves = leavesOf(loc)
       for (const k of Object.keys(zhLeaves)) {
         expect(HAN.test(leaves[k] ?? ''), `${loc}.${k} 含汉字: ${leaves[k]}`).toBe(false)
       }
     }
     for (const loc of LOCALES) {
-      const leaves = flatLeaves(at(pack(loc), fam.nsPath) ?? {})
+      const leaves = leavesOf(loc)
       for (const k of Object.keys(zhLeaves)) {
         expect(ph(leaves[k] ?? ''), `${loc}.${k} 占位符漂移`).toBe(ph(zhLeaves[k] ?? ''))
       }
@@ -392,12 +637,17 @@ describe.each(FAMILIES)('家族 $name 取词契约', (fam: Family) => {
   })
 
   it('守门 70 实测:族内命中不超过申报额度(默认必须归零;直接调权威脚本,不复刻判据)', () => {
-    const cap = fam.maxHits ?? 0
     const counts = gate70Counts()
     const bad = fam.sources
-      .map((f) => ({ f, n: counts.get(`apps/web/${f}`) ?? 0 }))
-      .filter((r) => r.n > cap)
-    expect(bad, `硬编码中文越过申报额度 ${cap}:${bad.map((b) => `${b.f}=${b.n}`).join(' ')}`).toEqual([])
+      .map((f) => {
+        const file = `apps/web/${f}`
+        const cap = fam.capFromLedger ? (ledgerAllowance()!.get(file) ?? 0) : (fam.maxHits ?? 0)
+        return { f, n: counts.get(file) ?? 0, cap }
+      })
+      .filter((r) => r.n > r.cap)
+    expect(bad, `硬编码中文越过额度:${bad.map((b) => `${b.f}=${b.n}>${b.cap}`).join(' ')}`).toEqual(
+      [],
+    )
   })
 })
 
