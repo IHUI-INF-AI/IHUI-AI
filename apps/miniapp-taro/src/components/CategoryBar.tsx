@@ -2,87 +2,79 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { ScrollView, View, Text, Image } from '@tarojs/components'
+import './CategoryBar.css'
+
 /**
- * StudyBar 学习 Tab 横条 (mobile-rn 端)
+ * 统一分类条 —— web `@ihui/ui-react` CategoryBar 与 RN `CategoryInlineBar` 的 Taro 同形实现。
  *
- * 对齐历史项目 study/bar.vue(等宽分段式 Tab 切换):
- * - 灰色容器(color_cont:#eee)内等宽排布若干 Tab(bar_item flex:1,justify-content:space-between)。
- * - 未选:次级灰文字;选中:brandAccent 底 + 其上 foreground 文字(深色下纯白底刺眼,不用 brand.DEFAULT)。
- * - 点击切换 → onChange(key);受控组件(activeKey 驱动)。
- * - 浅色优雅风,无霓虹/无渐变;颜色全部走 theme/active-tokens 的主题 token;禁用 purple/indigo。
- * - 类型零 any,精确标注。
+ * 平台特有:依赖 @tarojs/components 的 ScrollView(scrollX + enhanced + showScrollbar),
+ * 不适合共享层。
+ *
+ * 几何与两版逐档对齐(小程序 375→750,故 web px ×2 = rpx):
+ *   项高 32px→64rpx / 圆角 --radius-md(6px) / 横向内边距 12px→24rpx /
+ *   项间距 8px→16rpx / 图文间距 6px→12rpx / 文字 13px→26rpx,行高 18px→36rpx /
+ *   静止态 card 底 + 完整描边 + secondary 文字,选中态 primary 底 + primary-foreground 文字 + 600 字重 /
+ *   计数徽章 16px→32rpx 见方(最小宽)、水平内边距 4px→8rpx、字号 10px→20rpx、行高同字号、等宽数字。
+ * 只滚不折行、无渐变遮罩、无分割线、零文案(标签由调用方 t() 取词注入)。
  */
-import { tokens } from '../theme/active-tokens'
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-
-export interface StudyBarItem {
-  key: string
+export interface CategoryBarItem {
+  /** 稳定标识(单选值) */
+  id: string
+  /** 已取词的显示文案 */
   label: string
+  /** 条目图标:小程序端 lucide 风格 SVG 路径(/static/images/icons/*.svg)或远程图标 URL */
+  icon?: string
+  /** 计数徽章(可选) */
+  count?: number
 }
 
-export interface StudyBarProps {
-  items: StudyBarItem[]
-  activeKey: string
-  onChange: (key: string) => void
+export interface CategoryBarProps {
+  items: readonly CategoryBarItem[]
+  /** 当前选中 id;null 表示全未选 */
+  value: string | null
+  onChange: (id: string) => void
+  /** 外层容器样式(页面级内外边距由调用方决定,组件不写死) */
+  className?: string
 }
 
-export default function StudyBar({ items, activeKey, onChange }: StudyBarProps): React.JSX.Element {
+export default function CategoryBar({ items, value, onChange, className }: CategoryBarProps) {
+  if (items.length === 0) return null
+
   return (
-    <View style={styles.wrapper}>
-      <View style={styles.container}>
+    <ScrollView
+      scrollX
+      enhanced
+      showScrollbar={false}
+      scrollWithAnimation
+      className={`category-bar${className ? ` ${className}` : ''}`}
+    >
+      <View className="category-bar__inner">
         {items.map((item) => {
-          const isActive = item.key === activeKey
+          const active = item.id === value
           return (
-            <TouchableOpacity
-              key={item.key}
-              activeOpacity={0.7}
-              onPress={() => onChange(item.key)}
-              style={[styles.tab, isActive ? styles.tabActive : null]}
+            <View
+              key={item.id}
+              className={`category-bar__item${active ? ' category-bar__item--active' : ''}`}
+              onClick={() => onChange(item.id)}
+              hoverClass="opacity-60"
             >
-              <Text style={isActive ? styles.tabTextActive : styles.tabTextInactive}>
-                {item.label}
-              </Text>
-            </TouchableOpacity>
+              {item.icon ? (
+                <Image className="category-bar__icon" src={item.icon} mode="aspectFit" />
+              ) : null}
+              <Text className="category-bar__label">{item.label}</Text>
+              {typeof item.count === 'number' ? (
+                <View
+                  className={`category-bar__badge${active ? ' category-bar__badge--active' : ''}`}
+                >
+                  <Text className="category-bar__badge-text">{item.count}</Text>
+                </View>
+              ) : null}
+            </View>
           )
         })}
       </View>
-    </View>
+    </ScrollView>
   )
 }
-
-const styles = StyleSheet.create({
-  wrapper: {
-    marginBottom: 9,
-  },
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 2,
-    borderRadius: 8,
-    backgroundColor: tokens.surface.card,
-    borderWidth: 1,
-    borderColor: tokens.border.light,
-  },
-  tab: {
-    flex: 1,
-    height: 26,
-    marginHorizontal: 3,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-  },
-  tabActive: {
-    backgroundColor: tokens.brandAccent.DEFAULT,
-  },
-  tabTextActive: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: tokens.brandAccent.foreground,
-  },
-  tabTextInactive: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: tokens.text.secondary,
-  },
-})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
