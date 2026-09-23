@@ -612,6 +612,35 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - 提交:`34988d7170`(补间实现)。守门 `desktop-nsis-template --check` OK(36 处补丁,本批未新增模板补丁)、
   `check-installer-assets` PASS、`makensis` 0 error。
 
+### 第十三批(2026-09-23):给本会话修掉的三条跨文件不变量装闸 —— 堵住"造好没装车"
+
+第十二批把三个缺陷修好了,但**没有任何闸门能阻止下一个人改回去**。这批补闸。
+
+- 口径:并入已有守门 **61** `scripts/check-installer-assets.mjs`,不新增门号(并发会话会抢编号,
+  同 id 两道 blocking 门会串 skipEnv 与失败归属 —— 见"守门编号先查 HEAD 占用")。
+- 三条不变量(纯函数 + env 可覆盖路径,便于注入自证):
+  ① **洞 == 按钮矩形**:解析 `IHUI_INST_HOLES` 宏体里 CTA/取消两洞坐标,与
+    `IHUI_CTA_X/W`、`IHUI_CANCEL_X/W`、`IHUI_BTN_Y` + 从 `IHUI_INST_SLOT` **实参解析出的**按钮高度
+    逐字段比对(高度不写死,免得宏改高度时闸门自己先骗人)。洞偏大 → 透出父对话框为 BUTTON
+    返回的经典面色刷 `#f0f0f0`,即用户报的"方形白边";洞偏小 → 切掉位图边缘。
+  ② **百分比控件与双环同心**:`IHUI_PCT_X + W/2 == PCT_CX`、`Y + H/2 == PCT_CY`,并断言控件用
+    `IHUI_PCT_STYLE`(SS_CENTER)—— 退回 SS_RIGHT 时 `6%`→`100%` 会让数字在环里左右漂。
+  ③ **埋点 == 刻度**:从**渲染后的 `installer.nsi`** 抓 `IHUI_PROGRESS`/`IHUI_UNPROGRESS` 集合
+    (排除 100),与生成器 `PB_TICKS` / `sceneUninstfiles` 的 `meterTrack([...])` 逐值比。
+    刻意读渲染产物而不是补丁脚本,避免"补丁表与实际产物不一致时闸门自洽地假绿"。
+- 有效性自证:新增 `scripts/tests/check-installer-assets-geo.test.mjs`,把真实源文件复制进临时目录
+  后**逐条注入违规**(洞改回外扩 2px / 环心改 260 / 刻度回退旧集合 / 样式退回 SS_RIGHT),
+  断言各自变红且命中具体判据 —— **5 例全绿(基线 + 4 条注入全部被咬)**。
+  闸门当场抓到我自己一处措辞 bug(消息里 `cta` 与断言里 `CTA` 不一致),统一成 `CTA 槽/取消槽`,
+  没有把断言改松。
+- README §守门脚本速查 61 行同步扩写(§21)。README 的工作区副本**又一次**是被回滚过的旧版
+  (HEAD 里"44 check-root-dir-clean"行在工作区不存在),再次以 HEAD 为基准做单行改写并带回那行。
+- 并行:后台代理做桌面端 Rust 侧只读回归 —— `cargo check` 0 error/0 warning、
+  `cargo test --lib` 7 passed、`auto_refresh.rs` 三分支(L155/L180/L183)+ 空第二闭包(L173)
+  + 三处 `log::warn!`(L147/L177/L184)全部仍在、`tauri.conf.json` 两端点 https 且无
+  `dangerousInsecureTransportProtocol`、无残留 `127.0.0.1:8899` 测试端点、该目录 `git status` 干净。
+- 提交:`decdd405b5`(3 文件)。守门 61 全量跑四段 PASS;`node --test` 5 pass 0 fail;eslint 0 error。
+
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
 
