@@ -327,8 +327,12 @@ function readText(p) {
   }
 }
 
-export function judgeStall({ liveSha, tipSha, lastSuccessIso, nowMs, thresholdMin }) {
+export function judgeStall({ liveSha, tipSha, lastSuccessIso, nowMs, thresholdMin, inFlight = false }) {
   if (!tipSha) return { level: 'unknown', why: '取不到 origin/main tip,不判定' }
+  // 部署环**正在跑这一轮**时不得判停摆:2026-09-23 14:05 实测假阳性 —— 14:02 起在构建,
+  // 14:06:21 就成功了,而我按"距上次成功 > 阈值"判红并真发了一封邮件。
+  // 告警器乱叫就会被静音(邮件 10 封/天、Server酱 5 条/天),所以这一条是硬护栏。
+  if (inFlight) return { level: 'unknown', why: '部署环正在跑这一轮(日志有新活动且非失败态),不判定' }
   if (!liveSha) return { level: 'fail', why: `线上无构建标记(.next/IHUI_BUILD_SHA 缺失),最近成功部署=${lastSuccessIso || '未知'}` }
   if (liveSha === tipSha) return { level: 'ok', why: '线上构建 == origin/main tip' }
   if (!lastSuccessIso) return { level: 'fail', why: `线上 ${liveSha.slice(0, 9)} ≠ tip ${tipSha.slice(0, 9)},且日志里找不到一次成功部署` }
@@ -370,7 +374,17 @@ function deployStallCheck() {
     const m = String(lines[lines.length - 1]).match(/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) ([+-]\d{2}:\d{2})\]/)
     if (m) lastSuccessIso = `${m[1].replace(' ', 'T')}${m[2]}`
   }
-  const r = judgeStall({ liveSha, tipSha, lastSuccessIso, nowMs: Date.now(), thresholdMin })
+  // 本轮是否"在飞":日志最后一行仍是轮次中间产物(未出现 轮询结束/部署完成 这类轮次边界),
+  // 且写于 20 分钟内。边界之后一律照判(冷却/失败都属于真停摆)。
+  const all = log.split(/\r?\n/).filter((l) => l.trim())
+  let inFlight = false
+  if (all.length) {
+    const last = String(all[all.length - 1])
+    const lm = last.match(/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) ([+-]\d{2}:\d{2})\]/)
+    const lastAge = lm ? (Date.now() - Date.parse(`${lm[1].replace(' ', 'T')}${lm[2]}`)) / 60000 : Infinity
+    inFlight = Number.isFinite(lastAge) && lastAge < 20 && !/轮询结束|部署完成/.test(last)
+  }
+  const r = judgeStall({ liveSha, tipSha, lastSuccessIso, nowMs: Date.now(), thresholdMin, inFlight })
   const diag = errs.length ? ` [诊断: ${errs.join(' ; ')}]` : ''
   return [{ name: '部署停摆(线上构建 vs origin/main)', level: r.level, detail: r.why + diag }]
 }
@@ -389,6 +403,9 @@ function selfTest() {
   eq('线上一致判 ok', judgeStall({ liveSha: 'A', tipSha: 'A', lastSuccessIso: '', nowMs: 0, thresholdMin: 45 }).level, 'ok')
   eq('落后且刚成功过不判停摆', judgeStall({ liveSha: 'A', tipSha: 'B', lastSuccessIso: new Date(1000).toISOString(), nowMs: 1000 + 10 * 60000, thresholdMin: 45 }).level, 'ok')
   eq('落后 2 小时判停摆', judgeStall({ liveSha: 'A', tipSha: 'B', lastSuccessIso: new Date(1000).toISOString(), nowMs: 1000 + 120 * 60000, thresholdMin: 45 }).level, 'fail')
+  // 在飞护栏(2026-09-23 14:05 假阳性实测:那轮 14:02 开始构建、14:06:21 成功,我却判红并发邮件)
+  eq('同一输入:本轮在飞 ⇒ 不判定', judgeStall({ liveSha: 'A', tipSha: 'B', lastSuccessIso: new Date(1000).toISOString(), nowMs: 1000 + 120 * 60000, thresholdMin: 45, inFlight: true }).level, 'unknown')
+  eq('反向对照:同样输入但非在飞 ⇒ 仍判停摆(护栏不得吞掉真故障)', judgeStall({ liveSha: 'A', tipSha: 'B', lastSuccessIso: new Date(1000).toISOString(), nowMs: 1000 + 120 * 60000, thresholdMin: 45, inFlight: false }).level, 'fail')
   eq('无标记判红', judgeStall({ liveSha: '', tipSha: 'B', lastSuccessIso: '', nowMs: 1, thresholdMin: 45 }).level, 'fail')
   eq('取不到 tip 不误判', judgeStall({ liveSha: 'A', tipSha: '', lastSuccessIso: '', nowMs: 1, thresholdMin: 45 }).level, 'unknown')
   let bad = 0
