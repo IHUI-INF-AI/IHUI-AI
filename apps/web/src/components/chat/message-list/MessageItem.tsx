@@ -31,6 +31,8 @@ import type { InlineDiffInfo } from '@/components/ai/types'
 import { CommunityPublishDialog } from '@/components/chat/community-publish-dialog'
 import CheckpointRewindPanel from '@/components/checkpoint/CheckpointRewindPanel'
 import { MarkdownStream } from '@/components/ai/markdown-stream'
+// D87(2026-09-23 立):AI 回复文本批注双向锚点(圈选回复选区 → 持久锚点 + 失效态 + 再编辑/删除)
+import { ReplyAnnotationLayer } from '@/components/ai/reply-annotation'
 import { ToolCallCard, deriveDiffInfo } from '@/components/ai/tool-call-card'
 import { StreamGroup } from '@/components/chat/stream/stream-ui'
 import { describeToolCall, humanizeToolText } from '@ihui/shared/chat'
@@ -657,6 +659,24 @@ const MessageItem = React.memo(function MessageItem({
     )
   }
 
+  // D79 接线(此前 TypingIndicator 只传 reasoning/toolCalls ⇒ 生产恒走固定串 "等待响应…"):
+  // 对话流的等待对象就是智能体 ⇒ quadrant=agent;阶段按"本条之前是否已有用户消息"分首轮/追问;
+  // seed 取"最近一条用户输入长度 + 4s 时间桶"⇒ 同一次等待内稳定(不 flicker、不与读屏 announcer 抢播报),
+  // 跨轮/跨等待期会轮换。缺省语义由 parts 组件兜底(不传即回退固定串),故这里只在要显示时算。
+  const typingTurn = showTyping
+    ? (() => {
+        const all = useChatStore.getState().messages
+        const mine = all.findIndex((x) => x.id === m.id)
+        const before = mine < 0 ? all : all.slice(0, mine)
+        const priorUser = before.filter((x) => x.role === 'user')
+        const lastUser = priorUser[priorUser.length - 1]
+        return {
+          phase: (priorUser.length === 0 ? 'first' : 'followup') as 'first' | 'followup',
+          seed: (lastUser?.content ?? '').length + Math.floor(Date.now() / 4000),
+        }
+      })()
+    : null
+
   return (
     <div
       className={cn(
@@ -690,7 +710,13 @@ const MessageItem = React.memo(function MessageItem({
           // P0 修复(2026-08-02):TypingIndicator 加 fade-in,流式开始时平滑出现;
           // 内容区(下方 div)也加 fade-in,第一个 token 到达时平滑替换 TypingIndicator,
           <div className="animate-in fade-in-0 duration-(--duration-unified) ease-unified fill-mode-both">
-            <TypingIndicator reasoning={m.reasoning} toolCalls={m.toolCalls} />
+            <TypingIndicator
+              reasoning={m.reasoning}
+              toolCalls={m.toolCalls}
+              waitQuadrant={typingTurn ? 'agent' : undefined}
+              waitPhase={typingTurn?.phase}
+              waitSeed={typingTurn?.seed}
+            />
           </div>
         ) : m.error ? (
           // D22(2026-09-19 立):error 独立消息类型渲染 — 红色边框错误卡片(替代原纯红文本),
@@ -955,11 +981,13 @@ const MessageItem = React.memo(function MessageItem({
                 </div>
               </StreamGroup>
             )}
-            <MarkdownStream
-              content={m.content}
-              isStreaming={streamingThis}
-              collapseLines={codeCollapseLines}
-            />
+            <ReplyAnnotationLayer messageId={m.id} conversationId={conversationId}>
+              <MarkdownStream
+                content={m.content}
+                isStreaming={streamingThis}
+                collapseLines={codeCollapseLines}
+              />
+            </ReplyAnnotationLayer>
             {/* #11 Citations 全链路(2026-09-13 立):引用溯源条 inline 到消息正文下方 */}
             {m.citations && m.citations.length > 0 && <CitationBar citations={m.citations} />}
             {/* D34 上下文注入交代(2026-09-22 立):本轮回答实际带了哪些私有上下文 */}
