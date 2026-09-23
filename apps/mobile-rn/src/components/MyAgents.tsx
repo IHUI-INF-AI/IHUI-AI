@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: tokens.text.secondary,
     textAlign: 'center',
-    maxWidth: 56,
+    maxWidth: 80,
   },
   emptyItem: {
     alignItems: 'center',
