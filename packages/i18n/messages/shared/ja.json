@@ -705,7 +705,7 @@
     "developerRelayUsage": "使用量",
     "developerRelaySubscriptions": "リレーサブスクリプション",
     "playground": "プレイグラウンド",
-    "adminRelayOverview": "リレー概览",
+    "adminRelayOverview": "リレー概要",
     "adminRelayModels": "モデル管理",
     "adminRelayKeyPool": "キープール",
     "adminRelayDiscovery": "モデル発見",
@@ -1415,13 +1415,13 @@
     "submit": "確認",
     "submitting": "送信中...",
     "selectNation": "国/地域を選択",
-    "success": "绑定成功",
+    "success": "バインド成功",
     "phoneRequired": "電話番号を入力してください",
     "phoneInvalid": "無効な電話番号",
     "codeRequired": "認証コードを入力してください",
     "uuidMissing": "ユーザー識別子がありません",
     "sendFailed": "コード送信失敗",
-    "bindFailed": "绑定失敗",
+    "bindFailed": "バインド失敗",
     "networkError": "ネットワークエラー"
   },
   "modelPlaza": {
@@ -1774,7 +1774,7 @@
   },
   "aiGroup": {
     "title": "AI グループ",
-    "subtitle": "マルチ AI 協働、集合知共创",
+    "subtitle": "マルチ AI 協働、集合知共創",
     "tabMine": "マイグループ",
     "tabDiscover": "発見",
     "empty": "グループがありません",
