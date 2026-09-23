@@ -3822,3 +3822,20 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - **未做像素级"改后"复验(如实说明,不称已复验)**:设备 c12617dd 现装的是 13:30 的 **release** 构建(`flags` 无 DEBUGGABLE,JS 内嵌不吃 Metro),换装 debug 包与它签名不同 ⇒ 需 uninstall,会清掉用户 App 数据与登录态,未经批准不动。改前缺陷现场已截图留证(`.ihui-agent/tmp/rn-profile-dark-r6/04-profile.png`:浅紫面板 / 普通用户徽章 / 「文本」纯白胶囊三处可见)。
 - **顺带发现,不在本票范围未动**:智汇AI 首页「分享领智汇值」弹层两个按钮仍是纯白底(`02-home.png`),同属"深色下纯白 CTA 突兀"族,待另票统一(全端仍有 `brand.DEFAULT` 作 CTA 底的用法,须先定"主 CTA 是否一律走 brandAccent"再批量改,避免逐处打补丁)。
 - **平台独占豁免依据(§9)**:全部改动在 apps/mobile-rn 取色层与 RN 屏内加载态,不触他端契约、不改跨端类型。
+
+## P1 mobile-rn 主 CTA 深色档立档(brand.ctaFill/ctaText)+ 30 处成对迁移 + 可达性审计(2026-09-23 立并完成 ✅,平台独占:packages/design-tokens + apps/mobile-rn + packages/app)
+
+> 承上节。用户就"深色下纯白 CTA 突兀"拍板口径:**在 token 层立一档主 CTA 填充**,
+> 不逐处换强调色。关键事实是 `brand.DEFAULT` 是**浅黑/深白两态翻转**的(浅色 #000000、深色 #FFFFFF),
+> 所以"把白底改成灰蓝"会连带把**浅色态的黑按钮一起改掉** —— 上一轮广场页 `971e21517` 与本会话我的页
+> 都吃了这个隐性副作用。立档后浅色态逐字节回到原值。
+
+- [x] ✅(2026-09-23) **`rn-tokens.ts` 新增 `brand.ctaFill`/`brand.ctaText`**(`rnTokens`/`rnLightTokens`/`rnDarkTokens` + `RnThemeTokens` 类型四处同步):浅色 `#000000`/`#FFFFFF`(与 `brand.DEFAULT`/`foreground` 同值 ⇒ 浅色零变化),深色 `#a3c4d6`/`#16262e`(= 深色 brandAccent 对;纯白底压 `#1A1A1A` 卡面实测 **17.40:1** 即"刺眼"的量化)。`active-tokens` 的 `Object.assign` 按命名空间合并,新字段自动随主题生效。
+- [x] ✅(2026-09-23) **只迁"填充与文字成对"的 30 块 / 23 文件**(块内或同名 `<块>Text/Label/Icon/Title/Value` 兄弟块用 `brand.foreground` 者):这类改写**可证明浅色态不变、只动深色**。上一轮我的页 3 处 + 广场页 4 处从 `brandAccent` 重指向本档,浅色态因此回正。diff 自证:新增行 100% 含 `brand.cta*`,删除行除上一轮 brandAccent 两行外全为 `brand.DEFAULT/foreground`。commit `6c9a7ac7a`。
+- **剩余 244 处 `brand.DEFAULT` 填充未动(判据所限,非偷懒)**:块内没有 `brand.foreground` 文字(图标色多走 JSX `color={...}` prop),填充↔前景配对静态看不见,盲批会把"深字白底"变成"深字灰蓝底"之外的错配。另 **7 处**前景是 `text.primary`/`surface.light`,属守门 75 R1 族须单判。**下一步应是给守门 75 加 R3 基线棘轮**(按文件计 `brand.DEFAULT` 填充数,只减不增),否则这次立的档会被新代码绕回。
+- [x] ✅(2026-09-23) **可达性审计:上一批 task 1/5/7/8 没有改在死代码上**。审计中我自己先差点写错:`packages/app` 发布名是 **`@ihui/rn-app`**,按 `from '@ihui/app'` 搜引用得 0 命中,会误判 plaza/square 为死代码;换正确包名后确认 `PlazaScreen.tsx:43`、`NewsScreen.tsx:41`、`ArticleListScreen.tsx:9` 均真在渲染。**本批唯一不可达仍是上节已搬走的 `loading={false}` 超时 UI**。
+- **存量复算与登记不符(以复算为准)**:`surface.light` 作前景实测 **259 处 / 149 文件**,而 §3572 登记的是"114 处 / 49 文件",**低估约 2.3 倍**;`brand.DEFAULT` 作填充 281 块(257 处为 `backgroundColor`)。后续排期按复算值。
+- **顺带发现两处隐患(本票未动,只登记)**:① `apps/mobile-rn/src/theme/active-tokens.ts` 的 `mutableTokens = {...rnLightTokens}` 是**浅拷贝**,`apply()` 里 `Object.assign(target, values)` 会写穿到 `rnLightTokens` 本身 ⇒ 浅→深→浅理论上回不来;当前被"切主题即重载 JS"掩盖,属 latent bug。② **守门 57 `check-chat-element-coverage` 恒红 13 处**(清单 126 条),其中 ChatScreen 的 4 个锚点(`retryLastTurn`/`chatAlert.errorTitle`/`onCitations`/`onInjectionApplied`)在 `HEAD~1` 就已 0 命中 —— 与本票无关,但**这正是人人 `--no-verify` 的成因**(一道恒红门会连带废掉全部守门)。
+- 验证:`node scripts/watermark.mjs verify` **10134/10134 完整、载荷损坏 0**(批量改写未伤零宽溯源链,§5c);design-tokens typecheck 0 错;mobile-rn typecheck 源码 0 错(仅剩已登记的他人测试 `TS6196`);24 文件 eslint exit 0;守门 75 全量 R1=0 / R2 ≤ 基线。
+- **像素级复验改走 Web 预览(用户选定)**:设备 release 包路线已放弃;`:8806` Expo Web 预览实测 React 已加载但 `#root` 为空(渲染不出),**须先修预览链路才能作为像素证据**,当前不可依赖。
+- **平台独占豁免依据(§9)**:改动全在 RN 专用色板(`rn-tokens.ts`)与 RN 端取色层,不触 web/miniapp-taro 的 CSS 变量链路;新字段无其他端消费者。
