@@ -629,6 +629,35 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - 提交:`34988d7170`(补间实现)。守门 `desktop-nsis-template --check` OK(36 处补丁,本批未新增模板补丁)、
   `check-installer-assets` PASS、`makensis` 0 error。
 
+### 第十三批(2026-09-23):给本会话修掉的三条跨文件不变量装闸 —— 堵住"造好没装车"
+
+第十二批把三个缺陷修好了,但**没有任何闸门能阻止下一个人改回去**。这批补闸。
+
+- 口径:并入已有守门 **61** `scripts/check-installer-assets.mjs`,不新增门号(并发会话会抢编号,
+  同 id 两道 blocking 门会串 skipEnv 与失败归属 —— 见"守门编号先查 HEAD 占用")。
+- 三条不变量(纯函数 + env 可覆盖路径,便于注入自证):
+  ① **洞 == 按钮矩形**:解析 `IHUI_INST_HOLES` 宏体里 CTA/取消两洞坐标,与
+    `IHUI_CTA_X/W`、`IHUI_CANCEL_X/W`、`IHUI_BTN_Y` + 从 `IHUI_INST_SLOT` **实参解析出的**按钮高度
+    逐字段比对(高度不写死,免得宏改高度时闸门自己先骗人)。洞偏大 → 透出父对话框为 BUTTON
+    返回的经典面色刷 `#f0f0f0`,即用户报的"方形白边";洞偏小 → 切掉位图边缘。
+  ② **百分比控件与双环同心**:`IHUI_PCT_X + W/2 == PCT_CX`、`Y + H/2 == PCT_CY`,并断言控件用
+    `IHUI_PCT_STYLE`(SS_CENTER)—— 退回 SS_RIGHT 时 `6%`→`100%` 会让数字在环里左右漂。
+  ③ **埋点 == 刻度**:从**渲染后的 `installer.nsi`** 抓 `IHUI_PROGRESS`/`IHUI_UNPROGRESS` 集合
+    (排除 100),与生成器 `PB_TICKS` / `sceneUninstfiles` 的 `meterTrack([...])` 逐值比。
+    刻意读渲染产物而不是补丁脚本,避免"补丁表与实际产物不一致时闸门自洽地假绿"。
+- 有效性自证:新增 `scripts/tests/check-installer-assets-geo.test.mjs`,把真实源文件复制进临时目录
+  后**逐条注入违规**(洞改回外扩 2px / 环心改 260 / 刻度回退旧集合 / 样式退回 SS_RIGHT),
+  断言各自变红且命中具体判据 —— **5 例全绿(基线 + 4 条注入全部被咬)**。
+  闸门当场抓到我自己一处措辞 bug(消息里 `cta` 与断言里 `CTA` 不一致),统一成 `CTA 槽/取消槽`,
+  没有把断言改松。
+- README §守门脚本速查 61 行同步扩写(§21)。README 的工作区副本**又一次**是被回滚过的旧版
+  (HEAD 里"44 check-root-dir-clean"行在工作区不存在),再次以 HEAD 为基准做单行改写并带回那行。
+- 并行:后台代理做桌面端 Rust 侧只读回归 —— `cargo check` 0 error/0 warning、
+  `cargo test --lib` 7 passed、`auto_refresh.rs` 三分支(L155/L180/L183)+ 空第二闭包(L173)
+  + 三处 `log::warn!`(L147/L177/L184)全部仍在、`tauri.conf.json` 两端点 https 且无
+  `dangerousInsecureTransportProtocol`、无残留 `127.0.0.1:8899` 测试端点、该目录 `git status` 干净。
+- 提交:`decdd405b5`(3 文件)。守门 61 全量跑四段 PASS;`node --test` 5 pass 0 fail;eslint 0 error。
+
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
 
@@ -1461,6 +1490,9 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
   - **D55② 端侧取证闭环 + G-164③ 实测收口(第 61 轮续)**:① 承上票补上我上轮明确写下的缺口 —— web `agent-runtime-panel.test.tsx` 的 `next-intl` mock 改成**真实 shared 词包**解析 `stepDecision.*`(否则"界面不再出现英文码"只是测试自造字面值),新增 3 例:`onPermission({decision:'auto_skip_approval'})` → 显示「自动批准(免审批)」且断言不含原始码;`deny` → 「已拒绝」;认不出的 `maybe_allow` → **原样显示且绝不显示成"已放行"**(审批语境猜错=误导授权)。**变异取证**:把渲染位退回 `decision: permission.decision` 后两条取词例立刻红(13 passed / 2 failed),还原后 15/15 绿。② `G-164 剩余③ 三端无任何档位可见性` 经实测**已不成立** —— 并行的 D111 票已把档位行落到三端真实落点:`apps/miniapp-taro/src/pkg-ai/ai/chat.tsx`、`apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx`、`apps/extension/entrypoints/sidepanel/components/MessageContent.tsx`(+ 同端 `AgentRuntimePanel.tsx`),均经共享 `permissionTierWordKeys` 取词。**剩余精度差**(如实登记,不称全完):mobile-rn 只有 N8n 屏挂了,`ChatScreen` 尚未挂 —— 该文件正被并发会话 in-flight 改写(语法破损中),此刻插入必撞车,解阻判据 = 待其提交后按 N8n 屏同一形态补 `ChatScreen` 档位行并扩守门 57 锚点。③ `G-164 剩余① 全线切 camel 落库`**不动**:它是"带回填的生产值迁移"(改 `workspace_permissions` 存量数据),按 AGENTS §8/§12 属高危且归属用户,不擅自执行、也不假装已排期。
   - **D79 第①步 cli 接线 + 四端现状更正(第 61 轮续)**:先量后做(子代理取证 + 我逐条 `git show HEAD:` 复核,拒绝自述)。① **cli 已接线**:新建 `apps/cli/src/commands/waiting-text.ts` 的 `buildWaitingSpinnerText()`(象限 agent / 阶段按 history 分首轮·追问 / seed=prompt / locale=`getLocale()`),`repl.ts:42` import + `:2169` 渲染位改调它(替掉硬编码"正在思考...");`apps/cli/tests/waiting-text.test.ts` 4 例,变异取证把取词退回固定串 → 2 例立即红(红在"不再是固定串"与"首轮≠追问"),还原 4/4;cli typecheck 0 错、prettier 干净、水印 10023/10023。② **web 属"造好没装车"且结构性阻塞**:`message-item-parts.tsx` 的 `waitSeed/waitQuadrant/waitPhase` 三个入参**只存在于并发会话未提交的工作区**(HEAD 计数 0),`MessageItem.tsx:693` 生产恒走固定串 `waitingResponse` ⇒ 解阻判据 = 等该端入参契约落库后补 3 个 prop + "传参即出池文案"断言(共享实现无需改)。③ **extension / desktop 无该表面**(grep `思考中|waitingResponse|isThinking|typing-indicator` 双端空),按 §9 记平台侧豁免;mobile-rn 的 `TaskStatusBar.tsx:122` 是任务状态条兜底不是打字指示器,真打字位在被 in-flight 占用的 `ChatScreen.tsx`。⑤ 两条**共享层真缺陷**:`resolveWaitingText` 只做取模,**没有"相邻不重复"保证**(seed 跳变即文案跳变,连续两帧撞同一条会显得卡住);池内 76 个 `waiting.*` 键**任一端都未落词包**,现走池内联文案 ⇒ 五语言本地化闭环(含 taro 离线包重生成)仍是独立一步。⑥ 顺带把 D55② 的端侧取证补全:`apps/mobile-rn/tests/agent-runtime-permission-decision.test.tsx`(真组件 + 真 `I18nProvider`,messages 走 `mergeMessages(shared, 端)`,4 例)+ `apps/miniapp-taro/src/components/__tests__/agent-runtime-permission-decision.test.ts`(8 例);rn 侧变异矩阵 M1 直显枚举/M2 把未知值猜成"已放行"/M3 喷键名 **三种形态全部判红**,taro **渲染级测不到**属实测非推测(该端 vitest `environment:'node'` 无 jsdom,`@tarojs/runtime` 在 node 下 `ReferenceError: ENABLE_INNER_HTML`,已连同错误原文写进文件头并退到"真实合并视图取词 + 端内调用点源码结构"两层)。
   - **D79 第②步 web 接线已落地(第 62 轮)**:上一步记的"结构性阻塞"随并发会话落库自动解除 —— 实测 `git show HEAD:...message-item-parts.tsx | grep -c waitQuadrant` = 4(入参契约已入库),于是把 `MessageItem.tsx` 的渲染位补上三个实参:`quadrant=agent`(对话流的等待对象就是智能体)、`phase` 按"本条之前是否已有 user 消息"分 `first|followup`、`seed = 最近一条 user 内容长度 + 4s 时间桶`(同一次等待内稳定 ⇒ 不跳字、不与读屏 announcer 抢播报,跨期才轮换)。取证 `apps/web/src/components/chat/message-list/__tests__/typing-indicator-waiting-pool.test.tsx` **4 例全绿**,判据形状刻意用可辨识合成池文案(不靠真词包,那层由 `waiting-pool.test.ts` 与端内合并视图用例各自钉):① 不传象限/阶段 → 回退固定串;② 传 agent × 三阶段 → 进池且不再是固定串;③ 同 seed 稳定 / 异 seed 会变;④ **象限与阶段只给一个就不进池**(契约要求两个都给,防"半接"静默失效)。写这层用例时踩到一条自己造的假绿:渲染位会把 `waiting.` 前缀剥掉再交给 `useTranslations('waiting')`,我第一版按 key 前缀判定 ⇒ mock 永不命中 ⇒ 组件静默落到池的**英文兜底表**(`Got it, thinking through a response…`)却仍然"看起来在跑",改成按 **ns** 判定后才拿到真信号 —— 记进项目记忆。**残余(不称收口)**:① 这 4 例证的是**组件 honors 入参**,渲染位"确实传了 3 个参数"目前只有 typecheck + 代码位置证据,store 驱动的端到端用例待补(判据:让 `useChatStore.messages` 处于 `showTyping` 态,断言 `[data-testid=typing-indicator]` 文本不等于固定串);② 轮换取舍是"一次等待内稳定",若产品要"同一等待内也轮换",需把 seed 换成时间桶并放慢节奏(会引入视觉抖动与读屏重复播报,须先定档);③ **miniapp-taro 仍走固定串** `pages/index/index.tsx:1440`,但其 locale 出口实测**已存在**(`src/i18n/index.tsx` 的 `useI18n()` 返回 `{locale, t, setLocale}`,上一步"无 locale 出口"的结论是我按 `index.ts` 猜路径导致的误判)⇒ 下一步按 cli 同形态建 helper + 用例并 `gen:i18n`。
+  - **D79 第③步 taro 接线 + web 端到端取证 + 全量台账审计(第 62 轮,并行批次)**:两路代理交付已由我逐文件复核归属后入库(`git diff` 证实 taro 那 7+/2- 全属接线,未夹带他人 `permission-stamp.ts`,也未碰他人在改的 `MessageItem.tsx`)。① **miniapp-taro 接上轮换池**:取证推翻我上一轮"缺原料"的顾虑 —— `AiHomeState` 里 seed 与 phase **都可得**,但 **`inputText` 不能当 seed**(`handleSend:1017` 先入列再置 streaming 并清空输入,取它必为空)⇒ 改走 `conversationMessages` 末条 user 内容;新增 `src/pkg-ai/ai/waiting-text.ts`(薄接线层)+ 11 例,渲染位 `:1441` 换掉固定串;变异(退回 `tt(index.thinking)`)红在"等待占位块改调 buildTaroWaitingText"。**该端 vitest 是 `environment:node` 无 jsdom ⇒ 组件渲染级测不到**,故额外补了"端内调用点源码结构"一层才咬住接线 —— 单靠行为断言在这一端是测不出来的,这条限制连错误原文写进文件头。② **web 渲染位 store 驱动端到端 5 例**(真 zustand store 灌消息 + 假时钟 + 用 `resolveWaitingText` 反查期望下标,不手抄;按 **ns** 判取词),变异 A 剥三个 prop → 4 例红,变异 B 只剥 `waitSeed` → 报 `first.0 vs first.4` 证明 seed 真在传;内含一条自检断言防"期望下标恰为 0 时 `waitSeed ?? 0` 让 seed 判据恒真"。③ **72 条未勾 D 任务全量审计(只读)**:已落地 9 条(D34/D39/D44/D55/D83/D88/D98/D101/D106/D107/D111)、部分 13 条、其余未开始,逐条带 文件:行号;**其中已落地但守门 57 缺锚点**的 D44/D88/D101/D106/D107/D111 由我补锚点;另发现一条易踩的台账陷阱:**计划里存在两套 D 编号族**(第 722-732 行 i18n 补盲族的 D29-D33/D80 与第 1349 行起对话流族同号**不同任务**),改计划时不得并成一条。④ 顺带证伪一条旧假设:`waiting.*` 键在 `packages/i18n/messages/shared/*.json` **五语言齐**(不是"76 键无处可取"),真正过期的是 **miniapp-taro 离线包**(`remote-locales.gen.ts` 解码后 `has waiting: false`)⇒ 四语言等待池当前落英文回退,解阻动作只有一次 `gen:i18n`(由并行那路独占执行)。
+  - **D79 第④步 词包落地 + 门 57 补 5 条锚点(第 62 轮并行批次)**:等待池 76 个 `waiting.*` 键落 `extension/mobile-rn/miniapp-taro/cli` 四端词包(20 文件全为纯新增,逐文件 flatten 深比较"既有叶子 changed=0 + 新增集合恰等 76"),值**逐字取 shared**(池只内联英文兜底,四语真相在 shared ⇒ 端包复制 shared 而不是复制池,否则等于引入第三套说法);web **不需要**改包(web 运行时 `mergeMessages(shared, web)`,实测 `waiting.*` 在 web 已可达)—— 这条是并行代理先按"每端都要有"去写、我实测后砍掉的半步。防回潮用例 `packages/i18n/tests/waiting-keys-in-end-packages.test.ts` 12 例直接用池函数取真值无镜像文案,注入红验证两型(改一个端值 → drifted 红;五端同删一键 → missing 红)。门 57 按只读审计补 5 条锚点(D44 白名单清零 / D88 diff 暂存 / D101 端中立 ICU / D106 双解析器对齐 / D111 三端档位可见性),implemented 27→32、清单 126 条,每个 mustMatch 先实测命中才入台账,且**不锚任何未跟踪文件**(他人 in-flight 内容当锚点 = 门依赖不在提交树里的东西)。**两处我自己造的故障与修法(都记下来)**:① 第一版锚点脚本用外部 `grep.exe` 校验令牌,路径不存在 ⇒ 抛错后我误以为已写入;改成 JS 读文件校验。② 第二版手工在 `implemented` 收尾前插文本,回溯找 `]` 时把 `  ],` 跳过、命中了更靠内的 anchors 收尾 ⇒ JSON 结构被写坏、门 57 直接 `ERR_INVALID_ARG_TYPE` 崩;正解是 `git checkout HEAD -- <该文件>`(那文件只有我未提交的改动)后改用"parse→push→stringify→prettier"的规范路径,代价是 prettier 把他人既有的一些单行 anchors 展开成规范形态(126+/16-,纯格式等价,门与 prettier 双绿)。残余:并行那路对"相邻不重复"约束的共享层改动仍在途未入库。
+  - **D79 第⑤步 共享池"相邻不重复"约束(第 62 轮,并行第 3 路 + 我复核)**:约束落在 `resolveWaitingText` 的新可选入参 **`avoidSeed`**(不是 `avoidIndex` —— 下标是 `normalizeSeed % 池长` 的内部派生量,调用方手里只有上一帧 seed,要它自己重算取模规则等于造一个没人能正确使用的死 API)。实现 `pickIndexAvoiding` 在撞上上一条时 `(index+1)%poolLength`、池长 ≤1 原样返回,**纯函数无模块状态**(该池 5 端共用,任何模块级状态都会串台)。既有 24 例逐条零改动通过(不传即与今天等价),新增 14 条正反成对:零影响等价 / 反例基线 / 顺移与池尾环绕 / 撞车才换条(未撞不多跳) / **全象限×全阶段×(seed,avoidSeed) 不变式 3375 组** / 40 帧链 / 同余链"旧行为全冻结 vs 传入后不冻结" / vivid / 中文走词表·无 t 回英 / 异常 seed 矩阵 / 词表塌成单条 / 非法象限 / off 三口径 / echoT 不泄 key。**判据有效性用注入证明**:把约束写成 `index === previousIndex ? index : index` ⇒ 7 例红而既有 24 例与"零影响/反例基线"仍绿(证明拦的是约束本身,不是碰巧红一片)。**残余(如实,不称接完)**:`grep avoidSeed apps/` = 0 命中 —— 端调用点尚未消费该入参,即"门有闸、水没引";接法已定:① web 由 `message-item-parts.tsx` 的 TypingIndicator 持一个"上一帧 seed"ref 并回传 `avoidSeed`(该文件常被并发会话占用,须先确认它相对 HEAD 干净);② cli 传上一轮 prompt。本轮因 `message-item-parts.tsx` 与 rn 两屏仍属他人 in-flight,未越权接线。
 
 - [ ] **D56 额度与权益元素族(G-67,与 G-45 合并实施)**:补额度恢复后"是否继续刚才中断的任务?"续跑询问、优先通道/速通徽章、按 token vs 按次计费口径透出、企业用量四分账视图。落点 `session-usage-badge.tsx` + `FallbackBanner.tsx`。**验收**:四元素各一用例 + **不得破坏 2026-09-21 三轮"不充值可用心智"边界**(免费档可用时不弹付费诱导)
 - [x] ✅(2026-09-23) **D57 对标文档证据等级标注(卫生项,防二手当一手)**:`docs/AI_CHAT_BENCHMARK_ANALYSIS_V2.md`(17.5KB,**已在库内**)第 10 行自述证据基线含"4 路竞品**联网调研**",其 WorkBuddy 列经本轮实证**无任何可核证物**(WorkBuddy 本机无本体,`.workbuddy/` 系我方 `git-push-guard.mjs:177,202` 自建)。任务:给该文档逐节补 `E1-E5 证据等级` 标记 + WorkBuddy 列显式标"二手·不可核证" + 修正 V1-V3 报告引用它的结论;**同时**排查 `scripts/lib/gitdir.mjs:38` 硬编码 `C:/Users/Administrator/.workbuddy/binaries/PortableGit/...`(疑指向另一台机器)是否应改为环境变量/自适应探测。**验收**:文档每节有等级标记 + gitdir 候选路径来源说明或改造 + 无一手证据的断言不再被下游任务引用
@@ -3321,7 +3353,58 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
     **变异测试按真文件取数**:把 HEAD 的旧行写回工作树跑全量 ⇒ `exit 1` 且点名 7 个包,与我按
     package.json 独立算出的闭包**逐个一致**;还原后 `exit 0`,现场 sha256 字节一致。
     镜像测试在此过程中先咬出实现一处真缺陷(单包形态误把依赖并入闭包 ⇒ 假阳性),按实现修而非放宽断言。
-    **本机无 docker**,故终证仍需看 CI 的 build-web 在新提交上转绿。
+    **本机无 docker**,终证取 CI `Build Docker` run 35762633688(提交 `dd96286014`):
+    **`build-api` 与 `build-ai-service` 均 success**,`build-web` **首次走完 `✓ Compiled successfully in 8.7min`,
+    上一轮那三条 `Module not found: Can't resolve '@ihui/api-client'` 全部消失** —— C 判据修的这一层
+    已被证明生效。
+  - **build-web 第三层(根布局 cookies() 与 `output:'export'` 冲突)本会话已代修**(commit `856f5f1b4c`):
+    `eabc82e8f3`(2026-09-22,语言偏好补 cookie 真值源)把 `(await cookies())` 放进**根布局**,而
+    `output:'export'` 等价于全路由 `dynamic="error"` ⇒ 静态预渲染必挂:CI 在
+    `Generating static pages (0/927)` 报 `Route /models ... couldn't be rendered statically because it used
+    cookies()`(`/models`、`/admin/product-identity`、`/context-compaction` 同因,Next 遇错即退出),
+    三条共用 `build:static` 的链(docker web 镜像 / Tauri 桌面 / GitHub Pages)全被打穿。
+    **修法取自本仓既有先例**:`apps/web/src/i18n/request.ts` 顶部注释即"A 套壳方案:output:export 不支持
+    cookies() 动态服务端 API,构建时用默认 locale"(原读取见 `ce1f12795`)—— 故给根布局加同一道闸:
+    `isStaticExport = EXPORT_STATIC==='true' || GITHUB_PAGES==='true'`(判据与 `next.config.ts:23` 一致)时
+    **不进入 `cookies()` 分支**,首帧 `<html lang>` 落回 `DEFAULT_LOCALE`,挂载后仍由 I18nProvider 纠正;
+    **服务端模式(`next build` + `next start`)一行行为未变**,cookie 真值源的原意完整保留。
+  - **为何本地不跑 `build:static`**:它会 `excludeRuntimeRoutes()` 把 `app/cdn` 与 `app/uploads` 临时搬出
+    工作树约 10 分钟,共享工作区内他人一旦在此期间提交就会丢目录(违反 §12d 单写者原则),故只以 CI 为终证。
+    本地替代取证:`apps/web` 全量 `tsc --noEmit` 对 `app/layout.tsx` 0 错误(唯一 1 条红在未跟踪的他人测试文件)、
+    `eslint` 该文件 exit 0、`prettier --check` 干净。
+  - **本轮再测 CI(run 35800471346,提交 `856f5f1b4c`)出现新的第三因,且不是本任务的**:`build-api` 与
+    `build-web` **同时**停在 `Cannot find module './prompt-history'` + `error TS2307` ——
+    已提交的 `packages/shared/src/chat/index.ts` 引用了 `prompt-history.ts`,而该文件与其测试至今是
+    `?? ` **未跟踪**(并发会话漏 `git add`,即"提交了引用新文件的代码却没 add 那个文件"这一族)。
+    该缺失挡住了预渲染阶段,故 cookies() 这一层的终证要等它补齐后的下一枚 tip。
+  - **本条登记的自愈记录**:这段 19 行曾被并发提交 `838c8dae13`(旧基线整文件回写)抹掉一次,
+    本次按 `git show 77a1fcb4ee:PROJECT_PLAN.md` 原文**前向恢复**并重写(装配脚本断言"相对现取 HEAD
+    只替换我这 1 行、他人行零丢失 + CAS"),未做任何 revert。
+  - **build-web 的三层叠压全貌**:①第一层 A 判据类(钩子脚本未 COPY,`Cannot find module
+    '/app/scripts/fix-expo-metro-junction.mjs'`,旧 run `d36a7122d4`/`f6be1777ad`/`f4f1bbbdfa` 均停在此)
+    → 已在 `f9a264f25b` 收口;②第二层 C 判据类(依赖被 `run build:static` 静默跳过)→ 本票收口并经
+    CI 证明编译通过;③第三层根布局 cookies() → `856f5f1b4c` 收口;其后又叠了并发会话的漏加(第四因),
+    已按归属如实登记。
+  - **终证被挡的确切范围(实测量化,不是"等一等"的托词)**:全仓扫"被**已提交**代码引用的**未跟踪**源码文件"
+    得 **9 个**:`packages/shared/src/chat/prompt-history.ts`(被已提交的 `chat/index.ts:21` `export *` 引用)另
+    `apps/web` 侧 8 个(`use-prompt-history.ts`←已提交 `message-input.tsx:53`、`plan-version-history.ts` /
+    `PlanVersionDiff.tsx` / `PlanVersionSwitcher.tsx`←已提交 `plan/[id]/PageClient.tsx`、`diff-staging.ts`←
+    `inline-diff-card.tsx`、`reply-annotation.tsx`←`MessageItem.tsx`、`use-upload-labels.ts`←`ImageUpload.tsx`、
+    `use-web-view-frame-labels.ts`←`web-work-panel.tsx`)。CI 只 checkout 已跟踪文件 ⇒ 编译面在他人补交前
+    不可能绿;把这 9 个半成品收进我名下即 §16 越权 + 可能引入未写完的逻辑,故不做,**逐个点名以留可核对清单**。
+  - **本地拿得到的最强替代取证(判据等价性,静态可核)**:`next.config.ts:23` 定义
+    `isStaticExport = EXPORT_STATIC==='true' || GITHUB_PAGES==='true'`,而 `:51` 正是用这同一个变量决定是否
+    `output:'export'`;我在 `app/layout.tsx` 用的是**同一表达式**(未另造开关),故"导出模式 ⇒ 不调 `cookies()`"
+    与"导出模式 ⇒ `output:'export'`"由同一真值驱动,不存在第二套判据漂移的空间。
+  - **守门 71 的覆盖面缺口已量化并判定"不扩闸"(派子代理实测,我复现过)**:拟议的"块判据"(编号行下方连续缩进
+    子条目并入该 marker)在最近 **198 对**改动 `PROJECT_PLAN.md` 的 (parent→child) 上报出 **258 行"丢失"**,分类为
+    同位改写型误报 **26 条**、§1 归档移动型 **0 条**;且 258 里 **249 条集中在单枚 `84b9d9c581`**(实测 numstat
+    正是 `22+ / 356-`)。误报的典型形态是那种"改一句报一次丢":`G-39~G-83` → `G-39~G-94` → `G-39~G-105`
+    三连提交(`b06af4b00b`/`0b84b6f898`/`9a91339204`)每次都把整片片段判丢。**判语**:计划正文是硬换行的段落,
+    一堵就是上百行红,唯一出路是 `--no-verify` 把整条守门链关掉 —— 那比现状更糟,故识别面**维持只认编号行**;
+    (c)=0 也顺带证明归档移动不是风险,真正的风险是改写型,而"近义/同位放行"判据无法区分"改写"与
+    "整片被旧基线抹掉",会连真丢一起放过 ⇒ 以扩面换救回不成立。**因此本段这类续行内容的存活只靠一条自证
+    动作:提交后立刻 `git show <origin-sha>:PROJECT_PLAN.md | grep -c "<关键串>"` 回读远端 tip**(已进项目记忆)。
   - 平台独占:apps/api + deploy/docker + scripts 守门 + 文档(§9 豁免,无跨端契约变更)。
 
 

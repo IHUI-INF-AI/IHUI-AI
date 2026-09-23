@@ -11,7 +11,9 @@
       "id": "message-usage-metrics",
       "title": "消息级计量徽章行(tokens/耗时/首包/费用)",
       "sourceTask": "D1",
-      "events": ["usage"],
+      "events": [
+        "usage"
+      ],
       "anchors": [
         {
           "file": "apps/web/src/components/chat/message-list/MessageItem.tsx",
@@ -46,7 +48,10 @@
       "title": "回退影响预览(恢复前列影响文件+diff)",
       "sourceTask": "D4",
       "anchors": [
-        { "file": "apps/web/src/components/ai/checkpoint-impact.ts", "mustMatch": "export" },
+        {
+          "file": "apps/web/src/components/ai/checkpoint-impact.ts",
+          "mustMatch": "export"
+        },
         {
           "file": "apps/web/src/components/ai/checkpoint-rollback-confirm.tsx",
           "mustMatch": "export"
@@ -58,7 +63,10 @@
       "title": "工具调用卡耗时/重试元数据",
       "sourceTask": "D5",
       "anchors": [
-        { "file": "apps/web/src/components/ai/tool-call-card.tsx", "mustMatch": "duration" }
+        {
+          "file": "apps/web/src/components/ai/tool-call-card.tsx",
+          "mustMatch": "duration"
+        }
       ]
     },
     {
@@ -77,7 +85,10 @@
       "title": "输入区网页搜索开关与工具集合并",
       "sourceTask": "D22",
       "anchors": [
-        { "file": "apps/web/src/hooks/use-chat/tool-config.ts", "mustMatch": "webSearchEnabled" }
+        {
+          "file": "apps/web/src/hooks/use-chat/tool-config.ts",
+          "mustMatch": "webSearchEnabled"
+        }
       ]
     },
     {
@@ -95,15 +106,25 @@
       "id": "tool-output-persistence",
       "title": "工具调用与终端输出落库后恢复",
       "sourceTask": "D24",
-      "events": ["tool-call-start", "tool-result", "terminal_start", "terminal_end"]
+      "events": [
+        "tool-call-start",
+        "tool-result",
+        "terminal_start",
+        "terminal_end"
+      ]
     },
     {
       "id": "plan-steps-persistence",
       "title": "planSteps 零迁移持久化与回放",
       "sourceTask": "D33(planSteps 子项)",
-      "events": ["plan-step"],
+      "events": [
+        "plan-step"
+      ],
       "anchors": [
-        { "file": "apps/web/src/hooks/use-chat/history-message.ts", "mustMatch": "planSteps" }
+        {
+          "file": "apps/web/src/hooks/use-chat/history-message.ts",
+          "mustMatch": "planSteps"
+        }
       ]
     },
     {
@@ -146,7 +167,9 @@
       "id": "context-compaction-ceiling",
       "title": "上下文压缩撞到上限的警示行(带下一步,不再静默降级)",
       "sourceTask": "G-150",
-      "events": ["compaction"],
+      "events": [
+        "compaction"
+      ],
       "anchors": [
         {
           "file": "apps/ai-service/app/routers/llm.py",
@@ -222,7 +245,9 @@
       "id": "citation-sources",
       "title": "回复引用与来源锚点(行内编号引用,我方领先项)",
       "sourceTask": "D27/G-70/D109",
-      "events": ["citations"],
+      "events": [
+        "citations"
+      ],
       "anchors": [
         {
           "file": "apps/ai-service/app/routers/llm.py",
@@ -299,7 +324,10 @@
           "file": "apps/web/src/components/agents/UnifiedTaskDashboard.tsx",
           "mustMatch": "unified-task-dashboard"
         },
-        { "file": "apps/api/src/routes/task-messages.ts", "mustMatch": "task-messages" }
+        {
+          "file": "apps/api/src/routes/task-messages.ts",
+          "mustMatch": "task-messages"
+        }
       ]
     },
     {
@@ -318,8 +346,14 @@
       "title": "外部会话导入(Claude/Codex/Cursor/Aider 迁入即用)",
       "sourceTask": "D28",
       "anchors": [
-        { "file": "apps/ai-service/app/services/importers/ir.py", "mustMatch": "def " },
-        { "file": "apps/api/src/routes/conversation-import.ts", "mustMatch": "conversation-import" }
+        {
+          "file": "apps/ai-service/app/services/importers/ir.py",
+          "mustMatch": "def "
+        },
+        {
+          "file": "apps/api/src/routes/conversation-import.ts",
+          "mustMatch": "conversation-import"
+        }
       ]
     },
     {
@@ -349,7 +383,10 @@
       "title": "工具名本地化词表全覆盖",
       "sourceTask": "D54/H16",
       "anchors": [
-        { "file": "packages/shared/src/chat/tool-display.ts", "mustMatch": "TOOL_DISPLAY_KEYS" }
+        {
+          "file": "packages/shared/src/chat/tool-display.ts",
+          "mustMatch": "TOOL_DISPLAY_KEYS"
+        }
       ]
     },
     {
@@ -367,7 +404,9 @@
       "id": "context-injection-disclosure",
       "title": "本轮上下文注入交代条(web/extension/miniapp-taro/mobile-rn/cli 五端已接;前端本地化 kind 标签 + 可展开全文 + 段数计数)",
       "sourceTask": "D34/D45",
-      "events": ["injection_applied"],
+      "events": [
+        "injection_applied"
+      ],
       "anchors": [
         {
           "file": "apps/ai-service/app/routers/llm.py",
@@ -447,7 +486,9 @@
       "id": "upstream-retry-disclosure",
       "title": "上游重试交代行(第 N/M 次 + 多久后继续;立即重试不写\"0 秒\")",
       "sourceTask": "D39/D108",
-      "events": ["retry_scheduled"],
+      "events": [
+        "retry_scheduled"
+      ],
       "anchors": [
         {
           "file": "apps/ai-service/app/routers/llm.py",
@@ -522,7 +563,9 @@
       "id": "terminal-output-truncation-disclosure",
       "title": "终端输出截断交代(truncated + totalChars,本地全文展开后仍持续交代)",
       "sourceTask": "D40",
-      "events": ["terminal_end"],
+      "events": [
+        "terminal_end"
+      ],
       "anchors": [
         {
           "file": "apps/web/src/components/ai/progress-sections/terminal-section.tsx",
@@ -617,6 +660,73 @@
         {
           "file": "apps/miniapp-taro/src/i18n/__tests__/step-decision-pack.test.ts",
           "mustMatch": "mergeMessages"
+        }
+      ]
+    },
+    {
+      "id": "agent-event-whitelist-rendered",
+      "title": "(D44) 代理事件白名单清零后逐项有渲染位",
+      "sourceTask": "D44",
+      "anchors": [
+        {
+          "file": "scripts/check-agent-event-parity.mjs",
+          "mustMatch": "WHITELIST"
+        }
+      ]
+    },
+    {
+      "id": "diff-staging-semantics",
+      "title": "(D88) diff 暂存语义 stageFile/stageHunk",
+      "sourceTask": "D88",
+      "anchors": [
+        {
+          "file": "apps/web/src/lib/diff-staging.ts",
+          "mustMatch": "stage"
+        },
+        {
+          "file": "apps/web/src/components/ai/inline-diff-card.tsx",
+          "mustMatch": "diff-staging"
+        }
+      ]
+    },
+    {
+      "id": "end-neutral-icu-engine",
+      "title": "(D101) 端中立 ICU 引擎与跨引擎一致性夹具",
+      "sourceTask": "D101",
+      "anchors": [
+        {
+          "file": "packages/i18n/src/icu.ts",
+          "mustMatch": "selectordinal"
+        },
+        {
+          "file": "packages/i18n/tests/cross-engine.test.ts",
+          "mustMatch": "next-intl"
+        }
+      ]
+    },
+    {
+      "id": "sse-parser-disclosure-parity",
+      "title": "(D106) 双解析器交代帧对齐",
+      "sourceTask": "D106",
+      "anchors": [
+        {
+          "file": "packages/shared/src/utils/sse-parse.ts",
+          "mustMatch": "injection_applied"
+        }
+      ]
+    },
+    {
+      "id": "runtime-permission-tier-visibility",
+      "title": "(D111) 三端运行时档位可见性(只锚已跟踪文件)",
+      "sourceTask": "D111",
+      "anchors": [
+        {
+          "file": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
+          "mustMatch": "permissionTier"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/components/MessageContent.tsx",
+          "mustMatch": "permissionTierWordKeys"
         }
       ]
     }

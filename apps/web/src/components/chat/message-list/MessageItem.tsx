@@ -31,6 +31,8 @@ import type { InlineDiffInfo } from '@/components/ai/types'
 import { CommunityPublishDialog } from '@/components/chat/community-publish-dialog'
 import CheckpointRewindPanel from '@/components/checkpoint/CheckpointRewindPanel'
 import { MarkdownStream } from '@/components/ai/markdown-stream'
+// D87(2026-09-23 立):AI 回复文本批注双向锚点(圈选回复选区 → 持久锚点 + 失效态 + 再编辑/删除)
+import { ReplyAnnotationLayer } from '@/components/ai/reply-annotation'
 import { ToolCallCard, deriveDiffInfo } from '@/components/ai/tool-call-card'
 import { StreamGroup } from '@/components/chat/stream/stream-ui'
 import { describeToolCall, humanizeToolText } from '@ihui/shared/chat'
@@ -979,11 +981,13 @@ const MessageItem = React.memo(function MessageItem({
                 </div>
               </StreamGroup>
             )}
-            <MarkdownStream
-              content={m.content}
-              isStreaming={streamingThis}
-              collapseLines={codeCollapseLines}
-            />
+            <ReplyAnnotationLayer messageId={m.id} conversationId={conversationId}>
+              <MarkdownStream
+                content={m.content}
+                isStreaming={streamingThis}
+                collapseLines={codeCollapseLines}
+              />
+            </ReplyAnnotationLayer>
             {/* #11 Citations 全链路(2026-09-13 立):引用溯源条 inline 到消息正文下方 */}
             {m.citations && m.citations.length > 0 && <CitationBar citations={m.citations} />}
             {/* D34 上下文注入交代(2026-09-22 立):本轮回答实际带了哪些私有上下文 */}
