@@ -874,6 +874,25 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 
 
 
+
+### 第十九批:守门 70 覆盖补齐三端(2026-09-24,commit `cd505a437`)
+
+承第十八批发现的"端内组件写死中文却无门可拦",把棘轮铺到此前**零覆盖**的三端:
+`apps/mobile-rn/src`、`apps/extension/{entrypoints,src,lib}`、`apps/cli/src`(共 627 个源文件)。
+
+- 台账首次入账 **291 条 / 4248 行**,636 → 927 文件、total 9076 → 13324。
+- 入账口径三条,缺一条就不配叫"只入账不掩垢":① 计数取自 **HEAD 的干净检出**(`git archive HEAD` 内跑同一判据),
+  不取工作树 ⇒ 不把他人未提交的中文冻成额度,且与 CI 所见同结论;② 只往 `files` 里**新增**,
+  逐条断言既有 636 条"改动 0 / 删除 0",不满足即拒写;③ 落库前在新鲜 HEAD 检出复跑,
+  **三端新覆盖违规 = 0**,证明确实是"入账"而不是"把别人的洞算成我的额度"。
+- 剩余 3 处越线全在 web(`ai-news/components/PriceChart.tsx` 6>4、
+  `ide/terminal-panel/TerminalStatusIndicators.tsx` 1>0、`ide/terminal-tab-bar/TerminalTab.tsx` 1>0),
+  属他人已入库提交超出自己冻结额度(后两个文件台账里根本没有条目)。**本票不替他们平账**,原样留归属会话。
+- 两个自伤记此防复发:① 台账是 `{generatedAt,targets,total,files}`,我第一版把新键写在**顶层**
+  (门读 `raw.files`),当场造出"三端 285 文件越线"的假象,差点顺势去扩大基线;
+  ② `npx --no-install prettier` 在本机必崩,格式化要走 `node node_modules/prettier/bin/prettier.cjs`。
+  ③ 中途一次 `git diff` 报 `9 +/81 -` 也是同一类信号(工作树落后 HEAD),见第十八批。
+
 ### 第十八批:修正第十七批的因果判断,并把 RN 付费按钮真缺陷修掉(2026-09-24)
 
 第十七批我写的结论"**RN 共享屏取不到 `pay.*` ⇒ 静默走中文 fallback**"是**错的**,本轮查清并改判:
