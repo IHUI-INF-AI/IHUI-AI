@@ -2168,12 +2168,40 @@ const checks = [
     ].join('\n'),
   },
 
+  // C 盘污染实地扫描(2026-09-23 立,守门 90,warn-only)。成因:§15/§26 的三道旧门没有
+  // 一道真去看文件系统 —— check-c-drive-paths 只扫 staged 源码里的字面量 C:\temp,看不见
+  // os.tmpdir() 派生的写入;check-parent-pollution 只扫项目父目录(D:\);check-root-dir-clean
+  // 只扫项目根。于是 C 盘实攒 13.2G .next 构建备份 + 单日 45 个 git 夹具而全链恒绿。
+  // 本门实地扫 C 盘根 + C:\tmp + 活 TEMP,并单独判"TEMP 漂移"(注册表已指 D、活进程仍拿 C,
+  // 即残骸天天新增的机制)。只读、不删文件;定级 warn 而非 blocking,因为盘根多数条目
+  // 不属本仓,拦提交只会逼人 --no-verify 连带废掉其余守门(与守门 77/52 同取向)。
+  {
+    id: '91',
+    label: '💽 C 盘污染实地扫描(warn,拦"源码没写死但东西真掉在 C 盘")',
+    script: 'check-c-drive-pollution.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_C_DRIVE_POLLUTION',
+    onFailHint: [
+      '',
+      '  💡 列出的都是**本项目产物**落在 C 盘。名字不认识的条目只登记、不定性,',
+      '     不要顺手删 —— 先验明身份再决定(清理类任务的铁律)。',
+      '     看清单:node scripts/check-c-drive-pollution.mjs',
+      '     若报"TEMP 漂移":注册表 TEMP 已指 D 而活进程仍拿 C,新建终端/重启宿主后自愈;',
+      '     在此之前,任何走 os.tmpdir() 的脚本都会继续往 C 盘堆夹具。',
+      '     紧急跳过(不推荐):HUSKY_SKIP_C_DRIVE_POLLUTION=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- 90 (2026-09-24 装车,PROJECT_PLAN D107 ① 配套) ---
   // 本门 2026-09-23 就写好了,但**从未进入提交链**(守门 89 的 R3 名单里一直有点它),
   // 即"造好没装车"的第五次同型。装车同时校准台账:HEAD 实测四端已注册 onSteer,
   // 而台账仍按 D106 早先的 WONTFIX 判定挂着 `no-steer-ui` ⇒ 判据③(唯一真源)红四条,
   // baseline 也落后一格 —— 这正是它不上车道时没人能看见的漂移。
   // 取材基准一律 HEAD(含帧清单的 client.ts),否则并发会话未提交的新帧会让五端同时判红。
+  // 2026-09-23 深夜说明:本条曾被提交 5db08f26e 整文件覆盖(该会话的新门最初也登记 90,
+  // 撞号后其已改 91)。此处按 ce261e1a8 原文回插,勿再改写。
   {
     id: '90',
     label: '📡 SSE 帧端内 dispatch 注册层对账(blocking,补守门 63 覆盖不到的第 3 层)',
