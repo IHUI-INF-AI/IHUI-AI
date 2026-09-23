@@ -3747,3 +3747,20 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
   - **P1 按钮触摸目标**(2 文件 7 处):ai-side-panel 浮窗折叠态 `h-6 w-6`→`h-9 w-9`(2 处);agent-task-progress-pane `h-5 w-5`→`h-9 w-9`(5 处,20px→36px 接近 44px 标准)
 - [x] ✅(2026-09-09) **P1 声纹删除越权收敛**:声纹库是平台共享资源(单一 token6688 账号,无归属概念),此前任何登录用户可 DELETE 全库声纹。delete_voice 加 `_require_admin` 依赖(role_id≥1,与 AGENTS.md §5/admin layout 一致);voices 页非 admin 隐藏删除按钮(useAuthStore roleId>=1);列表/上传/试听对登录用户开放不变;/voice/voices* 不在 JWT 公开白名单(匿名不可达)复核通过。
 - [x] ✅(2026-09-23) **D93 计划产物多版本(G-126)**:Qoder 产物区有 `计划版本`(`planTabsLabel`)多版本切换与 `还没有计划产物` 空态 → 我方 plan 已有步骤卡与 spec tab,缺**计划的历史版本对照**。与 D27 交付审查、D47 轮内两段式合并设计(版本单位很可能就是"轮")。**验收**:版本切换 + 跨版本 diff 入口 + 空态
+
+## P1 mobile-rn 我的页深色复核第二轮:离板色/低对比前景收口 + 首屏超时真重试(2026-09-23 立并完成 ✅,平台独占:apps/mobile-rn)
+
+> 承接「P1 mobile-rn 深色复核收尾」一节。上一轮派单把问题清单(来自截图分析)与文件清单错配:
+> 「文本/图片/视频/音频 Tab」实际在 `apps/mobile-rn/src/components/StudyBar.tsx`,「等级介绍」在
+> `apps/mobile-rn/src/screens/ProfileScreen.tsx`,**都不在被允许的 4 个文件内** ⇒ 子代理只能在白名单里
+> 反复自问"Tab 到底在哪"直到算力耗尽。本轮按**实测 WCAG 比值**重判,改判据不改猜测。
+
+- [x] ✅(2026-09-23) **UserInfoCard 三处**:`card` 底 `rgba(195,190,255,0.15)`(深色下与 #242424 混成 `#3c3b45`,离板浅紫)→ `surface.card`;`roleBadge` 底 `surface.card`→`surface.muted`(卡底改后二者同色会隐形);`roleText` `gray[600]`→`text.secondary`,**实测 1.41:1 → 6.00:1**(旧值压在浅紫面板上几乎不可读,即用户报的"普通用户标签对比度不足")。
+- [x] ✅(2026-09-23) **StudyBar 选中/未选中**:选中态 `brand.DEFAULT`(深色档案=纯白)+ `brand.foreground` → `brandAccent.DEFAULT`+`brandAccent.foreground`(与广场页 `971e21517` 同判据:纯白胶囊压深底即"刺眼",量化为白底对 #242424 达 15.52:1);未选中 `text.tertiary`→`text.secondary`,**3.67:1 → 6.90:1**。
+- [x] ✅(2026-09-23) **UserMembershipBenefits**:`expireText`/`tierNormal` `text.tertiary`→`text.secondary`(**3.67:1→6.90:1** / **3.19:1→6.00:1**);`openBtn` 纯白底+黑字 → brandAccent 对(白底对 #1A1A1A 卡面 **17.40:1**,改后 8.46:1 深色 / 5.65:1 浅色,仍在 AA 之上)。
+- [x] ✅(2026-09-23) **PersonalInformationCard 图片衬底前景**(仅 `DistributionScreen` 用,列在本票文件清单内):5 处 `color: tokens.surface.light` → 模块常量 `MEDIA_TEXT='#FFFFFF'`。**根因**:`f13afd966` 把 `surface.light` 深色值由 #FFFFFF 改成 #262626 后,压在固定图 `bjcspNew.jpg`(不随主题换)上的文字变深灰不可读 —— 属上节登记的"114 处 `surface.light` 前景须逐处判衬底"残余,本票消掉 5 处并留注释禁止回改。
+- [x] ✅(2026-09-23) **首屏超时+重试改到真正生效的层**(承 task 3 ③):上一轮把超时 UI 加在 `packages/app` 共享 `ProfileScreen`,但 RN 侧对该组件**写死 `loading={false}`** 且自带 loading 分支 ⇒ 那 58 行永不执行;且其 `handleRetry` 只重置计时器、不重新请求 = **假重试**。已回退该未提交改动(能力未丢,只换层),改在 `apps/mobile-rn/src/screens/ProfileScreen.tsx` 的 `loadProfileStats`(按同文件既有 `loadTabContent` 惯用法抽出)加 12s 超时 + 复用既有 `tabErrorWrap`/`tabRetryBtn` 真重试;同屏纯白 CTA `tabRetryBtn` 一并改 brandAccent 对。
+- 验证:`pnpm --filter @ihui/mobile-rn typecheck` 源码 0 错(仅剩本节下方已登记的他人测试文件 TS6196);5 文件 eslint 0 错 0 警;守门 75 `check-brand-foreground` 全量 R1=0 / R2 ≤ 基线;Metro 出包 grep 证旧值 `rgba(195, 190, 255, 0.15)` 已从包内消失、`PROFILE_LOAD_TIMEOUT_MS`/`MEDIA_TEXT` 已入包。commit `150155d3a`。
+- **未做像素级"改后"复验(如实说明,不称已复验)**:设备 c12617dd 现装的是 13:30 的 **release** 构建(`flags` 无 DEBUGGABLE,JS 内嵌不吃 Metro),换装 debug 包与它签名不同 ⇒ 需 uninstall,会清掉用户 App 数据与登录态,未经批准不动。改前缺陷现场已截图留证(`.ihui-agent/tmp/rn-profile-dark-r6/04-profile.png`:浅紫面板 / 普通用户徽章 / 「文本」纯白胶囊三处可见)。
+- **顺带发现,不在本票范围未动**:智汇AI 首页「分享领智汇值」弹层两个按钮仍是纯白底(`02-home.png`),同属"深色下纯白 CTA 突兀"族,待另票统一(全端仍有 `brand.DEFAULT` 作 CTA 底的用法,须先定"主 CTA 是否一律走 brandAccent"再批量改,避免逐处打补丁)。
+- **平台独占豁免依据(§9)**:全部改动在 apps/mobile-rn 取色层与 RN 屏内加载态,不触他端契约、不改跨端类型。
