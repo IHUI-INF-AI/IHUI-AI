@@ -410,29 +410,54 @@ function refsOk() {
  * (= 静默回滚)。判据与恢复动作在 scripts/heal-worktree-tracked.mjs:只恢复
  * "索引 blob == HEAD blob 且文件不在"的项,他人已暂存的删除一律不碰。
  * 不改 status()/退出码语义 —— 纯多一层自愈,失败也只记日志不阻断其余守护。
+ * 第二层 `--align-drift`(幻影漂移对齐 + 落后索引刷新)在同一趟里跟着跑:只等
+ * git-sync-converge 的成功出口才对齐,会让"无人收敛"期间索引一直停在祖先版本,
+ * 下一次 `git add <file>` 就交旧基线(实测一次积到 503 文件落后 486 提交)。
+ * 逃生舱 IHUI_SKIP_DRIFT_ALIGN=1 只关第二层,不影响恢复层。
  */
 function healWorktreeTracked() {
   const script = join(dirname(fileURLToPath(import.meta.url)), 'heal-worktree-tracked.mjs')
   if (!existsSync(script)) return
-  try {
-    const out = execFileSync(process.execPath, [script, '--json'], {
-      cwd: WORKTREE,
-      encoding: 'utf8',
-      windowsHide: true, // §5b:漏此参数在计划任务下必弹控制台窗
-      maxBuffer: 1 << 24,
-    })
-      .trim()
-      .split('\n')
-      .pop()
-    const r = JSON.parse(out || '{}')
-    if (r.restored) {
-      const head = (r.paths || []).slice(0, 3).join(', ')
-      log(`✅ 工作区存续自愈:恢复 ${r.restored} 个被外部删除的跟踪文件(${head}${(r.paths || []).length > 3 ? ' …' : ''})`)
-    } else if (r.held) {
-      log(`ℹ️ 工作区 ${r.held} 个跟踪文件缺失,但索引里已是删除(他人在制)⇒ 不代裁恢复`)
+  // 两层共用一个调用出口:恢复层 `--json`,对齐层 `--align-drift --json`。
+  // 做成具名 helper 也是为了镜像测试能按**调用形态**钉装车证明(见
+  // scripts/tests/git-guardian-drift-align.test.mjs)。
+  const run = (args) => {
+    try {
+      const out = execFileSync(process.execPath, [script, ...args], {
+        cwd: WORKTREE,
+        encoding: 'utf8',
+        windowsHide: true, // §5b:漏此参数在计划任务下必弹控制台窗
+        maxBuffer: 1 << 24,
+      })
+        .trim()
+        .split('\n')
+        .pop()
+      return { r: JSON.parse(out || '{}'), err: null }
+    } catch (e) {
+      return { r: null, err: String(e && e.message ? e.message : e).slice(0, 160) }
     }
-  } catch (e) {
-    log('工作区存续自愈失败(不阻断其余守护): ' + String(e && e.message ? e.message : e).slice(0, 160))
+  }
+  const brief = (o) => {
+    const paths = o.paths || o.touched || []
+    return `${paths.slice(0, 3).join(', ')}${paths.length > 3 ? ' …' : ''}`
+  }
+
+  const { r, err } = run(['--json'])
+  if (err) log('工作区存续自愈失败(不阻断其余守护): ' + err)
+  else if (r.restored) log(`✅ 工作区存续自愈:恢复 ${r.restored} 个被外部删除的跟踪文件(${brief(r)})`)
+  else if (r.held) log(`ℹ️ 工作区 ${r.held} 个跟踪文件缺失,但索引里已是删除(他人在制)⇒ 不代裁恢复`)
+
+  // 第二层:幻影漂移对齐 + 落后索引刷新(2026-09-24 立,190730d3a67 交付,
+  // 被同日 b805d31da44 整文件回写连带删掉 —— 现按原语义前向恢复)。
+  // 只等 git-sync-converge 的成功出口才对齐,意味着"没人跑收敛"期间索引会一直停在
+  // 祖先版本,下一次 `git add <file>` 就交旧基线(实测 503 文件落后 486 提交)。
+  if (process.env.IHUI_SKIP_DRIFT_ALIGN === '1') return
+  const { r: d, err: derr } = run(['--align-drift', '--json'])
+  if (derr) log('幻影漂移对齐失败(不阻断其余守护): ' + derr)
+  else {
+    if (d.aligned)
+      log(`✅ 幻影漂移对齐:${d.aligned} 个文件回到 HEAD(内容==祖先版本,零独有数据)(${brief(d)})`)
+    if (d.refreshed) log(`✅ 落后索引刷新:${d.refreshed} 个路径的索引回到 HEAD(工作区未触碰)`)
   }
 }
 
