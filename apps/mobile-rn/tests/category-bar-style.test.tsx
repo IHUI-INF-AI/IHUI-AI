@@ -4,7 +4,7 @@
 
 // 统一分类条的"选中态到底有没有落色"取证。
 //
-// 起因:2026-09-23 真机 release 包像素直方图实测到选中 chip 前景 = 深色 ctaText #16262E,
+// 起因:2026-09-23 真机 release 包像素直方图实测到选中 chip 前景 = 深色 brand.foreground #16262E,
 // 而底色仍是容器同色 #1A1A1A —— 也就是 itemTextActive 生效、itemActive 没生效,选中态看不见。
 // 手机不在线上时,这条测试是同一判据的可重复版本:vitest 的 react-native stub 会把 style
 // 对象透传成 jsdom 内联样式(dark-mode.test.tsx 已依赖该性质),因此"颜色有没有挂到元素上"
@@ -43,7 +43,7 @@ const textColors = (container: HTMLElement): string[] =>
     .filter((v) => v !== '')
 
 describe('CategoryInlineBar 选中态配色真的落到元素上', () => {
-  it('深色档:选中 chip 有 ctaFill 底 + ctaText 字,二者成对出现', () => {
+  it('深色档:选中 chip 有 brand.DEFAULT 底 + brand.foreground 字,二者成对出现', () => {
     const tk = getTokens('dark')
     const { container } = render(
       <CategoryInlineBar
@@ -53,8 +53,8 @@ describe('CategoryInlineBar 选中态配色真的落到元素上', () => {
         colorScheme="dark"
       />,
     )
-    const fill = rgbOf(tk.brand.ctaFill)
-    const text = rgbOf(tk.brand.ctaText)
+    const fill = rgbOf(tk.brand.DEFAULT)
+    const text = rgbOf(tk.brand.foreground)
 
     expect(bgColors(container)).toContain(fill)
     expect(textColors(container)).toContain(text)
@@ -88,8 +88,8 @@ describe('CategoryInlineBar 选中态配色真的落到元素上', () => {
         colorScheme="light"
       />,
     )
-    expect(bgColors(container)).toContain(rgbOf(tk.brand.ctaFill))
-    expect(textColors(container)).toContain(rgbOf(tk.brand.ctaText))
+    expect(bgColors(container)).toContain(rgbOf(tk.brand.DEFAULT))
+    expect(textColors(container)).toContain(rgbOf(tk.brand.foreground))
   })
 
   it('空 items 不渲染任何节点(占位归调用方)', () => {
