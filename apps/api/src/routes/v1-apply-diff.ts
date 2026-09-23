@@ -72,8 +72,7 @@ export const aiApplyDiffRoutes: FastifyPluginAsync = async (server) => {
       args: ctx.args,
     })
     if (decision.allowed) return null
-    // configured=false(未配置权限)→ 401 引导先 setup;已配置但拒绝 → 403
-    const statusCode = decision.configured ? 403 : 401
+    const statusCode = decision.mode === 'unset' ? 401 : 403
     reply.status(statusCode).send(error(statusCode, decision.reason))
     return new Error(decision.reason)
   }

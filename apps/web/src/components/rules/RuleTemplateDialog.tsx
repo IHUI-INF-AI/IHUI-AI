@@ -5,7 +5,6 @@
 'use client'
 
 import * as React from 'react'
-import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -21,8 +20,6 @@ interface RuleTemplateDialogProps {
 }
 
 function RuleTemplateDialog({ onClose }: RuleTemplateDialogProps) {
-  const t = useTranslations('rules')
-  const tCommon = useTranslations('common')
   const [templates, setTemplates] = React.useState<RuleTemplate[]>([])
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
@@ -80,14 +77,14 @@ function RuleTemplateDialog({ onClose }: RuleTemplateDialogProps) {
     >
       <div className="flex max-h-[80vh] w-full max-w-lg flex-col space-y-3 rounded-lg border border-border bg-card p-3 shadow-lg">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold">{t('templateLibraryTitle')}</span>
-          <CloseButton aria-label={tCommon('close')} onClick={onClose} />
+          <span className="text-sm font-semibold">规则模板库</span>
+          <CloseButton aria-label="关闭" onClick={onClose} />
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            {t('loadingTemplates')}
+            加载模板...
           </div>
         ) : error ? (
           <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
@@ -96,7 +93,7 @@ function RuleTemplateDialog({ onClose }: RuleTemplateDialogProps) {
         ) : (
           <div className="thin-scroll space-y-2 overflow-y-auto">
             <p className="text-xs text-muted-foreground">
-              {t('templateCountHint', { n: templates.length })}
+              共 {templates.length} 个预置模板,点击「使用」快速创建规则
             </p>
             {templates.map((template) => (
               <div
@@ -135,7 +132,7 @@ function RuleTemplateDialog({ onClose }: RuleTemplateDialogProps) {
                     disabled={creatingName !== null}
                     onClick={() => handleUseTemplate(template)}
                   >
-                    {creatingName === template.name ? t('creating') : t('use')}
+                    {creatingName === template.name ? '创建中...' : '使用'}
                   </Button>
                 </div>
               </div>
@@ -145,7 +142,7 @@ function RuleTemplateDialog({ onClose }: RuleTemplateDialogProps) {
 
         <div className="flex items-center justify-end">
           <Button variant="outline" size="sm" onClick={onClose}>
-            {tCommon('close')}
+            关闭
           </Button>
         </div>
       </div>
