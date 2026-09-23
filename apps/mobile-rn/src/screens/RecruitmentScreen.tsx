@@ -28,7 +28,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import { rpx } from '../utils/rpx'
 

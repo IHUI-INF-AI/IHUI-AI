@@ -24,7 +24,7 @@ import {
   View,
   type ViewStyle,
 } from 'react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import type { AppIcon } from '@ihui/types'
 
 export interface NavBarAction {

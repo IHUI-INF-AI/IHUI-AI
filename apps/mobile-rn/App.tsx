@@ -26,7 +26,7 @@ import {
   type OAuthRedirectResult,
 } from './src/lib/oauth-deeplink'
 import { rnAuthStore } from './src/stores/auth-store'
-import { rnLightTokens } from '@ihui/design-tokens'
+import { tokens } from './src/theme/active-tokens'
 import type { LoginResult } from '@ihui/api-client'
 import { GlobalFloatBox } from './src/components/GlobalFloatBox'
 import { PrivacyPolicyModal } from './src/components/PrivacyPolicyModal'
@@ -155,7 +155,7 @@ function AppContent() {
     // 故取浅色 surface.bg 与页面底色一致;暗色主题全量落地时再随主题切换。
     <View
       className={resolvedTheme === 'dark' ? 'dark' : ''}
-      style={{ flex: 1, backgroundColor: rnLightTokens.surface.bg }}
+      style={{ flex: 1, backgroundColor: tokens.surface.bg }}
     >
       <SafeAreaProvider>
         <I18nProvider>
