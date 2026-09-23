@@ -23,7 +23,7 @@ IHUI-AI 是 TS Monorepo(pnpm workspace + Turborepo),包含 `apps/api`、`apps/we
 | Node.js | `>=20.10.0`(LTS 20.x,`nvm use` 切换) |
 | pnpm | `>=9.0.0`(项目固定 `pnpm@9.15.0`,见根 `package.json` 的 `packageManager`) |
 | Python | `3.12+`(仅 `apps/ai-service`) |
-| PostgreSQL | `18+`(compose 用 `pgvector/pgvector:pg18`) |
+| PostgreSQL | `15+`(compose 用 `postgres:15-alpine`) |
 | Redis | `7+`(compose 用 `redis:7-alpine`) |
 | Docker | `24+` + Compose v2 |
 | Git | `2.40+`,`core.autocrlf=false`(项目强制 `endOfLine: lf`) |
