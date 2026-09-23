@@ -5,7 +5,6 @@
 'use client'
 
 import * as React from 'react'
-import { useTranslations } from 'next-intl'
 import { type UseQueryResult } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 
@@ -19,7 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@ihui/ui-react'
-import { type CompletionStatsResponse, PLAN_STATUS_KEYS, type PlanStatus } from './types'
+import { type CompletionStatsResponse, PLAN_STATUS_LABELS, type PlanStatus } from './types'
 
 export function StudyPlanStatsDialog({
   open,
@@ -30,24 +29,17 @@ export function StudyPlanStatsDialog({
   onOpenChange: (v: boolean) => void
   query: UseQueryResult<CompletionStatsResponse>
 }) {
-  const t = useTranslations('eduStudyPlan')
-  /** 未知状态码回退原码(后端可能新增枚举) */
-  const statusLabel = (code: string): string => {
-    const key = PLAN_STATUS_KEYS[code as PlanStatus]
-    return key ? t(key) : code
-  }
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{t('completionStats')}</DialogTitle>
+          <DialogTitle>完成率统计</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
           {query.isFetching ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              {t('loading')}
+              加载中...
             </div>
           ) : query.data ? (
             <>
@@ -58,7 +50,7 @@ export function StudyPlanStatsDialog({
                     <span className="text-2xl font-bold text-primary">
                       {query.data.overallRate}%
                     </span>
-                    <span className="text-xs text-muted-foreground">{t('overallRate')}</span>
+                    <span className="text-xs text-muted-foreground">总体完成率</span>
                   </CardContent>
                 </Card>
                 <Card>
@@ -66,7 +58,7 @@ export function StudyPlanStatsDialog({
                     <span className="text-2xl font-bold text-green-600">
                       {query.data.totalCompleted}
                     </span>
-                    <span className="text-xs text-muted-foreground">{t('statusCompleted')}</span>
+                    <span className="text-xs text-muted-foreground">已完成</span>
                   </CardContent>
                 </Card>
                 <Card>
@@ -74,18 +66,16 @@ export function StudyPlanStatsDialog({
                     <span className="text-2xl font-bold text-muted-foreground">
                       {query.data.totalItems}
                     </span>
-                    <span className="text-xs text-muted-foreground">{t('totalItems')}</span>
+                    <span className="text-xs text-muted-foreground">总条目</span>
                   </CardContent>
                 </Card>
               </div>
 
               {/* Per-plan breakdown */}
               <div className="space-y-2">
-                <h4 className="text-sm font-medium">{t('planDetails')}</h4>
+                <h4 className="text-sm font-medium">各计划详情</h4>
                 {query.data.plans.length === 0 ? (
-                  <p className="py-2 text-center text-sm text-muted-foreground">
-                    {t('noPlanData')}
-                  </p>
+                  <p className="py-2 text-center text-sm text-muted-foreground">暂无计划数据</p>
                 ) : (
                   <div className="space-y-1 rounded-md border">
                     {query.data.plans.map((plan) => (
@@ -97,12 +87,10 @@ export function StudyPlanStatsDialog({
                           <p className="truncate font-medium">{plan.planTitle}</p>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <Badge variant="outline" className="text-[10px]">
-                              {plan.planType === 'monthly'
-                                ? t('planTypeMonthly')
-                                : t('planTypeWeekly')}
+                              {plan.planType === 'monthly' ? '月计划' : '周计划'}
                             </Badge>
                             <Badge variant="outline" className="text-[10px]">
-                              {statusLabel(plan.status)}
+                              {PLAN_STATUS_LABELS[plan.status as PlanStatus] ?? plan.status}
                             </Badge>
                           </div>
                         </div>
@@ -130,7 +118,7 @@ export function StudyPlanStatsDialog({
               </div>
             </>
           ) : (
-            <p className="py-4 text-center text-sm text-muted-foreground">{t('noStatsData')}</p>
+            <p className="py-4 text-center text-sm text-muted-foreground">暂无统计数据</p>
           )}
         </div>
       </DialogContent>
