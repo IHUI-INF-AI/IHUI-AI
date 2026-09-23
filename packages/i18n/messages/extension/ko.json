@@ -196,6 +196,7 @@
     "usage": "사용량",
     "retryMessage": "재시도",
     "citationTitle": "참조 출처",
+    "steerNoticeTitle": "{count}회 유도됨",
     "retryScheduled": "업스트림을 일시적으로 사용할 수 없습니다 — {attempt}/{max}회 재시도, {seconds}초 후 계속",
     "retryScheduledNow": "업스트림 채널 전환 중 — {attempt}/{max}회 즉시 재시도",
     "terminalIsolation": "명령은 격리된 샌드박스에서 실행되며 기본적으로 네트워크에 접근하지 않습니다",
