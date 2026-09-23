@@ -331,5 +331,76 @@ describe('scan-dead-i18n-keys.mjs CLI 入口测试', () => {
     const { status } = runCli(['--target', 'extension', '--dry-run', '--exit', '1'])
     assert.equal(status, 0, 'extension target 读 extension messages(非 web),所有 ext.* 引用 → exit 0')
   })
+
+  // ── 场景 16-19:--target all 与"跨包消费方必须进 scanTargets"的装车证明 ──
+  // 起因(2026-09-24 实测):CI 的 dead-key 步骤与根 check:all 都只跑 web 一端,
+  // 于是 cli 端 76 枚 waiting.* 恒红数日无人执行它;而 waiting 键是 cli 把取词函数 t
+  // 注入 shared 的 resolveWaitingText() 后,在 packages/shared/src/chat 里运行期拼出来的,
+  // 端 scanTargets 不含该目录 ⇒ 幻影死键。两头(覆盖面 / 入口)各修一次。
+
+  test('场景 16:--target all 逐端出结论,desktop 无 JS 面必须"如实报未计入"', () => {
+    setupFixture({
+      target: 'cli',
+      zhCN: { waiting: { agent: { first: { 0: '正在准备' } } } },
+      codeFiles: { 'apps/cli/src/waiting-text.ts': "t('waiting.agent.first.0')" },
+    })
+    setupFixture({
+      target: 'extension',
+      zhCN: { ext: { key: '扩展' } },
+      codeFiles: { 'apps/extension/src/popup.tsx': "t('ext.key')" },
+    })
+    const { status, stdout } = runCli(['--target', 'all', '--dry-run', '--exit', '1'])
+    assert.equal(status, 0, `两端均无死键应 exit 0,实际:\n${stdout}`)
+    assert.match(stdout, /all →.*cli=ok/, '结论行必须逐端列出(只报总 exit 会让"某端没被扫"看着像全绿)')
+    assert.match(stdout, /extension=ok/, 'extension 必须真被扫到并计入结论')
+    assert.match(stdout, /未计入:desktop/, '无 JS 扫描面的端必须写明"未计入",不得静默')
+  })
+
+  test('场景 17:靠后的一端全绿不得吞掉前端的红(聚合取最大值)', () => {
+    // cli 放一枚无人引用的死键,extension 干净;TARGETS 顺序里 cli 在 extension 之前,
+    // 正是"最后一端覆盖前面结果"那种写法的反例(实测旧写法 worst 会被 extension 的 0 冲掉)。
+    setupFixture({
+      target: 'cli',
+      zhCN: { waiting: { agent: { first: { 0: '正在准备' } } }, nobody: { reads: '没人取' } },
+      codeFiles: { 'apps/cli/src/waiting-text.ts': "t('waiting.agent.first.0')" },
+    })
+    setupFixture({
+      target: 'extension',
+      zhCN: { ext: { key: '扩展' } },
+      codeFiles: { 'apps/extension/src/popup.tsx': "t('ext.key')" },
+    })
+    const { status, stdout } = runCli(['--target', 'all', '--dry-run', '--exit', '1'])
+    assert.match(stdout, /cli=exit 1/, '红端必须被点名')
+    assert.equal(status, 1, `前端红不能被后端绿吞掉,实际 exit ${status}\n${stdout}`)
+  })
+
+  test('场景 18:--target all 与 --out 同时给出时必须声明忽略(防五端报告互相覆盖)', () => {
+    setupFixture({
+      target: 'cli',
+      zhCN: { a: { b: 'x' } },
+      codeFiles: { 'apps/cli/src/x.ts': "t('a.b')" },
+    })
+    const { stdout } = runCli(['--target', 'all', '--dry-run', '--out', 'merged.md'])
+    assert.match(stdout, /忽略 --out|--out.*忽略/, '必须显式说明 --out 在 all 模式下不生效')
+  })
+
+  test('场景 19:装车证明 —— cli 的 scanTargets 必须含真正拼键的跨包消费方', () => {
+    // 键在 packages/shared/src/chat 里运行期拼出,端内代码只有注入 t 的那一层;
+    // 少了这个目录,76 枚 waiting.* 会被整族误判成死键(2026-09-24 实测)。
+    const src = fs.readFileSync(SCRIPT_PATH, 'utf8')
+    const cliBlock = src.slice(src.indexOf('  cli: {'), src.indexOf('  extension: {'))
+    assert.match(cliBlock, /packages\/shared\/src\/chat/, 'cli.scanTargets 必须含 packages/shared/src/chat')
+    setupFixture({
+      target: 'cli',
+      zhCN: { waiting: { agent: { first: { 0: '正在准备' } } } },
+      codeFiles: {
+        // 照真实形态:命名空间写在常量里,键由模板拼出(scanCode 的声明式命名空间规则据此判活)
+        'packages/shared/src/chat/waiting-pool.ts':
+          "const WAITING_I18N_NAMESPACE = 'waiting'\nconst key = `${WAITING_I18N_NAMESPACE}.${q}.${p}.${i}`",
+      },
+    })
+    const { status, stdout } = runCli(['--target', 'cli', '--dry-run', '--exit', '1'])
+    assert.equal(status, 0, `跨包动态拼键应判活,实际:\n${stdout}`)
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
