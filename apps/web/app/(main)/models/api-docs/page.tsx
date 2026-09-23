@@ -63,7 +63,7 @@ export default async function ApiDocsPage() {
           <p className="text-muted-foreground">{t('apiDocs.auth.desc')}</p>
           <pre className="overflow-x-auto rounded-lg bg-muted/60 p-3 text-xs">
             <code className="font-mono">
-              <span className="text-muted-foreground">{t('apiDocs.auth.headerFormat')}</span>
+              <span className="text-muted-foreground"># Header 格式</span>
               {'\n'}
               Authorization: Bearer ihui_xxx
             </code>

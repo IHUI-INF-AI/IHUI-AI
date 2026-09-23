@@ -68,17 +68,7 @@ export async function getAccessToken(): Promise<string> {
   })
   if (!resp.ok) {
     const text = await resp.text().catch(() => '')
-    // 令牌端点的响应体不回传:非 2xx 不经 response-sanitizer 打码,而该端点请求自带
-    // Basic(client_id:client_secret),整体透传上游原文等于把潜在回显内容送出。
-    // 只保留状态码 + RFC 6749 的 error 码(如 invalid_client),足够定位问题。
-    let errCode = ''
-    try {
-      const parsed = JSON.parse(text) as { error?: unknown }
-      if (typeof parsed.error === 'string') errCode = ` ${parsed.error}`
-    } catch {
-      /* 响应体不是 JSON:只留状态码,不透传原文 */
-    }
-    throw new Error(`PayPal OAuth2 token failed: ${resp.status}${errCode}`)
+    throw new Error(`PayPal OAuth2 token failed: ${resp.status} ${text.slice(0, 200)}`)
   }
   const json = (await resp.json()) as {
     access_token: string
