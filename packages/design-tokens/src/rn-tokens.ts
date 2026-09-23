@@ -256,8 +256,10 @@ export const rnLightTokens: RnThemeTokens = {
  * - brand.DEFAULT = #FFFFFF 对齐 web 暗色 --color-primary(2026-07-24 消除绿色,暗色用纯白底)。
  * - surface.bg = #242424(web --color-background hsl 0 0% 14%),替换原蓝灰 #1F2937。
  * - surface.card = #1A1A1A(web --color-card hsl 0 0% 10%),替换原 #374151 中灰(登录页"灰突突"根因)。
- * - surface.light 仍为 #FFFFFF:该字段在共享组件中用作「品牌色上的对比白字」
- *   (头像文字 / 主按钮文字),非主背景,故明暗模式均保持白色。
+ * - surface.light 深色改为 #262626(= surface.muted):原值 #FFFFFF 在深色模式下无论做容器背景
+ *   还是做品牌色上的文字色都会导致白底白字(全项目 790 处误用)。改为深灰后,做背景时融入主题,
+ *   做品牌色(brand.DEFAULT 深色=白)上的文字色时深灰字在白底上可见。真正需要"品牌色上的白字"
+ *   的场景应使用 brand.foreground(浅色=白,深色=黑)或直接用 #FFFFFF 常量。
  * - surface.muted = #262626(web --color-muted hsl 0 0% 14.9%),卡片/输入框微亮层级。
  * - text/border/error/status DEFAULT 对齐 web 暗色语义色。
  */
@@ -265,7 +267,7 @@ export const rnDarkTokens: RnThemeTokens = {
   brand: { DEFAULT: '#FFFFFF', foreground: '#000000', dark: '#34D399' },
   surface: {
     bg: '#242424',
-    light: '#FFFFFF',
+    light: '#262626',
     muted: '#262626',
     card: '#1A1A1A',
     dark: '#171717',
