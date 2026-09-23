@@ -325,8 +325,21 @@ describe('O21② 文件版本面属主谓词', () => {
 })
 
 describe('O21② 结构钉(防"改了又漂回去")', () => {
-  it('file-version.ts 6 个端点各自调用 checkFileAccess,且 userId 取自已鉴权的 request.userId', () => {
-    expect(fileVersionSrc.match(/checkFileAccess\(request\.userId!/g)).toHaveLength(6)
+  it('file-version.ts 7 个端点各自调用 checkFileAccess,且 userId 取自已鉴权的 request.userId', () => {
+    // 6 → 7:第 7 处是 O21b 补的 POST /file-versions/create。此前它只判"文件存在",
+    // 任意登录用户可向他人 fileId 写版本行并落盘 —— O21 ② 的实测清单漏了这条路由。
+    expect(fileVersionSrc.match(/checkFileAccess\(request\.userId!/g)).toHaveLength(7)
+  })
+
+  it('create 的属主闸门必须排在读 multipart buffer 之前(越权者不得先付磁盘代价)', () => {
+    const gate = fileVersionSrc.indexOf(
+      'const access = await checkFileAccess(request.userId!, fileId)',
+    )
+    const readBuffer = fileVersionSrc.indexOf('await data.toBuffer()')
+    expect(gate).toBeGreaterThan(-1)
+    expect(readBuffer).toBeGreaterThan(-1)
+    // create 是唯一读 buffer 的端点,故全文件首个闸门必须先于首个 buffer 读取。
+    expect(gate).toBeLessThan(readBuffer)
   })
 
   it('workspace.ts 2 个版本端点都判 canAccessFile', () => {
