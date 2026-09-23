@@ -3968,3 +3968,46 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
   这属独立调试票,不在本会话可闭环范围内 —— 因此**像素级复验至今仍未完成,不以"已修复"表述**。
 - 相关:本会话已把 `apps/mobile-rn/tests/__mocks__/expo-file-system.ts` 与共享 stub 的 `Appearance`/`DevSettings`
   补齐(见「测试面根治」一节),Web 预览若要进 CI 冒烟,这两处替身同样用得上。
+
+## P1 深色收口剩余两族:被并发圆角会话整体阻塞(2026-09-23 登记,含重开判据与一份不可信清单的校正)
+
+> 本会话按用户口径推进"深色下纯白 CTA"收口时,剩下两族改动**无法安全落地**:
+> 目标文件此刻全部处于**他人未提交**状态(2026-09-23 17:4x 实测 `git status --porcelain | wc -l` = **531**,
+> 圆角单一源头迁移会话正在批量改写整个 `apps/mobile-rn/src`,把 `borderRadius: <数字>` 换成 `rnRadius.*`)。
+> 整文件暂存会把别人在飞的改动卷进本会话的 commit —— 这正是 §12 定义的**污染事故**,故只做判读不做改写。
+
+### 族一:次级按钮继承了主 CTA 填充(已确证,待文件转干净后改)
+
+- [ ] `apps/mobile-rn/src/screens/HomeScreen.tsx` 的 `shareBtnSecondary` **只加了 `marginTop`**,
+      于是「分享领智汇值」弹层里「稍后再说」与「领取 5 智汇值」**同为 `brand.ctaFill` 实心底**,
+      两个按钮视觉权重相同 —— 主次不分是独立于"纯白"的第二个缺陷。`ChatScreen.tsx` 的
+      `shareBtn`/`shareBtnText`(:3059 附近)同型。
+- **正解参照仓库既有实现**:`apps/mobile-rn/src/components/LoginPopUp.tsx:556-576`
+  (`borderWidth: 1` + `borderColor: border.light` + `backgroundColor: surface.card` + 标签 `text.primary`),
+  同文件主按钮已正确用 `ctaFill`(:542-557)。改法是把 `shareBtnSecondary` 对齐到这一描边档,
+  **不要**再自创第三档。
+- **重开判据**:`git status --porcelain -- <这些文件>` 为空后,按上述正解改,并复跑守门 75
+  (R1 会盯 `brand.DEFAULT` 背景配 `surface.light`/`text.primary` 前景)。
+
+### 族二:媒体衬底的 `surface.light` 前景回正(清单需重推,派单结果不可信)
+
+- 背景:`f13afd966` 把 `surface.light` 深色值由 `#FFFFFF` 改成 `#262626` 后,凡把它用作**文字/图标前景**
+  且实际衬在**固定图片/视频**上的位置,深色下变成深灰压图 ⇒ 不可读。本会话已修
+  `PersonalInformationCard.tsx`(5 处 → 模块常量 `MEDIA_TEXT='#FFFFFF'`)。
+- **派单结果被实测否证**:子代理报告点名 `AigcCoverScreen.tsx:174` 与 `ImageGenHistoryScreen.tsx:338`
+  两处,但 `grep -n "surface\.light"` 在**这两个文件里 0 命中**、行号内容也对不上 ⇒ 其"11 处/9 文件"
+  清单**不得直接执行**,须按下面的判据重推。教训:子代理交付的行号必须逐条回读原文核验后再用
+  (与 §11"subagent working tree 自检"同源)。
+- **可复现的自扫判据**(本会话实跑):
+  `grep -rEn "color: *(tk|tokens)\.surface\.light" --include=*.tsx apps/mobile-rn/src packages/app/src`
+  → **259 处 / 149 文件**(注意:与 §3572 登记的"114 处/49 文件"差 2.3 倍,以复算为准);
+  其中**当前没有任何一个文件是干净的**(全部被圆角会话占用),故族二整体待重开。
+- **族二落地前应先做的一件事**:把"媒体恒白"提到 token 层单一源头(`@ihui/design-tokens` 导出一个
+  主题无关常量),避免 149 个文件各抄一份 `MEDIA_TEXT`。该改动需动 `packages/design-tokens/src/index.ts`,
+  而它此刻也在他人手里 —— 所以**先立档再批量**,顺序不能反。
+
+### 本会话对"244 处 `brand.DEFAULT` 填充"的处置结论
+
+守门 75 的 R3 棘轮已把**增量**锁死(基线 154 文件/260 处只减不增),因此族二/三族一的存量迁移
+**不再有时效风险**(不会边迁边长)。剩余存量按"逐屏复核"推进,与 §3572 既定策略一致,
+不做一次性批处理 —— 静态判据在"品牌底/饱和底/媒体底"三类上不可靠,盲批会造新错配。
