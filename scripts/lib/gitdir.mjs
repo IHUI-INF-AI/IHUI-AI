@@ -252,4 +252,20 @@ export function resolveBackupDir(worktree) {
   const wt = worktree || resolveWorktree()
   return join(dirname(wt), `${basename(wt)}.git-backup-20260912`).replace(/\\/g, '/')
 }
+
+/**
+ * 清单里某 ref 的期望值是否算"已满足"(git-guardian 与 git-refs-heal 共用,单一真相源)。
+ *
+ * 例外必须放过:`refs/remotes/<remote>/HEAD` 是**跟着远端默认分支移动的符号 ref** ——
+ * 每次 fetch/push 后它的值必然变,把它按 sha 钉进清单会造成**永久假红**:
+ * 2026-09-23 实测 manifest 期望 `1b32becf9a25`,实际已推进到 `538561b57992`
+ * (而 ref 本身在 packed-refs 里解析完全正常),于是 `refsOk` 恒 false、守护每轮
+ * 徒劳"重建"、守门 30a 随之抖动阻塞。`origin/main` 早有 FETCH_HEAD 权威值特例,
+ * `origin/HEAD` 漏了 —— 本函数把这一类统一为"能解析即满足"。
+ */
+export function refExpectationSatisfied(ref, expectedSha, actualSha) {
+  if (!actualSha) return false // 解析不到 = 真缺失(宿主清理 depth>=2 目录的典型征状)
+  if (/^refs\/remotes\/[^/]+\/HEAD$/.test(ref)) return true // 移动的默认分支 ref:不比 sha
+  return actualSha === expectedSha
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
