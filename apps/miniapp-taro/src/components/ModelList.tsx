@@ -193,7 +193,7 @@ export default function ModelList({
                 style={{
                   width: rpx(32),
                   height: rpx(32),
-                  borderRadius: '50%',
+                  borderRadius: '50%', // radius-exempt: 32rpx 见方的选中模型圆形徽标(几何正圆,方档化会变方块)
                   background: 'var(--color-foreground)',
                 }}
               >

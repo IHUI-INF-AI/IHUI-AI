@@ -903,6 +903,7 @@ function WindowControlButton({
 function RestoreIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1" {...props}>
+      {/* radius-exempt: 12 格自绘图标字形几何,rx 单位为 viewBox 格数非像素档位,吸附 2 会使 6x6 方块明显变形 */}
       <rect x="2.5" y="2.5" width="6" height="6" rx="1" />
       <path d="M4 0.5 H10.5 V7" />
     </svg>

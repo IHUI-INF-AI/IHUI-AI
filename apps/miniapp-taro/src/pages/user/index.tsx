@@ -1334,8 +1334,8 @@ export default function UserIndex() {
                   width: '80rpx',
                   height: '80rpx',
                   background: 'var(--color-white-18)',
-                  borderTopRightRadius: '24rpx',
-                  borderBottomLeftRadius: '24rpx',
+                  borderTopRightRadius: rnRadius.xl,
+                  borderBottomLeftRadius: rnRadius.xl,
                   zIndex: 10,
                 }}
                 onClick={closeVideoPlayer}
