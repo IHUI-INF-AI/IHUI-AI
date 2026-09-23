@@ -51,6 +51,7 @@ import {
   type UserStatistics,
 } from '@ihui/api-client'
 import { DEFAULT_AVATAR_URL } from '@ihui/shared/constants'
+import { formatDate } from '@ihui/shared/utils/date-utils'
 import { useAuth } from '../context/AuthContext'
 import { rnAuthStore } from '../stores/auth-store'
 import { useTheme } from '../context/ThemeContext'
@@ -1066,7 +1067,8 @@ function ProfileContentSection(): React.JSX.Element {
       for (const conv of all) {
         const meta = extractConversationMetadata(conv)
         const tabType = meta.contentType ?? 'text'
-        const time = conv.updatedAt ?? conv.createdAt
+        // 本地化时间(Asia/Shanghai,复用共享 date-utils;裸 ISO 直接上屏是 bug)
+        const time = formatDate(conv.updatedAt ?? conv.createdAt)
         const title = conv.title?.trim() || '未命名对话'
         if (tabType === 'image') {
           const list = meta.imageList ?? (meta.thumbnailUrl ? [meta.thumbnailUrl] : [])
@@ -1258,9 +1260,12 @@ function TextTabContent({ list }: TextTabProps): React.JSX.Element {
               </Text>
               <Text style={styles.contentTime}>{item.time}</Text>
             </View>
-            <View style={styles.contentBody}>
-              <Text style={styles.textContent}>{item.content}</Text>
-            </View>
+            {/* 空正文不占位:无预览时只留标题+时间行,避免 25px 空行(真机 bug) */}
+            {item.content.trim() ? (
+              <View style={styles.contentBody}>
+                <Text style={styles.textContent}>{item.content}</Text>
+              </View>
+            ) : null}
           </View>
         )}
       />
@@ -1294,19 +1299,21 @@ function ImageTabContent({ list, onPreview }: ImageTabProps): React.JSX.Element 
             </Text>
             <Text style={styles.contentTime}>{item.time}</Text>
           </View>
-          {/* 图片单列满宽(对齐 Uniapp 行 87-111 单列布局) */}
-          <View style={[styles.contentBody, styles.imageColumn]}>
-            {item.imageList.map((url, idx) => (
-              <TouchableOpacity
-                key={`${url}-${idx}`}
-                activeOpacity={0.85}
-                onPress={() => onPreview(item.imageList, idx)}
-                style={styles.imageColumnItem}
-              >
-                <Image source={{ uri: url }} style={styles.imageColumnImg} resizeMode="cover" />
-              </TouchableOpacity>
-            ))}
-          </View>
+          {/* 空图列表不占位:无图时只留标题+时间行 */}
+          {item.imageList.length > 0 ? (
+            <View style={[styles.contentBody, styles.imageColumn]}>
+              {item.imageList.map((url, idx) => (
+                <TouchableOpacity
+                  key={`${url}-${idx}`}
+                  activeOpacity={0.85}
+                  onPress={() => onPreview(item.imageList, idx)}
+                  style={styles.imageColumnItem}
+                >
+                  <Image source={{ uri: url }} style={styles.imageColumnImg} resizeMode="cover" />
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
         </View>
       )}
     />
@@ -1469,47 +1476,51 @@ function AudioItem({ item }: { item: AudioContent }): React.JSX.Element {
         <Text style={styles.contentTime}>{item.time}</Text>
       </View>
       <View style={styles.contentBody}>
-        <View style={styles.audioPlayer}>
-          <TouchableOpacity
-            onPress={togglePlay}
-            style={styles.audioPlayBtn}
-            activeOpacity={0.7}
-            accessibilityLabel={status.playing ? '暂停' : '播放'}
-          >
-            {status.playing ? (
-              <Pause size={16} color={tokens.brand.foreground} style={{ marginLeft: rpx(4) }} />
-            ) : (
-              <Play size={16} color={tokens.brand.foreground} style={{ marginLeft: rpx(4) }} />
-            )}
-          </TouchableOpacity>
-          {/* 进度条(对齐 Uniapp 行 166-175 原生 <slider> 可拖动)。
+        {!item.audioUrl ? (
+          <Text style={styles.tabErrorText}>音频地址无效，暂无可播放的音频</Text>
+        ) : (
+          <View style={styles.audioPlayer}>
+            <TouchableOpacity
+              onPress={togglePlay}
+              style={styles.audioPlayBtn}
+              activeOpacity={0.7}
+              accessibilityLabel={status.playing ? '暂停' : '播放'}
+            >
+              {status.playing ? (
+                <Pause size={16} color={tokens.brand.foreground} style={{ marginLeft: rpx(4) }} />
+              ) : (
+                <Play size={16} color={tokens.brand.foreground} style={{ marginLeft: rpx(4) }} />
+              )}
+            </TouchableOpacity>
+            {/* 进度条(对齐 Uniapp 行 166-175 原生 <slider> 可拖动)。
               当前用 Pressable 仅支持点击跳转;待安装 @react-native-community/slider
               后改为可拖动 Slider 组件 + onSlidingComplete 回调(不引入新依赖,保持现状) */}
-          <Pressable
-            onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
-            onPress={onProgressBarTap}
-            style={styles.audioProgressTrack}
-            accessibilityLabel="音频进度条"
-          >
-            <View
-              style={[styles.audioProgressFill, { width: `${Math.round(progressRatio * 100)}%` }]}
-            />
-          </Pressable>
-          <Text style={styles.audioTime}>{formatAudioTime(status.currentTime)}</Text>
-          <TouchableOpacity
-            onPress={onDownload}
-            style={styles.audioDownloadBtn}
-            activeOpacity={0.7}
-            accessibilityLabel="下载音频"
-            disabled={downloading}
-          >
-            {downloading ? (
-              <MoreHorizontal size={16} color={tokens.text.secondary} />
-            ) : (
-              <Download size={16} color={tokens.text.secondary} />
-            )}
-          </TouchableOpacity>
-        </View>
+            <Pressable
+              onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
+              onPress={onProgressBarTap}
+              style={styles.audioProgressTrack}
+              accessibilityLabel="音频进度条"
+            >
+              <View
+                style={[styles.audioProgressFill, { width: `${Math.round(progressRatio * 100)}%` }]}
+              />
+            </Pressable>
+            <Text style={styles.audioTime}>{formatAudioTime(status.currentTime)}</Text>
+            <TouchableOpacity
+              onPress={onDownload}
+              style={styles.audioDownloadBtn}
+              activeOpacity={0.7}
+              accessibilityLabel="下载音频"
+              disabled={downloading}
+            >
+              {downloading ? (
+                <MoreHorizontal size={16} color={tokens.text.secondary} />
+              ) : (
+                <Download size={16} color={tokens.text.secondary} />
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
       <FloatBox
         visible={toastVisible}
@@ -1986,7 +1997,7 @@ const styles = StyleSheet.create({
   },
   audioPlayIcon: {
     fontSize: 16,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     marginLeft: rpx(4),
   },
   audioProgressTrack: {
@@ -2214,7 +2225,7 @@ const styles = StyleSheet.create({
   tabRetryText: {
     fontSize: 14,
     fontWeight: '500',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   },
   // ── 等级介绍按钮(对齐 Uniapp level-intro 入口,UserInfoCard 下方独立按钮) ──
   levelIntroBtn: {
@@ -2281,7 +2292,7 @@ const styles = StyleSheet.create({
   },
   editProfileAvatarBadgeText: {
     fontSize: 14,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '700',
     lineHeight: 14,
   },
@@ -2343,7 +2354,7 @@ const styles = StyleSheet.create({
   editProfileSaveBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   },
   editProfileSaveBtnDisabled: {
     opacity: 0.6,
@@ -2416,7 +2427,7 @@ const styles = StyleSheet.create({
   levelIntroCloseBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   },
   // ── 退订确认 Modal(对齐 Uniapp 退订确认弹层,替代 Alert.alert) ──
   unsubscribeOverlay: {
