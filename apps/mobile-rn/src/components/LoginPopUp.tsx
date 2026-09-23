@@ -445,7 +445,7 @@ function ProfileForm({
             accessibilityLabel="绑定手机号"
           >
             {bindPhoneLoading ? (
-              <ActivityIndicator size="small" color={tokens.surface.light} />
+              <ActivityIndicator size="small" color={tokens.brand.foreground} />
             ) : (
               <Text style={styles.bindLabel}>{phone ? '重绑' : '绑定'}</Text>
             )}
@@ -553,7 +553,7 @@ const styles = StyleSheet.create({
   primaryButtonLabel: {
     fontSize: BUTTON_FONT_SIZE,
     fontWeight: '500',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     textAlign: 'center',
   },
   secondaryButton: {
@@ -596,7 +596,7 @@ const styles = StyleSheet.create({
   checkboxMark: {
     fontSize: 11,
     lineHeight: 12,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '700',
   },
   agreementText: {
@@ -713,7 +713,7 @@ const styles = StyleSheet.create({
   bindLabel: {
     fontSize: HINT_FONT_SIZE,
     fontWeight: '600',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   },
   hintText: {
     fontSize: HINT_FONT_SIZE,
