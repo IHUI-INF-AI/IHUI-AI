@@ -1,4 +1,179 @@
 {
+  "taskStatus": {
+    "toolGenericActivity": "{state, select, running {{name}を実行中} completed {{name}を実行しました} other {{name}を実行}}",
+    "toolReadFileActivity": "{state, select, running {ファイル内容を読み取り中} completed {ファイル内容を読み取りました} other {ファイル内容を読み取る}}",
+    "toolEditFileActivity": "{state, select, running {ファイルを編集中} completed {ファイルを編集しました} other {ファイルを編集}}",
+    "toolWriteFileActivity": "{state, select, running {ファイルに書き込み中} completed {ファイルに書き込みました} other {ファイルに書き込む}}",
+    "toolSearchCodebaseActivity": "{state, select, running {コードベースを検索中} completed {コードベースを検索しました} other {コードベースを検索}}",
+    "toolWebSearchActivity": "{state, select, running {ウェブを検索中} completed {ウェブを検索しました} other {ウェブを検索}}",
+    "toolParseDocumentActivity": "{state, select, running {ドキュメントを解析中} completed {ドキュメントを解析しました} other {ドキュメントを解析}}",
+    "toolListFilesActivity": "{state, select, running {ディレクトリ一覧を取得中} completed {ディレクトリ一覧を取得しました} other {ディレクトリ一覧を取得}}",
+    "toolFileSearchActivity": "{state, select, running {ファイルを検索中} completed {ファイルを検索しました} other {ファイルを検索}}",
+    "toolCreateFileActivity": "{state, select, running {ファイルを作成中} completed {ファイルを作成しました} other {ファイルを作成}}",
+    "toolDeleteFileActivity": "{state, select, running {ファイルを削除中} completed {ファイルを削除しました} other {ファイルを削除}}",
+    "toolAnalyzeCodeActivity": "{state, select, running {コードを分析中} completed {コードを分析しました} other {コードを分析}}",
+    "toolKnowledgeLookupActivity": "{state, select, running {ナレッジベースを照会中} completed {ナレッジベースを照会しました} other {ナレッジベースを照会}}",
+    "toolFetchUrlActivity": "{state, select, running {Web ページを取得中} completed {Web ページを取得しました} other {Web ページを取得}}",
+    "toolGenerateChartActivity": "{state, select, running {グラフを生成中} completed {グラフを生成しました} other {グラフを生成}}",
+    "toolBrowserNavigateActivity": "{state, select, running {Web ページを開いています} completed {Web ページを開きました} other {Web ページを開く}}",
+    "toolBrowserClickElementActivity": "{state, select, running {ページ要素をクリック中} completed {ページ要素をクリックしました} other {ページ要素をクリック}}",
+    "toolBrowserTypeTextActivity": "{state, select, running {ページに入力中} completed {ページに入力しました} other {ページに入力}}",
+    "toolBrowserScreenshotActivity": "{state, select, running {ページをスクリーンショット中} completed {ページのスクリーンショットを撮りました} other {ページをスクリーンショット}}",
+    "toolBrowserExtractDomActivity": "{state, select, running {ページ内容を抽出中} completed {ページ内容を抽出しました} other {ページ内容を抽出}}",
+    "toolBrowserScrollActivity": "{state, select, running {ページをスクロール中} completed {ページをスクロールしました} other {ページをスクロール}}",
+    "toolBrowserWaitForElementActivity": "{state, select, running {要素の出現を待機中} completed {要素の出現を待ちました} other {要素の出現を待機}}",
+    "toolBrowserHoverActivity": "{state, select, running {ページ要素にホバー中} completed {ページ要素にホバーしました} other {ページ要素にホバー}}",
+    "toolBrowserCloseTabActivity": "{state, select, running {タブを閉じています} completed {タブを閉じました} other {タブを閉じる}}",
+    "toolBrowserSwitchTabActivity": "{state, select, running {タブを切り替えています} completed {タブを切り替えました} other {タブを切り替え}}",
+    "toolReadFile": "ファイル内容を読み取る",
+    "toolEditFile": "ファイルを編集",
+    "toolWriteFile": "ファイルに書き込む",
+    "toolCreateFile": "ファイルを作成",
+    "toolDeleteFile": "ファイルを削除",
+    "toolListFiles": "ディレクトリ一覧を取得",
+    "toolFileSearch": "ファイルを検索",
+    "toolSearchCodebase": "コードベースを検索",
+    "toolAnalyzeCode": "コードを分析",
+    "toolWebSearch": "ウェブを検索",
+    "toolKnowledgeLookup": "ナレッジベースを照会",
+    "toolParseDocument": "ドキュメントを解析",
+    "toolGenerateChart": "グラフを生成",
+    "toolSummarizeArtifacts": "成果物を要約",
+    "activityMcp": "{mcp} MCP を呼び出し",
+    "activityPlugin": "{plugin} プラグインを呼び出し",
+    "activityPlanning": "計画を立案中",
+    "activityRunning": "実行中",
+    "activitySubagent": "サブエージェント {name}",
+    "activityTerminal": "ターミナルコマンドを実行",
+    "activityTool": "{tool} を呼び出し",
+    "collapseDetail": "タスク詳細を折りたたむ",
+    "expandDetail": "タスク詳細を展開",
+    "filesChanged": "{n} 件のファイルを変更しました",
+    "idle": "待機中",
+    "steps": "ステップ {current}/{total}",
+    "waiting": "タスクの開始を待っています",
+    "toolIndexCodebase": "コードベースをインデックス",
+    "toolGenerateTest": "テストコードを生成",
+    "toolRunCommand": "コマンドを実行",
+    "toolGitOperations": "Git 操作を実行",
+    "toolFetchUrl": "Web ページを取得",
+    "toolCrawlSite": "サイトをクロール",
+    "toolScreenshot": "スクリーンショットを撮影",
+    "toolContextRecall": "過去の文脈を想起",
+    "toolImageGeneration": "画像を生成",
+    "toolImageEdit": "画像を編集",
+    "toolVideoGeneration": "動画を生成",
+    "toolMusicGeneration": "音楽を生成",
+    "toolVoiceTts": "音声を合成",
+    "toolAudioTranscription": "音声を書き起こし",
+    "toolVisionAnalyze": "画像を解析",
+    "toolDispatchSubagent": "サブエージェントを派遣",
+    "toolScheduleTask": "定期タスクを作成",
+    "toolBgTaskStatus": "バックグラウンドタスクを確認",
+    "toolUiDescribe": "ページのコントロールを読み取り",
+    "toolUiNavigate": "ページを開く",
+    "toolUiClick": "要素をクリック",
+    "toolUiFill": "入力欄に記入",
+    "toolUiSubmit": "フォームを送信",
+    "toolUiRead": "ページ内容を読み取り",
+    "toolUiInvoke": "ページ操作を実行",
+    "toolApiSearch": "API を検索",
+    "toolApiCall": "API を呼び出し",
+    "toolEduListStudents": "生徒名簿を照会",
+    "toolEduListArrears": "滞納者を照会",
+    "toolEduListReminders": "催促記録を照会",
+    "toolEduListPayments": "納付記録を照会",
+    "toolEduPaymentSummary": "納付を集計",
+    "toolEduTuitionFees": "学費基準を照会",
+    "toolEduMyBills": "自分の請求書を照会",
+    "toolEduListRefunds": "返金申請を照会",
+    "toolEduCreateRefund": "返金申請を作成",
+    "toolEduApproveRefund": "返金を承認",
+    "toolEduRejectRefund": "返金を却下",
+    "toolEduSendReminder": "催促通知を送信",
+    "toolEduSendReminderBatch": "催促通知を一括送信",
+    "toolEduCreatePayment": "納付を記録",
+    "statusSuccess": "完了",
+    "statusFailed": "失敗",
+    "statusRunning": "実行中",
+    "statusSkipped": "スキップ済み",
+    "roundNumber": "第{n}ラウンド",
+    "retriedTimes": "再試行{n}回",
+    "sourcePlugin": "プラグイン",
+    "sourceMcp": "MCP サービス",
+    "errorTimeout": "タイムアウト",
+    "errorHttp4xx": "リクエスト拒否",
+    "errorHttp5xx": "サーバーエラー",
+    "errorConnection": "接続失敗",
+    "errorCancelled": "キャンセル済み",
+    "unitLines": "{n} 行",
+    "unitResults": "{n} 件の結果",
+    "unitFiles": "{n} 個のファイル",
+    "addedCount": "+{n}",
+    "removedCount": "-{n}",
+    "workedFor": "所要時間 {time}",
+    "stepCount": "ステップ{n}件",
+    "expandSteps": "実行過程を表示",
+    "collapseSteps": "実行過程を隠す",
+    "argsLabel": "引数",
+    "resultLabel": "結果",
+    "errorLabel": "エラー",
+    "toolCallCount": "ツール呼び出し{n}回",
+    "showMore": "もっと見る",
+    "noOutput": "出力なし",
+    "stepPending": "待機中",
+    "exitCode": "終了コード {n}",
+    "toolBrowserNavigate": "Web ページを開く",
+    "toolBrowserClickElement": "ページ要素をクリック",
+    "toolBrowserTypeText": "ページに入力",
+    "toolBrowserScroll": "ページをスクロール",
+    "toolBrowserHover": "ページ要素にホバー",
+    "toolBrowserSelectOption": "選択肢を選ぶ",
+    "toolBrowserGetAttribute": "要素の属性を取得",
+    "toolBrowserExtractDom": "ページ内容を抽出",
+    "toolBrowserWaitForElement": "要素の出現を待機",
+    "toolBrowserScreenshot": "ページをスクリーンショット",
+    "toolBrowserSwitchTab": "タブを切り替え",
+    "toolBrowserCloseTab": "タブを閉じる",
+    "toolBrowserSelfcheck": "ページ自己診断",
+    "toolBrowserSelfcheckScreenshot": "自己診断スクリーンショット",
+    "toolComputerScreenshotScreen": "画面をスクリーンショット",
+    "toolComputerMouseClick": "マウスをクリック",
+    "toolComputerMouseMove": "マウスを移動",
+    "toolComputerMouseScroll": "マウスをスクロール",
+    "toolComputerKeyboardType": "テキストを入力",
+    "toolComputerKeyboardPress": "キーを押す",
+    "toolComputerKeyboardHotkey": "ショートカットキーを押す",
+    "toolComputerClipboardGet": "クリップボードを読み取り",
+    "toolComputerClipboardSet": "クリップボードに書き込み",
+    "toolComputerActiveWindow": "最前面ウィンドウを読み取り",
+    "toolDbQuery": "データベースを検索",
+    "toolDocumentTables": "表の構造を読み取り",
+    "toolExtractDocumentAssets": "添付ファイルを抽出",
+    "toolGetToolSchema": "ツール仕様を確認",
+    "toolProactiveSuggestion": "先回りして提案",
+    "toolResolveConflict": "競合を解決",
+    "toolReviewPr": "PR をレビュー",
+    "toolVendorBalance": "ベンダー残高を確認",
+    "toolVendorModelInfo": "ベンダーモデル情報",
+    "toolVendorUploadFile": "ベンダーへアップロード",
+    "toolVendorCancelTask": "ベンダータスクをキャンセル",
+    "toolVendorVoiceClone": "声をクローン",
+    "fileActivity": "{state, select, running {ファイルを処理中} completed {ファイルを処理済み} other {ファイルの処理}}",
+    "imageActivity": "{state, select, running {画像を処理中} completed {画像を処理済み} other {画像の処理}}",
+    "searchActivity": "{state, select, running {検索中} completed {検索済み} other {検索}}",
+    "thinkingActivity": "{state, select, running {分析中} completed {分析済み} other {分析}}",
+    "customActivity": "{state, select, running {実行中} completed {実行済み} other {実行}}",
+    "workedForDuration": "所要時間 {duration}",
+    "searchWithQuery": "クエリ：{query}",
+    "showAllLines": "すべて展開",
+    "hideLines": "折りたたむ",
+    "sourcesButton": "出典",
+    "canceled": "キャンセル済み",
+    "canceledItemLabel": "キャンセル済み：{name}",
+    "readingConnector": "{connector} から読み取り",
+    "writingConnector": "{connector} に書き込み"
+  },
   "a11y": {
     "addAttachment": "添付ファイルを追加（画像/動画/ファイル）",
     "barChart": "棒グラフ",
@@ -27,7 +202,14 @@
     "send": "送信",
     "showPassword": "パスワードを表示",
     "slashCommand": "スラッシュコマンド",
-    "uploadAvatar": "アバターをアップロード"
+    "uploadAvatar": "アバターをアップロード",
+    "previewSnapshotBadge": "ツール記録の内容",
+    "previewSnapshotReadAt": "読み取り時刻: {time}",
+    "previewSnapshotNotice": "現在のファイルを読み込めないため、ツール記録内の内容を表示しています。",
+    "previewIncompleteChange": "このファイル変更は完全な内容を記録していません。",
+    "previewNoContent": "プレビューできる内容がありません。",
+    "previewFileUpdated": "ファイルが更新されました",
+    "previewFileUpdatedAction": "更新して最新内容を表示"
   },
   "about": {
     "loading": "読み込み中...",
@@ -254,7 +436,13 @@
     "captchaRefresh": "認証コードを更新"
   },
   "chat": {
+    "icuProbe": {
+      "flowState": "{state, select, running {{count, plural, =0 {ストリーム実行中、待機ツールなし} other {ストリーム実行中、{count} 個のツールをスケジュール}}} paused {ストリーム一時停止} failed {実行失敗：<b>{reason}</b>}}"
+    },
     "send": "送信"
+  },
+  "richAnchorProbe": {
+    "flow": "<detail>{target}</detail>を<action>注入中</action>"
   },
   "common": {
     "accepted": "採用済み",
@@ -444,9 +632,15 @@
     "fieldTitle": "タイトル",
     "loading": "読み込み中...",
     "notFound": "フィードバックが存在しないか、アクセス権限がありません",
+    "priorityHigh": "高",
+    "priorityLow": "低",
+    "priorityMedium": "中",
+    "priorityUnknown": "優先度未設定",
     "statusClosed": "クローズ",
     "statusPending": "対応待ち",
     "statusResolved": "解決済み",
+    "statusReviewing": "確認中",
+    "statusUnknown": "不明な状態",
     "submit": "送信",
     "submitting": "送信中...",
     "subtitle": "フィードバックとご意見を送信",
@@ -454,9 +648,12 @@
     "title": "フィードバックセンター",
     "type": "種類",
     "typeBug": "バグ",
+    "typeFeature": "機能リクエスト",
+    "typeImprovement": "改善提案",
     "typeOther": "その他",
     "typeQuestion": "質問",
-    "typeSuggestion": "提案"
+    "typeSuggestion": "提案",
+    "typeUnknown": "不明な種類"
   },
   "feedbackHistory": {
     "createdAt": "作成日時",
@@ -1833,5 +2030,231 @@
   },
   "topBar": {
     "capabilityMarket": "機能マーケット"
+  },
+  "stepDecision": {
+    "decision": {
+      "planBlocked": "プランは中断されました",
+      "securityBlocked": "セキュリティポリシーでブロック",
+      "rejectedByUser": "ユーザーが拒否しました",
+      "approvalTimeout": "承認がタイムアウトしました",
+      "toolMissing": "ツールが見つかりません",
+      "executeFailed": "実行に失敗しました",
+      "executeRetried": "再試行しました",
+      "executed": "実行しました",
+      "approvalPersistHit": "保存済みの承認を適用",
+      "execPolicyApproved": "実行ポリシーで許可",
+      "autoSkipApproval": "自動承認(承認スキップ)",
+      "bypassSkipApproval": "承認をスキップ",
+      "mcpRequiresApproval": "MCP 注釈が承認を要求",
+      "policyRequiresApproval": "ポリシーが承認を要求",
+      "policyForbidsExecution": "ポリシーが実行を禁止"
+    },
+    "perm": {
+      "allow": "許可しました",
+      "ask": "確認が必要です",
+      "deny": "拒否しました"
+    },
+    "state": {
+      "approved": "自動承認済み",
+      "rejected": "拒否済み",
+      "needsUser": "あなたの承認が必要",
+      "unknown": "判定不明"
+    }
+  },
+  "waiting": {
+    "agent": {
+      "first": {
+        "0": "返答を準備しています…",
+        "1": "回答の構成を考えています…",
+        "2": "承知しました、返答を検討中です…",
+        "3": "返答を生成しています…",
+        "4": "質問を受け付けました、処理中です…"
+      },
+      "middle": {
+        "0": "引き続き処理しています…",
+        "1": "前の内容を踏まえて考えています…",
+        "2": "残りの返答をまとめています…",
+        "3": "ご質問に対応中です…",
+        "4": "次の返答を生成しています…"
+      },
+      "followup": {
+        "0": "追加のご質問を確認しています…",
+        "1": "文脈を踏まえて考えています…",
+        "2": "追加質問への返答をまとめています…",
+        "3": "追加質問を受け付けました…",
+        "4": "回答を補足しています…"
+      }
+    },
+    "computer": {
+      "first": {
+        "0": "計算リソースを確保しています…",
+        "1": "実行環境を初期化しています…",
+        "2": "処理を開始しています…",
+        "3": "演算を割り当てています…",
+        "4": "初回計算を実行しています…"
+      },
+      "middle": {
+        "0": "実行中です…",
+        "1": "計算しています、少々お待ちください…",
+        "2": "中間結果を処理しています…",
+        "3": "中断なく進行しています…",
+        "4": "演算中です…"
+      },
+      "followup": {
+        "0": "再計算しています…",
+        "1": "新しい入力で処理を続けています…",
+        "2": "追加分を処理しています…",
+        "3": "結果を更新しています…",
+        "4": "追加リクエストに対応しています…"
+      }
+    },
+    "context": {
+      "first": {
+        "0": "会話の文脈を確認しています…",
+        "1": "関連する文脈を読み込んでいます…",
+        "2": "背景情報を整理しています…",
+        "3": "関連する記憶を呼び起こしています…",
+        "4": "文脈を準備しています…"
+      },
+      "middle": {
+        "0": "前文と関連付けて続けています…",
+        "1": "文脈を踏まえて考えています…",
+        "2": "前のメッセージを振り返っています…",
+        "3": "文脈の準備ができました、処理中です…",
+        "4": "履歴メッセージと照合しています…"
+      },
+      "followup": {
+        "0": "文脈と合わせて追加質問を理解しています…",
+        "1": "関連する文脈を振り返っています…",
+        "2": "以前の議論と結び付けています…",
+        "3": "前文と照合して補足しています…",
+        "4": "文脈を踏まえて処理しています…"
+      }
+    },
+    "plan": {
+      "first": {
+        "0": "対応プランを立てています…",
+        "1": "ご要望を分解しています…",
+        "2": "実行手順を計画しています…",
+        "3": "タスクの要点を分析しています…",
+        "4": "返答の概要を作成しています…"
+      },
+      "middle": {
+        "0": "プランを進めています…",
+        "1": "次の手順に移っています…",
+        "2": "プラン実行中です…",
+        "3": "手順どおりに処理しています…",
+        "4": "残りの手順を実行しています…"
+      },
+      "followup": {
+        "0": "プランを調整しています…",
+        "1": "追加質問に合わせて手順を更新しています…",
+        "2": "再計画しています…",
+        "3": "プランの詳細を補っています…",
+        "4": "新しいご要望に対応しています…"
+      }
+    },
+    "detail": {
+      "first": {
+        "0": "詳しい説明を準備しています…",
+        "1": "詳細をまとめています…",
+        "2": "要点を整理しています…",
+        "3": "詳細な返答を生成しています…",
+        "4": "回答の詳細を整えています…"
+      },
+      "middle": {
+        "0": "詳細を補足しています…",
+        "1": "説明を広げています…",
+        "2": "後続の内容を整えています…",
+        "3": "詳細を整理中です…",
+        "4": "返答を磨き上げています…"
+      },
+      "followup": {
+        "0": "ご質問の詳細を補足しています…",
+        "1": "追加質問の要点を広げています…",
+        "2": "説明を詳しくしています…",
+        "3": "補足内容を準備しています…",
+        "4": "追加質問への回答をまとめています…"
+      }
+    },
+    "vividTail": "、まもなくです"
+  },
+  "editor": {
+    "toolApproval": {
+      "scopeLabel": "権限の範囲",
+      "scopeOnce": "今回のみ許可",
+      "scopeSession": "この会話で許可",
+      "scopeAlways": "常に許可",
+      "reasonLabel": "理由(任意)",
+      "reasonPlaceholder": "理由を入力すると監査と追跡に役立ちます"
+    }
+  },
+  "viewFailure": {
+    "resourceNotFound": {
+      "title": "リソースが見つかりません",
+      "action": "この MCP リソースは削除されたか、リソース一覧に宣言されていない可能性があります。一覧を更新してから改めて選択してください。"
+    },
+    "runtimeException": {
+      "title": "実行時エラー",
+      "action": "サーバーがこのリクエストを処理中に例外を送出しました。プラグインビューを再読み込みしてください。繰り返し発生する場合は該当サービスのログを確認してください。"
+    },
+    "entrypointNotRegistered": {
+      "title": "起動エントリが未登録です",
+      "action": "このプラグインビューには利用できる起動エントリが登録されていません。設定で該当サービスを再追加または有効化してください。"
+    },
+    "entrypointInvalid": {
+      "title": "起動エントリが無効です",
+      "action": "サービスのコマンドまたはアドレスを実行できません。設定の command、url、転送方式を確認してください。"
+    },
+    "dependencyModuleMissing": {
+      "title": "依存モジュールが提供されていません",
+      "action": "このサービスが必要とするモジュールがインストールされていません。依存関係を導入後にプラグインビューを再読み込みしてください。"
+    },
+    "resourceLimitExceeded": {
+      "title": "リソースが上限を超えました",
+      "action": "リクエスト本文または応答内容が大きすぎるか、呼び出し頻度が高すぎます。範囲を縮小するか、しばらくしてから再試行してください。"
+    },
+    "environmentInitFailed": {
+      "title": "環境の初期化に失敗しました",
+      "action": "サービスの初期化が完了していないか、実行環境が準備できていません。サービスが起動していることを確認して再読み込みしてください。"
+    },
+    "disabled": {
+      "title": "無効化されています",
+      "action": "このサービスまたはプラグインは現在無効です。有効化してから内容を確認してください。"
+    },
+    "backendTimeout": {
+      "title": "バックエンドの応答がタイムアウトしました",
+      "action": "サーバーが制限時間以内に結果を返しませんでした。しばらくしてから再試行してください。タイムアウトが続く場合はリクエスト規模を縮小してください。"
+    },
+    "backendExited": {
+      "title": "バックエンドが終了しました",
+      "action": "サービスプロセスが終了したか、接続が閉じられました。プラグインビューを再読み込みしてサービスを再起動してください。"
+    },
+    "capabilityNotOffered": {
+      "title": "必要な機能が提供されていません",
+      "action": "このサービスは機能宣言でこの機能を提供していません。サービスが対応している別の機能を選択してください。"
+    },
+    "backendCrashed": {
+      "title": "サービスが異常終了しました",
+      "action": "サービスプロセスが予期せず終了しました。プラグインビューを再読み込みし、該当サービスのログを確認してください。"
+    },
+    "protocolMismatch": {
+      "title": "プロトコルバージョンが一致しません",
+      "action": "クライアントと本サービスが合意したプロトコルバージョンはサポートされていません。サービスをアップグレードするか、クライアントのバージョンを下げてください。"
+    },
+    "authForbidden": {
+      "title": "認証に失敗しました",
+      "action": "アクセストークンが無効または失効しています。再ログイン後に該当サービスを確認してください。"
+    },
+    "invalidResponse": {
+      "title": "応答内容が無効です",
+      "action": "サービスが返した内容を解析できないか、取り決めた形式に合いません。再読み込みしてください。繰り返し失敗する場合はサービス提供元にお問い合わせください。"
+    },
+    "unknown": {
+      "title": "失敗の理由を判定できません",
+      "action": "現時点では失敗の理由を確定できません。プラグインビューを再読み込みしてください。それでも失敗する場合はサービスのログを確認してください。"
+    },
+    "reloadView": "プラグインビューを再読み込み",
+    "errorCodeLabel": "エラーコード: {errorCode}"
   }
 }
