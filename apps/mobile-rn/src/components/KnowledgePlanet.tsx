@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   } as ViewStyle,
   authorBadge: {
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.muted,
     borderRadius: AUTHOR_BADGE_RADIUS,
     paddingHorizontal: AUTHOR_BADGE_PADDING_H,
     paddingVertical: AUTHOR_BADGE_PADDING_V,

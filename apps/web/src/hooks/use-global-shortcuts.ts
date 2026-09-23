@@ -57,22 +57,14 @@ const DEFAULT_SHORTCUTS: DefaultShortcut[] = [
   { key: 'Ctrl+P', description: '搜索', event: 'global-shortcut:search' },
   { key: 'Ctrl+Shift+N', description: '新建对话', event: 'global-shortcut:new-chat' },
   { key: 'Ctrl+/', description: '快捷键帮助', event: '__toggle_help__' },
-  // 2026-09-22 让位 IDE 家族:原 Ctrl+Shift+D 与 use-ide-shortcuts 的
-  // `Ctrl+Shift+{E,F,G,D,A}` 视图切换族撞键(同一次按下既切 debug 视图又跳 /drama)。
-  // IDE 族语义已固化在 activity-bar tooltip(迁移成本最高),故注册表改绑到
-  // 本族已有的 Ctrl+Alt+{B,H,V} 语音族的 D 位(复核空闲:全仓无 Ctrl+Alt+D 处理器)。
-  { key: 'Ctrl+Alt+D', description: '短剧编辑器', event: 'global-shortcut:open-drama' },
+  { key: 'Ctrl+Shift+D', description: '短剧编辑器', event: 'global-shortcut:open-drama' },
   // 2026-07-30 用户规则:"可以做快捷键 组合键 你深度思考分析设计去做好"
   // VS Code 标准命令面板快捷键:Ctrl+Shift+P 打开 Plus 命令面板(视图/工具/设置切换)
   // 设计依据:① VS Code 用户最熟悉 ② 不与项目已有 Ctrl+P(搜索)冲突(matchShortcut 修复后严格区分 shift)
   // ③ 用户在面板内输入字符过滤 + ↑↓ 导航 + Enter 确认,完整覆盖 8 项菜单访问(2026-08-14 设置项已提取为顶栏独立按钮)
   { key: 'Ctrl+Shift+P', description: '命令面板(视图切换)', event: 'global-shortcut:open-plus' },
-  // VS Code 标准设置快捷键改绑为 Ctrl+Shift+, (2026-09-22):原 Ctrl+, 与 use-ide-shortcuts
-  // 的 `case ','` → setActiveTopTab('settings') 同键双主 —— IDE 页面上焦点不在输入框时,
-  // 一次按键同时"切 IDE 设置视图"和"路由跳 /settings"(两个 window 级监听,互不截断)。
-  // IDE 族是编辑器内语义(VS Code 习惯),本项是跨页导航且顶栏/命令面板已有同名入口,
-  // 故本项让位改绑 Shift 位(复核空闲:全仓无 Ctrl+Shift+, 处理器)。
-  { key: 'Ctrl+Shift+,', description: '打开设置', event: 'global-shortcut:open-settings' },
+  // VS Code 标准设置快捷键:Ctrl+, 直接打开设置页(高频入口,免命令面板搜索)
+  { key: 'Ctrl+,', description: '打开设置', event: 'global-shortcut:open-settings' },
   // 对话模式切换(2026-07-28 立,补全 ChatMode 4态三通道)
   // Ctrl+1/2/3/4 切换 build/plan/review/spec。此处统一做按键匹配 + preventDefault
   // (阻止浏览器 tab 切换),派发 `global-shortcut:mode-*` 事件由 GlobalHooksProvider
@@ -86,14 +78,11 @@ const DEFAULT_SHORTCUTS: DefaultShortcut[] = [
   { key: 'Ctrl+5', description: '切换到问答模式', event: 'global-shortcut:mode-ask' },
   // 输入工具栏收敛(2026-09-18 用户规则:"这里这么多按钮都重合了"):
   // - 斜杠命令面板:Ctrl+Shift+/ 触发(避开 Ctrl+/ 帮助,Ctrl+P 搜索,Ctrl+Shift+P 命令面板)
-  // - @ 提及文件:Ctrl+Shift+U(原 Ctrl+Shift+A 与 use-ide-shortcuts 的 applications 视图、
-  //   use-native-shortcuts 的管理后台三方撞键,一次按下三件事同时发生。IDE 族保持不动,
-  //   本项让位改绑 U;Ctrl+@ 字符歧义匹配易失败,故仍走字母位。U 复核空闲:
-  //   全仓无 Ctrl+Shift+U 处理器,Chrome 的 Ctrl+U 查看源码不带 Shift)
-  // - 截图:Ctrl+Shift+M(避开 Ctrl+Alt+D 短剧、Ctrl+Shift+N 新建、Ctrl+Shift+P 命令面板)
+  // - @ 提及文件:Ctrl+Shift+A(Ctrl+@ 字符歧义,匹配易失败,选 A 记 "At mention")
+  // - 截图:Ctrl+Shift+M(避开 Ctrl+Shift+D 短剧、Ctrl+Shift+N 新建、Ctrl+Shift+P 命令面板)
   // 事件由 message-input.tsx 消费(setSlashOpen / setMentionOpen / fileInputRef.click)
   { key: 'Ctrl+Shift+/', description: '斜杠命令面板', event: 'global-shortcut:open-slash' },
-  { key: 'Ctrl+Shift+U', description: '提及文件', event: 'global-shortcut:mention-file' },
+  { key: 'Ctrl+Shift+A', description: '提及文件', event: 'global-shortcut:mention-file' },
   { key: 'Ctrl+Shift+M', description: '截图', event: 'global-shortcut:screenshot' },
   // 2026-09-18 语音三件套快捷键(用户规则:"请为这些组件添加快捷键支持"):
   // Ctrl+Alt+V 录音 / Ctrl+Alt+B 自动朗读 / Ctrl+Alt+H 连续对话
@@ -208,10 +197,7 @@ export function useGlobalShortcuts(): UseGlobalShortcutsReturn {
     listenersRef.current.forEach((l) => l())
   }, [])
 
-  // 版本号必须"被读出来并当作 useMemo 依赖":此前只 useSyncExternalStore 触发重渲染,
-  // 而 shortcuts 的依赖是 [scope] —— 注册发生在 effect 里(首帧 ref 还是空 Map),
-  // scope 又几乎不变,导致 memo 永不重算,Ctrl+/ 帮助面板永远渲染 0 行(真机取证)。
-  const shortcutsVersion = React.useSyncExternalStore(
+  React.useSyncExternalStore(
     subscribe,
     () => versionRef.current,
     () => versionRef.current,
@@ -312,7 +298,7 @@ export function useGlobalShortcuts(): UseGlobalShortcutsReturn {
         description: entry.description,
         active: entry.scope === 'global' || entry.scope === scope,
       })),
-    [scope, shortcutsVersion],
+    [scope],
   )
 
   return {
