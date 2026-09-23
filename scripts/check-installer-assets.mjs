@@ -656,6 +656,16 @@ export function checkWorkAreaDownshift({ uiSrc }) {
   const w = Number(uiSrc.match(/!define IHUI_LOG_W (\d+)/)?.[1])
   const h = Number(uiSrc.match(/!define IHUI_LOG_H (\d+)/)?.[1])
   need(Number.isInteger(w) && w > 0 && Number.isInteger(h) && h > 0, 'IHUI_LOG_W/H 解析不到正整数')
+  // 对照开关必须"默认开":编出 -DIHUI_WA_FIT=0 的包只用于运行时 A/B 取证,
+  // 一旦默认值被改成 0,生产就悄悄不降档了 —— 所以钉死 !ifndef 块里的默认必须是 1。
+  need(
+    /!ifndef IHUI_WA_FIT\s*\r?\n\s*!define IHUI_WA_FIT 1\s*\r?\n!endif/.test(uiSrc),
+    'IHUI_WA_FIT 的 !ifndef 默认值不是 1(生产可能悄悄关掉降档)',
+  )
+  need(
+    /\!if \$\{IHUI_WA_FIT\} != 0/.test(uiSrc),
+    '降档块没有包在 !if ${IHUI_WA_FIT} != 0 里(A/B 开关失效)',
+  )
 
   // 出图必须引用宏,不许再写字面量(否则降档公式与实际窗口大小脱钩)
   const px = [...size.matchAll(/!insertmacro IHUI_PX \$(IHUIWW|IHUIWH) (\S+)/g)]
