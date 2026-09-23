@@ -2,21 +2,85 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
+import { useEffect, useMemo, useRef } from 'react'
+import {
+  Animated,
+  Easing,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  type ViewStyle,
+} from 'react-native'
+import { AlertTriangle, Newspaper, RefreshCw } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ArticleListItem, ArticleListScreenProps } from '../../types'
 
 /** 文章列表/Props 类型 re-export(单一来源 @ihui/types) */
 export type { ArticleListItem, ArticleListScreenProps }
 
+/** 骨架屏卡片数量(模拟首屏可见区域的文章卡片数) */
+const SKELETON_COUNT = 5
+
+/**
+ * 骨架屏卡片 — Animated.opacity pulse 呼吸动画(对齐 web animate-pulse 语义)。
+ * 容器复用真实卡片样式(card),内部用灰色占位条模拟标题+元信息行,避免布局抖动。
+ */
+function SkeletonCard({
+  card,
+  titleBar,
+  metaBar,
+}: {
+  card: ViewStyle
+  titleBar: ViewStyle
+  metaBar: ViewStyle
+}) {
+  const opacity = useRef(new Animated.Value(0.4)).current
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 750,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0.4,
+          duration: 750,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    )
+    loop.start()
+    return () => loop.stop()
+  }, [opacity])
+
+  return (
+    <View style={card}>
+      <Animated.View style={[titleA, { opacity }]} />
+      <Animated.View style={[metaA, { opacity }]} />
+    </View>
+  )
+}
+
 /**
  * 文章列表共享屏 — props 注入式跨端组件
  *
- * 平台无关:负责渲染 header(返回 + 标题)+ 错误提示(可选)+ loading 态
+ * 平台无关:负责渲染 header(返回 + 标题)+ 加载态(骨架屏)+ 错误态(重试)
  * + 文章卡片列表(title + author + views + publishedAt)
- * + 下拉刷新 + 空态。
+ * + 下拉刷新 + 空态(图标 + 引导文字 + 刷新按钮)。
  * 平台特定(导航 / API 调用)由 wrapper 通过 props 注入。
+ *
+ * 2026-09-23 修复:
+ * - P1:首次加载改为骨架屏(Animated pulse),保持 header 框架可见,不再全灰屏
+ * - P2:空状态添加 Newspaper 图标 + 引导文字 + 刷新按钮
+ * - P3:错误状态添加 AlertTriangle 图标 + 重试按钮,框架保持可见
  */
 export function ArticleListScreen({
   t,
@@ -32,8 +96,14 @@ export function ArticleListScreen({
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
+  /** 首次加载(无数据时的 loading 态)→ 骨架屏 */
+  const showSkeleton = loading && items.length === 0
+  /** 错误态(无数据时的 error)→ 居中错误提示 + 重试 */
+  const showError = !loading && error.length > 0 && items.length === 0
+
   return (
     <View style={styles.container}>
+      {/* header 始终渲染 — 保持页面框架可见(修复 P1 全灰屏连导航消失) */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Text style={styles.backText}>{t('common.back')}</Text>
@@ -41,11 +111,33 @@ export function ArticleListScreen({
         <Text style={styles.title}>{t('articleList.title')}</Text>
       </View>
 
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-      {loading && items.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.muted}>{t('common.loading')}</Text>
+      {/* 内容区:根据状态条件渲染,header 框架始终可见 */}
+      {showSkeleton ? (
+        /* P1 修复:骨架屏替代纯文字"加载中...",模拟文章卡片占位 */
+        <View style={styles.listBody}>
+          {Array.from({ length: SKELETON_COUNT }, (_, i) => (
+            <SkeletonCard
+              key={`skeleton-${i}`}
+              card={styles.card}
+              titleBar={styles.skeletonTitle}
+              metaBar={styles.skeletonMeta}
+            />
+          ))}
+        </View>
+      ) : showError ? (
+        /* P3 修复:错误态居中显示图标 + 错误文字 + 重试按钮 */
+        <View style={styles.centerWrap}>
+          <AlertTriangle size={48} color={tk.text.tertiary} />
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable
+            style={styles.actionBtn}
+            onPress={onRefresh}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.retry')}
+          >
+            <RefreshCw size={16} color={tk.surface.light} />
+            <Text style={styles.actionBtnTextPrimary}>{t('common.retry')}</Text>
+          </Pressable>
         </View>
       ) : (
         <FlatList<ArticleListItem>
@@ -55,8 +147,19 @@ export function ArticleListScreen({
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
-            <View style={styles.center}>
-              <Text style={styles.muted}>{t('articleList.empty')}</Text>
+            /* P2 修复:空状态添加 Newspaper 图标 + 引导文字 + 刷新按钮 */
+            <View style={styles.centerWrap}>
+              <Newspaper size={48} color={tk.text.tertiary} />
+              <Text style={styles.emptyText}>{t('articleList.empty')}</Text>
+              <Pressable
+                style={styles.refreshBtn}
+                onPress={onRefresh}
+                accessibilityRole="button"
+                accessibilityLabel={t('common.retry')}
+              >
+                <RefreshCw size={16} color={tk.text.secondary} />
+                <Text style={styles.refreshBtnText}>{t('common.retry')}</Text>
+              </Pressable>
             </View>
           }
           renderItem={({ item }) => (
