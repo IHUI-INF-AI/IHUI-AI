@@ -188,7 +188,14 @@
     "send": "전송",
     "showPassword": "비밀번호 표시",
     "slashCommand": "슬래시 명령",
-    "uploadAvatar": "아바타 업로드"
+    "uploadAvatar": "아바타 업로드",
+    "previewSnapshotBadge": "도구 기록 내용",
+    "previewSnapshotReadAt": "읽은 시간: {time}",
+    "previewSnapshotNotice": "현재 파일을 읽을 수 없습니다. 도구 기록의 내용을 표시합니다.",
+    "previewIncompleteChange": "이 파일 변경은 전체 내용을 기록하지 않았습니다.",
+    "previewNoContent": "미리 볼 수 있는 내용이 없습니다.",
+    "previewFileUpdated": "파일이 업데이트되었습니다",
+    "previewFileUpdatedAction": "새로고침하여 최신 내용 보기"
   },
   "about": {
     "loading": "로딩 중...",
@@ -2161,5 +2168,73 @@
       "reasonLabel": "사유(선택)",
       "reasonPlaceholder": "사유를 입력하면 감사와 추적에 도움이 됩니다"
     }
+  },
+  "viewFailure": {
+    "resourceNotFound": {
+      "title": "리소스를 찾을 수 없음",
+      "action": "해당 MCP 리소스가 삭제되었거나 리소스 목록에 선언되지 않았을 수 있습니다. 목록을 새로 고친 후 다시 선택해 주세요."
+    },
+    "runtimeException": {
+      "title": "런타임 오류",
+      "action": "서버가 이 요청을 처리하는 동안 예외가 발생했습니다. 플러그인 뷰를 다시 로드해 주세요. 문제가 지속되면 해당 서비스의 실행 로그를 확인하세요."
+    },
+    "entrypointNotRegistered": {
+      "title": "시작 엔트리가 등록되지 않음",
+      "action": "이 플러그인 뷰에는 사용할 수 있는 시작 엔트리가 등록되지 않았습니다. 설정에서 해당 서비스를 다시 추가하거나 활성화해 주세요."
+    },
+    "entrypointInvalid": {
+      "title": "시작 엔트리가 유효하지 않음",
+      "action": "서비스의 명령어나 주소를 실행할 수 없습니다. 설정의 command, url, 전송 방식을 확인해 주세요."
+    },
+    "dependencyModuleMissing": {
+      "title": "의존 모듈이 제공되지 않음",
+      "action": "이 서비스에 필요한 모듈이 설치되지 않았습니다. 의존성을 설치한 후 플러그인 뷰를 다시 로드해 주세요."
+    },
+    "resourceLimitExceeded": {
+      "title": "리소스 제한 초과",
+      "action": "요청 본문이나 응답 내용이 너무 크거나 호출이 지나치게 빈번합니다. 범위를 줄이거나 잠시 후 다시 시도해 주세요."
+    },
+    "environmentInitFailed": {
+      "title": "환경 초기화 실패",
+      "action": "서비스가 초기화를 완료하지 않았거나 런타임 환경이 준비되지 않았습니다. 서비스가 실행 중인지 확인한 후 다시 로드해 주세요."
+    },
+    "disabled": {
+      "title": "비활성화됨",
+      "action": "이 서비스 또는 플러그인은 현재 비활성화 상태입니다. 먼저 활성화한 후 콘텐츠를 확인해 주세요."
+    },
+    "backendTimeout": {
+      "title": "백엔드 응답 시간 초과",
+      "action": "서버가 제한된 시간 내에 결과를 반환하지 않았습니다. 잠시 후 다시 시도해 주세요. 시간이 초과되는 일이 잦다면 요청 규모를 줄이세요."
+    },
+    "backendExited": {
+      "title": "백엔드 종료",
+      "action": "서비스 프로세스가 종료되었거나 연결이 닫혔습니다. 플러그인 뷰를 다시 로드해 서비스를 다시 시작해 주세요."
+    },
+    "capabilityNotOffered": {
+      "title": "필요한 기능 미제공",
+      "action": "이 서비스는 기능 선언에 해당 기능을 제공하지 않습니다. 서비스가 지원하는 다른 기능을 선택해 주세요."
+    },
+    "backendCrashed": {
+      "title": "서비스 충돌",
+      "action": "서비스 프로세스가 예상치 못하게 종료되었습니다. 플러그인 뷰를 다시 로드하고 해당 서비스의 실행 로그를 확인해 주세요."
+    },
+    "protocolMismatch": {
+      "title": "프로토콜 버전 불일치",
+      "action": "클라이언트와 이 서비스가 협상한 프로토콜 버전을 지원하지 않습니다. 서비스를 업그레이드하거나 클라이언트 버전을 낮춰 주세요."
+    },
+    "authForbidden": {
+      "title": "인증 실패",
+      "action": "접근 자격 증명이 유효하지 않거나 만료되었습니다. 다시 로그인한 후 해당 서비스를 확인해 주세요."
+    },
+    "invalidResponse": {
+      "title": "응답 내용 유효하지 않음",
+      "action": "서비스가 반환한 내용을 해석할 수 없거나 합의된 형식에 맞지 않습니다. 다시 로드해 주세요. 문제가 지속되면 서비스 제공자에게 문의하세요."
+    },
+    "unknown": {
+      "title": "실패 원인 확인되지 않음",
+      "action": "실패 원인을 일시적으로 확정할 수 없습니다. 플러그인 뷰를 다시 로드해 주세요. 그래도 실패하면 서비스 실행 로그를 확인해 주세요."
+    },
+    "reloadView": "플러그인 뷰 다시 로드",
+    "errorCodeLabel": "오류 코드: {errorCode}"
   }
 }

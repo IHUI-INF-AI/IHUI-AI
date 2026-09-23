@@ -26,6 +26,7 @@ import { fetchApi } from '@/lib/api'
 
 import type { McpServer } from './mcp-manager'
 import { McpToolCallResult } from './mcp-tool-call-result'
+import { McpViewFailure } from './mcp-view-failure'
 import { type McpToolParameter, McpToolParameterForm } from './mcp-tool-parameter-form'
 
 export interface McpTool {
@@ -218,11 +219,16 @@ export function McpQuickCall({ serverId: fixedServerId }: McpQuickCallProps) {
         />
       )}
       {callMutation.isError && (
-        <McpToolCallResult
-          toolName={selectedTool}
-          result={null}
-          status="error"
-          error={callMutation.error instanceof Error ? callMutation.error.message : t('error')}
+        // D92:工具调用失败改走 15 类分类学面板(原先只把 error.message 塞进结果卡,
+        // 一律显示成笼统"错误")。恢复动作 = 用同一份入参重新发起调用。
+        <McpViewFailure
+          error={callMutation.error}
+          context={selectedTool}
+          reloading={callMutation.isPending}
+          onReload={() => {
+            const input = callMutation.variables
+            if (input) callMutation.mutate(input)
+          }}
         />
       )}
     </div>
