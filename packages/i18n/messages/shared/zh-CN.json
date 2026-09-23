@@ -1,4 +1,179 @@
 {
+  "taskStatus": {
+    "toolGenericActivity": "{state, select, running {正在执行：{name}} completed {已完成：{name}} other {执行：{name}}}",
+    "toolReadFileActivity": "{state, select, running {正在读取文件} completed {已读取文件} other {读取文件}}",
+    "toolEditFileActivity": "{state, select, running {正在编辑文件} completed {已编辑文件} other {编辑文件}}",
+    "toolWriteFileActivity": "{state, select, running {正在写入文件} completed {已写入文件} other {写入文件}}",
+    "toolSearchCodebaseActivity": "{state, select, running {正在搜索代码库} completed {已搜索代码库} other {搜索代码库}}",
+    "toolWebSearchActivity": "{state, select, running {正在搜索网页} completed {已搜索网页} other {搜索网页}}",
+    "toolParseDocumentActivity": "{state, select, running {正在解析文档} completed {已解析文档} other {解析文档}}",
+    "toolListFilesActivity": "{state, select, running {正在列出目录文件} completed {已列出目录文件} other {列出目录文件}}",
+    "toolFileSearchActivity": "{state, select, running {正在检索文件} completed {已检索文件} other {检索文件}}",
+    "toolCreateFileActivity": "{state, select, running {正在创建文件} completed {已创建文件} other {创建文件}}",
+    "toolDeleteFileActivity": "{state, select, running {正在删除文件} completed {已删除文件} other {删除文件}}",
+    "toolAnalyzeCodeActivity": "{state, select, running {正在分析代码} completed {已分析代码} other {分析代码}}",
+    "toolKnowledgeLookupActivity": "{state, select, running {正在查询知识库} completed {已查询知识库} other {查询知识库}}",
+    "toolFetchUrlActivity": "{state, select, running {正在读取网页内容} completed {已读取网页内容} other {读取网页内容}}",
+    "toolGenerateChartActivity": "{state, select, running {正在生成图表} completed {已生成图表} other {生成图表}}",
+    "toolBrowserNavigateActivity": "{state, select, running {正在打开网页} completed {已打开网页} other {打开网页}}",
+    "toolBrowserClickElementActivity": "{state, select, running {正在点击网页元素} completed {已点击网页元素} other {点击网页元素}}",
+    "toolBrowserTypeTextActivity": "{state, select, running {正在输入网页文本} completed {已输入网页文本} other {输入网页文本}}",
+    "toolBrowserScreenshotActivity": "{state, select, running {正在网页截图} completed {已完成网页截图} other {网页截图}}",
+    "toolBrowserExtractDomActivity": "{state, select, running {正在提取网页内容} completed {已提取网页内容} other {提取网页内容}}",
+    "toolBrowserScrollActivity": "{state, select, running {正在滚动网页} completed {已滚动网页} other {滚动网页}}",
+    "toolBrowserWaitForElementActivity": "{state, select, running {正在等待元素出现} completed {已等到元素出现} other {等待元素出现}}",
+    "toolBrowserHoverActivity": "{state, select, running {正在悬停网页元素} completed {已悬停网页元素} other {悬停网页元素}}",
+    "toolBrowserCloseTabActivity": "{state, select, running {正在关闭网页标签} completed {已关闭网页标签} other {关闭网页标签}}",
+    "toolBrowserSwitchTabActivity": "{state, select, running {正在切换网页标签} completed {已切换网页标签} other {切换网页标签}}",
+    "toolReadFile": "读取文件内容",
+    "toolEditFile": "编辑文件",
+    "toolWriteFile": "写入文件",
+    "toolCreateFile": "创建文件",
+    "toolDeleteFile": "删除文件",
+    "toolListFiles": "列出目录文件",
+    "toolFileSearch": "检索文件",
+    "toolSearchCodebase": "搜索代码库",
+    "toolAnalyzeCode": "分析代码",
+    "toolWebSearch": "搜索网页",
+    "toolKnowledgeLookup": "查询知识库",
+    "toolParseDocument": "解析文档",
+    "toolGenerateChart": "生成图表",
+    "toolSummarizeArtifacts": "汇总任务产物",
+    "activityMcp": "调用 {mcp} MCP",
+    "activityPlugin": "调用 {plugin} 插件",
+    "activityPlanning": "规划进度",
+    "activityRunning": "执行中",
+    "activitySubagent": "子代理 {name}",
+    "activityTerminal": "执行终端命令",
+    "activityTool": "调用 {tool}",
+    "collapseDetail": "收起任务明细",
+    "expandDetail": "展开任务明细",
+    "filesChanged": "{n} 个文件已修改",
+    "idle": "空闲",
+    "steps": "步骤 {current}/{total}",
+    "waiting": "等待任务开始",
+    "toolIndexCodebase": "索引代码库",
+    "toolGenerateTest": "生成测试代码",
+    "toolRunCommand": "执行命令",
+    "toolGitOperations": "执行 Git 操作",
+    "toolFetchUrl": "读取网页内容",
+    "toolCrawlSite": "抓取站点页面",
+    "toolScreenshot": "网页截图",
+    "toolContextRecall": "回忆历史上下文",
+    "toolImageGeneration": "生成图片",
+    "toolImageEdit": "编辑图片",
+    "toolVideoGeneration": "生成视频",
+    "toolMusicGeneration": "生成音乐",
+    "toolVoiceTts": "文字转语音",
+    "toolAudioTranscription": "音频转文字",
+    "toolVisionAnalyze": "识别图片内容",
+    "toolDispatchSubagent": "派遣子代理",
+    "toolScheduleTask": "创建定时任务",
+    "toolBgTaskStatus": "查询后台任务",
+    "toolUiDescribe": "读取页面控件",
+    "toolUiNavigate": "打开页面",
+    "toolUiClick": "点击页面元素",
+    "toolUiFill": "填写输入框",
+    "toolUiSubmit": "提交表单",
+    "toolUiRead": "读取页面内容",
+    "toolUiInvoke": "触发页面操作",
+    "toolApiSearch": "检索后台接口",
+    "toolApiCall": "调用后台接口",
+    "toolEduListStudents": "查询学生名单",
+    "toolEduListArrears": "查询欠费名单",
+    "toolEduListReminders": "查询催费记录",
+    "toolEduListPayments": "查询缴费记录",
+    "toolEduPaymentSummary": "汇总缴费情况",
+    "toolEduTuitionFees": "查询学费标准",
+    "toolEduMyBills": "查询我的账单",
+    "toolEduListRefunds": "查询退费申请",
+    "toolEduCreateRefund": "发起退费申请",
+    "toolEduApproveRefund": "批准退费",
+    "toolEduRejectRefund": "驳回退费",
+    "toolEduSendReminder": "发送催费提醒",
+    "toolEduSendReminderBatch": "批量发送催费提醒",
+    "toolEduCreatePayment": "登记缴费记录",
+    "statusSuccess": "已完成",
+    "statusFailed": "执行失败",
+    "statusRunning": "执行中",
+    "statusSkipped": "已跳过",
+    "roundNumber": "第 {n} 轮",
+    "retriedTimes": "重试 {n} 次",
+    "sourcePlugin": "插件",
+    "sourceMcp": "MCP 服务",
+    "errorTimeout": "超时",
+    "errorHttp4xx": "请求被拒绝",
+    "errorHttp5xx": "服务异常",
+    "errorConnection": "连接失败",
+    "errorCancelled": "已取消",
+    "unitLines": "{n} 行",
+    "unitResults": "{n} 个结果",
+    "unitFiles": "{n} 个文件",
+    "addedCount": "+{n}",
+    "removedCount": "-{n}",
+    "workedFor": "用时 {time}",
+    "stepCount": "{n} 个步骤",
+    "expandSteps": "展开执行过程",
+    "collapseSteps": "收起执行过程",
+    "argsLabel": "入参",
+    "resultLabel": "结果",
+    "errorLabel": "错误",
+    "toolCallCount": "{n} 次工具调用",
+    "showMore": "显示更多",
+    "noOutput": "无返回内容",
+    "stepPending": "待开始",
+    "exitCode": "退出码 {n}",
+    "toolBrowserNavigate": "打开网页",
+    "toolBrowserClickElement": "点击网页元素",
+    "toolBrowserTypeText": "输入网页文本",
+    "toolBrowserScroll": "滚动网页",
+    "toolBrowserHover": "悬停网页元素",
+    "toolBrowserSelectOption": "选择下拉项",
+    "toolBrowserGetAttribute": "读取元素属性",
+    "toolBrowserExtractDom": "提取网页内容",
+    "toolBrowserWaitForElement": "等待元素出现",
+    "toolBrowserScreenshot": "网页截图",
+    "toolBrowserSwitchTab": "切换网页标签",
+    "toolBrowserCloseTab": "关闭网页标签",
+    "toolBrowserSelfcheck": "页面自检",
+    "toolBrowserSelfcheckScreenshot": "页面自检截图",
+    "toolComputerScreenshotScreen": "截取屏幕",
+    "toolComputerMouseClick": "点击鼠标",
+    "toolComputerMouseMove": "移动鼠标",
+    "toolComputerMouseScroll": "滚动鼠标",
+    "toolComputerKeyboardType": "键入文本",
+    "toolComputerKeyboardPress": "按下按键",
+    "toolComputerKeyboardHotkey": "按下快捷键",
+    "toolComputerClipboardGet": "读取剪贴板",
+    "toolComputerClipboardSet": "写入剪贴板",
+    "toolComputerActiveWindow": "读取当前窗口",
+    "toolDbQuery": "查询数据库",
+    "toolDocumentTables": "读取表格结构",
+    "toolExtractDocumentAssets": "提取文档附件",
+    "toolGetToolSchema": "查看工具参数说明",
+    "toolProactiveSuggestion": "生成主动建议",
+    "toolResolveConflict": "解决冲突",
+    "toolReviewPr": "审阅合并请求",
+    "toolVendorBalance": "查询厂商余额",
+    "toolVendorModelInfo": "查询厂商模型信息",
+    "toolVendorUploadFile": "上传厂商文件",
+    "toolVendorCancelTask": "取消厂商任务",
+    "toolVendorVoiceClone": "克隆声纹",
+    "fileActivity": "{state, select, running {正在处理文件} completed {已处理文件} other {处理文件}}",
+    "imageActivity": "{state, select, running {正在处理图像} completed {已处理图像} other {处理图像}}",
+    "searchActivity": "{state, select, running {正在检索} completed {已检索} other {检索}}",
+    "thinkingActivity": "{state, select, running {正在分析} completed {已分析} other {分析}}",
+    "customActivity": "{state, select, running {正在执行} completed {已执行} other {执行}}",
+    "workedForDuration": "用时 {duration}",
+    "searchWithQuery": "查询：{query}",
+    "showAllLines": "展开全部",
+    "hideLines": "收起",
+    "sourcesButton": "来源",
+    "canceled": "已取消",
+    "canceledItemLabel": "已取消：{name}",
+    "readingConnector": "读取自 {connector}",
+    "writingConnector": "写入到 {connector}"
+  },
   "a11y": {
     "addAttachment": "添加附件(图片/视频/文件)",
     "barChart": "柱状图",
@@ -27,7 +202,14 @@
     "send": "发送",
     "showPassword": "显示密码",
     "slashCommand": "斜杠命令",
-    "uploadAvatar": "上传头像"
+    "uploadAvatar": "上传头像",
+    "previewSnapshotBadge": "工具记录内容",
+    "previewSnapshotReadAt": "读取于 {time}",
+    "previewSnapshotNotice": "无法读取当前文件，已展示工具记录中的内容。",
+    "previewIncompleteChange": "这次文件变更没有记录完整内容。",
+    "previewNoContent": "没有可预览内容。",
+    "previewFileUpdated": "文件已更新",
+    "previewFileUpdatedAction": "刷新以查看最新内容"
   },
   "about": {
     "loading": "加载中...",
@@ -254,7 +436,13 @@
     "captchaRefresh": "刷新验证码"
   },
   "chat": {
+    "icuProbe": {
+      "flowState": "{state, select, running {{count, plural, =0 {对话流运行中，暂无待处理工具} other {对话流运行中，已调度 {count} 个工具}}} paused {对话流已暂停} failed {执行失败：<b>{reason}</b>}}"
+    },
     "send": "发送"
+  },
+  "richAnchorProbe": {
+    "flow": "<action>正在注入</action><detail>{target}</detail>"
   },
   "common": {
     "accepted": "已采纳",
@@ -444,9 +632,15 @@
     "fieldTitle": "标题",
     "loading": "加载中...",
     "notFound": "反馈不存在或无权访问",
+    "priorityHigh": "高",
+    "priorityLow": "低",
+    "priorityMedium": "中",
+    "priorityUnknown": "未设置优先级",
     "statusClosed": "已关闭",
     "statusPending": "待处理",
     "statusResolved": "已解决",
+    "statusReviewing": "审核中",
+    "statusUnknown": "未知状态",
     "submit": "提交",
     "submitting": "提交中...",
     "subtitle": "提交反馈与建议",
@@ -454,9 +648,12 @@
     "title": "反馈中心",
     "type": "类型",
     "typeBug": "Bug",
+    "typeFeature": "功能需求",
+    "typeImprovement": "改进建议",
     "typeOther": "其他",
     "typeQuestion": "问题",
-    "typeSuggestion": "建议"
+    "typeSuggestion": "建议",
+    "typeUnknown": "未知类型"
   },
   "feedbackHistory": {
     "createdAt": "创建时间",
@@ -1833,5 +2030,231 @@
   },
   "topBar": {
     "capabilityMarket": "能力市场"
+  },
+  "stepDecision": {
+    "decision": {
+      "planBlocked": "计划受阻",
+      "securityBlocked": "被安全策略拦截",
+      "rejectedByUser": "你已拒绝",
+      "approvalTimeout": "审批超时",
+      "toolMissing": "工具不存在",
+      "executeFailed": "执行失败",
+      "executeRetried": "已重试",
+      "executed": "已执行",
+      "approvalPersistHit": "沿用你保存的批准",
+      "execPolicyApproved": "执行策略放行",
+      "autoSkipApproval": "自动批准(免审批)",
+      "bypassSkipApproval": "已跳过审批",
+      "mcpRequiresApproval": "MCP 标注要求确认",
+      "policyRequiresApproval": "策略要求审批",
+      "policyForbidsExecution": "策略禁止执行"
+    },
+    "perm": {
+      "allow": "已放行",
+      "ask": "需确认",
+      "deny": "已拒绝"
+    },
+    "state": {
+      "approved": "已自动批准",
+      "rejected": "已拒绝",
+      "needsUser": "请求用户确认",
+      "unknown": "决策未知"
+    }
+  },
+  "waiting": {
+    "agent": {
+      "first": {
+        "0": "正在准备回复…",
+        "1": "正在组织回答思路…",
+        "2": "收到，正在思考如何回复…",
+        "3": "正在为你生成回复…",
+        "4": "已收到问题，正在处理…"
+      },
+      "middle": {
+        "0": "正在继续处理…",
+        "1": "正在接着上文思考…",
+        "2": "正在整理后续回复…",
+        "3": "正在跟进你的问题…",
+        "4": "正在生成接下来的回复…"
+      },
+      "followup": {
+        "0": "正在理解你的追问…",
+        "1": "结合上文，正在思考…",
+        "2": "正在针对追问组织回复…",
+        "3": "收到追问，正在处理…",
+        "4": "正在补充回答…"
+      }
+    },
+    "computer": {
+      "first": {
+        "0": "正在调度计算资源…",
+        "1": "正在初始化执行环境…",
+        "2": "正在启动处理流程…",
+        "3": "正在分配算力处理…",
+        "4": "正在执行初始计算…"
+      },
+      "middle": {
+        "0": "正在执行中…",
+        "1": "计算进行中，请稍候…",
+        "2": "正在处理中间结果…",
+        "3": "执行未中断，正在推进…",
+        "4": "正在运算，请稍候…"
+      },
+      "followup": {
+        "0": "正在重新计算…",
+        "1": "正在基于新输入继续执行…",
+        "2": "正在追加处理…",
+        "3": "正在更新计算结果…",
+        "4": "正在处理追加请求…"
+      }
+    },
+    "context": {
+      "first": {
+        "0": "正在回顾对话上下文…",
+        "1": "正在加载相关上下文…",
+        "2": "正在梳理背景信息…",
+        "3": "正在检索相关记忆…",
+        "4": "正在准备上下文…"
+      },
+      "middle": {
+        "0": "正在关联上文继续…",
+        "1": "正在结合上下文思考…",
+        "2": "正在回看前文…",
+        "3": "上下文已就绪，正在处理…",
+        "4": "正在对照历史消息…"
+      },
+      "followup": {
+        "0": "正在结合前文理解追问…",
+        "1": "正在回看相关上下文…",
+        "2": "正在关联历史追问…",
+        "3": "正在对照上文补充…",
+        "4": "结合上下文，正在处理…"
+      }
+    },
+    "plan": {
+      "first": {
+        "0": "正在制定处理计划…",
+        "1": "正在拆解你的需求…",
+        "2": "正在规划执行步骤…",
+        "3": "正在分析任务要点…",
+        "4": "正在拟定回复提纲…"
+      },
+      "middle": {
+        "0": "正在推进计划步骤…",
+        "1": "正在执行下一步…",
+        "2": "计划进行中，请稍候…",
+        "3": "正在按步骤处理…",
+        "4": "正在落实后续步骤…"
+      },
+      "followup": {
+        "0": "正在调整计划…",
+        "1": "正在根据追问更新步骤…",
+        "2": "正在重新规划…",
+        "3": "正在补充计划细节…",
+        "4": "正在跟进新的要求…"
+      }
+    },
+    "detail": {
+      "first": {
+        "0": "正在准备详细说明…",
+        "1": "正在组织细节内容…",
+        "2": "正在梳理要点…",
+        "3": "正在生成详细回复…",
+        "4": "正在完善回答细节…"
+      },
+      "middle": {
+        "0": "正在补充细节…",
+        "1": "正在展开说明…",
+        "2": "正在完善后续内容…",
+        "3": "详情整理中，请稍候…",
+        "4": "正在细化回复…"
+      },
+      "followup": {
+        "0": "正在补充你问的细节…",
+        "1": "正在展开追问的要点…",
+        "2": "正在细化相关说明…",
+        "3": "正在准备补充内容…",
+        "4": "正在完善追问的答复…"
+      }
+    },
+    "vividTail": "，马上就好"
+  },
+  "editor": {
+    "toolApproval": {
+      "scopeLabel": "授权范围",
+      "scopeOnce": "允许一次",
+      "scopeSession": "允许此对话",
+      "scopeAlways": "始终允许",
+      "reasonLabel": "原因(可选)",
+      "reasonPlaceholder": "填写原因,便于审计与追溯"
+    }
+  },
+  "viewFailure": {
+    "resourceNotFound": {
+      "title": "资源未找到",
+      "action": "该 MCP 资源可能已被删除或未在资源列表中声明，请刷新列表后重新选择。"
+    },
+    "runtimeException": {
+      "title": "运行时异常",
+      "action": "服务端处理本次请求时抛出异常，请重新加载插件视图；若持续失败请查看该服务的运行日志。"
+    },
+    "entrypointNotRegistered": {
+      "title": "未注册启动入口",
+      "action": "该插件视图没有注册可用的启动入口，请在设置中重新添加或启用对应的服务。"
+    },
+    "entrypointInvalid": {
+      "title": "启动入口无效",
+      "action": "服务的命令或地址不可执行，请检查配置中的 command、url 与传输方式。"
+    },
+    "dependencyModuleMissing": {
+      "title": "依赖模块未提供",
+      "action": "该服务依赖的模块尚未安装，请补齐依赖后重新加载插件视图。"
+    },
+    "resourceLimitExceeded": {
+      "title": "资源超出限制",
+      "action": "请求体或返回内容过大、调用过于频繁，请缩小范围或稍后重试。"
+    },
+    "environmentInitFailed": {
+      "title": "环境初始化失败",
+      "action": "服务尚未完成初始化或运行环境未就绪，请确认服务已启动后重新加载。"
+    },
+    "disabled": {
+      "title": "已停用",
+      "action": "该服务或插件当前处于停用状态，请先启用再查看内容。"
+    },
+    "backendTimeout": {
+      "title": "后端响应超时",
+      "action": "服务端在限定时间内未返回结果，可稍候重试；若经常超时请下调请求规模。"
+    },
+    "backendExited": {
+      "title": "后端已退出",
+      "action": "服务进程已结束或连接被关闭，请重新加载插件视图以重新拉起服务。"
+    },
+    "capabilityNotOffered": {
+      "title": "未提供所需能力",
+      "action": "该服务在能力声明中未提供此功能，请改选其支持的能力。"
+    },
+    "backendCrashed": {
+      "title": "服务异常崩溃",
+      "action": "服务进程意外终止，请重新加载插件视图，并查看该服务的运行日志。"
+    },
+    "protocolMismatch": {
+      "title": "协议版本不匹配",
+      "action": "客户端与该服务协商的协议版本不受支持，请升级服务或使用兼容的客户端版本。"
+    },
+    "authForbidden": {
+      "title": "授权失败",
+      "action": "访问凭据无效或已过期，请重新登录后再查看该服务。"
+    },
+    "invalidResponse": {
+      "title": "返回内容无效",
+      "action": "服务返回的内容无法解析或不符合约定格式，请重新加载；若持续失败请联系服务提供方。"
+    },
+    "unknown": {
+      "title": "未能判定失败原因",
+      "action": "暂时无法确定失败原因，请重新加载插件视图；如仍失败，请查看服务运行日志。"
+    },
+    "reloadView": "重新加载插件视图",
+    "errorCodeLabel": "错误码：{errorCode}"
   }
 }
