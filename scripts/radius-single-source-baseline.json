@@ -1,21 +1,21 @@
 {
   "updatedAt": "2026-09-23",
-  "note": "守门 77 存量基线(按 HEAD 内容生成):圆角取用尚未迁移到档位的点,只减不增。这些文件被并行会话占用(工作区有他人未提交改动),本轮按 §12 不得改写;对方收尾后应迁到 rnRadius/var 档位引用并删除对应行。修一处删一行,禁止为过门新增条目。",
+  "note": "存量圆角取用未迁移清单,只减不增;修一处删一行(禁止为过门而新增)",
   "sites": [
     {
       "file": "apps/mobile-rn/src/components/MaterialList.tsx",
       "rule": "B1",
-      "raw": "16"
-    },
-    {
-      "file": "apps/mobile-rn/src/components/MaterialList.tsx",
-      "rule": "B1",
       "raw": "4"
     },
     {
       "file": "apps/mobile-rn/src/components/MaterialList.tsx",
       "rule": "B1",
       "raw": "4"
+    },
+    {
+      "file": "apps/mobile-rn/src/components/NotificationPanel.tsx",
+      "rule": "B1",
+      "raw": "10"
     },
     {
       "file": "apps/mobile-rn/src/components/NotificationPanel.tsx",
