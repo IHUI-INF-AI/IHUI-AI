@@ -30,6 +30,7 @@ import {
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
 import { useConfirm } from '@/hooks/use-confirm'
+import { McpViewFailure } from './mcp-view-failure'
 
 export interface McpServer {
   id: string
@@ -140,7 +141,14 @@ export function McpManager() {
   const queryClient = useQueryClient()
   const [dialogOpen, setDialogOpen] = React.useState(false)
 
-  const { data: servers, isLoading } = useQuery({
+  const {
+    data: servers,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isFetching,
+  } = useQuery({
     queryKey: ['mcp', 'servers'],
     queryFn: async () => {
       const res = await fetchApi<McpServer[]>('/api/ai/mcp/servers')
@@ -213,6 +221,10 @@ export function McpManager() {
         <div className="flex justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
+      ) : isError ? (
+        // D92:加载失败必须走分类学面板。此前无 isError 分支,查询失败时 servers 为
+        // undefined,直接落进下面的 empty 态 —— 把故障误报成"暂无 MCP 服务器"。
+        <McpViewFailure error={error} onReload={() => void refetch()} reloading={isFetching} />
       ) : !servers || servers.length === 0 ? (
         <div className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
           <Server className="mx-auto mb-2 h-8 w-8 opacity-50" />

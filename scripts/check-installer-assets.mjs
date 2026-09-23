@@ -267,6 +267,152 @@ export function checkAnchorsMatchTicks({ installerSrc, genSrc }) {
   return v
 }
 
+/**
+ * 解析生成器里的 `const NAME = <表达式>`:支持字面量、标识符引用、以及
+ * `A - B` / `A + B` 两元式(版面几何就是这么写的 —— `C_W = C_R - C_L`、
+ * `RCARD_X = C_L`)。只认字面量会让"生成器改了布局常量、define 没跟"这类
+ * 漂移完全看不见(实测守门对 RCARD_X/W 恒报"缺少")。解不开返回 null。
+ */
+export function resolveGenConst(genSrc, name, depth = 0) {
+  if (depth > 6) return null
+  const m = genSrc.match(new RegExp(`^\\s*const ${name}\\s*=\\s*([^;]+);`, 'm'))
+  if (!m) return null
+  const expr = m[1].trim()
+  if (/^-?\d+$/.test(expr)) return Number(expr)
+  const bin = expr.match(/^([A-Za-z_]\w*)\s*([-+])\s*([A-Za-z_]\w*)$/)
+  if (bin) {
+    const a = resolveGenConst(genSrc, bin[1], depth + 1)
+    const b = resolveGenConst(genSrc, bin[3], depth + 1)
+    if (a === null || b === null) return null
+    return bin[2] === '-' ? a - b : a + b
+  }
+  if (/^[A-Za-z_]\w*$/.test(expr)) return resolveGenConst(genSrc, expr, depth + 1)
+  return null
+}
+
+/**
+ * 不变量 E(Var 作用域顺序):hook 文件里 **Function 体内**不得引用 installer.nsi
+ * 在 include 点之后才 `Var` 声明的变量。
+ * NSIS 按编译位置解析:宏体在插入点(通常在 Var 之后)展开 → 合法;
+ * 而 Function 在定义点即编译 → 引用被 warning 6000 **静默丢弃**,
+ * 后果分两种:`${If} $X = …` 恒假(守卫静默失效),`StrCpy $X 1` 退化成单参数
+ * (makensis 直接中止)。2026-09-23 真包构建就是这么断在 ihui-ui.nsi 的
+ * PageReinstallCard1Click 上,故把这条陷阱固化成闸。
+ */
+export function checkVarScopeOrder({ installerSrc, sources }) {
+  const lines = installerSrc.split(/\r?\n/)
+  let includeAt = -1
+  // 仓库模板里 hooks 是占位 `!include "{{installer_hooks}}"`(渲染时才换成真路径),
+  // 渲染产物里则是 `hooks.nsi` —— 两种形态都要认,否则本闸在任一侧恒"建立不了基线"。
+  lines.forEach((l, i) => {
+    if (includeAt < 0 && /^\s*!include\s+"(\{\{[^}]+\}\}|[^"]*hooks\.nsi)"/i.test(l)) includeAt = i
+  })
+  if (includeAt < 0) return ['installer.nsi 里找不到 hooks.nsi 的 !include 行,无法建立 Var 作用域基线']
+  const lateVars = []
+  lines.forEach((l, i) => {
+    const m = l.match(/^\s*Var\s+([A-Za-z_]\w*)/)
+    if (m && i > includeAt) lateVars.push(m[1])
+  })
+  const v = []
+  for (const [fname, src] of sources) {
+    const code = src
+      .split(/\r?\n/)
+      .filter((l) => !/^\s*;/.test(l))
+      .join('\n')
+    for (const fm of code.matchAll(/Function\s+\S+([\s\S]*?)^\s*FunctionEnd/gm)) {
+      for (const vn of lateVars) {
+        if (new RegExp(`\\$\\{?${vn}\\b`).test(fm[1])) {
+          v.push(
+            `${fname} 的 Function 体内引用了 installer.nsi 在 include(第 ${includeAt + 1} 行)之后才声明的 $${vn} —— ` +
+              `NSIS 会 warning 6000 静默丢弃该引用(条件恒假 / StrCpy 退化中止编译)。` +
+              `改读本文件内声明的变量,或改读控件自身状态(如对 radio 发 NSD_GetState)。`,
+          )
+        }
+      }
+    }
+  }
+  return v
+}
+
+/**
+ * 不变量 D(R70 维护页卡片化):重装确认页卡片/指示器几何三方一致。
+ *   ① 卡片框:ihui-ui.nsi 的 IHUI_RCARD_* define == 生成器 RCARD_* 常量
+ *     (卡片框烧进 reinstall.bmp,运行期 overlay/文字/指示器都按同一几何叠放,
+ *      任何一侧漂移都会出现"卡片框与点击区/文字错位")。
+ *   ② 指示器:宏内 IHUIRI1/IHUIRI2 的 CreateControl 矩形(逻辑像素)与
+ *     maint-radio-on/off.bmp 实际文件尺寸逐档逐像素等大
+ *     (SS_BITMAP 不缩放,rect 与位图不等大即偏移/裁切)。
+ * 均从宏调用点解析而非硬编码(参照 checkHoleEqualsButton 模式)。
+ */
+export function checkReinstallCards({ uiSrc, genSrc, assetRoot }) {
+  const v = []
+  const defs = {}
+  for (const m of uiSrc.matchAll(/^!define\s+(IHUI_[A-Z0-9_]+)\s+(-?\d+)/gm)) defs[m[1]] = Number(m[2])
+
+  // ① 卡片几何:define == 生成器常量
+  const CARD_KEYS = ['X', 'Y1', 'Y2', 'W', 'H']
+  for (const k of CARD_KEYS) {
+    const dn = `IHUI_RCARD_${k}`
+    if (defs[dn] === undefined) {
+      v.push(`ihui-ui.nsi 缺少 !define ${dn}(重装页卡片几何)`)
+      continue
+    }
+    const got = resolveGenConst(genSrc, `RCARD_${k}`)
+    if (got === null) {
+      v.push(`生成器缺少可解析的 const RCARD_${k}(重装页卡片几何)`)
+      continue
+    }
+    if (got !== defs[dn]) {
+      v.push(`重装页卡片几何漂移:${dn}=${defs[dn]} != 生成器 RCARD_${k}=${got}(位图烧入框与运行期 overlay/文字会错位)`)
+    }
+  }
+
+  // ② 指示器矩形 vs 位图文件尺寸(逐档)
+  // 从 CreateControl 那一行取四个逻辑坐标,而不是"往前找 4 条 IHUI_PX":
+  // 宏里 IHUIRI2 复用 IHUIRI1 已算好的 $2/$4/$5,只重算 $3(y),
+  // 按 IHUI_PX 取最后 4 条会得到 (y1,size,size,y2) 这种错位四元组。
+  const grabRect = (handle) => {
+    const pop = uiSrc.indexOf(`Pop $${handle}`)
+    if (pop < 0) return null
+    const cc = [
+      ...uiSrc.slice(0, pop).matchAll(/nsDialogs::CreateControl\s+\S+\s+\S+\s+\S+\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)/g),
+    ]
+    if (!cc.length) return null
+    // `${NAME}` 前缀 2 字符、后缀 `}` 1 字符 → slice(2, -1)。
+    // 写成 -2 会连名字末位一起吃掉(IHUI_RIND_X → IHUI_RIND),查表恒 undefined;
+    // 旧实现里这条路径因"取不到 4 条 IHUI_PX"提前 return,把这个笔误掩盖成了"解析不到矩形"。
+    return cc[cc.length - 1].slice(1).map((tok) => (tok.startsWith('${') ? defs[tok.slice(2, -1)] : Number(tok)))
+  }
+  for (const handle of ['IHUIRI1', 'IHUIRI2']) {
+    const rect = grabRect(handle)
+    if (!rect || rect.some((n) => !Number.isFinite(n))) {
+      v.push(`ihui-ui.nsi 解析不到重装页指示器 $${handle} 的 CreateControl 矩形(宏结构已变?)`)
+      continue
+    }
+    const [l, t, w, h] = rect
+    for (const tier of TIERS) {
+      const scale = Number(tier) / 100
+      for (const name of ['maint-radio-on.bmp', 'maint-radio-off.bmp']) {
+        const path = join(assetRoot, `assets-${tier}`, name)
+        if (!existsSync(path)) {
+          v.push(`缺少指示器位图: assets-${tier}/${name}(checkReinstallCards)`)
+          continue
+        }
+        const buf = readFileSync(path)
+        const bw = buf.readInt32LE(18)
+        const bh = buf.readInt32LE(22)
+        if (bw !== Math.round(w * scale) || bh !== Math.round(h * scale)) {
+          v.push(
+            `重装页指示器 $${handle} 矩形 (${l},${t},${w},${h}) 与 assets-${tier}/${name} 尺寸 ${bw}x${bh} 不等大` +
+              `(期望 ${Math.round(w * scale)}x${Math.round(h * scale)};SS_BITMAP 不缩放,会偏移/裁切)`,
+          )
+        }
+      }
+    }
+  }
+  return v
+}
+
 const UI_SRC_FOR_GEO = readFileSync(process.env.IHUI_NSI_PATH || NSI, 'utf8')
 const INSTALLER_SRC_FOR_GEO = readFileSync(process.env.IHUI_INSTALLER_NSI_PATH || join(ROOT, 'apps/desktop/src-tauri/windows/installer.nsi'), 'utf8')
 const GEN_SRC_FOR_GEO = readFileSync(process.env.IHUI_ASSET_GEN_PATH || join(ROOT, 'scripts/desktop-installer-assets.mjs'), 'utf8')
@@ -275,12 +421,17 @@ const geoFail = [
   ...checkHoleEqualsButton({ uiSrc: UI_SRC_FOR_GEO }),
   ...checkBadgeConcentric({ uiSrc: UI_SRC_FOR_GEO, genSrc: GEN_SRC_FOR_GEO }),
   ...checkAnchorsMatchTicks({ installerSrc: INSTALLER_SRC_FOR_GEO, genSrc: GEN_SRC_FOR_GEO }),
+  ...checkReinstallCards({ uiSrc: UI_SRC_FOR_GEO, genSrc: GEN_SRC_FOR_GEO, assetRoot: ASSET_ROOT }),
+  ...checkVarScopeOrder({
+    installerSrc: INSTALLER_SRC_FOR_GEO,
+    sources: [[join(NSI).replace(/^.*[\\/]/, ''), UI_SRC_FOR_GEO]],
+  }),
 ]
 if (geoFail.length > 0) {
   console.error(`\n[check-installer-assets] FAIL —— 跨文件几何/集合不变量被破坏 ${geoFail.length} 项:`)
   for (const m of geoFail) console.error(`  - ${m}`)
   process.exit(1)
 }
-console.log('[check-installer-assets] PASS —— 洞=按钮矩形、百分比同心、埋点=刻度 三条跨文件不变量成立')
+console.log('[check-installer-assets] PASS —— 洞=按钮矩形、百分比同心、埋点=刻度、重装页卡片/指示器几何 四条跨文件不变量成立')
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
