@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import {
   Loader2,
   AlertCircle,
@@ -29,12 +30,23 @@ import {
   type PlanItem,
   type PlanStatus,
   PLAN_STATUS_VARIANTS,
-  PLAN_STATUS_LABELS,
-  PLAN_TYPE_LABELS,
+  PLAN_STATUS_KEYS,
+  PLAN_TYPE_KEYS,
   STATUS_ORDER,
   formatDate,
   formatDateDisplay,
 } from './types'
+
+/** 周视图列头的单字星期标签(索引 = Date#getDay(),0=周日) */
+const WEEKDAY_SHORT_KEYS = [
+  'weekdaySun',
+  'weekdayMon',
+  'weekdayTue',
+  'weekdayWed',
+  'weekdayThu',
+  'weekdayFri',
+  'weekdaySat',
+]
 
 export function StudyPlanDetail({
   selectedPlan,
@@ -93,6 +105,13 @@ export function StudyPlanDetail({
   onEditChildItem: (child: PlanItem) => void
   onWeekOffset: React.Dispatch<React.SetStateAction<number>>
 }) {
+  const t = useTranslations('eduStudyPlan')
+
+  const weekdayShortLabel = (dayIndex: number): string => {
+    const key = WEEKDAY_SHORT_KEYS[dayIndex]
+    return key ? t(key) : String(dayIndex)
+  }
+
   const isToday = (d: Date): boolean => {
     return formatDate(d) === formatDate(today)
   }
@@ -102,7 +121,7 @@ export function StudyPlanDetail({
       <Card className="lg:col-span-2">
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
           <AlertCircle className="mb-2 h-8 w-8" />
-          <p className="text-sm">请从左侧选择一个学习计划查看详情</p>
+          <p className="text-sm">{t('selectPlanHint')}</p>
         </div>
       </Card>
     )
@@ -116,9 +135,9 @@ export function StudyPlanDetail({
             <CardTitle className="text-base font-medium">{selectedPlan.title}</CardTitle>
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <Badge className={cn('px-1.5', PLAN_STATUS_VARIANTS[selectedPlan.status])}>
-                {PLAN_STATUS_LABELS[selectedPlan.status]}
+                {t(PLAN_STATUS_KEYS[selectedPlan.status])}
               </Badge>
-              <Badge variant="outline">{PLAN_TYPE_LABELS[selectedPlan.planType]}</Badge>
+              <Badge variant="outline">{t(PLAN_TYPE_KEYS[selectedPlan.planType])}</Badge>
               <span className="text-xs text-muted-foreground">
                 {formatDateDisplay(selectedPlan.startDate)} ~{' '}
                 {formatDateDisplay(selectedPlan.endDate)}
@@ -131,7 +150,11 @@ export function StudyPlanDetail({
               <div className="mt-2 flex items-center gap-2 text-xs">
                 <CheckCircle2 className="h-3 w-3 text-green-600" />
                 <span className="text-muted-foreground">
-                  完成进度: {completedCount}/{totalCount} ({completionRate}%)
+                  {t('completionProgress', {
+                    completed: completedCount,
+                    total: totalCount,
+                    rate: completionRate,
+                  })}
                 </span>
               </div>
             )}
@@ -146,7 +169,7 @@ export function StudyPlanDetail({
                 onClick={() => onSetStudentMode(false)}
               >
                 <Shield className="mr-1 h-3 w-3" />
-                管理员
+                {t('adminMode')}
               </Button>
               <Button
                 variant={isStudentMode ? 'default' : 'ghost'}
@@ -155,7 +178,7 @@ export function StudyPlanDetail({
                 onClick={() => onSetStudentMode(true)}
               >
                 <User className="mr-1 h-3 w-3" />
-                学生
+                {t('studentMode')}
               </Button>
             </div>
             {/* Action buttons */}
@@ -170,7 +193,7 @@ export function StudyPlanDetail({
                     onClick={() => onAutoSplit(selectedPlan.id)}
                   >
                     <FileText className="mr-1 h-3 w-3" />
-                    自动拆解
+                    {t('autoSplit')}
                   </Button>
                 )}
               {!isStudentMode && (
@@ -180,13 +203,13 @@ export function StudyPlanDetail({
                   className="text-xs"
                   onClick={() => onEditPlan(selectedPlan)}
                 >
-                  编辑
+                  {t('edit')}
                 </Button>
               )}
               {/* Completion stats & Progress timeline */}
               <Button size="xs" variant="outline" className="text-xs" onClick={onOpenStats}>
                 <BarChart3 className="mr-1 h-3 w-3" />
-                完成率统计
+                {t('completionStats')}
               </Button>
               <Button
                 size="xs"
@@ -196,7 +219,7 @@ export function StudyPlanDetail({
                 disabled={!selectedPlan}
               >
                 <Timeline className="mr-1 h-3 w-3" />
-                进度时间线
+                {t('progressTimeline')}
               </Button>
               {/* Status transition buttons */}
               {!isStudentMode && (
@@ -220,7 +243,7 @@ export function StudyPlanDetail({
                           }
                         }}
                       >
-                        {PLAN_STATUS_LABELS[status]}
+                        {t(PLAN_STATUS_KEYS[status])}
                       </Button>
                     )
                   })}
@@ -235,7 +258,7 @@ export function StudyPlanDetail({
         {/* Add item button */}
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-medium">
-            {isStudentMode ? '学习任务' : '计划条目'}
+            {isStudentMode ? t('studentTasks') : t('planItems')}
             {totalCount > 0 && (
               <span className="ml-2 text-xs text-muted-foreground">({totalCount})</span>
             )}
@@ -243,7 +266,7 @@ export function StudyPlanDetail({
           {!isStudentMode && (
             <Button size="sm" onClick={onAddItem}>
               <Plus className="mr-1 h-3.5 w-3.5" />
-              添加条目
+              {t('addItem')}
             </Button>
           )}
         </div>
@@ -268,7 +291,7 @@ export function StudyPlanDetail({
                   onClick={() => onWeekOffset(0)}
                   disabled={weekOffset === 0}
                 >
-                  本周
+                  {t('thisWeek')}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => onWeekOffset((o) => o + 1)}>
                   <ChevronRight className="h-4 w-4" />
@@ -280,7 +303,7 @@ export function StudyPlanDetail({
             {itemsLoading ? (
               <div className="flex items-center justify-center py-8 text-muted-foreground">
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                加载中...
+                {t('loading')}
               </div>
             ) : (
               <div className="grid grid-cols-7 gap-2">
@@ -302,7 +325,7 @@ export function StudyPlanDetail({
                           isToday(day) ? 'text-primary' : 'text-muted-foreground',
                         )}
                       >
-                        {['日', '一', '二', '三', '四', '五', '六'][day.getDay()]} {day.getDate()}
+                        {weekdayShortLabel(day.getDay())} {day.getDate()}
                         {dayCompleted > 0 && dayCompleted === dayItems.length && (
                           <CheckCircle2 className="inline-block ml-1 h-3 w-3 text-green-600" />
                         )}
@@ -349,15 +372,15 @@ export function StudyPlanDetail({
         {itemsLoading ? (
           <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            加载中...
+            {t('loading')}
           </div>
         ) : parentItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-            <p className="text-sm">暂无计划条目</p>
+            <p className="text-sm">{t('noPlanItems')}</p>
             {!isStudentMode && (
               <Button size="sm" variant="outline" className="mt-3" onClick={onAddItem}>
                 <Plus className="mr-1 h-3.5 w-3.5" />
-                添加第一个条目
+                {t('addFirstItem')}
               </Button>
             )}
           </div>
@@ -397,11 +420,13 @@ export function StudyPlanDetail({
                         )}
                       </div>
                       {item.objective && (
-                        <p className="mt-1 text-sm text-muted-foreground">目标: {item.objective}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {t('objectivePrefix', { value: item.objective })}
+                        </p>
                       )}
                       {item.notes && isStudentMode && (
                         <p className="mt-1 text-xs italic text-muted-foreground">
-                          备注: {item.notes}
+                          {t('notesPrefix', { value: item.notes })}
                         </p>
                       )}
                       {/* Action buttons */}
@@ -414,7 +439,7 @@ export function StudyPlanDetail({
                               className="h-6 text-xs"
                               onClick={() => onEditItem(item)}
                             >
-                              编辑
+                              {t('edit')}
                             </Button>
                             <Button
                               variant="ghost"
@@ -423,7 +448,7 @@ export function StudyPlanDetail({
                               onClick={() => onDeleteParentItem(item)}
                             >
                               <Trash2 className="mr-1 h-3 w-3" />
-                              删除
+                              {t('delete')}
                             </Button>
                           </>
                         )}
@@ -435,7 +460,7 @@ export function StudyPlanDetail({
                               className="h-6 text-xs"
                               onClick={() => onEditItem(item)}
                             >
-                              添加备注
+                              {t('addNotes')}
                             </Button>
                             <Button
                               variant="ghost"
@@ -444,7 +469,7 @@ export function StudyPlanDetail({
                               onClick={() => onAddSubItem(item.id)}
                             >
                               <Plus className="mr-1 h-3 w-3" />
-                              添加子任务
+                              {t('addSubtask')}
                             </Button>
                           </>
                         )}
@@ -479,7 +504,7 @@ export function StudyPlanDetail({
                             </p>
                             {child.notes && (
                               <p className="mt-0.5 text-[11px] text-muted-foreground">
-                                备注: {child.notes}
+                                {t('notesPrefix', { value: child.notes })}
                               </p>
                             )}
                           </div>
@@ -490,7 +515,7 @@ export function StudyPlanDetail({
                               className="h-5 text-[10px]"
                               onClick={() => onEditChildItem(child)}
                             >
-                              备注
+                              {t('notes')}
                             </Button>
                           )}
                           {!isStudentMode && (
