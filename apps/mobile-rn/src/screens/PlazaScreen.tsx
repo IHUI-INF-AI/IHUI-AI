@@ -40,8 +40,14 @@ import {
   type AgentCategoryItem,
   type ConversationDetail,
 } from '@ihui/api-client'
-import { PlazaScreen as SharedPlazaScreen, type PlazaScreenProps } from '@ihui/rn-app'
+import {
+  PlazaScreen as SharedPlazaScreen,
+  CategoryDropdown,
+  type CategoryItem,
+  type PlazaScreenProps,
+} from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
+import { useTheme } from '../context/ThemeContext'
 import Drawer, {
   type DrawerConversationItem,
   type DrawerExtraMenu,
@@ -161,6 +167,11 @@ export function PlazaScreen() {
   const [identityVisible, setIdentityVisible] = useState(false)
   // 开发者须知弹窗(对齐原项目 L110-150:开发者须知 Modal,5 条规则)
   const [noticeVisible, setNoticeVisible] = useState(false)
+  const { resolvedTheme } = useTheme()
+  const trackCategoryItems = useMemo<CategoryItem[]>(
+    () => trackCategories.map((cat) => ({ id: cat.id, label: cat.name })),
+    [trackCategories],
+  )
 
   // Drawer 侧滑抽屉
   const [drawerVisible, setDrawerVisible] = useState(false)
@@ -474,47 +485,20 @@ export function PlazaScreen() {
         onGoHome={handleDrawerGoHome}
         onNavigateExtra={handleNavigateExtra}
       />
-      {/* 需求赛道筛选弹层(对齐原项目 plaza/index.vue 顶栏分类按钮 → categorySaidao 赛道弹层,
-       *  内联等价实现:居中卡片单选,选中即刷新列表) */}
-      <Modal
+      {/* 需求赛道筛选(对齐原项目 plaza/index.vue 顶栏分类按钮 → categorySaidao 赛道弹层):
+       *  改走统一 CategoryDropdown —— 顶栏 FolderOpen 受控开合,选中即刷新列表(语义未变) */}
+      <CategoryDropdown
+        items={trackCategoryItems}
+        selectedId={selectedCategory}
+        onSelect={onSelectCategory}
+        colorScheme={resolvedTheme}
         visible={categoryVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setCategoryVisible(false)}
-      >
-        <Pressable
-          style={styles.categoryMask}
-          onPress={() => setCategoryVisible(false)}
-          accessibilityLabel="关闭赛道筛选"
-        >
-          <Pressable style={styles.categoryCard} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.categoryTitle}>选择需求赛道</Text>
-            <View style={styles.categoryList}>
-              {trackCategories.map((cat) => {
-                const active = selectedCategory === cat.id
-                return (
-                  <Pressable
-                    key={cat.id || 'all'}
-                    style={[styles.categoryItem, active ? styles.categoryItemActive : null]}
-                    onPress={() => onSelectCategory(cat.id)}
-                    accessibilityRole="button"
-                    accessibilityLabel={cat.name}
-                  >
-                    <Text
-                      style={[
-                        styles.categoryItemText,
-                        active ? styles.categoryItemTextActive : null,
-                      ]}
-                    >
-                      {cat.name}
-                    </Text>
-                  </Pressable>
-                )
-              })}
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+        onVisibleChange={setCategoryVisible}
+        hideTrigger
+        panelTitle="选择需求赛道"
+        backdropA11yLabel="关闭赛道筛选"
+        testID="plaza-track-dropdown"
+      />
       {/* 身份切换弹窗(对齐原项目 plaza/index.vue L78-108:
        *  切换身份 → 找大佬开发(普通身份) / 我是开发者(跳开发者页);footer 打开开发者须知) */}
       <Modal
@@ -661,13 +645,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: rpx(48),
   } as ViewStyle,
-  categoryCard: {
-    width: '100%',
-    maxWidth: 320,
-    backgroundColor: tokens.surface.card,
-    borderRadius: rnRadius.xl,
-    padding: rpx(40),
-  } as ViewStyle,
   // ── 身份切换弹窗(对齐原项目 plaza identity-card) ──
   identityCard: {
     width: '100%',
@@ -742,33 +719,5 @@ const styles = StyleSheet.create({
   noticeList: { width: '100%', marginTop: rpx(24), gap: rpx(24) },
   noticeItem: { fontSize: 13, color: tokens.text.medium, lineHeight: 20 },
   noticeBold: { fontWeight: '700', color: tokens.gray[900] },
-  categoryTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: tokens.gray.black,
-    textAlign: 'center',
-    marginBottom: rpx(28),
-  } as TextStyle,
-  categoryList: {
-    gap: rpx(16),
-  } as ViewStyle,
-  categoryItem: {
-    paddingVertical: rpx(20),
-    paddingHorizontal: rpx(24),
-    borderRadius: rnRadius.lg,
-    backgroundColor: tokens.surface.muted,
-    alignItems: 'center',
-  } as ViewStyle,
-  categoryItemActive: {
-    backgroundColor: tokens.brandAccent.DEFAULT,
-  } as ViewStyle,
-  categoryItemText: {
-    fontSize: 14,
-    color: tokens.text.medium,
-  } as TextStyle,
-  categoryItemTextActive: {
-    color: tokens.brandAccent.foreground,
-    fontWeight: '600',
-  } as TextStyle,
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -129,11 +129,11 @@ export default function ShareCreationPage() {
       <ScrollView scrollY className="h-screen">
         {/* 会话信息头(小程序端业务展示,保留;卡片规格:底 --color-card、描边 --color-border、
             radius 12dp → 24rpx、padding 12dp → 24rpx,对齐 SquareScreen card 卡片语言) */}
-        <View className="mx-[16rpx] mt-[16rpx] bg-card rounded-[24rpx] border-[2rpx] border-border p-[24rpx]">
+        <View className="mx-[16rpx] mt-[16rpx] bg-card rounded-xl border-[2rpx] border-border p-[24rpx]">
           <View className="flex items-center mb-[24rpx]">
             {content.modelIcon ? (
               <Image
-                className="w-[64rpx] h-[64rpx] rounded-[16rpx] mr-[16rpx]"
+                className="w-[64rpx] h-[64rpx] rounded-lg mr-[16rpx]"
                 src={content.modelIcon}
                 mode="aspectFill"
               />
@@ -156,7 +156,7 @@ export default function ShareCreationPage() {
             <View className="flex items-center mb-[16rpx]">
               {content.userAvatar ? (
                 <Image
-                  className="w-[48rpx] h-[48rpx] rounded-[16rpx] mr-[16rpx]"
+                  className="w-[48rpx] h-[48rpx] rounded-lg mr-[16rpx]"
                   src={content.userAvatar}
                   mode="aspectFill"
                 />
@@ -169,7 +169,7 @@ export default function ShareCreationPage() {
           {/* 提问 = 用户消息气泡:对齐 ChatScreen msgBubbleUser(bg brand,radius 16dp → 32rpx,
               padding rpx(28)/rpx(20),fontSize 15dp → 30rpx/lineHeight 40rpx) */}
           <View className="flex justify-end">
-            <View className="max-w-[78%] bg-primary rounded-[32rpx] px-[28rpx] py-[20rpx]">
+            <View className="max-w-[78%] bg-primary rounded-2xl px-[28rpx] py-[20rpx]">
               <Text className="text-[30rpx] leading-[40rpx] text-[var(--color-primary-foreground)]">
                 {content.question}
               </Text>
@@ -180,10 +180,10 @@ export default function ShareCreationPage() {
         {/* AI 回答 = AI 内容卡片:对齐 RN 卡片规范(底 --color-card、描边 --color-border、
             radius 24rpx、padding 28/24rpx;底色对齐 ChatScreen msgBubbleAi surface.card) */}
         <View className="mx-[16rpx] mt-[20rpx] flex">
-          <View className="flex-1 bg-card rounded-[24rpx] border-[2rpx] border-border px-[28rpx] py-[24rpx]">
+          <View className="flex-1 bg-card rounded-xl border-[2rpx] border-border px-[28rpx] py-[24rpx]">
             {/* 思考过程:对齐 ChatScreen thinkingBlock(bg surface.muted,radius 8dp → 16rpx) */}
             {answer.thinking ? (
-              <View className="mb-[12rpx] rounded-[16rpx] bg-[var(--color-muted)] overflow-hidden">
+              <View className="mb-[12rpx] rounded-lg bg-[var(--color-muted)] overflow-hidden">
                 <View className="px-[20rpx] py-[16rpx]">
                   <Text className="text-[24rpx] font-semibold text-muted-foreground">
                     {t('share.creation.thinkingProcess')}
@@ -207,7 +207,7 @@ export default function ShareCreationPage() {
                 {images.map((url, i) => (
                   <View
                     key={i}
-                    className="rounded-[16rpx] overflow-hidden"
+                    className="rounded-lg overflow-hidden"
                     onClick={() => Taro.previewImage({ urls: images, current: url })}
                     hoverClass="opacity-60"
                   >
@@ -221,7 +221,7 @@ export default function ShareCreationPage() {
               </View>
             ) : null}
             {answer.video?.url ? (
-              <View className="mt-[16rpx] rounded-[16rpx] overflow-hidden">
+              <View className="mt-[16rpx] rounded-lg overflow-hidden">
                 <Video
                   className="w-full"
                   style={{ height: '420rpx' }}
@@ -233,7 +233,7 @@ export default function ShareCreationPage() {
               </View>
             ) : null}
             {answer.audio?.url ? (
-              <View className="mt-[16rpx] px-[20rpx] py-[16rpx] bg-[var(--color-muted)] rounded-[16rpx] flex items-center">
+              <View className="mt-[16rpx] px-[20rpx] py-[16rpx] bg-[var(--color-muted)] rounded-lg flex items-center">
                 <Text className="text-[24rpx] text-foreground flex-1">
                   {t('share.creation.voiceAnswer')}
                 </Text>
@@ -248,7 +248,7 @@ export default function ShareCreationPage() {
                   <View key={i} className="py-[16rpx]">
                     {item.type === 'image' ? (
                       <Image
-                        className="w-full rounded-[16rpx]"
+                        className="w-full rounded-lg"
                         src={item.content}
                         mode="widthFix"
                       />
@@ -266,13 +266,13 @@ export default function ShareCreationPage() {
 
         <View className="mx-[16rpx] mt-[24rpx] mb-[48rpx] flex gap-[16rpx]">
           <Button
-            className="flex-1 text-[28rpx] rounded-[24rpx] !bg-primary !text-[var(--color-primary-foreground)]"
+            className="flex-1 text-[28rpx] rounded-xl !bg-primary !text-[var(--color-primary-foreground)]"
             onClick={onRegenerate}
           >
             {t('share.creation.regenerate')}
           </Button>
           <Button
-            className="flex-1 text-[28rpx] rounded-[24rpx] !bg-muted !text-foreground"
+            className="flex-1 text-[28rpx] rounded-xl !bg-muted !text-foreground"
             onClick={onShareFriend}
           >
             {t('share.creation.shareFriend')}

@@ -90,7 +90,7 @@ export default function NotificationPage() {
           </Text>
           {/* 卡片对齐 RN card: 圆角 12dp→24rpx + padding 12dp→24rpx + surface.light→--color-card
               (RN 暗色仍用白色卡面导致浅字不可读,按语义 token 修正为 --color-card 随主题) */}
-          <View className="rounded-[24rpx] bg-card p-[24rpx]">
+          <View className="rounded-xl bg-card p-[24rpx]">
             {loading ? (
               <View className="py-[60rpx] text-center">
                 {/* muted 对齐 RN: 14dp→28rpx + text.secondary */}
@@ -131,7 +131,7 @@ export default function NotificationPage() {
           <Text className="mb-[16rpx] block text-[28rpx] text-muted-foreground">
             {tt('setting.notification.moreTitle', '更多')}
           </Text>
-          <View className="rounded-[24rpx] bg-card p-[24rpx]">
+          <View className="rounded-xl bg-card p-[24rpx]">
             <View
               className="flex items-center justify-between py-[20rpx]"
               onClick={() => void onSubscribeWx()}

@@ -50,7 +50,7 @@ const previewOf = (content: string): string => {
 
 /** 豁免 5:user/error 节点 ≤8px 装饰指示点(圆形) — 不直接使用 rounded-full 字符串以免触发守门 */
 const ROUND_SHAPE = 'rounded-full'
-const SQUARE_SHAPE = 'rounded-[2px]'
+const SQUARE_SHAPE = 'rounded-xs'
 
 const KIND_CLS: Record<MapNodeKind, { shape: string; color: string }> = {
   user: { shape: ROUND_SHAPE, color: 'bg-primary' },

@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
 /**
  * BottomPopup 支付弹窗(mobile-rn 端)
@@ -38,7 +39,6 @@ export interface BottomPopupProps {
 // 仅作底色用;文字/边框等前景场景请用 brandAccent.deep(浅灰蓝上对比度足够)
 const ACCENT_COLOR = tokens.brandAccent.DEFAULT
 
-const SHEET_RADIUS = 16
 const SHEET_PADDING = 20
 const SHEET_MAX_HEIGHT_PERCENT = '70%'
 
@@ -48,7 +48,6 @@ const SUBTITLE_FONT_SIZE = 13
 const CLOSE_BUTTON_SIZE = 32
 const CLOSE_ICON_FONT_SIZE = 22
 
-const LEVEL_ITEM_RADIUS = 8
 const LEVEL_ITEM_PADDING = 14
 const LEVEL_ITEM_GAP = 10
 const LEVEL_NAME_FONT_SIZE = 15
@@ -56,7 +55,6 @@ const LEVEL_META_FONT_SIZE = 12
 const LEVEL_PRICE_FONT_SIZE = 18
 
 const BUTTON_HEIGHT = 46
-const BUTTON_RADIUS = 8
 const BUTTON_FONT_SIZE = 15
 
 const EMPTY_TEXT_FONT_SIZE = 13
@@ -180,8 +178,8 @@ const styles = StyleSheet.create({
     width: '100%',
     maxHeight: SHEET_MAX_HEIGHT_PERCENT,
     backgroundColor: tokens.surface.card,
-    borderTopLeftRadius: SHEET_RADIUS,
-    borderTopRightRadius: SHEET_RADIUS,
+    borderTopLeftRadius: rnRadius['2xl'],
+    borderTopRightRadius: rnRadius['2xl'],
     paddingHorizontal: SHEET_PADDING,
     paddingTop: SHEET_PADDING,
     paddingBottom: SHEET_PADDING,
@@ -245,7 +243,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: tokens.surface.muted,
-    borderRadius: LEVEL_ITEM_RADIUS,
+    borderRadius: rnRadius.lg,
     padding: LEVEL_ITEM_PADDING,
     borderWidth: 1,
     borderColor: 'transparent',
@@ -281,7 +279,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   confirmButton: {
     height: BUTTON_HEIGHT,
-    borderRadius: BUTTON_RADIUS,
+    borderRadius: rnRadius.lg,
     backgroundColor: ACCENT_COLOR,
     alignItems: 'center',
     justifyContent: 'center',
