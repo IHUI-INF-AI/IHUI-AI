@@ -1830,6 +1830,51 @@ const checks = [
       '     单独复验:node scripts/check-mass-deletion.mjs',
     ].join('\n'),
   },
+  // mobile-rn 深色模式前景/容器守门(2026-09-23 立,Drawer 残留 NativeWind 类 + Profile 对比度事故收口)。
+  // R1: brand.DEFAULT 深色下是纯白 → 只能作前景色,其上再叠 surface.light/text.primary 文字 = 白底白字;
+  // R2: surface.light / rgba(255,255,255,α≥0.5) / bg-white 作容器底色在深色下不切换 = 页面底色不统一。
+  // R2 走 baseline 棘轮(overlay-on-media 等合法场景冻结存量,只拦新增);R1 全量拦截。
+  // 自检:node scripts/check-brand-foreground.mjs --self-test;紧急跳过 HUSKY_SKIP_BRAND_FOREGROUND=1。
+  {
+    id: '75',
+    label: '📱 [mobile-rn] 深色模式前景/容器守门(品牌底白字 blocking + 浅色容器 ratchet)',
+    script: 'check-brand-foreground.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_BRAND_FOREGROUND',
+    onFailHint: [
+      '',
+      '  💡 R1(brand.DEFAULT 作背景且文字用 surface.light/text.primary)= 深色下白底白字,必须改 brand.foreground;',
+      '     R2(surface.light / rgba 白 / bg-white 作容器底)= 深色不切换,改用 tokens.surface.*(深浅皆可)或补 dark: 变体;',
+      '     覆盖在媒体/彩色底上的合法浮层被误报时,先核语义再决定改码或 --update-baseline(禁止为过门而调高基线)。',
+      '     单独复验:node scripts/check-brand-foreground.mjs;自检:node scripts/check-brand-foreground.mjs --self-test',
+    ].join('\n'),
+  },
+  // 反回退守门(2026-09-23 立)。成因实测:共享工作区 + converge 只推进 HEAD/index 不 checkout,
+  // 工作区曾整体落后 HEAD 486 个提交(503 个文件);此时 `git add <file>` 提交的是旧基线,
+  // 对该文件等于把别人后续改动静默回滚,而 diff 看着"只动几行"。守门 71 只护 PLAN 登记行,
+  // 源码/配置面无闸,故补此闸。判据 = 暂存内容 != HEAD 且**字节级等于该路径某祖先提交的版本**;
+  // merge/cherry-pick/revert 上下文整轮豁免,暂存删除只 warn(真删是合法 git rm),
+  // >300 文件跳过(性能护栏,避免逼人 --no-verify 把全部守门一起关)。
+  // 演练:node scripts/check-stale-revert.mjs --self-test(8 例,含"写回 v1 必判红"阳性对照)。
+  {
+    id: '76',
+    label: '🧬 反回退守门(blocking,暂存内容等于历史版本 = 静默回滚他人改动)',
+    script: 'check-stale-revert.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_STALE_REVERT_GUARD',
+    onFailHint: [
+      '',
+      '  💡 这些文件的暂存内容 = 它某个历史提交的原样,不是新工作,而是把别人的改动写回旧态。',
+      '     先分清成因:',
+      '       ① 工作区落后 HEAD(converge 不 checkout)→ 先 `git restore --source=HEAD --worktree -- <文件>`,',
+      '          再把你的改动重新施加(前提:该文件里没有你自己的未提交内容);',
+      '       ② 确属有意回退 → 用 `git revert <commit>` 生成前向提交,或 HUSKY_SKIP_STALE_REVERT_GUARD=1 并在提交信息写明理由;',
+      '     单独复验:node scripts/check-stale-revert.mjs --staged',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
