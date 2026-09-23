@@ -6,7 +6,7 @@ import { aizhsUrl } from '@/constants/icon-urls'
 import { useI18n } from '@/i18n'
 import { View, Text, Image, Video, Button } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
-import { StreamActivityCards } from './cards/ai-cards'
+import { StreamActivityCards, SteerNoticeCard } from './cards/ai-cards'
 import { isErrorTurn } from '@ihui/shared/chat'
 import Taro from '@tarojs/taro'
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
@@ -534,6 +534,10 @@ export default function ChatMessageItem({
                     {t('ai.chatMessageItem.digitalHuman')}
                   </Text>
                 </View>
+              ) : null}
+              {/* D106:引导已生效(Steer 中途引导交代),独立于执行过程折叠区,badge 语义常显 */}
+              {msg.aiCards?.steerNotices?.length ? (
+                <SteerNoticeCard notices={msg.aiCards.steerNotices} />
               ) : null}
               {/* #12 小程序 AI 增强:工具卡片(计划 / 工具 / 终端 / 注入交代),由 assistant 消息 aiCards 累积渲染 */}
               {msg.aiCards &&

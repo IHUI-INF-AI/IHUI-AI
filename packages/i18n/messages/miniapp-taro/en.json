@@ -775,6 +775,10 @@
     "welcomeDesc": "How can I help you?",
     "welcomeTitle": "Hi, I'm your IHUI AI assistant",
     "cards": {
+      "steer": {
+        "title": "Steered {count} times",
+        "more": "{count} more"
+      },
       "plan": {
         "title": "Plan"
       },

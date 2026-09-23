@@ -9,6 +9,7 @@
     "permNoteBypass": "手順ごとの確認なし。AI がファイルを直接変更しコマンドを実行します(高リスク)",
     "permNoteManual": "読み取り照会も含め全操作を手動承認します",
     "citationSources": "参考元：{sources}",
+    "steerApplied": "ガイド反映済み：{text}",
     "injectionApplied": "このターンで参照したコンテキスト：{sources}",
     "injectionSrcDeveloper": "カスタム指示",
     "injectionSrcWorkspace": "ワークスペースメモリ",
