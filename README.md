@@ -2795,12 +2795,22 @@ COPY 源 ⇒ `copy-source-missing` 命中;还原后 7 个 Dockerfile 全绿。se
 
 ### 新增守门示例:第 75 / 76 项「mobile-rn 深色前景容器对账」与「反回退对账」(2026-09-23)
 
-**第 75 项 `check-brand-foreground.mjs`(blocking)** —— RN 深色档案里 `tokens.brand.DEFAULT`
-是**纯白**,所以它只能当前景色用。同一个 style 块内它作背景、文字又取 `tokens.surface.light`
-(两端恒白)或 `tokens.text.primary`(深色翻白),结果就是白底白字 —— R1 零豁免拦这一类。
-R2 用基线棘轮拦"浅色当容器底":`surface.light` 背景 / α≥0.5 的白 rgba / 无 `dark:` 变体的
-`bg-white`,13 文件 24 处合法存量(图片、视频上的浮层,以及自带 `dark:` 变体的文件)冻结在
-`scripts/brand-foreground-baseline.json`,只减不增。`--self-test` 11 例;紧急跳过
+**第 75 项 `check-brand-foreground.mjs`(blocking)** —— RN 深色档案里 `brand.DEFAULT`
+是**纯白**,所以它只能当前景色用。三条判据:
+**R1 零豁免**拦同一 style 块内它作背景、文字又取 `surface.light`(两端恒白)或 `text.primary`
+(深色翻白)⇒ 白底白字。**2026-09-23 补盲**:原判据只认 `tokens.` 前缀,而 `packages/app`
+共享组件一律写 `tk.` ⇒ 共享包整片不在 R1 视野内;补盲后实测现存违规 **0 处**(是补漏不是放宽),
+扫描范围同时扩到 `packages/app/src`。
+**R2 基线棘轮**拦"浅色当容器底":`surface.light` 背景 / α≥0.5 白 rgba / 无 `dark:` 变体的
+`bg-white`,13 文件 24 处合法存量冻结在 `scripts/brand-foreground-baseline.json` 的 `counts`,
+只减不增(范围仍限 `apps/mobile-rn/src`,与既有基线口径一致)。
+**R3 基线棘轮(2026-09-23 新立)**拦"新增纯白填充":`(backgroundColor|borderColor): (tokens|tk).brand.DEFAULT`
+深色下就是纯白(压 `#1A1A1A` 卡面实测 17.4:1,即用户报的"刺眼")。正解是改 `brand.ctaFill` /
+`brand.ctaText`(浅色与 `brand.DEFAULT` 同值 ⇒ 存量外观零变化,深色非纯白)。基线 `ctaCounts`
+按 **HEAD 已提交内容**建立(154 文件 / 260 处),**不取工作区** —— 否则别人未提交的在飞改动
+会被棘轮"合法化"。`--update-baseline` 现拒绝与 `--staged` 同用(拿暂存子集覆盖全量基线,
+会让未暂存文件下次恒红)。注入取证:建 1 处 `brand.DEFAULT` 探针 → R3 点名 `1 > 基线 0` 判红,
+删探针 → 回绿。`--self-test` 18 例(原 10 例 + 补盲 3 + R3 5);紧急跳过
 `HUSKY_SKIP_BRAND_FOREGROUND=1`。
 
 **第 76 项 `check-stale-revert.mjs`(blocking)** —— 堵**共享工作区静默回滚**。§12d 的 converge
