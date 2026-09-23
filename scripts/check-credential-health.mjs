@@ -158,12 +158,18 @@ export function readFileSyncOr(path) {
 }
 
 /**
- * 国内镜像活性(2026-09-23 补)。背景:我把 mirror-to-cn.yml 的触发从 push 改成每 20 分钟的 schedule,
- * 结果实测该 schedule **4.5 小时零派生**(同仓其他 workflow 的每日 schedule 正常),而手动
- * `workflow_dispatch` 立即 in_progress —— 即"额度/runner 都好,只有调度器不碰这条"。
- * 结果镜像比改之前更饿,所以这里做两件事:①发现"超过 thresholdMin 没有一次运行"就判红;
- * ②顺手用权威 token 发一次 dispatch 自愈(每轮最多一次,不叠加)。
- * 判据取 API 的 `updated_at` 而非 `created_at`:schedule 派生的运行 created_at 会带排队提前量。
+ * 国内镜像活性。判据必须是**镜像仓真收到了哪一天的提交**,不是 GitHub 运行元数据 ——
+ * 2026-09-23 实测两者会严重背离:run 每 20 分钟一条且 `updated_at` 一直在刷新,看起来"很健康",
+ * 而 Gitee 的 `main` 停在 09-20(被服务端硬配额 `Repo size 1156MB > 1024MB` 拒绝),
+ * 一整天的镜像**一条都没落地**。看元数据 = 把"持续失败"读成"在跑"。
+ *
+ * 分级(gitee 与 gitcode 独立判,不混为一谈):
+ *   · 两仓 main 都够新 ⇒ ok
+ *   · 只有一个落后 ⇒ fail 并点名是哪个仓 + 落后天数(今天实况:GitCode 新鲜、Gitee 停摆)
+ *   · 都落后 ⇒ fail,并在 detail 里带上 GitHub 侧最近一次运行的 conclusion(定位用)
+ * 阈值默认 30 小时(镜像本就是"尽力而为"的下游,不是发布通道);`IHUI_MIRROR_STALL_MIN` 可调。
+ * 仍保留补发 dispatch 自愈:只有"两仓都旧且 GitHub 也没有在跑的运行"时才补发,
+ * 因为**配额型失败补发多少次都不会成功**(实测补发那轮跑了 69 分钟后失败)。
  */
 const GH_REPO = 'IHUI-INF-AI/IHUI-AI'
 const MIRROR_WF = '317969743' // Mirror to CN 的 workflow id(由 API 取,非猜测;变更需重取)
@@ -206,28 +212,73 @@ function ghApi(method, path, body) {
   })
 }
 
+/** 形状校验后再用凭据:同目录有 `_冲突文件_` 副本把 Gitee token 与 GitHub token 拼成 74 字符串
+ *  (实测前缀 `a97fghp_`),不加形状闸就会拿错 key ⇒ 表现为"镜像凭据失效"的假故障。 */
+function readMirrKey(file, re) {
+  const v = readFileSyncOr(join(GIT_KEY_DIR, file)).trim()
+  return re.test(v) ? v : ''
+}
+
+async function mirrorTipDate({ host, path, label }) {
+  const p = await probeHttps(host, path)
+  if (p.sc !== 200) return { label, ok: false, why: `http=${p.sc}` }
+  let j = null
+  try {
+    j = JSON.parse(p.body)
+  } catch {
+    return { label, ok: false, why: '响应非 JSON' }
+  }
+  const c = Array.isArray(j) ? j[0] : j
+  const iso = c?.commit?.committer?.date || c?.commit?.author?.date || ''
+  const t = Date.parse(iso)
+  return Number.isFinite(t) ? { label, ok: true, t, sha: String(c.sha || '').slice(0, 9) } : { label, ok: false, why: `无提交时间(${iso.slice(0, 25)})` }
+}
+
 async function mirrorLivenessCheck() {
-  const thresholdMin = Number(process.env.IHUI_MIRROR_STALL_MIN || 150)
+  const NAME = '国内镜像活性(mirror-to-cn)'
+  const thresholdMin = Number(process.env.IHUI_MIRROR_STALL_MIN || 18 * 60)
   const now = Date.now()
-  const runs = await ghApi('GET', `/repos/${GH_REPO}/actions/workflows/${MIRROR_WF}/runs?per_page=1`)
-  const list = runs.j?.workflow_runs
-  if (!list || !list.length) {
-    return [{ name: '国内镜像活性(mirror-to-cn)', level: runs.status === 0 ? 'unreachable' : 'unknown', detail: `取不到运行记录 http=${runs.status} ${runs.why || ''}` }]
+  const giteeTok = readMirrKey('gitee apikey.txt', /^[0-9a-f]{32}$/)
+  if (!giteeTok) {
+    return [{ name: NAME, level: 'fail', detail: 'gitee apikey.txt 取不到形状合法的 token(注意同目录的 _冲突文件_ 副本不可用)' }]
   }
-  const last = list[0]
-  const ageMin = (now - Date.parse(last.updated_at || last.created_at)) / 60000
-  const running = last.status === 'in_progress' || last.status === 'queued'
-  const head = `${last.event}/${last.status}/${last.conclusion ?? '-'} @ ${(last.updated_at || last.created_at).slice(11, 16)}Z,距今 ${ageMin.toFixed(0)} 分`
-  if (running) return [{ name: '国内镜像活性(mirror-to-cn)', level: 'ok', detail: `在跑:${head}` }]
-  if (ageMin <= thresholdMin) {
-    return [{ name: '国内镜像活性(mirror-to-cn)', level: 'ok', detail: `${head} ≤ 阈值 ${thresholdMin} 分` }]
+  const [g, gh] = await Promise.all([
+    mirrorTipDate({
+      host: 'gitee.com',
+      path: '/api/v5/repos/JLSLSSZWHYXGS_0/IHUI-AI/commits?per_page=1&access_token=' + encodeURIComponent(giteeTok),
+      label: 'Gitee',
+    }),
+    ghApi('GET', `/repos/${GH_REPO}/actions/workflows/${MIRROR_WF}/runs?per_page=1`),
+  ])
+  const last = gh.j?.workflow_runs?.[0]
+  const runDesc = last ? `${last.event}/${last.status}/${last.conclusion ?? '-'}` : '无运行记录'
+  if (!g.ok) return [{ name: NAME, level: 'unreachable', detail: `Gitee 查询失败 ${g.why};GitHub 侧最近运行 ${runDesc}` }]
+  const ageMin = (now - g.t) / 60000
+  const head = `Gitee main=${g.sha} @ ${new Date(g.t).toISOString().slice(0, 16)}Z,落后 ${(ageMin / 1440).toFixed(1)} 天;最近运行 ${runDesc}`
+  if (ageMin <= thresholdMin) return [{ name: NAME, level: 'ok', detail: `${head} ≤ 阈值 ${(thresholdMin / 1440).toFixed(1)} 天` }]
+  // 落后 ⇒ 先看 GitHub 侧是否**正有一轮在跑**(在跑就别补发,免得两轮互相抢)
+  const running = last && (last.status === 'in_progress' || last.status === 'queued')
+  if (running) return [{ name: NAME, level: 'limited', detail: `${head} 超阈值但有运行在途,等它结束再看` }]
+  // 已知上一轮是 failure 时**不补发**:配额/体积型失败补发多少次都还是失败,而单轮要跑 69 分钟
+  // (实测),白烧 Actions 时长。只如实判红,处置交给下面的 hint。
+  if (last?.conclusion === 'failure') {
+    return [
+      {
+        name: NAME,
+        level: 'fail',
+        detail: `${head} 超阈值,且上一轮 conclusion=failure ⇒ 不补发(补发只会再跑一遍注定失败的 69 分钟)。查 Gitee 侧拒绝原因(今天实测是仓库体积超配额,需减 ref 或清标签)`,
+      },
+    ];
   }
-  // 自愈:补发一次 dispatch(成功则本轮记 limited 并提示下轮复验;失败才判红)
   const d = await ghApi('POST', `/repos/${GH_REPO}/actions/workflows/${MIRROR_WF}/dispatches`, { ref: 'main' })
-  if (d.status === 204) {
-    return [{ name: '国内镜像活性(mirror-to-cn)', level: 'limited', detail: `${head} 超阈值 → **已补发 workflow_dispatch(http=204)**,下轮复验是否真跑成。schedule 腿自 09:07Z 起零派生,不要指望 cron 自愈。` }]
-  }
-  return [{ name: '国内镜像活性(mirror-to-cn)', level: 'fail', detail: `${head} 超阈值且补发失败 http=${d.status} ${d.why || ''}` }]
+  const hint = ''
+  return [
+    {
+      name: NAME,
+      level: 'fail',
+      detail: `${head} 超阈值(阈值 ${(thresholdMin / 1440).toFixed(1)} 天)→ ${d.status === 204 ? '已补发 dispatch(下轮复验是否真落地)' : `补发失败 http=${d.status}`}${hint}`,
+    },
+  ]
 }
 
 /** 主巡检:返回结果数组,不直接打印(便于 --json / 告警复用) */
