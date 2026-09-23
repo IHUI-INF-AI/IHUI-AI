@@ -109,13 +109,13 @@ export default function AgentListPanel({
                  border border.light / bg surface.light(card) */
               <View
                 key={agent.id}
-                className="flex items-center py-[28rpx] px-[28rpx] mb-[24rpx] rounded-[24rpx] bg-[var(--color-card)] border border-[var(--color-border)]"
+                className="flex items-center py-[28rpx] px-[28rpx] mb-[24rpx] rounded-xl bg-[var(--color-card)] border border-[var(--color-border)]"
                 onClick={() => handleAgentClick(agent)}
                 hoverClass="opacity-60"
               >
                 {/* RN avatar 48dp→96rpx / borderRadius 12dp→24rpx / bg surface.muted;cardMain marginLeft 12dp→24rpx */}
                 <Image
-                  className="w-[96rpx] h-[96rpx] mr-[24rpx] rounded-[24rpx] bg-[var(--color-muted)] shrink-0"
+                  className="w-[96rpx] h-[96rpx] mr-[24rpx] rounded-xl bg-[var(--color-muted)] shrink-0"
                   src={agent.avatar || mianLabelIcon}
                   mode="aspectFill"
                 />
@@ -127,7 +127,7 @@ export default function AgentListPanel({
                     </Text>
                     {agent.vipType ? (
                       <Text
-                        className={`shrink-0 text-[20rpx] px-[12rpx] py-[8rpx] rounded-[8rpx] font-semibold ${VIP_TAG_CLASSES[agent.vipType]}`}
+                        className={`shrink-0 text-[20rpx] px-[12rpx] py-[8rpx] rounded-sm font-semibold ${VIP_TAG_CLASSES[agent.vipType]}`}
                       >
                         {VIP_TAG_LABELS(tt)[agent.vipType]}
                         {agent.vipType === 4 && agent.price
@@ -136,12 +136,12 @@ export default function AgentListPanel({
                       </Text>
                     ) : agent.isVipExclusive ? (
                       /* RN vipBadge: bg warning.DEFAULT / 字 warning-foreground(surface.light) */
-                      <Text className="shrink-0 text-[20rpx] px-[12rpx] py-[8rpx] rounded-[8rpx] font-semibold bg-[var(--color-warning)] text-[var(--color-warning-foreground)]">
+                      <Text className="shrink-0 text-[20rpx] px-[12rpx] py-[8rpx] rounded-sm font-semibold bg-[var(--color-warning)] text-[var(--color-warning-foreground)]">
                         VIP
                       </Text>
                     ) : null}
                     {agent.category && (
-                      <Text className="shrink-0 text-[20rpx] px-[12rpx] py-[8rpx] rounded-[8rpx] bg-[var(--color-black-10)] text-[var(--color-primary)]">
+                      <Text className="shrink-0 text-[20rpx] px-[12rpx] py-[8rpx] rounded-sm bg-[var(--color-black-10)] text-[var(--color-primary)]">
                         {agent.category}
                       </Text>
                     )}

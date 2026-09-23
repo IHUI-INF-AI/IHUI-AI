@@ -135,7 +135,7 @@ export function QrTab({
               className={cn(
                 // 2026-09-19 竖排(图标上/文字下):5 平台单行网格列宽 ~71px,
                 // 横排 icon+文字会让"App 扫码/企业微信"换行挤压,竖排永不换行
-                'flex flex-col items-center justify-center gap-1 rounded-[4px] px-1 py-1.5 text-[11px] leading-none transition-colors',
+                'flex flex-col items-center justify-center gap-1 rounded-sm px-1 py-1.5 text-[11px] leading-none transition-colors',
                 active
                   ? 'bg-card text-foreground shadow-sm'
                   : 'text-muted-foreground hover:bg-card/60 hover:text-foreground',

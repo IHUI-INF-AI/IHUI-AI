@@ -121,7 +121,7 @@ export default function Settings() {
           <Text className="block px-[8rpx] pb-[16rpx] text-[28rpx] text-muted-foreground">
             {tt('setting.accountSecurity', '账号与安全')}
           </Text>
-          <View className="overflow-hidden rounded-[16rpx] bg-card dark:bg-muted">
+          <View className="overflow-hidden rounded-lg bg-card dark:bg-muted">
             <View
               className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
               hoverClass="opacity-60"
@@ -183,7 +183,7 @@ export default function Settings() {
           <Text className="block px-[8rpx] pb-[16rpx] text-[28rpx] text-muted-foreground">
             {tt('setting.general', '通用设置')}
           </Text>
-          <View className="overflow-hidden rounded-[16rpx] bg-card dark:bg-muted">
+          <View className="overflow-hidden rounded-lg bg-card dark:bg-muted">
             <View className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]">
               <Text className="flex-1 text-[32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.notificationEntry', '消息通知')}
@@ -233,7 +233,7 @@ export default function Settings() {
           <Text className="block px-[8rpx] pb-[16rpx] text-[28rpx] text-muted-foreground">
             {tt('setting.helpFeedback', '帮助与反馈')}
           </Text>
-          <View className="overflow-hidden rounded-[16rpx] bg-card dark:bg-muted">
+          <View className="overflow-hidden rounded-lg bg-card dark:bg-muted">
             <View
               className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
               hoverClass="opacity-60"
@@ -292,7 +292,7 @@ export default function Settings() {
           <Text className="block px-[8rpx] pb-[16rpx] text-[28rpx] text-muted-foreground">
             {tt('setting.privacyPermission', '隐私与权限')}
           </Text>
-          <View className="overflow-hidden rounded-[16rpx] bg-card dark:bg-muted">
+          <View className="overflow-hidden rounded-lg bg-card dark:bg-muted">
             <View
               className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
               hoverClass="opacity-60"
@@ -321,7 +321,7 @@ export default function Settings() {
           <Text className="block px-[8rpx] pb-[16rpx] text-[28rpx] text-muted-foreground">
             {tt('setting.other', '其他')}
           </Text>
-          <View className="overflow-hidden rounded-[16rpx] bg-card dark:bg-muted">
+          <View className="overflow-hidden rounded-lg bg-card dark:bg-muted">
             <View
               className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
               hoverClass="opacity-60"
@@ -346,7 +346,7 @@ export default function Settings() {
         {/* 退出登录(RN logoutBtn:100rpx 高 + 圆角 16rpx + 危险红 32rpx/600) */}
         <View className="mb-[48rpx] mt-[24rpx]">
           <View
-            className="flex h-[100rpx] items-center justify-center rounded-[16rpx] bg-card dark:bg-muted"
+            className="flex h-[100rpx] items-center justify-center rounded-lg bg-card dark:bg-muted"
             hoverClass="opacity-60"
             onClick={handleLogout}
           >

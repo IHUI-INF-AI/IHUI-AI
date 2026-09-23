@@ -170,7 +170,7 @@ export default function RankingIndex() {
           {FILE_TABS(tt).map((tab) => (
             <View
               key={tab.key}
-              className={`inline-flex items-center justify-center py-[12rpx] px-[24rpx] mr-[12rpx] rounded-[24rpx] ${
+              className={`inline-flex items-center justify-center py-[12rpx] px-[24rpx] mr-[12rpx] rounded-xl ${
                 fileType === tab.key ? 'bg-primary' : 'bg-card'
               }`}
               onClick={() => onTabChange(tab.key)}
@@ -203,7 +203,7 @@ export default function RankingIndex() {
             return (
               <ThemeRoot key={item.id}>
                 <View
-                  className="flex items-center bg-background border border-solid border-border rounded-[24rpx] p-[28rpx] mb-[16rpx]"
+                  className="flex items-center bg-background border border-solid border-border rounded-xl p-[28rpx] mb-[16rpx]"
                   onClick={() => goDetail(item.id)}
                   hoverClass="opacity-60"
                 >
