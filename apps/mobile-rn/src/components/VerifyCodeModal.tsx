@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   confirmText: {
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontSize: 14,
     textAlign: 'center',
     fontWeight: '500',
