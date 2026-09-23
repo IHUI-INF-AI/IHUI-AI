@@ -2,101 +2,22 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-# Alertmanager 主配置 — IHUI-AI
-# 告警通道: Email / 钉钉 / 飞书 / 企业微信
-# 注意: webhook 地址与 SMTP 凭据需通过环境变量或 secret 注入,切勿提交真实凭据.
-
-global:
-  resolve_timeout: 5m
-  # SMTP 邮件网关
-  smtp_smarthost: 'smtp.example.com:465'
-  smtp_from: 'alert@aizhs.top'
-  smtp_auth_username: 'alert@aizhs.top'
-  smtp_auth_password: '<your-smtp-password>'
-  smtp_hello: 'aizhs.top'
-  smtp_require_tls: false
-  # 钉钉 / 飞书 / 企业微信 webhook 占位符 (实际地址由对应 receiver 引用)
-  # 通过环境变量注入: DINGTALK_WEBHOOK_URL / FEISHU_WEBHOOK_URL / WECHAT_WEBHOOK_URL
-
-templates:
-  - '/etc/alertmanager/templates/*.tmpl'
-
-# 静默窗口:夜间维护窗口(每日 00:00-02:00)暂停非 critical 告警推送,避免夜间噪音。
-# 说明:critical 路由不挂该静默,保障 P0/P1 半夜仍能报警(自保链不断)。
-# 需调整维护时间在此修改即可;若需"维护周日全天",再额外追加一个含 weekdays 的区间项。
-mute_time_intervals:
-  - name: nightly-maintenance
-    time_intervals:
-      - times:
-          - start_time: '00:00'
-            end_time: '02:00'
-        weekdays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
-
-route:
-  receiver: 'default-email'
-  group_by: ['alertname', 'service']
-  group_wait: 30s
-  group_interval: 5m
-  repeat_interval: 4h
-  routes:
-    # critical: 钉钉 + 邮件 (continue 让告警同时进入下游 receiver);夜间维护窗口不静默 critical
-    - matchers: ['severity="critical"']
-      receiver: 'dingtalk'
-      continue: true
-    # warning: 飞书(夜间维护窗口静默,次日/维护结束后补发到聚合)
-    - matchers: ['severity="warning"']
-      receiver: 'feishu'
-      mute_time_intervals:
-        - nightly-maintenance
-    # info: 邮件(夜间维护窗口静默)
-    - matchers: ['severity="info"']
-      receiver: 'default-email'
-      mute_time_intervals:
-        - nightly-maintenance
-
-receivers:
-  - name: 'default-email'
-    email_configs:
-      - to: 'ops@aizhs.top'
-        send_resolved: true
-        headers:
-          Subject: '[IHUI-AI Alert] {{ .CommonLabels.alertname }}'
-  - name: 'dingtalk'
-    webhook_configs:
-      - url: 'http://dingtalk-webhook:8060/dingtalk/webhook/send'
-        send_resolved: true
-        max_alerts: 0
-  - name: 'feishu'
-    webhook_configs:
-      - url: 'http://feishu-webhook:8060/feishu/webhook/send'
-        send_resolved: true
-        max_alerts: 0
-  - name: 'wechat'
-    webhook_configs:
-      - url: 'http://wechat-webhook:8060/wechat/webhook/send'
-        send_resolved: true
-        max_alerts: 0
-
-inhibit_rules:
-  # critical 告警抑制同一 alertname + service 的 warning 告警,避免告警风暴
-  - source_matchers: ['severity="critical"']
-    target_matchers: ['severity="warning"']
-    equal: ['alertname', 'service']
-
-  # ===== 级联抑制(告警名对齐 alerts.yml 的 PostgresDown/RedisDown/ApiDown/AiServiceDown 等)=====
-  # 明细见 noise-rules.yml(本文件的 inhibit_rules 段为合并后的可用稿,已同步)
-  # 根因覆盖则抑制衍生告警,避免"一个故障多条告警":
-  # API 宕机 → 其错误率/响应时间随之失效 → 抑制
-  - source_matchers: ['alertname="ApiDown"', 'severity="critical"']
-    target_matchers: ['alertname="ApiHighErrorRate"']
-    equal: ['instance']
-  - source_matchers: ['alertname="ApiDown"', 'severity="critical"']
-    target_matchers: ['alertname="ApiSlowResponse"']
-    equal: ['instance']
-  # AI 服务宕机 → LLM provider 健康告警属衍生 → 抑制
-  - source_matchers: ['alertname="AiServiceDown"', 'severity="critical"']
-    target_matchers: ['alertname="LlmProviderUnhealthy"']
-    equal: ['instance']
-  # 说明:PostgresDown/RedisDown/WindowsDiskSpaceLow 当前 alerts.yml 无衍生告警可抑制,
-  # 后续新增 PG/Redis 明细指标告警时,再在 noise-rules.yml 按真实 alertname 追加级联。
+# ⚠ 本文件已废弃 —— 它只是"渲染前的旧落点",不再被任何运行实例加载。
+#
+# 单一真相源: monitoring/alertmanager/alertmanager.yml.tmpl(带 ${VAR} 占位符的模板)
+# 渲染命令:   node scripts/render-alertmanager-config.mjs
+# 渲染产物:   monitoring/alertmanager/alertmanager.rendered.yml(含真实凭据,被 git 忽略)
+#
+# 为什么废弃:本文件过去把 smtp_smarthost / smtp_auth_password 写成
+#   smtp.example.com:465 与 '<your-smtp-password>' 这类占位符,注释说"需通过环境变量注入",
+#   但 Alertmanager 根本不展开 ${VAR}(本机 0.34.0 实测,取证见 .tmpl 头部),仓库里也
+#   从来没有过任何注入机制 ⇒ 占位符永远原样发给中继,基础设施告警的邮件通道从未送达过。
+#   留着这份"看着像配置"的文件,就是留着同一个坑让人再踩一次。
+#
+# 故意不写成一份可用配置:若有人误把本文件挂给 Alertmanager,它会因为下面没有 route/receivers
+# 而**立刻报错退出**,而不是悄悄加载一份发不出信的假配置 —— 宁可响,不要静默。
+#
+# 收尾动作(与新增 .tmpl 同一次提交):git rm monitoring/alertmanager/alertmanager.yml
+#   注意:只在工作区 rm 会被 scripts/heal-worktree-tracked.mjs(§5b 工作区存续自愈)按
+#   "索引==HEAD"的判据自动找回;必须 git rm 让索引与 HEAD 不一致,删除才生效。
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

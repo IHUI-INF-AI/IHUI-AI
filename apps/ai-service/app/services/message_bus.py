@@ -4,9 +4,9 @@
 
 """多通道消息总线(对标并反超 OpenClaw 单 WebSocket 通道)。
 
-支持 5 通道下发 + 通道优先级 + 失败自动降级 + 消息模板 + 批量发送 + 限流:
-- IM(飞书/钉钉/微信)/ WebSocket / Webhook / Email / SMS 5 通道
-- 通道优先级:IM > WebSocket > Webhook > Email > SMS
+支持 4 通道下发 + 通道优先级 + 失败自动降级 + 消息模板 + 批量发送 + 限流:
+- IM(飞书/钉钉/微信)/ WebSocket / Webhook / SMS 4 通道
+- 通道优先级:IM > WebSocket > Webhook > SMS
 - 失败降级:高优先级通道失败自动级联降级到更低优先级通道
 - 消息模板:5 内置模板(agent_started / agent_completed / tool_failed /
   memory_consolidated / dream_triggered),{var_name} 占位符渲染
@@ -21,16 +21,12 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-import smtplib
 import time
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from enum import StrEnum
-from html import escape as _html_escape
 from typing import Any
 
 import httpx
@@ -49,7 +45,6 @@ class ChannelType(StrEnum):
     IM = "im"            # 飞书/钉钉/微信
     WEBSOCKET = "websocket"
     WEBHOOK = "webhook"
-    EMAIL = "email"
     SMS = "sms"
 
 
@@ -58,8 +53,7 @@ CHANNEL_PRIORITY: dict[ChannelType, int] = {
     ChannelType.IM: 1,
     ChannelType.WEBSOCKET: 2,
     ChannelType.WEBHOOK: 3,
-    ChannelType.EMAIL: 4,
-    ChannelType.SMS: 5,
+    ChannelType.SMS: 4,
 }
 
 
@@ -118,7 +112,7 @@ class Subscription:
 
     - WebSocket 模式:handler 为异步回调函数
     - Webhook 模式:webhook_url 为回调地址
-    - IM/Email/SMS:仅支持 outbound,订阅无实际效果(预留扩展)
+    - IM/SMS:仅支持 outbound,订阅无实际效果(预留扩展)
     """
 
     id: str
@@ -287,19 +281,6 @@ class BaseChannel:
         return None
 
     @staticmethod
-    def _get_recipients(message: Message) -> list[str]:
-        """解析收件人列表:metadata['to'] 支持 str(逗号分隔)或 list。"""
-        meta = message.metadata or {}
-        to = meta.get("to")
-        if not to:
-            return []
-        if isinstance(to, str):
-            return [addr.strip() for addr in to.split(",") if addr.strip()]
-        if isinstance(to, (list, tuple)):
-            return [str(a).strip() for a in to if a is not None and str(a).strip()]
-        return [str(to).strip()] if str(to).strip() else []
-
-    @staticmethod
     def _get_sms_phone(message: Message) -> str | None:
         """解析 SMS 手机号:metadata['phone']。"""
         meta = message.metadata or {}
@@ -431,137 +412,6 @@ class WebhookChannel(BaseChannel):
         return True
 
 
-# 「智汇通报」邮件版式令牌(与 apps/api/src/services/email-templates.ts DISPATCH_TOKENS 同源,
-# 色值/结构保持同步,勿单侧漂移)
-_DISPATCH_PAGE_BG = "#050506"
-_DISPATCH_CARD_BG = "#0A0A0C"
-_DISPATCH_INK = "#F5F5F0"
-_DISPATCH_BODY = "#C9C9C2"
-_DISPATCH_DIM = "#8A8A85"
-_DISPATCH_ACCENT = "#B4FF00"
-_DISPATCH_HAIRLINE = "#3A3A40"
-
-
-def _render_dispatch_html(tag: str, title: str, body_text: str) -> str:
-    """渲染「智汇通报」品牌 HTML(深黑机械风,600px 卡片)。
-
-    正文纯文本逐行转义后渲染,杜绝内容注入。
-    """
-    safe_lines = _html_escape(str(body_text), quote=False).splitlines() or [""]
-    body_html = "".join(f"<div>{ln if ln else '&nbsp;'}</div>" for ln in safe_lines)
-    origin = (os.environ.get("CORS_ORIGIN") or "https://aizhs.top").split(",")[0].strip().rstrip("/")
-    qr = f"{origin}/footer/erweima/wechat-vx.png"
-    logo = f"{origin}/images/logo.png"
-    yahei = "'Microsoft YaHei',sans-serif"
-    mono = "Consolas,monospace"
-    return (
-        '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'
-        '<meta name="viewport" content="width=device-width,initial-scale=1"></head>'
-        f'<body style="margin:0;padding:0;background:{_DISPATCH_PAGE_BG};">'
-        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="{_DISPATCH_PAGE_BG}"><tr><td align="center" style="padding:24px 8px;">'
-        f'<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="{_DISPATCH_CARD_BG}" style="width:600px;max-width:600px;background:{_DISPATCH_CARD_BG};">'
-        # 刊头(左侧坐标行,右侧品牌图片 Logo)
-        f'<tr><td style="padding:28px 36px 0 36px;">'
-        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>'
-        f'<td style="font-family:{mono};font-size:14px;color:{_DISPATCH_DIM};letter-spacing:2px;">43.82°N&nbsp;125.32°E&nbsp;&nbsp;//&nbsp;&nbsp;IHUI-CORE<span style="color:{_DISPATCH_ACCENT};">&nbsp;&nbsp;//&nbsp;&nbsp;{_html_escape(tag, quote=False)}</span></td>'
-        f'<td width="64" align="right" valign="top"><img src="{logo}" width="56" height="56" alt="IHUI AI" style="display:block;border:1px solid {_DISPATCH_HAIRLINE};" /></td>'
-        f'</tr></table>'
-        f'</td></tr>'
-        f'<tr><td style="padding:14px 36px 0 36px;">'
-        f'<div style="font-family:{mono};font-size:26px;font-weight:bold;color:{_DISPATCH_INK};letter-spacing:2px;">IHUI.</div>'
-        f'<div style="font-family:{mono};font-size:10px;color:{_DISPATCH_DIM};letter-spacing:4px;margin-top:6px;">THE&nbsp;MECHANICAL&nbsp;DISPATCH&nbsp;//&nbsp;智汇通报</div>'
-        f'</td></tr>'
-        # 栏目眉 + 标题 + 色条
-        f'<tr><td style="padding:0 36px 0 36px;"><div style="font-family:{mono};font-size:11px;color:{_DISPATCH_ACCENT};letter-spacing:2px;">{_html_escape(tag, quote=False)}</div></td></tr>'
-        f'<tr><td style="padding:12px 36px 0 36px;"><div style="font-family:{yahei};font-size:26px;font-weight:900;color:{_DISPATCH_INK};">{_html_escape(title, quote=False)}</div></td></tr>'
-        f'<tr><td style="padding:18px 36px 0 36px;"><div style="height:4px;background:{_DISPATCH_ACCENT};font-size:0;line-height:0;">&nbsp;</div></td></tr>'
-        # 正文(逐行转义)
-        f'<tr><td style="padding:20px 36px 0 36px;">'
-        f'<div style="font-family:{yahei};font-size:17px;line-height:1.9;color:{_DISPATCH_BODY};border:1px dashed {_DISPATCH_ACCENT};padding:18px 22px;">{body_html}</div>'
-        f'</td></tr>'
-        # 创始人直联卡
-        f'<tr><td style="padding:24px 36px 0 36px;">'
-        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px dashed {_DISPATCH_HAIRLINE};"><tr>'
-        f'<td style="padding:18px 22px;">'
-        f'<div style="font-family:{mono};font-size:13px;color:{_DISPATCH_DIM};letter-spacing:3px;">[&nbsp;DIRECT_LINE&nbsp;//&nbsp;创始人直联&nbsp;]</div>'
-        f'<div style="font-family:{yahei};font-size:13px;color:{_DISPATCH_DIM};margin-top:8px;">遇到任何问题,微信扫码<b style="color:{_DISPATCH_INK};">直接联系创始人李春川</b><br>微信号:<span style="font-family:{mono};font-size:17px;color:{_DISPATCH_ACCENT};letter-spacing:1px;">ok502319984</span>(长按复制)· 邮件兜底:<a href="mailto:support@aizhs.top" style="color:{_DISPATCH_ACCENT};text-decoration:none;">support@aizhs.top</a></div>'
-        f'</td>'
-        f'<td width="84" style="padding:12px;"><img src="{qr}" alt="创始人微信二维码" width="72" height="72" style="display:block;border:0;" /></td>'
-        f'</tr></table>'
-        f'</td></tr>'
-        # 页脚
-        f'<tr><td style="padding:22px 36px 26px 36px;">'
-        f'<div style="font-family:{mono};font-size:13px;line-height:22px;color:{_DISPATCH_DIM};letter-spacing:1px;">DESIGNED_AS_A_MACHINE&nbsp;//&nbsp;FOR_INVESTIGATORS</div>'
-        f'<div style="font-family:{mono};font-size:13px;color:{_DISPATCH_DIM};margin-top:8px;">智汇AI集团 创始人 <span style="color:{_DISPATCH_INK};font-weight:bold;">李春川</span> · aizhs.top · © 2026 IHUI AI · 系统自动派发</div>'
-        f'</td></tr>'
-        f'</table></td></tr></table></body></html>'
-    )
-
-
-class EmailChannel(BaseChannel):
-    """Email 通道 — 真实实现(SMTP)。
-
-    配置来源 env:SMTP_HOST / SMTP_PORT(默认 587) / SMTP_USER /
-    SMTP_PASSWORD / SMTP_FROM。收件人来自 message.metadata['to'](str 或 list)。
-    用标准库 smtplib 构建纯文本 + HTML 双部分邮件(HTML 走「智汇通报」
-    品牌版式,与 apps/api/src/services/email-templates.ts 同源同色值),
-    SMTP 阻塞调用放入线程池,整体 15s 超时。
-    env 未配置 SMTP → 返回失败(不假装成功)。
-    """
-
-    channel_type = ChannelType.EMAIL
-
-    async def _do_send(
-        self, message: Message, subscriptions: dict[str, Subscription]
-    ) -> bool:
-        to_list = self._get_recipients(message)
-        if not to_list:
-            logger.error("[EmailChannel] 缺少收件人 metadata['to']: %s", message.id)
-            return False
-
-        host = self._env("SMTP_HOST")
-        if not host:
-            logger.error("[EmailChannel] SMTP not configured (env SMTP_HOST): %s", message.id)
-            return False
-        try:
-            port = int(self._env("SMTP_PORT") or "587")
-        except (TypeError, ValueError):
-            logger.error("[EmailChannel] SMTP_PORT 非法: %s", message.id)
-            return False
-        user = self._env("SMTP_USER")
-        password = self._env("SMTP_PASSWORD")
-        from_addr = self._env("SMTP_FROM") or user or "noreply@localhost"
-        subject = (message.metadata or {}).get("subject") or "IHUI 通知"
-        tag = (message.metadata or {}).get("tag") or "SYSTEM // NOTICE"
-
-        plain = MIMEText(message.content, "plain", "utf-8")
-        rich = MIMEText(_render_dispatch_html(tag, subject, message.content), "html", "utf-8")
-        msg = MIMEMultipart("alternative")
-        msg.attach(plain)
-        msg.attach(rich)
-        msg["Subject"] = subject
-        msg["From"] = from_addr
-        msg["To"] = ", ".join(to_list)
-
-        def _send_sync() -> None:
-            with smtplib.SMTP(host, port, timeout=15) as server:
-                server.ehlo()
-                if port == 587:
-                    server.starttls()
-                    server.ehlo()
-                if user:
-                    server.login(user, password or "")
-                server.sendmail(from_addr, to_list, msg.as_string())
-
-        try:
-            await asyncio.wait_for(asyncio.to_thread(_send_sync), timeout=15)
-        except Exception as e:
-            logger.error("[EmailChannel] SMTP 发送异常: %s error=%s", message.id, e)
-            return False
-        logger.info("[EmailChannel] 邮件发送成功: %s → %s", message.id, to_list)
-        return True
-
-
 class SMSChannel(BaseChannel):
     """SMS 通道 — 真实实现(HTTP 短信网关)。
 
@@ -612,7 +462,7 @@ class SMSChannel(BaseChannel):
 class MessageBus:
     """多通道消息总线。
 
-    - 通道优先级:IM > WebSocket > Webhook > Email > SMS
+    - 通道优先级:IM > WebSocket > Webhook > SMS
     - 失败降级:高优先级通道失败时,自动级联尝试更低优先级通道
       (即使不在用户请求列表内,直到有一个成功或全部尝试完毕)
     - 限流:每通道 token bucket,默认 100/秒
@@ -623,7 +473,6 @@ class MessageBus:
             ChannelType.IM: IMChannel(rate_limit_per_sec),
             ChannelType.WEBSOCKET: WebSocketChannel(rate_limit_per_sec),
             ChannelType.WEBHOOK: WebhookChannel(rate_limit_per_sec),
-            ChannelType.EMAIL: EmailChannel(rate_limit_per_sec),
             ChannelType.SMS: SMSChannel(rate_limit_per_sec),
         }
         # 订阅表:channel -> {subscription_id -> Subscription}
@@ -761,7 +610,7 @@ class MessageBus:
 
         - WebSocket 模式:提供 handler(异步回调函数)
         - Webhook 模式:提供 webhook_url
-        - IM/Email/SMS:仅支持 outbound,订阅无实际效果(预留扩展)
+        - IM/SMS:仅支持 outbound,订阅无实际效果(预留扩展)
         """
         sub_id = uuid.uuid4().hex
         self._subscriptions[channel][sub_id] = Subscription(
