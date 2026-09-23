@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
   entryBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   } as TextStyle,
   // ── 开发者信息区 ──
   infoCard: {
@@ -462,7 +462,7 @@ const styles = StyleSheet.create({
   problemBtnText: {
     fontSize: 13,
     fontWeight: '500',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   } as TextStyle,
   bigBtn: {
     backgroundColor: tokens.surface.card,

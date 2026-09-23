@@ -100,10 +100,6 @@ export interface ChatMessage {
   startedAt?: number
   durationMs?: number
   toolCallCount?: number
-  /** 服务端落库的消息元数据(G-165:ai-callback 侧按 workspace_permissions 反查盖章的
-   *  permissionMode 等随历史接口原样下发;客户端自报不采信 —— 缺失 = 老消息/未绑定
-   *  工作区,安静降级,不得据此编造 default)。结构对齐 api-client ChatMessageMetadata。 */
-  metadata?: Record<string, unknown>
   /** 2026-07-31 立,AI 对话可视化深度接入 Phase 2:消息级 subagent 工作内容
    *  - 后端 subagent_spawn/progress/end SSE 事件携带 messageId 时,前端按消息分组写入
    *  - 用于在消息气泡内 inline SubagentSection,实时刷新 subagent 生命周期 */
