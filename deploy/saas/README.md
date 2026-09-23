@@ -33,7 +33,7 @@
         │ demo.saas.     │  │ acme.saas.     │  │ beta.saas.     │
         │ example.com    │  │ example.com    │  │ example.com    │
         │                │  │                │  │                │
-        │ ├─ db (pg18)   │  │ ├─ db (pg18)   │  │ ├─ db (pg18)   │
+        │ ├─ db (pg15)   │  │ ├─ db (pg15)   │  │ ├─ db (pg15)   │
         │ ├─ redis (7)   │  │ ├─ redis (7)   │  │ ├─ redis (7)   │
         │ ├─ api         │  │ ├─ api         │  │ ├─ api         │
         │ ├─ web         │  │ ├─ web         │  │ ├─ web         │
