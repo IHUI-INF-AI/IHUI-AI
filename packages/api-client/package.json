@@ -49,8 +49,6 @@
     "lint": "eslint src/",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "prepack": "pnpm run build",
-    "pack:check": "node scripts/pack-check.mjs",
     "clean": "rimraf dist .turbo node_modules"
   },
   "dependencies": {
