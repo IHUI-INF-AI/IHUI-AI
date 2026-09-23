@@ -377,7 +377,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     } as TextStyle,
     chipsBar: {
-      backgroundColor: tk.surface.light,
+      backgroundColor: tk.surface.card,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: tk.border.light,
     } as ViewStyle,
@@ -600,7 +600,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 50,
       borderRadius: 25,
       backgroundColor: tk.brand.DEFAULT,
-      color: tk.text.primary,
+      color: tk.brand.foreground,
       textAlign: 'center',
       lineHeight: 50,
       fontSize: 28,
