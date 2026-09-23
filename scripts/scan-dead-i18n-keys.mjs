@@ -74,7 +74,12 @@ const TARGETS = {
   },
   extension: {
     localeDir: 'packages/i18n/messages/extension',
-    scanTargets: ['apps/extension/entrypoints', 'apps/extension/src', 'apps/extension/lib'],
+    // 2026-09-23 补 `packages/shared/src/chat`:该目录下的等待语池(waiting-pool.ts)与权限档词表
+    // (permission-tier.ts)按"跨端共享"设计被 extension 真实消费(MessageContent.tsx:682-683 等),
+    // 但端 scanTargets 不含它 ⇒ 76 枚 waiting.* + 10 枚 permissionTier.mode.* 恒被判死。
+    // 与 2026-09-12 给 taro / mobile-rn 加 `packages/shared/src` 的同一先例同形(窄口径:只加 chat,
+    // 不加 packages/app —— taro 票实测会把别端专属键倒灌成本端假 wire)。
+    scanTargets: ['apps/extension/entrypoints', 'apps/extension/src', 'apps/extension/lib', 'packages/shared/src/chat'],
   },
   desktop: {
     localeDir: 'packages/i18n/messages/desktop',
