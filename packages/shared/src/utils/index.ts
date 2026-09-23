@@ -28,6 +28,9 @@ export * from './markdown-mermaid-code'
 export * from './mcp-curated'
 export * from './message-search'
 export * from './object'
+// 脱敏(共享层唯一实现;D94 交接单 / 日志 / 出库边界共用;规则为 ai-service
+// output_cleaning.py + cli/redact.ts 既有正则的并集,端内不得再建第二套)
+export * from './redact'
 export * from './role'
 export * from './search-suggestions'
 export * from './select-class'
