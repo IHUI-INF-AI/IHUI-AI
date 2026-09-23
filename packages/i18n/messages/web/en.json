@@ -7055,6 +7055,29 @@
       "rollbackConfirmConfirm": "Restore"
     },
     "pane": {
+      "agentActions": {
+        "title": "Multi-agent actions",
+        "header": { "count": "{count, plural, one {1 agent} other {# agents}}" },
+        "row": { "agent": "{action} {agent}{stateSuffix}" },
+        "meta": { "prompt": "Input: {prompt}" },
+        "action": {
+          "spawn": { "label": "Create", "inProgress": "Creating", "completed": "Created", "failed": "Create failed" },
+          "resume": { "label": "Resume", "inProgress": "Resuming", "completed": "Resumed", "failed": "Resume failed" },
+          "sendInput": { "label": "Send input", "inProgress": "Sending", "completed": "Sent", "failed": "Send failed" },
+          "interrupt": { "label": "Interrupt", "inProgress": "Interrupting", "completed": "Interrupted", "failed": "Interrupt failed" },
+          "close": { "label": "Close", "inProgress": "Closing", "completed": "Closed", "failed": "Unable to close" },
+          "list": { "label": "List", "inProgress": "Loading", "completed": "Loaded", "failed": "Load failed" }
+        },
+        "state": {
+          "running": "Running",
+          "completed": "Completed",
+          "errored": "Errored",
+          "interrupted": "Interrupted",
+          "pendingInit": "Preparing",
+          "shutdown": "Shut down",
+          "notFound": "Not found"
+        }
+      },
       "prChecks": {
         "title": "CI checks",
         "summary": {
