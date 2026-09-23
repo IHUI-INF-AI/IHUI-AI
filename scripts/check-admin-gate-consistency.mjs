@@ -89,6 +89,138 @@ export function detectRawRoleIdComparisons(source) {
   return hits
 }
 
+/** RULE-1 的来源排除(O13b④ 升 blocking 的前置,2026-09-23 立) ──────────────
+ * 问题:`if (roleId < 1)` 这一种文本形态同时承载两件完全不同的事 ——
+ *   ① 特权判定(应收敛到集中封装):`const roleId = request.jwtPayload?.roleId ?? 0` → 403
+ *      (真例 apps/api/src/plugins/business-metrics.ts:518)
+ *   ② 入参合法性校验(与特权毫无关系,不该被拦):`const roleId = parseNum(q.roleId) ?? 0`
+ *      → 400 'roleId 无效'(真例 apps/api/src/routes/admin-sys/role-routes.ts:102)
+ * 两者**逐字符几乎一样**,只有 roleId 的来源能区分。warn 级时不致命,升 blocking 后
+ * 就是"任何新写的 roleId 入参校验一律被拦",把一个正确写法永久锁成红点。
+ *
+ * 判据只认**来源回溯**,且三条护栏全部偏保守(宁可漏放排除,绝不误放真鉴权):
+ *   · 命中行左侧必须是裸标识符 —— `user.roleId >= 1` 这类属性访问直接判红,不进排除通道。
+ *   · AUTH 证据优先于 PARAM 证据:同一 RHS 两者都命中时按鉴权处理。
+ *   · 回溯两跳仍解析不到声明 ⇒ unknown ⇒ 判红(窗口 12 行,越界即放弃,不猜)。
+ */
+const PROVENANCE_LOOKBACK = 12
+// 明确来自已鉴权主体 ⇒ 特权判定,永不排除
+const AUTH_PROVENANCE_RE =
+  /\b(?:jwtPayload|jwt|claims|principal|authState|session|currentUser|loginName|user|userInfo)\b|\b(?:request|req)\s*\.\s*user\b/
+// 明确来自请求载荷 ⇒ 入参校验
+const PARAM_PROVENANCE_RE = /\b(?:request|req)\s*\.\s*(?:params|query|body|searchParams|headers)\b/
+
+const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/**
+ * 找 `<name>` 的初始化表达式 RHS。三种形态都要认:
+ *   ① `const roleId = <rhs>`                                  —— 单行
+ *   ② `const { roleId, userId } = <rhs>`                      —— zod 解构(role-routes.ts:145 真例)
+ *   ③ `const parsed = z.object({…}).safeParse(request.body)` —— 声明跨多行,须括号配平后累加
+ * 只认紧邻声明,不回溯二次赋值。窗口上下各 PROVENANCE_LOOKBACK 行,越界返回 null(不猜)。
+ */
+function findDeclaration(name, lines, fromIdx) {
+  const plain = new RegExp(`\\b(?:const|let|var)\\s+${escRe(name)}\\s*(?::[^=;]*)?=\\s*(.+)`)
+  const destruct = new RegExp(`\\b(?:const|let|var)\\s*\{([^}]*)\}\\s*(?::[^=;]*)?=\\s*(.+)`)
+  for (let j = fromIdx; j >= 0 && fromIdx - j <= PROVENANCE_LOOKBACK; j--) {
+    const l = stripCommentsLine(lines[j])
+    if (!l) continue
+    const dm = l.match(destruct)
+    if (dm) {
+      const keys = dm[1].split(',').map((k) => k.split(':').pop().trim().split(/\s+/)[0])
+      if (keys.includes(name)) return { rhs: collectInitializer(dm[2], lines, j), idx: j }
+    }
+    const m = l.match(plain)
+    if (m) return { rhs: collectInitializer(m[1], lines, j), idx: j }
+  }
+  return null
+}
+
+/**
+ * 从片段起向下累加,直到"括号配平 **且** 下一行不是链式续行"。
+ * 只判配平会漏掉本仓真实写法 `const parsed = roleUserSchema` ↵ `.object({…})` ↵
+ * `.safeParse(request.body)` —— 第一行括号就是平衡的,不认链式就永远取不到 request.body,
+ * 于是这处入参校验被留在判红侧(role-routes.ts:145 实测踩过)。
+ */
+function collectInitializer(first, lines, idx) {
+  const balance = (s) => {
+    let d = 0
+    for (const ch of s) {
+      if (ch === '(' || ch === '{' || ch === '[') d++
+      else if (ch === ')' || ch === '}' || ch === ']') d--
+    }
+    return d
+  }
+  let acc = first
+  let depth = balance(first)
+  let j = idx + 1
+  while (j < lines.length && j - idx <= PROVENANCE_LOOKBACK) {
+    const raw = lines[j]
+    const more = stripCommentsLine(raw)
+    if (!more) {
+      j++
+      continue
+    }
+    const isContinuation = /^\s*\./.test(raw) // 以 `.` 起头 = 链式续行
+    if (depth <= 0 && !isContinuation) break
+    acc += '\n' + more
+    depth += balance(more)
+    j++
+  }
+  return acc
+}
+
+/**
+ * 一个 RHS 的 provenance:'param' | 'auth' | 'unknown'。
+ * 支持 `<ident>.<prop>` 与 `fn(<ident>.<prop>)` 两种间接形态,各再回溯一跳(depth≤2)。
+ */
+function provenanceOf(rhs, lines, idx, depth = 0) {
+  if (AUTH_PROVENANCE_RE.test(rhs)) return 'auth' // 安全兜底:先判鉴权
+  if (PARAM_PROVENANCE_RE.test(rhs)) return 'param'
+  if (depth >= 2) return 'unknown'
+  // 取 RHS 里第一个 `<宿主>.<属性>` 的宿主名(如 q.roleId / parsed.data / body.roleId)
+  const m = rhs.match(/\b([A-Za-z_$][\w$]*)\s*\.\s*[A-Za-z_$][\w$]*\b/)
+  if (!m) return 'unknown'
+  const host = m[1]
+  if (AUTH_PROVENANCE_RE.test(host)) return 'auth'
+  const decl = findDeclaration(host, lines, idx - 1)
+  if (!decl) return 'unknown'
+  return provenanceOf(decl.rhs, lines, decl.idx, depth + 1)
+}
+
+/**
+ * 把 RULE-1 命中分成 { violations, excluded }。
+ * ⚠️ 命中判据必须与 detectRawRoleIdComparisons **逐字同一条正则** —— 首版在这里
+ * 把左侧放宽成"任意标识符",于是 `pending.length === 0` / `urls.length > 0` 全被算成
+ * roleId 违规,全量从 17 处暴涨到 550 处。故本函数**只决定排除,绝不扩大命中集合**:
+ * 命中集合由旧 RE 定义,排除只是它的一个子集。
+ * excluded 必须如实报数,否则日后有人拿它当"这道门看不见 roleId 了"的旁路。
+ */
+export function classifyRawRoleIdHits(source) {
+  const lines = source.split('\n')
+  const violations = []
+  const excluded = []
+  // 与 RULE-1 检测器同一条:必须有 roleId 这个词在前
+  const RE = /\broleId\s*(?:>=|<=|===|!==|>|<)\s*\d+/g
+  lines.forEach((raw, i) => {
+    const line = stripCommentsLine(raw)
+    if (!line) return
+    RE.lastIndex = 0
+    if (!RE.test(line)) return
+    // `x.roleId >= 1` 这类属性访问(含 `user.roleId` / `payload.roleId`)一律留在判红侧:
+    // 它读的就是"某对象上的角色",无从证明它是入参,不排除。
+    if (/[A-Za-z_$][\w$]*\s*\.\s*roleId\s*(?:>=|<=|===|!==|>|<)\s*\d/.test(line)) {
+      violations.push(line.trim())
+      return
+    }
+    const decl = findDeclaration('roleId', lines, i - 1)
+    const prov = decl ? provenanceOf(decl.rhs, lines, decl.idx) : 'unknown'
+    if (prov === 'param') excluded.push({ line: line.trim(), at: i + 1 })
+    else violations.push(line.trim())
+  })
+  return { violations, excluded }
+}
+
 /** RULE-2 检测器:本地重新定义 requireAdmin(不含 import 行)。 */
 export function detectLocalRequireAdmin(source) {
   const hits = []
@@ -105,7 +237,7 @@ export function detectLocalRequireAdmin(source) {
 /** 单文件审计:返回违规说明数组(空 = 通过)。relPath 用 posix 风格。 */
 export function evaluateFile({ relPath, source }) {
   const violations = []
-  const rawHits = detectRawRoleIdComparisons(source)
+  const { violations: rawHits, excluded } = classifyRawRoleIdHits(source)
   const adminHits = detectLocalRequireAdmin(source)
   const cap1 = CENTRAL_FILES.has(relPath) ? Infinity : (LEGACY_RAW_ROLEGATE[relPath]?.count ?? 0)
   const cap2 = CENTRAL_FILES.has(relPath) ? Infinity : (LEGACY_LOCAL_REQUIREADMIN[relPath]?.count ?? 0)
@@ -113,6 +245,7 @@ export function evaluateFile({ relPath, source }) {
     violations.push(
       `RULE-1 ${relPath}: 裸 roleId 数值比较 ${rawHits.length} 处 > 登记 ${Number.isFinite(cap1) ? cap1 : 0} 处` +
         `(新增文件未登记即 0)。样例: ${rawHits.slice(0, 3).join(' | ')}` +
+        (excluded.length ? ` [另有 ${excluded.length} 处已按来源判为入参校验而排除]` : '') +
         (CENTRAL_FILES.has(relPath) ? '' : ' —— 收敛:改用 requirePermission(...)/requireAdmin'),
     )
   }
@@ -225,16 +358,23 @@ async function main() {
 
   const violations = [...platformViolations]
   let rawTotal = 0
+  let excludedTotal = 0
   let legacyFiles = 0
   for (const t of targets) {
     const source = readFileSync(t.abs, 'utf8')
-    rawTotal += detectRawRoleIdComparisons(source).length
+    // ⚠️ 统计口径必须与判绿口径同源:此前 rawTotal 走 detectRawRoleIdComparisons(未排除),
+    // 而判绿走 evaluateFile(已排除),于是加了来源排除后结论行仍报旧数,读报告的人会以为
+    // "排除没生效"。两者必须一致,且 excluded 要如实打印 —— 排除不可见就等于旁路。
+    const cls = classifyRawRoleIdHits(source)
+    rawTotal += cls.violations.length
+    excludedTotal += cls.excluded.length
     if (LEGACY_RAW_ROLEGATE[t.rel]) legacyFiles += 1
     violations.push(...evaluateFile({ relPath: t.rel, source }))
   }
 
   console.log(
     `[admin-gate] 范围=${stagedOnly ? 'staged' : '全量'} 文件=${targets.length} 裸roleId比较=${rawTotal} ` +
+      `已按来源排除的入参校验=${excludedTotal} ` +
       `存量白名单命中=${legacyFiles}/${Object.keys(LEGACY_RAW_ROLEGATE).length} 文件 ` +
       `platform域scope=[${platformScopes.map((s) => s.scope).join(', ')}]`,
   )
@@ -273,6 +413,55 @@ function runSelfTest() {
   assert(
     detectRawRoleIdComparisons('u.roleId === 1\nx.roleId > 0\ny.roleId < 1').length === 3,
     '===1 / >0 / <1 三变体均识别',
+  )
+  // ── 来源排除(升 blocking 的前置)。夹具全部内联,不写死真实路径 ──
+  assert(
+    classifyRawRoleIdHits('if (pending.length === 0) return 0\nif (urls.length > 0) {').violations.length === 0,
+    '非 roleId 的比较行一律不得计入(首版把命中正则放宽到任意标识符,全量从 17 暴涨到 550)',
+  )
+  assert(
+    classifyRawRoleIdHits('const roleId = request.jwtPayload?.roleId ?? 0\nif (roleId < 1) {\n  return reply.status(403).send()\n}').violations.length === 1,
+    'jwtPayload 来源 = 真特权判定,必须判红(安全兜底:误放等于让裸鉴权隐形)',
+  )
+  assert(
+    classifyRawRoleIdHits('const q = request.query as Record<string, string>\nconst roleId = parseNum(q.roleId) ?? 0\nif (roleId < 1) {\n  return reply.status(400).send(error(400, "roleId 无效"))\n}').excluded.length === 1,
+    'query → parseNum 一跳可回溯到 request.query 的,判为入参校验并排除',
+  )
+  {
+    const zodSrc = [
+      'const parsed = roleUserSchema',
+      '  .object({',
+      '    userId: z.number().int(),',
+      '  })',
+      '  .safeParse(request.body)',
+      'const { roleId, userId } = parsed.data',
+      'if (roleId < 1) {',
+      '  return reply.status(400).send()',
+      '}',
+    ].join('\n')
+    const r = classifyRawRoleIdHits(zodSrc)
+    assert(
+      r.excluded.length === 1 && r.violations.length === 0,
+      `zod 解构 + 链式换行(.safeParse(request.body) 独占行)必须能回溯并排除,实得 排除=${r.excluded.length} 判红=${r.violations.length}`,
+    )
+  }
+  assert(
+    classifyRawRoleIdHits('if (user.roleId >= 1) return next()').violations.length === 1,
+    '属性访问形态(user.roleId)不得进排除通道 —— 它读的就是主体上的角色',
+  )
+  assert(
+    classifyRawRoleIdHits('if (roleId < 1) return 400').violations.length === 1,
+    '回溯不到声明 ⇒ unknown ⇒ 判红(宁不误放)',
+  )
+  assert(
+    classifyRawRoleIdHits(
+      Array(30).fill('const unrelated = 1').concat(['if (roleId < 1) return 400']).join('\n'),
+    ).violations.length === 1,
+    '声明超出回溯窗口 ⇒ 不猜 ⇒ 判红',
+  )
+  assert(
+    classifyRawRoleIdHits('const roleId = request.jwtPayload?.roleId ?? request.query.roleId\nif (roleId < 1) return 403').violations.length === 1,
+    'RHS 同时含鉴权与参数证据 ⇒ 按鉴权处理(冲突时偏保守)',
   )
   // 夹具不得写死路径:白名单条目会随 O13b 收敛被删,写死会让 self-test 在收敛成功当天变红
   // (T2 批删掉 oss.ts 条目即触发过一次)。改为从表里取一条 count===1 的条目当探针。
