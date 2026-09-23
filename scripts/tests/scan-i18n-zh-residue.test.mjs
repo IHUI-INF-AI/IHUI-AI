@@ -7,7 +7,8 @@
  * @description 端到端覆盖 scripts/scan-i18n-zh-residue.mjs 的核心规则(AGENTS.md §19):
  *   - zh-TW (opencc 模式): 简→繁字形转换检测,简体字残留 → exit 1
  *   - ko (charRange 模式): 纯中文残留 → exit 1;半翻译(本地字符+汉字)→ warn exit 0
- *   - ja (warnOnly 模式): 任何汉字只 warn 不阻塞 → exit 0
+ *   - ja (2026-09-23 起 joyo 精确判据): 字形与繁体不同 ∧ 不在常用汉字表 2136 字内 → exit 1;
+ *     日文新字体(写/台/気/会/図)与表外常用汉字(曖/昧)一律不报 —— 旧 warnOnly 把任何汉字都 warn,噪音 15132 处等于没判
  *   - 未配置 locale (如 vi): 无 localRe,任何汉字 → exit 1
  *   - 语言本名白名单(简体中文/日本語/繁體中文等)→ 跳过检测
  *   - --target=web|extension|shared 切换 JSON 路径
@@ -165,14 +166,17 @@ describe('scan-i18n-zh-residue.mjs 集成测试', () => {
     }
   })
 
-  // ─── 8. ja (warnOnly): 含日文汉字词 → exit 0 ─────────────
-  test('ja: 含日文汉字词(登録)→ exit 0 (warnOnly,日文汉字词启发式不可靠)', () => {
+    // ─── 8. ja (joyo 精确判据): 日文汉字词不再刷 warn ─────────────
+  // 本用例原断言是"ja warnOnly 会打印 汉字残留 warn"—— 那正是被修掉的盲区本身:
+  // 旧实现把任何汉字都 warn(web/ja 实测 15132 处噪音,等于没有判据)。
+  // 现在 登録(二字皆 2010 常用汉字表字种)必须**既 exit 0 又完全静默**。
+  test('ja: 含日文汉字词(登録)→ exit 0 且不再刷 warn(旧 warnOnly 噪音面已收口)', () => {
     const root = createTempProject()
     try {
       writeWebLocale(root, 'ja', { common: { register: '登録' } })
       const r = runScript(['ja'], { cwd: root })
-      assert.equal(r.status, 0, `ja warnOnly 应 exit 0,实际 ${r.status}`)
-      assert.match(r.stderr, /warn-only|汉字残留/)
+      assert.equal(r.status, 0, `登録 二字均在常用汉字表内,应 exit 0,实际 ${r.status}\n${r.stderr}`)
+      assert.doesNotMatch(`${r.stderr}${r.stdout}`, /汉字残留|warn-only/, '表内字种不得再进噪音输出')
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
@@ -294,6 +298,32 @@ describe('scan-i18n-zh-residue.mjs 集成测试', () => {
       assert.match(r.stderr, /纯中文残留/)
     } finally {
       rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  // ── ja joyo 精确判据(2026-09-23)──
+  // 正例必须红、三条反例必须绿:少一条反例就会把日文自身用字判成"中文残留"而满天假红。
+  describe('ja joyo 模式:简化字特征 ∧ 不在常用汉字表', () => {
+    const cases = [
+      { name: '协作 混进日文 → exit 1', obj: { a: 'チーム协作と課金' }, want: 1, re: /中文简体字残留/, chars: /协/ },
+      { name: '发布/难题 混进日文 → exit 1', obj: { a: 'ワンクリックで全クライアントに发布' }, want: 1, re: /发布|嫌疑字/ },
+      { name: '日本新字体(与中文简化字同码位)→ exit 0', obj: { a: '写真・台風・会社・気・図・点' }, want: 0 },
+      { name: '表外常用汉字(字形与繁体相同)→ exit 0', obj: { a: '曖昧な表現です' }, want: 0 },
+      { name: '纯假名/拉丁 → exit 0', obj: { a: 'こんにちは world' }, want: 0 },
+      { name: 'Ext-B 官方字种 𠮟(非 BMP)→ exit 0', obj: { a: '𠮟責する' }, want: 0 },
+    ]
+    for (const c of cases) {
+      test(c.name, () => {
+        const root = createTempProject()
+        try {
+          writeWebLocale(root, 'ja', c.obj)
+          const r = runScript(['ja'], { cwd: root })
+          assert.equal(r.status, c.want, `期望 exit ${c.want},实际 ${r.status}\n${r.stderr || r.stdout}`)
+          if (c.re) assert.match(`${r.stderr}${r.stdout}`, c.re)
+        } finally {
+          rmSync(root, { recursive: true, force: true })
+        }
+      })
     }
   })
 
