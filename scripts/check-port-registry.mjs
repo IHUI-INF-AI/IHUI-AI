@@ -19,7 +19,10 @@
  *   node scripts/check-port-registry.mjs --all      # 扫描全项目
  */
 import { execSync } from 'node:child_process'
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, statSync } from 'node:fs'
+
+// 2026-09-23 加固:单文件字节上限 + git 调用超时。成因见 main() 内注释。
+const MAX_SCAN_BYTES = 2 * 1024 * 1024
 
 // ============================================================
 // 端口注册表(与 docs/port-management.md §2 同步)
@@ -169,12 +172,21 @@ function main() {
 
   if (scanAll) {
     // 全项目扫描(仅 git tracked 文件)
+    // 2026-09-23 挂死根治:Windows 下并发会话持有 index 句柄时,无超时的 execSync('git ls-files')
+    // 会**无限阻塞**在子进程管道读上(实测一次纯文档提交的 pre-commit 卡 80 分钟:
+    // Get-Process 读数 CPU 2.84s / 墙钟 80min / Responding=True,即完全没在读文件)。
+    // 超时后回退 staged 口径而不是静默 exit 0 —— 静默通过会让全量审计假绿。
     try {
-      const output = execSync('git ls-files', { encoding: 'utf-8', windowsHide: true })
+      const output = execSync('git ls-files', {
+        encoding: 'utf-8',
+        windowsHide: true,
+        timeout: 60_000,
+        maxBuffer: 64 * 1024 * 1024,
+      })
       files = output.trim().split('\n').filter(Boolean)
     } catch {
-      console.log('⚠️  无法获取 git tracked 文件列表')
-      process.exit(0)
+      files = getStagedFiles()
+      console.log(`⚠️  git ls-files 超时/失败,已回退 staged 口径(${files.length} 文件)——不静默通过`)
     }
   } else {
     files = getStagedFiles()
@@ -192,6 +204,16 @@ function main() {
 
     const fullPath = `${process.cwd()}/${file}`
     if (!existsSync(fullPath)) continue
+
+    // 2026-09-23:超大文件(打包产物 / sourcemap / lock 二进制)一律跳过 —— 端口引用不可能出现在
+    // 这类文件里,而整读它们是本类守门最常见的二次拖死源。
+    let st
+    try {
+      st = statSync(fullPath)
+    } catch {
+      continue
+    }
+    if (!st.isFile() || st.size > MAX_SCAN_BYTES) continue
 
     let content
     try {
