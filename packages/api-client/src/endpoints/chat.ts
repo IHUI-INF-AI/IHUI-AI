@@ -61,37 +61,6 @@ export interface ChatMessageMetadata {
    *  来源:ai-service plan_updated 同源快照 → /api/ai/callback → worker 浅合并落库;
    *  消费:web 历史水合映射回 message.planSteps(缺失 = 老消息,安静降级) */
   planSteps?: Array<Record<string, unknown>>
-  /** permissionMode(G-165 立):这条回答生成时**服务端自己的**权限档记录。
-   *  来源:ai-callback 侧按 会话 metadata.workspacePath → workspace_permissions 反查后盖章
-   *  (不采信客户端自报);拼写是 wire(kebab)值,与 @ihui/types/permission-mode 同源。
-   *  消费:web 历史水合映射回 message.permissionMode(徽章跨刷新/跨端可见),
-   *  小程序/RN 亦按同一 key 渲染档位行 —— 缺失 = 老消息或未绑定工作区,安静降级。 */
-  permissionMode?: string
-  /** citations(G-166 立):这条回答**实际引用**的来源清单,服务端在流收尾时按
-   *  与 SSE `citations` 事件同一个 `_collect_citations` 产出落库(同源同去重同 10 条上限)。
-   *  消费:web 历史水合映射回 `ChatMessage.citations`(CitationBar),缺失 = 老消息/本轮无引用。 */
-  citations?: Array<Record<string, unknown>>
-  /** injections(G-166 立):这条回答**带了哪些上下文**的交代帧列表,服务端按与 SSE
-   *  `injection_applied` 同一份列表落库(剥掉帧判别字 `type`)。
-   *  消费:web 历史水合映射回 `ChatMessage.injections`(注入交代区),缺失安静降级。 */
-  injections?: Array<Record<string, unknown>>
-  /** compaction(G-166 第②步立):这条回答生成前**发生过多少上下文压缩**的统计,
-   *  与 SSE `compaction` 帧同一载荷(ai-service `_compaction_payload` 单一真相源)。
-   *  消费:web 历史水合映射回 `ChatMessage.compaction`(CompressionDivider),
-   *  缺失 = 老消息 / 本轮未压缩也未撞上限 —— 不渲染分隔线。 */
-  compaction?: {
-    triggered?: boolean
-    tokensBefore?: number
-    tokensAfter?: number
-    removedCount?: number
-    usageRatio?: number
-    trigger?: string
-  }
-  /** retryNotice(G-166 第⑥步立):这轮回答期间上游网关**换 key / 退避重试**的最终一次记账,
-   *  字段与 SSE `retry_scheduled` 契约同一套(attempt / maxRetries / retryInMs / httpStatus?)。
-   *  消费:web 历史水合映射回 `ChatMessage.retryNotice`(RetryNotice 条),
-   *  缺失 = 老消息或本轮没重试过 —— 不渲染"重试过"的假交代。 */
-  retryNotice?: { attempt: number; maxRetries: number; retryInMs: number; httpStatus?: number }
   [key: string]: unknown
 }
 
