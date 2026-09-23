@@ -19,7 +19,6 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
 import {
   ScanLine,
   Camera,
@@ -215,66 +214,48 @@ const OPT_KEY = 'edu-canteen-supplier-options'
 /** 服务端 image 字段上限 13MB 字符(data URI);base64 膨胀 4/3,原图限 9MB 留余量。 */
 const MAX_IMAGE_SIZE = 9 * 1024 * 1024
 
-const STATUS_META: Record<string, { labelKey: string; className: string }> = {
-  draft: { labelKey: 'status.draft', className: 'bg-muted text-muted-foreground' },
+const STATUS_META: Record<string, { label: string; className: string }> = {
+  draft: { label: '草稿', className: 'bg-muted text-muted-foreground' },
   ai_extracted: {
-    labelKey: 'status.aiExtracted',
+    label: 'AI已识别',
     className: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
   },
   ai_verified: {
-    labelKey: 'status.aiVerified',
+    label: 'AI已核对',
     className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
   },
   ai_conflict: {
-    labelKey: 'status.aiConflict',
+    label: 'AI存疑',
     className: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
   },
-  confirmed: { labelKey: 'status.confirmed', className: 'bg-green-600 text-white' },
-  voided: { labelKey: 'status.voided', className: 'bg-zinc-200 text-zinc-500 line-through' },
+  confirmed: { label: '已记账', className: 'bg-green-600 text-white' },
+  voided: { label: '已作废', className: 'bg-zinc-200 text-zinc-500 line-through' },
 }
 
-const STATUS_OPTIONS: Array<{ value: string; labelKey: string }> = [
-  { value: 'all', labelKey: 'statusFilter.all' },
-  { value: 'ai_extracted', labelKey: 'status.aiExtracted' },
-  { value: 'ai_verified', labelKey: 'status.aiVerified' },
-  { value: 'ai_conflict', labelKey: 'status.aiConflict' },
-  { value: 'confirmed', labelKey: 'status.confirmed' },
-  { value: 'voided', labelKey: 'status.voided' },
+const STATUS_OPTIONS = [
+  { value: 'all', label: '全部状态' },
+  { value: 'ai_extracted', label: 'AI已识别' },
+  { value: 'ai_verified', label: 'AI已核对' },
+  { value: 'ai_conflict', label: 'AI存疑' },
+  { value: 'confirmed', label: '已记账' },
+  { value: 'voided', label: '已作废' },
 ]
 
-/** 供应商分类: value 为后端存储/CSV 导出的字面值(不翻译), labelKey 仅用于取显示词。 */
-const SUPPLIER_CATEGORIES: Array<{ value: string; labelKey: string }> = [
-  { value: '蔬菜', labelKey: 'supplierCategory.vegetable' },
-  { value: '肉禽', labelKey: 'supplierCategory.meatPoultry' },
-  { value: '水产', labelKey: 'supplierCategory.aquatic' },
-  { value: '粮油', labelKey: 'supplierCategory.grainOil' },
-  { value: '调味', labelKey: 'supplierCategory.seasoning' },
-  { value: '冻品', labelKey: 'supplierCategory.frozen' },
-  { value: '其他', labelKey: 'supplierCategory.other' },
-]
+const SUPPLIER_CATEGORIES = ['蔬菜', '肉禽', '水产', '粮油', '调味', '冻品', '其他']
 
-const VERIFY_TYPE_KEYS: Record<string, string> = {
-  extract: 'verifyType.extract',
-  verify: 'verifyType.verify',
-  arbitrate: 'verifyType.arbitrate',
-}
-
-const AI_STEP_KEYS = ['ai.step1', 'ai.step2', 'ai.step3'] as const
-
-const CONFIRM_TITLE_KEYS: Record<'confirm' | 'void' | 'delete', string> = {
-  confirm: 'confirm.titleConfirm',
-  void: 'confirm.titleVoid',
-  delete: 'confirm.titleDelete',
-}
-
-const CONFIRM_DESC_KEYS: Record<'void' | 'delete', string> = {
-  void: 'confirm.descVoid',
-  delete: 'confirm.descDelete',
+const VERIFY_TYPE_LABEL: Record<string, string> = {
+  extract: '第1轮 · 结构化抽取',
+  verify: '第2轮 · 独立交叉核对',
+  arbitrate: '第3轮 · 差异仲裁',
 }
 
 const PAGE_SIZE = 20
 
 /* ─── Helpers ─── */
+
+function statusLabel(status: string): string {
+  return STATUS_META[status]?.label ?? status
+}
 
 function fmtAmount(v: number | null | undefined): string {
   if (v === null || v === undefined) return '—'
@@ -309,7 +290,6 @@ function buildQuery(params: Record<string, string | number | undefined>): string
 /* ─── 状态徽章 ─── */
 
 function StatusBadge({ status }: { status: string }) {
-  const t = useTranslations('eduProcurement')
   const meta = STATUS_META[status]
   return (
     <span
@@ -318,7 +298,7 @@ function StatusBadge({ status }: { status: string }) {
         meta?.className ?? 'bg-muted text-muted-foreground',
       )}
     >
-      {meta?.labelKey ? t(meta?.labelKey) : status}
+      {statusLabel(status)}
     </span>
   )
 }
@@ -345,11 +325,8 @@ function RankList({
   countKey: string
   countLabel: string
 }) {
-  const t = useTranslations('eduProcurement')
   if (rows.length === 0) {
-    return (
-      <p className="px-1 py-6 text-center text-sm text-muted-foreground">{t('common.noData')}</p>
-    )
+    return <p className="px-1 py-6 text-center text-sm text-muted-foreground">暂无数据</p>
   }
   const max = Math.max(...rows.map((r) => Number(r[amountKey] ?? 0)), 1)
   return (
@@ -387,7 +364,6 @@ function RankList({
 function StatsTab() {
   const [filters, setFilters] = React.useState<StatsFilters>(emptyStatsFilters)
   const [applied, setApplied] = React.useState<StatsFilters>(emptyStatsFilters)
-  const t = useTranslations('eduProcurement')
   const [exporting, setExporting] = React.useState(false)
 
   const statsQuery = useQuery({
@@ -430,9 +406,9 @@ function StatsTab() {
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
-      toast.success(format === 'xlsx' ? t('stats.exportXlsx') : t('stats.exportCsv'))
+      toast.success(format === 'xlsx' ? 'Excel 已导出' : 'CSV 已导出(UTF-8 BOM,Excel 可直接打开)')
     } catch {
-      toast.error(t('stats.exportFailed'))
+      toast.error('导出失败,请重试')
     } finally {
       setExporting(false)
     }
@@ -444,7 +420,7 @@ function StatsTab() {
       <Card>
         <CardContent className="flex flex-wrap items-end gap-3 py-4">
           <div className="grid w-48 gap-1.5">
-            <Label>{t('stats.scope')}</Label>
+            <Label>统计口径</Label>
             <Select
               value={filters.scope}
               onValueChange={(v) => setFilters({ ...filters, scope: v })}
@@ -453,13 +429,13 @@ function StatsTab() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="confirmed">{t('stats.scopeConfirmed')}</SelectItem>
-                <SelectItem value="all">{t('stats.scopeAll')}</SelectItem>
+                <SelectItem value="confirmed">仅已记账(财务口径)</SelectItem>
+                <SelectItem value="all">全部单据(含草稿/存疑)</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="grid gap-1.5">
-            <Label>{t('common.startDate')}</Label>
+            <Label>开始日期</Label>
             <Input
               type="date"
               value={filters.startDate}
@@ -467,7 +443,7 @@ function StatsTab() {
             />
           </div>
           <div className="grid gap-1.5">
-            <Label>{t('common.endDate')}</Label>
+            <Label>结束日期</Label>
             <Input
               type="date"
               value={filters.endDate}
@@ -476,11 +452,11 @@ function StatsTab() {
           </div>
           <Button onClick={apply}>
             <Search className="h-4 w-4" />
-            {t('stats.apply')}
+            统计
           </Button>
           <Button variant="outline" onClick={reset}>
             <RotateCcw className="h-4 w-4" />
-            {t('common.reset')}
+            重置
           </Button>
           <Button
             variant="outline"
@@ -493,7 +469,7 @@ function StatsTab() {
             ) : (
               <FileDown className="h-4 w-4" />
             )}
-            {t('stats.exportExcel')}
+            导出 Excel(按明细行)
           </Button>
           <Button variant="outline" disabled={exporting} onClick={() => exportData('csv')}>
             {exporting ? (
@@ -501,7 +477,7 @@ function StatsTab() {
             ) : (
               <FileDown className="h-4 w-4" />
             )}
-            {t('stats.exportCsvBtn')}
+            导出 CSV
           </Button>
         </CardContent>
       </Card>
@@ -509,25 +485,25 @@ function StatsTab() {
       {/* 汇总卡片 */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title={t('stats.totalAmount')}
+          title="采购总额"
           value={s ? fmtAmount(s.summary.totalAmount) : '—'}
           icon={Receipt}
           loading={statsQuery.isLoading}
         />
         <StatCard
-          title={t('stats.docCount')}
+          title="单据数"
           value={s ? String(s.summary.procurementCount) : '—'}
           icon={BarChart3}
           loading={statsQuery.isLoading}
         />
         <StatCard
-          title={t('stats.itemCount')}
+          title="明细条目"
           value={s ? String(s.summary.itemCount) : '—'}
           icon={Truck}
           loading={statsQuery.isLoading}
         />
         <StatCard
-          title={t('stats.avgAmount')}
+          title="单均金额"
           value={s ? fmtAmount(s.summary.avgAmount) : '—'}
           icon={CheckCircle2}
           loading={statsQuery.isLoading}
@@ -538,40 +514,40 @@ function StatsTab() {
       <div className="grid gap-4 lg:grid-cols-3">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">{t('stats.categoryRank')}</CardTitle>
+            <CardTitle className="text-base">品类支出排行</CardTitle>
           </CardHeader>
           <CardContent>
             <RankList
               rows={(s?.byCategory ?? []) as unknown as Array<Record<string, unknown>>}
               amountKey="amount"
               countKey="itemCount"
-              countLabel={t('stats.countItem')}
+              countLabel="条目"
             />
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">{t('stats.supplierRank')}</CardTitle>
+            <CardTitle className="text-base">供应商支出 Top10</CardTitle>
           </CardHeader>
           <CardContent>
             <RankList
               rows={(s?.bySupplier ?? []) as unknown as Array<Record<string, unknown>>}
               amountKey="amount"
               countKey="procurementCount"
-              countLabel={t('stats.countDoc')}
+              countLabel="单"
             />
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">{t('stats.monthlyTrend')}</CardTitle>
+            <CardTitle className="text-base">月度趋势</CardTitle>
           </CardHeader>
           <CardContent>
             <RankList
               rows={(s?.byMonth ?? []) as unknown as Array<Record<string, unknown>>}
               amountKey="amount"
               countKey="procurementCount"
-              countLabel={t('stats.countDoc')}
+              countLabel="单"
             />
           </CardContent>
         </Card>
@@ -583,7 +559,6 @@ function StatsTab() {
 /* ═══════════════════════ Tab 1 · AI 拍照记账 ═══════════════════════ */
 
 function AiCaptureTab({ onGoLedger }: { onGoLedger: (id: string) => void }) {
-  const t = useTranslations('eduProcurement')
   const qc = useQueryClient()
   const [imageUrl, setImageUrl] = React.useState('')
   const [hint, setHint] = React.useState('')
@@ -612,12 +587,7 @@ function AiCaptureTab({ onGoLedger }: { onGoLedger: (id: string) => void }) {
       ),
     onSuccess: (data) => {
       setResult(data)
-      const st = STATUS_META[data.procurement.status]
-      toast.success(
-        t('ai.doneToast', {
-          status: st?.labelKey ? t(st?.labelKey) : data.procurement.status,
-        }),
-      )
+      toast.success(`小票识别完成:${statusLabel(data.procurement.status)}`)
       qc.invalidateQueries({ queryKey: [PROC_KEY] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -626,11 +596,11 @@ function AiCaptureTab({ onGoLedger }: { onGoLedger: (id: string) => void }) {
   const onFile = (file: File | undefined) => {
     if (!file) return
     if (!file.type.startsWith('image/')) {
-      toast.error(t('ai.errNotImage'))
+      toast.error('请选择图片文件')
       return
     }
     if (file.size > MAX_IMAGE_SIZE) {
-      toast.error(t('ai.errTooLarge'))
+      toast.error('图片不能超过 9MB,请压缩后重试')
       return
     }
     const reader = new FileReader()
@@ -638,7 +608,7 @@ function AiCaptureTab({ onGoLedger }: { onGoLedger: (id: string) => void }) {
       setImageUrl(String(reader.result ?? ''))
       setResult(null)
     }
-    reader.onerror = () => toast.error(t('ai.errReadFailed'))
+    reader.onerror = () => toast.error('图片读取失败')
     reader.readAsDataURL(file)
   }
 
@@ -660,7 +630,7 @@ function AiCaptureTab({ onGoLedger }: { onGoLedger: (id: string) => void }) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Camera className="h-4 w-4" />
-            {t('ai.uploadTitle')}
+            拍照/上传采购小票
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -680,11 +650,7 @@ function AiCaptureTab({ onGoLedger }: { onGoLedger: (id: string) => void }) {
             <div className="space-y-2">
               <div className="relative overflow-hidden rounded-md border bg-muted/30">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={imageUrl}
-                  alt={t('ai.previewAlt')}
-                  className="max-h-80 w-full object-contain"
-                />
+                <img src={imageUrl} alt="采购小票预览" className="max-h-80 w-full object-contain" />
               </div>
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>{(imageUrl.length / 1024 / 1024).toFixed(2)} MB(data URI)</span>
@@ -694,7 +660,7 @@ function AiCaptureTab({ onGoLedger }: { onGoLedger: (id: string) => void }) {
                   disabled={analyzing}
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  {t('ai.reselect')}
+                  重新选择
                 </Button>
               </div>
             </div>
@@ -706,28 +672,28 @@ function AiCaptureTab({ onGoLedger }: { onGoLedger: (id: string) => void }) {
               className="flex h-56 w-full flex-col items-center justify-center gap-3 rounded-md border border-dashed bg-muted/30 text-muted-foreground transition-colors hover:bg-muted/50 disabled:opacity-50"
             >
               <Camera className="h-10 w-10" />
-              <span className="text-sm font-medium">{t('ai.clickToSelect')}</span>
-              <span className="text-xs">{t('ai.supportedFormats')}</span>
+              <span className="text-sm font-medium">点击选择小票照片</span>
+              <span className="text-xs">支持拍照或相册,JPG/PNG/WEBP,≤9MB</span>
             </button>
           )}
 
           <div className="grid gap-1.5">
-            <Label>{t('ai.hintLabel')}</Label>
+            <Label>识别提示(可选)</Label>
             <Input
               value={hint}
               maxLength={200}
-              placeholder={t('ai.hintPlaceholder')}
+              placeholder="如:日期是 9 月 18 日;供应商是 XX 农贸"
               onChange={(e) => setHint(e.target.value)}
               disabled={analyzing}
             />
           </div>
 
           <div className="grid gap-1.5">
-            <Label>{t('ai.notesLabel')}</Label>
+            <Label>备注(可选)</Label>
             <Input
               value={notes}
               maxLength={1000}
-              placeholder={t('ai.notesPlaceholder')}
+              placeholder="如:本周蔬菜批量采购"
               onChange={(e) => setNotes(e.target.value)}
               disabled={analyzing}
             />
@@ -739,7 +705,7 @@ function AiCaptureTab({ onGoLedger }: { onGoLedger: (id: string) => void }) {
               checked={saveImage}
               onChange={(v) => setSaveImage(v)}
               disabled={analyzing}
-              label={<span>{t('ai.keepImage')}</span>}
+              label={<span>保留小票图到台账(可事后重核对/仲裁;不勾则省存储)</span>}
             />
           </div>
 
@@ -752,24 +718,27 @@ function AiCaptureTab({ onGoLedger }: { onGoLedger: (id: string) => void }) {
               {analyzing ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  {t('ai.analyzing')}
+                  AI 三轮核对中…
                 </>
               ) : (
                 <>
                   <ScanLine className="h-4 w-4" />
-                  {t('ai.start')}
+                  开始识别记账
                 </>
               )}
             </Button>
             {(imageUrl || result) && !analyzing && (
               <Button variant="outline" onClick={resetAll}>
                 <RotateCcw className="h-4 w-4" />
-                {t('ai.clear')}
+                清空
               </Button>
             )}
           </div>
 
-          <p className="text-xs leading-relaxed text-muted-foreground">{t('ai.pipeline')}</p>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            流水线:第 1 轮结构化抽取 → 第 2 轮独立重识别交叉核对(防锚定 + 数学自检) → 有差异时第 3
+            轮带图差异仲裁 → 自动落台账草稿,人工确认后方计账。
+          </p>
         </CardContent>
       </Card>
 
@@ -778,30 +747,34 @@ function AiCaptureTab({ onGoLedger }: { onGoLedger: (id: string) => void }) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Receipt className="h-4 w-4" />
-            {t('ai.resultTitle')}
+            识别结果
           </CardTitle>
         </CardHeader>
         <CardContent>
           {analyzing && (
             <div className="space-y-3 py-8">
-              {AI_STEP_KEYS.map((stepKey) => (
-                <div
-                  key={stepKey}
-                  className="flex items-center gap-3 rounded-md border bg-muted/30 px-4 py-3 text-sm"
-                >
-                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                  {t(stepKey)}
-                </div>
-              ))}
-              <p className="text-center text-xs text-muted-foreground">{t('ai.slowNotice')}</p>
+              {['第 1 轮 · 结构化抽取', '第 2 轮 · 独立交叉核对', '第 3 轮 · 差异仲裁(如有)'].map(
+                (step) => (
+                  <div
+                    key={step}
+                    className="flex items-center gap-3 rounded-md border bg-muted/30 px-4 py-3 text-sm"
+                  >
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    {step}
+                  </div>
+                ),
+              )}
+              <p className="text-center text-xs text-muted-foreground">
+                图片越大识别越慢,通常 10~40 秒,请勿关闭页面
+              </p>
             </div>
           )}
 
           {!analyzing && !p && (
             <div className="flex h-64 flex-col items-center justify-center gap-2 text-muted-foreground">
               <ScanLine className="h-10 w-10 opacity-30" />
-              <p className="text-sm">{t('ai.emptyHint1')}</p>
-              <p className="text-xs">{t('ai.emptyHint2')}</p>
+              <p className="text-sm">上传小票并点击"开始识别记账"</p>
+              <p className="text-xs">识别结果将在此展示,可人工修正后计入台账</p>
             </div>
           )}
 
@@ -810,7 +783,7 @@ function AiCaptureTab({ onGoLedger }: { onGoLedger: (id: string) => void }) {
               <div className="flex flex-wrap items-center gap-3">
                 <StatusBadge status={p.status} />
                 <span className="text-xs text-muted-foreground">
-                  {t('ai.roundsConfidence', { rounds: String(p.aiRounds) })}{' '}
+                  共 {p.aiRounds} 轮核对 · 置信度{' '}
                   {p.aiConfidence !== null && p.aiConfidence !== undefined
                     ? `${Math.round(p.aiConfidence)}%`
                     : '—'}
@@ -821,36 +794,33 @@ function AiCaptureTab({ onGoLedger }: { onGoLedger: (id: string) => void }) {
                   onClick={() => onGoLedger(p.id)}
                   className="ml-auto"
                 >
-                  {t('ai.goLedger')}
+                  在台账中处理
                 </Button>
               </div>
 
               {p.status === 'ai_conflict' && (
                 <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
-                  {t('ai.conflictNote')}
+                  三轮核对后仍有分歧:请对照左侧原图人工核对明细,修正后在台账中"记账"。
                 </div>
               )}
               {p.status === 'ai_verified' && (
                 <div className="rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
-                  {t('ai.verifiedNote')}
+                  两轮独立识别一致且数学自检通过,可在台账中一键记账。
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-md border bg-muted/30 p-4 text-sm">
                 <div>
-                  <span className="text-muted-foreground">{t('detail.supplierLabel')}</span>{' '}
-                  {p.supplierName ?? '—'}
+                  <span className="text-muted-foreground">供应商:</span> {p.supplierName ?? '—'}
                 </div>
                 <div>
-                  <span className="text-muted-foreground">{t('detail.dateLabel')}</span>{' '}
-                  {p.procurementDate}
+                  <span className="text-muted-foreground">采购日期:</span> {p.procurementDate}
                 </div>
                 <div>
-                  <span className="text-muted-foreground">{t('detail.receiptNoLabel')}</span>{' '}
-                  {p.receiptNo ?? '—'}
+                  <span className="text-muted-foreground">单号:</span> {p.receiptNo ?? '—'}
                 </div>
                 <div>
-                  <span className="text-muted-foreground">{t('detail.docTotalLabel')}</span>{' '}
+                  <span className="text-muted-foreground">单据总额:</span>{' '}
                   <span className="font-semibold tabular-nums">{fmtAmount(p.totalAmount)}</span>
                 </div>
               </div>
@@ -859,19 +829,19 @@ function AiCaptureTab({ onGoLedger }: { onGoLedger: (id: string) => void }) {
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50">
                     <tr>
-                      <th className="px-3 py-2 text-left font-medium">{t('table.itemName')}</th>
-                      <th className="px-3 py-2 text-left font-medium">{t('table.category')}</th>
-                      <th className="px-3 py-2 text-right font-medium">{t('table.quantity')}</th>
-                      <th className="px-3 py-2 text-left font-medium">{t('table.unit')}</th>
-                      <th className="px-3 py-2 text-right font-medium">{t('table.unitPrice')}</th>
-                      <th className="px-3 py-2 text-right font-medium">{t('table.subtotal')}</th>
+                      <th className="px-3 py-2 text-left font-medium">品名</th>
+                      <th className="px-3 py-2 text-left font-medium">类别</th>
+                      <th className="px-3 py-2 text-right font-medium">数量</th>
+                      <th className="px-3 py-2 text-left font-medium">单位</th>
+                      <th className="px-3 py-2 text-right font-medium">单价</th>
+                      <th className="px-3 py-2 text-right font-medium">小计</th>
                     </tr>
                   </thead>
                   <tbody>
                     {items.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="px-3 py-5 text-center text-muted-foreground">
-                          {t('ai.noItems')}
+                          未识别到明细,请在台账编辑中手工补录
                         </td>
                       </tr>
                     ) : (
@@ -898,12 +868,7 @@ function AiCaptureTab({ onGoLedger }: { onGoLedger: (id: string) => void }) {
                 </table>
               </div>
 
-              {p.notes && (
-                <p className="text-xs text-muted-foreground">
-                  {t('detail.notesLabel')}
-                  {p.notes}
-                </p>
-              )}
+              {p.notes && <p className="text-xs text-muted-foreground">备注:{p.notes}</p>}
             </div>
           )}
         </CardContent>
@@ -931,7 +896,6 @@ const emptyFilters: LedgerFilters = {
 }
 
 function LedgerTab({ focusId }: { focusId: string | null }) {
-  const t = useTranslations('eduProcurement')
   const [filters, setFilters] = React.useState<LedgerFilters>(emptyFilters)
   const [applied, setApplied] = React.useState<LedgerFilters>(emptyFilters)
   const [page, setPage] = React.useState(1)
@@ -982,26 +946,21 @@ function LedgerTab({ focusId }: { focusId: string | null }) {
     }: {
       kind: 'confirm' | 'void' | 'delete'
       row: ProcurementRow
-    }): Promise<'confirm' | 'void' | 'delete'> => {
+    }) => {
       if (kind === 'delete') {
         await api<{ deleted: boolean }>(`/api/edu-canteen/procurement/${row.id}`, {
           method: 'DELETE',
         })
-        return kind
+        return '已删除'
       }
+      const map = { confirm: '记账', void: '作废' } as const
       await api<{ procurement: ProcurementRow }>(`/api/edu-canteen/procurement/${row.id}/${kind}`, {
         method: 'POST',
       })
-      return kind
+      return `${map[kind]}成功`
     },
-    onSuccess: (done) => {
-      toast.success(
-        done === 'delete'
-          ? t('toast.deleted')
-          : done === 'confirm'
-            ? t('toast.confirmSuccess')
-            : t('toast.voidSuccess'),
-      )
+    onSuccess: (msg) => {
+      toast.success(msg)
       invalidate()
       setConfirmAction(null)
       setDetailId(null)
@@ -1027,32 +986,32 @@ function LedgerTab({ focusId }: { focusId: string | null }) {
   const rows = data?.list ?? []
 
   const columns: Column<ProcurementRow>[] = [
-    { key: 'procurementDate', title: t('col.date'), width: 'w-28' },
+    { key: 'procurementDate', title: '日期', width: 'w-28' },
     {
       key: 'supplierName',
-      title: t('col.supplier'),
+      title: '供应商',
       render: (r) => r.supplierName ?? '—',
     },
-    { key: 'receiptNo', title: t('col.receiptNo'), render: (r) => r.receiptNo ?? '—' },
+    { key: 'receiptNo', title: '单号', render: (r) => r.receiptNo ?? '—' },
     {
       key: 'totalAmount',
-      title: t('col.total'),
+      title: '总额',
       align: 'right',
       render: (r) => <span className="font-semibold tabular-nums">{fmtAmount(r.totalAmount)}</span>,
     },
-    { key: 'itemCount', title: t('col.items'), align: 'center' },
+    { key: 'itemCount', title: '明细', align: 'center' },
     {
       key: 'status',
-      title: t('col.status'),
+      title: '状态',
       render: (r) => <StatusBadge status={r.status} />,
     },
     {
       key: 'aiRounds',
-      title: t('col.aiRounds'),
+      title: 'AI轮次',
       align: 'center',
       render: (r) => (
         <span className="tabular-nums">
-          {t('unit.rounds', { rounds: String(r.aiRounds) })}
+          {r.aiRounds} 轮
           {r.aiConfidence !== null && r.aiConfidence !== undefined && (
             <span className="ml-1 text-xs text-muted-foreground">
               {Math.round(r.aiConfidence)}%
@@ -1063,24 +1022,24 @@ function LedgerTab({ focusId }: { focusId: string | null }) {
     },
     {
       key: 'actions',
-      title: t('col.actions'),
+      title: '操作',
       align: 'center',
       render: (r) => (
         <div className="flex items-center justify-center gap-1">
-          <Tooltip content={t('action.detail')}>
+          <Tooltip content="详情">
             <Button variant="ghost" size="icon-xs" onClick={() => setDetailId(r.id)}>
               <Eye className="h-3.5 w-3.5" />
             </Button>
           </Tooltip>
           {r.status !== 'confirmed' && r.status !== 'voided' && (
-            <Tooltip content={t('action.edit')}>
+            <Tooltip content="编辑">
               <Button variant="ghost" size="icon-xs" onClick={() => setEditId(r.id)}>
                 <Pencil className="h-3.5 w-3.5" />
               </Button>
             </Tooltip>
           )}
           {r.status !== 'confirmed' && r.status !== 'voided' && (
-            <Tooltip content={t('action.confirm')}>
+            <Tooltip content="记账">
               <Button
                 variant="ghost"
                 size="icon-xs"
@@ -1091,7 +1050,7 @@ function LedgerTab({ focusId }: { focusId: string | null }) {
             </Tooltip>
           )}
           {r.status !== 'voided' && r.status !== 'confirmed' && (
-            <Tooltip content={t('action.void')}>
+            <Tooltip content="作废">
               <Button
                 variant="ghost"
                 size="icon-xs"
@@ -1101,7 +1060,7 @@ function LedgerTab({ focusId }: { focusId: string | null }) {
               </Button>
             </Tooltip>
           )}
-          <Tooltip content={t('action.delete')}>
+          <Tooltip content="删除">
             <Button
               variant="ghost"
               size="icon-xs"
@@ -1115,12 +1074,17 @@ function LedgerTab({ focusId }: { focusId: string | null }) {
     },
   ]
 
-  const confirmTitle = confirmAction ? t(CONFIRM_TITLE_KEYS[confirmAction.kind]) : ''
-  const confirmContent = !confirmAction
-    ? null
-    : confirmAction.kind === 'confirm'
-      ? t('confirm.descConfirm', { amount: fmtAmount(confirmAction.row.totalAmount) })
-      : t(CONFIRM_DESC_KEYS[confirmAction.kind])
+  const pendingRow = confirmAction?.row
+  const confirmTextMap = {
+    confirm: '确认记账',
+    void: '确认作废',
+    delete: '确认删除',
+  } as const
+  const confirmDescMap = {
+    confirm: `记账后将计入统计口径(总额 ${fmtAmount(pendingRow?.totalAmount)}),仍可作废。`,
+    void: `作废后不再计入统计,单据保留可查。`,
+    delete: '删除为软删除,后台可恢复,前端不再显示。',
+  } as const
 
   return (
     <div className="space-y-4">
@@ -1128,7 +1092,7 @@ function LedgerTab({ focusId }: { focusId: string | null }) {
       <Card>
         <CardContent className="grid gap-3 py-4 md:grid-cols-3 lg:grid-cols-6">
           <div className="grid gap-1.5">
-            <Label>{t('common.startDate')}</Label>
+            <Label>开始日期</Label>
             <Input
               type="date"
               value={filters.startDate}
@@ -1136,7 +1100,7 @@ function LedgerTab({ focusId }: { focusId: string | null }) {
             />
           </div>
           <div className="grid gap-1.5">
-            <Label>{t('common.endDate')}</Label>
+            <Label>结束日期</Label>
             <Input
               type="date"
               value={filters.endDate}
@@ -1144,7 +1108,7 @@ function LedgerTab({ focusId }: { focusId: string | null }) {
             />
           </div>
           <div className="grid gap-1.5">
-            <Label>{t('col.status')}</Label>
+            <Label>状态</Label>
             <Select value={filters.status} onValueChange={(v) => update('status', v)}>
               <SelectTrigger>
                 <SelectValue />
@@ -1152,20 +1116,20 @@ function LedgerTab({ focusId }: { focusId: string | null }) {
               <SelectContent>
                 {STATUS_OPTIONS.map((s) => (
                   <SelectItem key={s.value} value={s.value}>
-                    {t(s.labelKey)}
+                    {s.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <div className="grid gap-1.5">
-            <Label>{t('col.supplier')}</Label>
+            <Label>供应商</Label>
             <Select value={filters.supplierId} onValueChange={(v) => update('supplierId', v)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">{t('filter.allSuppliers')}</SelectItem>
+                <SelectItem value="all">全部供应商</SelectItem>
                 {(supplierOptions.data?.options ?? []).map((o) => (
                   <SelectItem key={o.id} value={o.id}>
                     {o.name}
@@ -1175,10 +1139,10 @@ function LedgerTab({ focusId }: { focusId: string | null }) {
             </Select>
           </div>
           <div className="grid gap-1.5">
-            <Label>{t('filter.keyword')}</Label>
+            <Label>关键字</Label>
             <Input
               value={filters.keyword}
-              placeholder={t('filter.keywordPlaceholder')}
+              placeholder="供应商/单号"
               onChange={(e) => update('keyword', e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') applyFilters()
@@ -1188,11 +1152,11 @@ function LedgerTab({ focusId }: { focusId: string | null }) {
           <div className="flex items-end gap-2">
             <Button onClick={applyFilters} className="flex-1">
               <Search className="h-4 w-4" />
-              {t('common.query')}
+              查询
             </Button>
             <Button variant="outline" onClick={resetFilters}>
               <RotateCcw className="h-4 w-4" />
-              {t('common.reset')}
+              重置
             </Button>
           </div>
         </CardContent>
@@ -1203,11 +1167,9 @@ function LedgerTab({ focusId }: { focusId: string | null }) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Receipt className="h-4 w-4" />
-            {t('tabs.ledger')}
+            采购台账
             {data && (
-              <span className="text-xs font-normal text-muted-foreground">
-                {t('ledger.totalCount', { total: String(data.total) })}
-              </span>
+              <span className="text-xs font-normal text-muted-foreground">共 {data.total} 单</span>
             )}
           </CardTitle>
         </CardHeader>
@@ -1262,9 +1224,9 @@ function LedgerTab({ focusId }: { focusId: string | null }) {
       {/* 记账/作废/删除确认 */}
       <ConfirmDialog
         open={!!confirmAction}
-        title={confirmTitle}
-        content={confirmContent}
-        confirmText={t('common.confirm')}
+        title={confirmAction ? confirmTextMap[confirmAction.kind] : ''}
+        content={confirmAction ? confirmDescMap[confirmAction.kind] : null}
+        confirmText="确认"
         variant={confirmAction?.kind === 'delete' ? 'danger' : 'default'}
         loading={actionMut.isPending}
         onConfirm={() => {
@@ -1291,7 +1253,6 @@ function ReceiptDetailDialog({
   onEdit: (id: string) => void
   onAction: (kind: 'confirm' | 'void' | 'delete', row: ProcurementRow) => void
 }) {
-  const t = useTranslations('eduProcurement')
   const qc = useQueryClient()
   const detail = useQuery({
     queryKey: [PROC_KEY, 'detail', id],
@@ -1315,10 +1276,8 @@ function ReceiptDetailDialog({
     onSuccess: (data) => {
       toast.success(
         data.verification.ok
-          ? t('detail.reverifyPassed')
-          : t('detail.reverifyDiff', {
-              count: String(data.verification.differences?.length ?? 0),
-            }),
+          ? '重核对通过:两轮结果一致'
+          : `重核对发现 ${data.verification.differences?.length ?? 0} 处差异,可仲裁或人工修正`,
       )
       qc.invalidateQueries({ queryKey: [PROC_KEY] })
     },
@@ -1333,7 +1292,7 @@ function ReceiptDetailDialog({
       ),
     onSuccess: (data) => {
       toast.success(
-        data.verification.ok ? t('detail.arbitrateDone') : t('detail.arbitrateConflict'),
+        data.verification.ok ? '仲裁完成:已按图采信并更新明细' : '仲裁仍有分歧,请人工核对',
       )
       qc.invalidateQueries({ queryKey: [PROC_KEY] })
     },
@@ -1352,7 +1311,7 @@ function ReceiptDetailDialog({
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle className="flex flex-wrap items-center gap-3">
-            <span>{t('detail.title')}</span>
+            <span>采购单详情</span>
             {p && <StatusBadge status={p.status} />}
           </DialogTitle>
         </DialogHeader>
@@ -1360,77 +1319,70 @@ function ReceiptDetailDialog({
         {detail.isLoading || !p ? (
           <div className="flex items-center justify-center py-12 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            {t('common.loading')}
+            加载中…
           </div>
         ) : (
           <div className="space-y-5">
             {/* 主信息 */}
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-md border bg-muted/30 p-4 text-sm md:grid-cols-3">
               <div>
-                <span className="text-muted-foreground">{t('detail.dateLabel')}</span>{' '}
-                {p.procurementDate}
+                <span className="text-muted-foreground">采购日期:</span> {p.procurementDate}
               </div>
               <div>
-                <span className="text-muted-foreground">{t('detail.supplierLabel')}</span>{' '}
-                {p.supplierName ?? '—'}
+                <span className="text-muted-foreground">供应商:</span> {p.supplierName ?? '—'}
               </div>
               <div>
-                <span className="text-muted-foreground">{t('detail.receiptNoLabel')}</span>{' '}
-                {p.receiptNo ?? '—'}
+                <span className="text-muted-foreground">单号:</span> {p.receiptNo ?? '—'}
               </div>
               <div>
-                <span className="text-muted-foreground">{t('detail.totalLabel')}</span>{' '}
+                <span className="text-muted-foreground">总额:</span>{' '}
                 <span className="font-semibold tabular-nums">{fmtAmount(p.totalAmount)}</span>
               </div>
               <div>
-                <span className="text-muted-foreground">{t('detail.itemsLabel')}</span>{' '}
-                {t('unit.items', { count: String(p.itemCount) })}
+                <span className="text-muted-foreground">明细:</span> {p.itemCount} 条
               </div>
               <div>
-                <span className="text-muted-foreground">{t('detail.aiLabel')}</span>{' '}
-                {t('unit.rounds', { rounds: String(p.aiRounds) })} ·{' '}
+                <span className="text-muted-foreground">AI:</span> {p.aiRounds} 轮 ·{' '}
                 {p.aiConfidence !== null && p.aiConfidence !== undefined
                   ? `${Math.round(p.aiConfidence)}%`
                   : '—'}
               </div>
               {p.confirmedAt && (
                 <div>
-                  <span className="text-muted-foreground">{t('detail.confirmedAtLabel')}</span>{' '}
-                  {fmtTime(p.confirmedAt)}
+                  <span className="text-muted-foreground">记账时间:</span> {fmtTime(p.confirmedAt)}
                 </div>
               )}
               <div>
-                <span className="text-muted-foreground">{t('detail.createdAtLabel')}</span>{' '}
-                {fmtTime(p.createdAt)}
+                <span className="text-muted-foreground">创建:</span> {fmtTime(p.createdAt)}
               </div>
               {p.notes && (
                 <div className="col-span-2 md:col-span-3">
-                  <span className="text-muted-foreground">{t('detail.notesLabel')}</span> {p.notes}
+                  <span className="text-muted-foreground">备注:</span> {p.notes}
                 </div>
               )}
             </div>
 
             {/* 明细 */}
             <div>
-              <h4 className="mb-2 text-sm font-semibold">{t('detail.itemsTitle')}</h4>
+              <h4 className="mb-2 text-sm font-semibold">采购明细</h4>
               <div className="overflow-x-auto rounded-md border">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50">
                     <tr>
-                      <th className="px-3 py-2 text-left font-medium">{t('table.itemName')}</th>
-                      <th className="px-3 py-2 text-left font-medium">{t('table.category')}</th>
-                      <th className="px-3 py-2 text-right font-medium">{t('table.quantity')}</th>
-                      <th className="px-3 py-2 text-left font-medium">{t('table.unit')}</th>
-                      <th className="px-3 py-2 text-right font-medium">{t('table.unitPrice')}</th>
-                      <th className="px-3 py-2 text-right font-medium">{t('table.subtotal')}</th>
-                      <th className="px-3 py-2 text-center font-medium">{t('table.check')}</th>
+                      <th className="px-3 py-2 text-left font-medium">品名</th>
+                      <th className="px-3 py-2 text-left font-medium">类别</th>
+                      <th className="px-3 py-2 text-right font-medium">数量</th>
+                      <th className="px-3 py-2 text-left font-medium">单位</th>
+                      <th className="px-3 py-2 text-right font-medium">单价</th>
+                      <th className="px-3 py-2 text-right font-medium">小计</th>
+                      <th className="px-3 py-2 text-center font-medium">核对</th>
                     </tr>
                   </thead>
                   <tbody>
                     {items.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="px-3 py-5 text-center text-muted-foreground">
-                          {t('detail.noItems')}
+                          无明细
                         </td>
                       </tr>
                     ) : (
@@ -1452,7 +1404,7 @@ function ReceiptDetailDialog({
                           </td>
                           <td className="px-3 py-2 text-center">
                             {it.verifyStatus === 'edited' ? (
-                              <Badge variant="outline">{t('badge.manual')}</Badge>
+                              <Badge variant="outline">人工</Badge>
                             ) : (
                               <Badge variant="secondary">AI</Badge>
                             )}
@@ -1469,65 +1421,56 @@ function ReceiptDetailDialog({
             {verifications.length > 0 && (
               <div>
                 <h4 className="mb-2 text-sm font-semibold">
-                  {t('detail.verifyRecordsTitle', { count: String(verifications.length) })}
+                  AI 核对记录({verifications.length} 轮)
                 </h4>
                 <div className="space-y-2">
-                  {verifications.map((v) => {
-                    const typeKey = VERIFY_TYPE_KEYS[v.type]
-                    return (
-                      <div key={`${v.round}-${v.at}`} className="rounded-md border p-3 text-sm">
-                        <div className="mb-1 flex flex-wrap items-center gap-2">
-                          <span className="font-medium">{typeKey ? t(typeKey) : v.type}</span>
-                          {v.ok ? (
-                            <Badge className="bg-emerald-600">{t('badge.passed')}</Badge>
-                          ) : (
-                            <Badge variant="destructive">
-                              {v.error ? t('badge.failed') : t('badge.differed')}
-                            </Badge>
-                          )}
-                          <span className="text-xs text-muted-foreground">
-                            {v.model ?? '—'} · {fmtTime(v.at)} · {t('common.confidence')}{' '}
-                            {v.confidence !== null && v.confidence !== undefined
-                              ? `${Math.round(v.confidence)}%`
-                              : '—'}
-                          </span>
-                        </div>
-                        {v.error && <p className="text-xs text-destructive">{v.error}</p>}
-                        {v.checks && v.checks.length > 0 && (
-                          <ul className="space-y-0.5 text-xs text-muted-foreground">
-                            {v.checks.map((c) => (
-                              <li key={c.name} className="flex items-center gap-1.5">
-                                {c.passed ? (
-                                  <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                                ) : (
-                                  <Ban className="h-3 w-3 text-destructive" />
-                                )}
-                                {c.name}:{c.detail}
-                              </li>
-                            ))}
-                          </ul>
+                  {verifications.map((v) => (
+                    <div key={`${v.round}-${v.at}`} className="rounded-md border p-3 text-sm">
+                      <div className="mb-1 flex flex-wrap items-center gap-2">
+                        <span className="font-medium">{VERIFY_TYPE_LABEL[v.type] ?? v.type}</span>
+                        {v.ok ? (
+                          <Badge className="bg-emerald-600">通过</Badge>
+                        ) : (
+                          <Badge variant="destructive">{v.error ? '失败' : '差异'}</Badge>
                         )}
-                        {v.differences && v.differences.length > 0 && (
-                          <div className="mt-1 space-y-1">
-                            {v.differences.map((d) => (
-                              <div
-                                key={d.field}
-                                className="rounded bg-amber-50 px-2 py-1 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-200"
-                              >
-                                <span className="font-medium">{d.field}</span>: 「{d.previous}」→「
-                                {d.current}」
-                                {d.resolution && (
-                                  <span className="ml-1">
-                                    {t('detail.arbitrationNote', { resolution: d.resolution })}
-                                  </span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                        <span className="text-xs text-muted-foreground">
+                          {v.model ?? '—'} · {fmtTime(v.at)} · 置信度{' '}
+                          {v.confidence !== null && v.confidence !== undefined
+                            ? `${Math.round(v.confidence)}%`
+                            : '—'}
+                        </span>
                       </div>
-                    )
-                  })}
+                      {v.error && <p className="text-xs text-destructive">{v.error}</p>}
+                      {v.checks && v.checks.length > 0 && (
+                        <ul className="space-y-0.5 text-xs text-muted-foreground">
+                          {v.checks.map((c) => (
+                            <li key={c.name} className="flex items-center gap-1.5">
+                              {c.passed ? (
+                                <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                              ) : (
+                                <Ban className="h-3 w-3 text-destructive" />
+                              )}
+                              {c.name}:{c.detail}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {v.differences && v.differences.length > 0 && (
+                        <div className="mt-1 space-y-1">
+                          {v.differences.map((d) => (
+                            <div
+                              key={d.field}
+                              className="rounded bg-amber-50 px-2 py-1 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-200"
+                            >
+                              <span className="font-medium">{d.field}</span>: 「{d.previous}」→「
+                              {d.current}」
+                              {d.resolution && <span className="ml-1">(仲裁:{d.resolution})</span>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -1535,11 +1478,11 @@ function ReceiptDetailDialog({
             {/* 小票原图 */}
             {hasImage && (
               <div>
-                <h4 className="mb-2 text-sm font-semibold">{t('detail.imageTitle')}</h4>
+                <h4 className="mb-2 text-sm font-semibold">小票原图</h4>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={p.receiptImageUrl ?? undefined}
-                  alt={t('detail.imageAlt')}
+                  alt="采购小票"
                   className="max-h-96 w-full rounded-md border object-contain"
                 />
               </div>
@@ -1556,7 +1499,7 @@ function ReceiptDetailDialog({
                     onClick={() => verifyMut.mutate()}
                   >
                     <RefreshCw className="h-4 w-4" />
-                    {t('detail.reverify')}
+                    重新核对
                   </Button>
                   <Button
                     variant="outline"
@@ -1565,11 +1508,11 @@ function ReceiptDetailDialog({
                     onClick={() => arbitrateMut.mutate()}
                   >
                     <Scale className="h-4 w-4" />
-                    {t('detail.arbitrateBtn')}
+                    差异仲裁
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => onEdit(p.id)}>
                     <Pencil className="h-4 w-4" />
-                    {t('action.edit')}
+                    编辑
                   </Button>
                   <Button
                     size="sm"
@@ -1577,11 +1520,11 @@ function ReceiptDetailDialog({
                     onClick={() => onAction('confirm', p)}
                   >
                     <CheckCircle2 className="h-4 w-4" />
-                    {t('action.confirm')}
+                    记账
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => onAction('void', p)}>
                     <Ban className="h-4 w-4" />
-                    {t('action.void')}
+                    作废
                   </Button>
                 </>
               )}
@@ -1592,7 +1535,7 @@ function ReceiptDetailDialog({
                 onClick={() => onAction('delete', p)}
               >
                 <Trash2 className="h-4 w-4" />
-                {t('action.delete')}
+                删除
               </Button>
             </DialogFooter>
           </div>
@@ -1641,7 +1584,6 @@ function ProcurementEditDialog({
   open: boolean
   onOpenChange: (v: boolean) => void
 }) {
-  const t = useTranslations('eduProcurement')
   const qc = useQueryClient()
   const [form, setForm] = React.useState<ProcurementForm | null>(null)
   const [saving, setSaving] = React.useState(false)
@@ -1745,11 +1687,11 @@ function ProcurementEditDialog({
           items,
         }),
       })
-      toast.success(t('toast.saveSuccess'))
+      toast.success('保存成功')
       qc.invalidateQueries({ queryKey: [PROC_KEY] })
       onOpenChange(false)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t('toast.saveFailed'))
+      toast.error(e instanceof Error ? e.message : '保存失败')
     } finally {
       setSaving(false)
     }
@@ -1768,18 +1710,18 @@ function ProcurementEditDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{t('edit.title')}</DialogTitle>
+          <DialogTitle>编辑采购单</DialogTitle>
         </DialogHeader>
         {!form ? (
           <div className="flex items-center justify-center py-12 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            {t('common.loading')}
+            加载中…
           </div>
         ) : (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-1.5">
-                <Label>{t('edit.dateLabel')}</Label>
+                <Label>采购日期</Label>
                 <Input
                   type="date"
                   value={form.procurementDate}
@@ -1787,20 +1729,20 @@ function ProcurementEditDialog({
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label>{t('col.receiptNo')}</Label>
+                <Label>单号</Label>
                 <Input
                   value={form.receiptNo}
                   onChange={(e) => setForm({ ...form, receiptNo: e.target.value })}
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label>{t('edit.linkSupplier')}</Label>
+                <Label>关联供应商</Label>
                 <Select value={form.supplierId || 'none'} onValueChange={supplierChange}>
                   <SelectTrigger>
-                    <SelectValue placeholder={t('edit.supplierNone')} />
+                    <SelectValue placeholder="不关联" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">{t('edit.supplierNone')}</SelectItem>
+                    <SelectItem value="none">不关联</SelectItem>
                     {(supplierOptions.data?.options ?? []).map((o) => (
                       <SelectItem key={o.id} value={o.id}>
                         {o.name}
@@ -1810,26 +1752,26 @@ function ProcurementEditDialog({
                 </Select>
               </div>
               <div className="grid gap-1.5">
-                <Label>{t('edit.supplierName')}</Label>
+                <Label>供应商名称(AI 识别)</Label>
                 <Input
                   value={form.supplierName}
-                  placeholder={t('edit.supplierNamePlaceholder')}
+                  placeholder="可手改"
                   onChange={(e) => setForm({ ...form, supplierName: e.target.value })}
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label>{t('edit.totalAmount')}</Label>
+                <Label>单据总额(元)</Label>
                 <Input
                   type="number"
                   step="0.01"
                   min="0"
                   value={form.totalAmount}
-                  placeholder={t('edit.totalAmountPlaceholder')}
+                  placeholder="留空按明细合计"
                   onChange={(e) => setForm({ ...form, totalAmount: e.target.value })}
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label>{t('common.notes')}</Label>
+                <Label>备注</Label>
                 <Input
                   value={form.notes}
                   onChange={(e) => setForm({ ...form, notes: e.target.value })}
@@ -1839,14 +1781,14 @@ function ProcurementEditDialog({
 
             <div>
               <div className="mb-2 flex items-center justify-between">
-                <h4 className="text-sm font-semibold">{t('edit.itemsTitle')}</h4>
+                <h4 className="text-sm font-semibold">采购明细(可增删改)</h4>
                 <Button
                   variant="outline"
                   size="xs"
                   onClick={() => setForm({ ...form, items: [...form.items, { ...emptyItem }] })}
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  {t('edit.addRow')}
+                  加一行
                 </Button>
               </div>
               <div className="space-y-2">
@@ -1857,38 +1799,38 @@ function ProcurementEditDialog({
                   >
                     <Input
                       value={it.itemName}
-                      placeholder={t('table.itemName')}
+                      placeholder="品名"
                       onChange={(e) => updateItem(idx, 'itemName', e.target.value)}
                     />
                     <Input
                       value={it.quantity}
-                      placeholder={t('table.quantity')}
+                      placeholder="数量"
                       inputMode="decimal"
                       onChange={(e) => updateItem(idx, 'quantity', e.target.value)}
                     />
                     <Input
                       value={it.unit}
-                      placeholder={t('table.unit')}
+                      placeholder="单位"
                       onChange={(e) => updateItem(idx, 'unit', e.target.value)}
                     />
                     <Input
                       value={it.unitPrice}
-                      placeholder={t('table.unitPrice')}
+                      placeholder="单价"
                       inputMode="decimal"
                       onChange={(e) => updateItem(idx, 'unitPrice', e.target.value)}
                     />
                     <Input
                       value={it.amount}
-                      placeholder={t('table.subtotal')}
+                      placeholder="小计"
                       inputMode="decimal"
                       onChange={(e) => updateItem(idx, 'amount', e.target.value)}
                     />
                     <Input
                       value={it.category}
-                      placeholder={t('table.category')}
+                      placeholder="类别"
                       onChange={(e) => updateItem(idx, 'category', e.target.value)}
                     />
-                    <Tooltip content={t('edit.deleteRow')}>
+                    <Tooltip content="删除该行">
                       <Button
                         variant="ghost"
                         size="icon-xs"
@@ -1908,16 +1850,18 @@ function ProcurementEditDialog({
                   </div>
                 ))}
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">{t('edit.itemsHint')}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                品名留空的行保存时自动忽略;数量×单价会自动算小计;总额留空按明细合计。
+              </p>
             </div>
 
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)}>
-                {t('common.cancel')}
+                取消
               </Button>
               <Button onClick={handleSave} disabled={saving}>
                 {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-                {t('common.save')}
+                保存
               </Button>
             </DialogFooter>
           </div>
@@ -1930,7 +1874,6 @@ function ProcurementEditDialog({
 /* ═══════════════════════ Tab 3 · 供应商 ═══════════════════════ */
 
 function SupplierTab() {
-  const t = useTranslations('eduProcurement')
   const [keyword, setKeyword] = React.useState('')
   const [applied, setApplied] = React.useState('')
   const [page, setPage] = React.useState(1)
@@ -1956,7 +1899,7 @@ function SupplierTab() {
     mutationFn: (id: string) =>
       api<{ deleted: boolean }>(`/api/edu-canteen/supplier/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      toast.success(t('toast.supplierDeleted'))
+      toast.success('供应商已删除')
       setDeleting(null)
       qc.invalidateQueries({ queryKey: [SUP_KEY] })
       qc.invalidateQueries({ queryKey: [OPT_KEY] })
@@ -1968,36 +1911,32 @@ function SupplierTab() {
   const rows = data?.list ?? []
 
   const columns: Column<SupplierRow>[] = [
-    { key: 'name', title: t('supplier.colName') },
-    { key: 'category', title: t('supplier.colCategory'), render: (r) => r.category ?? '—' },
-    {
-      key: 'contactPerson',
-      title: t('supplier.colContact'),
-      render: (r) => r.contactPerson ?? '—',
-    },
-    { key: 'phone', title: t('supplier.colPhone'), render: (r) => r.phone ?? '—' },
+    { key: 'name', title: '名称' },
+    { key: 'category', title: '分类', render: (r) => r.category ?? '—' },
+    { key: 'contactPerson', title: '联系人', render: (r) => r.contactPerson ?? '—' },
+    { key: 'phone', title: '电话', render: (r) => r.phone ?? '—' },
     {
       key: 'status',
-      title: t('col.status'),
+      title: '状态',
       render: (r) =>
         r.status === 'active' ? (
-          <Badge className="bg-emerald-600">{t('supplier.active')}</Badge>
+          <Badge className="bg-emerald-600">合作中</Badge>
         ) : (
-          <Badge variant="secondary">{t('supplier.inactive')}</Badge>
+          <Badge variant="secondary">停用</Badge>
         ),
     },
     {
       key: 'actions',
-      title: t('col.actions'),
+      title: '操作',
       align: 'center',
       render: (r) => (
         <div className="flex items-center justify-center gap-1">
-          <Tooltip content={t('action.edit')}>
+          <Tooltip content="编辑">
             <Button variant="ghost" size="icon-xs" onClick={() => setEditing(r)}>
               <Pencil className="h-3.5 w-3.5" />
             </Button>
           </Tooltip>
-          <Tooltip content={t('action.delete')}>
+          <Tooltip content="删除">
             <Button variant="ghost" size="icon-xs" onClick={() => setDeleting(r)}>
               <Trash2 className="h-3.5 w-3.5 text-destructive" />
             </Button>
@@ -2012,10 +1951,10 @@ function SupplierTab() {
       <Card>
         <CardContent className="flex flex-wrap items-end gap-3 py-4">
           <div className="grid w-64 gap-1.5">
-            <Label>{t('supplier.searchLabel')}</Label>
+            <Label>搜索供应商</Label>
             <Input
               value={keyword}
-              placeholder={t('supplier.searchPlaceholder')}
+              placeholder="名称关键字"
               onChange={(e) => setKeyword(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -2032,7 +1971,7 @@ function SupplierTab() {
             }}
           >
             <Search className="h-4 w-4" />
-            {t('common.query')}
+            查询
           </Button>
           <Button
             variant="outline"
@@ -2043,11 +1982,11 @@ function SupplierTab() {
             }}
           >
             <RotateCcw className="h-4 w-4" />
-            {t('common.reset')}
+            重置
           </Button>
           <Button className="ml-auto" onClick={() => setEditing('new')}>
             <Plus className="h-4 w-4" />
-            {t('supplier.create')}
+            新建供应商
           </Button>
         </CardContent>
       </Card>
@@ -2056,11 +1995,9 @@ function SupplierTab() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Truck className="h-4 w-4" />
-            {t('supplier.profile')}
+            供应商档案
             {data && (
-              <span className="text-xs font-normal text-muted-foreground">
-                {t('supplier.totalCount', { total: String(data.total) })}
-              </span>
+              <span className="text-xs font-normal text-muted-foreground">共 {data.total} 家</span>
             )}
           </CardTitle>
         </CardHeader>
@@ -2088,9 +2025,9 @@ function SupplierTab() {
 
       <ConfirmDialog
         open={!!deleting}
-        title={t('supplier.deleteTitle')}
+        title="删除供应商"
         variant="danger"
-        content={deleting ? t('supplier.deleteConfirm', { name: deleting.name }) : null}
+        content={deleting ? `确认删除「${deleting.name}」?软删除,历史采购台账保留不受影响。` : null}
         loading={deleteMut.isPending}
         onConfirm={() => {
           if (deleting) deleteMut.mutate(deleting.id)
@@ -2110,7 +2047,6 @@ function SupplierEditDialog({
   open: boolean
   onOpenChange: (v: boolean) => void
 }) {
-  const t = useTranslations('eduProcurement')
   const qc = useQueryClient()
   const [form, setForm] = React.useState({
     name: '',
@@ -2155,7 +2091,7 @@ function SupplierEditDialog({
 
   const handleSave = async () => {
     if (!form.name.trim()) {
-      toast.error(t('supplier.nameRequired'))
+      toast.error('供应商名称不能为空')
       return
     }
     const body = {
@@ -2183,12 +2119,12 @@ function SupplierEditDialog({
           body: JSON.stringify(body),
         })
       }
-      toast.success(initial ? t('toast.supplierUpdated') : t('toast.supplierCreated'))
+      toast.success(initial ? '供应商已更新' : '供应商已创建')
       qc.invalidateQueries({ queryKey: [SUP_KEY] })
       qc.invalidateQueries({ queryKey: [OPT_KEY] })
       onOpenChange(false)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t('toast.saveFailed'))
+      toast.error(e instanceof Error ? e.message : '保存失败')
     } finally {
       setSaving(false)
     }
@@ -2198,81 +2134,81 @@ function SupplierEditDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{initial ? t('supplier.editTitle') : t('supplier.create')}</DialogTitle>
+          <DialogTitle>{initial ? '编辑供应商' : '新建供应商'}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3 py-1">
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label>{t('supplier.nameLabel')}</Label>
+              <Label>名称 *</Label>
               <Input value={form.name} onChange={(e) => update('name', e.target.value)} />
             </div>
             <div className="grid gap-1.5">
-              <Label>{t('supplier.colCategory')}</Label>
+              <Label>分类</Label>
               <Select
                 value={form.category || 'none'}
                 onValueChange={(v) => update('category', v === 'none' ? '' : v)}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder={t('common.pleaseSelect')} />
+                  <SelectValue placeholder="请选择" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">{t('supplier.uncategorized')}</SelectItem>
-                  {SUPPLIER_CATEGORIES.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>
-                      {t(item.labelKey)}
+                  <SelectItem value="none">未分类</SelectItem>
+                  {SUPPLIER_CATEGORIES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="grid gap-1.5">
-              <Label>{t('supplier.colContact')}</Label>
+              <Label>联系人</Label>
               <Input
                 value={form.contactPerson}
                 onChange={(e) => update('contactPerson', e.target.value)}
               />
             </div>
             <div className="grid gap-1.5">
-              <Label>{t('supplier.colPhone')}</Label>
+              <Label>电话</Label>
               <Input value={form.phone} onChange={(e) => update('phone', e.target.value)} />
             </div>
             <div className="grid gap-1.5">
-              <Label>{t('col.status')}</Label>
+              <Label>状态</Label>
               <Select value={form.status} onValueChange={(v) => update('status', v)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">{t('supplier.active')}</SelectItem>
-                  <SelectItem value="inactive">{t('supplier.inactive')}</SelectItem>
+                  <SelectItem value="active">合作中</SelectItem>
+                  <SelectItem value="inactive">停用</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="grid gap-1.5">
-              <Label>{t('supplier.license')}</Label>
+              <Label>资质证照</Label>
               <Input
                 value={form.licenseInfo}
-                placeholder={t('supplier.licensePlaceholder')}
+                placeholder="营业执照/食品经营许可"
                 onChange={(e) => update('licenseInfo', e.target.value)}
               />
             </div>
           </div>
           <div className="grid gap-1.5">
-            <Label>{t('supplier.address')}</Label>
+            <Label>地址</Label>
             <Input value={form.address} onChange={(e) => update('address', e.target.value)} />
           </div>
           <div className="grid gap-1.5">
-            <Label>{t('common.notes')}</Label>
+            <Label>备注</Label>
             <Input value={form.notes} onChange={(e) => update('notes', e.target.value)} />
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {t('common.cancel')}
+            取消
           </Button>
           <Button onClick={handleSave} disabled={saving}>
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-            {t('common.save')}
+            保存
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -2283,7 +2219,6 @@ function SupplierEditDialog({
 /* ═══════════════════════ 页面入口 ═══════════════════════ */
 
 export default function CanteenProcurementPage() {
-  const t = useTranslations('eduProcurement')
   const [tab, setTab] = React.useState('ai')
   const [focusId, setFocusId] = React.useState<string | null>(null)
 
@@ -2297,27 +2232,29 @@ export default function CanteenProcurementPage() {
     <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-6">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('pageTitle')}</h1>
-        <p className="text-sm text-muted-foreground">{t('pageDescription')}</p>
+        <h1 className="text-2xl font-bold tracking-tight">食堂采购记账</h1>
+        <p className="text-sm text-muted-foreground">
+          AI 拍照识别小票 · 三轮交叉核对(抽取→比对→仲裁)· 台账 / 供应商 / 统计一站式管理,移动端同步
+        </p>
       </header>
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex-wrap">
           <TabsTrigger value="ai">
             <ScanLine className="mr-1.5 h-4 w-4" />
-            <span>{t('tabs.capture')}</span>
+            拍照记账
           </TabsTrigger>
           <TabsTrigger value="ledger">
             <Receipt className="mr-1.5 h-4 w-4" />
-            <span>{t('tabs.ledger')}</span>
+            采购台账
           </TabsTrigger>
           <TabsTrigger value="supplier">
             <Truck className="mr-1.5 h-4 w-4" />
-            <span>{t('tabs.supplier')}</span>
+            供应商
           </TabsTrigger>
           <TabsTrigger value="stats">
             <BarChart3 className="mr-1.5 h-4 w-4" />
-            <span>{t('tabs.stats')}</span>
+            统计分析
           </TabsTrigger>
         </TabsList>
 
