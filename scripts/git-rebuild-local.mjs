@@ -30,7 +30,8 @@
 import { execSync } from 'node:child_process'
 import { existsSync, rmSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { gitdirArchivePath } from './lib/gitdir.mjs'
+import { basename, join } from 'node:path'
 
 function run(cmd, allowFail = false) {
   try {
@@ -171,7 +172,8 @@ function main() {
   }
 
   const ts = new Date().toISOString().replace(/[:.]/g, '-')
-  const archiveDir = `${targetGitDir}.broken-${ts}`
+  // 归档统一落 §15b 唯一备份目录;取不到才退回旧的兄弟命名(旧写法每次重建在盘根长新目录)
+  const archiveDir = gitdirArchivePath(`${basename(targetGitDir)}.broken-${ts}`) || `${targetGitDir}.broken-${ts}`
   const cloneDir = join(tmpdir(), `ihui-git-rebuild-${ts}`)
 
   console.log('🔧 检测到仓库异常,开始从远端重建...')
