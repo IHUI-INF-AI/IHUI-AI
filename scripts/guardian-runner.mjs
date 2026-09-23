@@ -2121,6 +2121,53 @@ const checks = [
     ].join('\n'),
   },
 
+  {
+    id: '88',
+    label: '🧩 ui-react 组件复用对账(blocking,端内自实现 Dialog/Card/Form 提示,补装)',
+    script: 'check-ui-react-usage.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_UI_REACT_USAGE',
+    // 只在触及有界面组件的端时跑;FAIL=用 @ihui/ui-react 已有能力的场景另起炉灶(阻塞),
+    // WARN(独立实现可能有合理场景)不计失败 —— 装门前实测真仓 exit 0(FAIL 0 / WARN 2)。
+    stagedTriggers: ['apps/web/src/', 'apps/extension/', 'apps/desktop/src/'],
+    onFailHint: [
+      '',
+      '  💡 端内重新实现了 @ihui/ui-react 已提供的 Dialog/Card/Form 等组件(AGENTS §3 共享层优先)。',
+      '     修复:改用 `@ihui/ui-react` 的对应组件;确属平台特有则在报告里说明并走 ',
+      '     HUSKY_SKIP_UI_REACT_USAGE=1(需在 commit message 写清理由)。',
+      '     单独复验:node scripts/check-ui-react-usage.mjs',
+      '     紧急跳过(不推荐):HUSKY_SKIP_UI_REACT_USAGE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+  {
+    // 本门专治"造好没装车"(守门 64/70/85/86/87 同型事故已四次),故它自己**更**不能漏接线。
+    // 它一律按 HEAD 判 ⇒ 新建的守门脚本在**提交之前**对它不可见(设计如此),所以本票的
+    // 端到端证明只能在提交后跑一次(见 O36 ③)。
+    id: '89',
+    label: '🔌 守门"声称已接线 vs 实际调用点"对账(blocking,根治造好没装车)',
+    script: 'check-gate-wiring.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_GATE_WIRING',
+    onFailHint: [
+      '',
+      '  💡 某枚守门的头部(或 AGENTS.md)写着"集成位置/pre-commit/pre-push/必跑",',
+      '     但五处权威接线点(guardian-runner 的 script: ∪ scripts/lib/pre-commit-hook.js ∪',
+      '     .husky/* ∪ package.json ∪ .github/workflows)全部零命中 ⇒ 这道门形同虚设。',
+      '     正解二选一:① 真接线(实测真仓绿才可上 blocking);② 把那句表述改成如实的',
+      '     "未接线 + 原因 + 解阻判据"。**禁止为消红往台账塞条目** —— 台账只能救',
+      '     "结构上不该由这五处承载"的(生成器/被分发器派生/纯 CLI 工具)。',
+      '     ⚠️ 核查接线点时不要只看 .husky/pre-commit:它自 2026-09-22 起只是薄壳,',
+      '        真实 pre-commit 逻辑在 scripts/lib/pre-commit-hook.js(只查薄壳会得出相反结论)。',
+      '     单独复验:node scripts/check-gate-wiring.mjs',
+      '     自检:node scripts/check-gate-wiring.mjs --self-test(34 例) + node --test scripts/tests/check-gate-wiring.test.mjs(12 例)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_GATE_WIRING=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
