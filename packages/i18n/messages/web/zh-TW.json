@@ -21725,11 +21725,6 @@
   },
   "permission": {
     "inputWarning": "偵測到高風險操作，建議確認後繼續",
-    "mode": {
-      "full": "完整權限",
-      "auto": "自動",
-      "ask": "詢問"
-    },
     "dangerousCommandTitle": "偵測到危險命令",
     "dangerousCommandDesc": "偵測到危險命令「{pattern}」：{reason}。是否仍然繼續執行？",
     "dangerousCommandProceed": "仍然執行",
@@ -21741,7 +21736,6 @@
     "copyText": "複製文字",
     "copyMarkdown": "複製 Markdown",
     "regenerate": "重新產生",
-    "feedback": "回饋",
     "deleteMessage": "刪除訊息"
   },
   "activityBar": {
@@ -22654,7 +22648,6 @@
     "copiedText": "已複製文字",
     "copiedMarkdown": "已複製 Markdown",
     "regenerating": "正在重新生成",
-    "feedbackRecorded": "已記錄回饋",
     "messageDeleted": "訊息已刪除",
     "operationFailed": "操作失敗"
   },
