@@ -10,12 +10,18 @@
  * - openAIResponseToAnthropic:3 个用例(basic text / tool_calls / stop_reason mapping)
  * - openAIStreamChunkToAnthropicEvents:4 个用例(first chunk / text delta / tool_calls delta / last chunk stop)
  * - parseUpstreamLineToOpenAIChunk:2 个用例(Vercel SDK / SSE data)
- * - 路由集成:2 个用例(非流式 mock / 流式 mock)
+ * - 路由归属对账:3 个用例(Anthropic 插件挂 /v1/anthropic;裸 /v1/messages 不由本插件提供)
+ * - 路由集成:3 个用例(非流式 mock / 流式 mock / 参数校验 400)
  *
- * 共 16 个测试用例。
+ * 共 21 个测试用例。
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import Fastify from 'fastify'
+
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
@@ -454,10 +460,73 @@ describe('serializeAnthropicSSEEvent', () => {
 })
 
 // =============================================================================
-// 6. 路由集成(2 用例,mock fetch + 计费)
+// 6. 路由归属对账(2026-09-23 立,堵本文件的"假绿"成因)
+//
+// 本文件名字里的 "POST /v1/messages" 曾被误认为覆盖了对外发布消息端点:
+// 那个端点的处理器在 src/routes/v1-knowledge-tools.ts,而本文件测的是
+// src/routes/v1-messages.ts(Anthropic 适配层),生产挂在 /v1/anthropic/messages。
+// 于是发布消息的跨服务契约一直是坏的,而这里恒绿 —— 用例从未跑过那个处理器。
+// 以下断言把"哪个处理器拥有哪个路径"钉死,任何人把本文件的用例当成发布消息的
+// 覆盖时会立刻撞红。
 // =============================================================================
 
-describe('POST /v1/messages 路由集成', () => {
+describe('路由归属:POST /v1/messages 不属于本文件测的 Anthropic 适配层', () => {
+  let server: ReturnType<typeof Fastify>
+
+  beforeEach(async () => {
+    server = Fastify({ logger: false })
+    await server.register(v1MessagesRoutes, { prefix: '/v1/anthropic' })
+    await server.ready()
+  })
+
+  afterEach(async () => {
+    await server.close()
+  })
+
+  it('routes/index.ts 把 Anthropic 插件挂在 /v1/anthropic(裸 /v1 会撞 FST_ERR_DUPLICATED_ROUTE)', () => {
+    const indexSrc = readFileSync(resolve(REPO_ROOT, 'apps/api/src/routes/index.ts'), 'utf8')
+    expect(indexSrc).toMatch(
+      /server\.register\(v1MessagesRoutes,\s*\{\s*prefix:\s*'\/v1\/anthropic'\s*\}\)/,
+    )
+  })
+
+  it('Anthropic 端点由本插件提供', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ content: 'ok', model: 'claude-3-5-sonnet' }),
+    }) as unknown as typeof globalThis.fetch
+
+    const res = await server.inject({
+      method: 'POST',
+      url: '/v1/anthropic/messages',
+      headers: { 'x-api-key': 'ihui_test_key' },
+      payload: {
+        model: 'claude-3-5-sonnet',
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: 'hi' }],
+      },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().type).toBe('message')
+  })
+
+  it('本插件不提供 POST /v1/messages —— 该路径的覆盖在 v1-message-bus-contract.test.ts', async () => {
+    const res = await server.inject({
+      method: 'POST',
+      url: '/v1/messages',
+      headers: { 'x-api-key': 'ihui_test_key' },
+      payload: { channel: 'im', content: 'hi' },
+    })
+    expect(res.statusCode).toBe(404)
+  })
+})
+
+// =============================================================================
+// 7. 路由集成(3 用例,mock fetch + 计费)
+// =============================================================================
+
+describe('POST /v1/anthropic/messages 路由集成(Anthropic 适配层,生产前缀见 §6)', () => {
   let server: ReturnType<typeof Fastify>
   const originalFetch = globalThis.fetch
 
@@ -490,12 +559,12 @@ describe('POST /v1/messages 路由集成', () => {
       }),
     }) as unknown as typeof globalThis.fetch
 
-    await server.register(v1MessagesRoutes, { prefix: '/v1' })
+    await server.register(v1MessagesRoutes, { prefix: '/v1/anthropic' })
     await server.ready()
 
     const res = await server.inject({
       method: 'POST',
-      url: '/v1/messages',
+      url: '/v1/anthropic/messages',
       headers: { 'x-api-key': 'ihui_test_key' },
       payload: {
         model: 'claude-3-5-sonnet',
@@ -531,12 +600,12 @@ describe('POST /v1/messages 路由集成', () => {
       text: async () => '',
     }) as unknown as typeof globalThis.fetch
 
-    await server.register(v1MessagesRoutes, { prefix: '/v1' })
+    await server.register(v1MessagesRoutes, { prefix: '/v1/anthropic' })
     await server.ready()
 
     const res = await server.inject({
       method: 'POST',
-      url: '/v1/messages',
+      url: '/v1/anthropic/messages',
       headers: { 'x-api-key': 'ihui_test_key' },
       payload: {
         model: 'claude-3-5-sonnet',
@@ -560,12 +629,12 @@ describe('POST /v1/messages 路由集成', () => {
   })
 
   it('参数校验失败返回 400', async () => {
-    await server.register(v1MessagesRoutes, { prefix: '/v1' })
+    await server.register(v1MessagesRoutes, { prefix: '/v1/anthropic' })
     await server.ready()
 
     const res = await server.inject({
       method: 'POST',
-      url: '/v1/messages',
+      url: '/v1/anthropic/messages',
       headers: { 'x-api-key': 'ihui_test_key' },
       payload: {
         // 缺 max_tokens
