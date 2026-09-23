@@ -17,8 +17,6 @@ RUN npm install -g pnpm@11.18.0
 FROM base AS deps
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
-# 根 package.json 的 postinstall 要跑这个脚本;镜像只 COPY 清单文件,漏了它 pnpm install 必挂
-COPY scripts/fix-expo-metro-junction.mjs scripts/
 COPY apps/web/package.json ./apps/web/
 # 复制 @ihui/web 的 workspace 传递闭包(原清单引用了不存在的 packages/config、packages/ui、
 # packages/ui-primitives,且遗漏 app/i18n/ui-react/tsconfig → docker build 必挂,2026-09-10 修正)。
@@ -63,13 +61,9 @@ RUN apk add --no-cache zip
 # 清理可能残留的 .tsbuildinfo(2026-07-20 修复:避免 tsc 增量编译跳过文件,
 # 导致 @ihui/api-client/dist/endpoints 等产物缺失,引发 next build 模块解析失败)
 RUN find packages apps -name "*.tsbuildinfo" -type f -delete 2>/dev/null || true
-# --filter @ihui/web... run build:static **只会在拥有该脚本的包里执行**:web 的 7 个可构建 workspace
-# 依赖(api-client / ui-react / shared / auth / i18n / design-tokens / types)全都只有 `build`、
-# 没有 `build:static`,pnpm 逐个静默跳过 ⇒ 依赖的 dist/ 从未产出 ⇒ 以 main: ./dist/index.js 暴露的
-# @ihui/api-client 在 next build 里 Module not found(2026-09-23 实测 CI build-web 恒红即此;
-# 同仓 Dockerfile.api 用 `run build` 故 build-api 一直绿 —— 两者只差在脚本名,本地不跑 docker 时零信号)。
-# 故先用 `^...`(仅依赖、不含 web 自身)跑各依赖的 build,再跑 web 的 build:static。
-RUN pnpm --filter @ihui/web^... run build && pnpm --filter @ihui/web run build:static
+# --filter @ihui/web... :先 build @ihui/web 的所有 workspace 依赖(@ihui/ui-react / @ihui/design-tokens / @ihui/api-client 等),再 build web
+# build:static:静态导出专用入口(暂存 force-dynamic 路由 + .next-static→out 同步),详见 2026-09-10 根修注释
+RUN pnpm --filter @ihui/web... run build:static
 
 # A 套壳架构(2026-07-24):output:'export' 静态导出,nginx 提供静态文件 + API 反向代理
 # 替代原 standalone + node server.js 方案,因为 output:'export' 不生成 server.js
