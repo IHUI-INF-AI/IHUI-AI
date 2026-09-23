@@ -4,10 +4,10 @@
 
 'use client'
 
+import { useMemo } from 'react'
 import { useTranslations } from 'next-intl'
-import { SearchInput } from '@ihui/ui-react'
+import { CategoryBar, SearchInput, type CategoryBarItem } from '@ihui/ui-react'
 
-import { cn } from '@/lib/utils'
 import type { Category } from './types'
 
 interface Props {
@@ -27,6 +27,13 @@ export function MarketFilters({
 }: Props) {
   const t = useTranslations('agent')
   const tc = useTranslations('common')
+  const items = useMemo<CategoryBarItem[]>(
+    () => [
+      { id: 'all', label: t('allCategories') },
+      ...categories.map((c) => ({ id: c.categoryId, label: c.name })),
+    ],
+    [categories, t],
+  )
   return (
     <div className="flex flex-wrap items-center gap-2">
       <SearchInput
@@ -37,35 +44,7 @@ export function MarketFilters({
         placeholder={t('searchPlaceholder')}
         aria-label={tc('search')}
       />
-      <div className="flex flex-wrap items-center gap-1">
-        <button
-          type="button"
-          onClick={() => setCategoryId('all')}
-          className={cn(
-            'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-            categoryId === 'all'
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-muted text-muted-foreground hover:text-foreground',
-          )}
-        >
-          {t('allCategories')}
-        </button>
-        {categories.map((c) => (
-          <button
-            key={c.categoryId}
-            type="button"
-            onClick={() => setCategoryId(c.categoryId)}
-            className={cn(
-              'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-              categoryId === c.categoryId
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {c.name}
-          </button>
-        ))}
-      </div>
+      <CategoryBar items={items} value={categoryId} onChange={setCategoryId} />
     </div>
   )
 }
