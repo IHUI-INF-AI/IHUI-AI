@@ -3,20 +3,27 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * mobile-rn 深色模式前景/容器回归守门(blocking)。
+ * mobile-rn / packages/app 深色模式前景/容器回归守门(blocking)。
  *
- * 三类真实事故(2026-09-23 Drawer/StudyBar/UserInfoCard 深色复核):
- *  R1 品牌底白字:同一 style 对象里 `backgroundColor: tokens.brand.DEFAULT` 配
- *     `color: tokens.surface.light` / `tokens.text.primary` —— 深色下 brand.DEFAULT
+ * 四类真实事故(2026-09-23 Drawer/StudyBar/UserInfoCard/主 CTA 深色复核):
+ *  R1 品牌底白字:同一 style 对象里 `backgroundColor: (tokens|tk).brand.DEFAULT` 配
+ *     `color: (tokens|tk).surface.light` / `.text.primary` —— 深色下 brand.DEFAULT
  *     翻成 #FFFFFF,前景必须用 brand.foreground(深色翻黑),否则白底白字。
+ *     **2026-09-23 补盲**:原判据只认 `tokens.` 前缀,而 packages/app 共享组件一律写 `tk.`,
+ *     等于共享包全程不在 R1 视野内。实测补盲后现存违规 0 处(非放宽,是真无违规)。
  *  R2 硬编码浅色容器 ratchet:`backgroundColor: tokens.surface.light`(两态恒白)、
  *     `rgba(255,255,255,α≥0.5)`(近实心白)、className `bg-white`(非 dark: 变体)。
- *     每文件计数与 scripts/brand-foreground-baseline.json 比对,只减不增。
+ *     每文件计数与 scripts/brand-foreground-baseline.json 的 `counts` 比对,只减不增。
+ *     范围保持 apps/mobile-rn/src(基线按此口径建立,扩范围会误伤存量)。
+ *  R3 纯白填充 ratchet(2026-09-23 立):`(backgroundColor|borderColor): (tokens|tk).brand.DEFAULT`
+ *     在深色档案下就是**纯白**(实测压 #1A1A1A 卡面 17.4:1 = 用户报的"刺眼")。
+ *     主 CTA 一律走 `brand.ctaFill`/`brand.ctaText`(浅色与 brand.DEFAULT 同值 ⇒ 存量外观零变化,
+ *     深色给非纯白)。本条不拦存量(基线冻结),只拦"新增/回潮"。范围含 packages/app。
  *
  * 用法:
  *   node scripts/check-brand-foreground.mjs                  # 全量
  *   node scripts/check-brand-foreground.mjs --staged         # 只看暂存文件
- *   node scripts/check-brand-foreground.mjs --update-baseline # 收紧基线(人工确认后)
+ *   node scripts/check-brand-foreground.mjs --update-baseline # 收紧基线(人工确认后;拒绝与 --staged 同用)
  *   node scripts/check-brand-foreground.mjs --self-test      # 逻辑自检
  * 紧急跳过:HUSKY_SKIP_BRAND_FOREGROUND=1
  */
@@ -30,13 +37,21 @@ const ROOT = path.resolve(__dirname, '..')
 const BASELINE_PATH = path.join(__dirname, 'brand-foreground-baseline.json')
 
 const SKIP_ENV = 'HUSKY_SKIP_BRAND_FOREGROUND'
-const R1_BG = /backgroundColor:\s*tokens\.brand\.DEFAULT\b/
-const R1_BAD_FG = /color:\s*tokens\.(?:surface\.light|text\.primary)\b/
+// 前缀 `tokens.`(apps/mobile-rn 端)与 `tk.`(packages/app 共享组件的别名)必须同时认,
+// 否则共享包整片不在判据视野内 —— 这正是 2026-09-23 补的盲区。
+const TKS = '(?:tokens|tk)'
+const R1_BG = new RegExp(`backgroundColor:\\s*${TKS}\\.brand\\.DEFAULT\\b`)
+const R1_BAD_FG = new RegExp(`color:\\s*${TKS}\\.(?:surface\\.light|text\\.primary)\\b`)
 const STYLE_OBJ_START = /^\s{2}[A-Za-z_$][\w$]*:\s*\{/
 const STYLE_OBJ_END = /^ {2}\}/
 const R2_SURFACE_LIGHT = /backgroundColor:\s*tokens\.surface\.light\b/
 const R2_RGBA_WHITE = /backgroundColor:\s*['"]rgba\(255,\s*255,\s*255,\s*(0?\.\d+|1)\)/
 const R2_BG_WHITE_CLASS = /\bbg-white\b/
+const R3_BRAND_FILL = new RegExp(`(?:backgroundColor|borderColor):\\s*${TKS}\\.brand\\.DEFAULT\\b`)
+/** R1/R3 扫描范围:RN 端 + 跨端共享包(两者深色语义同一套 rn-tokens) */
+const SCAN_DIRS = ['apps/mobile-rn/src', 'packages/app/src']
+/** R2 基线口径范围(扩范围会误伤未登记的存量,故与 SCAN_DIRS 分开) */
+const R2_DIR = 'apps/mobile-rn/src'
 
 /** 从源码行提取 style 属性块(2 空格缩进的顶层样式对象),返回块文本数组 */
 export function extractStyleChunks(lines) {
@@ -87,9 +102,20 @@ export function countLightContainers(lines) {
   return count
 }
 
+/** R3:单文件「brand.DEFAULT 作填充/描边」计数(深色下即纯白) */
+export function countCtaFills(lines) {
+  let count = 0
+  for (const line of lines) if (R3_BRAND_FILL.test(line)) count++
+  return count
+}
+
+function isR2Scope(rel) {
+  return rel.replace(/\\/g, '/').startsWith(`${R2_DIR}/`)
+}
+
 function listTargetFiles() {
   // git ls-files 只取跟踪文件,避免扫到 gitignore 的临时副本
-  const out = execFileSync('git', ['ls-files', 'apps/mobile-rn/src'], {
+  const out = execFileSync('git', ['ls-files', ...SCAN_DIRS], {
     cwd: ROOT,
     encoding: 'utf8',
     windowsHide: true,
@@ -106,7 +132,7 @@ function stagedFiles() {
     windowsHide: true,
   })
     .split('\n')
-    .filter((f) => /^apps\/mobile-rn\/src\/.+\.(ts|tsx)$/.test(f))
+    .filter((f) => SCAN_DIRS.some((d) => f.startsWith(`${d}/`) && /\.(ts|tsx)$/.test(f)))
   return out.map((rel) => path.join(ROOT, rel))
 }
 
@@ -119,26 +145,39 @@ function run(options) {
     console.log(`⏭ ${SKIP_ENV}=1,跳过 mobile-rn 前景/容器守门`)
     return 0
   }
+  // 基线是全量口径:与 --staged 同用会拿"暂存子集"覆盖整份基线,把未暂存文件的
+  // 存量清零 → 下次全量恒红或误拦(与 scan-hardcoded-zh 同一条护栏)。
+  if (options.updateBaseline && options.staged) {
+    console.error('❌ --update-baseline 不得与 --staged 同用(基线须按全量口径收紧)')
+    return 1
+  }
   const all = listTargetFiles()
   const files = options.staged ? stagedFiles().filter((f) => all.includes(f)) : all
   if (options.staged && files.length === 0) {
-    console.log('⏭ 暂存区无 apps/mobile-rn/src 文件,跳过')
+    console.log('⏭ 暂存区无 apps/mobile-rn/src 或 packages/app/src 文件,跳过')
     return 0
   }
 
   const r1 = []
   const counts = {}
+  const ctaCounts = {}
   for (const file of files) {
     if (!existsSync(file)) continue
     const lines = readLines(file)
-    for (const v of findR1Violations(lines)) r1.push(`${path.relative(ROOT, file)} → ${v}`)
-    const c = countLightContainers(lines)
-    if (c > 0) counts[path.relative(ROOT, file).replace(/\\/g, '/')] = c
+    const rel = path.relative(ROOT, file).replace(/\\/g, '/')
+    for (const v of findR1Violations(lines)) r1.push(`${rel} → ${v}`)
+    if (isR2Scope(rel)) {
+      const c = countLightContainers(lines)
+      if (c > 0) counts[rel] = c
+    }
+    const cc = countCtaFills(lines)
+    if (cc > 0) ctaCounts[rel] = cc
   }
 
   if (options.updateBaseline) {
-    writeFileSync(BASELINE_PATH, `${JSON.stringify({ counts }, null, 2)}\n`)
-    console.log(`✅ 基线已更新:${Object.keys(counts).length} 文件 / ${Object.values(counts).reduce((a, b) => a + b, 0)} 处`)
+    writeFileSync(BASELINE_PATH, `${JSON.stringify({ counts, ctaCounts }, null, 2)}\n`)
+    const sum = (o) => `${Object.keys(o).length} 文件 / ${Object.values(o).reduce((a, b) => a + b, 0)} 处`
+    console.log(`✅ 基线已更新:R2 ${sum(counts)};R3 ${sum(ctaCounts)}`)
     return 0
   }
 
@@ -150,11 +189,11 @@ function run(options) {
   }
 
   const baseline = existsSync(BASELINE_PATH)
-    ? JSON.parse(readFileSync(BASELINE_PATH, 'utf8')).counts ?? {}
+    ? JSON.parse(readFileSync(BASELINE_PATH, 'utf8'))
     : {}
   const r2 = []
   for (const [file, count] of Object.entries(counts)) {
-    const allowed = baseline[file] ?? 0
+    const allowed = baseline.counts?.[file] ?? 0
     if (count > allowed) r2.push(`${file}: ${count} > 基线 ${allowed}`)
   }
   if (r2.length > 0) {
@@ -163,14 +202,27 @@ function run(options) {
     for (const v of r2) console.error(`   ${v}`)
   }
 
+  const r3 = []
+  for (const [file, count] of Object.entries(ctaCounts)) {
+    const allowed = baseline.ctaCounts?.[file] ?? 0
+    if (count > allowed) r3.push(`${file}: ${count} > 基线 ${allowed}`)
+  }
+  if (r3.length > 0) {
+    failed = true
+    console.error(`❌ R3 新增纯白填充(brand.DEFAULT 深色档案=纯白,基线棘轮只减不增):${r3.length} 文件`)
+    for (const v of r3) console.error(`   ${v}`)
+  }
+
   if (failed) {
     console.error(
       [
         '',
         '  💡 修复:容器背景用 tokens.surface.card / surface.muted / surface.inputBg;',
-        '     品牌底(brand.DEFAULT)上的文字用 tokens.brand.foreground(深色自动翻黑)。',
+        '     品牌底(brand.DEFAULT)上的文字用 tokens.brand.foreground(深色自动翻黑);',
+        '     主 CTA / 选中态胶囊改用 brand.ctaFill + brand.ctaText(浅色与 brand.DEFAULT 同值,',
+        '     深色非纯白)—— 这是 R3 的正解,不要逐处硬写颜色;',
         '     覆盖在图片/彩色底上的白色前景属合法,基线棘轮只拦「比基线更多」。',
-        '     收紧基线(人工确认后):node scripts/check-brand-foreground.mjs --update-baseline',
+        '     收紧基线(人工确认后,全量口径):node scripts/check-brand-foreground.mjs --update-baseline',
         '     自检:node scripts/check-brand-foreground.mjs --self-test',
         `     紧急跳过(不推荐):${SKIP_ENV}=1 git commit ...`,
         '',
@@ -178,7 +230,9 @@ function run(options) {
     )
     return 1
   }
-  console.log(`✅ mobile-rn 前景/容器守门通过(${files.length} 文件,R1=0,R2 全部 ≤ 基线)`)
+  console.log(
+    `✅ mobile-rn/共享包 前景/容器守门通过(${files.length} 文件,R1=0,R2/R3 全部 ≤ 基线;R3 存量 ${Object.values(ctaCounts).reduce((a, b) => a + b, 0)} 处)`,
+  )
   return 0
 }
 
@@ -213,6 +267,25 @@ function selfTest() {
   assert(countLightContainers(['  tabActive: {', '    backgroundColor: tokens.brand.DEFAULT,', '  },']) === 0, 'R2 brand 背景不计')
   // 块提取:未闭合块也应产出
   assert(extractStyleChunks(['  a: {', '    x: 1,']).length === 1, '未闭合块仍应提取')
+  // R1 补盲:packages/app 共享组件一律写 `tk.`,原判据只认 tokens. → 共享包整片不可见
+  assert(
+    findR1Violations(['  btn: {', '    backgroundColor: tk.brand.DEFAULT,', '    color: tk.surface.light,', '  },']).length === 1,
+    'R1 应命中 tk. 前缀(共享包补盲)',
+  )
+  assert(
+    findR1Violations(['  btn: {', '    backgroundColor: tk.brand.DEFAULT,', '    color: tk.text.primary,', '  },']).length === 1,
+    'R1 应命中 tk. 前缀 + text.primary 前景',
+  )
+  assert(
+    findR1Violations(['  btn: {', '    backgroundColor: tk.brand.DEFAULT,', '    color: tk.brand.foreground,', '  },']).length === 0,
+    'R1 不应命中 tk.brand.foreground(正确前景)',
+  )
+  // R3:brand.DEFAULT 填充/描边计数;ctaFill 是正解故不计
+  assert(countCtaFills(['    backgroundColor: tokens.brand.DEFAULT,']) === 1, 'R3 tokens.brand.DEFAULT 背景计 1')
+  assert(countCtaFills(['    borderColor: tk.brand.DEFAULT,']) === 1, 'R3 tk.brand.DEFAULT 描边计 1')
+  assert(countCtaFills(['    backgroundColor: tokens.brand.ctaFill,']) === 0, 'R3 不应命中 ctaFill(正解)')
+  assert(countCtaFills(['    color: tokens.brand.foreground,']) === 0, 'R3 不计前景色')
+  assert(countCtaFills(['    backgroundColor: tokens.brand.DEFAULTISH,']) === 0, 'R3 边界:同前缀字段不得误计')
   console.log('✅ check-brand-foreground self-test 全部通过')
   return 0
 }
@@ -229,5 +302,5 @@ if (isDirectRun) {
   process.exit(code)
 }
 
-export const __test__ = { extractStyleChunks, findR1Violations, countLightContainers }
+export const __test__ = { extractStyleChunks, findR1Violations, countLightContainers, countCtaFills }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
