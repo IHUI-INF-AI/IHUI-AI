@@ -44,13 +44,13 @@ const AASA = {
       {
         appIDs: [APP_ID],
         components: [
+          // 微信支付回调 UniversalLink 路径
           {
             '/': '/wechat/*',
-            comment: '微信支付回调 UniversalLink 路径',
           },
+          // 兜底:所有路径都可作为 UniversalLink 回调
           {
             '/': '/*',
-            comment: '兜底:所有路径都可作为 UniversalLink 回调',
           },
         ],
       },
