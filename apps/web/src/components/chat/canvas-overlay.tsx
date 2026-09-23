@@ -2,9 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-
 'use client'
 
 import * as React from 'react'
@@ -13,9 +10,13 @@ import { Check, Code2, Eye, History } from 'lucide-react'
 import { CloseButton } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { Tooltip } from '@/components/feedback'
 import { PortalPanel } from '@/components/feedback/portal-panel'
 import { useCanvasStore, type CanvasVersion } from '@/stores/canvas-store'
+
+/** 层栈 id(见 @/lib/overlay-stack):canvas overlay 是全屏 z-modal,Esc 只在栈顶时被消费 */
+const CANVAS_OVERLAY_ID = 'canvas-overlay'
 
 /** 相对时间格式化(Intl.RelativeTimeFormat,遵守 locale) */
 function formatRelativeTime(ts: number, locale: string): string {
@@ -117,11 +118,22 @@ export function CanvasOverlay() {
     setDraft(content)
   }, [content])
 
+  // 层栈注册:open → 入栈(成为栈顶);close/unmount → 出栈。
+  React.useEffect(() => {
+    if (!open) return
+    pushOverlay(CANVAS_OVERLAY_ID)
+    return () => popOverlay(CANVAS_OVERLAY_ID)
+  }, [open])
+
   // Esc 关闭
   React.useEffect(() => {
     if (!open) return
     const handle = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeCanvas()
+      if (e.key === 'Escape') {
+        // 只让栈顶那一层消费 Esc:多层同时打开时,一次 Esc 关最上层
+        if (!isTopOverlay(CANVAS_OVERLAY_ID)) return
+        closeCanvas()
+      }
     }
     window.addEventListener('keydown', handle)
     return () => window.removeEventListener('keydown', handle)
