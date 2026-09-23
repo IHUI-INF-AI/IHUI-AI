@@ -32,6 +32,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Heart, Inbox, MessageCircle, Plus, X } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
 import { getRnTokens, type RnThemeTokens, rnRadius } from '@ihui/design-tokens'
+import { CategoryInlineBar } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -247,19 +248,15 @@ export function CircleIndexScreen() {
     <View style={styles.container}>
       <NavBar title={t('circle.index.pageTitle')} onBack={() => navigation.goBack()} />
       <View style={styles.tabRow}>
-        {tabs.map((tabItem) => (
-          <Pressable
-            key={tabItem.key}
-            style={[styles.tab, tab === tabItem.key ? styles.tabActive : null]}
-            onPress={() => switchTab(tabItem.key)}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: tab === tabItem.key }}
-          >
-            <Text style={[styles.tabText, tab === tabItem.key ? styles.tabTextActive : null]}>
-              {tabItem.label}
-            </Text>
-          </Pressable>
-        ))}
+        <CategoryInlineBar
+          items={tabs.map((tabItem) => ({ id: tabItem.key, label: tabItem.label }))}
+          selectedId={tab}
+          onSelect={(id) => switchTab(id as TabKey)}
+          colorScheme={resolvedTheme}
+          contentPaddingHorizontal={0}
+          itemGap={rpx(16)}
+          testID="circle-tab-bar"
+        />
       </View>
       <FlatList
         data={feed}
@@ -430,25 +427,6 @@ const createStyles = (tk: RnThemeTokens) =>
       paddingVertical: rpx(16),
       gap: rpx(16),
       backgroundColor: tk.surface.card,
-    },
-    tab: {
-      flex: 1,
-      height: rpx(64),
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: rnRadius.lg,
-      backgroundColor: tk.surface.muted,
-    },
-    tabActive: {
-      backgroundColor: tk.brand.DEFAULT,
-    },
-    tabText: {
-      fontSize: 13,
-      color: tk.text.secondary,
-    },
-    tabTextActive: {
-      color: tk.surface.card,
-      fontWeight: '600',
     },
     topicScroll: {
       gap: rpx(16),
