@@ -2771,7 +2771,7 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-gua
 
 ### 新增守门示例:第 75 / 76 项「mobile-rn 深色前景容器对账」与「反回退对账」(2026-09-23)
 
-**第 75 项 `check-brand-foreground.mjs`(blocking)** —— RN 深色档案里 `tokens.brand.DEFAULT`
+**第 83 项 `check-brand-foreground.mjs`(blocking)**(原登记为第 75 项) —— RN 深色档案里 `tokens.brand.DEFAULT`
 是**纯白**,所以它只能当前景色用。同一个 style 块内它作背景、文字又取 `tokens.surface.light`
 (两端恒白)或 `tokens.text.primary`(深色翻白),结果就是白底白字 —— R1 零豁免拦这一类。
 R2 用基线棘轮拦"浅色当容器底":`surface.light` 背景 / α≥0.5 的白 rgba / 无 `dark:` 变体的
@@ -2779,7 +2779,7 @@ R2 用基线棘轮拦"浅色当容器底":`surface.light` 背景 / α≥0.5 的�
 `scripts/brand-foreground-baseline.json`,只减不增。`--self-test` 11 例;紧急跳过
 `HUSKY_SKIP_BRAND_FOREGROUND=1`。
 
-**第 76 项 `check-stale-revert.mjs`(blocking)** —— 堵**共享工作区静默回滚**。§12d 的 converge
+**第 84 项 `check-stale-revert.mjs`(blocking)**(原登记为第 76 项) —— 堵**共享工作区静默回滚**。§12d 的 converge
 走 `merge-tree` / `commit-tree`,只推进 HEAD 与 index、**不 checkout**,于是工作区长期落后 HEAD
 (2026-09-23 实测:503 个文件落后 486 个提交)。此时 `git add <file>` 交上去的是旧基线,对该文件
 等价于把别人后续改动静默回滚,而 diff 看上去"只动了几行",人工 review 发现不了。判据 R1 =
