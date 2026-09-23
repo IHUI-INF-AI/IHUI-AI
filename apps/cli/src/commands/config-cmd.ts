@@ -20,7 +20,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import chalk from 'chalk';
-import { PERMISSION_MODES } from '@ihui/types/permission-mode';
 import {
   getSettingsPath,
   loadSettings,
@@ -81,10 +80,9 @@ const CONFIG_FIELDS: readonly ConfigFieldMeta[] = [
     key: 'permissionMode',
     label: '权限模式',
     type: 'enum',
-    // 取值清单从唯一真源取(G-161 cli 归一),不再手抄一份 —— 手抄那份新增档位时必漏
-    enumValues: [...PERMISSION_MODES],
+    enumValues: ['default', 'acceptEdits', 'bypassPermissions', 'plan', 'manual'],
     get: (s) => s.permissionMode ?? 'default',
-    description: `权限模式:${PERMISSION_MODES.join('|')}`,
+    description: '权限模式:default|acceptEdits|bypassPermissions|plan|manual',
   },
   {
     key: 'maxIterations',
