@@ -89,7 +89,10 @@ export const STATIC_T_RE = /\b(?:t|tt)\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA
 // 支持嵌套调用 `tList('a.b', { x: tList('inner') })` 中内层 key 也被识别。
 export const TLIST_RE = /\btList\s*\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_-]+)+)['"`]/g
 // 动态 t(`prefix.${var}`) - 仅提示用
-export const DYNAMIC_T_RE = /\bt\(\s*['"`]([^'"`]*\$\{[^'"`]+}[^'"`]*)['"`]\s*\)/g
+// 2026-09-23 与 STATIC_T_RE / TLIST_RE 的"四次增强"对齐:不再要求 `)` 闭合。
+// 原尾部 `\s*\)` 让 `t(\`chat.${key}\`, values)`(带 values 实参)整条不命中 ⇒ 该前缀既不记为动态提示、
+// 又不算静态引用,旗下键被误判死 key(extension 侧 `chat.injection*` 7 枚即此因,实测 dynamicHits=0 是最小复现)。
+export const DYNAMIC_T_RE = /\bt\(\s*['"`]([^'"`]*\$\{[^'"`]+}[^'"`]*)['"`]/g
 // useTranslations('namespace') / getTranslations('namespace') - 命名空间下所有 key 视为潜在引用(启发式)
 // 2026-07-26 增强:getTranslations 是 next-intl/server 在 server component 使用的 API(等价于 useTranslations),
 // subagent-D commit 5ebb17915 仅识别 useTranslations 模式,导致 server component 引用 namespace 被误判为死 key。

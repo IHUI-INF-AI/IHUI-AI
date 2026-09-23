@@ -407,6 +407,17 @@ describe('DYNAMIC_T_RE — 动态 t(`prefix.${var}`) 模板字符串拼接识别
     assert.notEqual(matchFirst(DYNAMIC_T_RE, 't(`prefix.${var}.suffix`)'), null)
   })
 
+  // 2026-09-23 对齐 STATIC_T_RE / TLIST_RE 的"四次增强":去掉尾部 `\s*\)` 后,带 values 实参的动态取词
+  // 才不再整条漏判(extension 侧 `chat.injection*` 7 枚假死键即此因;修前 93 → 修后 86)。
+  test('t(`chat.${key}`, values) 带第二实参 → 仍命中(修前被尾部 \\s*\\) 截断)', () => {
+    assert.notEqual(matchFirst(DYNAMIC_T_RE, 't(`chat.${key}`, values)'), null)
+    assert.notEqual(matchFirst(DYNAMIC_T_RE, "t(`chat.injection${n}`, { count: 3 })"), null)
+  })
+
+  test('反例:t(变量) 无模板字面量 → 不命中(不得把任意调用当动态前缀)', () => {
+    assert.equal(matchFirst(DYNAMIC_T_RE, 't(key, values)'), null)
+  })
+
   test('t(`no-interpolation`) 无插值 → 不应命中 DYNAMIC_T_RE', () => {
     assert.equal(matchFirst(DYNAMIC_T_RE, 't(`no-interpolation`)'), null)
   })
