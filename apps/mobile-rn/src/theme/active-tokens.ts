@@ -23,7 +23,22 @@ export type RnThemePreference = RnThemeMode | 'system'
 
 type TokenBag = Record<string, Record<string, string>>
 
-const mutableTokens = { ...rnLightTokens } as unknown as TokenBag
+/**
+ * 必须**逐命名空间**拷一层:`{...rnLightTokens}` 只拷顶层,`mutableTokens.brand`
+ * 与 `rnLightTokens.brand` 就是同一个对象,于是 apply('dark') 会把 PALETTES.light
+ * 本身涂成深色,此后 apply('light') 变成自我赋值 —— 浅色再也回不来。
+ *
+ * 为什么不是"反正会重载 JS 所以无所谓":`DevSettings.reload()` 在非 __DEV__ 下是空实现
+ * (react-native/Libraries/Utilities/DevSettings.js 的 stub 分支),所以 release 包里
+ * 主题切换确实会在同一 JS 生命周期内跑第二次 apply()。
+ */
+function clonePalette(src: TokenBag): TokenBag {
+  const out: TokenBag = {}
+  for (const ns of Object.keys(src)) out[ns] = { ...src[ns] }
+  return out
+}
+
+const mutableTokens = clonePalette(rnLightTokens as unknown as TokenBag)
 const PALETTES: Record<RnThemeMode, TokenBag> = {
   light: rnLightTokens as unknown as TokenBag,
   dark: rnDarkTokens as unknown as TokenBag,

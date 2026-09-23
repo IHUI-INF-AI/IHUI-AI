@@ -2,62 +2,71 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render } from '@testing-library/react'
-import { createElement, type ReactNode } from 'react'
-import { I18nProvider } from '../src/i18n'
+/**
+ * expo-file-system 测试替身。
+ *
+ * 为什么必须有:真包入口 `import { requireNativeModule } from 'expo-modules-core'` 在
+ * vitest(node/jsdom)下**解析不到**,于是任何 transitively import 它的测试文件
+ * 整体加载失败 —— 表现为 `Test Files N failed`,而失败的是"文件没跑起来"而不是断言,
+ * 极易被当成无关噪音放过(2026-09-23 实测:12 个文件的测试因此从未执行)。
+ *
+ * 覆盖面按 src 里实际用到的成员给(不是全量 API):
+ *   File 类:exists / textSync() / write() / create() / delete() / uri / base64()
+ *   Paths:document / cache / downloads / join()
+ * 语义取"内存假文件":写过的才 exists,读回同一串;不碰真实磁盘,避免用例间串味。
+ */
 
-vi.mock('@ihui/api-client', () => ({
-  executeAgentRuntimeStream: vi.fn().mockResolvedValue(undefined),
-}))
+const store = new Map<string, string>()
 
-vi.mock('react-native', () => {
-  const mk = (name: string) =>
-    function MockComp(props: { children?: ReactNode }) {
-      return createElement(name, props, props.children)
-    }
-  return {
-    // 主题单例(src/theme/active-tokens.ts)在模块求值时调 Appearance.getColorScheme(),
-    // 缺这个导出会让整个测试文件加载失败 ⇒ 该文件的断言一条都不会跑。
-    Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
-    DevSettings: { reload: () => {} },
-    View: mk('View'),
-    Text: mk('Text'),
-    TextInput: mk('TextInput'),
-    Pressable: mk('Pressable'),
-    ScrollView: mk('ScrollView'),
-    ActivityIndicator: mk('ActivityIndicator'),
+export class File {
+  readonly uri: string
+
+  constructor(dir: string | { uri?: string } | unknown, name?: string) {
+    const base = typeof dir === 'string' ? dir : ((dir as { uri?: string })?.uri ?? '')
+    this.uri = `${base}/${name ?? ''}`
   }
-})
 
-vi.mock('@ihui/ui-native', () => ({
-  Input: (props: { value?: string; placeholder?: string; [k: string]: unknown }) =>
-    createElement('input', { value: props.value ?? '', placeholder: props.placeholder }),
-  Loading: () => createElement('div', null, 'loading'),
-}))
+  get exists(): boolean {
+    return store.has(this.uri)
+  }
 
-import { AgentRuntimePanel } from '../src/components/AgentRuntimePanel'
+  textSync(): string {
+    const v = store.get(this.uri)
+    if (v === undefined) throw new Error(`expo-file-system mock: 文件不存在 ${this.uri}`)
+    return v
+  }
 
-const wrapper = ({ children }: { children: ReactNode }) => <I18nProvider>{children}</I18nProvider>
+  write(value: string): void {
+    store.set(this.uri, value)
+  }
 
-describe('AgentRuntimePanel (mobile-rn)', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
+  create(options?: { overwrite?: boolean }): void {
+    if (options?.overwrite !== false) store.set(this.uri, '')
+  }
 
-  it('renders without crashing in idle state', () => {
-    const { container } = render(<AgentRuntimePanel />, { wrapper })
-    expect(container).toBeTruthy()
-  })
+  delete(): void {
+    store.delete(this.uri)
+  }
 
-  it('renders empty hint text in idle state', () => {
-    const { getByText } = render(<AgentRuntimePanel />, { wrapper })
-    expect(() => getByText('暂无运行记录')).not.toThrow()
-  })
+  base64(): string {
+    return Buffer.from(store.get(this.uri) ?? '', 'utf8').toString('base64')
+  }
+}
 
-  it('renders execute button when not running', () => {
-    const { getByText } = render(<AgentRuntimePanel />, { wrapper })
-    expect(() => getByText('发送')).not.toThrow()
-  })
-})
+export const Paths = {
+  document: 'mock://document',
+  cache: 'mock://cache',
+  downloads: 'mock://downloads',
+  bundle: 'mock://bundle',
+  join: (...parts: string[]): string => parts.join('/'),
+}
+
+export const base64 = {
+  toBytes: (b64: string): Uint8Array => new Uint8Array(Buffer.from(b64, 'base64')),
+  fromBytes: (bytes: Uint8Array): string => Buffer.from(bytes).toString('base64'),
+  toDataUri: (bytes: Uint8Array, mime = 'application/octet-stream'): string =>
+    `data:${mime};base64,${Buffer.from(bytes).toString('base64')}`,
+}
+
+export default { File, Paths, base64 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
