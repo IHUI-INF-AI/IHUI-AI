@@ -107,13 +107,29 @@
   cargo PATH 注入(desktop 启动从未生效)、`kill-git-selector-hidden.vbs:20` 目标脚本绝对路径
   → 改为自己定位 + 缺失即静默退出(`cscript` 实跑 exit 0)。
 
-### 客观阻碍导致未办(不是遗漏)
+### 改道收尾与客观阻碍(不是遗漏)
 
-- `~/.ollama` 2.7G:`IHUI-OLLAMA` 服务运行中且持锁,junction 须先停服务(会中断本地模型推理)。
-- `~/.workbuddy` 3.1G:内含 `binaries\PortableGit`,被 `scripts/lib/gitdir.mjs:36-37` 当 git 二进制首选解析,搬走=守护/钩子链失去 git;其余 logs/traces 约 2G 属该 IDE 自管。
+- **`~/.ollama` 2.9GB 已改道(续做,原判"须停服务"故未办 → 用镜像校验法把风险控制住了)**:
+  先 `/E` 镜像复制到 `D:\DevEnv\cache\ollama`,再**逐文件比对相对路径+字节数**(13/13 一致,
+  blob 名本身即 sha256 寻址 ⇒ 内容等价)→ 二次确认后才 `nssm stop IHUI-OLLAMA` → 删 C 原件 →
+  `mklink /J` → `nssm start`。验收不只是"能列出模型":实际跑了一次
+  `qwen2.5-coder:1.5b` 生成,返回 `"response":"OK"` / `done_reason:stop` / 1.53s,服务 RUNNING、日志无 error
+  ⇒ 证明是真从 D 盘 mmap blob 推理,不是仅目录可见。**额外修掉一个隐藏泄漏**:该服务由 nssm 以
+  LocalSystem 启动且自带环境块,`TEMP`/`TMP` 原本被钉死在 `C:\Users\...\AppData\Local\Temp`,
+  故 HKCU 的 TEMP 迁移对它无效、它一直在往 C 写;现改为 `D:/DevEnv/Temp`,原环境块已备份到
+  `D:\DevEnv\backups\env\ollama-service-env-original.txt`。C 盘可用 20G → **30.7G**。
+- `~/.workbuddy` 3.1G:内含 `binaries\PortableGit`,被 `scripts/lib/gitdir.mjs:36-37` 当 git 二进制首选解析,搬走=守护/钩子链失去 git;其余 logs/traces 约 2G 属该 IDE 自管(§26 明示不代管)。
 - `.qoder-cn` / `.qoder`:本会话宿主状态(含记忆),改道即丢。
-- `~/.ihui` 1.2M:4 处 `homedir()` 硬编(`workspace-ai-service.ts:38`、`workspace-ai.ts:714/730/807`、
-  `announcements/index.ts:117`、`refresh-cli-token.mjs:34`)与 `IHUI_HOME` 并存,单改环境会双根分裂,须先改码。
+- **`~/.ihui` 已改道,且不改一行业务代码**:693 文件复制后逐项校验 0 差异 → 删源 → `mklink /J` 到
+  `D:\DevEnv\cache\userhome\.ihui`。放弃"设 `IHUI_HOME`"路线的原因(子代理取证,纠正我原先"4 处硬编"的判断):
+  `IHUI_HOME` 在本仓有**两套互斥语义** —— `apps/cli/src/plugins/paths.ts:31` 视其为**家目录**(再拼 `.ihui`),
+  而 `apps/cli/src/tools/mcp-oauth.ts:43`、`mcp-credentials.ts:26`、`apps/ai-service/app/core/message_history.py:33`
+  视其为**状态目录本身**;另有 `workspace-ai-service.ts:38/252/2578`(第 5 个 github_token 读写点在 service 层,
+  原计划漏了)、`workspace-ai.ts:714/730/807`、`announcements/index.ts:117`、`refresh-cli-token.mjs:34`
+  与 `apps/cli` 内**约 30 处**裸 `os.homedir()`(多为模块级 const,import 时求值 → 改 env 对已加载模块无效)。
+  实测本机 `~/.ihui` 内**既无 settings.json 也无 github_token**,且 `IHUI_HOME` 在所有 .env/CI/Docker/ shell 中从未设置
+  → 为 1.2MB 做 35 文件重构 + 翻转 `plugin-marketplace.test.ts:114-129` 钉死的断言,风险收益严重不对称;junction 对硬编码路径同样生效。
+  语义统一作为独立技术债记此,不混入本策略。
 - 死代码上报:`scripts/kill-git-selector-hidden.vbs` 包装的 `kill-git-selector.ps1` 仓库里不存在;
   `scripts/release-desktop-local.mjs:67,74` 依赖的 `%USERPROFILE%\.tauri\ihui-updater.key` 本机缺失
   → 桌面端发布在此机必失败,需发布机或补生成密钥。
