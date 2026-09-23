@@ -2859,6 +2859,14 @@ setext 标题下划线、表格分隔、ASCII 示意图里都是合法内容,只
 
 另两处同期根治:**Alertmanager 邮件通道**——实测 Alertmanager **不展开**配置里的 `${VAR}`(写 `${X}` 直接 `not a valid duration`),所以"占位符 + 注释说需 env 注入"的旧配置文件永远发不出信;现改为 `alertmanager.yml.tmpl` + `scripts/render-alertmanager-config.mjs` **先渲染再挂载**,TLS 形态由端口推导、发信账号单占位符同时喂 from/username、密码优先走 `smtp_auth_password_file` 以做到零落盘,渲染产物含凭据故被 `.gitignore` 钉住且渲染器写盘前先 `git check-ignore` 自证。**`POST /v1/messages` 全族**——出站体与 ai-service 的 pydantic 模型三处不齐、且上游每个端点都套 `{code,message,data}` 壳而转发层按裸 JSON 读 ⇒ `messageId` 恒空、`HTTP 200 + code=500` 被当成功、`subscribe` 更是**静默建了一条没有回调地址的死订阅**(不 422);现全部显式映射 + 拆壳,`channel` 收紧为枚举(值域从 `.py` 源码解析做跨语言对账),并把原来挂在**生产从不存在的 `prefix:'/v1'`** 上的假绿用例改到真实挂载点。
 
+### 同日再收口:bridge 邮件腿 + Server酱假成功 + SQLi 子串误杀(2026-09-23 深夜,O29 续)
+
+- **基础设施告警现在有带样式的邮件出口**:`monitoring/alertbridge/alert-webhook-bridge.cjs` 原本**零邮件出口**(`execFileSync` 声明后从未使用 = 半途接线痕迹)。现与微信**并行扇出**,正文一律经 ops 唯一出口 `apps/api/scripts/notify-deploy-failure.ts`(即 `renderSystemAlertEmail`),零手抄版式;去重与微信共用同一个 `partitionAlerts()` 结论与 `SCT_DEDUP_MIN` 窗口(不造第二份状态),邮件另立日预算(默认 10/天,与微信 `SCT_DAILY_BUDGET=4` 互不侵占)。派发器改**异步 `spawn` + `windowsHide`**:第一版用 `spawnSync` 会把 tsx 冷启 + SMTP 握手几十秒钉在事件循环上 —— 与守门 80 那起 80 分钟挂起同型。`BRIDGE_MAIL_ENABLED=0` 只关邮件腿,不牵连微信(实测两腿互不影响)。
+- **Server酱"假成功"已修**:旧 `pushServerChan` 对"HTTP 2xx + 非 JSON / 缺 `code|errno|status`"也记 `[push] 已推送到微信`,而 Server酱拒绝错误 key 时回的正是这种形态 ⇒ **发不出去却记成功**,值班以为告警已达(生产日志实测出现过 `超过当天的发送次数限制[5]` 被旧判据放成成功)。新判据只认明确成功信号,非 JSON/HTML/空体/缺字段一律失败并留脱敏原因。
+- **全站 SQLi 子串误杀已修**:`InputValidator.checkSqlInjection` = "含 `' \" ;` ∧ 关键字**子串**",于是 `IHUI-CORE`(含 `OR`)、`brand`/`Android`(含 `AND`)、`SETTINGS`/`ASSET`(含 `SET`)这类正常词只要带分号就 400 —— 实测一封正常品牌邮件正文被拦,**信根本发不出去**。现关键字侧改为词边界 + 注入结构签名(12 条),字符门一字未放宽:同一批样例旧判误杀 **12/16** → 新判 **0/16**,20 条真载荷 **0 漏放**且**多拦 3 条**(时间盲注、存储过程)。旧死判据连同其关键字表已从 `security-service.ts` 删除,不留"一被调就重演误杀"的后门。非 AI 路径刻意**不**加 `--` 注释符特征:纯文本邮件的签名分隔符就是裸 `-- `(RFC 3676)。
+- **源-运行分裂收口**:`deploy/prod-bundle/alert-webhook-bridge.cjs` 手工副本已落后 11 天且藏真缺陷(去重命中时 `return { skipped: toDedupCount }` 抛 ReferenceError ⇒ 对 Alertmanager 回 500)。现改为**转发器**(`require` 入库源码,路径由 `__dirname` 推导)—— 复制只能修今天,转发器让"改源码忘同步"在结构上不存在。
+- 取证:bridge `--self-test` **49/49**(入库源码与转发器分别跑同一份代码各 49/49)、`apps/api/tests/sqli-guard.test.ts` **44 passed** 且邻接 `csrf / mail-routes / prompt-injection-guard` 同跑 **102 passed**、守门 81 全量 0 违规、守门 52/80 全量 0 违规、水印 verify 完整。
+
 ### 工作区存续自愈(`scripts/heal-worktree-tracked.mjs`,2026-09-23)
 
 守门只能"拦住",这一层负责"补回来"。本机宿主清理层会**成批删除工作区里的已跟踪目录**——实测同一天三轮:137 个 → 27 个 → 1 个,命中 `tests/`、`__tests__/` 整目录与安装器位图资源。缺失只体现为 `git status` 一片 ` D`,而**下一次提交就会把这些文件从版本树里删掉**,等价于一次静默回滚。`.git` 指针、真 gitdir、嵌套 ref 早有 `git-guardian` 分层自愈,工作区文件存续性此前是空白。
