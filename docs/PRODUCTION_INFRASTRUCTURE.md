@@ -99,7 +99,7 @@
 | api (blue) | 8802 | ihui/api:latest | `/api/health` | Fastify REST |
 | api (green) | 8804 | ihui/api:latest | `/api/health` | Fastify REST (蓝绿备用) |
 | ai-service | 8803 | ihui/ai-service:latest | `/health` | FastAPI Python |
-| postgres | 5432 | pgvector/pgvector:pg18 | `pg_isready` | 主数据库 |
+| postgres | 5432 | postgres:16-alpine | `pg_isready` | 主数据库 |
 | redis | 6379 | redis:7-alpine | `redis-cli ping` | 缓存 + 队列 |
 | prometheus | 9090 | prom/prometheus:v2.50.0 | `/-/healthy` | 指标采集 |
 | grafana | 3001 | grafana/grafana:10.2.0 | `/api/health` | 可视化 |
