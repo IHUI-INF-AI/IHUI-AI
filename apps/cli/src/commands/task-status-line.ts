@@ -2,6 +2,9 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+
 /**
  * 任务进度状态行 —— CLI 端渲染层(薄)。
  *
@@ -440,23 +443,6 @@ export function injectionNoteText(event: InjectionAppliedEvent): string {
 }
 
 /** D39 重试交代:retryInMs=0 是"换 key 立即重试",措辞不得写"0 秒后继续"这种假精确 */
-/**
- * G-153(WorkBuddy 一手对标):权限档必须交代**后果**,只报档名等于让用户盲选。
- * 未知档返回空串(调用方据此不打印) —— 不给一个回显键名的假说明。
- */
-const PERM_NOTE_KEYS: Record<string, string> = {
-  default: 'cli.permNoteDefault',
-  plan: 'cli.permNotePlan',
-  acceptEdits: 'cli.permNoteAcceptEdits',
-  bypassPermissions: 'cli.permNoteBypass',
-  manual: 'cli.permNoteManual',
-};
-
-export function permissionModeNote(mode: string): string {
-  const key = PERM_NOTE_KEYS[mode];
-  return key ? t(key) : '';
-}
-
 /**
  * #11 引用溯源的终端一行。source/label 都是**内容**不是界面 chrome,故原样列出;
  * 界面措辞(前缀"参考来源:")仍出自 cli.citationSources 词表,不写死中文。
