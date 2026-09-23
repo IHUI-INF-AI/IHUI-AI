@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
   },
   name: {
     marginTop: 6,
-    maxWidth: 56,
+    maxWidth: 80,
     fontSize: 12,
     color: tokens.text.secondary,
     textAlign: 'center',
