@@ -26,6 +26,7 @@ import * as ImagePicker from 'expo-image-picker'
 import * as DocumentPicker from 'expo-document-picker'
 import { Asset } from 'expo-asset'
 import {
+  type LucideIcon,
   BookOpen,
   Bot,
   Camera,
@@ -87,6 +88,7 @@ import {
   type StudyProgress,
 } from '@ihui/api-client'
 import {
+  CategoryInlineBar,
   HomeScreen as SharedHomeScreen,
   type HomeLiveItem,
   type HomeMenuItem,
@@ -135,6 +137,7 @@ import MyAgents, { type MyAgentItem } from '../components/MyAgents'
 import IntelligentAssistant from '../components/IntelligentAssistant'
 import { useAuth } from '../context/AuthContext'
 import { useNetwork } from '../context/NetworkContext'
+import { useTheme } from '../context/ThemeContext'
 import { useNotificationStore } from '../stores/notification'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -600,6 +603,7 @@ export function HomeScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
   const { user } = useAuth()
+  const { resolvedTheme } = useTheme()
   const { connected, unreadCount, setVisible } = useNotificationStore()
   // OfflineBanner 数据源:用 NetworkContext 的 fetch 探测(/api/health),而非 WebSocket 通知连接状态。
   // 通知 WS 断开 ≠ 网络断开(REST 数据仍可正常加载),语义必须区分。
@@ -1676,42 +1680,23 @@ export function HomeScreen() {
         </TouchableOpacity>
       ) : null}
       {/* ModelTypeBar 模型类型选择栏(对齐 Uniapp BottomActionBar 8 种 model-type-btn 行 44-97)
-       *  横向 ScrollView 8 个图标按钮;点击同类型收起、不同类型切换(对齐 handleModelTypeClick 互斥)
+       *  统一走 CategoryInlineBar;点击同类型收起、不同类型切换(对齐 handleModelTypeClick 互斥)
        *  selectedModel 显示为输入区小标签(对齐 Uniapp modelName 显示) */}
       <View style={shellStyles.modelTypeBar}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingRight: rpx(16) }}
-        >
-          {MODEL_TYPES.map((opt) => {
-            const active = activeModelType === opt.type
-            return (
-              <TouchableOpacity
-                key={opt.type}
-                style={[shellStyles.modelTypeBtn, active ? shellStyles.modelTypeBtnActive : null]}
-                onPress={() => handleModelTypePress(opt.type)}
-                activeOpacity={0.7}
-                accessibilityRole="button"
-                accessibilityLabel={opt.label}
-              >
-                {typeof opt.icon === 'string' ? (
-                  <Text style={shellStyles.modelTypeIcon}>{opt.icon}</Text>
-                ) : opt.icon ? (
-                  <opt.icon size={14} color={tokens.text.primary} />
-                ) : null}
-                <Text
-                  style={[
-                    shellStyles.modelTypeLabel,
-                    active ? shellStyles.modelTypeLabelActive : null,
-                  ]}
-                >
-                  {opt.label}
-                </Text>
-              </TouchableOpacity>
-            )
-          })}
-        </ScrollView>
+        <CategoryInlineBar
+          items={MODEL_TYPES.map((opt) => ({
+            id: opt.type,
+            label: opt.label,
+            // MODEL_TYPES 八项均为 lucide 组件;string 分支在本表为死配置(组件仅收 lucide/图片)
+            icon: typeof opt.icon === 'string' ? undefined : (opt.icon as LucideIcon),
+          }))}
+          selectedId={activeModelType}
+          onSelect={(id) => handleModelTypePress(id as ModelType)}
+          colorScheme={resolvedTheme}
+          contentPaddingHorizontal={0}
+          itemGap={rpx(12)}
+          testID="home-model-type-bar"
+        />
         {selectedModel ? (
           <View style={shellStyles.selectedChipRow}>
             <View style={shellStyles.selectedChip}>
@@ -2167,30 +2152,6 @@ const shellStyles = {
     borderTopColor: tokens.border.light,
     paddingHorizontal: rpx(16),
     paddingVertical: rpx(12),
-  } as const,
-  modelTypeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: rpx(20),
-    paddingVertical: rpx(12),
-    marginRight: rpx(12),
-    borderRadius: rnRadius['2xl'],
-    backgroundColor: tokens.surface.muted,
-  } as const,
-  modelTypeBtnActive: {
-    backgroundColor: tokens.brand.DEFAULT,
-  } as const,
-  modelTypeIcon: {
-    fontSize: 14,
-    marginRight: rpx(8),
-  } as const,
-  modelTypeLabel: {
-    fontSize: 12,
-    color: tokens.text.secondary,
-  } as const,
-  modelTypeLabelActive: {
-    color: tokens.brand.foreground,
-    fontWeight: '600',
   } as const,
   // ── selectedChip 已选模型小标签(对齐 Uniapp modelName 显示) ──
   selectedChip: {
