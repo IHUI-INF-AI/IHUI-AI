@@ -2134,6 +2134,9 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
   if (state.rewindStack.length > 20) {
     state.rewindStack.shift();
   }
+  // avoidSeed 接线:上一轮用户输入 = push 之前 history 里最后一条 user 消息
+  // (读既有状态,不新增状态源;首轮为 undefined ⇒ 共享池走"未传"分支)
+  const previousPrompt = state.history.findLast((m) => m.role === 'user')?.content;
   state.history.push({ id: randomUUID(), role: 'user', content: prompt });
 
   const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
@@ -2170,6 +2173,7 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
       modelId: state.opts.modelId,
       prompt,
       historyLength: state.history.length,
+      previousPrompt,
     }),
   );
   waitingSpinner.start();

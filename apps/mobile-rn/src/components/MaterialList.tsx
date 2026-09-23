@@ -15,11 +15,11 @@
  * 视觉规范(rpx→dp 2:1):
  *   - 标题头 16 / 行标题 14 / 预览 12 / 时间 11 / tab 13
  *   - 缩略图 50×50(原 100rpx),圆角 4
- *   - 颜色全部走 rnLightTokens:选中 tab = brand 黑底白字;禁用 purple/indigo
+ *   - 颜色全部走 主题 token 入口:选中 tab = brand 黑底白字;禁用 purple/indigo
  *   - 触底加载用 useState + useEffect 双重护栏:避免 loading 重入 + 翻 false 后才真正派发
  *   - 类型零 any
  */
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { FileText, Image as ImageIcon, Music, Video } from 'lucide-react-native'
 import {
   FlatList,

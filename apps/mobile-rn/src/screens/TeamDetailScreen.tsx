@@ -15,7 +15,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getTeamMemberDetail, type TeamMemberDetail } from '@ihui/api-client'
 import { TeamDetailScreen, type TeamDetailScreenProps } from '@ihui/rn-app'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { useI18n } from '../i18n'
 
