@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Loader2, Check, ExternalLink, Copy, BarChart3, FilePlus2, FileDiff, FileX2 } from 'lucide-react'
+import { Loader2, Check, ExternalLink, Copy, BarChart3 } from 'lucide-react'
 import { getArtifactToken } from '@ihui/api-client'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -54,10 +54,6 @@ interface ToolCallCardProps {
   toolCallId?: string
   /** 工具瞬时失败自动重试次数(L5-8,>0 时显示"重试N次"徽章) */
   retryCount?: number
-  /** G-68 回退预判三态(D53 一并实施):本次工具调用回退时的文件影响面。
-   *  不传时从 diffInfo 自动推导(新建文件→added,有 diff→modified);删除只能显式传入,
-   *  diff 卡天然表达不了"文件将被删"。 */
-  rollbackState?: RollbackPreviewState
   /** 失败错误分类(L5-8:timeout/connection/http_5xx/http_4xx/unknown,错误时显示徽章) */
   errorType?: string
   /** image_generation 工具返回的图片 URL(优先于 result 渲染) */
@@ -120,68 +116,6 @@ const SUMMARY_TOOL_NAMES = new Set(['summarize_artifacts'])
 
 /** 引用溯源标签展示上限(防止 hits 过多时刷屏) */
 const MAX_CITATIONS = 8
-
-/**
- * G-68 回退预判三态(D53 一并实施,2026-09-23 立)。
- * added=将被添加 / modified=将修改 / deleted=将删除。
- * 文案键(ai.toolCall.rollbackAdded/rollbackModified/rollbackDeleted)由主 agent 统一入词表,
- * 本任务只引用不建键(见交付物词表键清单)。
- */
-export type RollbackPreviewState = 'added' | 'modified' | 'deleted'
-
-/** 回退态归一:显式传入优先;否则有 diff 时新建文件→added、有旧内容→modified;无 diff 返回 null(不渲染)。 */
-export function resolveRollbackPreviewState(args: {
-  rollbackState?: RollbackPreviewState
-  isNewFile?: boolean
-  hasDiff: boolean
-}): RollbackPreviewState | null {
-  if (args.rollbackState) return args.rollbackState
-  if (!args.hasDiff) return null
-  return args.isNewFile ? 'added' : 'modified'
-}
-
-const ROLLBACK_BADGE_STYLE: Record<
-  RollbackPreviewState,
-  { chip: string; key: 'rollbackAdded' | 'rollbackModified' | 'rollbackDeleted'; testId: string }
-> = {
-  added: {
-    chip: 'border-green-500/25 bg-green-500/10 text-green-700 dark:text-green-400',
-    key: 'rollbackAdded',
-    testId: 'rollback-badge-added',
-  },
-  modified: {
-    chip: 'border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-400',
-    key: 'rollbackModified',
-    testId: 'rollback-badge-modified',
-  },
-  deleted: {
-    chip: 'border-red-500/25 bg-red-500/10 text-red-700 dark:text-red-400',
-    key: 'rollbackDeleted',
-    testId: 'rollback-badge-deleted',
-  },
-}
-
-const ROLLBACK_BADGE_ICON: Record<RollbackPreviewState, typeof FilePlus2> = {
-  added: FilePlus2,
-  modified: FileDiff,
-  deleted: FileX2,
-}
-
-/** G-68 回退三态徽章:图标(lucide)+ 文案,色调按 added/modified/deleted 区分。 */
-export function RollbackPreviewBadge({ state }: { state: RollbackPreviewState }) {
-  const t = useTranslations('ai.toolCall')
-  const style = ROLLBACK_BADGE_STYLE[state]
-  const Icon = ROLLBACK_BADGE_ICON[state]
-  return (
-    <span
-      data-testid={style.testId}
-      className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-medium leading-4 ${style.chip}`}
-    >
-      <Icon className="h-3 w-3" />
-      <span>{t(style.key)}</span>
-    </span>
-  )
-}
 
 /** 从工具结果中提取引用溯源列表(citations)。
  *  兼容两种后端结构:
@@ -877,7 +811,6 @@ export const ToolCallCard = React.memo(function ToolCallCard({
   onReject,
   onApplyPartial,
   toolCallId,
-  rollbackState,
 }: ToolCallCardProps) {
   const [expanded, setExpanded] = React.useState(false)
   const t = useTranslations('ai.toolCall')
@@ -955,13 +888,6 @@ export const ToolCallCard = React.memo(function ToolCallCard({
   // edit_file/write_file 且有 diffInfo:展开时渲染 InlineDiffCard 替代 <pre>
   const showInlineDiff = !!diffInfo
 
-  // G-68 回退预判三态:显式传入优先,否则从 diffInfo 推导(新建→added,有旧内容→modified)
-  const rollbackPreview = resolveRollbackPreviewState({
-    rollbackState,
-    isNewFile: diffInfo?.is_new_file,
-    hasDiff: showInlineDiff,
-  })
-
   // image_generation / music_generation / video_generation / summarize_artifacts:优先于 result 渲染专用视图
   const isImageTool = IMAGE_TOOL_NAMES.has(toolName)
   const isAudioTool = AUDIO_TOOL_NAMES.has(toolName)
@@ -1027,12 +953,6 @@ export const ToolCallCard = React.memo(function ToolCallCard({
       />
       {expanded && (
         <StreamDetail className="animate-in fade-in-0 slide-in-from-top-1 duration-150">
-          {/* G-68 回退预判三态徽章:diff 卡顶部一行交代回退影响面 */}
-          {rollbackPreview && (
-            <div className="flex items-center gap-1.5">
-              <RollbackPreviewBadge state={rollbackPreview} />
-            </div>
-          )}
           {/* edit_file/write_file:InlineDiffCard 替代 <pre> 渲染 */}
           {showInlineDiff && diffInfo && (
             <InlineDiffCard
