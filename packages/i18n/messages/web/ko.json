@@ -7071,7 +7071,13 @@
         "rejectBlock": "이 변경 거부",
         "rejected": "거부됨",
         "resetSelection": "선택 초기화",
-        "selectedSummary": "{accepted}/{total} 선택됨"
+        "selectedSummary": "{accepted}/{total} 선택됨",
+        "stageFile": "전체 스테이징",
+        "unstageFile": "전체 스테이징 해제",
+        "stageHunk": "스테이징",
+        "unstageHunk": "스테이징 해제",
+        "staged": "스테이징됨",
+        "unstaged": "미스테이징"
       },
       "dragHandle": "드래그하여 위치 조정",
       "elapsedTitle": "경과 {time}",
@@ -7326,6 +7332,18 @@
         "targetFile": "이 변경에 댓글",
         "close": "취소",
         "pendingBanner": "코드 변경 댓글 {count}개 전송 대기 중"
+      },
+      "annotation": {
+        "placeholder": "이 답변에 주석 달기…",
+        "save": "저장",
+        "edit": "주석 편집",
+        "delete": "주석 삭제",
+        "deleteFailed": "주석을 삭제할 수 없습니다",
+        "invalid": "이 주석은 더 이상 편집할 수 없습니다",
+        "countSummary": "이 답변의 주석: {n}개",
+        "badge": "주석",
+        "lineUnit": "행",
+        "cancel": "취소"
       },
       "runtimeStatusResuming": "실행 재개 중…",
       "runtimeStatusPausing": "일시 중지 중…",
@@ -11139,7 +11157,70 @@
     "title": "API 문서",
     "toastCopied": "경로 복사 완료",
     "toastCopyFailed": "복사 실패",
-    "yes": "예"
+    "yes": "예",
+    "endpoints": {
+      "chatCompletions": "OpenAI 호환 대화",
+      "anthropicMessages": "Anthropic 호환 대화",
+      "listModels": "사용 가능한 모델 조회",
+      "rerank": "Cohere/Jina 호환 재정렬",
+      "moderations": "OpenAI 호환 콘텐츠 검토",
+      "realtime": "Realtime WebSocket 실시간 대화",
+      "midjourneyImagine": "Midjourney-Proxy 표준 인터페이스",
+      "mcpToolsCall": "MCP 게이트웨이 도구 호출",
+      "responses": "OpenAI Responses API (Cursor/Codex 호환)",
+      "batch": "OpenAI 배치 비동기 API (50% 할인)",
+      "assistants": "Assistants API v2 (서드파티 SDK 직접 연결)",
+      "audioTranslations": "Whisper 음성 번역",
+      "fineTuningJobs": "파인튜닝 작업 관리",
+      "files": "파일 관리 CRUD",
+      "statusOverview": "공개 상태 페이지 - 시스템 개요",
+      "statusModels": "공개 상태 페이지 - 모델 가용성",
+      "statusIncidents": "공개 상태 페이지 - 이벤트 목록",
+      "apiKeyShares": "API Key 임시 공유 (시간 제한 token)",
+      "exportOrdersCsv": "충전 주문 CSV 내보내기",
+      "exportRelayLogsCsv": "호출 로그 CSV 내보내기",
+      "developerConversations": "릴레이 스테이션 대화 기록 목록"
+    },
+    "sections": {
+      "quickStart": "빠른 시작 (5분 연동)",
+      "auth": "인증 방식",
+      "endpointList": "엔드포인트 목록",
+      "rateLimit": "속도 제한",
+      "billing": "과금 안내"
+    },
+    "steps": {
+      "step1Title": "1. 가입 및 로그인",
+      "step1Desc": "— 계정을 등록하고 로그인합니다",
+      "step2Title": "2. Key 발급",
+      "step2Desc": "— 개발자 센터 → 키 관리 → 새 키 생성",
+      "step3Title": "3. API 호출",
+      "step3Desc": "— 아래 sk-xxx 를 바꾸면 첫 요청을 보낼 수 있습니다"
+    },
+    "auth": {
+      "descPrefix": "요청 시 Header 에 ",
+      "descMid": " 값을 포함해야 합니다 (Anthropic 엔드포인트는 ",
+      "descSuffix": " 도 지원합니다)."
+    },
+    "rateLimit": {
+      "tiers": "무료 20 QPM · 기본 60 QPM · 프로 200 QPM · 엔터프라이즈 1000 QPM",
+      "overLimitPrefix": "한도를 초과하면 오류 코드",
+      "overLimitSuffix": "(HTTP 429) 를 반환합니다."
+    },
+    "billing": {
+      "promptCacheTerm": "Prompt Cache 할인",
+      "promptCacheDesc": ": 캐시에 적중한 입력 token 은 0.1 배로 과금됩니다.",
+      "responseCacheTerm": "응답 캐시 (Redis)",
+      "responseCacheDesc1": ": 비스트리밍 chat completions 가 캐시에 적중하면 비용이 0 입니다 (응답 헤더",
+      "responseCacheDesc2": "), 캐시를 건너뛰려면",
+      "responseCacheDesc3": "를 사용하세요.",
+      "tieredTerm": "구간별 과금",
+      "tieredDesc": ": 한 요청의 token 이 많을수록 단가가 낮아집니다 (가격 페이지 참고).",
+      "groupRateTerm": "그룹 배율",
+      "groupRateDesc": ": 모델 그룹별 배율로 과금합니다 (예: Claude 1.2x, GPT-4o 1.0x).",
+      "rerankDesc": ": input tokens 기준 과금, output tokens 는 0 입니다.",
+      "unit": "과금 단위는 Token, 1 Token ≈ 0.75 자 (중국어), 잔액이 부족하면",
+      "unitSuffix": "를 반환합니다."
+    }
   },
   "developerBillingPage": {
     "add": "추가",
@@ -14074,7 +14155,61 @@
     "total": "총 {total}개",
     "buyConfirm": "구매 확인",
     "paymentConfirm": "결제 확인",
-    "review": "editorial content attribute"
+    "review": "editorial content attribute",
+    "tutor": {
+      "title": "AI 조교",
+      "subject": "교과",
+      "mode": "모드",
+      "subjectMath": "수학",
+      "subjectPhysics": "물리",
+      "subjectChemistry": "화학",
+      "subjectBiology": "생물",
+      "subjectEnglish": "영어",
+      "subjectHistory": "역사",
+      "subjectGeography": "지리",
+      "modeExplain": "설명",
+      "modeHint": "힌트",
+      "modeQuiz": "출제",
+      "quizDirection": "출제 방향 (선택)",
+      "yourQuestion": "질문",
+      "quizPlaceholder": "예: 이차함수 그래프의 성질",
+      "questionPlaceholder": "예: 피타고라스 정리는 어떻게 증명하나요?",
+      "generateQuiz": "문제 만들기",
+      "ask": "질문하기",
+      "knowledgePoints": "핵심 개념",
+      "followUp": "심화 사고",
+      "nextStep": "다음 단계",
+      "quizCount": "연습 문제 {count}개를 생성했습니다",
+      "answerValue": "정답: {answer}",
+      "emptyHint": "교과와 모드를 선택한 뒤 질문을 입력해 보세요."
+    },
+    "dailyReview": {
+      "loading": "불러오는 중…",
+      "title": "오늘의 복습",
+      "subtitle": "SM-2 간격 반복 알고리즘 기반, 장기 기억을 다집니다.",
+      "qualityForgotten": "완전히 잊음",
+      "qualityFailed": "실패",
+      "qualityUncertain": "아슬아슬",
+      "qualityGood": "좋음",
+      "qualityPerfect": "완벽",
+      "statDue": "복습 예정",
+      "statReviewedToday": "오늘 복습 완료",
+      "statStreak": "연속 일수",
+      "statAvgDifficulty": "평균 난이도",
+      "finishedTitle": "오늘의 복습을 마쳤습니다",
+      "finishedHint": "{count}개 문제를 완료했어요. 이 리듬을 이어가세요!",
+      "questionProgress": "{total}개 중 {current}번째 문제",
+      "questionLabel": "문제",
+      "selfAssess": "떠올린 뒤 자기 평가",
+      "submitting": "등록 중…",
+      "answerLabel": "정답",
+      "explanationLabel": "해설",
+      "nextReview": "다음 복습",
+      "intervalDays": "간격(일)",
+      "easeFactor": "난이도 계수",
+      "nextQuestion": "다음 문제",
+      "progressLine": "복습 진도: {done} / {total}"
+    }
   },
   "learnBuyConfirmPage": {
     "actualPay": "실결제",
@@ -15314,7 +15449,8 @@
     "apiDocs": {
       "auth": {
         "desc": "모든 API 요청은 Header에 Bearer Token을 포함해야 합니다. Token은 API 키 페이지에서 생성할 수 있습니다.",
-        "title": "인증 방식"
+        "title": "인증 방식",
+        "headerFormat": "# Header 형식"
       },
       "copyCodeAriaLabel": "코드 복사",
       "curlPlaceholder": "cURL 명령을 입력하여 테스트…",
@@ -23109,7 +23245,154 @@
   },
   "rules": {
     "title": "규칙",
-    "description": "플랫폼 규칙 및 사양"
+    "description": "플랫폼 규칙 및 사양",
+    "totalRulesSorted": "총 {n}개 규칙, 우선순위 내림차순 정렬",
+    "autoGenerate": "자동 생성",
+    "detectConflicts": "충돌 감지",
+    "knowledgeGraph": "지식 그래프",
+    "abTest": "A/B 테스트",
+    "globalStats": "전역 통계",
+    "templateLibrary": "템플릿 라이브러리",
+    "newRule": "새 규칙",
+    "emptyHint": "규칙이 없습니다. '새 규칙'을 눌러 만드세요",
+    "disabled": "비활성",
+    "enabled": "활성",
+    "hitCount": "적중 {n}회",
+    "detail": "세부 정보",
+    "test": "테스트",
+    "edit": "편집",
+    "confirmDelete": "삭제 확인",
+    "cancelDelete": "삭제 취소",
+    "hit": "적중",
+    "noMatch": "적중 없음",
+    "noMatchNoOutput": "(적중 없음, 출력 없음)",
+    "ruleA": "규칙 A",
+    "selectRuleA": "규칙 A 선택",
+    "ruleB": "규칙 B",
+    "selectRuleB": "규칙 B 선택",
+    "testMessage": "테스트 메시지",
+    "inputTestMessage": "테스트 메시지 입력...",
+    "testing": "테스트 중...",
+    "runTest": "테스트 실행",
+    "autoGenerateTitle": "규칙 자동 생성",
+    "autoGenerateHint": "최근 7일 사용자 행동 패턴에서 LLM이 후보 규칙을 추출합니다. 선택 후 일괄 생성",
+    "startAnalyzeBehavior": "행동 패턴 분석 시작",
+    "analyzingBehavior": "LLM이 행동 패턴을 분석 중...",
+    "degradedNoCandidates": "축소 모드: LLM을 사용할 수 없어 후보 목록이 비어 있습니다",
+    "analyzedGenerated": "행동 기록 {behaviors}건을 분석해 후보 규칙 {candidates}개를 생성",
+    "noCandidates": "후보 규칙 없음(행동 데이터 부족 또는 LLM 사용 불가)",
+    "confidencePercent": "신뢰도 {pct}%",
+    "selectedOfTotal": "{selected} / {total}개 선택됨",
+    "creating": "생성 중...",
+    "batchCreateCount": "일괄 생성({n})",
+    "negotiationFailed": "협의 실패: {msg}",
+    "conflictNameConflict": "이름 충돌",
+    "conflictSemanticDuplicate": "의미 중복",
+    "conflictPriorityCollision": "우선순위 충돌",
+    "conflictDetectTitle": "규칙 충돌 감지",
+    "detecting": "감지 중...",
+    "noConflict": "충돌이 감지되지 않았습니다. 규칙 세트는 정상입니다",
+    "detectedConflictsHint": "{n}개 충돌 감지. 컨텍스트를 입력하면 LLM이 협의 가능",
+    "arbitrationContextLabel": "협의 컨텍스트(현재 대화/코드 조각)",
+    "arbitrationContextPlaceholder": "LLM 중재를 위한 컨텍스트 입력...",
+    "negotiating": "협의 중...",
+    "llmNegotiate": "LLM 협의",
+    "arbitrationResult": "중재 결과:",
+    "noneLabel": "없음",
+    "degraded": "축소",
+    "mergeSuggestion": "병합 제안: {text}",
+    "axisDays30": "30일",
+    "axisDays7": "7일",
+    "positiveCount": "긍정 {n}",
+    "negativeCount": "부정 {n}",
+    "totalRows": "총 {n}개",
+    "diffNone": "(차이 없음)",
+    "loadFailed": "불러오기 실패",
+    "rollbackSuccess": "롤백 성공",
+    "rollbackFailed": "롤백 실패: {msg}",
+    "feedbackRecorded": "피드백 기록됨",
+    "feedbackFailed": "피드백 실패: {msg}",
+    "predictFailed": "예측 실패: {msg}",
+    "learnFeedbackRecorded": "학습 피드백 기록됨",
+    "ruleDetailTitle": "규칙 세부 정보: {name}",
+    "tabStats": "효과 통계",
+    "tabHistoryCount": "버전 기록({n})",
+    "tabPredict": "효과 예측",
+    "statMatchCount": "적중 횟수",
+    "statHits7d": "7일 적중",
+    "statHits30d": "30일 적중",
+    "statAvgToken": "평균 token",
+    "hitRateCompare": "적중률 비교",
+    "satisfactionPercent": "만족도({pct}%)",
+    "feedbackLabel": "피드백:",
+    "useful": "유용",
+    "useless": "무용",
+    "noVersionHistory": "버전 기록 없음",
+    "compareToPrev": "이전 버전과 비교",
+    "rollingBack": "롤백 중...",
+    "rollback": "롤백",
+    "predictHint": "테스트 프롬프트를 입력하면 규칙 적용 전후 LLM 출력을 dry-run으로 비교",
+    "predictPromptPlaceholder": "테스트 프롬프트 입력...",
+    "predicting": "예측 중...",
+    "runPredict": "예측 실행",
+    "statTokenDelta": "토큰 차이",
+    "statOutputDiff": "출력 차이도",
+    "statQualityScore": "품질 점수",
+    "suggestionLabel": "제안:",
+    "recDisable": "활성화 안 함",
+    "recNeutral": "중립",
+    "degradedMode": "축소 모드",
+    "withoutRule": "규칙 미적용",
+    "withRule": "규칙 적용",
+    "learnFeedbackLabel": "학습 피드백:",
+    "helpful": "도움이 됨",
+    "unhelpful": "도움이 안 됨",
+    "harmful": "유해",
+    "editRuleTitle": "규칙 편집",
+    "fieldLabelName": "이름",
+    "ruleNamePlaceholder": "규칙 이름",
+    "fieldLabelDescription": "설명(선택)",
+    "briefDescriptionPlaceholder": "짧은 설명",
+    "fieldLabelScope": "범위",
+    "scopeGlobal": "전역",
+    "scopeWorkspace": "작업 공간",
+    "fieldLabelPriority": "우선순위",
+    "fieldLabelMatchType": "유형",
+    "matchAlways": "항상 주입",
+    "matchKeyword": "키워드",
+    "matchRegex": "정규식",
+    "matchSemantic": "의미",
+    "fieldLabelMatchPattern": "매칭 패턴",
+    "matchPatternKeywordPlaceholder": "키워드1,키워드2",
+    "matchPatternRegexPlaceholder": "정규 표현식",
+    "matchPatternSemanticPlaceholder": "자연어 설명",
+    "fieldLabelContent": "규칙 본문",
+    "contentPlaceholder": "규칙 본문(markdown, 프롬프트로 agent에 주입)...",
+    "saving": "저장 중...",
+    "statTotalRules": "전체 규칙 수",
+    "statActiveRules7d": "7일 활성 규칙",
+    "topRulesTitle": "자주 쓰는 규칙 Top {n}",
+    "ruleList": "규칙 목록",
+    "noHitRecords": "적중 기록 없음",
+    "timesCount": "{n}회",
+    "knowledgeGraphTitle": "규칙 지식 그래프",
+    "buildingGraph": "그래프 빌드 중...",
+    "kgConflict": "충돌",
+    "kgDuplicate": "중복",
+    "kgComplementary": "상보",
+    "graphNodeEdgeCounts": "노드 {nodes} / 엣지 {edges}",
+    "noRulesToBuildGraph": "규칙이 없어 그래프를 빌드할 수 없음",
+    "relationList": "관계 목록",
+    "templateLibraryTitle": "규칙 템플릿 라이브러리",
+    "loadingTemplates": "템플릿 불러오는 중...",
+    "templateCountHint": "기본 템플릿 {n}개. '사용'을 눌러 규칙을 빠르게 생성",
+    "use": "사용",
+    "testRuleTitle": "규칙 테스트: {name}",
+    "inputMessage": "메시지 입력",
+    "matchHit": "일치 적중",
+    "pageTitle": "규칙 관리",
+    "metaDescription": "사용자 정의 규칙을 관리해 AI agent의 실행 시 행동 제한",
+    "pageSubtitle": "사용자가 편집할 수 있는 규칙 세트. agent 실행 시 조건에 따라 system prompt에 동적 주입"
   },
   "automations": {
     "delete": "삭제",
@@ -23648,5 +23931,319 @@
     "goSettings": "모델 설정",
     "securityNote": "키는 본인 계정 설정에만 저장되며 해당 공급자 연결에만 사용됩니다. 키를 공개적으로 공유하지 마세요.",
     "startChat": "설정 완료 — 대화 시작"
+  },
+  "apiDocs": {
+    "curlPlaceholder": "cURL 명령을 입력하여 테스트…",
+    "searchPlaceholder": "API 검색…",
+    "copyCodeAriaLabel": "코드 복사",
+    "sampleUserText": "안녕하세요",
+    "sampleStoryText": "이야기 한 편",
+    "sampleProdNote": "// 운영 환경에서는 UI 표시로 교체하세요",
+    "parseFailed": "curl 명령을 해석할 수 없습니다. 형식을 확인하세요(-d JSON body 필요).",
+    "curlLinkTitle": "curl과 Playground 연동",
+    "curlLinkDesc": "curl 명령을 붙여 넣으면 model / messages / temperature / max_tokens를 자동 해석해 Playground에서 엽니다.",
+    "resetSample": "예제 재설정",
+    "openInPlayground": "Playground에서 열기",
+    "errorCodesTitle": "에러 코드",
+    "errorCodesDesc": "모든 API 오류 코드와 HTTP 상태코드의 의미 및 수정 제안, 검색 지원.",
+    "meaningCol": "의미",
+    "fixCol": "수정 제안",
+    "noMatchedErrorCodes": "일치하는 오류 코드가 없습니다",
+    "sdkExamplesTitle": "SDK 예제",
+    "codeCopied": "코드를 복사했습니다",
+    "copyFailed": "복사 실패",
+    "hideKey": "Key 숨기기",
+    "showKey": "Key 표시",
+    "keyFilledHint": "예제에 사용자의 API Key{state}이(가) 채워졌습니다.",
+    "keyStatePlain": "(원문)",
+    "keyStateMasked": "(가려짐 — 복사 후 전체 Key로 교체하세요)",
+    "exampleBasicOpenai": "기본 호출(OpenAI 형식)",
+    "exampleStreaming": "스트리밍 응답",
+    "exampleAnthropic": "Anthropic 형식",
+    "errorCodes": {
+      "c1000": {
+        "meaning": "API Key가 유효하지 않습니다",
+        "fix": "Authorization: Bearer ihui_xxx 헤더를 확인하세요"
+      },
+      "c1001": {
+        "meaning": "API Key가 만료되었습니다",
+        "fix": "Key를 다시 생성하거나 관리자에게 갱신을 요청하세요"
+      },
+      "c1002": {
+        "meaning": "IP가 허용 목록에 없습니다",
+        "fix": "Key 설정에서 IP를 추가하세요"
+      },
+      "c1003": {
+        "meaning": "모델이 허용 목록에 없습니다",
+        "fix": "Key 설정에서 모델을 추가하세요"
+      },
+      "c1004": {
+        "meaning": "QPM 제한을 초과했습니다",
+        "fix": "구독 상품을 올리거나 호출 빈도를 낮추세요"
+      },
+      "c1005": {
+        "meaning": "잔액이 부족합니다",
+        "fix": "충전 또는 교환 코드로 충전하세요"
+      },
+      "c1006": {
+        "meaning": "요청 token이 제한을 초과했습니다",
+        "fix": "max_tokens를 낮추거나 요청을 분리하세요"
+      },
+      "c1007": {
+        "meaning": "모델별 RPM 제한을 초과했습니다",
+        "fix": "해당 모델의 호출 빈도를 낮추거나 그룹을 업그레이드하세요"
+      },
+      "c1008": {
+        "meaning": "모델별 TPM 제한을 초과했습니다",
+        "fix": "해당 모델의 token 사용량을 낮추거나 그룹을 업그레이드하세요"
+      },
+      "c1009": {
+        "meaning": "API Key가 이 테넌트에 속하지 않습니다",
+        "fix": "Key와 테넌트 바인딩을 확인하세요"
+      },
+      "c1010": {
+        "meaning": "Key 등급 창(5h/1d/7d) 호출 수 제한을 초과했습니다",
+        "fix": "응답의 Retry-After와 X-RateLimit-*에 따라 재시도하거나 창 내 빈도를 낮추세요"
+      },
+      "secretRequired": {
+        "meaning": "X-Api-Secret 헤더가 없습니다(기본 필수)",
+        "fix": "Key 생성/회전 시 한 번 반환되는 secret을 포함하세요. 전환 기간에는 서버에서 API_KEY_REQUIRE_SECRET=false로 완화할 수 있습니다"
+      },
+      "rateBackendUnavailable": {
+        "meaning": "유량 제한 백엔드를 사용할 수 없어 fail-close로 거부되었습니다",
+        "fix": "Retry-After(기본 5초) 후 재시도하세요. 과금/고위험 기능만 거부되며 저위험 읽기는 완화해 통과합니다"
+      },
+      "dataAccessDenied": {
+        "meaning": "이 능력의 dataClass로 이 데이터 테이블에 접근할 수 없습니다(또는 테이블 이름 판정 불가)",
+        "fix": "능력 디렉터리의 dataClass를 확인하세요: compute는 실행 기록만 생성하며, 업무 데이터 읽기는 scoped-read를 경유해야 합니다"
+      },
+      "dataScopeDenied": {
+        "meaning": "문이 소유 경계를 넘었습니다(owner 술어 누락 또는 타인 리소스 ID 바인딩)",
+        "fix": "호출자 자신의 리소스만 조회/작성하세요. owner/tenant 경계 접근은 금지됩니다"
+      },
+      "dataIsolationUnavailable": {
+        "meaning": "데이터 격리 전제가 성립하지 않습니다(연결이 수퍼유저이거나 증명할 수 없음)",
+        "fix": "서버는 수퍼유저가 아닌 계정으로 DB에 연결해야 합니다. 클라이언트에서 재시도하지 말고 관리자에게 문의하세요"
+      },
+      "c2001": {
+        "meaning": "상위 서비스가 사용할 수 없습니다",
+        "fix": "잠시 후 재시도하세요. 시스템이 자동으로 장애 조처합니다"
+      },
+      "c2002": {
+        "meaning": "상위 시간 초과",
+        "fix": "max_tokens를 낮추거나 네트워크를 확인하세요"
+      },
+      "c2003": {
+        "meaning": "상위 부하 과다",
+        "fix": "잠시 후 재시도하세요"
+      },
+      "c2004": {
+        "meaning": "Realtime WebSocket 상위 오류",
+        "fix": "모델의 realtime 지원 여부와 네트워크 연결을 확인하세요"
+      },
+      "c2005": {
+        "meaning": "Midjourney 상위 오류",
+        "fix": "midjourney-proxy 온라인 여부와 작업 파라미터를 확인하세요"
+      },
+      "c2006": {
+        "meaning": "MCP 도구 호출 실패",
+        "fix": "MCP 서버 상태와 도구 이름 존재 여부를 확인하세요"
+      },
+      "c3001": {
+        "meaning": "요청 파라미터 오류",
+        "fix": "messages 형식을 확인하세요"
+      },
+      "c3002": {
+        "meaning": "모델이 존재하지 않습니다",
+        "fix": "GET /v1/models로 사용 가능한 모델을 확인하세요"
+      },
+      "c5013": {
+        "meaning": "상위 채널이 설정되지 않았습니다",
+        "fix": "관리자에게 rerank/moderations 상위 설정을 요청하세요"
+      }
+    }
+  },
+  "playground": {
+    "needApiKey": "먼저 API Key를 입력하세요",
+    "needModel": "모델을 선택하거나 입력하세요",
+    "needValidMessage": "유효한 메시지를 1개 이상 입력하세요",
+    "callFailed": "호출 실패",
+    "send": "보내기",
+    "modeSse": "· SSE",
+    "modeNonStream": "· 비스트리밍",
+    "messageList": "메시지 목록",
+    "messageCount": "{n}개",
+    "moveUp": "위로 이동",
+    "moveDown": "아래로 이동",
+    "deleteMessage": "메시지 삭제",
+    "inputRoleContent": "{role} 메시지 내용을 입력하세요…",
+    "addMessage": "메시지 추가",
+    "modelsFetchFailed": "모델 목록 가져오기 실패",
+    "apiKeyHint": "로컬에 저장되며 이번 호출에만 사용됩니다",
+    "modelLabel": "모델",
+    "refreshModelsAria": "모델 목록 새로고침",
+    "selectModelPlaceholder": "모델 선택",
+    "inputModelOrRefresh": "모델 이름을 입력하거나 목록을 새로고침",
+    "streamLabel": "stream(스트리밍)",
+    "tabResponse": "응답",
+    "tabCode": "코드",
+    "tabHistory": "기록({n})",
+    "waitingResponse": "응답 대기 중…",
+    "clickSendHint": "「보내기」를 눌러 응답 확인",
+    "latencyLabel": "소요 시간",
+    "costLabel": "비용",
+    "apiKeyShownAs": "API Key 표시:",
+    "noHistory": "기록이 없습니다",
+    "unknownModel": "알 수 없는 모델",
+    "restoreAria": "복원",
+    "emptyResponse": "(빈 응답)",
+    "metaTitle": "API Playground — IHUI AI",
+    "metaDescription": "OpenAI 호환 API를 온라인으로 테스트: 모델 선택, 멀티턴 메시지 구성, 파라미터 조정, 스트리밍 SSE 렌더링, 코드 생성(cURL/Python/Node.js) 및 기록.",
+    "pageDesc": "API Key로 /v1/chat/completions를 직접 호출합니다. 스트리밍 렌더링, 파라미터 조정, 코드 생성을 지원하며 /chat로 이동할 필요가 없습니다."
+  },
+  "upload": {
+    "placeholder": "클릭하거나 파일을 여기에 끌어다 놓아 업로드하세요",
+    "done": "완료됨",
+    "cancelUpload": "업로드 취소",
+    "removeUploadedAriaLabel": "업로드된 파일 삭제",
+    "removeItemAriaLabel": "업로드 항목 제거",
+    "sizeLimitHint": "파일당 최대 {size}",
+    "maxCountReached": "최대 {max}개 파일 한도에 도달했습니다",
+    "oversizeFiles": "다음 파일이 {size}를 초과합니다: {files}",
+    "uploadFailed": "업로드 실패",
+    "uploadFailedWithStatus": "업로드 실패: HTTP {status}",
+    "invalidJsonResponse": "응답이 유효한 JSON이 아닙니다",
+    "noUrlField": "응답에서 사용할 수 있는 URL 필드를 찾을 수 없습니다",
+    "networkError": "네트워크 오류",
+    "uploadCancelled": "업로드가 취소되었습니다",
+    "imagePlaceholder": "클릭하거나 이미지를 여기에 끌어다 놓아 업로드하세요"
+  },
+  "webviewFrame": {
+    "loadingText": "로딩 중...",
+    "screenshotNotice": "이 사이트는 삽입이 금지되어 스크린샷 모드로 전환했습니다",
+    "blockedTitle": "안전하지 않은 URL이 차단되었습니다",
+    "failedTitle": "불러오기 실패",
+    "externalTitle": "패널에 삽입할 수 없습니다",
+    "retry": "재시도",
+    "openExternal": "외부 브라우저에서 열기",
+    "idlePlaceholder": "URL을 입력하거나 AI 메시지의 링크를 클릭하여 여세요"
+  },
+  "waiting": {
+    "agent": {
+      "first": {
+        "0": "답변을 준비하고 있습니다…",
+        "1": "답변 구성을 생각하고 있습니다…",
+        "2": "알겠습니다, 답변을 고민 중입니다…",
+        "3": "답변을 생성하고 있습니다…",
+        "4": "질문을 받았습니다, 처리 중입니다…"
+      },
+      "middle": {
+        "0": "계속 처리하고 있습니다…",
+        "1": "앞 내용을 이어서 생각하고 있습니다…",
+        "2": "나머지 답변을 정리하고 있습니다…",
+        "3": "질문에 대응하고 있습니다…",
+        "4": "다음 답변을 생성하고 있습니다…"
+      },
+      "followup": {
+        "0": "추가 질문을 확인하고 있습니다…",
+        "1": "맥락을 고려해 생각하고 있습니다…",
+        "2": "추가 질문에 대한 답변을 정리하고 있습니다…",
+        "3": "추가 질문을 받았습니다…",
+        "4": "답변을 보충하고 있습니다…"
+      }
+    },
+    "computer": {
+      "first": {
+        "0": "연산 리소스를 확보하고 있습니다…",
+        "1": "실행 환경을 초기화하고 있습니다…",
+        "2": "처리를 시작하고 있습니다…",
+        "3": "연산을 할당하고 있습니다…",
+        "4": "초기 계산을 실행하고 있습니다…"
+      },
+      "middle": {
+        "0": "실행 중입니다…",
+        "1": "계산하고 있습니다, 잠시만 기다려 주세요…",
+        "2": "중간 결과를 처리하고 있습니다…",
+        "3": "중단 없이 진행하고 있습니다…",
+        "4": "연산 중입니다…"
+      },
+      "followup": {
+        "0": "다시 계산하고 있습니다…",
+        "1": "새 입력으로 처리를 이어가고 있습니다…",
+        "2": "추가분을 처리하고 있습니다…",
+        "3": "결과를 업데이트하고 있습니다…",
+        "4": "추가 요청에 대응하고 있습니다…"
+      }
+    },
+    "context": {
+      "first": {
+        "0": "대화 맥락을 확인하고 있습니다…",
+        "1": "관련 맥락을 불러오고 있습니다…",
+        "2": "배경 정보를 정리하고 있습니다…",
+        "3": "관련 기억을 떠올리고 있습니다…",
+        "4": "맥락을 준비하고 있습니다…"
+      },
+      "middle": {
+        "0": "앞 내용과 연결해 이어가고 있습니다…",
+        "1": "맥락을 고려해 생각하고 있습니다…",
+        "2": "이전 메시지를 되돌아보고 있습니다…",
+        "3": "맥락 준비 완료, 처리 중입니다…",
+        "4": "이전 메시지와 대조하고 있습니다…"
+      },
+      "followup": {
+        "0": "맥락과 함께 추가 질문을 이해하고 있습니다…",
+        "1": "관련 맥락을 되돌아보고 있습니다…",
+        "2": "이전 논의와 연결하고 있습니다…",
+        "3": "앞 내용과 대조해 보충하고 있습니다…",
+        "4": "맥락을 바탕으로 처리하고 있습니다…"
+      }
+    },
+    "plan": {
+      "first": {
+        "0": "대응 계획을 세우고 있습니다…",
+        "1": "요청을 분해하고 있습니다…",
+        "2": "실행 단계를 계획하고 있습니다…",
+        "3": "작업 요점을 분석하고 있습니다…",
+        "4": "답변 개요를 만들고 있습니다…"
+      },
+      "middle": {
+        "0": "계획을 진행하고 있습니다…",
+        "1": "다음 단계로 넘어가고 있습니다…",
+        "2": "계획 실행 중입니다…",
+        "3": "단계대로 처리하고 있습니다…",
+        "4": "남은 단계를 실행하고 있습니다…"
+      },
+      "followup": {
+        "0": "계획을 조정하고 있습니다…",
+        "1": "추가 질문에 맞춰 단계를 업데이트하고 있습니다…",
+        "2": "다시 계획하고 있습니다…",
+        "3": "계획 세부 사항을 보충하고 있습니다…",
+        "4": "새로운 요청에 대응하고 있습니다…"
+      }
+    },
+    "detail": {
+      "first": {
+        "0": "자세한 설명을 준비하고 있습니다…",
+        "1": "세부 사항을 정리하고 있습니다…",
+        "2": "요점을 정리하고 있습니다…",
+        "3": "자세한 답변을 생성하고 있습니다…",
+        "4": "답변 세부 사항을 다듬고 있습니다…"
+      },
+      "middle": {
+        "0": "세부 사항을 보충하고 있습니다…",
+        "1": "설명을 확장하고 있습니다…",
+        "2": "후속 내용을 다듬고 있습니다…",
+        "3": "세부 사항을 정리하는 중입니다…",
+        "4": "답변을 다듬고 있습니다…"
+      },
+      "followup": {
+        "0": "질문하신 세부 사항을 보충하고 있습니다…",
+        "1": "추가 질문의 요점을 확장하고 있습니다…",
+        "2": "설명을 자세히 다듬고 있습니다…",
+        "3": "보충 내용을 준비하고 있습니다…",
+        "4": "추가 질문에 대한 답변을 마무리하고 있습니다…"
+      }
+    },
+    "vividTail": ", 금방 끝납니다"
   }
 }
