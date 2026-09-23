@@ -710,6 +710,27 @@
           "mustMatch": "permissionTierWordKeys"
         }
       ]
+    },
+    {
+      "id": "steer-injection-disclosure",
+      "title": "(D106)中途引导交代条(steer phase=injected 逐条累积,五端已接:计数标题 + 引导原文,8 条封顶对齐 _STEER_QUEUE_LIMIT)",
+      "sourceTask": "D106",
+      "events": ["steer"],
+      "anchors": [
+        {"file": "apps/ai-service/app/routers/llm.py", "mustMatch": "steer_applied.append"},
+        {"file": "apps/api/src/routes/ai-callback.ts", "mustMatch": "persistedSteerAppliedSchema"},
+        {"file": "packages/api-client/src/client.ts", "mustMatch": "onSteer"},
+        {"file": "apps/web/src/stores/chat.ts", "mustMatch": "appendSteerNotice"},
+        {"file": "apps/web/src/hooks/use-chat/history-message.ts", "mustMatch": "readSteerAppliedFromMetadata"},
+        {"file": "apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx", "mustMatch": "onSteer"},
+        {"file": "apps/extension/entrypoints/sidepanel/components/MessageContent.tsx", "mustMatch": "steer-notice"},
+        {"file": "apps/miniapp-taro/src/api/index.ts", "mustMatch": "onSteer"},
+        {"file": "apps/miniapp-taro/src/pkg-ai/ai/cards/ai-cards.tsx", "mustMatch": "SteerNoticeCard"},
+        {"file": "apps/mobile-rn/src/utils/chat-render-model.ts", "mustMatch": "appendSteerFrames"},
+        {"file": "apps/mobile-rn/src/components/ChatDisclosure.tsx", "mustMatch": "SteerNoticeList"},
+        {"file": "apps/cli/src/commands/task-status-line.ts", "mustMatch": "steerNoteText"},
+        {"file": "apps/cli/src/commands/repl.ts", "mustMatch": "onSteer"}
+      ]
     }
   ],
   "negativeList": [
