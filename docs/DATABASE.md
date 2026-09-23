@@ -14,7 +14,7 @@
 
 | 维度 | 值 |
 |------|-----|
-| 数据库 | PostgreSQL 18 |
+| 数据库 | PostgreSQL 15 |
 | 库名 | `ihui`(单库,通过 `public` schema 隔离业务域) |
 | 连接驱动 | postgres-js 3.4(`packages/database/src/client.ts`) |
 | ORM | Drizzle ORM 0.38 |

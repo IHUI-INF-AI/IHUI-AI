@@ -206,13 +206,15 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
   return (
     <Pressable
       onPress={onPress}
-      className={
-        active
-          ? 'mr-1.5 mb-1.5 rounded-md bg-emerald-50 px-2.5 py-1.5'
-          : 'mr-1.5 mb-1.5 rounded-md bg-gray-50 px-2.5 py-1.5'
-      }
+      className="mr-1.5 mb-1.5 rounded-md px-2.5 py-1.5"
+      style={{ backgroundColor: active ? tokens.success.light : tokens.surface.muted }}
     >
-      <Text className={active ? 'text-xs text-emerald-700' : 'text-xs text-gray-600'}>{label}</Text>
+      <Text
+        className="text-xs"
+        style={{ color: active ? tokens.success.deepText : tokens.text.secondary }}
+      >
+        {label}
+      </Text>
     </Pressable>
   )
 }
@@ -220,7 +222,9 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <View className="mb-3">
-      <Text className="mb-1.5 text-xs font-medium text-gray-500">{label}</Text>
+      <Text className="mb-1.5 text-xs font-medium" style={{ color: tokens.text.tertiary }}>
+        {label}
+      </Text>
       {children}
     </View>
   )
@@ -277,11 +281,14 @@ function RatioSelector({
       <View className="mb-1.5 flex-row items-center">
         <Pressable
           onPress={() => setSizeIndex(null)}
-          className="mr-1.5 rounded-md bg-gray-100 px-2.5 py-1.5"
+          className="mr-1.5 rounded-md px-2.5 py-1.5"
+          style={{ backgroundColor: tokens.surface.muted }}
         >
-          <Text className="text-xs text-gray-600">← 返回</Text>
+          <Text className="text-xs" style={{ color: tokens.text.secondary }}>← 返回</Text>
         </Pressable>
-        <Text className="text-xs font-medium text-gray-500">{sizeKey}</Text>
+        <Text className="text-xs font-medium" style={{ color: tokens.text.tertiary }}>
+          {sizeKey}
+        </Text>
       </View>
       <View className="flex-row flex-wrap">
         {ratioMap
@@ -344,7 +351,9 @@ function DynamicVariables({
             return (
               <Row key={v.name} label={v.desc}>
                 <View className="flex-row items-center justify-between">
-                  <Text className="text-xs text-gray-600">{cur ? '已启用' : '未启用'}</Text>
+                  <Text className="text-xs" style={{ color: tokens.text.secondary }}>
+                    {cur ? '已启用' : '未启用'}
+                  </Text>
                   <Switch value={!!cur} onValueChange={(nv) => emit({ [v.name]: nv })} />
                 </View>
               </Row>
@@ -395,7 +404,11 @@ function DynamicVariables({
                 value={String(cur ?? '')}
                 onChangeText={(t) => emit({ [v.name]: t })}
                 placeholder={`请输入${v.desc}`}
-                className="h-10 rounded-md bg-gray-50 px-3.5 text-xs text-gray-900"
+                className="h-10 rounded-md px-3.5 text-xs"
+                style={{
+                  backgroundColor: tokens.surface.muted,
+                  color: tokens.text.primary,
+                }}
               />
             </Row>
           )
@@ -479,9 +492,12 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
             value={String(config.temperature)}
             keyboardType="numeric"
             onChangeText={(v) => update({ temperature: Number(v) || 0 })}
-            className="mr-2 h-10 flex-1 rounded-md bg-gray-50 px-3.5 text-xs text-gray-900"
+            className="mr-2 h-10 flex-1 rounded-md px-3.5 text-xs"
+            style={{ backgroundColor: tokens.surface.muted, color: tokens.text.primary }}
           />
-          <Text className="text-xs text-gray-400">0.0 - 2.0</Text>
+          <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
+            0.0 - 2.0
+          </Text>
         </View>
       </Row>
 
@@ -490,7 +506,8 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
           value={String(config.maxTokens)}
           keyboardType="numeric"
           onChangeText={(v) => update({ maxTokens: Number(v) || 0 })}
-          className="h-10 rounded-md bg-gray-50 px-3.5 text-xs text-gray-900"
+          className="h-10 rounded-md px-3.5 text-xs"
+          style={{ backgroundColor: tokens.surface.muted, color: tokens.text.primary }}
         />
       </Row>
 
@@ -499,7 +516,8 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
           value={String(config.topP)}
           keyboardType="numeric"
           onChangeText={(v) => update({ topP: Number(v) || 0 })}
-          className="h-10 rounded-md bg-gray-50 px-3.5 text-xs text-gray-900"
+          className="h-10 rounded-md px-3.5 text-xs"
+          style={{ backgroundColor: tokens.surface.muted, color: tokens.text.primary }}
         />
       </Row>
 
@@ -509,13 +527,14 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
           onChangeText={(v) => update({ systemPrompt: v })}
           placeholder="请输入系统提示词"
           multiline
-          className="min-h-[60px] rounded-md bg-gray-50 p-2 text-xs text-gray-900"
+          className="min-h-[60px] rounded-md p-2 text-xs"
+          style={{ backgroundColor: tokens.surface.muted, color: tokens.text.primary }}
         />
       </Row>
 
       <Row label="Stream">
         <View className="flex-row items-center justify-between">
-          <Text className="text-xs text-gray-600">
+          <Text className="text-xs" style={{ color: tokens.text.secondary }}>
             {config.streamEnabled ? '已启用' : '未启用'}
           </Text>
           <Switch
