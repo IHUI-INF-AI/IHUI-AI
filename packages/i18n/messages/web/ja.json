@@ -6918,7 +6918,7 @@
       "actionCopyConfig": "設定をコピー",
       "permissionMode": "権限モード",
       "maxIterations": "最大反復回数"
-}
+    }
   },
   "agents": {
     "kanban": {
@@ -7061,12 +7061,42 @@
         "row": { "agent": "{action} {agent}{stateSuffix}" },
         "meta": { "prompt": "入力：{prompt}" },
         "action": {
-          "spawn": { "label": "作成", "inProgress": "作成中", "completed": "作成済み", "failed": "作成失敗" },
-          "resume": { "label": "再開", "inProgress": "再開中", "completed": "再開済み", "failed": "再開失敗" },
-          "sendInput": { "label": "入力送信", "inProgress": "送信中", "completed": "送信済み", "failed": "送信失敗" },
-          "interrupt": { "label": "中断", "inProgress": "中断中", "completed": "中断済み", "failed": "中断に失敗" },
-          "close": { "label": "閉じる", "inProgress": "閉じています", "completed": "閉じました", "failed": "閉じられません" },
-          "list": { "label": "一覧", "inProgress": "読み込み中", "completed": "読み込み済み", "failed": "読み込み失敗" }
+          "spawn": {
+            "label": "作成",
+            "inProgress": "作成中",
+            "completed": "作成済み",
+            "failed": "作成失敗"
+          },
+          "resume": {
+            "label": "再開",
+            "inProgress": "再開中",
+            "completed": "再開済み",
+            "failed": "再開失敗"
+          },
+          "sendInput": {
+            "label": "入力送信",
+            "inProgress": "送信中",
+            "completed": "送信済み",
+            "failed": "送信失敗"
+          },
+          "interrupt": {
+            "label": "中断",
+            "inProgress": "中断中",
+            "completed": "中断済み",
+            "failed": "中断に失敗"
+          },
+          "close": {
+            "label": "閉じる",
+            "inProgress": "閉じています",
+            "completed": "閉じました",
+            "failed": "閉じられません"
+          },
+          "list": {
+            "label": "一覧",
+            "inProgress": "読み込み中",
+            "completed": "読み込み済み",
+            "failed": "読み込み失敗"
+          }
         },
         "state": {
           "running": "実行中",
@@ -7452,7 +7482,9 @@
         "noReasonText": "自動レビューで理由が未提供",
         "noDecision": "自動レビュー記録なし",
         "expandAria": "コマンド履歴(展開/折りたたみ)"
-      }
+      },
+      "toolSummaryShowMore": "もっと見る",
+      "toolSummaryShowLess": "閉じる"
     },
     "permissionConfirm": {
       "allow": "許可",
@@ -11275,7 +11307,7 @@
       "gatewayHintA": "ゲートウェイを呼び出す際はリクエストヘッダーに次を使用",
       "gatewayHintB": "(ihui_ で始まる Key 識別子です。Secret は安全に保管し、リクエストヘッダーには入れないでください。)",
       "savedClose": "保存しました、閉じる"
-},
+    },
     "relayUsage": {
       "title": "使用量の詳細",
       "subtitle": "モデル別・日別でリレーと BYOK の呼び出し統計を確認",
@@ -11317,7 +11349,7 @@
       "allApiKeys": "すべての API Key",
       "cacheRead": "読み込み {count}",
       "cacheWrite": "書き込み {count}"
-}
+    }
   },
   "developerApiDocsPage": {
     "colDesc": "説明",
@@ -11634,13 +11666,13 @@
       "reviewer": "レビューアシスタント",
       "architect": "アーキテクト",
       "debugger": "デバッグアシスタント"
-},
+    },
     "subRoles": {
       "researcher": "リサーチャー",
       "coder": "コーダー",
       "reviewer": "レビュアー",
       "debugger": "デバッガー"
-},
+    },
     "orch": {
       "parallel": "並行",
       "pipeline": "直列",
@@ -11649,13 +11681,13 @@
       "vote": "投票",
       "critique": "批判",
       "withCommunication": "協調通信"
-},
+    },
     "subOrch": {
       "pipeline": "パイプライン",
       "critique": "批評",
       "decomposed": "分解",
       "withCommunication": "通信付き"
-},
+    },
     "orchDesc": {
       "parallel": "複数の agent が同じタスクを並行処理します",
       "pipeline": "複数の agent が結果を直列に引き継ぎます",
@@ -11664,13 +11696,13 @@
       "vote": "5 つの agent が独立に処理 → 相互投票(1-5 点)で最良を選択",
       "critique": "複数 agent が互いに批判して改善(3 ラウンド:生成→批判→修訂)",
       "withCommunication": "agent 間を Redis メッセージバスで通信(3 ラウンド協調)"
-},
+    },
     "priority": {
       "low": "低",
       "normal": "普通",
       "high": "高",
       "urgent": "緊急"
-},
+    },
     "fields": {
       "goal": "タスク目標",
       "agentRole": "Agent 役割",
@@ -11695,7 +11727,7 @@
       "tokenQuota": "Token 上限",
       "tokenQuotaForm": "Token 割り当て",
       "maxRetries": "最大リトライ"
-},
+    },
     "defaultForbidden": "上記リスト以外のすべてのファイル",
     "defaultDagNodeTask": "要件調査",
     "dagTitle": "DAG 依存グラフ",
@@ -14243,7 +14275,7 @@
       "openWithUnified": "統合で開く",
       "openInEditor": "エディタで開く",
       "viewPullRequest": "プルリクエストを表示"
-}
+    }
   },
   "imageGenPage": {
     "download": "ダウンロード",
@@ -15051,7 +15083,7 @@
         "step4": "使うモデルを追加",
         "step5": "呼び出し時は自動的にあなたの Key が優先されます",
         "gotIt": "了解"
-}
+      }
     }
   },
   "market": {
@@ -24611,7 +24643,22 @@
     "uploadFailedWithReason": "アップロードに失敗しました: {error}",
     "unknownError": "不明なエラー",
     "missingFileId": "アップロードレスポンスに file.id がありません",
-    "maxAttachmentsReached": "添付は最大 {count} 件までです"
+    "maxAttachmentsReached": "添付は最大 {count} 件までです",
+    "placeholder": "クリックまたはここにファイルをドラッグしてアップロード",
+    "done": "完了",
+    "cancelUpload": "アップロードをキャンセル",
+    "removeUploadedAriaLabel": "アップロード済みファイルを削除",
+    "removeItemAriaLabel": "アップロード項目を削除",
+    "sizeLimitHint": "1 ファイル {size} まで",
+    "maxCountReached": "上限の {max} ファイルに達しました",
+    "oversizeFiles": "次のファイルが {size} を超えています: {files}",
+    "uploadFailed": "アップロードに失敗しました",
+    "uploadFailedWithStatus": "アップロード失敗: HTTP {status}",
+    "invalidJsonResponse": "応答が有効な JSON ではありません",
+    "noUrlField": "応答に利用可能な URL フィールドが見つかりません",
+    "networkError": "ネットワークエラー",
+    "uploadCancelled": "アップロードがキャンセルされました",
+    "imagePlaceholder": "クリックまたはここに画像をドラッグしてアップロード"
   },
   "eduScheduling": {
     "title": "スマート時間割",
@@ -25547,7 +25594,7 @@
     "oauthManage": "OAuth アプリ管理",
     "mcpConnect": "MCP サーバー接続",
     "opsExecute": "運用タスクの実行"
-},
+  },
   "apiKeysPage": {
     "title": "マイ API キー",
     "createKey": "キーを作成",
@@ -25564,7 +25611,7 @@
     "rotateSecretDesc": "「{name}」の secret をローテートすると、古い secret は即時に失効し、古い secret を使っているアプリは更新が必要です。続行しますか?",
     "deleteKeyTitle": "API キーを削除",
     "deleteKeyDesc": "「{name}」を削除しますか?削除するとこのキーは即時に失効し、復元できません。"
-},
+  },
   "knowledgeList": {
     "title": "ナレッジベース",
     "subtitle": "セマンティック検索で記憶ライブラリの知識コンテンツを検索します",
@@ -25573,7 +25620,7 @@
     "empty": "検索結果がありません",
     "searchHint": "キーワードを入力してナレッジベースのコンテンツを検索",
     "resultCount": "合計 {count} 件の結果"
-},
+  },
   "knowledgeBase": {
     "backToList": "一覧に戻る",
     "searchPlaceholder": "ナレッジベースの記事を検索...",
@@ -25586,14 +25633,14 @@
       "subtitle": "ナレッジベースの記事を閲覧・検索・管理",
       "allCategories": "すべての分類",
       "empty": "記事がありません"
-},
+    },
     "detail": {
       "notFound": "記事が存在しません",
       "viewCount": "{count} 回閲覧",
       "toc": "目次",
       "prev": "前の記事",
       "next": "次の記事"
-},
+    },
     "search": {
       "backToKb": "ナレッジベースに戻る",
       "title": "検索結果",
@@ -25601,10 +25648,20 @@
       "inputKeyword": "検索キーワードを入力してください",
       "searching": "検索中...",
       "noResult": "関連する記事が見つかりません"
-},
+    },
     "create": {
       "title": "ナレッジベースの記事を作成",
       "subtitle": "新しいナレッジベースの記事を執筆して公開します"
-}
-}
+    }
+  },
+  "webviewFrame": {
+    "loadingText": "読み込み中...",
+    "screenshotNotice": "このサイトの埋め込みは禁止されているため、スクリーンショットモードに切り替えました",
+    "blockedTitle": "安全でない URL をブロックしました",
+    "failedTitle": "読み込みに失敗しました",
+    "externalTitle": "パネル内に埋め込めません",
+    "retry": "再試行",
+    "openExternal": "外部ブラウザで開く",
+    "idlePlaceholder": "URL を入力するか、AI メッセージ内のリンクをクリックして開いてください"
+  }
 }

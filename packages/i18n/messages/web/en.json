@@ -6918,7 +6918,7 @@
       "actionCopyConfig": "Copy configuration",
       "permissionMode": "Permission mode",
       "maxIterations": "Max iterations"
-}
+    }
   },
   "agents": {
     "kanban": {
@@ -7061,12 +7061,42 @@
         "row": { "agent": "{action} {agent}{stateSuffix}" },
         "meta": { "prompt": "Input: {prompt}" },
         "action": {
-          "spawn": { "label": "Create", "inProgress": "Creating", "completed": "Created", "failed": "Create failed" },
-          "resume": { "label": "Resume", "inProgress": "Resuming", "completed": "Resumed", "failed": "Resume failed" },
-          "sendInput": { "label": "Send input", "inProgress": "Sending", "completed": "Sent", "failed": "Send failed" },
-          "interrupt": { "label": "Interrupt", "inProgress": "Interrupting", "completed": "Interrupted", "failed": "Interrupt failed" },
-          "close": { "label": "Close", "inProgress": "Closing", "completed": "Closed", "failed": "Unable to close" },
-          "list": { "label": "List", "inProgress": "Loading", "completed": "Loaded", "failed": "Load failed" }
+          "spawn": {
+            "label": "Create",
+            "inProgress": "Creating",
+            "completed": "Created",
+            "failed": "Create failed"
+          },
+          "resume": {
+            "label": "Resume",
+            "inProgress": "Resuming",
+            "completed": "Resumed",
+            "failed": "Resume failed"
+          },
+          "sendInput": {
+            "label": "Send input",
+            "inProgress": "Sending",
+            "completed": "Sent",
+            "failed": "Send failed"
+          },
+          "interrupt": {
+            "label": "Interrupt",
+            "inProgress": "Interrupting",
+            "completed": "Interrupted",
+            "failed": "Interrupt failed"
+          },
+          "close": {
+            "label": "Close",
+            "inProgress": "Closing",
+            "completed": "Closed",
+            "failed": "Unable to close"
+          },
+          "list": {
+            "label": "List",
+            "inProgress": "Loading",
+            "completed": "Loaded",
+            "failed": "Load failed"
+          }
         },
         "state": {
           "running": "Running",
@@ -7452,7 +7482,9 @@
         "noReasonText": "Auto-review gave no reason",
         "noDecision": "No auto-review records",
         "expandAria": "Command history (expand/collapse)"
-      }
+      },
+      "toolSummaryShowMore": "More",
+      "toolSummaryShowLess": "Collapse"
     },
     "permissionConfirm": {
       "allow": "Allow",
@@ -11285,7 +11317,7 @@
       "gatewayHintA": "When calling the gateway, use the header",
       "gatewayHintB": "(that is the ihui_-prefixed Key ID; keep the Secret safe and never put it in a header).",
       "savedClose": "Saved, close"
-},
+    },
     "relayUsage": {
       "title": "Usage details",
       "subtitle": "Review relay and BYOK call statistics by model or by day",
@@ -11327,7 +11359,7 @@
       "allApiKeys": "All API Keys",
       "cacheRead": "Read {count}",
       "cacheWrite": "Write {count}"
-}
+    }
   },
   "developerApiDocsPage": {
     "colDesc": "Description",
@@ -11644,13 +11676,13 @@
       "reviewer": "Review assistant",
       "architect": "Architect",
       "debugger": "Debugging assistant"
-},
+    },
     "subRoles": {
       "researcher": "Researcher",
       "coder": "Coder",
       "reviewer": "Reviewer",
       "debugger": "Debugger"
-},
+    },
     "orch": {
       "parallel": "Parallel",
       "pipeline": "Sequential",
@@ -11659,13 +11691,13 @@
       "vote": "Voting",
       "critique": "Critique",
       "withCommunication": "Cooperative communication"
-},
+    },
     "subOrch": {
       "pipeline": "Pipeline",
       "critique": "Criticism",
       "decomposed": "Decomposition",
       "withCommunication": "With communication"
-},
+    },
     "orchDesc": {
       "parallel": "Multiple agents process the same task in parallel",
       "pipeline": "Multiple agents pass results sequentially",
@@ -11674,13 +11706,13 @@
       "vote": "5 agents work independently → vote for the best (1-5 points)",
       "critique": "Agents critique each other to improve (3 rounds: generate → critique → revise)",
       "withCommunication": "Agents communicate over a Redis message bus (3 collaborative rounds)"
-},
+    },
     "priority": {
       "low": "Low",
       "normal": "Normal",
       "high": "High",
       "urgent": "Urgent"
-},
+    },
     "fields": {
       "goal": "Task goal",
       "agentRole": "Agent role",
@@ -11705,7 +11737,7 @@
       "tokenQuota": "Token limit",
       "tokenQuotaForm": "Token quota",
       "maxRetries": "Max retries"
-},
+    },
     "defaultForbidden": "Any file not listed above",
     "defaultDagNodeTask": "Research requirements",
     "dagTitle": "DAG dependency graph",
@@ -14253,7 +14285,7 @@
       "openWithUnified": "Open in Unified",
       "openInEditor": "Open in Editor",
       "viewPullRequest": "View Pull Request"
-}
+    }
   },
   "imageGenPage": {
     "download": "Download",
@@ -15061,7 +15093,7 @@
         "step4": "Add the models you want to use",
         "step5": "When calling, the system automatically prefers your key",
         "gotIt": "Got it"
-}
+      }
     }
   },
   "market": {
@@ -24621,7 +24653,22 @@
     "uploadFailedWithReason": "Upload failed: {error}",
     "unknownError": "Unknown error",
     "missingFileId": "Upload response is missing file.id",
-    "maxAttachmentsReached": "At most {count} attachments allowed"
+    "maxAttachmentsReached": "At most {count} attachments allowed",
+    "placeholder": "Click or drag files here to upload",
+    "done": "Completed",
+    "cancelUpload": "Cancel upload",
+    "removeUploadedAriaLabel": "Remove uploaded file",
+    "removeItemAriaLabel": "Remove upload item",
+    "sizeLimitHint": "Max {size} per file",
+    "maxCountReached": "Limit of {max} files reached",
+    "oversizeFiles": "The following files exceed {size}: {files}",
+    "uploadFailed": "Upload failed",
+    "uploadFailedWithStatus": "Upload failed: HTTP {status}",
+    "invalidJsonResponse": "Response is not valid JSON",
+    "noUrlField": "No usable URL field found in response",
+    "networkError": "Network error",
+    "uploadCancelled": "Upload cancelled",
+    "imagePlaceholder": "Click or drag images here to upload"
   },
   "eduScheduling": {
     "title": "Smart Scheduling",
@@ -25557,7 +25604,7 @@
     "oauthManage": "Manage OAuth apps",
     "mcpConnect": "Connect MCP servers",
     "opsExecute": "Run operations tasks"
-},
+  },
   "apiKeysPage": {
     "title": "My API Keys",
     "createKey": "Create Key",
@@ -25574,7 +25621,7 @@
     "rotateSecretDesc": "Rotating the secret for \"{name}\" invalidates the old secret immediately, and apps using it must be updated. Continue?",
     "deleteKeyTitle": "Delete API Key",
     "deleteKeyDesc": "Delete \"{name}\"? The key becomes invalid immediately and cannot be recovered."
-},
+  },
   "knowledgeList": {
     "title": "Knowledge Base",
     "subtitle": "Search knowledge stored in your memory library with semantic search",
@@ -25583,7 +25630,7 @@
     "empty": "No search results yet",
     "searchHint": "Enter keywords to search the knowledge base",
     "resultCount": "{count} results"
-},
+  },
   "knowledgeBase": {
     "backToList": "Back to list",
     "searchPlaceholder": "Search knowledge base articles...",
@@ -25596,14 +25643,14 @@
       "subtitle": "Browse, search and manage knowledge base articles",
       "allCategories": "All categories",
       "empty": "No articles yet"
-},
+    },
     "detail": {
       "notFound": "Article not found",
       "viewCount": "{count} views",
       "toc": "Contents",
       "prev": "Previous",
       "next": "Next"
-},
+    },
     "search": {
       "backToKb": "Back to knowledge base",
       "title": "Search results",
@@ -25611,10 +25658,20 @@
       "inputKeyword": "Enter a search keyword",
       "searching": "Searching...",
       "noResult": "No matching articles found"
-},
+    },
     "create": {
       "title": "New knowledge base article",
       "subtitle": "Write and publish a new knowledge base article"
-}
-}
+    }
+  },
+  "webviewFrame": {
+    "loadingText": "Loading...",
+    "screenshotNotice": "This site blocks embedding; switched to screenshot mode",
+    "blockedTitle": "Unsafe URL blocked",
+    "failedTitle": "Failed to load",
+    "externalTitle": "Cannot embed in panel",
+    "retry": "Retry",
+    "openExternal": "Open in external browser",
+    "idlePlaceholder": "Enter a URL or click a link in an AI message to open it"
+  }
 }
