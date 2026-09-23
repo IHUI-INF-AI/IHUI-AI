@@ -60,51 +60,6 @@ export interface DataTableProps<TData> {
   emptyText?: string
   loadingText?: string
   showPagination?: boolean
-  /** 界面文案注入(不传的键回退 DEFAULT_DATA_TABLE_LABELS 简体中文 — 不注入即不本地化) */
-  labels?: Partial<DataTableLabels>
-}
-
-/** DataTable 界面文案(表头/分页/筛选/无障碍标签),由消费端注入 */
-export interface DataTableLabels {
-  searchPlaceholder: string
-  emptyText: string
-  loadingText: string
-  perPage: string
-  perPageCountAriaLabel: string
-  rowsUnit: string
-  sortAriaLabel: string
-  sortDirections: { asc: string; desc: string; none: string }
-  columnFilterPlaceholder: string
-  columnFilterAriaLabel: string
-  paginationSummary: string
-  prevPageAriaLabel: string
-  pageAriaLabel: string
-  nextPageAriaLabel: string
-}
-
-/** i18n 默认值(不传 labels 时回退到简体中文) */
-const DEFAULT_DATA_TABLE_LABELS: DataTableLabels = {
-  searchPlaceholder: '搜索...',
-  emptyText: '暂无数据',
-  loadingText: '加载中...',
-  perPage: '每页',
-  perPageCountAriaLabel: '每页显示条数',
-  rowsUnit: '条',
-  sortAriaLabel: '排序: {direction}',
-  sortDirections: { asc: '升序', desc: '降序', none: '未排序' },
-  columnFilterPlaceholder: '筛选...',
-  columnFilterAriaLabel: '筛选 {column}',
-  paginationSummary: '共 {total} 条 · 第 {page} / {pageCount} 页',
-  prevPageAriaLabel: '上一页',
-  pageAriaLabel: '第 {page} 页',
-  nextPageAriaLabel: '下一页',
-}
-
-/** 轻量 {var} 占位插值(不引 i18n 框架):消费端 t() 返回的模板在此填值 */
-function fillTemplate(template: string, values: Record<string, string | number>): string {
-  return template.replace(/\{(\w+)\}/g, (_m, key: string) =>
-    values[key] === undefined ? `{${key}}` : String(values[key]),
-  )
 }
 
 function DataTable<TData>({
@@ -112,7 +67,7 @@ function DataTable<TData>({
   data,
   pageSize = 10,
   searchable = false,
-  searchPlaceholder,
+  searchPlaceholder = '搜索...',
   className,
   enableColumnResize = false,
   enableColumnFilters = false,
@@ -131,18 +86,10 @@ function DataTable<TData>({
   error = null,
   renderRow,
   getRowId,
-  emptyText,
-  loadingText,
+  emptyText = '暂无数据',
+  loadingText = '加载中...',
   showPagination = true,
-  labels: labelsProp,
 }: DataTableProps<TData>) {
-  const labels = React.useMemo<DataTableLabels>(
-    () => ({ ...DEFAULT_DATA_TABLE_LABELS, ...labelsProp }),
-    [labelsProp],
-  )
-  const resolvedEmptyText = emptyText ?? labels.emptyText
-  const resolvedLoadingText = loadingText ?? labels.loadingText
-  const resolvedSearchPlaceholder = searchPlaceholder ?? labels.searchPlaceholder
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = React.useState('')
   const [columnSizing, setColumnSizing] = React.useState<ColumnSizingState>({})
@@ -233,8 +180,8 @@ function DataTable<TData>({
             <SearchInput
               value={globalFilter}
               onChange={(e) => setGlobalFilter(e.target.value)}
-              placeholder={resolvedSearchPlaceholder}
-              aria-label={resolvedSearchPlaceholder}
+              placeholder={searchPlaceholder}
+              aria-label={searchPlaceholder}
               size="lg"
               wrapperClassName="w-full max-w-sm"
             />
@@ -243,11 +190,11 @@ function DataTable<TData>({
           )}
           {pageSizeOptions.length > 0 && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>{labels.perPage}</span>
+              <span>每页</span>
               <select
                 value={currentPageSize}
                 onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-                aria-label={labels.perPageCountAriaLabel}
+                aria-label="每页显示条数"
                 className="h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 {pageSizeOptions.map((s) => (
@@ -256,7 +203,7 @@ function DataTable<TData>({
                   </option>
                 ))}
               </select>
-              <span>{labels.rowsUnit}</span>
+              <span>条</span>
             </div>
           )}
         </div>
@@ -293,14 +240,7 @@ function DataTable<TData>({
                             <button
                               type="button"
                               onClick={header.column.getToggleSortingHandler()}
-                              aria-label={fillTemplate(labels.sortAriaLabel, {
-                                direction:
-                                  sorted === 'asc'
-                                    ? labels.sortDirections.asc
-                                    : sorted === 'desc'
-                                      ? labels.sortDirections.desc
-                                      : labels.sortDirections.none,
-                              })}
+                              aria-label={`排序: ${sorted === 'asc' ? '升序' : sorted === 'desc' ? '降序' : '未排序'}`}
                               className="inline-flex items-center gap-1 text-left font-medium transition-colors hover:text-foreground"
                             >
                               <span>
@@ -321,13 +261,8 @@ function DataTable<TData>({
                             <SearchInput
                               value={(header.column.getFilterValue() as string) ?? ''}
                               onChange={(e) => header.column.setFilterValue(e.target.value)}
-                              placeholder={labels.columnFilterPlaceholder}
-                              aria-label={fillTemplate(labels.columnFilterAriaLabel, {
-                                column: String(
-                                  flexRender(header.column.columnDef.header, header.getContext()) ??
-                                    '',
-                                ),
-                              })}
+                              placeholder="筛选..."
+                              aria-label={`筛选 ${flexRender(header.column.columnDef.header, header.getContext())}`}
                               onClick={(e) => e.stopPropagation()}
                               size="sm"
                               wrapperClassName="w-full"
@@ -360,7 +295,7 @@ function DataTable<TData>({
                     colSpan={totalColSpan}
                     className="h-24 text-center text-muted-foreground"
                   >
-                    {resolvedLoadingText}
+                    {loadingText}
                   </TableCell>
                 </TableRow>
               ) : error ? (
@@ -422,7 +357,7 @@ function DataTable<TData>({
                         纯文本空状态过于单调,添加 Inbox 图标提升视觉友好度 */}
                     <div className="flex flex-col items-center gap-2">
                       <Inbox className="h-8 w-8 opacity-40" aria-hidden />
-                      <span>{resolvedEmptyText}</span>
+                      <span>{emptyText}</span>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -435,18 +370,14 @@ function DataTable<TData>({
       {showPagination && (
         <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-sm">
           <span className="text-muted-foreground">
-            {fillTemplate(labels.paginationSummary, {
-              total: filteredTotal,
-              page: currentPageIndex + 1,
-              pageCount: Math.max(currentPageCount, 1),
-            })}
+            共 {filteredTotal} 条 · 第 {currentPageIndex + 1} / {Math.max(currentPageCount, 1)} 页
           </span>
           <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={() => handlePageChange(Math.max(0, currentPageIndex - 1))}
               disabled={currentPageIndex <= 0}
-              aria-label={labels.prevPageAriaLabel}
+              aria-label="上一页"
               className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -462,7 +393,7 @@ function DataTable<TData>({
                   key={p}
                   onClick={() => handlePageChange(p)}
                   aria-current={p === currentPageIndex ? 'page' : undefined}
-                  aria-label={fillTemplate(labels.pageAriaLabel, { page: p + 1 })}
+                  aria-label={`第 ${p + 1} 页`}
                   className={cn(
                     'inline-flex h-8 min-w-8 items-center justify-center rounded-md border px-2 text-xs transition-colors',
                     p === currentPageIndex
@@ -478,7 +409,7 @@ function DataTable<TData>({
               type="button"
               onClick={() => handlePageChange(Math.min(currentPageCount - 1, currentPageIndex + 1))}
               disabled={currentPageIndex >= currentPageCount - 1}
-              aria-label={labels.nextPageAriaLabel}
+              aria-label="下一页"
               className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
             >
               <ChevronRight className="h-4 w-4" />
