@@ -7071,7 +7071,13 @@
         "rejectBlock": "この変更を拒否",
         "rejected": "拒否済み",
         "resetSelection": "選択をリセット",
-        "selectedSummary": "{accepted}/{total} 選択中"
+        "selectedSummary": "{accepted}/{total} 選択中",
+        "stageFile": "すべてステージ",
+        "unstageFile": "すべてステージ解除",
+        "stageHunk": "ステージ",
+        "unstageHunk": "ステージ解除",
+        "staged": "ステージ済み",
+        "unstaged": "未ステージ"
       },
       "dragHandle": "ドラッグして位置を調整",
       "elapsedTitle": "経過 {time}",
@@ -7326,6 +7332,18 @@
         "targetFile": "この変更にコメント",
         "close": "キャンセル",
         "pendingBanner": "コード変更へのコメント {count} 件が未送信"
+      },
+      "annotation": {
+        "placeholder": "この返信に注釈を付ける…",
+        "save": "保存",
+        "edit": "注釈を編集",
+        "delete": "注釈を削除",
+        "deleteFailed": "注釈を削除できませんでした",
+        "invalid": "この注釈は編集できなくなりました",
+        "countSummary": "この返信の注釈：{n} 件",
+        "badge": "注釈",
+        "lineUnit": "行",
+        "cancel": "キャンセル"
       },
       "runtimeStatusResuming": "実行を再開しています…",
       "runtimeStatusPausing": "一時停止しています…",
@@ -11139,7 +11157,70 @@
     "title": "APIドキュメント",
     "toastCopied": "パスをコピーしました",
     "toastCopyFailed": "コピー失敗",
-    "yes": "はい"
+    "yes": "はい",
+    "endpoints": {
+      "chatCompletions": "OpenAI 互換チャット",
+      "anthropicMessages": "Anthropic 互換チャット",
+      "listModels": "利用可能なモデルの照会",
+      "rerank": "Cohere/Jina 互換リランク",
+      "moderations": "OpenAI 互換コンテンツモデレーション",
+      "realtime": "Realtime WebSocket リアルタイムチャット",
+      "midjourneyImagine": "Midjourney-Proxy 標準インターフェース",
+      "mcpToolsCall": "MCP ゲートウェイのツール呼び出し",
+      "responses": "OpenAI Responses API(Cursor/Codex 互換)",
+      "batch": "OpenAI バッチ非同期 API(50% 割引)",
+      "assistants": "Assistants API v2(サードパーティ SDK 直結)",
+      "audioTranslations": "Whisper 音声翻訳",
+      "fineTuningJobs": "ファインチューニングジョブ管理",
+      "files": "ファイル管理 CRUD",
+      "statusOverview": "公開ステータスページ-システム概要",
+      "statusModels": "公開ステータスページ-モデル稼働状況",
+      "statusIncidents": "公開ステータスページ-インシデント一覧",
+      "apiKeyShares": "API Key の一時共有(期限付き token)",
+      "exportOrdersCsv": "チャージ注文の CSV エクスポート",
+      "exportRelayLogsCsv": "リクエストログの CSV エクスポート",
+      "developerConversations": "リレステーションの会話履歴一覧"
+    },
+    "sections": {
+      "quickStart": "クイックスタート(5 分で接続)",
+      "auth": "認証方式",
+      "endpointList": "エンドポイント一覧",
+      "rateLimit": "レート制限",
+      "billing": "課金について"
+    },
+    "steps": {
+      "step1Title": "1. 登録とログイン",
+      "step1Desc": "— アカウントを登録してログインします",
+      "step2Title": "2. Key の発行",
+      "step2Desc": "— 開発者センター → 鍵管理 → 新規キー作成",
+      "step3Title": "3. API の呼び出し",
+      "step3Desc": "— 以下の sk-xxx を置き換えると最初のリクエストを送信できます"
+    },
+    "auth": {
+      "descPrefix": "リクエストでは Header に ",
+      "descMid": " を指定します(Anthropic エンドポイントは ",
+      "descSuffix": " も利用できます)。"
+    },
+    "rateLimit": {
+      "tiers": "無料 20 QPM · ベーシック 60 QPM · プロ 200 QPM · エンタープライズ 1000 QPM",
+      "overLimitPrefix": "上限を超過するとエラーコード",
+      "overLimitSuffix": " を返します(HTTP 429)。"
+    },
+    "billing": {
+      "promptCacheTerm": "Prompt Cache 割引",
+      "promptCacheDesc": ":キャッシュにヒットした入力 token は 0.1 倍で課金されます。",
+      "responseCacheTerm": "レスポンスキャッシュ(Redis)",
+      "responseCacheDesc1": ":非ストリーミングの chat completions がキャッシュにヒットした場合のコストは 0(レスポンスヘッダー",
+      "responseCacheDesc2": ")、キャッシュをスキップするには",
+      "responseCacheDesc3": "を指定してください。",
+      "tieredTerm": "段階別課金",
+      "tieredDesc": ":1 リクエストの token が多いほど単価が下がります(詳細は価格ページ参照)。",
+      "groupRateTerm": "グループ倍率",
+      "groupRateDesc": ":モデルのグループごとに倍率で課金(例 Claude 1.2x、GPT-4o 1.0x)。",
+      "rerankDesc": ":input tokens のみ課金、output tokens は 0。",
+      "unit": "課金単位は Token、1 Token ≈ 0.75 文字(中国語)、残高不足の場合は",
+      "unitSuffix": "を返します。"
+    }
   },
   "developerBillingPage": {
     "add": "追加",
@@ -14074,7 +14155,61 @@
     "total": "合計 {total} 節",
     "buyConfirm": "购买确认",
     "paymentConfirm": "支付确认",
-    "review": "评价"
+    "review": "评价",
+    "tutor": {
+      "title": "AI 講師",
+      "subject": "教科",
+      "mode": "モード",
+      "subjectMath": "数学",
+      "subjectPhysics": "物理",
+      "subjectChemistry": "化学",
+      "subjectBiology": "生物",
+      "subjectEnglish": "英語",
+      "subjectHistory": "歴史",
+      "subjectGeography": "地理",
+      "modeExplain": "解説",
+      "modeHint": "ヒント",
+      "modeQuiz": "出題",
+      "quizDirection": "出題の方向性（任意）",
+      "yourQuestion": "あなたの質問",
+      "quizPlaceholder": "例：二次関数のグラフの性質",
+      "questionPlaceholder": "例：三平方の定理はどう証明するのですか？",
+      "generateQuiz": "問題を作る",
+      "ask": "質問する",
+      "knowledgePoints": "知識のポイント",
+      "followUp": "発展的な問い",
+      "nextStep": "次のステップ",
+      "quizCount": "練習問題を {count} 問作成しました",
+      "answerValue": "答え：{answer}",
+      "emptyHint": "教科とモードを選び、質問を入力してください。"
+    },
+    "dailyReview": {
+      "loading": "読み込み中…",
+      "title": "今日の復習",
+      "subtitle": "SM-2 間隔反復アルゴリズムに基づく、長期記憶の定着。",
+      "qualityForgotten": "完全に忘れた",
+      "qualityFailed": "失敗",
+      "qualityUncertain": "ぎりぎり",
+      "qualityGood": "良好",
+      "qualityPerfect": "完璧",
+      "statDue": "復習待ち",
+      "statReviewedToday": "今日復習済み",
+      "statStreak": "連続日数",
+      "statAvgDifficulty": "平均難易度",
+      "finishedTitle": "今日の復習が完了しました",
+      "finishedHint": "{count} 問を完了しました。この調子で続けましょう！",
+      "questionProgress": "{current} / {total} 問目",
+      "questionLabel": "問題",
+      "selfAssess": "思い出してから自己評価",
+      "submitting": "送信中…",
+      "answerLabel": "答え",
+      "explanationLabel": "解説",
+      "nextReview": "次回復習",
+      "intervalDays": "間隔（日）",
+      "easeFactor": "難易度係数",
+      "nextQuestion": "次の問題",
+      "progressLine": "復習の進捗：{done} / {total}"
+    }
   },
   "learnBuyConfirmPage": {
     "actualPay": "支払額",
@@ -15314,10 +15449,9 @@
     "apiDocs": {
       "auth": {
         "desc": "すべての API リクエストは Header に Bearer Token を含める必要があります。Token は API キーページで作成できます。",
-        "title": "認証方式"
+        "title": "認証方式",
+        "headerFormat": "# Header 形式"
       },
-      "copyCodeAriaLabel": "コードをコピー",
-      "curlPlaceholder": "cURLコマンドを入力してテスト…",
       "endpoints": {
         "audio": "音声合成",
         "chat": "チャット補完",
@@ -15335,7 +15469,6 @@
         "python": "パイソン",
         "title": "呼び出し例"
       },
-      "searchPlaceholder": "APIを検索…",
       "subtitle": "完全な API 統合ドキュメントと例",
       "title": "API ドキュメント"
     },
@@ -23119,8 +23252,153 @@
     "description": "n8n 自动化工作流 Agent"
   },
   "rules": {
-    "title": "规则",
-    "description": "平台规则与规范"
+    "totalRulesSorted": "合計 {n} 件のルール、優先度の降順で並べ替え",
+    "autoGenerate": "自動生成",
+    "detectConflicts": "競合を検出",
+    "knowledgeGraph": "ナレッジグラフ",
+    "abTest": "A/B テスト",
+    "globalStats": "グローバル統計",
+    "templateLibrary": "テンプレートライブラリ",
+    "newRule": "新規ルール",
+    "emptyHint": "ルールがありません。「新規ルール」から作成してください",
+    "disabled": "無効",
+    "enabled": "有効",
+    "hitCount": "ヒット {n} 回",
+    "detail": "詳細",
+    "test": "テスト",
+    "edit": "編集",
+    "confirmDelete": "削除を確定",
+    "cancelDelete": "削除を取り消す",
+    "hit": "ヒット",
+    "noMatch": "ヒットなし",
+    "noMatchNoOutput": "（ヒットなし、出力なし）",
+    "ruleA": "ルール A",
+    "selectRuleA": "ルール A を選択",
+    "ruleB": "ルール B",
+    "selectRuleB": "ルール B を選択",
+    "testMessage": "テストメッセージ",
+    "inputTestMessage": "テストメッセージを入力...",
+    "testing": "テスト中...",
+    "runTest": "テストを実行",
+    "autoGenerateTitle": "ルール自動生成",
+    "autoGenerateHint": "直近 7 日間のユーザー行動パターンから LLM が候補ルールを抽出します。チェックして一括作成",
+    "startAnalyzeBehavior": "行動パターンの分析を開始",
+    "analyzingBehavior": "LLM が行動パターンを分析中...",
+    "degradedNoCandidates": "縮退モード: LLM を利用できないため候補リストは空です",
+    "analyzedGenerated": "行動記録 {behaviors} 件を分析し候補ルール {candidates} 件を生成",
+    "noCandidates": "候補ルールなし（行動データ不足または LLM 利用不可）",
+    "confidencePercent": "信頼度 {pct}%",
+    "selectedOfTotal": "{selected} / {total} 件を選択中",
+    "creating": "作成中...",
+    "batchCreateCount": "一括作成({n})",
+    "negotiationFailed": "協議に失敗しました: {msg}",
+    "conflictNameConflict": "同名競合",
+    "conflictSemanticDuplicate": "意味的な重複",
+    "conflictPriorityCollision": "優先度の衝突",
+    "conflictDetectTitle": "ルール競合検出",
+    "detecting": "検出中...",
+    "noConflict": "競合は検出されませんでした。ルールセットは正常です",
+    "detectedConflictsHint": "{n} 件の競合を検出。コンテキストを入力すると LLM が協議できます",
+    "arbitrationContextLabel": "協議コンテキスト（現在の会話／コード片）",
+    "arbitrationContextPlaceholder": "LLM 仲裁用のコンテキストを入力...",
+    "negotiating": "協議中...",
+    "llmNegotiate": "LLM 協議",
+    "arbitrationResult": "仲裁結果:",
+    "noneLabel": "なし",
+    "degraded": "縮退",
+    "mergeSuggestion": "統合提案: {text}",
+    "axisDays30": "30日",
+    "axisDays7": "7日",
+    "positiveCount": "好評 {n}",
+    "negativeCount": "低評価 {n}",
+    "totalRows": "計 {n} 件",
+    "diffNone": "（差異なし）",
+    "loadFailed": "読み込みに失敗",
+    "rollbackSuccess": "ロールバック成功",
+    "rollbackFailed": "ロールバック失敗: {msg}",
+    "feedbackRecorded": "フィードバックを記録しました",
+    "feedbackFailed": "フィードバック失敗: {msg}",
+    "predictFailed": "予測に失敗: {msg}",
+    "learnFeedbackRecorded": "学習フィードバックを記録しました",
+    "ruleDetailTitle": "ルール詳細: {name}",
+    "tabStats": "効果統計",
+    "tabHistoryCount": "バージョン履歴({n})",
+    "tabPredict": "効果予測",
+    "statMatchCount": "ヒット回数",
+    "statHits7d": "7 日間のヒット",
+    "statHits30d": "30 日間のヒット",
+    "statAvgToken": "平均 token",
+    "hitRateCompare": "ヒット率比較",
+    "satisfactionPercent": "満足度({pct}%)",
+    "feedbackLabel": "フィードバック:",
+    "useful": "役に立つ",
+    "useless": "役に立たない",
+    "noVersionHistory": "バージョン履歴はありません",
+    "compareToPrev": "前の版と比較",
+    "rollingBack": "ロールバック中...",
+    "rollback": "ロールバック",
+    "predictHint": "テストプロンプトを入力すると、ルール適用前後の LLM 出力を dry-run で比較",
+    "predictPromptPlaceholder": "テストプロンプトを入力...",
+    "predicting": "予測中...",
+    "runPredict": "予測を実行",
+    "statTokenDelta": "Token 差異",
+    "statOutputDiff": "出力差異度",
+    "statQualityScore": "品質スコア",
+    "suggestionLabel": "推奨:",
+    "recDisable": "有効にしない",
+    "recNeutral": "中立",
+    "degradedMode": "縮退モード",
+    "withoutRule": "ルール未適用",
+    "withRule": "ルール適用",
+    "learnFeedbackLabel": "学習フィードバック:",
+    "helpful": "参考になった",
+    "unhelpful": "参考にならなかった",
+    "harmful": "有害",
+    "editRuleTitle": "ルール編集",
+    "fieldLabelName": "名称",
+    "ruleNamePlaceholder": "ルール名",
+    "fieldLabelDescription": "説明（任意）",
+    "briefDescriptionPlaceholder": "簡潔な説明",
+    "fieldLabelScope": "スコープ",
+    "scopeGlobal": "グローバル",
+    "scopeWorkspace": "ワークスペース",
+    "fieldLabelPriority": "優先度",
+    "fieldLabelMatchType": "マッチ種別",
+    "matchAlways": "常に注入",
+    "matchKeyword": "キーワード",
+    "matchRegex": "正規表現",
+    "matchSemantic": "セマンティック",
+    "fieldLabelMatchPattern": "マッチパターン",
+    "matchPatternKeywordPlaceholder": "キーワード1,キーワード2",
+    "matchPatternRegexPlaceholder": "正規表現",
+    "matchPatternSemanticPlaceholder": "自然言語による説明",
+    "fieldLabelContent": "ルール本文",
+    "contentPlaceholder": "ルール本文（markdown、prompt として agent に注入）...",
+    "saving": "保存中...",
+    "statTotalRules": "総ルール数",
+    "statActiveRules7d": "7 日間のアクティブルール",
+    "topRulesTitle": "よく使うルール Top {n}",
+    "ruleList": "ルール一覧",
+    "noHitRecords": "ヒット記録はありません",
+    "timesCount": "{n} 回",
+    "knowledgeGraphTitle": "ルールナレッジグラフ",
+    "buildingGraph": "グラフを構築中...",
+    "kgConflict": "競合",
+    "kgDuplicate": "重複",
+    "kgComplementary": "補完",
+    "graphNodeEdgeCounts": "ノード {nodes} / エッジ {edges}",
+    "noRulesToBuildGraph": "ルールがないためグラフを構築できません",
+    "relationList": "関係一覧",
+    "templateLibraryTitle": "ルールテンプレート集",
+    "loadingTemplates": "テンプレートを読み込み中...",
+    "templateCountHint": "{n} 件のプリセットテンプレート。「使用」でルールを即作成",
+    "use": "使用",
+    "testRuleTitle": "ルールテスト: {name}",
+    "inputMessage": "メッセージを入力",
+    "matchHit": "マッチ命中",
+    "pageTitle": "ルール管理",
+    "metaDescription": "ユーザー定義ルールを管理し、AI agent の実行時挙動を制約",
+    "pageSubtitle": "ユーザーが編集できるルールセット。agent 実行時にマッチ条件に応じて system prompt へ動的に注入されます"
   },
   "automations": {
     "delete": "削除",
@@ -23659,5 +23937,292 @@
     "goSettings": "モデル設定",
     "securityNote": "キーはあなたのアカウント設定にのみ保存され、該当プロバイダーへの接続にのみ使用されます。キーを公開場所で共有しないでください。",
     "startChat": "設定完了 — 会話を開始"
+  },
+  "apiDocs": {
+    "curlPlaceholder": "cURLコマンドを入力してテスト…",
+    "searchPlaceholder": "APIを検索…",
+    "copyCodeAriaLabel": "コードをコピー",
+    "sampleUserText": "こんにちは",
+    "sampleStoryText": "物語をひとつ",
+    "sampleProdNote": "// 本番では UI 表示に置き換えてください",
+    "parseFailed": "curl コマンドを解析できません。形式を確認してください(-d に JSON body が必要)。",
+    "curlLinkTitle": "curl を Playground と連携",
+    "curlLinkDesc": "curl コマンドを貼り付けると、model / messages / temperature / max_tokens を自動解析して Playground で開きます。",
+    "resetSample": "サンプルをリセット",
+    "openInPlayground": "Playground で開く",
+    "errorCodesTitle": "エラーコード",
+    "errorCodesDesc": "すべての API エラーコードと HTTP ステータスの意味・対処法。検索できます。",
+    "meaningCol": "意味",
+    "fixCol": "対処法",
+    "noMatchedErrorCodes": "一致するエラーコードはありません",
+    "sdkExamplesTitle": "SDK サンプル",
+    "codeCopied": "コードをコピーしました",
+    "copyFailed": "コピーに失敗しました",
+    "hideKey": "Key を隠す",
+    "showKey": "Key を表示",
+    "keyFilledHint": "サンプルにはあなたの API Key{state}が設定済みです。",
+    "keyStatePlain": "（平文）",
+    "keyStateMasked": "（マスク済み、コピー後に完全な Key に置き換えてください）",
+    "exampleBasicOpenai": "基本呼び出し(OpenAI 形式)",
+    "exampleStreaming": "ストリーミング応答",
+    "exampleAnthropic": "Anthropic 形式",
+    "errorCodes": {
+      "c1000": {
+        "meaning": "API Key が無効です",
+        "fix": "Authorization: Bearer ihui_xxx ヘッダーを確認してください"
+      },
+      "c1001": {
+        "meaning": "API Key の有効期限が切れました",
+        "fix": "Key を再生成するか管理者に更新を依頼してください"
+      },
+      "c1002": {
+        "meaning": "IP が許可リストにありません",
+        "fix": "Key 設定で IP を追加してください"
+      },
+      "c1003": {
+        "meaning": "モデルが許可リストにありません",
+        "fix": "Key 設定でモデルを追加してください"
+      },
+      "c1004": {
+        "meaning": "QPM 上限を超過しました",
+        "fix": "サブスクリプトをアップグレードするか呼び出し頻度を下げてください"
+      },
+      "c1005": {
+        "meaning": "残高が不足しています",
+        "fix": "チャージまたは引き換えコードで補充してください"
+      },
+      "c1006": {
+        "meaning": "1 回の token が上限を超過しました",
+        "fix": "max_tokens を下げるかリクエストを分割してください"
+      },
+      "c1007": {
+        "meaning": "モデル別 RPM 上限を超過しました",
+        "fix": "該当モデルの呼び出し頻度を下げるかグループをアップグレードしてください"
+      },
+      "c1008": {
+        "meaning": "モデル別 TPM 上限を超過しました",
+        "fix": "該当モデルの token 使用量を下げるかグループをアップグレードしてください"
+      },
+      "c1009": {
+        "meaning": "API Key がこのテナントに属していません",
+        "fix": "Key とテナントの紐付けを確認してください"
+      },
+      "c1010": {
+        "meaning": "Key 単位ウィンドウ(5h/1d/7d)の呼び出し上限を超過しました",
+        "fix": "レスポンスの Retry-After と X-RateLimit-* に従い再試行するか、ウィンドウ内の頻度を下げてください"
+      },
+      "secretRequired": {
+        "meaning": "X-Api-Secret ヘッダーがありません(既定で必須)",
+        "fix": "Key 作成・ローテーション時に一度だけ返される secret を付けてください。移行期間はサーバー側で API_KEY_REQUIRE_SECRET=false に緩和できます"
+      },
+      "rateBackendUnavailable": {
+        "meaning": "レート制限バックエンドが利用できず、fail-close で拒否されました",
+        "fix": "Retry-After(既定 5 秒)後に再試行してください。料金発生・高リスク機能のみ拒否され、低リスクの読み取りは緩和して通します"
+      },
+      "dataAccessDenied": {
+        "meaning": "この能力の dataClass ではこのデータテーブルに到達できません(またはテーブル名を判定不能)",
+        "fix": "能力カタログの dataClass を確認してください:compute は実行記録のみ生成し、業務データ読み取りは scoped-read を経由する必要があります"
+      },
+      "dataScopeDenied": {
+        "meaning": "ステートメントが所有境界を越えています(owner 述語の欠落、または他者のリソース ID のバインド)",
+        "fix": "呼び出し自身のリソースのみ読み書きしてください。owner/tenant をまたぐアクセスは禁止です"
+      },
+      "dataIsolationUnavailable": {
+        "meaning": "データ分離の大前提が成立しません(接続がスーパーユーザー、または非スーパーユーザーと証明できない)",
+        "fix": "サーバーは非スーパーユーザーで DB に接続する必要があります。クライアント側で再試行せず管理者にご連絡ください"
+      },
+      "c2001": {
+        "meaning": "上流サービスが利用できません",
+        "fix": "後で再試行してください。システムは自動でフェイルオーバーします"
+      },
+      "c2002": {
+        "meaning": "上流がタイムアウトしました",
+        "fix": "max_tokens を下げるかネットワークを確認してください"
+      },
+      "c2003": {
+        "meaning": "上流が混雑しています",
+        "fix": "後で再試行してください"
+      },
+      "c2004": {
+        "meaning": "Realtime WebSocket 上流エラー",
+        "fix": "モデルが realtime に対応しているか、ネットワーク接続を確認してください"
+      },
+      "c2005": {
+        "meaning": "Midjourney 上流エラー",
+        "fix": "midjourney-proxy がオンラインか、タスクパラメータを確認してください"
+      },
+      "c2006": {
+        "meaning": "MCP ツールの呼び出しに失敗しました",
+        "fix": "MCP サーバーの状態とツール名の存在を確認してください"
+      },
+      "c3001": {
+        "meaning": "リクエストパラメータが不正です",
+        "fix": "messages の形式を確認してください"
+      },
+      "c3002": {
+        "meaning": "モデルが存在しません",
+        "fix": "GET /v1/models で利用可能なモデルを確認してください"
+      },
+      "c5013": {
+        "meaning": "上流チャネルが未設定です",
+        "fix": "管理者に rerank/moderations の上流設定を依頼してください"
+      }
+    }
+  },
+  "playground": {
+    "needApiKey": "先に API Key を入力してください",
+    "needModel": "モデルを選択または入力してください",
+    "needValidMessage": "有効なメッセージを1件以上入力してください",
+    "callFailed": "呼び出しに失敗しました",
+    "send": "送信",
+    "modeSse": "· SSE",
+    "modeNonStream": "· 非ストリーミング",
+    "messageList": "メッセージ一覧",
+    "messageCount": "{n} 件",
+    "moveUp": "上へ移動",
+    "moveDown": "下へ移動",
+    "deleteMessage": "メッセージを削除",
+    "inputRoleContent": "{role} メッセージ内容を入力…",
+    "addMessage": "メッセージを追加",
+    "modelsFetchFailed": "モデル一覧の取得に失敗しました",
+    "apiKeyHint": "ローカルに保存され、今回の呼び出しにのみ使用します",
+    "modelLabel": "モデル",
+    "refreshModelsAria": "モデル一覧を更新",
+    "selectModelPlaceholder": "モデルを選択",
+    "inputModelOrRefresh": "モデル名を入力または一覧を更新",
+    "streamLabel": "stream(ストリーミング)",
+    "tabResponse": "応答",
+    "tabCode": "コード",
+    "tabHistory": "履歴({n})",
+    "waitingResponse": "応答を待っています…",
+    "clickSendHint": "「送信」をクリックして応答を確認",
+    "latencyLabel": "所要時間",
+    "costLabel": "コスト",
+    "apiKeyShownAs": "API Key 表示:",
+    "noHistory": "履歴はまだありません",
+    "unknownModel": "不明なモデル",
+    "restoreAria": "復元",
+    "emptyResponse": "（空の応答）",
+    "metaTitle": "API Playground — IHUI AI",
+    "metaDescription": "OpenAI 互換 API をオンラインでテスト:モデル選択、マルチターンメッセージ構築、パラメータ調整、ストリーミング SSE 描画、コード生成(cURL/Python/Node.js)、履歴。",
+    "pageDesc": "API Key で /v1/chat/completions を直接呼び出せます。ストリーミング描画・パラメータ調整・コード生成に対応し、/chat へ移動する必要はありません。"
+  },
+  "waiting": {
+    "agent": {
+      "first": {
+        "0": "返答を準備しています…",
+        "1": "回答の構成を考えています…",
+        "2": "承知しました、返答を検討中です…",
+        "3": "返答を生成しています…",
+        "4": "質問を受け付けました、処理中です…"
+      },
+      "middle": {
+        "0": "引き続き処理しています…",
+        "1": "前の内容を踏まえて考えています…",
+        "2": "残りの返答をまとめています…",
+        "3": "ご質問に対応中です…",
+        "4": "次の返答を生成しています…"
+      },
+      "followup": {
+        "0": "追加のご質問を確認しています…",
+        "1": "文脈を踏まえて考えています…",
+        "2": "追加質問への返答をまとめています…",
+        "3": "追加質問を受け付けました…",
+        "4": "回答を補足しています…"
+      }
+    },
+    "computer": {
+      "first": {
+        "0": "計算リソースを確保しています…",
+        "1": "実行環境を初期化しています…",
+        "2": "処理を開始しています…",
+        "3": "演算を割り当てています…",
+        "4": "初回計算を実行しています…"
+      },
+      "middle": {
+        "0": "実行中です…",
+        "1": "計算しています、少々お待ちください…",
+        "2": "中間結果を処理しています…",
+        "3": "中断なく進行しています…",
+        "4": "演算中です…"
+      },
+      "followup": {
+        "0": "再計算しています…",
+        "1": "新しい入力で処理を続けています…",
+        "2": "追加分を処理しています…",
+        "3": "結果を更新しています…",
+        "4": "追加リクエストに対応しています…"
+      }
+    },
+    "context": {
+      "first": {
+        "0": "会話の文脈を確認しています…",
+        "1": "関連する文脈を読み込んでいます…",
+        "2": "背景情報を整理しています…",
+        "3": "関連する記憶を呼び起こしています…",
+        "4": "文脈を準備しています…"
+      },
+      "middle": {
+        "0": "前文と関連付けて続けています…",
+        "1": "文脈を踏まえて考えています…",
+        "2": "前のメッセージを振り返っています…",
+        "3": "文脈の準備ができました、処理中です…",
+        "4": "履歴メッセージと照合しています…"
+      },
+      "followup": {
+        "0": "文脈と合わせて追加質問を理解しています…",
+        "1": "関連する文脈を振り返っています…",
+        "2": "以前の議論と結び付けています…",
+        "3": "前文と照合して補足しています…",
+        "4": "文脈を踏まえて処理しています…"
+      }
+    },
+    "plan": {
+      "first": {
+        "0": "対応プランを立てています…",
+        "1": "ご要望を分解しています…",
+        "2": "実行手順を計画しています…",
+        "3": "タスクの要点を分析しています…",
+        "4": "返答の概要を作成しています…"
+      },
+      "middle": {
+        "0": "プランを進めています…",
+        "1": "次の手順に移っています…",
+        "2": "プラン実行中です…",
+        "3": "手順どおりに処理しています…",
+        "4": "残りの手順を実行しています…"
+      },
+      "followup": {
+        "0": "プランを調整しています…",
+        "1": "追加質問に合わせて手順を更新しています…",
+        "2": "再計画しています…",
+        "3": "プランの詳細を補っています…",
+        "4": "新しいご要望に対応しています…"
+      }
+    },
+    "detail": {
+      "first": {
+        "0": "詳しい説明を準備しています…",
+        "1": "詳細をまとめています…",
+        "2": "要点を整理しています…",
+        "3": "詳細な返答を生成しています…",
+        "4": "回答の詳細を整えています…"
+      },
+      "middle": {
+        "0": "詳細を補足しています…",
+        "1": "説明を広げています…",
+        "2": "後続の内容を整えています…",
+        "3": "詳細を整理中です…",
+        "4": "返答を磨き上げています…"
+      },
+      "followup": {
+        "0": "ご質問の詳細を補足しています…",
+        "1": "追加質問の要点を広げています…",
+        "2": "説明を詳しくしています…",
+        "3": "補足内容を準備しています…",
+        "4": "追加質問への回答をまとめています…"
+      }
+    },
+    "vividTail": "、まもなくです"
   }
 }

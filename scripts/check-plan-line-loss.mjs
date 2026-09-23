@@ -50,8 +50,13 @@ const git = (args, cwd = ROOT) =>
 /** 登记行 → 编号标记(找不到返回 null) */
 export function markerOf(line) {
   if (!/^\s*[-*]\s/.test(line)) return null
-  // 编号形态:G-166 / D107b / P2-F.10 / W18(字母后缀与点号都要容得下)
-  const m = line.match(/\*\*(G-\d+[a-z]?|D\d+[a-z]?|P\d+(?:-[A-Za-z]+)?(?:\.\d+)?|W\d+)/)
+  // 编号形态:G-166 / D107b / P2-F.10 / W18(字母后缀与点号都要容得下);
+  // 外加 `守门 NN` 一族 —— 各道闸门在计划里的登记行用的就是这个前缀(如
+  // `**守门 72 \`scripts/check-dockerfile-copy-paths.mjs\`(sha …)**`),2026-09-23 实测
+  // 有一枚并发暂存版本正整块删掉别人的守门登记,只认 G/D/P/W 会完全看不见。
+  const m = line.match(
+    /\*\*(G-\d+[a-z]?|D\d+[a-z]?|P\d+(?:-[A-Za-z]+)?(?:\.\d+)?|W\d+|守门\s*\d+[a-z]?)/,
+  )
   if (!m) return null
   if (line.trim().length < MIN_LEN) return null
   // 标记 = 加粗头的**原文前缀**(不做任何重拼,否则 "D107b" 会被拆成 "D107 b" 这种
@@ -242,7 +247,16 @@ function selfTest() {
         '  - **P2-F.10 追加 —— 凭据外泄族收到第 5 处,F 通道两次自我纠正,Python 覆盖落地全绿。**',
       ) === 'P2-F.10 追加 —— 凭据外泄' &&
       markerOf('- **D12 短') === null &&
-      markerOf('**G-1 没有 bullet**这是一行足够长的但没有列表符号的内容,不该算登记行。') === null,
+      markerOf('**G-1 没有 bullet**这是一行足够长的但没有列表符号的内容,不该算登记行。') === null &&
+      // `守门 NN` 登记行一族:认编号前缀,但"守门"后无数字的散文行不算
+      String(
+        markerOf(
+          '  - **守门 72 `scripts/check-dockerfile-copy-paths.mjs`(sha `f9a264f25b`)**:提交 `79b9` 给根 package.json 加 postinstall 而镜像没 COPY scripts。',
+        ),
+      ).startsWith('守门 72') &&
+      markerOf(
+        '  - **守门链的执行语义**:任一 blocking 门失败都跑完再汇总,这是工程约束不是登记行编号。',
+      ) === null,
   )
   t('归档目录豁免路径可达(不抛异常即算通)', () => {
     const v = archivedCopy('一个绝对不存在的标记 XYZ')

@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { BarChart3, FlaskConical, Pencil, Trash2, X } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -22,6 +23,8 @@ interface RuleItemProps {
 }
 
 function RuleItem({ rule, index, onEdit, onDelete, onToggle, onShowDetail }: RuleItemProps) {
+  const t = useTranslations('rules')
+  const tCommon = useTranslations('common')
   const [confirmDel, setConfirmDel] = React.useState(false)
   const { testDialogRule, openTestDialog } = useRulesStore()
   const isActive = testDialogRule?.id === rule.id
@@ -40,11 +43,13 @@ function RuleItem({ rule, index, onEdit, onDelete, onToggle, onShowDetail }: Rul
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-medium">{rule.name}</span>
           {!rule.enabled && (
-            <span className="rounded-sm bg-muted px-1 text-[10px] text-muted-foreground">禁用</span>
+            <span className="rounded-sm bg-muted px-1 text-[10px] text-muted-foreground">
+              {t('disabled')}
+            </span>
           )}
           {matchCount > 0 && (
             <span className="shrink-0 rounded-sm bg-blue-500/10 px-1 text-[10px] text-blue-600">
-              命中 {matchCount} 次
+              {t('hitCount', { n: matchCount })}
             </span>
           )}
         </div>
@@ -74,7 +79,7 @@ function RuleItem({ rule, index, onEdit, onDelete, onToggle, onShowDetail }: Rul
       <button
         type="button"
         onClick={() => onToggle(!rule.enabled)}
-        aria-label={rule.enabled ? '禁用' : '启用'}
+        aria-label={rule.enabled ? t('disabled') : t('enabled')}
         className={cn(
           'shrink-0 rounded-md border px-1.5 py-0.5 text-[10px] transition-colors',
           rule.enabled
@@ -82,16 +87,16 @@ function RuleItem({ rule, index, onEdit, onDelete, onToggle, onShowDetail }: Rul
             : 'border-border bg-muted text-muted-foreground hover:bg-accent',
         )}
       >
-        {rule.enabled ? '启用' : '禁用'}
+        {rule.enabled ? t('enabled') : t('disabled')}
       </button>
       <div className="flex shrink-0 items-center gap-0.5">
-        <IconButton onClick={onShowDetail} aria-label="详情">
+        <IconButton onClick={onShowDetail} aria-label={t('detail')}>
           <BarChart3 />
         </IconButton>
-        <IconButton onClick={() => openTestDialog(rule)} aria-label="测试">
+        <IconButton onClick={() => openTestDialog(rule)} aria-label={t('test')}>
           <FlaskConical />
         </IconButton>
-        <IconButton onClick={onEdit} aria-label="编辑">
+        <IconButton onClick={onEdit} aria-label={t('edit')}>
           <Pencil />
         </IconButton>
         {confirmDel ? (
@@ -101,7 +106,7 @@ function RuleItem({ rule, index, onEdit, onDelete, onToggle, onShowDetail }: Rul
               await onDelete()
               setConfirmDel(false)
             }}
-            aria-label="确认删除"
+            aria-label={t('confirmDelete')}
             className="flex h-9 w-9 items-center justify-center rounded-md bg-destructive/10 text-destructive transition-colors hover:bg-destructive/20"
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -109,14 +114,14 @@ function RuleItem({ rule, index, onEdit, onDelete, onToggle, onShowDetail }: Rul
         ) : (
           <IconButton
             onClick={() => setConfirmDel(true)}
-            aria-label="删除"
+            aria-label={tCommon('delete')}
             className="hover:bg-destructive/10 hover:text-destructive"
           >
             <Trash2 />
           </IconButton>
         )}
         {confirmDel && (
-          <IconButton onClick={() => setConfirmDel(false)} aria-label="取消删除">
+          <IconButton onClick={() => setConfirmDel(false)} aria-label={t('cancelDelete')}>
             <X />
           </IconButton>
         )}
