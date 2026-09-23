@@ -9,7 +9,7 @@
  * - 6 位数字输入 + 60s 倒计时
  * - 透明 backdrop + 半透明黑色遮罩
  * - 浅色优雅风,无霓虹/无渐变,系统字体
- * - 复用 @ihui/design-tokens 的 rnLightTokens
+ * - 复用 theme/active-tokens 的主题 token
  *
  * 实现要点:
  * - 单隐藏 TextInput 接收键盘输入(避免 6 个独立输入框切换焦点,Android 兼容性更好)
@@ -21,7 +21,7 @@
  * - 计时器在 unmount 与 visible=false 时清理
  * - 类型零 any,精确类型标注
  */
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Modal, Pressable, StyleSheet, Text, TextInput, View, type ViewStyle } from 'react-native'
 
