@@ -6918,7 +6918,7 @@
       "actionCopyConfig": "구성 복사",
       "permissionMode": "권한 모드",
       "maxIterations": "최대 반복 횟수"
-}
+    }
   },
   "agents": {
     "kanban": {
@@ -7061,12 +7061,42 @@
         "row": { "agent": "{action} {agent}{stateSuffix}" },
         "meta": { "prompt": "입력: {prompt}" },
         "action": {
-          "spawn": { "label": "생성", "inProgress": "생성 중", "completed": "생성됨", "failed": "생성 실패" },
-          "resume": { "label": "재개", "inProgress": "재개 중", "completed": "재개됨", "failed": "재개 실패" },
-          "sendInput": { "label": "입력 전송", "inProgress": "전송 중", "completed": "전송됨", "failed": "전송 실패" },
-          "interrupt": { "label": "중단", "inProgress": "중단 중", "completed": "중단됨", "failed": "중단 실패" },
-          "close": { "label": "닫기", "inProgress": "닫는 중", "completed": "닫힘", "failed": "닫을 수 없음" },
-          "list": { "label": "목록", "inProgress": "불러오는 중", "completed": "불러옴", "failed": "불러오기 실패" }
+          "spawn": {
+            "label": "생성",
+            "inProgress": "생성 중",
+            "completed": "생성됨",
+            "failed": "생성 실패"
+          },
+          "resume": {
+            "label": "재개",
+            "inProgress": "재개 중",
+            "completed": "재개됨",
+            "failed": "재개 실패"
+          },
+          "sendInput": {
+            "label": "입력 전송",
+            "inProgress": "전송 중",
+            "completed": "전송됨",
+            "failed": "전송 실패"
+          },
+          "interrupt": {
+            "label": "중단",
+            "inProgress": "중단 중",
+            "completed": "중단됨",
+            "failed": "중단 실패"
+          },
+          "close": {
+            "label": "닫기",
+            "inProgress": "닫는 중",
+            "completed": "닫힘",
+            "failed": "닫을 수 없음"
+          },
+          "list": {
+            "label": "목록",
+            "inProgress": "불러오는 중",
+            "completed": "불러옴",
+            "failed": "불러오기 실패"
+          }
         },
         "state": {
           "running": "실행 중",
@@ -7452,7 +7482,9 @@
         "noReasonText": "자동 검토에서 사유 미제공",
         "noDecision": "자동 검토 기록 없음",
         "expandAria": "명령 기록(펼침/접기)"
-      }
+      },
+      "toolSummaryShowMore": "더 보기",
+      "toolSummaryShowLess": "접기"
     },
     "permissionConfirm": {
       "allow": "허용",
@@ -11275,7 +11307,7 @@
       "gatewayHintA": "게이트웨이를 호출할 때 요청 헤더에 다음을 사용",
       "gatewayHintB": "(ihui_로 시작하는 키 식별자입니다. Secret은 안전하게 보관하고 요청 헤더에 넣지 마세요.)",
       "savedClose": "저장 완료, 닫기"
-},
+    },
     "relayUsage": {
       "title": "사용량 상세",
       "subtitle": "모델별·일별로 릴레이와 BYOK 호출 통계 확인",
@@ -11317,7 +11349,7 @@
       "allApiKeys": "모든 API 키",
       "cacheRead": "읽기 {count}",
       "cacheWrite": "쓰기 {count}"
-}
+    }
   },
   "developerApiDocsPage": {
     "colDesc": "설명",
@@ -11634,13 +11666,13 @@
       "reviewer": "심사 어시스턴트",
       "architect": "아키텍트",
       "debugger": "디버깅 어시스턴트"
-},
+    },
     "subRoles": {
       "researcher": "리서처",
       "coder": "코더",
       "reviewer": "리뷰어",
       "debugger": "디버거"
-},
+    },
     "orch": {
       "parallel": "병렬",
       "pipeline": "직렬",
@@ -11649,13 +11681,13 @@
       "vote": "투표",
       "critique": "비판",
       "withCommunication": "협업 통신"
-},
+    },
     "subOrch": {
       "pipeline": "파이프라인",
       "critique": "비평",
       "decomposed": "분해",
       "withCommunication": "통신 포함"
-},
+    },
     "orchDesc": {
       "parallel": "여러 agent가 같은 작업을 병렬로 처리",
       "pipeline": "여러 agent가 결과를 직렬로 전달",
@@ -11664,13 +11696,13 @@
       "vote": "agent 5개가 독립 처리 → 상호 투표(1-5점)로 최선 선택",
       "critique": "여러 agent가 상호 비판으로 개선(3라운드: 생성→비판→수정)",
       "withCommunication": "agent 간 Redis 메시지 버스로 통신(3라운드 협업)"
-},
+    },
     "priority": {
       "low": "낮음",
       "normal": "일반",
       "high": "높음",
       "urgent": "긴급"
-},
+    },
     "fields": {
       "goal": "작업 목표",
       "agentRole": "Agent 역할",
@@ -11695,7 +11727,7 @@
       "tokenQuota": "토큰 상한",
       "tokenQuotaForm": "토큰 할당량",
       "maxRetries": "최대 재시도"
-},
+    },
     "defaultForbidden": "위 목록에 없는 모든 파일",
     "defaultDagNodeTask": "요구사항 조사",
     "dagTitle": "DAG 의존 그래프",
@@ -14243,7 +14275,7 @@
       "openWithUnified": "통합으로 열기",
       "openInEditor": "에디터에서 열기",
       "viewPullRequest": "풀 리퀘스트 보기"
-}
+    }
   },
   "imageGenPage": {
     "download": "다운로드",
@@ -15051,7 +15083,7 @@
         "step4": "사용할 모델을 추가하세요",
         "step5": "호출 시 자동으로 당신의 Key가 우선 사용됩니다",
         "gotIt": "알겠습니다"
-}
+      }
     }
   },
   "market": {
@@ -24600,7 +24632,22 @@
     "uploadFailedWithReason": "업로드 실패: {error}",
     "unknownError": "알 수 없는 오류",
     "missingFileId": "업로드 응답에 file.id가 없습니다",
-    "maxAttachmentsReached": "첨부 파일은 최대 {count}개까지입니다"
+    "maxAttachmentsReached": "첨부 파일은 최대 {count}개까지입니다",
+    "placeholder": "클릭하거나 파일을 여기에 끌어다 놓아 업로드하세요",
+    "done": "완료됨",
+    "cancelUpload": "업로드 취소",
+    "removeUploadedAriaLabel": "업로드된 파일 삭제",
+    "removeItemAriaLabel": "업로드 항목 제거",
+    "sizeLimitHint": "파일당 최대 {size}",
+    "maxCountReached": "최대 {max}개 파일 한도에 도달했습니다",
+    "oversizeFiles": "다음 파일이 {size}를 초과합니다: {files}",
+    "uploadFailed": "업로드 실패",
+    "uploadFailedWithStatus": "업로드 실패: HTTP {status}",
+    "invalidJsonResponse": "응답이 유효한 JSON이 아닙니다",
+    "noUrlField": "응답에서 사용할 수 있는 URL 필드를 찾을 수 없습니다",
+    "networkError": "네트워크 오류",
+    "uploadCancelled": "업로드가 취소되었습니다",
+    "imagePlaceholder": "클릭하거나 이미지를 여기에 끌어다 놓아 업로드하세요"
   },
   "eduScheduling": {
     "title": "스마트 시간표",
@@ -25536,7 +25583,7 @@
     "oauthManage": "OAuth 앱 관리",
     "mcpConnect": "MCP 서버 연결",
     "opsExecute": "운영 작업 실행"
-},
+  },
   "apiKeysPage": {
     "title": "내 API 키",
     "createKey": "키 생성",
@@ -25553,7 +25600,7 @@
     "rotateSecretDesc": "\"{name}\"의 secret을 회전하면 이전 secret은 즉시 무효화되고, 이전 secret을 사용하던 앱은 업데이트해야 합니다. 계속하시겠습니까?",
     "deleteKeyTitle": "API 키 삭제",
     "deleteKeyDesc": "\"{name}\"을(를) 삭제하시겠습니까? 삭제하면 이 키는 즉시 무효화되며 복구할 수 없습니다."
-},
+  },
   "knowledgeList": {
     "title": "지식 베이스",
     "subtitle": "시맨틱 검색으로 메모리 라이브러리의 지식 콘텐츠를 검색합니다",
@@ -25562,7 +25609,7 @@
     "empty": "검색 결과가 없습니다",
     "searchHint": "키워드를 입력해 지식 베이스 콘텐츠를 검색하세요",
     "resultCount": "총 {count}개 결과"
-},
+  },
   "knowledgeBase": {
     "backToList": "목록으로 돌아가기",
     "searchPlaceholder": "지식 베이스 문서 검색...",
@@ -25575,14 +25622,14 @@
       "subtitle": "지식 베이스 문서를 보고 검색하고 관리합니다",
       "allCategories": "전체 분류",
       "empty": "문서가 없습니다"
-},
+    },
     "detail": {
       "notFound": "문서가 존재하지 않습니다",
       "viewCount": "{count}회 조회",
       "toc": "목차",
       "prev": "이전 문서",
       "next": "다음 문서"
-},
+    },
     "search": {
       "backToKb": "지식 베이스로 돌아가기",
       "title": "검색 결과",
@@ -25590,10 +25637,20 @@
       "inputKeyword": "검색어를 입력해 주세요",
       "searching": "검색 중...",
       "noResult": "관련 문서를 찾지 못했습니다"
-},
+    },
     "create": {
       "title": "새 지식 베이스 문서",
       "subtitle": "새 지식 베이스 문서를 작성하고 게시합니다"
-}
-}
+    }
+  },
+  "webviewFrame": {
+    "loadingText": "로딩 중...",
+    "screenshotNotice": "이 사이트는 삽입이 금지되어 스크린샷 모드로 전환했습니다",
+    "blockedTitle": "안전하지 않은 URL이 차단되었습니다",
+    "failedTitle": "로딩 실패",
+    "externalTitle": "패널에 삽입할 수 없습니다",
+    "retry": "재시도",
+    "openExternal": "외부 브라우저에서 열기",
+    "idlePlaceholder": "URL을 입력하거나 AI 메시지의 링크를 클릭하여 여세요"
+  }
 }
