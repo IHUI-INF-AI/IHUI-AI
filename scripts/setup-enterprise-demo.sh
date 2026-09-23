@@ -160,7 +160,7 @@ name: ihui-enterprise-demo
 
 services:
   postgres:
-    image: pgvector/pgvector:pg18
+    image: postgres:15-alpine
     container_name: ihui-demo-postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-ihui}

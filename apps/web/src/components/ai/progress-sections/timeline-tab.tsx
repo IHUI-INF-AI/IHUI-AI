@@ -199,13 +199,11 @@ interface TimelineTabProps {
 
 const TABS: Array<{
   id: TimelineTabName
-  labelKey: 'timelineTabInline' | 'tabTimeline'
+  label: string
   Icon: React.ComponentType<{ className?: string }>
 }> = [
-  // timelineTabInline 为新建键:现成 ai.pane.tabInline 值为「对话」二字,
-  // 复用会让 tab 文案由三字变两字(违反零视觉变化),故另立等值键。
-  { id: 'inline', labelKey: 'timelineTabInline', Icon: MessageSquare },
-  { id: 'timeline', labelKey: 'tabTimeline', Icon: ListTree },
+  { id: 'inline', label: '对话流', Icon: MessageSquare },
+  { id: 'timeline', label: '时间线', Icon: ListTree },
 ]
 
 export const TimelineTab = React.memo(function TimelineTab({
@@ -315,7 +313,7 @@ export const TimelineTab = React.memo(function TimelineTab({
               data-testid={`timeline-tab-${tab.id}`}
             >
               <Icon className="h-3 w-3" aria-hidden />
-              {t(tab.labelKey)}
+              {tab.label}
             </button>
           )
         })}
