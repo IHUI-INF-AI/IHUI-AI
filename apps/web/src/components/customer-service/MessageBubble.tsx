@@ -7,9 +7,13 @@
 import * as React from 'react'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { CloseButton } from '@ihui/ui-react'
 import { getInitials } from '@/components/data/Avatar'
 import { formatTimeOnly } from '@/lib/date-utils'
+
+/** 层栈 id(见 @/lib/overlay-stack):图片缩放浮层的 Esc 只在栈顶时被消费 */
+const MESSAGE_BUBBLE_ZOOM_OVERLAY_ID = 'message-bubble-image-zoom'
 
 export type MessageType = 'text' | 'image' | 'system'
 
@@ -28,6 +32,12 @@ interface Props {
 
 export function MessageBubble({ message, isSelf }: Props) {
   const [zoomed, setZoomed] = React.useState(false)
+  // 层栈注册:zoomed → 入栈(成为栈顶);close/unmount → 出栈。
+  React.useEffect(() => {
+    if (!zoomed) return
+    pushOverlay(MESSAGE_BUBBLE_ZOOM_OVERLAY_ID)
+    return () => popOverlay(MESSAGE_BUBBLE_ZOOM_OVERLAY_ID)
+  }, [zoomed])
 
   if (message.type === 'system') {
     return <div className="my-1 text-center text-xs text-muted-foreground">{message.content}</div>
@@ -80,7 +90,7 @@ export function MessageBubble({ message, isSelf }: Props) {
           className="fixed inset-0 z-modal flex items-center justify-center bg-black/70 p-3"
           onClick={() => setZoomed(false)}
           onKeyDown={(e) => {
-            if (e.key === 'Escape') setZoomed(false)
+            if (e.key === 'Escape' && isTopOverlay(MESSAGE_BUBBLE_ZOOM_OVERLAY_ID)) setZoomed(false)
           }}
           role="button"
           tabIndex={0}

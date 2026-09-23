@@ -16,6 +16,8 @@ import {
   ListTodo,
   ChevronsUpDown,
   ChevronsDownUp,
+  ChevronDown,
+  ChevronRight,
   ArrowDown,
   Sparkles,
   HelpCircle,
@@ -29,6 +31,16 @@ import {
   Package,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
+
+/**
+ * 层栈 id(见 @/lib/overlay-stack):
+ * - AGENT_TASK_PANE_ID:面板本身(unpin 状态下 Esc 关闭)
+ * - AGENT_TASK_HELP_ID:帮助浮层(打开时 Esc 优先关帮助,是内层/栈顶)
+ */
+const AGENT_TASK_PANE_ID = 'agent-task-progress-pane'
+const AGENT_TASK_HELP_ID = 'agent-task-progress-pane-help'
+import { stepDecisionLabel, stepDecisionState } from '@ihui/shared/chat'
 import { IconButton } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import { TruncatedText } from '@/components/common'
@@ -174,7 +186,8 @@ const SHORTCUT_GROUPS: ReadonlyArray<ShortcutGroup> = [
   {
     i18nKey: 'shortcutsGroupPane',
     items: [
-      { keys: '?', i18nKey: 'shortcutShowHelp' },
+      // 2026-09-22:`?` 的键位唯一归属全局快捷键面板(use-permission-mode-cycle),
+      // 本面板帮助只由 header 钮开,故此处不再文档化 `?`(原文案"按 ? 打开/关闭"已失真)。
       { keys: 'Esc', i18nKey: 'shortcutCloseHelp' },
     ],
   },
@@ -186,6 +199,33 @@ const SHORTCUT_GROUPS: ReadonlyArray<ShortcutGroup> = [
     ],
   },
 ]
+
+// ─── 拖拽底边 clamp(2026-09-22 立) ───────────────────────────────────────────
+/**
+ * pane 可被拖到任意位置(纯 transform,原本只有"顶部不挡 header"一条 clamp),
+ * 实测能把不透明的 pane(z-sticky=990)整块压在对话列右下角的浮动 affordance 列上
+ * (32x72 的 `bottom-4 right-4` 跳顶/跳最新钮),使其点不到。
+ * 这里给拖拽补第二条 clamp:pane 底边不得越过该 affordance 列的上沿
+ * (列高 72 + bottom-4 的 16px = 消息区底部往上 88px 的底部净空带)。
+ * 只在水平方向真的与该列重叠时才生效,且**不动 z-index**(层级有 guardian 27/28 双契约)。
+ */
+const AFFORDANCE_RAIL_TESTID = 'scroll-jump-buttons'
+
+/** @returns 实际生效的 translateY(被带沿顶住时为回退后的值)
+ *  导出仅供单测(agent-task-progress-pane.test.tsx)直接验证 clamp 算式。 */
+export function clampPaneAboveAffordanceRail(paneEl: HTMLElement, x: number, y: number): number {
+  const rail = document.querySelector(`[data-testid="${AFFORDANCE_RAIL_TESTID}"]`)
+  paneEl.style.transform = `translate(${x}px, ${y}px)`
+  if (!(rail instanceof HTMLElement)) return y
+  const railRect = rail.getBoundingClientRect()
+  const rect = paneEl.getBoundingClientRect()
+  const overlapsHorizontally = rect.right > railRect.left && rect.left < railRect.right
+  const overflow = rect.bottom - railRect.top
+  if (!overlapsHorizontally || overflow <= 0) return y
+  const clampedY = y - overflow
+  paneEl.style.transform = `translate(${x}px, ${clampedY}px)`
+  return clampedY
+}
 
 // ─── 状态图标映射(2026-09-19 v2 五态:skipped=Ban 灰 / failed=AlertCircle 红) ──
 const PLAN_ICON: Record<PlanStepStatus, React.ComponentType<{ className?: string }>> = {
@@ -533,6 +573,12 @@ function MinimizedSummaryBar({
 
 /** P0-5(2026-09-13):workbench plan-step 单行(状态图标 + 工具名 + 决策/原因) */
 function RuntimeStepRow({ step }: { step: AgentPlanStepEvent }) {
+  // D55(G-66):决策取词走共享词汇表,认不出原样显示(此前直显 security_blocked 等英文码)
+  const tDecision = useTranslations('stepDecision')
+  const decisionView =
+    typeof step.decision === 'string' && step.decision !== ''
+      ? stepDecisionLabel(step.decision, tDecision)
+      : null
   return (
     <div
       className="flex items-center gap-1.5 py-0.5 text-[11px]"
@@ -554,10 +600,165 @@ function RuntimeStepRow({ step }: { step: AgentPlanStepEvent }) {
         value={step.toolName}
         className="min-w-0 flex-1 font-mono text-foreground/80"
       />
-      {(step.decision || step.reason) && (
-        <span className="max-w-[40%] shrink-0 truncate text-muted-foreground/60">
-          {step.decision ?? step.reason}
+      {(decisionView || step.reason) && (
+        <span
+          className="max-w-[40%] shrink-0 truncate text-muted-foreground/60"
+          data-decision-state={decisionView?.state}
+        >
+          {decisionView?.text ?? step.reason}
         </span>
+      )}
+    </div>
+  )
+}
+
+// ─── D85(G-116):自动审查统计聚合条 + 命令历史展开 ──────────────────────────
+// 与 D55 决策徽章同源(验收硬判据):统计与逐条徽章都从同一份 runtimePlanSteps 派生,
+// 分类复用 @ihui/shared/chat 的 stepDecisionState —— 组件内不存在第二份独立计数状态。
+// Trae 有代批无统计、Codex 有统计无逐条理由文案;本聚合条一次补齐「统计 + 逐条理由缺省」。
+
+/** 自动审查聚合摘要(纯函数,从 steps 派生,单一真相源) */
+export interface ReviewStatsSummary {
+  /** 含非空 decision 的步骤数(已发生自动审查) */
+  hasDecision: number
+  /** 决策态 = approved(已接受) */
+  accepted: number
+  /** 决策态 = rejected(已拒绝) */
+  rejected: number
+  /** 决策态 = needsUser(待用户) */
+  needsUser: number
+  /** 决策态 = unknown(未知/原样) */
+  unknown: number
+  /** 有决策但缺 reason 的步骤数(自动审查未提供理由) */
+  noReason: number
+}
+
+/** 同源派生:遍历 steps,复用 stepDecisionState 分类,与逐条徽章 stepDecisionLabel 同一套语义 */
+export function deriveReviewStats(steps: readonly AgentPlanStepEvent[]): ReviewStatsSummary {
+  const acc: ReviewStatsSummary = {
+    hasDecision: 0,
+    accepted: 0,
+    rejected: 0,
+    needsUser: 0,
+    unknown: 0,
+    noReason: 0,
+  }
+  for (const step of steps) {
+    if (typeof step.decision !== 'string' || step.decision === '') continue
+    acc.hasDecision += 1
+    const state = stepDecisionState(step.decision)
+    if (state === 'approved') acc.accepted += 1
+    else if (state === 'rejected') acc.rejected += 1
+    else if (state === 'needsUser') acc.needsUser += 1
+    else acc.unknown += 1
+    if (!step.reason || step.reason === '') acc.noReason += 1
+  }
+  return acc
+}
+
+/** D85 聚合条:决策区块顶部一行摘要 + 可展开的「命令历史」紧凑时间线 */
+export function ReviewStatsBar({ steps }: { steps: readonly AgentPlanStepEvent[] }) {
+  const t = useTranslations('ai.pane')
+  const tDecision = useTranslations('stepDecision')
+  const [expanded, setExpanded] = React.useState<boolean>(false)
+
+  // 同源:统计从同一份 steps 派生,无第二份计数状态
+  const stats = React.useMemo(() => deriveReviewStats(steps), [steps])
+  // 仅列出已发生自动审查(含非空 decision)的步骤,避免把 in_progress 噪声塞进时间线
+  const decided = React.useMemo(
+    () => steps.filter((s) => typeof s.decision === 'string' && s.decision !== ''),
+    [steps],
+  )
+
+  return (
+    <div
+      className="rounded-md border border-border bg-muted/30 px-2 py-1 text-[11px]"
+      data-testid="review-stats-bar"
+    >
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        aria-controls="review-stats-history"
+        aria-label={t('reviewStats.expandAria')}
+        className="flex w-full items-center gap-1.5 rounded-sm text-left transition-colors hover:bg-accent/30"
+        data-testid="review-stats-toggle"
+      >
+        <span className="font-medium text-foreground/80">{t('reviewStats.title')}</span>
+        <span className="text-muted-foreground/50">·</span>
+        {stats.hasDecision === 0 ? (
+          <span className="text-muted-foreground/60">{t('reviewStats.noDecision')}</span>
+        ) : (
+          <>
+            <span className="font-medium tabular-nums text-emerald-600 dark:text-emerald-400">
+              {t('reviewStats.accepted', { n: stats.accepted })}
+            </span>
+            <span className="text-muted-foreground/40">/</span>
+            <span className="font-medium tabular-nums text-red-600 dark:text-red-400">
+              {t('reviewStats.rejected', { n: stats.rejected })}
+            </span>
+            {stats.noReason > 0 && (
+              <span className="font-medium tabular-nums text-amber-600 dark:text-amber-400">
+                {t('reviewStats.noReason', { n: stats.noReason })}
+              </span>
+            )}
+          </>
+        )}
+        <span className="ml-auto flex shrink-0 items-center gap-0.5 text-muted-foreground/50">
+          <span>{t('reviewStats.commandHistory')}</span>
+          {expanded ? (
+            <ChevronDown className="h-3 w-3" aria-hidden />
+          ) : (
+            <ChevronRight className="h-3 w-3" aria-hidden />
+          )}
+        </span>
+      </button>
+      {expanded && (
+        <div
+          id="review-stats-history"
+          role="list"
+          className="mt-1 space-y-0.5 border-t border-border/60 pt-1"
+          data-testid="review-stats-history"
+        >
+          {decided.length === 0 ? (
+            <div className="text-muted-foreground/50">{t('reviewStats.noDecision')}</div>
+          ) : (
+            decided.map((step) => {
+              const view = stepDecisionLabel(step.decision, tDecision)
+              return (
+                <div
+                  key={`${step.runId}-${step.stepIndex}`}
+                  role="listitem"
+                  className="flex items-center gap-1.5"
+                >
+                  <span
+                    className={cn(
+                      'shrink-0 rounded-sm px-1 text-[10px] font-medium',
+                      view.state === 'approved' &&
+                        'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+                      view.state === 'rejected' && 'bg-red-500/10 text-red-600 dark:text-red-400',
+                      view.state === 'needsUser' &&
+                        'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+                      view.state === 'unknown' && 'bg-muted text-muted-foreground/70',
+                    )}
+                    data-decision-state={view.state}
+                  >
+                    {view.text}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate font-mono text-foreground/70">
+                    {step.toolName}
+                  </span>
+                  {/* 决策无 reason → 显式缺省文案(非空白、非"-") */}
+                  <span className="max-w-[45%] shrink-0 truncate text-muted-foreground/60">
+                    {step.reason && step.reason !== ''
+                      ? step.reason
+                      : t('reviewStats.noReasonText')}
+                  </span>
+                </div>
+              )
+            })
+          )}
+        </div>
       )}
     </div>
   )
@@ -911,6 +1112,20 @@ export function AgentTaskProgressPane() {
     [hoveredPlanStepId, hoveredMessageId],
   )
 
+  // 层栈注册:面板 open → 入栈;帮助 showHelp → 入栈(成为栈顶,内层)。
+  // close/unmount → 出栈。pushOverlay 幂等,StrictMode 双跑 effect 不会产生重复项。
+  React.useEffect(() => {
+    if (!open) return
+    pushOverlay(AGENT_TASK_PANE_ID)
+    return () => popOverlay(AGENT_TASK_PANE_ID)
+  }, [open])
+
+  React.useEffect(() => {
+    if (!open || !showHelp) return
+    pushOverlay(AGENT_TASK_HELP_ID)
+    return () => popOverlay(AGENT_TASK_HELP_ID)
+  }, [open, showHelp])
+
   // Esc 关闭(unpin 状态下生效) + 帮助面板关闭
   React.useEffect(() => {
     if (!open) return
@@ -922,22 +1137,21 @@ export function AgentTaskProgressPane() {
           return
         }
       }
-      // 帮助面板打开时,Esc 优先关帮助,避免冒泡到外层 closePane
+      // 帮助面板打开时,Esc 优先关帮助(帮助是栈顶内层)
       if (e.key === 'Escape' && showHelp) {
+        // 只让栈顶那一层消费 Esc:帮助是栈顶时才关帮助
+        if (!isTopOverlay(AGENT_TASK_HELP_ID)) return
         e.preventDefault()
-        e.stopPropagation()
         setShowHelp(false)
         return
       }
       if (e.key === 'Escape' && !pinned) {
+        // 只让栈顶那一层消费 Esc:面板是栈顶时才关面板(帮助关闭后面板成为栈顶)
+        if (!isTopOverlay(AGENT_TASK_PANE_ID)) return
         e.preventDefault()
         closePane()
       }
-      // v13: 按 ? (Shift+/) 切换帮助面板
-      if (e.key === '?') {
-        e.preventDefault()
-        setShowHelp((v) => !v)
-      }
+      // 2026-09-22 键位归属:`?` 唯一归全局快捷键面板(use-permission-mode-cycle),本面板帮助走 header 钮
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -1081,8 +1295,8 @@ export function AgentTaskProgressPane() {
     let lastDy = 0
     const onMove = (ev: MouseEvent) => {
       lastDx = ev.clientX - startX
-      lastDy = ev.clientY - startY
-      paneEl.style.transform = `translate(${baseX + lastDx}px, ${baseY + lastDy}px)`
+      // clampPaneAboveAffordanceRail 返回"实际生效"的 Y(底边被 affordance 带顶住时会回退)
+      lastDy = clampPaneAboveAffordanceRail(paneEl, baseX + lastDx, baseY + (ev.clientY - startY))
     }
     const onUp = () => {
       window.removeEventListener('mousemove', onMove)
@@ -1090,7 +1304,7 @@ export function AgentTaskProgressPane() {
       // 持久化到 localStorage(v19 key,与恢复逻辑保持一致)
       // 同时 clamp Y 不让 Pane 顶部 < 8px(viewport),防止下次刷新挡 header 按钮
       try {
-        const safeY = Math.max(baseY + lastDy, -64)
+        const safeY = Math.max(lastDy, -64)
         localStorage.setItem('pane-drag-v19', JSON.stringify({ x: baseX + lastDx, y: safeY }))
       } catch {
         // localStorage 写入失败(隐私模式 / 配额满)→ 静默忽略
@@ -1121,7 +1335,8 @@ export function AgentTaskProgressPane() {
         // 视口 0 - inner div 顶部 72px = -72px,所以 Y 不能小于 -72
         // 留 8px buffer,clamp 到 -64px 之内(让 Pane 顶部最高位于 viewport 8px,正好避开 header)
         const safeY = Math.max(y, -64)
-        el.style.transform = `translate(${x}px, ${safeY}px)`
+        // 底边同样要过一遍 affordance clamp(旧 localStorage 里可能存着压住钮的偏移)
+        clampPaneAboveAffordanceRail(el, x, safeY)
       }
     } catch {
       // localStorage 读取失败或 JSON 解析失败 → 静默忽略
@@ -1561,15 +1776,14 @@ export function AgentTaskProgressPane() {
           {/* P0-5(2026-09-13):workbench plan-step 时间线(命名 SSE 事件,step_index 幂等);
               仅当运行时链路有步骤时渲染,复用 planListLabel 文案 */}
           {runtimePlanSteps.length > 0 && (
-            <div
-              className="mx-2 mt-1.5"
-              role="list"
-              aria-label={t('planListLabel')}
-              data-testid="pane-runtime-steps"
-            >
-              {runtimePlanSteps.map((step) => (
-                <RuntimeStepRow key={`${step.runId}-${step.stepIndex}`} step={step} />
-              ))}
+            <div className="mx-2 mt-1.5 space-y-1" data-testid="pane-runtime-steps">
+              {/* D85(G-116):聚合条位于决策区块顶部,与逐条徽章同源(runtimePlanSteps 派生) */}
+              <ReviewStatsBar steps={runtimePlanSteps} />
+              <div role="list" aria-label={t('planListLabel')}>
+                {runtimePlanSteps.map((step) => (
+                  <RuntimeStepRow key={`${step.runId}-${step.stepIndex}`} step={step} />
+                ))}
+              </div>
             </div>
           )}
 
@@ -1758,13 +1972,13 @@ export function AgentTaskProgressPane() {
             </FoldableSectionProvider>
           )}
 
-          {/* Phase 17: 跳到最新按钮 */}
+          {/* Phase 17: 跟随事件流按钮(2026-09-22 文案与对话列 chat.jumpToLatest 差异化,消同屏歧义) */}
           {showJumpToLatest && (
-            <Tooltip content={t('jumpToLatest')}>
+            <Tooltip content={t('followEvents')}>
               <button
                 type="button"
                 onClick={jumpToLatest}
-                aria-label={t('jumpToLatest')}
+                aria-label={t('followEvents')}
                 className="absolute bottom-2 left-1/2 inline-flex h-6 -translate-x-1/2 items-center gap-0.5 rounded-md border border-border bg-popover px-2 text-[10px] text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-accent-foreground"
                 data-testid="pane-jump-latest"
               >
