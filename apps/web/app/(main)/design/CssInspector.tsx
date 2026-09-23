@@ -4,6 +4,8 @@
 
 'use client'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { ChevronRight, ChevronDown } from 'lucide-react'
@@ -54,7 +56,7 @@ function CssPropRow({
             height: 24,
             padding: 0,
             border: '1px solid var(--border)',
-            borderRadius: 4,
+            borderRadius: rnRadius.sm,
             cursor: 'pointer',
           }}
         />
@@ -120,7 +122,7 @@ export function CssGroupSection({
           padding: '4px 6px',
           border: 'none',
           background: 'transparent',
-          borderRadius: 4,
+          borderRadius: rnRadius.sm,
           textAlign: 'left',
           fontSize: 12,
           fontWeight: 600,

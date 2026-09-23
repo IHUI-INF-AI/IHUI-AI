@@ -3,87 +3,70 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * BottomFigure 底部轮播图 (mobile-rn 端)
+ * 圆角档位唯一真相源(全端共用:web / miniapp-taro / mobile-rn / packages-app /
+ * desktop / extension / cli / ui-react / ui-native)。
  *
- * 对齐历史项目 BottomFigure/index.vue:
- * - 原项目是 swiper 轮播(autoplay 3000ms / circular / indicator 指示点 / 点击跳转)
- * - 复用 Carousel 组件实现轮播(autoplayInterval 3000, 高度 149dp=原 298rpx)
- * - 原项目数据字段为 imageUrl,本组件 1:1 兼容(imageUrl 优先,缺失回退 img)
- * - 点击回调 onItemPress(item, index):原项目仅 index===1 跳招聘页,RN 由调用方注入(预留)
- * - 浅色优雅风,圆角矩形(非圆形),无霓虹无渐变
+ * 消费方式:
+ *  - Tailwind v3 端(mobile-rn NativeWind / miniapp-taro)→ tailwind-preset.js 取 RADIUS_REM
+ *  - JS 数值场景(RN StyleSheet.create、各端内联 style)→ 取 rnRadius(px 数值)
+ *  - web(Tailwind v4 @theme)/ CSS 端 → 写 var(--radius-*),其值由
+ *    scripts/check-radius-single-source.mjs 与本表逐档对账(CSS 无法 import JS,故以守门保同源)
+ *
+ * 档位值与 web(Tailwind v4 + packages/design-tokens/src/styles/tokens.css 的 --radius-*)
+ * 逐档同值。两处历史漂移已在本表收口:
+ *  1. v3 preset 曾把 sm 定义成 2px(Tailwind v3 默认),而 web v4 的 sm=4px —— 同名不同值,
+ *     即"同名类跨端圆角不一致"的根因;现 sm=4px,2px 由 xs 承载。
+ *  2. web tokens.css 显式 --radius: 0.5rem(裸 rounded=8px,注释自述与 --radius-lg 同值),
+ *     而 v3 端裸 rounded 走 Tailwind 默认 4px;现统一 DEFAULT=8px 与 web 对齐。
+ *
+ * 改档位只需改本表的 RADIUS_STEPS 一处。
  */
-import { tokens as tk } from '../theme/active-tokens'
-import { StyleSheet, View, type ViewStyle } from 'react-native'
-import Carousel from './Carousel'
-import type { CarouselItem } from '@ihui/ui-native'
-import { rnRadius } from '@ihui/design-tokens'
 
-export interface BottomFigureItem extends CarouselItem {
-  id: number
-  /** 原项目字段 imageUrl(1:1 对齐;缺失时回退 img) */
-  imageUrl?: string
+/** 档位 → px 数值(RN StyleSheet / 内联 style 直接消费) */
+export const RADIUS_STEPS = {
+  xs: 2,
+  sm: 4,
+  /** 裸 rounded / rounded-none 之外的默认档,与 lg 同值(对齐 web --radius: 0.5rem) */
+  DEFAULT: 8,
+  md: 6,
+  lg: 8,
+  xl: 12,
+  '2xl': 16,
 }
 
-export interface BottomFigureProps {
-  /** 轮播数据(对齐原项目 carouselList);缺省用原项目 3 张默认图 */
-  items?: BottomFigureItem[]
-  /** 高度(原 298rpx ≈ 149dp) */
-  height?: number
-  /** 点击回调(原项目 index===1 跳招聘页,由调用方注入;后端跳转逻辑预留) */
-  onItemPress?: (item: BottomFigureItem, index: number) => void
+/** 档位 → rem 字符串(Tailwind theme.borderRadius 消费;1rem = 16px) */
+export const RADIUS_REM = Object.fromEntries(
+  Object.entries(RADIUS_STEPS).map(([step, px]) => [step, `${px / 16}rem`]),
+)
+
+/** 档位 → 该档对应的 CSS 变量名(CSS 端引用形式,守门与迁移脚本共用) */
+export const RADIUS_CSS_VAR = {
+  xs: '--radius-xs',
+  sm: '--radius-sm',
+  DEFAULT: '--radius',
+  md: '--radius-md',
+  lg: '--radius-lg',
+  xl: '--radius-xl',
+  '2xl': '--radius-2xl',
 }
 
-const DEFAULT_HEIGHT = 149
-const DEFAULT_ITEMS: readonly BottomFigureItem[] = [
-  {
-    id: 1,
-    imageUrl:
-      'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/home/carousel4-footer1/BottomFigure.png',
-    img: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/home/carousel4-footer1/BottomFigure.png',
-  },
-  {
-    id: 2,
-    imageUrl:
-      'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/recruitment/recruit2.png',
-    img: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/recruitment/recruit2.png',
-  },
-  {
-    id: 3,
-    imageUrl:
-      'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/recruitment/recruit3.png',
-    img: 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/recruitment/recruit3.png',
-  },
-] as const
+/** RN / JS 侧消费入口:StyleSheet.create 里写 borderRadius: rnRadius.lg */
+export const rnRadius = RADIUS_STEPS
 
-export function BottomFigure({ items, height = DEFAULT_HEIGHT, onItemPress }: BottomFigureProps) {
-  const raw = items ?? [...DEFAULT_ITEMS]
-  // 归一化 imageUrl → img,交给 Carousel 渲染
-  const banner: CarouselItem[] = raw.map((it) => ({ ...it, img: it.imageUrl ?? it.img }))
+/** 档位取值集合(px),供守门判定 */
+export const RADIUS_SCALE_PX = [...new Set(Object.values(RADIUS_STEPS))].sort((a, b) => a - b)
 
-  return (
-    <View style={[styles.container, { height }]}>
-      <Carousel
-        banner={banner}
-        height={height}
-        autoplayInterval={3000}
-        onItemPress={(_, index) => {
-          const source = raw[index]
-          if (source) onItemPress?.(source, index)
-        }}
-      />
-    </View>
-  )
+/**
+ * rpx(750 设计稿半单位)→ 档位名。历史代码大量写 rounded-[24rpx] / rpx(16),
+ * 迁移时用它换算成档位,而不是继续保留换算表达式。
+ */
+export function rpxToStep(rpx) {
+  const px = rpx / 2
+  return Object.keys(RADIUS_STEPS).find((step) => RADIUS_STEPS[step] === px) || null
 }
 
-const styles = StyleSheet.create({
-  container: {
-    width: '100%',
-    marginTop: 16,
-    overflow: 'hidden',
-    borderRadius: rnRadius.lg,
-    backgroundColor: tk.surface.muted,
-  } as ViewStyle,
-})
-
-export default BottomFigure
+/** px → 档位名(唯一精确匹配才返回,不做就近吸附,避免静默改视觉) */
+export function pxToStep(px) {
+  return Object.keys(RADIUS_STEPS).find((step) => RADIUS_STEPS[step] === Number(px)) || null
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

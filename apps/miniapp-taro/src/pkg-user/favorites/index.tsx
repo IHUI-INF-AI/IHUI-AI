@@ -174,7 +174,7 @@ export default function FavoritesPage() {
             {tt('favorites.itemsUnit', '项')}
           </Text>
           <Text
-            className="ml-auto py-[8rpx] px-[20rpx] text-[24rpx] text-primary bg-primary/10 border-[2rpx] border-primary/30 rounded-[24rpx]"
+            className="ml-auto py-[8rpx] px-[20rpx] text-[24rpx] text-primary bg-primary/10 border-[2rpx] border-primary/30 rounded-xl"
             onClick={() => {
               setManageMode((v) => !v)
               setSelectedIds(new Set())
@@ -198,7 +198,7 @@ export default function FavoritesPage() {
         {CATEGORY_TABS.map((tab) => (
           <View
             key={tab.key}
-            className={`inline-flex items-center justify-center px-[28rpx] py-[12rpx] mr-[16rpx] rounded-[24rpx] ${activeTab === tab.key ? 'bg-primary' : 'bg-card'}`}
+            className={`inline-flex items-center justify-center px-[28rpx] py-[12rpx] mr-[16rpx] rounded-xl ${activeTab === tab.key ? 'bg-primary' : 'bg-card'}`}
             hoverClass="opacity-60"
             onClick={() => setActiveTab(tab.key)}
           >
@@ -213,7 +213,7 @@ export default function FavoritesPage() {
 
       {/* 批量操作栏 */}
       {manageMode && displayList.length > 0 ? (
-        <View className="mt-[16rpx] flex items-center justify-between py-[16rpx] px-[20rpx] bg-card border-[2rpx] border-border rounded-[24rpx]">
+        <View className="mt-[16rpx] flex items-center justify-between py-[16rpx] px-[20rpx] bg-card border-[2rpx] border-border rounded-xl">
           <View
             className="flex items-center"
             hoverClass="opacity-60"
@@ -226,7 +226,7 @@ export default function FavoritesPage() {
             }}
           >
             <Text
-              className={`inline-flex items-center justify-center w-[40rpx] h-[40rpx] text-[24rpx] text-transparent bg-background border-[2rpx] border-primary/40 rounded-[6rpx] shrink-0 ${allChecked ? 'text-foreground bg-primary border-primary' : ''}`}
+              className={`inline-flex items-center justify-center w-[40rpx] h-[40rpx] text-[24rpx] text-transparent bg-background border-[2rpx] border-primary/40 rounded-xs shrink-0 ${allChecked ? 'text-foreground bg-primary border-primary' : ''}`}
             >
               {allChecked ? '✓' : ''}
             </Text>
@@ -235,7 +235,7 @@ export default function FavoritesPage() {
             </Text>
           </View>
           <Text
-            className={`py-[8rpx] px-[20rpx] text-[24rpx] text-destructive-foreground bg-destructive rounded-[24rpx] ${selectedIds.size === 0 ? 'text-muted-foreground bg-muted' : ''}`}
+            className={`py-[8rpx] px-[20rpx] text-[24rpx] text-destructive-foreground bg-destructive rounded-xl ${selectedIds.size === 0 ? 'text-muted-foreground bg-muted' : ''}`}
             onClick={handleBatchCancel}
           >
             {tt('favorites.batchCancel', '批量取消')} ({selectedIds.size})
@@ -254,25 +254,25 @@ export default function FavoritesPage() {
                 {/* 对齐 RN FavoriteScreen card:padding 12dp/radius 12dp/描边 border.light/底 surface.bg */}
                 <View
                   key={item.id}
-                  className="flex items-center p-[24rpx] bg-background border-[2rpx] border-border rounded-[24rpx]"
+                  className="flex items-center p-[24rpx] bg-background border-[2rpx] border-border rounded-xl"
                   hoverClass="opacity-60"
                   onClick={() => (manageMode ? toggleSelect(item.id) : viewDetail(item))}
                 >
                   {manageMode ? (
                     <Text
-                      className={`inline-flex items-center justify-center w-[40rpx] h-[40rpx] text-[24rpx] text-transparent bg-background border-[2rpx] border-primary/40 rounded-[6rpx] shrink-0 ${checked ? 'text-foreground bg-primary border-primary' : ''}`}
+                      className={`inline-flex items-center justify-center w-[40rpx] h-[40rpx] text-[24rpx] text-transparent bg-background border-[2rpx] border-primary/40 rounded-xs shrink-0 ${checked ? 'text-foreground bg-primary border-primary' : ''}`}
                     >
                       {checked ? '✓' : ''}
                     </Text>
                   ) : null}
                   {item.cover ? (
                     <Image
-                      className="w-[128rpx] h-[128rpx] rounded-[24rpx] bg-muted mr-[24rpx] shrink-0"
+                      className="w-[128rpx] h-[128rpx] rounded-xl bg-muted mr-[24rpx] shrink-0"
                       src={item.cover}
                       mode="aspectFill"
                     />
                   ) : (
-                    <View className="w-[128rpx] h-[128rpx] rounded-[24rpx] bg-muted mr-[24rpx] shrink-0 flex items-center justify-center">
+                    <View className="w-[128rpx] h-[128rpx] rounded-xl bg-muted mr-[24rpx] shrink-0 flex items-center justify-center">
                       <Text className="text-[20rpx] text-muted-foreground">{item.targetType}</Text>
                     </View>
                   )}
@@ -289,7 +289,7 @@ export default function FavoritesPage() {
                       {!manageMode ? (
                         <Text
                           /* 对齐 RN deleteBtn:paddingHorizontal 12dp/paddingVertical 6dp/radius 12dp/描边 border.light/字 text.primary */
-                          className="py-[12rpx] px-[24rpx] text-[28rpx] text-foreground bg-background border-[2rpx] border-border rounded-[24rpx]"
+                          className="py-[12rpx] px-[24rpx] text-[28rpx] text-foreground bg-background border-[2rpx] border-border rounded-xl"
                           onClick={(e) => {
                             e.stopPropagation()
                             handleCancel(item)
@@ -317,7 +317,7 @@ export default function FavoritesPage() {
               : tt('favorites.empty', '暂无收藏')}
           </Text>
           <View
-            className="mt-[24rpx] py-[16rpx] px-[40rpx] bg-primary rounded-[24rpx]"
+            className="mt-[24rpx] py-[16rpx] px-[40rpx] bg-primary rounded-xl"
             onClick={goDiscover}
             hoverClass="opacity-60"
           >

@@ -20,7 +20,7 @@
 /* ===== 封面容器(对齐 .popular-courses-list-item-img:20rpx 圆角 + overflow hidden)===== */
 .lli-thumb {
   position: relative;
-  border-radius: 10px; /* 对齐 20rpx */
+  border-radius: var(--radius-lg); /* 对齐 20rpx */
   overflow: hidden;
   background-color: var(--color-muted);
   flex-shrink: 0;
@@ -38,7 +38,7 @@
   justify-content: center;
   width: fit-content;
   padding: 2px 10px;
-  border-radius: 8px; /* 对齐 15rpx */
+  border-radius: var(--radius-lg);
   background-color: var(--color-muted);
 }
 
@@ -56,7 +56,7 @@
   justify-content: center;
   width: fit-content;
   padding: 2px 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background-color: var(--color-muted);
 }
 
@@ -83,7 +83,7 @@
   position: absolute;
   z-index: 2;
   padding: 2px 10px;
-  border-radius: 10px; /* 对齐 20rpx */
+  border-radius: var(--radius-lg); /* 对齐 20rpx */
   background-color: var(--color-black-40);
   color: var(--color-foreground);
   font-size: 24rpx; /* 对齐原项目 24rpx */
@@ -111,7 +111,7 @@
   bottom: 0;
   right: 0;
   padding: 2px 10px;
-  border-top-left-radius: 6px; /* 对齐 12rpx */
+  border-top-left-radius: var(--radius-md);
   background-color: var(--color-destructive);
   color: var(--color-foreground);
   font-size: 24rpx;
@@ -134,6 +134,6 @@
 
 /* carousel 封面圆角(对齐 UpToDate border-radius:var(--radius-xl)) */
 .lli-carousel .lli-thumb {
-  border-radius: 12px; /* 对齐 24rpx */
+  border-radius: var(--radius-xl);
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

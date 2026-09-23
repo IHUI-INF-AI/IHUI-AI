@@ -27,6 +27,7 @@ import {
 } from 'react-native'
 import { rpx } from '../utils/rpx'
 import { tokens } from '../theme/active-tokens'
+import { rnRadius } from '@ihui/design-tokens'
 
 /** 原页面图片资源(CDN,与 Uniapp 一致) */
 const AVATAR_IMAGE =
@@ -79,14 +80,14 @@ const styles = StyleSheet.create({
     paddingVertical: rpx(10),
     flexDirection: 'row',
     alignItems: 'center',
-    borderTopLeftRadius: 15,
-    borderTopRightRadius: 15,
+    borderTopLeftRadius: rnRadius['2xl'],
+    borderTopRightRadius: rnRadius['2xl'],
     backgroundColor: '#9395E4',
   } as ViewStyle,
   avatar: {
     width: 50,
     height: 50,
-    borderRadius: 25,
+    borderRadius: 50 / 2, // radius-exempt: 圆形头像,半径=宽高一半
   } as ImageStyle,
   bottomTopText: {
     flex: 1,

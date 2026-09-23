@@ -303,7 +303,7 @@
 }
 .thin-scroll::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--color-muted-foreground) 60%, transparent);
-  border-radius: 3px;
+  border-radius: 3px; /* radius-exempt: 6px 宽滚动条滑块胶囊端,取宽度一半;第三方 ::-webkit-scrollbar 皮肤 */
   transition: background 0.2s ease;
 }
 .thin-scroll::-webkit-scrollbar-thumb:hover {
@@ -774,7 +774,7 @@ iframe::-webkit-scrollbar {
   background: var(--color-popover);
   color: var(--color-popover-foreground);
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   /* 居中交给 grid 处理,这里用对称 padding(8/6/8/6)让 box 物理宽 = text 13 + 12 = 25 整数。
      实测 4px 时 box 渲染为 25.39 (sub-pixel),grid 居中后 text 中心相对 box 中心偏 0.195px
      (肉眼无感但严格不绝对 0);改 6px 后 box 25 (整数),text 严格 6/6 对称,delta = 0。
@@ -884,7 +884,7 @@ iframe::-webkit-scrollbar {
   background: var(--color-popover);
   color: var(--color-popover-foreground);
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   /* 对称 padding(8/6/8/6)与关闭态 tooltip 一致,box 物理宽 25 整数,text 居中 delta = 0。
      关闭态注释:padding 4 时 box 渲染 25.39 sub-pixel 致 0.195px 偏心,改 6 整数化。 */
   padding: 8px 6px;
@@ -1198,7 +1198,7 @@ html[dir] [data-sonner-toaster] {
 /* 2. 关闭按钮: 圆形 → rounded-md (6px), 顶部下移 8px 到 toast 内部
  *    直接覆盖 left/right/transform 属性 (不用变量), 双保险应对 sonner CSS-in-JS 注入顺序 */
 body [data-sonner-toaster] [data-sonner-toast][data-styled='true'] [data-close-button] {
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   left: auto;
   right: 8px;
   top: 8px;
@@ -1427,7 +1427,7 @@ button[data-state='closed']:focus-visible {
  * hover 槽位时显示半透明空心预览(引导可点击)。 */
 .ihui-breakpoint-glyph {
   background: hsl(0 72% 51%);
-  border-radius: 50%;
+  border-radius: 50%; /* radius-exempt: 11px 断点装饰红点,几何正圆 */
   margin-left: 7px;
   height: 11px;
   width: 11px;

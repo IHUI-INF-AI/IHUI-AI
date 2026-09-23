@@ -386,11 +386,11 @@ export default function MessageIndex() {
               return (
                 <View
                   key={(room.id || room.name) as string}
-                  className="flex flex-row items-center py-[24rpx] px-[20rpx] rounded-[24rpx] gap-[24rpx]"
+                  className="flex flex-row items-center py-[24rpx] px-[20rpx] rounded-xl gap-[24rpx]"
                 >
                   {/* 头像(首字母占位,对齐 RN convAvatar 44dp/radius 10dp) */}
                   <View className="relative shrink-0">
-                    <View className="w-[88rpx] h-[88rpx] rounded-[20rpx] bg-muted flex items-center justify-center">
+                    <View className="w-[88rpx] h-[88rpx] rounded-lg bg-muted flex items-center justify-center">
                       <Text className="text-[32rpx] font-semibold text-foreground">
                         {(room.name || '?').charAt(0).toUpperCase()}
                       </Text>

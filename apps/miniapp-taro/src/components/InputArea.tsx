@@ -10,7 +10,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import type { CSSProperties } from 'react'
 import voiceRecorder from '@/utils/voice-recorder'
-import { cn } from '@ihui/design-tokens'
+import { cn, rnRadius } from '@ihui/design-tokens'
 // ai-home 模式图标(对齐原项目 InputArea.vue):
 // search-hua(文字模式切语音)/ input_qie(语音模式切文字)/ search-add(附件)/ sand_msg(发送)
 const searchHuaPng = aizhsUrl('remote-images/search-hua.png')
@@ -398,7 +398,7 @@ export default function InputArea({
                           autoplay={false}
                           showFullscreenBtn={false}
                           objectFit="contain"
-                          style={{ width: rpx(213), height: rpx(120), borderRadius: rpx(15) }}
+                          style={{ width: rpx(213), height: rpx(120), borderRadius: rnRadius.lg }}
                         />
                       </View>
                     ) : (

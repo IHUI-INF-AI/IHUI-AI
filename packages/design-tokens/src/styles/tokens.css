@@ -80,9 +80,12 @@
   --color-brand-800: hsl(240 6% 16%);
   --color-brand-900: hsl(240 7% 11%);
   --radius: 0.5rem;
-  /* 圆角 5 档(2026-07-27 上提自 miniapp-taro,4 端共享)
-     - --radius-lg 与 --radius 值相同(0.5rem),保留两者向后兼容
-     - Tailwind v4 默认 rounded-sm/md/lg/xl/2xl 与本表数值对齐 */
+  /* 圆角档位(唯一真相源 = packages/design-tokens/src/radius.js 的 RADIUS_STEPS)
+     - 本表逐档须与 radius.js 同值,由 scripts/check-radius-single-source.mjs 对账(改一处忘改另一处即红)
+     - --radius 为裸 rounded 档,与 --radius-lg 同值(向后兼容保留)
+     - --radius-xs 为 2px 档:web 走 Tailwind v4 默认已含 rounded-xs,此处显式声明供 CSS 端 var() 引用
+     - 原 5 档于 2026-07-27 上提自 miniapp-taro 共享;2026-09-23 补 xs 并收口同名不同值漂移 */
+  --radius-xs: 0.125rem;
   --radius-sm: 0.25rem;
   --radius-md: 0.375rem;
   --radius-lg: 0.5rem;

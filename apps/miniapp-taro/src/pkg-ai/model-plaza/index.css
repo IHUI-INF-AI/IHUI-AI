@@ -57,7 +57,7 @@
   gap: 12rpx;
   padding: 0 28rpx;
   height: 72rpx;
-  border-radius: 32rpx;
+  border-radius: var(--radius-2xl);
   background: var(--color-background);
   box-shadow: 0 2rpx 8rpx var(--color-black-4);
   transition: all 0.2s ease;
@@ -69,7 +69,7 @@
 .provider-icon-wrap {
   width: 36rpx;
   height: 36rpx;
-  border-radius: 18rpx;
+  border-radius: 18rpx; /* radius-exempt: 圆形厂商图标底,半径=宽高一半 */
   background: var(--color-secondary);
   display: flex;
   align-items: center;
@@ -95,7 +95,7 @@
   padding: 28rpx 24rpx;
   background: var(--color-background);
   margin: 0 24rpx 24rpx;
-  border-radius: 20rpx;
+  border-radius: var(--radius-lg);
   box-shadow: 0 2rpx 12rpx var(--color-black-4);
 }
 .provider-header .provider-name {
@@ -128,7 +128,7 @@
   font-size: 32rpx;
   color: var(--color-muted-foreground);
   background: var(--color-background);
-  border-radius: 32rpx;
+  border-radius: var(--radius-2xl);
   box-shadow: 0 2rpx 8rpx var(--color-black-4);
   transition: all 0.2s ease;
 }
@@ -145,7 +145,7 @@
 /* RN modelCard:padding 12 radius 10 bg surface.bg + shadowCard */
 .model-card {
   background: var(--color-background);
-  border-radius: 20rpx;
+  border-radius: var(--radius-lg);
   padding: 24rpx;
   margin-bottom: 24rpx;
   display: flex;
@@ -177,7 +177,7 @@
   font-size: 24rpx;
   font-weight: 600;
   padding: 6rpx 14rpx;
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
   margin-left: 16rpx;
 }
@@ -251,7 +251,7 @@
   color: var(--color-muted-foreground);
   background: var(--color-muted);
   padding: 6rpx 12rpx;
-  border-radius: 6rpx;
+  border-radius: var(--radius-xs);
 }
 /* RN payMode:marginLeft auto fontSize 12 text.tertiary */
 .pay-mode {

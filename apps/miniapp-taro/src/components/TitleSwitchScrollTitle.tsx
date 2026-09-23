@@ -91,7 +91,7 @@ export default function TitleSwitchScrollTitle(props: TitleSwitchScrollTitleProp
   )
 
   return (
-    <View className="w-full rounded-b-[30rpx] bg-card pb-[24rpx] shadow-[0_4px_2px_-4px_var(--color-black-30)]">
+    <View className="w-full rounded-b-2xl bg-card pb-[24rpx] shadow-[0_4px_2px_-4px_var(--color-black-30)]">
       <View className="w-full px-[56rpx] box-border mb-[36rpx]">
         <View className="text-[60rpx] font-bold tracking-[0.08em] text-foreground">
           {tt('TitleSwitchScrollTitle.text1', '主赛道:')}
@@ -109,7 +109,7 @@ export default function TitleSwitchScrollTitle(props: TitleSwitchScrollTitleProp
           {mainList.map((item, index) => (
             <SwiperItem
               key={index}
-              className={`flex items-center justify-center h-[92rpx] mr-[60rpx] box-border rounded-[12rpx] whitespace-nowrap text-[48rpx] text-foreground ${
+              className={`flex items-center justify-center h-[92rpx] mr-[60rpx] box-border rounded-md whitespace-nowrap text-[48rpx] text-foreground ${
                 current === index ? 'font-bold border-[14rpx] border-transparent' : ''
               }`}
               style={current === index ? { color: 'var(--color-brand)' } : undefined}
@@ -137,7 +137,7 @@ export default function TitleSwitchScrollTitle(props: TitleSwitchScrollTitleProp
             {subList.map((item, index) => (
               <SwiperItem
                 key={index}
-                className={`flex items-center justify-center h-[92rpx] mr-[60rpx] box-border rounded-[12rpx] whitespace-nowrap text-[48rpx] text-foreground ${
+                className={`flex items-center justify-center h-[92rpx] mr-[60rpx] box-border rounded-md whitespace-nowrap text-[48rpx] text-foreground ${
                   subSelected === index ? 'font-bold border-[14rpx] border-transparent' : ''
                 }`}
                 style={subSelected === index ? { color: 'var(--color-brand)' } : undefined}

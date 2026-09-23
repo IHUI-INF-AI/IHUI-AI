@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
     marginLeft: rpx(-34),
     width: 34,
     height: 34,
-    borderRadius: 17,
+    borderRadius: 17, // radius-exempt: 34x34 圆形悬浮返回钮,半径=边长一半
     backgroundColor: 'rgba(255,255,255,0.85)',
     alignItems: 'center',
     justifyContent: 'center',

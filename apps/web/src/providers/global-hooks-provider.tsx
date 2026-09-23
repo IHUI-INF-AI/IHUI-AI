@@ -4,6 +4,8 @@
 
 'use client'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
@@ -284,7 +286,7 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
             style={{
               background: 'var(--color-background, #fff)',
               color: 'var(--color-foreground, #000)',
-              borderRadius: 12,
+              borderRadius: rnRadius.xl,
               padding: '24px 32px',
               minWidth: 320,
               maxWidth: 480,

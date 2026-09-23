@@ -17,6 +17,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AiGroupItem, AiGroupScreenProps, AiGroupTab } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** AI 群组共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AiGroupItem, AiGroupScreenProps, AiGroupTab }
 
@@ -242,13 +244,13 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       marginHorizontal: 16,
       padding: 4,
-      borderRadius: 10,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
     },
     searchRow: { marginHorizontal: 16, marginTop: 10 },
     searchInput: {
       height: 40,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
@@ -259,7 +261,7 @@ function createStyles(tk: AppThemeTokens) {
     tabItem: {
       flex: 1,
       height: 34,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -270,7 +272,7 @@ function createStyles(tk: AppThemeTokens) {
     emptyText: { fontSize: 14, color: tk.text.tertiary },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -279,7 +281,7 @@ function createStyles(tk: AppThemeTokens) {
     cardIcon: {
       width: 44,
       height: 44,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
@@ -292,7 +294,7 @@ function createStyles(tk: AppThemeTokens) {
     tagBadge: {
       paddingHorizontal: 8,
       paddingVertical: 4,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
     },
     tagText: { fontSize: 11, color: tk.text.primary },
@@ -302,7 +304,7 @@ function createStyles(tk: AppThemeTokens) {
     miniAvatar: {
       width: 22,
       height: 22,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.border.light,
       alignItems: 'center',
       justifyContent: 'center',
@@ -316,7 +318,7 @@ function createStyles(tk: AppThemeTokens) {
       marginLeft: 'auto',
       paddingHorizontal: 12,
       height: 28,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
@@ -347,7 +349,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingVertical: 10,
-      borderRadius: 10,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.muted,
       paddingHorizontal: 12,
       marginBottom: 8,
@@ -355,7 +357,7 @@ function createStyles(tk: AppThemeTokens) {
     memberAvatar: {
       width: 36,
       height: 36,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
@@ -368,13 +370,13 @@ function createStyles(tk: AppThemeTokens) {
     roleBadge: {
       paddingHorizontal: 8,
       paddingVertical: 4,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
     },
     roleBadgeText: { fontSize: 11, color: tk.text.primary },
     previewBubble: {
       padding: 10,
-      borderRadius: 10,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
       marginBottom: 8,
     },
@@ -382,7 +384,7 @@ function createStyles(tk: AppThemeTokens) {
     previewText: { fontSize: 14, color: tk.text.medium, lineHeight: 18 },
     previewBubbleMine: {
       padding: 10,
-      borderRadius: 10,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.brand.DEFAULT,
       alignSelf: 'flex-end',
       maxWidth: '80%',
@@ -392,7 +394,7 @@ function createStyles(tk: AppThemeTokens) {
     enterBtn: {
       marginTop: 16,
       height: 44,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

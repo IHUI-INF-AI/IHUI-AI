@@ -27,6 +27,8 @@ import { getRoleLabel } from '@ihui/shared/utils'
 import type { UserInfo } from '@ihui/types'
 import { rpx } from '../utils/rpx'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 // 共享类型 UserInfo 已下沉到 @ihui/types,本地 re-export 保持调用方兼容
 export type { UserInfo }
 
@@ -297,7 +299,7 @@ const newStyles = StyleSheet.create({
     backgroundColor: tokens.brand.ctaFill,
     borderWidth: 2,
     borderColor: tokens.text.primary,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     paddingVertical: 14,
     paddingHorizontal: 32,
   },
@@ -309,7 +311,7 @@ const newStyles = StyleSheet.create({
   card: {
     marginTop: 8,
     padding: 8,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -323,7 +325,7 @@ const newStyles = StyleSheet.create({
     // 对齐 Uniapp pages/table/user/UserInfoCard.vue .avatar-img:163rpx(≈82dp) 圆角 15rpx 白底
     width: rpx(163),
     height: rpx(163),
-    borderRadius: rpx(15),
+    borderRadius: rnRadius.lg,
     overflow: 'hidden',
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
@@ -338,7 +340,7 @@ const newStyles = StyleSheet.create({
   avatarFallback: {
     width: rpx(163),
     height: rpx(163),
-    borderRadius: rpx(15),
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.brandAccent.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
@@ -377,7 +379,7 @@ const newStyles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     backgroundColor: tokens.surface.muted,
-    borderRadius: 2,
+    borderRadius: rnRadius.xs,
   },
   roleBadgeVip: {
     backgroundColor: tokens.warning.light,
@@ -398,7 +400,7 @@ const newStyles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 6,
     backgroundColor: tokens.surface.muted,
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
   },
   tokenLabelWrap: {
     flexDirection: 'row',
@@ -418,7 +420,7 @@ const newStyles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     backgroundColor: tokens.brandAccent.DEFAULT,
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
   },
   rechargeBtnText: {
     fontSize: 12,
@@ -430,7 +432,7 @@ const newStyles = StyleSheet.create({
     marginTop: 6,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 4,
+    borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.text.tertiary,
   },
@@ -444,7 +446,7 @@ const newStyles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 6,
     backgroundColor: tokens.surface.muted,
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
   },
   growthLabelWrap: {
     flexDirection: 'row',
@@ -464,13 +466,13 @@ const newStyles = StyleSheet.create({
   growthBarBg: {
     height: 4,
     backgroundColor: tokens.surface.muted,
-    borderRadius: 2,
+    borderRadius: rnRadius.xs,
     overflow: 'hidden',
   },
   growthBarFill: {
     height: 4,
     backgroundColor: tokens.brandAccent.DEFAULT,
-    borderRadius: 2,
+    borderRadius: rnRadius.xs,
   },
   // 邀请码
   inviteRow: {
@@ -480,7 +482,7 @@ const newStyles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 6,
     backgroundColor: tokens.surface.muted,
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
   },
   inviteLabel: {
     fontSize: 12,
@@ -497,7 +499,7 @@ const newStyles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     backgroundColor: tokens.brandAccent.light,
-    borderRadius: 4,
+    borderRadius: rnRadius.sm,
   },
   copyBtnText: {
     fontSize: 11,
@@ -514,7 +516,7 @@ const newStyles = StyleSheet.create({
   modalCard: {
     width: '80%',
     backgroundColor: tokens.surface.card,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     padding: 20,
     alignItems: 'center',
   },
@@ -549,7 +551,7 @@ const newStyles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 8,
     backgroundColor: tokens.brandAccent.DEFAULT,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
   },
   modalCloseBtnText: {
     fontSize: 14,
@@ -627,7 +629,7 @@ const oldStyles = StyleSheet.create({
     backgroundColor: tokens.brand.ctaFill,
     borderWidth: 2,
     borderColor: tokens.text.primary,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     paddingVertical: 12,
     paddingHorizontal: 32,
   },
@@ -639,7 +641,7 @@ const oldStyles = StyleSheet.create({
   card: {
     marginTop: 8,
     padding: 16,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -657,7 +659,7 @@ const oldStyles = StyleSheet.create({
   },
   editBtn: {
     backgroundColor: tokens.brandAccent.light,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
@@ -688,7 +690,7 @@ const oldStyles = StyleSheet.create({
   avatar: {
     width: 64,
     height: 64,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     borderWidth: 2,
     borderColor: tokens.surface.light,
     backgroundColor: tokens.surface.card,
@@ -698,7 +700,7 @@ const oldStyles = StyleSheet.create({
   avatarFallback: {
     width: 64,
     height: 64,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     backgroundColor: tokens.brandAccent.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
@@ -720,7 +722,7 @@ const oldStyles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     backgroundColor: tokens.surface.muted,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
   },
   tokenLabel: {
     fontSize: 12,

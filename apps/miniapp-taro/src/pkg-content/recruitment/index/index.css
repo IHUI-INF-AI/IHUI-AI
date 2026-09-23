@@ -71,7 +71,7 @@
 .req-dot {
   width: 12rpx;
   height: 12rpx;
-  border-radius: 50%;
+  border-radius: 50%; /* radius-exempt: 装饰圆点 */
   background: var(--color-primary);
   margin-top: 12rpx;
   margin-right: 16rpx;

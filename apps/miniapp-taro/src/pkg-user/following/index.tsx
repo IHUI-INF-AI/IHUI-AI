@@ -106,7 +106,7 @@ export default function FollowingPage() {
       {/* 排序 tab:关注时间 / 最近活跃(对齐 RN FollowScreen tabs:paddingVertical 8dp/gap 8dp/胶囊 radius 12dp/激活 bg brand) */}
       <View className="flex gap-[16rpx] py-[16rpx]">
         <View
-          className={`flex-1 flex items-center justify-center py-[16rpx] rounded-[24rpx] ${activeTab === 'followedAt' ? 'bg-primary' : 'bg-card'}`}
+          className={`flex-1 flex items-center justify-center py-[16rpx] rounded-xl ${activeTab === 'followedAt' ? 'bg-primary' : 'bg-card'}`}
           hoverClass="opacity-60"
           onClick={() => setActiveTab('followedAt')}
         >
@@ -117,7 +117,7 @@ export default function FollowingPage() {
           </Text>
         </View>
         <View
-          className={`flex-1 flex items-center justify-center py-[16rpx] rounded-[24rpx] ${activeTab === 'recent' ? 'bg-primary' : 'bg-card'}`}
+          className={`flex-1 flex items-center justify-center py-[16rpx] rounded-xl ${activeTab === 'recent' ? 'bg-primary' : 'bg-card'}`}
           hoverClass="opacity-60"
           onClick={() => setActiveTab('recent')}
         >
@@ -141,7 +141,7 @@ export default function FollowingPage() {
                 {/* 对齐 RN FollowScreen card:padding 12dp/radius 12dp/描边 border.light/底 surface.bg */}
                 <View
                   key={item.id}
-                  className="flex items-center p-[24rpx] bg-background border-[2rpx] border-border rounded-[24rpx]"
+                  className="flex items-center p-[24rpx] bg-background border-[2rpx] border-border rounded-xl"
                 >
                   {item.avatar ? (
                     <Image
@@ -163,7 +163,7 @@ export default function FollowingPage() {
                       <Text className="text-[32rpx] font-semibold text-foreground truncate">
                         {name}
                       </Text>
-                      <View className="py-[4rpx] px-[12rpx] bg-primary/10 border-[2rpx] border-primary/30 rounded-[6rpx]">
+                      <View className="py-[4rpx] px-[12rpx] bg-primary/10 border-[2rpx] border-primary/30 rounded-xs">
                         <Text className="text-[20rpx] text-primary">
                           {tt('following.following', '已关注')}
                         </Text>
@@ -181,7 +181,7 @@ export default function FollowingPage() {
                       </Text>
                       {/* 对齐 RN unfollowBtn:paddingHorizontal 12dp/paddingVertical 6dp/radius 12dp/描边 border.light/字 text.primary */}
                       <Text
-                        className="py-[12rpx] px-[24rpx] text-[28rpx] text-foreground bg-background border-[2rpx] border-border rounded-[24rpx]"
+                        className="py-[12rpx] px-[24rpx] text-[28rpx] text-foreground bg-background border-[2rpx] border-border rounded-xl"
                         onClick={() => handleUnfollow(item)}
                       >
                         {tt('following.delete', '取消关注')}
@@ -205,7 +205,7 @@ export default function FollowingPage() {
               : tt('following.empty', '暂无关注')}
           </Text>
           <View
-            className="mt-[24rpx] py-[16rpx] px-[40rpx] bg-primary rounded-[24rpx]"
+            className="mt-[24rpx] py-[16rpx] px-[40rpx] bg-primary rounded-xl"
             hoverClass="opacity-60"
             onClick={goDiscover}
           >

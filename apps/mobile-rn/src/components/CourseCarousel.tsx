@@ -40,6 +40,8 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 单门课程数据(对齐原项目 PopularCourses 关键字段的子集) */
 export interface CourseCarouselItem {
   id: string
@@ -179,7 +181,7 @@ const indexStyles = StyleSheet.create({
   card: {
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
-    borderRadius: 28,
+    borderRadius: rnRadius['2xl'],
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -340,7 +342,7 @@ const uptodateStyles = StyleSheet.create({
   },
   card: {
     flex: 1,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -370,7 +372,7 @@ const uptodateStyles = StyleSheet.create({
     top: 6,
     left: 6,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
@@ -383,7 +385,7 @@ const uptodateStyles = StyleSheet.create({
     bottom: 6,
     right: 6,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
@@ -408,7 +410,7 @@ const uptodateStyles = StyleSheet.create({
   },
   vipBadge: {
     backgroundColor: tokens.warning.light,
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
@@ -423,7 +425,7 @@ const uptodateStyles = StyleSheet.create({
   },
   paidBadge: {
     backgroundColor: tokens.error.bg,
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     paddingHorizontal: 8,
     paddingVertical: 2,
     marginRight: 6,
@@ -564,7 +566,7 @@ const listStyles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     backgroundColor: tokens.surface.card,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     padding: 4,
     marginBottom: 12,
   },
@@ -572,7 +574,7 @@ const listStyles = StyleSheet.create({
     flex: 1,
     paddingVertical: 8,
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
   },
   tabItemActive: {
     backgroundColor: tokens.brand.DEFAULT,
@@ -590,7 +592,7 @@ const listStyles = StyleSheet.create({
   },
   card: {
     flexDirection: 'row',
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -645,7 +647,7 @@ const listStyles = StyleSheet.create({
 // 对齐原版 CourseCarousel/index.vue:swiper 横向轮播(autoplay 3000ms / circular / 圆点指示器)
 
 const SWIPER_HEIGHT = 144
-const SWIPER_RADIUS = 30
+const SWIPER_RADIUS = rnRadius['2xl'] // 原 30(非 SWIPER_HEIGHT 一半=72,非胶囊),R1 吸附至 2xl(16)
 
 function SwiperCarousel({
   images,
@@ -744,14 +746,14 @@ const swiperStyles = StyleSheet.create({
   dot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: rnRadius.sm,
     backgroundColor: 'rgba(255, 255, 255, 0.5)',
     marginHorizontal: 5,
   },
   dotActive: {
     width: 16,
     height: 8,
-    borderRadius: 4,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.light,
   },
 })

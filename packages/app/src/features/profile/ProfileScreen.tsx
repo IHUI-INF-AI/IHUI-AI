@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'rea
 import type { ProfileScreenProps, SharedUserStatistics } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /**
  * ProfileScreen — 跨端共享「个人资料」页。
  *
@@ -146,7 +148,7 @@ function createStyles(tk: AppThemeTokens) {
       marginHorizontal: 16,
       marginBottom: 8,
       padding: 10,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.error.bg,
     },
     errorText: { fontSize: 14, color: tk.error.text },
@@ -155,7 +157,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       padding: 14,
-      borderRadius: 10,
+      borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
       backgroundColor: tk.surface.light,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -164,7 +166,7 @@ function createStyles(tk: AppThemeTokens) {
     avatar: {
       width: 56,
       height: 56,
-      borderRadius: 28,
+      borderRadius: 56 / 2, // radius-exempt: 用户头像几何正圆(56dp 直径/2)
       backgroundColor: tk.brandAccent.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
@@ -182,7 +184,7 @@ function createStyles(tk: AppThemeTokens) {
       width: '31%',
       flexGrow: 1,
       padding: 14,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
     },
@@ -191,7 +193,7 @@ function createStyles(tk: AppThemeTokens) {
     menuSection: { gap: 8 },
     sectionTitle: { fontSize: 14, fontWeight: '600', color: tk.text.medium },
     menuCard: {
-      borderRadius: 10,
+      borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
       backgroundColor: tk.surface.light,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -213,7 +215,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
       height: 50,
       paddingHorizontal: 14,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.error.bg,
       alignItems: 'center',
       justifyContent: 'center',

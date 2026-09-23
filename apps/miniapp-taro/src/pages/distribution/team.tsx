@@ -171,7 +171,7 @@ export default function DistributionTeam() {
       {/* 对齐 RN tabs:py 8dp→16rpx gap 6dp→12rpx;tab px 12dp→24rpx py 6dp→12rpx 圆角 24rpx */}
       <View className="px-[20rpx] py-[16rpx] flex flex-row gap-[12rpx]">
         <View
-          className={`flex-1 flex items-center justify-center py-[12rpx] rounded-[24rpx] ${activeTab === 'orderNum' ? 'bg-primary' : 'bg-card'}`}
+          className={`flex-1 flex items-center justify-center py-[12rpx] rounded-xl ${activeTab === 'orderNum' ? 'bg-primary' : 'bg-card'}`}
           onClick={() => setActiveTab('orderNum')}
           hoverClass="opacity-60"
         >
@@ -191,7 +191,7 @@ export default function DistributionTeam() {
           }}
         >
           <View
-            className={`w-full flex items-center justify-center gap-[8rpx] py-[12rpx] rounded-[24rpx] ${activeTab === 'date' ? 'bg-primary' : 'bg-card'}`}
+            className={`w-full flex items-center justify-center gap-[8rpx] py-[12rpx] rounded-xl ${activeTab === 'date' ? 'bg-primary' : 'bg-card'}`}
           >
             <Text
               className={`text-[28rpx] ${activeTab === 'date' ? 'text-[var(--color-primary-foreground)] font-semibold' : 'text-muted-foreground'}`}
@@ -219,7 +219,7 @@ export default function DistributionTeam() {
             return (
               <View
                 key={m.id}
-                className="flex flex-row items-start rounded-[24rpx] border border-border bg-background p-[28rpx]"
+                className="flex flex-row items-start rounded-xl border border-border bg-background p-[28rpx]"
               >
                 <View className="flex flex-col items-center flex-shrink-0 mr-[20rpx]">
                   <View className="relative w-[88rpx] h-[88rpx]">
@@ -237,7 +237,7 @@ export default function DistributionTeam() {
                       </View>
                     )}
                     <View
-                      className={`absolute left-0 top-[-8rpx] min-w-[56rpx] h-[56rpx] px-[8rpx] flex items-center justify-center rounded-[8rpx] z-10 ${medalClass(rank)}`}
+                      className={`absolute left-0 top-[-8rpx] min-w-[56rpx] h-[56rpx] px-[8rpx] flex items-center justify-center rounded-sm z-10 ${medalClass(rank)}`}
                     >
                       <Text className="text-[18rpx] font-bold">{medalText(rank)}</Text>
                     </View>
@@ -280,7 +280,7 @@ export default function DistributionTeam() {
                       {formatDateByTemplate(m.createdAt, 'YYYY-MM-DD') || '-'}
                     </Text>
                     <View
-                      className="ml-[16rpx] px-[24rpx] h-[56rpx] rounded-[24rpx] bg-primary flex items-center justify-center flex-shrink-0"
+                      className="ml-[16rpx] px-[24rpx] h-[56rpx] rounded-xl bg-primary flex items-center justify-center flex-shrink-0"
                       onClick={() => goSubordinates(m.id)}
                       hoverClass="opacity-60"
                     >
@@ -310,7 +310,7 @@ export default function DistributionTeam() {
             {tt('distribution.team.error', '加载失败')}
           </Text>
           <View
-            className="px-[40rpx] h-[72rpx] rounded-[20rpx] bg-primary flex items-center justify-center"
+            className="px-[40rpx] h-[72rpx] rounded-lg bg-primary flex items-center justify-center"
             onClick={() => load(true)}
             hoverClass="opacity-60"
           >

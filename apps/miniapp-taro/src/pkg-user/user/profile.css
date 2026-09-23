@@ -65,7 +65,7 @@
   color: var(--color-muted-foreground);
 }
 .pf-section-card {
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
@@ -122,7 +122,7 @@
   position: relative;
   width: 96rpx;
   height: 96rpx;
-  border-radius: 50%;
+  border-radius: 50%; /* radius-exempt: 96rpx 用户头像真圆 */
   overflow: hidden;
   flex-shrink: 0;
   background: var(--color-muted);

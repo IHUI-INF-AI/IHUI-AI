@@ -21,6 +21,8 @@ import type {
   ModelPlazaTypeFilter,
 } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 模型广场共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { ModelPlazaItem, ModelPlazaProvider, ModelPlazaScreenProps }
 
@@ -293,7 +295,7 @@ function createStyles(tk: AppThemeTokens) {
     compareBtn: {
       paddingHorizontal: 12,
       height: 44,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.brand.DEFAULT,
       alignItems: 'center',
@@ -319,7 +321,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 6,
       paddingHorizontal: 14,
       height: 36,
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       borderWidth: 0,
       backgroundColor: tk.surface.bg,
       justifyContent: 'center',
@@ -331,7 +333,7 @@ function createStyles(tk: AppThemeTokens) {
     providerTabIcon: {
       width: 18,
       height: 18,
-      borderRadius: 9,
+      borderRadius: 18 / 2, // radius-exempt: 厂商首字母圆形徽标(18dp 直径/2)
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -349,7 +351,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 12,
       paddingVertical: 14,
       backgroundColor: tk.surface.bg,
-      borderRadius: 10,
+      borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
       ...shadowCard,
     },
     providerName: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
@@ -367,7 +369,7 @@ function createStyles(tk: AppThemeTokens) {
     typeTab: {
       paddingHorizontal: 14,
       height: 34,
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       backgroundColor: tk.surface.bg,
       alignItems: 'center',
       justifyContent: 'center',
@@ -382,7 +384,7 @@ function createStyles(tk: AppThemeTokens) {
     emptyText: { fontSize: 14, color: tk.text.tertiary },
     modelCard: {
       padding: 12,
-      borderRadius: 10,
+      borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
       backgroundColor: tk.surface.bg,
       ...shadowCard,
     },
@@ -393,7 +395,12 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: 8,
     },
     modelName: { flex: 1, fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    typeBadge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 4, marginLeft: 8 },
+    typeBadge: {
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+      borderRadius: rnRadius.sm,
+      marginLeft: 8,
+    },
     typeBadgeText: { fontSize: 12, fontWeight: '600' },
     priceRow: {
       flexDirection: 'row',
@@ -411,7 +418,7 @@ function createStyles(tk: AppThemeTokens) {
     cardTag: {
       paddingHorizontal: 6,
       paddingVertical: 3,
-      borderRadius: 3,
+      borderRadius: rnRadius.xs, // 原 3,R1 吸附至 xs(2)
       backgroundColor: tk.surface.muted,
     },
     cardTagText: { fontSize: 12, color: tk.text.secondary },

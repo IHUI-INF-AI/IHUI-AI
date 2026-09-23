@@ -8,7 +8,9 @@
  * 设计约束:
  * - 仅适用于 Tailwind v3(v3 preset 语法);web 端用 Tailwind v4 @theme,不走此 preset。
  * - 语义色映射到 CSS 变量 var(--color-*),实际值由 tokens.css 同步到各端 :root/.dark。
- * - borderRadius.sm 统一为 0.125rem(2px),符合 AGENTS.md §4 圆角守门 sm=2px。
+ * - 圆角档位由 ./radius.js 单表提供(RADIUS_REM),与 web tokens.css 的 --radius-* 逐档同值;
+ *   类名语义按 web(Tailwind v4)对齐:xs=2px / sm=4px / md=6px / lg=8px / xl=12px / 2xl=16px。
+ *   改档位一律改 ./radius.js,不得在本文件或任何端内再抄一份。
  *
  * 消费方式:
  * - CommonJS(require): `const _p = require('@ihui/design-tokens/tailwind-preset'); const p = _p.default || _p`
@@ -16,6 +18,8 @@
  *
  * @type {import('tailwindcss').Config}
  */
+import { RADIUS_REM } from './radius.js'
+
 export default {
   darkMode: 'class',
   theme: {
@@ -67,14 +71,7 @@ export default {
           foreground: 'var(--color-info-foreground)',
         },
       },
-      borderRadius: {
-        sm: '0.125rem',
-        DEFAULT: '0.25rem',
-        md: '0.375rem',
-        lg: '0.5rem',
-        xl: '0.75rem',
-        '2xl': '1rem',
-      },
+      borderRadius: RADIUS_REM,
     },
   },
 }

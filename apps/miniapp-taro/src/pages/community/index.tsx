@@ -35,6 +35,7 @@ const erweimaImg = aizhsUrl('remote-images/erweima.png')
 import { rpx, px } from '@/utils/rpx'
 import type { CarouselItem } from '@ihui/types'
 import type { TitleSwitchScrollTitleItem } from '@ihui/types'
+import { rnRadius } from '@ihui/design-tokens'
 import type { AgentInfo } from '@/components/AgentListPanel'
 import type { DrawerModelGroup, DrawerUserInfo, DrawerChatItem } from '@/components/DrawerComponent'
 import './index.css'
@@ -871,7 +872,7 @@ export default function Community() {
               className="relative"
               style={{
                 padding: rpx(20),
-                borderRadius: rpx(30),
+                borderRadius: rnRadius['2xl'],
                 background: 'var(--color-card)',
                 maxWidth: '85%',
               }}
@@ -882,7 +883,7 @@ export default function Community() {
               <Image
                 src={mingpianImg}
                 mode="widthFix"
-                style={{ width: '100%', borderRadius: rpx(20), marginBottom: rpx(16) }}
+                style={{ width: '100%', borderRadius: rnRadius.lg, marginBottom: rpx(16) }}
               />
               {/* 二维码图片(对齐原项目 erweima.png) */}
               <Image

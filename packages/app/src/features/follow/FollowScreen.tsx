@@ -15,6 +15,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { FollowScreenProps, FollowTab, FollowUserItem } from '@ihui/types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 关注/粉丝列表/Props 类型 re-export(单一来源 @ihui/types) */
 export type { FollowScreenProps, FollowTab, FollowUserItem }
 
@@ -171,7 +173,7 @@ function createStyles(tk: AppThemeTokens) {
     tab: {
       flex: 1,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
       alignItems: 'center',
     },
@@ -189,7 +191,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,
@@ -197,13 +199,13 @@ function createStyles(tk: AppThemeTokens) {
     avatar: {
       width: 48,
       height: 48,
-      borderRadius: 24,
+      borderRadius: 48 / 2, // radius-exempt: 48dp 见方头像,半径=边长一半为真圆(头像豁免)
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.surface.muted,
       overflow: 'hidden',
     },
-    avatarImg: { width: '100%', height: '100%', borderRadius: 24 },
+    avatarImg: { width: '100%', height: '100%', borderRadius: 48 / 2 }, // radius-exempt: 头像图片跟随 48dp 见方容器,半径=边长一半保持圆形
     avatarInitial: { fontSize: 18, fontWeight: '600', color: tk.text.secondary },
     cardInfo: { flex: 1, marginLeft: 12 },
     cardName: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
@@ -212,7 +214,7 @@ function createStyles(tk: AppThemeTokens) {
     unfollowBtn: {
       paddingHorizontal: 12,
       paddingVertical: 6,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,
