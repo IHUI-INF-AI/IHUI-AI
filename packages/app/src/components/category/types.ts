@@ -16,6 +16,12 @@ export interface CategoryItem {
   label: string
   /** 前置图标(选填,lucide 组件引用) */
   icon?: LucideIcon
+  /**
+   * 图标/图片边长(选填,默认 16)。
+   * 需要这一档的原因是有实证的:ChatScreen 的模型类型条用 24px 图标 + 宽 chip,
+   * 而组件把尺寸钉死在 16 时,这类站点就无法收口(只能留在手搓实现里)。
+   */
+  iconSize?: number
   /** 前置图片(选填,与 icon 二选一,icon 优先) */
   image?: ImageSourcePropType
   /** 计数徽章(选填,按确定性居中模板渲染) */
