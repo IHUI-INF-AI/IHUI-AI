@@ -36,17 +36,17 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   return r.data
 }
 
-const RELATIONSHIP_OPTIONS: { value: string; labelKey: string }[] = [
-  { value: 'father', labelKey: 'relationshipFather' },
-  { value: 'mother', labelKey: 'relationshipMother' },
-  { value: 'guardian', labelKey: 'relationshipGuardian' },
-  { value: 'other', labelKey: 'relationshipOther' },
+const RELATIONSHIP_OPTIONS = [
+  { value: 'father', label: '父亲' },
+  { value: 'mother', label: '母亲' },
+  { value: 'guardian', label: '监护人' },
+  { value: 'other', label: '其他' },
 ]
 
-const STATUS_KEYS: Record<string, string> = {
-  pending: 'bindingStatusPending',
-  confirmed: 'bindingStatusConfirmed',
-  rejected: 'bindingStatusRejected',
+const STATUS_LABELS: Record<string, string> = {
+  pending: '待确认',
+  confirmed: '已确认',
+  rejected: '已拒绝',
 }
 
 const STATUS_VARIANTS: Record<string, string> = {
@@ -57,7 +57,6 @@ const STATUS_VARIANTS: Record<string, string> = {
 
 export default function ParentBindPage() {
   const t = useTranslations('parentPortal')
-  const tParent = useTranslations('eduParent')
   const tc = useTranslations('common')
   const queryClient = useQueryClient()
 
@@ -157,7 +156,7 @@ export default function ParentBindPage() {
               >
                 {RELATIONSHIP_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
-                    {tParent(opt.labelKey)}
+                    {opt.label}
                   </option>
                 ))}
               </select>
@@ -206,15 +205,13 @@ export default function ParentBindPage() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">{b.studentId}</span>
                       <Badge className={STATUS_VARIANTS[b.status] ?? ''}>
-                        {tParent(STATUS_KEYS[b.status] ?? b.status)}
+                        {STATUS_LABELS[b.status] ?? b.status}
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
                       {t('bind.relationship')}:{' '}
-                      {tParent(
-                        RELATIONSHIP_OPTIONS.find((o) => o.value === b.relationship)?.labelKey ??
-                          b.relationship,
-                      )}
+                      {RELATIONSHIP_OPTIONS.find((o) => o.value === b.relationship)?.label ??
+                        b.relationship}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
