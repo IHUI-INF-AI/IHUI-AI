@@ -6,7 +6,7 @@
     "extension": 16,
     "miniapp-taro": 21,
     "mobile-rn": 17,
-    "cli": 11
+    "cli": 12
   },
   "endpoints": {
     "web": ["apps/web/src", "apps/web/app"],
@@ -67,7 +67,6 @@
     },
     "cli": {
       "onAgentDelta": "no-agent-delta-ui",
-      "onBudget": "no-budget-ui",
       "onCompaction": "no-compaction-ui",
       "onFallback": "no-fallback-ui",
       "onMemoryUpdates": "no-memory-update-ui",
