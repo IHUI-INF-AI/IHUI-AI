@@ -1172,21 +1172,27 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- 53 (2026-09-21 新增,O13b admin 面特权判定收敛守门,warn 级起步) ---
-  // warn-only 理由:存量 34 文件/74 处裸 roleId 比较刚完成一次性白名单登记(文件级
-  //   count 上限),白名单口径与 --staged 判据需先观察一轮误报率(动态拼出的判定、
-  //   注释行计数偏差等);存量清零或稳定一周后再升 blocking。
-  // 判据:裸 roleId 数值比较(集中封装 plugins/require-permission.ts 之外)条数只减
-  //   不增;本地重定义 requireAdmin 禁止回升;capability-catalog dataClass=platform
-  //   条目 thirdPartyEligible 必须为 false(机器凭据 403 不变量)。详见脚本头注释与
-  //   docs/developer/admin-permission-mapping.md。
+  // --- 53 (2026-09-21 新增 warn 级起步;2026-09-23 O13b④ 升 blocking) ---
+  // 当初 warn-only 的理由:存量 34 文件/74 处裸 roleId 比较刚完成一次性白名单登记,白名单
+  //   口径与 --staged 判据需先观察一轮误报率;存量清零或稳定后再升。
+  // 现在可升,两个前置都已完成:
+  //   ① O13b 第二段 ①②③⑤ 已落地(34 文件白名单收敛到 8 文件/12 处,集中封装
+  //      plugins/require-permission.ts 的 requireAdminRouteGuard 亦收编了 admin.ts 的 preHandler);
+  //   ② 判据缺口已补 —— `if (roleId < 1)` 这一种文本形态同时是"特权判定"(读 jwtPayload → 403)
+  //      和"入参校验"(读 request.query/body → 400 'roleId 无效',如 role-routes.ts 五处),
+  //      两者逐字符几乎相同。warn 期无所谓,升 blocking 后任何新写的 roleId 入参校验都会
+  //      被永久锁成红点。已按**来源回溯**排除后者(AUTH 证据优先、回溯不出即判红、属性访问
+  //      不进排除通道 ⇒ 宁不误放),全量实测 17 → 12 处,排除 5 处入参校验、零真鉴权被误放。
+  // 判据:裸 roleId 数值比较(集中封装之外)条数只减不增;本地重定义 requireAdmin 禁止回升;
+  //   capability-catalog dataClass=platform 条目 thirdPartyEligible 必须为 false(机器凭据 403 不变量)。
+  //   详见脚本头注释与 docs/developer/admin-permission-mapping.md。
   // 跳过方法:HUSKY_SKIP_ADMIN_GATE_GUARD=1 git commit ...(应急,不建议)
   {
     id: '53',
-    label: '🛡️  admin 面特权判定一致性(warn-only,O13b roleId>=1 收敛)',
+    label: '🛡️  admin 面特权判定一致性(blocking,O13b roleId>=1 收敛)',
     script: 'check-admin-gate-consistency.mjs',
     args: [],
-    mode: 'warn',
+    mode: 'blocking',
     onFailHint: [
       '',
       '  💡 apps/api 出现新的裸 `roleId >= 1` 式判定 / 本地重定义 requireAdmin / platform 数据类别误开放。',
