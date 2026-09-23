@@ -19,7 +19,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 // 用 vi.hoisted 让 mock 对象在 mock factory 中可用
-const { mockConfig, mockSmtpSendMail } = vi.hoisted(() => ({
+const { mockConfig, mockSmtpSendMail, mockLogger } = vi.hoisted(() => ({
   mockConfig: {
     NODE_ENV: 'test' as const,
     SMTP_HOST: 'smtp.example.com',
@@ -63,10 +63,21 @@ const { mockConfig, mockSmtpSendMail } = vi.hoisted(() => ({
   // 不 mock 时单测会真实连接 smtp.example.com:587 —— 本机 DNS 劫持返回
   // 假 IP 导致 TCP 挂起,15s 超时(2026-08-28 pnpm test 全量失败根因)。
   mockSmtpSendMail: vi.fn().mockResolvedValue({ messageId: '<mock@smtp>' }),
+  // logger mock:stub 分支的 warn 行需要被断言(内容/脱敏),且不污染测试输出
+  mockLogger: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
 }))
 
 vi.mock('../src/config/index.js', () => ({
   config: mockConfig,
+}))
+
+vi.mock('../src/utils/logger.js', () => ({
+  logger: mockLogger,
 }))
 
 // mock nodemailer(避免单测打真实网络)
@@ -93,6 +104,7 @@ vi.mock('../src/db/index.js', () => ({
 import {
   isDomesticEmail,
   resolveProvider,
+  diagnoseMailTransport,
   sendEmail,
   buildTencentV3Signature,
 } from '../src/services/email-service.js'
@@ -353,6 +365,8 @@ describe('email-service — sendEmail Fallback 链路', () => {
     })
     expect(result.sent).toBe(true)
     expect(result.provider).toBe('resend')
+    // 真实通道走通时不携带"未发送原因"
+    expect(result.reasons).toBeUndefined()
     expect(fetchMock).toHaveBeenCalledOnce()
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
     expect(url).toBe('https://api.resend.com/emails')
@@ -714,6 +728,128 @@ describe('email-service — 腾讯云 SES Template 模式 + Simple base64 修复
     expect(result.sent).toBe(false)
     expect(result.error).toContain('[FailedOperation.WithOutPermission]')
     expect(result.error).toContain('未开通自定义发送权限')
+  })
+})
+
+describe('email-service — stub 静默故障可见化(warn + reasons)', () => {
+  beforeEach(() => {
+    // 复刻 2026-09-23 生产实况:host/user/pass 全配好,唯独 SMTP_ENABLED 缺省 false,
+    // 且腾讯云凭据未配 ⇒ 国内收件人全部落 stub,一封不发。
+    mockConfig.MAIL_PROVIDER = 'auto'
+    mockConfig.RESEND_API_KEY = ''
+    mockConfig.TENCENT_SES_SECRET_ID = ''
+    mockConfig.TENCENT_SES_SECRET_KEY = ''
+    mockConfig.SMTP_ENABLED = false
+    mockConfig.SMTP_HOST = 'smtp.qq.com'
+    mockLogger.warn.mockClear()
+    vi.stubGlobal('fetch', vi.fn())
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('stub 分支:result.reasons 点名 smtp_disabled + 腾讯云缺失(SMTP 兜底缺口在前)', async () => {
+    const result = await sendEmail({
+      to: 'someone@qq.com',
+      subject: 'test',
+      html: '<p>x</p>',
+      scene: 'login',
+    })
+    expect(result.reasons).toEqual(['smtp_disabled', 'tencent_ses_keys_missing'])
+  })
+
+  it('stub 分支:logger.warn 一行内含缺失配置提示 + scene,运维无需查代码即知缺什么', async () => {
+    await sendEmail({ to: 'someone@qq.com', subject: 'test', html: '<p>x</p>', scene: 'login' })
+    expect(mockLogger.warn).toHaveBeenCalledTimes(1)
+    const msg = String(mockLogger.warn.mock.calls[0]![0])
+    expect(msg).toContain('[email-stub]')
+    expect(msg).toContain('SMTP_ENABLED=false')
+    expect(msg).toContain('TENCENT_SES_SECRET_ID/KEY 未配置')
+    expect(msg).toContain('scene: login')
+  })
+
+  it('stub 分支 warn 不泄露完整邮箱与任何密钥值', async () => {
+    mockConfig.TENCENT_SES_SECRET_KEY = 'super-secret-value-should-not-log'
+    mockConfig.SMTP_HOST = '' // 让腾讯云缺口也进 blockers,同时验证不泄露 secret 值
+    await sendEmail({ to: 'someone@qq.com', subject: 'test', html: '<p>x</p>', scene: 'login' })
+    const msg = String(mockLogger.warn.mock.calls[0]![0])
+    expect(msg).toContain('s***@qq.com')
+    expect(msg).not.toContain('someone@qq.com')
+    expect(msg).not.toContain('super-secret-value-should-not-log')
+    expect(msg).not.toContain(mockConfig.SMTP_PASS)
+  })
+
+  it('scene 缺省时 warn 记为 unspecified,不抛错', async () => {
+    const result = await sendEmail({ to: 'someone@qq.com', subject: 'test', html: '<p>x</p>' })
+    expect(result.stub).toBe(true)
+    expect(String(mockLogger.warn.mock.calls[0]![0])).toContain('scene: unspecified')
+  })
+})
+
+describe('email-service — 现状钉死:SMTP_ENABLED=false 时国内邮箱落 stub', () => {
+  beforeEach(() => {
+    mockConfig.MAIL_PROVIDER = 'auto'
+    mockConfig.RESEND_API_KEY = ''
+    mockConfig.TENCENT_SES_SECRET_ID = ''
+    mockConfig.TENCENT_SES_SECRET_KEY = ''
+    mockConfig.SMTP_ENABLED = false
+    mockConfig.SMTP_HOST = 'smtp.qq.com'
+  })
+
+  it('SMTP_HOST/USER/PASS 全配好,但 SMTP_ENABLED=false ⇒ qq.com/gmail.com 仍是 stub(生产事故现状)', () => {
+    expect(resolveProvider('user@qq.com')).toBe('stub')
+    expect(resolveProvider('user@gmail.com')).toBe('stub')
+  })
+
+  it('对照:仅把 SMTP_ENABLED 翻成 true ⇒ 同配置立即走 smtp(证明根因是开关不是 host)', () => {
+    mockConfig.SMTP_ENABLED = true
+    expect(resolveProvider('user@qq.com')).toBe('smtp')
+    expect(resolveProvider('user@gmail.com')).toBe('smtp')
+  })
+})
+
+describe('email-service — diagnoseMailTransport(全局通道体检)', () => {
+  beforeEach(() => {
+    mockConfig.MAIL_PROVIDER = 'auto'
+    mockConfig.RESEND_API_KEY = ''
+    mockConfig.TENCENT_SES_SECRET_ID = ''
+    mockConfig.TENCENT_SES_SECRET_KEY = ''
+    mockConfig.SMTP_ENABLED = false
+    mockConfig.SMTP_HOST = ''
+  })
+
+  it('全不可用:国内/海外双 stub,blockers 汇总三类缺失配置', () => {
+    const d = diagnoseMailTransport()
+    expect(d.providerForDomestic).toBe('stub')
+    expect(d.providerForOverseas).toBe('stub')
+    expect(d.blockers).toEqual(
+      expect.arrayContaining([
+        'smtp_disabled',
+        'resend_api_key_missing',
+        'tencent_ses_keys_missing',
+      ]),
+    )
+  })
+
+  it('仅 Resend:海外走 resend,国内仍 stub;blockers 不再含 resend_api_key_missing', () => {
+    mockConfig.RESEND_API_KEY = 're_test123'
+    const d = diagnoseMailTransport()
+    expect(d.providerForOverseas).toBe('resend')
+    expect(d.providerForDomestic).toBe('stub')
+    expect(d.blockers).not.toContain('resend_api_key_missing')
+    expect(d.blockers).toContain('smtp_disabled')
+    expect(d.blockers).toContain('tencent_ses_keys_missing')
+  })
+
+  it('SMTP 已开:双路 smtp,blockers 为空(启动期全局 warn 的条件不成立)', () => {
+    mockConfig.SMTP_ENABLED = true
+    mockConfig.SMTP_HOST = 'smtp.example.com'
+    expect(diagnoseMailTransport()).toEqual({
+      providerForDomestic: 'smtp',
+      providerForOverseas: 'smtp',
+      blockers: [],
+    })
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
