@@ -206,7 +206,8 @@ function healEnv() {
         const cur = execFileSync(bin, ['config', scope, '--get-all', 'safe.directory'], {
           encoding: 'utf8',
           stdio: ['pipe', 'pipe', 'pipe'],
-        windowsHide: true,        }).trim()
+          windowsHide: true,
+        }).trim()
         const list = cur.split(/\r?\n/).filter(Boolean)
         if (list.includes(p) || list.includes('*')) continue
         execFileSync(bin, ['config', scope, '--add', 'safe.directory', p], {
@@ -410,29 +411,49 @@ function refsOk() {
  * (= 静默回滚)。判据与恢复动作在 scripts/heal-worktree-tracked.mjs:只恢复
  * "索引 blob == HEAD blob 且文件不在"的项,他人已暂存的删除一律不碰。
  * 不改 status()/退出码语义 —— 纯多一层自愈,失败也只记日志不阻断其余守护。
+ *
+ * 第二层(2026-09-24 补,同一故障面的另一半):**幻影漂移** —— 文件没被删,内容却是该路径
+ * 某个祖先提交版本(§12d 的 converge 用 merge-tree/commit-tree 只推进 HEAD+index、从不
+ * checkout,HEAD 每前进一次工作区就多一批落后文件)。它与"缺失"同为静默回滚,却只在
+ * git-sync-converge 的成功出口才被清 —— 而 converge 只在真有分叉要收敛时才跑,所以漂移会
+ * 一直积到下次提交才由反回退对账守门 `check-stale-revert.mjs` 拦下(实测本仓一次积到 262 个文件)。故挂进本守护的 2 分钟
+ * 周期:两层各自独立 try,恢复层抛错不得带走对齐层。判据三条同时成立才动文件(索引==HEAD
+ * ∧ 工作区!=HEAD ∧ 内容字节级等于某祖先版本 ⇒ 零独有数据),真未提交编辑必然打破其中一条。
  */
 function healWorktreeTracked() {
   const script = join(dirname(fileURLToPath(import.meta.url)), 'heal-worktree-tracked.mjs')
   if (!existsSync(script)) return
-  try {
-    const out = execFileSync(process.execPath, [script, '--json'], {
-      cwd: WORKTREE,
-      encoding: 'utf8',
-      windowsHide: true, // §5b:漏此参数在计划任务下必弹控制台窗
-      maxBuffer: 1 << 24,
-    })
-      .trim()
-      .split('\n')
-      .pop()
-    const r = JSON.parse(out || '{}')
-    if (r.restored) {
-      const head = (r.paths || []).slice(0, 3).join(', ')
-      log(`✅ 工作区存续自愈:恢复 ${r.restored} 个被外部删除的跟踪文件(${head}${(r.paths || []).length > 3 ? ' …' : ''})`)
-    } else if (r.held) {
-      log(`ℹ️ 工作区 ${r.held} 个跟踪文件缺失,但索引里已是删除(他人在制)⇒ 不代裁恢复`)
+  const run = (args) => {
+    try {
+      const out = execFileSync(process.execPath, [script, ...args], {
+        cwd: WORKTREE,
+        encoding: 'utf8',
+        windowsHide: true, // §5b:漏此参数在计划任务下必弹控制台窗
+        maxBuffer: 1 << 24,
+      })
+        .trim()
+        .split('\n')
+        .pop()
+      return { r: JSON.parse(out || '{}'), err: null }
+    } catch (e) {
+      return { r: {}, err: String(e && e.message ? e.message : e).slice(0, 160) }
     }
-  } catch (e) {
-    log('工作区存续自愈失败(不阻断其余守护): ' + String(e && e.message ? e.message : e).slice(0, 160))
+  }
+  const brief = (r) =>
+    `${(r.paths || []).slice(0, 3).join(', ')}${(r.paths || []).length > 3 ? ' …' : ''}`
+  const { r, err } = run(['--json'])
+  if (err) log('工作区存续自愈失败(不阻断其余守护): ' + err)
+  else if (r.restored)
+    log(`✅ 工作区存续自愈:恢复 ${r.restored} 个被外部删除的跟踪文件(${brief(r)})`)
+  else if (r.held) log(`ℹ️ 工作区 ${r.held} 个跟踪文件缺失,但索引里已是删除(他人在制)⇒ 不代裁恢复`)
+
+  if (process.env.IHUI_SKIP_DRIFT_ALIGN === '1') return
+  const { r: d, err: derr } = run(['--align-drift', '--json'])
+  if (derr) log('幻影漂移对齐失败(不阻断其余守护): ' + derr)
+  else {
+    if (d.aligned)
+      log(`✅ 幻影漂移对齐:${d.aligned} 个文件回到 HEAD(内容==祖先版本,零独有数据)(${brief(d)})`)
+    if (d.refreshed) log(`✅ 落后索引刷新:${d.refreshed} 个路径的索引回到 HEAD(工作区未触碰)`)
   }
 }
 
@@ -683,14 +704,26 @@ function taskForm() {
   const flat = (buf) => String(buf || '').replace(/\0/g, '')
   let list = ''
   try {
-    list = flat(execFileSync('schtasks.exe', ['/Query', '/FO', 'CSV', '/NH'], { windowsHide: true, timeout: 30_000, maxBuffer: 1 << 24 }))
+    list = flat(
+      execFileSync('schtasks.exe', ['/Query', '/FO', 'CSV', '/NH'], {
+        windowsHide: true,
+        timeout: 30_000,
+        maxBuffer: 1 << 24,
+      }),
+    )
   } catch {
     return 'unknown' // schtasks 本身不可用 ⇒ 不下判断
   }
   if (!list.includes(TASK_NAME)) return 'missing'
   let xml = ''
   try {
-    xml = flat(execFileSync('schtasks.exe', ['/Query', '/TN', TASK_NAME, '/XML'], { windowsHide: true, timeout: 30_000, encoding: 'buffer' }))
+    xml = flat(
+      execFileSync('schtasks.exe', ['/Query', '/TN', TASK_NAME, '/XML'], {
+        windowsHide: true,
+        timeout: 30_000,
+        encoding: 'buffer',
+      }),
+    )
   } catch {
     return 'unknown'
   }
@@ -725,7 +758,9 @@ function main() {
         timeout: 60_000,
       })
     } catch (e) {
-      log(`注册失败:git-guardian-hidden.vbs 预检未通过,勿注册坏包装器\n${e.stdout || ''}${e.stderr || e.message}`)
+      log(
+        `注册失败:git-guardian-hidden.vbs 预检未通过,勿注册坏包装器\n${e.stdout || ''}${e.stderr || e.message}`,
+      )
       return 1
     }
     if (pre && /error/i.test(pre)) {
@@ -761,7 +796,9 @@ function main() {
   // 闪一扇可见黑窗。安装器是对的,但任务层没人兜底;常规巡检顺手核对,漂移即静默重注册。
   // --check(CI 口径)不产生副作用;预检派生的子巡检跳过,防递归。
   if (!CHECK_ONLY && !taskActionOk()) {
-    log(`⚠️ 计划任务形态漂移(实测形态=${taskForm()}:InteractiveToken 直跑 node.exe 会闪黑窗),自动重注册`)
+    log(
+      `⚠️ 计划任务形态漂移(实测形态=${taskForm()}:InteractiveToken 直跑 node.exe 会闪黑窗),自动重注册`,
+    )
     registerTask()
   }
 
