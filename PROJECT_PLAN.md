@@ -567,6 +567,15 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
   **并给出为什么 A 不能划进豁免区**:A 类里 `use-cases` 17 页只有 5 页有 ja/ko/zh-TW 镜像页(那 5 页是刻意的 SEO 按-locale-出页),而 `docs/` 21 页与 `compare/` 47 页**一个 locale 变体都没有** = 4450 行内容从未本地化。把这三条路径整体划成豁免,等于把"半途而废的本地化"固化,还会连带放过这些页面里夹的真按钮/标签文案。所以 A 类继续留在基线里冻结,只是**记账时单独列示**,不再和 UI 债务混成一个数字。
 - [x] ✅(2026-09-23) **并发事实与提交边界**:① `edu/edu-management/study-plan/` 10 文件里 9 个由**另一会话**以同 ns、同扁平键名先行落地(我只派了一个代理),该代理按 §12b 采纳其主体逻辑未重写,并补了对方留下的编译断裂(旧导出 `PLAN_TYPE_LABELS`/`PLAN_STATUS_LABELS` 已删,`StudyPlanStatsDialog` 仍 import 旧名)⇒ 本票这些源文件属**混合提交**,词表以磁盘最终态为准,未引入第二套键名;② 语言包仍带他人未提交的 `ai.pane.reviewStats.*` 8 枚 ⇒ 继续走对象空间(HEAD blob 只加本票 557 键),`diff-tree` 自证差异面恰为声明的 25 路径,落地即回读对象与树规模。
 - **本批**未做**项(如实登记)**:① 同目录 `study-plan/StudyPlanPage.tsx` 仍有 4 处硬编码中文,且其 L70 `terms.find((t) =>` 是**待引爆的 t 遮蔽** —— 谁给它加 `const t = useTranslations` 就直接编译崩,接线前必须先改形参名;② `edu/parent/children/[childId]/{courses,meals,study-plans,attendance}/PageClient.tsx` 与 `bind` 同级的 4 个子页各 4 处,可复用本批 `eduStudyPlan`/`eduMeal`/`eduAttendance` 键;③ 共享包 `packages/i18n/messages/shared` 的 `nav.home` 现值 ja=「首页」/ko=「Home」(面包屑复用即继承该残留),修它要动共享词包,本票授权面外;④ A 类 5375 行内容本地化是产品决策,不由本票擅自动门或擅改口径。
+
+### 守门侧票:`scan-i18n-zh-residue` 行正则"值含转义引号"漏检根治(2026-09-23,承第九批登记的待办票)
+
+- [x] ✅(2026-09-23) **门本体修好,不再靠"改数据绕过漏检"**:上一票是拿门的 `opencc-js` 转换器行级替换把数据改对,**漏检的判据本身没动** ⇒ 同类值下一次仍会静默通过。根因一行:`const LINE_RE = /^(\s+)"([^"]+)":\s+"([^"]*)"\s*,?\s*$/` 的取值组 `[^"]*` 遇到值里的转义引号 `\"` 就整体匹配失败(旧注释自认"跳过转义引号场景,与现有脚本一致"—— 那个"现有脚本"`fix-zh-tw-residue.mjs:65` 其实**早已是** `(?:[^"\\]|\\.)*` 的正确写法,是对齐对齐错了对象)。改成放宽组并新增 `decodeJson()`,三处 `const value = m[3]`(opencc / charRange / warnOnly)一律改读解码后的值 —— 否则会拿 `"台帳\"記録\""` 这种带反斜杠的原文去过白名单和 opencc 比对。
+- **A/B 取证(权威入口直跑,不复制判据)**:在 `.ihui-agent/tmp/i18n/probe/` 造两行探针(一行值含 `\"`、一行不含),`git show HEAD:` 取出旧版脚本作为 A,新版作为 B,同一 cwd 下对跑:zh-TW **旧报 1 处 / 新报 2 处**,ko **旧 1 / 新 2**,且新报的值是解码后的真实文本(`台帐"记录"详情` → `臺帳"記錄"詳情`)。旧版对含 `\"` 的那行**完全看不见** = 永久漏检的现场复现。
+- **爆炸半径实测(6 个 target × 3 种 locale 全跑旧/新对照)**:两种**阻塞**模式(zh-TW opencc、ko charRange)在 `web / extension / shared / miniapp-taro / mobile-rn / cli` 上结果**逐字节相同**(全 `✅ 无中文残留`)⇒ 本次放宽不会让任何人的既有提交突然变红。warn-only 的 ja 计数上升(web +10、miniapp-taro +36),另写独立交叉核对脚本按"含 `\"` 且带汉字的行"重新数:差值 11/36,与门内计数同量级(ja 侧差 1 条来自 brand/autoglossonym 白名单),抽样全是 `document.querySelector("button")`、`Hook "{name}" を削除…`、`<span style="font-weight: bold;">…` 这类**本来就该被看见**的行,且**旧命中被新正则丢掉的数量 = 0**(哨兵断言,放宽是单调包含,不是换一批漏检)。
+- **同类缺陷已扫全**:仓内按行正则取 locale 值的脚本只有这一份(`check-i18n-broken-en` / `check-i18n-keys` 走 `JSON.parse`,不受此坑;`fix-zh-tw-residue` 本来就是正确写法),不存在第二处需要同步。
+- **残余**:ja 模式仍是 warn-only 且命中基数极大(web 14762),它对"真残留"没有判别力 —— 想把 ja 升阻塞得先换判据(词表/汉字表),不属本票面。
+
 - **多端与文档**:改动仅 `apps/web` + web 词包 + `scripts/hardcoded-zh-baseline.json`,无跨端契约变化 ⇒ 平台独占(§9);§21 README 豁免(不增删对外能力清单)。
 
 
@@ -868,7 +877,7 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 
 **取证存档**:`.ihui-agent/tmp/installer-redesign/{maint-probe2.cjs, shot-maint2.png, enum-maint.txt}`(enum 显示主题宏完整执行:radio 已重定位 288,350/386、全幅底 1204、CTA 1203、窗钮 1205/1206 都在 —— 缺陷不在"没跑",在渲染结果不符合统一标准)。
 
-## P0 2026-09-23 桌面安装器"卡黑屏"取证 + LoadImage 失败重试加固(平台独占:apps/desktop;防御已落地,根因未钉死,复发走 trace 通道)
+## P0 2026-09-23 桌面安装器"卡黑屏"取证 + LoadImage 失败重试加固(平台独占:apps/desktop;已收口)
 
 用户实测:安装包(智汇AI_0.1.44_x64-setup.exe)窗口整窗纯黑、卡住不动(10:32:59 启动的实例)。
 
