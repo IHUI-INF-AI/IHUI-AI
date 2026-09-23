@@ -143,14 +143,14 @@
                      |
 +--------------------v--------------------+
 | Data Layer (HA cluster)                  |
-| - PostgreSQL 18 + time-series + Redis 7  |
+| - PostgreSQL 16 + time-series + Redis 7  |
 | - Floating car + checkpoint history + GIS |
 +-----------------------------------------+
 ```
 
 ### IHUI AI End-to-End Capabilities (8-End Coverage)
 - **Web** (Next.js 16 + React 19): Traffic command large display
-- **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 18): Real-time traffic APIs
+- **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 16): Real-time traffic APIs
 - **AI Service** (FastAPI + LangGraph + LiteLLM + MCP): Multi-agent collaboration
 - **Desktop** (Tauri 2): Emergency command workstation
 - **Extension** (WXT): Map-side real-time information
@@ -160,7 +160,7 @@
 
 ### Technology Stack
 - Frontend: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
-- Backend: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18
+- Backend: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
 - AI Service: FastAPI + LangGraph + LiteLLM + MCP
 - Multi-end: Tauri 2 (desktop) / WXT (extension) / React Native (mobile) / Taro 4 (mini-program) / Node.js CLI
 - Stream: Kafka / Apache Flink
@@ -185,7 +185,7 @@
 | Avg break-even period | 6 months |
 | 12-month ROI | 220% |
 
-(Test environment: enterprise mid-size deployment, 3 nodes, PostgreSQL 18, Redis 7, Kafka)
+(Test environment: enterprise mid-size deployment, 3 nodes, PostgreSQL 16, Redis 7, Kafka)
 
 ### FAQ
 - Q: How is data latency guaranteed?
