@@ -864,6 +864,20 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - **复发取证通道**:带 `-DIHUI_TRACE=1` 的安装器会把逐函数打点写 `D:\caches\Temp\ihui-installer-verify\trace-*.txt`(一文件一点,文件名字典序=执行序);再遇黑屏,看最后一个 trace 文件即死亡点。验证用 trace 包已编译:`apps/desktop/src-tauri/target/release/nsis/x64/nsis-output.exe`(发布构建不带 trace,零副作用)。
 - 卸载侧同源机制照抄待办:卸载器(un.IHUIConfirmPage 等)如有同型 LoadImage 裸调,下批次统一走 IHUI_LOADIMG。
 
+### 第十七批(2026-09-23):维护页卡片化收尾 —— 真包编译中断根因是 Var 作用域越界,并补两条跨文件不变量
+
+承用户"这个选择框怎么不是跟其他的统一的样式,文字样式也不对"。第十六批的契约由并发代理落盘资产后被额度上限截断,本票收尾。
+
+- **真包构建其实是断的**(`tauri build` exit 1,`makensis` 报 `Invalid command: "t"` 于 `ihui-ui.nsi:1690`):根因是本仓记录过的 **Var 声明顺序陷阱** —— `Var ReinstallPageCheck` 声明在 `installer.nsi:204`,而 `ihui-ui.nsi` 在第 51 行的 `!include "{{installer_hooks}}"` 就进来了;宏体在插入点展开故合法,但 **Function 体在定义点即编译**,引用被 warning 6000 静默丢弃 → `StrCpy $ReinstallPageCheck 1` 退化成单参数直接中止编译。同一陷阱在 `${If}` 里更阴:不报错,条件恒假。
+- **修法(不补声明、不改上游布局)**:`PageLeaveReinstall` 判定读的就是 `${NSD_GetState} $R2`,**radio 状态才是唯一真相**;且本页原生"上一步"已被 `IHUI_HIDE_ALL` 移屏、不存在重入丢选择。故初始态改读 radio 实际勾选态,两处 `StrCpy $ReinstallPageCheck` 直接删除,并在原地留注释说明"为何不得引用该 Var"。
+- **新增守门 2 条(均带注入回归)**:`checkVarScopeOrder` —— hook 文件 Function 体内引用"include 点之后才声明的 installer.nsi Var"即红(include 点同时认模板占位 `{{installer_hooks}}` 与渲染产物 `hooks.nsi` 两种形态);`checkReinstallCards` —— 卡片几何 define == 生成器常量、指示器 CreateControl 矩形与 `maint-radio-{on,off}.bmp` 逐档逐像素等大。
+- **修守门自身两个哑火判据**(都是"门造好了但恒报解析不到"那一类):① 生成器几何常量是符号式(`RCARD_X = C_L`、`C_W = C_R - C_L`),旧正则只认字面量 → 新增 `resolveGenConst` 支持标识符与加减式;② `${NAME}` 前缀 2 字符、后缀 `}` 只有 1 字符,旧代码 `slice(2, -2)` 连名字末位一起吃掉 → 查表恒 undefined;该路径此前因更早一步 return 而从未跑到,笔误被掩盖成"解析不到矩形"。
+- **注入回归 3 例**(补上"造好没装车"缺口):卡片 define 与烧入框错开、指示器矩形与位图不等大、以及**反证符号解析**(把 `RCARD_X = C_L` 改成 300 必须报"漂移 288 != 300"而不是"缺少可解析的常量")。`node --test scripts/tests/check-installer-assets-geo.test.mjs` = **8/8 绿**;守门五条不变量全 PASS。
+- **带 updater 签名重建真包**:`智汇AI_0.1.44_x64-setup.exe` 6,169,910B + `.sig` 420B,`desktop-artifact-single` 确认目录内唯一安装包。裸 `pnpm build` 不带 `TAURI_SIGNING_PRIVATE_KEY` 会在 bundle 成功后报"A public key has been found, but no private key" —— 那是调用缺 env,不是工程缺陷。
+- **新包 PrintWindow 实测**:轨道已改为「01 已完成 ✓ / 02..04 未激活」(第十六批缺陷③消除)、两张选项卡框已烧入、动态版本行已是品牌无衬线字体(缺陷①消除)。
+- **仍未闭环(如实登记)**:本机显示缩放被外部进程持续改写,实测该页在 150% 档下内容按 1.5× 布局而**窗口框未跟着重算**,截图右侧/下侧溢出(缺陷②只修了一半:位置重锚了,窗口尺寸没重锚)。解法方向 = 该页 DPI 重锚时同步重算 `$IHUIWW/$IHUIWH` 并 `MoveWindow` 外框,与 GUIINIT 的定窗逻辑同源;需一次带稳定缩放的复验,故不在本票内下"已修完"的结论。
+- 本票交付已由并发会话随批收编入库(HEAD 内可查到 `不写 $ReinstallPageCheck` 与 `checkVarScopeOrder`);工作区仍留 `.husky` 之外他人未提交的 `ihui-uninstaller.nsi`,未代收。
+
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
 
