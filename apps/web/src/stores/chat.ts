@@ -10,7 +10,6 @@ import type { SubAgentActivity, InlineDiffInfo } from '@/components/ai/types'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 import type { SubagentSpawnEvent, SubagentEndEvent, SubagentProgressEvent } from '@ihui/api-client'
 import type { ChatMessage as BaseChatMessage, ToolCall as BaseToolCall } from '@ihui/shared'
-import { markStreamError } from '@ihui/shared/chat'
 import type { ToolCallSummary, PlanStep, TerminalTask, CitationEntry } from '@ihui/types/ai'
 
 export type { ChatRole } from '@ihui/shared'
@@ -144,17 +143,6 @@ export interface SideQueueItem {
 }
 
 /**
- * D60 发送可靠性状态族(2026-09-23 立):
- * persistMessageSafe 把持久化失败归一化为这四态,调用方(输入框/重试按钮)据此渲染。
- * - failed_retryable:网络/5xx 等可重试失败,草稿保留 + 可重发
- * - idempotent_conflict:幂等键已存在但内容与当前输入不一致,请作为新消息发送
- * - archived:会话已归档,无法继续发送(草稿保留,取消归档后可重发)
- * - deleted:会话/任务已删除(404),无法继续发送(草稿保留,需新建会话)
- */
-export type SendReliabilityStatus =
-  'failed_retryable' | 'idempotent_conflict' | 'archived' | 'deleted'
-
-/**
  * Web 前端 chat store UI 状态消息类型。
  *
  * 继承 @ihui/shared 的 ChatMessage 通用基类(id/role/content/createdAt?/model?/error?/reasoning?/toolCalls?/meta?),
@@ -285,13 +273,6 @@ interface ChatState {
    *  持久化:排队问题跨刷新保留(用户排队后刷新再回来仍可补答),故纳入 partialize。 */
   sideQueueByConversation: Record<string, SideQueueItem[]>
 
-  /** D60 发送可靠性草稿保全(2026-09-23 立):最近一次持久化失败时保留的用户输入正文。
-   *  只增字段:不参与既有消息/草稿(draftInput)语义;输入框读取后由 clearFailedDraft 消费。
-   *  null = 无待恢复草稿。持久化(跨刷新不丢,见 partialize)。 */
-  failedDraft: string | null
-  /** D60:failedDraft 对应的失败状态(见 SendReliabilityStatus);null = 无失败态 */
-  failedDraftStatus: SendReliabilityStatus | null
-
   /** 设置引用回复目标(null=清除,输入区引用 chip 随之消失) */
   setQuotedMessage: (q: { id: string; role: ChatMessage['role']; content: string } | null) => void
   /** 设置网页搜索开关(同步 localStorage 'ihui_web_search_enabled' 供 SSR 前恢复) */
@@ -421,10 +402,6 @@ interface ChatState {
   removeSideQuestion: (conversationId: string, id: string) => void
   /** D28 快速侧问:出队指定会话桶的队首一条(流结束自动补答时调用);桶空返回 null */
   shiftSideQuestion: (conversationId: string) => SideQueueItem | null
-  /** D60 发送可靠性草稿保全(2026-09-23 立):写入失败保留草稿 + 状态;draft 为 null 时清空 */
-  setFailedDraft: (draft: string | null, status?: SendReliabilityStatus | null) => void
-  /** D60:清空失败保留草稿(输入框消费恢复后调用) */
-  clearFailedDraft: () => void
   /** 终端实时输出追加(2026-09-18 立):命令执行期间逐块追加 stdout/stderr 增量。
    *  单键累计上限 20000 字符(超出保留尾部),避免长命令把 localStorage/内存撑爆。 */
   appendTerminalOutput: (terminalId: string, text: string) => void
@@ -536,9 +513,6 @@ export const useChatStore = create<ChatState>()(
       inputHistory: [],
       // D28 快速侧问(2026-09-20 立):按会话分桶的侧问 FIFO 队列(持久化,见 partialize)
       sideQueueByConversation: {},
-      // D60 发送可靠性草稿保全(2026-09-23 立):失败保留草稿(执行期 + 持久化,见 partialize)
-      failedDraft: null,
-      failedDraftStatus: null,
 
       // 2026-08-06 立:Auto 模式真正跨厂商路由(用户反馈"应该是自动切换所有可使用的模型")
       // 历史:之前静默转 'auto' → 'stepfun/step-router-v1',导致 Auto 永远绑死 Step 厂家路由。
@@ -616,7 +590,7 @@ export const useChatStore = create<ChatState>()(
           const target = s.messages[idx]
           if (!target) return { error }
           const next = s.messages.slice()
-          next[idx] = markStreamError(target, error)
+          next[idx] = { ...target, error: true, content: target.content || error }
           return { messages: next, error }
         }),
 
@@ -1198,17 +1172,6 @@ export const useChatStore = create<ChatState>()(
         return head
       },
 
-      // D60 发送可靠性草稿保全(2026-09-23 立):失败时保留正文 + 状态,供输入框回填/重发。
-      // 空正文(trim 后为空)不保留(避免把空串当草稿覆盖有效内容);draft null = 显式清空。
-      setFailedDraft: (draft, status) =>
-        set(() => {
-          if (draft === null) return { failedDraft: null, failedDraftStatus: null }
-          if (!draft.trim()) return { failedDraft: null, failedDraftStatus: null }
-          return { failedDraft: draft, failedDraftStatus: status ?? null }
-        }),
-
-      clearFailedDraft: () => set({ failedDraft: null, failedDraftStatus: null }),
-
       // 2026-09-18 终端实时输出(对标 Codex bash 实时回显):
       // 命令执行期间逐块追加,terminal_end 后保留供终态渲染取更完整文本。
       // 双重封顶防内存膨胀:单键 2 万字符(保留尾部) + 最多 20 个终端键(插入序淘汰最旧)。
@@ -1337,9 +1300,6 @@ export const useChatStore = create<ChatState>()(
         sideQueueByConversation: Object.fromEntries(
           Object.entries(s.sideQueueByConversation).map(([k, v]) => [k, v.slice(-20)]),
         ),
-        // D60(2026-09-23):失败保留草稿持久化 —— 发送失败后刷新页面,输入框仍可回填重发。
-        failedDraft: s.failedDraft,
-        failedDraftStatus: s.failedDraftStatus,
         // D22(2026-09-19):网页搜索开关用户偏好持久化(初始 state 已有 localStorage 双保险)
         webSearchEnabled: s.webSearchEnabled,
         // 2026-07-28 移除独立 PlanActToggle 后,plan_mode 字段已从持久化中删除
