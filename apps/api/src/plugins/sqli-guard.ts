@@ -6,7 +6,7 @@
  * SQL 注入运行时检测插件(P0-4 安全加固)。
  *
  * preHandler 阶段扫描 request.body / request.query / request.params 的所有字符串值,
- * 调用 security-service.ts 的 InputValidator.checkSqlInjection 做关键字 + 引号/分号组合检测。
+ * 判据 = **字符门**(半角 `'` `"` `;` 任一)**∧ SQL 结构签名**(见 SQLI_STRUCTURE_PATTERNS)。
  *
  * 命中策略:
  * - 400 拒绝 + 通用消息(不泄露检测规则细节)
@@ -20,12 +20,25 @@
  *
  * 设计为防御纵深:xss-protection(onRequest)先做 HTML 实体编码,本插件(preHandler)
  * 再做 SQL 注入检测,两层独立工作互不依赖。
+ *
+ * ── 2026-09-24 判据重写:关键字侧「子串」→「词边界 + 结构签名」────────────────
+ * 旧实现把关键字侧委托给 security-service.ts 的 InputValidator.checkSqlInjection,
+ * 那里是 `value.toUpperCase().includes('OR')` 这种**子串**匹配。于是任何含 ASCII 分号
+ * 的正常文案,只要出现 CORE / BRAND / ANDROID / RESTORE / SETTINGS / ASSET / COMMAND
+ * 这类内嵌 OR|AND|SET 子串的单词,就会被判成注入(生产实测:POST /api/mail/send 正文
+ * 含 `;` 与 `IHUI-CORE` → 400「请求包含不合法字符」)。
+ *
+ * 现在关键字侧一律要求词边界(`\b`)且**必须带 SQL 结构上下文**(布尔比较、堆叠语句、
+ * UNION…SELECT、危险函数调用、系统目录),字符侧 `' " ;` 与 AI 端点强特征一字未放宽。
+ *
+ * 刻意**不**给非 AI 路径补 `--` 注释符特征:纯文本邮件签名分隔符就是裸 `-- `(RFC 3676),
+ * 加了等于把正常邮件判成注入 —— 这与 SQLI_STRONG_PATTERN_AI 摘掉 `--\s` 是同一个理由。
+ * 该形态的防护仍由「字符门 ∧ 结构签名」与 AI 路径强特征共同承担,与旧实现覆盖面一致。
  */
 
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import fp from 'fastify-plugin'
 import type { Redis } from 'ioredis'
-import { InputValidator } from '../services/security-service.js'
 import { logger } from '../utils/logger.js'
 import { getIpReputationService } from '../services/ip-reputation.js'
 
@@ -123,6 +136,57 @@ const SQLI_STRONG_PATTERN_AI = new RegExp(
   'im',
 )
 
+// ── 非 AI 路径判据(2026-09-24 重写:关键字子串 → 词边界 + 结构签名)────────────
+//
+// 字符门:与旧 InputValidator.checkSqlInjection 逐字符相同 —— 半角单引号 / 双引号 / 分号。
+// 刻意不扩到全角 `＇ ＂ ；`(旧实现同样不认),放宽字符侧不是本次修复的目标。
+const SQLI_CHAR_GATE = /['";]/
+
+/**
+ * `delete from the list` / `insert into your account` 这类是正常的英文说明文案,
+ * 而真载荷紧跟的是表名(`delete from users`),故对这两个双词结构加限定词负向断言。
+ */
+const SQLI_PROSE_OBJECTS = 'the|your|this|that|these|those|our|all|any|one|it'
+
+/**
+ * SQL 结构签名:必须同时具备词边界与"注入才有的结构上下文"。
+ * 每条都独立可解释,任一命中(且过字符门)即判注入。
+ */
+const SQLI_STRUCTURE_PATTERNS: readonly RegExp[] = [
+  // 布尔/比较式:' OR 1=1 / 'and'a'='a' / AND 2>1 / or 1 like 1 / or/*x*/1=1
+  /\b(?:or|and|xor)\b[\s(]*(?:\/\*[\s\S]{0,64}\*\/[\s(]*)?(?:\bnot\b[\s(]*)?['"()\w.]+\s*(?:=|<>|!=|>=|<=|[<>]|\blike\b|\bregexp\b)/i,
+  // 布尔 + 常量 + 注释收尾:' OR 1 -- / or 1#
+  /\b(?:or|and|xor)\b[\s(]*(?:\/\*[\s\S]{0,64}\*\/[\s(]*)?\d+[\s(]*(?:--|#|\/\*)/i,
+  // WHERE 谓词:' where 1=1 / where id like 'x'
+  /\bwhere\b[\s(]{1,8}\b[\w."']{1,32}\b\s*(?:=|<>|!=|>=|<=|[<>]|\blike\b|\bis\b\s+null)/i,
+  // UNION ... SELECT(含 union all、union/**/select 注释混淆)
+  /\bunion\b[\s\S]{0,48}?\bselect\b/i,
+  // DDL + 对象名(不含 user/role/group,否则 "create user accounts" 这类文案被误杀)
+  /\b(?:drop|alter|truncate|create|rename)\b[\s(]{1,8}\b(?:table|database|schema|view|index|trigger|function|procedure|extension)\b/i,
+  // 堆叠 DML:insert into <表> / delete from <表> / update <表> set …
+  new RegExp(`\\binsert\\b[\\s(]{1,8}\\binto\\b[\\s(]{1,8}(?!(?:${SQLI_PROSE_OBJECTS})\\b)`, 'i'),
+  new RegExp(`\\bdelete\\b[\\s(]{1,8}\\bfrom\\b[\\s(]{1,8}(?!(?:${SQLI_PROSE_OBJECTS})\\b)`, 'i'),
+  /\bupdate\b[\s(]{1,8}[\w."`[\]]{1,64}\b[\s(]{1,8}set\s/i,
+  // SELECT 列表形态:select * from / select a,b / select x where / select distinct e from
+  // (要求 select 后第一个词就是载荷或列表项,"please select your plan from the list" 不误杀)
+  /\bselect\b[\s(]{1,10}(?:(?:distinct|all|top[\s(]{1,8}\d+)\b[\s(]{1,8})?[*@`'"\w.[\]]{1,64}\s*(?:,|\bfrom\b|\bwhere\b|\bbegin\b|\(|--|;)/i,
+  // 时间盲注 / 危险函数:必须带调用括号 —— 裸单词 sleep 属正常文案("I need sleep;")
+  /\b(?:sleep|benchmark|pg_sleep\w*|dbms_pipe\.receive_message|utl_inaddr\.get_host_name|load_file|openrowset)\s*\(/i,
+  // 存储过程 / 文件读写 / 变量声明 / 提权
+  /\bwaitfor\s+delay\b|\bxp_[a-z0-9_]+\b|\binto\s+(?:out|load|dump)file\b|\bexec(?:ute)?\s*\(|\bdeclare\s*@\w|\bset\s+@\w|\bselect\s+@@\w+|\bgrant\s+all\b/i,
+  // 系统目录 / 元数据表
+  /\binformation_schema\b|\bpg_catalog\b|\bpg_(?:shadow|user)\b|\bsqlite_master\b|\bsqlite_temp_master\b|\bmysql\.user\b|\bsys(?:objects|databases)\b/i,
+]
+
+/**
+ * 单值判据:字符门 ∧ 结构签名(大小写不敏感,与旧实现的 toUpperCase 比对等价)。
+ * export 只为可测性(sqli-guard.test.ts),不额外对外提供 HTTP 面。
+ */
+export function detectSqlInjectionPattern(value: string): boolean {
+  if (!SQLI_CHAR_GATE.test(value)) return false
+  return SQLI_STRUCTURE_PATTERNS.some((pattern) => pattern.test(value))
+}
+
 /** 递归扫描对象/数组中的字符串值,检测强 SQL 注入特征(供豁免路径使用)。 */
 function detectStrongSqli(data: unknown, pattern: RegExp = SQLI_STRONG_PATTERN): string | null {
   if (typeof data === 'string') {
@@ -147,7 +211,7 @@ function detectStrongSqli(data: unknown, pattern: RegExp = SQLI_STRONG_PATTERN):
 /** 递归扫描对象/数组中的字符串值,返回首个命中 SQL 注入的值(截断 200 字符),未命中返回 null。 */
 function detectSqlInjection(data: unknown): string | null {
   if (typeof data === 'string') {
-    return InputValidator.checkSqlInjection(data) ? data.slice(0, 200) : null
+    return detectSqlInjectionPattern(data) ? data.slice(0, 200) : null
   }
   if (Array.isArray(data)) {
     for (const item of data) {
