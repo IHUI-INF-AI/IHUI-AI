@@ -10,8 +10,12 @@ import { useTranslations } from 'next-intl'
 import { usePathname } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { cn } from '@/lib/utils'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { Sidebar } from '@/components/sidebar'
 import { TooltipProvider } from '@/components/feedback'
+
+/** 层栈 id(见 @/lib/overlay-stack):移动端菜单的 Esc 只在栈顶时被消费 */
+const MOBILE_MENU_OVERLAY_ID = 'global-shell-mobile-menu'
 import {
   PWAInstallPrompt,
   PWAUpdatePrompt,
@@ -163,7 +167,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
 
   // 桌面端快捷键全局监听(2026-07-26 迁移:从 NativeTopBar 移到 GlobalShell,
   // 因为 NativeTopBar 已删除,窗口控制按钮跟随 TagsView 一起搬到 MainShell 内部)
-  // - 全局路由都能响应 Ctrl+R / F12 / Ctrl+Shift+A / Ctrl+Q
+  // - 全局路由都能响应 Ctrl+R / F12 / Ctrl+Q
   // - 走 dispatchMenuAction 单一逻辑源
   useNativeShortcuts((id) => void dispatchMenuAction(id))
 
@@ -182,7 +186,8 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   //   useMediaQuery 已改为 isomorphic layout effect(2026-09-09),hydration 后 paint 前
   //   完成纠正,无可见闪烁;SSR 初始值 false 与服务端一致,无 hydration mismatch。
   // - CSS 层兜底:globals.css 平板区间对 aside[data-viewport-collapsed='true'] 强制 60px
-  //   宽 + .sidebar-actions 竖排 + 隐藏长 logo,覆盖 SSR 展开 HTML → hydration 前的间隙。
+  //   宽 + 隐藏长 logo,覆盖 SSR 展开 HTML → hydration 前的间隙。
+  //   (2026-09-21:原 .sidebar-actions 竖排兜底规则已随该组件迁入用户菜单而删除)
   // - 历史:2026-08-02 曾用"纯 CSS 不改 state"方案(max-[1023px] 宽度覆盖),2026-09-07 起
   //   演进为上述 JS+CSS 双层方案(纯 CSS 无法切换 footer 竖排/折叠 header 的 React 分支)。
   // - collapsed 状态已下沉到 Sidebar 内部(2026-09-04 性能优化),GlobalShell 不再持有。
@@ -232,11 +237,20 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     if (!mobileOpen) return
+    // 层栈注册:mobileOpen → 入栈(成为栈顶);close/unmount → 出栈。
+    pushOverlay(MOBILE_MENU_OVERLAY_ID)
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMobileOpen(false)
+      if (e.key === 'Escape') {
+        // 只让栈顶那一层消费 Esc:多层同时打开时,一次 Esc 关最上层
+        if (!isTopOverlay(MOBILE_MENU_OVERLAY_ID)) return
+        setMobileOpen(false)
+      }
     }
     document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      popOverlay(MOBILE_MENU_OVERLAY_ID)
+    }
   }, [mobileOpen])
 
   // 移动端菜单按钮节点(2026-09-13 从 <GlobalTopBar mobileMenu={...}> 内联 JSX 提取):
