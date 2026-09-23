@@ -24,7 +24,7 @@ import { randomUUID } from 'node:crypto';
 import * as path from 'node:path';
 import chalk from 'chalk';
 import ora from 'ora';
-import { streamChat, setBaseUrl, setTokenProvider, formatSSEError, type SSEErrorSeverity } from '@ihui/api-client';
+import { streamChat, setBaseUrl, setTokenProvider, formatSSEError, type StreamChatOptions, type SSEErrorInfo, type SSEErrorSeverity, type PlanUpdateEvent } from '@ihui/api-client';
 // L1-4(2026-07-25 立):doom_loop 反思沉淀 procedural memory,需 loadConfig 拿 ai-service URL
 import { loadConfig } from '../config/index.js';
 import {
@@ -392,6 +392,14 @@ export interface RunToolLoopOptions {
   onError?: (message: string) => void | Promise<void>;
   /** 模型推理过程增量(reasoning/thinking)回调 — 透传 api-client 的 onReasoning,未传时零开销 */
   onReasoning?: (delta: string) => void | Promise<void>;
+  /** 执行计划快照(plan_updated)回调 — 透传 api-client 的 onPlanUpdate,REPL 借此驱动实时任务状态行 */
+  onPlanUpdate?: (event: PlanUpdateEvent) => void;
+  /** D34 上下文注入交代 — 透传 api-client 的同名回调(签名直接取,避免与本端重抄漂移) */
+  onInjectionApplied?: NonNullable<StreamChatOptions['onInjectionApplied']>;
+  /** D39 上游重试交代 — 同上 */
+  onRetryScheduled?: NonNullable<StreamChatOptions['onRetryScheduled']>;
+  /** #11 引用溯源 — 同上 */
+  onCitations?: NonNullable<StreamChatOptions['onCitations']>;
   /** 模型上下文窗口大小(tokens)。达 85% 自动压缩到 60%,默认 128_000(与 @ihui/api-client DEFAULT_CONTEXT_CAPACITY 跨端一致)。 */
   contextLimit?: number;
   /** 是否启用 plan 强制阻断(配合 planApproved 控制) */
@@ -658,6 +666,14 @@ interface SampleWithRetryOptions {
   extraBody?: Record<string, unknown>;
   /** 原生 function calling:SSE tool-call 事件回调 */
   onToolCallEvent?: (event: { type: string; toolCallId: string; toolName: string; args?: Record<string, unknown> }) => void;
+  /** 执行计划快照(plan_updated)— 透传 api-client 的 onPlanUpdate,未传时零开销 */
+  onPlanUpdate?: (event: PlanUpdateEvent) => void;
+  /** D34 上下文注入交代 — 未传时零开销(与 onPlanUpdate 同一条纪律) */
+  onInjectionApplied?: NonNullable<StreamChatOptions['onInjectionApplied']>;
+  /** D39 上游重试交代 — 同上 */
+  onRetryScheduled?: NonNullable<StreamChatOptions['onRetryScheduled']>;
+  /** #11 引用溯源 — 同上 */
+  onCitations?: NonNullable<StreamChatOptions['onCitations']>;
 }
 
 interface SampleWithRetryResult {
@@ -745,6 +761,10 @@ async function sampleWithRetry(
     // (如 provider 402 配额耗尽 → completionTokens:0 + end_turn)。此处捕获回调错误并
     // 转入 errMsg 路径,走既有 formatSSEError 分类/重试逻辑。
     let streamErr: string | undefined;
+    // onError 的第二参数(errorCode 等元信息)必须一起留存:厂商账号额度耗尽
+    // (PROVIDER_QUOTA_EXHAUSTED)只靠 errorCode 判定 —— ai-service 未登记该码的 HTTP 状态,
+    // 实际仍回落默认 502,按状态码分类会被误判成"稍后重试",而重试必然再撞。
+    let streamErrInfo: SSEErrorInfo | undefined;
     try {
       await streamChat({
         model: opts.modelId,
@@ -754,17 +774,25 @@ async function sampleWithRetry(
         ...(opts.extraBody ? { extraBody: opts.extraBody } : {}),
         ...(opts.onToolCallEvent ? { onToolCall: opts.onToolCallEvent } : {}),
         ...(opts.onReasoning ? { onReasoning: opts.onReasoning } : {}),
+        ...(opts.onPlanUpdate ? { onPlanUpdate: opts.onPlanUpdate } : {}),
+        ...(opts.onInjectionApplied ? { onInjectionApplied: opts.onInjectionApplied } : {}),
+        ...(opts.onRetryScheduled ? { onRetryScheduled: opts.onRetryScheduled } : {}),
+        ...(opts.onCitations ? { onCitations: opts.onCitations } : {}),
         ...(opts.sampler ?? {}),
-        onError: (msg) => { streamErr = msg; },
+        onError: (msg, info) => { streamErr = msg; streamErrInfo = info; },
       } as Parameters<typeof streamChat>[0]);
     } catch (e) {
       errMsg = e instanceof Error ? e.message : String(e);
     }
     if (streamErr !== undefined) errMsg = streamErr;
     if (errMsg === undefined) return {};
-    const formatted = formatSSEError(new Error(errMsg));
+    const formatted = formatSSEError(new Error(errMsg), streamErrInfo);
     // 不可重试错误立即返回
     if (!SAMPLER_RETRYABLE_SEVERITIES.has(formatted.severity)) {
+      return { error: errMsg };
+    }
+    // retryable === false:厂商账号额度已耗尽,全部候选通道都失败,退避重试必然再撞
+    if (formatted.retryable === false) {
       return { error: errMsg };
     }
     // 达到最大重试次数,返回最后一次错误
@@ -1054,6 +1082,11 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
             ...(opts.onReasoning
               ? { onReasoning: (delta: string) => { void opts.onReasoning?.(delta); } }
               : {}),
+            // 执行计划快照透传(plan_updated):REPL 借此驱动实时任务状态行
+            ...(opts.onPlanUpdate ? { onPlanUpdate: opts.onPlanUpdate } : {}),
+        ...(opts.onInjectionApplied ? { onInjectionApplied: opts.onInjectionApplied } : {}),
+        ...(opts.onRetryScheduled ? { onRetryScheduled: opts.onRetryScheduled } : {}),
+        ...(opts.onCitations ? { onCitations: opts.onCitations } : {}),
             sampler: opts.sampler,
             ...(withTools && nativeExtraBody ? { extraBody: nativeExtraBody } : {}),
             ...(withTools

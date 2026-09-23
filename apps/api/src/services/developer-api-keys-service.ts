@@ -122,6 +122,9 @@ export async function createKey(
       key,
       secret: hashed,
       permissions,
+      // DEPRECATED(2026-09-21):`rate_limit` 不参与任何限流判定(判定只读 rateLimit5h/1d/7d
+      // + per-model RPM/TPM + tpmLimit),保留列与默认值仅为存量展示兼容;
+      // 入口已在 routes/developer.ts `noteDeprecatedKeyFields` 回废弃响应头,2026-12-31 移除。
       rateLimit: input.rateLimit ?? 60,
       // P0-7 安全粒度字段:undefined → null(DB 默认),null = 不限制
       expiresAt: input.expiresAt ?? null,
@@ -174,6 +177,11 @@ export async function listKeys(userId: string): Promise<SafeApiKey[]> {
       // per-model 限流列(2026-09-21,O2 落地,保证 SafeApiKey 类型完整)
       perModelRpmLimit: developerApiKeys.perModelRpmLimit,
       perModelTpmLimit: developerApiKeys.perModelTpmLimit,
+      // O19 并回的迁移侧既有列(2026-08-01 迁移建的,此前 TS schema 未声明所以投影里也没有)
+      tpmLimit: developerApiKeys.tpmLimit,
+      tags: developerApiKeys.tags,
+      alias: developerApiKeys.alias,
+      description: developerApiKeys.description,
       createdAt: developerApiKeys.createdAt,
       updatedAt: developerApiKeys.updatedAt,
     })

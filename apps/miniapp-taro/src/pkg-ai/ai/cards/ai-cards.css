@@ -56,6 +56,13 @@
   font-size: 22rpx;
   color: var(--color-muted-foreground);
 }
+.ai-card-section-note {
+  display: block;
+  margin-bottom: 10rpx;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  line-height: 32rpx;
+}
 
 /* ============ 计划步骤卡片 ============ */
 .ai-card-plan-list {
@@ -157,13 +164,38 @@
   justify-content: space-between;
 }
 .ai-card-tool-name {
-  font-size: 26rpx;
+  flex-shrink: 0;
+  max-width: 45%;
+  font-size: 24rpx;
   color: var(--color-foreground);
   line-height: 1.5;
 }
+
+/* 对象(路径 / 检索词 / URL / 命令):与 web 活动行同一档字号(12px),过长省略号截断 */
+.ai-card-tool-subject {
+  flex: 1;
+  min-width: 0;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  line-height: 1.5;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* 路径 / URL / 命令用等宽体(与 web STREAM_SUBJECT_MONO 同判据) */
+.ai-card-tool-subject.mono {
+  font-family: Menlo, Consolas, 'Courier New', monospace;
+}
+
+.ai-card-tool-subject-spacer {
+  flex: 1;
+  min-width: 0;
+}
+
 .ai-card-tool-source {
   margin-left: 12rpx;
-  font-size: 20rpx;
+  font-size: 22rpx;
   color: var(--color-muted-foreground);
   background: var(--color-muted);
   border-radius: 8rpx;
@@ -181,6 +213,28 @@
   color: var(--color-success);
 }
 .ai-card-tool-status.error {
+  color: var(--color-danger);
+}
+
+/* 结果度量("128 行" / "2 个结果"):11px 档 + 等宽数字,与 web StreamMetric 同档 */
+.ai-card-tool-metric {
+  margin-left: 12rpx;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 写类工具的 ± 行数:绿增红减沿用 --color-success / --color-danger(与状态条同色档) */
+.ai-card-tool-lines {
+  margin-left: 12rpx;
+  font-size: 22rpx;
+  font-variant-numeric: tabular-nums;
+}
+.ai-card-tool-lines-added {
+  color: var(--color-success);
+}
+.ai-card-tool-lines-removed {
+  margin-left: 8rpx;
   color: var(--color-danger);
 }
 .ai-card-tool-duration {
@@ -287,6 +341,12 @@
   margin-top: 8rpx;
   font-size: 22rpx;
   color: var(--color-danger);
+}
+.ai-card-term-truncated {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
 }
 
 /* ============ 三点加载态(spinner,替代 emoji/原生) ============ */

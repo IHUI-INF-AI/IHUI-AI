@@ -190,12 +190,12 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
         } catch (e) {
           if (e instanceof VoiceSttHttpError) {
             if (e.status === 401 || e.status === 403) {
-              setError(t('chat.voiceUnauthorized') || '登录已过期,请刷新页面后重试')
+              setError(t('chat.voiceUnauthorized'))
             } else {
-              setError(t('chat.voiceSttFailed') || '转写失败,请稍后重试或检查本地语音服务')
+              setError(t('chat.voiceSttFailed'))
             }
           } else {
-            setError(t('chat.voiceNetworkError') || '网络异常,请检查连接后重试')
+            setError(t('chat.voiceNetworkError'))
           }
           setRecording(false)
           return
@@ -206,7 +206,7 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
           setError(null)
         } else {
           // 后端 200 OK 但无内容 → 未识别到语音内容
-          setError(t('chat.voiceEmpty') || '未识别到语音内容,请靠近麦克风后重试')
+          setError(t('chat.voiceEmpty'))
         }
         setRecording(false)
       }
@@ -216,7 +216,7 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
       setError(null)
     } catch {
       setRecording(false)
-      setError(t('chat.voiceError') || '无法访问麦克风,请在浏览器设置中允许麦克风权限')
+      setError(t('chat.voiceError'))
     }
   }
 

@@ -571,7 +571,7 @@ export default function Login() {
             </View>
             <View className="login-field">
               <View className="login-label-row">
-                <Text className="login-label">{t('login.phone')}</Text>
+                <Text className="login-label">{t('login.password')}</Text>
                 <Text
                   className="login-forgot"
                   onClick={() => Taro.navigateTo({ url: '/pages/forgot-password/index' })}

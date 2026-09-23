@@ -37,7 +37,7 @@ export function MemoryCard({ entry, onDelete, onEdit, deleting }: MemoryCardProp
             {typeOpt?.label ?? entry.type}
           </span>
         </div>
-        <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
           {onEdit && (
             <Button
               variant="ghost"

@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Trash2, Loader2 } from 'lucide-react'
 
 import {
@@ -52,6 +53,7 @@ export function StudyPlanEditDialog({
   onSave: (data: StudyPlanFormData) => Promise<void>
   onDelete?: () => Promise<void>
 }) {
+  const t = useTranslations('eduStudyPlan')
   const [form, setForm] = React.useState<StudyPlanFormData>(emptyPlanForm)
   const [saving, setSaving] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
@@ -114,51 +116,51 @@ export function StudyPlanEditDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{initial ? '编辑学习计划' : '创建学习计划'}</DialogTitle>
+          <DialogTitle>{initial ? t('editPlanTitle') : t('createPlanTitle')}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3 py-2">
           <div className="grid gap-1.5">
-            <Label>计划标题</Label>
+            <Label>{t('planTitle')}</Label>
             <Input
               value={form.title}
               onChange={(e) => update('title', e.target.value)}
-              placeholder="例如：2025年3月学习计划"
+              placeholder={t('titlePlaceholder')}
             />
           </div>
           <div className="grid gap-1.5">
-            <Label>计划类型</Label>
+            <Label>{t('planType')}</Label>
             <Select value={form.planType} onValueChange={(v: PlanType) => update('planType', v)}>
               <SelectTrigger>
-                <SelectValue placeholder="选择类型" />
+                <SelectValue placeholder={t('selectType')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="monthly">月计划</SelectItem>
-                <SelectItem value="weekly">周计划</SelectItem>
+                <SelectItem value="monthly">{t('planTypeMonthly')}</SelectItem>
+                <SelectItem value="weekly">{t('planTypeWeekly')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           {!initial && (
             <>
               <div className="grid gap-1.5">
-                <Label>所属学期</Label>
+                <Label>{t('termLabel')}</Label>
                 <Select value={form.termId} onValueChange={(v) => update('termId', v)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="选择学期" />
+                    <SelectValue placeholder={t('selectTerm')} />
                   </SelectTrigger>
                   <SelectContent>
-                    {terms.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>
-                        {t.name}
+                    {terms.map((term) => (
+                      <SelectItem key={term.id} value={term.id}>
+                        {term.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="grid gap-1.5">
-                <Label>所属班级</Label>
+                <Label>{t('classLabel')}</Label>
                 <Select value={form.classId} onValueChange={(v) => update('classId', v)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="选择班级" />
+                    <SelectValue placeholder={t('selectClass')} />
                   </SelectTrigger>
                   <SelectContent>
                     {classes.map((c) => (
@@ -173,7 +175,7 @@ export function StudyPlanEditDialog({
           )}
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label>开始日期</Label>
+              <Label>{t('startDate')}</Label>
               <Input
                 type="date"
                 value={form.startDate}
@@ -181,7 +183,7 @@ export function StudyPlanEditDialog({
               />
             </div>
             <div className="grid gap-1.5">
-              <Label>结束日期</Label>
+              <Label>{t('endDate')}</Label>
               <Input
                 type="date"
                 value={form.endDate}
@@ -190,11 +192,11 @@ export function StudyPlanEditDialog({
             </div>
           </div>
           <div className="grid gap-1.5">
-            <Label>描述</Label>
+            <Label>{t('description')}</Label>
             <Input
               value={form.description}
               onChange={(e) => update('description', e.target.value)}
-              placeholder="计划描述（可选）"
+              placeholder={t('descriptionPlaceholder')}
             />
           </div>
         </div>
@@ -206,7 +208,7 @@ export function StudyPlanEditDialog({
               ) : (
                 <Trash2 className="h-4 w-4" />
               )}
-              删除
+              {t('delete')}
             </Button>
           )}
           <Button
@@ -214,7 +216,7 @@ export function StudyPlanEditDialog({
             disabled={saving || !form.title.trim() || !form.startDate || !form.endDate}
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {initial ? '保存' : '创建'}
+            {initial ? t('save') : t('create')}
           </Button>
         </DialogFooter>
       </DialogContent>

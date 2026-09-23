@@ -117,11 +117,13 @@ export function useInlineEdit() {
           s.commitTurn({ instruction, patch: final })
           s.setInstruction('')
         },
-        onError: (errMsg) => {
+        onError: (errMsg, info) => {
           const s = useInlineEditStore.getState()
           s.setStatus('error')
           s.setError(errMsg)
-          const f = formatSSEError(new Error(errMsg))
+          // info 必须透传:errorCode 是"厂商账号额度耗尽"等稳定码的唯一判据
+          // (ai-service 未登记该码,HTTP 仍回落默认 502,按状态码分类会被误判成"稍后重试")
+          const f = formatSSEError(new Error(errMsg), info)
           toast.error(f.title, { description: f.message })
         },
       })

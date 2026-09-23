@@ -616,8 +616,13 @@ export function resolveEffectiveConfig(args: {
   const sampler = resolveSamplerSettings(cliSampler, settings.sampler);
 
   // 优先级:CLI flag > settings.permissionMode > 'default'
+  // 两侧都过注册表(G-161 cli 归一):settings 文件是用户手写的,历史上写 kebab
+  // (`accept-edits`)也存得进去,而本函数返回值被标成 PermissionMode(规范档)——
+  // 不归一就是"类型说合法、运行时是第 6 种拼法",下游所有 === 比较静默失配。
   const permissionMode: PermissionMode =
-    parsePermissionMode(args.cliPermissionMode) ?? settings.permissionMode ?? 'default';
+    parsePermissionMode(args.cliPermissionMode) ??
+    parsePermissionMode(settings.permissionMode) ??
+    'default';
 
   return {
     apiUrl,

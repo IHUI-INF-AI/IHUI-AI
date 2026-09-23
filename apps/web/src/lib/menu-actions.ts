@@ -22,7 +22,7 @@ import {
  *
  * 调用源:
  * - NativeTopBar 文件/视图/帮助 dropdown 点击(2026-07-25 后)
- * - useNativeShortcuts 监听 Ctrl+R/F12/Ctrl+Shift+A/Ctrl+Q(2026-07-25 后,
+ * - useNativeShortcuts 监听 Ctrl+R/F12/Ctrl+Q(2026-07-25 后,
  *   替代原 Rust MenuItemBuilder.accelerator)
  *
  * 派发逻辑:

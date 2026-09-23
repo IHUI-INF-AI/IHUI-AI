@@ -2,12 +2,16 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useCallback, useMemo, useRef, useState } from 'react'
-import { executeAgentRuntimeStream, sendToolApprovalResponse } from '@ihui/api-client'
-import { parsePlanText, type RenderPlanStep } from '@ihui/shared'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  executeAgentRuntimeStream,
+  getWorkspacePermissionDefault,
+  sendToolApprovalResponse,
+} from '@ihui/api-client'
+import { parsePlanText, permissionTierWordKeys, type RenderPlanStep } from '@ihui/shared'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
-import { PlanStepsView } from './MessageContent'
+import { PlanStepsView, enumLabel, makeToolTranslate, toolDisplayName } from './MessageContent'
 
 type AgentStatus = 'idle' | 'running' | 'completed' | 'failed'
 
@@ -21,8 +25,54 @@ interface PermissionEvent {
   approvalId?: string
 }
 
+// 权限决策矩阵的三个枚举字段(契约层均为 string,取值见
+// apps/ai-service/app/routers/agent_runtime.py::_check_permission)。
+// 只登记**已核实**的字面量;映射不到一律原样显示,不猜语义(理由见 MessageContent.enumLabel)
+// —— 审批面板上把 deny 误译成"已放行"会直接误导用户的授权决定。
+export const DECISION_KEY: Readonly<Record<string, string>> = {
+  allow: 'agent.decisionAllow',
+  ask: 'agent.decisionAsk',
+  deny: 'agent.decisionDeny',
+}
+export const DANGER_LEVEL_KEY: Readonly<Record<string, string>> = {
+  read: 'agent.levelRead',
+  write: 'agent.levelWrite',
+  dangerous: 'agent.levelDangerous',
+  high: 'agent.levelHigh',
+  medium: 'agent.levelMedium',
+  low: 'agent.levelLow',
+}
+export const MODE_KEY: Readonly<Record<string, string>> = {
+  default: 'agent.modeDefault',
+  plan: 'agent.modePlan',
+  acceptEdits: 'agent.modeAcceptEdits',
+  bypassPermissions: 'agent.modeBypassPermissions',
+  manual: 'agent.modeManual',
+}
+
 interface AgentRuntimePanelProps {
   agentId: string
+}
+
+/**
+ * D111:工作区权限档交代行(档名 + 后果)。
+ * 独立成组件以便无 effect 环境下直接测试(renderToStaticMarkup 不跑 useEffect)。
+ * tier=null(尚未取到/取数失败)时整行不渲染 —— 不假装知道档位。
+ */
+export function WorkspacePermissionTierRow({ tier }: { tier: string | null }) {
+  const { t } = useI18n()
+  if (tier === null) return null
+  const tierText = permissionTierWordKeys(tier)
+  return (
+    <div
+      className="px-2.5 py-1 text-xs text-muted-foreground"
+      data-testid="workspace-permission-tier"
+    >
+      <span className="font-medium">{t('permissionTier.label')}: </span>
+      <span>{t(tierText.title)}</span>
+      <span> · {t(tierText.desc)}</span>
+    </div>
+  )
 }
 
 export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
@@ -47,7 +97,25 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
   const [approvalState, setApprovalState] = useState<'idle' | 'submitting' | 'sent' | 'failed'>(
     'idle',
   )
+  // D111:工作区权限档(null = 尚未取到/取数失败 → 整行隐藏,不假装知道档位)。
+  const [workspaceTier, setWorkspaceTier] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
+
+  // D111:首屏交代当前权限档(档名 + 后果)。此前 extension 只有审批结果展示,
+  // 用户看不到自己处于哪一档、也不知道那一档会导致什么。
+  useEffect(() => {
+    let cancelled = false
+    getWorkspacePermissionDefault()
+      .then((res) => {
+        if (!cancelled && res.success && res.data) setWorkspaceTier(res.data.mode)
+      })
+      .catch(() => {
+        /* 取数失败:保持 null,该行隐藏 */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // W6:链路 B 的 onPlan 只给纯文本,用共享纯函数 parsePlanText 降级解析为结构化步骤,
   // 与 ChatPage 的 plan 渲染共用同一套数据模型(parsePlanText 位于 @ihui/shared)。
@@ -177,6 +245,8 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
         </button>
       </div>
 
+      <WorkspacePermissionTierRow tier={workspaceTier} />
+
       <div className="flex flex-col gap-2 min-h-[100px]">
         {plan && (
           <section className="px-2.5 py-2 border border-border rounded-md text-xs bg-muted">
@@ -195,14 +265,18 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
         {permission && (
           <section className="px-2.5 py-2 border border-warning rounded-md text-xs bg-warning/10">
             <div className="text-xs text-muted-foreground mb-1 font-medium">
-              {t('agent.permissionDecision') + ': '}
-              {permission.decision}
+              <span>{t('agent.permissionDecision') + ': '}</span>
+              {/* decision 是枚举原值(allow/ask/deny),必须走映射显示本地化措辞 */}
+              <span>{enumLabel(permission.decision, DECISION_KEY, t)}</span>
             </div>
             <div className="text-xs text-muted-foreground">
-              {t('agent.tool') + ': '}
-              {permission.toolName ?? 'unknown'} · {t('agent.level') + ':'}
-              {permission.dangerLevel ?? 'read'} · {t('agent.mode') + ': '}
-              {permission.mode}
+              <span>{t('agent.tool') + ': '}</span>
+              {/* 界面禁止直显英文工具码名:已登记的内置工具显示本地化功能名 */}
+              <span>{toolDisplayName(permission.toolName, makeToolTranslate(t))}</span>
+              <span> · {t('agent.level') + ':'}</span>
+              <span>{enumLabel(permission.dangerLevel ?? 'read', DANGER_LEVEL_KEY, t)}</span>
+              <span> · {t('agent.mode') + ': '}</span>
+              <span>{enumLabel(permission.mode, MODE_KEY, t)}</span>
             </div>
             {/* W6:审批按钮。缺 approvalId 时降级只读并给出提示 */}
             <div className="flex items-center gap-1.5 mt-2">
