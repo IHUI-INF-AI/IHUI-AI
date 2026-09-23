@@ -4,7 +4,10 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 // §22c:直接 import 源脚本导出的 __test__,不维护任何"镜像常量",杜绝源/测两份真相漂移。
 // §22d:源脚本的 main() 受 isDirectRun 守护,被 import 时不得有任何副作用。
@@ -24,6 +27,10 @@ test('导入源模块不得触发 main() 副作用(§22d isDirectRun)', () => {
     'stripSelfTestRegions',
     'SELFTEST_BEGIN',
     'SELFTEST_END',
+    'exeName',
+    'isBatchToken',
+    'exeCandidates',
+    'passesFilter',
   ]) {
     assert.ok(key in src, `__test__ 缺少导出键 ${key}`)
   }
@@ -146,6 +153,145 @@ test('scanSource: 违规项带文件名/行号/函数名,便于定位', () => {
   assert.equal(v.file, 'scripts/x.mjs')
   assert.equal(v.line, 2)
   assert.equal(v.fn, 'execSync')
+})
+
+// ---------- 盲区 1:控制台程序白名单太窄(2026-09-24 补齐) ----------
+
+test('CONSOLE_LITERALS:补齐 tsx/turbo/vite/uvicorn/adb/cscript/wscript/conhost(npx 本已在表)', () => {
+  for (const name of ['tsx', 'turbo', 'vite', 'uvicorn', 'adb', 'cscript', 'wscript', 'conhost', 'npx']) {
+    assert.ok(src.CONSOLE_LITERALS.includes(name), `白名单缺少 ${name}`)
+  }
+})
+
+test('isConsoleTarget:新增程序在裸名 / 绝对路径 / 路径+参数 三种形态下均命中', () => {
+  const hits = [
+    "'tsx'",
+    '"turbo"',
+    '`vite build`',
+    "'uvicorn app.main:app'",
+    "'adb devices'",
+    "'cscript //nologo x.vbs'",
+    "'wscript x.vbs'",
+    "'conhost'",
+    "'C:/Program Files/nodejs/node_modules/.bin/turbo.cmd'",
+    "'/opt/homebrew/bin/adb -s emulator-5554 shell'",
+    "'D:\\\\repo\\\\node_modules\\\\.bin\\\\vite.cmd'",
+  ]
+  for (const t of hits) {
+    assert.equal(src.isConsoleTarget(t), true, `应命中: ${t}`)
+  }
+})
+
+test('isConsoleTarget:补表不得放大误报面(未知变量与非控制台程序仍放过)', () => {
+  for (const t of ['someHelper', 'resolve(p)', `'open'`, `'code'`, `'notepad'`, `'build.bat.js'`, `'turbo.json'`, `''`]) {
+    assert.equal(src.isConsoleTarget(t), false, `应放过: ${t}`)
+  }
+})
+
+// ---------- 盲区 3(同类坑):扩展名剥除与 .bat/.cmd 控制台载体 ----------
+
+test('exeName:剥 .exe/.cmd/.bat/.com(Windows npm shim 形态),兼容正反斜杠与大小写', () => {
+  assert.equal(src.exeName('C:/Program Files/Git/cmd/git.exe'), 'git')
+  assert.equal(src.exeName('D:\\repo\\node_modules\\.bin\\pnpm.cmd'), 'pnpm')
+  assert.equal(src.exeName('/usr/local/bin/tsx.bat'), 'tsx')
+  assert.equal(src.exeName('C:/Windows/System32/CONHOST.EXE'), 'conhost')
+  assert.equal(src.exeName('scripts/build.com'), 'build')
+  assert.equal(src.exeName('git'), 'git')
+  assert.equal(src.exeName('turbo.json'), 'turbo.json', '非可执行扩展名不得被剥掉')
+})
+
+test('isBatchToken:.bat/.cmd 本身就是控制台载体;.ps1/.vbs/.json 不算', () => {
+  assert.equal(src.isBatchToken('build.bat'), true)
+  assert.equal(src.isBatchToken('D:/a/BUILD.CMD'), true)
+  assert.equal(src.isBatchToken('build.ps1'), false)
+  assert.equal(src.isBatchToken('x.vbs'), false)
+  assert.equal(src.isBatchToken('git'), false)
+})
+
+test('exeCandidates:整串 / 空格首段 / 已知扩展名截断 三种取法都在(含空格绝对路径曾漏报)', () => {
+  assert.deepEqual(src.exeCandidates('git status'), ['git status', 'git'])
+  assert.ok(
+    src.exeCandidates('C:\\Program Files\\nodejs\\node.exe -e "x"').includes('C:\\Program Files\\nodejs\\node.exe'),
+    '未加引号的含空格绝对路径必须按扩展名截出真实 exe',
+  )
+  assert.ok(src.exeCandidates('D:/repo/.bin/tsx.cmd').includes('D:/repo/.bin/tsx.cmd'))
+})
+
+test('scanSource:新增程序与 .cmd/.bat 绝对路径漏参均被抓住', () => {
+  const cases = [
+    `spawnSync('tsx', ['watch', 'src/index.ts'])`,
+    `execFileSync('D:/IHUI-AI/node_modules/.bin/pnpm.cmd', ['build'], { encoding: 'utf8' })`,
+    `execSync('C:\\\\Program Files\\\\nodejs\\\\node.exe -e "x"', { encoding: 'utf8' })`,
+    `spawn('scripts/build.bat', ['-Release'])`,
+    `execSync('adb devices', { stdio: 'pipe' })`,
+  ]
+  for (const c of cases) {
+    assert.equal(src.scanSource(c, 'a.mjs').length, 1, `应抓 1 处: ${c}`)
+  }
+})
+
+test('scanSource:.bat/.cmd 判定不制造新误报(参数位出现 / 已带 windowsHide / 未知变量)', () => {
+  const cases = [
+    `spawnSync('notepad', ['build.bat'])`,
+    `spawnSync(helperBin, ['build.bat'])`,
+    `spawnSync('scripts/build.bat', ['-Release'], { windowsHide: true })`,
+    `execSync('code --install-extension x.vsix')`,
+    `writeFileSync('a.bat', '')`,
+  ]
+  for (const c of cases) {
+    assert.equal(src.scanSource(c, 'a.mjs').length, 0, `应 0 误报: ${c}`)
+  }
+})
+
+// ---------- 盲区 2:未跟踪(且未被 .gitignore 忽略)文件永不被扫 ----------
+
+const repoRoot = fileURLToPath(new URL('../..', import.meta.url))
+function gitOut(args) {
+  return execFileSync('git', ['-c', 'safe.directory=*', ...args], {
+    encoding: 'utf8',
+    maxBuffer: 256 * 1024 * 1024,
+    windowsHide: true,
+    cwd: repoRoot,
+  })
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+// 准入判据直接复用源脚本导出的 passesFilter,测试里不再抄第二份常量(§22c 镜像漂移)
+const scannable = (list) => list.filter(src.passesFilter)
+// listCandidates 内部用 resolve(f) 依 cwd 判存在,故这组用例必须在仓库根目录跑;
+// 其他 cwd 下(node --test 从子目录启动)跳过,避免把"判据没问题"误报成失败。
+const atRoot = resolve(repoRoot) === resolve(process.cwd())
+
+test('listCandidates(全量):未跟踪但未被忽略的源文件必须进入清单', (t) => {
+  if (!atRoot) return t.skip('需在仓库根目录运行')
+  const others = scannable(gitOut(['ls-files', '--others', '--exclude-standard']))
+  const got = new Set(src.listCandidates(false))
+  for (const f of others) assert.ok(got.has(f), `未跟踪源文件应进扫描清单: ${f}`)
+})
+
+test('listCandidates(全量):被 .gitignore 忽略的文件绝不进清单(--exclude-standard 生效)', (t) => {
+  if (!atRoot) return t.skip('需在仓库根目录运行')
+  const files = src.listCandidates(false)
+  // 清单里每个文件都必须能溯源到 git 的"已跟踪"或"未跟踪但未忽略"两个集合之一。
+  // 一旦 --exclude-standard 被去掉,本机 .android-toolchain/ 等 30 万+ 被忽略文件会整体涌入,此处立即变红。
+  const allowed = new Set([...gitOut(['ls-files']), ...gitOut(['ls-files', '--others', '--exclude-standard'])])
+  const foreign = files.filter((f) => !allowed.has(f))
+  assert.deepEqual(foreign.slice(0, 5), [], '清单出现被忽略/未知文件 → --exclude-standard 未生效')
+  assert.ok(files.every((f) => !/^\.android-toolchain[\\/]/.test(f)), '被忽略目录不得进入清单')
+  // 覆盖性(反向):已跟踪且满足准入判据的文件一个都不能少(防"只跑 --others、漏了 ls-files")
+  const set = new Set(files)
+  for (const f of scannable(gitOut(['ls-files', 'scripts']))) {
+    assert.ok(set.has(f), `已跟踪源文件被漏掉: ${f}`)
+  }
+})
+
+test('listCandidates(--staged):只认暂存区,不把未跟踪文件拉进来(防误阻塞他人提交)', (t) => {
+  if (!atRoot) return t.skip('需在仓库根目录运行')
+  const others = new Set(gitOut(['ls-files', '--others', '--exclude-standard']))
+  for (const f of src.listCandidates(true)) {
+    assert.ok(!others.has(f), `staged 模式不应包含未跟踪文件: ${f}`)
+  }
 })
 
 // ---------- self-test 样例区自我豁免(2026-09-22 修"全量扫描恒红"引入) ----------
