@@ -55,11 +55,17 @@
   `ForceDelete` 唯一删除出口上** + 逐条 `[DEL]`/`[DRY]` 留痕。**过程自伤已如实登记**:第一版只把
   DryRun 写在第三段,预演时第一段(Chrome 缓存,本机路径不存在故空转)与第二段(Temp >3 天目录)
   被真删,释放约 29.8MB,均为陈旧临时目录,项目文件/备份/凭据(全在 D 盘)未受影响。
-- [x] ✅(2026-09-23) **止血③ 守门 90 `check-c-drive-pollution.mjs`**(warn-only,只读永不删):
+- [x] ✅(2026-09-23) **止血③ 守门 91 `check-c-drive-pollution.mjs`**(warn-only,只读永不删):
   实地扫 C 盘根 + `C:\tmp` + `C:\temp` + 活 TEMP,名字白名单只认本项目产物,认不出的进
   「未识别清单」只登记不清理;并判 **TEMP 漂移**。`--self-test` 8 例 + §22c 镜像测试 6 例。
-  **编号 85 与并行会话的 `check-test-paths` 撞号,已改 90**,并由「编号在 runner 中必须出现恰好一次」
-  的断言钉死。
+  **编号撞了两次,第二次是本会话的交付事故**:先登记 85 与并行会话的 `check-test-paths` 同号 → 改 90;
+  但 90 已被 `ce261e1a8` 的 `check-sse-dispatch-parity` 占用,再撞。**更糟的是**:那次改号用
+  `safe-commit` 整文件提交 `guardian-runner.mjs`,而本会话这份带的是**旧基线** ⇒ diff 里
+  `script: 'check-sse-dispatch-parity.mjs'` 被我的注册块顶掉,等于**把别人刚装上的门卸了**
+  (`git show 5db08f26e -- scripts/guardian-runner.mjs` 可复核)。现已按 `ce261e1a8` 原文回插
+  守门 90、本门落到 **91**,并把「邻门注册块不得缺失」写进镜像测试断言。
+  ⇒ 教训:高并发同日仓里,① 「查编号占用」必须在提交前最后一刻重做;② 改共享注册类文件
+  (runner / package.json / CI)必须逐块核对增删,只看自己那段 diff 恰好看不见挤掉了谁。
 - [x] ✅(2026-09-23) **按用户批准范围清理**:68 项 → **0 项**,C 盘可用 **30G → 43G**。用户未批准的
   `C:\tmp\git-recovery*`(5.9MB)、`agnes-ai-generation-skill`、`codebuddy` 以及 6/8 那批
   `psexec_*`/`use_ti_*` 提权调试现场、`PSTools`/`PowerRun`/`tools`(合计未识别盘根条目 72 项)
@@ -71,10 +77,10 @@
   §26 的「已注册」表述已就地改正。
 - [ ] 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()`(`check-workspace-dep-links` /
   `check-git-read-timeout` / `git-backup-refresh` / `check-api-routes` / `check-credential-health` 等)。
-  实测它们**当前不产生残留**(清理逻辑带 `maxRetries`),且已由守门 90 覆盖可见性,故未一并改写 ——
-  避免在共享工作区对 7 个文件做无取证收益的批量动刀。下一个被守门 90 报出的前缀即改写触发条件。
+  实测它们**当前不产生残留**(清理逻辑带 `maxRetries`),且已由守门 91 覆盖可见性,故未一并改写 ——
+  避免在共享工作区对 7 个文件做无取证收益的批量动刀。下一个被守门 91 报出的前缀即改写触发条件。
 - [ ] 重启宿主/开机后 `%TEMP%` 才会真指 `D:\DevEnv\Temp`;在此之前任何未接 `scratch-dir` 的
-  `os.tmpdir()` 调用仍会落 C 盘(守门 90 会报 TEMP 漂移)。
+  `os.tmpdir()` 调用仍会落 C 盘(守门 91 会报 TEMP 漂移)。
 
 ## P0 2026-09-23 全 8 端圆角单一源头收口(根治「手机上所有容器圆角与全局设定不一致」)
 

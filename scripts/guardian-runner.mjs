@@ -2176,7 +2176,7 @@ const checks = [
   // 即残骸天天新增的机制)。只读、不删文件;定级 warn 而非 blocking,因为盘根多数条目
   // 不属本仓,拦提交只会逼人 --no-verify 连带废掉其余守门(与守门 77/52 同取向)。
   {
-    id: '90',
+    id: '91',
     label: '💽 C 盘污染实地扫描(warn,拦"源码没写死但东西真掉在 C 盘")',
     script: 'check-c-drive-pollution.mjs',
     args: [],
@@ -2190,6 +2190,45 @@ const checks = [
       '     若报"TEMP 漂移":注册表 TEMP 已指 D 而活进程仍拿 C,新建终端/重启宿主后自愈;',
       '     在此之前,任何走 os.tmpdir() 的脚本都会继续往 C 盘堆夹具。',
       '     紧急跳过(不推荐):HUSKY_SKIP_C_DRIVE_POLLUTION=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 90 (2026-09-24 装车,PROJECT_PLAN D107 ① 配套) ---
+  // 本门 2026-09-23 就写好了,但**从未进入提交链**(守门 89 的 R3 名单里一直有点它),
+  // 即"造好没装车"的第五次同型。装车同时校准台账:HEAD 实测四端已注册 onSteer,
+  // 而台账仍按 D106 早先的 WONTFIX 判定挂着 `no-steer-ui` ⇒ 判据③(唯一真源)红四条,
+  // baseline 也落后一格 —— 这正是它不上车道时没人能看见的漂移。
+  // 取材基准一律 HEAD(含帧清单的 client.ts),否则并发会话未提交的新帧会让五端同时判红。
+  // 2026-09-23 深夜说明:本条曾被提交 5db08f26e 整文件覆盖(该会话的新门最初也登记 90,
+  // 撞号后其已改 91)。此处按 ce261e1a8 原文回插,勿再改写。
+  {
+    id: '90',
+    label: '📡 SSE 帧端内 dispatch 注册层对账(blocking,补守门 63 覆盖不到的第 3 层)',
+    script: 'check-sse-dispatch-parity.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'packages/api-client/src/client.ts',
+      'scripts/data/sse-dispatch-coverage.json',
+      'scripts/check-sse-dispatch-parity.mjs',
+      'apps/web/src/',
+      'apps/extension/',
+      'apps/miniapp-taro/src/',
+      'apps/mobile-rn/',
+      'apps/cli/',
+    ],
+    skipEnv: 'HUSKY_SKIP_SSE_DISPATCH_PARITY',
+    onFailHint: [
+      '',
+      '  💡 帧被解析出来 ≠ 端内有人接:各端 streamChat 的回调表里没有这个 case,界面上就是"没这个功能"。',
+      '     看补接工单:node scripts/check-sse-dispatch-parity.mjs --report',
+      '     补接一帧后:删 scripts/data/sse-dispatch-coverage.json 里对应的 missing[端][帧] 条目,',
+      '                并把 baseline[端] 上调到新实测值(降回去就是在倒退)。',
+      '     该端确实无处渲染:必须在 missing 里写明**为什么**(空理由同样拦;',
+      '                已接却还挂着条目同样拦 —— 登记项不得变成墓志铭)。',
+      '     自检:node scripts/check-sse-dispatch-parity.mjs --self-test(8 例)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_SSE_DISPATCH_PARITY=1 git commit ...',
       '',
     ].join('\n'),
   },
