@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import {
   AlertTriangle,
   BarChart3,
@@ -43,6 +44,8 @@ import { RuleKnowledgeGraphDialog } from './RuleKnowledgeGraphDialog'
  */
 
 export function RulesManager() {
+  const t = useTranslations('rules')
+  const tCommon = useTranslations('common')
   const { rules, loading, error, refresh, deleteRule, toggleEnabled } = useRules()
   const { startCreate, startEdit } = useRulesStore()
   const [showConflicts, setShowConflicts] = React.useState(false)
@@ -56,38 +59,40 @@ export function RulesManager() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">共 {rules.length} 条规则,按优先级降序排列</p>
+        <p className="text-sm text-muted-foreground">
+          {t('totalRulesSorted', { n: rules.length })}
+        </p>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setShowAutoGenerate(true)}>
             <Sparkles className="mr-1 h-3.5 w-3.5" />
-            <span>自动生成</span>
+            <span>{t('autoGenerate')}</span>
           </Button>
           <Button variant="outline" size="sm" onClick={() => setShowConflicts(true)}>
             <AlertTriangle className="mr-1 h-3.5 w-3.5" />
-            <span>检测冲突</span>
+            <span>{t('detectConflicts')}</span>
           </Button>
           <Button variant="outline" size="sm" onClick={() => setShowKnowledgeGraph(true)}>
             <TrendingUp className="mr-1 h-3.5 w-3.5" />
-            <span>知识图谱</span>
+            <span>{t('knowledgeGraph')}</span>
           </Button>
           <Button variant="outline" size="sm" onClick={() => setShowAbTest(true)}>
             <FlaskConical className="mr-1 h-3.5 w-3.5" />
-            <span>A/B 测试</span>
+            <span>{t('abTest')}</span>
           </Button>
           <Button variant="outline" size="sm" onClick={() => setShowGlobalStats(true)}>
             <BarChart3 className="mr-1 h-3.5 w-3.5" />
-            <span>全局统计</span>
+            <span>{t('globalStats')}</span>
           </Button>
           <Button variant="outline" size="sm" onClick={() => setShowTemplates(true)}>
             <LayoutTemplate className="mr-1 h-3.5 w-3.5" />
-            <span>模板库</span>
+            <span>{t('templateLibrary')}</span>
           </Button>
           <Button variant="outline" size="sm" onClick={() => refresh()}>
-            刷新
+            {tCommon('refresh')}
           </Button>
           <Button size="sm" onClick={startCreate}>
             <Plus className="mr-1 h-3.5 w-3.5" />
-            <span>新建规则</span>
+            <span>{t('newRule')}</span>
           </Button>
         </div>
       </div>
@@ -95,7 +100,7 @@ export function RulesManager() {
       {loading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载中...
+          {tCommon('loading')}
         </div>
       ) : error ? (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
@@ -104,7 +109,7 @@ export function RulesManager() {
       ) : rules.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-center">
           <ScrollText className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">暂无规则,点击「新建规则」创建</p>
+          <p className="text-sm text-muted-foreground">{t('emptyHint')}</p>
         </div>
       ) : (
         <div className="space-y-2">
