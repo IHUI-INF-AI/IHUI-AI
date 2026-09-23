@@ -20,6 +20,8 @@ import type {
   DeveloperScreenProps,
 } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export type { DeveloperFeature, DeveloperPlan, DeveloperPlanType, DeveloperScreenProps }
 
 /**
@@ -142,7 +144,7 @@ function createStyles(tk: AppThemeTokens) {
     scrollContent: { padding: 14, paddingBottom: 32 },
     heroCard: {
       backgroundColor: primaryLight,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       padding: 14,
       marginBottom: 20,
     },
@@ -157,7 +159,7 @@ function createStyles(tk: AppThemeTokens) {
     featureItem: {
       width: '47%',
       backgroundColor: tk.surface.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       padding: 10,
     },
     featureTitle: { fontSize: 14, fontWeight: '600', color: tk.text.primary },
@@ -175,7 +177,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       padding: 14,
       backgroundColor: tk.surface.light,
     },
@@ -195,7 +197,7 @@ function createStyles(tk: AppThemeTokens) {
     submitBtn: {
       marginTop: 24,
       height: 50,
-      borderRadius: 15,
+      borderRadius: rnRadius['2xl'],
       backgroundColor: primary,
       alignItems: 'center',
       justifyContent: 'center',

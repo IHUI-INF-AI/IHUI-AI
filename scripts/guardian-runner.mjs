@@ -1800,6 +1800,38 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 77 (2026-09-23 新增,全 8 端圆角单一源头对账,blocking) ---
+  // 背景:档位表在 radius.js / tokens.css / app.css / tailwind-preset 四处各写一份,v3 端
+  //   rounded-sm=2px 与 web v4 sm=4px 同名不同值;更严重的是端内根本不走档位 ——
+  //   RN StyleSheet 数字 1292 处、taro rounded-[24rpx] 任意值 509 处、CSS px/rpx 字面量 495 处,
+  //   全仓实测偏档 246 点/120 文件。用户可见后果:手机上所有容器圆角与全局设定不一致。
+  // 判据 A:四处档位表逐档同值(preset 必须写 `borderRadius: RADIUS_REM`,不得重新内联)。
+  // 判据 B:端内取用必须引用档位(rnRadius.<step> / var(--radius-*) / rounded-<step>),
+  //   数字字面量、rpx()、每文件自定 *_RADIUS 常量、rounded-[任意值] 一律红;
+  //   几何圆(头像/装饰点/胶囊)须显式 `radius-exempt:` 注释,不得静默。存量走基线棘轮只减不增。
+  {
+    id: '77',
+    label: '📐  圆角单一源头对账(blocking,全 8 端:档位表一致 + 端内取用必须引用档位)',
+    script: 'check-radius-single-source.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_RADIUS_GUARD',
+    onFailHint: [
+      '',
+      '  💡 圆角档位唯一真相源 = packages/design-tokens/src/radius.js(xs2/sm4/md6/lg8/xl12/2xl16)。',
+      '     RN/内联 style : borderRadius: rnRadius.lg      (import { rnRadius } from \'@ihui/design-tokens\')',
+      '     CSS/SCSS      : border-radius: var(--radius-lg)',
+      '     类名          : rounded-lg(禁止 rounded-[24rpx] 这类任意值)',
+      '     真圆/头像/胶囊: 保留形状并加同行注释 radius-exempt: <原因>(不得静默写死数字)',
+      '     档位漂移      : 改 radius.js 一处后跑 node scripts/check-radius-single-source.mjs --self-test,',
+      '                     CSS 端同步 tokens.css 并按端内脚本重跑 design-tokens 同步。',
+      '     自检:node scripts/check-radius-single-source.mjs --self-test',
+      '     全量:node scripts/check-radius-single-source.mjs',
+      '     紧急跳过(不推荐):HUSKY_SKIP_RADIUS_GUARD=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- blocking (OpenAPI 契约) ---
   {
     id: '10',

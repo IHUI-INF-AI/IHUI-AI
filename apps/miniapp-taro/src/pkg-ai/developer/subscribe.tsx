@@ -187,7 +187,7 @@ export default function DeveloperSubscribePage() {
             </Text>
           </View>
           <Button
-            className={`flex-shrink-0 px-[28rpx] h-[56rpx] leading-[56rpx] text-[26rpx] font-semibold rounded-[32rpx] border-none disabled:opacity-60 ${dev.subscribed ? 'bg-[var(--color-muted)] text-muted-foreground' : 'bg-primary text-[var(--color-surface-light)]'}`}
+            className={`flex-shrink-0 px-[28rpx] h-[56rpx] leading-[56rpx] text-[26rpx] font-semibold rounded-2xl border-none disabled:opacity-60 ${dev.subscribed ? 'bg-[var(--color-muted)] text-muted-foreground' : 'bg-primary text-[var(--color-surface-light)]'}`}
             disabled={subscribing}
             onClick={toggleSubscribe}
           >
@@ -198,7 +198,7 @@ export default function DeveloperSubscribePage() {
         </View>
 
         {/* 统计行 — 对齐 RN statRow(bg card/radius rpx(16)/py rpx(24)/value 16 600/label 12 tertiary) */}
-        <View className="flex bg-card rounded-[16rpx] py-[24rpx] mb-[24rpx]">
+        <View className="flex bg-card rounded-lg py-[24rpx] mb-[24rpx]">
           <View className="flex-1 flex flex-col items-center gap-[8rpx]">
             <Text className="text-[32rpx] font-semibold text-foreground">{stats.subscribers}</Text>
             <Text className="text-[24rpx] text-[var(--color-text-tertiary)]">
@@ -228,17 +228,17 @@ export default function DeveloperSubscribePage() {
               {models.map((m) => (
                 <View
                   key={m.id}
-                  className="flex items-center gap-[20rpx] p-[20rpx] bg-card rounded-[16rpx]"
+                  className="flex items-center gap-[20rpx] p-[20rpx] bg-card rounded-lg"
                 >
                   <View className="flex-shrink-0">
                     {m.icon ? (
                       <Image
-                        className="w-[88rpx] h-[88rpx] rounded-[16rpx] bg-muted"
+                        className="w-[88rpx] h-[88rpx] rounded-lg bg-muted"
                         src={m.icon}
                         mode="aspectFill"
                       />
                     ) : (
-                      <View className="w-[88rpx] h-[88rpx] rounded-[16rpx] bg-muted flex items-center justify-center text-[32rpx] font-semibold text-muted-foreground">
+                      <View className="w-[88rpx] h-[88rpx] rounded-lg bg-muted flex items-center justify-center text-[32rpx] font-semibold text-muted-foreground">
                         <Text>{m.name.charAt(0) || '?'}</Text>
                       </View>
                     )}
@@ -255,7 +255,7 @@ export default function DeveloperSubscribePage() {
                     </Text>
                   </View>
                   <Text
-                    className="flex-shrink-0 px-[24rpx] py-[12rpx] text-[24rpx] font-medium text-[var(--color-brand-accent-deep)] border-[2rpx] border-[var(--color-brand-accent-deep)] rounded-[24rpx]"
+                    className="flex-shrink-0 px-[24rpx] py-[12rpx] text-[24rpx] font-medium text-[var(--color-brand-accent-deep)] border-[2rpx] border-[var(--color-brand-accent-deep)] rounded-xl"
                     onClick={() => handleUseModel(m)}
                   >
                     {tt('developer.subscribe.use', '使用')}
@@ -274,7 +274,7 @@ export default function DeveloperSubscribePage() {
           <Text className="block text-[30rpx] font-semibold text-foreground mb-[16rpx]">
             {tt('developer.subscribe.notifyTitle', '通知设置')}
           </Text>
-          <View className="flex items-center justify-between p-[20rpx] bg-card rounded-[16rpx] mb-[16rpx]">
+          <View className="flex items-center justify-between p-[20rpx] bg-card rounded-lg mb-[16rpx]">
             <Text className="text-[28rpx] text-foreground">
               {tt('developer.subscribe.notifyNew', '新模型发布提醒')}
             </Text>
@@ -284,7 +284,7 @@ export default function DeveloperSubscribePage() {
               color="var(--color-primary)"
             />
           </View>
-          <View className="flex items-center justify-between p-[20rpx] bg-card rounded-[16rpx] mb-[16rpx]">
+          <View className="flex items-center justify-between p-[20rpx] bg-card rounded-lg mb-[16rpx]">
             <Text className="text-[28rpx] text-foreground">
               {tt('developer.subscribe.notifyUpdate', '模型更新提醒')}
             </Text>
@@ -303,7 +303,7 @@ export default function DeveloperSubscribePage() {
           {posts.length > 0 ? (
             <View className="flex flex-col gap-[16rpx]">
               {posts.map((p) => (
-                <View key={p.id} className="p-[20rpx] bg-card rounded-[16rpx]">
+                <View key={p.id} className="p-[20rpx] bg-card rounded-lg">
                   <Text className="block text-[28rpx] font-semibold text-foreground">
                     {p.title}
                   </Text>
@@ -325,7 +325,7 @@ export default function DeveloperSubscribePage() {
 
         {/* 底部动作条 — 对齐 RN footerBar/footerBtn(brand 底/radius rpx(44)/text 16 600) */}
         <Button
-          className="h-[88rpx] leading-[88rpx] text-[32rpx] font-semibold text-[var(--color-surface-light)] bg-primary rounded-[44rpx] border-none"
+          className="h-[88rpx] leading-[88rpx] text-[32rpx] font-semibold text-[var(--color-surface-light)] bg-primary rounded-[44rpx] border-none" // radius-exempt: 胶囊按钮(高 88rpx,半径=高度一半)
           onClick={contactDev}
         >
           {tt('developer.subscribe.contact', '联系开发者')}
