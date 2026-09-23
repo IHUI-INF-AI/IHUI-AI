@@ -1291,16 +1291,20 @@ cd IHUI-AI && docker compose up -d
 - **i18n 5 语言补全**:`apps/mobile-rn/src/i18n/messages/{zh-CN,zh-TW,en,ko,ja}.ts` 扩展 settings namespace(notifPush/changePassword/pwd*/logoutConfirm 等 23 key)+ 新增 about/menu namespace(11 key)
 - **验证**:packages/app typecheck ✅ / mobile-rn typecheck(本任务文件 0 错)/ web typecheck(本任务文件 0 错)/ SharedDemoScreen RN 集成验证 / shared-demo web 集成验证
 
-### RN 统一分类栏(CategoryInlineBar / CategoryDropdown,2026-09-23 立)
+### 统一分类栏(CategoryInlineBar / CategoryDropdown / CategoryBar,2026-09-23 立,09-24 三端收口)
 
-> 用户反馈"所有的菜单栏分类栏没有设计好 / 不统一"。此前 RN 侧同类控件有 7 种各写各的实现(等宽分段、圆角胶囊 chip、11px 小字、`brand.DEFAULT` 底配 `surface.light` 字等),同一语义在 13 个屏上长 13 个样。现收敛为共享层两个形态,文案/图标一律由调用方 `items` 注入(组件内零中文常量,§19 不破)。
+> 用户反馈"所有的菜单栏分类栏没有设计好 / 不统一"。RN 侧同类控件原本有 7 种各写各的实现(等宽分段、圆角胶囊 chip、11px 小字、`brand.DEFAULT` 底配 `surface.light` 字、`brandAccent.DEFAULT` 填充等),同一语义在十几个屏上长十几种样。现收敛为**三端各自的单一组件**,文案/图标一律由调用方 `items` 注入(组件内零中文常量,§19 不破)。
 
-- **落点**:`packages/app/src/components/category/{CategoryInlineBar,CategoryDropdown,types}.tsx`,经 `@ihui/rn-app` 包根导出。
-  - `CategoryInlineBar` — 横滑单选条(左右滑动),高 32 / `rnRadius.md` / 选中态 `brand.ctaFill`+`brand.ctaText` 成对;选中项变化只按**下标**滚入视野(避免调用方内联 `items={x.map()}` 的新数组把用户手滑位置拽回)。
-  - `CategoryDropdown` — 触发器 + 下拉面板(点击开下拉窗),`measureInWindow` 锚定、下方空间不足则上翻、遮罩点击与 Android 返回键关闭、尺寸变化即关;面板用 `ScrollView`,选项再多也不被 `maxHeight` 裁切。
-- **已迁移 15 处**:共享层 `packages/app/src/features/` 9 屏 — square(文章分类条)/ plaza(任务状态 chip)/ order / team / ranking / recruitment / token-value / study-index / study-publish(动态赛道选择改用**下拉形态**);端内 `apps/mobile-rn/src/` 6 屏 — ProfileScreen / TokenValueScreen / TopicListScreen / MaterialList / StudyIndexScreen / AgentScreen 赛道弹层两横滑行(顺带删掉违规 hairline `trackDivider`)。
-- **一并消掉的重复实现**:各屏本地 `tab/tabActive/chip/chipText…` 样式键在确认零引用后删除;`apps/mobile-rn/src/components/StudyBar.tsx` 与 `SingleTypeBar.tsx` 已**无任何调用点**(仍留在仓内,删除需同步下调 `scripts/radius-single-source-baseline.json` 的 2 条基线,留作下一步)。
-- **验证**:`@ihui/rn-app` + `@ihui/mobile-rn` `tsc --noEmit` 0 错;eslint 0 诊断;`apps/mobile-rn` vitest 382 例全过;`node scripts/check-radius-single-source.mjs` 绿;release 包(v0.0.4 / versionCode 5)已装机并确认新代码进包(Hermes bundle 内命中 `CategoryInlineBar` / `agent-track-bar`)。**真机逐屏回归未完成**:首轮取证即发现"选中 chip 底色未落上"的可见缺陷(详见 PROJECT_PLAN 该条目),修复后设备 USB 掉线,复验待设备回线。
+- **三端落点(三形态同几何:高 32 / 圆角 md 6 / 项距 8 / 选中态主色对)**:
+  - RN — `packages/app/src/components/category/{CategoryInlineBar,CategoryDropdown,types}.tsx`,经 `@ihui/rn-app` 包根导出。
+  - Web — `packages/ui-react/src/components/category-bar.tsx`(`@ihui/ui-react`)。
+  - 小程序 — `apps/miniapp-taro/src/components/{CategoryBar.tsx,CategoryBar.css}`(几何按 web 档位 ×2 换算成 rpx,圆角只写 `var(--radius-*)`)。
+- **形态 A `CategoryInlineBar` / `CategoryBar`** — 横滑单选条(左右滑动),选中项变化**只按下标**滚入视野(调用方常内联 `items={x.map()}`,数组 identity 每轮都变;若依赖数组,用户刚滑到第 12 项、父层任意一次 setState 就会把条拽回选中项 —— 三端同一条不变量)。
+- **形态 B `CategoryDropdown`** — 触发器 + 点击开下拉窗:`measureInWindow` 锚定、下方空间不足则上翻、遮罩点击与 Android 返回键关闭、尺寸变化即关;面板用 `ScrollView`(选项变多时不被 `maxHeight` 静默裁切);支持 `placeholder` / `panelTitle` / 受控 `visible`+`hideTrigger`(供顶栏图标这类外部触发点)。
+- **装车量(按 JSX 调用点计)**:RN **27 处 / 21 文件**(20 InlineBar + 7 Dropdown)、web **3 处**、小程序 **8 处**,合计 **38 处**。
+- **一并消掉**:各屏本地 `tab/tabActive/chip/chipText…` 样式键在逐个 grep 确认零引用后删除;`StudyBar.tsx` 与 `SingleTypeBar.tsx` 两个端内旧组件已零调用点并退役;`AgentScreen` 赛道弹层删掉违规 hairline `trackDivider` 分割线;小程序 `Selecter.taro.tsx` 的 4 处 `borderRadius: toRpx(5)`(既属"用 rpx 算圆角"禁令、5 也不是任何档位值)改回档位。
+- **明确保留原实现的**(判定依据是语义,不是怕麻烦):`ModelConfigDialog` 的绿色两线下钻选择器、`BottomActionBar` 的多选开关组、`Toolbar` 的两列导航格、`TitleSwitchTypeBar` 的多选+清空+自定义添加、`distribution/team` 里那枚其实是日期 `Picker`、`ChatScreen` 的模型条(它是"打开浮层的启动器行"且再点一次会收起,不是筛选分类)。
+- **验证**:三端 typecheck 0 错;`apps/mobile-rn` vitest **391 例全过**(其中含新增的分类条配色不变量 4 例 + 下拉窗行为 5 例);守门 77(圆角单一源头)/ 75(深色前景对账)/ 小程序跨端样式一致性 全绿;web 侧浏览器实测 `/orders`、`/token-value`、`/agents` 计算样式为高 32px / 圆角 6px / 内边距 12px / 字号 13px,选中态 `rgb(0,0,0)` 底 + `rgb(255,255,255)` 字 + `font-weight 600`,点击后 `aria-selected` 与配色同步翻转;小程序侧真跑 `taro build --type weapp`,在新产出 `dist` 里 grep 到 `.category-bar__item--active{background:var(--color-primary)}`。
 
 ### 项目状态矩阵(透明标注,2026-07-22 核对)
 
