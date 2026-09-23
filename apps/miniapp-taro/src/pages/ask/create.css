@@ -34,7 +34,7 @@
 .ask-create-card {
   background: var(--color-muted);
   border: 2rpx solid var(--color-border);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   padding: 24rpx;
   margin-bottom: 16rpx;
 }
@@ -66,7 +66,7 @@
   padding: 16rpx 24rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   box-sizing: border-box;
 }
 
@@ -76,7 +76,7 @@
   padding: 16rpx 24rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   font-size: 32rpx;
   color: var(--color-foreground);
   box-sizing: border-box;
@@ -91,7 +91,7 @@
   margin-top: 8rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
 }
 
 .ask-create-picker-value {
@@ -122,7 +122,7 @@
   text-align: center;
   background: var(--color-card);
   border: 2rpx solid var(--color-border-medium);
-  border-radius: 32rpx;
+  border-radius: var(--radius-2xl);
   font-size: 24rpx;
   color: var(--color-muted-foreground);
 }
@@ -151,7 +151,7 @@
 .ask-create-img {
   width: 160rpx;
   height: 160rpx;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   background: var(--color-background);
 }
 
@@ -178,7 +178,7 @@
   align-items: center;
   justify-content: center;
   border: 2rpx dashed var(--color-border-medium);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   background: var(--color-card);
 }
 
@@ -223,7 +223,7 @@
   line-height: 92rpx;
   background: var(--color-brand);
   color: var(--color-primary-foreground);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   font-size: 32rpx;
   font-weight: 600;
   border: none;

@@ -18,6 +18,8 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { Smartphone, Users, PenLine, BarChart3, BookOpen } from 'lucide-react-native'
 import type { LearnCategory, LearnScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** LearnScreen props re-export(单一来源 @ihui/types) */
 export type { LearnCategory, LearnScreenProps }
 
@@ -260,7 +262,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     } as ViewStyle,
     retryText: { fontSize: 14, fontWeight: '600', color: tk.surface.light } as TextStyle,
@@ -314,7 +316,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     pathCard: {
       width: 140,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       overflow: 'hidden',
       backgroundColor: tk.surface.light,
     } as ViewStyle,
@@ -361,7 +363,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     courseCard: {
       flexDirection: 'row',
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       overflow: 'hidden',
       backgroundColor: tk.surface.light,
     } as ViewStyle,
@@ -403,7 +405,7 @@ function createStyles(tk: AppThemeTokens) {
     levelBadge: {
       paddingHorizontal: 8,
       paddingVertical: 4,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
     } as ViewStyle,
     levelText: {

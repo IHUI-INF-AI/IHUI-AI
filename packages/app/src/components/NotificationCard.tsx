@@ -35,6 +35,8 @@ export function NotificationCard({ item, typeLabel, onPress, styles }: Notificat
           {typeLabel(item.type)}
         </Text>
         {!item.read ? <View style={styles.dot} /> : null}
+        {/* 时间格式化缺口(2026-09-23 记):本包(@ihui/rn-app)未声明 @ihui/shared 依赖,直接 import 会 TS2307;
+            接线本组件时须先给包加依赖(见 SquareScreen 本地 formatRelativeTime 先行方案),勿在本文件内手搓格式化 */}
         <Text style={styles.meta}>{item.createdAt}</Text>
       </View>
       <Text style={styles.cardTitle} numberOfLines={1}>

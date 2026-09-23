@@ -32,7 +32,7 @@
   /* 对齐 RN padding 14 / borderRadius 12 (dp→rpx 1:2) */
   padding: 28rpx;
   background: var(--color-primary);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
 }
 .balance-label {
   display: block;
@@ -65,7 +65,7 @@
   justify-content: center;
   height: 60rpx;
   padding: 0 28rpx;
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   box-sizing: border-box;
   background: var(--color-card);
   text-align: center;
@@ -91,7 +91,7 @@
   /* 对齐 RN StudyBar wrapper marginBottom 9 + studyBarWrap paddingHorizontal 32 (dp→rpx 1:2) */
   margin: 0 32rpx 18rpx;
   padding: 4rpx;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   box-sizing: border-box;
@@ -104,7 +104,7 @@
   height: 52rpx;
   margin: 0 6rpx;
   text-align: center;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   /* 对齐 RN tabTextActive fontSize 16 (dp→rpx 1:2) */
   font-size: 32rpx;
   color: var(--color-text-tertiary);
@@ -128,7 +128,7 @@
   flex-direction: column;
   justify-content: space-between;
   border: 2rpx solid var(--color-border);
-  border-radius: 32rpx;
+  border-radius: var(--radius-2xl);
   margin-bottom: 24rpx;
   background: var(--color-card);
   box-sizing: border-box;

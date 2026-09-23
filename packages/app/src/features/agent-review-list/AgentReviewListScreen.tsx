@@ -7,6 +7,8 @@ import { FlatList, RefreshControl, Text, TouchableOpacity, View, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AgentReviewListScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** Agent 评价列表共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AgentReviewListScreenProps }
 
@@ -92,7 +94,7 @@ function createStyles(tk: AppThemeTokens) {
     empty: { paddingVertical: 48, alignItems: 'center' },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,

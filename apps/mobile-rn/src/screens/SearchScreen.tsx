@@ -8,20 +8,18 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { SearchScreen as SharedSearchScreen, type SearchScreenItem } from '@ihui/rn-app'
 import { fetchApi } from '@ihui/api-client'
-import { SearchInput } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 /**
- * mobile-rn 搜索页(2026-07-30 接入 SearchInput;2026-09-16 统一收敛至 @ihui/rn-app 共享实现)
+ * mobile-rn 搜索页(2026-09-16 统一收敛至 @ihui/rn-app 共享实现)
  *
- * shell 层职责:
- * - 顶部挂载共享 SearchInput(快捷搜索栏,带清除按钮 + 聚焦态)
- * - 下方复用 @ihui/rn-app.SharedSearchScreen(结果列表 / loading / 错误)
+ * shell 层职责(仅数据层):
+ * - 维护 keyword/results/loading/error/searched 状态 + /api/search 请求
+ * - 输入框/header/结果列表全部由 @ihui/rn-app.SharedSearchScreen 自带(单输入框,无双框抢焦点)
  * - onSubmit 同步触发 SharedSearchScreen 的搜索逻辑
  */
 export function SearchScreen() {
@@ -65,15 +63,6 @@ export function SearchScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.searchBar}>
-        <SearchInput
-          value={keyword}
-          onChangeText={setKeyword}
-          placeholder={t('search.placeholder')}
-          onSubmit={onSearch}
-          colorScheme={resolvedTheme}
-        />
-      </View>
       <View style={styles.body}>
         <SharedSearchScreen
           t={t}
@@ -86,6 +75,7 @@ export function SearchScreen() {
           onSearch={onSearch}
           onPressItem={onPressItem}
           onBack={() => navigation.goBack()}
+          colorScheme={resolvedTheme}
         />
       </View>
     </View>
@@ -95,10 +85,6 @@ export function SearchScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  searchBar: {
-    paddingHorizontal: rpx(24),
-    paddingVertical: rpx(16),
   },
   body: {
     flex: 1,

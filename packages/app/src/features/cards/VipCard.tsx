@@ -7,6 +7,8 @@ import type { ReactNode } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export interface VipCardProps {
   /** VIP 等级 1-9 */
   level: number
@@ -139,7 +141,7 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     card: {
       backgroundColor: tk.surface.light,
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       padding: 14,
       gap: 12,
       borderWidth: 1,
@@ -150,7 +152,7 @@ function createStyles(tk: AppThemeTokens) {
     titleWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     vipBadge: {
       backgroundColor: tk.warning.DEFAULT,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 8,
       paddingVertical: 2,
     },
@@ -162,7 +164,7 @@ function createStyles(tk: AppThemeTokens) {
     benefitsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     benefitTag: {
       backgroundColor: tk.surface.card,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 8,
       paddingVertical: 3,
     },
@@ -171,7 +173,7 @@ function createStyles(tk: AppThemeTokens) {
     purchaseBtn: {
       alignSelf: 'flex-start',
       backgroundColor: tk.warning.DEFAULT,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 10,
       paddingVertical: 8,
     },

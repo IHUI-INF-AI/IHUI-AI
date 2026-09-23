@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-nati
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { HelpDetailItem, HelpDetailScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export type { HelpDetailItem, HelpDetailScreenProps }
 
 /**
@@ -85,7 +87,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.success.DEFAULT,
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       overflow: 'hidden',
     },
     question: { fontSize: 20, fontWeight: '700', color: tk.text.primary },

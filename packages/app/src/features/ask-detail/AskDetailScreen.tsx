@@ -8,6 +8,8 @@ import { Check } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AskDetailScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 问答详情共享屏 — props 注入式跨端组件 */
 export type { AskDetailScreenProps }
 
@@ -101,7 +103,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     btnText: { color: tk.surface.light, fontSize: 16 },
@@ -119,7 +121,7 @@ function createStyles(tk: AppThemeTokens) {
     sectionTitle: { fontSize: 18, fontWeight: '600', color: tk.text.primary, marginBottom: 8 },
     answer: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,

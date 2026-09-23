@@ -15,6 +15,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CircleChatMessage, CircleChatScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 圈子聊天共享屏 — props 注入式跨端组件(wrapper 保留 API 调用,共享层负责渲染+自动滚动) */
 export type { CircleChatMessage, CircleChatScreenProps }
 
@@ -144,7 +146,7 @@ function createStyles(tk: AppThemeTokens) {
     msg: {
       maxWidth: '85%',
       marginBottom: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       padding: 10,
     },
     msgUser: { alignSelf: 'flex-end', backgroundColor: tk.brand.DEFAULT },
@@ -166,7 +168,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 12,
       paddingVertical: 14,
       fontSize: 16,
@@ -176,7 +178,7 @@ function createStyles(tk: AppThemeTokens) {
     sendBtn: {
       paddingHorizontal: 14,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     sendBtnDisabled: { opacity: 0.5 },
@@ -192,7 +194,7 @@ function createStyles(tk: AppThemeTokens) {
     backBtn: {
       paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     backBtnText: { color: tk.surface.light, fontSize: 16 },

@@ -8,6 +8,8 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AppIcon } from '@ihui/types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export interface AgentCardProps {
   /** 图标组件(AppIcon)/URL(图片)/emoji 字符串 */
   icon: AppIcon | string
@@ -156,7 +158,7 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     card: {
       backgroundColor: tk.surface.light,
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       padding: 14,
       gap: 10,
       borderWidth: 1,
@@ -167,21 +169,21 @@ function createStyles(tk: AppThemeTokens) {
     iconBox: {
       width: 48,
       height: 48,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: ICON_TINT,
       alignItems: 'center',
       justifyContent: 'center',
       overflow: 'hidden',
     },
     iconEmoji: { fontSize: 24 },
-    iconImg: { width: 48, height: 48, borderRadius: 12 },
+    iconImg: { width: 48, height: 48, borderRadius: rnRadius.xl },
     meta: { flex: 1, gap: 4 },
     name: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
     description: { fontSize: 14, color: tk.text.secondary },
     tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     tag: {
       backgroundColor: tk.surface.card,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 8,
       paddingVertical: 3,
     },
@@ -193,7 +195,7 @@ function createStyles(tk: AppThemeTokens) {
     price: { fontSize: 16, fontWeight: '700', color: tk.danger.bright },
     freeTag: {
       backgroundColor: FREE_TINT,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 8,
       paddingVertical: 2,
     },

@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
   openBtn: {
     height: 44,
     borderRadius: 12,
-    backgroundColor: tokens.brandAccent.DEFAULT,
+    backgroundColor: tokens.brand.ctaFill,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,
@@ -366,7 +366,7 @@ const styles = StyleSheet.create({
   openBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.brandAccent.foreground,
+    color: tokens.brand.ctaText,
   } as TextStyle,
   pressed: { opacity: 0.85 } as ViewStyle,
 })

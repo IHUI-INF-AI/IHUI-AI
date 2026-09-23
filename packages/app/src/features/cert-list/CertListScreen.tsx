@@ -7,6 +7,8 @@ import { FlatList, RefreshControl, Text, TouchableOpacity, View, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CertListScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 证书列表共享屏 — props 注入式跨端组件 */
 export type { CertListScreenProps }
 
@@ -88,7 +90,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: 12 },
     center: { alignItems: 'center', paddingVertical: 48 },
     muted: { fontSize: 14, color: tk.text.secondary },
-    card: { padding: 12, borderRadius: 12, borderWidth: 1, borderColor: tk.border.light },
+    card: { padding: 12, borderRadius: rnRadius.xl, borderWidth: 1, borderColor: tk.border.light },
     cardTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
     label: { marginTop: 8, fontSize: 11, color: tk.text.secondary },
     row: {

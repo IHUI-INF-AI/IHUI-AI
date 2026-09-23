@@ -7,6 +7,8 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-nati
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { IcpRecordScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export type { IcpRecordScreenProps }
 
 export function IcpRecordScreen({ t, onBack, colorScheme = 'light' }: IcpRecordScreenProps) {
@@ -48,7 +50,7 @@ function createStyles(tk: AppThemeTokens) {
     body: { padding: 14, paddingBottom: 32 },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,

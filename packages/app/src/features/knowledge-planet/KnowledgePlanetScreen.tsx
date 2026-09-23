@@ -15,6 +15,8 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { Newspaper } from 'lucide-react-native'
 import type { TFunction } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export interface KnowledgePlanetScreenProps {
   t: TFunction
   items: { id: string; title: string; cover?: string; summary?: string; createdAt: number }[]
@@ -140,7 +142,7 @@ function createStyles(tk: AppThemeTokens) {
     retryBtn: {
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     } as ViewStyle,
     retryText: { fontSize: 14, fontWeight: '600', color: tk.surface.light } as TextStyle,
@@ -151,7 +153,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     itemCard: {
       flexDirection: 'row',
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       overflow: 'hidden',
       backgroundColor: tk.surface.light,
       gap: 12,

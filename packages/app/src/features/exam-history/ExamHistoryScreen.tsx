@@ -7,6 +7,8 @@ import { FlatList, RefreshControl, Text, TouchableOpacity, View, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ExamHistoryItem, ExamHistoryScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** ExamHistory 共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { ExamHistoryItem, ExamHistoryScreenProps }
 
@@ -105,7 +107,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     btnText: { color: tk.surface.light, fontSize: 16 },
@@ -120,7 +122,7 @@ function createStyles(tk: AppThemeTokens) {
     empty: { paddingVertical: 40, alignItems: 'center' },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -140,7 +142,7 @@ function createStyles(tk: AppThemeTokens) {
     badge: {
       paddingHorizontal: 6,
       paddingVertical: 4,
-      borderRadius: 4,
+      borderRadius: rnRadius.sm,
       marginLeft: 8,
     },
     badgePassed: { backgroundColor: tk.success.light },

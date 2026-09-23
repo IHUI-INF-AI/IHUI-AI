@@ -9,7 +9,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import * as FileSystem from 'expo-file-system'
 import * as MediaLibrary from 'expo-media-library'
 import { fetchApi, resolveFileUrl } from '@ihui/api-client'
-import { getRnTokens } from '@ihui/design-tokens'
+import { getRnTokens, rnRadius } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import { useTheme } from '../context/ThemeContext'
@@ -159,7 +159,7 @@ export function ImageGenCreateScreen() {
           <View className="mt-4">
             <Image
               source={{ uri: resolveFileUrl(result.imageUrl) }}
-              style={{ width: '100%', aspectRatio: 1, borderRadius: 8 }}
+              style={{ width: '100%', aspectRatio: 1, borderRadius: rnRadius.lg }}
               resizeMode="cover"
             />
             {result.revisedPrompt ? (

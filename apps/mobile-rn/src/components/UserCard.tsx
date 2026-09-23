@@ -11,6 +11,8 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native'
 import { Building2, Gem, Receipt, Wallet } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export type UserCardKey = 'order' | 'company' | 'token' | 'wallet'
 
 interface UserCardConfig {
@@ -109,7 +111,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
     // 对齐 Uniapp 15rpx(≈7.5px→8px)卡片圆角
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     backgroundColor: tokens.surface.card,
     shadowColor: tokens.gray.black,
     shadowOffset: { width: 2, height: 2 },

@@ -8,6 +8,8 @@ import { Check } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AigcCoverFilter, AigcCoverOption, AigcCoverScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** AIGC 封面选择共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AigcCoverFilter, AigcCoverOption, AigcCoverScreenProps }
 
@@ -157,7 +159,7 @@ function createStyles(tk: AppThemeTokens) {
     scrollContent: { paddingHorizontal: 10, paddingBottom: 16 },
     previewWrap: {
       position: 'relative',
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       overflow: 'hidden',
       marginBottom: 16,
     },
@@ -168,7 +170,7 @@ function createStyles(tk: AppThemeTokens) {
       left: 8,
       paddingHorizontal: 10,
       paddingVertical: 4,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: 'rgba(0,0,0,0.55)',
     },
     previewBadgeText: { fontSize: 12, color: tk.surface.light },
@@ -176,7 +178,7 @@ function createStyles(tk: AppThemeTokens) {
     filterChip: {
       paddingHorizontal: 14,
       paddingVertical: 6,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     filterChipActive: { backgroundColor: primary },
@@ -186,7 +188,7 @@ function createStyles(tk: AppThemeTokens) {
     coverItem: {
       width: '48%',
       flexGrow: 1,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       overflow: 'hidden',
       backgroundColor: tk.surface.light,
       paddingBottom: 8,
@@ -202,7 +204,7 @@ function createStyles(tk: AppThemeTokens) {
       right: 6,
       width: 24,
       height: 24,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: primary,
       alignItems: 'center',
       justifyContent: 'center',
@@ -210,7 +212,7 @@ function createStyles(tk: AppThemeTokens) {
     aiGenBtn: {
       marginTop: 16,
       paddingVertical: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: primary,
       alignItems: 'center',
     },
@@ -218,7 +220,7 @@ function createStyles(tk: AppThemeTokens) {
     footer: { paddingHorizontal: 10, paddingVertical: 12, backgroundColor: tk.surface.light },
     confirmBtn: {
       paddingVertical: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: primary,
       alignItems: 'center',
       justifyContent: 'center',

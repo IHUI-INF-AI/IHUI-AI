@@ -16,6 +16,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AigcCategory, AigcFileType, AigcListItem, AigcListScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** AIGC 作品列表共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AigcCategory, AigcListItem, AigcListScreenProps }
 
@@ -190,7 +192,7 @@ function createStyles(tk: AppThemeTokens) {
     categoryChip: {
       paddingHorizontal: 14,
       paddingVertical: 6,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     categoryChipActive: { backgroundColor: tk.brand.DEFAULT },
@@ -200,7 +202,7 @@ function createStyles(tk: AppThemeTokens) {
     row: { gap: 12, marginBottom: 12 },
     mediaCard: {
       flex: 1,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       overflow: 'hidden',
       backgroundColor: tk.surface.light,
       borderWidth: 1,
@@ -213,7 +215,7 @@ function createStyles(tk: AppThemeTokens) {
       left: 8,
       paddingHorizontal: 8,
       paddingVertical: 4,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: 'rgba(0,0,0,0.55)',
     },
     videoBadgeText: { fontSize: 11, color: tk.surface.light },
@@ -223,7 +225,7 @@ function createStyles(tk: AppThemeTokens) {
     textCard: {
       flex: 2,
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -237,14 +239,14 @@ function createStyles(tk: AppThemeTokens) {
       flex: 2,
       flexDirection: 'row',
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
       borderColor: tk.border.light,
       marginBottom: 12,
       alignItems: 'center',
     },
-    audioCover: { width: 64, height: 64, borderRadius: 12, backgroundColor: tk.border.light },
+    audioCover: { width: 64, height: 64, borderRadius: rnRadius.xl, backgroundColor: tk.border.light },
     audioInfo: { flex: 1, marginLeft: 12 },
     audioDuration: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
     audioPlayBtn: {
@@ -252,7 +254,7 @@ function createStyles(tk: AppThemeTokens) {
       alignSelf: 'flex-start',
       paddingHorizontal: 10,
       paddingVertical: 4,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.success.light,
     },
     audioPlayText: { fontSize: 14, color: tk.brand.DEFAULT, fontWeight: '600' },
@@ -267,7 +269,7 @@ function createStyles(tk: AppThemeTokens) {
       transform: [{ translateX: -80 }],
       width: 160,
       height: 44,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

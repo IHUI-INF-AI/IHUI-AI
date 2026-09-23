@@ -15,6 +15,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { DistributionProduct, DistributionInfo, DistributionScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export type { DistributionProduct, DistributionInfo, DistributionScreenProps }
 
 /** 后端金额以「分」存储,换算为元(两位小数) */
@@ -179,7 +181,7 @@ function createStyles(tk: AppThemeTokens) {
     levelCard: {
       marginHorizontal: 10,
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.success.light,
     },
     levelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -192,7 +194,7 @@ function createStyles(tk: AppThemeTokens) {
       marginHorizontal: 10,
       marginTop: 12,
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
@@ -205,7 +207,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 14,
       height: 50,
       justifyContent: 'center',
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
     },
@@ -223,7 +225,7 @@ function createStyles(tk: AppThemeTokens) {
     productsList: { marginHorizontal: 10, marginBottom: 24 },
     productCard: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       marginBottom: 8,
@@ -245,7 +247,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 10,
       height: 44,
       justifyContent: 'center',
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     retryBtnText: { color: tk.surface.light, fontSize: 14 },

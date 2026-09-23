@@ -7,6 +7,8 @@ import { FlatList, Text, TextInput, TouchableOpacity, View, StyleSheet } from 'r
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AgentMarketScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** Agent 市场共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AgentMarketScreenProps }
 
@@ -117,7 +119,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     btnText: { color: tk.surface.light, fontSize: 16 },
@@ -135,7 +137,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 50,
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 12,
       fontSize: 16,
       color: tk.text.primary,
@@ -144,7 +146,7 @@ function createStyles(tk: AppThemeTokens) {
     searchBtn: {
       paddingHorizontal: 14,
       height: 44,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
@@ -152,7 +154,7 @@ function createStyles(tk: AppThemeTokens) {
     empty: { paddingVertical: 40, alignItems: 'center' },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,

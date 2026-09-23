@@ -17,6 +17,8 @@ import type { PlazaCoverScreenProps } from '../../types'
 import type { AppIcon } from '@ihui/types'
 import { Banknote, Globe, Shield, Target, Zap } from 'lucide-react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** Props 类型 re-export(单一来源 @ihui/types) */
 export type { PlazaCoverScreenProps }
 
@@ -119,7 +121,7 @@ function createStyles(tk: AppThemeTokens) {
     featureCard: {
       width: '47%',
       backgroundColor: tk.surface.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       padding: 14,
@@ -132,13 +134,13 @@ function createStyles(tk: AppThemeTokens) {
     actions: { gap: 10 } as ViewStyle,
     primaryBtn: {
       backgroundColor: tk.brand.DEFAULT,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingVertical: 15,
       alignItems: 'center',
     } as ViewStyle,
     primaryBtnText: { fontSize: 16, fontWeight: '600', color: tk.surface.light } as TextStyle,
     secondaryBtn: {
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingVertical: 12,
       alignItems: 'center',
       backgroundColor: tk.surface.card,

@@ -10,6 +10,8 @@ import { tokens } from '../theme/active-tokens'
 import { rpx } from '../utils/rpx'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 /**
@@ -107,7 +109,7 @@ const styles = StyleSheet.create({
   // 白色圆角卡(历史 .section-card:bg #fff / 圆角 16rpx / overflow hidden)
   sectionCard: {
     backgroundColor: tokens.surface.card,
-    borderRadius: rpx(16),
+    borderRadius: rnRadius.lg,
     overflow: 'hidden',
   },
   // 条目(历史 .settings-item:padding 28rpx 24rpx)

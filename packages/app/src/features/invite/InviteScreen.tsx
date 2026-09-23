@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { InviteInfo, InviteRecordItem, InviteScreenProps } from '@ihui/types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 邀请记录/Props 类型 re-export(单一来源 @ihui/types) */
 export type { InviteInfo, InviteRecordItem, InviteScreenProps }
 
@@ -140,7 +142,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: 8 },
     infoCard: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.muted,
@@ -163,7 +165,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       height: 50,
       justifyContent: 'center',
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
     },
@@ -177,7 +179,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,

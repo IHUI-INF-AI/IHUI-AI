@@ -8,6 +8,8 @@ import { getTokens, type AppThemeTokens, type AppThemeMode } from '../theme/toke
 import type { TFunction, AppIcon } from '@ihui/types'
 import { Crown, Gift, Clock, CreditCard, Check, X, Minus, Plus, Bot } from 'lucide-react'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /**
  * 支付按钮 — 跨端共享层。
  *
@@ -110,7 +112,7 @@ const viewStyles = {
     paddingRight: 12,
     paddingTop: 6,
     paddingBottom: 6,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     backgroundColor: bg,
     color: text,
     opacity: disabled ? 0.5 : 1,
@@ -130,7 +132,7 @@ const viewStyles = {
   }),
   dialog: (tk: AppThemeTokens): CSSProperties => ({
     backgroundColor: tk.surface.light,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     marginLeft: 24,
     marginRight: 24,
     width: '100%',
@@ -146,7 +148,7 @@ const viewStyles = {
   avatarFallback: (tk: AppThemeTokens): CSSProperties => ({
     width: 42,
     height: 42,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     marginRight: 12,
     backgroundColor: tk.gray[200],
     display: 'flex',
@@ -166,7 +168,7 @@ const viewStyles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     border: `1px solid ${tk.border.light}`,
     cursor: disabled ? 'not-allowed' : 'pointer',
     opacity: disabled ? 0.5 : 1,
@@ -177,7 +179,7 @@ const viewStyles = {
     width: '100%',
     paddingTop: 12,
     paddingBottom: 12,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     textAlign: 'center',
     backgroundColor: tk.brand.DEFAULT,
     color: tk.surface.light,
@@ -239,7 +241,7 @@ const imageStyles = {
   avatar: (): CSSProperties => ({
     width: 42,
     height: 42,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     marginRight: 12,
     objectFit: 'cover',
   }),

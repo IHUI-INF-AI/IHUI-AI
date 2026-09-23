@@ -16,6 +16,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { SubPackageIndexScreenProps, SubPackageEntry } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** Props 类型 re-export(单一来源 @ihui/types) */
 export type { SubPackageIndexScreenProps, SubPackageEntry }
 
@@ -88,7 +90,7 @@ function createStyles(tk: AppThemeTokens) {
     entryCard: {
       width: '47%',
       backgroundColor: tk.surface.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       padding: 14,

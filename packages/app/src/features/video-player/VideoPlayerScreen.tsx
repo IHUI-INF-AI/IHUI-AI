@@ -8,6 +8,8 @@ import { Check } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { VideoPlayerProgress, VideoPlayerScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export type { VideoPlayerProgress, VideoPlayerScreenProps }
 
 /**
@@ -152,23 +154,23 @@ function createStyles(tk: AppThemeTokens) {
     progressWrap: { marginTop: 8 },
     progressTrack: {
       height: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       overflow: 'hidden',
       backgroundColor: tk.surface.card,
     },
-    progressFill: { height: 8, borderRadius: 12, backgroundColor: tk.success.DEFAULT },
+    progressFill: { height: 8, borderRadius: rnRadius.xl, backgroundColor: tk.success.DEFAULT },
     progressText: { marginTop: 8, fontSize: 14, color: tk.text.tertiary },
     errorText: { marginTop: 8, fontSize: 14, color: tk.danger.DEFAULT },
     completeWrap: { marginTop: 24 },
     completedBox: {
       padding: 16,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.success.light,
     },
     completedText: { fontSize: 16, color: tk.success.deepText },
     completeBtn: {
       height: 50,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.success.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

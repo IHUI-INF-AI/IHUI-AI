@@ -8,6 +8,8 @@ import { CheckCircle2 } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TopupSuccessScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** Props 类型 re-export(单一来源 @ihui/types) */
 export type { TopupSuccessScreenProps }
 
@@ -115,14 +117,14 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       width: '100%',
       backgroundColor: tk.surface.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       padding: 12,
       gap: 12,
     },
     ...rowStyles,
     actions: { width: '100%', gap: 12, marginTop: 8 },
     secondaryBtn: {
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       height: 44,
       alignItems: 'center',
       justifyContent: 'center',
@@ -130,7 +132,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     secondaryText: { fontSize: 16, color: tk.text.primary },
     primaryBtn: {
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       height: 50,
       alignItems: 'center',
       justifyContent: 'center',

@@ -6,7 +6,7 @@
 
 import { StyleSheet, Text, View } from 'react-native'
 import { WifiOff } from 'lucide-react-native'
-import { rnTokens } from '@ihui/design-tokens'
+import { rnTokens, rnRadius } from '@ihui/design-tokens'
 
 /**
  * 离线 Banner 组件(2026-07-22 P0 Round 5 鲁棒性加固)。
@@ -39,7 +39,7 @@ const styles = StyleSheet.create({
     backgroundColor: rnTokens.error.bg,
     borderColor: 'rgba(255, 51, 51, 0.35)',
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     paddingHorizontal: 16,
     paddingVertical: 8,
   },

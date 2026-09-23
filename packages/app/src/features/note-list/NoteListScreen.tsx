@@ -8,6 +8,8 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { Heart } from 'lucide-react-native'
 import type { NoteListItem, NoteListScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 笔记列表/Props 类型 re-export(单一来源 @ihui/types) */
 export type { NoteListItem, NoteListScreenProps }
 
@@ -116,7 +118,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: 12 },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,

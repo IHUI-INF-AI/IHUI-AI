@@ -7,6 +7,8 @@ import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ActivityItem, ActivityScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 活动屏/Props 类型 re-export(单一来源 @ihui/types) */
 export type { ActivityItem, ActivityScreenProps }
 
@@ -122,7 +124,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: 12 },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -134,7 +136,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 8,
     },
     cardTitle: { flex: 1, fontSize: 16, fontWeight: '700', color: tk.text.primary },
-    badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12 },
+    badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: rnRadius.xl },
     badgeText: { fontSize: 10, color: tk.surface.light },
     cardDesc: { marginTop: 8, fontSize: 14, color: tk.text.medium, lineHeight: 18 },
     meta: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },

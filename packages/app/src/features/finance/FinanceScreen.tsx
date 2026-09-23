@@ -14,6 +14,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { FinanceSummary, FinanceScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export type { FinanceSummary, FinanceScreenProps }
 
 /**
@@ -105,7 +107,7 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       padding: 12,
       marginBottom: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,

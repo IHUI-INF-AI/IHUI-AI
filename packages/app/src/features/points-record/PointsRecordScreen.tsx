@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { PointsRecordItem, PointsRecordScreenProps, PointsRecordType } from '@ihui/types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 积分记录/Props 类型 re-export(单一来源 @ihui/types) */
 export type { PointsRecordItem, PointsRecordScreenProps, PointsRecordType }
 
@@ -143,7 +145,7 @@ function createStyles(tk: AppThemeTokens) {
     balanceCard: {
       marginHorizontal: 10,
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.success.light,
       alignItems: 'center',
     },
@@ -163,7 +165,7 @@ function createStyles(tk: AppThemeTokens) {
     tab: {
       paddingHorizontal: 14,
       paddingVertical: 6,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     tabActive: { backgroundColor: tk.brand.DEFAULT },
@@ -176,7 +178,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: 8 },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,

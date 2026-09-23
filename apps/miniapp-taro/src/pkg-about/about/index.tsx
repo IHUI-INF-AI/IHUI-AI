@@ -138,14 +138,14 @@ export default function AboutIndexPage() {
           </View>
         ) : null}
 
-        <View className="m-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
+        <View className="m-[24rpx] p-[32rpx] bg-card rounded-lg">
           <Text className="text-[26rpx] text-muted-foreground leading-[1.8]">
             {info.intro || tt('about.introFallback', '智汇 AI 致力于打造一站式 AI 服务平台')}
           </Text>
         </View>
 
         {/* 合规条目卡(对齐 RN sectionCard:白卡圆角 16rpx,条目分隔线 1rpx border.light) */}
-        <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
+        <View className="m-[24rpx] bg-card rounded-lg overflow-hidden">
           {menus.map((m, idx) => (
             <View
               key={m.key}

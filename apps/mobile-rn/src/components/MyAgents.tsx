@@ -17,6 +17,8 @@
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export interface MyAgentItem {
   /** 智能体 ID(对齐原项目 agentId;兼容短字段 id) */
   agentId?: string
@@ -161,13 +163,13 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
     paddingVertical: 10,
     paddingHorizontal: 5,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     backgroundColor: tokens.surface.muted,
   },
   avatar: {
     width: 40,
     height: 40,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     marginBottom: 6,
     backgroundColor: tokens.surface.card,
   },

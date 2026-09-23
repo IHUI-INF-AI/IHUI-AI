@@ -14,6 +14,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ExamQuestionItem, ExamQuestionPaper, ExamQuestionScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export type { ExamQuestionItem, ExamQuestionPaper, ExamQuestionScreenProps }
 
 /**
@@ -157,7 +159,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     option: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       marginBottom: 8,
@@ -169,7 +171,7 @@ function createStyles(tk: AppThemeTokens) {
     navBtn: {
       flex: 1,
       height: 50,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
       alignItems: 'center',
       justifyContent: 'center',
@@ -179,7 +181,7 @@ function createStyles(tk: AppThemeTokens) {
     submitBtn: {
       flex: 1,
       height: 50,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
@@ -189,7 +191,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     btnText: { color: tk.surface.light, fontSize: 16 },

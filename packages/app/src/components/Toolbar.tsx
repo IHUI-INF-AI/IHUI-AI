@@ -7,6 +7,8 @@ import type { CSSProperties } from 'react'
 import { getTokens, type AppThemeMode } from '../theme/tokens'
 import type { AppIcon } from '@ihui/types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /**
  * Toolbar 横向操作按钮组(跨端共享层)。
  *
@@ -54,7 +56,7 @@ const viewStyles = {
     paddingTop: 8,
     paddingBottom: 8,
     backgroundColor: tk.surface.muted,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     gap: 4,
   }),
   rowItem: (): CSSProperties => ({
@@ -68,7 +70,7 @@ const viewStyles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
   }),
   toolInactive: (): CSSProperties => ({
     backgroundColor: 'transparent',

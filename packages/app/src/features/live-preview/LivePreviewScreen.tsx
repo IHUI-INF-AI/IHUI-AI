@@ -7,6 +7,8 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { LivePreviewItem, LivePreviewScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 直播预告共享屏 — props 注入式跨端组件(纯 UI,API 调用由 wrapper 注入) */
 export type { LivePreviewItem, LivePreviewScreenProps }
 
@@ -108,7 +110,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 20,
       backgroundColor: tk.brand.DEFAULT,
       paddingVertical: 15,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       alignItems: 'center',
     },
     btnDisabled: { opacity: 0.6 },

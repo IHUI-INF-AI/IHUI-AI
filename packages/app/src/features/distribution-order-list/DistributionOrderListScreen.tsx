@@ -17,6 +17,8 @@ import { SearchInput } from '../../components/SearchInput'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { DistributionOrderListScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** DistributionOrderListScreen props re-export(单一来源 @ihui/types) */
 export type { DistributionOrderListScreenProps }
 
@@ -182,7 +184,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: tk.surface.muted,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 12,
       height: 50,
     },
@@ -198,7 +200,7 @@ function createStyles(tk: AppThemeTokens) {
     tab: {
       flex: 1,
       paddingVertical: 6,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
       alignItems: 'center',
     },
@@ -216,7 +218,7 @@ function createStyles(tk: AppThemeTokens) {
     listContent: { paddingHorizontal: 10, paddingBottom: 24, gap: 12 },
     orderCard: {
       backgroundColor: tk.surface.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       padding: 14,
       gap: 8,
     },
@@ -230,7 +232,7 @@ function createStyles(tk: AppThemeTokens) {
     statusTag: {
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
     },
     statusText: { fontSize: 11, color: tk.surface.light, fontWeight: '500' },
     buyerText: { fontSize: 14, color: tk.text.secondary },
@@ -244,7 +246,7 @@ function createStyles(tk: AppThemeTokens) {
     rateTag: {
       paddingHorizontal: 6,
       paddingVertical: 2,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
     },
     rateText: { fontSize: 11, color: tk.text.secondary },

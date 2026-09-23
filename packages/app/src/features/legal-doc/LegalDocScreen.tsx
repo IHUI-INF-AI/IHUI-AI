@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-nati
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { LegalDocSection, LegalDocScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 法律文档/Props 类型 re-export(单一来源 @ihui/types) */
 export type { LegalDocSection, LegalDocScreenProps }
 
@@ -70,7 +72,7 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       padding: 14,
       marginBottom: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,

@@ -8,6 +8,8 @@ import { Check } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CheckInDay, CheckInInfo, CheckInScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 签到/Props 类型 re-export(单一来源 @ihui/types) */
 export type { CheckInDay, CheckInInfo, CheckInScreenProps }
 
@@ -154,7 +156,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 10,
       height: 44,
       justifyContent: 'center',
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     retryBtnText: { color: tk.surface.light, fontSize: 16 },
@@ -165,7 +167,7 @@ function createStyles(tk: AppThemeTokens) {
     statsCard: {
       marginHorizontal: 10,
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.light,
     },
     statsRow: { flexDirection: 'row', justifyContent: 'space-between' },
@@ -176,7 +178,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 14,
       height: 50,
       justifyContent: 'center',
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       alignItems: 'center',
       backgroundColor: tk.brand.DEFAULT,
     },
@@ -202,7 +204,7 @@ function createStyles(tk: AppThemeTokens) {
       aspectRatio: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
     },
     calendarCellSigned: {

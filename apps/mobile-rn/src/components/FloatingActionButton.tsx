@@ -13,6 +13,8 @@
 import { Pressable, StyleSheet, Text, type TextStyle, type ViewStyle } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export interface FloatingActionButtonProps {
   onPress: () => void
   label?: string
@@ -43,7 +45,7 @@ const styles = StyleSheet.create({
     bottom: 24,
     width: 48,
     height: 48,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     backgroundColor: tokens.brand.ctaFill,
     alignItems: 'center',
     justifyContent: 'center',

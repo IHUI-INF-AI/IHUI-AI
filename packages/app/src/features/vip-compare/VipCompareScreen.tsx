@@ -7,6 +7,8 @@ import { ScrollView, Text, TouchableOpacity, View, StyleSheet } from 'react-nati
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { VipCompareScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** VIP 对比共享屏 — props 注入式跨端组件 */
 export type { VipCompareScreenProps }
 
@@ -93,7 +95,7 @@ function createStyles(tk: AppThemeTokens) {
       margin: 16,
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       overflow: 'hidden',
     },
     tableHeader: { flexDirection: 'row', backgroundColor: tk.surface.muted },

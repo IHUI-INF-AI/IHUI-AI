@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } 
 import type { FeedbackHistoryScreenProps, FeedbackStatus } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export function FeedbackHistoryScreen({
   t,
   items,
@@ -98,7 +100,7 @@ function createStyles(tk: AppThemeTokens) {
     listBody: { padding: 14 },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       marginBottom: 12,

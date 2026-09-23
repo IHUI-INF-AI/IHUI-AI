@@ -16,6 +16,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AiAssistantScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** AI 助手共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AiAssistantScreenProps }
 
@@ -163,7 +165,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 50,
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 12,
       fontSize: 14,
       color: tk.text.primary,
@@ -174,7 +176,7 @@ function createStyles(tk: AppThemeTokens) {
     catItem: {
       paddingHorizontal: 14,
       height: 32,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
       alignItems: 'center',
       justifyContent: 'center',
@@ -185,7 +187,7 @@ function createStyles(tk: AppThemeTokens) {
     catMore: {
       paddingHorizontal: 14,
       height: 32,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
@@ -197,7 +199,7 @@ function createStyles(tk: AppThemeTokens) {
     emptyText: { fontSize: 14, color: tk.text.tertiary },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -206,7 +208,7 @@ function createStyles(tk: AppThemeTokens) {
     avatar: {
       width: 44,
       height: 44,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
@@ -220,7 +222,7 @@ function createStyles(tk: AppThemeTokens) {
     tag: {
       paddingHorizontal: 8,
       paddingVertical: 4,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
     },
     tagText: { fontSize: 11, color: tk.text.secondary },
@@ -230,7 +232,7 @@ function createStyles(tk: AppThemeTokens) {
       marginLeft: 'auto',
       paddingHorizontal: 14,
       height: 30,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

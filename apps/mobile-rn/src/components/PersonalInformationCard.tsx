@@ -31,6 +31,8 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { DEFAULT_AVATAR_URL } from '@ihui/shared/constants'
+
+import { rnRadius } from '@ihui/design-tokens'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const BG_IMAGE = require('../../assets/images/common/bjcspNew.jpg')
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -63,8 +65,6 @@ export interface PersonalInformationCardProps {
 
 const AVATAR_WIDTH = 36
 const AVATAR_HEIGHT = 32
-const AVATAR_RADIUS = 4
-const CARD_RADIUS = 12
 const CARD_PADDING = 16
 
 /**
@@ -171,12 +171,12 @@ export function PersonalInformationCard({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: CARD_RADIUS,
+    borderRadius: rnRadius.xl,
     padding: CARD_PADDING,
     overflow: 'hidden',
   } as ViewStyle,
   cardImage: {
-    borderRadius: CARD_RADIUS,
+    borderRadius: rnRadius.xl,
   } as ImageStyle,
   header: {
     flexDirection: 'row',
@@ -192,14 +192,14 @@ const styles = StyleSheet.create({
   avatar: {
     width: AVATAR_WIDTH,
     height: AVATAR_HEIGHT,
-    borderRadius: AVATAR_RADIUS,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,
   } as ImageStyle,
   // 无头像 URL 时的 initials 兜底:品牌色底 + 深色文字,深/浅色模式均可见
   avatarFallback: {
     width: AVATAR_WIDTH,
     height: AVATAR_HEIGHT,
-    borderRadius: AVATAR_RADIUS,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.brandAccent.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',

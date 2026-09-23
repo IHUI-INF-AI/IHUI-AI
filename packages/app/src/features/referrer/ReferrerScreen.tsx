@@ -15,6 +15,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ReferrerInfo, ReferrerScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export type { ReferrerInfo, ReferrerScreenProps }
 
 /**
@@ -117,7 +119,7 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       padding: 14,
       marginBottom: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,
@@ -129,7 +131,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
       paddingHorizontal: 12,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -142,7 +144,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       height: 50,
       justifyContent: 'center',
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
     },

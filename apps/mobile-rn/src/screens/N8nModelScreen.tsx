@@ -35,6 +35,8 @@ import { useUiTextField } from '../lib/use-ui-text-field'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 type ViewMode = 'shared' | 'local'
@@ -383,7 +385,7 @@ const styles = StyleSheet.create({
   tab: {
     paddingHorizontal: rpx(28),
     paddingVertical: rpx(12),
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
   },
   tabActive: {
@@ -409,7 +411,7 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     backgroundColor: tokens.surface.card,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     padding: rpx(28),
   },
   modalTitle: {
@@ -427,7 +429,7 @@ const styles = StyleSheet.create({
   modalInput: {
     borderWidth: 1,
     borderColor: tokens.border.light,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     paddingHorizontal: rpx(16),
     paddingVertical: rpx(12),
     fontSize: 14,
@@ -447,7 +449,7 @@ const styles = StyleSheet.create({
   modalBtn: {
     flex: 1,
     height: rpx(88),
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },

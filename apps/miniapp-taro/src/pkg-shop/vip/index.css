@@ -75,7 +75,7 @@
   margin: 32rpx 32rpx 0;
   padding: 28rpx;
   background: var(--color-vip-card);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
 }
 .status-head {
   display: flex;
@@ -94,7 +94,7 @@
   color: var(--color-white-80);
   padding: 8rpx 20rpx;
   border: 1px solid var(--color-white-30);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
 }
 .expire-row {
   /* 对齐 RN membershipMeta:mt 8dp→16rpx / 12dp→24rpx / white 70% */

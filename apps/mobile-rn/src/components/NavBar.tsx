@@ -9,7 +9,6 @@
  * - 左侧:back 按钮(可选)+ leftActions(菜单/drawer/分类等,多按钮)
  * - 中间:title + 可选 subtitle(flex 居中)
  * - 右侧:rightActions(搜索/设置/分类等,多按钮)+ rightAction(兼容旧 ReactNode)
- * - sticky 支持(对齐 Uniapp viscosity,position:sticky + top:0 + zIndex)
  * - backgroundColor 自定义(对齐 Uniapp backgroundColor)
  * - 状态栏:paddingTop = StatusBar.currentHeight(动态)
  * - 向后兼容:title?/onBack?/rightAction?/transparent? 旧 API 全保留
@@ -22,7 +21,6 @@ import {
   Text,
   TouchableOpacity,
   View,
-  type ViewStyle,
 } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 import type { AppIcon } from '@ihui/types'
@@ -44,8 +42,6 @@ export interface NavBarProps {
   rightActions?: ReadonlyArray<NavBarAction>
   /** 兼容旧 API:单个 rightAction ReactNode */
   rightAction?: ReactNode
-  /** sticky 支持(对齐 Uniapp viscosity) */
-  sticky?: boolean
   /** 自定义背景色(对齐 Uniapp backgroundColor) */
   backgroundColor?: string
   /** 兼容旧 API:透明背景 + 无边框 */
@@ -58,13 +54,6 @@ const STATUS_BAR_HEIGHT = StatusBar.currentHeight ?? 0
 const BACK_HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 } as const
 const ACTION_HIT_SLOP = { top: 8, bottom: 8, left: 4, right: 4 } as const
 
-/**
- * RN 类型 position 不含 'sticky'(StyleSheetTypes.d.ts 仅声明 'absolute'|'relative'|'static'),
- * 但 RN 0.71+ 运行时原生层支持 position:'sticky'(主要在 ScrollView 上下文生效)。
- * 用 as unknown as ViewStyle 绕过类型检查;运行时 RN 原生层处理 'sticky'。
- */
-const STICKY_STYLE = { position: 'sticky', top: 0, zIndex: 1001 } as unknown as ViewStyle
-
 function isImageUrl(icon: string): boolean {
   return icon.startsWith('http') || icon.startsWith('/') || icon.startsWith('file:')
 }
@@ -76,7 +65,6 @@ export function NavBar({
   leftActions,
   rightActions,
   rightAction,
-  sticky = false,
   backgroundColor,
   transparent = false,
 }: NavBarProps) {
@@ -103,7 +91,6 @@ export function NavBar({
           borderBottomColor: tokens.border.light,
           paddingTop: STATUS_BAR_HEIGHT,
         },
-        sticky ? STICKY_STYLE : null,
       ]}
     >
       <View style={[styles.row, { height: contentHeight }]}>
