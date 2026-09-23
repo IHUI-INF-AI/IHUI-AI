@@ -2775,7 +2775,7 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-gua
 
 ### 新增守门示例:第 75 / 76 项「mobile-rn 深色前景容器对账」与「反回退对账」(2026-09-23)
 
-**第 75 项 `check-brand-foreground.mjs`(blocking)** —— RN 深色档案里 `tokens.brand.DEFAULT`
+**第 83 项 `check-brand-foreground.mjs`(blocking)**(原登记为第 75 项) —— RN 深色档案里 `tokens.brand.DEFAULT`
 是**纯白**,所以它只能当前景色用。同一个 style 块内它作背景、文字又取 `tokens.surface.light`
 (两端恒白)或 `tokens.text.primary`(深色翻白),结果就是白底白字 —— R1 零豁免拦这一类。
 R2 用基线棘轮拦"浅色当容器底":`surface.light` 背景 / α≥0.5 的白 rgba / 无 `dark:` 变体的
@@ -2783,7 +2783,7 @@ R2 用基线棘轮拦"浅色当容器底":`surface.light` 背景 / α≥0.5 的�
 `scripts/brand-foreground-baseline.json`,只减不增。`--self-test` 11 例;紧急跳过
 `HUSKY_SKIP_BRAND_FOREGROUND=1`。
 
-**第 76 项 `check-stale-revert.mjs`(blocking)** —— 堵**共享工作区静默回滚**。§12d 的 converge
+**第 84 项 `check-stale-revert.mjs`(blocking)**(原登记为第 76 项) —— 堵**共享工作区静默回滚**。§12d 的 converge
 走 `merge-tree` / `commit-tree`,只推进 HEAD 与 index、**不 checkout**,于是工作区长期落后 HEAD
 (2026-09-23 实测:503 个文件落后 486 个提交)。此时 `git add <file>` 交上去的是旧基线,对该文件
 等价于把别人后续改动静默回滚,而 diff 看上去"只动了几行",人工 review 发现不了。判据 R1 =
@@ -2830,6 +2830,24 @@ setext 标题下划线、表格分隔、ASCII 示意图里都是合法内容,只
 §22c 镜像测试 11 例(`node --test scripts/tests/check-no-conflict-markers.test.mjs`)。
 修复口径:**用 `git checkout --ours/--theirs <文件>` 取一侧真实内容,或按 AGENTS.md §12b
 协作收尾重新归并**;禁止只手删标记。紧急跳过 `HUSKY_SKIP_CONFLICT_MARKERS=1`。
+
+### 新增守门示例:第 81 项「品牌邮件通道对账」(2026-09-23)
+
+**第 81 项 `check-brand-email-channel.mjs`(blocking)** —— 拦的是"**本地全绿、用户收到的邮件却没样式**"这一类。邮件"版式模板"只存在于 `apps/api/src/services/email-templates.ts`(`renderSystemAlertEmail` 等机械风"智汇通报"),但 ops 侧曾存在**第二条绕过模板的自发通道**:`deploy/win/ihui-deploy.ps1` 自拼传输层 —— `Send-MailMessage -Body $text`(无 `-BodyAsHtml`)与 `Invoke-RestMethod https://api.resend.com/emails`(payload 只有 `text`、无 `html`)直发纯文本。这类代码"能发出去、typecheck 全绿、lint 全绿",而全链守门没有一道看得见,与守门 72/78 同族。本门立项实测有一个有价值的副产品:全量审计在 ps1 被并行会话清干净之后,又揪出了**第三条绕过模板的纯文本通道** `scripts/check-credential-health.mjs`(`host`+`path` 分行直连 Resend、body 只有 `text`)—— 它已冻结进基线、登记待迁移,这正是"判据不只要拦回归、还要暴露现状"的样例。
+
+扫描范围刻意收窄:`deploy/**` 与 `scripts/**`(**不含** `scripts/tests`)下的 `.ps1`/`.mjs`/`.js`/`.ts`,加 `.github/workflows/*.yml`;`apps/**` 不扫 —— 运行时服务层本就 import 模板,天然放过。三条判据:
+
+| 规则 | 红条件                                                                                                                           | 认可的修法形态                                            |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| R1   | PowerShell `Send-MailMessage` 调用语句(**含反引号续行**)缺 `-BodyAsHtml`                                                         | 补 `-BodyAsHtml`,或走豁免/品牌层                          |
+| R2   | 出现 `api.resend.com/emails`(**含 host+path 分行形态**)而同一发送上下文(命中行前 12 / 后 6 行)看不到 `html` 字段                 | `html:`、`'html'`、PS `@{ … html = … }`、Python `"html":` |
+| R3   | 文件有"发信动作"(`createTransport`/`sendMail`/`api.resend.com`)却**既不引用 `email-templates` 也不调用 `notify-deploy-failure`** | 接入品牌层(每文件至多一条,保守)                           |
+
+判据保守(宁漏不误报,与本仓守门一致取向):注释行不判;裸域名(140 字符内无 `/emails`,如 TLS 连通性探测)不判;窗口外孤立的 `html` 不构成豁免。豁免与存量机制对齐仓库既有风格:命中行或紧邻上行写 `brand-mail-exempt: <一句话原因>`;存量红进 `scripts/brand-email-channel-baseline.json`(key=`<path>#<rule>` → 容忍条数,**只减不增**棘轮,仅超出部分判红;某 key 实发归零时输出"基线余量"提醒下调)。
+
+三种取材面:`--staged`(pre-commit:只判**索引里在范围内**的文件;暂存集为空/取不到 → **退化全量**,防"空暂存恒绿"——守门 70 的既有教训)/ 缺省(全量:跟踪文件工作区内容,实测 368 个在范围文件)/ `--self-test`(30 例,判据正反成对对照 + 临时仓对 staged/全量两种取材面取证)。退出码 0 通过 / 1 检出未基线化违规 / 2 脚本自身异常(git 解析失败、基线 JSON 损坏 —— 判据失效绝不静默放行)。
+
+**修法的唯一正确姿势**:PowerShell / CI / 脚本侧发信一律改调 `apps/api/scripts/notify-deploy-failure.ts`(版式由 `email-templates.ts` 单点决定),不得在端内自拼传输层;确需新版式就在 `email-templates.ts` 加 `render*` 函数。取证:§22c 镜像测试 8 例(`node --test scripts/tests/check-brand-email-channel.test.mjs`,含**装车证明**:runner 中 id `'81'` 必须出现恰好一次 + blocking + `skipEnv: 'HUSKY_SKIP_BRAND_MAIL_GUARD'`)。紧急跳过 `HUSKY_SKIP_BRAND_MAIL_GUARD=1`。
 
 ### 工作区存续自愈(`scripts/heal-worktree-tracked.mjs`,2026-09-23)
 
@@ -4854,3 +4872,4 @@ A: Yes. ~14839+ tests / 719 test files / 67 e2e spec / 4393 API 路由 / 542 数
 - **AI 写作助手开源 · 内容模板库 · 发布日历 · 发布数据分析 · Cookie 健康度监控**(发布工具链)
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
+
