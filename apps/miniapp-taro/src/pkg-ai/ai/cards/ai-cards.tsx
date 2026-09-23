@@ -20,7 +20,12 @@ import Taro from '@tarojs/taro'
 import { useState } from 'react'
 import { useI18n } from '@/i18n'
 import LineIcon from '@/components/LineIcon'
-import type { ToolCallView, PlanStepView, TerminalTaskView } from '@/pkg-ai/ai/cards/types'
+import type {
+  ToolCallView,
+  PlanStepView,
+  TerminalTaskView,
+  SteerNoticeView,
+} from '@/pkg-ai/ai/cards/types'
 import {
   formatToolMetric,
   localizeToolText,
@@ -367,6 +372,43 @@ export function CitationCard({
           </View>
         </View>
       ))}
+    </View>
+  )
+}
+
+/* ===================== D106:引导已生效(Steer 中途引导交代) ===================== */
+
+/** 单条引导文本的展示截断长度(原文 ≤4000 字符已入 LLM 上下文,徽章侧只做预览;与 web steer-notice-bar 同口径) */
+const STEER_NOTICE_PREVIEW_LIMIT = 120
+
+/**
+ * SteerNoticeCard — 消息级「已引导」轻量提示(参照 web SteerNoticeBar 的 badge 语义)。
+ * 链路:SSE steer 事件 → onSteer → aiCards.steerNotices → 本组件;空列表不渲染。
+ */
+export function SteerNoticeCard({ notices }: { notices: readonly SteerNoticeView[] }) {
+  const { t } = useI18n()
+  if (!notices.length) return null
+  return (
+    <View className="ai-card-section">
+      <View className="ai-card-section-head">
+        <LineIcon name="zap" size={28} color="var(--color-warning)" />
+        <Text className="ai-card-section-title">
+          {t('ai.cards.steer.title', { count: notices.length })}
+        </Text>
+        <Text className="ai-card-section-count">{notices.length}</Text>
+      </View>
+      {notices.slice(0, 3).map((n, i) => (
+        <Text className="ai-card-steer-item" key={`${n.timestamp ?? ''}_${i}`}>
+          {n.text.length > STEER_NOTICE_PREVIEW_LIMIT
+            ? `${n.text.slice(0, STEER_NOTICE_PREVIEW_LIMIT)}…`
+            : n.text}
+        </Text>
+      ))}
+      {notices.length > 3 ? (
+        <Text className="ai-card-steer-more">
+          {t('ai.cards.steer.more', { count: notices.length - 3 })}
+        </Text>
+      ) : null}
     </View>
   )
 }

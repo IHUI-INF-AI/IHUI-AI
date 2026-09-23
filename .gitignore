@@ -456,3 +456,13 @@ deploy/win/.migrate-alert-state.json
 # IDE 安装目录误落仓库根(2026-09-23):`Qoder CN/` 是 M:\Qoder CN 的陈旧副本(现役实例在 M 盘,
 # 已核实无任何进程从本目录运行)。先忽略以杜绝 git add -A 把 1.4G 二进制写进历史,再移出工作区。
 Qoder CN/
+
+# AGENTS.md §5b 现场归档(2026-09-23 15:49 .git 被宿主清除事件恢复期所留,时间戳后缀 ⇒ 枚数只增不减)。
+# 这些是守护"每步破坏性覆盖前先归档现场"的产物,§5b 明禁删除,但**绝不允许入库**:实测同日一次并发
+# `git add -A` 已把 4500+ 个 `.git.broken-remote-*/refs/**` 暂存过(幸未落进提交)。忽略同时解除
+# 守门 44 的恒红 —— 白名单外一级条目会让每次 commit 被拦,各会话被迫 --no-verify 连带跳过全链守门。
+# 与 `Qoder CN/` 同法(先忽略杜绝入库);区别是本族按 §5b 保留不搬不删。
+/.git.broken-*
+/.git.hollow-*
+/.git.selfref-*
+/.git.zombie-*

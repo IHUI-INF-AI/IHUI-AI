@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { randomUUID, randomBytes, createHmac, timingSafeEqual } from 'crypto'
 import { eq, and, desc, sql, inArray, gte } from 'drizzle-orm'
 import { authenticate, checkAuth } from '../plugins/auth.js'
-import { requireAdmin } from '../plugins/require-permission.js'
+import { requireAdmin, isSystemAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { sanitizeCsvCell } from '../utils/csv-utils.js'
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
@@ -1157,8 +1157,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     const app = await findOAuthAppByClientId(clientId)
     if (!app) return reply.status(404).send(error(404, 'OAuth 应用不存在'))
     if (app.ownerUuid !== request.userId) {
-      const roleId = request.jwtPayload?.roleId ?? 0
-      if (roleId < 1) return reply.status(403).send(error(403, '无权查看此应用'))
+      if (!isSystemAdmin(request, { includeInternalChannel: false }))
+        return reply.status(403).send(error(403, '无权查看此应用'))
     }
     return reply.send(success(app))
   })
@@ -1194,8 +1194,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     const existing = await findOAuthAppByClientId(clientId)
     if (!existing) return reply.status(404).send(error(404, 'OAuth 应用不存在'))
     if (existing.ownerUuid !== request.userId) {
-      const roleId = request.jwtPayload?.roleId ?? 0
-      if (roleId < 1) return reply.status(403).send(error(403, '无权修改此应用'))
+      if (!isSystemAdmin(request, { includeInternalChannel: false }))
+        return reply.status(403).send(error(403, '无权修改此应用'))
     }
     const app = await updateOAuthApp(clientId, existing.ownerUuid!, parsed.data)
     return reply.send(success(app))
@@ -1207,8 +1207,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     const existing = await findOAuthAppByClientId(clientId)
     if (!existing) return reply.status(404).send(error(404, 'OAuth 应用不存在'))
     if (existing.ownerUuid !== request.userId) {
-      const roleId = request.jwtPayload?.roleId ?? 0
-      if (roleId < 1) return reply.status(403).send(error(403, '无权删除此应用'))
+      if (!isSystemAdmin(request, { includeInternalChannel: false }))
+        return reply.status(403).send(error(403, '无权删除此应用'))
     }
     await deleteOAuthApp(clientId, existing.ownerUuid!)
     return reply.send(success({ clientId, deleted: true }))
@@ -1220,8 +1220,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     const existing = await findOAuthAppByClientId(clientId)
     if (!existing) return reply.status(404).send(error(404, 'OAuth 应用不存在'))
     if (existing.ownerUuid !== request.userId) {
-      const roleId = request.jwtPayload?.roleId ?? 0
-      if (roleId < 1) return reply.status(403).send(error(403, '无权操作此应用'))
+      if (!isSystemAdmin(request, { includeInternalChannel: false }))
+        return reply.status(403).send(error(403, '无权操作此应用'))
     }
     const newSecret = randomBytes(32).toString('hex')
     const app = await regenerateOAuthAppSecret(clientId, existing.ownerUuid!, newSecret)
@@ -1888,9 +1888,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     try {
       // 2026-07-21 安全审计加固:仅 admin 可改运行时 webhook 密钥
       // 防止普通用户伪造 webhook 验签(可任意改密钥绕过验签,或制造 401 风暴)
-      const roleId =
-        (request as unknown as { jwtPayload?: { roleId?: number } }).jwtPayload?.roleId ?? 0
-      if (roleId < 1) {
+      // 2026-09-24 O13b:改走集中谓词,连带去掉原先 `as unknown as { jwtPayload?... }` 强转
+      if (!isSystemAdmin(request, { includeInternalChannel: false })) {
         return reply.status(403).send(error(403, '仅管理员可修改 webhook 密钥'))
       }
       const parsed = z

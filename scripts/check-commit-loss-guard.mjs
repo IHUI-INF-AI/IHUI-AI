@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * check-commit-loss-guard.mjs — Commit 丢失防护守门(AGENTS.md §22 配套)
@@ -73,6 +72,19 @@ const C = {
 }
 
 const SKIP_ENV = 'HUSKY_SKIP_COMMIT_LOSS_CHECK'
+
+/**
+ * "仅本地 tag"这句 warn 在 2026-09-24 被证明会被反复误读成"再推一次就好",
+ * 而真实原因多半是**空壳 tag**(历史链里的对象本机已没有 ⇒ push 必然
+ * `unable to read <sha>` + `remote unpack failed: index-pack failed`,重试与换网络都无用)。
+ * 把判定与出口一次性写清楚,免得下一个会话再花两小时重走。
+ */
+const HOLLOW_TAG_HINT =
+  '先分清"没推"还是"推不动":node scripts/sync-lost-commit-tags.mjs --auto-push 的失败行里若出现' +
+  ' "fatal: unable to read <sha>" + "remote unpack failed",即空壳 tag —— 对象已不在本机,' +
+  ' 补推是死路(只能从仍持有该对象的 gitdir 回补,或按 AGENTS.md §29 人工 GC)。' +
+  ' 逐枚判完整要用 git rev-list --objects --missing=allow-any(默认 rev-list 会在第一个缺失对象处 abort,' +
+  ' 只看 stdout 会把"半路死"读成"链完整")。'
 const isStrict = process.argv.includes('--strict')
 const isBlocking = process.argv.includes('--blocking')
 const isFilterStash = process.argv.includes('--filter-stash')
@@ -98,7 +110,12 @@ const LOCAL_GIT_TIMEOUT_MS = 10_000
 
 function run(cmd, opts = {}) {
   try {
-    return execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true, ...opts }).trim()
+    return execSync(cmd, {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+      ...opts,
+    }).trim()
   } catch (e) {
     if (opts.allowFail) return ''
     throw e
@@ -280,10 +297,10 @@ function filterStashLike(hashes) {
   const subjectByHash = new Map()
   for (let i = 0; i < hashes.length; i += BATCH) {
     const batch = hashes.slice(i, i + BATCH)
-    const out = run(
-      `git log --no-walk --format=%H%x09%s ${batch.join(' ')}`,
-      { allowFail: true, timeout: LOCAL_GIT_TIMEOUT_MS },
-    )
+    const out = run(`git log --no-walk --format=%H%x09%s ${batch.join(' ')}`, {
+      allowFail: true,
+      timeout: LOCAL_GIT_TIMEOUT_MS,
+    })
     if (!out) continue
     for (const line of out.split('\n')) {
       const [hash, ...rest] = line.split('\t')
@@ -333,7 +350,8 @@ function listRemoteLostCommitTags() {
   let out
   try {
     out = run('git ls-remote origin "refs/tags/lost-commit/[^ ]*"', {
-      shell: true,      windowsHide: true, // 防 Windows 弹可见 cmd 窗口
+      shell: true,
+      windowsHide: true, // 防 Windows 弹可见 cmd 窗口
       timeout: REMOTE_TIMEOUT_MS,
     })
   } catch {
@@ -347,7 +365,8 @@ function listRemoteBackups() {
   let out
   try {
     out = run('git ls-remote origin "refs/tags/backup/[^ ]*"', {
-      shell: true,      windowsHide: true, // 防 Windows 弹可见 cmd 窗口
+      shell: true,
+      windowsHide: true, // 防 Windows 弹可见 cmd 窗口
       timeout: REMOTE_TIMEOUT_MS,
     })
   } catch {
@@ -460,14 +479,10 @@ function main() {
     for (const r of resets) {
       console.log(`     ${C.dim}${r}${C.reset}`)
     }
-    console.log(
-      `\n  ${C.yellow}💡 reset 可能导致 commit 丢失(参见 AGENTS.md §22)。${C.reset}`,
-    )
+    console.log(`\n  ${C.yellow}💡 reset 可能导致 commit 丢失(参见 AGENTS.md §22)。${C.reset}`)
     console.log(`     验证步骤:`)
     console.log(`       1. ${C.cyan}git fsck --unreachable --no-reflogs${C.reset} 看悬空 commit`)
-    console.log(
-      `       2. ${C.cyan}git show <commit-hash>${C.reset} 确认内容`,
-    )
+    console.log(`       2. ${C.cyan}git show <commit-hash>${C.reset} 确认内容`)
     console.log(
       `       3. 若需保留:${C.cyan}git tag lost-commit/<name> <hash> -m "lost via reset"${C.reset}`,
     )
@@ -483,21 +498,19 @@ function main() {
       )
     }
   } else {
-    console.log(
-      `  ${C.yellow}⚠️  检测到 ${unreachable.length} 个悬空 commit:${C.reset}`,
-    )
+    console.log(`  ${C.yellow}⚠️  检测到 ${unreachable.length} 个悬空 commit:${C.reset}`)
     for (const c of unreachable.slice(0, 10)) {
       const short = c.slice(0, 12)
       const subject = run(`git log -1 --format=%s ${c}`, { allowFail: true })
       console.log(`     ${C.cyan}${short}${C.reset}  ${C.dim}${subject || '(空)'}${C.reset}`)
     }
     if (unreachable.length > 10) {
-      console.log(`     ${C.dim}... 还有 ${unreachable.length - 10} 个,详见 git fsck 输出${C.reset}`)
+      console.log(
+        `     ${C.dim}... 还有 ${unreachable.length - 10} 个,详见 git fsck 输出${C.reset}`,
+      )
     }
     if (isFilterStash && stashCount > 0) {
-      console.log(
-        `     ${C.dim}(已过滤 ${stashCount} 个 stash-like 对象,详见 git fsck)${C.reset}`,
-      )
+      console.log(`     ${C.dim}(已过滤 ${stashCount} 个 stash-like 对象,详见 git fsck)${C.reset}`)
     }
   }
 
@@ -524,10 +537,10 @@ function main() {
     const HASH_BATCH = 50
     for (let i = 0; i < uniqueHashes.length; i += HASH_BATCH) {
       const batch = uniqueHashes.slice(i, i + HASH_BATCH)
-      const subjOut = run(
-        `git log --no-walk --format=%H%x09%s ${batch.join(' ')}`,
-        { allowFail: true, timeout: LOCAL_GIT_TIMEOUT_MS },
-      )
+      const subjOut = run(`git log --no-walk --format=%H%x09%s ${batch.join(' ')}`, {
+        allowFail: true,
+        timeout: LOCAL_GIT_TIMEOUT_MS,
+      })
       // --no-walk 输出顺序与参数不一致,按 %H 完整 hash 建 map(勿按行索引对应)
       for (const line of (subjOut || '').split('\n')) {
         const [hash, ...rest] = line.split('\t')
@@ -539,7 +552,9 @@ function main() {
     for (const tag of lostTags.slice(0, DETAIL_LIMIT)) {
       const hash = tagToHash.get(tag) || ''
       const short = hash.slice(0, 12) || '?'
-      console.log(`     ${C.cyan}${tag}${C.reset} → ${C.dim}${short}${C.reset}  ${subjByHash.get(hash) || ''}`)
+      console.log(
+        `     ${C.cyan}${tag}${C.reset} → ${C.dim}${short}${C.reset}  ${subjByHash.get(hash) || ''}`,
+      )
     }
     if (lostTags.length > DETAIL_LIMIT) {
       console.log(`     ${C.dim}…另有 ${lostTags.length - DETAIL_LIMIT} 个未逐一列出${C.reset}`)
@@ -554,19 +569,25 @@ function main() {
       console.log(`     ${C.cyan}${tag}${C.reset} → ${C.dim}${hash?.slice(0, 12) || '?'}${C.reset}`)
     }
     if (backups.length > BACKUP_DETAIL_LIMIT) {
-      console.log(`     ${C.dim}…另有 ${backups.length - BACKUP_DETAIL_LIMIT} 个未逐一列出${C.reset}`)
+      console.log(
+        `     ${C.dim}…另有 ${backups.length - BACKUP_DETAIL_LIMIT} 个未逐一列出${C.reset}`,
+      )
     }
   }
 
   // ── 5. 远程 tag 完整性(2026-07-26 升级,放在综合判定之前) ──
   console.log(header('5. 远程 tag 完整性(本地 vs origin)'))
-  console.log(`  ${C.dim}本地 lost-commit/*: ${lostTags.length} 个 | 本地 backup/*: ${backups.length} 个${C.reset}`)
+  console.log(
+    `  ${C.dim}本地 lost-commit/*: ${lostTags.length} 个 | 本地 backup/*: ${backups.length} 个${C.reset}`,
+  )
   if (remoteCheckSkipped) {
     console.log(
       `    ${C.yellow}⚠️  ls-remote 失败/超时(网络或 ${REMOTE_TIMEOUT_MS}ms 上限),远程完整性校验已安全降级跳过 — 不影响本次判定${C.reset}`,
     )
   } else {
-    console.log(`  ${C.dim}远端 lost-commit/*: ${remoteLostTags.length} 个 | 远端 backup/*: ${remoteBackups.length} 个${C.reset}`)
+    console.log(
+      `  ${C.dim}远端 lost-commit/*: ${remoteLostTags.length} 个 | 远端 backup/*: ${remoteBackups.length} 个${C.reset}`,
+    )
   }
 
   // 5.1 lost-commit 差异
@@ -580,6 +601,7 @@ function main() {
       console.log(
         `    ${C.yellow}⚠️  仅本地(${lostTagDiff.onlyLocal.length} 个,未 push):${C.reset} ${briefList(lostTagDiff.onlyLocal)}`,
       )
+      console.log(`    ${C.dim}${HOLLOW_TAG_HINT}${C.reset}`)
     }
     if (lostTagDiff.onlyRemote.length > 0) {
       console.log(
@@ -611,6 +633,7 @@ function main() {
       console.log(
         `    ${C.yellow}⚠️  仅本地(${backupTagDiff.onlyLocal.length} 个,未 push):${C.reset} ${briefList(backupTagDiff.onlyLocal)}`,
       )
+      console.log(`    ${C.dim}${HOLLOW_TAG_HINT}${C.reset}`)
     }
     if (backupTagDiff.onlyRemote.length > 0) {
       console.log(
@@ -731,10 +754,10 @@ function main() {
       const subjectByHash = new Map()
       for (let i = 0; i < candidates.length; i += BATCH) {
         const batch = candidates.slice(i, i + BATCH)
-        const out = run(
-          `git log --no-walk --format=%H%x09%s ${batch.join(' ')}`,
-          { allowFail: true, timeout: LOCAL_GIT_TIMEOUT_MS },
-        )
+        const out = run(`git log --no-walk --format=%H%x09%s ${batch.join(' ')}`, {
+          allowFail: true,
+          timeout: LOCAL_GIT_TIMEOUT_MS,
+        })
         if (!out) continue
         for (const line of out.split('\n')) {
           const [hash, ...rest] = line.split('\t')
@@ -788,9 +811,7 @@ function main() {
         console.log(`  ${C.dim}   ↳ …另有 ${unbacked.length - 10} 个未显示${C.reset}`)
       blocking = true
     } else {
-      issues.push(
-        `${unreachable.length} 个悬空 commit 已全部 tag 备份(防止 git gc 清理)`,
-      )
+      issues.push(`${unreachable.length} 个悬空 commit 已全部 tag 备份(防止 git gc 清理)`)
     }
   }
 
@@ -851,7 +872,9 @@ function main() {
     console.log(
       `   ${C.cyan}若上表是"仅远端 tag / origin 变 [gone]"(宿主清理嵌套 ref 的典型征状):${C.reset}`,
     )
-    console.log(`     node scripts/git-refs-heal.mjs                  # 离线重建 + 固化进 packed-refs`)
+    console.log(
+      `     node scripts/git-refs-heal.mjs                  # 离线重建 + 固化进 packed-refs`,
+    )
     console.log(
       `     node scripts/git-refs-heal.mjs --refresh-remote # 联网从 origin 校准后再固化(需 http_proxy)`,
     )
@@ -865,13 +888,9 @@ function main() {
     process.exit(1)
   }
 
-  console.log(
-    `\n${C.yellow}💡 建议:${C.reset}`,
-  )
+  console.log(`\n${C.yellow}💡 建议:${C.reset}`)
   console.log(`   - 备份悬空 commit:${C.cyan}git tag lost-commit/<name> <hash>${C.reset}`)
-  console.log(
-    `   - 查看丢失历史:${C.cyan}git tag -l "lost-commit/*" && git show <tag>${C.reset}`,
-  )
+  console.log(`   - 查看丢失历史:${C.cyan}git tag -l "lost-commit/*" && git show <tag>${C.reset}`)
   console.log(`   - 详细规则见 AGENTS.md §22`)
   process.exit(0)
 }

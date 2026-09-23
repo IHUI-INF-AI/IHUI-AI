@@ -493,6 +493,32 @@ function watchWatchdog() {
   }
 }
 
+/**
+ * 把本守护的计划任务确保为 S4U(幂等;已是 S4U 时脚本自己秒退)。
+ * 为什么必须做:两个看门任务原先是 InteractiveToken ⇒ **无人登录时它们根本不跑**,
+ * 于是 .git 存续守护与凭据告警会在"机器重启后没人登录"这段时间里同时静默 ——
+ * 正是今天两天冻结的同族形态。切 S4U 的两条常规路在本机都走不通
+ * (`schtasks /RU <u> /NP` 会交互索要密码;pwsh 无 ScheduledTasks cmdlet),
+ * 唯一可行形态是 Schedule.Service COM + `NewTask(0)` 可写 XmlText + SID/Null/2,
+ * 已由 `scripts/task-set-s4u.vbs` 封装并在真任务上验证(切后 Last Result=0、探针显示
+ * HKCU 的 SERVERCHAN_SENDKEY 与同步盘凭据文件在 S4U 下依然可读)。
+ */
+function ensureS4u() {
+  const vbs = join(dirname(fileURLToPath(import.meta.url)), 'task-set-s4u.vbs')
+  if (!existsSync(vbs)) return
+  try {
+    const out = execFileSync('cscript.exe', ['//nologo', vbs, TASK_NAME], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 90000,
+    })
+    if (/switched to S4U/.test(out)) log('✅ 计划任务已升级为 S4U(无人登录时也照常巡检;已验证弹窗结构上不可能)')
+    else if (/register failed|VERIFY FAILED|refusing/i.test(out)) log('S4U 升级未完成(不阻断守护): ' + out.replace(/\r?\n/g, ' | ').slice(0, 160))
+  } catch (e) {
+    log('S4U 升级调用失败(不阻断守护): ' + String((e && e.message) || e).slice(0, 160))
+  }
+}
+
 /** 破坏性覆盖前先归档现场(保留可回溯副本;同一轮只归档一次) */
 let ARCHIVED_PATH = null
 
@@ -743,6 +769,9 @@ function main() {
         },
       )
       log(`已注册任务计划 "${TASK_NAME}"(每 2 分钟自检,经 git-guardian-hidden.vbs 静默启动)`)
+      // 注册器只能造出 InteractiveToken(schtasks 的 /NP 会索要密码),故紧接着升 S4U,
+      // 否则"新机器/重装后"又回到无人登录即停跑的状态。
+      ensureS4u()
     } catch (e) {
       log('注册任务计划失败(需管理员权限): ' + String(e.message || e))
       process.exit(1)
@@ -776,6 +805,8 @@ function main() {
     // 失效时它**自己不会喊**(故障形态是"安静",正是今天两天冻结的同类)。本守护每 2 分钟
     // 一趟且自身分层自愈,由它盯心跳最省。--check 仍零副作用。
     if (!CHECK_ONLY) watchWatchdog()
+    // 幂等确保自身是 S4U(已是则内部秒退,不重建任务、不产生抖动)
+    if (!CHECK_ONLY) ensureS4u()
     if (CHECK_ONLY) console.log('✅ .git 健康(pointer + gitdir + git 可用 + 嵌套 ref 完整)')
     return 0
   }
