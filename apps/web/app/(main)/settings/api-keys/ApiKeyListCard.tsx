@@ -54,7 +54,6 @@ export function ApiKeyListCard({
   pendingDelete,
   pendingRotate,
 }: Props) {
-  const t = useTranslations()
   const tc = useTranslations('common')
   const [confirm, setConfirm] = React.useState<ConfirmState>(IDLE_CONFIRM)
 
@@ -101,26 +100,24 @@ export function ApiKeyListCard({
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="flex items-center gap-2 text-base">
           <KeyRound className="h-4 w-4" />
-          {t('apiKeysPage.title')}
+          我的 API 密钥
         </CardTitle>
         <Button size="sm" variant="outline" onClick={onCreate}>
           <Plus className="mr-1.5 h-4 w-4" />
-          <span>{t('apiKeysPage.createKey')}</span>
+          <span>创建密钥</span>
         </Button>
       </CardHeader>
       <CardContent>
         {isLoading ? (
           <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            <span>{tc('loading')}</span>
+            <span>加载中...</span>
           </div>
         ) : error ? (
           <div className="flex flex-col items-center gap-2 py-10 text-center">
-            <p className="text-sm text-destructive">
-              {t('apiKeysPage.loadFailedDetail', { message: error.message })}
-            </p>
+            <p className="text-sm text-destructive">加载失败:{error.message}</p>
             <Button size="sm" variant="outline" onClick={onRetry}>
-              <span>{tc('retry')}</span>
+              <span>重试</span>
             </Button>
           </div>
         ) : list.length === 0 ? (
@@ -128,8 +125,10 @@ export function ApiKeyListCard({
             <div className="rounded-md bg-muted p-3">
               <KeyRound className="h-6 w-6 text-muted-foreground" />
             </div>
-            <p className="text-sm font-medium">{t('apiKeysPage.emptyTitle')}</p>
-            <p className="text-xs text-muted-foreground">{t('apiKeysPage.emptyHint')}</p>
+            <p className="text-sm font-medium">尚未创建 API 密钥</p>
+            <p className="text-xs text-muted-foreground">
+              点击右上角「创建密钥」生成您的第一把密钥
+            </p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -148,9 +147,7 @@ export function ApiKeyListCard({
                             : 'border-border bg-muted text-muted-foreground',
                         )}
                       >
-                        {k.status === 'active'
-                          ? t('apiKeysPage.statusActive')
-                          : t('apiKeysPage.statusRevoked')}
+                        {k.status === 'active' ? '启用' : '已撤销'}
                       </Badge>
                     </div>
                     <code className="block break-all rounded bg-muted/50 px-2 py-1 font-mono text-xs text-muted-foreground">
@@ -162,22 +159,20 @@ export function ApiKeyListCard({
                           key={p}
                           className="inline-flex rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary"
                         >
-                          {t(PERM_LABELS[p] ?? p)}
+                          {PERM_LABELS[p] ?? p}
                         </span>
                       ))}
                     </div>
                     <p className="text-xs text-muted-foreground">
                       {k.lastUsedAt
-                        ? t('apiKeysPage.lastUsedAt', {
-                            time: dateFmt.format(new Date(k.lastUsedAt)),
-                          })
-                        : t('apiKeysPage.lastUsedNever')}
+                        ? `最近使用:${dateFmt.format(new Date(k.lastUsedAt))}`
+                        : '最近使用:从未'}
                       <span className="mx-1.5">·</span>
-                      {t('apiKeysPage.rateLimitPerMinute', { rateLimit: k.rateLimit })}
+                      速率 {k.rateLimit}/分钟
                     </p>
                   </div>
                   <div className="flex shrink-0 gap-1">
-                    <Tooltip content={t('apiKeysPage.rotateSecret')}>
+                    <Tooltip content="轮换 secret">
                       <span className="inline-flex">
                         <Button
                           size="sm"
@@ -186,8 +181,8 @@ export function ApiKeyListCard({
                           onClick={() =>
                             ask(
                               k,
-                              t('apiKeysPage.rotateSecretTitle'),
-                              t('apiKeysPage.rotateSecretDesc', { name: k.name }),
+                              '轮换密钥 Secret',
+                              `轮换「${k.name}」的 secret 后,旧 secret 立即失效,使用旧 secret 的应用需更新。确认继续?`,
                               false,
                               onRotate,
                             )
@@ -197,7 +192,7 @@ export function ApiKeyListCard({
                         </Button>
                       </span>
                     </Tooltip>
-                    <Tooltip content={tc('delete')}>
+                    <Tooltip content="删除">
                       <span className="inline-flex">
                         <Button
                           size="sm"
@@ -207,8 +202,8 @@ export function ApiKeyListCard({
                           onClick={() =>
                             ask(
                               k,
-                              t('apiKeysPage.deleteKeyTitle'),
-                              t('apiKeysPage.deleteKeyDesc', { name: k.name }),
+                              '删除 API 密钥',
+                              `确定删除「${k.name}」?删除后该密钥立即失效,且无法恢复。`,
                               true,
                               onDelete,
                             )
@@ -251,7 +246,7 @@ export function ApiKeyListCard({
               disabled={confirm.pending}
             >
               {confirm.pending && <Loader2 className="h-4 w-4 animate-spin" />}
-              <span>{tc('confirm')}</span>
+              <span>确认</span>
             </Button>
           </DialogFooter>
         </DialogContent>
