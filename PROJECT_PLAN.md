@@ -430,6 +430,20 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - **已备好待落地的下一批(三份清单已生成并自检全绿,共 205 键 × 5 语言)**:`batch-edu-scheduling.json` 64 键 / `batch-edu-grades.json` 67 键(含 trend 子页)/ `batch-edu-parent.json` 74 键,均"五语 leaf 集合全等、无含点键、ko/en 无汉字、zh-CN 值逐字符可回源文件 find",并各附**逐行改造对照表**。子代理在这一批里查出两个真实陷阱,落地时必须先处理:① `grades` 主文件 L373/L574 与 trend L124/L141 有 `terms.map((t) => …)` / `trendList.map((t) => …)` **形参 `t` 遮蔽翻译函数**,不先改名就直接编译崩;② `grades/page.tsx` 的 `metadata.title` 是第 91 处命中,不在这三个清单内,需另走 `getTranslations`。另登记一条边界:`scheduling` 的冲突检测结果与 `autoGenerate.message` 是 **API 端生成的整句中文**,前端取词覆盖不了,须后端改返回 `code + params` 再走 ICU(属 api 侧独立任务)。
 
 
+### 第八批:edu 三族页面 chrome 清零 + 8 族契约断言常驻化(2026-09-23,commit `3962f139a1`)
+
+承第七批"输入已就绪"。三路子代理**各独占互不重叠的源文件**并行接线,语言包与基线由主 agent 单写。
+
+- [x] ✅(2026-09-23) **五个 edu 文件硬编码中文全部归零**:`scheduling/PageClient` 76→0、`grades/PageClient` 74→0、`grades/trend/[studentId]/PageClient` 16→0、`grades/page.tsx` 9→0(服务端组件,改 `generateMetadata` + `getTranslations`)、`edu/parent/page.tsx` 73→0。守门 70 基线 **691 条/10375 → 686 条/10135**(释放 240 额度);越线仍只剩他人那一处 `layout.tsx 46>40`,**不替它平账**。开工前逐个 `git status` 验过这 5 个文件"已入库且无他人持有"。
+- [x] ✅(2026-09-23) **205 键 × 5 语言接线**(`eduScheduling` 64 / `eduGrades` 67 / `eduParent` 74):五语 leaf 键集完全相等、无含点键、ko/en 无汉字、ICU 占位符逐语言一致。合并期**再次**被 Windows 写盘瞬时错 `-4094` 打断,靠 merge2 "已存在即跳过"的幂等语义重试到第 4 次收敛(报"跳过 205"恰好证明没留半成品)。
+- [x] ✅(2026-09-23) **契约测试从 5 族扩到 8 族**,`family-i18n-contract` 对三新族各跑"引用可达 / 五语 parity / 无含点键 / ko-en 无汉字 + 占位符一致 / 无孤儿键 / 守门 70 族内归零",**76/76 passed**。为让"键名存常量表"这一正当写法不被误判孤儿,补采集器三处:① `*Key` 字段值允许带点(scheduling 刻意存 `'weekdays.weekdayMon'` 全路径字面量,这样死键扫描器才看得见);② 认数组形态键表 `const WEEKDAY_KEYS = […]`(渲染处 `t(ARR[i])`);③ 认带类型标注的对象表 `const X_KEYS: Record<string,string> = {…}`。**自查过程里我自己踩了一个坑**:给对象表正则加"名字"捕获组后内容组下标从 1 变 2,我写成 `block[3]` ⇒ 采集静默变空,把 `rules` 族 8 个**在用**键打成孤儿键红。这类"改判据把别人判红"必须靠复跑全族断言暴露,已修正并复跑全绿。
+- [x] ✅(2026-09-23) **术语纠正与 zh-TW 阻塞门的一次真拦截**:子代理复核出校园考勤误译,包与清单**双写**(只改包会被下次 merge 把错形装回)—— `ja.attendanceLeave` 休暇→**出席停止**(「欠席」已被 absent 占用) 、`ko.attendanceLeave` 휴가→**공결**、`ja.tabMyChildren` わが子→**子ども一覧**。另 `scan-i18n-zh-residue zh-TW`(阻塞)抓出清单作者给的七个星期键是简体「周一…周日」,按其正解改「週一…週日」后归零 —— 守门在清单阶段就生效,没让它进 main。
+- [x] ✅(2026-09-23) **提交形态**:工作树语言包仍带着并发会话未提交的 `permissionTier.mode.*` 10 枚键(实测一入库即 10 枚 CI 死键),故语言包走对象空间(从 HEAD blob 只加本票 205 键),源码与基线取工作树;diff-tree 自证"新增 205 / 删除 0 / 值变 0、未混入 permissionTier",落地即回读对象与树规模。全程不写主 index、不碰工作树。
+- **本批**未做**项(如实登记,不伪装收口)**:① `scheduling` 的 `conflicts[]` 与 `autoGenerate.message` 是 **API 端生成的整句中文**,前端取词覆盖不了,须后端改返 `code + params` 再走 ICU(独立 api 任务);② `edu/parent/` 下 `bind/page.tsx` 与 `children/[childId]/{courses,meals,study-plans,attendance}/PageClient.tsx` 仍有 **21 处**硬编码中文,可复用本批 `eduParent` 键,不在本票授权面;③ `parent` L900/L909 `toLocaleTimeString('zh-CN')` 硬编码 locale,需 `useLocale()`,属格式化另票;④ `grades` L517 原生 `confirm()` 违反 §4,本票只取词未 Dialog 化(新功能,§24 需确认)。
+- **另需知晓的一条判据事实**:主 agent 自写的"未引用键"探测器和权威 `scan-dead-i18n-keys` **结论相反** —— 它按"命名空间内的 `t('字面键')`"采集,把常量表间接引用一律看成没引用,报出 38 枚假孤儿。**幸而只跑报告模式没动手删**,照它删就等于砍掉 38 个在用键。教训:删除类判据必须拿权威入口做负向对照,自写松紧不一致的脚本绝不能驱动删除。
+
+
+
 ## P0 2026-09-22 桌面安装包视觉改版「墨光 · Ink Aurora」+ 安装页百分比 + 开屏真动画(平台独占:apps/desktop)
 
 用户三条诉求:① 要独特设计 + 开屏动画,不要原生安装窗口的样子;② 目录页「浏览」按钮还带背景色容器,取消;③ 进度条没有百分比。
@@ -3470,38 +3484,6 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
     "整片被旧基线抹掉",会连真丢一起放过 ⇒ 以扩面换救回不成立。**因此本段这类续行内容的存活只靠一条自证
     动作:提交后立刻 `git show <origin-sha>:PROJECT_PLAN.md | grep -c "<关键串>"` 回读远端 tip**(已进项目记忆)。
   - 平台独占:apps/api + deploy/docker + scripts 守门 + 文档(§9 豁免,无跨端契约变更)。
-- [x] ✅(2026-09-23) **P2-F.12 权限档"两张表"接回共享真相源 + 装两道跨端一致性门(73/74)**:
-  - **实测到的问题**(不是推测):同一个权限档在 web 内部就有两套叫法 —— chat 面读
-    `chat.permission.mode.{ask,auto,full,plan}{,Desc}`(对标 Codex 口径:请求批准/替我审批/完整权限/只读计划),
-    workspace 面读 `workspace.permission.mode.{default,plan,accept-edits,bypass-permissions,unknown}.{title,desc}`
-    (直译口径:默认模式/接受编辑/绕过权限);而跨端共享表 `packages/shared/src/chat/permission-tier.ts` 的
-    `PERMISSION_TIER_WORD_KEYS`(10 键)**只有 taro/extension/rn 在吃,web 完全绕过** ⇒ 新增档位时 web
-    静默缺显示,与 G-163/G-164 同族。三路并行调查各自独立撞到同一根因,本轮收口。
-  - **改法**(commit `5bb12b7ffa`,12 文件):① 新增 `apps/web/src/lib/permission-tier-text.ts` 一份
-    `permissionTierText(mode, tTier)`,10 个键全部写成**实参为字面量**的 `tTier()` 调用(静态守门只认字面量,
-    传变量等于关掉校验),分支比对走**对象同一性** ⇒ 共享表改值时各消费点同时失配落 unknown,不会静默错位;
-    ② 6 个消费文件删掉各自端点映射(`ModeKey`/`ModeDescKey`/`MODE_KEY_MAP`/`CYCLE_LABEL_KEY`/
-    `MODE_TITLE_KEY`/`MODE_DESC_KEY` 与 `tw()` 动态拼接),未识别档由"回显英文拼写"改显 unknown;
-    ③ web 五语包新增 `permissionTier` 10 叶(值逐字搬 chat 面口径 ⇒ **chat 面可见文案零变化**),回收因此
-    彻底无人引用的 18 叶(逐键 grep 引用数 = 0 才删,删后 JSON 可解析 + 未删行逐行原样)。子代理按任务书
-    在 6 文件各存了一份逐字节相同副本(sha `ccaacfaf`,258 行重复),本轮收成 1 份。
-  - **可见变化如实登记**:workspace 弹窗与 `/workspace/permissions` 页由直译口径统一到对标口径
-    (默认模式→请求批准、接受编辑→替我审批、绕过权限→完整权限)。**跨端**文案差异(web 对标 vs taro 直译)
-    本次不动 —— 那是各端消息源自持的内容决策,不是代码重复,不擅自替产品改用户可见命名。
-  - **两道门**(commit `061171a6ba`,与本登记同票):73「端内绕过 api-client 直连后端」(URL 污点判据 +
-    基线 47 条只减不增;三证 = 全量 exit 0 / 权威入口 `--root` 夹具注入 0→1→0 且空语料 exit 2 / Transport
-    反例 hits=0 exempt=1;self-test 8 + 镜像测试 15)。74「词表键五语言可解析」(认定 50 张表 / 235 键 ×
-    5 语言 × 消费端合并视图 + 小程序离线包;值是键名亦判缺;self-test 25 + 镜像测试 22)。
-    **74 的 W5 由 failures 降为 notices**:它报"该端依赖共享包但尚未引用这张表",坏状态当前不可达
-    (初版 5 条全属此类,含 cli 对 permissionTier 引用数 0 却整块缺键);计入 blocking 只会长期红在别人
-    未接入的存量上、逼出 `--no-verify`,真接入后由 W3/W4 逐键硬拦,防护不丢。
-  - **顺序是硬的**:74 一装就红在"web 缺 permissionTier 10 键"上 ⇒ 必须先落取词接表 + 补包,再装门。
-  - **两处自伤已记**:`git apply` 收 3 个非连续 hunk 时因目标偏移错位**静默零改动**(靠"重建文件必须含
-    我的调用且不含他人内容"的断言挡住,否则会提交一份没改的 message-input.tsx),改为手工 3 处编辑后
-    核对 `+5/-5、promptHistory=0`;另一处是本次登记的"防重复"守卫把 `add` 数组里的空行也拿去 `includes`
-    ⇒ 恒真 ⇒ README/PLAN 被误判"已登记"而跳过,故本段单独补登记(守卫应只比非空行)。
-  - 多端与豁免:apps/web + packages/i18n/messages/web + scripts 守门(§9 标注;**共享表与 taro/rn/extension
-    消费侧零改动**,不构成跨端契约变更);README/AGENTS 已同步登记(§21)。
 
 
 ---
