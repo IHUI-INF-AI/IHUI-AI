@@ -267,7 +267,13 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
       <CommandPalette open={showCommandPalette} onOpenChange={setShowCommandPalette} />
       {showHelpPanel && (
         <div
-          onClick={toggleHelpPanel}
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) toggleHelpPanel()
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') toggleHelpPanel()
+          }}
           style={{
             position: 'fixed',
             inset: 0,
@@ -282,7 +288,6 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
             role="dialog"
             aria-modal="true"
             aria-label={tHelp('title')}
-            onClick={(e) => e.stopPropagation()}
             style={{
               background: 'var(--color-background, #fff)',
               color: 'var(--color-foreground, #000)',
