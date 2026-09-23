@@ -57,6 +57,7 @@ export const HOT = [
   'scripts/backup-unreachable-commits.mjs',
   'scripts/check-port-registry.mjs',
   'scripts/lib/gitdir.mjs',
+  'apps/cli/src/worktree.ts',
 ]
 
 /** 只读动词:被 SIGTERM 中断不改变仓库状态,可安全封顶 */
@@ -85,7 +86,46 @@ export const READ_ONLY = new Set([
   'cherry',
 ])
 
-const CALLER = /\b(execFileSync|execSync|execFile|spawnSync|spawn|fork)\s*\(\s*(?:'git'|"git"|GIT_BIN|gitBin|gitPath|gitExe|resolveGitBin\s*\(\s*\))\s*,\s*\[\s*['"]([a-z-]+)['"]/g
+// 数组内容整体捕获(而不是只认第一个字面量),动词交给 pickVerb 判定。
+// 旧写法要求 `[` 后**紧跟动词字面量**,于是 `execFileSync('git', ['-C', dir, 'status', …])`
+// 这种最常见的"带仓库路径前缀"形态**根本匹配不到** —— 判据恒报 0 处,是假绿
+// (2026-09-23 由并行会话的交付报告指出,已在 apps/cli/src/worktree.ts:578 实证)。
+const CALLER =
+  /\b(execFileSync|execSync|execFile|spawnSync|spawn|fork)\s*\(\s*(?:'git'|"git"|GIT_BIN|gitBin|gitPath|gitExe|resolveGitBin\s*\(\s*\))\s*,\s*\[([^\]\n]{0,220})/g
+
+/** 需要跟取值的 git 全局选项:跳过它们时必须连值一起跳,否则会把 `safe.directory=*` 当动词 */
+const VALUE_FLAGS = new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--exec-path', '-p'])
+
+/**
+ * 从 git 参数数组的文本里取出真正的子命令动词。
+ * 按**位置**逐个 token 走(字符串与标识符同等对待):
+ *   · 以 `-` 开头的字符串 = 选项 ⇒ 跳过;若它是带值选项(`-C <dir>` / `-c k=v`),
+ *     再把**下一个 token 整体**跳过 —— 值经常是变量而非字面量(如 `['-C', repoDir, 'status']`),
+ *     只在字面量序列里按下标跳值会把真动词一起跳掉(2026-09-23 实测就是这个 bug)。
+ *   · 第一个"像 git 子命令"的字面量 ⇒ 动词。
+ *   · 遇到非字符串 token 且不在跳值状态 ⇒ 动词可能来自变量,返回 null(本门不判,计入不判数)。
+ */
+export function pickVerb(arrayText) {
+  const toks = [...String(arrayText).matchAll(/'([^']*)'|"([^"]*)"|([A-Za-z_$][\w$]*)/g)].map((m) => ({
+    v: m[1] !== undefined ? m[1] : m[2] !== undefined ? m[2] : m[3],
+    str: m[1] !== undefined || m[2] !== undefined,
+  }))
+  let skipNext = false
+  for (const t of toks) {
+    if (skipNext) {
+      skipNext = false
+      continue
+    }
+    if (!t.str) return null // 变量入参,动词未知
+    if (!t.v) continue
+    if (t.v.startsWith('-')) {
+      skipNext = VALUE_FLAGS.has(t.v)
+      continue
+    }
+    return /^[a-z][a-z0-9-]*$/.test(t.v) ? t.v : null
+  }
+  return null
+}
 const WRAPPER = /\b(?:function\s+)?([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>[\s\S]{0,120}?\b(?:execFileSync|execSync|spawnSync)\s*\(\s*(?:'git'|GIT_BIN)/g
 const GIT_INLINE = /\b(execFileSync|execSync|execFile|spawnSync|spawn)\s*\(\s*(?:'git'|"git"|GIT_BIN|gitBin|gitPath|gitExe|resolveGitBin\s*\(\s*\))\s*,\s*[A-Za-z_$]/g
 const TIMEOUT_OK = /\btimeout\s*:/
@@ -172,12 +212,18 @@ export function scanSource(raw) {
   const real = (m) => !hidden[m.index]
   const misses = []
   const writes = []
+  let skippedByNoVerb = 0
   const literalIdx = new Set()
   for (const m of raw.matchAll(CALLER)) {
     if (!real(m)) continue
+    const verb = pickVerb(m[2])
+    if (!verb) {
+      // 数组里第一个字面量之前没有可识别动词(全是变量/拼接)⇒ 读写未知,不判但计数
+      skippedByNoVerb++
+      continue
+    }
     const openIdx = raw.indexOf('(', m.index)
     const span = callSpan(raw, openIdx)
-    const verb = m[2]
     literalIdx.add(m.index)
     if (!READ_ONLY.has(verb)) {
       writes.push({ line: lineOf(raw, m.index), verb })
@@ -190,7 +236,7 @@ export function scanSource(raw) {
   // 动词来自变量(包装器)不判(见文件头第 2 条口径),但计入 skipped
   const skipped = [...raw.matchAll(GIT_INLINE)].filter((m) => real(m) && !literalIdx.has(m.index)).map((m) => ({ line: lineOf(raw, m.index) }))
   const wrappers = [...raw.matchAll(WRAPPER)].filter(real).map((m) => ({ line: lineOf(raw, m.index), name: m[1] }))
-  return { misses, writes, skipped, wrappers }
+  return { misses, writes, skipped, wrappers, skippedByNoVerb }
 }
 
 export function auditHot(root) {
@@ -259,6 +305,21 @@ function selfTest() {
       )
       if (scanSource(readFileSync(join(hot, 'x.mjs'), 'utf8')).misses.length !== 0) throw new Error('多行 timeout 应识别')
     })
+    t('-C 前缀形态必须识别(曾经的假绿盲区)', () => {
+      write(`const a = execFileSync(GIT_BIN, ['-C', repoDir, 'status', '--porcelain'], { windowsHide: true })`)
+      const r = scanSource(readFileSync(join(hot, 'x.mjs'), 'utf8'))
+      if (r.misses.length !== 1) throw new Error(`-C 前缀被漏判: misses=${JSON.stringify(r.misses)}`)
+      if (r.misses[0].verb !== 'status') throw new Error(`verb=${r.misses[0].verb}`)
+    })
+    t('带值选项 -c k=v 必须连值跳过(不得把 safe.directory=* 当动词)', () => {
+      write(`const a = execFileSync('git', ['-c', 'safe.directory=*', 'rev-parse', 'HEAD'], {})`)
+      const m = scanSource(readFileSync(join(hot, 'x.mjs'), 'utf8')).misses
+      if (m.length !== 1 || m[0].verb !== 'rev-parse') throw new Error(`got ${JSON.stringify(m)}`)
+    })
+    t('同一 -C 形态补上 timeout 后归零(证明前一条不是恒红)', () => {
+      write(`const a = execFileSync(GIT_BIN, ['-C', repoDir, 'status', '--porcelain'], { timeout: 60_000 })`)
+      if (scanSource(readFileSync(join(hot, 'x.mjs'), 'utf8')).misses.length !== 0) throw new Error('应归零')
+    })
     t('auditHot 只扫 HOT 清单内文件(夹具必须落在真 HOT 路径上)', () => {
       writeFileSync(join(hot, 'guardian-runner.mjs'), `const a = execFileSync('git', ['ls-files'], {})`, 'utf8')
       const out = auditHot(root)
@@ -298,13 +359,15 @@ function run(argv) {
   const bad = auditHot(REPO)
   let writes = 0
   let skipped = 0
+  let noVerb = 0
   for (const rel of present) {
     const r = scanSource(readFileSync(join(REPO, rel), 'utf8'))
     writes += r.writes.length
     skipped += r.skipped.length
+    noVerb += r.skippedByNoVerb
   }
   const misses = bad.reduce((s, b) => s + b.misses.length, 0)
-  console.log(`git 只读派生调用 timeout 对账:热文件 ${present.length} 个 / 判红 ${misses} 处 / 写动词不判 ${writes} 处 / 包装器不判 ${skipped} 处`)
+  console.log(`git 只读派生调用 timeout 对账:热文件 ${present.length} 个 / 判红 ${misses} 处 / 写动词不判 ${writes} 处 / 包装器不判 ${skipped} 处 / 动词非字面量不判 ${noVerb} 处`)
   if (misses === 0) {
     console.log('✅ 热路径只读 git 调用均已封顶')
     return 0
@@ -342,4 +405,4 @@ if (isDirectRun) {
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-export const __test__ = { HOT, READ_ONLY, scanSource, auditHot, callSpan, markHidden }
+export const __test__ = { HOT, READ_ONLY, scanSource, auditHot, callSpan, markHidden, pickVerb }
