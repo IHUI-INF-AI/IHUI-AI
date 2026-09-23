@@ -13,6 +13,7 @@ import {
   StyleSheet,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type { RankingItem, RankingRange, RankingScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
@@ -55,6 +56,7 @@ export function RankingScreen({
 }: RankingScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  const rangeItems = useMemo(() => RANGES.map((r) => ({ id: r, label: t(RANGE_KEYS[r]!) })), [t])
 
   const rankColor = (rank: number) => {
     if (rank === 1) return tk.warning.amber
@@ -85,22 +87,14 @@ export function RankingScreen({
         <Text style={styles.subtitle}>{t('ranking.subtitle')}</Text>
       </View>
 
-      <View style={styles.tabs}>
-        {RANGES.map((r) => {
-          const active = r === range
-          return (
-            <TouchableOpacity
-              key={r}
-              onPress={() => onSelectRange(r)}
-              style={[styles.tab, active && styles.tabActive]}
-            >
-              <Text style={[styles.tabText, active && styles.tabTextActive]}>
-                {t(RANGE_KEYS[r]!)}
-              </Text>
-            </TouchableOpacity>
-          )
-        })}
-      </View>
+      <CategoryInlineBar
+        items={rangeItems}
+        selectedId={range}
+        onSelect={onSelectRange}
+        colorScheme={colorScheme}
+        contentPaddingHorizontal={10}
+        itemGap={6}
+      />
 
       {error ? (
         <View style={styles.errorBar}>
@@ -182,16 +176,6 @@ function createStyles(tk: AppThemeTokens) {
     backText: { fontSize: 16, color: tk.text.secondary },
     title: { fontSize: 24, fontWeight: '700', color: tk.text.primary },
     subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    tabs: { flexDirection: 'row', paddingHorizontal: 10, paddingVertical: 8, gap: 6 },
-    tab: {
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: rnRadius.xl,
-      backgroundColor: tk.surface.card,
-    },
-    tabActive: { backgroundColor: tk.brand.DEFAULT },
-    tabText: { fontSize: 14, color: tk.text.secondary },
-    tabTextActive: { color: tk.surface.light },
     errorBar: {
       paddingHorizontal: 10,
       paddingVertical: 8,

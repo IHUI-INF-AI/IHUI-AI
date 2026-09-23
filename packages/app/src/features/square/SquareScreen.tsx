@@ -7,7 +7,6 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -18,7 +17,10 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type { TFunction } from '../../types'
+
+import { rnRadius } from '@ihui/design-tokens'
 
 /** 文章卡片(共享层简化类型,保留 UI 渲染所需字段) */
 export interface ArticleItem {
@@ -58,51 +60,6 @@ export interface SquareScreenProps {
   onBack?: () => void
   /** 隐藏自带 header(调用方已有 NavBar 时用,防双标题;默认 false 保持原行为) */
   hideHeader?: boolean
-}
-
-/** 单选分类条(共享层内联实现,对齐 mobile-rn SingleTypeBar) */
-function SingleTypeBar({
-  items,
-  selectedId,
-  onSelect,
-  colorScheme = 'light',
-}: {
-  items: readonly { id: string; label: string }[]
-  selectedId: string
-  onSelect: (id: string) => void
-  colorScheme?: 'light' | 'dark'
-}) {
-  const tk = getTokens(colorScheme)
-  const styles = createStyles(tk)
-  return (
-    <View style={styles.categoryBar}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <View style={styles.categoryContent}>
-          {items.map((item) => {
-            const active = item.id === selectedId
-            return (
-              <Pressable
-                key={item.id}
-                style={({ pressed }) => [
-                  styles.typeItem,
-                  active ? styles.typeItemActive : null,
-                  pressed ? styles.typeItemPressed : null,
-                ]}
-                onPress={() => onSelect(item.id)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                accessibilityLabel={item.label}
-              >
-                <Text style={[styles.typeText, active ? styles.typeTextActive : null]}>
-                  {item.label}
-                </Text>
-              </Pressable>
-            )
-          })}
-        </View>
-      </ScrollView>
-    </View>
-  )
 }
 
 export function SquareScreen({
@@ -189,20 +146,22 @@ export function SquareScreen({
   return (
     <View style={styles.container}>
       {hideHeader ? null : (
-      <View style={styles.header}>
-        {onBack ? (
-          <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={styles.backText}>{t('common.back')}</Text>
-          </TouchableOpacity>
-        ) : null}
-        <Text style={styles.navTitle}>{t('square.title') || '广场'}</Text>
-      </View>
+        <View style={styles.header}>
+          {onBack ? (
+            <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={styles.backText}>{t('common.back')}</Text>
+            </TouchableOpacity>
+          ) : null}
+          <Text style={styles.navTitle}>{t('square.title') || '广场'}</Text>
+        </View>
       )}
-      <SingleTypeBar
+      <CategoryInlineBar
         items={categories}
         selectedId={selectedCategory}
         onSelect={onSelectCategory}
         colorScheme={colorScheme}
+        contentPaddingHorizontal={10}
+        itemGap={8}
       />
       {loading ? (
         <View style={styles.centerWrap}>
@@ -280,41 +239,6 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
       color: tk.text.primary,
     } as TextStyle,
-    categoryBar: {
-      backgroundColor: tk.surface.card,
-    } as ViewStyle,
-    categoryContent: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 8,
-      paddingHorizontal: 10,
-      gap: 8,
-    } as ViewStyle,
-    typeItem: {
-      paddingVertical: 6,
-      paddingHorizontal: 12,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: tk.border.light,
-      backgroundColor: tk.surface.light,
-    } as ViewStyle,
-    typeItemActive: {
-      backgroundColor: tk.brand.DEFAULT,
-      borderColor: tk.brand.DEFAULT,
-    } as ViewStyle,
-    typeItemPressed: {
-      opacity: 0.85,
-    } as ViewStyle,
-    typeText: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: tk.text.secondary,
-    } as TextStyle,
-    typeTextActive: {
-      // brand.DEFAULT 做底色(深色=白),前景必须用 brand.foreground(深色=黑),
-      // 不得用 surface.light(两态皆白 → 深色白底白字不可见)
-      color: tk.brand.foreground,
-    } as TextStyle,
     centerWrap: {
       flex: 1,
       alignItems: 'center',
@@ -334,7 +258,7 @@ function createStyles(tk: AppThemeTokens) {
     retryButton: {
       paddingVertical: 8,
       paddingHorizontal: 16,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.brand.DEFAULT,
     } as ViewStyle,
     retryText: {
@@ -354,7 +278,7 @@ function createStyles(tk: AppThemeTokens) {
 
     // 卡片
     card: {
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       padding: 12,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
@@ -370,7 +294,7 @@ function createStyles(tk: AppThemeTokens) {
       alignSelf: 'flex-start',
       paddingHorizontal: 8,
       paddingVertical: 4,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: 'transparent',
       borderWidth: 1,
       borderColor: tk.border.medium,
@@ -401,7 +325,7 @@ function createStyles(tk: AppThemeTokens) {
     authorBadge: {
       paddingHorizontal: 8,
       paddingVertical: 4,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: 'transparent',
       borderWidth: 1,
       borderColor: tk.border.medium,
@@ -436,7 +360,7 @@ function createStyles(tk: AppThemeTokens) {
       bottom: 44,
       width: 34,
       height: 34,
-      borderRadius: 4,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brandAccent.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
