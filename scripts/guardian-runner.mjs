@@ -1860,6 +1860,36 @@ const checks = [
     ].join('\n'),
   },
 
+  {
+    id: '90',
+    label: '🎨 跨端色值同源对账(blocking,RN rn-tokens ↔ tokens.css 逐位同值 + 品牌档不得端内自立)',
+    script: 'check-cross-end-tokens.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CROSS_END_TOKENS',
+    // 不声明 stagedTriggers:R3 判的是"这次提交会带走的悬空引用",可能出现在任何端内文件
+    // (mobile-rn / packages/app / ui-native …),收窄触发面等于给漏网留口;
+    // 且实测开销仅 0.46s(--staged)/ 1.3s(全量),没有为之省时间的理由。
+    onFailHint: [
+      '',
+      '  💡 三条判据:',
+      '     R1 已声明映射逐位同值 —— rn-tokens.ts 的色值必须等于 tokens.css 对应 CSS 变量(亮/暗各自对账)。',
+      '     R2 品牌键覆盖 —— rn-tokens 的 brand 命名空间里每个键,必须被某条映射声明,或在 RN_ONLY_BRAND_KEYS',
+      '        写明"web 无对应变量"的理由(豁免项若已不存在同样算红,防清单腐烂)。',
+      '     R3 悬空引用 —— tokens.brand.<key> / tk.brand.<key> 必须命中已声明键集合(默认判 HEAD,--staged 判索引)。',
+      '',
+      '     品牌 CTA 的唯一写法:backgroundColor/borderColor = brand.DEFAULT,其上文字 = brand.foreground',
+      '     (等价 web 的 --color-primary + --color-primary-foreground);**不得再立 brand.ctaFill/ctaText 这类端内档',
+      '     —— 2026-09-24 已删,理由:浅色=web primary、深色=brand-accent 的混血档让同一语义三端三个值。**',
+      '     要调暗色主按钮对比度,改 tokens.css 的 .dark --color-primary 一处,三端一起动。',
+      '',
+      '     定位:node scripts/check-cross-end-tokens.mjs --list(看映射与依据)',
+      '     自检:node scripts/check-cross-end-tokens.mjs --self-test(8 例正反对照)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_CROSS_END_TOKENS=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- blocking (OpenAPI 契约) ---
   {
     id: '10',
