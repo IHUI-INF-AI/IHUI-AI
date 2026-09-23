@@ -403,12 +403,12 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     paddingHorizontal: 12,
     paddingVertical: 4,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.ctaFill,
     borderRadius: 6,
   },
   buyBtnText: {
     fontSize: 12,
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
     fontWeight: '500',
   },
   modelFooter: {
