@@ -35,13 +35,7 @@
 - [x] ✅(2026-09-23)真机交付:arm64 `assembleRelease` 出包(66MB)→ `adb install -r` **覆盖安装成功**(未卸载、用户数据与登录态零损失),设备 `c12617dd` 现跑 versionName 0.0.4;截屏自验「AI 应用商店」与「我的」两屏圆角已按档位统一
 - [x] ✅(2026-09-23)第 2 轮:对抗排查暴露守门三个盲区 → 补 B1 **字符串形态**(`borderRadius:'8px'` 55 处)、**B5 SVG `rx`/`ry`**(61 处)、B2 扩到名字不含 RADIUS 的常量(`BAR_RX`);`.svg` 不再当资产整体跳过,静态 svg 与 JSX 内联分两套语义;新增 `--files` 自验模式;自检 20 → 34 例(含 NaN 防回归);SCAN_DIRS 补 `apps/api/src`(swagger-theme 生成 CSS)
 - [x] ✅(2026-09-23)修 `patch-rn-release-signing.mjs` 模板漂移:锚点写死 `versionCode 1 / versionName "0.0.0"`,被手抬到 5 / 0.0.4 后静默不匹配 → `build-mobile-rn-release.ps1` 第 1 步 FAIL、整条 RN 出包流水线断;改为对当前值不敏感的正则 + 缺省沿用现值(防降级拒装)+ 匹配不到时显式报错;实测 4 段全注入、二次运行幂等跳过
-- [x] ✅(2026-09-24)第 2 轮 128 点迁移收口(5 批并行,自验尺子=守门 `--files`)
-- [x] ✅(2026-09-24)**HEAD 圆角债前向修复**:发现并行会话的索引层重建把 309 个路径整文件回写成迁移前旧基线,HEAD 积累 **1179 处**绕档(静态基线清单 26 处对此完全绿灯)。做法 = 对每个「HEAD 有债而工作树已迁完」的路径做行级 LCS,**只接受增删行全部与圆角有关的 hunk** 移植进 HEAD 自身内容(非圆角 hunk 一律保持 HEAD 版本,绝不拿工作树整文件覆盖,否则等于回退别人更新的代码);移植后逐文件复扫须 0 违规 + `typescript.transpileModule` 0 语法错 + 「外来标识符」对账(移植进来的名字必须在 HEAD 里已存在)。实测 309/309 干净移植,HEAD 全仓违规 1179 → **0**,提交 `2aee24b6cf5`(临时索引旁路,零触碰工作区)
-- [x] ✅(2026-09-24)**守门 77 棘轮换锚**:B 判据上限从「手工维护的 `radius-single-source-baseline.json`」改成「**该文件 HEAD 版本自身的违规数**」(清单降为人工兜底并清零 26 → 0);全量审计对「工作树 ≠ HEAD」的路径改读 HEAD blob,并把候选收窄到 `git ls-files` 跟踪集。换锚理由:旧锚只能证明"登记过的没变多",证明不了"仓库没被回退";而按磁盘读会把并行会话滞后的旧草稿误记成本仓债务 —— 一道与真实改动无关的红门只会逼人绕过提交,连带废掉全部守门(实测工作树曾有 26 处属此类,HEAD 却藏着 1179 处)。新增纯函数 `splitFresh` + 4 例正反自检(误红/误绿两侧都钉),自检 34 → 45 例;镜像测试补「锚点必须是 HEAD 而非静态清单」装车证明(3 → 4 例)
-- [x] ✅(2026-09-24)根目录整洁(守门 44)归绿 + 归档落点根治:一级目录 7 项 `.git.broken-remote-*`(3.2MB,含 41/498 条 refs 快照与 4 个 `gitdir: G:/IHUI-AI/.git` 旧指针)是 03:13 一次手工 `.git` 抢修留在**工作区内**的现场归档 —— 正是 §5b 宿主清理层的射程。同卷 `mv` 收口到 `D:\DevEnv\backups\git\root-sweep-2026-09-24\`(每步回读「源已无 + 体积一致」,一个都没删);16.9KB 的 `--staged`(某次 `> --staged` 误重定向的 JSON 扫描报告)隔离进 `.ihui-agent/tmp/quarantine/`。AGENTS §5b 补一条铁律:现场归档一律走 `gitArchiveDir()`,手工抢修也不例外
-- [x] ✅(2026-09-24)lost-commit tag 双向对齐(守门 30a):`--fetch` 拉回 2 个仅远端 tag,`--auto-push` 推出 445 个仅本地 tag,本地 4478 ↔ 远端逐把对账
-
-> ⚠️ 本会话新查到的**结构性风险(归属所有会话)**:HEAD 会被并行会话的「索引层重建 / commit-tree 旁路」整批回写成旧基线,而这类回退对**按工作树判**的守门完全隐形。凡以「我改完并提交了」为结论的批量改动,收口前必须跑一次 `git diff --name-only HEAD` 尺子复核 + 对 HEAD blob 本身复扫,不能只看工作树。
+- [ ]（进行中）第 2 轮 128 点迁移(5 批并行,自验尺子=守门 `--files`)
 
 ### 影响面与豁免口径
 
@@ -140,7 +134,6 @@
 
 - `[2] i18n 键完整性` / `[2b] zh-TW 简体字残留`:`diffReview.*` 一批键未过翻译流水线(1515 文件
   17012 键口径),zh-TW 另有 `台賬→臺賬`、`後台→後臺` 字形残留 ⇒ 属 i18n 流水线在飞内容。
-- `[15] 迁移完整性` / `[61] 桌面安装器资产三方对账`:API 迁移账本与桌面安装器资产,均为他人票面。
 - `[15] 迁移完整性` —— **复核后改判:不是他人票面,也不是代码缺陷,而是"gitignore 目录随迁丢失"**。
   该门要求的 4 份 D 盘历史审计报告只认 `根目录` 或
   `.ihui-agent/archive/audit-reports-2026-07-21/`,而 `.ihui-agent/` 被 `.gitignore:145` 整目录忽略
@@ -283,20 +276,6 @@
   (并发面从"每 push 一次"降到"最多一个排队"),文件内已写死这段实测取证与"勿改回 push 触发"的理由。
   代价是有意的:镜像延迟 0 → ≤20 分钟。GitHub 侧仍是每次 push 即时上线,不受影响。
 
-- **⚠️ 同日 13:46Z 复验:上面这条"修复"只完成了一半,我下结论下早了**。改完 4.5 小时后回查:
-  `mirror-to-cn` 的运行列表里 **`event=schedule` 一条都没有**(最后一条仍是 09:07Z 的 push),
-  而 ①workflow `state=active`、②Actions 权限全开、③同仓其他 workflow 的 schedule **当天照常触发**
-  (`Sync Downloads` 07:59Z、`loop-daily-triage` 02:34Z ⇒ 不是全仓调度故障)、④无 queued/in_progress
-  挡道、⑤手动 `POST /actions/workflows/{id}/dispatches` **立即 in_progress**(13:46:54Z)。
-  即:**额度/runner/仓库配置都好,只有那条 cron 不派生** ⇒ 我把触发从 push 换成定时之后,
-  镜像在自动通道上比改之前**更饿**(push 至少还会产生 run)。
-  归因尚未做完(候选:GitHub 对新增 schedule 的派生延迟/账户侧调度抑制),但**不能把它当"等 GitHub 自愈"**。
-  已做的收口:`check-credential-health.mjs` 增加 **国内镜像活性** 检查项 —— 取该 workflow 最近一次运行,
-  `in_progress/queued` 视为正常,否则按 `updated_at` 距今超阈值(默认 150 分,`IHUI_MIRROR_STALL_MIN` 可调)
-  判异常,并**顺手补发一次 `workflow_dispatch` 自愈**(每轮最多一次,不叠加):补发成功记 `limited` 并写明
-  "下轮复验",补发失败才记 `fail`。于是"镜像静默饿死"从**没人知道**变成"要么被踢活、要么巡检判红"。
-  判据细节:活性取 `updated_at` 而非 `created_at`(schedule 派生的 run `created_at` 会带排队提前量)。
-
 ### 复发风险(结构性,已量化,待作者定方案)
 
 冻结**能持续两天无人知**的两条放大器,都在这次事故里实锤:
@@ -319,150 +298,6 @@
 ③ 退而求其次:ff 失败连续 N 轮即升级为**独立告警签名**(区别于构建失败)并写进 `--diagnose` 判定提示。
 当前缓解手段(已由本次验证有效):任一会话跑一次 `node scripts/git-sync-converge.mjs` 使
 本地==远端,部署环下一轮即可 `behind=0` 走"构建新鲜度"通道上线。
-
-### 四条机制化收口(2026-09-23 补,针对"就是要不可能再出现")
-
-上面的放大器归部署脚本作者所有,本次**不改其主体逻辑**,而是**在其之外**建独立观测与提交前拦截:
-
-1. **守门 78 `check-workspace-dep-links.mjs`(blocking,已注册)** —— 当天 11:04 起的那轮停摆
-   既不是凭据也不是并发未提交:`apps/extension/package.json` 声明了 `@ihui/design-tokens: workspace:*`
-   而 `node_modules` 里没有该链接(§12e 的 `pnpm install --filter` 后遗症)。rollup 报
-   `failed to resolve import` → `pnpm -r build` 4 次全红 → 30 分钟冷却循环,线上停在旧提交,
-   而 **typecheck/lint/单测全绿**(TS 走 tsconfig paths,不看 node_modules 链接)。
-   实测全仓 25 个包中 **2 处**中招(`@ihui/extension`→design-tokens、`@ihui/cli`→i18n),
-   全量 `pnpm install` 后归零,扩展 `wxt build` 4.127s 通过。
-   判据:每个包声明的 `workspace:*` 依赖必须在 `<pkg>/node_modules` 或根 `node_modules` 可解析
-   (跟随符号链接,悬空即红);扫不到包时 `exit 1` 而非报绿(自测里就抓到过一次"扫 0 个却绿灯")。
-   取证含**反向对照**:临时改名真链接 → 闸报 `rc=1` 并点名 `@ihui/extension 缺 @ihui/design-tokens`,复原后归零。
-   **同日 14:2x 把口径的最后一个洞闭合**:`--staged` 原按"本次暂存改了哪些 `package.json`"收窄范围,
-   而这类破损恰恰与"改了什么"无关(手动删链接 / 他机跑过 `--filter` / 清理工具动过依赖树)——
-   按 staged 收范围会**放过整类**。现改为恒全量(25 个包实测约 1s,成本可忽略),并按新形态重做
-   反向对照:**暂存区为空 + 藏一条真链接 ⇒ `rc=1` 且点名**,复原归零。
-   `--self-test` 9 例 + `node --test scripts/tests/check-workspace-dep-links.test.mjs` 7 例(含"装车证明")。
-2. **`scripts/check-credential-health.mjs` 独立巡检(计划任务 `IHUI credential-health`,每 6 小时)** ——
-   它不看部署脚本自己怎么说,只看**外部地面真相**:① nssm 服务环境块里的口令 vs 权威口令表
-   (指纹比对,永不回显);② 真跑一次门禁用的登录入口;③ GitHub/Gitee token 形状与有效性;
-   ④ **线上构建 sha vs `origin/main` tip + 最后一次成功部署时间** 的停摆判定(阈值默认 45 分钟,
-   `IHUI_DEPLOY_STALL_MIN` 可调)。前三项全绿时不做登录探测(避免白烧"剩余 N 次重试"预算)。
-   首跑即抓到一个真实停摆:`线上 576df1085 ≠ tip 1ef879015 且 1.1 小时无成功部署`。
-3. **告警通道自身不允许静默失败** —— 首跑就暴露了新短板:Server 酱回
-   `[AUTH]超过当天的发送次数限制`(免费 5 条/天),即"发现了故障但没人收到"。已改为
-   **多通道投递 Server酱 → Resend 邮件兜底**(§5e 的 `IHUI-AI@aizhs.top` → `502319984@qq.com`),
-   并且:全通道失败时写 `credential-health-alert-UNDELIVERED.json` 标记,**下一轮巡检把"上轮有
-   故障未能通报"本身作为一项 `fail` 判红**(即通道故障会持续出现在退出码与输出里);
-   无论投递成败,告警正文一律先追加进 `.workbuddy/credential-health-alerts.log` 本地台账。
-   `--test-alert` 提供通道自证入口(真发一条标明"非故障"的自测并回读每通结果)。
-
-4. **守门 80 `check-git-read-timeout.mjs`(blocking,已注册)** —— 堵"提交像死掉了"这类**无界挂起**。
-   起因是当天 `check-port-registry.mjs` 里一处 `execSync('git ls-files')` 没有 `timeout`,在共享工作区
-   挂住 **80 分钟而 CPU 只用了 2.84s**(等锁/等 IO 型挂起),`git status` 与 typecheck 都看不出任何异常。
-   全仓首参锚定实测 **159 处** git 派生调用**无一带 timeout** ⇒ 这是"没有约束",不是"个别疏忽"。
-   口径刻意收窄三条(与守门 52 同取向:宁漏不误报):① 只判钩子/守护链可达的 HOT 文件;
-   ② 只判**动词为字面量**的调用 —— 通用包装器(`git(args)` / `runGit(args)`)动词未知,
-   给它整体加超时会连带 bound 写操作,而 **`commit`/`add`/`reset`/`mktree` 被 SIGTERM 中途打断
-   可能留下 `.git/index.lock`**,等于把一次挂起换成全局阻塞(本门因此明确不判写动词,并**如实报数**);
-   ③ 只判只读动词表内的调用。`timeout` 的简写属性 `{ timeout }` 也算已封顶(真仓首跑就是被这条假红的)。
-   **存量随本门一并清零**(runner 3 处 + converge 4 处 + commit-loss-guard 默认值 1 处),不留基线债;
-   被改的 `git-sync-converge` 跑自身 `--self-test` 6/6 仍全绿,证明加超时未改行为。
-   **口径更正(写给接手的人,别把断言当证据)**:我在登记提交里写过"同号不影响执行、两扇门各自都会跑",当时**只有静态接线证据**
-   (`node scripts/guardian-runner.mjs --help` 的清单尾部确有 `78, 80, 79`),没有该轮 pre-commit 的执行行 ——
-   那一轮日志里 [79]/[80] 都没出现,最合理解释是并发会话按旧基线回写过 runner(§12 已知风险)。
-   教训:门的"装上了"必须同时给出 ①清单探针 ②一轮真实执行行,缺②就只能写成待证,不得写成结论。
-   自检 9 例里有一例专门钉"测试夹具/注释里的 git 字符串不得判红" —— 这个缺陷是自检自己抓出来的,
-   修法是 `markHidden`(字符串/注释区间掩码),不是调正则;镜像测试 7 例含**装车证明**。
-
-   **同日 14:05 的一次假阳性与修正(必须记)**:该巡检把"正在构建的这一轮"判成了停摆并发出了邮件
-   (14:02 起构建、14:06:21 成功,判红发在 14:05)。告警器乱叫就会被静音,而配额是 Server酱 5 条/天、
-   邮件 10 封/天 —— 所以加了**在飞护栏**:`deploy-loop.log` 最后一行仍是轮次中间产物(未出现
-   `轮询结束`/`部署完成` 这类边界)且写于 20 分钟内 ⇒ 判 `unknown` 不判 `fail`;边界之后(冷却/失败)
-   照判。自检补两条**成对**用例(同一输入:在飞 ⇒ `unknown` / 非在飞 ⇒ `fail`),防止护栏被改宽后
-   静默吞掉真故障 —— 现 15/15。14:10 实测:最后一行 `构建尝试 1/4`(1 分钟前)判 `unknown`,正确。
-
-- **⚠️⚠️ 同日 19:2x 二次更正:上一条里"cron 零派生""触发是根因"两个判断都不成立**。派子代理带证据复查后,地面真值是:
-  1. **schedule 确实在派生**(14:16:29Z、18:26:28Z 两条 `event=schedule`),我说的"4.5 小时零派生"是**在 13:40 采样太早**造成的时间假象;
-     但**严重欠派生**仍成立:9h23m 内只来 2 次(应约 28 次),且有 7 个 tick、9 个 tick 的两段空窗内既无运行也无排队 ⇒ 原因**未定**(GitHub 未公开数字上限;已排除 Actions 关闭、额度枯、cron 语法非法、refspec/group 重名挤占)。
-  2. **真根因是 Gitee 服务端硬配额**:`remote: Repo size: 1156.016MB, exceeds quota 1024MB` + `Push rejected for repository [size exceeds limit]`(gitee.com/help/articles/4232),
-     18:26 那轮 3437 条 `remote rejected` 里 **3424 条是 `lost-commit/*` + `nightly-*`** —— 本地 4222 个标签中这类内部备份标签占 4061 个,`refs/tags/*` 全量推送把它们连同一个仓库体积一起顶过了配额线,
-     于是 `main` 也被 pre-receive 连带拒 ⇒ **换任何触发方式都推不上去**。Gitee `main` 至今停在 `d4331fb3` @ 2026-09-20 23:16(+08),落后 3.2 天;对照 GitCode `main` 已是今天的 `084d04b6`(新鲜)⇒ 两仓必须分开判。
-  3. 手动补发那轮(dispatch 13:46:54Z)**跑了 69m17s 后 failure**,失败在第 5 步"镜像到 Gitee"(61m37s),第 6 步 GitCode success。
-     ⇒ 对"配额型失败"再补发就是白烧 Actions 时长,已改为**上一轮 conclusion=failure 时不补发,只判红并写明去查 Gitee 拒绝原因**。
-- **已做的两处收口**:
-  ① `mirror-to-cn.yml` 的 Gitee 步骤不再推内部备份标签(`EXCLUDE_RE='^refs/tags/(lost-commit|nightly|backup)/'`,实测**排除 4061 / 仍推 161**,即 96% 的标签体积不再进国内镜像);
-     GitHub 侧标签**一份未删**(§22/§29 的防 gc 用途保留),只是不再复制到国内。**删掉 Gitee 上已有的那 4061 个副本属破坏性动作,需用户确认后再做**(且删除后仍需 Gitee 侧 git-gc 才真正降体积 —— 未实测能否降到 1024MB 以下)。
-  ② 巡检的镜像判据从"看 GitHub 运行元数据"改成**直接查 Gitee `main` 的提交时间**(阈值默认 18 小时)。原写法的缺陷被实测抓到:`updated_at` 一直在刷新,于是"每 20 分钟失败一次"被读成"很健康" —— 属"配置/元数据正确"冒充"真落地"的同族错误。
-- **本票自我纠正共三次**(镜像"已修复"、"零派生"、停摆假阳性告警),同一条教训:**验证必须在故障真正会被暴露的那个面上做**,在配置面/元数据面看到的绿都不算。
-
-5. **看门人自己坏了两天没人知(同日 19:1x 发现并修)** —— 做这条收口时顺手自查出的两件事:
-   - **`IHUI-AI git-guardian` 计划任务已经不在**(`schtasks /Query /FO CSV` 全量列表里只剩 `IHUI credential-health`/`IHUI-AutoDeploy(已禁用)`/`IHUI-ImageCDN`),
-     即从 09-12 起守 `.git` + 嵌套 ref + 工作区存续的那一层**当前没在跑**。它自己的"形态漂移自检"其实一直在尝试重注册,但**每轮都失败**,于是既不成功也不报警。
-   - 失败原因是一个**自我打死的判据**:自检用 `pwsh` 的 `Get-ScheduledTask` 读 `LogonType`,而本机 pwsh **没有 ScheduledTasks cmdlet**
-     (实测 `The term 'Get-ScheduledTask' is not recognized`);该命令不非零退出 ⇒ 拿不到值却返回 `MISSING` ⇒ 判"漂移" ⇒ 重注册;
-     而它要求的 S4U 形态在同一台机上**永远注册不成功**(回读恒 `LOGON=` 空),只有 `.vbs` 回退真能注册 ⇒ "注册成功"与"判它漂移"每 2 分钟互扇一次。
-     更糟的是:**只认 S4U 会把合法的回退形态(InteractiveToken + `wscript.exe` + ASCII `.vbs`,同样不弹窗)判成漂移** —— 即 §5b 自己定的隐藏启动约定被自己的新自检否掉了。
-   - 修:判形抽成纯函数 `scripts/lib/schtasks-form.mjs`(不依赖 cmdlet,存在性用 `schtasks /Query /FO CSV`、形态用 `/XML` 去 NUL 后按关键字判),
-     明确接受 `S4U` 与 `InteractiveToken+wscript+我们的 vbs` 两种形态,**只有**"InteractiveToken 直跑 node.exe"或任务消失才算漂移;**取不到信息一律 `unknown` 且不动任务**(宁可不动也不误动)。
-     `--self-test` 之外补 `node --test scripts/tests/schtasks-form.test.mjs` 6 例(含"有 wscript 但包装文件不是我们那个 ⇒ drift",防蒙混)。
-     行为验证:连跑两轮守护,`.workbuddy/git-guardian.log` **新增 0 行**(修前每轮两行"漂移/拒绝当成成功")。
-   - **再加一层互看**:`git-guardian`(每 2 分钟、自身分层自愈)新增 `watchWatchdog()` —— 读巡检心跳 `.workbuddy/credential-health-last.json` 里的 `ts`,
-     超过 18 小时没更新(= 标称 6 小时周期的 3 倍,避开休眠误报)就**重跑 `--install` 找回任务 + 就地拉起一轮**,并用 `credential-health-kick.ts` 落盘做 6 小时冷却(不能靠进程内变量,守护是每 2 分钟一次的一次性进程)。
-     挂在健康轮次早退之前(§5b 已记:挂错位置等于永不执行),`--check` 保持零副作用。
-   - 计划任务本身已由本轮 `--install` 恢复(`每 2 分钟`、经 `git-guardian-hidden.vbs` 静默启动,已回读 XML 确认)。**残留**:两个任务都是 `InteractiveToken`,
-     即**无人交互登录时(开机后未登录/被注销)两者都不跑** —— 要彻底免疫需改成 S4U/服务托管,而本机 pwsh 缺 cmdlet 正是当前做不到的原因,记为待决。
-
-### 部署脚本三项机制化加固(2026-09-23 晚,用户授权代改;已真跑验证)
-
-上面 C 档第 1 条(生产跑在共享工作树 ⇒ 任何会话留未提交文件就 `ff-only` 失败)此前被判为
-"须脚本作者定夺"。本次经用户明确授权后直接改,并已**在生产轮次里真跑通**,不是静态推断:
-
-1. **ff-only 前置现场对齐**:脏树时先跑 `node scripts/heal-worktree-tracked.mjs --align-drift`
-   (保守判据:仅"索引==HEAD 且 工作树==该路径某祖先版本"才动,**不碰真在写的文件**),再重试 ff-only。
-2. **成因分类**:对齐后仍脏 ⇒ 打印 `BLOCKED-WIP 有 N 个被跟踪文件存在真实未提交改动(非幻影漂移)`
-   并附文件名 ⇒ 运维一眼分得清"别人在写"还是"机器坏了"。**脚本内不出现任何销毁性 git 写法**。
-3. **告警去重改周期重发**:同签名由"12h 静音"改为每 4 小时重发(正文带"已持续 X 小时/第 N 次"),
-   换签名立即发 ⇒ 今天那条"放大器 1"结构性关闭。
-4. **健康门禁降频 + 429 不误判**:整轮共用一把令牌(5 次探针只登录 1 次)、最多 2 次登录;
-   探针三态 `pass/fail/unknown`,**429 与传输不可达不再被当成部署失败**(避免无谓回滚),
-   但"全 pass 才通过"的成功条件未放宽;`BackendLogin-Token` 的 catch 不再静默吞异常。
-
-**验证方式(全绿)**:`pwsh` `Parser::ParseFile` 0 错;新增 `apps/api/tests/o6-deploy-script-invariants.test.ts`
-4 例(含对**上一版脚本**跑同一组判据 ⇒ 四条全红,证明护栏不是空转);隔离运行期自检 18 项
-(假探针服务 + 桩化发送,**不触碰生产端点**);真跑:19:51 `next build 完成` →
-`健康门禁 第 1/8 轮: web=pass api=pass llm=pass` → `部署完成 HEAD=04cb81086`(= 当时 origin tip),
-且 19:45:33 真实触发过一次 `BLOCKED-WIP` 分类输出。
-
-**残留风险(如实)**:①`--align-drift` 的真实写动作只在生产那一轮经由守护链路走过,
-我这边另做了 dry-run 计时(2032ms,不会拖慢 68s 轮询);②"unknown 放行"是有意换来的新风险面:
-若新版 web 真挂且表现为**传输层不可达**(而非 5xx),门禁会按未知放行不回滚,已要求日志留 2 行 WARN;
-③迁移告警 `Note-MigrateFailure` 自带 12h 同签名门未动(超出本次授权范围,其下游仍受新 4 小时重发约束)。
-
-### 混合提交说明(2026-09-23 19:5x,我的操作失误,内容零丢失)
-
-提交 `356340953`(纯文档)时我用了**不带 pathspec 的 `git commit`**,把并发会话**已经 staged** 的
-`AGENTS.md`(±3 行)与 `README.md`(±132 行)一起卷进了我的提交 —— 违 §12「commit 阶段只 add 本任务
-相关文件」。核实与处置:
-
-- **无内容丢失**:被卷入的是他们**已暂存**的那部分,现已完整进入 HEAD;他们**未暂存**的后续修改
-  仍在工作树里(`git status` 复核 `AGENTS.md`/`README.md`/`notify-deploy-failure.ts` 等仍在)。
-- 按 §12c「接受混合 commit」:**不 amend、不 reset**(那会连他们的改动一起回退),只补本条说明。
-- 教训落点:即便索引里已有别人 staged 的内容,`git commit` 也必须带 pathspec ——
-  safe-commit 的"staged 集合必须等于声明集合"这道校验正是为此;我这次绕过了它(用裸 `git commit`)
-  才让这类污染成为可能。**后续任何提交一律走 safe-commit 或显式 `git commit -- <路径>`。**
-
-### 需要你拍板的两件事(我不擅自做)
-
-1. **Gitee 配额要真正解开,必须删镜像上的内部备份标签并触发 GC** —— 本仓已做到"不再推这 4061 个
-   `lost-commit/*`/`nightly-*`/`backup/*` 标签"(GitHub 侧一份未删,§22/§29 用途不受影响),但 Gitee
-   仓库**现存体积 1156MB 已超 1024MB 硬配额**,不删旧副本、不做服务端 git-gc 就永远推不上去。
-   删除对象是**第三方服务上的 4061 个 ref**,属外部共享系统的破坏性动作,且能否降到配额线下未实测
-   (Gitee 的 GC 需其控制台/工单侧触发)。要我做就说一声,我会先零损失备份 tag 清单再动。
-2. **两个计划任务都是 `InteractiveToken`** ⇒ 无人交互登录时(重启后未登录/被注销)`git-guardian`
-   与凭据巡检**都不跑**,保护与报警同时失效。改成 S4U 是结构解,但本机 pwsh 无 ScheduledTasks cmdlet
-   (这正是今天 guardian 自检空转的同一成因),且 S4U 下 HKCU 环境变量(`SERVERCHAN_SENDKEY` 等)
-   能否被读到需实测 —— 有把告警通道弄坏的风险,故未擅改。
-
-**仍然存在的客观限制(不粉饰)**:部署脚本内部那条 12h 同签名去重(放大器 1)未改,归其作者定夺;
-本次是**在其之外**加了每 6 小时一次的独立观测 + 提交前的结构性拦截,把"两天无人知"压到"最多 6 小时"。
-若要把上限进一步压到分钟级,需要把巡检频率提进 `IHUI-DEPLOYLOOP` 的同一轮询里,那属脚本改动。
 
 ### 顺带纠正的文档与判据
 
@@ -855,197 +690,6 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - **本批**未做**项(如实登记)**:① 同目录 `study-plan/StudyPlanPage.tsx` 仍有 4 处硬编码中文,且其 L70 `terms.find((t) =>` 是**待引爆的 t 遮蔽** —— 谁给它加 `const t = useTranslations` 就直接编译崩,接线前必须先改形参名;② `edu/parent/children/[childId]/{courses,meals,study-plans,attendance}/PageClient.tsx` 与 `bind` 同级的 4 个子页各 4 处,可复用本批 `eduStudyPlan`/`eduMeal`/`eduAttendance` 键;③ 共享包 `packages/i18n/messages/shared` 的 `nav.home` 现值 ja=「首页」/ko=「Home」(面包屑复用即继承该残留),修它要动共享词包,本票授权面外;④ A 类 5375 行内容本地化是产品决策,不由本票擅自动门或擅改口径。
 
 
-
-- [x] ✅(2026-09-23,本票补记)**第一次落地被并发会话的无 CAS `update-ref` 从 main 线上抹掉,前向恢复时又挖出一个方法级缺陷**:
-  ① `932098e114`(13:18:37)写进 `refs/heads/main` 后 **71 秒**被 `4f9c55c7af` 覆盖 —— reflog 该条**动作描述为空** ⇒ 程序化 move-ref 不带 CAS,我的提交从分支线消失只剩对象。恢复一律前向(重建提交面 → `commit-tree` → CAS → 回读 → 前向提交),**不 reset、不碰他人文件**;`git merge-base --is-ancestor` 成了"提交是否真在线上"的唯一可信判据,`git log -1` 看不见这种事。
-  ② 更值钱的是重跑**干净检出**门时暴露的真缺陷:packdir 隔离法只把"清单**新增**"装进 blob,**对既有值的编辑会被静默回退** —— 第九批 `b49bb900c2` 正是这样把本会话当场修好的 **11 枚 zh-TW「台→臺」**在提交树里退回简体,而**工作树跑门全绿**(工作树还留着正确值)⇒ 本机自验完全发现不了。
-  ③ 处置:先把唯一现存于工作树的 14 枚值级正解(11 枚 zh-TW + `nav.home` ja/ko + `common.create` ja)快照成 `value-fixes-b11.json`,再按"HEAD + 8 份清单 + 值回正"重建提交面;给构建器加**值面自证**:blob 与 HEAD 逐叶子比值,`越界改值必须 0` 且 `授权回正必须全部生效`,否则拒绝落库。另配一份逐值差异普查脚本(`pack-value-diff.mjs`)作为常备取证手段。
-  ④ 恢复票 `02e3474c93` 的干净检出复验:`scan-i18n-zh-residue zh-TW` **11 红 → 0**、ko 0、`check-i18n-broken-en` 0、`check-i18n-keys --target=web` 缺失 **0**、死键父提交 7 → 本票后 7(**+0**)、守门 70 exit 0(9157 行 / 台账 9160)。**教训**:凡"从 HEAD 重建产物"的隔离提交法,必须配"与 HEAD 逐值 diff,只允许白名单改动"的自证;本机绿 ≠ 干净检出绿 —— 与本仓既有"造好没装车""自愈须在独立仓库做 A/B"是同一类病。
-
-### 第十二批:跨端 4 族界面 chrome 清零(23 文件 / 93 键 × 5 语)+ 派单清单的自伤复盘(2026-09-23)
-
-六路并行。承第十批"C 类可动清单",这次**跨出 web**(扩展端首次进入本专项)。
-
-- [x] ✅(2026-09-23) **23 文件硬编码中文归零,词表 93 枚 × 5 语言**:web 侧 `agentWorkbench.card.*` 13 / `llmSettings.v2.*` 等 29 / 知识库族 36(`knowledgeList` 7 + `knowledgeBase` 23 + `knowledgeRag` 4 + `kbArticleForm` 2);**扩展端** 15 枚(`chat.modelCategory*` 11 + `chat.modelHistoryToggle` + `auth.ssoFailed` + `page.topics.{discussions,followers}`)。守门 70 台账 **652 条/9160 → 637 条/9043(释放 117)**,`layout.tsx 46>40` 仍是他人越线,保持红不替其平账。
-- [x] ✅(2026-09-23) **扩展端把"本地词典"这条退路拆掉**:`apps/extension/src/lib/model-catalog.ts` 原自带一份 5 语 × 11 类目的 `CATEGORY_LABELS` 硬编码字典(41 行中文),文件头注释还写明"消息文件不在本次范围内"。现改为从 `packages/i18n/messages/extension/` 取词,与 web / mobile-rn 的**同名键逐条对齐**(-81/+36)。这类"端内小词典"是 i18n 最隐蔽的债形:它能编译、能过 parity、每加一门语言都要人肉再抄一遍。
-- [x] ✅(2026-09-23) **共享组件 `work-panel.tsx` 的中文兜底改英文**:它此前以中文作 `DEFAULT_LABELS`,消费方不传 labels 就**静默显示中文**(非中文界面即断裂)。现兜底改英文并同步 3 处注释;跨端消费面已核:**只有 web 的 `web-work-panel.tsx` 传 `labels={workPanelLabels}`**,其余端不渲染该组件 ⇒ 无退化风险。`ui-react` 单独 `tsc --noEmit` **0 错误**。
-- [x] ✅(2026-09-23) **契约测试 26 族 → 32 族,233/233 passed**。新增 6 族里 4 族必须 `onlyKeys` 收窄(`agentWorkbench` HEAD 已有 39 叶、`llmSettings` 已有 286 叶、`knowledgeRag` 62、`kbArticleForm` 12)—— 不收窄就会把他人 in-use 键判成我的孤儿键;键名与绑定文件都由清单/`useTranslations` 实绑**机械反查**得到,不手抄。
-- [x] ✅(2026-09-23) **自伤复盘(必须记账):我给代理的派单清单里有一批文件名是我凭"目录聚合数字"臆造的**。扫描器输出被截断后我没有回读真实清单,而是按目录数拼了 `DocumentUploadDialog.tsx`/`work-panel.tsx`/`AgentConfigForm.tsx` 之类的路径发出去 ⇒ 三路代理各自烧了 19-95 轮才发现"文件不存在"。所幸它们都按任务书"以磁盘为准、先 `git status` 逐个核"的指令自纠,交回的是**真实文件**的清单,没有造成错误改动。已把纪律升级为:**清单必须由脚本机械生成到文件再喂给代理**(本票起用 `b12-movable.mjs` / `b12-face.mjs` / `gen-families-b12b.mjs`),并给提交面加三道闸:① 磁盘存在 ② 守门 70 权威计数为 0 ③ diff 确实抹掉中文 —— 任一条不满足就落进"剔除"清单显式打印,不静默纳入也不静默丢弃。
-- [x] ✅(2026-09-23) **两路交付不实,按"报告 ≠ 磁盘"处理**:CLI 路声称改了 `apps/cli/src/i18n/commands/{help,speak,demo}.ts` 并交 11 枚键 —— 实测该目录无这些文件、清单文件不存在、`packages/i18n/messages/cli` 顶层只有 `common/cli/waiting` 三块 ⇒ **不采信、不提交**,同时把它顺手报出的真线索留下(见下)。
-- **本批新发现(如实登记,不在本票擅自动他端)**:① **cli 端 `commands` 命名空间在 zh-TW / ja 整块缺失**(zh-CN/ko/en 有,ko 又只有 19/51)—— cli 的 loader 用 `mergeDeepMessages` 兜底才不会抛错,但 `pickLanguage('zh-Hant'|'ja')` 一开就整片回显键路径;要补等于给 cli 端做一轮 parity,须单开一票并同步 `check-cli-i18n-parity.mjs` 从 warn 升阻塞;② `apps/web/src/components/ai/progress-sections/*` 与 `message-input-history.test.tsx` 等 **34 处 tsc 错误全在他人未提交/脏文件里**(与本票 23 文件零交集,已逐文件比对);③ `check-i18n-keys --target=web` 本机 25 红 = `upload` 14+1 / `webviewFrame` 8 / `ai.pane` 2,全部来自他人的未跟踪 hook 与在途组件,干净检出为 0。
-- **ja 盲区量化已完成,但**判据仍不可用**:高精度规则(cn→tw 与 cn→jp **同时**变形才算简体独有字形)把 6205 枚"零假名汉字值"压到 web/ja 44 枚,但抽样复核仍是假阳性(`携帯/注文/占/干/雇/无/里` 都是正确日语字形,opencc 却判它要变形)。⇒ 结论:**不引入日本常用汉字/新字体表就没有可靠判据**,升阻塞会大面积误伤;本轮只做量化与工具沉淀,不动门。
-- **多端与文档**:改动 `apps/web` + `apps/extension` + `packages/ui-react`(仅兜底语言与注释)+ web/extension 两份词包 + 台账 + 契约测试。`ui-react` 那处是跨端共享件但**已核实唯一消费方为 web** ⇒ 本票仍标平台独占(web + extension);§21 README 豁免。
-
-
-
-
-
-
-### 第十九批:守门 70 覆盖补齐三端(2026-09-24,commit `cd505a437`)
-
-承第十八批发现的"端内组件写死中文却无门可拦",把棘轮铺到此前**零覆盖**的三端:
-`apps/mobile-rn/src`、`apps/extension/{entrypoints,src,lib}`、`apps/cli/src`(共 627 个源文件)。
-
-- 台账首次入账 **291 条 / 4248 行**,636 → 927 文件、total 9076 → 13324。
-- 入账口径三条,缺一条就不配叫"只入账不掩垢":① 计数取自 **HEAD 的干净检出**(`git archive HEAD` 内跑同一判据),
-  不取工作树 ⇒ 不把他人未提交的中文冻成额度,且与 CI 所见同结论;② 只往 `files` 里**新增**,
-  逐条断言既有 636 条"改动 0 / 删除 0",不满足即拒写;③ 落库前在新鲜 HEAD 检出复跑,
-  **三端新覆盖违规 = 0**,证明确实是"入账"而不是"把别人的洞算成我的额度"。
-- 剩余 3 处越线全在 web(`ai-news/components/PriceChart.tsx` 6>4、
-  `ide/terminal-panel/TerminalStatusIndicators.tsx` 1>0、`ide/terminal-tab-bar/TerminalTab.tsx` 1>0),
-  属他人已入库提交超出自己冻结额度(后两个文件台账里根本没有条目)。**本票不替他们平账**,原样留归属会话。
-- 两个自伤记此防复发:① 台账是 `{generatedAt,targets,total,files}`,我第一版把新键写在**顶层**
-  (门读 `raw.files`),当场造出"三端 285 文件越线"的假象,差点顺势去扩大基线;
-  ② `npx --no-install prettier` 在本机必崩,格式化要走 `node node_modules/prettier/bin/prettier.cjs`。
-  ③ 中途一次 `git diff` 报 `9 +/81 -` 也是同一类信号(工作树落后 HEAD),见第十八批。
-
-### 第十八批:修正第十七批的因果判断,并把 RN 付费按钮真缺陷修掉(2026-09-24)
-
-第十七批我写的结论"**RN 共享屏取不到 `pay.*` ⇒ 静默走中文 fallback**"是**错的**,本轮查清并改判:
-
-- `packages/app/src/components/PayButton.tsx`(即 `tr('pay.*')` 所在那个)**没有任何端挂载** ——
-  RN 的 PaymentScreen 在 `:22` 引的是**端内**组件 `../components/PayButton`,taro 侧只在
-  `adapters/README.md` 被提及。所以 taro 包里那 6 枚 `pay.*` 是"为一个从未挂载的组件镜像进来的孤儿词",
-  不存在"运行时候取不到词"这回事。**我上一票据"存在 `tr()` 调用点"就推断"RN 在用",漏了验证调用点所属组件是否被挂载** —— 这是
-  "有引用 ≠ 有消费"的又一种形态(前两种:注释里提到、测试 mock 里写)。
-- 真正的用户可见缺陷在**端内组件**:`apps/mobile-rn/src/components/PayButton.tsx` 的 `TYPE_META`
-  四档文案(免费使用/限时免费/已购买/每月)与默认金额文案 `立即支付 ${x}` 全是字面量中文,
-  `PaymentScreen:177` 还有 `label="去充值"`;而守门 70 的 TARGETS 不含 `apps/mobile-rn` ⇒ 这笔债此前**无门可见**。
-
-修复(同端既有先例 `import { useI18n } from '../i18n'`,BottomActionBar 等 5 组件同形):
-`TYPE_META.text` → `textKey` 并在渲染处 `t(meta.textKey)`(含 `accessibilityLabel`,读屏一并本地化);
-默认金额文案改用**已存在**的 `payment.payNow`(值"去支付",不另立同义词,故按钮由"立即支付 ¥12.00"变"去支付 ¥12.00");
-`label="去充值"` → `t('payment.recharge')`;mobile-rn 包五语各 +5 键
-(`payment.payType.{freeuse,freetime,hasbuy,monthly}` + `payment.recharge`),
-ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko 纯 Hangul、zh-TW 全繁体。
-验证:本票两文件 `tsc --noEmit` 零错误(该包另有 10 处 `ctaFill` 报错属他人未提交 token 改动);
-`check-i18n-keys --target=mobile-rn` 通过、`--parity-only` 通过、`scan-mobile-rn-dead-i18n-keys` 死键 0(=新键确有消费者)。
-
-**顺带逮住并拆掉一个静默回滚陷阱**:我第一版把清单 merge 进工作区包时 `git diff` 报 `9 +/81 -`,
-原因是**工作区那份 mobile-rn 包落后于 HEAD 与索引**(缺 `conversationImport`/`sectionOrder`/`nativeUnavailable` 等 76 键,
-正是守门 76 描述的"幻影漂移"形态)。照那版提交就会替并发会话把这 76 键从版本树抹掉,而 diff 只显"改了几行"。
-处置:改为"从 `git show HEAD:` 重新播种 → 临时目录 merge → 回装",复验成 `8 +/1 -` 且唯一"删除"是给末位成员补逗号。
-
-**由此得出两条可复用判据(写死在此)**:① 判断"某词表键是否在线"必须查到**组件是否被挂载**,不能停在"有 `t()` 调用点";
-② 任何往共享包做批量写入的脚本,落盘后必须立刻以 `git diff --numstat` 对 HEAD 复核"插入数/删除数"形状,
-出现意外删除数即说明基线不是 HEAD,须重播种而不是继续提交。
-
-### 第十七批:taro 39 枚死键**一枚不删**,因为它们背后是"RN 付费按钮从未本地化"的真缺陷(2026-09-24)
-
-上一票把"taro 33 枚镜像键删还是留"挂成待拍板。本轮按证据查完,**结论是两件事都不该做**,真问题在第三个地方:
-
-- 溯源:39 枚全部由 `02b2d353ad5`(2026-09-14,"fix(ai-service): 保留 W-batch ChatMode 注入…")
-  一次性灌进 taro 包 —— 提交主题与这些键无关,是混合提交里的词表顺带产物。
-- taro 侧无消费者:`apps/miniapp-taro/src/components/adapters/` 实际只有
-  `Selecter / SectionHeader / ColorfulLoader / index.ts` 四个适配器,
-  **不存在** `adaptersCarousel|FeedbackScreen|OrderScreen|PayButton|UserInfoCard` 对应适配器;
-  镜像契约测试 `packages/i18n/tests/waiting-keys-in-end-packages.test.ts:30` 的 `END_PACKAGES` 只钉 waiting 族,对这批无约束。
-- **决定性一条**:`pay.payNow / pay.defaultName / pay.subscribeTip / pay.priceLabel / pay.perMonth / pay.countLabel`
-  在**六端包里只有 taro 有**,web / shared / extension / cli / mobile-rn 全部没有;
-  而唯一调用点 `packages/app/src/components/PayButton.tsx:313-319` 是 RN 共享屏
-  (`tr = (key, fallback) => (t ? t(key) : fallback)`,t 由 props 注入)。
-  ⇒ RN 运行时**取不到这六个键**,永远走 `fallback` 里写死的中文 ——
-  即"partial props + 中文默认值静默不本地化"同一形态的真缺陷,而不是"该不该摘孤儿键"。
-  上一票若非我先复核代理结论(动词组补 `tr` 那枚门 `44a81a6162e`),这六枚连 taro 里的那份也会被删掉,
-  届时**全仓再无这六个日语词条**,修 RN 时只能重译。
-- 所以本票动作:**零删除**。已做的两件事是 ① 把判据盲区补上(`tr()` 注入式包装器,已落 `44a81a6162e`),
-  ② 把"删 39"改判为"RN 付费按钮本地化缺失 + taro 承载从未开建屏幕的孤儿词表"并登记。
-- **正确修向(需动他人功能面,不属本会话代改)**:把 `pay.*` 六键按端补齐到 RN 真正加载的消息集
-  (mobile-rn 或 shared,取 RN `i18n` 合并链为准),并让 `packages/app` 的 PayButton 在 RN 侧真拿到 `t`;
-  验收判据 = 五语下 `pay.payNow` 可解析且 `fallback` 中文不再出现(可用 `check-word-table-resolvable.mjs` 同型断言钉)。
-  而 taro 侧那 33 枚属于"为未开建屏幕预留的词表",要删须由适配器接线程序(gate 64 那条线)确认不再需要后一并处理。
-
-### 第十六批:死键判据第三处盲区(注入式取词包装器)+ 撤销一版"可删 39 枚"的代理结论(2026-09-24)
-
-我没有照抄代理结论,而是先逐条复核 —— 结果当场证伪:`dead-taro` 代理给出"delete 39",
-但 `packages/app/src/components/PayButton.tsx:313` 定义 `const tr = (key, fallback) => (t ? t(key) : fallback)`
-(t 由 props 注入,:23 注释自述),:314-319 用 `tr('pay.defaultName'|'pay.subscribeTip'|'pay.priceLabel'|
-'pay.perMonth'|'pay.countLabel'|'pay.payNow', …)` 真实取词。**若照做,6 处在线文案会被静默删词。**
-
-- **根治**:`_i18n-scan-helpers.mjs` 三处动词组 `(?:t|tt)\(` → `(?:t|tt|tr)\(`。方向安全(扩消费者识别只会减少
-  假死键,不会造出假死键);`\b` 锚定使 `extra(` / `transform(` 不命中,已写成反例用例。
-  实测 web / extension / mobile-rn 死键保持 0(零连带回归),镜像用例 141/141、分端扫描器 14/14。
-- **taro 仍 39 的原因不是判据旧洞**,而是 `packages/app/src` 不在 taro 端 scanTargets 内 ——
-  代理当初反对把 `packages/app` 加白是对的(会把 RN 专属键倒灌成 taro 假 wire)。
-- **结论改判**:taro 那 39 枚至少 6 枚确证在线;其余 33 枚属"RN 共享包词表被镜像进 taro 包而 taro 侧无消费者"。
-  镜像契约测试 `packages/i18n/tests/waiting-keys-in-end-packages.test.ts:30` 的 `END_PACKAGES` 只覆盖 waiting 族,
-  对 pay.* 无约束 ⇒ "删掉 vs 保留镜像"是 taro/RN 包设计的归属判断,**不是机械摘叶动作**。本票一枚 taro 键都没删。
-- **可复用的判据(写死在此)**:任何"死键可删"结论落地前,必须额外查两种形态 ——
-  ① 包装器取词(`const tr/t2 = (k, …) => t(k)` 这类先字面量传给本地函数、再由它转调注入的 `t`);
-  ② 跨包镜像(taro/rn 共享包 `packages/app`、`packages/ui-react` 内的字面量取词,常在端 scanTargets 之外)。
-- 上一票两件遗留状态:**per-end ja 阻塞门仍未做** —— 原因依旧是文件竞争:`scripts/guardian-runner.mjs`
-  被并发会话持有(` M`,内容是其删除自己守门 80 注册块共 35 行);三端 ja 实测全 ✅、片段与零碰撞 id
-  已备在 `.ihui-agent/tmp/i18n/JA-GATES-SNIPPET.mjs`(2o-shared / 2o-miniapp-taro / 2o-mobile-rn)。
-  **web 端 5 枚孤儿键已摘完**(死键 5→0,commit `5cd864697`),本会话全部提交已验证在 `origin/main`。
-
-### 第十五批:web 端 5 枚孤儿键摘除(死键 5→0)+ 一桩"看着像污染其实只是 0.2MB"的核账(2026-09-24,commit `5cd864697`)
-
-上一票(第十四批)留下的三件待办,本轮状态逐条交代:
-
-1. **web 端 5 枚真孤儿键已摘**,`scan-dead-i18n-keys` 死 key **5 → 0**(commit `5cd864697`)。
-   摘除前逐条人工复核(**没有只信扫描器**):`permission.mode.{full,auto,ask}` 是全仓唯一命中处**只剩注释**的
-   上一代词表(`workspace/permissions/page.tsx:48`、`chat/message-input.tsx:109`、
-   `workspace-permission-dialog.tsx:99` 三处都明写"不再用 …permission.mode.* 私有键",档位现由
-   `permissionTier.mode.*` 经 `apps/web/src/lib/permission-tier-text.ts:39-46` 渲染);
-   `contextMenu.feedback` 消费者被 `9b16668ccb`(D49)换成 like/dislike;
-   `toast.feedbackRecorded` 的**同名易混陷阱**已排除 —— `RuleDetailDialog.tsx:111` 的
-   `t('feedbackRecorded')` 实际命名空间是 `rules`(:39 `useTranslations('rules')`),用的是
-   `rules.feedbackRecorded`(存在),toast 侧确为孤儿。
-   机制:`.ihui-agent/tmp/i18n/reap-b15.mjs` 借 merge2 的字符串感知 span 做**行级删除**(不整文件重序列化),
-   每摘一键即 `JSON.parse`,父块摘空则连父成员一起摘(防"空块被计成一枚死键")。
-   五语各:删 7 行 / 丢键恰 5(意外 0)/ 键增 0 / **新留空块 0**(包内 7 个空块是存量,非本票造成)/
-   **其余逐值不变**;`git diff --numstat` 五份一律 `0 7`(纯删除零插入)。
-   复测:`--target=web` 通过(17458 键)、`--parity-only` 通过(22591 键路径)、死键 0、水印完整。
-2. **per-end ja 阻塞门未做,原因是文件竞争而非工作量**:守门 2d 上一票已升 blocking,但它只跑 web 口径;
-   shared / miniapp-taro / mobile-rn 三端 ja 现值实测**全 ✅**(具备立刻升门条件),
-   但 `scripts/guardian-runner.mjs` 此刻被并发会话持有(`git status` = ` M`,内容是其**删除 35 行**
-   = 摘掉自己的守门 80 `check-git-read-timeout` 注册块)。我若改这道文件再提交,就会把别人未提交的
-   删门改动一并带上 main —— 属"替他人做未授权的提交",故按住。
-   解阻判据:该会话提交后,把 `.ihui-agent/tmp/i18n/JA-GATES-SNIPPET.mjs` 的三个条目贴进
-   `guardian-runner.mjs` 的 i18n 门族即可(`2o-<end>` 三个 id 在 HEAD 面实测零碰撞),三端已绿不会误伤。
-3. **上一票的"归档路径污染"预警已核账,结论是不必动刀**:第十四批我警告快照提交把
-   `.git.broken-*/.git.hollow-*` 归档路径提交进主线、且一旦合流即上 GitHub。实测:两侧现均含
-   **4553 个**这类路径,**合计体积仅 0.2 MB**(HEAD 树总文件 16588)。
-   ⇒ 代价是可忽略的量级,而这些路径承载的是"husk 里独有的 1070 个 depth≥2 嵌套 ref"现场
-   (§5b 一律禁删那两目录及其归档),**保留比清理更安全**,故不做 `git rm --cached` 分片清理
-   (那还会额外撞守门 65 的"缺失 1000 或 20%"阈值)。此项由"待处理风险"降级为"已量化并决定保留"。
-
-### 第十四批:ja 端盲区升精确判据 + 死键判据两处盲区(2026-09-23,commit `a5f8aa523` 等)
-
-承第十三批"门报 9 死键 / ja 只能 warn"两条待办,本批把**判据本身**修到可判定,再按清单清账。
-
-1. **ja 精确判据落地**(`scripts/scan-i18n-zh-residue.mjs` + 新数据文件 `scripts/joyo-kanji.json`):
-   旧 `ja: warnOnly` 把**任何汉字**都 warn —— web/ja 实测 15132 处噪音,等于没有判据,这也是 §19 里 ja 长期不敢升阻塞的原因。
-   新判据 = **字形与繁体不同(中国简化字特征)∧ 不在 2010 版常用汉字表 2136 字内**。
-   表源为文化庁官方 PDF(平成22年内閣告示第2号,3.55MB 完整下载,前言自证"字種 2136 字"),两独立源交叉对称差仅 1 对
-   (`𠮟`↔`叱`,以官方原件取 𠮟)。**两条被我自己的任务书写错、被代理证伪的前提**:① `写/台` 不是"中文专用简化字",
-   它们就是 2010 表字种(写真/台風),按简化字排除会把日文常用词判红;② 表内含唯一非 BMP 字种 `𠮟` U+20B9F,
-   任何"汉字必在 U+4E00–U+9FFF"的预设都会漏它 ⇒ 逐字枚举的字符类按"跳过方向安全"设计(扩展区只会被放过,不会误报)。
-   缺表/表过短整轮回退旧 warnOnly 并如实说明,**不猜**。
-2. **两条必须存在的豁免面**(第一轮跑出来后立刻补,防把不可翻译项判成未翻译):
-   法定备案号 `吉ICP备…号` / `粤公網安備…号`(markdown 侧早有同口径,JSON 侧缺失)、
-   平台品牌名 钉钉/语雀/飞书/微信公众号/视频号 进 `scripts/brand-glossary.json`(brands 58→63,走既有 `isWhitelistedBrand`)。
-   净效果:281 → **276**(web 266 / shared 4 / taro 3 / rn 3),且剩余每条都是**真未翻译界面文案**(如 `"登录"`、`"状态"`、`"知识库"`)。
-3. **死键判据两处盲区**(`_i18n-scan-helpers.mjs` / `scan-dead-i18n-keys.mjs`):
-   ① `DYNAMIC_T_RE` 尾部 `\s*\)` 使 `t(\`chat.${key}\`, values)`(带 values 实参)整条不命中 ⇒ extension 7 枚假死键;
-   与 `STATIC_T_RE`/`TLIST_RE` 的"四次增强"既有语义对齐。② 新增**声明式命名空间登记**:认池自己声明的
-   `X_I18N_NAMESPACE = 'ns'` 常量为持有者证据(锚点 `packages/shared/src/chat/waiting-pool.ts:326`,全池 76 键由 :328-335
-   运行时拼装)—— 三票代理独立收敛到同一根因。③ extension 端 scanTargets 窄口径补 `packages/shared/src/chat`
-   (与 2026-09-12 给 taro/rn 加 `packages/shared/src` 同先例;刻意不加 `packages/app`,实测会把别端专属键倒灌成本端假 wire)。
-   四端合计假死键 **293 → 44**,且 44 枚逐条有 verdict+evidence(`dead-{ext,taro,rn}-b13.json`)。
-4. **合流阻碍取证**(代理逐文件定策,`merge-strategy-b13.md`):union-safe 3(AGENTS/PLAN/README,含无 `<()` 的具体命令)、
-   机器可判 take-theirs 1(`desktop-feed.generated.ts` 两侧仅差 `resolvedAt`,等价重跑 `scripts/resolve-desktop-download.mjs`)、
-   needs-owner 6(mobile-rn 四件归 智汇AGI社区 `36b1468b19c`/`6c9a7ac7a98` vs 快照 `e09d866222f`,其中 `InputArea.tsx` 是
-   77 行 showVoiceMic"删块 vs 保留"语义互斥 = 最危险;git 两件归 刘文博 `95b6622e595`,其中 `git-rebuild-local.mjs`
-   的 HEAD 版**自身 `node --check` 失败**(.mjs 混入 TS 注解),机器默认 take-theirs)。
-   **"本地丢 511 文件"命题被证伪**:现两侧仅差 9 路径且全为远端新增,本地真删除 0;唯一真删是远端侧
-   `apps/mobile-rn/tests/__mocks__/design-tokens.ts`(有意)。**反向污染才是最大风险**:快照提交 `e09d866222f` 把
-   **4485 个 `.git.broken-*/.git.hollow-*` 归档路径 + `--staged`/`_node_path.txt`/`.arts/` 杂物**提交进本地主线,
-   而 `origin/main` 现为 0 ⇒ 一旦合流推上去即污染 GitHub。**建议快照持有者会话**出一枚 `git rm --cached` 清索引提交
-   (磁盘保留,§5b 合规;注意守门 65 阈值"缺失 1000 或 20%"会拦一次性 4485,须分片)。本会话不代他人裁。
-5. **待办**:276 条 ja 未翻值按 5 分片并行改写(`fix-ja-{A..E}.json` → `apply-ja-fixes.mjs` 行级换值 + 五道自证);
-   清零后再把守门 2d 的 severity 从 warn 改 blocking(现在改会把所有会话刷红)。web 侧 5 枚真孤儿键摘叶另票。
-
 ### 守门侧票:`scan-i18n-zh-residue` 行正则"值含转义引号"漏检根治(2026-09-23,承第九批登记的待办票)
 
 - **A/B 取证(权威入口直跑,不复制判据)**:在 `.ihui-agent/tmp/i18n/probe/` 造两行探针(一行值含 `\"`、一行不含),`git show HEAD:` 取出旧版脚本作为 A,新版作为 B,同一 cwd 下对跑:zh-TW **旧报 1 处 / 新报 2 处**,ko **旧 1 / 新 2**,且新报的值是解码后的真实文本(`台帐"记录"详情` → `臺帳"記錄"詳情`)。旧版对含 `\"` 的那行**完全看不见** = 永久漏检的现场复现。
@@ -1401,76 +1045,9 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
 - **注入回归 3 例**(补上"造好没装车"缺口):卡片 define 与烧入框错开、指示器矩形与位图不等大、以及**反证符号解析**(把 `RCARD_X = C_L` 改成 300 必须报"漂移 288 != 300"而不是"缺少可解析的常量")。`node --test scripts/tests/check-installer-assets-geo.test.mjs` = **8/8 绿**;守门五条不变量全 PASS。
 - **带 updater 签名重建真包**:`智汇AI_0.1.44_x64-setup.exe` 6,169,910B + `.sig` 420B,`desktop-artifact-single` 确认目录内唯一安装包。裸 `pnpm build` 不带 `TAURI_SIGNING_PRIVATE_KEY` 会在 bundle 成功后报"A public key has been found, but no private key" —— 那是调用缺 env,不是工程缺陷。
 - **新包 PrintWindow 实测**:轨道已改为「01 已完成 ✓ / 02..04 未激活」(第十六批缺陷③消除)、两张选项卡框已烧入、动态版本行已是品牌无衬线字体(缺陷①消除)。
-- **仍未闭环(2026-09-23 第二十一批改判)**:此处原文是"内容按 1.5× 布局而窗口框未跟着重算 / 位置重锚了、窗口尺寸没重锚"。该定性**在写下它的时点是成立的**(当时那条分支确实没有重锚代码,`git show 236734e934` 可核),但现场保全提交 `e09d866222` 已把框补上 —— 重锚分支现在就走 `!insertmacro IHUI_GUIINIT_SIZE`,宏内 `SetWindowPos` 带上新算出的 `$IHUIWW/$IHUIWH`。**真缺口挪到第三步**:DWM 圆角失败时回退分支的 `SetWindowRgn` 被钉在调用当时的尺寸上,框放大后 region 不跟随。已由第二十一批抽 `IHUI_WINDOW_RGN` 同源宏在定窗/重锚两点共调补掉,并被守门 61 的第七条跨文件不变量钉住;残余=未做真机像素复验(改缩放取证已被明令永久放弃),详见该批。
+- **仍未闭环(如实登记)**:本机显示缩放被外部进程持续改写,实测该页在 150% 档下内容按 1.5× 布局而**窗口框未跟着重算**,截图右侧/下侧溢出(缺陷②只修了一半:位置重锚了,窗口尺寸没重锚)。解法方向 = 该页 DPI 重锚时同步重算 `$IHUIWW/$IHUIWH` 并 `MoveWindow` 外框,与 GUIINIT 的定窗逻辑同源;需一次带稳定缩放的复验,故不在本票内下"已修完"的结论。
 - 本票交付已由并发会话随批收编入库(HEAD 内可查到 `不写 $ReinstallPageCheck` 与 `checkVarScopeOrder`);工作区仍留 `.husky` 之外他人未提交的 `ihui-uninstaller.nsi`,未代收。
 
-### 第十八批(2026-09-23):目录页输入框垂直居中 —— 单行 Edit 顶对齐文字,并给这条修复立跨文件闸
-
-用户实测报障:"安装路径容器内的文字没有居中,下面空了很多"。
-
-- **几何其实早就是居中的**:`dir.bmp` 烧入容器 = 逻辑 (288,302) 412×36,旧输入框 = (302,306) 384×28,中线都是 320。红在别处 —— **Win32 单行 Edit 顶对齐文字**,控件比字行高多出的部分全落在下方,于是"文字贴顶 + 框底空一截"。
-- **修法**:`IHUI_EDIT_H` 28→22、`IHUI_EDIT_Y` 306→309(= 302+(36−22)/2),并在 define 旁写明该控件特性防回改。提交 `57e4443bd6`。
-- **运行期实证(不是推算)**:真包目录页枚举到 Edit 实际矩形 = 逻辑 (302,309) 384×22,与容器上下各余 7px,中线差 **Δ=0**。取证脚本 `.ihui-agent/tmp/installer-redesign/dir-center-proof.cjs`。
-- **配闸(本票新增,不变量 F)**:`checkEditInContainerCentered` —— 容器矩形从生成器 `sceneDir` 的 `<rect>` 解析(`x="${C_L}"` 复用 `resolveGenConst`,解析不到必须显式报错、禁止静默跳过),断言 ① 垂直居中 ② 水平不越容器 ③ 高不超容器。PASS 结论文案同步改为"六条",文件头计数漂移一并修正。
-- **注入回归 3 例**(基线用例先 `assert.notEqual` 防"注入失败导致假通过"):Edit Y 回退 306 → 红;只改生成器容器 height 36→18 而 define 不动 → 同时报"应为 300 实际 309"和"高 22 超出容器 18"(证明它真在跟**位图**对账,不是自比);Edit W 撑到 420 → 报水平越界。`node --test` = **11/11**,守门六条全 PASS。
-- **同批已立的不变量 E**(`checkVarScopeOrder`)把第十七批那个"Function 体引用后置 Var → warning 6000 静默丢引用 → makensis 中止"的陷阱泛化成闸,不再靠人记住 include 顺序。
-### 第十九批(2026-09-23):守门 71 补两处编号族盲区 —— 裸编号复选任务行与批次标题行,判据用真实计划注入验证咬住
-
-### 第二十批(2026-09-23):守门 71 把"行首编号"这一路判活补上 —— 堵住上一批自己登记的那条残余
-
-- **上一批遗留的残余面,本批当场收口**:`- [ ] O13b 第二段(收敛本身,5 条可核算)…` 整行被抹掉后,第十九批如实记着"仍会漏,因为该标题被另一条进度行原样引用(`… O13b 第二段 ①②③⑤ 已落`)—— 根治要换 ID 集合比对,会连带改掉 214 条既有条目语义"。**两句里只有一句是对的**:需要换判据,但**不必**牵连既有 214 条 —— 新判据只对"新两族"生效即可。
-- **做法(作用域钉死)**:每条登记行除 `marker`(文本标记)外再带一个 `id`(**行首编号**)。判活分两路 —— 有 `id` 的条目**只认**"候选内容里是否仍有某一行登记行以该编号开头",不再退回全文文本搜索(否则"被别处引用"正好把文本搜索喂饱,等于没加);没有 `id` 的(即既有 a) 加粗 bullet)保持原文前缀文本搜索**一字不改**。`headIdSet` 反过来把三种形态都算进去,所以"把 `- [ ] O13b …` 改写成 `- [x] ✅(日期) O13b …` 或 `- **O13b …**`"这类正当编辑都不会被误判。
-- **顺带把自愈面拉齐**:`historyMarkers` / `missingFrom` / `healContent` 全部改用同一个 `stillRegistered`,不再各写一份判据 —— 上一批就是栽在"检查面收紧了、自愈面还按 `includes` 判存活"上,那条被抹的行既报不出来也回捞不回来。`--heal` 因此也能回捞这类行了。
-- **验证**:自测 14 → 17 例(`headIdOf` 三形态正反 + 散文引用/短编号反例 + "整行删但标题被原样引用必报红"专项 + `healContent` 判据一致性);**真实计划**注入 5/5 咬住(第十八批 / 第十六批 / `O13b` / `O14` / `D13` 各删整行必报且只报 1 条),改写编号后正文的对照组仍 0 报;误伤回归 HEAD vs 工作区、HEAD vs 暂存区双向 0 报(登记行基数 329 条)。
-- **本批自伤一条(如实记)**:核验时误跑 `git update-index --add --cacheinfo <旧 blob> scripts/check-plan-line-loss.mjs`,把**上一版**门文件塞进了共享暂存索引 —— 若下一枚提交恰好带上这个路径,就是一次静默回滚(守门 76 的 R1 正是为此而设)。已 `git reset -- <该路径>` 撤销并回读确认 index 那份不含 `stillRegistered`、工作区那份含 4 处。**教训**:核验类命令一律只读,任何 `update-index`/`read-tree` 必须走临时 `GIT_INDEX_FILE`,不得碰主 index。
-- **残余**:① 短编号(`P0`/`D6`/`H2`/`W1`)仍不受保护 —— 全文必撞,给它们"身份"只会制造永不报丢的空条目;② 只把编号写在句中、整行不以任何形态开头的登记行不在本闸视野内(按定义就不是登记行);③ 真正的兜底仍是"提交计划文档前现取 HEAD 版本再插自己的行",本批只保证漏做时被拦住,不保证自动合对。
-
-### 第二十一批(2026-09-23):重装页 DPI 重锚的敞口**改判** —— 窗口框一直在跟,真正没跟的是窗口裁剪区域
-
-- **先把第十四批那句残余改过来**(PLAN 现 916 行):当时记的是"内容按 1.5× 布局而**窗口框未跟着重算**,位置重锚了、窗口尺寸没重锚"。**那句在它写下的时点是成立的**(该分支当时确实没有重锚代码,`git show 236734e934` 可核),但现场保全提交 `e09d866222` 已把框补上 —— 现分支里就调 `!insertmacro IHUI_GUIINIT_SIZE`,该宏内部既重算 `$IHUIWW/$IHUIWH`(812-813)又 `SetWindowPos` 带上新尺寸(823),背景 `$IHUIBG` 与内层宿主也按新档重建。**现在的真缺口在第三步**:`IHUI_GUIINIT_COMMON` 里 DWM 圆角失败时的回退分支把 `SetWindowRgn` **钉死在调用当时的尺寸**上,窗口框后来被放大不会自动跟随 → 右/下多出来那条永不参与绘制,用户看到的仍是"内容溢出/被切",只是成因不是框。
-- **做法(同源化,不是补丁)**:把圆角/裁剪区域抽成 `IHUI_WINDOW_RGN`(`ihui-ui.nsi:826-846`),定窗(869-873)与重锚(1653-1658)两个调用点共用同一份实现 —— 复制两份必然漂移,与卸载器共用 `IHUI_GUIINIT_COMMON` 是同一个理由。**顺手堵掉一条潜在踩雷**:旧写法用 `$R9` 收返回值、`$R0` 收区域句柄,而该宏一旦在 `PageReinstall` 里被复用,`$R0` 正是 `PageLeaveReinstall` 还要用的版本比较结果(第十九批那条 Var/寄存器纪律的同族问题),现固定走 `$R6/$R7`。
-- **给这条修复装闸(第七条跨文件不变量)**:`checkDpiReanchorCompleteness` 四项同时成立才绿 —— installer.nsi 必须真的接线该重锚分支、分支内必须**同时**含 `IHUI_GUIINIT_SIZE` 与 `IHUI_WINDOW_RGN` 两个宏调用、region 必须按 `$IHUIWW/$IHUIWH` 现算、临时量不得落回 `$R0..$R4`。测试 11 → 16 例:四条"故意改坏"必红(丢 region 重算 / 退回只定窗 / 临时量挪回 `$R0` / 宏根本没接线)+ 一条"无关改动"必绿,夹具用 `mutateReanchorBranch` 动态定位分支,不把存量文本写死。
-- **验证(全部自己复跑,不是转抄代理报告)**:`node --test scripts/tests/check-installer-assets-geo.test.mjs` → 16/16;`node scripts/check-installer-assets.mjs` → `PASS —— …七条跨文件不变量成立`;`makensis` 真编 → `COMPILE OK`、**warning 6000 = 0**(其余 6 条:6155×1、6010×3 先前已在,6001×2 是 `Var IHUIR6/IHUIR7` 两枚先前就存在的死声明,本票未新增引用);`watermark verify` 10168/10168 完好;eslint 0 error。
-- **残余(不称收口)**:① **未做真机复验** —— 该缺陷只在"无 DWM 系统圆角的 Win10 回退支"显形,而取证需要改显示缩放,已按用户"别动了"永久禁止,故本票只给编译级 + 守门级证据,不给像素级证据;② 重锚分支只跑**一轮** `IHUI_GUIINIT_SIZE`(GUIINIT 因多屏异 DPI 是两轮),跨屏搬迁时理论上差一轮收敛 —— 需要双屏异 DPI 机器才能验,本机不具备,保持登记不修;③ `IHUIR6/IHUIR7` 两枚死 `Var` 属先前遗留,删除会牵动 Var 声明顺序纪律,本票不动。
-
-### 第二十二批(2026-09-23):清掉 1692 枚悬空 tag ref 并把"坏指针"变成推送前的显式红灯 —— 附两条注入才逼得出的判据坑
-
-- **症状与真因(和"分叉解不开"不是同一件事,而是它的上游)**:表面是 `git-sync-converge` 报 DIVERGED、本地攒着几十个提交上不去;真因是 15:49 宿主删 `.git`(§5b 第 16 次)后 `lost-commit/*`、`backup/*` 这批 tag 的**名字**被复原回来而**对象**没了 ⇒ **每一次** `git fetch origin main` 都以 `fatal: bad object refs/tags/<X>` + `did not send all necessary objects` 死掉 ⇒ push-guard / converge / 任何联网命令集体失效。
-- **清理**:`for-each-ref --format='%(refname)%(objectname)'` + 一次 `cat-file --batch-check` 取 `missing` → 1692 枚,名字+sha 先落 `.workbuddy/dangling-tags.txt` 留证再删(对象已随 `.git` 没了,删的是坏指针不是数据)。实际有效手段是**直删松散文件** `.git/refs/tags/<ns>/<name>`(`update-ref -d` 对 depth≥2 的嵌套 tag 会返回 0 却不落盘,§5b 旧账)。清完 `git fetch` 连测两次全绿,再从远端取回 tag(现存 6139 枚全部可解析)。
-- **顺带补回守护的本地恢复源**:`G:/IHUI-AI.git-backup-20260912` 也被一起删了(`git-guardian --status` 的 `backupOk:false`),按 §5b 禁删清单要求重新镜像一份。**顺序是硬要求:先清坏指针再刷备份** —— 反了就把 1692 枚坏指针复制进"恢复源",下次从备份恢复会原样带回故障。
-- **装闸(本票的机制级收口,不是只修一次)**:`scripts/git-push-guard.mjs` 新增 **2.9b 悬空 ref 预检**,零网络成本,命中即 `exit 1` 并打印四步修复配方。**放的位置是要点**:必须在 `3. 对比 + 决定是否 push` 之前 —— 第一版我照 2.9 的落点放在其后,注入验证直接 `exit=0` 判据空转,因为"本地与远端已同步"那条路在预检之前就 `process.exit(0)` 了。
-- **两条只有注入才逼得出的判据坑**:① **松散**坏 ref 根本不进 `for-each-ref` 的 stdout —— git 只在 **stderr** 打 `warning: ignoring broken ref <REF>` 就丢掉它,而这种 ref 照样让 fetch fatal(实测第一版判据全绿而 fetch 已坏);故判据必须把 stdout 的 `missing` 与 stderr 的 `ignoring broken ref` **两路一起收**。② 校验删除结果**不能用 `git show-ref -q --verify`** —— 它对"ref 在、对象没了"本身返回非 0,于是"没删掉"被读成"已删除",我第一版据此报出"残留 0"而 fetch 照旧失败。另记一条:`--format` 里加 `%(*objectname)` 会在遇到坏 annotated tag 时**静默返回空表**。
-- **验证(注入 = 权威入口,不是复刻判据)**:植入探针 `refs/tags/ihui-dangling-probe-20260923 -> deadbeef…` → `node scripts/git-push-guard.mjs` **exit=1**,点名该 ref,输出 `❌ 检出 1 枚 ref 指向已不存在的对象(共判 4457 条 ref)` 并给出配方;移除探针后复跑 **exit=0**、`git fetch` 恢复。对照跑(不带探针)确认无误伤。
-- **合流与推送的最终核验**:0 个未合并路径;守门 77 对提交树与工作树(16565 跟踪文件)双向 `✅ 未检出成对 Git 冲突标记`(唯一豁免是 CLI 自身 SEARCH/REPLACE 补丁格式);`git-push-converge` = **ALREADY**,`ls-remote` 复验两侧逐枚一致(第十九/二十/廿一批登记 1/1,门 71 `titleMarker`/`headIdSet`/`stillRegistered` 1/1、自测 17/17,`IHUI_WINDOW_RGN` 6/6,守门 61 第 7 条不变量 1/1,geo 测试 16/16);两侧内容存活也逐项核过 —— mobile-rn 三文件里本地谱系的功能行(`plusActive`/`onPlusToggle`/`scaleY`/`showAddBtn`/`CitationList`/`InjectionDisclosure`)与远端谱系的 `rnRadius`/`brand.ctaText` 迁移**同时在场**。
-- **残余(不称收口)**:① 守护的 refs 复原(`scripts/git-refs-heal.mjs` 的 `writeLooseRef`)仍**不校验对象存在性**,一次"从清单重建"就能把坏指针复活;该文件与 `git-guardian.mjs` 当前都被并发会话改写(一个 ` M`、一个 `M `),按 §16 我不跨属主改 —— 解阻判据:两文件 `git status` 干净后,写盘前加 `cat-file -e` 判定并把跳过的 ref 计入输出,同时从清单剔除该条(否则每 tick 重犯)。② 本预检是"零网络 + 每次 push 跑一遍全量 ref",当前 4457 条 ref 实测耗时可忽略;若 tag 规模再涨一个量级,需要改成增量判定。
-
-### 第二十三批(2026-09-23):把上一批的"机制缺口"按数据源逐个封死 —— 三个复活入口现在都是零死引用
-
-- **为什么不能靠改守护脚本来收口**:上一批登记的残余是"`git-refs-heal.mjs` 的 `writeLooseRef` 复原 ref 时不校验对象存在性"。实测该文件与 `git-guardian.mjs` 的工作副本都是**混合脏**:`git-refs-heal.mjs` 工作区独有 4 行 / HEAD 独有 6 行,`git-guardian.mjs` 5 / 9 —— 既带着自己的在飞改动、又缺 HEAD 已有的行。此刻提交它们 = 把别人该路径的后续改动静默回滚(正是守门 76 R1 要拦的那一类),所以**按 §16 不动**,改从"能让坏指针复活的数据源"这一侧收口。
-- **三个复活入口逐个查零**:① `refs-manifest.json` —— 在 `.git`、仓根、备份 gitdir 三处全量扫 `manifest` 文件名,**一份都不存在**,所以离线重建没有"期望值"可复原(下一次只会由 `--refresh-remote` 从 origin 的真实 sha 重建);② 本地恢复源 `G:/IHUI-AI.git-backup-20260912` —— 逐枚读出 4212 个松散 tag 文件的目标 sha 送 `cat-file --batch-check`,**指向死对象 = 0 枚**(顺序使然:第二十二批是"先清坏指针、再 `robocopy /MIR` 重做备份",若反过来就是把 1692 枚坏指针复制进恢复源);③ 主 gitdir `packed-refs` 795 条 + 全部 tag ref —— 死行 **0**、悬空 ref **0**,`git fetch origin main` 复测通过。
-- **推送侧的兜底闸已生效**:第二十二批装在 `git-push-guard.mjs` 的 2.9b 预检在注入下 `exit=1` 并点名探针、给出四步配方 —— 即使未来某次恢复又带回一枚坏指针,它会在**推送之前**亮红灯,而不是让 guard 与 converge 静默空转(上一批的教训:那种故障的表现只是"分叉解不开")。
-- **仍未闭合(不称收口)**:代码级校验(`writeLooseRef` 前加 `cat-file -e`,跳过项计入输出并从清单剔除)按判据等 `git-refs-heal.mjs` / `git-guardian.mjs` 的 `git status` 干净后由属主落地;届时**这一条就是它的验收标准**:植入一枚 `refs/tags/<probe> -> deadbeef…` 后跑 `node scripts/git-refs-heal.mjs`,要求它跳过该条并在输出里如实计数,而不是把它写回 `refs/tags`。
-### 第二十四批(2026-09-23):重装页 DPI 重锚补齐"两轮定档"并与 GUIINIT 同口径 —— 顺带钉出一条会把窗口甩出屏外的顺序陷阱
-
-- **收掉第二十一批自列的残余**:"重锚分支只跑一轮 `IHUI_GUIINIT_SIZE`(GUIINIT 是两轮),跨屏搬迁差一轮收敛"。现 `ihui-ui.nsi:1665-1666` 两轮**紧邻**执行、`IHUI_WINDOW_RGN` 收尾,注释同步从"一轮"改口径。`$R2/$R3`(PageLeave 还要用的 radio 句柄)仍由分支首尾的 `$1/$2` 保存-写回兜住;`$R5..$R8`(工作区矩形)在定档过程只读不写,故第二轮无需重跑 `SystemParametersInfoW`。
-- **过程中新发现的顺序陷阱(比原残余更严重)**:若在两轮 `IHUI_GUIINIT_SIZE` **中间**调 `IHUI_WINDOW_RGN`,该宏会把 `$R6/$R7` 当临时量用(区域句柄 / 圆角直径),第二轮读到的就是**被覆写的脏工作区矩形** ⇒ 窗口被摆到屏幕外。故顺序是硬约束:`SIZE → SIZE → RGN`,已同时落在注释(`:1654-1663`)与守门判据里。
-- **删两枚死变量**:`Var IHUIR6` / `Var IHUIR7`(`:83-84`,编译一直报 warning 6001 "not referenced or never set")。删前对 `windows/*.nsi` 与渲染出的 `target/release/nsis/x64/` 逐处 grep 确认零引用 —— 本仓有实测过的 NSIS 陷阱"**后置 `Var` 在 Function 体里被引用只报 warning 6000 并静默丢引用**"(第十七批那条),所以删声明必须先证明无人引用,不能靠编译"过了"当证据。
-- **把两条都装进闸(守门 61 第 7 条不变量扩判据)**:`scripts/check-installer-assets.mjs:528-553` 新增 ① 重锚分支的 `IHUI_GUIINIT_SIZE` 轮数 < 2 即红;② `IHUI_WINDOW_RGN` 出现在两轮之间即红。测试 16 → **19 例**:改回单轮必红、region 夹中间必红、只加注释保持多轮必绿;夹具用 `mutateReanchorBranch` 动态定位分支并在基线不满足前提时**自报"夹具失效"** —— 上一批刚因夹具写死存量把自己测红包过红一次。
-- **验证(主 agent 逐条自己复跑,不采信代理报告)**:`node --test scripts/tests/check-installer-assets-geo.test.mjs` → `tests 19 / pass 19 / fail 0`;`node scripts/check-installer-assets.mjs` → `PASS —— …重装页 DPI 重锚走完窗口框+裁剪区域且两轮紧邻定档…七条跨文件不变量成立`;沙箱 `makensis` → `COMPILE OK`、**warning 6000 = 0**、总警告 6 → **4**(消失的两条正是 6001 死变量)。另校一处事实错误:代理注释把日期写成 `2026-09-25`,已改回 2026-09-23(只改笔误,不改结论)。
-- **残余(不称收口)**:① **仍未做真机像素/跨屏复验** —— 该分支只在"窗口 DPI ≠ 布局 DPI"(跨屏异 DPI 或缩放被改)时触发,而取证需要动显示缩放设置,已被明令永久放弃;故本批只有编译级 + 守门级证据,没有像素级证据。② `scripts/check-installer-assets.mjs` 与它的测试文件在 HEAD 存量本就不满足 prettier 全量格式(试跑 `--write` 产生 114 行无关重排,已回退,只保留本票改动行)—— 意味着任何会话对这些文件跑 lint-staged 都会带一大片排版噪声,属存量债,不在本票范围。
-
-### 第二十五批(2026-09-23):补上"批次正文找回"这条命令 —— 门 71 只保登记行,标题下的正文 bullet 此前无人能捞
-
-- **敞口是实测的,不是假设**:并发会话按内存里的旧计划文档整文件重写工作区 `PROJECT_PLAN.md`(HEAD 4450 行 → 工作区 3901 行,140 条 bullet 消失且不在归档里)。门 71 的 `--heal` 把带编号的登记行(本会话第二十四批标题、他人"守门 81")回捞回来了,但**批次标题下面不带编号的正文 bullet 仍在缺口**:本会话第二十四批缺 6 行、第二十三批缺 4 行 —— 同一场事故连中两次。
-- **为什么有意不把它做成 blocking 门**:门 13c 只认 `### XXX(已完成 ✅)` 任务标题,门 71 刻意只认"带编号标记的行",因为正文被改写是本仓常态(第十九到二十四批里就有"改判"式重写他人定性)。对正文做"缺失即拦"会让一次正常改写产出假红,逼人 `--no-verify` 而连带关掉全部守门。所以本批补的是**能力**而非**禁令**:点名权留给操作员,工具只做零风险动作。
-- **落点 `scripts/restore-plan-batch-block.mjs`**:从 `--from`(默认 HEAD)切出 `### 第N批` 整块,把目标缺失的整行**纯插入**回去 —— 绝不改动、绝不删除目标任何一行(共享文档里装的是他人在飞改动);`assertPureInsertion`(超序列 + 行数差双断言)把这条语义钉死,不成立即抛、宁可不写;`--check` 只报数(缺则 exit 1,供巡检);幂等(已存在的行永不重复插);`extractBlock` 在下一个 2–3 级标题处收口并剥掉块间空行。
-- **取证(不信自写脚本的"恒真")**:单测 10 例 `node --test scripts/tests/restore-plan-batch-block.test.mjs`,含两条负向对照(整块已齐在 → 零改动;他人批次正文不被吞)+ `--self-test 5/5`;**独立临时仓端到端 8/8** —— 造一个"标题在、3 行正文没了、另含他人一行未提交在飞改动"的真 git 仓库跑 CLI,断言找回 3 行、他人在飞行一行不少、`git diff --numstat HEAD` 恰为 `1 0`(纯插入)、再跑一次文件字节不变;临时仓同轮删除,不留嵌套 `.git`。
-- **卫生**:两文件 `watermark verify` 完整、`prettier --check` 通过、`eslint` 0 error(仅 `no-console` warning,与同目录脚本同口径)、`check-no-visible-spawn` 对新脚本零命中(git 走 `resolveGitBin()` 绝对路径 + `windowsHide: true`)。
-- **残余(不称收口)**:① 工作区 `PROJECT_PLAN.md` 仍是他人那次 549 行整文件重写的结果(140 条 bullet 未归档),归属该会话处置,本批只把自己点名的六批补齐、不代裁他人内容;② 正文 bullet 盲区按上文判断**故意不建闸**,再遇到就用本工具回捞。
-
-- **登记后立即被自己的工具咬住一次真冲突(正向实证)**:本票旁路落地时远端已在同一锚点("第二十四批"之后)插入"部署脚本三项机制化加固"一节,`git-sync-converge` 如实报 `CONFLICT (content): PROJECT_PLAN.md` 并交人工。解法在对象空间完成、零触碰工作区:`merge-tree --write-tree` 取回其余路径的自动合并树 → 只把冲突 blob 换成 `git merge-file --union` 的解 → 临时索引 `update-index --cacheinfo` → `commit-tree` 双父 → CAS `update-ref`。落地前五条断言全过:ours 新增 7 行零丢失、theirs 新增 41 行零丢失、零冲突标记、三处标题各恰 1 枚。
-- **一处自造假警报的更正(记法,别再来)**:回读时我用未锚定的 `/(<{7}|>{7}) /` 判"提交里有标记",而权威门 77 `check-no-conflict-markers.mjs --rev HEAD` 判"无成对标记";`git grep` 的 2 处命中实为 `apps/cli/tests/file-edit.test.ts` 里 SEARCH/REPLACE 补丁格式夹具(门 77 已按合法豁免如实计数)。**结论一律走权威入口,自拼正则只配当线索**。
-- **顺带实证工具在真仓可用**:落地后对真工作区点名六批 → `--check` 报"全部齐在";把新写的第二十五批整块(7 行)回捞进仍是旧基线的工作区 → 纯插入 7 行、再跑 `--check` 归零,门 71 复判"无登记行丢失"。
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
 
@@ -1703,19 +1280,10 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
 
 
 ### P2 广度产品化（生态）
-- [ ] O13 多租户隔离重建（tenant RLS 被 0214 删除后，按 catalog data-class 重新落地）+ `roleId >= 1` 判定收敛  ⏳(迁移与角色在途)
 
 - [ ] O13b 第二段(收敛本身,5 条可核算):① 34 个白名单文件逐个迁移到集中封装并**删条目**;② 删掉 2 处本地重定义 `requireAdmin`(`earnings-routes.ts:137`、`security.ts:74`);③ `internalUserRoleId` 通道并入同一封装并补提权断言;④ 第 53 项升 blocking;⑤ `admin.ts:124` 统一 preHandler 收编进 `require-permission`。另:部署机需运维 `ALTER ROLE ihui_app PASSWORD` + 配 `DATABASE_APP_URL`,之后才评估 `ENABLE ROW LEVEL SECURITY`
 - **进度(2026-09-23 试点批)**:earnings/security/health 3 文件已收敛集中 `requireAdmin`（白名单 34→31，LOCAL 清零），11 条契约测试全绿；沉淀两套范式（全 admin 用 preHandler、混合路由用 handler 内 `reply.sent`）；后续 31 文件按 T0(16 个纯删条目)/T1(8 个)/T2(4 个)/T3(1 个 groups)排序推进。
 - **进度(2026-09-23 T1批)**:`finance.ts`(6)/`finance-extended.ts`(5)/`user/withdrawal-routes.ts`(2)/`user/developer-routes.ts`(1)共 **14 处真闸门**按试点范式收进集中 `requireAdmin`(handler 内 `await requireAdmin(request, reply)` + `if (reply.sent) return`),白名单 **15→11 文件 / 42→26 处**,全仓裸 roleId 比较 **34→20**,门 53 全量绿 + `--self-test` 绿;新增契约测试 `apps/api/tests/o13b-batch2-admingate-contract.test.ts` 7 例(无 JWT→401 / roleId=0→403 且 body 逐字节 `{code:403,message:'需要管理员权限'}` / roleId>=1→落业务分支)。**两处对外文案变化**:`finance-extended` 的 403 文案 `无管理员权限`→集中封装的 `需要管理员权限`(形状不变,全仓已无其他引用),401 文案改由集中封装出具。**三条"清不掉"的定性(不得再派收敛任务)**:① `admin-sys/role-routes.ts` 5 处实为 `q.roleId`/body roleId **入参校验**(400 `roleId 无效`),迁 requireAdmin 会把参数错变鉴权拒绝 → 白名单 reason「roleId===1 超管保护」与代码不符,应改判为②类保留;② `agents.ts` 4 处是「owner **或** admin」混判,集中封装无此档位,改 preHandler 会把属主拒掉(第 5 处 webhook 密钥为专有 403 文案,登记 count 6 实为 5);③ `menu-routers-routes.ts` 是「管理员看全部菜单」的数据视图分支,无拒绝路径。**故 ④「第 53 项升 blocking」的前置**是把"入参校验/视图分支"从判据里显式排除(否则一升就把 `400 roleId 无效` 这类非鉴权行永久锁成红点),不得为凑绿而放宽语义。
-- **进度(2026-09-23 T2批 + ③)**:① T2 三处(`trader.ts` 特权读数 / `oss.ts` 删除闸门 / `other/student-profile-routes.ts` 查他人档案闸门)确属"任意管理员"判定,但以**谓词收敛**落地 —— 新增集中谓词 `isSystemAdmin(request, policy)`,属主/字段分支原样留在调用处,状态码与 403 文案逐字不变(`roleId<1` ⟺ `!(roleId>=1)`,唯一差异是 NaN 走 fail-closed,更严);白名单 **11→8 文件 / 26→23 处**,全仓裸 roleId 比较 **20→17**,门 53 全量绿 + `--self-test` 绿。② ③ 已完成:`internalUserRoleId` 收进唯一读数点 `resolveAdminRoleId`,通道策略改为编译期**必填** `includeInternalChannel`(新闸门漏声明即编译报错,防"顺手接上 internal"提权),`requireAdmin` 固定 false、`requireAnyPermission` 固定 true;**实测无提权路径**(admin 面不认 internal、apiKey 分支 roleId 恒 0 且优先于 internal、internal 主体 `isDataScopeEnforced=false` 永不进数据闸、`??` 串联使 jwt roleId=0 不回落 internal)。契约 `apps/api/tests/o13b-batch3-admingate-channel.test.ts` 12 例(A 通道真值表 / B requireAdmin 对 internal 恒 403 且 body 逐字节 / C 豁免档语义 / D principal 无提权),连同试点 11 + T1 7 + `oss-files-delete` 7 + `idor-guard` 17 共 **54 例全绿**。③ `utils/idor-guard.ts:135` 判为**不可迁**并给三条证据,其中实测反证最有价值:按谓词改会把 `require-permission → auth → api-key-auth → key-rate-window-service` 插件链拉进纯 util 层,当场打挂 `tests/idor-guard.test.ts`(`No "developerApiKeys" export is defined on the "@ihui/database" mock`),已回退为未修改。**订正 T1 口径**:"owner‖admin 混判一律不可迁"过宽 —— 谓词形态可零风险收敛同族裸比较,真正缺的是档位(`=== 1` 超管档集中封装无等价物,已在谓词注释显式禁止替代)。**另两处堵漏**:门 53 的 `--self-test` 夹具原写死 `oss.ts` 当"白名单内豁免"样本 → 条目一删自测即红,已改为从表里动态取一条 `count===1` 的条目当探针(收敛与自测解耦);**新发现待立项**:`idorGuard` / `checkOwnership` 全仓 **0 个生产调用点**(仅两份测试引用),是"造好没装车"的第三个实例,接线或删除需单独定档。
-- [x] ✅(2026-09-23) **O21 资金链与文件版本面的属主谓词补齐(2026-09-23 逐行实测,安全 P0)**:① **【本票已修】**`createPayment` / `applyRefund` 事务内订单查询原只有 `where(eq(eduOrders.id, data.orderId))`,**无属主谓词**,且 `payAmount` / `refundAmount` 直接取客户端携带值(`priceSchema` 只验格式 `/^\d+(\.\d{1,2})?$/` 不验上限)⇒ 任意登录用户可对**他人已支付订单**挂 pending 退款申请(管理员在 `routes/order.ts:1056/1092` 审批后即成资金流出),或对他人 pending 订单写 `eduPayments`,金额由请求方指定。修法 = 属主条件下推进同一条 WHERE(零额外往返;跨属主统一 `order_not_found`→404,不留"存在但不可访问"的枚举 oracle)+ 新增导出纯函数 `capToOrderAmount`(允许下调以保部分支付/部分退款,越界回落订单金额,0/负数/不可解析亦回落不写脏值)。三处调用方(`routes/order.ts:433`、`:468`、`routes/user/payment-routes.ts:202`)实测全部传 `request.userId!`,**无 admin 代客路径** ⇒ 谓词不会挡掉任何正当流程。回归 `apps/api/tests/idor-order-owner-and-amount-cap.test.ts` 7 例(结构断言 + 上限四态),既有 `order`/`payment`/`payment-routes`/`payment-gateway`/`refund-dlq` 共 87 例不红,`order-queries.real.test.ts`(被 vitest `exclude` 挡在 CI 外,需真库)fixture 全部用同一 user 建单 ⇒ 谓词后仍成立。② **【待做,勿挂 idorGuard】**`routes/file-version.ts:165/179/197/214/260/293` 与 `routes/workspace.ts:502/520` 共 8 个端点仅 `checkAuth`/`requireAuth`,**无属主与成员校验**,`serializeVersion`(`file-version.ts:44-55`)还外泄服务端磁盘 `path`,而 `:254` 可直接 `update files set path=newPath where id=target.fileId` 改他人文件指向 + `:281-288` unlink 磁盘文件。**不得**用 `idorGuard('file')`:它以 `files.uploadedBy` 单列判定(该列 `onDelete:'set null'` **可空**,注销即恒 403),比现网 `canAccessFile`(上传者 ∪ 项目 owner ∪ `project_members`,`db/file-queries.ts:28-40`)**更弱**,硬接会把正常共享成员打成 403。正解 = 8 处统一 `canAccessFile`(`file-version.ts` 先由 `fileVersions.fileId` 反查 `files` 行)+ 出口剥 `path`。③ `utils/idor-guard.ts` 定档:**非死代码,但不得全量接线** —— 其 7 类里 5 类(order/payment/refund/invoice-*/project)现网已被 handler 内联属主判定覆盖(`order.ts:378/402/519/542/645/671/762/779`、`workspace.ts:252/275/294/323/342`、`oss.ts:234`),再挂 preHandler 只多出一次存在性查询=双重往返,`file` 类则因模型更宽不可替代 ⇒ 实现与两份测试保留,仅作 ① 类缺谓词端点的 preHandler 备选。**关键旁证(别再拿"有数据闸"当免检理由)**:`utils/scoped-guard.ts:199-201` 明示 `isDataScopeEnforced` 只在 `principal.kind==='apiKey'` 时生效,人用 JWT 不在其内;且上述路由一律 import 非受控出口 `db`(不经 `db/index.ts:193` 的 `dbScoped()`)⇒ scope/RLS 层对这些端点不提供任何防护。
-  - 守门号自纠:本门最初登记为 77,收敛后发现 HEAD 的 runner 里 `id: '77'` 已被 `check-radius-single-source.mjs`(origin 线)占用 —— 同号两道 blocking 门会串 skipEnv 与失败归属,故**本门改号为 79**(runner / AGENTS 速查 / README 三处同步,均从 HEAD 版本生成 blob 后提交,未走已落后 384 行的工作区那份)。既存重复号 75 与 76 各两处由归属会话处理,本票未代裁。
-  - 完成口径(2026-09-23,三子项逐条对账):① 资金链 `createPayment`/`applyRefund` 属主谓词 + `capToOrderAmount` 已在 HEAD(`db/order-queries.ts:213` 定义、`:260`/`:358` 调用),回归 `tests/idor-order-owner-and-amount-cap.test.ts` 在位。② 文件版本面 6 端点 + `workspace.ts` 2 端点全补 `checkFileAccess`/`canAccessFile`,两侧出口 `serializeVersion`/`serializeFileVersion` 剥 `path` 外泄;新测试 `tests/o21-file-version-owner.test.ts` 35 例(8 端点各钉 403 + 读不到行 + 路径不外泄 + 写副作用 0,含正向不误伤 2 例与 5 条结构钉)。③ `utils/idor-guard.ts` 按定档一行未改未接线,并加反向结构钉防后来者挂上。
-  - O21b(自证时新发现,不在 O21 ② 清单内):`POST /file-versions/create` 只有 `checkAuth` + `findFileById`(仅判存在)⇒ 任意登录用户可向他人 fileId 写版本行并落盘。已补闸门(`2653ca09a70`),`FileAccess` 的 ok 分支带回 files 行以消掉二次查询的 TOCTOU 窗口;结构钉 6→7 并新增"闸门须排在 `data.toBuffer()` 之前"的顺序断言。**残余未做**:create 的越权行为用例需 multipart 注入夹具,现 harness 未覆盖,本票只交结构钉 + 与另 6 端点共用的同一谓词实现。
-  - 同票附带修一处我自己带上 main 的破坏:`scripts/git-rebuild-local.mjs` 的 `externalGitDir(root: string): string` 把 TS 注解写进 `.mjs` → `node --check` SyntaxError(§5b 重建脚本一跑就炸;四版对照 base=OK/origin=OK/本地快照=FAIL/收敛首版=FAIL),已去注解并复验通过。
-  - 守门 77 三条执行路径接齐(`68df4c5c190` + `bb8941d2178`):pre-commit `--staged` / **CI `--rev HEAD`**(禁 `--staged`:CI 无暂存区会恒绿)/ `pnpm check:all` 链首。两枚实现文件曾 untracked 而 CI 已指向它们(必 `MODULE_NOT_FOUND`),现已入库并在远端树核验存在。
-- **进度(2026-09-23 ⑤)**:`admin.ts:124` 的统一 admin preHandler 已收编进集中封装新增的 `requireAdminRouteGuard`(admin.ts 现只 `server.addHook('preHandler', requireAdminRouteGuard)`,本文件的 `const ADMIN_ROLE_ID` 与 `authenticate`/`requireActiveUser` 裸用法一并删除)。**为什么不是直接复用 `requireAdmin`**:两者差一道 `requireActiveUser`(被注销/封禁账号不得进 admin 面),抹平即安全回归;而 `requireAdmin` 有 694 处调用点,反向把 active 检查塞进去会整体改行为 ⇒ 新建同族守卫而非合并。**契约 7 例**(`apps/api/tests/o13b-batch4-admin-route-guard.test.ts`,连同 batch1-3 共 37 例全绿):未鉴权→401「操作失败,请稍后重试」/ 上游带 statusCode 时沿用该码 / **活动检查失败时即使 roleId=1 仍返回 403「账号已注销」**(证明顺序未被改写)/ 活动+非管理员→403「需要管理员权限」body 逐字 / 活动+管理员→进业务分支 / internal 通道注入管理员仍 403(与 ③ 同一条提权不变量)/ 源码结构例:admin.ts 不得再出现 roleId 数值比较或本地 `ADMIN_ROLE_ID`。**结构例是必需的**:门 53 的 RULE-1 判据只认**数值字面量**比较,`roleId < ADMIN_ROLE_ID` 这种常量形态对它完全隐形 —— 不收编就永久漏网(这也是 ④ 升 blocking 前必须先补的判据缺口)。O13b 第二段 ①②③⑤ 已落,**仅剩 ④「第 53 项升 blocking」**:阻塞主体是 `scripts/guardian-runner.mjs` 被并发会话改在途(工作树脏),且前置已钉死 —— 必须先把"入参校验/视图分支"从 RULE-1 判据里显式排除,否则 `400 roleId 无效` 这类非鉴权行会被永久锁成红点;解阻判据 = 该文件 `git status` 干净 + 门 53 以 `mode: 'blocking'` 全量绿。
 - **进度(2026-09-23 T0批)**:16 个"实测 0 处裸比较"文件的白名单条目已整体删除(白名单 **31→15 文件 / 68→42 处**),门 53 全量 `✅ 无新增违规` + `--self-test` 全绿。判据由守门自证:未登记文件只要残留 1 处裸 roleId 比较即被 RULE-1 点名,故"绿"等价于这 16 个文件已零裸比较。**一处纠偏**:`admin-sys/menu-routers-routes.ts` 实有 1 处 `if (roleId >= 1)`,不属 T0(纯删条目)而被一并删了条目 → 门当场报红,已把条目写回(该处实为数据视图分支,定性见下一条 T1 批)。剩余 15 文件 = T1 待收敛 10 个(finance 7/agents 6/role-routes 6/finance-extended 5/withdrawal 3/menu-routers 1/developer-routes 1/trader 1/oss 1/student-profile-routes 1) + ②类非请求鉴权路径 5 个(groups/business-metrics/rbac-queries/idor-guard/auth,白名单 reason 已定性保留),后者不得为"清零"而改语义。
 - [ ] O14 SDK 真正发布（现 0 tag / brew sha256 占位）：npm/PyPI/Go/Maven + install 脚本校验 + `@ihui/api-client` 去 `private`  ⏳(2026-09-21 复核:发布链判定层已做成 fail-safe —— `release-sdk.yml` 新增 `gate` job(real 模式必须先用 `npm whoami` 真实鉴权调用证明凭据可用,不成立则 4 个发布 job 全部不执行;此前"空 mode 被印成 Real release"与"job 整体 skipped 仍全绿"两类假绿已堵)、四通道发布后**回读判红**(npm view / PyPI JSON API / repo1 pom / ls-remote tag sha)、`npm pack --dry-run` 产物干净度实测通过(files 76 / 无 .env 无 src / junk 命中 0);另修掉一个必然失败缺陷:`pypi-publish` 的 `cp ../../LICENSE` 层级差 1,该 job 此前在 dry-run 与 real 两种模式下都必红。**结论:仍不可发布**,唯一硬缺失是外部凭据(NPM_TOKEN / PYPI_TOKEN / MAVEN_* 均不在 repo secrets,本机也无;`git tag -l 'v*'` 与远端 tag 实测为 0)。剩余前置:打 `sdk-v*` tag、`@ihui/api-client` 需先补 build→dist + `files` + `publishConfig` 才能去 private、`deploy/homebrew/ihui.rb:13` sha256 仍是占位、.NET 无 NuGet 通道)
 - [ ] O20 公网拓扑:**ai-service 在公网零暴露**,导致能力目录里 71 项 `host:'ai-service'` 的"对外能力"第三方根本连不通(2026-09-21 逐条实测)。事实:① `aizhs.top/api/*` → Fastify(`/api/mcp` 401、`/api/v1/customer_service/messages` 401 且响应体是脱敏后的通用文案 ⇒ O17 的"401 回显 SQL 原文"修复已在生产生效),其余路径全由 Next.js 承接;② `api.aizhs.top` 是 api 的公网主机名,`/.well-known/openid-configuration` 200 且 **issuer 正确推导为 `https://api.aizhs.top`**(`resolveIssuer` 读转发头,此处无缺陷),`POST /oauth/register` 的 M2M 拒绝语义正确回带可操作说明;③ 但 `aizhs.top/ai-service/*`、`aizhs.top/.well-known/agent.json`、`api.aizhs.top/ai-service/*` 实测**全部 404**(Next.js 或 Fastify 的 404,取决于前缀)。根治两条路:⑥(a) Cloudflare Tunnel 加公共主机名/ingress 路径 —— 生产隧道是**远端托管**(机器上只有 `cloudflared` Windows 服务,**无** `config.yml`,仓库与本机都没有 dashboard 凭据,agent 无法也不该单方面改公网入口);(b) 在 `apps/web/next.config.ts` 的 `rewrites()` 反代指定前缀(该文件已有 `/api/ai-skills`、`/api/voice/*`、`/api/llm/*` 等 5 处同类先例,链路可行)。**本会话两条都没做**:实质是"把一台纯内网服务整体搬到公网",属安全边界变更,需 owner 显式批准(AGENTS.md §24)。要做的最小正确顺序:(b) 只反代**只读发现文档 + 显式白名单端点**(不是 `/ai-service/*` 通配)、配合 O20b 把卡片 url 改对、再加一条公网可达性回归(现 `scripts/e2e-agent-access.mjs` 只测内网)。
@@ -1801,8 +1369,7 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
 - [ ] **D41 Office/PDF 产物预览(G-49)**:docx/pptx(含讲者备注)/xlsx(sheet 切换 + 选区)/pdf(页码)preview + preview/源码切换 + 不可用/过大/过期三态降级(对标 Qoder `data-artifact-preview-kind`)。共享层优先:先查 `packages/ui-react` 与既有 FilePreview,不得端内重造。**验收**:四态(可用/过大/过期/不支持)用例 + 与 `canOpenInWorkPanel` 互不冲突 + 大文件不内联走懒加载
 - [ ] **D42 浏览器视觉标注回传对话(G-50)**:work-panel 嵌入浏览器补「点选元素/区域 → 样式面板(颜色/边框/圆角/字号/内外边距) → 批注 → 作为上下文进对话」,含 `annotationStale`(DOM 已变)失效提示。复用既有 CDP/代理通道与圈选引用事件(`ihui:add-text-reference` 同族机制)。**验收**:标注→上下文→发送全链路 e2e + stale 态用例 + 不违反圆角/浮层内边距规范(§4 p-3 档)
 - [ ] **D43 会话内快捷笔记(G-51)**:录音 12 phase 状态机 + 转写 + 归档/分组/搜索,笔记可一键插入对话。复用 `voice-input/voice-record`,不新建录音栈。**验收**:phase 矩阵用例(权限拒绝/中断/最终化失败)+ 笔记→上下文引用闭环 + miniapp 端豁免标注(平台独占:录音 API 差异)
-- [x] ✅(2026-09-23) **D44 白名单兜底事件逐个补渲染位(G-62)**:`scripts/check-agent-event-parity.mjs` WHITELIST 第 107 行起 10 事件(task_progress/worker_status/dag_level_advanced/log/status/memory_context/step_start/step_done/trace/trace_summary)逐个定"渲染或显式声明不渲染",清一个删一个,**白名单只许缩短不许加长**。**验收**:白名单长度断言(新守门见 D51)
-  - **D44 收口核验(2026-09-23,第 68 轮 HEAD 级)**:`git show HEAD:scripts/check-agent-event-parity.mjs` 第 107 行 `const WHITELIST = []`(已归零);`node scripts/check-agent-event-parity.mjs` **EXIT 0**(通过 12 / 警告(不阻断) 6 / 错误 0);4 个死声明事件(task_progress/worker_status/dag_level_advanced/log)已从 `packages/types` 的 `AgentSSEEvent` 与 `dag_scheduler.py` 回收(仅存注释,无联合成员);6 个"显式声明不渲染"事件在 `AgentPane.handleStreamEvent` 有 0 个分支(隐式落空,即兜底忽略真实存在)。6 条警告为 langgraph 引擎退役后的内部信号,按预期放行。
+- [ ] **D44 白名单兜底事件逐个补渲染位(G-62)**:`scripts/check-agent-event-parity.mjs` WHITELIST 第 107 行起 10 事件(task_progress/worker_status/dag_level_advanced/log/status/memory_context/step_start/step_done/trace/trace_summary)逐个定"渲染或显式声明不渲染",清一个删一个,**白名单只许缩短不许加长**。**验收**:白名单长度断言(新守门见 D51)
   - **D44 处置(status)**:生产点 apps/ai-service/app/services/langgraph_service.py:738,定档=不渲染上屏,理由 AgentLoopV2 已为唯一执行事实源,langgraph 引擎退役,状态流转仅内部可观测信号。
   - **D44 处置(memory_context)**:生产点 apps/ai-service/app/services/langgraph_service.py:772,定档=不渲染上屏,理由 跨会话记忆注入的内部载荷,无上屏渲染需求。
   - **D44 处置(step_start)**:生产点 apps/ai-service/app/services/langgraph_service.py:842,定档=不渲染上屏,理由 langgraph 步骤级可观测信号,前端 AgentPane 仅渲染 tool/terminal/plan,等价信息由 AgentLoopV2 plan-step 承载。
@@ -1863,9 +1430,7 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
 - [x] ✅(2026-09-23) **D61 自动化执行后果预演(G-78,与 D30 强协同)**:建/改 automation 前先算后果——判断中/已指派待激活/将创建运行/已有排队或运行中/暂不可执行/仅保存指派/无法预览 七态。**验收**:七态纯函数 + 用例 + 与 D30 认领链路联调一次真实预演
 - **收口(2026-09-23)**:七态纯函数+17 用例全绿；D30 联调以契约断言完成（调度器顶层带 db 副作用，web 端不直引）；接线点与 7 词表键已交接（键待入库）。
 - [ ] **D62 语音字幕与讨论纪要(G-76)**:播报时字幕可见(`静音并显示字幕`语义)+ 语音讨论纪要/任务流双视图 + 麦克风四类错误(无权限/无设备/被占用/启动失败)与"录音纪要进行中"互斥提示。复用 `voice-toolbar`/`voice-stream-speaker`,不新建录音栈。**验收**:四类错误态用例 + 互斥断言 + miniapp 平台独占豁免标注
-- [x] ✅(2026-09-23 定档不开工) **D63 提交即审入口(G-81,与 D15 区分)**:在对话流/变更审查面板加「每次提交后自动审查」开关与审查结果条(审查中/发现 N 个问题/忽略/修复/全部更改 tab)。后端已有 `review_pr_github`、code_review 工具可挂,不得新造审查器。**验收**:开关持久化 + 结果条四态用例
-  - **D63 自证定档(第 70 轮)**:台账前提「后端已有 review_pr_github、code_review 工具可挂」**经实测半不成立** —— ① `review_pr_github` 全仓 0 命中(幻影工具,疑 Codex asar 证据误记为我方);② `code_review` 仅两处且都是**提示词/规则模板**:mcp_server.py:9042 是 MCPPrompt(为 agent 会话生成审查提示词)、rules_engine.py:153 是关键词规则模板(向命中会话注入审查要点)——**均不是可独立执行的提交后审查器**,真实执行都依赖"起一个 agent 会话跑提示词"。
-  - 解阻条件(执行宿主定论前禁止实施,防"显示了≠存在"):方案 a=提交成功后自动起 agent 会话注入 code_review 提示词,结果经对话流返回(需结构化事件协议扩展,与 D34 同批,结果条才能拿到"发现 N 个问题");方案 b=api 新增编排端点调 agent runtime 摘要化返回(成本与权限模型需先定)。开关持久化通道(localStorage vs 用户偏好表)随宿主定论一并定。
+- [ ] **D63 提交即审入口(G-81,与 D15 区分)**:在对话流/变更审查面板加「每次提交后自动审查」开关与审查结果条(审查中/发现 N 个问题/忽略/修复/全部更改 tab)。后端已有 `review_pr_github`、code_review 工具可挂,不得新造审查器。**验收**:开关持久化 + 结果条四态用例
 - [ ] **D64 小元素包(G-72/75/77/79/82/83)**:①Credits 热力图(单日消耗 + 会话/热力切换);②图片预览器补翻页/第 N·M 张/缩放比例/保存与复制成败;③思考卡双态标题(有思考→「思考过程」,无思考→「使用了 N 个引用」);④后台子任务八态与"停止失败"文案;⑤反馈问卷化(把 D49①的 toast 兜底升级为「这次回复有没有帮你解决问题?」结构化落库);⑥**goal 卡先自证再定档**——逐字段比对我方 `ai/goal-card.tsx` 与 Trae/Qoder 五态·操作·时长格式,**未核对前不列差距**(第 5 轮已因此拦下一条幻影差距)。**验收**:每项独立用例;⑥必须先产出对照表再决定做/不做
 
 #### 第四轮硬性指标(H13-H23,聚合验收门——逐任务"验收"是必要条件,以下是充分条件)
@@ -1939,10 +1504,9 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
 
 - [ ] **D71 统一 Turn 状态词汇表 + 错误分类族(G-97/G-98)**:①对话流引入十态 turn 状态徽章(`排队中/准备中/思考中/使用工具/等待确认/后台执行中/正在停止/已完成/失败/已停止`)——**`等待确认` 与 `后台执行中` 我方现在无处可见**,是用户中断/切走的直接成因;②`errorCode → 中文标题 + 建议动作` 映射表(对标 20+ 类,含 `上下文过长`/`媒体文件数量超出限制`/`当前模型拒绝了本次请求`/`请求超时`/`服务内部处理错误`/`版本过低`/`账户受限`/`登录已过期`),落在 `attachErrorMeta` 与 `error` 卡。**验收**:十态各有渲染用例 + 错误映射表覆盖率脚本判据(我方已产出的 `errorCode` 全量有标题,零"未知错误"兜底)+ D39 重试族不回退
   - **D92 已先行落表,本票 ② 禁止另起**:O23 实测 `packages/api-client/src/client.ts:1117 attachErrorMeta` 至今只做字段挂载、**没有 errorCode→标题/动作 映射表**,而 `packages/shared/src/utils/view-failure-taxonomy.ts`(D92 建,15 类 + 五档判定链 + 未知码回落)已是全仓唯一一张。D71 落 ② 时**必须复用该模块**(给它补 turn 侧的码位即可),新建第二张 = 违反 D92 的"与 D71 共用一张表"硬约束,且会重演本仓反复出现的"两套真相"事故族。
-- [x] ✅(2026-09-23)  **D72 Worktree 生命周期对话流卡(G-99)**:我方 §12d 早已把 worktree 用作并行会话隔离,**但用户侧完全不可见**。补:创建中/已创建/初始化失败/**超时(带"请检查仓库状态")**/`此任务的 Worktree 已被清理以释放磁盘空间。`/恢复中/已恢复/无法恢复 八态卡,并给出磁盘回收与恢复入口。**验收**:八态用例 + 与 §12d worktree 收编流程(`cherry-pick`→`worktree remove`→`prune`)状态一致 + 不违反单写者原则 __收口(2026-09-23):worktree-lifecycle(八态唯一真相源/穷尽 switch 零 default/§12d 收编三阶段映射/单写者守卫)+ worktree-card(不取数,onAction 注入)+ ai.pane.worktree 17 键×5 语言;shared 31 + web 17 全绿;剩余=web 侧无 worktree 数据面,事件构造待另票__
+- [ ] **D72 Worktree 生命周期对话流卡(G-99)**:我方 §12d 早已把 worktree 用作并行会话隔离,**但用户侧完全不可见**。补:创建中/已创建/初始化失败/**超时(带"请检查仓库状态")**/`此任务的 Worktree 已被清理以释放磁盘空间。`/恢复中/已恢复/无法恢复 八态卡,并给出磁盘回收与恢复入口。**验收**:八态用例 + 与 §12d worktree 收编流程(`cherry-pick`→`worktree remove`→`prune`)状态一致 + 不违反单写者原则
 - [ ] **D73 多任务窗格(G-100)**:向右/向下拆分、最大化还原、**联动调整相邻窗格**、空窗格"从侧栏拖入一个任务"、Fork 失败提示。落点在既有 `ai-side-panel` + `work-panel` 之上做分屏容器,**禁止**新建第二套会话承载体系(与 D52/D68 协同)。**验收**:拆分/拖入/Fork 失败三用例 + 拖拽复用 D22 已建的 `application/x-ihui-conversation` 通道
-- [x] ✅(2026-09-23 定档不开工) **D74 Workspace Actions 一键动作(G-101)**:工作区级可配置一键命令(名称+命令+13 类图标枚举、数量上限、空值校验、保存/删除/运行失败四组反馈、`这个 Action 已不存在，请关闭后重试。` 陈旧态)。复用 automations 与 slash 命令基建,**不得**另起一套动作存储。**验收**:CRUD + 上限 + 陈旧态用例 + 五语言词表
-  - **D74 自证定档(第 70 轮)**:automations 基建实测为 `userAutomations` 表 + agent-automation-scheduler(定时/事件触发的**用户级 agent 自动化**),其触发模型是 cron/事件,不是"手动一键";且为用户级无 workspace 维度。复用该基建承载 Workspace Actions 需先拍板两件设计:① 存储扩展(`scope=user|workspace` + workspaceId 列,或兄弟表——台账明令不得另起存储,故必须扩列,涉既有执行语义回归);② 一键动作的执行模型(工作区级命令以什么身份/在哪跑,与 automations 的 agent 会话执行是否同通道)。两件定论前实施 = 在错误抽象上叠 UI。
+- [ ] **D74 Workspace Actions 一键动作(G-101)**:工作区级可配置一键命令(名称+命令+13 类图标枚举、数量上限、空值校验、保存/删除/运行失败四组反馈、`这个 Action 已不存在，请关闭后重试。` 陈旧态)。复用 automations 与 slash 命令基建,**不得**另起一套动作存储。**验收**:CRUD + 上限 + 陈旧态用例 + 五语言词表
 - [ ] **D75 侧边任务生命周期(G-102)**:给 D28 的 `/side` 补生命周期——**"临时任务关闭后消失"的显式声明**、过期与批量清理、`来自已清理的 {标题}`、并行运行位置说明(同文件夹/同环境)、文件变更计数入口。**验收**:四态用例 + 关闭前确认弹层 + 与 /side 队列语义不冲突(现有 W27 预备消息优先规则保持)
 - [ ] **D76 产物归属 turn 与产物面板分型(G-103/G-105)**:①每个产物记 **originating turn**(哪个回答产生的),支持"从产物跳回产生它的那轮"与反向;②产物面板按类型分型(文档/演示/**电子表格**),与 D41 Office 预览共用一套;③补**逐 turn 前后跳**导航(`step-back`/`step-forward`)。**证据边界**:Codex 侧为 E2 存在性(asar 内 chunk 文件名),进入实施前须另行取得"渲染为何种样式"的证据,**不得以文件名写 UI 断言**。**验收**:归属字段进契约与持久化(D33 同批)+ 跳转锚点用例 + 前后跳键盘用例
 - [ ] **规格补强三条(不新增任务,写入既有任务描述)**:①G-104 两套撤销语义分离(`rollback` 回代码 / `revert` 撤问答)+ 代批拒绝后**人工放行**入口 → 补进 D47/D55 规格;②子智能体六态·`阶段性回复`三键·后台进程六态·`输出过长，当前仅保留最新内容。` → 补进 D40/D24 规格;③`未记录最终结果`(hook 无终态)→ 补进 D44/D65
@@ -1964,7 +1528,7 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
 #### B4h 第 12 轮定档结果(D80 已完成 + G-92/G-95/G-96/G-110 判定落地)
 - [x] ✅(2026-09-21) **D80 待自证定档完成**,四条判定全部出结论(报告 §14,逐条带我方代码文件:行):①**G-96 撤销**——`permission-mode-popover.tsx:76,88-100` 已有 `mode.askDesc/autoDesc/fullDesc` 三档说明句 + `risk` 分级,我方**不缺失**;②**G-92 收窄为两态**——权限切换失败我方 `:231-242` 已有 toast **且带撤销动作(强于 Qoder 纯提示,属反超点,禁止"补齐"成弱版本)**,仍缺的是**模型切换失败**(grep 零命中)与**停止生成失败**(`use-chat` 仅 `isAbortError` 静默 return);③**G-95 重定义**——我方 `skill-library.tsx:257 tpl-polish` 是"插入润色模板",对手是"对草稿**就地改写 + 失败保稿**",差距按后者表述;④**G-110 转正**——`grep 'orchestration|workflow' apps/web/src/components/chat/` = **0**,工作流未内联进消息流;但 `MessageItem.tsx:37,920` 已内联渲染 `ArtifactCanvas`,证明"流内业务对象"通道已打通 → 属**增量**非新建
 
-- [x] ✅(2026-09-23)  **D82 就地润色与失败保稿(G-95 重定义后)**:输入框草稿的一键润色(**改写当前内容**而非插入模板)+ 失败时**明确保留原稿**(`暂时无法润色提示词，草稿已保留。` 同族语义)+ 需要重启生效时的保稿提示。**复用**现有模板/命令基建,不新建提示词栈。**验收**:润色成功替换草稿 / 失败保留原稿 / 二次失败仍可重试 三用例 __收口(2026-09-23):prompt-polish(四相位/失败草稿字节级不变/空草稿拒绝/二次失败仍可重试)+ message-input 接线(复用既有 polish 提示词与 runBestOfN 通道,未新建提示词栈)+ ai.pane.promptPolish 11 键×5 语言;shared 33 + web 17 全绿;剩余=重启生效原因码后端尚未产出__
+- [ ] **D82 就地润色与失败保稿(G-95 重定义后)**:输入框草稿的一键润色(**改写当前内容**而非插入模板)+ 失败时**明确保留原稿**(`暂时无法润色提示词，草稿已保留。` 同族语义)+ 需要重启生效时的保稿提示。**复用**现有模板/命令基建,不新建提示词栈。**验收**:润色成功替换草稿 / 失败保留原稿 / 二次失败仍可重试 三用例
 - **D81 追加第 ⑦ 项(G-110 转正后)**:活动条目内**渲染 workflow**(步骤/泳道摘要 + 点击进全屏画布),落点复用 `ArtifactCanvas` 已验证的流内业务对象通道(`MessageItem.tsx:920` 同位),**禁止**新建第二套内联渲染栈
 - **H24 证伪判据纪律(本轮新增)**:凡差距条目写"我方缺失",登记时**必须同时给出一条可执行的证伪判据**(grep 命令或 `文件:行` 反证),否则不得入账——本轮 4 条自证里 **2 条是我方已有**(G-96 幻影、G-92 三连中之一连),不写判据就会直接产出错误任务。**H24 执行细则(第 13 轮补)**:证伪判据必须是**实际跑过并贴出结果**的命令,且要**覆盖多个可能落点目录**——对竞品的断言我逐条复现了,对**我方自身**"没有 X"的断言反而更易错(搜不到常常只是路径或命名猜错)。
 
@@ -2020,10 +1584,10 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
 - [ ] **D94 失败诊断脱敏交接包(G-127,品类级)**:出错时自动产出**可直接对外提交的四段式交接单**——`诊断方法`(确定性本地规则优先,外部服务状态作辅助信号)／`已尝试的修复步骤`／**`已脱敏证据：`**(`- 用户可见错误：{errorMessage}`)／`产品界面` + `状态：可能相关的事件：{incidentNames}`。与我方既有 Server酱 + Resend 邮件兜底(AGENTS.md §5e)接成一条链:agent 失败 → 生成交接单 → 推给用户/附到工单。**脱敏是硬要求**(复用 D28 已实测的 `redact_secrets` + strip_ansi + 长度截断,不得新写一套)。**验收**:四段齐全 + 断言密钥/邮箱/IP 被脱敏(用真实含密样本测) + "无网络时降级不阻断"(与 §5d 网络不可达≠失败口径一致)
 - [x] ✅(2026-09-23) **D95 分叉对话框(先自证,G-128)**:Codex 把"从任意旧轮分叉"做成三选项——在此工作树／在同一工作树／在新工作树／在此工作空间。**先核我方** `spec-panel/SpecBranchesTab.tsx`、`use-spec-handlers.ts`、`use-chat/send-message.ts` 里的"创建分支"到底有无意图区分工作树;**未定档前不得开工**(本轮已 4 次靠该纪律挡下幻影)。若成立,则与 §12d worktree 规范同构 → 把我方内部工程实践产品化,属 L2 反超素材
 - **定档(2026-09-23):不开工（幻影差距）**:三文件只读核查——创建表单/请求体/类型/后端 schema 全无工作树意图区分，我方"分支"=文档版本分叉+会话分叉，从未引入 git worktree 概念。若立项需先做产品定义。
-- [x] ✅(2026-09-23)  **D96 对话内写作块(G-129)**:流内可编辑文本块 + **逐块`接受`/`全部接受`/`撤销`** + 失败态`无法更新此写作块`;附带"打开方式"应用选择器(`使用默认电子邮箱应用打开电子邮件` 形态)。与 D41/D90 预览降级同族,复用 `artifact-canvas`,禁止新造编辑栈。**验收**:三动作 + 失败态 + 撤销可逆 __收口(2026-09-23):writing-block(三动作穷尽/撤销可逆往返无漂移/acceptAll 遇 failed 拒绝整批不静默跳过)+ 组件复用 canvas-store.pushVersion 同一版本栈(不调 setContent 防覆盖画布内容)+ ai.pane.writingBlock 23 键×5 语言;shared 38 + web 23 全绿;剩余=流内调用点接入待定__
+- [ ] **D96 对话内写作块(G-129)**:流内可编辑文本块 + **逐块`接受`/`全部接受`/`撤销`** + 失败态`无法更新此写作块`;附带"打开方式"应用选择器(`使用默认电子邮箱应用打开电子邮件` 形态)。与 D41/D90 预览降级同族,复用 `artifact-canvas`,禁止新造编辑栈。**验收**:三动作 + 失败态 + 撤销可逆
 - [ ] **D97 云端聊天互操作活动卡(G-133)**:`附加云端聊天 / 创建云端聊天 / 列出云端聊天 / 读取云端聊天轮次 / 向云端聊天发送消息` 五动作的流内活动条(带 active/completed/following 三态)。数据面我方**已有**(D28 多端 + `/api/task-messages` + W2 abort 通道),缺的是把"跨端操作"呈现成可审计活动条 → 与 D50 多端遥控合并设计,不要两套传输
 - **规格补强(并入既有任务,不另开)**:G-130→D84 审批摘要模板(含`通过网络访问 {target}`、`权限请求：{reason}`、复数规则);G-131→D83 措辞矩阵维度(工具 × active/completed/following × 是否带标题/参数,**并把"repeated=合并计数"与现"已跳过"区分开**);G-132→D76 产物类型副标题(`现场演示`/`实时电子表格`/`网站`)
-- [x] ✅(2026-09-23) **H28 前置验证任务(必须先于 D83/D54/D90/D91 的措辞实现)**:对话流状态类措辞一律用 **ICU `select`/`plural`**(一种语义一个键,否则 27 工具 × 3 状态 × 带参 × 5 语言 = 词表爆炸)。我方现状实测:全仓 ICU 仅 **5 处 plural、`select` 零使用** → 先跑通一条真链路:在 `packages/i18n/messages/**/zh-CN.json` 放一个含 `{state, select, …}` 的键,过 `check-i18n-keys.mjs`(含**含点键**与 parity 规则)、next-intl 渲染、e2e 断言渲染出中文态文本,五语言齐了才算通;**不通则改方案**(如自写小解析器)并回到本节记录结论,不得带着未验证假设进实现
+- [ ] **H28 前置验证任务(必须先于 D83/D54/D90/D91 的措辞实现)**:对话流状态类措辞一律用 **ICU `select`/`plural`**(一种语义一个键,否则 27 工具 × 3 状态 × 带参 × 5 语言 = 词表爆炸)。我方现状实测:全仓 ICU 仅 **5 处 plural、`select` 零使用** → 先跑通一条真链路:在 `packages/i18n/messages/**/zh-CN.json` 放一个含 `{state, select, …}` 的键,过 `check-i18n-keys.mjs`(含**含点键**与 parity 规则)、next-intl 渲染、e2e 断言渲染出中文态文本,五语言齐了才算通;**不通则改方案**(如自写小解析器)并回到本节记录结论,不得带着未验证假设进实现
 - **进度(2026-09-23，被动入库)**：H28 四形增量（`{{name}}` case 体渲染/`offset:` 显式降级/`selectordinal` `=N`/失败原因码）随并发会话 `85f7a65ba9` 入库（§12c 混合提交，内容完整）；`pnpm --filter @ihui/i18n test` 108/108 全绿（含我方 96）。H28 verdict=通保持。
 - **进度(2026-09-23 第 58 轮，H28 verdict=通)**：`packages/i18n/tests/h28.test.ts`(13 例)+`fixtures/h28/` 五语言夹具——`taskStatus.syncState`(`{state, select, …}`)过 key 规则(parity/无含点键/无重复键)→`translate()` 渲染→与 `intl-messageformat@11.2.13`(next-intl 底层)逐字符一致。`pnpm --filter @ihui/i18n test` 96/96 全绿。**未入库**：`packages/i18n/src/icu.ts` 工作树基线含另一并行会话未提交的 degrade 骨架，本轮只做了 additive 增量，为防污染暂不提交，待原作者合流后入库。
 
@@ -2032,10 +1596,7 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
 
 - **收口(2026-09-23)**:五族全落地（审阅态 localStorage 跨刷新+计数聚合/树筛选+失败两级/只跳转不另建 PR 面/git-apply 六形态真仓验证），43 例新测试全绿；词表 26 键待入库（messages 被占用），G-135 在 D27/TaskDetailDialog 的接线点已指明。
 - **收口(2026-09-23)**:五族全落地（审阅态 localStorage 跨刷新+计数聚合/树筛选+失败两级/只跳转不另建 PR 面/git-apply 六形态真仓验证），43 例新测试全绿；词表 26 键待入库（messages 被占用），G-135 在 D27/TaskDetailDialog 的接线点已指明。
-  - **H28 收口核验(2026-09-23,第 68 轮;结论:ICU select/plural 可行,后续措辞一律走它)**:探针键已落地并五语言齐 —— `packages/i18n/messages/shared/{zh-CN,zh-TW,en,ja,ko}.json` 的 `chat.icuProbe.flowState` 值为 `{state, select, running {{count, plural, =0 {…} other {…}}} paused {…} failed {执行失败：<b>{reason}</b>}}`,即**含点键 + 嵌套 plural + 值内富文本标签三者共存**且过 parity 守门;同族链路已进生产 —— `taskStatus.toolGenericActivity` / `toolReadFileActivity` 等由 `packages/shared/src/chat/tool-activity.ts` 与 `tool-category.ts` 消费(后者注释明文"值走 ICU `{state, select, …}`,与 H28 已验证链路一致")。**结论:不用自写解析器**;D83/D54/D90/D91 的状态类措辞一律用 ICU `select`/`plural` 承载。
-- [ ]（进行中）**D99 消息串内富文本动作锚点(G-136;先自证已完成,结论=机制已有、规模化缺失)**:**取证**:Codex zh 包 **222 个键**的值内嵌 XML 式标签(`<link>`40 / `<verb>`18 / `<action>`16 / `<strong>`14 / `<learnMore>`14 / `<detail>`13 / `<a>`13 / `<status>`5 / `<branch>`4…),且**大量落在对话流本体**:`localConversation.toolActivity.active.read = <action>正在读取</action> <detail>{target}</detail>`、`.command.running/.ran/.stopped` 三态各一键、`toolSummaryForCmd.searchingFor = <verb>正在搜索</verb>“{query}”`。**机制价值**:动词与参数各自成可样式/可语义单元,故**同一键在 ja/ko 里可自由调整语序**而不必拆成"动词键 + 宾语键"两套 —— 这正是 D81/D83 双时态词表在 5 语言下不爆炸的前提。**我方实测(两个层次必须分清)**:① **i18n 串内富文本链路已通**(唯一先例:`packages/i18n/messages/web/zh-CN.json:18367` `note5` 含 `<code>` → `apps/web/app/(main)/self-media/automation/page.tsx:619` `t.rich('note5', {…})`),故 D99 **不是新建机制而是把该机制定为对话流措辞的强制载体**;② **模型输出内嵌标签不支持**:`apps/web` 与 `packages` 全量 grep `rehype-raw|allowedElements|skipHtml` **0 命中** → 裸 HTML/自定义标签默认不渲染,若要支持助手流式回复里带 `<action>` 类交互锚点,必须走**白名单标签→组件映射**的受控方案,**严禁 `rehype-raw` 打开裸 HTML**(XSS 敞口)。**噪声入档**:`packages/i18n/messages/cli/zh-CN.json:14` 的 `<task>`/`<path>` 是 CLI 用法串的尖括号占位符,**不是**富文本标签,不得计入我方覆盖率(H25)。**落点**:与 D83/D54/D58/D81 **共用同一份词表与同一渲染器**,不得各建一套;词表主键用 G-ID。**验收**:`t.rich` 链路在 web 上真渲染出可点击元素(e2e 断 `role`/`href`,不接受只断字符串非空)+ 反例断言"AI 输出的 `<script>`/`<img onerror>` 不被执行"(安全用例)+ 五语言语序变体用例各 1 条
-  - **D99① 共享层落地(2026-09-23,第 68 轮)**:新增 `packages/shared/src/chat/rich-anchors.ts` —— 标签白名单 10 个(`a/action/branch/code/detail/learnMore/link/status/strong/verb`)+ **跨端唯一解析器** `parseRichAnchors`(只认严格形态 `<tag>`/`</tag>`;**非白名单 / 带属性 / 自闭合一律按纯文本**,永不产锚点节点)+ `richAnchorsToPlainText`(降级只去标记不丢字)+ `countRichAnchors` / `richAnchorTagSequence`(供埋点与顺序断言);已接入 `chat/index.ts` barrel。词包新增 `richAnchorProbe.flow` ×5 语言,其中 **ja/ko 刻意语序反转**(`<detail>{target}</detail>を<action>注入中</action>`),用来锁死"动词与参数各自成单元、可自由调序"。**验证(实跑)**:`vitest run src/chat/__tests__/rich-anchors.test.ts` → **24/24 通过**(含安全反例:`<script>alert(1)</script><img src=x onerror=alert(1)>` 解析出 **0** 个锚点节点且降级纯文本逐字保留;带属性/自闭合按文本;五语言语序断言 zh-CN=`[action,detail]` vs ja=`[detail,action]`);`packages/shared tsc --noEmit` → exit 0;i18n 守门对本改动 **0 报错**(现存报错全部来自他人 in-flight 的 `apps/web/src/hooks/use-web-view-frame-labels.ts` 与 `use-upload-labels.ts`,与本条无关)。**剩余**:② web 侧"白名单标签 → 组件"映射器(须与 `t.rich` 同源,不得各建一套)③ 对话流措辞改用该载体规模化(调用方 = D83/D81/D58 同批)④ XSS 反例 e2e(断 `role`/`href`,不接受只断字符串非空)。
-  - **D99②③④ web 侧落地(2026-09-23,第 70 轮)**:新增 `apps/web/src/components/chat/rich-anchor-text.tsx` —— **web 侧唯一渲染表** `RICH_ANCHOR_COMPONENTS`:类型为 `Record<RichAnchorTag, (chunks: ReactNode) => ReactNode>`,**键集合由 `@ihui/shared/chat` 的 `RICH_ANCHOR_TAGS` 派生** ⇒ 白名单新增标签而此表漏配会在 **tsc 阶段编译失败**(另附运行时守卫 `MISSING_ANCHOR_RENDERERS` 供守门判红);配 `richAnchorRenderer(tag)`(取单个渲染函数)/ `renderRichAnchorNodes` / `<RichAnchorText>`(无锚点时走**零额外 DOM 层级**路径,有锚点才建 span)。**"两条路共用同一张表"的落点**:① 词包值走 `t.rich(key, { code: richAnchorRenderer('code') })`;② 模型/后端输出串走 `<RichAnchorText text={raw} />`。**真实生产点已接线**:`apps/web/app/(main)/self-media/automation/page.tsx:621` 原 inline 的 `code: (chunks) => <code>{chunks}</code>` 改为 `code: richAnchorRenderer('code')`(L27 引入)。**验证(实跑)**:`vitest run src/components/chat/__tests__/rich-anchor-text.test.tsx` → **14/14 通过**(含安全反例:`<script>`/`<img onerror>` 不产元素、`window.__xss` 未被污染、`innerHTML` 断言已转义为 `&lt;script`;渲染表键集合 === 白名单"不多不少";`richAnchorRenderer('code') === RICH_ANCHOR_COMPONENTS.code` 同源证据;无锚点零层级;自定义表可覆盖);web `tsc --noEmit` **实跑 35 行输出中本改动 0 错**(其余为他人 in-flight 的 `tool-call-summary-category.test.tsx`);安全红线 `rehype-raw|allowedElements|skipHtml` 在 `apps/web`+`packages` 实测仍 **0 命中**(仅命中本模块自身注释)。**剩余**:① D99③ 的全量规模化 = 把对话流措辞键从纯文本批量迁到锚点载体(词表迁移工程,须与 D83/D81/D54 同批,不得各建一套)② ④ 的 e2e 版本(现为组件级断言;补 e2e 时须断 `role`/`href`,不接受只断字符串非空)。
+- [ ] **D99 消息串内富文本动作锚点(G-136;先自证已完成,结论=机制已有、规模化缺失)**:**取证**:Codex zh 包 **222 个键**的值内嵌 XML 式标签(`<link>`40 / `<verb>`18 / `<action>`16 / `<strong>`14 / `<learnMore>`14 / `<detail>`13 / `<a>`13 / `<status>`5 / `<branch>`4…),且**大量落在对话流本体**:`localConversation.toolActivity.active.read = <action>正在读取</action> <detail>{target}</detail>`、`.command.running/.ran/.stopped` 三态各一键、`toolSummaryForCmd.searchingFor = <verb>正在搜索</verb>“{query}”`。**机制价值**:动词与参数各自成可样式/可语义单元,故**同一键在 ja/ko 里可自由调整语序**而不必拆成"动词键 + 宾语键"两套 —— 这正是 D81/D83 双时态词表在 5 语言下不爆炸的前提。**我方实测(两个层次必须分清)**:① **i18n 串内富文本链路已通**(唯一先例:`packages/i18n/messages/web/zh-CN.json:18367` `note5` 含 `<code>` → `apps/web/app/(main)/self-media/automation/page.tsx:619` `t.rich('note5', {…})`),故 D99 **不是新建机制而是把该机制定为对话流措辞的强制载体**;② **模型输出内嵌标签不支持**:`apps/web` 与 `packages` 全量 grep `rehype-raw|allowedElements|skipHtml` **0 命中** → 裸 HTML/自定义标签默认不渲染,若要支持助手流式回复里带 `<action>` 类交互锚点,必须走**白名单标签→组件映射**的受控方案,**严禁 `rehype-raw` 打开裸 HTML**(XSS 敞口)。**噪声入档**:`packages/i18n/messages/cli/zh-CN.json:14` 的 `<task>`/`<path>` 是 CLI 用法串的尖括号占位符,**不是**富文本标签,不得计入我方覆盖率(H25)。**落点**:与 D83/D54/D58/D81 **共用同一份词表与同一渲染器**,不得各建一套;词表主键用 G-ID。**验收**:`t.rich` 链路在 web 上真渲染出可点击元素(e2e 断 `role`/`href`,不接受只断字符串非空)+ 反例断言"AI 输出的 `<script>`/`<img onerror>` 不被执行"(安全用例)+ 五语言语序变体用例各 1 条
 - [ ] **D100 计费自助状态机(G-137)**:Codex `settings.usage.autoTopUp.*` **31 键构成完整闭环**,我方只有余额展示与充值入口,**缺整条自助链路的状态收敛**。可照抄的是**状态形状**而非文案:① 开关动作四态 `enable.success=已启用自动充值` / `enable.error=启用自动充值失败` / `disable.success` / `disable.error`;② 保存动作 + 失败 `save=保存` / `save.error=无法保存自动充值设置`;③ 确认对话框 `dialog.title=自动充值额度` / `dialog.description=当余额达到最低限额时，OpenAI 将自动从你的付款方式中扣款。`(**凡涉及自动扣款必须先出说明性确认,这是合规形状不是样式**);④ **逐字段校验**:`target.error.{missing,wholeNumber,maximum=目标余额不得超过 {maximumCredits, number} 额度,minimumDifference}` 与 `threshold.error.{missing,wholeNumber,minimum}`,配 `target.helper` / `threshold.helper` 解释句;⑤ 价格异步态 `target.equivalent.loading=正在加载价格` + `target.equivalent=将购买最低 {creditCount, number} 额度，相当于 <strong>{amount}</strong>`;⑥ 无障碍 `target.ariaLabel=自动重新加载目标余额` / `threshold.ariaLabel=自动充值最低余额`(滑块必须有名);⑦ **首充失败恢复** `immediateTopUpFailure.amount/.generic = 首次充值（预计为 {amount}）失败。请<actionLine><managePayment>更新付款方式</managePayment>或<purchaseCredit>直接购买额度</purchaseCredit>。</actionLine>` + `managePayment.error=目前无法打开付款设置。请重试。`(即 D99 的锚点用法:失败态**就地给出两条恢复动作**,不是只弹一个错误)。**跨端**:api 侧写侧 `/api/payments` 与积分扣减链路为唯一事实源,web/desktop 共壳自动覆盖,miniapp 走微信支付豁免自助改卡、rn/extension/cli 按 §9 判定后登记。**验收**:②③④⑤⑥⑦ 六组状态逐条有用例(含"自动扣款未确认不得提交"的负例) + 首充失败必出两条可点动作 + 校验文案走 ICU `number` 格式化(H28);金额与计数不得手拼字符串,且数值格式化依赖 **D101 的端中立解释器**(D101 前仅 `messages/web/` 可用 ICU)
 - **规格补强(并入既有任务,不另开)**:**G-138 资源受限降级族** → 归 D90(四级预览降级)+ D41(文件预览)：`codex.review.fileWatchLimited.message=无法监视部分文件的更改。刷新即可更新此视图。` + `fileWatchLimited.refresh=刷新`、`diffTooLarge.title=差异过大，无法显示` + `diffTooLarge.description=打开文件以直接审阅更改。` —— 判据统一为**"受限必带下一步动作"**(不是只说"太大了/加载不了"),与 G-125 的 `无法读取当前文件，已展示工具记录中的内容。` 同族,三处共用一个降级文案族键,不得各写各的提示
 - **H28 静态自验结论(第 19 轮,含对我自己上一条结论的更正)**:① 引擎侧实证 —— `intl-messageformat@11.2.13` 在 pnpm store,**但它只挂在 `apps/web/package.json`**(全仓 `git grep -l '"next-intl"' -- '*/package.json'` **唯一命中 web**;miniapp-taro / mobile-rn / cli / extension / packages-shared 均无);② **守门不会拦** —— 四道 i18n 守门脚本无 crude 花括号解析,现存 plural 值可过闸;③ **但渲染会坏(本条推翻我上一轮"风险降为低"的判断)**:非 web 端走 `@ihui/i18n/loader`,其实现在 `packages/i18n/src/loader.ts:31-36` **只做两次正则替换**(`\{\{(\w+)\}\}` 与 `\{(\w+)\}`),ICU 语法含逗号与空格 → `\w+` 匹配不上 → **原样吐给用户**(小程序会把 `{state, select, …}` 整串当文案显示)。④ **实测分布与此完全吻合**:`packages/i18n/messages/{api,cli,extension,miniapp-taro,mobile-rn,shared}` 的 ICU 计数**全为 0**,`web` = 5(如 `messages/web/zh-CN.json:20567` `itemCount`)→ 结论:**ICU 今天只在 web 单端可用,把"状态类措辞一律用 ICU"直接铺到 8 端会当场产出错误文案,这正是"不可以返工"要防的那类错**。⑤ **H28 修订口径**:措辞引擎必须是**端中立**的 —— 先做 **D101**(在 `@ihui/i18n/loader` 内实现 `select`/`plural`/`selectordinal`/`number` 的**受控子集**解释器,单实现服务 5 端,保持 Taro 包体不引 `intl-messageformat`;或明确改方案为"非 ICU 的分键约定"并回本节记录),**D101 完成前 ICU 语法仅限 `messages/web/` 命名空间**,并加**防回潮闸**(拒绝非 web 命名空间出现 `{x, plural|select|…}` 语法,与 D54 词表闸同批)。**范围仍扩至四形**(Codex 并用 `plural`/`select`/**`selectordinal`**/`number`,只测 `select` 会让调度与排名类文案二次返工)
@@ -2050,12 +1611,6 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
 - [ ] **D102 对话移交工作树(G-140)**:Codex `localConversation.moveToWorktree.modal.*` **21 键**构成完整闭环——标题`将对话移交至工作树` + 副标题富文本`在新工作树中检出分支 <branch>{branchName}</branch>，以继续并行工作。` + 动作键`continue=移交`(**动词不是"确定"**) + 能力前置检查态`loading=正在检查能否移交…` + **运行中禁止态**`existingWorktreeRunning=请等待当前回复完成后再移动此聊天` + 两种目标(创建新工作树／已有工作树 `existingWorktreeLabel`) + 本地侧联动`localCheckoutLabel=本地工作空间将切换至` + `localBranchPlaceholder=选择本地检出分支` + 空态`noTargetBranch=没有其他本地分支可用` + 分支异步三态`branchesLoading/branchesError/branchesRetry` + **四条分支名校验**(`branchAlreadyExists`、`defaultBranchError=工作树分支必须不同于默认分支。`、`trailingSlashError=分支名不能以“/”结尾。`、`worktreeBranchRequired`) + `worktreeBranchAriaLabel`(输入框有名)。**关键省工事实(已实测,防重造轮子)**:我方**服务端已有 worktree 能力**(`apps/ai-service/app/services/worktree.py`,另 `core/sandbox_policy.py`、`services/dag_scheduler.py` 均引用),缺的是 **api 路由面与 web 交互面**(`grep -rli worktree apps/web/src` **0 命中**;`apps/api/src/routes` 只有 `workspace*.ts`,**workspace ≠ worktree**)→ 本任务**不得新写 worktree 底层**,只做"取能力 → 表单 → 校验 → 移交后接续"的产品层。**跨端**:web● api● ai-service●(复用既有服务),desktop○(壳加载 8801,但"本地工作空间将切换至"依赖真实本地目录 → desktop 端须实测其壳内能否执行本地切目录,未核不得声称豁免),miniapp/rn/cli/extension 按 §9 判定后逐格登记(移动端无本地 git 工作树,倾向"平台独占豁免 + 只承接状态展示",须先核再定)。**验收**:21 键逐条对齐(含四条校验各一负例) + "运行中不得移交"负例 + 移交后对话可继续且历史完整 + `<branch>` 锚点走 D99/D101 已通的富文本链路。
 - [ ] **D103 流内多智能体批量动作卡(G-141)**:`localConversation.multiAgentAction.*` 约 40 键,形状是**「动作 × 三态」矩阵**——动作族 `spawn`/`resume`/`sendInput`/`interrupt`/`close`/`list`,每个动作各 `inProgress/completed/failed` 三态(如`创建中/已创建/创建失败`、`正在中断/已中断/中断未成功`、`无法关闭`);标题用组合式 `{action}{countLabel}` + **`header.count = {count, plural, one {1 个智能体} other {# 个智能体}}`(ICU plural,即 D101 的真实用例)**;行级模板`row.agent = {action} {agent}{stateSuffix}`;`agentState` **七态**(`running/completed/errored/interrupted/pendingInit/shutdown/notFound`,含"找不到"这一我方完全没有的终态);元信息行`meta.prompt=输入：{prompt}`。**先自证(不得重做已有面)**:我方已有 `components/ai/agent-swarm-monitor.tsx`、`agents/UnifiedTaskDashboard.tsx`、`ai/agent-task-progress-pane.tsx`、`ai/dispatch-subagent-dialog.tsx` 四处多智能体 UI,差距**只在"对话流内那一份批量动作卡与其状态矩阵"**;且实测我方运行时事件只有 `packages/types/src/agent-runtime.ts:45-46` 的 `subagentStart/subagentStop` 两个(**无七态词汇表**),故本任务根因层 = **P 协议(补状态)+ R 渲染位**,与 G-97~G-105 状态词汇表族交叉引用,**不得另建第二套状态枚举**。**验收**:六动作 × 三态矩阵逐格有用例 + 七态含 `notFound` + 标题 count 走 ICU(过守门 56/57) + 三处既有面板不回归。
   - **D103 落地(2026-09-23,第 73 轮)**:先按 H24 自证:四处既有多智能体 UI 均在(`agent-swarm-monitor` / `UnifiedTaskDashboard` / `agent-task-progress-pane` / `dispatch-subagent-dialog`),但运行时事件只有 `subagentStart`/`subagentStop`(`packages/types/src/agent-runtime.ts:48-49`),**七态词汇表不存在**(`notFound|pendingInit|shutdown` 在 types 全量 grep 0 命中),`multiAgentAction|无法关闭` 等独特文案亦 0 命中 ⇒ 确未做;根因层 = **P 协议(补状态)+ R 渲染位**。**三层交付**:
-    - ① **P 协议层** `packages/types/src/agent-runtime.ts`:新增 `AGENT_INSTANCE_STATES` 七态(running/completed/errored/interrupted/**pendingInit**/**shutdown**/**notFound** —— 后三个是既有 `SessionStatus` 四态**完全没有**的终态)+ `AgentInstanceState` + `sessionStatusFromInstance()` **单向映射**(实例态→会话级四态;switch 无 default ⇒ 新增实例态漏改会编译失败)。**不另建第二套枚举**:与既有 `SessionStatus` 明确分工(会话级粗 / 实例级细),经唯一映射连接。
-    - ② **共享层矩阵** `packages/shared/src/chat/agent-actions.ts`:六动作(`spawn/resume/sendInput/interrupt/close/list`)× 三相位(`inProgress/completed/failed`)= **18 格矩阵**(`AGENT_ACTION_MATRIX` 是唯一矩阵定义处;`list` **不开特例** —— 特例会让"逐格有用例"失去意义)+ 键名生成(`agentActionLabelKey`/`agentActionPhaseKey`/`agentInstanceStateKey`)+ `agentActionMatrixKeys()` 供守门逐格断言。
-    - ③ **R 渲染位** `apps/web/src/components/ai/progress-sections/agent-actions-card.tsx`:按动作分组,标题 `{动作名} {count}`(**count 走 ICU plural**,不是手拼字符串),行级 `{相位文案} {agent} {实例状态} {输入：…}`;**`notFound` 必须显式渲染**(静默留空等于把"找不到"伪装成"还在跑")。
-    - **词包** `ai.pane.agentActions` 34 键 × 5 语言(18 格相位 + 7 态 + 标题/行模板/入参行);关键文案**逐字取自台账原文**(创建中/已创建/创建失败、正在中断/已中断/**中断未成功**、**无法关闭**)。
-    - **验证(实跑)**:`agent-actions.test.ts` **17/17**(含 18 格矩阵键逐格无遗漏无重复、七态含 notFound、七态→四态映射逐项断言、五语言 parity、34 键×5 语言全齐、`header.count` 含 `plural`、zh-CN 逐字断言);`packages/types` 与 `packages/shared` `tsc --noEmit` **exit 0**;web `tsc` 实跑 35 行输出中**本改动 0 错**。
-    - **未做/前置**:运行时事件仍只有 `subagentStart`/`subagentStop` ⇒ 七态与 18 格相位在**事件补出之前拿不到真实数据**(本卡渲染空态);补事件属 P 协议第二段(需 ai-service 侧子智能体状态事件 + SSE 契约双端同步),与 G-97~G-105 状态词汇表族同批。**组件为薄渲染层**,判据由共享层 17 例覆盖(未单写组件测试,如实登记)。
 - **G-142 = 竞品自家中文文案存在机器翻译残留(登记为反超判据素材,不立"补齐"任务)**:实测 `multiAgentAction.list.completed=挂牌`、`list.inProgress=房源`(`list` 被当名词误译),同族 `list.failed=列出未成功` 却正确 —— 同一 key 家族内术语漂移,属竞品自身本地化质量缺陷。**我方对应缺口**:§19 现有判据里 en 有"破碎机翻"阻断(`check-i18n-broken-en.mjs`),zh 侧只查简体字残留/重复命名空间,**没有"中文术语机翻错误"词表判据**。→ 立 **H29**(见下)。
 - **收口(2026-09-23)**:三处均无术语正确性判定，自证成立；同族漂移第二判据落地（同父级+同 keyRoot 下错译组合必红，单孤立/并列/跨父级放过），`--self-test` 12 例+镜像测试 6/6 绿，全量 14 包 56508 条零误伤；miniapp 离线包同期判据一致（包体过期需重生成，另案）。
 
@@ -2069,12 +1624,6 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
 - **规格补强 G-147 → D54/D83(MCP 活动措辞的量化真值,把"补齐 450 键"改成可完成目标)**:实测 `mcpToolActivity.github.*` 后缀分布 = **`active` 54 / `completed` 46 / `activeWithContext` 4 / `activeWithQuery` 3 / `completedWithQuery` 2 / `completedWithContext` 2 / `activeWithTitle` 1**,样例 `create_pull_request.active=正在创建 Pull Request` / `.completed=已创建 Pull Request`、`search.activeWithQuery=正在搜索代码“{query}”` / `.completedWithQuery=已搜索代码“{query}”` → **450 键的真实形状是「server × 工具 × {active, completed} × {plain, WithQuery, WithContext, WithTitle}」**,而非 450 个孤立短语。**据此把目标改写为可完成的覆盖率式**:应覆盖数 = 已接入 MCP server 的工具数 × 2 态(+ 带参变体按需),分母由我方 server 清单现算,**禁止按竞品键数立项**(竞品接了多少 server 与我们无关);落地仍走 D101 ICU + D99 富文本,不逐键抄。
 - [ ] **D105 PR 检查状态与动作卡(G-146)**:`localConversation.pullRequest.actions.*` 一手形状——① **CI 检查六态 tooltip**:`failed=测试失败` / `passed=测试已通过` / `pending=待测试` / `skipped=已跳过的测试` / `neutral=中性测试` / `unknown=测试状态未知`(**六态齐,含 neutral 与 unknown 两个我方极易漏的态**);② 聚合三态 `checksFailing=检查未通过` / `checksPending=检查待处理` / `checksSuccessful=检查已通过` + 空态 `noCiChecks=无 CI 检查`;③ **动作族**`checks.fix=修复` / `checks.remove=移除` / `comments.address=添加到对话` / `comments.remove=移除`——即"把失败检查一键交给 Agent"与"把某条评论加入对话上下文"两条闭环;④ 与 D15(GitHub App 自动 review)、D27(交付审查)、G-135(`copyGitApplyCommand` 可搬运)交叉引用,**不得另建 PR 数据面**。我方现状:有 `review_pr_github` 工具与 D15 计划,**流内 PR 检查状态卡未立**(实施前须按 H24 多路径自证 `checks tooltip|noCiChecks|CI 检查` 落点后再定档)。**验收**:六态各有用例(含 neutral/unknown)+ 三聚合 + 空态 + 两条动作各一条端到端(点击→Agent 接管→回帖),并断言动作标签走 i18n 五语言。
   - **D105 落地(2026-09-23,第 72 轮)**:先按 H24 做多路径自证(`noCiChecks|checksTooltip|checksFailing|测试已通过|已跳过的测试|中性测试` 在 apps+packages 全量 grep **0 命中**,`PullRequestCheck|ciChecks` 类型亦不存在)⇒ 确未做,非重复劳动。**三层交付**:
-    - ① 共享判定层 `packages/shared/src/chat/pr-checks.ts`:六态 `failed/passed/pending/skipped/neutral/unknown` + 聚合三态 `failing/pending/successful` + 空态 `none`;`normalizeCiCheckState` 把平台同义词(success/succeeded/failure/errored/queued/in_progress/cancelled/stale…)归一到六态,**认不出归 unknown 而不编造**;聚合语义逐条定死:`failed` 压倒一切 → `pending` 或 `unknown` 归 pending(**状态未知不得宣称成功**)→ `skipped`/`neutral` 不阻塞成功。键名生成 `ciCheckStateKey`/`checksSummaryKey`/`prCheckActionKey` 供各端拼命名空间,避免各端各写一套。
-    - ② 契约扩展 `packages/types/src/ide-workspace.ts` 的 `pullRequest` 加**可选** `checks[]` / `checksSummary`(老后端缺省 ⇒ 渲染空态,不报错、不破坏兼容;此处用字面量联合以避免 types → shared 依赖)。
-    - ③ 流内渲染件 `apps/web/src/components/ai/progress-sections/pr-checks-card.tsx`:聚合徽章(四色语义)+ 逐条六态 `Tooltip` + `{passed}/{total}` 计数 + 动作族。**数据面纪律**:动作以 `onAction` 回调注入,本卡**不取数**,数据面仍走既有 PR 通道(`review_pr_github` + `pullRequest`),不另建第二套。**动作可见性纪律**:「修复」只在**确有失败**时出现(`shouldOfferFix`),无失败还给修复入口=对用户撒谎(负例已锁)。
-    - **词包**:`ai.pane.prChecks` 16 键 × 5 语言;六态/三聚合/空态文案**逐字取自台账原文**(防自创措辞),`countLabel` 走 ICU 参数。
-    - **验证(实跑)**:`packages/shared` 的 `pr-checks.test.ts` **21/21**;`apps/web` 的 `pr-checks-card.test.tsx` **16/16**(含四条硬负例:unknown → pending、skipped/neutral 不阻塞成功、无失败时**不得**出现「修复」入口、空检查不崩;另含五语言 parity 与 zh-CN 逐字断言);`packages/shared` 与 `packages/types` `tsc --noEmit` **exit 0**;web `tsc` 实跑 35 行输出中**本改动 0 错**。
-    - **未做/前置**:③ 的"点击 → Agent 接管 → 回帖"端到端链路依赖 **D15**(GitHub App)与 **G-135**(`copyGitApplyCommand` 可搬运),本轮只交付渲染件与动作触发点(`onAction`),接线待 D15 落地后再补;`neutral`/`unknown` 的 i18n 键已就位,后端补 `checks[]` 即可上屏。
 
 - [ ] **D106 消息级"交代帧"跨端消费缺口(G-148;实测量化,不是推测)**:多落点 grep(`--include=*.ts --include=*.tsx`,排除 node_modules)得 **extension / miniapp-taro / mobile-rn / cli 四端对 `citations` 与 `onSteer` 均 0 命中,只有 web 消费**;对照 `compaction` 四端各有落点(extension 1 / miniapp-taro 3 / mobile-rn 2 / cli 15)→ 证明**不是"这些端不接 SSE 交代帧",而是逐帧漏接**,同一类缺口第 N 次出现(D34 的 `injection_applied` 我一开始也只接了 web,即本条的又一实例)。**根因层 = C 客户端通道(api-client 已给 `onInjectionApplied` / `onRetryScheduled` / `onCitations` 回调,端内没人注册)+ P 呈现(各端无对应组件)**。**做法纪律**:① 表现层组件沉 `@ihui/ui-react`(取词函数由 props 注入,不得在组件内 `useTranslations`,否则又变成 web 独占);② 每端注册回调时必须**逐字段显式承接**(各端 store 都是枚举式合并,未知字段会被静默丢掉 —— 与 D40 截断字段完全同因);③ 交代类文案一律走各端命名空间词表,**禁止把后端 `collapsed` 中文当界面文本**(第 42 轮已为此把 kind 定为取词键);④ 端内不得再抄一份渲染模型(mobile-rn 的 `utils/chat-render-model.ts` 属既有违例,收编另立任务)。**验收(可机检)**:守门 57 的 `context-injection-disclosure` 元素锚点从"仅 web"扩到 **web + extension + miniapp-taro + mobile-rn**;每端至少 1 条"帧字段进了 store、界面出本地化文案、未知 kind 回退 collapsed"的用例;`citations` 与 `steer` 在四端的命中数由 0 变非 0(脚本可复算,分母用四端目录)。
   - **进度(第 43 轮)**:呈现层已沉共享组件 `@ihui/ui-react` 的 `ContextInjectionList`(取词函数 props 注入,组件内零 `useTranslations`),web 侧改为薄壳复用(既有 6 用例**一字未改全绿**,证提取保行为);**extension 已接通**(ChatPage 注册 `onInjectionApplied` + 枚举式合并里显式承接 + MessageContent 渲染,新增 4 例静态渲染用例,断言"出本地化文案、不出后端中文、多条默认只露第一条"),`injectionTitle/injectionKind*` 等 7 键 × 5 语言已入 extension 命名空间,守门 57 该元素锚点已到 6 处(后端/api-client/web/extension×2)。**剩余**:miniapp-taro、mobile-rn 两端的承接与词表;`citations` / `steer` 在四端仍为 0 命中。
@@ -4257,9 +3806,7 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 
 ### 来自本地 main `ddb78b1ca66`(14 行)
 
-- [ ]（进行中） **Esc 无层栈协议**(方案已定稿,待实施):20+ 处 document/window 的 Esc 监听各自为政且普遍不 `stopPropagation` → 一次 Esc 同时关掉遮罩、弹层、pane、搜索条。**正解不是逐处补 `stopPropagation`**(跨层顺序不可控),而是:①新增 `apps/web/src/lib/overlay-stack.ts` —— `pushOverlay(id)/popOverlay(id)/isTopOverlay(id)`(模块级数组,注册幂等,卸载必 pop);②每个浮层在 open 时 push、close 时 pop,其 Esc 处理器首行 `if (!isTopOverlay(myId)) return`;③`packages/ui-react` 的 Dialog/Popover 家族优先内建该注册(一处接全部端),web 端自绘 portal 层逐个接入;④已有正例可参照其消费写法:`GlobalTopBar.tsx:366`、`TagsView.tsx:135`、`hover-preview-card.tsx:44`(已用 stopPropagation 的三层)。解阻判据:构造"遮罩 + 弹层 + pane 三层叠开"场景按一次 Esc,只有最上层关闭(真机 `aria-expanded`/`data-state` 逐层断言)。注意 `work-panel.tsx` 属共享包,须与结构改造项同票评估。
-  - 进度(2026-09-23,①② 大部分落地):`apps/web/src/lib/overlay-stack.ts`(栈语义对未注册 id **fail-open**,push 幂等、pop 可重复;单测 7 例通过)+ web 端 **19 处**自绘 portal 层接入(`isTopOverlay` 前置判定)。**残余**:`global-hooks-provider.tsx` 的 Ctrl+/ 帮助面板注册**未随本票提交**——该文件同时载有他会话的 chord 改表/桌面主题改动,且其删除 `role=button`+`tabIndex`+`onKeyDown` 的改动引入 4 条 `jsx-a11y` error(阻塞 lint),按 §16 不代改他人逻辑,留给归属会话处理;③ `packages/ui-react` 家族内建与 ④ 真机三层叠开逐层断言 未做,本项保持进行中。
-  - ⚠️ 事故背景:本批文件在 2026-09-23 15:49 的 `.git` 被宿主清除事件中**丢过一轮载体**(当日未推送 commit 的对象已不可恢复),工作区这份是唯一副本,清理前必须先入库。
+- [ ] **Esc 无层栈协议**(方案已定稿,待实施):20+ 处 document/window 的 Esc 监听各自为政且普遍不 `stopPropagation` → 一次 Esc 同时关掉遮罩、弹层、pane、搜索条。**正解不是逐处补 `stopPropagation`**(跨层顺序不可控),而是:①新增 `apps/web/src/lib/overlay-stack.ts` —— `pushOverlay(id)/popOverlay(id)/isTopOverlay(id)`(模块级数组,注册幂等,卸载必 pop);②每个浮层在 open 时 push、close 时 pop,其 Esc 处理器首行 `if (!isTopOverlay(myId)) return`;③`packages/ui-react` 的 Dialog/Popover 家族优先内建该注册(一处接全部端),web 端自绘 portal 层逐个接入;④已有正例可参照其消费写法:`GlobalTopBar.tsx:366`、`TagsView.tsx:135`、`hover-preview-card.tsx:44`(已用 stopPropagation 的三层)。解阻判据:构造"遮罩 + 弹层 + pane 三层叠开"场景按一次 Esc,只有最上层关闭(真机 `aria-expanded`/`data-state` 逐层断言)。注意 `work-panel.tsx` 属共享包,须与结构改造项同票评估。
 
 ## P1 移动端输入框大框化 + 全项目加号统一 AddPanel(2026-09-22 立并完成 ✅,平台独占:apps/mobile-rn)
 
@@ -4349,14 +3896,17 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
   - **P1 按钮触摸目标**(2 文件 7 处):ai-side-panel 浮窗折叠态 `h-6 w-6`→`h-9 w-9`(2 处);agent-task-progress-pane `h-5 w-5`→`h-9 w-9`(5 处,20px→36px 接近 44px 标准)
 - [x] ✅(2026-09-09) **P1 声纹删除越权收敛**:声纹库是平台共享资源(单一 token6688 账号,无归属概念),此前任何登录用户可 DELETE 全库声纹。delete_voice 加 `_require_admin` 依赖(role_id≥1,与 AGENTS.md §5/admin layout 一致);voices 页非 admin 隐藏删除按钮(useAuthStore roleId>=1);列表/上传/试听对登录用户开放不变;/voice/voices* 不在 JWT 公开白名单(匿名不可达)复核通过。
 - **补的两族(受保护形态从一种扩到三种)**:① 既有"加粗 bullet"(`- **G-166 …**`)语义原样不动;② **复选任务行裸编号** `- [ ] O13b …` / `- [x] ✅(2026-09-23) …`,须逐层剥掉复选框之后的状态装饰(`（进行中）` / `✅(日期)`)再取编号 —— 计划里真有 `- [ ]（进行中） O13b 第二段(…)`,只剥一层会正好漏掉本票要救的那一行(注入实锤);③ **批次标题行** `### 第十四批(…):…`,刻意只认"批",不认轮/次/阶段(`第二轮` 这种串全文必撞,纳进只会往基线塞永不报丢的空条目)。
-- [ ] O10 对外 run 语义：幂等 run 创建（`Idempotency-Key`）、外部 run 句柄（不依赖 IHUI session_id）、通用幂等层、游标分页规范  ⏳(幂等重放保护已入库(af96921c95);run 句柄与游标分页另列 O10b)
   - **D49① 收口(第 67 轮,提交 `9b16668ccb`,origin=ON)**:chat_message_feedbacks 表(迁移 20260923120000 + journal idx287,已应用本地库;(user_id,message_id) 唯一 = 一人一票,upsert 改票)+ rateChatMessage 查询(归属 join 校验,不区分不存在/无权对外 404)+ POST /chat/messages/feedback + api-client + 右键菜单「反馈」拆「点赞/点踩」双项落库;i18n 4 键 ×5 语言(ns=chat.contextMenu/chat.toast)。测试:路由 4/4 + 真库集成 4 例(*.real.test.ts,待 .env.test 基础设施,与既有 real 测试同条件)。**②③④⑤ 未动**:②耗时后端化随 D34 帧、③三巨无霸拆分(三文件均在并行在途)、④miniapp 分发层收编(miniapp 在途)、⑤extension parity(extension 在途)。
+  - **D99① 共享层落地(2026-09-23,第 68 轮)**:新增 `packages/shared/src/chat/rich-anchors.ts` —— 标签白名单 10 个(`a/action/branch/code/detail/learnMore/link/status/strong/verb`)+ **跨端唯一解析器** `parseRichAnchors`(只认严格形态 `<tag>`/`</tag>`;**非白名单 / 带属性 / 自闭合一律按纯文本**,永不产锚点节点)+ `richAnchorsToPlainText`(降级只去标记不丢字)+ `countRichAnchors` / `richAnchorTagSequence`(供埋点与顺序断言);已接入 `chat/index.ts` barrel。词包新增 `richAnchorProbe.flow` ×5 语言,其中 **ja/ko 刻意语序反转**(`<detail>{target}</detail>を<action>注入中</action>`),用来锁死"动词与参数各自成单元、可自由调序"。**验证(实跑)**:`vitest run src/chat/__tests__/rich-anchors.test.ts` → **24/24 通过**(含安全反例:`<script>alert(1)</script><img src=x onerror=alert(1)>` 解析出 **0** 个锚点节点且降级纯文本逐字保留;带属性/自闭合按文本;五语言语序断言 zh-CN=`[action,detail]` vs ja=`[detail,action]`);`packages/shared tsc --noEmit` → exit 0;i18n 守门对本改动 **0 报错**(现存报错全部来自他人 in-flight 的 `apps/web/src/hooks/use-web-view-frame-labels.ts` 与 `use-upload-labels.ts`,与本条无关)。**剩余**:② web 侧"白名单标签 → 组件"映射器(须与 `t.rich` 同源,不得各建一套)③ 对话流措辞改用该载体规模化(调用方 = D83/D81/D58 同批)④ XSS 反例 e2e(断 `role`/`href`,不接受只断字符串非空)。
+  - **D99②③④ web 侧落地(2026-09-23,第 70 轮)**:新增 `apps/web/src/components/chat/rich-anchor-text.tsx` —— **web 侧唯一渲染表** `RICH_ANCHOR_COMPONENTS`:类型为 `Record<RichAnchorTag, (chunks: ReactNode) => ReactNode>`,**键集合由 `@ihui/shared/chat` 的 `RICH_ANCHOR_TAGS` 派生** ⇒ 白名单新增标签而此表漏配会在 **tsc 阶段编译失败**(另附运行时守卫 `MISSING_ANCHOR_RENDERERS` 供守门判红);配 `richAnchorRenderer(tag)`(取单个渲染函数)/ `renderRichAnchorNodes` / `<RichAnchorText>`(无锚点时走**零额外 DOM 层级**路径,有锚点才建 span)。**"两条路共用同一张表"的落点**:① 词包值走 `t.rich(key, { code: richAnchorRenderer('code') })`;② 模型/后端输出串走 `<RichAnchorText text={raw} />`。**真实生产点已接线**:`apps/web/app/(main)/self-media/automation/page.tsx:621` 原 inline 的 `code: (chunks) => <code>{chunks}</code>` 改为 `code: richAnchorRenderer('code')`(L27 引入)。**验证(实跑)**:`vitest run src/components/chat/__tests__/rich-anchor-text.test.tsx` → **14/14 通过**(含安全反例:`<script>`/`<img onerror>` 不产元素、`window.__xss` 未被污染、`innerHTML` 断言已转义为 `&lt;script`;渲染表键集合 === 白名单"不多不少";`richAnchorRenderer('code') === RICH_ANCHOR_COMPONENTS.code` 同源证据;无锚点零层级;自定义表可覆盖);web `tsc --noEmit` **实跑 35 行输出中本改动 0 错**(其余为他人 in-flight 的 `tool-call-summary-category.test.tsx`);安全红线 `rehype-raw|allowedElements|skipHtml` 在 `apps/web`+`packages` 实测仍 **0 命中**(仅命中本模块自身注释)。**剩余**:① D99③ 的全量规模化 = 把对话流措辞键从纯文本批量迁到锚点载体(词表迁移工程,须与 D83/D81/D54 同批,不得各建一套)② ④ 的 e2e 版本(现为组件级断言;补 e2e 时须断 `role`/`href`,不接受只断字符串非空)。
 
 ## P1 mobile-rn 我的页深色复核第二轮:离板色/低对比前景收口 + 首屏超时真重试(2026-09-23 立并完成 ✅,平台独占:apps/mobile-rn)
+
 > 承接「P1 mobile-rn 深色复核收尾」一节。上一轮派单把问题清单(来自截图分析)与文件清单错配:
 > 「文本/图片/视频/音频 Tab」实际在 `apps/mobile-rn/src/components/StudyBar.tsx`,「等级介绍」在
 > `apps/mobile-rn/src/screens/ProfileScreen.tsx`,**都不在被允许的 4 个文件内** ⇒ 子代理只能在白名单里
 > 反复自问"Tab 到底在哪"直到算力耗尽。本轮按**实测 WCAG 比值**重判,改判据不改猜测。
+
 - [x] ✅(2026-09-23) **UserInfoCard 三处**:`card` 底 `rgba(195,190,255,0.15)`(深色下与 #242424 混成 `#3c3b45`,离板浅紫)→ `surface.card`;`roleBadge` 底 `surface.card`→`surface.muted`(卡底改后二者同色会隐形);`roleText` `gray[600]`→`text.secondary`,**实测 1.41:1 → 6.00:1**(旧值压在浅紫面板上几乎不可读,即用户报的"普通用户标签对比度不足")。
 - [x] ✅(2026-09-23) **StudyBar 选中/未选中**:选中态 `brand.DEFAULT`(深色档案=纯白)+ `brand.foreground` → `brandAccent.DEFAULT`+`brandAccent.foreground`(与广场页 `971e21517` 同判据:纯白胶囊压深底即"刺眼",量化为白底对 #242424 达 15.52:1);未选中 `text.tertiary`→`text.secondary`,**3.67:1 → 6.90:1**。
 - [x] ✅(2026-09-23) **UserMembershipBenefits**:`expireText`/`tierNormal` `text.tertiary`→`text.secondary`(**3.67:1→6.90:1** / **3.19:1→6.00:1**);`openBtn` 纯白底+黑字 → brandAccent 对(白底对 #1A1A1A 卡面 **17.40:1**,改后 8.46:1 深色 / 5.65:1 浅色,仍在 AA 之上)。
@@ -4527,43 +4077,12 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - **族一/族二仍被并发会话整体阻塞**(判据见上一节):149 个含 `surface.light` 前景的文件**当前无一干净**。守门 75 的 R3 棘轮已锁住增量,故这些存量迁移**没有时效风险**(不会边迁边长),可安全等待。
 - 验证:`node scripts/heal-worktree-tracked.mjs --self-test` 14/14;`--align-drift` 不再崩;`node scripts/check-brand-foreground.mjs` 全量绿。
 - [ ]（进行中）RN 分类栏统一收口(承 2026-09-23 04:19 会话被取消的迁移,用户原话"所有的菜单栏分类栏没有设计好 统一 好看的符合项目统一的样式 点击后下拉窗的形式呈现 左右滑动"):地基 `packages/app/src/components/category/{CategoryInlineBar,CategoryDropdown}` 补包根导出(`@ihui/rn-app` 可直接 import,此前只到 `components/index.ts` 端内取不到)+ Dropdown 面板改 `ScrollView`(修"选项多于 8 条被 maxHeight+overflow:hidden 静默裁切")+ 圆角一律 `rnRadius` 档(对齐同日新立 §4 圆角单一源头)。**迁移面 16 处**:共享层 9 屏(square/plaza/order/team/ranking/recruitment/token-value/study-index/study-publish,其中 study-publish 的 API 动态赛道 = CategoryDropdown 装车点)+ 端内 7 屏(ProfileScreen / TokenValueScreen / TopicListScreen / StudyIndexScreen / MaterialList / AgentScreen 赛道弹层双行并删违规 `trackDivider` hairline 分割线 / FenLeiOverlay 赛道行+分类网格双条)。孤儿裁定:`StudyBar`、`SingleTypeBar` 已零调用点(删除需同步下调 `scripts/radius-single-source-baseline.json` 的 2 条基线,本轮未做)。**真机取证(v0.0.4 / code 5 release 包,Hermes 字节码 bundle grep 命中 `CategoryInlineBar` / `agent-track-bar` / `ctaFill`)**:① 点顶栏「分类」弹出的那块当时仍是迁移清单外的 `FenLeiOverlay`(已补迁);② 像素直方图实测选中 chip 前景 = 深色 `ctaText` #16262E 而底色仍是容器同色 #1A1A1A —— `ctaFill` 根本没落上,即"选中态看不见";③ idle chip 以 `surface.card` 作底,落在同为 `surface.card` 的弹层面板上完全隐形。已修:idle 底改 `surface.muted` + 描边 `border.medium`(两套主题下与页面 bg / 面板 card 均不同档)。**根因未定**:曾按"Pressable 函数式 style 整条路径未生效"归因并把容器视觉移到普通 View 数组路径(该改动本身无害,少一个变量),但随即被反证 —— 全仓 58 个文件用同款 `style={({pressed}) => [base, active ? activeStyle : null]}`,其中 `SingleTypeBar.tsx:142-143` 与迁移前的 SquareScreen 内联条都是这条路径且真机显示正常;`ctaText`(#16262E)在同一 chip 上生效而 `ctaFill`(#a3c4d6)不生效,也排除了"整套 token 缺失"(dist 陈旧版两者皆无,若走 dist 文字应回落到 #A3A3A3)。待手机回线后先加高对比标记色(如临时 `#FF00FF`)做二分,再定是样式合并路径还是取色问题。待复验(设备 19:5x 起 `adb devices` 为空,kill-server 重连无效,USB 侧仍见 3 个 Composite Device)。
-
-## P0 `.git` 存续事故处置 + 守门 77「提交内容含冲突标记」+ Esc 无层栈协议落地(2026-09-23 立并完成 ✅,单端工程治理:scripts + web + 文档)
-
+  - **2026-09-24 三端收口(04:00-05:20 续做)**:统一面从"RN 16 处"扩到**三端 38 个 JSX 调用点** —— RN 27 处 / 21 文件(新增 HomeScreen、CircleIndexScreen、VipScreen、StudyPublish 的 StagePicker、SetNeedScreen 4 个字段、PlazaScreen 赛道弹层)、web 3 处(新增 `packages/ui-react/src/components/category-bar.tsx`)、小程序 8 处(新增 `apps/miniapp-taro/src/components/CategoryBar.{tsx,css}`,并修掉 `Selecter.taro.tsx` 4 处 `borderRadius: toRpx(5)`)。共享件补 3 项能力(`iconSize` / `placeholder`+`panelTitle` / 受控 `visible`+`hideTrigger`),全为选填,既有 20 处调用点行为不变。**测试面根治**:`CategoryDropdown` 此前全仓零覆盖,真因是测试桩 —— `react-native` 桩缺 `useWindowDimensions`/`BackHandler`/`Animated.parallel`(一挂载即 TypeError),且 `mk()` 把 `ref` 当未知 prop 一起 spread 到 DOM ⇒ `triggerRef.current` 恒 null、`measureInWindow` 永不执行、面板"点了没反应"且不报错;现补三导出 + 给桩元素挂真实 `measureInWindow` + `Animated.Value` 先求值再入 style,并把 `ihui-rn-app` 桩改为 re-export 真实组件(该桩本就写着"真组件配假实现会让测试对不存在的东西全绿"的教训)。vitest 386→**391 全过**,新增下拉窗行为 5 例 + 分类条配色不变量 4 例。
+  - **本会话自伤并自救记录(必须留)**:我用 `sed -i` 改 `apps/mobile-rn/android/app/build.gradle` 的版本号,该文件被并发进程持有 ⇒ sed 把它**截成 0 字节**;`/android` 在 `apps/mobile-rn/.gitignore:2` 内 ⇒ git 无法恢复。走仓库既有 sanctioned 路径恢复:`expo prebuild -p android --no-install --no-clean`(`--no-clobber`/`--yes` 在本 expo 版本不存在,`--no-clean` 才是"应用到现有目录而非重建"),再 `node scripts/patch-rn-release-signing.mjs` 重打 4 段(版本号同步 + release 签名)。恢复后逐项核验:`namespace`/`applicationId` 仍是 `zh.ai.sq`(不会装成第二个 App)、`settings.gradle`/`build.gradle`/`gradle.properties` 与预build 前逐字节相同(`cmp` 判据)。**教训:改 gitignored 生成物里的版本号一律走脚本或 Edit 工具,不要对可能被持有的文件用 `sed -i`**;且 `versionCode` 现由 `-PversionCode=N` 注入(缺省 1),不传会**降级安装失败**,本次出包用 `-PversionCode=6`。
+  - **同夜治掉的一道恒红门(影响全仓所有会话)**:`check-brand-foreground.mjs` 的基线 json 有 `counts`(R2)与 `ctaCounts`(R3)两张独立棘轮表,ChatScreen 的 6 条全在 R3、R2 一格没有 ⇒ 它 7 处 `backgroundColor: tokens.surface.light`(由 `b709df06a` 深色收口引入时漏登记)使这道 blocking 门从那天起对每个会话恒红,是"提交总要 `--no-verify`、连带 114 道门全失效"的真因。按棘轮原意手工补登那一格(**不跑 `--update-baseline`** —— 那会把几十个并发未提交文件的违规一并洗进基线),门现 ✅。这是登记存量、不是修掉深色 bug,那 7 处仍在族一/族二待迁面上。
+  - **D44 收口核验(2026-09-23,第 68 轮 HEAD 级)**:`git show HEAD:scripts/check-agent-event-parity.mjs` 第 107 行 `const WHITELIST = []`(已归零);`node scripts/check-agent-event-parity.mjs` **EXIT 0**(通过 12 / 警告(不阻断) 6 / 错误 0);4 个死声明事件(task_progress/worker_status/dag_level_advanced/log)已从 `packages/types` 的 `AgentSSEEvent` 与 `dag_scheduler.py` 回收(仅存注释,无联合成员);6 个"显式声明不渲染"事件在 `AgentPane.handleStreamEvent` 有 0 个分支(隐式落空,即兜底忽略真实存在)。6 条警告为 langgraph 引擎退役后的内部信号,按预期放行。
+  - **D63 自证定档(第 70 轮)**:台账前提「后端已有 review_pr_github、code_review 工具可挂」**经实测半不成立** —— ① `review_pr_github` 全仓 0 命中(幻影工具,疑 Codex asar 证据误记为我方);② `code_review` 仅两处且都是**提示词/规则模板**:mcp_server.py:9042 是 MCPPrompt(为 agent 会话生成审查提示词)、rules_engine.py:153 是关键词规则模板(向命中会话注入审查要点)——**均不是可独立执行的提交后审查器**,真实执行都依赖"起一个 agent 会话跑提示词"。
+  - **D74 自证定档(第 70 轮)**:automations 基建实测为 `userAutomations` 表 + agent-automation-scheduler(定时/事件触发的**用户级 agent 自动化**),其触发模型是 cron/事件,不是"手动一键";且为用户级无 workspace 维度。复用该基建承载 Workspace Actions 需先拍板两件设计:① 存储扩展(`scope=user|workspace` + workspaceId 列,或兄弟表——台账明令不得另起存储,故必须扩列,涉既有执行语义回归);② 一键动作的执行模型(工作区级命令以什么身份/在哪跑,与 automations 的 agent 会话执行是否同通道)。两件定论前实施 = 在错误抽象上叠 UI。
 - [x] ✅(2026-09-23) **守门 77 check-no-conflict-markers.mjs**(blocking,`skipEnv=HUSKY_SKIP_CONFLICT_MARKERS`)—— 立项实证:15:49 `.git` 被宿主清除后,并发会话在共享工作区跑真实 `git merge`,留下 103 个未合并路径 / 94 个带字面标记的工作区文件,而**全链 106 道门无一拦得住标记入树**。判据 = 同文件内**成对**行首 `<<<<<<< ` + `>>>>>>> `(强制成对:单行 `=======` 在 setext 标题下划线/表格分隔里合法,只判单行必满天假红);三模式 `--staged`(判索引内容,`git show :<path>`,路径清单含 `U` 未合并态)/ 缺省全量(16561 候选 1.5s)/ `--rev <sha>`(事后核验提交树)。护栏三条:E1 豁免 `<<<<<<< SEARCH … >>>>>>> REPLACE` 补丁格式对并**如实计数**(本仓 CLI patch 语法与之同形,`apps/cli/src/tools/file-edit.ts:164` + `apps/cli/tests/file-edit.test.ts` 夹具是真实误伤源,不豁免则本门对合法测试恒红)、>2MB、二进制。取证 `--self-test` **26 例**(含 4b 豁免/4c 混搭不豁免/4d 真标记仍红 三例正反对照 + 真实 merge 未合并路径现场)+ §22c 镜像测试 11 例。**判据有效性实测**:`--rev HEAD` 由 exit 1 转 exit 0 且打印 `E1 合法豁免=1`,全量同步转绿。
-- [x] ✅(2026-09-23) **纠错一条(本会话自己的误判)**:先前据 `git grep -Il "^<<<<<<< " HEAD` 的单命中就断言"`apps/cli/tests/file-edit.test.ts` 被 merge 残迹污染、推前必须清理" —— 读文件后证伪:那是 `it('patch 参数支持多个 SEARCH/REPLACE 块')` 里的**合法夹具**,且闭合行是 `>>>>>>> REPLACE\`;`(带模板串尾巴)。**教训**:存在性 grep 命中 ≠ 性质判定,标记类判据必须读实现侧(本仓恰好有一套复用 git 字形的 patch 语法)。因此**未做任何"前向清理"提交**,改为给守门 77 补 E1 豁免。
-- [x] ✅(2026-09-23) **Esc 无层栈协议落地**(计划 L3666 认领项):新增 `apps/web/src/lib/overlay-stack.ts`(`pushOverlay`/`popOverlay`/`isTopOverlay`,push 幂等、pop 可重复、**对未注册 id fail-open** ⇒ 未接入的 Radix 层行为零变化)+ 19 处 web 自绘 portal 层接入;`vitest` 7/7、全量 `tsc` 34 条报错中本票 21 文件命中 0、`eslint` 0 error、水印 verify 21/21。**残余两项未做**(故该项仍留进行中):`packages/ui-react` 家族内建、"三层叠开一次 Esc 只关最上层"的真机逐层断言。
-- **本批仍存敞口(不写作收口)**:① 事故当日约 15 条未推送 commit 的**对象已永久丢失**(远端两侧均不含,归档只有 refs 无 objects),内容以工作区形态存活,取证清单 `.ihui-agent/tmp/git-recovery-20260923/RECOVERY-NOTES.md`;② 本机 main 曾落到 gitee 镜像基线,收敛回 GitHub 权威线由 §5b `git-sync-converge` 持续处理;③ 守门 77 只拦"标记入库",不溯已入库的历史标记(本批 E1 已证当前 HEAD 无真残迹)。
-
-## O22 P0 推送通道三类失效根治:partial-clone 预检 + git-lock 路径与 stdio + HUSKY_SKIP_PUSH 被异步分叉绕过(2026-09-23 立并完成 ✅,单端工程治理:scripts)
-
-- [x] ✅(2026-09-23) **O22① `git-push-guard` 新增 partial-clone 预检(拦在异步分叉之前,commit `f481c39a0f7`)**:`remote.origin.promisor` / `remote.origin.partialclonefilter` 任一存在即本地对象库不全,push 必撞 `remote error: upload-pack: not our ref <sha>` + `pack-objects died`,**单趟实测约 5 分钟才失败**;更糟的是异步 worker 会把这趟必然失败的推送写成 `running`,让 `git-push-converge` 一路显示 PUSHING,诱导人工反复等待。现只读两条 local config(零网络开销)命中即 exit 1 并打印三步修复配方(`--unset partialclonefilter` → `--unset promisor` → `git fetch --refetch`)。逃生舱 `GUARD_SKIP_PARTIAL_CLONE_CHECK=1`。**判据形态教训**:首版用 `--get-regexp '^remote\.origin\.(promisor|partialclonefilter)$'`,而 `run()` 走 `execSync` → cmd.exe,未加引号的 `^ ( ) $` 会被 shell 吃掉;改为两次 `--get`(键名仅含点)才是跨 shell 安全的形态。
-- [x] ✅(2026-09-23) **O22② 修 `git-lock.mjs` 调用的路径与 stdio(一处既有失效连累 8 条测试)**:原 `execSync('node scripts/git-lock.mjs clean', {stdio:'inherit'})` ① 依赖 cwd —— 只在"从仓库根调用"时成立,隔离临时仓(该测试文件全部夹具)里必抛 `MODULE_NOT_FOUND`;② `stdio:'inherit'` 把该报错原文灌进本脚本 stderr,于是断言"stderr 无未捕获 Error"的用例恒红。现由 `import.meta.dirname` 推导同目录路径 + `execFileSync(process.execPath, [argv])`(无 shell、无 PATH 依赖,同 §5c 对生成器的要求),stdio 收 `pipe`。
-- [x] ✅(2026-09-23) **O22③ `HUSKY_SKIP_PUSH=1` 曾被异步分叉绕过(§20 逃生舱语义缺陷)**:`else if (GUARD_ASYNC)` 排在 `skipPush` 判断之前 → 声明"仅检测不推送"仍会 spawn worker **真推送**并写 `running` 状态。分叉条件补 `&& !skipPush`。**镜像测试要点**:新增用例必须显式覆盖 `GUARD_ASYNC: '1'` 才咬得住修复 —— `runScript` 现已默认注入 `GUARD_ASYNC=0`,同步模式下"不写 running"恒真,不加覆盖就是自测夹具假绿。
-- **测试基线与归因**:`scripts/tests/git-push-guard.test.mjs` 现 **18/18 全绿**。改前 HEAD 基线对照为 **14 条中 8 红**,且失败清单逐条同名 ⇒ 证明非本票引入。7 条红的真实形态是"**断言全过、`finally` 的 `rmSync` 撞 EPERM**":guard 2026-09-18 异步化后 detached worker 在用例结束后仍把临时仓目录当 cwd 持有(还要跑完 pre-push 门),`maxRetries` 也等不到 → 异步化落地时测试没跟上。`runScript` 默认注入 `GUARD_ASYNC=0` 让"返回即推送终态",`local == remote` 类断言也随之才成立。**两条新判据均做变异验证**:注掉预检 / 还原分叉条件 → 对应用例立即变红、对照组仍绿。
-- **O21 收编旁证(本会话独立复核,非引用 commit 标题)**:① 资金链属主谓词 + `capToOrderAmount` 已在 HEAD `apps/api/src/db/order-queries.ts:213/245/260/343/358`;② 文件版本面 `canAccessFile` 在 HEAD `routes/file-version.ts` 与 `routes/workspace.ts` **各 3 处**,`serializeVersion` 出口已不再外泄磁盘 `path`(该处留有 O21 注释说明)。⇒ **O21 ①②③ 三段均已入库**;该条目由并发会话推进,故本票不改写其 `- [ ]` 归属行,只在此留核验痕迹。
-- **O22 残余敞口(不写作收口)**:① `PROJECT_PLAN.md` 处于"**工作区 + 暂存区双份缩水**"态 —— 两处均 3875 行而 HEAD 为 4189 行(忽略空白仍 `60+/374-`),且已实测证明这**不是 §1 归档**:对 HEAD−工作区的差异行做 60 行抽样,在 `.ihui-agent/archive/PROJECT_PLAN_2026-09-23_bulk-archive.md`(1860 行)中 **命中 0 行**。⇒ 任何"从工作区出发"的 PLAN 提交都会抹掉约 314 行他人已入库登记;门 71 现可点名(本票四行即被其识别为登记行并报警),但 `--no-verify` 仍会绕过,最终靠 post-commit 第 6 段自愈回捞。**归属**:工作区对齐 HEAD 属「P0 共享工作区幻影滞后根治」(本文件 3948 行段)的复发处置,该段已把 PLAN 列在 503 文件对齐面内,本票不越权重写他人正在编辑的 PLAN 工作区。**解阻判据**:`wc -l PROJECT_PLAN.md` ≥ HEAD 行数 **且** `git diff HEAD --numstat -- PROJECT_PLAN.md` 删除列为 0—— 一份缩水 PLAN 正被并发会话放在暂存区等待提交,此时本会话任何"从工作区出发"的 PLAN 提交都会抹掉 374 行他人已入库登记,故本票登记改走对象空间旁路(`commit-tree` 纯插入 + `update-ref` CAS)。解阻判据:工作区 PLAN 行数 ≥ HEAD 且 `git diff HEAD --numstat -- PROJECT_PLAN.md` 删除数为 0。② 门 71 本次实测有效:它已自愈回捞过一条被旁路合掉的"守门 71 自愈面(第 57 轮续)"登记并建了前向恢复提交 `5b3ffb1ddd7`。
-
-## O23 前几批交付的合流后回归核验 + D92/D71 同源约束锁定(2026-09-23 立并完成 ✅,单端工程治理:核验,零代码改动)
-
-- [x] ✅(2026-09-23) **为什么要单独发这一票**:本日 `.git` 事故之后主线被并发会话快进 + `git-sync-converge` 索引层合并反复推进,本会话此前几批交付(D92 / D90 / O13b T0-T2 / O21① / §4 原生提示窗)随时可能被合流冲成"文件在、接线没了"。**文件存在不是证据,跑通才是证据**,故逐批复测而非引用当时的交付报告。
-- [x] ✅(2026-09-23) **复测结论(权威入口,非复刻判据)**:shared `view-failure-taxonomy` **21/21** · api `o13b-batch{2,3,4}` + `idor-order-owner-and-amount-cap` **33/33** · web `mcp-view-failure` **8/8** + `conversation-attention` **11/11** + `file-preview-degradation` **10/10** ⇒ **83 例全绿**。接线也逐个 grep 到真实消费点:D90 banner 被 `FilePreview.tsx:19` 与 `UnifiedViewer.tsx:21` 引、staleness hook 两处引;D92 `McpViewFailure` 被 `mcp-manager/mcp-prompt-manager/mcp-quick-call` 三面板引;O13b `requireAdminRouteGuard` 挂在 `routes/admin.ts:109 server.addHook('preHandler', …)`。守门 53 全量复跑:裸 `roleId` 比较 17 处 = 存量白名单 8/8,无新增违规。
 - [x] ✅(2026-09-23) **D92 主条目刻意不勾 `[x]`**:其验收含"与 D71 错误分类族**共用一张表,不另起**",而 O23 实测 D71 尚未落地该表(`attachErrorMeta` 只挂字段)⇒ 约束处于"我这张表已成唯一真相、D71 还没接上"的半闭状态。已把防重表硬约束写进 D71 条目(见本票末段),**D92 待 D71② 复用它之后才可勾**。这是"有残余就不写收口"的一次执行,不是遗漏。
-- [x] ✅(2026-09-23) **本会话原始待办清单的重测改判(不按旧数字派单)**:① 93 枚 web 包缺键 —— `check-i18n-keys --target=web` 现报 *1539 文件 / 17458 键 / 5 语言 parity OK*,**已被并发会话清零,本会话不再介入**;② `D49① 点赞点踩落库` —— 代码里已写 `// D49①(2026-09-23):点赞/点踩落库`,被并发会话接走,**不起第二套**;③ D96/D82 —— 已随 `63141f3ff80` 落地;④ O21② —— 已由 `17d07367e19` + `2653ca09a70`(O21b 补 `file-versions/create`)落地,本票只做独立复核;⑤ **O13b④ 仍阻塞**:`scripts/guardian-runner.mjs` 状态 `MM`(他人持用 + 已暂存),该票需改 runner 注册新判据,等其释放后执行,不在本票越权重写。
-- **O23 残余(不写作收口)**:① D71② 未落地前,D92 不得勾完成 —— 归属 D71 持有人,解阻判据 = `attachErrorMeta` 或对话流错误卡开始从 `view-failure-taxonomy` 取标题/动作(grep 命中即闭);② O13b④ 归属见上;③ PLAN 工作区双份缩水(≈314 行未归档差异)交「P0 共享工作区幻影滞后根治」复发处置,判据见 O22 残余敞口 ①。
-
-## O24 本会话自伤事故登记:对活文档做"全量 union 回补"造成 1543 行重复入库(2026-09-23 已撤销,未推送)
-
-- [x] ✅(2026-09-23) **做了什么**:.ihui-agent/tmp/copay-plan-registrations.mjs 试图把并发会话未提交的 PLAN 登记"保序回补"并入库。产出提交 `eadd54391fa`(parent `79f23831ff1`),PLAN 从 4263 行被写成 **5843 行**。**该提交从未推送**,已 `update-ref refs/heads/main 79f23831ff1 eadd54391fa`(CAS,只撤自己刚推的那一步,不 reset --hard、不碰他人 ref),悬空提交按 §29 实践 tag 为 `lost-commit/wip-eadd5439` 留取证。
-- [x] ✅(2026-09-23) **根因(判据错,不是执行错)**:独有行判据用的是"整行文本差集"(`!headSet.has(line)`)。活文档在两分钟窗口内被并发会话**重排 + 改写措辞**(HEAD 4189 → 4263,脏项 215 → 290),于是同一内容的"新旧两个措辞版本"全部落在"工作区有 ∧ HEAD 没有"一侧 ⇒ 勘察阶段实测独有块 **12 个 / 59 行**,脚本运行时暴涨成 **59 个 / 1505 行**,插回去就是 1543 行重复(60 种文本)。回补锚点逻辑本身(前锚命中恰好 1)是严格执行的,拦不住这个错。
-- [x] ✅(2026-09-23) **我漏掉的红灯**:数字暴涨 25 倍就打印在我自己脚本的 stdout 里(`独有块 59 个 / 1505 行`),而我勘察得到的预期是"约 59 行"。脚本只断言"零损失(双方行仍在)",**没有断言"改动规模与勘察预期一致"** ⇒ 一个明显该中止的信号被当成统计信息用掉了。
-- **判据修正(可复用,本仓守门 5c 水印门禁 200 缺口即同族设计)**:凡对**活共享文档**做批量回补/合并类写操作,写盘前必须有**规模安全闸**:`实际独有行数 > 勘察预期 × 2` 或 `> 绝对阈值(如 200)` 即 `exit 1` 拒绝写盘,而不是继续。"零损失断言"只保证不删,**不保证不重复** —— 两条必须都有。
-- **结论:放弃"第三方对 PLAN 做全量 union"这条路**。实测证明它在活跃并发窗口下比"什么都不做"更糟(它会把同一登记的两个版本都留下)。PLAN 双份缩水(工作区 3892 行 vs HEAD 4263 行,差 438 行)的正确处置仍是守门 71 的既有设计:**每个提交者提交前现取 HEAD 版本、只插自己那几行**,而非由某个会话替所有人合并。本票不认领该整改。
-
-## O25 部署失败邮件走纯文本通道 —— 品牌模板层合并根治 + 守门 81(2026-09-23 立)（进行中）
-
-- [ ]（进行中） **根因定位(已确证)**:`deploy/win/ihui-deploy.ps1` 的 `Send-EmailNotify` 自建传输层 —— SMTP 分支 `Send-MailMessage -Body $text` 无 `-BodyAsHtml`,Resend 分支 payload 只有 `text` 无 `html`,故本机部署环告警永远是纯文本;带版式的 `apps/api/scripts/notify-deploy-failure.ts`(import `renderSystemAlertEmail`)只挂在 `.github/workflows/blue-green-deploy.yml`,**本地零调用方**。`.sct-notify-state.json` 今日 `emailCount:3` 即 3 封纯文本实证。
-- [ ] **传输层单点化**:`notify-deploy-failure.ts` 扩为通用品牌告警派发器(`--to`/`--title`/`--message-file`/`--severity`/`--source`/`--plain`/`--env-file`/`--strict`/`--dry-run`,SMTP→Resend 双通道且 Resend 必带 `html`);PS 侧删除全部自拼传输代码,改为按绝对路径解析 node+tsx 调用该脚本,降级路径也只能走 `--plain`(仍不留第二份 SMTP 代码)。
-- [ ] **顺带修**:`SMTP_FROM` 与 `SMTP_USER` 不匹配会被 smtp.qq.com 拒(现硬编码 `IHUI-AI@aizhs.top` 而账号是 QQ 邮箱);脚本 `ALERT_EMAIL_TO` 缺失时静默跳过且恒 exit 0 ⇒ 无告警也无声响。
 - [ ] **守门 81** `check-brand-email-channel.mjs`(blocking):`.ps1`/`scripts`/`deploy` 中出现 `Send-MailMessage` 缺 `-BodyAsHtml`、或直连 `api.resend.com/emails` 而 payload 缺 `html` ⇒ 拦,并把"ops 邮件必须经 notify-deploy-failure.ts"钉成硬约束;含 `--self-test` + §22c 镜像测试。
-- [ ] **测试**:`apps/api/tests/notify-deploy-failure.test.ts`(参数解析/env 优先级/收件人消解/From 构造/Resend payload 含 html/--strict 退出码)+ PS 侧镜像测试(证明 PS 已无自拼传输)。
