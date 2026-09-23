@@ -1772,6 +1772,26 @@ const checks = [
       '     单独复验:node scripts/check-mass-deletion.mjs',
     ].join('\n'),
   },
+  // mobile-rn 深色模式前景/容器守门(2026-09-23 立,Drawer 残留 NativeWind 类 + Profile 对比度事故收口)。
+  // R1: brand.DEFAULT 深色下是纯白 → 只能作前景色,其上再叠 surface.light/text.primary 文字 = 白底白字;
+  // R2: surface.light / rgba(255,255,255,α≥0.5) / bg-white 作容器底色在深色下不切换 = 页面底色不统一。
+  // R2 走 baseline 棘轮(overlay-on-media 等合法场景冻结存量,只拦新增);R1 全量拦截。
+  // 自检:node scripts/check-brand-foreground.mjs --self-test;紧急跳过 HUSKY_SKIP_BRAND_FOREGROUND=1。
+  {
+    id: '75',
+    label: '📱 [mobile-rn] 深色模式前景/容器守门(品牌底白字 blocking + 浅色容器 ratchet)',
+    script: 'check-brand-foreground.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_BRAND_FOREGROUND',
+    onFailHint: [
+      '',
+      '  💡 R1(brand.DEFAULT 作背景且文字用 surface.light/text.primary)= 深色下白底白字,必须改 brand.foreground;',
+      '     R2(surface.light / rgba 白 / bg-white 作容器底)= 深色不切换,改用 tokens.surface.*(深浅皆可)或补 dark: 变体;',
+      '     覆盖在媒体/彩色底上的合法浮层被误报时,先核语义再决定改码或 --update-baseline(禁止为过门而调高基线)。',
+      '     单独复验:node scripts/check-brand-foreground.mjs;自检:node scripts/check-brand-foreground.mjs --self-test',
+    ].join('\n'),
+  },
   // --- info (1 项) ---
   {
     id: '23',
