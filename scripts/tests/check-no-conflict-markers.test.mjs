@@ -23,6 +23,8 @@ import { execFileSync } from 'node:child_process'
 import { __test__ as src } from '../check-no-conflict-markers.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
+/** 临时仓落点:仓内 .ihui-agent/tmp(AGENTS §15),用前须确保父目录存在。 */
+const TMP_ROOT = join(ROOT, '.ihui-agent', 'tmp')
 const OPEN = '<<<<<<< HEAD'
 const SEP = '======='
 const END = '>>>>>>> feature/x'
@@ -188,7 +190,10 @@ test('8 render:违规清单含 路径:行号 + 片段 + 修复指引,跳过项�
 })
 
 test('9 audit(--staged) 判索引内容:索引脏即红,仅工作区脏不影响本次提交', () => {
-  const root = mkdtempSync(join(ROOT, '.ihui-agent', 'tmp', 'cm-test-'))
+  // 落点仍是仓内 .ihui-agent/tmp(AGENTS §15);干净 checkout / CI 上该目录不存在,
+  // 不先建则 mkdtempSync 直接 ENOENT。recursive mkdir 幂等,已存在不报错。
+  mkdirSync(TMP_ROOT, { recursive: true })
+  const root = mkdtempSync(join(TMP_ROOT, 'cm-test-'))
   const repo = join(root, 'repo')
   mkdirSync(repo, { recursive: true })
   const g = (args) =>
@@ -229,7 +234,8 @@ test('9 audit(--staged) 判索引内容:索引脏即红,仅工作区脏不影响
 })
 
 test('10 auditRev 判提交树,且与后续提交隔离', () => {
-  const root = mkdtempSync(join(ROOT, '.ihui-agent', 'tmp', 'cm-test-rev-'))
+  mkdirSync(TMP_ROOT, { recursive: true })
+  const root = mkdtempSync(join(TMP_ROOT, 'cm-test-rev-'))
   const repo = join(root, 'repo')
   mkdirSync(repo, { recursive: true })
   const g = (args) =>
