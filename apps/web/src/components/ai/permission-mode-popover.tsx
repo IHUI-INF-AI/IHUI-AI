@@ -28,6 +28,7 @@ import {
 } from '@ihui/api-client/endpoints/workspace'
 // 权限档读侧归一(G-161/G-164):跨界拼写多套,显示与比较前先归一到 wire 拼写
 import { permissionModeWire } from '@ihui/types/permission-mode'
+// 权限档取词(G-166):档位归一与词表键的共享真相源,见 packages/shared/src/chat/permission-tier.ts
 
 import {
   useSetWorkspacePermissionDefault,
@@ -43,6 +44,7 @@ import { useAiPanelStore } from '@/stores/ai-panel'
 import { cn } from '@/lib/utils'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { isFullAccessConfirmSuppressed } from './full-access-confirm-dialog'
+import { permissionTierText } from '@/lib/permission-tier-text'
 
 /** 层栈 id(见 @/lib/overlay-stack):本弹层的 Esc 只在栈顶时被消费 */
 const PERMISSION_MODE_OVERLAY_ID = 'permission-mode-popover'
@@ -79,16 +81,13 @@ const PERMISSION_MODE_OVERLAY_ID = 'permission-mode-popover'
  *   (用户规则:选择项目文件后需要让用户确认同意是否可完全访问)
  */
 type ModeValue = WorkspacePermissionMode
-type ModeKey = 'mode.ask' | 'mode.plan' | 'mode.auto' | 'mode.full'
-type ModeDescKey = 'mode.askDesc' | 'mode.planDesc' | 'mode.autoDesc' | 'mode.fullDesc'
 
 interface ModeOption {
   value: ModeValue
   icon: LucideIcon
-  titleKey: ModeKey
-  descKey: ModeDescKey
   risk: 'low' | 'medium' | 'high'
 }
+
 
 // 移到组件外避免每次 render 重新创建(2026-07-25 深化)
 //
@@ -96,29 +95,13 @@ interface ModeOption {
 // 入口、服务端 z.enum 又只收 3 档 —— 于是"只读计划"这一档**类型里有、界面上选不出、
 // 接口也发不进**。而它恰好是竞品当主打的那个档位。现在按"由严到松"排序补在最前,
 // 服务端 agent_loop_v2 / checkWorkspace 对 plan 已是硬只读(拒绝而非询问)。
+// 档位名/说明不在此表(G-166):一律经 permissionTierText() 走共享词表,
+// 以免端内再长出一套与 taro/extension 平行的键。
 const MODE_OPTIONS_LIST: ModeOption[] = [
-  {
-    value: 'plan',
-    icon: Compass,
-    titleKey: 'mode.plan',
-    descKey: 'mode.planDesc',
-    risk: 'low',
-  },
-  { value: 'default', icon: Hand, titleKey: 'mode.ask', descKey: 'mode.askDesc', risk: 'low' },
-  {
-    value: 'accept-edits',
-    icon: ShieldCheck,
-    titleKey: 'mode.auto',
-    descKey: 'mode.autoDesc',
-    risk: 'medium',
-  },
-  {
-    value: 'bypass-permissions',
-    icon: ShieldAlert,
-    titleKey: 'mode.full',
-    descKey: 'mode.fullDesc',
-    risk: 'high',
-  },
+  { value: 'plan', icon: Compass, risk: 'low' },
+  { value: 'default', icon: Hand, risk: 'low' },
+  { value: 'accept-edits', icon: ShieldCheck, risk: 'medium' },
+  { value: 'bypass-permissions', icon: ShieldAlert, risk: 'high' },
 ]
 
 /** 撤销 toast 持续时间(ms)。给用户足够的"哎呀我点错了"反悔窗口 */
@@ -129,6 +112,8 @@ const INFO_TOAST_DURATION = 3000
 
 export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
   const t = useTranslations('chat.permission')
+  // G-166:档位名与说明改走跨端共享词表(permissionTier),端内私有键已退役
+  const tTier = useTranslations()
   const tCommon = useTranslations('common')
 
   const activeWorkspace = useAiPanelStore((s) => s.activeWorkspace)
@@ -383,7 +368,7 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
   const currentOption =
     MODE_OPTIONS_LIST.find((o) => o.value === currentMode) ?? MODE_OPTIONS_LIST[0]!
   const CurrentIcon = currentOption.icon
-  const currentTitle = t(currentOption.titleKey)
+  const currentTitle = permissionTierText(currentMode, tTier).title
   const hasWorkspace = !!activeWorkspace
 
   return (
@@ -488,6 +473,7 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
               const Icon = opt.icon
               const isSel = opt.value === currentMode
               const isFocused = idx === focusedIndex
+              const tierText = permissionTierText(opt.value, tTier)
               return (
                 <button
                   key={opt.value}
@@ -543,7 +529,7 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
                           opt.risk === 'high' && isSel && 'text-amber-600 dark:text-amber-400',
                         )}
                       >
-                        {t(opt.titleKey)}
+                        {tierText.title}
                       </span>
                       {opt.risk === 'high' && (
                         <span className="rounded-sm bg-amber-500/10 px-1 py-px text-[9px] font-medium uppercase tracking-wide text-amber-600 dark:text-amber-400">
@@ -552,7 +538,7 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
                       )}
                     </div>
                     <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-                      {t(opt.descKey)}
+                      {tierText.desc}
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center self-center">

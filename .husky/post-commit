@@ -1,97 +1,190 @@
-#!/bin/sh
-# ─── 0. git 写锁(2026-08-06 立,根治多 agent 并发写损坏) ─────
-# safe-commit.mjs 已持锁(通过 IHUI_GIT_LOCK_UNIT 环境变量传给子进程)则跳过;
-# 直接 git commit(未走 safe-commit)时在此获取锁,整个 post-commit 脚本链串行化。
-# trap EXIT 保证任意退出路径都释放锁。
-#
-# ─── 弹窗根治(2026-09-22,用户:"为什么电脑总是弹 Node 窗口") ──
-# 本 hook 原先直接裸跑 5 个 node 进程。git hook 继承触发者的 console 上下文:
-# 当 commit 在无 console 的上下文触发(IDE 隐藏持久 shell / GUI git 面板 /
-# safe-commit 等脚本 windowsHide 的 spawn / WMI watchdog 链)时,链上每个
-# node.exe 都会被 Windows 分配可见控制台窗口,一次 commit 闪 5+ 个黑窗。
-# 现统一经 wscript //nologo scripts/hook-run-hidden.vbs(GUI 子系统 +
-# shell.Run(...,0,True) SW_HIDE)执行,输出转 .workbuddy/hook-logs/*.log,
-# 退出码原样传播。包装器详见 scripts/hook-run-hidden.vbs 头注释。
-if [ -z "${IHUI_GIT_LOCK_UNIT:-}" ]; then
-  ROOT_DIR="$(git rev-parse --show-toplevel)" || exit 1
-  UNIT="post-commit-$$-$(date +%s)"
-  wscript //nologo "$ROOT_DIR/scripts/hook-run-hidden.vbs" post-commit-lock "$ROOT_DIR/scripts/git-lock.mjs" acquire --unit "$UNIT" --timeout 180000 || {
-    printf '%s\n' "❌ 获取 git 写锁失败(有其他写操作进行中,稍后重试或检查 .git/ihui-git-write.lock;详见 .workbuddy/hook-logs/post-commit-lock.log)" >&2
-    exit 1
+#!/usr/bin/env node
+// ─── post-commit(跨平台 Node 钩子,2026-09-23 由 /bin/sh 转换) ──────────────
+//
+// ─── 0. git 写锁(2026-08-06 立,根治多 agent 并发写损坏) ─────
+// safe-commit.mjs 已持锁(通过 IHUI_GIT_LOCK_UNIT 环境变量传给子进程)则跳过;
+// 直接 git commit(未走 safe-commit)时在此获取锁,整个 post-commit 脚本链串行化。
+// finally 保证任意退出路径都释放锁(等价于原 sh 的 trap EXIT)。
+//
+// ─── 弹窗根治 v2(2026-09-23,用户:"错误框要彻底修复解决 别总弹了") ──
+// 2026-09-22 的第一版做法是把 5 个裸 node 改成
+// `wscript //nologo scripts/hook-run-hidden.vbs <label> <cmd…>`(GUI 子系统 +
+// shell.Run(…,0,True) SW_HIDE)。它治住了黑窗,却引入一个**外部单点**:
+// 该 .vbs 一旦不在,每次 commit 就弹 8 枚 WSH"无法找到脚本文件"错误框
+// (2026-09-23 实机发生:并发会话在工作树删了它,本钩子尚未迁完)。
+//
+// 本版把钩子本身改成 Node —— 与仓库既有的 `.husky/pre-commit`(同为
+// `#!/usr/bin/env node`)同形态 —— 每个子进程直接
+// `execSync(cmd,{stdio:…,windowsHide:true})`。两条性质同时成立且**不再依赖
+// 任何外部包装文件**:① 无可见控制台窗口(windowsHide 显式传,不依赖 §5b
+// 机器级 NODE_OPTIONS 钩子,后者对 sh→node 派生链无效);② 没有可被误删的
+// .vbs,弹窗在机制上不可能。
+// 输出仍按 label 落 `.workbuddy/hook-logs/<label>.log`,与原行为一致。
+const { execSync, spawnSync } = require('child_process')
+const { mkdirSync, appendFileSync, readFileSync, existsSync } = require('fs')
+const { join } = require('path')
+
+const ROOT = execSync('git rev-parse --show-toplevel', { encoding: 'utf8', windowsHide: true }).trim()
+process.chdir(ROOT)
+const LOG_DIR = join(ROOT, '.workbuddy', 'hook-logs')
+mkdirSync(LOG_DIR, { recursive: true })
+
+// 跑一条命令:全量输出(含 stderr)落 <label>.log,返回是否成功。
+// timeout 为硬上限毫秒(等价原 `timeout 60`),超限按失败处理。
+function runLogged(label, cmd, { timeout = 0, env = {} } = {}) {
+  const logFile = join(LOG_DIR, `${label}.log`)
+  let out = ''
+  let ok = true
+  try {
+    out = execSync(cmd, {
+      encoding: 'utf8',
+      cwd: ROOT,
+      windowsHide: true,
+      timeout,
+      maxBuffer: 32 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, ...env },
+    }) || ''
+  } catch (e) {
+    ok = false
+    out = `${e.stdout || ''}${e.stderr || ''}${e.message || ''}`
   }
-  trap 'wscript //nologo "$ROOT_DIR/scripts/hook-run-hidden.vbs" post-commit-lock "$ROOT_DIR/scripts/git-lock.mjs" release --unit "$UNIT"' EXIT
-fi
-
-# ─── 1. Git LFS post-commit(原有) ──────────────────────────
-command -v git-lfs >/dev/null 2>&1 || { printf >&2 "\n%s\n\n" "This repository is configured for Git LFS but 'git-lfs' was not found on your path. If you no longer wish to use Git LFS, remove this hook by deleting the 'post-commit' file in the hooks directory (set by 'core.hookspath'; usually '.git/hooks')."; exit 2; }
-git lfs post-commit "$@"
-
-# ─── 2. 自动归档已完成任务(2026-07-23 立, AGENTS.md §1) ──────
-# commit 后自动扫描 PROJECT_PLAN.md, 把完成 ≥7 天的已完成任务条目归档到 .ihui-agent/archive/
-# 防递归: 归档 commit 自身设 IHUI_ARCHIVE_COMMIT=1, 此处检测到则跳过归档脚本
-# 跳过: HUSKY_SKIP_ARCHIVE=1(手动跳过归档, 紧急场景)
-cd "$(git rev-parse --show-toplevel)" || { printf '%s\n' "❌ 无法定位仓库根目录" >&2; exit 1; }
-if [ "${IHUI_ARCHIVE_COMMIT:-0}" != "1" ] && [ "${HUSKY_SKIP_ARCHIVE:-0}" != "1" ]; then
-  wscript //nologo scripts/hook-run-hidden.vbs post-commit-archive scripts/archive-completed-tasks.mjs --auto-commit || true
-fi
-
-# ─── 3. 自动 push guard(AGENTS.md §21, 2026-07-20 立) ──────
-# 背景: 历史上多次出现 agent "commit 后忘记 push" 协作事故。
-# 任何 `git commit` 成功后, 自动检测本地 ahead, 立即推送, 并验证 local == remote HEAD。
-# 跳过: HUSKY_SKIP_PUSH=1(紧急本地暂存场景, 不推荐)
-if [ "${HUSKY_SKIP_PUSH:-0}" = "1" ]; then
-  printf '%s\n' "⚠️  HUSKY_SKIP_PUSH=1 — 已跳过自动 push(commit 仅落地本地, 需手动 git push)" >&2
-else
-  wscript //nologo scripts/hook-run-hidden.vbs post-commit-push-guard scripts/git-push-guard.mjs || {
-    printf '%s\n' "❌ git-push-guard 失败, commit 仅落地本地(未推送到 origin)" >&2
-    printf '%s\n' "   修复后请手动: git push origin main" >&2
-    printf '%s\n' "   失败详情: .workbuddy/hook-logs/post-commit-push-guard.log" >&2
-    exit 1
+  try {
+    appendFileSync(logFile, `\n===== ${new Date().toISOString()} ${label} ok=${ok} =====\n${out}`)
+  } catch {
+    /* 日志写失败不得影响钩子主流程 */
   }
-fi
+  return ok
+}
 
-# ─── 4. 项目外污染巡查 + 自动清理(2026-07-24 立, AGENTS.md §15 运行时禁令) ──
-# 每次 commit 后立即巡查项目父目录 / 桌面 / 用户主目录是否有 agent 创建的污染文件
-# 自动清理文件名强信号命中(search_*.ps1 / *_result.txt 等),内容双信号命中只 warn
-# 跳过: HUSKY_SKIP_HYGIENE=1(紧急场景)
-# 非阻塞: 巡查失败不影响 commit(已落地)和 push(已由第 3 段处理)
-if [ "${HUSKY_SKIP_HYGIENE:-0}" != "1" ]; then
-  wscript //nologo scripts/hook-run-hidden.vbs post-commit-pollution scripts/check-parent-pollution.mjs --auto-clean --quiet || true
-fi
+let LOCK_UNIT = ''
+function releaseLock() {
+  if (!LOCK_UNIT) return
+  const u = LOCK_UNIT
+  LOCK_UNIT = ''
+  runLogged('post-commit-lock-release', `node scripts/git-lock.mjs release --unit ${JSON.stringify(u)}`)
+}
+// exit / SIGINT / SIGTERM 三条退出路径都要释放(同 scripts/lib/staging-snapshot.js 口径)
+process.on('exit', releaseLock)
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+  process.on(sig, () => {
+    releaseLock()
+    process.exit(1)
+  })
+}
 
-# ─── 5. Lost commit tag 自动同步(2026-07-26 立, AGENTS.md §22 + docs/lost-commit-archive.md) ─
-# 背景: 2026-07-26 真实事故: 本地 lost-commit/* tag 被 git gc 清理, 远端虽有但 fetch 失败。
-#       关键教训: tag 必须主动 push + 主动 fetch, 否则 git gc 14 天后丢失。
-# 机制: commit 后把"远端缺失"的 lost-commit/* + backup/* tag 增量推送到 origin(分块 --atomic)。
-# 跳过: HUSKY_SKIP_TAG_SYNC=1(紧急场景)
-# 非阻塞: push 失败不阻断 commit(已落地)和 push(已由第 3 段 git-push-guard 处理)
-#
-# 2026-09-17 根治(用户反馈"推送早就完成了,终端却一直挂着等"):
-#   旧行为 = 每次 commit 后**全量**同步 `git push --atomic`(约 5000 个 tag),
-#   耗时 10~15 分钟,把 post-commit 阻塞成"假死";外层 shell 任务因此迟迟不退出。
-#   新行为 = ①脚本内部只推远端缺失项(通常 0~3 个,秒级)+ 限流标记;
-#            ②此处再加 `timeout 60` 硬上限 —— 无论远端多慢/网络多差,
-#              该段最多占用 60s 即结束,绝不阻塞提交与后续流程。
-#   2026-09-22 弹窗根治附注: timeout 现在杀的是 wscript(GUI),其 cmd/node 子
-#   进程可能在后台跑完该脚本——本段本就非阻塞+幂等,无害。
-if [ "${HUSKY_SKIP_TAG_SYNC:-0}" != "1" ]; then
-  timeout 60 wscript //nologo scripts/hook-run-hidden.vbs post-commit-tag-sync scripts/sync-lost-commit-tags.mjs --auto-push \
-    || printf '%s\n' "⚠️  tag 同步超时/失败(非阻塞, commit 已落地并 push 到 branch; 需补推时: node scripts/sync-lost-commit-tags.mjs --auto-push --force)" >&2
-fi
-# ─── 6. 计划登记行自动回捞(2026-09-22 立,守门 71 的自愈面) ────────────────────
-# 为什么放 post-commit 而不是只靠 pre-commit:并发会话 routinely 用 --no-verify 提交,
-# pre-commit 那道闸(pre-commit #71)会被一起跳过;而"按内存里旧计划文档整文件提交"
-# 把别人已入库的登记行抹掉,一小时内就发生了两次(第三次靠人工回捞)。
-# post-commit 即使 --no-verify 也会跑 → 这里做自愈:扫最近历史,把消失的登记行
-# 按原文插回(只加不减),提交用 HEAD 基线的临时 index + commit-tree(不代收工作区里
-# 别人尚未提交的内容),并交给 git-push-guard 推送。
-# 防递归:回捞提交带 IHUI_PLAN_HEAL_COMMIT=1;跳过:HUSKY_SKIP_PLAN_HEAL=1
-if [ "${IHUI_PLAN_HEAL_COMMIT:-0}" != "1" ] && [ "${HUSKY_SKIP_PLAN_HEAL:-0}" != "1" ]; then
-  # 结论必须留痕:上一版把输出丢进 /dev/null 并 `|| true`,而提交命令里 rev-parse/hash-object
-  # 未 .trim() 使自愈**自上线起一次都没成功过**却毫无声响(2026-09-23 才在临时仓库 A/B 抓到)。
-  IHUI_PLAN_HEAL_COMMIT=1 timeout 90 node scripts/check-plan-line-loss.mjs --heal --commit 2>&1 |
-    sed 's/^/[plan-heal] /' >>.workbuddy/plan-heal.log || true
-  # 每次提交都追加一行结论,不设上限会把日志撑大 → 只留最近 400 行
-  tail -n 400 .workbuddy/plan-heal.log >.workbuddy/plan-heal.log.tmp 2>/dev/null &&
-    mv -f .workbuddy/plan-heal.log.tmp .workbuddy/plan-heal.log
-fi
+// ─── 0. 获取 git 写锁 ───────────────────────────────────────
+if (!process.env.IHUI_GIT_LOCK_UNIT) {
+  LOCK_UNIT = `post-commit-${process.pid}-${Date.now()}`
+  const ok = runLogged(
+    'post-commit-lock',
+    `node scripts/git-lock.mjs acquire --unit ${JSON.stringify(LOCK_UNIT)} --timeout 180000`,
+  )
+  if (!ok) {
+    LOCK_UNIT = '' // 未拿到锁就不该去释放(等价原 sh:trap 在 acquire 成功之后才登记)
+    console.error(
+      '❌ 获取 git 写锁失败(有其他写操作进行中,稍后重试或检查 .git/ihui-git-write.lock;详见 .workbuddy/hook-logs/post-commit-lock.log)',
+    )
+    process.exit(1)
+  }
+}
+
+// ─── 1. Git LFS post-commit(原有) ──────────────────────────
+const lfs = spawnSync('git-lfs', ['version'], { encoding: 'utf8', windowsHide: true })
+if (lfs.error || lfs.status !== 0) {
+  console.error(
+    '\nThis repository is configured for Git LFS but \'git-lfs\' was not found on your path. ' +
+      "If you no longer wish to use Git LFS, remove this hook by deleting the 'post-commit' file in the hooks directory " +
+      "(set by 'core.hookspath'; usually '.git/hooks').\n",
+  )
+  process.exit(2)
+}
+runLogged('post-commit-lfs', `git lfs post-commit ${process.argv.slice(2).map((a) => JSON.stringify(a)).join(' ')}`)
+
+// ─── 2. 自动归档已完成任务(2026-07-23 立, AGENTS.md §1) ──────
+// commit 后自动扫描 PROJECT_PLAN.md, 把完成 ≥7 天的已完成任务条目归档到 .ihui-agent/archive/
+// 防递归: 归档 commit 自身设 IHUI_ARCHIVE_COMMIT=1, 此处检测到则跳过归档脚本
+// 跳过: HUSKY_SKIP_ARCHIVE=1(手动跳过归档, 紧急场景)
+if (process.env.IHUI_ARCHIVE_COMMIT !== '1' && process.env.HUSKY_SKIP_ARCHIVE !== '1') {
+  runLogged('post-commit-archive', 'node scripts/archive-completed-tasks.mjs --auto-commit')
+}
+
+// ─── 3. 自动 push guard(AGENTS.md §20, 2026-07-20 立) ──────
+// 背景: 历史上多次出现 agent "commit 后忘记 push" 协作事故。
+// 任何 `git commit` 成功后, 自动检测本地 ahead, 立即推送, 并验证 local == remote HEAD。
+// 跳过: HUSKY_SKIP_PUSH=1(紧急本地暂存场景, 不推荐)
+if (process.env.HUSKY_SKIP_PUSH === '1') {
+  console.log('⚠️  HUSKY_SKIP_PUSH=1 — 已跳过自动 push(commit 仅落地本地, 需手动 git push)')
+} else {
+  const ok = runLogged('post-commit-push-guard', 'node scripts/git-push-guard.mjs')
+  if (!ok) {
+    console.error('❌ git-push-guard 失败, commit 仅落地本地(未推送到 origin)')
+    console.error('   修复后请手动: git push origin main')
+    console.error('   失败详情: .workbuddy/hook-logs/post-commit-push-guard.log')
+    process.exit(1)
+  }
+}
+
+// ─── 4. 项目外污染巡查 + 自动清理(2026-07-24 立, AGENTS.md §15 运行时禁令) ──
+// 每次 commit 后立即巡查项目父目录 / 桌面 / 用户主目录是否有 agent 创建的污染文件
+// 自动清理文件名强信号命中(search_*.ps1 / *_result.txt 等),内容双信号命中只 warn
+// 跳过: HUSKY_SKIP_HYGIENE=1(紧急场景)
+// 非阻塞: 巡查失败不影响 commit(已落地)和 push(已由第 3 段处理)
+if (process.env.HUSKY_SKIP_HYGIENE !== '1') {
+  runLogged('post-commit-pollution', 'node scripts/check-parent-pollution.mjs --auto-clean --quiet')
+}
+
+// ─── 5. Lost commit tag 自动同步(2026-07-26 立, AGENTS.md §22 + docs/lost-commit-archive.md) ─
+// 背景: 2026-07-26 真实事故: 本地 lost-commit/* tag 被 git gc 清理, 远端虽有但 fetch 失败。
+//       关键教训: tag 必须主动 push + 主动 fetch, 否则 git gc 14 天后丢失。
+// 机制: commit 后把"远端缺失"的 lost-commit/* + backup/* tag 增量推送到 origin(分块 --atomic)。
+// 跳过: HUSKY_SKIP_TAG_SYNC=1(紧急场景)
+// 非阻塞: push 失败不阻断 commit(已落地)和 push(已由第 3 段 git-push-guard 处理)
+//
+// 2026-09-17 根治(用户反馈"推送早就完成了,终端却一直挂着等"):
+//   旧行为 = 每次 commit 后**全量**同步 `git push --atomic`(约 5000 个 tag),
+//   耗时 10~15 分钟,把 post-commit 阻塞成"假死";外层 shell 任务因此迟迟不退出。
+//   新行为 = ①脚本内部只推远端缺失项(通常 0~3 个,秒级)+ 限流标记;
+//            ②此处再加 60s 硬上限 —— 无论远端多慢/网络多差,该段最多占用 60s
+//              即结束,绝不阻塞提交与后续流程。
+//   2026-09-23 附注:硬上限现在直接杀该 node 进程本身(execSync timeout),
+//   不再像旧版那样只杀 wscript 而把 cmd/node 子进程留在后台跑完。
+if (process.env.HUSKY_SKIP_TAG_SYNC !== '1') {
+  const ok = runLogged('post-commit-tag-sync', 'node scripts/sync-lost-commit-tags.mjs --auto-push', { timeout: 60000 })
+  if (!ok) {
+    console.log(
+      '⚠️  tag 同步超时/失败(非阻塞, commit 已落地并 push 到 branch; 需补推时: node scripts/sync-lost-commit-tags.mjs --auto-push --force)',
+    )
+  }
+}
+
+// ─── 6. 计划登记行自动回捞(2026-09-22 立,守门 71 的自愈面) ────────────────────
+// 为什么放 post-commit 而不是只靠 pre-commit:并发会话 routinely 用 --no-verify 提交,
+// pre-commit 那道闸(pre-commit #71)会被一起跳过;而"按内存里旧计划文档整文件提交"
+// 把别人已入库的登记行抹掉,一小时内就发生了两次(第三次靠人工回捞)。
+// post-commit 即使 --no-verify 也会跑 → 这里做自愈:扫最近历史,把消失的登记行
+// 按原文插回(只加不减),提交用 HEAD 基线的临时 index + commit-tree(不代收工作区里
+// 别人尚未提交的内容),并交给 git-push-guard 推送。
+// 防递归:回捞提交带 IHUI_PLAN_HEAL_COMMIT=1;跳过:HUSKY_SKIP_PLAN_HEAL=1
+if (process.env.IHUI_PLAN_HEAL_COMMIT !== '1' && process.env.HUSKY_SKIP_PLAN_HEAL !== '1') {
+  // 结论必须留痕:上一版把输出丢进 /dev/null 并 `|| true`,而提交命令里 rev-parse/hash-object
+  // 未 .trim() 使自愈**自上线起一次都没成功过**却毫无声响(2026-09-23 才在临时仓库 A/B 抓到)。
+  runLogged('post-commit-plan-heal', 'node scripts/check-plan-line-loss.mjs --heal --commit', {
+    timeout: 90000,
+    env: { IHUI_PLAN_HEAL_COMMIT: '1' },
+  })
+  const healLog = join(ROOT, '.workbuddy', 'plan-heal.log')
+  if (existsSync(healLog)) {
+    try {
+      const lines = readFileSync(healLog, 'utf8').split(/\r?\n/)
+      const kept = lines.slice(-401).join('\n')
+      if (kept !== lines.join('\n')) {
+        const tmp = `${healLog}.tmp`
+        require('fs').writeFileSync(tmp, `${kept}\n`)
+        require('fs').renameSync(tmp, healLog)
+      }
+    } catch {
+      /* 日志截断失败不影响主流程 */
+    }
+  }
+}

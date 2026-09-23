@@ -9,6 +9,7 @@
  */
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Clock, Hash, Coins, History, Trash2, RotateCcw } from 'lucide-react'
 import {
   Card,
@@ -63,6 +64,8 @@ export function ResponseViewer({
   onRemoveHistory,
   onClearHistory,
 }: ResponseViewerProps) {
+  const t = useTranslations('playground')
+  const tc = useTranslations('common')
   const [codeLang, setCodeLang] = React.useState<CodeLanguage>('curl')
 
   const displayContent = isStreaming ? streamingContent : (response?.content ?? '')
@@ -81,13 +84,13 @@ export function ResponseViewer({
         <Tabs defaultValue="response" className="flex h-full flex-col">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="response" className="text-xs">
-              响应
+              {t('tabResponse')}
             </TabsTrigger>
             <TabsTrigger value="code" className="text-xs">
-              代码
+              {t('tabCode')}
             </TabsTrigger>
             <TabsTrigger value="history" className="text-xs">
-              历史({history.length})
+              {t('tabHistory', { n: history.length })}
             </TabsTrigger>
           </TabsList>
 
@@ -106,7 +109,7 @@ export function ResponseViewer({
               </div>
             ) : (
               <div className="flex h-full items-center justify-center py-12 text-sm text-muted-foreground">
-                {isStreaming ? '等待响应…' : '点击「发送」查看响应'}
+                {isStreaming ? t('waitingResponse') : t('clickSendHint')}
               </div>
             )}
 
@@ -125,12 +128,12 @@ export function ResponseViewer({
                 />
                 <StatChip
                   icon={<Clock className="h-3 w-3" />}
-                  label="耗时"
+                  label={t('latencyLabel')}
                   value={`${response.latencyMs}ms`}
                 />
                 <StatChip
                   icon={<Coins className="h-3 w-3" />}
-                  label="成本"
+                  label={t('costLabel')}
                   value={response.costCents > 0 ? `¥${(response.costCents / 100).toFixed(4)}` : '—'}
                 />
               </div>
@@ -154,7 +157,8 @@ export function ResponseViewer({
                 ))}
               </div>
               <p className="text-[11px] text-muted-foreground">
-                API Key 显示为 <code className="rounded bg-muted px-1 py-0.5">{maskedKey}</code>
+                {t('apiKeyShownAs')}{' '}
+                <code className="rounded bg-muted px-1 py-0.5">{maskedKey}</code>
               </p>
               <CodeBlock
                 code={code}
@@ -170,7 +174,7 @@ export function ResponseViewer({
             {history.length === 0 ? (
               <div className="flex h-full items-center justify-center py-12 text-sm text-muted-foreground">
                 <History className="mr-2 h-4 w-4" />
-                暂无历史记录
+                {t('noHistory')}
               </div>
             ) : (
               <div className="space-y-2">
@@ -182,7 +186,7 @@ export function ResponseViewer({
                     className="text-xs text-muted-foreground hover:text-destructive"
                   >
                     <Trash2 className="h-3 w-3" />
-                    清空
+                    {tc('clear')}
                   </Button>
                 </div>
                 {history.map((item) => (
@@ -192,14 +196,14 @@ export function ResponseViewer({
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate text-xs font-medium">
-                        {item.params.model || '未知模型'}
+                        {item.params.model || t('unknownModel')}
                       </span>
                       <div className="flex items-center gap-1">
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={() => onRestoreHistory(item)}
-                          aria-label="恢复"
+                          aria-label={t('restoreAria')}
                         >
                           <RotateCcw className="h-3 w-3" />
                         </Button>
@@ -208,14 +212,14 @@ export function ResponseViewer({
                           size="icon"
                           className="text-muted-foreground hover:text-destructive"
                           onClick={() => onRemoveHistory(item.id)}
-                          aria-label="删除"
+                          aria-label={tc('delete')}
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>
                     </div>
                     <p className="line-clamp-2 text-[11px] text-muted-foreground">
-                      {item.response.content.slice(0, 120) || '(空响应)'}
+                      {item.response.content.slice(0, 120) || t('emptyResponse')}
                     </p>
                     <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
                       <span>{item.response.totalTokens} tokens</span>

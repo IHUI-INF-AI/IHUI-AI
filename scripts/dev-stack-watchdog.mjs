@@ -27,6 +27,8 @@ const HB_FILE = path.join(LOG_DIR, 'dev-stack-watcher.heartbeat.json');
 const WATCHDOG_LOG = path.join(LOG_DIR, 'dev-stack-watchdog.log');
 const FRESH_MS = 90_000;
 const TASK_NAME = 'IHUI-DevStackWatchdog';
+// 被巡检的守护任务(由 install-dev-stack-autostart.mjs 注册为 S4U 非交互)
+const SUPERVISOR_TASK = 'IHUI-DevStack';
 
 function log(msg) {
   const line = `[${new Date().toISOString()}] ${msg}`;
@@ -80,7 +82,47 @@ function revive() {
   return true;
 }
 
+// 守护任务本身是否仍是"S4U 非交互"形态(2026-09-23 立)。
+// 为什么由巡检顺带做:弹窗的根因是宿主会话,不是某个 spawn 参数。一旦任务被删掉、
+// 换机器/移动仓库后丢失、或被改回 InteractiveToken + VBS(=回到"逐点传 windowsHide"
+// 的老路),自愈就白做了。这里不新增守门 ID,只在已有巡检里补一次查询 + 自动重装。
+function supervisorTaskHealth() {
+  const ps = [
+    `$t = Get-ScheduledTask -TaskName '${SUPERVISOR_TASK}' -ErrorAction SilentlyContinue`,
+    `if (-not $t) { Write-Output 'MISSING' } else { Write-Output ('LOGON=' + $t.Principal.LogonType) }`,
+  ].join('\n')
+  const r = spawnSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', psEncode(ps)], {
+    windowsHide: true,
+    encoding: 'utf8',
+    timeout: 30_000,
+  })
+  const out = `${r.stdout || ''}`.trim()
+  if (out.includes('LOGON=S4U')) return 'ok'
+  if (out.includes('MISSING')) return 'missing'
+  if (out.includes('LOGON=')) return 'non-s4u'
+  // 查不到结论(pwsh 不可用/任务服务异常)时不动手,避免误重装
+  return 'unknown'
+}
+
+function ensureSupervisorTask() {
+  const health = supervisorTaskHealth()
+  if (health === 'ok' || health === 'unknown') return health
+  log(`守护任务 ${SUPERVISOR_TASK} 异常(${health})→ 自动重装为 S4U 非交互形态`)
+  const r = spawnSync(process.execPath, [path.join(ROOT, 'scripts', 'install-dev-stack-autostart.mjs')], {
+    windowsHide: true,
+    encoding: 'utf8',
+    timeout: 90_000,
+  })
+  if (r.status !== 0) {
+    log(`自动重装失败:${`${r.stdout || ''}${r.stderr || ''}`.trim().split('\n').slice(-3).join(' | ')}`)
+    return `${health}-repair-failed`
+  }
+  log(`已重装并启动 ${SUPERVISOR_TASK}(S4U → session 0,无桌面即无窗口)`)
+  return 'repaired'
+}
+
 function patrol() {
+  ensureSupervisorTask();
   let hb = null;
   try {
     hb = JSON.parse(fs.readFileSync(HB_FILE, 'utf8'));
