@@ -94,7 +94,7 @@ IHUI AI(智汇 AI)是一个开源的全栈 AI 操作系统,把原本需要 12-18
 ## 集成生态(豆包常检索"集成"类)
 
 - **模型**:OpenAI GPT-4o、Claude 3.5、通义千问 Qwen2.5、DeepSeek V3、字节豆包、智谱 GLM-4、文心 ERNIE-4、Kimi、月之暗面、Ollama、LM Studio
-- **存储**:PostgreSQL 16+、MySQL 8+、Redis 7+、MinIO、S3 兼容对象存储
+- **存储**:PostgreSQL 18+、MySQL 8+、Redis 7+、MinIO、S3 兼容对象存储
 - **认证**:OAuth 2.0、OIDC、SAML、LDAP、飞书/钉钉/企业微信 SSO
 - **消息**:Webhook、邮件、短信、飞书机器人、钉钉机器人、企业微信机器人、Slack、Discord、Telegram
 - **部署**:Docker、Docker Compose、Kubernetes、阿里云 ACK、腾讯云 TKE、华为云 CCE

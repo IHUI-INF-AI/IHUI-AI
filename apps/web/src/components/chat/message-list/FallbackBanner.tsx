@@ -6,6 +6,14 @@ import { RotateCcw } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import { FALLBACK_REASON_QUOTA_EQUIVALENT, type FallbackEvent } from '@ihui/api-client'
 
+import { QuotaActionFamily } from './QuotaActionFamily'
+import {
+  buildRetryCountdownView,
+  useRetryCountdown,
+  type RetryCountdownInfo,
+  type TFunction,
+} from './retry-countdown'
+
 export interface FallbackBannerProps {
   fallbackNotice: FallbackEvent
   onClearFallbackNotice?: () => void
@@ -16,6 +24,10 @@ export interface FallbackBannerProps {
   onResumeInterrupted?: () => void
   /** D56① 稍后再说(关闭续跑询问) */
   onDismissResume?: () => void
+  /** D39 免费额度心智边界:免费档可用时不渲染付费诱导(quota_equivalent 必传) */
+  freeTierAvailable?: boolean
+  /** D39 重试倒计时帧(retry_scheduled);缺失 = 优雅降级,不渲染倒计时行 */
+  retryInfo?: RetryCountdownInfo | null
 }
 
 /** D56① 续跑询问状态(额度恢复后是否提示继续中断任务) */
@@ -40,8 +52,22 @@ export function FallbackBanner({
   resumePrompt,
   onResumeInterrupted,
   onDismissResume,
+  freeTierAvailable,
+  retryInfo,
 }: FallbackBannerProps) {
   const isQuotaEquivalent = fallbackNotice.reason === FALLBACK_REASON_QUOTA_EQUIVALENT
+
+  // D39 重试倒计时(消费 retry_scheduled 帧;缺失优雅降级)
+  const remaining = useRetryCountdown(retryInfo?.retryInMs)
+  const retryView =
+    retryInfo != null
+      ? buildRetryCountdownView(retryInfo, t as TFunction, remaining)
+      : null
+  const showRetryRow =
+    retryView != null &&
+    (retryView.scheduleLabel != null ||
+      retryView.httpStatusLabel != null ||
+      retryView.noResponseLabel != null)
   const noticeText = isQuotaEquivalent
     ? t('fallbackNoticeQuota', {
         primary: fallbackNotice.primaryModel,
@@ -113,6 +139,32 @@ export function FallbackBanner({
             </Button>
           </span>
         </div>
+      )}
+
+      {showRetryRow && (
+        <div
+          data-testid="fallback-retry-row"
+          className="flex flex-wrap items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200"
+        >
+          {retryView!.scheduleLabel != null && (
+            <span data-testid="fallback-retry-schedule">{retryView!.scheduleLabel}</span>
+          )}
+          {retryView!.httpStatusLabel != null && (
+            <span data-testid="fallback-retry-http">{retryView!.httpStatusLabel}</span>
+          )}
+          {retryView!.noResponseLabel != null && (
+            <span data-testid="fallback-retry-noresponse">{retryView!.noResponseLabel}</span>
+          )}
+        </div>
+      )}
+
+      {/* D39 quota_equivalent:渲染额度动作族(免费档可用时不诱导付费) */}
+      {isQuotaEquivalent && (
+        <QuotaActionFamily
+          t={t as TFunction}
+          freeTierAvailable={freeTierAvailable}
+          retryTestId="fallback-quota-retry"
+        />
       )}
     </div>
   )

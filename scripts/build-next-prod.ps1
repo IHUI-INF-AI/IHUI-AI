@@ -48,7 +48,7 @@ $ProjectRoot   = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $WebDir        = Join-Path $ProjectRoot 'apps/web'
 $LogDir        = Join-Path $ProjectRoot '.ihui-agent/tmp/next-build-node22/logs'
 # .next 备份落工作区外(既防 Tailwind 扫描污染,也不写 C 盘 —— §26 开发工具缓存一律指向 D 盘,
-# 本机 TEMP 由用户环境变量指向 D:\DevEnv\Temp;§26 旧表写的 D:\caches\Temp 本机不存在,已更正)
+# 本机 TEMP 已由用户环境变量指向 D:\caches\Temp)
 $BackupRoot    = Join-Path $env:TEMP 'ihui-next-backup'
 $Timestamp     = Get-Date -Format "yyyyMMdd-HHmmss"
 $BuildLog      = Join-Path $LogDir "next-build-node22-$Timestamp.log"

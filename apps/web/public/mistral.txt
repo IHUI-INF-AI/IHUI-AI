@@ -99,7 +99,7 @@ cd IHUI-AI
 docker compose -f docker-compose.mistral-lite.yml up -d
 ```
 
-包含服务:Web(8801) / API(8802) / AI(8803) / Ollama / PostgreSQL 16(8804) / Redis 7(8805) / MinIO(8806)。
+包含服务:Web(8801) / API(8802) / AI(8803) / Ollama / PostgreSQL 18(8804) / Redis 7(8805) / MinIO(8806)。
 
 ### 2. 私有化生产部署(8 核 32G + GPU)
 

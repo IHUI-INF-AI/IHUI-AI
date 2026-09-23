@@ -59,6 +59,8 @@ import { TurnChangesCard } from '@/components/chat/message-list/turn-changes-car
 import { TraceReplay } from '@/components/ai/trace-replay'
 import { useChatStore } from '@/stores/chat'
 import { useTts } from '@/hooks/use-tts'
+// D60(2026-09-23 渲染位):失败轮草稿保留提示与 toast 同源取词,不另立文案/状态
+import { resolvePersistTexts } from '@/hooks/use-chat/persistence'
 import { fetchApi } from '@/lib/api'
 import { toast } from '@/components/common'
 import { Tooltip } from '@/components/feedback'
@@ -171,6 +173,11 @@ const MessageItem = React.memo(function MessageItem({
   const steerNotices = useChatStore(
     React.useCallback((s) => s.steerNoticesByMessageId[m.id] ?? null, [m.id]),
   )
+  // D60(2026-09-23 渲染位):persist 失败保存的草稿(store 层早已落,此前无组件消费)。
+  // 叶子选择器订阅 string|null,值比较天然防无关变更重渲染;仅失败卡消费,
+  // 文案经 resolvePersistTexts 与 toast 同源(TRANSITIONAL 英文口径,零新键)。
+  const failedDraft = useChatStore((s) => s.failedDraft)
+  const failedDraftStatus = useChatStore((s) => s.failedDraftStatus)
   // 2026-09-12 立:Checkpoint 回退弹窗开关
   const [rewindDialogOpen, setRewindDialogOpen] = React.useState(false)
   // #17:折叠中间步骤(工具卡 + plan 步骤)。D21(2026-09-19 立):初始态改由折叠策略驱动 —
@@ -744,6 +751,16 @@ const MessageItem = React.memo(function MessageItem({
                 <span>{t('retry') === 'retry' ? 'Retry' : t('retry')}</span>
               </button>
             </div>
+            {/* D60(2026-09-23):输入正文已存 store.failedDraft → 明示"草稿已保留,可重发"。
+                archived/deleted 终态文案不含重发承诺(resolvePersistTexts 逐态给词),不误导。 */}
+            {failedDraft !== null && (
+              <p
+                className="px-3 pb-2 text-xs text-muted-foreground"
+                data-testid={`message-draft-preserved-${m.id}`}
+              >
+                {resolvePersistTexts(failedDraftStatus ?? 'failed_retryable').title}
+              </p>
+            )}
           </div>
         ) : isUser ? (
           // 2026-08-02:用户消息字号同步调整 14px → 15px(text-[15px]),与 AI 消息对齐

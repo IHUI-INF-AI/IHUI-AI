@@ -41,6 +41,8 @@ export interface UseMessageSendParams {
   inputCoreRef: React.RefObject<MessageSendInputCoreHandle | null>
   /** localStorage 草稿 key(发送成功后清空),由主组件传入以保证 key 来源单一 */
   draftKey: string
+  /** D36 发送成功后回调(推送该条用户文本到会话输入历史栈),由主组件传入以解耦历史持久化 */
+  onSent?: (text: string) => void
 }
 
 /** 返回值 */
@@ -124,6 +126,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
     onSend,
     inputCoreRef,
     draftKey,
+    onSent,
   } = params
   const t = useTranslations('chat')
   const { track } = useAnalytics()
@@ -288,6 +291,8 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       }
       const ok = await onSend(contentWithQuote)
       if (!ok) return false
+      // D36:发送成功 → 推送原始用户文本到会话输入历史栈(与附件无关,仅文本)
+      if (onSent) onSent(text)
       if (quoted) useChatStore.getState().setQuotedMessage(null)
       // 埋点:聊天消息发送成功(web 端)
       track({ name: 'chat_send', category: 'chat', label: 'web' })
@@ -301,7 +306,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       requestAnimationFrame(() => inputCoreRef.current?.resize())
       return true
     },
-    [onSend, draftKey, resetReferences, setValue, inputCoreRef, track],
+    [onSend, draftKey, resetReferences, setValue, inputCoreRef, track, onSent],
   )
 
   /** overrideValue:外部预填后立即发送场景(如 draftAutoSend)使用,绕开 value state 异步更新
@@ -434,6 +439,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       resetReferences,
       draftKey,
       inputCoreRef,
+      onSent,
     ],
   )
 

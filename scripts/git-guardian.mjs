@@ -621,6 +621,49 @@ function taskActionOk() {
 
 function main() {
   if (INSTALL) {
+    // 必须注册 wscript 包装而非 node.exe 本身:计划任务以 InteractiveToken 直接执行控制台程序
+    // (node.exe)时 Windows 会显示控制台 → 用户桌面每 2 分钟闪一扇黑窗(2026-09-20 实测踩坑)。
+    // 与本仓库既有任务(DevProcessCleanup / KillGitSelector)保持同一隐藏启动约定。
+    const vbs = join(WORKTREE, 'scripts', 'git-guardian-hidden.vbs')
+    if (!existsSync(vbs)) {
+      log(`注册失败:找不到隐藏启动包装 ${vbs}(勿改成直接执行 node.exe)`)
+      return 1
+    }
+    // 注册前预检:让包装器真跑一次并看退出码。cscript/wscript 按 ANSI 代码页解码 .vbs,
+    // 中文注释会被错切成伪引号导致**编译期**语法错(2026-09-20 实测踩过),而 wscript 下
+    // 该错误会弹 "Windows Script Host" 对话框且 schtasks 仍报成功 —— 只能靠这一步拦下。
+    let pre
+    try {
+      pre = execFileSync('cscript.exe', ['//nologo', vbs], {
+        stdio: 'pipe',
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 60_000,
+      })
+    } catch (e) {
+      log(`注册失败:git-guardian-hidden.vbs 预检未通过,勿注册坏包装器\n${e.stdout || ''}${e.stderr || e.message}`)
+      return 1
+    }
+    if (pre && /error/i.test(pre)) {
+      log(`注册失败:git-guardian-hidden.vbs 预检报错\n${pre}`)
+      return 1
+    }
+    const tr = `wscript.exe "${vbs}"`
+    try {
+      execFileSync(
+        'schtasks',
+        ['/create', '/tn', TASK_NAME, '/tr', tr, '/sc', 'minute', '/mo', '2', '/f'],
+        {
+          stdio: 'inherit',
+          windowsHide: true,
+        },
+      )
+      log(`已注册任务计划 "${TASK_NAME}"(每 2 分钟自检,经 git-guardian-hidden.vbs 静默启动)`)
+    } catch (e) {
+      log('注册任务计划失败(需管理员权限): ' + String(e.message || e))
+      process.exit(1)
+    }
+    return 0
     return registerTask() ? 0 : 1
   }
 

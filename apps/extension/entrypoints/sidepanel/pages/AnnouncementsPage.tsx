@@ -23,16 +23,8 @@ function stripHtml(s: string | undefined | null): string {
     .trim()
 }
 
-const PINNED_LABEL: Record<string, string> = {
-  'zh-CN': '置顶',
-  'zh-TW': '置頂',
-  en: 'Pinned',
-  ja: 'ピン留め',
-  ko: '고정',
-}
-
 export default function AnnouncementsPage() {
-  const { t, locale } = useI18n()
+  const { t } = useI18n()
   const [items, setItems] = useState<Announcement[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -106,7 +98,7 @@ export default function AnnouncementsPage() {
                   <div className="flex items-center gap-1.5">
                     {a.isPinned ? (
                       <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                        {PINNED_LABEL[locale] || 'Pinned'}
+                        {t('announcement.pinned')}
                       </Badge>
                     ) : null}
                     <CardTitle className="text-sm leading-snug line-clamp-2 flex-1">

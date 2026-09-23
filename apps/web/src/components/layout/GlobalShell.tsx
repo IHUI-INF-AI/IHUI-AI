@@ -10,8 +10,12 @@ import { useTranslations } from 'next-intl'
 import { usePathname } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { cn } from '@/lib/utils'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { Sidebar } from '@/components/sidebar'
 import { TooltipProvider } from '@/components/feedback'
+
+/** 层栈 id(见 @/lib/overlay-stack):移动端菜单的 Esc 只在栈顶时被消费 */
+const MOBILE_MENU_OVERLAY_ID = 'global-shell-mobile-menu'
 import {
   PWAInstallPrompt,
   PWAUpdatePrompt,
@@ -233,11 +237,20 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     if (!mobileOpen) return
+    // 层栈注册:mobileOpen → 入栈(成为栈顶);close/unmount → 出栈。
+    pushOverlay(MOBILE_MENU_OVERLAY_ID)
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMobileOpen(false)
+      if (e.key === 'Escape') {
+        // 只让栈顶那一层消费 Esc:多层同时打开时,一次 Esc 关最上层
+        if (!isTopOverlay(MOBILE_MENU_OVERLAY_ID)) return
+        setMobileOpen(false)
+      }
     }
     document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      popOverlay(MOBILE_MENU_OVERLAY_ID)
+    }
   }, [mobileOpen])
 
   // 移动端菜单按钮节点(2026-09-13 从 <GlobalTopBar mobileMenu={...}> 内联 JSX 提取):

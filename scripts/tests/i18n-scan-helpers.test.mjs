@@ -109,6 +109,30 @@ describe('STATIC_T_RE — 静态 t("a.b.c") 全路径点分识别', () => {
     assert.equal(matchFirst(STATIC_T_RE, "t('a.b.c.d.e')"), 'a.b.c.d.e')
   })
 
+  // 2026-09-23 键段字符类补连字符:permissionTier.mode.accept-edits.title 这类键曾因正则看不见
+  // 而被 scan-dead-i18n-keys 误判成死 key(web 侧实测 9→5,静态引用 10847→10904)。
+  test("t('permissionTier.mode.accept-edits.title') 键段含连字符 → 命中", () => {
+    assert.equal(
+      matchFirst(STATIC_T_RE, "t('permissionTier.mode.accept-edits.title')"),
+      'permissionTier.mode.accept-edits.title',
+    )
+  })
+
+  test("反例:t('-bad.key') 连字符不能起头(首段仍须字母开头)", () => {
+    assert.equal(matchFirst(STATIC_T_RE, "t('-bad.key')"), null)
+  })
+
+  test("反例:t('a/b.c') 含斜杠的路径/CSS 类名不当作键(扩连字符后仍不误吞)", () => {
+    assert.equal(matchFirst(STATIC_T_RE, "t('a/b.c')"), null)
+  })
+
+  test("titleKey: 'permissionTier.mode.accept-edits.title' 属性形态也认连字符", () => {
+    assert.equal(
+      matchFirst(PROP_KEY_RE, "titleKey: 'permissionTier.mode.accept-edits.title'"),
+      'permissionTier.mode.accept-edits.title',
+    )
+  })
+
   test("t('about.heroTitle', { fallback: 'xxx' }) 带对象参数 → 命中(2026-07-26 STATIC_T_RE 增强后)", () => {
     // 2026-07-26 STATIC_T_RE 增强:新增 `(?:,[^)]*)?` 可选组支持带参数调用
     // 修复前漏报场景:t('key', { args }) / t('key', count) 等带参数形式
@@ -381,6 +405,17 @@ describe('DYNAMIC_T_RE — 动态 t(`prefix.${var}`) 模板字符串拼接识别
 
   test('t(`prefix.${var}.suffix`) 中间插值也能命中', () => {
     assert.notEqual(matchFirst(DYNAMIC_T_RE, 't(`prefix.${var}.suffix`)'), null)
+  })
+
+  // 2026-09-23 对齐 STATIC_T_RE / TLIST_RE 的"四次增强":去掉尾部 `\s*\)` 后,带 values 实参的动态取词
+  // 才不再整条漏判(extension 侧 `chat.injection*` 7 枚假死键即此因;修前 93 → 修后 86)。
+  test('t(`chat.${key}`, values) 带第二实参 → 仍命中(修前被尾部 \\s*\\) 截断)', () => {
+    assert.notEqual(matchFirst(DYNAMIC_T_RE, 't(`chat.${key}`, values)'), null)
+    assert.notEqual(matchFirst(DYNAMIC_T_RE, "t(`chat.injection${n}`, { count: 3 })"), null)
+  })
+
+  test('反例:t(变量) 无模板字面量 → 不命中(不得把任意调用当动态前缀)', () => {
+    assert.equal(matchFirst(DYNAMIC_T_RE, 't(key, values)'), null)
   })
 
   test('t(`no-interpolation`) 无插值 → 不应命中 DYNAMIC_T_RE', () => {
