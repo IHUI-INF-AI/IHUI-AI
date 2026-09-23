@@ -136,6 +136,9 @@ function runGit(args, opts = {}) {
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
     windowsHide: true,
+    // 默认封顶:本函数现有调用(for-each-ref / cat-file)全部只读,中途被终止不会
+    // 留下 index.lock 之类的半成品状态。放在 ...opts 之前 ⇒ 需要更长上限的调用方可覆盖。
+    timeout: 120_000,
     ...opts,
   })
   if (r.status !== 0) {
