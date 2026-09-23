@@ -11,11 +11,6 @@ vi.mock('next/image', () => ({
   default: ({ src, alt }: { src: string; alt: string }) => React.createElement('img', { src, alt }),
 }))
 
-// TextPreview 现取词 useTranslations('a11y'),测试环境无 Intl provider,mock 回键名即可(断言不查文案)
-vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string) => key,
-}))
-
 import { FilePreview } from '../FilePreview'
 
 describe('TextPreview AbortController 竞态修复', () => {
