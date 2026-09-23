@@ -23,7 +23,7 @@
 import { type ReactNode } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Plus } from 'lucide-react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { BottomPops } from './BottomPops'
 
 // ── PlusButton 统一加号按钮 ──────────────────────────────────────────────

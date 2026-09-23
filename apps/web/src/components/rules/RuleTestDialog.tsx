@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 import { useRules } from '@/hooks/use-rules'
@@ -12,6 +13,8 @@ import { useRulesStore } from '@/stores/rules'
 import { Button, CloseButton } from '@ihui/ui-react'
 
 function RuleTestDialog() {
+  const t = useTranslations('rules')
+  const tCommon = useTranslations('common')
   const {
     testDialogRule,
     closeTestDialog,
@@ -42,28 +45,30 @@ function RuleTestDialog() {
     >
       <div className="w-full max-w-md space-y-3 rounded-lg border border-border bg-card p-3 shadow-lg">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold">测试规则:{testDialogRule.name}</span>
-          <CloseButton aria-label="关闭" onClick={closeTestDialog} />
+          <span className="text-sm font-semibold">
+            {t('testRuleTitle', { name: testDialogRule.name })}
+          </span>
+          <CloseButton aria-label={tCommon('close')} onClick={closeTestDialog} />
         </div>
         <div className="space-y-1.5">
           <label htmlFor="rule-test-msg" className="text-xs text-muted-foreground">
-            输入消息
+            {t('inputMessage')}
           </label>
           <textarea
             id="rule-test-msg"
             value={testMessage}
             onChange={(e) => setTestMessage(e.target.value)}
-            placeholder="输入测试消息..."
+            placeholder={t('inputTestMessage')}
             rows={4}
             className="thin-scroll w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 text-xs leading-relaxed outline-none focus:border-foreground/20"
           />
         </div>
         <div className="flex items-center justify-end gap-2">
           <Button variant="outline" size="sm" onClick={closeTestDialog}>
-            关闭
+            {tCommon('close')}
           </Button>
           <Button size="sm" onClick={handleTest} disabled={isPending.test || !testMessage.trim()}>
-            {isPending.test ? '测试中...' : '测试'}
+            {isPending.test ? t('testing') : t('test')}
           </Button>
         </div>
         {testResult && (
@@ -75,7 +80,7 @@ function RuleTestDialog() {
                 : 'bg-muted text-muted-foreground',
             )}
           >
-            {testResult.matched ? '匹配命中' : '未命中'} — {testResult.reason}
+            {testResult.matched ? t('matchHit') : t('noMatch')} — {testResult.reason}
           </div>
         )}
       </div>

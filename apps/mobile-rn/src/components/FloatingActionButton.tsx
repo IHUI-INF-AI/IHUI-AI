@@ -11,7 +11,7 @@
  * - 默认 ＋ 图标,可通过 label 自定义文字,accessibilityLabel 缺省回退到 label
  */
 import { Pressable, StyleSheet, Text, type TextStyle, type ViewStyle } from 'react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 
 export interface FloatingActionButtonProps {
   onPress: () => void

@@ -18,10 +18,10 @@
  *   - 缩略图:100% × 100,borderRadius 8,bgColor surface.muted,居中 emoji 📚 32pt
  *   - VIP 角标:absolute top-right,8px 圆角,brand.DEFAULT bg,白字 10/600
  *   - 文字:标题 14/600,讲师/价格行沿用项目浅色优雅风
- *   - 系统字体,无 ttf;颜色全部使用 rnLightTokens(禁用 purple/indigo)
+ *   - 系统字体,无 ttf;颜色全部使用 主题 token 入口(禁用 purple/indigo)
  *   - 禁止硬编码颜色/尺寸,类型零 any
  */
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { useState } from 'react'
 import {
   FlatList,

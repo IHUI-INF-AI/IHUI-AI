@@ -21,12 +21,12 @@
  * admin(roleId >= 1)看全平台,普通用户 403(简化:挣钱中心是运营看板)。
  * 金额单位:分→元(/100),趋势单位:%,保留 2 位小数。
  */
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { sql, type SQL } from 'drizzle-orm'
 import { z } from 'zod'
 
 import { dbRead } from '../db/index.js'
-import { checkAuth } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, parseOrThrow } from '../utils/response.js'
 
 // =============================================================================
@@ -133,34 +133,17 @@ function centsToYuan(cents: unknown): number {
   return Number((n / 100).toFixed(2))
 }
 
-/** admin 校验。roleId >= 1 视为 admin;失败时 reply 已发送响应,返回 false。 */
-async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  if (!(await checkAuth(request, reply))) return false
-  const roleId = (request as FastifyRequest & { jwtPayload?: { roleId?: number } }).jwtPayload
-    ?.roleId
-  // roleId >= 1 视为 admin(AGENTS.md §5:admin 路由 preHandler 校验 roleId >= 1)
-  if (typeof roleId !== 'number' || roleId < 1) {
-    reply.status(403).send(error(403, '需要管理员权限访问挣钱中心'))
-    return false
-  }
-  return true
-}
-
 // =============================================================================
-// Fastify plugin
+// Fastify plugin — 全端点仅 admin,O13b 试点批收敛为集中 requireAdmin preHandler
 // =============================================================================
 
 export const earningsRoutes: FastifyPluginAsync = async (server) => {
-  server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!(await checkAuth(request, reply))) return
-  })
+  server.addHook('preHandler', requireAdmin)
 
   // -------------------------------------------------------------------------
   // GET /overview — 今日收入概览 + 同比昨天趋势
   // -------------------------------------------------------------------------
   server.get('/overview', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
-
     try {
       const today = new Date()
       const todayStart = new Date(today)
@@ -277,8 +260,6 @@ export const earningsRoutes: FastifyPluginAsync = async (server) => {
   // GET /byok-trend?days=30 — 最近 N 天 BYOK 抽成收入趋势(每日聚合)
   // -------------------------------------------------------------------------
   server.get('/byok-trend', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
-
     let days: number
     try {
       const q = parseOrThrow(ByokTrendQuerySchema, request.query)
@@ -326,8 +307,6 @@ export const earningsRoutes: FastifyPluginAsync = async (server) => {
   // GET /referral — 各渠道引流数(free-model/publish/direct)
   // -------------------------------------------------------------------------
   server.get('/referral', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
-
     try {
       // 三渠道用 set 去重(用户可能同时命中多渠道,优先级 free-model → publish → direct)
       // 1. free-model:在 llm_call_logs 中调用过免费 provider 的用户
@@ -372,8 +351,6 @@ export const earningsRoutes: FastifyPluginAsync = async (server) => {
   // GET /funnel — 转化漏斗(register→active→byok→vip)
   // -------------------------------------------------------------------------
   server.get('/funnel', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
-
     try {
       // 4 阶段并行查询(用一个 SQL 4 子查询合并,减少 RTT)
       const [row] = await dbRead.execute<{

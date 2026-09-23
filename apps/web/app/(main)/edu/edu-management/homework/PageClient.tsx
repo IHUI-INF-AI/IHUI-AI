@@ -6,6 +6,7 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import {
   Loader2,
   AlertCircle,
@@ -91,14 +92,15 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 
 /* ─── Constants ─── */
 
+/** 提交状态码 → eduHomework 取词键;value 是与后端协议字面匹配的码,不得取词 */
 const SUBMISSION_STATUS = [
-  { value: 'submitted', label: '已提交', color: 'bg-blue-500 text-white' },
-  { value: 'graded', label: '已批改', color: 'bg-green-500 text-white' },
-  { value: 'late', label: '迟交', color: 'bg-orange-500 text-white' },
-  { value: 'resubmit', label: '待重交', color: 'bg-purple-500 text-white' },
+  { value: 'submitted', labelKey: 'statusSubmitted', color: 'bg-blue-500 text-white' },
+  { value: 'graded', labelKey: 'statusGraded', color: 'bg-green-500 text-white' },
+  { value: 'late', labelKey: 'statusLate', color: 'bg-orange-500 text-white' },
+  { value: 'resubmit', labelKey: 'statusResubmit', color: 'bg-purple-500 text-white' },
 ] as const
 
-const SUBMISSION_STATUS_MAP = new Map(SUBMISSION_STATUS.map((s) => [s.value, s.label]))
+const SUBMISSION_STATUS_KEY_MAP = new Map(SUBMISSION_STATUS.map((s) => [s.value, s.labelKey]))
 const SUBMISSION_COLOR_MAP = new Map(SUBMISSION_STATUS.map((s) => [s.value, s.color]))
 
 /* ─── Grade Dialog ─── */
@@ -114,6 +116,7 @@ function GradeDialog({
   submission: HomeworkSubmission | null
   onSave: (id: string, score: number, comment: string) => Promise<void>
 }) {
+  const t = useTranslations('eduHomework')
   const [score, setScore] = React.useState(0)
   const [comment, setComment] = React.useState('')
   const [saving, setSaving] = React.useState(false)
@@ -143,26 +146,26 @@ function GradeDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>批改作业</DialogTitle>
+          <DialogTitle>{t('gradeDialogTitle')}</DialogTitle>
         </DialogHeader>
         {submission && (
           <div className="space-y-3 py-2">
             <div className="rounded-md border p-3 text-sm space-y-1">
               <p>
-                <span className="text-muted-foreground">学生：</span>
+                <span className="text-muted-foreground">{t('studentLabel')}</span>
                 {submission.studentName}
               </p>
               <p>
-                <span className="text-muted-foreground">内容：</span>
+                <span className="text-muted-foreground">{t('contentLabel')}</span>
                 {submission.content}
               </p>
               <p>
-                <span className="text-muted-foreground">提交时间：</span>
+                <span className="text-muted-foreground">{t('submittedAtLabel')}</span>
                 {new Date(submission.submittedAt).toLocaleString('zh-CN')}
               </p>
             </div>
             <div className="grid gap-1.5">
-              <Label>分数</Label>
+              <Label>{t('score')}</Label>
               <Input
                 type="number"
                 min={0}
@@ -172,11 +175,11 @@ function GradeDialog({
               />
             </div>
             <div className="grid gap-1.5">
-              <Label>评语</Label>
+              <Label>{t('comment')}</Label>
               <Input
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                placeholder="可选，批改评语"
+                placeholder={t('commentPlaceholder')}
               />
             </div>
           </div>
@@ -184,7 +187,7 @@ function GradeDialog({
         <DialogFooter>
           <Button onClick={handleSave} disabled={saving}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            提交批改
+            {t('submitGrade')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -195,6 +198,7 @@ function GradeDialog({
 /* ─── Main Page ─── */
 
 export default function HomeworkPage() {
+  const t = useTranslations('eduHomework')
   const queryClient = useQueryClient()
 
   /* ── State ── */
@@ -213,7 +217,7 @@ export default function HomeworkPage() {
 
   React.useEffect(() => {
     if (terms.length > 0 && !selectedTermId) {
-      const current = terms.find((t) => t.isCurrent)
+      const current = terms.find((term) => term.isCurrent)
       setSelectedTermId(current?.id ?? terms[0]!.id)
     }
   }, [terms, selectedTermId])
@@ -276,38 +280,45 @@ export default function HomeworkPage() {
   const completionRate = statsData?.completionRate
   const statsCards = [
     {
-      label: '总提交数',
+      label: t('statsTotalSubmissions'),
       value: statsData?.totalSubmissions ?? '-',
       icon: FileText,
       color: 'text-blue-600',
     },
     {
-      label: '已批改数',
+      label: t('statsGradedCount'),
       value: statsData?.gradedCount ?? '-',
       icon: CheckCircle2,
       color: 'text-green-600',
     },
     {
-      label: '平均分',
-      value: avgScore !== undefined && avgScore !== null ? `${avgScore}分` : '-',
+      label: t('statsAvgScore'),
+      value:
+        avgScore !== undefined && avgScore !== null ? t('scoreWithUnit', { score: avgScore }) : '-',
       icon: BarChart3,
       color: 'text-purple-600',
     },
     {
-      label: '完成率',
+      label: t('statsCompletionRate'),
       value: completionRate !== undefined && completionRate !== null ? `${completionRate}%` : '-',
       icon: Users,
       color: 'text-orange-600',
     },
   ]
 
+  /** 状态码取词:未知码(后端新增值)原样回显,不吞数据 */
+  const submissionStatusLabel = (status: HomeworkSubmission['status']): string => {
+    const labelKey = SUBMISSION_STATUS_KEY_MAP.get(status)
+    return labelKey ? t(labelKey) : status
+  }
+
   return (
     <div className="space-y-4">
       <BackButton />
 
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">作业管理</h1>
-        <p className="text-xs text-muted-foreground">管理学生作业提交、批改和评分</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('pageTitle')}</h1>
+        <p className="text-xs text-muted-foreground">{t('pageSubtitle')}</p>
       </header>
 
       {/* Class Selector */}
@@ -323,13 +334,13 @@ export default function HomeworkPage() {
               }}
             >
               <SelectTrigger className="w-44">
-                <SelectValue placeholder="选择学期" />
+                <SelectValue placeholder={t('selectTerm')} />
               </SelectTrigger>
               <SelectContent>
-                {terms.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.name}
-                    {t.isCurrent ? ' (当前)' : ''}
+                {terms.map((term) => (
+                  <SelectItem key={term.id} value={term.id}>
+                    {term.name}
+                    {term.isCurrent ? t('currentTermTag') : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -345,7 +356,7 @@ export default function HomeworkPage() {
               disabled={!selectedTermId || classes.length === 0}
             >
               <SelectTrigger className="w-44">
-                <SelectValue placeholder="选择班级" />
+                <SelectValue placeholder={t('selectClass')} />
               </SelectTrigger>
               <SelectContent>
                 {classes.map((c) => (
@@ -389,20 +400,20 @@ export default function HomeworkPage() {
       {/* Submissions List */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-sm font-medium">作业提交</CardTitle>
+          <CardTitle className="text-sm font-medium">{t('submissionsTitle')}</CardTitle>
           <div className="flex items-center gap-2">
             <Select
               value={statusFilter}
               onValueChange={(v) => setStatusFilter(v === 'all' ? '' : v)}
             >
               <SelectTrigger className="h-8 w-32">
-                <SelectValue placeholder="全部状态" />
+                <SelectValue placeholder={t('allStatus')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">全部状态</SelectItem>
+                <SelectItem value="all">{t('allStatus')}</SelectItem>
                 {SUBMISSION_STATUS.map((s) => (
                   <SelectItem key={s.value} value={s.value}>
-                    {s.label}
+                    {t(s.labelKey)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -416,33 +427,43 @@ export default function HomeworkPage() {
           {!selectedClassId ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <AlertCircle className="mb-2 h-8 w-8" />
-              <p className="text-sm">请先选择班级</p>
+              <p className="text-sm">{t('selectClassFirst')}</p>
             </div>
           ) : submissionsLoading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              加载作业提交...
+              {t('loadingSubmissions')}
             </div>
           ) : submissions.length === 0 ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">暂无作业提交</div>
+            <div className="py-12 text-center text-sm text-muted-foreground">
+              {t('emptySubmissions')}
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b">
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                      学生姓名
+                      {t('thStudentName')}
                     </th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                      作业内容
+                      {t('thContent')}
                     </th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                      提交时间
+                      {t('thSubmittedAt')}
                     </th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">状态</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">分数</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">评语</th>
-                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">操作</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                      {t('thStatus')}
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                      {t('score')}
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                      {t('comment')}
+                    </th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">
+                      {t('thActions')}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -471,7 +492,7 @@ export default function HomeworkPage() {
                             SUBMISSION_COLOR_MAP.get(s.status) ?? 'bg-gray-500',
                           )}
                         >
-                          {SUBMISSION_STATUS_MAP.get(s.status) ?? s.status}
+                          {submissionStatusLabel(s.status)}
                         </Badge>
                       </td>
                       <td className="px-4 py-3 text-xs font-medium">
@@ -498,7 +519,7 @@ export default function HomeworkPage() {
                             }}
                           >
                             <CheckCircle2 className="mr-1 h-3 w-3" />
-                            批改
+                            {t('grade')}
                           </Button>
                         )}
                       </td>

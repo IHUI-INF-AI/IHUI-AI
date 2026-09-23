@@ -15,6 +15,8 @@ import { useAiPanelStore } from '@/stores/ai-panel'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 // 读侧归一(G-164):循环起点来自 store/localStorage,拼写可能不是 kebab,归一后再查循环表
 import { permissionModeWire } from '@ihui/types/permission-mode'
+import { permissionTierText } from '@/lib/permission-tier-text'
+// 权限档取词(G-166):档位归一与词表键的共享真相源,见 packages/shared/src/chat/permission-tier.ts
 
 /** 模式循环顺序(2026-07-25 深化,深度对标 Codex CLI Shift+Tab 循环切换)
  * default(请求批准) → accept-edits(替我审批) → bypass-permissions(完全访问) → plan(只读) → default
@@ -31,19 +33,6 @@ const PERMISSION_CYCLE: WorkspacePermissionMode[] = [
   'plan',
 ]
 
-/**
- * 循环提示文案映射(chat.permission 命名空间)。
- *
- * 键类型是 WorkspacePermissionMode 全枚举 —— 新增档位时这里**编译不过**,
- * 而不是像上一版那样用三元表达式,把新档静默显示成"替我审批"。
- */
-const CYCLE_LABEL_KEY: Record<WorkspacePermissionMode, 'mode.ask' | 'mode.auto' | 'mode.plan'> = {
-  default: 'mode.ask',
-  'accept-edits': 'mode.auto',
-  plan: 'mode.plan',
-  // bypass-permissions 走上面独立的长提示分支(switchedToFull + 撤销),不参与此表
-  'bypass-permissions': 'mode.auto',
-}
 
 /** localStorage 键(2026-07-25 深化,跨刷新记忆用户上次主动选择的权限模式)
  * 仅记忆非默认模式;首次绑定工作区时如果 store 没指定,优先用这个值 */
@@ -85,6 +74,7 @@ export function usePermissionModeCycle(): {
   cyclePermissionMode: () => Promise<void>
 } {
   const t = useTranslations('chat.permission')
+  const tTier = useTranslations()
   // 当前工作区权限模式 + 切换 store
   const activeWorkspace = useAiPanelStore((s) => s.activeWorkspace)
   const setActiveWorkspace = useAiPanelStore((s) => s.setActiveWorkspace)
@@ -223,15 +213,15 @@ export function usePermissionModeCycle(): {
         },
       })
     } else {
-      // 静态映射表:上一版是 `next === 'default' ? 'mode.ask' : 'mode.auto'` 三元 ——
-      // 一旦循环里多出任何一档(G-164 加了 plan),它就会被显示成"替我审批",
-      // 也就是**提示文案与真实档位不一致**(用户以为自己在自动审批档)。
-      const labelKey = CYCLE_LABEL_KEY[next]
-      toast.success(t('cycledTo', { mode: t(labelKey) }), {
+      // 上一版这里是一张端内标签键表(三档映射 + 一个占位值):一旦循环里多出任何一档
+      // (G-164 加了 plan),它就可能被显示成"替我审批",也就是**提示文案与真实档位不一致**
+      // (用户以为自己在自动审批档)。G-166 起取词收口到共享词表:按档归一,认不出落
+      // unknown 档,端内不再留第二张映射表。
+      toast.success(t('cycledTo', { mode: permissionTierText(next, tTier).title }), {
         duration: INFO_TOAST_DURATION,
       })
     }
-  }, [activeWorkspace, activeWorkspaceMode, setActiveWorkspace, setPendingFullAccess, t])
+  }, [activeWorkspace, activeWorkspaceMode, setActiveWorkspace, setPendingFullAccess, t, tTier])
 
   const openShortcuts = React.useCallback(() => setShortcutsOpen(true), [])
   const closeShortcuts = React.useCallback(() => setShortcutsOpen(false), [])

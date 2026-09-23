@@ -26,7 +26,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { rpx } from '../utils/rpx'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 
 /** 原页面图片资源(CDN,与 Uniapp 一致) */
 const AVATAR_IMAGE =

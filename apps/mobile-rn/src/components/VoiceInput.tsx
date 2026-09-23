@@ -27,7 +27,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder } from 'expo-audio'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import { formatShortDuration } from '@ihui/shared/utils'
 import { voiceSttFromReactNative } from '@ihui/api-client'
