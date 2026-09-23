@@ -18,6 +18,7 @@ import { tokens } from '../theme/active-tokens'
 import { useNotificationStore } from '../stores/notification'
 import { formatShortDateTime } from '../utils/date-utils'
 import { Bell, X } from 'lucide-react-native'
+import { rnRadius } from '@ihui/design-tokens'
 
 /**
  * 通知面板(mobile-rn 端)。
@@ -47,7 +48,7 @@ export default function NotificationPanel() {
       >
         <TouchableOpacity
           className="bg-white max-h-[70%] min-h-[40%]"
-          style={{ borderTopLeftRadius: 10, borderTopRightRadius: 10 }}
+          style={{ borderTopLeftRadius: rnRadius.lg, borderTopRightRadius: rnRadius.lg }}
           activeOpacity={1}
           onPress={(e) => e.stopPropagation()}
         >
@@ -216,7 +217,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   card: {
     backgroundColor: tokens.surface.card,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     padding: 12,
     shadowColor: tokens.gray.black,
     shadowOpacity: 0.1,
@@ -233,7 +234,7 @@ const styles = StyleSheet.create({
   icon: {
     width: 30,
     height: 30,
-    borderRadius: 15,
+    borderRadius: rnRadius['2xl'],
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
@@ -251,7 +252,7 @@ const styles = StyleSheet.create({
   close: {
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
