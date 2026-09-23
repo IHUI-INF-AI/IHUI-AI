@@ -16,8 +16,8 @@
     "ihui": "  ; GUI installer has a toggle for the user to (re)start the app\n  ${If} $PassiveMode = 1\n  ${OrIf} ${Silent}\n    ; 同 .onInit:GetParameters 剥 exe 路径,防正斜杠路径 /r /args 前缀误匹配\n    ${GetParameters} $R9\n    ${GetOptions} $R9 \"/R\" $R0\n    ${IfNot} ${Errors}\n      ${GetOptions} $R9 \"/ARGS\" $R0\n      nsis_tauri_utils::RunAsUser \"$INSTDIR\\${MAINBINARYNAME}.exe\" \"$R0\"\n    ${EndIf}\n  ${EndIf}"
   },
   {
-    "upstream": "\n  ${GetOptions} $CMDLINE \"/P\" $PassiveMode\n  ${IfNot} ${Errors}\n    StrCpy $PassiveMode 1\n  ${EndIf}\n\n  ${GetOptions} $CMDLINE \"/UPDATE\" $UpdateMode\n  ${IfNot} ${Errors}\n    StrCpy $UpdateMode 1\n  ${EndIf}",
-    "ihui": "\n  ; 同 .onInit:GetParameters 剥 exe 路径,防前缀误匹配\n  ${GetParameters} $R9\n  ${GetOptions} $R9 \"/P\" $PassiveMode\n  ${IfNot} ${Errors}\n    StrCpy $PassiveMode 1\n  ${EndIf}\n\n  ${GetOptions} $R9 \"/UPDATE\" $UpdateMode\n  ${IfNot} ${Errors}\n    StrCpy $UpdateMode 1\n  ${EndIf}"
+    "upstream": "\n  !insertmacro MUI_UNGETLANGUAGE\n\n  ${GetOptions} $CMDLINE \"/P\" $PassiveMode\n  ${IfNot} ${Errors}\n    StrCpy $PassiveMode 1\n  ${EndIf}\n\n  ${GetOptions} $CMDLINE \"/UPDATE\" $UpdateMode\n  ${IfNot} ${Errors}\n    StrCpy $UpdateMode 1\n  ${EndIf}",
+    "ihui": "\n  !insertmacro MUI_UNGETLANGUAGE\n\n  ; 同 .onInit:GetParameters 剥 exe 路径,防前缀误匹配\n  ${GetParameters} $R9\n  ${GetOptions} $R9 \"/P\" $PassiveMode\n  ${IfNot} ${Errors}\n    StrCpy $PassiveMode 1\n  ${EndIf}\n\n  ${GetOptions} $R9 \"/UPDATE\" $UpdateMode\n  ${IfNot} ${Errors}\n    StrCpy $UpdateMode 1\n  ${EndIf}"
   },
   {
     "upstream": "    DeleteRegValue HKCU \"Software\\Microsoft\\Windows\\CurrentVersion\\Run\" \"${PRODUCTNAME}\"\n  ${EndIf}\n\n  ; Delete app data if the checkbox is selected\n  ; and if not updating\n  ${If} $DeleteAppDataCheckboxState = 1\n  ${AndIf} $UpdateMode <> 1\n    ; Clear the install location $INSTDIR from registry\n    DeleteRegKey SHCTX \"${MANUPRODUCTKEY}\"\n    DeleteRegKey /ifempty SHCTX \"${MANUKEY}\"",

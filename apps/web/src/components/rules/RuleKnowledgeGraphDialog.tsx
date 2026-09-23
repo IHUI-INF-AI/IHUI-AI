@@ -5,7 +5,6 @@
 'use client'
 
 import * as React from 'react'
-import { useTranslations } from 'next-intl'
 import { Loader2, TrendingUp } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -98,15 +97,7 @@ function KnowledgeGraphSvg({
   )
 }
 
-const EDGE_TYPE_KEYS = {
-  duplicate: 'kgDuplicate',
-  complementary: 'kgComplementary',
-  conflict: 'kgConflict',
-} as const
-
 function RuleKnowledgeGraphDialog({ rules, onClose }: RuleKnowledgeGraphDialogProps) {
-  const t = useTranslations('rules')
-  const tCommon = useTranslations('common')
   const [graph, setGraph] = React.useState<RuleKnowledgeGraph | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
@@ -145,15 +136,15 @@ function RuleKnowledgeGraphDialog({ rules, onClose }: RuleKnowledgeGraphDialogPr
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold">
             <TrendingUp className="mr-1 inline h-3.5 w-3.5" />
-            {t('knowledgeGraphTitle')}
+            规则知识图谱
           </span>
-          <CloseButton aria-label={tCommon('close')} onClick={onClose} />
+          <CloseButton aria-label="关闭" onClick={onClose} />
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            {t('buildingGraph')}
+            构建图谱中...
           </div>
         ) : error ? (
           <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
@@ -164,33 +155,30 @@ function RuleKnowledgeGraphDialog({ rules, onClose }: RuleKnowledgeGraphDialogPr
             <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
               <span className="flex items-center gap-1">
                 <span className="inline-block h-2 w-2 rounded-sm bg-red-500/50" />
-                {t('kgConflict')}
+                冲突
               </span>
               <span className="flex items-center gap-1">
                 <span className="inline-block h-2 w-2 rounded-sm bg-yellow-500/50" />
-                {t('kgDuplicate')}
+                重复
               </span>
               <span className="flex items-center gap-1">
                 <span className="inline-block h-2 w-2 rounded-sm bg-green-500/50" />
-                {t('kgComplementary')}
+                互补
               </span>
               <span className="ml-auto">
-                {t('graphNodeEdgeCounts', {
-                  nodes: graph.nodes.length,
-                  edges: graph.edges.length,
-                })}
+                {graph.nodes.length} 节点 / {graph.edges.length} 边
               </span>
             </div>
             {graph.nodes.length === 0 ? (
               <p className="py-8 text-center text-xs text-muted-foreground">
-                {t('noRulesToBuildGraph')}
+                暂无规则,无法构建图谱
               </p>
             ) : (
               <KnowledgeGraphSvg graph={graph} ruleNameMap={ruleNameMap} />
             )}
             {graph.edges.length > 0 && (
               <div className="thin-scroll max-h-32 space-y-1 overflow-y-auto">
-                <p className="text-[10px] text-muted-foreground">{t('relationList')}</p>
+                <p className="text-[10px] text-muted-foreground">关系列表</p>
                 {graph.edges.map((edge, idx) => (
                   <div
                     key={idx}
@@ -207,7 +195,11 @@ function RuleKnowledgeGraphDialog({ rules, onClose }: RuleKnowledgeGraphDialogPr
                             : 'bg-red-500/10 text-red-600',
                       )}
                     >
-                      {t(EDGE_TYPE_KEYS[edge.type])}
+                      {edge.type === 'duplicate'
+                        ? '重复'
+                        : edge.type === 'complementary'
+                          ? '互补'
+                          : '冲突'}
                     </span>
                     <span className="truncate">{ruleNameMap.get(edge.target) ?? edge.target}</span>
                     <span className="ml-auto shrink-0 text-muted-foreground">
@@ -222,7 +214,7 @@ function RuleKnowledgeGraphDialog({ rules, onClose }: RuleKnowledgeGraphDialogPr
 
         <div className="flex items-center justify-end">
           <Button variant="outline" size="sm" onClick={onClose}>
-            {tCommon('close')}
+            关闭
           </Button>
         </div>
       </div>
