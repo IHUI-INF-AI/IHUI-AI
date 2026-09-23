@@ -189,7 +189,10 @@ export default function App() {
   const [fontsLoaded] = useFonts({
     'AlimamaFangYuanTiVF-Thin': fontAsset,
   })
-  if (!fontsLoaded) return null
+  // 原生:未加载完返回 null,避免字体闪烁。Web 预览必须跳过这道门:
+  // react-native-web 下 require(ttf) 返回的是资产 id 而非可加载 URL,expo-font 的 web
+  // loader 永远不 resolve ⇒ fontsLoaded 恒 false ⇒ 整棵树 return null(:8806 白屏根因)。
+  if (Platform.OS !== 'web' && !fontsLoaded) return null
   return (
     <ThemeProvider>
       <AppContent />
