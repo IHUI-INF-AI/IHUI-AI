@@ -583,6 +583,8 @@
     }
   },
   "chatDisclosure": {
+    "steerTitle": "已引导 {count} 次",
+    "steerMore": "等 {count} 条",
     "citationTitle": "参考来源",
     "injectionTitle": "本轮参考的上下文",
     "kindDeveloper": "自定义指令",

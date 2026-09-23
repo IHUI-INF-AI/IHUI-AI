@@ -111,7 +111,7 @@ import {
   resendTargetText,
 } from '@ihui/shared/chat'
 import { rnLightTokens as tokens, rnRadius } from '@ihui/design-tokens'
-import { CitationList, InjectionDisclosure } from '../components/ChatDisclosure'
+import { CitationList, InjectionDisclosure, SteerNoticeList } from '../components/ChatDisclosure'
 import { NavBar } from '../components/NavBar'
 import { InputArea } from '../components/InputArea'
 import { TaskStatusBar } from '../components/ai/TaskStatusBar'
@@ -137,12 +137,14 @@ import {
   applyTerminalEnd,
   applyInjectionFrame,
   appendCitationFrames,
+  appendSteerFrames,
   applyTerminalStart,
   applyToolCallEvent,
   formatDurationMs,
   formatStructured,
   type MessageInjection,
   type MessageCitation,
+  type SteerNotice,
   type PlanStepItem,
   type TerminalTaskItem,
   type ToolCallItem,
@@ -201,6 +203,9 @@ interface N8nMessage {
   injections?: MessageInjection[]
   /** #11 引用溯源(第 51 轮):答案带了哪些知识来源,对齐 web message.citations。 */
   citations?: MessageCitation[]
+  /** D106 Steer(中途引导):本轮被用户注入的引导交代,对齐 web steerNoticesByMessageId。
+   *  执行期瞬时态不落库(web 同口径),故历史水合不还原。 */
+  steerNotices?: SteerNotice[]
 }
 
 /**
@@ -665,6 +670,10 @@ function MessageBubble({
           ) : null}
           {answerVisible && message.citations && message.citations.length > 0 ? (
             <CitationList items={message.citations} />
+          ) : null}
+          {/* D106 Steer(中途引导)交代:本轮被注入了哪些引导文本 */}
+          {answerVisible && message.steerNotices && message.steerNotices.length > 0 ? (
+            <SteerNoticeList items={message.steerNotices} />
           ) : null}
           {/* 思考过程展开区(仅 isHaveSikao 时显示按钮,展开后渲染思考内容) */}
           {sikaoOpen && message.thinkingContent ? (
@@ -1336,6 +1345,23 @@ export default function AiAssistantN8nScreen() {
               next[next.length - 1] = {
                 ...last,
                 injections: applyInjectionFrame(last.injections, event),
+              }
+            }
+            return next
+          })
+          scrollToEnd()
+        },
+        // D106 Steer(中途引导):ai-service 在 tool loop 边界注入引导后下发 steer 事件,
+        // 这里逐字段承接(phase/text/timestamp/messageId)累积到最后一条 assistant 消息;
+        // 空文本帧由 appendSteerFrames 整帧丢弃,不渲染空交代。
+        onSteer: (event) => {
+          setMessages((prev) => {
+            const next = [...prev]
+            const last = next[next.length - 1]
+            if (last && last.role === 'assistant') {
+              const notices = appendSteerFrames(last.steerNotices, event)
+              if (notices.length > 0) {
+                next[next.length - 1] = { ...last, steerNotices: notices }
               }
             }
             return next
