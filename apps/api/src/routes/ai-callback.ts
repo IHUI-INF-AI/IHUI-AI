@@ -121,6 +121,14 @@ const persistedFallbackSchema = z.looseObject({
 // 每项一条字符串摘要;其余按 loose 透传。
 const persistedMemoryUpdatesSchema = z.array(z.string())
 
+// steerApplied(D33 剩余类,2026-09-24 立):中途引导注入记录,与 SSE steer(phase=injected)
+// 帧同一 drain 循环产出。text 由契约钉死(注入 messages 的原文),timestamp loose 透传。
+const persistedSteerAppliedSchema = z.array(
+  z.looseObject({
+    text: z.string(),
+  }),
+)
+
 // D33(2026-09-23 立):单条 metadata 序列化体积护栏。
 // 任一结构化值(JSON)超过 64KB 即降级为标注文本 { truncated: true, originalBytes },
 // 不丢字段(键保留)、不整条丢弃 —— 超大 citations/toolCalls/usageDetail 等仍能落库,
@@ -163,6 +171,8 @@ const callbackSchema = z.object({
   usageDetail: persistedUsageDetailSchema.optional(),
   fallback: persistedFallbackSchema.optional(),
   memoryUpdates: persistedMemoryUpdatesSchema.optional(),
+  // D33 剩余类(2026-09-24 立):中途引导注入记录通道(本轮无引导时不携带)
+  steerApplied: persistedSteerAppliedSchema.optional(),
   metadata: z
     .looseObject({
       conversationId: z.string().optional(),
@@ -205,10 +215,29 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
 
-      // 仅解构本函数实际消费的字段。parsed.data 上的 stub/toolCalls/terminalTasks/planSteps/
-      // citations/injections/compaction/retryNotice/usageDetail/fallback/memoryUpdates 仍由
-      // callbackSchema 逐字段校验(400 行为不变),但当前不随入队 payload 下发,故不再解构(TS6133)。
-      const { content, reasoning, model, provider, usage, metadata } = parsed.data
+      // 过程性元数据必须随入队 payload 下发:D24(toolCalls/terminalTasks)、2026-09-21
+      // (planSteps)、G-166(citations/injections/compaction/retryNotice)在 callbackSchema
+      // 逐字段校验(400 行为不变)之后,并入下方 metadata 构造点落库。
+      const {
+        content,
+        reasoning,
+        model,
+        provider,
+        usage,
+        stub,
+        toolCalls,
+        terminalTasks,
+        planSteps,
+        citations,
+        injections,
+        compaction,
+        retryNotice,
+        usageDetail,
+        fallback,
+        memoryUpdates,
+        steerApplied,
+        metadata,
+      } = parsed.data
       const conversationId = metadata?.conversationId
       const messageId = metadata?.messageId
       const userId = metadata?.userId
@@ -256,9 +285,6 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
               '[permission-stamp] 档位盖章失败(不影响消息落库)',
             )
           }
-          // G-165 盖章结果暂未并入入队 payload(接线属业务语义,不在本次类型修复范围),
-          // 保留 getPermission/permissionStamp 计算链路不变,仅 void 以满足 noUnusedLocals。
-          void permissionMeta
           await aiCallbackQueue.add('complete', {
             conversationId,
             userId,
@@ -278,7 +304,35 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
             // 空数组不写 key:与"无工具调用"语义区分,避免 metadata 冗余。
             // D33(2026-09-23 立):体积护栏 —— 入队前对 metadata 各值做 64KB 上限降级,
             // 超限项变 { truncated: true, originalBytes } 占位(键保留,不丢字段不整条丢)。
-            metadata: capMetadataObject(metadata),
+            // 构造形状即 D24/G-166 既定形态:标量(model/usage/stub)恒写,
+            // 结构化通道"无内容不写 key",空数组一律不写 —— worker 侧是浅合并
+            // ({ ...prevMeta, ...metadata }),不写 key 才不会把已落库字段抹掉。
+            metadata: capMetadataObject({
+              model,
+              usage,
+              stub,
+              ...(toolCalls && toolCalls.length > 0 ? { toolCalls } : {}),
+              ...(terminalTasks && terminalTasks.length > 0 ? { terminalTasks } : {}),
+              // planSteps(2026-09-21 立):空数组不写 key —— 与"本轮无计划"语义区分。
+              ...(planSteps && planSteps.length > 0 ? { planSteps } : {}),
+              // G-166:交代帧同规则 —— 空数组不写 key("本轮无引用/无注入")。
+              ...(citations && citations.length > 0 ? { citations } : {}),
+              ...(injections && injections.length > 0 ? { injections } : {}),
+              ...(compaction ? { compaction } : {}),
+              ...(retryNotice ? { retryNotice } : {}),
+              // D33(2026-09-23 立):usageDetail / fallback / memoryUpdates 接线 ——
+              // llm.py 发送端与 web 读回端(readUsageDetailFromMetadata 等)均已存在,
+              // 此前仅校验不落库导致三通道断链(2026-09-24 实测修复)。空值不写 key。
+              ...(usageDetail ? { usageDetail } : {}),
+              ...(fallback ? { fallback } : {}),
+              ...(memoryUpdates && memoryUpdates.length > 0 ? { memoryUpdates } : {}),
+              // D33 剩余类(2026-09-24 立):中途引导注入记录(空数组不写 key)
+              ...(steerApplied && steerApplied.length > 0 ? { steerApplied } : {}),
+              // G-165:权限档同理"无记录即不写 key",前端据此区分"未盖章"与"default 档"。
+              // 消费方 apps/web/src/hooks/use-chat/history-message.ts 读 meta.permissionMode
+              // 渲染档位徽章 —— 章不入 payload 则该链路恒空(G-165 名存实亡)。
+              ...permissionMeta,
+            }),
           })
           return reply.status(202).send(success({ accepted: true, queued: true }))
         }
