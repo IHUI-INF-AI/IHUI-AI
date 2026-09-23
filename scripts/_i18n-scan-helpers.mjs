@@ -296,6 +296,14 @@ export function scanCode(files) {
     // 其他正则(I18N_T_RE / PROP_KEY_RE / USE_T_RE / JSX_PROP_NS_RE / UNION_TYPE_NS_RE / DYNAMIC_T_RE)
     // 仍按行匹配,保留行号信息用于 dynamicHits 报告。
     const codeOnly = stripComments(content)
+    // 2026-09-23 声明式命名空间登记:键池自己声明的 `X_I18N_NAMESPACE = 'ns'` 常量即"命名空间持有者"证据。
+    // 成因:`packages/shared/src/chat/waiting-pool.ts:326` 声明 `WAITING_I18N_NAMESPACE = 'waiting'`,
+    // :328-335 用 `${NS}.${quadrant}.${phase}.${index}` 运行时拼出全池 76 键,静态正则一条都看不见 ⇒
+    // 四端各报 76 枚假死键(rn / cli / extension / taro,三票独立取证同一根因)。
+    // 只扩 usedNamespaces、不改正则、不动端 scanTargets ⇒ 不引入假阴,也不把别端专属键倒灌成本端存活。
+    for (const dm of codeOnly.matchAll(/\b([A-Z][A-Z0-9_]*I18N_NAMESPACE)\s*=\s*['"]([a-zA-Z][a-zA-Z0-9_]*)['"]/g)) {
+      usedNamespaces.add(dm[2])
+    }
     const lines = content.split('\n')
     let m
     STATIC_T_RE.lastIndex = 0
