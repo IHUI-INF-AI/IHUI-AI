@@ -6,6 +6,7 @@ import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, TextInput, FlatList, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { SearchScreenItem, SearchScreenProps } from '../../types'
+import { rnRadius } from '@ihui/design-tokens'
 
 /** 搜索共享屏 — props 注入式跨端组件 */
 export type { SearchScreenItem, SearchScreenProps }
@@ -105,7 +106,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       paddingHorizontal: 12,
       paddingVertical: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       fontSize: 16,
@@ -115,7 +116,7 @@ function createStyles(tk: AppThemeTokens) {
     searchBtn: {
       paddingHorizontal: 14,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     searchText: { color: tk.surface.light, fontSize: 16 },
@@ -125,7 +126,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: 12 },
     card: {
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
@@ -136,7 +137,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.success.light,
       paddingHorizontal: 6,
       paddingVertical: 2,
-      borderRadius: 4,
+      borderRadius: rnRadius.sm,
     },
     cardTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
     cardSummary: { marginTop: 8, fontSize: 14, color: tk.text.medium },

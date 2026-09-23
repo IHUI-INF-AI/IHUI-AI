@@ -25,6 +25,7 @@ import './index.css'
 import SearchBar from '@/components/SearchBar'
 import { aizhsUrl } from '@/constants/icon-urls'
 import ThemeRoot from '@/components/ThemeRoot'
+import CategoryBar from '@/components/CategoryBar'
 
 type Tab = 'latest' | 'hot' | 'following'
 
@@ -723,30 +724,17 @@ export default function ShareIndexPage() {
           onMenuClick={handleMenuClick}
         />
 
-        {/* Tabs(对标原 TitleSwitch) */}
-        <View className="share-tabs">
-          <View
-            className={`share-tab${activeTab === 'latest' ? ' active' : ''}`}
-            onClick={() => switchTab('latest')}
-            hoverClass="opacity-60"
-          >
-            <Text>{tt('share.index.tabLatest', '最新')}</Text>
-          </View>
-          <View
-            className={`share-tab${activeTab === 'hot' ? ' active' : ''}`}
-            onClick={() => switchTab('hot')}
-            hoverClass="opacity-60"
-          >
-            <Text>{tt('share.index.tabHot', '热门')}</Text>
-          </View>
-          <View
-            className={`share-tab${activeTab === 'following' ? ' active' : ''}`}
-            onClick={() => switchTab('following')}
-            hoverClass="opacity-60"
-          >
-            <Text>{tt('share.index.tabFollowing', '关注')}</Text>
-          </View>
-        </View>
+        {/* Tabs:统一分类条(与 web / RN 同形同档) */}
+        <CategoryBar
+          className="share-tabs"
+          value={activeTab}
+          onChange={(id) => switchTab(id as Tab)}
+          items={[
+            { id: 'latest', label: tt('share.index.tabLatest', '最新') },
+            { id: 'hot', label: tt('share.index.tabHot', '热门') },
+            { id: 'following', label: tt('share.index.tabFollowing', '关注') },
+          ]}
+        />
 
         {/* 搜索栏(统一圆角输入井,共享 SearchBar) */}
         <SearchBar

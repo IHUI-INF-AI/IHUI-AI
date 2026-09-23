@@ -4,9 +4,18 @@
 
 'use client'
 
+import { useMemo } from 'react'
 import { useTranslations } from 'next-intl'
 import { LayoutGrid, Table } from 'lucide-react'
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
+import {
+  CategoryBar,
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+  type CategoryBarItem,
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { STATUS_TABS, TYPE_TABS, selectClass } from './helpers'
 
@@ -35,6 +44,10 @@ const STATUS_KEY: Record<'all' | 'pending' | 'paid' | 'cancelled' | 'refunded', 
 
 export function OrdersFilter({ status, setStatus, orderType, setOrderType, view, setView }: Props) {
   const t = useTranslations('orders')
+  const statusItems = useMemo<CategoryBarItem[]>(
+    () => STATUS_TABS.map((tab) => ({ id: tab.value, label: t(STATUS_KEY[tab.labelKey]!) })),
+    [t],
+  )
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Select value={orderType} onValueChange={setOrderType}>
@@ -49,22 +62,7 @@ export function OrdersFilter({ status, setStatus, orderType, setOrderType, view,
           ))}
         </SelectContent>
       </Select>
-      <div className="flex flex-nowrap items-center gap-1 rounded-lg border bg-muted/30 p-1">
-        {STATUS_TABS.map((tab) => (
-          <button
-            key={tab.value}
-            onClick={() => setStatus(tab.value)}
-            className={cn(
-              'shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-              status === tab.value
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {t(STATUS_KEY[tab.labelKey]!)}
-          </button>
-        ))}
-      </div>
+      <CategoryBar items={statusItems} value={status} onChange={setStatus} />
       <div className="ml-auto flex shrink-0 flex-nowrap items-center gap-1 rounded-lg border p-1">
         <button
           onClick={() => setView('table')}
