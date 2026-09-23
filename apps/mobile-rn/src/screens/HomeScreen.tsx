@@ -2086,7 +2086,7 @@ export function HomeScreen() {
 const shellStyles = {
   root: { flex: 1, backgroundColor: tokens.surface.bg } as const,
   scroll: { flex: 1 } as const,
-  scrollContent: { paddingBottom: rpx(32) } as const,
+  scrollContent: { paddingBottom: rpx(120) } as const,
   // 轮播(对齐 Uniapp custom-carousel-wrapper:margin 18rpx 0 0 0 ≈ marginTop: rpx(18) + 圆角 30rpx≈15)
   carouselWrap: {
     marginTop: rpx(18),
