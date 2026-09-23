@@ -165,7 +165,7 @@ console.log(report.insights)
 ### 技术栈
 
 - **前端**:Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
-- **后端**:Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18 + Redis 7
+- **后端**:Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16 + Redis 7
 - **AI 服务**:FastAPI + LangGraph + LiteLLM + MCP
 - **桌面应用**:Tauri 2(财务工作台)
 - **小程序**:Taro 4(微信 / 支付宝,移动审批)
