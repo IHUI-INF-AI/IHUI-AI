@@ -24,6 +24,7 @@ import { fetchApi } from '@/lib/api'
 
 import { McpResultPreview } from './mcp-result-preview'
 import { type McpToolParameter, McpToolParameterForm } from './mcp-tool-parameter-form'
+import { McpViewFailure } from './mcp-view-failure'
 
 export interface McpPromptArgument {
   name: string
@@ -198,9 +199,18 @@ export function McpPromptManager() {
                 </div>
               )}
               {execMutation.isError && (
-                <p className="text-xs text-destructive">
-                  {execMutation.error instanceof Error ? execMutation.error.message : t('error')}
-                </p>
+                // D92 残余位点:prompt 执行失败改走同一张 15 类分类表面板
+                // (此前只把 error.message 塞进一行红字,分类与恢复动作全缺)。
+                // 恢复动作 = 用同一份入参重新发起执行。
+                <McpViewFailure
+                  error={execMutation.error}
+                  context={executePrompt.name}
+                  reloading={execMutation.isPending}
+                  onReload={() => {
+                    const input = execMutation.variables
+                    if (input) execMutation.mutate(input)
+                  }}
+                />
               )}
             </div>
           )}
