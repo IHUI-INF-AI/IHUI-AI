@@ -5,24 +5,77 @@
 'use client'
 
 import * as React from 'react'
-import { Check, X, Loader2, AlertCircle, FileText, MessageSquarePlus } from 'lucide-react'
+import {
+  Check,
+  X,
+  Loader2,
+  AlertCircle,
+  FileText,
+  MessageSquarePlus,
+  Eye,
+  EyeOff,
+  Copy,
+} from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { useChatStore } from '@/stores/chat'
+import { useClipboard } from '@/hooks/use-clipboard'
+import { useToast } from '@/hooks/use-toast'
 import { buildPartialContent, computeHunkDiff, type DiffRow as HunkDiffRow } from '@/lib/hunk-diff'
-import {
-  createStagedSet,
-  stageHunk,
-  stageHunks,
-  unstageAll,
-  unstageHunk,
-} from '@/lib/diff-staging'
+import { createStagedSet, stageHunk, stageHunks, unstageAll, unstageHunk } from '@/lib/diff-staging'
 import { DiffCommentPanel } from './diff-comment-panel'
 import { HunkHeader, HunkToolbar } from './diff-hunk-controls'
+import { buildFilePatch, buildGitApplyCommand } from './diff-hunk-controls'
 import type { InlineDiffInfo } from './types'
 import type { DiffApplyStatus } from '@/stores/chat'
+
+// ============================================================================
+// D98①:单卡已审阅态(组件 localStorage 持久化,键含内容 hash —— 同一文件的
+// 不同次改动各记各的,不串态;不碰 stores/chat.ts 的 state shape,见交付报告)。
+// ============================================================================
+
+/** 单卡审阅态存储键(按文件一路;hash 防同文件多版本串态) */
+export function inlineDiffReviewKey(filePath: string): string {
+  return `ide:reviewedInlineDiff:${filePath}`
+}
+
+/** 内容 hash(djb2,仅做版本区分,不做安全用途) */
+export function hashDiffContent(s: string): string {
+  let h = 5381
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0
+  return (h >>> 0).toString(36)
+}
+
+interface InlineViewedRecord {
+  hash: string
+  viewed: boolean
+}
+
+/** 读单卡审阅态(hash 对不上视为新改动,返回 false) */
+export function loadInlineViewed(filePath: string, contentHash: string): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    const raw = window.localStorage.getItem(inlineDiffReviewKey(filePath))
+    if (!raw) return false
+    const rec = JSON.parse(raw) as InlineViewedRecord
+    return rec.hash === contentHash && rec.viewed === true
+  } catch {
+    return false
+  }
+}
+
+/** 写单卡审阅态(配额满/禁用静默忽略) */
+export function persistInlineViewed(filePath: string, contentHash: string, viewed: boolean): void {
+  if (typeof window === 'undefined') return
+  try {
+    const rec: InlineViewedRecord = { hash: contentHash, viewed }
+    window.localStorage.setItem(inlineDiffReviewKey(filePath), JSON.stringify(rec))
+  } catch {
+    /* localStorage 配额满或禁用时静默忽略 */
+  }
+}
 
 /**
  * Inline Diff 卡片:edit_file/write_file 工具调用专用渲染。
@@ -85,6 +138,10 @@ export function InlineDiffCard({
   onApplyPartial,
 }: InlineDiffCardProps) {
   const t = useTranslations('ai.pane')
+  // D98①⑤:审阅态 + 导出命令走 ide.diffReview(与 IDE 文件列表同一套键,同一中文)
+  const tIde = useTranslations('ide')
+  const clipboard = useClipboard()
+  const { success: toastSuccess, error: toastError } = useToast()
   // P3 #30 diff 评论:commentTarget=null 表示评论面板关闭;{} 为文件级;带 line 为行级。
   const [commentTarget, setCommentTarget] = React.useState<{
     line?: number
@@ -95,6 +152,41 @@ export function InlineDiffCard({
   // D88:已暂存(锁定进交付批次)的 hunk id 集合,与 rejectedHunks(accepted 维度)正交
   const [stagedHunks, setStagedHunks] = React.useState<ReadonlySet<number>>(() => createStagedSet())
   const [partialBusy, setPartialBusy] = React.useState(false)
+  // D98①:单卡已审阅态(hash 绑定内容版本,改动变化即回到未审)
+  const contentHash = React.useMemo(
+    () => hashDiffContent(`${diffInfo.old_content}\n${diffInfo.new_content}`),
+    [diffInfo.old_content, diffInfo.new_content],
+  )
+  const [reviewed, setReviewed] = React.useState<boolean>(() =>
+    loadInlineViewed(diffInfo.file_path, contentHash),
+  )
+  React.useEffect(() => {
+    setReviewed(loadInlineViewed(diffInfo.file_path, contentHash))
+  }, [diffInfo.file_path, contentHash])
+  const toggleReviewed = React.useCallback(() => {
+    setReviewed((prev) => {
+      const next = !prev
+      persistInlineViewed(diffInfo.file_path, contentHash, next)
+      return next
+    })
+  }, [diffInfo.file_path, contentHash])
+  // D98⑤:单文件迁移命令(内容相等即无 patch,按钮禁用)
+  const filePatch = React.useMemo(
+    () =>
+      buildFilePatch({
+        filename: diffInfo.file_path,
+        oldContent: diffInfo.old_content,
+        newContent: diffInfo.new_content,
+      }),
+    [diffInfo.file_path, diffInfo.old_content, diffInfo.new_content],
+  )
+  const handleCopyGitApply = React.useCallback(() => {
+    if (!filePatch) return
+    void clipboard.copy(buildGitApplyCommand(filePatch)).then((ok) => {
+      if (ok) toastSuccess(tIde('diffReview.copyGitApplyToast'))
+      else toastError(tIde('diffReview.copyGitApplyFailed'))
+    })
+  }, [filePatch, clipboard, toastSuccess, toastError, tIde])
   // 本文件已暂存的待发送意见数(订阅整体数组引用 + useMemo 过滤,避免 selector 返回新数组)
   const allComments = useChatStore((s) => s.pendingDiffComments)
   const fileCommentCount = React.useMemo(
@@ -148,7 +240,12 @@ export function InlineDiffCard({
   }, [])
   // 文件级:把本文件全部 hunk 一起暂存 / 清空暂存(即「全部」级,无跨文件容器时落在此处)
   const stageFileHunks = React.useCallback(() => {
-    setStagedHunks((prev) => stageHunks(prev, hunks.map((h) => h.id)))
+    setStagedHunks((prev) =>
+      stageHunks(
+        prev,
+        hunks.map((h) => h.id),
+      ),
+    )
   }, [hunks])
   const unstageFileHunks = React.useCallback(() => {
     setStagedHunks(unstageAll())
@@ -220,6 +317,28 @@ export function InlineDiffCard({
           <span className="shrink-0 rounded-sm bg-red-500/15 px-1.5 py-0.5 text-[10px] tabular-nums text-red-600">
             -{stats.removed}
           </span>
+          {/* D98①:单卡已审阅切换(Tooltip 给已审态文案,不占用行内空间) */}
+          <Tooltip
+            content={reviewed ? tIde('diffReview.markedAsViewed') : tIde('diffReview.markAsViewed')}
+          >
+            <button
+              type="button"
+              onClick={toggleReviewed}
+              aria-label={
+                reviewed ? tIde('diffReview.markAsUnviewed') : tIde('diffReview.markAsViewed')
+              }
+              aria-pressed={reviewed}
+              className={cn(
+                'shrink-0 rounded-sm p-1 transition-colors',
+                reviewed
+                  ? 'text-green-600 hover:bg-green-500/15'
+                  : 'text-muted-foreground hover:bg-accent/40 hover:text-foreground',
+              )}
+              data-testid="inline-diff-reviewed"
+            >
+              {reviewed ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+            </button>
+          </Tooltip>
           <span
             className={cn(
               'inline-flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] font-medium',
@@ -350,6 +469,19 @@ export function InlineDiffCard({
           >
             <MessageSquarePlus className="h-3.5 w-3.5" />
             <span>{t('diffComment.action')}</span>
+          </button>
+        )}
+        {/* D98⑤(G-135):单文件迁移命令导出(patch 为空即无改动,按钮禁用) */}
+        {!isApplying && (
+          <button
+            type="button"
+            onClick={handleCopyGitApply}
+            disabled={!filePatch}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+            data-testid="inline-diff-copy-apply"
+          >
+            <Copy className="h-3.5 w-3.5" />
+            <span>{tIde('diffReview.copyGitApply')}</span>
           </button>
         )}
         {applyStatus === 'error' && applyError && (
