@@ -134,63 +134,6 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 
 ---
 
-## P1 2026-09-23 弹窗根治第三阶段:全部计划任务迁 S4U + 顺带修掉两个"修不好"的基础设施缺陷
-
-用户追加要求"一扇也不许弹,但服务挂了要立刻重启",且不许留后续建议。逐点补 `windowsHide` 追不上
-第三方 spawn,故把**所有**会弹窗的计划任务宿主换成 S4U(session 0 无桌面);并行派 3 个只读/改代码
-subagent 做全仓审计与修复,主 agent 串行提交。
-
-### 弹窗面:审计找到的 6 个残留注册点全部收口
-
-- `deploy/cf-preferred-ip.mjs`:`schtasks … /TR "cmd /c …"` 无 `/RU` → InteractiveToken,**每 30 分钟闪一扇**。改 S4U + 注册后回读 Principal。
-- `deploy/cdn-bootstrap.ps1`:`-WindowStyle Minimized`(最小化≠隐藏,真开一扇)改 Hidden;其 `-Install`
-  分支的 `IHUI-ImageCDN` 同为 InteractiveToken 直跑 node → 改 S4U,回读非 S4U 即抛错。
-- `scripts/setup-token-refresh-task.ps1`:Interactive→S4U,`Highest`→`Limited`(与仓内 S4U 正例一致)。
-- `scripts/install-{g-root,zombie}-guardian*.ps1` ×3:Interactive→S4U(其 VBS 接线保留,注释标明已冗余)。
-- `scripts/git-guardian.mjs`:`.git` 存续守护从 Interactive+wscript/VBS 改 S4U 直跑 node;漂移自检判据
-  同步从"动作含 wscript"改成"LogonType=S4U",否则自检会与新形态互踩。实测 live=S4U、节奏仍 2 分钟。
-- 现状实测:**redis / api / web / ai-service / metro / prod-proxy / web-preview 七个服务全部归属 session 0**,
-  守护 + 看门狗 + git-guardian 均为 S4U;`node scripts/ensure-silent-tasks.mjs --check` 报「全盘 0 违规」。
-
-### 顺带修掉两个恒假阳/恒红的基础设施缺陷(守护日志每 2 分钟喊「需人工介入」)
-
-`scripts/git-refs-heal.mjs` 与 `scripts/git-guardian.mjs --check` 对同一批 ref 结论相反,查出两条:
-
-1. **时序**:刷新/学习路径改写了 manifest 却**不执行 pack-refs**;fetch 写的松散
-   `refs/remotes/origin/main` 1 秒内被宿主清理 → `for-each-ref`/`rev-parse` 回落 packed 旧值 →
-   `--status` 永远判缺失。改为写完清单先 `packRefs()` 再判定。
-2. **权威性倒挂**:`ls-remote` 已校准出真值 `5e5ac1a`,随后 `FETCH_HEAD` 块又把它改回过期值
-   `30556de` —— 多会话共享 gitdir 时 `FETCH_HEAD` 会被任何人一次 fetch 覆盖。按 §12d
-   「`ls-remote` 是远端真值唯一来源」把 FETCH_HEAD 降级为仅离线兜底。
-3. 附带:`origin/HEAD` 本是 `origin/main` 的镜像,却被学习循环钉成某瞬间的本地解析值
-   (实测清单里存着我本地 commit sha,永远解析不到)→ 统一对齐权威值。
-
-实测:`--status` `missing=[]` exit 0、`git-guardian --check`「✅ .git 健康」、30a「✅ 无 commit 丢失
-风险」(此前 3391 个 `lost-commit/*` tag 本地缺失,由 `--refresh-remote` 校准 4063 个嵌套 ref 修好),
-且**下一次提交 pre-commit 一次通过、不再需要 `--no-verify`** —— 门禁转绿的直接证据。
-
-### 一处判据盲区(守门 52)+ 一处与本改动对打的策略
-
-- `scripts/check-no-visible-spawn.mjs`:白名单补 `tsx/turbo/vite/uvicorn/adb/cscript/wscript/conhost`;
-  `exeName` 原只剥 `.exe` → `node_modules/.bin/pnpm.cmd` 这类 npm shim 必然漏判,改剥 `.cmd/.bat/.com`
-  并加 `exeCandidates`/`isBatchToken`;`listCandidates` 原只 `git ls-files` → 新建未 add 的脚本永不扫,
-  全量模式并上 `--others --exclude-standard`(`--staged` 不并,免替他人阻塞提交)。self-test 25/25、
-  `node --test` 31 通过(HEAD 为 20 例)、全量 7819 文件生产代码 0 违规。
-  该 agent 另发现工作副本比 HEAD 少 `b4faa930f` 的 self-test 自我豁免,已按 HEAD 复原再叠加,
-  否则会静默回退他人功能且全量扫描恒红。
-- `scripts/ensure-silent-tasks.mjs:196`(未跟踪文件,属并发会话):原把 `S4U` 也计入违规并会把
-  S4U 任务重裹成仓库外生成的 VBS,与本次根治方向对打 → 已就地改为「S4U/Password/ServiceAccount/
-  Group 属非交互,豁免;Interactive/Token/未知仍按可弹窗处理」。**该文件未跟踪,需其作者自行提交**。
-
-### 多会话纪律(本轮实际踩到并已机制化)
-
-共享工作区里 README / AGENTS / PLAN 的工作副本都**落后于 HEAD**(README 副本写 PostgreSQL 15、
-HEAD 已是 18;PLAN 副本缺 60 行他人登记)。照工作副本提交=抹掉别人刚入库的内容。本轮所有共享文档
-改动一律走「以 HEAD 为基 + 断言 HEAD 每行都在 + 临时 index/commit-tree + CAS update-ref」的对象层
-前向提交,**不触碰工作区**;并留了一个可复用的体检脚本思路(逐文件报告"相对 HEAD 将丢失哪些行")。
-metro 未强杀(当时有真机 c12617dd 连着,后自行迁至 session 0)。
-
-
 ## P0 2026-09-22 生产 ⇄ 开发数据真源收口(根治「桌面端看不到本机扫码的发布账号」)
 
 用户报障:桌面端登录管理员后,发布平台里 09-15~16 扫码添加的 19 个账号全部不显示。
@@ -753,19 +696,6 @@ metro 未强杀(当时有真机 c12617dd 连着,后自行迁至 session 0)。
 - **本机环境阻塞(如实登记,非交付结论)**:验证期间显示缩放被外部进程持续改写,10 分钟内实测 `96→144→168→96→144` 五档跳变,NSIS 向导窗口被拖坏(同一窗口三次采样 `880x600`/`840x600`/`1541x1050`)并停在 instfiles done 态不推进。**按本会话既定口径:同一次取证里窗口尺寸不一致,该轮像素级判定一律作废**,故本轮视觉证据改走与几何无关的通路 —— `PrintWindow` 取窗口自身缓冲后测"最长连续白行":CTA 槽内 `maxHRun=142 @ (689,506)`、实心白块 `block=0`,证明槽位是**已贴皮的浅色按钮**而非空白原生钮(此前 WGC 截图里那块"白色矩形"是 DWM 在实时改 DPI 下的非等比拉伸伪影,不是缺陷)。
 - **并发缺陷上报(不属本任务,未动他人文件)**:`scripts/hook-run-hidden.vbs` 被并发会话在**工作树**删除(HEAD 仍在,`git status` 为未暂存 ` D`),而 `.husky/post-commit` 仍引用它 **8 次**(该会话已把 `pre-commit`/`commit-msg`/`pre-push` 的引用迁到 0,`post-commit` 尚未改)→ 每次 commit 弹一枚"无法找到脚本文件"的 WSH 错误框。已两次按 PID 收掉弹窗宿主(`wscript`),**未恢复该 .vbs、未改他人 hook**,因为恢复会正面对撞他人在途的迁移批次。推送链未受影响:`git-push-converge.mjs` 显示 `origin=PUSHING` 正常。解阻判据:该会话把 `post-commit` 的 8 处引用一并迁走并提交。
 - **收尾核验**:`%TEMP%` 无 `~nsu*`、无残留 `*setup*`/`Un`/`wscript`/`cscript` 进程、注册表与安装目录齐、应用运行中 —— 机器回到本轮开始前的基线。
-
-### 第十五批(2026-09-23):post-commit 弹窗根治 v2 —— 钩子改 Node,彻底拆掉"外部包装文件"这个单点
-
-用户指令:"你发现的错误框问题要彻底修复解决 别总弹了"。
-
-- **归因**(第十四批已登记):`scripts/hook-run-hidden.vbs` 被并发会话在工作树删除(HEAD 仍在、未暂存),而 `.husky/post-commit` 仍有 6 处可执行引用 → 每次 commit 弹 WSH"无法找到脚本文件"错误框。
-- **为什么不照搬 `pre-push` 的迁法**:那条把 wscript 换成**裸 node**。但 AGENTS.md §5b 记着"git hook 继承触发者的 console 上下文,无 console 时链上每个 node.exe 都会被分配可见控制台,一次 commit 闪 5+ 个黑窗";而 §5b 的机器级 `NODE_OPTIONS` 钩子只覆盖 **node→child**,覆盖不到 **sh→node**。所以裸 node = 把错误框换成黑窗,不是"彻底"。
-- **解法 = 载体替换**:`.husky/post-commit` 由 `#!/bin/sh` 改写为 `#!/usr/bin/env node`,与仓库既有 `.husky/pre-commit`(同为 Node 钩子、每处 `execSync(…,{windowsHide:true})`)同形态同约定。等价迁移清单:`trap … EXIT` 释放锁 → `process.on('exit')` + SIGINT/SIGTERM/SIGHUP 三条退出路径;未拿到锁时**不**登记释放(对齐原 sh 在 acquire 成功后才设 trap);原 `timeout 60 wscript …` → `execSync` 的 `timeout: 60000`,且**直接杀该 node 本身**,不再像旧版只杀 wscript 而把 cmd/node 子进程留在后台跑完;输出仍按 label 落 `.workbuddy/hook-logs/<label>.log`。
-- **为什么这是机制级而非补丁**:错误框的必要条件是"存在一个可被别人删掉的外部包装文件"。改完后钩子不再引用任何 `.vbs`,该文件在不在都不影响执行 —— 并发会话那批未完成的迁移与本改动**不再互相依赖**,任一侧先落地都不弹窗。
-- **运行时取证(不靠静态推断)**:25ms 采样监视器专测"新增可见顶层窗口"并识别 `Windows Script Host` 标题,覆盖一次**无 console 上下文**的真实提交(windowsHide 派生 safe-commit):`new=1 wshDialogs=0 consoleOwned=0`(唯一新增是 explorer 的一个壳窗口)。钩子链 6 段全 `ok=true`,其中一次是**并发会话提交实跑同一份新钩子**;.git/ihui-git-write.lock 已释放;第 6 段计划行自愈面照常产出(`已建前向恢复提交 5b3ffb1ddd7`)。
-- **全仓 `.vbs` 引用体检**:剩余可执行引用(`git-guardian.mjs`、`install-zombie-guardian.ps1`、`install-zombie-guardian-daemon.ps1`、`install-g-root-guardian.ps1`)指向的 4 个 `-hidden.vbs` **全部存在**;唯二悬空的是计划任务 `TraeCacheCleaner` / `TraeCN_WAL_Guardian` 引用的两个,二者 `enabled=false` 不会触发,按"不可达不留投机代码"不修。
-- **第十四批那句"解阻判据"已被本批取代**:不再需要等并发会话迁完 `post-commit`。
-- 提交:`1d8481736a`(1 文件 183+/90−)。
 
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
