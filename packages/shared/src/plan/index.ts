@@ -93,34 +93,24 @@ export interface PlanProgressStats {
   completionPercent: number
 }
 
-/**
- * 计划步骤状态/优先级下拉表(2026-09-22:label 改存 **i18n 键名**)
- *
- * 本包不能引 next-intl(被 web/RN/Taro 共用),所以只出键名,由消费方在组件内
- * `useTranslations('plan')(opt.labelKey)` 取词。曾经这里是中文常量 + 消费方直渲染,
- * 结果非中文界面下拉框全是中文,且扫描器按行计数无法下降。
- */
+/** 步骤状态元数据(供 UI 选择器使用) */
 export const PLAN_STEP_STATUS_OPTIONS: Array<{
   value: PlanStepStatus
-  labelKey: string
+  label: string
   color: string
 }> = [
-  { value: 'pending', labelKey: 'statusPending', color: 'bg-slate-100 text-slate-700' },
-  { value: 'in_progress', labelKey: 'statusInProgress', color: 'bg-blue-100 text-blue-700' },
-  { value: 'completed', labelKey: 'statusCompleted', color: 'bg-emerald-100 text-emerald-700' },
-  { value: 'blocked', labelKey: 'statusBlocked', color: 'bg-rose-100 text-rose-700' },
-  { value: 'skipped', labelKey: 'statusSkipped', color: 'bg-amber-100 text-amber-700' },
+  { value: 'pending', label: '待处理', color: 'bg-slate-100 text-slate-700' },
+  { value: 'in_progress', label: '进行中', color: 'bg-blue-100 text-blue-700' },
+  { value: 'completed', label: '已完成', color: 'bg-emerald-100 text-emerald-700' },
+  { value: 'blocked', label: '阻塞', color: 'bg-rose-100 text-rose-700' },
+  { value: 'skipped', label: '跳过', color: 'bg-amber-100 text-amber-700' },
 ]
 
-/** 优先级元数据(labelKey 同上,由消费方取词) */
-export const PLAN_PRIORITY_OPTIONS: Array<{
-  value: PlanPriority
-  labelKey: string
-  color: string
-}> = [
-  { value: 'low', labelKey: 'priorityLow', color: 'bg-slate-100 text-slate-700' },
-  { value: 'medium', labelKey: 'priorityMedium', color: 'bg-blue-100 text-blue-700' },
-  { value: 'high', labelKey: 'priorityHigh', color: 'bg-amber-100 text-amber-700' },
-  { value: 'critical', labelKey: 'priorityCritical', color: 'bg-rose-100 text-rose-700' },
+/** 优先级元数据 */
+export const PLAN_PRIORITY_OPTIONS: Array<{ value: PlanPriority; label: string; color: string }> = [
+  { value: 'low', label: '低', color: 'bg-slate-100 text-slate-700' },
+  { value: 'medium', label: '中', color: 'bg-blue-100 text-blue-700' },
+  { value: 'high', label: '高', color: 'bg-amber-100 text-amber-700' },
+  { value: 'critical', label: '紧急', color: 'bg-rose-100 text-rose-700' },
 ]
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
