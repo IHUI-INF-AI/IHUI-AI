@@ -5389,6 +5389,17 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - 验证:`pnpm --filter @ihui/mobile-rn typecheck` 源码 0 错(整包仅剩 packages/app ArticleListScreen 他人 WIP 报错,§12 不代修);改动文件 eslint 全绿;真机深色 4 屏截图复核(主页/抽屉/Profile/输入区)。浅色态:StudyBar 激活 tab 由「白上白」变黑底白字、IntroducePopup 主按钮同语言,与发送按钮主 CTA 一致,属有意统一。
 - **平台独占豁免依据(§9)**:全部改动在 apps/mobile-rn 取色层与守门脚本,不触他端契约;守门脚本为本票配套工程约束。
 
+## P0 共享工作区幻影滞后根治:137 个被删跟踪文件恢复 + 503 文件对齐 HEAD + gitdir 备份重建 + 守门 76(2026-09-23 立并完成 ✅,单端工程治理:scripts + 文档)
+
+> 承接上节守门 75。收尾核验时发现问题不在代码而在**工作区本身**,四项全部闭环。
+
+- [x] ✅(2026-09-23) **137 个已跟踪文件在工作区缺失**(`tests/`、`__tests__/` 整目录、`apps/desktop/src-tauri/windows/installer-assets/assets-*/unfinish.bmp`、4 个在役守门脚本 check-credential-leak-in-message / check-declared-shortcuts / check-direct-backend-calls / check-dockerfile-copy-paths 等):逐个 `git cat-file -e HEAD:<path>` 验明 **137/137 均在 HEAD** ⇒ 属"内容已不在"而非他人未提交改动,按 HEAD 全量恢复;恢复后每 10s 一次共 12 次采样 missingTracked 恒 0,无持续删除。
+- [x] ✅(2026-09-23) **工作区整体落后 HEAD 486 个提交**(§12d converge 用 merge-tree/commit-tree 只推进 HEAD+index、**不 checkout**):逐文件比对工作区 blob 与基线提交 blob,**503 个文件字节级等于某个历史提交版本 = 零独有内容**,一律按 HEAD 对齐;42 个真未提交文件(AgentRuntimePanel / Carousel / ModelConfigDialog / NotificationPanel / AiAssistantN8nScreen / HomeScreen / KnowledgeRagScreen / README.md 等)一律不碰,对齐前后逐文件哈希自证未变。脏项 546 → 42,守门 76 全量复扫判绿。
+- [x] ✅(2026-09-23) **gitdir 备份 `D:/IHUI-AI.git-backup-20260912` 消失**(§5b 明禁删除项,也是 `git-guardian --status` 连报 `❌ 自愈失败,需人工介入` 的成因):以 `git clone --mirror D:/IHUI-AI-git-repo` 重建(1.2G;用 mirror 而非目录拷贝,一致性由 git 保证且不与并发写竞态),守护复检 `pointerOk / gitdirOk / backupOk / refsOk` 全 true。§15b 已把该目录列为禁删显式例外。
+- [x] ✅(2026-09-23) **新增守门 76 `check-stale-revert.mjs`**(注册 guardian-runner blocking):第二类故障此前**无任何提交前闸**(71 只护 PLAN 登记行,README/AGENTS 无人守)。判据、三条豁免护栏与取证见 AGENTS.md 守门速查 76 条 + README「第 75 / 76 项」小节。
+- **遗留(非本票引入,按 §12 不代修,已上报待裁)**:HEAD 上两处类型错 —— ① `packages/shared/src/chat/index.ts:21` `export * from './prompt-history'` 指向**任何提交都不存在**的模块(由 `23613a68c` 引入,全仓零消费者,单行悬空 export 即打红 mobile-rn typecheck);② `apps/mobile-rn/tests/agent-runtime-permission-decision.test.tsx:24` `PermissionEvent` 声明未用(TS6196)。二者在本票对齐工作区**之前**就存在于 HEAD,只是此前相关测试文件处于缺失状态、把报错遮住了。
+- 验证:`node scripts/check-stale-revert.mjs --self-test`(8 例全绿)+ 临时 index 端到端演练 3/3 + `git status --porcelain | grep '^ D'` 为空 + `node scripts/git-guardian.mjs --status` 全 true + `node scripts/git-push-converge.mjs` 收敛。
+
 ## P0 G-168 桌面端正常使用被封 IP —— 反自动化封禁面五点收口(2026-09-23 立并完成 ✅,跨端:apps/api + apps/ai-service + apps/web + packages/api-client + docs;desktop=Tauri 薄壳自动跟随,miniapp-taro/mobile-rn/extension/cli 实测零命中该页面)
 
 - **起因**:用户反馈"我就操作一会桌面端程序怎么就给我 IP 封禁了",截图为「平台账号管理」页 toast「IP 已被临时封禁」。
