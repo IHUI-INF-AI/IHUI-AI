@@ -22,11 +22,10 @@ import {
 } from 'lucide-react'
 import type { ScopeOption, TabMode } from './types'
 
-// label 存 specPanel 命名空间 i18n 键名(渲染处 t(key),见 components.tsx / 各 Tab)
 export const SCOPE_OPTIONS: readonly ScopeOption[] = [
-  { type: 'workspace', label: 'scopeWorkspace', icon: Box },
-  { type: 'dir', label: 'scopeDir', icon: FolderTree },
-  { type: 'file', label: 'scopeFile', icon: FileText },
+  { type: 'workspace', label: '工作区', icon: Box },
+  { type: 'dir', label: '目录', icon: FolderTree },
+  { type: 'file', label: '文件', icon: FileText },
 ]
 
 export const TAB_OPTIONS: ReadonlyArray<{
@@ -34,16 +33,16 @@ export const TAB_OPTIONS: ReadonlyArray<{
   label: string
   icon: ComponentType<{ className?: string }>
 }> = [
-  { mode: 'spec', label: 'tabSpec', icon: FileText },
-  { mode: 'diff', label: 'tabDiff', icon: GitCompare },
-  { mode: 'codegen', label: 'tabCodegen', icon: Code2 },
-  { mode: 'review', label: 'tabReview', icon: CheckCircle },
-  { mode: 'tasks', label: 'tabTasks', icon: ListTree },
-  { mode: 'enhance', label: 'tabEnhance', icon: Brain },
-  { mode: 'pipeline', label: 'tabPipeline', icon: Workflow },
-  { mode: 'impact', label: 'tabImpact', icon: AlertTriangle },
-  { mode: 'branches', label: 'tabBranches', icon: GitBranch },
-  { mode: 'generate', label: 'tabGenerate', icon: Wand2 },
+  { mode: 'spec', label: 'spec', icon: FileText },
+  { mode: 'diff', label: 'diff', icon: GitCompare },
+  { mode: 'codegen', label: '代码生成', icon: Code2 },
+  { mode: 'review', label: '评审', icon: CheckCircle },
+  { mode: 'tasks', label: '任务拆分', icon: ListTree },
+  { mode: 'enhance', label: '智能分析', icon: Brain },
+  { mode: 'pipeline', label: '全流程', icon: Workflow },
+  { mode: 'impact', label: '影响分析', icon: AlertTriangle },
+  { mode: 'branches', label: '版本树', icon: GitBranch },
+  { mode: 'generate', label: '智能生成', icon: Wand2 },
 ]
 
 // ---------------------------------------------------------------------------
@@ -69,10 +68,10 @@ export const STATUS_BADGE: Record<string, string> = {
 }
 
 export const STATUS_LABEL: Record<string, string> = {
-  draft: 'statusDraft',
-  pending_review: 'statusPendingReview',
-  approved: 'statusApproved',
-  rejected: 'statusRejected',
+  draft: '草稿',
+  pending_review: '待评审',
+  approved: '已通过',
+  rejected: '已拒绝',
 }
 
 export const PRIORITY_BADGE: Record<string, string> = {
@@ -90,9 +89,9 @@ export const RISK_BADGE: Record<string, string> = {
 }
 
 export const RISK_LABEL: Record<string, string> = {
-  low: 'riskLow',
-  medium: 'riskMedium',
-  high: 'riskHigh',
+  low: '低风险',
+  medium: '中风险',
+  high: '高风险',
 }
 
 export const STAGE_STATUS_BADGE: Record<string, string> = {
@@ -112,8 +111,8 @@ export const BRANCH_STATUS_BADGE: Record<string, string> = {
 }
 
 export const BRANCH_STATUS_LABEL: Record<string, string> = {
-  active: 'branchStatusActive',
-  merged: 'branchStatusMerged',
-  abandoned: 'branchStatusAbandoned',
+  active: '活跃',
+  merged: '已合并',
+  abandoned: '已废弃',
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
