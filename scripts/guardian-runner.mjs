@@ -1940,7 +1940,7 @@ const checks = [
     ].join('\n'),
   },
 
-  // 热路径 git 只读调用超时封顶(2026-09-23 立,守门 79)。成因实测:check-port-registry 里
+  // 热路径 git 只读调用超时封顶(2026-09-23 立,守门 80)。成因实测:check-port-registry 里
   // 一处 execSync('git ls-files') 没有 timeout,在共享工作区挂住 80 分钟而 CPU 只用了 2.84s
   // —— 等锁/等 IO 型挂起,表现是"提交像死掉了",而 git status 与 typecheck 全看不出异常。
   // 全仓首参锚定实测 159 处 git 派生调用无一带 timeout,即"没有约束"而非"个别疏忽"。
@@ -1951,7 +1951,7 @@ const checks = [
   // (自检抓到过判据把测试夹具源码字符串当真调用误红,已按 markHidden 修掉)。
   // 存量已随本门一并清零(runner 3 处 + converge 4 处 + commit-loss-guard 默认值),不留基线债。
   {
-    id: '79',
+    id: '80',
     label: '⏱  热路径 git 只读调用必须带 timeout(blocking,拦无界挂起拖死守门链)',
     script: 'check-git-read-timeout.mjs',
     args: [],
