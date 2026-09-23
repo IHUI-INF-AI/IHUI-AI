@@ -76,7 +76,7 @@ function git(args, { allowFail = false } = {}) {
 /** a 是否为 b 的祖先(merge-base --is-ancestor 靠 exit code 判定) */
 function isAncestor(a, b) {
   try {
-    execFileSync('git', ['merge-base', '--is-ancestor', a, b], { stdio: 'ignore', windowsHide: true })
+    execFileSync('git', ['merge-base', '--is-ancestor', a, b], { stdio: 'ignore', windowsHide: true, timeout: 60_000 })
     return true
   } catch {
     return false
@@ -104,6 +104,9 @@ function collectTreeEntries(treeish, cwd) {
     encoding: 'buffer',
     cwd,
     windowsHide: true,
+    // 只读枚举,可封顶(真仓整树 ls-tree 正常在秒级;无 timeout 时一旦撞上
+    // 病态挂起就是把整条收敛/守门链拖死)
+    timeout: 300_000,
     maxBuffer: 64 * 1024 * 1024,
   })
   return parseLsTreeZ(out.toString('utf8'))
@@ -159,7 +162,7 @@ function tgit(cwd, args, opts = {}) {
 
 /** 文本式 ls-tree 行(供 mktree 拼篡改树) */
 function lsTreeLines(treeish, cwd) {
-  return execFileSync('git', ['ls-tree', treeish], { encoding: 'utf8', cwd, windowsHide: true })
+  return execFileSync('git', ['ls-tree', treeish], { encoding: 'utf8', cwd, windowsHide: true, timeout: 300_000 })
     .trim()
     .split('\n')
 }
@@ -190,6 +193,7 @@ function selfTest() {
     const root = execFileSync('git', ['rev-parse', '--show-toplevel'], {
       encoding: 'utf8',
       windowsHide: true,
+      timeout: 60_000,
     }).trim()
     tmp = resolve(root, '.ihui-agent/tmp/converge-selftest')
     rmSync(tmp, { recursive: true, force: true })
