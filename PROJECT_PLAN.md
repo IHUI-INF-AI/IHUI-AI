@@ -418,6 +418,18 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - **多端与文档**:改动面仅 `apps/web` + `packages/i18n/messages/web` + `scripts/hardcoded-zh-baseline.json`,无跨端契约变化(其余端各自词包未动),§21 README 豁免(不增删对外能力清单)。AGENTS.md §9 多端同步:本票属 web 端取词接线,`miniapp-taro`/`mobile-rn`/`cli`/`extension`/`desktop` 无同名片段 ⇒ 标注**平台独占(单端 i18n + 守门簿记)**。
 
 
+### 第七批:main 上属于本路的守门 70 越线清零(2026-09-23,commit `18598f4ac2`)
+
+第六轮收口后,守门 70 全量模式在 main 上仍红 7 个文件。逐个归属后,其中 **3 个是"已入库且无他人持有"的干净文件**,可以直接清;另 4 个属他人,一律不动。
+
+- [x] ✅(2026-09-23) **`form/AttachmentsUpload.tsx` 4 → 0**:四条 `new Error(拼中文)` 改走 `useTranslations('upload')`。该文件本就 `import { useTranslations }` 且 `t` 绑 `attachments`,故另起 `tu` 并把 `tu` 补进两个 `useCallback` 依赖数组(漏依赖 ⇒ 闭包读旧值)。新增 5 枚专键,**刻意不复用** park 里的 `oversizeFiles`/`maxCountReached` —— 那是给 ui-react `<Upload>` 的"多文件列表 / 文件"语义(「以下文件超过 {size}: {files}」),与本组件"单文件超限 / 附件"语义不同,硬复用会把两套话术搅浑。
+- [x] ✅(2026-09-23) **`(main)/developer/PageClient.tsx` 3 → 0**:`formatCountdown` 原是模块级函数拼"小时分秒",模块级拿不到 `t` 且全文件只有 1 个调用点 ⇒ 改成组件内箭头函数 + 3 枚 ICU 键 `developer.dashboard.countdown*`。**没有**走"给函数加 `t` 形参":next-intl 的 `t` 带 `NamespacedMessageKeys` 泛型,用 `(key: string, values?) => string` 去接会撞参数逆变,为一个调用点上类型体操不值。
+- [x] ✅(2026-09-23) **`.well-known/apple-app-site-association/route.ts` 2 → 0,并顺手堵一处对外载荷污染**:两处中文不是注释而是 `comment:` **字段**,而该对象被 `JSON.stringify(AASA)` 原样公开吐到 `/.well-known/apple-app-site-association`。`comment` 不属 Apple AASA schema、全仓零读取方、也没有任何测试断言 AASA 正文 ⇒ 降回 `//` 代码注释。**副作用如实登记:对外 JSON 少掉两个非规范字段。**
+- **守门 70 越线 7 → 4,剩余 4 个全部不是本票面**:`app/layout.tsx` 46>40(HEAD 既有,`856f5f1b4c` 的根布局 SEO keywords/描述,属内容文案,要不要本地化由该票作者定)、`plan/[id]/PageClient.tsx` 23>22、`plan/PlanVersionDiff.tsx` 23>0、`plan/PlanVersionSwitcher.tsx` 10>0(他人未跟踪/在途特性)。**不用 `--update-baseline` 一次性"抹平"**,那是替别人遮掩回归。
+- **提交形态**:语言包在共享工作树里同时带着并发会话未提交的 `permissionTier.mode.*` 10 枚键,而"塞进干净检出重扫"实测它们一入库就是 10 枚新死键 ⇒ 本票走**对象空间混合提交**(包 = HEAD blob 只加本票 8 枚键,源码取工作树),全程不写主 index、不碰工作树;落提交前三道自证:diff-tree 不得出现声明外路径、CAS 校验起点头、`update-ref` 后立即回读对象类型与树规模(承上一批那条"旁路新对象会被本机清理层抹掉"的教训)。
+- **已备好待落地的下一批(三份清单已生成并自检全绿,共 205 键 × 5 语言)**:`batch-edu-scheduling.json` 64 键 / `batch-edu-grades.json` 67 键(含 trend 子页)/ `batch-edu-parent.json` 74 键,均"五语 leaf 集合全等、无含点键、ko/en 无汉字、zh-CN 值逐字符可回源文件 find",并各附**逐行改造对照表**。子代理在这一批里查出两个真实陷阱,落地时必须先处理:① `grades` 主文件 L373/L574 与 trend L124/L141 有 `terms.map((t) => …)` / `trendList.map((t) => …)` **形参 `t` 遮蔽翻译函数**,不先改名就直接编译崩;② `grades/page.tsx` 的 `metadata.title` 是第 91 处命中,不在这三个清单内,需另走 `getTranslations`。另登记一条边界:`scheduling` 的冲突检测结果与 `autoGenerate.message` 是 **API 端生成的整句中文**,前端取词覆盖不了,须后端改返回 `code + params` 再走 ICU(属 api 侧独立任务)。
+
+
 ## P0 2026-09-22 桌面安装包视觉改版「墨光 · Ink Aurora」+ 安装页百分比 + 开屏真动画(平台独占:apps/desktop)
 
 用户三条诉求:① 要独特设计 + 开屏动画,不要原生安装窗口的样子;② 目录页「浏览」按钮还带背景色容器,取消;③ 进度条没有百分比。
