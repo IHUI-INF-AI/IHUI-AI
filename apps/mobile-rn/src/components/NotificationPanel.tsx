@@ -46,28 +46,48 @@ export default function NotificationPanel() {
         onPress={() => setVisible(false)}
       >
         <TouchableOpacity
-          className="bg-white max-h-[70%] min-h-[40%]"
-          style={{ borderTopLeftRadius: 10, borderTopRightRadius: 10 }}
+          className="max-h-[70%] min-h-[40%]"
+          style={{
+            borderTopLeftRadius: 10,
+            borderTopRightRadius: 10,
+            backgroundColor: tokens.surface.card,
+          }}
           activeOpacity={1}
           onPress={(e) => e.stopPropagation()}
         >
-          <View className="flex-row items-center justify-between px-4 py-3 border-b border-gray-200">
-            <Text className="text-[15px] font-semibold text-gray-900">通知</Text>
+          <View
+            className="flex-row items-center justify-between px-4 py-3 border-b"
+            style={{ borderColor: tokens.border.light }}
+          >
+            <Text className="text-[15px] font-semibold" style={{ color: tokens.text.primary }}>
+              通知
+            </Text>
             <View className="flex-row items-center gap-2">
               <TouchableOpacity
-                className="px-2.5 py-1 rounded-md border border-gray-200"
+                className="px-2.5 py-1 rounded-md border"
+                style={{ borderColor: tokens.border.light }}
                 onPress={markAllRead}
               >
-                <Text className="text-xs text-gray-700">全部已读</Text>
+                <Text className="text-xs" style={{ color: tokens.text.secondary }}>
+                  全部已读
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                className="px-2.5 py-1 rounded-md border border-gray-200"
+                className="px-2.5 py-1 rounded-md border"
+                style={{ borderColor: tokens.border.light }}
                 onPress={clearAll}
               >
-                <Text className="text-xs text-gray-700">清空</Text>
+                <Text className="text-xs" style={{ color: tokens.text.secondary }}>
+                  清空
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity className="px-2 py-0.5" onPress={() => setVisible(false)}>
-                <Text className="text-[20px] text-gray-500 leading-[22px]">×</Text>
+                <Text
+                  className="text-[20px] leading-[22px]"
+                  style={{ color: tokens.text.tertiary }}
+                >
+                  ×
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -75,18 +95,33 @@ export default function NotificationPanel() {
             data={notifications}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
-              <View className={`px-3 py-2.5 rounded-lg mb-1 ${!item.isRead ? 'bg-gray-100' : ''}`}>
-                <Text className="text-[13px] font-medium text-gray-900 mb-0.5">{item.title}</Text>
+              <View
+                className="px-3 py-2.5 rounded-lg mb-1"
+                style={{ backgroundColor: item.isRead ? 'transparent' : tokens.surface.muted }}
+              >
+                <Text
+                  className="text-[13px] font-medium mb-0.5"
+                  style={{ color: tokens.text.primary }}
+                >
+                  {item.title}
+                </Text>
                 {item.content ? (
-                  <Text className="text-xs text-gray-500 mb-1">{item.content}</Text>
+                  <Text className="text-xs mb-1" style={{ color: tokens.text.tertiary }}>
+                    {item.content}
+                  </Text>
                 ) : null}
-                <Text className="text-[11px] text-gray-400">
+                <Text className="text-[11px]" style={{ color: tokens.text.tertiary }}>
                   {formatShortDateTime(item.createdAt)}
                 </Text>
               </View>
             )}
             ListEmptyComponent={
-              <Text className="py-10 text-center text-gray-400 text-[13px]">暂无通知</Text>
+              <Text
+                className="py-10 text-center text-[13px]"
+                style={{ color: tokens.text.tertiary }}
+              >
+                暂无通知
+              </Text>
             }
             contentContainerStyle={{ padding: 8 }}
           />

@@ -5,7 +5,6 @@
 'use client'
 
 import * as React from 'react'
-import { useTranslations } from 'next-intl'
 import dynamic from 'next/dynamic'
 import { Canvas, useLoader } from '@react-three/fiber'
 import { OrbitControls, Grid, useGLTF, useProgress, Html } from '@react-three/drei'
@@ -60,7 +59,6 @@ function SceneLoader() {
 }
 
 function ThreeDViewerImpl({ url, format = 'glb', className }: ThreeDViewerProps) {
-  const t = useTranslations('a11y')
   const [autoRotate, setAutoRotate] = React.useState(true)
 
   return (
@@ -90,7 +88,7 @@ function ThreeDViewerImpl({ url, format = 'glb', className }: ThreeDViewerProps)
           maxDistance={20}
         />
       </Canvas>
-      <Tooltip content={autoRotate ? t('stopAutoRotate') : t('autoRotate')}>
+      <Tooltip content={autoRotate ? '停止旋转' : '自动旋转'}>
         <button
           onClick={() => setAutoRotate((v) => !v)}
           className={cn(
