@@ -294,7 +294,7 @@ const newStyles = StyleSheet.create({
     alignItems: 'center',
   },
   loginBtn: {
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.ctaFill,
     borderWidth: 2,
     borderColor: tokens.text.primary,
     borderRadius: 12,
@@ -304,7 +304,7 @@ const newStyles = StyleSheet.create({
   loginBtnText: {
     fontSize: 16,
     fontWeight: '600',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
   },
   card: {
     marginTop: 8,
@@ -624,7 +624,7 @@ const oldStyles = StyleSheet.create({
     alignItems: 'center',
   },
   loginBtn: {
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.ctaFill,
     borderWidth: 2,
     borderColor: tokens.text.primary,
     borderRadius: 12,
@@ -634,7 +634,7 @@ const oldStyles = StyleSheet.create({
   loginBtnText: {
     fontSize: 16,
     fontWeight: '600',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
   },
   card: {
     marginTop: 8,

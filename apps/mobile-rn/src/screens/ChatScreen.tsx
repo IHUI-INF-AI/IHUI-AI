@@ -3060,11 +3060,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(48),
     paddingVertical: rpx(20),
     borderRadius: 6,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.ctaFill,
   },
   shareBtnText: {
     fontSize: 14,
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
     fontWeight: '500',
   },
   shareBtnSecondary: {
@@ -3210,7 +3210,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
   },
   fangdaSendBtn: {
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.ctaFill,
     borderRadius: 8,
     paddingVertical: rpx(24),
     alignItems: 'center',
@@ -3218,7 +3218,7 @@ const styles = StyleSheet.create({
   fangdaSendBtnText: {
     fontSize: 16,
     fontWeight: '600',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
   },
   // ── P1.1 转语音 Modal ──
   ttsLoadingWrap: {

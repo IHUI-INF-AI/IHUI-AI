@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
   confirm: {
     height: CONFIRM_BUTTON_HEIGHT,
     borderRadius: CONFIRM_BUTTON_RADIUS,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.ctaFill,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 16,
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   confirmText: {
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
     fontSize: 14,
     textAlign: 'center',
     fontWeight: '500',
