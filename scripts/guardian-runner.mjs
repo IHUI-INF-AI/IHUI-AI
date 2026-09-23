@@ -1940,6 +1940,36 @@ const checks = [
     ].join('\n'),
   },
 
+  // 热路径 git 只读调用超时封顶(2026-09-23 立,守门 79)。成因实测:check-port-registry 里
+  // 一处 execSync('git ls-files') 没有 timeout,在共享工作区挂住 80 分钟而 CPU 只用了 2.84s
+  // —— 等锁/等 IO 型挂起,表现是"提交像死掉了",而 git status 与 typecheck 全看不出异常。
+  // 全仓首参锚定实测 159 处 git 派生调用无一带 timeout,即"没有约束"而非"个别疏忽"。
+  // 口径刻意收窄(宁漏不误报,与门 52 同取向):① 只判钩子/守护链可达的 HOT 文件;
+  // ② 只判动词为字面量的调用(包装器动词未知,整体加超时会把写操作一并 bound,
+  //    而 commit/add/reset 中途被 SIGTERM 可能留下 .git/index.lock,把挂起换成全局阻塞);
+  // ③ 只判只读动词。写动词/包装器不判但如实计数。字符串与注释内的命中一律丢弃
+  // (自检抓到过判据把测试夹具源码字符串当真调用误红,已按 markHidden 修掉)。
+  // 存量已随本门一并清零(runner 3 处 + converge 4 处 + commit-loss-guard 默认值),不留基线债。
+  {
+    id: '79',
+    label: '⏱  热路径 git 只读调用必须带 timeout(blocking,拦无界挂起拖死守门链)',
+    script: 'check-git-read-timeout.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_GIT_READ_TIMEOUT',
+    onFailHint: [
+      '',
+      '  💡 这些 git 只读调用跑在 commit/守护/收敛链上,没有 timeout 就是一次无限挂起。',
+      '     修法:options 里加 `timeout: <ms>`(60_000~300_000 已远高于正常耗时)。',
+      '     本门**不**对写动词(commit/add/reset/mktree)要求 timeout —— 写操作被中途',
+      '     SIGTERM 可能留下 .git/index.lock,反而把一次挂起换成全局阻塞。',
+      '     单独复验:node scripts/check-git-read-timeout.mjs',
+      '     自检:node scripts/check-git-read-timeout.mjs --self-test(9 例)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_GIT_READ_TIMEOUT=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // 提交内容含 Git 冲突标记(2026-09-23 立)。成因实测:.git 被宿主清除后的恢复期,某会话在
   // 共享工作区跑了真实 `git merge`,留下 103 个未合并路径 + 94 个带字面标记的工作区文件,而
   // 全链守门**没有一道**看"被提交的内容含 <<<<====>>>> 标记",于是带标记的文件一路进 HEAD 树,
@@ -2069,6 +2099,9 @@ function computeGateFingerprint() {
     const trees = execFileSync('git', ['rev-parse', 'HEAD:apps', 'HEAD:packages'], {
       encoding: 'utf8',
       windowsHide: true,
+      // 只读查询,可安全封顶:同日 check-port-registry 因无 timeout 挂住 80 分钟,
+      // 把整条 pre-commit 拖成"看起来像卡死"。5 分钟远高于任何正常耗时,只截病态挂起。
+      timeout: 300_000,
     }).trim()
     // -z:NUL 分隔,路径无转义歧义;rename 条目 "R  new\0old\0" 需跳过 old 段
     const statusRaw = execFileSync(
@@ -2077,6 +2110,7 @@ function computeGateFingerprint() {
       {
         encoding: 'utf8',
         windowsHide: true,
+        timeout: 300_000,
       },
     )
     const h = createHash('sha1')
@@ -2167,6 +2201,7 @@ function stagedFilesOrNull() {
       encoding: 'utf8',
       cwd: process.cwd(),
       windowsHide: true,
+      timeout: 120_000,
     })
       .split('\n')
       .map((s) => s.trim())
