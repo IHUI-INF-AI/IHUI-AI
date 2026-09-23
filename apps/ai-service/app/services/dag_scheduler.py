@@ -494,8 +494,6 @@ class AgentSSEEvent:
     """SSE 实时流事件(对齐 agent-runtime.ts AgentSSEEvent)。"""
 
     type: str  # task_created | task_status_changed | task_completed | task_failed | ...
-    # D44(2026-09-23 收口):task_progress / worker_status / dag_level_advanced / log
-    # 为死声明(WorkerPool._emit 从未发出),已从 TS 侧 AgentSSEEvent 回收,此处仅作对齐注记。
     task_id: str | None = None
     worker_id: str | None = None
     payload: dict[str, Any] = field(default_factory=dict)
