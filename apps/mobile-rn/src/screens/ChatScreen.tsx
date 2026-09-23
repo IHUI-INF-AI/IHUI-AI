@@ -56,7 +56,7 @@ import * as MediaLibrary from 'expo-media-library'
 import { captureRef } from 'react-native-view-shot'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import {
   AlertTriangle,
   Bot,
@@ -2796,7 +2796,7 @@ const styles = StyleSheet.create({
     marginBottom: rpx(16),
     padding: rpx(12),
     borderRadius: rnRadius.sm,
-    backgroundColor: tokens.surface.muted,
+    backgroundColor: tokens.surface.card,
   },
   compactionTitle: {
     fontSize: rpx(13),
@@ -2902,7 +2902,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   msgTextUser: {
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   },
   msgTextAi: {
     color: tokens.text.primary,
@@ -3023,7 +3023,7 @@ const styles = StyleSheet.create({
   materialPopup: {
     width: '88%',
     maxHeight: '70%',
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.lg,
     overflow: 'hidden',
   },
@@ -3124,7 +3124,7 @@ const styles = StyleSheet.create({
     minWidth: 100,
   },
   modelTypeBtnActive: {
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.muted,
     borderWidth: 1,
     borderColor: tokens.brand.DEFAULT,
   },
@@ -3148,7 +3148,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(24),
     paddingVertical: rpx(16),
     gap: rpx(16),
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     marginBottom: BOTTOM_BAR_TOTAL,
   },
   inputIconBtn: {
@@ -3183,7 +3183,7 @@ const styles = StyleSheet.create({
   },
   qrCodeContent: {
     width: 320,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.xl,
     padding: rpx(40),
     alignItems: 'center',
@@ -3225,7 +3225,7 @@ const styles = StyleSheet.create({
   // ── 分享领值弹窗 ──
   shareContent: {
     width: 300,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.xl,
     padding: rpx(48),
     alignItems: 'center',
@@ -3271,7 +3271,7 @@ const styles = StyleSheet.create({
   listDialogContent: {
     width: '88%',
     maxHeight: '70%',
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.xl,
     overflow: 'hidden',
   },
@@ -3281,7 +3281,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: rpx(32),
     paddingVertical: rpx(24),
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
   },
   listDialogTitle: {
     fontSize: 15,
@@ -3338,7 +3338,7 @@ const styles = StyleSheet.create({
   },
   detailDialogRetryText: {
     fontSize: 13,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '600',
   },
   // ── 功能面板/来源面板(BottomPops 子内容样式) ──
@@ -3469,7 +3469,7 @@ const styles = StyleSheet.create({
   urlInputConfirmText: {
     fontSize: 15,
     fontWeight: '500',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   },
   // ── P1.5 文件上传 Modal ──
   fileUploadBody: {
@@ -3510,7 +3510,7 @@ const styles = StyleSheet.create({
   fileUploadConfirmText: {
     fontSize: 15,
     fontWeight: '500',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   },
 })
 
