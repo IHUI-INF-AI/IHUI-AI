@@ -7,13 +7,60 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { __test__ } from '../restore-plan-batch-block.mjs'
 
-const { extractBlock, restoreBlock, assertPureInsertion } = __test__
+const {
+  extractBlock,
+  extractBlockAt,
+  headingMatches,
+  resolveBlock,
+  restoreBlock,
+  assertPureInsertion,
+} = __test__
 const HEAD = '### 第二十四批(2026-09-23):标题'
 const BODY = ['- 正文一', '- 正文二', '- 正文三']
 
-test('源脚本必须 export __test__ 三个核心函数', () => {
-  for (const k of ['extractBlock', 'restoreBlock', 'assertPureInsertion'])
+test('源脚本必须 export __test__ 六个核心函数', () => {
+  for (const k of [
+    'extractBlock',
+    'extractBlockAt',
+    'headingMatches',
+    'resolveBlock',
+    'restoreBlock',
+    'assertPureInsertion',
+  ])
     assert.equal(typeof __test__[k], 'function', `缺少 ${k}`)
+})
+
+test('同号撞车(两枚"第十九批")必须报 ambiguous,绝不静默取首枚', () => {
+  const src = [
+    '### 第十九批(2026-09-23):守门 71 补盲区',
+    '- 甲批正文',
+    '### 第十九批:守门 70 覆盖补齐三端(2026-09-24)',
+    '- 乙批正文',
+  ]
+  const r = resolveBlock(src, '第十九批')
+  assert.equal(r.ok, false)
+  assert.equal(r.reason, 'ambiguous')
+  assert.equal(r.hits.length, 2)
+  const pinned = resolveBlock(src, '第十九批(2026-09-23)')
+  assert.equal(pinned.ok, true)
+  assert.equal(pinned.block.lines[0], src[0])
+  assert.equal(pinned.block.lines.length, 2)
+})
+
+test('批次名里的括号按字面量匹配,不当正则量词', () => {
+  const src = ['### 第二十五批(2026-09-23):标题', '- 正文']
+  assert.equal(resolveBlock(src, '第二十五批(2026-09-23)').ok, true)
+  assert.equal(resolveBlock(src, '第二十五批(2099').ok, false)
+  assert.equal(headingMatches(src, '第二十五批(2099').length, 0)
+})
+
+test('extractBlockAt 与兼容入口 extractBlock 给出同一块', () => {
+  const src = ['# 计划', '', HEAD, ...BODY, '### 下一批']
+  const byRe = extractBlock(src, /^###\s*第二十四批/)
+  const byIdx = extractBlockAt(src, 2)
+  assert.deepEqual(byRe, byIdx)
+  assert.equal(byIdx.lines.length, 4)
+  assert.equal(extractBlockAt(src, -1), null)
 })
 
 test('标题在、正文缺 → 纯插入缺失行,原行原文原序一行不少', () => {
