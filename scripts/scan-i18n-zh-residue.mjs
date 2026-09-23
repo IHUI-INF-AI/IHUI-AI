@@ -57,8 +57,22 @@ const LOCALE_CONFIG = {
 }
 
 const HAN_RE = /[\u4e00-\u9fff]/
-// 匹配 i18n json 行: `  "key": "value",` (value 内不含转义双引号场景，与现有脚本一致)
-const LINE_RE = /^(\s+)"([^"]+)":\s+"([^"]*)"\s*,?\s*$/
+/**
+ * 匹配 i18n json 行: `  "key": "value",`
+ * 取值部分必须允许 **转义双引号** `\"`。旧写法 `[^"]*` 遇到含引号的值(如
+ * `確認刪除「{name}」?` 里嵌的 `\"記賬\"`)整行匹配失败 ⇒ 该行**永久漏检**,
+ * 而"已清零"的结论看着是全绿的(2026-09-23 实测:门报 10 处,值级 opencc 全扫 11 处)。
+ * 放宽后按 decode 再比对,否则会拿 `"台賬\"記賬\""` 这种带反斜杠的原文去过 opencc/白名单。
+ */
+const LINE_RE = /^(\s+)"([^"]+)":\s+"((?:[^"\\]|\\.)*)"\s*,?\s*$/
+/** 把 JSON 字符串字面量的内容解回真实文本;解不动就原样返回(宁可多报也不漏检) */
+function decodeJson(raw) {
+  try {
+    return JSON.parse(`"${raw}"`)
+  } catch {
+    return raw
+  }
+}
 
 // 语言原生名称(autoglossonym)白名单 — 语言选择器中显示各语言的本名,
 // 即使在非中文 locale 文件中也保留原文字符(如 ko.json 中 "ja": "日本語")。
@@ -151,7 +165,7 @@ function scanZhTw(text) {
     const m = lines[i].match(LINE_RE)
     if (!m) continue
     const key = m[2]
-    const value = m[3]
+    const value = decodeJson(m[3])
     if (!value) continue
     if (LANGUAGE_AUTOGLOSSONYMS.has(value)) continue
     if (!HAN_RE.test(value)) continue
@@ -172,7 +186,7 @@ function scanCharRange(text, localRe) {
     const m = lines[i].match(LINE_RE)
     if (!m) continue
     const key = m[2]
-    const value = m[3]
+    const value = decodeJson(m[3])
     if (!value) continue
     if (LANGUAGE_AUTOGLOSSONYMS.has(value)) continue
     if (isWhitelistedBrand(value)) continue
@@ -196,7 +210,7 @@ function scanWarnOnly(text) {
     const m = lines[i].match(LINE_RE)
     if (!m) continue
     const key = m[2]
-    const value = m[3]
+    const value = decodeJson(m[3])
     if (!value) continue
     if (LANGUAGE_AUTOGLOSSONYMS.has(value)) continue
     if (isWhitelistedBrand(value)) continue
