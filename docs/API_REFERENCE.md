@@ -446,7 +446,7 @@ apps/ai-service 在 `app/main.py` 中以 `prefix="/api"` 注册 router,完整路
 | opencompass | `/api/opencompass/*` | OpenCompass 排行榜抓取(Playwright) |
 | screenshot | `/api/screenshot/*` | 截图服务(Playwright headless) |
 | memory | `/api/memory/*` | 四层记忆 + Dream 梦境系统 |
-| message-bus | `/api/message-bus/*` | 多通道消息总线(5 通道 + 优先级 + 降级) |
+| message-bus | `/api/message-bus/*` | 多通道消息总线(4 通道 `im` / `websocket` / `webhook` / `sms` + 优先级 + 降级;EmailChannel 已删除) |
 | v1 业务流 | `/api/v1/*` | 对话 / 智能体 / RAG |
 | lsp | `/api/v1/lsp/*` | LSP 转发(web IDE 调试面板) |
 | debug | `/api/v1/debug/*` | DAP 调试 |

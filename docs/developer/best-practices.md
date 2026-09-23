@@ -371,31 +371,77 @@ try {
 }
 ```
 
-## Webhook 签名验证
+## Webhook 回调接收与来源校验
 
-订阅消息(`/v1/messages/subscribe`)时,务必验证回调请求的 HMAC-SHA256 签名:
+### 1. `/v1/messages/subscribe` 的回调**不附带任何签名头**
+
+平台向 `callbackUrl` POST 消息时,请求里**没有签名头**(既无 `X-Ihui-Signature`,也没有 HMAC Secret),
+请求体只有 `{ message_id, content, metadata }` 三个字段。
+
+真相源是 `apps/ai-service/app/services/message_bus.py` 的 `WebhookChannel._do_send`(:374-412):
+投递调用是 `await client.post(url, json=payload)`(:392),**整个方法没有传过 `headers=` 参数**;
+payload 的字段集合在 :381-385 定死,不含 channel / publishedAt。
+
+> **不要对这条链路的回调做 HMAC 验签。** 回调永远不带可比的签名头,任何"读 `x-ihui-signature`
+> 再比对 HMAC"的实现第一步就取到 `undefined`,会把 **100%** 的真实回调判为无效并 401 拒收。
+> 本节此前给出的正是这段代码,已删除。
+
+接收端当前只需要:
 
 ```typescript
-import crypto from 'crypto'
-
-function verifySignature(secret: string, body: string, signature: string): boolean {
-  const expected = crypto.createHmac('sha256', secret).update(body).digest('hex')
-  // 防止时序攻击,用 timingSafeEqual
-  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))
-}
-
 app.post('/webhook/ihui', (req, res) => {
-  const signature = req.headers['x-ihui-signature'] as string
-  const body = JSON.stringify(req.body)
-  if (!verifySignature(process.env.IHUI_WEBHOOK_SECRET!, body, signature)) {
-    return res.status(401).send('Invalid signature')
+  // 字段是蛇形 message_id(不是 messageId)
+  const { message_id, content, metadata } = req.body as {
+    message_id: string
+    content: string
+    metadata?: Record<string, unknown>
   }
-  // 处理消息
+  // 返回 2xx 确认接收;非 2xx 或请求异常(单次超时 10s,同文件 :389)会被记为该通道投递失败
   res.status(200).send('OK')
 })
 ```
 
+### 2. 确实需要来源校验时,现在真能用的三种手段
+
+| 手段 | 做法 | 强度 | 局限 |
+|------|------|------|------|
+| 保密回调地址(能力凭证) | 订阅时把私有随机段写进 `callbackUrl`,如 `https://your-app.com/webhook/ihui/8f3a…(32 字节随机 hex)`,该段只存你服务端,不进前端与日志 | 不可猜:没有这段路径的人构造不出正确 URL | 不防泄露(反代 access log、浏览器插件、错误上报都会带上完整 URL),泄露即等于对方能投递伪造回调;无防重放能力 |
+| 反查 `message_id` | 拿回调里的 `message_id` 调 `GET /v1/messages/:id/status`:查得到 = 确为你自己发布过的消息;查不到(上游 404 由 v1 转发层统一映射为 **503**,`apps/api/src/routes/v1-knowledge-tools.ts:593-598`)按可疑处理 | 真正区分"我发过的消息"与随手编的 id,校验凭据是你自己的 API Key,不依赖回调内容 | 投递状态与订阅都存在 ai-service **进程内存**(`message_bus.py:483` `_delivery_status` / `:479` `_subscriptions`),服务重启后查不到就会误判为可疑;消息量大时反查是每回调一跳 |
+| 网络层来源限制 | 在入口(防火墙 / 安全组 / nginx)只放行平台出口地址访问你的回调路径 | 与业务代码解耦,能挡住公网随手扫 | 出口地址需向运维确认并持续跟进;同一出口上的其他服务也可能被借用,不是身份凭证 |
+
+三者是**叠加**关系而不是替代,且都只降低"被伪造"的可能性,不等同于签名。
+若回调内容本身不可信,请在应用层先校验 `message_id` 归属再消费
+(参见 [消息 API](api/messages.md) 的"Webhook 回调格式")。
+
+### 3. 另有**一处真带签名**的 webhook 面:relay 事件订阅(与本端点无关)
+
+`/api/developer/webhooks/subscriptions`(需登录态,不是 v1 API Key 面)在投递 relay 事件时
+**确实**附带 HMAC-SHA256 签名 —— 走的是另一套实现,与上面第 1 条不冲突:
+
+- 签名头 `X-IHUI-Signature: sha256=<hex>`:`apps/api/src/services/webhook-relay-notifier.ts:84-96`
+- 签名对象 = 投递用的**原始 JSON 字符串** `JSON.stringify({ event, data, timestamp })`:同文件 :159-165,HMAC 计算 :48-50
+- Secret 在创建订阅时生成且**只返回一次**:`apps/api/src/routes/developer/webhooks.ts:200-221`
+
+验签有两个必须注意的细节:**先剥掉 `sha256=` 前缀**;以及用**原始请求体字节**比对
+(不能 `JSON.stringify(req.body)` 重新序列化 —— 键序或空格一变签名就对不上):
+
+```typescript
+import crypto from 'crypto'
+
+function verifyRelaySignature(secret: string, rawBody: string, header: string | undefined): boolean {
+  if (!header) return false
+  const got = header.startsWith('sha256=') ? header.slice('sha256='.length) : header
+  const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex')
+  const a = Buffer.from(expected)
+  const b = Buffer.from(got)
+  // timingSafeEqual 在长度不等时会抛错,必须先比长度
+  return a.length === b.length && crypto.timingSafeEqual(a, b)
+}
+```
+
+> 这段只适用于 relay 事件订阅回调,**不要**挂到 `/v1/messages/subscribe` 的回调上 —— 那条链路没有签名(见第 1 条)。
+
 ---
 
-*最后更新: 2026-07-22*
+*最后更新: 2026-09-23*
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
