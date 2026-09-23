@@ -39,6 +39,7 @@ import {
 } from './ui-tool-cards.js';
 import { StructuredPlanStore } from '../plan/structured.js';
 import { createWaitingSpinner, createToolSpinner, type Spinner } from './ui-spinner.js';
+import { buildWaitingSpinnerText } from './waiting-text.js';
 import {
   asPlanUpdateSink,
   createTaskStatusLine,
@@ -2133,6 +2134,9 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
   if (state.rewindStack.length > 20) {
     state.rewindStack.shift();
   }
+  // avoidSeed 接线:上一轮用户输入 = push 之前 history 里最后一条 user 消息
+  // (读既有状态,不新增状态源;首轮为 undefined ⇒ 共享池走"未传"分支)
+  const previousPrompt = state.history.findLast((m) => m.role === 'user')?.content;
   state.history.push({ id: randomUUID(), role: 'user', content: prompt });
 
   const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
@@ -2162,7 +2166,16 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
   console.info(chalk.cyan(`\n▶ ${state.opts.modelId}  ·  ${chalk.dim(promptPreview)}`));
 
   // 首 token 等待 spinner — onDelta 首次回调时停止
-  const waitingSpinner = createWaitingSpinner(`${state.opts.modelId} · 正在思考...`);
+  // D79:固定串"正在思考..."升级为等待态文案池(agent 象限,按首轮/追问分阶段,
+  // seed = 本轮 prompt 取模 → 确定性可复现)。文案派生在 waiting-text.ts,用例钉在该模块。
+  const waitingSpinner = createWaitingSpinner(
+    buildWaitingSpinnerText({
+      modelId: state.opts.modelId,
+      prompt,
+      historyLength: state.history.length,
+      previousPrompt,
+    }),
+  );
   waitingSpinner.start();
   let firstTokenReceived = false;
 
