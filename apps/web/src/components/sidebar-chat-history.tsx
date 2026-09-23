@@ -19,6 +19,10 @@ import {
   Pencil,
   FileText,
   FileCode,
+  FileJson,
+  Camera,
+  Image as ImageIcon,
+  Link2,
   LogIn,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -31,6 +35,21 @@ import {
   compressConversation,
 } from '@ihui/api-client'
 import { useChatStore } from '@/stores/chat'
+import {
+  ConversationAttentionBadges,
+  type ConversationAttentionById,
+} from '@/components/chat/conversation-list'
+import {
+  isWaitingForConversation,
+  resolveConversationAttention,
+} from '@/hooks/use-sidebar'
+import {
+  downloadConversationJson,
+  downloadConversationSnapshot,
+  downloadConversationShareCard,
+  copyConversationShareLink,
+  type ExportRoleLabel,
+} from '@/components/chat/conversation-export'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useAuthStore } from '@/stores/auth'
 import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
@@ -59,6 +78,10 @@ interface ConversationItem {
   lastMessageAt: string
   messageCount: number
   archivedAt?: string | null
+  /** D53 会话注意力态(G-64):该行未读更新数(>0 显示未读徽章);后端暂无字段时由 attentionById 覆盖 */
+  unreadCount?: number
+  /** D53:该行显式等待态(备用通道,主链路走 attentionById + pendingQuestion 联动) */
+  hasPendingQuestion?: boolean
 }
 
 interface ConversationsResponse {
@@ -111,9 +134,17 @@ function groupByDate(items: ConversationItem[]): { key: GroupKey; items: Convers
  * - 空状态:图标 + 文案 + "新建任务"引导按钮
  * - 折叠态完全不渲染(避免无文字宽度)
  */
-export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
+export function SidebarChatHistory({
+  collapsed,
+  attentionById,
+}: {
+  collapsed: boolean
+  /** D53 注意力覆盖表(可选,派生输入,不碰 store) */
+  attentionById?: ConversationAttentionById
+}) {
   const t = useTranslations('chatHistory')
   const tc = useTranslations('aiChat')
+  const te = useTranslations('chat.exportMenu')
   const tCommon = useTranslations('common')
   const locale = useLocale()
   const queryClient = useQueryClient()
@@ -123,6 +154,8 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
   // 残留的 true,需等 ready 后再按真实登录态渲染(与 LoginDialog/PageClient 同模式)。
   const { ready } = useAuthBootstrap()
   const currentConversationId = useChatStore((s) => s.conversationId)
+  // D53 联动(store 只读):挂起的提问归属当前会话 → 当前行自动进入等待态
+  const pendingQuestion = useChatStore((s) => s.pendingQuestion)
   const openPanel = useAiPanelStore((s) => s.openPanel)
 
   const [pendingDeleteId, setPendingDeleteId] = React.useState<string | null>(null)
@@ -373,8 +406,63 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
     )
   }
 
+  const exportRoleLabel: ExportRoleLabel = {
+    user: te('roleUser'),
+    assistant: te('roleAssistant'),
+  }
+
+  // 导出/分享动作:按会话 ID 拉全量消息后本地生成,不依赖面板当前加载的会话
+  const runExportAction = (id: string, successMsg: string, action: () => Promise<boolean>) => {
+    setBusyId(id)
+    void action()
+      .then((done) => {
+        if (done) success(successMsg)
+      })
+      .catch((err: unknown) => {
+        error(err instanceof Error && err.message ? err.message : tc('toast.exportFailed'))
+      })
+      .finally(() => setBusyId(null))
+  }
+
+  const handleExportJson = (item: ConversationItem) => {
+    runExportAction(item.id, te('exportStarted'), () =>
+      downloadConversationJson(item.id, item.title),
+    )
+  }
+
+  const handleSnapshot = (item: ConversationItem) => {
+    runExportAction(item.id, te('exportStarted'), () =>
+      downloadConversationSnapshot(item.id, item.title, exportRoleLabel),
+    )
+  }
+
+  const handleShareCard = (item: ConversationItem) => {
+    runExportAction(item.id, te('exportStarted'), () =>
+      downloadConversationShareCard(item.id, item.title, te('shareCardUser')),
+    )
+  }
+
+  const handleShareLink = (item: ConversationItem) => {
+    runExportAction(item.id, te('shareLinkCopied'), () =>
+      copyConversationShareLink(item.id, te('shareFailed')).then(() => true),
+    )
+  }
+
   const renderItem = (item: ConversationItem) => {
     const active = item.id === currentConversationId
+    // D53:每行注意力态独立派生,pendingQuestion 只联动当前会话行
+    const unreadRaw = attentionById?.[item.id]?.unread ?? item.unreadCount ?? 0
+    const unread = Number.isFinite(unreadRaw) && unreadRaw > 0 ? Math.floor(unreadRaw) : 0
+    const waiting = isWaitingForConversation({
+      conversationId: item.id,
+      currentConversationId,
+      hasPendingQuestion: pendingQuestion !== null,
+      explicitWaiting: attentionById?.[item.id]?.waiting ?? item.hasPendingQuestion,
+    })
+    const attentionState = resolveConversationAttention({
+      hasPendingQuestion: waiting,
+      unreadCount: unread,
+    })
     return (
       <li key={item.id} className="group relative">
         <button
@@ -414,6 +502,7 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
                 {dateFmt.format(new Date(item.lastMessageAt))}
               </span>
             )}
+            <ConversationAttentionBadges state={attentionState} unreadCount={unread} />
           </span>
         </button>
         <DropdownMenu>
@@ -488,6 +577,46 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
             >
               <FileText className="mr-2 h-3.5 w-3.5" />
               <span>{tc('actions.exportTxt')}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                handleExportJson(item)
+              }}
+              disabled={busyId === item.id}
+            >
+              <FileJson className="mr-2 h-3.5 w-3.5" />
+              <span>{te('exportJson')}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                handleSnapshot(item)
+              }}
+              disabled={busyId === item.id}
+            >
+              <Camera className="mr-2 h-3.5 w-3.5" />
+              <span>{te('snapshot')}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                handleShareCard(item)
+              }}
+              disabled={busyId === item.id}
+            >
+              <ImageIcon className="mr-2 h-3.5 w-3.5" />
+              <span>{te('exportCard')}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                handleShareLink(item)
+              }}
+              disabled={busyId === item.id}
+            >
+              <Link2 className="mr-2 h-3.5 w-3.5" />
+              <span>{te('share')}</span>
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={(e) => {

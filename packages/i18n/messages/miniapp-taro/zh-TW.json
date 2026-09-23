@@ -58,6 +58,7 @@
     "brand": "智匯 AI",
     "phoneLogin": "手機號登入",
     "passwordLogin": "密碼登入",
+    "phone": "手機號",
     "phonePlaceholder": "請輸入手機號",
     "phoneInvalid": "手機號格式不正確",
     "codePlaceholder": "請輸入驗證碼",
@@ -70,7 +71,23 @@
     "codeCountdownSuffix": "秒後重新獲取",
     "getPhoneFail": "獲取手機號碼失敗",
     "loginFailed": "登入失敗,請重試",
-    "wechatOneClick": "微信一鍵登入"
+    "wechatOneClick": "微信一鍵登入",
+    "emailLogin": "郵箱登入",
+    "email": "郵箱",
+    "emailPlaceholder": "請輸入郵箱",
+    "clearHistory": "清空全部",
+    "code": "驗證碼",
+    "sending": "發送中…",
+    "autoLogin": "自動登入",
+    "or": "或",
+    "ssoLoginTitle": "智匯AI網頁授權登入",
+    "noAccount": "沒有帳號?",
+    "registerNow": "立即註冊",
+    "agreePrefix": "我已閱讀並同意",
+    "termsOfService": "《使用者協議》",
+    "and": "和",
+    "privacyPolicy": "《隱私政策》",
+    "agreeRequired": "請先閱讀並同意服務協議和隱私政策"
   },
   "forgot": {
     "title": "找回密碼",
@@ -132,7 +149,8 @@
       "searchPlaceholder": "搜尋課程",
       "search": "搜尋",
       "empty": "暫無課程",
-      "title": "精品課程"
+      "title": "精品課程",
+      "courseCount": "{n} 門課程"
     },
     "ratingTitle": "評價課程",
     "ratingLabels": ["", "很差", "較差", "一般", "不錯", "很好"],
@@ -155,6 +173,8 @@
   "live": {
     "viewers": "{n} 人觀看",
     "preview": "預告",
+    "replay": "回放",
+    "liveNow": "直播中",
     "detail": {
       "loadFailed": "直播載入失敗",
       "loading": "直播載入中…",
@@ -200,7 +220,8 @@
       "liveList": "直播安排",
       "noLive": "當日暫無直播安排",
       "anchor": "主播",
-      "today": "今天"
+      "today": "今天",
+      "upcoming": "即將開始"
     },
     "calendarBtn": "📅 日曆",
     "mySubscriptionBtn": "🔔 我的訂閱",
@@ -303,7 +324,9 @@
     },
     "orderNo": "訂單號",
     "status": {
-      "refunded": "已退款"
+      "failed": "失敗",
+      "refunded": "已退款",
+      "refunding": "退款中"
     }
   },
   "wallet": {
@@ -496,7 +519,9 @@
       "needAlbumAuth": "需要相簿權限才能儲存圖片,請在設定中開啟",
       "collapse": "收起",
       "edit": "編輯",
-      "regenerate": "重新生成"
+      "errorCardTitle": "請求出錯",
+      "regenerate": "重新生成",
+      "retry": "重試"
     },
     "history": {
       "title": "歷史對話",
@@ -620,6 +645,7 @@
       "categories": {
         "recommend": "推薦",
         "office": "辦公",
+        "other": "其他",
         "writing": "寫作",
         "coding": "編程",
         "education": "教育",
@@ -731,6 +757,7 @@
       "fallback": "已切換備用模型:{model}",
       "planUpdate": "執行計劃已更新",
       "reconnect": "連線中斷,{seconds}s 後第 {attempt} 次重連",
+      "gatewayRetry": "第 {attempt}/{max} 次重試,{seconds} 秒後繼續",
       "subagent": "子任務:{phase}",
       "title": "執行過程",
       "toolCall": "調用工具:{name}",
@@ -751,9 +778,25 @@
       },
       "terminal": {
         "title": "終端任務",
+        "isolation": "命令在隔離沙箱中執行，預設不開放網路",
         "copy": "複製",
         "copied": "已複製",
-        "exitCode": "結束碼: {code}"
+        "exitCode": "結束碼: {code}",
+        "truncated": "…(已截斷,共 {total} 字符)"
+      },
+      "citation": {
+        "title": "參考來源"
+      },
+      "injection": {
+        "title": "本輪參考的上下文",
+        "kind": {
+          "developer": "自訂指令",
+          "workspace": "工作區記憶",
+          "repoWiki": "倉庫 Wiki",
+          "autoContext": "自動檢索上下文"
+        },
+        "expand": "展開",
+        "collapse": "收起"
       },
       "status": {
         "running": "執行中",
@@ -798,7 +841,13 @@
       "voiceAnswer": "🔊 語音回答",
       "modelDefault": "AI 模型"
     },
-    "success": "分享成功"
+    "success": "分享成功",
+    "text1": "頁面未設定",
+    "text2": "分銷頁未設定",
+    "copy3": "連結已複製,請在瀏覽器開啟",
+    "failed4": "複製失敗,請重試",
+    "text5": "對話頁未設定",
+    "confirm6": "確定刪除此對話?"
   },
   "aiGroup": {
     "title": "智慧體廣場",
@@ -838,7 +887,7 @@
     "inputPlaceholder": "輸入訊息…",
     "filePickFailed": "檔案選擇失敗",
     "imagePickFailed": "圖片選擇失敗",
-    "sending": "傳送中…"
+    "sending": "發送中…"
   },
   "aiAssistantN8n": {
     "title": "AI 助手",
@@ -1006,7 +1055,8 @@
     "email": "郵箱",
     "scanHint": "掃一掃,查看名片",
     "shareCard": "分享名片",
-    "saveQrcode": "儲存 QR code"
+    "saveQrcode": "儲存 QR code",
+    "title": "電子名片"
   },
   "exam": {
     "tabs": {
@@ -1855,7 +1905,8 @@
       "devNotice": "開發者須知",
       "faqTitle": "相關開發者的一系列問題解答？",
       "copy": "複製",
-      "copySuccess": "已複製"
+      "copySuccess": "已複製",
+      "infoTitle": "開發者資訊"
     },
     "n8nModel": {
       "title": "N8N 模型",
@@ -2326,7 +2377,10 @@
       "thresholdText": "滿{threshold}可用",
       "expireText": "有效期至 {time}",
       "use": "立即使用",
-      "loadMore": "上拉載入更多"
+      "loadMore": "上拉載入更多",
+      "unused": "未使用",
+      "used": "已使用",
+      "expired": "已過期"
     },
     "couponList": {
       "received": "領取成功",
@@ -2958,7 +3012,19 @@
     "recommendDesc": "開啟後將為您推薦優質內容",
     "personalize": "個性化推薦",
     "personalizeDesc": "基於興趣為您提供個性化內容",
-    "privacyPolicy": "隱私政策"
+    "privacyPolicy": "隱私政策",
+    "status": {
+      "granted": "已授權",
+      "denied": "已拒絕",
+      "unknown": "未授權"
+    },
+    "permissions": {
+      "album": "相簿權限",
+      "camera": "相機權限",
+      "record": "麥克風權限",
+      "location": "位置權限",
+      "notification": "通知權限"
+    }
   },
   "page": {
     "vip": {
@@ -3200,7 +3266,9 @@
     "d2": "相簿",
     "d3": "本機檔案",
     "d4": "微信檔案",
-    "text1": "已預設自動切換深度思考"
+    "text1": "已預設自動切換深度思考",
+    "p1": "語音輸入中",
+    "p2": "語音輸入"
   },
   "CourseHeader": {
     "text1": "付費項目"
@@ -3586,7 +3654,8 @@
     "text2": "智慧體助手頁未設定",
     "p1": "圖片內容",
     "p2": "影片內容",
-    "p3": "音訊內容"
+    "p3": "音訊內容",
+    "r1": "儲存圖片到相簿"
   },
   "plazaCover": {
     "d1": "什麼是開發者空間?",
@@ -3609,7 +3678,8 @@
     "d3": "深色介面,護眼且省電,適合夜間使用"
   },
   "shareCenterItem": {
-    "text1": "推薦卡片"
+    "text1": "推薦卡片",
+    "z1": "瀏覽"
   },
   "shareInterestTrackModal": {
     "d1": "AI 人工智慧",
@@ -3704,7 +3774,11 @@
   "LessonListItem": {
     "text1": "VIP可看",
     "text2": "VIP可看",
-    "y1": "人已學習"
+    "y1": "人已學習",
+    "z1": "人已學習",
+    "z2": "人已學習",
+    "p1": "VIP可看",
+    "p2": "付費項目"
   },
   "UserInfoCard": {
     "login1": "一鍵登入",
@@ -3795,7 +3869,7 @@
     "r4": "智譜"
   },
   "aboutBusinesslicense": {
-    "r1": "吉林省爱智汇人工智能科技有限公司",
+    "r1": "吉林省愛智匯人工智能科技有限公司",
     "r2": "1000萬元人民幣",
     "r3": "2023-06-15 至 長期",
     "r4": "有限責任公司",
@@ -3805,12 +3879,12 @@
   "aboutModelrecord": {
     "r1": "智匯AI對話大模型",
     "r2": "粵網信備4401060000001號",
-    "r3": "吉林省爱智汇人工智能科技有限公司",
+    "r3": "吉林省愛智匯人工智能科技有限公司",
     "r4": "生成合成類(深度合成)"
   },
   "aboutIcprecord": {
     "r1": "吉ICP備2025027274號",
-    "r2": "吉林省爱智汇人工智能科技有限公司",
+    "r2": "吉林省愛智匯人工智能科技有限公司",
     "p1": "吉ICP備2025027274號-7A"
   },
   "last": {
@@ -3890,7 +3964,8 @@
     "p2": "掃碼即可查看"
   },
   "TagInput": {
-    "p1": "輸入後按回車新增"
+    "p1": "輸入後按回車新增",
+    "p2": "已達上限"
   },
   "VipUpgradeToast": {
     "p1": "升級會員解鎖更多功能"
@@ -3951,5 +4026,167 @@
     "q2": "請在微信小程式中使用微信登入",
     "q3": "微信登入 code 為空",
     "q4": "微信用戶"
+  },
+  "TeamManager": {
+    "p1": "不活躍"
+  },
+  "VerifyCodeModal": {
+    "p2": "重新發送",
+    "p3": "驗證中…"
+  },
+  "VideoInfo": {
+    "p1": "影片詳情"
+  },
+  "VideoPlayer": {
+    "p1": "播放錯誤"
+  },
+  "VoiceInput": {
+    "p1": "錄音啟動失敗"
+  },
+  "shareInformationItem": {
+    "z1": "瀏覽"
+  },
+  "permissionTier": {
+    "label": "權限檔",
+    "mode": {
+      "default": {
+        "title": "預設模式",
+        "desc": "全部操作需人工確認,最安全"
+      },
+      "plan": {
+        "title": "唯讀計畫",
+        "desc": "僅允許讀取與檢索,寫檔案與執行命令一律拒絕"
+      },
+      "accept-edits": {
+        "title": "接受編輯",
+        "desc": "白名單內的操作自動放行,其他需確認"
+      },
+      "bypass-permissions": {
+        "title": "繞過權限",
+        "desc": "完全存取,無任何確認(高風險)"
+      },
+      "unknown": {
+        "title": "未知模式",
+        "desc": "未識別的權限模式,已按預設檔處理"
+      }
+    }
+  },
+  "waiting": {
+    "agent": {
+      "first": {
+        "0": "正在準備回覆…",
+        "1": "正在組織回答思路…",
+        "2": "收到，正在思考如何回覆…",
+        "3": "正在為你生成回覆…",
+        "4": "已收到問題，正在處理…"
+      },
+      "middle": {
+        "0": "正在繼續處理…",
+        "1": "正在接著上文思考…",
+        "2": "正在整理後續回覆…",
+        "3": "正在跟進你的問題…",
+        "4": "正在生成接下來的回覆…"
+      },
+      "followup": {
+        "0": "正在理解你的追問…",
+        "1": "結合上文，正在思考…",
+        "2": "正在針對追問組織回覆…",
+        "3": "收到追問，正在處理…",
+        "4": "正在補充回答…"
+      }
+    },
+    "computer": {
+      "first": {
+        "0": "正在調度計算資源…",
+        "1": "正在初始化執行環境…",
+        "2": "正在啟動處理流程…",
+        "3": "正在分配算力處理…",
+        "4": "正在執行初始計算…"
+      },
+      "middle": {
+        "0": "正在執行中…",
+        "1": "計算進行中，請稍候…",
+        "2": "正在處理中間結果…",
+        "3": "執行未中斷，正在推進…",
+        "4": "正在運算，請稍候…"
+      },
+      "followup": {
+        "0": "正在重新計算…",
+        "1": "正在基於新輸入繼續執行…",
+        "2": "正在追加處理…",
+        "3": "正在更新計算結果…",
+        "4": "正在處理追加請求…"
+      }
+    },
+    "context": {
+      "first": {
+        "0": "正在回顧對話上下文…",
+        "1": "正在加載相關上下文…",
+        "2": "正在梳理背景信息…",
+        "3": "正在檢索相關記憶…",
+        "4": "正在準備上下文…"
+      },
+      "middle": {
+        "0": "正在關聯上文繼續…",
+        "1": "正在結合上下文思考…",
+        "2": "正在回看前文…",
+        "3": "上下文已就緒，正在處理…",
+        "4": "正在對照歷史消息…"
+      },
+      "followup": {
+        "0": "正在結合前文理解追問…",
+        "1": "正在回看相關上下文…",
+        "2": "正在關聯歷史追問…",
+        "3": "正在對照上文補充…",
+        "4": "結合上下文，正在處理…"
+      }
+    },
+    "plan": {
+      "first": {
+        "0": "正在制定處理計劃…",
+        "1": "正在拆解你的需求…",
+        "2": "正在規劃執行步驟…",
+        "3": "正在分析任務要點…",
+        "4": "正在擬定回覆提綱…"
+      },
+      "middle": {
+        "0": "正在推進計劃步驟…",
+        "1": "正在執行下一步…",
+        "2": "計劃進行中，請稍候…",
+        "3": "正在按步驟處理…",
+        "4": "正在落實後續步驟…"
+      },
+      "followup": {
+        "0": "正在調整計劃…",
+        "1": "正在根據追問更新步驟…",
+        "2": "正在重新規劃…",
+        "3": "正在補充計劃細節…",
+        "4": "正在跟進新的要求…"
+      }
+    },
+    "detail": {
+      "first": {
+        "0": "正在準備詳細說明…",
+        "1": "正在組織細節內容…",
+        "2": "正在梳理要點…",
+        "3": "正在生成詳細回覆…",
+        "4": "正在完善回答細節…"
+      },
+      "middle": {
+        "0": "正在補充細節…",
+        "1": "正在展開說明…",
+        "2": "正在完善後續內容…",
+        "3": "詳情整理中，請稍候…",
+        "4": "正在細化回覆…"
+      },
+      "followup": {
+        "0": "正在補充你問的細節…",
+        "1": "正在展開追問的要點…",
+        "2": "正在細化相關說明…",
+        "3": "正在準備補充內容…",
+        "4": "正在完善追問的答覆…"
+      }
+    },
+    "vividTail": "，馬上就好"
   }
 }

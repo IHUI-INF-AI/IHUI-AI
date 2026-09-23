@@ -86,7 +86,8 @@ const PG_DUMP_PATHS = [
 
 function run(cmd, args, env) {
   return new Promise((resolve) => {
-    const p = spawn(cmd, args, { env: { ...process.env, ...env } })
+    // windowsHide: 隐藏 psql/子进程在 Windows 下派生的控制台窗口
+    const p = spawn(cmd, args, { env: { ...process.env, ...env }, windowsHide: true })
     let out = '', err = ''
     p.stdout.on('data', (d) => (out += d))
     p.stderr.on('data', (d) => (err += d))

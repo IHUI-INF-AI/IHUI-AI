@@ -21,7 +21,61 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-PUBLIC_PATHS = tuple(p.strip() for p in settings.jwt_public_paths.split(",") if p.strip())
+# 三条**不由部署配置决定**的边界(2026-09-21 O17 三通道实跑收口 + O19 agents 面收权):
+#  · /.well-known/* 必须匿名可读 —— A2A / OAuth 发现协议的前提,卡片内容不含内网主机与
+#    密钥。部署机 .env 一旦覆盖 JWT_PUBLIC_PATHS(pydantic-settings 以 .env 为权威值),
+#    代码默认值就被整体替换 ⇒ agent-card 恒 401,严格客户端拿不到凭据前无法发现能力。
+#  · 特权 router 根下的条目一律不得匿名放行 —— /api/mcp 是全部 MCP 工具的 JSON-RPC 入口
+#    (O1 已把"匿名可调"定性为事故);/api/agents 是 Agent 执行面(触发 LLM 消耗、工具执行、
+#    跨用户会话读写、人工审批门)。这两个 router **自身零端点级鉴权**(无 Depends、无属主
+#    校验),安全性完全寄托在本中间件上,故一条目录前缀会静默覆盖该 router 现在与将来的
+#    每一个端点。O19 本机实测(.env 含 /api/agents/ 时):匿名方可 ① GET /api/agents/sessions
+#    列出全站会话 ② POST /api/agents/approval-response 抵达决策写入点(人工审批门可被
+#    第三方自行批准) ③ 订阅 /api/agents/tasks/stream 收到他人会话实时工具事件。
+#  · 兜底条目(/ 与 /api)会让整条鉴权链失效,同样剔除。
+# 确需公开其中某个端点:改下面这份清单并走 code review,不得靠 .env 静默重开。
+_ALWAYS_PUBLIC: tuple[str, ...] = ("/.well-known/agent.json", "/.well-known/agent-card.json")
+
+# router 根:该前缀下的任何条目(含精确到端点的写法)都不允许匿名可达
+_NEVER_PUBLIC_ROOTS: tuple[str, ...] = ("/api/mcp", "/api/agents")
+
+# 会让整条鉴权链失效的兜底放行写法
+_CATCH_ALL_PUBLIC_ENTRIES: tuple[str, ...] = ("/", "/api", "/api/")
+
+
+def _is_never_public(entry: str) -> bool:
+    """判定一条 JWT_PUBLIC_PATHS 配置是否必须剔除(入参是配置条目,不是请求路径)。"""
+    normalized = entry.strip()
+    if normalized in _CATCH_ALL_PUBLIC_ENTRIES:
+        return True
+    return any(normalized == root or normalized.startswith(f"{root}/") for root in _NEVER_PUBLIC_ROOTS)
+
+
+def _why_never_public(entry: str) -> str:
+    normalized = entry.strip()
+    if normalized in _CATCH_ALL_PUBLIC_ENTRIES:
+        return "该条目会让全部 /api 路由匿名可达(等同于关闭鉴权中间件)"
+    return "所属 router 无端点级鉴权,匿名放行即等同于对外开放未授权执行面"
+
+
+def _resolve_public_paths(raw: str) -> tuple[str, ...]:
+    configured = [p.strip() for p in raw.split(",") if p.strip()]
+    dropped = [p for p in configured if _is_never_public(p)]
+    if dropped:
+        for entry in dropped:
+            logger.error(
+                "[security] JWT_PUBLIC_PATHS 含 %s —— 已强制剔除:%s",
+                entry,
+                _why_never_public(entry),
+            )
+    kept = [p for p in configured if not _is_never_public(p)]
+    for path in _ALWAYS_PUBLIC:
+        if path not in kept:
+            kept.append(path)
+    return tuple(kept)
+
+
+PUBLIC_PATHS = _resolve_public_paths(settings.jwt_public_paths)
 
 
 class JWTAuthMiddleware(BaseHTTPMiddleware):
@@ -141,6 +195,41 @@ def get_current_user_id_sync(request: Request) -> str:
     if not user_id:
         raise HTTPException(status_code=401, detail="Not authenticated")
     return cast(str, user_id)
+
+
+# 端点级属主校验所需的身份解析。刻意不叫 get_current_user_id 的近义名:
+# 二者语义差别在"未启用鉴权时怎么办",混用会同时毁掉开发可用性与生产结论。
+DEV_ANONYMOUS_PRINCIPAL = "dev-anonymous"
+
+
+def auth_globally_enforced() -> bool:
+    """本进程是否真的在做 JWT 校验(与中间件 dispatch 的早退条件严格互补)。"""
+    return bool(settings.jwt_secret) or settings.node_env != "development"
+
+
+def resolve_request_user_id(request: Request) -> str | None:
+    """读取中间件注入的 user_id;没有则 None(不抛错,供只读/统计类端点降级使用)。"""
+    user_id = getattr(request.state, "user_id", None)
+    return cast(str, user_id) if user_id else None
+
+
+async def require_request_user_id(request: Request) -> str:
+    """端点级身份依赖:解析当前调用方 user_id,解析不到即 401。
+
+    与 get_current_user_id 的唯一差别是开发降级 —— 当本进程根本没启用 JWT 校验
+    (jwt_secret 为空 + development,此时中间件自身也直接 call_next)时回落单一
+    dev 身份。不这样做会让所有以 ASGI in-process 方式调用路由的既有测试
+    (tests/conftest.py 的 autouse 中间件中和夹具)整片 401,而那不是安全结论。
+
+    生产语义:只要配置了 jwt_secret,无论请求走没走白名单(PUBLIC_PATHS 命中时中间件
+    不注入 user_id),缺失身份一律 401 —— 即白名单再也不可能让这类端点漏出去。
+    """
+    user_id = resolve_request_user_id(request)
+    if user_id:
+        return user_id
+    if not auth_globally_enforced():
+        return DEV_ANONYMOUS_PRINCIPAL
+    raise HTTPException(status_code=401, detail="Not authenticated")
 
 
 def verify_access_token(token: str) -> dict[str, Any] | None:

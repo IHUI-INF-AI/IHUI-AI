@@ -30,6 +30,7 @@ import { eq, and, sql } from 'drizzle-orm'
 import { outboxEvents, pointTransactions, eduEnrollment, eduPaymentRecord } from '@ihui/database'
 import { isNull } from 'drizzle-orm'
 import { calculateTopupBonus } from './topup-discount-service.js'
+import { config } from '../config/index.js'
 
 export type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'refunded'
 
@@ -435,6 +436,39 @@ export async function completeOrderWithSaga(
     } catch {
       /* 推送失败不阻塞订单完成 */
     }
+  }
+
+  // 支付成功收据邮件(「智汇通报」版式,fire-and-forget,失败不阻塞订单完成)
+  try {
+    if (order.userId) {
+      const [{ findUserById }, { sendEmail }, { renderPaymentReceiptEmail }] = await Promise.all([
+        import('../db/queries.js'),
+        import('./email-service.js'),
+        import('./email-templates.js'),
+      ])
+      const user = await findUserById(order.userId)
+      if (user?.email) {
+        const receipt = renderPaymentReceiptEmail({
+          userName: user.nickname ?? undefined,
+          orderNo,
+          productTitle: order.targetTitle ?? '智汇AI 商品',
+          quantity: order.quantity ?? 1,
+          amountYuan: String(order.amount),
+          payType: order.paymentMethod ?? '',
+          paidAt: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }),
+          subscriptionUrl: `${config.CORS_ORIGIN?.split(',')[0]?.trim() ?? 'https://aizhs.top'}/user/subscription`,
+        })
+        void sendEmail({
+          to: user.email,
+          subject: receipt.subject,
+          html: receipt.html,
+          text: receipt.text,
+          scene: 'notification',
+        }).catch(() => {})
+      }
+    }
+  } catch {
+    /* 收据邮件失败不阻塞订单完成 */
   }
 
   const updated = await findOrderByNo(orderNo)

@@ -116,7 +116,7 @@ export default function CourseList() {
         <View className="mb-[24rpx]">
           <SectionHeader
             title={tt('course.list.title', '精品课程')}
-            subtitle={`${list.length} 个课{tt('courseList.p1', '程')}`}
+            subtitle={tt('course.list.courseCount', '{n} 门课程', { n: list.length })}
             showMore={false}
           />
         </View>

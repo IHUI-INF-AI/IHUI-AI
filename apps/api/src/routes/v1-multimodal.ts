@@ -1174,6 +1174,11 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
       } else if (v === 'gemini') {
         path = '/api/ai/gemini/image'
         body = { prompt, model }
+      } else if (v === 'recraft') {
+        // 2026-09-21 补:Recraft 内部端点(/api/ai/recraft/generate)为 OpenAI images 兼容
+        // (prompt/model/size/style/n 同构透传),同步返回 data:[{url}]。
+        path = '/api/ai/recraft/generate'
+        body = { prompt, model, n, size, style: parsed.data.style }
       } else {
         // tongyi(默认)
         path = '/api/ai-image/tongyi/text-to-image'
@@ -1549,16 +1554,48 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
       if (v === 'dashscope') path = '/api/ai/dashscope/video'
       else if (v === 'doubao') path = '/api/ai/doubao/video'
       else if (v === 'gemini') path = '/api/ai/gemini/video'
-      else path = '/api/ai/sora2/generate'
+      // 2026-09-21 补:以下厂商内部端点均已存在(ai-vendors/proxy-extended-media*.ts),
+      // 请求体按各厂商官方字段做最小适配(与既有 dashscope/doubao/gemini 同构:提交返回 taskId 走轮询)。
+      else if (v === 'minimax') {
+        path = '/api/ai/minimax/video'
+        if (image) {
+          delete body.image // MiniMax 官方字段为 first_frame_image
+          body.first_frame_image = image
+        }
+      } else if (v === 'kling') {
+        path = '/api/ai/kling/generate'
+        if (duration) body.duration = String(duration) // 可灵官方 duration 为字符串 "5"/"10"
+      } else if (v === 'vidu') {
+        path = '/api/ai/vidu/generate'
+        if (image) {
+          delete body.image // Vidu 官方 images 为 URL 数组(端点内包装为 [{url}])
+          body.images = [image]
+        }
+      } else if (v === 'runway') {
+        path = '/api/ai/runway/generate' // image/duration 字段与官方同构,无需适配
+      } else if (v === 'luma') {
+        path = '/api/ai/luma/generate'
+        if (duration) body.duration = `${duration}s` // Luma 官方为 "5s" 字符串
+      } else if (v === 'pixverse') {
+        path = '/api/ai/pixverse/generate' // image/duration 字段与官方同构,无需适配
+      } else if (v === 'zhipu') {
+        path = '/api/ai/zhipu/video'
+        if (image) {
+          delete body.image // 智谱 CogVideoX 官方字段为 image_url
+          body.image_url = image
+        }
+      } else path = '/api/ai/sora2/generate'
       // 视频计费(2026-09-13):提交成功即按次/按秒扣费(乐观计费防漏损),
       // 任务 failed 由 GET /v1/videos/tasks/:id 触发全额退款。
       // taskId 由 mapper 闭包捕获(forwardInternal 仅在提交成功时调用 mapper)。
       let submittedTaskId = ''
       const replyResult = await forwardInternal(reply, path, jsonInit(body), userId, (data) => {
         const d = asObj(data)
+        // 2026-09-21 补:zhipu(CogVideoX)端点透传上游 { id } 而非本地 taskId,追加 d.id 兜底
         submittedTaskId =
           (typeof d.taskId === 'string' && d.taskId) ||
           (typeof d.task_id === 'string' && d.task_id) ||
+          (typeof d.id === 'string' && d.id) ||
           ''
         const result: V1VideoGenerationsResponse = {
           taskId: submittedTaskId,

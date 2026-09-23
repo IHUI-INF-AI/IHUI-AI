@@ -2,7 +2,13 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import type { FastifyPluginAsync, FastifyReply, FastifyRequest, RouteOptions } from 'fastify'
+import type {
+  DoneFuncWithErrOrRes,
+  FastifyPluginAsync,
+  FastifyReply,
+  FastifyRequest,
+  RouteOptions,
+} from 'fastify'
 import fp from 'fastify-plugin'
 import { config } from '../config/index.js'
 import { normalizeHeader } from '../utils/http-normalize.js'
@@ -66,9 +72,7 @@ type StoredRecord = InflightRecord | CompletedRecord
 
 /** 槽位探针的三态(处置彼此相反,所以不能并成一态,详见 inspect 的注释)。 */
 type Probe =
-  | { state: 'missing' }
-  | { state: 'unreadable' }
-  | { state: 'record'; record: StoredRecord }
+  { state: 'missing' } | { state: 'unreadable' } | { state: 'record'; record: StoredRecord }
 
 /** 本次请求持有的槽位。`recorded` = onSend 已把结果写回同键,onResponse 就不该再删。 */
 export interface IdempotencyHold {
@@ -113,7 +117,10 @@ async function withinDeadline<T>(task: Promise<T>, deadlineMs: number): Promise<
     const value = await Promise.race([
       task,
       new Promise<never>((_resolve, reject) => {
-        timer = setTimeout(() => reject(new Error('idempotency redis deadline exceeded')), deadlineMs)
+        timer = setTimeout(
+          () => reject(new Error('idempotency redis deadline exceeded')),
+          deadlineMs,
+        )
       }),
     ])
     return { ok: true, value }
@@ -235,11 +242,15 @@ const openIdempotencyPlugin: FastifyPluginAsync = async (server) => {
     server.log.warn({ err: error, reason, ttlSeconds }, 'open idempotency degraded, failing open')
   }
 
-  async function claim(
-    key: string,
-  ): Promise<'claimed' | 'taken' | 'unavailable'> {
+  async function claim(key: string): Promise<'claimed' | 'taken' | 'unavailable'> {
     const result = await withinDeadline(
-      server.redis.set(key, JSON.stringify({ status: 'processing', ts: Date.now() }), 'PX', ttlMs, 'NX'),
+      server.redis.set(
+        key,
+        JSON.stringify({ status: 'processing', ts: Date.now() }),
+        'PX',
+        ttlMs,
+        'NX',
+      ),
       REDIS_DEADLINE_MS,
     )
     if (!result.ok) {
@@ -307,10 +318,7 @@ const openIdempotencyPlugin: FastifyPluginAsync = async (server) => {
     hold.recorded = true
   }
 
-  async function preHandler(
-    request: FastifyRequest,
-    reply: FastifyReply,
-  ): Promise<void> {
+  async function preHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
     if (!isEligible(request)) return
     const owner = credentialScopeOf(request)
     const clientKey = clientKeyOf(request)
@@ -346,7 +354,10 @@ const openIdempotencyPlugin: FastifyPluginAsync = async (server) => {
       // 'unreadable':键在但读不懂(脏数据 / 读超时)。它**有可能**正是别人还在跑的那一把,
       // 放行的代价是双计费,而本层存在的全部理由就是挡双跑 —— 所以宁可 409。
       // 不会永久毒化:脏键最多滞留 ttlSeconds 自行蒸发,重试从头跑;此处留一条 warn 存现场。
-      server.log.warn({ key, ttlSeconds }, 'open idempotency slot unreadable, rejecting as in-progress')
+      server.log.warn(
+        { key, ttlSeconds },
+        'open idempotency slot unreadable, rejecting as in-progress',
+      )
       counters.inProgressRejected += 1
       await sendInProgress(reply)
       return
@@ -378,16 +389,31 @@ const openIdempotencyPlugin: FastifyPluginAsync = async (server) => {
     routeOptions.preHandler = [existing, preHandler]
   }
 
-  async function onSend(
+  // 刻意用**回调风格**而不是 async(2026-09-22):async onSend 会让 Fastify 5 的
+  // `onSendHookRunner` 走 `result.then(handleResolve)`,把 writeHead 推到下一个微任务,
+  // 于是同一次响应留下"headers 已写出但 raw.writableEnded 未置位"的交错窗口 —— 第二次
+  // send() 能穿过 `reply.sent` 守卫,表现为成对的 ERR_HTTP_HEADERS_SENT +
+  // FST_ERR_REP_ALREADY_SENT WARN。钩子不返回 Promise,就不会被 Promise 与 next() 双驱动。
+  function onSend(
     request: FastifyRequest,
     reply: FastifyReply,
     payload: unknown,
-  ): Promise<unknown> {
-    if (request.openIdempotencyHold) {
-      // onSend 是最后一棒:这里的 payload 就是客户端真正收到的字节,缓存它才叫"原样重放"。
-      await store(request, reply, payload)
+    done: DoneFuncWithErrOrRes,
+  ): void {
+    if (!request.openIdempotencyHold) {
+      // 常见路径(未带 Idempotency-Key / 非开放面 / Redis 降级 fail-open):同步收尾,
+      // 整条钩子链在同一个调用栈内走完,不留异步窗口。
+      done(null, payload)
+      return
     }
-    return payload
+    // 抢到槽位的一棒必须等结果写回 Redis 才放行响应:提前收尾会让 onResponse 看到
+    // recorded === false 而删键,重放记录就此丢失。这一支**保留异步**(正确性优先),
+    // 只是把异步收进 done 里,而不是把 Promise 交回 runner。
+    // onSend 是最后一棒:这里的 payload 就是客户端真正收到的字节,缓存它才叫"原样重放"。
+    void store(request, reply, payload).then(
+      () => done(null, payload),
+      (error: unknown) => done(error instanceof Error ? error : new Error(String(error))),
+    )
   }
 
   server.addHook('onRoute', attachToRoute)

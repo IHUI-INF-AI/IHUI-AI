@@ -131,7 +131,6 @@ const { mockT } = vi.hoisted(() => {
     shortcutsGroupTrigger: '触发器',
     shortcutSectionNav: '折叠子区上下切换',
     shortcutSectionFirstLast: '跳到第一个/最后一个子区',
-    shortcutShowHelp: '打开/关闭快捷键帮助',
     shortcutCloseHelp: '关闭快捷键帮助',
     shortcutTogglePane: '切换面板开关',
     shortcutOpenPane: '在输入框打开面板',
@@ -150,6 +149,7 @@ const { mockT } = vi.hoisted(() => {
     copyPlan: '复制任务计划',
     moreItems: '…还有 {n} 项',
     jumpToLatest: '跳到最新',
+    followEvents: '跟随事件流',
     latest: '最新',
     pinHintPinned: '已置顶,点击外部不关闭',
     pinHintUnpinned: '已取消置顶,点击外部关闭',
@@ -1058,8 +1058,9 @@ describe('Progress Sections — 折叠子区组件(对齐 AI 工作台)', () => 
     fireEvent.click(item)
     // 展开后显示嵌套工具调用
     expect(container.textContent).toContain('工具调用(2)')
-    expect(container.textContent).toContain('read_file')
-    expect(container.textContent).toContain('edit_file')
+    // 界面文案已禁止直显英文码名:码名只保留在 data-tool-name 上,显示走 taskStatus 功能名映射
+    expect(container.querySelector('[data-tool-name="read_file"]')).toBeTruthy()
+    expect(container.querySelector('[data-tool-name="edit_file"]')).toBeTruthy()
     expect(container.textContent).toContain('app.ts')
   })
 
@@ -2166,21 +2167,22 @@ describe('AgentTaskProgressPane — v13 深度优化', () => {
     expect(toggleBtn.getAttribute('aria-expanded')).toBe('false')
   })
 
-  it('按 ? (Shift+/) 键:切换帮助面板开关', () => {
+  it('点击 header 帮助钮:切换帮助面板开关(2026-09-22 起 ? 不再归本面板)', () => {
     useAgentProgressPaneStore.getState().openPane()
     const { container } = render(<AgentTaskProgressPane />)
+    const helpToggle = container.querySelector('[data-testid="pane-help-toggle"]') as HTMLElement
     // 初始关闭
     expect(container.querySelector('[data-testid="pane-help-panel"]')).toBeNull()
 
-    // 按 ?
+    // 点击打开
     act(() => {
-      window.dispatchEvent(new KeyboardEvent('keydown', { key: '?', bubbles: true }))
+      helpToggle.click()
     })
     expect(container.querySelector('[data-testid="pane-help-panel"]')).toBeTruthy()
 
-    // 再按 ? 关闭
+    // 再点关闭
     act(() => {
-      window.dispatchEvent(new KeyboardEvent('keydown', { key: '?', bubbles: true }))
+      helpToggle.click()
     })
     expect(container.querySelector('[data-testid="pane-help-panel"]')).toBeNull()
   })
@@ -2190,9 +2192,9 @@ describe('AgentTaskProgressPane — v13 深度优化', () => {
     useAgentProgressPaneStore.getState().togglePin() // unpin 让 Esc 也能关 pane
     const { container } = render(<AgentTaskProgressPane />)
 
-    // 打开帮助
+    // 打开帮助(header 钮;? 已归属全局快捷键面板)
     act(() => {
-      window.dispatchEvent(new KeyboardEvent('keydown', { key: '?', bubbles: true }))
+      ;(container.querySelector('[data-testid="pane-help-toggle"]') as HTMLElement).click()
     })
     expect(container.querySelector('[data-testid="pane-help-panel"]')).toBeTruthy()
     expect(useAgentProgressPaneStore.getState().open).toBe(true)
@@ -2211,7 +2213,7 @@ describe('AgentTaskProgressPane — v13 深度优化', () => {
     expect(useAgentProgressPaneStore.getState().open).toBe(false)
   })
 
-  it('帮助面板含 3 个分组(导航 / 面板 / 触发器),每组 1-2 个快捷键', () => {
+  it('帮助面板含 3 个分组(导航 / 面板 / 触发器),不再声明 ? (键位唯一归全局面板)', () => {
     useAgentProgressPaneStore.getState().openPane()
     const { container } = render(<AgentTaskProgressPane />)
     fireEvent.click(container.querySelector('[data-testid="pane-help-toggle"]') as HTMLElement)
@@ -2223,13 +2225,54 @@ describe('AgentTaskProgressPane — v13 深度优化', () => {
     // 检查 kbd 元素(快捷键标识)
     const kbds = container.querySelectorAll('kbd')
     expect(kbds.length).toBeGreaterThan(0)
-    // 检查含 "?" 快捷键
+    // 检查快捷键集合
     const kbdTexts = Array.from(kbds)
       .map((k) => k.textContent)
       .join('')
-    expect(kbdTexts).toContain('?')
     expect(kbdTexts).toContain('Esc')
     expect(kbdTexts).toContain('Ctrl+Shift+J')
+    // 2026-09-22:`?` 已唯一归属全局快捷键面板 → 帮助面板不得再文档化它(误导)
+    expect(kbdTexts).not.toContain('?')
+    expect(container.textContent).not.toContain('打开/关闭快捷键帮助')
+  })
+
+  // 2026-09-22:pane 底边不得压住对话列右下角的浮动 affordance 列(z-sticky 990 覆盖 z-20)
+  it('拖拽底边 clamp:压住 affordance 列时回退到带沿,三种不该动的场景保持原值', async () => {
+    const mod = await import('../src/components/ai/agent-task-progress-pane')
+    const clamp = mod.clampPaneAboveAffordanceRail
+    const rail = document.createElement('div')
+    rail.setAttribute('data-testid', 'scroll-jump-buttons')
+    document.body.appendChild(rail)
+    const pane = document.createElement('div')
+    document.body.appendChild(pane)
+    const stub = (r: { left: number; top: number; right: number; bottom: number }) =>
+      (() => ({
+        left: r.left,
+        top: r.top,
+        right: r.right,
+        bottom: r.bottom,
+        x: r.left,
+        y: r.top,
+        width: r.right - r.left,
+        height: r.bottom - r.top,
+        toJSON: () => ({}),
+      })) as unknown as () => DOMRect
+    // 实测复现值:pre-fix 持久化 translate(116px, 212px) → pane 288..568 × 174..297
+    // 完全罩住 rail 412..444 × 200..272
+    rail.getBoundingClientRect = stub({ left: 412, top: 200, right: 444, bottom: 272 })
+    pane.getBoundingClientRect = stub({ left: 288, top: 174, right: 568, bottom: 297 })
+    expect(clamp(pane, 116, 212)).toBe(115) // 212 - (297 - 200)
+    expect(pane.style.transform).toBe('translate(116px, 115px)')
+    // 反例 1:水平不重叠 → 不回退
+    pane.getBoundingClientRect = stub({ left: 600, top: 174, right: 880, bottom: 297 })
+    expect(clamp(pane, 600, 212)).toBe(212)
+    // 反例 2:底边本就在带沿之上 → 不回退
+    pane.getBoundingClientRect = stub({ left: 288, top: 40, right: 568, bottom: 180 })
+    expect(clamp(pane, 116, 40)).toBe(40)
+    // 反例 3:affordance 列不在 DOM(消息列表未挂载)→ 不回退
+    rail.remove()
+    expect(clamp(pane, 116, 212)).toBe(212)
+    pane.remove()
   })
 
   it('点击帮助面板的关闭按钮:关闭帮助面板', () => {
@@ -2607,7 +2650,10 @@ describe('AgentTaskProgressPane — v2 toolsByStep 步骤-工具关联', () => {
     const checklist = container.querySelector('[data-testid="plan-step-tools-p-exact"]')
     expect(checklist).toBeTruthy()
     // 精确 ID 匹配命中(时间窗外的工具仍被关联)
-    expect(checklist?.textContent).toContain('read_file')
+    // 关联身份用行 testid 断言:Checklist 已接 stream-ui,界面不再回显英文工具码名
+    expect(
+      checklist?.querySelector('[data-testid="plan-step-tools-p-exact-row-t-exact"]'),
+    ).toBeTruthy()
   })
 
   // ── 2. 时间窗回退 ──
@@ -2694,8 +2740,8 @@ describe('AgentTaskProgressPane — v2 toolsByStep 步骤-工具关联', () => {
     const { container } = render(<AgentTaskProgressPane />)
     const checklist = container.querySelector('[data-testid="plan-step-tools-p-prio"]')
     expect(checklist).toBeTruthy()
-    // 只包含精确匹配的 t-a
-    expect(checklist?.textContent).toContain('read_file')
+    // 只包含精确匹配的 t-a(行 testid 即关联身份;Checklist 已接 stream-ui,界面不回显英文码名)
+    expect(checklist?.querySelector('[data-testid="plan-step-tools-p-prio-row-t-a"]')).toBeTruthy()
     // 窗口内的 t-b 被排除(精确匹配命中即短路,不做时间窗兜底)
     expect(checklist?.textContent).not.toContain('search')
   })

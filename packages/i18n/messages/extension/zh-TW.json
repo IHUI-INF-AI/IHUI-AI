@@ -141,7 +141,8 @@
     "orUseAccount": "或使用帳號登入",
     "ssoCancelled": "SSO 登入已取消",
     "ssoLoading": "SSO 授權中...",
-    "ssoLogin": "SSO 一鍵登入"
+    "ssoLogin": "SSO 一鍵登入",
+    "ssoFailed": "SSO 登入失敗"
   },
   "popup": {
     "copyFailed": "複製失敗",
@@ -165,6 +166,10 @@
     "emptyHint": "生詞本為空,查詢後點擊儲存"
   },
   "chat": {
+    "retryMessage": "重試",
+    "citationTitle": "參考來源",
+    "retryScheduled": "上游暫不可用，第 {attempt}/{max} 次重試，{seconds} 秒後繼續",
+    "retryScheduledNow": "上游正在切換通道，第 {attempt}/{max} 次重試（立即繼續）",
     "history": "歷史對話",
     "title": "AI 對話",
     "exit": "登出",
@@ -185,14 +190,45 @@
     "toolStatusError": "失敗",
     "toolDetail": "呼叫詳情",
     "terminal": "終端機",
+    "terminalIsolation": "命令在隔離沙箱中執行，預設不開放網路",
     "terminalStatusRunning": "執行中",
     "terminalStatusCompleted": "已完成",
     "terminalStatusFailed": "失敗",
+    "terminalTruncated": "…(已截斷,共 {total} 字符)",
+    "injectionTitle": "本輪上下文:{count} 項",
+    "injectionExpand": "展開其餘 {count} 項",
+    "injectionCollapse": "收起",
+    "injectionKindDeveloper": "已套用工作階段級自訂指令",
+    "injectionKindWorkspace": "已注入工作區記憶 / AGENTS.md",
+    "injectionKindRepoWiki": "已注入 Repo Wiki 專案百科",
+    "injectionKindAutoContext": "{count, plural, other {已自動檢索並注入 {count} 段程式碼上下文}}",
     "planStatusPending": "待執行",
     "planStatusInProgress": "進行中",
     "planStatusCompleted": "已完成",
     "subagentTools": "子代理工具 ×{count}",
-    "usage": "用量"
+    "usage": "用量",
+    "subagentRoleValidator": "校驗者",
+    "subagentRoleReviewer": "評審者",
+    "subagentRoleExplorer": "探索者",
+    "subagentRoleImplementer": "實現者",
+    "subagentRolePlanner": "規劃者",
+    "subagentRoleTester": "測試者",
+    "subagentRoleResearcher": "研究員",
+    "subagentRoleOptimizer": "優化者",
+    "subagentRoleDebugger": "調試者",
+    "subagentRoleRefactorer": "重構者",
+    "modelCategoryChat": "對話推理",
+    "modelCategoryVision": "視覺理解",
+    "modelCategoryEmbedding": "向量嵌入",
+    "modelCategoryRerank": "重排序",
+    "modelCategoryTts": "語音合成",
+    "modelCategoryAsr": "語音辨識",
+    "modelCategoryImage": "圖像生成",
+    "modelCategoryVideo": "影片生成",
+    "modelCategoryGuard": "安全審核",
+    "modelCategoryOcr": "文字辨識",
+    "modelCategoryOther": "其他",
+    "modelHistoryToggle": "歷史模型"
   },
   "settings": {
     "language": "介面語言",
@@ -245,7 +281,21 @@
     "approvalSubmitting": "提交中...",
     "approvalSent": "已提交",
     "approvalFailed": "提交失敗",
-    "approvalUnavailable": "當前通道暫不支援線上審批"
+    "approvalUnavailable": "當前通道暫不支援線上審批",
+    "decisionAllow": "已放行",
+    "decisionAsk": "待確認",
+    "decisionDeny": "已攔截",
+    "levelRead": "唯讀",
+    "levelWrite": "寫入",
+    "levelDangerous": "高危",
+    "levelHigh": "高風險",
+    "levelMedium": "中風險",
+    "levelLow": "低風險",
+    "modeDefault": "預設",
+    "modePlan": "規劃模式",
+    "modeAcceptEdits": "自動接受編輯",
+    "modeBypassPermissions": "全部放行",
+    "modeManual": "手動確認"
   },
   "course": {
     "title": "課程",
@@ -284,6 +334,13 @@
   },
   "content": {
     "translate": "翻譯",
+    "typeLesson": "課程",
+    "typeLive": "直播",
+    "typeArticle": "文章",
+    "typeNews": "資訊",
+    "typeAsk": "問答",
+    "typeResource": "資源",
+    "typeExam": "試題",
     "highlight": "高亮",
     "vocab": "查詞",
     "sendAi": "問 AI",
@@ -393,6 +450,153 @@
       "benefitsTitle": "包含權益",
       "note": "定價與權益以網頁版實際展示為準。",
       "open": "前往網頁版開通"
+    },
+    "topics": {
+      "discussions": "{count} 討論",
+      "followers": "{count} 關注"
+}
+  },
+  "permissionTier": {
+    "label": "權限檔",
+    "mode": {
+      "default": {
+        "title": "預設模式",
+        "desc": "全部操作需人工確認,最安全"
+      },
+      "plan": {
+        "title": "唯讀計畫",
+        "desc": "僅允許讀取與檢索,寫檔案與執行命令一律拒絕"
+      },
+      "accept-edits": {
+        "title": "接受編輯",
+        "desc": "白名單內的操作自動放行,其他需確認"
+      },
+      "bypass-permissions": {
+        "title": "繞過權限",
+        "desc": "完全存取,無任何確認(高風險)"
+      },
+      "unknown": {
+        "title": "未知模式",
+        "desc": "未識別的權限模式,已按預設檔處理"
+      }
     }
+  },
+  "waiting": {
+    "agent": {
+      "first": {
+        "0": "正在準備回覆…",
+        "1": "正在組織回答思路…",
+        "2": "收到，正在思考如何回覆…",
+        "3": "正在為你生成回覆…",
+        "4": "已收到問題，正在處理…"
+      },
+      "middle": {
+        "0": "正在繼續處理…",
+        "1": "正在接著上文思考…",
+        "2": "正在整理後續回覆…",
+        "3": "正在跟進你的問題…",
+        "4": "正在生成接下來的回覆…"
+      },
+      "followup": {
+        "0": "正在理解你的追問…",
+        "1": "結合上文，正在思考…",
+        "2": "正在針對追問組織回覆…",
+        "3": "收到追問，正在處理…",
+        "4": "正在補充回答…"
+      }
+    },
+    "computer": {
+      "first": {
+        "0": "正在調度計算資源…",
+        "1": "正在初始化執行環境…",
+        "2": "正在啟動處理流程…",
+        "3": "正在分配算力處理…",
+        "4": "正在執行初始計算…"
+      },
+      "middle": {
+        "0": "正在執行中…",
+        "1": "計算進行中，請稍候…",
+        "2": "正在處理中間結果…",
+        "3": "執行未中斷，正在推進…",
+        "4": "正在運算，請稍候…"
+      },
+      "followup": {
+        "0": "正在重新計算…",
+        "1": "正在基於新輸入繼續執行…",
+        "2": "正在追加處理…",
+        "3": "正在更新計算結果…",
+        "4": "正在處理追加請求…"
+      }
+    },
+    "context": {
+      "first": {
+        "0": "正在回顧對話上下文…",
+        "1": "正在加載相關上下文…",
+        "2": "正在梳理背景信息…",
+        "3": "正在檢索相關記憶…",
+        "4": "正在準備上下文…"
+      },
+      "middle": {
+        "0": "正在關聯上文繼續…",
+        "1": "正在結合上下文思考…",
+        "2": "正在回看前文…",
+        "3": "上下文已就緒，正在處理…",
+        "4": "正在對照歷史消息…"
+      },
+      "followup": {
+        "0": "正在結合前文理解追問…",
+        "1": "正在回看相關上下文…",
+        "2": "正在關聯歷史追問…",
+        "3": "正在對照上文補充…",
+        "4": "結合上下文，正在處理…"
+      }
+    },
+    "plan": {
+      "first": {
+        "0": "正在制定處理計劃…",
+        "1": "正在拆解你的需求…",
+        "2": "正在規劃執行步驟…",
+        "3": "正在分析任務要點…",
+        "4": "正在擬定回覆提綱…"
+      },
+      "middle": {
+        "0": "正在推進計劃步驟…",
+        "1": "正在執行下一步…",
+        "2": "計劃進行中，請稍候…",
+        "3": "正在按步驟處理…",
+        "4": "正在落實後續步驟…"
+      },
+      "followup": {
+        "0": "正在調整計劃…",
+        "1": "正在根據追問更新步驟…",
+        "2": "正在重新規劃…",
+        "3": "正在補充計劃細節…",
+        "4": "正在跟進新的要求…"
+      }
+    },
+    "detail": {
+      "first": {
+        "0": "正在準備詳細說明…",
+        "1": "正在組織細節內容…",
+        "2": "正在梳理要點…",
+        "3": "正在生成詳細回覆…",
+        "4": "正在完善回答細節…"
+      },
+      "middle": {
+        "0": "正在補充細節…",
+        "1": "正在展開說明…",
+        "2": "正在完善後續內容…",
+        "3": "詳情整理中，請稍候…",
+        "4": "正在細化回覆…"
+      },
+      "followup": {
+        "0": "正在補充你問的細節…",
+        "1": "正在展開追問的要點…",
+        "2": "正在細化相關說明…",
+        "3": "正在準備補充內容…",
+        "4": "正在完善追問的答覆…"
+      }
+    },
+    "vividTail": "，馬上就好"
   }
 }

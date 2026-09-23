@@ -14,7 +14,7 @@
         → {data:{task_id}} → GET /v1/videos/*/{task_id} 轮询至 succeed/failed
 - chat:不支持(可灵无对话 API),显式报错而非 503"待接入"
 环境变量:KLING_API_BASE(默认 https://api.klingai.com)、
-KLING_IMAGE_MODEL(默认 kolors)、KLING_VIDEO_MODEL(默认 kling-v1)
+KLING_IMAGE_MODEL(默认 kling-image-o3)、KLING_VIDEO_MODEL(默认 kling-v3)
 """
 
 from __future__ import annotations
@@ -136,8 +136,8 @@ class KlingProvider(BaseProvider):
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Kolors 文生图。size 映射 aspect_ratio;支持 negative_prompt。"""
-        used_model = (model if not model.startswith("kling-") else "") or os.environ.get(
-            "KLING_IMAGE_MODEL", "kolors"
+        used_model = (model if not model.startswith("kling-v") else "") or os.environ.get(
+            "KLING_IMAGE_MODEL", "kling-image-o3"
         )
         aspect = kwargs.get("aspect_ratio") or self._size_to_aspect(size)
         body: dict[str, Any] = {
@@ -194,7 +194,7 @@ class KlingProvider(BaseProvider):
         **kwargs: Any,
     ) -> dict[str, Any]:
         """可灵视频生成。传 kwargs.image(URL 或 base64)走 image2video。"""
-        used_model = model or os.environ.get("KLING_VIDEO_MODEL", "kling-v1")
+        used_model = model or os.environ.get("KLING_VIDEO_MODEL", "kling-v3")
         mode = kwargs.get("mode") or "std"
         if mode not in ("std", "pro"):
             mode = "std"
