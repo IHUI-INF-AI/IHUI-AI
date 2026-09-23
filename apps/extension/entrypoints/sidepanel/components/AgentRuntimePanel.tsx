@@ -2,13 +2,9 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  executeAgentRuntimeStream,
-  getWorkspacePermissionDefault,
-  sendToolApprovalResponse,
-} from '@ihui/api-client'
-import { parsePlanText, permissionTierWordKeys, type RenderPlanStep } from '@ihui/shared'
+import { useCallback, useMemo, useRef, useState } from 'react'
+import { executeAgentRuntimeStream, sendToolApprovalResponse } from '@ihui/api-client'
+import { parsePlanText, type RenderPlanStep } from '@ihui/shared'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
 import { PlanStepsView, enumLabel, makeToolTranslate, toolDisplayName } from './MessageContent'
@@ -54,27 +50,6 @@ interface AgentRuntimePanelProps {
   agentId: string
 }
 
-/**
- * D111:工作区权限档交代行(档名 + 后果)。
- * 独立成组件以便无 effect 环境下直接测试(renderToStaticMarkup 不跑 useEffect)。
- * tier=null(尚未取到/取数失败)时整行不渲染 —— 不假装知道档位。
- */
-export function WorkspacePermissionTierRow({ tier }: { tier: string | null }) {
-  const { t } = useI18n()
-  if (tier === null) return null
-  const tierText = permissionTierWordKeys(tier)
-  return (
-    <div
-      className="px-2.5 py-1 text-xs text-muted-foreground"
-      data-testid="workspace-permission-tier"
-    >
-      <span className="font-medium">{t('permissionTier.label')}: </span>
-      <span>{t(tierText.title)}</span>
-      <span> · {t(tierText.desc)}</span>
-    </div>
-  )
-}
-
 export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
   const { t } = useI18n()
   const getStatusText = (status: AgentStatus) => {
@@ -97,25 +72,7 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
   const [approvalState, setApprovalState] = useState<'idle' | 'submitting' | 'sent' | 'failed'>(
     'idle',
   )
-  // D111:工作区权限档(null = 尚未取到/取数失败 → 整行隐藏,不假装知道档位)。
-  const [workspaceTier, setWorkspaceTier] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
-
-  // D111:首屏交代当前权限档(档名 + 后果)。此前 extension 只有审批结果展示,
-  // 用户看不到自己处于哪一档、也不知道那一档会导致什么。
-  useEffect(() => {
-    let cancelled = false
-    getWorkspacePermissionDefault()
-      .then((res) => {
-        if (!cancelled && res.success && res.data) setWorkspaceTier(res.data.mode)
-      })
-      .catch(() => {
-        /* 取数失败:保持 null,该行隐藏 */
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   // W6:链路 B 的 onPlan 只给纯文本,用共享纯函数 parsePlanText 降级解析为结构化步骤,
   // 与 ChatPage 的 plan 渲染共用同一套数据模型(parsePlanText 位于 @ihui/shared)。
@@ -244,8 +201,6 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
           {t('agent.clear')}
         </button>
       </div>
-
-      <WorkspacePermissionTierRow tier={workspaceTier} />
 
       <div className="flex flex-col gap-2 min-h-[100px]">
         {plan && (
