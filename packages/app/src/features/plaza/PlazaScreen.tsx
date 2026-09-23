@@ -396,15 +396,15 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
     } as ViewStyle,
     chipActive: {
-      backgroundColor: tk.brand.DEFAULT,
-      borderColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brandAccent.DEFAULT,
+      borderColor: tk.brandAccent.DEFAULT,
     } as ViewStyle,
     chipText: {
       fontSize: 14,
       color: tk.text.secondary,
     } as TextStyle,
     chipTextActive: {
-      color: tk.surface.light,
+      color: tk.brand.foreground,
       fontWeight: '600',
     } as TextStyle,
     listContent: {
@@ -474,7 +474,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 24,
       paddingVertical: 10,
       borderRadius: 12,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brandAccent.DEFAULT,
     } as ViewStyle,
     emptyBtnText: {
       fontSize: 16,
@@ -599,7 +599,7 @@ function createStyles(tk: AppThemeTokens) {
       width: 50,
       height: 50,
       borderRadius: 25,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brandAccent.DEFAULT,
       color: tk.brand.foreground,
       textAlign: 'center',
       lineHeight: 50,
