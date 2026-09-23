@@ -2503,13 +2503,13 @@ const shellStyles = {
     paddingHorizontal: rpx(48),
     paddingVertical: rpx(20),
     borderRadius: 6,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.ctaFill,
     minWidth: '70%',
     alignItems: 'center',
   } as const,
   shareBtnText: {
     fontSize: 14,
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
     fontWeight: '500',
   } as const,
   shareBtnSecondary: {
