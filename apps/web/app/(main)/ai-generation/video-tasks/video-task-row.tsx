@@ -3,8 +3,9 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
-import { getVideoTaskStatusLabel } from './status-badge'
+import { getVideoTaskStatusLabelKey } from './status-badge'
 import { formatDate } from '@/lib/date-utils'
 
 export interface VideoTask {
@@ -32,24 +33,27 @@ function extractVideoUrl(result: string | null): string | null {
 }
 
 export function VideoTaskRowExpansion({ task, warning }: { task: VideoTask; warning?: string }) {
+  const t = useTranslations('videoTasksPage')
+  const tStatus = useTranslations('aiGeneration')
   const videoUrl = task.status === 'success' ? extractVideoUrl(task.result) : null
+  const statusLabelKey = getVideoTaskStatusLabelKey(task.status)
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2 text-xs min-[640px]:grid-cols-4">
         <div>
-          <div className="text-muted-foreground">火山 Task ID</div>
+          <div className="text-muted-foreground">{t('volcanoTaskId')}</div>
           <div className="font-mono">{task.taskId}</div>
         </div>
         <div>
-          <div className="text-muted-foreground">更新时间</div>
+          <div className="text-muted-foreground">{t('updatedAt')}</div>
           <div>{formatDate(task.updatedAt)}</div>
         </div>
         <div>
-          <div className="text-muted-foreground">状态</div>
-          <div>{getVideoTaskStatusLabel(task.status)}</div>
+          <div className="text-muted-foreground">{t('status')}</div>
+          <div>{statusLabelKey ? tStatus(statusLabelKey) : task.status}</div>
         </div>
         <div>
-          <div className="text-muted-foreground">消息</div>
+          <div className="text-muted-foreground">{t('message')}</div>
           <div className="min-w-0 truncate">{task.message || '-'}</div>
         </div>
       </div>
@@ -68,7 +72,7 @@ export function VideoTaskRowExpansion({ task, warning }: { task: VideoTask; warn
         </video>
       ) : task.status === 'success' ? (
         <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
-          任务标记为完成但未提取到视频 URL
+          {t('noVideoUrlExtracted')}
         </div>
       ) : null}
     </div>
@@ -76,10 +80,11 @@ export function VideoTaskRowExpansion({ task, warning }: { task: VideoTask; warn
 }
 
 export function VideoTaskRowLoading() {
+  const t = useTranslations('videoTasksPage')
   return (
     <div className="flex items-center gap-2 text-sm text-muted-foreground">
       <Loader2 className="h-4 w-4 animate-spin" />
-      同步状态中...
+      {t('syncingStatus')}
     </div>
   )
 }
