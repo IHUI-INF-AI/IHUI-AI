@@ -24096,8 +24096,6 @@
     "metaDescription": "OpenAI 호환 API를 온라인으로 테스트: 모델 선택, 멀티턴 메시지 구성, 파라미터 조정, 스트리밍 SSE 렌더링, 코드 생성(cURL/Python/Node.js) 및 기록.",
     "pageDesc": "API Key로 /v1/chat/completions를 직접 호출합니다. 스트리밍 렌더링, 파라미터 조정, 코드 생성을 지원하며 /chat로 이동할 필요가 없습니다."
   },
-  "upload": {},
-  "webviewFrame": {},
   "waiting": {
     "agent": {
       "first": {
