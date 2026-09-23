@@ -4841,3 +4841,9 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - **本轮 4 处自身量尺错误（都被自己抓到并纠正，留档防后来者照抄错）**：① `gh api /repos/...` 前导斜杠被 MSYS 改写成 Windows 路径 ⇒ 我一度断言"14 条告警无落点"；② `new RegExp(<正则字面量>)` 把 `/` 分隔符当必需字符 ⇒ 恒 0 命中，差点误判"字面量已消失"；③ `for-each-ref` 的 `%(*objectname)` 被我写成 `(*%(*objectname))` ⇒ 4450 枚 tag 全报"对象不可得"；④ 取 tag 名用 `awk -F/ '{print $3}'` 只拿到命名空间目录 ⇒ 远端 tag 数被读成 69（真值 4174）。共同点：**尺子坏掉时输出看着像结论**，所以每条否定式断言都要换一种取法复测。
 - [x] ✅(2026-09-24)lost-commit tag 双向对齐(守门 30a):`--fetch` 拉回 2 个仅远端 tag,`--auto-push` 推出 445 个仅本地 tag,本地 4478 ↔ 远端逐把对账
 - [x] ✅(2026-09-24)lost-commit tag 双向对齐(守门 30a):`--fetch` 拉回 2 个仅远端 tag,`--auto-push` 推出 445 个仅本地 tag,本地 4478 ↔ 远端逐把对账- [x] ✅(2026-09-23) **⑧AGENTS.md §5e 被并发旧基线回写后重新落回**:上面那条"发信统一出口 + 通道与 From 四条硬事实"曾被某次并发整文件回写冲掉(HEAD 与工作区双双回到 2026-09-18 旧文),而同节的守门 81 登记行幸存 ⇒ 判定为局部旧基线回写而非有意撤销(本仓同日已记 3 次同型)。已定点重写并核验:`改统一出口` HEAD/worktree 均命中、`品牌邮件通道对账` 与 `notify-deploy-failure` 未被牵连。**这条规则是本轮事故的根因本身**(旧文要求 From 一律用 aizhs.top 配 QQ 账号中继 ⇒ 必 550 ⇒ 恒回落纯文本),被回写就等于把事故源放回文档。
+
+### 第二十八批(2026-09-24):secret-scanning 告警全部收口 —— 4 条按 owner 决定签 `wont_fix`，凭据一个字节未动
+
+- [x] ✅(2026-09-24) 承第二十七批留下的 4 条(`tencent_cloud_secret_id` ×2 / `tencent_wechat_pay_token` ×2)。上一轮我写的是"需人工核值并考虑轮换"，owner 明确回**"我配好了就不想换了"** ⇒ 既不该谎签 `false_positive`/`not_a_secret`(那是对值性质的虚假陈述)，也不该让告警永久挂着当噪音。GitHub 恰有对应处置 **`resolution=wont_fix`**(已确认、选择不整改)，四条均以此关闭；`state=open` 现 **0**。
+- **未做的事(刻意的)**:没有改任何凭据、`.env`、部署配置或远端 secret;没有把值打印到任何输出(全程只报类型/落点/长度形态)。要复原:`gh api repos/IHUI-INF-AI/IHUI-AI/secret-scanning/alerts/{2,7,9,11} --method PATCH --field state=open` 即重新打开。
+- 顺带钉住一次参数纠错:该 API 合法值只有 `state∈{open,resolved}` + `resolution∈{false_positive,wont_fix,revoked,used_in_tests}`，**不存在 `closed` / `not_a_secret`**(我第一次按直觉写了 `state=closed&resolution=not_a_secret`，被 422 挡回)。
