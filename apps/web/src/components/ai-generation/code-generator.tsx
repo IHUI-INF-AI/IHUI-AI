@@ -12,6 +12,7 @@ import SyntaxHighlighter from '@/components/media/SyntaxHighlighter'
 // P2 中期增强:按主题切换语法高亮样式(dark → oneDark,其他 → oneLight)
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { IconButton } from '@ihui/ui-react'
+import { rnRadius } from '@ihui/design-tokens'
 
 import { GenerationFrame, PromptInput, OptionSelect, useGeneration } from './generation-base'
 
@@ -45,7 +46,7 @@ function CodeBlockImpl({
         language={language}
         style={syntaxStyle}
         PreTag="div"
-        customStyle={{ margin: 0, borderRadius: '0.375rem', fontSize: '0.8rem' }}
+        customStyle={{ margin: 0, borderRadius: rnRadius.md, fontSize: '0.8rem' }}
       >
         {code}
       </SyntaxHighlighter>

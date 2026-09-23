@@ -5,7 +5,7 @@
 import { aizhsUrl } from '@/constants/icon-urls'
 import { useTt, type TtFn } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
-import { cn } from '@ihui/design-tokens'
+import { cn, rnRadius } from '@ihui/design-tokens'
 import type { CSSProperties } from 'react'
 import LineIcon from '@/components/LineIcon'
 import { ICONS } from '@/components/LineIcon/icons'
@@ -192,7 +192,10 @@ export default function DrawerComponent(props: DrawerComponentProps) {
           style={{
             width: rpx(500),
             background: 'var(--color-card)',
-            borderRadius: '0 30rpx 30rpx 0',
+            borderTopLeftRadius: 0,
+            borderTopRightRadius: rnRadius['2xl'],
+            borderBottomRightRadius: rnRadius['2xl'],
+            borderBottomLeftRadius: 0,
             paddingTop: `${statusBarHeight}px`,
             overflow: 'hidden',
           }}
@@ -380,7 +383,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
               <View className="flex items-center">
                 <Image
                   src={userinfo.avatar || daixaodimingPng}
-                  style={{ width: rpx(60), height: rpx(60), borderRadius: rpx(8) }}
+                  style={{ width: rpx(60), height: rpx(60), borderRadius: rnRadius.sm }}
                   mode="aspectFill"
                 />
                 <Text
