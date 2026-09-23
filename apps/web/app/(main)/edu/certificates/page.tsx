@@ -7,7 +7,7 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Award, Loader2, Download } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -38,6 +38,8 @@ async function api<T>(url: string): Promise<T> {
 export default function EduCertificatesPage() {
   const router = useRouter()
   const locale = useLocale()
+  const t = useTranslations('eduCertificates')
+  const tc = useTranslations('common')
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'certificates'],
     queryFn: () => api<CertsData>('/api/edu/certificates'),
@@ -61,22 +63,22 @@ export default function EduCertificatesPage() {
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Award className="h-7 w-7 text-primary" />
-          我的证书
+          <span>{t('title')}</span>
         </h1>
-        <p className="text-xs text-muted-foreground">查看已获得的全部证书</p>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载中...
+          <span>{tc('loading')}</span>
         </div>
       ) : error ? (
         <Alert variant="danger" description={(error as Error).message} />
       ) : certs.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <Award className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">暂无证书</p>
+          <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -99,18 +101,20 @@ export default function EduCertificatesPage() {
                         : 'bg-muted text-muted-foreground',
                     )}
                   >
-                    {cert.status === 1 ? '有效' : '已撤销'}
+                    {cert.status === 1 ? t('statusValid') : t('statusRevoked')}
                   </span>
                 </div>
                 <div className="space-y-1">
                   <p className="line-clamp-1 font-medium">{cert.name}</p>
-                  <p className="text-xs text-muted-foreground">编号：{cert.certificateNo}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {t('certificateNo', { no: cert.certificateNo })}
+                  </p>
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>{fmt(cert.issuedAt)}</span>
                   <span className="flex items-center gap-1">
                     <Download className="h-3 w-3" />
-                    查看
+                    <span>{t('view')}</span>
                   </span>
                 </div>
               </CardContent>

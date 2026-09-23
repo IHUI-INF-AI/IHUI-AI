@@ -9,7 +9,8 @@
  * 1. getIpReputation(ip) — 综合评分 (0-100,越高越可疑),来源含本地黑名单 / 威胁情报接口 /
  *    ASN 信息 / 历史异常事件计数。结果 Redis 缓存 1 小时。
  * 2. recordBadEvent(ip, reason) — 记录异常事件,30 天 TTL。
- * 3. blockIp(ip, durationSec) / isIpBlocked(ip) / unblockIp(ip) — 临时封禁管理。
+ * 3. blockIp(ip, durationSec, reason) / getBlockInfo(ip) / unblockIp(ip)
+ *    — 临时封禁管理。reason 决定能否被 CAPTCHA 自助解除(unblockIfAuto)。
  *
  * 降级策略:Redis 不可用或未注入时,全部回退到进程内内存 Map(单实例有效)。
  * 配置(安全相关 env,缺失即空,降级运行):
@@ -55,6 +56,16 @@ const REPUTATION_CACHE_TTL = 3600
 const BAD_EVENT_TTL = 30 * 24 * 3600
 /** 异常事件阈值:超过该值直接拉高信誉分。 */
 const BAD_EVENT_THRESHOLD = 5
+
+/**
+ * 可被人机验证解除的封禁来源。管理员手工封禁(block-ip)与未知来源一律不在其中。
+ * 值需与调用 blockIp 时传入的 reason 一致。
+ */
+const AUTO_LIFTABLE_REASONS: ReadonlySet<string> = new Set([
+  'rate-limit-block',
+  'scanner-detected',
+  'high-threat-score',
+])
 
 // 内存降级存储 LRU 上限(防止 Redis 不可用时攻击者构造大量不同 IP 导致 OOM)
 const MEM_CACHE_MAX = 10000
@@ -355,21 +366,78 @@ export class IpReputationService {
 
   /* ----------------------------- 临时封禁 ----------------------------- */
 
-  async blockIp(ip: string, durationSec: number): Promise<void> {
+  /**
+   * 写入封禁。`reason` 决定该封禁能否被 CAPTCHA 自助解除(见 unblockIfAuto):
+   * 不传或传未知值一律按"不可自助解除"处理 —— 宁可让运维多解一次,
+   * 也不能让人机验证绕过管理员手工封禁。
+   */
+  async blockIp(ip: string, durationSec: number, reason = 'unspecified'): Promise<void> {
     if (!ip) return
     const dur = Math.max(1, Math.floor(durationSec))
     if (!this.redis) {
-      setWithLRU(IpReputationService.memBlocked, ip, Date.now() + dur * 1000, MEM_BLOCKED_MAX)
+      setWithLRU(
+        IpReputationService.memBlocked,
+        ip,
+        { until: Date.now() + dur * 1000, reason },
+        MEM_BLOCKED_MAX,
+      )
       return
     }
     try {
-      await this.redis.set(K_BLOCKED(ip), String(Date.now()), 'EX', dur)
+      await this.redis.set(K_BLOCKED(ip), `${reason}|${Date.now()}`, 'EX', dur)
       // 封禁同时记录一次异常事件
       await this.recordBadEvent(ip, 'blocked')
     } catch (e) {
-      setWithLRU(IpReputationService.memBlocked, ip, Date.now() + dur * 1000, MEM_BLOCKED_MAX)
+      setWithLRU(
+        IpReputationService.memBlocked,
+        ip,
+        { until: Date.now() + dur * 1000, reason },
+        MEM_BLOCKED_MAX,
+      )
       logger.warn('ip-reputation: block write failed, used mem', { err: e })
     }
+  }
+
+  /** 封禁剩余信息;未被封禁返回 null。 */
+  async getBlockInfo(ip: string): Promise<{ reason: string; remainingSec: number } | null> {
+    if (!ip) return null
+    if (!this.redis) {
+      const cur = IpReputationService.memBlocked.get(ip)
+      if (!cur) return null
+      if (cur.until < Date.now()) {
+        IpReputationService.memBlocked.delete(ip)
+        return null
+      }
+      return { reason: cur.reason, remainingSec: Math.ceil((cur.until - Date.now()) / 1000) }
+    }
+    try {
+      const [raw, ttl] = await Promise.all([
+        this.redis.get(K_BLOCKED(ip)),
+        this.redis.ttl(K_BLOCKED(ip)),
+      ])
+      if (raw === null) return null
+      // 旧格式值是裸时间戳(无 reason),按不可自助解除处理
+      const sep = raw.indexOf('|')
+      const reason = sep > 0 ? raw.slice(0, sep) : 'legacy'
+      return { reason, remainingSec: ttl > 0 ? ttl : 0 }
+    } catch (e) {
+      const cur = IpReputationService.memBlocked.get(ip)
+      logger.warn('ip-reputation: block read failed, used mem', { err: e })
+      if (!cur || cur.until < Date.now()) return null
+      return { reason: cur.reason, remainingSec: Math.ceil((cur.until - Date.now()) / 1000) }
+    }
+  }
+
+  /**
+   * 人机验证通过后解除**自动**封禁。管理员手工封禁与未标注来源的封禁不放行,
+   * 否则 CAPTCHA 会变成绕过管理员处置的后门。
+   */
+  async unblockIfAuto(ip: string): Promise<boolean> {
+    const info = await this.getBlockInfo(ip)
+    if (!info || !AUTO_LIFTABLE_REASONS.has(info.reason)) return false
+    await this.unblockIp(ip)
+    logger.info('ip-reputation: auto block lifted after captcha', { ip, reason: info.reason })
+    return true
   }
 
   async unblockIp(ip: string): Promise<void> {
@@ -383,27 +451,6 @@ export class IpReputationService {
     } catch (e) {
       IpReputationService.memBlocked.delete(ip)
       logger.warn('ip-reputation: unblock failed, used mem', { err: e })
-    }
-  }
-
-  async isIpBlocked(ip: string): Promise<boolean> {
-    if (!ip) return false
-    if (!this.redis) {
-      const until = IpReputationService.memBlocked.get(ip)
-      if (!until) return false
-      if (until < Date.now()) {
-        IpReputationService.memBlocked.delete(ip)
-        return false
-      }
-      return true
-    }
-    try {
-      const r = await this.redis.exists(K_BLOCKED(ip))
-      return r === 1
-    } catch (e) {
-      const until = IpReputationService.memBlocked.get(ip)
-      logger.warn('ip-reputation: block read failed, used mem', { err: e })
-      return !!until && until > Date.now()
     }
   }
 
@@ -425,7 +472,7 @@ export class IpReputationService {
   // (Set 无 LRU 语义,攻击者构造大量不同 IP 会导致无限增长)
   private static readonly memBlacklist = new Map<string, true>()
   private static readonly memBadEvents = new Map<string, { count: number; expiresAt: number }>()
-  private static readonly memBlocked = new Map<string, number>()
+  private static readonly memBlocked = new Map<string, { until: number; reason: string }>()
 
   /**
    * 定期清理过期内存降级条目(long-running server 有效)。
@@ -443,7 +490,7 @@ export class IpReputationService {
         if (v.expiresAt < now) IpReputationService.memBadEvents.delete(k)
       }
       for (const [k, v] of IpReputationService.memBlocked) {
-        if (v < now) IpReputationService.memBlocked.delete(k)
+        if (v.until < now) IpReputationService.memBlocked.delete(k)
       }
     }, MEM_CLEANUP_INTERVAL_MS)
     timer.unref?.()
