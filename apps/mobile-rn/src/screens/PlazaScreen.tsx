@@ -461,7 +461,7 @@ export function PlazaScreen() {
         onSubmitSearch={onSubmitSearch}
         onPressItem={showDetail}
         onPublish={onPublish}
-        colorScheme="light"
+        colorScheme={resolvedTheme}
       />
       <FloatBox
         visible={floatBox.visible}
