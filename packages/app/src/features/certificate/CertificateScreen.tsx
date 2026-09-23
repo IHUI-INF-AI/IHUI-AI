@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CertificateItem, CertificateScreenProps, CertificateStatus } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 证书状态/列表项/Props 类型 re-export(单一来源 @ihui/types) */
 export type { CertificateItem, CertificateScreenProps, CertificateStatus }
 
@@ -134,7 +136,7 @@ function createStyles(tk: AppThemeTokens) {
     listBody: { padding: 10 },
     card: {
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       marginBottom: 8,
@@ -151,7 +153,7 @@ function createStyles(tk: AppThemeTokens) {
     statusBadge: {
       paddingHorizontal: 8,
       paddingVertical: 4,
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       marginLeft: 8,
       overflow: 'hidden',
     },

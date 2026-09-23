@@ -6,7 +6,7 @@ import { useTt, t } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
-import { cn } from '@ihui/design-tokens'
+import { cn, rnRadius } from '@ihui/design-tokens'
 import { rpx, px } from '@/utils/rpx'
 
 export interface NavBarNotification {
@@ -219,7 +219,7 @@ export default function NavBar({
                   height: rpx(48),
                   padding: '0 16rpx',
                   border: '3rpx solid var(--color-primary)',
-                  borderRadius: rpx(8),
+                  borderRadius: rnRadius.sm,
                   background: 'var(--color-card)',
                 }}
                 onClick={onJoinClick}

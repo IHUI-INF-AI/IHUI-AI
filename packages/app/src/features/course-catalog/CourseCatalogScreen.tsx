@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-nati
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CourseCatalogItem, CourseCatalogScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 课程目录/Props 类型 re-export(单一来源 @ihui/types) */
 export type { CourseCatalogItem, CourseCatalogScreenProps }
 
@@ -95,7 +97,7 @@ function createStyles(tk: AppThemeTokens) {
     listBody: { padding: 10 },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,

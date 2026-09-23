@@ -6,6 +6,8 @@ import { useCallback } from 'react'
 import type { CSSProperties } from 'react'
 import { getTokens, type AppThemeMode } from '../theme/tokens'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /**
  * TabBar 底部导航(跨端共享层)。
  *
@@ -201,7 +203,7 @@ function TabBarIcon({ tab, isActive, activeColor, inactiveColor }: TabBarIconPro
             width: TAB_BAR_ICON_SIZE,
             height: TAB_BAR_ICON_SIZE,
             backgroundColor: target,
-            borderRadius: 4,
+            borderRadius: rnRadius.sm,
           }}
         />
       )
@@ -227,7 +229,7 @@ function TabBarIcon({ tab, isActive, activeColor, inactiveColor }: TabBarIconPro
           width: TAB_BAR_ICON_SIZE,
           height: TAB_BAR_ICON_SIZE,
           backgroundColor: isActive ? activeColor : inactiveColor,
-          borderRadius: 4,
+          borderRadius: rnRadius.sm,
         }}
       />
     )

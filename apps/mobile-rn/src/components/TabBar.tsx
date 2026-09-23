@@ -18,6 +18,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { tokens } from '../theme/active-tokens'
 import { TAB_BAR_FLOAT_GAP_BOTTOM_MIN, tabBarStyleSheet } from './TabBar.styles'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 // ── tabbar 图片资源(对齐 history static/tabbar/ 11 图标,语义与 customTabBar/index.vue 一致) ──
 // 原 5 Tab:AI应用商店(tabbar_1)/广场(tabbar_2)/智汇AI(tabbar_3)/动态(tabbar_4)/我的(tabbar_5)
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -151,7 +153,7 @@ const localStyles = StyleSheet.create({
     left: 12,
     right: 12,
     height: 3,
-    borderRadius: 2,
+    borderRadius: rnRadius.xs,
     backgroundColor: tokens.brandAccent.deep,
   },
   /** 选中态文字覆盖:品牌强调色 + 粗体,替代原白色 brand.DEFAULT */

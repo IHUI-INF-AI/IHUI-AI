@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { PlanStatus, StudyPlanItem, StudyPlanScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 学习计划/Props 类型 re-export(单一来源 @ihui/types) */
 export type { PlanStatus, StudyPlanItem, StudyPlanScreenProps }
 
@@ -147,7 +149,7 @@ function createStyles(tk: AppThemeTokens) {
     listBody: { padding: 14 },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -170,7 +172,7 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
       paddingHorizontal: 6,
       paddingVertical: 4,
-      borderRadius: 4,
+      borderRadius: rnRadius.sm,
       marginLeft: 8,
       overflow: 'hidden',
     },
@@ -182,14 +184,14 @@ function createStyles(tk: AppThemeTokens) {
     progressBar: {
       height: 6,
       backgroundColor: tk.surface.muted,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       marginTop: 10,
       overflow: 'hidden',
     },
     progressFill: {
       height: 6,
       backgroundColor: tk.success.DEFAULT,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
     },
     cardFoot: {
       flexDirection: 'row',

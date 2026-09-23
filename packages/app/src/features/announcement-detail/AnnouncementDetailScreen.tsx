@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-nati
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AnnouncementDetailItem, AnnouncementDetailScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 公告详情/Props 类型 re-export(单一来源 @ihui/types) */
 export type { AnnouncementDetailItem, AnnouncementDetailScreenProps }
 
@@ -92,7 +94,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 16,
       height: 44,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

@@ -19,6 +19,8 @@ import type { MemoryEntry, MemoryEntryType, MemoryScope } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** MemoryScreen props(注入式:wrapper 保留 fetchApi/Alert/导航/登录态) */
 export interface MemoryScreenProps {
   t: TFunction
@@ -434,7 +436,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     },
     retryBtn: {
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
       paddingHorizontal: 16,
       paddingVertical: 8,
@@ -451,7 +453,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     searchInput: {
       height: 36, // h-9
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       paddingHorizontal: 12,
@@ -471,7 +473,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 8,
     },
     chip: {
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       paddingHorizontal: 12,
       paddingVertical: 6,
     },
@@ -492,7 +494,7 @@ function createStyles(tk: AppThemeTokens) {
     /* 记忆条目卡片 */
     card: {
       marginBottom: 12,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
@@ -510,7 +512,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     miniTag: {
-      borderRadius: 2,
+      borderRadius: rnRadius.xs,
       backgroundColor: tk.surface.muted,
       paddingHorizontal: 6,
       paddingVertical: 2,
@@ -533,7 +535,7 @@ function createStyles(tk: AppThemeTokens) {
     deleteBtn: {
       marginTop: 8,
       alignSelf: 'flex-start',
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.danger.light,
       paddingHorizontal: 8,
@@ -564,8 +566,8 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.overlay.modal,
     },
     sheet: {
-      borderTopLeftRadius: 16,
-      borderTopRightRadius: 16,
+      borderTopLeftRadius: rnRadius['2xl'],
+      borderTopRightRadius: rnRadius['2xl'],
       backgroundColor: tk.surface.card,
       padding: 16,
     },
@@ -586,7 +588,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     textInput: {
       minHeight: 96,
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       padding: 12,
@@ -597,7 +599,7 @@ function createStyles(tk: AppThemeTokens) {
     categoryInput: {
       marginTop: 8,
       height: 36,
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       paddingHorizontal: 12,
@@ -612,7 +614,7 @@ function createStyles(tk: AppThemeTokens) {
     saveBtn: {
       marginTop: 16,
       alignItems: 'center',
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.DEFAULT,
       paddingVertical: 12,
     },

@@ -23,6 +23,8 @@ import {
 } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 购买图标形态(对齐 Uniapp pay_btn itemData.type) */
 export type PayButtonType = 'freeuse' | 'freetime' | 'hasbuy' | 'monthly'
 
@@ -108,14 +110,14 @@ export function PayButton({
 const styles = StyleSheet.create({
   button: {
     height: 50,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     backgroundColor: tokens.brand.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
   } as ViewStyle,
   typeButton: {
     height: 50,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.border.light,

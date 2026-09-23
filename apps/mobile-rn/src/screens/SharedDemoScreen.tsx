@@ -27,6 +27,8 @@ import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { rpx } from '../utils/rpx'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 type Tab = 'about' | 'profile' | 'settings' | 'cards'
 
 /**
@@ -256,7 +258,7 @@ const styles = StyleSheet.create({
   tab: {
     paddingVertical: rpx(16),
     paddingHorizontal: rpx(24),
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.card,
   },
   tabActive: { backgroundColor: tokens.brand.DEFAULT },

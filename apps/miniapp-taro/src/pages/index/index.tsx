@@ -57,6 +57,8 @@ import type { ModelConfig } from '@/components/ModelConfigDialog'
 import AgentListPanel, { type AgentInfo } from '@/components/AgentListPanel'
 import SkillsPopup, { type AgentItem } from '@/components/SkillsPopup'
 import { FloatBox, ModelTypeButtonGroup } from '@/components'
+
+import { rnRadius } from '@ihui/design-tokens'
 const closeInputPng = aizhsUrl('remote-images/close_input.png')
 import { rpx } from '@/utils/rpx'
 import * as api from '@/api'
@@ -440,7 +442,7 @@ function MaterialCards({
                     height: rpx(160),
                     padding: rpx(12),
                     background: 'var(--color-muted)',
-                    borderRadius: rpx(16),
+                    borderRadius: rnRadius.lg,
                   }}
                 >
                   <Text
@@ -461,7 +463,7 @@ function MaterialCards({
               {card.type === 2 && card.imageList && card.imageList[0] && (
                 <View
                   className="material-card-body material-card-img"
-                  style={{ width: rpx(200), borderRadius: rpx(16), overflow: 'hidden' }}
+                  style={{ width: rpx(200), borderRadius: rnRadius.lg, overflow: 'hidden' }}
                 >
                   <Image
                     src={card.imageList[0]}
@@ -488,7 +490,7 @@ function MaterialCards({
               {card.type === 3 && (
                 <View
                   className="material-card-body material-card-video"
-                  style={{ width: rpx(200), borderRadius: rpx(16), overflow: 'hidden' }}
+                  style={{ width: rpx(200), borderRadius: rnRadius.lg, overflow: 'hidden' }}
                 >
                   <Image
                     src={card.posterUrl || card.videoUrl || ''}
@@ -520,7 +522,7 @@ function MaterialCards({
                     height: rpx(140),
                     padding: rpx(12),
                     background: 'var(--color-muted)',
-                    borderRadius: rpx(16),
+                    borderRadius: rnRadius.lg,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -596,7 +598,7 @@ function VoiceAnimationOverlay({
               width: rpx(8),
               height: rpx(60),
               background: 'var(--color-link)',
-              borderRadius: rpx(4),
+              borderRadius: rnRadius.xs,
               animationDelay: `${i * 0.1}s`,
               animationDuration: `${0.5 + i * 0.1}s`,
             }}
@@ -1307,7 +1309,7 @@ export default function Index() {
                   padding: `${rpx(16)} ${rpx(20)}`,
                   marginBottom: rpx(16),
                   background: 'linear-gradient(90deg, var(--color-link), var(--color-primary))',
-                  borderRadius: rpx(16),
+                  borderRadius: rnRadius.lg,
                 }}
               >
                 <View style={{ flex: 1 }}>
@@ -1373,7 +1375,7 @@ export default function Index() {
                     style={{
                       maxWidth: '80%',
                       padding: `${rpx(16)} ${rpx(20)}`,
-                      borderRadius: rpx(16),
+                      borderRadius: rnRadius.lg,
                       background: msg.role === 'user' ? 'var(--color-link)' : 'var(--color-card)',
                       color:
                         msg.role === 'user'
@@ -1402,7 +1404,7 @@ export default function Index() {
                     style={{
                       maxWidth: '80%',
                       padding: `${rpx(16)} ${rpx(20)}`,
-                      borderRadius: rpx(16),
+                      borderRadius: rnRadius.lg,
                       background: 'var(--color-card)',
                       color: 'var(--color-foreground)',
                       fontSize: rpx(28),
@@ -1433,7 +1435,7 @@ export default function Index() {
                   <View
                     style={{
                       padding: `${rpx(16)} ${rpx(20)}`,
-                      borderRadius: rpx(16),
+                      borderRadius: rnRadius.lg,
                       background: 'var(--color-card)',
                     }}
                   >
@@ -1585,7 +1587,7 @@ export default function Index() {
                                   style={{
                                     width: rpx(120),
                                     height: rpx(120),
-                                    borderRadius: rpx(12),
+                                    borderRadius: rnRadius.md,
                                   }}
                                 />
                                 <Text className="material-item-title">{item.title}</Text>
@@ -1601,7 +1603,7 @@ export default function Index() {
                                   style={{
                                     width: rpx(120),
                                     height: rpx(120),
-                                    borderRadius: rpx(12),
+                                    borderRadius: rnRadius.md,
                                   }}
                                 />
                                 <Text className="material-item-title">{item.title}</Text>
@@ -1745,7 +1747,7 @@ export default function Index() {
               className="ai-popup-fade-in flex flex-col items-center"
               style={{
                 background: 'var(--color-card)',
-                borderRadius: rpx(24),
+                borderRadius: rnRadius.xl,
                 padding: '36rpx 24rpx',
               }}
               onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}
@@ -1753,7 +1755,7 @@ export default function Index() {
             >
               <Image
                 src={QRCODE_IMG}
-                style={{ width: rpx(480), height: rpx(480), borderRadius: rpx(16) }}
+                style={{ width: rpx(480), height: rpx(480), borderRadius: rnRadius.lg }}
                 mode="aspectFit"
                 onLongPress={() => {
                   // 长按保存二维码(对齐原项目 handleLongPressQrCode)

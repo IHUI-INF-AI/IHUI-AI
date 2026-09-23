@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ExamItem, ExamScreenProps, ExamStatus } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 考试/Props 类型 re-export(单一来源 @ihui/types) */
 export type { ExamItem, ExamScreenProps, ExamStatus }
 
@@ -182,7 +184,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     retryBtnText: { fontSize: 16, color: tk.surface.light },
@@ -192,7 +194,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: 10 },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -207,7 +209,7 @@ function createStyles(tk: AppThemeTokens) {
     statusBadge: {
       paddingHorizontal: 8,
       paddingVertical: 4,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       overflow: 'hidden',
     },
     statusText: { fontSize: 11 },
@@ -218,7 +220,7 @@ function createStyles(tk: AppThemeTokens) {
     startBtn: {
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     startBtnDisabled: { backgroundColor: tk.border.light },

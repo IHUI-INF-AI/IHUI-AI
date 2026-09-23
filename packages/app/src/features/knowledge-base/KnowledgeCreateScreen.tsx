@@ -16,6 +16,8 @@ import {
 import type { TFunction } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /**
  * KnowledgeCreateScreen 知识库新建(共享层)props 契约。
  * 平台无关:ingestKnowledgeText 提交流、Alert 反馈、导航由 wrapper 注入。
@@ -151,7 +153,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.medium,
     },
     input: {
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.medium,
       backgroundColor: tk.surface.card,

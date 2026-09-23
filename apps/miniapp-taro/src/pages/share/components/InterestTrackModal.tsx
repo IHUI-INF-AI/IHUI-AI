@@ -7,6 +7,8 @@ import { View, Text, ScrollView } from '@tarojs/components'
 import { useState } from 'react'
 import { rpx } from '@/utils/rpx'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /**
  * InterestTrackModal 兴趣赛道选择弹窗
  *
@@ -153,7 +155,7 @@ export default function InterestTrackModal({
                   style={{
                     width: `calc(50% - ${rpx(8)})`,
                     padding: rpx(20),
-                    borderRadius: rpx(16),
+                    borderRadius: rnRadius.lg,
                     borderWidth: rpx(2),
                     borderStyle: 'solid',
                     borderColor: isSelected ? 'var(--color-primary)' : 'var(--color-border)',
@@ -200,7 +202,7 @@ export default function InterestTrackModal({
             style={{
               flex: 1,
               padding: `${rpx(20)} 0`,
-              borderRadius: rpx(12),
+              borderRadius: rnRadius.md,
               background: 'var(--color-muted)',
               textAlign: 'center',
             }}
@@ -215,7 +217,7 @@ export default function InterestTrackModal({
             style={{
               flex: 1,
               padding: `${rpx(20)} 0`,
-              borderRadius: rpx(12),
+              borderRadius: rnRadius.md,
               background: 'var(--color-primary)',
               textAlign: 'center',
             }}

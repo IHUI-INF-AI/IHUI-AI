@@ -14,6 +14,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { StudyProgressData, StudyProgressScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 学习进度共享屏 — props 注入式跨端组件 */
 export type { StudyProgressData, StudyProgressScreenProps }
 
@@ -125,7 +127,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       minWidth: '45%',
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -136,7 +138,7 @@ function createStyles(tk: AppThemeTokens) {
     sectionTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary, marginBottom: 8 },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -146,17 +148,17 @@ function createStyles(tk: AppThemeTokens) {
     bar: {
       height: 6,
       backgroundColor: tk.surface.card,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       marginTop: 8,
       overflow: 'hidden',
     },
-    barFill: { height: 6, backgroundColor: tk.success.DEFAULT, borderRadius: 12 },
+    barFill: { height: 6, backgroundColor: tk.success.DEFAULT, borderRadius: rnRadius.xl },
     meta: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
     btn: {
       marginTop: 12,
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     btnText: { color: tk.surface.light, fontSize: 16 },

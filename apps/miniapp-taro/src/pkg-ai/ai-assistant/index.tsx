@@ -247,7 +247,7 @@ export default function AiAssistantPage() {
         <View className="px-[32rpx] pt-[16rpx] pb-[32rpx]">
           {/* 对齐 RN ChatScreen tishiBtn:muted 底 / px16 py12 rpx / 8rpx 圆角 / 次级 26rpx 文字 */}
           <View
-            className="flex flex-row items-center px-[16rpx] py-[12rpx] mb-[16rpx] rounded-[8rpx] bg-[var(--color-muted)]"
+            className="flex flex-row items-center px-[16rpx] py-[12rpx] mb-[16rpx] rounded-sm bg-[var(--color-muted)]"
             onClick={() => setTishiShow((v) => !v)}
             hoverClass="opacity-60"
           >
@@ -257,7 +257,7 @@ export default function AiAssistantPage() {
           </View>
           {/* 对齐 RN thinkingBox:maxWidth 78% / px16 py12 rpx / 8dp=16rpx 圆角 / muted 底 / 12dp=24rpx 次级文字 */}
           {tishiShow && agentPrologue ? (
-            <View className="max-w-[78%] mb-[16rpx] px-[16rpx] py-[12rpx] bg-[var(--color-muted)] rounded-[16rpx]">
+            <View className="max-w-[78%] mb-[16rpx] px-[16rpx] py-[12rpx] bg-[var(--color-muted)] rounded-lg">
               <Text className="text-[24rpx] leading-[36rpx] text-muted-foreground">
                 {agentPrologue}
               </Text>
@@ -277,7 +277,7 @@ export default function AiAssistantPage() {
                 {/* 对齐 RN bubbleStyles.rowUser:右对齐;气泡 px24 py16 rpx / 8dp=16rpx 圆角 / brand 底 + surface.light 字 / 14dp=28rpx */}
                 <View className="flex flex-row justify-end mb-[8rpx]">
                   <View
-                    className="max-w-[78%] px-[24rpx] py-[16rpx] bg-[var(--color-brand)] text-[var(--color-surface-light)] rounded-[16rpx] text-[28rpx] leading-[40rpx]"
+                    className="max-w-[78%] px-[24rpx] py-[16rpx] bg-[var(--color-brand)] text-[var(--color-surface-light)] rounded-lg text-[28rpx] leading-[40rpx]"
                     onClick={() => setPrompt(item.question)}
                     hoverClass="opacity-60"
                   >
@@ -287,7 +287,7 @@ export default function AiAssistantPage() {
                 {item.visible ? (
                   <View className="flex flex-col">
                     {/* 对齐 RN bubbleAi:card 底 / px24 py16 rpx / 16rpx 圆角 / 28rpx 主文字 */}
-                    <View className="max-w-[78%] px-[24rpx] py-[16rpx] bg-card rounded-[16rpx]">
+                    <View className="max-w-[78%] px-[24rpx] py-[16rpx] bg-card rounded-lg">
                       <Text className="block text-[28rpx] leading-[40rpx] text-foreground whitespace-pre-wrap break-words">
                         {item.answer}
                       </Text>
@@ -297,7 +297,7 @@ export default function AiAssistantPage() {
                           {item.images.map((url, i) => (
                             <Image
                               key={i}
-                              className="w-[240rpx] h-[240rpx] rounded-[12rpx] bg-muted"
+                              className="w-[240rpx] h-[240rpx] rounded-md bg-muted"
                               src={url}
                               mode="aspectFill"
                               onClick={() => Taro.previewImage({ current: url, urls: item.images })}
@@ -308,7 +308,7 @@ export default function AiAssistantPage() {
                       {item.videos.map((url, i) => (
                         <Video
                           key={`v-${i}`}
-                          className="w-[240rpx] h-[240rpx] rounded-[12rpx] mt-[16rpx]"
+                          className="w-[240rpx] h-[240rpx] rounded-md mt-[16rpx]"
                           src={url}
                           controls
                           showPlayBtn
@@ -341,7 +341,7 @@ export default function AiAssistantPage() {
                     </View>
                   </View>
                 ) : (
-                  <View className="max-w-[78%] px-[24rpx] py-[16rpx] bg-card rounded-[16rpx] flex flex-row justify-center">
+                  <View className="max-w-[78%] px-[24rpx] py-[16rpx] bg-card rounded-lg flex flex-row justify-center">
                     <Text
                       className="text-[24rpx] text-muted-foreground"
                       onClick={() => toggleVisible(idx)}
@@ -367,9 +367,9 @@ export default function AiAssistantPage() {
               {Math.floor(thinkingProgress)}%
             </Text>
           </View>
-          <View className="w-full h-[16rpx] bg-muted rounded-[8rpx] overflow-hidden">
+          <View className="w-full h-[16rpx] bg-muted rounded-sm overflow-hidden">
             <View
-              className="h-full bg-[var(--color-brand)] rounded-[8rpx] transition-all duration-300"
+              className="h-full bg-[var(--color-brand)] rounded-sm transition-all duration-300"
               style={{ width: `${thinkingProgress}%` }}
             />
           </View>
@@ -383,7 +383,7 @@ export default function AiAssistantPage() {
             {SUGGESTED.map((q) => (
               <View
                 key={q}
-                className="px-[24rpx] py-[12rpx] rounded-[32rpx] bg-card border border-border"
+                className="px-[24rpx] py-[12rpx] rounded-2xl bg-card border border-border"
                 onClick={() => {
                   setPrompt(q)
                   setTimeout(() => handleSend(), 0)
@@ -399,14 +399,14 @@ export default function AiAssistantPage() {
       {/* 对齐 RN InputArea:row 底对齐 / px12 py8 dp=24/16 rpx / card 底 + 上边框;输入框 minHeight 48dp=96rpx / 12dp=24rpx 圆角 / root 底描边;发送钮 44dp=88rpx brand 底 */}
       <View className="flex flex-row items-end bg-card border-t border-border px-[24rpx] py-[16rpx]">
         <Input
-          className="flex-1 h-[96rpx] px-[24rpx] bg-background border border-border rounded-[24rpx] text-[28rpx] text-foreground"
+          className="flex-1 h-[96rpx] px-[24rpx] bg-background border border-border rounded-xl text-[28rpx] text-foreground"
           placeholder={tt('tail.9', '请输入描述')}
           value={prompt}
           onInput={(e) => setPrompt(e.detail.value)}
           onConfirm={handleSend}
         />
         <View
-          className={`ml-[16rpx] min-w-[88rpx] h-[88rpx] px-[16rpx] flex items-center justify-center rounded-[24rpx] ${loading ? 'bg-muted' : 'bg-[var(--color-brand)]'}`}
+          className={`ml-[16rpx] min-w-[88rpx] h-[88rpx] px-[16rpx] flex items-center justify-center rounded-xl ${loading ? 'bg-muted' : 'bg-[var(--color-brand)]'}`}
           onClick={handleSend}
           hoverClass="opacity-60"
         >

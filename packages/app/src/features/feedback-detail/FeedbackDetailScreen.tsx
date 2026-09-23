@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-nati
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { FeedbackDetailItem, FeedbackDetailScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 反馈详情/Props 类型 re-export(单一来源 @ihui/types) */
 export type { FeedbackDetailItem, FeedbackDetailScreenProps }
 
@@ -98,7 +100,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.success.DEFAULT,
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       overflow: 'hidden',
     },
     statusBadge: {
@@ -107,7 +109,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
     },
     labelTitle: { marginTop: 12, fontSize: 14, fontWeight: '600', color: tk.text.secondary },
     content: { marginTop: 8, fontSize: 16, color: tk.text.medium, lineHeight: 22 },

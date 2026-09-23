@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { BankCardItem, BankCardScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 银行卡列表共享屏 — props 注入式跨端组件 */
 export type { BankCardItem, BankCardScreenProps }
 
@@ -91,7 +93,7 @@ function createStyles(tk: AppThemeTokens) {
     muted: { fontSize: 14, color: tk.text.secondary },
     card: {
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     cardHeader: {
@@ -103,7 +105,7 @@ function createStyles(tk: AppThemeTokens) {
     badge: {
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: 'rgba(255,255,255,0.25)',
     },
     badgeText: { fontSize: 10, color: tk.surface.light },

@@ -29,6 +29,8 @@ import { tokens as tk } from '../theme/active-tokens'
 import type { AppIcon } from '@ihui/types'
 import { Tag } from 'lucide-react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export interface CardWithListItem {
   id: string
   title: string
@@ -47,11 +49,9 @@ export interface CardWithListProps {
 }
 
 const CARD_PADDING = 12
-const CARD_RADIUS = 12
 const HEADER_GAP = 8
 const ITEM_WIDTH = '22%'
 const ITEM_PADDING = 10
-const ITEM_RADIUS = 4
 const ITEM_GAP = 8
 const ICON_SIZE = 50
 const ICON_FONT_SIZE = 24
@@ -132,7 +132,7 @@ export function CardWithList({ title, items, onItemClick, onMore, moreText }: Ca
 const styles = StyleSheet.create({
   card: {
     backgroundColor: tk.surface.card,
-    borderRadius: CARD_RADIUS,
+    borderRadius: rnRadius.xl,
     padding: CARD_PADDING,
   } as ViewStyle,
   header: {
@@ -167,14 +167,14 @@ const styles = StyleSheet.create({
   item: {
     width: ITEM_WIDTH,
     padding: ITEM_PADDING,
-    borderRadius: ITEM_RADIUS,
+    borderRadius: rnRadius.sm,
     backgroundColor: tk.surface.muted,
     alignItems: 'center',
   } as ViewStyle,
   iconWrap: {
     width: ICON_SIZE,
     height: ICON_SIZE,
-    borderRadius: ITEM_RADIUS,
+    borderRadius: rnRadius.sm,
     backgroundColor: tk.surface.card,
     alignItems: 'center',
     justifyContent: 'center',

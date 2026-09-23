@@ -31,6 +31,8 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 import { Settings } from 'lucide-react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** N8n 消息项 */
 export interface N8nMessage {
   id: string
@@ -266,7 +268,7 @@ function createStyles(tk: AppThemeTokens) {
       maxWidth: '78%',
       paddingHorizontal: 12,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
     } as ViewStyle,
     messageBubbleUser: {
       backgroundColor: tk.brand.DEFAULT,
@@ -298,7 +300,7 @@ function createStyles(tk: AppThemeTokens) {
     chatImage: {
       width: 120,
       height: 120,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
     } as ImageStyle,
     // 快捷操作区
@@ -315,7 +317,7 @@ function createStyles(tk: AppThemeTokens) {
     quickChip: {
       paddingHorizontal: 12,
       paddingVertical: 6,
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       backgroundColor: tk.surface.card,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -346,7 +348,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 4,
       paddingHorizontal: 8,
       paddingVertical: 4,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
     } as ViewStyle,
     modelConfigBtnText: {
@@ -376,7 +378,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       height: 50,
       paddingHorizontal: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
       color: tk.text.primary,
       fontSize: 16,
@@ -385,7 +387,7 @@ function createStyles(tk: AppThemeTokens) {
       marginLeft: 8,
       paddingHorizontal: 16,
       height: 50,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

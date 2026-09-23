@@ -41,7 +41,7 @@ import {
 import { useLoginForm, type LoginApiResult } from '@ihui/shared/hooks'
 import { LoginScreen as SharedLoginScreen, getTokens, type NationOption } from '@ihui/rn-app'
 import type { LoginTab, ThirdPartyLoginOption, ThirdPartyPlatform } from '@ihui/types'
-import { OAUTH_BRAND_COLORS, withAlpha } from '@ihui/design-tokens'
+import { OAUTH_BRAND_COLORS, withAlpha, rnRadius } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -1195,7 +1195,7 @@ const styles = StyleSheet.create({
     top: 158,
     paddingHorizontal: rpx(16),
     paddingVertical: rpx(8),
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     backgroundColor: withAlpha(tokens.brandAccent.DEFAULT, 0.85),
     zIndex: 999,
     elevation: 999,
@@ -1209,7 +1209,7 @@ const styles = StyleSheet.create({
   // 规格对齐主登录按钮 loginBtn(高 40 / 圆角 6),作为 phone tab 置顶首选 CTA
   carrierOneKeyBtn: {
     height: 40,
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1229,8 +1229,8 @@ const styles = StyleSheet.create({
   carrierWebTopBar: {
     height: 44,
     backgroundColor: tokens.surface.card,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: rnRadius['2xl'],
+    borderTopRightRadius: rnRadius['2xl'],
     alignItems: 'flex-end',
     justifyContent: 'center',
     paddingHorizontal: 16,
@@ -1256,7 +1256,7 @@ const styles = StyleSheet.create({
   agreementModalCard: {
     width: rpx(580),
     backgroundColor: tokens.surface.card,
-    borderRadius: rpx(24),
+    borderRadius: rnRadius.xl,
     shadowColor: tokens.gray.black,
     shadowOffset: { width: 0, height: rpx(12) },
     shadowOpacity: 0.15,
@@ -1313,7 +1313,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    borderRadius: rpx(24),
+    borderRadius: rnRadius.xl,
   },
   agreementModalCancelText: {
     fontSize: rpx(32),
@@ -1325,7 +1325,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: tokens.brand.DEFAULT,
-    borderRadius: rpx(24),
+    borderRadius: rnRadius.xl,
   },
   agreementModalConfirmText: {
     fontSize: rpx(32),

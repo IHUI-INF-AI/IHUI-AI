@@ -7,6 +7,8 @@ import { ScrollView, Text, TouchableOpacity, View, StyleSheet, TextInput } from 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ShareScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 分享共享屏 — props 注入式跨端组件(平台侧 onShare 注入原生 Share API) */
 export type { ShareScreenProps }
 
@@ -117,7 +119,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
       paddingHorizontal: 12,
       paddingVertical: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       fontSize: 16,
@@ -127,7 +129,7 @@ function createStyles(tk: AppThemeTokens) {
     createBtn: {
       marginTop: 16,
       paddingVertical: 15,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
     },
@@ -138,7 +140,7 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       marginTop: 16,
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
@@ -147,7 +149,7 @@ function createStyles(tk: AppThemeTokens) {
     shareBtnWrap: { paddingHorizontal: 10, paddingVertical: 12 },
     shareBtn: {
       paddingVertical: 15,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
     },

@@ -21,6 +21,8 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 import { Bot, Film, Palette, type LucideIcon } from 'lucide-react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 type ViewMode = 'shared' | 'local'
@@ -219,7 +221,7 @@ const styles = StyleSheet.create({
   tab: {
     paddingHorizontal: rpx(28),
     paddingVertical: rpx(12),
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
   },
   tabActive: {

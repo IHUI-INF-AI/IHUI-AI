@@ -16,6 +16,8 @@ import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export type EarningsTrendDirection = 'up' | 'down'
 
 export interface EarningsTrend {
@@ -198,7 +200,7 @@ export default function EarningsStatisticsCard({
 const styles = StyleSheet.create({
   card: {
     padding: 16,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     backgroundColor: tokens.surface.card,
   } as ViewStyle,
   label: {
@@ -235,7 +237,7 @@ const styles = StyleSheet.create({
   tabItem: {
     paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
   } as ViewStyle,
   tabItemActive: {
     backgroundColor: tokens.brand.DEFAULT,

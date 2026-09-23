@@ -16,6 +16,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AgentSettingScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** Agent 设置共享屏 — props 注入式跨端组件(表单,状态由 wrapper 管理) */
 export type { AgentSettingScreenProps }
 
@@ -118,7 +120,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 12,
       paddingVertical: 8,
       fontSize: 16,
@@ -136,7 +138,7 @@ function createStyles(tk: AppThemeTokens) {
     saveBtn: {
       marginTop: 16,
       height: 50,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

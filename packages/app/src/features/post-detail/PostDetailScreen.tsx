@@ -17,6 +17,8 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { Heart, MessageCircle } from 'lucide-react-native'
 import type { PostDetailScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /**
  * 动态详情共享屏 — props 注入式跨端组件
  *
@@ -160,7 +162,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
       paddingHorizontal: 6,
       paddingVertical: 2,
-      borderRadius: 4,
+      borderRadius: rnRadius.sm,
     },
     meta: { fontSize: 11, color: tk.text.tertiary },
     content: { fontSize: 16, lineHeight: 22, color: tk.text.medium },
@@ -172,13 +174,13 @@ function createStyles(tk: AppThemeTokens) {
       gap: 4,
       paddingHorizontal: 12,
       paddingVertical: 6,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     statText: { fontSize: 12, color: tk.text.medium },
     backBtn: { marginTop: 12 },
     imageRow: { flexDirection: 'row', gap: 8, marginTop: 8, flexWrap: 'wrap' } as ViewStyle,
-    detailImage: { width: 100, height: 100, borderRadius: 8 } as ImageStyle,
+    detailImage: { width: 100, height: 100, borderRadius: rnRadius.lg } as ImageStyle,
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, FlatList, ScrollView, StyleSheet } from '
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { IncomeCommissionItem, IncomeData, IncomeScreenProps } from '@ihui/types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 收益记录/Props 类型 re-export(单一来源 @ihui/types) */
 export type { IncomeCommissionItem, IncomeData, IncomeScreenProps }
 
@@ -255,7 +257,7 @@ function createStyles(tk: AppThemeTokens) {
     body: { padding: 10, paddingBottom: 32 },
     summaryCard: {
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.light,
     },
     summaryRow: {
@@ -272,7 +274,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     withdrawBtn: {
       height: 50,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
@@ -290,7 +292,7 @@ function createStyles(tk: AppThemeTokens) {
     tab: {
       paddingHorizontal: 14,
       paddingVertical: 6,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     tabActive: { backgroundColor: tk.brand.DEFAULT },
@@ -299,7 +301,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: StyleSheet.hairlineWidth, backgroundColor: tk.border.light },
     card: {
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -343,7 +345,7 @@ function createStyles(tk: AppThemeTokens) {
     copyBtn: {
       paddingHorizontal: 12,
       paddingVertical: 4,
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.brand.DEFAULT,
       backgroundColor: tk.surface.light,

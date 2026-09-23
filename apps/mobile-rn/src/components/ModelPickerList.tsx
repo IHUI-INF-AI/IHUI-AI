@@ -44,6 +44,8 @@ import ModelList, { type ModelListItem, type ModelListGroup } from './ModelList'
 import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 // 调用方需要用它自己组装条目(category / modelTier 是 ModelListItem 的字段),此处转出
 export type { ModelListItem }
 
@@ -260,7 +262,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
     marginHorizontal: 12,
     paddingHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     gap: 8,
     backgroundColor: tokens.surface.card,
   },
@@ -281,7 +283,7 @@ const styles = StyleSheet.create({
     minHeight: 40,
     marginHorizontal: 12,
     paddingHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     gap: 8,
     backgroundColor: tokens.surface.inputBg,
   },

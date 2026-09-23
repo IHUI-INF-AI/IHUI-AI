@@ -145,7 +145,7 @@ export default function ContactPage() {
         </View>
 
         {contactItems.length > 0 ? (
-          <View className="bg-card rounded-[24rpx] border border-border overflow-hidden mb-[24rpx]">
+          <View className="bg-card rounded-xl border border-border overflow-hidden mb-[24rpx]">
             {contactItems.map((item, idx) => (
               <View
                 key={item.key}
@@ -183,7 +183,7 @@ export default function ContactPage() {
         ) : null}
 
         {info.address ? (
-          <View className="bg-card rounded-[24rpx] border border-border overflow-hidden mb-[24rpx]">
+          <View className="bg-card rounded-xl border border-border overflow-hidden mb-[24rpx]">
             <View
               className="flex items-center p-[28rpx]"
               onClick={() => openLocation(info.address)}
@@ -209,7 +209,7 @@ export default function ContactPage() {
           </View>
         ) : null}
 
-        <View className="bg-card rounded-[24rpx] border border-border overflow-hidden mb-[24rpx]">
+        <View className="bg-card rounded-xl border border-border overflow-hidden mb-[24rpx]">
           <View className="flex justify-between items-center py-[28rpx] px-[28rpx]">
             <Text className="text-[28rpx] text-[var(--color-text-medium)]">
               {tt('about.contact.workTimeLabel', '工作时间')}
@@ -231,7 +231,7 @@ export default function ContactPage() {
         {info.phone ? (
           <View className="pt-[16rpx] pb-[16rpx]">
             <Button
-              className="w-full h-[100rpx] leading-[100rpx] bg-primary text-[var(--color-primary-foreground)] text-[32rpx] font-semibold rounded-[24rpx] m-0 after:border-0"
+              className="w-full h-[100rpx] leading-[100rpx] bg-primary text-[var(--color-primary-foreground)] text-[32rpx] font-semibold rounded-xl m-0 after:border-0"
               onClick={() => call(info.phone)}
             >
               {tt('about.contact.callNow', '立即拨打客服')}

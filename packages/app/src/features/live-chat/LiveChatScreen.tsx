@@ -15,6 +15,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 直播聊天消息(平台注入,字段对齐 mobile-rn LiveChatScreen ChatMsg) */
 export interface LiveChatMessage {
   id: string
@@ -158,7 +160,7 @@ function createStyles(tk: AppThemeTokens) {
     empty: { paddingVertical: 40, alignItems: 'center' },
     msg: {
       padding: 10,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
       marginBottom: 8,
     },
@@ -170,7 +172,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       paddingHorizontal: 12,
       paddingVertical: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       fontSize: 16,
@@ -180,7 +182,7 @@ function createStyles(tk: AppThemeTokens) {
     sendBtn: {
       paddingHorizontal: 14,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     sendDisabled: { backgroundColor: tk.text.tertiary },
@@ -189,7 +191,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     btnText: { color: tk.surface.light, fontSize: 16 },

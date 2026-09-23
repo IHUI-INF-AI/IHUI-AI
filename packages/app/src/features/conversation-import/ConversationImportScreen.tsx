@@ -15,6 +15,8 @@ import {
 import { AlertTriangle, CheckCircle2, FileUp, History, ListChecks } from 'lucide-react-native'
 import { getTokens, type AppThemeMode, type AppThemeTokens } from '../../theme/tokens'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /**
  * 外部会话导入共享屏(D28 多端同步,2026-09-21 立)
  *
@@ -415,7 +417,7 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       padding: 12,
       gap: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -427,7 +429,7 @@ function createStyles(tk: AppThemeTokens) {
       flexBasis: '46%',
       padding: 10,
       gap: 2,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
@@ -442,7 +444,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       gap: 6,
       height: 40,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.brand.DEFAULT,
     },
     pickButtonText: { fontSize: 13, fontWeight: '600', color: tk.surface.light },
@@ -450,7 +452,7 @@ function createStyles(tk: AppThemeTokens) {
     rowCard: {
       padding: 10,
       gap: 2,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
@@ -464,7 +466,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       gap: 6,
       height: 36,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.brand.DEFAULT,
     },
     commitButtonDisabled: { backgroundColor: tk.border.medium },
@@ -474,7 +476,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'flex-start',
       gap: 6,
       padding: 8,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.warning.light,
     },
     warningText: { flex: 1, fontSize: 11, lineHeight: 16, color: tk.warning.amberText },
@@ -484,7 +486,7 @@ function createStyles(tk: AppThemeTokens) {
     statusBadge: {
       paddingHorizontal: 6,
       paddingVertical: 2,
-      borderRadius: 4,
+      borderRadius: rnRadius.sm,
       fontSize: 10,
       fontWeight: '600',
       overflow: 'hidden',

@@ -14,6 +14,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CourseDetailScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 课程详情共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { CourseDetailScreenProps }
 
@@ -153,7 +155,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     btnDisabled: { opacity: 0.5 },
@@ -165,14 +167,14 @@ function createStyles(tk: AppThemeTokens) {
     tag: {
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
     },
     tagText: { fontSize: 12, color: tk.text.medium },
     body: { paddingHorizontal: 10 },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -190,7 +192,7 @@ function createStyles(tk: AppThemeTokens) {
     enrolledBadge: {
       paddingHorizontal: 12,
       paddingVertical: 4,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.success.lighter,
     },
     enrolledText: { fontSize: 12, color: tk.success.deepText },
@@ -199,7 +201,7 @@ function createStyles(tk: AppThemeTokens) {
     lessonItem: {
       marginBottom: 12,
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,

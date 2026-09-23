@@ -26,6 +26,8 @@ import { tokens } from '../theme/active-tokens'
 import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import type { ListRenderItem } from 'react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export interface FullRankingItem {
   id: string
   /** 排名(1 起,前三名彩色徽章) */
@@ -221,7 +223,7 @@ function Separator(): React.ReactElement {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: tokens.surface.muted,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     padding: 4,
   },
   listBody: {
@@ -245,7 +247,7 @@ const styles = StyleSheet.create({
   rankBadge: {
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -276,7 +278,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: 40,
     height: 44,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     marginHorizontal: 10,
   },
   avatarPlaceholder: {

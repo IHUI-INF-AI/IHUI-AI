@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, Switch, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { NotificationSettingsItem, NotificationSettingsScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 通知设置共享屏 — props 注入式跨端组件 */
 export type { NotificationSettingsItem, NotificationSettingsScreenProps }
 
@@ -126,7 +128,7 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       padding: 12,
       marginBottom: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.light,
     },
     desc: { fontSize: 14, color: tk.text.secondary },
@@ -142,7 +144,7 @@ function createStyles(tk: AppThemeTokens) {
     successText: { fontSize: 14, color: tk.success.DEFAULT, marginBottom: 8 },
     saveBtn: {
       marginTop: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       height: 50,
       alignItems: 'center',
       justifyContent: 'center',

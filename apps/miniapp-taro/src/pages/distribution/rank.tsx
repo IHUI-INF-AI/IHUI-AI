@@ -69,7 +69,7 @@ export default function DistributionRank() {
             item ? (
               <View
                 key={rank}
-                className={`flex-1 flex flex-col items-center p-[28rpx] rounded-[24rpx] ${rank === 1 ? 'bg-[var(--color-warning-amber-light)]' : 'bg-[var(--color-muted)]'}`}
+                className={`flex-1 flex flex-col items-center p-[28rpx] rounded-xl ${rank === 1 ? 'bg-[var(--color-warning-amber-light)]' : 'bg-[var(--color-muted)]'}`}
               >
                 <View
                   className="w-[96rpx] h-[96rpx] rounded-full border-[4rpx] bg-[var(--color-background)] overflow-hidden"
@@ -88,7 +88,7 @@ export default function DistributionRank() {
                   ¥{item.commission}
                 </Text>
                 <Text
-                  className="mt-[16rpx] px-[12rpx] py-[4rpx] rounded-[16rpx] text-[22rpx] text-[var(--color-surface-light)]"
+                  className="mt-[16rpx] px-[12rpx] py-[4rpx] rounded-lg text-[22rpx] text-[var(--color-surface-light)]"
                   style={{ backgroundColor: badge }}
                 >
                   {rank}
@@ -103,7 +103,7 @@ export default function DistributionRank() {
           {rest.map((u, i) => (
             <View
               key={u.id}
-              className="flex flex-row items-center p-[28rpx] rounded-[24rpx] border border-border bg-[var(--color-background)]"
+              className="flex flex-row items-center p-[28rpx] rounded-xl border border-border bg-[var(--color-background)]"
             >
               <Text className="w-[72rpx] text-[32rpx] font-bold text-[var(--color-muted-foreground)]">
                 {i + 4}

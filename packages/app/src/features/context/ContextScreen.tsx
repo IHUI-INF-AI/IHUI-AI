@@ -16,6 +16,8 @@ import {
 import type { TFunction } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /**
  * 压缩事件(结构对齐 @ihui/api-client ContextCompressionEvent)。
  */
@@ -265,7 +267,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     statCard: {
       flex: 1,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       padding: 12,
@@ -301,7 +303,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 8,
     },
     eventCard: {
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       paddingHorizontal: 12,
@@ -330,7 +332,7 @@ function createStyles(tk: AppThemeTokens) {
     /* 提及检索 */
     searchInput: {
       marginTop: 8,
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       paddingHorizontal: 12,
@@ -343,7 +345,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 8,
     },
     mentionCard: {
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       paddingHorizontal: 12,
@@ -355,7 +357,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 8,
     },
     typeBadge: {
-      borderRadius: 4,
+      borderRadius: rnRadius.sm,
       paddingHorizontal: 6,
       paddingVertical: 2,
       backgroundColor: tk.warning.light,

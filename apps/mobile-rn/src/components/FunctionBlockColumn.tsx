@@ -29,6 +29,8 @@ import { tokens as tk } from '../theme/active-tokens'
 import { Star } from 'lucide-react-native'
 import type { AppIcon } from '@ihui/types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export interface FunctionBlock {
   id: string
   title: string
@@ -43,11 +45,9 @@ export interface FunctionBlockColumnProps {
   columns?: number
 }
 
-const CARD_RADIUS = 12
 const CARD_PADDING = 14
 const BLOCK_GAP = 10
 const ICON_SIZE = 44
-const ICON_RADIUS = 8
 const ICON_FONT_SIZE = 22
 const ICON_MARGIN_RIGHT = 12
 const TITLE_FONT_SIZE = 15
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: tk.surface.card,
-    borderRadius: CARD_RADIUS,
+    borderRadius: rnRadius.xl,
     padding: CARD_PADDING,
   } as ViewStyle,
   gridCard: {
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: ICON_SIZE,
     height: ICON_SIZE,
-    borderRadius: ICON_RADIUS,
+    borderRadius: rnRadius.lg,
     backgroundColor: tk.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',

@@ -15,6 +15,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CourseEnrollItem, CourseEnrollScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 课程报名共享屏 — props 注入式跨端组件 */
 export type { CourseEnrollItem, CourseEnrollScreenProps }
 
@@ -152,7 +154,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       height: 50,
       paddingHorizontal: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.muted,
@@ -162,7 +164,7 @@ function createStyles(tk: AppThemeTokens) {
     searchBtn: {
       paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     searchBtnText: { color: tk.surface.light, fontSize: 16 },
@@ -183,7 +185,7 @@ function createStyles(tk: AppThemeTokens) {
     emptyText: { fontSize: 14, color: tk.text.tertiary },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -198,7 +200,7 @@ function createStyles(tk: AppThemeTokens) {
     badgeEnrolled: {
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.success.lighter,
     },
     badgeText: { fontSize: 11, color: tk.success.deepText },
@@ -215,7 +217,7 @@ function createStyles(tk: AppThemeTokens) {
     enrollBtn: {
       paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     enrollBtnDisabled: { backgroundColor: tk.text.tertiary },

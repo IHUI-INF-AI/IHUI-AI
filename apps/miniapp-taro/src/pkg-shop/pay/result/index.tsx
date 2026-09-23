@@ -120,7 +120,7 @@ export default function PayResult() {
           {/* 状态标对齐 RN statusIcon: 160×160rpx + 圆角 rpx(24)→24rpx;
               pending=warning.amber / paid=success / failed=danger(语义 token 随明暗) */}
           <View
-            className={`flex h-[160rpx] w-[160rpx] items-center justify-center rounded-[24rpx] ${statusBgClass[status]}`}
+            className={`flex h-[160rpx] w-[160rpx] items-center justify-center rounded-xl ${statusBgClass[status]}`}
           >
             <LineIcon name={statusGlyph[status]} size={80} color="var(--color-surface-light)" />
           </View>
@@ -151,7 +151,7 @@ export default function PayResult() {
                   文字 15dp→30rpx semibold,色用 --color-primary-foreground 修正 RN surface.light
                   在暗色纯白 brand 底上不可读的问题(亮色仍是白字黑底,与 RN 一致) */}
               <View
-                className="flex h-[88rpx] items-center justify-center rounded-[16rpx] bg-primary"
+                className="flex h-[88rpx] items-center justify-center rounded-lg bg-primary"
                 hoverClass="opacity-85"
                 onTap={goBack}
               >
@@ -162,7 +162,7 @@ export default function PayResult() {
               {/* secondaryBtn 对齐 RN: 高/圆角同 primaryBtn + surface.card→--color-card
                   (RN 无描边,移除小程序原 border.border.light) */}
               <View
-                className="flex h-[88rpx] items-center justify-center rounded-[16rpx] bg-card"
+                className="flex h-[88rpx] items-center justify-center rounded-lg bg-card"
                 hoverClass="opacity-85"
                 onTap={goOrders}
               >
@@ -173,7 +173,7 @@ export default function PayResult() {
             </>
           ) : (
             <View
-              className="flex h-[88rpx] items-center justify-center rounded-[16rpx] bg-primary"
+              className="flex h-[88rpx] items-center justify-center rounded-lg bg-primary"
               hoverClass="opacity-85"
               onTap={() => void check()}
             >

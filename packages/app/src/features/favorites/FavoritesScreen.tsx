@@ -16,6 +16,8 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { FavoritesItem, FavoritesScreenProps } from '../../types'
 import { Star } from 'lucide-react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 收藏列表/Props 类型 re-export(单一来源 @ihui/types) */
 export type { FavoritesItem, FavoritesScreenProps }
 
@@ -140,7 +142,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,
@@ -148,13 +150,13 @@ function createStyles(tk: AppThemeTokens) {
     coverImg: {
       width: 64,
       height: 64,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
     },
     coverPlaceholder: {
       width: 64,
       height: 64,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.surface.muted,
@@ -166,7 +168,7 @@ function createStyles(tk: AppThemeTokens) {
     deleteBtn: {
       paddingHorizontal: 12,
       paddingVertical: 6,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,

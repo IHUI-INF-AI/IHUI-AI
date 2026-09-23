@@ -18,6 +18,8 @@ import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '@ihui/types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /**
  * SelfMediaScreen 自媒体助手(共享层)
  *
@@ -370,7 +372,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     tabBtn: {
       flex: 1,
-      borderRadius: 6, // rounded-md
+      borderRadius: rnRadius.md, // rounded-md
       paddingVertical: 8, // py-2
       alignItems: 'center',
     },
@@ -405,7 +407,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     /* 卡片(技能/记录通用) */
     card: {
-      borderRadius: 8, // rounded-lg
+      borderRadius: rnRadius.lg, // rounded-lg
       borderWidth: 1,
       borderColor: tk.border.light, // border-gray-200
       padding: 12, // p-3
@@ -423,7 +425,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary, // dark:text-neutral-100
     },
     categoryBadge: {
-      borderRadius: 4, // rounded
+      borderRadius: rnRadius.sm, // rounded
       paddingHorizontal: 6, // px-1.5
       paddingVertical: 2, // py-0.5
     },
@@ -440,7 +442,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     promptInput: {
       minHeight: 64, // min-h-[64px]
-      borderRadius: 6, // rounded-md
+      borderRadius: rnRadius.md, // rounded-md
       borderWidth: 1,
       borderColor: tk.border.light, // border-gray-200
       padding: 10, // p-2.5
@@ -451,7 +453,7 @@ function createStyles(tk: AppThemeTokens) {
     invokeBtn: {
       marginTop: 8, // mt-2
       alignItems: 'center',
-      borderRadius: 6, // rounded-md
+      borderRadius: rnRadius.md, // rounded-md
       paddingVertical: 10, // py-2.5
       backgroundColor: tk.brand.DEFAULT, // bg-orange-600 → 共享层品牌主色
     },
@@ -466,7 +468,7 @@ function createStyles(tk: AppThemeTokens) {
     /* 结果卡 */
     resultCard: {
       marginTop: 8, // mt-2
-      borderRadius: 6, // rounded-md
+      borderRadius: rnRadius.md, // rounded-md
       padding: 10, // p-2.5
       backgroundColor: tk.surface.inputBg, // bg-gray-50 dark:bg-neutral-800
     },
