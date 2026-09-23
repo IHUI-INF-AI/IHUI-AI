@@ -47,6 +47,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
   resolveGitBin,
   gitVersion,
@@ -397,6 +398,40 @@ function refsOk() {
   return missingRefs().length === 0
 }
 
+/**
+ * 工作区已跟踪文件存续自愈(2026-09-23 立)。宿主清理层会成批删除工作区目录
+ * (实测同日三轮:137 个 → 27 个 → 1 个,命中 tests/ 与 __tests__/ 整目录、
+ * installer-assets 下 assets-NNN 的 bmp、4 个在役守门脚本)。`.git` 与嵌套 ref 早有分层自愈,
+ * 工作区存续性此前无人管:缺失只体现为 `git status` 一片 ` D`,下一次提交就把它们从版本树删掉
+ * (= 静默回滚)。判据与恢复动作在 scripts/heal-worktree-tracked.mjs:只恢复
+ * "索引 blob == HEAD blob 且文件不在"的项,他人已暂存的删除一律不碰。
+ * 不改 status()/退出码语义 —— 纯多一层自愈,失败也只记日志不阻断其余守护。
+ */
+function healWorktreeTracked() {
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'heal-worktree-tracked.mjs')
+  if (!existsSync(script)) return
+  try {
+    const out = execFileSync(process.execPath, [script, '--json'], {
+      cwd: WORKTREE,
+      encoding: 'utf8',
+      windowsHide: true, // §5b:漏此参数在计划任务下必弹控制台窗
+      maxBuffer: 1 << 24,
+    })
+      .trim()
+      .split('\n')
+      .pop()
+    const r = JSON.parse(out || '{}')
+    if (r.restored) {
+      const head = (r.paths || []).slice(0, 3).join(', ')
+      log(`✅ 工作区存续自愈:恢复 ${r.restored} 个被外部删除的跟踪文件(${head}${(r.paths || []).length > 3 ? ' …' : ''})`)
+    } else if (r.held) {
+      log(`ℹ️ 工作区 ${r.held} 个跟踪文件缺失,但索引里已是删除(他人在制)⇒ 不代裁恢复`)
+    }
+  } catch (e) {
+    log('工作区存续自愈失败(不阻断其余守护): ' + String(e && e.message ? e.message : e).slice(0, 160))
+  }
+}
+
 /** 破坏性覆盖前先归档现场(保留可回溯副本;同一轮只归档一次) */
 let ARCHIVED_PATH = null
 
@@ -601,6 +636,11 @@ function main() {
 
   const coreOk = before.pointerOk && before.gitdirOk && before.gitUsable
   if (coreOk && before.refsOk) {
+    // `.git` 与嵌套 ref 都健康 ≠ 工作区健康:宿主会成批删除工作区里的已跟踪文件
+    // (实测同日三轮 137→27→1)。计划任务跑的是本单轮路径(startDaemon 未启用),
+    // 健康轮次的早退之前是唯一能挂工作区自愈的位置 —— 不在此处就永远不执行。
+    // --check 保持零副作用(CI 口径);真巡检才动手,且只在真恢复/发现他人删除时写日志。
+    if (!CHECK_ONLY) healWorktreeTracked()
     if (CHECK_ONLY) console.log('✅ .git 健康(pointer + gitdir + git 可用 + 嵌套 ref 完整)')
     return 0
   }
@@ -651,6 +691,9 @@ function startDaemon() {
           `⚠️ 检测到嵌套 ref 缺失 ${(h.refsMissing || []).length} 个: ${(h.refsMissing || []).join(', ')}`,
         )
         healRefs()
+      } else {
+        // 核心与 ref 都健康时,才轮到工作区存续性(宿主成批删工作区文件,实测高频)
+        healWorktreeTracked()
       }
     } catch (e) {
       log('巡检异常(忽略): ' + String(e.message || e))
