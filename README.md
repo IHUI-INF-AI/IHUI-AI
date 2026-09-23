@@ -2793,6 +2793,29 @@ COPY 源 ⇒ `copy-source-missing` 命中;还原后 7 个 Dockerfile 全绿。se
 
 ---
 
+### 新增守门示例:第 75 / 76 项「mobile-rn 深色前景容器对账」与「反回退对账」(2026-09-23)
+
+**第 75 项 `check-brand-foreground.mjs`(blocking)** —— RN 深色档案里 `tokens.brand.DEFAULT`
+是**纯白**,所以它只能当前景色用。同一个 style 块内它作背景、文字又取 `tokens.surface.light`
+(两端恒白)或 `tokens.text.primary`(深色翻白),结果就是白底白字 —— R1 零豁免拦这一类。
+R2 用基线棘轮拦"浅色当容器底":`surface.light` 背景 / α≥0.5 的白 rgba / 无 `dark:` 变体的
+`bg-white`,13 文件 24 处合法存量(图片、视频上的浮层,以及自带 `dark:` 变体的文件)冻结在
+`scripts/brand-foreground-baseline.json`,只减不增。`--self-test` 11 例;紧急跳过
+`HUSKY_SKIP_BRAND_FOREGROUND=1`。
+
+**第 76 项 `check-stale-revert.mjs`(blocking)** —— 堵**共享工作区静默回滚**。§12d 的 converge
+走 `merge-tree` / `commit-tree`,只推进 HEAD 与 index、**不 checkout**,于是工作区长期落后 HEAD
+(2026-09-23 实测:503 个文件落后 486 个提交)。此时 `git add <file>` 交上去的是旧基线,对该文件
+等价于把别人后续改动静默回滚,而 diff 看上去"只动了几行",人工 review 发现不了。判据 R1 =
+暂存 blob != HEAD blob **且字节级等于该路径某个祖先提交的版本** → 拦截并点名它回到了哪个 commit
+(真新编辑不可能恰好等于一个历史 blob,故误报极低)。三条护栏:merge / cherry-pick / revert 上下文
+整轮豁免;暂存删除只 warn(`git rm` 是合法操作,而宿主层也会静默删文件 —— 两种情形机器分不开);
+判定文件数 > 300 直接跳过(性能护栏,免得逼人 `--no-verify` 把全部守门一起关掉)。
+取证:`--self-test` 8 例(含"把文件写回 v1 必判红"阳性对照)+ 临时 index 端到端演练 3/3
+(造真回退 → exit 1 且点名 / 对齐 HEAD → exit 0 / runner blocking 清单含 76)。紧急跳过
+`HUSKY_SKIP_STALE_REVERT_GUARD=1`;**确属有意回退请改用 `git revert` 生成前向提交**。
+
+
 ## 🛡️ Commit 丢失防护(AGENTS.md §22 强化,2026-07-26)
 
 多 agent 并行环境下,`git reset HEAD~` 可能把整个 commit 链一并丢弃(2026-07-25 真实事故:丢失 3 个 commit)。本项目建立 4 道防护:

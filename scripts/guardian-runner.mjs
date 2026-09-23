@@ -1738,6 +1738,64 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 75 (2026-09-23 新增,O20d 配置表名存在性机械门,blocking) ---
+  // 背景:生产 COMPUTE_ALLOWED_TABLES 含不存在的表名(api_key_usage_windows 计划已知 +
+  //   agent_runs 本轮机械门首跑新发现),compute 能力 DB 白名单指向空表 = DATA_ACCESS_DENIED
+  //   而 typecheck/单测全绿。判据:清单里每个表名必须存在于 drizzle schema,不存在即红;
+  //   存量 2 个真实幽灵表按"白名单棘轮 + 条数只减不增"豁免,新增即拦。详见脚本头注释。
+  {
+    id: '75',
+    label: '🗄️  配置表名存在性(blocking,O20d:COMPUTE_ALLOWED_TABLES 必须与 drizzle schema 对齐)',
+    script: 'check-config-table-existence.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'packages/types/src/capability-catalog.ts',
+      'packages/database/src/schema/',
+      'scripts/check-config-table-existence.mjs',
+    ],
+    skipEnv: 'HUSKY_SKIP_CONFIG_TABLE_GUARD',
+    onFailHint: [
+      '',
+      '  💡 COMPUTE_ALLOWED_TABLES(packages/types/src/capability-catalog.ts)含不存在的表名 ——',
+      '     运行时 compute 能力白名单指向空表,真实表改名后清单未跟上。',
+      '     修法:改为 packages/database/src/schema 中的真实表名,或从清单删除;',
+      '           若属存量已登记幽灵表,见脚本 KNOWN_GHOST_TABLES(条数只减不增,修后删行)。',
+      '     自检:node scripts/check-config-table-existence.mjs --self-test',
+      '     全量:node scripts/check-config-table-existence.mjs',
+      '     紧急跳过(不推荐):HUSKY_SKIP_CONFIG_TABLE_GUARD=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 76 (2026-09-23 新增,O20e 迁移账本带外对象防回潮,warn 级) ---
+  // 背景:生产迁移账本曾有 7 个迁移的数据库对象带外存在(对象在库但 __drizzle_migrations
+  //   无对应行)。判据:journal 序号全集 vs 账本行全集(行数与水位序),缺行/多余行即告警;
+  //   按序号界定不按 hash(改历史文件会让按 hash 判定误报)。
+  // warn 理由:连库门进 pre-commit 会拖慢/断网误红;主用途是部署后独立调用
+  //   (node scripts/check-migration-ledger-drift.mjs --dsn <url> [--strict])。
+  //   本机库可达时顺带对账,不可达时脚本自身降级 SKIP 并如实打印(不假装通过)。
+  {
+    id: '76',
+    label: '📋  迁移账本带外对象防回潮(warn-only,O20e:journal 序号全集 vs 账本行全集)',
+    script: 'check-migration-ledger-drift.mjs',
+    args: [],
+    mode: 'warn',
+    stagedTriggers: ['packages/database/drizzle/'],
+    skipEnv: 'HUSKY_SKIP_MIGRATION_LEDGER_GUARD',
+    onFailHint: [
+      '',
+      '  💡 drizzle 迁移账本行数与 journal 序号全集不一致 —— 有迁移的数据库对象带外存在',
+      '     (对象在库但 __drizzle_migrations 无对应行),或 journal 被裁剪/账本被污染。',
+      '     主用途:部署后独立调用 node scripts/check-migration-ledger-drift.mjs --dsn "$DATABASE_URL" [--strict]',
+      '     (DSN 来源优先级 --dsn > IHUI_LEDGER_DSN > DATABASE_URL;输出一律脱敏)',
+      '     连不上库时默认降级 SKIP(--strict 时按失败);本门 warn 级不阻塞 commit。',
+      '     自检:node scripts/check-migration-ledger-drift.mjs --self-test',
+      '     紧急跳过(不推荐):HUSKY_SKIP_MIGRATION_LEDGER_GUARD=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- blocking (OpenAPI 契约) ---
   {
     id: '10',
@@ -1792,6 +1850,31 @@ const checks = [
       '     单独复验:node scripts/check-brand-foreground.mjs;自检:node scripts/check-brand-foreground.mjs --self-test',
     ].join('\n'),
   },
+  // 反回退守门(2026-09-23 立)。成因实测:共享工作区 + converge 只推进 HEAD/index 不 checkout,
+  // 工作区曾整体落后 HEAD 486 个提交(503 个文件);此时 `git add <file>` 提交的是旧基线,
+  // 对该文件等于把别人后续改动静默回滚,而 diff 看着"只动几行"。守门 71 只护 PLAN 登记行,
+  // 源码/配置面无闸,故补此闸。判据 = 暂存内容 != HEAD 且**字节级等于该路径某祖先提交的版本**;
+  // merge/cherry-pick/revert 上下文整轮豁免,暂存删除只 warn(真删是合法 git rm),
+  // >300 文件跳过(性能护栏,避免逼人 --no-verify 把全部守门一起关)。
+  // 演练:node scripts/check-stale-revert.mjs --self-test(8 例,含"写回 v1 必判红"阳性对照)。
+  {
+    id: '76',
+    label: '🧬 反回退守门(blocking,暂存内容等于历史版本 = 静默回滚他人改动)',
+    script: 'check-stale-revert.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_STALE_REVERT_GUARD',
+    onFailHint: [
+      '',
+      '  💡 这些文件的暂存内容 = 它某个历史提交的原样,不是新工作,而是把别人的改动写回旧态。',
+      '     先分清成因:',
+      '       ① 工作区落后 HEAD(converge 不 checkout)→ 先 `git restore --source=HEAD --worktree -- <文件>`,',
+      '          再把你的改动重新施加(前提:该文件里没有你自己的未提交内容);',
+      '       ② 确属有意回退 → 用 `git revert <commit>` 生成前向提交,或 HUSKY_SKIP_STALE_REVERT_GUARD=1 并在提交信息写明理由;',
+      '     单独复验:node scripts/check-stale-revert.mjs --staged',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',

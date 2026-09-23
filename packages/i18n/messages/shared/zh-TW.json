@@ -188,7 +188,14 @@
     "send": "發送",
     "showPassword": "顯示密碼",
     "slashCommand": "斜線命令",
-    "uploadAvatar": "上傳頭像"
+    "uploadAvatar": "上傳頭像",
+    "previewSnapshotBadge": "工具記錄內容",
+    "previewSnapshotReadAt": "讀取於 {time}",
+    "previewSnapshotNotice": "無法讀取目前檔案，已顯示工具記錄中的內容。",
+    "previewIncompleteChange": "此次檔案變更沒有記錄完整內容。",
+    "previewNoContent": "沒有可預覽內容。",
+    "previewFileUpdated": "檔案已更新",
+    "previewFileUpdatedAction": "重新整理以查看最新內容"
   },
   "about": {
     "loading": "載入中...",
@@ -2161,5 +2168,73 @@
       "reasonLabel": "原因(可選)",
       "reasonPlaceholder": "填寫原因,便於審計與追溯"
     }
+  },
+  "viewFailure": {
+    "resourceNotFound": {
+      "title": "資源未找到",
+      "action": "該 MCP 資源可能已被刪除或未在資源清單中宣告，請重新整理清單後重新選擇。"
+    },
+    "runtimeException": {
+      "title": "執行期異常",
+      "action": "伺服器處理本次請求時拋出例外，請重新載入外掛檢視；若持續失敗請查看該服務的執行日誌。"
+    },
+    "entrypointNotRegistered": {
+      "title": "未註冊啟動入口",
+      "action": "該外掛檢視沒有註冊可用的啟動入口，請在設定中重新新增或啟用對應的服務。"
+    },
+    "entrypointInvalid": {
+      "title": "啟動入口無效",
+      "action": "伺服器的命令或地址不可執行，請檢查設定中的 command、url 與傳輸方式。"
+    },
+    "dependencyModuleMissing": {
+      "title": "相依模組未提供",
+      "action": "該服務相依的模組尚未安裝，請補齊相依後重新載入外掛檢視。"
+    },
+    "resourceLimitExceeded": {
+      "title": "資源超出限制",
+      "action": "請求體或回傳內容過大、呼叫過於頻繁，請縮小範圍或稍後重試。"
+    },
+    "environmentInitFailed": {
+      "title": "環境初始化失敗",
+      "action": "服務尚未完成初始化或執行環境未就緒，請確認服務已啟動後重新載入。"
+    },
+    "disabled": {
+      "title": "已停用",
+      "action": "該服務或外掛目前處於停用狀態，請先啟用再檢視內容。"
+    },
+    "backendTimeout": {
+      "title": "後端回應逾時",
+      "action": "伺服器在限定時間內未回傳結果，可稍後重試；若經常逾時請下調請求規模。"
+    },
+    "backendExited": {
+      "title": "後端已退出",
+      "action": "服務程序已結束或連線被關閉，請重新載入外掛檢視以重新啟動服務。"
+    },
+    "capabilityNotOffered": {
+      "title": "未提供所需能力",
+      "action": "該服務在能力宣告中未提供此功能，請改選其支援的能力。"
+    },
+    "backendCrashed": {
+      "title": "服務異常當機",
+      "action": "服務程序意外終止，請重新載入外掛檢視，並查看該服務的執行日誌。"
+    },
+    "protocolMismatch": {
+      "title": "協議版本不相符",
+      "action": "客戶端與該服務協商的協議版本不受支援，請升級服務或使用相容的客戶端版本。"
+    },
+    "authForbidden": {
+      "title": "授權失敗",
+      "action": "存取憑證無效或已過期，請重新登入後再檢視該服務。"
+    },
+    "invalidResponse": {
+      "title": "回傳內容無效",
+      "action": "服務回傳的內容無法解析或不符合約定格式，請重新載入；若持續失敗請聯絡服務提供方。"
+    },
+    "unknown": {
+      "title": "無法判定失敗原因",
+      "action": "暫時無法確定失敗原因，請重新載入外掛檢視；如仍失敗，請查看服務執行日誌。"
+    },
+    "reloadView": "重新載入外掛檢視",
+    "errorCodeLabel": "錯誤碼：{errorCode}"
   }
 }
