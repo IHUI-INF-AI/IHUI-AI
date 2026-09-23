@@ -158,7 +158,21 @@
     "toolVendorModelInfo": "查询厂商模型信息",
     "toolVendorUploadFile": "上传厂商文件",
     "toolVendorCancelTask": "取消厂商任务",
-    "toolVendorVoiceClone": "克隆声纹"
+    "toolVendorVoiceClone": "克隆声纹",
+    "fileActivity": "{state, select, running {正在处理文件} completed {已处理文件} other {处理文件}}",
+    "imageActivity": "{state, select, running {正在处理图像} completed {已处理图像} other {处理图像}}",
+    "searchActivity": "{state, select, running {正在检索} completed {已检索} other {检索}}",
+    "thinkingActivity": "{state, select, running {正在分析} completed {已分析} other {分析}}",
+    "customActivity": "{state, select, running {正在执行} completed {已执行} other {执行}}",
+    "workedForDuration": "用时 {duration}",
+    "searchWithQuery": "查询：{query}",
+    "showAllLines": "展开全部",
+    "hideLines": "收起",
+    "sourcesButton": "来源",
+    "canceled": "已取消",
+    "canceledItemLabel": "已取消：{name}",
+    "readingConnector": "读取自 {connector}",
+    "writingConnector": "写入到 {connector}"
   },
   "a11y": {
     "addAttachment": "添加附件(图片/视频/文件)",
@@ -422,7 +436,13 @@
     "captchaRefresh": "刷新验证码"
   },
   "chat": {
+    "icuProbe": {
+      "flowState": "{state, select, running {{count, plural, =0 {对话流运行中，暂无待处理工具} other {对话流运行中，已调度 {count} 个工具}}} paused {对话流已暂停} failed {执行失败：<b>{reason}</b>}}"
+    },
     "send": "发送"
+  },
+  "richAnchorProbe": {
+    "flow": "<action>正在注入</action><detail>{target}</detail>"
   },
   "common": {
     "accepted": "已采纳",
