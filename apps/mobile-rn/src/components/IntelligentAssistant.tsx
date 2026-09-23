@@ -17,6 +17,8 @@
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export interface IntelligentAssistantProps {
   /** 剩余智汇值(对齐原 tokenQuantity) */
   tokenQuantity?: number
@@ -95,7 +97,7 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   welcomeCard: {
-    borderRadius: 15,
+    borderRadius: rnRadius['2xl'],
     padding: 4,
     backgroundColor: tokens.surface.card,
     overflow: 'hidden',
@@ -157,7 +159,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brand.ctaFill,
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
   },
   tokenButtonText: {
     fontSize: 12,

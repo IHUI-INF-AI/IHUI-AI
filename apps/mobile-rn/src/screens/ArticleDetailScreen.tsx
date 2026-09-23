@@ -41,6 +41,8 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 import { Heart, MessageCircle, Share2 } from 'lucide-react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 type Route = RouteProp<RootStackParamList, 'ArticleDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -320,8 +322,8 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   commentSheet: {
     backgroundColor: tokens.surface.card,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: rnRadius['2xl'],
+    borderTopRightRadius: rnRadius['2xl'],
     paddingTop: 14,
     minHeight: 360,
     maxHeight: '72%',
@@ -370,7 +372,7 @@ const styles = StyleSheet.create({
   commentAvatar: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: rnRadius['2xl'],
     backgroundColor: tokens.brand.ctaFill,
     alignItems: 'center',
     justifyContent: 'center',
@@ -412,7 +414,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 38,
     maxHeight: 80,
-    borderRadius: 18,
+    borderRadius: 18, // radius-exempt: 胶囊输入框=最小高度 38 的一半
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.bg,
@@ -424,7 +426,7 @@ const styles = StyleSheet.create({
   commentSendBtn: {
     height: 38,
     paddingHorizontal: 18,
-    borderRadius: 19,
+    borderRadius: 19, // radius-exempt: 发送按钮胶囊端=高度 38 的一半
     backgroundColor: tokens.brand.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',

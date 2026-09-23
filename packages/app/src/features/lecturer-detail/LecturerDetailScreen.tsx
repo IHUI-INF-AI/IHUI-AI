@@ -24,6 +24,8 @@ import type {
   LecturerDetailScreenProps,
 } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 讲师详情共享屏 — props 注入式跨端组件 */
 export type {
   LecturerDetailCourse,
@@ -371,7 +373,7 @@ function createStyles(tk: AppThemeTokens) {
     avatar: {
       width: 64, // rpx(128)
       height: 64, // rpx(128)
-      borderRadius: 32, // rpx(64)
+      borderRadius: 64 / 2, // radius-exempt: 讲师头像几何正圆(64dp 直径/2)
       backgroundColor: tk.surface.muted,
     },
     avatarFallback: {
@@ -401,7 +403,7 @@ function createStyles(tk: AppThemeTokens) {
     goldBadge: {
       paddingHorizontal: 6, // rpx(12)
       paddingVertical: 2, // rpx(4)
-      borderRadius: 4, // rpx(8)
+      borderRadius: rnRadius.sm, // rpx(8)
       backgroundColor: tk.vip.gold,
     },
     goldBadgeText: {
@@ -416,7 +418,7 @@ function createStyles(tk: AppThemeTokens) {
     followBtn: {
       paddingHorizontal: 14, // rpx(28)
       paddingVertical: 6, // rpx(12)
-      borderRadius: 16, // rpx(32)
+      borderRadius: rnRadius['2xl'], // rpx(32)
       backgroundColor: tk.brand.DEFAULT,
     },
     followBtnActive: {
@@ -436,7 +438,7 @@ function createStyles(tk: AppThemeTokens) {
     statRow: {
       flexDirection: 'row',
       paddingVertical: 12, // rpx(24)
-      borderRadius: 8, // rpx(16)
+      borderRadius: rnRadius.lg, // rpx(16)
       backgroundColor: tk.surface.card,
     },
     statItem: {
@@ -476,13 +478,13 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       gap: 10, // rpx(20)
       padding: 10, // rpx(20)
-      borderRadius: 8, // rpx(16)
+      borderRadius: rnRadius.lg, // rpx(16)
       backgroundColor: tk.surface.card,
     },
     courseCover: {
       width: 96, // rpx(192)
       height: 60, // rpx(120)
-      borderRadius: 6, // rpx(12)
+      borderRadius: rnRadius.md, // rpx(12)
       backgroundColor: tk.surface.muted,
     },
     courseCoverFallback: {},
@@ -519,7 +521,7 @@ function createStyles(tk: AppThemeTokens) {
     reviewCard: {
       gap: 6, // rpx(12)
       padding: 10, // rpx(20)
-      borderRadius: 8, // rpx(16)
+      borderRadius: rnRadius.lg, // rpx(16)
       backgroundColor: tk.surface.card,
     },
     reviewHeader: {
@@ -530,7 +532,7 @@ function createStyles(tk: AppThemeTokens) {
     reviewAvatar: {
       width: 32, // rpx(64)
       height: 32, // rpx(64)
-      borderRadius: 16, // rpx(32)
+      borderRadius: rnRadius['2xl'], // rpx(32)
       backgroundColor: tk.surface.muted,
     },
     reviewAvatarText: {
@@ -568,7 +570,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
       paddingVertical: 12, // rpx(24)
-      borderRadius: 22, // rpx(44)
+      borderRadius: rnRadius['2xl'], // 原 rpx(44)=22,R1 吸附至 2xl(16)
       backgroundColor: tk.brand.DEFAULT,
     },
     footerBtnText: {
