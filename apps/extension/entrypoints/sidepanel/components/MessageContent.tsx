@@ -19,7 +19,6 @@ import {
   buildRenderModel,
   describeToolCall,
   humanizeToolText,
-  permissionTierWordKeys,
   toolDisplayKey,
   type ChatMessage,
   type ReasoningRenderBlock,
@@ -509,13 +508,10 @@ function TerminalBlockView({
   block,
   t,
   tTool,
-  isolation,
 }: {
   block: TerminalRenderBlock
   t: Translate
   tTool: Translate
-  /** 首个终端块才交代执行环境(web 同区只挂一枚标签,逐块重复会稀释事实) */
-  isolation: string | null
 }) {
   return (
     <div
@@ -541,11 +537,6 @@ function TerminalBlockView({
           </span>
         ) : null}
       </div>
-      {isolation ? (
-        <div className="mt-1 text-[10px] text-muted-foreground" data-testid="terminal-isolation">
-          {isolation}
-        </div>
-      ) : null}
       {block.output ? (
         <pre className="m-0 mt-1 whitespace-pre-wrap break-words font-mono text-[10px] text-muted-foreground">
           {block.output}
@@ -669,22 +660,9 @@ export function MessageContent({ message, streaming = false }: MessageContentPro
   const { t } = useI18n()
   const tTool = useMemo(() => makeToolTranslate(t), [t])
   const model = useMemo(() => buildRenderModel(message, { streaming }), [message, streaming])
-  // G-165①:消息级权限档交代(服务端从 workspace_permissions 反查盖章,不采信客户端自报)。
-  // 只有 string 才算数(盖章服务对"不知道"不写 key),经共享 permissionTierWordKeys 归一 ——
-  // 认不出的值显示 unknown 键,绝不静默显示成 default。
-  const stampedTier =
-    typeof message.metadata?.permissionMode === 'string' ? message.metadata.permissionMode : null
-  const firstTerminalIdx = model.blocks.findIndex((b) => b.kind === 'terminal')
   return (
     <div className="flex flex-col gap-1.5" data-testid="message-content">
-      {stampedTier !== null && (
-        <div className="text-[11px] text-muted-foreground" data-testid="message-permission-tier">
-          {`${t('permissionTier.label')}: ${t(permissionTierWordKeys(stampedTier).title)} · ${t(
-            permissionTierWordKeys(stampedTier).desc,
-          )}`}
-        </div>
-      )}
-      {model.blocks.map((block, idx) => {
+      {model.blocks.map((block) => {
         switch (block.kind) {
           case 'markdown':
             return <MarkdownText key={block.id} text={block.text} streaming={block.streaming} />
@@ -697,15 +675,7 @@ export function MessageContent({ message, streaming = false }: MessageContentPro
               <PlanStepsView key={block.id} steps={block.steps} explanation={block.explanation} />
             )
           case 'terminal':
-            return (
-              <TerminalBlockView
-                key={block.id}
-                block={block}
-                t={t}
-                tTool={tTool}
-                isolation={idx === firstTerminalIdx ? t('chat.terminalIsolation') : null}
-              />
-            )
+            return <TerminalBlockView key={block.id} block={block} t={t} tTool={tTool} />
           case 'subagent':
             return <SubagentBlockView key={block.id} block={block} t={t} tTool={tTool} />
           default:

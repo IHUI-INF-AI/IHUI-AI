@@ -7,8 +7,6 @@
 import * as React from 'react'
 import { useTheme } from 'next-themes'
 import { useTranslations, useLocale } from 'next-intl'
-import { useLanguageStore } from '@/stores/language'
-import { isSupportedLocale } from '@/lib/locale-cookie'
 import { Download, Upload, Sparkles, Loader2 } from 'lucide-react'
 
 import { Card, CardHeader, CardTitle, CardContent, Button } from '@ihui/ui-react'
@@ -40,7 +38,6 @@ export function ThemeBackupSync() {
   const t = useTranslations('settings')
   const { theme, setTheme } = useTheme()
   const locale = useLocale()
-  const setLocale = useLanguageStore((s) => s.setLocale)
   const fileRef = React.useRef<HTMLInputElement>(null)
   const [transitioning, setTransitioning] = React.useState(false)
 
@@ -90,19 +87,14 @@ export function ThemeBackupSync() {
     if (config.sidebar !== undefined) {
       localStorage.setItem(SIDEBAR_KEY, config.sidebar)
     }
-    // 导入的语言必须落到 store(它才是持久化真值;cookie 由 setLocale 镜像写)。
-    // 原来这里只写 document.cookie:重载后 store 仍是旧语言,I18nProvider 挂载时又会
-    // 按 store 值把 cookie 覆写回去 ⇒ 备份包里的语言设置静默失效。
-    const importedLocale =
-      config.locale && config.locale !== locale && isSupportedLocale(config.locale)
-        ? config.locale
-        : null
-    if (importedLocale) setLocale(importedLocale)
+    if (config.locale && config.locale !== locale) {
+      document.cookie = `locale=${config.locale};path=/;max-age=31536000`
+    }
     localStorage.setItem(THEME_BACKUP_KEY, JSON.stringify(buildConfig()))
 
     await new Promise((r) => setTimeout(r, 300))
     setTransitioning(false)
-    if (importedLocale) window.location.reload()
+    if (config.locale && config.locale !== locale) window.location.reload()
   }
 
   const handleQuickSwitch = async (target: string) => {
