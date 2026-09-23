@@ -1312,6 +1312,15 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - **推送侧的兜底闸已生效**:第二十二批装在 `git-push-guard.mjs` 的 2.9b 预检在注入下 `exit=1` 并点名探针、给出四步配方 —— 即使未来某次恢复又带回一枚坏指针,它会在**推送之前**亮红灯,而不是让 guard 与 converge 静默空转(上一批的教训:那种故障的表现只是"分叉解不开")。
 - **仍未闭合(不称收口)**:代码级校验(`writeLooseRef` 前加 `cat-file -e`,跳过项计入输出并从清单剔除)按判据等 `git-refs-heal.mjs` / `git-guardian.mjs` 的 `git status` 干净后由属主落地;届时**这一条就是它的验收标准**:植入一枚 `refs/tags/<probe> -> deadbeef…` 后跑 `node scripts/git-refs-heal.mjs`,要求它跳过该条并在输出里如实计数,而不是把它写回 `refs/tags`。
 
+### 第二十四批(2026-09-23):重装页 DPI 重锚补齐"两轮定档"并与 GUIINIT 同口径 —— 顺带钉出一条会把窗口甩出屏外的顺序陷阱
+
+- **收掉第二十一批自列的残余**:"重锚分支只跑一轮 `IHUI_GUIINIT_SIZE`(GUIINIT 是两轮),跨屏搬迁差一轮收敛"。现 `ihui-ui.nsi:1665-1666` 两轮**紧邻**执行、`IHUI_WINDOW_RGN` 收尾,注释同步从"一轮"改口径。`$R2/$R3`(PageLeave 还要用的 radio 句柄)仍由分支首尾的 `$1/$2` 保存-写回兜住;`$R5..$R8`(工作区矩形)在定档过程只读不写,故第二轮无需重跑 `SystemParametersInfoW`。
+- **过程中新发现的顺序陷阱(比原残余更严重)**:若在两轮 `IHUI_GUIINIT_SIZE` **中间**调 `IHUI_WINDOW_RGN`,该宏会把 `$R6/$R7` 当临时量用(区域句柄 / 圆角直径),第二轮读到的就是**被覆写的脏工作区矩形** ⇒ 窗口被摆到屏幕外。故顺序是硬约束:`SIZE → SIZE → RGN`,已同时落在注释(`:1654-1663`)与守门判据里。
+- **删两枚死变量**:`Var IHUIR6` / `Var IHUIR7`(`:83-84`,编译一直报 warning 6001 "not referenced or never set")。删前对 `windows/*.nsi` 与渲染出的 `target/release/nsis/x64/` 逐处 grep 确认零引用 —— 本仓有实测过的 NSIS 陷阱"**后置 `Var` 在 Function 体里被引用只报 warning 6000 并静默丢引用**"(第十七批那条),所以删声明必须先证明无人引用,不能靠编译"过了"当证据。
+- **把两条都装进闸(守门 61 第 7 条不变量扩判据)**:`scripts/check-installer-assets.mjs:528-553` 新增 ① 重锚分支的 `IHUI_GUIINIT_SIZE` 轮数 < 2 即红;② `IHUI_WINDOW_RGN` 出现在两轮之间即红。测试 16 → **19 例**:改回单轮必红、region 夹中间必红、只加注释保持多轮必绿;夹具用 `mutateReanchorBranch` 动态定位分支并在基线不满足前提时**自报"夹具失效"** —— 上一批刚因夹具写死存量把自己测红包过红一次。
+- **验证(主 agent 逐条自己复跑,不采信代理报告)**:`node --test scripts/tests/check-installer-assets-geo.test.mjs` → `tests 19 / pass 19 / fail 0`;`node scripts/check-installer-assets.mjs` → `PASS —— …重装页 DPI 重锚走完窗口框+裁剪区域且两轮紧邻定档…七条跨文件不变量成立`;沙箱 `makensis` → `COMPILE OK`、**warning 6000 = 0**、总警告 6 → **4**(消失的两条正是 6001 死变量)。另校一处事实错误:代理注释把日期写成 `2026-09-25`,已改回 2026-09-23(只改笔误,不改结论)。
+- **残余(不称收口)**:① **仍未做真机像素/跨屏复验** —— 该分支只在"窗口 DPI ≠ 布局 DPI"(跨屏异 DPI 或缩放被改)时触发,而取证需要动显示缩放设置,已被明令永久放弃;故本批只有编译级 + 守门级证据,没有像素级证据。② `scripts/check-installer-assets.mjs` 与它的测试文件在 HEAD 存量本就不满足 prettier 全量格式(试跑 `--write` 产生 114 行无关重排,已回退,只保留本票改动行)—— 意味着任何会话对这些文件跑 lint-staged 都会带一大片排版噪声,属存量债,不在本票范围。
+
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
 
