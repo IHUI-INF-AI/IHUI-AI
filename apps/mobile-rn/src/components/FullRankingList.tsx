@@ -90,7 +90,7 @@ interface RankBadgeStyle {
 
 function rankBadgeStyle(rank: number): RankBadgeStyle {
   if (rank === 1) {
-    return { backgroundColor: tokens.brand.DEFAULT, color: tokens.surface.light }
+    return { backgroundColor: tokens.brand.DEFAULT, color: tokens.brand.foreground }
   }
   if (rank === 2) {
     return { backgroundColor: tokens.warning.DEFAULT, color: tokens.surface.light }
