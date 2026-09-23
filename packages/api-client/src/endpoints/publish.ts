@@ -516,6 +516,33 @@ export async function getAccountRisk(accountId: number): Promise<ApiResult<Accou
 }
 
 // =============================================================================
+// 账号健康度 + 风险批量视图(2026-09-23 新增)
+// =============================================================================
+
+/** 单个账号的聚合项,两个字段与各自单账号端点同构(服务端共用同一套推导)。 */
+export interface AccountHealthSummaryItem {
+  accountId: number
+  platform: string
+  cookieHealth: CookieHealthInfo
+  risk: AccountRiskInfo
+}
+
+export interface AccountHealthSummary {
+  items: AccountHealthSummaryItem[]
+  count: number
+}
+
+/**
+ * 一次取回当前用户全部账号的 Cookie 健康度与风险评分。
+ *
+ * 用它替代 `getCookieHealth` / `getAccountRisk` 的逐账号调用:19 个账号原先要发 38 次,
+ * 叠加轮询后单页即 ~163 次/分钟,会撞穿服务端 IP 封禁阈值(2026-09-23 生产实测)。
+ */
+export async function getAccountsHealthSummary(): Promise<ApiResult<AccountHealthSummary>> {
+  return fetchApi('/api/publish/accounts/health-summary')
+}
+
+// =============================================================================
 // 数据分析(2026-08-01 新增)
 // =============================================================================
 
