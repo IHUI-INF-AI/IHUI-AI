@@ -231,6 +231,30 @@ export interface ResolveWaitingTextInput {
   fallback?: string
   /** 取词注入:按 waiting.<象限>.<阶段>.<下标> 取本地化文案,缺省不用 */
   t?: WaitingTextLookup
+  /**
+   * 相邻去重:传入"上一帧用过的 seed"(与 seed 同形态,数字或 turnId 皆可)。
+   * 传了就保证本次选中的条目 !== 上一帧 seed 选出的那条;不传时行为与未引入本入参前逐字节一致。
+   * 选 seed 而非 index 作入参:下标是 normalizeSeed % 池长 的内部派生量,调用方手里只有
+   * 自己上一帧的 seed(turnId 或帧计数),按 seed 比对不必把取模规则泄漏到 5 端调用点。
+   * 纯函数极限(不可绕过,加状态又被禁止):上一帧自身已被顺移时,本帧只能避开
+   * "上一帧 seed 本会选的那条",极端 seed 序列下仍可能出现同条二连播(旧行为是无上限连播)。
+   */
+  avoidSeed?: number | string
+}
+
+/**
+ * 相邻不重复的下标推进:命中上一条时顺移一位(池长 ≤1 时无解,原样返回)。
+ * 纯函数,不读写任何模块级状态;确定性输入 → 确定性输出。
+ */
+function pickIndexAvoiding(
+  poolLength: number,
+  seed: number | string | undefined,
+  avoidSeed: number | string | undefined,
+): number {
+  const index = normalizeSeed(seed) % poolLength
+  if (avoidSeed === undefined || poolLength <= 1) return index
+  const previousIndex = normalizeSeed(avoidSeed) % poolLength
+  return index === previousIndex ? (index + 1) % poolLength : index
 }
 
 /**
@@ -256,7 +280,8 @@ function pickWaitingDictText(
 
 /**
  * 取等待文案(纯函数,同输入必同输出)。
- * 下标 = normalizeSeed(seed) % 池长;vivid 档 = 保守文案 + 词表尾缀。
+ * 下标 = normalizeSeed(seed) % 池长;传 avoidSeed 时若与上一帧同条目则顺移一位。
+ * vivid 档 = 保守文案 + 词表尾缀。
  * 有 t 走词表,无 t 或缺键回退英文池。
  */
 export function resolveWaitingText(input: ResolveWaitingTextInput): string {
@@ -265,7 +290,7 @@ export function resolveWaitingText(input: ResolveWaitingTextInput): string {
   if (input.personaEnabled === false) return fallbackEn
   const poolEn = WAITING_POOLS_EN[input.quadrant]?.[input.phase]
   if (!poolEn || poolEn.length === 0) return fallbackEn
-  const index = normalizeSeed(input.seed) % poolEn.length
+  const index = pickIndexAvoiding(poolEn.length, input.seed, input.avoidSeed)
   const key = waitingI18nKey(input.quadrant, input.phase, index)
   const baseEn = poolEn[index] ?? fallbackEn
   const base = pickWaitingDictText(input.t, key, baseEn)
