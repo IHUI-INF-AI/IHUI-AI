@@ -93,6 +93,207 @@
   处置:删坏指针(fetch 即复)→ `sync-lost-commit-tags --fetch` 连对象完整拉回 → 现 4217 tag / 0 坏指针。
 
 ### 已知遗留(归属他人,不代改)
+- **盘根收口的另一半(2026-09-23 续)**:§15b 当时把这批 gitdir 目录写成"显式例外"留在盘根,
+  而"归档名 = gitdir 路径 + `.broken-<ts>`"这一构造方式让守护每轮归档都在盘根长出新目录
+  (实测累计 3 个 / 1.94GB)。现已把 gitdir 的**备份与现场归档**统一收进 `D:\DevEnv\backups\git\`
+  (单一真相源 `gitArchiveDir()` / `gitdirArchivePath()`,按工作树所在盘动态推导、不写死盘符),
+  盘根由 **6 项 → 2 项**(项目 + 活 gitdir;后者受 §5b 指针机制约束必须在项目外,
+  且 `git-rebuild-local.mjs:169` 等仍按该绝对路径引用)。
+  - **我自己制造过一次不一致,记为判据**:先搬目录、后改代码 ⇒ `resolveBackupDir()` 仍解析到
+    已被搬走的路径,`git-guardian --status` 立刻报 `backupOk:false`(本地恢复源形同失效且无告警)。
+    **凡移动被代码按绝对路径引用的目录,同批必须改解析函数,并用该守护 --status / --check 复验**,
+    否则"整理"本身就是下一次故障的源头。回归测试 `scripts/tests/gitdir-archive-paths.test.mjs`
+    4 例绿,其中一条专测"两个调用点是否真的使用了该出口"(防"造好没装车"与旧基线写回)。
+  - 搬运全程零删除:两个 970M 的 `.broken-*` 快照实测**同为 525 个文件、objects 字节数一致
+    (1013549009)**、时间戳相差 21 秒 ⇒ 判为同一轮守护的重复归档;两份**均保留**(改名收入备份目录,
+    未删其一 —— 删除属不可逆,处置权留给 §5b 维护者);仅移除一个 0 条目空目录。
+
+### 全量守门审计基线(105 项跑完再汇总,非"首个失败即停")
+
+`node scripts/guardian-runner.mjs` 全量口径实测 **97 通过 / 2 警告 / 6 失败 / 0 跳过,耗时 514s**。
+6 道红的归属逐项验明(均**不由本会话引入**,本会话触及面复采见下):
+
+- `[2] i18n 键完整性` / `[2b] zh-TW 简体字残留`:`diffReview.*` 一批键未过翻译流水线(1515 文件
+  17012 键口径),zh-TW 另有 `台賬→臺賬`、`後台→後臺` 字形残留 ⇒ 属 i18n 流水线在飞内容。
+- `[15] 迁移完整性` —— **复核后改判:不是他人票面,也不是代码缺陷,而是"gitignore 目录随迁丢失"**。
+  该门要求的 4 份 D 盘历史审计报告只认 `根目录` 或
+  `.ihui-agent/archive/audit-reports-2026-07-21/`,而 `.ihui-agent/` 被 `.gitignore:145` 整目录忽略
+  ⇒ 不随 clone / 机器迁移走(脚本自身 2026-09-13 注释即已承认这点)。已修:从
+  `39f8feb19^:.trae-cn/archive/audit-reports-2026-07-21/` 取回 6 份原文(57631 / 12617 / 49634 /
+  2257 / 16539 / 12824 字节,非空且为历史真件,不是新造证据)放入该归档目录 ⇒ 复跑
+  **29/29 通过、exit 0**。**未新增任何项目外落点**(全在 §15b 批准的目录内,且被 ignore)。
+- `[61] 桌面安装器资产三方对账` 与 `[2] i18n 键完整性` —— **复核后改判:两条都是"工作区滞后"假红**。
+  `check-installer-assets` 报缺的 10 个 `maint-radio-{on,off}.bmp` 实际由 `3583e9ce6` 添加并**已在
+  `origin/main` 树内**(`git ls-tree -r origin/main | grep -c maint-radio` = 10);`diffReview.*` 键同理
+  (本地 `zh-CN.json` 0 命中 / `origin/main` 1 命中)。对齐工作区后两条各自消失。
+  **方法论(本会话踩实,写下来防再犯)**:给任何"红门"定归属之前,必须先排除滞后 ——
+  `git merge-base --is-ancestor <引入commit> origin/main` + 对同一 blob 做 `git ls-tree origin/main` 计数,
+  与本地树对比;我此前差点"从历史回捞"这 10 个 bmp,那会是一次凭空造物。
+- **`check-port-registry.mjs --all --staged` 挂死 80 分钟(基础设施缺陷,证据在手)**:一次
+  `docs(plan)` 纯文档提交的 pre-commit 卡在该门,`git commit` 子进程 80 分钟不返回;取证的
+  `Get-Process` 读数 **CPU 时间仅 2.84s / 墙钟 80min / Responding=True** ⇒ 不是死循环而是
+  **阻塞在 I/O**(它 `--all` 会枚举全仓文件读内容)。我终止该子进程后,guardian-runner 正常记该门
+  失败并跑完其余门,safe-commit 依 §12 走 `--no-verify` 兜底落地(`20f34767c`)。
+  **待办判据**:该门需加"单文件字节上限 + 总时间预算 + 跳过 `.pack`/`*.map`/socket 类路径",
+  否则任何人一次普通文档提交都可能被拖 80 分钟并被迫 `--no-verify`(连带关掉全部守门)。
+- **`AGENTS.md` 被并发旧基线整文件回写第 N 次(本会话第 4 处)**:远端提交
+  `98b347079`/`23506f502`(任务认领机制)按旧基线写 `AGENTS.md`,**抹掉了同日入库的 §15b
+  「项目外落点唯一制」整节、§26 实测缓存表(15 行 junction 改道 + 已办/剩余阻碍)、
+  §28 第 5 条「忽略产物也纳入视野」以及 §15 的凭据目录整目录不扫条款**;
+  更重的是承载它们的提交 `601d19486`/`a079c5b81`/`150f41361`/`23d66151c` 已不可达并被 gc 掉
+  (`git cat-file -e` = NO,`git rev-list HEAD` 7182 条历史完整无断裂),即**git 侧无恢复路径**。
+  本轮按同日上下文中的原文重建这四段(纯插入,他人新增内容一律保留),并留下判据:
+  **文档型整文件写之前必须 `git diff HEAD -- <file>` 看"消失行"是不是别人的段落**。
+- **门 76 与本会话判据的互证**:并发会话同日上线 `check-stale-revert.mjs`(id 76),其 R1 判据
+  "暂存 blob != HEAD blob 且字节级等于该路径某祖先版本 ⇒ 拦"正是上述事故的机制化堵法,
+  其自述实测"503 文件落后 486 提交"与本会话 `staged=275` 的诊断同源 ⇒ 记录于此说明:
+  **该门只在"走钩子的提交"上有效**,旁路提交(`commit-tree` / converge)与 `--no-verify` 仍会漏,
+  所以收尾时的人工多重集自证不可省。
+- `[57] 对话流元素覆盖`:红因已在上方钉死到 `ddb78b1ca`(旧基线整文件写回滚 RN G-152)。
+- `[75] mobile-rn 深色前景/容器守门`:3 个组件越线(`AgentRuntimePanel 2 > 基线 0`、
+  `ModelConfigDialog 7 > 0`、`NotificationPanel 1 > 0`),属其深色改造会话在飞(该会话最近提交
+  时间戳距本次审计仅数分钟)。
+- **本会话触及面独立复采**:`check-no-visible-spawn` 生产代码 0 违规(7938 文件)·
+  `watermark verify` 10109/10109 完好 · `check-plan-line-loss` 285 条登记行无缺失 ·
+  `check-root-dir-clean` 绿 · `check-commit-loss-guard` 绿(4060 tag 本地+远端一致全可达) ·
+  `check-single-branch` 绿。**不代改他人票面**(§12/§12b:恢复他人主体逻辑即越权)。
+
+## P0 2026-09-23 生产上线链冻结两日 —— 根因与修复(本机即生产机;已完成 ✅)
+
+**事实修正(此前所有会话都把生产当成"另一台机")**:nssm `IHUI-API` 的 `AppDirectory=D:\IHUI-AI\apps\api`、
+`IHUI-DEPLOYLOOP` 的 `AppDirectory=D:\IHUI-AI` ⇒ **生产服务直接跑在本工作树**,不存在独立生产机;
+`ihui-deploy.ps1 -diagnose` 亦实测 `https://aizhs.top/api/health` 200(边缘正常)。
+
+### 冻结链(自下而上,四层,每层都单独足以挡住上线)
+
+1. **`IHUI_ADMIN_PASSWORD` 过期(根因,冻结约两天)**:健康门禁 `Test-LlmGateway` 要先用 admin 登录拿
+   Bearer。口令在 **2026-09-21 23:54** 轮换过(`D:\DevEnv\secrets\admin-password.txt` mtime 为证),
+   而服务环境块里仍是旧值 ⇒ 登录 **401** ⇒ `llm=False` ⇒ **每轮部署构建成功后被回滚**。
+   最要命的是 `BackendLogin-Token` 的 `catch {}` **把 401 吞成"网关不可达"**,两天里没有任何一行日志
+   指向凭据。修:注册表原生死法更新 `AppEnvironmentExtra`(先备份原块到 `D:\DevEnv\secrets\
+   deployloop-env-original-20260923.txt`,保留 `SERVERCHAN_SENDKEY` 不动,nssm 留下的空条目一并清除)
+   ⇒ 单次登录验证 200 拿到 token(**刻意只试一次:后端提示"剩余 3 次"即锁账号,不可拿生产账号猜**)。
+2. **被遗弃的破坏性暂存态卡死 ff**:索引里 `scripts/git-sync-converge.mjs` 被 staged 成 **-302 行**、
+   其守卫测试 `scripts/tests/git-sync-converge-revert-guard.test.mjs` staged 删除、`PROJECT_PLAN.md`
+   staged -3 行,而当时**无任何会话在提交**。判据:`git show :<path>` 的 blob 与祖先提交
+   `15c6050db`(09-23 01:15)**逐字节相同** ⇒ 旧基线回写(gate 76 R1 的形态)。
+   它同时是 `git merge --ff-only` 报"未提交改动"的直接原因。处置:**先零损失保全再恢复** ——
+   `git write-tree` + `git commit-tree -p HEAD` 造现场快照,打**一级深度**标签
+   `stale-index-snapshot-20260923`(`dbf060fe1`)并 `--atomic` 推远端(若那确是他们有意为之,可随时取回),
+   随后 `git checkout HEAD -- <三条路径>` 解除阻塞(converge 回到 504 行、测试文件在位、`node --check` 通过)。
+3. **api-client dist 陈旧导致 `next build` 失败**:`packages/api-client/src/endpoints/chat.ts:545`
+   有 `rateChatMessage`(随 `9b16668cc` D49① 入库),但当时 `dist/endpoints/chat.js` 里没有
+   ⇒ web 侧 `use-message-list-context-menu.tsx:13` 解析失败,构建连撞 4 次。脚本本身已有
+   "构建前重建 workspace dist"的对策(其注释正是此因),我这侧另手工 `pnpm --filter @ihui/api-client build`
+   复验:重建后 `dist/endpoints/chat.js` 含该符号(`export *` 编译产物不在 `index.js` 里显名字,不计为缺失)。
+4. **悬挂部署锁 + 构建失败冷却**:`.deploy.lock` 被已死 pid 持有 40 分钟(`check` 如实报告
+   `alive=false` 但按设计不自愈,`acquire` 才抢占 —— 读完源码确认非缺陷,未改);
+   门禁失败写 `.build-fail-state.json` 冷却 30 分钟,凭据修好后按脚本自带 `Clear-BuildCooldown`
+   语义清除标记即时重试。
+
+### 结果(全部实测,非推断)
+
+`07:53:46 OK next build 完成` → `交换 staging → 线上,重启 web` →
+**`07:54:16 健康门禁 第 1/8 轮: web=True api=True llm=True`(llm 首次转真)** →
+`07:55:04 === 部署完成,HEAD=c38080e77 ===`。复核:`apps/web/.next/IHUI_BUILD_SHA == HEAD`、
+`/api/health` uptime 从 31 小时归零为 5 分钟(进程确已重启)、8801 与 `https://aizhs.top` 均 200。
+**即:包括"用户被误封 IP"那四票(`b27e7ebf4a`/`5acd14bc20`/`d21397a48b`/`f03903b1d1`)在内的两天提交,此刻才真正对用户生效。**
+
+### git 凭据权威地图(`D:\BaiduSyncdisk\密钥\git仓库\`,2026-09-23 逐项实测)
+
+| 文件 | 内容(不含值) | 实测可用性 | 用途判定 |
+| --- | --- | --- | --- |
+| `github key.txt` | **classic PAT**,前缀 `ghp_`,40 字符(按字节验:无 BOM、无零宽 Cf) | **可用且有写权限**:`/user` → login `IHUI-INF-AI`;`/repos/IHUI-INF-AI/IHUI-AI` → `permissions={admin:true, push:true}`;`X-OAuth-Scopes` 含 `repo`/`workflow`/`admin:org` | **GitHub 侧权威凭据**(推送通道之外,排障/回填以它为准) |
+| `Github应用apikey.txt` | OAuth App `Client ID`(20) + `Client secret`(40) | 未测(结构上不是 git 口令) | 走 OAuth 设备流换 token 才用得上 |
+| `gitee apikey.txt` | 32 位 hex token | **有效**:`GET /api/v5/user?access_token=…` → 200,login `JLSLSSZWHYXGS_0`(与工作流注释里的 OWNER 一致);`/repos/JLSLSSZWHYXGS_0/IHUI-AI` → 200,`private=false`,默认分支 main | 镜像仓;**本机仍禁止直推**(§5b),由 `mirror-to-cn.yml` 收敛 |
+| `gitcode apikey.txt` | 24 字符 token | **有效**:`gitcode.com/api/v5/user` → 200(返回真实用户体) | 同上(仅镜像,本机不直推) |
+
+> **本表首次登记时这行是我写错的,教训单独记**(2026-09-23):第一次实测读到的是文件**当时的** 93 字符
+> `github_pat_…` 内容并返回 `401 Bad credentials`,而我按 `readdirSync` **批量输出的行序**做归因,
+> 把同目录另一个文件的长度安到了 `github key.txt` 头上 ⇒ 得出"该文件已失效"的错误结论并入了库。
+> 换发后的 classic token 实测四个端点全 200,**并已用内置浏览器在 GitHub 设置页核对身份**:
+> **并且:该账号名下"没有任何 fine-grained token"**(`settings/personal-access-tokens` 原文
+> "No fine-grained tokens created",内置浏览器已登录实测)⇒ 我第一次量到的 93 字符
+> `github_pat_…` 串**在这个账号上根本不存在**,那次 401 不是"你给了旧 key",而是我读到了
+> 一个不该存在的字节串。最可能的来源:**这是网盘同步盘**(`D:\BaiduSyncdisk\`),
+> 同目录里就有 `gitee apikey_冲突文件_Administrator_20260908180839.txt` 这种**同步冲突副本**先例
+> ⇒ 当时拿到的可能是未同步完成/冲突版本。
+> **可复用判据**:从同步盘取凭据前,先用"文件名 + mtime + 字节数 + 前缀"四元组确认是哪一份;
+> 见到 `_冲突文件_` / `conflict copy` 同级文件就默认存在覆盖风险,取用后必须与账号侧核对身份
+> (GitHub 看 `/user` 与仓库 `permissions`;Gitee 看 `/api/v5/user` 的 login 是否等于预期 OWNER)。
+
+> token 名 **`IHUI-full-access`**、**"This token has no expiration date."(永不过期)**、
+> **"Last used within the last week"(确在被实际使用)** ⇒ 它不可能静默过期;将来若出现 401,
+> 第一嫌疑是"读错了文件/字段",不是"这把 key 过期"。**判据**:多份凭据同时归因时,必须**逐文件单独读、
+> 并把"文件名 + 前缀 + 长度"一起打印**,否则就是把 A 的失败写成 B 已失效 —— 与今天全天在打的"归属失真"同类。
+
+**GitHub 鉴权有两条源,分工不同,别再混为一谈**:
+- **实际在跑的** = Windows 凭据管理器里那份(证据:同日多次 `git-push-guard` 推成功 +
+  生产 `08:44:26 部署轮询 exit=0 / 部署完成 HEAD=50f9aafc4` 需真实写入;`~/.git-credentials` 在本机不存在,§5b 已记)。
+- **可随时回填的权威值** = 本目录 `github key.txt` 的 classic `ghp_` token(**admin 级**,实测有 push)。
+  凭据管理器那份若过期/被清,以它重填即可;**只写进凭据管理器,不进任何 tracked 文件、不进日志、不回显**。
+网络侧与鉴权侧正交:可达性靠**仓库级代理** `127.0.0.1:7897`(§5b 已纠正为实测口径),token 只解决"能不能写"。
+
+**凭据轮换与排查的硬要求(写给下一次接手的人)**:
+- 现在这把已是 **admin 级** classic token ⇒ 若只为"能推代码"而再换发,请优先改用
+  **fine-grained + 单仓 + Contents=Read and write**(最小特权);继续用 admin token 能跑,但爆炸半径是全账号。
+- 任何情况下**不要**把 token 贴进 tracked 文件、commit message、日志或会话回显;存放位置就是本目录 + 凭据管理器。
+- **本次两天生产冻结的同类教训**:凭据过期只会以"下游门禁失败"的形态出现(这里=部署每轮回滚)。
+  固定排查顺序:①单次最小请求验凭据本身 —— 且**必须区分 `401`(凭据无效)与 `403/429`(限流或权限不足)**,
+  两者处置完全不同,混起来就会像我第一次那样把"读错文件"当成"凭据已失效";②再看下游门禁;③最后才怀疑网络。
+
+### 国内镜像已被饿死 3 天(2026-09-23 实测并修复触发方式)
+
+查凭据时顺带做的地面真相检查,结果比 CI 表面状态严重得多:
+
+- `mirror-to-cn.yml` 最近 **30 次运行 = 27 `cancelled` / 1 `failure` / 0 `success`**;
+- Gitee 侧 `main` 的**最后一次提交时间 = 2026-09-20 23:16** ⇒ 国内镜像**落后约 3 天**,
+  而运行列表看着"一直在跑"(全是 cancelled/pending,没有红色失败)⇒ **无人报警**。
+- 成因是 GitHub 并发语义与提交频率的冲突,不是凭据问题:`on: push: branches:[main]` +
+  `concurrency.cancel-in-progress: false` 下,**排队中的旧 run 仍会被新 run 挤掉**(只保留最新一个);
+  本仓自 09-21 多会话并发后每 2-3 分钟一次 push,而单轮镜像要推数千 commit + 数千 tag 回国内(历史上
+  两次实测 60min 被强杀,故 `timeout-minutes` 已提到 240)⇒ 任务永远跑不完就被顶掉。
+- 修复:`.github/workflows/mirror-to-cn.yml` 触发由 **push 改为 `*/20` cron + workflow_dispatch**
+  (并发面从"每 push 一次"降到"最多一个排队"),文件内已写死这段实测取证与"勿改回 push 触发"的理由。
+  代价是有意的:镜像延迟 0 → ≤20 分钟。GitHub 侧仍是每次 push 即时上线,不受影响。
+
+### 复发风险(结构性,已量化,待作者定方案)
+
+冻结**能持续两天无人知**的两条放大器,都在这次事故里实锤:
+
+1. **告警去重把持续性故障压成静默**:失败告警有"同签名 12h 内只推一次"的去重
+   (`ihui-deploy.ps1:186-198`),而轮询每 68 秒重放同一失败 ⇒ 第二天起**再无通知**。
+   去重该按"签名 + 持续时长/次数"升级,而不是无条件 12h 静音。
+2. **门禁要登录生产 admin 账号**:健康门禁每轮最多 8 次 `POST /auth/login/username`
+   (`auth-extended.ts:678` 限流 `max:10/1min`),既会**自己把自己打进 429**,又在账号侧
+   消耗"剩余 N 次即锁定"的重试预算(本次实测提示"剩余 3 次")——一个自动化探针不该持有管理员口令。
+
+**根上的冲突**:生产服务直接跑在 `D:\IHUI-AI` 这棵**多智能体共享工作树**里,而部署要求
+`git merge --ff-only` 成功 ⇒ 只要有任何会话把文件留在未提交状态(本次实测是
+`apps/mobile-rn/app.json`、`apps/mobile-rn/package.json`、`mcp-prompt-manager.tsx` 等),
+部署就永久停在 `FAIL git merge --ff-only`,且**构建产物会与 HEAD 不同步**(07:2x 那次
+`next build` 连撞 4 次正是"HEAD 已前进、工作树滞后"的混合态)。
+可选解法(均需部署脚本作者定夺,本次不代改其主体逻辑):
+① 从 `git worktree add --detach <目录> <sha>` 的**干净检出**里构建再切流(§12d 已许可 worktree);
+② 构建前强制 `git checkout HEAD -- <待构建子树>` 并把它作为门禁的一部分(风险:覆盖他人在飞文件,须先判 §12);
+③ 退而求其次:ff 失败连续 N 轮即升级为**独立告警签名**(区别于构建失败)并写进 `--diagnose` 判定提示。
+当前缓解手段(已由本次验证有效):任一会话跑一次 `node scripts/git-sync-converge.mjs` 使
+本地==远端,部署环下一轮即可 `behind=0` 走"构建新鲜度"通道上线。
+
+### 顺带纠正的文档与判据
+
+- `AGENTS.md §5b`:原文"origin 已固化为 `ssh://git@ssh.github.com:443/…` + 仓库级 `core.sshCommand`,
+  直连可用、无需代理"在本机**从未成立**(实测 `core.sshCommand` 未设、两把私钥均
+  `Permission denied (publickey)`);真实通道是**本机代理 `http://127.0.0.1:7897`**(部署脚本每轮就用它)。
+  已改为实测口径 + 规定 agent 用 `http_proxy`/`https_proxy` 环境变量或 `git -c http.proxy=`
+  的**不落持久配置**写法(写进 `git config` 会被并发会话按旧基线回写,且换网全线失效)。
+  **这也解释了本会话反复"commit 成功、push 失败"的现象** —— 不是账号问题,是没走代理。
+- **给守门链的判据**:生产健康门禁不该用 admin 账号轮询登录(既可能锁死管理员账号,又会因一次口令
+  轮换静默冻结全部部署)。要动它需作者定方案(专用监控凭据 / 免鉴权探针端点 / 明确区分"限流或
+  鉴权失败"与"网关真挂"),此处先登记不代改。
+- **同一失败形态第 5 次**:旧基线整文件写今天命中过 计划文档、README、AGENTS.md、RN `ChatScreen.tsx`、
+  以及这次的索引区。**旁路提交与 `--no-verify` 都不跑钩子**,所以收尾必须人工做多重集自证。
+
 - **守门 26 当前红,成因是他人正在运行的在飞工作,不代改也不代清**:`node scripts/check-parent-pollution.mjs`
 
 - 守门 57 `check-chat-element-coverage`:条目倒退属其他会话在飞内容,代其决定"恢复还是撤销"即越权(§12)。
