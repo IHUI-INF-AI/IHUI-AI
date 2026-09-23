@@ -19,7 +19,6 @@ import {
   availableWithdrawal,
 } from '../../db/commission-queries.js'
 import { parsePagination, parseIdParam } from './_shared.js'
-import { requireAdmin } from '../../plugins/require-permission.js'
 
 const withdrawalApplySchema = z.object({
   amount: z.coerce.number().int().positive(),
@@ -135,8 +134,8 @@ const withdrawalRoutes: FastifyPluginAsync = async (server) => {
     '/finance/withdrawal/flows/:id/approve',
     { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
     async (request, reply) => {
-      await requireAdmin(request, reply)
-      if (reply.sent) return
+      const roleId = request.jwtPayload?.roleId ?? 0
+      if (roleId < 1) return reply.status(403).send(error(403, '需要管理员权限'))
       const id = parseIdParam(request, reply)
       if (id === null) return
       const flow = await approveWithdrawal(id, request.userId ?? null)
@@ -150,8 +149,8 @@ const withdrawalRoutes: FastifyPluginAsync = async (server) => {
     '/finance/withdrawal/flows/:id/reject',
     { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
     async (request, reply) => {
-      await requireAdmin(request, reply)
-      if (reply.sent) return
+      const roleId = request.jwtPayload?.roleId ?? 0
+      if (roleId < 1) return reply.status(403).send(error(403, '需要管理员权限'))
       const id = parseIdParam(request, reply)
       if (id === null) return
       const body = (request.body as { reason?: string } | null) ?? {}
