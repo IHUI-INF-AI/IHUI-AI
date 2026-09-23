@@ -587,6 +587,31 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - **顺带修一处协作事故**:本轮发现工作区 `PROJECT_PLAN.md` 是一份被回滚过的旧副本 —— HEAD 里并发会话已提交的 38 行(守门 72 / agents 面 fail-open / 数据面未知表 / CI lint 红 等)在工作区不存在。直接提交工作区版本就会抹掉他人提交,故改用"HEAD 内容为基准 + 只插入本批段落"的字节级 splice 重建,并先跑唯一性断言(锚点必须恰好出现一次、本批标题不得已在 HEAD 中)。
 - **仍未闭环**:① 第九批登记的"完成钮 1px 环"经像素取证实为**白边**(洞比钮大 2px 露出父对话框的按钮面色刷),本会话已由"洞与钮等大"根治,第九批那条"载体固有代价、四种手段无效"的结论**作废**;② 沙箱安装 1-2 秒跑完,加密锚点后的逐帧观感无法在本机截图取证,判据以"埋点集合 == 刻度集合"的静态一致为准,真实包发版后再复核一次。
 
+### 第十二批(2026-09-23):进度补间 —— 我上一条"结构上做不到"是错的,动画根本不需要定时器
+
+用户第二次驳回:"还是一蹦一蹦,没有柔和过渡"。**驳回是对的。** 第十一批我把两件不同的事混成了一件:
+"instfiles 页拿不到定时器"是真的(Section 期间 `${NSD_CreateTimer}` 派发 0 次、`System` 插件回调判死),
+但**补间不需要定时器** —— 条宽走 `SetWindowRgn`、数字走 `SetWindowTextW`,两个调用都在 UI 线程自己手里同步生效,
+中间插一个 `Sleep` 就是动画。需要消息泵的只是"别人定时来叫我"。
+
+- 实现(`ihui-ui.nsi` / `ihui-uninstaller.nsi`,安装与卸载同一套):新增游标 `IHUIPLAST` / `UNPLAST`
+  (进页显式归零 —— Var 初值是空串,不归零第一次 `IntOp` 会从空值起算);抽出 `IHUI_PAINT_LAST` /
+  `IHUI_UNPAINT_LAST`,终值与补间共用同一画法(不留双真相);`IHUI_PROGRESS` / `IHUI_UNPROGRESS`
+  改为"写阶段文案 → 从游标逐 1% 走到锚点(每步 `IHUI_STEP_MS`=25ms)→ 游标钉到锚点"。
+- **不做假进度**:游标只走到"已真实完成的那一步"的锚点值,绝不越过目标;锚点回退时直接对齐,不放倒动画。
+- **静默 / passive / 自动更新零成本**:两个控件句柄都为 0 时走另一分支,一帧不画、一次 Sleep 都不做。
+  只有交互安装/卸载多约 2.5 秒。
+- 取证改用**不经消息泵**的 API:`GetWindowRgnBox` 轮询进度条控件 region 宽度。
+  安装侧:23 次变化、单调不减、21 个非锚点中间值(锚点宽度 65/185/283/348/392/435/479/506/528/544)。
+  卸载侧:同一控件 **84 次变化、单调不减、83 个非锚点中间值**(3,9,15,18,22,…,295)。
+  过程中自纠两处取证错误:① 矩形 region 属 `SIMPLEREGION`,`GetWindowRgnBox` 返回值**恰为 0**,
+  最初写 `-ne 0` 把目标控件整个滤掉、假报"0 次变化";② 进度页控件是**进页后才创建**的,
+  探针启动时枚举一次会拿到上一页的控件,必须每拍重新枚举。
+- 真包已重建供交互复核:`智汇AI_0.1.44_x64-setup.exe` 6,147,635 字节,`.sig` 420 字符解码恰 4 行、
+  签名块 keyID `B5D7E67EA2B1DB08` 与 conf 公钥一致,`desktop-artifact-single.mjs` 断言目录内唯一包通过。
+- 提交:`34988d7170`(补间实现)。守门 `desktop-nsis-template --check` OK(36 处补丁,本批未新增模板补丁)、
+  `check-installer-assets` PASS、`makensis` 0 error。
+
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
 
@@ -1417,6 +1442,9 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
   - **进度(第 61 轮 · D55① 词表 + web 本地化渲染位,并更正本条前提)**:**"数据零新增"不成立** —— 逐层实测后缺 5 层:① 对话流(`/llm/complete/stream`)根本不发 decision(`plan.step`/`permission.mode` 只经 hook 总线转 workbench 三条流,`routers/llm.py` 无订阅也无发射);② 契约声明不含字段(`sse_contract.py` 的 `plan-step` payload 只写 `("payload",)`,`permission-mode` 不在 SSE_EVENTS);③ 回调持久化与 `ChatMessageMetadata` 均无 decision/reason(现只有 citations/injections/compaction/retryNotice 四类);④ hint-only 取值在 live 帧丢失(`_maybe_record_step` 先 `pop`,`emit_plan_step` 又重新推导,免审批类决策只剩在录制文件里);⑤ **15 个字面量在全仓任何语言包都没有文案**,两处渲染位把 `security_blocked`/`auto_skip_approval` 这类英文码直接喷给用户。本票做 ⑤ + 渲染位:新增共享词汇表 `packages/shared/src/chat/step-decision.ts`(15 值 → 取词键 + approved/rejected/needsUser/unknown 四归并态;认不出原样显示、缺词退回原始码、**绝不编造也绝不喷键名**;不设"自动审查中"第五态 —— 那是 `status=started` 的进度不是决策),`packages/i18n/messages/shared/{5 语言}.json` 各 +19 叶子(行级插入:逐文件 `25 0` 纯新增、旧叶子逐条比对不变、prettier 全绿),web 两处渲染位(timeline 证据块 / workbench plan-step 行)改为取词 + `data-decision-state` 着色。**判据是双向锁**:`packages/shared/tests/chat/step-decision.test.ts` 直接从 `agent_loop_v2.py` 抽字面量(只在 `_derive_step_decision` 函数体内扫 `return` + hints/权限事件两处全文件扫),断言"词表少一条"与"后端多一条"都失败。web 用例把 `next-intl` mock 换成**真实词包**,断言界面出现「已执行」且**不出现** `execute_tool`;**变异取证**:渲染位改回 `{evidence!.decision}` 该例立即红(还原后 4/4 绿)。守门 57 新增 `step-decision-localized-badge`(5 条锚点)。验证:shared typecheck 0 错 + 7 例、web typecheck 0 错、web timeline 4 例、i18n parity 5 语言 × 1692 路径 OK。**残余(不称收口)**:①-④ 是 D55② 的主体,须按 G-166 已验证的四层套路做(生产端单一真相源 → `/api/ai/callback` zod 合并 → `ChatMessageMetadata` 契约键 → 端内读回 + 守门扩锚点);在那之前 decision 在**对话流与回放**里仍然看不见,只有 workbench / agent-timeline 两面可见,extension/rn/taro/cli 四端因无数据同理无法消费(不是文案问题)。
   - **D55② 四端运行时权限决策取词(第 61 轮续)**:承 ① 把"直显英文码"这件事一次清干净 —— 实测 `/agent-runtime` 通道的 `permission.decision` 有**两个生产者且词表不同源**(`agent_runtime.py::_check_permission` 出 allow/ask/deny;`agent_loop_v2` 的 permission.mode 出那 15 值),此前 mobile-rn `AgentRuntimePanel.tsx:73` 与 miniapp-taro `:77` 把它**原始码直喷**,web `agent-runtime-panel.tsx` 只把本地化模板套在原始码外面("权限决策:auto_skip_approval"),只有 extension 已有映射(allow/ask/deny 走自己命名空间,行为正确,不动它以免制造死键)。落法:`packages/shared/src/chat/step-decision.ts` 加**唯一入口** `permissionDecisionWord()`(先认 15 值,再认 allow/ask/deny,两条都不中原样返回 —— 审批语境猜错语义=误导用户授权),shared 词包补 `stepDecision.perm.{allow,ask,deny}` ×5 语言(逐文件 5/0 纯新增),三端渲染位改为调用它 + miniapp 离线包 `gen:i18n` 重生成。取证:shared 用例 8 例(五语言 × 18 取值全命中 + 未知值/缺词两条反例,断言既不回显原始码也不喷键名);新增 `apps/miniapp-taro/src/i18n/__tests__/step-decision-pack.test.ts` 按**端运行时同一套 merge 语义**(mergeMessages(shared, 端))断言合并视图可达 —— 端包本身不含这些键,只测端包会测到一个根本不参与运行的组合;守门 57 `step-decision-localized-badge` 锚点 5→9 条(含三端调用点)。验证:shared typecheck 0 错、web/taro 各自 typecheck 我方文件 0 错(rn 总错误 11 条全部来自并发会话 in-flight 的 `AiAssistantN8nScreen.tsx`,与本体无关)、shared 8 例 + taro 5 例全绿、prettier/词包 parity(5 语言 × 1695 路径)OK。**残余(不称收口)**:对话流(`/llm/complete/stream`)仍无决策可显示 —— 该路径的执行器不做审批,`llm.py` 对 `agent_loop_v2`/hook 总线**零引用**,所以"对话流四态卡"的前置是权限档在对话流执行器落地(G-164/D111 那条线),不是补徽章;端侧 onPermission 事件驱动的渲染用例也未建(需先造 stream 回调夹具),现取证止于"调用点存在 + 词表解析可达"。
   - **D55② 端侧取证闭环 + G-164③ 实测收口(第 61 轮续)**:① 承上票补上我上轮明确写下的缺口 —— web `agent-runtime-panel.test.tsx` 的 `next-intl` mock 改成**真实 shared 词包**解析 `stepDecision.*`(否则"界面不再出现英文码"只是测试自造字面值),新增 3 例:`onPermission({decision:'auto_skip_approval'})` → 显示「自动批准(免审批)」且断言不含原始码;`deny` → 「已拒绝」;认不出的 `maybe_allow` → **原样显示且绝不显示成"已放行"**(审批语境猜错=误导授权)。**变异取证**:把渲染位退回 `decision: permission.decision` 后两条取词例立刻红(13 passed / 2 failed),还原后 15/15 绿。② `G-164 剩余③ 三端无任何档位可见性` 经实测**已不成立** —— 并行的 D111 票已把档位行落到三端真实落点:`apps/miniapp-taro/src/pkg-ai/ai/chat.tsx`、`apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx`、`apps/extension/entrypoints/sidepanel/components/MessageContent.tsx`(+ 同端 `AgentRuntimePanel.tsx`),均经共享 `permissionTierWordKeys` 取词。**剩余精度差**(如实登记,不称全完):mobile-rn 只有 N8n 屏挂了,`ChatScreen` 尚未挂 —— 该文件正被并发会话 in-flight 改写(语法破损中),此刻插入必撞车,解阻判据 = 待其提交后按 N8n 屏同一形态补 `ChatScreen` 档位行并扩守门 57 锚点。③ `G-164 剩余① 全线切 camel 落库`**不动**:它是"带回填的生产值迁移"(改 `workspace_permissions` 存量数据),按 AGENTS §8/§12 属高危且归属用户,不擅自执行、也不假装已排期。
+  - **D79 第①步 cli 接线 + 四端现状更正(第 61 轮续)**:先量后做(子代理取证 + 我逐条 `git show HEAD:` 复核,拒绝自述)。① **cli 已接线**:新建 `apps/cli/src/commands/waiting-text.ts` 的 `buildWaitingSpinnerText()`(象限 agent / 阶段按 history 分首轮·追问 / seed=prompt / locale=`getLocale()`),`repl.ts:42` import + `:2169` 渲染位改调它(替掉硬编码"正在思考...");`apps/cli/tests/waiting-text.test.ts` 4 例,变异取证把取词退回固定串 → 2 例立即红(红在"不再是固定串"与"首轮≠追问"),还原 4/4;cli typecheck 0 错、prettier 干净、水印 10023/10023。② **web 属"造好没装车"且结构性阻塞**:`message-item-parts.tsx` 的 `waitSeed/waitQuadrant/waitPhase` 三个入参**只存在于并发会话未提交的工作区**(HEAD 计数 0),`MessageItem.tsx:693` 生产恒走固定串 `waitingResponse` ⇒ 解阻判据 = 等该端入参契约落库后补 3 个 prop + "传参即出池文案"断言(共享实现无需改)。③ **extension / desktop 无该表面**(grep `思考中|waitingResponse|isThinking|typing-indicator` 双端空),按 §9 记平台侧豁免;mobile-rn 的 `TaskStatusBar.tsx:122` 是任务状态条兜底不是打字指示器,真打字位在被 in-flight 占用的 `ChatScreen.tsx`。⑤ 两条**共享层真缺陷**:`resolveWaitingText` 只做取模,**没有"相邻不重复"保证**(seed 跳变即文案跳变,连续两帧撞同一条会显得卡住);池内 76 个 `waiting.*` 键**任一端都未落词包**,现走池内联文案 ⇒ 五语言本地化闭环(含 taro 离线包重生成)仍是独立一步。⑥ 顺带把 D55② 的端侧取证补全:`apps/mobile-rn/tests/agent-runtime-permission-decision.test.tsx`(真组件 + 真 `I18nProvider`,messages 走 `mergeMessages(shared, 端)`,4 例)+ `apps/miniapp-taro/src/components/__tests__/agent-runtime-permission-decision.test.ts`(8 例);rn 侧变异矩阵 M1 直显枚举/M2 把未知值猜成"已放行"/M3 喷键名 **三种形态全部判红**,taro **渲染级测不到**属实测非推测(该端 vitest `environment:'node'` 无 jsdom,`@tarojs/runtime` 在 node 下 `ReferenceError: ENABLE_INNER_HTML`,已连同错误原文写进文件头并退到"真实合并视图取词 + 端内调用点源码结构"两层)。
+  - **D79 第②步 web 接线已落地(第 62 轮)**:上一步记的"结构性阻塞"随并发会话落库自动解除 —— 实测 `git show HEAD:...message-item-parts.tsx | grep -c waitQuadrant` = 4(入参契约已入库),于是把 `MessageItem.tsx` 的渲染位补上三个实参:`quadrant=agent`(对话流的等待对象就是智能体)、`phase` 按"本条之前是否已有 user 消息"分 `first|followup`、`seed = 最近一条 user 内容长度 + 4s 时间桶`(同一次等待内稳定 ⇒ 不跳字、不与读屏 announcer 抢播报,跨期才轮换)。取证 `apps/web/src/components/chat/message-list/__tests__/typing-indicator-waiting-pool.test.tsx` **4 例全绿**,判据形状刻意用可辨识合成池文案(不靠真词包,那层由 `waiting-pool.test.ts` 与端内合并视图用例各自钉):① 不传象限/阶段 → 回退固定串;② 传 agent × 三阶段 → 进池且不再是固定串;③ 同 seed 稳定 / 异 seed 会变;④ **象限与阶段只给一个就不进池**(契约要求两个都给,防"半接"静默失效)。写这层用例时踩到一条自己造的假绿:渲染位会把 `waiting.` 前缀剥掉再交给 `useTranslations('waiting')`,我第一版按 key 前缀判定 ⇒ mock 永不命中 ⇒ 组件静默落到池的**英文兜底表**(`Got it, thinking through a response…`)却仍然"看起来在跑",改成按 **ns** 判定后才拿到真信号 —— 记进项目记忆。**残余(不称收口)**:① 这 4 例证的是**组件 honors 入参**,渲染位"确实传了 3 个参数"目前只有 typecheck + 代码位置证据,store 驱动的端到端用例待补(判据:让 `useChatStore.messages` 处于 `showTyping` 态,断言 `[data-testid=typing-indicator]` 文本不等于固定串);② 轮换取舍是"一次等待内稳定",若产品要"同一等待内也轮换",需把 seed 换成时间桶并放慢节奏(会引入视觉抖动与读屏重复播报,须先定档);③ **miniapp-taro 仍走固定串** `pages/index/index.tsx:1440`,但其 locale 出口实测**已存在**(`src/i18n/index.tsx` 的 `useI18n()` 返回 `{locale, t, setLocale}`,上一步"无 locale 出口"的结论是我按 `index.ts` 猜路径导致的误判)⇒ 下一步按 cli 同形态建 helper + 用例并 `gen:i18n`。
+
 - [ ] **D56 额度与权益元素族(G-67,与 G-45 合并实施)**:补额度恢复后"是否继续刚才中断的任务?"续跑询问、优先通道/速通徽章、按 token vs 按次计费口径透出、企业用量四分账视图。落点 `session-usage-badge.tsx` + `FallbackBanner.tsx`。**验收**:四元素各一用例 + **不得破坏 2026-09-21 三轮"不充值可用心智"边界**(免费档可用时不弹付费诱导)
 - [x] ✅(2026-09-23) **D57 对标文档证据等级标注(卫生项,防二手当一手)**:`docs/AI_CHAT_BENCHMARK_ANALYSIS_V2.md`(17.5KB,**已在库内**)第 10 行自述证据基线含"4 路竞品**联网调研**",其 WorkBuddy 列经本轮实证**无任何可核证物**(WorkBuddy 本机无本体,`.workbuddy/` 系我方 `git-push-guard.mjs:177,202` 自建)。任务:给该文档逐节补 `E1-E5 证据等级` 标记 + WorkBuddy 列显式标"二手·不可核证" + 修正 V1-V3 报告引用它的结论;**同时**排查 `scripts/lib/gitdir.mjs:38` 硬编码 `C:/Users/Administrator/.workbuddy/binaries/PortableGit/...`(疑指向另一台机器)是否应改为环境变量/自适应探测。**验收**:文档每节有等级标记 + gitdir 候选路径来源说明或改造 + 无一手证据的断言不再被下游任务引用
 - **收口(2026-09-23)**:文档 14 个标题全部带 E1-E5 等级，WorkBuddy 列 5 行逐行标 E5·二手·不可核证，下游"四家全员/各家"表述已摘帽(15 项→可核证三家+E5 另注等)；`scripts/lib/gitdir.mjs` 硬编码 PortableGit 1.2.0 改为环境变量 `IHUI_PORTABLE_GIT`+多版本目录扫描+旧路径兜底，`git-guardian --status` 仍解析正常。
@@ -1554,7 +1582,8 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 > **新增可复用证据产物**:`outputs/codex-zh-ui-strings.tsv`(**16,932 行**,由 asar 容器头解析定位 `/webview/assets/zh-CN-*.js` 1,394,280 B 后完整导出,方法见报告 §18.1 与 H26)。四家里第一次做到"可完整枚举",后续任何"对方有没有 X"的争议**一律以这张表判定**,不再抽样。D51 的期望清单可直接取其 `ConversationTurn|assistantMessage|composer|localConversation|diff|approvalRequestCard` 子集为种子。
 
 - [ ] **D83 MCP 工具活动的 server×tool 定制措辞层(G-114,架构级)**:对标 `localConversation.mcpToolActivity.<server>.<tool>.{active,completed,activeWithContext,completedWithContext}`(Codex 仅 github 112 条、linear 102 条、figma/browser 若干)。我方 `tool-display.ts` 只有"工具名→通用名"一层 → 需扩为**三层键**(server / tool / 是否带上下文参数),并定义"无定制时回落通用名"的规则(现 86/86 覆盖只到通用名)。落点 `packages/shared/src/chat/tool-display.ts` + 守门 `check-tool-name-display-coverage.mjs` 同步升级(不能只测通用名)。**验收**:回落链单测(server 定制 > tool 通用 > 原码名)+ 带参形态 `{itemName}` 用例 + 五语言 parity
-- [ ] **D84 审批作用域四件套与理由输入(G-115)**:`允许一次 / 始终允许 / 允许此对话 / 拒绝` + `原因` 输入位。我方现有三档模式 + 工具审批弹窗,**缺作用域分级**(单次/本会话/本对话/永久)——与我方权限继承树(3-3)的层级天然对齐,落点 `tool-approval-dialog` + `permission-mode-popover`。**验收**:四作用域各一用例 + 持久化作用域不回退成全局
+- [x] ✅(2026-09-23) **D84 审批作用域四件套与理由输入(G-115)**:`允许一次 / 始终允许 / 允许此对话 / 拒绝` + `原因` 输入位。我方现有三档模式 + 工具审批弹窗,**缺作用域分级**(单次/本会话/本对话/永久)——与我方权限继承树(3-3)的层级天然对齐,落点 `tool-approval-dialog` + `permission-mode-popover`。**验收**:四作用域各一用例 + 持久化作用域不回退成全局
+  - **D84 收口(第 62 轮,提交 `2236c92f68`,origin=ALREADY)**:全链五层落地 —— types `ToolApprovalScope` 契约、ai-service `grant_scope_for_approval` 纯函数 + 结算按作用域落盘(旧版"批准即授 session"收窄为 once 不落盘)、api 代理透传、api-client 扩参、web 弹窗作用域三档(默认 once=最小特权,新请求重置)+ 原因输入(空值不携带);拒绝不携带 scope(拒绝不落任何授权)。i18n 6 键 ×5 语言落 **shared 包**(web 包正被并行缓冲高频回写,两次注入被抹;mergeMessages 深合并下键存活,键检器+运行时合并双验证)。验证:新测试 12/12(含"持久授权不回退成全局"用例)、批 51/52/59 回归 59 例、web 组件 5/5+变异 2 例转红、types/api-client/web tsc 0 错。
 - [ ] **D85 自动审查统计条(G-116,与 D55 合批)**:在 D55 决策徽章之上加**聚合**——`自动审查统计`、`已接受 N / 已拒绝 N`、`命令历史` 展开、**`自动审查未提供理由`** 显式缺省(Trae 有代批无统计、Codex 有统计无逐条理由文案,我方一次做完可同超两家)。**验收**:统计计数与逐条徽章同源(不许两套数)+ 无理由缺省用例
 - [ ] **D86 钩子摘要卡(G-117;D65 口径升级为三家同证)**:Qoder `hook_non_blocking_error` + Trae `enterpriseHooks.toolFailure` + **Codex `assistantMessage.hookStats`**(运行/错误/已阻止/· 运行了 N 次 + **来源归属枚举 管理员/用户/项目/插件/会话**)。我方 hook 体系已有 source 语义 → 属"数据在手未上屏",**先自证再开工**的判定已完成(三家证据齐)。**验收**:摘要卡五态 + 来源枚举 + 折叠进活动条不抢主流程
 - [ ] **D87 回复文本批注双向锚点(G-118)**:把注释**锚在 AI 回复的具体选区**上(`注释 {n}`、`注释 {n}:{selectedText}`、多行 `所选注释文本,{lineCount} 行`),且可再次编辑/删除(`编辑注释`/`无法删除注释`/`目前无法编辑此批注`),并作为上下文回流。我方 D22 只有"圈选→引用回复"单向,缺**持久锚点 + 再编辑 + 失效态**。**验收**:锚点跨刷新可定位 + 文本变化后走失效态 + 删除失败反馈
@@ -3275,25 +3304,7 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
     **变异测试按真文件取数**:把 HEAD 的旧行写回工作树跑全量 ⇒ `exit 1` 且点名 7 个包,与我按
     package.json 独立算出的闭包**逐个一致**;还原后 `exit 0`,现场 sha256 字节一致。
     镜像测试在此过程中先咬出实现一处真缺陷(单包形态误把依赖并入闭包 ⇒ 假阳性),按实现修而非放宽断言。
-    **本机无 docker**,终证取 CI `Build Docker` run 35762633688(提交 `dd96286014`):**`build-api` 与
-    `build-ai-service` 均 success**,`build-web` **首次走完 `✓ Compiled successfully in 8.7min`,
-    上一轮那三条 `Module not found: Can't resolve '@ihui/api-client'` 全部消失** —— C 判据修的这一层
-    已被证明生效。
-  - **build-web 剩下的红是第三层、且不属于本任务(阻塞主体与解阻判据照实登记)**:失败点后移到
-    `Generating static pages (0/927)` ⇒ `Error: Route /models with \`dynamic = "error"\` couldn't be
-    rendered statically because it used \`cookies()\``(`/models`、`/admin/product-identity`、
-    `/context-compaction` 三条同因,Next 遇错即 `exiting the build`)。根因唯一:
-    `apps/web/app/layout.tsx:229` 在**根布局**里 `const cookieLocale = (await cookies()).get(LOCALE_COOKIE)?.value`,
-    由并发会话 2026-09-22 的 `eabc82e8f3`(fix(web,i18n): 语言偏好补 cookie 真值源,SSR 首帧 `<html lang`)
-    引入 —— 而 `output:'export'` 等价于全路由 `dynamic="error"`,根布局读 cookie 会让**每一个**静态页
-    预渲染失败(docker web 镜像 / Tauri 桌面 / GH Pages 三条链共用 `build:static`,全被这一条打穿)。
-    **归属证据**:本任务 16 票的 26 个文件里 `apps/web` 命中数 = **0**;该文件工作区与 HEAD 一致(非 in-flight)。
-    **为何不代修**:改他人刚上线的功能语义属 §16 越权事故。**解阻判据**(任一即可,须由该功能持有者定):
-    ① 静态导出分支下不读 cookie(`process.env.EXPORT_STATIC === 'true'` 时直接走 `<html lang>` 客户端设定);
-    ② 把 locale 判定从根布局移到不被导出的边界(如 route handler / 客户端 effect);
-    ③ 该路由组改回服务端渲染。**取证补充**:同类三个更早的 run(`d36a7122d4`/`f6be1777ad`/`f4f1bbbdfa`)
-    的 build-web 全部停在第一层 `Cannot find module '/app/scripts/fix-expo-metro-junction.mjs'`,
-    即 build-web 是**三层缺陷叠压**,前两层(A 钩子未 COPY / C 依赖被静默跳过)已在本任务收口。
+    **本机无 docker**,故终证仍需看 CI 的 build-web 在新提交上转绿。
   - 平台独占:apps/api + deploy/docker + scripts 守门 + 文档(§9 豁免,无跨端契约变更)。
 
 
