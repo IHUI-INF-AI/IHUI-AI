@@ -99,7 +99,7 @@ export default function AppPermission() {
   const statusClass = useCallback(
     (scope: string): string => {
       const s = statusMap[scope]
-      const base = 'text-[22rpx] py-[2rpx] px-[12rpx] rounded-[6rpx] ml-auto'
+      const base = 'text-[22rpx] py-[2rpx] px-[12rpx] rounded-xs ml-auto'
       if (s === 'granted') return `${base} text-success bg-success/10`
       if (s === 'denied') return `${base} text-destructive bg-destructive/10`
       return `${base} text-muted-foreground bg-background`
@@ -117,17 +117,17 @@ export default function AppPermission() {
         </Text>
 
         {permissions.map((p) => (
-          <View key={p.scope} className="bg-card rounded-[24rpx] border border-border p-[28rpx]">
+          <View key={p.scope} className="bg-card rounded-xl border border-border p-[28rpx]">
             <View className="flex items-start">
               <View className="flex-1 mr-[16rpx]">
                 <View className="flex items-center flex-wrap gap-[12rpx]">
                   <Text className="text-[32rpx] font-semibold text-foreground">{p.name}</Text>
                   {p.required ? (
-                    <Text className="text-[20rpx] text-destructive-foreground bg-destructive py-[2rpx] px-[12rpx] rounded-[6rpx]">
+                    <Text className="text-[20rpx] text-destructive-foreground bg-destructive py-[2rpx] px-[12rpx] rounded-xs">
                       {t('about.appPermission.required')}
                     </Text>
                   ) : (
-                    <Text className="text-[20rpx] text-muted-foreground bg-muted py-[2rpx] px-[12rpx] rounded-[6rpx]">
+                    <Text className="text-[20rpx] text-muted-foreground bg-muted py-[2rpx] px-[12rpx] rounded-xs">
                       {t('about.appPermission.optional')}
                     </Text>
                   )}
@@ -138,7 +138,7 @@ export default function AppPermission() {
                 </Text>
               </View>
               <Button
-                className="flex-shrink-0 text-[24rpx] bg-primary text-[var(--color-primary-foreground)] rounded-[16rpx] px-[20rpx] leading-[56rpx] m-0 after:border-0"
+                className="flex-shrink-0 text-[24rpx] bg-primary text-[var(--color-primary-foreground)] rounded-lg px-[20rpx] leading-[56rpx] m-0 after:border-0"
                 size="mini"
                 onClick={onOpenSetting}
               >
@@ -149,7 +149,7 @@ export default function AppPermission() {
         ))}
 
         <View
-          className="bg-card rounded-[24rpx] border border-border p-[28rpx] flex items-center justify-between"
+          className="bg-card rounded-xl border border-border p-[28rpx] flex items-center justify-between"
           onClick={onOpenSetting}
           hoverClass="opacity-60"
         >

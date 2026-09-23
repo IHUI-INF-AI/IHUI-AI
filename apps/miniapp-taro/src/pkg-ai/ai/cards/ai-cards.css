@@ -10,7 +10,7 @@
   padding: 16rpx 20rpx;
   background: var(--color-streamed-container-bg);
   border: 1rpx solid var(--color-border);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   box-sizing: border-box;
 }
 .ai-card-root-head {
@@ -80,7 +80,7 @@
 .ai-card-plan-dot {
   width: 36rpx;
   height: 36rpx;
-  border-radius: 18rpx;
+  border-radius: 18rpx; /* radius-exempt: 36rpx 圆形序号装饰点,半径=边长一半 */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -142,7 +142,7 @@
 }
 .ai-card-tool-item.error {
   background: var(--color-danger-tint);
-  border-radius: 10rpx;
+  border-radius: var(--radius-sm);
   padding: 14rpx 12rpx;
 }
 .ai-card-tool-icon {
@@ -198,7 +198,7 @@
   font-size: 22rpx;
   color: var(--color-muted-foreground);
   background: var(--color-muted);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   padding: 2rpx 10rpx;
   flex-shrink: 0;
 }
@@ -253,7 +253,7 @@
 }
 .ai-card-term-item.error {
   background: var(--color-danger-tint);
-  border-radius: 10rpx;
+  border-radius: var(--radius-sm);
   padding: 14rpx 12rpx;
 }
 .ai-card-term-head {
@@ -308,7 +308,7 @@
   margin-top: 10rpx;
   position: relative;
   background: var(--color-muted);
-  border-radius: 10rpx;
+  border-radius: var(--radius-sm);
   padding: 16rpx 16rpx;
 }
 .ai-card-term-output {
@@ -328,7 +328,7 @@
   display: flex;
   align-items: center;
   background: var(--color-card);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   padding: 4rpx 10rpx;
 }
 .ai-card-term-copy-text {
@@ -358,7 +358,7 @@
 .ai-card-spinner-dot {
   width: 8rpx;
   height: 8rpx;
-  border-radius: 4rpx;
+  border-radius: var(--radius-xs);
   background: var(--color-card);
   animation: aiCardPulse 1.2s infinite ease-in-out;
 }

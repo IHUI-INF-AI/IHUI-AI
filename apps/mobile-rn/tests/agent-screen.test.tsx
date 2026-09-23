@@ -73,10 +73,16 @@ vi.mock('react-native', async () => {
       // CSSStyleDeclaration 代理拒绝数字属性 set → "'set' on proxy: trap
       // returned falsish for property '0'"。
       const { style, onPress, ...rest } = props
-      const mergedStyle = Array.isArray(style) ? Object.assign({}, ...style.filter(Boolean)) : style
+      const flat = (v: unknown): unknown =>
+        Array.isArray(v) ? Object.assign({}, ...v.filter(Boolean).map(flat)) : v
+      const mergedStyle = flat(style)
       return h(tag, { ...rest, onClick: onPress, style: mergedStyle }, props.children)
     }
   return {
+    // 主题单例(src/theme/active-tokens.ts)在模块求值时调 Appearance.getColorScheme(),
+    // 缺这个导出会让整个测试文件加载失败 ⇒ 该文件的断言一条都不会跑。
+    Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
+    DevSettings: { reload: () => {} },
     __esModule: true,
     Modal: ({ children, visible }: { visible?: boolean; children?: React.ReactNode }) =>
       visible ? h('div', null, children) : null,

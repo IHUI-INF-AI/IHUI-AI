@@ -17,6 +17,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AppOrderStatus, OrderItem, OrderScreenProps, OrderTab } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 订单/Tab/Props 类型 re-export(单一来源 @ihui/types) */
 export type { AppOrderStatus, OrderItem, OrderScreenProps, OrderTab }
 
@@ -234,7 +236,7 @@ function createStyles(tk: AppThemeTokens) {
     tab: {
       paddingHorizontal: 14,
       paddingVertical: 6,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     tabActive: { backgroundColor: tk.brand.DEFAULT },
@@ -246,7 +248,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: 4,
       paddingHorizontal: 12,
       height: 40,
-      borderRadius: 10,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
@@ -261,7 +263,7 @@ function createStyles(tk: AppThemeTokens) {
     listBody: { padding: 10 },
     card: {
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -272,7 +274,7 @@ function createStyles(tk: AppThemeTokens) {
     cardImg: {
       width: 130,
       height: 130,
-      borderRadius: 10,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
     },
     cardInfo: { flex: 1 },
@@ -291,7 +293,7 @@ function createStyles(tk: AppThemeTokens) {
     badge: {
       paddingHorizontal: 6,
       paddingVertical: 2,
-      borderRadius: 4,
+      borderRadius: rnRadius.sm,
       overflow: 'hidden',
     },
     badgeText: { fontSize: 11 },

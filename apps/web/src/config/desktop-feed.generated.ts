@@ -27,7 +27,7 @@ export const DESKTOP_FEED: DesktopFeed = {
   releaseDate: '2026-09-22',
   githubReleasesUrl: 'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases',
   resolvedFromTag: 'desktop-v0.1.44',
-  resolvedAt: '2026-09-22T05:25:08.784Z',
+  resolvedAt: '2026-09-23T08:01:53.831Z',
   assets: [
     { href: 'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/desktop-v0.1.44/%E6%99%BA%E6%B1%87AI_0.1.44_x64-setup.exe', sizeBytes: 6020276, format: 'Windows NSIS exe', arch: 'x64', signature: 'dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSTI3R2lmdWJYdFgwUE5PK0txTlFIV1ArOWZwRmFFTklGaS9zOGNFZjRWUDFhcVQ2dU80UGRKNlpKVm1tZHJrWFdkeW9pa2VTOXI5d21ZNmV5Rk5PRGFmdlVUYmxEOHdZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwMDU0Mzg2CWZpbGU65pm65rGHQUlfMC4xLjQ0X3g2NC1zZXR1cC5leGUKQ09HZGN4eDVrK3J0WDdYUG1McnRFdk02QmhMRlFJVmZkWVNkaWRJSnBCcTE2cGUwU2pzNVg3RUVRaVhTR2c4YXIrZXhVaHZoK1pkWkh2RDBRcnRhQUE9PQo=' },
     { href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.43/AI_0.1.43_universal.dmg', sizeBytes: 11062412, format: 'macOS DMG', arch: 'x64', signature: '' },

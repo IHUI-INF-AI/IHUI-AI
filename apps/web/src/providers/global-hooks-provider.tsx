@@ -4,6 +4,8 @@
 
 'use client'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
@@ -265,7 +267,13 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
       <CommandPalette open={showCommandPalette} onOpenChange={setShowCommandPalette} />
       {showHelpPanel && (
         <div
-          onClick={toggleHelpPanel}
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) toggleHelpPanel()
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') toggleHelpPanel()
+          }}
           style={{
             position: 'fixed',
             inset: 0,
@@ -280,11 +288,10 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
             role="dialog"
             aria-modal="true"
             aria-label={tHelp('title')}
-            onClick={(e) => e.stopPropagation()}
             style={{
               background: 'var(--color-background, #fff)',
               color: 'var(--color-foreground, #000)',
-              borderRadius: 12,
+              borderRadius: rnRadius.xl,
               padding: '24px 32px',
               minWidth: 320,
               maxWidth: 480,

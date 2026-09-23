@@ -136,7 +136,7 @@ export default function CachePage() {
       <View className="min-h-screen bg-background pt-[24rpx] pb-[48rpx]">
         {/* 当前缓存卡片对齐 RN sectionCard(圆角 8dp→16rpx + divider 底 + 行间 2rpx)
             + plainRow(minHeight 60dp→120rpx / py 14dp→28rpx / px 12dp→24rpx) */}
-        <View className="mx-[20rpx] flex flex-col gap-[2rpx] overflow-hidden rounded-[16rpx] bg-[color:var(--color-border)]">
+        <View className="mx-[20rpx] flex flex-col gap-[2rpx] overflow-hidden rounded-lg bg-[color:var(--color-border)]">
           <View className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted">
             {/* rowLabel 对齐 RN: 16dp→32rpx + text.medium 语义映射 muted-foreground */}
             <Text className="text-[32rpx] text-muted-foreground">{t('setting.cache.current')}</Text>
@@ -145,7 +145,8 @@ export default function CachePage() {
         </View>
 
         {clearing ? (
-          <View className="mx-[20rpx] mt-[32rpx] rounded-[16rpx] bg-card p-[24rpx] dark:bg-muted">
+          <View className="mx-[20rpx] mt-[32rpx] rounded-lg bg-card p-[24rpx] dark:bg-muted">
+            {/* radius-exempt: 进度条胶囊(轨道高 12rpx,半径 6rpx=高度一半,方档会破坏形状) */}
             <View className="h-[12rpx] w-full overflow-hidden rounded-[6rpx] bg-border">
               <View
                 className="h-full bg-primary transition-[width] duration-100"
@@ -158,7 +159,7 @@ export default function CachePage() {
           </View>
         ) : null}
 
-        <View className="mx-[20rpx] mt-[32rpx] flex flex-col gap-[2rpx] overflow-hidden rounded-[16rpx] bg-[color:var(--color-border)]">
+        <View className="mx-[20rpx] mt-[32rpx] flex flex-col gap-[2rpx] overflow-hidden rounded-lg bg-[color:var(--color-border)]">
           <View
             className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
             onClick={onClearImage}
@@ -186,7 +187,7 @@ export default function CachePage() {
             + brand(--color-primary)底;文字 16dp→32rpx semibold;
             文字色用 --color-primary-foreground 修正 RN surface.light 在暗色 brand 白底下不可读 */}
         <Button
-          className="mx-[20rpx] mt-[32rpx] flex h-[100rpx] items-center justify-center rounded-[24rpx] bg-primary text-[32rpx] font-semibold disabled:opacity-60"
+          className="mx-[20rpx] mt-[32rpx] flex h-[100rpx] items-center justify-center rounded-xl bg-primary text-[32rpx] font-semibold disabled:opacity-60"
           style={{ color: 'var(--color-primary-foreground)' }}
           onClick={onClearAll}
           disabled={clearing}

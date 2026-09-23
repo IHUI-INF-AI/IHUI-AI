@@ -82,7 +82,7 @@ export default function CourseHeader({ data = { title: '' }, onTeacherClick }: C
         {data.price !== undefined && (
           <View className="mt-2 flex flex-col gap-1">
             {data.price > 0 && (
-              <View className="inline-flex items-center self-start h-[36rpx] px-[10rpx] rounded-[15rpx] bg-muted">
+              <View className="inline-flex items-center self-start h-[36rpx] px-[10rpx] rounded-lg bg-muted">
                 <Image
                   src={bspappUrl('tabbar/course/fufei.png')}
                   mode="aspectFill"
