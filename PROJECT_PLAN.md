@@ -75,6 +75,72 @@
 
 ---
 
+## P0 2026-09-23 项目外落点唯一制:10.3GB 游离备份收口 + 家目录 5.7GB 改道 + 守门防自删(已完成 ✅)
+
+用户策略:任何文件不得写在项目外;备份必须集中在项目外**唯一**一个备份目录。本轮把它立成规矩并落地。
+
+- **D 盘根清场**:原散落 `IHUI-AI-backup-20260911-034405.tar`(8.3G)、`IHUI-AI-backup-20260911.git`(727M)、
+  `IHUI-AI_workbak_20260910`(537M)、`out-of-tree-artifacts`、`Bak-inflight-*.tgz`、两个根 `.sql`、
+  `IHUI AI Desktop`(94M)、误产物 `D:\c`/`D:\d`/`D:\nonexistent-root`/`D:\tmp*`(~150M,115 文件)
+  全部 `mv` 进 `D:\DevEnv\backups\{git,archives,sql,desktop}` 与 `D:\DevEnv\tmp\quarantine-20260923`
+  (同卷改名,零复制;每步回读"源已无 + 目标体积一致")。**共 11G 集中在唯一备份目录**。
+  误产物只隔离不删 —— 零代码引用已由子代理逐条 grep 证明,但删除仍属不可逆,交你处置。
+- **C 盘回收 7.6GB**(20G→27.6G 可用):删 `.deepseek` 内 4×580,911,116B 的 `tmp_pack_*`(2026-05-08
+  中断的 git gc 临时包,纯垃圾)、`.chromium-browser-snapshots` 739M(puppeteer 系遗留,仓库只用
+  Playwright,零引用)、`@genieworkbuddy-desktop-updater` 508M(单个 installer.exe 落盘副本)、
+  `.cache/codex-runtime-install-*` 162M 中断安装残留。
+- **家目录工具态改道(junction,不改 Path 不改环境变量)**:`.rustup` 1.65G、`.cargo` 0.84G、`.m2` 0.59G、
+  `.cache` 1.17G、`.trae` 0.1G 已 `robocopy /MOVE` 至 `D:\DevEnv\cache\userhome\` 并原位建 junction,
+  `rustup 1.29.1` / `cargo 1.98.0` 冒烟通过。`.codex` 因 `IHUI-`? 实为 codex 沙箱服务持锁 rc=9,
+  内容其实已完整搬走(593M / 9766 文件,`auth.json`+`config.toml`+`sessions` 齐),脚本未补 junction
+  → 由我手动 `mklink /J` 补齐并核对,**无凭据丢失**。
+- **守门 26 再加一层结构性保护**:新增 `BACKUP_DIR_NAMES`(backups/pg_archives/archives/quarantine)
+  与前缀表 `BACKUP_DIR_PREFIXES`(`IHUI-AI-git-repo`、`IHUI-AI.git-backup`、`IHUI-AI-backup`、
+  `_workbak`、`Bak-inflight` 等),整目录不扫 —— 否则备份集中到 `D:\DevEnv\backups` 后正落在
+  该守门 2 层扫描深度内,`--auto-clean` 会把备份里的 `*.txt/*.log` 当 agent 垃圾实删。
+  双向实验:同名必命中文件放 `backups\` 不被抓、放对照目录被抓,守门恰好报 1 项。
+  测试镜像 + "只定义不生效=空门"锚点断言,`node --test` 24/24 绿。
+- **AGENTS.md 立规**:新增 §15b「项目外落点唯一制」(四落点白名单 + 四条显式例外 + 新写文件三问);
+  重写 §26 缓存表为实测值 —— 旧表 `D:\caches\*` 是死路径且 `CARGO_HOME`/`RUSTUP_HOME`/`OLLAMA_MODELS`
+  从未设置,属"文档说已迁、实际还在 C 盘"的纸面合规,正是本次根因。
+- **修掉三处指向不存在路径的活 bug**:`c-drive-auto-maintain.ps1:11` 日志路径、`start-dev.ps1:578`
+  cargo PATH 注入(desktop 启动从未生效)、`kill-git-selector-hidden.vbs:20` 目标脚本绝对路径
+  → 改为自己定位 + 缺失即静默退出(`cscript` 实跑 exit 0)。
+
+### 改道收尾与客观阻碍(不是遗漏)
+
+- **`~/.ollama` 2.9GB 已改道(续做,原判"须停服务"故未办 → 用镜像校验法把风险控制住了)**:
+  先 `/E` 镜像复制到 `D:\DevEnv\cache\ollama`,再**逐文件比对相对路径+字节数**(13/13 一致,
+  blob 名本身即 sha256 寻址 ⇒ 内容等价)→ 二次确认后才 `nssm stop IHUI-OLLAMA` → 删 C 原件 →
+  `mklink /J` → `nssm start`。验收不只是"能列出模型":实际跑了一次
+  `qwen2.5-coder:1.5b` 生成,返回 `"response":"OK"` / `done_reason:stop` / 1.53s,服务 RUNNING、日志无 error
+  ⇒ 证明是真从 D 盘 mmap blob 推理,不是仅目录可见。**额外修掉一个隐藏泄漏**:该服务由 nssm 以
+  LocalSystem 启动且自带环境块,`TEMP`/`TMP` 原本被钉死在 `C:\Users\...\AppData\Local\Temp`,
+  故 HKCU 的 TEMP 迁移对它无效、它一直在往 C 写;现改为 `D:/DevEnv/Temp`,原环境块已备份到
+  `D:\DevEnv\backups\env\ollama-service-env-original.txt`。C 盘可用 20G → **30.7G**。
+- `~/.workbuddy` 3.1G:内含 `binaries\PortableGit`,被 `scripts/lib/gitdir.mjs:36-37` 当 git 二进制首选解析,搬走=守护/钩子链失去 git;其余 logs/traces 约 2G 属该 IDE 自管(§26 明示不代管)。
+- `.qoder-cn` / `.qoder`:本会话宿主状态(含记忆),改道即丢。
+- **`~/.ihui` 已改道,且不改一行业务代码**:693 文件复制后逐项校验 0 差异 → 删源 → `mklink /J` 到
+  `D:\DevEnv\cache\userhome\.ihui`。放弃"设 `IHUI_HOME`"路线的原因(子代理取证,纠正我原先"4 处硬编"的判断):
+  `IHUI_HOME` 在本仓有**两套互斥语义** —— `apps/cli/src/plugins/paths.ts:31` 视其为**家目录**(再拼 `.ihui`),
+  而 `apps/cli/src/tools/mcp-oauth.ts:43`、`mcp-credentials.ts:26`、`apps/ai-service/app/core/message_history.py:33`
+  视其为**状态目录本身**;另有 `workspace-ai-service.ts:38/252/2578`(第 5 个 github_token 读写点在 service 层,
+  原计划漏了)、`workspace-ai.ts:714/730/807`、`announcements/index.ts:117`、`refresh-cli-token.mjs:34`
+  与 `apps/cli` 内**约 30 处**裸 `os.homedir()`(多为模块级 const,import 时求值 → 改 env 对已加载模块无效)。
+  实测本机 `~/.ihui` 内**既无 settings.json 也无 github_token**,且 `IHUI_HOME` 在所有 .env/CI/Docker/ shell 中从未设置
+  → 为 1.2MB 做 35 文件重构 + 翻转 `plugin-marketplace.test.ts:114-129` 钉死的断言,风险收益严重不对称;junction 对硬编码路径同样生效。
+  语义统一作为独立技术债记此,不混入本策略。
+- 死代码上报:`scripts/kill-git-selector-hidden.vbs` 包装的 `kill-git-selector.ps1` 仓库里不存在;
+  `scripts/release-desktop-local.mjs:67,74` 依赖的 `%USERPROFILE%\.tauri\ihui-updater.key` 本机缺失
+  → 桌面端发布在此机必失败,需发布机或补生成密钥。
+- **本节被并发提交整块抹掉过一次(第 4 次同类事故,已在合并中手工回捞)**:`42ef92b2c`
+  ("chore(scripts): O20d/O20e 守门落地")以旧基线写 `PROJECT_PLAN.md`,删掉本节 44 行只留 1 行,
+  归档目录无副本 ⇒ 不是 §1 归档而是真丢。本次 `git merge` 显式冲突,取"两侧并集"手工复原并逐项
+  回读验证。**守门 71 对这种形态仍瞎**:旁路提交(commit-tree / `git-sync-converge`)不跑任何钩子,
+  post-commit 自愈也就没有触发机会 —— 该闸只在"走钩子的提交"上有效,别把它的绿当成全仓保证。
+
+---
+
 ## P1 2026-09-23 弹窗根治:`start-all.bat` 改静默转发 dev-stack(平台独占:Windows 开发机启动入口)
 
 ### 根因(实测,非推测)
@@ -5347,6 +5413,18 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - 验证:c12617dd 真机冷启动实测**全端转深色**(页面 `#242424` / 卡片 `#1A1A1A` + 边框 / 文字浅色 / tabBar 深色 / 输入壳白底),logcat `ReactNative`+`ReactNativeJS` 零 error;`pnpm --filter @ihui/mobile-rn typecheck` 与 eslint exit 0;`@ihui/design-tokens` typecheck 0 错;`task-status-bar` 5/5 passed。浅色态经真机五 tab 复核为视觉零变化(仅底色分层修正)。**深色下发送按钮图标可见性**的复验因手机 USB 掉线未完成,已列入残余。
 - **平台独占豁免依据(§9)**:改动全在 RN 端取色层与 design-tokens 的 RN 专用板(`rn-tokens.ts`),不触 web/miniapp-taro 的 CSS 变量链路;`brand.foreground` 为新增字段,其余端不消费。
 
+## P1 mobile-rn 深色复核收尾:Drawer/NativeWind 残余清零 + Profile 对比度修复 + 回归守门 75(2026-09-23 立并完成 ✅,平台独占:apps/mobile-rn + scripts)
+
+> 承上节「逐屏深色复核」残余,本轮把复核中发现的真实缺陷全部闭环,并立静态守门防回潮。改码前真机(browser ping 等价的 adb 截图链路)确认 Metro 在线;全程 c12617dd 真机取证(截图存 `.ihui-agent/tmp/dark-verify/d20-d23`)。
+
+- [x] ✅(2026-09-23) **Drawer 深色白底根治**:`Drawer.tsx` 根因是 NativeWind `className="bg-white"` 与 token 单例**平行渲染体系**(bundle 内 token 引用存在但被 className 覆盖,非缓存问题)。~34 处颜色类转 token 内联样式;主菜单/扩展菜单头像与图标块的重复 JSX 属性(617/669/694)修并;滑动操作条 `text-white`(danger/warning 饱和底)与 VIP 徽章保留。真机深色复验抽屉全暗(d21)。
+- [x] ✅(2026-09-23) **NativeWind 残余 7 文件转 token**(子代理并行派单,受影响文件清单制):AgentRuntimePanel/Carousel/ModelConfigDialog(58 处,emerald→success.*)/NotificationPanel/VideoPlayer(白 overlay 系视频前景,保留)/RootNavigator/KnowledgeRagScreen(全部 `dark ?` 条件行保留)。
+- [x] ✅(2026-09-23) **Profile 深色三缺陷**:① `StudyBar.tabActive` 用 `surface.light` 恒白 + `text.primary` 深色翻白 → 白底白字,改 `brand.DEFAULT`+`brand.foreground`;② `UserInfoCard` tokenRow/growthRow/inviteRow 三处 `rgba(255,255,255,0.6)` 硬编码白条 → `surface.muted`;③ 充值按钮经核 dark `brandAccent.foreground=#16262e` 对比正确,非缺陷,保留。真机复验 d23:「文本」白底黑字、智汇值行深色。
+- [x] ✅(2026-09-23) **`surface.light` 容器二次扫荡(9 文件)**:AgentList.row、IntroducePopup.primaryButton(连带 text.primary→brand.foreground)、LoginPopUp.iconBadge/footerButton、ModelPickerList.searchBar(→inputBg)、KnowledgePlanet.authorBadge(→muted)、InputArea.thumbClose、PayButton.typeButton、UserInfoCard 新旧 loginBtn;另 ChatScreen.modelTypeBtnActive/inputRow、VipScreen.tabActive、PlazaScreen.identityBtnOutline、LoginScreen.agreementModalCancelBtn、DevEnterScreen.promptCancel、AgentScreen.tabTextActive(R1 真缺陷,守门首跑即抓到)。
+- [x] ✅(2026-09-23) **新增守门 75 `check-brand-foreground.mjs`(blocking,注册 guardian-runner)**:R1 零豁免——同一 style 块内 `brand.DEFAULT` 背景 × `surface.light`/`text.primary` 前景(深色白底白字);R2 基线棘轮——`surface.light` 背景 / α≥0.5 白 rgba / 非 `dark:` 变体的 `bg-white` 类,每文件计数对 `scripts/brand-foreground-baseline.json` 只减不增(现 13 文件 24 处,均为图片/视频上合法 overlay 或带 `dark:` 变体的文件)。`--staged`/`--update-baseline`/`--self-test`(11 例)/`HUSKY_SKIP_BRAND_FOREGROUND` 全套;§22d isDirectRun + `__test__` 导出。
+- 验证:`pnpm --filter @ihui/mobile-rn typecheck` 源码 0 错(整包仅剩 packages/app ArticleListScreen 他人 WIP 报错,§12 不代修);改动文件 eslint 全绿;真机深色 4 屏截图复核(主页/抽屉/Profile/输入区)。浅色态:StudyBar 激活 tab 由「白上白」变黑底白字、IntroducePopup 主按钮同语言,与发送按钮主 CTA 一致,属有意统一。
+- **平台独占豁免依据(§9)**:全部改动在 apps/mobile-rn 取色层与守门脚本,不触他端契约;守门脚本为本票配套工程约束。
+
 ## P0 G-168 桌面端正常使用被封 IP —— 反自动化封禁面五点收口(2026-09-23 立并完成 ✅,跨端:apps/api + apps/ai-service + apps/web + packages/api-client + docs;desktop=Tauri 薄壳自动跟随,miniapp-taro/mobile-rn/extension/cli 实测零命中该页面)
 
 - **起因**:用户反馈"我就操作一会桌面端程序怎么就给我 IP 封禁了",截图为「平台账号管理」页 toast「IP 已被临时封禁」。
@@ -5359,4 +5437,3 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - **全仓同类形状审计(派子代理 + 我复核)**:确认 publish/accounts 是**唯一**的账号级线性扇出页。另有 3 处 admin 页为"1+N"形态(`/admin/relay/channels`、`/admin/roles`、`/admin/dict`),N 由库内数据决定,均无批量端点;常驻轮询最高叠加约 116-150 次/分钟。**处置判定**:这三处不在本次事故链上、各自需新增批量端点属独立立项,而 600 的封禁线已让它们**不可能再触发封禁** —— 即类问题的通解已落地,残留只是效率债而非事故敞口。
 - **验证**:api typecheck 我的文件 0 报错(整包仅 `ai-callback.ts` 12 条属他人未提交);web typecheck 我的文件 0 报错;`api-client` 重新 build;ai-service mypy 3 文件 Success;新增测试 12+21+8+14=55 用例全绿,既有 `test_account_groups.py` 69 + risk/mcp 94 用例回归全绿。
 - **未闭环(阻塞主体与解阻判据)**:**生产部署链路已冻结,我的四票一行都没进生产,用户仍会被封。** 我实测(非采信代理结论):生产机 `origin` 配成 `https://github.com/IHUI-INF-AI/IHUI-AI.git`,从生产机 `git ls-remote origin main` 报 `Failed to connect to github.com:443 after 21071 ms`;`core.sshCommand` 未配置;改试 `ssh://git@ssh.github.com:443/...` 能连上但报 access rights(缺凭据)。`IHUI-DEPLOYLOOP` 服务态为 RUNNING 但每轮 fetch 必失败。生产 `HEAD=1dc49fd02`,工作树另有 8 个未提交改动(`AGENTS.md`/`PROJECT_PLAN.md`/6 个 `scripts/*`)。**解阻需要人工决策,我不擅自做**:① 给生产机配可达的 origin(AGENTS.md §5b 记载开发机已固化为 `ssh://ssh.github.com:443` + 仓库级 `core.sshCommand`,生产机未同步该配置);② 生产工作树那 8 个未提交改动的处置权归属其作者;③ 一旦解阻即会把数十枚并发会话的提交一次性推上生产,影响面远超本票范围。**在此之前任何"已修复"的表述对用户都不成立。**
-- **守门 26 再加一层结构性保护**:新增 `BACKUP_DIR_NAMES`(backups/pg_archives/archives/quarantine)

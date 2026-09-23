@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
   },
   tokenButtonText: {
     fontSize: 12,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '700',
   },
 })

@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     fontSize: 13,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '600',
   },
   chipTextInactive: {
