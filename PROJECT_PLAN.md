@@ -277,6 +277,20 @@
   (并发面从"每 push 一次"降到"最多一个排队"),文件内已写死这段实测取证与"勿改回 push 触发"的理由。
   代价是有意的:镜像延迟 0 → ≤20 分钟。GitHub 侧仍是每次 push 即时上线,不受影响。
 
+- **⚠️ 同日 13:46Z 复验:上面这条"修复"只完成了一半,我下结论下早了**。改完 4.5 小时后回查:
+  `mirror-to-cn` 的运行列表里 **`event=schedule` 一条都没有**(最后一条仍是 09:07Z 的 push),
+  而 ①workflow `state=active`、②Actions 权限全开、③同仓其他 workflow 的 schedule **当天照常触发**
+  (`Sync Downloads` 07:59Z、`loop-daily-triage` 02:34Z ⇒ 不是全仓调度故障)、④无 queued/in_progress
+  挡道、⑤手动 `POST /actions/workflows/{id}/dispatches` **立即 in_progress**(13:46:54Z)。
+  即:**额度/runner/仓库配置都好,只有那条 cron 不派生** ⇒ 我把触发从 push 换成定时之后,
+  镜像在自动通道上比改之前**更饿**(push 至少还会产生 run)。
+  归因尚未做完(候选:GitHub 对新增 schedule 的派生延迟/账户侧调度抑制),但**不能把它当"等 GitHub 自愈"**。
+  已做的收口:`check-credential-health.mjs` 增加 **国内镜像活性** 检查项 —— 取该 workflow 最近一次运行,
+  `in_progress/queued` 视为正常,否则按 `updated_at` 距今超阈值(默认 150 分,`IHUI_MIRROR_STALL_MIN` 可调)
+  判异常,并**顺手补发一次 `workflow_dispatch` 自愈**(每轮最多一次,不叠加):补发成功记 `limited` 并写明
+  "下轮复验",补发失败才记 `fail`。于是"镜像静默饿死"从**没人知道**变成"要么被踢活、要么巡检判红"。
+  判据细节:活性取 `updated_at` 而非 `created_at`(schedule 派生的 run `created_at` 会带排队提前量)。
+
 ### 复发风险(结构性,已量化,待作者定方案)
 
 冻结**能持续两天无人知**的两条放大器,都在这次事故里实锤:
