@@ -159,6 +159,12 @@ const ALLOWED_HIDDEN_DIRS = new Set([
   '.vscode',
   '.workbuddy',
   '.kc-tools', // 2026-09-19:并行会话 KC 工具脚本目录(根目录整洁守门白名单)
+  // 2026-09-23 登记:第三方 IDE(CodeArts Doer)自管家目录的**运行态**——`.codeartsdoer/.codebase`
+  // 是其代码索引、`.arts/settings.json` 是其设置,均被工具在会话中持续写入(实测今日仍在写)。
+  // 与 `.vscode`/`.qoder`/`.workbuddy` 同类:只登记、不搬不删(删了会打断他人正在用的工具且索引需重建)。
+  // 本条同时解除"守门 44 在 --staged 下恒红 ⇒ 各会话被迫 --no-verify 连带跳过全部守门"的系统性风险。
+  '.arts',
+  '.codeartsdoer',
   '.deploy.lock',
   // 2026-08-19 立:React Native C++ native 模块编译 staging 产物
   // (expo-modules-core / react-native-reanimated / react-native-screens 构建自动生成,
