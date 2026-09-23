@@ -2,6 +2,9 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+
 /**
  * O4 数据作用域机械层 —— 「闸门是真的」补充证明层。
  *
@@ -65,10 +68,7 @@ import {
   resetSuperuserCache,
 } from '../src/utils/scoped-guard.js'
 import { isAppError } from '../src/errors/index.js'
-import {
-  findOpenCapability,
-  openCapabilityEntries,
-} from '../src/config/open-capability-registry.js'
+import { findOpenCapability, openCapabilityEntries } from '../src/config/open-capability-registry.js'
 
 // ----------------------------------------------------------------------------
 // 夹具
@@ -225,17 +225,14 @@ async function attempt(
   principal: Principal,
   fn: () => Promise<unknown> | unknown,
 ): Promise<{ ok: true } | { ok: false; error: unknown }> {
-  return runWithPrincipal(
-    principal,
-    async (): Promise<{ ok: true } | { ok: false; error: unknown }> => {
-      try {
-        await fn()
-        return { ok: true }
-      } catch (error) {
-        return { ok: false, error }
-      }
-    },
-  )
+  return runWithPrincipal(principal, async (): Promise<{ ok: true } | { ok: false; error: unknown }> => {
+    try {
+      await fn()
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, error }
+    }
+  })
 }
 
 function expectDenied(
@@ -451,7 +448,10 @@ describe('O4-P3 每请求开销恒定', () => {
   it('机器请求:app.api_key_id 与 app.user_id 都落真值(可被策略函数消费)', async () => {
     const app = await buildWiredApp()
     app.get('/v1/mine', { preHandler: [authAsMachine('agents:read')] }, async () =>
-      scoped.select({ id: projects.id }).from(projects).where(eq(projects.userId, USER_ID)),
+      scoped
+        .select({ id: projects.id })
+        .from(projects)
+        .where(eq(projects.userId, USER_ID)),
     )
     const res = await app.inject({ method: 'GET', url: '/v1/mine' })
     await app.close()
@@ -471,9 +471,7 @@ describe('O4-P3 每请求开销恒定', () => {
       isProduction: () => true,
     })
     const app = await buildWiredApp()
-    app.get('/v1/scoped', { preHandler: [authAsMachine('agents:read')] }, async () => ({
-      ok: true,
-    }))
+    app.get('/v1/scoped', { preHandler: [authAsMachine('agents:read')] }, async () => ({ ok: true }))
     for (let i = 0; i < 5; i += 1) {
       const res = await app.inject({ method: 'GET', url: '/v1/scoped' })
       expect(res.statusCode).toBe(200)
@@ -511,9 +509,7 @@ describe('O4-P3 每请求开销恒定', () => {
 describe('O4-P4 能力判定无需逐路由接线(登记表自洽)', () => {
   /** 把路径模式还原成一条必然命中的具体路径(`:param` → x-1;表中已无通配条目)。 */
   function concretePaths(pattern: string): string[] {
-    const segments = pattern
-      .split('/')
-      .map((segment) => (segment.startsWith(':') ? 'x-1' : segment))
+    const segments = pattern.split('/').map((segment) => (segment.startsWith(':') ? 'x-1' : segment))
     const literal = segments.filter((segment) => segment !== '*').join('/')
     return pattern.endsWith('/*') ? [`${literal}/anything`, literal] : [literal]
   }
@@ -543,8 +539,7 @@ describe('O4-P4 能力判定无需逐路由接线(登记表自洽)', () => {
       if (!isDataScopeEnforced(principal)) throw new Error(`${entry.key} 未进数据闸`)
       // 也绝不落进 unrestricted / forbidden:platform 域在登记表构建期已被拒
       const mode = dbModeForPrincipal(principal)
-      if (mode === 'unrestricted' || mode === 'forbidden')
-        throw new Error(`${entry.key} 模式异常:${mode}`)
+      if (mode === 'unrestricted' || mode === 'forbidden') throw new Error(`${entry.key} 模式异常:${mode}`)
     }
   })
 
@@ -552,9 +547,7 @@ describe('O4-P4 能力判定无需逐路由接线(登记表自洽)', () => {
     expect(findOpenCapability('GET', '/api/v1/customer_service/ticket/t-1/close')?.scope).toBe(
       'messages:write',
     )
-    expect(findOpenCapability('GET', '/api/v1/customer_service/ticket')?.scope).toBe(
-      'messages:read',
-    )
+    expect(findOpenCapability('GET', '/api/v1/customer_service/ticket')?.scope).toBe('messages:read')
     // 未登记的同族路径(复数 tickets 无注册点)判为不命中 —— 默认拒绝不继承前缀
     expect(findOpenCapability('GET', '/api/v1/customer_service/tickets')).toBeUndefined()
   })
@@ -577,20 +570,14 @@ describe('O4-P4 能力判定无需逐路由接线(登记表自洽)', () => {
       },
       async () => {
         // 越权读他人项目:即便路由"忘了"写 owner,出口层也会挡
-        return scoped
-          .select({ id: projects.id })
-          .from(projects)
-          .where(eq(projects.userId, OTHER_ID))
+        return scoped.select({ id: projects.id }).from(projects).where(eq(projects.userId, OTHER_ID))
       },
     )
     const res = await app.inject({ method: 'GET', url: '/api/skills' })
     await app.close()
 
     expect(res.statusCode).toBe(403)
-    expect(res.json()).toMatchObject({
-      code: 403,
-      errorCode: DATA_SCOPE_ERROR_CODES.DATA_SCOPE_DENIED,
-    })
+    expect(res.json()).toMatchObject({ code: 403, errorCode: DATA_SCOPE_ERROR_CODES.DATA_SCOPE_DENIED })
     expect(fake.queries).toHaveLength(0)
   })
 })
