@@ -214,9 +214,16 @@ function ghApi(method, path, body) {
 
 /** 形状校验后再用凭据:同目录有 `_冲突文件_` 副本把 Gitee token 与 GitHub token 拼成 74 字符串
  *  (实测前缀 `a97fghp_`),不加形状闸就会拿错 key ⇒ 表现为"镜像凭据失效"的假故障。 */
-function readMirrKey(file, re) {
-  const v = readFileSyncOr(join(GIT_KEY_DIR, file)).trim()
+export function pickKey(raw, re) {
+  // `readFileSyncOr` 的缺失/读失败契约是 **null**,原来直接 `.trim()` ⇒ TypeError 把整轮巡检打崩。
+  // 崩在 runChecks 里意味着心跳文件永不写出,而守护的"看门人的看守"检测到的正是这个缺失,
+  // 它派生的自愈拉起同样跑在这一行 ⇒ 凭据/停摆告警链在一台缺 key 的机器上**双向静默**。
+  const v = (raw ?? '').trim()
   return re.test(v) ? v : ''
+}
+
+function readMirrKey(file, re) {
+  return pickKey(readFileSyncOr(join(GIT_KEY_DIR, file)), re)
 }
 
 async function mirrorTipDate({ host, path, label }) {
@@ -459,6 +466,11 @@ function selfTest() {
   eq('反向对照:同样输入但非在飞 ⇒ 仍判停摆(护栏不得吞掉真故障)', judgeStall({ liveSha: 'A', tipSha: 'B', lastSuccessIso: new Date(1000).toISOString(), nowMs: 1000 + 120 * 60000, thresholdMin: 45, inFlight: false }).level, 'fail')
   eq('无标记判红', judgeStall({ liveSha: '', tipSha: 'B', lastSuccessIso: '', nowMs: 1, thresholdMin: 45 }).level, 'fail')
   eq('取不到 tip 不误判', judgeStall({ liveSha: 'A', tipSha: '', lastSuccessIso: '', nowMs: 1, thresholdMin: 45 }).level, 'unknown')
+  // key 读取的三态(2026-09-24 本机实测:GIT_KEY_DIR 在本机不存在 ⇒ 原实现 TypeError 打崩整轮巡检,
+  // 心跳写不出、守护的拉起也崩在同一行 ⇒ 告警链双向静默)
+  eq('key 缺失(null)判空串而非抛错', pickKey(null, /^[0-9a-f]{32}$/), '')
+  eq('形状不合判空(同目录冲突副本不可用)', pickKey('a97fghp_0123456789abcdef0123456789abcdef', /^[0-9a-f]{32}$/), '')
+  eq('形状合 ⇒ 去空白取原值', pickKey(' 0123456789abcdef0123456789abcdef\n', /^[0-9a-f]{32}$/), '0123456789abcdef0123456789abcdef')
   let bad = 0
   for (const [label, pass, why] of cases) {
     if (!pass) bad++
