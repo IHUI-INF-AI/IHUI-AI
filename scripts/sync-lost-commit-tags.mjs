@@ -448,7 +448,15 @@ ${C.green}✅ dry-run 完成(未实际 push)${C.reset}`)
       pushed += chunk.length
     } catch (e) {
       // 单块失败不阻断:标记未更新,下次提交会重试该块
-      const firstLine = String(e?.message ?? e).split(String.fromCharCode(10))[0]
+      // 2026-09-24 修可观测性:原先只打 e.message(恒为 "Command failed: git push …"),git 给出的
+      // 真正原因整段躺在 e.stderr 里 —— 217 枚积压 tag 补推失败多天,输出里一个原因字都没有。
+      const tail = String(e?.stderr ?? '')
+        .split(String.fromCharCode(10))
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .slice(-3)
+        .join(' | ')
+      const firstLine = (tail || String(e?.message ?? e)).split(String.fromCharCode(10))[0].slice(0, 300)
       console.error(
         `${C.yellow}⚠️  第 ${idx + 1} 块 push 失败(${chunk.length} 个),下轮重试:${C.reset} ${firstLine}`,
       )
