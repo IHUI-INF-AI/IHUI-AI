@@ -788,6 +788,39 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - **ja 盲区量化已完成,但**判据仍不可用**:高精度规则(cn→tw 与 cn→jp **同时**变形才算简体独有字形)把 6205 枚"零假名汉字值"压到 web/ja 44 枚,但抽样复核仍是假阳性(`携帯/注文/占/干/雇/无/里` 都是正确日语字形,opencc 却判它要变形)。⇒ 结论:**不引入日本常用汉字/新字体表就没有可靠判据**,升阻塞会大面积误伤;本轮只做量化与工具沉淀,不动门。
 - **多端与文档**:改动 `apps/web` + `apps/extension` + `packages/ui-react`(仅兜底语言与注释)+ web/extension 两份词包 + 台账 + 契约测试。`ui-react` 那处是跨端共享件但**已核实唯一消费方为 web** ⇒ 本票仍标平台独占(web + extension);§21 README 豁免。
 
+
+### 第十五批:web 端 5 枚孤儿键摘除(死键 5→0)+ 一桩"看着像污染其实只是 0.2MB"的核账(2026-09-24,commit `5cd864697`)
+
+上一票(第十四批)留下的三件待办,本轮状态逐条交代:
+
+1. **web 端 5 枚真孤儿键已摘**,`scan-dead-i18n-keys` 死 key **5 → 0**(commit `5cd864697`)。
+   摘除前逐条人工复核(**没有只信扫描器**):`permission.mode.{full,auto,ask}` 是全仓唯一命中处**只剩注释**的
+   上一代词表(`workspace/permissions/page.tsx:48`、`chat/message-input.tsx:109`、
+   `workspace-permission-dialog.tsx:99` 三处都明写"不再用 …permission.mode.* 私有键",档位现由
+   `permissionTier.mode.*` 经 `apps/web/src/lib/permission-tier-text.ts:39-46` 渲染);
+   `contextMenu.feedback` 消费者被 `9b16668ccb`(D49)换成 like/dislike;
+   `toast.feedbackRecorded` 的**同名易混陷阱**已排除 —— `RuleDetailDialog.tsx:111` 的
+   `t('feedbackRecorded')` 实际命名空间是 `rules`(:39 `useTranslations('rules')`),用的是
+   `rules.feedbackRecorded`(存在),toast 侧确为孤儿。
+   机制:`.ihui-agent/tmp/i18n/reap-b15.mjs` 借 merge2 的字符串感知 span 做**行级删除**(不整文件重序列化),
+   每摘一键即 `JSON.parse`,父块摘空则连父成员一起摘(防"空块被计成一枚死键")。
+   五语各:删 7 行 / 丢键恰 5(意外 0)/ 键增 0 / **新留空块 0**(包内 7 个空块是存量,非本票造成)/
+   **其余逐值不变**;`git diff --numstat` 五份一律 `0 7`(纯删除零插入)。
+   复测:`--target=web` 通过(17458 键)、`--parity-only` 通过(22591 键路径)、死键 0、水印完整。
+2. **per-end ja 阻塞门未做,原因是文件竞争而非工作量**:守门 2d 上一票已升 blocking,但它只跑 web 口径;
+   shared / miniapp-taro / mobile-rn 三端 ja 现值实测**全 ✅**(具备立刻升门条件),
+   但 `scripts/guardian-runner.mjs` 此刻被并发会话持有(`git status` = ` M`,内容是其**删除 35 行**
+   = 摘掉自己的守门 80 `check-git-read-timeout` 注册块)。我若改这道文件再提交,就会把别人未提交的
+   删门改动一并带上 main —— 属"替他人做未授权的提交",故按住。
+   解阻判据:该会话提交后,把 `.ihui-agent/tmp/i18n/JA-GATES-SNIPPET.mjs` 的三个条目贴进
+   `guardian-runner.mjs` 的 i18n 门族即可(`2o-<end>` 三个 id 在 HEAD 面实测零碰撞),三端已绿不会误伤。
+3. **上一票的"归档路径污染"预警已核账,结论是不必动刀**:第十四批我警告快照提交把
+   `.git.broken-*/.git.hollow-*` 归档路径提交进主线、且一旦合流即上 GitHub。实测:两侧现均含
+   **4553 个**这类路径,**合计体积仅 0.2 MB**(HEAD 树总文件 16588)。
+   ⇒ 代价是可忽略的量级,而这些路径承载的是"husk 里独有的 1070 个 depth≥2 嵌套 ref"现场
+   (§5b 一律禁删那两目录及其归档),**保留比清理更安全**,故不做 `git rm --cached` 分片清理
+   (那还会额外撞守门 65 的"缺失 1000 或 20%"阈值)。此项由"待处理风险"降级为"已量化并决定保留"。
+
 ### 第十四批:ja 端盲区升精确判据 + 死键判据两处盲区(2026-09-23,commit `a5f8aa523` 等)
 
 承第十三批"门报 9 死键 / ja 只能 warn"两条待办,本批把**判据本身**修到可判定,再按清单清账。
