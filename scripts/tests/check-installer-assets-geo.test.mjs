@@ -30,7 +30,8 @@ function withFixtures(files, fn) {
   }
   const base = { 'ui.nsi': ui, 'installer.nsi': inst, 'gen.mjs': gen }
   try {
-    for (const [name, content] of Object.entries({ ...base, ...files })) writeFileSync(join(dir, name), content)
+    for (const [name, content] of Object.entries({ ...base, ...files }))
+      writeFileSync(join(dir, name), content)
     return fn(env)
   } finally {
     rmSync(dir, { recursive: true, force: true })
@@ -39,7 +40,12 @@ function withFixtures(files, fn) {
 
 function runGuard(env) {
   try {
-    const out = execFileSync(process.execPath, [SCRIPT], { encoding: 'utf8', env, windowsHide: true, cwd: ROOT })
+    const out = execFileSync(process.execPath, [SCRIPT], {
+      encoding: 'utf8',
+      env,
+      windowsHide: true,
+      cwd: ROOT,
+    })
     return { code: 0, text: out }
   } catch (e) {
     return { code: e.status ?? -1, text: `${e.stdout || ''}${e.stderr || ''}` }
@@ -68,7 +74,10 @@ test('注入违规:双环环心与百分比控件中心错开必须被拦', () =
 })
 
 test('注入违规:轨道刻度回退到旧集合(与埋点脱钩)必须被拦', () => {
-  const mutated = gen.replace('const PB_TICKS = [12, 34, 52, 64, 72, 80, 88, 93, 97]', 'const PB_TICKS = [20, 45, 65, 85, 92]')
+  const mutated = gen.replace(
+    'const PB_TICKS = [12, 34, 52, 64, 72, 80, 88, 93, 97]',
+    'const PB_TICKS = [20, 45, 65, 85, 92]',
+  )
   assert.notEqual(mutated, gen, '注入失败:找不到 PB_TICKS')
   const r = withFixtures({ 'gen.mjs': mutated }, (env) => runGuard(env))
   assert.notEqual(r.code, 0)
@@ -76,7 +85,10 @@ test('注入违规:轨道刻度回退到旧集合(与埋点脱钩)必须被拦',
 })
 
 test('注入违规:百分比控件退回 SS_RIGHT(数字会在环里左右漂)必须被拦', () => {
-  const mutated = ui.replace('!insertmacro IHUI_TEXTCTL $IHUIPCT ${IHUI_PCT_STYLE}', '!insertmacro IHUI_TEXTCTL $IHUIPCT 0x50000002')
+  const mutated = ui.replace(
+    '!insertmacro IHUI_TEXTCTL $IHUIPCT ${IHUI_PCT_STYLE}',
+    '!insertmacro IHUI_TEXTCTL $IHUIPCT 0x50000002',
+  )
   assert.notEqual(mutated, ui, '注入失败:找不到 IHUIPCT 创建行')
   const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
   assert.notEqual(r.code, 0)
@@ -195,7 +207,9 @@ function countSizeRounds(src) {
   const stop = src.indexOf('${EndIf}', from)
   assert.ok(stop > from, '夹具失效:重锚分支没有配平的 ${EndIf}')
   const branch = src.slice(from, stop)
-  const n = (branch.match(/^[ \t]*!insertmacro[ \t]+IHUI_GUIINIT_SIZE\b[ \t]*(?:;[^\r\n]*)?\r?$/gim) || []).length
+  const n = (
+    branch.match(/^[ \t]*!insertmacro[ \t]+IHUI_GUIINIT_SIZE\b[ \t]*(?:;[^\r\n]*)?\r?$/gim) || []
+  ).length
   return { branch, n }
 }
 
@@ -216,7 +230,10 @@ test('注入违规:重锚分支改回单轮(GUIINIT 是两轮,跨屏搬迁差一
 test('不误伤:保持两轮(只在两轮之间落一条注释)必须全绿', () => {
   const base = countSizeRounds(ui).n
   const mutated = mutateReanchorBranch(ui, (branch) => {
-    const next = branch.replace(/(!insertmacro IHUI_GUIINIT_SIZE[^\r\n]*\r?\n)/, '$1  ; 只是注释,几何与轮数一字未动\n')
+    const next = branch.replace(
+      /(!insertmacro IHUI_GUIINIT_SIZE[^\r\n]*\r?\n)/,
+      '$1  ; 只是注释,几何与轮数一字未动\n',
+    )
     assert.notEqual(next, branch, '注入失败:没能在两轮之间落下注释')
     return next
   })
@@ -230,7 +247,10 @@ test('注入违规:把 region 宏挪到两轮定档中间(第二轮读到脏 R5.
     const line = branch.match(/^[ \t]*!insertmacro[ \t]+IHUI_WINDOW_RGN\b[ \t]*\r?$/m)
     assert.ok(line, '注入失败:重锚分支里没有独立的 IHUI_WINDOW_RGN 插入行')
     const stripped = branch.replace(line[0], '')
-    const next = stripped.replace(/!insertmacro IHUI_GUIINIT_SIZE[^\r\n]*\r?\n/, (m) => `${m}${line[0].trim()}\n`)
+    const next = stripped.replace(
+      /!insertmacro IHUI_GUIINIT_SIZE[^\r\n]*\r?\n/,
+      (m) => `${m}${line[0].trim()}\n`,
+    )
     assert.notEqual(next, stripped, '注入失败:重锚分支里没有 IHUI_GUIINIT_SIZE 插入行')
     return next
   })
@@ -267,6 +287,99 @@ test('不误伤:与重锚链无关的真实改动(改顶档 DPI 阈值 + 分支�
   mutated = mutateReanchorBranch(mutated, (branch) => branch + '  ; 只加一条注释,几何链一字未动\n')
   const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
   assert.equal(r.code, 0, r.text.slice(-600))
-  assert.match(r.text, /七条跨文件不变量成立/)
+  assert.match(r.text, /八条跨文件不变量成立/)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// ───────── 第 8 条不变量:小屏 × 高 DPI 的"按工作区降布局 DPI" ─────────
+// 跨屏异 DPI 分支在单机永远取不到像素(取证禁令),所以这里用**确定性矩阵**代替:
+// 从 .nsi 解析出常量与公式,自己跑 72 组合。解析不到判据所需结构时必须**主动拒绝**,
+// 不能把"没解析到"当成"没有违规"(那是恒绿判据的成因)。
+import { checkWorkAreaDownshift } from '../check-installer-assets.mjs'
+
+const uiSrc = readFileSync(join(W, 'ihui-ui.nsi'), 'utf8')
+
+/** 解析 IHUI_GUIINIT_SIZE 的算式,返回 (dpi, 工作区) → {x,y,W,H} ;结构缺失即抛 */
+function parseGuiInit(src) {
+  const body = (src.match(/!macro IHUI_GUIINIT_SIZE[ \t]*\r?\n([\s\S]*?)!macroend/) || [])[1] || ''
+  const cap = Number(src.match(/!define IHUI_DPI_CAP (\d+)/)?.[1])
+  const lw = Number(src.match(/!define IHUI_LOG_W (\d+)/)?.[1])
+  const lh = Number(src.match(/!define IHUI_LOG_H (\d+)/)?.[1])
+  const floors = [...body.matchAll(/\$\{If\} \$IHUIDPIW < (\d+)/g)].map((m) => Number(m[1]))
+  const axes = [
+    ...body.matchAll(/IntOp \$R9 \$R\d - \$R\d[\s\S]{0,90}?\/ \$\{IHUI_LOG_([WH])\}/g),
+  ].map((m) => m[1])
+  if (!body || !cap || !lw || !lh || axes.length < 2 || floors.length < 2)
+    throw new Error(
+      `判据结构解析不全: axes=${axes.join(',')} floors=${JSON.stringify(floors)} cap=${cap} 尺寸=${lw}x${lh}`,
+    )
+  const hardFloor = floors[floors.length - 1]
+  return (dpi, wa) => {
+    let d = Math.max(floors[0], Math.min(cap, dpi))
+    const byW = Math.floor(((wa.right - wa.left) * 96) / lw)
+    const byH = Math.floor(((wa.bottom - wa.top) * 96) / lh)
+    d = Math.min(d, byW, byH)
+    d = Math.max(d, hardFloor)
+    const W = Math.floor((lw * d) / 96)
+    const H = Math.floor((lh * d) / 96)
+    return {
+      x: wa.left + Math.floor((wa.right - wa.left - W) / 2),
+      y: wa.top + Math.floor((wa.bottom - wa.top - H) / 2),
+      W,
+      H,
+    }
+  }
+}
+
+const MONITORS = [
+  [0, 0, 1366, 728],
+  [0, 0, 1920, 1040],
+  [0, 0, 1536, 832],
+  [0, 0, 1280, 693],
+  [0, 0, 1707, 937],
+  [0, 0, 1920, 1010],
+  [0, 0, 1536, 790],
+  [0, 0, 1024, 570],
+  [1920, 0, 3000, 1880],
+]
+const DPIS = [96, 120, 144, 168, 192, 240, 288, 384]
+
+test('第 8 条不变量:真源码 0 违规,且改名宏必须让判据变红(不许瞎)', () => {
+  assert.deepEqual(checkWorkAreaDownshift({ uiSrc }), [])
+  assert.ok(
+    checkWorkAreaDownshift({
+      uiSrc: uiSrc.replace('!macro IHUI_GUIINIT_SIZE', '!macro IHUI_GUIINIT_SIZE_V2'),
+    }).length > 0,
+  )
+  assert.ok(
+    checkWorkAreaDownshift({
+      uiSrc: uiSrc.replace(
+        '!insertmacro IHUI_PX $IHUIWH ${IHUI_LOG_H}',
+        '!insertmacro IHUI_PX $IHUIWH 600',
+      ),
+    }).length > 0,
+  )
+})
+
+test('DPI × 工作区矩阵 72 组合:窗口必须整块落在工作区内(标题栏与底部按钮可达)', () => {
+  const size = parseGuiInit(uiSrc)
+  const bad = []
+  for (const [left, top, right, bottom] of MONITORS) {
+    const wa = { left, top, right, bottom }
+    for (const dpi of DPIS) {
+      const r = size(dpi, wa)
+      if (r.x < wa.left || r.y < wa.top || r.x + r.W > wa.right || r.y + r.H > wa.bottom)
+        bad.push(`${right - left}x${bottom - top}@${dpi} → ${r.W}x${r.H} 置于 (${r.x},${r.y})`)
+    }
+  }
+  assert.deepEqual(bad, [], `${bad.length} 组越界:\n  ${bad.slice(0, 4).join('\n  ')}`)
+})
+
+test('矩阵判据自身:删掉一条降档轴后必须"拒绝出结论",而不是报绿', () => {
+  const broken = uiSrc.replace(
+    /  IntOp \$R9 \$R8 - \$R6\r?\n  IntOp \$R9 \$R9 \* 96\r?\n  IntOp \$R9 \$R9 \/ \$\{IHUI_LOG_H\}\r?\n/,
+    '',
+  )
+  assert.notEqual(broken, uiSrc, '夹具失效:这条替换没删掉任何东西')
+  assert.throws(() => parseGuiInit(broken), /解析不全/)
+})
