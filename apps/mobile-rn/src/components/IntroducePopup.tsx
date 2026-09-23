@@ -29,6 +29,8 @@ import {
 } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 // 装饰图(拷贝自原 uniapp static/images,require 内联避免类型声明问题)
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const DECOR_HEADER_Y = require('../../assets/images/common/headertitley.png')
@@ -167,7 +169,6 @@ const VARIANT_CONFIG: Record<IntroducePopupVariant, VariantConfig> = {
 }
 
 const SHEET_MAX_HEIGHT_PERCENT = '80%'
-const SHEET_RADIUS = 16
 const SHEET_PADDING_HORIZONTAL = 16
 const SHEET_PADDING_VERTICAL = 20
 
@@ -179,13 +180,12 @@ const BENEFIT_FONT_SIZE = 13
 const MORE_FONT_SIZE = 12
 const COPYRIGHT_FONT_SIZE = 10
 
-const BENEFIT_ITEM_RADIUS = 8
 // 对齐 Uniapp padding 8rpx(≈4px)
 const BENEFIT_ITEM_PADDING = 4
 const BENEFIT_GAP = 8
 
 const BUTTON_HEIGHT = 40
-const BUTTON_RADIUS = 14
+const BUTTON_RADIUS = rnRadius.xl
 const BUTTON_FONT_SIZE = 15
 
 export function IntroducePopup({
@@ -365,8 +365,8 @@ const styles = StyleSheet.create({
     width: '100%',
     maxHeight: SHEET_MAX_HEIGHT_PERCENT,
     backgroundColor: tokens.surface.card,
-    borderTopLeftRadius: SHEET_RADIUS,
-    borderTopRightRadius: SHEET_RADIUS,
+    borderTopLeftRadius: rnRadius['2xl'],
+    borderTopRightRadius: rnRadius['2xl'],
     paddingHorizontal: SHEET_PADDING_HORIZONTAL,
     paddingTop: SHEET_PADDING_VERTICAL,
     paddingBottom: SHEET_PADDING_VERTICAL,
@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
   avatarCircle: {
     width: 88,
     height: 88,
-    borderRadius: 44,
+    borderRadius: 44, // radius-exempt: 88dp 圆形头像容器,取边长一半
     borderWidth: 1,
     borderColor: '#BFBEFF',
     backgroundColor: tokens.surface.muted,
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
   avatarImage: {
     width: 86,
     height: 86,
-    borderRadius: 43,
+    borderRadius: 43, // radius-exempt: 86dp 圆形头像图,取边长一半
   } as ImageStyle,
   decorQr: {
     width: 122,
@@ -462,7 +462,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     backgroundColor: tokens.surface.muted,
-    borderRadius: BENEFIT_ITEM_RADIUS,
+    borderRadius: rnRadius.lg,
     padding: BENEFIT_ITEM_PADDING,
   } as ViewStyle,
   benefitNumber: {
@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
   levelBadge: {
     alignSelf: 'center',
     backgroundColor: tokens.brandAccent.light,
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     paddingHorizontal: 10,
     paddingVertical: 4,
     marginBottom: 10,

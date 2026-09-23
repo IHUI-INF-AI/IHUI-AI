@@ -7,6 +7,8 @@ import type { ReactNode } from 'react'
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export interface UserInfoCardProps {
   /** 头像 URL */
   avatar: string
@@ -137,7 +139,7 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     card: {
       backgroundColor: tk.surface.light,
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       padding: 14,
       gap: 12,
       borderWidth: 1,
@@ -148,13 +150,13 @@ function createStyles(tk: AppThemeTokens) {
     avatar: {
       width: 48,
       height: 48,
-      borderRadius: 24,
+      borderRadius: 24, // radius-exempt: 48dp 圆形头像,取边长一半
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
       overflow: 'hidden',
     },
-    avatarImg: { width: 48, height: 48, borderRadius: 24 },
+    avatarImg: { width: 48, height: 48, borderRadius: 24 }, // radius-exempt: 48dp 圆形头像图,取边长一半
     avatarText: { fontSize: 20, fontWeight: '700', color: tk.surface.light },
     userMeta: { flex: 1, gap: 4 },
     nickname: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
@@ -170,7 +172,7 @@ function createStyles(tk: AppThemeTokens) {
     statSpacer: { flex: 1 },
     followBtn: {
       backgroundColor: tk.brand.DEFAULT,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 14,
       paddingVertical: 6,
     },
@@ -178,7 +180,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: 'transparent',
       borderWidth: 1,
       borderColor: tk.border.medium,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 14,
       paddingVertical: 6,
     },

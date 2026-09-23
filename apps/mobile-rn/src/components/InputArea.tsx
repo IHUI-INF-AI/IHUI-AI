@@ -65,6 +65,8 @@ import {
   X,
 } from 'lucide-react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 图片/视频/文档列表项。对应原 uniapp imgs_list 项(imgUrl / fileType / filename / video_url) */
 export interface InputImageItem {
   id?: string | number
@@ -787,7 +789,7 @@ const styles = StyleSheet.create({
   thumb: {
     width: 72,
     height: 72,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     overflow: 'hidden',
   },
   thumbDoc: {
@@ -842,7 +844,7 @@ const styles = StyleSheet.create({
     right: -6,
     width: 18,
     height: 18,
-    borderRadius: 9,
+    borderRadius: 18 / 2, // radius-exempt: 缩略图删除角标正圆(18dp 直径/2)
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
@@ -879,7 +881,7 @@ const styles = StyleSheet.create({
   fieldShell: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -943,7 +945,7 @@ const styles = StyleSheet.create({
   sendInShell: {
     width: 40,
     height: 40,
-    borderRadius: 10,
+    borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
     marginLeft: 4,
     alignItems: 'center',
     justifyContent: 'center',
@@ -971,7 +973,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 10,
     paddingBottom: 24,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -981,7 +983,7 @@ const styles = StyleSheet.create({
   voiceWaveWrap: {
     minHeight: MIN_INPUT_HEIGHT,
     maxHeight: MAX_INPUT_HEIGHT,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -997,7 +999,7 @@ const styles = StyleSheet.create({
   },
   voiceBar: {
     width: 3,
-    borderRadius: 2,
+    borderRadius: rnRadius.xs,
     backgroundColor: tokens.danger.DEFAULT,
   },
   voiceHint: {
@@ -1050,7 +1052,7 @@ const styles = StyleSheet.create({
     minHeight: 32,
     paddingHorizontal: 8,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -1059,7 +1061,7 @@ const styles = StyleSheet.create({
   },
   paramAddBtn: {
     minHeight: 32,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
     borderStyle: 'dashed',
@@ -1075,7 +1077,7 @@ const styles = StyleSheet.create({
   sendButton: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     // 深色下 brand.DEFAULT=#FFFFFF(纯白),与深色主题不协调;
     // 改用 gray[900]=#171717(深灰),两态均为深灰底白字,与深色主题协调
     backgroundColor: tokens.gray[900],
@@ -1111,7 +1113,7 @@ const styles = StyleSheet.create({
   collapsedFab: {
     width: 56,
     height: 56,
-    borderRadius: 28, // 56/2,合规(头像/红点豁免圆形)
+    borderRadius: 56 / 2, // radius-exempt: 折叠态 FAB 几何正圆(56dp 直径/2)
     backgroundColor: tokens.brand.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1129,7 +1131,7 @@ const styles = StyleSheet.create({
     right: 8,
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 2,

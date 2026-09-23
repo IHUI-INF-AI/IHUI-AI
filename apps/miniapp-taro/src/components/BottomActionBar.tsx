@@ -5,7 +5,7 @@
 import { aizhsUrl } from '@/constants/icon-urls'
 import { useTt, t } from '@/i18n'
 import { View, Text, Input, Image } from '@tarojs/components'
-import { cn } from '@ihui/design-tokens'
+import { cn, rnRadius } from '@ihui/design-tokens'
 import LineIcon from '@/components/LineIcon'
 import InputArea, { type InputAreaProps } from './InputArea'
 // 4 个图标按钮 + 选中勾 PNG:对齐原项目 BottomActionBar.vue line 65-80,统一从 @/assets/remote/ 引入
@@ -144,7 +144,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
                     boxSizing: 'border-box',
                     width: 'calc(25% - 12rpx)',
                     border: '4rpx solid var(--color-card)',
-                    borderRadius: rpx(15),
+                    borderRadius: rnRadius.lg,
                     fontSize: rpx(28),
                     padding: '12rpx 0',
                     background: active ? 'var(--color-brand)' : 'var(--color-muted)',
@@ -184,7 +184,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
                   width: rpx(160),
                   height: rpx(150),
                   background: 'var(--color-muted)',
-                  borderRadius: rpx(30),
+                  borderRadius: rnRadius['2xl'],
                   border: '6rpx solid var(--color-card)',
                 }}
                 onClick={() => onIconButtonClick?.(btn)}
@@ -212,7 +212,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
                 width: rpx(160),
                 height: rpx(150),
                 background: isVoiceInput ? 'var(--color-brand)' : 'var(--color-muted)',
-                borderRadius: rpx(30),
+                borderRadius: rnRadius['2xl'],
                 border: '6rpx solid var(--color-card)',
               }}
               onClick={onVoiceInputToggle}

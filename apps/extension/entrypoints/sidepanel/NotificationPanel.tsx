@@ -25,14 +25,14 @@ export default function NotificationPanel() {
           <span className="font-semibold text-[13px]">{t('notification.title')}</span>
           <div className="flex items-center gap-1.5">
             <button
-              className="bg-transparent border border-border rounded-[5px] px-2 py-0.5 text-[11px] cursor-pointer text-inherit hover:bg-muted"
+              className="bg-transparent border border-border rounded-sm px-2 py-0.5 text-[11px] cursor-pointer text-inherit hover:bg-muted"
               onClick={markAllRead}
               type="button"
             >
               {t('notification.markAllRead')}
             </button>
             <button
-              className="bg-transparent border border-border rounded-[5px] px-2 py-0.5 text-[11px] cursor-pointer text-inherit hover:bg-muted"
+              className="bg-transparent border border-border rounded-sm px-2 py-0.5 text-[11px] cursor-pointer text-inherit hover:bg-muted"
               onClick={clearAll}
               type="button"
             >

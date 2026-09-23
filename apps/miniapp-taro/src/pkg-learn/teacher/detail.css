@@ -28,7 +28,7 @@
 .tdetail-avatar {
   width: 128rpx;
   height: 128rpx;
-  border-radius: 64rpx;
+  border-radius: 64rpx; /* radius-exempt: 128rpx 讲师头像真圆,半径=边长一半 */
   background: var(--color-muted);
   flex-shrink: 0;
 }
@@ -73,7 +73,7 @@
   font-weight: 600;
   color: var(--color-foreground);
   background: var(--color-rank-gold);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
 }
 
@@ -91,7 +91,7 @@
   color: var(--color-primary-foreground);
   background: var(--color-primary);
   border: none;
-  border-radius: 32rpx;
+  border-radius: var(--radius-2xl);
 }
 
 .tdetail-follow-btn-active {
@@ -105,7 +105,7 @@
   display: flex;
   flex-direction: row;
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   padding: 24rpx 0;
 }
 
@@ -182,14 +182,14 @@
   flex-direction: row;
   gap: 20rpx;
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   padding: 20rpx;
 }
 
 .tdetail-course-cover {
   width: 192rpx;
   height: 120rpx;
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   background: var(--color-muted);
   flex-shrink: 0;
 }
@@ -250,7 +250,7 @@
   flex-direction: column;
   gap: 12rpx;
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   padding: 20rpx;
 }
 
@@ -264,7 +264,7 @@
 .tdetail-review-avatar {
   width: 64rpx;
   height: 64rpx;
-  border-radius: 32rpx;
+  border-radius: var(--radius-2xl);
   background: var(--color-muted);
   flex-shrink: 0;
 }
@@ -331,7 +331,7 @@
   padding: 24rpx 0;
   font-size: 30rpx;
   font-weight: 600;
-  border-radius: 44rpx;
+  border-radius: 44rpx; /* radius-exempt: 底部操作按钮为胶囊(高度约 88rpx,半径取其一半) */
 }
 
 .tdetail-action-primary {
