@@ -1902,7 +1902,7 @@ const checks = [
   // R2 走 baseline 棘轮(overlay-on-media 等合法场景冻结存量,只拦新增);R1 全量拦截。
   // 自检:node scripts/check-brand-foreground.mjs --self-test;紧急跳过 HUSKY_SKIP_BRAND_FOREGROUND=1。
   {
-    id: '75',
+    id: '83',
     label: '📱 [mobile-rn] 深色模式前景/容器守门(品牌底白字 blocking + 浅色容器 ratchet)',
     script: 'check-brand-foreground.mjs',
     args: [],
@@ -1924,7 +1924,7 @@ const checks = [
   // >300 文件跳过(性能护栏,避免逼人 --no-verify 把全部守门一起关)。
   // 演练:node scripts/check-stale-revert.mjs --self-test(8 例,含"写回 v1 必判红"阳性对照)。
   {
-    id: '76',
+    id: '84',
     label: '🧬 反回退守门(blocking,暂存内容等于历史版本 = 静默回滚他人改动)',
     script: 'check-stale-revert.mjs',
     args: [],
@@ -2030,6 +2030,41 @@ const checks = [
     ].join('\n'),
   },
 
+  // 品牌邮件通道对账(2026-09-23 立,守门 81)。成因:邮件"版式模板"只存在于
+  // apps/api/src/services/email-templates.ts,但 ops 侧曾有第二条绕过模板的自发通道 ——
+  // deploy/win/ihui-deploy.ps1 的 Send-EmailNotify 自拼传输层(Send-MailMessage 无 -BodyAsHtml、
+  // Resend payload 只有 text)。这类代码"能发出去、typecheck/lint 全绿",用户收到的邮件却没样式,
+  // 与守门 72/78 同族("本地全绿也发现不了")。判据:R1 PS Send-MailMessage 缺 -BodyAsHtml /
+  // R2 api.resend.com/emails 同一发送上下文无 html 字段(覆盖 host+path 分行形态)/ R3 ops 脚本
+  // 有发信动作(createTransport/sendMail/api.resend.com)却不引用 email-templates /
+  // notify-deploy-failure。范围 deploy/** + scripts/**(不含 tests)+ workflows *.yml;
+  // 行内豁免 brand-mail-exempt:,存量走 scripts/brand-email-channel-baseline.json 只减不增
+  // (建门实测:ihui-deploy.ps1 已被并行会话清干净,仅 check-credential-health.mjs 这条
+  // "第三条纯文本通道"入基线待迁移)。--staged 暂存集为空/取不到 → 退化全量(守门 70 教训)。
+  {
+    id: '81',
+    label: '📧 品牌邮件通道对账(blocking,拦绕过 email-templates 的纯文本自发通道)',
+    script: 'check-brand-email-channel.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_BRAND_MAIL_GUARD',
+    stagedTriggers: ['deploy/', 'scripts/', '.github/workflows/'],
+    onFailHint: [
+      '',
+      '  💡 ops 邮件出现了绕过品牌模板层的形态 —— 用户会收到无样式的纯文本邮件,',
+      '     而 typecheck/lint 全都不会红(与守门 72/78 同族)。',
+      '     修复的唯一正确姿势:发信一律经品牌层 —— PowerShell/CI/脚本改调',
+      '     `apps/api/scripts/notify-deploy-failure.ts`(版式由 email-templates.ts 单点决定);',
+      '     新增版式在 apps/api/src/services/email-templates.ts 加 render* 函数。',
+      '     确属有意的纯文本:命中行或紧邻上行加 `brand-mail-exempt: <原因>`;',
+      '     存量红进 scripts/brand-email-channel-baseline.json(只减不增,禁止调高)。',
+      '     单独复验:node scripts/check-brand-email-channel.mjs --staged',
+      '     自检:node scripts/check-brand-email-channel.mjs --self-test(30 例)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_BRAND_MAIL_GUARD=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
@@ -2068,7 +2103,7 @@ const effectiveChecks = pushGate ? pushGateChecks : checks
 
 // ── 守门 id 唯一性自检(2026-09-23 立,不阻塞) ──────────────────────────────
 // 成因:同日实测两道 blocking 门撞同号 —— 77 曾被 check-radius-single-source 与
-// check-no-conflict-markers 并用(后者已让号到 79),而 75/76 现各存在两处。同号本身
+// check-no-conflict-markers 并用(后者已让号到 79),而 75/76 曾各存在两处(2026-09-24 由后落地方让号至 83/84)。同号本身
 // 不报错,但会把 skipEnv 语义与"哪道门失败"的归因搅在一起,且逃过一次就没人再看见。
 // 这里只打印、不改退出码:让每次运行都显形,由归属会话各自让号(后落地者让号)。
 {

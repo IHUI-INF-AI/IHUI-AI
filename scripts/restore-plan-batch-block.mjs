@@ -49,17 +49,45 @@ function showAt(sha, rel, root) {
 }
 
 /**
- * 从 src 里切出以 headingRe 命中的那一行为首、直到下一个 2-3 级标题为止的整块。
- * 返回 { lines, start } 或 null(未找到标题)。
+ * 从 srcLines 的 index 处切出一块:该行到下一个 2-3 级标题为止,并剥掉块间空行。
  */
+export function extractBlockAt(srcLines, index) {
+  if (index < 0 || index >= srcLines.length) return null
+  let end = index + 1
+  while (end < srcLines.length && !/^#{2,3}\s/.test(srcLines[end])) end += 1
+  const lines = srcLines.slice(index, end)
+  while (lines.length > 1 && !lines[lines.length - 1].trim()) lines.pop() // 块间空行不属于内容
+  return { lines, start: index }
+}
+
+/** 从 src 里切出以 headingRe 命中的那一行为首的整块(首个命中;兼容旧调用)。 */
 export function extractBlock(srcLines, headingRe) {
   const start = srcLines.findIndex((l) => headingRe.test(l))
-  if (start < 0) return null
-  let end = start + 1
-  while (end < srcLines.length && !/^#{2,3}\s/.test(srcLines[end])) end += 1
-  const lines = srcLines.slice(start, end)
-  while (lines.length > 1 && !lines[lines.length - 1].trim()) lines.pop() // 块间空行不属于内容
-  return { lines, start }
+  return start < 0 ? null : extractBlockAt(srcLines, start)
+}
+
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/**
+ * 把操作员给的批次名解析成命中列表:标题必须以 `### <name>` 开头(前缀匹配,
+ * 名字里的正则元字符一律转义 —— `第二十五批(2026-09-23)` 是合法前缀,不是量词)。
+ */
+export function headingMatches(srcLines, name) {
+  const re = new RegExp('^#{2,3}\\s*' + escapeRe(name))
+  return srcLines.map((l, i) => ({ line: l, index: i })).filter((h) => re.test(h.line))
+}
+
+/**
+ * 唯一性策略(2026-09-24 加,起因是当天实测撞号:并发会话在 04:06 又登记了一枚
+ * `### 第十九批:守门 70 覆盖补齐三端`,与本会话 09-23 的 `### 第十九批(2026-09-23):守门 71 …`
+ * 同号。"取首个命中"会静默回捞错批次,所以撞号必须显式失败并要求更长前缀。)
+ * 返回 { ok:true, block } | { ok:false, reason:'notfound'|'ambiguous', hits }
+ */
+export function resolveBlock(srcLines, name) {
+  const hits = headingMatches(srcLines, name)
+  if (hits.length === 0) return { ok: false, reason: 'notfound', hits }
+  if (hits.length > 1) return { ok: false, reason: 'ambiguous', hits }
+  return { ok: true, block: extractBlockAt(srcLines, hits[0].index), hits }
 }
 
 /**
@@ -131,6 +159,25 @@ function selfTest() {
     if (blk.lines.length !== 4) throw new Error(`块长 ${blk.lines.length}`)
     if (blk.lines.some((l) => l.includes('不该被带走'))) throw new Error('越界吞了别人的块')
   })
+  t('resolveBlock:同日撞号(两枚"第十九批")必须显式失败,不得静默取首枚', () => {
+    const src = [
+      '### 第十九批(2026-09-23):守门 71 补盲区',
+      '- 甲批正文',
+      '### 第十九批:守门 70 覆盖补齐三端(2026-09-24)',
+      '- 乙批正文',
+    ]
+    const r = resolveBlock(src, '第十九批')
+    if (r.ok || r.reason !== 'ambiguous' || r.hits.length !== 2)
+      throw new Error(`应报 ambiguous/2,实为 ${JSON.stringify({ ok: r.ok, n: r.hits?.length })}`)
+    const a = resolveBlock(src, '第十九批(2026-09-23)')
+    if (!a.ok || a.block.lines[0] !== src[0]) throw new Error('更长前缀应能唯一化')
+  })
+  t('批次名里的 ( ) 必须按字面量匹配,不得被当成正则量词', () => {
+    const src = ['### 第二十五批(2026-09-23):标题', '- 正文']
+    const r = resolveBlock(src, '第二十五批(2026-09-23)')
+    if (!r.ok) throw new Error(`元字符未转义:${r.reason}`)
+    if (resolveBlock(src, '第二十五批(2099').ok) throw new Error('不存在的日期前缀却命中了')
+  })
   t('assertPureInsertion 能识别"替换式改写"并非纯插入', () => {
     let threw = false
     try {
@@ -171,13 +218,23 @@ function main(argv) {
   const path_ = path.join(root, PLAN)
   let lines = readFileSync(path_, 'utf8').split(/\r?\n/)
   let total = 0
+  let ambiguous = 0
   const report = []
   for (const b of batches) {
-    const blk = extractBlock(srcLines, new RegExp(`^###\\s*${b}`))
-    if (!blk) {
+    const r = resolveBlock(srcLines, b)
+    if (!r.ok && r.reason === 'notfound') {
       console.log(`⚠️ ${b}: ${from} 里找不到该批次标题,跳过`)
       continue
     }
+    if (!r.ok) {
+      ambiguous++
+      console.log(
+        `❌ ${b}: ${from} 里有 ${r.hits.length} 枚同号标题 —— 取首枚会回捞错批次,请改用能唯一化的前缀(带日期):`,
+      )
+      for (const h of r.hits) console.log(`   · ${h.line.slice(0, 76)}`)
+      continue
+    }
+    const blk = r.block
     const { out, inserted, appendedTitle } = restoreBlock(lines, blk.lines)
     report.push(
       `${b}: 源块 ${blk.lines.filter((l) => l.trim()).length} 行 → 补回 ${inserted} 行${appendedTitle ? '(含标题追加)' : ''}`,
@@ -190,12 +247,18 @@ function main(argv) {
   }
   for (const r of report) console.log(r)
   if (check) {
-    console.log(total ? `❌ --check:缺 ${total} 行(未写盘)` : '✅ --check:全部齐在')
-    return total ? 1 : 0
+    const why = [total ? `缺 ${total} 行` : '', ambiguous ? `${ambiguous} 个批次号撞号` : '']
+      .filter(Boolean)
+      .join(' + ')
+    console.log(why ? `❌ --check:${why}(未写盘)` : '✅ --check:全部齐在')
+    return why ? 1 : 0
   }
+  if (ambiguous) console.log(`⚠️  ${ambiguous} 个批次号未处理(上方已点名),其余批次照常落盘`)
   if (!total) {
-    console.log('✅ 无缺失,未改动目标文档')
-    return 0
+    console.log(
+      ambiguous ? '⚠️ 本轮可写的批次无缺失,仅撞号批次待人工点名' : '✅ 无缺失,未改动目标文档',
+    )
+    return ambiguous ? 1 : 0
   }
   writeFileSync(path_, lines.join('\n'), 'utf8')
   const back = readFileSync(path_, 'utf8').split(/\r?\n/)
@@ -204,7 +267,7 @@ function main(argv) {
     return 1
   }
   console.log(`✅ 纯插入 ${total} 行到 ${PLAN}(工作区),回读行数一致`)
-  return 0
+  return ambiguous ? 1 : 0
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
@@ -217,5 +280,12 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { extractBlock, restoreBlock, assertPureInsertion }
+export const __test__ = {
+  extractBlock,
+  extractBlockAt,
+  headingMatches,
+  resolveBlock,
+  restoreBlock,
+  assertPureInsertion,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

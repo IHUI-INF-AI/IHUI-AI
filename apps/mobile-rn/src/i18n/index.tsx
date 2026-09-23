@@ -18,7 +18,6 @@ import en from '@ihui/i18n/messages/mobile-rn/en.json'
 import ja from '@ihui/i18n/messages/mobile-rn/ja.json'
 import ko from '@ihui/i18n/messages/mobile-rn/ko.json'
 import zhTW from '@ihui/i18n/messages/mobile-rn/zh-TW.json'
-
 export type { Locale }
 
 const STORAGE_KEY_LEGACY = 'ihui_locale'

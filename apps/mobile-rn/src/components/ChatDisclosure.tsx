@@ -11,11 +11,11 @@ import { rnRadius } from '@ihui/design-tokens'
 // 抬到 `chatDisclosure.*`(交代区不再是 N8n 屏专属,命名空间跟着归属走)。
 import { useState } from 'react'
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native'
-import { ChevronDown, ChevronRight } from 'lucide-react-native'
+import { ChevronDown, ChevronRight, Zap } from 'lucide-react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { rpx } from '../utils/rpx'
-import type { MessageCitation, MessageInjection } from '../utils/chat-render-model'
+import type { MessageCitation, MessageInjection, SteerNotice } from '../utils/chat-render-model'
 
 /**
  * 引用来源列表:来源标签 + 条目文字。
@@ -125,6 +125,50 @@ export function InjectionDisclosure({
   )
 }
 
+/** 单条引导文本的展示截断长度(对齐 web SteerNoticeBar STEER_NOTICE_PREVIEW_LIMIT:原文 ≤4000
+ *  字符已入 LLM 上下文,交代侧只做预览) */
+const STEER_NOTICE_PREVIEW_LIMIT = 120
+
+/**
+ * 引导交代条(D106 Steer 中途引导可视化):SSE steer 事件(phase='injected')回执,
+ * 经 api-client onSteer → 屏内 appendSteerFrames 落到 assistant 消息上渲染本组件。
+ * 形态对齐 web SteerNoticeBar:计数标题 + Zap 图标,正文为每条引导文本预览(超长截断)。
+ */
+export function SteerNoticeList({
+  items,
+}: {
+  items: readonly SteerNotice[]
+}): React.JSX.Element | null {
+  const { t } = useI18n()
+  if (!items.length) return null
+  return (
+    <View style={disclosureStyles.block}>
+      <View style={disclosureStyles.steerHead}>
+        <Zap size={10} color={tokens.text.tertiary} />
+        <Text style={disclosureStyles.blockTitle}>
+          {t('chatDisclosure.steerTitle', { count: items.length })}
+        </Text>
+      </View>
+      {items.slice(0, 3).map((item, index) => (
+        <View key={`steer_${index}`} style={disclosureStyles.card}>
+          <View style={disclosureStyles.cardHead}>
+            <Text style={disclosureStyles.text} numberOfLines={3}>
+              {item.text.length > STEER_NOTICE_PREVIEW_LIMIT
+                ? `${item.text.slice(0, STEER_NOTICE_PREVIEW_LIMIT)}…`
+                : item.text}
+            </Text>
+          </View>
+        </View>
+      ))}
+      {items.length > 3 ? (
+        <Text style={disclosureStyles.meta}>
+          {t('chatDisclosure.steerMore', { count: items.length - 3 })}
+        </Text>
+      ) : null}
+    </View>
+  )
+}
+
 const disclosureStyles = StyleSheet.create({
   block: {
     maxWidth: '78%',
@@ -135,6 +179,11 @@ const disclosureStyles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: tokens.text.tertiary,
+  },
+  steerHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rpx(4),
   },
   card: {
     borderRadius: rnRadius.md,

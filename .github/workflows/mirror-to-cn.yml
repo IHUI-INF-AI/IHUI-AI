@@ -75,26 +75,93 @@ jobs:
           echo "GITEE_OWNER 长度: ${#GITEE_OWNER}（应非 0）"
           set -o pipefail
           REMOTE="https://${GITEE_OWNER}:${GITEE_TOKEN}@gitee.com/${GITEE_OWNER}/IHUI-AI.git"
+          # ── 推送前先释放配额:删掉远端上的**内部备份标签** ─────────────────────────
+          # 2026-09-23 实测:Gitee 服务端硬配额 `Repo size 1156MB > 1024MB` 会以 pre-receive
+          # 拒绝**整个 push(含 main)**,当天一轮镜像跑 69 分钟后失败就在这一步。
+          # 体积主源是 `refs/tags/*` 全量推送带上去的 `lost-commit/*` / `nightly-*` / `backup/*`
+          # —— 本地 4227 个标签里这类占 4206 个(仅剩 21 个真对外标签)。它们的存在意义是
+          # **防本地/origin 的 git gc 回收悬空 commit**(AGENTS.md §22/§29),国内镜像不需要,
+          # 且 GitHub 侧一份未删(权威源)。
+          # 零损失前置:先把"远端当前真实存在的这批 ref + sha"落盘成清单,可按 sha 精确复原。
+          # 注意:删除后 Gitee 需服务端 GC 才真正降体积(其无公开 GC API,由平台定期回收);
+          # 故本轮仍可能失败 —— 那时**结论文本必须是"等 GC"而不是"再调触发器"**。
+          # 内部备份标签的**唯一定义** —— 删除清单与推送排除必须同一个 RE,否则删掉又被推回去。
+          # 实测教训(2026-09-23 两处独立自伤):
+          #   ① 原排除式写 `(lost-commit|nightly|backup)/` 要求 nightly 后带斜杠,而真实标签名是
+          #      `nightly-<数字>`(本地 140 个)⇒ 排除式漏掉整族,删完再推回原地。
+          #   ② 原删除式用 `grep -E '\t'` 匹配制表符 —— GNU grep 的 ERE **不把 `\t` 当 tab**(它匹配
+          #      字面 `t`),对 `sha<TAB>refs/tags/...` 恒 0 命中,于是"零损失删除"整步静默跳过。
+          #      现改为先 `cut -f2` 取列再匹配,判据不依赖不可见的转义语义。
+          INTERNAL_TAG_RE='^refs/tags/(lost-commit|nightly|backup)'
+          git ls-remote "$REMOTE" 'refs/tags/*' > /tmp/gitee-tags.tsv 2>/dev/null || true
+          # ls-remote 对**附注标签**会额外输出一行 `refs/tags/<名>^{}`(指向被注解对象 peel 后的
+          # commit)。它不是可推送的 ref:混进 `git push --delete` 会让**整批 300 条**以
+          # `fatal: invalid refspec` 全批作废(2026-09-23 实测:797 条里 2 批因此没删掉,
+          # 体积只从 1156MB 降到 1023.945MB,差 37MB 通不过 1024MB 配额)。故按固定串先剔除。
+          cut -f2 /tmp/gitee-tags.tsv | grep -vF '^{}' | grep -E "$INTERNAL_TAG_RE" > gitee-internal-tags-before-prune.txt || true
+          DEL_N=$(wc -l < gitee-internal-tags-before-prune.txt | tr -d ' ')
+          REMOTE_TAG_N=$(cut -f2 /tmp/gitee-tags.tsv | grep -vF '^{}' | wc -l | tr -d ' ')
+          PEEL_N=$(cut -f2 /tmp/gitee-tags.tsv | grep -cF '^{}' || true)
+          echo "远端标签(不含 peel 行)=${REMOTE_TAG_N} / 其中内部备份标签=${DEL_N} 个 / 剔除 peel 行=${PEEL_N} 个(清单已存 gitee-internal-tags-before-prune.txt)"
+          # 反假绿:本地内部标签实测 4206 个。若该 RE 在本地只匹配到 <1000,说明**表达式本身失效**
+          # (上面 ①② 两类静默 no-op 都是这个形状:步骤"成功"、什么都没做、镜像照旧恒红)。
+          # 与其让它带着坏判据去跑 69 分钟,不如 3 秒内失败并点名。
+          LOCAL_INTERNAL_N=$(git for-each-ref --format='%(refname)' refs/tags | grep -Ec "$INTERNAL_TAG_RE" || true)
+          echo "本地内部备份标签(按同一 RE 计)= ${LOCAL_INTERNAL_N}"
+          if [ "${LOCAL_INTERNAL_N}" -lt 1000 ]; then
+            echo "::error::INTERNAL_TAG_RE 在本仓库只匹配到 ${LOCAL_INTERNAL_N} 个标签,远低于实测 4206 —— 判据失效,拒绝以「无需删除/已排除」的假绿继续"
+            exit 1
+          fi
+          if [ "${DEL_N}" -gt 0 ]; then
+            echo "首批 5 个待删:$(head -5 gitee-internal-tags-before-prune.txt | tr '\n' ' ')"
+            mapfile -t DEL < gitee-internal-tags-before-prune.txt
+            i=0
+            FAILB=0
+            DELETED=0
+            while [ "$i" -lt "${#DEL[@]}" ]; do
+              CHUNK=("${DEL[@]:$i:300}")
+              # 输出先落盘再判:失败时要能点名**是哪一条**让整批作废(上一版只报"失败批次 2",
+              # 真正的 fatal: invalid refspec 埋在 300 行里没人看见,于是一修就修到了隔天)
+              if git push --delete "$REMOTE" "${CHUNK[@]}" > /tmp/gitee-del.out 2>&1; then
+                :
+              else
+                FAILB=$((FAILB + 1))
+                echo "::warning::删除批次(起点 $i)失败,前 2 行原因:$(sed "s|${GITEE_TOKEN}|***|g" /tmp/gitee-del.out | grep -iE 'fatal|error|rejected' | head -2 | tr '\n' ' ')"
+              fi
+              DELETED=$((DELETED + $(grep -cF '[deleted]' /tmp/gitee-del.out || true)))
+              i=$((i + 300))
+            done
+            # 删完立刻回读远端**真值**,而不是相信上面打印的数字
+            REMAIN_INTERNAL=$(git ls-remote "$REMOTE" 'refs/tags/*' 2>/dev/null | cut -f2 | grep -vF '^{}' | grep -Ec "$INTERNAL_TAG_RE" || true)
+            echo "✅ 内部备份标签删除:清单 ${#DEL[@]} 个 / 实际 [deleted] ${DELETED} 个 / 失败批次 ${FAILB} / 远端剩余内部标签 ${REMAIN_INTERNAL} 个"
+            if [ "${REMAIN_INTERNAL}" -gt 0 ]; then
+              echo "::warning::远端仍有 ${REMAIN_INTERNAL} 个内部备份标签未删净(体积不会降到配额以下),下一轮会重试"
+            fi
+          else
+            echo "远端已无内部备份标签(此前已清理),跳过删除"
+          fi
+          # ─────────────────────────────────────────────────────────────────────────
           # 不用 --mirror:推 refs/remotes/origin/* 会被 Gitee 拒绝(deny hidden ref)
           # 改用 refspec:推 branches + tags,删除远端多余,不推 remote-tracking
           #
           # 2026-09-23 实测必改:全量 `refs/tags/*` 会把**内部备份标签**一起推给国内镜像。
-          # 本地 4222 个标签里 `lost-commit/*` + `nightly-*` + `backup/*` 占 4172 个,正是它们
+          # 本地 4227 个标签里 `lost-commit/*` + `nightly-*` + `backup/*` 占 4206 个,正是它们
           # 把 Gitee 仓库体积推到 1156MB、撞上 1024MB **硬配额** ⇒ 服务端 pre-receive 连 `main`
           # 一起拒(`Push rejected for repository [size exceeds limit]`,gitee.com/help/articles/4232),
           # 结果是"每 20 分钟跑一次、连续一天一条都没落地"。
           # 这些标签的用途是防本地/origin 的 git gc 回收悬空 commit(AGENTS.md §22/§29),
           # **GitHub 侧一份不少**;国内镜像不需要它们。删镜像上的既有副本属破坏性动作,
           # 需人工确认后才做(见 PROJECT_PLAN 的"残余")。
-          EXCLUDE_RE='^refs/tags/(lost-commit|nightly|backup)/'
+          # 排除式直接复用上方同一个 $INTERNAL_TAG_RE(单一真相源,不再各写一份 → 这正是
+          # 上面 ① 那类"删了又推回去"漂移的根治点)。
           SPEC=()
           while IFS= read -r r; do
             case "$r" in
               '') ;;
               *) SPEC+=("$r:$r") ;;
             esac
-          done < <(git for-each-ref --format='%(refname)' refs/tags | grep -Ev "$EXCLUDE_RE")
-          echo "推送分支 + ${#SPEC[@]} 个标签(已排除内部备份标签;被排除数=$(git for-each-ref --format='%(refname)' refs/tags | grep -Ec "$EXCLUDE_RE"))"
+          done < <(git for-each-ref --format='%(refname)' refs/tags | grep -Ev "$INTERNAL_TAG_RE")
+          echo "推送分支 + ${#SPEC[@]} 个标签(同一 RE 已排除内部备份标签 ${LOCAL_INTERNAL_N} 个)"
           GIT_LFS_SKIP_PUSH=1 git push --force --prune "$REMOTE" "refs/heads/*:refs/heads/*" "${SPEC[@]}" 2>&1 | sed "s|${GITEE_TOKEN}|***|g"
           echo "✅ Gitee 镜像推送完成"
 
