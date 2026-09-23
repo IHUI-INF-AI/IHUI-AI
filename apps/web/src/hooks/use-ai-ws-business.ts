@@ -5,7 +5,6 @@
 'use client'
 
 import * as React from 'react'
-import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 
 import { type AIWSProvider, PROVIDER_PATHS } from '@/hooks/use-ai-websocket'
@@ -63,7 +62,7 @@ export function modelToProvider(model: string): AIWSProvider {
   return 'generic'
 }
 
-/** Token 余额不足关键词 — 匹配上游中文报文关键字,不得本地化 */
+/** Token 余额不足关键词 */
 const TOKEN_BALANCE_KEYWORDS = ['50000', '余额不足', 'token余额'] as const
 
 export interface UseAiWebSocketOptions {
@@ -125,9 +124,6 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
     onScrollToBottom,
     onClearThinkingProcessLogic,
   } = options
-
-  const t = useTranslations('aiWs')
-  const tc = useTranslations('chat')
 
   const socketTaskRef = React.useRef<WebSocket | null>(null)
   const [displayedTexts, setDisplayedTexts] = React.useState<string[]>([])
@@ -263,7 +259,7 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
         const contentText =
           (typeof data.content === 'string' && data.content) ||
           (typeof data.message === 'string' && data.message) ||
-          t('videoDone')
+          '视频生成完成'
         const videoUrl = typeof data.video_url === 'string' ? data.video_url : ''
         const totalTokens = typeof data.total_tokens === 'number' ? data.total_tokens : 0
         const videoRatio = typeof data.video_ratio === 'string' ? data.video_ratio : '16:9'
@@ -301,7 +297,7 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
           if (existing) {
             next[currentIndex] = {
               ...existing,
-              content: t('videoFailed'),
+              content: '视频生成失败,请重试',
               content1: '',
               videoUrl: '',
               videoRatio: '16:9',
@@ -310,7 +306,7 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
             }
           } else {
             next.push({
-              content: t('videoFailed'),
+              content: '视频生成失败,请重试',
               content1: '',
               imgUrlList: [],
               videoUrl: '',
@@ -332,7 +328,7 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
       onClearInput?.()
       onScrollToBottom?.()
     },
-    [onClearThinkingProcessLogic, onClearInput, onScrollToBottom, t],
+    [onClearThinkingProcessLogic, onClearInput, onScrollToBottom],
   )
 
   /** 方法 6:处理 chat 流式(conversation.message.delta / conversation.chat.completed / 流式响应完成) */
@@ -432,8 +428,8 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
             /* ignore */
           }
         }
-        toast.error(t('creditLowTitle'), {
-          description: t('creditLowDesc', { min: 50000 }),
+        toast.error('智汇值不足', {
+          description: '您的智汇值余额小于 50000,无法使用大模型,请前往充值',
         })
         return
       }
@@ -459,7 +455,7 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
         })
       }
     },
-    [checkTokenBalance, handleWanVideoResponse, handleChatResponse, onClearThinkingProcessLogic, t],
+    [checkTokenBalance, handleWanVideoResponse, handleChatResponse, onClearThinkingProcessLogic],
   )
 
   /** 方法 8:socketTask.send + GLM-4.5 特殊处理 thinkingProgress=100 */
@@ -479,7 +475,7 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
         setAgentContentList((prev) => [
           ...prev,
           {
-            content: t('sendFailed'),
+            content: '发送失败,请重试',
             content1: '',
             imgUrlList: [],
             totalTokens: 0,
@@ -493,7 +489,7 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
         }
       }
     },
-    [modelName, onClearThinkingProcessLogic, t],
+    [modelName, onClearThinkingProcessLogic],
   )
 
   /** 方法 3:浏览器 new WebSocket + onOpen/onMessage/onError/onClose */
@@ -503,7 +499,7 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
       const token = useAuthStore.getState().token
       if (!token) {
         setLoading(false)
-        toast.error(tc('loginRequired'))
+        toast.error('请先登录')
         return
       }
       const provider = modelToProvider(name)
@@ -518,14 +514,14 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
         setAgentContentList((prev) => [
           ...prev,
           {
-            content: t('connectFailed'),
+            content: '连接失败,请重试',
             content1: '',
             imgUrlList: [],
             totalTokens: 0,
             isHaveSikao: false,
           },
         ])
-        toast.error(t('connectFailedShort'))
+        toast.error('连接失败')
         return
       }
       // 2026-08-02 修复 P1 内存泄露:覆盖旧引用前先关闭旧 WebSocket,
@@ -553,7 +549,7 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
         setAgentContentList((prev) => [
           ...prev,
           {
-            content: t('connectError'),
+            content: '连接错误,请重试',
             content1: '',
             imgUrlList: [],
             totalTokens: 0,
@@ -573,7 +569,7 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
         setLoading(false)
       }
     },
-    [wsPath, sendTask, handleWebSocketMessage, onClearThinkingProcessLogic, t, tc],
+    [wsPath, sendTask, handleWebSocketMessage, onClearThinkingProcessLogic],
   )
 
   /** 方法 1:WebSocket 入口 — 构建 param + sendTask/connectWebSocket */
@@ -583,7 +579,7 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
       const imageUrl = imgsList.length > 0 ? imgsList[0]?.imgUrl : undefined
 
       if (name === 'wan2.5-i2v-previe' && imgsList.length > 1) {
-        toast.error(t('videoOneImageOnly'))
+        toast.error('视频生成只支持上传一张图片')
       }
 
       const param = buildWebSocketParams(name, idstring, zidingyican ?? null, imageUrl)
@@ -604,7 +600,6 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
       buildWebSocketParams,
       sendTask,
       connectWebSocket,
-      t,
     ],
   )
 

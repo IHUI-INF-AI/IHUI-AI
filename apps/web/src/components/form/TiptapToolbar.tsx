@@ -59,7 +59,6 @@ function ToolbarBtn({
         type="button"
         onClick={onClick}
         disabled={disabled}
-        aria-label={title}
         className={cn(TOOL_BTN, active && 'bg-primary/10 text-primary')}
       >
         <Icon className="h-4 w-4" />
