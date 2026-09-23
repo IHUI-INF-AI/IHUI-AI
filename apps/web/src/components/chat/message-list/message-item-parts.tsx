@@ -2,38 +2,13 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useEffect, useRef } from 'react'
-
-import { useLocale, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 import { Tooltip } from '@/components/feedback'
 import type { ChatMessage } from '@/stores/chat'
 import { useChatStore } from '@/stores/chat'
 import { describeToolCall } from '@ihui/shared/chat'
-import {
-  resolveWaitingText,
-  type WaitingLocale,
-  type WaitingPhase,
-  type WaitingQuadrant,
-} from '@ihui/shared/chat'
 import { StreamRow, useLiveElapsed } from '@/components/chat/stream/stream-ui'
 import { computeMessageCostCny, formatCompactTokens, useModelPriceCny } from './use-model-price'
-
-/**
- * next-intl locale → 等待池 locale;未知回退 zh-CN(不抛错)。
- * D79 返工:文案走 shared 词表 waiting 命名空间,此处仅作回退口径。
- */
-function toWaitingLocale(locale: string): WaitingLocale {
-  if (
-    locale === 'zh-CN' ||
-    locale === 'zh-TW' ||
-    locale === 'en' ||
-    locale === 'ja' ||
-    locale === 'ko'
-  ) {
-    return locale
-  }
-  return 'zh-CN'
-}
 
 /**
  * 2026-09-01 立,工具调用过程流式可视化:i18n 化等待态文案。
@@ -45,52 +20,14 @@ function toWaitingLocale(locale: string): WaitingLocale {
 export function TypingIndicator({
   reasoning,
   toolCalls,
-  waitSeed,
-  waitQuadrant,
-  waitPhase,
 }: {
   reasoning?: string
   toolCalls?: ChatMessage['toolCalls']
-  /**
-   * D79 等待池轮换键(缺省不传即沿用单一固定串,存量调用方零影响)。
-   * 传 quadrant + phase 即按 seed 取模轮换;seed 常取消息 turnId。
-   */
-  waitSeed?: number | string
-  waitQuadrant?: WaitingQuadrant
-  waitPhase?: WaitingPhase
 }) {
   const t = useTranslations('ai.toolCall')
   const tStream = useTranslations('taskStatus')
-  const tWaiting = useTranslations('waiting')
-  const locale = useLocale()
   const runningTool = toolCalls?.find((tc) => tc.status === 'running')
   const liveMs = useLiveElapsed(runningTool !== undefined, null)
-
-  // preview 必须在 hooks 之前算:hooks 不得落在 `if (runningTool) return` 之后(条件调用)。
-  const preview =
-    reasoning && reasoning.length > 0
-      ? reasoning.length > 40
-        ? `${reasoning.slice(0, 40)}…`
-        : reasoning
-      : ''
-
-  // D79 avoidSeed 接线 —— 相邻两帧不撞同一条文案。
-  // 记账对象是"上一帧**实际渲染**的池 seed":runningTool 分支与 reasoning 预览都不渲染池文案,
-  // 那种帧不记账(否则会把没进过池的 seed 当 prev,造成无谓顺移)。
-  const poolSeed = waitSeed ?? 0
-  const poolRendered =
-    waitQuadrant !== undefined &&
-    waitPhase !== undefined &&
-    runningTool === undefined &&
-    preview === ''
-  // render 期只读 ref、写入一律在 effect(React 反模式:render 阶段不得写 ref)。
-  // 不新增 state ⇒ 不触发额外重渲染;也不用模块级变量(本池 5 端共用,模块态会跨实例串台)。
-  // SSR 首帧手里没有 prev ⇒ ref 为 null ⇒ 不传 avoidSeed,输出与接线前逐字节一致。
-  // 这是特性不是缺陷:服务端无从得知客户端上一帧,猜值只会制造水合不一致。
-  const prevPoolSeedRef = useRef<number | string | null>(null)
-  useEffect(() => {
-    if (poolRendered) prevPoolSeedRef.current = poolSeed
-  }, [poolRendered, poolSeed])
 
   if (runningTool) {
     const view = describeToolCall({
@@ -111,35 +48,18 @@ export function TypingIndicator({
     )
   }
 
-  // D79 返工:分象限轮换池走 shared 词表,t 注入进纯函数;缺键回退英文,永不回显 key。
-  // aria-hidden:轮换是纯视觉反馈,读屏唯一播报口是 sr-stream-announcer,此处隐藏防重复播报。
-  const waitingText =
-    waitQuadrant !== undefined && waitPhase !== undefined
-      ? resolveWaitingText({
-          quadrant: waitQuadrant,
-          phase: waitPhase,
-          locale: toWaitingLocale(locale),
-          seed: poolSeed,
-          t: (key: string) => {
-            const shortKey = key.startsWith('waiting.') ? key.slice('waiting.'.length) : key
-            try {
-              const value = tWaiting(shortKey)
-              return value === shortKey ? undefined : value
-            } catch {
-              return undefined
-            }
-          },
-          // null → undefined:未渲染过池文案的帧(含 SSR 首帧)不参与相邻去重,
-          // 共享池据此走"未传 avoidSeed"分支,与旧行为逐字节一致。
-          avoidSeed: prevPoolSeedRef.current ?? undefined,
-        })
-      : null
+  const preview =
+    reasoning && reasoning.length > 0
+      ? reasoning.length > 40
+        ? `${reasoning.slice(0, 40)}…`
+        : reasoning
+      : ''
 
   return (
-    <div className="flex items-center gap-2 py-1" data-testid="typing-indicator" aria-hidden="true">
+    <div className="flex items-center gap-2 py-1" data-testid="typing-indicator">
       {/* 2026-08-29:文字光线扫描动效(.text-shimmer),流式等待态视觉反馈 */}
       <span className="text-shimmer text-xs font-medium">
-        {preview ? t('thinking', { preview }) : (waitingText ?? t('waitingResponse'))}
+        {preview ? t('thinking', { preview }) : t('waitingResponse')}
       </span>
     </div>
   )

@@ -147,13 +147,13 @@
 | 데이터 계층                                  |
 | - 매물 지식 그래프 + 단지 프로파일         |
 | - 고객 프로파일 + 계약 DB                    |
-| - PostgreSQL 18 + 벡터 DB                   |
+| - PostgreSQL 16 + 벡터 DB                   |
 +-----------------------------------------+
 ```
 
 ### IHUI AI 엔드 투 엔드 능력 (8 엔드 커버)
 - **Web** (Next.js 16 + React 19): 판매 관리 / 중개인 워크스페이스
-- **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 18): 매물/계약 API
+- **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 16): 매물/계약 API
 - **AI Service** (FastAPI + LangGraph + LiteLLM + MCP): 다중 Agent 협조
 - **데스크톱** (Tauri 2): VR 답사 워크스테이션 / 디지털 휴먼 라이브
 - **확장** (WXT): 브라우저 측 매물 데이터 수집
@@ -163,7 +163,7 @@
 
 ### 기술 스택
 - 프론트엔드: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
-- 백엔드: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18
+- 백엔드: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
 - AI Service: FastAPI + LangGraph + LiteLLM + MCP
 - 멀티엔드: Tauri 2 (데스크톱) / WXT (확장) / React Native (모바일) / Taro 4 (미니프로그램) / Node.js CLI
 - VR/3D: Three.js / WebGL / 디지털 휴먼
@@ -188,7 +188,7 @@
 | 평균 투자회수 주기 | 4개월 |
 | 12개월 ROI | 280% |
 
-(테스트 환경: 엔터프라이즈판 중형 배포, 3노드, PostgreSQL 18, Redis 7)
+(테스트 환경: 엔터프라이즈판 중형 배포, 3노드, PostgreSQL 16, Redis 7)
 
 ### 자주 묻는 질문 FAQ
 - Q: VR 해설 디지털 휴먼 형상을 맞춤화할 수 있나요?
