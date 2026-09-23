@@ -137,7 +137,7 @@ export default function ApiSettings() {
   return (
     <ThemeRoot>
       <View className="min-h-screen bg-background px-[28rpx] pt-[28rpx] pb-[64rpx]">
-        <View className="bg-card rounded-[24rpx] border border-border p-[28rpx] mb-[24rpx] overflow-hidden">
+        <View className="bg-card rounded-xl border border-border p-[28rpx] mb-[24rpx] overflow-hidden">
           <View
             className="flex justify-between items-center py-[16rpx]"
             onClick={() => copy(BASE_URL)}
@@ -176,7 +176,7 @@ export default function ApiSettings() {
           </View>
         </View>
 
-        <View className="bg-card rounded-[24rpx] border border-border p-[28rpx] mb-[24rpx] overflow-hidden">
+        <View className="bg-card rounded-xl border border-border p-[28rpx] mb-[24rpx] overflow-hidden">
           <Text className="block text-[32rpx] font-semibold text-foreground mb-[24rpx]">
             {tt('about.apiSettings.cozeTitle', 'Coze API 配置')}
           </Text>
@@ -185,7 +185,7 @@ export default function ApiSettings() {
           </Text>
           <View className="flex items-center gap-[16rpx]">
             <Input
-              className="flex-1 h-[100rpx] px-[24rpx] box-border bg-muted border-[2rpx] border-border rounded-[24rpx] text-[28rpx] text-foreground"
+              className="flex-1 h-[100rpx] px-[24rpx] box-border bg-muted border-[2rpx] border-border rounded-xl text-[28rpx] text-foreground"
               type="text"
               password={!showToken}
               value={apiToken}
@@ -193,7 +193,7 @@ export default function ApiSettings() {
               onInput={(e) => setApiToken(e.detail.value)}
             />
             <View
-              className="h-[100rpx] px-[24rpx] box-border bg-muted border-[2rpx] border-border rounded-[24rpx] flex items-center justify-center"
+              className="h-[100rpx] px-[24rpx] box-border bg-muted border-[2rpx] border-border rounded-xl flex items-center justify-center"
               onClick={toggleToken}
               hoverClass="opacity-60"
             >
@@ -208,7 +208,7 @@ export default function ApiSettings() {
             {tt('about.apiSettings.workflowId', '工作流 ID(Workflow ID)')}
           </Text>
           <Input
-            className="w-full h-[100rpx] px-[24rpx] box-border bg-muted border-[2rpx] border-border rounded-[24rpx] text-[28rpx] text-foreground"
+            className="w-full h-[100rpx] px-[24rpx] box-border bg-muted border-[2rpx] border-border rounded-xl text-[28rpx] text-foreground"
             type="text"
             value={workflowId}
             placeholder={tt('about.apiSettings.workflowPlaceholder', '请输入工作流 ID')}
@@ -221,20 +221,20 @@ export default function ApiSettings() {
 
         <View className="flex gap-[24rpx] mb-[24rpx]">
           <Button
-            className="flex-1 text-[32rpx] font-semibold h-[100rpx] leading-[100rpx] rounded-[24rpx] m-0 p-0 after:border-0 bg-primary text-[var(--color-primary-foreground)]"
+            className="flex-1 text-[32rpx] font-semibold h-[100rpx] leading-[100rpx] rounded-xl m-0 p-0 after:border-0 bg-primary text-[var(--color-primary-foreground)]"
             onClick={save}
           >
             {tt('about.apiSettings.saveBtn', '保存设置')}
           </Button>
           <Button
-            className="flex-1 text-[32rpx] font-semibold h-[100rpx] leading-[100rpx] rounded-[24rpx] m-0 p-0 after:border-0 bg-background border-[2rpx] border-border text-[var(--color-text-medium)]"
+            className="flex-1 text-[32rpx] font-semibold h-[100rpx] leading-[100rpx] rounded-xl m-0 p-0 after:border-0 bg-background border-[2rpx] border-border text-[var(--color-text-medium)]"
             onClick={reset}
           >
             {tt('about.apiSettings.resetBtn', '重置默认')}
           </Button>
         </View>
 
-        <View className="bg-card rounded-[24rpx] border border-border p-[28rpx] overflow-hidden">
+        <View className="bg-card rounded-xl border border-border p-[28rpx] overflow-hidden">
           <Text className="block text-[32rpx] font-semibold text-foreground mb-[24rpx]">
             {tt('about.apiSettings.diagnoseTitle', '网络诊断')}
           </Text>
@@ -243,7 +243,7 @@ export default function ApiSettings() {
               {tt('about.apiSettings.diagnose', 'API 连通性测试')}
             </Text>
             <Button
-              className="text-[28rpx] font-semibold h-[64rpx] leading-[64rpx] px-[20rpx] py-0 bg-foreground text-background rounded-[24rpx] m-0 after:border-0 disabled:opacity-60"
+              className="text-[28rpx] font-semibold h-[64rpx] leading-[64rpx] px-[20rpx] py-0 bg-foreground text-background rounded-xl m-0 after:border-0 disabled:opacity-60"
               disabled={testing === 'testing'}
               onClick={testConnection}
             >

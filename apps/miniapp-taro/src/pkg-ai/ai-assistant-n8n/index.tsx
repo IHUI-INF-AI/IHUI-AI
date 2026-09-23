@@ -98,7 +98,7 @@ export default function AiAssistantN8n() {
             </Text>
           </View>
         ) : error ? (
-          <View className="mt-[16rpx] px-[24rpx] py-[16rpx] rounded-[24rpx] bg-[var(--color-danger-light)]">
+          <View className="mt-[16rpx] px-[24rpx] py-[16rpx] rounded-xl bg-[var(--color-danger-light)]">
             {/* 对齐 RN errorBar:px12 py8 dp / 12dp=24rpx 圆角 / danger.light 底 / 14dp=28rpx destructive 文字 + brand 重试 */}
             <View className="flex flex-row items-center justify-between">
               <Text className="flex-1 text-[28rpx] text-destructive">
@@ -122,14 +122,14 @@ export default function AiAssistantN8n() {
               return (
                 <ThemeRoot
                   key={id}
-                  className="p-[24rpx] rounded-[24rpx] border border-[var(--color-border)] bg-background"
+                  className="p-[24rpx] rounded-xl border border-[var(--color-border)] bg-background"
                 >
                   <View key={id} onClick={() => onItemClick(item)} hoverClass="opacity-60">
                     {/* 对齐 RN cardHead/cardTitleRow:dot 8dp=16rpx 圆点 + 名称 16dp=32rpx w600 */}
                     <View className="flex flex-row items-center justify-between">
                       <View className="flex flex-row items-center flex-1 min-w-0">
                         <View
-                          className={`w-[16rpx] h-[16rpx] rounded-[8rpx] mr-[16rpx] flex-shrink-0 ${statusInfo.dot}`}
+                          className={`w-[16rpx] h-[16rpx] rounded-sm mr-[16rpx] flex-shrink-0 ${statusInfo.dot}`}
                         />
                         <Text className="text-[32rpx] font-semibold text-foreground flex-1 min-w-0 truncate">
                           {name}
@@ -137,7 +137,7 @@ export default function AiAssistantN8n() {
                       </View>
                       {/* 对齐 RN badge:11dp=22rpx w600 / px 8dp=16rpx py 3dp=6rpx / 12dp=24rpx 圆角 */}
                       <Text
-                        className={`py-[6rpx] px-[16rpx] rounded-[24rpx] text-[22rpx] font-semibold flex-shrink-0 ml-[16rpx] ${statusInfo.cls}`}
+                        className={`py-[6rpx] px-[16rpx] rounded-xl text-[22rpx] font-semibold flex-shrink-0 ml-[16rpx] ${statusInfo.cls}`}
                       >
                         {statusInfo.label}
                       </Text>

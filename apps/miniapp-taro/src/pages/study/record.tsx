@@ -23,9 +23,9 @@ interface StudyInfo {
 
 const PAGE_SIZE = 20
 
-const STATUS_BASE = 'text-[20rpx] font-semibold py-[8rpx] px-[16rpx] rounded-[8rpx]'
+const STATUS_BASE = 'text-[20rpx] font-semibold py-[8rpx] px-[16rpx] rounded-sm'
 const TAB_BASE =
-  'flex-1 flex items-center justify-center h-[96rpx] text-[28rpx] rounded-[24rpx] text-muted-foreground'
+  'flex-1 flex items-center justify-center h-[96rpx] text-[28rpx] rounded-xl text-muted-foreground'
 const TAB_ACTIVE = 'bg-primary text-primary-foreground font-semibold'
 const STATE_TEXT = 'block text-center text-[28rpx] text-muted-foreground py-[96rpx]'
 
@@ -175,7 +175,7 @@ export default function StudyRecord() {
     // 对齐 RN StudyRecordScreen(共享屏):容器 bg surface.bg,listBody p14dp→28rpx/pb32dp→64rpx
     <View className="min-h-screen bg-background px-[28rpx] pt-[28rpx] pb-[64rpx] box-border">
       {/* 学习统计卡对齐 RN statsCard:p14dp→28rpx / radius 12dp→24rpx / border light / bg card;数值 20dp→40rpx/700 text.primary,标签 11dp→22rpx secondary */}
-      <View className="flex bg-card border border-border rounded-[24rpx] p-[28rpx] gap-[12rpx] mb-[24rpx]">
+      <View className="flex bg-card border border-border rounded-xl p-[28rpx] gap-[12rpx] mb-[24rpx]">
         {stats.map((s) => (
           <View key={s.key} className="flex-1 flex flex-col items-center">
             <View className="flex items-baseline justify-center">
@@ -215,18 +215,18 @@ export default function StudyRecord() {
             return (
               <ThemeRoot key={r.id}>
                 <View
-                  className="flex bg-card border border-border rounded-[24rpx] p-[28rpx]"
+                  className="flex bg-card border border-border rounded-xl p-[28rpx]"
                   hoverClass="opacity-60"
                   onClick={() => goCourse(r.courseId)}
                 >
                   {r.coverUrl ? (
                     <Image
-                      className="w-[160rpx] h-[120rpx] rounded-[16rpx] bg-muted flex-shrink-0"
+                      className="w-[160rpx] h-[120rpx] rounded-lg bg-muted flex-shrink-0"
                       src={r.coverUrl}
                       mode="aspectFill"
                     />
                   ) : (
-                    <View className="w-[160rpx] h-[120rpx] rounded-[16rpx] bg-muted flex-shrink-0 flex items-center justify-center text-[22rpx] text-muted-foreground">
+                    <View className="w-[160rpx] h-[120rpx] rounded-lg bg-muted flex-shrink-0 flex items-center justify-center text-[22rpx] text-muted-foreground">
                       <Text>{tt('study.recordPage.coverFallback', '课程')}</Text>
                     </View>
                   )}
@@ -235,9 +235,9 @@ export default function StudyRecord() {
                       {r.courseTitle}
                     </Text>
                     <View className="mt-[12rpx]">
-                      <View className="h-[8rpx] bg-muted rounded-[4rpx] overflow-hidden">
+                      <View className="h-[8rpx] bg-muted rounded-xs overflow-hidden">
                         <View
-                          className="h-full bg-success rounded-[4rpx]"
+                          className="h-full bg-success rounded-xs"
                           style={{ width: `${Math.min(100, Math.max(0, r.progress))}%` }}
                         />
                       </View>
@@ -248,7 +248,7 @@ export default function StudyRecord() {
                       </Text>
                       <Text className={statusClass(st)}>{statusLabel(st)}</Text>
                     </View>
-                    <View className="mt-[12rpx] self-end py-[16rpx] px-[32rpx] bg-primary rounded-[24rpx]">
+                    <View className="mt-[12rpx] self-end py-[16rpx] px-[32rpx] bg-primary rounded-xl">
                       <Text className="text-[28rpx] font-semibold text-primary-foreground leading-[1.4]">
                         {tt('study.recordPage.continue', '继续学习')}
                       </Text>

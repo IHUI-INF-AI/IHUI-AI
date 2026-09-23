@@ -115,7 +115,7 @@ export default function Orders() {
           {tabs.map((tab) => (
             <View
               key={tab.key}
-              className={`px-[28rpx] py-[12rpx] rounded-[24rpx] text-[28rpx] ${
+              className={`px-[28rpx] py-[12rpx] rounded-xl text-[28rpx] ${
                 status === tab.key
                   ? 'bg-primary font-semibold text-[var(--color-surface-light)]'
                   : 'bg-card text-muted-foreground'
@@ -134,7 +134,7 @@ export default function Orders() {
             {list.map((item) => (
               <View
                 key={item.id}
-                className="mb-[24rpx] rounded-[24rpx] border border-[var(--color-border)] bg-card p-[24rpx]"
+                className="mb-[24rpx] rounded-xl border border-[var(--color-border)] bg-card p-[24rpx]"
                 hoverClass="opacity-60"
                 onClick={() => goDetail(item)}
               >
@@ -143,7 +143,7 @@ export default function Orders() {
                     {item.title}
                   </Text>
                   <View
-                    className={`shrink-0 rounded-[8rpx] px-[12rpx] py-[4rpx] ${
+                    className={`shrink-0 rounded-sm px-[12rpx] py-[4rpx] ${
                       STATUS_COLOR[item.status] ||
                       'bg-[var(--color-muted)] text-[var(--color-text-tertiary)]'
                     }`}
@@ -168,7 +168,7 @@ export default function Orders() {
                     <Text className="text-[36rpx] font-bold text-foreground">¥{item.amount}</Text>
                     {item.status === 'pending' ? (
                       <View
-                        className="rounded-[24rpx] bg-primary px-[24rpx] py-[12rpx] text-[28rpx] text-[var(--color-surface-light)]"
+                        className="rounded-xl bg-primary px-[24rpx] py-[12rpx] text-[28rpx] text-[var(--color-surface-light)]"
                         hoverClass="opacity-60"
                         onClick={(e) => {
                           e.stopPropagation()

@@ -155,7 +155,7 @@ export default function VideoDetailPage() {
           />
 
           {/* tab 区卡片对齐 RN card 语言:radius 12dp→24rpx + border light(共享组件 VideoTabs/Catalog/Introduction/Comment 调用保持不变) */}
-          <View className="mx-[24rpx] mt-[24rpx] bg-card border border-border rounded-[24rpx] overflow-hidden">
+          <View className="mx-[24rpx] mt-[24rpx] bg-card border border-border rounded-xl overflow-hidden">
             <VideoTabs
               tabs={[
                 {
