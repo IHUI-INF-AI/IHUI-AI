@@ -4,7 +4,7 @@
 
 // 一次性生成脚本:把 static/images/icons/*.svg 提取为 LineIcon 注册表 icons.ts
 // 说明:输出 svg 全片段(raw),由 LineIcon 运行期 URL-encode 后用 CSS mask 渲染。
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { join, basename, extname } from 'node:path'
 
 const ICONS_DIR = 'src/static/images/icons'
@@ -45,9 +45,28 @@ for (const file of svgs.sort()) {
   entries.push([iconName(file), normalizeSvgColor(svg)])
 }
 
-const lines = entries.map(
-  ([k, v]) => `  ${JSON.stringify(k)}: ${JSON.stringify(v)},`,
-)
+// lucide 字形里的 rx/ry 是 24 格 viewBox 的**几何单位**,不是 UI 圆角档位(吸附会把图标扭歪)。
+// 守门 77 的 B5 看不到这层语义,故由生成器自己吐豁免行 —— 手写 marker 会在下次生成时被抹掉,
+// 生成器内置才闭环(2026-09-23 圆角同源收口时实测到该缺口)。
+const EXEMPT = '  // radius-exempt: lucide 字形几何,rx/ry 为 24 格 viewBox 单位而非 UI 圆角档位'
+const lines = entries.flatMap(([k, v]) => {
+  const row = `  ${JSON.stringify(k)}: ${JSON.stringify(v)},`
+  return /\br[xy]\s*=/.test(v) ? [EXEMPT, row] : [row]
+})
+
+// 质量闸:源 svg 目录早在「图片全量外置 CDN」那轮就被清空(实测 HEAD~400 起就只剩 1 个),
+// 而 icons.ts 才是 LineIcon 真正消费的资产(141 条)。不加这道闸,任何人跑一次本生成器
+// 就会静默删掉 140 个运行时图标 —— 这正是本仓守门 65 拦的那一类整树删除。
+if (existsSync(OUT)) {
+  const prevCount = (readFileSync(OUT, 'utf8').match(/^\s{2}(?:"[^"]+"|'[^']+'|[a-z0-9-]+):/gm) || []).length
+  if (entries.length < prevCount * 0.5) {
+    console.error(
+      `❌ 拒绝写入:源目录 ${ICONS_DIR} 只解析到 ${entries.length} 个图标,而已生成的 ${OUT} 有 ${prevCount} 个。\n` +
+        `   生成器已与实际资产脱节(图标源已外置 CDN)。要重建请先取回 svg;要微调请改 ${OUT} 本身。`,
+    )
+    process.exit(1)
+  }
+}
 
 const header =
 `/* eslint-disable */

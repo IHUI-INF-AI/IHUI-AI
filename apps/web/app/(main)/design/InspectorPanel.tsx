@@ -76,7 +76,10 @@ export function InspectorPanel({
             fontWeight: rightTab === 'css' ? 600 : 400,
             border: '1px solid var(--border)',
             borderBottom: rightTab === 'css' ? 'none' : '1px solid var(--border)',
-            borderRadius: '6px 6px 0 0',
+            borderTopLeftRadius: rnRadius.md,
+            borderTopRightRadius: rnRadius.md,
+            borderBottomRightRadius: 0,
+            borderBottomLeftRadius: 0,
             background: rightTab === 'css' ? 'var(--card)' : 'transparent',
             cursor: 'pointer',
           }}
@@ -93,7 +96,10 @@ export function InspectorPanel({
             fontWeight: rightTab === 'comments' ? 600 : 400,
             border: '1px solid var(--border)',
             borderBottom: rightTab === 'comments' ? 'none' : '1px solid var(--border)',
-            borderRadius: '6px 6px 0 0',
+            borderTopLeftRadius: rnRadius.md,
+            borderTopRightRadius: rnRadius.md,
+            borderBottomRightRadius: 0,
+            borderBottomLeftRadius: 0,
             background: rightTab === 'comments' ? 'var(--card)' : 'transparent',
             cursor: 'pointer',
           }}
@@ -113,7 +119,10 @@ export function InspectorPanel({
             padding: 8,
             border: '1px solid var(--border)',
             borderTop: 'none',
-            borderRadius: '0 0 6px 6px',
+            borderTopLeftRadius: 0,
+            borderTopRightRadius: 0,
+            borderBottomRightRadius: rnRadius.md,
+            borderBottomLeftRadius: rnRadius.md,
           }}
         >
           {selected ? (
@@ -201,7 +210,10 @@ export function InspectorPanel({
             padding: 8,
             border: '1px solid var(--border)',
             borderTop: 'none',
-            borderRadius: '0 0 6px 6px',
+            borderTopLeftRadius: 0,
+            borderTopRightRadius: 0,
+            borderBottomRightRadius: rnRadius.md,
+            borderBottomLeftRadius: rnRadius.md,
           }}
         >
           {!currentPreviewId && (

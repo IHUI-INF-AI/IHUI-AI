@@ -65,7 +65,7 @@ export default function NewTitle({ items, onItemClick }: NewTitleProps) {
             style={{
               width: rpx(20),
               height: rpx(20),
-              borderRadius: '50%',
+              borderRadius: '50%', // radius-exempt: 20rpx 见方装饰圆点,真圆(直径=边长),方档会破坏圆形
               background: 'var(--color-muted)',
               marginRight: rpx(16),
               flexShrink: 0,

@@ -26,6 +26,7 @@ import {
   type ThirdPartyPlatform,
   type ThirdPartyProvider,
 } from '@ihui/ui-react'
+import { rnRadius } from '@ihui/design-tokens'
 
 import { useI18n } from '../i18n'
 
@@ -107,14 +108,14 @@ function PlatformIcon({ platform }: { platform: ThirdPartyPlatform }): React.Rea
     case 'dingtalk':
       return (
         <svg {...common}>
-          <rect x="2" y="6" width="20" height="14" rx="2" />
+          <rect x="2" y="6" width="20" height="14" rx={rnRadius.xs} />
           <path d="M2 10h20M6 6V3h12v3M12 14v3" />
         </svg>
       )
     case 'enterpriseWechat':
       return (
         <svg {...common}>
-          <rect x="5" y="2" width="14" height="20" rx="2" />
+          <rect x="5" y="2" width="14" height="20" rx={rnRadius.xs} />
           <path d="M9 5h6M9 18h6M12 18v2" />
         </svg>
       )

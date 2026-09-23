@@ -7,6 +7,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { rnRadius } from '@ihui/design-tokens'
 
 interface BarChartProps {
   data: number[]
@@ -90,7 +91,7 @@ export const BarChart = React.memo(function BarChart({
                 width={barW}
                 height={h}
                 fill={color}
-                rx={2}
+                rx={rnRadius.xs}
                 className="transition-all hover:opacity-80"
               />
               {xAxis && (
