@@ -7074,6 +7074,46 @@
       "rollbackConfirmConfirm": "确认恢复"
     },
     "pane": {
+      "moveToWorktree": {
+        "title": "将对话移交至工作树",
+        "subtitle": "在新工作树中检出分支 <branch>{branchName}</branch>，以继续并行工作。",
+        "continue": "移交",
+        "cancel": "取消",
+        "loading": "正在检查能否移交…",
+        "existingWorktreeRunning": "请等待当前回复完成后再移动此聊天",
+        "existingWorktreeLabel": "已有工作树",
+        "createNewLabel": "创建新工作树",
+        "targetLabel": "移交目标",
+        "localCheckoutLabel": "本地工作空间将切换至",
+        "localBranchPlaceholder": "选择本地检出分支",
+        "noTargetBranch": "没有其他本地分支可用",
+        "branchesLoading": "正在加载分支…",
+        "branchesError": "分支加载失败",
+        "branchesRetry": "重试",
+        "branchAlreadyExists": "该分支已有工作树。",
+        "defaultBranchError": "工作树分支必须不同于默认分支。",
+        "trailingSlashError": "分支名不能以\"/\"结尾。",
+        "worktreeBranchRequired": "请输入工作树分支名。",
+        "worktreeBranchAriaLabel": "工作树分支名",
+        "worktreeBranchLabel": "工作树分支名"
+      },
+      "editResend": {
+        "title": "回退文件修改并重新发送？",
+        "ariaLabel": "回退文件修改并重新发送",
+        "desc": "将回退本轮文件改动，并用编辑后的内容重新发送消息。",
+        "confirm": "回退并重新发送",
+        "cancel": "取消",
+        "previewFilesTitle": "将回退的文件",
+        "previewEditTitle": "将重新发送的内容",
+        "fileRecorded": "检查点已记录",
+        "fileUnrecorded": "检查点未记录",
+        "previewFilesMore": "等 {count} 个文件",
+        "detailAction": "查看逐文件改动",
+        "detailLabel": "编辑重发 · 文件回退影响预览",
+        "warning": { "partialRollback": "部分修改未被检查点完整记录，回退结果可能不完整" },
+        "phase": { "idle": "待发起", "previewing": "预览中", "confirmed": "已确认", "executing": "正在回退文件并重新发送…", "completed": "已回退并重新发送", "editFailed": "编辑失败", "rollbackFailed": "回退失败", "rollbackPartial": "部分回退", "syncFailed": "本地同步失败", "replaceFailed": "替换失败" },
+        "failure": { "editFailed": "编辑内容未能应用，已停止执行。", "rollbackFailed": "文件回退失败，已停止执行。", "rollbackPartial": "仅部分文件回退成功，已停止执行。", "syncFailed": "本地状态同步失败，已停止执行。", "replaceFailed": "消息替换失败，已停止执行。" }
+      },
       "agentActions": {
         "title": "多智能体操作",
         "header": { "count": "{count, plural, one {1 个智能体} other {# 个智能体}}" },
@@ -21718,6 +21758,63 @@
     "purchase": "购买会员"
   },
   "wallet": {
+    "autoTopUp": {
+      "title": "自动充值",
+      "description": "余额低于阈值时自动充值到目标余额。",
+      "enabled": "开启自动充值",
+      "enable": {
+        "success": "已开启自动充值",
+        "error": "开启自动充值失败,请稍后重试"
+      },
+      "disable": {
+        "success": "已关闭自动充值",
+        "error": "关闭自动充值失败,请稍后重试"
+      },
+      "save": {
+        "success": "已保存自动充值设置",
+        "error": "保存自动充值设置失败,请稍后重试",
+        "action": "保存自动充值设置"
+      },
+      "dialog": {
+        "title": "确认开启自动充值",
+        "description": "开启后,当余额低于充值阈值时,将自动扣款充值到目标余额。请确认这是你想要的操作。",
+        "confirm": "确认开启",
+        "cancel": "取消"
+      },
+      "target": {
+        "label": "目标余额",
+        "helper": "余额低于阈值时,自动充值到此额度数。",
+        "ariaLabel": "目标余额(额度数)",
+        "error": {
+          "missing": "请输入目标余额",
+          "wholeNumber": "目标余额必须是整数",
+          "maximum": "目标余额不得超过 {maximumCredits} 额度",
+          "minimumDifference": "目标余额必须高于充值阈值"
+        },
+        "equivalent": {
+          "loading": "正在获取价格…",
+          "text": "自动充值 {creditCount} 额度,预计 <strong>{amount}</strong>",
+          "error": "获取价格失败,请稍后重试"
+        }
+      },
+      "threshold": {
+        "label": "充值阈值",
+        "helper": "余额低于该额度数时触发自动充值。",
+        "ariaLabel": "充值阈值(额度数)",
+        "error": {
+          "missing": "请输入充值阈值",
+          "wholeNumber": "充值阈值必须是整数",
+          "minimum": "充值阈值至少为 1"
+        }
+      },
+      "immediateTopUpFailure": {
+        "title": "首次自动充值失败",
+        "amount": "首次自动充值预计 {amount},但支付未成功。",
+        "generic": "首次自动充值未能完成。",
+        "updatePaymentMethod": "更新付款方式",
+        "buyCredits": "直接购买额度"
+      }
+    },
     "availableAmount": "可提现金额",
     "backToWallet": "返回钱包",
     "balance": "Token 余额",

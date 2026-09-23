@@ -7074,6 +7074,46 @@
       "rollbackConfirmConfirm": "복원"
     },
     "pane": {
+      "moveToWorktree": {
+        "title": "대화를 작업 트리로 이관",
+        "subtitle": "새 작업 트리에서 브랜치 <branch>{branchName}</branch>를 체크아웃하여 병렬 작업을 계속하세요.",
+        "continue": "이관",
+        "cancel": "취소",
+        "loading": "이관 가능 여부를 확인하는 중…",
+        "existingWorktreeRunning": "현재 응답이 완료된 후에 이 채팅을 이동해 주세요",
+        "existingWorktreeLabel": "기존 작업 트리",
+        "createNewLabel": "새 작업 트리 만들기",
+        "targetLabel": "이관 대상",
+        "localCheckoutLabel": "로컬 작업 공간이 다음으로 전환됩니다",
+        "localBranchPlaceholder": "로컬 체크아웃 브랜치 선택",
+        "noTargetBranch": "사용 가능한 다른 로컬 브랜치가 없습니다",
+        "branchesLoading": "브랜치를 불러오는 중…",
+        "branchesError": "브랜치를 불러오지 못했습니다",
+        "branchesRetry": "재시도",
+        "branchAlreadyExists": "이 브랜치에는 이미 작업 트리가 있습니다.",
+        "defaultBranchError": "작업 트리 브랜치는 기본 브랜치와 달라야 합니다.",
+        "trailingSlashError": "브랜치 이름은 \"/\"로 끝날 수 없습니다.",
+        "worktreeBranchRequired": "작업 트리 브랜치 이름을 입력해 주세요.",
+        "worktreeBranchAriaLabel": "작업 트리 브랜치 이름",
+        "worktreeBranchLabel": "작업 트리 브랜치 이름"
+      },
+      "editResend": {
+        "title": "파일 변경을 롤백하고 다시 보내시겠습니까?",
+        "ariaLabel": "파일 변경 롤백 후 다시 보내기",
+        "desc": "이번 턴의 파일 변경을 롤백하고, 편집한 내용으로 메시지를 다시 보냅니다.",
+        "confirm": "롤백하고 다시 보내기",
+        "cancel": "취소",
+        "previewFilesTitle": "롤백할 파일",
+        "previewEditTitle": "다시 보낼 내용",
+        "fileRecorded": "체크포인트에 기록됨",
+        "fileUnrecorded": "체크포인트에 기록되지 않음",
+        "previewFilesMore": "외 {count}개 파일",
+        "detailAction": "파일별 변경 보기",
+        "detailLabel": "편집 후 다시 보내기 · 파일 롤백 영향 미리보기",
+        "warning": { "partialRollback": "일부 변경이 체크포인트에 완전히 기록되지 않아 롤백 결과가 불완전할 수 있습니다" },
+        "phase": { "idle": "대기 중", "previewing": "미리보기 중", "confirmed": "확인됨", "executing": "파일을 롤백하고 다시 보내는 중…", "completed": "롤백 후 다시 보냈습니다", "editFailed": "편집 실패", "rollbackFailed": "롤백 실패", "rollbackPartial": "부분 롤백", "syncFailed": "로컬 동기화 실패", "replaceFailed": "교체 실패" },
+        "failure": { "editFailed": "편집 내용을 적용하지 못해 실행을 중지했습니다.", "rollbackFailed": "파일 롤백에 실패해 실행을 중지했습니다.", "rollbackPartial": "일부 파일만 롤백되어 실행을 중지했습니다.", "syncFailed": "로컬 상태 동기화에 실패해 실행을 중지했습니다.", "replaceFailed": "메시지 교체에 실패해 실행을 중지했습니다." }
+      },
       "agentActions": {
         "title": "멀티 에이전트 작업",
         "header": {
@@ -21736,6 +21776,63 @@
     "purchase": "멤버십 구매"
   },
   "wallet": {
+    "autoTopUp": {
+      "title": "자동 충전",
+      "description": "잔액이 기준점 아래로 떨어지면 목표 잔액까지 자동으로 충전합니다.",
+      "enabled": "자동 충전 사용",
+      "enable": {
+        "success": "자동 충전이 사용 설정되었습니다",
+        "error": "자동 충전 사용 설정에 실패했습니다. 잠시 후 다시 시도해 주세요"
+      },
+      "disable": {
+        "success": "자동 충전이 해제되었습니다",
+        "error": "자동 충전 해제에 실패했습니다. 잠시 후 다시 시도해 주세요"
+      },
+      "save": {
+        "success": "자동 충전 설정이 저장되었습니다",
+        "error": "자동 충전 설정 저장에 실패했습니다. 잠시 후 다시 시도해 주세요",
+        "action": "자동 충전 설정 저장"
+      },
+      "dialog": {
+        "title": "자동 충전 사용 확인",
+        "description": "사용 설정하면 잔액이 충전 기준점 아래로 떨어질 때 목표 잔액까지 자동으로 결제됩니다. 의도한 작업인지 확인해 주세요.",
+        "confirm": "사용 설정",
+        "cancel": "취소"
+      },
+      "target": {
+        "label": "목표 잔액",
+        "helper": "잔액이 기준점 아래로 떨어지면 이 크레딧 수까지 자동 충전됩니다.",
+        "ariaLabel": "목표 잔액(크레딧 수)",
+        "error": {
+          "missing": "목표 잔액을 입력해 주세요",
+          "wholeNumber": "목표 잔액은 정수여야 합니다",
+          "maximum": "목표 잔액은 {maximumCredits} 크레딧을 초과할 수 없습니다",
+          "minimumDifference": "목표 잔액은 충전 기준점보다 높아야 합니다"
+        },
+        "equivalent": {
+          "loading": "가격을 가져오는 중…",
+          "text": "크레딧 {creditCount}개 충전, 예상 금액 <strong>{amount}</strong>",
+          "error": "가격을 가져오지 못했습니다. 잠시 후 다시 시도해 주세요"
+        }
+      },
+      "threshold": {
+        "label": "충전 기준점",
+        "helper": "잔액이 이 크레딧 수 아래로 떨어지면 자동 충전이 실행됩니다.",
+        "ariaLabel": "충전 기준점(크레딧 수)",
+        "error": {
+          "missing": "충전 기준점을 입력해 주세요",
+          "wholeNumber": "충전 기준점은 정수여야 합니다",
+          "minimum": "충전 기준점은 1 이상이어야 합니다"
+        }
+      },
+      "immediateTopUpFailure": {
+        "title": "첫 충전 실패",
+        "amount": "예상 금액 {amount}의 첫 충전이 완료되지 않았습니다.",
+        "generic": "첫 자동 충전이 완료되지 않았습니다.",
+        "updatePaymentMethod": "결제 수단 업데이트",
+        "buyCredits": "크레딧 직접 구매"
+      }
+    },
     "availableAmount": "사용 가능",
     "backToWallet": "지갑으로 돌아가기",
     "balance": "TokenBalance",
