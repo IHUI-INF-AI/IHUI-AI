@@ -71,17 +71,16 @@ export async function api<T>(url: string, options?: RequestInit): Promise<T> {
 
 /* ─── Constants ─── */
 
-/** 取词键表:只存 eduStudyPlan 命名空间下的键名,渲染处 t(KEYS[x]) 取词 */
-export const PLAN_TYPE_KEYS: Record<PlanType, string> = {
-  monthly: 'planTypeMonthly',
-  weekly: 'planTypeWeekly',
+export const PLAN_TYPE_LABELS: Record<PlanType, string> = {
+  monthly: '月计划',
+  weekly: '周计划',
 }
 
-export const PLAN_STATUS_KEYS: Record<PlanStatus, string> = {
-  draft: 'statusDraft',
-  active: 'statusActive',
-  completed: 'statusCompleted',
-  archived: 'statusArchived',
+export const PLAN_STATUS_LABELS: Record<PlanStatus, string> = {
+  draft: '草稿',
+  active: '进行中',
+  completed: '已完成',
+  archived: '已归档',
 }
 
 export const PLAN_STATUS_VARIANTS: Record<PlanStatus, string> = {

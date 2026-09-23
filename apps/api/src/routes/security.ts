@@ -15,10 +15,10 @@
  *   POST   /report                 用户主动上报可疑活动(无认证,带 rate limit)
  */
 
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import type { Redis } from 'ioredis'
 import { z } from 'zod'
-import { requireAdmin } from '../plugins/require-permission.js'
+import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { logger } from '../utils/logger.js'
 import {
@@ -68,8 +68,23 @@ const reportSchema = z.object({
 })
 
 /* -------------------------------------------------------------------------- */
-/* admin 守卫:O13b 试点批收敛 —— 直接复用集中封装(公开端点不受影响)            */
+/* admin 守卫                                                                   */
 /* -------------------------------------------------------------------------- */
+
+async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
+  try {
+    await authenticate(request)
+  } catch {
+    reply.status(401).send(error(401, '需要登录'))
+    return false
+  }
+  const roleId = request.jwtPayload?.roleId ?? 0
+  if (roleId < 1) {
+    reply.status(403).send(error(403, '需要管理员权限'))
+    return false
+  }
+  return true
+}
 
 /* -------------------------------------------------------------------------- */
 /* 路由                                                                        */
@@ -104,26 +119,20 @@ export const securityRoutes: FastifyPluginAsync = async (server) => {
 
   /* ---------------------- 2. 验证 CAPTCHA(无认证) ---------------------- */
   server.post('/verify-challenge', async (request, reply) => {
-    const ip = request.ip
     const parsed = verifySchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const result = await captcha.verifyChallenge(parsed.data.challengeId, parsed.data.answer, ip)
+    const result = await captcha.verifyChallenge(parsed.data.challengeId, parsed.data.answer)
     if (!result.valid) {
       return reply.status(400).send(error(400, result.reason ?? '验证失败'))
     }
-    // 人机验证通过即解除**自动**封禁 —— 这是 429 响应头承诺的自救闭环。
-    // 管理员手工封禁不在解除范围内(见 ip-reputation 的 AUTO_LIFTABLE_REASONS)。
-    const lifted = await ipRep.unblockIfAuto(ip)
-    if (lifted) logger.info('security: ip auto-block lifted by captcha', { ip })
-    return success({ token: result.token, valid: true, blockLifted: lifted })
+    return success({ token: result.token, valid: true })
   })
 
   /* ---------------------- 3. 查询 IP 信誉(仅 admin) ---------------------- */
   server.get<{ Params: { ip: string } }>('/ip-reputation/:ip', async (request, reply) => {
-    await requireAdmin(request, reply)
-    if (reply.sent) return
+    if (!(await requireAdmin(request, reply))) return
     const { ip } = request.params
     const rep = await ipRep.getIpReputation(ip)
     return success(rep)
@@ -131,15 +140,13 @@ export const securityRoutes: FastifyPluginAsync = async (server) => {
 
   /* ---------------------- 4. 封禁 IP(仅 admin) ---------------------- */
   server.post('/block-ip', async (request, reply) => {
-    await requireAdmin(request, reply)
-    if (reply.sent) return
+    if (!(await requireAdmin(request, reply))) return
     const parsed = blockIpSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { ip, duration, reason } = parsed.data
-    // reason 固定为 admin-block:管理员处置不得被 CAPTCHA 自助解除
-    await ipRep.blockIp(ip, duration, 'admin-block')
+    await ipRep.blockIp(ip, duration)
     if (reason) await ipRep.recordBadEvent(ip, `admin-block:${reason}`)
     logger.warn('security: admin blocked ip', { ip, duration, reason, by: request.userId })
     return success({ ip, duration, blocked: true })
@@ -147,8 +154,7 @@ export const securityRoutes: FastifyPluginAsync = async (server) => {
 
   /* ---------------------- 5. 解封 IP(仅 admin) ---------------------- */
   server.delete<{ Params: { ip: string } }>('/block-ip/:ip', async (request, reply) => {
-    await requireAdmin(request, reply)
-    if (reply.sent) return
+    if (!(await requireAdmin(request, reply))) return
     const { ip } = request.params
     await ipRep.unblockIp(ip)
     logger.info('security: admin unblocked ip', { ip, by: request.userId })
@@ -157,8 +163,7 @@ export const securityRoutes: FastifyPluginAsync = async (server) => {
 
   /* ---------------------- 6. 查询异常事件列表(仅 admin) ---------------------- */
   server.get('/anomalies', async (request, reply) => {
-    await requireAdmin(request, reply)
-    if (reply.sent) return
+    if (!(await requireAdmin(request, reply))) return
     const parsed = anomaliesQuerySchema.safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -210,8 +215,7 @@ export const securityRoutes: FastifyPluginAsync = async (server) => {
 
   /* ---------------------- 7. 威胁监控仪表盘(仅 admin) ---------------------- */
   server.get('/threat-dashboard', async (request, reply) => {
-    await requireAdmin(request, reply)
-    if (reply.sent) return
+    if (!(await requireAdmin(request, reply))) return
     const stats = request.server.threatDetector?.getStats()
     return success(
       stats ?? {
