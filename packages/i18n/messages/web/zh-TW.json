@@ -968,6 +968,25 @@
       "fieldTitle": "標題",
       "fieldType": "類型",
       "loading": "加載中...",
+      "maintenanceNotice": {
+        "action": "維護公告郵件",
+        "desc": "以「智匯通報」維護通知版式群發給狀態正常且有郵箱的用戶",
+        "downtimePlaceholder": "如 2 小時",
+        "dryRun": "試運行（只統計收件人，不實際發送）",
+        "fieldDowntime": "預計停機時長",
+        "fieldLimit": "首批發送上限",
+        "fieldScope": "影響範圍",
+        "fieldWindow": "維護時段",
+        "limitInvalid": "首批發送上限須為正整數",
+        "limitPlaceholder": "留空表示全量發送",
+        "required": "請填寫維護時段、影響範圍與預計停機時長",
+        "resultDryRun": "試運行完成：{total} 位收件人將收到「{subject}」",
+        "resultSent": "發送完成：成功 {sent} 封 / 失敗 {failed} 封 / 通道未配置 {stubbed} 封",
+        "scopePlaceholder": "如 API 與控制台",
+        "send": "發送",
+        "title": "發送維護公告郵件",
+        "windowPlaceholder": "如 2026-09-25 02:00–04:00"
+      },
       "no": "否",
       "noData": "暫無公告",
       "published": "已發布",
@@ -7057,9 +7076,15 @@
     "pane": {
       "agentActions": {
         "title": "多智能體操作",
-        "header": { "count": "{count, plural, one {1 個智能體} other {# 個智能體}}" },
-        "row": { "agent": "{action} {agent}{stateSuffix}" },
-        "meta": { "prompt": "輸入：{prompt}" },
+        "header": {
+          "count": "{count, plural, one {1 個智能體} other {# 個智能體}}"
+        },
+        "row": {
+          "agent": "{action} {agent}{stateSuffix}"
+        },
+        "meta": {
+          "prompt": "輸入：{prompt}"
+        },
         "action": {
           "spawn": {
             "label": "建立",

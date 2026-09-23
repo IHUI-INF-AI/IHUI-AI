@@ -9,10 +9,11 @@
 #   - 历史版本本文件引用了 PGInstanceDown/PGConnectionsHigh/ApiInstanceDown 等“不存在”的告警名，
 #     那些规则从不会命中（source 永远 absent，等于无效配置），已清理。
 #   - 本文件仅作抑制规则的“文档来源”（inhibit_rules 片段）。Alertmanager 无 include 机制，
-#     运行态只加载 alertmanager.yml。修复方案：本文件已与 alertmanager.yml 的 inhibit_rules 段
+#     运行态只加载渲染产物（模板 alertmanager.yml.tmpl 经 scripts/render-alertmanager-config.mjs
+#     渲染出的 alertmanager.rendered.yml）。修复方案：本文件已与模板的 inhibit_rules 段
 #     【合并进同一文件】（同一源码仓库内保持一致）。
 #   - 部署同步：线上运行副本在 D:\DevEnv\（如 D:\DevEnv\monitor\alertmanager\alertmanager.yml）。
-#     发布时把本仓 alertmanager.yml 的 inhibit_rules 段整体覆盖到运行副本，然后用
+#     发布时把本仓模板的 inhibit_rules 段整体覆盖到运行副本，然后用
 #     `amtool check-config <运行副本路径>` 校验后再 reload（`amtool reload` 或向
 #     /-/reload POST）。切勿只拷本噪音文件（无 include 机制，拷了也不生效）。
 
