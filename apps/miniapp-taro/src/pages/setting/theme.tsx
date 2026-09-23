@@ -114,7 +114,7 @@ export default function ThemePage() {
           <Text className="mb-[16rpx] block text-[28rpx] text-muted-foreground">
             {tt('settings.theme', '主题')}
           </Text>
-          <View className="flex flex-col gap-[2rpx] overflow-hidden rounded-[16rpx] bg-[color:var(--color-border)]">
+          <View className="flex flex-col gap-[2rpx] overflow-hidden rounded-lg bg-[color:var(--color-border)]">
             {THEMES(tt).map((th) => (
               <View
                 key={th.value}

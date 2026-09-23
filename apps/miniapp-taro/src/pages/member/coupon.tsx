@@ -119,7 +119,7 @@ export default function CouponPage() {
           {TABS(tt).map((tb) => (
             <View
               key={tb.key}
-              className={`px-[24rpx] py-[12rpx] rounded-[16rpx] ${status === tb.key ? 'bg-primary' : 'bg-card'}`}
+              className={`px-[24rpx] py-[12rpx] rounded-lg ${status === tb.key ? 'bg-primary' : 'bg-card'}`}
               onClick={() => switchTab(tb.key)}
               hoverClass="opacity-60"
             >
@@ -152,7 +152,7 @@ export default function CouponPage() {
             {shown.map((c) => (
               <View
                 key={c.id}
-                className="flex bg-card border border-[var(--color-border)] rounded-[24rpx] overflow-hidden mb-[16rpx]"
+                className="flex bg-card border border-[var(--color-border)] rounded-xl overflow-hidden mb-[16rpx]"
               >
                 <View className="w-[192rpx] bg-[var(--color-success-light)] flex flex-col items-center justify-center py-[32rpx]">
                   <View className="flex items-baseline">
@@ -178,14 +178,14 @@ export default function CouponPage() {
                   </Text>
                   {c.status === 'unused' ? (
                     <Button
-                      className="self-start mt-[16rpx] text-[22rpx] text-primary-foreground bg-primary rounded-[16rpx] px-[16rpx] leading-[44rpx]"
+                      className="self-start mt-[16rpx] text-[22rpx] text-primary-foreground bg-primary rounded-lg px-[16rpx] leading-[44rpx]"
                       onClick={useCoupon}
                     >
                       {tt('member.coupon.use', '立即使用')}
                     </Button>
                   ) : (
                     <View
-                      className={`self-start mt-[16rpx] px-[16rpx] py-[4rpx] rounded-[16rpx] ${c.status === 'used' ? 'bg-[var(--color-text-tertiary)]' : 'bg-[var(--color-danger)]'}`}
+                      className={`self-start mt-[16rpx] px-[16rpx] py-[4rpx] rounded-lg ${c.status === 'used' ? 'bg-[var(--color-text-tertiary)]' : 'bg-[var(--color-danger)]'}`}
                     >
                       <Text className="text-[22rpx] text-[var(--color-surface-light)]">
                         {tt(
@@ -212,7 +212,7 @@ export default function CouponPage() {
           </View>
         )}
         <Button
-          className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] bg-primary text-primary-foreground rounded-[24rpx] text-[28rpx] h-[88rpx] leading-[88rpx]"
+          className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] bg-primary text-primary-foreground rounded-xl text-[28rpx] h-[88rpx] leading-[88rpx]"
           onClick={goList}
         >
           {tt('member.coupon.couponCenter', '领券中心')}

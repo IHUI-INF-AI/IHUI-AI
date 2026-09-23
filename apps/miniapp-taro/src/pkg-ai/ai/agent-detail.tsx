@@ -360,10 +360,10 @@ export default function AgentDetailPage() {
       {tab === 'info' && (
         <View>
           {agent && (
-            <View className="mx-[20rpx] my-[24rpx] bg-card rounded-[24rpx] border border-border p-[28rpx]">
+            <View className="mx-[20rpx] my-[24rpx] bg-card rounded-xl border border-border p-[28rpx]">
               <View className="flex items-center">
                 <Image
-                  className="w-[160rpx] h-[160rpx] rounded-[24rpx] bg-muted"
+                  className="w-[160rpx] h-[160rpx] rounded-xl bg-muted"
                   src={agent.avatar || '/static/default-agent.png'}
                   mode="aspectFill"
                 />
@@ -371,7 +371,7 @@ export default function AgentDetailPage() {
                   <View className="flex items-center">
                     <Text className="text-[48rpx] text-foreground font-bold">{agent.name}</Text>
                     {agent.isVipExclusive && (
-                      <Text className="ml-[16rpx] text-[20rpx] px-[12rpx] py-[8rpx] rounded-[8rpx] bg-[var(--color-warning-amber)] text-[var(--color-surface-light)] font-semibold">
+                      <Text className="ml-[16rpx] text-[20rpx] px-[12rpx] py-[8rpx] rounded-sm bg-[var(--color-warning-amber)] text-[var(--color-surface-light)] font-semibold">
                         {t('ai.agentDetail.vipExclusive')}
                       </Text>
                     )}
@@ -412,7 +412,7 @@ export default function AgentDetailPage() {
                   {tags.map((tag, idx) => (
                     <Text
                       key={`${tag}-${idx}`}
-                      className="text-[22rpx] px-[16rpx] py-[4rpx] mr-[12rpx] mb-[8rpx] rounded-[8rpx] bg-muted text-muted-foreground"
+                      className="text-[22rpx] px-[16rpx] py-[4rpx] mr-[12rpx] mb-[8rpx] rounded-sm bg-muted text-muted-foreground"
                     >
                       #{tag}
                     </Text>
@@ -420,14 +420,14 @@ export default function AgentDetailPage() {
                 </View>
               )}
               {permLoading ? (
-                <View className="mt-[24rpx] py-[16rpx] px-[20rpx] rounded-[8rpx] bg-muted">
+                <View className="mt-[24rpx] py-[16rpx] px-[20rpx] rounded-sm bg-muted">
                   <Text className="text-[24rpx] text-muted-foreground">
                     {t('ai.agentDetail.permissionLoading')}
                   </Text>
                 </View>
               ) : permission ? (
                 <View
-                  className={`mt-[24rpx] py-[16rpx] px-[20rpx] rounded-[8rpx] ${
+                  className={`mt-[24rpx] py-[16rpx] px-[20rpx] rounded-sm ${
                     permission.hasPermission
                       ? 'bg-[var(--color-success-light)]'
                       : 'bg-[var(--color-warning-amber-light)]'
@@ -450,7 +450,7 @@ export default function AgentDetailPage() {
             </View>
           )}
           {agent?.prologue && (
-            <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-[24rpx] border border-border p-[28rpx]">
+            <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-xl border border-border p-[28rpx]">
               <Text className="text-[22rpx] text-muted-foreground mb-[16rpx] block">
                 {t('ai.agentDetail.prologue')}
               </Text>
@@ -459,7 +459,7 @@ export default function AgentDetailPage() {
           )}
           {/* 使用教程 / 示例对话(对标原项目 exampleDialog) */}
           {exampleDialogs.length > 0 && (
-            <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-[24rpx] border border-border p-[28rpx]">
+            <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-xl border border-border p-[28rpx]">
               <Text className="text-[22rpx] text-muted-foreground mb-[16rpx] block">
                 {t('ai.agentDetail.exampleDialog')}
               </Text>
@@ -488,7 +488,7 @@ export default function AgentDetailPage() {
             </View>
           )}
           {agent?.systemPrompt && (
-            <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-[24rpx] border border-border p-[28rpx]">
+            <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-xl border border-border p-[28rpx]">
               <Text className="text-[22rpx] text-muted-foreground mb-[16rpx] block">
                 {t('ai.agentDetail.promptLabel')}
               </Text>
@@ -499,7 +499,7 @@ export default function AgentDetailPage() {
           )}
           {/* 评价区(对标原项目 RateController 评分系统) */}
           {useCount !== undefined && useCount > 0 && (
-            <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-[24rpx] border border-border p-[28rpx]">
+            <View className="mx-[20rpx] mb-[24rpx] bg-card rounded-xl border border-border p-[28rpx]">
               <View className="flex items-center justify-between mb-[20rpx]">
                 <Text className="text-[32rpx] text-foreground font-semibold">
                   {t('ai.agentDetail.reviews')}
@@ -549,13 +549,13 @@ export default function AgentDetailPage() {
           {agent && (
             <View className="mx-[20rpx] my-[24rpx] flex gap-[24rpx]">
               <Button
-                className="flex-1 bg-[var(--color-primary)] text-[var(--color-surface-light)] text-[32rpx] font-semibold rounded-[24rpx] h-[100rpx] leading-[100rpx]"
+                className="flex-1 bg-[var(--color-primary)] text-[var(--color-surface-light)] text-[32rpx] font-semibold rounded-xl h-[100rpx] leading-[100rpx]"
                 onClick={onChat}
               >
                 {t('ai.agentDetail.startChat')}
               </Button>
               <Button
-                className={`px-[40rpx] text-[28rpx] rounded-[24rpx] h-[100rpx] leading-[100rpx] ${favorited ? 'bg-[var(--color-warning-amber-light)] text-[var(--color-warning-amber-text)]' : 'bg-muted text-muted-foreground'}`}
+                className={`px-[40rpx] text-[28rpx] rounded-xl h-[100rpx] leading-[100rpx] ${favorited ? 'bg-[var(--color-warning-amber-light)] text-[var(--color-warning-amber-text)]' : 'bg-muted text-muted-foreground'}`}
                 onClick={onToggleFavorite}
               >
                 {favorited ? t('ai.agentDetail.favorited') : t('ai.agentDetail.favoriteAgent')}
@@ -576,12 +576,12 @@ export default function AgentDetailPage() {
                 {related.map((r) => (
                   <View
                     key={r.id}
-                    className="inline-block w-[200rpx] bg-card rounded-[24rpx] border border-border p-[28rpx] mr-[24rpx] align-top"
+                    className="inline-block w-[200rpx] bg-card rounded-xl border border-border p-[28rpx] mr-[24rpx] align-top"
                     onClick={() => onRelatedClick(r.id)}
                     hoverClass="opacity-60"
                   >
                     <Image
-                      className="w-[80rpx] h-[80rpx] rounded-[24rpx] bg-muted"
+                      className="w-[80rpx] h-[80rpx] rounded-xl bg-muted"
                       src={r.avatar || '/static/default-agent.png'}
                       mode="aspectFill"
                     />
