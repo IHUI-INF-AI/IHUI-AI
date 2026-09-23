@@ -1792,6 +1792,30 @@ const checks = [
       '     单独复验:node scripts/check-brand-foreground.mjs;自检:node scripts/check-brand-foreground.mjs --self-test',
     ].join('\n'),
   },
+  // 反回退守门(2026-09-23 立)。成因实测:共享工作区 + converge 只推进 HEAD/index 不 checkout,
+  // 工作区曾整体落后 HEAD 486 个提交(503 个文件);此时 `git add <file>` 提交的是旧基线,
+  // 对该文件等于把别人后续改动静默回滚,而 diff 看着"只动几行"。守门 71 只护 PLAN 登记行,
+  // 源码/配置面无闸,故补此闸。判据 = 暂存内容 != HEAD 且**字节级等于该路径某祖先提交的版本**;
+  // merge/cherry-pick/revert 上下文整轮豁免,暂存删除只 warn(真删是合法 git rm),
+  // >300 文件跳过(性能护栏,避免逼人 --no-verify 把全部守门一起关)。
+  // 演练:node scripts/check-stale-revert.mjs --self-test(8 例,含"写回 v1 必判红"阳性对照)。
+  {
+    id: '76',
+    label: '🧬 反回退守门(blocking,暂存内容等于历史版本 = 静默回滚他人改动)',
+    script: 'check-stale-revert.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_STALE_REVERT_GUARD',
+    onFailHint: [
+      '',
+      '  💡 这些文件的暂存内容 = 它某个历史提交的原样,不是新工作,而是把别人的改动写回旧态。',
+      '     先分清成因:',
+      '       ① 工作区落后 HEAD(converge 不 checkout)→ 先 `git restore --source=HEAD --worktree -- <文件>`,',
+      '          再把你的改动重新施加(前提:该文件里没有你自己的未提交内容);',
+      '       ② 确属有意回退 → 用 `git revert <commit>` 生成前向提交,或 HUSKY_SKIP_STALE_REVERT_GUARD=1 并在提交信息写明理由;',
+      '     单独复验:node scripts/check-stale-revert.mjs --staged',
+    ].join('\n'),
+  },
   // --- info (1 项) ---
   {
     id: '23',
