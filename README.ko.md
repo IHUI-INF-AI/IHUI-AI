@@ -70,7 +70,7 @@
 | 차원                  | 실제 값                                                                                                                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **웹 프론트엔드**     | Next.js 16 + React 19 + Tailwind CSS 4 + shadcn/ui + Zustand + @tanstack/react-query 5                                                                                                       |
-| **백엔드 API**        | Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18 + Zod 3.24(**TypeScript**, Python 아님)                                                                                                         |
+| **백엔드 API**        | Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 15 + Zod 3.24(**TypeScript**, Python 아님)                                                                                                         |
 | **AI 서비스**         | FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO(Python 3.12, 이 계층만 Python 사용)                                                                                                    |
 | **모노레포**          | pnpm 9.15 workspace + Turborepo 2.3 + 16 공유 패키지(@ihui/auth / database / types / ui 등)                                                                                                  |
 | **멀티 클라이언트**   | 8 클라이언트 **독립 코드**("하나의 코드베이스를 여러 타겟으로 컴파일"이 아님), 각 클라이언트의 완성도는 [프로젝트 상태 매트릭스](#프로젝트-상태-매트릭스투명-라벨링-2026-07-22-확인) 참조    |
@@ -402,7 +402,7 @@ IHUI-AI는 어떤 단일 프로젝트를 대체하려는 것이 아니라, 다�
 |                          | 에러 대시보드                  | 에러 aggregation / 알림 / 추적 / security-audit                                                                                                |
 |                          | 작업 로그                      | 로그인 로그 / 작업 로그 / 콜백 로그 / audit + security-logs                                                                                    |
 |                          | 모니터링 알림                  | Prometheus + Grafana(20 대시보드) + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                                                    |
-| **엔지니어링 인프라**    | 데이터베이스                   | PostgreSQL 18 / **339+ 테이블** / 100 schema 파일 / **128+ 마이그레이션** / Drizzle ORM + RLS + 테넌트 라우팅 + pgvector                       |
+| **엔지니어링 인프라**    | 데이터베이스                   | PostgreSQL 15 / **339+ 테이블** / 100 schema 파일 / **128+ 마이그레이션** / Drizzle ORM + RLS + 테넌트 라우팅 + pgvector                       |
 |                          | 큐 캐시                        | Redis 7 + BullMQ / 독립 worker 프로세스(:8804)                                                                                                 |
 |                          | 오브젝트 스토리지              | OSS 멀티 벤더 드라이버 / 자격증명 암호화 / 청크 업로드 / 파일 버전 / chunked-upload                                                            |
 |                          | 이메일 SMS                     | SMTP / SMS 게이트웨이 / 이메일 템플릿 / 인증번호 / mail + message-templates                                                                    |
@@ -429,7 +429,7 @@ IHUI-AI는 어떤 단일 프로젝트를 대체하려는 것이 아니라, 다�
 | **옵저버빌리티**                   | Prometheus + Grafana(**20 대시보드**) + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                       | 풀링크 지표 / 로그 / 추적 / 알림                   |
 | **엔지니어링 게이트**              | 21 pre-commit + post-commit 자동 push + git-push-guard + 11 마이그레이션 감사                                         | 협업 사고 방지, 99.9% SLA                          |
 | **국제화**                         | zh-CN / zh-TW / en / ko / ja 5개 언어 parity + 19 i18n 툴체인                                                         | 5개 언어 키 셋 강건 일관성                         |
-| **데이터베이스**                   | **339+ 테이블 + 128+ 마이그레이션** + 100 schema 파일 + Drizzle ORM + RLS + 테넌트 라우팅 + pgvector                  | 단일 DB PostgreSQL 18, schema 격리                 |
+| **데이터베이스**                   | **339+ 테이블 + 128+ 마이그레이션** + 100 schema 파일 + Drizzle ORM + RLS + 테넌트 라우팅 + pgvector                  | 단일 DB PostgreSQL 15, schema 격리                 |
 | **API 규모**                       | 4393 라우트(api) + 55+ 엔드포인트(ai-service) + 12 WebSocket + 267 라우트 파일                                        | 원본 프로젝트 331 엔드포인트 대비 대폭 확장        |
 | **비즈니스 커버리지**              | 15대 모듈 / 50+ 서브 기능 / **200+ Web 페이지**                                                                       | 하나의 플랫폼이 모든 AI 애플리케이션 시나리오 커버 |
 | **공유 패키지**                    | 16 packages(auth/database/types/ui/sdk/api-client/context-compaction 등)                                              | 크로스 플랫폼 타입 안전 + 재사용                   |
@@ -931,7 +931,7 @@ LiteLLM 게이트웨이로 통합 연동, 스마트 라우팅 + 60% 캐시 적�
 
 #### E2. 데이터베이스 및 공유 패키지
 
-- **단일 DB 설계**:PostgreSQL 18, 단일 DB `ihui`, schema로 비즈니스 도메인 격리
+- **단일 DB 설계**:PostgreSQL 15, 단일 DB `ihui`, schema로 비즈니스 도메인 격리
 - **339+ 테이블**:100개 schema 모듈 파일, 30+ 비즈니스 도메인 커버
 - **128+ 마이그레이션**:`packages/database/drizzle/`, drizzle-kit generate 생성 + 수동 증분
 - **7단계 멱등 seed**:`packages/database/seed/`, 패턴화 + 내결함성 격리
@@ -1018,7 +1018,7 @@ LiteLLM 게이트웨이로 통합 연동, 스마트 라우팅 + 60% 캐시 적�
 | Node.js    | `>=20.10.0`        | LTS 20.x, `nvm use` 권장                                     |
 | pnpm       | `>=9.0.0`          | 프로젝트 고정 `pnpm@9.15.0`, `corepack enable`로 자동 활성화 |
 | Python     | `3.12+`            | `apps/ai-service` 전용                                       |
-| PostgreSQL | `18+`              | compose는 `pgvector/pgvector:pg18` 사용                      |
+| PostgreSQL | `15+`              | compose는 `postgres:15-alpine` 사용                          |
 | Redis      | `7+`               | compose는 `redis:7-alpine` 사용                              |
 | Docker     | `24+` + Compose v2 | 선택, 원클릭 시작에 권장                                     |
 | Git        | `2.40+`            | `core.autocrlf=false`(프로젝트 LF 강제)                      |
@@ -1153,7 +1153,7 @@ pnpm turbo build typecheck lint test
 
 ## 데이터베이스
 
-- **단일 DB 설계**:PostgreSQL 18, 단일 DB `ihui`, schema로 비즈니스 도메인 격리
+- **단일 DB 설계**:PostgreSQL 15, 단일 DB `ihui`, schema로 비즈니스 도메인 격리
 - **339+ 테이블**:100개 schema 모듈 파일, 30+ 비즈니스 도메인 커버
 - **128+ 마이그레이션**:`packages/database/drizzle/`, drizzle-kit generate 생성 + 수동 증분
 - **7단계 멱등 seed**:`packages/database/seed/`, 패턴화 + 내결함성 격리
@@ -1354,7 +1354,7 @@ docker compose up -d
 | 비즈니스 | worker         | 8830 | BullMQ 독립 worker 프로세스              |
 | 비즈니스 | web            | 8801 | Next.js 프론트엔드(standalone)           |
 | 비즈니스 | ai-service     | 8803 | FastAPI AI 서비스                        |
-| 비즈니스 | db             | 8810 | PostgreSQL 18                            |
+| 비즈니스 | db             | 8810 | PostgreSQL 15                            |
 | 비즈니스 | redis          | 8811 | Redis 7                                  |
 | 비즈니스 | migrate        | -    | 일회성 마이그레이션 서비스(완료 후 종료) |
 | 모니터링 | jaeger         | 8814 | 분산 추적 UI                             |
