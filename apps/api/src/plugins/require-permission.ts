@@ -3,9 +3,10 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { FastifyRequest, FastifyReply, preHandlerAsyncHookHandler } from 'fastify'
-import { authenticate } from './auth.js'
+import { authenticate, requireActiveUser } from './auth.js'
 import { checkInternalServiceToken, hasInternalServiceToken } from './internal-service-token.js'
 import { checkAnyPermission } from '../db/rbac-queries.js'
+import { error as errorResponse } from '../utils/response.js'
 import { toUserFriendlyMessage } from '@ihui/shared'
 
 /**
@@ -160,6 +161,44 @@ export const requireAdmin = async (request: FastifyRequest, reply: FastifyReply)
   const roleId = resolveAdminRoleId(request, { includeInternalChannel: false })
   if (roleId < ADMIN_ROLE_ID) {
     return reply.status(403).send({ code: 403, message: '需要管理员权限' })
+  }
+}
+
+/**
+ * `admin/*` 面的统一 preHandler(O13b-⑤ 收编,2026-09-23)。
+ *
+ * 与 `requireAdmin` 的**唯一**差别是多一道 `requireActiveUser`:被注销/封禁的账号
+ * 不得进 admin 面。此差别是安全语义,不得为了"复用同一个函数"而抹平 ——
+ * 也不得反向把 active 检查塞进 `requireAdmin`(它有 694 处调用点,会整体改行为)。
+ *
+ * 三条对外契约逐字保持(收编前后由
+ * `apps/api/tests/o13b-batch4-admin-route-guard.test.ts` 钉死):
+ *  1. 未鉴权 → `statusCode`(缺省 401) + `toUserFriendlyMessage(e) || '操作失败,请稍后重试'`
+ *  2. 已鉴权但账号非活动 → 同状态码族 + `... || '账号已注销'`
+ *  3. 活动但非管理员 → 403 `'需要管理员权限'`
+ * 响应体一律走 `utils/response.js` 的 `error()`(admin 面历史形状,与 `requireAdmin`
+ * 的内联字面量形状**不必相同**,收编时不得顺手统一)。
+ */
+export const requireAdminRouteGuard = async (
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> => {
+  try {
+    await authenticate(request)
+  } catch (e) {
+    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+    const message = toUserFriendlyMessage(e) || '操作失败,请稍后重试'
+    return reply.status(statusCode).send(errorResponse(statusCode, message))
+  }
+  try {
+    await requireActiveUser(request)
+  } catch (e) {
+    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+    const message = toUserFriendlyMessage(e) || '账号已注销'
+    return reply.status(statusCode).send(errorResponse(statusCode, message))
+  }
+  if (resolveAdminRoleId(request, { includeInternalChannel: false }) < ADMIN_ROLE_ID) {
+    return reply.status(403).send(errorResponse(403, '需要管理员权限'))
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
