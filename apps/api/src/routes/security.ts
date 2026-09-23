@@ -119,15 +119,20 @@ export const securityRoutes: FastifyPluginAsync = async (server) => {
 
   /* ---------------------- 2. 验证 CAPTCHA(无认证) ---------------------- */
   server.post('/verify-challenge', async (request, reply) => {
+    const ip = request.ip
     const parsed = verifySchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const result = await captcha.verifyChallenge(parsed.data.challengeId, parsed.data.answer)
+    const result = await captcha.verifyChallenge(parsed.data.challengeId, parsed.data.answer, ip)
     if (!result.valid) {
       return reply.status(400).send(error(400, result.reason ?? '验证失败'))
     }
-    return success({ token: result.token, valid: true })
+    // 人机验证通过即解除**自动**封禁 —— 这是 429 响应头承诺的自救闭环。
+    // 管理员手工封禁不在解除范围内(见 ip-reputation 的 AUTO_LIFTABLE_REASONS)。
+    const lifted = await ipRep.unblockIfAuto(ip)
+    if (lifted) logger.info('security: ip auto-block lifted by captcha', { ip })
+    return success({ token: result.token, valid: true, blockLifted: lifted })
   })
 
   /* ---------------------- 3. 查询 IP 信誉(仅 admin) ---------------------- */
@@ -146,7 +151,8 @@ export const securityRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { ip, duration, reason } = parsed.data
-    await ipRep.blockIp(ip, duration)
+    // reason 固定为 admin-block:管理员处置不得被 CAPTCHA 自助解除
+    await ipRep.blockIp(ip, duration, 'admin-block')
     if (reason) await ipRep.recordBadEvent(ip, `admin-block:${reason}`)
     logger.warn('security: admin blocked ip', { ip, duration, reason, by: request.userId })
     return success({ ip, duration, blocked: true })
