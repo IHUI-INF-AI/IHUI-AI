@@ -33,6 +33,39 @@ export type { UserInfo }
 /** 用户信息卡片变体 */
 export type UserInfoCardVariant = 'new' | 'old'
 
+/**
+ * 取用户名首字母作为默认头像 initials(AGENTS.md 强制规范:头像用 initials)。
+ * 中文取首个汉字,英文取首字母大写,空值回退 'U'。
+ */
+function getInitials(name?: string): string {
+  if (!name) return 'U'
+  const trimmed = name.trim()
+  if (!trimmed) return 'U'
+  return trimmed.charAt(0).toUpperCase()
+}
+
+/**
+ * 格式化时间戳为本地可读格式(AGENTS.md 强制规范:时间用 Intl.DateTimeFormat)。
+ * 输入可为 ISO 8601 字串或任意 Date 可解析字符串;输出 'YYYY-MM-DD HH:mm'。
+ * 解析失败时回退原值,避免显示 'Invalid Date'。
+ */
+function formatDateTime(dateStr: string): string {
+  try {
+    const date = new Date(dateStr)
+    if (Number.isNaN(date.getTime())) return dateStr
+    return new Intl.DateTimeFormat('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(date)
+  } catch {
+    return dateStr
+  }
+}
+
 export interface UserInfoCardProps {
   userInfo: UserInfo
   showRechargeBtn?: boolean
@@ -86,6 +119,7 @@ function UserInfoCardNew({
   const role = getRoleLabel(userInfo.isVip, userInfo.identityType)
   const isVip = userInfo.isVip === 1
   const tokenStr = formatTokenValue(userInfo.tokenQuantity)
+  const hasAvatarUrl = Boolean(userInfo.avatarUrl)
   const avatar = userInfo.avatarUrl || DEFAULT_AVATAR_URL
 
   // 成长值进度条(对齐 Uniapp growthValue/growthMax)
@@ -119,12 +153,20 @@ function UserInfoCardNew({
       {/* 顶部:头像 + 昵称/角色 */}
       <View style={newStyles.header}>
         <TouchableOpacity style={newStyles.avatarWrap} activeOpacity={0.8} onPress={onEdit}>
-          <Image source={{ uri: avatar }} style={newStyles.avatar} />
+          {hasAvatarUrl ? (
+            <Image source={{ uri: avatar }} style={newStyles.avatar} />
+          ) : (
+            <View style={newStyles.avatarFallback}>
+              <Text style={newStyles.avatarFallbackText}>
+                {getInitials(userInfo.username)}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
 
         <View style={newStyles.infoWrap}>
           <TouchableOpacity style={newStyles.nameRow} activeOpacity={0.7} onPress={onEdit}>
-            <Text style={newStyles.name} numberOfLines={1}>
+            <Text style={newStyles.name} numberOfLines={1} ellipsizeMode="tail">
               {userInfo.username ? `AI IHUI丨${userInfo.username}` : '用户'}
             </Text>
             {showRechargeBtn ? <Text style={newStyles.editText}>编辑</Text> : null}
@@ -254,7 +296,7 @@ const newStyles = StyleSheet.create({
     alignItems: 'center',
   },
   loginBtn: {
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.brand.DEFAULT,
     borderWidth: 2,
     borderColor: tokens.text.primary,
     borderRadius: 12,
@@ -264,7 +306,7 @@ const newStyles = StyleSheet.create({
   loginBtnText: {
     fontSize: 16,
     fontWeight: '600',
-    color: tokens.text.primary,
+    color: tokens.brand.foreground,
   },
   card: {
     marginTop: 8,
@@ -343,7 +385,7 @@ const newStyles = StyleSheet.create({
     marginTop: 8,
     paddingHorizontal: 8,
     paddingVertical: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: tokens.surface.muted,
     borderRadius: 6,
   },
   tokenLabelWrap: {
@@ -389,7 +431,7 @@ const newStyles = StyleSheet.create({
     marginTop: 8,
     paddingHorizontal: 8,
     paddingVertical: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: tokens.surface.muted,
     borderRadius: 6,
   },
   growthLabelWrap: {
@@ -425,7 +467,7 @@ const newStyles = StyleSheet.create({
     marginTop: 8,
     paddingHorizontal: 8,
     paddingVertical: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: tokens.surface.muted,
     borderRadius: 6,
   },
   inviteLabel: {
@@ -447,7 +489,7 @@ const newStyles = StyleSheet.create({
   },
   copyBtnText: {
     fontSize: 11,
-    color: tokens.surface.light,
+    color: tokens.brandAccent.foreground,
     fontWeight: '500',
   },
   // 等级弹窗
@@ -563,7 +605,7 @@ const oldStyles = StyleSheet.create({
     alignItems: 'center',
   },
   loginBtn: {
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.brand.DEFAULT,
     borderWidth: 2,
     borderColor: tokens.text.primary,
     borderRadius: 12,
@@ -573,7 +615,7 @@ const oldStyles = StyleSheet.create({
   loginBtnText: {
     fontSize: 16,
     fontWeight: '600',
-    color: tokens.text.primary,
+    color: tokens.brand.foreground,
   },
   card: {
     marginTop: 8,
@@ -603,7 +645,7 @@ const oldStyles = StyleSheet.create({
   editBtnText: {
     fontSize: 12,
     fontWeight: '500',
-    color: tokens.surface.light,
+    color: tokens.brandAccent.foreground,
   },
   membershipRow: {
     flexDirection: 'row',

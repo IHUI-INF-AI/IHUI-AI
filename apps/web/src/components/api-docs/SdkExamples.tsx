@@ -27,11 +27,10 @@ async function fetchKeys(): Promise<ApiKey[]> {
 
 type Lang = 'curl' | 'python' | 'node' | 'go' | 'java'
 
-/** 代码示例标题的 i18n 键(非组件常量表不得调 hook,由渲染处取词) */
-type ExampleTitleKey = 'exampleBasicOpenai' | 'exampleStreaming' | 'exampleAnthropic'
-
-/** title 是不可译的字面包名(如 openai-sdk);中文标题一律走 titleKey 由渲染处 t() 取词 */
-type CodeExample = { code: string } & ({ title: string } | { titleKey: ExampleTitleKey })
+interface CodeExample {
+  title: string
+  code: string
+}
 
 interface LangGroup {
   lang: Lang
@@ -45,29 +44,29 @@ const TEMPLATES: LangGroup[] = [
     label: 'curl',
     examples: [
       {
-        titleKey: 'exampleBasicOpenai',
+        title: '基础调用 (OpenAI 格式)',
         code: `curl https://api.ihui.ai/v1/chat/completions \\
   -H "Authorization: Bearer {{API_KEY}}" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "gpt-4o-mini",
-    "messages": [{"role": "user", "content": "{{SAMPLE_TEXT}}"}],
+    "messages": [{"role": "user", "content": "你好"}],
     "temperature": 0.7
   }'`,
       },
       {
-        titleKey: 'exampleStreaming',
+        title: '流式响应',
         code: `curl https://api.ihui.ai/v1/chat/completions \\
   -H "Authorization: Bearer {{API_KEY}}" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "gpt-4o-mini",
-    "messages": [{"role": "user", "content": "{{STORY_TEXT}}"}],
+    "messages": [{"role": "user", "content": "讲个故事"}],
     "stream": true
   }'`,
       },
       {
-        titleKey: 'exampleAnthropic',
+        title: 'Anthropic 格式',
         code: `curl https://api.ihui.ai/v1/anthropic/messages \\
   -H "x-api-key: {{API_KEY}}" \\
   -H "anthropic-version: 2023-06-01" \\
@@ -75,7 +74,7 @@ const TEMPLATES: LangGroup[] = [
   -d '{
     "model": "claude-3-5-sonnet-20241022",
     "max_tokens": 1024,
-    "messages": [{"role": "user", "content": "{{SAMPLE_TEXT}}"}]
+    "messages": [{"role": "user", "content": "你好"}]
   }'`,
       },
     ],
@@ -95,7 +94,7 @@ client = OpenAI(
 
 resp = client.chat.completions.create(
     model="gpt-4o-mini",
-    messages=[{"role": "user", "content": "{{SAMPLE_TEXT}}"}],
+    messages=[{"role": "user", "content": "你好"}],
 )
 print(resp.choices[0].message.content)`,
       },
@@ -111,7 +110,7 @@ client = Anthropic(
 msg = client.messages.create(
     model="claude-3-5-sonnet-20241022",
     max_tokens=1024,
-    messages=[{"role": "user", "content": "{{SAMPLE_TEXT}}"}],
+    messages=[{"role": "user", "content": "你好"}],
 )
 print(msg.content[0].text)`,
       },
@@ -127,7 +126,7 @@ resp = requests.post(
     },
     json={
         "model": "gpt-4o-mini",
-        "messages": [{"role": "user", "content": "{{SAMPLE_TEXT}}"}],
+        "messages": [{"role": "user", "content": "你好"}],
     },
 )
 print(resp.json())`,
@@ -149,9 +148,9 @@ const client = new OpenAI({
 
 const resp = await client.chat.completions.create({
   model: "gpt-4o-mini",
-  messages: [{ role: "user", content: "{{SAMPLE_TEXT}}" }],
+  messages: [{ role: "user", content: "你好" }],
 })
-console.log(resp.choices[0].message.content) {{PROD_NOTE}}`,
+console.log(resp.choices[0].message.content) // 生产环境应替换为 UI 展示`,
       },
       {
         title: '@anthropic-ai/sdk',
@@ -165,9 +164,9 @@ const client = new Anthropic({
 const msg = await client.messages.create({
   model: "claude-3-5-sonnet-20241022",
   max_tokens: 1024,
-  messages: [{ role: "user", content: "{{SAMPLE_TEXT}}" }],
+  messages: [{ role: "user", content: "你好" }],
 })
-console.log(msg.content[0].text) {{PROD_NOTE}}`,
+console.log(msg.content[0].text) // 生产环境应替换为 UI 展示`,
       },
       {
         title: '@ihui/sdk',
@@ -181,13 +180,13 @@ const client = createClient({
 // 非流式对话
 const resp = await client.ai.completions({
   model: "gpt-4o-mini",
-  messages: [{ role: "user", content: "{{SAMPLE_TEXT}}" }],
+  messages: [{ role: "user", content: "你好" }],
 })
-console.log(resp.choices[0].message.content) {{PROD_NOTE}}
+console.log(resp.choices[0].message.content) // 生产环境应替换为 UI 展示
 
 // 获取模型列表
 const models = await client.ai.listModels()
-console.log(models.data) {{PROD_NOTE}}`,
+console.log(models.data) // 生产环境应替换为 UI 展示`,
       },
       {
         title: 'fetch',
@@ -199,11 +198,11 @@ console.log(models.data) {{PROD_NOTE}}`,
   },
   body: JSON.stringify({
     model: "gpt-4o-mini",
-    messages: [{ role: "user", content: "{{SAMPLE_TEXT}}" }],
+    messages: [{ role: "user", content: "你好" }],
   }),
 })
 const data = await resp.json()
-console.log(data.choices[0].message.content) {{PROD_NOTE}}`,
+console.log(data.choices[0].message.content) // 生产环境应替换为 UI 展示`,
       },
     ],
   },
@@ -226,7 +225,7 @@ import (
 func main() {
   body, _ := json.Marshal(map[string]interface{}{
     "model": "gpt-4o-mini",
-    "messages": []map[string]string{{"role": "user", "content": "{{SAMPLE_TEXT}}"}},
+    "messages": []map[string]string{{"role": "user", "content": "你好"}},
   })
   req, _ := http.NewRequest("POST", "https://api.ihui.ai/v1/chat/completions", bytes.NewReader(body))
   req.Header.Set("Authorization", "Bearer {{API_KEY}}")
@@ -250,7 +249,7 @@ func main() {
 OkHttpClient client = new OkHttpClient();
 
 String json = """
-    {"model":"gpt-4o-mini","messages":[{"role":"user","content":"{{SAMPLE_TEXT}}"}]}
+    {"model":"gpt-4o-mini","messages":[{"role":"user","content":"你好"}]}
     """;
 
 Request request = new Request.Builder()
@@ -275,7 +274,7 @@ function maskKey(k: string): string {
 }
 
 export function SdkExamples(): React.JSX.Element {
-  const t = useTranslations('apiDocs')
+  const t = useTranslations('models.apiDocs')
   const { copy } = useClipboard()
   const [reveal, setReveal] = React.useState(false)
   const [copiedId, setCopiedId] = React.useState<string | null>(null)
@@ -285,10 +284,6 @@ export function SdkExamples(): React.JSX.Element {
     queryFn: () => fetchKeys().catch(() => [] as ApiKey[]),
   })
 
-  const sampleText = t('sampleUserText')
-  const storyText = t('sampleStoryText')
-  const prodNote = t('sampleProdNote')
-
   const realKey = keys[0]?.key ?? ''
   const apiKey = reveal ? realKey || 'ihui_xxx' : maskKey(realKey)
 
@@ -296,10 +291,10 @@ export function SdkExamples(): React.JSX.Element {
     const ok = await copy(code)
     if (ok) {
       setCopiedId(id)
-      toast.success(t('codeCopied'))
+      toast.success('代码已复制')
       setTimeout(() => setCopiedId(null), 1500)
     } else {
-      toast.error(t('copyFailed'))
+      toast.error('复制失败')
     }
   }
 
@@ -309,18 +304,18 @@ export function SdkExamples(): React.JSX.Element {
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Code2 className="h-4 w-4 text-primary" />
-            <p className="text-sm font-semibold">{t('sdkExamplesTitle')}</p>
+            <p className="text-sm font-semibold">SDK 示例</p>
           </div>
           <button
             onClick={() => setReveal((v) => !v)}
             className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             {reveal ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-            {reveal ? t('hideKey') : t('showKey')}
+            {reveal ? '隐藏 Key' : '显示 Key'}
           </button>
         </div>
         <p className="text-xs text-muted-foreground">
-          {t('keyFilledHint', { state: reveal ? t('keyStatePlain') : t('keyStateMasked') })}
+          示例已填入你的 API Key{reveal ? '(明文)' : '(已脱敏,复制后请替换为完整 Key)'}。
         </p>
 
         <Tabs defaultValue="curl">
@@ -336,17 +331,11 @@ export function SdkExamples(): React.JSX.Element {
             <TabsContent key={g.lang} value={g.lang} className="space-y-3">
               {g.examples.map((ex, idx) => {
                 const id = `${g.lang}-${idx}`
-                const code = ex.code
-                  .replace(/{{API_KEY}}/g, apiKey)
-                  .replace(/{{SAMPLE_TEXT}}/g, sampleText)
-                  .replace(/{{STORY_TEXT}}/g, storyText)
-                  .replace(/{{PROD_NOTE}}/g, prodNote)
+                const code = ex.code.replace(/{{API_KEY}}/g, apiKey)
                 const copied = copiedId === id
                 return (
                   <div key={id} className="space-y-1.5">
-                    <p className="text-xs font-medium text-muted-foreground">
-                      {'titleKey' in ex ? t(ex.titleKey) : ex.title}
-                    </p>
+                    <p className="text-xs font-medium text-muted-foreground">{ex.title}</p>
                     <div className="relative">
                       <pre
                         className={cn(
