@@ -17,7 +17,6 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { listConversations, type ConversationDetail } from '@ihui/api-client'
 import { navigateDrawerTab } from '../navigation/tab-utils'
 import { tokens } from '../theme/active-tokens'
-import { useTheme } from '../context/ThemeContext'
 import { RankingDetailScreen } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
 import Drawer, {
@@ -41,7 +40,6 @@ export default function RankingDetailScreenWrapper() {
   const route = useRoute<RankingDetailRouteProp>()
   const { item } = route.params
   const { t } = useI18n()
-  const { resolvedTheme } = useTheme()
   const [drawerVisible, setDrawerVisible] = useState(false)
   const [history, setHistory] = useState<DrawerConversationItem[]>([])
 
@@ -170,7 +168,7 @@ export default function RankingDetailScreenWrapper() {
         onOpenSettings={onOpenSettings}
         onOpenMessages={onOpenMessages}
         onGoHome={onGoHome}
-        colorScheme={resolvedTheme}
+        colorScheme="light"
       />
       <Drawer
         visible={drawerVisible}
