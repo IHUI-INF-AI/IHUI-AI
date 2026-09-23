@@ -84,6 +84,7 @@ Var IHUIR6         ; region 计算临时量(宽-2)
 Var IHUIR7         ; region 计算临时量(高-2)
 Var IHUIPassive    ; 模板 PassiveMode 别名(本文件先于模板 Var 声明被编译,不能直接引用)
 Var IHUINOSC       ; 模板 NoShortcutMode 别名(/NS 静默不建快捷方式)
+Var IHUIFALL       ; 品牌资产不可用降级闸(0=品牌 UI 1=任一 LoadImage 最终失败 → 让原生向导接管)
 Var IHUIPCT       ; 安装页百分比大字句柄(STATIC,居中于双环)
 Var IHUISTG       ; 安装页阶段文案句柄(STATIC)
 Var IHUIPB2       ; 安装页自绘品牌进度条填充句柄(SS_BITMAP + region 裁宽)
@@ -313,6 +314,8 @@ Var IHUIRF13      ; 重装页说明行品牌字体(13 逻辑 px)
     Pop ${OUTVAR}
     ${If} ${OUTVAR} = 0
       !insertmacro IHUI_DIAG "loadimg-${NAME}"
+      ; 任一位图最终加载失败 = 品牌 UI 已不可信,拉闸让原生向导接管(见 IHUIFALL)
+      StrCpy $IHUIFALL 1
     ${EndIf}
   ${EndIf}
 !macroend
@@ -331,6 +334,7 @@ Var IHUIRF13      ; 重装页说明行品牌字体(13 逻辑 px)
     Pop $IHUIBG
     ${If} $IHUIBG = 0
       !insertmacro IHUI_DIAG "pagebg-ctl-${NAME}"
+      StrCpy $IHUIFALL 1
     ${EndIf}
   ${EndIf}
   ${If} $IHUIBG <> 0
@@ -870,15 +874,21 @@ FunctionEnd
 ; =====================================================================
 !macro IHUI_INITSPLASH
   StrCpy $IHUISPLA 0
+  StrCpy $IHUIFALL 0
   StrCpy $IHUI_LOGN 0   ; 打点序号归零(IntOp 依赖整数,不给初值会按空串参与运算)
   StrCpy $IHUISC 1
   ; 模板变量 → IHUI 别名(本宏展开于 .onInit,晚于模板 Var 声明,引用安全)
   StrCpy $IHUIPassive $PassiveMode
   StrCpy $IHUINOSC $NoShortcutMode
   !insertmacro IHUI_PICKTIER
+  ; 解压条件必须与"品牌页会不会渲染"严格同集 —— 欢迎/目录/完成页只在
+  ; Silent 与 Passive 下 Abort,**不看 UpdateMode**。旧写法多带一条
+  ; `${AndIf} $UpdateMode = 0`,于是 `/UPDATE`(不带 /P)会跳过解压却照常开品牌页:
+  ; 所有 LoadImage 找不到文件 → STM_SETIMAGE 传 0 → 整窗纯 #242424、按钮全不可见、
+  ; 进程健康空闲 = 用户报的"卡在黑屏"。2026-09-23 用同一发布版加 /UPDATE 确定性复现。
+  ; 静默升级(/UPDATE /P)仍走 Passive 分支不解压,零成本不变。
   ${IfNot} ${Silent}
   ${AndIf} $PassiveMode = 0
-  ${AndIf} $UpdateMode = 0
     InitPluginsDir
     ; ---- splash 帧(按系统档;16 帧动画,见 IHUI_EXTRACTSPLASH_SET) ----
     !insertmacro IHUI_EXTRACTSPLASH $IHUITIER
@@ -886,6 +896,16 @@ FunctionEnd
     ; GUIInit 会按窗口 DPI 重算 IHUIWTIER; 此处先按系统档解压,
     ; 若窗口档与系统档不一致(极少见的多屏异 DPI), 页面函数兜底补解压。
     !insertmacro IHUI_EXTRACTPAGESETS $IHUITIER
+    ; ---- 资产探针:降级必须在**任何页面渲染之前**定 ----
+    ; 页面函数一进来就 IHUI_HIDE_ALL 把原生 1/2/3 移屏,那时才发现位图加载不出来
+    ; 已经无路可退 —— 正是用户看到的"纯黑且点不动"。故此处先探一张:
+    ; 失败即由 IHUI_LOADIMG 拉 $IHUIFALL 闸,欢迎/目录/完成页 Abort,
+    ; instfiles 与重装页保留原生皮肤 = 品牌皮没了也照样能装完。
+    ; 探针位图用完立刻 DeleteObject,不留到页面里。
+    !insertmacro IHUI_LOADIMG welcome.bmp $0
+    ${If} $0 <> 0
+      System::Call "gdi32::DeleteObject(p r0)"
+    ${EndIf}
     ; ---- 开屏动画:此处只"装填",逐帧播放在欢迎页(IHUI_SPLASH_START) ----
     ; 为什么不再用 AdvSplash:
     ;   1. 插件反编译实锤只加载 base 名那一张图(字符串表仅 ".bmp"/".wav"),
@@ -1069,6 +1089,10 @@ Function IHUIWelcomePage
   ${If} ${Silent}
     Abort
   ${EndIf}
+  ; 资产不可用 → 跳过品牌页,让原生向导接管(见 IHUI_INITSPLASH 探针)
+  ${If} $IHUIFALL = 1
+    Abort
+  ${EndIf}
   !insertmacro IHUI_PAGE_PRE
   ; (档位兜底已统一提入 IHUI_PAGE_PRE,见该宏注释)
   !insertmacro IHUI_PAGEBG welcome.bmp
@@ -1102,6 +1126,9 @@ Function IHUIDirPage
     Abort
   ${EndIf}
   ${If} ${Silent}
+    Abort
+  ${EndIf}
+  ${If} $IHUIFALL = 1
     Abort
   ${EndIf}
   !insertmacro IHUI_PAGE_PRE
@@ -1167,6 +1194,10 @@ FunctionEnd
 
 Function IHUIInstShow
   !insertmacro IHUI_LOG "instShow_entry"
+  ; 资产不可用:整页保持原生(进度条/原生钮都不动),否则 IHUI_HIDE_ALL 会把唯一出口移屏
+  ${If} $IHUIFALL = 1
+    Return
+  ${EndIf}
   StrCpy $IHUIFINMODE 0
   !insertmacro IHUI_HIDE_ALL
   ; 档位兜底(instfiles 是原生页不走 PAGE_PRE,R68: 125% 档低档位图裸贴白底)
@@ -1330,6 +1361,9 @@ FunctionEnd
 ; 路由死结(r74 实锤): 品牌按钮挂内层 #32770 → BN_CLICKED 发内层被吞。
 ; =====================================================================
 !macro IHUI_INST_DONE_THEME
+  ; 降级态整页保持原生:本宏会移屏原生 1/2/3 + 在内层挖洞,资产不可用时跑它=自断出口
+  ; (故整段包在 ${If} $IHUIFALL = 0 内,配平 ${EndIf} 见本宏末尾)
+  ${If} $IHUIFALL = 0
   ; 完成态:百分比与品牌条打满(阶段驱动的最后一级;POSTINSTALL hook 触发)
   !insertmacro IHUI_PROGRESS 100 "安装完成"
   !insertmacro IHUI_LOG "doneTheme_entry"
@@ -1368,6 +1402,7 @@ FunctionEnd
   System::Call "user32::InvalidateRect(p $HWNDPARENT, p 0, i 1)"
   System::Call "user32::UpdateWindow(p $HWNDPARENT)"
   !insertmacro IHUI_LOG "doneTheme_exit"
+  ${EndIf}
 !macroend
 
 ; ⚠️ 完成时刻推进竞态(2026-09-20 R20 实锤): instfiles 完成时核心触发 LEAVE 回调并推进
@@ -1404,6 +1439,9 @@ Function IHUIFinishPage
     Abort
   ${EndIf}
   ${If} ${Silent}
+    Abort
+  ${EndIf}
+  ${If} $IHUIFALL = 1
     Abort
   ${EndIf}
   ; 安装页完成态遗留的两个品牌覆盖层必须显式销毁: 其 CTA 位图(672,500,144x40)
@@ -1569,6 +1607,9 @@ FunctionEnd
 
 !macro IHUI_REINSTALLTHEME
   !insertmacro IHUI_LOG "reinstallTheme_entry"
+  ; 降级态:这张页保留原生皮肤(它开头就 IHUI_HIDE_ALL 移屏原生钮 + 自建位图 CTA,
+  ; 位图加载失败时用户将没有任何可点出口)。${EndIf} 配平在本宏末尾。
+  ${If} $IHUIFALL = 0
   ; ---- 0) DPI 加固(R70)----
   StrCpy $0 96
   System::Call "user32::GetDpiForWindow(p $HWNDPARENT) i .s"
@@ -1729,6 +1770,7 @@ FunctionEnd
   System::Call "user32::InvalidateRect(p $HWNDPARENT, p 0, i 1)"
   System::Call "user32::UpdateWindow(p $HWNDPARENT)"
   !insertmacro IHUI_LOG "reinstallTheme_exit"
+  ${EndIf}
 !macroend
 
 ; ---- 卡片点击:写回隐藏 radio 的选中态 + 同步 $ReinstallPageCheck + 换指示器位图 ----
