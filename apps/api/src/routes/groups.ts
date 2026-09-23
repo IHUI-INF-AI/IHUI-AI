@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { userGroups, userGroupMembers } from '@ihui/database'
-import { requireAuth } from '../plugins/require-permission.js'
+import { requireAuth, isSystemAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 
 // =============================================================================
@@ -97,7 +97,6 @@ const groupsRoutes: FastifyPluginAsync = async (server) => {
   // PATCH /:id — 更新用户组（仅组所有者或 admin）
   server.patch('/:id', async (request, reply) => {
     const userId = request.userId!
-    const roleId = request.jwtPayload?.roleId ?? 0
     const idParsed = idParamSchema.safeParse(request.params)
     if (!idParsed.success) {
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
@@ -112,7 +111,7 @@ const groupsRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(userGroups.id, idParsed.data.id))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '用户组不存在'))
-    if (roleId < 1 && existing.ownerId !== userId) {
+    if (!isSystemAdmin(request, { includeInternalChannel: false }) && existing.ownerId !== userId) {
       return reply.status(403).send(error(403, '无权修改此用户组'))
     }
     const [updated] = await db
@@ -126,7 +125,6 @@ const groupsRoutes: FastifyPluginAsync = async (server) => {
   // DELETE /:id — 删除用户组（仅组所有者或 admin）
   server.delete('/:id', async (request, reply) => {
     const userId = request.userId!
-    const roleId = request.jwtPayload?.roleId ?? 0
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -137,7 +135,7 @@ const groupsRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(userGroups.id, parsed.data.id))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '用户组不存在'))
-    if (roleId < 1 && existing.ownerId !== userId) {
+    if (!isSystemAdmin(request, { includeInternalChannel: false }) && existing.ownerId !== userId) {
       return reply.status(403).send(error(403, '无权删除此用户组'))
     }
     await db.delete(userGroups).where(eq(userGroups.id, parsed.data.id))
@@ -147,7 +145,6 @@ const groupsRoutes: FastifyPluginAsync = async (server) => {
   // POST /:id/members — 添加成员
   server.post('/:id/members', async (request, reply) => {
     const userId = request.userId!
-    const roleId = request.jwtPayload?.roleId ?? 0
     const idParsed = idParamSchema.safeParse(request.params)
     if (!idParsed.success) {
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
@@ -163,7 +160,7 @@ const groupsRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(userGroups.id, idParsed.data.id))
       .limit(1)
     if (!group) return reply.status(404).send(error(404, '用户组不存在'))
-    if (roleId < 1 && group.ownerId !== userId) {
+    if (!isSystemAdmin(request, { includeInternalChannel: false }) && group.ownerId !== userId) {
       return reply.status(403).send(error(403, '无权添加成员'))
     }
     // 幂等：已是成员则更新角色
@@ -204,7 +201,6 @@ const groupsRoutes: FastifyPluginAsync = async (server) => {
   // DELETE /:id/members/:userId — 移除成员
   server.delete('/:id/members/:userId', async (request, reply) => {
     const currentUserId = request.userId!
-    const roleId = request.jwtPayload?.roleId ?? 0
     const parsed = memberParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -216,7 +212,11 @@ const groupsRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(userGroups.id, parsed.data.id))
       .limit(1)
     if (!group) return reply.status(404).send(error(404, '用户组不存在'))
-    if (roleId < 1 && group.ownerId !== currentUserId && currentUserId !== parsed.data.userId) {
+    if (
+      !isSystemAdmin(request, { includeInternalChannel: false }) &&
+      group.ownerId !== currentUserId &&
+      currentUserId !== parsed.data.userId
+    ) {
       return reply.status(403).send(error(403, '无权移除成员'))
     }
     const [deleted] = await db

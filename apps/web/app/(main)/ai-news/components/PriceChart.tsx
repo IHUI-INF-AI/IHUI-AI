@@ -104,7 +104,7 @@ export function PriceChart({ entries }: Props) {
                 fill={CHART_BLUE}
                 rx={1.5} // radius-exempt: 图表细柱微圆角(1.5px),吸附到档位会破坏观感
               >
-                <title>{`${d.name} · 输入价: ${d.inputRaw}`}</title>
+                <title>{t('priceChart.inputPrice', { name: d.name, price: d.inputRaw })}</title>
               </rect>
             ) : null}
             {outH > 0 ? (
@@ -116,7 +116,7 @@ export function PriceChart({ entries }: Props) {
                 fill={CHART_ORANGE}
                 rx={1.5} // radius-exempt: 图表细柱微圆角(1.5px),吸附到档位会破坏观感
               >
-                <title>{`${d.name} · 输出价: ${d.outputRaw}`}</title>
+                <title>{t('priceChart.outputPrice', { name: d.name, price: d.outputRaw })}</title>
               </rect>
             ) : null}
             <text
@@ -136,12 +136,12 @@ export function PriceChart({ entries }: Props) {
         {/* radius-exempt: 图例小方块微圆角(1px),吸附到档位会破坏观感 */}
         <rect x={PAD_L} y={2} width={8} height={8} fill={CHART_BLUE} rx={1} />
         <text x={PAD_L + 12} y={9} className="fill-muted-foreground" fontSize={8}>
-          输入
+          {t('priceChart.legendInput')}
         </text>
         {/* radius-exempt: 图例小方块微圆角(1px),吸附到档位会破坏观感 */}
         <rect x={PAD_L + 44} y={2} width={8} height={8} fill={CHART_ORANGE} rx={1} />
         <text x={PAD_L + 56} y={9} className="fill-muted-foreground" fontSize={8}>
-          输出
+          {t('priceChart.legendOutput')}
         </text>
       </g>
     </svg>
