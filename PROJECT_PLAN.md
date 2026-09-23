@@ -328,6 +328,10 @@
    判据:每个包声明的 `workspace:*` 依赖必须在 `<pkg>/node_modules` 或根 `node_modules` 可解析
    (跟随符号链接,悬空即红);扫不到包时 `exit 1` 而非报绿(自测里就抓到过一次"扫 0 个却绿灯")。
    取证含**反向对照**:临时改名真链接 → 闸报 `rc=1` 并点名 `@ihui/extension 缺 @ihui/design-tokens`,复原后归零。
+   **同日 14:2x 把口径的最后一个洞闭合**:`--staged` 原按"本次暂存改了哪些 `package.json`"收窄范围,
+   而这类破损恰恰与"改了什么"无关(手动删链接 / 他机跑过 `--filter` / 清理工具动过依赖树)——
+   按 staged 收范围会**放过整类**。现改为恒全量(25 个包实测约 1s,成本可忽略),并按新形态重做
+   反向对照:**暂存区为空 + 藏一条真链接 ⇒ `rc=1` 且点名**,复原归零。
    `--self-test` 9 例 + `node --test scripts/tests/check-workspace-dep-links.test.mjs` 7 例(含"装车证明")。
 2. **`scripts/check-credential-health.mjs` 独立巡检(计划任务 `IHUI credential-health`,每 6 小时)** ——
    它不看部署脚本自己怎么说,只看**外部地面真相**:① nssm 服务环境块里的口令 vs 权威口令表
