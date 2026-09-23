@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
   },
   tabTextActive: {
     fontSize: 13,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '700',
   },
   viewport: {
