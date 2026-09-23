@@ -29,7 +29,7 @@
  *  即"吊销"对 JWT 直连的业务接口要到 exp 才生效。补齐需要在 plugins/auth.ts 里
  *  接一次 `TokenBlacklist.has()`,该文件在本任务禁改清单内,故只交付接线代码(见交付说明)。
  */
-import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { decodeJwt } from 'jose'
 import {
@@ -344,7 +344,7 @@ export const oauthTokensRoutes: FastifyPluginAsync = async (server) => {
 
 type TokenBody = z.infer<typeof tokenRequestSchema>
 /** 本文件所有子函数只需要实例上的 log + redis,显式收窄成这个别名。 */
-type OAuthServer = FastifyInstance
+type OAuthServer = import('fastify').FastifyInstance
 
 /** authorization_code:原子消费 code → PKCE 闸门 → 签用户令牌对。 */
 async function handleAuthorizationCodeGrant(
