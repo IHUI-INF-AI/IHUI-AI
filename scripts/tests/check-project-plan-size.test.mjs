@@ -91,17 +91,19 @@ test('空文件(0 字节)→ exit 0', () => {
   }
 })
 
-// ─── 4. 体积 > 阈值 → warn(仍 exit 0,warn-only) ────────
+// ─── 4. 体积 > 阈值 → warn(warn-only 违规 exit 1) ────────
 
-test('PROJECT_PLAN.md 体积 > 500KB → exit 0(warn-only)+ ⚠️ 警告', () => {
+test('PROJECT_PLAN.md 体积 > 500KB → exit 1(warn-only)+ ⚠️ 警告', () => {
   const dir = createTempRoot()
   try {
     // 生成 500KB + 1KB 内容
     writePlan(dir, 'x'.repeat(WARN_BYTES + 1024))
     const r = runScript(dir)
-    assert.equal(r.status, 0, `warn-only 始终 exit 0\nstdout: ${r.out}\nstderr: ${r.err}`)
-    // warn 输出在 console.warn(stderr),源脚本第 42-46 行
-    assert.match(r.err, /体积偏大|warn-only/)
+    // 2026-08-19 起脚本有意 exit 1 供 runner 计 warning(依据:scripts/check-project-plan-size.mjs:51-53 注释 + runner id 13b mode=warn)
+    assert.equal(r.status, 1, `warn-only 违规应 exit 1\nstdout: ${r.out}\nstderr: ${r.err}`)
+    // warn 输出在 console.warn(stderr),源脚本第 46-54 行
+    assert.match(r.err, /体积偏大/)
+    assert.match(r.err, /warn-only/)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -133,8 +135,10 @@ test('边界: 体积 = 500KB + 1 字节 → 触发 warn', () => {
     const stats = statSync(join(dir, 'PROJECT_PLAN.md'))
     assert.equal(stats.size, WARN_BYTES + 1)
     const r = runScript(dir)
-    assert.equal(r.status, 0)
+    // 2026-08-19 起脚本有意 exit 1 供 runner 计 warning(依据:scripts/check-project-plan-size.mjs:51-53 注释 + runner id 13b mode=warn)
+    assert.equal(r.status, 1, 'warn-only 违规应 exit 1')
     assert.match(r.err, /体积偏大/)
+    assert.match(r.err, /warn-only/)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

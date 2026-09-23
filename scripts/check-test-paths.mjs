@@ -37,9 +37,12 @@
  * 历史案例: 见 .ihui-agent/archive/AGENTS_history.md
  */
 import { existsSync, readdirSync } from 'node:fs'
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { join, relative, resolve, sep } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
+
+const GIT = process.env.IHUI_GIT_BIN || 'git'
 
 const C = {
   red: '\x1b[31m',
@@ -94,15 +97,6 @@ const ALLOWED_DOT_DIRS = new Set([
   '.env.example',
   '.env.local',
 ])
-
-function run(cmd, opts = {}) {
-  try {
-    return execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true, ...opts }).trim()
-  } catch (e) {
-    if (opts.allowFail) return ''
-    throw e
-  }
-}
 
 function header(label) {
   return `\n${C.cyan}${C.bold}── ${label} ──${C.reset}`
@@ -205,20 +199,64 @@ function hasGitkeep(dir) {
 }
 
 /**
- * 调用 git check-ignore -v 验证目录是否被 ignore
- * 返回空字符串表示不被 ignore,非空表示被 ignore(含规则来源)
+ * 解析 `git check-ignore -v <path>` 的输出 ⇒ { ignored, rule }。
+ *
+ * 输出形态:`<来源>:<行号>:<模式>\t<路径>`。⚠️ 带 -v 时 git 对**否定规则**(`!pattern`)
+ * 同样打印命中行,所以"输出非空 = 被忽略"是错的:实测 .gitignore 第 245 行那条以 `!` 开头的
+ * 反忽略规则会把 apps/web/src/components/billing/__tests__/ 判成 BLOCK(假阳性,会卡死无关提交)。
+ * 反忽略的 `apps/web/src/components/billing/__tests__/` 判成 BLOCK(假阳性,会卡死无关提交)。
+ * 判据只能是"命中的模式本身不以 `!` 开头"。来源路径在 Windows 下含盘符冒号,故按**最后一个**
+ * 冒号段取模式,不按固定下标。
  */
-function checkIgnore(absPath) {
+export function parseCheckIgnoreLine(line) {
+  if (!line || !line.trim()) return { ignored: false, rule: '' }
+  const head = line.split('\t')[0]
+  const pattern = head.split(':').pop() ?? ''
+  return { ignored: !pattern.startsWith('!'), rule: head.trim() }
+}
+
+/**
+ * git check-ignore -v 复核单个路径(目录或文件)。
+ * exit 1 = 无任何规则命中 ⇒ 不被忽略;exit 0 = 命中某条规则 ⇒ 再看是否否定。
+ */
+function probeIgnore(absPath, { asDir = true } = {}) {
   const rel = relative(ROOT, absPath).split(sep).join('/')
-  // 加 / 表示检查目录本身
-  return run(`git check-ignore -v "${rel}/" 2>&1`, { allowFail: true })
+  // 目录探查要带尾斜杠(否则 git 按文件模式匹配,结论相反);文件探查**不得**带
+  const target = asDir ? (rel.endsWith('/') ? rel : `${rel}/`) : rel
+  let out = ''
+  try {
+    out = execFileSync(GIT, ['-c', 'safe.directory=*', 'check-ignore', '-v', target], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true,
+      maxBuffer: 16 * 1024 * 1024,
+    })
+  } catch (e) {
+    if (e && e.status === 1) return { ignored: false, rule: '' }
+    // status 128(不在 git 环境)/ 其他异常:宁可不判红,由"不被忽略"分支放过并如实报
+    return { ignored: false, rule: `git-error:${e?.status ?? e?.message ?? 'unknown'}` }
+  }
+  return parseCheckIgnoreLine(out.split('\n').find((l) => l.trim()))
+}
+
+/** 目录内前若干个文件(用于"目录未命中但文件被吞"的第二层复核) */
+function sampleFilesIn(dir, limit = 5) {
+  try {
+    return readdirSync(dir, { withFileTypes: true })
+      .filter((d) => d.isFile())
+      .slice(0, limit)
+      .map((d) => join(dir, d.name))
+  } catch {
+    return []
+  }
 }
 
 function toRel(absPath) {
   return relative(ROOT, absPath)
 }
 
-function main() {
+async function main() {
   const isStrict = process.argv.includes('--strict')
 
   console.log(`${C.cyan}${C.bold}🧪 测试目录与误忽略路径守门(AGENTS.md §23 配套)${C.reset}`)
@@ -245,23 +283,30 @@ function main() {
     for (const dir of testsDirs) {
       const rel = toRel(dir)
       const gitkeep = hasGitkeep(dir)
-      const ignoreRule = checkIgnore(dir)
-      const isIgnored = Boolean(ignoreRule)
+      // 两层探查:目录本身 + 目录内实文件。只查目录会漏"目录未命中、里面的 .test.ts 被吞"
+      // (`**/__tests__/*.ts` 这类规则);只查非否定又会把反忽略判成红(见 parseCheckIgnoreLine)。
+      const dirProbe = probeIgnore(dir, { asDir: true })
+      const fileProbes = sampleFilesIn(dir).map((f) => ({ f, ...probeIgnore(f, { asDir: false }) }))
+      const hitFile = fileProbes.find((p) => p.ignored)
+      const isIgnored = dirProbe.ignored || Boolean(hitFile)
+      const ruleText = dirProbe.ignored ? dirProbe.rule : (hitFile?.rule ?? '')
       if (isIgnored && !gitkeep) {
-        // 命中 __* 规则且无 .gitkeep → 阻断
+        // 命中 ignore 规则且无 .gitkeep → 阻断
         issues.push({
           level: 'block',
           path: rel,
-          reason: `__tests__/ 目录被 .gitignore 忽略(${ignoreRule.split('\n')[0] || '__* 规则'}),且无 .gitkeep 标记,测试文件不会被 git 跟踪`,
+          reason:
+            `__tests__/ 被 .gitignore 忽略(${ruleText || 'ignore 规则'}),且无 .gitkeep 标记,` +
+            (hitFile ? `其中 ${toRel(hitFile.f)} 不会被 git 跟踪` : '测试文件不会被 git 跟踪'),
           fix: '方案 A(推荐):将目录重命名为 tests/; 方案 B:在目录内放 .gitkeep 并接受所有子文件需用 `!` 反忽略',
         })
         console.log(`  ${C.red}✗${C.reset} ${C.bold}${rel}${C.reset}  ${C.red}[BLOCK]${C.reset}`)
-        console.log(`     ${C.dim}git rule: ${ignoreRule.split('\n')[0]}${C.reset}`)
+        console.log(`     ${C.dim}git rule: ${ruleText}${C.reset}`)
         console.log(`     ${C.dim}.gitkeep: ${gitkeep ? '有' : '无'}${C.reset}`)
       } else if (isIgnored && gitkeep) {
         console.log(`  ${C.green}✓${C.reset} ${rel}  ${C.dim}(已被 ignore + 含 .gitkeep,显式标记) ${C.reset}`)
       } else {
-        // 不被 ignore → 通过
+        // 不被 ignore(含"只被 `!` 反忽略命中")→ 通过
         console.log(`  ${C.green}✓${C.reset} ${rel}  ${C.dim}(未命中 ignore 规则)${C.reset}`)
       }
     }
@@ -369,9 +414,15 @@ function main() {
   process.exit(0)
 }
 
-main().catch((e) => {
-  console.error(`${C.red}❌ 脚本执行异常:${C.reset}`, e?.message ?? e)
-  console.error(e?.stack ?? '(no stack)')
-  process.exit(2)
-})
+// §22d:本模块导出 parseCheckIgnoreLine 供测试直接 import,故入口必须加 isDirectRun 守卫,
+// 否则测试一 import 就连带跑全仓扫描(副作用 + 拖慢)。Windows 反斜杠路径须经 pathToFileURL 归一。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main().catch((e) => {
+    console.error(`${C.red}❌ 脚本执行异常:${C.reset}`, e?.message ?? e)
+    console.error(e?.stack ?? '(no stack)')
+    process.exit(2)
+  })
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

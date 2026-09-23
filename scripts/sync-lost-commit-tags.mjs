@@ -407,7 +407,25 @@ function autoPushMode() {
 
   // ── 增量:只推远端缺失的 tag(2026-09-17 根治全量推 10+ 分钟阻塞)──
   const remoteAll = new Set([...listRemoteLostTags(), ...listRemoteBackupTags()])
-  const missing = allLocal.filter((t) => !remoteAll.has(t))
+  let missing = allLocal.filter((t) => !remoteAll.has(t))
+  // 2026-09-24 加 IHUI_TAG_ONLY:剩余缺失项里大多数是**空壳 tag**(对象已不在本机),
+  // 逐枚推 = 每枚都要跑一遍推送门再被远端拒收(实测 109 枚要约 3 小时),而可推的只有个位数。
+  // 允许调用方给一份精确清单(逗号分隔的短名),只推这些 —— 前提是清单由完整性判据产出:
+  //   git rev-list --objects <commit> 退出码为 0 且 stderr 无 "fatal: missing"。
+  const only = (process.env.IHUI_TAG_ONLY || '')
+    .split(',')
+    .map((s) => s.trim().replace(/^refs\/tags\//, ''))
+    .filter(Boolean)
+  if (only.length) {
+    const set = new Set(missing)
+    const notMissing = only.filter((t) => !set.has(t))
+    if (notMissing.length)
+      console.log(
+        `${C.yellow}⚠️  IHUI_TAG_ONLY 里 ${notMissing.length} 个不在"仅本地"集合(已远端或不存在),忽略:${C.reset} ${notMissing.slice(0, 3).join(', ')}`,
+      )
+    missing = missing.filter((t) => only.includes(t))
+    console.log(`${C.cyan}按 IHUI_TAG_ONLY 精确投递:${missing.length} 个${C.reset}`)
+  }
 
   if (missing.length === 0) {
     run(`printf %s ${now} > ${marker}`, { allowFail: true })
