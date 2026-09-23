@@ -48,7 +48,7 @@ export function SpecImpactTab({ p }: { p: SpecPanelApi }) {
                 RISK_BADGE[p.impactResult.riskLevel],
               )}
             >
-              {t(RISK_LABEL[p.impactResult.riskLevel] ?? p.impactResult.riskLevel)}
+              {RISK_LABEL[p.impactResult.riskLevel] || p.impactResult.riskLevel}
             </span>
             {p.impactResult.llmAnalysis?.summary && (
               <span className="text-xs text-muted-foreground">
