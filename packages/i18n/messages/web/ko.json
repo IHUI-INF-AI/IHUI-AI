@@ -10,6 +10,30 @@
     "creditLowTitle": "크레딧이 부족합니다",
     "creditLowDesc": "크레딧 잔액이 {min} 미만이면 모델을 사용할 수 없습니다. 충전해 주세요"
   },
+  "permissionTier": {
+    "mode": {
+      "default": {
+        "title": "승인 요청",
+        "desc": "프로젝트 외부 파일 편집 및 인터넷 사용 시 항상 확인"
+      },
+      "plan": {
+        "title": "읽기 전용 플랜",
+        "desc": "조회와 검색만 가능하며 파일 편집과 명령 실행은 거부됩니다"
+      },
+      "accept-edits": {
+        "title": "자동 승인",
+        "desc": "감지된 위험 작업에 대해서만 승인 요청"
+      },
+      "bypass-permissions": {
+        "title": "전체 액세스",
+        "desc": "인터넷과 컴퓨터의 모든 파일을 제한 없이 사용 가능"
+      },
+      "unknown": {
+        "title": "알 수 없는 모드",
+        "desc": "인식할 수 없는 권한 모드입니다. 기본 모드로 처리됩니다"
+      }
+    }
+  },
   "treeSelect": {
     "placeholder": "선택하세요",
     "searchPlaceholder": "검색...",
@@ -9471,16 +9495,6 @@
       "learnMore": "자세히 보기",
       "loading": "불러오는 중…",
       "me": "나",
-      "mode": {
-        "plan": "읽기 전용 플랜",
-        "planDesc": "조회와 검색만 가능하며 파일 편집과 명령 실행은 거부됩니다",
-        "ask": "승인 요청",
-        "askDesc": "프로젝트 외부 파일 편집 및 인터넷 사용 시 항상 확인",
-        "auto": "자동 승인",
-        "autoDesc": "감지된 위험 작업에 대해서만 승인 요청",
-        "full": "전체 액세스",
-        "fullDesc": "인터넷과 컴퓨터의 모든 파일을 제한 없이 사용 가능"
-      },
       "popoverHintNoWorkspace": "워크스페이스가 연결되지 않음 — 연결 시 선택 사항이 적용됩니다",
       "popoverTitle": "AI 작업을 어떻게 승인하시겠어요?",
       "quickFullAccess": "전체 액세스",
@@ -21075,28 +21089,6 @@
       "highRisk": "고위험",
       "loadingRules": "규칙 로딩 중...",
       "manageRules": "규칙 관리",
-      "mode": {
-        "accept-edits": {
-          "desc": "화이트리스트 내 작업은 자동 허용, 나머지는 확인 필요",
-          "title": "편집 허용"
-        },
-        "bypass-permissions": {
-          "desc": "완전 접근, 확인 없음 (고위험)",
-          "title": "권한 우회"
-        },
-        "default": {
-          "desc": "모든 작업은 수동 확인 필요, 가장 안전",
-          "title": "기본 모드"
-        },
-        "plan": {
-          "title": "읽기 전용 플랜",
-          "desc": "조회와 검색만 허용됩니다. 파일 편집과 명령 실행은 항상 거부됩니다"
-        },
-        "unknown": {
-          "desc": "인식할 수 없는 권한 모드",
-          "title": "알 수 없는 모드"
-        }
-      },
       "noRules": "규칙 없음. 재설정 버튼을 눌러 기본 안전 템플릿을 로드하세요",
       "path": "경로",
       "patternPlaceholder": "매칭 패턴 입력 (예: src/**, *.ts)",

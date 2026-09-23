@@ -61,6 +61,8 @@ import { compactConversation, getMessages } from '@ihui/api-client'
 import { MARKET_PLUGINS, PROJECT_PLUGINS, getPluginIntegration } from '@plugins-data'
 import { AiSkillInvokeDialog, AiSkillResultDialog } from '@/components/chat/skill-library'
 import type { AiSkillMeta, AiSkillInvokeResponse } from '@ihui/api-client/endpoints/ai-skills'
+import { permissionTierText } from '@/lib/permission-tier-text'
+// 权限档取词(G-166):档位归一与词表键的共享真相源,见 packages/shared/src/chat/permission-tier.ts
 
 // 模板源统一为 5 个核心模板,与 message-list 空状态共用同一组 i18n key,
 // 避免 email/report/review/refactor 4 个无 i18n key 的项显示原始 key 的问题。
@@ -102,6 +104,8 @@ export function MessageInput({
   onFloatDragStart,
 }: MessageInputProps) {
   const t = useTranslations('chat')
+  // G-166:权限档徽章的档名走跨端共享词表(permissionTier),不再用 chat.permission.mode.* 私有键
+  const tTier = useTranslations()
   // 2026-08-02 修复: Bug 3 — useRouter 替代 window.location.href,避免整页刷新丢失状态
   const router = useRouter()
   // 权限模式循环切换 hook(2026-07-29 提取自本文件,深度对标 Codex CLI Shift+Tab 循环):
@@ -973,11 +977,7 @@ export function MessageInput({
                       className="h-1.5 w-1.5 shrink-0 rounded-full bg-current"
                       aria-hidden="true"
                     />
-                    {activeWorkspaceMode === 'bypass-permissions'
-                      ? t('permission.mode.full')
-                      : activeWorkspaceMode === 'accept-edits'
-                        ? t('permission.mode.auto')
-                        : t('permission.mode.ask')}
+                    {permissionTierText(activeWorkspaceMode, tTier).title}
                   </span>
                   {/* 高风险模式 ⓘ 详细说明按钮(2026-07-25 深化,可解释性增强):
                     只在 bypass-permissions 模式显示,点击唤起 PermissionModeInfoModal

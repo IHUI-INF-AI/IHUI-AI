@@ -10,6 +10,30 @@
     "creditLowTitle": "Not enough credits",
     "creditLowDesc": "Your credit balance is below {min}, so models are unavailable. Please top up."
   },
+  "permissionTier": {
+    "mode": {
+      "default": {
+        "title": "Ask for approval",
+        "desc": "Always asks before editing files outside this project or using the internet"
+      },
+      "plan": {
+        "title": "Read-only plan",
+        "desc": "Reads and searches only; editing files and running commands are refused"
+      },
+      "accept-edits": {
+        "title": "Auto-approve edits",
+        "desc": "Only asks before running detected risky actions"
+      },
+      "bypass-permissions": {
+        "title": "Full access",
+        "desc": "Can use the internet and any file on your computer without asking"
+      },
+      "unknown": {
+        "title": "Unknown mode",
+        "desc": "Unrecognized permission mode; treated as the default tier"
+      }
+    }
+  },
   "treeSelect": {
     "placeholder": "Select an option",
     "searchPlaceholder": "Search...",
@@ -9481,16 +9505,6 @@
       "learnMore": "Learn more",
       "loading": "Loading…",
       "me": "Me",
-      "mode": {
-        "plan": "Read-only plan",
-        "planDesc": "Reads and searches only; editing files and running commands are refused",
-        "ask": "Ask for approval",
-        "askDesc": "Always asks before editing files outside this project or using the internet",
-        "auto": "Auto-approve edits",
-        "autoDesc": "Only asks before running detected risky actions",
-        "full": "Full access",
-        "fullDesc": "Can use the internet and any file on your computer without asking"
-      },
       "popoverHintNoWorkspace": "No workspace bound — your selection will take effect when you bind one",
       "popoverTitle": "How should Codex approve actions?",
       "quickFullAccess": "Full access",
@@ -21096,28 +21110,6 @@
       "highRisk": "High Risk",
       "loadingRules": "Loading rules...",
       "manageRules": "Manage Rules",
-      "mode": {
-        "accept-edits": {
-          "desc": "Whitelisted operations auto-allowed, others require confirmation",
-          "title": "Accept Edits"
-        },
-        "bypass-permissions": {
-          "desc": "Full access, no confirmation (high risk)",
-          "title": "Bypass Permissions"
-        },
-        "default": {
-          "desc": "All operations require manual confirmation. Most secure.",
-          "title": "Default"
-        },
-        "plan": {
-          "title": "Read-only plan",
-          "desc": "Reads and searches only; edits and command execution are always refused"
-        },
-        "unknown": {
-          "desc": "Unrecognized permission mode",
-          "title": "Unknown Mode"
-        }
-      },
       "noRules": "No rules. Click reset button to load the default safety template.",
       "path": "Path",
       "patternPlaceholder": "Enter match pattern (e.g. src/**, *.ts)",

@@ -10,6 +10,30 @@
     "creditLowTitle": "智汇值不足",
     "creditLowDesc": "您的智汇值余额小于 {min},无法使用大模型,请前往充值"
   },
+  "permissionTier": {
+    "mode": {
+      "default": {
+        "title": "请求批准",
+        "desc": "编辑外部文件和使用互联网时始终询问"
+      },
+      "plan": {
+        "title": "只读计划",
+        "desc": "仅读取与检索，写文件和执行命令都会被拒绝"
+      },
+      "accept-edits": {
+        "title": "替我审批",
+        "desc": "仅对检测到的风险操作请求批准"
+      },
+      "bypass-permissions": {
+        "title": "完全访问权限",
+        "desc": "可不受限制地访问互联网和您电脑上的任何文件"
+      },
+      "unknown": {
+        "title": "未知模式",
+        "desc": "无法识别的权限模式，已按默认档处理"
+      }
+    }
+  },
   "treeSelect": {
     "placeholder": "请选择",
     "searchPlaceholder": "搜索...",
@@ -9471,16 +9495,6 @@
       "learnMore": "了解更多",
       "loading": "加载中…",
       "me": "我",
-      "mode": {
-        "plan": "只读计划",
-        "planDesc": "仅读取与检索，写文件和执行命令都会被拒绝",
-        "ask": "请求批准",
-        "askDesc": "编辑外部文件和使用互联网时始终询问",
-        "auto": "替我审批",
-        "autoDesc": "仅对检测到的风险操作请求批准",
-        "full": "完全访问权限",
-        "fullDesc": "可不受限制地访问互联网和您电脑上的任何文件"
-      },
       "popoverHintNoWorkspace": "未绑定工作区,选定后将在绑定时生效",
       "popoverTitle": "应如何批准 AI 操作?",
       "quickFullAccess": "完全访问",
@@ -21063,28 +21077,6 @@
       "highRisk": "高风险",
       "loadingRules": "加载规则中...",
       "manageRules": "管理规则",
-      "mode": {
-        "accept-edits": {
-          "desc": "白名单内的操作自动放行,其他需确认",
-          "title": "接受编辑"
-        },
-        "bypass-permissions": {
-          "desc": "完全访问,无任何确认(高风险)",
-          "title": "绕过权限"
-        },
-        "default": {
-          "desc": "全部操作需人工确认,最安全",
-          "title": "默认模式"
-        },
-        "plan": {
-          "title": "只读计划",
-          "desc": "仅允许读取与检索,写文件与执行命令一律拒绝"
-        },
-        "unknown": {
-          "desc": "未识别的权限模式",
-          "title": "未知模式"
-        }
-      },
       "noRules": "暂无规则,点击重置按钮加载预置安全模板",
       "path": "路径",
       "patternPlaceholder": "输入匹配模式(如 src/**, *.ts)",
