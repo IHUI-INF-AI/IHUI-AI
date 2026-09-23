@@ -10,7 +10,6 @@
  */
 
 import * as React from 'react'
-import { useTranslations } from 'next-intl'
 import { Send, Loader2, Eraser } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import { callPlayground } from '@/lib/playground-api'
@@ -38,8 +37,6 @@ function createInitialMessages(): PlaygroundMessage[] {
 }
 
 export function PlaygroundClient() {
-  const t = useTranslations('playground')
-  const tc = useTranslations('common')
   const [messages, setMessages] = React.useState<PlaygroundMessage[]>(createInitialMessages)
   const [params, setParams] = React.useState<PlaygroundParams>(DEFAULT_PLAYGROUND_PARAMS)
   const [apiKey, setApiKey] = React.useState('')
@@ -58,16 +55,16 @@ export function PlaygroundClient() {
     setError(null)
 
     if (!apiKey.trim()) {
-      setError(t('needApiKey'))
+      setError('请先填写 API Key')
       return
     }
     if (!params.model.trim()) {
-      setError(t('needModel'))
+      setError('请选择或输入模型')
       return
     }
     const validMessages = messages.filter((m) => m.content.trim())
     if (validMessages.length === 0) {
-      setError(t('needValidMessage'))
+      setError('请至少输入一条有效消息')
       return
     }
 
@@ -91,11 +88,11 @@ export function PlaygroundClient() {
         response: result,
       })
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('callFailed'))
+      setError(e instanceof Error ? e.message : '调用失败')
     } finally {
       setIsStreaming(false)
     }
-  }, [apiKey, params, messages, addHistory, t])
+  }, [apiKey, params, messages, addHistory])
 
   const handleClear = React.useCallback(() => {
     setMessages(createInitialMessages())
@@ -122,14 +119,14 @@ export function PlaygroundClient() {
           ) : (
             <Send className="h-4 w-4" />
           )}
-          {t('send')}
+          发送
         </Button>
         <Button variant="outline" onClick={handleClear} disabled={isStreaming}>
           <Eraser className="h-4 w-4" />
-          {tc('clear')}
+          清空
         </Button>
         <span className="ml-auto text-xs text-muted-foreground">
-          POST /v1/chat/completions {params.stream ? t('modeSse') : t('modeNonStream')}
+          POST /v1/chat/completions {params.stream ? '· SSE' : '· 非流式'}
         </span>
       </div>
 
