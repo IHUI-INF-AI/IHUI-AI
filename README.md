@@ -1300,7 +1300,7 @@ cd IHUI-AI && docker compose up -d
   - `CategoryDropdown` — 触发器 + 下拉面板(点击开下拉窗),`measureInWindow` 锚定、下方空间不足则上翻、遮罩点击与 Android 返回键关闭、尺寸变化即关;面板用 `ScrollView`,选项再多也不被 `maxHeight` 裁切。
 - **已迁移 15 处**:共享层 `packages/app/src/features/` 9 屏 — square(文章分类条)/ plaza(任务状态 chip)/ order / team / ranking / recruitment / token-value / study-index / study-publish(动态赛道选择改用**下拉形态**);端内 `apps/mobile-rn/src/` 6 屏 — ProfileScreen / TokenValueScreen / TopicListScreen / MaterialList / StudyIndexScreen / AgentScreen 赛道弹层两横滑行(顺带删掉违规 hairline `trackDivider`)。
 - **一并消掉的重复实现**:各屏本地 `tab/tabActive/chip/chipText…` 样式键在确认零引用后删除;`apps/mobile-rn/src/components/StudyBar.tsx` 与 `SingleTypeBar.tsx` 已**无任何调用点**(仍留在仓内,删除需同步下调 `scripts/radius-single-source-baseline.json` 的 2 条基线,留作下一步)。
-- **验证**:`@ihui/rn-app` + `@ihui/mobile-rn` `tsc --noEmit` 0 错;eslint 0 诊断;`apps/mobile-rn` vitest 382 例全过;`node scripts/check-radius-single-source.mjs` 绿;真机(v0.0.4 / versionCode 5,release 包内嵌 JS)逐屏回归。
+- **验证**:`@ihui/rn-app` + `@ihui/mobile-rn` `tsc --noEmit` 0 错;eslint 0 诊断;`apps/mobile-rn` vitest 382 例全过;`node scripts/check-radius-single-source.mjs` 绿;release 包(v0.0.4 / versionCode 5)已装机并确认新代码进包(Hermes bundle 内命中 `CategoryInlineBar` / `agent-track-bar`)。**真机逐屏回归未完成**:首轮取证即发现"选中 chip 底色未落上"的可见缺陷(详见 PROJECT_PLAN 该条目),修复后设备 USB 掉线,复验待设备回线。
 
 ### 项目状态矩阵(透明标注,2026-07-22 核对)
 
