@@ -17,6 +17,7 @@ import { Pressable, StyleSheet, Text, View, type TextStyle, type ViewStyle } fro
 import type { ReactNode } from 'react'
 import { tokens } from '../theme/active-tokens'
 import { Check, CircleCheck, Crown, Sparkles, X, type LucideIcon } from 'lucide-react-native'
+import { rnRadius } from '@ihui/design-tokens'
 
 export interface BenefitItem {
   id: string
@@ -222,7 +223,7 @@ export function UserMembershipBenefits({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: tokens.surface.card,
-    borderRadius: 16,
+    borderRadius: rnRadius['2xl'],
     padding: 16,
     gap: 12,
   } as ViewStyle,
@@ -252,14 +253,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     backgroundColor: tokens.surface.muted,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     paddingHorizontal: 12,
     paddingVertical: 10,
   } as ViewStyle,
   benefitIconWrap: {
     width: 32,
     height: 32,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
@@ -280,7 +281,7 @@ const styles = StyleSheet.create({
   // ── 权益对比表 ──
   compareSection: {
     backgroundColor: tokens.surface.muted,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     padding: 12,
     gap: 10,
     borderWidth: 1,
@@ -357,7 +358,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   openBtn: {
     height: 44,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     backgroundColor: tokens.brandAccent.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
