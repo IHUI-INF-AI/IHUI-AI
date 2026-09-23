@@ -68,6 +68,8 @@ import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
 
@@ -770,13 +772,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(24),
     gap: rpx(24),
     backgroundColor: tk.surface.card,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     marginBottom: rpx(12),
   } as ViewStyle,
   previewModelIcon: {
     width: 36,
     height: 36,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tk.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -800,7 +802,7 @@ const styles = StyleSheet.create({
   previewBadge: {
     paddingHorizontal: rpx(16),
     paddingVertical: rpx(4),
-    borderRadius: 4,
+    borderRadius: rnRadius.sm,
   } as ViewStyle,
   previewBadgeFree: {
     backgroundColor: tk.success.lighter,
@@ -855,13 +857,13 @@ const styles = StyleSheet.create({
   gridCover: {
     width: '100%',
     height: GRID_COVER_HEIGHT,
-    borderRadius: 7,
+    borderRadius: rnRadius.md,
     backgroundColor: tk.gray.black,
   } as ImageStyle,
   gridCoverPlaceholder: {
     width: '100%',
     height: GRID_COVER_HEIGHT,
-    borderRadius: 7,
+    borderRadius: rnRadius.md,
     backgroundColor: tk.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -906,7 +908,7 @@ const styles = StyleSheet.create({
   gridAvatar: {
     width: 12,
     height: 12,
-    borderRadius: 4,
+    borderRadius: rnRadius.sm,
     marginRight: rpx(4),
   } as ImageStyle,
   gridAuthor: {
@@ -919,14 +921,14 @@ const styles = StyleSheet.create({
   tipOuter: {
     backgroundColor: tk.brandAccent.light,
     padding: rpx(2),
-    borderRadius: 7,
+    borderRadius: rnRadius.md,
     marginBottom: rpx(18),
   } as ViewStyle,
   tipInner: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: tk.border.light,
-    borderRadius: 7,
+    borderRadius: rnRadius.md,
     paddingVertical: rpx(4),
     paddingHorizontal: rpx(6),
   } as ViewStyle,
@@ -952,7 +954,7 @@ const styles = StyleSheet.create({
   tipMyModel: {
     width: 72,
     height: 28,
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tk.brandAccent.deep,
     backgroundColor: tk.brandAccent.light,
@@ -1002,7 +1004,7 @@ const styles = StyleSheet.create({
   retryBtn: {
     paddingHorizontal: rpx(32),
     paddingVertical: rpx(16),
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tk.brand.DEFAULT,
   } as ViewStyle,
   retryText: {

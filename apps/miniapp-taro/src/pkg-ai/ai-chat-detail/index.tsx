@@ -320,7 +320,7 @@ export default function AiChatDetail() {
               {tt('aiChatDetail.loadFailed', '加载失败')}
             </Text>
             <View
-              className="mt-[24rpx] px-[48rpx] py-[16rpx] bg-primary rounded-[24rpx] flex items-center justify-center"
+              className="mt-[24rpx] px-[48rpx] py-[16rpx] bg-primary rounded-xl flex items-center justify-center"
               onClick={loadData}
               hoverClass="opacity-60"
             >
@@ -339,8 +339,8 @@ export default function AiChatDetail() {
                 <View
                   className={`max-w-[80%] px-[20rpx] py-[20rpx] ${
                     msg.role === 'user'
-                      ? 'bg-muted rounded-[24rpx]'
-                      : 'bg-card border-[2rpx] border-border rounded-[30rpx]'
+                      ? 'bg-muted rounded-xl'
+                      : 'bg-card border-[2rpx] border-border rounded-2xl'
                   }`}
                 >
                   <Text className="text-[32rpx] leading-[44rpx] break-words text-foreground">
@@ -373,7 +373,7 @@ export default function AiChatDetail() {
           {inputFiles.map((f) => (
             <View
               key={f.id}
-              className="relative w-[144rpx] h-[144rpx] rounded-[24rpx] bg-[var(--color-border)] overflow-hidden flex items-center justify-center"
+              className="relative w-[144rpx] h-[144rpx] rounded-xl bg-[var(--color-border)] overflow-hidden flex items-center justify-center"
             >
               <Text
                 className="text-[18rpx] text-muted-foreground px-[8rpx] text-center"
@@ -414,7 +414,7 @@ export default function AiChatDetail() {
             {isRecording ? t('messageInput.recording') : t('messageInput.voiceHint')}
           </Text>
           <View
-            className="w-full py-[24rpx] rounded-[24rpx] bg-muted flex items-center justify-center"
+            className="w-full py-[24rpx] rounded-xl bg-muted flex items-center justify-center"
             onTouchStart={() => setIsRecording(true)}
             onTouchEnd={() => setIsRecording(false)}
             onTouchCancel={() => setIsRecording(false)}
@@ -430,9 +430,9 @@ export default function AiChatDetail() {
         </View>
       ) : (
         <View className="px-[20rpx] pt-[10rpx] pb-[20rpx] border-t-[2rpx] border-border flex-shrink-0">
-          {/* 对齐 RN MessageInput inputRow:胶囊描边容器(radius 15dp,聚焦态 border primary) */}
+          {/* 对齐 RN MessageInput inputRow:胶囊描边容器(radius 2xl=16px,聚焦态 border primary) */}
           <View
-            className={`flex flex-row items-end rounded-[30rpx] border-[2rpx] bg-card px-[30rpx] py-[12rpx] gap-[20rpx] ${isInputFocused ? 'border-primary' : 'border-border'}`}
+            className={`flex flex-row items-end rounded-2xl border-[2rpx] bg-card px-[30rpx] py-[12rpx] gap-[20rpx] ${isInputFocused ? 'border-primary' : 'border-border'}`}
           >
             <View
               className="w-[48rpx] h-[48rpx] flex items-center justify-center shrink-0"
@@ -496,7 +496,7 @@ export default function AiChatDetail() {
                 </View>
               ) : null}
               <View
-                className={`px-[28rpx] py-[16rpx] rounded-[30rpx] min-w-[100rpx] flex items-center justify-center ${!inputValue.trim() || sending ? 'bg-[var(--color-text-tertiary)]' : 'bg-primary'}`}
+                className={`px-[28rpx] py-[16rpx] rounded-2xl min-w-[100rpx] flex items-center justify-center ${!inputValue.trim() || sending ? 'bg-[var(--color-text-tertiary)]' : 'bg-primary'}`}
                 onClick={sendMessage}
                 hoverClass="opacity-60"
               >

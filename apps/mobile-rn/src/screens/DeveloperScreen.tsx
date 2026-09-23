@@ -44,6 +44,8 @@ import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 /** 原 dev_list 三入口图标(CDN,与 Uniapp 一致) */
@@ -330,7 +332,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   headerCard: {
     backgroundColor: tokens.surface.card,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     padding: rpx(28),
     alignItems: 'center',
     marginBottom: rpx(20),
@@ -341,7 +343,7 @@ const styles = StyleSheet.create({
   logo: {
     width: 64,
     height: 64,
-    borderRadius: 32,
+    borderRadius: 32, // radius-exempt: 64x64 头像 logo 真圆,半径=边长一半
   } as ImageStyle,
   userName: {
     fontSize: 17,
@@ -352,18 +354,18 @@ const styles = StyleSheet.create({
   entryBtn: {
     paddingHorizontal: rpx(40),
     paddingVertical: rpx(10),
-    borderRadius: 8,
-    backgroundColor: tokens.brand.DEFAULT,
+    borderRadius: rnRadius.lg,
+    backgroundColor: tokens.brand.ctaFill,
   } as ViewStyle,
   entryBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
   } as TextStyle,
   // ── 开发者信息区 ──
   infoCard: {
     backgroundColor: tokens.surface.card,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     padding: rpx(24),
     marginBottom: rpx(20),
   } as ViewStyle,
@@ -402,7 +404,7 @@ const styles = StyleSheet.create({
   devList: {
     flexDirection: 'row',
     backgroundColor: tokens.surface.card,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     paddingVertical: rpx(24),
     marginBottom: rpx(20),
   } as ViewStyle,
@@ -414,7 +416,7 @@ const styles = StyleSheet.create({
   iconBody: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: 24, // radius-exempt: 48x48 圆形图标底,半径=边长一半
     backgroundColor: tokens.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -438,7 +440,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   problemCard: {
     backgroundColor: tokens.surface.card,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     padding: rpx(24),
   } as ViewStyle,
   problemTitle: {
@@ -456,17 +458,17 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingHorizontal: rpx(24),
     paddingVertical: rpx(8),
-    borderRadius: 6,
-    backgroundColor: tokens.brand.DEFAULT,
+    borderRadius: rnRadius.md,
+    backgroundColor: tokens.brand.ctaFill,
   } as ViewStyle,
   problemBtnText: {
     fontSize: 13,
     fontWeight: '500',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
   } as TextStyle,
   bigBtn: {
     backgroundColor: tokens.surface.card,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     padding: rpx(24),
     alignItems: 'center',
   } as ViewStyle,
