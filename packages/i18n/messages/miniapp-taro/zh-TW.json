@@ -770,6 +770,10 @@
       "confirm": "確認切換"
     },
     "cards": {
+      "steer": {
+        "title": "已引導 {count} 次",
+        "more": "等 {count} 條"
+      },
       "plan": {
         "title": "執行計畫"
       },
