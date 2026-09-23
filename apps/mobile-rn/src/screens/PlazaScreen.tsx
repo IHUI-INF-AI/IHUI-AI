@@ -722,7 +722,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
   },
-  identityBtnOutline: { borderColor: tokens.border.light, backgroundColor: tokens.surface.light },
+  identityBtnOutline: { borderColor: tokens.border.light, backgroundColor: tokens.surface.card },
   identityBtnPrimary: {
     borderColor: tokens.brandAccent.deep,
     backgroundColor: tokens.brandAccent.DEFAULT,
