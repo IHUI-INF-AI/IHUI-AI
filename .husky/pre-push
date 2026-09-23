@@ -83,20 +83,25 @@ else
   fi
   export PUSH_SCOPE_FILES
 
-  node scripts/guardian-runner.mjs --push-gate
+  # ─── 弹窗根治(2026-09-22,详见 scripts/hook-run-hidden.vbs 头注释) ────
+  # 原 3 处裸 node 在无 console 上下文(GUI git 面板/WMI 链/IDE 隐藏 shell)触发
+  # push 时各弹可见控制台窗口;统一 wscript 隐藏包装,输出转 hook-logs 并按需回显。
+  wscript //nologo scripts/hook-run-hidden.vbs pre-push-gate scripts/guardian-runner.mjs --push-gate
   _gate_rc=$?
   if [ "$_gate_rc" -eq 75 ]; then
     # 2026-09-18 中断分类:typecheck 进程被外部中断(CTRL_C 注入/宿主清树/管道中断,
     # 实测 39 次 exit 3221225786)≠ 类型检查结论。以 75 + 标记文件通知 push guard
     # 「临时失败,带 hook 重试」,避免被误判为"其他 agent 代码失败"而 --no-verify 绕过真实门禁。
     printf '%s\n' "⏭️ push 门被中断(exit 75,临时失败)—— 已标记可重试,本次推送中止" >&2
-    node -e "require('fs').writeFileSync('.workbuddy/push-gate-last-result.json', JSON.stringify({ts:Date.now(),code:75}))" 2>/dev/null || true
+    wscript //nologo scripts/hook-run-hidden.vbs pre-push-mark scripts/lib/push-gate-mark.mjs 75
     exit 75
   fi
   if [ "$_gate_rc" -ne 0 ]; then
-    printf '%s\n' "❌ push 门校验失败,推送已阻止" >&2
+    tail -40 .workbuddy/hook-logs/pre-push-gate.log >&2 || true
+    printf '%s\n' "❌ push 门校验失败,推送已阻止(完整日志: .workbuddy/hook-logs/pre-push-gate.log)" >&2
     exit 1
   fi
+  tail -3 .workbuddy/hook-logs/pre-push-gate.log >&2 || true
   printf '%s\n' "✅ push 门校验通过(push-scope/staged-scope 降级已启用)" >&2
 fi
 
@@ -104,4 +109,5 @@ fi
 # 扫描 zh-CN.json 中已声明但代码无 t()/useTranslations() 引用的死 key,
 # 仅打印末尾 3 行摘要,exit 1 由 || true 吞掉,不阻塞 push(对应 CI 阻塞).
 # 跳过方法:HUSKY_SKIP_I18N_AUDIT=1(不推荐,CI 仍会阻塞).
-node scripts/scan-dead-i18n-keys.mjs --dry-run 2>&1 | tail -3 || true
+wscript //nologo scripts/hook-run-hidden.vbs pre-push-i18n scripts/scan-dead-i18n-keys.mjs --dry-run || true
+tail -3 .workbuddy/hook-logs/pre-push-i18n.log >&2 || true

@@ -11,9 +11,9 @@
  * - onPrimary 回调:跳转逻辑预留(原版 navigateToCommission 为 navigateTo/switchTab/navigateTo 降级,
  *   由调用方在 onPrimary 中接入路由跳转)
  * - 可选 bullets 要点列表(success 绿 ✓)
- * - 浅色优雅风,系统字体,配色走 rnLightTokens(brand/success/warning/danger)
+ * - 浅色优雅风,系统字体,配色走 主题 token 入口(brand/success/warning/danger)
  */
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { Modal, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native'
 
 export interface PurchaseNoticePopUpProps {
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.overlay.modal,
   } as ViewStyle,
   sheet: {
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderTopLeftRadius: CARD_BORDER_RADIUS,
     borderTopRightRadius: CARD_BORDER_RADIUS,
     paddingBottom: 24,
