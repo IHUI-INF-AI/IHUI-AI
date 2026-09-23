@@ -36,15 +36,20 @@ export const BROADCAST_CONCURRENCY = 10
 /**
  * 群发 Dispatch 邮件(分批并发,单封失败计入 failed 不中断)。
  * 调用方自行决定同步等待统计还是 fire-and-forget。
+ *
+ * 计数口径(2026-09-23 修正):只有 result.sent === true 才算 sent。
+ * sendEmail 对 stub/失败不 throw,按 allSettled 的 fulfilled 计数的旧口径
+ * 会把"通道未开、一封没发"报告成"全部送达"(群发报告失真的根因)。
  */
 export async function broadcastDispatchEmail(
   mail: DispatchEmail,
   recipients: EmailRecipient[],
-): Promise<{ total: number; sent: number; failed: number }> {
+): Promise<{ total: number; sent: number; failed: number; stubbed?: number }> {
   const { sendEmail } = await import('./email-service.js')
   const targets = recipients.filter((r) => r.email)
   let sent = 0
   let failed = 0
+  let stubbed = 0
   for (let i = 0; i < targets.length; i += BROADCAST_CONCURRENCY) {
     const batch = targets.slice(i, i + BROADCAST_CONCURRENCY)
     const results = await Promise.allSettled(
@@ -60,10 +65,15 @@ export async function broadcastDispatchEmail(
       ),
     )
     for (const r of results) {
-      if (r.status === 'fulfilled') sent++
-      else failed++
+      if (r.status === 'fulfilled' && r.value.sent) {
+        sent++
+      } else {
+        failed++
+        // stub(配置缺失导致未发送)单独计数:与"通道故障"区分,运维按 stubbed>0 查配置
+        if (r.status === 'fulfilled' && r.value.stub) stubbed++
+      }
     }
   }
-  return { total: targets.length, sent, failed }
+  return { total: targets.length, sent, failed, stubbed }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
