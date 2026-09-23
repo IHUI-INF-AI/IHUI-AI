@@ -13,13 +13,13 @@ import { fileURLToPath } from 'node:url'
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const GUARD = join(ROOT, 'scripts/check-radius-single-source.mjs')
 
-test('守门 77 自检 18 例全通过(含真实档位表端到端对账)', () => {
+test('守门 77 自检全通过(含真实档位表端到端对账 + TS 内嵌 CSS 与同行多声明)', () => {
   const out = execFileSync(process.execPath, [GUARD, '--self-test'], {
     cwd: ROOT,
     encoding: 'utf8',
     windowsHide: true,
   })
-  assert.match(out, /全部 18 例通过/)
+  assert.match(out, /全部 (\d+) 例通过/)
   assert.doesNotMatch(out, /❌/)
 })
 
