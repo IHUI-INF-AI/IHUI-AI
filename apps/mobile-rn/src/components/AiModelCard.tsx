@@ -29,7 +29,7 @@ import {
   ThumbsDown,
   type LucideIcon,
 } from 'lucide-react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import type { AiModelData, AiModelUserType } from '@ihui/types'
 

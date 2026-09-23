@@ -48,7 +48,7 @@ import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import type { ModelConfigType } from '@ihui/ui-native'
 import { Check, Mic, Music, Plus, Square, X } from 'lucide-react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 
 // 共享类型(ModelConfigType)从 packages/types 下沉,两端复用。
 // 保留 ModelType 别名以维持本模块对外 API 向后兼容(虽然当前 mobile-rn 内部无外部引用,

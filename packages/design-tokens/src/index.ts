@@ -75,6 +75,21 @@ export {
   chartBg,
 } from './chart-colors'
 
+// D46(2026-09-23):受控图表模板注册表(白名单唯一真源,色值同源 chart-colors)。
+export {
+  CHART_TEMPLATES,
+  isChartTemplateId,
+  chartTemplateMeta,
+  parseChartTemplatePayload,
+  parseChartTemplateJson,
+} from './chart-templates'
+export type {
+  ChartTemplateId,
+  ChartTemplateScene,
+  ChartTemplateMeta,
+  ChartTemplatePayload,
+} from './chart-templates'
+
 // 第三方 OAuth 平台品牌色唯一真相源(mobile-rn 登录页第三方按钮消费,明暗恒定)。
 export { OAUTH_BRAND_COLORS } from './oauth-colors'
 

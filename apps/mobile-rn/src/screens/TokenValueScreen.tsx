@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, StyleSheet, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import {
   getTokenBalance,
   getTokenFlows,

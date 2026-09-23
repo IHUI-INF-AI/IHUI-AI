@@ -56,7 +56,7 @@ import * as MediaLibrary from 'expo-media-library'
 import { captureRef } from 'react-native-view-shot'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import {
   Bot,
   BookOpen,

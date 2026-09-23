@@ -65,18 +65,20 @@ import {
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 // 权限档读侧归一(G-161/G-164):跨界拼写多套,查表/比较前先归一到 wire 拼写
 import { permissionModeWire } from '@ihui/types/permission-mode'
+// 权限档取词(G-166):档位归一与词表键的共享真相源,见 packages/shared/src/chat/permission-tier.ts
 import { useConfirm } from '@/hooks/use-confirm'
+import { permissionTierText } from '@/lib/permission-tier-text'
 
 /** 历史面板最大展示条数 */
 const HISTORY_DISPLAY_LIMIT = 10
 
 /**
- * 档位显示表(G-164:补 `plan` 一档)。
+ * 档位图标表(G-164:补 `plan` 一档)。
  *
- * 这两个 Record 的键类型就是 `WorkspacePermissionMode` 本身 —— 上一版共享类型里声明了
- * `plan` 而这里只列 3 档,tsc 会直接把"新增档位没补显示表"报成编译错(而不是像以前那样
- * 运行时 `MODE_KEY_MAP[mode]` 取到 undefined 再喂给 t() 静默坏掉)。
- * 查表前先 permissionModeWire() 归一:历史上落库是 kebab,新链路可能送 camel/别名。
+ * 键类型就是 `WorkspacePermissionMode` 本身 —— 上一版共享类型里声明了 `plan` 而这里只列
+ * 3 档,tsc 会直接把"新增档位没补图标"报成编译错。
+ * 档名不在这里(G-166):一律经 permissionTierText() 走跨端共享词表,查表前先
+ * permissionModeWire() 归一 —— 历史上落库是 kebab,新链路可能送 camel/别名。
  */
 const MODE_ICON: Record<WorkspacePermissionMode, React.ComponentType<{ className?: string }>> = {
   default: Hand,
@@ -85,15 +87,6 @@ const MODE_ICON: Record<WorkspacePermissionMode, React.ComponentType<{ className
   'bypass-permissions': ShieldAlert,
 }
 
-type ModeLabelKey = 'mode.ask' | 'mode.plan' | 'mode.auto' | 'mode.full'
-
-/** 把 mode 字符串映射到 i18n key 路径(用于显示"请求批准"等本地化名) */
-const MODE_KEY_MAP: Record<WorkspacePermissionMode, ModeLabelKey> = {
-  default: 'mode.ask',
-  plan: 'mode.plan',
-  'accept-edits': 'mode.auto',
-  'bypass-permissions': 'mode.full',
-}
 
 /** i18n 静态映射表 — 用于消除 `t(`historySource.${sourceKey}`)` 单变量动态拼接 */
 type HistorySourceKey = 'popover' | 'shift-tab' | 'slash' | 'confirm-dialog' | 'auto-revert'
@@ -124,6 +117,7 @@ interface HistoryListProps {
 
 function HistoryList({ entries, now }: HistoryListProps) {
   const t = useTranslations('chat.permission')
+  const tTier = useTranslations()
   if (entries.length === 0) {
     return <div className="py-6 text-center text-xs text-muted-foreground">{t('historyEmpty')}</div>
   }
@@ -165,9 +159,9 @@ function HistoryList({ entries, now }: HistoryListProps) {
                     isHighRisk && 'text-amber-700 dark:text-amber-400',
                   )}
                 >
-                  {/* 认不出的档位原样显示,不套某个已列档位的中文名(宁可不翻译,
-                      也不给安全相关标签编一个错的档位名) */}
-                  {wire ? t(MODE_KEY_MAP[wire]) : entry.mode}
+                  {/* 认不出的档位显示共享词表的 unknown 档("未知模式")—— 既不套某个已列
+                      档位的中文名,也不再回显后端英文拼写(G-166) */}
+                  {permissionTierText(entry.mode, tTier).title}
                 </span>
                 <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-muted-foreground">
                   <span aria-hidden="true">·</span>
@@ -197,30 +191,24 @@ function HistoryList({ entries, now }: HistoryListProps) {
 
 function StatsFooter() {
   const t = useTranslations('chat.permission')
-  const stats: {
-    mode: WorkspacePermissionMode
-    labelKey: ModeLabelKey
-  }[] = [
-    { mode: 'plan', labelKey: 'mode.plan' },
-    { mode: 'default', labelKey: 'mode.ask' },
-    { mode: 'accept-edits', labelKey: 'mode.auto' },
-    { mode: 'bypass-permissions', labelKey: 'mode.full' },
-  ]
+  const tTier = useTranslations()
+  // 档名一律经 permissionTierText() 走共享词表(G-166),这里只留档位本身
+  const stats: WorkspacePermissionMode[] = ['plan', 'default', 'accept-edits', 'bypass-permissions']
   return (
     <div className="border-t pt-1.5">
       <div className="mb-1 px-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
         {t('historyStatsTitle')}
       </div>
       <div className="space-y-0.5">
-        {stats.map((s) => {
-          const ms = getTotalDurationByMode(s.mode)
+        {stats.map((mode) => {
+          const ms = getTotalDurationByMode(mode)
           const formatted = formatDuration(ms)
           return (
             <div
-              key={s.mode}
+              key={mode}
               className="flex items-center justify-between gap-2 px-1 text-[10px] text-muted-foreground"
             >
-              <span>{t(s.labelKey)}</span>
+              <span>{permissionTierText(mode, tTier).title}</span>
               <span className="font-mono tabular-nums text-foreground/80">{formatted}</span>
             </div>
           )

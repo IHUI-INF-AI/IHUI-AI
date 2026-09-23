@@ -2298,6 +2298,22 @@ node scripts/install-console-window-hook.mjs --remove   # 卸载并恢复原 NOD
 
 为防止以后新写的脚本再次漏参,仓库设有机制守门:`scripts/check-no-visible-spawn.mjs`(pre-commit blocking 第 52 项)会用括号配平提取派生调用,首参可确认为控制台程序(git / node / pnpm / cmd / pwsh 等)而 options 缺 `windowsHide` 时直接拦截。手动审计:`node scripts/check-no-visible-spawn.mjs`,逻辑自检:`--self-test`。
 
+#### Windows 开发机:把开发栈整体迁入无桌面会话(根治弹窗,推荐)
+
+`windowsHide` 这一层只能管**我们自己写的**派生点。本地开发栈重启时弹出的窗口,实际来自 `tsx` / `uvicorn` / pnpm **内部**的 spawn(实测 `tsx` dist 里 `windowsHide` 出现 0 次),那些调用点不在仓库控制内 —— 逐点补参数永远追不上。
+
+根治办法是换**宿主会话**:守护与看门狗以 `LogonType=S4U` 的计划任务运行,落在 session 0(没有桌面),该会话内任何进程都无法在屏幕上产生窗口,与它怎么 spawn 无关。
+
+```bash
+pnpm dev:stack:autostart                        # 注册/修复 IHUI-DevStack(S4U)+ 清理旧启动夹自启
+node scripts/dev-stack-watchdog.mjs --install   # 看门狗任务同样注册为 S4U
+./start-all.bat                                 # 双击即用:schtasks /Run IHUI-DevStack,零本地派生
+```
+
+自愈节奏不变(每 30s 体检、挂了立刻重拉,无退避);`IHUI-DevStackWatchdog` 每 2 分钟巡检时顺带核验守护任务仍是 S4U,被改回 `InteractiveToken` 或被删除都会自动重装(故障演练实测 5s 内恢复)。停止:`pnpm dev:safe:stop` · 体检:`pnpm dev:stack:check` · 日志:`.tmp-sync/dev-stack-*.log`。
+
+A/B 实测(同一隐藏采样器 + 同一"故意 `windowsHide:false`"子进程):交互任务 = session 1 弹 1 扇;S4U 任务 = session 0 零扇,且其监听端口从 session 1 经 `127.0.0.1` 正常可达。迁移后实测:api / web / ai-service / redis / prod-proxy / web-preview 六个服务均由 session 0 守护重拉,期间零窗口;metro 只在无真机连接时才迁,避免打断他人调试会话。
+
 ### 一键启动(Docker)
 
 ```bash
@@ -2779,6 +2795,26 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-gua
   `--filter @ihui/web... run build:static`,而 web 的 7 个可构建依赖全都只有 `build`、没有
   `build:static` ⇒ 依赖一个都没构建 ⇒ `@ihui/api-client`(`main: ./dist/index.js`)解析失败;
   同仓 `Dockerfile.api` 用 `run build`(人人都有)所以一直绿 —— 两条 Dockerfile 只差一个脚本名。
+### 守门 73｜端内绕过 `@ihui/api-client` 直连后端(blocking,基线只减不增)
+
+AGENTS.md §3 早就写了"端内不得裸 `fetch`/`axios`/`Taro.request` 调后端",但**没有任何一道闸执行它**
+(全量 grep `scripts/check-*.mjs` 对 `Taro.request` 命中 0)—— 所以这类绕过会持续再生。
+`scripts/check-direct-backend-calls.mjs` 用 **URL 污点分析**而不是文件名白名单来判:调用原语的 URL 追到
+后端基址符号或锚定 `/api/` 段即命中;本地解不出就跨文件回溯调用方实参。平台 adapter 的豁免要三条同立
+(URL 纯透传 + 从 api-client import 契约 + 该导出被 `setTransport` 注册),Next 自有路由要 `route.ts` 真存在。
+存量 47 处进 `scripts/direct-backend-calls-baseline.json`(cli 21 / web 17 / miniapp-taro 3 / mobile-rn 2 /
+shared 3 / extension 1),**只减不增**;其中 `crash-report.ts:37`(api-client 无该路由)与 `sse.ts:211/279`
+(api-client 尚无 chunked 通道)是本轮新发现的两处真绕过。
+
+### 守门 74｜词表键必须五语言可解析(blocking,W5 落点债只告警)
+
+"代码引用了新键、语言包在下一票"或"改了词表忘重生成小程序离线包"都会让界面**直接回显键名**
+(本仓发生过 44 处含点键永不渲染的事故)。`scripts/check-word-table-resolvable.mjs` 扫"值全为 i18n
+键字面量的静态映射表"(认定 50 张 / 235 键),逐键断言在 **5 语言 × 消费端合并视图**可解析,小程序侧
+还要能在**离线生成包**里取到;值等于键名本身也算缺(那正是静默回显)。为防误报洪水,ns 相对取词的表、
+含函数/硬编码中文的表、模型名类字面量一律不检;W5"某端依赖该包但尚未引用这张表"属**落点债**,只列
+notices 不计失败 —— 否则门会长期红在别人未接入的存量上,逼出 `--no-verify`。
+
 
 一个实现上的坑值得记:**存在性必须按提交内容判、不能按工作树判**。本仓当时正有并行会话把
 `scripts/fix-expo-metro-junction.mjs` 从工作树删掉但未暂存,按 `existsSync` 会产出一条与真实构建结果

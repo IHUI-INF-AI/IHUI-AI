@@ -12,7 +12,7 @@ import {
   type LiveDetailChatMessage,
   type LiveDetailItem,
 } from '@ihui/rn-app'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'

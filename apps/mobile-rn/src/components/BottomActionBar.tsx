@@ -22,7 +22,7 @@
  * - AGENTS.md §3:禁 any,onModelConfigChange 用 unknown 类型
  */
 import { useEffect, useRef } from 'react'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import {
   ActivityIndicator,
   Alert,
@@ -580,7 +580,7 @@ function ChatInputBar(props: BottomActionBarProps) {
             accessibilityLabel={isLoading ? '加载中' : '发送'}
           >
             {isLoading ? (
-              <ActivityIndicator size="small" color={tokens.surface.light} />
+              <ActivityIndicator size="small" color={tokens.brand.foreground} />
             ) : (
               <Text style={styles.sendLabel} numberOfLines={1}>
                 {'发送'}
@@ -763,7 +763,7 @@ const styles = StyleSheet.create({
     lineHeight: ACTION_BUTTON_FONT_SIZE + 4,
     fontWeight: '500',
     letterSpacing: LABEL_LETTER_SPACING,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     textAlign: 'center',
   } as TextStyle,
   secondaryButton: {
@@ -872,7 +872,7 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
   } as TextStyle,
   toggleChipLabelActive: {
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   } as TextStyle,
 
   // ── 新模式:图片预览 ──
@@ -961,7 +961,7 @@ const styles = StyleSheet.create({
   sendLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   } as TextStyle,
 
   // ── 新模式:辅助按钮行 ──

@@ -26,7 +26,7 @@ from __future__ import annotations
 import csv
 import io
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 
 import asyncpg
@@ -35,6 +35,7 @@ from pydantic import BaseModel, Field
 
 from app.core.db import get_db_conn
 from app.core.logging import get_logger
+from app.services.publish.account_state import cookie_health_payload
 from app.services.publish.base_adapter import PublishContent, get_adapter
 from app.services.publish.credentials_crypto import decrypt, encrypt
 
@@ -612,27 +613,15 @@ async def get_cookie_health(account_id: int, request: Request) -> dict[str, Any]
         )
         if not row:
             raise HTTPException(status_code=404, detail="账号不存在")
-        now = datetime.now(UTC)
-        last_verified = row["last_verified_at"]
-        days_since = (now - last_verified).total_seconds() / 86400 if last_verified else 999.0
-        if days_since <= 7:
-            level = "healthy"
-        elif days_since <= 14:
-            level = "expiring"
-        else:
-            level = "expired"
-        # 预测过期时间(14 天阈值)
-        predicted_expiry = (last_verified.timestamp() + 14 * 86400) if last_verified else None
-        return _ok({
-            "account_id": account_id,
-            "platform": row["platform"],
-            "level": level,
-            "days_since_verified": round(days_since, 1) if last_verified else None,
-            "last_verified_at": last_verified.isoformat() if last_verified else None,
-            "predicted_expiry": datetime.fromtimestamp(predicted_expiry, tz=UTC).isoformat() if predicted_expiry else None,
-            "last_verify_msg": row["last_verify_msg"],
-            "status": row["status"],
-        })
+        return _ok(
+            cookie_health_payload(
+                account_id,
+                row["platform"],
+                row["status"],
+                row["last_verified_at"],
+                row["last_verify_msg"],
+            )
+        )
     finally:
         await conn.close()
 

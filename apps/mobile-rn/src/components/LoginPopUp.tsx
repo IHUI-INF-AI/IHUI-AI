@@ -27,7 +27,8 @@
  * - onLogout?:登出回调(待接后端:清缓存 + reLaunch)
  * - onUpgrade? / onUpgradeTrader?:升级入口回调(跳会员/操盘手介绍弹窗)
  */
-import { rnLightTokens as tokens, withAlpha } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
+import { withAlpha } from '@ihui/design-tokens'
 import { Check } from 'lucide-react-native'
 import {
   ActivityIndicator,
@@ -254,7 +255,7 @@ export function LoginPopUp({
               {showAgreementRow ? (
                 <Pressable style={styles.agreementRow} onPress={handleAgreeToggle}>
                   <View style={[styles.checkbox, agreeChecked ? styles.checkboxChecked : null]}>
-                    {agreeChecked ? <Check size={11} color={tokens.surface.light} /> : null}
+                    {agreeChecked ? <Check size={11} color={tokens.brand.foreground} /> : null}
                   </View>
                   <Text style={styles.agreementText}>
                     <Text style={styles.agreementLink}>《用户协议》</Text>

@@ -15,7 +15,7 @@ import {
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { LearnScreen as SharedLearnScreen } from '@ihui/rn-app'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { Smartphone, Users, PenLine, BarChart3 } from 'lucide-react-native'
 import type { AppIcon } from '@ihui/types'
