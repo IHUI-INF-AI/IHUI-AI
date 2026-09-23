@@ -481,16 +481,16 @@ await client.memory.forget({ memoryId: 'mem-123' })
 ## 消息模块
 
 ```typescript
-// 发布消息
+// 发布消息(channel 只能是 im / websocket / webhook / sms)
 await client.messages.publish({
-  channel: 'updates',
+  channel: 'webhook',
   content: '新版本发布',
   recipients: ['user-1', 'user-2'],
 })
 
 // 订阅 Webhook
 const sub = await client.messages.subscribe({
-  channel: 'updates',
+  channel: 'webhook',
   callbackUrl: 'https://example.com/webhook',
 })
 
