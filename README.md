@@ -2823,6 +2823,7 @@ R2 用基线棘轮拦"浅色当容器底":`surface.light` 背景 / α≥0.5 的�
 判据三条同时成立才恢复:① 工作区缺该文件;② **索引 blob == HEAD blob**(说明没人对它暂存过任何改动,包括 `git rm` 的暂存删除);③ HEAD 中该路径存在。因此被恢复的内容按定义**零独有数据**;他人已在索引里登记的删除只报数、不代裁。触发点挂在 `git-guardian` 巡检的**健康轮次早退之前** —— 计划任务实际执行的是 `main()` 单轮(`startDaemon` 未启用),挂错位置等于永不执行;`--check` 口径保持零副作用。
 
 故障演练实测:删除 `scripts/brand-foreground-baseline.json` → 跑一轮守护 → 文件自动找回,并留下审计行 `✅ 工作区存续自愈:恢复 1 个被外部删除的跟踪文件`;`--self-test` 5 例含反向对照"他人暂存的删除不被插手"。手动:`node scripts/heal-worktree-tracked.mjs [--dry-run|--json|--self-test]`;跳过 `IHUI_SKIP_WORKTREE_HEAL=1`。
+**同一脚本的第二、三层(2026-09-23 补)**。`alignDrifts()` 对齐**幻影漂移**:索引==HEAD 且 工作区内容==该路径某祖先提交版本才动(判据直接复用守门 76,单一真相源,不各写一份)。`refreshStaleIndex()` 刷新**落后索引**:CAS 与 converge 都用 `commit-tree` + `update-ref` 推进 HEAD,却**不动主索引**,于是 `git status` 首列出现 `M `(实测同日 14 个路径)—— 此时任何人一次不带 pathspec 的普通 commit 就会把整批文件写回旧版。刷新判据三条同时成立:① index != HEAD;② 索引 blob 确为该路径的历史版本(不是刚做的暂存);③ 工作区 == 索引(其上无未暂存改动)。且**只逐路径 `update-index`,绝不做全局 `git reset`** —— 后者会连带 unstage 他人真正的暂存。挂点:`git-sync-converge` 的成功出口自动调 `--align-drift`(真仓实测输出 `🧹 工作区幻影漂移已对齐 1 个文件`);`--self-test` 共 12 例,含三条反向对照(真编辑不覆盖 / 暂存后又有改动不刷新 / 他人真暂存不刷新)。
 ## 🛡️ Commit 丢失防护(AGENTS.md §22 强化,2026-07-26)
 
 多 agent 并行环境下,`git reset HEAD~` 可能把整个 commit 链一并丢弃(2026-07-25 真实事故:丢失 3 个 commit)。本项目建立 4 道防护:
