@@ -20,16 +20,16 @@ import { commitRnTheme, currentRnTheme, tokens } from '../src/theme/active-token
 
 describe('主题 token 单例:切换必须可逆', () => {
   it('dark → light 后来回切换,取色回到浅色原值', () => {
-    const lightCta = tokens.brand.ctaFill
+    const lightCta = tokens.brand.DEFAULT
     const lightCard = tokens.surface.card
 
     expect(commitRnTheme('dark')).toBe(true)
-    expect(tokens.brand.ctaFill).toBe(rnDarkTokens.brand.ctaFill)
+    expect(tokens.brand.DEFAULT).toBe(rnDarkTokens.brand.DEFAULT)
     expect(tokens.surface.card).toBe(rnDarkTokens.surface.card)
 
     expect(commitRnTheme('light')).toBe(true)
     // 旧实现在这两行必红:PALETTES.light 已被 apply('dark') 就地污染
-    expect(tokens.brand.ctaFill).toBe(lightCta)
+    expect(tokens.brand.DEFAULT).toBe(lightCta)
     expect(tokens.surface.card).toBe(lightCard)
   })
 
