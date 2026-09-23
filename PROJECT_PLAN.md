@@ -67,6 +67,23 @@
   4028 个坏 ref 使 `git fetch` 整体失败(bad object + did not send all necessary objects)。
   处置:删坏指针(fetch 即复)→ `sync-lost-commit-tags --fetch` 连对象完整拉回 → 现 4217 tag / 0 坏指针。
 
+### 全量守门审计基线(105 项跑完再汇总,非"首个失败即停")
+
+`node scripts/guardian-runner.mjs` 全量口径实测 **97 通过 / 2 警告 / 6 失败 / 0 跳过,耗时 514s**。
+6 道红的归属逐项验明(均**不由本会话引入**,本会话触及面复采见下):
+
+- `[2] i18n 键完整性` / `[2b] zh-TW 简体字残留`:`diffReview.*` 一批键未过翻译流水线(1515 文件
+  17012 键口径),zh-TW 另有 `台賬→臺賬`、`後台→後臺` 字形残留 ⇒ 属 i18n 流水线在飞内容。
+- `[15] 迁移完整性` / `[61] 桌面安装器资产三方对账`:API 迁移账本与桌面安装器资产,均为他人票面。
+- `[57] 对话流元素覆盖`:红因已在上方钉死到 `ddb78b1ca`(旧基线整文件写回滚 RN G-152)。
+- `[75] mobile-rn 深色前景/容器守门`:3 个组件越线(`AgentRuntimePanel 2 > 基线 0`、
+  `ModelConfigDialog 7 > 0`、`NotificationPanel 1 > 0`),属其深色改造会话在飞(该会话最近提交
+  时间戳距本次审计仅数分钟)。
+- **本会话触及面独立复采**:`check-no-visible-spawn` 生产代码 0 违规(7938 文件)·
+  `watermark verify` 10109/10109 完好 · `check-plan-line-loss` 285 条登记行无缺失 ·
+  `check-root-dir-clean` 绿 · `check-commit-loss-guard` 绿(4060 tag 本地+远端一致全可达) ·
+  `check-single-branch` 绿。**不代改他人票面**(§12/§12b:恢复他人主体逻辑即越权)。
+
 ### 已知遗留(归属他人,不代改)
 
 - 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
