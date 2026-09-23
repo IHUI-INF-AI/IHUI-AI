@@ -10,30 +10,6 @@
     "creditLowTitle": "Not enough credits",
     "creditLowDesc": "Your credit balance is below {min}, so models are unavailable. Please top up."
   },
-  "permissionTier": {
-    "mode": {
-      "default": {
-        "title": "Ask for approval",
-        "desc": "Always asks before editing files outside this project or using the internet"
-      },
-      "plan": {
-        "title": "Read-only plan",
-        "desc": "Reads and searches only; editing files and running commands are refused"
-      },
-      "accept-edits": {
-        "title": "Auto-approve edits",
-        "desc": "Only asks before running detected risky actions"
-      },
-      "bypass-permissions": {
-        "title": "Full access",
-        "desc": "Can use the internet and any file on your computer without asking"
-      },
-      "unknown": {
-        "title": "Unknown mode",
-        "desc": "Unrecognized permission mode; treated as the default tier"
-      }
-    }
-  },
   "treeSelect": {
     "placeholder": "Select an option",
     "searchPlaceholder": "Search...",
@@ -7404,7 +7380,17 @@
       },
       "diffAppliedHint": "Changes were written to the file system",
       "diffRejectedHint": "This change was ignored",
-      "timelineTabInline": "Conversation flow"
+      "timelineTabInline": "Conversation flow",
+      "reviewStats": {
+        "title": "Auto-review stats",
+        "accepted": "Accepted {n}",
+        "rejected": "Rejected {n}",
+        "noReason": "No reason {n}",
+        "commandHistory": "Command history",
+        "noReasonText": "Auto-review gave no reason",
+        "noDecision": "No auto-review records",
+        "expandAria": "Command history (expand/collapse)"
+      }
     },
     "permissionConfirm": {
       "allow": "Allow",
@@ -9287,6 +9273,8 @@
       "copyText": "Copy text",
       "deleteMessage": "Delete message",
       "feedback": "Feedback",
+      "likeMessage": "Like",
+      "dislikeMessage": "Dislike",
       "regenerate": "Regenerate",
       "branch": "Branch from here"
     },
@@ -9866,6 +9854,8 @@
       "copiedMarkdown": "Markdown copied",
       "copiedText": "Text copied",
       "feedbackRecorded": "Feedback recorded, thank you",
+      "feedbackSaved": "Feedback saved",
+      "feedbackFailed": "Failed to submit feedback",
       "messageDeleted": "Message deleted",
       "operationFailed": "Operation failed",
       "regenerating": "Regenerating…",
@@ -24503,13 +24493,37 @@
     },
     "vividTail": ", almost there"
   },
+  "permissionTier": {
+    "mode": {
+      "default": {
+        "title": "Ask for approval",
+        "desc": "Always asks before editing files outside this project or using the internet"
+      },
+      "plan": {
+        "title": "Read-only plan",
+        "desc": "Reads and searches only; editing files and running commands are refused"
+      },
+      "accept-edits": {
+        "title": "Auto-approve edits",
+        "desc": "Only asks before running detected risky actions"
+      },
+      "bypass-permissions": {
+        "title": "Full access",
+        "desc": "Can use the internet and any file on your computer without asking"
+      },
+      "unknown": {
+        "title": "Unknown mode",
+        "desc": "Unrecognized permission mode; treated as the default tier"
+      }
+    }
+  },
   "upload": {
     "oversizeSingle": "File exceeds the size limit: {name}",
     "uploadFailedWithReason": "Upload failed: {error}",
     "unknownError": "Unknown error",
     "missingFileId": "Upload response is missing file.id",
     "maxAttachmentsReached": "At most {count} attachments allowed"
-},
+  },
   "eduScheduling": {
     "title": "Smart Scheduling",
     "description": "Manage scheduling rules, teacher schedules, and schedule change requests",
@@ -24522,17 +24536,17 @@
       "weekdayFri": "Fri",
       "weekdaySat": "Sat",
       "weekdaySun": "Sun"
-},
+    },
     "status": {
       "pending": "Pending",
       "approved": "Approved",
       "rejected": "Rejected"
-},
+    },
     "tabs": {
       "rules": "Scheduling Rules",
       "teachers": "Teacher Schedules",
       "changes": "Schedule Changes"
-},
+    },
     "form": {
       "class": "Class",
       "subject": "Subject",
@@ -24546,13 +24560,13 @@
       "selectTeacher": "Select teacher",
       "selectTerm": "Select term",
       "subjectPlaceholder": "Math"
-},
+    },
     "loading": {
       "text": "Loading...",
       "rules": "Loading scheduling rules...",
       "teachers": "Loading teacher schedules...",
       "changes": "Loading change requests..."
-},
+    },
     "actions": {
       "edit": "Edit",
       "add": "Add",
@@ -24565,12 +24579,12 @@
       "autoSchedule": "Auto Schedule",
       "checkConflicts": "Check Conflicts",
       "addTimeEntry": "Add Time Entry"
-},
+    },
     "empty": {
       "rules": "No scheduling rules yet",
       "teachers": "No teacher schedules yet",
       "changes": "No change requests yet"
-},
+    },
     "columns": {
       "time": "Time",
       "timeSlot": "Time Slot",
@@ -24582,22 +24596,22 @@
       "status": "Status",
       "applicant": "Applicant",
       "actions": "Actions"
-},
+    },
     "ruleDialog": {
       "editTitle": "Edit Scheduling Rule",
       "addTitle": "Add Scheduling Rule"
-},
+    },
     "timeEntryDialog": {
       "editTitle": "Edit Time Entry",
       "addTitle": "Add Time Entry",
       "available": "Available",
       "unavailable": "Unavailable"
-},
+    },
     "conflictDialog": {
       "title": "Conflict Check Results",
       "noConflicts": "No conflicts detected"
-}
-},
+    }
+  },
   "eduGrades": {
     "pageTitle": "Grade Management",
     "pageSubtitle": "Manage student exam scores, rankings and statistics",
@@ -24666,7 +24680,7 @@
     "avgScoreStat": "Average score: {score}",
     "scoreRateStat": "Score rate: {percentage}%",
     "examCountStat": "Exam count: {count}"
-},
+  },
   "eduParent": {
     "relationshipFather": "Father",
     "relationshipMother": "Mother",
@@ -24742,7 +24756,7 @@
     "confirmDelete": "Confirm Deletion",
     "confirmDeleteContent": "Are you sure you want to remove this binding? This action cannot be undone.",
     "cancel": "Cancel"
-},
+  },
   "eduSchedule": {
     "title": "Class Schedule",
     "description": "Manage course arrangements per term, with week and month views",
@@ -24754,7 +24768,7 @@
       "weekdayFri": "Fri",
       "weekdaySat": "Sat",
       "weekdaySun": "Sun"
-},
+    },
     "colors": {
       "blue": "Blue",
       "green": "Green",
@@ -24764,7 +24778,7 @@
       "teal": "Teal",
       "indigo": "Indigo",
       "rose": "Rose"
-},
+    },
     "form": {
       "courseName": "Course Name",
       "courseNamePlaceholder": "e.g. Advanced Mathematics",
@@ -24775,7 +24789,7 @@
       "classroom": "Classroom",
       "classroomPlaceholder": "e.g. A101",
       "colorMark": "Color Tag"
-},
+    },
     "editCourseTitle": "Edit Course",
     "addCourseTitle": "Add Course",
     "delete": "Delete",
@@ -24820,7 +24834,7 @@
     "copyFailed": "Copy failed",
     "exportFailed": "Export failed",
     "exportFilePrefix": "Schedule"
-},
+  },
   "eduHomework": {
     "pageTitle": "Homework Management",
     "pageSubtitle": "Manage student homework submissions, grading and scores",
@@ -24855,14 +24869,14 @@
     "submittedAtLabel": "Submitted at: ",
     "commentPlaceholder": "Optional, grading comment",
     "submitGrade": "Submit grade"
-},
+  },
   "eduMeal": {
     "mealTypes": {
       "breakfast": "Breakfast",
       "lunch": "Lunch",
       "dinner": "Dinner",
       "snack": "Snack"
-},
+    },
     "weekdays": {
       "weekdayMon": "Mon",
       "weekdayTue": "Tue",
@@ -24871,12 +24885,12 @@
       "weekdayFri": "Fri",
       "weekdaySat": "Sat",
       "weekdaySun": "Sun"
-},
+    },
     "views": {
       "day": "Day",
       "week": "Week",
       "month": "Month"
-},
+    },
     "mealDialog": {
       "editTitle": "Edit Recipe",
       "addTitle": "Add Recipe",
@@ -24895,7 +24909,7 @@
       "delete": "Delete",
       "save": "Save",
       "add": "Add"
-},
+    },
     "template": {
       "title": "Template Management",
       "newTitle": "New Template",
@@ -24914,7 +24928,7 @@
       "selectTemplate": "Select a template",
       "startDate": "Start date (Monday)",
       "apply": "Apply"
-},
+    },
     "page": {
       "title": "Recipe Management",
       "subtitle": "Manage daily recipes with day, week, and month views",
@@ -24929,7 +24943,7 @@
       "generateFailed": "Failed to generate shopping list",
       "nutritionAnalysis": "Nutrition Analysis",
       "shoppingList": "Shopping List"
-},
+    },
     "nutrition": {
       "title": "Nutrition Summary",
       "totalCalories": "Total Calories (kcal)",
@@ -24942,7 +24956,7 @@
       "protein": "Protein",
       "carbs": "Carbs",
       "empty": "No nutrition data"
-},
+    },
     "shopping": {
       "title": "Ingredient Shopping List",
       "summary": "Date range: {start} ~ {end} · {count} ingredients in total",
@@ -24950,8 +24964,8 @@
       "appearsIn": "Appears in {count} dishes",
       "involvedDishes": "Related Dishes",
       "generating": "Generating..."
-}
-},
+    }
+  },
   "eduProcurement": {
     "pageTitle": "Canteen Procurement Ledger",
     "pageDescription": "AI receipt recognition · three-round cross-check (extract → compare → arbitrate) · ledger, suppliers and statistics in one place, synced with mobile",
@@ -24960,7 +24974,7 @@
       "ledger": "Procurement Ledger",
       "supplier": "Suppliers",
       "stats": "Statistics"
-},
+    },
     "status": {
       "draft": "Draft",
       "aiExtracted": "AI Extracted",
@@ -24968,10 +24982,10 @@
       "aiConflict": "AI Needs Review",
       "confirmed": "Booked",
       "voided": "Voided"
-},
+    },
     "statusFilter": {
       "all": "All Statuses"
-},
+    },
     "supplierCategory": {
       "vegetable": "Vegetables",
       "meatPoultry": "Meat & Poultry",
@@ -24980,12 +24994,12 @@
       "seasoning": "Seasonings",
       "frozen": "Frozen Foods",
       "other": "Others"
-},
+    },
     "verifyType": {
       "extract": "Round 1 · Structured Extraction",
       "verify": "Round 2 · Independent Cross-Check",
       "arbitrate": "Round 3 · Discrepancy Arbitration"
-},
+    },
     "common": {
       "noData": "No data",
       "startDate": "Start Date",
@@ -24999,7 +25013,7 @@
       "notes": "Notes",
       "pleaseSelect": "Please select",
       "confidence": "Confidence"
-},
+    },
     "stats": {
       "exportXlsx": "Excel exported",
       "exportCsv": "CSV exported (UTF-8 BOM, opens directly in Excel)",
@@ -25019,7 +25033,7 @@
       "monthlyTrend": "Monthly Trend",
       "countItem": "items",
       "countDoc": "docs"
-},
+    },
     "ai": {
       "doneToast": "Receipt recognized: {status}",
       "errNotImage": "Please choose an image file",
@@ -25051,7 +25065,7 @@
       "conflictNote": "Three rounds still disagree: compare the line items against the original image on the left, correct them, then \"Book\" in the ledger.",
       "verifiedNote": "Two independent rounds agree and the math self-check passed; you can book it in the ledger in one click.",
       "noItems": "No line items recognized; add them manually in the ledger editor"
-},
+    },
     "detail": {
       "supplierLabel": "Supplier:",
       "dateLabel": "Purchase Date:",
@@ -25076,7 +25090,7 @@
       "arbitrationNote": "(arbitrated: {resolution})",
       "reverify": "Re-check",
       "arbitrateBtn": "Arbitrate Differences"
-},
+    },
     "table": {
       "itemName": "Item",
       "category": "Category",
@@ -25085,7 +25099,7 @@
       "unitPrice": "Unit Price",
       "subtotal": "Subtotal",
       "check": "Check"
-},
+    },
     "col": {
       "date": "Date",
       "supplier": "Supplier",
@@ -25095,21 +25109,21 @@
       "status": "Status",
       "aiRounds": "AI Rounds",
       "actions": "Actions"
-},
+    },
     "unit": {
       "rounds": "{rounds} rounds",
       "items": "{count} items"
-},
+    },
     "ledger": {
       "totalCount": "{total} documents in total"
-},
+    },
     "action": {
       "detail": "Details",
       "edit": "Edit",
       "confirm": "Book",
       "void": "Void",
       "delete": "Delete"
-},
+    },
     "toast": {
       "deleted": "Deleted",
       "confirmSuccess": "Booked successfully",
@@ -25119,7 +25133,7 @@
       "supplierDeleted": "Supplier deleted",
       "supplierUpdated": "Supplier updated",
       "supplierCreated": "Supplier created"
-},
+    },
     "confirm": {
       "titleConfirm": "Confirm Booking",
       "titleVoid": "Confirm Void",
@@ -25127,18 +25141,18 @@
       "descConfirm": "Once booked it counts toward the statistics scope (total {amount}); it can still be voided.",
       "descVoid": "Once voided it is excluded from statistics; the document remains viewable.",
       "descDelete": "Deletion is soft: it can be restored in the backend and no longer appears here."
-},
+    },
     "filter": {
       "allSuppliers": "All Suppliers",
       "keyword": "Keyword",
       "keywordPlaceholder": "Supplier / receipt no."
-},
+    },
     "badge": {
       "manual": "Manual",
       "passed": "Passed",
       "failed": "Failed",
       "differed": "Differences"
-},
+    },
     "edit": {
       "title": "Edit Purchase Document",
       "dateLabel": "Purchase Date",
@@ -25152,7 +25166,7 @@
       "addRow": "Add Row",
       "deleteRow": "Delete this row",
       "itemsHint": "Rows with a blank item name are skipped on save; quantity × unit price auto-fills the subtotal; a blank total sums the line items."
-},
+    },
     "supplier": {
       "colName": "Name",
       "colCategory": "Category",
@@ -25174,8 +25188,8 @@
       "license": "Licenses",
       "licensePlaceholder": "Business license / food operation permit",
       "address": "Address"
-}
-},
+    }
+  },
   "eduAttendance": {
     "statusPresent": "Present",
     "statusLate": "Late",
@@ -25260,7 +25274,23 @@
     "reason": "Reason",
     "daysWithUnit": "{count} days",
     "approveAction": "Review"
-},
+  },
+  "eduCertificates": {
+    "certificateNo": "No.: {no}",
+    "empty": "No certificates",
+    "statusRevoked": "Revoked",
+    "statusValid": "Valid",
+    "subtitle": "View all earned certificates",
+    "title": "My Certificates",
+    "view": "View"
+  },
+  "eduCourses": {
+    "backToCourses": "Back to courses",
+    "chaptersTitle": "Sections",
+    "detail": "Details",
+    "notFound": "Course not found",
+    "studentsCount": "{count} learners"
+  },
   "eduStudyPlan": {
     "add": "Add",
     "addFirstItem": "Add First Item",
@@ -25364,23 +25394,7 @@
     "pageTitle": "Study Plan Management",
     "pageSubtitle": "Manage class study plans, with monthly plans auto-split into weekly plans",
     "loadTermsFailed": "Failed to load term data, please try again later"
-},
-  "eduCertificates": {
-    "certificateNo": "No.: {no}",
-    "empty": "No certificates",
-    "statusRevoked": "Revoked",
-    "statusValid": "Valid",
-    "subtitle": "View all earned certificates",
-    "title": "My Certificates",
-    "view": "View"
-},
-  "eduCourses": {
-    "backToCourses": "Back to courses",
-    "chaptersTitle": "Sections",
-    "detail": "Details",
-    "notFound": "Course not found",
-    "studentsCount": "{count} learners"
-},
+  },
   "apiKeyPerms": {
     "agentsRead": "Read agents",
     "agentsCall": "Call agents",

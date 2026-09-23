@@ -25,6 +25,7 @@ import {
   chatConversations,
   chatMessages,
   chatFavorites,
+  chatMessageFeedbacks,
   type ChatConversation,
   type ChatMessage,
 } from '@ihui/database'
@@ -975,6 +976,35 @@ export async function unfavoriteConversation(
     .where(and(eq(chatFavorites.userId, userId), eq(chatFavorites.conversationId, conversationId)))
     .returning()
   return rows.length > 0
+}
+
+/**
+ * D49①(2026-09-23):消息点赞/点踩落库 —— upsert 语义(一人一消息一票,改票覆盖)。
+ * 归属校验前置:消息必须存在且其会话属于该用户,否则 not-found(不区分不存在/无权)。
+ */
+export type MessageRating = 'like' | 'dislike'
+
+export async function rateChatMessage(
+  userId: string,
+  messageId: string,
+  rating: MessageRating,
+): Promise<{ ok: boolean; reason?: 'not-found' }> {
+  const owned = await db
+    .select({ conversationId: chatMessages.conversationId })
+    .from(chatMessages)
+    .innerJoin(chatConversations, eq(chatMessages.conversationId, chatConversations.id))
+    .where(and(eq(chatMessages.id, messageId), eq(chatConversations.userId, userId)))
+    .limit(1)
+  const conv = owned[0]
+  if (!conv) return { ok: false, reason: 'not-found' }
+  await db
+    .insert(chatMessageFeedbacks)
+    .values({ userId, messageId, conversationId: conv.conversationId, rating })
+    .onConflictDoUpdate({
+      target: [chatMessageFeedbacks.userId, chatMessageFeedbacks.messageId],
+      set: { rating, updatedAt: new Date() },
+    })
+  return { ok: true }
 }
 
 export async function findFavoriteConversations(
