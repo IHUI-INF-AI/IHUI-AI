@@ -300,12 +300,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 8,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.ctaFill,
   } as ViewStyle,
   customizeConfirmText: {
     fontSize: 14,
     fontWeight: '700',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
   } as TextStyle,
 })
 

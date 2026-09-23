@@ -65,6 +65,12 @@ export const rnTokens = {
     /** 品牌底(brand.DEFAULT)之上的前景色。深色下 brand.DEFAULT 翻成白,前景必须翻黑,
      *  不得用 surface.light 代替(它在两态都是 #FFFFFF → 白底白字)。 */
     foreground: '#FFFFFF',
+    /** 主 CTA 填充档(2026-09-23 立)。与 brand.DEFAULT 同源但**不随主题翻成纯白**:
+     *  浅色=品牌黑(与 brand.DEFAULT 同值,浅色态零变化),深色=灰蓝(纯白压深底实测 17.4:1,刺眼)。
+     *  主按钮/选中胶囊一律走本档 + ctaText 成对使用,不得逐处硬写颜色。 */
+    ctaFill: '#000000',
+    /** ctaFill 之上的文字(必须与 ctaFill 成对,单独换底不换字会打穿对比度) */
+    ctaText: '#FFFFFF',
     dark: '#34D399',
   },
   surface: {
@@ -152,7 +158,7 @@ export type RnThemeMode = 'light' | 'dark'
 
 /** 动态主题 token 集。相比 base tokens 增加 surface.bg(主背景),其余字段对齐。 */
 export type RnThemeTokens = {
-  brand: { DEFAULT: string; foreground: string; dark: string }
+  brand: { DEFAULT: string; foreground: string; ctaFill: string; ctaText: string; dark: string }
   surface: { bg: string; light: string; muted: string; card: string; dark: string; inputBg: string }
   text: { primary: string; secondary: string; tertiary: string; medium: string }
   border: { light: string; medium: string }
@@ -197,7 +203,13 @@ export type RnThemeTokens = {
  * - brand.DEFAULT = #000000 对齐 web 亮色 --color-primary(2026-07-24 消除绿色)。
  */
 export const rnLightTokens: RnThemeTokens = {
-  brand: { DEFAULT: '#000000', foreground: '#FFFFFF', dark: '#34D399' },
+  brand: {
+    DEFAULT: '#000000',
+    foreground: '#FFFFFF',
+    ctaFill: '#000000',
+    ctaText: '#FFFFFF',
+    dark: '#34D399',
+  },
   surface: {
     bg: '#F5F5F5',
     light: '#FFFFFF',
@@ -262,9 +274,17 @@ export const rnLightTokens: RnThemeTokens = {
  *   的场景应使用 brand.foreground(浅色=白,深色=黑)或直接用 #FFFFFF 常量。
  * - surface.muted = #262626(web --color-muted hsl 0 0% 14.9%),卡片/输入框微亮层级。
  * - text/border/error/status DEFAULT 对齐 web 暗色语义色。
+ * - brand.ctaFill = #a3c4d6(= 深色 brandAccent.DEFAULT):主 CTA 不随主题翻成纯白,
+ *   纯白底压 #1A1A1A 卡面实测 17.4:1 即用户报的"刺眼";浅色 ctaFill 仍是品牌黑,浅色态零变化。
  */
 export const rnDarkTokens: RnThemeTokens = {
-  brand: { DEFAULT: '#FFFFFF', foreground: '#000000', dark: '#34D399' },
+  brand: {
+    DEFAULT: '#FFFFFF',
+    foreground: '#000000',
+    ctaFill: '#a3c4d6',
+    ctaText: '#16262e',
+    dark: '#34D399',
+  },
   surface: {
     bg: '#242424',
     light: '#262626',

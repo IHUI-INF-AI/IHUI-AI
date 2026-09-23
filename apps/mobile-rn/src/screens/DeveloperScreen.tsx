@@ -353,12 +353,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(40),
     paddingVertical: rpx(10),
     borderRadius: 8,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.ctaFill,
   } as ViewStyle,
   entryBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
   } as TextStyle,
   // ── 开发者信息区 ──
   infoCard: {
@@ -457,12 +457,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(24),
     paddingVertical: rpx(8),
     borderRadius: 6,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.ctaFill,
   } as ViewStyle,
   problemBtnText: {
     fontSize: 13,
     fontWeight: '500',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
   } as TextStyle,
   bigBtn: {
     backgroundColor: tokens.surface.card,
