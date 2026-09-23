@@ -8962,6 +8962,12 @@
     },
     "metaDescription": "国内外 41 の権威ある情報源(微博/知乎/36Kr/HackerNews/TechCrunch/OpenAI Blog/Arxiv 等)を集約、6 時間ごとに自動収集、モデル/製品/業界/論文カテゴリとトレンド信号をリアルタイム更新。",
     "metaTitle": "AI ニュース · 全網リアルタイム集約ストリーム",
+    "priceChart": {
+      "inputPrice": "{name} · 入力価格: {price}",
+      "outputPrice": "{name} · 出力価格: {price}",
+      "legendInput": "入力",
+      "legendOutput": "出力"
+    },
     "trendChart": {
       "days": "日",
       "hotValue": "ホット度",
