@@ -174,12 +174,30 @@ async function run() {
 }
 
 function install() {
-  // Windows 计划任务: 每30分钟跑一次
+  // Windows 计划任务: 每30分钟跑一次。
+  // 必须非交互注册:schtasks 不带 /RU 默认 InteractiveToken(有桌面), 每次触发都闪一扇控制台窗;
+  // 改用 S4U(会话 0、无桌面)后, 任务及其派生的 cmd/node 结构性无法产生可见窗口, 端口/网络从交互会话照常可达(AGENTS.md §5b 实测)。
   const node = process.execPath
   const script = fileURLToPath(import.meta.url)
   const cmd = `cmd /c ""${node}" "${script}" --run" >> "${LOG}" 2>&1`
   execFileSync('schtasks', ['/Create', '/F', '/TN', 'IHUI-CFPreferredIP', '/SC', 'MINUTE', '/MO', '30', '/TR', cmd], { windowsHide: true })
   log('已注册计划任务 IHUI-CFPreferredIP (每30分钟)')
+  const argLine = `/c ""${node}" "${script}" --run" >> "${LOG}" 2>&1`
+  const q = (s) => s.replace(/'/g, "''") // PowerShell 单引号转义
+  const ps = [
+    `$principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType S4U -RunLevel Limited`,
+    `$action = New-ScheduledTaskAction -Execute 'cmd.exe' -Argument '${q(argLine)}'`,
+    `$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 30)`,
+    `$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew`,
+    `Register-ScheduledTask -TaskName 'IHUI-CFPreferredIP' -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force | Out-Null`,
+    `$p = (Get-ScheduledTask -TaskName 'IHUI-CFPreferredIP').Principal`,
+    `Write-Output ("LOGON={0} RUNLEVEL={1}" -f $p.LogonType, $p.RunLevel)`,
+  ].join('\n')
+  // §27: 用 pwsh(PS7);§5b: windowsHide。-EncodedCommand(utf16le base64)规避 Windows 引号嵌套。
+  const pwsh = existsSync('C:\\Program Files\\PowerShell\\7\\pwsh.exe') ? 'C:\\Program Files\\PowerShell\\7\\pwsh.exe' : 'pwsh'
+  const out = execFileSync(pwsh, ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(ps, 'utf16le').toString('base64')], { windowsHide: true, encoding: 'utf8' })
+  if (!/LOGON=S4U/.test(out)) throw new Error(`计划任务未以 S4U 注册(实际: ${out.trim()})`)
+  log('已注册计划任务 IHUI-CFPreferredIP (每30分钟, S4U 非交互, 无桌面不弹窗)')
 }
 
 async function main() {

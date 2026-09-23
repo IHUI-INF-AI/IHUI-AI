@@ -147,6 +147,7 @@ function fetchHeadMain() {
 }
 
 /** 从 origin 校准:全量 tag + refs/heads/main(需网络;代理走环境变量) */
+let remoteCalibrated = false
 function refreshFromRemote() {
   const out = git(['ls-remote', '--tags', '--heads', 'origin'], true)
   if (!out) {
@@ -167,6 +168,7 @@ function refreshFromRemote() {
     map[local] = sha
   }
   const ok = saveManifest(map)
+  if (ok) remoteCalibrated = true
   console.log(`[refresh-remote] 已从 origin 校准 ${Object.keys(map).length} 个嵌套 ref(变更 ${added} 个)`)
   return ok
 }
@@ -200,16 +202,38 @@ function main() {
       learned++
     }
   }
-  // 1b) FETCH_HEAD 是 origin/main 的权威值(松散 ref 被 1 秒内清理,packed 可能留旧值)
-  const fh = fetchHeadMain()
+  // 1b) FETCH_HEAD 只作**离线兜底**:git fetch 把新值写成松散 refs/remotes/origin/main(嵌套目录),
+  // 该文件实测 1 秒内即被宿主清理,若 packed 留着上轮旧值,git 会回落到旧值 → 同 sha 却显示
+  // `[ahead 1]`,此时 FETCH_HEAD(gitdir 顶层文件,清理不到)是唯一可用真值。
+  // 但本轮已用 `ls-remote` 校准过时**不得**再覆盖:多会话共享 gitdir 时 FETCH_HEAD 会被任何
+  // 一次别人的 fetch 重写,拿它压过 ls-remote 就等于用低权威源改掉高权威值(AGENTS.md §12d:
+  // ls-remote 才是远端真值唯一来源)。2026-09-23 实测:校准出真值 5e5ac1a 后又被过期
+  // FETCH_HEAD 改回 30556de,导致守护每 2 分钟喊「自愈失败,需人工介入」。
+  const fh = remoteCalibrated ? null : fetchHeadMain()
   if (fh && map['refs/remotes/origin/main'] && map['refs/remotes/origin/main'] !== fh) {
     console.log(
       `[fetch-head] origin/main 以 FETCH_HEAD 为准: ${map['refs/remotes/origin/main'].slice(0, 12)} -> ${fh.slice(0, 12)}`,
     )
     map['refs/remotes/origin/main'] = fh
   }
+  // 1c) origin/HEAD 永远是 origin/main 的镜像。上面那个"学习"循环会把某一瞬间的本地解析值
+  // 钉进清单,而嵌套松散 ref 会被宿主秒清、packed 值又滞后,于是 origin/HEAD 常被钉成
+  // 一个它永远解析不到的 sha(2026-09-23 实测:清单里是本地 commit sha,packed 里是另一个值)
+  // → 每次巡检都判"1 个 ref 值不符",.git 守护恒报异常、--check 恒 exit 1。这里统一对齐到权威值。
+  const authoritativeMain = fh || map['refs/remotes/origin/main']
+  if (authoritativeMain && map['refs/remotes/origin/HEAD'] !== authoritativeMain) {
+    console.log(
+      `[mirror] origin/HEAD 对齐到 origin/main 权威值: ${String(map['refs/remotes/origin/HEAD']).slice(0, 12)} -> ${authoritativeMain.slice(0, 12)}`,
+    )
+    map['refs/remotes/origin/HEAD'] = authoritativeMain
+  }
   if (learned) console.log(`[learning] 纳入 ${learned} 个新出现的嵌套 ref`)
   saveManifest(map)
+  // 清单一旦被学习/校准改写,必须**先**把松散 ref 固化进 packed-refs 再判定。
+  // 否则时序是:manifest 更新到新 tip → fetch 写的松散 ref 在 1 秒内被宿主清理 →
+  // for-each-ref / rev-parse 回落到 packed 的旧值 → status 永远判"缺失",守护每 2 分钟
+  // 喊「自愈失败,需人工介入」(2026-09-23 实测,--refresh-remote 后立刻复现)。
+  packRefs()
 
   // 2) 清单里与当前解析值不符的(缺失 or 旧值残留)→ 按清单重建
   const broken = Object.entries(map).filter(([ref, sha]) => {
