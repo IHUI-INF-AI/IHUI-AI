@@ -35,6 +35,7 @@
       "timeout_sec": 90
     },
     "mobile-rn": {
+      "_note": "本表 8805 仅对应仓库 start 脚本(expo --port 8805);手机 dev client 实际指向 8081(RN 默认),scripts/dev-stack.mjs --device 显式以 8081 启 Metro 并 adb reverse 转发到手机。详见 docs/port-management.md §5。",
       "cmd": "pnpm",
       "args": ["--filter", "@ihui/mobile-rn", "start"],
       "cwd": "apps/mobile-rn",
@@ -58,6 +59,24 @@
       "port": 8808,
       "health": null,
       "timeout_sec": 60
+    },
+    "prod-proxy": {
+      "_note": "网页预览(mobile-rn Expo web :8806)连生产专用:CORS 注入反代,127.0.0.1:8807 → https://aizhs.top。由 scripts/dev-stack.mjs 作为可选服务托管(prod-proxy),node scripts/dev-prod-proxy.mjs。头注见脚本。",
+      "cmd": "node",
+      "args": ["scripts/dev-prod-proxy.mjs"],
+      "cwd": ".",
+      "port": 8807,
+      "health": "http://localhost:8807/api/health",
+      "timeout_sec": 30
+    },
+    "web-preview": {
+      "_note": "浏览器打开手机 App(mobile-rn 同一套代码走 react-native-web),由 scripts/dev-stack.mjs 作为可选服务托管(web-preview)。EXPO_PUBLIC_API_BASE_URL 须覆盖为 http://localhost:8807(prod-proxy),否则继承本机用户级生产域名而被浏览器 CORS 拦死。",
+      "cmd": "node",
+      "args": ["node_modules/expo/bin/cli", "start", "--web", "--port", "8806"],
+      "cwd": "apps/mobile-rn",
+      "port": 8806,
+      "health": "http://localhost:8806",
+      "timeout_sec": 120
     },
     "cli": {
       "cmd": "pnpm",

@@ -16,7 +16,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { listConversations, type ConversationDetail } from '@ihui/api-client'
 import { navigateDrawerTab } from '../navigation/tab-utils'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { RankingDetailScreen } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
 import Drawer, {

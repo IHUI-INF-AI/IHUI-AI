@@ -76,6 +76,17 @@ const SKIP_ENV = 'HUSKY_SKIP_COMMIT_LOSS_CHECK'
 const isStrict = process.argv.includes('--strict')
 const isBlocking = process.argv.includes('--blocking')
 const isFilterStash = process.argv.includes('--filter-stash')
+
+/**
+ * 名称列表截断(2026-09-18)。
+ * 本地积压 5000+ tag 时,onlyLocal 全量 join 会在**每次 pre-commit** 打印约 352 KB
+ * 的 tag 名清单(2026-09-18 实测),把真正的告警信号淹没在刷屏里。统一截断为
+ * 前 5 个 + 总数;数量本身已足以判断严重程度。
+ */
+function briefList(items, limit = 5) {
+  if (items.length <= limit) return items.join(', ')
+  return `${items.slice(0, limit).join(', ')} … 等 ${items.length} 个`
+}
 const skip = process.env[SKIP_ENV] === '1'
 
 // 本地命令可放宽;网络命令(ls-remote)必须限时,防境外 GitHub 访问挂起阻塞 pre-commit
@@ -457,18 +468,27 @@ function main() {
         if (hash) subjByHash.set(hash, rest.join('\t'))
       }
     }
-    for (const tag of lostTags) {
+    // 2026-09-18:逐条明细上限 —— 本地 5000+ tag 时全量打印会刷屏(实测 352 KB/次提交)
+    const DETAIL_LIMIT = 10
+    for (const tag of lostTags.slice(0, DETAIL_LIMIT)) {
       const hash = tagToHash.get(tag) || ''
       const short = hash.slice(0, 12) || '?'
       console.log(`     ${C.cyan}${tag}${C.reset} → ${C.dim}${short}${C.reset}  ${subjByHash.get(hash) || ''}`)
+    }
+    if (lostTags.length > DETAIL_LIMIT) {
+      console.log(`     ${C.dim}…另有 ${lostTags.length - DETAIL_LIMIT} 个未逐一列出${C.reset}`)
     }
   }
 
   if (backups.length > 0) {
     console.log(`\n  ${C.dim}backup/* tag:${C.reset}`)
-    for (const tag of backups) {
+    const BACKUP_DETAIL_LIMIT = 10
+    for (const tag of backups.slice(0, BACKUP_DETAIL_LIMIT)) {
       const hash = run(`git rev-list -1 ${tag}`, { allowFail: true })
       console.log(`     ${C.cyan}${tag}${C.reset} → ${C.dim}${hash?.slice(0, 12) || '?'}${C.reset}`)
+    }
+    if (backups.length > BACKUP_DETAIL_LIMIT) {
+      console.log(`     ${C.dim}…另有 ${backups.length - BACKUP_DETAIL_LIMIT} 个未逐一列出${C.reset}`)
     }
   }
 
@@ -492,12 +512,12 @@ function main() {
   } else {
     if (lostTagDiff.onlyLocal.length > 0) {
       console.log(
-        `    ${C.yellow}⚠️  仅本地(${lostTagDiff.onlyLocal.length} 个,未 push):${C.reset} ${lostTagDiff.onlyLocal.map((t) => C.cyan + t + C.reset).join(', ')}`,
+        `    ${C.yellow}⚠️  仅本地(${lostTagDiff.onlyLocal.length} 个,未 push):${C.reset} ${briefList(lostTagDiff.onlyLocal)}`,
       )
     }
     if (lostTagDiff.onlyRemote.length > 0) {
       console.log(
-        `    ${C.red}❌ 仅远端(${lostTagDiff.onlyRemote.length} 个,本地缺失 — 必须 fetch):${C.reset} ${lostTagDiff.onlyRemote.map((t) => C.cyan + t + C.reset).join(', ')}`,
+        `    ${C.red}❌ 仅远端(${lostTagDiff.onlyRemote.length} 个,本地缺失 — 必须 fetch):${C.reset} ${briefList(lostTagDiff.onlyRemote)}`,
       )
     }
   }
@@ -511,12 +531,12 @@ function main() {
   } else {
     if (backupTagDiff.onlyLocal.length > 0) {
       console.log(
-        `    ${C.yellow}⚠️  仅本地(${backupTagDiff.onlyLocal.length} 个,未 push):${C.reset} ${backupTagDiff.onlyLocal.map((t) => C.cyan + t + C.reset).join(', ')}`,
+        `    ${C.yellow}⚠️  仅本地(${backupTagDiff.onlyLocal.length} 个,未 push):${C.reset} ${briefList(backupTagDiff.onlyLocal)}`,
       )
     }
     if (backupTagDiff.onlyRemote.length > 0) {
       console.log(
-        `    ${C.red}❌ 仅远端(${backupTagDiff.onlyRemote.length} 个,本地缺失 — 必须 fetch):${C.reset} ${backupTagDiff.onlyRemote.map((t) => C.cyan + t + C.reset).join(', ')}`,
+        `    ${C.red}❌ 仅远端(${backupTagDiff.onlyRemote.length} 个,本地缺失 — 必须 fetch):${C.reset} ${briefList(backupTagDiff.onlyRemote)}`,
       )
     }
   }
@@ -719,13 +739,13 @@ function main() {
   }
   if (lostTagDiff.onlyLocal.length > 0) {
     issues.push(
-      `${lostTagDiff.onlyLocal.length} 个 lost-commit tag 仅本地(未 push,本地 git gc 后会丢失):${lostTagDiff.onlyLocal.join(', ')}`,
+      `${lostTagDiff.onlyLocal.length} 个 lost-commit tag 仅本地(未 push,本地 git gc 后会丢失):${briefList(lostTagDiff.onlyLocal)}`,
     )
     // 仅本地不阻塞,只 warn
   }
   if (backupTagDiff.onlyLocal.length > 0) {
     issues.push(
-      `${backupTagDiff.onlyLocal.length} 个 backup tag 仅本地(未 push):${backupTagDiff.onlyLocal.join(', ')}`,
+      `${backupTagDiff.onlyLocal.length} 个 backup tag 仅本地(未 push):${briefList(backupTagDiff.onlyLocal)}`,
     )
     // 仅本地不阻塞,只 warn
   }

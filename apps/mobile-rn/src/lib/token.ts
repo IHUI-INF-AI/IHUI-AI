@@ -15,7 +15,7 @@
  * 调用方:`setToken` / `setRefreshToken` / `clearToken` / `getToken` / `getRefreshToken`。
  * `getToken` / `getRefreshToken` 返回同步缓存值(避免每次 HTTP 都 await SecureStore)。
  */
-import { setBaseUrl, setDeviceFingerprintProvider } from '@ihui/api-client'
+import { fetchApi, setBaseUrl, setDeviceFingerprintProvider } from '@ihui/api-client'
 import { API_BASE_URL, TOKEN_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY } from './config'
 import { mobileRnDeviceFingerprintCollector } from './device-fingerprint'
 import { deleteSecureItem, getSecureItem, setSecureItem } from './auth/secure-store'
@@ -56,6 +56,31 @@ const memoryStore = createInMemoryTokenStore({
   },
 })
 
+/**
+ * 401 自动续期(2026-09-22 立,对齐 web 端 apps/web/src/lib/api.ts 同名回调):
+ * access token 仅 15min 有效,此前 RN 未注入本回调 → 登录 15 分钟后全部鉴权接口失效,
+ * agent-control 能力上报每 60s 刷 "Invalid or expired token" 警告。
+ * 走 fetchApi 自身(/auth/refresh 属 auth 端点,401 拦截器豁免,不递归续期)。
+ * 成功:轮转写入新 token + refreshToken(SecureStore 持久化),返回新 access token;
+ * 失败:refreshToken 也已失效 → 返回 null,由 api-client 失败冷却兜底,调用方按登录过期处理。
+ */
+async function refreshAccessToken(): Promise<string | null> {
+  const storedRefresh = memoryStore.getRefreshToken()
+  const res = await fetchApi<{ accessToken: string; refreshToken?: string | null }>(
+    '/auth/refresh',
+    {
+      method: 'POST',
+      body: JSON.stringify(storedRefresh ? { refreshToken: storedRefresh } : {}),
+    },
+  )
+  if (res.success && res.data?.accessToken) {
+    await memoryStore.setToken(res.data.accessToken)
+    if (res.data.refreshToken) await memoryStore.setRefreshToken(res.data.refreshToken)
+    return res.data.accessToken
+  }
+  return null
+}
+
 export async function initApi(): Promise<void> {
   setBaseUrl(API_BASE_URL)
   const [stored, storedRefresh] = await Promise.all([
@@ -67,7 +92,7 @@ export async function initApi(): Promise<void> {
     token: typeof stored === 'string' ? stored : null,
     refreshToken: typeof storedRefresh === 'string' ? storedRefresh : null,
   })
-  bindTokenStoreToApiClient(tokenStore)
+  bindTokenStoreToApiClient(tokenStore, { refreshAccessToken })
   setDeviceFingerprintProvider(mobileRnDeviceFingerprintCollector)
 }
 

@@ -2930,6 +2930,13 @@ export interface AgentScreenProps {
   onPressItem: (id: string) => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /**
+   * 嵌套模式(2026-09-22 立):宿主把本屏渲染进外层 ScrollView 时传 true,
+   * 内部改用普通 View + map 渲染,避免 FlatList(VirtualizedList)嵌套在
+   * ScrollView 内触发 "VirtualizedLists should never be nested" + 缺 key 两条
+   * console.error;此模式下拉刷新由外层 ScrollView 的 RefreshControl 负责。
+   */
+  nestedInScrollView?: boolean
 }
 
 /** AI 助手分类 */

@@ -62,6 +62,9 @@ export type RnVipTokens = {
 export const rnTokens = {
   brand: {
     DEFAULT: '#000000',
+    /** 品牌底(brand.DEFAULT)之上的前景色。深色下 brand.DEFAULT 翻成白,前景必须翻黑,
+     *  不得用 surface.light 代替(它在两态都是 #FFFFFF → 白底白字)。 */
+    foreground: '#FFFFFF',
     dark: '#34D399',
   },
   surface: {
@@ -88,6 +91,8 @@ export const rnTokens = {
   },
   overlay: {
     modal: 'rgba(0,0,0,0.4)',
+    /** 全屏 loading 遮罩:浅色下白纱,深色下黑纱(白纱压在深底上会整屏刺眼且让 secondary 文字不可读) */
+    loading: 'rgba(255,255,255,0.8)',
   },
   /** 全项目统一强调色(高级灰蓝,2026-09-14 用户定稿),对齐 web --color-brand-accent。
    * DEFAULT=按钮/填充底色(浅灰蓝),foreground=其上的文字色(深蓝灰,浅底白字不可读),
@@ -147,12 +152,12 @@ export type RnThemeMode = 'light' | 'dark'
 
 /** 动态主题 token 集。相比 base tokens 增加 surface.bg(主背景),其余字段对齐。 */
 export type RnThemeTokens = {
-  brand: { DEFAULT: string; dark: string }
+  brand: { DEFAULT: string; foreground: string; dark: string }
   surface: { bg: string; light: string; muted: string; card: string; dark: string; inputBg: string }
   text: { primary: string; secondary: string; tertiary: string; medium: string }
   border: { light: string; medium: string }
   error: { bg: string; text: string }
-  overlay: { modal: string }
+  overlay: { modal: string; loading: string }
   /* brandAccent:高级灰蓝(2026-09-14 定稿)。DEFAULT=底色,foreground=其上文字,
    * deep=表面文字/图标变体,gradFrom/gradTo=CTA 局部渐变点缀。 */
   brandAccent: {
@@ -192,7 +197,7 @@ export type RnThemeTokens = {
  * - brand.DEFAULT = #000000 对齐 web 亮色 --color-primary(2026-07-24 消除绿色)。
  */
 export const rnLightTokens: RnThemeTokens = {
-  brand: { DEFAULT: '#000000', dark: '#34D399' },
+  brand: { DEFAULT: '#000000', foreground: '#FFFFFF', dark: '#34D399' },
   surface: {
     bg: '#F5F5F5',
     light: '#FFFFFF',
@@ -204,7 +209,7 @@ export const rnLightTokens: RnThemeTokens = {
   text: { primary: '#0A0A0A', secondary: '#666666', tertiary: '#A3A3A3', medium: '#404040' },
   border: { light: '#E5E5E5', medium: '#D4D4D4' },
   error: { bg: '#FFE5E5', text: '#FF3333' },
-  overlay: { modal: 'rgba(0,0,0,0.4)' },
+  overlay: { modal: 'rgba(0,0,0,0.4)', loading: 'rgba(255,255,255,0.8)' },
   brandAccent: {
     light: '#eaf2f7',
     DEFAULT: '#8fb8cc',
@@ -251,16 +256,18 @@ export const rnLightTokens: RnThemeTokens = {
  * - brand.DEFAULT = #FFFFFF 对齐 web 暗色 --color-primary(2026-07-24 消除绿色,暗色用纯白底)。
  * - surface.bg = #242424(web --color-background hsl 0 0% 14%),替换原蓝灰 #1F2937。
  * - surface.card = #1A1A1A(web --color-card hsl 0 0% 10%),替换原 #374151 中灰(登录页"灰突突"根因)。
- * - surface.light 仍为 #FFFFFF:该字段在共享组件中用作「品牌色上的对比白字」
- *   (头像文字 / 主按钮文字),非主背景,故明暗模式均保持白色。
+ * - surface.light 深色改为 #262626(= surface.muted):原值 #FFFFFF 在深色模式下无论做容器背景
+ *   还是做品牌色上的文字色都会导致白底白字(全项目 790 处误用)。改为深灰后,做背景时融入主题,
+ *   做品牌色(brand.DEFAULT 深色=白)上的文字色时深灰字在白底上可见。真正需要"品牌色上的白字"
+ *   的场景应使用 brand.foreground(浅色=白,深色=黑)或直接用 #FFFFFF 常量。
  * - surface.muted = #262626(web --color-muted hsl 0 0% 14.9%),卡片/输入框微亮层级。
  * - text/border/error/status DEFAULT 对齐 web 暗色语义色。
  */
 export const rnDarkTokens: RnThemeTokens = {
-  brand: { DEFAULT: '#FFFFFF', dark: '#34D399' },
+  brand: { DEFAULT: '#FFFFFF', foreground: '#000000', dark: '#34D399' },
   surface: {
     bg: '#242424',
-    light: '#FFFFFF',
+    light: '#262626',
     muted: '#262626',
     card: '#1A1A1A',
     dark: '#171717',
@@ -269,7 +276,7 @@ export const rnDarkTokens: RnThemeTokens = {
   text: { primary: '#FAFAFA', secondary: '#A3A3A3', tertiary: '#737373', medium: '#D4D4D4' },
   border: { light: '#383838', medium: '#525252' },
   error: { bg: '#7F1D1D', text: '#FF3333' },
-  overlay: { modal: 'rgba(0,0,0,0.6)' },
+  overlay: { modal: 'rgba(0,0,0,0.6)', loading: 'rgba(0,0,0,0.6)' },
   brandAccent: {
     light: '#1e2e36',
     DEFAULT: '#a3c4d6',
