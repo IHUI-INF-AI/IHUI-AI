@@ -999,7 +999,7 @@
     "products": "販売商品",
     "commission": "コミッション",
     "sales": "{count} 件販売",
-    "loadFailed": "分销の読み込みに失敗",
+    "loadFailed": "アフィリエイトの読み込みに失敗",
     "withdrawFailed": "出金に失敗",
     "withdrawSuccess": "出金に成功"
   },
@@ -2280,7 +2280,7 @@
     "hint": "以下は Web 版機能の入口です。内蔵ブラウザで開きます",
     "sections": {
       "eduAi": "教育 AI",
-      "edu": "教务管理 / 保護者",
+      "edu": "教務管理 / 保護者",
       "developer": "開発者プラットフォーム",
       "selfMedia": "自媒体運営",
       "knowledgeTools": "知識グラフとツール",
@@ -2319,7 +2319,7 @@
     },
     "selfMedia": {
       "koubo": "口播稿",
-      "wechat": "公众号",
+      "wechat": "公式アカウント",
       "automation": "自動化"
     },
     "publish": {

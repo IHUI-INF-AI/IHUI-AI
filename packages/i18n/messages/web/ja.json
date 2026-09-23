@@ -409,14 +409,14 @@
     "ctaSecondary": "ドキュメントを見る",
     "ctaTitle": "30分で AI の旅を始めよう",
     "heroBadge": "智匯 AI について",
-    "heroSubtitle": "IHUI AI はオープンソースのフルスタック AI オペレーティングシステムで、Agent 設計、ナレッジベース、マルチモデルスケジューリング、クロスプラットフォーム协作とチーム運営を1つのプラットフォームに統合します。",
+    "heroSubtitle": "IHUI AI はオープンソースのフルスタック AI オペレーティングシステムで、Agent 設計、ナレッジベース、マルチモデルスケジューリング、クロスプラットフォーム協業とチーム運営を1つのプラットフォームに統合します。",
     "heroTitle": "1コード6クライアント、1つの AI",
     "metaDescription": "IHUI AI(智匯 AI)はワンストップのフルスタック AI オペレーティングシステム: Agent マーケット、ナレッジベース RAG、マルチモデル統合スケジューリング、MCP ツールプロトコルを統合し、Web / デスクトップ / ミニプログラム / ブラウザ拡張 / React Native / CLI の6クライアントを1つのコードベースでサポート、Apache 2.0 オープンソース。",
     "numbersTitle": "数字で見る実績",
-    "platformAgentsDesc": "ビジュアルドラッグ&ドロップで AI Agent を構築、200+ テンプレート、プラグイン/MCP ツール、ワンクリックで全クライアントに发布。",
+    "platformAgentsDesc": "ビジュアルドラッグ&ドロップで AI Agent を構築、200+ テンプレート、プラグイン/MCP ツール、ワンクリックで全クライアントに公開。",
     "platformAgentsTitle": "Agent マーケット & オーケストレーション",
     "platformCollabDesc": "マルチテナントワークスペース、ロール権限、クレジット共有、監査ログ、SSO/OAuth。",
-    "platformCollabTitle": "チーム协作",
+    "platformCollabTitle": "チーム協業",
     "platformMcpDesc": "ネイティブ Model Context Protocol 対応、任意の MCP Server 接続、ツールマーケット 100+ 標準搭載。",
     "platformMcpTitle": "MCP ツールプロトコル",
     "platformModelsDesc": "OpenAI/Claude/Qwen/DeepSeek/Zhipu/ERNIE/Doubao/Kimi/Ollama ワンクリック切替、自動フォールバック、コストルーティング。",
@@ -435,14 +435,14 @@
     "statUsers": "25+",
     "statUsersDesc": "エンタープライズユーザー",
     "storyBadge": "私たちのストーリー",
-    "storyP1": "2024年、私たちは企業が AI を導入する際に普遍的に直面する「4つの难题」を発見しました: モデル選定の难しさ、ナレッジベース連携の难しさ、クロスプラットフォーム配信の难しさ、チーム协作と課金の难しさ。市販の製品は1つだけ解決するか、クローズドソースでロックインされるか、高すぎて使えないかのいずれかです。",
+    "storyP1": "2024年、私たちは企業が AI を導入する際に普遍的に直面する「4つの難題」を発見しました: モデル選定の難しさ、ナレッジベース連携の難しさ、クロスプラットフォーム配信の難しさ、チーム協業と課金の難しさ。市販の製品は1つだけ解決するか、クローズドソースでロックインされるか、高すぎて使えないかのいずれかです。",
     "storyP2": "そこで私たちは智匯 AI を作りました: オープンソース、統合、クロスプラットフォーム、セルフホスト可能。12〜18ヶ月の自社開発時間を30分のアカウント開設に圧縮しました。",
     "storyTitle": "なぜ智匯 AI を作ったのか?",
-    "valueCrossDesc": "Web / デスクトップ / ミニプログラム / ブラウザ拡張 / React Native / CLI、1コードベース、1回发布、全プラットフォーム対応。",
+    "valueCrossDesc": "Web / デスクトップ / ミニプログラム / ブラウザ拡張 / React Native / CLI、1コードベース、1回リリース、全プラットフォーム対応。",
     "valueCrossTitle": "6クライアント1コード",
     "valueEnterpriseDesc": "SSO/OAuth、監査ログ、ロール権限、セルフホスト展開、複数の上場企業にサービス提供。",
     "valueEnterpriseTitle": "エンタープライズ級セキュリティ",
-    "valueFreeDesc": "毎月1,000クレジット、全モデル利用可能、6クライアント同時发布。Pro版 ¥49/月〜、Enterprise版はセルフホスト対応。",
+    "valueFreeDesc": "毎月1,000クレジット、全モデル利用可能、6クライアント同時リリース。Pro版 ¥49/月〜、Enterprise版はセルフホスト対応。",
     "valueFreeTitle": "個人版永久無料",
     "valueOpenDesc": "Apache 2.0 ライセンス、コアコード公開、商用利用可、セルフホストコストゼロ。",
     "valueOpenTitle": "完全オープンソース",
@@ -1017,7 +1017,7 @@
       "colActions": "操作",
       "colAnswerCount": "回答数",
       "colCreatedAt": "作成日時",
-      "colResolved": "解决ステータス",
+      "colResolved": "解決ステータス",
       "colStatus": "ステータス",
       "colTitle": "Questionタイトル",
       "colUser": "質問者",
@@ -1053,7 +1053,7 @@
       "title": "Q&A",
       "titlePlaceholder": "タイトルを",
       "total": "{total}",
-      "unresolved": "未解决",
+      "unresolved": "未解決",
       "updateSuccess": "更新しました"
     },
     "behavior": {
@@ -1486,7 +1486,7 @@
           "statGraded": "み",
           "statPassed": "合格",
           "statSubmitted": "提出済み",
-          "statTotal": "总解答数",
+          "statTotal": "総解答数",
           "subtitle": "とを",
           "title": "カード",
           "totalItems": "{count}",
@@ -1557,9 +1557,9 @@
         "cancel": "キャンセル",
         "certificateTitle": "タイトル",
         "colAction": "操作",
-        "colCertificateNo": "証明書编号",
+        "colCertificateNo": "証明書番号",
         "colIssuedAt": "発行日時",
-        "colNo": "証明書编号",
+        "colNo": "証明書番号",
         "colRecipient": "取得者",
         "colSource": "ソース",
         "colTemplate": "テンプレート",
@@ -1963,9 +1963,9 @@
           "cancel": "キャンセル",
           "colActions": "操作",
           "colEndTime": "終了時間",
-          "colInvigilator": "监考",
+          "colInvigilator": "試験監督",
           "colPaper": "試験問題",
-          "colRoom": "考场",
+          "colRoom": "試験会場",
           "colStartTime": "開始時間",
           "colStatus": "ステータス",
           "create": "新建安排",
@@ -1977,9 +1977,9 @@
           "edit": "編集",
           "editTitle": "を",
           "fieldEndTime": "終了時間",
-          "fieldInvigilator": "监考人",
+          "fieldInvigilator": "試験監督者",
           "fieldPaper": "試験問題",
-          "fieldRoom": "考场",
+          "fieldRoom": "試験会場",
           "fieldStartTime": "開始時間",
           "fieldStatus": "ステータス",
           "loading": "読み込み中...",
@@ -2066,7 +2066,7 @@
           "colPassScore": "合格点",
           "colStatus": "ステータス",
           "colTitle": "タイトル",
-          "colTotalScore": "总分",
+          "colTotalScore": "総得点",
           "confirmDelete": "このをしますか？",
           "createPaper": "試験問題を作成",
           "createSuccess": "作成しました",
@@ -2091,7 +2091,7 @@
           "fieldQuestionDisordered": "問題順序シャッフル",
           "fieldQuestionIdList": "問題ID",
           "fieldTitle": "タイトル",
-          "fieldTotalScore": "总分",
+          "fieldTotalScore": "総得点",
           "gradesManage": "成績採点",
           "loading": "読み込み中...",
           "nextPage": "次のページ",
@@ -2150,7 +2150,7 @@
           "selectPaper": "試験問題を選択",
           "singleCount": "単一選択問題数",
           "startRandom": "ランダム",
-          "subjectiveCount": "简解答数",
+          "subjectiveCount": "記述問題数",
           "subtitle": "各条件のCountに基づいてランダムに割り当ててください",
           "success": "ランダムがしました",
           "summary": "{totalQ} 、 {totalScore}",
@@ -2324,7 +2324,7 @@
           "colAmount": "金額",
           "colCourseId": "コースID",
           "colCreatedAt": "作成日時",
-          "colOutBillOn": "账単日付",
+          "colOutBillOn": "請求日付",
           "colPayWay": "いメソッド",
           "colRealAmount": "実支払",
           "colUserUuid": "ユーザーUUID",
@@ -2344,7 +2344,7 @@
           "exportFailed": "エクスポート",
           "exportSuccess": "エクスポート",
           "filterCourseId": "コースID",
-          "filterOutBillOn": "账単日付",
+          "filterOutBillOn": "請求日付",
           "filterPayWay": "いメソッド",
           "filterUserUuid": "ユーザーUUID",
           "filterVideoId": "ビデオID",
@@ -2371,7 +2371,7 @@
           "backToFinance": "財務管理に戻る",
           "colAction": "操作",
           "colAmount": "金額",
-          "colApplicant": "申请人",
+          "colApplicant": "申請者",
           "colAppliedAt": "申請日時",
           "colStatus": "ステータス",
           "colTaxNo": "税号",
@@ -3172,7 +3172,7 @@
           "approveSuccess": "審査を承認しました",
           "backToTeacher": "にる",
           "colAction": "操作",
-          "colApplicant": "申请人",
+          "colApplicant": "申請者",
           "colAppliedAt": "申請日時",
           "colIntro": "概要",
           "colTitle": "タイトル",
@@ -4342,12 +4342,12 @@
       "rejectTitle": "を",
       "search": "検索",
       "searchPlaceholder": "ドキュメント...",
-      "statsAmount": "总返金額",
+      "statsAmount": "総返金額",
       "statsApproved": "承認済み",
       "statsCompleted": "完了",
       "statsPending": "審査中",
       "statsRejected": "却下済み",
-      "statsTotal": "总返金数",
+      "statsTotal": "総返金数",
       "status": "ステータス",
       "subtitle": "のなドキュメントとAPIリファレンス",
       "title": "APIテスト",
@@ -4857,7 +4857,7 @@
       "disabled": "無効",
       "enabled": "有効",
       "levelBan": "禁言",
-      "levelBlock": "拦截",
+      "levelBlock": "ブロック",
       "levelReplace": "置換",
       "loading": "読み込み中...",
       "noData": "データなし",
@@ -5726,15 +5726,15 @@
       "viewTitle": "ワークフロー"
     },
     "title": "管理后台",
-    "oauthApps": "OAuth 应用",
-    "pointsMall": "积分商城",
+    "oauthApps": "OAuth アプリ",
+    "pointsMall": "ポイントショップ",
     "post": "帖子管理",
-    "promotionRule": "推广规则",
-    "providersHealth": "服务商健康度",
-    "relayOverview": "中继概览",
-    "themeEdit": "主题编辑",
-    "unauthorized": "未授权",
-    "userMargin": "用户保证金"
+    "promotionRule": "プロモーションルール",
+    "providersHealth": "プロバイダー健全度",
+    "relayOverview": "リレー概要",
+    "themeEdit": "テーマ編集",
+    "unauthorized": "未承認",
+    "userMargin": "ユーザー保証金"
   },
   "connectors": {
     "title": "中文コネクタ",
@@ -6594,7 +6594,7 @@
       "subtitle": "のなドキュメントとAPIリファレンス",
       "title": "APIテスト",
       "todayAuth": "今日の認証",
-      "totalAuth": "总授权"
+      "totalAuth": "総認可"
     },
     "performance": {
       "avgResponse": "平均レスポンス",
@@ -6782,7 +6782,7 @@
     "viewPermissionExample": "を",
     "vipExclusive": "VIP専用",
     "config": "設定",
-    "dispatchSubagent": "分发子代理"
+    "dispatchSubagent": "サブエージェント割り当て"
   },
   "agentRuntimePanel": {
     "cancelledBody": "現在の実行を停止しました。続行するには入力を編集して再度実行してください。",
@@ -7001,7 +7001,7 @@
     "staticContent2": "メッセージセンター，の個人情報保護方針に同意します。",
     "staticContent3": "本規約についてご不明な点があれば、プラットフォームのカスタマーサポートまでお問い合わせください。",
     "title": "規約とポリシー",
-    "subtitle": "请仔细閲覧以下利用規約",
+    "subtitle": "以下の利用規約をよくお読みください",
     "privacyPolicy": "プライバシーポリシー",
     "userAgreement": "利用規約",
     "loading": "読み込み中...",
@@ -7484,7 +7484,32 @@
         "expandAria": "コマンド履歴(展開/折りたたみ)"
       },
       "toolSummaryShowMore": "もっと見る",
-      "toolSummaryShowLess": "閉じる"
+      "toolSummaryShowLess": "閉じる",
+      "worktree": {
+        "title": "Worktree",
+        "state": {
+          "creating": "作成中",
+          "ready": "作成済み",
+          "initFailed": "初期化に失敗",
+          "timeout": "タイムアウト",
+          "cleaned": "このタスクの Worktree はディスク容量を解放するためクリーンアップされました。",
+          "restoring": "復元中",
+          "restored": "復元済み",
+          "restoreFailed": "復元できません"
+        },
+        "hint": {
+          "timeout": "リポジトリの状態を確認してください",
+          "cleaned": "この Worktree を復元してタスクを続行するか、ディスク容量を解放できます。",
+          "singleWriter": "同一タスクで同時に有効な Worktree は 1 つだけです。"
+        },
+        "action": {
+          "reclaimDisk": "ディスク容量を解放",
+          "restore": "Worktree を復元",
+          "retryRestore": "復元を再試行",
+          "dismiss": "了解"
+        },
+        "ariaLabel": "Worktree のライフサイクル"
+      }
     },
     "permissionConfirm": {
       "allow": "許可",
@@ -8362,7 +8387,7 @@
       "stable": "安定",
       "subtitle": "7/14 日ホット度トレンド曲線"
     },
-    "title": "AI 资讯",
+    "title": "AI ニュース",
     "close": "閉じる"
   },
   "aiSkillDetail": {
@@ -8751,9 +8776,9 @@
       }
     },
     "pushPerm": {
-      "default": "未询问",
-      "granted": "已授权",
-      "denied": "已拒绝"
+      "default": "未問い合わせ",
+      "granted": "認可済み",
+      "denied": "拒否済み"
     }
   },
   "voiceRecord": {
@@ -8905,10 +8930,10 @@
     "subtitle": "のなドキュメントとAPIリファレンス",
     "title": "タイトル",
     "titlePlaceholder": "タイトルをしてください",
-    "unresolved": "未解决",
+    "unresolved": "未解決",
     "viewCount": "{count}",
-    "detail": "提问详情",
-    "edit": "编辑提问"
+    "detail": "質問詳細",
+    "edit": "質問編集"
   },
   "asksEditFormPage": {
     "cancel": "キャンセル",
@@ -9079,7 +9104,7 @@
     "userTotal": "ユーザー",
     "watchDuration": "視聴時間",
     "watchList": "視聴記録",
-    "watchTotal": "总視聴回数"
+    "watchTotal": "総視聴回数"
   },
   "biDashboard": {
     "activeUsers": "アクティブユーザー",
@@ -9092,7 +9117,7 @@
     "loading": "読み込み中...",
     "subtitle": "ビジネスインテリジェンスデータ",
     "title": "BIダッシュボード",
-    "totalOrders": "总注文",
+    "totalOrders": "総注文",
     "totalRevenue": "総収入",
     "totalUsers": "ユーザー"
   },
@@ -9179,7 +9204,7 @@
     },
     "download": {
       "allowPopup": "をするにはポップアップをしてください",
-      "certNo": "証明書编号",
+      "certNo": "証明書番号",
       "certText": "ここに{name}がにしたことをします。",
       "download": "をダウンロード",
       "downloadSuccess": "のダウンロード",
@@ -9713,7 +9738,7 @@
       "statusPending": "待機中",
       "statusSkipped": "スキップ",
       "stepAnswer": "回答",
-      "stepError": "失败",
+      "stepError": "失敗",
       "stepOf": "ステップ{index}:{step}",
       "stepThinking": "思考",
       "summaryAllDone": "すべて完了",
@@ -9878,7 +9903,7 @@
       "scenarioTool": "ツール",
       "scenarioWriting": "執筆",
       "searchPlaceholder": "スキルを検索…",
-      "sectionAiSkills": "AI 精选コレクション",
+      "sectionAiSkills": "AI 厳選コレクション",
       "sectionBuiltin": "内蔵",
       "sectionCustom": "マイカスタム",
       "statusAvailable": "利用可能",
@@ -10247,7 +10272,7 @@
     "postCount": "{count}の",
     "subtitle": "のなドキュメントとAPIリファレンス",
     "title": "コミュニティ",
-    "detail": "圈子详情"
+    "detail": "コミュニティ詳細"
   },
   "cliImport": {
     "commit": "インポート確定",
@@ -10255,7 +10280,7 @@
     "commitSuccess": "インポート完了: 成功 {imported}, スキップ {skipped}, 失敗 {failed}",
     "committing": "インポート中...",
     "conflictStrategy": "重複処理戦略",
-    "desc": "cc-switch / codex++ / Claude / Codex / Gemini / Hermes / Cursor / Windsurf / Cline / Aider / .env から一键インポート",
+    "desc": "cc-switch / codex++ / Claude / Codex / Gemini / Hermes / Cursor / Windsurf / Cline / Aider / .env からワンクリックでインポート",
     "deselectAll": "すべて解除",
     "dragDrop": "ここにファイルをドラッグまたはクリックして選択",
     "errorNoFile": "設定ファイルをアップロードしてください",
@@ -10490,7 +10515,7 @@
     "replyTitle": "管理者返信",
     "submitReply": "送信返信",
     "submitting": "送信中...",
-    "title": "评论"
+    "title": "コメント"
   },
   "commissionPlan": {
     "commissionRate": "コミッション率",
@@ -10652,12 +10677,12 @@
     "ok": "OK",
     "create": "作成",
     "agentKanban": "Agent 看板",
-    "callback": "回调",
-    "title": "页面",
-    "forbidden": "禁止访问",
-    "forgotPassword": "忘记密码",
-    "login": "登录",
-    "status": "状态",
+    "callback": "コールバック",
+    "title": "ページ",
+    "forbidden": "アクセス禁止",
+    "forgotPassword": "パスワードを忘れた方",
+    "login": "ログイン",
+    "status": "ステータス",
     "export": "エクスポート",
     "add": "追加",
     "submit": "送信",
@@ -10728,7 +10753,7 @@
       "anonymous": "匿名ユーザー",
       "certAcquired": "コース学習完了おめでとうございます。修了証明書を取得しました",
       "certNo": "証明書番号：{no}",
-      "certPending": "全课程の学習を完了し、評価に合格すると修了証明書が取得できます",
+      "certPending": "全コースの学習を完了し、評価に合格すると修了証明書が取得できます",
       "certPreview": "修了証プレビュー",
       "certStudent": "受講者名",
       "certTitle": "修了証明書",
@@ -10827,7 +10852,7 @@
       "totalAmountLabel": "累計成交金額",
       "totalFiles": "ファイル",
       "totalLabel": "の",
-      "totalOrders": "总注文",
+      "totalOrders": "総注文",
       "totalProjects": "プロジェクト",
       "totalUsers": "ユーザー",
       "userGrowth": "ユーザーへ",
@@ -10931,7 +10956,7 @@
     },
     "title": "デザインモード",
     "undo": "元に戻す",
-    "system": "设计系统"
+    "system": "デザインシステム"
   },
   "detail": {
     "activate": "有効化",
@@ -11811,7 +11836,7 @@
     "commissionInvalid": "無効",
     "commissionOrders": "コミッション",
     "commissionTitle": "コミッション",
-    "completedAmount": "已まで账",
+    "completedAmount": "入金済み",
     "distributionTeam": "チーム",
     "empty": "なしデータ",
     "flowAmount": "Count",
@@ -11856,12 +11881,12 @@
     "withdrawAmount": "出金金額",
     "withdrawAmountInvalid": "がです",
     "withdrawAmountPlaceholder": "ご",
-    "withdrawBtn": "送信申请",
+    "withdrawBtn": "申請を送信",
     "withdrawFail": "出金失敗",
     "withdrawInsufficient": "残高不足",
     "withdrawRecords": "Withdraw Records",
     "withdrawRecordsTitle": "Withdraw Records",
-    "withdrawSuccess": "出金申请提出済み",
+    "withdrawSuccess": "出金申請提出済み",
     "withdrawSummary": "Withdraw Records",
     "withdrawTitle": "出金",
     "withdrawnAmount": "み",
@@ -12038,114 +12063,114 @@
       "3d": "3D 建模",
       "agent": "AI 智能体",
       "all": "すべて",
-      "allCategories": "全部类型",
+      "allCategories": "すべてのカテゴリ",
       "alternatives": "替代工具",
       "api": "提供 API",
-      "audio": "音频",
-      "category": "类型",
+      "audio": "オーディオ",
+      "category": "カテゴリ",
       "code": "コード",
       "cons": "缺点",
       "coreFeatures": "核心功能",
-      "description": "简介",
-      "empty": "暂无工具",
-      "free": "免费",
-      "freeTier": "免费额度",
-      "freemium": "免费增值",
-      "image": "文生图",
+      "description": "概要",
+      "empty": "ツールなし",
+      "free": "無料",
+      "freeTier": "無料枠",
+      "freemium": "フリーミアム",
+      "image": "テキストから画像生成",
       "loadFailed": "読み込み失敗",
       "loading": "読み込み中...",
-      "mobileApp": "移动端",
+      "mobileApp": "モバイルアプリ",
       "name": "工具名称",
       "nameCn": "中文名",
       "next": "次のページ",
-      "noRating": "暂无评分",
+      "noRating": "評価なし",
       "page": "{page} / {total} ページ",
-      "paid": "付费",
+      "paid": "有料",
       "prev": "前のページ",
       "pricing": "料金",
-      "pricingDetail": "定价详情",
-      "pricingModel": "定价模式",
-      "pros": "优点",
+      "pricingDetail": "料金詳細",
+      "pricingModel": "料金体系",
+      "pros": "メリット",
       "provider": "提供商",
-      "rating": "评分",
+      "rating": "評価",
       "search": "搜索工具...",
-      "subtitle": "精选 AI 生成内容工具,助力教学与创作",
+      "subtitle": "注目の AI コンテンツ生成ツール,教育と創作をサポート",
       "text": "文生文",
       "tips": "使用技巧",
-      "title": "AIGC 工具库",
+      "title": "AIGC ツールライブラリ",
       "total": "合計 {n} 個のツール",
-      "useCases": "使用场景",
-      "userCount": "用户量",
-      "video": "视频",
+      "useCases": "利用シーン",
+      "userCount": "ユーザー数",
+      "video": "動画",
       "viewDetail": "詳細を表示"
     },
     "cert": {
-      "advanced": "高级",
-      "allLevels": "全部等级",
+      "advanced": "上級",
+      "allLevels": "すべてのレベル",
       "assessmentMethod": "評価方式",
-      "benefits": "认证权益",
-      "certName": "认证名称",
-      "certificationRequirements": "认证要求",
-      "empty": "暂无认证项目",
-      "hoursSuffix": "学时",
-      "intermediate": "中级",
-      "issuingAuthority": "发证机构",
-      "level": "等级",
+      "benefits": "認定特典",
+      "certName": "認定名称",
+      "certificationRequirements": "認定要件",
+      "empty": "認定プログラムなし",
+      "hoursSuffix": "時間",
+      "intermediate": "中級",
+      "issuingAuthority": "発行機関",
+      "level": "レベル",
       "loadFailed": "読み込み失敗",
       "loading": "読み込み中...",
       "next": "次のページ",
       "page": "{page} / {total} ページ",
       "prev": "前のページ",
-      "primary": "初级",
-      "search": "搜索认证项目...",
-      "subtitle": "AI 师资培训与认证项目,助力教师掌握 AI 教学能力",
-      "targetTeachers": "面向教师",
-      "title": "教师 AI 认证",
-      "trainingContent": "培训内容",
-      "trainingHours": "培训学时",
-      "validity": "证书有效期",
+      "primary": "初級",
+      "search": "認定プログラムを検索...",
+      "subtitle": "AI 教師向け研修と認定プログラム,教師の AI 教育力をサポート",
+      "targetTeachers": "教師向け",
+      "title": "教師 AI 認定",
+      "trainingContent": "研修内容",
+      "trainingHours": "研修時間",
+      "validity": "証明書の有効期限",
       "viewDetail": "詳細を表示"
     },
     "courses": {
       "assessment": "評価方式",
       "assessmentMethods": "評価方式",
-      "contentModules": "内容模块",
-      "courseName": "课程名称",
-      "courseType": "课程类型",
+      "contentModules": "内容モジュール",
+      "courseName": "コース名",
+      "courseType": "コースタイプ",
       "credits": "学分",
-      "description": "课程简介",
-      "elective": "选修",
-      "empty": "暂无课程",
-      "gradeRange": "年级",
-      "hours": "学时",
-      "hoursPerYear": "年课时",
+      "description": "コース概要",
+      "elective": "選択",
+      "empty": "コースなし",
+      "gradeRange": "学年",
+      "hours": "時間",
+      "hoursPerYear": "年間授業時間",
       "junior": "初中",
       "keyConcepts": "核心概念",
-      "learningObjectives": "学习目标",
+      "learningObjectives": "学習目標",
       "loadFailed": "読み込み失敗",
       "loading": "読み込み中...",
-      "modules": "课程模块",
+      "modules": "コースモジュール",
       "next": "次のページ",
-      "noDetail": "暂无详细内容",
+      "noDetail": "詳細なし",
       "page": "{page} / {total} ページ",
       "prerequisites": "先修要求",
       "prev": "前のページ",
       "primary": "小学",
       "required": "必修",
-      "search": "搜索课程...",
+      "search": "コースを検索...",
       "senior": "高中",
       "skillRequirements": "技能要求",
       "stage": "学段",
-      "subtitle": "K12 与高校 AI 课程体系,覆盖全学段",
-      "tabK12": "K12 AI 课程",
-      "tabUniversity": "高校 AI 课程",
-      "targetMajor": "面向专业",
+      "subtitle": "K12 から大学までの AI コース体系,全校種をカバー",
+      "tabK12": "K12 AI コース",
+      "tabUniversity": "大学 AI コース",
+      "targetMajor": "対象専攻",
       "teachingMethods": "教学方法",
-      "teachingTeam": "教学团队",
+      "teachingTeam": "教員チーム",
       "textbooks": "教材",
-      "title": "AI 课程",
-      "toolsResources": "工具与资源",
-      "university": "开设高校",
+      "title": "AI コース",
+      "toolsResources": "ツールとリソース",
+      "university": "開講大学",
       "viewDetail": "詳細を表示"
     },
     "dataRights": {
@@ -12224,69 +12249,69 @@
       "you": "私"
     },
     "live": {
-      "allCategories": "全部分类",
-      "category": "分类",
-      "description": "直播简介",
-      "empty": "暂无直播",
-      "ended": "已结束",
+      "allCategories": "すべてのカテゴリ",
+      "category": "カテゴリ",
+      "description": "ライブ配信概要",
+      "empty": "ライブなし",
+      "ended": "終了済み",
       "liveNow": "直播中",
       "loadFailed": "読み込み失敗",
       "loading": "読み込み中...",
       "next": "次のページ",
-      "noStream": "暂未开播,敬请期待",
+      "noStream": "まだ配信は始まっていません,今しばらくお待ちください",
       "page": "{page} / {total} ページ",
       "prev": "前のページ",
       "search": "搜索直播...",
-      "startTime": "开始时间",
-      "subtitle": "AI 公开课、编程实战与名师讲座",
-      "title": "直播课堂",
+      "startTime": "開始時間",
+      "subtitle": "AI 公開講座、プログラミング実践と有名講師の講座",
+      "title": "ライブ講座",
       "total": "合計 {n} 件",
       "unknownLecturer": "不明な講師",
-      "upcoming": "预告",
+      "upcoming": "予告",
       "viewCount": "視聴回数",
       "viewDetail": "詳細を表示",
-      "watch": "进入直播间",
+      "watch": "ライブルームに入る",
       "hostLink": "配信センター"
     },
     "map": {
-      "description": "简介",
-      "empty": "暂无内容",
-      "lessons": "课程数",
+      "description": "概要",
+      "empty": "コンテンツがありません",
+      "lessons": "講座数",
       "loadFailed": "読み込み失敗",
       "loading": "読み込み中...",
-      "maps": "学习地图",
+      "maps": "学習マップ",
       "next": "次のページ",
-      "noCourses": "暂无关联课程",
+      "noCourses": "関連する講座がありません",
       "page": "{page} / {total} ページ",
       "prev": "前のページ",
-      "relatedCourses": "关联课程",
-      "search": "搜索专题...",
-      "subtitle": "知识图谱式学习路径,系统掌握 AI 技能",
-      "title": "学习地图",
-      "topics": "专题课程",
+      "relatedCourses": "関連講座",
+      "search": "特集を検索...",
+      "subtitle": "ナレッジグラフ型の学習パス,AI スキルを体系的に習得",
+      "title": "学習マップ",
+      "topics": "特集講座",
       "viewDetail": "詳細を表示"
     },
     "marking": {
-      "comment": "评语",
+      "comment": "講評",
       "defaultMax": "100",
-      "empty": "输入题目与答案,开始 AI 批改",
+      "empty": "問題と回答を入力,AI 採点を開始",
       "error": "採点失敗",
-      "gradeBtn": "开始批改",
+      "gradeBtn": "採点開始",
       "grading": "AI 批改中...",
-      "loadFailed": "批改失败,请重试",
+      "loadFailed": "採点に失敗,再試行してください",
       "loading": "読み込み中...",
-      "maxScore": "满分",
-      "noResult": "暂无批改结果",
-      "question": "题目",
-      "questionPlaceholder": "输入题目内容,如:用 Python 实现冒泡排序",
-      "referenceAnswer": "参考答案(可选)",
+      "maxScore": "満点",
+      "noResult": "採点結果はまだありません",
+      "question": "問題",
+      "questionPlaceholder": "問題の内容を入力,例:Python でバブルソートを実装",
+      "referenceAnswer": "参考回答(任意)",
       "score": "得分",
-      "strengths": "优点",
+      "strengths": "長所",
       "studentAnswer": "学生答案",
-      "studentAnswerPlaceholder": "粘贴学生的答案内容...",
-      "subject": "学科(可选)",
-      "subtitle": "AI 评分练习答案,给出评语与改进建议",
-      "suggestions": "改进建议",
+      "studentAnswerPlaceholder": "生徒の回答内容を貼り付け...",
+      "subject": "教科(任意)",
+      "subtitle": "AI が練習の回答を採点し,講評と改善提案を表示",
+      "suggestions": "改善提案",
       "title": "AI 批改",
       "weaknesses": "不足"
     },
@@ -12399,16 +12424,16 @@
     },
     "policy": {
       "active": "生效中",
-      "allLevels": "全部级别",
+      "allLevels": "すべてのレベル",
       "back": "返回",
-      "closed": "已关闭",
+      "closed": "終了済み",
       "draft": "草稿",
       "effectiveDate": "生效日期",
-      "empty": "暂无政策",
-      "goals": "目标",
-      "implementation": "实施路径",
-      "issueDate": "发布日期",
-      "issuingAuthority": "发布机构",
+      "empty": "政策がありません",
+      "goals": "目標",
+      "implementation": "実施経路",
+      "issueDate": "公布日",
+      "issuingAuthority": "公布機関",
       "keyPoints": "核心要点",
       "loadFailed": "読み込み失敗",
       "loading": "読み込み中...",
@@ -12416,17 +12441,17 @@
       "ministerial": "部委",
       "national": "国家",
       "next": "次のページ",
-      "noDetail": "暂无详细内容",
+      "noDetail": "詳細なし",
       "page": "{page} / {total} ページ",
-      "policyLevel": "级别",
+      "policyLevel": "レベル",
       "prev": "前のページ",
-      "search": "搜索政策关键词...",
-      "sourceUrl": "来源链接",
-      "status": "状态",
+      "search": "政策のキーワードを検索...",
+      "sourceUrl": "出典リンク",
+      "status": "ステータス",
       "subtitle": "国・地方の AI 教育政策とアクションプラン・解説を集約",
       "summary": "摘要",
-      "targetGroup": "适用对象",
-      "title": "AI 教育政策库",
+      "targetGroup": "適用対象",
+      "title": "AI 教育政策ライブラリ",
       "viewDetail": "詳細を表示"
     },
     "security": {
@@ -12456,33 +12481,33 @@
       "verifyCode": "6桁の認証コードを入力"
     },
     "shop": {
-      "buy": "购买",
-      "buying": "下单中...",
+      "buy": "購入",
+      "buying": "注文中...",
       "cancel": "取消",
-      "cancelFailed": "取消失败",
-      "cancelOrder": "取消订单",
+      "cancelFailed": "キャンセルに失敗",
+      "cancelOrder": "注文をキャンセル",
       "cancelSuccess": "已取消",
       "cancelled": "已取消",
-      "confirm": "确认",
-      "confirmCancel": "确认取消该订单?",
-      "createTime": "下单时间",
-      "empty": "暂无课程",
+      "confirm": "確認",
+      "confirmCancel": "この注文をキャンセルしますか?",
+      "createTime": "注文時間",
+      "empty": "コースなし",
       "loadFailed": "読み込み失敗",
       "loading": "読み込み中...",
       "next": "次のページ",
-      "orderFailed": "下单失败",
-      "orderNo": "订单号",
-      "orderSuccess": "下单成功",
-      "ordersEmpty": "暂无订单",
+      "orderFailed": "注文に失敗",
+      "orderNo": "注文番号",
+      "orderSuccess": "注文成功",
+      "ordersEmpty": "注文がありません",
       "page": "{page} / {total} ページ",
       "paid": "已支付",
       "pending": "待支付",
       "prev": "前のページ",
-      "status": "状态",
-      "subtitle": "精选 AI 课程,在线购买学习",
-      "tabAll": "全部课程",
-      "tabOrders": "我的订单",
-      "title": "课程商城"
+      "status": "ステータス",
+      "subtitle": "厳選した AI 講座,オンラインで購入して学習",
+      "tabAll": "すべての講座",
+      "tabOrders": "マイ注文",
+      "title": "講座ストア"
     },
     "stock": {
       "analyse": "分析開始",
@@ -13024,7 +13049,7 @@
       "tags": [],
       "title": "AI時代の企業合理的効率サービスと相互支援コミュニティ"
     },
-    "inquiry": "企业咨询"
+    "inquiry": "企業問い合わせ"
   },
   "enterpriseTools": {
     "categories": {
@@ -13246,17 +13271,17 @@
     "q11Question": "私のデータは安全ですか?",
     "q12Answer": "絶対ありません。当社は自社モデルを学習せず、ユーザーのデータを使って第三者モデルを学習することもありません。OpenAI/Anthropic などの API プロバイダーのデータ保持ポリシーについては、各公式ドキュメントを参照してください(いずれもデフォルトでは学習せず、API モードでは30日後にデータは自動削除されます)。",
     "q12Question": "智匯 AI は私のデータを使ってモデルを学習しますか?",
-    "q1Answer": "智匯 AI(英語名 IHUI AI)はワンストップのフルスタック AI オペレーティングシステムです。Agent 設計、ナレッジベース RAG、マルチモデル統合スケジューリング、クロスプラットフォーム协作とチーム運営を1つのプラットフォームに統合し、Web、デスクトップ、ミニプログラム、ブラウザ拡張、React Native、CLI の6クライアントを1コードベースで配信、Apache 2.0 オープンソースのコアコードとセルフホスト展開をサポートします。",
+    "q1Answer": "IHUI AIはワンストップのフルスタック AI オペレーティングシステムです。Agent 設計、ナレッジベース RAG、マルチモデル統合スケジューリング、クロスプラットフォーム連携とチーム運営を1つのプラットフォームに統合し、Web、デスクトップ、ミニプログラム、ブラウザ拡張、React Native、CLI の6クライアントを1コードベースで配信、Apache 2.0 オープンソースのコアコードとセルフホスト展開をサポートします。",
     "q1Question": "智匯 AI とは何ですか?",
-    "q2Answer": "Dify は LLM アプリ開発中心(Web のみ); Coze はクローズドソース(セルフホスト不可); FastGPT はナレッジベース Q&A 中心。智匯 AI は現在少数、Agent マーケット + ナレッジベース + 6クライアント配信 + チーム协作 + クレジット課金を同時にカバーするオープンソースプラットフォームで、Dify + Coze + FastGPT の3点セットを1つのプラットフォームに置き換えます。",
+    "q2Answer": "Dify は LLM アプリ開発中心(Web のみ); Coze はクローズドソース(セルフホスト不可); FastGPT はナレッジベース Q&A 中心。IHUI AI は現在少数、Agent マーケット + ナレッジベース + 6クライアント配信 + チーム連携 + クレジット課金を同時にカバーするオープンソースプラットフォームで、Dify + Coze + FastGPT の3点セットを1つのプラットフォームに置き換えます。",
     "q2Question": "智匯 AI と Dify、Coze、FastGPT の違いは?",
-    "q3Answer": "3タイプのユーザーが最も恩恵を受けます: AI 開発者(Agent の迅速な構築/配信/収益化、6クライアントへのワンクリック发布)、エンタープライズ IT(データ主権のためのセルフホスト展開、統合 AI 機能ハブ)、チームリーダー(マルチユーザー协作、統一ナレッジベース、統一課金)。",
+    "q3Answer": "3タイプのユーザーが最も恩恵を受けます: AI 開発者(Agent の迅速な構築/配信/収益化、6クライアントへのワンクリック配信)、エンタープライズ IT(データ主権のためのセルフホスト展開、統合 AI 機能ハブ)、チームリーダー(マルチユーザー連携、統一ナレッジベース、統一課金)。",
     "q3Question": "智匯 AI は誰向けですか?",
     "q4Answer": "OpenAI(GPT-4o/o1/GPT-4.1)、Anthropic Claude(Opus 4/Sonnet 4)、Google Gemini、Alibaba Qwen(Qwen-Max/Plus)、DeepSeek(V3/R1)、Zhipu GLM-4、Baidu ERNIE、ByteDance Doubao、Moonshot Kimi、そして Ollama などのローカルモデルおよび任意の OpenAI 互換エンドポイント。統合課金、自動フォールバック、コストベースルーティング。",
     "q4Question": "どの AI モデルに対応していますか?",
-    "q5Answer": "Web、デスクトップ(Tauri 2)、WeChat/Alipay/Douyin ミニプログラム(Taro 4)、ブラウザ拡張(WXT MV3)、iOS/Android(React Native)、CLI(Node.js/Bun)の6クライアントが、同じ React コンポーネントライブラリ、同じ API 契約、同じビジネスロジックを共有します。1回書けば6クライアント同時发布、各プラットフォームごとに書き直す必要なし。",
+    "q5Answer": "Web、デスクトップ(Tauri 2)、WeChat/Alipay/Douyin ミニプログラム(Taro 4)、ブラウザ拡張(WXT MV3)、iOS/Android(React Native)、CLI(Node.js/Bun)の6クライアントが、同じ React コンポーネントライブラリ、同じ API 契約、同じビジネスロジックを共有します。1回書けば6クライアント同時配信、各プラットフォームごとに書き直す必要なし。",
     "q5Question": "「6クライアント1コード」とはどういう意味ですか?",
-    "q6Answer": "3つの方法: ① OpenAPI 3.1 REST API(SDK は TypeScript/Python/Go をカバー); ② Webhook イベント購読; ③ MCP ツールプロトコル(社内システムを MCP Server として发布し、智匯 AI の Agent が呼び出し)。Enterprise 版は SSO/SAML 2.0/OIDC シングルサインオンもサポート。",
+    "q6Answer": "3つの方法: ① OpenAPI 3.1 REST API(SDK は TypeScript/Python/Go をカバー); ② Webhook イベント購読; ③ MCP ツールプロトコル(社内システムを MCP Server として公開し、IHUI AI の Agent が呼び出し)。Enterprise 版は SSO/SAML 2.0/OIDC シングルサインオンもサポート。",
     "q6Question": "既存の業務システムとどう統合しますか?",
     "q7Answer": "はい、個人版は永久無料です: 毎月1,000クレジット、全モデル、6クライアントすべて、API アクセスすべて含む。Pro は ¥49/月(10,000クレジット + 優先キュー)、Team は ¥299/月/ユーザー(共有クレジットプール + 監査ログ)、Enterprise はカスタム(セルフホスト + SLA)。",
     "q7Question": "個人版は無料ですか?",
@@ -14480,9 +14505,9 @@
       "titleLabel": "タイトル(任意)",
       "titlePlaceholder": "空欄の場合ファイル名を使用"
     },
-    "title": "知识库",
-    "edit": "编辑知识",
-    "search": "搜索知识",
+    "title": "ナレッジベース",
+    "edit": "ナレッジを編集",
+    "search": "ナレッジを検索",
     "metaTitle": "RAG 知識検索 — ベクトル + BM25 + 知識グラフ | IHUI AI",
     "metaDescription": "IHUI AI RAG 知識検索:ドキュメントの分割、ベクトル化、ハイブリッド検索(ベクトル + BM25 + 知識グラフ)に対応し、リアルタイム検索と引用追跡を利用できます。エンタープライズ向け RAG 管理プラットフォーム。",
     "metaOgTitle": "RAG 知識検索 — ベクトル + BM25 + 知識グラフ",
@@ -14528,9 +14553,9 @@
       }
     },
     "total": "合計 {total} 節",
-    "buyConfirm": "购买确认",
-    "paymentConfirm": "支付确认",
-    "review": "评价",
+    "buyConfirm": "購入確認",
+    "paymentConfirm": "支払い確認",
+    "review": "評価",
     "tutor": {
       "title": "AI 講師",
       "subject": "教科",
@@ -15128,7 +15153,7 @@
       },
       "innovative": {
         "description": "LangGraph ワークフロー + 11 MCP ツール + 5 A2A エンドポイント + 6 ACP 拡張、トリプルスタック業界でも比較的珍しい、Claude Code と複数次元で比較可能",
-        "evidence": "LangGraph + MCP + A2A + ACP 四プロトコルを同時にサポートするプラットフォーム · Cursor/Claude Code は MCP 単栈のみ",
+        "evidence": "LangGraph + MCP + A2A + ACP の四つのプロトコルに同時対応するプラットフォーム · Cursor/Claude Code は MCP 単体のみ",
         "title": "トリプルスタック · 業界最先端"
       },
       "professional": {
@@ -15764,7 +15789,7 @@
     "allLevels": "てレベル",
     "allStatus": "てステータス",
     "empty": "なしMembers",
-    "growthValue": "成长値",
+    "growthValue": "成長値",
     "level": "レベル",
     "loading": "読み込み中...",
     "mobile": "電話番号",
@@ -16548,7 +16573,7 @@
       "grid": "グリッド表示",
       "list": "リスト表示"
     },
-    "pricing": "模型定价"
+    "pricing": "モデル料金"
   },
   "modelsBillingPage": {
     "consumeTrend": "+{n}% vs 先月",
@@ -17023,7 +17048,7 @@
     "adminRelayKeyPool": "Keyプール",
     "adminRelayLogs": "リレーログ",
     "adminRelayModels": "リレーモデル",
-    "adminRelayOverview": "リレー概览",
+    "adminRelayOverview": "リレー概要",
     "adminSkillBatch": "一括操作",
     "adminSkillCategories": "スキルカテゴリ",
     "adminSkillStats": "スキル統計",
@@ -17312,7 +17337,7 @@
     "vip": "VIP",
     "workspace": "ワークスペース",
     "courses": "コース",
-    "faq": "常见问题",
+    "faq": "よくある質問",
     "home": "ホーム",
     "settings": "設定"
   },
@@ -17348,7 +17373,7 @@
     "title": "プラットフォームニュース",
     "total": "合計 {total} 篇",
     "viewCount": "{count}",
-    "page": "新闻页"
+    "page": "ニュースページ"
   },
   "newsletter": {
     "articles": {
@@ -17406,7 +17431,7 @@
       "recommended": "おすすめ記事",
       "title": "購読成功!"
     },
-    "title": "订阅简报"
+    "title": "ニュースレター"
   },
   "notes": {
     "attachmentsField": "添付ファイル",
@@ -17449,10 +17474,10 @@
     "success": "ログイン成功、間もなくリダイレクトします..."
   },
   "oauth": {
-    "approve": "授权",
+    "approve": "承認",
     "authorizeDesc": "{app} がアカウントへのアクセスをしています",
-    "authorizeTitle": "授权確認",
-    "authorizedAt": "授权時間",
+    "authorizeTitle": "認可の確認",
+    "authorizedAt": "認可日時",
     "deny": "いいえ",
     "lastUsedAt": "せる",
     "myAuthorized": "マイ",
@@ -18161,7 +18186,7 @@
           "text": "ソースからのデプロイから本番稼働までわずか 3 日、詳細なドキュメントも完備されています"
         },
         {
-          "company": "智云科技",
+          "company": "Zhiyun Tech",
           "name": "王芳",
           "role": "AI アーキテクト",
           "text": "LangGraph + MCP + A2A の 3 プロトコル対応は、これまで見た中で最も完全な AI フレームワークです"
@@ -19010,8 +19035,8 @@
     "title": "リソースセンター",
     "total": "合計 {total} 個",
     "viewCount": "{count}",
-    "affiliates": "联盟营销",
-    "edit": "编辑资源"
+    "affiliates": "アフィリエイト",
+    "edit": "リソースを編集"
   },
   "resourcesEditPage": {
     "backToList": "リソース一覧に戻る",
@@ -19153,7 +19178,7 @@
       "example3Name": "コンテンツ監視",
       "example3Desc": "競合コンテンツの動向を監視",
       "example3Schedule": "毎時実行",
-      "example3Output": "競合の最新投稿を監視・汇总",
+      "example3Output": "競合の最新投稿を監視・集計",
       "example4Name": "データレポート",
       "example4Desc": "データ分析レポートを自動生成",
       "example4Schedule": "毎週月曜 09:00 に実行",
@@ -19387,7 +19412,7 @@
       "satisfaction": "平均満足度",
       "title": "サービス提供済み顧客"
     },
-    "title": "服务"
+    "title": "サービス"
   },
   "settings": {
     "accountDeletionCancel": "削除を取り消す",
@@ -19660,7 +19685,7 @@
     "miniappQr": "ミニアプリQRコード",
     "miniappQrDesc": "スキャンしてミニアプリを体験",
     "modelRecordAlgorithmType": "アルゴリズムタイプ",
-    "modelRecordAlgorithmTypeValue": "生成合成类",
+    "modelRecordAlgorithmTypeValue": "生成・合成タイプ",
     "modelRecordApplicant": "備案申請者",
     "modelRecordApplyDate": "備案日",
     "modelRecordBatch": "批次",
@@ -19736,7 +19761,7 @@
     },
     "score": {
       "empty": "コンテンツはまだありません。おしみに",
-      "excellent": "极好",
+      "excellent": "非常に良好",
       "high": "良好",
       "low": "低",
       "medium": "中",
@@ -20061,7 +20086,7 @@
     },
     "tiersTitle": "スポンサープラン",
     "whyTitle": "なぜ IHUI AI を支援するのか",
-    "title": "赞助"
+    "title": "スポンサー"
   },
   "sso": {
     "alreadyLoggedIn": "ログインみ",
@@ -20142,7 +20167,7 @@
     "snapshots": "スナップショット",
     "subtitle": "のなドキュメントとAPIリファレンス",
     "title": "データ統計",
-    "viewSum": "总閲覧数",
+    "viewSum": "総閲覧数",
     "lessonsCount": "レッスン数",
     "studyDuration": "学習時間",
     "axisLessons": "レッスン",
@@ -20186,7 +20211,7 @@
   "student": {
     "avgProgress": "平均進捗",
     "avgScore": "平均分",
-    "certNo": "証明書编号",
+    "certNo": "証明書番号",
     "certificates": "修了証",
     "completedLessons": "完了",
     "empty": "なしデータ",
@@ -20684,8 +20709,8 @@
     "submitting": "分割中...",
     "title": "PDF 分割",
     "uploadLabel": "クリックまたは PDF ファイルをドラッグしてアップロード",
-    "convert": "转换",
-    "merge": "合并"
+    "convert": "変換",
+    "merge": "結合"
   },
   "topics": {
     "empty": "トピックはありません",
@@ -21109,7 +21134,7 @@
     "availableAmount": "できるできる",
     "backToWallet": "ウォレットにる",
     "balance": "TokenBalance",
-    "completedAmount": "已まで账",
+    "completedAmount": "入金済み",
     "contactSupport": "サポートに連絡",
     "empty": "なし",
     "flowAmount": "Count",
@@ -21138,11 +21163,11 @@
     "viewRecords": "記録を見る",
     "withdraw": "出金",
     "withdrawAmount": "出金金額",
-    "withdrawBtn": "送信申请",
+    "withdrawBtn": "申請を送信",
     "withdrawMethod": "メソッド",
     "withdrawRecords": "Withdraw Records",
-    "withdrawSuccess": "出金申请提出済み",
-    "withdrawTitle": "出金申请",
+    "withdrawSuccess": "出金申請提出済み",
+    "withdrawTitle": "出金申請",
     "points": "ポイント",
     "frozen": "凍結金額",
     "totalRecharge": "累計チャージ",
@@ -21382,7 +21407,7 @@
       "unknown": "不明なトリガー",
       "webhook": "ウェブフック"
     },
-    "instance": "工作流实例"
+    "instance": "ワークフローインスタンス"
   },
   "workspace": {
     "actions": "操作",
@@ -22338,7 +22363,7 @@
     "certNo": "証明書番号",
     "holderName": "氏名",
     "issueDate": "発行日",
-    "notfound": "证书未找到"
+    "notfound": "証明書が見つかりません"
   },
   "courseCatalog": {
     "title": "コース目次",
@@ -23017,7 +23042,7 @@
     "code": "共有コード",
     "expireAt": "有効期限",
     "shareNow": "今すぐ共有",
-    "detail": "分享详情"
+    "detail": "共有の詳細"
   },
   "vipBenefit": {
     "title": "VIP 特典"
@@ -23502,9 +23527,9 @@
     "autoMemoryDesc": "有効にすると、会話後にAIが要点を自動で抽出して長期記憶として蓄積し、その後のパーソナライズ応答に活用します。",
     "autoMemorySaveSuccess": "設定を保存しました",
     "autoMemorySaveFailed": "保存に失敗しました。もう一度お試しください",
-    "manager": "记忆管理",
-    "title": "记忆",
-    "new": "新建记忆"
+    "manager": "記憶管理",
+    "title": "記憶",
+    "new": "記憶を新規作成"
   },
   "agentPlan": {
     "title": "Agent プランモード",
@@ -23545,68 +23570,68 @@
     "notFound": "計画が見つからないか、期限切れです",
     "conflict": "現在の計画状態ではこの操作は許可されていません",
     "generic": "リクエストに失敗しました。後でもう一度お試しください",
-    "progress": "进度"
+    "progress": "進捗"
   },
   "compare": {
-    "title": "产品对比",
-    "subtitle": "IHUI AI 与主流 AI 平台的深度对比",
-    "description": "从多个维度对比 IHUI AI 与主流 AI 平台"
+    "title": "製品比較",
+    "subtitle": "IHUI AI と主要 AI プラットフォームの詳細比較",
+    "description": "複数の観点から IHUI AI と主要 AI プラットフォームを比較"
   },
   "useCases": {
-    "title": "使用场景",
-    "subtitle": "探索 IHUI AI 在不同场景下的应用",
-    "description": "了解 IHUI AI 如何赋能各类业务场景"
+    "title": "ユースケース",
+    "subtitle": "さまざまなシーンで IHUI AI を活用してみる",
+    "description": "IHUI AI がさまざまな業務シーンを支援する方法"
   },
   "context": {
     "title": "上下文管理",
-    "compression": "上下文压缩",
+    "compression": "コンテキスト圧縮",
     "mentions": "提及管理",
-    "visualization": "上下文可视化"
+    "visualization": "コンテキスト可視化"
   },
   "spec": {
-    "title": "需求规格",
-    "detail": "规格详情",
-    "generate": "生成规格",
-    "templates": "规格模板"
+    "title": "要件仕様",
+    "detail": "仕様の詳細",
+    "generate": "仕様を生成",
+    "templates": "仕様テンプレート"
   },
   "subagents": {
     "title": "子代理",
-    "detail": "子代理详情",
-    "dispatch": "分发任务",
-    "topology": "拓扑结构"
+    "detail": "サブエージェントの詳細",
+    "dispatch": "タスクを割り当て",
+    "topology": "トポロジー"
   },
   "aiSkills": {
     "title": "AI 技能",
-    "detail": "技能详情",
+    "detail": "スキルの詳細",
     "description": "AI 技能管理"
   },
   "download": {
-    "title": "下载",
-    "description": "下载 IHUI AI 客户端",
-    "id": "平台下载"
+    "title": "ダウンロード",
+    "description": "IHUI AI クライアントをダウンロード",
+    "id": "プラットフォーム別ダウンロード"
   },
   "agentRuntime": {
-    "title": "Agent 运行时",
-    "description": "Agent 运行时监控与管理"
+    "title": "Agent ランタイム",
+    "description": "Agent ランタイムの監視と管理"
   },
   "apple": {
-    "callback": "Apple 登录回调"
+    "callback": "Apple ログインコールバック"
   },
   "developers": {
-    "title": "开发者",
-    "description": "开发者文档与资源"
+    "title": "開発者",
+    "description": "開発者向けドキュメントとリソース"
   },
   "google": {
-    "callback": "Google 登录回调"
+    "callback": "Google ログインコールバック"
   },
   "h5": {
-    "title": "H5 页面",
-    "share": "分享页面"
+    "title": "H5 ページ",
+    "share": "共有ページ"
   },
   "legal": {
     "title": "法律信息",
     "serviceSpecificTerms": {
-      "title": "服务特定条款",
+      "title": "個別利用規約",
       "lastUpdated": "最終更新"
     },
     "supportedRegions": {
@@ -23622,7 +23647,7 @@
       "languageIntro": "本サービスは複数の表示言語に対応しており、表示言語はお住まいの地域によって異なる場合があります。"
     },
     "terms": {
-      "title": "服务条款",
+      "title": "利用規約",
       "lastUpdated": "最終更新"
     },
     "usagePolicy": {
@@ -23632,13 +23657,13 @@
     "backToHome": "ホームに戻る"
   },
   "mcpProjects": {
-    "title": "MCP 项目",
+    "title": "MCP プロジェクト",
     "store": "MCP 商店",
-    "description": "Model Context Protocol 项目管理"
+    "description": "Model Context Protocol のプロジェクト管理"
   },
   "n8nAgents": {
     "title": "n8n Agent",
-    "description": "n8n 自动化工作流 Agent"
+    "description": "n8n ワークフロー自動化 Agent"
   },
   "rules": {
     "totalRulesSorted": "合計 {n} 件のルール、優先度の降順で並べ替え",
