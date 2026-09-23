@@ -296,7 +296,7 @@ Mechanism-level guardrails to prevent collaboration accidents — rare in open-s
 
 #### E4. Database & Testing
 
-- **PostgreSQL 18**: 340 tables · 144 migrations · 100+ schema files · pgvector · FTS5 full-text search · RLS multi-tenant isolation
+- **PostgreSQL 15**: 340 tables · 144 migrations · 100+ schema files · pgvector · FTS5 full-text search · RLS multi-tenant isolation
 - **API tests**: 5346 cases (Vitest)
 - **E2E**: 63 specs (Playwright)
 - **AI service**: pytest + Locust load testing + Lighthouse performance
@@ -351,7 +351,7 @@ Mechanism-level guardrails to prevent collaboration accidents — rare in open-s
 | Node.js    | `>=20.10.0`        | LTS 20.x recommended, `nvm use`                           |
 | pnpm       | `>=9.0.0`          | Pinned to `pnpm@9.15.0`, `corepack enable` auto-activates |
 | Python     | `3.12+`            | Only for `apps/ai-service`                                |
-| PostgreSQL | `18+`              | Compose uses `pgvector/pgvector:pg18`                     |
+| PostgreSQL | `15+`              | Compose uses `postgres:15-alpine`                         |
 | Redis      | `7+`               | Compose uses `redis:7-alpine`                             |
 | Docker     | `24+` + Compose v2 | Optional but recommended for one-click startup            |
 | Git        | `2.40+`            | `core.autocrlf=false` (project enforces LF)               |
@@ -492,7 +492,7 @@ pnpm turbo build typecheck lint test
                                └────┬───────┬─────┘
                                     │       │
          ┌──────────────────────────▼─┐   ┌─▼──────────────────────────┐
-         │  PostgreSQL 18             │   │  apps/ai-service            │  FastAPI + Socket.IO
+         │  PostgreSQL 15             │   │  apps/ai-service            │  FastAPI + Socket.IO
          │  ├─ 340 tables / 144 mig  │   │  :8803 strict               │  LangGraph + LiteLLM + MCP + A2A
          │  ├─ pgvector vector index  │   │                             │  + triple stack + P3 deep layer
          │  ├─ FTS5 full-text search  │   │  ├─ 31+ providers + 16 IM   │  + 14 publish adapters
@@ -689,7 +689,7 @@ For a small deployment (< 100 users): 1 DevOps engineer familiar with Docker + P
 
 ### What's the database story?
 
-Single PostgreSQL 18 database (`ihui`), 340 tables across 30+ business domains, 144 migrations managed by Drizzle ORM. Multi-tenant isolation via Row-Level Security (RLS) using parameterized `set_config($1, $2, true)`. Vector search via native pgvector extension (no separate vector DB needed). Full-text search via FTS5. Knowledge graph via dedicated schema.
+Single PostgreSQL 15 database (`ihui`), 340 tables across 30+ business domains, 144 migrations managed by Drizzle ORM. Multi-tenant isolation via Row-Level Security (RLS) using parameterized `set_config($1, $2, true)`. Vector search via native pgvector extension (no separate vector DB needed). Full-text search via FTS5. Knowledge graph via dedicated schema.
 
 ### Is there a managed / hosted version?
 
