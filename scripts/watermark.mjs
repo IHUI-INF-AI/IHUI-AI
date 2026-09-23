@@ -303,15 +303,8 @@ function injectFile(absPath) {
   if (INVISIBLE_RE.test(text) && payloadIntact(text)) return 'skip-done'
   // 注意: 本工具自身源码包含横幅常量定义, clean 会"自噬", 故跳过自身
   if (absPath === fileURLToPath(import.meta.url)) return 'skip-self'
-  // 残迹态(只有横幅文本、载荷被剥离)与**载荷损坏**(存在但解码不符)统一走清洗重注。
-  // 2026-09-22 补第三类触发:横幅文本存在但**从未有过载荷**(裸两行版权头)。旧实现只在
-  // "见到 BANNER_ID 或零宽字符"时才清洗 ⇒ 这类文件被直接前置一条新横幅,留下**双横幅**,
-  // 而此后载荷已完整 ⇒ 恒走 skip-done ⇒ 重复头永久冻结(实测 141 个已跟踪文件,119 个已入 main)。
-  if (
-    text.includes(BANNER_ID) ||
-    INVISIBLE_RE.test(text) ||
-    text.split('\n').some(isBannerLine)
-  ) {
+  // 残迹态(只有横幅文本、载荷被剥离)与**载荷损坏**(存在但解码不符)统一走清洗重注
+  if (text.includes(BANNER_ID) || INVISIBLE_RE.test(text)) {
     try {
       cleanFile(absPath)
       text = readFileSync(absPath, 'utf8').replace(/^\uFEFF/, '')
@@ -355,10 +348,8 @@ function injectFile(absPath) {
 
 // 横幅行形态:剥掉行首注释前缀(// # --)后按**行首锚定**判定,
 // 避免误伤源码里出现的 BANNER_ID 常量 / 正则定义(如 check-watermark-syntax.mjs)。
-// 版权行必须带 ` (智汇AI)` 品牌段:2026-09-22 实测 `apps/api/scripts/verify-carrier.ts`
-// 的说明行 `// © 2026 IHUI AI · 运营商一键登录后端集成自检…` 会被旧锚整行删除。
 const BANNER_TEXT_RE =
-  /^(?:©\s*\d{4}\s+IHUI\s+AI\s*\(智汇AI\)|Provenance-watermarked(?:\.|\s)|\[IHUI-AI-PROVENANCE\]\s*:)/
+  /^(?:©\s*\d{4}\s+IHUI\s+AI|Provenance-watermarked(?:\.|\s)|\[IHUI-AI-PROVENANCE\]\s*:)/
 function isBannerLine(line) {
   return BANNER_TEXT_RE.test(line.trim().replace(/^\s*(\/\/|#|--)\s*/, ''))
 }
