@@ -44,16 +44,43 @@ test('脚本文件存在: scripts/check-agents.mjs', () => {
 // 2. 导入与依赖
 // ═══════════════════════════════════════════════════════════
 
-test('导入: dotenv/config (加载 .env 环境变量)', () => {
-  assert.match(SOURCE, /import\s+['"]dotenv\/config['"]/, "应导入 'dotenv/config'")
-})
-
-test('导入: postgres (postgres.js 驱动, default import)', () => {
-  assert.match(
+// 2026-09-24 更正:原来这两例把**跑不通的写法**钉成了契约。
+// 根 `scripts/` 不在 `apps/api` 的依赖解析链上(pnpm 隔离),裸 `import 'dotenv/config'`
+// 与 `import postgres from 'postgres'` 在本仓启动即 ERR_MODULE_NOT_FOUND(实测两包在根
+// node_modules 均不可解析),而此测试 13 例全是源码正则,持续假绿把"脚本一跑就崩"盖住。
+// 现按新契约断言:① 裸 import 不得复现;② 必须经 apps/api 依赖根 createRequire 解析;
+// ③ 加一条**真跑**导入的用例(连不上库只允许报连接错,不得报模块找不到)。
+test('导入: 不得再出现根目录解析不到的裸 import', () => {
+  assert.doesNotMatch(SOURCE, /import\s+['"]dotenv\/config['"]/, "dotenv 在根 scripts/ 不可解析,禁止裸 import")
+  assert.doesNotMatch(
     SOURCE,
     /import\s+postgres\s+from\s+['"]postgres['"]/,
-    '应 default import postgres',
+    'postgres 在根 scripts/ 不可解析,禁止裸 import(应走 apps/api 依赖根)',
   )
+})
+
+test('导入: postgres 必须由 apps/api 依赖根 createRequire 解析', () => {
+  assert.match(SOURCE, /createRequire\(/, '应用 createRequire 按 apps/api 的依赖根解析')
+  assert.match(SOURCE, /apps\/api\/package\.json/, '解析锚点必须是 apps/api/package.json')
+  assert.match(SOURCE, /requireFromApi\(['"]postgres['"]\)/, '必须真的 require 了 postgres')
+  assert.match(SOURCE, /process\.exit\(1\)/, '解析不到时必须显式失败并给出修复动作,不得静默')
+})
+
+test('真跑导入: 指向不可达库时只允许连接错误,不得 ERR_MODULE_NOT_FOUND', () => {
+  // 显式给一个指向本机丢弃端口的 URL,确保既不读 apps/api/.env 也绝不碰生产库(§5 测试隔离)。
+  const r = spawnSync(
+    process.execPath,
+    [SCRIPT_PATH],
+    {
+      encoding: 'utf8',
+      timeout: 60000,
+      windowsHide: true,
+      env: { ...process.env, DATABASE_URL: 'postgresql://nobody:***@127.0.0.1:1/nope' },
+    },
+  )
+  const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+  assert.ok(!/ERR_MODULE_NOT_FOUND|Cannot find (?:package|module)/.test(out), `导入面仍断链:\n${out.slice(0, 400)}`)
+  assert.match(out, /ECONNREFUSED|connect|getaddrinfo|Connection (?:refused|terminated)/i, `应止步于连接阶段,实际:\n${out.slice(0, 400)}`)
 })
 
 // ═══════════════════════════════════════════════════════════
