@@ -155,13 +155,13 @@
 | Data Layer                               |
 | - Customer profile + review KG          |
 | - Room/dish KB + multilingual corpus     |
-| - PostgreSQL 18 + vector DB              |
+| - PostgreSQL 16 + vector DB              |
 +-----------------------------------------+
 ```
 
 ### IHUI AI End-to-End Capabilities (8-End Coverage)
 - **Web** (Next.js 16 + React 19): HQ operations / store dashboard
-- **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 18): Order / member APIs
+- **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 16): Order / member APIs
 - **AI Service** (FastAPI + LangGraph + LiteLLM + MCP): Multi-agent collaboration
 - **Desktop** (Tauri 2): Store management workstation
 - **Extension** (WXT): Browser-side review collection
@@ -171,7 +171,7 @@
 
 ### Technology Stack
 - Frontend: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
-- Backend: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18
+- Backend: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
 - AI Service: FastAPI + LangGraph + LiteLLM + MCP
 - Multi-end: Tauri 2 (desktop) / WXT (extension) / React Native (mobile) / Taro 4 (mini-program) / Node.js CLI
 - PMS integration: Opera / Shiji / Wanneng
@@ -196,7 +196,7 @@
 | Avg break-even period | 4 months |
 | 12-month ROI | 290% |
 
-(Test environment: enterprise mid-size deployment, 3 nodes, PostgreSQL 18, Redis 7)
+(Test environment: enterprise mid-size deployment, 3 nodes, PostgreSQL 16, Redis 7)
 
 ### FAQ
 - Q: Which PMS systems are supported?
