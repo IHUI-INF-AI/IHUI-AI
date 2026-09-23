@@ -28,7 +28,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { useUiTextField } from '../lib/use-ui-text-field'
 
 export interface SingleTypeBarItem {
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
   } as ViewStyle,
   icon: {
     width: 14,
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     color: tokens.text.secondary,
   } as TextStyle,
   textActive: {
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   } as TextStyle,
   mask: {
     flex: 1,
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: tokens.border.medium,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
   } as ViewStyle,
   customizeTitle: {
     fontSize: 14,
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
   customizeConfirmText: {
     fontSize: 14,
     fontWeight: '700',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   } as TextStyle,
 })
 
