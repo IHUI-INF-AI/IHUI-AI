@@ -214,19 +214,50 @@ test('detached HEAD: git checkout <hash> → exit 0(跳过)', () => {
   }
 })
 
-// ─── 11. 本地分支无 upstream(origin/<branch> ref 缺失) ──
-test('无 upstream: 有 origin remote 但无 origin/main ref → exit 0(跳过)', () => {
+// ─── 11. 无 upstream + origin 不可达 → exit 0(跳过) ──────
+// 本用例真正要测的状态是「远端 HEAD 无从确定」:本地 tracking ref 缺失
+// **且** ls-remote 也拿不到真值。被测 check-push-sync.mjs:114-134(2026-09-12 修)
+// 已把 ls-remote 提为远端 tip 的权威来源、只在它失败时回退本地 ref,
+// 所以只删 origin/main 引用而不切断 ls-remote 通道,得到的是「已同步」而非「跳过」
+// —— 那不是本用例的靶子,故这里必须把 origin 仓库本体一并删掉。
+test('无 upstream + origin 不可达: ls-remote 与本地 ref 都取不到 → exit 0(跳过)', () => {
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
-    // 删除本地 origin/main ref(remote-tracking ref)
+    // 删掉 origin remote 会连带清除 refs/remotes/origin/main,再加回来即"无 tracking ref"
     execSync('git remote remove origin', { cwd: work, stdio: 'pipe' })
-    // 重新加 origin 但不 push/fetch → 无 origin/main ref
     const originUrl = origin.replace(/\\/g, '/')
     execSync(`git remote add origin "${originUrl}"`, { cwd: work, stdio: 'pipe' })
+    // 再让 ls-remote 也失败(origin 目录不存在 → 本地路径 remote 秒失败,不依赖网络)
+    rmSync(origin, { recursive: true, force: true })
     const r = runScript([], { cwd: work })
-    // 有 origin remote 但 git rev-parse origin/main 失败 → exit 0(跳过)
-    assert.equal(r.status, 0, `无 origin/main ref 应 exit 0(跳过),实际 ${r.status}`)
-    assert.match(r.stdout, /无.*origin\/main|未 fetch|跳过/)
+    assert.equal(r.status, 0, `无法确定远端 HEAD 应 exit 0(跳过),实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.match(r.stdout, /无法确定 origin\/main|未 fetch 且 ls-remote 不可用|跳过/, `stdout:\n${r.stdout}`)
+    assert.doesNotMatch(r.stdout, /已同步/, `取不到远端 HEAD 时不得判"已同步"\nstdout: ${r.stdout}`)
+  } finally {
+    rmSync(work, { recursive: true, force: true })
+  }
+})
+
+// ─── 11b. ls-remote 权威(2026-09-12):tracking ref 缺失但 origin 可达 → 不误报 ──
+test('ls-remote 为准: origin/main 引用缺失但 origin 可达 → 判已同步,不误判 ahead 阻塞', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    execSync('git remote remove origin', { cwd: work, stdio: 'pipe' })
+    execSync(`git remote add origin "${origin.replace(/\\/g, '/')}"`, { cwd: work, stdio: 'pipe' })
+    // 夹具自检:本地确实没有 origin/main 跟踪引用(否则测不到 ls-remote 兜底通道)
+    const verify = spawnSync('git', ['rev-parse', '--verify', 'origin/main'], {
+      cwd: work,
+      encoding: 'utf8',
+    })
+    assert.notEqual(
+      verify.status,
+      0,
+      '夹具失效:origin/main 引用仍在,本用例测不到"引用缺失"这一前置状态',
+    )
+    const r = runScript([], { cwd: work })
+    assert.equal(r.status, 0, `可达 origin 时应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.match(r.stdout, /已同步/, `ls-remote 拿到真值后应判已同步\nstdout: ${r.stdout}`)
+    assert.doesNotMatch(stripAnsi(r.stderr), /个未 push/, `不得误报 ahead 阻塞\nstderr: ${r.stderr}`)
   } finally {
     rmSync(work, { recursive: true, force: true })
     rmSync(origin, { recursive: true, force: true })
