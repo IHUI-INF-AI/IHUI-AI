@@ -28,6 +28,8 @@ import {
   X,
 } from 'lucide-react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export type { MessageInputAgentVariable, MessageInputFile, MessageInputProps }
 
 const VOICE_BAR_COUNT = 30
@@ -333,7 +335,7 @@ function createStyles(tk: AppThemeTokens) {
     agentVarInput: {
       paddingHorizontal: 10,
       paddingVertical: 6,
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       fontSize: 14,
@@ -343,7 +345,7 @@ function createStyles(tk: AppThemeTokens) {
     agentVarImageBtn: {
       width: 80,
       height: 80,
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       borderStyle: 'dashed',
@@ -359,7 +361,7 @@ function createStyles(tk: AppThemeTokens) {
       position: 'relative',
       width: 72,
       height: 72,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       overflow: 'hidden',
       backgroundColor: tk.border.light,
     },
@@ -390,7 +392,7 @@ function createStyles(tk: AppThemeTokens) {
       right: 2.5,
       width: 15,
       height: 15,
-      borderRadius: 7.5,
+      borderRadius: 7.5, // radius-exempt: 文件移除按钮 15×15 正圆(直径一半)
       backgroundColor: tk.danger.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
@@ -399,7 +401,7 @@ function createStyles(tk: AppThemeTokens) {
     inputRow: {
       flexDirection: 'row',
       alignItems: 'flex-end',
-      borderRadius: 15,
+      borderRadius: rnRadius['2xl'],
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -438,12 +440,12 @@ function createStyles(tk: AppThemeTokens) {
       gap: 2,
       height: 20,
     },
-    voiceBarLine: { width: 1, borderRadius: 1 },
+    voiceBarLine: { width: 1, borderRadius: rnRadius.xs },
     rightActions: { flexDirection: 'row', alignItems: 'flex-end', gap: 4 },
     sendBtn: {
       paddingHorizontal: 14,
       paddingVertical: 8,
-      borderRadius: 15,
+      borderRadius: rnRadius['2xl'],
       backgroundColor: primary,
       minWidth: 50,
       alignItems: 'center',

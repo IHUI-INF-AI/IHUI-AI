@@ -18,6 +18,8 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { Camera, SquarePen } from 'lucide-react-native'
 import type { Gender, ProfileEditScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 资料编辑共享屏 — props 注入式跨端组件(wrapper 负责 getProfile / updateProfile / Alert) */
 export type { ProfileEditScreenProps }
 
@@ -221,11 +223,11 @@ function createStyles(tk: AppThemeTokens) {
     backText: { fontSize: 16, color: tk.text.medium },
     title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     avatarWrap: { alignItems: 'center', paddingVertical: 16, gap: 8 },
-    avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: tk.surface.light },
+    avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: tk.surface.light }, // radius-exempt: 48x48 圆形头像,半径=边长一半
     avatarFallback: {
       width: 48,
       height: 48,
-      borderRadius: 24,
+      borderRadius: 24, // radius-exempt: 48x48 圆形头像兜底,半径=边长一半
       backgroundColor: tk.border.light,
       alignItems: 'center',
       justifyContent: 'center',
@@ -237,19 +239,19 @@ function createStyles(tk: AppThemeTokens) {
       bottom: -4,
       width: 24,
       height: 24,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
     },
     avatarEditBadgeText: { fontSize: 14, color: tk.surface.light },
     avatarTip: { fontSize: 11, color: tk.text.tertiary },
-    fieldCard: { backgroundColor: tk.surface.light, borderRadius: 12, padding: 12 },
+    fieldCard: { backgroundColor: tk.surface.light, borderRadius: rnRadius.xl, padding: 12 },
     fieldLabel: { fontSize: 14, fontWeight: '600', color: tk.text.secondary, marginBottom: 8 },
     fieldInput: {
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 12,
       height: 50,
       backgroundColor: tk.surface.muted,
@@ -262,7 +264,7 @@ function createStyles(tk: AppThemeTokens) {
     genderItem: {
       flex: 1,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -271,14 +273,14 @@ function createStyles(tk: AppThemeTokens) {
     genderItemActive: { backgroundColor: tk.brand.DEFAULT },
     genderText: { fontSize: 14, color: tk.text.secondary },
     genderTextActive: { color: tk.surface.light },
-    errorBar: { backgroundColor: tk.danger.light, borderRadius: 8, padding: 8 },
+    errorBar: { backgroundColor: tk.danger.light, borderRadius: rnRadius.lg, padding: 8 },
     errorText: { fontSize: 14, color: tk.error.text },
     emptyText: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     retryBtn: {
       paddingHorizontal: 10,
       height: 44,
       justifyContent: 'center',
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
@@ -286,7 +288,7 @@ function createStyles(tk: AppThemeTokens) {
     saveBtn: {
       height: 50,
       justifyContent: 'center',
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
     },
@@ -299,13 +301,18 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       padding: 24,
     },
-    modalCard: { backgroundColor: tk.surface.light, borderRadius: 12, padding: 14, width: '100%' },
+    modalCard: {
+      backgroundColor: tk.surface.light,
+      borderRadius: rnRadius.xl,
+      padding: 14,
+      width: '100%',
+    },
     modalTitle: { fontSize: 18, fontWeight: '600', color: tk.text.primary, marginBottom: 12 },
     modalLabel: { fontSize: 14, color: tk.text.secondary, marginBottom: 8 },
     modalInput: {
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 12,
       height: 50,
       backgroundColor: tk.surface.muted,
@@ -318,7 +325,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 10,
       height: 44,
       justifyContent: 'center',
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
     },
     modalCancelText: { fontSize: 14, color: tk.text.secondary },
@@ -326,7 +333,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 10,
       height: 44,
       justifyContent: 'center',
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     modalConfirmText: { fontSize: 14, color: tk.surface.light },

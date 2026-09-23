@@ -6,6 +6,8 @@ import { useState, useEffect, useCallback } from 'react'
 import type { CSSProperties } from 'react'
 import { getTokens, type AppThemeTokens, type AppThemeMode } from '../theme/tokens'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /**
  * 通用选择器 — 跨端共享层。
  *
@@ -80,7 +82,7 @@ const viewStyles = {
     paddingTop: 6,
     paddingBottom: 6,
     marginTop: 10,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     backgroundColor: tk.surface.muted,
   }),
   item: (
@@ -95,7 +97,7 @@ const viewStyles = {
     paddingLeft: 8,
     paddingRight: 8,
     height: 25,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     marginRight: 10,
     flexShrink: 0,
     border: `1px solid ${active ? tk.brand.DEFAULT : tk.text.primary}`,
@@ -110,7 +112,7 @@ const viewStyles = {
     border: `1px solid ${active ? tk.brand.DEFAULT : tk.text.primary}`,
     width: w,
     height: h,
-    borderRadius: 5,
+    borderRadius: rnRadius.sm,
   }),
   backBtn: (): CSSProperties => ({
     display: 'inline-flex',
@@ -119,7 +121,7 @@ const viewStyles = {
     paddingLeft: 8,
     paddingRight: 8,
     height: 25,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     marginRight: 10,
     flexShrink: 0,
     border: '1px solid',

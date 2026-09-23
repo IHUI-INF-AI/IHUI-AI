@@ -34,6 +34,8 @@ import UserCard from './components/UserCard'
 import aiIconLocal from '@/assets/remote-images/ai-icon.svg'
 import courseIconLocal from '@/assets/remote-images/course-icon.svg'
 import vipActIconLocal from '@/assets/remote-images/user-vip-act.svg'
+
+import { rnRadius } from '@ihui/design-tokens'
 const dingdanIcon = aizhsUrl('remote-images/dingdan.jpg')
 const gerenIcon = aizhsUrl('remote-images/geren-icon.png')
 const shezhiIcon = aizhsUrl('remote-images/shezhi.png')
@@ -147,7 +149,7 @@ function renderMarkdown(content: string): ReactNode {
             style={{
               background: 'var(--color-muted)',
               padding: rpx(12),
-              borderRadius: rpx(8),
+              borderRadius: rnRadius.sm,
               marginTop: rpx(8),
               marginBottom: rpx(8),
             }}
@@ -1062,7 +1064,7 @@ export default function UserIndex() {
                   textContentList.map((item, index) => (
                     <View
                       key={index}
-                      className="bg-card rounded-[20rpx] p-[28rpx] border border-border user-content-text"
+                      className="bg-card rounded-lg p-[28rpx] border border-border user-content-text"
                     >
                       <View className="flex-row items-center justify-between mb-[12rpx]">
                         <Text className="text-[32rpx] font-semibold text-foreground">
@@ -1095,7 +1097,7 @@ export default function UserIndex() {
                   imageContentList.map((item, index) => (
                     <View
                       key={index}
-                      className="bg-card rounded-[20rpx] p-[28rpx] border border-border user-content-image"
+                      className="bg-card rounded-lg p-[28rpx] border border-border user-content-image"
                     >
                       <View className="flex-row items-center justify-between mb-[12rpx]">
                         <Text className="text-[32rpx] font-semibold text-foreground">
@@ -1110,7 +1112,7 @@ export default function UserIndex() {
                             key={imgIdx}
                             src={imgUrl}
                             mode="aspectFill"
-                            style={{ width: '100%', height: rpx(400), borderRadius: rpx(16) }}
+                            style={{ width: '100%', height: rpx(400), borderRadius: rnRadius.lg }}
                             onClick={() => previewImage(imgUrl, item.imageList)}
                           />
                         ))}
@@ -1139,7 +1141,7 @@ export default function UserIndex() {
                   videoContentList.map((item, index) => (
                     <View
                       key={index}
-                      className="bg-card rounded-[20rpx] overflow-hidden border border-border user-content-video"
+                      className="bg-card rounded-lg overflow-hidden border border-border user-content-video"
                     >
                       <View className="flex-row items-center justify-between p-[24rpx] pb-[12rpx]">
                         <Text className="text-[32rpx] font-semibold text-foreground">
@@ -1148,7 +1150,7 @@ export default function UserIndex() {
                         <Text className="text-[24rpx] text-muted-foreground">{item.time}</Text>
                       </View>
                       <View
-                        className="relative mx-[24rpx] mb-[24rpx] rounded-[16rpx] overflow-hidden bg-muted"
+                        className="relative mx-[24rpx] mb-[24rpx] rounded-lg overflow-hidden bg-muted"
                         style={{ height: rpx(400) }}
                         hoverClass="opacity-60"
                         onClick={() => openVideoPlayer(item.videoUrl)}
@@ -1196,7 +1198,7 @@ export default function UserIndex() {
                   audioContentList.map((item, index) => (
                     <View
                       key={index}
-                      className="bg-card rounded-[20rpx] p-[28rpx] border border-border user-content-audio"
+                      className="bg-card rounded-lg p-[28rpx] border border-border user-content-audio"
                     >
                       <View className="flex-row items-center justify-between mb-[12rpx]">
                         <Text className="text-[32rpx] font-semibold text-foreground">
@@ -1207,7 +1209,7 @@ export default function UserIndex() {
                       <View className="flex-row items-center gap-[12rpx]">
                         {/* 播放/暂停按钮(对齐 RN audioPlayBtn 36dp→72rpx 圆角 16rpx) */}
                         <View
-                          className="w-[72rpx] h-[72rpx] rounded-[16rpx] flex items-center justify-center"
+                          className="w-[72rpx] h-[72rpx] rounded-lg flex items-center justify-center"
                           style={{ background: 'var(--color-primary)', flexShrink: 0 }}
                           hoverClass="opacity-60"
                           onClick={() => toggleAudioPlay(index, item.audioUrl)}
