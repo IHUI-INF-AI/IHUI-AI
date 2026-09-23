@@ -2,8 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useTranslations } from 'next-intl'
-
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md border border-border bg-background px-2 py-1.5">
@@ -15,7 +13,6 @@ function StatCard({ label, value }: { label: string; value: string }) {
 
 /** 命中率柱状图(纯 SVG) */
 function HitsBarChart({ hits7d, hits30d }: { hits7d: number; hits30d: number }) {
-  const t = useTranslations('rules')
   const maxVal = Math.max(hits7d, hits30d, 1)
   const barH = (v: number) => (v / maxVal) * 50
   return (
@@ -37,10 +34,10 @@ function HitsBarChart({ hits7d, hits30d }: { hits7d: number; hits30d: number }) 
         className="fill-green-500/40"
       />
       <text x="25" y="62" textAnchor="middle" className="fill-muted-foreground text-[8px]">
-        {t('axisDays30')}
+        30天
       </text>
       <text x="75" y="62" textAnchor="middle" className="fill-muted-foreground text-[8px]">
-        {t('axisDays7')}
+        7天
       </text>
       <text
         x="25"
@@ -64,7 +61,6 @@ function HitsBarChart({ hits7d, hits30d }: { hits7d: number; hits30d: number }) 
 
 /** 满意度饼图(纯 SVG) */
 function SatisfactionPie({ positive, total }: { positive: number; total: number }) {
-  const t = useTranslations('rules')
   const negative = total - positive
   const radius = 20
   const circumference = 2 * Math.PI * radius
@@ -94,13 +90,13 @@ function SatisfactionPie({ positive, total }: { positive: number; total: number 
       <div className="space-y-0.5 text-[10px]">
         <p className="flex items-center gap-1">
           <span className="inline-block h-2 w-2 rounded-sm bg-green-500/50" />
-          {t('positiveCount', { n: positive })}
+          正面 {positive}
         </p>
         <p className="flex items-center gap-1">
           <span className="inline-block h-2 w-2 rounded-sm bg-red-500/30" />
-          {t('negativeCount', { n: negative })}
+          负面 {negative}
         </p>
-        <p className="text-muted-foreground">{t('totalRows', { n: total })}</p>
+        <p className="text-muted-foreground">共 {total} 条</p>
       </div>
     </div>
   )
