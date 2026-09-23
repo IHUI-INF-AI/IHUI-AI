@@ -5,13 +5,34 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 
 import { useRules } from '@/hooks/use-rules'
 import { useRulesStore } from '@/stores/rules'
 import type { RuleInput, RuleMatchType, RuleScope } from '@ihui/types'
 import { Button, CloseButton, Input } from '@ihui/ui-react'
 
+const SCOPE_OPTIONS = [
+  { value: 'global', labelKey: 'scopeGlobal' },
+  { value: 'workspace', labelKey: 'scopeWorkspace' },
+] as const
+
+const MATCH_TYPE_OPTIONS = [
+  { value: 'always', labelKey: 'matchAlways' },
+  { value: 'keyword', labelKey: 'matchKeyword' },
+  { value: 'regex', labelKey: 'matchRegex' },
+  { value: 'semantic', labelKey: 'matchSemantic' },
+] as const
+
+const MATCH_PATTERN_PLACEHOLDER_KEYS = {
+  keyword: 'matchPatternKeywordPlaceholder',
+  regex: 'matchPatternRegexPlaceholder',
+  semantic: 'matchPatternSemanticPlaceholder',
+} as const
+
 function RuleEditDialog() {
+  const t = useTranslations('rules')
+  const tCommon = useTranslations('common')
   const { editingRule, isCreating, closeEditor } = useRulesStore()
   const { createRule, updateRule, isPending } = useRules()
   const open = isCreating || editingRule !== null
@@ -73,34 +94,36 @@ function RuleEditDialog() {
     >
       <div className="w-full max-w-lg space-y-3 rounded-lg border border-border bg-card p-3 shadow-lg">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold">{editingRule ? '编辑规则' : '新建规则'}</span>
-          <CloseButton aria-label="关闭" onClick={closeEditor} />
+          <span className="text-sm font-semibold">
+            {editingRule ? t('editRuleTitle') : t('newRule')}
+          </span>
+          <CloseButton aria-label={tCommon('close')} onClick={closeEditor} />
         </div>
         <div className="space-y-2">
           <label htmlFor="rule-name" className="text-xs text-muted-foreground">
-            名称
+            {t('fieldLabelName')}
           </label>
           <Input
             id="rule-name"
             value={name}
             onChange={(e) => setName(e.target.value.slice(0, 128))}
-            placeholder="规则名称"
+            placeholder={t('ruleNamePlaceholder')}
             className="h-8 text-sm"
           />
           <label htmlFor="rule-desc" className="text-xs text-muted-foreground">
-            描述(可选)
+            {t('fieldLabelDescription')}
           </label>
           <Input
             id="rule-desc"
             value={description}
             onChange={(e) => setDescription(e.target.value.slice(0, 256))}
-            placeholder="简短描述"
+            placeholder={t('briefDescriptionPlaceholder')}
             className="h-8 text-sm"
           />
           <div className="flex gap-2">
             <div className="flex-1 min-w-0">
               <label htmlFor="rule-scope" className="text-xs text-muted-foreground">
-                作用域
+                {t('fieldLabelScope')}
               </label>
               <select
                 id="rule-scope"
@@ -108,14 +131,17 @@ function RuleEditDialog() {
                 onChange={(e) => setScope(e.target.value as RuleScope)}
                 className="mt-0.5 w-full rounded-md border border-border bg-background px-2 py-1 text-xs outline-none"
               >
-                <option value="global">全局</option>
-                <option value="workspace">工作区</option>
+                {SCOPE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {t(opt.labelKey)}
+                  </option>
+                ))}
                 <option value="agent">Agent</option>
               </select>
             </div>
             <div className="w-24">
               <label htmlFor="rule-priority" className="text-xs text-muted-foreground">
-                优先级
+                {t('fieldLabelPriority')}
               </label>
               <Input
                 id="rule-priority"
@@ -133,7 +159,7 @@ function RuleEditDialog() {
           <div className="flex gap-2">
             <div className="flex-1 min-w-0">
               <label htmlFor="rule-match-type" className="text-xs text-muted-foreground">
-                匹配类型
+                {t('fieldLabelMatchType')}
               </label>
               <select
                 id="rule-match-type"
@@ -141,55 +167,50 @@ function RuleEditDialog() {
                 onChange={(e) => setMatchType(e.target.value as RuleMatchType)}
                 className="mt-0.5 w-full rounded-md border border-border bg-background px-2 py-1 text-xs outline-none"
               >
-                <option value="always">始终注入</option>
-                <option value="keyword">关键词</option>
-                <option value="regex">正则</option>
-                <option value="semantic">语义</option>
+                {MATCH_TYPE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {t(opt.labelKey)}
+                  </option>
+                ))}
               </select>
             </div>
             {matchType !== 'always' && (
               <div className="flex-1 min-w-0">
                 <label htmlFor="rule-match-pattern" className="text-xs text-muted-foreground">
-                  匹配模式
+                  {t('fieldLabelMatchPattern')}
                 </label>
                 <Input
                   id="rule-match-pattern"
                   value={matchPattern}
                   onChange={(e) => setMatchPattern(e.target.value)}
-                  placeholder={
-                    matchType === 'keyword'
-                      ? '关键词1,关键词2'
-                      : matchType === 'regex'
-                        ? '正则表达式'
-                        : '自然语言描述'
-                  }
+                  placeholder={t(MATCH_PATTERN_PLACEHOLDER_KEYS[matchType])}
                   className="mt-0.5 h-8 text-sm"
                 />
               </div>
             )}
           </div>
           <label htmlFor="rule-content" className="text-xs text-muted-foreground">
-            规则正文
+            {t('fieldLabelContent')}
           </label>
           <textarea
             id="rule-content"
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder="规则正文(markdown,作为 prompt 注入到 agent)..."
+            placeholder={t('contentPlaceholder')}
             rows={6}
             className="thin-scroll w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 text-xs leading-relaxed outline-none focus:border-foreground/20"
           />
         </div>
         <div className="flex items-center justify-end gap-2">
           <Button variant="outline" size="sm" onClick={closeEditor}>
-            取消
+            {tCommon('cancel')}
           </Button>
           <Button
             size="sm"
             onClick={handleSave}
             disabled={isPending.create || isPending.update || !name.trim() || !content.trim()}
           >
-            {isPending.create || isPending.update ? '保存中...' : '保存'}
+            {isPending.create || isPending.update ? t('saving') : tCommon('save')}
           </Button>
         </div>
       </div>

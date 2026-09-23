@@ -9,6 +9,7 @@
  */
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react'
 import {
   Button,
@@ -43,6 +44,7 @@ function createMessage(role: PlaygroundRole = 'user'): PlaygroundMessage {
 }
 
 export function MessageEditor({ messages, onChange, disabled }: MessageEditorProps) {
+  const t = useTranslations('playground')
   const updateMessage = React.useCallback(
     (id: string, patch: Partial<PlaygroundMessage>) => {
       onChange(messages.map((m) => (m.id === id ? { ...m, ...patch } : m)))
@@ -81,8 +83,10 @@ export function MessageEditor({ messages, onChange, disabled }: MessageEditorPro
     <Card>
       <CardContent className="min-[640px]:p-3 space-y-3 p-3">
         <div className="flex items-center justify-between">
-          <Label className="text-sm font-medium">消息列表</Label>
-          <span className="text-xs text-muted-foreground">{messages.length} 条</span>
+          <Label className="text-sm font-medium">{t('messageList')}</Label>
+          <span className="text-xs text-muted-foreground">
+            {t('messageCount', { n: messages.length })}
+          </span>
         </div>
 
         {messages.map((msg, index) => (
@@ -111,7 +115,7 @@ export function MessageEditor({ messages, onChange, disabled }: MessageEditorPro
                   size="icon"
                   onClick={() => moveMessage(index, 'up')}
                   disabled={disabled || index === 0}
-                  aria-label="上移"
+                  aria-label={t('moveUp')}
                 >
                   <ChevronUp className="h-3.5 w-3.5" />
                 </Button>
@@ -120,7 +124,7 @@ export function MessageEditor({ messages, onChange, disabled }: MessageEditorPro
                   size="icon"
                   onClick={() => moveMessage(index, 'down')}
                   disabled={disabled || index === messages.length - 1}
-                  aria-label="下移"
+                  aria-label={t('moveDown')}
                 >
                   <ChevronDown className="h-3.5 w-3.5" />
                 </Button>
@@ -130,7 +134,7 @@ export function MessageEditor({ messages, onChange, disabled }: MessageEditorPro
                   className="text-muted-foreground hover:text-destructive"
                   onClick={() => removeMessage(msg.id)}
                   disabled={disabled}
-                  aria-label="删除消息"
+                  aria-label={t('deleteMessage')}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
@@ -142,7 +146,7 @@ export function MessageEditor({ messages, onChange, disabled }: MessageEditorPro
               onChange={(e) => updateMessage(msg.id, { content: e.target.value })}
               disabled={disabled}
               rows={msg.role === 'system' ? 2 : 3}
-              placeholder={`输入 ${msg.role} 消息内容…`}
+              placeholder={t('inputRoleContent', { role: msg.role })}
               className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
@@ -156,7 +160,7 @@ export function MessageEditor({ messages, onChange, disabled }: MessageEditorPro
           className="w-full"
         >
           <Plus className="h-4 w-4" />
-          添加消息
+          {t('addMessage')}
         </Button>
       </CardContent>
     </Card>
