@@ -9,6 +9,7 @@ import { useCallback } from 'react'
 import { formatDateByTemplate } from '@ihui/shared'
 import DrawerComponent from './DrawerComponent'
 import EmptyState from './EmptyState'
+import CategoryBar from './CategoryBar'
 import { icon } from '@/constants/remote-icons'
 
 export type MaterialTab = 1 | 2 | 3 | 4
@@ -88,19 +89,16 @@ export default function MaterialPopup({
         </View>
       </View>
 
-      <ScrollView scrollX className="whitespace-nowrap px-3 py-2 mb-2">
-        {TABS.map((tabItem) => (
-          <View
-            key={tabItem.key}
-            className={`inline-flex items-center px-3 py-1 mr-2 text-xs rounded-md ${tab === tabItem.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground dark:text-muted-foreground'}`}
-            hoverClass="opacity-60"
-            onClick={() => onTabChange?.(tabItem.key)}
-          >
-            <Image className="w-3 h-3 mr-1" src={tabItem.icon} mode="aspectFit" />
-            <Text>{t(tabItem.labelKey)}</Text>
-          </View>
-        ))}
-      </ScrollView>
+      <CategoryBar
+        className="px-3 py-2 mb-2"
+        value={String(tab)}
+        onChange={(id) => onTabChange?.(Number(id) as MaterialTab)}
+        items={TABS.map((tabItem) => ({
+          id: String(tabItem.key),
+          label: t(tabItem.labelKey),
+          icon: tabItem.icon,
+        }))}
+      />
 
       <ScrollView
         scrollY

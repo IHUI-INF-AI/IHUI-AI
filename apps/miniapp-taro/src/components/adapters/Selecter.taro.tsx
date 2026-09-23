@@ -62,6 +62,8 @@ const getRatioIconSize = (str: string): { width: number; height: number } => {
 }
 
 // ===== 样式(view/text 分离) =====
+// 圆角一律引用档位变量 var(--radius-md)(6px,单一源头 design-tokens/radius.js),
+// 不得再用 toRpx(<数字>) 算圆角(AGENTS §4 圆角单一源头 / 守门 77 B1)。
 
 const toRpx = (px: number): string => `${px * 2}rpx`
 
@@ -82,7 +84,7 @@ const viewStyles = {
     paddingTop: toRpx(6),
     paddingBottom: toRpx(6),
     marginTop: toRpx(10),
-    borderRadius: toRpx(5),
+    borderRadius: 'var(--radius-md)',
     backgroundColor: tk.surface.muted,
   }),
   item: (
@@ -97,7 +99,7 @@ const viewStyles = {
     paddingLeft: toRpx(8),
     paddingRight: toRpx(8),
     height: toRpx(25),
-    borderRadius: toRpx(5),
+    borderRadius: 'var(--radius-md)',
     marginRight: toRpx(10),
     flexShrink: 0,
     border: `1px solid ${active ? tk.brand.DEFAULT : tk.text.primary}`,
@@ -110,7 +112,7 @@ const viewStyles = {
     border: `1px solid ${active ? tk.brand.DEFAULT : tk.text.primary}`,
     width: toRpx(w),
     height: toRpx(h),
-    borderRadius: toRpx(5),
+    borderRadius: 'var(--radius-md)',
   }),
   backBtn: (): CSSProperties => ({
     display: 'inline-flex',
@@ -119,7 +121,7 @@ const viewStyles = {
     paddingLeft: toRpx(8),
     paddingRight: toRpx(8),
     height: toRpx(25),
-    borderRadius: toRpx(5),
+    borderRadius: 'var(--radius-md)',
     marginRight: toRpx(10),
     flexShrink: 0,
     border: '1px solid',
