@@ -97,12 +97,12 @@ export function VisionAnalysis() {
     if (!file) return
     // 大小校验:防止超大文件 base64 进 state 导致 OOM
     if (file.size > MAX_IMAGE_SIZE) {
-      toast.error(t('imageMaxSize', { max: MAX_IMAGE_SIZE / 1024 / 1024 }))
+      toast.error(`图片不能超过 ${MAX_IMAGE_SIZE / 1024 / 1024}MB`)
       return
     }
     // 类型校验:只允许图片,防 .exe/.html/.svg 等
     if (!file.type.startsWith('image/')) {
-      toast.error(t('selectImageFile'))
+      toast.error('请选择图片文件')
       return
     }
     const reader = new FileReader()
