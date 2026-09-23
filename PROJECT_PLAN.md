@@ -67,6 +67,21 @@
   4028 个坏 ref 使 `git fetch` 整体失败(bad object + did not send all necessary objects)。
   处置:删坏指针(fetch 即复)→ `sync-lost-commit-tags --fetch` 连对象完整拉回 → 现 4217 tag / 0 坏指针。
 
+- **盘根收口的另一半(2026-09-23 续)**:§15b 当时把这批 gitdir 目录写成"显式例外"留在盘根,
+  而"归档名 = gitdir 路径 + `.broken-<ts>`"这一构造方式让守护每轮归档都在盘根长出新目录
+  (实测累计 3 个 / 1.94GB)。现已把 gitdir 的**备份与现场归档**统一收进 `D:\DevEnv\backups\git\`
+  (单一真相源 `gitArchiveDir()` / `gitdirArchivePath()`,按工作树所在盘动态推导、不写死盘符),
+  盘根由 **6 项 → 2 项**(项目 + 活 gitdir;后者受 §5b 指针机制约束必须在项目外,
+  且 `git-rebuild-local.mjs:169` 等仍按该绝对路径引用)。
+  - **我自己制造过一次不一致,记为判据**:先搬目录、后改代码 ⇒ `resolveBackupDir()` 仍解析到
+    已被搬走的路径,`git-guardian --status` 立刻报 `backupOk:false`(本地恢复源形同失效且无告警)。
+    **凡移动被代码按绝对路径引用的目录,同批必须改解析函数,并用该守护 --status / --check 复验**,
+    否则"整理"本身就是下一次故障的源头。回归测试 `scripts/tests/gitdir-archive-paths.test.mjs`
+    4 例绿,其中一条专测"两个调用点是否真的使用了该出口"(防"造好没装车"与旧基线写回)。
+  - 搬运全程零删除:两个 970M 的 `.broken-*` 快照实测**同为 525 个文件、objects 字节数一致
+    (1013549009)**、时间戳相差 21 秒 ⇒ 判为同一轮守护的重复归档;两份**均保留**(改名收入备份目录,
+    未删其一 —— 删除属不可逆,处置权留给 §5b 维护者);仅移除一个 0 条目空目录。
+
 ### 全量守门审计基线(105 项跑完再汇总,非"首个失败即停")
 
 `node scripts/guardian-runner.mjs` 全量口径实测 **97 通过 / 2 警告 / 6 失败 / 0 跳过,耗时 514s**。
