@@ -15,19 +15,9 @@ import { formatDate } from '@/lib/date-utils'
 import { usePlanStore, generateId } from '@/lib/plan-store'
 import { ProgressStats } from '@/components/plan/ProgressStats'
 import { StepList } from '@/components/plan/StepList'
-import { PlanVersionSwitcher } from '@/components/plan/PlanVersionSwitcher'
-import { PlanVersionDiff } from '@/components/plan/PlanVersionDiff'
-import {
-  appendVersion,
-  loadPlanVersions,
-  savePlanVersions,
-  shouldRecordVersion,
-  snapshotPlan,
-  type PlanVersionSnapshot,
-} from '@/lib/plan-version-history'
 import { PlanForm, type PlanFormValues } from '@/components/plan/PlanForm'
 import { Empty } from '@/components/common'
-import type { PlanDocument, PlanStep, PlanStepStatus, PlanPriority } from '@ihui/shared/plan/index'
+import type { PlanDocument, PlanStepStatus, PlanPriority } from '@ihui/shared/plan/index'
 
 const PLAN_STATUS_COLOR: Record<PlanDocument['status'], string> = {
   draft: 'bg-slate-100 text-slate-700',
@@ -64,59 +54,6 @@ export default function PlanDetailPage() {
   const reorderSteps = usePlanStore((s) => s.reorderSteps)
 
   const stats = React.useMemo(() => (plan ? getStats(plan.id) : null), [plan, getStats])
-
-  // D93 历史版本(按轮):内存 state + localStorage,不新建表,不改其他 store
-  // D93 英文过渡(词表释放后换中文键 planVersion*):liveSnapshot 标签先用 'Latest' 过渡
-  const [versions, setVersions] = React.useState<PlanVersionSnapshot[]>([])
-  const [selectedVersion, setSelectedVersion] = React.useState<number | null>(null)
-  const [diffOpen, setDiffOpen] = React.useState(false)
-  const firstRecordRef = React.useRef(true)
-
-  React.useEffect(() => {
-    setVersions(loadPlanVersions(planId))
-    setSelectedVersion(null)
-    setDiffOpen(false)
-    firstRecordRef.current = true
-  }, [planId])
-
-  // 每次 plan 结构变化记一版(首轮挂载只建基线引用,不记版 → 新计划自然呈现空态)
-  React.useEffect(() => {
-    if (!plan) return
-    if (firstRecordRef.current) {
-      firstRecordRef.current = false
-      return
-    }
-    const last = versions.at(-1) ?? null
-    if (!shouldRecordVersion(last, plan)) return
-    const next = appendVersion(versions, snapshotPlan(plan, (last?.version ?? 0) + 1))
-    savePlanVersions(planId, next)
-    setVersions(next)
-  }, [plan, planId, versions])
-
-  const selectedSnap = React.useMemo(
-    () =>
-      selectedVersion === null
-        ? null
-        : (versions.find((v) => v.version === selectedVersion) ?? null),
-    [versions, selectedVersion],
-  )
-  const viewingHistory = selectedSnap !== null
-  const displaySteps: PlanStep[] = React.useMemo(() => {
-    if (!plan) return []
-    if (selectedSnap === null) return plan.steps
-    return selectedSnap.steps.map((s) => ({
-      id: s.id,
-      title: s.title,
-      description: s.description,
-      status: s.status,
-      priority: s.priority,
-      order: s.order,
-    }))
-  }, [plan, selectedSnap])
-  const liveSnapshot = React.useMemo(
-    () => (plan ? snapshotPlan(plan, (versions.at(-1)?.version ?? 0) + 1, 'Latest') : null),
-    [plan, versions],
-  )
 
   const handleStatusChange = (stepId: string, status: PlanStepStatus) => {
     updateStep(planId, stepId, {
@@ -311,51 +248,26 @@ export default function PlanDetailPage() {
       </div>
 
       <div className="space-y-3">
-        <PlanVersionSwitcher
-          versions={versions}
-          selectedVersion={selectedVersion}
-          onSelect={setSelectedVersion}
-          onOpenDiff={() => setDiffOpen(true)}
-        />
-        {diffOpen && liveSnapshot !== null && (
-          <PlanVersionDiff
-            versions={versions}
-            liveSnapshot={liveSnapshot}
-            initialFrom={selectedVersion ?? versions.at(-1)?.version ?? null}
-            initialTo={null}
-            onClose={() => setDiffOpen(false)}
-          />
-        )}
-      </div>
-
-      <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Steps ({displaySteps.length})</h2>
-          {!viewingHistory && (
-            <Button size="sm" variant="outline" onClick={handleAddStep}>
-              <Plus className="h-3.5 w-3.5" />
-              <span>Add step</span>
-            </Button>
-          )}
+          <h2 className="text-lg font-semibold">步骤清单 ({plan.steps.length})</h2>
+          <Button size="sm" variant="outline" onClick={handleAddStep}>
+            <Plus className="h-3.5 w-3.5" />
+            添加步骤
+          </Button>
         </div>
         <StepList
-          steps={viewingHistory ? displaySteps : plan.steps}
-          onStatusChange={viewingHistory ? () => noop() : handleStatusChange}
-          onPriorityChange={viewingHistory ? () => noop() : handlePriorityChange}
-          onMoveUp={viewingHistory ? () => noop() : (id) => swap(id, -1)}
-          onMoveDown={viewingHistory ? () => noop() : (id) => swap(id, 1)}
-          onRemove={viewingHistory ? () => noop() : (id) => removeStep(planId, id)}
-          onReorder={viewingHistory ? () => noop() : (ids) => reorderSteps(planId, ids)}
-          draggable={!viewingHistory}
+          steps={plan.steps}
+          onStatusChange={handleStatusChange}
+          onPriorityChange={handlePriorityChange}
+          onMoveUp={(id) => swap(id, -1)}
+          onMoveDown={(id) => swap(id, 1)}
+          onRemove={(id) => removeStep(planId, id)}
+          onReorder={(ids) => reorderSteps(planId, ids)}
+          draggable
         />
       </div>
     </div>
   )
-}
-
-/** 历史版本只读态:步骤写操作统一忽略(避免误改实时 plan) */
-function noop(): void {
-  return undefined
 }
 
 function Field({ label, content }: { label: string; content: string }) {
