@@ -20,6 +20,7 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native'
 import Clipboard from '@react-native-clipboard/clipboard'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as MediaLibrary from 'expo-media-library'
 import * as ImagePicker from 'expo-image-picker'
 import * as DocumentPicker from 'expo-document-picker'
@@ -571,6 +572,28 @@ function postAgentLike(uuid: string, botId: string): Promise<ApiResult<unknown>>
   })
 }
 
+/** Local do-not-disturb flag for the first-share reward popup (timestamp string). */
+const SHARE_FIRST_DISMISSED_KEY = 'share_first_dismissed'
+
+/** Read local do-not-disturb flag; false on missing/unreadable (silent downgrade). */
+async function readShareFirstDismissed(): Promise<boolean> {
+  try {
+    const raw: string | null = await AsyncStorage.getItem(SHARE_FIRST_DISMISSED_KEY)
+    return raw !== null
+  } catch {
+    return false
+  }
+}
+
+/** Persist local do-not-disturb flag; silent downgrade on failure. */
+async function persistShareFirstDismissed(): Promise<void> {
+  try {
+    await AsyncStorage.setItem(SHARE_FIRST_DISMISSED_KEY, String(Date.now()))
+  } catch {
+    // Silent downgrade: keep original behavior, never crash.
+  }
+}
+
 export function HomeScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
@@ -1056,11 +1079,17 @@ export function HomeScreen() {
   )
 
   // ── 分享领智汇值弹窗(对齐 Uniapp ai_index showSharePointsPopup / first/share/show) ──
-  const hideSharePoints = (): void => setShareValueVisible(false)
+  // Local do-not-disturb: any dismiss path persists the flag so cold starts stop popping.
+  const hideSharePoints = (): void => {
+    setShareValueVisible(false)
+    void persistShareFirstDismissed()
+  }
 
   /** 首次分享奖励自动触发:进页检查(对齐 Uniapp ai_index onShow → checkFirstShareStatus) */
   const maybeTriggerFirstShareReward = useCallback(async (): Promise<void> => {
     try {
+      const dismissed = await readShareFirstDismissed()
+      if (dismissed) return
       const res = await getShareFirstStatus()
       if (res.success && res.data.canClaim) {
         setShareFirstReward(res.data.rewardPoints)
