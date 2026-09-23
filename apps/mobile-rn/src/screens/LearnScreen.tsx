@@ -20,6 +20,8 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import { Smartphone, Users, PenLine, BarChart3 } from 'lucide-react-native'
 import type { AppIcon } from '@ihui/types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 interface ProgressOverview {
@@ -149,7 +151,7 @@ const styles = StyleSheet.create({
   entryBtn: {
     flex: 1,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.brandAccent.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',

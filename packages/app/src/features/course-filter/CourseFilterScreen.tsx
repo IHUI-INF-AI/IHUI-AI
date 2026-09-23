@@ -15,6 +15,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CourseFilterScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 课程筛选共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 
 export type { CourseFilterScreenProps }
@@ -205,14 +207,14 @@ function createStyles(tk: AppThemeTokens) {
     chip: {
       paddingHorizontal: 10,
       paddingVertical: 4,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     chipActive: { backgroundColor: tk.brand.DEFAULT },
     chipText: { fontSize: 12, color: tk.text.secondary },
     chipTextActive: { color: tk.surface.light },
     actionRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
-    actionBtn: { flex: 1, paddingVertical: 8, borderRadius: 12, alignItems: 'center' },
+    actionBtn: { flex: 1, paddingVertical: 8, borderRadius: rnRadius.xl, alignItems: 'center' },
     resetBtn: { backgroundColor: tk.surface.card },
     applyBtn: { backgroundColor: tk.brand.DEFAULT },
     resetText: { fontSize: 14, color: tk.text.secondary },
@@ -230,7 +232,7 @@ function createStyles(tk: AppThemeTokens) {
     emptyText: { fontSize: 14, color: tk.text.tertiary, marginTop: 8 },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,

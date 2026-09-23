@@ -7,6 +7,8 @@ import type { ReactNode } from 'react'
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export interface CourseCardProps {
   /** 封面 URL */
   cover: string
@@ -157,7 +159,7 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     card: {
       backgroundColor: tk.surface.light,
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       overflow: 'hidden',
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -171,7 +173,7 @@ function createStyles(tk: AppThemeTokens) {
     lecturer: { fontSize: 14, color: tk.text.secondary },
     levelBadge: {
       backgroundColor: LEVEL_TINT,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 8,
       paddingVertical: 2,
     },
@@ -180,7 +182,7 @@ function createStyles(tk: AppThemeTokens) {
     tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     tag: {
       backgroundColor: tk.surface.card,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 8,
       paddingVertical: 3,
     },
@@ -189,7 +191,7 @@ function createStyles(tk: AppThemeTokens) {
     price: { fontSize: 18, fontWeight: '700', color: tk.danger.bright },
     freeTag: {
       backgroundColor: FREE_TINT,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 8,
       paddingVertical: 2,
     },

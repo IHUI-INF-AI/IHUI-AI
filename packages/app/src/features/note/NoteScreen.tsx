@@ -17,6 +17,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { NoteItem, NoteScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 笔记管理共享屏(含编辑 Modal)— props 注入式跨端组件 */
 export type { NoteItem, NoteScreenProps }
 
@@ -206,7 +208,7 @@ function createStyles(tk: AppThemeTokens) {
     addBtn: {
       paddingHorizontal: 10,
       paddingVertical: 10,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
     },
@@ -228,7 +230,7 @@ function createStyles(tk: AppThemeTokens) {
     emptyText: { fontSize: 14, color: tk.text.tertiary },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -241,14 +243,14 @@ function createStyles(tk: AppThemeTokens) {
     editBtn: {
       paddingHorizontal: 12,
       paddingVertical: 6,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     editBtnText: { color: tk.text.medium, fontSize: 14 },
     deleteBtn: {
       paddingHorizontal: 12,
       paddingVertical: 6,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.danger.light,
     },
     deleteBtnText: { color: tk.danger.DEFAULT, fontSize: 14 },
@@ -256,7 +258,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     retryText: { color: tk.surface.light, fontSize: 16 },
@@ -271,7 +273,7 @@ function createStyles(tk: AppThemeTokens) {
       width: '100%',
       maxWidth: 400,
       backgroundColor: tk.surface.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       padding: 16,
     },
     modalTitle: {
@@ -283,7 +285,7 @@ function createStyles(tk: AppThemeTokens) {
     titleInput: {
       paddingHorizontal: 12,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       fontSize: 16,
@@ -294,7 +296,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
       paddingHorizontal: 12,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       fontSize: 16,
@@ -307,7 +309,7 @@ function createStyles(tk: AppThemeTokens) {
     cancelBtn: {
       flex: 1,
       paddingVertical: 10,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
       alignItems: 'center',
     },
@@ -315,7 +317,7 @@ function createStyles(tk: AppThemeTokens) {
     saveBtn: {
       flex: 1,
       paddingVertical: 10,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
     },

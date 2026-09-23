@@ -8,6 +8,8 @@ import { Star } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CourseCommentScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 课程评论共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { CourseCommentScreenProps }
 
@@ -90,7 +92,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     btnText: { color: tk.surface.light, fontSize: 16 },
@@ -105,7 +107,7 @@ function createStyles(tk: AppThemeTokens) {
     empty: { paddingVertical: 40, alignItems: 'center' },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,

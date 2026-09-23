@@ -8,6 +8,8 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { Gift } from 'lucide-react-native'
 import type { PointsMallItem, PointsMallScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 积分商城/Props 类型 re-export(单一来源 @ihui/types) */
 export type { PointsMallItem, PointsMallScreenProps }
 
@@ -128,7 +130,7 @@ function createStyles(tk: AppThemeTokens) {
       marginHorizontal: 10,
       marginBottom: 12,
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.success.light,
       alignItems: 'center',
     },
@@ -150,14 +152,14 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       width: '48%',
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,
     },
     coverPlaceholder: {
       height: 80,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
@@ -176,7 +178,7 @@ function createStyles(tk: AppThemeTokens) {
     redeemBtn: {
       marginTop: 8,
       paddingVertical: 6,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
     },

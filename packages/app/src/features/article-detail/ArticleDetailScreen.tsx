@@ -8,6 +8,8 @@ import { Heart } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ArticleDetailItem, ArticleDetailScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 文章详情/Props 类型 re-export(单一来源 @ihui/types) */
 export type { ArticleDetailItem, ArticleDetailScreenProps }
 
@@ -110,14 +112,14 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
     },
     content: { fontSize: 16, lineHeight: 22, color: tk.text.medium },
     btn: {
       marginTop: 12,
       paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     btnText: { color: tk.surface.light, fontSize: 16 },

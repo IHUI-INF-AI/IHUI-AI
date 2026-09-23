@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, FlatList, ActivityIndicator, StyleSheet }
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CourseChapterItem, CourseChapterScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 课程章节共享屏 — props 注入式跨端组件 */
 export type { CourseChapterItem, CourseChapterScreenProps }
 
@@ -99,7 +101,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -113,7 +115,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     btnText: { color: tk.surface.light, fontSize: 16 },

@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AnnouncementItem, AnnouncementScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 公告/Props 类型 re-export(单一来源 @ihui/types) */
 export type { AnnouncementItem, AnnouncementScreenProps }
 
@@ -108,7 +110,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: StyleSheet.hairlineWidth, backgroundColor: tk.border.light },
     card: {
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.light,
     },
     titleRow: {
@@ -119,7 +121,7 @@ function createStyles(tk: AppThemeTokens) {
     pinnedBadge: {
       paddingHorizontal: 6,
       paddingVertical: 2,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.warning.amberLight,
     },
     pinnedText: { fontSize: 10, color: tk.warning.amberText },

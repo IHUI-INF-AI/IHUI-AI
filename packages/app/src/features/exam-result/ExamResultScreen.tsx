@@ -7,6 +7,8 @@ import { ScrollView, Text, TouchableOpacity, View, StyleSheet } from 'react-nati
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ExamResultItem, ExamResultScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** ExamResult 共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { ExamResultItem, ExamResultScreenProps }
 
@@ -107,7 +109,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     btnText: { color: tk.surface.light, fontSize: 16 },
@@ -121,7 +123,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     scoreCard: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       alignItems: 'center',
       marginBottom: 12,
@@ -135,7 +137,7 @@ function createStyles(tk: AppThemeTokens) {
     metaPill: {
       paddingHorizontal: 10,
       paddingVertical: 4,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.muted,
     },
     metaPillText: { fontSize: 14, color: tk.text.primary },
@@ -148,7 +150,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,

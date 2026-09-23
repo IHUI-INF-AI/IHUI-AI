@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, Switch, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { SecuritySettingsItem, SecuritySettingsScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 安全设置共享屏 — props 注入式跨端组件 */
 export type { SecuritySettingsItem, SecuritySettingsScreenProps }
 
@@ -111,7 +113,7 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       padding: 14,
       marginBottom: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
       borderColor: tk.border.light,

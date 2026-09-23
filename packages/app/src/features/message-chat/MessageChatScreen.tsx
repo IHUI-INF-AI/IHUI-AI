@@ -15,6 +15,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 私聊消息(平台注入,字段对齐 mobile-rn MessageChatScreen ChatMsg) */
 export interface MessageChatMessage {
   id: string
@@ -164,7 +166,7 @@ function createStyles(tk: AppThemeTokens) {
     title: { flex: 1, fontSize: 20, fontWeight: '600', color: tk.text.primary },
     list: { flex: 1 },
     empty: { paddingVertical: 40, alignItems: 'center' },
-    msg: { padding: 10, borderRadius: 12, marginBottom: 8, maxWidth: '80%' },
+    msg: { padding: 10, borderRadius: rnRadius.xl, marginBottom: 8, maxWidth: '80%' },
     msgMine: { alignSelf: 'flex-end', backgroundColor: tk.brand.DEFAULT },
     msgPeer: { alignSelf: 'flex-start', backgroundColor: tk.surface.card },
     content: { fontSize: 16, color: tk.surface.light },
@@ -174,7 +176,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       height: 50,
       paddingHorizontal: 16,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
       fontSize: 16,
       color: tk.text.primary,
@@ -182,7 +184,7 @@ function createStyles(tk: AppThemeTokens) {
     sendBtn: {
       height: 50,
       paddingHorizontal: 16,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
@@ -193,7 +195,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 16,
       height: 44,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

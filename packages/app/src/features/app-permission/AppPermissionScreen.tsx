@@ -7,6 +7,8 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-nati
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AppPermissionScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export type { AppPermissionScreenProps }
 
 interface PermissionItem {
@@ -105,7 +107,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     card: {
       backgroundColor: tk.surface.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       padding: 14,
       borderWidth: 1,
       borderColor: tk.border.light,

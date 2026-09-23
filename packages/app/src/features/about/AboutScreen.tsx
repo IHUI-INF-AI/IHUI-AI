@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import type { AboutScreenProps, SharedAppInfo } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 const DEFAULT_APP_INFO: Required<SharedAppInfo> = {
   appName: 'IHUI AI',
   version: '1.0.0',
@@ -92,7 +94,7 @@ function createStyles(tk: AppThemeTokens) {
     logoCard: {
       padding: 14,
       marginBottom: 12,
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -101,7 +103,7 @@ function createStyles(tk: AppThemeTokens) {
     logo: {
       width: 72,
       height: 72,
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       backgroundColor: tk.brandAccent.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
@@ -111,7 +113,7 @@ function createStyles(tk: AppThemeTokens) {
     appTagline: { marginTop: 8, fontSize: 14, color: tk.text.secondary, textAlign: 'center' },
     infoCard: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,

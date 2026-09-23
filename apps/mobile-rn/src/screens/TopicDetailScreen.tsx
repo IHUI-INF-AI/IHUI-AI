@@ -30,7 +30,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Heart, MessageCircle, PenLine } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
+import { getRnTokens, type RnThemeTokens, rnRadius } from '@ihui/design-tokens'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -338,7 +338,7 @@ const createStyles = (tk: RnThemeTokens) =>
     followBtn: {
       paddingHorizontal: rpx(32),
       paddingVertical: rpx(12),
-      borderRadius: rpx(32),
+      borderRadius: rnRadius['2xl'],
       backgroundColor: tk.brand.DEFAULT,
     },
     followBtnActive: {
@@ -382,7 +382,7 @@ const createStyles = (tk: RnThemeTokens) =>
     post: {
       gap: rpx(12),
       padding: rpx(24),
-      borderRadius: rpx(16),
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
     },
     cardPressed: {
@@ -396,7 +396,7 @@ const createStyles = (tk: RnThemeTokens) =>
     avatar: {
       width: rpx(64),
       height: rpx(64),
-      borderRadius: rpx(32),
+      borderRadius: rnRadius['2xl'],
       backgroundColor: tk.surface.muted,
     },
     avatarFallback: {},
@@ -430,7 +430,7 @@ const createStyles = (tk: RnThemeTokens) =>
     postImg: {
       width: rpx(200),
       height: rpx(200),
-      borderRadius: rpx(12),
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
     imgMore: {

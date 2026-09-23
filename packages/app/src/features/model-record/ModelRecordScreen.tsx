@@ -16,6 +16,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ModelRecordScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 模型备案/Props 类型 re-export(单一来源 @ihui/types) */
 export type { ModelRecordScreenProps }
 
@@ -94,7 +96,7 @@ function createStyles(tk: AppThemeTokens) {
     content: { padding: 12, paddingBottom: 24 },
     card: {
       backgroundColor: tk.surface.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       overflow: 'hidden',
       padding: 12,
     },
@@ -106,7 +108,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     imageBase: {
       width: '100%',
-      borderRadius: 4,
+      borderRadius: rnRadius.sm,
     },
     imageFallback: {
       height: 220,

@@ -15,6 +15,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export interface CategoryDetailScreenProps {
   t: TFunction
   items: { id: string; name: string; description?: string; cover?: string }[]
@@ -144,7 +146,7 @@ function createStyles(tk: AppThemeTokens) {
     tab: {
       paddingHorizontal: 10,
       paddingVertical: 6,
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.card,
     },
     tabActive: {
@@ -163,7 +165,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       padding: 12,
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -186,7 +188,7 @@ function createStyles(tk: AppThemeTokens) {
     retryBtn: {
       paddingHorizontal: 10,
       height: 44,
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brandAccent.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

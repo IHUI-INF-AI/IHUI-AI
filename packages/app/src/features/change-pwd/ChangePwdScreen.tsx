@@ -7,6 +7,8 @@ import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-nativ
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ChangePwdScreenProps, TFunction } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 修改密码/Props 类型 re-export(单一来源 @ihui/types) */
 export type { ChangePwdScreenProps }
 
@@ -148,7 +150,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: tk.surface.muted,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 12,
       height: 50,
     },
@@ -163,7 +165,7 @@ function createStyles(tk: AppThemeTokens) {
     submitBtn: {
       marginTop: 8,
       backgroundColor: tk.brand.DEFAULT,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       height: 50,
       justifyContent: 'center',
       alignItems: 'center',

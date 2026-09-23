@@ -19,6 +19,8 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BookOpen } from 'lucide-react-native'
 import type { MoreCourseScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** MoreCourseScreen props re-export(单一来源 @ihui/types) */
 export type { MoreCourseScreenProps }
 
@@ -150,7 +152,7 @@ function createStyles(tk: AppThemeTokens) {
     listContent: { paddingHorizontal: 10, paddingVertical: 12, gap: 12 } as ViewStyle,
     card: {
       backgroundColor: tk.surface.light,
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       overflow: 'hidden',
     } as ViewStyle,
     cardPressed: { backgroundColor: tk.surface.muted } as ViewStyle,
@@ -188,7 +190,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     } as ViewStyle,
     retryText: { fontSize: 14, fontWeight: '600', color: tk.surface.light } as TextStyle,

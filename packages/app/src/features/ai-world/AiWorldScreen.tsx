@@ -18,6 +18,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** AI 世界 Tab key(工具/应用/资讯/榜单) */
 export type AiWorldTab = 'tools' | 'apps' | 'news' | 'rankings'
 
@@ -506,7 +508,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: 8,
     },
     tabChip: {
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       paddingHorizontal: 12,
       paddingVertical: 6,
     },
@@ -534,7 +536,7 @@ function createStyles(tk: AppThemeTokens) {
     searchInput: {
       height: 36,
       flex: 1,
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       paddingHorizontal: 12,
@@ -558,7 +560,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 8,
     },
     chip: {
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       paddingHorizontal: 12,
       paddingVertical: 6,
       backgroundColor: tk.surface.muted,
@@ -594,7 +596,7 @@ function createStyles(tk: AppThemeTokens) {
     /* 条目卡片 */
     entryCard: {
       marginBottom: 12,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
@@ -606,13 +608,13 @@ function createStyles(tk: AppThemeTokens) {
     entryCover: {
       width: 64,
       height: 64,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.muted,
     },
     entryCoverFallback: {
       width: 64,
       height: 64,
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -652,7 +654,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       marginBottom: 8,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
@@ -662,7 +664,7 @@ function createStyles(tk: AppThemeTokens) {
     rankBadge: {
       width: 32,
       height: 32,
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -724,7 +726,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     },
     retryBtn: {
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
       paddingHorizontal: 16,
       paddingVertical: 8,

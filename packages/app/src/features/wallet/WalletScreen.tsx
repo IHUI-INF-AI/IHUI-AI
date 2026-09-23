@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { WalletBalance, WalletScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 钱包/Props 类型 re-export(单一来源 @ihui/types) */
 export type { WalletBalance, WalletScreenProps }
 
@@ -113,7 +115,7 @@ function createStyles(tk: AppThemeTokens) {
     muted: { fontSize: 14, color: tk.text.secondary },
     card: {
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -135,7 +137,7 @@ function createStyles(tk: AppThemeTokens) {
     rechargeBtn: {
       flex: 1,
       height: 50,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
@@ -144,7 +146,7 @@ function createStyles(tk: AppThemeTokens) {
     withdrawBtn: {
       flex: 1,
       height: 44,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,

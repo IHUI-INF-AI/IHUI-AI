@@ -58,7 +58,7 @@
 .vs-info-card {
   width: 100%;
   background: var(--color-card);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   padding: 24rpx;
   display: flex;
   flex-direction: column;
@@ -99,7 +99,7 @@
   height: 100rpx;
   line-height: 100rpx;
   text-align: center;
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   font-size: 32rpx;
   font-weight: 600;
   background: var(--color-primary);
@@ -115,7 +115,7 @@
   height: 88rpx;
   line-height: 88rpx;
   text-align: center;
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   font-size: 32rpx;
   background: var(--color-card);
   color: var(--color-foreground);

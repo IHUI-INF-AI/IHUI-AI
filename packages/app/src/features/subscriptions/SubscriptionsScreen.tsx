@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { SubscriptionsItem, SubscriptionsScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 订阅列表共享屏 — props 注入式跨端组件 */
 export type { SubscriptionsItem, SubscriptionsScreenProps }
 
@@ -112,7 +114,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,
@@ -120,7 +122,7 @@ function createStyles(tk: AppThemeTokens) {
     thumb: {
       width: 40,
       height: 40,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.surface.muted,
@@ -144,7 +146,7 @@ function createStyles(tk: AppThemeTokens) {
     cancelBtn: {
       paddingHorizontal: 12,
       paddingVertical: 6,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,

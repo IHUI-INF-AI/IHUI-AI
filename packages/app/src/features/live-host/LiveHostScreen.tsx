@@ -20,6 +20,8 @@ import type {
   LiveHostScreenProps,
 } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 主播端共享屏 — props 注入式跨端组件(纯 UI,推流/SRS API 由 wrapper 注入) */
 export type { LiveHostProduct, LiveHostStatus, LiveHostStreamData, LiveHostScreenProps }
 
@@ -216,7 +218,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     back: { fontSize: 16, color: tk.text.secondary },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12 },
+    badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: rnRadius.xl },
     badgeText: { fontSize: 11, color: tk.surface.light },
     errorWrap: { paddingHorizontal: 10, paddingVertical: 4 },
     errorText: { fontSize: 14, color: tk.danger.DEFAULT },
@@ -224,7 +226,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 176,
       marginHorizontal: 10,
       marginTop: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.gray[900],
       alignItems: 'center',
       justifyContent: 'center',
@@ -234,7 +236,7 @@ function createStyles(tk: AppThemeTokens) {
       marginHorizontal: 10,
       marginTop: 12,
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
@@ -244,7 +246,7 @@ function createStyles(tk: AppThemeTokens) {
     input: {
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 12,
       paddingVertical: 14,
       fontSize: 16,
@@ -262,7 +264,7 @@ function createStyles(tk: AppThemeTokens) {
     actionBtn: {
       flex: 1,
       paddingVertical: 15,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       alignItems: 'center',
     },
     btnSuccess: { backgroundColor: tk.brand.DEFAULT },
@@ -282,7 +284,7 @@ function createStyles(tk: AppThemeTokens) {
     productAddBtn: {
       paddingHorizontal: 8,
       paddingVertical: 4,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     productAddText: { fontSize: 14, color: tk.success.DEFAULT },

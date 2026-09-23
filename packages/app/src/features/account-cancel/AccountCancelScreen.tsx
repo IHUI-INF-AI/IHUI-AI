@@ -15,6 +15,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AccountCancelScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** AccountCancelScreen props re-export(单一来源 @ihui/types) */
 export type { AccountCancelScreenProps }
 
@@ -157,7 +159,7 @@ function createStyles(tk: AppThemeTokens) {
       lineHeight: 18,
       backgroundColor: tk.surface.light,
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
     },
     fieldGroup: {
       gap: 8,
@@ -169,7 +171,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     input: {
       backgroundColor: tk.surface.muted,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 12,
       height: 50,
       fontSize: 16,
@@ -188,7 +190,7 @@ function createStyles(tk: AppThemeTokens) {
     smsBtn: {
       paddingHorizontal: 12,
       height: 44,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
@@ -207,7 +209,7 @@ function createStyles(tk: AppThemeTokens) {
     submitBtn: {
       height: 50,
       justifyContent: 'center',
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.danger.DEFAULT,
       alignItems: 'center',
       marginTop: 8,
@@ -230,7 +232,7 @@ function createStyles(tk: AppThemeTokens) {
     modalContent: {
       width: '100%',
       backgroundColor: tk.surface.light,
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       padding: 24,
       gap: 12,
     },
@@ -254,7 +256,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       height: 44,
       justifyContent: 'center',
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
     },
@@ -267,7 +269,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       height: 44,
       justifyContent: 'center',
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.danger.DEFAULT,
       alignItems: 'center',
     },

@@ -13,6 +13,8 @@ import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 type Route = RouteProp<RootStackParamList, 'PostCreate'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -105,7 +107,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: rnRadius['2xl'],
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tokens.border.medium,
     backgroundColor: tokens.surface.card,

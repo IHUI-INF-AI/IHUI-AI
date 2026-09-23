@@ -8,6 +8,8 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { OrderDetailScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /**
  * 订单详情共享屏 — 平台无关渲染层。
  *
@@ -99,7 +101,7 @@ function createStyles(tk: AppThemeTokens) {
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     card: {
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,

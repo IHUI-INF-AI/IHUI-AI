@@ -8,6 +8,8 @@ import { View, Text, Switch, TextInput, TouchableOpacity, Modal, StyleSheet } fr
 import type { SettingsScreenProps, SharedNotificationToggles } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 type NotifKey = keyof SharedNotificationToggles
 
 /**
@@ -319,14 +321,14 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       flexDirection: 'row',
       alignItems: 'center',
       padding: 14,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.muted,
       gap: 12,
     },
     avatar: {
       width: 48,
       height: 48,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.brandAccent.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
@@ -339,7 +341,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     section: { gap: 8 },
     sectionTitle: { fontSize: 14, color: sectionTitleColor },
     sectionCard: {
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: divider,
       overflow: 'hidden',
       gap: StyleSheet.hairlineWidth,
@@ -367,7 +369,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     logoutBtn: {
       marginTop: 8,
       height: 50,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: cardBg,
       alignItems: 'center',
       justifyContent: 'center',
@@ -380,12 +382,12 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       justifyContent: 'center',
       padding: 24,
     },
-    modalCard: { backgroundColor: tk.surface.bg, borderRadius: 12, padding: 14, gap: 10 },
+    modalCard: { backgroundColor: tk.surface.bg, borderRadius: rnRadius.xl, padding: 14, gap: 10 },
     modalTitle: { fontSize: 18, fontWeight: '600', color: tk.text.primary, marginBottom: 4 },
     pwdInput: {
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       paddingHorizontal: 12,
       height: 50,
       fontSize: 16,
@@ -395,7 +397,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     modalBtn: {
       flex: 1,
       height: 50,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       alignItems: 'center',
       justifyContent: 'center',
     },

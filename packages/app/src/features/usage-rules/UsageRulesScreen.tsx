@@ -7,6 +7,8 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-nati
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { UsageRulesScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export type { UsageRulesScreenProps }
 
 type SpecBlock = { type: 'subtitle'; text: string } | { type: 'paragraph'; text: string }
@@ -357,7 +359,7 @@ function createStyles(tk: AppThemeTokens) {
     body: { padding: 14, paddingBottom: 32, gap: 12 },
     introCard: {
       backgroundColor: tk.surface.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       padding: 14,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -375,7 +377,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     sectionCard: {
       backgroundColor: tk.surface.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       padding: 14,
       borderWidth: 1,
       borderColor: tk.border.light,

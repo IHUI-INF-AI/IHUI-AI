@@ -16,6 +16,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { N8nModelItem, N8nModelScreenProps, N8nModelTab } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** n8n 模型管理共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { N8nModelItem, N8nModelScreenProps }
 
@@ -209,7 +211,7 @@ function createStyles(tk: AppThemeTokens) {
     createBtn: {
       paddingHorizontal: 14,
       paddingVertical: 6,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     createText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
@@ -218,7 +220,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 50,
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 12,
       fontSize: 14,
       color: tk.text.primary,
@@ -229,13 +231,13 @@ function createStyles(tk: AppThemeTokens) {
       marginHorizontal: 10,
       marginTop: 12,
       padding: 4,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     tabItem: {
       flex: 1,
       height: 32,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -250,7 +252,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
       paddingHorizontal: 12,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.danger.light,
     },
     errorText: { flex: 1, fontSize: 14, color: tk.danger.DEFAULT },
@@ -260,10 +262,10 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: 12 },
     empty: { alignItems: 'center', paddingVertical: 48 },
     emptyText: { fontSize: 14, color: tk.text.tertiary },
-    card: { padding: 12, borderRadius: 12, borderWidth: 1, borderColor: tk.border.light },
+    card: { padding: 12, borderRadius: rnRadius.xl, borderWidth: 1, borderColor: tk.border.light },
     cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     cardTitleRow: { flex: 1, flexDirection: 'row', alignItems: 'center' },
-    dot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
+    dot: { width: 8, height: 8, borderRadius: rnRadius.sm, marginRight: 8 },
     dotRun: { backgroundColor: tk.success.DEFAULT },
     dotStop: { backgroundColor: tk.text.tertiary },
     cardName: { flex: 1, fontSize: 16, fontWeight: '600', color: tk.text.primary },
@@ -272,7 +274,7 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
       paddingHorizontal: 8,
       paddingVertical: 3,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
     },
     badgeRun: { color: tk.success.DEFAULT, backgroundColor: tk.success.light },
     badgeStop: { color: tk.text.secondary, backgroundColor: tk.surface.card },
@@ -284,7 +286,7 @@ function createStyles(tk: AppThemeTokens) {
     actionBtn: {
       paddingHorizontal: 10,
       height: 34,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -296,7 +298,7 @@ function createStyles(tk: AppThemeTokens) {
     actionEdit: {
       paddingHorizontal: 10,
       height: 34,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       alignItems: 'center',

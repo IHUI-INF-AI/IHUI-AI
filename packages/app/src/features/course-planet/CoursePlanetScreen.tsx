@@ -8,6 +8,8 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 import { BookOpen } from 'lucide-react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export interface CoursePlanetScreenProps {
   t: TFunction
   data: {
@@ -194,7 +196,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     retryText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
@@ -207,7 +209,7 @@ function createStyles(tk: AppThemeTokens) {
     typeTab: {
       paddingHorizontal: 10,
       paddingVertical: 6,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     typeTabActive: {
@@ -240,7 +242,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     courseCard: {
       width: 140,
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       overflow: 'hidden',
       backgroundColor: tk.surface.light,
     },

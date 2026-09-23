@@ -23,6 +23,8 @@ import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 type Route = RouteProp<RootStackParamList, 'CourseDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'CourseDetail'>
 
@@ -153,7 +155,7 @@ const styles = StyleSheet.create({
   entryBtn: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.brandAccent.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',

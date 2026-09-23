@@ -15,6 +15,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CouponItem, CouponScreenProps, CouponStatus } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 优惠券/Props 类型 re-export(单一来源 @ihui/types) */
 export type { CouponItem, CouponScreenProps, CouponStatus }
 
@@ -149,7 +151,7 @@ function createStyles(tk: AppThemeTokens) {
     tab: {
       paddingHorizontal: 12,
       paddingVertical: 6,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
     },
     tabActive: { backgroundColor: tk.brand.DEFAULT },
@@ -170,7 +172,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: StyleSheet.hairlineWidth, backgroundColor: tk.border.light },
     card: {
       flexDirection: 'row',
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       overflow: 'hidden',
@@ -193,7 +195,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
     },
     statusText: { fontSize: 11, color: tk.surface.light },
   })

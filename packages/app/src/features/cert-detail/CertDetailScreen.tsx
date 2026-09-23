@@ -8,6 +8,8 @@ import { ScrollView, Text, TouchableOpacity, View, StyleSheet } from 'react-nati
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CertDetailScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /**
  * 证书详情共享屏 — 平台无关 UI 渲染。
  *
@@ -110,7 +112,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.success.DEFAULT,
       backgroundColor: `${tk.success.DEFAULT}1A`,
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
     },
     certTitle: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     certNo: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
@@ -128,7 +130,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.success.DEFAULT,
       paddingVertical: 12,
       paddingHorizontal: 24,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
     },
     verifyText: { fontSize: 16, fontWeight: '600', color: tk.success.DEFAULT },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },

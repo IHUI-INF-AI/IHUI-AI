@@ -11,6 +11,7 @@
 import { StyleSheet } from 'react-native'
 import type { ViewStyle, TextStyle, ImageStyle } from 'react-native'
 import { tokens as tk } from '../theme/active-tokens'
+import { rnRadius } from '@ihui/design-tokens'
 
 export const TAB_BAR_HEIGHT = 56
 export const TAB_BAR_ICON_SIZE = 24
@@ -21,8 +22,8 @@ export const TAB_BAR_FLOAT_MARGIN_H = 12
 export const TAB_BAR_FLOAT_GAP_TOP = 6
 /** 胶囊底部最小悬浮间距(无 safe-area 时兜底) */
 export const TAB_BAR_FLOAT_GAP_BOTTOM_MIN = 8
-/** 胶囊圆角(小圆角悬浮卡,对齐钉钉风格;2026-09-22 用户定稿"小圆角") */
-export const TAB_BAR_RADIUS = 14
+/** 胶囊圆角(小圆角悬浮卡,对齐钉钉风格;2026-09-22 用户定稿"小圆角";原 14,R1 吸附至 xl(12)) */
+export const TAB_BAR_RADIUS = rnRadius.xl
 
 export const tabBarStyles = {
   /** 外层留白容器:负责水平留边与底部 safe-area 悬浮(运行时注入 marginBottom) */

@@ -15,6 +15,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AgentChatMessage, AgentChatScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** Agent 聊天共享屏 — props 注入式跨端组件(wrapper 保留 API 调用,共享层负责渲染+自动滚动) */
 export type { AgentChatScreenProps }
 
@@ -135,7 +137,7 @@ function createStyles(tk: AppThemeTokens) {
     msg: {
       maxWidth: '85%',
       marginBottom: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       padding: 10,
     },
     msgUser: { alignSelf: 'flex-end', backgroundColor: tk.brand.DEFAULT },
@@ -154,7 +156,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 50,
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 12,
       fontSize: 16,
       color: tk.text.primary,
@@ -163,7 +165,7 @@ function createStyles(tk: AppThemeTokens) {
     sendBtn: {
       paddingHorizontal: 14,
       height: 50,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
@@ -181,7 +183,7 @@ function createStyles(tk: AppThemeTokens) {
     backBtn: {
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     backBtnText: { color: tk.surface.light, fontSize: 16 },

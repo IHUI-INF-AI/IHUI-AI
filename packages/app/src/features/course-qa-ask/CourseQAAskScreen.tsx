@@ -14,6 +14,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CourseQAAskScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 课程问答提问共享屏 — props 注入式跨端组件 */
 export type { CourseQAAskScreenProps }
 
@@ -89,7 +91,7 @@ function createStyles(tk: AppThemeTokens) {
       minHeight: 120,
       paddingHorizontal: 12,
       paddingVertical: 10,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.muted,
@@ -102,7 +104,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 16,
       backgroundColor: tk.brand.DEFAULT,
       paddingVertical: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       alignItems: 'center',
     },
     btnDisabled: { opacity: 0.6 },
