@@ -6,7 +6,6 @@
 
 import * as React from 'react'
 import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
-import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Checkbox } from '@/components/form'
 
@@ -44,7 +43,6 @@ function DataTableImpl<T>({
   loading = false,
   className,
 }: DataTableProps<T>) {
-  const t = useTranslations('dataTable')
   const [sort, setSort] = React.useState<SortState>(null)
   // 选中态以 rowKey 为准,与排序/翻页解耦,避免"排序后勾选错行""跨页残留"
   const [selected, setSelected] = React.useState<Set<string | number>>(new Set())
@@ -145,7 +143,7 @@ function DataTableImpl<T>({
                   colSpan={columns.length + (selectable ? 1 : 0)}
                   className="px-3 py-5 text-center text-muted-foreground"
                 >
-                  {t('loadingText')}
+                  加载中...
                 </td>
               </tr>
             ) : sortedData.length === 0 ? (
@@ -154,7 +152,7 @@ function DataTableImpl<T>({
                   colSpan={columns.length + (selectable ? 1 : 0)}
                   className="px-3 py-5 text-center text-muted-foreground"
                 >
-                  {t('emptyText')}
+                  暂无数据
                 </td>
               </tr>
             ) : (
@@ -184,27 +182,23 @@ function DataTableImpl<T>({
       {pagination && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm">
           <span className="shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">
-            {t('paginationSummary', {
-              total: pagination.total,
-              page: pagination.page,
-              pageCount: Math.max(1, Math.ceil(pagination.total / pagination.pageSize)),
-            })}
+            共 {pagination.total} 条,第 {pagination.page}/
+            {Math.max(1, Math.ceil(pagination.total / pagination.pageSize))} 页
           </span>
           <div className="flex shrink-0 items-center gap-1">
-            {/* 紧凑表用文字按钮,共享 DataTable 用图标按钮 + aria-label;两处文案同源,故复用同键 */}
             <button
               disabled={pagination.page <= 1}
               onClick={() => onPageChange?.(pagination.page - 1)}
               className="rounded border px-2 py-1 disabled:opacity-50"
             >
-              {t('prevPageAriaLabel')}
+              上一页
             </button>
             <button
               disabled={pagination.page * pagination.pageSize >= pagination.total}
               onClick={() => onPageChange?.(pagination.page + 1)}
               className="rounded border px-2 py-1 disabled:opacity-50"
             >
-              {t('nextPageAriaLabel')}
+              下一页
             </button>
           </div>
         </div>
