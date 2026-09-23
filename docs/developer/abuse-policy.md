@@ -185,7 +185,7 @@ Key 级窗口(5h/1d/7d)与余额熔断都挂在**单把 key**上;多把 key 只�
 
 | 机制                | 阈值/参数                                                     | 落点                                                            |
 | ------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------- |
-| 反自动化            | 单 IP 每分钟 > 100 → 429;> 200 → 403 + 临时封禁 900s;扫描器路径特征命中 → 封禁 3600s | `apps/api/src/plugins/anti-automation.ts:47-55`                 |
+| 反自动化            | 单 IP 每分钟 > 100 → 429;> **600** → 403 + 临时封禁 900s;扫描器路径特征命中 → 封禁 3600s。两个阈值可由 `ANTI_AUTOMATION_CHALLENGE_THRESHOLD` / `ANTI_AUTOMATION_BLOCK_THRESHOLD` 覆盖。**封禁线原为 200,2026-09-23 上调**:实测用户仅打开一个页面(前端按账号数线性扇出)即达 205 次/分钟而被封 —— 重处置的判据线不得落在正常使用够得着的位置 | `apps/api/src/plugins/anti-automation.ts:58-72`                 |
 | 扫描器特征          | `/.env` `/.git` `/.aws` `/.ssh` `/wp-admin` `/phpmyadmin` 等    | `apps/api/src/plugins/anti-automation.ts:73-80`                  |
 | 威胁检测(信誉分)   | score ≥ 80 自动封禁(递增时长),score ≥ 60 告警放行;响应头 `X-Block-Reason` / `X-Threat-Score` | `apps/api/src/plugins/threat-detector.ts:31-33,125,143-181`     |
 | 异常行为检测(6 维) | request-frequency / time-distribution / geo-anomaly / 指纹 / 扫描器 / 基线,加权分 `>80` block、`>60` challenge、`≥30` monitor | `apps/api/src/services/anomaly-detector.ts:152-190`             |
