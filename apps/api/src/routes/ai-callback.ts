@@ -205,25 +205,10 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
 
-      const {
-        content,
-        reasoning,
-        model,
-        provider,
-        usage,
-        stub,
-        toolCalls,
-        terminalTasks,
-        planSteps,
-        citations,
-        injections,
-        compaction,
-        retryNotice,
-        usageDetail,
-        fallback,
-        memoryUpdates,
-        metadata,
-      } = parsed.data
+      // 仅解构本函数实际消费的字段。parsed.data 上的 stub/toolCalls/terminalTasks/planSteps/
+      // citations/injections/compaction/retryNotice/usageDetail/fallback/memoryUpdates 仍由
+      // callbackSchema 逐字段校验(400 行为不变),但当前不随入队 payload 下发,故不再解构(TS6133)。
+      const { content, reasoning, model, provider, usage, metadata } = parsed.data
       const conversationId = metadata?.conversationId
       const messageId = metadata?.messageId
       const userId = metadata?.userId
@@ -271,6 +256,9 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
               '[permission-stamp] 档位盖章失败(不影响消息落库)',
             )
           }
+          // G-165 盖章结果暂未并入入队 payload(接线属业务语义,不在本次类型修复范围),
+          // 保留 getPermission/permissionStamp 计算链路不变,仅 void 以满足 noUnusedLocals。
+          void permissionMeta
           await aiCallbackQueue.add('complete', {
             conversationId,
             userId,
