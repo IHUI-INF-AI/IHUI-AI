@@ -171,14 +171,19 @@ export function AccountHistoryInput({
           {loginHistory.length > 0 ? (
             <>
               {loginHistory.map((account, idx) => (
-                // 2026-09-22 非法嵌套根治:原外层 <div role="button" tabIndex={0}> 内嵌真 <button>
-                // (button/role=button 内容模型禁止 interactive content),且删除钮 tabIndex={-1}
-                // 让它常驻可见却彻底键盘不可达。外层降级为纯容器(继续承载行背景/hover/padding/
-                // cursor → 视觉零变化),内部并列两枚真 button:选中账号钮 + 删除钮,各自原生可聚焦。
                 <div
                   key={account}
+                  role="button"
+                  tabIndex={0}
                   data-history-index={idx}
                   onMouseEnter={() => setActiveHistoryIndex(idx)}
+                  onClick={() => selectAccount(account)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      selectAccount(account)
+                    }
+                  }}
                   className={cn(
                     'flex w-full cursor-pointer items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors',
                     activeHistoryIndex === idx
@@ -186,15 +191,10 @@ export function AccountHistoryInput({
                       : 'hover:bg-accent hover:text-accent-foreground',
                   )}
                 >
+                  <span className="truncate">{account}</span>
                   <button
                     type="button"
-                    onClick={() => selectAccount(account)}
-                    className="min-w-0 flex-1 truncate text-left"
-                  >
-                    {account}
-                  </button>
-                  <button
-                    type="button"
+                    tabIndex={-1}
                     onClick={(e) => {
                       e.stopPropagation()
                       setLoginHistory(removeFromLoginHistory(account))
@@ -207,9 +207,9 @@ export function AccountHistoryInput({
                   </button>
                 </div>
               ))}
-              {/* 常驻操作(只要列表非空就在)→ 不加 tabIndex={-1},否则键盘永远够不到 */}
               <button
                 type="button"
+                tabIndex={-1}
                 onClick={() => {
                   clearLoginHistory()
                   setLoginHistory([])

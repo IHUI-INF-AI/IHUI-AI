@@ -5,7 +5,6 @@
 'use client'
 
 import * as React from 'react'
-import { useTranslations } from 'next-intl'
 import Image from 'next/image'
 import { FileText, File } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -64,7 +63,6 @@ export function FilePreview({ url, type = 'auto', name, className }: FilePreview
 }
 
 function TextPreview({ url, name, className }: { url: string; name?: string; className?: string }) {
-  const t = useTranslations('a11y')
   const [content, setContent] = React.useState<string>('')
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState(false)
@@ -89,12 +87,12 @@ function TextPreview({ url, name, className }: { url: string; name?: string; cla
     return () => controller.abort()
   }, [url])
 
-  if (loading) return <div className="p-3 text-sm text-muted-foreground">{t('loading')}</div>
+  if (loading) return <div className="p-3 text-sm text-muted-foreground">加载中...</div>
   if (error)
     return (
       <div className="flex flex-col items-center gap-2 p-3 text-muted-foreground">
         <File className="h-10 w-10" />
-        <p className="text-sm">{t('cannotPreviewFile')}</p>
+        <p className="text-sm">无法预览此文件</p>
         {name && <FileText className="h-4 w-4" />}
       </div>
     )
