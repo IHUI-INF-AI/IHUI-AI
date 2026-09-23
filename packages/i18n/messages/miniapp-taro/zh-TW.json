@@ -760,8 +760,6 @@
       "gatewayRetry": "第 {attempt}/{max} 次重試,{seconds} 秒後繼續",
       "subagent": "子任務:{phase}",
       "title": "執行過程",
-      "toolCall": "調用工具:{name}",
-      "toolResult": "工具返回:{name}",
       "toolSummary": "工具彙總:{calls} 次調用",
       "terminal": "終端任務:{status}",
       "usage": "用量:{n} tokens"
@@ -2474,18 +2472,12 @@
     "unsupportedEnv": "當前環境不支援支付",
     "resultPending": "支付結果待確認",
     "agreementPrefix": "點擊立即支付,表示同意",
-    "countLabel": "數量",
     "coupon": "優惠券",
     "createTime": "下單時間",
-    "defaultName": "AI 助手",
     "orderNo": "訂單號",
     "payFailed": "支付失敗,請重試",
-    "payNow": "立即支付",
     "paying": "支付中...",
-    "perMonth": "月",
-    "priceLabel": "價格",
     "purchaseContent": "購買內容",
-    "subscribeTip": "訂閱後可無限使用",
     "userAgreement": "《使用者協議》"
   },
   "study": {
@@ -3199,7 +3191,6 @@
       "empty": "暫無素材"
     },
     "qrCodeHint": "掃描 QR Code 加入社群",
-    "thinking": "思考中...",
     "voice": {
       "listening": "正在聆聽...",
       "tapToStop": "點擊停止錄音"
@@ -3227,16 +3218,6 @@
     "5": "鑽石",
     "6": "王者",
     "distance": "距"
-  },
-  "messageCenter": {
-    "empty": "暫無訊息",
-    "title": "訊息中心",
-    "type": {
-      "course": "課程",
-      "order": "訂單",
-      "social": "社交",
-      "system": "系統"
-    }
   },
   "interaction": {
     "collect": "收藏了我",
@@ -3329,11 +3310,6 @@
     "d2": "全能",
     "text1": "Agent模式"
   },
-  "PayButton": {
-    "d1": "免費使用",
-    "d2": "每月",
-    "d3": "已購買"
-  },
   "PhoneAreaCodePicker": {
     "d1": "中國"
   },
@@ -3425,21 +3401,6 @@
   },
   "WithdrawalRecords": {
     "d1": "已駁回"
-  },
-  "adaptersFeedbackScreentaro": {
-    "d1": "請輸入回饋內容...",
-    "d2": "聯絡方式(可選)"
-  },
-  "adaptersOrderScreentaro": {
-    "d1": "待付款",
-    "d2": "已付款",
-    "d3": "待付款",
-    "d4": "已付款"
-  },
-  "adaptersPayButtontaro": {
-    "d1": "免費使用",
-    "d2": "每月",
-    "d3": "已購買"
   },
   "aiAgent": {
     "d1": "會議",
@@ -3891,27 +3852,10 @@
     "r2": "吉林省愛智匯人工智能科技有限公司",
     "p1": "吉ICP備2025027274號-7A"
   },
-  "last": {
-    "1": "AI IHUI丨",
-    "3": "支付功能待接入後端"
-  },
-  "adaptersUserInfoCardtaro": {
-    "y1": "{p1}億",
-    "y2": "{p1}萬"
-  },
-  "api": {
-    "y1": "請求失敗({p1})",
-    "y2": "請求失敗({p1})"
-  },
   "StudyStats": {
     "y1": "h,已完成"
   },
   "tail": {
-    "1": "選擇感興趣的賽道,獲取個人化推薦",
-    "2": "一鍵登入",
-    "3": "編輯",
-    "4": "剩餘智匯值:",
-    "5": "充值",
     "6": "暫無資料",
     "7": "重試",
     "8": "載入中...",
@@ -3973,9 +3917,6 @@
   },
   "VipUpgradeToast": {
     "p1": "升級會員解鎖更多功能"
-  },
-  "adaptersCarouseltaro": {
-    "q1": "暫無輪播圖"
   },
   "aboutApppermission": {
     "q1": "獲取權限狀態"

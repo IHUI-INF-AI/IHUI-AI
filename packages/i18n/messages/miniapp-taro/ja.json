@@ -765,8 +765,6 @@
       "gatewayRetry": "{attempt}/{max} 回目を再試行中、{seconds} 秒後に続けます",
       "subagent": "サブタスク: {phase}",
       "title": "実行プロセス",
-      "toolCall": "ツール呼び出し: {name}",
-      "toolResult": "ツール応答: {name}",
       "toolSummary": "ツール集計: {calls} 回",
       "terminal": "ターミナルタスク: {status}",
       "usage": "使用量: {n} tokens"
@@ -2486,18 +2484,12 @@
     "unsupportedEnv": "現在の環境は決済に対応していません",
     "resultPending": "支払い結果確認中",
     "agreementPrefix": "「今すぐ支払う」をクリックすると、以下の内容に同意したことになります",
-    "countLabel": "数量",
     "coupon": "クーポン",
     "createTime": "注文時刻",
-    "defaultName": "AIアシスタント",
     "orderNo": "注文番号",
     "payFailed": "支払いに失敗しました。再試行してください",
-    "payNow": "今すぐ支払う",
     "paying": "支払い中...",
-    "perMonth": "月",
-    "priceLabel": "価格",
     "purchaseContent": "購入内容",
-    "subscribeTip": "購読後は無制限に利用可能",
     "userAgreement": "《利用規約》"
   },
   "study": {
@@ -3218,7 +3210,6 @@
       "empty": "素材がまだありません"
     },
     "qrCodeHint": "QRコードをスキャンしてコミュニティに参加",
-    "thinking": "思考中...",
     "voice": {
       "listening": "聴取中...",
       "tapToStop": "クリックして録音を停止"
@@ -3246,16 +3237,6 @@
     "5": "ダイヤモンド",
     "6": "キング",
     "distance": "あと"
-  },
-  "messageCenter": {
-    "empty": "メッセージはありません",
-    "title": "メッセージセンター",
-    "type": {
-      "course": "コース",
-      "order": "注文",
-      "social": "ソーシャル",
-      "system": "システム"
-    }
   },
   "interaction": {
     "collect": "私をコレクションしました",
@@ -3348,11 +3329,6 @@
     "d2": "万能",
     "text1": "エージェントモード"
   },
-  "PayButton": {
-    "d1": "無料で使う",
-    "d2": "月額",
-    "d3": "購入済み"
-  },
   "PhoneAreaCodePicker": {
     "d1": "中国"
   },
@@ -3444,21 +3420,6 @@
   },
   "WithdrawalRecords": {
     "d1": "却下済み"
-  },
-  "adaptersFeedbackScreentaro": {
-    "d1": "フィードバックを入力してください...",
-    "d2": "連絡先(任意)"
-  },
-  "adaptersOrderScreentaro": {
-    "d1": "未払い",
-    "d2": "支払い済み",
-    "d3": "未払い",
-    "d4": "支払い済み"
-  },
-  "adaptersPayButtontaro": {
-    "d1": "無料で使う",
-    "d2": "月額",
-    "d3": "購入済み"
   },
   "aiAgent": {
     "d1": "会議",
@@ -3910,27 +3871,10 @@
     "r2": "吉林省愛智匯人工智能科技有限公司",
     "p1": "吉ICP备2025027274号-7A"
   },
-  "last": {
-    "1": "AI IHUI丨",
-    "3": "支払い機能はバックエンド連携待ち"
-  },
-  "adaptersUserInfoCardtaro": {
-    "y1": "{p1}億",
-    "y2": "{p1}万"
-  },
-  "api": {
-    "y1": "リクエスト失敗({p1})",
-    "y2": "リクエスト失敗({p1})"
-  },
   "StudyStats": {
     "y1": "h、完了"
   },
   "tail": {
-    "1": "興味のあるトラックを選択してパーソナライズされたおすすめを取得",
-    "2": "ワンタップログイン",
-    "3": "編集",
-    "4": "残り智匯値:",
-    "5": "チャージ",
     "6": "データなし",
     "7": "再試行",
     "8": "読み込み中...",
@@ -3992,9 +3936,6 @@
   },
   "VipUpgradeToast": {
     "p1": "会員にアップグレードして機能を解放"
-  },
-  "adaptersCarouseltaro": {
-    "q1": "カルーセル画像はありません"
   },
   "aboutApppermission": {
     "q1": "権限状態の取得"
