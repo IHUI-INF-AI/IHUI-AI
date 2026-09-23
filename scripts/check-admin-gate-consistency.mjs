@@ -25,8 +25,8 @@
  *   node scripts/check-admin-gate-consistency.mjs --self-test
  * 退出码:0 通过 / 1 发现违规 / 2 脚本自身异常。
  *
- * 当前接入:guardian-runner id '53',warn 级 —— 存量 34 文件/74 处裸比较刚完成一次性
- * 登记,白名单口径与 --staged 判据需要先观察一轮误报率(如动态拼出的 roleId 判定),
+ * 当前接入:guardian-runner id '53',warn 级 —— 存量 31 文件/68 处裸比较(O13b 试点批已迁 3 文件),
+ * 白名单口径与 --staged 判据需要先观察一轮误报率(如动态拼出的 roleId 判定),
  * 稳定后升 blocking。紧急跳过:HUSKY_SKIP_ADMIN_GATE_GUARD=1(不建议)。
  */
 import { execFileSync } from 'node:child_process'
@@ -43,7 +43,8 @@ const CATALOG_REL = 'packages/types/src/capability-catalog.ts'
 const CENTRAL_FILES = new Set(['apps/api/src/plugins/require-permission.ts'])
 
 /**
- * RULE-1 存量白名单(2026-09-21 盘点登记,共 34 文件 / 74 处)。
+ * RULE-1 存量白名单(2026-09-21 盘点登记 34 文件 / 74 处;O13b 试点批迁出
+ * earnings-routes/security/health 3 文件后,现 31 文件 / 68 处)。
  * count = 登记时裸比较条数,只减不增;reason 说明该处 roleId 数值判定的存在理由。
  * 收敛路径:迁移到 requirePermission(...)/requireAdmin 后,把条目整体删除。
  */
@@ -54,7 +55,6 @@ export const LEGACY_RAW_ROLEGATE = {
   'apps/api/src/routes/admin-sys/role-routes.ts': { count: 6, reason: 'O13b 存量:RBAC 管理路由内 roleId===1 超管保护,待收敛' },
   'apps/api/src/routes/finance-extended.ts': { count: 5, reason: 'O13b 存量:资金扩展面' },
   'apps/api/src/routes/groups.ts': { count: 4, reason: 'O13b 存量:群组管理员(业务 roleId,非 admin 面),保留语义复核' },
-  'apps/api/src/routes/earnings-routes.ts': { count: 4, reason: 'O13b 存量:收益面 + 本地 boolean 版 requireAdmin' },
   'apps/api/src/routes/user/withdrawal-routes.ts': { count: 3, reason: 'O13b 存量:提现审核' },
   'apps/api/src/routes/feature-center.ts': { count: 2, reason: 'O13b 存量' },
   'apps/api/src/routes/edu-ai-management.ts': { count: 2, reason: 'O13b 存量(edu 域属 platform,机器凭据侧由能力闸兜死)' },
@@ -68,10 +68,8 @@ export const LEGACY_RAW_ROLEGATE = {
   'apps/api/src/routes/user/ai-users-routes.ts': { count: 1, reason: 'O13b 存量' },
   'apps/api/src/routes/trader.ts': { count: 1, reason: 'O13b 存量' },
   'apps/api/src/routes/service-inquiry.ts': { count: 1, reason: 'O13b 存量' },
-  'apps/api/src/routes/security.ts': { count: 1, reason: 'O13b 存量:本地 boolean 版 requireAdmin' },
   'apps/api/src/routes/other/student-profile-routes.ts': { count: 1, reason: 'O13b 存量' },
   'apps/api/src/routes/oss.ts': { count: 1, reason: 'O13b 存量' },
-  'apps/api/src/routes/health.ts': { count: 1, reason: 'O13b 存量:健康详情脱敏按 admin 区分' },
   'apps/api/src/routes/downloads.ts': { count: 1, reason: 'O13b 存量' },
   'apps/api/src/routes/category-sync.ts': { count: 1, reason: 'O13b 存量' },
   'apps/api/src/routes/auth.ts': { count: 1, reason: 'O13b 存量:登录返回权限解析(roleId>=1 → 通配),属响应装配非闸门' },
@@ -84,11 +82,9 @@ export const LEGACY_RAW_ROLEGATE = {
   'apps/api/src/routes/admin-saas-quota.ts': { count: 1, reason: 'O13b 存量' },
 }
 
-/** RULE-2 存量白名单:集中封装之外定义本地 requireAdmin 的历史文件。 */
-export const LEGACY_LOCAL_REQUIREADMIN = {
-  'apps/api/src/routes/earnings-routes.ts': { count: 1, reason: 'O13b 存量:boolean 版本地 requireAdmin(与闸门版同语义),待删' },
-  'apps/api/src/routes/security.ts': { count: 1, reason: 'O13b 存量:同上' },
-}
+/** RULE-2 存量白名单:集中封装之外定义本地 requireAdmin 的历史文件。
+ *  O13b 试点批已清零(earnings-routes/security 本地重定义已删,改走集中封装),保留空表作后续批次锚点。 */
+export const LEGACY_LOCAL_REQUIREADMIN = {}
 
 // ─── 核心判据函数(§22c:经 __test__ 暴露给测试,不复制镜像实现) ───
 
