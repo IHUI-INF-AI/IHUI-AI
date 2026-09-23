@@ -5377,6 +5377,18 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - 验证:c12617dd 真机冷启动实测**全端转深色**(页面 `#242424` / 卡片 `#1A1A1A` + 边框 / 文字浅色 / tabBar 深色 / 输入壳白底),logcat `ReactNative`+`ReactNativeJS` 零 error;`pnpm --filter @ihui/mobile-rn typecheck` 与 eslint exit 0;`@ihui/design-tokens` typecheck 0 错;`task-status-bar` 5/5 passed。浅色态经真机五 tab 复核为视觉零变化(仅底色分层修正)。**深色下发送按钮图标可见性**的复验因手机 USB 掉线未完成,已列入残余。
 - **平台独占豁免依据(§9)**:改动全在 RN 端取色层与 design-tokens 的 RN 专用板(`rn-tokens.ts`),不触 web/miniapp-taro 的 CSS 变量链路;`brand.foreground` 为新增字段,其余端不消费。
 
+## P1 mobile-rn 深色复核收尾:Drawer/NativeWind 残余清零 + Profile 对比度修复 + 回归守门 75(2026-09-23 立并完成 ✅,平台独占:apps/mobile-rn + scripts)
+
+> 承上节「逐屏深色复核」残余,本轮把复核中发现的真实缺陷全部闭环,并立静态守门防回潮。改码前真机(browser ping 等价的 adb 截图链路)确认 Metro 在线;全程 c12617dd 真机取证(截图存 `.ihui-agent/tmp/dark-verify/d20-d23`)。
+
+- [x] ✅(2026-09-23) **Drawer 深色白底根治**:`Drawer.tsx` 根因是 NativeWind `className="bg-white"` 与 token 单例**平行渲染体系**(bundle 内 token 引用存在但被 className 覆盖,非缓存问题)。~34 处颜色类转 token 内联样式;主菜单/扩展菜单头像与图标块的重复 JSX 属性(617/669/694)修并;滑动操作条 `text-white`(danger/warning 饱和底)与 VIP 徽章保留。真机深色复验抽屉全暗(d21)。
+- [x] ✅(2026-09-23) **NativeWind 残余 7 文件转 token**(子代理并行派单,受影响文件清单制):AgentRuntimePanel/Carousel/ModelConfigDialog(58 处,emerald→success.*)/NotificationPanel/VideoPlayer(白 overlay 系视频前景,保留)/RootNavigator/KnowledgeRagScreen(全部 `dark ?` 条件行保留)。
+- [x] ✅(2026-09-23) **Profile 深色三缺陷**:① `StudyBar.tabActive` 用 `surface.light` 恒白 + `text.primary` 深色翻白 → 白底白字,改 `brand.DEFAULT`+`brand.foreground`;② `UserInfoCard` tokenRow/growthRow/inviteRow 三处 `rgba(255,255,255,0.6)` 硬编码白条 → `surface.muted`;③ 充值按钮经核 dark `brandAccent.foreground=#16262e` 对比正确,非缺陷,保留。真机复验 d23:「文本」白底黑字、智汇值行深色。
+- [x] ✅(2026-09-23) **`surface.light` 容器二次扫荡(9 文件)**:AgentList.row、IntroducePopup.primaryButton(连带 text.primary→brand.foreground)、LoginPopUp.iconBadge/footerButton、ModelPickerList.searchBar(→inputBg)、KnowledgePlanet.authorBadge(→muted)、InputArea.thumbClose、PayButton.typeButton、UserInfoCard 新旧 loginBtn;另 ChatScreen.modelTypeBtnActive/inputRow、VipScreen.tabActive、PlazaScreen.identityBtnOutline、LoginScreen.agreementModalCancelBtn、DevEnterScreen.promptCancel、AgentScreen.tabTextActive(R1 真缺陷,守门首跑即抓到)。
+- [x] ✅(2026-09-23) **新增守门 75 `check-brand-foreground.mjs`(blocking,注册 guardian-runner)**:R1 零豁免——同一 style 块内 `brand.DEFAULT` 背景 × `surface.light`/`text.primary` 前景(深色白底白字);R2 基线棘轮——`surface.light` 背景 / α≥0.5 白 rgba / 非 `dark:` 变体的 `bg-white` 类,每文件计数对 `scripts/brand-foreground-baseline.json` 只减不增(现 13 文件 24 处,均为图片/视频上合法 overlay 或带 `dark:` 变体的文件)。`--staged`/`--update-baseline`/`--self-test`(11 例)/`HUSKY_SKIP_BRAND_FOREGROUND` 全套;§22d isDirectRun + `__test__` 导出。
+- 验证:`pnpm --filter @ihui/mobile-rn typecheck` 源码 0 错(整包仅剩 packages/app ArticleListScreen 他人 WIP 报错,§12 不代修);改动文件 eslint 全绿;真机深色 4 屏截图复核(主页/抽屉/Profile/输入区)。浅色态:StudyBar 激活 tab 由「白上白」变黑底白字、IntroducePopup 主按钮同语言,与发送按钮主 CTA 一致,属有意统一。
+- **平台独占豁免依据(§9)**:全部改动在 apps/mobile-rn 取色层与守门脚本,不触他端契约;守门脚本为本票配套工程约束。
+
 ## P0 G-168 桌面端正常使用被封 IP —— 反自动化封禁面五点收口(2026-09-23 立并完成 ✅,跨端:apps/api + apps/ai-service + apps/web + packages/api-client + docs;desktop=Tauri 薄壳自动跟随,miniapp-taro/mobile-rn/extension/cli 实测零命中该页面)
 
 - **起因**:用户反馈"我就操作一会桌面端程序怎么就给我 IP 封禁了",截图为「平台账号管理」页 toast「IP 已被临时封禁」。
