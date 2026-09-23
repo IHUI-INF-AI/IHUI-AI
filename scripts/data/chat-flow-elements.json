@@ -11,9 +11,7 @@
       "id": "message-usage-metrics",
       "title": "消息级计量徽章行(tokens/耗时/首包/费用)",
       "sourceTask": "D1",
-      "events": [
-        "usage"
-      ],
+      "events": ["usage"],
       "anchors": [
         {
           "file": "apps/web/src/components/chat/message-list/MessageItem.tsx",
@@ -106,20 +104,13 @@
       "id": "tool-output-persistence",
       "title": "工具调用与终端输出落库后恢复",
       "sourceTask": "D24",
-      "events": [
-        "tool-call-start",
-        "tool-result",
-        "terminal_start",
-        "terminal_end"
-      ]
+      "events": ["tool-call-start", "tool-result", "terminal_start", "terminal_end"]
     },
     {
       "id": "plan-steps-persistence",
       "title": "planSteps 零迁移持久化与回放",
       "sourceTask": "D33(planSteps 子项)",
-      "events": [
-        "plan-step"
-      ],
+      "events": ["plan-step"],
       "anchors": [
         {
           "file": "apps/web/src/hooks/use-chat/history-message.ts",
@@ -147,11 +138,11 @@
         },
         {
           "file": "apps/web/src/components/ai/permission-mode-popover.tsx",
-          "mustMatch": "mode.planDesc"
+          "mustMatch": "permissionTierText"
         },
         {
           "file": "apps/web/src/hooks/use-permission-mode-cycle.ts",
-          "mustMatch": "CYCLE_LABEL_KEY"
+          "mustMatch": "permissionTierText"
         },
         {
           "file": "apps/api/src/services/message-permission-stamp.ts",
@@ -167,9 +158,7 @@
       "id": "context-compaction-ceiling",
       "title": "上下文压缩撞到上限的警示行(带下一步,不再静默降级)",
       "sourceTask": "G-150",
-      "events": [
-        "compaction"
-      ],
+      "events": ["compaction"],
       "anchors": [
         {
           "file": "apps/ai-service/app/routers/llm.py",
@@ -245,9 +234,7 @@
       "id": "citation-sources",
       "title": "回复引用与来源锚点(行内编号引用,我方领先项)",
       "sourceTask": "D27/G-70/D109",
-      "events": [
-        "citations"
-      ],
+      "events": ["citations"],
       "anchors": [
         {
           "file": "apps/ai-service/app/routers/llm.py",
@@ -396,7 +383,7 @@
       "anchors": [
         {
           "file": "apps/web/src/components/ai/permission-mode-popover.tsx",
-          "mustMatch": "autoDesc"
+          "mustMatch": "permissionTierText"
         }
       ]
     },
@@ -404,9 +391,7 @@
       "id": "context-injection-disclosure",
       "title": "本轮上下文注入交代条(web/extension/miniapp-taro/mobile-rn/cli 五端已接;前端本地化 kind 标签 + 可展开全文 + 段数计数)",
       "sourceTask": "D34/D45",
-      "events": [
-        "injection_applied"
-      ],
+      "events": ["injection_applied"],
       "anchors": [
         {
           "file": "apps/ai-service/app/routers/llm.py",
@@ -486,9 +471,7 @@
       "id": "upstream-retry-disclosure",
       "title": "上游重试交代行(第 N/M 次 + 多久后继续;立即重试不写\"0 秒\")",
       "sourceTask": "D39/D108",
-      "events": [
-        "retry_scheduled"
-      ],
+      "events": ["retry_scheduled"],
       "anchors": [
         {
           "file": "apps/ai-service/app/routers/llm.py",
@@ -563,9 +546,7 @@
       "id": "terminal-output-truncation-disclosure",
       "title": "终端输出截断交代(truncated + totalChars,本地全文展开后仍持续交代)",
       "sourceTask": "D40",
-      "events": [
-        "terminal_end"
-      ],
+      "events": ["terminal_end"],
       "anchors": [
         {
           "file": "apps/web/src/components/ai/progress-sections/terminal-section.tsx",

@@ -5,6 +5,7 @@
 'use client'
 
 import type { ResponsiveDeviceIcon } from '@/lib/design/responsive-devices'
+import { rnRadius } from '@ihui/design-tokens'
 
 /** 设备图标:phone/tablet 横屏时旋转 90°,desktop/custom 不旋转。 */
 export function DeviceIcon({ icon, rotate }: { icon: ResponsiveDeviceIcon; rotate: boolean }) {
@@ -23,7 +24,7 @@ export function DeviceIcon({ icon, rotate }: { icon: ResponsiveDeviceIcon; rotat
         style={{ transform }}
         aria-hidden="true"
       >
-        <rect x="5" y="2" width="14" height="20" rx="2" />
+        <rect x="5" y="2" width="14" height="20" rx={rnRadius.xs} />
         <line x1="12" y1="18" x2="12" y2="18" />
       </svg>
     )
@@ -42,7 +43,7 @@ export function DeviceIcon({ icon, rotate }: { icon: ResponsiveDeviceIcon; rotat
         style={{ transform }}
         aria-hidden="true"
       >
-        <rect x="4" y="2" width="16" height="20" rx="2" />
+        <rect x="4" y="2" width="16" height="20" rx={rnRadius.xs} />
         <line x1="12" y1="18" x2="12" y2="18" />
       </svg>
     )
@@ -60,7 +61,7 @@ export function DeviceIcon({ icon, rotate }: { icon: ResponsiveDeviceIcon; rotat
         strokeLinejoin="round"
         aria-hidden="true"
       >
-        <rect x="2" y="3" width="20" height="14" rx="2" />
+        <rect x="2" y="3" width="20" height="14" rx={rnRadius.xs} />
         <line x1="8" y1="21" x2="16" y2="21" />
         <line x1="12" y1="17" x2="12" y2="21" />
       </svg>

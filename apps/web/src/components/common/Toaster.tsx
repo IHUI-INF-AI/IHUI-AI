@@ -8,6 +8,7 @@ import { Toaster as SonnerToaster, toast as sonnerToast } from 'sonner'
 import { useEffect } from 'react'
 import type { ComponentProps, ReactNode } from 'react'
 import { toUserFriendlyMessage } from '@ihui/shared'
+import { rnRadius } from '@ihui/design-tokens'
 
 /**
  * Sonner Toaster + toast 统一入口(2026-07-24 立)。
@@ -119,7 +120,7 @@ export function Toaster(props: ToasterProps) {
       position="top-center"
       toastOptions={{
         style: {
-          borderRadius: '8px',
+          borderRadius: rnRadius.lg,
         },
       }}
       {...props}

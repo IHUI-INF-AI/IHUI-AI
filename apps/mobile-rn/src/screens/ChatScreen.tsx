@@ -2857,7 +2857,7 @@ const styles = StyleSheet.create({
   // 失败轮错误卡片(与 web D22 / miniapp 同形态:警示头 + 正文 + 重试出口)
   msgErrorCard: {
     width: '100%',
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.danger.light,
     backgroundColor: tokens.error.bg,

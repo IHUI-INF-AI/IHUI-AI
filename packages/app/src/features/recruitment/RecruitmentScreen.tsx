@@ -14,7 +14,10 @@ import {
   View,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type { RecruitmentCategory, RecruitmentJob, RecruitmentScreenProps } from '../../types'
+
+import { rnRadius } from '@ihui/design-tokens'
 
 export type { RecruitmentCategory, RecruitmentJob, RecruitmentScreenProps }
 
@@ -48,6 +51,7 @@ export function RecruitmentScreen({
 }: RecruitmentScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  const tabItems = useMemo(() => TABS.map((tab) => ({ id: tab.key, label: t(tab.labelKey) })), [t])
 
   const filtered = activeTab === 'all' ? jobs : jobs.filter((j) => j.category === activeTab)
 
@@ -86,19 +90,14 @@ export function RecruitmentScreen({
         <Text style={styles.subtitle}>{t('recruitment.count', { count: filtered.length })}</Text>
       </View>
 
-      <View style={styles.tabs}>
-        {TABS.map((tab) => (
-          <TouchableOpacity
-            key={tab.key}
-            onPress={() => onSelectTab(tab.key)}
-            style={[styles.tab, activeTab === tab.key && styles.tabActive]}
-          >
-            <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
-              {t(tab.labelKey)}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <CategoryInlineBar
+        items={tabItems}
+        selectedId={activeTab}
+        onSelect={(id) => onSelectTab(id as RecruitmentCategory)}
+        colorScheme={colorScheme}
+        contentPaddingHorizontal={10}
+        itemGap={6}
+      />
 
       <FlatList<RecruitmentJob>
         data={filtered}
@@ -208,23 +207,13 @@ function createStyles(tk: AppThemeTokens) {
     backText: { fontSize: 16, color: tk.text.secondary },
     title: { fontSize: 22, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: 8, fontSize: 14, color: tk.text.tertiary },
-    tabs: { flexDirection: 'row', paddingHorizontal: 10, paddingVertical: 8, gap: 6 },
-    tab: {
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 12,
-      backgroundColor: tk.surface.card,
-    },
-    tabActive: { backgroundColor: tk.brand.DEFAULT },
-    tabText: { fontSize: 14, color: tk.text.secondary },
-    tabTextActive: { color: tk.surface.light },
     listBody: { padding: 14, paddingBottom: 32 },
     separator: { height: 12 },
     empty: { paddingVertical: 40, alignItems: 'center' },
     emptyText: { fontSize: 14, color: tk.text.tertiary },
     jobCard: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -244,22 +233,22 @@ function createStyles(tk: AppThemeTokens) {
     miniTag: {
       paddingHorizontal: 6,
       paddingVertical: 2,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     miniTagText: { fontSize: 10, color: tk.text.secondary },
     appliedBadge: {
       paddingHorizontal: 6,
       paddingVertical: 2,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.success.light,
     },
     appliedText: { fontSize: 10, color: tk.brand.DEFAULT },
     modalMask: { flex: 1, backgroundColor: tk.overlay.modal, justifyContent: 'flex-end' },
     modalCard: {
       backgroundColor: tk.surface.light,
-      borderTopLeftRadius: 16,
-      borderTopRightRadius: 16,
+      borderTopLeftRadius: rnRadius['2xl'],
+      borderTopRightRadius: rnRadius['2xl'],
       padding: 14,
       paddingBottom: 32,
       maxHeight: '85%',
@@ -287,7 +276,7 @@ function createStyles(tk: AppThemeTokens) {
     applyBtn: {
       marginTop: 20,
       height: 50,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

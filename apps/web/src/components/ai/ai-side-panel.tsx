@@ -12,6 +12,7 @@ import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Minus, PictureInPicture2, ChevronUp, SquareTerminal } from 'lucide-react'
 import { CloseButton, IconButton } from '@ihui/ui-react'
+import { rnRadius } from '@ihui/design-tokens'
 
 import { cn } from '@/lib/utils'
 import { useChat } from '@/hooks/use-chat'
@@ -112,7 +113,7 @@ function PanelRightRounded({
       aria-hidden="true"
       {...props}
     >
-      <rect width="18" height="18" x="3" y="3" rx="5" />
+      <rect width="18" height="18" x="3" y="3" rx={rnRadius.sm} />
       <path d={left ? 'M7.5 8v8' : 'M16.5 8v8'} />
     </svg>
   )
@@ -137,7 +138,7 @@ function EnvInfoRounded({
       aria-hidden="true"
       {...props}
     >
-      <rect width="18" height="18" x="3" y="3" rx="5" />
+      <rect width="18" height="18" x="3" y="3" rx={rnRadius.sm} />
       {checked ? (
         <path d="M8 12.5l2.5 2.5 5.5-6" />
       ) : (
