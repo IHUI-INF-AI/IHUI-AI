@@ -16,6 +16,11 @@ export interface ErrorAwareMessage {
   role: string
   content: string
   error?: boolean
+  /**
+   * D92/D71②:后端业务错误码。各端**可选**填,渲染侧统一交给
+   * `@ihui/shared/utils/view-failure-taxonomy` 归类;不填即 unknown 回落态。
+   */
+  errorCode?: string
 }
 
 /**
@@ -23,9 +28,22 @@ export interface ErrorAwareMessage {
  *
  * 已有内容不覆盖:半途断流时用户已经看到部分内容,清掉它等于销毁有效信息;
  * 所以只在内容为空时写入错误文案。错误文案由调用方本地化后传入,这里不编造。
+ *
+ * `errorCode` 为**可选第三参**(D92 接线用):既有各端一律两参调用,
+ * 不传就不写该字段 ⇒ 本次改动对 miniapp / mobile-rn 零行为影响。
  */
-export function markStreamError<T extends ErrorAwareMessage>(msg: T, errorText: string): T {
-  return { ...msg, error: true, content: msg.content ? msg.content : errorText }
+export function markStreamError<T extends ErrorAwareMessage>(
+  msg: T,
+  errorText: string,
+  errorCode?: string,
+): T {
+  const marked: ErrorAwareMessage = {
+    ...msg,
+    error: true,
+    content: msg.content ? msg.content : errorText,
+  }
+  if (errorCode) marked.errorCode = errorCode
+  return marked as T
 }
 
 /**
