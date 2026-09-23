@@ -6,6 +6,7 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 
 import { BackButton } from '@/components/common'
@@ -34,6 +35,7 @@ import { TermDialog } from './TermDialog'
 import { ClassDialog } from './ClassDialog'
 
 export default function StudyPlanPage() {
+  const t = useTranslations('eduStudyPlan')
   const queryClient = useQueryClient()
 
   /* ── State ── */
@@ -67,7 +69,7 @@ export default function StudyPlanPage() {
   // Auto-select the first term (current term preferred)
   React.useEffect(() => {
     if (terms.length > 0 && !selectedTermId) {
-      const current = terms.find((t) => t.isCurrent)
+      const current = terms.find((term) => term.isCurrent)
       setSelectedTermId(current?.id ?? terms[0]!.id)
     }
   }, [terms, selectedTermId])
@@ -534,7 +536,7 @@ export default function StudyPlanPage() {
         <BackButton />
         <div className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载中...
+          {t('loading')}
         </div>
       </div>
     )
@@ -544,7 +546,7 @@ export default function StudyPlanPage() {
     return (
       <div className="space-y-4">
         <BackButton />
-        <Alert variant="danger" description="加载学期数据失败，请稍后重试" />
+        <Alert variant="danger" description={t('loadTermsFailed')} />
       </div>
     )
   }
@@ -555,10 +557,8 @@ export default function StudyPlanPage() {
 
       {/* Header */}
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">学习计划管理</h1>
-        <p className="text-xs text-muted-foreground">
-          管理班级的学习计划，支持月计划自动拆解为周计划
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('pageTitle')}</h1>
+        <p className="text-xs text-muted-foreground">{t('pageSubtitle')}</p>
       </header>
 
       <StudyPlanToolbar

@@ -16,11 +16,12 @@ interface ImageGeneratorProps {
   onGenerate?: (prompt: string, provider: ImageProvider, size: string) => Promise<string>
 }
 
-const PROVIDERS: Array<{ value: ImageProvider; label: string }> = [
-  { value: 'qwen', label: '通义千问' },
-  { value: 'doubao', label: '豆包' },
-  { value: 'jimeng', label: '即梦' },
-  { value: 'agnes', label: 'Agnes' },
+/** 厂商 id 是与后端比对的协议字面值,展示文案走 aiGeneration 命名空间的 labelKey */
+const PROVIDERS: ReadonlyArray<{ value: ImageProvider; labelKey: string }> = [
+  { value: 'qwen', labelKey: 'tabQwen' },
+  { value: 'doubao', labelKey: 'tabDoubao' },
+  { value: 'jimeng', labelKey: 'tabJimeng' },
+  { value: 'agnes', labelKey: 'tabAgnes' },
 ]
 
 const SIZES = [
@@ -57,7 +58,7 @@ export function ImageGenerator({ onGenerate }: ImageGeneratorProps) {
             label={t('provider')}
             value={provider}
             onChange={setProvider}
-            options={PROVIDERS}
+            options={PROVIDERS.map((p) => ({ value: p.value, label: t(p.labelKey) }))}
           />
           <OptionSelect label={t('size')} value={size} onChange={setSize} options={SIZES} />
         </div>
@@ -79,7 +80,7 @@ export function ImageGenerator({ onGenerate }: ImageGeneratorProps) {
               className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
             >
               <Download className="h-3 w-3" />
-              {t('download')}
+              <span>{t('download')}</span>
             </a>
           </div>
         ) : null
