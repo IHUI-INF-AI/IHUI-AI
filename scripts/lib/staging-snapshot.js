@@ -50,7 +50,7 @@
  *   process.on('exit') 在 SIGINT(Ctrl+C)/SIGTERM 时不触发,需要单独监听。
  *   setupRestoreOnExit() 封装 exit + SIGINT + SIGTERM 三种退出路径的还原逻辑。
  */
-const { execSync } = require('child_process')
+const { execSync, execFileSync } = require('child_process')
 const { appendFileSync, mkdirSync } = require('node:fs')
 const { resolve, dirname } = require('node:path')
 
@@ -208,11 +208,25 @@ function restoreStaging(initialSnapshot, options = {}) {
     }
     // 使用 git restore --staged unstage(git 2.23+,非破坏性,working tree 保留)
     // 用引号包裹路径以处理空格
-    execSync(`git restore --staged ${addedFiles.map((f) => `"${f}"`).join(' ')}`, {
-      stdio: ['pipe', 'pipe', 'inherit'],
-      cwd,
-      windowsHide: true,
-    })
+    // ⚠️ 不得把路径拼进一条 shell 命令:execSync 走 cmd.exe,路径多时命令行超限 →
+    // ENAMETOOLONG,而外层 catch 会把整段还原记成 skipped 只 warn 一句。也就是说
+    // **最需要这道防线的时刻(暂存里混进很多非预期文件)恰好是它失效的时刻**。
+    // 2026-09-24 实测:safe-commit 一次提交涉及 8 个非预期 staged 文件即已触发,
+    // 日志原文 `staging area 还原检查跳过: spawnSync C:\Windows\system32\cmd.exe ENAMETOOLONG`,
+    // 而这正是 aa15bec23 暂存污染事故的配套最后一道闸。
+    // 改 execFileSync(argv) ⇒ 无 shell、无引号膨胀;再按 50 个一批切分,避开 OS 命令行上限。
+    const UNSTAGE_BATCH = 50
+    for (let i = 0; i < addedFiles.length; i += UNSTAGE_BATCH) {
+      execFileSync(
+        'git',
+        ['restore', '--staged', '--', ...addedFiles.slice(i, i + UNSTAGE_BATCH)],
+        {
+          stdio: ['ignore', 'ignore', 'inherit'],
+          cwd,
+          windowsHide: true,
+        },
+      )
+    }
     if (!silent) {
       console.log(
         `✅ 已还原 staging area 至 pre-commit 入口快照(剩余 ${initialSnapshot.size} 个 staged 文件)\n`,
