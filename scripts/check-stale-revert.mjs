@@ -222,6 +222,8 @@ function selfTestRun() {
   const check = (name, ok) => results.push({ name, ok })
   try {
     g(['init', '-q', '--initial-branch=main'])
+    // 演练仓必须关掉 autocrlf,否则全局配置会把 LF 改写并在 stderr 刷噪音
+    g(['config', 'core.autocrlf', 'false'])
     g(['config', 'user.email', 't@t'])
     g(['config', 'user.name', 't'])
     writeFileSync(join(repo, 'a.ts'), 'v1\n')
