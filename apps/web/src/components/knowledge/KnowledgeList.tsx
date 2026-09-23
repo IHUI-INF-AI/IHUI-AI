@@ -6,6 +6,7 @@
 
 import * as React from 'react'
 import { Tag, Hash } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { SearchInput } from '@ihui/ui-react'
 
@@ -70,6 +71,7 @@ function Skeleton() {
 }
 
 export function KnowledgeList({ items, onSearch, loading }: KnowledgeListProps) {
+  const t = useTranslations('knowledgeList')
   const [query, setQuery] = React.useState('')
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -85,10 +87,10 @@ export function KnowledgeList({ items, onSearch, loading }: KnowledgeListProps) 
         <SearchInput
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="搜索知识库..."
+          placeholder={t('searchPlaceholder')}
           size="lg"
           wrapperClassName="w-full"
-          aria-label="搜索知识库"
+          aria-label={t('searchAriaLabel')}
         />
       </form>
 
@@ -99,15 +101,17 @@ export function KnowledgeList({ items, onSearch, loading }: KnowledgeListProps) 
       {!loading && items.length === 0 && (
         <div className="flex flex-col items-center gap-2 py-12 text-center">
           <Hash className="h-8 w-8 text-muted-foreground/50" />
-          <p className="text-sm text-muted-foreground">暂无搜索结果</p>
-          <p className="text-xs text-muted-foreground/60">输入关键词搜索知识库内容</p>
+          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-xs text-muted-foreground/60">{t('searchHint')}</p>
         </div>
       )}
 
       {/* 结果列表 */}
       {!loading && items.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">共 {items.length} 条结果</p>
+          <p className="text-xs text-muted-foreground">
+            {t('resultCount', { count: items.length })}
+          </p>
           {items.map((item) => (
             <div
               key={item.id}

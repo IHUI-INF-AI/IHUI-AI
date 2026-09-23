@@ -1,0 +1,92 @@
+{
+  "$comment": "SSE 帧端内 dispatch 覆盖台账(守门 scripts/check-sse-dispatch-parity.mjs 读取,D107)。帧清单**不写在这里** —— 由守门每次从 packages/api-client/src/client.ts 的 onXxx 成员自动提取并减去 toolCallbacks,故本文件不可能与代码脱节。baseline[端] = 该端命中数下限(ratchet,只挡倒退不挡增长;新增接入后请同步上调);missing[端] = 该端**未命中**的帧,键集合必须**精确等于**实测未命中集合,值直接写理由或指向 groups 里的复用分组。口径:帧回调名在该端源码出现即算已处理(不按写法区分,精度靠'精确等于'兜)。",
+  "toolCallbacks": ["onAbort"],
+  "baseline": {
+    "web": 27,
+    "extension": 15,
+    "miniapp-taro": 20,
+    "mobile-rn": 16,
+    "cli": 10
+  },
+  "endpoints": {
+    "web": ["apps/web/src", "apps/web/app"],
+    "extension": ["apps/extension"],
+    "miniapp-taro": ["apps/miniapp-taro/src"],
+    "mobile-rn": ["apps/mobile-rn"],
+    "cli": ["apps/cli"]
+  },
+  "groups": {
+    "no-steer-ui": "该端无「引导输入(steer)」入口,帧无处消费;台账 D106 已判 onSteer 对无引导输入的端为 WONTFIX(不是遗漏)。补齐后请删除本组引用并上调 baseline。",
+    "no-subagent-ui": "该端未实现子代理活动流水(SubAgentActivityFeed 族),故 spawn/progress/end 三帧无渲染位;补齐见 PROJECT_PLAN D40 / D103。",
+    "no-question-ui": "该端无「AI 提问卡 + 作答续流」整条闭环(web 侧为 onQuestion → pendingQuestion → sendAnswer),只解析会让用户看到提问却无法回答;理由与守门 63 的 webOnly.question 同源。",
+    "no-budget-ui": "该端无预算/额度条展示位,故不消费 onBudget。",
+    "no-memory-update-ui": "该端无记忆更新(memoryUpdates)展示位。",
+    "no-reconnect-ui": "该端无断线重连提示位(web 侧 onReconnect 用于重连接管提示)。",
+    "no-agent-delta-ui": "该端无 agent 运行时增量流展示位(onAgentDelta 为 web 的 agent 运行时面板专用)。",
+    "no-terminal-delta-ui": "该端终端渲染走整帧 onTerminalStart/onTerminalEnd,不做增量 delta;台账 D19 已把 terminal_delta 记为两移动端的真缺口,补齐前此处显式声明(而非静默)。",
+    "no-tool-delegate-ui": "该端无工具委派卡片展示位。",
+    "no-tool-summary-ui": "该端无工具摘要卡(tool-call-summary 族)展示位。",
+    "no-terminal-stream-ui": "该端无终端流展示位(整段也没有终端面板)。",
+    "no-compaction-ui": "该端无上下文压缩分割线展示位。",
+    "no-fallback-ui": "该端无模型降级提示位。",
+    "no-usage-ui": "该端无用量明细(usageDetail)展示位,以 tokens 概览替代。"
+  },
+  "missing": {
+    "web": {},
+    "extension": {
+      "onAgentDelta": "no-agent-delta-ui",
+      "onBudget": "no-budget-ui",
+      "onFallback": "no-fallback-ui",
+      "onMemoryUpdates": "no-memory-update-ui",
+      "onQuestion": "no-question-ui",
+      "onReconnect": "no-reconnect-ui",
+      "onSteer": "no-steer-ui",
+      "onSubagentEnd": "no-subagent-ui",
+      "onSubagentProgress": "no-subagent-ui",
+      "onSubagentSpawn": "no-subagent-ui",
+      "onTerminalDelta": "no-terminal-delta-ui",
+      "onToolDelegate": "no-tool-delegate-ui"
+    },
+    "miniapp-taro": {
+      "onAgentDelta": "no-agent-delta-ui",
+      "onBudget": "no-budget-ui",
+      "onDelta": "该端聊天渲染按 tokens 概览驱动,未逐 delta 消费;seed 现状,若后续接入逐字流请删除本项并上调 baseline。",
+      "onMemoryUpdates": "no-memory-update-ui",
+      "onQuestion": "no-question-ui",
+      "onSteer": "no-steer-ui",
+      "onTerminalDelta": "no-terminal-delta-ui"
+    },
+    "mobile-rn": {
+      "onAgentDelta": "no-agent-delta-ui",
+      "onBudget": "no-budget-ui",
+      "onMemoryUpdates": "no-memory-update-ui",
+      "onReconnect": "no-reconnect-ui",
+      "onSteer": "no-steer-ui",
+      "onSubagentEnd": "no-subagent-ui",
+      "onSubagentProgress": "no-subagent-ui",
+      "onSubagentSpawn": "no-subagent-ui",
+      "onTerminalDelta": "no-terminal-delta-ui",
+      "onToolDelegate": "no-tool-delegate-ui",
+      "onToolSummary": "no-tool-summary-ui"
+    },
+    "cli": {
+      "onAgentDelta": "no-agent-delta-ui",
+      "onBudget": "no-budget-ui",
+      "onCompaction": "no-compaction-ui",
+      "onFallback": "no-fallback-ui",
+      "onMemoryUpdates": "no-memory-update-ui",
+      "onQuestion": "no-question-ui",
+      "onReconnect": "no-reconnect-ui",
+      "onSteer": "no-steer-ui",
+      "onSubagentEnd": "no-subagent-ui",
+      "onSubagentProgress": "no-subagent-ui",
+      "onSubagentSpawn": "no-subagent-ui",
+      "onTerminalDelta": "no-terminal-delta-ui",
+      "onTerminalEnd": "no-terminal-stream-ui",
+      "onTerminalStart": "no-terminal-stream-ui",
+      "onToolDelegate": "no-tool-delegate-ui",
+      "onToolSummary": "no-tool-summary-ui",
+      "onUsage": "no-usage-ui"
+    }
+  }
+}

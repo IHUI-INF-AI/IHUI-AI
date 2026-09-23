@@ -60,6 +60,36 @@ const ZH_RE = /[\u4e00-\u9fa5]/
 const SKIP_LINE_RE = /^\s*(\/\/|\/\*|\*|import |export type|interface |type [A-Z]|: \w+ = \(? useTranslations|useTranslations\(|getTranslations\(|metadata:|description:|@)/
 const SKIP_TOKEN_RE = /useTranslations|getTranslations|next-intl|metadata|description:/
 
+/**
+ * 把字符串字面量的**内容**替换成空格(定界符保留、长度不变)。
+ * 只用于"这一行是否开了跨行块注释"的判定:避免 `'https://x/*'` 里字符串内的 `//`、`/*`
+ * 骗到状态机。命中判定仍走原始行 —— 模板串里的中文是真界面文案,不能掩掉。
+ */
+function bareOf(line) {
+  let out = ''
+  let q = null
+  for (let i = 0; i < line.length; i += 1) {
+    const c = line[i]
+    if (q) {
+      if (c === '\\') {
+        out += '  '
+        i += 1
+      } else if (c === q) {
+        q = null
+        out += c
+      } else out += ' '
+      continue
+    }
+    if (c === '"' || c === "'" || c === '`') {
+      q = c
+      out += c
+      continue
+    }
+    out += c
+  }
+  return out
+}
+
 const argv = process.argv.slice(2)
 const args = new Set(argv)
 const JSON_OUT = args.has('--json') ? argv[argv.indexOf('--json') + 1] : null
@@ -135,7 +165,12 @@ for (const f of scopeFiles) {
       if (line.includes('*/')) inBlockComment = false
       continue
     }
-    if (line.includes('/*') && !line.includes('*/')) { inBlockComment = true; continue }
+    // 判"是否开了跨行块注释"之前,必须先剥字符串与行注释:
+    // 否则 `// 见 /api/ai-tutor/*` 里的 `/*` 会把状态机永久卡进"块注释中",
+    // 该文件后续真实命中全被判 0(假绿)。2026-09-23 由 learn 族代理变异自检抓到。
+    const probe = bareOf(line)
+    const codeForBlock = probe.split('//')[0]
+    if (codeForBlock.includes('/*') && !codeForBlock.includes('*/')) { inBlockComment = true; continue }
     // 剥掉**同行成对**的块注释:`{/* JSX 注释 */}` 与 `/* … */` 都是注释。
     // 原实现只跟踪"跨行块注释",整行成对的形态会漏剥 ⇒ 中文注释被算成命中
     // (实测 swarm-topology-view 18 处假阳),进而污染基线额度。

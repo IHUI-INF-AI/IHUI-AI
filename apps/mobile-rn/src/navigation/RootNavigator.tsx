@@ -790,6 +790,8 @@ function RootNavigatorInner() {
             <RootStack.Screen name="TopicList" component={TopicListScreen} />
             <RootStack.Screen name="TopicDetail" component={TopicDetailScreen} />
             <RootStack.Screen name="CircleIndex" component={CircleIndexScreen} />
+            {/* agent-control 端侧桥接:仅登录态挂载一次(渲染 null,不影响布局) */}
+            <UiControlBridgeLayer token={token} />
           </>
         ) : (
           <>

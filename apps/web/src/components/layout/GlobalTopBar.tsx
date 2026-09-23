@@ -30,6 +30,10 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
+
+/** 层栈 id(见 @/lib/overlay-stack):Plus 弹窗的 Esc 只在栈顶时被消费 */
+const PLUS_POPOVER_OVERLAY_ID = 'global-topbar-plus'
 import { useDesktop } from '@/hooks/use-desktop'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { useWorkPanelStore } from '@/stores/work-panel'
@@ -362,10 +366,13 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
   // 2026-07-30 九宫格改造:↓↑ 按行跳(±3 列数),←→ 按列跳(±1),环形回绕适配过滤后非 9 项场景
   React.useEffect(() => {
     if (!plusOpen) return
+    // 层栈注册:open → 入栈(成为栈顶);close/unmount → 出栈。
+    pushOverlay(PLUS_POPOVER_OVERLAY_ID)
     const COLS = 3 // 九宫格列数,与 grid-cols-3 对齐
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        e.stopPropagation()
+        // 只让栈顶那一层消费 Esc:多层同时打开时,一次 Esc 关最上层
+        if (!isTopOverlay(PLUS_POPOVER_OVERLAY_ID)) return
         setPlusOpen(false)
         setPlusQuery('')
       } else if (e.key === 'ArrowDown') {
@@ -391,7 +398,10 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
       }
     }
     document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      popOverlay(PLUS_POPOVER_OVERLAY_ID)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plusOpen, flatItems, activeIndex])
 
