@@ -83,10 +83,17 @@ if ($Key  -and (Test-Path $Key))  { $srvArgs += @('--key',  $Key) }
 
 # --- 5. optional scheduled task ---------------------------------------------
 if ($Install) {
-  $cmd = "node $($srvArgs -join ' ') --cwd `"$here`""
   try {
-    schtasks /Create /F /TN 'IHUI-ImageCDN' /SC ONLOGON /RL HIGHEST /TR "$cmd" | Out-Null
-    Write-Host '[ok] scheduled task registered: IHUI-ImageCDN (runs at logon)'
+    # Register as S4U (non-interactive → session 0, no desktop): an Interactive-token task
+    # whose action is a console program (node.exe) shows a console window at every logon.
+    $nodeExe = (Get-Command node.exe -ErrorAction Stop).Source
+    $action = New-ScheduledTaskAction -Execute $nodeExe -Argument (($srvArgs + @('--cwd', "`"$here`"")) -join ' ')
+    $trigger = New-ScheduledTaskTrigger -AtLogOn
+    $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType S4U -RunLevel HIGHEST
+    Register-ScheduledTask -TaskName 'IHUI-ImageCDN' -Action $action -Trigger $trigger -Principal $principal -Force | Out-Null
+    $got = (Get-ScheduledTask -TaskName 'IHUI-ImageCDN').Principal.LogonType
+    if ($got -ne 'S4U') { throw "LogonType 回读为 $got,不是 S4U" }
+    Write-Host '[ok] scheduled task registered: IHUI-ImageCDN (S4U, runs at logon without a window)'
   } catch {
     Write-Host "[warn] task registration failed: $($_.Exception.Message)" -ForegroundColor Yellow
   }
@@ -96,7 +103,7 @@ if ($Install) {
 if ($NoStart) { Write-Host '[done] bootstrap complete (server not started).' ; exit 0 }
 Write-Host "[..] starting cdn-server.js on http*://0.0.0.0:$HttpPort ..."
 $argLine = ($srvArgs | ForEach-Object { if ($_ -match '\s') { "`"$_`"" } else { $_ } }) -join ' '
-$proc = Start-Process -FilePath 'node' -ArgumentList $argLine -WorkingDirectory $here -PassThru -WindowStyle Minimized
+$proc = Start-Process -FilePath 'node' -ArgumentList $argLine -WorkingDirectory $here -PassThru -WindowStyle Hidden
 Start-Sleep -Seconds 3
 try {
   $probe = Invoke-WebRequest -Uri "http://127.0.0.1:$HttpPort/tabbar/tabbar/home.png" -UseBasicParsing -TimeoutSec 6
