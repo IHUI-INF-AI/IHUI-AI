@@ -77,6 +77,84 @@ export function skipQuoted(src, start, quote) {
   return i
 }
 
+/**
+ * 标记"落在字符串字面量文本 / 注释里"的位置 —— 这些区域的 `execFileSync('git', …)` 是**夹具、
+ * 提示语或文档样例**,不是真实派生点。
+ *
+ * 为什么必须有:守门 80 早前因同一缺陷把测试夹具当真调用判红,修完写下教训
+ * "字符串与注释内的命中一律丢弃"(AGENTS §守门速查 80)。本门此前只有"行首是注释"一层判定,
+ * 于是 `check-git-read-timeout.mjs` 里 8 处 `write(\`const a = execFileSync('git', …)\`)` 夹具
+ * 被当成生产违规 → 全量审计恒红。恒红的门等于没有门(唯一结局是 --no-verify)。
+ *
+ * 模板插值 `${…}` 里是**真实代码**,必须保持不掩 —— 否则 `spawn(\`…${execFileSync('git', a)}\`)`
+ * 这类真调用会被一起放过,判据就变松了。
+ */
+export function maskInert(src) {
+  const mask = new Uint8Array(src.length)
+  let i = 0
+  while (i < src.length) {
+    const ch = src[i]
+    const nx = src[i + 1]
+    if (ch === '/' && nx === '/') {
+      while (i < src.length && src[i] !== '\n') mask[i++] = 1
+      continue
+    }
+    if (ch === '/' && nx === '*') {
+      const close = src.indexOf('*/', i + 2)
+      const stop = close === -1 ? src.length : close + 2
+      for (let k = i; k < stop; k++) mask[k] = 1
+      i = stop
+      continue
+    }
+    if (ch === "'" || ch === '"' || ch === '`') {
+      i = maskString(src, mask, i)
+      continue
+    }
+    i++
+  }
+  return mask
+}
+
+/** 掩掉一段字符串/模板的**字面文本**,返回其结束下标(插值区递归处理,但只掩其中的字符串与注释) */
+function maskString(src, mask, start) {
+  const quote = src[start]
+  mask[start] = 1
+  let i = start + 1
+  while (i < src.length) {
+    const ch = src[i]
+    if (ch === '\\') {
+      mask[i] = 1
+      if (i + 1 < src.length) mask[i + 1] = 1
+      i += 2
+      continue
+    }
+    if (ch === quote) {
+      mask[i] = 1
+      return i + 1
+    }
+    if (quote === '`' && ch === '$' && src[i + 1] === '{') {
+      let depth = 1
+      let j = i + 2
+      while (j < src.length && depth > 0) {
+        if (src[j] === '{') depth++
+        else if (src[j] === '}' && --depth === 0) break
+        j++
+      }
+      mask[i] = 1
+      mask[i + 1] = 1
+      const inner = src.slice(i + 2, j)
+      const m2 = maskInert(inner)
+      for (let k = 0; k < m2.length; k++) if (m2[k]) mask[i + 2 + k] = 1
+      i = j + 1
+      if (j < src.length) mask[j] = 1
+      continue
+    }
+    mask[i] = 1
+    i++
+  }
+  return i
+}
+
 /** 从 `(` 起做括号配平,返回该调用结束下标(右括号之后)。跳过字符串与注释内的括号。 */
 export function scanCallEnd(src, openParen) {
   let depth = 1
@@ -168,6 +246,7 @@ export function isConsoleTarget(argText) {
 /** 扫描单个源文件,返回违规项数组。 */
 export function scanSource(src, file) {
   if (SELF_EXEMPT_FILE.test(file)) src = stripSelfTestRegions(src) // 仅本脚本 self-test 样例区豁免
+  const inert = maskInert(src)
   const violations = []
   FN_RE.lastIndex = 0 // 模块级正则跨文件必须重置,否则漏扫/串档
   let m
@@ -175,6 +254,7 @@ export function scanSource(src, file) {
     const openParen = m.index + m[0].length - 1
     const lineStart = src.lastIndexOf('\n', m.index) + 1
     if (/^\s*(\/\/|\*|#)/.test(src.slice(lineStart, m.index))) continue // 注释行
+    if (inert[m.index]) continue // 字符串/模板字面量文本内的夹具:不是派生点(见 maskInert)
     const end = scanCallEnd(src, openParen)
     const callText = src.slice(m.index, end)
     if (/\bwindowsHide\b/.test(callText)) {
@@ -235,6 +315,10 @@ function selfTest() {
     { name: 'spawnSync git 无 options → 违规', src: `spawnSync('git', ['rev-parse', 'HEAD'])`, want: 1 },
     { name: 'spawn git 带参 → 通过', src: `spawn('git', args, { stdio: 'inherit', windowsHide: true })`, want: 0 },
     { name: 'process.execPath → 违规', src: `spawnSync(process.execPath, [x], { encoding: 'utf8' })`, want: 1 },
+    { name: '夹具:整段写在反引号字符串里 → 不判(守门 80 的 write(`…execFileSync(\'git\'…)`) 形态)', src: 'write(`const a = execFileSync(\'git\', [\'ls-files\'], {})`)', want: 0 },
+    { name: '夹具:写在单引号串里 → 不判', src: `const tip = 'execFileSync("git", args)'`, want: 0 },
+    { name: '反向对照:模板插值 ${…} 里的真调用仍须判红(插值区不得被掩掉)', src: 'const s = `x ${execFileSync("git", ["ls-files"])} y`', want: 1 },
+    { name: '反向对照:注释里的调用不判,但下一行真调用仍判', src: `// execFileSync('git', a)\nexecFileSync('git', b)`, want: 1 },
     { name: 'GIT_BIN 标识符 → 违规', src: `spawnSync(GIT_BIN, args, { encoding: 'utf8' })`, want: 1 },
     { name: '非控制台程序 → 忽略', src: `spawnSync('open', ['http://x'])`, want: 0 },
     { name: '未知变量 → 忽略(宁漏不误报)', src: `spawnSync(someHelper, ['a'], { encoding: 'utf8' })`, want: 0 },
