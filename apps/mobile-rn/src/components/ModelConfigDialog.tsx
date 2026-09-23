@@ -206,13 +206,15 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
   return (
     <Pressable
       onPress={onPress}
-      className={
-        active
-          ? 'mr-1.5 mb-1.5 rounded-md bg-emerald-50 px-2.5 py-1.5'
-          : 'mr-1.5 mb-1.5 rounded-md bg-gray-50 px-2.5 py-1.5'
-      }
+      className="mr-1.5 mb-1.5 rounded-md px-2.5 py-1.5"
+      style={{ backgroundColor: active ? tokens.success.light : tokens.surface.muted }}
     >
-      <Text className={active ? 'text-xs text-emerald-700' : 'text-xs text-gray-600'}>{label}</Text>
+      <Text
+        className="text-xs"
+        style={{ color: active ? tokens.success.deepText : tokens.text.secondary }}
+      >
+        {label}
+      </Text>
     </Pressable>
   )
 }
@@ -220,7 +222,9 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <View className="mb-3">
-      <Text className="mb-1.5 text-xs font-medium text-gray-500">{label}</Text>
+      <Text className="mb-1.5 text-xs font-medium" style={{ color: tokens.text.tertiary }}>
+        {label}
+      </Text>
       {children}
     </View>
   )
@@ -277,11 +281,14 @@ function RatioSelector({
       <View className="mb-1.5 flex-row items-center">
         <Pressable
           onPress={() => setSizeIndex(null)}
-          className="mr-1.5 rounded-md bg-gray-100 px-2.5 py-1.5"
+          className="mr-1.5 rounded-md px-2.5 py-1.5"
+          style={{ backgroundColor: tokens.surface.muted }}
         >
-          <Text className="text-xs text-gray-600">← 返回</Text>
+          <Text className="text-xs" style={{ color: tokens.text.secondary }}>← 返回</Text>
         </Pressable>
-        <Text className="text-xs font-medium text-gray-500">{sizeKey}</Text>
+        <Text className="text-xs font-medium" style={{ color: tokens.text.tertiary }}>
+          {sizeKey}
+        </Text>
       </View>
       <View className="flex-row flex-wrap">
         {ratioMap
@@ -344,7 +351,9 @@ function DynamicVariables({
             return (
               <Row key={v.name} label={v.desc}>
                 <View className="flex-row items-center justify-between">
-                  <Text className="text-xs text-gray-600">{cur ? '已启用' : '未启用'}</Text>
+                  <Text className="text-xs" style={{ color: tokens.text.secondary }}>
+                    {cur ? '已启用' : '未启用'}
+                  </Text>
                   <Switch value={!!cur} onValueChange={(nv) => emit({ [v.name]: nv })} />
                 </View>
               </Row>
@@ -395,7 +404,11 @@ function DynamicVariables({
                 value={String(cur ?? '')}
                 onChangeText={(t) => emit({ [v.name]: t })}
                 placeholder={`请输入${v.desc}`}
-                className="h-10 rounded-md bg-gray-50 px-3.5 text-xs text-gray-900"
+                className="h-10 rounded-md px-3.5 text-xs"
+                style={{
+                  backgroundColor: tokens.surface.muted,
+                  color: tokens.text.primary,
+                }}
               />
             </Row>
           )
@@ -479,9 +492,12 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
             value={String(config.temperature)}
             keyboardType="numeric"
             onChangeText={(v) => update({ temperature: Number(v) || 0 })}
-            className="mr-2 h-10 flex-1 rounded-md bg-gray-50 px-3.5 text-xs text-gray-900"
+            className="mr-2 h-10 flex-1 rounded-md px-3.5 text-xs"
+            style={{ backgroundColor: tokens.surface.muted, color: tokens.text.primary }}
           />
-          <Text className="text-xs text-gray-400">0.0 - 2.0</Text>
+          <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
+            0.0 - 2.0
+          </Text>
         </View>
       </Row>
 
@@ -490,7 +506,8 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
           value={String(config.maxTokens)}
           keyboardType="numeric"
           onChangeText={(v) => update({ maxTokens: Number(v) || 0 })}
-          className="h-10 rounded-md bg-gray-50 px-3.5 text-xs text-gray-900"
+          className="h-10 rounded-md px-3.5 text-xs"
+          style={{ backgroundColor: tokens.surface.muted, color: tokens.text.primary }}
         />
       </Row>
 
@@ -499,7 +516,8 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
           value={String(config.topP)}
           keyboardType="numeric"
           onChangeText={(v) => update({ topP: Number(v) || 0 })}
-          className="h-10 rounded-md bg-gray-50 px-3.5 text-xs text-gray-900"
+          className="h-10 rounded-md px-3.5 text-xs"
+          style={{ backgroundColor: tokens.surface.muted, color: tokens.text.primary }}
         />
       </Row>
 
@@ -509,13 +527,14 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
           onChangeText={(v) => update({ systemPrompt: v })}
           placeholder="请输入系统提示词"
           multiline
-          className="min-h-[60px] rounded-md bg-gray-50 p-2 text-xs text-gray-900"
+          className="min-h-[60px] rounded-md p-2 text-xs"
+          style={{ backgroundColor: tokens.surface.muted, color: tokens.text.primary }}
         />
       </Row>
 
       <Row label="Stream">
         <View className="flex-row items-center justify-between">
-          <Text className="text-xs text-gray-600">
+          <Text className="text-xs" style={{ color: tokens.text.secondary }}>
             {config.streamEnabled ? '已启用' : '未启用'}
           </Text>
           <Switch
@@ -574,14 +593,18 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
         <Row label="音色">
           <Pressable
             onPress={() => setTimbreOpen((v) => !v)}
-            className="rounded-md bg-gray-50 px-2.5 py-2"
+            className="rounded-md px-2.5 py-2"
+            style={{ backgroundColor: tokens.surface.muted }}
           >
-            <Text className="text-xs text-gray-900">
+            <Text className="text-xs" style={{ color: tokens.text.primary }}>
               {voiceList.find((x) => x.id === config.timbre)?.name ?? '请选择音色'}
             </Text>
           </Pressable>
           {timbreOpen ? (
-            <View className="mt-1.5 rounded-md border border-gray-100 bg-white p-1">
+            <View
+              className="mt-1.5 rounded-md border p-1"
+              style={{ borderColor: tokens.border.light, backgroundColor: tokens.surface.card }}
+            >
               {voiceList.map((tb) => (
                 <Pressable
                   key={tb.id}
@@ -592,9 +615,11 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
                   className="rounded-md px-2.5 py-2"
                 >
                   <Text
-                    className={
-                      config.timbre === tb.id ? 'text-xs text-emerald-700' : 'text-xs text-gray-700'
-                    }
+                    className="text-xs"
+                    style={{
+                      color:
+                        config.timbre === tb.id ? tokens.success.deepText : tokens.text.secondary,
+                    }}
                   >
                     {tb.name}
                   </Text>
@@ -651,11 +676,15 @@ function BasicModelConfigDialog({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <TouchableOpacity className="flex-1 bg-black/20" activeOpacity={1} onPress={onClose}>
-        <View className="mt-auto bg-white">
+        <View className="mt-auto" style={{ backgroundColor: tokens.surface.card }}>
           <View className="flex-row items-center justify-between px-4 py-3">
-            <Text className="text-sm font-semibold text-gray-900">{t('agent.config')}</Text>
+            <Text className="text-sm font-semibold" style={{ color: tokens.text.primary }}>
+              {t('agent.config')}
+            </Text>
             <Pressable onPress={onClose} hitSlop={8}>
-              <Text className="text-xs text-gray-500">{t('common.cancel')}</Text>
+              <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
+                {t('common.cancel')}
+              </Text>
             </Pressable>
           </View>
 
@@ -678,13 +707,17 @@ function BasicModelConfigDialog({
           <View className="flex-row gap-2 px-4 pb-4 pt-2">
             <Pressable
               onPress={onClose}
-              className="flex-1 items-center rounded-md bg-gray-100 py-2.5"
+              className="flex-1 items-center rounded-md py-2.5"
+              style={{ backgroundColor: tokens.surface.muted }}
             >
-              <Text className="text-xs text-gray-700">{t('common.cancel')}</Text>
+              <Text className="text-xs" style={{ color: tokens.text.secondary }}>
+                {t('common.cancel')}
+              </Text>
             </Pressable>
             <Pressable
               onPress={onClose}
-              className="flex-1 items-center rounded-md bg-emerald-500 py-2.5"
+              className="flex-1 items-center rounded-md py-2.5"
+              style={{ backgroundColor: tokens.success.DEFAULT }}
             >
               <Text className="text-xs text-white">{t('common.save')}</Text>
             </Pressable>
@@ -786,12 +819,16 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <TouchableOpacity className="flex-1 bg-black/20" activeOpacity={1} onPress={onClose}>
-        <View className="mt-auto bg-white">
+        <View className="mt-auto" style={{ backgroundColor: tokens.surface.card }}>
           {/* 头部 */}
           <View className="flex-row items-center justify-between px-4 py-3">
-            <Text className="text-sm font-semibold text-gray-900">{t('agent.config')}</Text>
+            <Text className="text-sm font-semibold" style={{ color: tokens.text.primary }}>
+              {t('agent.config')}
+            </Text>
             <Pressable onPress={onClose} hitSlop={8}>
-              <Text className="text-xs text-gray-500">{t('common.cancel')}</Text>
+              <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
+                {t('common.cancel')}
+              </Text>
             </Pressable>
           </View>
 
@@ -861,13 +898,17 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
           <View className="flex-row gap-2 px-4 pb-4 pt-2">
             <Pressable
               onPress={onClose}
-              className="flex-1 items-center rounded-md bg-gray-100 py-2.5"
+              className="flex-1 items-center rounded-md py-2.5"
+              style={{ backgroundColor: tokens.surface.muted }}
             >
-              <Text className="text-xs text-gray-700">{t('common.cancel')}</Text>
+              <Text className="text-xs" style={{ color: tokens.text.secondary }}>
+                {t('common.cancel')}
+              </Text>
             </Pressable>
             <Pressable
               onPress={onClose}
-              className="flex-1 items-center rounded-md bg-emerald-500 py-2.5"
+              className="flex-1 items-center rounded-md py-2.5"
+              style={{ backgroundColor: tokens.success.DEFAULT }}
             >
               <Text className="text-xs text-white">{t('common.save')}</Text>
             </Pressable>
@@ -884,12 +925,15 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
         >
           <View className="flex-1 items-center justify-center">
             <View
-              className="w-[80%] overflow-hidden rounded-xl bg-white"
+              className="w-[80%] overflow-hidden rounded-xl"
+              style={{ backgroundColor: tokens.surface.card }}
               onStartShouldSetResponder={() => true}
             >
               {/* 弹窗头部 */}
               <View className="flex-row items-center justify-between px-5 py-4">
-                <Text className="text-sm font-semibold text-gray-900">选择音色</Text>
+                <Text className="text-sm font-semibold" style={{ color: tokens.text.primary }}>
+                  选择音色
+                </Text>
                 <Pressable onPress={() => setShowAudioMenu(false)} hitSlop={8}>
                   <X size={12} color={tokens.text.secondary} />
                 </Pressable>
@@ -897,27 +941,33 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
 
               {/* 菜单项 */}
               <Pressable onPress={handleSelectVoice} className="flex-row items-center px-5 py-3">
-                <View className="mr-3 h-10 w-10 items-center justify-center rounded-lg bg-emerald-50">
+                <View
+                  className="mr-3 h-10 w-10 items-center justify-center rounded-lg"
+                  style={{ backgroundColor: tokens.success.light }}
+                >
                   <Music size={18} color={tokens.text.secondary} />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-xs font-medium text-gray-900">选择音色</Text>
-                  <Text className="text-xs text-gray-400">
+                  <Text className="text-xs font-medium" style={{ color: tokens.text.primary }}>选择音色</Text>
+                  <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
                     {audioUrl ? '当前已选择音色' : '从系统音色库中选择'}
                   </Text>
                 </View>
-                <Text className="text-xs text-gray-300">›</Text>
+                <Text className="text-xs" style={{ color: tokens.text.tertiary }}>›</Text>
               </Pressable>
 
               <Pressable onPress={handleCloneVoice} className="flex-row items-center px-5 py-3">
-                <View className="mr-3 h-10 w-10 items-center justify-center rounded-lg bg-emerald-50">
+                <View
+                  className="mr-3 h-10 w-10 items-center justify-center rounded-lg"
+                  style={{ backgroundColor: tokens.success.light }}
+                >
                   <Mic size={18} color={tokens.text.secondary} />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-xs font-medium text-gray-900">克隆音色</Text>
-                  <Text className="text-xs text-gray-400">上传音频文件克隆音色</Text>
+                  <Text className="text-xs font-medium" style={{ color: tokens.text.primary }}>克隆音色</Text>
+                  <Text className="text-xs" style={{ color: tokens.text.tertiary }}>上传音频文件克隆音色</Text>
                 </View>
-                <Text className="text-xs text-gray-300">›</Text>
+                <Text className="text-xs" style={{ color: tokens.text.tertiary }}>›</Text>
               </Pressable>
             </View>
           </View>
@@ -939,12 +989,15 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
           >
             <View className="flex-1 items-center justify-center">
               <View
-                className="w-[85%] overflow-hidden rounded-xl bg-white"
+                className="w-[85%] overflow-hidden rounded-xl"
+                style={{ backgroundColor: tokens.surface.card }}
                 onStartShouldSetResponder={() => true}
               >
                 {/* 录音弹窗头部 */}
                 <View className="flex-row items-center justify-between px-5 py-4">
-                  <Text className="text-sm font-semibold text-gray-900">音色克隆</Text>
+                  <Text className="text-sm font-semibold" style={{ color: tokens.text.primary }}>
+                    音色克隆
+                  </Text>
                   <Pressable onPress={handleCloseRecordDialog} hitSlop={8}>
                     <X size={12} color={tokens.text.secondary} />
                   </Pressable>
@@ -953,9 +1006,14 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                 {/* 录音内容 */}
                 <View className="px-5 pb-5">
                   {/* 朗读文本 */}
-                  <Text className="mb-1.5 text-xs text-gray-500">请朗读以下文本:</Text>
-                  <View className="mb-4 rounded-lg bg-gray-50 p-3">
-                    <Text className="text-xs leading-5 text-gray-700">
+                  <Text className="mb-1.5 text-xs" style={{ color: tokens.text.tertiary }}>
+                    请朗读以下文本:
+                  </Text>
+                  <View
+                    className="mb-4 rounded-lg p-3"
+                    style={{ backgroundColor: tokens.surface.muted }}
+                  >
+                    <Text className="text-xs leading-5" style={{ color: tokens.text.secondary }}>
                       我正在录制智汇 AI 定制克隆声音。通过这段录制,你将拥有一个与自己声音高度相似的
                       AI 语音模型。
                     </Text>
@@ -963,7 +1021,7 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
 
                   {/* 录音状态 */}
                   <View className="mb-4 items-center">
-                    <Text className="text-xs text-gray-500">
+                    <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
                       {isRecording ? `录音中... ${recordDuration}秒` : '点击下方按钮开始录音'}
                     </Text>
                   </View>
@@ -984,13 +1042,13 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                         <Mic size={24} color={tokens.surface.light} />
                       )}
                     </Pressable>
-                    <Text className="mt-2 text-xs text-gray-500">
+                    <Text className="mt-2 text-xs" style={{ color: tokens.text.tertiary }}>
                       {isRecording ? '停止录音' : '开始录音'}
                     </Text>
                   </View>
 
                   {/* 提示 */}
-                  <Text className="text-center text-xs text-gray-400">
+                  <Text className="text-center text-xs" style={{ color: tokens.text.tertiary }}>
                     建议录音时长 10-30 秒,请确保环境安静
                   </Text>
                 </View>
@@ -1019,7 +1077,11 @@ function UploadButton({
     <View className="mr-1.5 mb-1.5 w-[80px]">
       <Pressable
         onPress={onPress}
-        className="items-center rounded-lg border border-dashed border-emerald-200 bg-emerald-50 py-2"
+        className="items-center rounded-lg border border-dashed py-2"
+        style={{
+          borderColor: tokens.success.lighter,
+          backgroundColor: tokens.success.light,
+        }}
       >
         <View className="mb-1 h-8 w-8 items-center justify-center">
           {url ? (
@@ -1028,7 +1090,7 @@ function UploadButton({
             <Plus size={18} color={tokens.text.secondary} />
           )}
         </View>
-        <Text className="text-xs text-gray-600" numberOfLines={1}>
+        <Text className="text-xs" style={{ color: tokens.text.secondary }} numberOfLines={1}>
           {label}
         </Text>
       </Pressable>
@@ -1039,9 +1101,12 @@ function UploadButton({
             onDelete()
           }}
           hitSlop={4}
-          className="absolute -top-2 -right-2 h-5 w-5 items-center justify-center rounded-full bg-white"
+          className="absolute -top-2 -right-2 h-5 w-5 items-center justify-center rounded-full"
+          style={{ backgroundColor: tokens.surface.card }}
         >
-          <Text className="text-xs text-gray-500">×</Text>
+          <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
+            ×
+          </Text>
         </Pressable>
       ) : null}
     </View>
@@ -1067,12 +1132,14 @@ function ModelSelecterDialog({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <TouchableOpacity className="flex-1 bg-black/20" activeOpacity={1} onPress={onClose}>
-        <View className="mt-auto bg-white">
+        <View className="mt-auto" style={{ backgroundColor: tokens.surface.card }}>
           {/* 头部 */}
           <View className="flex-row items-center justify-between px-4 py-3">
             <Text className="text-sm font-semibold text-gray-900">选择模型</Text>
             <Pressable onPress={onClose} hitSlop={8}>
-              <Text className="text-xs text-gray-500">{t('common.cancel')}</Text>
+              <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
+                {t('common.cancel')}
+              </Text>
             </Pressable>
           </View>
 
