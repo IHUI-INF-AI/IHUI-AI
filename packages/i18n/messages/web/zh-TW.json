@@ -1,39 +1,4 @@
 {
-  "aiWs": {
-    "videoDone": "視頻生成完成",
-    "videoFailed": "視頻生成失敗,請重試",
-    "videoOneImageOnly": "視頻生成僅支持上傳一張圖片",
-    "sendFailed": "發送失敗,請重試",
-    "connectFailed": "連接失敗,請重試",
-    "connectFailedShort": "連接失敗",
-    "connectError": "連接錯誤,請重試",
-    "creditLowTitle": "智匯值不足",
-    "creditLowDesc": "您的智匯值餘額小於 {min},無法使用大模型,請前往充值"
-  },
-  "treeSelect": {
-    "placeholder": "請選擇",
-    "searchPlaceholder": "搜尋...",
-    "treeAriaLabel": "樹形選擇",
-    "emptyText": "暫無數據"
-  },
-  "dataTable": {
-    "searchPlaceholder": "搜尋...",
-    "emptyText": "暫無數據",
-    "loadingText": "載入中...",
-    "perPage": "每頁",
-    "perPageCountAriaLabel": "每頁顯示條數",
-    "rowsUnit": "條",
-    "sortAriaLabel": "排序: {direction}",
-    "sortAsc": "升序",
-    "sortDesc": "降序",
-    "sortNone": "未排序",
-    "columnFilterPlaceholder": "篩選...",
-    "columnFilterAriaLabel": "篩選 {column}",
-    "paginationSummary": "共 {total} 條 · 第 {page} / {pageCount} 頁",
-    "prevPageAriaLabel": "上一頁",
-    "pageAriaLabel": "第 {page} 頁",
-    "nextPageAriaLabel": "下一頁"
-  },
   "onboarding": {
     "capabilityMarket": "能力市場",
     "deployNote": "自部署用戶:零配置跑通見倉庫 docs/ONBOARDING.md。",
@@ -192,9 +157,6 @@
       "ctrlSlash": "快捷鍵說明",
       "ctrlShiftD": "短劇編輯器",
       "ctrlShiftP": "命令面板(檢視切換)",
-      "ctrlShiftSlash": "斜線命令面板",
-      "ctrlShiftU": "提及檔案",
-      "ctrlShiftM": "截圖",
       "ctrlComma": "開啟設定",
       "ctrl1": "切換到建置模式",
       "ctrl2": "切換到計畫模式",
@@ -234,7 +196,7 @@
     "contentLabel": "內容",
     "contentPlaceholder": "詳細描述:背景、結論、注意事項",
     "tagsLabel": "標籤",
-    "tagsPlaceholder": "逗號分隔,如:部署,PG18",
+    "tagsPlaceholder": "逗號分隔,如:部署,PG17",
     "needScope": "請先填寫 Scope 標識",
     "needTitle": "標題不能為空",
     "needContent": "內容不能為空",
@@ -284,64 +246,7 @@
     "regenerate": "重新產生",
     "regenerateDisabledHint": "未選擇倉庫目錄或尚未收集到檔案,無法產生。"
   },
-  "workPanel": {
-    "back": "後退",
-    "forward": "前進",
-    "reload": "重新整理",
-    "stop": "停止",
-    "addressPlaceholder": "輸入網址或搜尋...",
-    "favorite": "加入收藏",
-    "unfavorite": "取消收藏",
-    "favoritesAndHistory": "收藏與歷史",
-    "openExternal": "在外部瀏覽器開啟",
-    "closePanel": "關閉面板",
-    "newTab": "新增分頁",
-    "removeFavorite": "移除收藏",
-    "tabFavorites": "收藏",
-    "tabHistory": "歷史",
-    "emptyFavorites": "尚無收藏",
-    "emptyHistory": "尚無歷史",
-    "clearHistory": "清空歷史",
-    "dragInsertBefore": "在此處之前插入",
-    "dragInsertAfter": "在此處之後插入",
-    "closeTab": "關閉分頁",
-    "untitledTab": "新標籤頁",
-    "embedProxyFailed": "內嵌代理載入失敗",
-    "embedProxyTimeout": "內嵌代理載入逾時,已切換至截圖瀏覽",
-    "jsExecFailed": "執行出錯: {message}",
-    "wsCreateFailed": "WebSocket 建立失敗",
-    "connectFailed": "瀏覽器連線失敗,請確認 AI 服務(8803)正在執行",
-    "connectionClosed": "瀏覽器連線已關閉",
-    "copyLink": "複製連結網址",
-    "linkCopied": "已複製",
-    "interactionHint": "此檢視為自動化截圖,互動受限 — 掃碼請用手機掃;完整操作請在外部瀏覽器開啟",
-    "gotIt": "知道了",
-    "devTools": "開發人員工具",
-    "consoleLogs": "主控臺記錄",
-    "noLogsHint": "(暫無記錄 — 在頁面上點擊操作後會顯示座標資訊)",
-    "runJs": "執行 JavaScript",
-    "runJsPlaceholder": "document.title  —  輸入 JS 後點執行(如: document.querySelector(\"button\").click())",
-    "run": "執行"
-  },
   "a11y": {
-    "download": "下載",
-    "downloadFile": "下載檔案",
-    "exitFullscreen": "離開全螢幕",
-    "seekBar": "播放進度",
-    "zoomIn": "放大",
-    "zoomOut": "縮小",
-    "rotate": "旋轉",
-    "fullscreen": "全螢幕",
-    "previous": "上一張",
-    "next": "下一張",
-    "play": "播放",
-    "pause": "暫停",
-    "seekBackward": "快退",
-    "seekForward": "快進",
-    "mute": "靜音",
-    "unmute": "取消靜音",
-    "refresh": "重新整理",
-    "removeAttachment": "移除附件",
     "addAttachment": "添加附件（圖片/視頻/文件）",
     "breadcrumb": "麵包屑導航",
     "searchOption": "搜索選項",
@@ -372,36 +277,7 @@
     "uploadAvatar": "上傳頭像",
     "streamAnnounceStart": "AI 開始回覆",
     "streamAnnounceProgress": "AI 正在回覆,已輸出 {n} 字",
-    "streamAnnounceDone": "AI 回覆完成,共 {n} 字",
-    "selectPlaceholder": "請選擇",
-    "selectedCount": "已選 {count} 項",
-    "searchOptionPlaceholder": "搜尋...",
-    "noMatchOption": "無匹配項",
-    "openNavMenu": "開啟導覽選單",
-    "prevPage": "上一頁",
-    "nextPage": "下一頁",
-    "textSelectionOn": "開啟文字選取",
-    "textSelectionOff": "關閉文字選取",
-    "rendering": "渲染中...",
-    "diagramRendering": "渲染中…",
-    "mermaidRenderFailed": "Mermaid 渲染失敗",
-    "pdfLoadFailed": "PDF 載入失敗: {message}",
-    "renderFailed": "渲染失敗: {message}",
-    "unknownError": "未知錯誤",
-    "loading": "載入中...",
-    "cannotPreviewFile": "無法預覽此檔案",
-    "officePreviewLabel": "Office 線上預覽",
-    "previewTimeout": "預覽載入逾時",
-    "fileContentLoadFailed": "無法載入檔案內容",
-    "unsupportedPreviewFormat": "不支援預覽此檔案格式",
-    "flvUnsupported": "FLV 協定需額外依賴 flv.js,暫不支援",
-    "liveStreamError": "直播串流錯誤: {details}",
-    "hlsNotSupported": "目前瀏覽器不支援 HLS 直播",
-    "videoLoadFailed": "影片載入失敗",
-    "hlsLiveLabel": "HLS 直播",
-    "onDemandLabel": "點播",
-    "autoRotate": "自動旋轉",
-    "stopAutoRotate": "停止旋轉"
+    "streamAnnounceDone": "AI 回覆完成,共 {n} 字"
   },
   "about": {
     "ctaDesc": "注冊即得 1000 積分,全模型免費試用,無需信用卡。",
@@ -7071,13 +6947,7 @@
         "rejectBlock": "拒絕此改動塊",
         "rejected": "已拒絕",
         "resetSelection": "重設選擇",
-        "selectedSummary": "已選 {accepted}/{total}",
-        "stageFile": "全部暫存",
-        "unstageFile": "全部還原",
-        "stageHunk": "暫存",
-        "unstageHunk": "取消暫存",
-        "staged": "已暫存",
-        "unstaged": "未暫存"
+        "selectedSummary": "已選 {accepted}/{total}"
       },
       "dragHandle": "拖動以調整面板位置",
       "elapsedTitle": "已耗時 {time}",
@@ -7112,8 +6982,6 @@
       "nextStepsSummarize": "總結本次對話進展",
       "nextStepsTitle": "下一步推薦",
       "overview": {
-        "status": "狀態",
-        "error": "錯誤",
         "active": "活躍",
         "changes": "變更",
         "context": "上下文",
@@ -7134,12 +7002,7 @@
         "terminals": "終端",
         "title": "任務總覽",
         "token": "Token",
-        "total": "總",
-        "statusIdleStreaming": "空閒 (串流中)",
-        "statusRunningStreaming": "運行中 (串流中)",
-        "statusCompletedStreaming": "已完成 (串流中)",
-        "statusFailedStreaming": "失敗 (串流中)",
-        "statusInterruptedStreaming": "已中斷 (串流中)"
+        "total": "總"
       },
       "pin": "置頂",
       "pinHintPinned": "已置頂,點擊外部不關閉",
@@ -7164,6 +7027,7 @@
       "shortcutOpenPane": "在輸入框打開面板",
       "shortcutSectionFirstLast": "跳到第一個/最後一個子區",
       "shortcutSectionNav": "折疊子區上下切換",
+      "shortcutShowHelp": "打開/關閉快捷鍵幫助",
       "shortcutTogglePane": "切換面板開關",
       "shortcutsGroupNav": "導航",
       "shortcutsGroupPane": "面板",
@@ -7233,7 +7097,6 @@
         "clearLive": "清空",
         "copyOutput": "復制終端輸出",
         "failed": "{n} 失敗",
-        "isolation": "命令在隔離沙箱中執行，預設不開放網路",
         "live": "即時輸出",
         "moreItems": "…還有 {n} 項",
         "output": "輸出",
@@ -7333,18 +7196,6 @@
         "close": "取消",
         "pendingBanner": "有 {count} 條程式碼改動意見待傳送"
       },
-      "annotation": {
-        "placeholder": "對這段回覆加註解…",
-        "save": "儲存",
-        "edit": "編輯註釋",
-        "delete": "刪除註釋",
-        "deleteFailed": "無法刪除註釋",
-        "invalid": "目前無法編輯此批註",
-        "countSummary": "關於此回覆的批註：{n} 條",
-        "badge": "註釋",
-        "lineUnit": "行",
-        "cancel": "取消"
-      },
       "runtimeStatusResuming": "正在恢復執行…",
       "runtimeStatusPausing": "正在暫停…",
       "runtimeStatusCancelling": "正在取消…",
@@ -7372,15 +7223,7 @@
       "traceReasoning": "推理",
       "traceExpandAll": "展開全部",
       "traceCollapse": "收起",
-      "traceToolCallsTitle": "工具呼叫 ({n})",
-      "diffStatus": {
-        "pending": "待確認",
-        "applied": "已套用",
-        "error": "套用失敗"
-      },
-      "diffAppliedHint": "改動已寫入檔案系統",
-      "diffRejectedHint": "已忽略本次改動",
-      "timelineTabInline": "對話流"
+      "traceToolCallsTitle": "工具呼叫 ({n})"
     },
     "permissionConfirm": {
       "allow": "允許",
@@ -9222,8 +9065,6 @@
         "archiveTitle": "已封存會話",
         "viewArchived": "查看已封存"
       },
-      "ceilingTitle": "上下文壓縮已達上限",
-      "ceilingHint": "建議開始新對話,或減少上下文(如停用不必要的 MCP 工具 / 技能)。",
       "dividerTitle": "上方歷史已壓縮為摘要",
       "dividerDescription": "上下文已從 {before} tokens 壓縮至 {after} tokens,更早的對話被折疊為摘要",
       "dividerSaved": "節省 {ratio}%"
@@ -9262,11 +9103,7 @@
       "ratio": "壓縮比",
       "title": "上下文使用情況",
       "triggerLabel": "上下文已使用 {percent}%,{used}/{max},點擊查看詳情",
-      "used": "已使用",
-      "referenceTitle": "上下文引用",
-      "noReferences": "暫無引用",
-      "uploading": "附件上傳中",
-      "uploadFailed": "附件上傳失敗"
+      "used": "已使用"
     },
     "copied": "已復制",
     "copy": "復制",
@@ -9472,8 +9309,6 @@
       "loading": "加載中…",
       "me": "我",
       "mode": {
-        "plan": "唯讀計畫",
-        "planDesc": "僅讀取與檢索，寫檔案和執行命令都會被拒絕",
         "ask": "請求批准",
         "askDesc": "編輯外部文件和使用互聯網時始終詢問",
         "auto": "替我審批",
@@ -9491,8 +9326,14 @@
       "retry": "重試中…",
       "search": "搜索",
       "shortcutsClose": "知道了",
+      "shortcutsItemChatModeDesc": "切換構建/計劃/審查/規格 4 種對話模式",
       "shortcutsItemDangerousKbd": "高風險模式發送時檢測危險命令,需二次確認",
       "shortcutsItemHistoryKbd": "查看 popover 底部「歷史」按鈕看最近切換",
+      "shortcutsItemModeBuildKbd": "切換到構建模式(正常執行,全工具開放)",
+      "shortcutsItemModeCmdHint": "也可輸入 /build /plan /review /spec 斜槓命令切換",
+      "shortcutsItemModePlanKbd": "切換到計劃模式(只讀分析,deny write 工具)",
+      "shortcutsItemModeReviewKbd": "切換到審查模式(只讀審查 + 強化審查 prompt)",
+      "shortcutsItemModeSpecKbd": "切換到規格模式(從代碼反向生成 spec 文檔)",
       "shortcutsItemNumberKbd": "popover 打開時按 1/2/3 直接選模式",
       "shortcutsItemQuestionMarkKbd": "喚起本快捷鍵面板",
       "infoModalTitle": "權限模式詳情",
@@ -9525,9 +9366,9 @@
       "shortcutsLearnMore": "瞭解更多安全設計",
       "shortcutsModalTitle": "權限模式快捷鍵",
       "shortcutsSectionAudit": "撤銷與審計",
+      "shortcutsSectionChatMode": "對話模式切換",
       "shortcutsSectionGuard": "高風險護欄",
       "shortcutsSectionSwitch": "模式切換",
-      "shortcutsSeeAllKbd": "檢視所有快速鍵",
       "stepAnswer": "回答",
       "stepThinking": "思考中",
       "switchedToAsk": "已切換到請求批准",
@@ -9570,7 +9411,6 @@
     },
     "permissionAlreadyActive": "目前已是 {mode} 模式",
     "permissionLabelAsk": "請求批准",
-    "permissionLabelPlan": "唯讀計畫",
     "permissionLabelAuto": "為我審批",
     "permissionLabelFull": "完全存取",
     "permissionSwitchFailed": "切換權限模式失敗:{error}",
@@ -10919,10 +10759,7 @@
       "buyCreditDesc": "儲值餘額或訂閱方案",
       "viewUsage": "查看用量",
       "viewUsageDesc": "依模型 / 日期查看明細",
-      "noSubscription": "未訂閱方案,暫無額度視窗",
-      "countdownHoursMinutes": "{h}小時{m}分",
-      "countdownMinutesSeconds": "{m}分{sec}秒",
-      "countdownSecondsOnly": "{sec}秒"
+      "noSubscription": "未訂閱方案,暫無額度視窗"
     },
     "errorCodes": {
       "title": "API 錯誤碼",
@@ -11160,70 +10997,7 @@
     "title": "API 文檔",
     "toastCopied": "已復制路徑",
     "toastCopyFailed": "復制失敗",
-    "yes": "是",
-    "endpoints": {
-      "chatCompletions": "OpenAI 兼容對話",
-      "anthropicMessages": "Anthropic 兼容對話",
-      "listModels": "查詢可用模型",
-      "rerank": "Cohere/Jina 兼容重排序",
-      "moderations": "OpenAI 兼容內容審核",
-      "realtime": "Realtime WebSocket 實時對話",
-      "midjourneyImagine": "Midjourney-Proxy 標準接口",
-      "mcpToolsCall": "MCP 網關工具調用",
-      "responses": "OpenAI Responses API(Cursor/Codex 兼容)",
-      "batch": "OpenAI 批量異步 API(50% 折扣)",
-      "assistants": "Assistants API v2(第三方 SDK 直連)",
-      "audioTranslations": "Whisper 語音翻譯",
-      "fineTuningJobs": "微調任務管理",
-      "files": "文件管理 CRUD",
-      "statusOverview": "公開狀態頁-系統總覽",
-      "statusModels": "公開狀態頁-模型可用性",
-      "statusIncidents": "公開狀態頁-事件列表",
-      "apiKeyShares": "API Key 臨時分享(限時 token)",
-      "exportOrdersCsv": "充值訂單 CSV 導出",
-      "exportRelayLogsCsv": "調用日誌 CSV 導出",
-      "developerConversations": "中轉站會話歷史列表"
-    },
-    "sections": {
-      "quickStart": "快速開始(5 分鐘接入)",
-      "auth": "認證方式",
-      "endpointList": "端點列表",
-      "rateLimit": "速率限制",
-      "billing": "計費說明"
-    },
-    "steps": {
-      "step1Title": "1. 註冊登錄",
-      "step1Desc": "— 完成賬號註冊並登錄",
-      "step2Title": "2. 生成 Key",
-      "step2Desc": "— 開發者中心 → 密鑰管理 → 新建密鑰",
-      "step3Title": "3. 調用接口",
-      "step3Desc": "— 替換下方 sk-xxx 即可發起首次請求"
-    },
-    "auth": {
-      "descPrefix": "請求需在 Header 攜帶",
-      "descMid": "(Anthropic 端點亦支持",
-      "descSuffix": ")。"
-    },
-    "rateLimit": {
-      "tiers": "免費 20 QPM · 基礎 60 QPM · 專業 200 QPM · 企業 1000 QPM",
-      "overLimitPrefix": "超限返回錯誤碼",
-      "overLimitSuffix": "(HTTP 429)。"
-    },
-    "billing": {
-      "promptCacheTerm": "Prompt Cache 折扣",
-      "promptCacheDesc": ":命中緩存的輸入 token 按 0.1 倍計價。",
-      "responseCacheTerm": "響應緩存(Redis)",
-      "responseCacheDesc1": ":非流式 chat completions 命中緩存時成本為 0(響應頭",
-      "responseCacheDesc2": "),用",
-      "responseCacheDesc3": "跳過緩存。",
-      "tieredTerm": "階梯計價",
-      "tieredDesc": ":單次請求 token 越多,單價越低(詳見價格頁)。",
-      "groupRateTerm": "分組倍率",
-      "groupRateDesc": ":不同模型分組按倍率計費(如 Claude 1.2x、GPT-4o 1.0x)。",
-      "rerankDesc": ":按 input tokens 計費,output tokens 為 0。",
-      "unit": "計費單位為 Token,1 Token ≈ 0.75 字符(中文);餘額不足返回",
-      "unitSuffix": "。"
-    }
+    "yes": "是"
   },
   "developerBillingPage": {
     "add": "添加",
@@ -13498,72 +13272,7 @@
   },
   "hooks": {
     "deleteConfirm": "確定刪除 Hook \"{name}\" 嗎？",
-    "title": "Hooks",
-    "manageTitle": "Hook 管理",
-    "manageSubtitle": "在 agent 行為事件觸發時執行自定義動作(共 {count} 個)",
-    "create": "新建 Hook",
-    "loading": "載入中",
-    "emptyTitle": "暫無 Hook 配置",
-    "emptyDescription": "建立第一個 Hook,在 agent 行為事件觸發時自動執行自定義動作",
-    "disabled": "已停用",
-    "toggleEnabled": "啟用/停用",
-    "viewLogs": "查看日誌",
-    "edit": "編輯",
-    "editorTitleEdit": "編輯 Hook",
-    "editorTitleCreate": "新建 Hook",
-    "editorSubtitle": "在事件觸發時執行自定義動作",
-    "fieldName": "名稱",
-    "namePlaceholder": "例如:寫檔案前通知",
-    "fieldDescription": "描述",
-    "descriptionPlaceholder": "選填,簡單說明 Hook 用途",
-    "fieldEvent": "觸發事件",
-    "fieldCondition": "條件運算式(JSONLogic,選填)",
-    "conditionHint": "範例:{\"==\":[\"tool\",\"write_file\"]} 比對 tool 欄位等於 write_file",
-    "fieldActionType": "動作類型",
-    "testResultTitle": "測試結果",
-    "testTriggered": "已觸發",
-    "testNotMatched": "未比對",
-    "testNoLogs": "條件未比對,無日誌產生",
-    "test": "測試",
-    "action": {
-      "webhook": "Webhook",
-      "script": "腳本",
-      "log": "日誌",
-      "notify": "通知"
-    },
-    "event": {
-      "toolBefore": "工具呼叫前",
-      "toolAfter": "工具呼叫後",
-      "messageSend": "使用者傳訊息",
-      "messageReceive": "AI 回覆訊息",
-      "sessionStart": "工作階段開始",
-      "sessionEnd": "工作階段結束",
-      "error": "錯誤事件"
-    },
-    "fieldHttpMethod": "HTTP 方法",
-    "fieldHeaders": "請求標頭(JSON)",
-    "fieldBodyTemplate": "請求內文範本",
-    "bodyTemplateHint": "支援 {{event}} {{tool}} {{args}} {{result}} 變數",
-    "fieldShellCommand": "Shell 命令",
-    "shellCommandHint": "沙箱內執行,逾時 10s,可用環境變數 HOOK_EVENT / HOOK_CONTEXT",
-    "fieldNotifyChannel": "通知通道",
-    "fieldNotifyMessage": "訊息範本",
-    "notifyMessageHint": "支援 {{event}} {{tool}} {{args}} 變數",
-    "notifyMessagePlaceholder": "{{event}} 已觸發",
-    "fieldLogMessage": "日誌訊息範本",
-    "logMessageHint": "支援 {{event}} {{tool}} {{args}} 變數,寫入 logs/hooks.log",
-    "channel": {
-      "toast": "Toast(輕提示)",
-      "notification": "系統通知",
-      "email": "郵件"
-    },
-    "logsAria": "Hook 日誌",
-    "logsTitle": "Hook 執行日誌",
-    "logsSubtitle": "最近 100 筆觸發紀錄",
-    "logsEmptyTitle": "暫無日誌",
-    "logsEmptyDescription": "該 Hook 尚未被觸發過",
-    "logSuccess": "成功",
-    "logFailure": "失敗"
+    "title": "Hooks"
   },
   "ide": {
     "activityBar": {
@@ -13773,6 +13482,7 @@
       "unstage": "取消暫存"
     },
     "statusBar": {
+      "sync": "同步",
       "toggleTheme": "切換主題",
       "unsynced": "未同步"
     },
@@ -14158,61 +13868,7 @@
     "total": "共 {total} 節",
     "buyConfirm": "購買確認",
     "paymentConfirm": "支付確認",
-    "review": "評價",
-    "tutor": {
-      "title": "AI 助教",
-      "subject": "學科",
-      "mode": "模式",
-      "subjectMath": "數學",
-      "subjectPhysics": "物理",
-      "subjectChemistry": "化學",
-      "subjectBiology": "生物",
-      "subjectEnglish": "英語",
-      "subjectHistory": "歷史",
-      "subjectGeography": "地理",
-      "modeExplain": "講解",
-      "modeHint": "提示",
-      "modeQuiz": "出題",
-      "quizDirection": "出題方向(可選)",
-      "yourQuestion": "你的問題",
-      "quizPlaceholder": "如:二次函數圖像性質",
-      "questionPlaceholder": "如:勾股定理怎麼證明?",
-      "generateQuiz": "生成題目",
-      "ask": "提問",
-      "knowledgePoints": "知識點",
-      "followUp": "延伸思考",
-      "nextStep": "下一步",
-      "quizCount": "生成 {count} 道練習題",
-      "answerValue": "答:{answer}",
-      "emptyHint": "選擇學科與模式,提出你的問題。"
-    },
-    "dailyReview": {
-      "loading": "加載中…",
-      "title": "今日複習",
-      "subtitle": "基於 SM-2 間隔重複算法,鞏固長期記憶。",
-      "qualityForgotten": "完全忘記",
-      "qualityFailed": "失敗",
-      "qualityUncertain": "勉強",
-      "qualityGood": "良好",
-      "qualityPerfect": "完美",
-      "statDue": "待複習",
-      "statReviewedToday": "今日已複習",
-      "statStreak": "連續天數",
-      "statAvgDifficulty": "平均難度",
-      "finishedTitle": "今日複習已完成",
-      "finishedHint": "已完成 {count} 道題,繼續保持節奏!",
-      "questionProgress": "第 {current} / {total} 題",
-      "questionLabel": "題目",
-      "selfAssess": "回想後自評",
-      "submitting": "提交中…",
-      "answerLabel": "答案",
-      "explanationLabel": "解析",
-      "nextReview": "下次複習",
-      "intervalDays": "間隔(天)",
-      "easeFactor": "難度因子",
-      "nextQuestion": "下一題",
-      "progressLine": "複習進度:{done} / {total}"
-    }
+    "review": "評價"
   },
   "learnBuyConfirmPage": {
     "actualPay": "實付",
@@ -15452,9 +15108,10 @@
     "apiDocs": {
       "auth": {
         "desc": "所有 API 請求需在 Header 中攜帶 Bearer Token,Token 可在 API 令牌頁面創建",
-        "title": "鑑權方式",
-        "headerFormat": "# Header 格式"
+        "title": "鑑權方式"
       },
+      "copyCodeAriaLabel": "復制代碼",
+      "curlPlaceholder": "輸入 cURL 命令進行測試…",
       "endpoints": {
         "audio": "語音合成",
         "chat": "對話補全",
@@ -15472,6 +15129,7 @@
         "python": "Python",
         "title": "調用示例"
       },
+      "searchPlaceholder": "搜索接口…",
       "subtitle": "完整的 API 接入文檔和示例",
       "title": "API 文檔"
     },
@@ -19510,16 +19168,7 @@
     "hintConfirm": "確認",
     "hintSelect": "選擇",
     "searchArgsPlaceholder": "搜索候選...",
-    "searchPlaceholder": "搜索命令...",
-    "categoryGoal": "目標與循環",
-    "categoryMode": "模式切換",
-    "categoryPermission": "權限管理",
-    "categorySkill": "AI 技能",
-    "categoryTemplate": "內容模板",
-    "noMatchArgs": "無匹配候選",
-    "noMatchArgsHint": "嘗試清空搜尋或按 ESC 返回",
-    "noMatchCommands": "無匹配命令",
-    "noMatchCommandsHint": "嘗試清空搜尋或輸入命令名"
+    "searchPlaceholder": "搜索命令..."
   },
   "specPanel": {
     "abandonBranch": "放棄分支",
@@ -19552,30 +19201,7 @@
     "startPipeline": "啟動全流程",
     "stopListening": "停止監聽",
     "submitReviewFailed": "提交評審失敗",
-    "unknownError": "未知錯誤",
-    "scopeWorkspace": "工作區",
-    "scopeDir": "目錄",
-    "scopeFile": "檔案",
-    "tabSpec": "spec",
-    "tabDiff": "diff",
-    "tabCodegen": "程式碼生成",
-    "tabReview": "評審",
-    "tabTasks": "任務拆分",
-    "tabEnhance": "智慧分析",
-    "tabPipeline": "全流程",
-    "tabImpact": "影響分析",
-    "tabBranches": "版本樹",
-    "tabGenerate": "智慧生成",
-    "statusDraft": "草稿",
-    "statusPendingReview": "待評審",
-    "statusApproved": "已通過",
-    "statusRejected": "已拒絕",
-    "riskLow": "低風險",
-    "riskMedium": "中風險",
-    "riskHigh": "高風險",
-    "branchStatusActive": "活躍",
-    "branchStatusMerged": "已合併",
-    "branchStatusAbandoned": "已廢棄"
+    "unknownError": "未知錯誤"
   },
   "sponsor": {
     "becomeSponsor": "成為贊助者",
@@ -19716,16 +19342,7 @@
     "snapshots": "統計快照",
     "subtitle": "平臺運營數據總覽",
     "title": "數據統計",
-    "viewSum": "總瀏覽數",
-    "lessonsCount": "課時數",
-    "studyDuration": "學習時長",
-    "axisLessons": "課時",
-    "axisMinutes": "分鐘",
-    "revenue": "收入",
-    "expense": "支出",
-    "axisYuan": "元",
-    "cumulativeUsers": "累計用戶",
-    "newUsers": "新增用戶"
+    "viewSum": "總瀏覽數"
   },
   "stats": {
     "activated": "已啟用",
@@ -19885,55 +19502,7 @@
       "idle": "空閒",
       "running": "運行中",
       "waiting": "等待中"
-    },
-    "emptyState": "暫無活躍 Subagent 拓撲(派發後此處顯示節點)",
-    "arbiter": "仲裁",
-    "arbiterBadge": "仲裁節點",
-    "dagBadge": "DAG 節點",
-    "roleLabel": "角色:",
-    "statusLabel": "狀態:",
-    "durationLabel": "耗時:",
-    "dagStatusLabel": "DAG 狀態:",
-    "clickToCancel": "點擊空白取消 · 再次點擊同一節點取消",
-    "selectedNodeHint": "已選中節點(點擊空白取消高亮)",
-    "collabType": {
-      "question": "提問",
-      "answer": "回答",
-      "result": "結果",
-      "request_help": "求助",
-      "propose_plan": "提案",
-      "object": "反對",
-      "accept": "接受",
-      "delegate": "委派",
-      "share_context": "共享"
-    },
-    "loadingCollaboration": "載入協作記錄中…",
-    "emptyCollaboration": "暫無協作訊息",
-    "collaborationTitle": "協作訊息流({count})",
-    "relationsCount": "{count} 條關係",
-    "relationsTitle": "關係圖",
-    "relationCount": "{count} 次",
-    "orchMode": {
-      "pipeline": "串行",
-      "parallel": "並行",
-      "debate": "辯論",
-      "vote": "投票",
-      "critique": "批判",
-      "decomposed": "分解",
-      "with_communication": "協作通信"
-    },
-    "estimate": "預估 {duration} · {cost}",
-    "reasoningLabel": "推理:",
-    "loadingEvolution": "載入演化歷史中…",
-    "emptyEvolution": "暫無演化版本(角色 {role} 未演過)",
-    "evolutionTitle": "{role} 演化時間軸({count} 版)",
-    "recentTasksCount": "最近 {count} 次任務",
-    "patchCount": "{count} 個補丁",
-    "initialVersion": "初始版本",
-    "currentPromptTitle": "當前 Prompt(版本 {version})",
-    "recentTasks": "最近任務",
-    "retryCount": "重試{count}",
-    "latestPatches": "最新補丁({version})"
+    }
   },
   "tags": {
     "backToList": "返回標簽中心",
@@ -21076,10 +20645,6 @@
           "desc": "全部操作需人工確認,最安全",
           "title": "默認模式"
         },
-        "plan": {
-          "title": "唯讀計畫",
-          "desc": "僅允許讀取與檢索,寫檔案與執行命令一律拒絕"
-        },
         "unknown": {
           "desc": "未識別的權限模式",
           "title": "未知模式"
@@ -21171,13 +20736,7 @@
     "reasoningCopyFailed": "複製推理過程失敗",
     "copyReasoning": "複製推理過程",
     "detail": "方案詳情",
-    "new": "新建方案",
-    "statusBlocked": "阻塞",
-    "statusSkipped": "跳過",
-    "priorityLow": "低",
-    "priorityMedium": "中",
-    "priorityHigh": "高",
-    "priorityCritical": "緊急"
+    "new": "新建方案"
   },
   "subagent": {
     "toolCallsTitle": "{n} 次工具呼叫",
@@ -21802,6 +21361,7 @@
     "skillsMarket": "Skill 市場"
   },
   "statusBar": {
+    "sync": "同步",
     "toggleTheme": "切換主題"
   },
   "groups": {
@@ -23232,153 +22792,8 @@
     "description": "n8n 自動化工作流 Agent"
   },
   "rules": {
-    "totalRulesSorted": "共 {n} 條規則,按優先級降序排列",
-    "autoGenerate": "自動生成",
-    "detectConflicts": "檢測衝突",
-    "knowledgeGraph": "知識圖譜",
-    "abTest": "A/B 測試",
-    "globalStats": "全局統計",
-    "templateLibrary": "模板庫",
-    "newRule": "新建規則",
-    "emptyHint": "暫無規則,點擊「新建規則」創建",
-    "disabled": "禁用",
-    "enabled": "啟用",
-    "hitCount": "命中 {n} 次",
-    "detail": "詳情",
-    "test": "測試",
-    "edit": "編輯",
-    "confirmDelete": "確認刪除",
-    "cancelDelete": "取消刪除",
-    "hit": "命中",
-    "noMatch": "未命中",
-    "noMatchNoOutput": "(未命中,無輸出)",
-    "ruleA": "規則 A",
-    "selectRuleA": "選擇規則 A",
-    "ruleB": "規則 B",
-    "selectRuleB": "選擇規則 B",
-    "testMessage": "測試消息",
-    "inputTestMessage": "輸入測試消息...",
-    "testing": "測試中...",
-    "runTest": "運行測試",
-    "autoGenerateTitle": "自動生成規則",
-    "autoGenerateHint": "從最近 7 天用戶行為模式 LLM 提煉候選規則,勾選後批量創建",
-    "startAnalyzeBehavior": "開始分析行為模式",
-    "analyzingBehavior": "LLM 分析行為模式中...",
-    "degradedNoCandidates": "降級模式:LLM 不可用,返回空候選列表",
-    "analyzedGenerated": "分析了 {behaviors} 條行為記錄,生成 {candidates} 條候選規則",
-    "noCandidates": "無候選規則(行為數據不足或 LLM 不可用)",
-    "confidencePercent": "置信度 {pct}%",
-    "selectedOfTotal": "已選 {selected} / {total} 條",
-    "creating": "創建中...",
-    "batchCreateCount": "批量創建({n})",
-    "negotiationFailed": "協商失敗:{msg}",
-    "conflictNameConflict": "同名衝突",
-    "conflictSemanticDuplicate": "語義重複",
-    "conflictPriorityCollision": "優先級碰撞",
-    "conflictDetectTitle": "規則衝突檢測",
-    "detecting": "檢測中...",
-    "noConflict": "未檢測到衝突,規則集狀態良好",
-    "detectedConflictsHint": "檢測到 {n} 處衝突,輸入上下文後可 LLM 協商",
-    "arbitrationContextLabel": "協商上下文(當前對話/代碼片段)",
-    "arbitrationContextPlaceholder": "輸入上下文供 LLM 仲裁...",
-    "negotiating": "協商中...",
-    "llmNegotiate": "LLM 協商",
-    "arbitrationResult": "仲裁結果:",
-    "noneLabel": "無",
-    "degraded": "降級",
-    "mergeSuggestion": "合併建議:{text}",
-    "axisDays30": "30天",
-    "axisDays7": "7天",
-    "positiveCount": "正面 {n}",
-    "negativeCount": "負面 {n}",
-    "totalRows": "共 {n} 條",
-    "diffNone": "(無差異)",
-    "loadFailed": "加載失敗",
-    "rollbackSuccess": "回滾成功",
-    "rollbackFailed": "回滾失敗:{msg}",
-    "feedbackRecorded": "反饋已記錄",
-    "feedbackFailed": "反饋失敗:{msg}",
-    "predictFailed": "預測失敗:{msg}",
-    "learnFeedbackRecorded": "學習反饋已記錄",
-    "ruleDetailTitle": "規則詳情:{name}",
-    "tabStats": "效果統計",
-    "tabHistoryCount": "版本歷史({n})",
-    "tabPredict": "效果預測",
-    "statMatchCount": "命中次數",
-    "statHits7d": "7天命中",
-    "statHits30d": "30天命中",
-    "statAvgToken": "平均 token",
-    "hitRateCompare": "命中率對比",
-    "satisfactionPercent": "滿意度({pct}%)",
-    "feedbackLabel": "反饋:",
-    "useful": "有用",
-    "useless": "無用",
-    "noVersionHistory": "暫無版本歷史",
-    "compareToPrev": "對比上一版",
-    "rollingBack": "回滾中...",
-    "rollback": "回滾",
-    "predictHint": "輸入測試 prompt,dry-run 對比應用規則 vs 不應用規則的 LLM 輸出",
-    "predictPromptPlaceholder": "輸入測試 prompt...",
-    "predicting": "預測中...",
-    "runPredict": "運行預測",
-    "statTokenDelta": "Token 差異",
-    "statOutputDiff": "輸出差異度",
-    "statQualityScore": "質量評分",
-    "suggestionLabel": "建議:",
-    "recDisable": "不啟用",
-    "recNeutral": "中性",
-    "degradedMode": "降級模式",
-    "withoutRule": "不應用規則",
-    "withRule": "應用規則",
-    "learnFeedbackLabel": "學習反饋:",
-    "helpful": "有幫助",
-    "unhelpful": "無幫助",
-    "harmful": "有害",
-    "editRuleTitle": "編輯規則",
-    "fieldLabelName": "名稱",
-    "ruleNamePlaceholder": "規則名稱",
-    "fieldLabelDescription": "描述(可選)",
-    "briefDescriptionPlaceholder": "簡短描述",
-    "fieldLabelScope": "作用域",
-    "scopeGlobal": "全局",
-    "scopeWorkspace": "工作區",
-    "fieldLabelPriority": "優先級",
-    "fieldLabelMatchType": "匹配類型",
-    "matchAlways": "始終注入",
-    "matchKeyword": "關鍵詞",
-    "matchRegex": "正則",
-    "matchSemantic": "語義",
-    "fieldLabelMatchPattern": "匹配模式",
-    "matchPatternKeywordPlaceholder": "關鍵詞1,關鍵詞2",
-    "matchPatternRegexPlaceholder": "正則表達式",
-    "matchPatternSemanticPlaceholder": "自然語言描述",
-    "fieldLabelContent": "規則正文",
-    "contentPlaceholder": "規則正文(markdown,作為 prompt 注入到 agent)...",
-    "saving": "保存中...",
-    "statTotalRules": "總規則數",
-    "statActiveRules7d": "7天活躍規則",
-    "topRulesTitle": "最常用規則 Top {n}",
-    "ruleList": "規則列表",
-    "noHitRecords": "暫無命中記錄",
-    "timesCount": "{n} 次",
-    "knowledgeGraphTitle": "規則知識圖譜",
-    "buildingGraph": "構建圖譜中...",
-    "kgConflict": "衝突",
-    "kgDuplicate": "重複",
-    "kgComplementary": "互補",
-    "graphNodeEdgeCounts": "{nodes} 節點 / {edges} 邊",
-    "noRulesToBuildGraph": "暫無規則,無法構建圖譜",
-    "relationList": "關係列表",
-    "templateLibraryTitle": "規則模板庫",
-    "loadingTemplates": "加載模板...",
-    "templateCountHint": "共 {n} 個預置模板,點擊「使用」快速創建規則",
-    "use": "使用",
-    "testRuleTitle": "測試規則:{name}",
-    "inputMessage": "輸入消息",
-    "matchHit": "匹配命中",
-    "pageTitle": "規則管理",
-    "metaDescription": "管理用戶自定義規則,約束 AI agent 運行時行為",
-    "pageSubtitle": "用戶可編輯的規則集,在 agent 運行時按匹配條件動態注入到 system prompt"
+    "title": "規則",
+    "description": "平臺規則與規範"
   },
   "automations": {
     "delete": "刪除",
@@ -23917,299 +23332,5 @@
     "goSettings": "模型設定",
     "securityNote": "金鑰僅保存在你自己的帳戶配置中,用於直連對應服務商;平臺不會把你的金鑰用於其他用途。請勿在公開場合分享金鑰。",
     "startChat": "設定完成,開始對話"
-  },
-  "apiDocs": {
-    "curlPlaceholder": "輸入 cURL 命令進行測試…",
-    "searchPlaceholder": "搜索接口…",
-    "copyCodeAriaLabel": "復制代碼",
-    "sampleUserText": "你好",
-    "sampleStoryText": "講個故事",
-    "sampleProdNote": "// 生產環境應替換為 UI 展示",
-    "parseFailed": "無法解析 curl 命令,請檢查格式(需含 -d JSON body)",
-    "curlLinkTitle": "curl 聯動 Playground",
-    "curlLinkDesc": "粘貼 curl 命令,自動解析 model / messages / temperature / max_tokens 並在 Playground 中打開。",
-    "resetSample": "重置示例",
-    "openInPlayground": "在 Playground 中打開",
-    "errorCodesTitle": "錯誤碼",
-    "errorCodesDesc": "所有 API 錯誤碼、HTTP 狀態碼含義與修復建議,支持搜索。",
-    "meaningCol": "含義",
-    "fixCol": "修復建議",
-    "noMatchedErrorCodes": "無匹配錯誤碼",
-    "sdkExamplesTitle": "SDK 示例",
-    "codeCopied": "代碼已複製",
-    "copyFailed": "複製失敗",
-    "hideKey": "隱藏 Key",
-    "showKey": "顯示 Key",
-    "keyFilledHint": "示例已填入你的 API Key{state}。",
-    "keyStatePlain": "(明文)",
-    "keyStateMasked": "(已脫敏,複製後請替換為完整 Key)",
-    "exampleBasicOpenai": "基礎調用 (OpenAI 格式)",
-    "exampleStreaming": "流式響應",
-    "exampleAnthropic": "Anthropic 格式",
-    "errorCodes": {
-      "c1000": {
-        "meaning": "API Key 無效",
-        "fix": "檢查 Authorization: Bearer ihui_xxx 頭"
-      },
-      "c1001": {
-        "meaning": "API Key 已過期",
-        "fix": "重新生成 Key 或聯繫管理員續期"
-      },
-      "c1002": {
-        "meaning": "IP 不在白名單",
-        "fix": "在 Key 配置中添加 IP"
-      },
-      "c1003": {
-        "meaning": "模型不在白名單",
-        "fix": "在 Key 配置中添加模型"
-      },
-      "c1004": {
-        "meaning": "超過 QPM 限制",
-        "fix": "升級訂閱包或降低調用頻率"
-      },
-      "c1005": {
-        "meaning": "餘額不足",
-        "fix": "充值或兌換碼充值"
-      },
-      "c1006": {
-        "meaning": "單次 token 超限",
-        "fix": "降低 max_tokens 或拆分請求"
-      },
-      "c1007": {
-        "meaning": "超過單模型 RPM 限制",
-        "fix": "降低該模型的調用頻率或升級分組"
-      },
-      "c1008": {
-        "meaning": "超過單模型 TPM 限制",
-        "fix": "降低該模型的 token 用量或升級分組"
-      },
-      "c1009": {
-        "meaning": "API Key 不屬於該租戶",
-        "fix": "檢查 Key 與租戶的綁定關係"
-      },
-      "c1010": {
-        "meaning": "Key 級窗口(5h/1d/7d)調用數超限",
-        "fix": "按響應 Retry-After 與 X-RateLimit-* 退避重試,或調低窗口內頻率"
-      },
-      "secretRequired": {
-        "meaning": "缺少 X-Api-Secret 頭(默認必須攜帶)",
-        "fix": "攜帶創建/輪換密鑰時一次性返回的 secret;過渡期可由服務端 API_KEY_REQUIRE_SECRET=false 放寬"
-      },
-      "rateBackendUnavailable": {
-        "meaning": "限流後端不可用,請求被 fail-close 拒絕",
-        "fix": "按 Retry-After(默認 5s)重試;僅計費/高危能力會觸發,低危只讀降級放行"
-      },
-      "dataAccessDenied": {
-        "meaning": "該能力的 dataClass 不允許觸達此數據表(或表名不可判定)",
-        "fix": "對照能力目錄的 dataClass:compute 只產運行記錄,讀業務數據須走 scoped-read"
-      },
-      "dataScopeDenied": {
-        "meaning": "語句越過歸屬邊界(缺 owner 謂詞或綁定他人資源 ID)",
-        "fix": "只查詢/寫入調用者自有資源,禁止跨 owner/tenant 訪問"
-      },
-      "dataIsolationUnavailable": {
-        "meaning": "數據隔離前提不成立(連接為超級用戶或無法證實非超級用戶)",
-        "fix": "服務端需以非超級用戶連接數據庫;聯繫管理員,勿改客戶端重試"
-      },
-      "c2001": {
-        "meaning": "上游服務不可用",
-        "fix": "稍後重試,系統會自動故障切換"
-      },
-      "c2002": {
-        "meaning": "上游超時",
-        "fix": "降低 max_tokens 或檢查網絡"
-      },
-      "c2003": {
-        "meaning": "上游過載",
-        "fix": "稍後重試"
-      },
-      "c2004": {
-        "meaning": "Realtime WebSocket 上游錯誤",
-        "fix": "檢查模型是否支持 realtime + 網絡連接"
-      },
-      "c2005": {
-        "meaning": "Midjourney 上游錯誤",
-        "fix": "檢查 midjourney-proxy 是否在線 + 任務參數"
-      },
-      "c2006": {
-        "meaning": "MCP 工具調用失敗",
-        "fix": "檢查 MCP server 狀態 + 工具名是否存在"
-      },
-      "c3001": {
-        "meaning": "請求參數錯誤",
-        "fix": "檢查 messages 格式"
-      },
-      "c3002": {
-        "meaning": "模型不存在",
-        "fix": "查 GET /v1/models 可用模型"
-      },
-      "c5013": {
-        "meaning": "上游渠道未配置",
-        "fix": "聯繫管理員配置 rerank/moderations 上游"
-      }
-    }
-  },
-  "playground": {
-    "needApiKey": "請先填寫 API Key",
-    "needModel": "請選擇或輸入模型",
-    "needValidMessage": "請至少輸入一條有效消息",
-    "callFailed": "調用失敗",
-    "send": "發送",
-    "modeSse": "· SSE",
-    "modeNonStream": "· 非流式",
-    "messageList": "消息列表",
-    "messageCount": "{n} 條",
-    "moveUp": "上移",
-    "moveDown": "下移",
-    "deleteMessage": "刪除消息",
-    "inputRoleContent": "輸入 {role} 消息內容…",
-    "addMessage": "添加消息",
-    "modelsFetchFailed": "獲取模型列表失敗",
-    "apiKeyHint": "本地存儲,僅用於本次調用",
-    "modelLabel": "模型",
-    "refreshModelsAria": "刷新模型列表",
-    "selectModelPlaceholder": "選擇模型",
-    "inputModelOrRefresh": "輸入模型名或刷新列表",
-    "streamLabel": "stream(流式)",
-    "tabResponse": "響應",
-    "tabCode": "代碼",
-    "tabHistory": "歷史({n})",
-    "waitingResponse": "等待響應…",
-    "clickSendHint": "點擊「發送」查看響應",
-    "latencyLabel": "耗時",
-    "costLabel": "成本",
-    "apiKeyShownAs": "API Key 顯示為",
-    "noHistory": "暫無歷史記錄",
-    "unknownModel": "未知模型",
-    "restoreAria": "恢復",
-    "emptyResponse": "(空響應)",
-    "metaTitle": "API Playground — 智匯 AI",
-    "metaDescription": "在線測試 OpenAI 兼容 API:模型選擇、多輪消息構造、參數調節、流式 SSE 渲染、代碼生成(cURL/Python/Node.js)與歷史記錄。",
-    "pageDesc": "用你的 API Key 直接調用 /v1/chat/completions,支持流式渲染、參數調節與代碼生成,無需跳轉到 /chat。"
-  },
-  "waiting": {
-    "agent": {
-      "first": {
-        "0": "正在準備回覆…",
-        "1": "正在組織回答思路…",
-        "2": "收到，正在思考如何回覆…",
-        "3": "正在為你生成回覆…",
-        "4": "已收到問題，正在處理…"
-      },
-      "middle": {
-        "0": "正在繼續處理…",
-        "1": "正在接著上文思考…",
-        "2": "正在整理後續回覆…",
-        "3": "正在跟進你的問題…",
-        "4": "正在生成接下來的回覆…"
-      },
-      "followup": {
-        "0": "正在理解你的追問…",
-        "1": "結合上文，正在思考…",
-        "2": "正在針對追問組織回覆…",
-        "3": "收到追問，正在處理…",
-        "4": "正在補充回答…"
-      }
-    },
-    "computer": {
-      "first": {
-        "0": "正在調度計算資源…",
-        "1": "正在初始化執行環境…",
-        "2": "正在啟動處理流程…",
-        "3": "正在分配算力處理…",
-        "4": "正在執行初始計算…"
-      },
-      "middle": {
-        "0": "正在執行中…",
-        "1": "計算進行中，請稍候…",
-        "2": "正在處理中間結果…",
-        "3": "執行未中斷，正在推進…",
-        "4": "正在運算，請稍候…"
-      },
-      "followup": {
-        "0": "正在重新計算…",
-        "1": "正在基於新輸入繼續執行…",
-        "2": "正在追加處理…",
-        "3": "正在更新計算結果…",
-        "4": "正在處理追加請求…"
-      }
-    },
-    "context": {
-      "first": {
-        "0": "正在回顧對話上下文…",
-        "1": "正在加載相關上下文…",
-        "2": "正在梳理背景信息…",
-        "3": "正在檢索相關記憶…",
-        "4": "正在準備上下文…"
-      },
-      "middle": {
-        "0": "正在關聯上文繼續…",
-        "1": "正在結合上下文思考…",
-        "2": "正在回看前文…",
-        "3": "上下文已就緒，正在處理…",
-        "4": "正在對照歷史消息…"
-      },
-      "followup": {
-        "0": "正在結合前文理解追問…",
-        "1": "正在回看相關上下文…",
-        "2": "正在關聯歷史追問…",
-        "3": "正在對照上文補充…",
-        "4": "結合上下文，正在處理…"
-      }
-    },
-    "plan": {
-      "first": {
-        "0": "正在制定處理計劃…",
-        "1": "正在拆解你的需求…",
-        "2": "正在規劃執行步驟…",
-        "3": "正在分析任務要點…",
-        "4": "正在擬定回覆提綱…"
-      },
-      "middle": {
-        "0": "正在推進計劃步驟…",
-        "1": "正在執行下一步…",
-        "2": "計劃進行中，請稍候…",
-        "3": "正在按步驟處理…",
-        "4": "正在落實後續步驟…"
-      },
-      "followup": {
-        "0": "正在調整計劃…",
-        "1": "正在根據追問更新步驟…",
-        "2": "正在重新規劃…",
-        "3": "正在補充計劃細節…",
-        "4": "正在跟進新的要求…"
-      }
-    },
-    "detail": {
-      "first": {
-        "0": "正在準備詳細說明…",
-        "1": "正在組織細節內容…",
-        "2": "正在梳理要點…",
-        "3": "正在生成詳細回覆…",
-        "4": "正在完善回答細節…"
-      },
-      "middle": {
-        "0": "正在補充細節…",
-        "1": "正在展開說明…",
-        "2": "正在完善後續內容…",
-        "3": "詳情整理中，請稍候…",
-        "4": "正在細化回覆…"
-      },
-      "followup": {
-        "0": "正在補充你問的細節…",
-        "1": "正在展開追問的要點…",
-        "2": "正在細化相關說明…",
-        "3": "正在準備補充內容…",
-        "4": "正在完善追問的答覆…"
-      }
-    },
-    "vividTail": "，馬上就好"
-  },
-  "upload": {
-    "oversizeSingle": "檔案超過大小上限:{name}",
-    "uploadFailedWithReason": "上傳失敗:{error}",
-    "unknownError": "未知錯誤",
-    "missingFileId": "上傳響應缺少 file.id",
-    "maxAttachmentsReached": "最多 {count} 個附件"
-}
+  }
 }
