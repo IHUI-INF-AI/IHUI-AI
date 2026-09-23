@@ -523,6 +523,13 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - [x] ✅(2026-09-23) **并发事实与提交边界**:① `edu/edu-management/study-plan/` 10 文件里 9 个由**另一会话**以同 ns、同扁平键名先行落地(我只派了一个代理),该代理按 §12b 采纳其主体逻辑未重写,并补了对方留下的编译断裂(旧导出 `PLAN_TYPE_LABELS`/`PLAN_STATUS_LABELS` 已删,`StudyPlanStatsDialog` 仍 import 旧名)⇒ 本票这些源文件属**混合提交**,词表以磁盘最终态为准,未引入第二套键名;② 语言包仍带他人未提交的 `ai.pane.reviewStats.*` 8 枚 ⇒ 继续走对象空间(HEAD blob 只加本票 557 键),`diff-tree` 自证差异面恰为声明的 25 路径,落地即回读对象与树规模。
 - **本批**未做**项(如实登记)**:① 同目录 `study-plan/StudyPlanPage.tsx` 仍有 4 处硬编码中文,且其 L70 `terms.find((t) =>` 是**待引爆的 t 遮蔽** —— 谁给它加 `const t = useTranslations` 就直接编译崩,接线前必须先改形参名;② `edu/parent/children/[childId]/{courses,meals,study-plans,attendance}/PageClient.tsx` 与 `bind` 同级的 4 个子页各 4 处,可复用本批 `eduStudyPlan`/`eduMeal`/`eduAttendance` 键;③ 共享包 `packages/i18n/messages/shared` 的 `nav.home` 现值 ja=「首页」/ko=「Home」(面包屑复用即继承该残留),修它要动共享词包,本票授权面外;④ A 类 5375 行内容本地化是产品决策,不由本票擅自动门或擅改口径。
 
+
+- [x] ✅(2026-09-23,本票补记)**第一次落地被并发会话的无 CAS `update-ref` 从 main 线上抹掉,前向恢复时又挖出一个方法级缺陷**:
+  ① `932098e114`(13:18:37)写进 `refs/heads/main` 后 **71 秒**被 `4f9c55c7af` 覆盖 —— reflog 该条**动作描述为空** ⇒ 程序化 move-ref 不带 CAS,我的提交从分支线消失只剩对象。恢复一律前向(重建提交面 → `commit-tree` → CAS → 回读 → 前向提交),**不 reset、不碰他人文件**;`git merge-base --is-ancestor` 成了"提交是否真在线上"的唯一可信判据,`git log -1` 看不见这种事。
+  ② 更值钱的是重跑**干净检出**门时暴露的真缺陷:packdir 隔离法只把"清单**新增**"装进 blob,**对既有值的编辑会被静默回退** —— 第九批 `b49bb900c2` 正是这样把本会话当场修好的 **11 枚 zh-TW「台→臺」**在提交树里退回简体,而**工作树跑门全绿**(工作树还留着正确值)⇒ 本机自验完全发现不了。
+  ③ 处置:先把唯一现存于工作树的 14 枚值级正解(11 枚 zh-TW + `nav.home` ja/ko + `common.create` ja)快照成 `value-fixes-b11.json`,再按"HEAD + 8 份清单 + 值回正"重建提交面;给构建器加**值面自证**:blob 与 HEAD 逐叶子比值,`越界改值必须 0` 且 `授权回正必须全部生效`,否则拒绝落库。另配一份逐值差异普查脚本(`pack-value-diff.mjs`)作为常备取证手段。
+  ④ 恢复票 `02e3474c93` 的干净检出复验:`scan-i18n-zh-residue zh-TW` **11 红 → 0**、ko 0、`check-i18n-broken-en` 0、`check-i18n-keys --target=web` 缺失 **0**、死键父提交 7 → 本票后 7(**+0**)、守门 70 exit 0(9157 行 / 台账 9160)。**教训**:凡"从 HEAD 重建产物"的隔离提交法,必须配"与 HEAD 逐值 diff,只允许白名单改动"的自证;本机绿 ≠ 干净检出绿 —— 与本仓既有"造好没装车""自愈须在独立仓库做 A/B"是同一类病。
+
 ### 守门侧票:`scan-i18n-zh-residue` 行正则"值含转义引号"漏检根治(2026-09-23,承第九批登记的待办票)
 
 - [x] ✅(2026-09-23) **门本体修好,不再靠"改数据绕过漏检"**:上一票是拿门的 `opencc-js` 转换器行级替换把数据改对,**漏检的判据本身没动** ⇒ 同类值下一次仍会静默通过。根因一行:`const LINE_RE = /^(\s+)"([^"]+)":\s+"([^"]*)"\s*,?\s*$/` 的取值组 `[^"]*` 遇到值里的转义引号 `\"` 就整体匹配失败(旧注释自认"跳过转义引号场景,与现有脚本一致"—— 那个"现有脚本"`fix-zh-tw-residue.mjs:65` 其实**早已是** `(?:[^"\\]|\\.)*` 的正确写法,是对齐对齐错了对象)。改成放宽组并新增 `decodeJson()`,三处 `const value = m[3]`(opencc / charRange / warnOnly)一律改读解码后的值 —— 否则会拿 `"台帳\"記録\""` 这种带反斜杠的原文去过白名单和 opencc 比对。
