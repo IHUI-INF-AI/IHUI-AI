@@ -9,7 +9,8 @@
 #
 # 行为(每个阶段失败即中止,不切流):
 #   1. git fetch origin main + 以 FETCH_HEAD 计算本地落后提交数(不用被宿主吞掉的 origin/main ref)
-#   2. 落后>0 才继续;git merge --ff-only FETCH_HEAD(禁 force,不动他人未提交改动)
+#   2. 落后>0 才继续;先做幻影漂移现场对齐(heal-worktree-tracked --align-drift,真编辑不碰),
+#      再 git merge --ff-only FETCH_HEAD(禁 force,不动他人未提交改动;对齐后仍脏 → BLOCKED-WIP)
 #   3. 备份当前 web 构建产物(.next → .rollback)
 #   4. 重建 web(next build);api/ai-service 跑源码(tsx/uvicorn)无需独立构建
 #   5. 重启 NSSM 服务(走非活跃逻辑,健康全过才保留)
@@ -86,12 +87,20 @@ function Ok    { param([string]$m) Log "OK    $m" }
 #    配额自保:免费版 5 条/天,自动告警每日上限 3 条(保留 2 条给人工);
 #    SendKey 优先环境变量,NSSM 服务上下文未继承时回读 HKCU 注册表;
 #    通知任何失败只记日志,绝不影响部署/回滚流程本身。
-#    邮件兜底(2026-09-18 加):Server酱发送失败/超额时,自动改发邮件到 502319984@qq.com
-#    (邮件兜底优先 SMTP(如腾讯企业邮,收件无"代发"标注),未配置时回落 Resend,发件人 智汇AI官方 <IHUI-AI@aizhs.top>,密钥读 apps/api\.env 的 RESEND_API_KEY),每日上限 10 封。
+#    邮件兜底(2026-09-18 加 / 2026-09-23 收口为品牌通道):Server酱发送失败或超额时,自动改发
+#    邮件到 502319984@qq.com,每日上限 10 封。发信不再由 PowerShell 自己拼传输层(旧 Send-MailMessage
+#    缺 -BodyAsHtml、Resend payload 缺 html 字段,只能发纯文本),统一调
+#    apps/api\scripts\notify-deploy-failure.ts --strict:版式由 email-templates.ts 单点决定,
+#    SMTP_*/RESEND_API_KEY 由该脚本自行回读 apps/api\.env;品牌通道失败再用同一条传输层的
+#    --plain 降级发纯文本(正文首行标 [降级纯文本]),两条都失败才算未送达。
 #    状态唯一写入点:Invoke-FailNotify(当日计数 date/count/emailCount 落盘)。
 $SctStateFile = "$Root\deploy\win\.sct-notify-state.json"
 # 迁移失败告警去重状态(2026-09-21 加):同一签名 12h 内只推一次,避免每轮循环刷爆 3 条/天配额
 $MigAlertStateFile = "$Root\deploy\win\.migrate-alert-state.json"
+# 失败告警重发周期(小时,2026-09-23 改)。旧策略是同签名固定静音窗口,而轮询外壳每 ~68s 重放
+# 同一失败 ⇒ 首发之后整天彻底静默(实测一次持续两天的故障只被通知过 1 次)。告警的判据应当是
+# 「故障还在发生」而不是「上次发过了」,故改为到点周期性重发;失败签名变化一律立即发。
+$FailAlertRepeatHours = 4
 $NotifyEmailTo = '502319984@qq.com'
 function Get-SctSendKey {
     if ($env:SERVERCHAN_SENDKEY) { return $env:SERVERCHAN_SENDKEY }
@@ -117,89 +126,135 @@ function Send-SctNotify {
         return $false
     }
 }
-function Get-ResendApiKey {
-    if ($env:RESEND_API_KEY) { return $env:RESEND_API_KEY }
-    try {
-        $found = $null
-        Get-Content "$ApiDir\.env" -ErrorAction Stop | ForEach-Object {
-            if ($_ -match '^RESEND_API_KEY=(.+?)\s*$') { $found = $Matches[1] }
-        }
-        if ($found) { return $found }
-    } catch {}
+# ── 品牌邮件通道(2026-09-23 收口)─────────────────────────────────────────────
+# 为什么 PowerShell 侧一行发信代码都不留:旧实现自己拼传输层 —— SMTP 分支 Send-MailMessage
+# 没有 -BodyAsHtml、Resend 分支 payload 只有 text 没有 html,结果无论哪条路用户收到的永远是
+# 纯文本,仓库里那套「智汇通报」品牌版式(email-templates.ts)在本地零调用。版式必须单点,
+# 否则改了模板部署告警还是旧样子。发信配置(SMTP_*/RESEND_API_KEY)也一并交给 TS 侧回读 .env,
+# 故旧的 Get-SmtpConfig / Get-ResendApiKey 两个函数随之删除(全仓已无其它调用方)。
+# 路径从脚本自身位置推导(仓库 §15 禁止硬编码盘符):本脚本位于 <root>\deploy\win。
+$BrandMailRoot     = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$BrandNotifyScript = Join-Path $BrandMailRoot 'apps\api\scripts\notify-deploy-failure.ts'
+$BrandTsxEntry     = Join-Path $BrandMailRoot 'apps\api\node_modules\tsx\dist\cli.mjs'
+$BrandNotifyMsgDir = Join-Path $BrandMailRoot '.ihui-agent\tmp\deploy-notify'
+function Resolve-NodeExe {
+    # NSSM 服务上下文(LocalSystem)的 PATH 常常没有 node —— 上面的 PATH 前置只在 pwsh 真的
+    # 执行到那段时生效,服务配置漂移/换机即落空。故 Get-Command 之后仍要按绝对路径兜底
+    # (候选与文件开头那段 PATH 前置同源),全落空返回 $null 由调用方如实记日志。
+    # 不用 pnpm/npx:它们是 shell 包装脚本,服务上下文下 PATH 更不可靠。
+    $cmd = Get-Command node.exe -ErrorAction SilentlyContinue
+    if ($cmd -and (Test-Path $cmd.Source)) { return $cmd.Source }
+    foreach ($p in @('D:\DevEnv\runtimes\node\node.exe', 'C:\Program Files\nodejs\node.exe')) {
+        if (Test-Path $p) { return $p }
+    }
     return $null
 }
-function Get-SmtpConfig {
-    # SMTP 配置读取:环境变量优先,其次 apps/api\.env。返回 $null 表示未配置。
-    $cfg = @{ Host=''; Port=587; User=''; Pass=''; From='智汇AI官方 <IHUI-AI@aizhs.top>' }
-    $sources = @(@{}, @{})
-    if ($env:SMTP_HOST) { $sources[0]['SMTP_HOST'] = $env:SMTP_HOST; $sources[0]['SMTP_PORT'] = $env:SMTP_PORT; $sources[0]['SMTP_USER'] = $env:SMTP_USER; $sources[0]['SMTP_PASS'] = $env:SMTP_PASS; $sources[0]['SMTP_FROM'] = $env:SMTP_FROM }
-    try {
-        Get-Content "$ApiDir\.env" -ErrorAction Stop | ForEach-Object {
-            if ($_ -match '^(SMTP_[A-Z]+)=(.*?)\s*$') { $sources[1][$Matches[1]] = $Matches[2] }
-        }
-    } catch {}
-    foreach ($s in $sources) {
-        foreach ($k in @('Host','Port','User','Pass','From')) {
-            if (-not $cfg[$k] -or ($k -eq 'Port' -and $cfg.Port -eq 587 -and $s['SMTP_PORT'])) {
-                $v = $s["SMTP_$k"]
-                if ($v) { $cfg[$k] = $v }
-            }
-        }
+function Protect-NotifyOutput {
+    # 转日志前截断 + 脱敏。契约脚本自身不打印密钥,但 node 崩溃时会把 require 到的 .env 片段、
+    # 整条命令行甚至堆栈倒进 stderr;含 key/token/secret/pass 字样的行一律不落运维日志。
+    param($Raw)
+    if (-not $Raw) { return '(无输出)' }
+    $lines = (($Raw | ForEach-Object { "$_" }) -split "`r?`n") | ForEach-Object {
+        if ($_ -match '(?i)(api[_-]?key|token|secret|passw|pass\b|authorization|bearer)') { '[已脱敏]' } else { $_ }
     }
-    if (-not $cfg.Host -or -not $cfg.User -or -not $cfg.Pass) { return $null }
-    return $cfg
+    $s = ($lines -join ' / ').Trim()
+    if ($s.Length -gt 300) { $s = $s.Substring(0, 300) + '…(截断)' }
+    return $s
+}
+function Invoke-BrandMail {
+    # 邮件的唯一出口。返回 $true = 已送达(契约:--strict 下 exit 0 即成功,失败/未配置 exit 1)。
+    # -Plain = 同一传输层但不套品牌模板(正文原样),只由 Send-EmailNotify 在品牌通道失败后使用。
+    param([string]$Subject, [string]$BodyText, [switch]$Plain)
+    $channel = if ($Plain) { '降级纯文本' } else { '品牌模板' }
+    $node = Resolve-NodeExe
+    if (-not $node) { Log "MAIL  $channel 通道不可用:node.exe 未找到(PATH 与绝对路径兜底均落空)"; return $false }
+    if (-not (Test-Path $BrandTsxEntry)) { Log "MAIL  $channel 通道不可用:tsx 入口不存在 $BrandTsxEntry"; return $false }
+    if (-not (Test-Path $BrandNotifyScript)) { Log "MAIL  $channel 通道不可用:通知脚本不存在 $BrandNotifyScript"; return $false }
+    # 多行中文正文必须走 --message-file 而不是命令行参数:参数还要过一层控制台代码页(GBK),
+    # 换行、引号、反引号都可能被吃掉,实测正文里就带 4 段 `n 换行;文件是唯一能原样送达的通道。
+    $msgFile = $null
+    try {
+        if (-not (Test-Path $BrandNotifyMsgDir)) { New-Item -ItemType Directory -Path $BrandNotifyMsgDir -Force | Out-Null }
+        # 必须显式无 BOM:Set-Content -Encoding utf8 在 PowerShell 5.1 下写出的是**带 BOM** 的
+        # UTF-8,BOM 会跟着进正文首行(TS 侧不剥),邮件第一行就成了 "<feff>[降级纯文本]"。
+        $text = if ($Plain) { "[降级纯文本]`n$BodyText" } else { $BodyText }
+        $msgFile = Join-Path $BrandNotifyMsgDir "$((Get-Date).ToString('yyyyMMdd-HHmmss-fff')).txt"
+        [System.IO.File]::WriteAllText($msgFile, $text, [System.Text.UTF8Encoding]::new($false))
+        $argv = @($BrandTsxEntry, $BrandNotifyScript,
+            '--to', $NotifyEmailTo, '--title', $Subject, '--severity', 'critical',
+            '--source', 'ihui-deployloop', '--message-file', $msgFile, '--strict')
+        if ($Plain) { $argv += '--plain' }
+        # 临时把 EAP 降为 Continue:本文件用法注释允许运维用 powershell.exe(5.1)直接跑,而 5.1 下
+        # 原生命令写 stderr + ErrorActionPreference=Stop 会抛 NativeCommandError —— 契约脚本的失败
+        # 信息恰恰走 stderr,那会把"按退出码判定"变成"按异常判定",成功发送也可能被误判成失败并
+        # 触发一次重复的 --plain 降级。PS7 下这句同样无害(实测 7.6.2 不抛)。
+        $prevEap = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = 'Continue'
+            $out = & $node @argv 2>&1
+            $code = $LASTEXITCODE
+        } finally {
+            $ErrorActionPreference = $prevEap
+        }
+        if ($code -eq 0) { return $true }
+        Log "MAIL  $channel 通道未送达(exit=$code): $(Protect-NotifyOutput $out)"
+        return $false
+    } catch {
+        Log "MAIL  $channel 通道调用异常: $(Protect-NotifyOutput $_.Exception.Message)"
+        return $false
+    } finally {
+        if ($msgFile) { Remove-Item -LiteralPath $msgFile -Force -ErrorAction SilentlyContinue }
+    }
 }
 function Send-EmailNotify {
-    # 纯发送,不碰计数。返回 $true=已发送。优先 SMTP(主域回信路径,QQ 等收件方无"由 xx 代发"标注),失败回落 Resend。
+    # 纯发送,不碰计数。返回 $true=已发送。签名与语义与旧版一致(Fail 钩子与运维日志解读依赖它),
+    # 内部改为两条通道同源于品牌脚本:先套「智汇通报」模板,失败再用 --plain 降级发纯文本。
     param([string]$subject,[string]$text)
-    try {
-        $smtp = Get-SmtpConfig
-        if ($smtp) {
-            $cred = New-Object System.Management.Automation.PSCredential($smtp.User,(ConvertTo-SecureString $smtp.Pass -AsPlainText -Force))
-            Send-MailMessage -SmtpServer $smtp.Host -Port ([int]$smtp.Port) -UseSsl -Credential $cred `
-                -From $smtp.From -To $NotifyEmailTo -Subject $subject -Body $text -Encoding UTF8 -ErrorAction Stop
-            Log "MAIL  邮件告警已发送至 $NotifyEmailTo (SMTP $($smtp.Host))"
-            return $true
-        }
-    } catch {
-        Log "MAIL  SMTP 告警发送失败,转 Resend 兜底: $($_.Exception.Message)"
-    }
-    try {
-        $key = Get-ResendApiKey
-        if (-not $key) { Log "MAIL  跳过邮件兜底:SMTP 与 RESEND_API_KEY 均未配置"; return $false }
-        $payload = @{ from = '智汇AI官方 <IHUI-AI@aizhs.top>'; to = @($NotifyEmailTo); subject = $subject; text = $text } | ConvertTo-Json
-        # 2026-09-21 根治:此前只读了 key 却没带 Authorization,Resend 恒 401,邮件兜底通道形同虚设
-        Invoke-RestMethod -Uri 'https://api.resend.com/emails' -Method Post -Body $payload -ContentType 'application/json' -Headers @{ Authorization = "Bearer $key" } -TimeoutSec 10 -ErrorAction Stop | Out-Null
-        Log "MAIL  邮件告警已发送至 $NotifyEmailTo (Resend)"
+    if (Invoke-BrandMail -Subject $subject -BodyText $text) {
+        Log "MAIL  邮件告警已发送至 $NotifyEmailTo (品牌模板)"
         return $true
-    } catch {
-        Log "MAIL  邮件告警发送失败: $($_.Exception.Message)"
-        return $false
     }
+    Log "MAIL  品牌模板通道失败,转 --plain 降级重试"
+    if (Invoke-BrandMail -Subject $subject -BodyText $text -Plain) {
+        Log "MAIL  邮件告警已发送至 $NotifyEmailTo (降级纯文本)"
+        return $true
+    }
+    Log "MAIL  邮件告警发送失败:品牌与降级两条通道均未送达 $NotifyEmailTo"
+    return $false
 }
 function Invoke-FailNotify {
     param([string]$m)
     $today = Get-Date -Format 'yyyy-MM-dd'
     $sctCount = 0; $emailCount = 0
+    $state = $null
     try {
-        $prev = Get-Content $SctStateFile -Raw -ErrorAction Stop | ConvertFrom-Json
-        if ($prev.date -eq $today) { $sctCount = [int]$prev.count; $emailCount = [int]$prev.emailCount }
-    } catch {}
-    # 同签名 12h 去重(2026-09-21 加):失败冷却机制上线后同一失败会每 30 分钟重放,
-    # 不去重会瞬间耗光 3 条/天微信配额与 10 封/天邮件配额,把后续新故障挤出告警通道。
+        $state = Get-Content $SctStateFile -Raw -ErrorAction Stop | ConvertFrom-Json
+        if ($state.date -eq $today) { $sctCount = [int]$state.count; $emailCount = [int]$state.emailCount }
+    } catch { $state = $null }
+    # 同签名到点重发、换签名立即发(周期见 $FailAlertRepeatHours)。旧实现把"上次发过了"当成
+    # "不用再发",持续故障第二次起彻底无人知晓;这里只未到重发周期才静音,并把持续时长与
+    # 重发序号写进正文,让运维一眼看出"这个故障还没修好"而不是以为已处置。
     $sig = ($m -replace '\s+', ' ').Trim()
-    $sigFresh = $false
-    try {
-        $prev = Get-Content $SctStateFile -Raw -ErrorAction Stop | ConvertFrom-Json
-        if ([string]$prev.sig -eq $sig) {
-            $ageH = ((Get-Date) - [datetime]$prev.sigTs).TotalHours
-            if ($ageH -ge 0 -and $ageH -lt 12) { $sigFresh = $true }
+    $repeatNote = ''
+    $sigFirstTs = $null
+    $repeatNo = 0
+    if ($state -and [string]$state.sig -eq $sig -and $state.sigTs) {
+        $prevTs = $null
+        try { $prevTs = [datetime]$state.sigTs } catch { $prevTs = $null }
+        if ($prevTs) {
+            $ageH = ((Get-Date) - $prevTs).TotalHours
+            if ($ageH -ge 0 -and $ageH -lt $FailAlertRepeatHours) {
+                Log "SCT   同签名失败告警 $([Math]::Round($ageH,1))h 前已推过(未到 ${FailAlertRepeatHours}h 重发周期),本轮跳过"
+                return
+            }
+            try { if ($state.sigFirstTs) { $sigFirstTs = [datetime]$state.sigFirstTs } } catch { $sigFirstTs = $null }
+            if (-not $sigFirstTs) { $sigFirstTs = $prevTs }
+            $repeatNo = [int]$state.repeatNo + 1
+            $durH = [Math]::Round(((Get-Date) - $sigFirstTs).TotalHours, 1)
+            $repeatNote = "`n- 备注: 同一故障已持续 ${durH} 小时,本条为第 $repeatNo 次重发(每 $FailAlertRepeatHours 小时一次,签名变化则立即另发)"
         }
-    } catch {}
-    if ($sigFresh) {
-        Log "SCT   同签名失败告警 12h 内已推过,跳过(冷却重试期间的重复失败不再刷配额)"
-        return
     }
+    if (-not $sigFirstTs) { $sigFirstTs = Get-Date }
     $nowTxt = Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz'
     $sent = $false
     if ($sctCount -ge 3) {
@@ -207,7 +262,7 @@ function Invoke-FailNotify {
     } else {
         try {
             $sent = Send-SctNotify -title "【生产环境】部署失败" -short $m `
-                -desp "**IHUI-AI 生产部署失败**`n`n- 原因: $m`n- 时间: $nowTxt`n- 处置: 已自动回滚或保持当前在线版本`n- 排查: 服务 IHUI-DEPLOYLOOP / NSSM 日志,或 ssh 后执行 deploy\win\ihui-deploy.ps1 -diagnose"
+                -desp "**IHUI-AI 生产部署失败**`n`n- 原因: $m$repeatNote`n- 时间: $nowTxt`n- 处置: 已自动回滚或保持当前在线版本`n- 排查: 服务 IHUI-DEPLOYLOOP / NSSM 日志,或 ssh 后执行 deploy\win\ihui-deploy.ps1 -diagnose"
         } catch { $sent = $false }
         if ($sent) { $sctCount++ }
     }
@@ -218,13 +273,17 @@ function Invoke-FailNotify {
             $mailOk = $false
             try {
                 $mailOk = Send-EmailNotify -subject "【生产环境】部署失败" `
-                    -text "IHUI-AI 生产部署失败(微信通道未送达,邮件兜底)`n`n原因: $m`n时间: $nowTxt`n处置: 已自动回滚或保持当前在线版本`n排查: 服务 IHUI-DEPLOYLOOP / NSSM 日志,或 ssh 后执行 deploy\win\ihui-deploy.ps1 -diagnose"
+                    -text "IHUI-AI 生产部署失败(微信通道未送达,邮件兜底)`n`n原因: $m$repeatNote`n时间: $nowTxt`n处置: 已自动回滚或保持当前在线版本`n排查: 服务 IHUI-DEPLOYLOOP / NSSM 日志,或 ssh 后执行 deploy\win\ihui-deploy.ps1 -diagnose"
             } catch { $mailOk = $false }
             if ($mailOk) { $emailCount++ }
         }
     }
     try {
-        Set-Content -Path $SctStateFile -Value (@{ date = $today; count = $sctCount; emailCount = $emailCount; sig = $sig; sigTs = (Get-Date).ToString('o') } | ConvertTo-Json) -NoNewline
+        Set-Content -Path $SctStateFile -Value (@{
+            date = $today; count = $sctCount; emailCount = $emailCount
+            sig = $sig; sigTs = (Get-Date).ToString('o')
+            sigFirstTs = $sigFirstTs.ToString('o'); repeatNo = $repeatNo
+        } | ConvertTo-Json) -NoNewline
     } catch {}
 }
 function Fail {
@@ -267,18 +326,69 @@ function BackendLogin-Token {
         if ($login.data.accessToken) { return $login.data.accessToken }
         if ($login.token.accessToken) { return $login.token.accessToken }
         if ($login.accessToken) { return $login.accessToken }
-    } catch {}
+    } catch {
+        # 旧实现把所有异常一律吞成 $null,限流与口令错误无从区分,运维只能干猜(状态码现在可见)
+        $sc = 0
+        try { $sc = [int]$_.Exception.Response.StatusCode } catch { $sc = 0 }
+        if ($sc -eq 429) { Log "HEALTH 登录取探测令牌被限流(HTTP 429,/auth/login/username 上限 10 次/分钟)→ 该项按未知处理,不据此回滚" }
+        else { Log "HEALTH 登录取探测令牌失败$(if ($sc) { "(HTTP $sc)" })" }
+    }
     return $null
 }
 
-function Test-LlmGateway {
-    $tok = BackendLogin-Token
-    if (-not $tok) { return $false }
+# ── 探测令牌的"本轮部署内"缓存(2026-09-23 加,降频) ─────────────────────────────
+# 旧行为:健康门禁每轮都重新登录 admin(8 轮 = 8 次登录),持续失败时等于反复用管理员口令去撞
+# 服务端 10 次/分钟限流,并在账号侧消耗"剩余 N 次重试即锁定"的预算。一把令牌在同一轮部署里复用,
+# 只有探测回 401/403(令牌确实失效)才重登,且整轮最多 2 次(登录失败也记数,防逐轮重试)。
+$script:HcToken = $null
+$script:HcLoginTries = 0
+function Get-HcToken {
+    param([switch]$Force)   # $Force:仅在探测返回 401/403 时使用,其余场景一律复用缓存
+    if ($script:HcToken -and -not $Force) { return $script:HcToken }
+    if ($script:HcLoginTries -ge 2) { if ($Force) { $script:HcToken = $null }; return $script:HcToken }
+    $script:HcLoginTries++
+    $t = BackendLogin-Token
+    if ($t) { $script:HcToken = $t; Log "HEALTH 已取得探测令牌(本轮多次门禁共用这一把)" }
+    elseif ($Force) { $script:HcToken = $null }   # 旧令牌已被判失效,绝不能再复用
+    return $script:HcToken
+}
+
+function Invoke-Probe {
+    param([string]$Url, [string]$Contains = '', [string]$Token = '')
+    # 三态探测:pass = 服务确实在正常应答;fail = 应答了但不健康(4xx/5xx 或内容不符);
+    # unknown = 被限流(429)或传输层不可达 —— 后者不足以判定部署失败,由调用方按"未知"放行,
+    # 因为把限流当失败会造成无谓回滚(2026-09-23 实测:探针自身打爆登录限流后误判过一次)。
+    $resp = $null
     try {
-        $r = Invoke-WebRequest -Uri "$PublicWeb/api/llm/providers/health" `
-                    -Headers @{ Authorization = "Bearer $tok" } -TimeoutSec 20 -ErrorAction Stop -UseBasicParsing
-        return ($r.StatusCode -ge 200 -and $r.StatusCode -lt 400)
-    } catch { return $false }
+        $hdr = @{}
+        if ($Token) { $hdr['Authorization'] = "Bearer $Token" }
+        $resp = Invoke-WebRequest -Uri $Url -TimeoutSec 15 -Headers $hdr -ErrorAction Stop -UseBasicParsing -SkipHttpErrorCheck
+    } catch {
+        return @{ Verdict = 'unknown'; Status = 0; Reason = "传输不可达($($_.Exception.Message))" }
+    }
+    $code = [int]$resp.StatusCode
+    if ($code -eq 429) { return @{ Verdict = 'unknown'; Status = $code; Reason = '上游限流(HTTP 429)' } }
+    if ($code -ge 200 -and $code -lt 400) {
+        if ($Contains -and $resp.Content -notmatch [regex]::Escape($Contains)) {
+            return @{ Verdict = 'fail'; Status = $code; Reason = "应答不含 '$Contains'(疑为旧构建或异常页)" }
+        }
+        return @{ Verdict = 'pass'; Status = $code; Reason = '' }
+    }
+    return @{ Verdict = 'fail'; Status = $code; Reason = "HTTP $code" }
+}
+
+function Test-LlmGateway {
+    # 返回值由旧布尔改为 pass/fail/unknown 三态(唯一调用方是 Test-HealthGate)
+    $tok = Get-HcToken
+    if (-not $tok) { Log "HEALTH 未取得探测令牌(登录被限流或凭据缺失)→ llm 项按未知处理"; return 'unknown' }
+    $r = Invoke-Probe -Url "$PublicWeb/api/llm/providers/health" -Token $tok
+    if ($r.Status -eq 401 -or $r.Status -eq 403) {
+        $tok = Get-HcToken -Force          # 只有令牌确实失效才重登,正常轮次零登录
+        if (-not $tok) { return 'unknown' }
+        $r = Invoke-Probe -Url "$PublicWeb/api/llm/providers/health" -Token $tok
+    }
+    if ($r.Verdict -eq 'unknown') { Log "HEALTH llm 网关未取得结论:$($r.Reason) → 按未知处理,不据此回滚" }
+    return $r.Verdict
 }
 
 # 健康门禁: web + api健康 + LLM网关
@@ -288,16 +398,86 @@ function Test-LlmGateway {
 function Test-HealthGate {
     [int]$Tries  = 8
     [int]$GapSec = 12
+    $lastFails = @(); $lastUnknown = @()
     for ($i = 1; $i -le $Tries; $i++) {
         Start-Sleep -Seconds $GapSec
-        $p1 = Test-Http -url $PublicWeb -contains '<!DOCTYPE html'
-        $p2 = Test-Http -url $ApiHealth -contains '"status":"ok"'
-        $p3 = Test-LlmGateway
-        Log "健康门禁 第 $i/$Tries 轮: web=$p1 api=$p2 llm=$p3"
-        if ($p1 -and $p2 -and $p3) { return $true }
+        $w = Invoke-Probe -Url $PublicWeb -Contains '<!DOCTYPE html'
+        $a = Invoke-Probe -Url $ApiHealth -Contains '"status":"ok"'
+        $l = Test-LlmGateway
+        $fails = @(); $unknown = @()
+        if ($w.Verdict -eq 'fail') { $fails += "web(HTTP $($w.Status) $($w.Reason))" } elseif ($w.Verdict -ne 'pass') { $unknown += 'web' }
+        if ($a.Verdict -eq 'fail') { $fails += "api(HTTP $($a.Status) $($a.Reason))" } elseif ($a.Verdict -ne 'pass') { $unknown += 'api' }
+        if ($l -eq 'fail') { $fails += 'llm(网关接口未就绪)' } elseif ($l -ne 'pass') { $unknown += 'llm' }
+        $lastFails = $fails; $lastUnknown = $unknown
+        $tail = ''
+        if ($fails.Count)   { $tail += " 失败=[$($fails -join ' ')]" }
+        if ($unknown.Count) { $tail += " 未知=[$($unknown -join ' ')]" }
+        Log "健康门禁 第 $i/$Tries 轮: web=$($w.Verdict) api=$($a.Verdict) llm=$l$tail"
+        # 成功条件不放宽:三项全部真绿才算通过("未知"也不算绿,继续下一轮重试)
+        if ($fails.Count -eq 0 -and $unknown.Count -eq 0) { return $true }
     }
-    Log "健康门禁 ${Tries} 轮均未全过,判定失败"
-    return $false
+    if ($lastFails.Count -gt 0) {
+        Log "健康门禁 ${Tries} 轮未全绿,最后一轮存在明确失败项:[$($lastFails -join ' ')] → 判定失败"
+        return $false
+    }
+    # 耗尽仍拿不出明确失败项 ⇒ 全程只被限流/网络不可达挡住。按约定记 warn 并以"未知"放行该子项,
+    # 不据此回滚;但 warn 必须留在日志里 —— 此时线上是否真的好,只有人工核查能定。
+    Log "WARN  健康门禁 ${Tries} 轮未取得全绿,但无明确失败项,仅[$($lastUnknown -join ' ')]无法判定(限流或网络不可达)"
+    Log "WARN  按'未知'放行本轮门禁、不回滚;请人工核查上述项:deploy\win\ihui-deploy.ps1 -diagnose"
+    return $true
+}
+
+# ── ff-only 前的"可自愈现场对齐"(2026-09-23 加,当日三次部署环冻结的直接放大因子) ────
+# 本机既是生产机又是共享工作树:git-sync-converge 用 merge-tree + commit-tree + update-ref 推进
+# HEAD 却从不 checkout,工作树因此停在旧基线。`git status` 看着像"有人在写",实际提交出去就是
+# 静默回滚别人 —— 这叫幻影漂移。ff-only 只要被跟踪文件有未提交改动就 abort → 整轮 FAIL、线上
+# 滞留旧版本。对策:ff-only 之前先跑一次保守自愈(--align-drift 只在「索引==HEAD 且内容==该路径
+# 某祖先版本」时对齐,真在写的文件一律不碰)。对齐后仍脏 = 真有人在写 ⇒ 保持 FAIL,但日志必须把
+# 两种成因分开,否则运维分不清"机器坏了"还是"别人在写"。
+# 铁律:本节及其调用点绝不允许出现任何销毁未提交内容的 git 写法(强制重置、强制清理、全树检出),
+# 具体字面量被 o6 静态判据测试钉死为"整份源码不得出现"—— 因为共享工作树里被销毁的那份工作没法恢复。
+function Get-TrackedDirtyEntry {
+    # 只列「被跟踪文件」的未提交改动(索引脏 + 工作区脏);未跟踪产物不该被算成 ff-only 的阻塞项
+    try {
+        $o = & git -C $Root -c core.quotepath=false status --porcelain --untracked-files=no 2>&1 | Out-String
+        return @($o -split "`r?`n" | Where-Object { $_.Trim() })
+    } catch {
+        Log "WARN  git status 取脏文件失败: $($_.Exception.Message)"
+        return @()
+    }
+}
+function Invoke-WorktreeAlign {
+    # 返回 $true = 自愈脚本成功跑完(不代表对齐了文件);$false = 不可用/异常(只 warn,不改本轮结论)
+    $healer = Join-Path $Root 'scripts\heal-worktree-tracked.mjs'
+    if (-not (Test-Path $healer)) { Log "WARN  自愈脚本缺失:$healer —— 跳过现场对齐(不因此判失败)"; return $false }
+    $nodeExe = (Get-Command node -ErrorAction SilentlyContinue).Source
+    if (-not $nodeExe) { Log "WARN  PATH 中无 node —— 跳过现场对齐"; return $false }
+    $outFile = Join-Path $env:TEMP "ihui-align-$PID.log"
+    try {
+        # 派生 node 用 Start-Process -NoNewWindow + 文件重定向:nssm 服务上下文常无控制台,裸 `&`
+        # 派生控制台程序会新分配可见窗口(AGENTS.md §5b 同类);文件重定向亦免疫管道挂死。
+        $p = Start-Process -FilePath $nodeExe -ArgumentList @("`"$healer`"", '--align-drift') `
+                -WorkingDirectory $Root -NoNewWindow -Wait -PassThru `
+                -RedirectStandardOutput $outFile -RedirectStandardError "$outFile.err" -ErrorAction Stop
+        foreach ($f in @($outFile, "$outFile.err")) {
+            foreach ($l in (Get-Content $f -ErrorAction SilentlyContinue)) { if ($l.Trim()) { Log "  [align] $($l.Trim())" } }
+        }
+        if ($p.ExitCode -ne 0) { Log "WARN  现场对齐退出码 $($p.ExitCode)(不阻断本轮,仍会照常尝试 ff-only)" }
+        return ($p.ExitCode -eq 0)
+    } catch {
+        Log "WARN  现场对齐调用异常: $($_.Exception.Message)"
+        return $false
+    } finally {
+        Remove-Item $outFile, "$outFile.err" -Force -ErrorAction SilentlyContinue
+    }
+}
+function Report-BlockedWip {
+    param([string[]]$Entries)
+    # 一句话把成因钉在日志里(轮询外壳会把本输出实时落进 deploy-loop.log,可 grep BLOCKED-WIP)
+    $paths = @($Entries | ForEach-Object { $_.Substring([Math]::Min(3, $_.Length)).Trim() })
+    Log "BLOCKED-WIP 有 $($Entries.Count) 个被跟踪文件存在真实未提交改动(非幻影漂移),不代提交不删除"
+    Log "BLOCKED-WIP 清单(最多 10 个): $(($paths | Select-Object -First 10) -join ' | ')"
+    if ($Entries.Count -gt 10) { Log "BLOCKED-WIP 其余 $($Entries.Count - 10) 个未列出,完整清单看 git status --porcelain --untracked-files=no" }
 }
 
 function New-BackupDir { if (-not (Test-Path $BackupDir)) { New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null } }
@@ -654,7 +834,7 @@ function Invoke-Diagnose {
 
     # ── [8] 判读提示 ──
     DiagLog "── [8] 判读提示 ──"
-    if ($script:diagDirty -gt 0) { DiagLog ("  · 工作树有 {0} 条未提交改动 → git merge --ff-only 会被拒,现象是「每轮 behind>0 却永不部署」。先确认这些是本地修改还是产物目录再处理。" -f $script:diagDirty) }
+    if ($script:diagDirty -gt 0) { DiagLog ("  · 工作树有 {0} 条未提交改动 → git merge --ff-only 会被拒,现象是「每轮 behind>0 却永不部署」。先跑 node scripts/heal-worktree-tracked.mjs --align-drift --dry-run 分清是幻影漂移(部署轮询会自愈)还是真在写的活儿(须等对方收尾,勿代提交勿删除)。" -f $script:diagDirty) }
     if ($script:diagAhead -gt 0) { DiagLog "  · 本地领先 FETCH_HEAD(分叉)→ ff-only 必失败,需人工决定处理策略(勿盲目 reset)。" }
     if (-not $script:diagFetched) { DiagLog "  · 三源 fetch 全失败 → 部署循环必然停摆;先恢复网络/代理(Clash 127.0.0.1:7897),或用镜像手动 fetch。" }
     if ($script:diagDivergent) { DiagLog "  · apps/api 源码含主干从未有过的字段 → 本目录源码并非 origin/main,须核对来源后再部署。" }
@@ -895,8 +1075,25 @@ if ($dryrun) { Ok "dryrun 模式: behind=$behind,即将部署到 origin/main=$($
 
 if ($behind -gt 0) {
     Log "本地落后远端 $behind 个提交,进行 fast-forward merge(FETCH_HEAD)"
+    # 前置现场对齐(实现见 Invoke-WorktreeAlign):脏工作树是 ff-only 最常见的失败原因,其中一部分
+    # 是可自愈的幻影漂移。工作树本就干净时不跑自愈,省掉逐路径扫 git log 的开销。
+    $dirtyBefore = Get-TrackedDirtyEntry
+    if ($dirtyBefore.Count -gt 0) {
+        Log "ff-only 前置:检测到 $($dirtyBefore.Count) 个被跟踪文件有未提交改动 → 先做幻影漂移对齐(真编辑不碰)"
+        Invoke-WorktreeAlign | Out-Null
+        $dirtyAfter = Get-TrackedDirtyEntry
+        Log "ff-only 前置:对齐后剩余 $($dirtyAfter.Count) 个未提交被跟踪文件(本轮对齐掉 $($dirtyBefore.Count - $dirtyAfter.Count) 个)"
+    }
     & git merge --ff-only FETCH_HEAD 2>&1 | Out-String | Write-Host
-    if ($LASTEXITCODE -ne 0) { Fail "git merge --ff-only FETCH_HEAD 失败(可能冲突/未提交改动),已停止,未切流" }
+    if ($LASTEXITCODE -ne 0) {
+        # 两种成因必须分开报:"有真人在写"(等对方收尾即可)vs "仓库真分叉"(要人决策,勿盲目强推)
+        $stillDirty = Get-TrackedDirtyEntry
+        if ($stillDirty.Count -gt 0) {
+            Report-BlockedWip -Entries $stillDirty
+            Fail "git merge --ff-only FETCH_HEAD 失败:工作树仍有被跟踪文件存在真实未提交改动(BLOCKED-WIP,清单见紧邻上一行),已停止,未切流"
+        }
+        Fail "git merge --ff-only FETCH_HEAD 失败(工作树已无未提交改动,疑为真分叉/冲突),已停止,未切流"
+    }
     Ok "merge 完成,HEAD=$(git rev-parse --short HEAD | Out-String)"
 }
 
