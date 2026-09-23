@@ -722,8 +722,6 @@
       "gatewayRetry": "Retry {attempt} of {max}, continuing in {seconds}s",
       "subagent": "Subtask: {phase}",
       "title": "Execution",
-      "toolCall": "Calling tool: {name}",
-      "toolResult": "Tool returned: {name}",
       "toolSummary": "Tool summary: {calls} calls",
       "terminal": "Terminal task: {status}",
       "usage": "Usage: {n} tokens"
@@ -2492,18 +2490,12 @@
     "unsupportedEnv": "Payment is not supported in this environment",
     "resultPending": "Payment result pending",
     "agreementPrefix": "By clicking Pay Now, you agree to the following",
-    "countLabel": "Quantity",
     "coupon": "Coupon",
     "createTime": "Order Time",
-    "defaultName": "AI Assistant",
     "orderNo": "Order No.",
     "payFailed": "Payment failed. Please try again",
-    "payNow": "Pay Now",
     "paying": "Paying...",
-    "perMonth": "/month",
-    "priceLabel": "Price",
     "purchaseContent": "Purchase Content",
-    "subscribeTip": "Unlimited use after subscribing",
     "userAgreement": "User Agreement"
   },
   "study": {
@@ -3231,7 +3223,6 @@
       "empty": "No materials yet"
     },
     "qrCodeHint": "Scan the QR code to join the community",
-    "thinking": "Thinking...",
     "voice": {
       "listening": "Listening...",
       "tapToStop": "Tap to stop recording"
@@ -3259,16 +3250,6 @@
     "5": "Diamond",
     "6": "King",
     "distance": "To"
-  },
-  "messageCenter": {
-    "empty": "No messages",
-    "title": "Message Center",
-    "type": {
-      "course": "Course",
-      "order": "Order",
-      "social": "Social",
-      "system": "System"
-    }
   },
   "interaction": {
     "collect": "Favorited me",
@@ -3592,16 +3573,6 @@
     "d19": "Echoes of Deep Space",
     "r1": "In the data flood, we use code as pen and algorithms as ink, depicting poetry and horizons of the digital age. Every piece of text is an extension of thought, and every generation is the beginning of creation."
   },
-  "adaptersOrderScreentaro": {
-    "d1": "Pending payment",
-    "d2": "Paid",
-    "d3": "Pending payment",
-    "d4": "Paid"
-  },
-  "adaptersFeedbackScreentaro": {
-    "d1": "Please enter your feedback...",
-    "d2": "Contact (optional)"
-  },
   "aiAgentdetail": {
     "q1": "Get agent details",
     "r6": "Failed to get agent permission"
@@ -3639,11 +3610,6 @@
     "d16": "Brand, growth, SEO",
     "text1": "Skip",
     "z1": "Select your track of interest"
-  },
-  "adaptersPayButtontaro": {
-    "d1": "Free to use",
-    "d2": "/month",
-    "d3": "Purchased"
   },
   "aiSpecial": {
     "d1": "Google Gemini 2.5 Flash text model: fast responses, multimodal input",
@@ -3730,11 +3696,6 @@
     "d3": "Dark interface, eye-friendly and power-saving, ideal at night"
   },
   "AgentListPanel": {
-    "d1": "Free to use",
-    "d2": "/month",
-    "d3": "Purchased"
-  },
-  "PayButton": {
     "d1": "Free to use",
     "d2": "/month",
     "d3": "Purchased"
@@ -3923,27 +3884,10 @@
     "r2": "Jilin Aihui Artificial Intelligence Technology Co., Ltd.",
     "p1": "Ji ICP License No. 2025027274-7A"
   },
-  "last": {
-    "1": "AI IHUI |",
-    "3": "Payment integration pending backend"
-  },
-  "adaptersUserInfoCardtaro": {
-    "y1": "{p1}B",
-    "y2": "{p1}W"
-  },
-  "api": {
-    "y1": "Request failed({p1})",
-    "y2": "Request failed({p1})"
-  },
   "StudyStats": {
     "y1": "h, completed"
   },
   "tail": {
-    "1": "Select tracks you are interested in for personalized recommendations",
-    "2": "One-tap login",
-    "3": "Edit",
-    "4": "Remaining credits:",
-    "5": "Top up",
     "6": "No data",
     "7": "Retry",
     "8": "Loading...",
@@ -4005,9 +3949,6 @@
   },
   "VipUpgradeToast": {
     "p1": "Upgrade to unlock more features"
-  },
-  "adaptersCarouseltaro": {
-    "q1": "No carousel images"
   },
   "aboutApppermission": {
     "q1": "Get permission status"
