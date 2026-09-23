@@ -192,7 +192,9 @@ export function KnowledgeRagScreen() {
   const renderHeader = (title: string, onBack: () => void) => (
     <View className="flex-row items-center justify-between px-4 pb-2 pt-3">
       <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <Text className="text-sm text-gray-500">{t('common.back')}</Text>
+        <Text className="text-sm" style={{ color: tokens.text.tertiary }}>
+          {t('common.back')}
+        </Text>
       </TouchableOpacity>
       <Text className="max-w-[60%] truncate text-base font-medium">{title}</Text>
       <View className="w-10" />
@@ -226,9 +228,17 @@ export function KnowledgeRagScreen() {
 
   const renderError = (msg: string, onRetry: () => void) => (
     <View className="flex-1 items-center justify-center px-6">
-      <Text className="mb-3 text-center text-sm text-gray-500">{msg}</Text>
-      <TouchableOpacity onPress={onRetry} className="rounded-md bg-gray-200 px-4 py-2">
-        <Text className="text-sm">{t('knowledgeBase.retry')}</Text>
+      <Text className="mb-3 text-center text-sm" style={{ color: tokens.text.tertiary }}>
+        {msg}
+      </Text>
+      <TouchableOpacity
+        onPress={onRetry}
+        className="rounded-md px-4 py-2"
+        style={{ backgroundColor: tokens.surface.muted }}
+      >
+        <Text className="text-sm" style={{ color: tokens.text.primary }}>
+          {t('knowledgeBase.retry')}
+        </Text>
       </TouchableOpacity>
     </View>
   )
