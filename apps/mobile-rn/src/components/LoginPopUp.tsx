@@ -28,7 +28,7 @@
  * - onUpgrade? / onUpgradeTrader?:升级入口回调(跳会员/操盘手介绍弹窗)
  */
 import { tokens } from '../theme/active-tokens'
-import { withAlpha } from '@ihui/design-tokens'
+import { withAlpha, rnRadius } from '@ihui/design-tokens'
 import { Check } from 'lucide-react-native'
 import {
   ActivityIndicator,
@@ -90,14 +90,12 @@ const TITLE_MARGIN_BOTTOM = 8
 const DESCRIPTION_FONT_SIZE = 14
 const DESCRIPTION_MARGIN_BOTTOM = 24
 const BUTTON_HEIGHT = 48
-const BUTTON_BORDER_RADIUS = 8
 const BUTTON_FONT_SIZE = 15
 const PRIMARY_BUTTON_MARGIN_BOTTOM = 12
 const SECONDARY_BUTTON_MARGIN_BOTTOM = 24
 const AGREEMENT_FONT_SIZE = 11
 const AGREEMENT_GAP = 4
 const CHECKBOX_SIZE = 16
-const CHECKBOX_BORDER_RADIUS = 4
 const CLOSE_BUTTON_SIZE = 32
 const CLOSE_ICON_SIZE = 18
 const CLOSE_BUTTON_TOP = 8
@@ -109,7 +107,6 @@ const AVATAR_BORDER_WIDTH = 3
 const AVATAR_MARGIN_BOTTOM = 6
 const CHANGE_AVATAR_FONT_SIZE = 12
 const ROW_HEIGHT = 44
-const ROW_BORDER_RADIUS = 8
 const ROW_MARGIN_BOTTOM = 12
 const ROW_PADDING_HORIZONTAL = 12
 const ICON_SIZE = 20
@@ -118,7 +115,6 @@ const BODY_FONT_SIZE = 14
 const ACTION_FONT_SIZE = 16
 const UPGRADE_HEIGHT = 24
 const UPGRADE_PADDING_HORIZONTAL = 10
-const UPGRADE_BORDER_RADIUS = 6
 const HINT_FONT_SIZE = 11
 const ERROR_FONT_SIZE = 11
 const FOOTER_MARGIN_TOP = 8
@@ -495,8 +491,8 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     backgroundColor: tokens.surface.card,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: rnRadius['2xl'],
+    borderTopRightRadius: rnRadius['2xl'],
     paddingTop: CARD_PADDING_TOP,
     paddingHorizontal: CARD_PADDING_HORIZONTAL,
     paddingBottom: CARD_PADDING_BOTTOM,
@@ -505,7 +501,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     width: DRAG_BAR_WIDTH,
     height: DRAG_BAR_HEIGHT,
-    borderRadius: DRAG_BAR_HEIGHT / 2,
+    borderRadius: DRAG_BAR_HEIGHT / 2, // radius-exempt: 拖拽把手胶囊(高 4dp/2)
     backgroundColor: tokens.border.light,
     marginBottom: DRAG_BAR_MARGIN_BOTTOM,
   },
@@ -515,7 +511,7 @@ const styles = StyleSheet.create({
     right: CLOSE_BUTTON_RIGHT,
     width: CLOSE_BUTTON_SIZE,
     height: CLOSE_BUTTON_SIZE,
-    borderRadius: CLOSE_BUTTON_SIZE / 2,
+    borderRadius: CLOSE_BUTTON_SIZE / 2, // radius-exempt: 关闭按钮几何正圆(32dp 直径/2)
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -541,8 +537,8 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     height: BUTTON_HEIGHT,
-    borderRadius: BUTTON_BORDER_RADIUS,
-    backgroundColor: tokens.brand.DEFAULT,
+    borderRadius: rnRadius.lg,
+    backgroundColor: tokens.brand.ctaFill,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: PRIMARY_BUTTON_MARGIN_BOTTOM,
@@ -553,12 +549,12 @@ const styles = StyleSheet.create({
   primaryButtonLabel: {
     fontSize: BUTTON_FONT_SIZE,
     fontWeight: '500',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
     textAlign: 'center',
   },
   secondaryButton: {
     height: BUTTON_HEIGHT,
-    borderRadius: BUTTON_BORDER_RADIUS,
+    borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -582,7 +578,7 @@ const styles = StyleSheet.create({
   checkbox: {
     width: CHECKBOX_SIZE,
     height: CHECKBOX_SIZE,
-    borderRadius: CHECKBOX_BORDER_RADIUS,
+    borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.border.light,
     alignItems: 'center',
@@ -617,7 +613,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: AVATAR_SIZE,
     height: AVATAR_SIZE,
-    borderRadius: AVATAR_SIZE / 2,
+    borderRadius: AVATAR_SIZE / 2, // radius-exempt: 头像几何正圆(72dp 直径/2)
     borderWidth: AVATAR_BORDER_WIDTH,
     borderColor: tokens.border.medium,
     backgroundColor: tokens.surface.card,
@@ -646,7 +642,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     height: ROW_HEIGHT,
-    borderRadius: ROW_BORDER_RADIUS,
+    borderRadius: rnRadius.lg,
     paddingHorizontal: ROW_PADDING_HORIZONTAL,
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
@@ -659,7 +655,7 @@ const styles = StyleSheet.create({
   iconBadge: {
     width: ICON_SIZE,
     height: ICON_SIZE,
-    borderRadius: ICON_SIZE / 2,
+    borderRadius: ICON_SIZE / 2, // radius-exempt: 行首图标徽标几何正圆(20dp 直径/2)
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.border.medium,
@@ -686,7 +682,7 @@ const styles = StyleSheet.create({
   upgradeButton: {
     height: UPGRADE_HEIGHT,
     paddingHorizontal: UPGRADE_PADDING_HORIZONTAL,
-    borderRadius: UPGRADE_BORDER_RADIUS,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.warning.amber,
     alignItems: 'center',
     justifyContent: 'center',
@@ -702,7 +698,7 @@ const styles = StyleSheet.create({
   bindButton: {
     height: UPGRADE_HEIGHT,
     paddingHorizontal: UPGRADE_PADDING_HORIZONTAL,
-    borderRadius: UPGRADE_BORDER_RADIUS,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
@@ -735,7 +731,7 @@ const styles = StyleSheet.create({
   footerButton: {
     flex: 1,
     height: FOOTER_BUTTON_HEIGHT,
-    borderRadius: BUTTON_BORDER_RADIUS,
+    borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.brand.DEFAULT,
     backgroundColor: tokens.surface.card,

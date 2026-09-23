@@ -4,6 +4,8 @@
 
 'use client'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 
@@ -83,7 +85,7 @@ export default function ContextCompactionPanel({ sessionId }: { sessionId: strin
                 flexDirection: 'column',
                 gap: 4,
                 border: '1px solid #e5e5e5',
-                borderRadius: 6,
+                borderRadius: rnRadius.md,
                 padding: 8,
               }}
             >

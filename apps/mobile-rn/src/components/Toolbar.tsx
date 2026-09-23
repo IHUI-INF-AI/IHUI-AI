@@ -49,6 +49,8 @@ import {
   type LucideIcon,
 } from 'lucide-react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 旧版工具按钮项(保留契约,供既有调用方使用) */
 export interface ToolbarItem {
   /** 唯一标识(用于 activeKey 匹配 + React key) */
@@ -300,7 +302,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     backgroundColor: tokens.surface.muted,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     gap: 4,
     marginBottom: 10,
   },
@@ -311,7 +313,7 @@ const styles = StyleSheet.create({
   tool: {
     width: 32,
     height: 32,
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -355,7 +357,7 @@ const styles = StyleSheet.create({
   serviceItem: {
     width: '31%',
     height: 70,
-    borderRadius: 15,
+    borderRadius: rnRadius['2xl'],
     paddingVertical: 10,
     flexDirection: 'column',
     alignItems: 'center',
@@ -428,7 +430,7 @@ const styles = StyleSheet.create({
     top: 20,
     height: 80,
     width: '100%',
-    borderRadius: 15,
+    borderRadius: rnRadius['2xl'],
     backgroundColor: tokens.surface.card,
     flexDirection: 'column',
     justifyContent: 'center',
@@ -456,7 +458,7 @@ const styles = StyleSheet.create({
   toolCell: {
     width: '48.5%',
     height: 53,
-    borderRadius: 27,
+    borderRadius: 27, // radius-exempt: 工具格胶囊端=cell 高度 53 的一半
     marginBottom: 10,
     backgroundColor: tokens.surface.card,
     flexDirection: 'row',
@@ -465,7 +467,7 @@ const styles = StyleSheet.create({
   toolIconWrap: {
     width: 38,
     height: 38,
-    borderRadius: 19,
+    borderRadius: 19, // radius-exempt: 图标底 38×38 正圆(直径一半)
     marginLeft: 8,
     alignItems: 'center',
     justifyContent: 'center',
@@ -495,7 +497,7 @@ const styles = StyleSheet.create({
   customWrap: {
     width: '100%',
     height: 53,
-    borderRadius: 10,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.success.light,
     flexDirection: 'row',
     alignItems: 'center',
