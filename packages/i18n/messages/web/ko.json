@@ -7485,6 +7485,490 @@
       },
       "toolSummaryShowMore": "더 보기",
       "toolSummaryShowLess": "접기",
+      "handoff": {
+        "title": "실패 진단 인계서",
+        "ariaLabel": "실패 진단 인계서",
+        "section": {
+          "diagnosis": "진단 방법",
+          "fixSteps": "시도한 복구 단계",
+          "evidence": "마스킹된 증거:",
+          "productSurface": "제품 화면"
+        },
+        "source": {
+          "local": "로컬 판정",
+          "external": "보조 신호"
+        },
+        "externalCaveat": "외부 서비스가 down을 반환해도 보조 신호로만 사용하며 단독으로 결론 삼지 않습니다(네트워크 연결 불가 ≠ 실패).",
+        "localUnknown": "로컬에 확정적 판정 근거가 없어 결론을 내리지 않았습니다",
+        "empty": {
+          "fixSteps": "시도한 복구 단계 없음",
+          "evidence": "사용 가능한 증거 없음",
+          "productSurface": "제품 화면 정보 없음",
+          "incidents": "관련 인시던트 없음"
+        },
+        "incidentLine": "상태: 관련 가능성이 있는 인시던트: {incidentNames}",
+        "truncated": "{count}자 생략됨",
+        "degraded": "데이터 소스에 연결할 수 없습니다. 아래는 로컬에서 확보한 정보만 담았습니다(네트워크 연결 불가 ≠ 실패)",
+        "redacted": "이 인계서는 마스킹되었습니다(키 / 토큰 / 이메일 / IP 대체)",
+        "copy": "인계서 복사",
+        "copied": "인계서를 복사했습니다"
+      },
+      "turnStatus": {
+        "title": "턴 상태",
+        "state": {
+          "queued": "대기 중",
+          "preparing": "준비 중",
+          "thinking": "생각 중",
+          "usingTool": "도구 사용 중",
+          "waitingConfirm": "확인 대기 중",
+          "backgroundRunning": "백그라운드 실행 중",
+          "stopping": "중지 중",
+          "completed": "완료",
+          "failed": "실패",
+          "stopped": "중지됨"
+        },
+        "aria": {
+          "queued": "이 턴은 대기 중입니다. 앞선 요청이 끝나면 시작합니다",
+          "preparing": "이 턴의 컨텍스트를 준비하고 있습니다",
+          "thinking": "모델이 생각하고 있습니다",
+          "usingTool": "도구를 사용하고 있습니다",
+          "waitingConfirm": "이 턴은 일시 중지되었으며 확인해야 재개됩니다",
+          "backgroundRunning": "이 턴은 백그라운드로 이동했습니다. 새 입력을 계속할 수 있습니다",
+          "stopping": "이 턴을 중지하고 있습니다",
+          "completed": "이 턴이 완료되었습니다",
+          "failed": "이 턴이 실패했습니다. 재시도할 수 있습니다",
+          "stopped": "이 턴이 중지되었습니다. 계속할 수 있습니다"
+        },
+        "hint": {
+          "queued": "앞선 요청이 끝나면 자동으로 시작됩니다",
+          "waitingConfirm": "확인할 때까지 일시 중지됩니다. 자동으로 재개되지 않습니다",
+          "backgroundRunning": "백그라운드에서 계속 실행됩니다. 새 입력을 막지 않습니다",
+          "stopping": "마무리 중입니다. 곧 중지됩니다"
+        },
+        "action": {
+          "stop": "중지",
+          "retry": "재시도",
+          "resume": "계속"
+        }
+      },
+      "errorCatalog": {
+        "ACCOUNT_RESTRICTED": {
+          "title": "계정이 제한되었습니다",
+          "action": "관리자에게 문의"
+        },
+        "API_BRIDGE_ERROR": {
+          "title": "API 브리지 호출이 실패했습니다",
+          "action": "나중에 재시도"
+        },
+        "BAD_PARAMS": {
+          "title": "파라미터가 불완전하거나 잘못되었습니다",
+          "action": "수정 후 재시도"
+        },
+        "BUDGET_EXHAUSTED": {
+          "title": "사용 한도를 모두 소진했습니다",
+          "action": "나중에 다시 시도하거나 무료 모델로 변경"
+        },
+        "CAPTURE_FAILED": {
+          "title": "도구 실행이 실패했습니다",
+          "action": "재시도"
+        },
+        "CDP_DISABLED": {
+          "title": "브라우저 디버그 채널을 사용할 수 없습니다",
+          "action": "활성화 후 재시도"
+        },
+        "CDP_UNAVAILABLE": {
+          "title": "브라우저 디버그 채널을 사용할 수 없습니다",
+          "action": "활성화 후 재시도"
+        },
+        "CONCURRENCY_LIMIT_EXCEEDED": {
+          "title": "요청이 너무 잦습니다",
+          "action": "나중에 재시도"
+        },
+        "CONTEXT_TOO_LONG": {
+          "title": "컨텍스트가 너무 깁니다",
+          "action": "컨텍스트 축소"
+        },
+        "CRON_NOT_SUPPORTED": {
+          "title": "예약 설정이 잘못되었습니다",
+          "action": "예약 설정 수정 후 재시도"
+        },
+        "DANGEROUS_COMMAND": {
+          "title": "이 작업은 보안 정책에 의해 차단되었습니다",
+          "action": "수정 후 재시도"
+        },
+        "DANGEROUS_COMMAND_BLOCKED": {
+          "title": "이 작업은 보안 정책에 의해 차단되었습니다",
+          "action": "수정 후 재시도"
+        },
+        "DELEGATE_ERROR": {
+          "title": "하위 작업 실행이 실패했습니다",
+          "action": "재시도"
+        },
+        "DELEGATE_NO_RESULT": {
+          "title": "하위 작업 실행이 실패했습니다",
+          "action": "재시도"
+        },
+        "DELEGATE_TIMEOUT": {
+          "title": "요청 시간이 초과되었습니다",
+          "action": "재시도"
+        },
+        "DEP_MISSING": {
+          "title": "종속성이 누락되었습니다",
+          "action": "종속성 설치 후 재시도"
+        },
+        "DOWNLOAD_FAILED": {
+          "title": "네트워크 요청이 실패했습니다",
+          "action": "네트워크 확인 후 재시도"
+        },
+        "DUAL_MODE": {
+          "title": "파라미터가 불완전하거나 잘못되었습니다",
+          "action": "수정 후 재시도"
+        },
+        "EMPTY_AUDIO": {
+          "title": "파라미터가 불완전하거나 잘못되었습니다",
+          "action": "수정 후 재시도"
+        },
+        "EMPTY_DIFF": {
+          "title": "파라미터가 불완전하거나 잘못되었습니다",
+          "action": "수정 후 재시도"
+        },
+        "EMPTY_OLD_STRING": {
+          "title": "파라미터가 불완전하거나 잘못되었습니다",
+          "action": "수정 후 재시도"
+        },
+        "EMPTY_RESULT": {
+          "title": "표시할 결과가 없습니다",
+          "action": "수정 후 재시도"
+        },
+        "EMPTY_TASKS": {
+          "title": "파라미터가 불완전하거나 잘못되었습니다",
+          "action": "수정 후 재시도"
+        },
+        "ENCODING_ERROR": {
+          "title": "파일 읽기/쓰기가 실패했습니다",
+          "action": "파일 확인 후 재시도"
+        },
+        "ENGINE_ERROR": {
+          "title": "서비스 내부 처리 오류",
+          "action": "재시도"
+        },
+        "ENGINE_UNAVAILABLE": {
+          "title": "모델 서비스를 일시적으로 사용할 수 없습니다",
+          "action": "모델을 바꾸거나 나중에 재시도"
+        },
+        "EXECUTION_EXCEPTION": {
+          "title": "서비스 내부 처리 오류",
+          "action": "재시도"
+        },
+        "EXECUTION_FAILED": {
+          "title": "서비스 내부 처리 오류",
+          "action": "재시도"
+        },
+        "EXECUTOR_DISABLED": {
+          "title": "이 기능은 비활성화되었습니다",
+          "action": "관리자에게 문의"
+        },
+        "EXEC_POLICY_DENIED": {
+          "title": "이 작업은 보안 정책에 의해 차단되었습니다",
+          "action": "수정 후 재시도"
+        },
+        "EXEC_POLICY_NEEDS_APPROVAL": {
+          "title": "실행하려면 확인이 필요합니다",
+          "action": "확인하기"
+        },
+        "FALLBACK_FAILED": {
+          "title": "모델 서비스를 일시적으로 사용할 수 없습니다",
+          "action": "모델을 바꾸거나 나중에 재시도"
+        },
+        "FETCH_FAILED": {
+          "title": "네트워크 요청이 실패했습니다",
+          "action": "네트워크 확인 후 재시도"
+        },
+        "FILE_NOT_FOUND": {
+          "title": "대상 리소스를 찾을 수 없습니다",
+          "action": "확인 후 재시도"
+        },
+        "FILE_TOO_LARGE": {
+          "title": "파일이 너무 큽니다",
+          "action": "파일을 줄이고 재시도"
+        },
+        "GENERATION_FAILED": {
+          "title": "생성이 실패했습니다",
+          "action": "재시도"
+        },
+        "GITHUB_API_ERROR": {
+          "title": "외부 서비스 호출이 실패했습니다",
+          "action": "나중에 재시도"
+        },
+        "IMAGE_FETCH_FAILED": {
+          "title": "네트워크 요청이 실패했습니다",
+          "action": "네트워크 확인 후 재시도"
+        },
+        "IMAGE_TOO_LARGE": {
+          "title": "이미지가 너무 큽니다",
+          "action": "이미지를 압축하고 재시도"
+        },
+        "INTERNAL_AUTH_UNAVAILABLE": {
+          "title": "로그인이 만료되었습니다",
+          "action": "다시 로그인"
+        },
+        "INTERNAL_ERROR": {
+          "title": "서비스 내부 처리 오류",
+          "action": "재시도"
+        },
+        "INVALID_ARGS": {
+          "title": "파라미터가 불완전하거나 잘못되었습니다",
+          "action": "수정 후 재시도"
+        },
+        "INVALID_ARGUMENT": {
+          "title": "파라미터가 불완전하거나 잘못되었습니다",
+          "action": "수정 후 재시도"
+        },
+        "INVALID_CHART_TYPE": {
+          "title": "파라미터가 불완전하거나 잘못되었습니다",
+          "action": "수정 후 재시도"
+        },
+        "INVALID_CONFIG": {
+          "title": "파라미터가 불완전하거나 잘못되었습니다",
+          "action": "수정 후 재시도"
+        },
+        "INVALID_DATA": {
+          "title": "파라미터가 불완전하거나 잘못되었습니다",
+          "action": "수정 후 재시도"
+        },
+        "INVALID_OUTPUT_DIR": {
+          "title": "파라미터가 불완전하거나 잘못되었습니다",
+          "action": "수정 후 재시도"
+        },
+        "INVALID_PARAMS": {
+          "title": "파라미터가 불완전하거나 잘못되었습니다",
+          "action": "수정 후 재시도"
+        },
+        "INVALID_PR": {
+          "title": "파라미터가 불완전하거나 잘못되었습니다",
+          "action": "수정 후 재시도"
+        },
+        "INVALID_PROVIDER": {
+          "title": "모델 서비스를 일시적으로 사용할 수 없습니다",
+          "action": "모델을 바꾸거나 나중에 재시도"
+        },
+        "INVALID_REPO": {
+          "title": "파라미터가 불완전하거나 잘못되었습니다",
+          "action": "수정 후 재시도"
+        },
+        "INVALID_TRIGGER": {
+          "title": "예약 설정이 잘못되었습니다",
+          "action": "예약 설정 수정 후 재시도"
+        },
+        "IS_A_DIRECTORY": {
+          "title": "파라미터가 불완전하거나 잘못되었습니다",
+          "action": "수정 후 재시도"
+        },
+        "LLM_ERROR": {
+          "title": "모델 서비스를 일시적으로 사용할 수 없습니다",
+          "action": "모델을 바꾸거나 나중에 재시도"
+        },
+        "LLM_FAILED": {
+          "title": "모델 서비스를 일시적으로 사용할 수 없습니다",
+          "action": "모델을 바꾸거나 나중에 재시도"
+        },
+        "MEDIA_COUNT_EXCEEDED": {
+          "title": "미디어 파일 개수가 제한을 초과했습니다",
+          "action": "첨부를 줄이고 재시도"
+        },
+        "MISSING_DATA": {
+          "title": "필수 파라미터가 없습니다",
+          "action": "파라미터를 채우고 재시도"
+        },
+        "MISSING_PARAMS": {
+          "title": "필수 파라미터가 없습니다",
+          "action": "파라미터를 채우고 재시도"
+        },
+        "MISSING_PATH_PARAM": {
+          "title": "필수 파라미터가 없습니다",
+          "action": "파라미터를 채우고 재시도"
+        },
+        "MISSING_SECRET": {
+          "title": "사용 가능한 모델 서비스가 구성되지 않았습니다",
+          "action": "먼저 모델 서비스 구성"
+        },
+        "MISSING_TITLE": {
+          "title": "필수 파라미터가 없습니다",
+          "action": "파라미터를 채우고 재시도"
+        },
+        "MODEL_NOT_CONFIGURED": {
+          "title": "사용 가능한 모델 서비스가 구성되지 않았습니다",
+          "action": "먼저 모델 서비스 구성"
+        },
+        "MODEL_REFUSED": {
+          "title": "현재 모델이 이 요청을 거부했습니다",
+          "action": "모델 변경"
+        },
+        "MULTIPLE_MATCHES": {
+          "title": "파라미터가 불완전하거나 잘못되었습니다",
+          "action": "수정 후 재시도"
+        },
+        "NESTING_DEPTH_EXCEEDED": {
+          "title": "구조 깊이가 처리 범위를 초과했습니다",
+          "action": "단순화 후 재시도"
+        },
+        "NETWORK_APPROVAL_DENIED": {
+          "title": "실행하려면 확인이 필요합니다",
+          "action": "확인하기"
+        },
+        "NETWORK_ERROR": {
+          "title": "네트워크 요청이 실패했습니다",
+          "action": "네트워크 확인 후 재시도"
+        },
+        "NOT_A_DIRECTORY": {
+          "title": "파라미터가 불완전하거나 잘못되었습니다",
+          "action": "수정 후 재시도"
+        },
+        "NOT_FOUND": {
+          "title": "대상 리소스를 찾을 수 없습니다",
+          "action": "확인 후 재시도"
+        },
+        "NO_FILE_VERSIONS": {
+          "title": "파일 버전을 사용할 수 없습니다",
+          "action": "버전을 선택하고 재시도"
+        },
+        "OLD_STRING_NOT_FOUND": {
+          "title": "대상 리소스를 찾을 수 없습니다",
+          "action": "확인 후 재시도"
+        },
+        "PATH_NOT_ALLOWED": {
+          "title": "경로가 허용 범위를 벗어났습니다",
+          "action": "다른 경로로 재시도"
+        },
+        "PATH_NOT_IN_WORKSPACE": {
+          "title": "경로가 허용 범위를 벗어났습니다",
+          "action": "다른 경로로 재시도"
+        },
+        "PERMISSION_DENIED": {
+          "title": "이 작업을 실행할 권한이 없습니다",
+          "action": "관리자에게 문의"
+        },
+        "PROVIDER_ERROR": {
+          "title": "모델 서비스를 일시적으로 사용할 수 없습니다",
+          "action": "모델을 바꾸거나 나중에 재시도"
+        },
+        "PROVIDER_NOT_CONFIGURED": {
+          "title": "사용 가능한 모델 서비스가 구성되지 않았습니다",
+          "action": "먼저 모델 서비스 구성"
+        },
+        "PROVIDER_QUOTA_EXHAUSTED": {
+          "title": "사용 한도를 모두 소진했습니다",
+          "action": "나중에 다시 시도하거나 무료 모델로 변경"
+        },
+        "PR_NOT_FOUND": {
+          "title": "대상 리소스를 찾을 수 없습니다",
+          "action": "확인 후 재시도"
+        },
+        "RATE_LIMITED": {
+          "title": "요청이 너무 잦습니다",
+          "action": "나중에 재시도"
+        },
+        "REQUEST_TIMEOUT": {
+          "title": "요청 시간이 초과되었습니다",
+          "action": "재시도"
+        },
+        "RESOURCE_NOT_REGISTERED": {
+          "title": "대상 리소스를 찾을 수 없습니다",
+          "action": "확인 후 재시도"
+        },
+        "RISK_CONFIRM_REQUIRED": {
+          "title": "실행하려면 확인이 필요합니다",
+          "action": "확인하기"
+        },
+        "SCHEME_REJECTED": {
+          "title": "이 주소는 접근이 허용되지 않습니다",
+          "action": "다른 주소로 재시도"
+        },
+        "SCREENSHOT_FAILED": {
+          "title": "도구 실행이 실패했습니다",
+          "action": "재시도"
+        },
+        "SENSITIVE_FILE_BLOCKED": {
+          "title": "이 작업은 보안 정책에 의해 차단되었습니다",
+          "action": "수정 후 재시도"
+        },
+        "SSRF_BLOCKED": {
+          "title": "이 주소는 접근이 허용되지 않습니다",
+          "action": "다른 주소로 재시도"
+        },
+        "STEP_FAILED": {
+          "title": "도구 실행이 실패했습니다",
+          "action": "재시도"
+        },
+        "SUBAGENT_FAILED": {
+          "title": "하위 작업 실행이 실패했습니다",
+          "action": "재시도"
+        },
+        "TASK_FAILED": {
+          "title": "하위 작업 실행이 실패했습니다",
+          "action": "재시도"
+        },
+        "TEXT_TOO_LONG": {
+          "title": "컨텍스트가 너무 깁니다",
+          "action": "컨텍스트 축소"
+        },
+        "TIMEOUT": {
+          "title": "요청 시간이 초과되었습니다",
+          "action": "재시도"
+        },
+        "TOKEN_EXPIRED": {
+          "title": "로그인이 만료되었습니다",
+          "action": "다시 로그인"
+        },
+        "TOOL_FAILED": {
+          "title": "도구 실행이 실패했습니다",
+          "action": "재시도"
+        },
+        "TOOL_NOT_FOUND": {
+          "title": "대상 리소스를 찾을 수 없습니다",
+          "action": "확인 후 재시도"
+        },
+        "TOO_LARGE": {
+          "title": "파일이 너무 큽니다",
+          "action": "파일을 줄이고 재시도"
+        },
+        "TRIAL_QUOTA_EXCEEDED": {
+          "title": "사용 한도를 모두 소진했습니다",
+          "action": "나중에 다시 시도하거나 무료 모델로 변경"
+        },
+        "UNKNOWN_API_TOOL": {
+          "title": "대상 리소스를 찾을 수 없습니다",
+          "action": "확인 후 재시도"
+        },
+        "UNSUPPORTED_FORMAT": {
+          "title": "지원되지 않는 파일 형식입니다",
+          "action": "지원되는 형식으로 재시도"
+        },
+        "UNSUPPORTED_IMAGE_FORMAT": {
+          "title": "지원되지 않는 파일 형식입니다",
+          "action": "지원되는 형식으로 재시도"
+        },
+        "VERSION_NOT_FOUND": {
+          "title": "파일 버전을 사용할 수 없습니다",
+          "action": "버전을 선택하고 재시도"
+        },
+        "VERSION_SELECTOR_REQUIRED": {
+          "title": "파일 버전을 사용할 수 없습니다",
+          "action": "버전을 선택하고 재시도"
+        },
+        "VERSION_TOO_LOW": {
+          "title": "버전이 너무 낮습니다",
+          "action": "최신 버전으로 업그레이드"
+        },
+        "VIDEO_FETCH_FAILED": {
+          "title": "네트워크 요청이 실패했습니다",
+          "action": "네트워크 확인 후 재시도"
+        },
+        "WRITE_FAILED": {
+          "title": "파일 읽기/쓰기가 실패했습니다",
+          "action": "파일 확인 후 재시도"
+        }
+      },
       "worktree": {
         "title": "Worktree",
         "state": {
@@ -7509,6 +7993,49 @@
           "dismiss": "확인"
         },
         "ariaLabel": "Worktree 수명 주기"
+      },
+      "sideTask": {
+        "title": "사이드 태스크",
+        "ariaLabel": "사이드 태스크 수명 주기",
+        "ephemeralNotice": "임시 태스크입니다. 닫으면 사라지며 다음에 열 때까지 보존되지 않습니다.",
+        "empty": "사이드 태스크가 없습니다",
+        "state": {
+          "running": "실행 중",
+          "completed": "완료됨",
+          "expired": "만료됨",
+          "cleaned": "정리됨"
+        },
+        "aria": {
+          "running": "사이드 태스크 실행 중",
+          "completed": "사이드 태스크 완료됨",
+          "expired": "사이드 태스크 만료됨",
+          "cleaned": "사이드 태스크 정리됨"
+        },
+        "hint": {
+          "expired": "임시 태스크 보존 기간이 지나 정리할 수 있습니다.",
+          "cleaned": "내용은 더 이상 볼 수 없고 제목만 남아 있습니다."
+        },
+        "location": {
+          "label": "실행 위치",
+          "sameFolder": "주 태스크와 같은 폴더",
+          "sameEnvironment": "주 태스크와 같은 실행 환경"
+        },
+        "cleanedFrom": "정리된 {title}에서 가져옴",
+        "files": {
+          "label": "파일 변경",
+          "changedCount": "{count}개 파일이 변경됨",
+          "empty": "이 사이드 태스크는 파일을 변경하지 않았습니다"
+        },
+        "action": {
+          "close": "태스크 닫기",
+          "cleanup": "만료된 태스크 정리"
+        },
+        "closeConfirm": {
+          "title": "이 사이드 태스크를 닫을까요?",
+          "desc": "이 임시 태스크에는 저장되지 않은 산출물 {artifacts}개와 아직 실행 중인 하위 프로세스 {children}개가 있습니다. 닫으면 즉시 사라지며 복구할 수 없습니다.",
+          "confirm": "그래도 닫기",
+          "cancel": "닫지 않음"
+        }
       },
       "writingBlock": {
         "title": "작성 블록",
