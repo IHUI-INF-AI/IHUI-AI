@@ -16,6 +16,8 @@
  * 6. 通过 background 中转 API(避免 content script 直连受 CORS 限制)
  */
 import type { ContentScriptContext } from 'wxt/utils/content-script-context'
+import { RADIUS_CSS_PX } from '@ihui/design-tokens'
+
 import {
   extractSelectionText,
   isValidSelection,
@@ -187,7 +189,7 @@ function insertTranslation(_original: string, translated: string) {
       background: var(--color-info-muted);
       color: var(--color-info-foreground);
       border-left: 2px solid var(--color-info);
-      border-radius: 4px;
+      border-radius: ${RADIUS_CSS_PX.sm};
       font-size: 12px;
       line-height: 1.5;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;

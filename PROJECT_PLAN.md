@@ -27,6 +27,8 @@
 - [x] ✅(2026-09-23)需人工定性 285 点 / 130 文件分 6 批并行处置完毕(6 批各自 validator 0 不达标;批 6 纠正工单对 SWIPER_RADIUS=30 的胶囊误判,实为 144 高轮播卡 → 吸附 16)
 - [x] ✅(2026-09-23)守门 77 `scripts/check-radius-single-source.mjs`(blocking,A 档位表四处对账 + B 端取用必须引用档位)+ 基线 30 处/7 文件(全为并行会话占用文件)+ 镜像测试 3 例 + guardian-runner 注册
 - [x] ✅(2026-09-23)全端验证:rn-app / mobile-rn / miniapp-taro / web 四端 tsc 0 错误、6 包 eslint 0 错误;RN 出包 grep 实证 1182 处 `rnRadius` 引用且 radius.js 进包;web DOM 计算值圆角直方图仅 6/8/12/4px(偏档 0);提交 36b1468b1 → 收敛 3e175a2b00c
+- [x] ✅(2026-09-23)守门 77 判据扩展:原 CSS 判据锚定行首,漏掉 `width:16px; border-radius:50%` 同行多声明与 **TS 模板字面量里生成的 CSS**(cli 分享页 / `packages/shared/src/design/design-templates.ts` / 扩展 content script),扩展后照出 33 处并全部收口为 `${RADIUS_CSS_PX.<step>}` 插值(新增该出口,值仍来自 radius.js);extension 因缺依赖改为补 `@ihui/design-tokens` workspace 依赖 + 定向 install;自检扩至 20 例
+- [x] ✅(2026-09-23)顺带清掉两处会让守门链整条失效的红:web `?raw` 导入无声明(全量 typecheck 恒红)→ 补 `apps/web/raw-imports.d.ts`;帮助面板遮罩 4 条 jsx-a11y 错误(在我提交集内致 lint-staged 必红 → 人人 --no-verify → 96 道门全关)→ 补 `role=presentation` + Escape,弹层改由遮罩判 `target === currentTarget`
 
 ### 影响面与豁免口径
 
@@ -4050,3 +4052,4 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - **该产物的可信度已量化,不可直接执行**:逐条回读原文核验得 **行号+styleName 命中率 182/260 = 70.0%**(78 条不中;成因一半是并发圆角会话正在移位、一半是代理自身错)。同一代理的另一项交付(媒体前景清单)被实测点出**两个根本不存在的落点**(`AigcCoverScreen.tsx:174`、`ImageGenHistoryScreen.tsx:338` 处 `grep surface.light` 均 0 命中)。故本文件只能当**待核验的起点**,按 §11 的"子代理交付须回读原文核验"逐条过,不得批量执行。
 - **族一/族二仍被并发会话整体阻塞**(判据见上一节):149 个含 `surface.light` 前景的文件**当前无一干净**。守门 75 的 R3 棘轮已锁住增量,故这些存量迁移**没有时效风险**(不会边迁边长),可安全等待。
 - 验证:`node scripts/heal-worktree-tracked.mjs --self-test` 14/14;`--align-drift` 不再崩;`node scripts/check-brand-foreground.mjs` 全量绿。
+- [ ]（进行中）RN 分类栏统一收口(承 2026-09-23 04:19 会话被取消的迁移,用户原话"所有的菜单栏分类栏没有设计好 统一 好看的符合项目统一的样式 点击后下拉窗的形式呈现 左右滑动"):地基 `packages/app/src/components/category/{CategoryInlineBar,CategoryDropdown}` 补包根导出(`@ihui/rn-app` 可直接 import,此前只到 `components/index.ts` 端内取不到)+ Dropdown 面板改 `ScrollView`(修"选项多于 8 条被 maxHeight+overflow:hidden 静默裁切")+ 圆角一律 `rnRadius` 档(对齐同日新立 §4 圆角单一源头)。**迁移面逐条落文件**:共享层 6 处 `packages/app/src/features/{square/SquareScreen,plaza/PlazaScreen,order/OrderScreen,team/TeamScreen,ranking/RankingScreen,token-value/TokenValueScreen}.tsx` + 端内 4 处 `apps/mobile-rn/src/{screens/ProfileScreen,screens/TokenValueScreen,screens/TopicListScreen,components/MaterialList}.tsx` + `apps/mobile-rn/src/screens/AgentScreen.tsx`(赛道弹层两横滑行,顺带删掉违规 `trackDivider` hairline 分割线)+ `packages/app/src/features/study-publish/StudyPublishScreen.tsx`(API 动态赛道列表改下拉窗,即 CategoryDropdown 的装车点)。收尾=升版重打 release + 真机逐处回归 + 孤儿组件(`StudyBar`/`SingleTypeBar`)按 §7 三问裁定。
