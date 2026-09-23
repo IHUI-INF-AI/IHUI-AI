@@ -7074,6 +7074,46 @@
       "rollbackConfirmConfirm": "確認恢復"
     },
     "pane": {
+      "moveToWorktree": {
+        "title": "將對話移交至工作樹",
+        "subtitle": "在新工作樹中檢出分支 <branch>{branchName}</branch>，以繼續並行工作。",
+        "continue": "移交",
+        "cancel": "取消",
+        "loading": "正在檢查能否移交…",
+        "existingWorktreeRunning": "請等待目前回覆完成後再移動此聊天",
+        "existingWorktreeLabel": "已有工作樹",
+        "createNewLabel": "建立新工作樹",
+        "targetLabel": "移交目標",
+        "localCheckoutLabel": "本地工作空間將切換至",
+        "localBranchPlaceholder": "選擇本地檢出分支",
+        "noTargetBranch": "沒有其他本地分支可用",
+        "branchesLoading": "正在載入分支…",
+        "branchesError": "分支載入失敗",
+        "branchesRetry": "重試",
+        "branchAlreadyExists": "該分支已有工作樹。",
+        "defaultBranchError": "工作樹分支必須不同於預設分支。",
+        "trailingSlashError": "分支名不能以\"/\"結尾。",
+        "worktreeBranchRequired": "請輸入工作樹分支名。",
+        "worktreeBranchAriaLabel": "工作樹分支名",
+        "worktreeBranchLabel": "工作樹分支名"
+      },
+      "editResend": {
+        "title": "回退檔案修改並重新發送？",
+        "ariaLabel": "回退檔案修改並重新發送",
+        "desc": "將回退本輪檔案變更，並用編輯後的內容重新發送訊息。",
+        "confirm": "回退並重新發送",
+        "cancel": "取消",
+        "previewFilesTitle": "將回退的檔案",
+        "previewEditTitle": "將重新發送的內容",
+        "fileRecorded": "檢查點已記錄",
+        "fileUnrecorded": "檢查點未記錄",
+        "previewFilesMore": "等 {count} 個檔案",
+        "detailAction": "查看逐檔案變更",
+        "detailLabel": "編輯重發 · 檔案回退影響預覽",
+        "warning": { "partialRollback": "部分修改未被檢查點完整記錄，回退結果可能不完整" },
+        "phase": { "idle": "待發起", "previewing": "預覽中", "confirmed": "已確認", "executing": "正在回退檔案並重新發送…", "completed": "已回退並重新發送", "editFailed": "編輯失敗", "rollbackFailed": "回退失敗", "rollbackPartial": "部分回退", "syncFailed": "本機同步失敗", "replaceFailed": "替換失敗" },
+        "failure": { "editFailed": "編輯內容未能套用，已停止執行。", "rollbackFailed": "檔案回退失敗，已停止執行。", "rollbackPartial": "僅部分檔案回退成功，已停止執行。", "syncFailed": "本機狀態同步失敗，已停止執行。", "replaceFailed": "訊息替換失敗，已停止執行。" }
+      },
       "agentActions": {
         "title": "多智能體操作",
         "header": {
@@ -21724,6 +21764,63 @@
     "purchase": "購買會員"
   },
   "wallet": {
+    "autoTopUp": {
+      "title": "自動儲值",
+      "description": "餘額低於門檻時,自動儲值到目標餘額。",
+      "enabled": "開啟自動儲值",
+      "enable": {
+        "success": "已開啟自動儲值",
+        "error": "開啟自動儲值失敗,請稍後再試"
+      },
+      "disable": {
+        "success": "已關閉自動儲值",
+        "error": "關閉自動儲值失敗,請稍後再試"
+      },
+      "save": {
+        "success": "已儲存自動儲值設定",
+        "error": "儲存自動儲值設定失敗,請稍後再試",
+        "action": "儲存自動儲值設定"
+      },
+      "dialog": {
+        "title": "確認開啟自動儲值",
+        "description": "開啟後,當餘額低於儲值門檻時,將自動扣款儲值到目標餘額。請確認這是你要的操作。",
+        "confirm": "確認開啟",
+        "cancel": "取消"
+      },
+      "target": {
+        "label": "目標餘額",
+        "helper": "餘額低於門檻時,自動儲值到此額度數。",
+        "ariaLabel": "目標餘額(額度數)",
+        "error": {
+          "missing": "請輸入目標餘額",
+          "wholeNumber": "目標餘額必須是整數",
+          "maximum": "目標餘額不得超過 {maximumCredits} 額度",
+          "minimumDifference": "目標餘額必須高於儲值門檻"
+        },
+        "equivalent": {
+          "loading": "正在取得價格…",
+          "text": "自動儲值 {creditCount} 額度,預計 <strong>{amount}</strong>",
+          "error": "取得價格失敗,請稍後再試"
+        }
+      },
+      "threshold": {
+        "label": "儲值門檻",
+        "helper": "餘額低於該額度數時觸發自動儲值。",
+        "ariaLabel": "儲值門檻(額度數)",
+        "error": {
+          "missing": "請輸入儲值門檻",
+          "wholeNumber": "儲值門檻必須是整數",
+          "minimum": "儲值門檻至少為 1"
+        }
+      },
+      "immediateTopUpFailure": {
+        "title": "首次自動儲值失敗",
+        "amount": "首次自動儲值預計 {amount},但付款未成功。",
+        "generic": "首次自動儲值未能完成。",
+        "updatePaymentMethod": "更新付款方式",
+        "buyCredits": "直接購買額度"
+      }
+    },
     "availableAmount": "可提現金額",
     "backToWallet": "返回錢包",
     "balance": "Token 餘額",
