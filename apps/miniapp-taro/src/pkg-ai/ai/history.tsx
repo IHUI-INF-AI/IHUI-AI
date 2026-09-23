@@ -250,7 +250,7 @@ export default function HistoryPage() {
         {FILTERS(tt).map((f) => (
           <View
             key={f.key}
-            className={`inline-flex items-center gap-[6rpx] py-[8rpx] px-[24rpx] bg-background rounded-[8rpx] flex-shrink-0 ${filter === f.key ? 'bg-primary text-foreground' : 'text-muted-foreground'}`}
+            className={`inline-flex items-center gap-[6rpx] py-[8rpx] px-[24rpx] bg-background rounded-sm flex-shrink-0 ${filter === f.key ? 'bg-primary text-foreground' : 'text-muted-foreground'}`}
             onClick={() => {
               setFilter(f.key)
               setPage(1)
@@ -287,7 +287,7 @@ export default function HistoryPage() {
             </Text>
             {!isFiltered ? (
               <Button
-                className="mt-[40rpx] px-[64rpx] h-[100rpx] leading-[100rpx] bg-primary text-[var(--color-surface-light)] rounded-[24rpx] text-[32rpx] font-semibold"
+                className="mt-[40rpx] px-[64rpx] h-[100rpx] leading-[100rpx] bg-primary text-[var(--color-surface-light)] rounded-xl text-[32rpx] font-semibold"
                 onClick={() => goChat()}
               >
                 {tt('ai.historyPage.startNew', '开始新对话')}
@@ -312,7 +312,7 @@ export default function HistoryPage() {
                     return (
                       <ThemeRoot
                         key={h.id}
-                        className="flex items-start p-[24rpx] mb-[16rpx] bg-card rounded-[16rpx]"
+                        className="flex items-start p-[24rpx] mb-[16rpx] bg-card rounded-lg"
                       >
                         <View
                           key={h.id}
@@ -320,7 +320,7 @@ export default function HistoryPage() {
                           onLongPress={() => onDeleteOne(h)}
                           hoverClass="opacity-60"
                         >
-                          <View className="w-[64rpx] h-[64rpx] flex items-center justify-center bg-background rounded-[12rpx] flex-shrink-0 mr-[20rpx]">
+                          <View className="w-[64rpx] h-[64rpx] flex items-center justify-center bg-background rounded-md flex-shrink-0 mr-[20rpx]">
                             <Image
                               src={iconFor(h)}
                               className="w-[40rpx] h-[40rpx]"

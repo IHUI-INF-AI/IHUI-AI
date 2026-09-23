@@ -141,12 +141,12 @@ export default function NewsDetailPage() {
             </View>
             {/* statRow:阅读/点赞 chip(白底圆角),对齐 RN statRow */}
             <View className="flex flex-row items-center gap-[16rpx] mb-[24rpx]">
-              <View className="flex flex-row items-center bg-card px-[16rpx] py-[4rpx] rounded-[16rpx]">
+              <View className="flex flex-row items-center bg-card px-[16rpx] py-[4rpx] rounded-lg">
                 <Text className="text-[22rpx] text-muted-foreground">
                   {tt('news.readCount', '{n}阅读', { n: news.views || 0 })}
                 </Text>
               </View>
-              <View className="flex flex-row items-center gap-[8rpx] bg-card px-[16rpx] py-[4rpx] rounded-[16rpx]">
+              <View className="flex flex-row items-center gap-[8rpx] bg-card px-[16rpx] py-[4rpx] rounded-lg">
                 <LineIcon name="heart" size={11} color="var(--color-muted-foreground)" />
                 <Text className="text-[22rpx] text-muted-foreground">{likes}</Text>
               </View>
@@ -167,13 +167,13 @@ export default function NewsDetailPage() {
               {related.map((r) => (
                 <View
                   key={r.id}
-                  className="flex gap-[20rpx] p-[20rpx] bg-card rounded-[16rpx]"
+                  className="flex gap-[20rpx] p-[20rpx] bg-card rounded-lg"
                   onClick={() => goRelated(r.id)}
                   hoverClass="opacity-60"
                 >
                   {r.coverUrl ? (
                     <Image
-                      className="w-[192rpx] h-[120rpx] rounded-[12rpx] shrink-0 bg-secondary"
+                      className="w-[192rpx] h-[120rpx] rounded-md shrink-0 bg-secondary"
                       src={r.coverUrl}
                       mode="aspectFill"
                     />
