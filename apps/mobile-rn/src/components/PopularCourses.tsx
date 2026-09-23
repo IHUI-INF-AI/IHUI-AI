@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
   vipBadgeText: {
     fontSize: 10,
     fontWeight: '600',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   },
   info: {
     paddingTop: 8,

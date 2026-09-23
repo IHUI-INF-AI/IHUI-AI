@@ -104,14 +104,29 @@ const passed = [];
  * 后端生产但前端无需逐名消费的已知合法事件(警告豁免)。
  * 每项必须写清理由; 新增白名单项须在 PR 描述中给出同等证据。
  */
-const WHITELIST = []
-// D44(2026-09-23 收口):原 10 条兜底事件已全部处置,白名单归零(长度只减不增,
-// H15 要求 D44 收口时归零)。其中 task_progress / worker_status / dag_level_advanced /
-// log 为死声明(无生产点),已从 packages/types AgentSSEEvent 与 dag_scheduler.AgentSSEEvent
-// 回收(case b);status / memory_context / step_start / step_done / trace / trace_summary 为
-// langgraph 引擎退役后的内部可观测信号,AgentPane onEvent 兜底静默忽略,显式声明不渲染上屏
-// (case c,结论见 PROJECT_PLAN.md D44 处置行)。后续新增事件必须同时进 sse_contract.py 与
-// contract.ts,并经对账强制,禁止再以白名单静默豁免。
+const WHITELIST = [
+  // —— 看板 AgentSSEEvent 流(/agents/kanban/tasks/stream, 匿名 data 事件)——
+  // 消费模式: useAgentSSE.onmessage 泛型 JSON 解析 → setLastEvent 统一分发 +
+  // 高优 6 type 显式分支(invalidateQueries), 其余 type 天然无逐名分支。
+  { name: 'task_progress', reason: '看板进度事件,useAgentSSE.onmessage 泛型接收(setLastEvent)统一分发,无需逐名分支' },
+  { name: 'worker_status', reason: 'worker 状态事件,useAgentSSE.onmessage 泛型接收,当前无逐名消费需求' },
+  { name: 'dag_level_advanced', reason: 'DAG 层级推进事件,AgentSSEEvent 契约声明+预留,前端经 onmessage 泛型透传' },
+  { name: 'log', reason: '日志型事件,经 onmessage 泛型透传/日志视图消费,无需逐名监听' },
+  // —— /agents/execute/stream(langgraph_service + hook 映射)——
+  // 消费模式: packages/api-client executeAgentStream 的 dispatchSSEEvent
+  // onEvent 兜底统一分发(default 分支注释明确列出这些 type),
+  // 属任务约定的「SSE 客户端库统一分发」合法场景。
+  { name: 'status', reason: 'langgraph 状态流转事件,api-client onEvent 兜底统一分发' },
+  // P0-5(2026-09-13):agents.py "plan.step"→"plan-step" 新映射,后端已生产,
+  // 前端 use-agent-runtime 消费点由 P0-5 web 端任务接线 —— P0-5 web 端接线后移除本条目
+  // P0-5(2026-09-13):plan-step 待消费豁免已移除 —— use-agent-runtime 已接线逐名消费,
+  // plan-step 现为强制对账事件(后端生产但前端漏消费将告警)
+  { name: 'memory_context', reason: 'langgraph 记忆上下文事件,api-client onEvent 兜底统一分发' },
+  { name: 'step_start', reason: 'langgraph 步骤开始事件,api-client onEvent 兜底统一分发' },
+  { name: 'step_done', reason: 'langgraph 步骤完成事件,api-client onEvent 兜底统一分发' },
+  { name: 'trace', reason: 'langgraph 执行轨迹事件,api-client onEvent 兜底统一分发' },
+  { name: 'trace_summary', reason: 'langgraph 轨迹汇总事件,api-client onEvent 兜底统一分发' },
+];
 
 /**
  * 前端存在监听/分支但后端已无对应 SSE 生产的**历史遗留分支**(阻断豁免)。
@@ -523,7 +538,7 @@ console.log(`\n${C.cyan}[3/4] 扫描器自失效防护${C.reset}`);
 const SANITY_MIN = [
   { key: 'tsLiteral', min: 1, label: 'TS 字面量命名事件(agent-runtime.ts 至少写出 event: error)' },
   { key: 'tsBroadcast', min: 3, label: 'TS broadcastSSEEvent 广播(看板/锁/任务至少 3 处)' },
-  { key: 'tsContract', min: 6, label: 'AgentSSEEvent 契约声明(当前 6 个 type;D44 回收 task_progress/worker_status/dag_level_advanced/log 死声明)' },
+  { key: 'tsContract', min: 8, label: 'AgentSSEEvent 契约声明(当前 10 个 type)' },
   { key: 'pyMapping', min: 5, label: 'PY hook→SSE 映射表(当前 7 条)' },
   { key: 'pyDict', min: 3, label: 'PY 事件 dict 字面量(start/done/error)' },
   { key: 'tsSharedContract', min: 19, label: '共享 SSE 契约 TS 侧事件数(#25, 当前 24 个)' },
