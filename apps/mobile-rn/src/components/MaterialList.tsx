@@ -35,6 +35,7 @@ import {
 } from 'react-native'
 import { useCallback, useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
+import { rnRadius } from '@ihui/design-tokens'
 
 /** 素材类型(文本/图片/视频/音频;doc 保留向后兼容,供 AigcList/Assistant 屏使用) */
 export type MaterialType = 'text' | 'image' | 'video' | 'audio' | 'doc'
@@ -351,7 +352,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,
   },
   detailBtnText: {
@@ -367,7 +368,7 @@ const styles = StyleSheet.create({
   thumb: {
     width: 50,
     height: 50,
-    borderRadius: 4,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,
   },
   thumbPlaceholder: {
