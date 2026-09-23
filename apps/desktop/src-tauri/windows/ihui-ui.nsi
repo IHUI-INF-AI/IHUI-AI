@@ -80,8 +80,6 @@ Var IHUICNC        ; 安装页品牌"取消"按钮(真 BUTTON+BS_BITMAP,点击�
 Var IHUI_LOGN      ; 打点单调序号(-DIHUI_TRACE 构建用于让文件名字典序==执行序)
 Var IHUIHOST       ; 内层 nsDialogs dialog 句柄(自绘控件宿主)
 Var IHUIDPIW       ; 窗口 DPI(换算中间量)
-Var IHUIR6         ; region 计算临时量(宽-2)
-Var IHUIR7         ; region 计算临时量(高-2)
 Var IHUIPassive    ; 模板 PassiveMode 别名(本文件先于模板 Var 声明被编译,不能直接引用)
 Var IHUINOSC       ; 模板 NoShortcutMode 别名(/NS 静默不建快捷方式)
 Var IHUIFALL       ; 品牌资产不可用降级闸(0=品牌 UI 1=任一 LoadImage 最终失败 → 让原生向导接管)
@@ -1612,7 +1610,8 @@ FunctionEnd
 ;   整卡 overlay(NSD_OnClick)+ 指示器 STATIC(maint-radio-on/off.bmp 两态换图)
 ;   + 文字 STATIC(品牌字体,文案进入页面时从 radio 原文字读出)。
 ;   DPI 加固:重取 GetDpiForWindow,与 GUIINIT 时不一致(显示缩放被外部改变,
-;   DefWindowProc 已按建议矩形改了窗口尺寸)则重跑一轮定档定位刷新 $IHUIDPIW/
+;   DefWindowProc 已按建议矩形改了窗口尺寸)则重跑**两轮**定档定位(与 GUIINIT_COMMON
+;   同口径,见 IHUI_GUIINIT_SIZE 宏注释)刷新 $IHUIDPIW/
 ;   $IHUIWW/$IHUIWH/$IHUIWTIER,并**同步重算窗口裁剪区域**(IHUI_WINDOW_RGN;
 ;   DWM 圆角不可用的回退分支会把 region 钉在旧档尺寸上,只重摆控件 = 右/下被裁)
 ;   —— 无变化时整段跳过,其他页行为零改变。
@@ -1652,6 +1651,16 @@ FunctionEnd
     System::Call "user32::SystemParametersInfoW(i 0x0030, i 0, p r3, i 0)"
     System::Call "*$3(i .R5, i .R6, i .R7, i .R8)"
     System::Free $3
+    ; 两轮**紧邻**定档,与 IHUI_GUIINIT_COMMON 同口径(2026-09-23 收口:本分支此前只跑
+    ; 一轮,跨屏搬迁时比定窗路径少一轮收敛)。根因见宏注释:首轮把窗口 SetWindowPos 到
+    ; 目标屏之后 per-monitor DPI 才生效,不复读重算则档位/坐标整体错一档。
+    ; $R5..$R8(工作区矩形)在定档过程中只被读、不被写,故第二轮无需重跑
+    ; SystemParametersInfoW;两轮之间也不得依赖任何寄存器存活($R2/$R3 由本分支首尾
+    ; 的 $1/$2 保存-写回兜住)。
+    ; ⚠️ 第二轮必须排在下面 IHUI_WINDOW_RGN **之前**:该宏把 $R6/$R7 用作临时量
+    ; (区域句柄/圆角直径),把它夹在两轮中间,第二轮读到的就是脏工作区矩形 → 窗口被
+    ; 摆到屏外。
+    !insertmacro IHUI_GUIINIT_SIZE
     !insertmacro IHUI_GUIINIT_SIZE
     ; 裁剪区域必须跟窗口框一起重算:IHUI_GUIINIT_COMMON 的回退分支(Win10 无 DWM
     ; 圆角时)把窗口 region 硬钉在当时的 $IHUIWW/$IHUIWH 上,SetWindowPos 放大窗口

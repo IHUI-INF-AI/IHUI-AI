@@ -524,6 +524,31 @@ export function checkDpiReanchorCompleteness({ uiSrc, installerSrc }) {
         )
       }
     }
+    // ②b 收敛轮数与顺序(2026-09-25 立):重锚必须与 IHUI_GUIINIT_COMMON 同口径跑**两轮**
+    // IHUI_GUIINIT_SIZE。首轮 SetWindowPos 把窗口挪到目标屏后 per-monitor DPI 才生效,
+    // 只跑一轮 = 跨屏搬迁时档位/控件坐标整体错一档(2026-09-19 真机 125%/150% 双屏实锤)。
+    // 只数**行首锚定**的插入行(注释里提到宏名不计),故夹注释、改缩进都不会误红。
+    const insertAt = (src, macro) => {
+      const re = new RegExp(`^[ \\t]*!insertmacro[ \\t]+${macro}\\b[ \\t]*(?:;[^\\r\\n]*)?\\r?$`, 'gim')
+      const hits = []
+      let m
+      while ((m = re.exec(src)) !== null) hits.push(m.index)
+      return hits
+    }
+    const sizeAt = insertAt(branch, 'IHUI_GUIINIT_SIZE')
+    const rgnAt = insertAt(branch, 'IHUI_WINDOW_RGN')
+    if (sizeAt.length === 1) {
+      v.push(
+        '重装页 DPI 重锚分支只跑 1 轮 IHUI_GUIINIT_SIZE,与 IHUI_GUIINIT_COMMON 的两轮口径不一致 —— 首轮 SetWindowPos 把窗口挪到目标屏后 per-monitor DPI 才生效,不复读重算则跨屏搬迁时档位与控件坐标整体错一档(窗口框与 region 一起偏)。必须紧邻补跑第二轮,不得改回单轮。',
+      )
+    }
+    // 两轮之间不得夹 IHUI_WINDOW_RGN:该宏把 $R6/$R7 当临时量(区域句柄/圆角直径),
+    // 夹在中间会让第二轮读到脏的工作区矩形 → 窗口被摆到屏外(比单轮更糟的失效形态)。
+    if (sizeAt.length >= 2 && rgnAt.length > 0 && rgnAt[0] < sizeAt[sizeAt.length - 1]) {
+      v.push(
+        '重装页 DPI 重锚分支把 IHUI_WINDOW_RGN 插在了两轮 IHUI_GUIINIT_SIZE 之间 —— 该宏用 $R6/$R7 当临时量,第二轮再读工作区矩形(R5..R8)拿到的就是脏值,窗口会被摆到屏外。定档两轮必须紧邻、region 宏收尾。',
+      )
+    }
   }
 
   // ③ 同源实现:IHUI_WINDOW_RGN 必须存在、被 GUIINIT_COMMON 一起用、几何取自 $IHUIWW/$IHUIWH
@@ -580,7 +605,7 @@ if (geoFail.length > 0) {
 console.log(
   '[check-installer-assets] PASS —— 洞=按钮矩形、百分比同心、埋点=刻度、重装页卡片/指示器几何、' +
     'Function 体内不引用后置 Var、目录页输入框垂直居中、重装页 DPI 重锚走完窗口框+裁剪区域' +
-    ' 七条跨文件不变量成立',
+    '且两轮紧邻定档(与 GUIINIT 同口径,region 宏收尾) 七条跨文件不变量成立',
 )
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
