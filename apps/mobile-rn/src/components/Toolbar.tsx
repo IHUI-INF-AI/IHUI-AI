@@ -438,7 +438,7 @@ const styles = StyleSheet.create({
   bannerTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   },
   bannerSub: {
     fontSize: 12,
