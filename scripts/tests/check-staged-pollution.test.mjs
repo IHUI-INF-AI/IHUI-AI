@@ -144,8 +144,8 @@ test('跨 3 目录小改(边界): 3 文件 3 目录 → exit 0(未触发,groups 
   }
 })
 
-// ─── 7. 违规: 跨 4 目录(4 文件)→ 触发污染预警(warn-only, exit 0) ──
-test('违规: 跨 4 目录(4 文件)→ 触发污染预警(warn-only, exit 0)', () => {
+// ─── 7. 违规: 跨 4 目录(4 文件)→ 触发污染预警(warn-only, exit 1) ──
+test('违规: 跨 4 目录(4 文件)→ 触发污染预警(warn-only, exit 1)', () => {
   const dir = createTempRepo()
   try {
     stageFiles(dir, [
@@ -155,9 +155,11 @@ test('违规: 跨 4 目录(4 文件)→ 触发污染预警(warn-only, exit 0)', 
       'packages/ui/d.tsx',
     ])
     const r = runScript({ cwd: dir })
-    assert.equal(r.status, 0, 'warn-only 始终 exit 0')
+    // 2026-08-19 起脚本有意 exit 1 供 runner 计 warning(依据:scripts/check-staged-pollution.mjs:150-153 注释 + runner id 19 mode=warn)
+    assert.equal(r.status, 1, 'warn-only 违规应 exit 1')
     const out = stripAnsi(r.stdout)
-    assert.match(out, /Staged 污染预警|warn-only/)
+    assert.match(out, /Staged 污染预警/)
+    assert.match(out, /warn-only/)
     assert.match(out, /跨 4 个一级子目录/)
     assert.ok(!out.includes('未触发'), '触发时不应输出未触发')
   } finally {
@@ -175,9 +177,11 @@ test('违规: 跨 3 目录 + 16 文件(>15 且 ≥3)→ 触发污染预警', () 
     for (let i = 0; i < 5; i++) files.push(`packages/ui/file${i}.ts`)
     stageFiles(dir, files)
     const r = runScript({ cwd: dir })
-    assert.equal(r.status, 0)
+    // 2026-08-19 起脚本有意 exit 1 供 runner 计 warning(依据:scripts/check-staged-pollution.mjs:150-153 注释 + runner id 19 mode=warn)
+    assert.equal(r.status, 1, 'warn-only 违规应 exit 1')
     const out = stripAnsi(r.stdout)
-    assert.match(out, /Staged 污染预警|warn-only/)
+    assert.match(out, /Staged 污染预警/)
+    assert.match(out, /warn-only/)
     assert.match(out, /跨 3 个一级子目录/)
   } finally {
     rmSync(dir, { recursive: true, force: true })
@@ -249,9 +253,11 @@ test('违规: 混合 apps/web + apps/api + packages/ui + scripts → 4 组触发
       'scripts/d.mjs',
     ])
     const r = runScript({ cwd: dir })
-    assert.equal(r.status, 0)
+    // 2026-08-19 起脚本有意 exit 1 供 runner 计 warning(依据:scripts/check-staged-pollution.mjs:150-153 注释 + runner id 19 mode=warn)
+    assert.equal(r.status, 1, 'warn-only 违规应 exit 1')
     const out = stripAnsi(r.stdout)
-    assert.match(out, /Staged 污染预警|warn-only/)
+    assert.match(out, /Staged 污染预警/)
+    assert.match(out, /warn-only/)
     assert.match(out, /跨 4 个一级子目录/)
     // 验证分组正确:apps/web / apps/api / packages/ui / scripts 各 1 个
     assert.match(out, /apps\/web/)

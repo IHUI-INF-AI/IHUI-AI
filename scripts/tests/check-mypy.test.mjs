@@ -38,9 +38,21 @@ function createTempRepo() {
     join(binDir, 'mypy.cmd'),
     '@echo off\r\nnode "%~dp0mypy-stub.js" %*\r\nexit /b %errorlevel%\r\n',
   )
+  // stub 必须**按动词分流**,不得对所有调用一律回同一退出码。
+  // 被测 check-mypy.mjs:161-186(2026-09-12「环境缺失 ≠ 代码回归」条)先跑
+  // `mypy --version` 探测可执行性:探测失败即打印"未安装 mypy"并 exit 0。
+  // 若 stub 把 --version 也按 STUB_MYPY_EXIT 返回,则注入 exit=1 时会被判成
+  // "未安装"而走放行分支 —— 夹具语义窄于真引擎,红的是夹具不是被测。
+  // 现:--version 默认 exit 0(等价"已安装"),真实检查调用才吃 STUB_MYPY_EXIT;
+  //     STUB_MYPY_VERSION_EXIT=1 可单独模拟"未安装"路径(见下方新增用例)。
   writeFileSync(
     join(binDir, 'mypy-stub.js'),
-    'const out = process.env.STUB_MYPY_OUT || ""\n' +
+    'const argv = process.argv.slice(2)\n' +
+      'if (argv.includes("--version")) {\n' +
+      '  console.log(process.env.STUB_MYPY_VERSION_OUT || "mypy 1.11.0 (stub)")\n' +
+      '  process.exit(parseInt(process.env.STUB_MYPY_VERSION_EXIT || "0", 10))\n' +
+      '}\n' +
+      'const out = process.env.STUB_MYPY_OUT || ""\n' +
       'if (out) console.log(out)\n' +
       'process.exit(parseInt(process.env.STUB_MYPY_EXIT || "0", 10))\n',
   )
@@ -304,6 +316,31 @@ test('默认: 无 --staged → mypy fail → exit 1 + ❌ + 错误输出', () =>
     assert.equal(r.status, 1, `mypy fail 应 exit 1\nstdout: ${r.out}`)
     assert.match(r.out, /❌.*mypy 守门失败/)
     assert.match(r.out, /Some type error/)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// ─── 5b. 环境缺失分支:探测 --version 失败 → 放行而非判类型错误 ───
+
+test('环境缺失: mypy --version 探测失败 → exit 0 + 明示未安装(不当成代码回归)', () => {
+  // 反向钉住分流:真实检查被注入 exit 1,但只要 --version 探测失败,
+  // 被测脚本(check-mypy.mjs:175-186)必须走"环境缺失放行"分支,
+  // 不得输出 ❌ 守门失败,也不得执行真实 mypy。
+  const dir = createTempRepo()
+  try {
+    stageFile(dir, 'apps/ai-service/app/bad.py', 'x: int = "str"\n')
+    const r = runScript(dir, ['--staged'], {
+      env: {
+        STUB_MYPY_VERSION_EXIT: '1',
+        STUB_MYPY_EXIT: '1',
+        STUB_MYPY_OUT: 'SENTINEL-real-mypy-ran',
+      },
+    })
+    assert.equal(r.status, 0, `未安装应 exit 0 放行\nstdout: ${r.out}\nstderr: ${r.err}`)
+    assert.match(r.out, /未安装 mypy/, `应明示环境缺失\nstdout: ${r.out}`)
+    assert.ok(!r.out.includes('SENTINEL-real-mypy-ran'), `不应执行真实检查\nstdout: ${r.out}`)
+    assert.ok(!r.out.includes('❌'), `环境缺失不应报类型错误\nstdout: ${r.out}`)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
