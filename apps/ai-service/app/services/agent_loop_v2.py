@@ -60,21 +60,6 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Optional, cast
 
-from ..core.permission_mode import (
-    PermissionModeId as _PermissionModeId,
-)
-from ..core.permission_mode import (
-    is_readonly_permission_mode as _is_readonly_mode,
-)
-from ..core.permission_mode import (
-    normalize_permission_mode as _normalize_permission_mode,
-)
-from ..core.permission_mode import (
-    permission_mode_error as _permission_mode_error,
-)
-from ..core.permission_mode import (
-    skips_approval_permission_mode as _skips_approval_mode,
-)
 from ..core.usage_cache import normalize_usage
 from .agent_checkpoint import (
     AgentCheckpointManager,
@@ -385,16 +370,11 @@ def _normalize_team_relay_context(context: Any) -> tuple[str, dict[str, Any]]:
 # principal 同为 None 时仍可结算(见 agent_engine._handle_approval_respond 的信任边界注释)。
 @dataclass
 class _ApprovalEntry:
-    """审批条目:唤醒事件 + 已写入的决策 + 属主(D84 补作用域与原因)。"""
+    """审批条目:唤醒事件 + 已写入的决策 + 属主。"""
 
     event: asyncio.Event
     decision: str | None = None
     owner_user_id: str | None = None
-    # D84(2026-09-23):用户选择的作用域("once"|"session"|"always")。
-    # None = 旧客户端未携带(兼容路径),结算侧按历史行为处理(批准即授 session)。
-    scope: str | None = None
-    # D84:用户随决策附带的原因(拒绝理由为主,可选;仅进审计/决策提示,不参与判定)。
-    reason: str | None = None
 
 
 # 兼容形态:历史/测试直接写入的二元组 (event, decision)。读取时一次性升级为
@@ -422,29 +402,6 @@ def _as_entry(approval_id: str) -> _ApprovalEntry | None:
 # 按 id 取回 key 落盘 always/session 级授权(批 52 仅写 session);finally 清理防内存泄漏。
 # 与 _approval_registry 同期登记/清理:两者都仅在人工弹窗等待窗口内存在。
 _approval_persist_keys: dict[str, str] = {}
-
-
-def grant_scope_for_approval(scope: str | None) -> str | None:
-    """D84:把用户选择的审批作用域映射为持久层落盘档位(纯函数,供测试缝合)。
-
-    Args:
-        scope: "once" | "session" | "always";None = 旧客户端未携带。
-
-    Returns:
-        "session" | "always" = 应落盘的档位;None = 不落任何授权(once 或非法值)。
-
-    映射规则:
-    - once → None(最小特权:仅本次执行,绝不落盘;旧版无条件授 session 已收窄);
-    - session → "session"(同键本会话免弹窗,服务重启/过期即失效);
-    - always → "always"(同键跨会话免弹窗,approval_grants.db 持久行);
-    - None(旧客户端兼容路径)→ "session"(保持批 52 历史行为,批准即授会话级);
-    - 非法值(路由层已校验,防御性兜底)→ None,绝不放大授权。
-    """
-    if scope == "always":
-        return "always"
-    if scope == "session" or scope is None:
-        return "session"
-    return None
 
 
 def grant_tool_approval_persist(approval_id: str, scope: str) -> bool:
@@ -484,11 +441,7 @@ class ApprovalOutcome(str, Enum):
 
 
 def resolve_approval_for_requester(
-    approval_id: str,
-    decision: str,
-    requester_user_id: str | None,
-    scope: str | None = None,
-    reason: str | None = None,
+    approval_id: str, decision: str, requester_user_id: str | None
 ) -> ApprovalOutcome:
     """带属主校验的审批决策回填(三态版,供 HTTP 路由与引擎通道共用)。
 
@@ -497,9 +450,6 @@ def resolve_approval_for_requester(
         decision: "approve" 或 "reject"(其他值由调用方归一后再传入)
         requester_user_id: 调用方能证明的 principal。None 表示"无可证明身份",
             只能结算同样无属主的条目(非 HTTP 上下文创建的历史行为)。
-        scope: D84 作用域("once"|"session"|"always");None=旧客户端未携带。
-            合法性由调用方(路由层 zod/pydantic)校验,此处仅透传。
-        reason: 用户附带原因(可选,拒绝理由为主)。
 
     Returns:
         APPLIED   = 属主匹配,决策已写入且协程被唤醒;
@@ -521,8 +471,6 @@ def resolve_approval_for_requester(
         )
         return ApprovalOutcome.FORBIDDEN
     entry.decision = decision
-    entry.scope = scope
-    entry.reason = reason
     with contextlib.suppress(Exception):
         entry.event.set()
     return ApprovalOutcome.APPLIED
@@ -1459,9 +1407,9 @@ class AgentLoopV2:
             tool_retry_max: 工具瞬时失败(timeout/connection/http_5xx)自动重试次数(默认 1,0=不重试;
                              http_4xx 业务错误与 unknown 不重试)
             tool_retry_backoff: 工具重试固定退避秒(默认 0.5,实际等待 = base * attempt)
-            permission_mode: 权限档(G-161 起取唯一真源规范值 default / acceptEdits /
-                bypassPermissions / plan / manual;历史拼写 auto 与 kebab 别名自动归一)。
-                None 时取 env AGENT_PERMISSION_MODE,再回退 "default"。
+            permission_mode: 权限三模式 "default"(默认,与现状一致) / "plan"(循环层
+                强制只读) / "auto"(只读工具免审批)。None 时取 env AGENT_PERMISSION_MODE,
+                再回退 "default";非法值 raise ValueError。
             team_relay_enabled: 团队接力总开关(默认 None 取 env AGENT_TEAM_RELAY_ENABLED,
                 默认 off,与现状逐零差异)。on 时主导 agent 进入循环前注入团队上一轮摘要。
             team_context: 团队上一轮聚合上下文(结构化 dict 或纯文本 str),显式传递;
@@ -1508,22 +1456,19 @@ class AgentLoopV2:
         # 自定义高危工具集合(env 追加;实例级只读组合)
         self._extra_high_risk_tools: frozenset[str] = _high_risk_tools_from_env()
 
-        # 权限模式(G-161 归一到唯一真源,2026-09-22)。
-        # 优先级:构造参数 > env AGENT_PERMISSION_MODE > "default"。
-        # 历史上这里只认 default/plan/auto 三值,而前端发的是 acceptEdits /
-        # accept-edits / bypassPermissions —— 全部落在 raise 分支,一次 500。
-        # 现按 packages/types/src/permission-mode.ts 的注册表归一(别名 auto→
-        # acceptEdits、read-only|plan-only→plan、accept-all→bypassPermissions),
-        # 认不出的仍 fail-fast,不静默降级成 default。
-        _resolved_raw = (
+        # 权限三模式(2026-09-02 立,对标 Claude Code permission modes)。
+        # 优先级:构造参数 > env AGENT_PERMISSION_MODE > "default";非法值 raise ValueError。
+        _resolved_mode = (
             permission_mode
             if permission_mode is not None
             else os.environ.get("AGENT_PERMISSION_MODE", "default")
         )
-        _resolved_mode = _normalize_permission_mode(_resolved_raw)
-        if _resolved_mode is None:
-            raise ValueError(_permission_mode_error(_resolved_raw))
-        self._permission_mode: _PermissionModeId = _resolved_mode
+        if _resolved_mode not in ("default", "plan", "auto"):
+            raise ValueError(
+                f"非法 permission_mode: {_resolved_mode!r},"
+                " 取值必须为 'default' / 'plan' / 'auto'"
+            )
+        self._permission_mode: str = _resolved_mode
 
         # 工具级审批策略(构造期校验,非法值 fail-fast)
         _VALID_APPROVAL_POLICIES = ("never", "on-request", "always")
@@ -1579,7 +1524,7 @@ class AgentLoopV2:
 
         # plan 模式:循环入口强制收窄工具集为「传入 tools ∩ READONLY_TOOLS」,
         # LLM schema 也仅暴露只读工具(双保险:既收窄可见工具,又在执行入口做防御性再校验)。
-        if _is_readonly_mode(self._permission_mode):
+        if self._permission_mode == "plan":
             self._tools = {
                 name: td for name, td in self._tools.items() if name in READONLY_TOOLS
             }
@@ -4051,22 +3996,14 @@ class AgentLoopV2:
             settled = _as_entry(approval_id)
             decision = settled.decision if settled is not None else None
             if decision == "approve":
-                # D84(2026-09-23):按用户选择的作用域落盘授权(映射见 grant_scope_for_approval):
-                # once 不落盘(最小特权)/ session 本会话 / always 跨会话 / None 保持批 52 兼容。
-                # 授权键是 (工具+参数归一) 精确匹配,任何作用域都不放大到全局。
-                _scope = grant_scope_for_approval(settled.scope if settled is not None else None)
-                if _scope is not None:
-                    try:
-                        from . import approval_persistence as _ap
-                        _ap.grant(_scope, key, "mcp_tool")
-                    except Exception:
-                        pass  # grant 失败静默(不阻断已批准的执行);持久层异常不影响返回 None
+                # 批 52:批准后落盘 session 级授权(下次同键免弹窗)。
+                # grant 失败静默(不阻断已批准的执行);持久层异常不影响返回 None。
+                try:
+                    from . import approval_persistence as _ap
+                    _ap.grant("session", key, "mcp_tool")
+                except Exception:
+                    pass
                 return None
-            if decision == "reject":
-                # D84:拒绝原因进决策提示(供 timeline/审计侧消费;缺省不写 key)。
-                _reason = settled.reason if settled is not None else None
-                if _reason:
-                    self._decision_hints[tc.id] = ("user_rejected_reason", _reason)
             return "user_rejected"
         finally:
             # 防内存泄漏:无论批准/拒绝/超时,清理注册表条目
@@ -4609,7 +4546,7 @@ class AgentLoopV2:
 
         # plan 模式:白名单外工具防御性拦截(不执行、不进审批流、直接 error 回填)。
         # 构造期已将工具集收窄为「传入 tools ∩ READONLY_TOOLS」,此处为双保险再校验。
-        if _is_readonly_mode(self._permission_mode) and not is_readonly_tool(tc.name):
+        if self._permission_mode == "plan" and not is_readonly_tool(tc.name):
             msg = f"permission_mode=plan:工具 {tc.name} 不在只读白名单"
             logger.info(
                 "plan 模式拦截工具 %s(不在只读白名单), session=%s",
@@ -4630,15 +4567,13 @@ class AgentLoopV2:
             )
 
         # 审批门:高危工具执行前请求用户批准(审批等待不阻塞非高危工具)。
-        # 免审批档(G-161 归一):acceptEdits(历史拼写 auto)只覆盖只读白名单工具;
-        # bypassPermissions 覆盖全部高危工具(与 cli 端同名档语义一致),且必留审计事件。
+        # auto 模式:只读白名单工具免审批直接执行(跳过 _request_approval)。
         gate_approved = False  # P0-3:审批门已批准 → exec_policy PROMPT 不再二次弹窗
         needs_approval = self._approval_enabled and self._is_high_risk_tool_instance(tc.name)
-        if _skips_approval_mode(self._permission_mode) and is_readonly_tool(tc.name):
+        if self._permission_mode == "auto" and is_readonly_tool(tc.name):
             if needs_approval:
                 logger.info(
-                    "%s 档:只读工具 %s 免审批直接执行, session=%s",
-                    self._permission_mode,
+                    "auto 模式:只读工具 %s 免审批直接执行, session=%s",
                     tc.name,
                     self._session_id or "",
                 )
@@ -4650,28 +4585,14 @@ class AgentLoopV2:
                     "auto 模式:只读工具免审批直接执行",
                 )
             needs_approval = False
-        elif self._permission_mode == "bypassPermissions" and needs_approval:
-            # 免批可以是政策,但不能是静默的 —— warning 级 + 审计事件 + 决策提示三处留痕。
-            logger.warning(
-                "bypassPermissions 档:高危工具 %s 免审批直接执行, session=%s",
-                tc.name,
-                self._session_id or "",
-            )
-            await self._emit_permission_mode_event(tc.name, "bypass_skip_approval")
-            self._decision_hints[tc.id] = (
-                "bypass_skip_approval",
-                "bypassPermissions 档:高危工具免审批直接执行",
-            )
-            needs_approval = False
 
-        # 批 39 接线:外部 MCP 工具注解审批(acceptEdits 档专属判定,历史拼写 auto,对标 Codex
+        # 批 39 接线:外部 MCP 工具注解审批(auto 模式专属判定,对标 Codex
         # requires_mcp_tool_approval 保守语义)。仅当工具携带 mcp_annotations
-        # 时生效——内部工具(注解恒 None)行为零变化;其余档不介入
-        # (default 模式保持回归红线;bypassPermissions 已由上一分支全档免批,不再回插保守门)。
-        # 判定为需批时不再走只读白名单免审,
+        # 时生效——内部工具(注解恒 None)行为零变化;非 auto 模式不介入
+        # (default 模式保持回归红线)。判定为需批时不再走只读白名单免审,
         # 未知注解(destructive/open_world 缺失)按最坏情况需批。
         if (
-            self._permission_mode == "acceptEdits"
+            self._permission_mode == "auto"
             and needs_approval is False
             and not gate_approved
         ):
