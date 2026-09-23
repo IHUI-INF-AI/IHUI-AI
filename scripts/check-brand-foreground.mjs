@@ -89,7 +89,11 @@ export function countLightContainers(lines) {
 
 function listTargetFiles() {
   // git ls-files 只取跟踪文件,避免扫到 gitignore 的临时副本
-  const out = execFileSync('git', ['ls-files', 'apps/mobile-rn/src'], { cwd: ROOT, encoding: 'utf8' })
+  const out = execFileSync('git', ['ls-files', 'apps/mobile-rn/src'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    windowsHide: true,
+  })
     .split('\n')
     .filter((f) => /\.(ts|tsx)$/.test(f))
   return out.map((rel) => path.join(ROOT, rel))
@@ -99,6 +103,7 @@ function stagedFiles() {
   const out = execFileSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACM'], {
     cwd: ROOT,
     encoding: 'utf8',
+    windowsHide: true,
   })
     .split('\n')
     .filter((f) => /^apps\/mobile-rn\/src\/.+\.(ts|tsx)$/.test(f))
