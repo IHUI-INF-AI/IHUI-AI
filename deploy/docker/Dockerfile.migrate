@@ -17,8 +17,6 @@ WORKDIR /app
 
 # 仅复制 database 包所需文件(最小化镜像)
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
-# 根 package.json 的 postinstall 要跑这个脚本;镜像只 COPY 清单文件,漏了它 pnpm install 必挂
-COPY scripts/fix-expo-metro-junction.mjs scripts/
 COPY tsconfig.base.json ./
 COPY packages/database/package.json ./packages/database/
 COPY packages/eslint-config/package.json ./packages/eslint-config/
