@@ -366,7 +366,7 @@ const styles = StyleSheet.create({
   openBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   } as TextStyle,
   pressed: { opacity: 0.85 } as ViewStyle,
 })

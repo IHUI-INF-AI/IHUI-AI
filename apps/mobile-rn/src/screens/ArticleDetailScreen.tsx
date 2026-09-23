@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   commentAvatarText: {
     fontSize: 13,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '600',
   } as TextStyle,
   commentBody: {
@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   commentSendText: {
     fontSize: 14,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '600',
   } as TextStyle,
 })

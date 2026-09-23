@@ -58,7 +58,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   fabIcon: {
     fontSize: 24,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '600',
   } as TextStyle,
 })
