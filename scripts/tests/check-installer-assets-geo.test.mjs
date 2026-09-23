@@ -174,13 +174,69 @@ test('注入违规:重锚分支丢掉裁剪区域重算(窗口框跟了、region
 
 test('注入违规:重锚分支退回只定档不定窗(旧敞口原样)必须被拦', () => {
   const mutated = mutateReanchorBranch(ui, (branch) => {
-    const next = branch.replace(/!insertmacro IHUI_GUIINIT_SIZE[^\n]*\n/, '')
+    // 全局删:基线是两轮(与 GUIINIT 同口径),留一轮会命中"只跑 1 轮"那条判据,
+    // 就不是在测"缺定窗宏"了 —— 本例要钉的是 count===0 那一支。
+    const next = branch.replace(/!insertmacro IHUI_GUIINIT_SIZE[^\r\n]*\r?\n/g, '')
     assert.notEqual(next, branch, '注入失败:重锚分支里没有 !insertmacro IHUI_GUIINIT_SIZE')
     return next
   })
   const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
   assert.notEqual(r.code, 0, r.text.slice(-600))
   assert.match(r.text, /重锚分支缺 !insertmacro IHUI_GUIINIT_SIZE/)
+})
+
+// ─── ②b 收敛轮数与顺序(重锚 vs GUIINIT 同口径)的注入回归 ────────────
+// 基线轮数一律**动态数**(只数行首锚定的插入行),不写死"2"这个存量数字。
+
+/** 动态定位重锚分支并数出其 IHUI_GUIINIT_SIZE 插入轮数(不写死存量) */
+function countSizeRounds(src) {
+  const from = src.indexOf('${If} $0 != $IHUIDPIW')
+  assert.ok(from >= 0, '夹具失效:找不到重装页 DPI 重锚分支')
+  const stop = src.indexOf('${EndIf}', from)
+  assert.ok(stop > from, '夹具失效:重锚分支没有配平的 ${EndIf}')
+  const branch = src.slice(from, stop)
+  const n = (branch.match(/^[ \t]*!insertmacro[ \t]+IHUI_GUIINIT_SIZE\b[ \t]*(?:;[^\r\n]*)?\r?$/gim) || []).length
+  return { branch, n }
+}
+
+test('注入违规:重锚分支改回单轮(GUIINIT 是两轮,跨屏搬迁差一轮收敛)必须被拦', () => {
+  const base = countSizeRounds(ui).n
+  assert.ok(base >= 2, `夹具失效:基线重锚轮数为 ${base},本例需要一个可删到 1 轮的多轮基线`)
+  const mutated = mutateReanchorBranch(ui, (branch) => {
+    const next = branch.replace(/!insertmacro IHUI_GUIINIT_SIZE[^\r\n]*\r?\n/, '')
+    assert.notEqual(next, branch, '注入失败:重锚分支里没有 !insertmacro IHUI_GUIINIT_SIZE')
+    return next
+  })
+  assert.equal(countSizeRounds(mutated).n, base - 1, '注入失败:轮数未减 1')
+  const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
+  assert.notEqual(r.code, 0, r.text.slice(-600))
+  assert.match(r.text, /只跑 1 轮 IHUI_GUIINIT_SIZE/)
+})
+
+test('不误伤:保持两轮(只在两轮之间落一条注释)必须全绿', () => {
+  const base = countSizeRounds(ui).n
+  const mutated = mutateReanchorBranch(ui, (branch) => {
+    const next = branch.replace(/(!insertmacro IHUI_GUIINIT_SIZE[^\r\n]*\r?\n)/, '$1  ; 只是注释,几何与轮数一字未动\n')
+    assert.notEqual(next, branch, '注入失败:没能在两轮之间落下注释')
+    return next
+  })
+  assert.equal(countSizeRounds(mutated).n, base, '夹具失效:加注释改写把轮数改掉了')
+  const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
+  assert.equal(r.code, 0, r.text.slice(-600))
+})
+
+test('注入违规:把 region 宏挪到两轮定档中间(第二轮读到脏 R5..R8)必须被拦', () => {
+  const mutated = mutateReanchorBranch(ui, (branch) => {
+    const line = branch.match(/^[ \t]*!insertmacro[ \t]+IHUI_WINDOW_RGN\b[ \t]*\r?$/m)
+    assert.ok(line, '注入失败:重锚分支里没有独立的 IHUI_WINDOW_RGN 插入行')
+    const stripped = branch.replace(line[0], '')
+    const next = stripped.replace(/!insertmacro IHUI_GUIINIT_SIZE[^\r\n]*\r?\n/, (m) => `${m}${line[0].trim()}\n`)
+    assert.notEqual(next, stripped, '注入失败:重锚分支里没有 IHUI_GUIINIT_SIZE 插入行')
+    return next
+  })
+  const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
+  assert.notEqual(r.code, 0, r.text.slice(-600))
+  assert.match(r.text, /IHUI_WINDOW_RGN 插在了两轮 IHUI_GUIINIT_SIZE 之间/)
 })
 
 test('注入违规:圆角宏的临时量挪回 $R0(会把 PageReinstall 的版本比较结果清掉)必须被拦', () => {
