@@ -766,6 +766,10 @@ FunctionEnd
 !ifndef IHUI_DPI_CAP
   !define IHUI_DPI_CAP 192
 !endif
+; 窗口逻辑尺寸(=96dpi 下的像素)。降档公式与出图必须共用这一处定义,否则"按屏幕降 DPI"
+; 会跟实际窗口大小脱钩(2026-09-24 矩阵实测:1366x768 屏 @200% 时 1760x1200 只有 47% 可见)。
+!define IHUI_LOG_W 880
+!define IHUI_LOG_H 600
 !macro IHUI_PICKTIER
   StrCpy $IHUIDPI 96
   System::Call "user32::GetDpiForSystem() i .s"
@@ -806,9 +810,31 @@ FunctionEnd
   ${If} $IHUIDPIW > ${IHUI_DPI_CAP}
     StrCpy $IHUIDPIW ${IHUI_DPI_CAP}
   ${EndIf}
+  ; 工作区装不下逻辑尺寸时,**连布局 DPI 一起降档**(而不是只缩窗口):本文件所有控件坐标都经
+  ; IHUI_PX 按 $IHUIDPIW 缩放,降它 = 整体等比缩放;位图档位由 IHUI_TIER_OF 随之下降 ⇒ 仍 1:1
+  ; 或降采样、绝不拉伸。只封顶到 192 不够 —— 2026-09-24 用"DPI × 工作区"矩阵实测:
+  ; 1366x768@192dpi 会出 1760x1200 的窗,居中后左上角 (-197,-236),标题栏与完成按钮都在屏外。
+  ; 临时量只用 $R9:$R0..$R4 归重装页版本比较,$R5..$R8 是工作区,$R2/$R3 是本次要算的坐标。
+  IntOp $R9 $R7 - $R5
+  IntOp $R9 $R9 * 96
+  IntOp $R9 $R9 / ${IHUI_LOG_W}
+  ${If} $IHUIDPIW > $R9
+    StrCpy $IHUIDPIW $R9
+  ${EndIf}
+  IntOp $R9 $R8 - $R6
+  IntOp $R9 $R9 * 96
+  IntOp $R9 $R9 / ${IHUI_LOG_H}
+  ${If} $IHUIDPIW > $R9
+    StrCpy $IHUIDPIW $R9
+  ${EndIf}
+  ; 病态兜底:工作区读数异常(0/极小)时不许把布局 DPI 压成 0 —— 那会算出 0x0 的窗口。
+  ; 48 = 50%,已是本仓资产最低档的一半,再小就不值得继续缩(宁可贴边也不出 0 尺寸)。
+  ${If} $IHUIDPIW < 48
+    StrCpy $IHUIDPIW 48
+  ${EndIf}
   !insertmacro IHUI_TIER_OF $IHUIDPIW $IHUIWTIER
-  !insertmacro IHUI_PX $IHUIWW 880
-  !insertmacro IHUI_PX $IHUIWH 600
+  !insertmacro IHUI_PX $IHUIWW ${IHUI_LOG_W}
+  !insertmacro IHUI_PX $IHUIWH ${IHUI_LOG_H}
   ; 工作区(R5..R8 已由 IHUIGuiInit 读出)居中
   IntOp $R2 $R7 - $R5
   IntOp $R2 $R2 - $IHUIWW
