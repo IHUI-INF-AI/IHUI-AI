@@ -31,7 +31,7 @@ import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio'
 import * as FileSystem from 'expo-file-system'
 import * as ImagePicker from 'expo-image-picker'
 import * as MediaLibrary from 'expo-media-library'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { ProfileScreen as SharedProfileScreen } from '@ihui/rn-app'
 import type { SharedMenuSection } from '@ihui/rn-app'
 import type { UserInfo } from '@ihui/types'
@@ -1477,9 +1477,9 @@ function AudioItem({ item }: { item: AudioContent }): React.JSX.Element {
             accessibilityLabel={status.playing ? '暂停' : '播放'}
           >
             {status.playing ? (
-              <Pause size={16} color={tokens.surface.light} style={{ marginLeft: rpx(4) }} />
+              <Pause size={16} color={tokens.brand.foreground} style={{ marginLeft: rpx(4) }} />
             ) : (
-              <Play size={16} color={tokens.surface.light} style={{ marginLeft: rpx(4) }} />
+              <Play size={16} color={tokens.brand.foreground} style={{ marginLeft: rpx(4) }} />
             )}
           </TouchableOpacity>
           {/* 进度条(对齐 Uniapp 行 166-175 原生 <slider> 可拖动)。

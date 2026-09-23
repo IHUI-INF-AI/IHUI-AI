@@ -17,7 +17,7 @@
  *
  * 平台特有:依赖 RN Animated/PanResponder/Modal/SafeAreaContext,不适合共享。
  */
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,

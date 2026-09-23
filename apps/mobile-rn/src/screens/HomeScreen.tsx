@@ -56,7 +56,7 @@ import {
   Handshake,
   MessageCircle,
 } from 'lucide-react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {

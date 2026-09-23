@@ -20,11 +20,11 @@
  *   - index 卡片:240 × 160(固定),圆角 8
  *   - UpToDate 卡片:2 列等宽,圆角 12,图片占主体
  *   - list 卡片:纵向全宽,圆角 12
- *   - 浅色优雅风,颜色全部使用 rnLightTokens,严禁硬编码
+ *   - 浅色优雅风,颜色全部使用 主题 token 入口,严禁硬编码
  *   - 系统字体,无 ttf
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { useAutoPlay } from '@ihui/shared'
 import { BookOpen, type LucideIcon } from 'lucide-react-native'
 import {

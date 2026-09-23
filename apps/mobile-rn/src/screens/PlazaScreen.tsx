@@ -41,7 +41,7 @@ import {
   type ConversationDetail,
 } from '@ihui/api-client'
 import { PlazaScreen as SharedPlazaScreen, type PlazaScreenProps } from '@ihui/rn-app'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import Drawer, {
   type DrawerConversationItem,
   type DrawerExtraMenu,
