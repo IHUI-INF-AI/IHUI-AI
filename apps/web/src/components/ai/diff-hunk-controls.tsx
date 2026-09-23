@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { Check, Loader2, X } from 'lucide-react'
+import { Check, Loader2, Lock, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import type { DiffHunk } from '@/lib/hunk-diff'
@@ -22,32 +22,52 @@ interface HunkHeaderProps {
   /** 全部 hunk 数,用于「改动 i/N」展示 */
   total: number
   accepted: boolean
+  /** 是否已暂存进交付批次(锁定,不再参与 accepted 切换) */
+  staged?: boolean
+  /** 外部禁用(应用中等),与 staged 叠加 */
   disabled?: boolean
   onToggle: () => void
+  onStage: () => void
+  onUnstage: () => void
 }
 
-/** 单个 hunk 的小标题:勾选框 + 行号区间 + 增删统计 + 状态 */
-export function HunkHeader({ hunk, total, accepted, disabled, onToggle }: HunkHeaderProps) {
+/** 单个 hunk 的小标题:勾选框 + 行号区间 + 增删统计 + 暂存按钮 + 状态 */
+export function HunkHeader({
+  hunk,
+  total,
+  accepted,
+  staged = false,
+  disabled,
+  onToggle,
+  onStage,
+  onUnstage,
+}: HunkHeaderProps) {
   const t = useTranslations('ai.pane')
   const rangeLabel =
     hunk.removed > 0
       ? `-${hunk.oldStartLine},${hunk.oldEndLine} +${hunk.newStartLine},${hunk.newEndLine}`
       : `+${hunk.newStartLine}`
+  // staged 或外部禁用 → 勾选框锁定(与 Codex staged 语义一致:已暂存即锁定)
+  const locked = Boolean(disabled) || staged
   return (
     <div
       className={cn(
         'flex items-center gap-2 px-2 py-1 text-[10px]',
         accepted ? 'bg-zinc-900 text-zinc-400' : 'bg-zinc-900/60 text-zinc-600',
+        staged && 'opacity-60',
       )}
       data-testid={`diff-hunk-header-${hunk.id}`}
     >
       <input
         type="checkbox"
         checked={accepted}
-        disabled={disabled}
+        disabled={locked}
         onChange={onToggle}
         aria-label={accepted ? t('diffHunk.rejectBlock') : t('diffHunk.acceptBlock')}
-        className="h-3 w-3 shrink-0 accent-green-600 disabled:cursor-not-allowed"
+        className={cn(
+          'h-3 w-3 shrink-0 accent-green-600 disabled:cursor-not-allowed',
+          staged && 'opacity-40 grayscale',
+        )}
         data-testid={`diff-hunk-toggle-${hunk.id}`}
       />
       <span className="shrink-0 tabular-nums">
@@ -56,14 +76,43 @@ export function HunkHeader({ hunk, total, accepted, disabled, onToggle }: HunkHe
       <span className="shrink-0 font-mono tabular-nums text-zinc-500">{rangeLabel}</span>
       <span className="shrink-0 tabular-nums text-green-500">+{hunk.added}</span>
       <span className="shrink-0 tabular-nums text-red-500">-{hunk.removed}</span>
+      {/* D88:暂存 / 取消暂存 按钮(staged 后切换为还原) */}
+      <button
+        type="button"
+        onClick={staged ? onUnstage : onStage}
+        disabled={disabled}
+        aria-label={staged ? t('diffHunk.unstageHunk') : t('diffHunk.stageHunk')}
+        className={cn(
+          'shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] transition-colors',
+          staged
+            ? 'text-amber-500 hover:bg-amber-500/15'
+            : 'text-muted-foreground hover:bg-accent/40 hover:text-foreground',
+          'disabled:cursor-not-allowed disabled:opacity-50',
+        )}
+        data-testid={`diff-hunk-stage-${hunk.id}`}
+      >
+        {staged ? t('diffHunk.unstageHunk') : t('diffHunk.stageHunk')}
+      </button>
       <span
         className={cn(
           'ml-auto inline-flex shrink-0 items-center gap-1',
-          accepted ? 'text-green-500' : 'text-zinc-500',
+          staged ? 'text-amber-500' : accepted ? 'text-green-500' : 'text-zinc-500',
         )}
       >
-        {accepted ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-        <span>{accepted ? t('diffHunk.accepted') : t('diffHunk.rejected')}</span>
+        {staged ? (
+          <Lock className="h-3 w-3" />
+        ) : accepted ? (
+          <Check className="h-3 w-3" />
+        ) : (
+          <X className="h-3 w-3" />
+        )}
+        <span>
+          {staged
+            ? t('diffHunk.staged')
+            : accepted
+              ? t('diffHunk.accepted')
+              : t('diffHunk.rejected')}
+        </span>
       </span>
     </div>
   )
