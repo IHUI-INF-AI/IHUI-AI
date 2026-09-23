@@ -10,7 +10,7 @@
 // 使 git-guardian 报 `backupOk:false`(本地恢复源形同失效,却无人察觉)。
 // 本测试钉住三件事:①归档根的推导契约;②归档出口不再落盘根;③两个调用点确实接上了出口。
 import { readFileSync, existsSync } from 'node:fs'
-import { basename, dirname, join, resolve } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -18,7 +18,6 @@ import assert from 'node:assert/strict'
 import { gitArchiveDir, gitdirArchivePath, resolveBackupDir, resolveWorktree } from '../lib/gitdir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const REPO = resolve(HERE, '..', '..')
 
 test('gitArchiveDir:要么为 null,要么落在 <盘>/DevEnv/backups/git', () => {
   const dir = gitArchiveDir()
