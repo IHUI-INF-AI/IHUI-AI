@@ -6,6 +6,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 import { ssrStorage } from './persist-helpers'
+import { createChatPersistStorage } from '@/lib/chat-persist-crypto'
 import type { SubAgentActivity, InlineDiffInfo } from '@/components/ai/types'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 import type {
@@ -1333,7 +1334,9 @@ export const useChatStore = create<ChatState>()(
     }),
     {
       name: 'ihui-chat',
-      storage: ssrStorage,
+      // D48(G-56)A 层加密:桌面端(Tauri WebView)把整条 blob 走 AES-256-GCM 信封,
+      // 浏览器路径原样返回 ssrStorage(对象同一、行为同一)。详见 lib/chat-persist-crypto.ts
+      storage: createChatPersistStorage(ssrStorage),
       partialize: (s: ChatState) => ({
         currentModel: s.currentModel,
         conversationId: s.conversationId,
