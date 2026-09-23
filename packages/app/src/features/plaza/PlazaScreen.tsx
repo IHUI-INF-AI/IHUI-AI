@@ -478,7 +478,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     emptyBtnText: {
       fontSize: 16,
-      color: tk.text.primary,
+      color: tk.brand.foreground,
       fontWeight: '600',
     } as TextStyle,
     card: {
