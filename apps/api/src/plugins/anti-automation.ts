@@ -12,7 +12,8 @@
  *    - 单 IP 1 分钟 > 100 请求 → 429 + 引入 CAPTCHA(响应头 X-Challenge-Required)
  *    - 单 IP 1 分钟 > 200 请求 → 403 临时封禁 15 分钟
  *    - 扫描器模式(/.env /admin /backup 等) → 立即 403 + 封禁 1 小时
- * 4. 白名单:内网 IP 自动放行;健康检查 UA 自动放行。
+ * 4. 白名单:内网 IP 自动放行;健康检查 UA 自动放行;
+ *    监控探针与自助解封面豁免(见 utils/block-exempt-paths.ts)。
  * 5. 路由级开关:routeOptions.config.antiAutomation = { enabled: false } 可关闭。
  *
  * Redis 不可用时 fail-open(放行),保障可用性。
@@ -29,6 +30,7 @@ import {
   isMissingOrShortUserAgent,
 } from '../utils/bot-detection.js'
 import { isPrivateIp, getIpReputationService } from '../services/ip-reputation.js'
+import { isBlockExemptPath } from '../utils/block-exempt-paths.js'
 
 /* -------------------------------------------------------------------------- */
 /* 配置                                                                        */
@@ -116,11 +118,14 @@ const antiAutomationPlugin: FastifyPluginAsync = async (server: FastifyInstance)
 
     const path = (request.url.split('?')[0] ?? request.url).toLowerCase()
 
+    // 监控探针与自助解封面:既不占频率预算,也不该被已有封禁挡住
+    if (isBlockExemptPath(path)) return
+
     // 1. 扫描器模式:立即 403 + 封禁 1 小时
     if (isScannerPath(path)) {
       logger.warn('anti-automation: scanner pattern detected, blocking', { ip, path, ua })
       await ipRep.recordBadEvent(ip, 'scanner-pattern')
-      await ipRep.blockIp(ip, SCANNER_BLOCK_SEC)
+      await ipRep.blockIp(ip, SCANNER_BLOCK_SEC, 'scanner-detected')
       reply
         .status(403)
         .header('X-Block-Reason', 'scanner-detected')
@@ -130,12 +135,13 @@ const antiAutomationPlugin: FastifyPluginAsync = async (server: FastifyInstance)
     }
 
     // 2. IP 是否已被封禁
-    const blocked = await ipRep.isIpBlocked(ip)
-    if (blocked) {
+    const blockInfo = await ipRep.getBlockInfo(ip)
+    if (blockInfo) {
       reply
         .status(403)
         .header('X-Block-Reason', 'ip-blocked')
-        .send({ code: 403, message: 'IP 已被临时封禁' })
+        .header('Retry-After', String(blockInfo.remainingSec))
+        .send({ code: 403, message: 'IP 已被临时封禁', retryAfterSec: blockInfo.remainingSec })
       return
     }
 
@@ -155,7 +161,7 @@ const antiAutomationPlugin: FastifyPluginAsync = async (server: FastifyInstance)
         ipCount,
         userCount,
       })
-      await ipRep.blockIp(ip, RATE_BLOCK_SEC)
+      await ipRep.blockIp(ip, RATE_BLOCK_SEC, 'rate-limit-block')
       reply
         .status(403)
         .header('X-Block-Reason', 'rate-limit-block')
