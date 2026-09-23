@@ -3,6 +3,9 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+
 /**
  * 溯源水印覆盖守门(blocking, 2026-09-12 升级为**自愈式**)
  *
@@ -28,7 +31,6 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -82,34 +84,6 @@ function reportGap(missing, reason) {
 const tracked = trackedFiles()
 const uncovered = listUncovered()
 const missing = uncovered.filter((f) => tracked.has(f))
-
-// ---------- 双横幅(重复版权头)巡检:warn-only,不计入退出码 ----------
-// 2026-09-22 实测:injectFile 旧版只在"见到载荷标记"时才清洗 ⇒ 已有裸横幅(无载荷)的文件
-// 被前置一条新横幅,之后恒 skip-done ⇒ 重复头永久冻结,而"有载荷即完好"的判据看不见它。
-// 工具已修(横幅文本存在即先清洗);这里把残留量显式报出来,便于后续下调到 0 再升 blocking。
-const CANON_BANNER = /^\/\/ © \d{4} IHUI AI \(智汇AI\) · 版权所有者:/gm
-let dupBanner = 0
-const dupSamples = []
-for (const f of tracked) {
-  if (!/\.(ts|tsx|js|mjs|cjs|css)$/.test(f)) continue
-  let text
-  try {
-    text = readFileSync(join(REPO_ROOT, f), 'utf8')
-  } catch {
-    continue
-  }
-  const n = (text.match(CANON_BANNER) || []).length
-  if (n > 1) {
-    dupBanner += 1
-    if (dupSamples.length < 5) dupSamples.push(`${f}(×${n})`)
-  }
-}
-if (dupBanner > 0) {
-  console.log(
-    `[watermark-coverage] ⚠️ 双横幅文件 ${dupBanner} 个(warn,不阻塞;修复:node scripts/watermark.mjs clean <f> && inject <f>)`,
-  )
-  console.log(`   样例: ${dupSamples.join(', ')}`)
-}
 
 if (missing.length === 0) {
   console.log('[watermark-coverage] ✅ 已跟踪文件水印完整(其余为未跟踪本地产物,不计入)')
