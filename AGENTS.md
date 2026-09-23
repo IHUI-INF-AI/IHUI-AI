@@ -619,7 +619,7 @@ pnpm dev                                       # 启动所有服务(web + api + 
 | `D:\DevEnv\{cache,tools,runtimes}\`  | 工具链缓存唯一根;家目录里的工具状态一律 `robocopy /MOVE` + **junction** 改道(禁改 `HKCU\Environment\Path`),旧路径经 junction 仍可解析 | §26  |
 | `D:\DevEnv\Temp\`                    | `TEMP`/`TMP`/`TMPDIR`(HKCU,需新开终端才继承)                                                                                          | §26  |
 
-**显式例外(不得搬、不得删,搬了就断链)**:
+**显式例外与已改道项(改道用 junction,故旧路径仍可用)**:
 
 1. `D:\IHUI-AI-git-repo` —— 真 gitdir。§5b 实测宿主层会整体删除工作区内 `.git`,故必须在外;
    `scripts/git-rebuild-local.mjs:169` 硬编码该路径,`git-refs-heal.mjs` / `git-guardian.mjs` 依赖其
@@ -630,10 +630,16 @@ pnpm dev                                       # 启动所有服务(web + api + 
 3. 第三方 IDE/agent 自管家目录的**运行态**(`~/.workbuddy\binaries\PortableGit` 是
    `scripts/lib/gitdir.mjs:36-37` 解析 git 二进制的首选;`.qoder-cn` 承载本项目记忆与工作区状态)。
    这类不属"我们的产物",只登记、不搬动。
-4. `~/.ihui`(1.2MB)—— 我们 CLI 的全局状态。**暂不改道**:仅 `IHUI_HOME` 被
-   `apps/cli/src/plugins/paths.ts:24` 等 3 处认,而 `workspace-ai-service.ts:38`、
-   `workspace-ai.ts:714/730/807`、`announcements/index.ts:117`、`refresh-cli-token.mjs:34` 四处硬编
-   `homedir()`,单设环境变量会造成**双根分裂**(token 读写不同路径)。必须先补这 4 处,再谈改道。
+4. `~/.ihui`(1.2MB / 693 文件)—— 我们 CLI 的全局状态,**2026-09-23 已按 §26 的 junction 机制改道**
+   到 `D:\DevEnv\cache\userhome\.ihui`(复制后逐文件校验 0 差异 → 删源 → `mklink /J`,**未改一行业务代码、未设任何环境变量**)。
+   之所以不用"设 `IHUI_HOME`"这条路:`IHUI_HOME` 当前在本仓有**两套互斥语义** ——
+   `apps/cli/src/plugins/paths.ts:31` 当它是**家目录**(再拼 `.ihui`),而
+   `apps/cli/src/tools/mcp-oauth.ts:43`、`mcp-credentials.ts:26`、
+   `apps/ai-service/app/core/message_history.py:33` 当它是**状态目录本身**;另有
+   `workspace-ai-service.ts:38/252/2578`、`workspace-ai.ts:714/730/807`、
+   `announcements/index.ts:117`、`refresh-cli-token.mjs:34` 与 `apps/cli` 内约 30 处裸 `homedir()`
+   完全不认它。**设 env 必造双根分裂**;junction 则对硬编码路径同样生效。
+   语义统一属独立技术债(动它需同步改 `plugin-marketplace.test.ts:114-129` 等被钉死的断言),不在本策略范围。
 
 **新写文件前的三问**:① 是源码/产物吗 → 项目内;② 是备份吗 → `D:\DevEnv\backups\<类>\`;
 ③ 是临时物吗 → `TEMP`。三者都不是 → 停下来问用户,不得自建新目录。
@@ -1195,21 +1201,23 @@ C 盘 120 GB 频繁告急,根因排查发现:
 `D:\caches\*` 是**死路径**,本机不存在 `D:\caches`,且 `CARGO_HOME`/`RUSTUP_HOME`/`OLLAMA_MODELS`
 当时**根本没设**,即"文档说已迁、实际还在 C 盘";真实外置根是 `D:\DevEnv\`)。
 
-| 工具                | 环境变量 / 配置                           | 实测路径                                                         |
-| ------------------- | ----------------------------------------- | ---------------------------------------------------------------- |
-| Temp/TMP            | `TEMP` / `TMP` / `TMPDIR`                 | `D:\DevEnv\Temp`(2026-09-23 才真正写入 HKCU)                     |
-| pnpm                | `PNPM_HOME` + `pnpm store path`           | `D:\DevEnv\tools\pnpm`,store=`...\pnpm\store\v11`                |
-| npm                 | `npm config`                              | `D:\DevEnv\cache\npm`                                            |
-| pip                 | `PIP_CACHE_DIR`                           | `D:\DevEnv\cache\pip`                                            |
-| uv                  | `UV_CACHE_DIR`                            | `D:\DevEnv\cache\uv`                                             |
-| Cargo               | junction(`%USERPROFILE%\.cargo`)          | `D:\DevEnv\cache\userhome\.cargo`                                |
-| Rustup              | junction(`%USERPROFILE%\.rustup`)         | `D:\DevEnv\cache\userhome\.rustup`                               |
-| Maven/.m2           | junction(`%USERPROFILE%\.m2`)             | `D:\DevEnv\cache\userhome\.m2`                                   |
-| Codex/.cache/.codex | junction                                  | `D:\DevEnv\cache\userhome\{.cache,.codex,.codex-session-delete}` |
-| Trae 全家           | junction(`.trae`/`.trae-cn`/`.trae-aicc`) | `D:\DevEnv\cache\userhome\`                                      |
-| DeepSeek CLI        | junction(`%USERPROFILE%\.deepseek`)       | `D:\DevEnv\cache\userhome\.deepseek`                             |
-| Go                  | `GOPATH` / `GOMODCACHE` / `GOCACHE`       | `D:\DevEnv\cache\go{,\pkg\mod}` / `...\go-build`                 |
-| Playwright          | `PLAYWRIGHT_BROWSERS_PATH`                | `D:\DevEnv\cache\playwright`                                     |
+| 工具                | 环境变量 / 配置                           | 实测路径                                                            |
+| ------------------- | ----------------------------------------- | ------------------------------------------------------------------- |
+| Temp/TMP            | `TEMP` / `TMP` / `TMPDIR`                 | `D:\DevEnv\Temp`(2026-09-23 才真正写入 HKCU)                        |
+| pnpm                | `PNPM_HOME` + `pnpm store path`           | `D:\DevEnv\tools\pnpm`,store=`...\pnpm\store\v11`                   |
+| npm                 | `npm config`                              | `D:\DevEnv\cache\npm`                                               |
+| pip                 | `PIP_CACHE_DIR`                           | `D:\DevEnv\cache\pip`                                               |
+| uv                  | `UV_CACHE_DIR`                            | `D:\DevEnv\cache\uv`                                                |
+| Cargo               | junction(`%USERPROFILE%\.cargo`)          | `D:\DevEnv\cache\userhome\.cargo`                                   |
+| Rustup              | junction(`%USERPROFILE%\.rustup`)         | `D:\DevEnv\cache\userhome\.rustup`                                  |
+| Maven/.m2           | junction(`%USERPROFILE%\.m2`)             | `D:\DevEnv\cache\userhome\.m2`                                      |
+| Codex/.cache/.codex | junction                                  | `D:\DevEnv\cache\userhome\{.cache,.codex,.codex-session-delete}`    |
+| Trae 全家           | junction(`.trae`/`.trae-cn`/`.trae-aicc`) | `D:\DevEnv\cache\userhome\`                                         |
+| DeepSeek CLI        | junction(`%USERPROFILE%\.deepseek`)       | `D:\DevEnv\cache\userhome\.deepseek`                                |
+| Ollama(含服务)      | junction(`%USERPROFILE%\.ollama`)         | `D:\DevEnv\cache\ollama`(服务 `OLLAMA_MODELS` 路径经 junction 解析) |
+| IHUI CLI 状态       | junction(`%USERPROFILE%\.ihui`)           | `D:\DevEnv\cache\userhome\.ihui`                                    |
+| Go                  | `GOPATH` / `GOMODCACHE` / `GOCACHE`       | `D:\DevEnv\cache\go{,\pkg\mod}` / `...\go-build`                    |
+| Playwright          | `PLAYWRIGHT_BROWSERS_PATH`                | `D:\DevEnv\cache\playwright`                                        |
 
 **改道机制定为 junction,不env优先**:`robocopy <src> <dst> /E /MOVE` → `mklink /J <旧路径> <新路径>`。
 理由:家目录状态常有**硬编码**读取方(如 `~/.cargo\bin` 在 `HKCU\Environment\Path` 首位、守门脚本按
@@ -1218,10 +1226,18 @@ C 盘 120 GB 频繁告急,根因排查发现:
 `(Get-Item ~\.cargo).Attributes -match ReparsePoint`。新增工具的缓存落点一律走
 `D:\DevEnv\cache\userhome\<名称>` + junction,不得再在家目录留实体目录。
 
-**已知未办(有客观阻碍,不是遗漏)**:`~/.ollama` 2.7GB 的 `IHUI-OLLAMA` 服务正在运行且持锁,
-整目录 junction 需先停服务(会中断本地模型推理),故保留在 C 盘;`~/.workbuddy` 3.1GB 内含
-`binaries\PortableGit`(被 `scripts/lib/gitdir.mjs:36-37` 当 git 二进制首选解析)不得搬,其
-`logs`/`traces` 约 2GB 可再生但属该 IDE 自管;`.qoder-cn`/`.qoder` 是本会话宿主状态,改道即丢记忆。
+**2026-09-23 已办**:Ollama 2.9GB 先做**镜像复制 + 逐文件(路径+字节)校验 + sha256 寻址核对**,
+确认 13/13 文件一致后才 `nssm stop` → 删 C 原件 → `mklink /J` → 改服务 `AppEnvironmentExtra`
+(原值备份在 `D:\DevEnv\backups\env\ollama-service-env-original.txt`)→ `nssm start`;
+验收=`/api/tags` 两模型可见 **且真跑一次 `qwen2.5-coder:1.5b` 生成成功(1.53s,服务 RUNNING,日志无 error)**。
+顺带修掉该服务把 `TEMP`/`TMP` 钉死在 `C:\Users\...\AppData\Local\Temp` 的配置(它一直在往 C 写临时文件,
+HKCU 的 TEMP 迁移对它无效,因为它由 nssm 以 LocalSystem 启动且自带环境块)。
+
+**剩余客观阻碍(不是遗漏)**:`~/.workbuddy` 3.1GB 内含 `binaries\PortableGit`
+(被 `scripts/lib/gitdir.mjs:36-37` 当 git 二进制首选解析)不得搬,其 `logs`/`traces` 约 2GB 可再生但属
+该 IDE 自管(§26 明示"第三方 AI IDE 自身缓存由其自管理");`.qoder-cn`/`.qoder` 是本会话宿主状态,
+改道即丢记忆与工作区。`~/.deepseek` 中 2.16GB 是中断 git gc 留下的 4×580,911,116B `tmp_pack_*`,
+已按纯垃圾删除,剩余 1.2MB 真实数据已改道。
 `scripts/kill-git-selector-hidden.vbs` 已改为随自身目录定位目标脚本,但其包装的
 `kill-git-selector.ps1` **在仓库里并不存在**,该计划任务链是死代码(任务也未注册)。
 `scripts/release-desktop-local.mjs:67,74` 需要 `%USERPROFILE%\.tauri\ihui-updater.key`,本机无 `.tauri`
