@@ -86,7 +86,7 @@ export default function LoginPage({ onSuccess }: Props) {
     try {
       const tokenData = await loginWithSso()
       if (!tokenData) {
-        setSsoError(t('auth.ssoCancelled') || 'SSO 登录已取消')
+        setSsoError(t('auth.ssoCancelled'))
         return
       }
       await onSuccess({
@@ -103,7 +103,7 @@ export default function LoginPage({ onSuccess }: Props) {
         },
       })
     } catch (err) {
-      setSsoError(err instanceof Error ? err.message : 'SSO 登录失败')
+      setSsoError(err instanceof Error ? err.message : t('auth.ssoFailed'))
     } finally {
       setSsoLoading(false)
     }
@@ -129,7 +129,7 @@ export default function LoginPage({ onSuccess }: Props) {
           {ssoLoading ? (
             <>
               <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-muted border-t-foreground" />
-              <span>{t('auth.ssoLoading') || 'SSO 授权中...'}</span>
+              <span>{t('auth.ssoLoading')}</span>
             </>
           ) : (
             <>
@@ -147,7 +147,7 @@ export default function LoginPage({ onSuccess }: Props) {
                 <polyline points="10 17 15 12 10 7" />
                 <line x1="15" y1="12" x2="3" y2="12" />
               </svg>
-              <span>{t('auth.ssoLogin') || 'SSO 一键登录'}</span>
+              <span>{t('auth.ssoLogin')}</span>
             </>
           )}
         </button>
@@ -157,7 +157,7 @@ export default function LoginPage({ onSuccess }: Props) {
           </p>
         )}
         <p className="login-form-scope text-xs text-muted-foreground text-center mb-3 mt-1">
-          {t('auth.orUseAccount') || '或使用账号登录'}
+          {t('auth.orUseAccount')}
         </p>
         <LoginForm
           t={t}

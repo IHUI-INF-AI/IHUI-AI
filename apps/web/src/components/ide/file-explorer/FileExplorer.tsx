@@ -16,6 +16,10 @@ import { TimelineTab } from './TimelineTab'
 import { FileContextMenu } from './FileContextMenu'
 import { getFileIcon, getFileColor } from '../file-icons'
 import { cn } from '@/lib/utils'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
+
+/** 层栈 id(见 @/lib/overlay-stack):文件右键菜单的 Esc 只在栈顶时被消费 */
+const FILE_EXPLORER_MENU_OVERLAY_ID = 'file-explorer-context-menu'
 import { Tooltip } from '@/components/feedback'
 import { toast } from '@/components/common/Toaster'
 import { runCommand } from '@ihui/api-client'
@@ -78,9 +82,15 @@ export function FileExplorer() {
   // 右键菜单点击外部/Escape 关闭
   React.useEffect(() => {
     if (!menuPos) return
+    // 层栈注册:menuPos → 入栈(成为栈顶);close/unmount → 出栈。
+    pushOverlay(FILE_EXPLORER_MENU_OVERLAY_ID)
     const close = () => setMenuPos(null)
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMenuPos(null)
+      if (e.key === 'Escape') {
+        // 只让栈顶那一层消费 Esc:多层同时打开时,一次 Esc 关最上层
+        if (!isTopOverlay(FILE_EXPLORER_MENU_OVERLAY_ID)) return
+        setMenuPos(null)
+      }
     }
     document.addEventListener('click', close)
     document.addEventListener('contextmenu', close, true)
@@ -89,6 +99,7 @@ export function FileExplorer() {
       document.removeEventListener('click', close)
       document.removeEventListener('contextmenu', close, true)
       document.removeEventListener('keydown', onKey)
+      popOverlay(FILE_EXPLORER_MENU_OVERLAY_ID)
     }
   }, [menuPos])
 

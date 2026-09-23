@@ -4,6 +4,7 @@
 
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { X } from 'lucide-react'
 import { Input, Button } from '@ihui/ui-react'
 
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export function TagInput({ tags, value, onChange, onAdd, onRemove }: Props) {
+  const t = useTranslations('kbArticleForm')
   return (
     <div className="space-y-2">
       <div className="flex gap-2">
@@ -29,10 +31,10 @@ export function TagInput({ tags, value, onChange, onAdd, onRemove }: Props) {
               onAdd()
             }
           }}
-          placeholder="输入标签后回车"
+          placeholder={t('tagInputPlaceholder')}
         />
         <Button type="button" variant="outline" onClick={onAdd}>
-          添加
+          {t('add')}
         </Button>
       </div>
       {tags.length > 0 && (

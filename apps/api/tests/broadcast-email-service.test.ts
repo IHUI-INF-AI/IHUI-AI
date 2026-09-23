@@ -10,10 +10,7 @@ vi.mock('../src/services/email-service.js', () => ({
   sendEmail: sendEmailMock,
 }))
 
-import {
-  broadcastDispatchEmail,
-  BROADCAST_CONCURRENCY,
-} from '../src/services/broadcast-email-service.js'
+import { broadcastDispatchEmail, BROADCAST_CONCURRENCY } from '../src/services/broadcast-email-service.js'
 import { renderChangelogEmail } from '../src/services/email-templates.js'
 import type { EmailRecipient } from '../src/services/broadcast-email-service.js'
 
@@ -49,11 +46,7 @@ describe('broadcast-email-service', () => {
     expect(stats).toEqual({ total: 25, sent: 25, failed: 0 })
     expect(sendEmailMock).toHaveBeenCalledTimes(25)
     // 每次调用都带场景与 userId
-    const firstCall = sendEmailMock.mock.calls[0][0] as {
-      to: string
-      userId: string
-      scene: string
-    }
+    const firstCall = sendEmailMock.mock.calls[0][0] as { to: string; userId: string; scene: string }
     expect(firstCall.scene).toBe('notification')
     expect(firstCall.userId).toBe('u-1')
     expect(firstCall.to).toBe('user1@aizhs.top')

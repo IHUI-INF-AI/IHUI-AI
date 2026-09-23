@@ -9,7 +9,11 @@ import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { getFileColor, getFileIcon } from './file-icons'
 import { X, Circle, Pin, Copy, XCircle, Files } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import type { EditorTab } from '@ihui/types'
+
+/** 层栈 id(见 @/lib/overlay-stack):编辑器 tab 右键菜单的 Esc 只在栈顶时被消费 */
+const EDITOR_TAB_MENU_OVERLAY_ID = 'editor-tab-context-menu'
 
 interface ContextMenuState {
   x: number
@@ -70,15 +74,22 @@ export function EditorTabBar() {
   // 右键菜单关闭:点击外部 / Escape
   React.useEffect(() => {
     if (!menu) return
+    // 层栈注册:menu → 入栈(成为栈顶);close/unmount → 出栈。
+    pushOverlay(EDITOR_TAB_MENU_OVERLAY_ID)
     const click = () => setMenu(null)
     const key = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMenu(null)
+      if (e.key === 'Escape') {
+        // 只让栈顶那一层消费 Esc:多层同时打开时,一次 Esc 关最上层
+        if (!isTopOverlay(EDITOR_TAB_MENU_OVERLAY_ID)) return
+        setMenu(null)
+      }
     }
     window.addEventListener('click', click)
     window.addEventListener('keydown', key)
     return () => {
       window.removeEventListener('click', click)
       window.removeEventListener('keydown', key)
+      popOverlay(EDITOR_TAB_MENU_OVERLAY_ID)
     }
   }, [menu])
 

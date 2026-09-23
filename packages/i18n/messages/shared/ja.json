@@ -158,7 +158,21 @@
     "toolVendorModelInfo": "ベンダーモデル情報",
     "toolVendorUploadFile": "ベンダーへアップロード",
     "toolVendorCancelTask": "ベンダータスクをキャンセル",
-    "toolVendorVoiceClone": "声をクローン"
+    "toolVendorVoiceClone": "声をクローン",
+    "fileActivity": "{state, select, running {ファイルを処理中} completed {ファイルを処理済み} other {ファイルの処理}}",
+    "imageActivity": "{state, select, running {画像を処理中} completed {画像を処理済み} other {画像の処理}}",
+    "searchActivity": "{state, select, running {検索中} completed {検索済み} other {検索}}",
+    "thinkingActivity": "{state, select, running {分析中} completed {分析済み} other {分析}}",
+    "customActivity": "{state, select, running {実行中} completed {実行済み} other {実行}}",
+    "workedForDuration": "所要時間 {duration}",
+    "searchWithQuery": "クエリ：{query}",
+    "showAllLines": "すべて展開",
+    "hideLines": "折りたたむ",
+    "sourcesButton": "出典",
+    "canceled": "キャンセル済み",
+    "canceledItemLabel": "キャンセル済み：{name}",
+    "readingConnector": "{connector} から読み取り",
+    "writingConnector": "{connector} に書き込み"
   },
   "a11y": {
     "addAttachment": "添付ファイルを追加（画像/動画/ファイル）",
@@ -422,7 +436,13 @@
     "captchaRefresh": "認証コードを更新"
   },
   "chat": {
+    "icuProbe": {
+      "flowState": "{state, select, running {{count, plural, =0 {ストリーム実行中、待機ツールなし} other {ストリーム実行中、{count} 個のツールをスケジュール}}} paused {ストリーム一時停止} failed {実行失敗：<b>{reason}</b>}}"
+    },
     "send": "送信"
+  },
+  "richAnchorProbe": {
+    "flow": "<detail>{target}</detail>を<action>注入中</action>"
   },
   "common": {
     "accepted": "採用済み",
@@ -685,7 +705,7 @@
     "developerRelayUsage": "使用量",
     "developerRelaySubscriptions": "リレーサブスクリプション",
     "playground": "プレイグラウンド",
-    "adminRelayOverview": "リレー概览",
+    "adminRelayOverview": "リレー概要",
     "adminRelayModels": "モデル管理",
     "adminRelayKeyPool": "キープール",
     "adminRelayDiscovery": "モデル発見",
@@ -1395,13 +1415,13 @@
     "submit": "確認",
     "submitting": "送信中...",
     "selectNation": "国/地域を選択",
-    "success": "绑定成功",
+    "success": "バインド成功",
     "phoneRequired": "電話番号を入力してください",
     "phoneInvalid": "無効な電話番号",
     "codeRequired": "認証コードを入力してください",
     "uuidMissing": "ユーザー識別子がありません",
     "sendFailed": "コード送信失敗",
-    "bindFailed": "绑定失敗",
+    "bindFailed": "バインド失敗",
     "networkError": "ネットワークエラー"
   },
   "modelPlaza": {
@@ -1754,7 +1774,7 @@
   },
   "aiGroup": {
     "title": "AI グループ",
-    "subtitle": "マルチ AI 協働、集合知共创",
+    "subtitle": "マルチ AI 協働、集合知共創",
     "tabMine": "マイグループ",
     "tabDiscover": "発見",
     "empty": "グループがありません",
