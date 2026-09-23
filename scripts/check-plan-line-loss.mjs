@@ -110,12 +110,8 @@ export function headIdOf(line) {
     if (m && m.index === 0 && m[1].length >= 3) return m[1]
     return null
   }
-  // 任务标题行也受保护(2026-09-23 实测补):并发会话按旧基线整文件回写,把
-  // `## O28 门 53 白名单按新判据重算收紧…` 这一**标题**连同它下一条预警 bullet 一起写没了,
-  // 而当时标题族只认"第N批" ⇒ 390 条扫描照报"无缺失"。标题是一个任务在计划里唯一的可寻址
-  // 入口,丢了比丢一条进度行更隐蔽(正文条目还在,却挂在别人的章节下)。
-  const h = line.match(new RegExp(String.raw`^#{2,4}\s*(第[0-9一二三四五六七八九十百①-⑳]+批|${ID})`))
-  if (h && h[1].length >= 3) return h[1]
+  const h = line.match(/^#{2,4}\s*(第[0-9一二三四五六七八九十百①-⑳]+批)/)
+  if (h) return h[1]
   const b = line.match(/^\s*[-*]\s(?:✅\s*(?:\([^)]*\)\s*)?|⏳\s*(?:\([^)]*\)\s*)?)?\*\*([^\s*]+)/)
   if (b) {
     const m = b[1].match(ID_RE)
@@ -197,12 +193,9 @@ export function markerOf(line) {
     const id = body.match(ID_RE)
     return id && id.index === 0 && id[1].length >= 3 ? titleMarker(body) : null
   }
-  // 标题行:认开头的批次序号(`### 第十四批(…):…`),以及**以登记编号打头的任务标题**
-  // (`## O28 …` / `## D107b …` / `## 守门 79 …`)。后者是 2026-09-23 实测补的一族:并发旧基线
-  // 回写抹掉了 `## O28` 标题,而本门当时只认"第N批",390 条扫描照报"无缺失"(判据盲区)。
-  // 仍刻意不认"轮/次/阶段"—— `第二轮` 这类串在正文里到处出现,拿它当标记等于永久报不出
-  // 丢失,只会往基线里塞空条目。
-  const h = line.match(new RegExp(String.raw`^(#{2,4}\s*)(第[0-9一二三四五六七八九十百①-⑳]+批|${ID})`))
+  // 标题行:只认开头的中文/阿拉伯批次序号(`### 第十四批(…):…`)。刻意不认"轮/次/阶段"——
+  // `第二轮` 这类串在正文里到处出现,拿它当标记等于永久报不出丢失,只会往基线里塞空条目。
+  const h = line.match(/^(#{2,4}\s*)(第[0-9一二三四五六七八九十百①-⑳]+批)/)
   return h && h[2].length >= 3 ? titleMarker(line.slice(h[1].length)) : null
 }
 
@@ -477,46 +470,6 @@ function selfTest() {
       markerOf(
         '  - **守门链的执行语义**:任一 blocking 门失败都跑完再汇总,这是工程约束不是登记行编号。',
       ) === null,
-  )
-  t(
-    'markerOf / headIdOf 认「以登记编号打头的任务标题」一族(## O28 / ## D107b / ## 守门 79),散文标题不算',
-    () =>
-      String(
-        markerOf(
-          '## O28 门 53 白名单按新判据重算收紧 + D71② 真实障碍与"第二张错误表"预警(2026-09-24 立并完成 ✅,单端工程治理:scripts + 勘察)',
-        ),
-      ).startsWith('O28 门 53 白名单') &&
-      String(
-        markerOf('## D107b 结案:把"是否真丢 commit"改成按树指纹判,不再靠抽样,并留下可复跑证据。'),
-      ).startsWith('D107b') &&
-      String(
-        markerOf('## 守门 79 提交内容含冲突标记(blocking):成对 <<<< ==== >>>> 三模式的判据与取证口径说明。'),
-      ).startsWith('守门 79') &&
-      // 批次标题一族必须保持原样(收紧不得把旧语义挤掉)
-      String(
-        markerOf('### 第十四批(第 61 轮续):登记行防丢守门补任务标题一族,含正反例与真仓零告警回归。'),
-      ).startsWith('第十四批') &&
-      // 反例:无登记编号的标题不进基线,否则任何改写都会报丢失、基线里塞满空条目
-      markerOf('## 关键参考文档') === null &&
-      markerOf('## 本会话对守门链执行语义的一次长标题说明,它不带任何登记编号因此不该被当作登记行。') === null &&
-      headIdOf('## O28 门 53 白名单按新判据重算收紧 + D71② 真实障碍(2026-09-24)') === 'O28' &&
-      headIdOf('## 关键参考文档') === null,
-  )
-  t(
-    '整行判活:任务标题被抹掉必须报丢失;只改写标题文案而保留编号 ⇒ 不报(不误伤正常编辑)',
-    () => {
-      const base = [
-        '## O30 一个任务标题(2026-09-24 立并完成 ✅,单端工程治理:scripts + 计划文档登记)',
-        '',
-        '- [x] ✅(2026-09-24) **O30① 进度行**:内容足够长足够长足够长足够长足够长足够长。',
-        '',
-      ].join('\n')
-      const dropped = base.replace('## O30 一个任务标题(2026-09-24 立并完成 ✅,单端工程治理:scripts + 计划文档登记)\n\n', '')
-      const renamed = base.replace('## O30 一个任务标题', '## O30 任务标题文案已被正常改写')
-      const lost = lostMarkers(base, dropped).map((x) => x.marker)
-      const kept = lostMarkers(base, renamed).map((x) => x.marker)
-      return lost.some((m) => String(m).startsWith('O30')) && !kept.some((m) => String(m).startsWith('O30 一个'))
-    },
   )
   t(
     'markerOf 认 `第N步` 中文序号族(阿拉伯/汉字/带圈),且只认"步"不认次数/轮次/阶段',

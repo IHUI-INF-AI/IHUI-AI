@@ -418,11 +418,11 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 24,
       paddingVertical: 8,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.ctaFill,
     } as ViewStyle,
     retryText: {
       fontSize: 16,
-      color: tk.text.primary,
+      color: tk.brand.ctaText,
     } as TextStyle,
     emptyWrap: {
       alignItems: 'center',
@@ -542,14 +542,14 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 10,
       paddingVertical: 4,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.ctaFill,
     } as ViewStyle,
     chatBtnPressed: {
       opacity: 0.75,
     } as ViewStyle,
     chatBtnText: {
       fontSize: 11,
-      color: tk.text.primary,
+      color: tk.brand.ctaText,
       fontWeight: '600',
     } as TextStyle,
     statusDone: {
