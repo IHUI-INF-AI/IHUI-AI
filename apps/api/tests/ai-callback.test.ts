@@ -292,5 +292,104 @@ describe('AI callback route', () => {
     const body = res.json()
     expect(body.code).toBe(400)
   })
+
+  // ---------------------------------------------------------------------------
+  // D33(2026-09-23 立,2026-09-24 接线):usageDetail / fallback / memoryUpdates
+  // 三通道此前仅校验不落库(断链:llm.py 发送端与 web 读回端均在,中间被丢弃);
+  // steerApplied 为 D33 剩余类新通道(中途引导注入记录)。四通道并入入队 metadata,
+  // worker 浅合并落库,web 读回侧(readUsageDetailFromMetadata 等)消费。
+  // ---------------------------------------------------------------------------
+
+  it('POST /api/ai/callback 带 D33 四通道时并入入队 metadata', async () => {
+    const serverD33 = Fastify({ logger: false })
+    const mockAddD33 = vi.fn().mockResolvedValue({ id: 'job-d33' })
+    serverD33.decorate('aiCallbackQueue', { add: mockAddD33 })
+    await serverD33.register(aiCallbackRoutes)
+    await serverD33.ready()
+
+    const usageDetail = {
+      promptTokens: 100,
+      completionTokens: 50,
+      totalTokens: 150,
+      reasoningTokens: null,
+      firstTokenMs: 320,
+      durationMs: 1800,
+      model: 'stepfun/step-3.7-flash',
+      costUsd: null,
+    }
+    const fallback = { primary_model: 'm-a', backup_model: 'm-b', reason: 'rate_limit' }
+    const memoryUpdates = ['用户偏好深色主题', '项目用 pnpm workspace']
+    const steerApplied = [
+      { text: '先跑测试再改', timestamp: '2026-09-24T10:00:00Z' },
+      { text: '聚焦 o21 文件' },
+    ]
+    const res = await serverD33.inject({
+      method: 'POST',
+      url: '/api/ai/callback',
+      headers: { 'x-internal-secret': 'test-secret' },
+      payload: {
+        content: 'AI 回复',
+        usageDetail,
+        fallback,
+        memoryUpdates,
+        steerApplied,
+        metadata: { conversationId: 'conv-1', userId: 'user-1', messageId: 'msg-1' },
+      },
+    })
+    expect(res.statusCode).toBe(202)
+    const jobData = mockAddD33.mock.calls[0][1] as { metadata: Record<string, unknown> }
+    expect(jobData.metadata).toMatchObject({
+      usageDetail,
+      fallback,
+      memoryUpdates,
+      steerApplied,
+    })
+
+    await serverD33.close()
+  })
+
+  it('POST /api/ai/callback D33 四通道缺省/空数组时不写入 metadata', async () => {
+    const serverD33Empty = Fastify({ logger: false })
+    const mockAddD33Empty = vi.fn().mockResolvedValue({ id: 'job-d33-empty' })
+    serverD33Empty.decorate('aiCallbackQueue', { add: mockAddD33Empty })
+    await serverD33Empty.register(aiCallbackRoutes)
+    await serverD33Empty.ready()
+
+    const res = await serverD33Empty.inject({
+      method: 'POST',
+      url: '/api/ai/callback',
+      headers: { 'x-internal-secret': 'test-secret' },
+      payload: {
+        content: 'AI 回复',
+        memoryUpdates: [],
+        steerApplied: [],
+        metadata: { conversationId: 'conv-1', userId: 'user-1' },
+      },
+    })
+    expect(res.statusCode).toBe(202)
+    const jobData = mockAddD33Empty.mock.calls[0][1] as { metadata: Record<string, unknown> }
+    expect(jobData.metadata).not.toHaveProperty('usageDetail')
+    expect(jobData.metadata).not.toHaveProperty('fallback')
+    expect(jobData.metadata).not.toHaveProperty('memoryUpdates')
+    expect(jobData.metadata).not.toHaveProperty('steerApplied')
+
+    await serverD33Empty.close()
+  })
+
+  it('POST /api/ai/callback steerApplied 元素缺必填 text 时返回 400', async () => {
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/ai/callback',
+      headers: { 'x-internal-secret': 'test-secret' },
+      payload: {
+        content: 'AI 回复',
+        steerApplied: [{ timestamp: '2026-09-24T10:00:00Z' /* 缺 text */ }],
+        metadata: { conversationId: 'conv-1', userId: 'user-1' },
+      },
+    })
+    expect(res.statusCode).toBe(400)
+    const body = res.json()
+    expect(body.code).toBe(400)
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
