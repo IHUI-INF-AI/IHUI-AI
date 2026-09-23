@@ -82,4 +82,36 @@ test('注入违规:百分比控件退回 SS_RIGHT(数字会在环里左右漂)�
   assert.notEqual(r.code, 0)
   assert.match(r.text, /SS_CENTER/)
 })
+
+// ─── 不变量 D(维护页卡片/指示器几何)的注入回归 ───────────────────
+// 这三例各自钉住一个"只读代码看不出来"的失效模式:卡片几何漂移、
+// 指示器矩形与位图不等大、以及生成器用符号常量(C_L/C_W)时判据解不开
+// 而恒报"缺少"(实测修判据前就是这种假红,修后若无这三例则会变成假绿)。
+
+test('注入违规:重装页卡片 define 与位图烧入框错开必须被拦', () => {
+  const mutated = ui.replace('!define IHUI_RCARD_Y1   340', '!define IHUI_RCARD_Y1   350')
+  assert.notEqual(mutated, ui, '注入失败:找不到 IHUI_RCARD_Y1')
+  const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
+  assert.notEqual(r.code, 0)
+  assert.match(r.text, /重装页卡片几何漂移/)
+})
+
+test('注入违规:重装页指示器矩形与位图尺寸不等大必须被拦', () => {
+  const mutated = ui.replace('!define IHUI_RIND_SIZE  20', '!define IHUI_RIND_SIZE  24')
+  assert.notEqual(mutated, ui, '注入失败:找不到 IHUI_RIND_SIZE')
+  const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
+  assert.notEqual(r.code, 0)
+  assert.match(r.text, /重装页指示器 \$IHUIRI1 矩形/)
+})
+
+test('判据必须能解析生成器的符号常量(RCARD_X = C_L,不是字面量)', () => {
+  // 反证:把生成器侧改成与 define 不同的字面量 → 必须报漂移。
+  // 若解析器解不开 `= C_L`,这里会误报"缺少可解析的常量"而不是"漂移"。
+  const mutated = gen.replace('const RCARD_X = C_L', 'const RCARD_X = 300')
+  assert.notEqual(mutated, gen, '注入失败:找不到 const RCARD_X = C_L')
+  const r = withFixtures({ 'gen.mjs': mutated }, (env) => runGuard(env))
+  assert.notEqual(r.code, 0)
+  assert.match(r.text, /重装页卡片几何漂移:IHUI_RCARD_X=288 != 生成器 RCARD_X=300/)
+  assert.doesNotMatch(r.text, /缺少可解析的常量 RCARD_X/)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
