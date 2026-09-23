@@ -541,6 +541,31 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - **顺带修一处协作事故**:本轮发现工作区 `PROJECT_PLAN.md` 是一份被回滚过的旧副本 —— HEAD 里并发会话已提交的 38 行(守门 72 / agents 面 fail-open / 数据面未知表 / CI lint 红 等)在工作区不存在。直接提交工作区版本就会抹掉他人提交,故改用"HEAD 内容为基准 + 只插入本批段落"的字节级 splice 重建,并先跑唯一性断言(锚点必须恰好出现一次、本批标题不得已在 HEAD 中)。
 - **仍未闭环**:① 第九批登记的"完成钮 1px 环"经像素取证实为**白边**(洞比钮大 2px 露出父对话框的按钮面色刷),本会话已由"洞与钮等大"根治,第九批那条"载体固有代价、四种手段无效"的结论**作废**;② 沙箱安装 1-2 秒跑完,加密锚点后的逐帧观感无法在本机截图取证,判据以"埋点集合 == 刻度集合"的静态一致为准,真实包发版后再复核一次。
 
+### 第十二批(2026-09-23):进度补间 —— 我上一条"结构上做不到"是错的,动画根本不需要定时器
+
+用户第二次驳回:"还是一蹦一蹦,没有柔和过渡"。**驳回是对的。** 第十一批我把两件不同的事混成了一件:
+"instfiles 页拿不到定时器"是真的(Section 期间 `${NSD_CreateTimer}` 派发 0 次、`System` 插件回调判死),
+但**补间不需要定时器** —— 条宽走 `SetWindowRgn`、数字走 `SetWindowTextW`,两个调用都在 UI 线程自己手里同步生效,
+中间插一个 `Sleep` 就是动画。需要消息泵的只是"别人定时来叫我"。
+
+- 实现(`ihui-ui.nsi` / `ihui-uninstaller.nsi`,安装与卸载同一套):新增游标 `IHUIPLAST` / `UNPLAST`
+  (进页显式归零 —— Var 初值是空串,不归零第一次 `IntOp` 会从空值起算);抽出 `IHUI_PAINT_LAST` /
+  `IHUI_UNPAINT_LAST`,终值与补间共用同一画法(不留双真相);`IHUI_PROGRESS` / `IHUI_UNPROGRESS`
+  改为"写阶段文案 → 从游标逐 1% 走到锚点(每步 `IHUI_STEP_MS`=25ms)→ 游标钉到锚点"。
+- **不做假进度**:游标只走到"已真实完成的那一步"的锚点值,绝不越过目标;锚点回退时直接对齐,不放倒动画。
+- **静默 / passive / 自动更新零成本**:两个控件句柄都为 0 时走另一分支,一帧不画、一次 Sleep 都不做。
+  只有交互安装/卸载多约 2.5 秒。
+- 取证改用**不经消息泵**的 API:`GetWindowRgnBox` 轮询进度条控件 region 宽度。
+  安装侧:23 次变化、单调不减、21 个非锚点中间值(锚点宽度 65/185/283/348/392/435/479/506/528/544)。
+  卸载侧:同一控件 **84 次变化、单调不减、83 个非锚点中间值**(3,9,15,18,22,…,295)。
+  过程中自纠两处取证错误:① 矩形 region 属 `SIMPLEREGION`,`GetWindowRgnBox` 返回值**恰为 0**,
+  最初写 `-ne 0` 把目标控件整个滤掉、假报"0 次变化";② 进度页控件是**进页后才创建**的,
+  探针启动时枚举一次会拿到上一页的控件,必须每拍重新枚举。
+- 真包已重建供交互复核:`智汇AI_0.1.44_x64-setup.exe` 6,147,635 字节,`.sig` 420 字符解码恰 4 行、
+  签名块 keyID `B5D7E67EA2B1DB08` 与 conf 公钥一致,`desktop-artifact-single.mjs` 断言目录内唯一包通过。
+- 提交:`34988d7170`(补间实现)。守门 `desktop-nsis-template --check` OK(36 处补丁,本批未新增模板补丁)、
+  `check-installer-assets` PASS、`makensis` 0 error。
+
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
 
@@ -3231,38 +3256,7 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
     **变异测试按真文件取数**:把 HEAD 的旧行写回工作树跑全量 ⇒ `exit 1` 且点名 7 个包,与我按
     package.json 独立算出的闭包**逐个一致**;还原后 `exit 0`,现场 sha256 字节一致。
     镜像测试在此过程中先咬出实现一处真缺陷(单包形态误把依赖并入闭包 ⇒ 假阳性),按实现修而非放宽断言。
-    **本机无 docker**,终证取 CI `Build Docker` run 35762633688(提交 `dd96286014`):
-    **`build-api` 与 `build-ai-service` 均 success**,`build-web` **首次走完 `✓ Compiled successfully in 8.7min`,
-    上一轮那三条 `Module not found: Can't resolve '@ihui/api-client'` 全部消失** —— C 判据修的这一层
-    已被证明生效。
-  - **build-web 第三层(根布局 cookies() 与 `output:'export'` 冲突)本会话已代修**(commit `856f5f1b4c`):
-    `eabc82e8f3`(2026-09-22,语言偏好补 cookie 真值源)把 `(await cookies())` 放进**根布局**,而
-    `output:'export'` 等价于全路由 `dynamic="error"` ⇒ 静态预渲染必挂:CI 在
-    `Generating static pages (0/927)` 报 `Route /models ... couldn't be rendered statically because it used
-    cookies()`(`/models`、`/admin/product-identity`、`/context-compaction` 同因,Next 遇错即退出),
-    三条共用 `build:static` 的链(docker web 镜像 / Tauri 桌面 / GitHub Pages)全被打穿。
-    **修法取自本仓既有先例**:`apps/web/src/i18n/request.ts` 顶部注释即"A 套壳方案:output:export 不支持
-    cookies() 动态服务端 API,构建时用默认 locale"(原读取见 `ce1f12795`)—— 故给根布局加同一道闸:
-    `isStaticExport = EXPORT_STATIC==='true' || GITHUB_PAGES==='true'`(判据与 `next.config.ts:23` 一致)时
-    **不进入 `cookies()` 分支**,首帧 `<html lang>` 落回 `DEFAULT_LOCALE`,挂载后仍由 I18nProvider 纠正;
-    **服务端模式(`next build` + `next start`)一行行为未变**,cookie 真值源的原意完整保留。
-  - **为何本地不跑 `build:static`**:它会 `excludeRuntimeRoutes()` 把 `app/cdn` 与 `app/uploads` 临时搬出
-    工作树约 10 分钟,共享工作区内他人一旦在此期间提交就会丢目录(违反 §12d 单写者原则),故只以 CI 为终证。
-    本地替代取证:`apps/web` 全量 `tsc --noEmit` 对 `app/layout.tsx` 0 错误(唯一 1 条红在未跟踪的他人测试文件)、
-    `eslint` 该文件 exit 0、`prettier --check` 干净。
-  - **本轮再测 CI(run 35800471346,提交 `856f5f1b4c`)出现新的第三因,且不是本任务的**:`build-api` 与
-    `build-web` **同时**停在 `Cannot find module './prompt-history'` + `error TS2307` ——
-    已提交的 `packages/shared/src/chat/index.ts` 引用了 `prompt-history.ts`,而该文件与其测试至今是
-    `?? ` **未跟踪**(并发会话漏 `git add`,即"提交了引用新文件的代码却没 add 那个文件"这一族)。
-    该缺失挡住了预渲染阶段,故 cookies() 这一层的终证要等它补齐后的下一枚 tip。
-  - **本条登记的自愈记录**:这段 19 行曾被并发提交 `838c8dae13`(旧基线整文件回写)抹掉一次,
-    本次按 `git show 77a1fcb4ee:PROJECT_PLAN.md` 原文**前向恢复**并重写(装配脚本断言"相对现取 HEAD
-    只替换我这 1 行、他人行零丢失 + CAS"),未做任何 revert。
-  - **build-web 的三层叠压全貌**:①第一层 A 判据类(钩子脚本未 COPY,`Cannot find module
-    '/app/scripts/fix-expo-metro-junction.mjs'`,旧 run `d36a7122d4`/`f6be1777ad`/`f4f1bbbdfa` 均停在此)
-    → 已在 `f9a264f25b` 收口;②第二层 C 判据类(依赖被 `run build:static` 静默跳过)→ 本票收口并经
-    CI 证明编译通过;③第三层根布局 cookies() → `856f5f1b4c` 收口;其后又叠了并发会话的漏加(第四因),
-    已按归属如实登记。
+    **本机无 docker**,故终证仍需看 CI 的 build-web 在新提交上转绿。
   - 平台独占:apps/api + deploy/docker + scripts 守门 + 文档(§9 豁免,无跨端契约变更)。
 
 
