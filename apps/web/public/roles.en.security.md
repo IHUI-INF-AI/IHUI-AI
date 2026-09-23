@@ -129,7 +129,7 @@ app.use('/v1/agents/:id/chat', firewall.middleware(), chatHandler)
 ### Tech Stack
 
 - **Frontend**: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
-- **Backend**: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18 + Redis 7
+- **Backend**: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16 + Redis 7
 - **AI Service**: FastAPI + LangGraph + LiteLLM + MCP
 - **Desktop**: Tauri 2
 - **Mini Program**: Taro 4 (WeChat / Alipay / Douyin)
