@@ -1477,6 +1477,15 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
 - **顺手复核自己那次 union 解没有造出重复行**(新踩过的坑:活文档全量 union 会造上千行重复而断言全绿):HEAD 计划 3,297 个非空行里重复种类 36 / 多出行 133,逐条看是 `---`(57 次)、`>`、`### 约束边界`、`### 目标` 等 markdown 结构与通用小节名,属合法;批次标题 38 枚、同号只有"第十九批"那一对(并发登记,带日期的那一枚已由 `resolveBlock` 唯一化);36 类重复里**没有一类**是本会话批次的正文行。
 - **残余(不称收口)**:① 217 枚 tag 的远端补推**尚未落地**,判据 = `node scripts/sync-lost-commit-tags.mjs --check` 的"仅本地"计数归零;失败原因现在可见,修不修得动取决于那条 stderr 说什么(网络/体积就分小块,仓库侧拒绝就另论);② `scripts/git-refs-heal.mjs` 的 `writeLooseRef` 前对象存在性校验(上一批登记的代码级残余)仍被四个他人脏文件挡住,按 §16 不代改;③ 工作区 `PROJECT_PLAN.md` 仍是他人那次 549 行整文件重写的产物,归属其会话处置。
 
+### 第二十七批(2026-09-24):217 枚"仅本地"备份 tag 判定为结构性推不上去 —— 并钉死我自己那条会把"半路死"读成"完整"的抽样判据
+
+- **三条假设全部走完,只有一条成立**:上一轮遗留"217 枚 tag 为何推不上 origin"。① "中文 tag 名被 cmd.exe ANSI 代码页改坏" —— `probe-tagname-shell.mjs` 对 `lost-commit/21d15f976686-p2-7-跨会话接力` 走 shell 串与 argv 数组两路,`for-each-ref` 都命中,**证伪**;② "远端 ref 太多被拒"(GitHub 有万级 ref 上限) —— `git ls-remote origin | wc -l` 实测 **4,287**,离上限很远,**证伪**;③ "历史链里有对象本地已失" —— `IHUI_TAG_PUSH_CHUNK=1` 实推一枚,stderr 直说 `fatal: unable to read 93328569e809ae98a65b4e114d636d6019d8e91f` → `remote: fatal: early EOF` → `error: remote unpack failed: index-pack failed`,`git fsck --connectivity-only` 对同一 sha 报 `missing blob`。**成立**:pack 侧凑不出完整对象集,远端 unpack 必失败,与网络、编号、体积都无关。
+- **我上一轮的"历史链完整 0/12 残缺"是假结论,错法要记**:那 12 枚是 `rev-list --objects <sha>` 的 stdout 行再过 `cat-file --batch-check` 数出来的 —— 而 `rev-list` 在**第一个缺失对象处自己就 abort**(本次直读该 tag 复现:`fatal: missing blob object '08abe3d76346cd927a6038c059e421ace1f9611f'`),我只数了它吐出来的行、**没看退出码也没看 stderr**,于是把"遍历半路死了"读成"历史链 6033 个对象完整"。修法(所有同类判据通用):凡以 `rev-list` / 管道遍历做"完整性"判据,必须把非零退出与 stderr 命中 `fatal: missing` 一律算失败,并且**优先信 `git fsck --connectivity-only`**(它专报断链,不截断)。
+- **结论口径**:这 217 枚是**空壳备份** —— tag ref 在、commit 在、其下的 blob 已随本机对象层被抹(§5b 的 `objects/xx/` 同一张脸,量化见上一批:坏链 83,108 条 / 缺失目标 35,319 个)。所以"远端补推"这条路**不是待办而是死路**,门 30a 那条 `214 lost-commit 仅本地` 的 warn 真正的意思应当读作"这些备份早已不完整",与 09-23 那次"15 条未推送 commit 对象永久丢失"同族。
+- **不擅自清理**:§29 明确 lost-commit tag 的 GC 必须**人工触发**(且要逐条确认无重要未提交工作)。本批只把"其中 ≥217 枚已空壳"的证据钉进台账,供将来 GC 时优先处置;不做任何删除。
+- **顺带修可观测性**:`sync-lost-commit-tags.mjs` 的失败回显从 stderr 末尾 3 行放宽到 **12 行 / 1200 字符** —— GitHub 的 `remote:` 前言是多行的,3 行窗口第一轮只装得下 `! [remote rejected] … (failed)` 而把真正那句 `fatal: unable to read <sha>` 挤掉了,等于白修一次。
+- **残余(不称收口)**:① 空壳 tag 的**精确总数**没算 —— 要一次全图 `git fsck --connectivity-only`(分钟级)才能数出来,这个代价不适合进 pre-commit,故只按 warn 事实陈述,不做成闸门;② `git-refs-heal.mjs` 的 `writeLooseRef` 前对象存在性校验仍被四个他人脏文件挡住(§16 不代改);③ 工作区 `PROJECT_PLAN.md` 仍是他人那次整文件重写的产物。
+
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
 
