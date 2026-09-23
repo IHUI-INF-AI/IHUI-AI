@@ -518,6 +518,48 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - **ja 盲区量化已完成,但**判据仍不可用**:高精度规则(cn→tw 与 cn→jp **同时**变形才算简体独有字形)把 6205 枚"零假名汉字值"压到 web/ja 44 枚,但抽样复核仍是假阳性(`携帯/注文/占/干/雇/无/里` 都是正确日语字形,opencc 却判它要变形)。⇒ 结论:**不引入日本常用汉字/新字体表就没有可靠判据**,升阻塞会大面积误伤;本轮只做量化与工具沉淀,不动门。
 - **多端与文档**:改动 `apps/web` + `apps/extension` + `packages/ui-react`(仅兜底语言与注释)+ web/extension 两份词包 + 台账 + 契约测试。`ui-react` 那处是跨端共享件但**已核实唯一消费方为 web** ⇒ 本票仍标平台独占(web + extension);§21 README 豁免。
 
+### 第十三批:HEAD 取词缺键 25 枚清零 + i18n 扫描器连字符盲区根治(2026-09-23,commit `f4977949d1` / `09d4110367`)
+
+**本票起点不是"下一批界面债",而是事故后重测**:`.git` 抢修把主线换掉后,旧结论全部作废,一律以
+`git archive HEAD` 干净检出重测。三件此前**从未入库**的红:
+
+1. **web 端 25 枚取词缺键(commit `f4977949d1`)**:代码已按 `useTranslations(ns)` + `t('裸键')` 取词而词表无键
+   ⇒ 四语界面回显原始键名,且 pre-commit 第 2f-web 项对任何 web 提交恒红。构成 = `upload` 15 + `webviewFrame` 8 +
+   `ai.pane` 2。三路代理各自核对消费点后交五语清单,合并入库前跑四道自证:五语各 +25 / 丢既有键 0 / 越界改值 0 /
+   含点字面键 0;干净检出复验 `check-i18n-keys --target=web` **缺失 25 → 0(exit 0)**、2b/2c/2e 全绿、死键 9→9 未增。
+   - 落点判据**不是"门绿"**:`check-i18n-keys` 对 shared/web 两处都收,无区分力;真判据是
+     `apps/web/tests/ui-upload-webview-labels-injection.test.ts` 只读 `messages/web/<lang>.json`(落 shared 会
+     在合并后即失效的 tmp 清单上退化),同族 `workPanel`/`upload` 先例均在 web。
+   - 值面按包内译法频次改 6 处:zh-TW `載入中→加載中`(257 vs 55)、`載入失敗→加載失敗`(28 vs 17)、
+     `點選→點擊`(89 vs 3)、`響應→回應`(台标习惯);ko `불러오기 실패→로딩 실패`(与同面板 `로딩 중` 同词根)。
+   - `ai.pane.toolSummaryShowMore/Less` **刻意不带插值**:计数由 `show-more-list.tsx:55` 在标签外拼接,
+     写进值里会双显成「显示更多 3 (3)」,而门不校验占位符 —— 属"门不拦但用户可见"那类。
+   - 遗留(归消费侧,不在本票代改他人 hook):`upload.sizeLimitHint/maxCountReached/oversizeFiles/uploadFailedWithStatus`
+     值内 `{size}/{max}/{files}/{status}` 而 hook 未传参,`use-intl@4` 走 ICU 编译时缺值会抛并回显键名;
+     同形问题在已入库的 `dataTable` 同族 4 键上同样存在。**解阻判据** = 该 hook 改为传参或 `t.raw`,并补一条
+     "值内占位符集合 ⊆ 调用点实参集合"的断言(现无此门)。
+2. **i18n 扫描器键段字符类不含连字符(commit `09d4110367`)**:`_i18n-scan-helpers.mjs` 17 处键段正则用
+   `[a-zA-Z0-9_]*`,含连字符的键在代码侧**永远匹配不到消费者** ⇒ web 侧静态引用 10847→**10904**(57 处此前隐形),
+   `scan-dead-i18n-keys` 死 key 9→**5**。被误判的 4 枚真实有消费者(`permissionTier.mode.{accept-edits,
+   bypass-permissions}.{title,desc}`,落 `apps/web/src/lib/permission-tier-text.ts:39-46` +
+   `packages/shared/src/chat/permission-tier.ts:36-41`);反证是同族无连字符的 default/plan/unknown 从不被误判。
+   只放宽键段:JS 标识符类与 namespace 捕获原样,连字符不允许起头。配 4 条镜像用例(含 2 条反例),
+   133→137 全绿 + 5 份分端扫描器测试 59/59 + §22c 镜像同步门通过。
+3. **一条自伤(已改判据)**:我按压缩小的清单把点路径直接喂 `merge2.mjs`,它在包根产出 `"upload.placeholder"`
+   这类**永不渲染的含点字面键** 125 处 —— 被自己的含点键判据当场抓到。修法=喂 merge2 前先落一份嵌套形态的归一清单,
+   并把"面内零含点字面键"升成硬闸(`land-b13.mjs`)。**教训**:探针面必须过与正式提交同一套门,否则"我验过了"只是自证。
+
+**登记两条不属本票、但会把别人挡在门外的守门 70 红**(取证据 `deadkeys-audit` 代理逐行分类,本人复核前 12 行):
+- `packages/shared/src/utils/view-failure-taxonomy.ts` 31 处 > 基线 0:全部是表内**说明性字符串字面量**
+  (lifecycleBasis 文档串 16 + 分类判据正则 15),UI 只渲染 `titleKey/actionKey`,`viewFailure.*` 词表已齐 ⇒
+  **该入包 0 条**。归属 D92 会话:要么把 16 条转注释后入账 15,要么首次入账 31。**禁止**由本会话替其抬基线平账。
+- `apps/web/app/layout.tsx` 46 > 40(+6 由 `02b2d353ad` 的 WebSub/GEO 块引入):全部 SEO metadata / JSON-LD /
+  link title,**0 处界面 chrome** ⇒ 不该按"塞语言包"清。正解是给扫描器扩 metadata 口径后**下调**基线,
+  **禁止**抬到 46 平账。多语言 SEO 属另一条待立项。
+
+**剩余 5 枚死键归属**:`contextMenu.feedback` + 根级 `toast.feedbackRecorded`(D49 `9b16668ccb` 删消费者后的孤儿键,
+词表正处并发合流面,合流后实删);`permission.mode.{full,auto,ask}`(`02b2d353ad` 引入、静态面零消费,归该会话裁决接线或删除)。
+
 ### 守门侧票:`scan-i18n-zh-residue` 行正则"值含转义引号"漏检根治(2026-09-23,承第九批登记的待办票)
 
 - **A/B 取证(权威入口直跑,不复制判据)**:在 `.ihui-agent/tmp/i18n/probe/` 造两行探针(一行值含 `\"`、一行不含),`git show HEAD:` 取出旧版脚本作为 A,新版作为 B,同一 cwd 下对跑:zh-TW **旧报 1 处 / 新报 2 处**,ko **旧 1 / 新 2**,且新报的值是解码后的真实文本(`台帐"记录"详情` → `臺帳"記錄"詳情`)。旧版对含 `\"` 的那行**完全看不见** = 永久漏检的现场复现。
