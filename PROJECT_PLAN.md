@@ -18,7 +18,73 @@
 
 ---
 
+## P1 2026-09-23 C 盘污染收口:13.2GB 构建备份 + 单日 45 个夹具的来源查清并归零(单端:工程治理/守门脚本,已完成 ✅)
+
+### 用户提问与实测结论
+
+用户问「C 盘怎么有我们乱七八糟的文件夹」。**全部由本仓脚本产生**,取证清单:
+
+| 位置 | 内容 | 体量 | 来源 |
+| ---- | ---- | ---- | ---- |
+| `C:\tmp\next-backup-node22-*` | 4 份 `.next` 构建备份 | **13.2GB** | `build-next-prod.ps1` 的 `$BackupRoot` 曾写死 `C:\tmp` |
+| `%LOCALAPPDATA%\Temp\ihui-*` | 56 个 git 裸仓/工作仓夹具 | 111MB,**当天新增 45 个** | `check-push-sync.test.mjs` / `git-push-guard.test.mjs` 走 `os.tmpdir()` |
+| `C:\IHUI-probe-*.ps1`、`C:\IHUI-AI-last-build.json` | 部署探查脚本 / 构建状态 | 1KB | 该写进 `.ihui-agent/tmp/` 却写到盘根 |
+| `C:\.pnpm-store`、`C:\.empty-tmp{,2}` | 误建 store / 清理实验残骸 | 56KB | 以 `C:\` 为 cwd 跑 pnpm(§15 ⑤ 禁止项) |
+
+三条根因:① **TEMP 迁移未对活进程生效** —— HKCU 的 `TEMP` 已于当天改指 `D:\DevEnv\Temp`,但环境块只被
+新进程继承,实测本会话 `%TEMP%` 仍是 `C:\Users\Administrator\AppData\Local\Temp`,所以 9-21 那次
+「`C:\tmp` → `$env:TEMP`」的修复等于从 C 盘一个坑挪到另一个坑;② **改路径时把旧备份变成孤儿** ——
+`build-next-prod.ps1` 的「只留最新 1 个」清理只在**当前** `$BackupRoot` 内跑,根目录一挪那 4 份再没人清;
+③ **没有一道守门看过文件系统** —— 第 45 项只扫源码字面量、26 项只扫 `D:\`、44 项只扫项目根,
+且 `c-drive-auto-maintain.ps1` 的清理段扫的是 `C:\temp`(错目录)、计划任务
+`IHUI-C-Drive-AutoMaintain` 本机**根本没注册**(`schtasks` 报「系统找不到指定的文件」,日志从未生成),
+§26 却写着「已注册/每天 3am」⇒ 全链恒绿而 C 盘天天涨。
+
+### 交付
+
+- [x] ✅(2026-09-23) **止血① 落点收口**:新增 `scripts/lib/scratch-dir.mjs`(`mkScratch`/`rmScratch`),
+  锚定工作树同盘 `DevEnv/Temp/ihui-scratch`(§15b 批准的临时物落点)。两个落点方案都被实测否掉并记录:
+  `os.tmpdir()`(活进程仍指 C)、仓库内 `.ihui-agent/tmp/`(`git rev-parse --show-toplevel` 会从夹具
+  向上逃逸到真仓库,「非 git 目录」用例恒红 —— 用 HEAD 副本 A/B 实证)。改接线
+  `check-push-sync.test.mjs` + `git-push-guard.test.mjs`(共 5 个夹具工厂、25 处清理),
+  回归与 HEAD 基线打平(18/18、12/12;`无 upstream` 那条是既有抖动,HEAD 副本同样红)。
+  `scripts/tests/scratch-dir.test.mjs` 4 例钉死两条不变量。
+- [x] ✅(2026-09-23) **止血② 修 `c-drive-auto-maintain.ps1` 三处失效**:清理段改扫真实位置
+  (`C:\tmp`、`%LOCALAPPDATA%\Temp\ihui-*`、盘根 `IHUI-*`/`.empty-tmp*`/`.pnpm-store`);`ForceDelete`
+  补单文件分支(原来对文件必然抛后被 catch 吞掉 = 静默什么都没删);新增 `-DryRun` 并**拦在
+  `ForceDelete` 唯一删除出口上** + 逐条 `[DEL]`/`[DRY]` 留痕。**过程自伤已如实登记**:第一版只把
+  DryRun 写在第三段,预演时第一段(Chrome 缓存,本机路径不存在故空转)与第二段(Temp >3 天目录)
+  被真删,释放约 29.8MB,均为陈旧临时目录,项目文件/备份/凭据(全在 D 盘)未受影响。
+- [x] ✅(2026-09-23) **止血③ 守门 91 `check-c-drive-pollution.mjs`**(warn-only,只读永不删):
+  实地扫 C 盘根 + `C:\tmp` + `C:\temp` + 活 TEMP,名字白名单只认本项目产物,认不出的进
+  「未识别清单」只登记不清理;并判 **TEMP 漂移**。`--self-test` 8 例 + §22c 镜像测试 6 例。
+  **编号撞了两次,第二次是本会话的交付事故**:先登记 85 与并行会话的 `check-test-paths` 同号 → 改 90;
+  但 90 已被 `ce261e1a8` 的 `check-sse-dispatch-parity` 占用,再撞。**更糟的是**:那次改号用
+  `safe-commit` 整文件提交 `guardian-runner.mjs`,而本会话这份带的是**旧基线** ⇒ diff 里
+  `script: 'check-sse-dispatch-parity.mjs'` 被我的注册块顶掉,等于**把别人刚装上的门卸了**
+  (`git show 5db08f26e -- scripts/guardian-runner.mjs` 可复核)。现已按 `ce261e1a8` 原文回插
+  守门 90、本门落到 **91**,并把「邻门注册块不得缺失」写进镜像测试断言。
+  ⇒ 教训:高并发同日仓里,① 「查编号占用」必须在提交前最后一刻重做;② 改共享注册类文件
+  (runner / package.json / CI)必须逐块核对增删,只看自己那段 diff 恰好看不见挤掉了谁。
+- [x] ✅(2026-09-23) **按用户批准范围清理**:68 项 → **0 项**,C 盘可用 **30G → 43G**。用户未批准的
+  `C:\tmp\git-recovery*`(5.9MB)、`agnes-ai-generation-skill`、`codebuddy` 以及 6/8 那批
+  `psexec_*`/`use_ti_*` 提权调试现场、`PSTools`/`PowerRun`/`tools`(合计未识别盘根条目 72 项)
+  **一律未动**,只在守门输出里登记待用户定性。
+
+### 遗留(已量化,不在本次范围)
+
+- [ ] 计划任务 `IHUI-C-Drive-AutoMaintain` 仍未注册(注册 = 影响全机的删除动作,须用户授权);
+  §26 的「已注册」表述已就地改正。
+- [ ] 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()`(`check-workspace-dep-links` /
+  `check-git-read-timeout` / `git-backup-refresh` / `check-api-routes` / `check-credential-health` 等)。
+  实测它们**当前不产生残留**(清理逻辑带 `maxRetries`),且已由守门 91 覆盖可见性,故未一并改写 ——
+  避免在共享工作区对 7 个文件做无取证收益的批量动刀。下一个被守门 91 报出的前缀即改写触发条件。
+- [ ] 重启宿主/开机后 `%TEMP%` 才会真指 `D:\DevEnv\Temp`;在此之前任何未接 `scratch-dir` 的
+  `os.tmpdir()` 调用仍会落 C 盘(守门 91 会报 TEMP 漂移)。
+
 ## P0 2026-09-23 全 8 端圆角单一源头收口(根治「手机上所有容器圆角与全局设定不一致」)
+
+
 
 ### 背景与根因(实测)
 
@@ -4710,24 +4776,6 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - [x] ✅(2026-09-23) **⑥附带挖出并根治的跨服务契约缺陷(`POST /v1/messages` 全族)**:这是"匹配连通好"的反例 —— 该能力**从上线起对所有通道都是坏的**,而 typecheck/lint/既有测试全绿。四个转发点(`apps/api/src/routes/v1-knowledge-tools.ts:2409/2461/2501/2541`)对账结果:请求方向 2 个不齐(publish 的 `channel` 单值 vs `channels: list` + 缺 `message{}` 嵌套;subscribe 的 `callbackUrl` ≠ `webhook_url`),响应方向 **4 个全不齐**(ai-service 该路由族每个端点都返 `{code,message,data}` 壳,而 `forwardAiService` 按裸 JSON 设计 ⇒ `messageId`/`subscriptionId` 永远读成空串;且上游 `except` 分支返回 **HTTP 200 + code=500** 被当成功)。**其中 subscribe 是最坏的一类:不 422、不报错,而是静默建了一条没有回调地址的死订阅**(`webhook_url` 有默认值 + pydantic 忽略额外键 + `subscribe()` 不校验)。修法全部在 api 侧:显式 `toMessageBusPublishRequest`/`toMessageBusSubscribeRequest` 映射 + 新增 `forwardMessageBus` 拆壳(`code!==0`→502 带上游文案),`channel` 由 `z.string()` 收 `z.enum(MESSAGE_BUS_CHANNELS)`(值域抄 `ChannelType`,注释点名 email 不得回升;先查过 `packages/types` 的 `MessageChannel` 属另一子系统 ⇒ 不复用不造第二份),`recipients` 明确不透传并留理由;顺带堵掉 unsubscribe 的 200 schema 为裸 `{type:'object'}` 被 fast-json-stringify 序列化成 `{}` 的坑。**假绿机制本体已修**:`v1-messages.test.ts` 原 3 个"路由集成"用例挂在**生产从不挂载的 `prefix:'/v1'`** 上,已改到真实挂载点 `/v1/anthropic` 并加 3 例路由归属对账。新增 `tests/v1-message-bus-contract.test.ts` 19 例:拦截 `globalThis.fetch` 断言真实出站 body + **运行时从两个 `.py` 源码解析 pydantic 字段/枚举做双向对账**(不手抄,4 例枚举由解析结果实际生成)。取证:`vitest` 两文件 **40 passed**(主会话独立复跑一致)、`tsc --noEmit` 0 错、eslint 0、`check-api-routes --staged` 不新增红、水印 3/3 完好;**反向对照**:把 `channels:` 故意写成 `channel:` → 6 例必红(含跨语言对账点名),改回即绿。`docs/API_REFERENCE.md:449` 同步改 4 通道。
 - **⑥ 刻意不在本票做(理由已核,非遗漏)**:① 404→503 的错映射属对外状态码语义,单开一票;② OpenAPI body 故意不加 `enum`(Fastify body schema 先于 zod,加了会让错误体从 `error(400,msg)` 变成 Fastify 默认形状,破已发布的错误契约);③ `subscriberCount` 上游无来源 ⇒ 保留字段恒 0,不用 `deliveredChannels` 伪造。影响面已核:全仓除文档/SDK 外壳外**无任何调用方**,且历史上所有通道值都 422→503 ⇒ 收紧不破任何现存可用行为。
 - **归属**:非本会话引入(本会话只做了工作区对齐与三个文件的旁路提交，未跑过任何 gc/prune)；候选成因两条按优先级留档:(a) 2026-09-23 15:49 `.git` 被宿主清除 + 恢复期遗留的**部分对象未回补**(见 [[incident-20260923-unpushed-commits-destroyed]] 与 §5b"objects/xx/ 同面命中")；(b) partial-clone 残留(`remote.origin.promisor`/`partialclonefilter`)—— 本机实测两条 config 均**不存在**，故 (b) 已否证，(a) 为主嫌。## O30 镜像配额根因链收口(Gitee 内部备份标签清零)+ 守门 71 补任务标题族 + vbs 生成器/产物漂移(2026-09-23 立并完成 ✅,单端工程治理:ci + scripts + 计划文档)
-- [x] ✅(2026-09-23) **O30① 地面真相先纠一处**:上一段登记的「cron 4.5h 零运行」是**采样假象** —— 本会话按 `workflows/{id}/runs?per_page=1` 连续取 6 条,`schedule` 在 14:16 / 18:26 / 21:45 都有派生。真正没落地的一直是**推送被服务端拒**,不是触发器。所以「改触发方式」这条被证据排除,后续不要再往那个方向调。
-- [x] ✅(2026-09-23) **O30② 配额真因 = 我们自己把内部备份标签推给了国内镜像**:本地 4227 个标签里 `lost-commit|nightly|backup` 三族占 **4206**,仅剩 21 个真对外标签。Gitee 点名的 3 个 >50MB blob(87.5/77.7/71.6MB,合计 **236.8MB**)经本地直查**都不在 HEAD 树里**,把它们拽在可达集上的只有 `lost-commit/*`(分别 2049 / 202 / 202 个标签包含,`git branch -a --contains` 为空)。⇒ 体积不是"仓库天然超配额",是内部标签人为抬高的。
-- [x] ✅(2026-09-23) **O30③ 两道"静默 no-op"是在真实运行里才抓到的,不是读代码读到的**:(a) 删除式里的 `grep -E '^[0-9a-f]+\trefs/tags/...'` —— GNU grep 的 ERE **不把 `\t` 当 tab**(实测对真实 sha<TAB>refs 样例行命中 0),导致"零损失删除"整步从未执行;(b) 排除式要求 `nightly/` 带斜杠而真名是 `nightly-数字`(140 个)⇒ 删完又原样推回去。两处现统一为**单一 `INTERNAL_TAG_RE`**(删除清单与推送排除同一真相源),并加反假绿守卫:该 RE 本地匹配 <1000 即 `::error::` + exit 1(实测本地 4213)。
-- [x] ✅(2026-09-23) **O30④ 第三个 no-op 由真实日志现形(run #3571)**:`git ls-remote` 对**附注标签**多输出 `refs/tags/<名>^{}` 一行,它不是可推送 ref,混进 `git push --delete` 让**整批 300 条**以 `fatal: invalid refspec` 全批作废 —— 3 批里 2 批因此没删。旧版只打印「失败批次 2」,真正的 fatal 埋在 300 行里。现:先 `grep -vF '^{}'` 剔除;每批输出先落盘、失败时打印前 2 行原因;删完**回读 ls-remote 取剩余数**再报结论(不以打印数自证)。
-- [x] ✅(2026-09-23) **O30⑤ 效果已核验(run #3572/#3573,head=822dd1f7d)**:远端内部备份标签 **797 → 0**(本轮打印「远端标签(不含 peel 行)=20 / 内部备份标签=0 / 剔除 peel 行=4」),推送标签数从"全量 4213"降到 **21**,`nightly-*` 不再被推回。**"每 20 分钟重演一次自伤"这一类到此结构性结束**。
-- **O30 残余(唯一剩的一步,不在本仓可控范围)**:main 仍未落地 —— Gitee 按**磁盘包**计体积,删 ref 只解除引用,推送时它仍报 `Repo size 1060.676MB, exceeds quota 1024MB`。差的是**服务端 GC**:Gitee 无 GC API(失败行里它自己给的是 `settings#git-gc`),而本会话浏览器实测**未登录 Gitee**(访问仓库设置被重定向到 /login),登录属账号侧动作、不代做。已在 CI 里把这条结论写进失败行(`exceeds quota` 命中即 `::error::` 点名"差服务端 GC,改触发器/判据均无效"),所以下一次看到红不会又去调触发器。Gitee `main` 现仍停在 **2026-09-20 23:16**(按 §27 的镜像判据,`check-credential-health` 的镜像活性行会在超阈值时报警,不靠人盯)。
-- [x] ✅(2026-09-23) **O30⑥ 守门 71 补「任务标题」一族(判据盲区,由本票自己的损失换来)**:并发会话按旧基线整文件回写,把 `## O28 门 53 白名单…` **标题行**和它下面一条 `- ⚠️ **(重要预警…)**` bullet 一起写没了,而 71 的标题族只认"第N批" ⇒ 390 条扫描照报"无缺失"、`--heal` 也回捞不到。现 `markerOf`/`headIdOf` 同时认「以登记编号打头的标题」(`## O28` / `## D107b` / `## 守门 79`),自测 23/23(含"整行被抹必报丢失"与"改写文案保留编号不报"正反对照),真仓全量审 `PROJECT_PLAN.md` **0 误报**;被删两行已按 HEAD 逐行回插(脚本保证**只插入、零改写**,写前校验被改动原行数必须为 0)。同族已核:`## 关键参考文档` 这类无编号标题仍不注册,不会往基线塞空条目。
-- [x] ✅(2026-09-23) **O30⑦ 守门 30a 由"恒红逼人 --no-verify"转绿**:并发会话推进 HEAD 后遗留一枚悬空 merge `f3e054929`(20:49 "Merge origin/main 17 提交进本会话 4 提交",实测**不在 HEAD 祖先链**),按 §22 钉 `lost-commit/wip-merge-origin-main-f3e0549` 并 `sync-lost-commit-tags` 双端对齐 → 30a exit 0。**此后本会话两次提交守门链 116 项全部正常通过,不再需要 --no-verify**(上一条提交是被 30a 挡过一次的真实对照)。
-- [x] ✅(2026-09-23) **O30⑧ vbs 生成器与产物"两套真相"收敛(取证方向差点搞反)**:`scripts/credential-health-hidden.vbs` 工作区与 HEAD 长期不一致,根因是 `check-credential-health.mjs` 的**生成模板**与已提交产物不同(模板无 `>> log`,产物有)。先按"产物为准"把模板改成带重定向 —— 再实测**任务真跑通了但日志文件从未存在**(`credential-health-last.json` 在 21:34 被刷新、`.workbuddy/credential-health.log` 不存在),证明 `WshShell.Run` 走 CreateProcess **不解析 shell 重定向**,那行 `>>` 从来是假的。故按事实收敛到"无重定向"一侧并注释说明:运行态取证面是 `credential-health-last.json` + LEDGER,要文本日志必须显式经 `cmd.exe /c` 包装。**教训:模板与产物不一致时,先证明哪一侧是真的,不要默认"已提交的就是对的"。**
-- [x] ✅(2026-09-23) **O34① 地面真相先纠一处**:上一段登记的「cron 4.5h 零运行」是**采样假象** —— 本会话按 `workflows/{id}/runs?per_page=1` 连续取 6 条,`schedule` 在 14:16 / 18:26 / 21:45 都有派生。真正没落地的一直是**推送被服务端拒**,不是触发器。所以「改触发方式」这条被证据排除,后续不要再往那个方向调。
-- [x] ✅(2026-09-23) **O34② 配额真因 = 我们自己把内部备份标签推给了国内镜像**:本地 4227 个标签里 `lost-commit|nightly|backup` 三族占 **4206**,仅剩 21 个真对外标签。Gitee 点名的 3 个 >50MB blob(87.5/77.7/71.6MB,合计 **236.8MB**)经本地直查**都不在 HEAD 树里**,把它们拽在可达集上的只有 `lost-commit/*`(分别 2049 / 202 / 202 个标签包含,`git branch -a --contains` 为空)。⇒ 体积不是"仓库天然超配额",是内部标签人为抬高的。
-- [x] ✅(2026-09-23) **O34③ 两道"静默 no-op"是在真实运行里才抓到的,不是读代码读到的**:(a) 删除式里的 `grep -E '^[0-9a-f]+\trefs/tags/...'` —— GNU grep 的 ERE **不把 `\t` 当 tab**(实测对真实 sha<TAB>refs 样例行命中 0),导致"零损失删除"整步从未执行;(b) 排除式要求 `nightly/` 带斜杠而真名是 `nightly-数字`(140 个)⇒ 删完又原样推回去。两处现统一为**单一 `INTERNAL_TAG_RE`**(删除清单与推送排除同一真相源),并加反假绿守卫:该 RE 本地匹配 <1000 即 `::error::` + exit 1(实测本地 4213)。
-- [x] ✅(2026-09-23) **O34④ 第三个 no-op 由真实日志现形(run #3571)**:`git ls-remote` 对**附注标签**多输出 `refs/tags/<名>^{}` 一行,它不是可推送 ref,混进 `git push --delete` 让**整批 300 条**以 `fatal: invalid refspec` 全批作废 —— 3 批里 2 批因此没删。旧版只打印「失败批次 2」,真正的 fatal 埋在 300 行里。现:先 `grep -vF '^{}'` 剔除;每批输出先落盘、失败时打印前 2 行原因;删完**回读 ls-remote 取剩余数**再报结论(不以打印数自证)。
-- [x] ✅(2026-09-23) **O34⑤ 效果已核验(run #3572/#3573,head=822dd1f7d)**:远端内部备份标签 **797 → 0**(本轮打印「远端标签(不含 peel 行)=20 / 内部备份标签=0 / 剔除 peel 行=4」),推送标签数从"全量 4213"降到 **21**,`nightly-*` 不再被推回。**"每 20 分钟重演一次自伤"这一类到此结构性结束**。
-- **O34 残余(唯一剩的一步,不在本仓可控范围)**:main 仍未落地 —— Gitee 按**磁盘包**计体积,删 ref 只解除引用,推送时它仍报 `Repo size 1060.676MB, exceeds quota 1024MB`。差的是**服务端 GC**:Gitee 无 GC API(失败行里它自己给的是 `settings#git-gc`),而本会话浏览器实测**未登录 Gitee**(访问仓库设置被重定向到 /login),登录属账号侧动作、不代做。已在 CI 里把这条结论写进失败行(`exceeds quota` 命中即 `::error::` 点名"差服务端 GC,改触发器/判据均无效"),所以下一次看到红不会又去调触发器。Gitee `main` 现仍停在 **2026-09-20 23:16**(按 §27 的镜像判据,`check-credential-health` 的镜像活性行会在超阈值时报警,不靠人盯)。
-- [x] ✅(2026-09-23) **O34⑥ 守门 71 补「任务标题」一族(判据盲区,由本票自己的损失换来)**:并发会话按旧基线整文件回写,把 `## O28 门 53 白名单…` **标题行**和它下面一条 `- ⚠️ **(重要预警…)**` bullet 一起写没了,而 71 的标题族只认"第N批" ⇒ 390 条扫描照报"无缺失"、`--heal` 也回捞不到。现 `markerOf`/`headIdOf` 同时认「以登记编号打头的标题」(`## O28` / `## D107b` / `## 守门 79`),自测 23/23(含"整行被抹必报丢失"与"改写文案保留编号不报"正反对照),真仓全量审 `PROJECT_PLAN.md` **0 误报**;被删两行已按 HEAD 逐行回插(脚本保证**只插入、零改写**,写前校验被改动原行数必须为 0)。同族已核:`## 关键参考文档` 这类无编号标题仍不注册,不会往基线塞空条目。
-- [x] ✅(2026-09-23) **O34⑦ 守门 30a 由"恒红逼人 --no-verify"转绿**:并发会话推进 HEAD 后遗留一枚悬空 merge `f3e054929`(20:49 "Merge origin/main 17 提交进本会话 4 提交",实测**不在 HEAD 祖先链**),按 §22 钉 `lost-commit/wip-merge-origin-main-f3e0549` 并 `sync-lost-commit-tags` 双端对齐 → 30a exit 0。**此后本会话两次提交守门链 116 项全部正常通过,不再需要 --no-verify**(上一条提交是被 30a 挡过一次的真实对照)。
-- [x] ✅(2026-09-23) **O34⑧ vbs 生成器与产物"两套真相"收敛(取证方向差点搞反)**:`scripts/credential-health-hidden.vbs` 工作区与 HEAD 长期不一致,根因是 `check-credential-health.mjs` 的**生成模板**与已提交产物不同(模板无 `>> log`,产物有)。先按"产物为准"把模板改成带重定向 —— 再实测**任务真跑通了但日志文件从未存在**(`credential-health-last.json` 在 21:34 被刷新、`.workbuddy/credential-health.log` 不存在),证明 `WshShell.Run` 走 CreateProcess **不解析 shell 重定向**,那行 `>>` 从来是假的。故按事实收敛到"无重定向"一侧并注释说明:运行态取证面是 `credential-health-last.json` + LEDGER,要文本日志必须显式经 `cmd.exe /c` 包装。**教训:模板与产物不一致时,先证明哪一侧是真的,不要默认"已提交的就是对的"。**
 
 ## O35 镜像配额根因链收口(Gitee 内部备份标签清零)+ 守门 71 补任务标题族 + vbs 生成器/产物漂移(2026-09-23 立并完成 ✅,单端工程治理:ci + scripts + 计划文档)
 
@@ -4742,6 +4790,7 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - [x] ✅(2026-09-23) **O35⑧ vbs 生成器与产物"两套真相"收敛(取证方向差点搞反)**:`scripts/credential-health-hidden.vbs` 工作区与 HEAD 长期不一致,根因是 `check-credential-health.mjs` 的**生成模板**与已提交产物不同(模板无 `>> log`,产物有)。先按"产物为准"把模板改成带重定向 —— 再实测**任务真跑通了但日志文件从未存在**(`credential-health-last.json` 在 21:34 被刷新、`.workbuddy/credential-health.log` 不存在),证明 `WshShell.Run` 走 CreateProcess **不解析 shell 重定向**,那行 `>>` 从来是假的。故按事实收敛到"无重定向"一侧并注释说明:运行态取证面是 `credential-health-last.json` + LEDGER,要文本日志必须显式经 `cmd.exe /c` 包装。**教训:模板与产物不一致时,先证明哪一侧是真的,不要默认"已提交的就是对的"。**
 - [x] ✅(2026-09-23) **O35⑨ 本段自身的编号漂移(如实记账,不留假账)**:一次 append 的章节标题被并发旧基线写没之后,按"HEAD 有、工作区无即回补"的回捞脚本又把同一段按**旧号 O30** 插了一遍 ⇒ 同内容在 HEAD 里出现 O30/O34 两份副本。本票按**正文逐字比对**(不是按编号前缀)确认 9 行两两同文后删掉 O30 副本,并把保留副本移到无人占用的 **O35**(O29/O30/O34 同日已被他人并行票占用,一天之内撞号三次)。因此本次提交会让守门 71 对 `O30①-⑧` / `O34①-⑧` 报"登记行消失" —— 那是**去重**不是丢失,故本提交带 `HUSKY_SKIP_PLAN_LINE_LOSS=1`,理由在此留痕。他人同前缀的行(另一票的 `**O30 残余(不写作收口)**`)按指纹排除,一行未动。
 ## O38 全队看板(原登记为 O29,与他人 O29 撞号后改号)：推送被 GitHub 推送保护整段拒绝 + 4 道门红在 HEAD + 本地恢复源落后 97 提交(已修) + 一批幻影债改判(2026-09-24 立,单端工程治理:scripts + 文档)
+## O29 全队看板：推送被 GitHub 推送保护整段拒绝 + 4 道门红在 HEAD + 本地恢复源落后 97 提交(已修) + 一批幻影债改判(2026-09-24 立,单端工程治理:scripts + 文档)
 
 - [x] ✅(2026-09-24) **本地 gitdir 恢复源增量刷新上线(§5b 此前唯一的空白层)**:guardian 只**读**恢复源(`backupOk` + `cpSync(BACKUP → GITDIR)`),无任何环节**更新**它。实测 04:40:`G:/IHUI-AI.git-backup-20260912` 的 main 停在 `f481c39a0`(09-23 20:13),本机 main 已前进 **97 个提交** ⇒ 宿主再删一次 `.git` 即等价回滚 97 提交(与 09-23 15:49 丢 15 条未推送 commit 同型)。落点 `scripts/git-backup-refresh.mjs`(增量 fetch `refs/heads/*`+`refs/tags/*`、`--update-head-ok`、`read-tree --reset` 重建其索引、复制 `refs-manifest.json` 使离线恢复后仍具嵌套 ref 自愈)+ 计划任务 `IHUI Git Backup Refresh`(15 分钟,纯 ASCII vbs 包 SW_HIDE,注册前 `cscript //nologo` 实跑预检)。**A/B 实证**:追平前 `--check` exit 1、真刷后 exit 0;真仓首跑咬出裸仓测不到的形态 —— 备份是 `.git` 的**非裸** cpSync 副本 ⇒ git 默认硬拒 `refusing to fetch into branch 'refs/heads/main' checked out`,自测补第 7/8/9 例覆盖(`--self-test` 共 9 例全绿)。
 - [x] ✅(2026-09-24) **守门 41 由红转绿,解除全队被迫 `--no-verify`**:并发建立的重复 remote `gh`(URL 与 origin **逐字相同**、`gh/main` 所指提交已在 HEAD 历史内)使 `check-single-branch.mjs` 恒红 ⇒ 每个会话按 §12 以 `--no-verify` 兜底,连带跳过 **115 道门**。已 `git remote remove gh`,复跑 `node scripts/check-single-branch.mjs` → ✅。**后续任何会话不得再建第二个 GitHub remote**(要换协议请改 `origin` 的 URL)。
@@ -4831,7 +4880,7 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - [x] ✅(2026-09-24) **放行落地**：用户在 Chrome 打开 `…/security/secret-scanning/unblock-secret/3JkFo…` 点 Allow（页面标题「允许秘密」，Edge 与 Qoder 内置浏览器两条路都不可用：内置 webview 被 Google 判"浏览器不支持 JS"拒登，Edge 档案未登录 → 同一链接 404）。放行后 `git-sync-converge` 第 1 轮即报 **`✅ 已收敛:本地 === 远端(0049563ff58)`**，逐枚 `merge-base --is-ancestor` 复核 **7 枚**（含曾被拦的 `7b2c7f006e5` 与本票链上 6 枚）全部在 `FETCH_HEAD` 内。
 - [x] ✅(2026-09-24) **根因侧收口（不留复发型敞口）**：同一夹具里的 Google 样例仍会被扫描器再次告警，故把 `packages/shared/src/utils/__tests__/redact.test.ts:102` 的整串字面量改**拼接构造**（与同文件既有 `slackSample` 同一手法，提交 `66f326c637f`）。取证：① `'AIza' + 余串` 运行期取值逐字符相同（`===` 实测 true、长度 39）⇒ 断言强度不降；② `packages/shared npx vitest run src/utils/__tests__/redact.test.ts` → **16 passed**；③ `git grep -c "AIzaSyBO…WBgw" HEAD -- 该文件` → 0 命中（tip 已无完整字面量）。
 - [x] ✅(2026-09-24) **远端告警处置**：#15（slack_api_token）随放行自动 resolved；#16（google_api_key，locations 精确指到 `redact.test.ts:102`）以 **`used_in_tests`** 关闭。**API 形状记一笔**：`PATCH /secret-scanning/alerts/{n}` 实际要 `-f state=resolved -f resolution=<原因>`，按文档的 `resolved_reason` 传会 422（"requires a resolution"）。**#14 不动**：它的 locations 是 `apps/mobile-cap/android/app/google-services.json:18`，属 Firebase 客户端配置密钥（按包名/referer 受限，本非机密），判性与此不同，留归属会话定档。
-- [x] ✅(2026-09-24) **守门 41 复发的真机制（更正本会话 O38 那节的归因）**：05:29 那三条陈旧 ref 复活**不是** `refs-manifest.json` 回灌（实测 live 与备份两份清单均为 4291 键且**不含**这三条；`FETCH_HEAD`、`.git/logs/**` 也 grep 不到该 sha），而是守护一轮 tick **读了我删除前的 `packed-refs` 快照**并按"宿主清理了 depth≥2 目录"重建 ⇒ **一次性竞态**，非永久循环。处置：重删三条 + `git pack-refs --all --prune` 规范化（06:07:15，门 41 当场 ✅），并在此后连续观察守护两轮确认不回灌（若再回灌则说明期望值另有来源，须继续查 `healRefs()` 的 map 取处）。**教训**：删嵌套 ref 要在**守护 tick 之后**立刻做，且必须隔 2 个周期复验，单次转绿不足以称修好。
+- [x] ✅(2026-09-24) **守门 41 复发的真机制（更正本会话 O29 的归因）**：05:29 那三条陈旧 ref 复活**不是** `refs-manifest.json` 回灌（实测 live 与备份两份清单均为 4291 键且**不含**这三条；`FETCH_HEAD`、`.git/logs/**` 也 grep 不到该 sha），而是守护一轮 tick **读了我删除前的 `packed-refs` 快照**并按"宿主清理了 depth≥2 目录"重建 ⇒ **一次性竞态**，非永久循环。处置：重删三条 + `git pack-refs --all --prune` 规范化（06:07:15，门 41 当场 ✅），并在此后连续观察守护两轮确认不回灌（若再回灌则说明期望值另有来源，须继续查 `healRefs()` 的 map 取处）。**教训**：删嵌套 ref 要在**守护 tick 之后**立刻做，且必须隔 2 个周期复验，单次转绿不足以称修好。
 ## O34 存续自愈在 05:15:04 把 10 个"在飞删除"当成宿主误删恢复了（2026-09-24 实证，归属会话需重发删除）
 
 ### 第二十七批(2026-09-24):14 条 secret-scanning 告警分诊关闭 + tag GC 按"是否唯一记录"分层——§29 的既有做法被实测推翻
@@ -4892,8 +4941,9 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - [x] ✅(2026-09-24) **最讽刺的一条,也是本票真正的增量**:专门用来根治"造好没装车"的 `check-gate-wiring.mjs`,**它自己三个文件一直是未跟踪状态**(`??`,并发会话建了没提交),HEAD 里没有它、runner 里也没有它 —— 而它按 `SELF_EXEMPT` 豁免自己,所以这个洞它自己看不见。已随 commit `9042bfad315` 把脚本/台账/测试一起入库并登记为 **89 (blocking)**;同票补装 `check-ui-react-usage.mjs` 为 **88 (blocking**,stagedTriggers 限三个有界面组件的端,装门前实测 FAIL 0 / WARN 2 / exit 0)。
 - [x] ✅(2026-09-24) **89 号门从绿起步已验证**:提交后回跑 `node scripts/check-gate-wiring.mjs` ⇒ **exit 0**(`✅ R1/R2 零红,已接线 134 / 台账豁免 5`)。恒红门=全队 --no-verify=118 道门全废,所以"上线即绿"是先决条件而非事后说明。三枚提交 `66d2ae1a26d` / `3676f79a88c` / `9042bfad315` 均已经 `git-sync-converge` 推到 origin=`eed641bac99`,converge 回读 `origin=本地 HEAD` ✅。
 - **O36 追加后仍存的残余(不写作收口)**:① README.md 守门清单未同步(§21 命中:新增 85–89 五档),因该文件此刻被并发会话 `MM` 暂存中,改必互抹 —— 解阻判据 `git status --porcelain -- README.md` 为空;② AGENTS.md §4 那句"另有 `check-miniapp-taro-design-tokens.mjs` 与 …"应改写为"校验由 `check-miniapp-tokens-sync.mjs`(36 项)与 `check-design-tokens-sync --target=miniapp-taro` 承担;前者是三源同责的第三份实现,**未接线、仅手动跑,不得为它新增档位**"(文字已备好,同样等 AGENTS.md 索引清空);③ 门 89 只认"有肯定式声称"的孤儿,R3 档现报 11 枚"五处零命中且无声称",其中 `check-sse-dispatch-parity.mjs` 自述"守门 2026-09-23 立"却无调用点 —— 它落在 R3 是因为措辞不含声称词,**这是本类事故最隐蔽的形态**,后续逐枚处置(勿一次全接,须逐枚实测真仓绿)。
-
 ## O37 8 枚 lost-commit tag 是"唯一引用且本机推不动"（2026-09-24 实证；本会话不动任何 ref，交做 tag GC 的会话/用户定档）
+
+## O1 8 枚 lost-commit tag 是"唯一引用且本机推不动"（2026-09-24 实证；本会话不动任何 ref，交做 tag GC 的会话/用户定档）
 
 - [x] ✅(2026-09-24) **推动尝试与根因**：`node scripts/sync-lost-commit-tags.mjs --auto-push`（含 `IHUI_TAG_PUSH_CHUNK=1` 逐枚）对 8 枚"仅本地"tag **全部失败**：远端 `remote: fatal: early EOF | error: remote unpack failed: index-pack failed`，本地侧根因是 pack 生成报 `fatal: unable to read 93328569e809ae98a65b4e114d636d6019d8e91f`；`git fsck --connectivity-only` 实测存在 **tree→blob 断链**（`ad1c6f4d3b… → f6141d2ce4… / 556179c71e… / 89ea79ec73… / fc6399d41d… / 628ecc11ad…`），而该 oid 在 loose 对象、`git verify-pack` 全量 idx、以及备份 gitdir `G:/IHUI-AI.git-backup-20260912` 三处**均取不到** ⇒ 属该工具备案里写明的"空壳 tag：补推是死路（只能从仍持有该对象的 gitdir 回补，或按 §29 人工 GC）"。
 - [x] ✅(2026-09-24) **一条归因更正（我差点写错并为此改判据）**：06:24 本会话 D48 提交触发的那次 30a blocking 红，**不是**这 8 枚"仅本地"造成的 —— `check-commit-loss-guard.mjs:846` 明确"仅本地不阻塞,只 warn"；真凶是 **`❌ 仅远端(1 个,本地缺失 — 必须 fetch): lost-commit/wip-merge-origin-main-f3e0549`**（第 5 段"远程 tag 完整性"）。同一判据随后单独复跑 **exit 0**（该 tag 已被 fetch 回补）。⇒ 消红**不需要**放宽判据，本会话也不改这道门。
@@ -4910,3 +4960,4 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - [x] ✅(2026-09-24) **给一道没有任何自检的 blocking 门补上取证面**:`check-button-height`(调用点 `scripts/lib/pre-commit-hook.js:517`,失败即 exit 1)此前零自检,而 AGENTS 速查点名的 52/67/69/71/72/77/78/79/80/81/89 全都有。补 27 例正反成对 + 12 例镜像测试(§22c/§22d:export `__test__` + `isDirectRun`,测试零镜像常量复制),含三类本仓实证过的失效形态:① `ROOT=process.cwd()` ⇒ 自测只 cd 到夹具就**静默扫真仓**(现改 `--root`/env 显式注入,根不存在 exit 2);② 扫到 0 个文件也报通过(exit 2 拦掉);③ **"动态解析档位清单"其实回落硬编码兜底表**时测试仍假绿 —— 用双向探针钉死(夹具独有档必被认出 ∧ 夹具删一档必变红,兜底表两条都不满足)。变异 M1(豁免放宽到 h-[5-9])红 5/27、M2(强制返回兜底表)红 7/27,还原后 27/27、12/12、真仓 0 违规。
 - **O39 残余(不写作收口)**:① **两枚"先修判据再接"的在册债**已量化到位 —— `check-watermark-syntax.mjs` 26 条红点里**真存量债 0 条**(22 条落在 `.trae/` 与 `apps/mobile-cap/.../_next/` 等被 gitignore 的本地产物上,判据用 `readdirSync` 全 walk 而非 `git ls-files`;另 4 条是正则字面量/自家测试夹具/`watermark.mjs` 自己注入的 L3 尾行被判红),修法四步:取材面收窄到版本树 → 补字符串/注释丢弃(守门 80 同型)→ 与 `watermark.mjs` L3 口径对齐 → 补 `--staged`;`check-sse-dispatch-parity.mjs` 的缺陷是**单条判据跨两个取材面**(帧清单读磁盘 `client.ts`、命中集读 HEAD 树)⇒ 并发期他人只加 `onXxx` 未登记即产假红,修法=帧清单也走 `git show HEAD:`;该文件此刻 `M`(他人 in-flight),本票不动。② **`apps/web/src/components/layout/SidebarHeader.tsx:280` 是一处现存真违规**(Button 上 `cn(..., "h-9 …")`),门今天不红只因旧版标签体解析被属性里的 `//` 注释(含 `[&>svg]:!h-5`)提前截断;新自检已**钉住该截断语义**,谁要收紧必先清这条 —— 属 UI 改动,须按 §17 做浏览器四态取证,不在脚本票范围。③ R4 的 50 枚文档缺口与 AGENTS/README 的同步仍被并发会话 `MM` 暂存锁住(解阻判据 `git status --porcelain -- AGENTS.md README.md` 为空),但**已不再是"只写在聊天记录里"的债**:门 89 每次提交都会把名单打印出来。④ 台账**既有** 5 条里有 4 条(`check-lock` / `check-messages-dev-restart` / `check-p2-3-acceptance` / `scan-upstream-models`)沿用其**自身头部自述**分类而未逐枚追真调用点(建账那轮的代理自陈);本票新增的 8 条则每条都带实测依据。门 89 的"可撤销豁免"巡检会在它们真接线后自动点名,不构成长期风险。
 
+- **同期门情复核（更新 O29 列表，避免按旧数派单）**：门 **52** `check-no-visible-spawn` 已由并发会话接 `maskInert`（字符串/模板正文不再当派生点）→ 全量实测 `扫描 8088 文件,生产代码 0 违规` ✅；门 **77** 圆角单一源头现 exit 0 ✅；门 **83** `check-brand-foreground` 仍红（其提示的正解是 `brand.ctaFill`/`ctaText`，属 RN 深色族持有者）⚠；门 **7** `check-dedupe` 仍红，要求 `pnpm dedupe` 后提交 lockfile —— 在 5+ 会话并发写工作区的窗口里重排共享依赖树没有干净回归信号，**本会话不执行**，留给依赖负责人在静默窗口做 ⚠。
