@@ -384,11 +384,12 @@ function SwipeableConversationItem({
       {/* 内容(上层,跟随手势平移) */}
       <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
         <Pressable
-          className="flex-row items-center px-4 py-3 bg-white"
+          className="flex-row items-center px-4 py-3"
+          style={{ backgroundColor: tokens.surface.card }}
           onPress={handleSelect}
           android_ripple={{ color: tokens.surface.muted }}
         >
-          <Text className="flex-1 text-[14px] text-gray-900" numberOfLines={1}>
+          <Text className="flex-1 text-[14px]" style={{ color: tokens.text.primary }} numberOfLines={1}>
             {item.title}
           </Text>
         </Pressable>
@@ -583,12 +584,13 @@ export function Drawer(props: DrawerProps) {
         {/* 抽屉主体(左侧滑入) */}
         <Animated.View style={[styles.drawer, { width: drawerWidth, transform: [{ translateX }] }]}>
           <View
-            className="flex-1 bg-white"
+            className="flex-1"
             style={{
               paddingTop: insets.top,
               paddingBottom: insets.bottom,
               borderTopRightRadius: 15,
               borderBottomRightRadius: 15,
+              backgroundColor: tokens.surface.card,
             }}
           >
             <ScrollView
@@ -611,10 +613,10 @@ export function Drawer(props: DrawerProps) {
                     />
                   ) : (
                     <View
-                      className="rounded-full items-center justify-center bg-gray-100"
+                      className="rounded-full items-center justify-center" style={{ backgroundColor: tokens.surface.muted }}
                       style={{ width: 60, height: 60 }}
                     >
-                      <Text className="text-[16px] font-semibold text-gray-700">{initials}</Text>
+                      <Text className="text-[16px] font-semibold" style={{ color: tokens.text.secondary }}>{initials}</Text>
                     </View>
                   )}
                   {isVip ? (
@@ -624,7 +626,7 @@ export function Drawer(props: DrawerProps) {
                   ) : null}
                 </View>
                 <View className="flex-1">
-                  <Text className="text-[15px] font-semibold text-gray-900" numberOfLines={1}>
+                  <Text className="text-[15px] font-semibold" style={{ color: tokens.text.primary }} numberOfLines={1}>
                     {nickname}
                   </Text>
                   <View className="mt-1">
@@ -633,8 +635,8 @@ export function Drawer(props: DrawerProps) {
                         <Text className="text-[10px] text-purple font-medium">VIP 会员</Text>
                       </View>
                     ) : (
-                      <View className="self-start px-1.5 py-0.5 rounded-md bg-gray-100">
-                        <Text className="text-[10px] text-gray-500">普通用户</Text>
+                      <View className="self-start px-1.5 py-0.5 rounded-md" style={{ backgroundColor: tokens.surface.muted }}>
+                        <Text className="text-[10px]" style={{ color: tokens.text.tertiary }}>普通用户</Text>
                       </View>
                     )}
                   </View>
@@ -646,7 +648,7 @@ export function Drawer(props: DrawerProps) {
                   accessibilityLabel="关闭抽屉"
                   android_ripple={{ color: tokens.surface.muted }}
                 >
-                  <Text className="text-[22px] text-gray-400 leading-none">×</Text>
+                  <Text className="text-[22px] leading-none" style={{ color: tokens.text.tertiary }}>×</Text>
                 </Pressable>
               </View>
 
@@ -663,7 +665,7 @@ export function Drawer(props: DrawerProps) {
                     android_ripple={{ color: tokens.surface.muted, radius: 60 }}
                   >
                     <View
-                      className="rounded-xl items-center justify-center bg-gray-50 mb-1"
+                      className="rounded-xl items-center justify-center mb-1" style={{ backgroundColor: tokens.surface.muted }}
                       style={{ width: 30, height: 30 }}
                     >
                       <Icon size={22} color={tokens.text.primary} />
@@ -688,7 +690,7 @@ export function Drawer(props: DrawerProps) {
                     android_ripple={{ color: tokens.surface.muted, radius: 60 }}
                   >
                     <View
-                      className="rounded-xl items-center justify-center bg-gray-50 mb-1"
+                      className="rounded-xl items-center justify-center mb-1" style={{ backgroundColor: tokens.surface.muted }}
                       style={{ width: 30, height: 30 }}
                     >
                       <Icon size={22} color={tokens.text.secondary} />
@@ -708,7 +710,7 @@ export function Drawer(props: DrawerProps) {
                   <View className="w-8 h-8 rounded-lg items-center justify-center bg-accent-light mr-3">
                     <Building2 size={18} color={tokens.brandAccent.deep} />
                   </View>
-                  <Text className="flex-1 text-[14px] text-gray-900">我的一人公司</Text>
+                  <Text className="flex-1 text-[14px]" style={{ color: tokens.text.primary }}>我的一人公司</Text>
                   <ChevronRight size={16} color={tokens.text.tertiary} />
                 </Pressable>
                 <Pressable
@@ -719,7 +721,7 @@ export function Drawer(props: DrawerProps) {
                   <View className="w-8 h-8 rounded-lg items-center justify-center bg-success-lighter mr-3">
                     <Gift size={18} color={tokens.success.DEFAULT} />
                   </View>
-                  <Text className="flex-1 text-[14px] text-gray-900">领取免费资料</Text>
+                  <Text className="flex-1 text-[14px]" style={{ color: tokens.text.primary }}>领取免费资料</Text>
                   <ChevronRight size={16} color={tokens.text.tertiary} />
                 </Pressable>
                 <Pressable
@@ -730,7 +732,7 @@ export function Drawer(props: DrawerProps) {
                   <View className="w-8 h-8 rounded-lg items-center justify-center bg-purple-light mr-3">
                     <Plus size={18} color={tokens.brandAccent.deep} />
                   </View>
-                  <Text className="flex-1 text-[14px] text-gray-900">创建新对话</Text>
+                  <Text className="flex-1 text-[14px]" style={{ color: tokens.text.primary }}>创建新对话</Text>
                   <ChevronRight size={16} color={tokens.text.tertiary} />
                 </Pressable>
               </View>
@@ -744,7 +746,7 @@ export function Drawer(props: DrawerProps) {
                   onPress={() => handleQuickNav('agent')}
                   android_ripple={{ color: tokens.surface.muted }}
                 >
-                  <Text className="flex-1 text-[13px] text-gray-700">{t('chat.navAgent')}</Text>
+                  <Text className="flex-1 text-[13px]" style={{ color: tokens.text.secondary }}>{t('chat.navAgent')}</Text>
                   <ChevronRight size={15} color={tokens.text.tertiary} />
                 </Pressable>
                 <Pressable
@@ -752,7 +754,7 @@ export function Drawer(props: DrawerProps) {
                   onPress={() => handleQuickNav('wallet')}
                   android_ripple={{ color: tokens.surface.muted }}
                 >
-                  <Text className="flex-1 text-[13px] text-gray-700">{t('chat.navWallet')}</Text>
+                  <Text className="flex-1 text-[13px]" style={{ color: tokens.text.secondary }}>{t('chat.navWallet')}</Text>
                   <ChevronRight size={15} color={tokens.text.tertiary} />
                 </Pressable>
                 <Pressable
@@ -760,7 +762,7 @@ export function Drawer(props: DrawerProps) {
                   onPress={() => handleQuickNav('course')}
                   android_ripple={{ color: tokens.surface.muted }}
                 >
-                  <Text className="flex-1 text-[13px] text-gray-700">{t('chat.navCourse')}</Text>
+                  <Text className="flex-1 text-[13px]" style={{ color: tokens.text.secondary }}>{t('chat.navCourse')}</Text>
                   <ChevronRight size={15} color={tokens.text.tertiary} />
                 </Pressable>
                 <Pressable
@@ -768,7 +770,7 @@ export function Drawer(props: DrawerProps) {
                   onPress={() => handleQuickNav('order')}
                   android_ripple={{ color: tokens.surface.muted }}
                 >
-                  <Text className="flex-1 text-[13px] text-gray-700">{t('chat.navOrder')}</Text>
+                  <Text className="flex-1 text-[13px]" style={{ color: tokens.text.secondary }}>{t('chat.navOrder')}</Text>
                   <ChevronRight size={15} color={tokens.text.tertiary} />
                 </Pressable>
                 <Pressable
@@ -776,7 +778,7 @@ export function Drawer(props: DrawerProps) {
                   onPress={() => handleQuickNav('profile')}
                   android_ripple={{ color: tokens.surface.muted }}
                 >
-                  <Text className="flex-1 text-[13px] text-gray-700">{t('chat.navProfile')}</Text>
+                  <Text className="flex-1 text-[13px]" style={{ color: tokens.text.secondary }}>{t('chat.navProfile')}</Text>
                   <ChevronRight size={15} color={tokens.text.tertiary} />
                 </Pressable>
                 <Pressable
@@ -784,7 +786,7 @@ export function Drawer(props: DrawerProps) {
                   onPress={() => handleQuickNav('settings')}
                   android_ripple={{ color: tokens.surface.muted }}
                 >
-                  <Text className="flex-1 text-[13px] text-gray-700">{t('chat.navSettings')}</Text>
+                  <Text className="flex-1 text-[13px]" style={{ color: tokens.text.secondary }}>{t('chat.navSettings')}</Text>
                   <ChevronRight size={15} color={tokens.text.tertiary} />
                 </Pressable>
                 <Pressable
@@ -792,7 +794,7 @@ export function Drawer(props: DrawerProps) {
                   onPress={() => handleQuickNav('logout')}
                   android_ripple={{ color: tokens.surface.muted }}
                 >
-                  <Text className="flex-1 text-[13px] text-gray-700">{t('chat.navLogout')}</Text>
+                  <Text className="flex-1 text-[13px]" style={{ color: tokens.text.secondary }}>{t('chat.navLogout')}</Text>
                   <ChevronRight size={15} color={tokens.text.tertiary} />
                 </Pressable>
               </View>
@@ -851,7 +853,10 @@ export function Drawer(props: DrawerProps) {
             </ScrollView>
 
             {/* 7. 底部操作区:回到主页 + 设置 + 消息(对齐 Uniapp back_index_btn + bottom_userInfo) */}
-            <View className="px-4 py-3 flex-row items-center justify-between bg-white">
+            <View
+              className="px-4 py-3 flex-row items-center justify-between"
+              style={{ backgroundColor: tokens.surface.card }}
+            >
               <Pressable
                 className="flex-row items-center gap-1.5 py-1.5 px-2 rounded-lg"
                 onPress={onGoHome}
