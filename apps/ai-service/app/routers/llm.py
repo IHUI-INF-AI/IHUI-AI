@@ -2242,6 +2242,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
     injection_frames: list[dict[str, Any]] = []
     # G-166 第⑥步:网关换 key / 退避重试的记账(逐条累积,落库取最后一条 = attempt 最大那条)
     retry_notices: list[dict[str, Any]] = []
+    # D33 剩余类(2026-09-24 立):steer(中途引导)注入记录。tool loop drain 注入点
+    # (SSE steer phase=injected 同一循环)逐条累积,随终局 _fire_callback 落库,
+    # 刷新/重拉历史后「⚡ 引导已生效」badge 仍可回放。空列表不写字段(与"本轮无引导"语义区分)。
+    steer_applied: list[dict[str, Any]] = []
     # kind 是**前端本地化的键**(措辞由 5 语言词表给出),collapsed 只作未知 kind 的兜底文本。
     # 因此:① kind 必须逐场景互不相同(曾把 Repo Wiki 与自动检索都写成 environments,
     # 前端无法区分);② 改 kind 必须同步 apps/web 的 INJECTION_KIND_KEYS 与词表。
@@ -2528,6 +2532,14 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 if message_id:
                                     _steer_evt["messageId"] = message_id
                                 yield _sse(SSE_STEER, _steer_evt)
+                                # D33:落库形状与 SteerNotice(web store)对齐 {text, timestamp?} ——
+                                # messageId 是 store 寻址键,落库行天然按消息行寻址,不重复存。
+                                steer_applied.append(
+                                    {
+                                        "text": _steer_text,
+                                        **({"timestamp": _st["queuedAt"]} if _st.get("queuedAt") else {}),
+                                    }
+                                )
                                 _iter_budget += 1
                         # ===== 第一轮:流式化(2026-08-29 修复)=====
                         # 根因:tool loop 第一轮此前用非流式 complete(),LLM 无 tool_calls
@@ -2650,6 +2662,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     injections=injection_frames,
                                     compaction_info=compaction_info,
                                     retry_notice=retry_notices[-1] if retry_notices else None,
+                                    steer_applied=steer_applied or None,
                                     ))
                                     _pending_callbacks.add(task)
                                     task.add_done_callback(_pending_callbacks.discard)
@@ -2803,6 +2816,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     injections=injection_frames,
                                     compaction_info=compaction_info,
                                     retry_notice=retry_notices[-1] if retry_notices else None,
+                                    steer_applied=steer_applied or None,
                                     ))
                                     _pending_callbacks.add(task)
                                     task.add_done_callback(_pending_callbacks.discard)
@@ -3501,6 +3515,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 injections=injection_frames,
                                 compaction_info=compaction_info,
                                 retry_notice=retry_notices[-1] if retry_notices else None,
+                                steer_applied=steer_applied or None,
                                 ))
                                 _pending_callbacks.add(task)
                                 task.add_done_callback(_pending_callbacks.discard)
@@ -3774,6 +3789,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             usage_detail=_usage_detail,
             fallback=fallback_records[-1] if fallback_records else None,
             memory_updates=_mem_updates if _mem_updates else None,
+            steer_applied=steer_applied or None,
             ))
             _pending_callbacks.add(task)
             task.add_done_callback(_pending_callbacks.discard)
@@ -3936,6 +3952,7 @@ async def _fire_callback(
     usage_detail: dict[str, Any] | None = None,
     fallback: dict[str, Any] | None = None,
     memory_updates: list[str] | None = None,
+    steer_applied: list[dict[str, Any]] | None = None,
 ) -> None:
     """异步 POST 推理结果到 callback_url。
 
@@ -4013,6 +4030,11 @@ async def _fire_callback(
         body["fallback"] = fallback
     if memory_updates:
         body["memoryUpdates"] = memory_updates
+    # D33 剩余类(2026-09-24 立):steer 注入记录,与 SSE steer(phase=injected) 帧同源
+    # (同一 drain 循环逐条累积)。非空才写 key,形状 {text, timestamp?} 与 web
+    # SteerNotice 对齐,刷新后「⚡ 引导已生效」badge 由读回侧灌回既有渲染位。
+    if steer_applied:
+        body["steerApplied"] = steer_applied
     # 2026-08-06 修复(配套):API 侧 /api/ai/callback 已改为 fail-closed
     # (未配置 AI_CALLBACK_SECRET 直接 401 拒绝)。此处未配置 ai_callback_secret
     # 时回调必然被拒,跳过发送并记录明确错误,避免无效网络请求 + 静默丢回调。
