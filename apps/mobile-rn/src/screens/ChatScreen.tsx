@@ -126,6 +126,7 @@ import {
   appendCitationFrames,
   applyInjectionFrame,
   appendSteerFrames,
+  readSteerAppliedFromMetadata,
   type MessageCitation,
   type MessageInjection,
   type SteerNotice,
@@ -200,7 +201,7 @@ interface ChatScreenMessageWithReasoning extends ChatScreenMessage {
   citations?: MessageCitation[]
   injections?: MessageInjection[]
   /** D106 Steer(中途引导):本轮被用户注入的引导交代,对齐 web steerNoticesByMessageId。
-   *  执行期瞬时态不落库(web 同口径),故历史水合不还原。 */
+   *  api 侧已随回调落库 metadata.steerApplied,历史水合读回(2026-09-24 立)。 */
   steerNotices?: SteerNotice[]
 }
 
@@ -218,7 +219,11 @@ interface PanelItem {
 
 // ── 转换函数 ──
 
-const toChatScreenMessage = (m: ChatMessage): ChatScreenMessageWithReasoning => ({
+// steerNotices 是端内瞬时态:@ihui/shared ChatMessage 无此字段(types 包只读不扩),
+// 交集类型承载(live 由 onSteer 累积,历史由 metadata.steerApplied 读回)
+type ChatMessageWithSteer = ChatMessage & { steerNotices?: SteerNotice[] }
+
+const toChatScreenMessage = (m: ChatMessageWithSteer): ChatScreenMessageWithReasoning => ({
   id: m.id,
   role: m.role as 'user' | 'assistant',
   content: m.content,
@@ -227,6 +232,9 @@ const toChatScreenMessage = (m: ChatMessage): ChatScreenMessageWithReasoning => 
   // G-166:交代字段同样透传(历史消息由 metadata 水合,流式消息由 SSE 回调累积)
   citations: m.citations,
   injections: m.injections,
+  // D106:steer 交代透传 —— 不透传则 live 帧(映射发生在 onSteer 落 state 之后)与
+  // 历史读回都在本屏静默丢失
+  steerNotices: m.steerNotices,
 })
 
 const toChatScreenModel = (m: LlmModel): ChatScreenModel => ({
@@ -726,9 +734,10 @@ export function ChatScreen() {
       // 这里逐字段承接(phase/text/timestamp/messageId)累积到最后一条 assistant 消息;
       // 空文本帧由 appendSteerFrames 整帧丢弃,不渲染空交代(与 N8n 屏同一累积口径)。
       onSteer: (event) => {
-        // steerNotices 是端内瞬时态:@ihui/shared ChatMessage 无此字段(types 包只读不扩),
-        // 流式期间以本地交集类型承载,不落库(web steerNoticesByMessageId 同口径)。
-        type StreamMessageWithSteer = ChatMessage & { steerNotices?: SteerNotice[] }
+        // steerNotices:@ihui/shared ChatMessage 无此字段(types 包只读不扩),
+        // 流式期间以本地交集类型承载(落库由 api 侧写 metadata.steerApplied,读回见
+        // loadConversationMessages),渲染透传见 toChatScreenMessage。
+        type StreamMessageWithSteer = ChatMessageWithSteer
         setMessages((prev) => {
           const next = [...prev]
           const last = next[next.length - 1] as StreamMessageWithSteer | undefined
@@ -1873,11 +1882,17 @@ export function ChatScreen() {
     async (id: string): Promise<void> => {
       const res = await getMessages(id, { direction: 'initial', pageSize: 100 })
       if (res.success) {
-        const loaded: ChatMessage[] = res.data.messages.map((m, idx) => {
+        // steerNotices:live 由 onSteer 累积(下方 onSteer 回调),历史由
+        // metadata.steerApplied 读回(api 侧已随回调落库,与 SSE 帧同源)
+        const loaded: ChatMessageWithSteer[] = res.data.messages.map((m, idx) => {
           // G-166:服务端已把引用/注入交代随回调落库(metadata),此前本屏只读
           // id/role/content/reasoning → 重进历史会话时交代区整段消失。逐条类型守卫:
           // 脏条目单条丢弃,缺 url 不造"点不动的假链接"。
-          const meta = m.metadata as { citations?: unknown; injections?: unknown } | null
+          const meta = m.metadata as {
+            citations?: unknown
+            injections?: unknown
+            steerApplied?: unknown
+          } | null
           const citations = Array.isArray(meta?.citations)
             ? (meta?.citations as Array<Record<string, unknown>>).flatMap((c) =>
                 typeof c?.source === 'string' && typeof c.label === 'string'
@@ -1905,6 +1920,9 @@ export function ChatScreen() {
                   : [],
               )
             : undefined
+          // D106 收尾:steer 交代历史读回 —— 守卫(text 非空字符串、timestamp 仅
+          // string、8 条封顶)收敛在纯函数里,无 steer / 全坏 → undefined 不写字段
+          const steerNotices = readSteerAppliedFromMetadata(meta?.steerApplied)
           return {
             id: `${m.id}-${idx}`,
             role: m.role,
@@ -1913,6 +1931,7 @@ export function ChatScreen() {
             reasoning: m.reasoning,
             ...(citations && citations.length > 0 ? { citations } : {}),
             ...(injections && injections.length > 0 ? { injections } : {}),
+            ...(steerNotices && steerNotices.length > 0 ? { steerNotices } : {}),
           }
         })
         setMessages(loaded)

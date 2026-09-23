@@ -235,7 +235,7 @@ jobs:
             --environment "${{ inputs.environment }}" \
             --stage "job=${{ github.job }} / run#${{ github.run_attempt }}" \
             --trigger "${{ github.actor }}" \
-            --source "blue-green-deploy" \
+            --source "github-actions/blue-green-deploy" \
             --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
       - name: 部署摘要
