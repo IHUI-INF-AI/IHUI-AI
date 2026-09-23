@@ -1907,6 +1907,35 @@ const checks = [
     ].join('\n'),
   },
 
+  // workspace 依赖链接对账(2026-09-23 立,守门 78)。成因是当天的生产停摆:
+  // apps/extension 声明了 @ihui/design-tokens: workspace:*,但 node_modules 里没这个链接
+  // (§12e 那类 `pnpm install --filter` 把链接剪掉)。deploy 跑 pnpm -r build,wxt 在 rollup
+  // 阶段 failed to resolve import → 连续 4 次构建失败 → 部署环进入 30 分钟冷却并反复循环,
+  // 线上停在旧提交。关键:**typecheck/lint/单测全都不会知道**(TS 走 tsconfig paths,
+  // 不看 node_modules),所以这类破损只有真打包时才暴露 —— 本地全绿、生产恒红。
+  // 判据:每个包声明的 workspace:* 依赖必须在 <pkg>/node_modules 或根 node_modules 可解析
+  // (existsSync 跟随符号链接,悬空链接同样判红);扫不到任何包时 exit 1,不报假绿灯。
+  {
+    id: '78',
+    label: '🔗 workspace 依赖"声明即已链接"对账(blocking,拦本地全绿/部署环恒红)',
+    script: 'check-workspace-dep-links.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_WORKSPACE_DEP_LINKS',
+    onFailHint: [
+      '',
+      '  💡 某包 package.json 声明了 workspace:* 依赖,但 node_modules 里解析不到。',
+      '     修复 = 跑 **全量** `pnpm install`(不带 --filter,见 AGENTS.md §12e:',
+      '     --filter 安装会剪掉根 node_modules 链接,曾连带让 lint-staged 消失、守门全废)。',
+      '     为什么本地看不出来:typecheck 走 tsconfig paths,不看 node_modules;只有 vite/rollup',
+      '     真打包时才 failed to resolve import —— 也就是部署环失败、线上停在旧提交。',
+      '     单独复验:node scripts/check-workspace-dep-links.mjs',
+      '     自检:node scripts/check-workspace-dep-links.mjs --self-test(9 例)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_WORKSPACE_DEP_LINKS=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
