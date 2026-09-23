@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     color: tokens.text.secondary,
   } as TextStyle,
   textActive: {
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   } as TextStyle,
   mask: {
     flex: 1,
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
   customizeConfirmText: {
     fontSize: 14,
     fontWeight: '700',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   } as TextStyle,
 })
 

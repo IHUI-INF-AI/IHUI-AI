@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
   },
   buyBtnText: {
     fontSize: 12,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '500',
   },
   modelFooter: {
