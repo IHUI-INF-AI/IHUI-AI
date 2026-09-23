@@ -1,4 +1,179 @@
 {
+  "taskStatus": {
+    "toolGenericActivity": "{state, select, running {Running: {name}} completed {Completed: {name}} other {Run: {name}}}",
+    "toolReadFileActivity": "{state, select, running {Reading file contents} completed {Read file contents} other {Read file}}",
+    "toolEditFileActivity": "{state, select, running {Editing file} completed {Edited file} other {Edit file}}",
+    "toolWriteFileActivity": "{state, select, running {Writing file} completed {Wrote file} other {Write file}}",
+    "toolSearchCodebaseActivity": "{state, select, running {Searching codebase} completed {Searched codebase} other {Search codebase}}",
+    "toolWebSearchActivity": "{state, select, running {Searching the web} completed {Searched the web} other {Search the web}}",
+    "toolParseDocumentActivity": "{state, select, running {Parsing document} completed {Parsed document} other {Parse document}}",
+    "toolListFilesActivity": "{state, select, running {Listing directory files} completed {Listed directory files} other {List directory files}}",
+    "toolFileSearchActivity": "{state, select, running {Searching files} completed {Searched files} other {Search files}}",
+    "toolCreateFileActivity": "{state, select, running {Creating file} completed {Created file} other {Create file}}",
+    "toolDeleteFileActivity": "{state, select, running {Deleting file} completed {Deleted file} other {Delete file}}",
+    "toolAnalyzeCodeActivity": "{state, select, running {Analyzing code} completed {Analyzed code} other {Analyze code}}",
+    "toolKnowledgeLookupActivity": "{state, select, running {Querying knowledge base} completed {Queried knowledge base} other {Query knowledge base}}",
+    "toolFetchUrlActivity": "{state, select, running {Fetching web page content} completed {Fetched web page content} other {Fetch web page content}}",
+    "toolGenerateChartActivity": "{state, select, running {Generating chart} completed {Generated chart} other {Generate chart}}",
+    "toolBrowserNavigateActivity": "{state, select, running {Opening a web page} completed {Opened a web page} other {Open a web page}}",
+    "toolBrowserClickElementActivity": "{state, select, running {Clicking a page element} completed {Clicked a page element} other {Click a page element}}",
+    "toolBrowserTypeTextActivity": "{state, select, running {Typing into a page field} completed {Typed into a page field} other {Type into a page field}}",
+    "toolBrowserScreenshotActivity": "{state, select, running {Capturing a page screenshot} completed {Captured a page screenshot} other {Capture a page screenshot}}",
+    "toolBrowserExtractDomActivity": "{state, select, running {Extracting page content} completed {Extracted page content} other {Extract page content}}",
+    "toolBrowserScrollActivity": "{state, select, running {Scrolling the page} completed {Scrolled the page} other {Scroll the page}}",
+    "toolBrowserWaitForElementActivity": "{state, select, running {Waiting for an element} completed {Waited for an element} other {Wait for an element}}",
+    "toolBrowserHoverActivity": "{state, select, running {Hovering a page element} completed {Hovered a page element} other {Hover a page element}}",
+    "toolBrowserCloseTabActivity": "{state, select, running {Closing browser tab} completed {Closed browser tab} other {Close browser tab}}",
+    "toolBrowserSwitchTabActivity": "{state, select, running {Switching browser tab} completed {Switched browser tab} other {Switch browser tab}}",
+    "toolReadFile": "Read file contents",
+    "toolEditFile": "Edit file",
+    "toolWriteFile": "Write file",
+    "toolCreateFile": "Create file",
+    "toolDeleteFile": "Delete file",
+    "toolListFiles": "List directory files",
+    "toolFileSearch": "Search files",
+    "toolSearchCodebase": "Search codebase",
+    "toolAnalyzeCode": "Analyze code",
+    "toolWebSearch": "Search the web",
+    "toolKnowledgeLookup": "Query knowledge base",
+    "toolParseDocument": "Parse document",
+    "toolGenerateChart": "Generate chart",
+    "toolSummarizeArtifacts": "Summarize artifacts",
+    "activityMcp": "Calling {mcp} MCP",
+    "activityPlugin": "Calling {plugin} plugin",
+    "activityPlanning": "Planning in progress",
+    "activityRunning": "Running",
+    "activitySubagent": "Subagent {name}",
+    "activityTerminal": "Running terminal command",
+    "activityTool": "Calling {tool}",
+    "collapseDetail": "Collapse task details",
+    "expandDetail": "Expand task details",
+    "filesChanged": "{n} files changed",
+    "idle": "Idle",
+    "steps": "Step {current}/{total}",
+    "waiting": "Waiting for the task to start",
+    "toolIndexCodebase": "Index the codebase",
+    "toolGenerateTest": "Generate test code",
+    "toolRunCommand": "Run a command",
+    "toolGitOperations": "Run Git operations",
+    "toolFetchUrl": "Fetch web page content",
+    "toolCrawlSite": "Crawl the site",
+    "toolScreenshot": "Capture a screenshot",
+    "toolContextRecall": "Recall past context",
+    "toolImageGeneration": "Generate an image",
+    "toolImageEdit": "Edit an image",
+    "toolVideoGeneration": "Generate a video",
+    "toolMusicGeneration": "Generate music",
+    "toolVoiceTts": "Convert text to speech",
+    "toolAudioTranscription": "Transcribe audio",
+    "toolVisionAnalyze": "Analyze an image",
+    "toolDispatchSubagent": "Dispatch a subagent",
+    "toolScheduleTask": "Create a scheduled task",
+    "toolBgTaskStatus": "Check background tasks",
+    "toolUiDescribe": "Inspect page controls",
+    "toolUiNavigate": "Open a page",
+    "toolUiClick": "Click a page element",
+    "toolUiFill": "Fill an input field",
+    "toolUiSubmit": "Submit the form",
+    "toolUiRead": "Read the page",
+    "toolUiInvoke": "Trigger a page action",
+    "toolApiSearch": "Search backend endpoints",
+    "toolApiCall": "Call a backend endpoint",
+    "toolEduListStudents": "List students",
+    "toolEduListArrears": "List overdue accounts",
+    "toolEduListReminders": "List fee reminders",
+    "toolEduListPayments": "List payments",
+    "toolEduPaymentSummary": "Summarize payments",
+    "toolEduTuitionFees": "List tuition fees",
+    "toolEduMyBills": "List my bills",
+    "toolEduListRefunds": "List refund requests",
+    "toolEduCreateRefund": "Create a refund request",
+    "toolEduApproveRefund": "Approve the refund",
+    "toolEduRejectRefund": "Reject the refund",
+    "toolEduSendReminder": "Send a fee reminder",
+    "toolEduSendReminderBatch": "Send reminders in bulk",
+    "toolEduCreatePayment": "Record a payment",
+    "statusSuccess": "Done",
+    "statusFailed": "Failed",
+    "statusRunning": "Running",
+    "statusSkipped": "Skipped",
+    "roundNumber": "Round {n}",
+    "retriedTimes": "{n} retries",
+    "sourcePlugin": "Plugin",
+    "sourceMcp": "MCP",
+    "errorTimeout": "Timed out",
+    "errorHttp4xx": "Request rejected",
+    "errorHttp5xx": "Server error",
+    "errorConnection": "Connection failed",
+    "errorCancelled": "Canceled",
+    "unitLines": "{n} lines",
+    "unitResults": "{n} results",
+    "unitFiles": "{n} files",
+    "addedCount": "+{n}",
+    "removedCount": "-{n}",
+    "workedFor": "Took {time}",
+    "stepCount": "{n} steps",
+    "expandSteps": "Show execution steps",
+    "collapseSteps": "Hide execution steps",
+    "argsLabel": "Input",
+    "resultLabel": "Result",
+    "errorLabel": "Error",
+    "toolCallCount": "{n} tool calls",
+    "showMore": "Show more",
+    "noOutput": "No output",
+    "stepPending": "Pending",
+    "exitCode": "Exit code {n}",
+    "toolBrowserNavigate": "Open a web page",
+    "toolBrowserClickElement": "Click a page element",
+    "toolBrowserTypeText": "Type into a page field",
+    "toolBrowserScroll": "Scroll the page",
+    "toolBrowserHover": "Hover a page element",
+    "toolBrowserSelectOption": "Select an option",
+    "toolBrowserGetAttribute": "Read an element attribute",
+    "toolBrowserExtractDom": "Extract page content",
+    "toolBrowserWaitForElement": "Wait for an element",
+    "toolBrowserScreenshot": "Capture a page screenshot",
+    "toolBrowserSwitchTab": "Switch browser tab",
+    "toolBrowserCloseTab": "Close browser tab",
+    "toolBrowserSelfcheck": "Run page self-check",
+    "toolBrowserSelfcheckScreenshot": "Self-check screenshot",
+    "toolComputerScreenshotScreen": "Capture the screen",
+    "toolComputerMouseClick": "Click the mouse",
+    "toolComputerMouseMove": "Move the mouse",
+    "toolComputerMouseScroll": "Scroll the mouse",
+    "toolComputerKeyboardType": "Type text",
+    "toolComputerKeyboardPress": "Press a key",
+    "toolComputerKeyboardHotkey": "Press a shortcut",
+    "toolComputerClipboardGet": "Read the clipboard",
+    "toolComputerClipboardSet": "Write the clipboard",
+    "toolComputerActiveWindow": "Read the active window",
+    "toolDbQuery": "Query the database",
+    "toolDocumentTables": "Read table structure",
+    "toolExtractDocumentAssets": "Extract document assets",
+    "toolGetToolSchema": "Inspect a tool schema",
+    "toolProactiveSuggestion": "Suggest next steps",
+    "toolResolveConflict": "Resolve conflicts",
+    "toolReviewPr": "Review a pull request",
+    "toolVendorBalance": "Check vendor balance",
+    "toolVendorModelInfo": "List vendor models",
+    "toolVendorUploadFile": "Upload a vendor file",
+    "toolVendorCancelTask": "Cancel a vendor task",
+    "toolVendorVoiceClone": "Clone a voice",
+    "fileActivity": "{state, select, running {Processing file} completed {Processed file} other {Process file}}",
+    "imageActivity": "{state, select, running {Processing image} completed {Processed image} other {Process image}}",
+    "searchActivity": "{state, select, running {Searching} completed {Searched} other {Search}}",
+    "thinkingActivity": "{state, select, running {Analyzing} completed {Analyzed} other {Analyze}}",
+    "customActivity": "{state, select, running {Running} completed {Ran} other {Run}}",
+    "workedForDuration": "Took {duration}",
+    "searchWithQuery": "Query: {query}",
+    "showAllLines": "Show all",
+    "hideLines": "Collapse",
+    "sourcesButton": "Sources",
+    "canceled": "Canceled",
+    "canceledItemLabel": "Canceled: {name}",
+    "readingConnector": "Read from {connector}",
+    "writingConnector": "Written to {connector}"
+  },
   "a11y": {
     "addAttachment": "Add attachment (image/video/file)",
     "barChart": "Bar chart",
@@ -27,7 +202,14 @@
     "send": "Send",
     "showPassword": "Show password",
     "slashCommand": "Slash command",
-    "uploadAvatar": "Upload avatar"
+    "uploadAvatar": "Upload avatar",
+    "previewSnapshotBadge": "Tool-recorded content",
+    "previewSnapshotReadAt": "Read at {time}",
+    "previewSnapshotNotice": "Can't read the current file. Showing content from the tool record.",
+    "previewIncompleteChange": "This file change didn’t record the complete content.",
+    "previewNoContent": "Nothing to preview.",
+    "previewFileUpdated": "File updated",
+    "previewFileUpdatedAction": "Refresh to view the latest content"
   },
   "about": {
     "loading": "Loading...",
@@ -254,7 +436,13 @@
     "captchaRefresh": "Refresh captcha"
   },
   "chat": {
+    "icuProbe": {
+      "flowState": "{state, select, running {{count, plural, =0 {Stream running, no tools pending} one {Stream running, {count} tool scheduled} other {Stream running, {count} tools scheduled}}} paused {Stream paused} failed {Execution failed: <b>{reason}</b>}}"
+    },
     "send": "Send"
+  },
+  "richAnchorProbe": {
+    "flow": "<action>Injecting</action> <detail>{target}</detail>"
   },
   "common": {
     "accepted": "Accepted",
@@ -444,9 +632,15 @@
     "fieldTitle": "Title",
     "loading": "Loading...",
     "notFound": "Feedback does not exist or you do not have access",
+    "priorityHigh": "High",
+    "priorityLow": "Low",
+    "priorityMedium": "Medium",
+    "priorityUnknown": "No priority",
     "statusClosed": "Closed",
     "statusPending": "Pending",
     "statusResolved": "Resolved",
+    "statusReviewing": "In review",
+    "statusUnknown": "Unknown status",
     "submit": "Submit",
     "submitting": "Submitting...",
     "subtitle": "Submit feedback and suggestions",
@@ -454,9 +648,12 @@
     "title": "Feedback Center",
     "type": "Type",
     "typeBug": "Bug",
+    "typeFeature": "Feature request",
+    "typeImprovement": "Improvement",
     "typeOther": "Other",
     "typeQuestion": "Question",
-    "typeSuggestion": "Suggestion"
+    "typeSuggestion": "Suggestion",
+    "typeUnknown": "Unknown type"
   },
   "feedbackHistory": {
     "createdAt": "Created at",
@@ -1833,5 +2030,231 @@
   },
   "topBar": {
     "capabilityMarket": "Capability Market"
+  },
+  "stepDecision": {
+    "decision": {
+      "planBlocked": "Plan blocked",
+      "securityBlocked": "Blocked by security policy",
+      "rejectedByUser": "Rejected by you",
+      "approvalTimeout": "Approval timed out",
+      "toolMissing": "Tool not found",
+      "executeFailed": "Execution failed",
+      "executeRetried": "Retried",
+      "executed": "Executed",
+      "approvalPersistHit": "Reused your saved approval",
+      "execPolicyApproved": "Allowed by execution policy",
+      "autoSkipApproval": "Auto-approved (no approval needed)",
+      "bypassSkipApproval": "Approval skipped",
+      "mcpRequiresApproval": "MCP annotations require approval",
+      "policyRequiresApproval": "Policy requires approval",
+      "policyForbidsExecution": "Policy forbids execution"
+    },
+    "perm": {
+      "allow": "Allowed",
+      "ask": "Needs confirmation",
+      "deny": "Denied"
+    },
+    "state": {
+      "approved": "Auto-approved",
+      "rejected": "Rejected",
+      "needsUser": "Needs your approval",
+      "unknown": "Decision unknown"
+    }
+  },
+  "waiting": {
+    "agent": {
+      "first": {
+        "0": "Preparing a reply…",
+        "1": "Organizing my thoughts…",
+        "2": "Got it, thinking through a response…",
+        "3": "Generating a reply for you…",
+        "4": "Question received, working on it…"
+      },
+      "middle": {
+        "0": "Still working on it…",
+        "1": "Picking up where we left off…",
+        "2": "Putting together the rest of the reply…",
+        "3": "Following up on your question…",
+        "4": "Generating what comes next…"
+      },
+      "followup": {
+        "0": "Reading your follow-up…",
+        "1": "Thinking it through with context…",
+        "2": "Organizing a reply to your follow-up…",
+        "3": "Follow-up received, on it…",
+        "4": "Adding to my answer…"
+      }
+    },
+    "computer": {
+      "first": {
+        "0": "Allocating compute…",
+        "1": "Initializing the runtime…",
+        "2": "Starting the pipeline…",
+        "3": "Spinning up processing…",
+        "4": "Running the first pass…"
+      },
+      "middle": {
+        "0": "Executing…",
+        "1": "Crunching the numbers…",
+        "2": "Working through intermediate results…",
+        "3": "Still running, making progress…",
+        "4": "Computing, one moment…"
+      },
+      "followup": {
+        "0": "Recomputing…",
+        "1": "Continuing with your new input…",
+        "2": "Processing the addition…",
+        "3": "Updating the results…",
+        "4": "Handling the follow-up request…"
+      }
+    },
+    "context": {
+      "first": {
+        "0": "Reviewing conversation context…",
+        "1": "Loading relevant context…",
+        "2": "Sorting through background…",
+        "3": "Recalling related details…",
+        "4": "Gathering context…"
+      },
+      "middle": {
+        "0": "Connecting with earlier context…",
+        "1": "Thinking with context in mind…",
+        "2": "Glancing back at the thread…",
+        "3": "Context ready, working on it…",
+        "4": "Cross-checking previous messages…"
+      },
+      "followup": {
+        "0": "Reading your follow-up in context…",
+        "1": "Looking back at relevant context…",
+        "2": "Linking to earlier discussion…",
+        "3": "Checking against the thread…",
+        "4": "Working on it with context…"
+      }
+    },
+    "plan": {
+      "first": {
+        "0": "Drafting a plan…",
+        "1": "Breaking down your request…",
+        "2": "Mapping out the steps…",
+        "3": "Analyzing the key points…",
+        "4": "Outlining the reply…"
+      },
+      "middle": {
+        "0": "Working through the plan…",
+        "1": "Moving to the next step…",
+        "2": "Plan in progress…",
+        "3": "Processing step by step…",
+        "4": "Carrying out the remaining steps…"
+      },
+      "followup": {
+        "0": "Adjusting the plan…",
+        "1": "Updating steps for your follow-up…",
+        "2": "Replanning…",
+        "3": "Filling in plan details…",
+        "4": "Following up on the new ask…"
+      }
+    },
+    "detail": {
+      "first": {
+        "0": "Preparing a detailed answer…",
+        "1": "Organizing the details…",
+        "2": "Sorting the key points…",
+        "3": "Generating an in-depth reply…",
+        "4": "Fleshing out the answer…"
+      },
+      "middle": {
+        "0": "Adding details…",
+        "1": "Expanding the explanation…",
+        "2": "Polishing what comes next…",
+        "3": "Details in progress…",
+        "4": "Refining the reply…"
+      },
+      "followup": {
+        "0": "Adding the details you asked for…",
+        "1": "Expanding on your follow-up…",
+        "2": "Fleshing out the explanation…",
+        "3": "Preparing a supplement…",
+        "4": "Rounding out the follow-up answer…"
+      }
+    },
+    "vividTail": ", almost there"
+  },
+  "editor": {
+    "toolApproval": {
+      "scopeLabel": "Scope",
+      "scopeOnce": "Allow once",
+      "scopeSession": "Allow this chat",
+      "scopeAlways": "Always allow",
+      "reasonLabel": "Reason (optional)",
+      "reasonPlaceholder": "Add a reason for audit trail"
+    }
+  },
+  "viewFailure": {
+    "resourceNotFound": {
+      "title": "Resource not found",
+      "action": "This MCP resource may have been deleted or is not declared in the resource list. Refresh the list and pick it again."
+    },
+    "runtimeException": {
+      "title": "Runtime error",
+      "action": "The server threw an exception while handling this request. Reload the plugin view, then check the service log if it keeps failing."
+    },
+    "entrypointNotRegistered": {
+      "title": "Start entry not registered",
+      "action": "This plugin view has no registered entry point. Add or enable the matching service in settings."
+    },
+    "entrypointInvalid": {
+      "title": "Invalid start entry",
+      "action": "The service command or URL cannot be executed. Check command, url and transport in the configuration."
+    },
+    "dependencyModuleMissing": {
+      "title": "Required module not provided",
+      "action": "A module this service depends on is not installed. Install the dependency, then reload the plugin view."
+    },
+    "resourceLimitExceeded": {
+      "title": "Resource limit exceeded",
+      "action": "The request or response is too large, or calls are too frequent. Narrow the scope or try again later."
+    },
+    "environmentInitFailed": {
+      "title": "Environment setup failed",
+      "action": "The service has not finished initializing or its runtime is not ready. Confirm the service is running, then reload."
+    },
+    "disabled": {
+      "title": "Disabled",
+      "action": "This service or plugin is currently disabled. Enable it first, then view its content."
+    },
+    "backendTimeout": {
+      "title": "Backend timed out",
+      "action": "The server did not respond within the time limit. Retry shortly, and reduce the request size if timeouts persist."
+    },
+    "backendExited": {
+      "title": "Backend exited",
+      "action": "The service process ended or the connection was closed. Reload the plugin view to start the service again."
+    },
+    "capabilityNotOffered": {
+      "title": "Capability not offered",
+      "action": "This service does not declare the requested capability. Choose a capability the service supports."
+    },
+    "backendCrashed": {
+      "title": "Backend crashed",
+      "action": "The service process terminated unexpectedly. Reload the plugin view and check the service log."
+    },
+    "protocolMismatch": {
+      "title": "Protocol version mismatch",
+      "action": "The protocol version negotiated with this service is not supported. Upgrade the service or use a compatible client version."
+    },
+    "authForbidden": {
+      "title": "Authorization failed",
+      "action": "The access credential is invalid or expired. Sign in again, then open this service."
+    },
+    "invalidResponse": {
+      "title": "Invalid response",
+      "action": "The service returned content that cannot be parsed or does not match the expected format. Reload, and contact the provider if it keeps failing."
+    },
+    "unknown": {
+      "title": "Cause not determined",
+      "action": "The reason for this failure could not be determined. Reload the plugin view, and check the service log if it still fails."
+    },
+    "reloadView": "Reload plugin view",
+    "errorCodeLabel": "Error code: {errorCode}"
   }
 }
