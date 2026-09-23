@@ -49,8 +49,6 @@ import type {
   WorkspaceRequest,
   WorkspaceEvent,
 } from '@ihui/types'
-// 权限档 wire 清单唯一来源(G-164:此前本文件两处 z.enum 各抄了一份,加档位必漏)
-import { PERMISSION_MODE_WIRE_VALUES } from '@ihui/types/permission-mode';
 import { buildResponseSchema } from '../utils/api-schemas.js'
 
 // =============================================================================
@@ -681,7 +679,7 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
         }),
       )
       .optional(),
-    mode: z.enum(PERMISSION_MODE_WIRE_VALUES).optional(),
+    mode: z.enum(['default', 'plan', 'accept-edits', 'bypass-permissions']).optional(),
   })
 
   const endPromptSchema = z.object({
@@ -692,7 +690,7 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
     workspaceRoot: z.string().min(1),
     initialPrompt: z.string().optional(),
     modelId: z.string().optional(),
-    mode: z.enum(PERMISSION_MODE_WIRE_VALUES).optional(),
+    mode: z.enum(['default', 'plan', 'accept-edits', 'bypass-permissions']).optional(),
   })
 
   // POST /workspace/acp/sessions - 创建 ACP 会话
