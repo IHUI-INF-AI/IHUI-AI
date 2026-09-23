@@ -697,6 +697,19 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - **并发缺陷上报(不属本任务,未动他人文件)**:`scripts/hook-run-hidden.vbs` 被并发会话在**工作树**删除(HEAD 仍在,`git status` 为未暂存 ` D`),而 `.husky/post-commit` 仍引用它 **8 次**(该会话已把 `pre-commit`/`commit-msg`/`pre-push` 的引用迁到 0,`post-commit` 尚未改)→ 每次 commit 弹一枚"无法找到脚本文件"的 WSH 错误框。已两次按 PID 收掉弹窗宿主(`wscript`),**未恢复该 .vbs、未改他人 hook**,因为恢复会正面对撞他人在途的迁移批次。推送链未受影响:`git-push-converge.mjs` 显示 `origin=PUSHING` 正常。解阻判据:该会话把 `post-commit` 的 8 处引用一并迁走并提交。
 - **收尾核验**:`%TEMP%` 无 `~nsu*`、无残留 `*setup*`/`Un`/`wscript`/`cscript` 进程、注册表与安装目录齐、应用运行中 —— 机器回到本轮开始前的基线。
 
+### 第十五批(2026-09-23):post-commit 弹窗根治 v2 —— 钩子改 Node,彻底拆掉"外部包装文件"这个单点
+
+用户指令:"你发现的错误框问题要彻底修复解决 别总弹了"。
+
+- **归因**(第十四批已登记):`scripts/hook-run-hidden.vbs` 被并发会话在工作树删除(HEAD 仍在、未暂存),而 `.husky/post-commit` 仍有 6 处可执行引用 → 每次 commit 弹 WSH"无法找到脚本文件"错误框。
+- **为什么不照搬 `pre-push` 的迁法**:那条把 wscript 换成**裸 node**。但 AGENTS.md §5b 记着"git hook 继承触发者的 console 上下文,无 console 时链上每个 node.exe 都会被分配可见控制台,一次 commit 闪 5+ 个黑窗";而 §5b 的机器级 `NODE_OPTIONS` 钩子只覆盖 **node→child**,覆盖不到 **sh→node**。所以裸 node = 把错误框换成黑窗,不是"彻底"。
+- **解法 = 载体替换**:`.husky/post-commit` 由 `#!/bin/sh` 改写为 `#!/usr/bin/env node`,与仓库既有 `.husky/pre-commit`(同为 Node 钩子、每处 `execSync(…,{windowsHide:true})`)同形态同约定。等价迁移清单:`trap … EXIT` 释放锁 → `process.on('exit')` + SIGINT/SIGTERM/SIGHUP 三条退出路径;未拿到锁时**不**登记释放(对齐原 sh 在 acquire 成功后才设 trap);原 `timeout 60 wscript …` → `execSync` 的 `timeout: 60000`,且**直接杀该 node 本身**,不再像旧版只杀 wscript 而把 cmd/node 子进程留在后台跑完;输出仍按 label 落 `.workbuddy/hook-logs/<label>.log`。
+- **为什么这是机制级而非补丁**:错误框的必要条件是"存在一个可被别人删掉的外部包装文件"。改完后钩子不再引用任何 `.vbs`,该文件在不在都不影响执行 —— 并发会话那批未完成的迁移与本改动**不再互相依赖**,任一侧先落地都不弹窗。
+- **运行时取证(不靠静态推断)**:25ms 采样监视器专测"新增可见顶层窗口"并识别 `Windows Script Host` 标题,覆盖一次**无 console 上下文**的真实提交(windowsHide 派生 safe-commit):`new=1 wshDialogs=0 consoleOwned=0`(唯一新增是 explorer 的一个壳窗口)。钩子链 6 段全 `ok=true`,其中一次是**并发会话提交实跑同一份新钩子**;.git/ihui-git-write.lock 已释放;第 6 段计划行自愈面照常产出(`已建前向恢复提交 5b3ffb1ddd7`)。
+- **全仓 `.vbs` 引用体检**:剩余可执行引用(`git-guardian.mjs`、`install-zombie-guardian.ps1`、`install-zombie-guardian-daemon.ps1`、`install-g-root-guardian.ps1`)指向的 4 个 `-hidden.vbs` **全部存在**;唯二悬空的是计划任务 `TraeCacheCleaner` / `TraeCN_WAL_Guardian` 引用的两个,二者 `enabled=false` 不会触发,按"不可达不留投机代码"不修。
+- **第十四批那句"解阻判据"已被本批取代**:不再需要等并发会话迁完 `post-commit`。
+- 提交:`1d8481736a`(1 文件 183+/90−)。
+
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
 
