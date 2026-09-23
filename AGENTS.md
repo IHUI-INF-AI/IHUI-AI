@@ -641,6 +641,14 @@ pnpm dev                                       # 启动所有服务(web + api + 
    `scripts/git-rebuild-local.mjs:169` 硬编码该路径,`git-refs-heal.mjs` / `git-guardian.mjs` 依赖其
    `refs-manifest.json`。同族的 `IHUI-AI.git-backup-20260912` 与 `IHUI-AI-git-repo.broken-*` 由
    `scripts/lib/gitdir.mjs:250` 按路径主动选读,一律禁删。
+   **但"必须在盘根"只是历史状态**:2026-09-23 起,gitdir 的**备份与现场归档**统一落
+   `D:\DevEnv\backups\git\`(单一真相源 `gitArchiveDir()` / `gitdirArchivePath()`),
+   因为旧写法 `${GITDIR}.broken-<ts>` 每次守护/重建归档都必然在盘根长一个新目录(实测累计 3 个 /
+   1.94GB)。盘根因此从 6 项收口到 2 项(项目 + 活 gitdir);回归测试
+   `scripts/tests/gitdir-archive-paths.test.mjs`(4 例,含"调用点必须真用该出口"的装车断言)。
+   **改这类路径必须同批改 `resolveBackupDir`**:它曾只认写死的 `D:/IHUI-AI.git-backup-20260912`,
+   目录一迁走就解析到不存在路径,表现为 `git-guardian --status` 的 `backupOk:false` —— 本地恢复源
+   静默失效且无告警(与同日生产部署冻结同属"凭据/路径过期只以下游门禁失败形态出现")。
 2. `D:\BaiduSyncdisk\密钥\` —— 模型密钥唯一权威源(§5d),不入仓、不入聊天记录。
 3. 第三方 IDE/agent 自管家目录的**运行态**(`~/.workbuddy\binaries\PortableGit` 是
    `scripts/lib/gitdir.mjs:36-37` 解析 git 二进制的首选;`.qoder-cn` 承载本项目记忆与工作区状态)。
