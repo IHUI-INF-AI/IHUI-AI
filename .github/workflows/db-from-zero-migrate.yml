@@ -48,7 +48,7 @@ jobs:
     services:
       postgres:
         # 与 test-real-db.yml / db-owner-rls.yml 同款:全量迁移含 vector 列,postgres:17 镜像不带扩展
-        image: pgvector/pgvector:pg18
+        image: pgvector/pgvector:pg17
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
