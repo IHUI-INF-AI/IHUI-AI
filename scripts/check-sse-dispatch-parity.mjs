@@ -34,17 +34,40 @@
  * 用法:
  *   node scripts/check-sse-dispatch-parity.mjs [--json] [--self-test] [--report]
  *   --report 打印逐端矩阵与缺口清单(可直接当补接工单)
+ *
+ * **基准一律是 HEAD,不是工作树**(与守门 72 同一条纪律):命中侧本来就走 `git grep HEAD`,
+ * 若帧清单改读工作树的 `client.ts`,并发会话刚加进去、尚未提交的 `onNewFrame` 会让**五端同时**
+ * 判"静默丢弃"——红点与本票改动毫无关系,却会把人逼向 `--no-verify`(连带关掉其余全部守门)。
+ * 因此帧清单同样 `git show HEAD:packages/api-client/src/client.ts` 取;读不到 HEAD 版本
+ * (仓库无提交 / 路径不在 HEAD 中)即按**判据失效 exit 2**,绝不回退工作树、也不静默放行。
+ *
+ * 集成位置:scripts/guardian-runner.mjs 第 90 项(blocking,pre-commit)
  * 紧急跳过:HUSKY_SKIP_SSE_DISPATCH_PARITY=1 git commit ...
  */
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { resolveGitBin } from './lib/gitdir.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const API_CLIENT_FILE = join(ROOT, 'packages', 'api-client', 'src', 'client.ts')
+const API_CLIENT_PATH = ['packages', 'api-client', 'src', 'client.ts'].join('/')
+const API_CLIENT_FILE = join(ROOT, ...API_CLIENT_PATH)
 const DATA_FILE = join(ROOT, 'scripts', 'data', 'sse-dispatch-coverage.json')
 const SKIP_ENV = 'HUSKY_SKIP_SSE_DISPATCH_PARITY'
+
+// git 二进制不得依赖环境(§5b:服务账户与交互账户的 PATH / safe.directory 互不相通)
+const GIT_BIN = process.env.IHUI_GIT_BIN || resolveGitBin() || 'git'
+
+function git(args, opts = {}) {
+  return execFileSync(GIT_BIN, ['-c', 'safe.directory=*', '-C', ROOT, ...args], {
+    encoding: 'utf8',
+    windowsHide: true,
+    maxBuffer: 64 * 1024 * 1024,
+    timeout: 120000,
+    ...opts,
+  })
+}
 
 /** 从 client.ts 源码里取出现的 onXxx 候选(权威帧清单 = 本集合 - toolCallbacks) */
 export function extractCallbackNames(source) {
@@ -139,12 +162,7 @@ export function collectHitMap(data, callbacks) {
   const paths = Object.values(data.endpoints ?? {}).flat()
   let raw = ''
   try {
-    raw = execFileSync('git', ['grep', '-o', '-E', alt, 'HEAD', '--', ...paths], {
-      cwd: ROOT,
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024,
-      windowsHide: true,
-    })
+    raw = git(['grep', '-o', '-E', alt, 'HEAD', '--', ...paths])
   } catch (e) {
     raw = typeof e?.stdout === 'string' ? e.stdout : ''
   }
@@ -164,6 +182,25 @@ export function collectHitMap(data, callbacks) {
     }
   }
   return hit
+}
+
+/**
+ * 帧清单的取材源:**HEAD 版** client.ts(不是工作树)。
+ * 返回 { source, error } —— error 非空即判据失效,调用方必须 exit 2 而非回退工作树。
+ */
+export function readFrameSource() {
+  try {
+    return { source: git(['show', `HEAD:${API_CLIENT_PATH}`]), error: null }
+  } catch (e) {
+    const reason = String(e?.stderr ?? e?.message ?? e).split('\n')[0]
+    return {
+      source: '',
+      error:
+        `读不到 HEAD 版 ${API_CLIENT_PATH}(${reason})。` +
+        `工作树侧${existsSync(API_CLIENT_FILE) ? '存在该文件' : '也不存在该文件'}` +
+        ' —— 不回退工作树取帧清单(会把并发会话未提交的新帧算成五端"静默丢弃")',
+    }
+  }
 }
 
 function readData() {
@@ -242,7 +279,11 @@ function main() {
     process.exit(0)
   }
   const data = readData()
-  const source = readFileSync(API_CLIENT_FILE, 'utf8')
+  const { source, error: sourceError } = readFrameSource()
+  if (sourceError) {
+    console.log(`❌ ${sourceError}`)
+    process.exit(2)
+  }
   const known = extractCallbackNames(source)
   const callbacks = resolveFrameCallbacks(source, data.toolCallbacks)
   const hit = collectHitMap(data, callbacks)
