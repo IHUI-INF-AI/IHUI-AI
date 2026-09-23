@@ -9,6 +9,7 @@
     "permNoteBypass": "단계별 확인 없음 — AI 가 파일과 명령을 직접 실행합니다(고위험)",
     "permNoteManual": "읽기 조회를 포함해 모든 작업이 수동 승인 필요합니다",
     "citationSources": "참조 출처: {sources}",
+    "steerApplied": "가이드 적용됨: {text}",
     "injectionApplied": "이번 턴의 참조 컨텍스트: {sources}",
     "injectionSrcDeveloper": "사용자 지정 지침",
     "injectionSrcWorkspace": "워크스페이스 기억",

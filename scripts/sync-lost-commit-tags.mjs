@@ -454,9 +454,9 @@ ${C.green}✅ dry-run 完成(未实际 push)${C.reset}`)
         .split(String.fromCharCode(10))
         .map((l) => l.trim())
         .filter(Boolean)
-        .slice(-3)
+        .slice(-12)
         .join(' | ')
-      const firstLine = (tail || String(e?.message ?? e)).split(String.fromCharCode(10))[0].slice(0, 300)
+      const firstLine = (tail || String(e?.message ?? e)).split(String.fromCharCode(10))[0].slice(0, 1200)
       console.error(
         `${C.yellow}⚠️  第 ${idx + 1} 块 push 失败(${chunk.length} 个),下轮重试:${C.reset} ${firstLine}`,
       )
