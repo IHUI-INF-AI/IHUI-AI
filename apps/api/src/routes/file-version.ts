@@ -62,8 +62,13 @@ function serializeVersion(v: typeof fileVersions.$inferSelect) {
   }
 }
 
-/** 属主校验结论:ok=false 时由调用方按 status/message 直接回复。 */
-type FileAccess = { ok: true } | { ok: false; status: 403 | 404; message: string }
+/**
+ * 属主校验结论:ok=false 时由调用方按 status/message 直接回复;ok=true 时**带回 files 行**,
+ * 使需要读该行字段的调用方(如 create 要取原文件名判扩展名)不必二次查询 —— 二次查询会开
+ * TOCTOU 窗口,且让"闸门"与"用的还是不是同一行"脱钩。
+ */
+type FileRow = NonNullable<Awaited<ReturnType<typeof findFileById>>>
+type FileAccess = { ok: true; file: FileRow } | { ok: false; status: 403 | 404; message: string }
 
 /**
  * O21(2026-09-23 安全 P0):文件版本面的属主/成员谓词,判据一律走 `canAccessFile`
@@ -81,7 +86,7 @@ async function checkFileAccess(userId: string, fileId: string): Promise<FileAcce
   if (!file) return { ok: false, status: 404, message: '文件不存在' }
   if (!(await canAccessFile(userId, file)))
     return { ok: false, status: 403, message: '无权访问该文件' }
-  return { ok: true }
+  return { ok: true, file }
 }
 
 /** 版本行只存 fileId,按 versionId 入口的端点须先取行再反查 files 判属主。 */
@@ -115,11 +120,14 @@ export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, 'fileId 为必填'))
     }
 
-    // 校验文件存在
-    const file = await findFileById(fileId)
-    if (!file) {
-      return reply.status(404).send(error(404, '文件不存在'))
+    // O21b(2026-09-23):此处原本只判"文件存在",任意登录用户都能向**他人 fileId**
+    // 写版本行并落盘(本文件其余 6 个端点已在 O21 ② 补过谓词,create 被漏在外面)。
+    // 闸门必须排在读 multipart buffer 与任何写盘之前,否则越方已付磁盘代价。
+    const access = await checkFileAccess(request.userId!, fileId)
+    if (!access.ok) {
+      return reply.status(access.status).send(error(access.status, access.message))
     }
+    const file = access.file
 
     // P0 安全加固(2026-08-02):读取 buffer 后校验,不再流式直接写盘
     // 防 CWE-434 恶意文件上传 + CWE-400 大文件 DoS
