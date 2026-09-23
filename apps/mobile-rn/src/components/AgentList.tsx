@@ -11,14 +11,14 @@
  * - 选中态:黑色描边(2dp)+ 选中圆点(16dp 黑底, bounceIn 动画)
  * - 底部:加载中... / 没有更多了
  * - 行高 40dp,行间距 2.5dp,边框 2dp #B9B9B9
- * - 浅色优雅风,无霓虹/无渐变;颜色走 @ihui/design-tokens 的 rnLightTokens。
+ * - 浅色优雅风,无霓虹/无渐变;颜色走 theme/active-tokens 的主题 token。
  * - 类型零 any,精确标注。
  *
  * 平台特有:依赖 react-native Animated/ScrollView,不适合共享层。
  */
 import { useEffect, useRef } from 'react'
 import { Animated, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { Check } from 'lucide-react-native'
 
 /** 单个 Agent 条目(对齐 Uniapp AgentListItem 核心字段) */
@@ -114,7 +114,7 @@ function Row({
       <View style={styles.rowRight}>
         {selected ? (
           <Animated.View style={[styles.selectedIcon, { transform: [{ scale }] }]}>
-            <Check size={11} color={tokens.surface.light} />
+            <Check size={11} color={tokens.brand.foreground} />
           </Animated.View>
         ) : null}
       </View>
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   content: {
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderRadius: 7.5,
     maxHeight: '70%',
   },
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: 40,
     borderRadius: 7.5,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderWidth: 2,
     borderColor: tokens.border.medium,
     marginVertical: 2.5,
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   selectedIconText: {
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontSize: 11,
     fontWeight: '700',
     lineHeight: 13,

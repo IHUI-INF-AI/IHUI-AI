@@ -8,16 +8,31 @@
 '
 ' Usage (scheduled task):
 '   Action: wscript.exe
-'   Arguments: "G:\IHUI-AI\scripts\kill-git-selector-hidden.vbs"
+'   Arguments: "<repo root>\scripts\kill-git-selector-hidden.vbs"
+'   (the wrapper locates kill-git-selector.ps1 beside itself, so the repo may live
+'    on any drive; do not hardcode a drive letter here)
 ' ============================================================================
 
 Option Explicit
 
-Dim objShell, strScript, intResult
+Dim objShell, strScript, intResult, fso, scriptsDir
 
 Set objShell = CreateObject("WScript.Shell")
+Set fso = CreateObject("Scripting.FileSystemObject")
 
-strScript = "D:\caches\ihui-scripts\kill-git-selector.ps1"
+' Resolve the target next to this wrapper instead of a hardcoded absolute path.
+' The old value "D:\caches\ihui-scripts\kill-git-selector.ps1" pointed at a directory
+' that does not exist on this machine, so the task silently launched a missing script.
+scriptsDir = fso.GetParentFolderName(WScript.ScriptFullName)
+strScript = scriptsDir & "\kill-git-selector.ps1"
+
+' Nothing to do when the wrapped script is absent (bail out silently, no console popup).
+If Not fso.FileExists(strScript) Then
+  Set fso = Nothing
+  Set objShell = Nothing
+  WScript.Quit 0
+End If
+Set fso = Nothing
 
 ' intWindowStyle=0 (SW_HIDE), bWaitOnReturn=False
 intResult = objShell.Run( _

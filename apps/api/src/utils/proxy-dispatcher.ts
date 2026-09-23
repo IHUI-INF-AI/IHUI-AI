@@ -76,7 +76,12 @@ export function isProxiedUrl(url: string): boolean {
   )
     return false
   const raw = (process.env.PROXY_DOMAINS ?? '').trim()
-  const domains = raw ? raw.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean) : DEFAULT_PROXY_DOMAINS
+  const domains = raw
+    ? raw
+        .split(',')
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean)
+    : DEFAULT_PROXY_DOMAINS
   return matchProxyDomains(hostname, domains)
 }
 
@@ -87,7 +92,12 @@ export function isProxiedUrl(url: string): boolean {
  */
 export async function proxiedFetch(
   url: string,
-  options: { method?: string; headers?: Record<string, string>; body?: string; signal?: AbortSignal },
+  options: {
+    method?: string
+    headers?: Record<string, string>
+    body?: string
+    signal?: AbortSignal
+  },
 ): Promise<Response> {
   const agent = getProxyAgent()
   if (!agent) throw new Error('代理未配置(PROXY_URL)')

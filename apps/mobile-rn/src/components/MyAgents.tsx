@@ -15,7 +15,7 @@
  * 类型零 any;圆角守门(无 rounded-full);无分割线(gap 间距);复用 design-tokens;禁用 purple/indigo。
  */
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 
 export interface MyAgentItem {
   /** 智能体 ID(对齐原项目 agentId;兼容短字段 id) */
@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: tokens.text.secondary,
     textAlign: 'center',
-    maxWidth: 56,
+    maxWidth: 80,
   },
   emptyItem: {
     alignItems: 'center',

@@ -16,7 +16,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { QrCode } from 'lucide-react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import {
   checkPaymentStatus,
   createOrder,
@@ -733,7 +733,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(32),
     paddingTop: rpx(24),
     paddingBottom: rpx(20),
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderRadius: ENTRY_CARD_RADIUS,
   } as ViewStyle,
   entryTitle: {
@@ -767,7 +767,7 @@ const styles = StyleSheet.create({
   planCard: {
     marginTop: rpx(20),
     marginHorizontal: rpx(32),
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderRadius: PLAN_CARD_RADIUS,
     padding: rpx(28),
   } as ViewStyle,
@@ -785,7 +785,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   } as ViewStyle,
   tabActive: {
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.muted,
     shadowColor: tokens.gray.black,
     shadowOpacity: 0.08,
     shadowRadius: 4,
@@ -995,7 +995,7 @@ const styles = StyleSheet.create({
     width: 220,
     height: 220,
     borderRadius: QR_BOX_RADIUS,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',

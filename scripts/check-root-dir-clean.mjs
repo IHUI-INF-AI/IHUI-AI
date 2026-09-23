@@ -159,6 +159,12 @@ const ALLOWED_HIDDEN_DIRS = new Set([
   '.vscode',
   '.workbuddy',
   '.kc-tools', // 2026-09-19:并行会话 KC 工具脚本目录(根目录整洁守门白名单)
+  // 2026-09-23 登记:第三方 IDE(CodeArts Doer)自管家目录的**运行态**——`.codeartsdoer/.codebase`
+  // 是其代码索引、`.arts/settings.json` 是其设置,均被工具在会话中持续写入(实测今日仍在写)。
+  // 与 `.vscode`/`.qoder`/`.workbuddy` 同类:只登记、不搬不删(删了会打断他人正在用的工具且索引需重建)。
+  // 本条同时解除"守门 44 在 --staged 下恒红 ⇒ 各会话被迫 --no-verify 连带跳过全部守门"的系统性风险。
+  '.arts',
+  '.codeartsdoer',
   '.deploy.lock',
   // 2026-08-19 立:React Native C++ native 模块编译 staging 产物
   // (expo-modules-core / react-native-reanimated / react-native-screens 构建自动生成,
@@ -234,13 +240,43 @@ const ignoredEntries = getIgnoredEntries(entries)
 const worktreeDirs = getWorktreeDirNames()
 
 const violations = []
+/** 被 git 忽略、但形态属 §28 禁令的根级临时产物(只告警) */
+const ignoredJunk = []
+
+/**
+ * 根级"临时产物"形态判据(仅用于告警,见下方收集处的说明)。
+ * 形态取自 AGENTS.md §28 规则 2 的书面禁令:禁止在一级目录生成 .log / .html / cookies /
+ * 截图 / ad-hoc 脚本。只判文件,不判目录(tmp/ logs/ 等是合法一级目录)。
+ */
+const ROOT_JUNK_PATTERNS = [
+  /\.(log|tmp|bak|old|error)$/i,
+  /\.html?$/i,
+  /^cookies/i,
+  /^verify-.*\.[cm]?js$/i,
+  /^probe[-_].*\./i,
+  /^search_.*\./i,
+  /\.(png|jpe?g|webp|gif)$/i,
+]
+
+function isRootJunkArtifact(name) {
+  // 白名单内的条目属已显式审批(如 tmp-qfr-err.log = 后台 pytest 持有),不重复告警
+  if (ALLOWED_FILES.has(name) || ALLOWED_HIDDEN_FILES.has(name)) return false
+  return ROOT_JUNK_PATTERNS.some((re) => re.test(name))
+}
 
 for (const name of entries) {
-  // 精确豁免:git 已忽略的产物 / git worktree 注册目录(见上「精确豁免」注释)
-  if (ignoredEntries.has(name) || worktreeDirs.has(name)) continue
-
   const isHidden = name.startsWith('.')
   const isDir = statSync(join(ROOT, name)).isDirectory()
+
+  // 精确豁免:git 已忽略的产物 / git worktree 注册目录(见上「精确豁免」注释)
+  if (ignoredEntries.has(name) || worktreeDirs.has(name)) {
+    // §28 规则 2 的禁令对**被 git 忽略**的根级产物零覆盖(上面直接 continue)。实测
+    // 2026-09-22 一次性翻出 14 个此类残留(_knip.log / .tmp-tsc.log / build-oidc.log /
+    // _i18n2.log …),守门恒绿、git status 也看不见,正是"静默累积"的那一类。
+    // 刻意只告警不阻塞:忽略产物常被后台进程/构建持有,阻塞会误伤并行会话。
+    if (!isDir && isRootJunkArtifact(name)) ignoredJunk.push(name)
+    continue
+  }
 
   if (isHidden) {
     if (isDir) {
@@ -264,6 +300,15 @@ for (const name of entries) {
 // ============================================================================
 // 输出
 // ============================================================================
+
+if (ignoredJunk.length > 0) {
+  console.log('')
+  console.log(
+    `  ⚠️  根目录整洁守门[告警]:${ignoredJunk.length} 个被 git 忽略的根级临时产物(§28 规则 2 禁令对象,不计失败)`,
+  )
+  for (const n of ignoredJunk) console.log(`     - ${n}`)
+  console.log('     处置:删除,或移入 tmp/ 与 logs/(一级目录只留白名单条目)')
+}
 
 if (violations.length === 0) {
   console.log('  ✅ 根目录整洁守门通过:一级目录无白名单外条目')

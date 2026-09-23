@@ -21,7 +21,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 
 /** 购买图标形态(对齐 Uniapp pay_btn itemData.type) */
 export type PayButtonType = 'freeuse' | 'freetime' | 'hasbuy' | 'monthly'
@@ -43,7 +43,7 @@ export interface PayButtonProps {
 }
 
 /** 购买形态文案与主色。
- *  约束:禁用 purple/indigo,改走 rnLightTokens 语义色
+ *  约束:禁用 purple/indigo,改走 主题 token 入口 语义色
  *  (免费=success 绿 / 限时=danger 红 / 已购买=brand 黑 / 每月=warning 橙)。 */
 const TYPE_META: Record<PayButtonType, { text: string; color: string }> = {
   freeuse: { text: '免费使用', color: tokens.success.DEFAULT },
@@ -97,7 +97,7 @@ export function PayButton({
       accessibilityLabel={buttonText}
     >
       {loading ? (
-        <ActivityIndicator color={tokens.surface.light} />
+        <ActivityIndicator color={tokens.brand.foreground} />
       ) : (
         <Text style={styles.text}>{buttonText}</Text>
       )}
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
   typeButton: {
     height: 50,
     borderRadius: 12,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.border.light,
     alignItems: 'center',
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 16,
     fontWeight: '600',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   } as TextStyle,
   typeText: {
     fontSize: 14,

@@ -14,7 +14,7 @@ import {
   type ModelPlazaProvider,
   type ModelPlazaTypeFilter,
 } from '@ihui/rn-app'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
   },
   tabTextActive: {
     fontSize: 13,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '600',
   },
   viewport: {

@@ -28,7 +28,7 @@ import {
   type N8nModelTab,
 } from '@ihui/rn-app'
 import { Zap, PauseCircle } from 'lucide-react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
 import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
@@ -355,7 +355,7 @@ function WorkflowFormModal({
               activeOpacity={0.8}
             >
               {submitting ? (
-                <ActivityIndicator size="small" color={tokens.surface.light} />
+                <ActivityIndicator size="small" color={tokens.brand.foreground} />
               ) : (
                 <Text style={styles.modalBtnTextConfirm}>{t('common.confirm')}</Text>
               )}
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   },
   tabTextActive: {
     fontSize: 13,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '600',
   },
   viewport: {
@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(40),
   },
   modalCard: {
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderRadius: 12,
     padding: rpx(28),
   },
@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
   },
   modalBtnTextConfirm: {
     fontSize: 15,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '600',
   },
 })

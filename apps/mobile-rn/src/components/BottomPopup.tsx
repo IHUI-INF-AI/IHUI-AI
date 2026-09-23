@@ -9,7 +9,7 @@
  * - Modal 底部弹出层(对齐 IntroducePopup 风格),展示 VIP 价格档位列表
  * - 每档:名称 + 价格 + 时长 + 选中态(单选)
  * - 底部确认按钮(主题色 #5088fa,复刻 Uniapp .agree 样式,非项目 brand.DEFAULT)
- * - 浅色优雅风,rnLightTokens;圆角守门(AGENTS.md §4,无 rounded-full);无分割线(gap 间距)
+ * - 浅色优雅风,主题 token 入口;圆角守门(AGENTS.md §4,无 rounded-full);无分割线(gap 间距)
  *
  * 平台特有:依赖 RN Modal/ScrollView/Pressable,不适合共享。
  */
@@ -24,7 +24,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import type { VipLevelItem2 } from '@ihui/rn-app'
 
 export interface BottomPopupProps {
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
   sheet: {
     width: '100%',
     maxHeight: SHEET_MAX_HEIGHT_PERCENT,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderTopLeftRadius: SHEET_RADIUS,
     borderTopRightRadius: SHEET_RADIUS,
     paddingHorizontal: SHEET_PADDING,

@@ -19,7 +19,7 @@
  * 不 extends UserInfoCardMinimalProps(该 Minimal 仅作语义参考)。
  */
 import { useState } from 'react'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { Alert, Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { DEFAULT_AVATAR_URL } from '@ihui/shared/constants'
 import { formatTokenValue } from '@ihui/shared/utils'
@@ -32,6 +32,39 @@ export type { UserInfo }
 
 /** 用户信息卡片变体 */
 export type UserInfoCardVariant = 'new' | 'old'
+
+/**
+ * 取用户名首字母作为默认头像 initials(AGENTS.md 强制规范:头像用 initials)。
+ * 中文取首个汉字,英文取首字母大写,空值回退 'U'。
+ */
+function getInitials(name?: string): string {
+  if (!name) return 'U'
+  const trimmed = name.trim()
+  if (!trimmed) return 'U'
+  return trimmed.charAt(0).toUpperCase()
+}
+
+/**
+ * 格式化时间戳为本地可读格式(AGENTS.md 强制规范:时间用 Intl.DateTimeFormat)。
+ * 输入可为 ISO 8601 字串或任意 Date 可解析字符串;输出 'YYYY-MM-DD HH:mm'。
+ * 解析失败时回退原值,避免显示 'Invalid Date'。
+ */
+function formatDateTime(dateStr: string): string {
+  try {
+    const date = new Date(dateStr)
+    if (Number.isNaN(date.getTime())) return dateStr
+    return new Intl.DateTimeFormat('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(date)
+  } catch {
+    return dateStr
+  }
+}
 
 export interface UserInfoCardProps {
   userInfo: UserInfo
@@ -86,6 +119,7 @@ function UserInfoCardNew({
   const role = getRoleLabel(userInfo.isVip, userInfo.identityType)
   const isVip = userInfo.isVip === 1
   const tokenStr = formatTokenValue(userInfo.tokenQuantity)
+  const hasAvatarUrl = Boolean(userInfo.avatarUrl)
   const avatar = userInfo.avatarUrl || DEFAULT_AVATAR_URL
 
   // 成长值进度条(对齐 Uniapp growthValue/growthMax)
@@ -119,12 +153,18 @@ function UserInfoCardNew({
       {/* 顶部:头像 + 昵称/角色 */}
       <View style={newStyles.header}>
         <TouchableOpacity style={newStyles.avatarWrap} activeOpacity={0.8} onPress={onEdit}>
-          <Image source={{ uri: avatar }} style={newStyles.avatar} />
+          {hasAvatarUrl ? (
+            <Image source={{ uri: avatar }} style={newStyles.avatar} />
+          ) : (
+            <View style={newStyles.avatarFallback}>
+              <Text style={newStyles.avatarFallbackText}>{getInitials(userInfo.username)}</Text>
+            </View>
+          )}
         </TouchableOpacity>
 
         <View style={newStyles.infoWrap}>
           <TouchableOpacity style={newStyles.nameRow} activeOpacity={0.7} onPress={onEdit}>
-            <Text style={newStyles.name} numberOfLines={1}>
+            <Text style={newStyles.name} numberOfLines={1} ellipsizeMode="tail">
               {userInfo.username ? `AI IHUI丨${userInfo.username}` : '用户'}
             </Text>
             {showRechargeBtn ? <Text style={newStyles.editText}>编辑</Text> : null}
@@ -222,7 +262,7 @@ function UserInfoCardNew({
               {vipLevel || (isVip ? 'VIP 会员' : '普通会员')}
             </Text>
             {isVip && vipExpireAt ? (
-              <Text style={newStyles.modalExpireText}>到期时间:{vipExpireAt}</Text>
+              <Text style={newStyles.modalExpireText}>到期时间:{formatDateTime(vipExpireAt)}</Text>
             ) : null}
             <Text style={newStyles.modalDesc}>
               {isVip
@@ -254,7 +294,7 @@ const newStyles = StyleSheet.create({
     alignItems: 'center',
   },
   loginBtn: {
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.brand.DEFAULT,
     borderWidth: 2,
     borderColor: tokens.text.primary,
     borderRadius: 12,
@@ -264,7 +304,7 @@ const newStyles = StyleSheet.create({
   loginBtnText: {
     fontSize: 16,
     fontWeight: '600',
-    color: tokens.text.primary,
+    color: tokens.brand.foreground,
   },
   card: {
     marginTop: 8,
@@ -272,7 +312,7 @@ const newStyles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    backgroundColor: 'rgba(195, 190, 255, 0.15)',
+    backgroundColor: tokens.surface.card,
   },
   header: {
     flexDirection: 'row',
@@ -285,7 +325,7 @@ const newStyles = StyleSheet.create({
     height: rpx(163),
     borderRadius: rpx(15),
     overflow: 'hidden',
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.brandAccent.light,
   },
@@ -293,6 +333,20 @@ const newStyles = StyleSheet.create({
     width: rpx(163),
     height: rpx(163),
     resizeMode: 'cover',
+  },
+  // 无头像 URL 时的 initials 兜底:品牌色底 + 深色文字,深/浅色模式均可见
+  avatarFallback: {
+    width: rpx(163),
+    height: rpx(163),
+    borderRadius: rpx(15),
+    backgroundColor: tokens.brandAccent.DEFAULT,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarFallbackText: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: tokens.brandAccent.foreground,
   },
   infoWrap: {
     flex: 1,
@@ -305,7 +359,7 @@ const newStyles = StyleSheet.create({
   },
   name: {
     flex: 1,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
     color: tokens.text.primary,
   },
@@ -322,7 +376,7 @@ const newStyles = StyleSheet.create({
   roleBadge: {
     paddingHorizontal: 8,
     paddingVertical: 2,
-    backgroundColor: tokens.surface.card,
+    backgroundColor: tokens.surface.muted,
     borderRadius: 2,
   },
   roleBadgeVip: {
@@ -331,7 +385,7 @@ const newStyles = StyleSheet.create({
   roleText: {
     fontSize: 11,
     fontWeight: '500',
-    color: tokens.gray[600],
+    color: tokens.text.secondary,
   },
   roleTextVip: {
     color: tokens.warning.DEFAULT,
@@ -343,7 +397,7 @@ const newStyles = StyleSheet.create({
     marginTop: 8,
     paddingHorizontal: 8,
     paddingVertical: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: tokens.surface.muted,
     borderRadius: 6,
   },
   tokenLabelWrap: {
@@ -389,7 +443,7 @@ const newStyles = StyleSheet.create({
     marginTop: 8,
     paddingHorizontal: 8,
     paddingVertical: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: tokens.surface.muted,
     borderRadius: 6,
   },
   growthLabelWrap: {
@@ -425,7 +479,7 @@ const newStyles = StyleSheet.create({
     marginTop: 8,
     paddingHorizontal: 8,
     paddingVertical: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: tokens.surface.muted,
     borderRadius: 6,
   },
   inviteLabel: {
@@ -447,7 +501,7 @@ const newStyles = StyleSheet.create({
   },
   copyBtnText: {
     fontSize: 11,
-    color: tokens.surface.light,
+    color: tokens.brandAccent.foreground,
     fontWeight: '500',
   },
   // 等级弹窗
@@ -520,13 +574,14 @@ function UserInfoCardOld({ userInfo, showRechargeBtn = true, onEdit, onLogin }: 
 
   const isVip = userInfo.isVip === 1
   const tokenStr = formatTokenValue(userInfo.tokenQuantity)
+  const hasAvatarUrl = Boolean(userInfo.avatarUrl)
   const avatar = userInfo.avatarUrl || DEFAULT_AVATAR_URL
 
   return (
     <View style={oldStyles.card}>
       {/* 头部:用户名 + 编辑按钮 */}
       <View style={oldStyles.header}>
-        <Text style={oldStyles.username} numberOfLines={1}>
+        <Text style={oldStyles.username} numberOfLines={1} ellipsizeMode="tail">
           {userInfo.username ? `AI IHUI丨${userInfo.username}` : '用户'}
         </Text>
         {showRechargeBtn ? (
@@ -542,9 +597,15 @@ function UserInfoCardOld({ userInfo, showRechargeBtn = true, onEdit, onLogin }: 
         {isVip ? <Text style={oldStyles.vipText}>VIP</Text> : null}
       </View>
 
-      {/* 头像区 */}
+      {/* 头像区:无 avatarUrl 时显示 initials 兜底,避免深色背景纯黑块 */}
       <View style={oldStyles.avatarSection}>
-        <Image source={{ uri: avatar }} style={oldStyles.avatar} />
+        {hasAvatarUrl ? (
+          <Image source={{ uri: avatar }} style={oldStyles.avatar} />
+        ) : (
+          <View style={oldStyles.avatarFallback}>
+            <Text style={oldStyles.avatarFallbackText}>{getInitials(userInfo.username)}</Text>
+          </View>
+        )}
         <Text style={oldStyles.userId}>ID:{userInfo.uuid}</Text>
       </View>
 
@@ -563,7 +624,7 @@ const oldStyles = StyleSheet.create({
     alignItems: 'center',
   },
   loginBtn: {
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.brand.DEFAULT,
     borderWidth: 2,
     borderColor: tokens.text.primary,
     borderRadius: 12,
@@ -573,7 +634,7 @@ const oldStyles = StyleSheet.create({
   loginBtnText: {
     fontSize: 16,
     fontWeight: '600',
-    color: tokens.text.primary,
+    color: tokens.brand.foreground,
   },
   card: {
     marginTop: 8,
@@ -581,7 +642,7 @@ const oldStyles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
   },
   header: {
     flexDirection: 'row',
@@ -590,7 +651,7 @@ const oldStyles = StyleSheet.create({
   },
   username: {
     flex: 1,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: tokens.text.primary,
   },
@@ -603,7 +664,7 @@ const oldStyles = StyleSheet.create({
   editBtnText: {
     fontSize: 12,
     fontWeight: '500',
-    color: tokens.surface.light,
+    color: tokens.brandAccent.foreground,
   },
   membershipRow: {
     flexDirection: 'row',
@@ -632,6 +693,21 @@ const oldStyles = StyleSheet.create({
     borderColor: tokens.surface.light,
     backgroundColor: tokens.surface.card,
     marginBottom: 4,
+  },
+  // 无头像 URL 时的 initials 兜底:品牌色底 + 深色文字,深/浅色模式均可见
+  avatarFallback: {
+    width: 64,
+    height: 64,
+    borderRadius: 12,
+    backgroundColor: tokens.brandAccent.DEFAULT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  avatarFallbackText: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: tokens.brandAccent.foreground,
   },
   userId: {
     fontSize: 11,

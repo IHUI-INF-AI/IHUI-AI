@@ -13,10 +13,11 @@
  *
  * 调用方零修改(RootNavigator/ProfileScreen/SettingsScreen/SharedDemoScreen 共 4 处)。
  */
-import { useColorScheme } from 'react-native'
-import type { ReactNode } from 'react'
-import { createThemeStore } from '@ihui/shared/stores'
+import { Appearance, useColorScheme } from 'react-native'
+import { useCallback, useEffect, type ReactNode } from 'react'
+import { createThemeStore, type ThemeMode } from '@ihui/shared/stores'
 import { createAsyncStorageTransport } from '../stores/storage-adapter'
+import { commitRnTheme, reloadForTheme } from '../theme/active-tokens'
 
 // 全局单例 store(自动持久化到 AsyncStorage,默认 key = 'ihui-theme',与 web/miniapp-taro/extension 一致)
 export const themeStore = createThemeStore({
@@ -34,18 +35,37 @@ export function useTheme() {
   const systemScheme = useColorScheme()
   const resolvedTheme: 'light' | 'dark' =
     themeMode === 'system' ? (systemScheme === 'dark' ? 'dark' : 'light') : themeMode
+  /**
+   * 切主题必须同时落到模块级 token 单例(全端 86 个文件的 StyleSheet.create 在求值时
+   * 一次性取色,只有重载 JS 才会重算),故这里在 store 写入之外 commit + reload。
+   */
+  const setThemeMode = useCallback(
+    (next: ThemeMode): void => {
+      setTheme(next)
+      if (commitRnTheme(next)) reloadForTheme()
+    },
+    [setTheme],
+  )
   return {
     themeMode,
     resolvedTheme,
-    setThemeMode: setTheme,
+    setThemeMode,
   }
 }
 
 /**
- * 兼容旧 ThemeProvider — zustand 全局 store 不需要 Provider,此组件仅作占位。
- * 调用方仍可 <ThemeProvider><App /></ThemeProvider> 不报错。
+ * ThemeProvider — zustand 全局 store 本身不需要 Provider,这里只承担一件事:
+ * 偏好为 system 时订阅系统配色变化,把新配色落到模块级 token 入口并重载 JS。
  */
 export function ThemeProvider({ children }: { children: ReactNode }) {
+  const themeMode = themeStore.useThemeStore((s) => s.theme)
+  useEffect(() => {
+    if (themeMode !== 'system') return
+    const sub = Appearance.addChangeListener(() => {
+      if (commitRnTheme('system')) reloadForTheme()
+    })
+    return () => sub.remove()
+  }, [themeMode])
   return <>{children}</>
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

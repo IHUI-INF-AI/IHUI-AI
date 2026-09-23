@@ -174,6 +174,18 @@ export function createInMemoryTokenStore(options?: InMemoryTokenStoreOptions): I
 }
 
 /**
+ * bindTokenStoreToApiClient 可选增强钩子
+ *
+ * refreshAccessToken:401 自动续期回调(2026-09-22 立)。access token 过期(15min)时,
+ * api-client 的 401 拦截器经 refreshAccessTokenOnce 调用此回调换取新 token。
+ * 不传则该端 401 后无自愈能力(web 有 useAuthBootstrap 注入,RN 此前缺失导致
+ * 登录 15 分钟后全部鉴权接口失效、agent-control 能力上报每 60s 刷过期警告)。
+ */
+export interface TokenStoreClientHooks {
+  refreshAccessToken?: () => Promise<string | null>
+}
+
+/**
  * 将 TokenStore 绑定到 @ihui/api-client 的 setTokenProvider
  *
  * 统一适配:extension/mobile-rn 等需要把 token 注入到 api-client 的端,
@@ -181,7 +193,10 @@ export function createInMemoryTokenStore(options?: InMemoryTokenStoreOptions): I
  *
  * 注意:miniapp-taro 因同步 storage 语义不匹配,通常不走此适配器。
  */
-export function bindTokenStoreToApiClient(store: TokenStore): void {
-  setTokenProvider({ getToken: () => store.getToken() })
+export function bindTokenStoreToApiClient(store: TokenStore, hooks?: TokenStoreClientHooks): void {
+  setTokenProvider({
+    getToken: () => store.getToken(),
+    ...(hooks?.refreshAccessToken ? { refreshAccessToken: hooks.refreshAccessToken } : {}),
+  })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

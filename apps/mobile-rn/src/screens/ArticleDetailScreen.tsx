@@ -30,7 +30,7 @@ import {
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { createComment, fetchApi, getComments, type CommentItem } from '@ihui/api-client'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import {
   ArticleDetailScreen as SharedArticleDetailScreen,
   type ArticleDetailItem,
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.overlay.modal,
   } as ViewStyle,
   commentSheet: {
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     paddingTop: 14,
@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   commentAvatarText: {
     fontSize: 13,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '600',
   } as TextStyle,
   commentBody: {
@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   commentSendText: {
     fontSize: 14,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '600',
   } as TextStyle,
 })
