@@ -25,7 +25,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
-import { rnLightTokens as tk } from '@ihui/design-tokens'
+import { tokens as tk } from '../theme/active-tokens'
 import type { AppIcon } from '@ihui/types'
 import { Tag } from 'lucide-react-native'
 

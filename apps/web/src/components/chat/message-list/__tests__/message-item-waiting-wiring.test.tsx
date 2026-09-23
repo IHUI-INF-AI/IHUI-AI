@@ -67,9 +67,11 @@ function expectedPoolKey(phase: WaitingPhase, seed: number): string {
 function readRenderedTurn(): { quadrant: string; phase: string; index: number; text: string } {
   const text = screen.getByTestId('typing-indicator').textContent ?? ''
   const matched = new RegExp(`\\${POOL_MARK}(\\w+)\\.(\\w+)\\.(\\d+)\\]`).exec(text)
-  expect(matched, `等待态未取到池文案(疑漏传象限/阶段),text=${text}`).not.toBeNull()
+  if (!matched || typeof matched[1] !== 'string' || typeof matched[2] !== 'string') {
+    throw new Error(`等待态未取到池文案(疑漏传象限/阶段),text=${text}`)
+  }
   expect(text).not.toContain(FIXED_SENTINEL)
-  return { quadrant: matched![1], phase: matched![2], index: Number(matched![3]), text }
+  return { quadrant: matched[1], phase: matched[2], index: Number(matched[3]), text }
 }
 
 /** 把消息灌进真 store 后渲染目标助手条目(等待首 token 态) */

@@ -23,7 +23,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
-import { rnLightTokens as tk } from '@ihui/design-tokens'
+import { tokens as tk } from '../theme/active-tokens'
 import { Banknote } from 'lucide-react-native'
 
 export interface CommissionFloatingIconProps {
@@ -58,7 +58,7 @@ export function CommissionFloatingIcon({ amount, onPress }: CommissionFloatingIc
       accessibilityRole="button"
       accessibilityLabel={LABEL}
     >
-      <ICON size={18} color={tk.surface.light} />
+      <ICON size={18} color={tk.brand.foreground} />
       <View style={styles.textWrap}>
         <Text style={styles.label} numberOfLines={1}>
           {LABEL}
