@@ -12,7 +12,8 @@
     "apps/mobile-rn/src/screens/PdfToolsScreen.tsx": 1,
     "apps/mobile-rn/src/screens/SubagentsScreen.tsx": 2,
     "apps/mobile-rn/src/screens/WebPortalScreen.tsx": 2,
-    "apps/mobile-rn/src/screens/WebViewScreen.tsx": 1
+    "apps/mobile-rn/src/screens/WebViewScreen.tsx": 1,
+    "apps/mobile-rn/src/screens/ChatScreen.tsx": 7
   },
   "ctaCounts": {
     "apps/mobile-rn/src/components/AddPanel.tsx": 1,
