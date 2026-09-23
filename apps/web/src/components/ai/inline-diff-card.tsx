@@ -12,6 +12,13 @@ import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { useChatStore } from '@/stores/chat'
 import { buildPartialContent, computeHunkDiff, type DiffRow as HunkDiffRow } from '@/lib/hunk-diff'
+import {
+  createStagedSet,
+  stageHunk,
+  stageHunks,
+  unstageAll,
+  unstageHunk,
+} from '@/lib/diff-staging'
 import { DiffCommentPanel } from './diff-comment-panel'
 import { HunkHeader, HunkToolbar } from './diff-hunk-controls'
 import type { InlineDiffInfo } from './types'
@@ -85,6 +92,8 @@ export function InlineDiffCard({
   } | null>(null)
   // W5:被「拒绝」的 hunk id 集合(默认空 = 全部接受,状态最小化)
   const [rejectedHunks, setRejectedHunks] = React.useState<ReadonlySet<number>>(() => new Set())
+  // D88:已暂存(锁定进交付批次)的 hunk id 集合,与 rejectedHunks(accepted 维度)正交
+  const [stagedHunks, setStagedHunks] = React.useState<ReadonlySet<number>>(() => createStagedSet())
   const [partialBusy, setPartialBusy] = React.useState(false)
   // 本文件已暂存的待发送意见数(订阅整体数组引用 + useMemo 过滤,避免 selector 返回新数组)
   const allComments = useChatStore((s) => s.pendingDiffComments)
@@ -130,6 +139,20 @@ export function InlineDiffCard({
       return next
     })
   }, [])
+  // D88:暂存态切换(与 accepted 正交)。staged 仅锁定 hunk,不改变其 accepted 状态。
+  const stageHunkById = React.useCallback((hunkId: number) => {
+    setStagedHunks((prev) => stageHunk(prev, hunkId))
+  }, [])
+  const unstageHunkById = React.useCallback((hunkId: number) => {
+    setStagedHunks((prev) => unstageHunk(prev, hunkId))
+  }, [])
+  // 文件级:把本文件全部 hunk 一起暂存 / 清空暂存(即「全部」级,无跨文件容器时落在此处)
+  const stageFileHunks = React.useCallback(() => {
+    setStagedHunks((prev) => stageHunks(prev, hunks.map((h) => h.id)))
+  }, [hunks])
+  const unstageFileHunks = React.useCallback(() => {
+    setStagedHunks(unstageAll())
+  }, [])
   const handleApplySelected = React.useCallback(() => {
     if (!onApplyPartial) return
     setPartialBusy(true)
@@ -168,6 +191,29 @@ export function InlineDiffCard({
               {t('diffComment.countBadge', { count: fileCommentCount })}
             </span>
           )}
+          {/* D88:文件级(=全部 hunk)暂存 / 还原入口 */}
+          {!isTerminal && hunks.length > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={stageFileHunks}
+                disabled={isApplying || partialBusy}
+                className="shrink-0 rounded-sm bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-600 transition-colors hover:bg-amber-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+                data-testid="diff-stage-file"
+              >
+                {t('diffHunk.stageFile')}
+              </button>
+              <button
+                type="button"
+                onClick={unstageFileHunks}
+                disabled={isApplying || partialBusy || stagedHunks.size === 0}
+                className="shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                data-testid="diff-unstage-file"
+              >
+                {t('diffHunk.unstageFile')}
+              </button>
+            </>
+          )}
           <span className="shrink-0 rounded-sm bg-green-500/15 px-1.5 py-0.5 text-[10px] tabular-nums text-green-600">
             +{stats.added}
           </span>
@@ -200,8 +246,11 @@ export function InlineDiffCard({
                     hunk={hunk}
                     total={hunks.length}
                     accepted={!rejectedHunks.has(hunk.id)}
+                    staged={stagedHunks.has(hunk.id)}
                     disabled={isApplying || partialBusy || isTerminal}
                     onToggle={() => toggleHunk(hunk.id)}
+                    onStage={() => stageHunkById(hunk.id)}
+                    onUnstage={() => unstageHunkById(hunk.id)}
                   />
                 )}
                 <DiffRow
