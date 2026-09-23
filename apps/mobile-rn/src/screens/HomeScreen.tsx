@@ -1648,7 +1648,7 @@ export function HomeScreen() {
        *  横向 ScrollView 8 个图标按钮;点击同类型收起、不同类型切换(对齐 handleModelTypeClick 互斥)
        *  selectedModel 显示为输入区小标签(对齐 Uniapp modelName 显示) */}
       <View style={shellStyles.modelTypeBar}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: rpx(16) }}>
           {MODEL_TYPES.map((opt) => {
             const active = activeModelType === opt.type
             return (
@@ -2154,7 +2154,7 @@ const shellStyles = {
     color: tokens.text.secondary,
   } as const,
   modelTypeLabelActive: {
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '600',
   } as const,
   // ── selectedChip 已选模型小标签(对齐 Uniapp modelName 显示) ──
@@ -2343,7 +2343,7 @@ const shellStyles = {
   } as const,
   detailDialogRetryText: {
     fontSize: 13,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '600',
   } as const,
   // ── ModelList Modal 弹窗(对齐 BottomPopup sheet 风格) ──
@@ -2476,7 +2476,7 @@ const shellStyles = {
   } as const,
   shareBtnText: {
     fontSize: 14,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '500',
   } as const,
   shareBtnSecondary: {
