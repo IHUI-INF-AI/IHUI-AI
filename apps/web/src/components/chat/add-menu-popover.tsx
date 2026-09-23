@@ -9,12 +9,16 @@ import { FileText, Mic, Plus, Scissors, Sparkles, Loader2, Package, Telescope } 
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { Tooltip } from '@/components/feedback'
 import { createPortal } from 'react-dom'
 import { PromptTemplates } from '@/components/ai/prompt-templates'
 import { SkillLibrary } from '@/components/chat/skill-library'
 import { VoiceRecord } from '@/components/chat/voice-record'
 import type { PromptTemplate } from '@/hooks/use-slash-action'
+
+/** 层栈 id(见 @/lib/overlay-stack):menu / prompt / skill 三个子层共用同一入口身份 */
+const ADD_MENU_OVERLAY_ID = 'add-menu-popover'
 
 /**
  * "添加"下拉菜单 Popover(2026-07-25 终极整合,2026-07-30 提取自 message-input.tsx)
@@ -180,13 +184,20 @@ export function AddMenuPopover(props: {
 
   React.useEffect(() => {
     if (!open) return
+    // 层栈:本菜单弹层的 Esc 只在栈顶时消费(与权限弹层 / Ctrl+/ 帮助面板等多层同开时,
+    // 一次 Esc 不再把所有层一起关掉)
+    pushOverlay(ADD_MENU_OVERLAY_ID)
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (!isTopOverlay(ADD_MENU_OVERLAY_ID)) return
         onOpenChange(false)
       }
     }
     document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    return () => {
+      popOverlay(ADD_MENU_OVERLAY_ID)
+      document.removeEventListener('keydown', onKey)
+    }
   }, [open, onOpenChange])
 
   React.useEffect(() => {

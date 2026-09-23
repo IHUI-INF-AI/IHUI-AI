@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { cn } from '@/lib/utils'
 
 interface HoverPreviewCardProps {
@@ -36,20 +37,32 @@ export const HoverPreviewCard = React.memo(function HoverPreviewCard({
   'data-testid': testId,
 }: HoverPreviewCardProps) {
   const cardRef = React.useRef<HTMLDivElement>(null)
+  // 层栈身份:同组件多实例互不相同;role="dialog" 才入栈(role="tooltip" 不消费 Esc)
+  const autoId = React.useId()
+  const stackId = `hover-preview-card:${autoId}`
+
+  // 层栈注册:visible + role="dialog" 时入栈(成为栈顶);close/unmount → 出栈。
+  // pushOverlay 幂等,StrictMode 双跑 effect 不会产生重复项。
+  React.useEffect(() => {
+    if (!visible || role !== 'dialog' || !onClose) return
+    pushOverlay(stackId)
+    return () => popOverlay(stackId)
+  }, [visible, role, onClose, stackId])
 
   // Esc 关闭:仅在 visible + onClose 提供时监听
   React.useEffect(() => {
     if (!visible || !onClose) return
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        // 只让栈顶那一层消费 Esc:多层同时打开时,一次 Esc 关最上层,其余保持打开
+        if (!isTopOverlay(stackId)) return
         e.preventDefault()
-        e.stopPropagation()
         onClose()
       }
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [visible, onClose])
+  }, [visible, onClose, stackId])
 
   // 焦点陷阱 + 自动聚焦:仅在 visible 时激活
   React.useEffect(() => {

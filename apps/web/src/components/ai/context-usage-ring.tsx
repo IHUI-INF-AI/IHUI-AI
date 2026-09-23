@@ -10,6 +10,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 
 import { cn } from '@/lib/utils'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { IconButton } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { createPortal } from 'react-dom'
@@ -21,6 +22,9 @@ import {
   estimateMessageTokens,
   estimateTokens,
 } from '@/lib/token-estimate'
+
+/** 层栈 id(见 @/lib/overlay-stack):本弹层的 Esc 只在栈顶时被消费 */
+const CONTEXT_USAGE_OVERLAY_ID = 'context-usage-ring'
 
 // ============================================================================
 // 圆环尺寸常量
@@ -510,13 +514,19 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
 
   React.useEffect(() => {
     if (!isOpen) return
+    // 层栈:本弹层打开即入栈为栈顶;Esc 只由栈顶消费(多层同时打开时不再一起关)
+    pushOverlay(CONTEXT_USAGE_OVERLAY_ID)
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (!isTopOverlay(CONTEXT_USAGE_OVERLAY_ID)) return
         setIsOpen(false)
       }
     }
     document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    return () => {
+      popOverlay(CONTEXT_USAGE_OVERLAY_ID)
+      document.removeEventListener('keydown', onKey)
+    }
   }, [isOpen])
 
   return (
@@ -546,7 +556,9 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
             ref={panelRef}
             // z-popover(2026-09-14 补):portal 挂 body 且 z-auto,营销首页 hero 区
             // 祖先 z-10 会整体压住弹层(与 add-menu-popover 同根因)
-            className="z-popover w-72 rounded-md border bg-popover text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            // p-3(2026-09-21 补):对齐全局弹层四边内边距规范(permission-mode/history
+            // 同族统一 p-3),此前容器漏写 padding 导致标题/圆环/明细全部贴边
+            className="z-popover w-72 rounded-md border bg-popover p-3 text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
             style={
               coords
                 ? { position: 'fixed', top: coords.top, left: coords.left }
