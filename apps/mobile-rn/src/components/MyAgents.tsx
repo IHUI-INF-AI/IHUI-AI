@@ -9,7 +9,7 @@
  * - 标题"我的AI APP" + 右侧"我的AI员工"入口(点击 → 我的AI员工团队页)
  * - 横向 ScrollView 展示 agent 卡片列表(灰底圆角卡 + 头像 + 名称)
  * - 每项:头像(80rpx → 40dp 圆角 10)+ 名称(24rpx → 12pt)
- * - 空态:"暂无智能体"(隐藏右箭头)
+ * - 空态:emptyText(默认"暂无智能体"),全宽居中(paddingVertical 48,对齐全仓空态)
  * - 点击 → onItemClick(item) 回调(登录校验 / type 3|5 付费模型 / source n8n 跳转均由调用方负责,预留)
  *
  * 类型零 any;圆角守门(无 rounded-full);无分割线(gap 间距);复用 design-tokens;禁用 purple/indigo。
@@ -40,6 +40,8 @@ export interface MyAgentsProps {
   onTeamPress?: () => void
   /** 默认头像(对齐原项目 defaultAvatar) */
   defaultAvatar?: string
+  /** 空态文案 */
+  emptyText?: string
 }
 
 export default function MyAgents({
@@ -47,6 +49,7 @@ export default function MyAgents({
   onItemClick,
   onTeamPress,
   defaultAvatar,
+  emptyText = '暂无智能体',
 }: MyAgentsProps) {
   const list = items && items.length > 0 ? items : null
 
@@ -70,7 +73,7 @@ export default function MyAgents({
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, list ? null : styles.scrollEmpty]}
       >
         {list ? (
           list.map((item, index) => {
@@ -103,7 +106,7 @@ export default function MyAgents({
           })
         ) : (
           <View style={styles.emptyItem}>
-            <Text style={styles.emptyText}>{'暂无智能体'}</Text>
+            <Text style={styles.emptyText}>{emptyText}</Text>
           </View>
         )}
       </ScrollView>
@@ -148,6 +151,10 @@ const styles = StyleSheet.create({
     paddingTop: 6,
     paddingBottom: 2,
   },
+  scrollEmpty: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
   item: {
     alignItems: 'center',
     minWidth: 60,
@@ -180,15 +187,16 @@ const styles = StyleSheet.create({
     maxWidth: 80,
   },
   emptyItem: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 20,
+    paddingVertical: 48,
     paddingHorizontal: 10,
-    minWidth: 100,
   },
   emptyText: {
-    fontSize: 12,
+    fontSize: 14,
     color: tokens.text.tertiary,
+    textAlign: 'center',
   },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

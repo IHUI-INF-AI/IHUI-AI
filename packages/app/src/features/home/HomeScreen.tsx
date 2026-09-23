@@ -22,6 +22,8 @@ import type {
   HomeScreenProps,
 } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export type { HomeRecommendItem, HomeLiveItem, HomeProgressItem, HomeMenuItem, HomeScreenProps }
 
 function getGreetingKey():
@@ -287,7 +289,7 @@ function createStyles(tk: AppThemeTokens) {
     headerRight: { flexDirection: 'row', alignItems: 'center' },
     greeting: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     welcome: { marginTop: 4, fontSize: 14, color: tk.text.secondary },
-    dot: { marginRight: 8, width: 8, height: 8, borderRadius: 2 },
+    dot: { marginRight: 8, width: 8, height: 8, borderRadius: rnRadius.xs },
     dotOn: { backgroundColor: tk.success.DEFAULT },
     dotOff: { backgroundColor: tk.text.tertiary },
     bellBtn: { position: 'relative', padding: 4 },
@@ -298,7 +300,7 @@ function createStyles(tk: AppThemeTokens) {
       minWidth: 16,
       height: 16,
       paddingHorizontal: 4,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.danger.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
@@ -321,7 +323,7 @@ function createStyles(tk: AppThemeTokens) {
     linkText: { fontSize: 14, color: tk.success.DEFAULT },
     card: {
       padding: 14,
-      borderRadius: 15,
+      borderRadius: rnRadius['2xl'],
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -333,7 +335,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
     },
     cardTitle: { flex: 1, fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    tag: { marginLeft: 8, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
+    tag: { marginLeft: 8, paddingHorizontal: 8, paddingVertical: 2, borderRadius: rnRadius.lg },
     tagLive: { backgroundColor: tk.danger.DEFAULT },
     tagUpcoming: { backgroundColor: tk.warning.DEFAULT },
     tagText: { fontSize: 12, color: tk.surface.light },
@@ -344,7 +346,7 @@ function createStyles(tk: AppThemeTokens) {
     progressBar: {
       marginTop: 8,
       height: 8,
-      borderRadius: 4,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.border.light,
       overflow: 'hidden',
     },
@@ -353,14 +355,14 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingVertical: 8,
       paddingHorizontal: 12,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.success.DEFAULT,
       alignSelf: 'flex-start',
     },
     outlineBtnText: { fontSize: 14, color: tk.success.DEFAULT },
     menuWrap: {
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       borderWidth: 1,
       borderColor: tk.brandAccent.light,
       backgroundColor: tk.surface.light,

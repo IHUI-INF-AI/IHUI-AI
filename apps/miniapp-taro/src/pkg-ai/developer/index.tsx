@@ -214,7 +214,7 @@ export default function DeveloperIndex() {
     status === tabId || (status === 4 && tabId === 0) || (status === 5 && tabId === 0)
 
   const agentStatusClass = (s: number) => {
-    const base = 'text-[24rpx] px-[16rpx] py-[4rpx] rounded-[6rpx]'
+    const base = 'text-[24rpx] px-[16rpx] py-[4rpx] rounded-xs'
     const styles: Record<number, string> = {
       0: 'text-muted-foreground bg-muted/[0.12]',
       1: 'text-warning bg-warning/[0.12]',
@@ -237,7 +237,7 @@ export default function DeveloperIndex() {
         </View>
 
         <View
-          className="flex items-center bg-primary mx-[20rpx] my-[20rpx] px-[30rpx] py-[28rpx] rounded-[16rpx]"
+          className="flex items-center bg-primary mx-[20rpx] my-[20rpx] px-[30rpx] py-[28rpx] rounded-lg"
           onClick={() => navigateTo({ url: '/pkg-ai/developer/subscribe' })}
           hoverClass="opacity-60"
         >
@@ -258,7 +258,7 @@ export default function DeveloperIndex() {
           {STATUS_TABS.map((tab) => (
             <View
               key={tab.id}
-              className={`px-[24rpx] py-[10rpx] rounded-[16rpx] bg-muted${mainTabActive(tab.id) ? ' bg-primary' : ''}`}
+              className={`px-[24rpx] py-[10rpx] rounded-lg bg-muted${mainTabActive(tab.id) ? ' bg-primary' : ''}`}
               onClick={() => onChangeStatus(tab.id)}
               hoverClass="opacity-60"
             >
@@ -286,7 +286,7 @@ export default function DeveloperIndex() {
             onClear={() => setSearch('')}
           />
           <View
-            className="h-[76rpx] px-[20rpx] rounded-[16rpx] bg-primary flex items-center justify-center"
+            className="h-[76rpx] px-[20rpx] rounded-lg bg-primary flex items-center justify-center"
             onClick={onSearchConfirm}
             hoverClass="opacity-60"
           >
@@ -301,7 +301,7 @@ export default function DeveloperIndex() {
             {SUB_TABS.map((tab) => (
               <View
                 key={tab.id}
-                className={`px-[16rpx] py-[6rpx] rounded-[12rpx]${status === tab.id ? ' bg-muted' : ''}`}
+                className={`px-[16rpx] py-[6rpx] rounded-md${status === tab.id ? ' bg-muted' : ''}`}
                 onClick={() => onChangeStatus(tab.id)}
                 hoverClass="opacity-60"
               >
@@ -333,11 +333,11 @@ export default function DeveloperIndex() {
             list.map((agent) => (
               <View
                 key={String(agent.agent_id ?? agent.id)}
-                className="flex items-center bg-card border border-[var(--color-border-medium)] rounded-[30rpx] p-[20rpx] mb-[18rpx]"
+                className="flex items-center bg-card border border-[var(--color-border-medium)] rounded-2xl p-[20rpx] mb-[18rpx]"
               >
                 {/* RN avatar: rpx(184)/2 dp → 184rpx,radius 8dp=16rpx */}
                 <Image
-                  className="w-[184rpx] h-[184rpx] rounded-[16rpx] bg-muted flex-shrink-0"
+                  className="w-[184rpx] h-[184rpx] rounded-lg bg-muted flex-shrink-0"
                   src={agent.agent_avatar || '/static/default-agent.png'}
                   mode="aspectFill"
                 />
@@ -361,7 +361,7 @@ export default function DeveloperIndex() {
                   <View className="flex items-center gap-[16rpx]">
                     {/* RN setBtn: px 16rpx py 6rpx radius 6dp=12rpx bg brand(→primary) 白字 12dp=24rpx */}
                     <Text
-                      className="text-[24rpx] px-[16rpx] py-[6rpx] rounded-[12rpx] text-primary-foreground bg-primary font-medium"
+                      className="text-[24rpx] px-[16rpx] py-[6rpx] rounded-md text-primary-foreground bg-primary font-medium"
                       onClick={() => onEdit(agent)}
                     >
                       {status === 2

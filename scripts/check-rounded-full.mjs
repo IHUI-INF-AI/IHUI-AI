@@ -11,8 +11,10 @@
  * 依据 AGENTS.md 第 4 节"前端 UI 约束"(强制):任何承载内容或交互的容器
  * (卡片 / 面板 / 按钮 / 输入框 / 弹窗 / 标签条 / 侧栏项 / 操作行 / 列表项 /
  *  气泡 / 工具栏 / 浮层 / 徽章容器 等)一律不得使用纯圆 / 胶囊圆角。
- *  只允许规范圆角档位:rounded-sm(2px)/ rounded(4px)/ rounded-md(6px)/
- *  rounded-lg(8px)/ rounded-xl(12px)/ rounded-2xl(16px)。
+ *  只允许规范圆角档位(唯一真相源 packages/design-tokens/src/radius.js,2026-09-23 起按 web
+ *  Tailwind v4 语义统一):rounded-xs(2px)/ rounded-sm(4px)/ rounded-md(6px)/
+ *  rounded-lg(8px)/ rounded-xl(12px)/ rounded-2xl(16px)。裸 rounded 与 lg 同值(8px)。
+ *  档位引用面由守门 77 scripts/check-radius-single-source.mjs 管,本脚本只管容器纯圆/胶囊。
  *
  * 唯一豁免(仅限非容器装饰元素,不承载主要内容/交互):
  *   1. <img> 标签上的 rounded-full(头像图片本身)

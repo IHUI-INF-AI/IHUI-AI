@@ -21,6 +21,8 @@ import type {
   MessageTab,
 } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 消息中心 Tab/Item/Props 类型 re-export(单一来源 @ihui/types) */
 export type { MessageCenterItem, MessageConversationItem, MessageCenterScreenProps, MessageTab }
 
@@ -195,7 +197,7 @@ function createStyles(tk: AppThemeTokens) {
     tab: {
       paddingHorizontal: 14,
       paddingVertical: 6,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     tabActive: {
@@ -215,14 +217,14 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       paddingVertical: 12,
       paddingHorizontal: 10,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       gap: 12,
     },
     convAvatarWrap: { position: 'relative' },
     convAvatar: {
       width: 44,
       height: 44,
-      borderRadius: 10,
+      borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
       backgroundColor: tk.surface.muted,
     },
     convAvatarFallback: { alignItems: 'center', justifyContent: 'center' },
@@ -233,7 +235,7 @@ function createStyles(tk: AppThemeTokens) {
       right: -4,
       minWidth: 16,
       height: 16,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.error.text,
       alignItems: 'center',
       justifyContent: 'center',

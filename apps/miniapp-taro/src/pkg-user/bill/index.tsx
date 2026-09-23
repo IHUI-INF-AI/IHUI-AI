@@ -166,7 +166,7 @@ export default function Bill() {
     <ThemeRoot>
       <View className="min-h-screen bg-background pb-[40rpx]">
         {/* 顶部:订阅催费提醒 */}
-        <View className="mx-[20rpx] mt-[20rpx] flex items-center justify-between rounded-[24rpx] bg-primary px-[28rpx] py-[24rpx]">
+        <View className="mx-[20rpx] mt-[20rpx] flex items-center justify-between rounded-xl bg-primary px-[28rpx] py-[24rpx]">
           <View className="flex-1 pr-[16rpx]">
             <Text className="text-[30rpx] font-semibold text-[var(--color-surface-light)]">
               微信催费提醒
@@ -176,7 +176,7 @@ export default function Bill() {
             </Text>
           </View>
           <View
-            className="shrink-0 rounded-[28rpx] bg-[var(--color-surface-light)] px-[28rpx] py-[12rpx]"
+            className="shrink-0 rounded-xl bg-[var(--color-surface-light)] px-[28rpx] py-[12rpx]"
             hoverClass="opacity-60"
             onClick={() => void onSubscribe()}
           >
@@ -195,13 +195,13 @@ export default function Bill() {
               return (
                 <View
                   key={item.id}
-                  className="mb-[20rpx] rounded-[24rpx] border border-[var(--color-border)] bg-card p-[24rpx]"
+                  className="mb-[20rpx] rounded-xl border border-[var(--color-border)] bg-card p-[24rpx]"
                 >
                   <View className="flex items-center justify-between gap-[16rpx]">
                     <Text className="flex-1 truncate text-[32rpx] font-semibold text-foreground">
                       {item.className}
                     </Text>
-                    <View className="shrink-0 rounded-[8rpx] bg-[var(--color-muted)] px-[12rpx] py-[4rpx]">
+                    <View className="shrink-0 rounded-sm bg-[var(--color-muted)] px-[12rpx] py-[4rpx]">
                       <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
                         {ENROLL_STATUS_TEXT[item.status] ?? item.status}
                       </Text>
@@ -232,7 +232,7 @@ export default function Bill() {
                   </View>
                   {due > 0 ? (
                     <View
-                      className={`mt-[20rpx] rounded-[24rpx] bg-primary py-[16rpx] text-center ${
+                      className={`mt-[20rpx] rounded-xl bg-primary py-[16rpx] text-center ${
                         payingId === item.id ? 'opacity-50' : ''
                       }`}
                       hoverClass="opacity-60"
@@ -257,7 +257,7 @@ export default function Bill() {
         {data.payments.length > 0 ? (
           <View className="mx-[20rpx] mt-[32rpx]">
             <Text className="text-[28rpx] font-semibold text-foreground">缴费记录</Text>
-            <View className="mt-[16rpx] rounded-[24rpx] border border-[var(--color-border)] bg-card px-[24rpx]">
+            <View className="mt-[16rpx] rounded-xl border border-[var(--color-border)] bg-card px-[24rpx]">
               {data.payments.map((p, idx) => (
                 <View
                   key={p.id}
@@ -287,7 +287,7 @@ export default function Bill() {
         {/* 底部说明 */}
         <View className="mt-[32rpx] px-[40rpx] text-center">
           <Button
-            className="h-[72rpx] rounded-[36rpx] text-[26rpx] leading-[72rpx]"
+            className="h-[72rpx] rounded-[36rpx] text-[26rpx] leading-[72rpx]" // radius-exempt: 胶囊按钮(高 72rpx,半径=高度一半)
             plain
             onClick={() => void onSubscribe()}
           >
