@@ -19,6 +19,11 @@
  *   B. 「COPY 源存在性」:每条**不带 `--from=`**、不含通配符/变量的 COPY 源路径,
  *      必须能从构建上下文取到(按 Dockerfile 自身目录或仓库根两种基准各试一次,命中其一即通过 ——
  *      上下文究竟是哪个目录只有 workflow 知道,故判据刻意取并集,宁可漏不误报)。
+ *   C. 「pnpm --filter 脚本覆盖」:`pnpm --filter <spec> run <script>` 对闭包里**没有该脚本**的包是
+ *      **静默跳过**而非报错。若被跳过的是"自带 build(产出 dist)"的包,下游按 main/exports 读 dist
+ *      就会 Module not found。2026-09-23 实测即此类:Dockerfile.web 用 `run build:static` 而 7 个
+ *      可构建依赖全都没有该脚本 ⇒ 依赖一个都没构建 ⇒ CI build-web 恒红(同仓 Dockerfile.api 用
+ *      `run build`,故一直绿 —— 差别只在脚本名,本地不跑 docker 时零信号)。
  *
  * 用法:node scripts/check-dockerfile-copy-paths.mjs [--staged|--self-test|--help]
  * 退出码:0 通过 / 1 检出违规 / 2 脚本自身异常。
@@ -240,10 +245,143 @@ export function checkCopySourcesExist({ content, rel, context, committed }) {
   return violations
 }
 
-export function scanDockerfile({ rel, content, rootRefs, context, committed }) {
+/**
+ * 把 `\` 续行折成一条逻辑行,并记住起始物理行号(报违规要指到 RUN 那一行)。
+ */
+export function logicalLines(content) {
+  const out = []
+  let buf = ''
+  let start = 0
+  content.split(/\r?\n/).forEach((raw, i) => {
+    const conts = /\\\s*$/.test(raw)
+    if (!buf) start = i + 1
+    buf += raw.replace(/\\\s*$/, ' ')
+    if (!conts) {
+      if (buf.trim()) out.push({ line: start, text: buf })
+      buf = ''
+    }
+  })
+  if (buf.trim()) out.push({ line: start, text: buf })
+  return out
+}
+
+/** 展开一个 `--filter` 表达式为 workspace 包名集合;认不出的形态一律返回 null(宁漏不误报)。 */
+export function expandFilterSpec(spec, graph) {
+  const name = spec.replace(/^['"]|['"]$/g, '')
+  if (name.startsWith('!') || name.startsWith('...')) return null // 取反/上游依赖方向,本判据不管
+  const depsOnly = name.endsWith('^...')
+  const withDeps = !depsOnly && name.endsWith('...')
+  const root = depsOnly ? name.slice(0, -4) : withDeps ? name.slice(0, -3) : name
+  const node = graph.get(root)
+  if (!node) return null // 包名解析不到,不猜
+  const out = new Set(depsOnly ? [] : [root])
+  if (!depsOnly && !withDeps) return out // 单包形态:不含依赖,别把闭包误扩出去
+  const queue = [...node.deps]
+  while (queue.length) {
+    const d = queue.pop()
+    if (out.has(d) || !graph.has(d)) continue
+    out.add(d)
+    queue.push(...graph.get(d).deps)
+  }
+  if (depsOnly) out.delete(root)
+  return out
+}
+
+/**
+ * C 判据:`pnpm --filter <spec>... run <script>` 是"闭包里逐包执行,**包没有这个脚本就静默跳过**",
+ * 而不是"报错"。被跳过的包若自己带 `build`(即产出 dist 的包),下游按 `main`/`exports` 读 dist 时
+ * 就 Module not found —— 且本地不跑 docker 时零信号。
+ *
+ * 实打实的成因(2026-09-23 实测 CI build-web 恒红):Dockerfile.web 跑
+ * `--filter @ihui/web... run build:static`,而 web 的 7 个可构建依赖**全部只有 `build`、没有
+ * `build:static`** ⇒ 一个都没被构建 ⇒ `@ihui/api-client`(main: ./dist/index.js)解析失败;
+ * 同仓 Dockerfile.api 用 `run build`(人人都有)⇒ build-api 一直绿。两条 Dockerfile 只差一个脚本名。
+ *
+ * 只认"自身带 build 却缺被调用脚本"的包:纯配置/纯类型包(eslint-config、tsconfig)没有 build,
+ * 跳过是正确行为,不计违规。
+ */
+export function checkPnpmFilterScripts({ content, rel, graph }) {
+  const violations = []
+  for (const { line, text } of logicalLines(content)) {
+    if (!/\bpnpm\b/.test(text) || !/--filter\s+\S+/.test(text)) continue
+    // 按 && / || / ; 切段逐段配对:一条 RUN 里两次 `pnpm --filter X run S` 各有自己的包集与脚本,
+    // 混在一起取"首个脚本"会让后一段借用前一段的闭包(误报或漏报皆可能)。
+    for (const seg of text.split(/\s*(?:&&|\|\||;)\s*/)) {
+      if (!/--filter\s+\S+/.test(seg)) continue
+      const runM = /\brun\s+([\w:.-]+)/.exec(seg)
+      if (!runM) continue
+      const script = runM[1]
+      const pkgs = new Set()
+      let unrecognized = false
+      for (const s of [...seg.matchAll(/--filter\s+(\S+)/g)].map((m) => m[1])) {
+        const expanded = expandFilterSpec(s, graph)
+        if (expanded === null) {
+          unrecognized = true
+          break
+        }
+        for (const p of expanded) pkgs.add(p)
+      }
+      if (unrecognized || !pkgs.size) continue
+      const skipped = [...pkgs].filter((p) => {
+        const node = graph.get(p)
+        return node.hasBuild && !node.scripts.has(script)
+      })
+      if (!skipped.length) continue
+      violations.push({
+        file: rel,
+        kind: 'pnpm-filter-script-skipped',
+        detail: `第 ${line} 行 \`run ${script}\` 会静默跳过 ${skipped.length} 个产出 dist 的包:${skipped.sort().join(', ')}`,
+        hint:
+          `这些包只有自己的构建脚本(如 build)而没有 ${script},pnpm 不报错、直接跳过 ⇒ 镜像里 dist 缺失。` +
+          `先跑 \`--filter <pkg>^... run build\` 构建依赖,再单独跑目标包的那条脚本`,
+      })
+    }
+  }
+  return violations
+}
+
+/**
+ * workspace 包图(读工作树 package.json):name -> { scripts:Set, deps:workspace 依赖名, hasBuild }。
+ * 读不到任何包时返回 null,由调用方按"未真正运行"处理(不得静默判绿)。
+ */
+export function workspaceGraph(root = ROOT) {
+  const files = gitLines([
+    'ls-files',
+    '--',
+    'package.json',
+    'packages/*/package.json',
+    'apps/*/package.json',
+  ])
+  const graph = new Map()
+  for (const relPath of files) {
+    if (relPath.includes('node_modules')) continue
+    let p
+    try {
+      p = JSON.parse(readFileSync(join(root, relPath), 'utf8'))
+    } catch {
+      continue
+    }
+    if (!p?.name) continue
+    const deps = []
+    for (const field of ['dependencies', 'devDependencies', 'optionalDependencies']) {
+      for (const [k, v] of Object.entries(p[field] || {})) {
+        if (typeof v === 'string' && v.startsWith('workspace')) deps.push(k)
+      }
+    }
+    graph.set(p.name, {
+      scripts: new Set(Object.keys(p.scripts || {})),
+      hasBuild: Boolean(p.scripts?.build),
+      deps,
+    })
+  }
+  return graph.size ? graph : null
+}
+
+export function scanDockerfile({ rel, content, rootRefs, context, committed, graph }) {
   return [
     ...checkLifecycleCopies({ content, refs: rootRefs, rel }),
     ...(context ? checkCopySourcesExist({ content, rel, context, committed }) : []),
+    ...(graph ? checkPnpmFilterScripts({ content, rel, graph }) : []),
   ]
 }
 
@@ -280,6 +418,52 @@ export const SELFTEST_CASES = [
     cmd: 'node scripts/a.mjs && pnpm run build && node -e "1"',
     wantRefs: ['scripts/a.mjs'],
   },
+  {
+    name: 'C 判据:--filter app... run build:static,依赖只有 build → 静默跳过(即 CI build-web 真故障)',
+    dockerfile: 'FROM n\nRUN pnpm --filter @t/app... run build:static\n',
+    graph: new Map([
+      ['@t/app', { scripts: new Set(['build', 'build:static']), hasBuild: true, deps: ['@t/dep'] }],
+      ['@t/dep', { scripts: new Set(['build']), hasBuild: true, deps: [] }],
+    ]),
+    want: 'violation',
+  },
+  {
+    name: 'C 判据修法有效性:先 --filter app^... run build 再单独 run build:static',
+    dockerfile:
+      'FROM n\nRUN pnpm --filter @t/app^... run build && pnpm --filter @t/app run build:static\n',
+    graph: new Map([
+      ['@t/app', { scripts: new Set(['build', 'build:static']), hasBuild: true, deps: ['@t/dep'] }],
+      ['@t/dep', { scripts: new Set(['build']), hasBuild: true, deps: [] }],
+    ]),
+    want: 'pass',
+  },
+  {
+    name: 'C 判据反例:依赖是纯类型/配置包(自身无 build)→ 跳过是正确行为,不报',
+    dockerfile: 'FROM n\nRUN pnpm --filter @t/app... run build:static\n',
+    graph: new Map([
+      [
+        '@t/app',
+        { scripts: new Set(['build', 'build:static']), hasBuild: true, deps: ['@t/tsconfig'] },
+      ],
+      ['@t/tsconfig', { scripts: new Set(), hasBuild: false, deps: [] }],
+    ]),
+    want: 'pass',
+  },
+  {
+    name: 'C 判据反例:取反/上游方向等认不出的 filter 表达式一律放过(宁漏不误报)',
+    dockerfile: 'FROM n\nRUN pnpm --filter "!@t/app" run build:static\n',
+    graph: new Map([['@t/app', { scripts: new Set(['build']), hasBuild: true, deps: [] }]]),
+    want: 'pass',
+  },
+  {
+    name: 'C 判据:反斜杠续行的 RUN 同样判定(logicalLines 折叠生效)',
+    dockerfile: 'FROM n\nRUN pnpm \\\n  --filter @t/app... \\\n  run build:static\n',
+    graph: new Map([
+      ['@t/app', { scripts: new Set(['build', 'build:static']), hasBuild: true, deps: ['@t/dep'] }],
+      ['@t/dep', { scripts: new Set(['build']), hasBuild: true, deps: [] }],
+    ]),
+    want: 'violation',
+  },
 ]
 
 function selfTest() {
@@ -290,6 +474,18 @@ function selfTest() {
       const ok = JSON.stringify(got) === JSON.stringify(c.wantRefs)
       if (!ok) bad++
       console.log(`${ok ? '✅' : '❌'} ${c.name}(实得 ${JSON.stringify(got)})`)
+      continue
+    }
+    if (c.graph) {
+      const v = checkPnpmFilterScripts({
+        content: c.dockerfile,
+        rel: 'deploy/docker/Dockerfile.t',
+        graph: c.graph,
+      })
+      const got = v.length ? 'violation' : 'pass'
+      const ok = got === c.want
+      if (!ok) bad++
+      console.log(`${ok ? '✅' : '❌'} ${c.name}(期望 ${c.want},实得 ${got})`)
       continue
     }
     const v = checkLifecycleCopies({
@@ -323,6 +519,7 @@ export async function main(argv = process.argv.slice(2)) {
         '',
         'A: 走根 workspace 上下文装依赖的 Dockerfile,必须 COPY 根 package.json 生命周期钩子引用的脚本',
         'B: 每条 COPY 源路径必须能从构建上下文取到(仓库根 / Dockerfile 同目录各试一次)',
+        'C: `pnpm --filter <spec>... run <script>` 不得静默跳过"带 build 却没有该脚本"的依赖包',
         '',
         '退出码: 0 通过 / 1 检出违规 / 2 脚本自身异常',
       ].join('\n'),
@@ -363,6 +560,13 @@ export async function main(argv = process.argv.slice(2)) {
     console.error(`${C.red}✗${C.reset} git ls-tree HEAD 返回空(未真正读到提交内容,不得静默判绿)`)
     return 2
   }
+  const graph = workspaceGraph(ROOT)
+  if (!graph) {
+    console.error(
+      `${C.red}✗${C.reset} C 判据读不到任何 workspace 包 package.json(git ls-files 未真正运行,不得静默判绿)`,
+    )
+    return 2
+  }
   const files = listDockerfiles(staged)
   if (!files.length) {
     // 空输入不得恒绿:全量模式下列不出任何 Dockerfile 说明 git ls-files 没真跑起来
@@ -384,7 +588,7 @@ export async function main(argv = process.argv.slice(2)) {
     }
     const context = contexts.get(rel) ?? contexts.get(rel.replace(/^\.\/+/, ''))
     if (context) judgedB += 1
-    violations.push(...scanDockerfile({ rel, content, rootRefs, context, committed }))
+    violations.push(...scanDockerfile({ rel, content, rootRefs, context, committed, graph }))
   }
   if (violations.length) {
     console.log(
@@ -400,8 +604,9 @@ export async function main(argv = process.argv.slice(2)) {
   }
   console.log(
     `${C.green}✓${C.reset} [check-dockerfile-copy-paths ${staged ? '--staged' : '全量'}] ` +
-      `${files.length} 个 Dockerfile 的 COPY 源与钩子依赖齐备` +
-      `(A 判据钩子引用:${JSON.stringify(rootRefs)};B 判据按 workflow 声明的上下文核了 ${judgedB}/${files.length} 个)`,
+      `${files.length} 个 Dockerfile 的 COPY 源、钩子依赖与 pnpm --filter 脚本覆盖齐备` +
+      `(A 判据钩子引用:${JSON.stringify(rootRefs)};B 判据按 workflow 声明的上下文核了 ${judgedB}/${files.length} 个;` +
+      `C 判据按 workspace 包图 ${graph.size} 个包核过依赖构建脚本)`,
   )
   return 0
 }
@@ -420,6 +625,10 @@ export const __test__ = {
   scanDockerfile,
   checkLifecycleCopies,
   checkCopySourcesExist,
+  checkPnpmFilterScripts,
+  expandFilterSpec,
+  logicalLines,
+  workspaceGraph,
   parseCopies,
   lifecycleScriptRefs,
   workflowContexts,

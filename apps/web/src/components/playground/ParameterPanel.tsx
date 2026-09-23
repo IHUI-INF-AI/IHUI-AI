@@ -9,6 +9,7 @@
  */
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Loader2, RefreshCw } from 'lucide-react'
 import {
   Button,
@@ -43,6 +44,7 @@ export function ParameterPanel({
   onApiKeyChange,
   disabled,
 }: ParameterPanelProps) {
+  const t = useTranslations('playground')
   const [models, setModels] = React.useState<string[]>([])
   const [loadingModels, setLoadingModels] = React.useState(false)
   const [modelsError, setModelsError] = React.useState<string | null>(null)
@@ -73,7 +75,7 @@ export function ParameterPanel({
 
   const loadModels = React.useCallback(async () => {
     if (!apiKey.trim()) {
-      setModelsError('请先填写 API Key')
+      setModelsError(t('needApiKey'))
       return
     }
     setLoadingModels(true)
@@ -86,12 +88,12 @@ export function ParameterPanel({
         onParamsChange({ model: list[0] })
       }
     } catch (e) {
-      setModelsError(e instanceof Error ? e.message : '获取模型列表失败')
+      setModelsError(e instanceof Error ? e.message : t('modelsFetchFailed'))
       setModels([])
     } finally {
       setLoadingModels(false)
     }
-  }, [apiKey, params.model, onParamsChange])
+  }, [apiKey, params.model, onParamsChange, t])
 
   // 首次有 apiKey 时自动加载一次
   React.useEffect(() => {
@@ -118,19 +120,19 @@ export function ParameterPanel({
             disabled={disabled}
             className="h-8 text-xs"
           />
-          <p className="text-[11px] text-muted-foreground">本地存储,仅用于本次调用</p>
+          <p className="text-[11px] text-muted-foreground">{t('apiKeyHint')}</p>
         </div>
 
         {/* 模型选择 */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <Label className="text-xs font-medium">模型</Label>
+            <Label className="text-xs font-medium">{t('modelLabel')}</Label>
             <Button
               variant="ghost"
               size="icon"
               onClick={loadModels}
               disabled={disabled || loadingModels || !apiKey.trim()}
-              aria-label="刷新模型列表"
+              aria-label={t('refreshModelsAria')}
             >
               {loadingModels ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -146,7 +148,7 @@ export function ParameterPanel({
               disabled={disabled}
             >
               <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="选择模型" />
+                <SelectValue placeholder={t('selectModelPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {models.map((m) => (
@@ -160,7 +162,7 @@ export function ParameterPanel({
             <Input
               value={params.model}
               onChange={(e) => onParamsChange({ model: e.target.value })}
-              placeholder={modelsError ?? '输入模型名或刷新列表'}
+              placeholder={modelsError ?? t('inputModelOrRefresh')}
               disabled={disabled}
               className="h-8 text-xs"
             />
@@ -204,7 +206,7 @@ export function ParameterPanel({
         {/* stream 开关 */}
         <div className="flex items-center justify-between">
           <Label htmlFor="pg-stream" className="text-xs font-medium">
-            stream(流式)
+            {t('streamLabel')}
           </Label>
           <Switch
             id="pg-stream"
