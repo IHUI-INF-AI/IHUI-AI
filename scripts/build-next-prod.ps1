@@ -41,11 +41,17 @@ if (-not $Node22) {
 }
 $Node22Dir     = Split-Path $Node22 -Parent
 $PnpmGlobal    = "D:\DevEnv\tools\npm-global"
-$WebDir        = "D:\IHUI-AI\apps\web"
-$ProjectRoot   = "D:\IHUI-AI"
-$LogDir        = "D:\IHUI-AI\.ihui-agent\tmp\next-build-node22\logs"
+# 根目录一律由脚本自身位置推导(AGENTS.md 首部迁移修正:旧盘符写死是事故源)。
+# 本机实测:仓库在 G:\IHUI-AI 而旧值写死 旧盘符根目录(该路径不存在),生产构建入口因此不可用;
+# 生产机的 checkout 在 D 盘时,同一份推导逻辑自然解析到 D 盘 —— 两端都不必各留一份副本。
+$ProjectRoot   = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$WebDir        = Join-Path $ProjectRoot 'apps/web'
+$LogDir        = Join-Path $ProjectRoot '.ihui-agent/tmp/next-build-node22/logs'
+# .next 备份落工作区外(既防 Tailwind 扫描污染,也不写 C 盘 —— §26 开发工具缓存一律指向 D 盘,
+# 本机 TEMP 已由用户环境变量指向 D:\caches\Temp)
+$BackupRoot    = Join-Path $env:TEMP 'ihui-next-backup'
 $Timestamp     = Get-Date -Format "yyyyMMdd-HHmmss"
-$BuildLog      = "$LogDir\next-build-node22-$Timestamp.log"
+$BuildLog      = Join-Path $LogDir "next-build-node22-$Timestamp.log"
 if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Force -Path $LogDir | Out-Null }
 
 # 生产模式环境变量(与 run-web.ps1 保持一致)
@@ -86,7 +92,7 @@ if ($lockExit -ne 0) {
     Write-Host ""
     Write-Host "[FATAL] 无法获取部署锁(退出码 $lockExit)" -ForegroundColor Red
     Write-Host "  原因: 已有其他构建/部署在运行,或 .deploy.lock 残留"
-    Write-Host "  处理: 等待其完成;若确认无构建在跑,可删除 D:\IHUI-AI\.deploy.lock 后重试"
+    Write-Host "  处理: 等待其完成;若确认无构建在跑,可删除工作区根下的 .deploy.lock 后重试"
     Write-Host "  日志: $BuildLog"
     exit $lockExit
 }
@@ -99,12 +105,13 @@ Write-Host "[1/6] 备份当前 .next" -ForegroundColor Yellow
 $backupName = $null
 if (Test-Path ".next\BUILD_ID") {
     $currentBuildId = Get-Content ".next\BUILD_ID"
-    # 2026-08-05 根治:备份到外部 C:\tmp(不在 apps/web 内创建 .next-bak-*),
+    # 2026-08-05 根治:备份到工作区外(不在 apps/web 内创建 .next-bak-*),
     # 否则 Tailwind 4 扫描这些目录会内存爆炸(137GB+)导致构建失败。
-    $backupName = "C:\tmp\next-backup-node22-$Timestamp"
+    # 2026-09-21:备份根目录由写死 C 盘 tmp 改为 $env:TEMP 下的 ihui-next-backup(§26 禁往 C 盘堆产物)
+    $backupName = Join-Path $BackupRoot "next-backup-node22-$Timestamp"
     Write-Host "  当前 BUILD_ID: $currentBuildId"
-    Write-Host "  备份为: $backupName (外部,防 Tailwind 扫描污染)"
-    if (-not (Test-Path "C:\tmp")) { New-Item -ItemType Directory -Path "C:\tmp" -Force | Out-Null }
+    Write-Host "  备份为: $backupName (工作区外,防 Tailwind 扫描污染)"
+    if (-not (Test-Path $BackupRoot)) { New-Item -ItemType Directory -Path $BackupRoot -Force | Out-Null }
     # 2026-08-06 提速:robocopy /MT 多线程复制(4.7GB 单线程 Copy-Item 慢 3-5 倍)。
     # /NFL /NDL /NJH /NJS /NP 抑制日志刷屏;退出码 >= 8 表示复制失败。
     robocopy ".next" $backupName /E /MT:16 /NFL /NDL /NJH /NJS /NP | Out-Null
@@ -119,7 +126,7 @@ if (Test-Path ".next\BUILD_ID") {
 
 # ----------------------------- [2/6] 清理旧产物 -----------------------------
 Write-Host "[2/6] 清理旧产物" -ForegroundColor Yellow
-# 2026-08-05 根治:仅清 .next 旧产物(已备份到 C:\tmp)。
+# 2026-08-05 根治:仅清 .next 旧产物(已备份到 $BackupRoot)。
 # 不再清理 node_modules\.cache 和 *.tsbuildinfo —— 它们是 webpack filesystem
 # 持久缓存,二次构建命中后从 50 分钟降到 10-15 分钟。缓存损坏时用
 # -CleanCache 参数强制清理。
@@ -184,7 +191,7 @@ if ($buildExit -ne 0) {
     Write-Host "--- 错误尾部(最后 30 行)---" -ForegroundColor DarkGray
     Get-Content $BuildLog -Tail 30
 
-    # 回滚:恢复备份(从 C:\tmp 复制回来)
+    # 回滚:恢复备份(从 $BackupRoot 复制回来)
     if ($backupName -and (Test-Path $backupName)) {
         Write-Host ""
         Write-Host "  回滚:恢复 $backupName → .next" -ForegroundColor Yellow
@@ -254,9 +261,9 @@ Write-Host "  总耗时    : $($buildDuration.ToString('hh\时mm\分ss\秒'))"
 Write-Host "  日志      : $BuildLog"
 Write-Host ""
 
-# 2026-08-05 极致优化:成功构建后清理 C:\tmp 旧备份,只保留最新 1 个(防堆积)
-if (Test-Path "C:\tmp") {
-    $oldBackups = Get-ChildItem "C:\tmp" -Directory -Filter "next-backup-*" |
+# 2026-08-05 极致优化:成功构建后清理旧备份($BackupRoot),只保留最新 1 个(防堆积)
+if (Test-Path $BackupRoot) {
+    $oldBackups = Get-ChildItem $BackupRoot -Directory -Filter "next-backup-*" |
         Sort-Object LastWriteTime -Descending | Select-Object -Skip 1
     foreach ($ob in $oldBackups) {
         Write-Host "  清理旧备份: $($ob.Name)" -ForegroundColor DarkGray

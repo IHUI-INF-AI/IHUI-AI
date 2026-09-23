@@ -112,4 +112,32 @@ export function buildSsoLoginUrl(webBase: string, redirectUri: string, clientId:
   })
   return `${webBase}/sso/login?${params.toString()}`
 }
+
+/**
+ * 把一次性 sso_code 附加到 redirectUri 上,生成 SSO 回调 URL。
+ *
+ * 2026-09-22 立(修复 SSO 授权死循环留下的脏参数膨胀):
+ * 登录守卫(web 端 proxy.ts / 生产 nginx)把未通过校验的访问 307 打回
+ * `/sso/login?redirect=<原目标>` 时,原目标可能已经带过 sso_code;各调用点原先
+ * 手写 `${redirectUri}?sso_code=` 再拼一次 → `?sso_code=A&sso_code=B&sso_code=C`
+ * (桌面端 WebView2 历史记录实测递归到 4 层,并把 redirect 参数本身拼坏)。
+ * 本函数先剥离已有 sso_code 再附加,保证重入幂等。
+ *
+ * 支持三种形态:相对路径(`/edu/x?y=1`)、绝对 URL(`https://sub/a?b=1`)、
+ * 自定义协议深链(`ihui://sso`)。解析异常时退回最小拼接,不因解析失败丢掉 code。
+ */
+export function buildSsoRedirectUrl(redirectUri: string, ssoCode: string): string {
+  if (!redirectUri) return redirectUri
+  // 相对路径需借占位 origin 交给 URL 解析,解析后必须还原为相对形态(不能带 origin)
+  const isRelative = redirectUri.startsWith('/') && !redirectUri.startsWith('//')
+  try {
+    const parsed = new URL(redirectUri, isRelative ? 'https://sso.invalid' : undefined)
+    parsed.searchParams.delete('sso_code')
+    parsed.searchParams.append('sso_code', ssoCode)
+    return isRelative ? `${parsed.pathname}${parsed.search}${parsed.hash}` : parsed.toString()
+  } catch {
+    const separator = redirectUri.includes('?') ? '&' : '?'
+    return `${redirectUri}${separator}sso_code=${encodeURIComponent(ssoCode)}`
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

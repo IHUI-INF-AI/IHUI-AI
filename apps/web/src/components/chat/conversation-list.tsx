@@ -11,7 +11,9 @@ import { useTranslations, useLocale } from 'next-intl'
 import {
   Archive,
   ArchiveRestore,
+  Bell,
   Clock,
+  Hourglass,
   Pin,
   PinOff,
   Shrink,
@@ -58,6 +60,13 @@ import {
   unarchiveConversation,
   type BatchConversationAction,
 } from '@ihui/api-client'
+import {
+  buildBatchAttentionSummary,
+  formatUnreadCount,
+  isWaitingForConversation,
+  resolveConversationAttention,
+  type ConversationAttentionState,
+} from '@/hooks/use-sidebar'
 
 export interface Conversation {
   id: string
@@ -69,10 +78,94 @@ export interface Conversation {
   archivedAt?: string | null
   /** 2026-08-30 立:会话置顶标记 */
   pinned?: boolean
+  /** D53 会话注意力态(G-64):该行未读更新数(>0 显示未读徽章);后端暂无字段时由 attentionById 覆盖 */
+  unreadCount?: number
+  /** D53:该行显式等待态(备用通道,主链路走 attentionById + pendingQuestion 联动) */
+  hasPendingQuestion?: boolean
+}
+
+/** D53 注意力覆盖表:行数据无未读/等待字段时的扩展通道(派生,不碰 store)。 */
+export type ConversationAttentionById = Readonly<
+  Record<string, { waiting?: boolean; unread?: number }>
+>
+
+/**
+ * D53 会话注意力徽章(G-64):「等待你处理 / 有未读更新」两态。
+ * waiting-unread 时两徽章并排(等待优先在左)。数字徽章用确定性居中模板
+ * (inline-flex + h-4 min-w-4 + items-center justify-center + leading-none + tabular-nums)。
+ * 文案键(chatHistory.attentionWaiting/attentionUnread/batchAttentionSummary)由主 agent 统一入词表,
+ * 本任务只引用不建键(见交付物词表键清单)。
+ */
+export function ConversationAttentionBadges({
+  state,
+  unreadCount,
+}: {
+  state: ConversationAttentionState
+  unreadCount: number
+}) {
+  const t = useTranslations('chatHistory')
+  if (state === 'idle') return null
+  const waiting = state === 'waiting' || state === 'waiting-unread'
+  const unread = state === 'unread' || state === 'waiting-unread'
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1">
+      {waiting && (
+        <span
+          data-testid="attention-badge-waiting"
+          className="inline-flex items-center gap-0.5 rounded bg-amber-500/10 px-1 py-px text-[10px] font-medium leading-4 text-amber-700 dark:text-amber-400"
+        >
+          <Hourglass className="h-3 w-3" />
+          <span>{t('attentionWaiting')}</span>
+        </span>
+      )}
+      {unread && (
+        // §4 禁原生提示窗:title 属性交回项目 Tooltip(与同文件收藏钮同款用法);
+        // aria-label 保留 —— 它是无障碍朗读,不是原生 tooltip。
+        <Tooltip content={t('attentionUnread', { count: unreadCount })}>
+          <span
+            data-testid="attention-badge-unread"
+            role="status"
+            aria-label={t('attentionUnread', { count: unreadCount })}
+            className="inline-flex h-4 min-w-4 items-center justify-center rounded bg-primary/10 px-1 text-[10px] font-semibold leading-none tabular-nums text-primary"
+          >
+            <Bell className="mr-0.5 h-3 w-3" />
+            {formatUnreadCount(unreadCount)}
+          </span>
+        </Tooltip>
+      )}
+    </span>
+  )
+}
+
+/**
+ * D53 多选条注意力汇总行:选中集里的等待/未读计数文案(批量条文案断言落点)。
+ * 两项皆 0 时零占位(不渲染),避免干扰既有 selectedCount 文案。
+ */
+export function BatchAttentionSummaryLine({
+  waitingCount,
+  unreadCount,
+}: {
+  waitingCount: number
+  unreadCount: number
+}) {
+  const t = useTranslations('chatHistory')
+  if (waitingCount <= 0 && unreadCount <= 0) return null
+  return (
+    <span data-testid="batch-attention-summary" className="text-xs text-muted-foreground">
+      {t('batchAttentionSummary', { waiting: waitingCount, unread: unreadCount })}
+    </span>
+  )
 }
 
 /** history 与 favorites 页共用的对话行列表,含删除 / 收藏切换 / 重命名 / 归档 / 导出 / 压缩 */
-export function ConversationList({ items }: { items: Conversation[] }) {
+export function ConversationList({
+  items,
+  attentionById,
+}: {
+  items: Conversation[]
+  /** D53 注意力覆盖表(可选,派生输入,不碰 store) */
+  attentionById?: ConversationAttentionById
+}) {
   const t = useTranslations('chatHistory')
   const tCommon = useTranslations('common')
   const tc = useTranslations('aiChat')
@@ -80,6 +173,9 @@ export function ConversationList({ items }: { items: Conversation[] }) {
   const router = useRouter()
   const queryClient = useQueryClient()
   const { success, error } = useToast()
+  // D53 联动(store 只读):挂起的提问归属当前会话 → 当前行自动进入等待态
+  const pendingQuestion = useChatStore((s) => s.pendingQuestion)
+  const currentConversationId = useChatStore((s) => s.conversationId)
 
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const [pendingRenameId, setPendingRenameId] = useState<string | null>(null)
@@ -249,6 +345,36 @@ export function ConversationList({ items }: { items: Conversation[] }) {
     })
   }
 
+  // D53 注意力派生(行数据字段优先,attentionById 次之,pendingQuestion 联动当前会话归属行)
+  const unreadOf = (item: Conversation): number => {
+    const raw = attentionById?.[item.id]?.unread ?? item.unreadCount ?? 0
+    return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 0
+  }
+  const waitingOf = (item: Conversation): boolean =>
+    isWaitingForConversation({
+      conversationId: item.id,
+      currentConversationId,
+      hasPendingQuestion: pendingQuestion !== null,
+      explicitWaiting: attentionById?.[item.id]?.waiting ?? item.hasPendingQuestion,
+    })
+  const attentionStateOf = (item: Conversation): ConversationAttentionState =>
+    resolveConversationAttention({
+      hasPendingQuestion: waitingOf(item),
+      unreadCount: unreadOf(item),
+    })
+
+  const batchAttention = buildBatchAttentionSummary({
+    selectedIds,
+    isWaiting: (id) => {
+      const item = items.find((i) => i.id === id)
+      return item ? waitingOf(item) : false
+    },
+    unreadOf: (id) => {
+      const item = items.find((i) => i.id === id)
+      return item ? unreadOf(item) : 0
+    },
+  })
+
   const runBatch = (action: BatchConversationAction) => {
     const ids = [...selectedIds]
     if (ids.length === 0) return
@@ -373,6 +499,10 @@ export function ConversationList({ items }: { items: Conversation[] }) {
           <span className="text-sm font-medium tabular-nums">
             {t('selectedCount', { count: selectedIds.size })}
           </span>
+          <BatchAttentionSummaryLine
+            waitingCount={batchAttention.waitingCount}
+            unreadCount={batchAttention.unreadCount}
+          />
           <Button
             variant="ghost"
             size="sm"
@@ -440,173 +570,179 @@ export function ConversationList({ items }: { items: Conversation[] }) {
         </div>
       )}
       <ul className="space-y-1 rounded-lg border p-1">
-        {items.map((item) => (
-          <li
-            key={item.id}
-            className="group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/30"
-          >
-            <Checkbox
-              checked={selectedIds.has(item.id)}
-              onCheckedChange={(checked) => toggleSelection(item.id, checked === true)}
-              aria-label={t('select')}
-              data-testid={`conversation-checkbox-${item.id}`}
-            />
-            <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <button
-              type="button"
-              onClick={() => {
-                // AI 对话是全局 docked 面板,与 Sidebar 同性质:点击历史项只触发
-                // 1) 写入 store 作为当前会话  2) 打开面板
-                // 3) 跳回 /,首页是营销落地页 + 右侧 AI 面板作为对话入口
-                useChatStore.getState().setConversationId(item.id)
-                useAiPanelStore.getState().openPanel()
-                router.push('/')
-              }}
-              className="min-w-0 flex-1 text-left"
+        {items.map((item) => {
+          // D53:每行注意力态独立派生,pendingQuestion 只联动当前会话行
+          const attentionState = attentionStateOf(item)
+          const unread = unreadOf(item)
+          return (
+            <li
+              key={item.id}
+              className="group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/30"
             >
-              <p className="truncate text-sm font-medium">{item.title}</p>
-              <p className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
-                <span className="min-w-0 truncate">{item.model}</span>
-                <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap tabular-nums">
-                  <Clock className="h-3 w-3" />
-                  {dateFmt.format(new Date(item.lastMessageAt))}
-                </span>
-                <span className="shrink-0 whitespace-nowrap tabular-nums">
-                  {t('messageCount', { count: item.messageCount })}
-                </span>
-              </p>
-            </button>
-            <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-              <Tooltip content={item.favorite ? t('unfavorite') : t('favorite')}>
-                <span className="inline-flex">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => favMutation.mutate(item.id)}
-                    // 2026-08-02 修复: Bug 12 — 仅禁用当前正在 mutate 的 item,避免重复点击导致乐观更新叠加;
-                    // 其他 item 不受影响(原 disabled={favMutation.isPending} 会一刀切禁用全部 item)。
-                    disabled={favMutation.isPending && favMutation.variables === item.id}
-                    aria-label={item.favorite ? t('unfavorite') : t('favorite')}
-                  >
-                    <Star
-                      className={cn(
-                        'h-3.5 w-3.5',
-                        item.favorite && 'fill-amber-400 text-amber-400',
+              <Checkbox
+                checked={selectedIds.has(item.id)}
+                onCheckedChange={(checked) => toggleSelection(item.id, checked === true)}
+                aria-label={t('select')}
+                data-testid={`conversation-checkbox-${item.id}`}
+              />
+              <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <button
+                type="button"
+                onClick={() => {
+                  // AI 对话是全局 docked 面板,与 Sidebar 同性质:点击历史项只触发
+                  // 1) 写入 store 作为当前会话  2) 打开面板
+                  // 3) 跳回 /,首页是营销落地页 + 右侧 AI 面板作为对话入口
+                  useChatStore.getState().setConversationId(item.id)
+                  useAiPanelStore.getState().openPanel()
+                  router.push('/')
+                }}
+                className="min-w-0 flex-1 text-left"
+              >
+                <p className="truncate text-sm font-medium">{item.title}</p>
+                <p className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+                  <span className="min-w-0 truncate">{item.model}</span>
+                  <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap tabular-nums">
+                    <Clock className="h-3 w-3" />
+                    {dateFmt.format(new Date(item.lastMessageAt))}
+                  </span>
+                  <span className="shrink-0 whitespace-nowrap tabular-nums">
+                    {t('messageCount', { count: item.messageCount })}
+                  </span>
+                  <ConversationAttentionBadges state={attentionState} unreadCount={unread} />
+                </p>
+              </button>
+              <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                <Tooltip content={item.favorite ? t('unfavorite') : t('favorite')}>
+                  <span className="inline-flex">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => favMutation.mutate(item.id)}
+                      // 2026-08-02 修复: Bug 12 — 仅禁用当前正在 mutate 的 item,避免重复点击导致乐观更新叠加;
+                      // 其他 item 不受影响(原 disabled={favMutation.isPending} 会一刀切禁用全部 item)。
+                      disabled={favMutation.isPending && favMutation.variables === item.id}
+                      aria-label={item.favorite ? t('unfavorite') : t('favorite')}
+                    >
+                      <Star
+                        className={cn(
+                          'h-3.5 w-3.5',
+                          item.favorite && 'fill-amber-400 text-amber-400',
+                        )}
+                      />
+                    </Button>
+                  </span>
+                </Tooltip>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      disabled={busyId === item.id}
+                      aria-label={tc('actions.menu')}
+                      data-testid="conversation-more-menu"
+                    >
+                      {busyId === item.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <MoreVertical className="h-3.5 w-3.5" />
                       )}
-                    />
-                  </Button>
-                </span>
-              </Tooltip>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    disabled={busyId === item.id}
-                    aria-label={tc('actions.menu')}
-                    data-testid="conversation-more-menu"
-                  >
-                    {busyId === item.id ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <MoreVertical className="h-3.5 w-3.5" />
-                    )}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48 space-y-0.5">
-                  <DropdownMenuItem
-                    onClick={() => handleRename(item)}
-                    disabled={busyId === item.id}
-                  >
-                    <Pencil className="mr-2 h-3.5 w-3.5" />
-                    <span>{tc('actions.rename')}</span>
-                  </DropdownMenuItem>
-                  {/* 2026-08-30 立:置顶/取消置顶 */}
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setBusyId(item.id)
-                      pinMutation.mutate(
-                        { id: item.id, pinned: !item.pinned },
-                        {
-                          onSettled: () => setBusyId(null),
-                          onSuccess: () =>
-                            success(item.pinned ? tc('toast.unpinned') : tc('toast.pinned')),
-                        },
-                      )
-                    }}
-                    disabled={busyId === item.id}
-                    data-testid="conversation-pin-action"
-                  >
-                    {item.pinned ? (
-                      <>
-                        <PinOff className="mr-2 h-3.5 w-3.5" />
-                        <span>{tc('actions.unpin')}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Pin className="mr-2 h-3.5 w-3.5" />
-                        <span>{tc('actions.pin')}</span>
-                      </>
-                    )}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleArchiveToggle(item)}
-                    disabled={busyId === item.id}
-                  >
-                    {item.archivedAt ? (
-                      <>
-                        <ArchiveRestore className="mr-2 h-3.5 w-3.5" />
-                        <span>{tc('actions.unarchive')}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Archive className="mr-2 h-3.5 w-3.5" />
-                        <span>{tc('actions.archive')}</span>
-                      </>
-                    )}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleExport(item, 'md')}
-                    disabled={busyId === item.id}
-                  >
-                    <FileCode className="mr-2 h-3.5 w-3.5" />
-                    <span>{tc('actions.exportMd')}</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleExport(item, 'txt')}
-                    disabled={busyId === item.id}
-                  >
-                    <FileText className="mr-2 h-3.5 w-3.5" />
-                    <span>{tc('actions.exportTxt')}</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleCompress(item, 200000)}
-                    disabled={busyId === item.id}
-                  >
-                    <Shrink className="mr-2 h-3.5 w-3.5" />
-                    <span>{tc('actions.compressTo200k')}</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleCompress(item, 1000000)}
-                    disabled={busyId === item.id}
-                  >
-                    <Shrink className="mr-2 h-3.5 w-3.5" />
-                    <span>{tc('actions.compressTo1m')}</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => setPendingDeleteId(item.id)}
-                    disabled={busyId === item.id}
-                    className="text-destructive focus:bg-destructive/20 focus:text-destructive"
-                    data-testid="conversation-delete-action"
-                  >
-                    <Trash2 className="mr-2 h-3.5 w-3.5" />
-                    <span>{tc('actions.delete')}</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </li>
-        ))}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48 space-y-0.5">
+                    <DropdownMenuItem
+                      onClick={() => handleRename(item)}
+                      disabled={busyId === item.id}
+                    >
+                      <Pencil className="mr-2 h-3.5 w-3.5" />
+                      <span>{tc('actions.rename')}</span>
+                    </DropdownMenuItem>
+                    {/* 2026-08-30 立:置顶/取消置顶 */}
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setBusyId(item.id)
+                        pinMutation.mutate(
+                          { id: item.id, pinned: !item.pinned },
+                          {
+                            onSettled: () => setBusyId(null),
+                            onSuccess: () =>
+                              success(item.pinned ? tc('toast.unpinned') : tc('toast.pinned')),
+                          },
+                        )
+                      }}
+                      disabled={busyId === item.id}
+                      data-testid="conversation-pin-action"
+                    >
+                      {item.pinned ? (
+                        <>
+                          <PinOff className="mr-2 h-3.5 w-3.5" />
+                          <span>{tc('actions.unpin')}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Pin className="mr-2 h-3.5 w-3.5" />
+                          <span>{tc('actions.pin')}</span>
+                        </>
+                      )}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleArchiveToggle(item)}
+                      disabled={busyId === item.id}
+                    >
+                      {item.archivedAt ? (
+                        <>
+                          <ArchiveRestore className="mr-2 h-3.5 w-3.5" />
+                          <span>{tc('actions.unarchive')}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Archive className="mr-2 h-3.5 w-3.5" />
+                          <span>{tc('actions.archive')}</span>
+                        </>
+                      )}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleExport(item, 'md')}
+                      disabled={busyId === item.id}
+                    >
+                      <FileCode className="mr-2 h-3.5 w-3.5" />
+                      <span>{tc('actions.exportMd')}</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleExport(item, 'txt')}
+                      disabled={busyId === item.id}
+                    >
+                      <FileText className="mr-2 h-3.5 w-3.5" />
+                      <span>{tc('actions.exportTxt')}</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleCompress(item, 200000)}
+                      disabled={busyId === item.id}
+                    >
+                      <Shrink className="mr-2 h-3.5 w-3.5" />
+                      <span>{tc('actions.compressTo200k')}</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleCompress(item, 1000000)}
+                      disabled={busyId === item.id}
+                    >
+                      <Shrink className="mr-2 h-3.5 w-3.5" />
+                      <span>{tc('actions.compressTo1m')}</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => setPendingDeleteId(item.id)}
+                      disabled={busyId === item.id}
+                      className="text-destructive focus:bg-destructive/20 focus:text-destructive"
+                      data-testid="conversation-delete-action"
+                    >
+                      <Trash2 className="mr-2 h-3.5 w-3.5" />
+                      <span>{tc('actions.delete')}</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </li>
+          )
+        })}
       </ul>
 
       <ConfirmDialog

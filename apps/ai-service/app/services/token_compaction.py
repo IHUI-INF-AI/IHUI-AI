@@ -23,6 +23,7 @@ Caveman:
 from __future__ import annotations
 
 import logging
+import os
 import re
 from dataclasses import dataclass, field
 from enum import Enum
@@ -74,6 +75,31 @@ _DEFAULT_STOPWORDS: frozenset[str] = frozenset({
 
 # 模块级 encoder 缓存(与 context_compaction.py 一致,cl100k_base)
 _encoder: tiktoken.Encoding | None = None
+
+# 批58(接线):远端压缩 v2 保留历史截断开关 —— 默认 off(行为与接线前逐字节等价)。
+# 开启:REMOTE_COMPACT_V2_ENABLED=1;预算:REMOTE_COMPACT_MAX_TOKENS=<int>(默认 64000,
+# 与 app/core/remote_compact.py 的 RETAINED_MESSAGE_TOKEN_BUDGET(codex 值)一致)。
+def _remote_compact_v2_enabled() -> bool:
+    return os.environ.get("REMOTE_COMPACT_V2_ENABLED", "false").strip().lower() in (
+        "on",
+        "1",
+        "true",
+        "yes",
+    )
+
+
+def _remote_compact_max_tokens() -> int:
+    try:
+        return int(os.environ.get("REMOTE_COMPACT_MAX_TOKENS", "64000"))
+    except ValueError:
+        return 64000
+
+
+def _log_remote_compact_warning(msg: str, exc: BaseException) -> None:
+    """降级告警(本模块无 logger,走 warnings 通道,不新增依赖)。"""
+    import warnings
+
+    warnings.warn(f"{msg}: {exc}", RuntimeWarning, stacklevel=2)
 
 
 def _get_encoder() -> tiktoken.Encoding:
@@ -466,6 +492,24 @@ class TokenCompactor:
             )
 
         original_tokens = _estimate_messages_tokens(messages)
+
+        # 批58(接线):远端压缩 v2 的保留历史截断(对标 codex remote_compact.rs)。
+        # 默认 off;on 时先按保留预算截断历史,再走既有压缩策略。失败静默降级,
+        # 保证 off 时压缩结果与接线前逐字节等价。
+        if _remote_compact_v2_enabled():
+            try:
+                from app.core.remote_compact import (
+                    Envelope,
+                    truncate_retained_messages_for_remote_compaction,
+                )
+
+                envelopes = [Envelope(item=m, metadata=None) for m in messages]
+                kept = truncate_retained_messages_for_remote_compaction(
+                    envelopes, _remote_compact_max_tokens()
+                )
+                messages = [env.item for env in kept]
+            except Exception as e:  # noqa: BLE001 - 截断失败降级为不截断
+                _log_remote_compact_warning("remote_compact 截断失败(降级不截断)", e)
 
         # 按策略分发
         rtk_map: dict[str, str] = {}

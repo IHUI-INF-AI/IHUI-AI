@@ -6,21 +6,13 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Send, Square, Info, Zap, FoldVertical, Check, Globe, MessageCircle, X } from 'lucide-react'
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
+import { Send, Square, Info, Zap, MessageCircle, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 import { SlashCommandPalette } from '@/components/ai/slash-command-palette'
 import { ContextReferencePanel } from '@/components/ai/context-reference-panel'
 import { VoiceToolbar } from './voice-toolbar'
-// D21(2026-09-19 立):中间步骤折叠策略配置读写(localStorage + 事件广播)
-import {
-  readFoldPolicyMode,
-  writeFoldPolicyMode,
-  FOLD_POLICY_EVENT,
-  type FoldPolicyMode,
-} from './message-list/fold-policy'
 import { readHandsFree } from '@/components/chat/voice-stream-speaker'
 import { ModelSelector } from '@/components/chat/model-selector'
 import { ContextUsageRing } from '@/components/ai/context-usage-ring'
@@ -42,6 +34,8 @@ import { FullAccessConfirmBridge } from '@/components/chat/full-access-confirm-b
 import { HighRiskWarningBanner } from '@/components/chat/high-risk-warning-banner'
 // P3 #30(2026-09-16 立):待发送 diff 评审意见提示条(输入框上方常驻提示 + 一键清空)
 import { DiffCommentsBar } from '@/components/chat/diff-comments-bar'
+// 任务进度常驻状态条:输入框上方动态显示"在做什么 / 第几步 / 改了多少文件",plan_updated 驱动
+import { TaskStatusBar } from '@/components/ai/task-status-bar'
 import { AddMenuPopover } from '@/components/chat/add-menu-popover'
 import { INPUT_ATTACHMENT_BAR_CLASS } from '@/lib/nav-styles'
 import { usePermissionAutoRevert, formatRemaining } from '@/hooks/use-permission-auto-revert'
@@ -56,6 +50,7 @@ import {
 } from '@/components/ai/context-selector-popover'
 import { useAgentMdReference, AGENT_REF_PREFIX } from '@/hooks/use-agent-md-reference'
 import { useMessageSend } from '@/hooks/use-message-send'
+import { usePromptHistory } from '@/hooks/use-prompt-history'
 import { useMentionFiles, useAiSkills } from '@/hooks/use-lazy-resource-hooks'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 import { Tooltip } from '@/components/feedback'
@@ -67,6 +62,8 @@ import { compactConversation, getMessages } from '@ihui/api-client'
 import { MARKET_PLUGINS, PROJECT_PLUGINS, getPluginIntegration } from '@plugins-data'
 import { AiSkillInvokeDialog, AiSkillResultDialog } from '@/components/chat/skill-library'
 import type { AiSkillMeta, AiSkillInvokeResponse } from '@ihui/api-client/endpoints/ai-skills'
+import { permissionTierText } from '@/lib/permission-tier-text'
+// 权限档取词(G-166):档位归一与词表键的共享真相源,见 packages/shared/src/chat/permission-tier.ts
 
 // 模板源统一为 5 个核心模板,与 message-list 空状态共用同一组 i18n key,
 // 避免 email/report/review/refactor 4 个无 i18n key 的项显示原始 key 的问题。
@@ -75,84 +72,6 @@ import type { AiSkillMeta, AiSkillInvokeResponse } from '@ihui/api-client/endpoi
 // DANGEROUS_PATTERN_KEY 已提取到 useMessageSend hook(2026-07-30)。
 // mimeToLabel / useMentionFiles / useAiSkills 已提取到 use-lazy-resource-hooks(2026-07-30)。
 
-// D21(2026-09-19 立):折叠策略三选一项 — 竞品默认口径已分化
-// (Trae 默认折叠 vs Qoder 0.2.1 默认展开),故不强制默认,auto 为初始自适应口径。
-const FOLD_POLICY_ITEMS: { mode: FoldPolicyMode; labelKey: string; descKey: string }[] = [
-  { mode: 'auto', labelKey: 'foldPolicy.auto', descKey: 'foldPolicy.autoDesc' },
-  { mode: 'collapsed', labelKey: 'foldPolicy.collapsed', descKey: 'foldPolicy.collapsedDesc' },
-  { mode: 'expanded', labelKey: 'foldPolicy.expanded', descKey: 'foldPolicy.expandedDesc' },
-]
-
-/**
- * 折叠策略开关(D21):工具栏内联图标按钮 + 下拉三选一(自适应/始终折叠/始终展开)。
- * 选择写入 localStorage 并广播事件,MessageItem 实时按新策略重解析
- * (未被用户显式操作过的消息才跟随,操作过的保持用户选择)。
- */
-export function FoldPolicyButton() {
-  const t = useTranslations('chat')
-  const [mode, setMode] = React.useState<FoldPolicyMode>('auto')
-  const [menuOpen, setMenuOpen] = React.useState(false)
-  React.useEffect(() => {
-    const sync = () => setMode(readFoldPolicyMode())
-    sync()
-    window.addEventListener(FOLD_POLICY_EVENT, sync)
-    return () => window.removeEventListener(FOLD_POLICY_EVENT, sync)
-  }, [])
-  return (
-    <DropdownMenu.Root modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
-      <DropdownMenu.Trigger asChild>
-        <Tooltip content={t('foldPolicy.title')} side="top">
-          <button
-            type="button"
-            aria-label={t('foldPolicy.title')}
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            data-testid="fold-policy-button"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-          >
-            <FoldVertical className="h-4 w-4" />
-          </button>
-        </Tooltip>
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          align="end"
-          sideOffset={6}
-          className="z-popover w-64 rounded-lg border bg-card p-1 text-card-foreground shadow-md"
-        >
-          <div
-            className="px-2 py-1.5 text-xs font-medium text-muted-foreground"
-            data-testid="fold-policy-current"
-          >
-            {t('foldPolicy.current', { mode: t(`foldPolicy.${mode}`) })}
-          </div>
-          <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
-          {FOLD_POLICY_ITEMS.map((item) => (
-            <DropdownMenu.Item
-              key={item.mode}
-              onSelect={() => writeFoldPolicyMode(item.mode)}
-              className="flex cursor-pointer select-none items-start gap-2 rounded-md px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground"
-              data-testid={`fold-policy-item-${item.mode}`}
-            >
-              <Check
-                className={cn(
-                  'mt-0.5 h-4 w-4 shrink-0',
-                  mode === item.mode ? 'text-primary' : 'opacity-0',
-                )}
-              />
-              <span className="min-w-0">
-                <span className="block font-medium">{t(item.labelKey)}</span>
-                <span className="block truncate text-xs text-muted-foreground">
-                  {t(item.descKey)}
-                </span>
-              </span>
-            </DropdownMenu.Item>
-          ))}
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
-  )
-}
 
 interface MessageInputProps {
   /** onSend 返回 true=已提交可清空输入框,false=未发送需保留输入内容(如未登录/创建会话失败) */
@@ -187,6 +106,8 @@ export function MessageInput({
   onFloatDragStart,
 }: MessageInputProps) {
   const t = useTranslations('chat')
+  // G-166:权限档徽章的档名走跨端共享词表(permissionTier),不再用 chat.permission.mode.* 私有键
+  const tTier = useTranslations()
   // 2026-08-02 修复: Bug 3 — useRouter 替代 window.location.href,避免整页刷新丢失状态
   const router = useRouter()
   // 权限模式循环切换 hook(2026-07-29 提取自本文件,深度对标 Codex CLI Shift+Tab 循环):
@@ -275,6 +196,31 @@ export function MessageInput({
   }, [agentMdRefs, dismissedAgentIds, references])
   // 共享层 WebInputCore 内部托管 textarea ref + 自动高度(forwardRef 暴露 focus/setSelectionRange/resize)
   const inputCoreRef = React.useRef<WebInputCoreHandle>(null)
+  // D36 会话内输入历史栈接线(纯逻辑在 @ihui/shared/chat,本组件只做 DOM 接线):
+  // - getHistoryKey 按 conversationId 分桶(chat:prompt-history:{id}),未持久化会话共用 chat:prompt-history
+  // - applyHistoryText 仅回填文本并把光标移到行尾,绝不触碰 references(附件保持不动)
+  // - handleArrowKey 内部判定多行首行 / 草稿态,未消费时交还 textarea 默认光标移动
+  const getHistoryKey = React.useCallback(
+    () => (conversationId ? `chat:prompt-history:${conversationId}` : 'chat:prompt-history'),
+    [conversationId],
+  )
+  const applyHistoryText = React.useCallback(
+    (text: string) => {
+      setValue(text)
+      requestAnimationFrame(() => {
+        const len = text.length
+        inputCoreRef.current?.focus()
+        inputCoreRef.current?.setSelectionRange(len, len)
+        inputCoreRef.current?.resize()
+      })
+    },
+    [setValue],
+  )
+  const promptHistory = usePromptHistory({
+    getHistoryKey,
+    getCaretPosition: () => inputCoreRef.current?.getCaretPosition() ?? 0,
+    applyText: applyHistoryText,
+  })
   // 发送 / 拖拽 / 粘贴 / 文件输入 handler(2026-07-30 提取到 useMessageSend hook):
   // - isDragOver 状态由 hook 内部管理(原 React.useState(false))
   // - submit / doSend(内部)/ handleDragOver / handleDragLeave / handleDrop / handlePaste
@@ -307,6 +253,7 @@ export function MessageInput({
     onSend,
     inputCoreRef,
     draftKey,
+    onSent: promptHistory.pushSent,
   })
   // W20 九类 # 上下文选择器(2026-09-14 立,对标 Trae):键盘导航在 textarea 层拦截,
   // 选中类目 → 正文尾部插入 #token 并渲染类型徽章 chip
@@ -411,9 +358,6 @@ export function MessageInput({
   // (store 只暴露 setQuotedMessage,以 setQuotedMessage(null) 充当清除)
   const quotedMessage = useChatStore((s) => s.quotedMessage)
   const setQuotedMessage = useChatStore((s) => s.setQuotedMessage)
-  // D22 网页搜索开关:开启后普通问答也携带 web_search 最小工具集(mergeAgentTools 消费)
-  const webSearchEnabled = useChatStore((s) => s.webSearchEnabled)
-  const setWebSearchEnabled = useChatStore((s) => s.setWebSearchEnabled)
   // D22 圈选 AI 回复入上下文:MessageItem 内选中文本后浮现「引用选中」按钮,
   // 派发 ihui:add-text-reference,输入框统一消费转成文本引用 chip
   React.useEffect(() => {
@@ -558,6 +502,8 @@ export function MessageInput({
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const next = e.target.value.slice(0, MAX_LENGTH)
+    // D36:用户手动编辑即脱离翻历史态,清空游标 / 草稿备份(避免 ↑ 误用旧游标)
+    promptHistory.resetCursor()
     setValue(next)
     // 输入 / 作为首个字符时弹出斜杠命令面板
     if (next === '/' && !slashOpen) {
@@ -627,7 +573,7 @@ export function MessageInput({
   // 输入工具栏的 / / @ / 截图 三个独立按钮已移除,改用 use-global-shortcuts.ts 派发的
   // 三个 window CustomEvent 触发等价行为(见 DEFAULT_SHORTCUTS 新增项):
   //   · Ctrl+Shift+/  → open-slash  → 打开 SlashCommandPalette
-  //   · Ctrl+Shift+A  → mention-file → 末尾插入 @ 字符 + 打开 FileMentionPopover
+  //   · Ctrl+Shift+U  → mention-file → 末尾插入 @ 字符 + 打开 FileMentionPopover
   //   · Ctrl+Shift+M  → screenshot  → 复用 handleScreenshot(file 选择器 + toast)
   // 监听挂载在 window:整个 message-input 生命周期内始终可用,不受 textarea 是否聚焦影响
   // (与 ai-side-panel 的 Alt+P 处理一致,均用 window.addEventListener 消费事件)。
@@ -724,6 +670,21 @@ export function MessageInput({
       submit()
       return
     }
+    // D36 会话内输入历史上翻(对标 Codex prompt-history):
+    // ↑ 回填上一条发送文本 / ↓ 返回原始草稿;斜杠 / 提及面板打开时不抢(让面板用 ↑/↓)。
+    // 未消费(草稿态 ↓ / 多行非首行 ↑)时不 preventDefault,交还 textarea 默认光标移动。
+    if (
+      (e.key === 'ArrowUp' || e.key === 'ArrowDown') &&
+      !slashOpen &&
+      !mentionOpen &&
+      !e.nativeEvent.isComposing
+    ) {
+      const handled = promptHistory.handleArrowKey(e, { value })
+      if (handled) {
+        e.preventDefault()
+        return
+      }
+    }
     // Shift+Tab 全局循环切权限模式(2026-07-25 深化,深度对标 Codex CLI)
     // - 斜杠面板/提及面板打开时不抢(让面板用 Tab)
     // - 阻止默认焦点切换(浏览器默认 Shift+Tab 是反向 focus)
@@ -778,6 +739,8 @@ export function MessageInput({
             - 内部消费 useAiPanelStore 计算 isHighRisk + useTranslations('chat')
             - autoRevert 由主组件透传(标题栏倒计时与横幅倒计时共享同一份 tick) */}
         <HighRiskWarningBanner autoRevert={autoRevert} />
+        {/* 任务进度常驻状态条:此刻最该被看到的动态信息(流式时自动展开明细,空闲时零占位) */}
+        <TaskStatusBar />
         {/* P3 #30:diff 待发送意见提示条(有意见时才渲染,无意见时返回 null 零占位) */}
         <DiffCommentsBar />
         {allReferences.length > 0 && (
@@ -1059,11 +1022,7 @@ export function MessageInput({
                       className="h-1.5 w-1.5 shrink-0 rounded-full bg-current"
                       aria-hidden="true"
                     />
-                    {activeWorkspaceMode === 'bypass-permissions'
-                      ? t('permission.mode.full')
-                      : activeWorkspaceMode === 'accept-edits'
-                        ? t('permission.mode.auto')
-                        : t('permission.mode.ask')}
+                    {permissionTierText(activeWorkspaceMode, tTier).title}
                   </span>
                   {/* 高风险模式 ⓘ 详细说明按钮(2026-07-25 深化,可解释性增强):
                     只在 bypass-permissions 模式显示,点击唤起 PermissionModeInfoModal
@@ -1128,7 +1087,7 @@ export function MessageInput({
               {/* 斜杠 / @ / 截图 三个独立按钮已移除(2026-09-18 用户规则:"这里这么多按钮都重合了"):
                   改用全局快捷键呼出(见 use-global-shortcuts.ts DEFAULT_SHORTCUTS):
                     · Ctrl+Shift+/  → global-shortcut:open-slash  → 打开 SlashCommandPalette
-                    · Ctrl+Shift+A  → global-shortcut:mention-file → 插入 @ 并弹出 FileMentionPopover
+                    · Ctrl+Shift+U  → global-shortcut:mention-file → 插入 @ 并弹出 FileMentionPopover
                     · Ctrl+Shift+M  → global-shortcut:screenshot  → 触发 fileInputRef + 提示 Ctrl+V
                   SlashCommandPalette 仍挂载但换用隐藏 anchor:面板 PortalPanel 需要 anchor 定位,
                   这里挂一个 0 尺寸的绝对定位 span 锚定在工具栏左上角,视觉不占位。 */}
@@ -1156,28 +1115,9 @@ export function MessageInput({
               {/* 模式选择器(2026-09-13 矩阵 A #24):同会话模式切换的可见控件,
                   与 / 命令、Ctrl+1-5、AI 自动判断三通道共用 useModeStore 单一状态源 */}
               <ModeSwitcher disabled={isStreaming} />
-              {/* D21:中间步骤折叠策略开关(自适应/始终折叠/始终展开),旁挂模式切换器 */}
-              <FoldPolicyButton />
-              {/* D22 网页搜索开关(2026-09-19 立,对标 Qoder 0.2.x):开启后普通问答也携带
-                  web_search 最小工具集(mergeAgentTools 消费),localStorage 持久化跨会话 */}
-              <Tooltip content={t('webSearch')}>
-                <button
-                  type="button"
-                  onClick={() => setWebSearchEnabled(!webSearchEnabled)}
-                  disabled={isStreaming}
-                  aria-pressed={webSearchEnabled}
-                  aria-label={t('webSearch')}
-                  data-testid="web-search-toggle"
-                  className={cn(
-                    'inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors',
-                    webSearchEnabled
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                  )}
-                >
-                  <Globe className="h-3.5 w-3.5" aria-hidden />
-                </button>
-              </Tooltip>
+              {/* D21 折叠策略、D22 网页搜索两个入口均已迁入设置页「偏好设置」卡片
+                  (2026-09-21 用户裁决:偏好类开关归位设置页,工具栏只留会话级控件);
+                  状态链路不变(chat store + mergeAgentTools 消费)。 */}
               {/* 高级参数入口(P1-7,2026-09-13):temperature/top_p/top_k/max_tokens +
                   自定义 system prompt,会话级持久化,随请求下发 LLM 网关 */}
               <SamplingParamsButton disabled={isStreaming} />

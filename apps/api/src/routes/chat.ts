@@ -29,6 +29,7 @@ import {
   clearMessages,
   favoriteConversation,
   unfavoriteConversation,
+  rateChatMessage,
   findFavoriteConversations,
   archiveConversation,
   unarchiveConversation,
@@ -894,6 +895,30 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
 
     await unfavoriteConversation(userId, id)
     return reply.send(success({ unfavorited: true }))
+  })
+
+  // POST /messages/feedback - 消息点赞/点踩落库(D49①,2026-09-23):此前右键反馈仅 toast
+  server.post('/messages/feedback', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+
+    const parsed = z
+      .object({
+        messageId: z.string().uuid(),
+        rating: z.enum(['like', 'dislike']),
+      })
+      .safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    const result = await rateChatMessage(userId, parsed.data.messageId, parsed.data.rating)
+    if (!result.ok) {
+      // 不区分"不存在"与"无权":对外一致 404,不泄露他人消息 id 有效性
+      return reply.status(404).send(error(404, '消息不存在或无权操作'))
+    }
+    return reply.send(success({ rated: true, rating: parsed.data.rating }))
   })
 
   // GET /favorites - 收藏对话列表

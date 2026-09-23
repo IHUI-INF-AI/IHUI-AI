@@ -22,6 +22,12 @@
  *                 (packages/types/src/capability-catalog.ts)生成,是 scope→端点 的单一
  *                 事实源。清单里每个 `METHOD /path` 都必须在产物里存在且带 `security`;
  *                 缺失 = 产物陈旧或安全声明丢失 → 失败。
+ *                 两类**显式豁免**(均计数打印,见 [C] 行,不静默):
+ *                   · `host: 'ai-service'` 条目 → 由 apps/ai-service(FastAPI)提供,
+ *                     归属不同不是漂移;与导出器 loadScopeRoutes() 同源。
+ *                   · `WS` 方法条目 → OpenAPI 3.0 不描述 WebSocket;与导出器
+ *                     unmatchedRouteIsExpected() 同源。理由与约束见
+ *                     declaredRouteIsExpectedAbsent() 的注释。
  *   D schema 覆盖率 /v1* 与 /v1beta* 的 operation 中声明了请求体/参数/响应 schema 的
  *                 占比低于阈值 → 失败(阈值见 MIN_COVERAGEPercent,只准涨不准跌)。
  *   E 显式漂移比对 带 `--fresh <path>` 时,把新生成的产物(committed 之外的那份)与
@@ -58,9 +64,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  readdirSync,
   rmSync,
-  statSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -93,6 +97,11 @@ const REQUIRED_ENDPOINTS = [
 const REQUIRED_SCHEMES = ['ApiKeyAuth', 'BearerAuth', 'OAuth2']
 
 const HTTP_METHODS = ['get', 'put', 'post', 'patch', 'delete', 'head', 'options', 'trace']
+/**
+ * 能力清单的跨服务归属标记(与 packages/types/src/capability-catalog.ts 的
+ * `CAPABILITY_HOSTS` 同值)。产物里缺省即 `'api'`,只有显式声明的条目才写该键。
+ */
+const AI_SERVICE_HOST = 'ai-service'
 /** 判定为"需要鉴权"的公开面阈值:这些前缀下的 operation 必须带 security。 */
 const GUARDED_PREFIXES = ['/v1/', '/v1beta']
 
@@ -110,10 +119,6 @@ const C = process.env.NO_COLOR || !process.stdout.isTTY
   : COLORS
 
 // ════════════════════════════════ 纯函数层(零副作用,可被测试 import) ════════════════════════════════
-
-function readJson(absPath) {
-  return JSON.parse(readFileSync(absPath, 'utf8'))
-}
 
 function pathKeys(doc) {
   const paths = doc?.paths
@@ -138,6 +143,33 @@ function operationsOf(doc) {
 function normalizePath(p) {
   const withBraces = String(p).replace(/:([A-Za-z0-9_]+)/g, '{$1}')
   return withBraces.endsWith('/*') ? withBraces.slice(0, -2) : withBraces
+}
+
+/** 路径段是否占位符(参数段或通配段)。两侧的占位名**不必相同**:`:id` 与 `{threadId}` 同形。 */
+function isDynamicSegment(seg) {
+  return seg.startsWith('{') || seg.startsWith(':') || seg === '*'
+}
+
+/**
+ * 声明路径与契约 path key 是否同形(逐段比对,占位段互相匹配)。
+ *
+ * 为什么必须按段匹配而不是字符串相等:能力清单沿用的是路由源码里的参数名
+ * (`/v1/threads/:id/messages`),而 Fastify 注册时参数名可能是 `threadId`。
+ * 早先本脚本用 `artifact.paths[path]` 直接取键,把这类**同一条端点**判成
+ * `CAPABILITY_ROUTE_NOT_IN_SPEC`,制造了假漂移(2026-09-21 实测:39 项里约半数由此而来)。
+ * 判据与导出器 `apps/api/scripts/export-openapi.ts` 的 `pathPatternMatches` 保持一致。
+ */
+export function pathsPatternMatch(declared, actual) {
+  const d = String(declared).split('/').filter(Boolean)
+  const a = String(actual).split('/').filter(Boolean)
+  if (d.length !== a.length) return false
+  return d.every((seg, i) => seg === a[i] || isDynamicSegment(seg) || isDynamicSegment(a[i]))
+}
+
+/** 在契约 path key 里找声明路径的落点:优先字面相同,其次同形(参数名不同)匹配。 */
+export function resolveSpecPathKey(declared, specKeys) {
+  if (specKeys.includes(declared)) return declared
+  return specKeys.find((key) => pathsPatternMatch(declared, key))
 }
 
 function nodeHasSchema(node) {
@@ -176,21 +208,52 @@ export function computeCoverage(doc) {
   }
 }
 
-/** C 项输入:从能力清单抽出 `METHOD /normalized/path` → scope[] 映射。 */
+/** C 项输入:从能力清单抽出 `METHOD /normalized/path` → { scopes, family, aiServiceOnly } 映射。 */
 export function collectCapabilityRoutes(manifest) {
   const map = new Map()
   for (const cap of manifest?.capabilities ?? []) {
+    // `host: 'ai-service'` 的条目由 apps/ai-service(FastAPI)注册,不可能出现在 apps/api
+    // 的契约里 —— 归属不同,不是漂移。缺省(产物里没写 host)一律视为 'api'。
+    const isAiService = cap?.host === AI_SERVICE_HOST
     for (const entry of cap?.routes ?? []) {
       const m = /^([A-Za-z]+)\s+(\S+)$/.exec(String(entry).trim())
       if (!m) continue
       const method = m[1].toLowerCase()
-      const path = normalizePath(m[2].startsWith('/') ? m[2] : `/${m[2]}`)
+      const raw = m[2].startsWith('/') ? m[2] : `/${m[2]}`
+      // 尾部 `*` = 整族端点(登记一条覆盖一族),按前缀匹配;其余按同形匹配。
+      const family = raw.endsWith('/*')
+      const path = normalizePath(raw)
       const key = `${method} ${path}`
-      if (!map.has(key)) map.set(key, new Set())
-      if (cap.scope) map.get(key).add(cap.scope)
+      if (!map.has(key)) map.set(key, { scopes: new Set(), family, aiServiceOnly: isAiService })
+      const rec = map.get(key)
+      // 同一路径被多个 scope 登记时,只要有一个仍属 apps/api 就必须校验(取最严判定)。
+      if (!isAiService) rec.aiServiceOnly = false
+      if (cap.scope) rec.scopes.add(cap.scope)
     }
   }
   return map
+}
+
+/**
+ * C 项豁免:`WS` 方法的**学**豁免,与导出器同源(见文末),两处必须同步修改。
+ *
+ * 理由:**OpenAPI 3.0 不描述 WebSocket** —— `paths[*]` 的合法键只有 HTTP 方法
+ * (get/put/post/patch/delete/head/options/trace),长连接端点在 HTTP 契约里天生没有
+ * 表示法。因此能力清单里以 `WS` 登记的端点(如 `WS /v1/realtime`,真实注册点
+ * `apps/api/src/routes/v1-realtime.ts:742` 的
+ * `server.get('/v1/realtime', { websocket: true, ... })`)在产物里必然找不到 operation。
+ * 这是规范能力边界,不是契约漂移。
+ *
+ * 防"永远静默"的三道约束:
+ *   1. 只认**方法字面量为 `WS`** 这一种情形(不认 GET/POST、不按路径前缀模糊豁免);
+ *   2. 豁免条数在 [C] 行显式打印(`stats.capabilityWsExempted`),不是静默 continue;
+ *   3. 新增 WS 条目必须在 capability-catalog.ts 注释里给出 `websocket: true` 的注册点行号,
+ *      由人工 review 核对(与 §22c 同源判据约定一致)。
+ *
+ * 同源判据:`apps/api/scripts/export-openapi.ts` 的 `unmatchedRouteIsExpected()`。
+ */
+export function declaredRouteIsExpectedAbsent(method) {
+  return String(method).toLowerCase() === 'ws'
 }
 
 function hasSecurity(op) {
@@ -252,6 +315,9 @@ export function evaluate({ artifactText, artifactError, artifact, capabilities, 
     coveredOperations: 0,
     coveragePercent: 0,
     capabilityRoutes: 0,
+    capabilityAiServiceSkipped: 0,
+    capabilityWsExempted: 0,
+    capabilityChecked: 0,
     capabilityMissingInArtifact: 0,
     capabilityUnsecured: 0,
     publicOpsWithoutSecurity: 0,
@@ -307,7 +373,10 @@ export function evaluate({ artifactText, artifactError, artifact, capabilities, 
     }
   }
   for (const req of REQUIRED_ENDPOINTS) {
-    const [method, path] = req.split(' ')
+    const [methodRaw, path] = req.split(' ')
+    // OpenAPI 的 paths[path] 键恒为小写方法名;这里曾直接用上写字面量比对,
+    // 导致 "POST /v1/chat/completions" 这类**确实存在**的端点恒判缺失(假红灯)。
+    const method = String(methodRaw).toLowerCase()
     const item = artifact.paths[path]
     if (!item || item[method] === undefined) {
       failures.push({ check: 'B', code: 'REQUIRED_ENDPOINT_MISSING', message: `关键端点缺失:${req}` })
@@ -346,21 +415,57 @@ export function evaluate({ artifactText, artifactError, artifact, capabilities, 
   } else {
     const routeMap = collectCapabilityRoutes(capabilities)
     stats.capabilityRoutes = routeMap.size
-    for (const [key, scopes] of routeMap) {
+    const specKeys = pathKeys(artifact)
+    for (const [key, { scopes, family, aiServiceOnly }] of routeMap) {
       const [method, path] = key.split(' ')
-      const item = artifact.paths[path]
-      let op = item ? item[method] : undefined
-      // 能力清单用 `WS` 登记实时端点,Fastify 以单一 GET 暴露
-      if (op === undefined && method === 'ws' && item) {
-        const present = HTTP_METHODS.filter((m) => item[m] !== undefined)
-        if (present.length === 1) op = item[present[0]]
+      const scopeText = [...scopes].sort().join(', ') || '—'
+      // 归属另一服务:该端点由 apps/ai-service(FastAPI)提供,本契约里没有它是正确的。
+      // 与导出器 apps/api/scripts/export-openapi.ts `loadScopeRoutes()` 的 aiServiceSkipped 同源。
+      if (aiServiceOnly) {
+        stats.capabilityAiServiceSkipped += 1
+        continue
       }
+      // WS 端点:OpenAPI 3.0 不描述 WebSocket —— 详见 declaredRouteIsExpectedAbsent 注释。
+      if (declaredRouteIsExpectedAbsent(method)) {
+        stats.capabilityWsExempted += 1
+        continue
+      }
+      stats.capabilityChecked += 1
+      // 整族登记(`POST /api/publish/*`):契约里存在任一被它覆盖的端点即可。
+      if (family) {
+        const covered = specKeys.filter((k) => k === path || k.startsWith(`${path}/`))
+        const hit = covered.find((k) => artifact.paths[k]?.[method] !== undefined)
+        if (!hit) {
+          stats.capabilityMissingInArtifact += 1
+          failures.push({
+            check: 'C',
+            code: 'CAPABILITY_ROUTE_NOT_IN_SPEC',
+            message: `能力清单端点未出现在契约里:${key}(scope ${scopeText})—— 整族登记但契约里该前缀下没有任何 ${method} 端点`,
+          })
+          continue
+        }
+        if (!hasSecurity(artifact.paths[hit][method])) {
+          stats.capabilityUnsecured += 1
+          failures.push({
+            check: 'C',
+            code: 'CAPABILITY_ROUTE_UNSECURED',
+            message: `契约端点缺少 security 声明:${key} → ${hit}(scope ${scopeText})`,
+          })
+        }
+        continue
+      }
+      const specKey = resolveSpecPathKey(path, specKeys)
+      const item = specKey ? artifact.paths[specKey] : undefined
+      const op = item ? item[method] : undefined
+      // O8b(2026-09-21)移除原先"WS 声明回退到该路径唯一 HTTP 方法"的猜测分支:
+      // WS 已在上方按 declaredRouteIsExpectedAbsent 显式豁免;继续猜方法等于把豁免面
+      // 扩大到任意单方法路径,会掩盖真实的 security 缺失。
       if (!op || typeof op !== 'object') {
         stats.capabilityMissingInArtifact += 1
         failures.push({
           check: 'C',
           code: 'CAPABILITY_ROUTE_NOT_IN_SPEC',
-          message: `能力清单端点未出现在契约里:${key}(scope ${[...scopes].sort().join(', ') || '—'})`,
+          message: `能力清单端点未出现在契约里:${key}(scope ${scopeText})${specKey ? ` —— 契约有 ${specKey} 但无 ${method}` : ''}`,
         })
         continue
       }
@@ -376,7 +481,7 @@ export function evaluate({ artifactText, artifactError, artifact, capabilities, 
   }
 
   // 公开面里既不在能力清单、又没有 security 的 /v1* operation:提示补登记(不阻塞)
-  for (const { path, method, op } of ops) {
+  for (const { path, op } of ops) {
     const guarded = GUARDED_PREFIXES.some((p) => path === p || path.startsWith(p) || path.startsWith(`${p}/`))
     if (!guarded) continue
     if (hasSecurity(op)) continue
@@ -456,15 +561,6 @@ openapi-check.mjs — OpenAPI 契约产物真门禁(A 存在性 / B 必备面 / 
 退出码:0 通过 / 1 检查失败 / 2 脚本异常
 紧急跳过: HUSKY_SKIP_OPENAPI_GUARD=1 git commit ...
 `
-
-function readText(rel) {
-  const abs = join(ROOT, rel)
-  try {
-    return readFileSync(abs, 'utf8')
-  } catch {
-    return null
-  }
-}
 
 function loadArtifact(absPath) {
   if (!existsSync(absPath)) return { text: null, doc: null, error: null }
@@ -617,7 +713,9 @@ async function main() {
     `  [B] 必备面:securitySchemes [${s.securitySchemes.join(', ') || '—'}] · 关键端点 ${REQUIRED_ENDPOINTS.length} 项 · 公开面 /v1 /v1beta /api/health`,
   )
   log(
-    `  [C] 能力清单对齐:${s.capabilityRoutes} 条登记端点 → 契约缺失 ${C.red}${s.capabilityMissingInArtifact}${C.reset} / 缺 security ${C.red}${s.capabilityUnsecured}${C.reset}`,
+    `  [C] 能力清单对齐:${s.capabilityRoutes} 条登记端点 → 实际比对 ${s.capabilityChecked}` +
+      `(${C.dim}已豁免:ai-service 归属 ${s.capabilityAiServiceSkipped} · WS 不进 HTTP 契约 ${s.capabilityWsExempted}${C.reset})` +
+      ` → 契约缺失 ${C.red}${s.capabilityMissingInArtifact}${C.reset} / 缺 security ${C.red}${s.capabilityUnsecured}${C.reset}`,
   )
   log(
     `  [D] schema 覆盖率(/v1* + /v1beta*):${s.coveredOperations}/${s.v1Operations} = ${s.coveragePercent}% 阈值 ${MIN_COVERAGE}%${
@@ -664,9 +762,13 @@ const SAMPLE_DOC = {
         security: [{ BearerAuth: [] }, { OAuth2: ['chat:write'] }],
       },
     },
-    '/v1/models': { get: { responses: {}, security: [{ BearerAuth: [] }] } },
+    '/v1/models': {
+      get: { responses: { 200: { content: { 'application/json': { schema: { type: 'array', items: { type: 'object' } } } } } }, security: [{ BearerAuth: [] }] },
+    },
     '/v1/mcp/tools/call': { post: { responses: {}, security: [{ BearerAuth: [] }] } },
-    '/v1beta/models': { get: { responses: {} } },
+    '/v1beta/models': {
+      get: { responses: { 200: { content: { 'application/json': { schema: { type: 'object' } } } } } },
+    },
   },
   components: {
     securitySchemes: {
@@ -707,6 +809,110 @@ function runSelfTest() {
   ok(good.failures.length === 0, `健康样例 0 失败(实际 ${good.failures.map((f) => f.code).join(',') || '无'})`)
   ok(good.stats.capabilityRoutes === 3, '能力清单端点数解析为 3')
   ok(good.stats.coveredOperations === 3 && good.stats.v1Operations === 4, `覆盖率统计正确(${good.stats.coveredOperations}/${good.stats.v1Operations})`)
+
+  // 1b. 参数名不同 = 同一条端点(曾经的假漂移来源),以及整族登记的匹配语义
+  ok(
+    pathsPatternMatch('/v1/threads/{id}/messages', '/v1/threads/{threadId}/messages'),
+    '参数名不同(:id vs :threadId)判为同形',
+  )
+  ok(!pathsPatternMatch('/v1/models', '/v1/models/{id}'), '段数不同不判为同形')
+  ok(
+    resolveSpecPathKey('/v1/threads/{id}/messages', ['/v1/threads/{threadId}/messages']) ===
+      '/v1/threads/{threadId}/messages',
+    'resolveSpecPathKey 能按同形找到契约 key',
+  )
+  const familyDoc = {
+    openapi: '3.0.3',
+    info: { title: 't', version: '1' },
+    paths: { '/api/publish/accounts': { post: { responses: {}, security: [{ BearerAuth: [] }] } } },
+    components: { securitySchemes: { BearerAuth: { type: 'http', scheme: 'bearer' } } },
+  }
+  const fam = evaluate({
+    artifactText: JSON.stringify(familyDoc),
+    artifactError: null,
+    artifact: familyDoc,
+    capabilities: { capabilities: [{ scope: 'publish:operate', routes: ['POST /api/publish/*'] }] },
+    capabilitiesError: null,
+    minCoverage: 0,
+  })
+  const famCapFailures = fam.failures.filter((f) => f.code.startsWith('CAPABILITY_ROUTE_'))
+  ok(
+    famCapFailures.length === 0,
+    `整族登记命中族内端点 → 无 CAPABILITY_ROUTE 失败(实际 ${famCapFailures.map((f) => f.code).join(',') || '无'})`,
+  )
+  const famMiss = evaluate({
+    artifactText: JSON.stringify(familyDoc),
+    artifactError: null,
+    artifact: familyDoc,
+    capabilities: { capabilities: [{ scope: 'ops:execute', routes: ['POST /api/ops/*'] }] },
+    capabilitiesError: null,
+    minCoverage: 0,
+  })
+  ok(
+    famMiss.failures.some((f) => f.code === 'CAPABILITY_ROUTE_NOT_IN_SPEC'),
+    '整族登记但族内无端点 → CAPABILITY_ROUTE_NOT_IN_SPEC',
+  )
+
+  // 1c. 跨服务归属与 WS 豁免(O8b,2026-09-21):跳过必须**显式计数**,不得静默。
+  ok(declaredRouteIsExpectedAbsent('WS') && declaredRouteIsExpectedAbsent('ws'), 'WS 方法判为豁免(大小写不敏感)')
+  ok(!declaredRouteIsExpectedAbsent('POST') && !declaredRouteIsExpectedAbsent('get'), 'HTTP 方法不享豁免')
+  const skipReport = evaluate({
+    artifactText: JSON.stringify(familyDoc),
+    artifactError: null,
+    artifact: familyDoc,
+    capabilities: {
+      capabilities: [
+        // ai-service 归属:契约里没有是对的,不是漂移
+        { scope: 'browser:operate', host: 'ai-service', routes: ['POST /api/browser/*'] },
+        { scope: 'sandbox:run', host: 'ai-service', routes: ['POST /api/sandbox/run'] },
+        // WS:OpenAPI 3.0 不描述 WebSocket
+        { scope: 'realtime:connect', routes: ['WS /v1/realtime'] },
+      ],
+    },
+    capabilitiesError: null,
+    minCoverage: 0,
+  })
+  ok(
+    skipReport.failures.filter((f) => f.code.startsWith('CAPABILITY_ROUTE_')).length === 0,
+    `ai-service 归属 + WS 声明均不判为契约缺失(实际 ${skipReport.failures.map((f) => f.code).join(',') || '无'})`,
+  )
+  ok(
+    skipReport.stats.capabilityAiServiceSkipped === 2 && skipReport.stats.capabilityWsExempted === 1,
+    `豁免条数显式计数(ai-service ${skipReport.stats.capabilityAiServiceSkipped} / WS ${skipReport.stats.capabilityWsExempted} = 2/1)`,
+  )
+  ok(skipReport.stats.capabilityChecked === 0, '全部被豁免时实际比对数为 0(与登记总数可核对)')
+  // 未标 host = 缺省 'api',不得被豁免逻辑顺手放过(防"永远静默")
+  const noHostStillChecked = evaluate({
+    artifactText: JSON.stringify(familyDoc),
+    artifactError: null,
+    artifact: familyDoc,
+    capabilities: { capabilities: [{ scope: 'sandbox:run', routes: ['POST /api/sandbox/run'] }] },
+    capabilitiesError: null,
+    minCoverage: 0,
+  })
+  ok(
+    noHostStillChecked.failures.some((f) => f.code === 'CAPABILITY_ROUTE_NOT_IN_SPEC') &&
+      noHostStillChecked.stats.capabilityAiServiceSkipped === 0,
+    '缺省(未写 host)按 api 归属照常比对 → 仍然报缺失',
+  )
+  // 同一路径被 ai-service 与 api 两个 scope 同时登记 → 取最严判定,必须比对
+  const mixedHost = evaluate({
+    artifactText: JSON.stringify(familyDoc),
+    artifactError: null,
+    artifact: familyDoc,
+    capabilities: {
+      capabilities: [
+        { scope: 'a:read', host: 'ai-service', routes: ['POST /api/ghost'] },
+        { scope: 'b:read', routes: ['POST /api/ghost'] },
+      ],
+    },
+    capabilitiesError: null,
+    minCoverage: 0,
+  })
+  ok(
+    mixedHost.failures.some((f) => f.code === 'CAPABILITY_ROUTE_NOT_IN_SPEC'),
+    '同一路径混标 api + ai-service → 取最严判定仍比对',
+  )
 
   // 2. 产物缺失 → ARTIFACT_MISSING,且只有这一项
   const missing = evaluate({ artifactText: null, artifactError: 'missing', artifact: null, capabilities: SAMPLE_CAPABILITIES, capabilitiesError: null, minCoverage: 50 })
@@ -815,6 +1021,8 @@ export const __test__ = {
   evaluate,
   computeCoverage,
   collectCapabilityRoutes,
+  declaredRouteIsExpectedAbsent,
+  AI_SERVICE_HOST,
   diffDocuments,
   normalizePath,
   isContractRelevant,

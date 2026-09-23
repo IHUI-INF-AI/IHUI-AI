@@ -31,7 +31,6 @@ import { EnvironmentInfoPopover } from '@/components/ai/environment-info-popover
 import { AiTerminalDock } from '@/components/ai/ai-terminal-dock'
 import { QuestionDialog } from '@/components/chat/question-dialog'
 import { SessionUsageBadge } from '@/components/chat/session-usage-badge'
-import { ChatExportMenu } from '@/components/chat/chat-export-menu'
 import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
 import { WorkspaceSelector } from '@/components/ai/workspace-selector'
 import { AiSidePanelTools } from '@/components/ai/ai-side-panel-tools'
@@ -52,7 +51,10 @@ import {
   autoResumeAfterHistory,
   type PendingResume,
 } from '@/hooks/use-chat/resume-stream'
+import { hydrateHistoryMessages } from '@/hooks/use-chat/history-message'
 import { useMediaQuery } from '@/hooks/use-media-query'
+import { useDesktop } from '@/hooks/use-desktop'
+import { armWindowDragOnFirstMove, isDraggableBlankArea } from '@/lib/window-drag'
 // P3 #34(2026-09-16 立):流式屏幕阅读器播报(aria-live)
 import { SrStreamAnnouncer } from '@/components/chat/sr-stream-announcer'
 import { VoiceStreamSpeaker } from '@/components/chat/voice-stream-speaker'
@@ -238,6 +240,19 @@ export function AISidePanel() {
   //   解决 a3eb24ffc6 把阈值从 768 改到 1023 导致桌面端小窗口 AI 面板"异常宽"回归
   // - 浮窗展开时全屏覆盖(利用现有 floatMode,移动端样式覆盖)
   const isMobileSmall = useMediaQuery('(max-width: 767px)')
+
+  // 桌面端 + 停靠态:面板标题栏作为窗口拖拽把手(用户习惯抓任意顶部标题栏拖窗口)。
+  // 浮窗态不接管——那时标题栏的职责是移动面板自身(handleFloatDragStart)。
+  const { isDesktop } = useDesktop()
+  const windowDragFromHeader = isDesktop && !isMobileSmall && !floatMode
+  const handleHeaderWindowDragMouseDown = React.useCallback(
+    (e: React.MouseEvent) => {
+      if (!windowDragFromHeader || e.button !== 0) return
+      if (!isDraggableBlankArea(e.target as HTMLElement)) return
+      armWindowDragOnFirstMove(e.screenX, e.screenY)
+    },
+    [windowDragFromHeader],
+  )
 
   // 移动端自动切换:进入手机视口(<768px)时,自动切为浮窗展开模式(默认正常态)
   // - 仅在 floatMode=false(docked)且 isMobileSmall=true(手机)时触发
@@ -481,18 +496,7 @@ export function AISidePanel() {
             ])
             if (cancelled) return
             if (convRes.success && msgRes.success) {
-              const hydrated: ChatMessage[] = msgRes.data.messages.map((m) => ({
-                id: m.id,
-                role: m.role,
-                content: m.content,
-                createdAt: new Date(m.createdAt).getTime(),
-                model: (m.metadata?.model as string | null | undefined) ?? '',
-                reasoning: m.reasoning,
-                // D24(2026-09-19 立):恢复工具卡与终端区(metadata 强制落库)
-                toolCalls: (m.metadata?.toolCalls ?? undefined) as ChatMessage['toolCalls'],
-                terminalTasks: (m.metadata?.terminalTasks ??
-                  undefined) as ChatMessage['terminalTasks'],
-              }))
+              const hydrated: ChatMessage[] = hydrateHistoryMessages(msgRes.data.messages)
               // 仅当当前仍在该会话、且拉取期间本地未被写入时才更新 store
               // (前者避免覆盖用户已切换到的新会话;后者避免覆盖流式中的在途消息)
               if (
@@ -543,17 +547,7 @@ export function AISidePanel() {
         ])
         if (cancelled) return
         if (convRes.success && msgRes.success) {
-          const hydrated: ChatMessage[] = msgRes.data.messages.map((m) => ({
-            id: m.id,
-            role: m.role,
-            content: m.content,
-            createdAt: new Date(m.createdAt).getTime(),
-            model: (m.metadata?.model as string | null | undefined) ?? '',
-            reasoning: m.reasoning,
-            // D24(2026-09-19 立):恢复工具卡与终端区(metadata 强制落库)
-            toolCalls: (m.metadata?.toolCalls ?? undefined) as ChatMessage['toolCalls'],
-            terminalTasks: (m.metadata?.terminalTasks ?? undefined) as ChatMessage['terminalTasks'],
-          }))
+          const hydrated: ChatMessage[] = hydrateHistoryMessages(msgRes.data.messages)
           // 拉取期间本地已写入(新建会话后在途的 assistant 消息)时保留本地,
           // 不用远端快照覆盖 —— 否则正文 / plan / terminal 卡片会被整条抹掉。
           if (!isLocalMessagesChanged(localBefore)) {
@@ -1161,15 +1155,21 @@ export function AISidePanel() {
             )}
           >
             {/* 标题栏(浮窗模式下可拖拽,手机全屏模式禁用拖拽) */}
+            {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- 桌面端 Tauri 窗口按下即拖拽(鼠标专属交互,无法用键盘拖拽窗口);键盘用户走窗口原生快捷键 */}
             <header
+              // 停靠态:原生拖拽区(按下即启动窗口移动循环,无 JS 往返延迟);
+              // 浮窗态不加——该态标题栏的职责是移动面板自身(handleFloatDragStart)
+              data-tauri-drag-region={windowDragFromHeader ? '' : undefined}
               onPointerDown={floatMode && !isMobileSmall ? handleFloatDragStart : undefined}
+              onMouseDown={handleHeaderWindowDragMouseDown}
               className={cn(
                 'flex h-14 shrink-0 items-center gap-2 px-3',
                 // 2026-07-19 中文 + 图标垂直对齐:主标题 span 视觉居中
                 '[&>div>span:first-child]:translate-y-[var(--text-vcenter-offset)]',
                 // 浮窗模式(桌面端):header 可拖拽,非交互区域 cursor-move
                 // 移动端全屏模式:不可拖拽
-                floatMode && !isMobileSmall && 'cursor-move',
+                // 停靠态(桌面端):标题栏拖的是整个窗口,同样给 move 指针
+                ((floatMode && !isMobileSmall) || windowDragFromHeader) && 'cursor-move',
               )}
             >
               {/* 图标:使用当前模型对应的厂商图标(替代通用 Sparkles)
@@ -1182,7 +1182,12 @@ export function AISidePanel() {
                   className="text-foreground/80"
                 />
               </div>
-              <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
+              <div
+                // 同 header 的拖拽语义:标题文字区是这块 flex-1,不标属性就只走 JS 兜底
+                // 路径(滞后约 40px)。按钮/徽章是兄弟节点,不受影响。
+                data-tauri-drag-region={windowDragFromHeader ? '' : undefined}
+                className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden"
+              >
                 <span className="flex min-w-0 items-center gap-1">
                   <span className="min-w-0 truncate text-sm font-semibold">{displayTitle}</span>
                   {/* 会话累计 Token / 费用徽章(2026-09-07 工作线 A;2026-09-12 W4 成本真网计价):
@@ -1199,10 +1204,7 @@ export function AISidePanel() {
               2026-09-17 修复:原先放在 overflow-hidden 标题容器内,displayTitle 占满宽度时
               IconButton 被裁半/遮挡;现移出到右侧按钮组最左,不再受 overflow-hidden 裁切 */}
               <WorkspaceSelector />
-              {/* W15(2026-09-13 立):会话级导出/分享菜单(MD/JSON/快照图/分享链接)
-              2026-09-17 修复:原放在标题 overflow-hidden 容器内,标题占满宽度时按钮被裁半;
-              移出到右侧按钮组最左(浮窗/环境信息按钮之前),不再受标题容器裁切 */}
-              <ChatExportMenu title={displayTitle} disabled={isStreaming} />
+              {/* 会话导出/分享入口(W15)已迁移至侧边栏会话"..."菜单(sidebar-chat-history) */}
               {/* Plan/Act 模式切换(2026-07-24 立,对标 AI 工作台 plan/act toggle + Codex)
               2026-07-28 移除:PlanActToggle 按钮与 sidebar ModeSwitcher 4 态(ChatMode build/plan/review/spec)
               语义重叠,统一用 ModeSwitcher 控制。当前 mode 视觉指示由 sidebar ModeSwitcher 高亮态承载,

@@ -16,7 +16,10 @@
  * 5 步法(零信任):
  *   1. git reset HEAD        主动清空暂存区(无论谁 staged 的)
  *   2. git add <用户路径>     只暂存自己声明的文件
- *   3. 校验                  git diff --cached --name-only 必须 === 用户预期
+ *   3. 校验                  git diff --cached --name-only --no-renames 必须 === 用户预期
+ *                            (--no-renames 根治:默认 rename 探测会把"删 A + 加 B"折叠成一条
+ *                             R 记录且不列旧路径 A,校验恒报"A 未暂存";显式禁用后删除/新增
+ *                             各自成行列出,删除类提交不再恒误报。Step 5 的 git show 同理。)
  *   4. git commit -- <path>   git 原生 -- pathspec 终极兜底
  *   5. 不触发 push(让 post-commit hook 处理)
  *
@@ -187,7 +190,7 @@ if (addResult.status !== 0) {
 
 // ─── 3. 校验 staged 内容是否 == 预期 ───────────────────────
 log('info', 'Step 3/5: 校验 staged 内容与预期一致')
-const stagedRaw = run('git diff --cached --name-only', { allowFail: true })
+const stagedRaw = run('git diff --cached --name-only --no-renames', { allowFail: true })
 const stagedFiles = stagedRaw ? stagedRaw.split('\n').filter(Boolean) : []
 
 // 规范化:统一正斜杠(Windows 路径兼容)
@@ -308,7 +311,7 @@ log('info', 'Step 5/5: 验证 commit 内容只包含预期文件')
 
 /** 取指定提交的文件清单(已归一化)。 */
 const filesOfCommit = (sha) => {
-  const raw = run(`git show --name-only --pretty=format: ${sha}`, { allowFail: true })
+  const raw = run(`git show --name-only --no-renames --pretty=format: ${sha}`, { allowFail: true })
   return raw ? raw.split('\n').filter(Boolean).map(normalize) : []
 }
 

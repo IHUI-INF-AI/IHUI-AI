@@ -1,0 +1,125 @@
+/*
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+*/
+
+/* 任务进度状态条 — 对齐 web 端 TaskStatusBar(compact);样式全部 rpx + var(--color-*),深浅色自动适配 */
+
+.task-status-bar {
+  margin: 0 24rpx 12rpx;
+}
+
+.tsb-hover {
+  opacity: 0.8;
+}
+
+.task-status-bar-card {
+  border: 1rpx solid var(--color-border);
+  border-radius: 16rpx;
+  background: var(--color-muted);
+  overflow: hidden;
+}
+
+.task-status-bar-card.is-active {
+  border-color: var(--color-brand);
+}
+
+.task-status-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 16rpx 20rpx;
+}
+
+.task-status-bar-headline {
+  flex: 1;
+  min-width: 0;
+  font-size: 24rpx;
+  font-weight: 500;
+  color: var(--color-foreground);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.task-status-bar-meta {
+  flex-shrink: 0;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.tsb-lines-added {
+  color: var(--color-success);
+}
+
+.tsb-lines-removed {
+  margin-left: 8rpx;
+  color: var(--color-danger);
+}
+
+/* 展开明细:步骤列表(间距分隔,不使用分割线) */
+.task-status-bar-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+  padding: 0 20rpx 16rpx;
+}
+
+.task-status-step {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.task-status-step-title {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.task-status-step.is-in_progress .task-status-step-title {
+  color: var(--color-foreground);
+  font-weight: 500;
+}
+
+.task-status-step.is-completed .task-status-step-title {
+  color: var(--color-text-tertiary);
+}
+
+.task-status-step.is-failed .task-status-step-title {
+  color: var(--color-danger);
+}
+
+/* 运行态旋转(LineIcon 为 mask 渲染的 View,直接转节点) */
+@keyframes tsb-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.tsb-spin {
+  animation: tsb-rotate 1s linear infinite;
+}
+
+/* 展开/收起指示(CSS 画的小箭头,非分割线) */
+.tsb-caret {
+  flex-shrink: 0;
+  width: 14rpx;
+  height: 14rpx;
+  border-right: 3rpx solid var(--color-muted-foreground);
+  border-bottom: 3rpx solid var(--color-muted-foreground);
+  transform: rotate(-45deg);
+  transition: transform 0.2s ease;
+}
+
+.tsb-caret.is-open {
+  transform: rotate(-135deg);
+}
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

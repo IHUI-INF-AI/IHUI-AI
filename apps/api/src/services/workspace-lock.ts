@@ -5,10 +5,17 @@
 /**
  * 多 Agent 工作区锁(2-2,ioredis 版)。
  *
- * 与 apps/ai-service/app/services/workspace_lock.py 共享 Redis 协议:
- *   key:   ihui:workspace_lock:{workspace}
- *   value: JSON {workspace, holder, token, acquiredAt, heartbeatAt}
+ * 跨端协议契约(与 apps/ai-service/app/services/workspace_lock.py 双侧同步维护,
+ * 改动任何一项必须同时改另一侧):
+ *   key:      ihui:workspace_lock:{workspace}
+ *   TTL:      120s(两侧一致)
+ *   value:    JSON,canonical 字段为 snake_case:
+ *             {workspace, holder, token, acquired_at, heartbeat_at}
+ *   兼容读取: 两侧解析器同时接受 snake_case 与 camelCase 历史格式
+ *             (acquiredAt/heartbeatAt),防止跨服务互读失败
  *   释放/续期: Lua 脚本 cjson 解码后比较 token 字段(原子,防误删他人锁)
+ *   解析失败:   一律视为"未知格式的活锁"——不删除、不抢锁
+ *             (宁可不抢,不可误删;Redis TTL 保证坏 key 最终自愈)
  *
  * 降级:Redis 不可用时退化为进程内 Map(单实例部署语义一致)。
  */
@@ -77,22 +84,55 @@ function lockKey(workspace: string): string {
   return `${LOCK_KEY_PREFIX}${workspace}`
 }
 
+/** 锁 value 原始字段(snake_case canonical + camelCase 历史格式兼容) */
+interface RawLockFields {
+  workspace?: unknown
+  holder?: unknown
+  token?: unknown
+  acquired_at?: unknown
+  acquiredAt?: unknown
+  heartbeat_at?: unknown
+  heartbeatAt?: unknown
+}
+
 function parseLock(raw: string | null, workspace: string): WorkspaceLockInfo | null {
   if (!raw) return null
+  let d: RawLockFields
   try {
-    const d = JSON.parse(raw) as Partial<WorkspaceLockInfo>
-    if (typeof d.holder !== 'string' || typeof d.token !== 'string') return null
-    return {
-      workspace,
-      holder: d.holder,
-      token: d.token,
-      acquiredAt: Number(d.acquiredAt) || 0,
-      heartbeatAt: Number(d.heartbeatAt) || 0,
-    }
+    d = JSON.parse(raw) as RawLockFields
   } catch {
-    logger.warn('[workspace-lock] value 损坏,按无锁处理', { workspace })
+    logger.warn('[workspace-lock] 未知格式锁值,按被持有处理(不删除)', { workspace })
     return null
   }
+  if (typeof d.holder !== 'string' || typeof d.token !== 'string') {
+    logger.warn('[workspace-lock] 未知格式锁值,按被持有处理(不删除)', { workspace })
+    return null
+  }
+  const num = (...keys: (keyof RawLockFields)[]): number => {
+    for (const k of keys) {
+      const v = d[k]
+      if (typeof v === 'number' && Number.isFinite(v)) return v
+    }
+    return 0
+  }
+  return {
+    workspace: typeof d.workspace === 'string' ? d.workspace : workspace,
+    holder: d.holder,
+    token: d.token,
+    acquiredAt: num('acquired_at', 'acquiredAt'),
+    heartbeatAt: num('heartbeat_at', 'heartbeatAt'),
+  }
+}
+
+/** 序列化为 canonical snake_case 格式(跨端协议,见文件头契约) */
+function serializeLock(info: WorkspaceLockInfo): string {
+  return JSON.stringify({
+    workspace: info.workspace,
+    holder: info.holder,
+    token: info.token,
+    acquired_at: info.acquiredAt,
+    heartbeat_at: info.heartbeatAt,
+  })
 }
 
 /** 进程内降级存储(Redis 不可用时) */
@@ -135,8 +175,9 @@ export async function acquireWorkspaceLock(
     if (raw) {
       const existing = parseLock(raw, workspace)
       if (existing === null) {
-        // 损坏 value:清除坏 key 后走 SET NX 重新竞争(自愈)
-        await r.del(lockKey(workspace))
+        // 未知格式锁值(其他端历史格式/损坏数据):视为未知活锁,
+        // 宁可不抢,不可误删(TTL 到期后 key 自愈)
+        return null
       } else if (existing.holder !== holder) {
         return null
       } else {
@@ -160,7 +201,7 @@ export async function acquireWorkspaceLock(
       acquiredAt: Date.now() / 1000,
       heartbeatAt: Date.now() / 1000,
     }
-    const ok = await r.set(lockKey(workspace), JSON.stringify(info), 'EX', ttlSec, 'NX')
+    const ok = await r.set(lockKey(workspace), serializeLock(info), 'EX', ttlSec, 'NX')
     return ok === 'OK' ? info : null
   } catch (e) {
     logger.warn('[workspace-lock] acquire redis 失败,降级内存锁', { error: e })

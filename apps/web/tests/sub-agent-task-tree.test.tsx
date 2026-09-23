@@ -56,8 +56,17 @@ vi.mock('lucide-react', () => {
     // Checklist 内部依赖(防止连锁 mock 失败)
     Circle: Icon,
     Minus: Icon,
+    // stream-ui 基元 StreamStatusIcon 用到的状态图标(Checklist 已改走 StreamRow 渲染)
+    CircleDashed: Icon,
+    X: Icon,
   }
 })
+
+// ─── next-intl mock:Checklist 接入 stream-ui 后经 humanizeToolText + useTranslations('taskStatus')
+// 本地化工具码名(read_file → toolReadFile);本文件用例不断言界面文案,键名原样回落即可 ───
+vi.mock('next-intl', () => ({
+  useTranslations: () => (key: string) => key,
+}))
 
 // ─── 工厂函数 ──────────────────────────────────────────────────────
 function makeSubagent(overrides: Partial<Subagent> = {}): Subagent {

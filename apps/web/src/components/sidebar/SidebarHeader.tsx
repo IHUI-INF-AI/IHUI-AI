@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
 import { TOPBAR_BTN_BASE, TOPBAR_BTN_W9 } from '@/lib/nav-styles'
 import { Button, ThemeLogo } from '@ihui/ui-react'
 import { useDesktop } from '@/hooks/use-desktop'
-import { startWindowDrag } from '@/lib/tauri-bridge'
+import { armWindowDragOnFirstMove, isDraggableBlankArea } from '@/lib/window-drag'
 import { Tooltip } from '@/components/feedback'
 
 interface SidebarHeaderProps {
@@ -50,7 +50,7 @@ function PanelLeftRounded({
 
 /**
  * 侧边栏顶部:Logo + 折叠/展开按钮(桌面端)或 Logo + 关闭按钮(移动端抽屉)。
- * 桌面端 logo 支持长按拖拽窗口(Tauri decorations:false 无边框窗口)。
+ * 桌面端 logo 按下即拖拽窗口(Tauri decorations:false 无边框窗口)。
  */
 export function SidebarHeader({
   variant,
@@ -63,22 +63,15 @@ export function SidebarHeader({
   const navigate = useNavigateWithProgress()
   const { isDesktop } = useDesktop()
 
-  // 桌面端 sidebar logo 长按拖拽窗口(Tauri decorations:false 无边框窗口)。
-  // 短按(< 300ms)→ ThemeLogo 自身 onClick 跳首页保持不变;长按(≥ 300ms)→ startWindowDrag()。
-  const logoDragTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
-
+  // 桌面端 sidebar header 按下即拖拽窗口(Tauri decorations:false 无边框窗口;
+  // 2026-09-21 用户要求"直接点击就可以拖拽,不需要长按",实现见 lib/window-drag.ts)。
+  // 拖拽面 = 整条 header 含 logo(用户习惯抓 logo 拖窗口,旧实现即如此);排除折叠/展开
+  // Button 等真控件,避免 Tauri 原生拖拽循环吞掉它们的 click(曾致"展开按钮点了没反应")。
+  // logo 的"点一下跳首页"由位移阈值保护:无位移 → 不启动拖拽 → click 照常派发。
   const handleLogoMouseDown = (e: React.MouseEvent) => {
     if (!isDesktop || e.button !== 0) return
-    logoDragTimer.current = setTimeout(() => {
-      void startWindowDrag()
-    }, 300)
-  }
-
-  const handleLogoDragEnd = () => {
-    if (logoDragTimer.current) {
-      clearTimeout(logoDragTimer.current)
-      logoDragTimer.current = null
-    }
+    if (!isDraggableBlankArea(e.target as HTMLElement)) return
+    armWindowDragOnFirstMove(e.screenX, e.screenY)
   }
 
   if (variant === 'mobile') {
@@ -121,23 +114,26 @@ export function SidebarHeader({
               移动端 wrapper 没 h-9 父容器,所以在移动端实例上加 h-9 让按钮自身 36×36,跟桌面端 h-9
               父容器 + h-full 子元素等价)
             - 跟顶栏按钮共用 base 后,改一处生效所有同源按钮,杜绝"漏改"漂移 */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onCloseMobile}
-          className={cn(
-            // h-9 w-9 已被 Button size="icon" + TOPBAR_BTN_W9 覆盖,无需重复声明
-            // 跟顶栏按钮共用 base 后,移动端两个按钮视觉/交互/焦点环完全一致,改一处生效所有同源按钮
-            'ml-auto shrink-0',
-            TOPBAR_BTN_BASE,
-            TOPBAR_BTN_W9,
-          )}
-          aria-label={tc('close')}
-        >
-          {/* 2026-09-05:图标 14px→20px(h-5 w-5),与桌面端折叠按钮 2026-08-01 用户要求"图标加大"对齐,
-              移动端触屏更易辨识/命中 */}
-          <PanelLeftRounded className="h-5 w-5" />
-        </Button>
+        {/* 2026-09-21 修复:36×36 定尺寸 wrapper(原生 div,Button 守门豁免)。
+            TOPBAR_BTN_BASE 内置 h-full,直接放在 h-[44px] header 里会被拉成 36×44 长方形;
+            wrapper 提供确定高度后 h-full 正确解析为 36px。ml-auto/shrink-0 随之上移到 wrapper。 */}
+        <div className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onCloseMobile}
+            className={cn(
+              // 跟顶栏按钮共用 base 后,移动端两个按钮视觉/交互/焦点环完全一致,改一处生效所有同源按钮
+              TOPBAR_BTN_BASE,
+              TOPBAR_BTN_W9,
+            )}
+            aria-label={tc('close')}
+          >
+            {/* 2026-09-05:图标 14px→20px(h-5 w-5),与桌面端折叠按钮 2026-08-01 用户要求"图标加大"对齐,
+                移动端触屏更易辨识/命中 */}
+            <PanelLeftRounded className="h-5 w-5" />
+          </Button>
+        </div>
       </div>
     )
   }
@@ -151,22 +147,37 @@ export function SidebarHeader({
    */
   if (collapsed) {
     return (
-      // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- 同展开态:Tauri 窗口长按拖拽
+      // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- 同展开态:Tauri 窗口按下即拖拽
       <div
+        data-tauri-drag-region
         className={cn(
           'flex shrink-0 flex-col items-center gap-1 px-1 pt-2 pb-1 mx-0',
           isDesktop && 'cursor-move',
         )}
         onMouseDown={handleLogoMouseDown}
-        onMouseUp={handleLogoDragEnd}
-        onMouseLeave={handleLogoDragEnd}
       >
-        {/* 方形品牌 logo:与 EmptyState 同源 /images/logo.png,36×36 圆角;button 包裹满足键盘可达性 */}
-        <button
-          type="button"
+        {/* 方形品牌logo:与 EmptyState 同源 /images/logo.png,36×36 原样显示。
+            2026-09-21 用户要求去掉遮罩容器圆角:该 PNG 自身已是 22% 圆角 + 四角透明的成品图
+            (2534px 上约 558px 半径,缩到 36px ≈ 8px),再套 rounded-xl(12px)比图自身更圆,
+            会把黑底四角切出缺口露出底色。
+            2026-09-22 与展开态统一:改用 span[role=button] 而非 <button> —— Tauri 拖拽脚本
+            跳过 img/button 等原生可交互标签(实测挂在 img 上零位移、挂在 div/span 上 1:1),
+            故把 img 置 pointer-events-none、拖窗属性与点击挂在本层 span;键盘可达性由
+            tabIndex + Enter/Space 补齐,不靠豁免 lint。 */}
+        <span
+          role="button"
+          tabIndex={0}
           aria-label="IHUI AI"
+          data-tauri-drag-region
+          data-window-drag
           onClick={() => navigate('/')}
-          className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xl transition-opacity hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              navigate('/')
+            }
+          }}
+          className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center transition-opacity hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&_img]:pointer-events-none"
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- 与 EmptyState/ThemeLogo 同源,img 保证 SSR 一致 */}
           <img
@@ -175,25 +186,32 @@ export function SidebarHeader({
             width={36}
             height={36}
             draggable={false}
-            className="h-9 w-9 select-none rounded-xl object-contain"
+            className="h-9 w-9 select-none object-contain"
           />
-        </button>
-        <Tooltip content={t('expand')} side="right">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onToggleCollapse}
-            className={cn(
-              TOPBAR_BTN_BASE,
-              TOPBAR_BTN_W9,
-              // 注意:不再用 hidden min-[1024px]:flex —— 768-1023px 视口强制折叠时按钮必须可见
-              'p-0 flex bg-transparent [&>svg]:!h-5 [&>svg]:!w-5',
-            )}
-            aria-label={t('expand')}
-          >
-            <PanelLeftRounded open className="h-5 w-5" />
-          </Button>
-        </Tooltip>
+        </span>
+        {/* 2026-09-21 修复(用户反馈"拉出按钮跟+号重合 + 按钮变长方形"):
+            TOPBAR_BTN_BASE 内置 h-full,折叠态 header 是 flex-col 自动高度,循环百分比解析
+            被 Chrome 一次性解析成 60px 高 → 按钮变 36×60 长方形并压住下方 + 新建任务按钮。
+            h-full 需要"确定高度"父容器才成立:包一层 36×36 定尺寸 wrapper(原生 div,
+            Button 守门豁免),按钮 h-full/w-9 在其中正确解析为 36×36 正方形。 */}
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center">
+          <Tooltip content={t('expand')} side="right">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggleCollapse}
+              className={cn(
+                TOPBAR_BTN_BASE,
+                TOPBAR_BTN_W9,
+                // 注意:不再用 hidden min-[1024px]:flex —— 768-1023px 视口强制折叠时按钮必须可见
+                'p-0 flex bg-transparent [&>svg]:!h-5 [&>svg]:!w-5',
+              )}
+              aria-label={t('expand')}
+            >
+              <PanelLeftRounded open className="h-5 w-5" />
+            </Button>
+          </Tooltip>
+        </div>
       </div>
     )
   }
@@ -203,13 +221,14 @@ export function SidebarHeader({
    * Logo + 折叠按钮,仅在展开态渲染(≥1024px 桌面,或用户未折叠时)。
    */
   return (
-    // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- 桌面端 Tauri 窗口长按拖拽(鼠标专属交互,无法用键盘拖拽窗口);键盘用户通过内部折叠 Button + logo 点击提供等价交互
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- 桌面端 Tauri 窗口按下即拖拽(鼠标专属交互,无法用键盘拖拽窗口);键盘用户通过内部折叠 Button + logo 点击提供等价交互
     <div
       // data-sidebar-header-expanded:标记展开态 header,globals.css 平板区间(768-1023px)
       // 用它在 hydration 前隐藏 80px 长 logo 并居中折叠按钮 —— SSR 输出展开态 HTML,
       // 该区间 CSS 已强制 aside 60px,长 logo 会与折叠按钮重叠(2026-09-09 修复)。
       // hydration 后 React 切到折叠态分支(方形 logo + 展开按钮),此标记不再存在。
       data-sidebar-header-expanded
+      data-tauri-drag-region
       className={cn(
         // header 高 44px(保持不变,新建任务按钮位置不动)。
         // pt-2 pb-0 + items-center:content-box = 44-8-0 = 36px(从 y=8 到 y=44),
@@ -217,22 +236,43 @@ export function SidebarHeader({
         // 两者中心都在 y=26,与 GlobalTopBar 按钮中心(pt-2+h-9/2=26)垂直对齐(2026-07-30 用户反馈)。
         // gap-1(4px)让 logo(80) + gap(4) + 按钮(28) = 112px < 内容区 114px,不溢出。
         'flex h-[44px] shrink-0 items-center justify-between gap-1 px-2 pt-2 pb-0 mx-0 transition-[padding] duration-200',
-        // 桌面端长按可拖拽窗口,显示 move 光标提示;非桌面端不加(避免误导)。
+        // 桌面端按下即可拖拽窗口,显示 move 光标提示;非桌面端不加(避免误导)。
         isDesktop && 'cursor-move',
       )}
       onMouseDown={handleLogoMouseDown}
-      onMouseUp={handleLogoDragEnd}
-      onMouseLeave={handleLogoDragEnd}
     >
       {/* data-sidebar-logo:标识侧边栏长 logo(旧版 CSS 在 768-1023px 隐藏;
           2026-09-07 起该区间走折叠态分支渲染方形 logo,此 span 仅展开态存在) */}
-      <span data-sidebar-logo className="flex shrink-0">
+      <span
+        data-sidebar-logo
+        // 拖窗属性必须挂在"真正承接 mousedown 的元素"上:Tauri 的拖拽脚本会跳过
+        // img 这类原生可拖标签(实测挂在 img 上完全不生效),故把 img 置为
+        // pointer-events-none,让按下落到本 span;点击语义随之上移到本层。
+        // 用 span+role 而非 <button>:button 标签同样在 Tauri 拖拽脚本的跳过名单里。
+        data-tauri-drag-region
+        // 双保险:原生拖拽生效时模态循环会吃掉 mousemove(JS 路径自然不触发);
+        // 若 Tauri 也跳过 role=button,则退到 JS 位移阈值路径,不至于完全拖不动
+        data-window-drag
+        role="button"
+        tabIndex={0}
+        aria-label="IHUI AI"
+        onDragStart={(e) => {
+          if (isDesktop) e.preventDefault()
+        }}
+        onClick={() => navigate('/')}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            navigate('/')
+          }
+        }}
+        className="flex shrink-0 cursor-pointer [&_img]:pointer-events-none"
+      >
         <ThemeLogo
           clickable
           width={80}
           height={26}
-          className="h-[26px] w-auto max-w-[80px] flex-shrink-0 cursor-pointer transition-opacity hover:opacity-75"
-          onClick={() => navigate('/')}
+          className="h-[26px] w-auto max-w-[80px] flex-shrink-0 transition-opacity hover:opacity-75"
         />
       </span>
       <Tooltip content={t('collapse')} side="right">

@@ -6,19 +6,30 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { formatIcu, hasIcuSyntax } from '@ihui/i18n'
+
 export type Locale = 'zh-CN' | 'en' | 'ja' | 'ko' | 'zh-TW'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const MESSAGES_DIR = join(__dirname, '../../../../packages/i18n/messages/cli')
+// 跨端共享语言包(taskStatus.* 等通用键的唯一真相源,含工具功能名/结果度量单位)。
+// cli 端语言包按"端 override 优先"深合并到 shared 之上 —— 与 mobile-rn / miniapp-taro
+// 的 mergeMessages(shared, 端) 同一策略。这样工具活动行取 `taskStatus.toolReadFile` 等
+// 已有键,无需在各端语言包重复 130+ 条工具映射,也满足"禁改 messages/shared 内容"。
+const SHARED_DIR = join(__dirname, '../../../../packages/i18n/messages/shared')
 
 type Messages = Record<string, unknown>
 
-function loadMessages(locale: string): Messages {
+function readJson(dir: string, locale: string): Messages {
   try {
-    return JSON.parse(readFileSync(join(MESSAGES_DIR, `${locale}.json`), 'utf8'))
+    return JSON.parse(readFileSync(join(dir, `${locale}.json`), 'utf8'))
   } catch {
     return {}
   }
+}
+
+function loadMessages(locale: string): Messages {
+  return deepMerge(readJson(SHARED_DIR, locale), readJson(MESSAGES_DIR, locale))
 }
 
 const baseMessages: Record<Locale, Messages> = {
@@ -60,7 +71,9 @@ function deepMerge<T extends Record<string, unknown>>(
   override: Partial<T>,
 ): T {
   const result: Record<string, unknown> = {}
-  for (const key of Object.keys(base)) {
+  // 必须遍历两侧键的并集:只遍历 base 会把"仅存在于 override 的顶层命名空间"整块丢掉
+  // (实测:合并 messages/shared 后 cli 自己的 cli.* 命名空间被吞,t() 回显键名)
+  for (const key of new Set([...Object.keys(base), ...Object.keys(override ?? {})])) {
     const baseValue = base[key]
     const overrideValue = override[key]
     if (isPlainObject(baseValue) && isPlainObject(overrideValue)) {
@@ -92,6 +105,11 @@ export function t(key: string, params?: Record<string, string | number>): string
   const text = getNestedValue(active, key)
   if (text === undefined) {
     return key
+  }
+  // ICU 形态一律交给共享端中立解释器(packages/i18n/src/icu.ts),与 web(next-intl)同语义;
+  // 缺 params 也要渲染,否则 plural/select 键会在终端里显示成语法残迹。
+  if (hasIcuSyntax(text)) {
+    return formatIcu(text, params ?? {}, { locale: activeLocale })
   }
   if (!params) return text
   // 同时支持 {{name}} 与 {name} 两种占位符:packages/i18n/messages 全库统一

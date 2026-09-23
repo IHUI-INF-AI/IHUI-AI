@@ -36,6 +36,7 @@ import {
   type ArticleDetailItem,
 } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
+import { useUiTextField } from '../lib/use-ui-text-field'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 import { Heart, MessageCircle, Share2 } from 'lucide-react-native'
@@ -59,6 +60,12 @@ export function ArticleDetailScreen() {
   const [comments, setComments] = useState<CommentItem[]>([])
   const [commentLoading, setCommentLoading] = useState(false)
   const [commentText, setCommentText] = useState('')
+  useUiTextField({
+    label: '写下你的评论...',
+    value: commentText,
+    setValue: setCommentText,
+    multiline: true,
+  })
   const [commentSubmitting, setCommentSubmitting] = useState(false)
   const [commentError, setCommentError] = useState('')
 

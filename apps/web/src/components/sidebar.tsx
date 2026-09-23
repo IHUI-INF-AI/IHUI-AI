@@ -10,8 +10,7 @@
  * 2026-08-28 重构:原 ~2303 行的巨型文件已拆分为语义子模块(见同目录 sidebar/):
  *   - sidebar/types.ts            导航项 / 组件 props 类型
  *   - sidebar/nav-data.ts         所有导航分组数据 + 派生常量(NAV_GROUPS / ALL_NAV_HREFS / FLAT_NAV_ITEMS / LANGUAGES)
- *   - sidebar/SidebarActions.tsx  底部工具栏(语言/下载/消息/主题/设置)
- *   - sidebar/SidebarUserRow.tsx  底部用户区(登录 / 头像下拉)
+ *   - sidebar/SidebarUserRow.tsx  底部用户区(登录 / 头像下拉;2026-09-21 起语言/下载/消息/主题/设置工具项已并入其下拉菜单)
  *   - sidebar/NavLink.tsx         普通导航项
  *   - sidebar/ExpandableNavItem.tsx 可展开二级菜单(折叠态走 Dropdown)
  *   - sidebar/NavGroupSection.tsx 顶级分组(分组级折叠)

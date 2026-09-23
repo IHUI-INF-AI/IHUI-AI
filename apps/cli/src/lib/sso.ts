@@ -75,7 +75,7 @@ function openBrowser(targetUrl: string): void {
     cmd = 'xdg-open';
     args = [targetUrl];
   }
-  const child = spawn(cmd, args, { detached: true, stdio: 'ignore' });
+  const child = spawn(cmd, args, { detached: true, stdio: 'ignore', windowsHide: true });
   child.on('error', () => {
     console.warn(`无法自动打开浏览器,请手动访问: ${targetUrl}`);
   });

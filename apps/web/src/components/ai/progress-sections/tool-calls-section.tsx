@@ -21,7 +21,17 @@ import { useTranslations } from 'next-intl'
 import { SearchInput } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
-import { FoldableSection, formatDuration } from './foldable-section'
+import { FoldableSection } from './foldable-section'
+import {
+  describeToolCategoryActivity,
+  toolActivitySearchQuery,
+} from '@ihui/shared/chat'
+import {
+  ActivityCodeBlock,
+  ActivityDuration,
+  ActivitySearchQuery,
+  ActivityCanceledLabel,
+} from './tool-activity-line'
 import { CopyButton } from './copy-button'
 import type { AgentToolCall, PlanStep } from '@/hooks/use-agent-progress'
 
@@ -156,6 +166,17 @@ export const ToolCallItem = React.memo(function ToolCallItem({
   stepLabel?: string
 }) {
   const t = useTranslations('ai.pane')
+  const tStatus = useTranslations('taskStatus')
+  // 双时态活动行(D98/D102):running "正在读取文件" / success "已读取文件";error·cancelled 只出功能名
+  const toolDisplayName = React.useMemo(
+    () =>
+      describeToolActivityByStatus({
+        toolName: tool.toolName,
+        status: tool.status,
+        translate: (key, params) => tStatus(key, params),
+      }),
+    [tool.toolName, tool.status, tStatus],
+  )
   const [expanded, setExpanded] = React.useState(false)
   const cat = categorize(tool.toolName)
   const CatIcon = CATEGORY_ICON[cat]
@@ -212,8 +233,11 @@ export const ToolCallItem = React.memo(function ToolCallItem({
         >
           {t(CATEGORY_TKEY[cat])}
         </span>
-        <code className="shrink-0 font-mono text-[11px] text-muted-foreground">
-          {tool.toolName}
+        <code
+          className="shrink-0 font-mono text-[11px] text-muted-foreground"
+          data-tool-name={tool.toolName}
+        >
+          {toolDisplayName}
         </code>
         {/* 2026-09-19 v2:所属步骤 chip(planSteps.toolCallIds 精确匹配,超长截断由 Tooltip 兜底) */}
         {stepLabel && (

@@ -133,9 +133,7 @@ async function getOwnedSubscription(id: string, userId: string) {
       enabled: webhookSubscriptions.enabled,
     })
     .from(webhookSubscriptions)
-    .where(
-      and(eq(webhookSubscriptions.id, id), eq(webhookSubscriptions.userId, userId)),
-    )
+    .where(and(eq(webhookSubscriptions.id, id), eq(webhookSubscriptions.userId, userId)))
     .limit(1)
   if (!sub) return { error: error(404, '订阅不存在'), sub: null }
   return { error: null, sub }

@@ -37,6 +37,7 @@ export default async function globalSetup(): Promise<void> {
       stdio: 'inherit',
       env: { ...process.env },
       timeout: 30000,
+      windowsHide: true,
     })
     console.log('[e2e:global-setup] seed 完成')
   } catch (err) {
@@ -54,6 +55,7 @@ export default async function globalSetup(): Promise<void> {
       stdio: 'inherit',
       env: { ...process.env },
       timeout: 30000,
+      windowsHide: true,
     })
     console.log('[e2e:global-setup] knowledge seed 完成')
   } catch (err) {

@@ -2,10 +2,10 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { type SQL as DrizzleSQL, sql, and, eq, gte, lt } from 'drizzle-orm'
 import { z } from 'zod'
-import { authenticate, requireActiveUser } from '../plugins/auth.js'
+import { requireAdminRouteGuard } from '../plugins/require-permission.js'
 import {
   countUsers,
   countProjects,
@@ -30,8 +30,6 @@ import { hashPassword } from '../utils/password-crypto.js'
 import { db } from '../db/index.js'
 import { orders, users, projects } from '@ihui/database'
 import { toUserFriendlyMessage } from '@ihui/shared'
-
-const ADMIN_ROLE_ID = 1
 
 // =============================================================================
 // Zod schemas
@@ -105,27 +103,10 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
     request.skipResponseSanitization = true
   })
 
-  // 统一 admin 鉴权：authenticate + requireActiveUser + requireAdmin，一次注册应用于全部 admin 路由
-  server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      await authenticate(request)
-    } catch (e) {
-      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-      const message = toUserFriendlyMessage(e) || '操作失败,请稍后重试'
-      return reply.status(statusCode).send(error(statusCode, message))
-    }
-    try {
-      await requireActiveUser(request)
-    } catch (e) {
-      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-      const message = toUserFriendlyMessage(e) || '账号已注销'
-      return reply.status(statusCode).send(error(statusCode, message))
-    }
-    const roleId = request.jwtPayload?.roleId ?? 0
-    if (roleId < ADMIN_ROLE_ID) {
-      return reply.status(403).send(error(403, '需要管理员权限'))
-    }
-  })
+  // 统一 admin 鉴权:authenticate + requireActiveUser + admin 判定。
+  // O13b-⑤ 已把这段判定收编进 plugins/require-permission.ts 的 requireAdminRouteGuard,
+  // 本文件不再自带裸 roleId 比较(收编前三条契约由 o13b-batch4-admin-route-guard 钉住)。
+  server.addHook('preHandler', requireAdminRouteGuard)
 
   // POST /ai-pricing/sync-litellm - 手动触发 LiteLLM 真网价表同步(GAP-PLAN P3-9)
   server.post(

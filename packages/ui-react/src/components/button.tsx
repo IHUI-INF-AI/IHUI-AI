@@ -48,6 +48,16 @@ const buttonVariants = cva(
         default: 'h-9 px-4 py-2',
         sm: 'h-8 rounded-md px-3 text-xs',
         lg: 'h-10 rounded-md px-8',
+        // 2026-09-21 立档:28px 紧凑图标档(表格行内操作钮 / 密集工具条)。
+        // 背景:此前 28px 需求只能靠 className="h-7 w-7" 覆盖既有档位满足 —— 这既违反
+        // AGENTS.md §4「禁止 className 覆盖高度」,又因 check-button-height 是全仓扫描,
+        // 使全仓存在此类违规时**所有会话都提交不了**(实测 UnifiedTaskDashboard 3 处)。
+        // 按 §4「需要新高度先在 size 表立档」立档,禁止继续逐处打补丁。
+        'icon-2xs': 'h-7 w-7',
+        // 注意:icon-xs/icon-sm/icon 三档当前同值(ICON_BUTTON_SIZE = 'h-8 w-8'),
+        // 仅保留名称以兼容既有调用。AGENTS.md §4 曾把它们描述成 h-7/h-8/h-9 三个
+        // 不同高度,属文档与实现的漂移,已于同日一并修正(误按文档用 icon-xs 期望
+        // 28px 是上述「覆盖补丁」的成因之一)。
         'icon-xs': ICON_BUTTON_SIZE,
         'icon-sm': ICON_BUTTON_SIZE,
         icon: ICON_BUTTON_SIZE,

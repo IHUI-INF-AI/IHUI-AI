@@ -31,7 +31,7 @@
 - chat 43 个:gpt-5.4 / claude-opus-5 / gemini-3.8-flash / glm-5.3 / deepseek-v4-flash /
   kimi-k3 / qwen3.8-max / grok-4.6 等,统一 /v1/chat/completions
 - 视频:seedance-2-5 / wan-3-0 / veo-3.1 / kling-v3 / sora-2 / pixverse-c1 / minimax-h3 等
-- 图片:gpt-image-2 / gemini-3-pro-image / doubao-seedream-5-0-pro / qwen-image-3.0 等
+- 图片:gpt-image-2.5-flare / gemini-3-pro-image / doubao-seedream-5-0-pro / qwen-image-3.0 等
 - 音频:tts-1 / tts-1-hd / gemini-3.1-flash-tts / speech-2.8 / voice-clone / music(Suno)
 
 所有差异点 env 可配(拿到 key 后零代码校准):
@@ -308,7 +308,7 @@ class Token6688Provider(OpenAIProvider):
 
     # ------------------------------------------------------------------
     # 图片生成(同步 OpenAI Images 协议 / 可选真异步 model-runtime)
-    # 官方枚举(gpt-image-2 param_schema 实测 2026-09-08,全网关图片模型通用)
+    # 官方枚举(gpt-image-2.5 系列 param_schema 实测 2026-09,全网关图片模型通用)
     # ------------------------------------------------------------------
     _IMAGE_ASPECT_RATIOS = {
         "1:1", "auto", "3:2", "2:3", "4:3", "3:4", "5:4", "4:5", "16:9", "9:16", "21:9", "9:21",
@@ -338,7 +338,7 @@ class Token6688Provider(OpenAIProvider):
     ) -> dict[str, Any]:
         """图片生成,返回 {provider, model, images: [{url}|{b64_json}], raw}。
 
-        官方参数一等公民(枚举已按 /v1/skills/models/gpt-image-2 校准):
+        官方参数一等公民(枚举已按 /v1/skills/models/gpt-image-2.5 系列校准):
         - aspect_ratio ∈ {1:1,auto,3:2,2:3,4:3,3:4,5:4,4:5,16:9,9:16,21:9,9:21}
           (与 size 二选一;官方规范形状是 aspect_ratio,size 为兼容老 API)
         - count 1~50(兼容老 API 的 n 自动映射);mode ∈ {text-to-image,image-edit,
@@ -348,7 +348,7 @@ class Token6688Provider(OpenAIProvider):
         TOKEN6688_IMAGE_ASYNC=1 时走 POST /api/v1/model-runtime/invoke 真异步
         (立即返 task_id,轮询 /api/v1/model-runtime/tasks/{id},官方推荐抗超时)。
         """
-        used_model = model or _env("TOKEN6688_IMAGE_MODEL", "gpt-image-2")
+        used_model = model or _env("TOKEN6688_IMAGE_MODEL", "gpt-image-2.5-flare")
         # --- 官方枚举校验(发请求前拦,错误信息带合法值) ---
         if aspect_ratio is not None and aspect_ratio not in self._IMAGE_ASPECT_RATIOS:
             raise ProviderError(
@@ -468,7 +468,7 @@ class Token6688Provider(OpenAIProvider):
         响应形状与 generations 一致({data:[{url}|{b64_json}]}),同步 40-50s,
         200 仍需检查 body.error。
         """
-        used_model = model or _env("TOKEN6688_IMAGE_MODEL", "gpt-image-2")
+        used_model = model or _env("TOKEN6688_IMAGE_MODEL", "gpt-image-2.5-flare")
         if len(image_bytes) > 25 * 1024 * 1024:
             raise ProviderError(f"Token6688 待编辑图 {len(image_bytes) / 1048576:.1f}MiB 超 25MiB 上限", 400)
         data: dict[str, Any] = {"model": used_model, "prompt": prompt, "n": str(int(n))}

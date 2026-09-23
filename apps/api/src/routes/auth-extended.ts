@@ -279,7 +279,8 @@ export async function authenticateOAuthClient(
   return { ok: false, status: 401, error: 'invalid_client', description: '应用凭证错误' }
 }
 
-export type OAuthPkceGate = { ok: true } | { ok: false; status: number; error: string; description: string }
+export type OAuthPkceGate =
+  { ok: true } | { ok: false; status: number; error: string; description: string }
 
 /**
  * 授权码链路的 PKCE 闸门(session = oauth_sessions 行)。
@@ -418,9 +419,13 @@ export async function mintClientCredentialsToken(
     }
   }
   if (!app.ownerUuid) {
+    // RFC 6749 §5.2:`invalid_client` 的 HTTP 状态**必须**是 401(此前回 400,与
+    // "请求形状错"的 400 混在一起,排查时看不出是客户端身份问题 —— O17b-④ 定位真因
+    // 就在这里绕了弯)。2026-09-21 起 DCR 已不再受理 client_credentials 声明,
+    // 这条分支只覆盖"控制台建的空壳应用"这类存量,仍是失败关闭,不静默签发。
     return {
       ok: false,
-      status: 400,
+      status: 401,
       error: 'invalid_client',
       description: '该客户端未绑定用户(owner_uuid 为空),不可签发 M2M 令牌',
     }
@@ -1441,9 +1446,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     // O7 加固(2026-09-21):requested scope ⊆ app.scopes;PKCE 形状 + 公开/现代客户端强制
     const { granted, rejected } = resolveGrantedScopes(scope, (app.scopes as string[]) ?? [])
     if (rejected.length > 0)
-      return reply
-        .status(400)
-        .send(error(400, `scope 未被该应用授权: ${rejected.join(' ')}`))
+      return reply.status(400).send(error(400, `scope 未被该应用授权: ${rejected.join(' ')}`))
     const pkceError = precheckAuthorizePkce({
       codeChallenge: code_challenge,
       codeChallengeMethod: code_challenge_method,
@@ -1501,7 +1504,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         client_id,
         client_secret,
       })
-      if (!client.ok) return reply.status(client.status).send(error(client.status, client.description))
+      if (!client.ok)
+        return reply.status(client.status).send(error(client.status, client.description))
       const session = await findSessionByCode(code)
       if (!session || session.isUsed || session.expiresAt < new Date()) {
         return reply.status(400).send(error(400, '授权码无效或已过期'))
@@ -1611,11 +1615,26 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(result))
   })
 
+  // O13c(2026-09-23):自助删除三闸 —— 参数先行校验 + 存在性 + 所有权。
+  //此前直调 deleteOAuthApp:跨 owner / 不存在的 clientId 都恒返 200 fail-open
+  //（谎报 deleted:true,实际 0 行变更);且 .parse 抛 ZodError 要依赖全局
+  // errorHandler 才变 400,语义不自洽。现与 agents.ts 同族端点同口径:
+  // 不存在 → 404,非 owner → 403。owner_uuid 为 NULL 的 DCR 应用走
+  // RFC 7592 DELETE /oauth/register/:clientId(客户端凭证),本面一律 403。
   server.delete('/auth/oauth/apps/:clientId', async (request, reply) => {
     await authenticate(request)
-    const { clientId } = z.object({ clientId: z.string() }).parse(request.params)
+    const paramParsed = z.object({ clientId: z.string().min(1).max(100) }).safeParse(request.params)
+    if (!paramParsed.success) {
+      return reply.status(400).send(error(400, paramParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { clientId } = paramParsed.data
+    const existing = await findOAuthAppByClientId(clientId)
+    if (!existing) return reply.status(404).send(error(404, 'OAuth 应用不存在'))
+    if (existing.ownerUuid !== request.userId) {
+      return reply.status(403).send(error(403, '无权删除此应用'))
+    }
     await deleteOAuthApp(clientId, request.userId!)
-    return reply.send(success({ deleted: true }))
+    return reply.send(success({ deleted: true, clientId }))
   })
 
   // 已授权应用
@@ -1834,9 +1853,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     // O7:与 GET /auth/oauth/authorize 同规则(scope 收敛 + PKCE 前置校验)
     const { rejected } = resolveGrantedScopes(parsed.data.scope, (app.scopes as string[]) ?? [])
     if (rejected.length > 0)
-      return reply
-        .status(400)
-        .send(error(400, `scope 未被该应用授权: ${rejected.join(' ')}`))
+      return reply.status(400).send(error(400, `scope 未被该应用授权: ${rejected.join(' ')}`))
     const pkceError = precheckAuthorizePkce({
       codeChallenge: parsed.data.code_challenge,
       codeChallengeMethod: parsed.data.code_challenge_method,
@@ -1878,7 +1895,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const client = await authenticateOAuthClient(request, parsed.data)
-    if (!client.ok) return reply.status(client.status).send(error(client.status, client.description))
+    if (!client.ok)
+      return reply.status(client.status).send(error(client.status, client.description))
     const session = await findSessionByCode(parsed.data.code)
     if (!session || session.isUsed || session.expiresAt < new Date())
       return reply.status(400).send(error(400, '授权码无效或已过期'))
@@ -2133,7 +2151,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const client = await authenticateOAuthClient(request, parsed.data)
-    if (!client.ok) return reply.status(client.status).send(error(client.status, client.description))
+    if (!client.ok)
+      return reply.status(client.status).send(error(client.status, client.description))
     const session = await findSessionByCode(parsed.data.code)
     if (!session || session.isUsed || session.expiresAt < new Date())
       return reply.status(400).send(error(400, '授权码无效或已过期'))
@@ -2206,8 +2225,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success)
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       const result = await rotateRefreshTokenFlow(parsed.data.refresh_token)
-      if (!result.ok)
-        return reply.status(result.status).send(error(result.status, result.message))
+      if (!result.ok) return reply.status(result.status).send(error(result.status, result.message))
       return reply.send(
         success({
           access_token: result.tokens.accessToken,

@@ -190,6 +190,20 @@ class _AsyncLRUCache:
 _embedding_cache = _AsyncLRUCache(maxsize=1000)
 
 
+def _filter_by_user(
+    results: list[tuple[str, dict[str, Any], float]],
+    user_id: str | None,
+) -> list[tuple[str, dict[str, Any], float]]:
+    """O19 属主过滤:user_id 非空时只保留 metadata.user_id 精确相等的条目。
+
+    旧格式条目(无 user_id 字段)视为属主未知,一律排除(fail-closed):
+    漏返回只是功能降级,漏过滤就是跨用户泄漏。
+    """
+    if user_id is None:
+        return results
+    return [r for r in results if r[1].get("user_id") == user_id]
+
+
 class VectorMemoryStore:
     """向量记忆存储(内存索引 + JSON 文件持久化,纯 Python cosine similarity)。
 
@@ -282,7 +296,7 @@ class VectorMemoryStore:
         # P4-3: cache key 含 model 维度,避免不同 model 维度不同导致向量索引污染
         # (如 ada-002=1536 维 vs text-embedding-3-large=3072 维,共享缓存会致 cosine 失效)
         from ..core.config import settings
-        used_model = model or getattr(settings, "embedding_model", "text-embedding-ada-002")
+        used_model = model or getattr(settings, "embedding_model", "text-embedding-3-small")
         cache_key = hashlib.sha256(f"{used_model}:{text}".encode()).hexdigest()
         # 2. 查缓存,命中直接返回(embedding 确定性,同文本同向量)
         cached = await _embedding_cache.get(cache_key)
@@ -307,8 +321,15 @@ class VectorMemoryStore:
         entry_id: str,
         entry: dict[str, Any],
         embedding: list[float],
+        user_id: str | None = None,
     ) -> None:
-        """添加记忆 + 向量,并触发异步持久化。"""
+        """添加记忆 + 向量,并触发异步持久化。
+
+        O19:传入 user_id 时写入 entry["user_id"] 属主标记(不改动调用方传入的
+        dict);不传则条目属主未知,search(user_id=...) 时 fail-closed 不可见。
+        """
+        if user_id is not None:
+            entry = {**entry, "user_id": user_id}
         self._entries[entry_id] = entry
         self._vectors[entry_id] = embedding
         self._dirty = True
@@ -340,11 +361,17 @@ class VectorMemoryStore:
         query_embedding: list[float],
         top_k: int = 10,
         threshold: float = 0.7,
+        user_id: str | None = None,
     ) -> list[tuple[str, dict[str, Any], float]]:
         """向量检索:返回 [(entry_id, entry, similarity)],按相似度降序。
 
         D8(2026-09-19 立):优先 pgvector 余弦检索(专业 ANN,跨进程持久);
         不可用/0 命中时回落进程内 hash cosine 检索。
+
+        O19(2026-09-21)属主裁剪:传入 user_id 时只返回 metadata.user_id 精确
+        相等的条目(无 user_id 的旧条目 fail-closed 不可见)。user_id=None 表示
+        调用方未声明属主,保留旧全量语义 —— 仅限进程内可信调用方;HTTP 端点必须
+        传认证身份,不走该分支。
         """
         if not query_embedding:
             return []
@@ -356,7 +383,10 @@ class VectorMemoryStore:
                 timeout=5,
             )
             if pg_results:
-                return pg_results
+                visible = _filter_by_user(pg_results, user_id)
+                if visible:
+                    return visible
+                # 属主过滤后为空:回落内存再筛一次,防 pg 镜像缺失漏召回(内存路径同样过滤,不泄漏)
         except Exception as e:  # noqa: BLE001 - 降级路径
             logger.debug("pgvector 检索失败,回落内存索引: %s", e)
         scored: list[tuple[str, dict[str, Any], float]] = []
@@ -365,6 +395,7 @@ class VectorMemoryStore:
             if sim >= threshold:
                 entry = self._entries.get(eid, {})
                 scored.append((eid, entry, sim))
+        scored = _filter_by_user(scored, user_id)
         scored.sort(key=lambda x: x[2], reverse=True)
         return scored[:top_k]
 
@@ -395,30 +426,39 @@ class VectorMemoryStore:
         except Exception as e:  # noqa: BLE001
             logger.debug("pgvector 镜像删除失败(忽略): %s", e)
 
-    async def clear(self, session_id: str | None = None) -> None:
-        """清空记忆(可选按 session_id 过滤,未匹配 session_id 时清空全部)。
+    async def clear(self, session_id: str | None = None, user_id: str | None = None) -> None:
+        """清空记忆(可选按 session_id / user_id 过滤,两者都未提供时清空全部)。
 
-        session_id 过滤依赖 entry 内的 session_id 字段;未提供 session_id 或
-        entry 无该字段时,清空全部记忆。
+        session_id 过滤依赖 entry 内的 session_id 字段;user_id 过滤依赖
+        entry["user_id"] 属主标记(O19),无该字段的旧条目不会被 user 维度清除。
         """
-        if session_id is None:
+        removed_ids: list[str] | None = None
+        if session_id is None and user_id is None:
             self._entries.clear()
             self._vectors.clear()
         else:
-            to_remove = [
+            removed_ids = [
                 eid for eid, entry in self._entries.items()
-                if entry.get("session_id") == session_id
+                if (session_id is None or entry.get("session_id") == session_id)
+                and (user_id is None or entry.get("user_id") == user_id)
             ]
-            for eid in to_remove:
+            for eid in removed_ids:
                 self._entries.pop(eid, None)
                 self._vectors.pop(eid, None)
         self._dirty = True
         await self._persist_async()
         # D8: pgvector 镜像清空(失败静默)
         try:
-            from .pgvector_store import clear_chunks
+            from .pgvector_store import clear_chunks, delete_chunk
 
-            await asyncio.wait_for(clear_chunks("vector_memory", session_id), timeout=8)
+            if removed_ids is None:
+                await asyncio.wait_for(clear_chunks("vector_memory", session_id), timeout=8)
+            else:
+                # clear_chunks 无 user 维度:按命中的 entry_id 逐条镜像删除
+                for eid in removed_ids:
+                    await asyncio.wait_for(
+                        delete_chunk("vector_memory", "entries", eid), timeout=5
+                    )
         except Exception as e:  # noqa: BLE001
             logger.debug("pgvector 镜像清空失败(忽略): %s", e)
 

@@ -321,7 +321,7 @@ export function SwarmTopologyView({
     >
       {isEmpty ? (
         <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-          暂无活跃 Subagent 拓扑(派发后此处显示节点)
+          {t('emptyState')}
         </div>
       ) : (
         <>
@@ -534,11 +534,12 @@ export function SwarmTopologyView({
           >
             <div className="font-medium text-foreground">
               {node.label}
-              {node.isArbiter && <span className="ml-1 text-purple-500">仲裁</span>}
+              {node.isArbiter && <span className="ml-1 text-purple-500">{t('arbiter')}</span>}
               {node.isDagNode && <span className="ml-1 text-cyan-500">DAG</span>}
             </div>
             <div className="text-muted-foreground">
-              角色:{node.role} · {getNodeDisplayLabel(node)}
+              {t('roleLabel')}
+              {node.role} · {getNodeDisplayLabel(node)}
             </div>
           </PortalPanel>
         )
@@ -560,19 +561,22 @@ export function SwarmTopologyView({
             <span>{selectedNode.label}</span>
             {selectedNode.isArbiter && (
               <span className="rounded-sm bg-purple-500/10 px-1 text-[9px] text-purple-600">
-                仲裁节点
+                {t('arbiterBadge')}
               </span>
             )}
             {selectedNode.isDagNode && (
               <span className="rounded-sm bg-cyan-500/10 px-1 text-[9px] text-cyan-600">
-                DAG 节点
+                {t('dagBadge')}
               </span>
             )}
           </div>
           <div className="space-y-0.5 text-muted-foreground">
-            <div>角色:{selectedNode.role}</div>
             <div>
-              状态:
+              {t('roleLabel')}
+              {selectedNode.role}
+            </div>
+            <div>
+              {t('statusLabel')}
               <span
                 className={cn(
                   'ml-1 font-medium',
@@ -588,27 +592,25 @@ export function SwarmTopologyView({
                 {getNodeDisplayLabel(selectedNode)}
               </span>
             </div>
-            <div>耗时:{formatDuration(selectedNode.durationMs)}</div>
+            <div>{`${t('durationLabel')}${formatDuration(selectedNode.durationMs)}`}</div>
             <div>Token:{formatTokens(selectedNode.tokenUsage)}</div>
             {selectedNode.isDagNode && selectedNode.dagNodeStatus && (
               <div>
-                DAG 状态:
+                {t('dagStatusLabel')}
                 <span className="ml-1 text-cyan-600">
                   {dispatchStatusLabel[selectedNode.dagNodeStatus] ?? selectedNode.dagNodeStatus}
                 </span>
               </div>
             )}
           </div>
-          <div className="mt-1 text-[9px] text-muted-foreground/60">
-            点击空白取消 · 再次点击同一节点取消
-          </div>
+          <div className="mt-1 text-[9px] text-muted-foreground/60">{t('clickToCancel')}</div>
         </PortalPanel>
       )}
 
       {/* 选中状态提示 */}
       {selectedNodeId && !selectedNode && (
         <div className="absolute bottom-1 left-2 text-[10px] text-muted-foreground">
-          已选中节点(点击空白取消高亮)
+          {t('selectedNodeHint')}
         </div>
       )}
 
@@ -709,20 +711,32 @@ interface EvolutionHistory {
   recentRecords: AgentEvolutionRecord[]
 }
 
-/** 协作消息类型 → 颜色 + 中文标签 */
+/** 协作消息类型 → 颜色 + i18n 键名(模块级常量不持有 t,渲染处用 t(style.labelKey) 取词) */
 const COLLAB_TYPE_STYLE: Record<
   CollaborationMessageType,
-  { color: string; bg: string; label: string }
+  { color: string; bg: string; labelKey: string }
 > = {
-  question: { color: 'text-blue-600', bg: 'bg-blue-500/15', label: '提问' },
-  answer: { color: 'text-green-600', bg: 'bg-green-500/15', label: '回答' },
-  result: { color: 'text-emerald-600', bg: 'bg-emerald-500/15', label: '结果' },
-  request_help: { color: 'text-orange-600', bg: 'bg-orange-500/15', label: '求助' },
-  propose_plan: { color: 'text-violet-600', bg: 'bg-violet-500/15', label: '提案' },
-  object: { color: 'text-red-600', bg: 'bg-red-500/15', label: '反对' },
-  accept: { color: 'text-teal-600', bg: 'bg-teal-500/15', label: '接受' },
-  delegate: { color: 'text-amber-600', bg: 'bg-amber-500/15', label: '委派' },
-  share_context: { color: 'text-cyan-600', bg: 'bg-cyan-500/15', label: '共享' },
+  question: { color: 'text-blue-600', bg: 'bg-blue-500/15', labelKey: 'collabType.question' },
+  answer: { color: 'text-green-600', bg: 'bg-green-500/15', labelKey: 'collabType.answer' },
+  result: { color: 'text-emerald-600', bg: 'bg-emerald-500/15', labelKey: 'collabType.result' },
+  request_help: {
+    color: 'text-orange-600',
+    bg: 'bg-orange-500/15',
+    labelKey: 'collabType.request_help',
+  },
+  propose_plan: {
+    color: 'text-violet-600',
+    bg: 'bg-violet-500/15',
+    labelKey: 'collabType.propose_plan',
+  },
+  object: { color: 'text-red-600', bg: 'bg-red-500/15', labelKey: 'collabType.object' },
+  accept: { color: 'text-teal-600', bg: 'bg-teal-500/15', labelKey: 'collabType.accept' },
+  delegate: { color: 'text-amber-600', bg: 'bg-amber-500/15', labelKey: 'collabType.delegate' },
+  share_context: {
+    color: 'text-cyan-600',
+    bg: 'bg-cyan-500/15',
+    labelKey: 'collabType.share_context',
+  },
 }
 
 // ---------------------------------------------------------------------------
@@ -735,6 +749,7 @@ interface CollaborationStreamProps {
 }
 
 export function CollaborationStream({ dispatchId, className }: CollaborationStreamProps) {
+  const t = useTranslations('swarmTopology')
   const [record, setRecord] = React.useState<CollaborationRecord | null>(null)
   const [loading, setLoading] = React.useState(false)
 
@@ -767,7 +782,7 @@ export function CollaborationStream({ dispatchId, className }: CollaborationStre
           className,
         )}
       >
-        加载协作记录中…
+        {t('loadingCollaboration')}
       </div>
     )
   }
@@ -780,7 +795,7 @@ export function CollaborationStream({ dispatchId, className }: CollaborationStre
           className,
         )}
       >
-        暂无协作消息
+        {t('emptyCollaboration')}
       </div>
     )
   }
@@ -789,16 +804,22 @@ export function CollaborationStream({ dispatchId, className }: CollaborationStre
     <div className={cn('space-y-2 rounded-md border border-border bg-card p-2.5', className)}>
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-medium text-foreground">
-          协作消息流({record.messages.length})
+          {t('collaborationTitle', { count: record.messages.length })}
         </span>
-        <span className="text-[10px] text-muted-foreground">{record.relations.length} 条关系</span>
+        <span className="text-[10px] text-muted-foreground">
+          {t('relationsCount', { count: record.relations.length })}
+        </span>
       </div>
       {/* 消息时间轴 */}
       <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
         {record.messages.map((msg, i) => {
-          const style: { color: string; bg: string; label: string } = COLLAB_TYPE_STYLE[
+          const style: { color: string; bg: string; labelKey: string } = COLLAB_TYPE_STYLE[
             msg.collaborationType
-          ] ?? { color: 'text-emerald-600', bg: 'bg-emerald-500/15', label: '结果' }
+          ] ?? {
+            color: 'text-emerald-600',
+            bg: 'bg-emerald-500/15',
+            labelKey: 'collabType.result',
+          }
           return (
             <div key={i} className="flex items-stretch gap-1.5">
               {/* 时间轴线 + 圆点 */}
@@ -825,7 +846,7 @@ export function CollaborationStream({ dispatchId, className }: CollaborationStre
                       style.color,
                     )}
                   >
-                    {style.label}
+                    {t(style.labelKey)}
                   </span>
                   <span className="text-muted-foreground/60">R{msg.round}</span>
                 </div>
@@ -840,23 +861,27 @@ export function CollaborationStream({ dispatchId, className }: CollaborationStre
       {/* 关系图摘要 */}
       {record.relations.length > 0 && (
         <div className="space-y-0.5 rounded-sm border border-border bg-muted/30 px-2 py-1">
-          <div className="text-[10px] font-medium text-muted-foreground">关系图</div>
+          <div className="text-[10px] font-medium text-muted-foreground">{t('relationsTitle')}</div>
           {record.relations.map((rel, i) => (
             <div key={i} className="flex items-center gap-1 text-[10px] text-muted-foreground">
               <code className="font-mono">{rel.from}</code>
               <span>→</span>
               <code className="font-mono">{rel.to}</code>
-              <span className="text-muted-foreground/60">({rel.count} 次)</span>
+              <span className="text-muted-foreground/60">
+                ({t('relationCount', { count: rel.count })})
+              </span>
               <div className="flex gap-0.5">
-                {rel.types.map((t) => {
-                  const s: { color: string; bg: string; label: string } = COLLAB_TYPE_STYLE[t] ?? {
+                {rel.types.map((type) => {
+                  const s: { color: string; bg: string; labelKey: string } = COLLAB_TYPE_STYLE[
+                    type
+                  ] ?? {
                     color: 'text-emerald-600',
                     bg: 'bg-emerald-500/15',
-                    label: '结果',
+                    labelKey: 'collabType.result',
                   }
                   return (
-                    <span key={t} className={cn('rounded-sm px-0.5 text-[8px]', s.bg, s.color)}>
-                      {s.label}
+                    <span key={type} className={cn('rounded-sm px-0.5 text-[8px]', s.bg, s.color)}>
+                      {t(s.labelKey)}
                     </span>
                   )
                 })}
@@ -878,21 +903,30 @@ interface TopologyRecommendationProps {
   className?: string
 }
 
-/** 编排模式 → 中文标签 + 颜色 */
-const ORCH_MODE_STYLE: Record<string, { color: string; bg: string; label: string }> = {
-  pipeline: { color: 'text-slate-600', bg: 'bg-slate-500/15', label: '串行' },
-  parallel: { color: 'text-slate-600', bg: 'bg-slate-500/15', label: '并行' },
-  debate: { color: 'text-red-600', bg: 'bg-red-500/15', label: '辩论' },
-  vote: { color: 'text-green-600', bg: 'bg-green-500/15', label: '投票' },
-  critique: { color: 'text-orange-600', bg: 'bg-orange-500/15', label: '批判' },
-  decomposed: { color: 'text-violet-600', bg: 'bg-violet-500/15', label: '分解' },
-  with_communication: { color: 'text-blue-600', bg: 'bg-blue-500/15', label: '协作通信' },
+/** 编排模式 → 颜色 + i18n 键名(渲染处取词) */
+const ORCH_MODE_STYLE: Record<string, { color: string; bg: string; labelKey: string }> = {
+  pipeline: { color: 'text-slate-600', bg: 'bg-slate-500/15', labelKey: 'orchMode.pipeline' },
+  parallel: { color: 'text-slate-600', bg: 'bg-slate-500/15', labelKey: 'orchMode.parallel' },
+  debate: { color: 'text-red-600', bg: 'bg-red-500/15', labelKey: 'orchMode.debate' },
+  vote: { color: 'text-green-600', bg: 'bg-green-500/15', labelKey: 'orchMode.vote' },
+  critique: { color: 'text-orange-600', bg: 'bg-orange-500/15', labelKey: 'orchMode.critique' },
+  decomposed: { color: 'text-violet-600', bg: 'bg-violet-500/15', labelKey: 'orchMode.decomposed' },
+  with_communication: {
+    color: 'text-blue-600',
+    bg: 'bg-blue-500/15',
+    labelKey: 'orchMode.with_communication',
+  },
 }
 
 export function TopologyRecommendation({ plan, className }: TopologyRecommendationProps) {
-  const modeStyle: { color: string; bg: string; label: string } = ORCH_MODE_STYLE[
+  const t = useTranslations('swarmTopology')
+  const modeStyle: { color: string; bg: string; labelKey: string } = ORCH_MODE_STYLE[
     plan.orchestration
-  ] ?? { color: 'text-slate-600', bg: 'bg-slate-500/15', label: '并行' }
+  ] ?? {
+    color: 'text-slate-600',
+    bg: 'bg-slate-500/15',
+    labelKey: 'orchMode.parallel',
+  }
 
   // 推导 agent 依赖层级(简单拓扑排序)
   const layers = React.useMemo(() => {
@@ -922,10 +956,10 @@ export function TopologyRecommendation({ plan, className }: TopologyRecommendati
             modeStyle.color,
           )}
         >
-          {modeStyle.label}({plan.orchestration})
+          {t(modeStyle.labelKey)}({plan.orchestration})
         </span>
         <span className="text-[10px] text-muted-foreground">
-          预估 {plan.estimatedDuration} · {plan.estimatedCost}
+          {t('estimate', { duration: plan.estimatedDuration, cost: plan.estimatedCost })}
         </span>
       </div>
 
@@ -963,7 +997,7 @@ export function TopologyRecommendation({ plan, className }: TopologyRecommendati
 
       {/* 推理 */}
       <div className="rounded-sm border border-border bg-muted/30 px-2 py-1 text-[11px] text-muted-foreground">
-        <span className="font-medium text-foreground">推理:</span>
+        <span className="font-medium text-foreground">{t('reasoningLabel')}</span>
         {plan.reasoning}
       </div>
 
@@ -994,6 +1028,7 @@ interface EvolutionTimelineProps {
 }
 
 export function EvolutionTimeline({ role, className }: EvolutionTimelineProps) {
+  const t = useTranslations('swarmTopology')
   const [history, setHistory] = React.useState<EvolutionHistory | null>(null)
   const [loading, setLoading] = React.useState(false)
 
@@ -1028,7 +1063,7 @@ export function EvolutionTimeline({ role, className }: EvolutionTimelineProps) {
           className,
         )}
       >
-        加载演化历史中…
+        {t('loadingEvolution')}
       </div>
     )
   }
@@ -1041,7 +1076,7 @@ export function EvolutionTimeline({ role, className }: EvolutionTimelineProps) {
           className,
         )}
       >
-        暂无演化版本(角色 {role} 未演过)
+        {t('emptyEvolution', { role })}
       </div>
     )
   }
@@ -1052,10 +1087,13 @@ export function EvolutionTimeline({ role, className }: EvolutionTimelineProps) {
     >
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-medium text-foreground">
-          {role} 演化时间轴({history.versions.length} 版)
+          {t('evolutionTitle', {
+            role,
+            count: history.versions.length,
+          })}
         </span>
         <span className="text-[10px] text-muted-foreground">
-          最近 {history.recentRecords.length} 次任务
+          {t('recentTasksCount', { count: history.recentRecords.length })}
         </span>
       </div>
 
@@ -1074,7 +1112,9 @@ export function EvolutionTimeline({ role, className }: EvolutionTimelineProps) {
                 {formatDateOnly(v.createdAt)}
               </div>
               <div className="mt-0.5 line-clamp-2 text-[9px] text-muted-foreground">
-                {v.changes.length > 0 ? `${v.changes.length} 个补丁` : '初始版本'}
+                {v.changes.length > 0
+                  ? t('patchCount', { count: v.changes.length })
+                  : t('initialVersion')}
               </div>
             </div>
             {i < history.versions.length - 1 && (
@@ -1087,7 +1127,9 @@ export function EvolutionTimeline({ role, className }: EvolutionTimelineProps) {
       {/* 当前 prompt */}
       <div className="rounded-sm border border-border bg-muted/30 px-2 py-1">
         <div className="text-[10px] font-medium text-muted-foreground">
-          当前 Prompt(版本 {history.versions[history.versions.length - 1]!.version})
+          {t('currentPromptTitle', {
+            version: history.versions[history.versions.length - 1]!.version,
+          })}
         </div>
         <div className="mt-0.5 line-clamp-3 text-[11px] text-muted-foreground">
           {history.currentPrompt}
@@ -1097,7 +1139,7 @@ export function EvolutionTimeline({ role, className }: EvolutionTimelineProps) {
       {/* 最近任务记录 */}
       {history.recentRecords.length > 0 && (
         <div className="space-y-0.5">
-          <div className="text-[10px] font-medium text-muted-foreground">最近任务</div>
+          <div className="text-[10px] font-medium text-muted-foreground">{t('recentTasks')}</div>
           {history.recentRecords.slice(0, 5).map((r, i) => (
             <div
               key={i}
@@ -1107,7 +1149,9 @@ export function EvolutionTimeline({ role, className }: EvolutionTimelineProps) {
                 {r.success ? '✓' : '✗'}
               </span>
               <span className="flex-1 truncate text-muted-foreground">{r.taskDescription}</span>
-              {r.retryCount > 0 && <span className="text-orange-500">重试{r.retryCount}</span>}
+              {r.retryCount > 0 && (
+                <span className="text-orange-500">{t('retryCount', { count: r.retryCount })}</span>
+              )}
               <span className="text-muted-foreground/60">{Math.round(r.durationMs / 1000)}s</span>
             </div>
           ))}
@@ -1119,7 +1163,9 @@ export function EvolutionTimeline({ role, className }: EvolutionTimelineProps) {
         history.versions[history.versions.length - 1]!.changes.length > 0 && (
           <div className="space-y-0.5 rounded-sm border border-amber-500/30 bg-amber-500/5 px-2 py-1">
             <div className="text-[10px] font-medium text-amber-700 dark:text-amber-400">
-              最新补丁({history.versions[history.versions.length - 1]!.version})
+              {t('latestPatches', {
+                version: history.versions[history.versions.length - 1]!.version,
+              })}
             </div>
             {history.versions[history.versions.length - 1]!.changes.map((c, i) => (
               <div key={i} className="text-[10px]">

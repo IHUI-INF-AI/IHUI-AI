@@ -40,7 +40,7 @@ function getTargetFiles() {
     try {
       const out = execSync(
         'git diff --cached --name-only --diff-filter=ACMR',
-        { encoding: 'utf-8' },
+        { encoding: 'utf-8', windowsHide: true },
       )
       return out
         .split('\n')

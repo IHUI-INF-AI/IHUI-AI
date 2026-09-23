@@ -77,6 +77,7 @@ const {
   mockSignAccessToken,
   mockSignRefreshToken,
   mockCreateFamilyId,
+  mockSignM2MAccessToken,
 } = vi.hoisted(() => ({
   mockAuthenticate: vi.fn(),
   mockFindOAuthAppByClientId: vi.fn(),
@@ -95,6 +96,9 @@ const {
   mockSignAccessToken: vi.fn(),
   mockSignRefreshToken: vi.fn(),
   mockCreateFamilyId: vi.fn(),
+  // 本文件把 'jose' 整体打桩成 { decodeJwt },真 signM2MAccessToken 里的 new SignJWT()
+  // 会炸;M2M 签发成功路径要测,故替身化这一个函数(其余 OAuth 纯函数走真实现)。
+  mockSignM2MAccessToken: vi.fn(async () => 'm2m.test.jwt'),
 }))
 
 vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
@@ -109,6 +113,7 @@ vi.mock('@ihui/auth', async (importOriginal) => {
     verifyAccessToken: mockVerifyAccessToken,
     signAccessToken: mockSignAccessToken,
     signRefreshToken: mockSignRefreshToken,
+    signM2MAccessToken: mockSignM2MAccessToken,
     createFamilyId: mockCreateFamilyId,
     isOidcConfigured: () => false,
     isDiscordConfigured: () => false,
@@ -277,7 +282,13 @@ vi.mock('../src/db/index.js', () => ({
   db: {},
 }))
 
-import { authExtendedRoutes } from '../src/routes/auth-extended.js'
+import {
+  authExtendedRoutes,
+  authenticateOAuthClient,
+  mintClientCredentialsToken,
+  type OAuthAppRow,
+} from '../src/routes/auth-extended.js'
+import { PUBLIC_CLIENT_SECRET } from '@ihui/auth'
 
 describe('OAuth2 Server 路由 — /auth/oauth/authorize + /auth/oauth/token', () => {
   let app: FastifyInstance
@@ -653,6 +664,126 @@ describe('OAuth2 Server 路由 — /auth/oauth/authorize + /auth/oauth/token', (
       })
       expect(res2.statusCode).toBe(400)
     })
+  })
+})
+
+/**
+ * O17b-④:`POST /oauth/token` 恒 400 的行级真因回归。
+ *
+ * 真因不在取参位置(`extractClientCredentials` 同时读 Authorization 头与表单 body,
+ * basic / post 同等有效),而在 **`oauth_apps.owner_uuid` 为 NULL**:动态注册(O17b 前的
+ * DCR)插入的行 owner_uuid 恒为 null,而 `mintClientCredentialsToken` 要求
+ * sub = owner_uuid(平台数据归属不变量),于是返回 400 invalid_client。
+ * 本组用例把"两条认证通道各自换到 token"与"空 owner / 越权 scope / 公开客户端"
+ * 三条拒绝面钉死,错误状态码同时按 RFC 6749 §5.2 收敛为 401。
+ */
+describe('O17b-④ authenticateOAuthClient + mintClientCredentialsToken', () => {
+  type RequestLike = Parameters<typeof authenticateOAuthClient>[0]
+
+  function requestWithHeader(authorization?: string): RequestLike {
+    return { headers: { ...(authorization ? { authorization } : {}) } } as unknown as RequestLike
+  }
+
+  function appRow(overrides: Record<string, unknown> = {}) {
+    return {
+      ...mockOAuthApp,
+      id: 'row-1',
+      clientSecretHash: null,
+      icon: null,
+      createdAt: new Date('2026-07-01'),
+      updatedAt: new Date('2026-07-01'),
+      ...overrides,
+    } as unknown as OAuthAppRow
+  }
+
+  beforeEach(() => {
+    mockFindOAuthAppByClientId.mockResolvedValue(mockOAuthApp)
+    mockFindUserById.mockResolvedValue(mockUser)
+    mockCreateAuditLog.mockResolvedValue(undefined)
+  })
+
+  it('client_secret_basic:Authorization 头里的凭证可换到 M2M 令牌', async () => {
+    const basic = Buffer.from('test-client-001:test-secret-abc').toString('base64')
+    const auth = await authenticateOAuthClient(requestWithHeader(`Basic ${basic}`), {})
+    expect(auth.ok).toBe(true)
+    if (!auth.ok) return
+    const mint = await mintClientCredentialsToken(auth.app, 'read')
+    expect(mint.ok).toBe(true)
+    if (!mint.ok) return
+    expect(mint.accessToken).toBe('m2m.test.jwt')
+    expect(mint.sub).toBe('user-001')
+  })
+
+  it('client_secret_post:表单/JSON body 里的凭证同样换到令牌(声明不是空头承诺)', async () => {
+    const auth = await authenticateOAuthClient(requestWithHeader(), {
+      client_id: 'test-client-001',
+      client_secret: 'test-secret-abc',
+    })
+    expect(auth.ok).toBe(true)
+    if (!auth.ok) return
+    const mint = await mintClientCredentialsToken(auth.app)
+    expect(mint.ok).toBe(true)
+    if (!mint.ok) return
+    // 未显式申请 scope 时回应用被授予的全集(RFC 6749 §6.3 的可选回显)
+    expect(mint.scope).toBe('read write')
+  })
+
+  it('basic 与 post 同时给出时以头为准,且错 secret 一律 invalid_client + 401', async () => {
+    const basic = Buffer.from('test-client-001:test-secret-abc').toString('base64')
+    const mixed = await authenticateOAuthClient(requestWithHeader(`Basic ${basic}`), {
+      client_id: 'test-client-001',
+      client_secret: 'wrong-secret',
+    })
+    expect(mixed.ok).toBe(true)
+
+    const wrong = await authenticateOAuthClient(requestWithHeader(), {
+      client_id: 'test-client-001',
+      client_secret: 'wrong-secret',
+    })
+    expect(wrong.ok).toBe(false)
+    if (wrong.ok) return
+    expect(wrong.status).toBe(401)
+    expect(wrong.error).toBe('invalid_client')
+  })
+
+  it('真因回归:owner_uuid 为 NULL 的应用签发 M2M 被拒,状态码是 401 而非 400', async () => {
+    const mint = await mintClientCredentialsToken(appRow({ ownerUuid: null }), 'read')
+    expect(mint.ok).toBe(false)
+    if (mint.ok) return
+    // 此前回 400,和"请求形状错"的 400 混在一起,正是本次排障绕弯的原因
+    expect(mint.status).toBe(401)
+    expect(mint.error).toBe('invalid_client')
+    expect(mint.description).toContain('owner_uuid')
+  })
+
+  it('scope 越权申请被拒:应用未被授予的 scope → 400 invalid_scope', async () => {
+    const mint = await mintClientCredentialsToken(appRow(), 'read admin:write')
+    expect(mint.ok).toBe(false)
+    if (mint.ok) return
+    expect(mint.status).toBe(400)
+    expect(mint.error).toBe('invalid_scope')
+    expect(mint.description).toContain('admin:write')
+  })
+
+  it('公开客户端(none)出示 secret 直接拒;不得用 client_credentials', async () => {
+    mockFindOAuthAppByClientId.mockResolvedValueOnce({
+      ...mockOAuthApp,
+      clientSecret: PUBLIC_CLIENT_SECRET,
+    })
+    const auth = await authenticateOAuthClient(requestWithHeader(), {
+      client_id: 'test-client-001',
+      client_secret: 'anything',
+    })
+    expect(auth.ok).toBe(false)
+    if (auth.ok) return
+    expect(auth.status).toBe(401)
+    expect(auth.description).toContain('PKCE')
+
+    const mint = await mintClientCredentialsToken(appRow({ clientSecret: PUBLIC_CLIENT_SECRET }))
+    expect(mint.ok).toBe(false)
+    if (mint.ok) return
+    expect(mint.status).toBe(401)
+    expect(mint.error).toBe('unauthorized_client')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

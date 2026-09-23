@@ -7,6 +7,7 @@ import { logger } from '@/utils/logger'
 import { View, Text, Input, Textarea, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useMemo, useCallback } from 'react'
+import { useUiField } from '@/lib/ui-field-registry'
 import { getHelp, submitFeedback } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import SearchBar from '@/components/SearchBar'
@@ -42,6 +43,29 @@ export default function HelpPage() {
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState<FeedbackForm>(DEFAULT_FORM)
   const [feedbackState, setFeedbackState] = useState<FeedbackState>('idle')
+  // AI 操控通道(2026-09-21):反馈表单三个输入框交给注册表,写入走 updateField(与 onInput 同一通道);
+  // 提交按钮(对外发送)不注册。搜索框已由 SearchBar 自身接入。
+  useUiField({
+    kind: 'input',
+    label: tt('about.help.usernamePlaceholder', '请输入姓名'),
+    placeholder: tt('about.help.usernamePlaceholder', '请输入姓名'),
+    readValue: () => form.username,
+    setValue: (next) => updateField('username', next),
+  })
+  useUiField({
+    kind: 'input',
+    label: tt('about.help.phonePlaceholder', '请输入联系方式'),
+    placeholder: tt('about.help.phonePlaceholder', '请输入联系方式'),
+    readValue: () => form.phone,
+    setValue: (next) => updateField('phone', next),
+  })
+  useUiField({
+    kind: 'textarea',
+    label: tt('about.help.contextPlaceholder', '请输入反馈详情'),
+    placeholder: tt('about.help.contextPlaceholder', '请输入反馈详情'),
+    readValue: () => form.context,
+    setValue: (next) => updateField('context', next),
+  })
 
   const filtered = useMemo(() => {
     if (!keyword) return list

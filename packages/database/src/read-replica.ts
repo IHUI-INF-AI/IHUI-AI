@@ -76,8 +76,11 @@ const MAX_LAG_SEC = 10
  *
  * 安全性:仅附加 .then 监听器,不改变返回的 PendingQuery 对象本身,
  * drizzle 内部调用的 .values()/.raw() 等方法不受影响。
+ *
+ * O13 补齐(2026-09-21):导出给 apps/api 的受控出口独立池(DATABASE_APP_URL)复用,
+ * 口径与主池/读副本完全一致 —— scoped 池的 SQL 同样进 sqlEventBus,不另发明事件。
  */
-function wrapClientWithLogger(client: postgres.Sql, logger: SqlLoggerFn): postgres.Sql {
+export function wrapClientWithLogger(client: postgres.Sql, logger: SqlLoggerFn): postgres.Sql {
   // 提前 bind,避免 wrapper 中使用 this(严格模式下 this 需显式标注)
   const originalUnsafe = client.unsafe.bind(client)
   // monkey-patch unsafe:保持原签名,仅在完成时测量耗时

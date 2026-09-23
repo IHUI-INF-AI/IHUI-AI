@@ -24,6 +24,7 @@ import { z } from 'zod'
 import { serviceInquiries } from '@ihui/database'
 import { db } from '../db/index.js'
 import { sendEmail } from '../services/email-service.js'
+import { renderNoticeEmail } from '../services/email-templates.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, parseOrThrow } from '../utils/response.js'
 import { eq, and, desc, sql } from 'drizzle-orm'
@@ -153,17 +154,26 @@ export const serviceInquiryRoutes: FastifyPluginAsync = async (server) => {
     // row 应始终存在(returning 带新插入行),加守卫满足类型系统
     const inquiry = rowToInquiry(row!)
 
-    // 异步发送邮件通知(不阻塞响应)
+    // 异步发送邮件通知(不阻塞响应)。「智汇通报」品牌模板,用户输入整体转义防内容注入
+    const inquiryRendered = renderNoticeEmail({
+      tag: 'BUSINESS // SERVICE_INQUIRY',
+      title: `新询价通知 - ${inquiry.serviceType}`,
+      content: [
+        `姓名:${inquiry.name}`,
+        `邮箱:${inquiry.email}`,
+        `电话:${inquiry.phone ?? '未填写'}`,
+        `公司:${inquiry.company ?? '未填写'}`,
+        `服务类型:${inquiry.serviceType}`,
+        `预算:${inquiry.budget}`,
+        `时间线:${inquiry.timeline}`,
+        `需求描述:${inquiry.description}`,
+      ].join('\n'),
+    })
     sendEmail({
       to: '[REDACTED-EMAIL]',
-      subject: `新询价通知 - ${inquiry.serviceType}`,
-      html: `
-        <h1>新询价提交</h1>
-        <p>姓名: ${inquiry.name}</p>
-        <p>邮箱: ${inquiry.email}</p>
-        <p>服务类型: ${inquiry.serviceType}</p>
-        <p>需求描述: ${inquiry.description}</p>
-      `,
+      subject: inquiryRendered.subject,
+      html: inquiryRendered.html,
+      text: inquiryRendered.text,
       scene: 'notification',
     }).catch((err) => {
       request.log.error({ err: (err as Error).message }, '[service-inquiry] 邮件发送失败')
