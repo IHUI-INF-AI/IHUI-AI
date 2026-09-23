@@ -246,22 +246,9 @@ describe('agents routes', () => {
   }
 
   describe('GET /api/agents/list', () => {
-    // 2026-09-21 市场公开化:列表对游客开放,但 handler 必须强制 status=published、
-    // 忽略游客传的 userId/status 过滤,并脱敏。原"未登录返回 401"停留在该决策之前。
-    it('游客列表返回 200,强制 published 且逐条脱敏', async () => {
-      mockListAgents.mockResolvedValueOnce({
-        list: [makeAgent({ agentPrompt: '私有提示词', botId: 'bot-secret' })],
-        total: 1,
-        page: 1,
-        pageSize: 20,
-      })
-      const res = await app.inject({ method: 'GET', url: '/api/agents/list?status=draft' })
-      expect(res.statusCode).toBe(200)
-      expect(mockListAgents).toHaveBeenCalledWith(
-        expect.objectContaining({ status: 'published', userId: undefined }),
-      )
-      expect(res.json().data.list[0].agentPrompt).toBeUndefined()
-      expect(res.json().data.list[0].botId).toBeUndefined()
+    it('未登录返回 401', async () => {
+      const res = await app.inject({ method: 'GET', url: '/api/agents/list' })
+      expect(res.statusCode).toBe(401)
     })
 
     it('登录后返回 200 与列表', async () => {
@@ -286,27 +273,9 @@ describe('agents routes', () => {
   })
 
   describe('GET /api/agents/:agentId', () => {
-    // 2026-09-21 市场公开化:GET /agents/:agentId 对游客开放,但只允许已发布且必须脱敏。
-    // 原断言"未登录返回 401"停留在该决策之前,故改为断言现在的契约(并顺带把脱敏钉住)。
-    it('游客读已发布详情返回 200 且响应脱敏', async () => {
-      mockGetAgentDetail.mockResolvedValueOnce({
-        agent: makeAgent({ status: 'published', agentPrompt: '私有提示词', botId: 'bot-secret' }),
-        category: null,
-      })
+    it('未登录返回 401', async () => {
       const res = await app.inject({ method: 'GET', url: '/api/agents/agent-001' })
-      expect(res.statusCode).toBe(200)
-      expect(res.json().data.name).toBe('测试智能体')
-      expect(res.json().data.agentPrompt).toBeUndefined()
-      expect(res.json().data.botId).toBeUndefined()
-    })
-
-    it('游客读未发布详情返回 404(不因公开化而泄露草稿)', async () => {
-      mockGetAgentDetail.mockResolvedValueOnce({
-        agent: makeAgent({ status: 'draft' }),
-        category: null,
-      })
-      const res = await app.inject({ method: 'GET', url: '/api/agents/agent-001' })
-      expect(res.statusCode).toBe(404)
+      expect(res.statusCode).toBe(401)
     })
 
     it('智能体不存在返回 404', async () => {

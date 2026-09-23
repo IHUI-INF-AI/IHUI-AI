@@ -5,7 +5,6 @@
 'use client'
 
 import * as React from 'react'
-import { useTranslations } from 'next-intl'
 import { Trash2, Loader2 } from 'lucide-react'
 
 import {
@@ -36,7 +35,6 @@ export function PlanItemEditDialog({
   onDelete?: () => Promise<void>
   isStudentMode?: boolean
 }) {
-  const t = useTranslations('eduStudyPlan')
   const [form, setForm] = React.useState<PlanItemFormData>(emptyItemForm)
   const [saving, setSaving] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
@@ -86,31 +84,31 @@ export function PlanItemEditDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {isStudentMode ? t('addNotes') : initial ? t('editItemTitle') : t('addItemTitle')}
+            {isStudentMode ? '添加备注' : initial ? '编辑计划条目' : '添加计划条目'}
           </DialogTitle>
         </DialogHeader>
         <div className="grid gap-3 py-2">
           <div className="grid gap-1.5">
-            <Label>{t('content')}</Label>
+            <Label>内容</Label>
             <Input
               value={form.content}
               onChange={(e) => update('content', e.target.value)}
-              placeholder={t('contentPlaceholder')}
+              placeholder="例如：完成第一章练习题"
               disabled={isStudentMode && !!initial}
             />
           </div>
           {!isStudentMode && (
             <div className="grid gap-1.5">
-              <Label>{t('objective')}</Label>
+              <Label>学习目标</Label>
               <Input
                 value={form.objective}
                 onChange={(e) => update('objective', e.target.value)}
-                placeholder={t('objectiveFieldPlaceholder')}
+                placeholder="目标描述（可选）"
               />
             </div>
           )}
           <div className="grid gap-1.5">
-            <Label>{t('dueDate')}</Label>
+            <Label>截止日期</Label>
             <Input
               type="date"
               value={form.dueDate}
@@ -119,11 +117,11 @@ export function PlanItemEditDialog({
             />
           </div>
           <div className="grid gap-1.5">
-            <Label>{t('notes')}</Label>
+            <Label>备注</Label>
             <Input
               value={form.notes}
               onChange={(e) => update('notes', e.target.value)}
-              placeholder={isStudentMode ? t('addYourNotes') : t('notesPlaceholder')}
+              placeholder={isStudentMode ? '添加你的备注' : '备注信息（可选）'}
             />
           </div>
           {initial && (
@@ -133,7 +131,7 @@ export function PlanItemEditDialog({
                 checked={form.completed}
                 onCheckedChange={(checked) => update('completed', checked as boolean)}
               />
-              <span>{t('statusCompleted')}</span>
+              已完成
             </label>
           )}
         </div>
@@ -145,12 +143,12 @@ export function PlanItemEditDialog({
               ) : (
                 <Trash2 className="h-4 w-4" />
               )}
-              {t('delete')}
+              删除
             </Button>
           )}
           <Button onClick={handleSave} disabled={saving || !form.content.trim()}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {isStudentMode ? t('saveNotes') : initial ? t('save') : t('add')}
+            {isStudentMode ? '保存备注' : initial ? '保存' : '添加'}
           </Button>
         </DialogFooter>
       </DialogContent>
