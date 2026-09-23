@@ -16,7 +16,7 @@ import logging
 import os
 import re
 from collections.abc import AsyncIterator
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -719,10 +719,22 @@ class MemorySearchRequest(BaseModel):
 
 
 class ApprovalResponseRequest(BaseModel):
-    """工具审批响应请求(2026-08-30 立)。"""
+    """工具审批响应请求(2026-08-30 立;D84 2026-09-23 补作用域与原因)。"""
 
     approval_id: str = Field(..., description="审批请求 id(tool-approval SSE 事件返回)")
     decision: str = Field(..., description="决策: approve=批准 / reject=拒绝(其他值视为拒绝)")
+    scope: Literal["once", "session", "always"] = Field(
+        "session",
+        description=(
+            "D84 审批作用域:once=仅本次(不落授权) / session=本会话同键免弹窗(默认,兼容旧客户端) / "
+            "always=跨会话同键免弹窗(approval_grants.db 持久行)。授权按 cache_key 精确匹配,不放大到全局。"
+        ),
+    )
+    reason: str | None = Field(
+        None,
+        max_length=500,
+        description="用户附带原因(可选,拒绝理由为主);仅进决策提示/审计,不参与判定。",
+    )
 
 
 class SecurityConfigUpdateRequest(BaseModel):
@@ -814,7 +826,9 @@ async def agent_approval_response(
     )
 
     decision = "approve" if req.decision.lower() in ("approve", "allow", "approved") else "reject"
-    outcome = resolve_approval_for_requester(req.approval_id, decision, current_user)
+    outcome = resolve_approval_for_requester(
+        req.approval_id, decision, current_user, scope=req.scope, reason=req.reason
+    )
     if outcome is ApprovalOutcome.NOT_FOUND:
         raise HTTPException(status_code=404, detail="approval not found or expired")
     if outcome is ApprovalOutcome.FORBIDDEN:
