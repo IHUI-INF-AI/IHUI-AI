@@ -8,6 +8,7 @@ import { eq, and, desc, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { success, error } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import {
   commissionFlows,
   withdrawalFlows,
@@ -299,8 +300,8 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // 管理员审批通过（status 0→1→2）
   server.post('/finance/agent-withdrawal/:id/approve', async (request, reply) => {
-    const payload = await authenticate(request)
-    if (payload.roleId < 1) return reply.status(403).send(error(403, '无管理员权限'))
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const { id } = idParam.parse(request.params)
     try {
       const existing = await db
@@ -328,8 +329,8 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // 管理员驳回（body: rejectReason; status→3）
   server.post('/finance/agent-withdrawal/:id/reject', async (request, reply) => {
-    const payload = await authenticate(request)
-    if (payload.roleId < 1) return reply.status(403).send(error(403, '无管理员权限'))
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const { id } = idParam.parse(request.params)
     const { rejectReason } = z.object({ rejectReason: z.string().optional() }).parse(request.body)
     try {
@@ -368,8 +369,8 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // 保证金调整（写入 tokenFlows opType=5 管理员调整）
   server.post('/admin/finance/margin/adjust', async (request, reply) => {
-    const payload = await authenticate(request)
-    if (payload.roleId < 1) return reply.status(403).send(error(403, '无管理员权限'))
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const parsed = adjustSchema.safeParse(request.body)
     if (!parsed.success) return reply.status(400).send(error(400, '参数错误: userId, amount 必填'))
     const { userId, amount, remark } = parsed.data
@@ -403,7 +404,7 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
           quantity: amount,
           balanceAfter: newBalance,
           remark: remark ?? '管理员调整',
-          operatorId: payload.userId,
+          operatorId: request.userId!,
         })
         .returning()
       return reply.send(success({ flow, balance: newBalance }))
@@ -415,8 +416,8 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // 资金审核列表（查询 withdrawalFlows + commissionFlows 联合统计）
   server.get('/admin/finance/fund/audit/list', async (request, reply) => {
-    const payload = await authenticate(request)
-    if (payload.roleId < 1) return reply.status(403).send(error(403, '无管理员权限'))
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const { status, page, pageSize } = z
       .object({
         status: z.coerce.number().optional(),
@@ -488,8 +489,8 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   // 资金审核操作（body: action: approve/reject; 更新 withdrawalFlows status）
   server.post('/admin/finance/fund/audit/:id', async (request, reply) => {
-    const payload = await authenticate(request)
-    if (payload.roleId < 1) return reply.status(403).send(error(403, '无管理员权限'))
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const { id } = idParam.parse(request.params)
     const { action, remark } = z
       .object({ action: z.string(), remark: z.string().optional() })

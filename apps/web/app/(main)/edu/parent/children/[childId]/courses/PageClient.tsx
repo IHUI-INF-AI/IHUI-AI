@@ -33,11 +33,21 @@ async function api<T>(url: string): Promise<T> {
   return r.data
 }
 
-const WEEKDAY_LABELS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+/** 周序(数组下标 +1 = weekday,1=周一 … 7=周日)→ eduParent 取词键;渲染处 tParent(key) 取词 */
+const WEEKDAY_KEYS = [
+  'weekdayMon',
+  'weekdayTue',
+  'weekdayWed',
+  'weekdayThu',
+  'weekdayFri',
+  'weekdaySat',
+  'weekdaySun',
+]
 
 export default function ChildCoursesPage() {
   const t = useTranslations('parentPortal')
   const tc = useTranslations('common')
+  const tParent = useTranslations('eduParent')
   const params = useParams()
   const childId = params.childId as string
 
@@ -75,13 +85,13 @@ export default function ChildCoursesPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
-          {WEEKDAY_LABELS.map((dayLabel, idx) => {
+          {WEEKDAY_KEYS.map((dayKey, idx) => {
             const dayCourses = grouped[idx + 1]
             if (!dayCourses) return null
             return (
               <Card key={idx}>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">{dayLabel}</CardTitle>
+                  <CardTitle className="text-sm font-medium">{tParent(dayKey)}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {dayCourses.map((c) => (
