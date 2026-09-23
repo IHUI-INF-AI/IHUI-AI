@@ -166,6 +166,72 @@ const remoteShort = remoteHead.substring(0, 7)
 log('info', `本地 HEAD  : ${C.cyan}${localShort}${C.reset}`)
 log('info', `远端 HEAD  : ${C.cyan}${remoteShort}${C.reset}`)
 
+// ─── 2.9b 悬空 ref 预检(2026-09-23 立,根治"每次 fetch 都 fatal,推送整条链哑掉") ──
+// 背景:.git 被宿主整体删除后(§5b 同日第 16 次),tag/remote ref 的**名字**会从
+//      packed-refs、备份 gitdir、refs-manifest 等来源被复原回来,但它们指向的**对象**
+//      已经随 .git 一起没了 → 留下悬空 ref。后果不是"某个 tag 看不了",而是
+//      **每一次 `git fetch origin main` 都 fatal: bad object refs/tags/<X>**
+//      ("did not send all necessary objects"),于是 push-guard / git-sync-converge /
+//      任何要联网的命令全部失效:本地攒着几十个提交上不去,表面却只像"分叉解不开"。
+// 判据:只用两条零网络命令 —— `for-each-ref` 取 sha,一次 `cat-file --batch-check`
+//      批量判定。⚠️ 三处实测坑(前两处各让我得出过一次错误结论):
+//      ① format 里加 `%(*objectname)` 会在遇到坏 annotated tag 时**静默返回空表**;
+//      ② **松散**坏 ref 根本不出现在 for-each-ref 的 stdout 里 —— git 只在 **stderr**
+//         打 `warning: ignoring broken ref <REF>` 就把它丢了(注入实测:这种 ref 照样让
+//         fetch fatal),所以判据必须把 stderr 那行一起收;packed-refs 里的坏行则会进
+//         stdout 但对象 batch-check 报 missing,两类都要抓;
+//      ③ 校验删除结果**不能用 `git show-ref -q --verify`** —— 它对"ref 在、对象没了"
+//         本身返回非 0,于是"没删掉"会被读成"已删除"。
+const checkDanglingRefs = () => {
+  let listed = { stdout: '', stderr: '' }
+  try {
+    const r = spawnSync(
+      'git',
+      ['-c', 'safe.directory=*', 'for-each-ref', '--format=%(refname)%09%(objectname)'],
+      { encoding: 'utf8', windowsHide: true, maxBuffer: 64 * 1024 * 1024 },
+    )
+    listed = { stdout: String(r.stdout || ''), stderr: String(r.stderr || '') }
+  } catch {
+    return { skipped: true }
+  }
+  const rows = listed.stdout.split(/\r?\n/).filter(Boolean).map((l) => l.split('\t'))
+  // ② 松散坏 ref:只活在 stderr 的 ignoring 行里
+  const looseBroken = [...listed.stderr.matchAll(/ignoring broken ref (\S+)/g)].map((m) => [m[1], ''])
+  if (rows.length === 0 && looseBroken.length === 0) return { skipped: true } // 读不到清单:不拦(宁漏不误伤推送)
+  const shas = [...new Set(rows.map(([, s]) => s).filter((s) => /^[0-9a-f]{7,40}$/.test(s)))]
+  let missing = new Set()
+  if (shas.length) {
+    try {
+      const out = spawnSync('git', ['-c', 'safe.directory=*', 'cat-file', '--batch-check'], {
+        input: shas.join('\n') + '\n',
+        encoding: 'utf8',
+        windowsHide: true,
+        maxBuffer: 64 * 1024 * 1024,
+      }).stdout
+      missing = new Set(String(out).split(/\r?\n/).filter((l) => /\bmissing\b/.test(l)).map((l) => l.split(' ')[0]))
+    } catch {
+      return { skipped: true }
+    }
+  }
+  const dang = [...rows.filter(([, s]) => missing.has(s)), ...looseBroken]
+  return { skipped: false, total: rows.length + looseBroken.length, dang }
+}
+if (!process.env.GUARD_SKIP_DANGLING_REF_CHECK) {
+  const dk = checkDanglingRefs()
+  if (!dk.skipped && dk.dang.length > 0) {
+    log('err', `检出 ${dk.dang.length} 枚 ref 指向已不存在的对象(共判 ${dk.total} 条 ref)—— 这会让每次 git fetch 直接 fatal,推送必然推不动`)
+    for (const [ref, sha] of dk.dang.slice(0, 8)) log('info', `  · ${ref} -> ${sha ? sha.slice(0, 12) + '…' : '(对象不可解析,松散坏 ref)'}`)
+    if (dk.dang.length > 8) log('info', `  · …另 ${dk.dang.length - 8} 条`)
+    log('info', '修复顺序(不可颠倒:先清坏指针,再刷备份,否则把坏指针复制进"恢复源"):')
+    log('info', '  1) for-each-ref 取 sha + 一次 git cat-file --batch-check 找 missing,名字+sha 先落 .workbuddy/dangling-tags.txt 留证')
+    log('info', '  2) 直删松散文件 .git/refs/<路径>(update-ref -d 对 depth>=2 的嵌套 tag 会返回 0 却不落盘)')
+    log('info', '  3) git fetch origin <branch> 复验;再 git fetch --force origin "+refs/tags/*:refs/tags/*" 从远端取回真 tag')
+    log('info', '  4) robocopy .git <仓名>.git-backup-<date> /MIR 重做守护的本地恢复源')
+    log('info', '紧急绕过(自行承担失败推送):GUARD_SKIP_DANGLING_REF_CHECK=1')
+    process.exit(1)
+  }
+}
+
 // ─── 3. 对比 + 决定是否 push ────────────────────────────────
 if (localHead === remoteHead) {
   log('ok', `本地与 origin/${branch} 已同步,无需 push`)
