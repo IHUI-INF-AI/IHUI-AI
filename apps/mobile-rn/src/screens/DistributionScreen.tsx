@@ -439,14 +439,14 @@ const shellStyles = {
   shareBtn: {
     height: 44,
     borderRadius: 8,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.ctaFill,
     alignItems: 'center',
     justifyContent: 'center',
   } as const,
   shareBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
   } as const,
   qrContent: {
     alignItems: 'center',
@@ -481,7 +481,7 @@ const shellStyles = {
   saveBtn: {
     height: 44,
     borderRadius: 8,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.ctaFill,
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'stretch',
@@ -489,7 +489,7 @@ const shellStyles = {
   saveBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
   } as const,
   saveBtnDisabled: {
     opacity: 0.5,
