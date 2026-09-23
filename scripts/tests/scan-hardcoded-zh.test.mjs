@@ -52,12 +52,18 @@ function writeFile(root, relPath, content) {
   writeFileSync(full, content, 'utf8')
 }
 
-// 辅助:运行 scan-hardcoded-zh.mjs(cwd 设为临时项目根)
+// 辅助:运行 scan-hardcoded-zh.mjs(把项目根显式指向临时夹具)
+// 必须传 --root:脚本的 ROOT 由自身位置推导(防"从子包 cwd 调用 ⇒ 静默扫不到文件而恒绿"),
+// 只改 spawn 的 cwd 不影响它 → 曾经 14 例里 13 例在比对真仓数据而恒红。
+// 用 process.execPath 而非裸 'node'(不依赖 PATH),windowsHide 防派生可见控制台窗口(AGENTS §5b)。
 function runScript(args = [], opts = {}) {
-  return spawnSync('node', [SCRIPT_PATH, ...args], {
-    cwd: opts.cwd || process.cwd(),
+  const cwd = opts.cwd || process.cwd()
+  const rooted = opts.cwd === undefined || args.includes('--root') ? args : [...args, '--root', cwd]
+  return spawnSync(process.execPath, [SCRIPT_PATH, ...rooted], {
+    cwd,
     encoding: 'utf8',
     stdio: ['pipe', 'pipe', 'pipe'],
+    windowsHide: true,
   })
 }
 
@@ -329,6 +335,39 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
       assert.match(r.stdout, /硬编码中文行数: 2/, '第 2、3 行含中文,第 4 行英文不计,应 2 处命中')
     } finally {
       rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  // ─── 15. 行尾 `//` 注释:免检说明不计数,但不得顺手剥掉字符串内容与豁免标记 ───
+  // 2026-09-24 起因:门 70 只剥"成对块注释"和"整行行注释",**行尾** `//` 之后的中文
+  // 被算成硬编码中文 —— PriceChart/TerminalTab/TerminalStatusIndicators 各被
+  // `radius-exempt` 说明顶出 2/1/1 处假阳,越过基线使门在 HEAD 上恒红。
+  // 五条正反例钉住三件事:① 行尾注释不计数;② 字符串里的 `//` 不是注释起点(否则真文案被吞);
+  // ③ 豁免标记写在行尾注释里时仍然有效(否则咬断别人的兜底译文通道)。
+  test('行尾注释:radius-exempt 说明不计数 + 字符串内 // 与行尾豁免标记不得误剥', () => {
+    const cases = [
+      // ① 行尾免检说明 → 0 命中
+      { name: 'trailing-exempt', body: "export const rx = 1.5 // radius-exempt: 图表细柱微圆角,吸附到档位会破坏观感", want: 0 },
+      // ② 字符串里含 // → 中文是真界面文案,必须仍命中
+      { name: 'slash-in-string', body: "export const label = '输入//输出'", want: 1 },
+      // ③ 豁免标记写在行尾注释里 → 整行仍按 i18n 兜底译文放过
+      { name: 'tail-exemption', body: "export const copy = { zh: '工具记录内容', en: 'Tool content' } // next-intl 缺词兜底", want: 0 },
+      // ④ 真硬编码中文 + 行尾注释 → 注释不算,代码部分必须命中
+      { name: 'real-copy-with-tail', body: "export const title = '首页标题' // 待迁移到词表", want: 1 },
+      // ⑤ 跨行模板里的裸 URL:`://` 不得被当注释起点(否则整行文档示例被抹掉 = 假绿)
+      { name: 'url-in-template', body: 'export const doc = `\nhttps://api-staging.aizhs.top/v1  # 预发\n`', want: 1 },
+    ]
+    for (const c of cases) {
+      const root = createTempProject()
+      try {
+        writeFile(root, `apps/web/app/${c.name}.tsx`, c.body)
+        const r = runScript([], { cwd: root })
+        const m = String(r.stdout).match(/硬编码中文行数:\s*(\d+)/)
+        assert.ok(m, `${c.name}: 未解析到命中数\n${r.stdout}\n${r.stderr}`)
+        assert.equal(Number(m[1]), c.want, `${c.name} 命中数应为 ${c.want},实际 ${m[1]}\nstdout:${r.stdout}\nstderr:${r.stderr}`)
+      } finally {
+        rmSync(root, { recursive: true, force: true })
+      }
     }
   })
 
