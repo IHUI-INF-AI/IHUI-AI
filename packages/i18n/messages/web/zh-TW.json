@@ -7484,7 +7484,90 @@
         "expandAria": "命令歷史(展開/收起)"
       },
       "toolSummaryShowMore": "更多",
-      "toolSummaryShowLess": "收起"
+      "toolSummaryShowLess": "收起",
+      "worktree": {
+        "title": "Worktree",
+        "state": {
+          "creating": "建立中",
+          "ready": "已建立",
+          "initFailed": "初始化失敗",
+          "timeout": "逾時",
+          "cleaned": "此任務的 Worktree 已被清理以釋放磁碟空間。",
+          "restoring": "還原中",
+          "restored": "已還原",
+          "restoreFailed": "無法還原"
+        },
+        "hint": {
+          "timeout": "請檢查倉庫狀態",
+          "cleaned": "可還原該 Worktree 以繼續此任務,或回收磁碟空間。",
+          "singleWriter": "同一任務同時僅允許一個使用中的 Worktree。"
+        },
+        "action": {
+          "reclaimDisk": "回收磁碟空間",
+          "restore": "還原 Worktree",
+          "retryRestore": "重試還原",
+          "dismiss": "知道了"
+        },
+        "ariaLabel": "Worktree 生命週期"
+      },
+      "writingBlock": {
+        "title": "寫作區塊",
+        "ariaLabel": "寫作區塊",
+        "empty": "此訊息暫無寫作區塊",
+        "status": {
+          "idle": "待處理",
+          "editing": "編輯中",
+          "accepted": "已接受",
+          "reverted": "已還原",
+          "failed": "無法更新此寫作區塊"
+        },
+        "action": {
+          "accept": "接受",
+          "acceptAll": "全部接受",
+          "revert": "撤銷"
+        },
+        "phase": {
+          "accept": {
+            "inProgress": "正在接受",
+            "completed": "已接受",
+            "failed": "無法接受此寫作區塊"
+          },
+          "acceptAll": {
+            "inProgress": "正在全部接受",
+            "completed": "已全部接受",
+            "failed": "無法全部接受此寫作區塊"
+          },
+          "revert": {
+            "inProgress": "正在撤銷",
+            "completed": "已撤銷",
+            "failed": "無法撤銷此寫作區塊"
+          }
+        },
+        "openIn": {
+          "label": "開啟方式",
+          "email": "使用預設電子郵件應用程式開啟電子郵件",
+          "browser": "使用預設瀏覽器開啟網頁"
+        }
+      },
+      "promptPolish": {
+        "entryLabel": "潤色",
+        "ariaLabel": "潤色提示詞",
+        "phase": {
+          "idle": "未潤色",
+          "polishing": "正在潤色…",
+          "succeeded": "潤色完成",
+          "failed": "潤色失敗"
+        },
+        "action": {
+          "polish": "潤色",
+          "retry": "重試"
+        },
+        "failureDraftKept": "暫時無法潤色提示詞，草稿已保留。",
+        "rejection": {
+          "emptyDraft": "草稿為空，請先輸入內容再潤色。"
+        },
+        "restartHint": "潤色服務需重新啟動後生效，草稿已保留。"
+      }
     },
     "permissionConfirm": {
       "allow": "允許",
