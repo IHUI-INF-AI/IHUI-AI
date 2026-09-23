@@ -4,6 +4,8 @@
 
 'use client'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 import { useState } from 'react'
 import { ChevronRight, ChevronDown } from 'lucide-react'
 import type { TreeNode } from './design-types'
@@ -43,7 +45,7 @@ export function TreeView({
           padding: '3px 6px',
           border: 'none',
           background: isSelected ? 'var(--accent-soft, rgba(0,0,0,0.06))' : 'transparent',
-          borderRadius: 4,
+          borderRadius: rnRadius.sm,
           textAlign: 'left',
           fontSize: 11,
           cursor: 'pointer',

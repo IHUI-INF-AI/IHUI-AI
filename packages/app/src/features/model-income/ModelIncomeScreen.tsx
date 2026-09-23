@@ -16,6 +16,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ModelIncomeItem, ModelIncomeScreenProps, ModelIncomeTab } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** ModelIncome 共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { ModelIncomeItem, ModelIncomeScreenProps, ModelIncomeTab }
 
@@ -262,14 +264,14 @@ function createStyles(tk: AppThemeTokens) {
     retryBtn: {
       paddingHorizontal: 10,
       paddingVertical: 6,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     retryText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
     summaryCard: {
       marginHorizontal: 10,
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
     },
     sumTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -278,7 +280,7 @@ function createStyles(tk: AppThemeTokens) {
     withdrawBtn: {
       paddingHorizontal: 10,
       paddingVertical: 6,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     withdrawBtnText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
@@ -295,7 +297,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       marginTop: 14,
       padding: 10,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
     },
     sumFooterItem: { flex: 1 },
@@ -312,13 +314,13 @@ function createStyles(tk: AppThemeTokens) {
       marginHorizontal: 10,
       marginTop: 12,
       padding: 4,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     tabItem: {
       flex: 1,
       height: 32,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -329,7 +331,7 @@ function createStyles(tk: AppThemeTokens) {
     emptyText: { fontSize: 14, color: tk.text.tertiary },
     card: {
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -344,7 +346,7 @@ function createStyles(tk: AppThemeTokens) {
     cardAvatar: {
       width: 44,
       height: 44,
-      borderRadius: 22,
+      borderRadius: 22, // radius-exempt: 44dp 圆形账单头像,取边长一半
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
@@ -358,8 +360,8 @@ function createStyles(tk: AppThemeTokens) {
     modalMask: { flex: 1, justifyContent: 'flex-end', backgroundColor: tk.overlay.modal },
     modalBody: {
       backgroundColor: tk.surface.light,
-      borderTopLeftRadius: 16,
-      borderTopRightRadius: 16,
+      borderTopLeftRadius: rnRadius['2xl'],
+      borderTopRightRadius: rnRadius['2xl'],
       padding: 20,
     },
     modalHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -377,7 +379,7 @@ function createStyles(tk: AppThemeTokens) {
     payIcon: {
       width: 36,
       height: 36,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
@@ -388,7 +390,7 @@ function createStyles(tk: AppThemeTokens) {
     payRadio: {
       width: 18,
       height: 18,
-      borderRadius: 9,
+      borderRadius: 9, // radius-exempt: 18dp 圆形单选(radio)指示器,取边长一半
       borderWidth: 2,
       borderColor: tk.brand.DEFAULT,
       backgroundColor: tk.brand.DEFAULT,
@@ -397,7 +399,7 @@ function createStyles(tk: AppThemeTokens) {
     modalBtn: {
       marginTop: 20,
       height: 44,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

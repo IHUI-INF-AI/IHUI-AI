@@ -18,6 +18,7 @@
  * 平台特有:依赖 RN Animated/PanResponder/Modal/SafeAreaContext,不适合共享。
  */
 import { tokens } from '../theme/active-tokens'
+import { rnRadius } from '@ihui/design-tokens'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
@@ -592,8 +593,8 @@ export function Drawer(props: DrawerProps) {
             style={{
               paddingTop: insets.top,
               paddingBottom: insets.bottom,
-              borderTopRightRadius: 15,
-              borderBottomRightRadius: 15,
+              borderTopRightRadius: rnRadius['2xl'],
+              borderBottomRightRadius: rnRadius['2xl'],
               backgroundColor: tokens.surface.card,
             }}
           >

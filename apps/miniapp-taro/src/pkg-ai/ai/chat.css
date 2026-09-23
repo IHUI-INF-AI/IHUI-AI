@@ -68,7 +68,7 @@
   margin: 12rpx;
   padding: 16rpx 28rpx;
   background: var(--color-card);
-  border-radius: 32rpx;
+  border-radius: var(--radius-2xl);
   font-size: 26rpx;
   color: var(--color-primary);
 }
@@ -84,7 +84,7 @@
 .avatar {
   width: 72rpx;
   height: 72rpx;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -102,7 +102,7 @@
   max-width: 100%;
   margin: 0 20rpx;
   padding: 20rpx;
-  border-radius: 30rpx;
+  border-radius: var(--radius-2xl);
   box-sizing: border-box;
 }
 .msg-item.user .bubble {
@@ -117,7 +117,7 @@
       var(--color-white-40) 129%
     )
     2;
-  border-radius: 15rpx;
+  border-radius: var(--radius-lg);
 }
 .msg-item.assistant .bubble {
   background: var(--color-card);
@@ -149,7 +149,7 @@
   height: 80rpx;
   padding: 0 24rpx;
   background: var(--color-background);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   font-size: 28rpx;
 }
 .send-btn {
@@ -159,7 +159,7 @@
   line-height: 80rpx;
   background: var(--color-primary);
   color: var(--color-foreground);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   font-size: 28rpx;
 }
 .send-btn.disabled {
@@ -245,12 +245,12 @@
   padding: 16rpx;
   margin-bottom: 12rpx;
   background: var(--color-background);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
 }
 .material-cover {
   width: 80rpx;
   height: 80rpx;
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   margin-right: 16rpx;
   background: var(--color-secondary);
 }
@@ -270,7 +270,7 @@
 .agent-avatar {
   width: 80rpx;
   height: 80rpx;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   background: var(--color-secondary);
   margin-right: 16rpx;
 }
@@ -300,7 +300,7 @@
   margin-top: 24rpx;
   padding: 20rpx;
   background: var(--color-background);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
 }
 .agent-prompt-title {
   display: block;
@@ -319,7 +319,7 @@
   margin-bottom: 12rpx;
   padding: 12rpx 16rpx;
   background: var(--color-background);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
 }
 .reasoning-toggle {
   display: block;
@@ -341,7 +341,7 @@
   padding: 16rpx 24rpx;
   margin: 12rpx 16rpx;
   background: var(--color-card);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
 }
 .tishi-block-icon {
   margin-right: 12rpx;
@@ -355,7 +355,7 @@
   margin: 12rpx 16rpx;
   padding: 20rpx;
   background: var(--color-card);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
 }
 .tishi-title {
   display: flex;
@@ -374,7 +374,7 @@
 .tishi-content {
   padding: 12rpx 16rpx;
   background: var(--color-background);
-  border-radius: 6rpx;
+  border-radius: var(--radius-xs);
 }
 .tishi-content-line {
   display: block;
@@ -400,7 +400,7 @@
   padding: 24rpx;
   margin-bottom: 16rpx;
   background: var(--color-background);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
 }
 .history-item-title {
   display: block;
@@ -456,7 +456,7 @@
   padding: 8rpx 16rpx;
   background: var(--color-link-bg);
   color: var(--color-info);
-  border-radius: 6rpx;
+  border-radius: var(--radius-xs);
   font-size: 24rpx;
   display: inline-flex;
   align-items: center;
@@ -468,7 +468,7 @@
   align-items: center;
   gap: 16rpx;
   padding: 16rpx 24rpx;
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   margin-top: 10rpx;
 }
 .voice-bubble.user {
@@ -522,7 +522,7 @@
 .input-area-back {
   width: 100%;
   background: none;
-  border-radius: 30rpx;
+  border-radius: var(--radius-2xl);
   overflow: hidden;
   transition: box-shadow 0.3s ease;
   animation: inputAreaBackAnimation 2s linear infinite;
@@ -557,7 +557,7 @@
   background-color: var(--color-card);
   background-size: 100% 100%;
   background-repeat: no-repeat;
-  border-radius: 30rpx;
+  border-radius: var(--radius-2xl);
   padding: 0 15rpx 0 25rpx;
   height: auto;
   box-sizing: border-box;
@@ -637,12 +637,12 @@
   height: 30rpx;
   z-index: 10;
   background: var(--color-card);
-  border-radius: 100rpx;
+  border-radius: 100rpx; /* radius-exempt: 30rpx 见方的图片删除按钮,半径取边长一半即真圆,改方档会破坏圆形 */
 }
 .imgs-list-item-img {
   width: 100%;
   height: 120rpx;
-  border-radius: 15rpx;
+  border-radius: var(--radius-lg);
 }
 
 /* ============ 文档文件名滚动动画(对标原项目 .scroll-container + @keyframes scroll) ============ */
@@ -697,7 +697,7 @@
   width: 6rpx;
   height: 6rpx;
   background-color: var(--color-card);
-  border-radius: 5rpx;
+  border-radius: 5rpx; /* radius-exempt: 6rpx 宽竖条(高度动画到 25-65rpx),半径取宽度一半形成圆头端点,方档会破坏形状 */
   animation: voiceMove 0.75s linear infinite alternate;
   transition: all 1s;
 }
@@ -808,14 +808,14 @@
   width: 100%;
   height: 36rpx;
   background: var(--color-muted);
-  border-radius: 18rpx;
+  border-radius: 18rpx; /* radius-exempt: 容器高 36rpx,半径取高度一半为胶囊端头 */
   overflow: hidden;
   margin-top: 8rpx;
 }
 .thinking-progress-bar {
   position: relative;
   height: 100%;
-  border-radius: 18rpx;
+  border-radius: 18rpx; /* radius-exempt: 进度条 height:100% 跟随 36rpx 容器,半径=高度一半为胶囊 */
   background: linear-gradient(214deg);
   background-size: 200% 100%;
   animation: progressAnimation 2s linear infinite;
@@ -860,7 +860,7 @@
 .loader-dot {
   width: 12rpx;
   height: 12rpx;
-  border-radius: 50%;
+  border-radius: 50%; /* radius-exempt: 12rpx 见方加载装饰点,按项目规则真圆豁免 */
   background: var(--color-card);
   animation: loaderpulse 1.5s infinite ease-in-out;
 }
@@ -907,7 +907,7 @@
   width: calc(100% - 80rpx);
   max-height: 50vh;
   background: var(--color-card);
-  border-radius: 10rpx;
+  border-radius: var(--radius-sm);
   padding: 2rpx;
   overflow: hidden;
   display: flex;
@@ -928,7 +928,7 @@
   z-index: 1;
   background: var(--color-card);
   margin: 4rpx;
-  border-radius: 18rpx 18rpx 0 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   padding: 20rpx;
   display: flex;
   align-items: center;
@@ -945,7 +945,7 @@
   z-index: 1;
   background: var(--color-card);
   margin: 0 4rpx 4rpx;
-  border-radius: 0 0 18rpx 18rpx;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   padding: 20rpx;
   max-height: 40vh;
   overflow-y: auto;
@@ -966,12 +966,12 @@
 .tishi-box-gradient {
   padding: 2rpx;
   background: linear-gradient(81deg, var(--color-ring) 54%, transparent 126%);
-  border-radius: 10rpx;
+  border-radius: var(--radius-sm);
   margin: 12rpx 16rpx;
 }
 .tishi-box-inner {
   background: var(--color-card);
-  border-radius: 18rpx;
+  border-radius: var(--radius-lg);
   padding: 10rpx 0;
 }
 
@@ -1003,7 +1003,7 @@
   font-size: 26rpx;
   font-weight: bold;
   color: var(--color-foreground);
-  border-radius: 15rpx;
+  border-radius: var(--radius-lg);
   border: 2rpx solid var(--color-border);
   background: var(--color-card);
   box-shadow: 0 1rpx 3rpx var(--color-black-6);
@@ -1102,7 +1102,7 @@
 /* ============ 用户消息气泡(对齐 RN msgBubbleUser:brand 底 + 32rpx 圆角,无渐变描边) ============ */
 .agent-content-item-question {
   background: var(--color-brand);
-  border-radius: 32rpx;
+  border-radius: var(--radius-2xl);
   float: right;
   padding: 28rpx 20rpx;
   color: var(--color-primary-foreground);
@@ -1115,7 +1115,7 @@
 /* ============ AI 消息灰色气泡(对齐 RN msgBubbleAi:surface.card 底 + 32rpx 圆角,无边框) ============ */
 .agent-content-item {
   background: var(--color-card);
-  border-radius: 32rpx;
+  border-radius: var(--radius-2xl);
   padding: 28rpx 20rpx;
   float: left;
   max-width: 78%;
@@ -1241,7 +1241,7 @@
   width: auto;
   height: auto;
   margin-right: 0;
-  border-radius: 0px 26px 26px 0px;
+  border-radius: 0 var(--radius-2xl) var(--radius-2xl) 0;
   box-sizing: border-box;
   display: flex;
   justify-content: space-around;
