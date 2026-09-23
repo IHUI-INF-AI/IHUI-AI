@@ -10,30 +10,6 @@
     "creditLowTitle": "智汇值不足",
     "creditLowDesc": "您的智汇值余额小于 {min},无法使用大模型,请前往充值"
   },
-  "permissionTier": {
-    "mode": {
-      "default": {
-        "title": "请求批准",
-        "desc": "编辑外部文件和使用互联网时始终询问"
-      },
-      "plan": {
-        "title": "只读计划",
-        "desc": "仅读取与检索，写文件和执行命令都会被拒绝"
-      },
-      "accept-edits": {
-        "title": "替我审批",
-        "desc": "仅对检测到的风险操作请求批准"
-      },
-      "bypass-permissions": {
-        "title": "完全访问权限",
-        "desc": "可不受限制地访问互联网和您电脑上的任何文件"
-      },
-      "unknown": {
-        "title": "未知模式",
-        "desc": "无法识别的权限模式，已按默认档处理"
-      }
-    }
-  },
   "treeSelect": {
     "placeholder": "请选择",
     "searchPlaceholder": "搜索...",
@@ -7404,7 +7380,17 @@
       },
       "diffAppliedHint": "改动已写入文件系统",
       "diffRejectedHint": "已忽略本次改动",
-      "timelineTabInline": "对话流"
+      "timelineTabInline": "对话流",
+      "reviewStats": {
+        "title": "自动审查统计",
+        "accepted": "已接受 {n}",
+        "rejected": "已拒绝 {n}",
+        "noReason": "未提供理由 {n}",
+        "commandHistory": "命令历史",
+        "noReasonText": "自动审查未提供理由",
+        "noDecision": "暂无自动审查记录",
+        "expandAria": "命令历史(展开/收起)"
+      }
     },
     "permissionConfirm": {
       "allow": "允许",
@@ -9277,6 +9263,8 @@
       "copyText": "复制文本",
       "deleteMessage": "删除消息",
       "feedback": "反馈",
+      "likeMessage": "点赞",
+      "dislikeMessage": "点踩",
       "regenerate": "重新生成",
       "branch": "从此处分支"
     },
@@ -9856,6 +9844,8 @@
       "copiedMarkdown": "已复制 Markdown",
       "copiedText": "已复制文本",
       "feedbackRecorded": "已记录反馈,感谢支持",
+      "feedbackSaved": "反馈已记录",
+      "feedbackFailed": "反馈提交失败",
       "messageDeleted": "已删除消息",
       "operationFailed": "操作失败",
       "regenerating": "正在重新生成…",
@@ -24470,13 +24460,37 @@
     },
     "vividTail": "，马上就好"
   },
+  "permissionTier": {
+    "mode": {
+      "default": {
+        "title": "请求批准",
+        "desc": "编辑外部文件和使用互联网时始终询问"
+      },
+      "plan": {
+        "title": "只读计划",
+        "desc": "仅读取与检索，写文件和执行命令都会被拒绝"
+      },
+      "accept-edits": {
+        "title": "替我审批",
+        "desc": "仅对检测到的风险操作请求批准"
+      },
+      "bypass-permissions": {
+        "title": "完全访问权限",
+        "desc": "可不受限制地访问互联网和您电脑上的任何文件"
+      },
+      "unknown": {
+        "title": "未知模式",
+        "desc": "无法识别的权限模式，已按默认档处理"
+      }
+    }
+  },
   "upload": {
     "oversizeSingle": "文件超过大小上限:{name}",
     "uploadFailedWithReason": "上传失败:{error}",
     "unknownError": "未知错误",
     "missingFileId": "上传响应缺少 file.id",
     "maxAttachmentsReached": "最多 {count} 个附件"
-},
+  },
   "eduScheduling": {
     "title": "智能排课",
     "description": "管理排课规则、教师时间表及调课申请",
@@ -24489,17 +24503,17 @@
       "weekdayFri": "周五",
       "weekdaySat": "周六",
       "weekdaySun": "周日"
-},
+    },
     "status": {
       "pending": "待审批",
       "approved": "已批准",
       "rejected": "已驳回"
-},
+    },
     "tabs": {
       "rules": "排课规则",
       "teachers": "教师时间表",
       "changes": "调课管理"
-},
+    },
     "form": {
       "class": "班级",
       "subject": "科目",
@@ -24513,7 +24527,7 @@
       "selectTeacher": "选择教师",
       "selectTerm": "选择学期",
       "subjectPlaceholder": "数学"
-},
+    },
     "actions": {
       "edit": "编辑",
       "add": "添加",
@@ -24526,18 +24540,18 @@
       "autoSchedule": "自动排课",
       "checkConflicts": "冲突检测",
       "addTimeEntry": "添加时间条目"
-},
+    },
     "loading": {
       "text": "加载中...",
       "rules": "加载排课规则...",
       "teachers": "加载教师时间表...",
       "changes": "加载调课申请..."
-},
+    },
     "empty": {
       "rules": "暂无排课规则",
       "teachers": "暂无教师时间表",
       "changes": "暂无调课申请"
-},
+    },
     "columns": {
       "time": "时间",
       "timeSlot": "时间段",
@@ -24549,22 +24563,22 @@
       "status": "状态",
       "applicant": "申请人",
       "actions": "操作"
-},
+    },
     "ruleDialog": {
       "editTitle": "编辑排课规则",
       "addTitle": "添加排课规则"
-},
+    },
     "timeEntryDialog": {
       "editTitle": "编辑时间条目",
       "addTitle": "添加时间条目",
       "available": "可用",
       "unavailable": "不可用"
-},
+    },
     "conflictDialog": {
       "title": "冲突检测结果",
       "noConflicts": "未检测到冲突"
-}
-},
+    }
+  },
   "eduGrades": {
     "pageTitle": "成绩管理",
     "pageSubtitle": "管理学生考试成绩、排名和统计分析",
@@ -24633,7 +24647,7 @@
     "avgScoreStat": "平均分: {score}",
     "scoreRateStat": "得分率: {percentage}%",
     "examCountStat": "考试次数: {count}"
-},
+  },
   "eduParent": {
     "relationshipFather": "父亲",
     "relationshipMother": "母亲",
@@ -24709,7 +24723,7 @@
     "confirmDelete": "确认删除",
     "confirmDeleteContent": "确定要解除该绑定关系吗？此操作不可撤销。",
     "cancel": "取消"
-},
+  },
   "eduSchedule": {
     "title": "课程表管理",
     "description": "管理学期的课程安排，支持周视图和月视图",
@@ -24721,7 +24735,7 @@
       "weekdayFri": "周五",
       "weekdaySat": "周六",
       "weekdaySun": "周日"
-},
+    },
     "colors": {
       "blue": "蓝色",
       "green": "绿色",
@@ -24731,7 +24745,7 @@
       "teal": "青色",
       "indigo": "靛蓝",
       "rose": "玫瑰红"
-},
+    },
     "form": {
       "courseName": "课程名称",
       "courseNamePlaceholder": "例如：高等数学",
@@ -24742,7 +24756,7 @@
       "classroom": "教室",
       "classroomPlaceholder": "例如：A101",
       "colorMark": "颜色标记"
-},
+    },
     "editCourseTitle": "编辑课程",
     "addCourseTitle": "添加课程",
     "delete": "删除",
@@ -24787,7 +24801,7 @@
     "copyFailed": "复制失败",
     "exportFailed": "导出失败",
     "exportFilePrefix": "课程表"
-},
+  },
   "eduHomework": {
     "pageTitle": "作业管理",
     "pageSubtitle": "管理学生作业提交、批改和评分",
@@ -24822,14 +24836,14 @@
     "submittedAtLabel": "提交时间：",
     "commentPlaceholder": "可选，批改评语",
     "submitGrade": "提交批改"
-},
+  },
   "eduMeal": {
     "mealTypes": {
       "breakfast": "早餐",
       "lunch": "午餐",
       "dinner": "晚餐",
       "snack": "加餐"
-},
+    },
     "weekdays": {
       "weekdayMon": "周一",
       "weekdayTue": "周二",
@@ -24838,12 +24852,12 @@
       "weekdayFri": "周五",
       "weekdaySat": "周六",
       "weekdaySun": "周日"
-},
+    },
     "views": {
       "day": "日",
       "week": "周",
       "month": "月"
-},
+    },
     "mealDialog": {
       "editTitle": "编辑菜谱",
       "addTitle": "添加菜谱",
@@ -24862,7 +24876,7 @@
       "delete": "删除",
       "save": "保存",
       "add": "添加"
-},
+    },
     "template": {
       "title": "模板管理",
       "newTitle": "新建模板",
@@ -24881,7 +24895,7 @@
       "selectTemplate": "选择模板",
       "startDate": "起始日期（周一）",
       "apply": "应用"
-},
+    },
     "page": {
       "title": "菜谱管理",
       "subtitle": "管理每日菜谱，支持日/周/月视图",
@@ -24896,7 +24910,7 @@
       "generateFailed": "生成采购清单失败",
       "nutritionAnalysis": "营养分析",
       "shoppingList": "采购清单"
-},
+    },
     "nutrition": {
       "title": "营养分析汇总",
       "totalCalories": "总热量 (kcal)",
@@ -24909,7 +24923,7 @@
       "protein": "蛋白质",
       "carbs": "碳水",
       "empty": "暂无营养数据"
-},
+    },
     "shopping": {
       "title": "食材采购清单",
       "summary": "日期范围: {start} ~ {end} · 共 {count} 种食材",
@@ -24917,8 +24931,8 @@
       "appearsIn": "出现在 {count} 道菜",
       "involvedDishes": "涉及菜品",
       "generating": "生成中..."
-}
-},
+    }
+  },
   "eduProcurement": {
     "pageTitle": "食堂采购记账",
     "pageDescription": "AI 拍照识别小票 · 三轮交叉核对(抽取→比对→仲裁)· 台账 / 供应商 / 统计一站式管理,移动端同步",
@@ -24927,7 +24941,7 @@
       "ledger": "采购台账",
       "supplier": "供应商",
       "stats": "统计分析"
-},
+    },
     "status": {
       "draft": "草稿",
       "aiExtracted": "AI已识别",
@@ -24935,10 +24949,10 @@
       "aiConflict": "AI存疑",
       "confirmed": "已记账",
       "voided": "已作废"
-},
+    },
     "statusFilter": {
       "all": "全部状态"
-},
+    },
     "supplierCategory": {
       "vegetable": "蔬菜",
       "meatPoultry": "肉禽",
@@ -24947,12 +24961,12 @@
       "seasoning": "调味",
       "frozen": "冻品",
       "other": "其他"
-},
+    },
     "verifyType": {
       "extract": "第1轮 · 结构化抽取",
       "verify": "第2轮 · 独立交叉核对",
       "arbitrate": "第3轮 · 差异仲裁"
-},
+    },
     "common": {
       "noData": "暂无数据",
       "startDate": "开始日期",
@@ -24966,7 +24980,7 @@
       "notes": "备注",
       "pleaseSelect": "请选择",
       "confidence": "置信度"
-},
+    },
     "stats": {
       "exportXlsx": "Excel 已导出",
       "exportCsv": "CSV 已导出(UTF-8 BOM,Excel 可直接打开)",
@@ -24986,7 +25000,7 @@
       "monthlyTrend": "月度趋势",
       "countItem": "条目",
       "countDoc": "单"
-},
+    },
     "ai": {
       "doneToast": "小票识别完成:{status}",
       "errNotImage": "请选择图片文件",
@@ -25018,7 +25032,7 @@
       "conflictNote": "三轮核对后仍有分歧:请对照左侧原图人工核对明细,修正后在台账中\"记账\"。",
       "verifiedNote": "两轮独立识别一致且数学自检通过,可在台账中一键记账。",
       "noItems": "未识别到明细,请在台账编辑中手工补录"
-},
+    },
     "detail": {
       "supplierLabel": "供应商:",
       "dateLabel": "采购日期:",
@@ -25043,7 +25057,7 @@
       "arbitrationNote": "(仲裁:{resolution})",
       "reverify": "重新核对",
       "arbitrateBtn": "差异仲裁"
-},
+    },
     "table": {
       "itemName": "品名",
       "category": "类别",
@@ -25052,7 +25066,7 @@
       "unitPrice": "单价",
       "subtotal": "小计",
       "check": "核对"
-},
+    },
     "col": {
       "date": "日期",
       "supplier": "供应商",
@@ -25062,21 +25076,21 @@
       "status": "状态",
       "aiRounds": "AI轮次",
       "actions": "操作"
-},
+    },
     "unit": {
       "rounds": "{rounds} 轮",
       "items": "{count} 条"
-},
+    },
     "ledger": {
       "totalCount": "共 {total} 单"
-},
+    },
     "action": {
       "detail": "详情",
       "edit": "编辑",
       "confirm": "记账",
       "void": "作废",
       "delete": "删除"
-},
+    },
     "toast": {
       "deleted": "已删除",
       "confirmSuccess": "记账成功",
@@ -25086,7 +25100,7 @@
       "supplierDeleted": "供应商已删除",
       "supplierUpdated": "供应商已更新",
       "supplierCreated": "供应商已创建"
-},
+    },
     "confirm": {
       "titleConfirm": "确认记账",
       "titleVoid": "确认作废",
@@ -25094,18 +25108,18 @@
       "descConfirm": "记账后将计入统计口径(总额 {amount}),仍可作废。",
       "descVoid": "作废后不再计入统计,单据保留可查。",
       "descDelete": "删除为软删除,后台可恢复,前端不再显示。"
-},
+    },
     "filter": {
       "allSuppliers": "全部供应商",
       "keyword": "关键字",
       "keywordPlaceholder": "供应商/单号"
-},
+    },
     "badge": {
       "manual": "人工",
       "passed": "通过",
       "failed": "失败",
       "differed": "差异"
-},
+    },
     "edit": {
       "title": "编辑采购单",
       "dateLabel": "采购日期",
@@ -25119,7 +25133,7 @@
       "addRow": "加一行",
       "deleteRow": "删除该行",
       "itemsHint": "品名留空的行保存时自动忽略;数量×单价会自动算小计;总额留空按明细合计。"
-},
+    },
     "supplier": {
       "colName": "名称",
       "colCategory": "分类",
@@ -25141,8 +25155,8 @@
       "license": "资质证照",
       "licensePlaceholder": "营业执照/食品经营许可",
       "address": "地址"
-}
-},
+    }
+  },
   "eduAttendance": {
     "statusPresent": "正常",
     "statusLate": "迟到",
@@ -25227,7 +25241,23 @@
     "reason": "原因",
     "daysWithUnit": "{count}天",
     "approveAction": "审批"
-},
+  },
+  "eduCertificates": {
+    "certificateNo": "编号：{no}",
+    "empty": "暂无证书",
+    "statusRevoked": "已撤销",
+    "statusValid": "有效",
+    "subtitle": "查看已获得的全部证书",
+    "title": "我的证书",
+    "view": "查看"
+  },
+  "eduCourses": {
+    "backToCourses": "返回课程列表",
+    "chaptersTitle": "章节目录",
+    "detail": "详情",
+    "notFound": "课程不存在",
+    "studentsCount": "{count} 人学习"
+  },
   "eduStudyPlan": {
     "add": "添加",
     "addFirstItem": "添加第一个条目",
@@ -25331,23 +25361,7 @@
     "pageTitle": "学习计划管理",
     "pageSubtitle": "管理班级的学习计划，支持月计划自动拆解为周计划",
     "loadTermsFailed": "加载学期数据失败，请稍后重试"
-},
-  "eduCertificates": {
-    "certificateNo": "编号：{no}",
-    "empty": "暂无证书",
-    "statusRevoked": "已撤销",
-    "statusValid": "有效",
-    "subtitle": "查看已获得的全部证书",
-    "title": "我的证书",
-    "view": "查看"
-},
-  "eduCourses": {
-    "backToCourses": "返回课程列表",
-    "chaptersTitle": "章节目录",
-    "detail": "详情",
-    "notFound": "课程不存在",
-    "studentsCount": "{count} 人学习"
-},
+  },
   "apiKeyPerms": {
     "agentsRead": "读取智能体",
     "agentsCall": "调用智能体",
