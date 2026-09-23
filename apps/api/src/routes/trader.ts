@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { eq, desc } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { traders } from '@ihui/database'
-import { requireAuth } from '../plugins/require-permission.js'
+import { requireAuth, isSystemAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 
 // =============================================================================
@@ -92,7 +92,6 @@ const traderRoutes: FastifyPluginAsync = async (server) => {
   // PATCH /:id — 更新交易员信息（admin 可改状态/佣金，本人可改简介）
   server.patch('/:id', { preHandler: requireAuth }, async (request, reply) => {
     const userId = request.userId!
-    const roleId = request.jwtPayload?.roleId ?? 0
     const idParsed = idParamSchema.safeParse(request.params)
     if (!idParsed.success) {
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
@@ -109,7 +108,7 @@ const traderRoutes: FastifyPluginAsync = async (server) => {
     if (!existing) return reply.status(404).send(error(404, '交易员不存在'))
 
     // 非管理员仅能修改自己的简介/专长，不能改状态/佣金
-    const isAdmin = roleId >= 1
+    const isAdmin = isSystemAdmin(request, { includeInternalChannel: false })
     if (!isAdmin && existing.userId !== userId) {
       return reply.status(403).send(error(403, '无权修改此交易员信息'))
     }
