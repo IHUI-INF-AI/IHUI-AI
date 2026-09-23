@@ -120,6 +120,15 @@ const PCT_CX = 740;
 const PCT_CY = 220;
 const PCT_RING = 56; // auroraRings 画 r 与 r+22 两道 → 内 56 / 外 78
 
+// 重装/升级确认页选项卡片(烧进 reinstall.bmp 的两个卡片框)。
+// 与 ihui-ui.nsi 的 IHUI_RCARD_* define 严格一一对应,
+// 由 scripts/check-installer-assets.mjs 的 checkReinstallCards 跨文件对账。
+const RCARD_X = C_L;
+const RCARD_Y1 = 340;
+const RCARD_Y2 = 392;
+const RCARD_W = C_W;
+const RCARD_H = 40;
+
 // 品牌渐变定义(每份 SVG 内联一次)
 const GRAD_DEFS = `<defs>
 <linearGradient id="ihg" x1="0" y1="0" x2="1" y2="0">
@@ -201,10 +210,13 @@ function auroraRings(cx, cy, r0, opacities) {
 // ---- 左侧品牌导轨 -----------------------------------------------------------
 // steps = 步骤清单([编号, 中文, 英文] 数组),默认安装四步;卸载页传入 UNSTEPS 走两步。
 // active = 当前步索引;小于它的标"已完成",等于它的标"进行中"。
-function rail(logo, active, steps = STEPS) {
+function rail(logo, active, steps = STEPS, doneOnly = false) {
   const items = steps.map(([, zh, en], i) => {
     const my = STEP_Y0 + i * STEP_GAP;
-    const state = i < active ? 'done' : i === active ? 'active' : 'todo';
+    // doneOnly = 维护/前置页语义:只表达"已完成到 active 之前",不把 active 步
+    // 高亮成"进行中"(reinstall 页站在第 01 步已完成的位置,但下一步还不是本页
+    // 推进的 02 安装位置 —— 02 以"当前页"样式高亮属语义错位,2026-09-24 修正)。
+    const state = i < active ? 'done' : !doneOnly && i === active ? 'active' : 'todo';
     const marker =
       state === 'active'
         ? `<rect x="32" y="${my}" width="26" height="26" rx="${RADIUS}" fill="url(#ihgv)"/>
@@ -240,11 +252,12 @@ ${items}
 }
 
 // 页面公共骨架:导轨 + 内容底 + 页脚 + 步骤计数(steps 决定导轨步数与总步数分母)
-function pageChrome(logo, active, steps = STEPS, curOverride) {
+// doneOnly: 转发给 rail(维护页"01 已完成、其余未激活"语义,见 rail 注释)
+function pageChrome(logo, active, steps = STEPS, curOverride, doneOnly = false) {
   const cur = curOverride || String(active + 1).padStart(2, '0');
   return `
 <rect width="${W}" height="${H}" fill="${C.bg}"/>
-${rail(logo, active, steps)}
+${rail(logo, active, steps, doneOnly)}
 <text x="${C_L}" y="574" font-family="${FONT}" font-size="10" fill="${C.muted}">© 2026 IHUI AI (智汇AI) · 李春川 · aizhs.top</text>
 <text x="${C_R}" y="574" font-family="${FONT}" font-size="10" text-anchor="end"><tspan fill="${C.accent}" font-weight="700">${cur}</tspan><tspan fill="${C.muted}"> / ${String(steps.length).padStart(2, '0')}</tspan></text>`;
 }
@@ -338,14 +351,22 @@ ${auroraRings(712, 424, 62, [1, 1])}
 `);
 }
 
-// 重装/升级确认页:动态标题与两个 radio 由 NSIS 原生控件承载,位图只留空白带。
+// 重装/升级确认页:卡片框烧入位图,卡片文字/选中指示器由运行期控件叠加
+// (文案随 同版本/升级/降级 三场景动态变化,严禁把这两行文案烧进位图)。
+// 卡片样式与目录页输入容器同语言:卡底 + 1.5px 描边 + 唯一圆角 token 8px。
+// 轨道步点 = 01 已完成 ✓、02..04 未激活(本页是维护前置页,02 安装位置
+// 尚未到达,不得以"当前页"样式高亮 —— doneOnly 转发,见 rail 注释)。
 function sceneReinstall(logo) {
+  const card = (y) =>
+    `<rect x="${RCARD_X + 0.75}" y="${y + 0.75}" width="${RCARD_W - 1.5}" height="${RCARD_H - 1.5}" rx="${RADIUS - 1}" fill="${C.card}" stroke="${C.btnStroke}" stroke-width="1.5"/>`;
   return page(`
-${pageChrome(logo, 1)}
+${pageChrome(logo, 1, STEPS, undefined, true)}
 ${kicker(C_L, 176, 'STEP 02')}
 ${title(C_L, 232, '检测到已安装版本')}
 ${body14(C_L, 262, '请选择保留配置升级,或先卸载再全新安装。')}
-${body14(C_L, 440, '你的账号与云端数据不受此选择影响。', C.muted, 13)}
+${card(RCARD_Y1)}
+${card(RCARD_Y2)}
+${body14(C_L, 470, '你的账号与云端数据不受此选择影响。', C.muted, 13)}
 `);
 }
 
@@ -463,6 +484,20 @@ function switchScene(on) {
 <rect x="${SH}" y="${SH}" width="${W2}" height="${H2}" rx="${R}" fill="${C.ink}"/>
 <rect x="${B / 2}" y="${B / 2}" width="${W2 - B}" height="${H2 - B}" rx="${R - B / 2}" fill="${track}" stroke="${C.ink}" stroke-width="${B}"/>
 <rect x="${tx}" y="4" width="${T}" height="${T}" rx="${TR}" fill="${thumb}"/>
+</svg>`;
+}
+
+// ---- 重装页选中指示器(重装确认页卡片左侧 20x20,两态) -----------------------
+// 放在卡片卡底 #1A1A1A 之上:BMP 无透明通道,整画布先铺卡底色再画指示圆。
+// ON = 品牌灰蓝描边 + 同色实心内点(accent,与导轨进行中标记同语言);
+// OFF = 次级描边空心(muted/btnStroke)—— 两态颜色差异明显。
+// 运行期由 ihui-ui.nsi IHUI_RIND_SET 按选中态换图,矩形 20x20 逻辑由
+// IHUI_RIND_* define 定位,checkReinstallCards 逐档校验位图尺寸。
+function radioScene(on) {
+  const S = 20;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}" viewBox="0 0 ${S} ${S}">
+<rect width="${S}" height="${S}" fill="${C.card}"/>
+<circle cx="10" cy="10" r="8" fill="none" stroke="${on ? C.accent : C.muted}" stroke-width="1.5"/>${on ? `\n<circle cx="10" cy="10" r="4" fill="${C.accent}"/>` : ''}
 </svg>`;
 }
 
@@ -654,6 +689,13 @@ for (const scale of SCALES) {
   for (const [name, kind, text, bw, bh, ls] of BUTTONS) {
     await render(buttonScene(kind, text, Math.round(bw * scale), Math.round(bh * scale), Math.round(ls * scale)),
       Math.round(bw * scale), Math.round(bh * scale),
+      mode === 'write' ? join(dir, `${name}.bmp`) : null, join(pngDir, `${name}.png`));
+    count++;
+  }
+
+  // 重装页选中指示器(20x20 逻辑,与 ihui-ui.nsi IHUI_RIND_SIZE 一致)
+  for (const [name, on] of [['maint-radio-on', true], ['maint-radio-off', false]]) {
+    await render(radioScene(on), Math.round(20 * scale), Math.round(20 * scale),
       mode === 'write' ? join(dir, `${name}.bmp`) : null, join(pngDir, `${name}.png`));
     count++;
   }
