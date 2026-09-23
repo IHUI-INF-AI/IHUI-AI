@@ -49,6 +49,7 @@ import {
   permissionModeNote,
   retryNoteText,
   steerNoteText,
+  budgetNoteText,
   planStepsFromTodos,
   toolActivityLabel,
   type TaskStatusLine,
@@ -2230,6 +2231,10 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
         const note = steerNoteText({ phase, text });
         if (note) state.statusLine.noteLine(note);
       },
+      // 额度分档告警:网关在流首给 warning(80~95%)/critical(95~100%) 两档,本条消息照常生成,
+      // 只是让用户在终端里也知道"今天快用完了"。此前该端 0 命中 —— 换 key 退避与注入都能看见,
+      // 唯独额度看不见,而 CLI 用户恰恰是最容易撞上日限额的一类。
+      onBudget: (event) => state.statusLine.noteLine(budgetNoteText(event)),
       planFirst: state.opts.planFirst,
       planApproved: state.planApproved,
       planMachine: state.planMachine,
