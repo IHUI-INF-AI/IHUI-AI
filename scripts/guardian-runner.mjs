@@ -1883,7 +1883,7 @@ const checks = [
   // 只判单行会满天假红)。三模式:--staged 判索引内容(git show :<path>,取不到退回工作区;
   // 未合并 U 路径也在清单内)、缺省判全量跟踪文件工作区内容、--rev 判提交树。护栏:自豁免
   // (本门脚本与测试必含字面量)/ >2MB / 二进制,三类均如实计数不静默。
-  // 自检:node scripts/check-no-conflict-markers.mjs --self-test(23 例含正反成对对照 + 真实 merge 未合并路径现场)。
+  // 自检:node scripts/check-no-conflict-markers.mjs --self-test(26 例含正反成对对照 + E1 豁免与混搭反例 + 真实 merge 未合并路径现场)。
   {
     id: '77',
     label: '🔀 提交内容含 Git 冲突标记(blocking,成对 <<<<====>>>> 标记一旦入树即拦)',
