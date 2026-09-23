@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
 /**
  * CardWithList 卡片列表 (mobile-rn 端)
@@ -47,11 +48,9 @@ export interface CardWithListProps {
 }
 
 const CARD_PADDING = 12
-const CARD_RADIUS = 12
 const HEADER_GAP = 8
 const ITEM_WIDTH = '22%'
 const ITEM_PADDING = 10
-const ITEM_RADIUS = 4
 const ITEM_GAP = 8
 const ICON_SIZE = 50
 const ICON_FONT_SIZE = 24
@@ -132,7 +131,7 @@ export function CardWithList({ title, items, onItemClick, onMore, moreText }: Ca
 const styles = StyleSheet.create({
   card: {
     backgroundColor: tk.surface.card,
-    borderRadius: CARD_RADIUS,
+    borderRadius: rnRadius.xl,
     padding: CARD_PADDING,
   } as ViewStyle,
   header: {
@@ -167,14 +166,14 @@ const styles = StyleSheet.create({
   item: {
     width: ITEM_WIDTH,
     padding: ITEM_PADDING,
-    borderRadius: ITEM_RADIUS,
+    borderRadius: rnRadius.sm,
     backgroundColor: tk.surface.muted,
     alignItems: 'center',
   } as ViewStyle,
   iconWrap: {
     width: ICON_SIZE,
     height: ICON_SIZE,
-    borderRadius: ITEM_RADIUS,
+    borderRadius: rnRadius.sm,
     backgroundColor: tk.surface.card,
     alignItems: 'center',
     justifyContent: 'center',

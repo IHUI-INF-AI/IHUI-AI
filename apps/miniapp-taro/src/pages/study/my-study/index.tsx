@@ -119,7 +119,7 @@ export default function MyStudy() {
               {tt('study.myStudy.loadFailed', '加载失败')}
             </Text>
             <View
-              className="mt-[24rpx] px-[32rpx] py-[16rpx] bg-primary rounded-[24rpx]"
+              className="mt-[24rpx] px-[32rpx] py-[16rpx] bg-primary rounded-xl"
               hoverClass="opacity-60"
               onClick={loadData}
             >
@@ -146,7 +146,7 @@ export default function MyStudy() {
           {TABS(tt).map((tab) => (
             <View
               key={tab.key}
-              className={`flex-1 flex items-center justify-center py-[12rpx] rounded-[24rpx] text-[28rpx] ${
+              className={`flex-1 flex items-center justify-center py-[12rpx] rounded-xl text-[28rpx] ${
                 activeTab === tab.key
                   ? 'bg-primary text-primary-foreground font-semibold'
                   : 'bg-card text-muted-foreground'
@@ -165,9 +165,9 @@ export default function MyStudy() {
               displayList.map((item) => (
                 <View
                   key={item.id}
-                  className="flex p-[28rpx] rounded-[24rpx] border border-border bg-card"
+                  className="flex p-[28rpx] rounded-xl border border-border bg-card"
                 >
-                  <View className="w-[160rpx] h-[100rpx] rounded-[16rpx] flex-shrink-0 bg-muted flex items-center justify-center">
+                  <View className="w-[160rpx] h-[100rpx] rounded-lg flex-shrink-0 bg-muted flex items-center justify-center">
                     <LineIcon name="book-open" size={40} color="var(--color-muted-foreground)" />
                   </View>
                   <View className="flex-1 ml-[16rpx] flex flex-col">
@@ -175,9 +175,9 @@ export default function MyStudy() {
                       {item.courseTitle || t('study.myStudy.courseFallback')}
                     </Text>
                     <View className="flex items-center mt-[16rpx]">
-                      <View className="flex-1 h-[8rpx] bg-muted rounded-[4rpx] overflow-hidden mr-[12rpx]">
+                      <View className="flex-1 h-[8rpx] bg-muted rounded-xs overflow-hidden mr-[12rpx]">
                         <View
-                          className="h-full bg-success rounded-[4rpx]"
+                          className="h-full bg-success rounded-xs"
                           style={{ width: `${Math.min(100, Math.max(0, item.progress))}%` }}
                         />
                       </View>
@@ -191,7 +191,7 @@ export default function MyStudy() {
                       </Text>
                     ) : null}
                     <View
-                      className="self-start mt-[16rpx] px-[32rpx] py-[16rpx] bg-primary rounded-[24rpx]"
+                      className="self-start mt-[16rpx] px-[32rpx] py-[16rpx] bg-primary rounded-xl"
                       hoverClass="opacity-60"
                       onClick={() => onContinue(item)}
                     >

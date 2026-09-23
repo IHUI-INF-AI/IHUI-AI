@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import {
@@ -229,7 +230,7 @@ function createStyles(tk: AppThemeTokens) {
     typeChip: {
       flex: 1,
       paddingVertical: 10,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
       alignItems: 'center',
     },
@@ -241,7 +242,7 @@ function createStyles(tk: AppThemeTokens) {
     input: {
       paddingHorizontal: 12,
       paddingVertical: 10,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       fontSize: 16,
@@ -254,7 +255,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       paddingHorizontal: 12,
       paddingVertical: 10,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       fontSize: 14,
@@ -264,13 +265,13 @@ function createStyles(tk: AppThemeTokens) {
     urlAddBtn: {
       paddingHorizontal: 14,
       paddingVertical: 10,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: primary,
     },
     urlAddText: { color: tk.surface.light, fontSize: 14, fontWeight: '600' },
     pickerBtn: {
       paddingVertical: 11,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: primary,
       backgroundColor: tk.surface.light,
@@ -290,7 +291,7 @@ function createStyles(tk: AppThemeTokens) {
     fileItem: {
       width: 76,
       height: 76,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       overflow: 'hidden',
       backgroundColor: tk.border.light,
     },
@@ -301,7 +302,7 @@ function createStyles(tk: AppThemeTokens) {
       right: -6,
       width: 22,
       height: 22,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.error.text,
       alignItems: 'center',
       justifyContent: 'center',
@@ -310,7 +311,7 @@ function createStyles(tk: AppThemeTokens) {
     fileAdd: {
       width: 76,
       height: 76,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       borderStyle: 'dashed',
@@ -323,7 +324,7 @@ function createStyles(tk: AppThemeTokens) {
     submitBtn: {
       marginTop: 24,
       paddingVertical: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: primary,
       alignItems: 'center',
       justifyContent: 'center',
