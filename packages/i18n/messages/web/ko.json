@@ -968,6 +968,25 @@
       "fieldTitle": "제목",
       "fieldType": "유형",
       "loading": "로딩 중...",
+      "maintenanceNotice": {
+        "action": "점검 안내 이메일",
+        "desc": "IHUI 소식지의 점검 안내 레이아웃으로 이메일을 보유한 정상 상태 사용자에게 일괄 발송합니다",
+        "downtimePlaceholder": "예: 2시간",
+        "dryRun": "드라이런(수신자 수만 집계하고 실제로 발송하지 않음)",
+        "fieldDowntime": "예상 중지 시간",
+        "fieldLimit": "1차 발송 상한",
+        "fieldScope": "영향 범위",
+        "fieldWindow": "점검 시간대",
+        "limitInvalid": "1차 발송 상한은 양의 정수여야 합니다",
+        "limitPlaceholder": "비워 두면 전체에게 발송",
+        "required": "점검 시간대, 영향 범위, 예상 중지 시간을 모두 입력하세요",
+        "resultDryRun": "드라이런 완료: {total}명의 수신자에게 “{subject}”이(가) 발송될 예정입니다",
+        "resultSent": "발송 완료: 성공 {sent}통 / 실패 {failed}통 / 채널 미설정 {stubbed}통",
+        "scopePlaceholder": "예: API 및 콘솔",
+        "send": "발송",
+        "title": "점검 안내 이메일 발송",
+        "windowPlaceholder": "예: 2026-09-25 02:00–04:00"
+      },
       "no": "아니오",
       "noData": "없음데이마음",
       "published": "게시됨",
@@ -7057,9 +7076,15 @@
     "pane": {
       "agentActions": {
         "title": "멀티 에이전트 작업",
-        "header": { "count": "{count, plural, other {#개 에이전트}}" },
-        "row": { "agent": "{action} {agent}{stateSuffix}" },
-        "meta": { "prompt": "입력: {prompt}" },
+        "header": {
+          "count": "{count, plural, other {#개 에이전트}}"
+        },
+        "row": {
+          "agent": "{action} {agent}{stateSuffix}"
+        },
+        "meta": {
+          "prompt": "입력: {prompt}"
+        },
         "action": {
           "spawn": {
             "label": "생성",

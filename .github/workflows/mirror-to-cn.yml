@@ -162,7 +162,24 @@ jobs:
             esac
           done < <(git for-each-ref --format='%(refname)' refs/tags | grep -Ev "$INTERNAL_TAG_RE")
           echo "推送分支 + ${#SPEC[@]} 个标签(同一 RE 已排除内部备份标签 ${LOCAL_INTERNAL_N} 个)"
-          GIT_LFS_SKIP_PUSH=1 git push --force --prune "$REMOTE" "refs/heads/*:refs/heads/*" "${SPEC[@]}" 2>&1 | sed "s|${GITEE_TOKEN}|***|g"
+          # 结论必须自解释:实测 2026-09-23 #3573 时远端内部标签已 **0 个**、只推 21 个标签,
+          # 仍被判 `Repo size: 1060.676MB, exceeds quota 1024MB` —— 因为 Gitee 的体积按**磁盘包**
+          # 计,删 ref 只解除引用,要等**服务端 GC** 才真正回收(那 3 个 50MB+ 大 blob 共 236.8MB
+          # 已核实**不在 HEAD 树里**,只被 lost-commit/* 标签拽住:2049 / 202 / 202 个标签)。
+          # 所以此时的正确结论是"等 GC",不是"再改判据/再调触发器" —— 把它打在失败行里,
+          # 免得下一个看到红的人(或下一个会话)又去动触发器。
+          PUSH_OUT=/tmp/gitee-push.out
+          PUSH_RC=0
+          # `|| PUSH_RC=$?` 不是风格问题:本步跑在 `bash -e {0}` 下,裸写一行失败命令会让脚本
+          # 当场退出,下面的结论分支永远走不到(＝把"自解释的失败"又变回一句红 X)。
+          GIT_LFS_SKIP_PUSH=1 git push --force --prune "$REMOTE" "refs/heads/*:refs/heads/*" "${SPEC[@]}" > "$PUSH_OUT" 2>&1 || PUSH_RC=$?
+          sed "s|${GITEE_TOKEN}|***|g" "$PUSH_OUT"
+          if [ "$PUSH_RC" -ne 0 ]; then
+            if grep -qE 'exceeds quota|size exceeds limit' "$PUSH_OUT"; then
+              echo "::error::Gitee 配额仍未释放(远端内部备份标签已删至 ${REMAIN_INTERNAL:-0} 个,本轮只推 ${#SPEC[@]} 个标签)。差的是**服务端 GC**,不是脚本判据 —— 需仓库所有者在 https://gitee.com/${GITEE_OWNER}/IHUI-AI/settings 点一次「Git GC」(Gitee 无 GC API)。在此之前改触发器/改判据都无效。"
+            fi
+            exit "$PUSH_RC"
+          fi
           echo "✅ Gitee 镜像推送完成"
 
       - name: 镜像到 GitCode
