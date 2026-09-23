@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type {
   TeamMemberStatus,
   TeamRelation,
@@ -70,6 +71,7 @@ export function TeamScreen({
 }: TeamScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  const tabItems = useMemo(() => TAB_KEYS.map((k) => ({ id: k, label: t(TAB_LABELS[k]) })), [t])
 
   if (loading) {
     return (
@@ -138,19 +140,14 @@ export function TeamScreen({
         </View>
       ) : null}
 
-      <View style={styles.tabs}>
-        {TAB_KEYS.map((tabKey) => (
-          <TouchableOpacity
-            key={tabKey}
-            onPress={() => onSelectTab(tabKey)}
-            style={[styles.tab, activeTab === tabKey && styles.tabActive]}
-          >
-            <Text style={[styles.tabText, activeTab === tabKey && styles.tabTextActive]}>
-              {t(TAB_LABELS[tabKey])}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <CategoryInlineBar
+        items={tabItems}
+        selectedId={activeTab}
+        onSelect={(id) => onSelectTab(id as TeamTab)}
+        colorScheme={colorScheme}
+        contentPaddingHorizontal={10}
+        itemGap={6}
+      />
 
       {/* 搜索框(对齐 Uniapp distribution_personnel_list InputArea「搜索我的团友」;未注入回调则不渲染) */}
       {onKeywordChange ? (
@@ -266,7 +263,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     contributionLabel: { fontSize: 11, color: tk.text.secondary },
     contributionValue: { marginTop: 8, fontSize: 20, fontWeight: '700', color: tk.success.DEFAULT },
-    tabs: { flexDirection: 'row', paddingHorizontal: 10, paddingVertical: 8, gap: 6 },
     searchRow: { paddingHorizontal: 10, paddingBottom: 8 },
     searchInput: {
       height: 40,
@@ -278,15 +274,6 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 14,
       color: tk.text.primary,
     },
-    tab: {
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: rnRadius.xl,
-      backgroundColor: tk.surface.card,
-    },
-    tabActive: { backgroundColor: tk.brand.DEFAULT },
-    tabText: { fontSize: 14, color: tk.text.secondary },
-    tabTextActive: { color: tk.surface.light },
     errorBar: { paddingHorizontal: 10, paddingVertical: 8 },
     listBody: { padding: 14, paddingBottom: 32 },
     separator: { height: 8 },

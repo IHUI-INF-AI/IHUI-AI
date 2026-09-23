@@ -9,6 +9,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect, type CSSProperties } from 'react'
 import * as api from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import { rnRadius } from '@ihui/design-tokens'
 
 const CONSEQUENCE_KEYS = [
   'accountCancel.consequence1',
@@ -25,7 +26,7 @@ const CONSEQUENCE_KEYS = [
 const INPUT_STYLE: CSSProperties = {
   height: '100rpx', // RN input height 50 → 100rpx
   background: 'var(--color-muted)', // tk.surface.muted
-  borderRadius: '24rpx', // RN radius 12 → 24rpx
+  borderRadius: rnRadius.xl, // RN radius 12 → 24rpx
   padding: '0 24rpx', // RN paddingHorizontal 12 → 24rpx
   fontSize: '32rpx', // RN 16 → 32rpx
   color: 'var(--color-foreground)', // tk.text.primary
@@ -58,7 +59,7 @@ const CONSEQUENCE_ITEM_STYLE: CSSProperties = {
 // RN desc 卡片:tk.surface.light 底 + radius 12 → 24rpx + padding 12 → 24rpx
 const DESC_CARD_STYLE: CSSProperties = {
   background: 'var(--color-surface-light)',
-  borderRadius: '24rpx',
+  borderRadius: rnRadius.xl,
   padding: '24rpx',
   marginBottom: '16rpx',
 }
@@ -89,7 +90,7 @@ const SEND_CODE_BASE_STYLE: CSSProperties = {
   lineHeight: '88rpx',
   padding: '0 24rpx',
   marginLeft: '16rpx',
-  borderRadius: '24rpx',
+  borderRadius: rnRadius.xl,
   background: 'var(--color-primary)',
   fontSize: '28rpx', // RN 14 → 28rpx
   fontWeight: 600,
@@ -301,7 +302,7 @@ export default function AccountCancel() {
 
               {/* 对齐 RN submitBtn:danger 底 + 白字,height 50 → 100rpx,radius 12 → 24rpx */}
               <View
-                className={`mt-[24rpx] flex h-[100rpx] items-center justify-center rounded-[24rpx] bg-[var(--color-danger)]${canSubmit || confirmCountdown > 0 ? '' : ' opacity-60'}`}
+                className={`mt-[24rpx] flex h-[100rpx] items-center justify-center rounded-xl bg-[var(--color-danger)]${canSubmit || confirmCountdown > 0 ? '' : ' opacity-60'}`}
                 hoverClass="opacity-60"
                 onClick={onSubmit}
               >

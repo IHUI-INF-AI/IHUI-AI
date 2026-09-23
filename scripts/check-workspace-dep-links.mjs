@@ -128,24 +128,22 @@ export function audit({ staged = false, root = REPO } = {}) {
   const all = expandPatterns(root, parseWorkspacePatterns(readFileSync(yamlPath, 'utf8')))
   if (all.length === 0) fail('一个 workspace 包都没扫到(patterns 解析失效),不允许报绿灯')
 
-  let targets = all
+  const targets = all
   let scope = '全量'
   if (staged) {
+    // 刻意**不**按暂存集收窄。破损常与"本次提交改了什么"无关:手动删了 node_modules 里
+    // 一条链接、他机跑过 pnpm install --filter、清理工具动过依赖树 —— 按 staged 收范围
+    // 正好放过这一整类(而它的表现就是部署环恒红)。全量扫 25 个包实测约 1s,成本可忽略。
     let files = null
     try {
       files = git(['diff', '--cached', '--name-only']).split('\n').map((l) => l.trim()).filter(Boolean)
     } catch (e) {
-      console.warn(`⚠️  git diff --cached 失败(${e?.message}),回退全量审计 —— 不静默放行`)
+      console.warn(`⚠️  git diff --cached 失败(${e?.message}),仍按全量判定 —— 不静默放行`)
     }
-    if (files) {
-      const set = new Set(files.map(toPosix))
-      targets = all.filter((d) => set.has(toPosix(relative(root, join(d, 'package.json')))))
-      scope = `暂存触及 ${targets.length}/${all.length} 个包的 package.json`
-      if (targets.length === 0) {
-        console.log(`✅ workspace 依赖链接对账:本次暂存未改动任何 package.json,无需对账(${scope})`)
-        return { missing: [], scanned: 0, skipped: true }
-      }
-    }
+    const touched = files
+      ? all.filter((d) => new Set(files.map(toPosix)).has(toPosix(relative(root, join(d, 'package.json'))))).length
+      : '?'
+    scope = `全量(pre-commit 亦不随暂存收窄;暂存触及 ${touched}/${all.length} 个包的 package.json)`
   }
 
   const missing = findMissingLinks(root, targets)

@@ -31,8 +31,11 @@ import {
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { SearchInput } from '../../components/SearchInput'
+import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import { Lightbulb, Play, Flame, Bot, Clapperboard } from 'lucide-react-native'
 import type { AppIcon } from '@ihui/types'
+
+import { rnRadius } from '@ihui/design-tokens'
 
 /** 赛道分类 */
 export interface StudyTrackCategory {
@@ -131,6 +134,10 @@ export function StudyIndexScreen({
 }: StudyIndexScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  const trackCategoryItems = useMemo(
+    () => trackCategories.map((cat) => ({ id: cat.id, label: cat.name })),
+    [trackCategories],
+  )
 
   function TipBanner({ onPressMyModel }: { onPressMyModel: () => void }) {
     const translateX = useRef(new Animated.Value(0)).current
@@ -237,23 +244,12 @@ export function StudyIndexScreen({
 
       {/* 赛道分类 chip 切换 */}
       <View style={styles.scrollTitleWrap}>
-        <View style={styles.chipRow}>
-          {trackCategories.map((cat) => (
-            <Pressable
-              key={cat.id}
-              style={[styles.chip, activeCategory === cat.id ? styles.chipActive : null]}
-              onPress={() => onCategoryChange(cat.id)}
-              accessibilityRole="button"
-              accessibilityLabel={cat.name}
-            >
-              <Text
-                style={[styles.chipText, activeCategory === cat.id ? styles.chipTextActive : null]}
-              >
-                {cat.name}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        <CategoryInlineBar
+          items={trackCategoryItems}
+          selectedId={activeCategory}
+          onSelect={onCategoryChange}
+          contentPaddingHorizontal={0}
+        />
       </View>
 
       {/* 内容区 */}
@@ -427,7 +423,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     searchInput: {
       height: 50,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       paddingHorizontal: 12,
@@ -440,31 +436,6 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
       paddingVertical: 8,
     } as ViewStyle,
-    chipRow: {
-      flexDirection: 'row',
-      paddingHorizontal: 12,
-      gap: 8,
-    } as ViewStyle,
-    chip: {
-      paddingHorizontal: 14,
-      paddingVertical: 6,
-      borderRadius: 16,
-      backgroundColor: tk.surface.muted,
-      borderWidth: 1,
-      borderColor: tk.border.light,
-    } as ViewStyle,
-    chipActive: {
-      backgroundColor: tk.brand.DEFAULT,
-      borderColor: tk.brand.DEFAULT,
-    } as ViewStyle,
-    chipText: {
-      fontSize: 14,
-      color: tk.text.secondary,
-    } as TextStyle,
-    chipTextActive: {
-      color: tk.brand.DEFAULT,
-      fontWeight: '600',
-    } as TextStyle,
     // index 预览态容器
     indexScroll: {
       flex: 1,
@@ -518,13 +489,13 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 12,
       gap: 12,
       backgroundColor: tk.surface.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       marginBottom: 8,
     } as ViewStyle,
     previewModelIcon: {
       width: 36,
       height: 36,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
@@ -548,7 +519,7 @@ function createStyles(tk: AppThemeTokens) {
     previewBadge: {
       paddingHorizontal: 8,
       paddingVertical: 4,
-      borderRadius: 4,
+      borderRadius: rnRadius.sm,
     } as ViewStyle,
     previewBadgeFree: {
       backgroundColor: tk.success.lighter,
@@ -603,13 +574,13 @@ function createStyles(tk: AppThemeTokens) {
     gridCover: {
       width: '100%',
       height: GRID_COVER_HEIGHT,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.text.primary,
     } as ImageStyle,
     gridCoverPlaceholder: {
       width: '100%',
       height: GRID_COVER_HEIGHT,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
@@ -654,7 +625,7 @@ function createStyles(tk: AppThemeTokens) {
     gridAvatar: {
       width: 12,
       height: 12,
-      borderRadius: 4,
+      borderRadius: rnRadius.sm,
       marginRight: 8,
     } as ImageStyle,
     gridAuthor: {
@@ -667,14 +638,14 @@ function createStyles(tk: AppThemeTokens) {
     tipOuter: {
       backgroundColor: tk.brandAccent.light,
       padding: 4,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       marginBottom: 9,
     } as ViewStyle,
     tipInner: {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: tk.surface.muted,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingVertical: 4,
       paddingHorizontal: 6,
     } as ViewStyle,
@@ -700,7 +671,7 @@ function createStyles(tk: AppThemeTokens) {
     tipMyModel: {
       width: 72,
       height: 28,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.brandAccent.deep,
       backgroundColor: tk.brandAccent.light,
@@ -746,7 +717,7 @@ function createStyles(tk: AppThemeTokens) {
     retryBtn: {
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     } as ViewStyle,
     retryText: {

@@ -11,6 +11,7 @@ import type * as RemarkGfm from 'remark-gfm'
 import SyntaxHighlighter from '@/components/media/SyntaxHighlighter'
 import { isMermaidLanguage } from '@/lib/markdown-mermaid-code'
 import { cn } from '@/lib/utils'
+import { rnRadius } from '@ihui/design-tokens'
 
 const ReactMarkdown = dynamic(() => import('react-markdown'), {
   ssr: false,
@@ -82,7 +83,7 @@ export function MarkdownViewer({ content, className }: MarkdownViewerProps) {
                 language={match ? match[1] : 'text'}
                 style={syntaxStyle}
                 PreTag="div"
-                customStyle={{ borderRadius: '0.5rem', fontSize: '0.875rem' }}
+                customStyle={{ borderRadius: rnRadius.lg, fontSize: '0.875rem' }}
               >
                 {String(children).replace(/\n$/, '')}
               </SyntaxHighlighter>
