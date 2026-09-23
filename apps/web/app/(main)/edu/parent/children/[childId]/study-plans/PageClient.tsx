@@ -32,11 +32,12 @@ async function api<T>(url: string): Promise<T> {
   return r.data
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: '草稿',
-  active: '进行中',
-  completed: '已完成',
-  archived: '已归档',
+/** 计划状态码 → eduParent 取词键;未知码回退原码(与后端比对的全是英文码) */
+const PLAN_STATUS_KEYS: Record<string, string> = {
+  draft: 'planStatusDraft',
+  active: 'planStatusActive',
+  completed: 'planStatusCompleted',
+  archived: 'planStatusArchived',
 }
 
 const STATUS_VARIANTS: Record<string, string> = {
@@ -46,9 +47,18 @@ const STATUS_VARIANTS: Record<string, string> = {
   archived: 'bg-amber-100 text-amber-700',
 }
 
+type Translator = (key: string) => string
+
+/** 码 → 取词键 → 本地化文案;未知码回退原码 */
+function codeLabel(t: Translator, keys: Record<string, string>, code: string): string {
+  const key = keys[code]
+  return key ? t(key) : code
+}
+
 export default function ChildStudyPlansPage() {
   const t = useTranslations('parentPortal')
   const tc = useTranslations('common')
+  const tParent = useTranslations('eduParent')
   const params = useParams()
   const childId = params.childId as string
 
@@ -97,7 +107,7 @@ export default function ChildStudyPlansPage() {
                     {p.title}
                   </CardTitle>
                   <Badge className={STATUS_VARIANTS[p.status] ?? ''}>
-                    {STATUS_LABELS[p.status] ?? p.status}
+                    {codeLabel(tParent, PLAN_STATUS_KEYS, p.status)}
                   </Badge>
                 </div>
               </CardHeader>
