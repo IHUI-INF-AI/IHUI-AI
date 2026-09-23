@@ -8,12 +8,12 @@
  * 对齐历史项目 pages/table/tools/components/Ai-list_b.vue(AI 应用商店主体):
  * - 卡片流:头像(上)+ 名称 + 描述 + 分类标签 + 统计 + 点赞/收藏操作行
  * - 卡片 borderRadius 12.5(原 25rpx),浅色优雅风,无霓虹/无渐变。
- * - 颜色走 @ihui/design-tokens 的 rnLightTokens。
+ * - 颜色走 theme/active-tokens 的主题 token。
  * - 类型零 any,精确标注。
  *
  * 平台特有:依赖 react-native FlatList/RefreshControl,不适合共享层。
  */
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { Star, ThumbsUp } from 'lucide-react-native'
 import {
   FlatList,

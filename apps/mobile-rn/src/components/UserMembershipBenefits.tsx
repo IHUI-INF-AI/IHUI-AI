@@ -9,13 +9,13 @@
  * - 当前等级权益列表(等级徽章 + 到期时间 + 图标权益清单)—— 保留既有 RN 契约
  * - 权益对比表:宣传标题「享受权益」+ 价格(含划线价)+ 普通/会员/操盘手 三档对比(勾✓/叉✗/文字)+ 立即开通按钮
  * - props:level/expireAt/benefits/onPressUpgrade 保留;新增 promoTitle/vipPrice/traderPrice/comparisonRows 可选
- * - 浅色优雅风,rnLightTokens;禁用 purple/indigo;会员金色用 #FFD700(对齐 uniapp VIP 金色语义)
+ * - 浅色优雅风,主题 token 入口;禁用 purple/indigo;会员金色用 #FFD700(对齐 uniapp VIP 金色语义)
  *
  * 平台特有:依赖 RN 组件,不适合共享。
  */
 import { Pressable, StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native'
 import type { ReactNode } from 'react'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { Check, CircleCheck, Crown, Sparkles, X, type LucideIcon } from 'lucide-react-native'
 
 export interface BenefitItem {

@@ -23,7 +23,7 @@ import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import type { FeedbackSubmitPayload } from '@ihui/rn-app'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 

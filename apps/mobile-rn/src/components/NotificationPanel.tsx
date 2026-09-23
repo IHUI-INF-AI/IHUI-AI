@@ -14,7 +14,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { useEffect, useRef } from 'react'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { useNotificationStore } from '../stores/notification'
 import { formatShortDateTime } from '../utils/date-utils'
 import { Bell, X } from 'lucide-react-native'
