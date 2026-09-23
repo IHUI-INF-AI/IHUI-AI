@@ -601,10 +601,10 @@ pnpm dev                                       # 启动所有服务(web + api + 
 **守门脚本**:
 
 - `check-workspace-hygiene.mjs`(第 25 项 BLOCKING:项目外路径写入;WARNING:硬编码中文路径)
-- `check-parent-pollution.mjs`(第 26 项 BLOCKING:项目父目录递归 2 层+桌面根级+用户主目录巡查,命中=文件名强信号 `search_*.ps1`/`*_result.txt` 或内容双信号)。**2026-09-23 结构性加固**:新增 `CREDENTIAL_DIR_NAMES`,对 `secrets`/`密钥`/`credentials`/`credential`/`certs`/`certificates`/`.pybcrypt` **整目录不扫不删**(既往逐 `USER_LEGIT_PATTERNS` 按 filename 豁免已被证明会漏第三把密钥)。
+- `check-parent-pollution.mjs`(第 26 项 BLOCKING:项目父目录递归 2 层+桌面根级+用户主目录巡查,命中=文件名强信号 `search_*.ps1`/`*_result.txt` 或内容双信号)。**2026-09-23 结构性加固**:新增 `CREDENTIAL_DIR_NAMES` 共 8 项,对 `secrets`/`secret`/`credentials`/`credential`/`密钥`/`certs`/`certificates`/`.pybcrypt` **整目录不扫不删**(目录名按 `toLowerCase()` 比对,大小写不敏感;既往逐 `USER_LEGIT_PATTERNS` 按 filename 豁免已被证明会漏第三把密钥)。
 - `cleanup-external-junk.ps1`(G:\ 垃圾清理,16 目录+31 文件,`-Force` 跳过确认)
 - `g-root-guardian.ps1` v2.0(G:\ 实时守门,FileSystemWatcher+白名单优先 5 层判定,~110-222ms 删除,Windows 计划任务自启)+ 配套 `g-root-blacklist.json`/install/uninstall/status 脚本
-- post-commit 自动 `--auto-clean --quiet`(仅清文件名强信号);定时 08:00 巡查;跳过 `HUSKY_SKIP_HYGIENE=1`。**⚠️ `--auto-clean` 对强信号命中直接 `unlinkSync` 实删文件、无任何二次确认** —— 清理类任务的铁律:先跑不带 `--auto-clean` 的 `node scripts/check-parent-pollution.mjs` 看命中清单并逐项验明身份,**命中项落在凭据/密钥目录内或名字含 key/secret/token 的,一律先补豁免再清理,顺序不可颠倒**(2026-09-22 实测用户口令表 `D:/DevEnv/secrets/ihui-app-password.txt` 因 `ihui-` 前缀被判为 agent 垃圾,跑一次 `pnpm hygiene:parent:clean` 即蒸发)。历史案例见 `.ihui-agent/archive/AGENTS_history.md`。
+- post-commit 自动 `--auto-clean --quiet`(仅清文件名强信号);定时 08:00 巡查;跳过 `HUSKY_SKIP_HYGIENE=1`。**⚠️ `--auto-clean` 对强信号命中直接 `unlinkSync` 实删文件、无任何二次确认** —— 清理类任务的铁律:先跑不带 `--auto-clean` 的 `node scripts/check-parent-pollution.mjs` 看命中清单并逐项验明身份,**命中项落在凭据/密钥目录内或名字含 key/secret/token 的,一律先补豁免再清理,顺序不可颠倒**(2026-09-22 实测用户口令表 `D:/DevEnv/secrets/ihui-app-password.txt` 因 `ihui-` 前缀被判为 agent 垃圾 —— 若不先补目录级豁免而直接跑 `pnpm hygiene:parent:clean`,它**会被无声删除**;该文件现仍完好,风险已在清理之前闭环)。历史案例见 `.ihui-agent/archive/AGENTS_history.md`。
 
 ---
 
@@ -1269,7 +1269,7 @@ iex "& { $(irm https://aka.ms/install-powershell.ps1) } -UseMSI"
 2. **禁止在一级目录生成 `.log` / `.html` / `cookies*` / 截图 / ad-hoc 脚本**:临时产物一律进 `tmp/` 或 `logs/`,测试产物进 `test-results/` 或对应子目录。
 3. **新增合法根目录文件/目录必须显式审批**:把条目加进 `scripts/check-root-dir-clean.mjs` 白名单并随 commit 提交,禁止绕过白名单。
 4. **任务收尾必查**:交付前跑 `node scripts/check-root-dir-clean.mjs --staged`,0 违规才算完成。
-5. **忽略产物也纳入视野(2026-09-23 补)**:守门原对"被 git 忽略的一级目录条目"整体跳过(该豁免必要,否则 `tmp/` 与构建产物会让每次提交皆红),致本规则第 2 条的禁令对被忽略文件零覆盖 —— 实测一次性翻出 14 个静默残留(`_knip.log`/`.tmp-tsc.log`/`build-oidc.log` 等),`git status` 与守门都看不见。现新增**只告警层**(不计失败、不改退出语义:全量恒 0,`--staged` 仍只对非忽略违规 exit 1)。看到该告警即删除或移入 `tmp/`、`logs/`。
+5. **忽略产物也纳入视野(2026-09-23 补)**:守门原对"被 git 忽略的一级目录条目"整体跳过(该豁免必要 —— 忽略条目本由 `.gitignore` 承接,若一并拦截则各类构建产物与本地目录会让每次提交皆红;注意 `tmp/`、`logs/` 等已在 `ALLOWED_DIRS`,驱动这条豁免的是"未进白名单却被忽略"的产物),致本规则第 2 条的禁令对被忽略文件零覆盖 —— 实测一次性翻出 14 个静默残留(`_knip.log`/`.tmp-tsc.log`/`build-oidc.log` 等),`git status` 与守门都看不见。现新增**只告警层**(不计失败、不改退出语义:全量恒 0,`--staged` 仍只对非忽略违规 exit 1)。看到该告警即删除或移入 `tmp/`、`logs/`。
 
 ### 守门(blocking)
 
