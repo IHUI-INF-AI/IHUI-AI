@@ -30,6 +30,10 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
+
+/** 层栈 id(见 @/lib/overlay-stack):Plus 弹窗的 Esc 只在栈顶时被消费 */
+const PLUS_POPOVER_OVERLAY_ID = 'global-topbar-plus'
 import { useDesktop } from '@/hooks/use-desktop'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { useWorkPanelStore } from '@/stores/work-panel'
@@ -38,10 +42,17 @@ import {
   minimizeWindow,
   toggleMaximizeWindow,
   closeWindow,
-  startWindowDrag,
   startResize,
   onMaximizeChange,
+  onWindowFocusChange,
+  isWindowFocused,
 } from '@/lib/tauri-bridge'
+import {
+  getModalDimState,
+  subscribeModalDim,
+  type ModalDimState,
+} from '@/lib/modal-overlay-watcher'
+import { armWindowDragOnFirstMove, isDraggableBlankArea } from '@/lib/window-drag'
 import { TOPBAR_BTN_BASE, TOPBAR_BTN_W9 } from '@/lib/nav-styles'
 import { TagsView, TagsViewSearchButton, TagsViewChevronButton } from './TagsView'
 import { Tooltip } from '@/components/feedback'
@@ -85,7 +96,8 @@ type PlusMenuAction = {
   /** 全局直接快捷键(可选,显示在菜单项右侧)
    * 2026-07-30 用户规则:"可以做快捷键 组合键 你深度思考分析设计去做好"
    * 设计原则(做减法):只为最高频入口(设置)标独立快捷键,其他 7 项通过 Ctrl+Shift+P 命令面板搜索触发
-   * 避免快捷键爆炸(用户记不住 + 浏览器冲突);Ctrl+, 是 VS Code 标准,用户最熟悉 */
+   * 避免快捷键爆炸(用户记不住 + 浏览器冲突);打开设置为 VS Code 标准 Ctrl+Shift+,,
+   * 2026-09-22 起让位 IDE 设置视图(原 Ctrl+, 归 use-ide-shortcuts 单主) */
   shortcut?: string
 }
 
@@ -126,8 +138,8 @@ const PLUS_MENU_GROUPS: Array<{
       // 2026-09-02 中文连接器入口(P2-2 语雀/飞书/企微/钉钉文档接入)
       { key: 'connectors', icon: Library, href: '/connectors' },
       // 2026-08-14 用户要求"把设置按钮从功能菜单内拿出来":
-      // 设置项已提取到左侧侧边栏底部"明暗切换按钮右侧"(sidebar.tsx SidebarActions),
-      // 不再放在本菜单内。Ctrl+, 全局快捷键仍由 useGlobalShortcuts + GlobalHooksProvider 跳转 /settings。
+      // 设置项已提取到左侧侧边栏底部用户行下拉菜单(2026-09-21 前为独立工具栏 SidebarActions),
+      // 不再放在本菜单内。Ctrl+Shift+, 全局快捷键仍由 useGlobalShortcuts + GlobalHooksProvider 跳转 /settings。
     ],
   },
 ]
@@ -154,7 +166,7 @@ const PLUS_MENU_GROUPS: Array<{
  *     </div>
  *   </div>
  *   桌面端总高 50px = pt-2(8) + h-9(36) + pb-1.5(6);右缘 pr-2 与下方工作展示区卡片右缘对齐(2026-09-02 修,不再用水平 16px)。
- *   注:设置按钮不在顶栏 —— 2026-08-14 用户指定放左侧侧边栏底部"明暗切换按钮右侧"(sidebar.tsx SidebarActions)。
+ *   注:设置按钮不在顶栏 —— 2026-08-14 用户指定放左侧侧边栏底部,2026-09-21 起收进用户行下拉菜单(原 SidebarActions 已删)。
  *
  * 与 MainShell 的分工:
  * - GlobalTopBar:负责全站顶栏(标签 + Plus 弹窗 + 窗口控制 + 桌面端拖拽/resize)
@@ -200,11 +212,14 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
 
   // 桌面端:窗口最大化状态(Tauri onResized 事件)
   const [isMaximized, setIsMaximized] = React.useState(false)
+  // 桌面端:窗口系统焦点(失焦 → 三按钮非活动态降亮)。初值必须 true:主窗口以
+  // visible:false 创建、由 auto_refresh 才 show,焦点事件未到时若默认 false 会一打开就死灰。
+  const [windowFocused, setWindowFocused] = React.useState(true)
+  // 桌面端:模态遮罩等效压暗态(按钮挂 z-max=10003 盖不住 z-modal=2000 遮罩,只能自压)
+  const [modalDim, setModalDim] = React.useState<ModalDimState>(getModalDimState)
+  const { active: dimActive, color: dimColor } = modalDim
 
-  // 拖拽 + 双击最大化统一状态机(2026-07-28 sidebar.tsx 已验证模式,直接复用)
-  const dragTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
-  const lastMouseDownAt = React.useRef<number>(0)
-  const DOUBLE_CLICK_MS = 250
+  // 拖拽 + 双击最大化:实现见 lib/window-drag.ts(2026-09-21 按下即拖改造)
 
   // 监听 Tauri 最大化事件
   React.useEffect(() => {
@@ -219,15 +234,26 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
     }
   }, [isDesktop])
 
-  // 清理拖拽 timer
+  // 桌面端专属:模态遮罩压暗 + 窗口焦点态(浏览器端不订阅,零常驻开销、零行为变化)
   React.useEffect(() => {
+    if (!isDesktop) return
+    let cancelled = false
+    let focusEventArrived = false
+    const unsubscribeDim = subscribeModalDim(setModalDim)
+    const unlistenFocus = onWindowFocusChange((focused) => {
+      focusEventArrived = true
+      setWindowFocused(focused)
+    })
+    // 事件只报"变化"不报现状,故挂载时补查一次初值;已收到事件则丢弃(避免用旧值覆盖新状态)
+    void isWindowFocused().then((focused) => {
+      if (!cancelled && !focusEventArrived) setWindowFocused(focused)
+    })
     return () => {
-      if (dragTimer.current) {
-        clearTimeout(dragTimer.current)
-        dragTimer.current = null
-      }
+      cancelled = true
+      unsubscribeDim()
+      unlistenFocus()
     }
-  }, [])
+  }, [isDesktop])
 
   // 2026-08-01 立:动态测量搜索按钮 left,设置 --topbar-content-left CSS 变量。
   //
@@ -340,10 +366,13 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
   // 2026-07-30 九宫格改造:↓↑ 按行跳(±3 列数),←→ 按列跳(±1),环形回绕适配过滤后非 9 项场景
   React.useEffect(() => {
     if (!plusOpen) return
+    // 层栈注册:open → 入栈(成为栈顶);close/unmount → 出栈。
+    pushOverlay(PLUS_POPOVER_OVERLAY_ID)
     const COLS = 3 // 九宫格列数,与 grid-cols-3 对齐
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        e.stopPropagation()
+        // 只让栈顶那一层消费 Esc:多层同时打开时,一次 Esc 关最上层
+        if (!isTopOverlay(PLUS_POPOVER_OVERLAY_ID)) return
         setPlusOpen(false)
         setPlusQuery('')
       } else if (e.key === 'ArrowDown') {
@@ -369,7 +398,10 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
       }
     }
     document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      popOverlay(PLUS_POPOVER_OVERLAY_ID)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plusOpen, flatItems, activeIndex])
 
@@ -385,42 +417,20 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
   }
 
   /**
-   * 顶栏空白区域鼠标按下:启动延迟拖拽 + 双击最大化检测。
-   * 状态机与 MainShell 原始实现完全一致(2026-07-28 sidebar.tsx 已验证模式):
-   * - 第一次 mousedown:启动 250ms timer,到期触发 startWindowDrag
-   * - 250ms 内 mouseup:取消 timer(纯点击,不拖拽)
-   * - 250ms 内第二次 mousedown:取消 timer + 触发 toggleMaximizeWindow(双击最大化)
-   * - 跳过交互元素(标签/按钮/输入框),让它们的点击正常触发
+   * 顶栏空白区域拖拽 + 双击最大化(2026-09-21 用户要求"直接点击就可以拖拽,不需要长按")。
+   * 按下即拖的实现与理由见 lib/window-drag.ts;双击最大化改用原生 onDoubleClick
+   * (纯点击不启动拖拽 → click 链完整 → 双击照常触发)。
    */
   const handleDragRegionMouseDown = (e: React.MouseEvent) => {
     if (!isDesktop || e.button !== 0) return
-    const target = e.target as HTMLElement
-    if (target.closest('a, button, [role="button"], input, textarea, select')) return
-
-    const now = Date.now()
-    const sinceLast = now - lastMouseDownAt.current
-
-    if (sinceLast < DOUBLE_CLICK_MS && dragTimer.current) {
-      clearTimeout(dragTimer.current)
-      dragTimer.current = null
-      lastMouseDownAt.current = 0
-      void handleToggleMax()
-      return
-    }
-
-    lastMouseDownAt.current = now
-    if (dragTimer.current) clearTimeout(dragTimer.current)
-    dragTimer.current = setTimeout(() => {
-      void startWindowDrag()
-      dragTimer.current = null
-    }, DOUBLE_CLICK_MS)
+    if (!isDraggableBlankArea(e.target as HTMLElement)) return
+    armWindowDragOnFirstMove(e.screenX, e.screenY)
   }
 
-  const cancelDragTimer = () => {
-    if (dragTimer.current) {
-      clearTimeout(dragTimer.current)
-      dragTimer.current = null
-    }
+  const handleDragRegionDoubleClick = (e: React.MouseEvent) => {
+    if (!isDesktop) return
+    if (!isDraggableBlankArea(e.target as HTMLElement)) return
+    void handleToggleMax()
   }
 
   const plusLabel = t('topBar.plus')
@@ -510,20 +520,24 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
         // 左缘已自洽对齐,加 pl 反而会破坏左侧对齐。
         // 2026-09-02 修复(用户反馈"鼠标移入这个区域时为什么不显示拖拽图标可以直接拖拽"):
         // cursor-default → cursor-move。Windows 标准"窗口可拖动"语义,四向箭头明示该区域
-        // 250ms 长按启动拖拽(详见 handleDragRegionMouseDown)。交互子元素(Plus/搜索/chevron/
+        // 2026-09-21 用户要求:按下即拖(handleDragRegionMouseDown mousedown 直接
+        // startWindowDrag),不再需要长按。交互子元素(Plus/搜索/chevron/
         // 标签 a/Min/Max/Close)均自带 cursor-pointer,自动覆盖父级 move 指针:
         // 空白区 → move 提示可拖;按钮/链接 → pointer 提示可点。
         className="pt-1 pb-1 pr-2 min-[1024px]:pt-2 min-[1024px]:pb-1.5 shrink-0 select-none cursor-move"
+        // 原生拖拽区:Tauri 注入脚本在 mousedown 当下即启动窗口移动循环,零 IPC 往返延迟。
+        // (JS 里 invoke start_dragging 有 ~50-90ms 启动延迟,实测会吃掉手势前几十像素,
+        //  用户感知为"要按一会才跟手"。)按元素生效:子按钮/标签不带此属性,点击不受影响。
+        data-tauri-drag-region
         onMouseDown={handleDragRegionMouseDown}
-        onMouseUp={cancelDragTimer}
-        onMouseLeave={cancelDragTimer}
+        onDoubleClick={handleDragRegionDoubleClick}
       >
         {/* 第十二轮 flex 顺序契约(2026-07-31 用户反馈"这两个按钮对换一下",由 JSX 顺序控制):
             1. TagsViewSearchButton    ← 搜索按钮(36x36)
             2. <Plus>                  ← 添加视图 36x36(从原第 3 位上移)
             3. TagsViewChevronButton   ← 关闭其他/全部 36x36(tags.length===0 不渲染,从原第 2 位下移)
             4. <TagsView>              ← 标签栏(a 标签)flex-1 占满剩余空间 */}
-        <div ref={topbarInnerRef} className="flex h-9 items-center gap-1">
+        <div ref={topbarInnerRef} data-tauri-drag-region className="flex h-9 items-center gap-1">
           {/* 0. 移动端汉堡菜单按钮(2026-07-31 第十三轮立,GlobalShell 注入)
               - 物理上作为顶栏 flex 第一个元素,跟 TagsViewSearchButton 36x36 尺寸一致,
                 杜绝 absolute 定位与顶栏子元素 z-index/stacking-context 冲突(原 bug:z-modal 也无法覆盖)
@@ -696,9 +710,31 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
             h-full 撑满容器,消除容器+按钮的"双重高度"残留风险。 */}
           {isDesktop && (
             <div
-              className="relative z-max flex h-full shrink-0 items-center gap-0.5 rounded-md"
+              // 必须显式 auto:Radix 模态 Dialog 打开时把 body 内联置 pointer-events:none
+              // (react-dismissable-layer 的 disableOutsidePointerEvents),容器/按钮继承即失效,
+              // 未登录时被登录窗挡住就关不掉应用。压暗层自身 pointer-events-none 不会挡点击。
+              className="relative z-max pointer-events-auto flex h-full shrink-0 items-center gap-0.5 rounded-md"
               data-window-controls
+              data-modal-dim={dimActive ? '1' : undefined}
+              data-window-inactive={windowFocused ? undefined : 'true'}
             >
+              {/* 模态遮罩"等效压暗"层(2026-09-22 立,同族第 3 次复发):
+                  按钮容器挂 z-max=10003(必须高过 resize 抓手 z-loading=10000,否则右上角拖不动
+                  窗口),顶栏外层又不形成 stacking context → z-modal=2000 的遮罩永远盖不到按钮。
+                  颜色来自 DOM 实测(inline style):全站全屏遮罩 29+ 处底色各异,ui-react Sheet
+                  浅色模式甚至是 bg-white/80(变亮),写死 bg-black/80 会把顶栏压成黑块。
+                  激活方向 duration-0 是硬约束:遮罩 open 态禁止 fade-in 是本项目既有 blocking 守门
+                  (check-z-index-guard 第 4 项),压暗必须第一帧到位;取消方向保留统一时长与遮罩
+                  fade-out 同步。pointer-events-none → 模态期间三按钮依然可点(未登录也能关窗)。 */}
+              <div
+                aria-hidden="true"
+                data-window-controls-dim
+                style={{ backgroundColor: dimColor ?? 'transparent' }}
+                className={cn(
+                  'pointer-events-none absolute inset-0 rounded-md opacity-0 transition-opacity duration-(--duration-unified) ease-unified',
+                  dimActive && 'opacity-100 duration-0',
+                )}
+              />
               <WindowControlButton
                 onClick={handleMinimize}
                 ariaLabel={tNav('minimize')}
@@ -858,6 +894,8 @@ function WindowControlButton({
       className={cn(
         TOPBAR_BTN_BASE,
         TOPBAR_BTN_W9,
+        // 窗口失焦的非活动态弱化不写在这里:见 globals.css 的
+        // [data-window-controls][data-window-inactive='true'] > button 规则(原因已在那处说明)
         // 2026-07-30 用户规则:"应该有背景色设定啊 全局统一 hover时突出"
         //   - 默认 bg + hover 已提到 TOPBAR_BTN_BASE 统一(默认 hover:bg-accent)
         //   - close 变体保留红色 hover(差异项:关闭按钮需特别视觉警示),覆盖默认 hover:bg-accent
