@@ -530,9 +530,18 @@ services:
 
   # Alertmanager(告警通知:Email/钉钉/飞书/企业微信 4 通道)
   # Prometheus ->Alertmanager 路由/抑制/分组 ->各 receiver
-  # 说明:alertmanager.yml 中 webhook 接收器(dingtalk-webhook/feishu-webhook/wechat-webhook:8060)
-  # 对应独立的 webhook 转换服务(未在本 compose 编排),作为告警出口占位;SMTP 凭据经 env 注入。
-  # 若无自定义模板目录则忽略 templates 加载(Alertmanager 可无 templates 启动)。
+  #
+  # ⚠ 邮件凭据**不是**通过本服务的 environment 注入的(2026-09-23 实测取证):
+  #   Alertmanager 不展开配置里的 ${VAR} —— 0.34.0 下 repeat_interval 写 '${X}' 且环境里 X=4h
+  #   会直接报 not a valid duration string(同格式写字面量则正常加载);塞不存在的键会被严格
+  #   解析拒掉,所以"能加载"确实等于"这个键存在"。给它一份带 ${} 的文件 = 那份配置永远发不出信。
+  #   正确顺序是先渲染、再挂载渲染产物:
+  #     node scripts/render-alertmanager-config.mjs        # → monitoring/alertmanager/alertmanager.rendered.yml
+  #   该产物含真实授权码,已在 .gitignore 里;下方挂载点与它必须一致,静态测试会钉住这条对账。
+  #   (本机线上形态其实是原生 Windows 进程而非容器 —— 见本文件顶部"部署模型声明";
+  #    正因如此机制不能只做在 compose 里,否则唯一在跑的那个实例永远修不到。)
+  # 说明:alertmanager.yml.tmpl 里 webhook 接收器(dingtalk-webhook/feishu-webhook/wechat-webhook:8060)
+  #   对应独立的 webhook 转换服务(未在本 compose 编排),作为告警出口占位。
   alertmanager:
     profiles: [observability]
     image: prom/alertmanager:v0.27.0
@@ -543,19 +552,11 @@ services:
       - '--storage.path=/alertmanager'
       - '--web.listen-address=0.0.0.0:9093'
     volumes:
-      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
-      - ./monitoring/alertmanager/noise-rules.yml:/etc/alertmanager/noise-rules.yml
+      # 挂载的是**渲染产物**,不是模板。渲染产物不存在时 Docker 会把它建成目录 → AM 必启动失败,
+      # 这是有意的:宁可起不来,也不要静默跑一份占位符配置(那正是 2026-09-23 之前的状态)。
+      - ./monitoring/alertmanager/alertmanager.rendered.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./monitoring/alertmanager/noise-rules.yml:/etc/alertmanager/noise-rules.yml:ro
       - alertmanager-data:/alertmanager
-    environment:
-      # 告警出口地址(占位;真实值经 .env 注入,勿提交真实凭据)
-      - DINGTALK_WEBHOOK_URL=${DINGTALK_WEBHOOK_URL:-}
-      - FEISHU_WEBHOOK_URL=${FEISHU_WEBHOOK_URL:-}
-      - WECHAT_WEBHOOK_URL=${WECHAT_WEBHOOK_URL:-}
-      # SMTP 邮件网关(告警通道一)
-      - SMTP_SMARTHOST=${SMTP_SMARTHOST:-smtp.example.com:465}
-      - SMTP_FROM=${ALERT_SMTP_FROM:-alert@aizhs.top}
-      - SMTP_AUTH_USER=${ALERT_SMTP_AUTH_USER:-}
-      - SMTP_AUTH_PASSWORD=${ALERT_SMTP_AUTH_PASSWORD:-}
     ports:
       - '${ALERTMANAGER_PORT:-9093}:9093'
     networks:
