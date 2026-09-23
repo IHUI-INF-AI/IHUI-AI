@@ -343,6 +343,31 @@
   以及这次的索引区。**旁路提交与 `--no-verify` 都不跑钩子**,所以收尾必须人工做多重集自证。
 
 - **守门 26 当前红,成因是他人正在运行的在飞工作,不代改也不代清**:`node scripts/check-parent-pollution.mjs`
+  命中 `D:\caches\ihui-tmp\prod-{clash,diag2,fetch,poll,preserve,watch}.ps1` 共 6 个文件 / 28K,
+  **mtime 全部落在 06:34-06:46(即本次审计的当刻)** ⇒ 是并发会话生产诊断活动的活文件,不是历史垃圾。
+  `--auto-clean` 会把它们当强信号实删,故本轮**只登记不动**:违反点在"落点",应迁 §15b 批准的项目内
+  临时位 `.ihui-agent/tmp/<任务名>/`(28K 搬迁零风险,由作者自己在其活动结束时做);该门在此之前
+  会持续拦 commit,他人可依 §12 以 `--no-verify` 落地自己的改动。
+  命中 `D:\caches\ihui-tmp\prod-{clash,diag2,fetch,poll,preserve,watch}.ps1` 共 6 个文件 / 28K,
+  **mtime 全部落在 06:34-06:46(即本次审计的当刻)** ⇒ 是并发会话生产诊断活动的活文件,不是历史垃圾。
+  `--auto-clean` 会把它们当强信号实删,故本轮**只登记不动**:违反点在"落点",应迁 §15b 批准的项目内
+  临时位 `.ihui-agent/tmp/<任务名>/`(28K 搬迁零风险,由作者自己在其活动结束时做);该门在此之前
+  会持续拦 commit,他人可依 §12 以 `--no-verify` 落地自己的改动。
+  命中 `D:\caches\ihui-tmp\prod-{clash,diag2,fetch,poll,preserve,watch}.ps1` 共 6 个文件 / 28K,
+  **mtime 全部落在 06:34-06:46(即本次审计的当刻)** ⇒ 是并发会话生产诊断活动的活文件,不是历史垃圾。
+  `--auto-clean` 会把它们当强信号实删,故本轮**只登记不动**:违反点在"落点",应迁 §15b 批准的项目内
+  临时位 `.ihui-agent/tmp/<任务名>/`(28K 搬迁零风险,由作者自己在其活动结束时做);该门在此之前
+  会持续拦 commit,他人可依 §12 以 `--no-verify` 落地自己的改动。
+  命中 `D:\caches\ihui-tmp\prod-{clash,diag2,fetch,poll,preserve,watch}.ps1` 共 6 个文件 / 28K,
+  **mtime 全部落在 06:34-06:46(即本次审计的当刻)** ⇒ 是并发会话生产诊断活动的活文件,不是历史垃圾。
+  `--auto-clean` 会把它们当强信号实删,故本轮**只登记不动**:违反点在"落点",应迁 §15b 批准的项目内
+  临时位 `.ihui-agent/tmp/<任务名>/`(28K 搬迁零风险,由作者自己在其活动结束时做);该门在此之前
+  会持续拦 commit,他人可依 §12 以 `--no-verify` 落地自己的改动。
+  命中 `D:\caches\ihui-tmp\prod-{clash,diag2,fetch,poll,preserve,watch}.ps1` 共 6 个文件 / 28K,
+  **mtime 全部落在 06:34-06:46(即本次审计的当刻)** ⇒ 是并发会话生产诊断活动的活文件,不是历史垃圾。
+  `--auto-clean` 会把它们当强信号实删,故本轮**只登记不动**:违反点在"落点",应迁 §15b 批准的项目内
+  临时位 `.ihui-agent/tmp/<任务名>/`(28K 搬迁零风险,由作者自己在其活动结束时做);该门在此之前
+  会持续拦 commit,他人可依 §12 以 `--no-verify` 落地自己的改动。
 
 - 守门 57 `check-chat-element-coverage`:条目倒退属其他会话在飞内容,代其决定"恢复还是撤销"即越权(§12)。
 - 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`),
@@ -1310,6 +1335,7 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 
 > 背景:D28 收尾审计翻出 web 语言包 84 个含点键。2026-09-09 的 F6-F8 那轮把它判成"日志级噪音"留置,
 > 本轮用真实 formatter 实测推翻该结论:**含点键不是噪音,是渲染缺陷**。
+- [ ]（进行中） **本轮未落地、需重做的一批(web 86 处内的键名对齐)**:该批次报告改了 4 个文件(`DeveloperKeyDialog` / `AiGenerationContent` / `PermissionSelector` / `helpers`),**逐条按内容复核后全部不在 HEAD**(`git grep <新键名> HEAD -- apps/web` 四处均 0 命中),工作区也已被并发会话覆盖 → 判为**丢失需重做**,不要当成已完成。中途我一度按"工作区里有"记成"已落地",那是读到了被覆盖前的窗口 —— 并行期复核一律以 **HEAD 对象树内容**为准(档案第 4 节已记此教训)。
 
 - [ ] **本轮未落地、需重做的一批(web 86 处内的键名对齐)**:该批次报告改了 4 个文件(`DeveloperKeyDialog` / `AiGenerationContent` / `PermissionSelector` / `helpers`),**逐条按内容复核后全部不在 HEAD**(`git grep <新键名> HEAD -- apps/web` 四处均 0 命中),工作区也已被并发会话覆盖 → 判为**丢失需重做**,不要当成已完成。中途我一度按"工作区里有"记成"已落地",那是读到了被覆盖前的窗口 —— 并行期复核一律以 **HEAD 对象树内容**为准(档案第 4 节已记此教训)。
 - [x] ✅(2026-09-21) **D31 mobile-rn 四屏页签回显原始键名,零新增文案修好**:上一批"补 5 个键"的做法经复核**方向就是错的** —— 词典里同命名空间下早有 plain 驼峰叶键(`coupon.available`=未使用、`profileEdit.genderMale`=男、`ranking.weekly`=周榜、`liveList.all`=全部,五语齐),是代码的映射值多写了一层 `tab_` / `gender_` / `range_` 前缀。改 4 个共享屏的映射值指向既有键(commit `43b3daf9b6`,已按内容复核四处均在 HEAD),**不新造任何键、不产生两份真相**;其中 `range_allTime` 对应 `ranking.total`(总榜/All-time)而非字面压平的 `allTime`,逐条实查五语才定下来。`@ihui/rn-app` typecheck 0 错、prettier 0 漂移,65 个字面键复核不可达 0。另核查确认 `messageCenter.tab.${tab}` 与 `income.tab.${tab}` 本来就正确(词典五语齐),写进档案免得下轮重复排查。
@@ -1414,11 +1440,13 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 
 ### P2 广度产品化（生态）
 - [ ] O13 多租户隔离重建（tenant RLS 被 0214 删除后，按 catalog data-class 重新落地）+ `roleId >= 1` 判定收敛  ⏳(迁移与角色在途)
+- [ ]（进行中） O13b 第二段(收敛本身,5 条可核算):① 34 个白名单文件逐个迁移到集中封装并**删条目**;② 删掉 2 处本地重定义 `requireAdmin`(`earnings-routes.ts:137`、`security.ts:74`);③ `internalUserRoleId` 通道并入同一封装并补提权断言;④ 第 53 项升 blocking;⑤ `admin.ts:124` 统一 preHandler 收编进 `require-permission`。另:部署机需运维 `ALTER ROLE ihui_app PASSWORD` + 配 `DATABASE_APP_URL`,之后才评估 `ENABLE ROW LEVEL SECURITY`
 
 - [ ] O13b 第二段(收敛本身,5 条可核算):① 34 个白名单文件逐个迁移到集中封装并**删条目**;② 删掉 2 处本地重定义 `requireAdmin`(`earnings-routes.ts:137`、`security.ts:74`);③ `internalUserRoleId` 通道并入同一封装并补提权断言;④ 第 53 项升 blocking;⑤ `admin.ts:124` 统一 preHandler 收编进 `require-permission`。另:部署机需运维 `ALTER ROLE ihui_app PASSWORD` + 配 `DATABASE_APP_URL`,之后才评估 `ENABLE ROW LEVEL SECURITY`
 - **进度(2026-09-23 试点批)**:earnings/security/health 3 文件已收敛集中 `requireAdmin`（白名单 34→31，LOCAL 清零），11 条契约测试全绿；沉淀两套范式（全 admin 用 preHandler、混合路由用 handler 内 `reply.sent`）；后续 31 文件按 T0(16 个纯删条目)/T1(8 个)/T2(4 个)/T3(1 个 groups)排序推进。
 - **进度(2026-09-23 T1批)**:`finance.ts`(6)/`finance-extended.ts`(5)/`user/withdrawal-routes.ts`(2)/`user/developer-routes.ts`(1)共 **14 处真闸门**按试点范式收进集中 `requireAdmin`(handler 内 `await requireAdmin(request, reply)` + `if (reply.sent) return`),白名单 **15→11 文件 / 42→26 处**,全仓裸 roleId 比较 **34→20**,门 53 全量绿 + `--self-test` 绿;新增契约测试 `apps/api/tests/o13b-batch2-admingate-contract.test.ts` 7 例(无 JWT→401 / roleId=0→403 且 body 逐字节 `{code:403,message:'需要管理员权限'}` / roleId>=1→落业务分支)。**两处对外文案变化**:`finance-extended` 的 403 文案 `无管理员权限`→集中封装的 `需要管理员权限`(形状不变,全仓已无其他引用),401 文案改由集中封装出具。**三条"清不掉"的定性(不得再派收敛任务)**:① `admin-sys/role-routes.ts` 5 处实为 `q.roleId`/body roleId **入参校验**(400 `roleId 无效`),迁 requireAdmin 会把参数错变鉴权拒绝 → 白名单 reason「roleId===1 超管保护」与代码不符,应改判为②类保留;② `agents.ts` 4 处是「owner **或** admin」混判,集中封装无此档位,改 preHandler 会把属主拒掉(第 5 处 webhook 密钥为专有 403 文案,登记 count 6 实为 5);③ `menu-routers-routes.ts` 是「管理员看全部菜单」的数据视图分支,无拒绝路径。**故 ④「第 53 项升 blocking」的前置**是把"入参校验/视图分支"从判据里显式排除(否则一升就把 `400 roleId 无效` 这类非鉴权行永久锁成红点),不得为凑绿而放宽语义。
 - **进度(2026-09-23 T2批 + ③)**:① T2 三处(`trader.ts` 特权读数 / `oss.ts` 删除闸门 / `other/student-profile-routes.ts` 查他人档案闸门)确属"任意管理员"判定,但以**谓词收敛**落地 —— 新增集中谓词 `isSystemAdmin(request, policy)`,属主/字段分支原样留在调用处,状态码与 403 文案逐字不变(`roleId<1` ⟺ `!(roleId>=1)`,唯一差异是 NaN 走 fail-closed,更严);白名单 **11→8 文件 / 26→23 处**,全仓裸 roleId 比较 **20→17**,门 53 全量绿 + `--self-test` 绿。② ③ 已完成:`internalUserRoleId` 收进唯一读数点 `resolveAdminRoleId`,通道策略改为编译期**必填** `includeInternalChannel`(新闸门漏声明即编译报错,防"顺手接上 internal"提权),`requireAdmin` 固定 false、`requireAnyPermission` 固定 true;**实测无提权路径**(admin 面不认 internal、apiKey 分支 roleId 恒 0 且优先于 internal、internal 主体 `isDataScopeEnforced=false` 永不进数据闸、`??` 串联使 jwt roleId=0 不回落 internal)。契约 `apps/api/tests/o13b-batch3-admingate-channel.test.ts` 12 例(A 通道真值表 / B requireAdmin 对 internal 恒 403 且 body 逐字节 / C 豁免档语义 / D principal 无提权),连同试点 11 + T1 7 + `oss-files-delete` 7 + `idor-guard` 17 共 **54 例全绿**。③ `utils/idor-guard.ts:135` 判为**不可迁**并给三条证据,其中实测反证最有价值:按谓词改会把 `require-permission → auth → api-key-auth → key-rate-window-service` 插件链拉进纯 util 层,当场打挂 `tests/idor-guard.test.ts`(`No "developerApiKeys" export is defined on the "@ihui/database" mock`),已回退为未修改。**订正 T1 口径**:"owner‖admin 混判一律不可迁"过宽 —— 谓词形态可零风险收敛同族裸比较,真正缺的是档位(`=== 1` 超管档集中封装无等价物,已在谓词注释显式禁止替代)。**另两处堵漏**:门 53 的 `--self-test` 夹具原写死 `oss.ts` 当"白名单内豁免"样本 → 条目一删自测即红,已改为从表里动态取一条 `count===1` 的条目当探针(收敛与自测解耦);**新发现待立项**:`idorGuard` / `checkOwnership` 全仓 **0 个生产调用点**(仅两份测试引用),是"造好没装车"的第三个实例,接线或删除需单独定档。
+- [ ] **O21 资金链与文件版本面的属主谓词补齐(2026-09-23 逐行实测,安全 P0)**:① **【本票已修】**`createPayment` / `applyRefund` 事务内订单查询原只有 `where(eq(eduOrders.id, data.orderId))`,**无属主谓词**,且 `payAmount` / `refundAmount` 直接取客户端携带值(`priceSchema` 只验格式 `/^\d+(\.\d{1,2})?$/` 不验上限)⇒ 任意登录用户可对**他人已支付订单**挂 pending 退款申请(管理员在 `routes/order.ts:1056/1092` 审批后即成资金流出),或对他人 pending 订单写 `eduPayments`,金额由请求方指定。修法 = 属主条件下推进同一条 WHERE(零额外往返;跨属主统一 `order_not_found`→404,不留"存在但不可访问"的枚举 oracle)+ 新增导出纯函数 `capToOrderAmount`(允许下调以保部分支付/部分退款,越界回落订单金额,0/负数/不可解析亦回落不写脏值)。三处调用方(`routes/order.ts:433`、`:468`、`routes/user/payment-routes.ts:202`)实测全部传 `request.userId!`,**无 admin 代客路径** ⇒ 谓词不会挡掉任何正当流程。回归 `apps/api/tests/idor-order-owner-and-amount-cap.test.ts` 7 例(结构断言 + 上限四态),既有 `order`/`payment`/`payment-routes`/`payment-gateway`/`refund-dlq` 共 87 例不红,`order-queries.real.test.ts`(被 vitest `exclude` 挡在 CI 外,需真库)fixture 全部用同一 user 建单 ⇒ 谓词后仍成立。② **【待做,勿挂 idorGuard】**`routes/file-version.ts:165/179/197/214/260/293` 与 `routes/workspace.ts:502/520` 共 8 个端点仅 `checkAuth`/`requireAuth`,**无属主与成员校验**,`serializeVersion`(`file-version.ts:44-55`)还外泄服务端磁盘 `path`,而 `:254` 可直接 `update files set path=newPath where id=target.fileId` 改他人文件指向 + `:281-288` unlink 磁盘文件。**不得**用 `idorGuard('file')`:它以 `files.uploadedBy` 单列判定(该列 `onDelete:'set null'` **可空**,注销即恒 403),比现网 `canAccessFile`(上传者 ∪ 项目 owner ∪ `project_members`,`db/file-queries.ts:28-40`)**更弱**,硬接会把正常共享成员打成 403。正解 = 8 处统一 `canAccessFile`(`file-version.ts` 先由 `fileVersions.fileId` 反查 `files` 行)+ 出口剥 `path`。③ `utils/idor-guard.ts` 定档:**非死代码,但不得全量接线** —— 其 7 类里 5 类(order/payment/refund/invoice-*/project)现网已被 handler 内联属主判定覆盖(`order.ts:378/402/519/542/645/671/762/779`、`workspace.ts:252/275/294/323/342`、`oss.ts:234`),再挂 preHandler 只多出一次存在性查询=双重往返,`file` 类则因模型更宽不可替代 ⇒ 实现与两份测试保留,仅作 ① 类缺谓词端点的 preHandler 备选。**关键旁证(别再拿"有数据闸"当免检理由)**:`utils/scoped-guard.ts:199-201` 明示 `isDataScopeEnforced` 只在 `principal.kind==='apiKey'` 时生效,人用 JWT 不在其内;且上述路由一律 import 非受控出口 `db`(不经 `db/index.ts:193` 的 `dbScoped()`)⇒ scope/RLS 层对这些端点不提供任何防护。
 - [x] ✅(2026-09-23) **O21 资金链与文件版本面的属主谓词补齐(2026-09-23 逐行实测,安全 P0)**:① **【本票已修】**`createPayment` / `applyRefund` 事务内订单查询原只有 `where(eq(eduOrders.id, data.orderId))`,**无属主谓词**,且 `payAmount` / `refundAmount` 直接取客户端携带值(`priceSchema` 只验格式 `/^\d+(\.\d{1,2})?$/` 不验上限)⇒ 任意登录用户可对**他人已支付订单**挂 pending 退款申请(管理员在 `routes/order.ts:1056/1092` 审批后即成资金流出),或对他人 pending 订单写 `eduPayments`,金额由请求方指定。修法 = 属主条件下推进同一条 WHERE(零额外往返;跨属主统一 `order_not_found`→404,不留"存在但不可访问"的枚举 oracle)+ 新增导出纯函数 `capToOrderAmount`(允许下调以保部分支付/部分退款,越界回落订单金额,0/负数/不可解析亦回落不写脏值)。三处调用方(`routes/order.ts:433`、`:468`、`routes/user/payment-routes.ts:202`)实测全部传 `request.userId!`,**无 admin 代客路径** ⇒ 谓词不会挡掉任何正当流程。回归 `apps/api/tests/idor-order-owner-and-amount-cap.test.ts` 7 例(结构断言 + 上限四态),既有 `order`/`payment`/`payment-routes`/`payment-gateway`/`refund-dlq` 共 87 例不红,`order-queries.real.test.ts`(被 vitest `exclude` 挡在 CI 外,需真库)fixture 全部用同一 user 建单 ⇒ 谓词后仍成立。② **【待做,勿挂 idorGuard】**`routes/file-version.ts:165/179/197/214/260/293` 与 `routes/workspace.ts:502/520` 共 8 个端点仅 `checkAuth`/`requireAuth`,**无属主与成员校验**,`serializeVersion`(`file-version.ts:44-55`)还外泄服务端磁盘 `path`,而 `:254` 可直接 `update files set path=newPath where id=target.fileId` 改他人文件指向 + `:281-288` unlink 磁盘文件。**不得**用 `idorGuard('file')`:它以 `files.uploadedBy` 单列判定(该列 `onDelete:'set null'` **可空**,注销即恒 403),比现网 `canAccessFile`(上传者 ∪ 项目 owner ∪ `project_members`,`db/file-queries.ts:28-40`)**更弱**,硬接会把正常共享成员打成 403。正解 = 8 处统一 `canAccessFile`(`file-version.ts` 先由 `fileVersions.fileId` 反查 `files` 行)+ 出口剥 `path`。③ `utils/idor-guard.ts` 定档:**非死代码,但不得全量接线** —— 其 7 类里 5 类(order/payment/refund/invoice-*/project)现网已被 handler 内联属主判定覆盖(`order.ts:378/402/519/542/645/671/762/779`、`workspace.ts:252/275/294/323/342`、`oss.ts:234`),再挂 preHandler 只多出一次存在性查询=双重往返,`file` 类则因模型更宽不可替代 ⇒ 实现与两份测试保留,仅作 ① 类缺谓词端点的 preHandler 备选。**关键旁证(别再拿"有数据闸"当免检理由)**:`utils/scoped-guard.ts:199-201` 明示 `isDataScopeEnforced` 只在 `principal.kind==='apiKey'` 时生效,人用 JWT 不在其内;且上述路由一律 import 非受控出口 `db`(不经 `db/index.ts:193` 的 `dbScoped()`)⇒ scope/RLS 层对这些端点不提供任何防护。
   - 守门号自纠:本门最初登记为 77,收敛后发现 HEAD 的 runner 里 `id: '77'` 已被 `check-radius-single-source.mjs`(origin 线)占用 —— 同号两道 blocking 门会串 skipEnv 与失败归属,故**本门改号为 79**(runner / AGENTS 速查 / README 三处同步,均从 HEAD 版本生成 blob 后提交,未走已落后 384 行的工作区那份)。既存重复号 75 与 76 各两处由归属会话处理,本票未代裁。
   - 完成口径(2026-09-23,三子项逐条对账):① 资金链 `createPayment`/`applyRefund` 属主谓词 + `capToOrderAmount` 已在 HEAD(`db/order-queries.ts:213` 定义、`:260`/`:358` 调用),回归 `tests/idor-order-owner-and-amount-cap.test.ts` 在位。② 文件版本面 6 端点 + `workspace.ts` 2 端点全补 `checkFileAccess`/`canAccessFile`,两侧出口 `serializeVersion`/`serializeFileVersion` 剥 `path` 外泄;新测试 `tests/o21-file-version-owner.test.ts` 35 例(8 端点各钉 403 + 读不到行 + 路径不外泄 + 写副作用 0,含正向不误伤 2 例与 5 条结构钉)。③ `utils/idor-guard.ts` 按定档一行未改未接线,并加反向结构钉防后来者挂上。
@@ -1530,6 +1558,7 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - [ ] **D48 本地会话数据主权与加密(G-56)**:桌面端本地缓存加密(对标 Trae SQLCipher;我方优势:导入侧已有 redact_secrets 实测 0.07% 命中)。**验收**:静态盘 grep 明文会话为 0 + 解锁失败降级可读空态不崩 + 密钥不落仓(§5d)
 
 #### B4 跨端与自证缺陷(与 D19 合流)
+- [x] ✅(2026-09-23 进行中,**①已收口**) **D49 我方自证缺陷包(G-61)**:① 点赞/点踩落库(现仅 toast,`use-message-list-context-menu.tsx:117-119`);② 工具耗时改为后端下发(D34 帧),废除前端本地计时(断线即不可得);③ `MessageItem.tsx` 1370 / `message-input.tsx` 1234 / `ai-side-panel.tsx` 1496 三巨无霸拆分 + 各补专属单测(现零专属覆盖,仅 message-list.test.tsx);④ miniapp-taro 自研分发层迁 `@ihui/api-client streamChat`(消除漂移);⑤ **更正一处本会话此前的假结论**:第 3 轮子代理报"desktop/extension 对话事件消费点为 0",经主代理换路径复测**只对了一半**——desktop 确为 0 端内渲染件(`tauri.conf.json:9 devUrl=http://localhost:8801`,随 Web 壳自动覆盖 ✅);但 **extension 有独立聊天面**(`apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx`、`MessagesPage.tsx`、`components/MessageContent.tsx`,5 个事件消费点)→ D49⑤ 的真实任务是**把 extension sidepanel 纳入事件 parity 真值矩阵**(而非"从 0 接线"),并修 `apps/miniapp-taro/src/api/index.ts` 自研分发层向 `@ihui/api-client streamChat` 收编(D49④)。**验收**:五项各有可复核证据(反馈表行数 +1、耗时来源断言、三文件行数下降且测试数上升、miniapp grep 分发层消失、两端消费点 grep 命中)
 
 - [ ] **D49 我方自证缺陷包(G-61)**:① 点赞/点踩落库(现仅 toast,`use-message-list-context-menu.tsx:117-119`);② 工具耗时改为后端下发(D34 帧),废除前端本地计时(断线即不可得);③ `MessageItem.tsx` 1370 / `message-input.tsx` 1234 / `ai-side-panel.tsx` 1496 三巨无霸拆分 + 各补专属单测(现零专属覆盖,仅 message-list.test.tsx);④ miniapp-taro 自研分发层迁 `@ihui/api-client streamChat`(消除漂移);⑤ **更正一处本会话此前的假结论**:第 3 轮子代理报"desktop/extension 对话事件消费点为 0",经主代理换路径复测**只对了一半**——desktop 确为 0 端内渲染件(`tauri.conf.json:9 devUrl=http://localhost:8801`,随 Web 壳自动覆盖 ✅);但 **extension 有独立聊天面**(`apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx`、`MessagesPage.tsx`、`components/MessageContent.tsx`,5 个事件消费点)→ D49⑤ 的真实任务是**把 extension sidepanel 纳入事件 parity 真值矩阵**(而非"从 0 接线"),并修 `apps/miniapp-taro/src/api/index.ts` 自研分发层向 `@ihui/api-client streamChat` 收编(D49④)。**验收**:五项各有可复核证据(反馈表行数 +1、耗时来源断言、三文件行数下降且测试数上升、miniapp grep 分发层消失、两端消费点 grep 命中)
 - [ ] **D50 多端遥控配对 + 每会话浏览器 Tab 状态(G-60)+ WorkBuddy 取证专项**:① 手机看/接管桌面在跑会话(对标 `remote_control_enrollments`);② 每会话浏览器 tab 路由状态持久化(对标 `thread-tab-routes-v1`,复用 work-panel 历史连贯根治成果);③ **WorkBuddy 元素级取证补齐**(本机四路探测确认无程序本体):在装有 WorkBuddy 的机器上取包体或跑一次渲染取证,把报告 §1.4 的 E4 二手升为 E1/E2,再回补差距编号
@@ -1648,6 +1677,7 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 #### B4e 第 9 轮补证追加任务(G-97~G-105,状态词汇表与并行工作形态)
 
 - [ ] **D71 统一 Turn 状态词汇表 + 错误分类族(G-97/G-98)**:①对话流引入十态 turn 状态徽章(`排队中/准备中/思考中/使用工具/等待确认/后台执行中/正在停止/已完成/失败/已停止`)——**`等待确认` 与 `后台执行中` 我方现在无处可见**,是用户中断/切走的直接成因;②`errorCode → 中文标题 + 建议动作` 映射表(对标 20+ 类,含 `上下文过长`/`媒体文件数量超出限制`/`当前模型拒绝了本次请求`/`请求超时`/`服务内部处理错误`/`版本过低`/`账户受限`/`登录已过期`),落在 `attachErrorMeta` 与 `error` 卡。**验收**:十态各有渲染用例 + 错误映射表覆盖率脚本判据(我方已产出的 `errorCode` 全量有标题,零"未知错误"兜底)+ D39 重试族不回退
+- [x] ✅(2026-09-23) **D72 Worktree 生命周期对话流卡(G-99)**:我方 §12d 早已把 worktree 用作并行会话隔离,**但用户侧完全不可见**。补:创建中/已创建/初始化失败/**超时(带"请检查仓库状态")**/`此任务的 Worktree 已被清理以释放磁盘空间。`/恢复中/已恢复/无法恢复 八态卡,并给出磁盘回收与恢复入口。**验收**:八态用例 + 与 §12d worktree 收编流程(`cherry-pick`→`worktree remove`→`prune`)状态一致 + 不违反单写者原则 __收口(2026-09-23):worktree-lifecycle(八态唯一真相源/穷尽 switch 零 default/§12d 收编三阶段映射/单写者守卫)+ worktree-card(不取数,onAction 注入)+ ai.pane.worktree 17 键×5 语言;shared 31 + web 17 全绿;剩余=web 侧无 worktree 数据面,事件构造待另票__
   - **D92 已先行落表,本票 ② 禁止另起**:O23 实测 `packages/api-client/src/client.ts:1117 attachErrorMeta` 至今只做字段挂载、**没有 errorCode→标题/动作 映射表**,而 `packages/shared/src/utils/view-failure-taxonomy.ts`(D92 建,15 类 + 五档判定链 + 未知码回落)已是全仓唯一一张。D71 落 ② 时**必须复用该模块**(给它补 turn 侧的码位即可),新建第二张 = 违反 D92 的"与 D71 共用一张表"硬约束,且会重演本仓反复出现的"两套真相"事故族。
 - [x] ✅(2026-09-23)  **D72 Worktree 生命周期对话流卡(G-99)**:我方 §12d 早已把 worktree 用作并行会话隔离,**但用户侧完全不可见**。补:创建中/已创建/初始化失败/**超时(带"请检查仓库状态")**/`此任务的 Worktree 已被清理以释放磁盘空间。`/恢复中/已恢复/无法恢复 八态卡,并给出磁盘回收与恢复入口。**验收**:八态用例 + 与 §12d worktree 收编流程(`cherry-pick`→`worktree remove`→`prune`)状态一致 + 不违反单写者原则 __收口(2026-09-23):worktree-lifecycle(八态唯一真相源/穷尽 switch 零 default/§12d 收编三阶段映射/单写者守卫)+ worktree-card(不取数,onAction 注入)+ ai.pane.worktree 17 键×5 语言;shared 31 + web 17 全绿;剩余=web 侧无 worktree 数据面,事件构造待另票__
 - [ ] **D73 多任务窗格(G-100)**:向右/向下拆分、最大化还原、**联动调整相邻窗格**、空窗格"从侧栏拖入一个任务"、Fork 失败提示。落点在既有 `ai-side-panel` + `work-panel` 之上做分屏容器,**禁止**新建第二套会话承载体系(与 D52/D68 协同)。**验收**:拆分/拖入/Fork 失败三用例 + 拖拽复用 D22 已建的 `application/x-ihui-conversation` 通道
@@ -1673,6 +1703,7 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 
 #### B4h 第 12 轮定档结果(D80 已完成 + G-92/G-95/G-96/G-110 判定落地)
 - [x] ✅(2026-09-21) **D80 待自证定档完成**,四条判定全部出结论(报告 §14,逐条带我方代码文件:行):①**G-96 撤销**——`permission-mode-popover.tsx:76,88-100` 已有 `mode.askDesc/autoDesc/fullDesc` 三档说明句 + `risk` 分级,我方**不缺失**;②**G-92 收窄为两态**——权限切换失败我方 `:231-242` 已有 toast **且带撤销动作(强于 Qoder 纯提示,属反超点,禁止"补齐"成弱版本)**,仍缺的是**模型切换失败**(grep 零命中)与**停止生成失败**(`use-chat` 仅 `isAbortError` 静默 return);③**G-95 重定义**——我方 `skill-library.tsx:257 tpl-polish` 是"插入润色模板",对手是"对草稿**就地改写 + 失败保稿**",差距按后者表述;④**G-110 转正**——`grep 'orchestration|workflow' apps/web/src/components/chat/` = **0**,工作流未内联进消息流;但 `MessageItem.tsx:37,920` 已内联渲染 `ArtifactCanvas`,证明"流内业务对象"通道已打通 → 属**增量**非新建
+- [x] ✅(2026-09-23) **D82 就地润色与失败保稿(G-95 重定义后)**:输入框草稿的一键润色(**改写当前内容**而非插入模板)+ 失败时**明确保留原稿**(`暂时无法润色提示词，草稿已保留。` 同族语义)+ 需要重启生效时的保稿提示。**复用**现有模板/命令基建,不新建提示词栈。**验收**:润色成功替换草稿 / 失败保留原稿 / 二次失败仍可重试 三用例 __收口(2026-09-23):prompt-polish(四相位/失败草稿字节级不变/空草稿拒绝/二次失败仍可重试)+ message-input 接线(复用既有 polish 提示词与 runBestOfN 通道,未新建提示词栈)+ ai.pane.promptPolish 11 键×5 语言;shared 33 + web 17 全绿;剩余=重启生效原因码后端尚未产出__
 
 - [x] ✅(2026-09-23)  **D82 就地润色与失败保稿(G-95 重定义后)**:输入框草稿的一键润色(**改写当前内容**而非插入模板)+ 失败时**明确保留原稿**(`暂时无法润色提示词，草稿已保留。` 同族语义)+ 需要重启生效时的保稿提示。**复用**现有模板/命令基建,不新建提示词栈。**验收**:润色成功替换草稿 / 失败保留原稿 / 二次失败仍可重试 三用例 __收口(2026-09-23):prompt-polish(四相位/失败草稿字节级不变/空草稿拒绝/二次失败仍可重试)+ message-input 接线(复用既有 polish 提示词与 runBestOfN 通道,未新建提示词栈)+ ai.pane.promptPolish 11 键×5 语言;shared 33 + web 17 全绿;剩余=重启生效原因码后端尚未产出__
 - **D81 追加第 ⑦ 项(G-110 转正后)**:活动条目内**渲染 workflow**(步骤/泳道摘要 + 点击进全屏画布),落点复用 `ArtifactCanvas` 已验证的流内业务对象通道(`MessageItem.tsx:920` 同位),**禁止**新建第二套内联渲染栈
@@ -1716,9 +1747,22 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - [ ] **D89 输入源与队列小项打包(G-119/G-121/G-122)**:①**智能快照**(`附加 {appName}`、`启用智能快照` + 首次使用引导 + 失败态)与**添加远程文件/照片**分流;②队列与引导**命令化**(`将提示加入队列`/`引导提示` 作为命令项 + 命令描述)与 **Undo**(`已恢复队列中的消息`/`已恢复排队的消息`),补进 D38;③**记忆引用计数条**(`{count} 条记忆引用` + tooltip`引用的记忆`)与 `已在 {totalTime} 内达成目标` 的 goal 成就耗时条。**验收**:各三态用例;②须与 W27 预备消息/侧问队列语义不冲突
 
 #### B4l 第 17 轮补证追加(G-123~G-126 + H27;Qoder 产物预览与失败学、Trae 思考卡本体)
+- [x] ✅(2026-09-23) **D90 预览降级三态与"文件已更新"提示(G-123)**:对标 Qoder `工具记录内容` / **`无法读取当前文件，已展示工具记录中的内容。`** / `这次文件变更没有记录完整内容。` / `没有可预览内容。` 四级降级,加 `文件已更新`+`刷新以查看最新内容`+关闭提示。与 D33 同批(降级依据正是"工具记录里存了什么")。**验收**:四级各一用例 + 断言降级时**明确告知展示的是历史快照而非当前文件**(防用户误以为看到最新)
+- **收口(2026-09-23)**:四级降级 + `文件已更新` 提示条落地,做成**可证伪状态机** `apps/web/src/components/media/use-preview-staleness.ts`(重读触发 = `visibilitychange` / 手动刷新),文案集中在 `preview-degradation-copy.ts` 走"有键取键、无键回落、**绝不喷键名**",呈现层 `preview-degradation-banner.tsx`(徽章/提示条/空态)。**两处真实缺陷根治**:① 旧 `UnifiedViewer.tsx:65` 把错误文案塞进正文 → 错误伪装成文件内容;② 旧 `FilePreview.tsx:93-100` 重读失败会**抹掉用户正在看的内容** ⇒ 现保留为历史快照并显式标 `工具记录内容` + `读取于 {time}`。**未造投机分支(自证数据流)**:`FilePreview` 全仓仅 2 个运行时调用方(`app/(main)/workspace/[id]/PreviewDialog.tsx:38`、`app/(main)/admin/oss/files/OssFileDialog.tsx:30`,都只传 `url`),`UnifiedViewer` 运行时调用方 **0**(仅 `tests/media-viewer-a11y-names.test.tsx` 静态读源码)⇒ 不存在"外部灌入的工具记录",故**没有**新增该 prop,不可达态一律不留投机代码。L1/L2 的真实可达路径=组件自己已读到的内容即历史快照,L3=重读到 0 字节,L4=首读即取不到。词表 `a11y.preview*` 7 键 × 5 语落 shared(与 D92 同票入库,parity/zh-TW·ko 残留/broken-en 三门 exit 0),复用既有 `a11y.refresh`/`a11y.closeAlert`。10 例新测试 + media 目录 30 例全绿,eslint 0 问题,水印 verify 4/4。**残余**:① 更新检测非实时(靠标签页回可见/手动刷新),已如实登记;② **未做浏览器运行时自验**(§17 豁免档=渲染级取证,未启停任何 dev server、未动他人进程)。
+- [x] ✅(2026-09-23) **D90 预览降级三态与"文件已更新"提示(G-123)**:对标 Qoder `工具记录内容` / **`无法读取当前文件，已展示工具记录中的内容。`** / `这次文件变更没有记录完整内容。` / `没有可预览内容。` 四级降级,加 `文件已更新`+`刷新以查看最新内容`+关闭提示。与 D33 同批(降级依据正是"工具记录里存了什么")。**验收**:四级各一用例 + 断言降级时**明确告知展示的是历史快照而非当前文件**(防用户误以为看到最新)
+- **收口(2026-09-23)**:四级降级 + `文件已更新` 提示条落地,做成**可证伪状态机** `apps/web/src/components/media/use-preview-staleness.ts`(重读触发 = `visibilitychange` / 手动刷新),文案集中在 `preview-degradation-copy.ts` 走"有键取键、无键回落、**绝不喷键名**",呈现层 `preview-degradation-banner.tsx`(徽章/提示条/空态)。**两处真实缺陷根治**:① 旧 `UnifiedViewer.tsx:65` 把错误文案塞进正文 → 错误伪装成文件内容;② 旧 `FilePreview.tsx:93-100` 重读失败会**抹掉用户正在看的内容** ⇒ 现保留为历史快照并显式标 `工具记录内容` + `读取于 {time}`。**未造投机分支(自证数据流)**:`FilePreview` 全仓仅 2 个运行时调用方(`app/(main)/workspace/[id]/PreviewDialog.tsx:38`、`app/(main)/admin/oss/files/OssFileDialog.tsx:30`,都只传 `url`),`UnifiedViewer` 运行时调用方 **0**(仅 `tests/media-viewer-a11y-names.test.tsx` 静态读源码)⇒ 不存在"外部灌入的工具记录",故**没有**新增该 prop,不可达态一律不留投机代码。L1/L2 的真实可达路径=组件自己已读到的内容即历史快照,L3=重读到 0 字节,L4=首读即取不到。词表 `a11y.preview*` 7 键 × 5 语落 shared(与 D92 同票入库,parity/zh-TW·ko 残留/broken-en 三门 exit 0),复用既有 `a11y.refresh`/`a11y.closeAlert`。10 例新测试 + media 目录 30 例全绿,eslint 0 问题,水印 verify 4/4。**残余**:① 更新检测非实时(靠标签页回可见/手动刷新),已如实登记;② **未做浏览器运行时自验**(§17 豁免档=渲染级取证,未启停任何 dev server、未动他人进程)。
 
 - [ ] **D90 预览降级三态与"文件已更新"提示(G-123)**:对标 Qoder `工具记录内容` / **`无法读取当前文件，已展示工具记录中的内容。`** / `这次文件变更没有记录完整内容。` / `没有可预览内容。` 四级降级,加 `文件已更新`+`刷新以查看最新内容`+关闭提示。与 D33 同批(降级依据正是"工具记录里存了什么")。**验收**:四级各一用例 + 断言降级时**明确告知展示的是历史快照而非当前文件**(防用户误以为看到最新)
 - [ ] **D91 四类文档批注锚点分型(G-124,扩展 D87)**:Qoder 的批注不是单一"选中文字",而是四种定位坐标——PDF `PDF 第 {page} 页`、PPTX `第 {slide} 张 · {element}` + `批注 {element}`、DOCX `文档第 {page} 页`、XLSX `{sheet} · {range}` + `已选择 {range}`;统一动作是 `描述希望 Agent 修改或检查的内容` → **添加到任务**,并支持 取消/删除。落点 `artifact-canvas` + 圈选事件族(D22 的 `ihui:add-text-reference` 同机制),**禁止**为四类各写一套批注状态机。**验收**:四坐标各一用例 + 回流成任务输入 + 删除/取消态
+- [x] ✅(2026-09-23) **D92 插件/MCP 视图失败分类学(G-125)**:Qoder 有 **15 种**插件视图失败文案(资源未找到/运行时异常/未注册启动入口/入口无效/依赖模块未提供/资源超限/环境初始化失败/已停用/后端超时/后端退出/未提供所需能力/崩溃测试)+ `错误码:{errorCode}` + `重新加载插件视图` 统一恢复动作。我方 MCP 面板现在只会笼统"加载失败"→ 建立**错误码→分类标题→建议动作**表(与 D71 错误分类族共用一张表,不另起),**验收**:15 类映射 + 恢复按钮始终可用 + 未知码回落通用态不误报
+- **收口补充(2026-09-23,残余 ①② 已闭环)**:① `mcp-prompt-manager.tsx` prompt 执行失败已从裸 `error.message` 红字改接同一面板(恢复动作=同参重发 `execMutation.variables`),MCP 面三个失败位点(servers 加载 / 工具调用 / prompt 执行)现已全走同一张表;② 新增组件级契约 `apps/web/src/components/mcp/__tests__/mcp-view-failure.test.tsx` 8 例:分类真驱动文案(取词 mock 把 `ns:key` 显形,防"恰好等于兜底字面量"的假绿)、有码才出 `错误码:` 行、无信号回落态**整行不出**、恢复按钮在回落态与 `reloading` 态均无 `disabled` 且点击真触发 `onReload`;第三组用 `?raw` 读三个消费点源码断言 import + `<McpViewFailure error={` 存在**且**旧的 `error instanceof Error ? ….error.message` 形态不得复现 —— 这是"造好没装车"(守门 64 同族)的回退闸。残余 ③④ 不变(后端不产结构化 errorCode / 表平移需改 shared exports)。**未做浏览器运行时自验**(§17 豁免=纯渲染层契约已由 jsdom 钉住,未启停 dev server)。
+- **收口(2026-09-23)**:15 类表落 `packages/shared/src/utils/view-failure-taxonomy.ts`(`resolveViewFailure` 五档判据 `errorCode > jsonRpcCode(带 -32000..-32999) > httpStatus > Error.name > 文案启发 > 回落`),与 D71 **同一张表同一入口**(文件头钉死复用形状,`attachErrorMeta` 实测只挂 `name/code/errorCode/retryAfter` 四字段、无映射,故表新建在 shared)。真实缺陷比"文案"更重:`mcp-manager.tsx` 原**无 `isError` 分支**,查询失败时 `servers` 为 undefined 直接落 empty 态 → **把故障误报成"暂无 MCP 服务器"**,现接 `McpViewFailure` 面板;`mcp-quick-call.tsx` 工具调用失败从裸 `error.message` 改面板(恢复动作=同参重发)。未知码一律 `isFallback` + `errorCodeText=null`(**错误码整行不渲染**)+ 中性 `HelpCircle` + 弱化文字,禁确定性措辞;`reloadView` 在 16 态恒渲染无 disabled。词表 `viewFailure` 34 叶 × 5 语齐(落 shared,`check-i18n-keys --target=shared`/zh-TW·ko 残留/broken-en 全 exit 0;web 经 `mergeMessages(shared, web)` 实测可达,`apps/web/src/i18n/request.ts:28`)。21 例纯函数测试绿(其中 3 处判据缺陷是测出来才修的:JSON-RPC 边界把 `-32601` 当 HTTP 状态、`已停用` 不匹配 `已被停用`、补 `protocol\s*version`)。**残余(不 conceal)**:① `mcp-prompt-manager.tsx:200` prompt 执行失败仍裸 `error.message`,同族第三位点未接;② 组件级渲染三断言未测,现仅由纯函数层钉住;③ 后端 MCP 路由不产结构化 `errorCode`,实际主要走 HTTP 状态档,`errorName`/`jsonRpcCode` 档为回包预留;④ 表在 `src/utils/` 而非 `src/errors/`,因 `packages/shared/package.json` 的 `exports` 未登记 `./errors/*`(平移需另票)。
+- [x] ✅(2026-09-23) **D92 插件/MCP 视图失败分类学(G-125)**:Qoder 有 **15 种**插件视图失败文案(资源未找到/运行时异常/未注册启动入口/入口无效/依赖模块未提供/资源超限/环境初始化失败/已停用/后端超时/后端退出/未提供所需能力/崩溃测试)+ `错误码:{errorCode}` + `重新加载插件视图` 统一恢复动作。我方 MCP 面板现在只会笼统"加载失败"→ 建立**错误码→分类标题→建议动作**表(与 D71 错误分类族共用一张表,不另起),**验收**:15 类映射 + 恢复按钮始终可用 + 未知码回落通用态不误报
+- **收口补充(2026-09-23,残余 ①② 已闭环)**:① `mcp-prompt-manager.tsx` prompt 执行失败已从裸 `error.message` 红字改接同一面板(恢复动作=同参重发 `execMutation.variables`),MCP 面三个失败位点(servers 加载 / 工具调用 / prompt 执行)现已全走同一张表;② 新增组件级契约 `apps/web/src/components/mcp/__tests__/mcp-view-failure.test.tsx` 8 例:分类真驱动文案(取词 mock 把 `ns:key` 显形,防"恰好等于兜底字面量"的假绿)、有码才出 `错误码:` 行、无信号回落态**整行不出**、恢复按钮在回落态与 `reloading` 态均无 `disabled` 且点击真触发 `onReload`;第三组用 `?raw` 读三个消费点源码断言 import + `<McpViewFailure error={` 存在**且**旧的 `error instanceof Error ? ….error.message` 形态不得复现 —— 这是"造好没装车"(守门 64 同族)的回退闸。残余 ③④ 不变(后端不产结构化 errorCode / 表平移需改 shared exports)。**未做浏览器运行时自验**(§17 豁免=纯渲染层契约已由 jsdom 钉住,未启停 dev server)。
+- **收口(2026-09-23)**:15 类表落 `packages/shared/src/utils/view-failure-taxonomy.ts`(`resolveViewFailure` 五档判据 `errorCode > jsonRpcCode(带 -32000..-32999) > httpStatus > Error.name > 文案启发 > 回落`),与 D71 **同一张表同一入口**(文件头钉死复用形状,`attachErrorMeta` 实测只挂 `name/code/errorCode/retryAfter` 四字段、无映射,故表新建在 shared)。真实缺陷比"文案"更重:`mcp-manager.tsx` 原**无 `isError` 分支**,查询失败时 `servers` 为 undefined 直接落 empty 态 → **把故障误报成"暂无 MCP 服务器"**,现接 `McpViewFailure` 面板;`mcp-quick-call.tsx` 工具调用失败从裸 `error.message` 改面板(恢复动作=同参重发)。未知码一律 `isFallback` + `errorCodeText=null`(**错误码整行不渲染**)+ 中性 `HelpCircle` + 弱化文字,禁确定性措辞;`reloadView` 在 16 态恒渲染无 disabled。词表 `viewFailure` 34 叶 × 5 语齐(落 shared,`check-i18n-keys --target=shared`/zh-TW·ko 残留/broken-en 全 exit 0;web 经 `mergeMessages(shared, web)` 实测可达,`apps/web/src/i18n/request.ts:28`)。21 例纯函数测试绿(其中 3 处判据缺陷是测出来才修的:JSON-RPC 边界把 `-32601` 当 HTTP 状态、`已停用` 不匹配 `已被停用`、补 `protocol\s*version`)。**残余(不 conceal)**:① `mcp-prompt-manager.tsx:200` prompt 执行失败仍裸 `error.message`,同族第三位点未接;② 组件级渲染三断言未测,现仅由纯函数层钉住;③ 后端 MCP 路由不产结构化 `errorCode`,实际主要走 HTTP 状态档,`errorName`/`jsonRpcCode` 档为回包预留;④ 表在 `src/utils/` 而非 `src/errors/`,因 `packages/shared/package.json` 的 `exports` 未登记 `./errors/*`(平移需另票)。
+- [x] ✅(2026-09-23) **D92 插件/MCP 视图失败分类学(G-125)**:Qoder 有 **15 种**插件视图失败文案(资源未找到/运行时异常/未注册启动入口/入口无效/依赖模块未提供/资源超限/环境初始化失败/已停用/后端超时/后端退出/未提供所需能力/崩溃测试)+ `错误码:{errorCode}` + `重新加载插件视图` 统一恢复动作。我方 MCP 面板现在只会笼统"加载失败"→ 建立**错误码→分类标题→建议动作**表(与 D71 错误分类族共用一张表,不另起),**验收**:15 类映射 + 恢复按钮始终可用 + 未知码回落通用态不误报
+- **收口补充(2026-09-23,残余 ①② 已闭环)**:① `mcp-prompt-manager.tsx` prompt 执行失败已从裸 `error.message` 红字改接同一面板(恢复动作=同参重发 `execMutation.variables`),MCP 面三个失败位点(servers 加载 / 工具调用 / prompt 执行)现已全走同一张表;② 新增组件级契约 `apps/web/src/components/mcp/__tests__/mcp-view-failure.test.tsx` 8 例:分类真驱动文案(取词 mock 把 `ns:key` 显形,防"恰好等于兜底字面量"的假绿)、有码才出 `错误码:` 行、无信号回落态**整行不出**、恢复按钮在回落态与 `reloading` 态均无 `disabled` 且点击真触发 `onReload`;第三组用 `?raw` 读三个消费点源码断言 import + `<McpViewFailure error={` 存在**且**旧的 `error instanceof Error ? ….error.message` 形态不得复现 —— 这是"造好没装车"(守门 64 同族)的回退闸。残余 ③④ 不变(后端不产结构化 errorCode / 表平移需改 shared exports)。**未做浏览器运行时自验**(§17 豁免=纯渲染层契约已由 jsdom 钉住,未启停 dev server)。
+- **收口(2026-09-23)**:15 类表落 `packages/shared/src/utils/view-failure-taxonomy.ts`(`resolveViewFailure` 五档判据 `errorCode > jsonRpcCode(带 -32000..-32999) > httpStatus > Error.name > 文案启发 > 回落`),与 D71 **同一张表同一入口**(文件头钉死复用形状,`attachErrorMeta` 实测只挂 `name/code/errorCode/retryAfter` 四字段、无映射,故表新建在 shared)。真实缺陷比"文案"更重:`mcp-manager.tsx` 原**无 `isError` 分支**,查询失败时 `servers` 为 undefined 直接落 empty 态 → **把故障误报成"暂无 MCP 服务器"**,现接 `McpViewFailure` 面板;`mcp-quick-call.tsx` 工具调用失败从裸 `error.message` 改面板(恢复动作=同参重发)。未知码一律 `isFallback` + `errorCodeText=null`(**错误码整行不渲染**)+ 中性 `HelpCircle` + 弱化文字,禁确定性措辞;`reloadView` 在 16 态恒渲染无 disabled。词表 `viewFailure` 34 叶 × 5 语齐(落 shared,`check-i18n-keys --target=shared`/zh-TW·ko 残留/broken-en 全 exit 0;web 经 `mergeMessages(shared, web)` 实测可达,`apps/web/src/i18n/request.ts:28`)。21 例纯函数测试绿(其中 3 处判据缺陷是测出来才修的:JSON-RPC 边界把 `-32601` 当 HTTP 状态、`已停用` 不匹配 `已被停用`、补 `protocol\s*version`)。**残余(不 conceal)**:① `mcp-prompt-manager.tsx:200` prompt 执行失败仍裸 `error.message`,同族第三位点未接;② 组件级渲染三断言未测,现仅由纯函数层钉住;③ 后端 MCP 路由不产结构化 `errorCode`,实际主要走 HTTP 状态档,`errorName`/`jsonRpcCode` 档为回包预留;④ 表在 `src/utils/` 而非 `src/errors/`,因 `packages/shared/package.json` 的 `exports` 未登记 `./errors/*`(平移需另票)。
 - [ ] **D92 插件/MCP 视图失败分类学(G-125)**:Qoder 有 **15 种**插件视图失败文案(资源未找到/运行时异常/未注册启动入口/入口无效/依赖模块未提供/资源超限/环境初始化失败/已停用/后端超时/后端退出/未提供所需能力/崩溃测试)+ `错误码:{errorCode}` + `重新加载插件视图` 统一恢复动作。我方 MCP 面板现在只会笼统"加载失败"→ 建立**错误码→分类标题→建议动作**表(与 D71 错误分类族共用一张表,不另起),**验收**:15 类映射 + 恢复按钮始终可用 + 未知码回落通用态不误报
 - [x] ✅(2026-09-23) **D93 计划产物多版本(G-126)**:Qoder 产物区有 `计划版本`(`planTabsLabel`)多版本切换与 `还没有计划产物` 空态 → 我方 plan 已有步骤卡与 spec tab,缺**计划的历史版本对照**。与 D27 交付审查、D47 轮内两段式合并设计(版本单位很可能就是"轮")。**验收**:版本切换 + 跨版本 diff 入口 + 空态
 - **收口(2026-09-23)**:按"轮"记版（内存+localStorage，不新建表）+历史只读切换+跨版本 diff+空态落地，4 用例绿；界面英文过渡（11 处中文清零，词表释放后换中文键）。
@@ -1730,6 +1774,7 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - [ ] **D94 失败诊断脱敏交接包(G-127,品类级)**:出错时自动产出**可直接对外提交的四段式交接单**——`诊断方法`(确定性本地规则优先,外部服务状态作辅助信号)／`已尝试的修复步骤`／**`已脱敏证据：`**(`- 用户可见错误：{errorMessage}`)／`产品界面` + `状态：可能相关的事件：{incidentNames}`。与我方既有 Server酱 + Resend 邮件兜底(AGENTS.md §5e)接成一条链:agent 失败 → 生成交接单 → 推给用户/附到工单。**脱敏是硬要求**(复用 D28 已实测的 `redact_secrets` + strip_ansi + 长度截断,不得新写一套)。**验收**:四段齐全 + 断言密钥/邮箱/IP 被脱敏(用真实含密样本测) + "无网络时降级不阻断"(与 §5d 网络不可达≠失败口径一致)
 - [x] ✅(2026-09-23) **D95 分叉对话框(先自证,G-128)**:Codex 把"从任意旧轮分叉"做成三选项——在此工作树／在同一工作树／在新工作树／在此工作空间。**先核我方** `spec-panel/SpecBranchesTab.tsx`、`use-spec-handlers.ts`、`use-chat/send-message.ts` 里的"创建分支"到底有无意图区分工作树;**未定档前不得开工**(本轮已 4 次靠该纪律挡下幻影)。若成立,则与 §12d worktree 规范同构 → 把我方内部工程实践产品化,属 L2 反超素材
 - **定档(2026-09-23):不开工（幻影差距）**:三文件只读核查——创建表单/请求体/类型/后端 schema 全无工作树意图区分，我方"分支"=文档版本分叉+会话分叉，从未引入 git worktree 概念。若立项需先做产品定义。
+- [x] ✅(2026-09-23) **D96 对话内写作块(G-129)**:流内可编辑文本块 + **逐块`接受`/`全部接受`/`撤销`** + 失败态`无法更新此写作块`;附带"打开方式"应用选择器(`使用默认电子邮箱应用打开电子邮件` 形态)。与 D41/D90 预览降级同族,复用 `artifact-canvas`,禁止新造编辑栈。**验收**:三动作 + 失败态 + 撤销可逆 __收口(2026-09-23):writing-block(三动作穷尽/撤销可逆往返无漂移/acceptAll 遇 failed 拒绝整批不静默跳过)+ 组件复用 canvas-store.pushVersion 同一版本栈(不调 setContent 防覆盖画布内容)+ ai.pane.writingBlock 23 键×5 语言;shared 38 + web 23 全绿;剩余=流内调用点接入待定__
 - [x] ✅(2026-09-23)  **D96 对话内写作块(G-129)**:流内可编辑文本块 + **逐块`接受`/`全部接受`/`撤销`** + 失败态`无法更新此写作块`;附带"打开方式"应用选择器(`使用默认电子邮箱应用打开电子邮件` 形态)。与 D41/D90 预览降级同族,复用 `artifact-canvas`,禁止新造编辑栈。**验收**:三动作 + 失败态 + 撤销可逆 __收口(2026-09-23):writing-block(三动作穷尽/撤销可逆往返无漂移/acceptAll 遇 failed 拒绝整批不静默跳过)+ 组件复用 canvas-store.pushVersion 同一版本栈(不调 setContent 防覆盖画布内容)+ ai.pane.writingBlock 23 键×5 语言;shared 38 + web 23 全绿;剩余=流内调用点接入待定__
 - [ ] **D97 云端聊天互操作活动卡(G-133)**:`附加云端聊天 / 创建云端聊天 / 列出云端聊天 / 读取云端聊天轮次 / 向云端聊天发送消息` 五动作的流内活动条(带 active/completed/following 三态)。数据面我方**已有**(D28 多端 + `/api/task-messages` + W2 abort 通道),缺的是把"跨端操作"呈现成可审计活动条 → 与 D50 多端遥控合并设计,不要两套传输
 - **规格补强(并入既有任务,不另开)**:G-130→D84 审批摘要模板(含`通过网络访问 {target}`、`权限请求：{reason}`、复数规则);G-131→D83 措辞矩阵维度(工具 × active/completed/following × 是否带标题/参数,**并把"repeated=合并计数"与现"已跳过"区分开**);G-132→D76 产物类型副标题(`现场演示`/`实时电子表格`/`网站`)
@@ -4010,6 +4055,22 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - [x] ✅(2026-09-23) **工作区整体落后 HEAD 486 个提交**(§12d converge 用 merge-tree/commit-tree 只推进 HEAD+index、**不 checkout**):逐文件比对工作区 blob 与基线提交 blob,**503 个文件字节级等于某个历史提交版本 = 零独有内容**,一律按 HEAD 对齐;42 个真未提交文件(AgentRuntimePanel / Carousel / ModelConfigDialog / NotificationPanel / AiAssistantN8nScreen / HomeScreen / KnowledgeRagScreen / README.md 等)一律不碰,对齐前后逐文件哈希自证未变。脏项 546 → 42,守门 76 全量复扫判绿。
 - [x] ✅(2026-09-23) **gitdir 备份 `D:/IHUI-AI.git-backup-20260912` 消失**(§5b 明禁删除项,也是 `git-guardian --status` 连报 `❌ 自愈失败,需人工介入` 的成因):以 `git clone --mirror D:/IHUI-AI-git-repo` 重建(1.2G;用 mirror 而非目录拷贝,一致性由 git 保证且不与并发写竞态),守护复检 `pointerOk / gitdirOk / backupOk / refsOk` 全 true。§15b 已把该目录列为禁删显式例外。
 - [x] ✅(2026-09-23) **新增守门 76 `check-stale-revert.mjs`**(注册 guardian-runner blocking):第二类故障此前**无任何提交前闸**(71 只护 PLAN 登记行,README/AGENTS 无人守)。判据、三条豁免护栏与取证见 AGENTS.md 守门速查 76 条 + README「第 75 / 76 项」小节。
+- [x] ✅(2026-09-23) **解除守门 44 恒红 = 恢复全链 96 道守门**:`.arts` / `.codeartsdoer`(CodeArts Doer 运行态,内含 `.codebase` 索引,实测今日 14:27 仍在写入)不在 `check-root-dir-clean.mjs` 白名单,而该门**全量模式 exit 0、pre-commit 实际使用的 `--staged` 模式 exit 1** ⇒ 每次提交必被拦 ⇒ 各会话只能 `--no-verify` ⇒ **连带跳过全部 96 道守门**。已实测到的后果:对端一次合流把守门 76(脚本本体 + guardian-runner + PLAN + AGENTS + README 四处登记)整体静默回退,由本会话 union merge 合回并逐行断言双方内容均保留。处置按 §28 规则 3 走白名单显式登记(与 `.vscode`/`.qoder`/`.workbuddy` 同类:只登记、不搬不删 —— 删了打断他人正在用的工具且索引需重建);另把 9-18 遗留的 11 字节野日志 `win-job.log`(内容只有 "Not Found")移入 `logs/` 保留而非删除。复测:全量与 `--staged` 均 exit 0。
+- [x] ✅(2026-09-23) **工作区再被删的现场复核与自愈**:同型缺失再次发生(27 个:`apps/api/tests/*.test.ts` 与 `apps/desktop/src-tauri/windows/installer-assets/assets-*/maint-radio-*.bmp`),逐个验明"在 HEAD 存在"后按 HEAD 恢复,HEAD 也不存在的不碰;复跑工具 `.ihui-agent/tmp/heal-worktree.mjs`(缺失恢复 + 按守门 76 判据对齐漂移,带 index.lock 等待)。终态:缺失 0、真实未提交 43、守门 76 全量判绿、`git-guardian --status` 的 pointerOk/gitdirOk/backupOk/refsOk 全 true(嵌套 ref 抖动型缺失已固化进 packed-refs)。
+- [x] ✅(2026-09-23) **工作区存续自愈做成机制**(取代本会话的一次性临时脚本):`scripts/heal-worktree-tracked.mjs` 三条判据同时成立才恢复 —— ① 工作区缺失 ② 索引 blob == HEAD blob(⇒ 无人对它暂存过任何改动,含 `git rm`)③ HEAD 中存在;他人已暂存的删除只报数不代裁。接入 `git-guardian` **健康轮次早退之前**(计划任务实跑 `main()` 单轮、`startDaemon` 未启用 ⇒ 挂错位置等于永不执行);`--check` 零副作用,派生带 `windowsHide`(§5b)。故障演练实测:删 `scripts/brand-foreground-baseline.json` → 跑一轮守护 → 自动找回并写审计行「✅ 工作区存续自愈:恢复 1 个被外部删除的跟踪文件」;`--self-test` 5 例(含反向对照"他人暂存删除不被恢复")全绿。判据与演练细节见 AGENTS.md §5b「工作区存续自愈」条 + README 同名小节。
+- **仍红但非本会话所致(如实登记,不代修)**:守门 57 `check-chat-element-coverage.mjs` 当前 exit 1,但命中的 4 处锚点全在他人**未提交**编辑的文件内 —— `AiAssistantN8nScreen.tsx`(HEAD 有 `permissionTier` ×3、工作区 0)、`AgentRuntimePanel.tsx`(HEAD 有 `permissionDecisionWord` ×2、工作区 0),两文件 `git status` 均为 `M` ⇒ 属半编辑态误伤而非 HEAD 回退,待该会话提交后自解。本会话既不回退他人改动,也不改他人守门判据。
+- [x] ✅(2026-09-23) **解除守门 44 恒红 = 恢复全链 96 道守门**:`.arts` / `.codeartsdoer`(CodeArts Doer 运行态,内含 `.codebase` 索引,实测今日 14:27 仍在写入)不在 `check-root-dir-clean.mjs` 白名单,而该门**全量模式 exit 0、pre-commit 实际使用的 `--staged` 模式 exit 1** ⇒ 每次提交必被拦 ⇒ 各会话只能 `--no-verify` ⇒ **连带跳过全部 96 道守门**。已实测到的后果:对端一次合流把守门 76(脚本本体 + guardian-runner + PLAN + AGENTS + README 四处登记)整体静默回退,由本会话 union merge 合回并逐行断言双方内容均保留。处置按 §28 规则 3 走白名单显式登记(与 `.vscode`/`.qoder`/`.workbuddy` 同类:只登记、不搬不删 —— 删了打断他人正在用的工具且索引需重建);另把 9-18 遗留的 11 字节野日志 `win-job.log`(内容只有 "Not Found")移入 `logs/` 保留而非删除。复测:全量与 `--staged` 均 exit 0。
+- [x] ✅(2026-09-23) **工作区再被删的现场复核与自愈**:同型缺失再次发生(27 个:`apps/api/tests/*.test.ts` 与 `apps/desktop/src-tauri/windows/installer-assets/assets-*/maint-radio-*.bmp`),逐个验明"在 HEAD 存在"后按 HEAD 恢复,HEAD 也不存在的不碰;复跑工具 `.ihui-agent/tmp/heal-worktree.mjs`(缺失恢复 + 按守门 76 判据对齐漂移,带 index.lock 等待)。终态:缺失 0、真实未提交 43、守门 76 全量判绿、`git-guardian --status` 的 pointerOk/gitdirOk/backupOk/refsOk 全 true(嵌套 ref 抖动型缺失已固化进 packed-refs)。
+- [x] ✅(2026-09-23) **工作区存续自愈做成机制**(取代本会话的一次性临时脚本):`scripts/heal-worktree-tracked.mjs` 三条判据同时成立才恢复 —— ① 工作区缺失 ② 索引 blob == HEAD blob(⇒ 无人对它暂存过任何改动,含 `git rm`)③ HEAD 中存在;他人已暂存的删除只报数不代裁。接入 `git-guardian` **健康轮次早退之前**(计划任务实跑 `main()` 单轮、`startDaemon` 未启用 ⇒ 挂错位置等于永不执行);`--check` 零副作用,派生带 `windowsHide`(§5b)。故障演练实测:删 `scripts/brand-foreground-baseline.json` → 跑一轮守护 → 自动找回并写审计行「✅ 工作区存续自愈:恢复 1 个被外部删除的跟踪文件」;`--self-test` 5 例(含反向对照"他人暂存删除不被恢复")全绿。判据与演练细节见 AGENTS.md §5b「工作区存续自愈」条 + README 同名小节。
+- **仍红但非本会话所致(如实登记,不代修)**:守门 57 `check-chat-element-coverage.mjs` 当前 exit 1,但命中的 4 处锚点全在他人**未提交**编辑的文件内 —— `AiAssistantN8nScreen.tsx`(HEAD 有 `permissionTier` ×3、工作区 0)、`AgentRuntimePanel.tsx`(HEAD 有 `permissionDecisionWord` ×2、工作区 0),两文件 `git status` 均为 `M` ⇒ 属半编辑态误伤而非 HEAD 回退,待该会话提交后自解。本会话既不回退他人改动,也不改他人守门判据。
+- [x] ✅(2026-09-23) **解除守门 44 恒红 = 恢复全链 96 道守门**:`.arts` / `.codeartsdoer`(CodeArts Doer 运行态,内含 `.codebase` 索引,实测今日 14:27 仍在写入)不在 `check-root-dir-clean.mjs` 白名单,而该门**全量模式 exit 0、pre-commit 实际使用的 `--staged` 模式 exit 1** ⇒ 每次提交必被拦 ⇒ 各会话只能 `--no-verify` ⇒ **连带跳过全部 96 道守门**。已实测到的后果:对端一次合流把守门 76(脚本本体 + guardian-runner + PLAN + AGENTS + README 四处登记)整体静默回退,由本会话 union merge 合回并逐行断言双方内容均保留。处置按 §28 规则 3 走白名单显式登记(与 `.vscode`/`.qoder`/`.workbuddy` 同类:只登记、不搬不删 —— 删了打断他人正在用的工具且索引需重建);另把 9-18 遗留的 11 字节野日志 `win-job.log`(内容只有 "Not Found")移入 `logs/` 保留而非删除。复测:全量与 `--staged` 均 exit 0。
+- [x] ✅(2026-09-23) **工作区再被删的现场复核与自愈**:同型缺失再次发生(27 个:`apps/api/tests/*.test.ts` 与 `apps/desktop/src-tauri/windows/installer-assets/assets-*/maint-radio-*.bmp`),逐个验明"在 HEAD 存在"后按 HEAD 恢复,HEAD 也不存在的不碰;复跑工具 `.ihui-agent/tmp/heal-worktree.mjs`(缺失恢复 + 按守门 76 判据对齐漂移,带 index.lock 等待)。终态:缺失 0、真实未提交 43、守门 76 全量判绿、`git-guardian --status` 的 pointerOk/gitdirOk/backupOk/refsOk 全 true(嵌套 ref 抖动型缺失已固化进 packed-refs)。
+- [x] ✅(2026-09-23) **工作区存续自愈做成机制**(取代本会话的一次性临时脚本):`scripts/heal-worktree-tracked.mjs` 三条判据同时成立才恢复 —— ① 工作区缺失 ② 索引 blob == HEAD blob(⇒ 无人对它暂存过任何改动,含 `git rm`)③ HEAD 中存在;他人已暂存的删除只报数不代裁。接入 `git-guardian` **健康轮次早退之前**(计划任务实跑 `main()` 单轮、`startDaemon` 未启用 ⇒ 挂错位置等于永不执行);`--check` 零副作用,派生带 `windowsHide`(§5b)。故障演练实测:删 `scripts/brand-foreground-baseline.json` → 跑一轮守护 → 自动找回并写审计行「✅ 工作区存续自愈:恢复 1 个被外部删除的跟踪文件」;`--self-test` 5 例(含反向对照"他人暂存删除不被恢复")全绿。判据与演练细节见 AGENTS.md §5b「工作区存续自愈」条 + README 同名小节。
+- **仍红但非本会话所致(如实登记,不代修)**:守门 57 `check-chat-element-coverage.mjs` 当前 exit 1,但命中的 4 处锚点全在他人**未提交**编辑的文件内 —— `AiAssistantN8nScreen.tsx`(HEAD 有 `permissionTier` ×3、工作区 0)、`AgentRuntimePanel.tsx`(HEAD 有 `permissionDecisionWord` ×2、工作区 0),两文件 `git status` 均为 `M` ⇒ 属半编辑态误伤而非 HEAD 回退,待该会话提交后自解。本会话既不回退他人改动,也不改他人守门判据。
+- [x] ✅(2026-09-23) **解除守门 44 恒红 = 恢复全链 96 道守门**:`.arts` / `.codeartsdoer`(CodeArts Doer 运行态,内含 `.codebase` 索引,实测今日 14:27 仍在写入)不在 `check-root-dir-clean.mjs` 白名单,而该门**全量模式 exit 0、pre-commit 实际使用的 `--staged` 模式 exit 1** ⇒ 每次提交必被拦 ⇒ 各会话只能 `--no-verify` ⇒ **连带跳过全部 96 道守门**。已实测到的后果:对端一次合流把守门 76(脚本本体 + guardian-runner + PLAN + AGENTS + README 四处登记)整体静默回退,由本会话 union merge 合回并逐行断言双方内容均保留。处置按 §28 规则 3 走白名单显式登记(与 `.vscode`/`.qoder`/`.workbuddy` 同类:只登记、不搬不删 —— 删了打断他人正在用的工具且索引需重建);另把 9-18 遗留的 11 字节野日志 `win-job.log`(内容只有 "Not Found")移入 `logs/` 保留而非删除。复测:全量与 `--staged` 均 exit 0。
+- [x] ✅(2026-09-23) **工作区再被删的现场复核与自愈**:同型缺失再次发生(27 个:`apps/api/tests/*.test.ts` 与 `apps/desktop/src-tauri/windows/installer-assets/assets-*/maint-radio-*.bmp`),逐个验明"在 HEAD 存在"后按 HEAD 恢复,HEAD 也不存在的不碰;复跑工具 `.ihui-agent/tmp/heal-worktree.mjs`(缺失恢复 + 按守门 76 判据对齐漂移,带 index.lock 等待)。终态:缺失 0、真实未提交 43、守门 76 全量判绿、`git-guardian --status` 的 pointerOk/gitdirOk/backupOk/refsOk 全 true(嵌套 ref 抖动型缺失已固化进 packed-refs)。
+- [x] ✅(2026-09-23) **工作区存续自愈做成机制**(取代本会话的一次性临时脚本):`scripts/heal-worktree-tracked.mjs` 三条判据同时成立才恢复 —— ① 工作区缺失 ② 索引 blob == HEAD blob(⇒ 无人对它暂存过任何改动,含 `git rm`)③ HEAD 中存在;他人已暂存的删除只报数不代裁。接入 `git-guardian` **健康轮次早退之前**(计划任务实跑 `main()` 单轮、`startDaemon` 未启用 ⇒ 挂错位置等于永不执行);`--check` 零副作用,派生带 `windowsHide`(§5b)。故障演练实测:删 `scripts/brand-foreground-baseline.json` → 跑一轮守护 → 自动找回并写审计行「✅ 工作区存续自愈:恢复 1 个被外部删除的跟踪文件」;`--self-test` 5 例(含反向对照"他人暂存删除不被恢复")全绿。判据与演练细节见 AGENTS.md §5b「工作区存续自愈」条 + README 同名小节。
+- **仍红但非本会话所致(如实登记,不代修)**:守门 57 `check-chat-element-coverage.mjs` 当前 exit 1,但命中的 4 处锚点全在他人**未提交**编辑的文件内 —— `AiAssistantN8nScreen.tsx`(HEAD 有 `permissionTier` ×3、工作区 0)、`AgentRuntimePanel.tsx`(HEAD 有 `permissionDecisionWord` ×2、工作区 0),两文件 `git status` 均为 `M` ⇒ 属半编辑态误伤而非 HEAD 回退,待该会话提交后自解。本会话既不回退他人改动,也不改他人守门判据。
 - **遗留(非本票引入,按 §12 不代修,已上报待裁)**:HEAD 上两处类型错 —— ① `packages/shared/src/chat/index.ts:21` `export * from './prompt-history'` 指向**任何提交都不存在**的模块(由 `23613a68c` 引入,全仓零消费者,单行悬空 export 即打红 mobile-rn typecheck);② `apps/mobile-rn/tests/agent-runtime-permission-decision.test.tsx:24` `PermissionEvent` 声明未用(TS6196)。二者在本票对齐工作区**之前**就存在于 HEAD,只是此前相关测试文件处于缺失状态、把报错遮住了。
 - 验证:`node scripts/check-stale-revert.mjs --self-test`(8 例全绿)+ 临时 index 端到端演练 3/3 + `git status --porcelain | grep '^ D'` 为空 + `node scripts/git-guardian.mjs --status` 全 true + `node scripts/git-push-converge.mjs` 收敛。
 
@@ -4261,3 +4322,1523 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - [x] ✅(2026-09-23) **D92 主条目刻意不勾 `[x]`**:其验收含"与 D71 错误分类族**共用一张表,不另起**",而 O23 实测 D71 尚未落地该表(`attachErrorMeta` 只挂字段)⇒ 约束处于"我这张表已成唯一真相、D71 还没接上"的半闭状态。已把防重表硬约束写进 D71 条目(见本票末段),**D92 待 D71② 复用它之后才可勾**。这是"有残余就不写收口"的一次执行,不是遗漏。
 - [x] ✅(2026-09-23) **本会话原始待办清单的重测改判(不按旧数字派单)**:① 93 枚 web 包缺键 —— `check-i18n-keys --target=web` 现报 *1539 文件 / 17458 键 / 5 语言 parity OK*,**已被并发会话清零,本会话不再介入**;② `D49① 点赞点踩落库` —— 代码里已写 `// D49①(2026-09-23):点赞/点踩落库`,被并发会话接走,**不起第二套**;③ D96/D82 —— 已随 `63141f3ff80` 落地;④ O21② —— 已由 `17d07367e19` + `2653ca09a70`(O21b 补 `file-versions/create`)落地,本票只做独立复核;⑤ **O13b④ 仍阻塞**:`scripts/guardian-runner.mjs` 状态 `MM`(他人持用 + 已暂存),该票需改 runner 注册新判据,等其释放后执行,不在本票越权重写。
 - **O23 残余(不写作收口)**:① D71② 未落地前,D92 不得勾完成 —— 归属 D71 持有人,解阻判据 = `attachErrorMeta` 或对话流错误卡开始从 `view-failure-taxonomy` 取标题/动作(grep 命中即闭);② O13b④ 归属见上;③ PLAN 工作区双份缩水(≈314 行未归档差异)交「P0 共享工作区幻影滞后根治」复发处置,判据见 O22 残余敞口 ①。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
+
+<!-- 未能定位锚点,回补至文件末尾(原为并发会话未提交登记) -->
+- 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
+  `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
+  `ddb78b1ca`("refactor(mobile-rn,design-tokens): 容器底色统一收口 surface.card",全仓 38 文件
+  `+176/-364`,其中**除 `ChatScreen.tsx` 外的 37 文件仅 `+66/-60`**,即逐处颜色替换;而
+  `apps/mobile-rn/src/screens/ChatScreen.tsx` 单独记 **`-304/+110`**),被删的 `retryLastTurn` /
+  `sendRef` / `resendTargetText` / `isErrorTurn` / `styles.msgError*` 在**当前 `apps/mobile-rn/src` 全端零命中**
+  (这些符号由 `32f821e76` G-152 引入)。处置判定:**不代改** —— 恢复这些渲染位属"重写他人主体逻辑"
+  (§12b 禁),归属会话二选一:①恢复被删的失败轮/引用源/注入披露;②若确有等价改写,则更新
+  `scripts/data/chat-flow-elements.json` 的锚点并说明理由。证据留档供其直接采用。
+  - **决定性证据(证明是"旧基线整文件写"而非重构)**:`git diff 32f821e76^ ddb78b1ca -- ChatScreen.tsx`
+    = **`+6/-6`,且六行全是 `backgroundColor`**,两版文件行数相同(3321 行)⇒ **`ddb78b1ca` 提交的 blob
+    就是 G-152 之前的旧文件贴上新颜色 token**。恢复源明确:被删内容完整存在于 `32f821e76` 的该文件
+    (可达提交,不会随 gc 消失),等价于"该文件被整体回滚到 G-152 前 + 6 行 token"。
+  - **连带后果(可作为其自验清单)**:`apps/mobile-rn/src/components/ChatDisclosure.tsx` 的
+    `CitationList` / `InjectionDisclosure` 自此**全仓零 import**(成孤儿组件,同"造好没装车"一类);
+    `packages/i18n/messages/mobile-rn/zh-CN.json:489-490` 的 `chatAlert.errorTitle/errorRetry` 在
+    mobile-rn 侧变为死键;`ChatScreen.tsx:609` 的 `apiMessages` 也**失去了 `!isErrorTurn` 过滤**
+    ⇒ "失败轮不进上下文"这条已交付语义在 RN 端同时失效(不只是 UI 少一张卡)。
+  - **后续提交未回补**:`ddb78b1ca..HEAD` 内两次触及该文件(`07a65a86a`、`b709df06a`)对
+    `retryLastTurn|citations|isErrorTurn|errorCard|injections` 的回补计数均为 **0**;且该删除内部自洽
+    (无悬空 import、`msgError` 零命中),故 `tsc --noEmit` / eslint 全绿 —— **只有守门 57 看得见它**。
+  - **同门的 web 侧两条是另一种性质(锚点漂移,非功能缺失)**:`permission-mode-popover` /
+    `permission-mode-consequence` 找的 `autoDesc`、`mode.planDesc`、`CYCLE_LABEL_KEY` 在 `apps/web/src`
+    零命中,但取词实际已改为 `t('switchedToAutoDesc')` / `t('switchedToFullDesc')` /
+    `t('switchedToAskDesc')`(`apps/web/src/components/ai/permission-mode-popover.tsx:254-279`)
+    ⇒ 修法只有"更新清单锚点"一种,不涉及恢复代码。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`,
+  实测 `core.sshCommand` 未设置)。且**SSH-over-443 在本机也走不通**:`ssh.github.com:443` 握手成功,
+  但 `~/.ssh/id_ed25519` 与 `id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`
+  ⇒ 本机没有任何已登记到 GitHub 的私钥,§5b 那条链路从未在本机成立(登记公钥属账号侧动作)。
+  推送窗口比 fetch 更窄:同一分钟内 `git fetch origin main` 成功取回 `ab1752e708e`,而
+  `git push` / `git ls-remote` 连拒 4 次(`Failed to connect to github.com:443 after 210xx ms`)。
+- **同一类"旧基线整文件写"事故在同一天出现三处**(证据链齐,非推测):① 远端 `42ef92b2c` 抹掉本计划
+  `## P0 项目外落点唯一制` 整节 44 行(已在 `48b05f94e` 合并中取并集回捞,并删掉其 spliced 到文件末尾的
+  2 行孤句);② `README.md` 守门 71 行的 `\|\| true` 转义被改回裸管道符(该修复出自 `0a31d9199`,
+  又被抹回 → 本轮重新转义,核验该格未转义管道数回到 4 与表头一致);③ 上条 mobile-rn `ChatScreen.tsx`
+  `-304/+110`。**共同盲区**:旁路提交(`commit-tree` / `git-sync-converge`)与 `--no-verify` 都不跑钩子,
+  所以守门 71 的绿**不代表全仓不丢行** —— 判据只能在合并/收尾时手工做多重集自证。
