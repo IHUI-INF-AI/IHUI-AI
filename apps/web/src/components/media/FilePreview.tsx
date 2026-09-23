@@ -7,11 +7,17 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import Image from 'next/image'
-import { FileText, File } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { OfficeViewer } from './OfficeViewer'
 import { ThreeDViewer } from './ThreeDViewer'
 import { PDFViewer } from './PDFViewer'
+import {
+  PreviewFileUpdatedBar,
+  PreviewNoContentState,
+  PreviewSnapshotNotice,
+  usePreviewCopy,
+} from './preview-degradation-banner'
+import { usePreviewMediaProbe, usePreviewTextFeed } from './use-preview-staleness'
 
 interface FilePreviewProps {
   url: string
@@ -33,16 +39,7 @@ export function FilePreview({ url, type = 'auto', name, className }: FilePreview
   }, [url, type])
 
   if (detectedType === 'image') {
-    return (
-      <Image
-        src={url}
-        alt={name ?? 'preview'}
-        width={800}
-        height={600}
-        unoptimized
-        className={cn('h-auto w-auto max-h-full max-w-full object-contain', className)}
-      />
-    )
+    return <ImagePreview url={url} name={name} className={className} />
   }
 
   if (detectedType === 'pdf') {
@@ -60,49 +57,102 @@ export function FilePreview({ url, type = 'auto', name, className }: FilePreview
     return <ThreeDViewer url={url} format={format} className={className} />
   }
 
-  return <TextPreview url={url} name={name} className={className} />
+  return <TextPreview url={url} className={className} />
 }
 
-function TextPreview({ url, name, className }: { url: string; name?: string; className?: string }) {
+function TextPreview({ url, className }: { url: string; className?: string }) {
   const t = useTranslations('a11y')
-  const [content, setContent] = React.useState<string>('')
-  const [loading, setLoading] = React.useState(true)
-  const [error, setError] = React.useState(false)
+  const copy = usePreviewCopy(t)
+  const feed = usePreviewTextFeed(url)
 
-  React.useEffect(() => {
-    const controller = new AbortController()
-    setLoading(true)
-    setError(false)
-    // 2026-09-09 0-5-f 豁免确认:文本预览的 url 可能是外部 OSS 地址,
-    // 裸 fetch 仅取纯文本;fetchApi 会向第三方注入鉴权头并按统一包装解析,不适用。
-    fetch(url, { signal: controller.signal })
-      .then((res) => res.text())
-      .then((text) => {
-        setContent(text)
-        setLoading(false)
-      })
-      .catch(() => {
-        if (controller.signal.aborted) return
-        setError(true)
-        setLoading(false)
-      })
-    return () => controller.abort()
-  }, [url])
+  if (feed.loading) return <div className="p-3 text-sm text-muted-foreground">{t('loading')}</div>
 
-  if (loading) return <div className="p-3 text-sm text-muted-foreground">{t('loading')}</div>
-  if (error)
+  // 什么都没读到、也没有任何历史记录可展示:明说"没有可预览内容"并给出刷新这一步
+  if (feed.notice === 'no-content')
     return (
-      <div className="flex flex-col items-center gap-2 p-3 text-muted-foreground">
-        <File className="h-10 w-10" />
-        <p className="text-sm">{t('cannotPreviewFile')}</p>
-        {name && <FileText className="h-4 w-4" />}
-      </div>
+      <PreviewNoContentState
+        copy={copy}
+        refreshLabel={t('refresh')}
+        onRefresh={feed.refresh}
+        className={className}
+      />
     )
 
   return (
-    <pre className={cn('overflow-auto rounded-md bg-muted p-3 text-sm', className)}>
-      <code>{content}</code>
-    </pre>
+    <div
+      data-preview-state={feed.isRecord ? 'record' : 'current'}
+      className={cn('flex min-h-0 flex-col overflow-hidden rounded-md bg-muted', className)}
+    >
+      {feed.fileUpdated && (
+        <PreviewFileUpdatedBar
+          copy={copy}
+          closeLabel={t('closeAlert')}
+          onApply={feed.applyLatest}
+          onDismiss={feed.dismissFileUpdated}
+        />
+      )}
+      <PreviewSnapshotNotice
+        isRecord={feed.isRecord}
+        notice={feed.notice}
+        readAt={feed.readAt}
+        copy={copy}
+      />
+      <pre className="min-h-0 flex-1 overflow-auto p-3 text-sm">
+        <code>{feed.content}</code>
+      </pre>
+    </div>
+  )
+}
+
+/**
+ * 图片预览也走同一套内容身份判定(D90 降级依据"资源还能不能取到",与是否文本无关):
+ * 取不到但手里有此前取到的内容 → 明说这是工具记录里的历史图片;两头都空 → L4。
+ * 渲染源仍用调用方给的 url(可能是带有效期的签名地址),不改成 blob:那会牵动 CSP,
+ * 且图片读不到时 L2 文案已把"看到的不是当前文件"说清楚。
+ */
+function ImagePreview({
+  url,
+  name,
+  className,
+}: {
+  url: string
+  name?: string
+  className?: string
+}) {
+  const t = useTranslations('a11y')
+  const copy = usePreviewCopy(t)
+  const feed = usePreviewMediaProbe(url)
+
+  if (feed.notice === 'no-content')
+    return (
+      <PreviewNoContentState
+        copy={copy}
+        refreshLabel={t('refresh')}
+        onRefresh={feed.refresh}
+        className={className}
+      />
+    )
+
+  return (
+    <div
+      data-preview-state={feed.isRecord ? 'record' : 'current'}
+      className={cn('flex min-h-0 flex-col', className)}
+    >
+      <PreviewSnapshotNotice
+        isRecord={feed.isRecord}
+        notice={feed.notice}
+        readAt={feed.readAt}
+        copy={copy}
+      />
+      <Image
+        src={url}
+        alt={name ?? 'preview'}
+        width={800}
+        height={600}
+        unoptimized
+        className="h-auto w-auto min-h-0 max-h-full max-w-full flex-1 object-contain"
+      />
+    </div>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
