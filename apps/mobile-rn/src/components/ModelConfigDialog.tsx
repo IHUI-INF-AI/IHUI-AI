@@ -206,13 +206,15 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
   return (
     <Pressable
       onPress={onPress}
-      className={
-        active
-          ? 'mr-1.5 mb-1.5 rounded-md bg-emerald-50 px-2.5 py-1.5'
-          : 'mr-1.5 mb-1.5 rounded-md bg-gray-50 px-2.5 py-1.5'
-      }
+      className="mr-1.5 mb-1.5 rounded-md px-2.5 py-1.5"
+      style={{ backgroundColor: active ? tokens.success.light : tokens.surface.muted }}
     >
-      <Text className={active ? 'text-xs text-emerald-700' : 'text-xs text-gray-600'}>{label}</Text>
+      <Text
+        className="text-xs"
+        style={{ color: active ? tokens.success.deepText : tokens.text.secondary }}
+      >
+        {label}
+      </Text>
     </Pressable>
   )
 }
@@ -220,7 +222,9 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <View className="mb-3">
-      <Text className="mb-1.5 text-xs font-medium text-gray-500">{label}</Text>
+      <Text className="mb-1.5 text-xs font-medium" style={{ color: tokens.text.tertiary }}>
+        {label}
+      </Text>
       {children}
     </View>
   )
