@@ -7,6 +7,7 @@
 import * as React from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { ArrowLeft, Clock, Users, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -40,6 +41,9 @@ async function api<T>(url: string): Promise<T> {
 export default function EduCourseDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const t = useTranslations('eduCourses')
+  const tc = useTranslations('common')
+  const tn = useTranslations('nav')
   const [currentSection, setCurrentSection] = React.useState<Section | null>(null)
   const [currentChapterId, setCurrentChapterId] = React.useState<string>()
 
@@ -75,7 +79,7 @@ export default function EduCourseDetailPage() {
     return (
       <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        加载中...
+        <span>{tc('loading')}</span>
       </div>
     )
 
@@ -88,9 +92,9 @@ export default function EduCourseDetailPage() {
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          返回课程列表
+          <span>{t('backToCourses')}</span>
         </button>
-        <Alert variant="danger" description={(error as Error)?.message ?? '课程不存在'} />
+        <Alert variant="danger" description={(error as Error)?.message ?? t('notFound')} />
       </div>
     )
   }
@@ -109,9 +113,9 @@ export default function EduCourseDetailPage() {
     <div className="space-y-4">
       <Breadcrumb
         items={[
-          { label: '首页', href: '/' },
-          { label: '课程', href: '/edu/courses' },
-          { label: course.title || '详情' },
+          { label: tn('home'), href: '/' },
+          { label: tn('eduCourses'), href: '/edu/courses' },
+          { label: course.title || t('detail') },
         ]}
       />
 
@@ -139,7 +143,7 @@ export default function EduCourseDetailPage() {
               )}
               <span className="flex items-center gap-1">
                 <Users className="h-3.5 w-3.5" />
-                {course.students} 人学习
+                <span>{t('studentsCount', { count: course.students })}</span>
               </span>
             </div>
           </div>
@@ -147,7 +151,7 @@ export default function EduCourseDetailPage() {
           <CourseInteraction likeCount={0} favoriteCount={0} />
 
           <div className="space-y-2">
-            <h2 className="text-sm font-semibold">章节目录</h2>
+            <h2 className="text-sm font-semibold">{t('chaptersTitle')}</h2>
             <CourseChapters
               chapters={chapters}
               currentSectionId={currentSection?.id}

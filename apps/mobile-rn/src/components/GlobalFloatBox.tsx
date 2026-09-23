@@ -20,7 +20,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Animated, Image, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native'
 import { ChevronsLeft, ChevronsRight } from 'lucide-react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 
 export interface GlobalFloatBoxProps {
   /** 赚米按钮回调(分享/推广) */
