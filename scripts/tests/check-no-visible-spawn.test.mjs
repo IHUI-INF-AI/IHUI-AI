@@ -300,12 +300,15 @@ const SAMPLE_INSIDE = `spawnSync('git', ['status'])`
 const SAMPLE_OUTSIDE = `execSync('git log -1')`
 function fixtureWithRegion() {
   return [
-    `function selfTest() {`,
+    'function selfTest() {',
     src.SELFTEST_BEGIN,
-    `  const cases = [{ src: \`${SAMPLE_INSIDE}\` }]`,
+    // 区间内必须是**真实代码**而不是包在反引号里的样例:自 maskInert(2026-09-24)起,
+    // 字符串字面量里的 `spawnSync('git', …)` 本来就判 0 —— 若这里仍写成字符串,
+    // "标记不能被他文件滥用"这条证明会退化成在测掩码规则,而不是测豁免边界。
+    `  ${SAMPLE_INSIDE}`,
     src.SELFTEST_END,
     `  ${SAMPLE_OUTSIDE}`,
-    `}`,
+    '}',
   ].join('\n')
 }
 
