@@ -54,7 +54,7 @@ export default function StudyRank() {
         {list.length >= 3 && (
           <View className="flex items-stretch px-[20rpx] py-[24rpx] gap-[16rpx]">
             {/* 第 2 名:rankColor(2)= text.tertiary */}
-            <View className="flex-1 flex flex-col items-center p-[28rpx] rounded-[24rpx] bg-muted">
+            <View className="flex-1 flex flex-col items-center p-[28rpx] rounded-xl bg-muted">
               <Image
                 className="w-[96rpx] h-[96rpx] rounded-full bg-background border-2 border-[var(--color-text-tertiary)]"
                 src={list[1]!.avatar || '/static/default-avatar.png'}
@@ -66,12 +66,12 @@ export default function StudyRank() {
               <Text className="text-[28rpx] text-success mt-[16rpx]">
                 {t('study.rankPage.minutes', { n: list[1]!.minutes })}
               </Text>
-              <Text className="mt-[16rpx] px-[12rpx] py-[4rpx] rounded-[16rpx] text-[22rpx] text-[var(--color-surface-light)] bg-[var(--color-text-tertiary)]">
+              <Text className="mt-[16rpx] px-[12rpx] py-[4rpx] rounded-lg text-[22rpx] text-[var(--color-surface-light)] bg-[var(--color-text-tertiary)]">
                 #2
               </Text>
             </View>
             {/* 第 1 名:rankColor(1)= warning.amber,底色 warning.amberLight */}
-            <View className="flex-1 flex flex-col items-center p-[28rpx] rounded-[24rpx] bg-[var(--color-warning-amber-light)]">
+            <View className="flex-1 flex flex-col items-center p-[28rpx] rounded-xl bg-[var(--color-warning-amber-light)]">
               <Image
                 className="w-[96rpx] h-[96rpx] rounded-full bg-background border-2 border-[var(--color-warning-amber)]"
                 src={list[0]!.avatar || '/static/default-avatar.png'}
@@ -83,12 +83,12 @@ export default function StudyRank() {
               <Text className="text-[28rpx] text-success mt-[16rpx]">
                 {t('study.rankPage.minutes', { n: list[0]!.minutes })}
               </Text>
-              <Text className="mt-[16rpx] px-[12rpx] py-[4rpx] rounded-[16rpx] text-[22rpx] text-[var(--color-surface-light)] bg-[var(--color-warning-amber)]">
+              <Text className="mt-[16rpx] px-[12rpx] py-[4rpx] rounded-lg text-[22rpx] text-[var(--color-surface-light)] bg-[var(--color-warning-amber)]">
                 #1
               </Text>
             </View>
             {/* 第 3 名:rankColor(3)= warning.amberText */}
-            <View className="flex-1 flex flex-col items-center p-[28rpx] rounded-[24rpx] bg-muted">
+            <View className="flex-1 flex flex-col items-center p-[28rpx] rounded-xl bg-muted">
               <Image
                 className="w-[96rpx] h-[96rpx] rounded-full bg-background border-2 border-[var(--color-warning-amber-text)]"
                 src={list[2]!.avatar || '/static/default-avatar.png'}
@@ -100,7 +100,7 @@ export default function StudyRank() {
               <Text className="text-[28rpx] text-success mt-[16rpx]">
                 {t('study.rankPage.minutes', { n: list[2]!.minutes })}
               </Text>
-              <Text className="mt-[16rpx] px-[12rpx] py-[4rpx] rounded-[16rpx] text-[22rpx] text-[var(--color-surface-light)] bg-[var(--color-warning-amber-text)]">
+              <Text className="mt-[16rpx] px-[12rpx] py-[4rpx] rounded-lg text-[22rpx] text-[var(--color-surface-light)] bg-[var(--color-warning-amber-text)]">
                 #3
               </Text>
             </View>
@@ -113,7 +113,7 @@ export default function StudyRank() {
             {list.slice(3).map((u, i) => (
               <View
                 key={u.id}
-                className="flex items-center p-[28rpx] rounded-[24rpx] border border-border bg-background"
+                className="flex items-center p-[28rpx] rounded-xl border border-border bg-background"
               >
                 <Text className="w-[72rpx] text-[32rpx] font-bold text-muted-foreground">
                   #{i + 4}

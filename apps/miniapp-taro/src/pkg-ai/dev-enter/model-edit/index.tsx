@@ -50,12 +50,12 @@ interface Opt {
 
 // RN chip:px14/h36/r12 → 28/72/24 rpx;文字 14dp→28rpx、text.medium;高度含边框故加 box-border
 const OPT_BASE =
-  'h-[72rpx] px-[28rpx] rounded-[24rpx] border border-border bg-background text-[28rpx] text-[var(--color-text-medium)] flex items-center justify-center box-border'
+  'h-[72rpx] px-[28rpx] rounded-xl border border-border bg-background text-[28rpx] text-[var(--color-text-medium)] flex items-center justify-center box-border'
 // RN chipActive:border brand.DEFAULT + bg surface.muted;chipTextActive:text.primary + 600
 const OPT_ACTIVE = 'border-primary bg-muted text-foreground font-semibold'
 // RN 端种类标签与选项 chip 完全同款(chip/chipText 无区分),统一为 OPT 样式
 const TAG_BASE =
-  'h-[72rpx] px-[28rpx] rounded-[24rpx] border border-border bg-background text-[28rpx] text-[var(--color-text-medium)] flex items-center justify-center box-border'
+  'h-[72rpx] px-[28rpx] rounded-xl border border-border bg-background text-[28rpx] text-[var(--color-text-medium)] flex items-center justify-center box-border'
 const TAG_ACTIVE = 'border-primary bg-muted text-foreground font-semibold'
 
 export default function ModelEdit() {
@@ -296,7 +296,7 @@ export default function ModelEdit() {
               value={deptIndex}
               onChange={(e) => setDeptIndex(Number(e.detail.value))}
             >
-              <View className="flex items-center justify-between h-[72rpx] px-[28rpx] rounded-[24rpx] border border-primary bg-muted text-[28rpx] font-semibold text-foreground box-border">
+              <View className="flex items-center justify-between h-[72rpx] px-[28rpx] rounded-xl border border-primary bg-muted text-[28rpx] font-semibold text-foreground box-border">
                 <Text>{DEPARTMENTS[deptIndex]}</Text>
                 <LineIcon name="chevron-down" size={24} color="var(--color-muted-foreground)" />
               </View>
@@ -310,7 +310,7 @@ export default function ModelEdit() {
 
             {/* 4. 收费周期 + 价格 (付费/限时免费时显示) — 对齐 RN paidCard:mt12/p12/r12 + surface.muted,无边框;时限/折扣同移卡内(RN 同构) */}
             {saleType !== 'free' ? (
-              <View className="mt-[24rpx] p-[24rpx] rounded-[24rpx] bg-muted">
+              <View className="mt-[24rpx] p-[24rpx] rounded-xl bg-muted">
                 <Text className="block text-[28rpx] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
                   {tt('devEnter.modelEdit.chargePeriodLabel', '收费周期')}
                 </Text>
@@ -321,7 +321,7 @@ export default function ModelEdit() {
                       {tt('devEnter.modelEdit.priceLabel', '价格')}
                     </Text>
                     {/* RN priceRow:row/center + border.border.light + r12 + px12 + surface.bg(白底浮出 muted 卡) */}
-                    <View className="flex items-center border border-border rounded-[24rpx] px-[24rpx] bg-background">
+                    <View className="flex items-center border border-border rounded-xl px-[24rpx] bg-background">
                       {/* RN priceUnit:18dp→36rpx、600、brand.DEFAULT、mr8→16rpx */}
                       <Text className="text-[36rpx] font-semibold text-primary mr-[16rpx]">¥</Text>
                       {/* RN priceInput:flex1/py14/16dp;placeholder 用 text.tertiary */}
@@ -370,7 +370,7 @@ export default function ModelEdit() {
             {/* 提交审核 — RN btn:mt28→56rpx、h50→100rpx、r12→24rpx、brand.DEFAULT 底 */}
             {/* RN btnText 用 surface.light(#FFFFFF 恒白),暗色下白底白字不可读 → 修正为 text-primary-foreground(暗色自动反转) */}
             <View
-              className={`mt-[56rpx] h-[100rpx] rounded-[24rpx] bg-primary text-[32rpx] font-semibold text-primary-foreground flex items-center justify-center box-border ${submitting ? 'opacity-60' : ''}`}
+              className={`mt-[56rpx] h-[100rpx] rounded-xl bg-primary text-[32rpx] font-semibold text-primary-foreground flex items-center justify-center box-border ${submitting ? 'opacity-60' : ''}`}
               onClick={onSubmit}
               hoverClass="opacity-60"
             >
