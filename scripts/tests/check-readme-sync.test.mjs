@@ -162,7 +162,8 @@ test('warn: staged apps/web/src 功能代码,无 README.md → exit 0 + warn', (
   try {
     stageFiles(dir, ['apps/web/src/page.tsx'])
     const r = runScript({ cwd: dir })
-    assert.equal(r.status, 0, 'warn-only 始终 exit 0')
+    // 2026-08-19 起脚本有意 exit 1 供 runner 计 warning(依据:scripts/check-readme-sync.mjs:131-134 注释 + runner id 22 mode=warn)
+    assert.equal(r.status, 1, 'warn-only 违规应 exit 1')
     assert.match(r.err, /\[check-readme-sync\]/, '应输出脚本标识')
     assert.match(r.err, /README\.md 未同步/, '应提示 README 未同步')
     assert.match(r.err, /warn-only/, '应标明 warn-only')
@@ -178,9 +179,11 @@ test('warn: staged packages/ui/src 共享包代码,无 README.md → exit 0 + wa
   try {
     stageFiles(dir, ['packages/ui/src/button.tsx'])
     const r = runScript({ cwd: dir })
-    assert.equal(r.status, 0)
+    // 2026-08-19 起脚本有意 exit 1 供 runner 计 warning(依据:scripts/check-readme-sync.mjs:131-134 注释 + runner id 22 mode=warn)
+    assert.equal(r.status, 1)
     assert.match(r.err, /\[check-readme-sync\]/)
     assert.match(r.err, /README\.md 未同步/)
+    assert.match(r.err, /warn-only/, '应标明 warn-only')
     assert.match(r.err, /packages\/ui\/src\/button\.tsx/, '应列出 packages 触发文件')
   } finally {
     rmSync(dir, { recursive: true, force: true })
@@ -193,9 +196,11 @@ test('warn: staged apps/ai-service/app/api/ 改动,无 README.md → exit 0 + wa
   try {
     stageFiles(dir, ['apps/ai-service/app/api/route.py'])
     const r = runScript({ cwd: dir })
-    assert.equal(r.status, 0)
+    // 2026-08-19 起脚本有意 exit 1 供 runner 计 warning(依据:scripts/check-readme-sync.mjs:131-134 注释 + runner id 22 mode=warn)
+    assert.equal(r.status, 1)
     assert.match(r.err, /\[check-readme-sync\]/)
     assert.match(r.err, /README\.md 未同步/)
+    assert.match(r.err, /warn-only/, '应标明 warn-only')
     assert.match(r.err, /apps\/ai-service\/app\/api\/route\.py/, '应列出 ai-service api 触发文件')
   } finally {
     rmSync(dir, { recursive: true, force: true })
@@ -208,9 +213,11 @@ test('warn: staged apps/ai-service/app/services/ 改动,无 README.md → exit 0
   try {
     stageFiles(dir, ['apps/ai-service/app/services/llm.py'])
     const r = runScript({ cwd: dir })
-    assert.equal(r.status, 0)
+    // 2026-08-19 起脚本有意 exit 1 供 runner 计 warning(依据:scripts/check-readme-sync.mjs:131-134 注释 + runner id 22 mode=warn)
+    assert.equal(r.status, 1)
     assert.match(r.err, /\[check-readme-sync\]/)
     assert.match(r.err, /README\.md 未同步/)
+    assert.match(r.err, /warn-only/, '应标明 warn-only')
     assert.match(r.err, /apps\/ai-service\/app\/services\/llm\.py/, '应列出 ai-service services 触发文件')
   } finally {
     rmSync(dir, { recursive: true, force: true })
@@ -268,8 +275,10 @@ test('边界 warn: staged 6 个 trigger 文件(>5)→ exit 0 + warn,含"还有 1
     for (let i = 0; i < 6; i++) files.push(`apps/web/src/file${i}.ts`)
     stageFiles(dir, files)
     const r = runScript({ cwd: dir })
-    assert.equal(r.status, 0)
+    // 2026-08-19 起脚本有意 exit 1 供 runner 计 warning(依据:scripts/check-readme-sync.mjs:131-134 注释 + runner id 22 mode=warn)
+    assert.equal(r.status, 1)
     assert.match(r.err, /\[check-readme-sync\]/)
+    assert.match(r.err, /warn-only/, '应标明 warn-only')
     assert.match(r.err, /6 个功能文件/, '应报告 6 个功能文件')
     assert.match(r.err, /还有 1 个/, '应输出截断提示"还有 1 个"')
   } finally {
@@ -285,9 +294,11 @@ test('非 staged 模式: 默认模式(无 --staged)读取 working tree 改动,�
     stageFiles(dir, ['apps/web/src/page.tsx'])
     // 不传 --staged,走默认 working tree 模式(line 87-94 分支)
     const r = runScript({ cwd: dir, args: [] })
-    assert.equal(r.status, 0)
+    // 2026-08-19 起脚本有意 exit 1 供 runner 计 warning(依据:scripts/check-readme-sync.mjs:131-134 注释 + runner id 22 mode=warn)
+    assert.equal(r.status, 1)
     assert.match(r.err, /\[check-readme-sync\]/, '默认模式也应检测功能代码改动')
     assert.match(r.err, /README\.md 未同步/)
+    assert.match(r.err, /warn-only/, '应标明 warn-only')
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
