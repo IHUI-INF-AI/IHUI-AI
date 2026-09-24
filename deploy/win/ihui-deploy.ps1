@@ -600,6 +600,15 @@ function Build-Web {
             }
             foreach ($l in (Get-Content $bldErr -Tail 8 -ErrorAction SilentlyContinue)) { Log "[build-err] $l" }
             foreach ($l in (Get-Content $bldOut -Tail 12 -ErrorAction SilentlyContinue)) { Log "[build-out] $l" }
+            # 用完即删。这两个文件是 Start-Process 的 stdout/stderr 重定向落点,而服务身份
+            # (IHUI-DEPLOYLOOP 跑在 LocalSystem 下)的 $env:TEMP = C:\Windows\Temp —— HKCU 把 TEMP
+            # 迁到 D 盘对服务身份无效,所以每次构建 try 都在 **C 盘系统临时目录**留下 2 个文件
+            # 且此前无人清:2026-09-24 实地扫到 526 项 / 6.86MB,部署环每 30 分钟继续 +2。
+            # 内容已按 Tail 并入 deploy-loop.log,留着没有取证价值。删除失败不得影响构建判定
+            # ⇒ 整段吞异常(挂死被 taskkill 的 try 里文件可能仍被占用,跳过即可,由每日清理兜)。
+            try {
+                Remove-Item -LiteralPath $bldOut, $bldErr -Force -ErrorAction SilentlyContinue
+            } catch {}
             $ok = ($exitCode -eq 0) -and (Test-Path "$WebDir\.next-$DistDir\BUILD_ID")
             if ($ok) { Ok "next build 完成 -> .next-$DistDir"; return }
             Log "第 $try 次失败(exit=$exitCode),清缓存重试"
