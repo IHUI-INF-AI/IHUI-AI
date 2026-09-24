@@ -188,7 +188,7 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 ### 跨端样式同步铁律(强制)
 
 - web 与 miniapp-taro 视觉必须完全一致(除平台独占差异:登录页小程序端无、rem2rpx 自适应缩放、原生导航栏/tabBar 用 `Taro.setNavigationBarColor`/`setTabBarStyle` 而非 CSS var 等)。**任何一端改了样式/组件/主题,必须同步另一端**——这是交付门槛,不是可选项。
-- **单一真相源**:design-tokens 在 `packages/design-tokens/src/styles/tokens.css`(`@theme` + `:root` + `.dark`)。miniapp-taro 的 `app.css :root/.dark` 由 `apps/miniapp-taro/scripts/sync-design-tokens.mjs` 自动同步(**禁止手改 app.css 的 token 块**;改 token 改源头 + 跑同步,该脚本是端内脚本,根 `scripts/` 下没有同名文件,`node scripts/sync-design-tokens.mjs` 会报模块找不到)。校验同步一致性由 `scripts/check-miniapp-tokens-sync.mjs`(守门 36,blocking)与 `scripts/check-design-tokens-sync.mjs --target=miniapp-taro`(仅 CI 接线,`8end-consistency-cert`)承担;`scripts/check-miniapp-taro-design-tokens.mjs` 是同一职责的**第三份实现,未接线、仅供手动跑**,**不得为它新增接线档位**(三源同责,再接一道只会在改 token 时多一处漂移源并制造恒红;门 89 台账已按此登记依据)
+- **单一真相源**:design-tokens 在 `packages/design-tokens/src/styles/tokens.css`(`@theme` + `:root` + `.dark`)。miniapp-taro 的 `app.css :root/.dark` 由 `apps/miniapp-taro/scripts/sync-design-tokens.mjs` 自动同步(**禁止手改 app.css 的 token 块**;改 token 改源头 + 跑同步,该脚本是端内脚本,根 `scripts/` 下没有同名文件,`node scripts/sync-design-tokens.mjs` 会报模块找不到)。另有 `scripts/check-miniapp-taro-design-tokens.mjs` 与 `scripts/check-miniapp-tokens-sync.mjs`(后者为 guardian-runner 第 36 项实际调用项)校验同步一致性。
 - **主题系统**:miniapp-taro 主题根为 `ThemeRoot`(`@/components/ThemeRoot`,内部调用 `useThemeRoot()`),每个路由页 .tsx 顶层须 `<ThemeRoot>...</ThemeRoot>`。设置页切换主题必须调用 `@/lib/theme` 的 `setThemePreference`(同步原生导航栏/tabBar 配色 + 广播事件),**禁止**只用 `Taro.setStorageSync('theme', ...)` 而不同步原生 chrome(否则导航栏/tabBar 不变色)。
 - **禁止深色科技风回潮**:app.css 不得再出现 `page{background:#121217}` / `*{font-family!important}` 等全局深色强制覆盖;页面/组件 CSS 不得硬编码禁用色板(`#00f2ff`/`#121217`/`#1f1f28`/`#1a1a2e` 等),一律改用 `var(--color-*`)。
 - **禁止同名工具类冲突**:miniapp-taro 的 `app.css` 不得重定义 `.text-primary`/`.mt-*`/`.flex*`/`.align-*`/`.justify-*` 等与 web 端 Tailwind 同名同义类(语义冲突),局部样式用语义化类名 + `var(--color-*`)。
@@ -1216,8 +1216,6 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 - **`WScript.Shell.Environment()("不存在的键")` 返回 Null**,`Len(Null)` 亦为 Null,后续比较抛 "Type mismatch" 并静默中止。读环境变量必须 `& ""` 归一:`raw = shell.Environment("Process").Item("X") & ""`。
 - **Electron 宿主无视 `NODE_OPTIONS`**:实测 Qoder/Trae 自带运行时内 `process.env.NODE_OPTIONS === undefined`(Electron 主动剥离),故机器级 windowsHide 钩子**只覆盖独立 `node.exe`**,覆盖不到 IDE 内部的 git 调用。后者若弹窗,只能关 IDE 自带 git 集成或改其调用方,不要误以为环境变量层能解决。
 
-- **2026-09-24 补装的三档**(此前均是"脚本在、五处权威接线点零命中"的孤儿;门 89 的 R4 实测它们未见于本文件,故在此登记):87 `check-i18n-messages-exist.mjs`(blocking)—— 40 项语言包/端内 loader 的**存在性与合法性**对账,`ROOT` 由脚本自身推导且支持 `--root`/env 显式注入(旧实现取 `process.cwd()`,自测只切 cwd 会**静默扫真仓**);判不了就 **exit 2**(根注入失效/清单为空 ⇒ 绝不静默报绿),布局表另有"手写字面量 + `git ls-tree HEAD`"双独立真值防表漂移。88 `check-ui-react-usage.mjs`(blocking,`stagedTriggers: apps/web/src · apps/extension · apps/desktop/src`)—— 端内自实现 Dialog/Card/Form 的共享层复用对账,FAIL 才拦、WARN 只提示。92 `check-error-code-coverage.mjs`(blocking)—— errorCode 三方对账(`packages/shared/src/chat/error-catalog.ts` × web 词包 × 从 `packages/api-client/src`+`apps/ai-service/app` 扫出的显式码字面量),拦"后端新增错误码而界面把它压成同一句『AI 服务异常』";分类**必须复用 D92 的 `ViewFailureKind` 15 类主干,禁止另起第二张表**(同 §4/D71 硬约束),未收录返回 null 零"未知错误"兜底。**三档装门前均实测真仓全量与 `--staged` 双口径 exit 0** —— 恒红门等于全队 `--no-verify`,上线即绿是先决条件而非事后说明。
-- **登记新门前必须查编号占用**:`git show HEAD:scripts/guardian-runner.mjs | grep -oE "\bid: '[0-9]+'" | sort -u -V | tail -1`。同日多会话在数组同一位置各加一道门**必然撞号**(实测先例 75/76 各重复一次、79→80,2026-09-24 又撞一次 91 —— 当天由守门 89 新增的 **R5「重复 id 判红」**维度拦下并改号为 92)。同 id 的两道 blocking 门会串 `skipEnv` 与失败归属:跳一次关两道、汇总只认第一个匹配项。R6(同一 `skipEnv` 挂多个条目)**只报数** —— 本仓 `id 2` 与 `2n-web` 共用 `HUSKY_SKIP_I18N_PARITY` 是**刻意**的(runner 内写明理由:两者跑同一份 parity 判据),粒度问题由门的持有人裁,不属于撒谎。
 ### 守门手动触发 / 紧急跳过抽查
 
 - **手动触发全量守门**:`node scripts/guardian-runner.mjs --staged`(pre-commit 模式,传给所有脚本);不带 `--staged` 为全量扫描。
@@ -1288,16 +1286,18 @@ C 盘 120 GB 频繁告急,根因排查发现:
 
 | 任务名                      | 触发     | 实际执行体                                                                                 | 功能                                  |
 | --------------------------- | -------- | ------------------------------------------------------------------------------------------ | ------------------------------------- |
-| `IHUI-C-Drive-AutoMaintain` | 每天 3am | `wscript.exe scripts/c-drive-maintain-hidden.vbs` → `pwsh -File c-drive-auto-maintain.ps1` | 清理 Chrome/Temp 缓存 + 报告 C 盘状态 |
+| `IHUI C-Drive AutoMaintain` | 每天 3am | `wscript.exe scripts/c-drive-maintain-hidden.vbs` → `pwsh -File c-drive-auto-maintain.ps1` | 清理 Chrome/Temp 缓存 + 报告 C 盘状态 |
 
-**⚠️ 2026-09-23 曾实测:该任务在本机并不存在**(`schtasks /query` → 「系统找不到指定的文件」,且 `D:\DevEnv\logs\c-drive-maintain.log` 从未生成)。当时的表是**设计意图**而非现状,曾据此以为"每天在清"⇒ 实际零执行,这是 C 盘能攒下 13.2GB `.next` 构建备份的直接原因之一。
+**⚠️ 注册名含空格,不是连字符**(`schtasks /query /fo CSV` 实读回 = `\IHUI C-Drive AutoMaintain`)。按文档里旧写的 `IHUI-C-Drive-AutoMaintain` 去查,`schtasks` 回「系统找不到指定的文件」—— 2026-09-23 我就是因此**误判成"任务从未注册"**,而它当时确实还没注册(23:55 才注册),但**名字陷阱会让人在任何一天都得出同样的错结论**。Git Bash 下查还要加 `MSYS_NO_PATHCONV=1`,否则 `/query` 被改写成路径。判存在与否只认 `schtasks /query /fo CSV | grep -i c-drive` 这种全量列名法,不要拿文档里的名字去点名查。
+
+**2026-09-23 曾实测:该任务在本机并不存在**(当时代号未注册,`D:\DevEnv\logs\c-drive-maintain.log` 也从未生成)。当时的表是**设计意图**而非现状,曾据此以为"每天在清"⇒ 实际零执行,这是 C 盘能攒下 13.2GB `.next` 构建备份的直接原因之一。
 
 **同日 23:59 经用户授权后已真正注册**(状态=现状,不再是设计意图):
 
 - **动作链按本节下方「计划任务禁止直接执行控制台程序」硬约束走**:`wscript.exe` → 纯 ASCII 的 `scripts/c-drive-maintain-hidden.vbs` → `pwsh -NoProfile -ExecutionPolicy Bypass -File …ps1`。注册前用 `cscript //nologo` 实跑过一份**只带 `-DryRun` 的同体副本**做语法+拉起链证明(实测写出 `[WARN] … DRY RUN(全脚本不删任何东西)`),因此注册过程零删除。
 - **登录类型已升 S4U**(与凭据巡检同一套 `scripts/task-set-s4u.vbs`),否则 3am 无人登录时不会跑。回读 `schtasks /Query /XML` 实证:`LogonType=S4U`、`Command=wscript.exe`、`StartBoundary=03:00`、下次运行 `2026-09-24 03:00`。
-- **它的删除面是"按名字"的,不是"按目录整片"**:盘根只认 `IHUI-*`/`.empty-tmp*`/`.pnpm-store`;`C:\tmp`\`C:\temp`内只删`ihui-_`/`IHUI-_`/`next-backup-_`/`probe-_`/`wb-ext-debug.log`;另有 Chrome 缓存与「Temp 中 mtime>3 天的目录」两段。**注册前当天 `-DryRun` 全量命中仅 1 项**(`C:\Windows\Temp\Installer*.tmp`),合计释放 0 MB。
-- **仍未闭环的一条**:TEMP 漂移 —— HKCU `TEMP` 已指 `D:\DevEnv\Temp`,但活着的宿主/终端进程仍持 `C:\Users\Administrator\AppData\Local\Temp`(实测 `node -p os.tmpdir()` 即旧值),所以走 `os.tmpdir()` 的脚本会继续落 C 盘;新开终端/重启宿主后自愈。判据与污染可见性由守门 **91** `check-c-drive-pollution.mjs`(只读、永不删)承担。
+- **它的删除面是"按名字"的,不是"按目录整片"**:盘根只认 `IHUI-*` / `.empty-tmp*` / `.pnpm-store`;`C:\tmp` 与 `C:\temp` 内只删 `ihui-*` / `IHUI-*` / `next-backup-*` / `probe-*` / `wb-ext-debug.log`;另有 Chrome 缓存与「Temp 中 mtime>3 天的目录」两段。**注册前当天 `-DryRun` 全量命中仅 1 项**(`C:\Windows\Temp\Installer*.tmp`),合计释放 0 MB。(本条曾被排版批处理把 `ihui-*` 吃成 `ihui-_`、并把 `C:\tmp` 与 `C:\temp` 两个 code span 粘成一个 —— 文档里的通配符被吞掉就等于把判据说错了,发现即修。)
+- **仍未闭环的一条**:TEMP 漂移 —— HKCU `TEMP` 已指 `D:\DevEnv\Temp`,但活着的宿主/终端进程仍持 `C:\Users\Administrator\AppData\Local\Temp`(实测 `node -p os.tmpdir()` 即旧值),所以走 `os.tmpdir()` 的脚本会继续落 C 盘;新开终端/重启宿主后自愈。判据与污染可见性由守门 **92** `check-c-drive-pollution.mjs`(只读、永不删)承担。
 
 **同日修 `c-drive-auto-maintain.ps1` 的三处失效**(全部实测取证):
 
@@ -1380,7 +1380,7 @@ Windows PowerShell 5.1(`powershell.exe`)已 EOL(微软停止维护),且存在已
 - `scripts/check-pwsh-version.mjs`:检查 `.ps1` 前 5 行是否含 `#requires -Version 7`,缺失则 exit 1。ROOT 由脚本自身位置推导(不写死盘符)
   - `--staged`:仅检查 **git index 中已暂存的** `.ps1`(`.husky/pre-commit` 用此模式)
   - 缺省:全树扫描(人工 / CI 全量审计用)
-- 集成位置:**`scripts/lib/pre-commit-hook.js:560`** 直接调用 `node scripts/check-pwsh-version.mjs --staged`(blocking,失败即 `process.exit(1)`);跳过 `HUSKY_SKIP_PWSH_VERSION_GUARD=1`(应急,默认不推荐)。⚠️ **不得写成"由 `.husky/pre-commit` 调用"** —— 该文件自 2026-09-22 起只是一行薄壳(`wscript //nologo scripts/hook-run-hidden.vbs pre-commit scripts/lib/pre-commit-hook.js`),内部没有任何守门调用;照旧写法去"补接线"只会让这道门**双跑**(守门 89 实测过这个案例:文档位置错而门有效,其判据已正确不判它红 —— 改文档,别改判据)
+- 集成位置:`.husky/pre-commit` 直接调用 `node scripts/check-pwsh-version.mjs --staged`(blocking);跳过 `HUSKY_SKIP_PWSH_VERSION_GUARD=1`(应急,默认不推荐)
 - 检查范围:项目内 `.ps1`(`scripts/`、`apps/*/scripts/`、`.ihui-agent/scripts/` 等)
 - 白名单:`*.venv/*`、`venv/*`、`node_modules/*`、`.git/*`、`tmp/*`、`deploy/*`、`.ihui-agent/*`、`site-packages/*`(playwright 驱动)、`.workbuddy/quarantine/*`(污染治理隔离归档)
 - **2026-09-15 修复(本守门自身 P0 回归)**:`--staged` 自挂载起只在用法注释里声明、**从未实现**,实现中只有无条件的全树 `scan(ROOT)`,导致工作区里未跟踪且被 gitignore 的遗留 `.ps1`(实测 `.android-toolchain/*.ps1`、`.tmp-wechat-test/watch.ps1`)**阻断每一次提交**——而它们在干净 checkout / CI 里根本不存在。已真正实现 `--staged`,并补齐 `deploy/*` 等白名单口径。
