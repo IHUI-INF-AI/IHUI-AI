@@ -59,7 +59,7 @@ export interface VocabLookupPayload {
   pageTitle?: string
 }
 
-export interface HighlightPayload {
+interface HighlightPayload {
   word: string
   enabled: boolean
   scope: 'page' | 'selection'
