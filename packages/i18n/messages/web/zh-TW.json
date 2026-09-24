@@ -7074,6 +7074,77 @@
       "rollbackConfirmConfirm": "確認恢復"
     },
     "pane": {
+      "inputSources": {
+        "ariaLabel": "輸入源與佇列",
+        "snapshot": {
+          "attachApp": "附加 {appName}",
+          "state": {
+            "disabled": "未啟用智慧快照",
+            "enabled": "已啟用智慧快照",
+            "failed": "智慧快照失敗"
+          },
+          "enable": "啟用智慧快照",
+          "firstRunGuideTitle": "首次使用智慧快照",
+          "firstRunGuideBody": "智慧快照會為目前應用程式建立上下文快照，訊息將自動附帶應用程式資訊",
+          "failedHint": "快照建立失敗，可重試或改用一般附件傳送"
+        },
+        "route": {
+          "appSnapshot": "應用程式快照",
+          "remoteFile": "遠端檔案",
+          "remotePhoto": "遠端照片"
+        },
+        "command": {
+          "queuePrompt": "將提示加入佇列",
+          "queuePromptDesc": "本輪回覆結束後自動按順序傳送佇列中的提示",
+          "steerPrompt": "引導提示",
+          "steerPromptDesc": "向正在產生的回覆中途插入引導，不打斷目前輸出"
+        },
+        "undo": {
+          "restoring": "正在復原佇列中的訊息",
+          "restored": "已復原佇列中的訊息",
+          "restoredQueued": "已復原排隊的訊息",
+          "failed": "復原失敗，訊息仍在佇列中"
+        },
+        "memoryRefs": {
+          "count": "{count} 條記憶引用",
+          "tooltip": "引用的記憶",
+          "empty": "暫無記憶引用"
+        },
+        "goal": {
+          "achievedIn": "已在 {totalTime} 內達成目標"
+        }
+      },
+      "inputNotices": {
+        "ariaLabel": "壓縮與排隊提示",
+        "compaction": {
+          "block": {
+            "cause": {
+              "runningTurn": "目前 Turn 正在執行中",
+              "insufficientCredits": "壓縮會消耗少量積分",
+              "noTurnBoundary": "目前沒有可用的 Turn 邊界"
+            },
+            "consequence": {
+              "runningTurn": "壓縮將在目前 Turn 完成後執行，不能插入正在執行的 Turn",
+              "insufficientCredits": "積分不足，本次壓縮不會執行，對話上下文保持不變",
+              "noTurnBoundary": "壓縮暫時無法執行，對話上下文保持不變"
+            }
+          }
+        },
+        "queue": {
+          "reasonTitle": "排隊原因",
+          "reason": {
+            "turnRunning": "目前回覆正在產生，訊息將在本輪結束後傳送",
+            "queueAhead": "前面的訊息尚未處理完成，正在按順序等待",
+            "runtimeNoInterject": "目前 Runtime 不支援插話，訊息將繼續排隊"
+          },
+          "denied": {
+            "reorder": "無法調整排隊順序",
+            "undo": "無法撤回排隊訊息",
+            "interject": "目前 Runtime 不支援插話，訊息將繼續排隊"
+          },
+          "reorderAria": "拖動調整排隊順序；聚焦後可使用上下方向鍵"
+        }
+      },
       "voiceSubtitles": {
         "muteAndShowSubtitles": "靜音並顯示字幕",
         "subtitleTitle": "語音字幕",
@@ -9405,6 +9476,7 @@
     "adoptHint": "把選中候選內容寫入當前對話"
   },
   "goalCard": {
+    "achievedInTime": "已在 {totalTime} 內達成目標",
     "empty": "尚未設定會話目標",
     "emptyHint": "在輸入框輸入 /goal <目標> 設定,或由 AI 自動推進",
     "progress": "進度",
@@ -9954,6 +10026,18 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "connectorAuth": {
+      "title": "連接到 {connectorName}",
+      "connected": "已連接",
+      "reconnect": "重新連接 {connectorName}",
+      "connect": "連接",
+      "connecting": "連接中…",
+      "moreInfo": "更多資訊",
+      "decline": "暫不",
+      "declined": "已拒絕連接 {connectorName}。本次對話不受影響。"
+    },
+    "queueUndoRestoredQueued": "已恢復排隊的訊息",
+    "queueUndoRestored": "已恢復佇列中的訊息",
     "usageEstimated": "估算",
     "turnChanges": {
       "title": "本輪變更",
@@ -11101,6 +11185,24 @@
       "view": "檢視"
     },
     "commands": {
+      "steerPrompt": {
+        "label": "引導提示",
+        "description": "向正在執行的回覆中途插入引導，無需等待當前輪完成",
+        "keywords": [
+          "引導",
+          "插話",
+          "steer"
+        ]
+      },
+      "queuePrompt": {
+        "label": "將提示加入佇列",
+        "description": "把目前輸入加入 W27 預備訊息佇列，串流結束後自動依序傳送",
+        "keywords": [
+          "佇列",
+          "排隊",
+          "queue"
+        ]
+      },
       "agent": {
         "description": "管理並調度 AI 智能體",
         "keywords": ["智能體", "調度", "agent"],
