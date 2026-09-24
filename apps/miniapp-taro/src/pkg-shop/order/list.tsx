@@ -89,11 +89,11 @@ const STATUS_MAP: Record<string, { type: string; textKey: string; badge: string 
 }
 
 const TABS = [
-  { value: '', labelKey: 'order.tabs.all', fallback: '全部' },
-  { value: 'pending', labelKey: 'order.tabs.pending', fallback: '待支付' },
-  { value: 'paid', labelKey: 'order.tabs.paid', fallback: '已支付' },
-  { value: 'cancelled', labelKey: 'order.tabs.cancelled', fallback: '已取消' },
-  { value: 'refunded', labelKey: 'order.tabs.refunded', fallback: '已退款' },
+  { value: '', labelKey: 'order.tab.all', fallback: '全部' },
+  { value: 'pending', labelKey: 'order.tab.pending', fallback: '待支付' },
+  { value: 'paid', labelKey: 'order.tab.paid', fallback: '已支付' },
+  { value: 'cancelled', labelKey: 'order.tab.cancelled', fallback: '已取消' },
+  { value: 'refunded', labelKey: 'order.tab.refunded', fallback: '已退款' },
 ]
 
 const PAGE_SIZE = 10
