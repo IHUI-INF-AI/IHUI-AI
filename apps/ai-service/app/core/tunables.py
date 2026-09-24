@@ -67,6 +67,22 @@ AGENT_COMPACTION_QUALITY_KEEP_RECENT_BONUS = int(
     )
 )
 
+# ==================== 杀手锏常量段 4b:旧工具结果回收 / 压缩有效性守卫阈值 ====================
+# 与 TS 共享包 packages/context-compaction/src/{reclaim,validity-guards}.ts 逐值一致。
+# 说明:回收动作本身当前只在 TS 侧(agent runtime)执行,Python 侧尚未实现同名行为;
+# 这里按"阈值常量必须两侧同值"的约束先把真值沉淀在本真源并纳入对账,避免 Python
+# 端将来接入时各写一套数字(即"改了手机上 web 没改"的同型债)。
+# 对账入口:consistency-fixtures.json 的 strategy_constants + test_killer_parity.py。
+RECLAIM_KEEP_RECENT_ROUNDS = 3  # 最近 N 轮(assistant round)内的工具结果不回收
+RECLAIM_MIN_SAVED_TOKENS = 600  # 最小收益门槛:节省不足就不改写(不白破前缀缓存)
+RECLAIM_WINDOW_RATIO_TRIGGER = 0.6  # 双触发之一:占窗口比例达该值即回收
+RECLAIM_IDLE_TRIGGER_MS = 120000  # 双触发之二:会话空闲超过该毫秒数即回收
+RECLAIM_MIN_RESULT_TOKENS = 120  # 单条结果正文的回收下限(太短不值得改写)
+REFILL_QUICK_WINDOW_ROUNDS = 2  # 压缩后 ≤N 轮内又满记一次"快速回填"
+REFILL_BREAKER_MAX_CONSECUTIVE = 3  # 连续快速回填上限:达上限终止自动压缩并出诊断
+OVERFLOW_DROP_MAX_ROUNDS = 6  # 极端溢出时按完整轮次整组丢弃的重试上限
+NEXT_TURN_GROWTH_TOKENS = 1200  # 真值复测时预测"下一轮增量"的保守估计
+
 # ==================== 杀手锏常量段 5:P1-② 决策链保留(压缩时保留推理链) ====================
 # 背景:压缩会把 head 段 assistant 的推理(reasoning,即"为什么调这个工具")摘要化,
 # 规则摘要仅留 120-200 字符、LLM 语义摘要可能整段遗漏,后续轮次 LLM 失去决策依据。
