@@ -5,6 +5,7 @@
 import * as React from 'react'
 import type { ChatMessage } from '@/stores/chat'
 import { useChatStore } from '@/stores/chat'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 
 // #7 虚拟滚动配置(2026-07-25 立):消息数超过阈值时启用窗口化渲染
 // - ESTIMATED_ITEM_HEIGHT:消息平均高度估计值,用于初始 padding 计算
@@ -15,6 +16,9 @@ const ESTIMATED_ITEM_HEIGHT = 160
 const VIRTUAL_THRESHOLD = 60
 const BUFFER = 6
 const TOP_LOAD_MORE_THRESHOLD = 60 // scrollTop < 60px 触发加载更多历史
+
+/** 层栈 id(见 @/lib/overlay-stack):消息键盘导航焦点层,挂载即为一层、卸载即出栈 */
+const MESSAGE_LIST_KEYBOARD_NAV_OVERLAY_ID = 'message-list-keyboard-nav'
 
 export interface MessageListScrollOptions {
   messages: ChatMessage[]
@@ -395,6 +399,7 @@ export function useMessageListScroll({
   // 2026-09-22 键位归属:↑/↓/Home/End 的唯一持有者是本 hook。首页整屏翻页
   // (use-full-page-scroll)曾同时监听这组键,在 /chat 上双触发,现已让出,只保留 PageUp/PageDown。
   React.useEffect(() => {
+    pushOverlay(MESSAGE_LIST_KEYBOARD_NAV_OVERLAY_ID)
     const onKey = (e: KeyboardEvent) => {
       // 2026-08-02 修复 P1(问题 6-1):用 messagesRef.current 读最新 messages,
       // effect 依赖仅 [setFocusedIndexBoth](稳定引用),listener 仅挂载一次,
@@ -429,6 +434,7 @@ export function useMessageListScroll({
         e.preventDefault()
         setFocusedIndexBoth(msgs.length - 1)
       } else if (e.key === 'Escape') {
+        if (!isTopOverlay(MESSAGE_LIST_KEYBOARD_NAV_OVERLAY_ID)) return
         // 2026-07-28 立:用 focusedIndexRef 读最新值,避免 stale closure
         // (键盘事件连续触发时 listener 闭包内的 focusedIndex 可能滞后)
         if (focusedIndexRef.current >= 0) {
@@ -462,7 +468,10 @@ export function useMessageListScroll({
       }
     }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    return () => {
+      popOverlay(MESSAGE_LIST_KEYBOARD_NAV_OVERLAY_ID)
+      window.removeEventListener('keydown', onKey)
+    }
   }, [setFocusedIndexBoth])
 
   // 2026-07-28 立:focused message 变更后自动 scrollIntoView(确保可见)

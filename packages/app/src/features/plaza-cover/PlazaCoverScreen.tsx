@@ -1,7 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import {
@@ -17,6 +16,8 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { PlazaCoverScreenProps } from '../../types'
 import type { AppIcon } from '@ihui/types'
 import { Banknote, Globe, Shield, Target, Zap } from 'lucide-react-native'
+
+import { rnRadius } from '@ihui/design-tokens'
 
 /** Props 类型 re-export(单一来源 @ihui/types) */
 export type { PlazaCoverScreenProps }
@@ -132,12 +133,12 @@ function createStyles(tk: AppThemeTokens) {
     featureDesc: { fontSize: 14, color: tk.text.tertiary, textAlign: 'center' } as TextStyle,
     actions: { gap: 10 } as ViewStyle,
     primaryBtn: {
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       borderRadius: rnRadius.xl,
       paddingVertical: 15,
       alignItems: 'center',
     } as ViewStyle,
-    primaryBtnText: { fontSize: 16, fontWeight: '600', color: tk.surface.light } as TextStyle,
+    primaryBtnText: { fontSize: 16, fontWeight: '600', color: tk.brand.ctaForeground } as TextStyle,
     secondaryBtn: {
       borderRadius: rnRadius.xl,
       paddingVertical: 12,

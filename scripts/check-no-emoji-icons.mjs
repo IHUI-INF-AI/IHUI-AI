@@ -281,9 +281,23 @@ if (isStaged) {
 
 let totalViolations = 0
 const fileReports = []
+// 扫的是整棵工作树,而并行会话随时在增删文件:`readdirSync` 列到、`readFileSync` 读不到
+// 是**常态**不是异常。旧写法让这种竞态以未捕获 ENOENT 崩出去 ⇒ Node 退出码 1 ⇒
+// 一道 blocking 门把"我读不到"报成"你违规"(按项目口径读不到应是 2/无法判定)。
+// 现在:消失的文件计入 skipped 并如实打印,不影响判定。
+let unreadable = 0
 
 for (const file of files) {
-  const src = readFileSync(file, 'utf8')
+  let src
+  try {
+    src = readFileSync(file, 'utf8')
+  } catch (e) {
+    if (e?.code === 'ENOENT' || e?.code === 'EACCES' || e?.code === 'EBUSY') {
+      unreadable++
+      continue
+    }
+    throw e
+  }
   const lines = src.split('\n')
   const findings = []
 
@@ -327,6 +341,11 @@ for (const file of files) {
 
 console.log(`${C.bold}扫描结果:${C.reset}`)
 console.log(`  扫描文件: ${files.length} 个`)
+if (unreadable > 0) {
+  console.log(
+    `  读不到而跳过: ${unreadable} 个(并行会话在扫描期间增删所致,不影响判定;非 0 时如实打印而非静默)`,
+  )
+}
 console.log(`  违规数:   ${totalViolations} 处 (BLOCKING)`)
 console.log('')
 
