@@ -1,4 +1,43 @@
 {
+  "ecosystem": {
+    "title": "生態",
+    "description": "原先並列的多個能力市場入口收斂為一頁:技能、MCP、能力、連接器市場與專家包組合,都在這裡直達。",
+    "marketsSection": "能力市場",
+    "bundlesSection": "專家包",
+    "bundlesHint": "按專家工作流組合多個市場的能⼒,點擊標籤直達對應頁面",
+    "cards": {
+      "aiSkills": {
+        "title": "AI 技能",
+        "desc": "為智能體掛載 AI 技能,擴展對話與任務能⼒"
+      },
+      "mcpStore": {
+        "title": "MCP 商店",
+        "desc": "瀏覽內置 MCP Server 目錄,一鍵註冊接入"
+      },
+      "capabilityMarket": {
+        "title": "能力市場",
+        "desc": "啟用平台自研 MCP 能力(工具/資源/提示詞)"
+      },
+      "skillsMarket": {
+        "title": "Skill 市場",
+        "desc": "自進化技能市場:安裝、評分與訂閱"
+      },
+      "connectors": {
+        "title": "中文連接器",
+        "desc": "接入語雀、飛書、企微、釘釘等中文文檔源"
+      }
+    },
+    "bundles": {
+      "contentCreator": {
+        "title": "內容創作專家包",
+        "desc": "寫作與發布工作流的組合入口:AI 技能、Skill 市場與中文連接器"
+      },
+      "developerExtension": {
+        "title": "開發者擴展包",
+        "desc": "工具擴展工作流的組合入口:MCP 商店註冊與平台能⼒啟用"
+      }
+    }
+  },
   "aiWs": {
     "videoDone": "視頻生成完成",
     "videoFailed": "視頻生成失敗,請重試",
@@ -18036,6 +18075,7 @@
     "none": "無"
   },
   "nav": {
+    "ecosystemHub": "生態市場",
     "adminRelayInsights": "運營洞察",
     "adminRelayEnterprise": "企業合規",
     "adminRelayPlugins": "插件系統",
