@@ -1,13 +1,14 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
 
 import { useState, useCallback } from 'react'
 import type { CSSProperties, MouseEvent } from 'react'
 import { getTokens, type AppThemeTokens, type AppThemeMode } from '../theme/tokens'
 import type { TFunction, AppIcon } from '@ihui/types'
 import { Crown, Gift, Clock, CreditCard, Check, X, Minus, Plus, Bot } from 'lucide-react'
+
+import { rnRadius } from '@ihui/design-tokens'
 
 /**
  * 支付按钮 — 跨端共享层。
@@ -84,8 +85,8 @@ const TYPE_CONFIG: Record<PayButtonType, TypeConfig> = {
     showPurchasePopup: false,
   },
   '3': {
-    bg: (tk) => tk.brand.DEFAULT,
-    text: (tk) => tk.surface.light,
+    bg: (tk) => tk.brand.cta,
+    text: (tk) => tk.brand.ctaForeground,
     icon: CreditCard,
     label: '每月',
     showPurchasePopup: true,
@@ -180,8 +181,8 @@ const viewStyles = {
     paddingBottom: 12,
     borderRadius: rnRadius.xl,
     textAlign: 'center',
-    backgroundColor: tk.brand.DEFAULT,
-    color: tk.surface.light,
+    backgroundColor: tk.brand.cta,
+    color: tk.brand.ctaForeground,
     fontWeight: 500,
     border: 'none',
     cursor: 'pointer',
