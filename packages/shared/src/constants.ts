@@ -57,6 +57,22 @@ export const AGENT_COMPACTION_QUALITY_THRESHOLD_DEFAULT = 0.5
 export const AGENT_COMPACTION_QUALITY_KEEP_RECENT_BONUS_DEFAULT = 4
 
 /**
+ * 旧工具结果回收(reclaim)与压缩有效性守卫的阈值镜像(真源 tunables.py 段 4b)。
+ * 实现常量在 packages/context-compaction/src/{reclaim,validity-guards}.ts ——
+ * 三处必须逐值相等,由 consistency-fixtures.json 的 strategy_constants 与
+ * apps/ai-service/tests/test_killer_parity.py 双向对账。
+ */
+export const RECLAIM_KEEP_RECENT_ROUNDS = 3
+export const RECLAIM_MIN_SAVED_TOKENS = 600
+export const RECLAIM_WINDOW_RATIO_TRIGGER = 0.6
+export const RECLAIM_IDLE_TRIGGER_MS = 120000
+export const RECLAIM_MIN_RESULT_TOKENS = 120
+export const REFILL_QUICK_WINDOW_ROUNDS = 2
+export const REFILL_BREAKER_MAX_CONSECUTIVE = 3
+export const OVERFLOW_DROP_MAX_ROUNDS = 6
+export const NEXT_TURN_GROWTH_TOKENS = 1200
+
+/**
  * W5:SSE 流式传输健壮性常量(跨端单一真源)。
  *
  * 取值与 @ihui/api-client 的 client.ts 内部实现保持一致(该文件因不依赖
