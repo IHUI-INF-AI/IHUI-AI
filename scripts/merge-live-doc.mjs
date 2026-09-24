@@ -31,7 +31,7 @@
  * 退出码:0 工作树 ⊇ HEAD / 1 存在 lost 行(需 --apply)或自检失败 / 2 参数或取版本失败
  */
 import { execFileSync } from 'node:child_process'
-import { readFileSync, writeFileSync, copyFileSync } from 'node:fs'
+import { readFileSync, writeFileSync, copyFileSync, mkdirSync } from 'node:fs'
 import { resolve, basename } from 'node:path'
 
 const ROOT = resolve(import.meta.dirname, '..')
@@ -166,12 +166,26 @@ function selfTest() {
   }
 
   ck('① 滞后副本吃掉的整块(含表格+空行)按锚点插回,顺序与排版保持', () => {
-    const head = ['# T', '## A', 'keep-a', '## B', '', '| c | d |', '| --- | --- |', '| 1 | 2 |', '## C', 'keep-c']
+    const head = [
+      '# T',
+      '## A',
+      'keep-a',
+      '## B',
+      '',
+      '| c | d |',
+      '| --- | --- |',
+      '| 1 | 2 |',
+      '## C',
+      'keep-c',
+    ]
     const wt = ['# T', '## A', 'keep-a', '## C', 'keep-c']
     const r = mergeByAnchors(head, wt, classifyMissing(head, wt))
     assert(r.out.join('\n').includes('| c | d |'), '表格未插回')
     assert(r.out.indexOf('## B') < r.out.indexOf('## C'), '没插在锚点之后')
-    assert(r.out.some((l) => !trim(l)), '空行丢了')
+    assert(
+      r.out.some((l) => !trim(l)),
+      '空行丢了',
+    )
     assert(r.unanchored === 0, '本例必须有锚点')
   })
 
@@ -185,15 +199,20 @@ function selfTest() {
   })
 
   ck('③ 回归:前缀与词袋比对都会漏判改写,故用字符二元组', () => {
-    const a = '**守门 `check-c-drive-pollution.mjs`(warn-only;同日重排 5 次编号)**(2026-09-23 立) —— 补的是全链没有一道门看过文件系统这个缺口'
-    const b = '**第 93 项 `check-c-drive-pollution.mjs`(warn-only)**(2026-09-23 立) —— 补的是全链没有一道门看过文件系统这个缺口'
+    const a =
+      '**守门 `check-c-drive-pollution.mjs`(warn-only;同日重排 5 次编号)**(2026-09-23 立) —— 补的是全链没有一道门看过文件系统这个缺口'
+    const b =
+      '**第 93 项 `check-c-drive-pollution.mjs`(warn-only)**(2026-09-23 立) —— 补的是全链没有一道门看过文件系统这个缺口'
     assert(a.slice(0, 46) !== b.slice(0, 46), '本例必须"前缀不同",否则测不到点子上')
     assert(jaccard(tokenize(a), tokenize(b)) >= SIM_THRESHOLD, '字符二元组相似度应判为同一条')
   })
 
   ck('④ 真孤儿行(与工作树任何行都不像)判 lost 并插回', () => {
     const head = ['anchor', '- [x] ✅(2026-09-24) **D62 语音字幕与讨论纪要(G-76)**:播报时字幕可见']
-    const wt = ['anchor', '- [x] ✅(2026-09-24) **D91 四类文档批注锚点分型(G-124)**:PDF 页码 整篇 选区 画框']
+    const wt = [
+      'anchor',
+      '- [x] ✅(2026-09-24) **D91 四类文档批注锚点分型(G-124)**:PDF 页码 整篇 选区 画框',
+    ]
     const v = classifyMissing(head, wt)
     assert(v.get(trim(head[1])) === 'lost', '真丢失被误判成 superseded')
     assert(mergeByAnchors(head, wt, v).lines === 1, '没插回')
@@ -211,12 +230,16 @@ function selfTest() {
     const head = ['preamble-only-in-head', 'anchor']
     const wt = ['anchor']
     const r = mergeByAnchors(head, wt, classifyMissing(head, wt))
-    assert(r.lines === 1 && r.unanchored === 1, `计数异常 seg=${r.segments} lines=${r.lines} un=${r.unanchored}`)
+    assert(
+      r.lines === 1 && r.unanchored === 1,
+      `计数异常 seg=${r.segments} lines=${r.lines} un=${r.unanchored}`,
+    )
     assert(r.out.includes('preamble-only-in-head'), '内容没进来')
   })
 
   ck('⑦ 归并结果不得引入新的长行重复(重复=同一件事写两遍)', () => {
-    const long = '- [x] ✅ **O46④ 本票自己制造并修好的两处回退(如实登记)**:提交用 --no-verify 落地,pre-commit 报的红里数道是本票自己造成的'
+    const long =
+      '- [x] ✅ **O46④ 本票自己制造并修好的两处回退(如实登记)**:提交用 --no-verify 落地,pre-commit 报的红里数道是本票自己造成的'
     const head = ['anchor', long, 'tail']
     const wt = ['anchor', 'tail', '本地另一条完全不相干的长行说明文字,用来避免被误判成同一条改写']
     const r = mergeByAnchors(head, wt, classifyMissing(head, wt))
@@ -232,7 +255,11 @@ function selfTest() {
 
   for (const [mark, name] of cases) console.log(`${mark} ${name}`)
   const bad = cases.filter(([m]) => m === '✗').length
-  console.log(bad ? `❌ 自检 ${cases.length - bad}/${cases.length}` : `✅ 自检 ${cases.length}/${cases.length} 通过`)
+  console.log(
+    bad
+      ? `❌ 自检 ${cases.length - bad}/${cases.length}`
+      : `✅ 自检 ${cases.length}/${cases.length} 通过`,
+  )
   return bad ? 1 : 0
 }
 
@@ -264,7 +291,9 @@ const superseded = [...verdict.entries()].filter(([, k]) => k === 'superseded')
 const localOnly = wtLines.map(trim).filter((t) => t.length > 0 && !headSet.has(t))
 
 console.log(`${FILE}:HEAD 行数=${headLines.length} 工作树行数=${wtLines.length}`)
-console.log(`  真丢失(需插回)= ${lost.length}   被就地改写取代(不插回)= ${superseded.length}   工作树独有(在途改写)= ${localOnly.length}`)
+console.log(
+  `  真丢失(需插回)= ${lost.length}   被就地改写取代(不插回)= ${superseded.length}   工作树独有(在途改写)= ${localOnly.length}`,
+)
 for (const [t] of lost.slice(0, 6)) console.log('   ! ' + t.slice(0, 86))
 if (lost.length > 6) console.log(`   … 另 ${lost.length - 6} 行`)
 if (superseded.length) {
@@ -281,7 +310,15 @@ if (!APPLY) {
 }
 
 const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-copyFileSync(resolve(ROOT, FILE), resolve(ROOT, `.ihui-agent/tmp/${basename(FILE)}.${stamp}.pre-merge.bak`))
+// 备份目录必须自己建:本工具跑在**任何**有活文档的仓里(新克隆 / CI / 隔离夹具都没有
+// `.ihui-agent/tmp/`)。2026-09-24 端到端取证实测:目录缺失时 `copyFileSync` 抛 ENOENT,
+// 崩溃点在"已经算完丢失清单之后、写回之前" ⇒ 归并**一个字都没落**,而 stdout 已经打印了
+// "真丢失(需插回)= 3"这种像是成功的结论。修一行 mkdirSync,备份语义不变。
+mkdirSync(resolve(ROOT, '.ihui-agent/tmp'), { recursive: true })
+copyFileSync(
+  resolve(ROOT, FILE),
+  resolve(ROOT, `.ihui-agent/tmp/${basename(FILE)}.${stamp}.pre-merge.bak`),
+)
 const r = mergeByAnchors(headLines, wtLines, verdict)
 writeFileSync(resolve(ROOT, FILE), r.out.join('\n'), { encoding: 'utf8' })
 
@@ -293,8 +330,12 @@ const headDups = dupLong(headLines).length
 const dupsAfter = dupLong(after).length
 const base = Math.max(dupsBefore, headDups)
 console.log(`已写回:段=${r.segments} 插入行=${r.lines} 无锚点(追加到末尾)=${r.unanchored}`)
-console.log(`  行数 ${wtLines.length} → ${after.length}(空行数 ${wtLines.filter((l) => !trim(l)).length} → ${after.filter((l) => !trim(l)).length})`)
+console.log(
+  `  行数 ${wtLines.length} → ${after.length}(空行数 ${wtLines.filter((l) => !trim(l)).length} → ${after.filter((l) => !trim(l)).length})`,
+)
 console.log(`  归并后仍判 lost = ${stillLost}(必须 0)`)
-console.log(`  ≥60 字符长行重复:工作树 ${dupsBefore} / HEAD ${headDups} / 归并后 ${dupsAfter}(新增 ${dupsAfter - base})`)
+console.log(
+  `  ≥60 字符长行重复:工作树 ${dupsBefore} / HEAD ${headDups} / 归并后 ${dupsAfter}(新增 ${dupsAfter - base})`,
+)
 process.exit(stillLost || dupsAfter > base ? 1 : 0)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
