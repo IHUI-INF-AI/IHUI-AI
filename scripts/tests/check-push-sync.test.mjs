@@ -215,19 +215,44 @@ test('detached HEAD: git checkout <hash> → exit 0(跳过)', () => {
   }
 })
 
-// ─── 11. 本地分支无 upstream(origin/<branch> ref 缺失) ──
-test('无 upstream: 有 origin remote 但无 origin/main ref → exit 0(跳过)', () => {
+// ─── 11. 本地无 tracking ref 时的两条通道 ──────────────────
+// 本组用例钉的是 2026-09-12 那次有意改动:远端 tip **以 ls-remote(网络真值)为准**,
+// 本地 `refs/remotes/origin/*` 被宿主清理层删掉时不再误判成"未 push"(§5b 同族病理)。
+// 旧断言"无 origin/main ref ⇒ 跳过"恰好被这个改进作废 —— 本地没 ref 也能问出真值。
+test('本地无 tracking ref 但 origin 可达 → 按 ls-remote 真值判定(不谎报跳过)', () => {
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
-    // 删除本地 origin/main ref(remote-tracking ref)
     execSync('git remote remove origin', { cwd: work, stdio: 'pipe' })
-    // 重新加 origin 但不 push/fetch → 无 origin/main ref
-    const originUrl = origin.replace(/\\/g, '/')
-    execSync(`git remote add origin "${originUrl}"`, { cwd: work, stdio: 'pipe' })
+    execSync(`git remote add origin "${origin.replace(/\\/g, '/')}"`, { cwd: work, stdio: 'pipe' })
+    // 前提自证:本地确实没有 tracking ref(否则本用例什么都没测)
+    assert.equal(execSync('git for-each-ref refs/remotes', { cwd: work, encoding: 'utf8' }).trim(), '')
+    assert.throws(() =>
+      execSync('git rev-parse origin/main', { cwd: work, stdio: 'pipe' }),
+    )
     const r = runScript([], { cwd: work })
-    // 有 origin remote 但 git rev-parse origin/main 失败 → exit 0(跳过)
-    assert.equal(r.status, 0, `无 origin/main ref 应 exit 0(跳过),实际 ${r.status}`)
-    assert.match(r.stdout, /无.*origin\/main|未 fetch|跳过/)
+    assert.equal(r.status, 0, `同步态应 exit 0,实际 ${r.status}\n${r.stdout}`)
+    assert.match(r.stdout, /已同步|ls-remote/, `应经 ls-remote 取到真值,实际:${r.stdout}`)
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+test('两条通道都取不到(origin 不可达 + 无本地 ref)→ exit 0 并如实说"无法确定"', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    execSync('git remote remove origin', { cwd: work, stdio: 'pipe' })
+    // 指向一个不存在的目录 ⇒ ls-remote 失败;同时没有 tracking ref ⇒ 回退也失败
+    const dead = join(origin, '..', 'definitely-not-a-remote-' + process.pid)
+    execSync(`git remote add origin "${dead.replace(/\\/g, '/')}"`, { cwd: work, stdio: 'pipe' })
+    const r = runScript([], { cwd: work })
+    assert.equal(r.status, 0, `取不到远端 HEAD 应跳过而非阻塞,实际 ${r.status}\n${r.stdout}`)
+    assert.match(r.stdout, /无法确定|未 fetch|跳过/, `应说明跳过原因,实际:${r.stdout}`)
+    assert.doesNotMatch(
+      r.stdout,
+      /已同步/,
+      '绝不允许在什么都没比对到时打印"已同步"(那是假保证)',
+    )
   } finally {
     rmScratch(work)
     rmScratch(origin)
