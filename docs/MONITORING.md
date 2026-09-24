@@ -55,15 +55,20 @@
                 ┌──────────────┐           ┌──────────────┐
                 │  Grafana     │◄──────────┤ Alertmanager │
                 │  端口 8816   │  查询     │ 端口 9093   │
-                │  (21 仪表盘) │           │ (告警通知)  │
+                │  (21 仪表盘) │           │ (告警路由)  │
                 └──────────────┘           └──────┬───────┘
-                                                  │
-                                    ┌─────────────┼─────────────┐
-                                    ▼             ▼             ▼
-                              ┌──────────┐ ┌──────────┐ ┌──────────┐
-                              │  邮件    │ │  钉钉    │ │  飞书    │
-                              │ (Email)  │ │(DingTalk)│ │ (Feishu) │
-                              └──────────┘ └──────────┘ └──────────┘
+                                                  │ 唯一 receiver:webhook
+                                                  ▼
+                                        ┌────────────────────┐
+                                        │ alert-webhook-bridge│
+                                        │ 127.0.0.1:9096     │ 身份去重 + 协议转码
+                                        └─────────┬──────────┘
+                                                  │ notify-deploy-failure.ts(品牌版式)
+                                                  ▼
+                                        ┌────────────────────┐
+                                        │ 运维邮箱(告警到人  │
+                                        │ 唯一通道)          │
+                                        └────────────────────┘
 ```
 
 ---
@@ -77,7 +82,7 @@
 | 指标(Metrics) | apps/api `/metrics` + ai-service `/metrics` + otel-collector `/metrics` | Prometheus 抓取(scrape_interval 15s) | Prometheus TSDB | Grafana 仪表盘 |
 | 日志(Logs) | apps/api Pino JSON + ai-service Python logging + Docker stdout | Promtail 采集 | Loki(tsdb schema) | Grafana LogQL |
 | 追踪(Traces) | apps/api otel.ts + ai-service telemetry.py(OTLP/HTTP 推送) | OTel Collector | Jaeger(all-in-one) | Grafana + Jaeger UI |
-| 告警(Alerts) | Prometheus 规则评估(evaluation_interval 15s) | Alertmanager 路由 | - | 邮件/钉钉/飞书 webhook |
+| 告警(Alerts) | Prometheus 规则评估(evaluation_interval 15s) | Alertmanager 路由(唯一 receiver → bridge) | - | 品牌邮件到运维邮箱(webhook → 9096 bridge → notify-deploy-failure.ts) |
 
 ---
 
@@ -377,15 +382,21 @@ service:
 
 ## 7. Alertmanager
 
-> 单一真相源:`monitoring/alertmanager/alertmanager.yml.tmpl`(带 `${VAR}` 占位符的**模板**)
+> 单一真相源:`monitoring/alertmanager/alertmanager.yml.tmpl`(**零占位符**的收敛稿)
 >
-> Alertmanager 不展开配置里的 `${VAR}`(本机 0.34.0 实测),所以模板**不能**直接挂给它。
-> 先渲染再加载:`node scripts/render-alertmanager-config.mjs`
-> → 产物 `monitoring/alertmanager/alertmanager.rendered.yml`(含真实 SMTP 授权码,已被 .gitignore)。
-> 校验用 `--check`(只渲染不落盘)。本机 `amtool.exe` 无法启动,渲染器自带的
-> `assertRenderedSurface`(SMTP 五项齐全 / TLS 与端口自洽 / from==登录账号)是等价替代。
+> 2026-09-24 通道收口:模板里只剩一条出口 —— `default-webhook` →
+> `http://127.0.0.1:9096/alert`(alert-bridge → 品牌邮件)。AM 原生邮件面与 IM 中转 receiver
+> 已整体删除,且**结构上不可再加回**:`node scripts/render-alertmanager-config.mjs`
+> 的 `assertBridgeOnlySurface` 对产物做结构自校验(原生邮件配置 / IM 名与 host 签名 /
+> 出口不落 9096 / 占位符重现,任一命中即 exit 1)。
+> 渲染命令:`node scripts/render-alertmanager-config.mjs`(→ 产物
+> `monitoring/alertmanager/alertmanager.rendered.yml`,不含凭据但仍不入库 —— 生成物入库即第二份真相)。
+> 校验用 `pnpm alerts:check` / `--check`(只校验不落盘)。本机 `amtool.exe` 无法启动,
+> 该校验即等价替代。
 >
 > 静态对账测试:`node --test scripts/tests/render-alertmanager-config.test.mjs`
+> (正反成对:加回邮件面必红、收敛稿必绿、非 9096 出口必红、`feishu-copy` 一类改名旁路必红、
+> 渲染器与 `.env.example` 的键集合双向对账)。
 
 ### 告警规则
 
@@ -421,28 +432,26 @@ service:
 
 | 通道 | Receiver | 严重度 | 说明 |
 |------|----------|--------|------|
-| 邮件 | `default-email` | info + critical(critical 同时发邮件) | SMTP,`send_resolved: true` |
-| 钉钉 | `dingtalk` | critical | webhook,`http://dingtalk-webhook:8060` |
-| 飞书 | `feishu` | warning | webhook,`http://feishu-webhook:8060` |
-| 企业微信 | `wechat` | (备用) | webhook,`http://wechat-webhook:8060` |
+| alert-bridge webhook | `default-webhook`(唯一) | 全部(critical / warning / info) | `http://127.0.0.1:9096/alert` → 品牌邮件到运维邮箱;AM 原生邮件面与 IM 中转 receiver 已删除,由渲染器结构自校验钉死不可复活 |
 
 **路由策略**:
 
 ```yaml
 route:
-  receiver: 'default-email'
+  receiver: 'default-webhook'
   group_by: ['alertname', 'service']
   group_wait: 30s          # 首次告警等待 30s 聚合
   group_interval: 5m       # 同组告警间隔 5m
   repeat_interval: 4h      # 重复告警间隔 4h
   routes:
     - matchers: ['severity="critical"']
-      receiver: 'dingtalk'
-      continue: true        # critical 继续进入下游 receiver(同时发邮件)
+      receiver: 'default-webhook'          # 不挂静默:半夜的 P0 必须响
     - matchers: ['severity="warning"']
-      receiver: 'feishu'
+      receiver: 'default-webhook'
+      mute_time_intervals: [nightly-maintenance]   # 00:00-02:00 维护窗口静默
     - matchers: ['severity="info"']
-      receiver: 'default-email'
+      receiver: 'default-webhook'
+      mute_time_intervals: [nightly-maintenance]
 ```
 
 **抑制规则**:critical 告警抑制同 `alertname` + `service` 的 warning 告警。
@@ -651,11 +660,14 @@ services:
 告警触发(Prometheus 规则)
     │
     ▼
-Alertmanager 路由(按 severity 分发)
+Alertmanager 路由(全部 severity → 唯一 receiver default-webhook)
     │
-    ├── critical → 钉钉 + 邮件
-    ├── warning → 飞书
-    └── info → 邮件
+    ├── critical → bridge(不挂夜间静默)
+    ├── warning  → bridge(00:00-02:00 维护窗口静默)
+    └── info     → bridge(00:00-02:00 维护窗口静默)
+    │
+    ▼
+alert-bridge(9096,身份去重)→ 品牌邮件(智汇通报版式)
     │
     ▼
 Oncall 接收告警
