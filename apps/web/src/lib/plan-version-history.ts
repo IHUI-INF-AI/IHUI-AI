@@ -227,7 +227,7 @@ export function diffPlanVersions(
 }
 
 /** localStorage 键(声明:持久化仅用此键,不碰其他 store 的键) */
-export function storageKeyFor(planId: string): string {
+function storageKeyFor(planId: string): string {
   return `${PLAN_VERSION_STORAGE_PREFIX}${planId}`
 }
 
