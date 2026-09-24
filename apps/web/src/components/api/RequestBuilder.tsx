@@ -83,7 +83,7 @@ export default function RequestBuilder({
           type="button"
           onClick={onSend}
           disabled={loading}
-          className="flex shrink-0 items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+          className="flex shrink-0 items-center gap-1 rounded-md bg-cta px-3 py-1.5 text-sm text-cta-foreground hover:bg-cta/90 disabled:opacity-60"
         >
           {loading ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />

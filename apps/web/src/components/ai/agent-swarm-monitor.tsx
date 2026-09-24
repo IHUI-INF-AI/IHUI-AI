@@ -88,7 +88,7 @@ export function AgentSwarmMonitor({
               className={cn(
                 'flex h-7 items-center gap-1 px-2 text-xs transition-colors',
                 viewMode === 'list'
-                  ? 'bg-primary text-primary-foreground'
+                  ? 'bg-cta text-cta-foreground'
                   : 'bg-muted text-muted-foreground hover:bg-muted/80',
               )}
             >
@@ -102,7 +102,7 @@ export function AgentSwarmMonitor({
               className={cn(
                 'flex h-7 items-center gap-1 px-2 text-xs transition-colors border-l border-border',
                 viewMode === 'topology'
-                  ? 'bg-primary text-primary-foreground'
+                  ? 'bg-cta text-cta-foreground'
                   : 'bg-muted text-muted-foreground hover:bg-muted/80',
               )}
             >
@@ -243,7 +243,7 @@ export function AgentSwarmMonitor({
                     {optimizationSuggestions.map((s, i) => (
                       <div
                         key={`suggestion-${i}`}
-                        className="flex items-start gap-2 rounded-md bg-primary/5 p-2 text-xs"
+                        className="flex items-start gap-2 rounded-md bg-cta/5 p-2 text-xs"
                       >
                         <AlertCircle className="mt-0.5 h-3 w-3 shrink-0 text-primary" />
                         <span>{s}</span>

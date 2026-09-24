@@ -34,7 +34,7 @@ export function SpecGenerateTab({ p }: { p: SpecPanelApi }) {
           disabled={p.genLoading || !p.requirementInput.trim()}
           className={cn(
             'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
-            'bg-primary text-primary-foreground hover:bg-primary/90',
+            'bg-cta text-cta-foreground hover:bg-cta/90',
             (p.genLoading || !p.requirementInput.trim()) && 'cursor-not-allowed opacity-60',
           )}
         >

@@ -48,7 +48,7 @@ const NavLink = React.memo(function NavLink({
   const className = cn(
     NAV_ITEM_BASE_CLASS,
     isActive
-      ? 'bg-primary text-primary-foreground'
+      ? 'bg-cta text-cta-foreground'
       : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
     collapsed ? NAV_ITEM_COLLAPSED_CLASS : NAV_ITEM_EXPANDED_CLASS,
   )
