@@ -2929,7 +2929,7 @@ R2 用基线棘轮拦"浅色当容器底":`surface.light` 背景 / α≥0.5 的�
 两条规矩:① 改共享注册文件必须逐块核对 `git show <commit> -- <f> | grep '^[-+].*(id:|script:|label:)'`;
 ② **判据要能让机器自己发现撞号**,不要依赖人记得去查。
 
-**守门 `check-home-junctions.mjs`(blocking;编号同日在变动,以 runner 为准)**(2026-09-24 立) ——
+**守门 `check-home-junctions.mjs`(warn;编号与落点均以 `scripts/guardian-runner.mjs` 现值为准)**(2026-09-24 立,同日改判落点) ——
 把 AGENTS.md §26 的"家目录工具态一律 junction 改道"从**人肉三条命令**变成机器看守。起因是用户追问
 "C 盘怎么还是被我们占用了":`AppData\Roaming\npm` 已长成 **2.05GB**、`AppData\Local\pnpm-cache` **758MB**,
 两处都是实体目录,而同期的 `~\.ihui` 与桌面端 appdata 早已是 junction ⇒ **改道机制本身有效,缺的是回潮哨兵**。
