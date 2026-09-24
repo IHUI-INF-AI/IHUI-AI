@@ -1983,18 +1983,9 @@ const checks = [
     skipEnv: 'HUSKY_SKIP_BRAND_FOREGROUND',
     onFailHint: [
       '',
-      '  💡 R1(同一 style 块内 brand.DEFAULT 背景 + surface.light/text.primary 字)= 深色下白底白字;',
-      '     R4(2026-09-24 补,**兄弟 key** 之间的同一缺陷):底在 `retryBtn`、字在 `retryText` ——',
-      '        RN 的 StyleSheet 天然把按钮底和它的文字拆成两个 key,所以 R1 的同块判据',
-      '        对这类结构性缺陷全程沉默,PlazaScreen 四个 1.06:1 黑压黑按钮因此 shipped 到真机。',
-      '        R4 用**名字**配对(X/XText、XBtn|XButton 与 XBtnText|XButtonText、X/XLabel,顺序无关),',
-      '        不用行距滑窗 ⇒ 不会误伤不相干的相邻样式。',
-      '     唯一正解:品牌实底 + 其上文字一律成对写 brand.DEFAULT + **brand.foreground**;',
-      '        ⚠️ brand.ctaFill / ctaText 这对混血档已于 2026-09-24 删除(AGENTS §4 品牌 CTA 同源),',
-      '        不得作为修法再加回来 —— 悬空引用由守门 90 R3 直接判红。',
+      '  💡 R1(brand.DEFAULT 作背景且文字用 surface.light/text.primary)= 深色下白底白字,必须改 brand.foreground;',
       '     R2(surface.light / rgba 白 / bg-white 作容器底)= 深色不切换,改用 tokens.surface.*(深浅皆可)或补 dark: 变体;',
       '     覆盖在媒体/彩色底上的合法浮层被误报时,先核语义再决定改码或 --update-baseline(禁止为过门而调高基线)。',
-      '     ⚠️ --update-baseline 会一并重写 R2/R3 基线,共享工作区脏时等于把别人的存量抬上去 —— 先确认可全量口径。',
       '     单独复验:node scripts/check-brand-foreground.mjs;自检:node scripts/check-brand-foreground.mjs --self-test',
     ].join('\n'),
   },
@@ -2122,7 +2113,11 @@ const checks = [
   // notify-deploy-failure。范围 deploy/** + scripts/**(不含 tests)+ workflows *.yml;
   // 行内豁免 brand-mail-exempt:,存量走 scripts/brand-email-channel-baseline.json 只减不增
   // (建门实测:ihui-deploy.ps1 已被并行会话清干净,仅 check-credential-health.mjs 这条
-  // "第三条纯文本通道"入基线待迁移)。--staged 暂存集为空/取不到 → 退化全量(守门 70 教训)。
+  // "第三条纯文本通道"入基线待迁移 —— **2026-09-24 已迁至品牌出口,基线 counts 现为空**)。
+  // --staged 暂存集为空/取不到 → 退化全量(守门 70 教训)。
+  // **范围与 stagedTriggers 必须同步扩**(2026-09-24 补):判据扫到 monitoring/** 与
+  // apps/api/scripts/** 之后,若触发清单仍只有 deploy/scripts/workflows,则只改 bridge 的提交
+  // 在 pre-commit 根本不会唤起本门 —— 判据存在而永不调用,等于没有(守门 70/76 同型)。
   {
     id: '81',
     label: '📧 品牌邮件通道对账(blocking,拦绕过 email-templates 的纯文本自发通道)',
@@ -2130,7 +2125,7 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_BRAND_MAIL_GUARD',
-    stagedTriggers: ['deploy/', 'scripts/', '.github/workflows/'],
+    stagedTriggers: ['deploy/', 'scripts/', '.github/workflows/', 'monitoring/', 'apps/api/scripts/'],
     onFailHint: [
       '',
       '  💡 ops 邮件出现了绕过品牌模板层的形态 —— 用户会收到无样式的纯文本邮件,',
@@ -2141,7 +2136,7 @@ const checks = [
       '     确属有意的纯文本:命中行或紧邻上行加 `brand-mail-exempt: <原因>`;',
       '     存量红进 scripts/brand-email-channel-baseline.json(只减不增,禁止调高)。',
       '     单独复验:node scripts/check-brand-email-channel.mjs --staged',
-      '     自检:node scripts/check-brand-email-channel.mjs --self-test(30 例)',
+      '     自检:node scripts/check-brand-email-channel.mjs --self-test(46 例)',
       '     紧急跳过(不推荐):HUSKY_SKIP_BRAND_MAIL_GUARD=1 git commit ...',
       '',
     ].join('\n'),
@@ -2259,7 +2254,11 @@ const checks = [
   // 即残骸天天新增的机制)。只读、不删文件;定级 warn 而非 blocking,因为盘根多数条目
   // 不属本仓,拦提交只会逼人 --no-verify 连带废掉其余守门(与守门 77/52 同取向)。
   {
-    id: '92',
+    id: '96',
+    // 2026-09-24 改号 93→96:上一轮 origin 合并用 union 归并两侧守门入册时,发现同一号 93 被
+    // 两个会话各登记了一道门(另一道在本文件前部)。本仓规矩"后来者改号",且 check-gate-wiring
+    // 的 R5 会把重复 id 判红 ⇒ 不改号会把全仓每一次 commit 都堵死。本门的镜像测试是**动态取 id**
+    // (从 runner 里按 script 名反查),故改号不需要同步改测试断言。
     label: '💽 C 盘污染实地扫描(warn,拦"源码没写死但东西真掉在 C 盘")',
     script: 'check-c-drive-pollution.mjs',
     args: [],

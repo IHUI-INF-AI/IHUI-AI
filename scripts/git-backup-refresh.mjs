@@ -16,10 +16,10 @@
 // 使"离线恢复"在恢复后立刻具备 §5b 的嵌套 ref 自愈能力。
 // 全程只读工作树仓库、只写工作树之外,不做任何删除。
 import { execFileSync } from 'node:child_process'
-import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
-import { tmpdir } from 'node:os'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { resolveBackupDir, resolveGitdir, resolveWorktree } from './lib/gitdir.mjs'
 
 const GIT = process.env.IHUI_GIT_BIN || 'git'
@@ -177,7 +177,7 @@ function syncManifest(worktree, backup) {
  * 断言备份 HEAD 追平且 refs/tags 同步 —— 反向对照:不刷新时必须判红。
  */
 async function selfTest() {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-bkp-'))
+  const dir = mkScratch('ihui-bkp-')
   const src = join(dir, 'src-wt')
   const bk = join(dir, 'bk.git')
   mkdirSync(src, { recursive: true })
@@ -233,7 +233,7 @@ async function selfTest() {
     expect('9 非裸副本 HEAD 可读回且等于源 tip(gitSha 口径,gitOut 带尾换行不等)', gitSha(bk2, ['rev-parse', '--verify', 'HEAD'], true) === v3)
     return pass ? 0 : 1
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 }
 

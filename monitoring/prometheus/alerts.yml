@@ -174,7 +174,7 @@ groups:
         annotations:
           summary: 'Prometheus 自身宕机'
           description: 'Prometheus self-scrape 无指标,监控数据失效,整条告警链源头断裂'
-      # Alertmanager(原生 127.0.0.1:9093)掉线 → 通知链路(含 Server酱)失效
+      # Alertmanager(原生 127.0.0.1:9093)掉线 → 通知链路(含运维邮件)失效
       - alert: AlertmanagerDown
         expr: up{job="alertmanager"} == 0
         for: 1m
@@ -182,8 +182,8 @@ groups:
           severity: critical
         annotations:
           summary: 'Alertmanager 不可用'
-          description: 'Alertmanager 无指标,通知路由(Email/钉钉/飞书/Server酱)可能失效'
-      # 告警中转 bridge(127.0.0.1:9096)掉线 → 微信推送收不到
+          description: 'Alertmanager 无指标,通知路由(经 bridge → 运维邮件)可能失效'
+      # 告警中转 bridge(127.0.0.1:9096)掉线 → 运维邮件收不到
       - alert: AlertBridgeDown
         expr: up{job="alertbridge"} == 0
         for: 1m
@@ -191,7 +191,7 @@ groups:
           severity: critical
         annotations:
           summary: '告警中转 bridge 不可用'
-          description: 'alert-webhook-bridge 无指标,Server酱 微信推送链路断裂;检查 NSSM 服务状态'
+          description: 'alert-webhook-bridge 无指标,运维邮件告警链路断裂;检查 NSSM 服务状态'
       # windows_exporter(127.0.0.1:9182)掉线 → 磁盘/内存等主机告警全部消失
       - alert: WindowsExporterDown
         expr: up{job="windows"} == 0
