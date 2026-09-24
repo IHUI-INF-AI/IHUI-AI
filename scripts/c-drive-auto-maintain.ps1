@@ -492,29 +492,109 @@ if (-not $pwDeclared) {
 # ⚠️ 如实登记副作用:一旦存在 Google Chrome 策略键,Chrome 会在设置页显示
 #    「浏览器由所属组织管理」。这是策略机制的固有表现,不是异常;要撤销就删该值。
 Log "[6/6] 回潮源封禁策略"
+# 政策名**不许想当然**:名字写错的注册表政策不会报错,只会被静默忽略 —— "我封了"和
+# "根本没封"在注册表里长得一模一样。本机真实发生过:第一版写的
+# `OptimizationGuideModelDownloadingEnabled` 在 chrome.dll 的字符串表里**根本不存在**
+# (而 BrowserSignin / OptimizationHints / SafeBrowsingExtendedReportingEnabled 三枚
+# known-good 对照都能扫到,证明是名字错、不是方法错),Chrome 真正编进去的是
+# `GenAILocalFoundationalModelSettings`,取值 0=自动下载、1=不下载。
+# 因此这里先在**已安装的 Chrome 二进制**里验证名字,验证不过就判"未判定"并放弃写入。
+# 校验自带 positive control:控制名扫不到 ⇒ 判定方法本身失效 ⇒ 同样不许写。
 $chromePolicyKey = 'HKCU:\SOFTWARE\Policies\Google\Chrome'
-$chromePolicyName = 'OptimizationGuideModelDownloadingEnabled'
+$chromePolicyName = 'GenAILocalFoundationalModelSettings'
+$chromePolicyValue = 1
+# known-good 对照:任何版本的 Chrome 都编了它,扫不到就说明扫描方式坏了。
+$chromePolicyControl = 'BrowserSignin'
+# 上一版凭猜测写入的错名一律清除:留着它,下一个读注册表的人会以为"政策已经生效了"。
+$chromePolicyStaleNames = @('OptimizationGuideModelDownloadingEnabled')
+
+function Find-ChromeDll {
+  $roots = @(
+    (Join-Path $env:LOCALAPPDATA 'Google\Chrome\Application'),
+    'C:\Program Files\Google\Chrome\Application',
+    'C:\Program Files (x86)\Google\Chrome\Application'
+  )
+  foreach ($r in $roots) {
+    if (-not (Test-Path -LiteralPath $r)) { continue }
+    $cand = @(Get-ChildItem -LiteralPath $r -Recurse -Force -Filter 'chrome.dll' -ErrorAction SilentlyContinue |
+      Sort-Object LastWriteTime -Descending)
+    if ($cand.Count -gt 0) { return $cand[0].FullName }
+  }
+  return $null
+}
+
+function Test-ChromeStringInBinary {
+  # Latin1 与字节一一对应 ⇒ 转成字符串再 Ordinal 查找 = 精确的字节子串查找。
+  # 必须带 carry:模式跨 1MB 块边界时,不携带上一块尾部就会漏匹配(假阴性 = 静默判"名字不存在")。
+  param([string]$Path, [string]$Needle)
+  if (-not $Path -or -not (Test-Path -LiteralPath $Path)) { return $false }
+  $enc = [System.Text.Encoding]::Latin1
+  $chunk = 1MB
+  $tail = [Math]::Max($Needle.Length - 1, 0)
+  try {
+    $fs = [System.IO.File]::OpenRead($Path)
+    try {
+      $buf = New-Object byte[] $chunk
+      $carry = ''
+      [int]$read = 0
+      while (($read = $fs.Read($buf, 0, $chunk)) -gt 0) {
+        $s = $carry + $enc.GetString($buf, 0, $read)
+        if ($s.IndexOf($Needle, [StringComparison]::Ordinal) -ge 0) { return $true }
+        $carry = if ($tail -gt 0 -and $s.Length -gt $tail) { $s.Substring($s.Length - $tail) } else { $s }
+      }
+      return $false
+    } finally {
+      $fs.Dispose()
+    }
+  } catch {
+    return $false
+  }
+}
+
+$dll = Find-ChromeDll
+$controlOk = Test-ChromeStringInBinary -Path $dll -Needle $chromePolicyControl
+$nameKnown = Test-ChromeStringInBinary -Path $dll -Needle $chromePolicyName
 $policyState = '未判定'
-$cur = (Get-ItemProperty -LiteralPath $chromePolicyKey -Name $chromePolicyName -ErrorAction SilentlyContinue).$chromePolicyName
-if ($DryRun) {
-  $policyState = if ($null -eq $cur) { 'DRY RUN:未设,将要写 0' } else { "DRY RUN:现值 $cur" }
-  Log ("  [DRY] {0}\{1} 现值 = {2} ⇒ 预演不写注册表" -f $chromePolicyKey, $chromePolicyName, $(if ($null -eq $cur) { '<未设置>' } else { $cur }))
+if (-not $dll) {
+  $policyState = '未判定(找不到 chrome.dll)'
+  Log "  [SKIP] 找不到 chrome.dll ⇒ 无法验证政策名是否存在于消费者二进制,本轮不写策略" "WARN"
+} elseif (-not $controlOk) {
+  $policyState = '未判定(扫描方法失效:控制名也扫不到)'
+  Log ("  [FAIL] known-good 控制名 {0} 在 {1} 里也扫不到 ⇒ 扫描方法失效,拒绝据此判「名字不存在」,更拒绝写入" -f `
+    $chromePolicyControl, $dll) "WARN"
+} elseif (-not $nameKnown) {
+  $policyState = '拒绝写入(政策名不在二进制中)'
+  Log ("  [FAIL] 政策名 {0} 未出现在 {1} ⇒ Chrome 不认它,写了也是静默无效 ⇒ 不写" -f $chromePolicyName, $dll) "WARN"
+} elseif ($DryRun) {
+  $policyState = 'DRY RUN(名字已验证,未写注册表)'
+  $cur = (Get-ItemProperty -LiteralPath $chromePolicyKey -Name $chromePolicyName -ErrorAction SilentlyContinue).$chromePolicyName
+  Log ("  [DRY] {0}\{1} 现值 = {2} ⇒ 预演不写注册表(政策名已在二进制中验证存在)" -f `
+    $chromePolicyKey, $chromePolicyName, $(if ($null -eq $cur) { '<未设置>' } else { $cur }))
 } else {
   try {
     if (-not (Test-Path -LiteralPath $chromePolicyKey)) {
       New-Item -Path $chromePolicyKey -Force | Out-Null
     }
-    New-ItemProperty -Path $chromePolicyKey -Name $chromePolicyName -PropertyType DWord -Value 0 -Force | Out-Null
-    # 写完必须回读消费者真正读的那份:New-ItemProperty 的返回对象不代表落盘成功。
+    New-ItemProperty -Path $chromePolicyKey -Name $chromePolicyName -PropertyType DWord -Value $chromePolicyValue -Force | Out-Null
+    # 写完必须回读消费者真正读的那份:New-ItemProperty 返回对象不代表落盘成功。
     $back = (Get-ItemProperty -LiteralPath $chromePolicyKey -Name $chromePolicyName -ErrorAction Stop).$chromePolicyName
-    if ($back -eq 0) {
-      $policyState = '已生效(回读=0)'
-      Log ("  [OK] 已禁 Chrome 设备端模型下载,回读 {0}\{1} = {2}" -f $chromePolicyKey, $chromePolicyName, $back)
-      Log "  [NOTE] 副作用:Chrome 设置页将显示「浏览器由所属组织管理」;撤销=删该 DWORD 值" "WARN"
+    if ($back -eq $chromePolicyValue) {
+      $policyState = "已生效(回读=$back)"
+      Log ("  [OK] 已禁 Chrome 端侧模型下载:policy={0} 值={1}(0=自动下载,1=不下载),政策名已在二进制验证" -f `
+        $chromePolicyName, $back)
     } else {
       $policyState = "回读异常(值=$back)"
-      Log ("  [FAIL] 写入后回读不等于 0,视为未生效: {0}" -f $back) "WARN"
+      Log ("  [FAIL] 写入后回读不等于 {0},视为未生效: {1}" -f $chromePolicyValue, $back) "WARN"
     }
+    # 清掉凭猜测写下的错名(只删本脚本历史产出的那几个,不泛扫政策键)。
+    foreach ($stale in $chromePolicyStaleNames) {
+      if ($stale -eq $chromePolicyName) { continue }
+      if ($null -ne (Get-ItemProperty -LiteralPath $chromePolicyKey -Name $stale -ErrorAction SilentlyContinue).$stale) {
+        Remove-ItemProperty -LiteralPath $chromePolicyKey -Name $stale -ErrorAction SilentlyContinue
+        Log ("  [HEAL] 已删除无效政策名 {0}(扫描证明 Chrome 二进制里没有它,留着会误导后来人)" -f $stale) "WARN"
+      }
+    }
+    Log "  [NOTE] 副作用:存在 Chrome 策略键 ⇒ 设置页显示「浏览器由所属组织管理」;撤销=删该 DWORD" "WARN"
   } catch {
     $policyState = '写入失败'
     Log ("  [FAIL] 策略写入失败(已跳过,不影响其他段): {0}" -f $_.Exception.Message) "WARN"
