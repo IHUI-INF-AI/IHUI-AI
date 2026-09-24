@@ -10,7 +10,8 @@
 import { resolveWaitingText, type WaitingLocale, type WaitingPhase } from '@ihui/shared/chat'
 
 /**
- * 未进池时的固定串(与 `index.thinking` 的中文兜底同值)。
+ * 未进池时的固定串(词表侧同义键是 `ai.thinking`,其值为省略号写法 `思考中…`;
+ * 本串保留三个点的历史显示形态,两者语义同指"正在思考")。
  * 触发条件:本轮无用户输入(拿不到 seed)/ 人格化开关关闭 —— 宁可朴素显示,
  * 也不在缺原料时抛一条随机池文案(会让用户误判"卡住")。
  */
