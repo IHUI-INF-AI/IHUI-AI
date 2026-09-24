@@ -112,6 +112,20 @@ test('T8 判据真有牙:同一份代码在 managed:true 下判红、managed:fal
   assert.ok(off.violations.length >= 1, '只报数不等于不报:存量必须可见')
 })
 
+test('T11 渐进收口不得退回 0:真表里 managed:true ≥ 1(钉不变量,不钉具体条目)', () => {
+  const P = gate.loadPolicy(gate.parseYaml(policyText(), 'real'))
+  const managed = [...P.modules.values()].filter((m) => m.managed).map((m) => m.id)
+  assert.ok(
+    managed.length >= 1,
+    '真表 managed:true 为 0 ⇒ 门 103 的 D1/D2/D3 三条判据没有对象可审,这道门只剩表格自检(C1/T1)。' +
+      '收口一旦合法回退,请连同本条判据一起改并写明理由,别让它悄悄恒红或悄悄恒绿。',
+  )
+  // 反向对照:把全表 true 抹回 false,上面那条必须会红 ⇒ 证明它不是恒真断言
+  const zero = policyText().replace(/^    managed: true$/gm, '    managed: false')
+  const n0 = [...gate.loadPolicy(gate.parseYaml(zero, 'mutant')).modules.values()].filter((m) => m.managed).length
+  assert.equal(n0, 0, '变异没能把 managed 清零 ⇒ 上面那条断言恒真,本文件在装样子')
+})
+
 test('T9 策略表取材阶梯 HEAD→索引→工作树 固定,且三处皆无时判"无法判定"', () => {
   assert.equal(gate.pickPolicySource([['HEAD', null], ['索引', 'x'], ['工作树', 'y']]).label, '索引')
   assert.equal(gate.pickPolicySource([['HEAD', 'h'], ['索引', 'x']]).label, 'HEAD')
