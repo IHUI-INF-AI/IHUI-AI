@@ -283,7 +283,8 @@ export default function CircleCreatePage() {
                 onClick={goTopicList}
                 hoverClass="opacity-60"
               >
-                <Text>{tt('circle.create.moreTopics', '更多')} ›</Text>
+                <Text>{tt('circle.create.moreTopics', '更多')}</Text>
+                <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
               </View>
             </View>
           </ScrollView>

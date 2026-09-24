@@ -10,7 +10,7 @@
  *
  * 3 个共享组件适配器(全部已在 page 接线,守门 64 强制新增必须接线):
  *
- * - SectionHeader: "标题 + 查看更多" 区块头部
+ * - SectionHeader: "标题 + 更多" 区块头部
  * - ColorfulLoader: 72 点彩色旋转加载器
  * - Selecter: 5 种类型通用选择器(scale/video/voice/ratio/default)
  */

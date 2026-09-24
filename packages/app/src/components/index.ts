@@ -5,6 +5,9 @@
 export { SectionHeader } from './SectionHeader'
 export type { SectionHeaderProps } from './SectionHeader'
 
+export { MoreLink } from './MoreLink'
+export type { MoreLinkProps } from './MoreLink'
+
 export { ColorfulLoader } from './ColorfulLoader'
 export type { ColorfulLoaderProps } from './ColorfulLoader'
 
