@@ -200,6 +200,9 @@ coverage/
 monitoring/data/
 prometheusdata/
 grafanadata/
+# Alertmanager 渲染产物:含真实 SMTP 授权码,严禁入库(单一真相源是 alertmanager.yml.tmpl)。
+# 渲染器 scripts/render-alertmanager-config.mjs 的 H2 护栏就是拿"这条是否生效"决定能不能写盘。
+monitoring/alertmanager/alertmanager.rendered.yml
 
 # ============================================================================
 # 临时分析脚本和报告
@@ -447,7 +450,10 @@ output/
 # 构建产物不入库(2026-09-09 仓库瘦身):extension 下载包由 prebuild 经 sync-downloads.mjs 打包生成
 apps/web/public/downloads/extension/*.zip
 
-# Server酱部署告警当日计数(生产运行时生成,不入库)
+# 部署失败告警:签名重发去重状态与未送达标记(生产运行时生成,不入库;2026-09-24 通道收口后启用)
+deploy/win/.alert-notify-state.json
+deploy/win/.alert-undelivered.json
+# 历史遗留运行态文件(生成方已随 2026-09-24 通道收口移除,仅继续忽略磁盘残留,防 untracked 噪音)
 deploy/win/.sct-notify-state.json
 # 构建失败冷却状态(生产运行时生成,不入库;脏工作树会让 merge --ff-only 失败)
 deploy/win/.build-fail-state.json
