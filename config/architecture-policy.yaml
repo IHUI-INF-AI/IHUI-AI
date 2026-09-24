@@ -1,0 +1,568 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+# ============================================================================
+# 架构契约表(唯一真相源) —— 与既有守门的分工
+#
+# 既有 100+ 道守门是**从违规模式反推**(发现一类事故 → 写一条判据);
+# 本表是**从声明反查**:先声明"模块是谁、能依赖谁、对外露什么",
+# 再由 scripts/check-architecture-policy.mjs 拿仓库现实去对账。
+# 两者并存,本表不替代任何一道既有门。
+#
+# ---------------------------------------------------------------------------
+# 渐进收口(本表最重要的设计约束:**不得造出一台恒红的机器**)
+# ---------------------------------------------------------------------------
+# - managed: false  ⇒ 该模块的契约违规只**报数**,不计退出码。
+# - managed: true   ⇒ 违规判红(阻塞提交)。
+# - 判红还有一道前置:违规**归属文件的模块**必须是 managed:true。
+#   即"谁的契约已收口,才按谁的契约问责",未收口模块的现实债不得转嫁给无关提交。
+# - 例外只有两条是**全仓即时判红**(与模块收口无关,因为它们的判据不依赖本表准不准):
+#     C1 maxFileLines(单文件行上限,阈值见下方实测依据)
+#     T1 表自洽性(requires 图不得有环 / 层级单调 / roots 必须真实存在)
+#   其余(D1 依赖方向、D3 深导入、C2 契约行上限、C3 公开出口数)一律 managed-only。
+#
+# ---------------------------------------------------------------------------
+# 阈值实测依据(2026-09-24,全部按 **HEAD blob** 口径量,不按滞后的共享工作树)
+# 量法(可复现,不留临时脚本):git ls-tree -r --name-only HEAD 取 8288 个
+#   .ts/.tsx/.js/.jsx/.mjs/.cjs 源文件清单 → git cat-file --batch 一次读完 → 逐行数换行符
+#   max = 5258  (packages/types/src/app.ts)
+#   p99 = 1222   p99.9 = 2960   p90 = 429   p50 = 136
+#   超过 4000 行的文件只有 2 个;超过 3000 行 8 个
+# ⇒ maxFileLines = 6000:**必须大于既有最大文件 5258**,否则整仓在默认档炸红。
+#   取 6000 而不是 5300:留 742 行余量给"合法增长",本判据拦的是
+#   "再写一个 5000 行的巨型文件"这类新增,不是既有存量。既有最大者已如实记在
+#   exceptions(EX-C1-1),翻 managed 时按那条去收口,而不是把阈值调到它下面。
+#   行上限的既有专属门是守门 11e check-file-size.mjs(新增文件 800 行,只咬 staged),
+#   本表这一条是**全仓 HEAD 兜底**(11e 不看的存量文件也看得见),互补不互替。
+# ⇒ maxContractFileLines = 2000:契约面(types/schema/endpoints)现实最大 5258,
+#   所以 2000 只对 managed:true 的模块生效(默认全 false ⇒ 今天只报数),
+#   并且 packages/types/src/app.ts 已在 exceptions 里记为存量债 —— 既判得见,也不假红。
+# ⇒ maxPublicExports = 300:各包主入口 export 行数实测
+#   app 246 / api-client 109 / ui-react 59 / types 48 / context-compaction 27 /
+#   shared 21 / sdk 17 / ui-native 14 / design-tokens 12 / browser-platform 11 /
+#   auth 8 / database 6 / dom-actions 4 / i18n 3 ⇒ 300 高于现最大 246,
+#   留 54 项余量;同样是 managed-only(收口后才问责)。
+#
+# ---------------------------------------------------------------------------
+# requires 与 layers 的取证(2026-09-24,同一套严格解析器口径)
+# 说明符只认**行首** import / export-from,跳过注释行与模板字符串内部
+# (与既有门 check-dangling-local-imports.mjs 同取向)。为什么必须严格:
+#   宽松匹配会产出 4 类**假边** —— packages/design-tokens → @ihui/ui-react
+#   (只出现在 JSDoc 注释里)、packages/eslint-config → @ihui/shared(只出现在
+#   规则文案字符串里)、apps/api → @ihui/ui-react(代码生成器拼的模板字符串)、
+#   apps/web → @ihui/sdk(示例页模板字符串)。首版实测这些假边共 12 处。
+# 配置层文件(*.config.*、*.d.ts)整体不入依赖图:它们 import @ihui/eslint-config
+# 属于工具装配,不是运行时依赖(否则每个包都会多出一条"依赖 lint 配置"的边)。
+#
+# 真实跨模块边(按被 import 次数,HEAD 实测):
+#   apps/api → database 533 / types 98 / auth 52 / shared 30 / design-tokens 5 / context-compaction 5
+#   apps/cli → types 40 / shared 14 / api-client 11 / context-compaction 8 / design-tokens 2 / i18n 1
+#   apps/web → ui-react 1559 / shared 260 / api-client 229 / types 177 / design-tokens 59 / i18n 39
+#   apps/extension → i18n 54 / ui-react 50 / api-client 46 / shared 38 / types 16 / browser-platform 8 / design-tokens 3 / dom-actions 2
+#   apps/miniapp-taro → shared 90 / types 41 / design-tokens 39 / api-client 35 / i18n 18
+#   apps/mobile-rn → api-client 216 / app 211 / design-tokens 89 / shared 88 / types 45 / i18n 13 / ui-native 12
+#   packages/app → design-tokens 206 / types 37
+#   packages/shared → types 20 / api-client 13 / design-tokens 1
+#   packages/api-client → types 81   packages/sdk → types 13   packages/dom-actions → types 1
+#   packages/ui-react → design-tokens 10   packages/ui-native → design-tokens 11 / types 1
+#   packages/{types,design-tokens,auth,database,i18n,context-compaction,browser-platform,eslint-config} → 无出边
+#   apps/{desktop,mobile-cap,ai-service} → 无 TS 跨模块边(ai-service 是 Python 端,本表不判)
+#   repo-tooling(scripts/)→ app 12 / ui-react 8 / design-tokens 5 / api-client 2 / types 1 / shared 1
+# ⇒ 这张图的现实形态是 DAG:包永不 import 端,端永不互相 import。
+#   layers 就是把这个既成事实写成可问责的声明 —— 不是发明新约束。
+#
+# ---------------------------------------------------------------------------
+# 改这张表的规矩
+# 1. 新增 apps/* 或 packages/* 目录必须同步登记模块,否则该目录的源文件无主,
+#    只会在报告里以"未登记模块 N 个 / 无主源文件 N 个"的形式报数(不判红,
+#    理由:逼多个会话在同一份共享配置上对撞,代价高于收益 —— §12d 同型)。
+# 2. managed: false → true 前,必须先跑 `node scripts/check-architecture-policy.mjs --managed-trial <id>`
+#    看该模块在判红口径下到底有几条,收口完再翻。
+#    **2026-09-24 全模块试跑取证**(把 24 个模块全部按 managed:true 判一次):
+#      判红共 3 条,全部是"表还没覆盖到的现实边",没有一个模块的既有代码违反声明:
+#        - packages/i18n/tests/waiting-keys-in-end-packages.test.ts:19  D1+D2
+#          测试按相对路径 ../../shared/src/chat/waiting-pool 穿透进 composite 层实现。
+#          收口动作:改走 @ihui/shared/chat 公开入口(它是 ./chat/* 已声明的子入口)。
+#        - scripts/tests/export-openapi-stub-key.test.mjs:22  D1
+#          仓库脚本按相对路径读 apps/api/scripts/export-openapi.ts。
+#          **不得**为了消红把 apps/api 写进 repo-tooling.requires —— 试过,T1 当场判红
+#          "端应用声明 exported:false,这条依赖声明本身就是违规"。正确出路是把那个导出
+#          脚本挪进 packages/(可依赖面),或让脚本走 CLI 而不是 import 源文件。
+#      ⇒ "翻 managed:true"不是未知工作量:22 个模块今天就能翻,2 个模块各差一处整改。
+# 3. 本表只支持受限 YAML 子集(缩进 2 空格、值不加行内 # 注释、标量可加单/双引号)。
+#    解析器认不出的行会**显式报错并 exit 2(无法判定)**,不会静默跳行 ——
+#    静默跳过的后果是"扫到 0 条却报绿"(既有门反复踩过的同一类)。
+# ============================================================================
+
+version: 1
+policy_id: 'architecture-policy'
+# 本表口径:内容一律判 revision 的 blob(默认 HEAD;--staged 判索引),不判滞后的工作树
+content_face: 'head-blob'
+
+constraints:
+  # C1 全仓即时判红:单文件行上限(实测依据见文件头)
+  max_file_lines: 6000
+  # C2 managed-only:契约文件行上限
+  max_contract_file_lines: 2000
+  # C3 managed-only:模块主入口对外公开出口数上限
+  max_public_exports: 300
+  # D4 managed-only:禁循环依赖(全仓图由本表 requires 声明,已由 T1 保证无环;
+  # 这里判的是**现实 import 边**是否成环 —— 表说无环而现实成环,即表与现实脱节)
+  forbid_cycles: true
+  # D3 managed-only:禁穿透公开入口的深导入
+  forbid_deep_imports: true
+  # 契约文件面(命中任一 pattern 即算契约文件;glob 只支持 ** 与 * 两种通配)
+  contract_file_patterns:
+    - 'packages/types/src/**'
+    - 'packages/database/src/schema/**'
+    - 'packages/api-client/src/endpoints/**'
+    - 'packages/sdk/src/**'
+    - '**/*.schema.ts'
+    - '**/*.types.ts'
+  # 扫描面排除:工具装配文件与夹具树,不算模块运行时代码
+  scan_excludes:
+    - '**/node_modules/**'
+    - '**/dist/**'
+    - '**/.next/**'
+    - '**/.expo/**'
+    - '**/build/**'
+    - '**/coverage/**'
+    - 'benchmarks/**'
+    - '**/*.config.js'
+    - '**/*.config.cjs'
+    - '**/*.config.mjs'
+    - '**/*.config.ts'
+    - '**/*.d.ts'
+    - '**/*.gen.ts'
+    - '**/*.generated.ts'
+  # 深导入判据的测试面豁免:D3 不咬测试/夹具/mock 文件(按路径 import 实现细节去 mock
+  # 是合法形态,HEAD 实测这类共 16 处,全部落在 tests/ 与 __mocks__/ 下)。
+  # D1/C2/C3 不受此豁免影响,照旧判。
+  # ⚠️ 这 16 处里最多的一枚是 apps/mobile-rn/tests/__mocks__/ihui-rn-app.ts(12 处按路径
+  # 取共享屏实现做 RN mock)。它**不需要**另登记 exceptions —— 上面的测试面豁免已经覆盖它,
+  # 再登记一条就成了"永远不会命中的例外"(本门的 unusedExceptions 判据会当场点名清单腐烂,
+  # 建表时真被它抓到过一次)。这里只留一句提醒:若哪天改成从 @ihui/rn-app 主入口取符号,
+  # 就该把这条测试面豁免收窄,而不是留着继续免检。
+  deep_import_test_exempts:
+    - '**/tests/**'
+    - '**/test/**'
+    - '**/__tests__/**'
+    - '**/__mocks__/**'
+    - '**/*.test.ts'
+    - '**/*.test.tsx'
+    - '**/*.spec.ts'
+    - '**/e2e/**'
+
+# 层序:rank 小的可被 rank 大的依赖,反向即违规(数值化是为避免"字典序当层级"的歧义)
+layers:
+  - id: 'contract'
+    rank: 10
+    note: '零依赖的公共语言:类型、设计令牌、lint 规则本体'
+  - id: 'platform'
+    rank: 20
+    note: '面向单一能力的适配层:HTTP 客户端、DB、鉴权、i18n、SDK、压缩'
+  - id: 'composite'
+    rank: 30
+    note: '组合层:跨端共享 hooks/utils/store 与组件库'
+  - id: 'product'
+    rank: 40
+    note: '八个产品端,只向下依赖,端与端之间不得互相依赖'
+  - id: 'tooling'
+    rank: 90
+    note: '仓库级工程脚本/部署/监控,位于最外侧(不得被端内反向依赖)'
+
+# ---------------------------------------------------------------------------
+# 模块清单
+# exported: false ⇒ 该模块不得被任何其他模块 import(端应用、仓库工具)
+# managed: 见文件头「渐进收口」—— 存量一律 false,只报数不判红
+# ---------------------------------------------------------------------------
+modules:
+  - id: 'packages/types'
+    package: '@ihui/types'
+    layer: 'contract'
+    exported: true
+    managed: false
+    roots:
+      - 'packages/types'
+    requires: []
+    public_entrypoints:
+      - '.'
+      - './user'
+      - './api'
+      - './ai'
+      - './chat'
+      - './message-repair'
+      - './workspace'
+      - './api-contracts'
+      - './orchestration'
+      - './permission-mode'
+
+  - id: 'packages/design-tokens'
+    package: '@ihui/design-tokens'
+    layer: 'contract'
+    exported: true
+    managed: false
+    roots:
+      - 'packages/design-tokens'
+    requires: []
+    public_entrypoints:
+      - '.'
+      - './styles/tokens.css'
+      - './tailwind-preset'
+
+  - id: 'packages/eslint-config'
+    package: '@ihui/eslint-config'
+    layer: 'contract'
+    exported: true
+    managed: false
+    roots:
+      - 'packages/eslint-config'
+    requires: []
+    public_entrypoints:
+      - '.'
+      - './react'
+      - './next'
+      - './cross-end'
+
+  - id: 'packages/api-client'
+    package: '@ihui/api-client'
+    layer: 'platform'
+    exported: true
+    managed: false
+    roots:
+      - 'packages/api-client'
+    requires:
+      - 'packages/types'
+    public_entrypoints:
+      - '.'
+      - './client'
+      - './api-error'
+      - './utils'
+      - './endpoints/*'
+      - './package.json'
+
+  - id: 'packages/auth'
+    package: '@ihui/auth'
+    layer: 'platform'
+    exported: true
+    managed: false
+    roots:
+      - 'packages/auth'
+    requires: []
+    public_entrypoints:
+      - '.'
+
+  - id: 'packages/database'
+    package: '@ihui/database'
+    layer: 'platform'
+    exported: true
+    managed: false
+    roots:
+      - 'packages/database'
+    requires: []
+    public_entrypoints:
+      - '.'
+
+  - id: 'packages/i18n'
+    package: '@ihui/i18n'
+    layer: 'platform'
+    exported: true
+    managed: false
+    roots:
+      - 'packages/i18n'
+    requires: []
+    public_entrypoints:
+      - '.'
+      - './types'
+      - './loader'
+      - './messages/*'
+
+  - id: 'packages/context-compaction'
+    package: '@ihui/context-compaction'
+    layer: 'platform'
+    exported: true
+    managed: false
+    roots:
+      - 'packages/context-compaction'
+    requires: []
+    public_entrypoints:
+      - '.'
+
+  - id: 'packages/sdk'
+    package: '@ihui/sdk'
+    layer: 'platform'
+    exported: true
+    managed: false
+    roots:
+      - 'packages/sdk'
+    requires:
+      - 'packages/types'
+    public_entrypoints:
+      - '.'
+      - './package.json'
+
+  - id: 'packages/dom-actions'
+    package: '@ihui/dom-actions'
+    layer: 'platform'
+    exported: true
+    managed: false
+    roots:
+      - 'packages/dom-actions'
+    requires:
+      - 'packages/types'
+    public_entrypoints:
+      - '.'
+
+  - id: 'packages/browser-platform'
+    package: '@ihui/browser-platform'
+    layer: 'platform'
+    exported: true
+    managed: false
+    roots:
+      - 'packages/browser-platform'
+    requires: []
+    public_entrypoints:
+      - '.'
+
+  - id: 'packages/shared'
+    package: '@ihui/shared'
+    layer: 'composite'
+    exported: true
+    managed: false
+    roots:
+      - 'packages/shared'
+    requires:
+      - 'packages/types'
+      - 'packages/api-client'
+      - 'packages/design-tokens'
+    public_entrypoints:
+      - '.'
+      - './auth'
+      - './auth/*'
+      - './context'
+      - './context/*'
+      - './plan'
+      - './plan/*'
+      - './chat'
+      - './chat/*'
+      - './notifications'
+      - './notifications/*'
+      - './spec'
+      - './spec/*'
+      - './stores'
+      - './stores/*'
+      - './subagents'
+      - './subagents/*'
+      - './utils'
+      - './utils/*'
+      - './hooks'
+      - './hooks/*'
+      - './validation'
+      - './validation/*'
+      - './workflows'
+      - './workflows/*'
+      - './skills/*'
+      - './tasks/*'
+      - './design/*'
+      - './seo'
+      - './seo/*'
+      - './types'
+      - './types/*'
+      - './constants'
+      - './constants/*'
+      - './pay'
+      - './pay/*'
+      - './share'
+      - './share/*'
+
+  - id: 'packages/app'
+    package: '@ihui/rn-app'
+    layer: 'composite'
+    exported: true
+    managed: false
+    roots:
+      - 'packages/app'
+    requires:
+      - 'packages/design-tokens'
+      - 'packages/types'
+    public_entrypoints:
+      - '.'
+
+  - id: 'packages/ui-react'
+    package: '@ihui/ui-react'
+    layer: 'composite'
+    exported: true
+    managed: false
+    roots:
+      - 'packages/ui-react'
+    requires:
+      - 'packages/design-tokens'
+    public_entrypoints:
+      - '.'
+
+  - id: 'packages/ui-native'
+    package: '@ihui/ui-native'
+    layer: 'composite'
+    exported: true
+    managed: false
+    roots:
+      - 'packages/ui-native'
+    requires:
+      - 'packages/design-tokens'
+      - 'packages/types'
+    public_entrypoints:
+      - '.'
+
+  - id: 'apps/web'
+    package: '@ihui/web'
+    layer: 'product'
+    exported: false
+    managed: false
+    roots:
+      - 'apps/web'
+    requires:
+      - 'packages/ui-react'
+      - 'packages/shared'
+      - 'packages/api-client'
+      - 'packages/types'
+      - 'packages/design-tokens'
+      - 'packages/i18n'
+    public_entrypoints: []
+
+  - id: 'apps/api'
+    package: '@ihui/api'
+    layer: 'product'
+    exported: false
+    managed: false
+    roots:
+      - 'apps/api'
+    requires:
+      - 'packages/database'
+      - 'packages/types'
+      - 'packages/auth'
+      - 'packages/shared'
+      - 'packages/design-tokens'
+      - 'packages/context-compaction'
+    public_entrypoints: []
+
+  - id: 'apps/cli'
+    package: '@ihui/cli'
+    layer: 'product'
+    exported: false
+    managed: false
+    roots:
+      - 'apps/cli'
+    requires:
+      - 'packages/types'
+      - 'packages/shared'
+      - 'packages/api-client'
+      - 'packages/context-compaction'
+      - 'packages/design-tokens'
+      - 'packages/i18n'
+    public_entrypoints: []
+
+  - id: 'apps/extension'
+    package: '@ihui/extension'
+    layer: 'product'
+    exported: false
+    managed: false
+    roots:
+      - 'apps/extension'
+    requires:
+      - 'packages/i18n'
+      - 'packages/ui-react'
+      - 'packages/api-client'
+      - 'packages/shared'
+      - 'packages/types'
+      - 'packages/browser-platform'
+      - 'packages/design-tokens'
+      - 'packages/dom-actions'
+    public_entrypoints: []
+
+  - id: 'apps/miniapp-taro'
+    package: '@ihui/miniapp-taro'
+    layer: 'product'
+    exported: false
+    managed: false
+    roots:
+      - 'apps/miniapp-taro'
+    requires:
+      - 'packages/shared'
+      - 'packages/types'
+      - 'packages/design-tokens'
+      - 'packages/api-client'
+      - 'packages/i18n'
+    public_entrypoints: []
+
+  - id: 'apps/mobile-rn'
+    package: '@ihui/mobile-rn'
+    layer: 'product'
+    exported: false
+    managed: false
+    roots:
+      - 'apps/mobile-rn'
+    requires:
+      - 'packages/api-client'
+      - 'packages/app'
+      - 'packages/design-tokens'
+      - 'packages/shared'
+      - 'packages/types'
+      - 'packages/i18n'
+      - 'packages/ui-native'
+    public_entrypoints: []
+
+  - id: 'apps/desktop'
+    package: '@ihui/desktop'
+    layer: 'product'
+    exported: false
+    managed: false
+    roots:
+      - 'apps/desktop'
+    requires: []
+    public_entrypoints: []
+
+  - id: 'apps/mobile-cap'
+    package: '@ihui/mobile-cap'
+    layer: 'product'
+    exported: false
+    managed: false
+    roots:
+      - 'apps/mobile-cap'
+    requires: []
+    public_entrypoints: []
+
+  # 端应用与包目录之外的仓库级代码:工程脚本、部署脚本、监控、文档示例
+  - id: 'repo-tooling'
+    package: '-'
+    layer: 'tooling'
+    exported: false
+    managed: false
+    roots:
+      - 'scripts'
+      - 'deploy'
+      - 'monitoring'
+      - 'docs'
+    requires:
+      - 'packages/app'
+      - 'packages/ui-react'
+      - 'packages/design-tokens'
+      - 'packages/api-client'
+      - 'packages/types'
+      - 'packages/shared'
+    public_entrypoints: []
+
+# ---------------------------------------------------------------------------
+# 已登记的现实债。作用有两个:① 让 managed 翻 true 时不必先修完全部存量;
+# ② 让这笔债**留在明面上**(命中即报数并点名 EX-id;一条都不命中则报"清单腐烂")。
+# 本表**不**被用来给默认档消红 —— 默认档的红只可能来自 C1 与 T1,
+# 而这两条判据不读 exceptions(C1 例外只在该模块 managed:true 时才免红)。
+# ---------------------------------------------------------------------------
+exceptions:
+  - id: 'EX-C2-1'
+    rule: 'contract-file-lines'
+    module: 'packages/types'
+    file: 'packages/types/src/app.ts'
+    status: 'debt'
+    reason: 'HEAD 实测 5258 行,单文件聚合 389 项 App 侧类型契约;按业务域拆成多入口前,不得把该模块翻 managed:true'
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
