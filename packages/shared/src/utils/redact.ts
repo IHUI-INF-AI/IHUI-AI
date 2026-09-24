@@ -12,8 +12,8 @@
 //     ② `apps/cli/src/redact.ts::redactSecrets` —— CLI 日志与审计,标记 `***REDACTED***`,
 //        11 类正则 + URL query 12 类敏感参数 + 用户路径。
 //   · `packages/shared/src/utils/` 下**没有**任何 redact / sanitize(全目录 grep
-//     `redact|sanitize` 0 命中),而 D94 的交接单要同时供 web、Server酱推送与 Resend
-//     邮件兜底(AGENTS.md §5e)使用 ⇒ 按 AGENTS.md「共享层优先」在共享层立**唯一**
+//     `redact|sanitize` 0 命中),而 D94 的交接单要同时供 web、运维邮件(唯一到人通道,
+//     AGENTS.md §5e)与工单粘贴使用 ⇒ 按 AGENTS.md「共享层优先」在共享层立**唯一**
 //     实现,端内不得再建第二套脱敏规则。
 //
 // **严禁另起一套**:规则集 = ①② 的**并集**,逐条注明来源;两条同时存在时阈值取
