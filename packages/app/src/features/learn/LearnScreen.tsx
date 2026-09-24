@@ -15,6 +15,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { MoreLink } from '../../components/MoreLink'
 import { Smartphone, Users, PenLine, BarChart3, BookOpen } from 'lucide-react-native'
 import type { LearnCategory, LearnScreenProps } from '../../types'
 
@@ -65,11 +66,7 @@ export function LearnScreen({
   const renderSectionHeader = (title: string, onMore?: () => void) => (
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionTitle}>{title}</Text>
-      {onMore ? (
-        <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} onPress={onMore}>
-          <Text style={styles.moreLink}>更多</Text>
-        </TouchableOpacity>
-      ) : null}
+      {onMore ? <MoreLink label="更多" onPress={onMore} colorScheme={colorScheme} /> : null}
     </View>
   )
 
@@ -303,10 +300,6 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 18,
       fontWeight: '700',
       color: tk.text.primary,
-    } as TextStyle,
-    moreLink: {
-      fontSize: 14,
-      color: tk.text.secondary,
     } as TextStyle,
 
     horizontalList: {
