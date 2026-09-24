@@ -654,6 +654,44 @@ function auditMergeAdditionLoss() {
   )
 }
 
+/** 本地恢复源的增量刷新层(§5b 里那条"唯一空白层")。
+ *  原设计挂在计划任务 `IHUI Git Backup Refresh`(每 15 分钟),但 2026-09-24 实测
+ *  `Get-ScheduledTask` 全量列表里**已经没有它**(与 §26 记的 `IHUI C-Drive AutoMaintain`
+ *  凭空消失同型)—— 恢复源因此又落后了 100+ 枚提交,而这正是"宿主再删一次 .git 就等价
+ *  回滚 100+ 枚"的那个风险本身。判据不能挂在一个会自己消失的东西上,故并入本守护的 tick:
+ *  先 `--check`(零副作用、便宜)早退,只有判后落后才跑增量刷新。 */
+function refreshRecoverySource() {
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'git-backup-refresh.mjs')
+  if (!existsSync(script)) return
+  const call = (args, timeout) => {
+    try {
+      const out = execFileSync(process.execPath, [script, ...args], {
+        cwd: WORKTREE,
+        encoding: 'utf8',
+        windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+        timeout,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      })
+      return { code: 0, out: String(out || '') }
+    } catch (e) {
+      return { code: typeof e.status === 'number' ? e.status : 2, out: String(e.stdout || '') }
+    }
+  }
+  const judge = call(['--check'], 180000)
+  if (judge.code === 0) return
+  if (judge.code !== 1) {
+    log(`恢复源体检异常(忽略,不阻断其余守护):exit ${judge.code}`)
+    return
+  }
+  const applied = call([], 15 * 60 * 1000) // 增量 fetch 大 gitdir 可到分钟级
+  if (applied.code === 0) {
+    const to = (applied.out.match(/→\s*([0-9a-f]{7,})/) || [])[1]
+    log(`✅ 本地恢复源已增量追平(§5b 空白层)${to ? ` → ${to}` : ''}`)
+    return
+  }
+  log(`⚠️ 本地恢复源刷新失败(exit ${applied.code})⇒ 下次 tick 自动重试;手动:node scripts/git-backup-refresh.mjs`)
+}
+
 function healRootSeal() {
   const script = join(dirname(fileURLToPath(import.meta.url)), 'seal-c-root-stray.mjs')
   if (!existsSync(script)) return
@@ -1076,6 +1114,8 @@ function main() {
     // 合并吞并对账:别人机器上造好推来的合并跑不到提交链那道门(commit-tree 旁路不跑钩子),
     // 由本层按增量台账判到一次(只判不修)。
     if (!CHECK_ONLY) auditMergeAdditionLoss()
+    // §5b 的"唯一空白层":恢复源刷新原本挂在计划任务上,而那个任务已实测消失 ⇒ 并入 tick。
+    if (!CHECK_ONLY) refreshRecoverySource()
     // 看门人也要有人看:凭据/停摆巡检靠 schtasks 每 6 小时自跑,任务被删/被停/node 路径
     // 失效时它**自己不会喊**(故障形态是"安静",正是今天两天冻结的同类)。本守护每 2 分钟
     // 一趟且自身分层自愈,由它盯心跳最省。--check 仍零副作用。
