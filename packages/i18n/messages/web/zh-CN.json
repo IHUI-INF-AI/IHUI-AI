@@ -968,6 +968,25 @@
       "fieldTitle": "标题",
       "fieldType": "类型",
       "loading": "加载中...",
+      "maintenanceNotice": {
+        "action": "维护公告邮件",
+        "desc": "以「智汇通报」维护通知版式群发给状态正常且有邮箱的用户",
+        "downtimePlaceholder": "如 2 小时",
+        "dryRun": "试运行（只统计收件人，不实际发送）",
+        "fieldDowntime": "预计停机时长",
+        "fieldLimit": "首批发送上限",
+        "fieldScope": "影响范围",
+        "fieldWindow": "维护窗口",
+        "limitInvalid": "首批发送上限须为正整数",
+        "limitPlaceholder": "留空表示全量发送",
+        "required": "请填写维护窗口、影响范围与预计停机时长",
+        "resultDryRun": "试运行完成：{total} 位收件人将收到「{subject}」",
+        "resultSent": "发送完成：成功 {sent} 封 / 失败 {failed} 封 / 通道未配置 {stubbed} 封",
+        "scopePlaceholder": "如 API 与控制台",
+        "send": "发送",
+        "title": "发送维护公告邮件",
+        "windowPlaceholder": "如 2026-09-25 02:00–04:00"
+      },
       "no": "否",
       "noData": "暂无公告",
       "published": "已发布",
@@ -6903,6 +6922,21 @@
       "statusSuccess": "成功",
       "title": "工具调用链",
       "waiting": "等待工具调用..."
+    },
+    "card": {
+      "roleResearcher": "研究员",
+      "roleCoder": "编码员",
+      "roleReviewer": "审查员",
+      "roleTester": "测试员",
+      "roleCustom": "自定义",
+      "unnamed": "未命名",
+      "lastActive": "最后活跃 {time}",
+      "actionStart": "启动",
+      "actionPause": "暂停",
+      "actionStop": "停止",
+      "actionCopyConfig": "复制配置",
+      "permissionMode": "权限模式",
+      "maxIterations": "最大迭代"
     }
   },
   "agents": {
@@ -7040,6 +7074,379 @@
       "rollbackConfirmConfirm": "确认恢复"
     },
     "pane": {
+      "businessForms": {
+        "ariaLabel": "业务表单卡",
+        "aria": {
+          "email": "邮件撰写卡",
+          "calendarEvent": "日历表单卡"
+        },
+        "fields": {
+          "to": "收件人",
+          "cc": "抄送",
+          "bcc": "密送",
+          "subject": "主题",
+          "replyTo": "回复至",
+          "body": "正文",
+          "start": "开始",
+          "end": "结束",
+          "attendees": "出席人"
+        },
+        "action": {
+          "approve": "批准",
+          "reject": "拒绝",
+          "create": "创建",
+          "save": "保存"
+        },
+        "error": {
+          "required": "请填写必填项",
+          "invalidEmail": "邮箱格式不正确",
+          "endBeforeStart": "结束时间需晚于开始时间",
+          "noAttendees": "请至少添加一位出席人"
+        },
+        "fold": {
+          "expand": "展开全部 {count} 位出席人",
+          "collapse": "收起出席人"
+        },
+        "status": {
+          "submitting": "提交中…",
+          "approved": "已批准",
+          "rejected": "已拒绝",
+          "failed": "提交失败，请重试"
+        }
+      },
+      "inputSources": {
+        "ariaLabel": "输入源与队列",
+        "snapshot": {
+          "attachApp": "附加 {appName}",
+          "state": {
+            "disabled": "未启用智能快照",
+            "enabled": "已启用智能快照",
+            "failed": "智能快照失败"
+          },
+          "enable": "启用智能快照",
+          "firstRunGuideTitle": "首次使用智能快照",
+          "firstRunGuideBody": "智能快照会为当前应用创建上下文快照，消息将自动附带应用信息",
+          "failedHint": "快照创建失败，可重试或改用普通附件发送"
+        },
+        "route": {
+          "appSnapshot": "应用快照",
+          "remoteFile": "远程文件",
+          "remotePhoto": "远程照片"
+        },
+        "command": {
+          "queuePrompt": "将提示加入队列",
+          "queuePromptDesc": "本轮回复结束后自动按顺序发送队列中的提示",
+          "steerPrompt": "引导提示",
+          "steerPromptDesc": "向正在生成的回复中途插入引导，不打断当前输出"
+        },
+        "undo": {
+          "restoring": "正在恢复队列中的消息",
+          "restored": "已恢复队列中的消息",
+          "restoredQueued": "已恢复排队的消息",
+          "failed": "恢复失败，消息仍在队列中"
+        },
+        "memoryRefs": {
+          "count": "{count} 条记忆引用",
+          "tooltip": "引用的记忆",
+          "empty": "暂无记忆引用"
+        },
+        "goal": {
+          "achievedIn": "已在 {totalTime} 内达成目标"
+        }
+      },
+      "inputNotices": {
+        "ariaLabel": "压缩与排队提示",
+        "compaction": {
+          "block": {
+            "cause": {
+              "runningTurn": "当前 Turn 正在运行中",
+              "insufficientCredits": "压缩会消耗少量积分",
+              "noTurnBoundary": "当前没有可用的 Turn 边界"
+            },
+            "consequence": {
+              "runningTurn": "压缩在当前 Turn 完成后执行，不能插入正在运行的 Turn",
+              "insufficientCredits": "积分不足，本次压缩不会执行，对话上下文保持不变",
+              "noTurnBoundary": "压缩暂时无法执行，对话上下文保持不变"
+            }
+          }
+        },
+        "queue": {
+          "reasonTitle": "排队原因",
+          "reason": {
+            "turnRunning": "当前回复正在生成，消息将在本轮结束后发送",
+            "queueAhead": "前面的消息尚未处理完成，正在按顺序等待",
+            "runtimeNoInterject": "当前 Runtime 不支持插话，消息将继续排队"
+          },
+          "denied": {
+            "reorder": "无法调整排队顺序",
+            "undo": "无法撤回排队消息",
+            "interject": "当前 Runtime 不支持插话，消息将继续排队"
+          },
+          "reorderAria": "拖动调整排队顺序；聚焦后可使用上下方向键"
+        }
+      },
+      "voiceSubtitles": {
+        "muteAndShowSubtitles": "静音并显示字幕",
+        "subtitleTitle": "语音字幕",
+        "micError": {
+          "noPermission": "无麦克风权限,请在浏览器或系统设置中允许麦克风访问",
+          "noDevice": "未检测到麦克风设备,请接入麦克风后重试",
+          "occupied": "麦克风被其他应用占用,请关闭占用后重试",
+          "startFailed": "麦克风启动失败,请重试"
+        },
+        "micErrorAria": {
+          "noPermission": "麦克风无权限,需要先在设置中授权",
+          "noDevice": "未检测到麦克风设备,需要先接入麦克风",
+          "occupied": "麦克风被其他应用占用,需要先释放",
+          "startFailed": "麦克风启动失败,可重试"
+        },
+        "conflict": "录音纪要进行中,语音播报已暂停;录音与播报不能同时进行",
+        "view": {
+          "discussionSummary": "讨论纪要",
+          "taskFlow": "任务流"
+        },
+        "viewAriaLabel": "切换讨论纪要与任务流视图",
+        "ariaLabel": "语音字幕与麦克风状态"
+      },
+      "annotationAnchors": {
+        "label": {
+          "pdf": "PDF 第 {page} 页",
+          "docx": "文档第 {page} 页",
+          "docxText": "文档第 {paragraph} 段",
+          "pptx": "第 {slide} 张 · {element}",
+          "pptxSlide": "第 {slide} 张",
+          "pptxComment": "批注 {element}",
+          "xlsx": "{sheet} · {range}",
+          "xlsxSheet": "{sheet}",
+          "xlsxSelected": "已选择 {range}"
+        },
+        "taskInputPlaceholder": "描述希望 Agent 修改或检查的内容",
+        "addToTask": "添加到任务",
+        "cancel": "取消",
+        "delete": "删除",
+        "relabel": "重新标注",
+        "ariaLabel": "文档批注锚点"
+      },
+      "quotaOwnership": {
+        "title": {
+          "personalDaily": "个人今日额度",
+          "freeModelDaily": "免费模型今日额度",
+          "teamAdmin": "团队·需管理员",
+          "billingGroupCredits": "计费组·Credits 上限"
+        },
+        "action": {
+          "viewUsage": "查看用量明细",
+          "switchFreeModel": "切换免费模型",
+          "upgradeOrAdmin": "升级或联系管理员"
+        },
+        "discount": {
+          "active": "低峰折扣进行中",
+          "upcoming": "{{time}}后进入低峰折扣"
+        },
+        "duration": {
+          "hour": "小时",
+          "minute": "分"
+        },
+        "degradeHint": "免费额度仍可使用,可切换免费模型继续,无需充值",
+        "ariaLabel": "额度归属与处理建议"
+      },
+      "moveToWorktree": {
+        "title": "将对话移交至工作树",
+        "subtitle": "在新工作树中检出分支 <branch>{branchName}</branch>，以继续并行工作。",
+        "continue": "移交",
+        "cancel": "取消",
+        "loading": "正在检查能否移交…",
+        "existingWorktreeRunning": "请等待当前回复完成后再移动此聊天",
+        "existingWorktreeLabel": "已有工作树",
+        "createNewLabel": "创建新工作树",
+        "targetLabel": "移交目标",
+        "localCheckoutLabel": "本地工作空间将切换至",
+        "localBranchPlaceholder": "选择本地检出分支",
+        "noTargetBranch": "没有其他本地分支可用",
+        "branchesLoading": "正在加载分支…",
+        "branchesError": "分支加载失败",
+        "branchesRetry": "重试",
+        "branchAlreadyExists": "该分支已有工作树。",
+        "defaultBranchError": "工作树分支必须不同于默认分支。",
+        "trailingSlashError": "分支名不能以\"/\"结尾。",
+        "worktreeBranchRequired": "请输入工作树分支名。",
+        "worktreeBranchAriaLabel": "工作树分支名",
+        "worktreeBranchLabel": "工作树分支名"
+      },
+      "editResend": {
+        "title": "回退文件修改并重新发送？",
+        "ariaLabel": "回退文件修改并重新发送",
+        "desc": "将回退本轮文件改动，并用编辑后的内容重新发送消息。",
+        "confirm": "回退并重新发送",
+        "cancel": "取消",
+        "previewFilesTitle": "将回退的文件",
+        "previewEditTitle": "将重新发送的内容",
+        "fileRecorded": "检查点已记录",
+        "fileUnrecorded": "检查点未记录",
+        "previewFilesMore": "等 {count} 个文件",
+        "detailAction": "查看逐文件改动",
+        "detailLabel": "编辑重发 · 文件回退影响预览",
+        "warning": {
+          "partialRollback": "部分修改未被检查点完整记录，回退结果可能不完整"
+        },
+        "phase": {
+          "idle": "待发起",
+          "previewing": "预览中",
+          "confirmed": "已确认",
+          "executing": "正在回退文件并重新发送…",
+          "completed": "已回退并重新发送",
+          "editFailed": "编辑失败",
+          "rollbackFailed": "回退失败",
+          "rollbackPartial": "部分回退",
+          "syncFailed": "本地同步失败",
+          "replaceFailed": "替换失败"
+        },
+        "failure": {
+          "editFailed": "编辑内容未能应用，已停止执行。",
+          "rollbackFailed": "文件回退失败，已停止执行。",
+          "rollbackPartial": "仅部分文件回退成功，已停止执行。",
+          "syncFailed": "本地状态同步失败，已停止执行。",
+          "replaceFailed": "消息替换失败，已停止执行。"
+        }
+      },
+      "agentActions": {
+        "title": "多智能体操作",
+        "header": {
+          "count": "{count, plural, one {1 个智能体} other {# 个智能体}}"
+        },
+        "row": {
+          "agent": "{action} {agent}{stateSuffix}"
+        },
+        "meta": {
+          "prompt": "输入：{prompt}"
+        },
+        "action": {
+          "spawn": {
+            "label": "创建",
+            "inProgress": "创建中",
+            "completed": "已创建",
+            "failed": "创建失败"
+          },
+          "resume": {
+            "label": "恢复",
+            "inProgress": "恢复中",
+            "completed": "已恢复",
+            "failed": "恢复失败"
+          },
+          "sendInput": {
+            "label": "发送输入",
+            "inProgress": "发送中",
+            "completed": "已发送",
+            "failed": "发送失败"
+          },
+          "interrupt": {
+            "label": "中断",
+            "inProgress": "正在中断",
+            "completed": "已中断",
+            "failed": "中断未成功"
+          },
+          "close": {
+            "label": "关闭",
+            "inProgress": "正在关闭",
+            "completed": "已关闭",
+            "failed": "无法关闭"
+          },
+          "list": {
+            "label": "列出",
+            "inProgress": "加载中",
+            "completed": "已加载",
+            "failed": "加载失败"
+          }
+        },
+        "state": {
+          "running": "运行中",
+          "completed": "已完成",
+          "errored": "出错",
+          "interrupted": "已中断",
+          "pendingInit": "准备中",
+          "shutdown": "已关闭",
+          "notFound": "找不到"
+        }
+      },
+      "modelLoad": {
+        "ariaLabel": "模型负载与排队状态",
+        "load": {
+          "low": "低负载可能排队",
+          "medium": "中负载可能排队",
+          "high": "高负载可能排队"
+        },
+        "slowLane": "已进入慢速队列·当前排位 {position}",
+        "fastPass": "已开启速通免排",
+        "recovering": "模型可用，正在继续请求",
+        "wait": {
+          "under1min": "预计等待 不足1分钟",
+          "about1min": "预计等待 约1分钟",
+          "aboutNmin": "预计等待 约{minutes}分钟",
+          "over10min": "预计等待 超过10分钟"
+        }
+      },
+      "cloudChatOps": {
+        "title": "云端聊天",
+        "ariaLabel": "云端聊天互操作活动",
+        "empty": "暂无云端聊天操作",
+        "waitingUpstream": "等待上游动作",
+        "op": {
+          "attachCloudChat": {
+            "label": "附加云端聊天",
+            "active": "附加中",
+            "completed": "已附加",
+            "following": "等待附加"
+          },
+          "createCloudChat": {
+            "label": "创建云端聊天",
+            "active": "创建中",
+            "completed": "已创建",
+            "following": "等待创建"
+          },
+          "listCloudChats": {
+            "label": "列出云端聊天",
+            "active": "列出中",
+            "completed": "已列出",
+            "following": "等待列出"
+          },
+          "readCloudChatTurns": {
+            "label": "读取云端聊天轮次",
+            "active": "读取中",
+            "completed": "已读取",
+            "following": "等待读取"
+          },
+          "sendToCloudChat": {
+            "label": "向云端聊天发送消息",
+            "active": "发送中",
+            "completed": "已发送",
+            "following": "等待发送"
+          }
+        }
+      },
+      "prChecks": {
+        "title": "CI 检查",
+        "summary": {
+          "failing": "检查未通过",
+          "pending": "检查待处理",
+          "successful": "检查已通过",
+          "none": "无 CI 检查"
+        },
+        "state": {
+          "failed": "测试失败",
+          "passed": "测试已通过",
+          "pending": "待测试",
+          "skipped": "已跳过的测试",
+          "neutral": "中性测试",
+          "unknown": "测试状态未知"
+        },
+        "action": {
+          "checksFix": "修复",
+          "checksRemove": "移除",
+          "commentsAddress": "添加到对话",
+          "commentsRemove": "移除"
+        },
+        "countLabel": "{passed}/{total} 项通过"
+      },
       "retryScheduled": "上游暂不可用，第 {attempt}/{max} 次重试，{seconds} 秒后继续",
       "retryScheduledNow": "上游正在切换通道，第 {attempt}/{max} 次重试（立即继续）",
       "ariaLabel": "Agent 任务进度面板",
@@ -7252,7 +7659,6 @@
       "thinkingChars": "字",
       "thinkingElapsedTitle": "已思考 {time}",
       "thinkingStreaming": "思考中...",
-      "thinkingTitle": "思考过程",
       "timelineClearFilters": "清空过滤",
       "timelineCountDone": "已完成",
       "timelineCountFailed": "失败",
@@ -7390,6 +7796,618 @@
         "noReasonText": "自动审查未提供理由",
         "noDecision": "暂无自动审查记录",
         "expandAria": "命令历史(展开/收起)"
+      },
+      "toolSummaryShowMore": "更多",
+      "toolSummaryShowLess": "收起",
+      "handoff": {
+        "title": "失败诊断交接单",
+        "ariaLabel": "失败诊断交接单",
+        "section": {
+          "diagnosis": "诊断方法",
+          "fixSteps": "已尝试的修复步骤",
+          "evidence": "已脱敏证据：",
+          "productSurface": "产品界面"
+        },
+        "source": {
+          "local": "本地判据",
+          "external": "辅助信号"
+        },
+        "externalCaveat": "外部服务返回 down 仅作辅助信号,未单独作为结论依据(§5d:网络不可达 ≠ 失败)。",
+        "localUnknown": "本地暂无确定性判据,未下结论",
+        "empty": {
+          "fixSteps": "未尝试任何修复步骤",
+          "evidence": "无可用证据",
+          "productSurface": "未提供产品界面信息",
+          "incidents": "暂无可能相关的事件"
+        },
+        "incidentLine": "状态：可能相关的事件：{incidentNames}",
+        "truncated": "已截断 {count} 字符",
+        "degraded": "数据源不可达,以下交接单仅含本地已得信息(§5d:网络不可达 ≠ 失败)",
+        "redacted": "本交接单已过脱敏(密钥 / 令牌 / 邮箱 / IP 已替换)",
+        "copy": "复制交接单",
+        "copied": "已复制交接单"
+      },
+      "turnStatus": {
+        "title": "轮次状态",
+        "state": {
+          "queued": "排队中",
+          "preparing": "准备中",
+          "thinking": "思考中",
+          "usingTool": "使用工具",
+          "waitingConfirm": "等待确认",
+          "backgroundRunning": "后台执行中",
+          "stopping": "正在停止",
+          "completed": "已完成",
+          "failed": "失败",
+          "stopped": "已停止"
+        },
+        "aria": {
+          "queued": "本轮正在排队,前面的请求完成后才会开始",
+          "preparing": "正在为本轮准备上下文",
+          "thinking": "模型正在思考",
+          "usingTool": "正在使用工具",
+          "waitingConfirm": "本轮已暂停,等你确认后才会继续",
+          "backgroundRunning": "本轮已转入后台执行,你可以继续输入新的内容",
+          "stopping": "正在停止本轮",
+          "completed": "本轮已完成",
+          "failed": "本轮失败,可重试",
+          "stopped": "本轮已停止,可继续"
+        },
+        "hint": {
+          "queued": "前面的请求完成后本轮会自动开始",
+          "waitingConfirm": "已暂停等你确认;不确认本轮不会继续",
+          "backgroundRunning": "已在后台继续执行,不会阻塞你的新输入",
+          "stopping": "正在收尾,稍后即停"
+        },
+        "action": {
+          "stop": "停止",
+          "retry": "重试",
+          "resume": "继续"
+        }
+      },
+      "errorCatalog": {
+        "ACCOUNT_RESTRICTED": {
+          "title": "账户受限",
+          "action": "联系管理员"
+        },
+        "API_BRIDGE_ERROR": {
+          "title": "接口桥接调用失败",
+          "action": "稍后重试"
+        },
+        "BAD_PARAMS": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "BUDGET_EXHAUSTED": {
+          "title": "额度已用尽",
+          "action": "稍后再试或换用免费模型"
+        },
+        "CAPTURE_FAILED": {
+          "title": "工具执行失败",
+          "action": "重试"
+        },
+        "CDP_DISABLED": {
+          "title": "浏览器调试通道不可用",
+          "action": "开启后重试"
+        },
+        "CDP_UNAVAILABLE": {
+          "title": "浏览器调试通道不可用",
+          "action": "开启后重试"
+        },
+        "CONCURRENCY_LIMIT_EXCEEDED": {
+          "title": "请求过于频繁",
+          "action": "稍后重试"
+        },
+        "CONTEXT_TOO_LONG": {
+          "title": "上下文过长",
+          "action": "精简上下文"
+        },
+        "CRON_NOT_SUPPORTED": {
+          "title": "定时配置无效",
+          "action": "修改定时配置后重试"
+        },
+        "DANGEROUS_COMMAND": {
+          "title": "该操作已被安全策略拦截",
+          "action": "修改后重试"
+        },
+        "DANGEROUS_COMMAND_BLOCKED": {
+          "title": "该操作已被安全策略拦截",
+          "action": "修改后重试"
+        },
+        "DELEGATE_ERROR": {
+          "title": "子任务执行失败",
+          "action": "重试"
+        },
+        "DELEGATE_NO_RESULT": {
+          "title": "子任务执行失败",
+          "action": "重试"
+        },
+        "DELEGATE_TIMEOUT": {
+          "title": "请求超时",
+          "action": "重试"
+        },
+        "DEP_MISSING": {
+          "title": "依赖缺失",
+          "action": "安装依赖后重试"
+        },
+        "DOWNLOAD_FAILED": {
+          "title": "网络请求失败",
+          "action": "检查网络后重试"
+        },
+        "DUAL_MODE": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "EMPTY_AUDIO": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "EMPTY_DIFF": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "EMPTY_OLD_STRING": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "EMPTY_RESULT": {
+          "title": "没有可展示的结果",
+          "action": "修改后重试"
+        },
+        "EMPTY_TASKS": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "ENCODING_ERROR": {
+          "title": "文件读写失败",
+          "action": "检查文件后重试"
+        },
+        "ENGINE_ERROR": {
+          "title": "服务内部处理错误",
+          "action": "重试"
+        },
+        "ENGINE_UNAVAILABLE": {
+          "title": "模型服务暂时不可用",
+          "action": "换模型或稍后重试"
+        },
+        "EXECUTION_EXCEPTION": {
+          "title": "服务内部处理错误",
+          "action": "重试"
+        },
+        "EXECUTION_FAILED": {
+          "title": "服务内部处理错误",
+          "action": "重试"
+        },
+        "EXECUTOR_DISABLED": {
+          "title": "该功能已停用",
+          "action": "联系管理员"
+        },
+        "EXEC_POLICY_DENIED": {
+          "title": "该操作已被安全策略拦截",
+          "action": "修改后重试"
+        },
+        "EXEC_POLICY_NEEDS_APPROVAL": {
+          "title": "需要确认后才会执行",
+          "action": "去确认"
+        },
+        "FALLBACK_FAILED": {
+          "title": "模型服务暂时不可用",
+          "action": "换模型或稍后重试"
+        },
+        "FETCH_FAILED": {
+          "title": "网络请求失败",
+          "action": "检查网络后重试"
+        },
+        "FILE_NOT_FOUND": {
+          "title": "未找到目标资源",
+          "action": "检查后重试"
+        },
+        "FILE_TOO_LARGE": {
+          "title": "文件过大",
+          "action": "精简文件后重试"
+        },
+        "GENERATION_FAILED": {
+          "title": "生成失败",
+          "action": "重试"
+        },
+        "GITHUB_API_ERROR": {
+          "title": "外部服务调用失败",
+          "action": "稍后重试"
+        },
+        "IMAGE_FETCH_FAILED": {
+          "title": "网络请求失败",
+          "action": "检查网络后重试"
+        },
+        "IMAGE_TOO_LARGE": {
+          "title": "图片过大",
+          "action": "压缩图片后重试"
+        },
+        "INTERNAL_AUTH_UNAVAILABLE": {
+          "title": "登录已过期",
+          "action": "重新登录"
+        },
+        "INTERNAL_ERROR": {
+          "title": "服务内部处理错误",
+          "action": "重试"
+        },
+        "INVALID_ARGS": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "INVALID_ARGUMENT": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "INVALID_CHART_TYPE": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "INVALID_CONFIG": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "INVALID_DATA": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "INVALID_OUTPUT_DIR": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "INVALID_PARAMS": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "INVALID_PR": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "INVALID_PROVIDER": {
+          "title": "模型服务暂时不可用",
+          "action": "换模型或稍后重试"
+        },
+        "INVALID_REPO": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "INVALID_TRIGGER": {
+          "title": "定时配置无效",
+          "action": "修改定时配置后重试"
+        },
+        "IS_A_DIRECTORY": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "LLM_ERROR": {
+          "title": "模型服务暂时不可用",
+          "action": "换模型或稍后重试"
+        },
+        "LLM_FAILED": {
+          "title": "模型服务暂时不可用",
+          "action": "换模型或稍后重试"
+        },
+        "MEDIA_COUNT_EXCEEDED": {
+          "title": "媒体文件数量超出限制",
+          "action": "精简附件后重试"
+        },
+        "MISSING_DATA": {
+          "title": "缺少必填参数",
+          "action": "补充参数后重试"
+        },
+        "MISSING_PARAMS": {
+          "title": "缺少必填参数",
+          "action": "补充参数后重试"
+        },
+        "MISSING_PATH_PARAM": {
+          "title": "缺少必填参数",
+          "action": "补充参数后重试"
+        },
+        "MISSING_SECRET": {
+          "title": "未配置可用的模型服务",
+          "action": "先配置模型服务"
+        },
+        "MISSING_TITLE": {
+          "title": "缺少必填参数",
+          "action": "补充参数后重试"
+        },
+        "MODEL_NOT_CONFIGURED": {
+          "title": "未配置可用的模型服务",
+          "action": "先配置模型服务"
+        },
+        "MODEL_REFUSED": {
+          "title": "当前模型拒绝了本次请求",
+          "action": "换模型"
+        },
+        "MULTIPLE_MATCHES": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "NESTING_DEPTH_EXCEEDED": {
+          "title": "结构层级超出可处理范围",
+          "action": "简化后重试"
+        },
+        "NETWORK_APPROVAL_DENIED": {
+          "title": "需要确认后才会执行",
+          "action": "去确认"
+        },
+        "NETWORK_ERROR": {
+          "title": "网络请求失败",
+          "action": "检查网络后重试"
+        },
+        "NOT_A_DIRECTORY": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "NOT_FOUND": {
+          "title": "未找到目标资源",
+          "action": "检查后重试"
+        },
+        "NO_FILE_VERSIONS": {
+          "title": "文件版本不可用",
+          "action": "选择版本后重试"
+        },
+        "OLD_STRING_NOT_FOUND": {
+          "title": "未找到目标资源",
+          "action": "检查后重试"
+        },
+        "PATH_NOT_ALLOWED": {
+          "title": "路径不在允许的范围内",
+          "action": "更换路径后重试"
+        },
+        "PATH_NOT_IN_WORKSPACE": {
+          "title": "路径不在允许的范围内",
+          "action": "更换路径后重试"
+        },
+        "PERMISSION_DENIED": {
+          "title": "没有执行该操作的权限",
+          "action": "联系管理员"
+        },
+        "PROVIDER_ERROR": {
+          "title": "模型服务暂时不可用",
+          "action": "换模型或稍后重试"
+        },
+        "PROVIDER_NOT_CONFIGURED": {
+          "title": "未配置可用的模型服务",
+          "action": "先配置模型服务"
+        },
+        "PROVIDER_QUOTA_EXHAUSTED": {
+          "title": "额度已用尽",
+          "action": "稍后再试或换用免费模型"
+        },
+        "PR_NOT_FOUND": {
+          "title": "未找到目标资源",
+          "action": "检查后重试"
+        },
+        "RATE_LIMITED": {
+          "title": "请求过于频繁",
+          "action": "稍后重试"
+        },
+        "REQUEST_TIMEOUT": {
+          "title": "请求超时",
+          "action": "重试"
+        },
+        "RESOURCE_NOT_REGISTERED": {
+          "title": "未找到目标资源",
+          "action": "检查后重试"
+        },
+        "RISK_CONFIRM_REQUIRED": {
+          "title": "需要确认后才会执行",
+          "action": "去确认"
+        },
+        "SCHEME_REJECTED": {
+          "title": "该地址不被允许访问",
+          "action": "更换地址后重试"
+        },
+        "SCREENSHOT_FAILED": {
+          "title": "工具执行失败",
+          "action": "重试"
+        },
+        "SENSITIVE_FILE_BLOCKED": {
+          "title": "该操作已被安全策略拦截",
+          "action": "修改后重试"
+        },
+        "SSRF_BLOCKED": {
+          "title": "该地址不被允许访问",
+          "action": "更换地址后重试"
+        },
+        "STEP_FAILED": {
+          "title": "工具执行失败",
+          "action": "重试"
+        },
+        "SUBAGENT_FAILED": {
+          "title": "子任务执行失败",
+          "action": "重试"
+        },
+        "TASK_FAILED": {
+          "title": "子任务执行失败",
+          "action": "重试"
+        },
+        "TEXT_TOO_LONG": {
+          "title": "上下文过长",
+          "action": "精简上下文"
+        },
+        "TIMEOUT": {
+          "title": "请求超时",
+          "action": "重试"
+        },
+        "TOKEN_EXPIRED": {
+          "title": "登录已过期",
+          "action": "重新登录"
+        },
+        "TOOL_FAILED": {
+          "title": "工具执行失败",
+          "action": "重试"
+        },
+        "TOOL_NOT_FOUND": {
+          "title": "未找到目标资源",
+          "action": "检查后重试"
+        },
+        "TOO_LARGE": {
+          "title": "文件过大",
+          "action": "精简文件后重试"
+        },
+        "TRIAL_QUOTA_EXCEEDED": {
+          "title": "额度已用尽",
+          "action": "稍后再试或换用免费模型"
+        },
+        "UNKNOWN_API_TOOL": {
+          "title": "未找到目标资源",
+          "action": "检查后重试"
+        },
+        "UNSUPPORTED_FORMAT": {
+          "title": "不支持该文件格式",
+          "action": "更换文件格式后重试"
+        },
+        "UNSUPPORTED_IMAGE_FORMAT": {
+          "title": "不支持该文件格式",
+          "action": "更换文件格式后重试"
+        },
+        "VERSION_NOT_FOUND": {
+          "title": "文件版本不可用",
+          "action": "选择版本后重试"
+        },
+        "VERSION_SELECTOR_REQUIRED": {
+          "title": "文件版本不可用",
+          "action": "选择版本后重试"
+        },
+        "VERSION_TOO_LOW": {
+          "title": "版本过低",
+          "action": "升级到最新版本"
+        },
+        "VIDEO_FETCH_FAILED": {
+          "title": "网络请求失败",
+          "action": "检查网络后重试"
+        },
+        "WRITE_FAILED": {
+          "title": "文件读写失败",
+          "action": "检查文件后重试"
+        }
+      },
+      "worktree": {
+        "title": "Worktree",
+        "state": {
+          "creating": "创建中",
+          "ready": "已创建",
+          "initFailed": "初始化失败",
+          "timeout": "超时",
+          "cleaned": "此任务的 Worktree 已被清理以释放磁盘空间。",
+          "restoring": "恢复中",
+          "restored": "已恢复",
+          "restoreFailed": "无法恢复"
+        },
+        "hint": {
+          "timeout": "请检查仓库状态",
+          "cleaned": "可恢复该 Worktree 以继续此任务,或回收磁盘空间。",
+          "singleWriter": "同一任务同时仅允许一个活跃 Worktree。"
+        },
+        "action": {
+          "reclaimDisk": "回收磁盘空间",
+          "restore": "恢复 Worktree",
+          "retryRestore": "重试恢复",
+          "dismiss": "知道了"
+        },
+        "ariaLabel": "Worktree 生命周期"
+      },
+      "sideTask": {
+        "title": "侧边任务",
+        "ariaLabel": "侧边任务生命周期",
+        "ephemeralNotice": "这是临时任务,关闭后即消失,不会保留到下次打开。",
+        "empty": "暂无侧边任务",
+        "state": {
+          "running": "运行中",
+          "completed": "已完成",
+          "expired": "已过期",
+          "cleaned": "已清理"
+        },
+        "aria": {
+          "running": "侧边任务运行中",
+          "completed": "侧边任务已完成",
+          "expired": "侧边任务已过期",
+          "cleaned": "侧边任务已清理"
+        },
+        "hint": {
+          "expired": "已超过临时任务的保留时限,可被清理。",
+          "cleaned": "内容已不可取,仅保留标题。"
+        },
+        "location": {
+          "label": "运行位置",
+          "sameFolder": "与主任务在同一文件夹",
+          "sameEnvironment": "与主任务在同一运行环境"
+        },
+        "cleanedFrom": "来自已清理的 {title}",
+        "files": {
+          "label": "文件变更",
+          "changedCount": "已改动 {count} 个文件",
+          "empty": "本次侧边任务没有改动任何文件"
+        },
+        "action": {
+          "close": "关闭任务",
+          "cleanup": "清理过期任务"
+        },
+        "closeConfirm": {
+          "title": "关闭这个侧边任务?",
+          "desc": "这个临时任务有 {artifacts} 个未落盘产物、{children} 个仍在运行的子进程,关闭后即消失且无法恢复。",
+          "confirm": "仍要关闭",
+          "cancel": "暂不"
+        }
+      },
+      "writingBlock": {
+        "title": "写作块",
+        "ariaLabel": "写作块",
+        "empty": "此消息暂无写作块",
+        "status": {
+          "idle": "待处理",
+          "editing": "编辑中",
+          "accepted": "已接受",
+          "reverted": "已撤销",
+          "failed": "无法更新此写作块"
+        },
+        "action": {
+          "accept": "接受",
+          "acceptAll": "全部接受",
+          "revert": "撤销"
+        },
+        "phase": {
+          "accept": {
+            "inProgress": "正在接受",
+            "completed": "已接受",
+            "failed": "无法接受此写作块"
+          },
+          "acceptAll": {
+            "inProgress": "正在全部接受",
+            "completed": "已全部接受",
+            "failed": "无法全部接受此写作块"
+          },
+          "revert": {
+            "inProgress": "正在撤销",
+            "completed": "已撤销",
+            "failed": "无法撤销此写作块"
+          }
+        },
+        "openIn": {
+          "label": "打开方式",
+          "email": "使用默认电子邮箱应用打开电子邮件",
+          "browser": "使用默认浏览器打开网页"
+        }
+      },
+      "promptPolish": {
+        "entryLabel": "润色",
+        "ariaLabel": "润色提示词",
+        "phase": {
+          "idle": "未润色",
+          "polishing": "正在润色…",
+          "succeeded": "润色完成",
+          "failed": "润色失败"
+        },
+        "action": {
+          "polish": "润色",
+          "retry": "重试"
+        },
+        "failureDraftKept": "暂时无法润色提示词，草稿已保留。",
+        "rejection": {
+          "emptyDraft": "草稿为空，请先输入内容再润色。"
+        },
+        "restartHint": "润色服务需重启后生效，草稿已保留。"
       }
     },
     "permissionConfirm": {
@@ -8258,6 +9276,12 @@
     },
     "metaDescription": "聚合国内外 41 个权威信源(微博/知乎/36氪/HackerNews/TechCrunch/OpenAI Blog/Arxiv 等),每 6 小时自动采集,模型/产品/行业/论文分类与趋势信号实时更新。",
     "metaTitle": "AI 资讯 · 全网实时聚合流",
+    "priceChart": {
+      "inputPrice": "{name} · 输入价: {price}",
+      "outputPrice": "{name} · 输出价: {price}",
+      "legendInput": "输入",
+      "legendOutput": "输出"
+    },
     "trendChart": {
       "days": "天",
       "hotValue": "热度值",
@@ -8566,6 +9590,7 @@
     "adoptHint": "把选中候选内容写入当前对话"
   },
   "goalCard": {
+    "achievedInTime": "已在 {totalTime} 内达成目标",
     "empty": "尚未设定会话目标",
     "emptyHint": "在输入框输入 /goal <目标> 设定,或由 AI 自动推进",
     "progress": "进度",
@@ -9115,6 +10140,48 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "voiceNote": {
+      "title": "语音笔记",
+      "phase": {
+        "ready": "准备就绪",
+        "recording": "正在录音",
+        "waitingTranscript": "等待转写",
+        "completed": "已完成",
+        "cancelled": "已取消",
+        "failed": "录音失败",
+        "error": "出错了",
+        "interrupted": "已中断"
+      },
+      "errors": {
+        "permission": "麦克风权限被拒绝,请在浏览器设置中允许后重试",
+        "noMicrophone": "未检测到麦克风设备",
+        "startFailed": "录音启动失败,请重试",
+        "saveFailed": "录音保存失败",
+        "recognitionFailed": "语音识别中断",
+        "emptyTranscript": "没有识别到内容",
+        "sttPending": "转写暂不可用,可稍后重试或仅保存音频"
+      },
+      "action": {
+        "start": "开始录音",
+        "stop": "停止录音",
+        "retry": "重试",
+        "saveAudioOnly": "仅保存音频",
+        "insertToInput": "插入对话",
+        "dismiss": "关闭"
+      }
+    },
+    "connectorAuth": {
+      "title": "连接到 {connectorName}",
+      "connected": "已连接",
+      "reconnect": "重新连接 {connectorName}",
+      "connect": "连接",
+      "connecting": "连接中…",
+      "moreInfo": "更多信息",
+      "decline": "暂不",
+      "declined": "已拒绝连接 {connectorName}。本次对话不受影响。"
+    },
+    "queueUndoRestoredQueued": "已恢复排队的消息",
+    "queueUndoRestored": "已恢复队列中的消息",
     "usageEstimated": "估算",
     "turnChanges": {
       "title": "本轮变更",
@@ -9660,8 +10727,6 @@
     "sideUsage": "快速侧问,不写入主线历史。用法:/side <问题>",
     "sideBadge": "侧问",
     "sideEnqueued": "AI 生成中,侧问已排队,当前回答结束后自动补答",
-    "sideQueued": "侧问待答",
-    "sideAnswerNow": "立即补答",
     "sideNoConversation": "会话尚未持久化,无法排队侧问,请先发送一条消息",
     "sideAnswerFailed": "侧问回答失败: {error}",
     "commitNoWorkspace": "未选择工作区,无法执行 /commit",
@@ -10066,6 +11131,25 @@
     "callingTool": "正在调用工具...",
     "waitingResponse": "等待回复...",
     "pdfOpenExternal": "新窗口打开",
+    "injectionAssemblyBadge": "本轮上下文 {count} 项",
+    "injectionAssemblySourcesTitle": "本轮上下文来源",
+    "injectionAssemblySourceCitations": "知识引用 {count} 条",
+    "injectionAssemblySourceSteer": "已引导 {count} 次",
+    "injectionAssemblyRetry": "上游重试 {attempt}/{max} 次",
+    "officeTooLarge": "文件过大，无法预览 — 请下载查看",
+    "officeExpired": "预览链接已失效",
+    "officeUnsupported": "该文件类型不支持预览",
+    "officeLazyLoad": "点击加载预览",
+    "officeLoading": "正在加载预览…",
+    "officeFailed": "预览加载失败",
+    "officeDownload": "下载查看",
+    "officeSelectedCell": "已选择 {cell}",
+    "officeRowsTruncated": "仅显示前 {rows} 行",
+    "pdfPageIndicator": "第 {page} / {total} 页",
+    "pdfPageOnly": "第 {page} 页",
+    "pdfPageJump": "跳转到页",
+    "pdfPageJumpLabel": "页码",
+    "pptxNotes": "备注",
     "csvPreviewMeta": "共 {rows} 行 × {cols} 列",
     "csvExpand": "展开全部",
     "csvCollapse": "收起",
@@ -10262,6 +11346,16 @@
       "view": "视图"
     },
     "commands": {
+      "steerPrompt": {
+        "label": "引导提示",
+        "description": "向正在运行的回复中途插入引导，无需等待当前轮完成",
+        "keywords": ["引导", "插话", "steer"]
+      },
+      "queuePrompt": {
+        "label": "将提示加入队列",
+        "description": "把当前输入加入 W27 预备消息队列，流式结束后自动依次发送",
+        "keywords": ["队列", "排队", "queue"]
+      },
       "agent": {
         "description": "管理并调度 AI 智能体",
         "keywords": ["智能体", "调度", "agent"],
@@ -10834,6 +11928,30 @@
     "savePreview": "保存预览",
     "saved": "已保存「{name}」",
     "templates": {
+      "blank": "空白页面",
+      "blankDesc": "从零开始的空白画布,不含任何预置结构",
+      "landing": "落地页",
+      "landingDesc": "主标题 + 卖点 + 行动按钮的营销首屏",
+      "dashboard": "数据仪表盘",
+      "dashboardDesc": "指标卡 + 图表 + 列表的控制台布局",
+      "login": "登录页",
+      "loginDesc": "账号密码表单 + 第三方登录入口",
+      "blog": "博客列表",
+      "blogDesc": "文章卡片流 + 侧栏导航",
+      "product": "商品详情",
+      "productDesc": "图集 + 规格 + 购买按钮的商品页",
+      "pricing": "定价方案",
+      "pricingDesc": "多档方案对比 + 权益清单",
+      "profile": "个人中心",
+      "profileDesc": "头像 + 资料 + 设置项的账户页",
+      "categories": {
+        "blank": "空白",
+        "marketing": "营销",
+        "app": "应用界面",
+        "content": "内容",
+        "commerce": "电商",
+        "unknown": "未分类"
+      },
       "title": "模板"
     },
     "title": "设计模式",
@@ -14282,7 +15400,9 @@
     "summaryPlaceholder": "一句话描述文章内容",
     "tagsLabel": "标签",
     "titleLabel": "标题",
-    "titlePlaceholder": "输入文章标题"
+    "titlePlaceholder": "输入文章标题",
+    "tagInputPlaceholder": "输入标签后回车",
+    "add": "添加"
   },
   "kbEditPage": {
     "backToArticle": "返回文章",
@@ -14387,7 +15507,11 @@
     },
     "title": "知识库",
     "edit": "编辑知识",
-    "search": "搜索知识"
+    "search": "搜索知识",
+    "metaTitle": "RAG 知识检索 — 向量 + BM25 + 知识图谱 | 智汇 AI",
+    "metaDescription": "智汇 AI RAG 知识检索:文档分块、向量化、混合检索(向量 + BM25 + 知识图谱),支持实时搜索与引用追溯。企业级 RAG 管理平台。",
+    "metaOgTitle": "RAG 知识检索 — 向量 + BM25 + 知识图谱",
+    "metaOgDescription": "文档分块 + 向量化 + 混合检索 + 引用追溯"
   },
   "learn": {
     "allCategories": "全部分类",
@@ -14875,7 +15999,15 @@
         "temperatureHelp": "采样温度,0~2,越低越确定,越高越发散",
         "title": "默认参数",
         "topP": "Top P",
-        "topPHelp": "核采样阈值,0~1,只考虑概率最高的 token"
+        "topPHelp": "核采样阈值,0~1,只考虑概率最高的 token",
+        "presetPrecise": "Precise(精确)",
+        "presetPreciseDesc": "低温度,适合代码 / 事实问答",
+        "presetBalanced": "Balanced(均衡)",
+        "presetBalancedDesc": "默认配置,适合日常对话",
+        "presetCreative": "Creative(创意)",
+        "presetCreativeDesc": "高温度,适合写作 / 头脑风暴",
+        "presetJson": "JSON Mode",
+        "presetJsonDesc": "结构化输出,适合 API 集成"
       },
       "modelsCount": "{count} 个模型",
       "more": "共 {total} 个,展开省略",
@@ -14953,7 +16085,30 @@
       "testSuccessWithTime": "成功 {ms}ms · {date}",
       "testTimeOnly": "耗时 {ms}ms",
       "untested": "未测试",
-      "usage30d": "30 天 Token"
+      "usage30d": "30 天 Token",
+      "byok": {
+        "modeLabel": "BYOK 模式",
+        "modeDesc": ":你配置的 API Key 加密存储(AES-256-GCM),调用时直接使用你的 Key 访问大厂。平台只收 5-20% 服务费,Cloudflare / GitHub Models / HuggingFace 等免费 provider 不收费。",
+        "viewGuide": "查看引导",
+        "welcomeTitle": "欢迎使用 BYOK 平台模式",
+        "welcomeDesc": "自带 API Key 调用大厂模型,平台仅收 5-20% 服务费",
+        "whyTitle": "为什么选择 BYOK?",
+        "whyDesc": "BYOK(Bring Your Own Key)让你自带大厂 API Key 调用模型,大厂直接扣你的账户,平台只收 5-20% 服务费。相比传统中转站,你无需付中间商加价。",
+        "freeProvidersTitle": "免费 Provider 推荐",
+        "cfDesc": "@cf/ · 免费,无需 API Key",
+        "githubDesc": "github/ · 免费,用 GitHub token",
+        "hfDesc": "huggingface/ · 免费,用 HF token",
+        "pollinationsDesc": "pollinations/ · 免费,无需 API Key",
+        "llm7Desc": "llm7/ · 免费,无需 API Key",
+        "freeNote": "以上免费 provider 平台完全不收费(0 服务费)",
+        "stepsTitle": "操作步骤",
+        "step1": "点击左侧「添加 Provider」按钮",
+        "step2": "选择厂商(如 OpenAI / DeepSeek / 智谱)或免费 provider(如 cloudflare)",
+        "step3": "填入你的 API Key(AES-256-GCM 加密存储,平台无法看到明文)",
+        "step4": "添加你要用的模型",
+        "step5": "调用时系统自动优先使用你的 Key",
+        "gotIt": "知道了"
+      }
     }
   },
   "market": {
@@ -20953,6 +22108,63 @@
     "purchase": "购买会员"
   },
   "wallet": {
+    "autoTopUp": {
+      "title": "自动充值",
+      "description": "余额低于阈值时自动充值到目标余额。",
+      "enabled": "开启自动充值",
+      "enable": {
+        "success": "已开启自动充值",
+        "error": "开启自动充值失败,请稍后重试"
+      },
+      "disable": {
+        "success": "已关闭自动充值",
+        "error": "关闭自动充值失败,请稍后重试"
+      },
+      "save": {
+        "success": "已保存自动充值设置",
+        "error": "保存自动充值设置失败,请稍后重试",
+        "action": "保存自动充值设置"
+      },
+      "dialog": {
+        "title": "确认开启自动充值",
+        "description": "开启后,当余额低于充值阈值时,将自动扣款充值到目标余额。请确认这是你想要的操作。",
+        "confirm": "确认开启",
+        "cancel": "取消"
+      },
+      "target": {
+        "label": "目标余额",
+        "helper": "余额低于阈值时,自动充值到此额度数。",
+        "ariaLabel": "目标余额(额度数)",
+        "error": {
+          "missing": "请输入目标余额",
+          "wholeNumber": "目标余额必须是整数",
+          "maximum": "目标余额不得超过 {maximumCredits} 额度",
+          "minimumDifference": "目标余额必须高于充值阈值"
+        },
+        "equivalent": {
+          "loading": "正在获取价格…",
+          "text": "自动充值 {creditCount} 额度,预计 <strong>{amount}</strong>",
+          "error": "获取价格失败,请稍后重试"
+        }
+      },
+      "threshold": {
+        "label": "充值阈值",
+        "helper": "余额低于该额度数时触发自动充值。",
+        "ariaLabel": "充值阈值(额度数)",
+        "error": {
+          "missing": "请输入充值阈值",
+          "wholeNumber": "充值阈值必须是整数",
+          "minimum": "充值阈值至少为 1"
+        }
+      },
+      "immediateTopUpFailure": {
+        "title": "首次自动充值失败",
+        "amount": "首次自动充值预计 {amount},但支付未成功。",
+        "generic": "首次自动充值未能完成。",
+        "updatePaymentMethod": "更新付款方式",
+        "buyCredits": "直接购买额度"
+      }
+    },
     "availableAmount": "可提现金额",
     "backToWallet": "返回钱包",
     "balance": "Token 余额",
@@ -21512,11 +22724,6 @@
   },
   "permission": {
     "inputWarning": "检测到高风险操作，建议确认后继续",
-    "mode": {
-      "full": "完整权限",
-      "auto": "自动",
-      "ask": "询问"
-    },
     "dangerousCommandTitle": "检测到危险命令",
     "dangerousCommandDesc": "检测到危险命令「{pattern}」：{reason}。是否仍然继续执行？",
     "dangerousCommandProceed": "仍然执行",
@@ -21528,7 +22735,6 @@
     "copyText": "复制文本",
     "copyMarkdown": "复制 Markdown",
     "regenerate": "重新生成",
-    "feedback": "反馈",
     "deleteMessage": "删除消息"
   },
   "activityBar": {
@@ -22441,7 +23647,6 @@
     "copiedText": "已复制文本",
     "copiedMarkdown": "已复制 Markdown",
     "regenerating": "正在重新生成",
-    "feedbackRecorded": "已记录反馈",
     "messageDeleted": "消息已删除",
     "operationFailed": "操作失败"
   },
@@ -24490,7 +25695,22 @@
     "uploadFailedWithReason": "上传失败:{error}",
     "unknownError": "未知错误",
     "missingFileId": "上传响应缺少 file.id",
-    "maxAttachmentsReached": "最多 {count} 个附件"
+    "maxAttachmentsReached": "最多 {count} 个附件",
+    "placeholder": "点击或拖拽文件到此处上传",
+    "done": "已完成",
+    "cancelUpload": "取消上传",
+    "removeUploadedAriaLabel": "删除已上传文件",
+    "removeItemAriaLabel": "移除上传项",
+    "sizeLimitHint": "单文件不超过 {size}",
+    "maxCountReached": "已达上限 {max} 个文件",
+    "oversizeFiles": "以下文件超过 {size}: {files}",
+    "uploadFailed": "上传失败",
+    "uploadFailedWithStatus": "上传失败:HTTP {status}",
+    "invalidJsonResponse": "响应不是合法 JSON",
+    "noUrlField": "响应中未找到可用的 URL 字段",
+    "networkError": "网络错误",
+    "uploadCancelled": "上传已取消",
+    "imagePlaceholder": "点击或拖拽上传图片"
   },
   "eduScheduling": {
     "title": "智能排课",
@@ -25443,5 +26663,195 @@
     "rotateSecretDesc": "轮换「{name}」的 secret 后,旧 secret 立即失效,使用旧 secret 的应用需更新。确认继续?",
     "deleteKeyTitle": "删除 API 密钥",
     "deleteKeyDesc": "确定删除「{name}」?删除后该密钥立即失效,且无法恢复。"
+  },
+  "knowledgeList": {
+    "title": "知识库",
+    "subtitle": "通过语义搜索检索记忆库中的知识内容",
+    "searchPlaceholder": "搜索知识库...",
+    "searchAriaLabel": "搜索知识库",
+    "empty": "暂无搜索结果",
+    "searchHint": "输入关键词搜索知识库内容",
+    "resultCount": "共 {count} 条结果"
+  },
+  "knowledgeBase": {
+    "backToList": "返回列表",
+    "searchPlaceholder": "搜索知识库文章...",
+    "metaTitle": "知识库 — 企业 RAG 知识管理系统 | 智汇 AI",
+    "metaDescription": "智汇 AI 知识库:支持 30+ 数据源接入,混合检索(向量 + BM25 + 知识图谱),引用追溯,细粒度权限管控。帮企业把散落文档变成可对话的 AI 知识大脑。",
+    "metaOgTitle": "企业知识库 RAG — 智汇 AI",
+    "metaOgDescription": "30+ 数据源 + 混合检索 + 引用追溯 + 权限管控",
+    "list": {
+      "title": "知识库",
+      "subtitle": "浏览、搜索与管理知识库文章",
+      "allCategories": "全部分类",
+      "empty": "暂无文章"
+    },
+    "detail": {
+      "notFound": "文章不存在",
+      "viewCount": "{count} 次浏览",
+      "toc": "目录",
+      "prev": "上一篇",
+      "next": "下一篇"
+    },
+    "search": {
+      "backToKb": "返回知识库",
+      "title": "搜索结果",
+      "resultSummary": "关键词「{q}」共找到 {count} 条结果",
+      "inputKeyword": "请输入搜索关键词",
+      "searching": "搜索中...",
+      "noResult": "未找到相关文章"
+    },
+    "create": {
+      "title": "新建知识库文章",
+      "subtitle": "撰写新的知识库文章并发布"
+    }
+  },
+  "webviewFrame": {
+    "loadingText": "加载中...",
+    "screenshotNotice": "该网站禁止嵌入,已切换到截图模式",
+    "blockedTitle": "URL 不安全,已拦截",
+    "failedTitle": "加载失败",
+    "externalTitle": "无法在面板内嵌入",
+    "retry": "重试",
+    "openExternal": "在外部浏览器打开",
+    "idlePlaceholder": "输入网址或点击 AI 消息中的链接以打开"
+  },
+  "conversationDetailMode": {
+    "label": "显示档位",
+    "steps": "步骤",
+    "commands": "命令",
+    "narrative": "叙述"
+  },
+  "ambientSuggestions": {
+    "title": "下一步建议",
+    "suggestionResumeTask": "继续运行未完成的任务",
+    "suggestionReviewFiles": "查看刚才修改的文件",
+    "suggestionAnswerQuestion": "回答 AI 的提问",
+    "suggestionContinueTopic": "就上述内容继续追问",
+    "dismiss": "忽略这条建议",
+    "close": "关闭建议条",
+    "restore": "显示建议"
+  },
+  "taskMonitor": {
+    "displayMode": "展示方式",
+    "modeSections": "分区",
+    "modeTabs": "平铺",
+    "sections": {
+      "progress": "进度与上下文",
+      "activity": "执行活动",
+      "results": "结果与来源",
+      "auxiliary": "辅助入口"
+    }
+  },
+  "multiAgentAction": {
+    "header": {
+      "count": "{count, plural, one {# 个智能体} other {# 个智能体}}"
+    },
+    "action": {
+      "spawn": {
+        "label": "创建",
+        "inProgress": "创建中",
+        "completed": "已创建",
+        "failed": "创建失败"
+      },
+      "resume": {
+        "label": "恢复",
+        "inProgress": "恢复中",
+        "completed": "已恢复",
+        "failed": "恢复失败"
+      },
+      "sendInput": {
+        "label": "发送输入",
+        "inProgress": "发送中",
+        "completed": "已发送",
+        "failed": "发送失败"
+      },
+      "interrupt": {
+        "label": "中断",
+        "inProgress": "正在中断",
+        "completed": "已中断",
+        "failed": "中断未成功"
+      },
+      "close": {
+        "label": "关闭",
+        "inProgress": "正在关闭",
+        "completed": "已关闭",
+        "failed": "无法关闭"
+      },
+      "list": {
+        "label": "列出",
+        "inProgress": "加载中",
+        "completed": "已加载",
+        "failed": "加载失败"
+      }
+    }
+  },
+  "visualAnnotation": {
+    "pickElement": "点选元素",
+    "panelTitle": "样式标注",
+    "contextTitle": "视觉标注",
+    "elementText": "元素文本",
+    "styleSnapshot": "样式快照",
+    "annotationLabel": "批注",
+    "annotationPlaceholder": "描述希望修改或检查的样式…",
+    "addToConversation": "添加到对话",
+    "staleWarning": "标注已失效,元素已变化",
+    "close": "关闭",
+    "color": "颜色",
+    "backgroundColor": "背景色",
+    "border": "边框",
+    "borderRadius": "圆角",
+    "fontSize": "字号",
+    "margin": "外边距",
+    "padding": "内边距"
+  },
+  "artifactTurn": {
+    "turn": "第 {turn} 轮",
+    "stepBack": "上一处产物",
+    "stepForward": "下一处产物",
+    "jumpToOrigin": "跳到产生它的那轮",
+    "kindDocument": "文档",
+    "kindPresentation": "演示",
+    "kindSpreadsheet": "电子表格",
+    "kindFile": "文件"
+  },
+  "cloudChat": {
+    "header": {
+      "count": "{count, plural, one {# 个云端聊天} other {# 个云端聊天}}",
+      "target": "{name}"
+    },
+    "turns": "{turns, plural, one {# 轮} other {# 轮}}",
+    "action": {
+      "attach": {
+        "label": "附加云端聊天",
+        "active": "附加中",
+        "completed": "已附加",
+        "following": "等待附加"
+      },
+      "create": {
+        "label": "创建云端聊天",
+        "active": "创建中",
+        "completed": "已创建",
+        "following": "等待创建"
+      },
+      "list": {
+        "label": "列出云端聊天",
+        "active": "列出中",
+        "completed": "已列出",
+        "following": "等待列出"
+      },
+      "readTurns": {
+        "label": "读取云端聊天轮次",
+        "active": "读取轮次中",
+        "completed": "已读取轮次",
+        "following": "等待读取"
+      },
+      "sendMessage": {
+        "label": "向云端聊天发送消息",
+        "active": "发送中",
+        "completed": "已发送",
+        "following": "等待发送"
+      }
+    }
   }
 }
