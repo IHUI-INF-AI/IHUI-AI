@@ -16,6 +16,8 @@
  *   {
  *     "translatedAt": "2026-07-24T...",
  *     "translatedBy": "AI agent (claude/glm/gpt)",
+ *     "target": "web",                         // 2026-09-25 起:从 pending 清单原样抄,用于写前对账
+ *     "messagesDir": "packages/i18n/messages/web",  // 同上
  *     "translations": {
  *       "en": { "skills.market.title": "Skills Market", ... },
  *       "ja": { ... },
@@ -25,16 +27,23 @@
  *   }
  *
  * 用法:
- *   node scripts/i18n-apply.mjs                  # 应用默认路径的翻译结果
+ *   node scripts/i18n-apply.mjs                  # 应用默认路径的翻译结果(= web 端)
  *   node scripts/i18n-apply.mjs --input <path>   # 自定义翻译结果路径
  *   node scripts/i18n-apply.mjs --check          # 只校验 parity,不写入
- *   node scripts/i18n-apply.mjs --target=extension  # 操作 extension i18n
- *   node scripts/i18n-apply.mjs --target=miniapp-taro  # 操作 miniapp-taro i18n(读写 .ts)
+ *   node scripts/i18n-apply.mjs --target=<端>    # 端名须与 packages/i18n/messages/ 目录名逐字相同:
+ *                                                #   web / extension / miniapp-taro / shared /
+ *                                                #   mobile-rn / cli / api(全部读写 .json)
+ *
+ * 两道防写错端的机制(2026-09-25 立,此前 `--target=mobile-rn` 会静默改写 **web** 的语言包):
+ *   1. 未知 / 拼错的 --target → exit 2 并点名错误值 + 列出可用端,不再回落到 web。
+ *   2. 写前对账:翻译结果若自带 target / messagesDir(由 i18n-diff 产出),必须与 --target
+ *      解析出的目录一致,不一致 → exit 2 且**一个字节都不写**。输入没带这两个字段时无法对账,
+ *      会如实打一条警告说明"本轮无对账依据",而不是把"没证据"当成"对上了"。
  *
  * 退出码:
  *   0 = 成功应用 / check 通过
  *   1 = 翻译结果不完整(仍有 pending) 或应用失败
- *   2 = 用法错误
+ *   2 = 用法错误(未知 --target / 目录不存在 / 输入声明的端与 --target 不符)
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -46,16 +55,114 @@ const inputIdx = process.argv.indexOf('--input')
 const customInput = inputIdx >= 0 ? process.argv[inputIdx + 1] : null
 const targetArg = process.argv.find((a) => a.startsWith('--target='))
 const TARGET = targetArg ? targetArg.split('=')[1] : 'web'
+const TARGET_IS_EXPLICIT = targetArg !== undefined
 
-// target → 目录 + 文件扩展名(与 i18n-diff.mjs 保持一致)
+// target → 目录 + 文件扩展名(与 i18n-diff.mjs 保持一致 —— 两份表必须同步改,漂移即错端写入)
 // 2026-07-25 i18n 单一来源:web/miniapp-taro 翻译迁移到 packages/i18n/messages/<platform>/
+// 2026-09-25 补 mobile-rn / cli / api:packages/i18n/messages/ 下实测有 7 个端目录,本表此前只
+//   登记 4 个,而未知 --target 会静默回落到 web ⇒ `--target=mobile-rn` 实际改写的是
+//   packages/i18n/messages/web/*.json —— 操作员以为在补 App 端翻译,盘上被动的是 web。
+//   三端均为 zh-CN/en/ja/ko/zh-TW 五个 .json,与 web 同构(ext 一致,无需特殊解析)。
+//   api 一并登记的理由见 i18n-diff.mjs 的 TARGET_CONFIG 注释(check-i18n-messages-exist 已把
+//   它列为第 7 个语言包端;它暂无运行时消费方与 parity 守门,登记≠验收)。
 const TARGET_CONFIG = {
   web: { dir: 'packages/i18n/messages/web', ext: '.json' },
   extension: { dir: 'packages/i18n/messages/extension', ext: '.json' },
   'miniapp-taro': { dir: 'packages/i18n/messages/miniapp-taro', ext: '.json' },
   shared: { dir: 'packages/i18n/messages/shared', ext: '.json' },
+  'mobile-rn': { dir: 'packages/i18n/messages/mobile-rn', ext: '.json' },
+  cli: { dir: 'packages/i18n/messages/cli', ext: '.json' },
+  api: { dir: 'packages/i18n/messages/api', ext: '.json' },
 }
-const TARGET_CFG = TARGET_CONFIG[TARGET] || TARGET_CONFIG.web
+const VALID_TARGETS = Object.keys(TARGET_CONFIG)
+
+/** 目录串归一(斜杠方向 / 前导 ./ / 尾部斜杠),供"输入声明的目录 vs 本次解析的目录"对账用 */
+function normalizeDir(p) {
+  return String(p)
+    .replace(/\\/g, '/')
+    .replace(/^\.\//, '')
+    .replace(/\/+$/, '')
+}
+
+/**
+ * 解析 --target。**绝不回落到 web**(2026-09-25 的修复本体)。
+ *
+ * 两类判死,都发生在读任何语言包、写任何文件之前:
+ *   1. 值不在 TARGET_CONFIG 里(`mobile_rn`、`Miniapp-Taro`、空值等)。
+ *   2. 目标目录在磁盘上不存在。
+ *
+ * 与 i18n-diff.mjs 的一处**有意差异**:diff 对"未显式传 --target 且目录不存在"保留旧的
+ * 优雅跳过(scripts/tests/i18n-diff.test.mjs 钉死了那条 exit 0)。本脚本做不到 —— 它无论如何
+ * 都要从该目录读 zh-CN 基准并往同目录写回,目录不存在就没有可以继续的语义,因此一律判死。
+ *
+ * @param {string} raw      --target= 的原始值
+ * @param {string} root     仓库根(沿用本脚本既有的 cwd 口径)
+ * @param {boolean} explicit 调用方是否显式传了 --target(仅用于把话说准)
+ * @param {(msg: string[]) => void} onFatal 判死出口
+ * @returns {{target: string, cfg: {dir: string, ext: string}}}
+ */
+function resolveTarget(raw, root, explicit, onFatal) {
+  const given = raw === undefined || raw === null ? '' : String(raw)
+  const cfg = TARGET_CONFIG[given]
+  if (!cfg) {
+    onFatal([
+      `❌ [i18n] --target=${JSON.stringify(given)} 不是受支持的端,已拒绝执行(未读任何语言包、未写任何文件)。`,
+      `   可用目标(须与 packages/i18n/messages/ 下的目录名逐字相同): ${VALID_TARGETS.join(' / ')}`,
+      `   拼写陷阱:连字符不是下划线、大小写敏感 —— "mobile_rn"、"Miniapp-Taro" 都会被拒。`,
+      `   为什么不再容忍:此前未知 --target 会静默按 web 处理,于是打错一个字母`,
+      `            就把"A 端的翻译"整份改写进"B 端的语言包",而输出看起来一切正常。`,
+    ])
+  }
+  if (!fs.existsSync(path.join(root, cfg.dir))) {
+    onFatal([
+      `❌ [i18n] --target=${JSON.stringify(given)}${explicit ? '' : '(默认)'} 的语言包目录不存在: ${cfg.dir}`,
+      `   可用目标: ${VALID_TARGETS.join(' / ')}`,
+      `   已拒绝执行(未读任何语言包、未写任何文件)。本脚本必须从该目录读 zh-CN 基准并写回同目录。`,
+    ])
+  }
+  return { target: given, cfg }
+}
+
+/** CLI 出口:打印到 stderr 并以用法错误码退出(exit 2,与头注一致)。 */
+function fatalUsage(lines) {
+  for (const line of lines) console.error(line)
+  process.exit(2)
+}
+
+const TARGET_CFG = resolveTarget(TARGET, ROOT, TARGET_IS_EXPLICIT, fatalUsage).cfg
+
+/**
+ * 写前对账:翻译结果"implied 的端"必须与 --target 解析出的目录一致。
+ *
+ * 为什么需要它:`--target` 只能防住打错,**防不住拿错了文件** ——
+ * .ihui-agent/tmp/i18n-translations.json 是全端共用同一个路径的单一产物,
+ * 上一轮为 web 生成的翻译躺在那里,这一轮 `--target=mobile-rn` 一跑就把 web 的
+ * 文案写进 mobile-rn。i18n-diff 现在会在 pending 清单里写下 target/messagesDir,
+ * 供 agent 原样抄进翻译结果;本函数据此在写之前中止而不是静默合并。
+ *
+ * @returns {string[]} 问题清单(空 = 可对账且一致,或输入未声明可对账字段)
+ */
+function targetMismatchProblems(data, target, cfg) {
+  const problems = []
+  const declaredTarget = typeof data.target === 'string' ? data.target : null
+  const declaredDir = typeof data.messagesDir === 'string' ? data.messagesDir : null
+
+  if (declaredTarget !== null && !TARGET_CONFIG[declaredTarget]) {
+    problems.push(
+      `翻译结果自带的 target=${JSON.stringify(declaredTarget)} 不是受支持的端(可用: ${VALID_TARGETS.join(' / ')})`,
+    )
+  } else if (declaredTarget !== null && declaredTarget !== target) {
+    problems.push(
+      `翻译结果是为 target=${declaredTarget} 产出的,本次 --target=${target} —— 两端不同`,
+    )
+  }
+  if (declaredDir !== null && normalizeDir(declaredDir) !== normalizeDir(cfg.dir)) {
+    problems.push(
+      `翻译结果自带 messagesDir=${declaredDir},而本次解析出的目录是 ${cfg.dir} —— 不是同一份语言包`,
+    )
+  }
+  return problems
+}
 
 const MESSAGES_DIR = path.join(ROOT, TARGET_CFG.dir)
 const TMP_DIR = path.join(ROOT, '.ihui-agent/tmp')
@@ -218,6 +325,25 @@ function main() {
     process.exit(1)
   }
 
+  // ── 写前对账(2026-09-25):翻译结果声明的端必须与 --target 解析出的目录一致 ──
+  // 放在读语言包之前:一旦不符,本轮既不读也不写,盘上零变化。
+  const mismatches = targetMismatchProblems(translationData, TARGET, TARGET_CFG)
+  if (mismatches.length > 0) {
+    console.error(`${C.red}❌ [i18n-apply] 拒绝写入:输入翻译与 --target 不是同一端(极可能拿错了输入文件)${C.reset}`)
+    for (const p of mismatches) console.error(`   · ${p}`)
+    console.error(`   本次 --target=${TARGET} → ${TARGET_CFG.dir}`)
+    console.error(`${C.red}   已拒绝执行:未读任何语言包、未写任何文件。${C.reset}`)
+    console.error(`   正确做法:node scripts/i18n-diff.mjs --target=${TARGET} 重新生成本端清单,`)
+    console.error(`            并把 pending 清单里的 target / messagesDir 原样抄进翻译结果。`)
+    process.exit(2)
+  }
+  if (typeof translationData.target !== 'string' && typeof translationData.messagesDir !== 'string') {
+    // 没有可对比的声明 ⇒ 如实说明"本轮无对账依据",而不是把没证据当成对上了。
+    console.warn(
+      `${C.yellow}⚠️ 翻译结果未声明 target / messagesDir ⇒ 写前对账无从进行,写入目录仅由 --target=${TARGET} 单侧决定${C.reset}`,
+    )
+  }
+
   const messages = {}
   for (const entry of fs.readdirSync(MESSAGES_DIR)) {
     if (!entry.endsWith(MESSAGE_EXT)) continue
@@ -236,6 +362,10 @@ function main() {
   }
 
   console.log(`${C.bold}[i18n AI 翻译应用]${C.reset} ${isCheck ? '校验模式' : '应用模式'}`)
+  // 目标端一律先自证:即将被写的目录必须出现在输出里,否则"写对了"和"写错了端"同形。
+  console.log(
+    `${C.cyan}目标端:${C.reset} ${TARGET} → ${TARGET_CFG.dir}(${isCheck ? '只校验不写' : '写回目标'})`,
+  )
   console.log(`翻译来源: ${translationData.translatedBy || '(未标注)'}`)
   console.log(`翻译时间: ${translationData.translatedAt || '(未标注)'}`)
   console.log('')
@@ -286,7 +416,7 @@ function main() {
     for (const issue of issues) {
       console.error(`  [${issue.lang}] 仍缺 ${issue.count} 键`)
     }
-    console.error(`   ${C.dim}建议: 重新跑 node scripts/i18n-diff.mjs 获取最新 pending 清单${C.reset}`)
+    console.error(`   ${C.dim}建议: 重新跑 node scripts/i18n-diff.mjs --target=${TARGET} 获取最新 pending 清单${C.reset}`)
     process.exit(1)
   }
 
@@ -310,7 +440,7 @@ function main() {
   }
 
   console.log(`${C.bold}下一步:${C.reset}`)
-  console.log(`  1. ${C.cyan}node scripts/check-i18n-keys.mjs${C.reset} 完整守门`)
+  console.log(`  1. ${C.cyan}node scripts/check-i18n-keys.mjs --target=${TARGET}${C.reset} 完整守门`)
   console.log(`  2. ${C.cyan}node scripts/scan-i18n-zh-residue.mjs ko --staged${C.reset} 中文残留检测`)
   console.log(`  3. ${C.cyan}node scripts/scan-i18n-zh-residue.mjs zh-TW --staged${C.reset} 简体字残留检测`)
 
