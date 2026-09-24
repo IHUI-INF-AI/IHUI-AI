@@ -199,7 +199,7 @@
 }
 
 .ai-model-type-btn.active {
-  background: var(--color-primary);
+  background: var(--color-cta);
 }
 
 /* model-type-btn 文字标签(对齐 RN modelTypeLabel fontSize 12dp→24rpx,text.secondary) */
@@ -210,7 +210,7 @@
 }
 
 .ai-model-type-label.active {
-  color: var(--color-primary-foreground);
+  color: var(--color-cta-foreground);
   font-weight: 600;
 }
 

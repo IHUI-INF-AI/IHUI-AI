@@ -76,8 +76,8 @@
   height: 88rpx;
   line-height: 88rpx;
   text-align: center;
-  background: var(--color-primary);
-  color: var(--color-foreground);
+  background: var(--color-cta);
+  color: var(--color-cta-foreground);
   font-size: 30rpx;
   border-radius: var(--radius-sm);
 }

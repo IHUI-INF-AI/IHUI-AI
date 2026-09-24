@@ -196,7 +196,7 @@ function WorkspacePanelTab() {
         className={cn(
           'inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium transition-colors',
           selectedNode
-            ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+            ? 'bg-cta text-cta-foreground hover:bg-cta/90'
             : 'cursor-not-allowed bg-muted text-muted-foreground/50',
         )}
       >
@@ -584,7 +584,7 @@ export function AiSidePanelTools() {
               type="button"
               data-testid="ai-tools-dispatch-subagent"
               onClick={() => setDispatchOpen(true)}
-              className="w-full rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              className="w-full rounded-md bg-cta px-3 py-2 text-sm font-medium text-cta-foreground transition-colors hover:bg-cta/90"
             >
               {t('dispatchSubagent')}
             </button>
@@ -758,7 +758,11 @@ export function AiSidePanelTools() {
 
           {displayMode === 'sections' ? (
             /* 分区视图(D52):四区分组层,激活 Tab 逻辑与 renderTab 全部复用既有实现 */
-            <TaskMonitorZonesView activeTab={activeTab} onSelectTab={setActiveTab} renderTab={renderTab} />
+            <TaskMonitorZonesView
+              activeTab={activeTab}
+              onSelectTab={setActiveTab}
+              renderTab={renderTab}
+            />
           ) : (
             <>
               {/* tab 导航条(横向滚动) */}
