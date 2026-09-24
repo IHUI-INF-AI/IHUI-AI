@@ -318,6 +318,15 @@ iframe#webpack-dev-server-client-overlay {
   --chart-text: #94a3b8;
   --chart-axis: #e5e7eb;
   --chart-success: #16a34a;
+  /* ===== Tailwind v3 alpha 通道三元组(自动同步自 tokens.css,勿手动编辑;
+     给 bg/text/border-*-/<透明度> 用,见 packages/design-tokens/src/tailwind-alpha-plugin.js)===== */
+  --color-foreground-rgb: 10, 10, 10;
+  --color-primary-rgb: 0, 0, 0;
+  --color-primary-foreground-rgb: 255, 255, 255;
+  --color-muted-rgb: 235, 235, 235;
+  --color-destructive-rgb: 255, 51, 51;
+  --color-success-rgb: 33, 196, 93;
+  --color-warning-rgb: 245, 159, 10;
 }
 
 /* ===== 透明度色板(自动同步自 tokens.css 独立 :root 块,勿手动编辑)===== */
@@ -476,6 +485,12 @@ iframe#webpack-dev-server-client-overlay {
   --color-model-type-av-bg: #e8f5e9;
   --color-agent-name: #517bff;
   --color-screen-canvas: #171717;
+  --color-foreground-rgb: 250, 250, 250;
+  --color-primary-rgb: 255, 255, 255;
+  --color-primary-foreground-rgb: 0, 0, 0;
+  --color-muted-rgb: 38, 38, 38;
+  --color-success-rgb: 45, 210, 105;
+  --color-warning-rgb: 238, 166, 43;
 }
 
 /* ===== 通用工具类 ===== */
