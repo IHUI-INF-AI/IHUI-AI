@@ -17,16 +17,82 @@
 //   ③ 登记表不得被过滤空 —— 空表 = 恒绿的假门(与守门 78 的"扫不到包就 exit 1"同一取向)。
 //   ④ 非 Windows 上判不了就**如实报"未判定"**,不记为通过。
 //
-// 用法:node scripts/check-home-junctions.mjs [--json] [--self-test] [--staged]
+// 用法:node scripts/check-home-junctions.mjs [--json] [--self-test] [--staged] [--check-stash]
 //   `--staged` 与全量同口径:这类破损与"本次改了什么"无关(手动装个全局包就回潮)。
+//   `--check-stash` 只问"有没有改道中断留下的旧名",**不进提交链**:那是机器态、不是提交者
+//   能改的东西,拿它判红等于逼人跳门。守护每轮调它,有残留就叫修复器去收。
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, lstatSync, readlinkSync, readdirSync, statSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
-import { join } from 'node:path'
+import {
+  existsSync,
+  lstatSync,
+  readlinkSync,
+  readdirSync,
+  statSync,
+  mkdirSync,
+  writeFileSync,
+  rmSync,
+} from 'node:fs'
+import { dirname, join, sep } from 'node:path'
 import { homedir, platform } from 'node:os'
 import { pathToFileURL } from 'node:url'
 
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+
+/**
+ * 找出登记项留下的"改名现场" `<原名>.pre-junction-<时间戳>`。
+ *
+ * 为什么门要专门看它:修复器在"源改名 → 建 junction → 回读 → 删源"这条链中途被打断时,
+ * 那个 stash 名字会一直留在盘上。2026-09-24 实测:`.trae-cn` 搬完之后,家目录里仍挂着
+ * `.trae-cn.pre-junction-2026-09-24T08-41-30-024Z`,**而且它自己是指向在用目标的 junction** ——
+ * 于是同一个工具态有两个名字,而 §26 记过"任何递归枚举穿过 junction 就会把 D 盘在用数据
+ * 当成 C 盘垃圾删"。此前 16 项判据只看登记路径本身,**没有任何一处回看这个后缀**,
+ * 所以它既不判红也不出现在报告里 = 彻底隐形。
+ * 只枚举父目录一层名字,**绝不读候选内部**(读它就要穿透重解析点)。
+ */
+export function findStashes(srcPath) {
+  const parent = dirname(srcPath)
+  const base = srcPath.slice(srcPath.lastIndexOf(sep) + 1)
+  const prefix = `${base}.pre-junction-`
+  let names = []
+  try {
+    names = readdirSync(parent)
+  } catch {
+    return []
+  }
+  return names
+    .filter((n) => n.startsWith(prefix))
+    .sort() // 输出必须可复现:readdir 顺序在 NTFS 上不保证
+    .map((n) => join(parent, n))
+}
+
+/**
+ * 按类型分流(link / dir / file),**只判类型不看内容** —— 内容级"有没有独有数据"是
+ * 修复器的删除前置(它才需要逐文件指纹),判据这里只负责"让隐形变可见"。
+ */
+export function classifyStash(path) {
+  try {
+    const st = lstatSync(path)
+    if (st.isSymbolicLink()) return 'link'
+    return st.isDirectory() ? 'dir' : 'file'
+  } catch {
+    return 'gone'
+  }
+}
+
+/** 全量登记项的 stash 清单(带所属登记路径,修复器据此定位目标)。 */
+export function staleStashes(registry = registryOf()) {
+  const out = []
+  const seen = new Set()
+  for (const e of registry) {
+    for (const p of findStashes(e.p)) {
+      if (seen.has(p)) continue
+      seen.add(p)
+      out.push({ path: p, src: e.p, kind: classifyStash(p) })
+    }
+  }
+  return out
+}
 
 /**
  * §26 登记表:家目录里**必须以指针形式存在**的工具态。
@@ -50,10 +116,10 @@ export function registryOf(env = process.env, home = homedir()) {
     { p: join(home, '.trae-cn'), why: 'Trae CN' },
     { p: join(home, '.trae-aicc'), why: 'Trae AICC' },
     env.APPDATA ? { p: join(env.APPDATA, 'npm'), why: 'npm 全局安装前缀' } : null,
-    env.APPDATA ? { p: join(env.APPDATA, 'com.ihui.desktop'), why: '桌面端 Roaming 态(本仓产品)' } : null,
-    env.LOCALAPPDATA
-      ? { p: join(env.LOCALAPPDATA, 'pnpm-cache'), why: 'pnpm 元数据缓存' }
+    env.APPDATA
+      ? { p: join(env.APPDATA, 'com.ihui.desktop'), why: '桌面端 Roaming 态(本仓产品)' }
       : null,
+    env.LOCALAPPDATA ? { p: join(env.LOCALAPPDATA, 'pnpm-cache'), why: 'pnpm 元数据缓存' } : null,
     env.LOCALAPPDATA
       ? { p: join(env.LOCALAPPDATA, 'com.ihui.desktop'), why: '桌面端 Local 态(本仓产品)' }
       : null,
@@ -127,9 +193,12 @@ export function audit(registry = registryOf()) {
 
   if (!registry.length) {
     return {
-      violations: [{ path: '(登记表)', why: '§26 登记项', kind: 'EMPTY-REGISTRY', bytes: 0, target: null }],
+      violations: [
+        { path: '(登记表)', why: '§26 登记项', kind: 'EMPTY-REGISTRY', bytes: 0, target: null },
+      ],
       ok,
       absent,
+      stashes: [],
       bytesOnC,
       checked: 0,
       undetermined: false,
@@ -165,7 +234,15 @@ export function audit(registry = registryOf()) {
     }
     ok.push({ path: e.p, target })
   }
-  return { violations, ok, absent, bytesOnC, checked: registry.length, undetermined: false }
+  return {
+    violations,
+    ok,
+    absent,
+    stashes: staleStashes(registry),
+    bytesOnC,
+    checked: registry.length,
+    undetermined: false,
+  }
 }
 
 function selfTest() {
@@ -215,6 +292,50 @@ function selfTest() {
         const r = audit([{ p: good, why: 'fixture' }])
         eq(r.violations.length, 0, `误判:${JSON.stringify(r.violations)}`)
         eq(r.ok.length, 1, '未记为已改道')
+      })
+
+      // ── stash 残留(改道中断留下的旧名)必须可见 —— 此前它在家目录里挂着,16 项判据全看不见 ──
+      const stashLink = `${good}.pre-junction-2026-01-01T00-00-00-000Z`
+      execFileSync('cmd.exe', ['/c', 'mklink', '/J', stashLink, dest], {
+        windowsHide: true,
+        timeout: 20000,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      })
+      const stashDir = `${good}.pre-junction-2026-01-02T00-00-00-000Z`
+      mkdirSync(stashDir, { recursive: true })
+      writeFileSync(join(s, 'decoy.pre-junction-x'), 'x') // 不是登记项 good 的前缀
+      writeFileSync(`${good}.backup-2026`, 'x') // 不是 pre-junction 前缀
+      t('stash 必须被枚举到,并按类型分流(link / dir)', () => {
+        const got = findStashes(good)
+          .map((p) => p.slice(s.length + 1))
+          .sort()
+        const want = [stashLink, stashDir].map((p) => p.slice(s.length + 1)).sort()
+        eq(JSON.stringify(got), JSON.stringify(want), '清单不对')
+        eq(classifyStash(stashLink), 'link', 'junction 型 stash 分错类')
+        eq(classifyStash(stashDir), 'dir', '目录型 stash 分错类')
+      })
+      t('反例:同父目录里名字不匹配的条目,一律不得算成该登记项的 stash', () => {
+        eq(
+          findStashes(good).some((p) => /decoy|backup/.test(p)),
+          false,
+          '把无关名字扫进来了 ⇒ 清理时会误删',
+        )
+      })
+      t('stash 只进"可见清单",不得进 blocking 违规(恒红门=逼人跳门)', () => {
+        const r = audit([{ p: good, why: 'fixture' }])
+        eq(r.violations.length, 0, `stash 残留把门钉红了:${JSON.stringify(r.violations)}`)
+        eq(r.stashes.length, 2, `stash 清单只 ${r.stashes.length} 项`)
+        eq(
+          r.stashes.every((x) => x.src === good),
+          true,
+          'stash 没记归属登记路径',
+        )
+      })
+      t('登记项本身不存在时,它的 stash 残留仍要被看见(那正是搬一半被掐死的形状)', () => {
+        const r = audit([{ p: join(s, 'never-existed'), why: 'fixture' }])
+        eq(r.absent.length, 1, '未记为不存在')
+        mkdirSync(`${join(s, 'never-existed')}.pre-junction-z`, { recursive: true })
+        eq(staleStashes([{ p: join(s, 'never-existed') }]).length, 1, '残留被 absent 分支吞掉了')
       })
 
       const bad = join(s, 'bad')
@@ -275,19 +396,46 @@ function selfTest() {
 function main(argv) {
   if (argv.includes('--self-test')) return selfTest()
   const r = audit()
+  if (argv.includes('--check-stash')) {
+    // 给守护用的独立信号:stash 残留**不进本门的 blocking 退出码**(它是机器态、不是提交者
+    // 能改的东西,恒红只会逼人 --no-verify,连带废掉全部守门),但守护每轮可以据此决定
+    // 要不要叫修复器去收。二者口径不同,所以分开出口。
+    console.log(
+      r.stashes.length
+        ? `stash 残留 ${r.stashes.length} 项:\n` +
+            r.stashes.map((s) => `  ${s.path}  [${s.kind}]`).join('\n')
+        : '无 stash 残留',
+    )
+    return r.stashes.length ? 1 : 0
+  }
   if (argv.includes('--json')) {
-    console.log(JSON.stringify({ ...r, bytesOnC_MB: Math.round((r.bytesOnC / 1048576) * 10) / 10 }, null, 2))
+    console.log(
+      JSON.stringify({ ...r, bytesOnC_MB: Math.round((r.bytesOnC / 1048576) * 10) / 10 }, null, 2),
+    )
     return r.violations.length ? 1 : 0
   }
   const mb = (r.bytesOnC / 1048576).toFixed(0)
   console.log(
     `§26 家目录改道完整性:登记 ${r.checked} 项 / 已改道 ${r.ok.length} / 不存在 ${r.absent.length} / 违规 ${r.violations.length}` +
+      (r.stashes.length ? ` / stash 残留 ${r.stashes.length}` : '') +
       (r.bytesOnC ? ` —— **C 盘上仍留 ${mb} MB 实体工具态**` : ''),
   )
   for (const v of r.violations) {
     const size = v.bytes ? ` ${(v.bytes / 1048576).toFixed(1)}MB` : ''
-    console.log(`  ❌ ${v.path}${size}  [${v.kind}] ${v.why}${v.target ? ` target=${v.target}` : ''}`)
+    console.log(
+      `  ❌ ${v.path}${size}  [${v.kind}] ${v.why}${v.target ? ` target=${v.target}` : ''}`,
+    )
   }
+  for (const s of r.stashes) {
+    console.log(
+      `  ⚠️ ${s.path}  [stash-${s.kind}] 改道中断留下的旧名 —— 它和 ${s.src} 指同一份内容,` +
+        `递归枚举一旦穿过就会动到在用数据`,
+    )
+  }
+  if (r.stashes.length)
+    console.log(
+      '    收口:`node scripts/re-home-junctions.mjs --apply`(指针型只断链;目录型须逐文件证明无独有内容才删)',
+    )
   if (r.violations.length) {
     console.log('\n  修法(§26:一律 junction,不改 Path 环境变量,否则会造"双根分裂"):')
     console.log('    robocopy <src> <D 盘目标> /E  →  逐文件(相对路径+字节)校验  →  源改名')
@@ -310,5 +458,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   }
 }
 
-export const __test__ = { audit, registryOf, sizeOf, isLink }
+export const __test__ = {
+  audit,
+  registryOf,
+  sizeOf,
+  isLink,
+  findStashes,
+  classifyStash,
+  staleStashes,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
