@@ -179,7 +179,7 @@ export default function ProvidersHealthPage() {
                             href={p.recharge_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex h-8 items-center gap-1 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                            className="inline-flex h-8 items-center gap-1 rounded-md bg-cta px-2.5 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
                           >
                             <Wallet className="h-3.5 w-3.5" />
                             去充值

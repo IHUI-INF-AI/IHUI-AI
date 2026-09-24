@@ -93,7 +93,7 @@ export function EnterpriseContent() {
               {t('header.backHome')}
             </Link>
           </Button>
-          <span className="rounded-md bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+          <span className="rounded-md bg-cta/10 px-3 py-1 text-xs font-medium text-primary">
             {t('header.badge')}
           </span>
         </div>
@@ -161,7 +161,7 @@ export function EnterpriseContent() {
           </div>
           <Card className="overflow-hidden">
             <CardContent className="min-[640px]:p-3 flex flex-col items-start gap-4 p-3 min-[768px]:flex-row min-[768px]:items-center min-[768px]:gap-6">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-cta/10 text-primary">
                 <Target className="h-7 w-7" />
               </div>
               <div className="flex-1 min-w-0 space-y-2">
@@ -197,13 +197,13 @@ export function EnterpriseContent() {
                   }`}
                 >
                   {MODULE_FEATURED[i] && (
-                    <span className="absolute right-3 top-3 rounded-md bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
+                    <span className="absolute right-3 top-3 rounded-md bg-cta px-2 py-0.5 text-xs font-medium text-cta-foreground">
                       {t('modules.coreServiceBadge')}
                     </span>
                   )}
                   <CardContent className="min-[640px]:p-3 space-y-3 p-3">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cta/10 text-primary">
                         <Icon className="h-5 w-5" />
                       </div>
                       <span className="text-xs font-medium text-muted-foreground">{m.tag}</span>

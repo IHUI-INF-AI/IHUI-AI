@@ -282,7 +282,7 @@ kubectl get ingress -n ihui`}</code>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <a
             href="/docs/api"
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className="rounded-lg bg-cta px-4 py-2 text-sm font-medium text-cta-foreground hover:bg-cta/90"
           >
             API 参考
           </a>
