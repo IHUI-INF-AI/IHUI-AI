@@ -85,8 +85,8 @@ const TYPE_CONFIG: Record<PayButtonType, TypeConfig> = {
     showPurchasePopup: false,
   },
   '3': {
-    bg: (tk) => tk.brand.DEFAULT,
-    text: (tk) => tk.surface.light,
+    bg: (tk) => tk.brand.cta,
+    text: (tk) => tk.brand.ctaForeground,
     icon: CreditCard,
     label: '每月',
     showPurchasePopup: true,
