@@ -110,7 +110,7 @@ import {
   type MyCreationItem,
   type MyCreationType,
 } from '@ihui/api-client'
-import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS } from '@ihui/shared'
+import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS, toUserFriendlyMessage } from '@ihui/shared'
 import type { ChatMessage } from '@ihui/shared'
 import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
 import type { ModelConfigType } from '@ihui/ui-native'
@@ -1327,8 +1327,9 @@ export function ChatScreen() {
       } else {
         showToast('info', res.error ?? '已领取过首次分享奖励')
       }
-    } catch {
-      showToast('error', '领取失败,请稍后重试')
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      showToast('error', detail.trim() ? toUserFriendlyMessage(e) : '领取失败,请稍后重试')
     }
   }
 
