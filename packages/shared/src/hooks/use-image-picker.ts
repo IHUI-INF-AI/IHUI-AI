@@ -45,6 +45,8 @@ import {
   type FileLike,
   type FileType,
 } from '../utils/image-helpers'
+// 内部 import 的 type 不会自动对外可见;各端与测试按本模块取词,故显式转导出。
+export type { AssetLike, FileLike, FileType }
 
 /** 平台 adapter 接口:各端注入 picker 实现 */
 export interface ImagePickerImpl {
