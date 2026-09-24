@@ -717,8 +717,6 @@
       "gatewayRetry": "第 {attempt}/{max} 次重试,{seconds} 秒后继续",
       "subagent": "子任务:{phase}",
       "title": "执行过程",
-      "toolCall": "调用工具:{name}",
-      "toolResult": "工具返回:{name}",
       "toolSummary": "工具汇总:{calls} 次调用",
       "terminal": "终端任务:{status}",
       "usage": "用量:{n} tokens"
@@ -2474,18 +2472,12 @@
     "unsupportedEnv": "当前环境不支持支付",
     "resultPending": "支付结果待确认",
     "agreementPrefix": "点击立即支付,表示同意",
-    "countLabel": "数量",
     "coupon": "优惠券",
     "createTime": "下单时间",
-    "defaultName": "AI 助手",
     "orderNo": "订单号",
     "payFailed": "支付失败,请重试",
-    "payNow": "立即支付",
     "paying": "支付中...",
-    "perMonth": "月",
-    "priceLabel": "价格",
     "purchaseContent": "购买内容",
-    "subscribeTip": "订阅后可无限使用",
     "userAgreement": "《用户协议》"
   },
   "study": {
@@ -3199,7 +3191,6 @@
       "empty": "暂无素材"
     },
     "qrCodeHint": "扫描二维码加入社区",
-    "thinking": "思考中...",
     "voice": {
       "listening": "正在聆听...",
       "tapToStop": "点击停止录音"
@@ -3227,16 +3218,6 @@
     "5": "钻石",
     "6": "王者",
     "distance": "距"
-  },
-  "messageCenter": {
-    "empty": "暂无消息",
-    "title": "消息中心",
-    "type": {
-      "course": "课程",
-      "order": "订单",
-      "social": "社交",
-      "system": "系统"
-    }
   },
   "interaction": {
     "collect": "收藏了我",
@@ -3560,16 +3541,6 @@
     "d19": "深空回响",
     "r1": "在数据洪流中,我们以代码为笔,以算法为墨,描绘着数字时代的诗与远方。每一段文字都是思想的延伸,每一次生成都是创造的开始。"
   },
-  "adaptersOrderScreentaro": {
-    "d1": "待付款",
-    "d2": "已付款",
-    "d3": "待付款",
-    "d4": "已付款"
-  },
-  "adaptersFeedbackScreentaro": {
-    "d1": "请输入反馈内容...",
-    "d2": "联系方式(可选)"
-  },
   "aiAgentdetail": {
     "q1": "获取Agent详情",
     "r6": "获取Agent权限失败"
@@ -3607,11 +3578,6 @@
     "d16": "品牌、增长、SEO",
     "text1": "跳过",
     "z1": "选择您感兴趣的赛道"
-  },
-  "adaptersPayButtontaro": {
-    "d1": "免费使用",
-    "d2": "每月",
-    "d3": "已购买"
   },
   "aiSpecial": {
     "d1": "Google Gemini 2.5 Flash 文本模型,快速响应、多模态输入",
@@ -3700,11 +3666,6 @@
   "AgentListPanel": {
     "d1": "免费使用",
     "d2": "月费",
-    "d3": "已购买"
-  },
-  "PayButton": {
-    "d1": "免费使用",
-    "d2": "每月",
     "d3": "已购买"
   },
   "TitleSwitchOverlap": {
@@ -3891,27 +3852,10 @@
     "r2": "吉林省爱智汇人工智能科技有限公司",
     "p1": "吉ICP备2025027274号-7A"
   },
-  "last": {
-    "1": "AI IHUI丨",
-    "3": "支付功能待接入后端"
-  },
-  "adaptersUserInfoCardtaro": {
-    "y1": "{p1}亿",
-    "y2": "{p1}万"
-  },
-  "api": {
-    "y1": "请求失败({p1})",
-    "y2": "请求失败({p1})"
-  },
   "StudyStats": {
     "y1": "h,已完成"
   },
   "tail": {
-    "1": "选择感兴趣的赛道,获取个性化推荐",
-    "2": "一键登录",
-    "3": "编辑",
-    "4": "剩余智汇值:",
-    "5": "充值",
     "6": "暂无数据",
     "7": "重试",
     "8": "加载中...",
@@ -3973,9 +3917,6 @@
   },
   "VipUpgradeToast": {
     "p1": "升级会员解锁更多功能"
-  },
-  "adaptersCarouseltaro": {
-    "q1": "暂无轮播图"
   },
   "aboutApppermission": {
     "q1": "获取权限状态"

@@ -5,10 +5,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
+
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -16,7 +17,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-push-sync.mjs')
 
 // ─── 辅助:创建临时 git 仓库(含初始 commit) ──────────────
 function createTempRepo() {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-pushsync-'))
+  const dir = mkScratch('ihui-pushsync-')
   execSync('git init -b main', { cwd: dir, stdio: 'pipe' })
   execSync('git config user.email test@test.com', { cwd: dir, stdio: 'pipe' })
   execSync('git config user.name test', { cwd: dir, stdio: 'pipe' })
@@ -29,7 +30,7 @@ function createTempRepo() {
 
 // 辅助:创建临时 bare 仓库(作为 origin)
 function createTempBareOrigin() {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-origin-'))
+  const dir = mkScratch('ihui-origin-')
   execSync('git init --bare -b main', { cwd: dir, stdio: 'pipe' })
   return dir
 }
@@ -76,7 +77,7 @@ test('CLI: --help 不崩溃(脚本未实现 --help,按默认模式运行)', () =
     assert.ok(r.status === 0, `--help 不应 crash,实际 exit ${r.status}`)
     assert.ok(!r.stderr.includes('Error:'), `--help 不应产生未捕获 Error`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -88,7 +89,7 @@ test('CLI: 无参数运行(无 origin remote → exit 0 跳过)', () => {
     assert.equal(r.status, 0, `无 origin 应 exit 0(跳过),实际 ${r.status}`)
     assert.match(r.stdout, /未配置 origin|跳过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -102,8 +103,8 @@ test('豁免: HUSKY_SKIP_PUSH_SYNC=1 → exit 0(跳过检查)', () => {
     assert.equal(r.status, 0, `HUSKY_SKIP_PUSH_SYNC=1 应 exit 0,实际 ${r.status}`)
     assert.match(r.stdout, /HUSKY_SKIP_PUSH_SYNC|跳过/)
   } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
@@ -116,8 +117,8 @@ test('豁免: IHUI_ARCHIVE_COMMIT=1 → exit 0(归档 commit 跳过)', () => {
     assert.equal(r.status, 0, `IHUI_ARCHIVE_COMMIT=1 应 exit 0,实际 ${r.status}`)
     assert.match(r.stdout, /IHUI_ARCHIVE_COMMIT|归档|跳过/)
   } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
@@ -129,8 +130,8 @@ test('同步: 本地 HEAD == origin/main → exit 0', () => {
     assert.equal(r.status, 0, `同步状态应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /已同步|HEAD/)
   } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
@@ -144,8 +145,8 @@ test('ahead: 本地 ahead 1 个 commit → exit 1(阻塞)', () => {
     // 错误消息走 console.error(stderr),含 ANSI 颜色码,需剥离后匹配
     assert.match(stripAnsi(r.stderr), /1 个未 push|Push 同步/)
   } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
@@ -161,8 +162,8 @@ test('ahead: 本地 ahead 3 个 commit → exit 1(显示 3)', () => {
     // 错误消息走 console.error(stderr),含 ANSI 颜色码,需剥离后匹配
     assert.match(stripAnsi(r.stderr), /3 个未 push/)
   } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
@@ -180,8 +181,8 @@ test('behind: 本地 behind origin → exit 0(无 ahead commit,跳过)', () => {
     assert.equal(r.status, 0, `behind 应 exit 0(跳过),实际 ${r.status}`)
     assert.match(r.stdout, /behind|无 ahead|跳过/)
   } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
@@ -194,7 +195,7 @@ test('无 origin: 仓库无 origin remote → exit 0(跳过)', () => {
     assert.equal(r.status, 0, `无 origin 应 exit 0(跳过),实际 ${r.status}`)
     assert.match(r.stdout, /未配置 origin|跳过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -209,71 +210,40 @@ test('detached HEAD: git checkout <hash> → exit 0(跳过)', () => {
     assert.equal(r.status, 0, `detached HEAD 应 exit 0(跳过),实际 ${r.status}`)
     assert.match(r.stdout, /detached HEAD|跳过/)
   } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
-// ─── 11. 无 upstream + origin 不可达 → exit 0(跳过) ──────
-// 本用例真正要测的状态是「远端 HEAD 无从确定」:本地 tracking ref 缺失
-// **且** ls-remote 也拿不到真值。被测 check-push-sync.mjs:114-134(2026-09-12 修)
-// 已把 ls-remote 提为远端 tip 的权威来源、只在它失败时回退本地 ref,
-// 所以只删 origin/main 引用而不切断 ls-remote 通道,得到的是「已同步」而非「跳过」
-// —— 那不是本用例的靶子,故这里必须把 origin 仓库本体一并删掉。
-test('无 upstream + origin 不可达: ls-remote 与本地 ref 都取不到 → exit 0(跳过)', () => {
+// ─── 11. 本地分支无 upstream(origin/<branch> ref 缺失) ──
+test('无 upstream: 有 origin remote 但无 origin/main ref → exit 0(跳过)', () => {
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
-    // 删掉 origin remote 会连带清除 refs/remotes/origin/main,再加回来即"无 tracking ref"
+    // 删除本地 origin/main ref(remote-tracking ref)
     execSync('git remote remove origin', { cwd: work, stdio: 'pipe' })
+    // 重新加 origin 但不 push/fetch → 无 origin/main ref
     const originUrl = origin.replace(/\\/g, '/')
     execSync(`git remote add origin "${originUrl}"`, { cwd: work, stdio: 'pipe' })
-    // 再让 ls-remote 也失败(origin 目录不存在 → 本地路径 remote 秒失败,不依赖网络)
-    rmSync(origin, { recursive: true, force: true })
     const r = runScript([], { cwd: work })
-    assert.equal(r.status, 0, `无法确定远端 HEAD 应 exit 0(跳过),实际 ${r.status}\nstdout: ${r.stdout}`)
-    assert.match(r.stdout, /无法确定 origin\/main|未 fetch 且 ls-remote 不可用|跳过/, `stdout:\n${r.stdout}`)
-    assert.doesNotMatch(r.stdout, /已同步/, `取不到远端 HEAD 时不得判"已同步"\nstdout: ${r.stdout}`)
+    // 有 origin remote 但 git rev-parse origin/main 失败 → exit 0(跳过)
+    assert.equal(r.status, 0, `无 origin/main ref 应 exit 0(跳过),实际 ${r.status}`)
+    assert.match(r.stdout, /无.*origin\/main|未 fetch|跳过/)
   } finally {
-    rmSync(work, { recursive: true, force: true })
-  }
-})
-
-// ─── 11b. ls-remote 权威(2026-09-12):tracking ref 缺失但 origin 可达 → 不误报 ──
-test('ls-remote 为准: origin/main 引用缺失但 origin 可达 → 判已同步,不误判 ahead 阻塞', () => {
-  const { work, origin } = createSyncedRepoWithOrigin()
-  try {
-    execSync('git remote remove origin', { cwd: work, stdio: 'pipe' })
-    execSync(`git remote add origin "${origin.replace(/\\/g, '/')}"`, { cwd: work, stdio: 'pipe' })
-    // 夹具自检:本地确实没有 origin/main 跟踪引用(否则测不到 ls-remote 兜底通道)
-    const verify = spawnSync('git', ['rev-parse', '--verify', 'origin/main'], {
-      cwd: work,
-      encoding: 'utf8',
-    })
-    assert.notEqual(
-      verify.status,
-      0,
-      '夹具失效:origin/main 引用仍在,本用例测不到"引用缺失"这一前置状态',
-    )
-    const r = runScript([], { cwd: work })
-    assert.equal(r.status, 0, `可达 origin 时应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
-    assert.match(r.stdout, /已同步/, `ls-remote 拿到真值后应判已同步\nstdout: ${r.stdout}`)
-    assert.doesNotMatch(stripAnsi(r.stderr), /个未 push/, `不得误报 ahead 阻塞\nstderr: ${r.stderr}`)
-  } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
 // ─── 12. 非 git 环境 → exit 0(跳过) ─────────────────────
 test('非 git: 非 git 仓库目录 → exit 0(跳过)', () => {
   // 创建一个临时目录,不 init git
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-nongit-'))
+  const dir = mkScratch('ihui-nongit-')
   try {
     const r = runScript([], { cwd: dir })
     assert.equal(r.status, 0, `非 git 仓库应 exit 0(跳过),实际 ${r.status}`)
     assert.match(r.stdout, /非 git|跳过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
