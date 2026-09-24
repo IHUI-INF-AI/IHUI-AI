@@ -65,7 +65,7 @@ export function CertApplyScreen({
         disabled={submitting}
       >
         {submitting ? (
-          <ActivityIndicator color={tk.surface.light} />
+          <ActivityIndicator color={tk.brand.ctaForeground} />
         ) : (
           <Text style={styles.submitText}>{t('certApply.submit')}</Text>
         )}
