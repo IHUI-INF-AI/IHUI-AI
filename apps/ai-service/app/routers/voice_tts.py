@@ -69,7 +69,26 @@ class TTSRequest(BaseModel):
     text: str = Field(..., description="要合成的文本(≤2000 字符)")
     voice: str = Field(default=DEFAULT_VOICE, description="声音(白名单内;token6688 引擎可为官方音色或声纹库 voice_id)")
     rate: str = Field(default="+0%", description="语速,如 +10% / -20%(仅 edge 引擎)")
-    engine: str = Field(default="edge", description="TTS 引擎: edge(零成本) / token6688(聚合网关,单 key)")
+    engine: str = Field(
+        default_factory=lambda: _default_engine(),
+        description="TTS 引擎: edge(零成本) / token6688(聚合网关,单 key)。"
+        "默认经 VOICE_PROVIDER 环境开关解析(edge-tts=免费 / token6688=付费)",
+    )
+
+
+def _default_engine() -> str:
+    """VOICE_PROVIDER 环境开关 → 请求默认引擎(2026-09-24 免费替代改造)。
+
+    VOICE_PROVIDER=edge-tts(默认/未配/未知值)→ "edge"(免费,零 key);
+    VOICE_PROVIDER=token6688 → "token6688"(付费网关,需 TOKEN6688_API_KEY)。
+    fail-safe:任何解析失败都回退免费通道。
+    """
+    try:
+        from ..providers.free_voice_provider import current_provider_code
+
+        return "token6688" if current_provider_code() == "token6688" else "edge"
+    except Exception:  # noqa: BLE001 — 开关解析失败恒回退免费,不影响请求
+        return "edge"
 
 
 def _require_admin(request: Request) -> None:
@@ -123,46 +142,34 @@ async def synthesize_tts(req: TTSRequest) -> Response:
         )
     rate = req.rate if req.rate.startswith(("+", "-")) and req.rate.endswith("%") else "+0%"
 
-    # 2026-09-08:Token6688 聚合网关引擎(单 key 全模态;voice 白名单校验仅限 edge 引擎)
-    if req.engine == "token6688":
-        audio, content_type = await _tts_via_token6688(text, req.voice)
-        return Response(
-            content=audio,
-            media_type=content_type or "audio/mpeg",
-            headers={"X-TTS-Engine": "token6688", "X-TTS-Voice": req.voice},
-        )
-    if req.engine != "edge":
+    # 免费引擎:统一走 free_voice_provider(2026-09-24 从内联实现抽出,
+    # 与 e2e --free 共用同一 provider 代码路径;白名单校验路由层先行)
+    if req.engine == "edge":
+        if req.voice not in VOICE_WHITELIST:
+            raise HTTPException(status_code=400, detail=f"voice 不在白名单: {req.voice}")
+        try:
+            from ..providers.free_voice_provider import FreeVoiceProvider, VoiceProviderError
+
+            audio, content_type = await FreeVoiceProvider().tts(text, voice=req.voice, rate=rate)
+            return Response(
+                content=audio,
+                media_type=content_type or "audio/mpeg",
+                headers={"X-TTS-Engine": "edge-tts", "X-TTS-Voice": req.voice},
+            )
+        except VoiceProviderError as e:
+            # 400 类(参数)原样透传;503/502 类(服务不可达)按既有语义回 503
+            status = e.status_code if e.status_code == 400 else 503
+            logger.warning("免费 TTS 合成失败(edge-tts): %s", e)
+            raise HTTPException(status_code=status, detail=str(e)) from None
+    if req.engine != "token6688":
         raise HTTPException(status_code=400, detail=f"未知 engine: {req.engine}(允许 edge/token6688)")
-    if req.voice not in VOICE_WHITELIST:
-        raise HTTPException(
-            status_code=400,
-            detail=f"voice 不在白名单: {req.voice}",
-        )
 
-    try:
-        import edge_tts
-
-        communicate = edge_tts.Communicate(text, voice=req.voice, rate=rate)
-        chunks: list[bytes] = []
-        async for chunk in communicate.stream():
-            if chunk.get("type") == "audio":
-                chunks.append(chunk["data"])
-        if not chunks:
-            raise RuntimeError("edge-tts 未返回音频数据")
-        audio = b"".join(chunks)
-        return Response(
-            content=audio,
-            media_type="audio/mpeg",
-            headers={"X-TTS-Engine": "edge-tts", "X-TTS-Voice": req.voice},
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.warning("免费 TTS 合成失败(edge-tts): %s", e)
-        raise HTTPException(
-            status_code=503,
-            detail=f"免费 TTS 暂不可用(edge-tts 服务不可达),请稍后重试: {e}",
-        ) from None
+    audio, content_type = await _tts_via_token6688(text, req.voice)
+    return Response(
+        content=audio,
+        media_type=content_type or "audio/mpeg",
+        headers={"X-TTS-Engine": "token6688", "X-TTS-Voice": req.voice},
+    )
 
 
 @router.get("/voice/voices")
