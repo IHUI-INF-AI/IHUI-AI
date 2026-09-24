@@ -165,7 +165,7 @@
       "freetime": "限時免費",
       "hasbuy": "已購買",
       "monthly": "每月"
-},
+    },
     "recharge": "去充值"
   },
   "order": {
@@ -404,6 +404,12 @@
     "show": "顯示",
     "hide": "隱藏",
     "submitting": "提交中...",
+    "budgetNote": "{title}：{detail}",
+    "budgetWarningTitle": "今日 AI 用量較高",
+    "budgetCriticalTitle": "今日 AI 用量即將耗盡",
+    "budgetUsedTokens": "已用 {used} / {limit} tokens",
+    "budgetResetTomorrow": "明日 0 點重置",
+    "budgetTier": "{tier} 檔",
     "viewMore": "查看更多",
     "close": "關閉",
     "delete": "刪除",
