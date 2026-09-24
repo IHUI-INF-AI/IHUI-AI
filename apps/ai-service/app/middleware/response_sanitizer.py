@@ -62,6 +62,11 @@ SAFE_KEYS: set[str] = {
     "total_tokens",
     "tokenusage",
     "token_usage",
+    # B10(2026-09-25):cookie_count 是计数值(len(cookies),见 routers/browser_hub.py
+    # SessionInfo 契约 cookie_count: int),不是 cookie 内容;"cookie" 子串规则曾把它
+    # 打成 "***",CI e2e-browser-hub 首跑抓到 typeof 变 string。与 prompt_tokens 同型
+    # 误伤(P0-5m)。cookie 真内容(cookie / cookies / cookie_string)仍照常脱敏。
+    "cookie_count",
 }
 
 MASK = "***"
