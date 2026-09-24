@@ -14,7 +14,6 @@ import ko from '@ihui/i18n/messages/extension/ko.json'
 import zhTW from '@ihui/i18n/messages/extension/zh-TW.json'
 import { enumLabel, SUBAGENT_ROLE_KEY } from '../entrypoints/sidepanel/components/MessageContent'
 import {
-  DECISION_KEY,
   DANGER_LEVEL_KEY,
   MODE_KEY,
 } from '../entrypoints/sidepanel/components/AgentRuntimePanel'
@@ -58,16 +57,18 @@ function resolveKey(locale: unknown, path: string): unknown {
 
 // 端内取词器对缺失键会原样回显键名,所以"parity 通过"不等于"界面上是中文"。
 // 这里把映射表里的每个键按真实语言包逐条解析,防止把错键名塞进 UI。
+// (decision 字段的取值词不在此列:D55② 起走共享 permissionDecisionWord +
+//  packages/i18n shared 词包 stepDecision.*,该路径的可解析性由
+//  tests/agent-runtime-permission-decision.test.tsx 咬住。)
 describe('枚举映射表键可解析', () => {
   const allKeys = [
     ...Object.values(SUBAGENT_ROLE_KEY),
-    ...Object.values(DECISION_KEY),
     ...Object.values(DANGER_LEVEL_KEY),
     ...Object.values(MODE_KEY),
   ]
 
   it('映射表非空', () => {
-    expect(allKeys.length).toBe(24)
+    expect(allKeys.length).toBe(21)
   })
 
   // SearchPage 的 ItemType 映射表:从源码文本里取键,不镜像常量(页面模块含 chrome 依赖,不适合在测试里 import)
