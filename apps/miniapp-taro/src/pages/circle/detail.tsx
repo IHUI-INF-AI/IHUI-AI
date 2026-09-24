@@ -322,9 +322,10 @@ export default function CircleDetailPage() {
                 {tt('circle.detail.commentsTitle', '评论')} {commentTotal}
               </Text>
               {commentTotal > comments.length ? (
-                <Text className="cd-comments-more" onClick={goCommentList}>
-                  {tt('circle.detail.viewMore', '查看更多')} ›
-                </Text>
+                <View className="cd-comments-more" onClick={goCommentList} hoverClass="opacity-60">
+                  <Text>{tt('common.more', '更多')}</Text>
+                  <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
+                </View>
               ) : null}
             </View>
             {comments.length ? (

@@ -1519,7 +1519,7 @@ export function HomeScreen() {
         <View style={shellStyles.agentListWrap}>
           <MoreTitles
             title="AI 应用商店"
-            moreText="查看更多"
+            moreText={t('common.more')}
             onMore={() => rootNav?.navigate('AiAssistant', {})}
           />
           <AgentShopList

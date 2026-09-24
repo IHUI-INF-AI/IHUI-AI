@@ -7,6 +7,7 @@ import { View, Text } from '@tarojs/components'
 import type { CSSProperties, ReactNode } from 'react'
 import { getRnTokens, type RnThemeTokens, type RnThemeMode } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
+import LineIcon from '@/components/LineIcon'
 import type { TFunction } from '@ihui/types'
 
 /**
@@ -36,8 +37,7 @@ export interface SectionHeaderProps {
 }
 
 const SUBTITLE_GAP = 8
-const ARROW_GAP = 4
-const DEFAULT_FALLBACK = t('common.viewMore')
+const DEFAULT_FALLBACK = t('common.more')
 
 /** 容器样式(独立函数避免联合类型) */
 const containerStyle = (): CSSProperties => ({
@@ -67,12 +67,7 @@ const textStyles = {
   }),
   moreLabel: (tk: RnThemeTokens): CSSProperties => ({
     fontSize: 12,
-    color: tk.brand.DEFAULT,
-  }),
-  moreArrow: (tk: RnThemeTokens): CSSProperties => ({
-    marginLeft: ARROW_GAP,
-    fontSize: 12,
-    color: tk.brand.DEFAULT,
+    color: tk.text.secondary,
   }),
 }
 
@@ -103,7 +98,7 @@ export function SectionHeader({
       return v
     })
 
-  const moreLabel = moreText ?? (tFn ? tFn('common.viewMore') : DEFAULT_FALLBACK)
+  const moreLabel = moreText ?? (tFn ? tFn('common.more') : DEFAULT_FALLBACK)
 
   // Taro 端样式:把 px 转为 rpx 字符串(weapp-taitwindcss 在编译时也能识别 number)
   const titleStyle: CSSProperties = {
@@ -116,10 +111,6 @@ export function SectionHeader({
   }
   const moreLabelStyle: CSSProperties = {
     ...textStyles.moreLabel(tk),
-    fontSize: toRpx(12),
-  }
-  const moreArrowStyle: CSSProperties = {
-    ...textStyles.moreArrow(tk),
     fontSize: toRpx(12),
   }
 
@@ -143,7 +134,12 @@ export function SectionHeader({
             hoverClass="opacity-60"
           >
             <Text style={moreLabelStyle}>{moreLabel}</Text>
-            <Text style={moreArrowStyle}>{'>'}</Text>
+            <LineIcon
+              name="chevron-right"
+              size={24}
+              color={tk.text.secondary}
+              style={{ marginLeft: toRpx(2) }}
+            />
           </View>
         ) : null}
       </View>

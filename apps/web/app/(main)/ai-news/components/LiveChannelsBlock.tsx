@@ -11,6 +11,7 @@ import { useTranslations } from 'next-intl'
 import { Radio, Eye, User } from 'lucide-react'
 import { Card, CardContent } from '@ihui/ui-react'
 import { Badge } from '@/components/data'
+import { ViewMoreLink } from '@/components/common/view-more-link'
 import { getFormatters } from '@/lib/date-utils'
 import { getInitials } from '@/components/data/Avatar'
 import type { AiLiveChannel } from '@/lib/ai-news-api'
@@ -41,6 +42,7 @@ function CoverImage({ src, alt, sizes }: { src: string; alt: string; sizes: stri
 
 export function LiveChannelsBlock({ channels }: Props) {
   const t = useTranslations('aiNews')
+  const tc = useTranslations('common')
   const locale = React.useMemo(() => {
     if (typeof document === 'undefined') return 'zh-CN'
     return document.documentElement.lang || 'zh-CN'
@@ -71,12 +73,7 @@ export function LiveChannelsBlock({ channels }: Props) {
           </h2>
           <p className="text-xs text-muted-foreground">{t('live.subtitle')}</p>
         </div>
-        <Link
-          href="/live"
-          className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-        >
-          {t('live.viewMore')}
-        </Link>
+        <ViewMoreLink label={tc('more')} href="/live" />
       </div>
       <div className="grid grid-cols-1 gap-4 p-3 pt-3 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-4">
         {channels.map((c) => (
