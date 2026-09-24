@@ -6901,3 +6901,24 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
   `git-sync-converge.mjs` ` M` 带出 union-converge 挂点 1 枚),本票不代清 —— 代改会把别人的半成品一起提交;
   `test:scripts` 片 2 在登记时仍未跑完,**不拿未完成的分片当结论**;④ R8(声称可跳过而无人读的常驻核验)仍是**待办**,
   本票只把假背书删干净并留下审计数据。
+    - **混合提交标注(§12c)**：本会话的 PLAN 提交 `78054b7f2ef` 共 87 行插入，其中**只有 3 行属本票**(守门 57 义务缺门结论 / knip 基线归因 / 本机非生产机环境事实)，其余 **84 行是并行会话登记在本文件里的未提交内容**(含"第四十一批"批次标题、D106 / D111 等任务行) —— 活文档按整文件 pathspec 提交，结构上必然捎带他人已在工作树但未提交的行；此处只登记事实与归属，**不据此回退任何一行**，也请后继者不要把那 84 行的撰写算到本票头上。
+- **未闭环① 的同批后续回读(前向补登,不改写上文任何一行)**:
+  - `style-spec` 已回读为**连续 3 次 success**(含本会话 `21885aa76`),而其 11:30–11:49 的三次 failure
+    正是同一枚未豁免的 `!important` —— 本票的归因与修法成立。
+  - `e2e` 到本条写入时**仍 in_progress**(连续 4 次触发都没落终态,该 job 本身要跑 30+ 分钟),
+    依旧**不得声称已修**;判据 = `gh run list --workflow e2e --json conclusion` 出终态。
+  - `OpenAPI Check`:**桩键平台缺陷已被修好** —— CI 日志里 drizzle 真执行 `CREATE TABLE` 与
+    `ERR_MODULE_NOT_FOUND` 双双消失,这是本票那枚 `normalizeStubKey` 的直接效果。但同一条门现在红在
+    **它本该管的事**上:committed `apps/api/openapi.json` 落后 HEAD 源码 **11 处**(实测点名
+    `/api/agent-runs`、`/api/agent-runs/list`、`/api/agent-runs/resolve/{handle}`、
+    `/api/chat/messages/feedback`、`/api/credits/usage/daily`、`/api/github-app/health`、
+    `/api/github-app/webhook`、`/api/publish/accounts/health-summary`、`/v1/agents/execute` 的
+    `permissionMode.description`、`/v1/messages/subscribe/{id}` 的 200 schema)。
+  - **本票不重生成,且要说清为什么"重生成"不是解药**:① 本机 `pnpm openapi:export` 读的是**共享工作树**,
+    整篇重生成会把他人未提交的 `routes/chat.ts` 等半成品路由一起烤进对外契约(实测多 312 行,已在
+    `7fec1869e4e` 的提交信息里拒绝过);② 提交链里那道 openapi 门**不做漂移比对**
+    (自检输出原话:`[E] 漂移比对:未启用(CI 用 --fresh 或 export 后 git diff --exit-code)`),
+    所以只要还有人加路由不重跑 export,任何一次重生成都会在下一枚提交上重新变红。
+    **正解是顺序化的两步**:先把存量 11 处清零(须等路由类在飞改动入库后做一次归一重生成),
+    **再**把 `--fresh` 比对接进提交链 —— 顺序颠倒就等于造一台恒红门,唯一结局是人人 `--no-verify`。
+    归属:下一次动 `apps/api/src/routes/**` 的票(它必须在同票重跑 export),或一张专门的契约归一门票。
