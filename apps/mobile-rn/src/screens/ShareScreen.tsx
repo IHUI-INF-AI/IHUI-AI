@@ -523,7 +523,7 @@ function createStyles(tk: RnThemeTokens) {
     shareBtn: {
       height: 46,
       borderRadius: rnRadius.lg,
-      backgroundColor: tk.brand.ctaFill,
+      backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
     } as ViewStyle,
@@ -533,7 +533,7 @@ function createStyles(tk: RnThemeTokens) {
     shareBtnText: {
       fontSize: 15,
       fontWeight: '600',
-      color: tk.brand.ctaText,
+      color: tk.brand.foreground,
     } as TextStyle,
   })
 }

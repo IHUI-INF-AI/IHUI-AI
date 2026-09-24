@@ -178,7 +178,7 @@ export default function TokenValueScreen() {
           onRefresh={onRefresh}
           onRecharge={handleRecharge}
           onBack={() => navigation.goBack()}
-        />
+         colorScheme={resolvedTheme}/>
       </View>
     </View>
   )
