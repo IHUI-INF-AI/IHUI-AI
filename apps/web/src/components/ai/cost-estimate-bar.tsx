@@ -48,7 +48,7 @@ export function CostEstimateBar() {
             setPendingConfirm(null)
           }}
           data-testid="cost-confirm-send"
-          className="shrink-0 rounded-md bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          className="shrink-0 rounded-md bg-cta px-2.5 py-1 text-[11px] font-medium text-cta-foreground transition-colors hover:bg-cta/90"
         >
           {t('confirmSend')}
         </button>

@@ -151,7 +151,7 @@ export default function MemoryManagerPage() {
           </button>
           <button
             onClick={() => setNewOpen((v) => !v)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-cta px-3 py-1.5 text-sm font-medium text-cta-foreground transition hover:opacity-90"
           >
             <Plus className="h-4 w-4" /> {t('add')}
           </button>
@@ -228,7 +228,7 @@ export default function MemoryManagerPage() {
             <button
               onClick={() => void handleCreate()}
               disabled={!newContent.trim()}
-              className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
+              className="rounded-lg bg-cta px-3 py-1.5 text-sm font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
             >
               {t('save')}
             </button>
@@ -270,7 +270,7 @@ export default function MemoryManagerPage() {
             return (
               <div key={entry.memory_id} className="rounded-xl border p-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
+                  <span className="rounded bg-cta/10 px-1.5 py-0.5 text-xs font-medium text-primary">
                     {label}
                   </span>
                   <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">

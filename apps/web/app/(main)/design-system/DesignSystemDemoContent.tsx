@@ -29,7 +29,7 @@ import { Container } from '@/components/layout'
 import { BackButton } from '@/components/common'
 
 const COLORS: { name: string; token: string; className: string }[] = [
-  { name: 'Primary', token: 'bg-primary text-primary-foreground', className: 'bg-primary' },
+  { name: 'Primary', token: 'bg-cta text-cta-foreground', className: 'bg-primary' },
   { name: 'Secondary', token: 'bg-secondary text-secondary-foreground', className: 'bg-secondary' },
   { name: 'Accent', token: 'bg-accent text-accent-foreground', className: 'bg-accent' },
   {
@@ -136,7 +136,7 @@ export function DesignSystemDemoContent() {
           {SPACINGS.map(({ name, className, px }) => (
             <div key={name} className="space-y-2">
               <div className="flex h-12 items-end">
-                <div className={`rounded-sm bg-primary/80 ${className}`} />
+                <div className={`rounded-sm bg-cta/80 ${className}`} />
               </div>
               <div className="text-xs">
                 <div className="font-medium text-foreground">{name}</div>

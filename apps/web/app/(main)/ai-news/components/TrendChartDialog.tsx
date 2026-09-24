@@ -117,7 +117,7 @@ export function TrendChartDialog({ itemId, title, open, onClose }: Props) {
               onClick={() => setWindow(w)}
               className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
                 window === w
-                  ? 'bg-primary text-primary-foreground'
+                  ? 'bg-cta text-cta-foreground'
                   : 'bg-background/60 text-muted-foreground hover:bg-accent hover:text-foreground'
               }`}
             >

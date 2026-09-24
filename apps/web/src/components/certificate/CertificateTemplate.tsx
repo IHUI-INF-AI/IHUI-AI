@@ -225,7 +225,7 @@ export const CertificateTemplate = React.forwardRef<HTMLDivElement, CertificateT
               type="button"
               onClick={onPrint}
               className={cn(
-                'inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90',
+                'inline-flex h-9 items-center gap-1.5 rounded-md bg-cta px-3 text-sm font-medium text-cta-foreground transition-colors hover:bg-cta/90',
                 '[&>span]:translate-y-[var(--text-vcenter-offset)]',
               )}
             >
