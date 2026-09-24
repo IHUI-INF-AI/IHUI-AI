@@ -112,7 +112,7 @@ scrape_configs:
           layer: 'infra'
 
   # 告警中转 bridge 自监控(原生 9096,/health 返回 JSON;Prometheus 只看 HTTP 200 → up metric,
-  # 配合 alerts.yml 的 AlertBridgeDown 及时发现微信推送链路断裂)
+  # 配合 alerts.yml 的 AlertBridgeDown 及时发现运维邮件链路断裂)
   - job_name: 'alertbridge'
     metrics_path: '/health'
     scheme: 'http'
