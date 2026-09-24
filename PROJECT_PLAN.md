@@ -6242,3 +6242,41 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
 - [x] ✅(2026-09-24) **记我造成的两件事,别只记成绩**:① **重复票** —— 我先登记 O49(已推送),随后因远端推进又改了基线选取逻辑重跑取号脚本,而脚本**只校验"我要用的新号是否唯一"**,于是取 `max+1 = O50` 把**同样正文**又写了一遍。前向撤销(只删我自己那节 12 行,断言区外每行逐字节不变 ∧ O49 仍 1 份 ∧ 独有句仍 1 份,提交 `e5a9bfce74f`),并已把"**取号脚本的幂等判据必须内容级**"写进记忆。**本次登记 O51 的脚本已加这道闸**:标题正文若已在基线出现 ⇒ 直接退出。② **误删链接** —— 我为"让 pnpm 自己 relink"删掉了那条悬空的 `@tarojs/taro`,结果 install 每轮都在被 8801 锁住的 `@next/swc` 上 EPERM 中止 ⇒ relink 永远走不到,我等于把现场改成了"缺链接"。先按原样补回、再用 lockfile 权威值重建。**教训:删依赖树里的东西之前,先证明"重建它的那条路真能跑通"。**
 - [x] ✅(2026-09-24) **验收与测试账**:门 78 `--self-test` 13→16 例(新增"空目标必红 + `existsSync` 前提不成立即显式失败"、"hoist 传递依赖不得算假阳"、"lint-staged 命令提取三形态"、"命令无 shim 必红 / 补 shim 必绿")、镜像测试 8→9 例全绿、真仓 `扫 637 条 / 钩子命令 2 条(解析不到 0 条)`;根 `.bin` 恢复实测 `eslint v10.8.1` / `tsc 5.9.3` / `prettier 3.9.6`,`pnpm --filter @ihui/api run typecheck` 真跑 `tsc --noEmit` 通过。**注意一条诚实边界**:链恢复后 eslint 立刻又在我自己文件里咬出 1 个 error(`catch (e)` 的 `e` 未使用)⇒ 停摆期间"本地自测全绿"是有水分的。
 - **O51 残余(不写作收口)**:① **依赖树仍会被并发 install 打到闪红**:门 78 现测红点随另一会话的 `pnpm install` 在 0↔4 之间跳(`.pnpm` 内实测残留 32 枚 `*_tmp_*` 半复制目录)。② **根因卡在需要重启窗口**:`@next/swc-win32-x64-msvc` 被在跑的 8801 生产进程 memory-map ⇒ pnpm 的 `rename <dir>_tmp_N_M → <dir>` 必 EPERM,`pnpm install` 与 `--force` 每轮都在这一步中止。**处置交人工**:要么等 8801 自然重启窗口,要么由负责人授权停机重装;agent 侧不许为清红去杀生产进程。绕行补法已实测可用且可复核:从同版本 `_tmp_` 兄弟里 copy `package.json`(不删不换目录 ⇒ 不碰在跑进程)。③ **包级 shim 完整性(真仓 103 条)刻意不判红**:基线未证明(`apps/api` 无自身 `.bin` 而 typecheck 经根 `.bin` 通过;hoist 传递依赖按 pnpm 语义本就不建 shim)。要升档,取证动作 = 删 `apps/api/node_modules` → 全量 install → 数它实际建了几条,拿答案前不许拦人。④ 我这一票的门 78 代码提交是 `--no-verify` 落地的,**归因逐条查过不是本票**:hook 日志显示同一轮红点为 [44](`tmp_idlist_wt.txt` 他人在一级目录的临时文件,我已按可逆方式移入 `.ihui-agent/tmp/foreign-root-junk/` 原样保留未删)、[84](指向 `scripts/apply-icp-source-of-truth.mjs`,非我文件)、[78](并发 install 的半复制态);并按 [[git-revert-and-bypass-commits-skip-precommit]] 的规矩自行补跑了门 78 全量 / 门 89 全量 / 两套自检。⑤ README 守门表与新维度的 README 行仍未改(此刻由并发会话持有)。
+### 第三十八批(2026-09-24):部署环 BLOCKED-WIP 解阻 + 揪出"最新代码根本构建不出来"的两枚真缺陷
+
+- [x] ✅(2026-09-24) **现象与定位**:`IHUI-DEPLOYLOOP` 每 60s 一轮,连续 1.5h+ 停在
+  `git merge --ff-only FETCH_HEAD` 失败,生产冻结在 `2adbef331` 的旧构建(线上仍 web=200/api=200,
+  所以**没有任何红点提醒**)。失败原因不是 ref 抖动也不是网络:`.husky` 之外的 `deploy/win/ihui-deploy.ps1:1069`
+  无条件尝试 ff,而 git 只因**与上游重叠的 4 个未提交文件**拒绝。实测口径值得记:**部署环只对
+  "与上游改到的路径重叠"的脏文件敏感**,其余 42 个脏文件与 2 个未跟踪文件完全不挡合并
+  (`dirty∩upstream=0` 时 ff 可过)——所以正确动作是只处理那 4 个,不是去清扫整片工作树。
+- [x] ✅(2026-09-24) **四处冲突按并集做,而不是按"谁的更新"覆盖**:其中 2 个(`NavBar`/`DevErrorToast`)
+  工作树与上游逐字节相同;`App.tsx` 取本地(它如实记下 `packages/app/.../SearchScreen.tsx` 仍留
+  `paddingTop: 48`,已用 `git show e070fb273:` 复核上游那行确实还在,而上游注释把它列进"已摘"是与代码不符);
+  `PostCreateScreen` 的本地版**是坏的** —— 它删掉了 `rnRadius` 的 import 却在第 108 行继续用
+  `rnRadius['2xl']`,正是上游 `7c283beca`「第三次同型」要修的悬空引用。故改以上游版为底叠加本地意图,
+  提交 `5e158f6a9`。四个文件在改动前先双份备份(工作树版 + 上游版)于 `.ihui-agent/tmp/wip-rescue/`。
+- [x] ✅(2026-09-24) **合并提交前的活文档对账用"两侧父提交"而不是只一侧**:`PROJECT_PLAN.md` 冲突按
+  union 双保留后,对 `HEAD` 与 `e070fb273` 分别做行级 ⊇ —— 上游侧缺 0 行,本地侧唯一"缺失"行是
+  D89 的 `- [ ]` 未完成态,而上游已把它闭合成 `- [x]` 并扩写(上游 1126 字符**包含**本地 315 字符全文,
+  用 `includes` 验过中/尾两段)。**只比一侧会把"状态单调化"误判成丢行**,反之只比 HEAD 又看不见上游丢了什么。
+- [x] ✅(2026-09-24) **缺陷一(已修,`e77ca9e99`)**:`packages/shared/src/chat/index.ts` 的三枚
+  `export * from './voice-note' | './prompt-drafts' | './history-projection'` 指向**全仓任何 ref 上都不存在**
+  的模块(`git log --all -- <path>` 三行皆空),即 D43/D36/D35 的出口先入库、模块从未落地。
+  它是**构建阻塞**而不是类型问题:`apps/web/next.config.ts:63` 设了 `typescript.ignoreBuildErrors: true`,
+  tsc 报错从不拦 `next build`,但 `export * from` 解析不到是 bundler 的 Module not found,该开关零覆盖;
+  而 `@ihui/shared` 的 `exports["."]` 直指 `src/index.ts`、`index.ts:19` 再 `export * from './chat'`、
+  apps/web 有 28 个文件 import 根 barrel ⇒ 整个 web 端不可构建。修法只摘出口不造模块(造=新增功能,§24),
+  票号与"落地后逐行去掉注释即恢复"留在原处。验证:`@ihui/shared` typecheck 由 3×TS2307 → exit 0。
+- [ ] **缺陷二(未闭环,需用户决定)**:`apps/web/package.json` 声明的 `xlsx`(锁里是 `@e965/xlsx@0.20.3` 别名)
+  /`docx-preview@^0.3.5`/`jszip@^3.10.1` **三者在依赖树里根本没装**(97 个声明依赖精确缺这 3 个;
+  `jszip`/`@e965+xlsx` 在 `.pnpm` 里但没链进 `apps/web/node_modules`,`docx-preview` 连 store 都没有)。
+  这就是 `office-preview.tsx` 三处 Module not found 的真因 —— **与那 42 个未提交文件无关**:
+  该文件的 import 在 HEAD 版本里就有(实测 4 处)。`pnpm install` 只回 "Already up to date"(285ms),
+  与 §12e 记的那型同源。npmmirror 可达(实测 `npm view docx-preview` 200),但同批另一会话已写下
+  更尖锐的教训:"install 每轮都在被 8801 锁住的 `@next/swc` 上 EPERM 中止 ⇒ relink 永远走不到"。
+  所以补齐这 3 条链接大概率要**短停 `IHUI-WEB`** 再装 —— 那是有意的生产瞬时中断,归用户定档,本会话不擅自停服务。
+- [x] ✅(2026-09-24) **登记一条"文档隐形"实证**:AGENTS.md 通篇登记守门 **97 `check-statusbar-single-source.mjs`**
+  (三判据 + 20 例 self-test + 镜像测试 + 装车证明,写得很完整),但**该脚本文件在全仓不存在**
+  (`git cat-file -e e070fb273:scripts/check-statusbar-single-source.mjs` 失败、`find` 零命中、
+  `guardian-runner.mjs` 里也没有它的注册块)。这是守门 89 R1/R2 那类的现状样本:登记文本比实现跑得快。
