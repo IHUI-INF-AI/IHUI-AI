@@ -77,6 +77,7 @@ export function SearchScreen() {
       <View style={styles.body}>
         <SharedSearchScreen
           t={t}
+          colorScheme={resolvedTheme}
           keyword={keyword}
           results={results}
           loading={loading}
