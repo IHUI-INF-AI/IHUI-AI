@@ -8,6 +8,7 @@ import * as React from 'react'
 import { Wrench, Loader2, Play } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { Button, CloseButton, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
@@ -31,6 +32,9 @@ interface ToolExecResult {
   timedOut: boolean
 }
 
+/** 层栈 id(见 @/lib/overlay-stack):工具执行结果遮罩的 Esc 只在栈顶时被消费 */
+const TOOL_RESULT_OVERLAY_ID = 'admin-clawdbot-tools-result'
+
 export default function ClawdbotToolsPage() {
   const [tools, setTools] = React.useState<ToolItem[]>([])
   const [loading, setLoading] = React.useState(true)
@@ -53,6 +57,15 @@ export default function ClawdbotToolsPage() {
   React.useEffect(() => {
     void load()
   }, [load])
+
+  // 层栈:结果遮罩打开即入栈为栈顶,Esc 只由栈顶消费(多层同开时不再一起关)
+  React.useEffect(() => {
+    if (!result) return
+    pushOverlay(TOOL_RESULT_OVERLAY_ID)
+    return () => {
+      popOverlay(TOOL_RESULT_OVERLAY_ID)
+    }
+  }, [result])
 
   const testTool = async (name: string) => {
     setTesting(name)
@@ -166,7 +179,10 @@ export default function ClawdbotToolsPage() {
           tabIndex={0}
           onClick={() => setResult(null)}
           onKeyDown={(e) => {
-            if (e.key === 'Escape') setResult(null)
+            if (e.key === 'Escape') {
+              if (!isTopOverlay(TOOL_RESULT_OVERLAY_ID)) return
+              setResult(null)
+            }
           }}
         >
           <div

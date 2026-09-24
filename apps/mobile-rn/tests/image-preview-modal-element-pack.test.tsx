@@ -42,13 +42,20 @@ const SOURCES: ImageSourcePropType[] = [
   { uri: 'https://img.test/b.png' },
   { uri: 'https://img.test/c.png' },
 ]
+// 本包开了 noUncheckedIndexedAccess ⇒ SOURCES[n] 带 undefined，而组件 props 收的是
+// `ImageSourcePropType | null`。先验形再用，不用 `!`/`as` 把类型洞糊掉。
+function srcAt(i: number): ImageSourcePropType {
+  const s = SOURCES[i]
+  if (!s) throw new Error(`测试夹具缺第 ${i} 项`)
+  return s
+}
 
 const buttons = (container: HTMLElement) => Array.from(container.querySelectorAll('button'))
 
 describe('ImagePreviewModal 消费 element-pack(mobile-rn)', () => {
   it('多图默认:计数(1 基)与 100% 缩放渲染', () => {
     const { container, getByText } = render(
-      <ImagePreviewModal visible source={SOURCES[0]} onClose={() => {}} sources={SOURCES} />,
+      <ImagePreviewModal visible source={srcAt(0)} onClose={() => {}} sources={SOURCES} />,
     )
     expect(getByText(`${NS}.imagePreview.counter:{"index":1,"total":3}`)).toBeTruthy()
     expect(getByText('100%')).toBeTruthy()
@@ -58,7 +65,7 @@ describe('ImagePreviewModal 消费 element-pack(mobile-rn)', () => {
 
   it('翻页走 pageImage:next 前进,首张 prev 循环到末张', () => {
     const { container, getByText } = render(
-      <ImagePreviewModal visible source={SOURCES[0]} onClose={() => {}} sources={SOURCES} />,
+      <ImagePreviewModal visible source={srcAt(0)} onClose={() => {}} sources={SOURCES} />,
     )
     const [, , prev, next] = buttons(container)
     fireEvent.click(next!)
@@ -77,7 +84,7 @@ describe('ImagePreviewModal 消费 element-pack(mobile-rn)', () => {
     const { getByText } = render(
       <ImagePreviewModal
         visible
-        source={SOURCES[0]}
+        source={srcAt(0)}
         onClose={() => {}}
         sources={SOURCES}
         initialIndex={99}
@@ -88,7 +95,7 @@ describe('ImagePreviewModal 消费 element-pack(mobile-rn)', () => {
 
   it('缩放走 zoomStep 档位:连进到顶 200%,连出到底 50%(钳制不循环)', () => {
     const { container, getByText } = render(
-      <ImagePreviewModal visible source={SOURCES[0]} onClose={() => {}} sources={SOURCES} />,
+      <ImagePreviewModal visible source={srcAt(0)} onClose={() => {}} sources={SOURCES} />,
     )
     const [, , , , zoomOut, zoomIn] = buttons(container)
     for (let i = 0; i < 6; i++) fireEvent.click(zoomIn!)
@@ -106,7 +113,7 @@ describe('ImagePreviewModal 消费 element-pack(mobile-rn)', () => {
     const { container, findByText } = render(
       <ImagePreviewModal
         visible
-        source={SOURCES[0]}
+        source={srcAt(0)}
         onClose={() => {}}
         sources={SOURCES}
         onTransfer={onTransfer}
@@ -143,7 +150,7 @@ describe('ImagePreviewModal 消费 element-pack(mobile-rn)', () => {
   it('onClose 经遮罩点击仍生效', () => {
     const onClose = vi.fn()
     const { container } = render(
-      <ImagePreviewModal visible source={SOURCES[0]} onClose={onClose} sources={SOURCES} />,
+      <ImagePreviewModal visible source={srcAt(0)} onClose={onClose} sources={SOURCES} />,
     )
     fireEvent.click(buttons(container)[0]!)
     expect(onClose).toHaveBeenCalledTimes(1)

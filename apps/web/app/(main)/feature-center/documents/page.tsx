@@ -30,6 +30,7 @@ import { Tooltip } from '@/components/feedback'
 import { Card, CardContent, Input, Button } from '@ihui/ui-react'
 import { FeatureCenterHeader, FeatureCenterNav } from '@/components/feature-center'
 import { formatDateOnly } from '@/lib/date-utils'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 
 interface DocItem {
   id: string
@@ -171,6 +172,9 @@ function CodeBlock({ children, ...props }: React.ComponentProps<'pre'>) {
     </div>
   )
 }
+
+/** 层栈 id(见 @/lib/overlay-stack):文档预览 modal 的 Esc 只在栈顶时被消费 */
+const DOC_PREVIEW_OVERLAY_ID = 'feature-center-documents-preview'
 
 export default function DocumentsPage() {
   const t = useTranslations('featureCenter.documents')
@@ -320,14 +324,20 @@ export default function DocumentsPage() {
   // ESC 关闭预览 modal
   React.useEffect(() => {
     if (!previewDoc) return
+    // 层栈:预览 modal 打开即入栈为栈顶;Esc 只由栈顶消费(多层同时打开时不再一起关)
+    pushOverlay(DOC_PREVIEW_OVERLAY_ID)
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
+        if (!isTopOverlay(DOC_PREVIEW_OVERLAY_ID)) return
         e.preventDefault()
         closePreview()
       }
     }
     window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
+    return () => {
+      popOverlay(DOC_PREVIEW_OVERLAY_ID)
+      window.removeEventListener('keydown', onKeyDown)
+    }
   }, [previewDoc])
 
   // 把 markdown 中的相对 .md 链接改写为可点击的内部导航
