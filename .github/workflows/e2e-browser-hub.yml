@@ -85,7 +85,12 @@ env:
   JWT_SECRET: test-jwt-secret-for-e2e-0123456789abcdef
   CREDENTIALS_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
   DATABASE_URL: postgres://ihui:ihui_test@localhost:5432/ihui_test
-  AI_SERVICE_LOG: ${{ runner.temp }}/ai-service-browser-hub.log
+  # AI_SERVICE_LOG 不得写成 `${{ runner.temp }}/...`:workflow 级 env 只允许
+  # github/inputs/secrets/vars 四个 context(job 级 env 同样不含 runner),该表达式会被
+  # Actions 解析器在**编译期**整文件拒绝 —— 症状正是本 workflow 连红 20+ 轮的形态:
+  # 0 jobs / log not found / run 名退化为文件路径。同一 job 共享 VM,用 /tmp 字面量等价
+  # (与本文件既有探针落点 /tmp/ai-health.json、/tmp/probe-body.txt 同一口径)。
+  AI_SERVICE_LOG: /tmp/ai-service-browser-hub.log
 
 jobs:
   browser-hub-e2e:
@@ -171,7 +176,9 @@ jobs:
         # 不配对,都会表现为后面 e2e 里的 500,而那时日志已被三个服务混在一起)。
         run: |
           set -euo pipefail
-          echo "node   playwright: $(cd apps/web && pnpm exec playwright --version)"
+          # 本步 working-directory 是 apps/ai-service,相对路径 `cd apps/web` 必然失败
+          # (set -e 直接红)⇒ 用 $GITHUB_WORKSPACE 绝对路径。
+          echo "node   playwright: $(cd "$GITHUB_WORKSPACE/apps/web" && pnpm exec playwright --version)"
           echo "python playwright: $(python -c 'import importlib.metadata as m; print(m.version("playwright"))')"
           python - <<'PY'
           import asyncio
@@ -205,6 +212,14 @@ jobs:
         # web 产物引用 @ihui/database 的 dist;缺此步 next build 预渲染会
         # ERR_MODULE_NOT_FOUND(与 e2e.yml 同一教训)。
         run: pnpm --filter @ihui/database run build
+
+      - name: Build api-client package
+        # 抄自 e2e.yml 同名步骤(那条自 2026-08 在位,本文件创建时漏抄):
+        # @ihui/api-client 的 main/module/types/exports 全指向 ./dist/* 且 dist 不入库,
+        # 而 `pnpm --filter <pkg> run build` 不带 `...` 不做拓扑构建 ⇒ 不先建它就
+        # 构建 api/web 必 Module not found(任务书诊断序第 2 条,正解先例
+        # openapi-check.yml:77)。
+        run: pnpm --filter @ihui/api-client build
 
       - name: Build API
         run: pnpm --filter @ihui/api run build
