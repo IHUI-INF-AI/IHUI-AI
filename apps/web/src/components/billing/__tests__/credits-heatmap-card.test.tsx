@@ -21,7 +21,13 @@ describe('D64 ① Credits 热力图卡', () => {
   afterEach(() => cleanup())
 
   it('无数据一律不渲染(不编造样例、不留空壳)', () => {
-    for (const empty of [undefined, {}, { '': 3, '2026-09-24': Number.NaN }]) {
+    // 显式标注形态:不标注时数组元素会被推成"属性可选化且含 undefined"的并集,与 prop 类型不匹配
+    const emptyCases: Array<Record<string, number> | undefined> = [
+      undefined,
+      {},
+      { '': 3, '2026-09-24': Number.NaN },
+    ]
+    for (const empty of emptyCases) {
       const { container } = render(<CreditsHeatmapCard dayCounts={empty} />)
       expect(container.textContent).toBe('')
       cleanup()
