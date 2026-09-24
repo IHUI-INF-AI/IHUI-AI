@@ -51,6 +51,8 @@ export const HOT = [
   'scripts/git-refs-heal.mjs',
   'scripts/git-rebuild-local.mjs',
   'scripts/git-sync-converge.mjs',
+  //  union-converge 由收敛器与守护两条链派生,一次合并要 ls-tree 多棵全量树 ⇒ 必须封顶
+  'scripts/union-converge.mjs',
   'scripts/git-push-guard.mjs',
   'scripts/git-push-converge.mjs',
   'scripts/heal-worktree-tracked.mjs',
