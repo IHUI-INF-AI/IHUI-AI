@@ -41,11 +41,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 // 平台映射判据唯一真相源(与 scripts/generate-latest-json.mjs 共用,勿在此二次实现)
-import {
-  inferPlatformForPackage,
-  buildUpdaterPlatforms,
-  findPlatformAmbiguity,
-} from './lib/tauri-updater-platforms.mjs'
+import { inferPlatformForPackage, buildUpdaterPlatforms } from './lib/tauri-updater-platforms.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -418,17 +414,9 @@ function withUpdaterPlatforms(data) {
   }))
   const seenNames = new Set(assetEntries.map((e) => e.name))
   const extras = (updaterEntries || []).filter((e) => !seenNames.has(e.name))
-  const all = [...assetEntries, ...extras]
-  // 同优先级、同版本匹配、签名却不同的候选 = 择优靠"保留首个"静默决定。
-  // 2026-09-24 实测 Gitee 上真同时挂着 CI 与本机通道两份 Windows exe ⇒ 必须吼出来。
-  for (const a of findPlatformAmbiguity(all, { version: data.version })) {
-    console.warn(
-      `[resolve] ⚠ 平台键歧义 ${a.platform}:保留 ${a.kept},弃 ${a.dropped}(两者签名不同、优先级相同,顺序决定结果)`,
-    )
-  }
   return {
     ...rest,
-    updaterPlatforms: buildUpdaterPlatforms(all, { version: data.version }),
+    updaterPlatforms: buildUpdaterPlatforms([...assetEntries, ...extras], { version: data.version }),
   }
 }
 
