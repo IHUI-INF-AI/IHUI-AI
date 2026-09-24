@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 品牌邮件通道对账回归测试(守门 81)—— §22c 镜像测试:直接 import 源函数,禁止复制实现
+// 品牌邮件通道对账回归测试(守门 81)—— §22c 镜像测试:直接 import 源函数,禁止复制判据实现
 //
 // 成因:邮件"版式模板"只存在于 apps/api/src/services/email-templates.ts,但 ops 侧曾存在
 // 绕过模板的自发通道(PowerShell 自拼 Send-MailMessage 纯文本 + Resend payload 只有 text)。
@@ -10,6 +10,10 @@
 // "本地全绿也发现不了"。本测试钉住:①判据纯函数的正反成对语义;②真仓当前不变量
 // (存量已冻结在基线,新增通道必红);③**装车证明** —— guardian-runner 必须真的注册了
 // 这道门(§22c「造好没装车」教训,78/79/80 同款)。
+// 2026-09-24 R4(告警接收面)追加的成因:Alertmanager 原生 email_configs 发的是 Go 模板排版的
+// 无版式纯文本,渲染器结构上已封死,但"跑渲染"是人工动作 ⇒ 改 .tmpl 提交时全链零红。本测试同时
+// 钉死 ④R4 与渲染器**同一个 bridge 出口常量**(不许两处真相)、⑤R4 面真的读到 monitoring/alertmanager/**
+// (用注释字面量计数反证"扫不到所以恒绿",守门 52 教训)、⑥面不放宽成全仓 yml。
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -18,16 +22,21 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import { __test__ as gate } from '../check-brand-email-channel.mjs'
+// 渲染器是 bridge-only 结构的既有判据方:本门 R4 与它必须**同一个 bridge 出口值**。
+// §22d 的 isDirectRun 守卫保证 import 它不触发任何 CLI 副作用(不读文件、不派生 git)。
+import { __test__ as amRenderer } from '../render-alertmanager-config.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
 
-test('__test__ 出口齐备(§22c 锚点:PS 语句抽取器 / html 判据 / 版式手抄判据 / 豁免识别缺一不可)', () => {
+test('__test__ 出口齐备(§22c 锚点:PS 语句抽取器 / html 判据 / 版式手抄判据 / AM 接收面判据 / 豁免识别缺一不可)', () => {
   for (const fn of [
     'extractSendMailStatements',
     'findResendEndpointHits',
     'sendContextHasHtmlField',
     'findLayoutCopyHits',
+    'scanAlertmanagerSurface',
+    'isAlertmanagerSurfacePath',
     'isBrandExitScript',
     'isExemptAt',
     'judgeText',
@@ -37,7 +46,14 @@ test('__test__ 出口齐备(§22c 锚点:PS 语句抽取器 / html 判据 / 版�
     assert.equal(typeof gate[fn], 'function', `缺少导出 ${fn}`)
   }
   assert.equal(typeof gate.BRAND_EXIT_REL, 'string', 'carve 路径必须可被测试钉死,不得只在实现里硬写')
+  assert.equal(typeof gate.BRIDGE_URL, 'string', 'R4 的 bridge 出口必须是导出的常量,不得在判据里硬写')
 })
+
+test('R4 与渲染器同源:bridge 出口 URL 两处必须逐字等值(漂移就是"提交绿、跑渲染红"的成因)', () => {
+  assert.equal(gate.BRIDGE_URL, amRenderer.BRIDGE_URL, '本门 BRIDGE_URL 必须等于 render-alertmanager-config.mjs 的 BRIDGE_URL')
+  assert.equal(amRenderer.BRIDGE_URL, 'http://127.0.0.1:9096/alert', '渲染器侧常量若被改动,须同批改本门并跑一次渲染校验')
+})
+
 
 test('R1 正反成对:Send-MailMessage 缺 -BodyAsHtml 判红,补上判绿;续行合并正确', () => {
   const s = (t) => gate.judgeText('deploy/x.ps1', t).violations.filter((v) => v.rule === 'R1')
@@ -187,6 +203,89 @@ test('R3b 自拼 HTML 正文/手抄品牌版式:正例判红,四类反例判绿(
   assert.equal(hits[0].line, 3, '命中行必须是版式标记起始行,供人一眼定位')
 })
 
+// ══ R4 告警接收面(Alertmanager)正反成对 ══
+// 立项起因:AM 原生 email_configs 发的是 Go 模板的无版式纯文本(正是用户投诉"邮件没有样式"那一型),
+// 结构上渲染器 assertBridgeOnlySurface 已封死,但**跑渲染是人工动作** —— 有人往 .tmpl 加回一段
+// email_configs 直接 commit 时全链零红。本组测试钉死"改了提交就红",且证明面不是空转。
+const AM_CLEAN_TMPL = [
+  'global:',
+  '  resolve_timeout: 5m',
+  '',
+  'route:',
+  "  receiver: 'default-webhook'",
+  '',
+  'receivers:',
+  "  - name: 'default-webhook'",
+  '    webhook_configs:',
+  "      - url: 'http://127.0.0.1:9096/alert'",
+  '        send_resolved: true',
+].join('\n')
+const AM_TMPL_REL = 'monitoring/alertmanager/alertmanager.yml.tmpl'
+const r4Of = (rel, text) => gate.judgeText(rel, text).violations.filter((v) => v.rule === 'R4')
+
+test('R4a 正反:干净 bridge-only 模板判绿;加回 email_configs 或 global 下 smtp_* 判红并点名行', () => {
+  assert.equal(r4Of(AM_TMPL_REL, AM_CLEAN_TMPL).length, 0, '干净模板必须判绿(真仓现状的同构样本)')
+  const bad = r4Of(AM_TMPL_REL, AM_CLEAN_TMPL + "\n  - name: 'mail'\n    email_configs:\n      - to: 'ops@example.com'\n")
+  assert.equal(bad.length, 1, 'receiver 底下加回 email_configs 必须判红')
+  assert.equal(bad[0].line, 13, '点名行必须落在 email_configs 那一行')
+  assert.match(bad[0].reason, /R4a/)
+  const smtp = r4Of(AM_TMPL_REL, AM_CLEAN_TMPL.replace('  resolve_timeout: 5m', '  resolve_timeout: 5m\n  smtp_smarthost: smtp.example.net:587'))
+  assert.equal(smtp.length, 1, 'global 下 smtp_* 是同一张原生邮件面,必须同样判红')
+  // 反向对照:文件名换成非 AM 语境即不吃 R4(证明判据挂在语境上,不是"见 yml 就扫")
+  assert.equal(r4Of('monitoring/prometheus/prometheus.yml', AM_CLEAN_TMPL + '\n    email_configs:\n').length, 0)
+})
+
+test('R4b 正反:IM 中转 receiver 改名(feishu-copy)仍判红,且认 host/回调路径特征而非只认名字', () => {
+  const byName = r4Of(AM_TMPL_REL, AM_CLEAN_TMPL + "\n  - name: 'feishu-copy'\n")
+  assert.equal(byName.filter((v) => /R4b/.test(v.reason)).length, 1, '改名 feishu-copy 仍是 slug 命中')
+  const byHost = r4Of(
+    AM_TMPL_REL,
+    AM_CLEAN_TMPL + "\n  - name: 'alert-bot-copy'\n    webhook_configs:\n      - url: 'https://oapi.dingtalk.com/robot/send'\n",
+  )
+  assert.equal(byHost.filter((v) => /R4b/.test(v.reason)).length, 1, 'receiver 名字干净但 url 是钉钉回调域名 ⇒ 必红')
+  assert.equal(byHost.filter((v) => /R4c/.test(v.reason)).length, 1, '同一条 url 也必须是"非 bridge 出口"(两条子判据各自成立)')
+  // 反向:普通 slug 词出现在非 name/url 位置(如注释、matchers 标签值)不判
+  assert.equal(r4Of(AM_TMPL_REL, AM_CLEAN_TMPL + "\n  # wechat 中转已摘除\n").length, 0)
+})
+
+test('R4c 取向:url 换 host 但端口仍 9096(localhost)⇒ 判红,与渲染器同判据(不引第二份真相)', () => {
+  const v = r4Of(AM_TMPL_REL, AM_CLEAN_TMPL.replace('http://127.0.0.1:9096/alert', 'http://localhost:9096/alert'))
+  assert.equal(v.length, 1, 'bridge 按部署约定只绑 127.0.0.1,且渲染器判的是字面等值 —— 两道门取向必须一致')
+  assert.match(v[0].reason, new RegExp(gate.BRIDGE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+})
+
+test('R4 注释行:整行 YAML 注释不计红,但被禁字面量如实计数(废弃桩 alertmanager.yml 即此形态)', () => {
+  const st = gate.newStats()
+  const text = ['# 历史旁路:email_configs / smtp_smarthost 不可再加回', '# dingtalk / feishu receiver 已摘除', AM_CLEAN_TMPL].join('\n')
+  const res = gate.judgeText(AM_TMPL_REL, text, st)
+  assert.equal(res.violations.length, 0, '注释行不判红(与既有"注释行不计"取向一致)')
+  assert.ok(st.amCommentLiterals >= 4, `注释内被禁字面量必须如实计数,实得 ${st.amCommentLiterals}`)
+})
+
+test('R4 豁免只有既有两种姿势:行内 brand-mail-exempt 与基线棘轮,不新增白名单目录', () => {
+  const hot = AM_CLEAN_TMPL + "\n  - name: 'mail'\n    # brand-mail-exempt: 演练\n    email_configs:\n"
+  assert.equal(r4Of(AM_TMPL_REL, hot).length, 0, '紧邻上行标记可豁免(与 R1-R3 同一识别函数)')
+  const v = [{ path: AM_TMPL_REL, rule: 'R4', line: 12, snippet: '' }]
+  const st = gate.newStats()
+  assert.equal(gate.applyBaseline(v, { [`${AM_TMPL_REL}#R4`]: 1 }, st).length, 0, '基线棘轮的 key 形态对 R4 同样生效')
+  assert.equal(st.baselineTolerated, 1)
+})
+
+test('R4 面:只认 Alertmanager 语境,三种配置类扩展名都进;其余 yml/yaml 一律不进(未全仓扫)', () => {
+  assert.ok(gate.isScannedPath(AM_TMPL_REL))
+  assert.ok(gate.isScannedPath('monitoring/alertmanager/alertmanager.yml'))
+  assert.ok(gate.isAlertmanagerSurfacePath('monitoring/alertmanager/noise-rules.yml'))
+  assert.ok(gate.isAlertmanagerSurfacePath('deploy/prod-bundle/alertmanager.yml'), '文件名形态的 AM 主配置在别的目录也受管')
+  // 面外:这些是全仓 yml 假阳的实际来源,写死防"顺手放宽成 *.yml"
+  assert.ok(!gate.isScannedPath('monitoring/prometheus/prometheus.yml'), 'monitoring 内的非 AM 目录不得因 R4 进面')
+  assert.ok(!gate.isScannedPath('monitoring/loki/loki-config.yml'))
+  assert.ok(!gate.isScannedPath('docker-compose.yml'), 'compose 里历史注释就写着 dingtalk-webhook/feishu-webhook')
+  assert.ok(!gate.isScannedPath('.github/workflows/ci.yml.bak'))
+  // workflows/*.yml 本就在面内(判 R1-R3),但 R4 对它不生效
+  assert.ok(gate.isScannedPath('.github/workflows/ci.yml'))
+  assert.equal(r4Of('.github/workflows/ci.yml', "jobs:\n  a:\n    runs-on: ubuntu-latest\n    email_configs:\n").length, 0)
+})
+
 test('品牌出口 carve 精准到单一路径:出口不判 R2/R3 且如实计数,同目录邻居照判', () => {
   const MTS = ["const url = 'https://api.resend.com/emails'", "await fetch(url, { body: JSON.stringify({ text }) })"].join('\n')
   assert.equal(gate.BRAND_EXIT_REL, 'apps/api/scripts/notify-deploy-failure.ts', 'carve 路径钉死:它是本门推荐的唯一出口')
@@ -221,9 +320,23 @@ test('真仓不变量:全量审计判绿,且扩面真的在生效(不是又一�
   const res = gate.audit(REPO)
   assert.equal(res.code, 0, `检出未基线化违规:${JSON.stringify(res.violations)}`)
   assert.ok(res.stats.judged > 0, '一个在范围文件都没判定 = 判据空转,必须红')
-  // 扩面前 375,扩面后 427(+monitoring 1 / +apps-api-scripts 51)。留 420 余量给后续新增脚本。
-  assert.ok(res.stats.judged >= 420, `判定文件数 ${res.stats.judged} < 420 ⇒ 扩面被写回/失效`)
+  // 改前(HEAD 版跑真仓,同一取材面)实测 431;R4 三面(+alertmanager.yml / .yml.tmpl / noise-rules.yml)= 434。
+  // 下限留 430 容并行会话增删脚本;R4 面是否**真在生效**由下一行的 amCommentLiterals 钉死,不靠行数自证。
+  assert.ok(res.stats.judged >= 430, `判定文件数 ${res.stats.judged} < 430 ⇒ 扩面被写回/失效`)
   assert.equal(res.stats.brandExitSkipped, 1, '品牌出口未被判定 ⇒ apps/api/scripts/** 没进面(扩面回归)')
+  // 反"扫不到所以恒绿"(守门 52 教训):废弃桩 alertmanager.yml 通篇注释,内含 2 处 smtp_ 字面量。
+  // 这个计数只有在 R4 面真的读到那三份文件时才可能 >0 ⇒ 面被摘掉当场暴露。
+  assert.ok(
+    res.stats.amCommentLiterals >= 2,
+    `AM 注释字面量计数 ${res.stats.amCommentLiterals} < 2 ⇒ R4 面空转(monitoring/alertmanager/** 没被读到)`,
+  )
+  // 真仓现状:线上模板逐字判绿(它一旦被加回旁路面,这条与提交时的门会同时红)
+  const tmpl = readFileSync(join(REPO, 'monitoring', 'alertmanager', 'alertmanager.yml.tmpl'), 'utf8')
+  assert.equal(r4Of(AM_TMPL_REL, tmpl).length, 0, '真仓 alertmanager.yml.tmpl 当前必须是 bridge-only 干净形态')
+  // 注入对照(不碰真文件):同一份真模板加回一行 email_configs ⇒ 必红且点名
+  const injected = tmpl.replace("    webhook_configs:\n", "    webhook_configs:\n    email_configs:\n")
+  assert.notEqual(injected, tmpl, '注入锚点失效:模板里找不到 webhook_configs 行')
+  assert.ok(r4Of(AM_TMPL_REL, injected).some((v) => /R4a/.test(v.reason)), '真模板注入 email_configs 后判据必须可见')
 })
 
 test('装车证明:guardian-runner 已注册守门 81 且为 blocking(编号必须出现恰好一次)', () => {
@@ -246,6 +359,6 @@ test('自检入口可用(--self-test 退出码 0)', () => {
   assert.match(out, /self-test 全部通过\(\d+ 例/)
   assert.doesNotMatch(out, /❌ \d+ /, '自检存在失败用例')
   const n = Number((out.match(/self-test 全部通过\((\d+) 例/) || [])[1] || 0)
-  assert.ok(n >= 46, `自检例数 ${n} < 46 ⇒ 扩面/判据用例被写回(2026-09-24 起 30 → 46)`)
+  assert.ok(n >= 61, `自检例数 ${n} < 61 ⇒ 扩面/R4 判据用例被写回(2026-09-24 起 30 → 46 → 61 含 R4)`)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
