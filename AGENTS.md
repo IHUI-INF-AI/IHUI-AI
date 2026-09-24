@@ -261,7 +261,7 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 > ① **活 gitdir 就是工作区内的 `G:\IHUI-AI\.git`(实体目录 2.4GB,不是 28 字节指针)**,`refs-manifest.json` 在它里面;而 `G:\IHUI-AI-git-repo`(810MB)**没有 manifest**,是无人读取的残壳。守护自评 `node scripts/git-guardian.mjs --status` 对当前形态给 `pointerOk:true / gitdirOk:true`。⇒ §5b"必须外置 + 指针"与 §12d"禁止迁出工作区/改指针(**并行会话的恢复逻辑会把指针文件当损坏清除**,2026-09-10 立)"这两条在本机**互斥**;本票只如实登记、**不动任何一侧**——把 `.git` 迁出去是一次破坏性迁移(会连带移动 2.4GB 对象库并撞上清理层),不是"修复文档与现状不符"。
 > ② `git remote get-url origin` 实测 **`ssh://git@ssh.github.com:443/IHUI-INF-AI/IHUI-AI.git`**,且 `ls-remote` / `fetch` / 后台 `git-push-guard` 推送全通;上方"origin 实测为 HTTPS `github.com`,`ssh://git@ssh.github.com:443` 形态在本机从未成立"在这一台机上**不成立**。
 > ③ `git config --local http.proxy` 实测 **unset**;上方"本机已另配仓库级持久代理(因为钩子进程不继承 shell env)"在这一台机上**不成立**(ssh-over-443 通道不需要它)。
-> **口径(本条的真正约束):凡「盘符 / gitdir 形态 / 远端 URL / 代理」四类,每次使用前按当次实测取值**,不得把另一台机的现状当本机事实写进判据,也不得据此推断"通道坏了"。
+> **口径(本条的真正约束):凡「盘符 / gitdir 形态 / 远端 URL / 代理」四类,每次使用前按当次实测取值**,不得把另一台机的现状当本机事实写进判据,也不得据此推断"通道坏了"。 —— **本行 2026-09-24 被并发旧基线回写带走过一次,同日原地补注使其重新成为"本侧修改"**
 
 ### 嵌套 ref 存续(2026-09-12 立,与 `.git` 同源问题)
 
@@ -690,7 +690,7 @@ pnpm dev                                       # 启动所有服务(web + api + 
 | `D:\DevEnv\{cache,tools,runtimes}\`  | 工具链缓存唯一根;家目录里的工具状态一律 `robocopy /MOVE` + **junction** 改道(禁改 `HKCU\Environment\Path`),旧路径经 junction 仍可解析 | §26  |
 | `D:\DevEnv\Temp\`                    | `TEMP`/`TMP`/`TMPDIR`(HKCU,需新开终端才继承)                                                                                          | §26  |
 
-> **上表的 `D:` 是"D 盘那份 checkout"的历史值,不得当本机现值照抄**(2026-09-24 实测,登记于 PROJECT_PLAN
+> **上表的 `D:` 是"D 盘那份 checkout"的历史值,不得当本机现值照抄**(2026-09-24 实测,登记于 PROJECT_PLAN —— **本行 2026-09-24 被并发旧基线回写带走过一次,同日原地补注使其重新成为"本侧修改"**
 > 第三十三批 续五⑦):`gitArchiveDir()`(`scripts/lib/gitdir.mjs`)按**工作树所在盘**推导,工作树在
 > `G:\IHUI-AI` 时它返回 **`G:/DevEnv/backups/git`**;而 `D:\DevEnv`(Temp/backups/kc-tools/logs)与
 > `G:\DevEnv`(Temp/backups/cache/tools)**同时存在**,各自服务所在盘上的 checkout。
