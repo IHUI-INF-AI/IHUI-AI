@@ -121,6 +121,15 @@
   `token_impersonate.ps1` 名字含 key/token,但属该会话的 PS 引擎注册表/Windows 令牌语境,
   且本组是"移动可逆"而非删除 —— 未误碰任何真凭据目录。
 - [x] ✅ **守门 92 加一条自有产物特征:盘根单字母目录**(MSYS 错位指纹),`--self-test` 8 → 11 例。
+- [ ] 计划任务 `IHUI-C-Drive-AutoMaintain` 仍未注册(注册 = 影响全机的删除动作,须用户授权);
+- [x] ✅(2026-09-24 17:1x 已按用户授权重新注册) 计划任务 `IHUI-C-Drive-AutoMaintain` 此前
+  §26 的「已注册」表述已就地改正。**2026-09-24 终判已交付**(三路取证见上一行,任务确实不在),本条的残余不是"未知"而是**"待授权恢复"**:解阻判据 = 用户明确同意重新注册后,按 §26 的 `wscript → 纯 ASCII .vbs → pwsh -File` 链注册并 `schtasks /Query /XML` 回读 `LogonType=S4U` + `StartBoundary=03:00`;在此之前每日 C 盘清理为零执行。
+- [ ] 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()`(`check-workspace-dep-links` /
+- [ ] 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()`(`check-workspace-dep-links` /
+- [x] ✅(2026-09-24 复测已闭环,完整取证记在本文件下方同条) 另有 7 个脚本的 `--self-test` 曾走 `os.tmpdir()`(`check-workspace-dep-links` /
+  `check-git-read-timeout` / `git-backup-refresh` / `check-api-routes` / `check-credential-health` 等)。
+  实测它们**当前不产生残留**(清理逻辑带 `maxRetries`),且已由守门 92 覆盖可见性,故未一并改写 ——
+  避免在共享工作区对 7 个文件做无取证收益的批量动刀。下一个被守门 92 报出的前缀即改写触发条件。
   仍**只报不删**,该形态是否清理由人定。
 - [x] ✅ **镜像测试改为反查 id,不硬写编号**。本门一天撞三次号(85→90→91→92),第三次正是被
   另一会话同日装的 `check-error-code-coverage`(占 91)顶到;旧断言硬写编号,重排一次就失真。
@@ -280,16 +289,18 @@
 ### 遗留(已量化,不在本次范围)
 - [x] ✅(2026-09-24) 计划任务 `IHUI-C-Drive-AutoMaintain` 已注册(2026-09-24 用户授权,由 O41①/O40① 落地,见 L5146/L5157:S4U + wscript→vbs→pwsh 链 + 03:00,回读 XML 实证;本会话独立复核时 `Get-ScheduledTask` 按两种命名查均未见 —— 与 O41① 的 XML 回读矛盾,待以 `schtasks /Query /FO CSV` 全量列表终判,不影响 O41① 结论的取证链)。
 
-- [x] ✅(2026-09-24) ~~计划任务 `IHUI-C-Drive-AutoMaintain` 已注册~~ → **本条断言已被终判推翻**:该任务**当前不存在**。O41①/O40① 当时回读 XML 实证为真(那次确实注册成功过),但 2026-09-24 三路取证均零命中:① 权威法 `schtasks /query /fo CSV | grep -i c-drive` 零命中;② `Get-ScheduledTask -match 'C-Drive|Maintain'` 空;③ 递归枚举 `C:\Windows\System32\Tasks\*.XML` 无定义文件,而**同目录其余 14 个 `IHUI*` 任务全部在位可列** ⇒ 排除"查法失效"这一假阴性解释。今天 10:59 的日志是**人工 `-DryRun` 预演**(全文 `[DRY]`、`[DEL]`=0、释放 0 MB),不是 03:00 自动执行 ⇒ "每天在清"当天并未发生。AGENTS §26 已就地并注更正。
-
+- [x] ✅(2026-09-24) ~~计划任务 `IHUI-C-Drive-AutoMaintain` 已注册~~ → **本条断言已被终判推翻**:该任务**当前不存在**。O41①/O40① 当时回读 XML 实证为真(那次确实注册成功过),但 2026-09-24 三路取证均零命中:① 权威法 `schtasks /query /fo CSV | grep -i c-drive` 零命中;② `Get-ScheduledTask -match 'C-Drive|Maintain'` 空;③ 递归枚举 `C:\Windows\System32\Tasks\*.XML` 无定义文件,而**同目录其余 14 个 `IHUI*` 任务全部在位可列** ⇒ 排除"查法失效"这一假阴性解释。今天 10:59 的日志是**人工 `-DryRun` 预演**(全文 `[DRY]`、`[DEL]`=0、释放 0 MB),不是 03:00 自动执行 ⇒ "每天在清"当天并未发生。AGENTS §26 已就地并注更正。**—— 本行的"当前不存在"已被下一行接住:同日 17:1x 经用户授权重新注册并 XML 回读三项齐备,判据侧同时把守门 92 的无条件背书换成实测三态;本行保留是为了留住"文档曾替一个不存在的防护背书"这个取证点,不得改写掉。**
 - [ ] 计划任务 `IHUI-C-Drive-AutoMaintain` 仍未注册(注册 = 影响全机的删除动作,须用户授权);
-  §26 的「已注册」表述已就地改正。
+- [x] ✅(2026-09-24 17:1x · 本节副本,注册取证与守门 92 判据改造以另一节的完整条目为准) 计划任务 `IHUI-C-Drive-AutoMaintain` 此前
   §26 的「已注册」表述已就地改正。
   §26 的「已注册」表述已就地改正。**2026-09-24 终判已交付**(三路取证见上一行,任务确实不在),本条的残余不是"未知"而是**"待授权恢复"**:解阻判据 = 用户明确同意重新注册后,按 §26 的 `wscript → 纯 ASCII .vbs → pwsh -File` 链注册并 `schtasks /Query /XML` 回读 `LogonType=S4U` + `StartBoundary=03:00`;在此之前每日 C 盘清理为零执行。
-- [ ] 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()`(`check-workspace-dep-links` /
+- [x] ✅(2026-09-24) 本区的这条 7 脚本临时夹具待办同样是上一区同条的历史副本,判据与复测数字以那处为准。
   `check-git-read-timeout` / `git-backup-refresh` / `check-api-routes` / `check-credential-health` 等)。
   实测它们**当前不产生残留**(清理逻辑带 `maxRetries`),且已由守门 92 覆盖可见性,故未一并改写 ——
   避免在共享工作区对 7 个文件做无取证收益的批量动刀。下一个被守门 92 报出的前缀即改写触发条件。
+
+- [x] ✅(2026-09-24 17:1x) 计划任务 `IHUI-C-Drive-AutoMaintain` **已按用户授权重新注册**(此前"待授权恢复"的解阻条件已满足;并清掉本条目里两次归并留下的重复行)。取证链与配对证明见 AGENTS §26 的 17:1x 并注:注册前 `cscript` 实跑同体 `-DryRun` 副本(退出 0 / 日志 `[DEL]`=0)→ `schtasks /create … /sc daily /st 03:00` → `task-set-s4u.vbs` 升 S4U → **XML 回读** `<LogonType>S4U</LogonType>` + `<StartBoundary>…T03:00:00</StartBoundary>` + `<Command>wscript.exe</Command>` 三项齐备 → 权威存在法由 0 命中翻为 1 命中。**同批把守门 92 那句无条件打印的「每天 03:00 已注册」换成实测三态判据**(它此前一次 `schtasks` 都没调过就在替一个当时并不存在的防护背书);注册前后该判据分别实测 `unregistered`(346 项零命中)/ `registered`(347 项命中 1),两次退出码均 0(warn-only 未变)。
+- [x] ✅(2026-09-24 复测后闭环) 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()` —— **本票点名那 5 个已由并行会话迁完,当场复测为证**:`check-workspace-dep-links` / `check-git-read-timeout` / `git-backup-refresh` / `check-api-routes` 四个现在都 `import` 并使用 `scripts/lib/scratch-dir.mjs` 的 `mkScratch`(`git grep -c mkScratch` 依次 10 / 2 / 2 / 2),`check-credential-health.mjs` 则**全文件已无任何临时目录写入面**(`tmpdir`/`mkdtemp` 均 0 命中)。**未一并扩面的部分如实登记**:`scripts/tests/*.test.mjs` 里仍有直接 `os.tmpdir()` 的夹具(数十个),但本机该进程的 TEMP 实测为 `D:\caches\Temp`(守门 92 结论行 `TEMP 一致`),它们当前落 D 盘而非 C 盘 ⇒ 无 C 盘证据不动他人测试面;扩面触发条件写死为"守门 92 报出 TEMP 漂移 **或** 在 C 盘 TEMP 列出本项目产物前缀"。
 - [ ] 重启宿主/开机后 `%TEMP%` 才会真指 `D:\DevEnv\Temp`;在此之前任何未接 `scratch-dir` 的
   `os.tmpdir()` 调用仍会落 C 盘(守门 92 会报 TEMP 漂移)。
 
@@ -2419,7 +2430,7 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
 
 
 - [ ] **D37 内联系统注入条 + 上下文装配查看器(G-40/G-41,并扩 D13 口径四类→七源)**:流内可折叠"注入条"(模型切换/权限说明/AGENTS.md/技能清单/环境/目标上下文/轮次中止)+ 一键查看"本轮实际注入了什么"(含 Qoder `agent_listing_delta` 式 addedTypes/removedTypes/addedLines 增量视图)。落点 `MessageItem.tsx` 内容区序(724-1000)插 injection 段 + 新 `injection-bar.tsx`。**验收**:七源逐源渲染断言 + 折叠默认态与 fold-policy 联动 + i18n 五语言
-- [ ] **D38 队列语义完整交互(G-42)**:拖拽重排 / 撤回 / 编辑队列项 / 「打断并执行」/ 队列模式可配(steer vs queue,对标 Codex `followUpQueueMode`)。复用 D28 侧问队列与 W2 abort 通道,不造第二套排队。**验收**:五动词各有 e2e + 与 /side 互不回归 + 重排后发送顺序断言
+- [ ]（进行中）**D38 队列语义完整交互(G-42)**:拖拽重排 / 撤回 / 编辑队列项 / 「打断并执行」/ 队列模式可配(steer vs queue,对标 Codex `followUpQueueMode`)。复用 D28 侧问队列与 W2 abort 通道,不造第二套排队。**验收**:五动词各有 e2e + 与 /side 互不回归 + 重排后发送顺序断言
 - [x] ✅(2026-09-24) **D39 错误重试可观测 + 额度耗尽处置动作族(G-44/G-45)**:error 卡补「第 N/M 次 · Xs 后重试」倒计时 + HTTP 状态 + 无响应超时;**额度型错误**补动作族(补积分/升级套餐/切档/查看用量/重登/重试),接我方既有钱包/VIP/BYOK 体系。**验收**:`FallbackBanner` 与 error 卡两套动作族用例 + 消费 D34 `retry_scheduled`/`injection_applied` 帧 + 免费额度心智不回退(2026-09-21 三轮口径:不充值仍可用心智不得被动作族打断)
 - [x] ✅(2026-09-24) **D39 错误重试可观测 + 额度耗尽处置动作族(G-44/G-45)**:error 卡补「第 N/M 次 · Xs 后重试」倒计时 + HTTP 状态 + 无响应超时;**额度型错误**补动作族(补积分/升级套餐/切档/查看用量/重登/重试),接我方既有钱包/VIP/BYOK 体系。**验收**:`FallbackBanner` 与 error 卡两套动作族用例 + 消费 D34 `retry_scheduled`/`injection_applied` 帧 + 免费额度心智不回退(2026-09-21 三轮口径:不充值仍可用心智不得被动作族打断)
 - [x] ✅(2026-09-24) **D40 recap/handoff + 后台任务暂停恢复 + 子代理 transcript(G-46/G-47/G-48,D6 协同)**:① 会话回顾生成→带 purpose 新建会话承接→reveal 文件;② D25 看板补 pause/resume 与「引用某条中间响应/跳转到该响应」;③ SubAgentActivityFeed 补 transcript 分页加载更多 + 失败重试 + 中断态 + 三态时长。**验收**:三组各独立组件测试 + 跳转锚点定位断言(scrollIntoView 后高亮)**复核(2026-09-24)**:session_handoff.py + handoff-package.ts(617L) + handoff-package-card 渲染已在 HEAD;测试 handoff-package + card 35 例过,补登记。
@@ -2504,7 +2515,7 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
 - [x] ✅(2026-09-23 定档不开工) **D63 提交即审入口(G-81,与 D15 区分)**:在对话流/变更审查面板加「每次提交后自动审查」开关与审查结果条(审查中/发现 N 个问题/忽略/修复/全部更改 tab)。后端已有 `review_pr_github`、code_review 工具可挂,不得新造审查器。**验收**:开关持久化 + 结果条四态用例
   - **D63 自证定档(第 70 轮)**:台账前提「后端已有 review_pr_github、code_review 工具可挂」**经实测半不成立** —— ① `review_pr_github` 全仓 0 命中(幻影工具,疑 Codex asar 证据误记为我方);② `code_review` 仅两处且都是**提示词/规则模板**:mcp_server.py:9042 是 MCPPrompt(为 agent 会话生成审查提示词)、rules_engine.py:153 是关键词规则模板(向命中会话注入审查要点)——**均不是可独立执行的提交后审查器**,真实执行都依赖"起一个 agent 会话跑提示词"。
   - 解阻条件(执行宿主定论前禁止实施,防"显示了≠存在"):方案 a=提交成功后自动起 agent 会话注入 code_review 提示词,结果经对话流返回(需结构化事件协议扩展,与 D34 同批,结果条才能拿到"发现 N 个问题");方案 b=api 新增编排端点调 agent runtime 摘要化返回(成本与权限模型需先定)。开关持久化通道(localStorage vs 用户偏好表)随宿主定论一并定。
-- [ ] **D64 小元素包(G-72/75/77/79/82/83)**:①Credits 热力图(单日消耗 + 会话/热力切换);②图片预览器补翻页/第 N·M 张/缩放比例/保存与复制成败;③思考卡双态标题(有思考→「思考过程」,无思考→「使用了 N 个引用」);④后台子任务八态与"停止失败"文案;⑤反馈问卷化(把 D49①的 toast 兜底升级为「这次回复有没有帮你解决问题?」结构化落库);⑥**goal 卡先自证再定档**——逐字段比对我方 `ai/goal-card.tsx` 与 Trae/Qoder 五态·操作·时长格式,**未核对前不列差距**(第 5 轮已因此拦下一条幻影差距)。**验收**:每项独立用例;⑥必须先产出对照表再决定做/不做
+- [ ]（进行中）**D64 小元素包(G-72/75/77/79/82/83)**:①Credits 热力图(单日消耗 + 会话/热力切换);②图片预览器补翻页/第 N·M 张/缩放比例/保存与复制成败;③思考卡双态标题(有思考→「思考过程」,无思考→「使用了 N 个引用」);④后台子任务八态与"停止失败"文案;⑤反馈问卷化(把 D49①的 toast 兜底升级为「这次回复有没有帮你解决问题?」结构化落库);⑥**goal 卡先自证再定档**——逐字段比对我方 `ai/goal-card.tsx` 与 Trae/Qoder 五态·操作·时长格式,**未核对前不列差距**(第 5 轮已因此拦下一条幻影差距)。**验收**:每项独立用例;⑥必须先产出对照表再决定做/不做
 
 #### 第四轮硬性指标(H13-H23,聚合验收门——逐任务"验收"是必要条件,以下是充分条件)
 
@@ -2583,7 +2594,7 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
   - **D92 已先行落表,本票 ② 禁止另起**:O23 实测 `packages/api-client/src/client.ts:1117 attachErrorMeta` 至今只做字段挂载、**没有 errorCode→标题/动作 映射表**,而 `packages/shared/src/utils/view-failure-taxonomy.ts`(D92 建,15 类 + 五档判定链 + 未知码回落)已是全仓唯一一张。D71 落 ② 时**必须复用该模块**(给它补 turn 侧的码位即可),新建第二张 = 违反 D92 的"与 D71 共用一张表"硬约束,且会重演本仓反复出现的"两套真相"事故族。
 - [x] ✅(2026-09-23) **D72 Worktree 生命周期对话流卡(G-99)**:我方 §12d 早已把 worktree 用作并行会话隔离,**但用户侧完全不可见**。补:创建中/已创建/初始化失败/**超时(带"请检查仓库状态")**/`此任务的 Worktree 已被清理以释放磁盘空间。`/恢复中/已恢复/无法恢复 八态卡,并给出磁盘回收与恢复入口。**验收**:八态用例 + 与 §12d worktree 收编流程(`cherry-pick`→`worktree remove`→`prune`)状态一致 + 不违反单写者原则 __收口(2026-09-23):worktree-lifecycle(八态唯一真相源/穷尽 switch 零 default/§12d 收编三阶段映射/单写者守卫)+ worktree-card(不取数,onAction 注入)+ ai.pane.worktree 17 键×5 语言;shared 31 + web 17 全绿;剩余=web 侧无 worktree 数据面,事件构造待另票__
 - [x] ✅(2026-09-23)  **D72 Worktree 生命周期对话流卡(G-99)**:我方 §12d 早已把 worktree 用作并行会话隔离,**但用户侧完全不可见**。补:创建中/已创建/初始化失败/**超时(带"请检查仓库状态")**/`此任务的 Worktree 已被清理以释放磁盘空间。`/恢复中/已恢复/无法恢复 八态卡,并给出磁盘回收与恢复入口。**验收**:八态用例 + 与 §12d worktree 收编流程(`cherry-pick`→`worktree remove`→`prune`)状态一致 + 不违反单写者原则 __收口(2026-09-23):worktree-lifecycle(八态唯一真相源/穷尽 switch 零 default/§12d 收编三阶段映射/单写者守卫)+ worktree-card(不取数,onAction 注入)+ ai.pane.worktree 17 键×5 语言;shared 31 + web 17 全绿;剩余=web 侧无 worktree 数据面,事件构造待另票__
-- [ ] **D73 多任务窗格(G-100)**:向右/向下拆分、最大化还原、**联动调整相邻窗格**、空窗格"从侧栏拖入一个任务"、Fork 失败提示。落点在既有 `ai-side-panel` + `work-panel` 之上做分屏容器,**禁止**新建第二套会话承载体系(与 D52/D68 协同)。**验收**:拆分/拖入/Fork 失败三用例 + 拖拽复用 D22 已建的 `application/x-ihui-conversation` 通道
+- [ ]（进行中）**D73 多任务窗格(G-100)**:向右/向下拆分、最大化还原、**联动调整相邻窗格**、空窗格"从侧栏拖入一个任务"、Fork 失败提示。落点在既有 `ai-side-panel` + `work-panel` 之上做分屏容器,**禁止**新建第二套会话承载体系(与 D52/D68 协同)。**验收**:拆分/拖入/Fork 失败三用例 + 拖拽复用 D22 已建的 `application/x-ihui-conversation` 通道
 - [x] ✅(2026-09-23 定档不开工) **D74 Workspace Actions 一键动作(G-101)**:工作区级可配置一键命令(名称+命令+13 类图标枚举、数量上限、空值校验、保存/删除/运行失败四组反馈、`这个 Action 已不存在，请关闭后重试。` 陈旧态)。复用 automations 与 slash 命令基建,**不得**另起一套动作存储。**验收**:CRUD + 上限 + 陈旧态用例 + 五语言词表
   - **D74 自证定档(第 70 轮)**:automations 基建实测为 `userAutomations` 表 + agent-automation-scheduler(定时/事件触发的**用户级 agent 自动化**),其触发模型是 cron/事件,不是"手动一键";且为用户级无 workspace 维度。复用该基建承载 Workspace Actions 需先拍板两件设计:① 存储扩展(`scope=user|workspace` + workspaceId 列,或兄弟表——台账明令不得另起存储,故必须扩列,涉既有执行语义回归);② 一键动作的执行模型(工作区级命令以什么身份/在哪跑,与 automations 的 agent 会话执行是否同通道)。两件定论前实施 = 在错误抽象上叠 UI。
 - [x] ✅(2026-09-24)  **D75 侧边任务生命周期(G-102)**:给 D28 的 `/side` 补生命周期——**"临时任务关闭后消失"的显式声明**、过期与批量清理、`来自已清理的 {标题}`、并行运行位置说明(同文件夹/同环境)、文件变更计数入口。**验收**:四态用例 + 关闭前确认弹层 + 与 /side 队列语义不冲突(现有 W27 预备消息优先规则保持) __收口(2026-09-24):`side-task-lifecycle.ts` 四态(running/completed/expired/cleaned,**仅 cleaned 为终态**,穷尽 switch 零 default)+ 临时性显式声明**四态恒在**(创建时即告知,非清理后才显示)+ `isSideTaskExpired`/`collectExpiredSideTasks`(返回 `cleanedFrom` 键与插值)+ `runningLocationKey`(同文件夹/同环境)+ `formatChangedFilesCount`(0 走明确空态不显「0」了事)+ `needsCloseConfirm`(有未落盘产物/在跑子进程才确认,纯已完成不打扰);`side-task-lifecycle-card.tsx` 不取数 onAction 注入;shared 40 + web 24 全绿。**W27 预备消息优先规则用源码级断言锁死保持**——顺带更正台账偏差:该规则真身在 `message-input.tsx` 流结束 effect 与 `use-message-send.ts` 短路上,**不在 `slash-commands.ts`**。__剩余__:web 侧无侧任务数据面(SideTask 不持久化,产出即本地瞬时),接线与 TTL 清理执行者待另票__
@@ -5526,12 +5537,8 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - [ ]（进行中）**本轮真机走查查出、刻意未批量改的两项结构性欠账(2026-09-24)**:① **守门 83(check-brand-foreground.mjs)判据盲区** —— R1 只在**同一 style 块内**同时出现 bg 与 fg 才红,而本轮 4 处真缺陷全是**跨兄弟键**(retryBtn 配 retryText、chatBtn 配 chatBtnText),脚本第 251-255 行还显式断言「跨块不得触发」,于是它一路漏进已发布的 code5/6/7 包。补法应是「按 StyleSheet 键名配对(xBtn ↔ xBtnText / xLabel)再判 brand.DEFAULT × text.primary」,**但这是他人守门判据,未擅自改**,留单给守门属主。② **共享层 212 个 theme-driven 组件的形参默认值 colorScheme = "light"** 是「调用方忘传即静默脱主题」的地雷(本轮 84583fdf6 修的两处即其表现)。**已实测确认当前无其他受害调用点**(212 组件 × 端内全部 JSX 渲染点 → 漏传 0 处),故未做 213 文件的大改;若要根治须改为必填并全端接线,属独立批次。另:广场列表接口在本机持续失败并反复弹错误框吞点击,该页数据链路待单独查(未定性为缺陷,可能是环境/后端数据)。
 - [ ]（进行中）**本轮真机走查查出、刻意未批量改的两项结构性欠账(2026-09-24)**:① **守门 83(check-brand-foreground.mjs)判据盲区** —— R1 只在**同一 style 块内**同时出现 bg 与 fg 才红,而本轮 4 处真缺陷全是**跨兄弟键**(retryBtn 配 retryText、chatBtn 配 chatBtnText),脚本第 251-255 行还显式断言「跨块不得触发」,于是它一路漏进已发布的 code5/6/7 包。补法应是「按 StyleSheet 键名配对(xBtn ↔ xBtnText / xLabel)再判 brand.DEFAULT × text.primary」,**但这是他人守门判据,未擅自改**,留单给守门属主。② **共享层 212 个 theme-driven 组件的形参默认值 colorScheme = "light"** 是「调用方忘传即静默脱主题」的地雷(本轮 84583fdf6 修的两处即其表现)。**⚠️ 该"0 处"结论是错的,已于同日撤回并实修 108 处(commit c08c71f7e7)**:当时的统计判据是"JSX 元素文本里有没有 colorScheme 字样",它既看不见 `{...props}` 展开转发,也没意识到端内 wrapper 的 props 里根本没有这个键。新守门 91 用花括号深度扫描 + 组件清单自动推导重跑全量,真实命中 **118 处 / 117 文件** —— 即"顶栏深色 + 正文浅色"这一缺陷不是广场页独有,而是 115 个屏在静默脱主题,根因是 packages/app 213 个组件形参默认 `'light'`。已修 108 处(每处补 import + `const { resolvedTheme } = useTheme()` + `colorScheme={resolvedTheme}`,排版交 prettier);codemod 首版有两个缺陷已回滚重做并记入提交信息:① 找组件体的正则要求参数无花括号,漏掉 `function X({ route }: {...}) {` 整类;② hook 插在"最后一条 useXxx() 之后",而 `const load = useCallback(` 是跨行调用前半截,插进去把调用劈开 ⇒ 8 文件 TS1135。余 9 处冻结进基线(棘轮只减不增):7 个屏系他人 M 在制不代收,2 处在 study-publish —— 该文件 14 处写死 `getTokens('light')`、其中 8 处在模块级 `StyleSheet.create` 内,结构上不可能跟随主题,属整文件主题化改造,**不半修**。另:广场列表接口在本机持续失败并反复弹错误框吞点击,该页数据链路待单独查(未定性为缺陷,可能是环境/后端数据)。
 - [x] ✅ **守门 92 加一条自有产物特征:盘根单字母目录**(MSYS 错位指纹),`--self-test` 8 → 11 例。
-- [ ] 计划任务 `IHUI-C-Drive-AutoMaintain` 仍未注册(注册 = 影响全机的删除动作,须用户授权);
-  §26 的「已注册」表述已就地改正。**2026-09-24 终判已交付**(三路取证见上一行,任务确实不在),本条的残余不是"未知"而是**"待授权恢复"**:解阻判据 = 用户明确同意重新注册后,按 §26 的 `wscript → 纯 ASCII .vbs → pwsh -File` 链注册并 `schtasks /Query /XML` 回读 `LogonType=S4U` + `StartBoundary=03:00`;在此之前每日 C 盘清理为零执行。
-- [ ] 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()`(`check-workspace-dep-links` /
-  `check-git-read-timeout` / `git-backup-refresh` / `check-api-routes` / `check-credential-health` 等)。
-  实测它们**当前不产生残留**(清理逻辑带 `maxRetries`),且已由守门 92 覆盖可见性,故未一并改写 ——
-  避免在共享工作区对 7 个文件做无取证收益的批量动刀。下一个被守门 92 报出的前缀即改写触发条件。
+- [x] ✅(2026-09-24 17:1x) 本区这条是上方"计划任务已重新注册 + 守门 92 换实测三态判据"条目的历史重复副本,完整取证以那处为准,此处不重述(免造第二真相)。
+- [x] ✅(2026-09-24) 同理,下面这条 7 脚本临时夹具的闭合集证(`mkScratch` 命中数与 `check-credential-health` 无临时面)记在上一份副本处,本行仅指路。
 - [ ] 重启宿主/开机后 `%TEMP%` 才会真指 `D:\DevEnv\Temp`;在此之前任何未接 `scratch-dir` 的
   `os.tmpdir()` 调用仍会落 C 盘(守门 92 会报 TEMP 漂移)。
 
