@@ -62,6 +62,12 @@ let refreshFailCooldownTimer: ReturnType<typeof setTimeout> | null = null
 // 2026-08-02 设备维度风控:默认空采集器,各端启动时注入实现
 let deviceFingerprintProvider: DeviceFingerprintProvider = nullDeviceFingerprintCollector
 let baseUrl: string = ''
+/**
+ * 首方客户端标识(2026-09-24 立)。RN 的 fetch 由 okhttp 实现、CLI 由 node-fetch/undici
+ * 实现,两者都命中后端 bot-detection 的 CURL_LIKE_KEYWORDS,导致自家 App 的每个请求被
+ * 当成爬虫。空串 = 不注入(浏览器端 UA 是 forbidden header,且浏览器本就不会被误判)。
+ */
+let userAgentHeader = ''
 // SSE 流式请求专用 baseUrl(2026-07-27 立):
 // Next.js dev proxy 对 SSE 流有超时/缓冲问题,导致流式响应被中断(net::ERR_ABORTED)。
 // streamChat 用 streamBaseUrl 直连 API 服务器,绕过 Next.js dev proxy。
@@ -143,6 +149,20 @@ async function injectDeviceFingerprintHeader(
 
 export function setBaseUrl(url: string): void {
   baseUrl = url.replace(/\/$/, '')
+}
+
+/**
+ * 注入首方 User-Agent(非浏览器端必须调,否则被风控当爬虫)。
+ * 传空串恢复不注入。浏览器端调用无效 —— User-Agent 是 forbidden header name,
+ * fetch 会静默丢弃,所以 web/extension 不需要也不应调用。
+ */
+export function setUserAgent(ua: string): void {
+  userAgentHeader = ua.trim()
+}
+
+/** 读取当前注入的首方 User-Agent(测试与诊断用) */
+export function getUserAgent(): string {
+  return userAgentHeader
 }
 
 export function setStreamBaseUrl(url: string): void {
@@ -471,6 +491,9 @@ export async function fetchApi<T>(
   if (!headers['X-Requested-With']) {
     headers['X-Requested-With'] = 'XMLHttpRequest'
   }
+  if (userAgentHeader && !headers['User-Agent']) {
+    headers['User-Agent'] = userAgentHeader
+  }
 
   // 2026-08-02 设备维度风控:注入 x-device-fingerprint header
   // 后端 audit-logger / anomaly-detector / threat-detector 读取此 header 做设备维度风控。
@@ -567,6 +590,41 @@ export async function fetchApi<T>(
   }
 }
 
+/**
+ * 给 HTTP 失败补上 `status` / `errorCode` 元信息(2026-09-24 立)。
+ *
+ * 起因:`fetchText` / `fetchRaw` 此前只 `throw new Error("<status>: <raw body>")`,
+ * 既没 status 属性也没结构化的 errorCode。调用方一旦把 `e.message` 交给
+ * `toUserFriendlyMessage` 进 toast,该函数在 errorCode / status 两步都取不到值,
+ * 会走到"已是中文就原样返回 / 英文关键词匹配"那一步 —— 于是 nginx 429 的整页
+ * HTML 或上游 JSON 正文有机会原样出现在用户界面上。
+ * 补上 status 之后,`toUserFriendlyMessage` 在第 2 步就命中状态码表,拿到安全的
+ * 通用文案,不再回落到"把正文念给用户"。
+ *
+ * `message` 保持既有形态不变(`${status}: ${text}`),纯增量,不破坏任何按字符串
+ * 解析的旧调用方。
+ */
+function attachHttpErrorMeta(error: Error, status: number, bodyText: string): Error {
+  const meta = error as Error & { status?: number; errorCode?: string }
+  meta.status = status
+  try {
+    const parsed: unknown = JSON.parse(bodyText)
+    if (parsed && typeof parsed === 'object') {
+      const record = parsed as Record<string, unknown>
+      for (const key of ['errorCode', 'error_code', 'code'] as const) {
+        const value = record[key]
+        if (typeof value === 'string' && value.length > 0) {
+          meta.errorCode = value
+          break
+        }
+      }
+    }
+  } catch {
+    // 正文不是 JSON(典型:nginx 错误页):只带 status,调用方仍可靠它映射文案。
+  }
+  return error
+}
+
 export async function fetchText(url: string, options: RequestInit = {}): Promise<string> {
   const token = tokenProvider.getToken()
   const normalizedUrl = normalizeUrl(url)
@@ -576,6 +634,7 @@ export async function fetchText(url: string, options: RequestInit = {}): Promise
   if (token) headers['Authorization'] = `Bearer ${token}`
   // 2026-08-02 修复:配合后端 CSRF 防护
   if (!headers['X-Requested-With']) headers['X-Requested-With'] = 'XMLHttpRequest'
+  if (userAgentHeader && !headers['User-Agent']) headers['User-Agent'] = userAgentHeader
   // 2026-08-02 设备维度风控(2026-08-17 P2:传递 signal 让 abort 短路)
   await injectDeviceFingerprintHeader(headers, options.signal)
   // 2026-08-06 修复:补充请求超时(30s),原实现无超时,网络挂起时调用方永久等待。
@@ -591,7 +650,7 @@ export async function fetchText(url: string, options: RequestInit = {}): Promise
     })
     if (!response.ok) {
       const text = await response.text().catch(() => '')
-      throw new Error(`${response.status}: ${text}`)
+      throw attachHttpErrorMeta(new Error(`${response.status}: ${text}`), response.status, text)
     }
     return response.text()
   } finally {
@@ -645,6 +704,7 @@ export async function fetchAiServiceJson<T>(
   if (token) headers['Authorization'] = `Bearer ${token}`
   // 2026-08-02 修复:配合后端 CSRF 防护
   if (!headers['X-Requested-With']) headers['X-Requested-With'] = 'XMLHttpRequest'
+  if (userAgentHeader && !headers['User-Agent']) headers['User-Agent'] = userAgentHeader
   // 2026-08-02 设备维度风控:注入 x-device-fingerprint header
   // 后端 audit-logger / anomaly-detector / threat-detector 读取此 header 做设备维度风控。
   // 2026-08-17 P2:传入 restOptions.signal,让 injectDeviceFingerprintHeader 内部做
@@ -721,6 +781,7 @@ export async function fetchRaw(url: string, options: RequestInit = {}): Promise<
   if (token) headers['Authorization'] = `Bearer ${token}`
   // 2026-08-02 修复:配合后端 CSRF 防护
   if (!headers['X-Requested-With']) headers['X-Requested-With'] = 'XMLHttpRequest'
+  if (userAgentHeader && !headers['User-Agent']) headers['User-Agent'] = userAgentHeader
   // 2026-08-02 设备维度风控
   await injectDeviceFingerprintHeader(headers)
   // 2026-08-06 修复:补充请求超时(30s),原实现无超时,网络挂起时调用方永久等待。
@@ -735,7 +796,7 @@ export async function fetchRaw(url: string, options: RequestInit = {}): Promise<
     })
     if (!response.ok) {
       const text = await response.text().catch(() => '')
-      throw new Error(`${response.status}: ${text}`)
+      throw attachHttpErrorMeta(new Error(`${response.status}: ${text}`), response.status, text)
     }
     if (!response.blob) {
       throw new Error('当前 transport 不支持 blob 下载(小程序环境请用 native downloadFile)')
@@ -1783,6 +1844,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   // 2026-08-02 P2 修复：与 fetchApi/postApi/putApi/patchApi/deleteApi 保持一致，
   // 注入 X-Requested-With 配合后端 CSRF 防护(无 Bearer token 时走 cookie 兜底路径)
   if (!headers['X-Requested-With']) headers['X-Requested-With'] = 'XMLHttpRequest'
+  if (userAgentHeader && !headers['User-Agent']) headers['User-Agent'] = userAgentHeader
   // 2026-08-02 设备维度风控
   await injectDeviceFingerprintHeader(headers)
 

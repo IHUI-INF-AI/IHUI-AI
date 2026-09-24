@@ -444,12 +444,12 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10, // radius-exempt: 20x20 圆形勾选底,半径=边长一半
-    backgroundColor: tokens.brand.ctaFill,
+    backgroundColor: tokens.brand.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkText: {
-    color: tokens.brand.ctaText,
+    color: tokens.brand.foreground,
     fontSize: 12,
     fontWeight: '700',
     lineHeight: 14,

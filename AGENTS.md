@@ -82,6 +82,13 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 
 - compact 紧凑、elegant 优雅。hover 用 subtle 颜色变化,**不要蓝色发光边框**。复用 `packages/ui-react` 的 Card/Button/Input/Dialog。每个页面 < 250 行。时间用 `Intl.DateTimeFormat`,头像用 initials。状态徽章:draft 灰 / published 绿。积分正数绿色,负数红色。
 
+### 品牌 CTA / 主按钮色同源(强制,2026-09-24 收口)
+
+- **唯一写法**:主按钮、选中胶囊、悬浮加号这类"品牌实底 + 其上文字",RN/共享包写 `brand.DEFAULT`(底)+ `brand.foreground`(文字)成对;CSS/类名侧用 `--color-primary` + `--color-primary-foreground`(小程序 `CategoryBar`/FAB 同值)。这两档在两主题下逐位同值(亮 `#000/#fff`、暗 `#fff/#000`),对账由守门 90 负责。
+- **禁止端内自立 CTA 档**:`brand.ctaFill` / `ctaText` 这类"浅色等于 web、深色另取一档"的混血键已全部删除,**不得再加回**。要调暗色主按钮的观感(例如觉得纯白刺眼),改 `tokens.css` 的 `.dark --color-primary` **一处**,web / 小程序 / RN 同时动;不得在某一端单独覆盖 —— 那正是"手机上改了 web 没改"的成因。
+- 真要新增品牌档:先在 `tokens.css` 落一个 CSS 变量,再到守门 90 的映射表登记依据;确属 RN 专属(如 `brand.dark` 品牌绿)才能进 `RN_ONLY_BRAND_KEYS` 并写明理由 —— 豁免项若已不存在同样算红(防清单腐烂)。
+- 悬空引用由 R3 直接拦(编译不一定红,运行时是 `undefined` 颜色)。并行会话的暂存区里若还残留 `tokens.brand.ctaFill/ctaText`,改法只有一行:`ctaFill` → `DEFAULT`、`ctaText` → `foreground`。
+
 ### 圆角单一源头(强制,2026-09-23 全端收口)
 
 - **唯一真相源**:`packages/design-tokens/src/radius.js` 的 `RADIUS_STEPS` = `xs 2 / sm 4 / md 6 / lg 8 / xl 12 / 2xl 16`(px;`DEFAULT`=8 对齐 web `--radius: 0.5rem`)。改档位只改这一处。`tailwind-preset.js` 必须写 `borderRadius: RADIUS_REM`,`tokens.css` / `app.css` 的 `--radius-*` 必须与之逐档同值。
@@ -1197,7 +1204,10 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 
 - **mobile-rn 深色前景/容器对账**(83,原 75):check-brand-foreground.mjs(blocking,2026-09-23 立)—— R1 零豁免:同一 style 块内 `tokens.brand.DEFAULT` 作背景 × `surface.light`/`text.primary` 作前景(深色档案下 brand.DEFAULT=纯白 ⇒ 白底白字);R2 基线棘轮:`surface.light` 背景 / α≥0.5 白 rgba / 无 `dark:` 变体的 `bg-white` 作容器底,每文件计数对 `scripts/brand-foreground-baseline.json`(现 13 文件 24 处,均为媒体上的合法浮层或已带 `dark:` 变体)只减不增。`--staged` / `--update-baseline` / `--self-test`(11 例);紧急跳过 `HUSKY_SKIP_BRAND_FOREGROUND=1`。
 - **反回退对账**(84,原 76):check-stale-revert.mjs(blocking,2026-09-23 立)—— 堵共享工作区**静默回滚**:§12d converge 用 merge-tree/commit-tree 只推进 HEAD+index、**不 checkout**,工作区落后 HEAD 时 `git add <file>` 交的是旧基线(实测 503 文件落后 486 提交),等于把别人该路径的后续改动静默回滚,而 diff 只显"改了几行"。判据 R1 = 暂存 blob != HEAD blob **且字节级等于该路径某祖先提交版本** → 拦并点名回到的 commit;真新编辑不可能恰好等于历史 blob,故误报极低。三条护栏:merge/cherry-pick/revert 上下文整轮豁免、暂存删除只 warn(`git rm` 合法,机器分不清就被删)、判定文件 >300 跳过(性能护栏,防逼人 --no-verify 连带关掉全部守门)。取证 `--self-test` 8 例(含"写回 v1 必判红"阳性对照)+ 临时 index 端到端演练 3/3;**有意回退一律改用 `git revert` 生成前向提交**。紧急跳过 `HUSKY_SKIP_STALE_REVERT_GUARD=1`。
+- **跨端色值同源对账**(90):check-cross-end-tokens.mjs(blocking,2026-09-24 装车 —— 此前只挂在 `pnpm check:all`,从未进 pre-commit,所以拦不住端内自立档)—— RN `rn-tokens.ts` ↔ `tokens.css` 亮/暗逐位对账(`.dark` 未覆盖变量按 cascade 回退亮色;HEX 小写、`hsl()`→hex、`rgba` 去空白)。三条判据:**R1** 已声明映射同值;**R2** `brand` 命名空间每个键必须有映射声明,或进 `RN_ONLY_BRAND_KEYS` 写明"web 无对应变量"的理由(豁免项若已不存在同样算红,防清单腐烂);**R3** `tokens.brand.<x>` / `tk.brand.<x>` 悬空引用必红 —— 缺省判 HEAD,`--staged` 只判"索引 ≠ HEAD"路径的索引 blob(`git grep --cached` 扫的是整个索引,首跑曾误报 81 处,故必须自己取暂存变更集)。R3 只认 token 袋前缀:业务代码里**局部变量也叫 brand**(`brand.nameKey` / `brand.src`,BrandMarquee 实测踩到)不得假红。成因登记:`brand.ctaFill`/`ctaText` 这对"浅色=web primary、深色=brand-accent"的混血档存在一整天,而当时只核 8 条已声明映射 —— "8/8 in sync"与"1 个端内分叉档"同时为真,判据对最该管的情形完全失明。取证 `--self-test` 8 例 + `node --test scripts/tests/check-cross-end-tokens.test.mjs` 6 例(含"必须注册为 blocking、id 90 只出现一次、真仓 HEAD 全绿、CTA 档不得加回"装车证明)。紧急跳过 `HUSKY_SKIP_CROSS_END_TOKENS=1`。
 
+<!-- 合并归并说明:本行下方两条登记分属两个会话同日新增的闸门(78 workspace 依赖链接对账 / 79 提交内容含冲突标记),两侧均保留,不构成互斥。
+     (2026-9-24 校正:原写法把冲突标记门写成 77,而 77 是「全 8 端圆角单一源头对账」——同日撞号正是本节要防的事,登记新门前请逐条核对 id。) -->
 <!-- 合并归并说明:本行下方两条登记分属两个会话同日新增的闸门(78 workspace 依赖链接对账 / 79 提交内容含冲突标记),两侧均保留,不构成互斥。
      (2026-9-24 校正:原写法把冲突标记门写成 77,而 77 是「全 8 端圆角单一源头对账」——同日撞号正是本节要防的事,登记新门前请按守门速查逐条核对 id。) -->
 

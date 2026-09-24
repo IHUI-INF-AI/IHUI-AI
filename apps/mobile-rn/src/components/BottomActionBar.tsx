@@ -750,7 +750,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: ACTION_BUTTON_HEIGHT,
     borderRadius: rnRadius.lg,
-    backgroundColor: tokens.brand.ctaFill,
+    backgroundColor: tokens.brand.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
   } as ViewStyle,
@@ -762,7 +762,7 @@ const styles = StyleSheet.create({
     lineHeight: ACTION_BUTTON_FONT_SIZE + 4,
     fontWeight: '500',
     letterSpacing: LABEL_LETTER_SPACING,
-    color: tokens.brand.ctaText,
+    color: tokens.brand.foreground,
     textAlign: 'center',
   } as TextStyle,
   secondaryButton: {

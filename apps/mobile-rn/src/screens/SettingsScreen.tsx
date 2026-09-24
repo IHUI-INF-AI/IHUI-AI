@@ -18,6 +18,7 @@ import SideMenu, { type SideMenuItem } from '../components/SideMenu'
 import { NavBar, type NavBarAction } from '../components/NavBar'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+import { APP_VERSION } from '../lib/config'
 import { useI18n, type Locale } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import {
@@ -45,8 +46,6 @@ import {
 } from 'lucide-react-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Settings'>
-
-const APP_VERSION = '1.0.2'
 
 /**
  * RN 端 Settings 包装器 — 注入 t + Alert/Confirm + 真实 updatePassword API + 导航,
