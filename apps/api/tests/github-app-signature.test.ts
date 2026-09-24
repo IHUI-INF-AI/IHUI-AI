@@ -7,7 +7,6 @@ import { createHmac } from 'node:crypto'
 
 import {
   computeExpectedDigestHex,
-  parseSignatureHeader,
   readWebhookSecret,
   verifyWebhookSignature,
   WEBHOOK_SECRET_ENV_KEYS,
