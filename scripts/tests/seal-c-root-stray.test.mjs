@@ -145,6 +145,21 @@ test('隐藏必须走"链接本体 + 父目录枚举"口径,不得用 attrib(它
   assert.match(src, /FileAttributes\]::Hidden/, '未走 PowerShell 提供器的位或设法')
 })
 
+test('装车证明③:git 守护必须真的调封口自愈(重启会清掉 junction,日检最长空窗 23h)', () => {
+  const g = readFileSync(join(SCRIPTS, 'git-guardian.mjs'), 'utf8')
+  assert.match(g, /seal-c-root-stray\.mjs/, '守护未引用封口器 ⇒ 重启后改道点无人补')
+  assert.match(g, /function\s+healRootSeal/, '缺 healRootSeal 这一层')
+  assert.match(g, /call\(\['--check'\]\)/, '体检调用缺失')
+  assert.match(g, /call\(\['--apply'\]\)/, '重封调用缺失(只报不修 = 每天要人手动跑)')
+  // 挂点必须在"真巡检"分支里:挂在 CHECK_ONLY 路径上等于永不执行(工作区自愈层踩过同一坑)
+  assert.match(g, /if \(!CHECK_ONLY\) healRootSeal\(\)/, '未挂在 !CHECK_ONLY 分支 ⇒ 永不触发')
+  assert.match(g, /healRootSeal\(\)[\s\S]{0,80}\n\s*\} catch/, 'daemon tick 的成功分支里也要调')
+  // 派生一律带超时与 windowsHide(守门 52/80)
+  const body = g.slice(g.indexOf('function healRootSeal'), g.indexOf('function healRootSeal') + 2200)
+  assert.match(body, /windowsHide: true/, 'healRootSeal 缺 windowsHide ⇒ 守护下必弹控制台窗')
+  assert.match(body, /timeout: \d+/, 'healRootSeal 缺 timeout ⇒ 一次挂起拖死整轮巡检')
+})
+
 test('__test__ 出口齐备(§22c:缺出口即红,防"测试悄悄测镜像实现")', () => {
   for (const fn of ['classifyEntry', 'fingerprint', 'sameFingerprint', 'pathsFor', 'devEnvRoot']) {
     assert.equal(typeof __test__[fn], 'function', `__test__.${fn} 缺失`)
