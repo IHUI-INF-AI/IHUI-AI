@@ -7460,6 +7460,11 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
   证明它不是恒真断言。**注意门 103 的策略表按 HEAD 取**，所以本条落地前跑门仍会显示 `managed:true 0 个`
   （口径正确，不是判据坏了）；落地后须按 HEAD 回读到 `managed:true packages/api-client` 才算生效。
   下一块的先还账已写进表头：翻 `packages/i18n` / `repo-tooling` 前须先处置那三处跨包相对 import。
+  **牙齿证明（标记翻了 ≠ 门会咬，故在临时索引里实测，全程不写共享索引）**：
+  往 `packages/api-client/src/` 造一条 `import from '@ihui/shared'`（该包 requires 只声明了 `packages/types`）
+  ⇒ 门按 `--staged` 判红 2 处（D1 未声明依赖 + D2 反向依赖 rank20→rank30）且 exit 1；
+  把同位置换成 `@ihui/types`（已声明）⇒ 判红 0、exit 0。两条同表同轮，证明红绿差确实由本块的
+  `managed:true` 产生，而不是别处状态。收尾核对：主索引暂存项 0，脚本未向其写入（取证脚本 `.ihui-agent/tmp/` 内，已删）。
 
 
 ## O61 safe-commit 的"钩子失败归因"从抄来的结论改成量出来的结论（2026-09-25 立并完成 ✅）
