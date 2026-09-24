@@ -12,15 +12,31 @@
 // 用法: node scripts/plan-union-merge.mjs --base <sha> --ours <sha> --theirs <sha> [--apply]
 // 不带 --apply 只出报告(零副作用)。
 import { execFileSync } from 'node:child_process'
-import { writeFileSync, readFileSync, mkdtempSync, rmSync } from 'node:fs'
-import { join } from 'node:path'
+import { writeFileSync, readFileSync, mkdtempSync, rmSync, existsSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
+import { fileURLToPath } from 'node:url'
 
 const argv = process.argv.slice(2)
 const arg = (k) => argv[argv.indexOf(`--${k}`) + 1]
 const APPLY = argv.includes('--apply')
-const REPO = 'D:/IHUI-AI'
+// 仓根**由脚本自身位置推导**(AGENTS §15:禁止硬编码盘符)。
+// 这里原先写死 `D:/IHUI-AI`,而同一份仓在 `G:/IHUI-AI` 也活着(`git-rebuild-local.mjs:38-39`
+// 记过同型事故)。后果不是"报错难看",是**这台机上整件工具失效**:12 处 `git -C D:/IHUI-AI`
+// 全部打空,2026-09-25 实跑 `--base/--ours/--theirs` 直接 rc=1 `fetch 失败:git -C D:/IHUI-AI …`。
+// 而它是 `git-sync-converge` 撞上 PROJECT_PLAN.md 冲突时唯一的解阻塞器 —— 解阻塞器自己是死的,
+// 就等于"计划冲突无人能收",下一次分叉会直接把全队卡在 DIVERGED。
+const REPO = resolve(fileURLToPath(new URL('../', import.meta.url)))
 const FILE = 'PROJECT_PLAN.md'
+
+// 取不到就**显式失败**,不得拿着错的根继续跑 git(那会被读成"合并无事可做")。
+if (!existsSync(join(REPO, FILE))) {
+  console.error(
+    `[plan-union-merge] 无法判定仓根:推导得到 ${REPO},但里面没有 ${FILE} —— ` +
+      `请把本脚本放在 <仓根>/scripts/ 下再跑(绝不回退到任何写死的盘符路径)。`,
+  )
+  process.exit(2)
+}
 
 const git = (args, opts = {}) =>
   execFileSync('git', ['-C', REPO, '-c', 'safe.directory=*', ...args], {
@@ -149,7 +165,6 @@ try {
     if (!l.trim() || mset.has(l)) continue
     if (oset.has(l)) lostReal.push(`双方都有并丢: ${l.slice(0, 110)}`)
   }
-  console.info(`C2 结果行数=${merged.split('\n').length} 我方行数=${oursTxt.split('\n').length} 对方行数=${theirsTxt.split('\n').length}`)
   console.info(`C2 结果行数=${merged.split('\n').length} 我方行数=${oursTxt.split('\n').length} 对方行数=${theirsTxt.split('\n').length}`)
   /* 第三型必须单列:只在我方存在、对方已删的行,**不等于归档**。
    * 实测本机就是这样:一条 `- [ ] D29 团队级知识引擎…` 待办在远端某次提交后从**整棵树**

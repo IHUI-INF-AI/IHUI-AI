@@ -38,6 +38,16 @@ KILLER_CONSTANTS: dict[str, str] = {
     # P3-11 同构:压缩质量自证默认值(env 解析值随环境变化,parity 以 DEFAULT 标量为基线)
     "AGENT_COMPACTION_QUALITY_THRESHOLD_DEFAULT": "apps/ai-service/app/core/tunables.py",
     "AGENT_COMPACTION_QUALITY_KEEP_RECENT_BONUS_DEFAULT": "apps/ai-service/app/core/tunables.py",
+    # 段 4b:回收 / 压缩有效性守卫阈值(实现在 packages/context-compaction)
+    "RECLAIM_KEEP_RECENT_ROUNDS": "apps/ai-service/app/core/tunables.py",
+    "RECLAIM_MIN_SAVED_TOKENS": "apps/ai-service/app/core/tunables.py",
+    "RECLAIM_WINDOW_RATIO_TRIGGER": "apps/ai-service/app/core/tunables.py",
+    "RECLAIM_IDLE_TRIGGER_MS": "apps/ai-service/app/core/tunables.py",
+    "RECLAIM_MIN_RESULT_TOKENS": "apps/ai-service/app/core/tunables.py",
+    "REFILL_QUICK_WINDOW_ROUNDS": "apps/ai-service/app/core/tunables.py",
+    "REFILL_BREAKER_MAX_CONSECUTIVE": "apps/ai-service/app/core/tunables.py",
+    "OVERFLOW_DROP_MAX_ROUNDS": "apps/ai-service/app/core/tunables.py",
+    "NEXT_TURN_GROWTH_TOKENS": "apps/ai-service/app/core/tunables.py",
 }
 
 
