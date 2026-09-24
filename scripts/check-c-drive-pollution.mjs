@@ -2,15 +2,18 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// C 盘污染实地扫描(守门 85)。与 check-c-drive-paths(只看源码字面量)互补:
-// 那道门看不见 os.tmpdir() 派生的写入,而实测残正是从那条路来的。
+// C 盘污染实地扫描(编号以 runner 里本 script 所在条目为准,文档不写死)。
+// 与 check-c-drive-paths(只看源码字面量)互补:那道门看不见 os.tmpdir() 派生的写入,
+// 而实测残骸正是从那条路来的。2026-09-24 起还认"盘根写歪项是否已封口"(见 seal-c-root-stray.mjs)。
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, lstatSync, mkdirSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+// 封口清单**不抄第二份**:名字与目标路径的唯一真相源在封口器里,本门只读它。
+import { ORPHAN_FILES, SEALED_DIRS, devEnvRoot, pathsFor, sealedFootprint } from './seal-c-root-stray.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..')
@@ -50,6 +53,32 @@ const FOREIGN_ROOT = new Set([
   'logs',
   'documents and settings',
 ])
+
+/**
+ * 封口形态判据(纯函数)—— 抽出来是为了让 --self-test 不碰真盘就能钉死两侧:
+ * - SEALED   :名字在封口表里且当前是链接 ⇒ 内容已在 D 盘,**不占 C、不得计残骸**
+ * - BROKEN   :名字在封口表里却是**真目录** ⇒ 封口被人删了/程序绕过了 ⇒ 必计残骸(回潮)
+ * - FOREIGN  :不在封口表里 ⇒ 走原有分类
+ * 本门此前把 `tmp`/`tools` 整体当他人目录跳过(FOREIGN_ROOT),于是 C:\tmp 里 5.9MB 的
+ * git 抢救副本对门完全隐形 —— 这是"改道之后必须让门重新看见它"的原因。
+ */
+export function classifySeal(name, { exists, isLink, isDir }) {
+  const entry = SEALED_DIRS.find((e) => e.name.toLowerCase() === String(name).toLowerCase())
+  if (!entry) return 'FOREIGN'
+  if (!exists) return 'ABSENT'
+  if (isLink) return 'SEALED'
+  if (isDir) return 'BROKEN'
+  return 'BLOCKED-BY-FILE'
+}
+
+/** 是否重解析点(junction / symlink)。Node 对 junction 的 lstat 报 isSymbolicLink()=true(实测)。 */
+function isReparsePoint(p) {
+  try {
+    return lstatSync(p).isSymbolicLink()
+  } catch {
+    return false
+  }
+}
 
 function classifyRoot(name) {
   for (const p of OUR_ROOT_PATTERNS) if (p.re.test(name)) return p.why
@@ -178,28 +207,71 @@ function scanTargets(target, classify) {
 }
 
 /** 盘根只挑"我们的"条目;白名单外的未知条目单列,交人判身份后再定性。 */
-function scanDriveRoot(drive) {
+function scanDriveRoot(drive, devEnv) {
   const root = `${drive}\\`
   const hits = []
   const unknown = []
-  if (!existsSync(root)) return { hits, unknown }
+  const sealed = []
+  if (!existsSync(root)) return { hits, unknown, sealed }
   let names
   try {
     names = readdirSync(root)
   } catch {
-    return { hits, unknown }
+    return { hits, unknown, sealed }
   }
   for (const name of names) {
     if (name.endsWith('.sys') || name.toLowerCase() === 'bootmgr' || name === 'BOOTNXT') continue
+    const full = join(root, name)
     let isDir = false
+    let isLink = false
     try {
-      isDir = statSync(join(root, name)).isDirectory()
+      isLink = lstatSync(full).isSymbolicLink()
+      isDir = !isLink && statSync(full).isDirectory()
     } catch {
       /* 竞态/权限:按文件处理,单字母规则自然不命中 */
     }
+    const seal = classifySeal(name, { exists: true, isLink, isDir })
+    if (seal === 'SEALED') {
+      // 已改道:内容在 D 盘。这里**绝对不能**去量它的体积 —— statSync 会跟随链接,
+      // 把 D 盘目标算成"C 盘残骸"(改道后第一版就把 12MB 的 D 侧目标报到了 C 头上)。
+      const entry = SEALED_DIRS.find((e) => e.name.toLowerCase() === name.toLowerCase())
+      sealed.push({ path: full, name, target: pathsFor(entry, drive, devEnv ?? devEnvRoot()).target })
+      continue
+    }
+    if (seal === 'BROKEN') {
+      hits.push({
+        path: full,
+        kind: 'dir',
+        why: '封口丢失:该名字应以 junction 改道,现在又是真目录(回潮)',
+        ...dirSizeMB(full),
+      })
+      continue
+    }
+    if (seal === 'BLOCKED-BY-FILE') {
+      hits.push({
+        path: full,
+        kind: 'file',
+        why: '封口位被一个同名文件占住 ⇒ 改道建不起来',
+        sizeMB: fileSizeMB(full),
+        capped: false,
+      })
+      continue
+    }
+    const orphan = ORPHAN_FILES.find((o) => o.name.toLowerCase() === name.toLowerCase())
+    if (orphan) {
+      // 这两个 DLL 的在用版本在 System32,盘根那份是安装器往盘根解包的旧版重复件。
+      // 复现即再计残骸 —— 不再放进"未识别清单"交人猜(本轮已逐条验明身份)。
+      hits.push({
+        path: full,
+        kind: 'file',
+        why: `盘根孤儿组件复现:${orphan.reason}`,
+        sizeMB: fileSizeMB(full),
+        capped: false,
+      })
+      continue
+    }
     const why = classifyRootEntry(name, isDir)
     if (why) {
-      const full = join(root, name)
       hits.push({
         path: full,
         kind: isDir ? 'dir' : 'file',
@@ -210,7 +282,7 @@ function scanDriveRoot(drive) {
     }
     if (!FOREIGN_ROOT.has(name.toLowerCase())) unknown.push(join(root, name))
   }
-  return { hits, unknown }
+  return { hits, unknown, sealed }
 }
 
 /**
@@ -242,7 +314,8 @@ function detectTempDrift() {
 
 export function scanC(options = {}) {
   const drive = options.drive || 'C:'
-  const root = scanDriveRoot(drive)
+  const devEnv = options.devEnv || devEnvRoot()
+  const root = scanDriveRoot(drive, devEnv)
   // 夹具落点一律要扫(落在哪盘都要报);"是不是又掉回 C 盘"由 temp 漂移单独结论回答
   // ⚠️ 这里必须列**所有身份的 TEMP**,不能只列 `tmpdir()`:同一个 `$env:TEMP` 在不同身份下
   // 指向不同目录 —— 守门跑在交互账户下拿到 `C:\Users\<me>\AppData\Local\Temp`,而
@@ -253,12 +326,27 @@ export function scanC(options = {}) {
   const sysRoot = process.env.SystemRoot || process.env.windir || 'C:\\Windows'
   const dirs = tempScanDirs(sysRoot, tmpdir())
   const items = []
-  for (const d of new Set(dirs)) items.push(...scanTargets(d, (n) => classifyTmp(n)))
+  const sealedScanSkipped = []
+  for (const d of new Set(dirs)) {
+    // 已改道的扫描位(现 C:\tmp 就是 junction)一律不跟随:跟随会把 D 盘目标算成 C 盘残骸,
+    // 而任何"按名字删"的下游动作会顺着链接打进 D 盘 —— 实测 PS 的 -Recurse 确实穿透 junction。
+    if (isReparsePoint(d)) {
+      sealedScanSkipped.push(d)
+      continue
+    }
+    items.push(...scanTargets(d, (n) => classifyTmp(n)))
+  }
   const ours = [...root.hits, ...items]
+  const brokenSeal = ours.filter((h) => /封口|孤儿组件复现/.test(h.why))
   const bytesMB = ours.reduce((s, i) => s + (i.sizeMB || 0), 0)
   return {
+    drive,
+    devEnv,
     ours,
     unknownRoot: root.unknown,
+    sealed: root.sealed,
+    sealedScanSkipped,
+    brokenSeal,
     temp: detectTempDrift(),
     totalMB: Math.round(bytesMB * 10) / 10,
   }
@@ -282,6 +370,17 @@ function main(argv) {
       for (const u of r.unknownRoot.slice(0, 15)) console.log(`  · ${u}`)
       if (r.unknownRoot.length > 15) console.log(`  …另 ${r.unknownRoot.length - 15} 项`)
     }
+    if (r.sealed.length) {
+      console.log(`\n已封口(以 junction 改道到外置根,不占 C)${r.sealed.length} 项:`)
+      for (const s of r.sealed) console.log(`  ✔ ${s.path} → ${s.target}`)
+      const fp = sealedFootprint(r.drive, r.devEnv)
+      const mb = fp.reduce((a, b) => a + b.bytes, 0) / 1048576
+      const cnt = fp.reduce((a, b) => a + b.count, 0)
+      console.log(`   封口目标实际占用(在 D 盘,不是 C 的债):${mb.toFixed(2)} MB / ${cnt} 个文件`)
+      console.log(`   封口健康自检:node scripts/seal-c-root-stray.mjs --check`)
+    }
+    if (r.sealedScanSkipped.length)
+      console.log(`\n扫描位已改道、本门刻意不跟随(跟随会把 D 盘目标算成 C 的债):${r.sealedScanSkipped.join(', ')}`)
     console.log(
       r.temp.status === 'ok'
         ? `\nTEMP 一致:进程 ${r.temp.proc}`
@@ -296,8 +395,14 @@ function main(argv) {
     console.log('  1) 预演  pwsh -NoProfile -File scripts/c-drive-auto-maintain.ps1 -DryRun')
     console.log('  2) 执行  pwsh -NoProfile -File scripts/c-drive-auto-maintain.ps1')
     console.log('  计划任务 IHUI C-Drive AutoMaintain 每天 03:00 已注册(S4U,wscript 包装)')
+    if (r.brokenSeal.length)
+      console.log(
+        '\n❌ 上面有「封口丢失/孤儿复现」项 ⇒ 根治器重跑一次即可(幂等):node scripts/seal-c-root-stray.mjs --apply',
+      )
   }
-  if (strict && r.ours.length) return 1
+  // --strict 的判红面**必须含 brokenSeal**:封口回潮是本门唯一的"根治失效"信号,
+  // 若只按 ours 判,回潮会被算进 ours 却永远靠名字白名单看不见(旧版 tmp/tools 整体跳过即此坑)。
+  if (strict && (r.ours.length || r.brokenSeal.length)) return 1
   return 0
 }
 
@@ -342,6 +447,65 @@ function selfTest() {
       rmScratch(d)
     }
   })
+  t('classifySeal:名字不在封口表 → FOREIGN(不因新规则误判他人条目)', () =>
+    eq(classifySeal('Windows', { exists: true, isLink: false, isDir: true }), 'FOREIGN', '分类'))
+  t('classifySeal:封口表内的真目录 → BROKEN(回潮必须被看见)', () =>
+    eq(classifySeal('common_attachment', { exists: true, isLink: false, isDir: true }), 'BROKEN', '分类'))
+  t('classifySeal:表内且是链接 → SEALED', () =>
+    eq(classifySeal('tmp', { exists: true, isLink: true, isDir: false }), 'SEALED', '分类'))
+  t('classifySeal:表内但压根不存在 → ABSENT(不算残骸,否则每天白报)', () =>
+    eq(classifySeal('tools', { exists: false, isLink: false, isDir: false }), 'ABSENT', '分类'))
+  t('封口登记表不得被过滤空(空表 = 门对盘根写歪项重新失明)', () => {
+    if (!SEALED_DIRS.length) throw new Error('封口清单为空 ⇒ BROKEN 判据永不触发')
+    if (!ORPHAN_FILES.length) throw new Error('孤儿清单为空 ⇒ 复现不可见')
+    const names = SEALED_DIRS.map((e) => e.name.toLowerCase())
+    if (new Set(names).size !== names.length) throw new Error('封口清单有重名')
+  })
+
+  // —— 端到端:假盘根上验"改道前后门给的是相反且正确的结论" ——
+  t('端到端:真目录判残骸 / 改道后判已封口且不含量级(不跟随链接)', () => {
+    const base = mkScratch('seal-gate-')
+    const fakeRoot = join(base, 'root')
+    const fakeDev = join(base, 'devenv')
+    try {
+      const stray = join(fakeRoot, 'common_attachment')
+      mkdirSync(stray, { recursive: true })
+      writeFileSync(join(stray, 'a.json'), 'x'.repeat(5000))
+      const r1 = scanDriveRoot(fakeRoot, fakeDev)
+      if (!r1.hits.some((h) => h.why.includes('封口丢失')))
+        throw new Error(`真目录没被判回潮(hits=${JSON.stringify(r1.hits.map((h) => h.why))})`)
+
+      // 改道:内容搬进目标后建 junction —— 门必须翻结论:残骸 0、sealed 1、量级 0
+      const entry = SEALED_DIRS.find((e) => e.name === 'common_attachment')
+      const target = pathsFor(entry, fakeRoot, fakeDev).target
+      mkdirSync(target, { recursive: true })
+      writeFileSync(join(target, 'a.json'), 'x'.repeat(5000))
+      rmSync(stray, { recursive: true, force: true })
+      symlinkSync(target, stray, 'junction')
+
+      const r2 = scanDriveRoot(fakeRoot, fakeDev)
+      if (r2.hits.some((h) => h.why.includes('封口丢失'))) throw new Error('已封口仍判回潮 ⇒ 每日必红')
+      if (!r2.sealed.some((s) => s.name === 'common_attachment')) throw new Error('已封口项没进 sealed 清单')
+      const sz = r2.hits.reduce((a, b) => a + (b.sizeMB || 0), 0)
+      if (sz !== 0) throw new Error(`跟随了链接、把 D 盘目标算成 C 残骸:${sz}MB`)
+    } finally {
+      rmScratch(base)
+    }
+  })
+  t('isReparsePoint:链接为真、真目录为假(扫描位跳过判据的底座)', () => {
+    const base = mkScratch('seal-rep-')
+    try {
+      const t1 = join(base, 'tgt')
+      mkdirSync(t1)
+      const ln = join(base, 'lnk')
+      symlinkSync(t1, ln, 'junction')
+      if (!isReparsePoint(ln)) throw new Error('junction 没被认出 ⇒ 扫描位会跟随进 D 盘')
+      if (isReparsePoint(t1)) throw new Error('真目录被误判为链接 ⇒ 残骸会被整体跳过')
+      if (isReparsePoint(join(base, 'nope'))) throw new Error('不存在的路径不得判真')
+    } finally {
+      rmScratch(base)
+    }
+  })
 
   let failed = 0
   for (const c of cases) {
@@ -370,6 +534,9 @@ export const __test__ = {
   classifyRoot,
   classifyRootEntry,
   classifyTmp,
+  classifySeal,
+  isReparsePoint,
+  scanDriveRoot,
   scanC,
   detectTempDrift,
   FOREIGN_ROOT,
