@@ -4990,6 +4990,11 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
   ① 索引里 `scripts/git-sync-converge.mjs` 的暂存 blob **恰好等于祖先提交 `3fd770517` 的整文件**(即我这次修复之前的版本,零独有价值)⇒ 任何一次不带 pathspec 的提交会把休眠修复静默回退。我想 `update-index` 把它对齐到 HEAD 时**撞锁两次**(第一次空锁已存在 133s;第二次先 `statSync` 见"无锁"、紧随的 `update-index` 又报 `index.lock: File exists`)⇒ 他人 git 进程正在持续写索引,按 §12 **不删锁、不硬抢**,留给持有者或下一轮自愈。
   ② 索引里 `PROJECT_PLAN.md` 的暂存内容等于 `72a6a2fa2` 版本 —— 这一条**不是推测**:本轮实跑 `node scripts/check-stale-revert.mjs --staged`(守门 76)当场判红并点名该路径与该 sha,即上一段登记的"930 行敞口"已经有闸在拦。
   ③ `scripts/c-drive-maintain-hidden.vbs` 被他人**暂存删除**(`D `,工作区文件也已不在)。它是 `f7bf967339a`"C 盘自动维护任务真正装上(S4U+wscript 包装)"引入的 wscript 包装,**删前须确认计划任务是否仍在调它** —— 该任务注册在 S4U 上下文,当前 shell `schtasks //query` 列不到,**不能据"列不到"判它无用**。工作区存续自愈对这第三条判"存续正常"是**正确行为**:它按定义不代裁他人已暂存的删除(§5b 第二/三层)。
+- **收尾核验实测(本轮直接验到的四条,不含推测)**:
+  ① **`git push -q --dry-run` 的输出与退出码都不能用来判断"是否已推全"**:本轮实测它在远端已含本地 HEAD 时打印 **零字节** 并 **rc=0**(git 在"无东西可推"时本来就打 `Everything up-to-date` + 0,`-q` 把它都吞了)⇒ "空输出 + rc=0"被读成"已推完"是不成立的推断。判断只有两条权威路:`git ls-remote origin refs/heads/main` 与本地 sha 比对,或 `git merge-base --is-ancestor HEAD <remote-sha>`(后者还能识别"非前沿但已在远端历史")。`node scripts/git-push-converge.mjs --help` 自己就写明"只读核验同步状态**不使用** push --dry-run"。
+  ② **同一枚 HEAD 的 ls-remote 读数在 4 分钟内出现过不一致**:08:39 converge 报 ALREADY、08:41 手跑读到**上一枚**提交、08:43 手跑又读到本地 HEAD。未定位原因(本机固定走 127.0.0.1:7897 代理链路,§5b),但结论硬:**"已推完"要由末次读数 + 对远端内容实际抽查共同支撑**,单次读数不足。
+  ③ **索引与他人 git 进程是抢不过的**:想 `update-index` 对齐一处陈旧条目,两次撞 `.git/index.lock` —— 第一次是空锁已存在 133s,第二次 `statSync` 报"无锁"而紧随的 `update-index` 仍报 `File exists`(检查与使用之间被抢)。按 §12 不删锁、不硬抢。
+  ④ **守门 76 实测生效,不是纸面闸**:本轮 `node scripts/check-stale-revert.mjs --staged` 当场判红点名 `PROJECT_PLAN.md == 72a6a2fa2`(即上面登记的"工作区/索引旧基线"敞口),另 `git diff --cached --diff-filter=D` 查出他人暂存删除 `scripts/c-drive-maintain-hidden.vbs`(`f7bf967339a` 给 C 盘维护计划任务装的 wscript 包装,S4U 上下文注册、当前 shell `schtasks` 列不到 ⇒ **列不到不等于无用**,删由持有者核对;工作区存续自愈对它判"存续正常"是正确行为 —— 按定义不代裁他人已暂存的删除)。
 - **残余(不写作收口)**:① 上一条敞口的处置权在持有那 171 行的会话,本票只能把判据与找回工具备好;② 台账外 2 枚"仅本地"tag(`packages/sdk/go/v0.1.0`、`restore/prealign`)不推 —— 两枚目标 commit 均已是 HEAD 祖先,零丢失风险,已在本票与台账双重登记;③ `sync-lost-commit-tags.mjs --check` 的全量逐枚可达性复扫在本轮被 4283 枚的打印量拖成后台任务,终数以两族集合逐名对账(更强判据)为准。
 
 ## O36 守门"接线层"根治 —— 补装三枚造好没装车的门、修一道假阳性、摘掉两处恒绿登记(2026-09-24 立并完成 ✅)
