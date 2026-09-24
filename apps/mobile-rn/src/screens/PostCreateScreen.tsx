@@ -12,6 +12,8 @@ import { PostCreateScreen as SharedPostCreateScreen } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rnRadius } from '@ihui/design-tokens'
+
 
 type Route = RouteProp<RootStackParamList, 'PostCreate'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>

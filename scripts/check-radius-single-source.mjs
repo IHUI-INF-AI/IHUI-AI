@@ -326,7 +326,11 @@ export function scanText(rel, text, table) {
   if (isJsx(rel)) {
     const importLists = [...text.matchAll(/import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*['"][^'"]*design-tokens['"]/g)].map((m) => m[1])
     for (const name of ['rnRadius', 'RADIUS_CSS_PX']) {
-      const used = lines.some((l) => !/^\s*(\/\/|\*|\/\*|<!--)/.test(l) && new RegExp(`\\b${name}\\s*\\.`).test(l))
+      // 使用形态有两种:`rnRadius.lg` 与 `rnRadius['2xl']`。后者是 targetOf() 对 2xl 档
+      //   **自己规定**的写法(rnRadius.2xl 不是合法 JS),首版只匹配点号,于是本门强制
+      //   生成的每一种 2xl 取用都落在 B6 的盲区里 —— 2026-09-24 真机 release 包启动即崩
+      //   (ReferenceError: rnRadius doesn't exist)正是这么漏出去的。
+      const used = lines.some((l) => !/^\s*(\/\/|\*|\/\*|<!--)/.test(l) && new RegExp(`\\b${name}\\s*(?:\\.|\\[)`).test(l))
       if (!used) continue
       if (importLists.some((s) => new RegExp(`[\\s,{]${name}(?:\\s+as\\s+\\w+)?\\s*(?:,|$)`).test(s))) continue
       bad.push({ line: 1, rule: 'B6', raw: `${name} 被使用但未 import`, hint: `须在 '@ihui/design-tokens' 的 import 列表里带上 ${name},否则该文件在 HEAD 上直接编译不过` })
@@ -421,6 +425,10 @@ async function selfTest() {
     { name: 'B6 多行 import 带 rnRadius 必须放行(首版单行匹配误伤 6 个正常文件)', f: 'apps/api/src/plugins/swagger-theme.ts', s: "import {\n  COLOR_BLACK,\n  rnRadius,\n  RADIUS_CSS_PX,\n} from '@ihui/design-tokens'\nconst s = { a: { borderRadius: rnRadius.lg } }\nconst css = `border-radius: ${RADIUS_CSS_PX.md}`", red: false },
     { name: 'B6 别名 import(rnRadius as r)同样放行', f: 'apps/web/src/a.tsx', s: "import { rnRadius as r } from '@ihui/design-tokens'\nconst s = { a: { borderRadius: r.lg } }", red: false },
     { name: 'B6 只在注释里提到 rnRadius 不算使用', f: 'apps/web/src/a.tsx', s: '// 这里将来会换成 rnRadius.lg\nconst s = { a: { borderRadius: 0 } }', red: false },
+    // 阳性对照:本门 targetOf() 对 2xl 档**规定的写法**就是括号形态,必须同样被 B6 看见
+    { name: 'B6 括号形态 rnRadius[\'2xl\'] 无 import 必拦(真机 release 崩溃的原始形态)', f: 'apps/mobile-rn/src/screens/PostCreateScreen.tsx', s: "import { tokens } from '../theme/active-tokens'\nconst s = { a: { borderRadius: rnRadius['2xl'] } }", red: true },
+    { name: "B6 括号形态已 import 必须放行(与上一条成对)", f: 'apps/mobile-rn/src/screens/PostCreateScreen.tsx', s: "import { rnRadius } from '@ihui/design-tokens'\nconst s = { a: { borderRadius: rnRadius['2xl'] } }", red: false },
+    { name: "B6 括号形态别名 import 同样放行", f: 'packages/app/src/x.tsx', s: "import { rnRadius as rr } from '@ihui/design-tokens'\nconst s = { a: { borderRadius: rr['2xl'] } }", red: false },
   ]
   let fail = 0
   for (const c of cases) {

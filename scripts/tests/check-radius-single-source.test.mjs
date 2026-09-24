@@ -66,4 +66,18 @@ test('守门 77 的棘轮锚点必须是 HEAD 自身而不是静态清单(装车
   assert.match(out, /锚点:HEAD 本来 3 处、待提交仍 3 处/)
   assert.match(out, /全部 \d+ 例通过/)
 })
+
+//  B6 的取值形态必须覆盖本门自己规定的写法。`rnRadius.2xl` 不是合法 JS,所以 2xl 档
+//   由 targetOf() 生成括号形态 —— 而首版 B6 只匹配点号,等于"门让你怎么写、门就看不见",
+//   2026-09-24 真机 release 包启动即崩(ReferenceError: rnRadius doesn't exist)就是这么漏的。
+//   本例直接调 scanText(而非只跑 --self-test),防止有人把正则改回 \\s*\\. 而自检跟着一起漂移。
+test('B6 必须看得见括号形态 rnRadius[\'2xl\'](装车证明)', async () => {
+  const { scanText } = await import('../check-radius-single-source.mjs')
+  const table = { RADIUS_STEPS: { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }, nearest: (n) => n }
+  const f = 'apps/mobile-rn/src/screens/PostCreateScreen.tsx'
+  const red = scanText(f, "const s = { a: { borderRadius: rnRadius['2xl'] } }", table)
+  assert.ok(red.some((v) => v.rule === 'B6'), '括号形态无 import 必须判 B6')
+  const clean = scanText(f, "import { rnRadius } from '@ihui/design-tokens'\nconst s = { a: { borderRadius: rnRadius['2xl'] } }", table)
+  assert.equal(clean.length, 0, '已 import 的括号形态必须 0 违规')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
