@@ -85,21 +85,18 @@ function LabeledInput({
   value,
   onChangeText,
   placeholder,
-  colorScheme,
 }: {
   label: string
   value: string
   onChangeText: (v: string) => void
   placeholder: string
-  colorScheme: 'light' | 'dark'
 }) {
-  const tk = getTokens(colorScheme)
-  const styles = useMemo(() => createFieldStyles(tk), [tk])
+  const tk = getTokens('light')
   return (
-    <View style={styles.wrap}>
-      <Text style={styles.label}>{label}</Text>
+    <View style={fieldStyles.wrap}>
+      <Text style={fieldStyles.label}>{label}</Text>
       <TextInput
-        style={styles.input}
+        style={fieldStyles.input}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
@@ -114,21 +111,18 @@ function LabeledTextarea({
   value,
   onChangeText,
   placeholder,
-  colorScheme,
 }: {
   label: string
   value: string
   onChangeText: (v: string) => void
   placeholder: string
-  colorScheme: 'light' | 'dark'
 }) {
-  const tk = getTokens(colorScheme)
-  const styles = useMemo(() => createFieldStyles(tk), [tk])
+  const tk = getTokens('light')
   return (
-    <View style={styles.wrap}>
-      <Text style={styles.label}>{label}</Text>
+    <View style={fieldStyles.wrap}>
+      <Text style={fieldStyles.label}>{label}</Text>
       <TextInput
-        style={[styles.input, styles.textarea]}
+        style={[fieldStyles.input, fieldStyles.textarea]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
@@ -145,30 +139,25 @@ function CoverPicker({
   uri,
   onPick,
   onClear,
-  colorScheme,
 }: {
   label: string
   uri: string
   onPick: () => void
   onClear: () => void
-  colorScheme: 'light' | 'dark'
 }) {
-  const tk = getTokens(colorScheme)
-  const field = useMemo(() => createFieldStyles(tk), [tk])
-  const cover = useMemo(() => createCoverStyles(tk), [tk])
   if (uri) {
     return (
-      <View style={field.wrap}>
-        <Text style={field.label}>{label}</Text>
-        <View style={cover.previewWrap}>
-          <Image source={{ uri }} style={cover.preview} resizeMode="cover" />
+      <View style={fieldStyles.wrap}>
+        <Text style={fieldStyles.label}>{label}</Text>
+        <View style={coverStyles.previewWrap}>
+          <Image source={{ uri }} style={coverStyles.preview} resizeMode="cover" />
           <Pressable
-            style={({ pressed }) => [cover.clearBtn, pressed ? cover.pressed : null]}
+            style={({ pressed }) => [coverStyles.clearBtn, pressed ? coverStyles.pressed : null]}
             onPress={onClear}
             accessibilityRole="button"
             accessibilityLabel={`删除${label}`}
           >
-            <Text style={cover.clearText}>×</Text>
+            <Text style={coverStyles.clearText}>×</Text>
           </Pressable>
         </View>
       </View>
@@ -176,16 +165,16 @@ function CoverPicker({
   }
 
   return (
-    <View style={field.wrap}>
-      <Text style={field.label}>{label}</Text>
+    <View style={fieldStyles.wrap}>
+      <Text style={fieldStyles.label}>{label}</Text>
       <Pressable
-        style={({ pressed }) => [cover.box, pressed ? cover.pressed : null]}
+        style={({ pressed }) => [coverStyles.box, pressed ? coverStyles.pressed : null]}
         onPress={onPick}
         accessibilityRole="button"
         accessibilityLabel={label}
       >
-        <Text style={cover.icon}>+</Text>
-        <Text style={cover.hint}>点击上传</Text>
+        <Text style={coverStyles.icon}>+</Text>
+        <Text style={coverStyles.hint}>点击上传</Text>
       </Pressable>
     </View>
   )
@@ -195,29 +184,24 @@ function VideoPicker({
   uri,
   onPick,
   onClear,
-  colorScheme,
 }: {
   uri: string
   onPick: () => void
   onClear: () => void
-  colorScheme: 'light' | 'dark'
 }) {
-  const tk = getTokens(colorScheme)
-  const field = useMemo(() => createFieldStyles(tk), [tk])
-  const cover = useMemo(() => createCoverStyles(tk), [tk])
   if (uri) {
     return (
-      <View style={field.wrap}>
-        <Text style={field.label}>视频预览</Text>
-        <View style={cover.previewWrap}>
-          <View style={cover.preview} />
+      <View style={fieldStyles.wrap}>
+        <Text style={fieldStyles.label}>视频预览</Text>
+        <View style={coverStyles.previewWrap}>
+          <View style={coverStyles.preview} />
           <Pressable
-            style={({ pressed }) => [cover.clearBtn, pressed ? cover.pressed : null]}
+            style={({ pressed }) => [coverStyles.clearBtn, pressed ? coverStyles.pressed : null]}
             onPress={onClear}
             accessibilityRole="button"
             accessibilityLabel="删除视频"
           >
-            <Text style={cover.clearText}>×</Text>
+            <Text style={coverStyles.clearText}>×</Text>
           </Pressable>
         </View>
       </View>
@@ -225,16 +209,16 @@ function VideoPicker({
   }
 
   return (
-    <View style={field.wrap}>
-      <Text style={field.label}>视频</Text>
+    <View style={fieldStyles.wrap}>
+      <Text style={fieldStyles.label}>视频</Text>
       <Pressable
-        style={({ pressed }) => [cover.box, pressed ? cover.pressed : null]}
+        style={({ pressed }) => [coverStyles.box, pressed ? coverStyles.pressed : null]}
         onPress={onPick}
         accessibilityRole="button"
         accessibilityLabel="选择视频"
       >
-        <Text style={cover.icon}>+</Text>
-        <Text style={cover.hint}>点击上传视频</Text>
+        <Text style={coverStyles.icon}>+</Text>
+        <Text style={coverStyles.hint}>点击上传视频</Text>
       </Pressable>
     </View>
   )
@@ -246,56 +230,40 @@ function CategoryPicker({
   selectedId,
   onSelect,
   loading,
-  colorScheme,
 }: {
   title: string
   options: readonly StudyCategory[]
   selectedId: string
   onSelect: (id: string) => void
   loading: boolean
-  colorScheme: 'light' | 'dark'
 }) {
-  const tk = getTokens(colorScheme)
-  const field = useMemo(() => createFieldStyles(tk), [tk])
-  const chip = useMemo(() => createChipStyles(tk), [tk])
+  const tk = getTokens('light')
   return (
-    <View style={field.wrap}>
-      <Text style={field.label}>{title}</Text>
+    <View style={fieldStyles.wrap}>
+      <Text style={fieldStyles.label}>{title}</Text>
       {loading ? (
-        <ActivityIndicator color={tk.brand.DEFAULT} style={chip.loading} />
+        <ActivityIndicator color={tk.brand.DEFAULT} style={chipStyles.loading} />
       ) : options.length === 0 ? (
-        <Text style={chip.empty}>暂无赛道</Text>
+        <Text style={chipStyles.empty}>暂无赛道</Text>
       ) : (
         <CategoryDropdown
           items={options.map((o) => ({ id: o.id, label: o.name }))}
           selectedId={selectedId}
           onSelect={onSelect}
-          colorScheme={colorScheme}
         />
       )}
     </View>
   )
 }
 
-function StagePicker({
-  selected,
-  onSelect,
-  colorScheme,
-}: {
-  selected: number
-  onSelect: (id: number) => void
-  colorScheme: 'light' | 'dark'
-}) {
-  const tk = getTokens(colorScheme)
-  const styles = useMemo(() => createFieldStyles(tk), [tk])
+function StagePicker({ selected, onSelect }: { selected: number; onSelect: (id: number) => void }) {
   return (
-    <View style={styles.wrap}>
-      <Text style={styles.label}>课程阶段</Text>
+    <View style={fieldStyles.wrap}>
+      <Text style={fieldStyles.label}>课程阶段</Text>
       <CategoryDropdown
         items={STAGES.map((s) => ({ id: String(s.id), label: s.name }))}
         selectedId={String(selected)}
         onSelect={(id) => onSelect(Number(id))}
-        colorScheme={colorScheme}
       />
     </View>
   )
@@ -305,27 +273,24 @@ function SubmitButton({
   label,
   onPress,
   loading,
-  colorScheme,
 }: {
   label: string
   onPress: () => void
   loading: boolean
-  colorScheme: 'light' | 'dark'
 }) {
-  const tk = getTokens(colorScheme)
-  const styles = useMemo(() => createSubmitStyles(tk), [tk])
+  const tk = getTokens('light')
   return (
     <Pressable
-      style={({ pressed }) => [styles.btn, pressed ? styles.pressed : null]}
+      style={({ pressed }) => [submitStyles.btn, pressed ? submitStyles.pressed : null]}
       onPress={onPress}
       disabled={loading}
       accessibilityRole="button"
       accessibilityLabel={label}
     >
       {loading ? (
-        <ActivityIndicator color={tk.brand.foreground} />
+        <ActivityIndicator color={tk.surface.light} />
       ) : (
-        <Text style={styles.text}>{label}</Text>
+        <Text style={submitStyles.text}>{label}</Text>
       )}
     </Pressable>
   )
@@ -347,7 +312,6 @@ function GroupForm({
   onCoverPick,
   onCoverClear,
   onSubmit,
-  colorScheme,
 }: {
   title: string
   content: string
@@ -364,30 +328,21 @@ function GroupForm({
   onCoverPick: () => void
   onCoverClear: () => void
   onSubmit: () => void
-  colorScheme: 'light' | 'dark'
 }) {
   return (
     <ScrollView style={formStyles.scroll} contentContainerStyle={formStyles.content}>
-      <CoverPicker
-        label="封面"
-        uri={coverUri}
-        onPick={onCoverPick}
-        onClear={onCoverClear}
-        colorScheme={colorScheme}
-      />
+      <CoverPicker label="封面" uri={coverUri} onPick={onCoverPick} onClear={onCoverClear} />
       <LabeledInput
         label="合集标题"
         value={title}
         onChangeText={onTitleChange}
         placeholder="请输入合集标题"
-        colorScheme={colorScheme}
       />
       <LabeledTextarea
         label="合集描述"
         value={content}
         onChangeText={onContentChange}
         placeholder="请输入合集描述"
-        colorScheme={colorScheme}
       />
       <CategoryPicker
         title="选择合集赛道"
@@ -395,10 +350,9 @@ function GroupForm({
         selectedId={category}
         onSelect={onCategoryChange}
         loading={loadingCategories}
-        colorScheme={colorScheme}
       />
-      <StagePicker selected={stage} onSelect={onStageChange} colorScheme={colorScheme} />
-      <SubmitButton label="发布" onPress={onSubmit} loading={submitting} colorScheme={colorScheme} />
+      <StagePicker selected={stage} onSelect={onStageChange} />
+      <SubmitButton label="发布" onPress={onSubmit} loading={submitting} />
     </ScrollView>
   )
 }
@@ -420,7 +374,6 @@ function VideoForm({
   onVideoPick,
   onVideoClear,
   onSubmit,
-  colorScheme,
 }: {
   title: string
   content: string
@@ -438,52 +391,36 @@ function VideoForm({
   onVideoPick: () => void
   onVideoClear: () => void
   onSubmit: () => void
-  colorScheme: 'light' | 'dark'
 }) {
   return (
     <ScrollView style={formStyles.scroll} contentContainerStyle={formStyles.content}>
-      <CoverPicker
-        label="封面"
-        uri={coverUri}
-        onPick={onCoverPick}
-        onClear={onCoverClear}
-        colorScheme={colorScheme}
-      />
-      <VideoPicker
-        uri={videoUri}
-        onPick={onVideoPick}
-        onClear={onVideoClear}
-        colorScheme={colorScheme}
-      />
+      <CoverPicker label="封面" uri={coverUri} onPick={onCoverPick} onClear={onCoverClear} />
+      <VideoPicker uri={videoUri} onPick={onVideoPick} onClear={onVideoClear} />
       <LabeledInput
         label="课程标题"
         value={title}
         onChangeText={onTitleChange}
         placeholder="请输入课程标题"
-        colorScheme={colorScheme}
       />
       <LabeledTextarea
         label="课程描述"
         value={content}
         onChangeText={onContentChange}
         placeholder="请输入课程描述"
-        colorScheme={colorScheme}
       />
       <LabeledInput
         label="关联AI应用"
         value={agent}
         onChangeText={onAgentChange}
         placeholder="搜索智能体"
-        colorScheme={colorScheme}
       />
       <LabeledTextarea
         label="置顶评论"
         value={remark}
         onChangeText={onRemarkChange}
         placeholder="请输入置顶评论"
-        colorScheme={colorScheme}
       />
-      <SubmitButton label="发布" onPress={onSubmit} loading={submitting} colorScheme={colorScheme} />
+      <SubmitButton label="发布" onPress={onSubmit} loading={submitting} />
     </ScrollView>
   )
 }
@@ -572,7 +509,6 @@ export function StudyPublishScreen({
           onCoverPick={onGroupCoverPick}
           onCoverClear={onGroupCoverClear}
           onSubmit={onGroupSubmit}
-          colorScheme={colorScheme}
         />
       ) : (
         <VideoForm
@@ -592,7 +528,6 @@ export function StudyPublishScreen({
           onVideoPick={onVideoPick}
           onVideoClear={onVideoClear}
           onSubmit={onVideoSubmit}
-          colorScheme={colorScheme}
         />
       )}
     </View>
@@ -627,7 +562,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     tabItemActive: { backgroundColor: tk.brand.DEFAULT },
     tabText: { fontSize: 16, color: tk.text.secondary },
-    tabTextActive: { fontSize: 16, fontWeight: '600', color: tk.brand.foreground },
+    tabTextActive: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
   })
 }
 
@@ -636,89 +571,79 @@ const formStyles = StyleSheet.create({
   content: { padding: 14, gap: 14, paddingBottom: 32 },
 })
 
-function createFieldStyles(tk: AppThemeTokens) {
-  return StyleSheet.create({
-    wrap: { gap: 6 },
-    label: { fontSize: 14, fontWeight: '500', color: tk.text.primary },
-    input: {
-      borderWidth: 1,
-      borderColor: tk.border.light,
-      borderRadius: rnRadius.xl,
-      height: 50,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-      fontSize: 16,
-      color: tk.text.primary,
-      backgroundColor: tk.surface.muted,
-    },
-    textarea: {
-      minHeight: 80,
-    },
-  })
-}
+const fieldStyles = StyleSheet.create({
+  wrap: { gap: 6 },
+  label: { fontSize: 14, fontWeight: '500', color: getTokens('light').text.primary },
+  input: {
+    borderWidth: 1,
+    borderColor: getTokens('light').border.light,
+    borderRadius: rnRadius.xl,
+    height: 50,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    color: getTokens('light').text.primary,
+    backgroundColor: getTokens('light').surface.muted,
+  },
+  textarea: {
+    minHeight: 80,
+  },
+})
 
-function createCoverStyles(tk: AppThemeTokens) {
-  return StyleSheet.create({
-    box: {
-      height: 120,
-      borderRadius: rnRadius.xl,
-      borderWidth: 1,
-      borderColor: tk.border.light,
-      borderStyle: 'dashed',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 6,
-      backgroundColor: tk.surface.light,
-    },
-    previewWrap: {
-      position: 'relative',
-      borderRadius: rnRadius.xl,
-      overflow: 'hidden',
-    },
-    preview: {
-      width: '100%',
-      height: 120,
-      borderRadius: rnRadius.xl,
-    },
-    clearBtn: {
-      position: 'absolute',
-      top: 4,
-      right: 4,
-      width: 24,
-      height: 24,
-      borderRadius: rnRadius.xl,
-      backgroundColor: baseTokens.overlay.modal,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    // 底是 overlay.modal(恒 rgba(0,0,0,0.6),不随主题翻),故其上符号须恒白:
-    // 用 surface.light 的话,深色档案该值 = #262626 深灰,× 在黑遮罩上直接隐形。
-    clearText: { fontSize: 18, color: '#FFFFFF', lineHeight: 18 },
-    icon: { fontSize: 28, color: tk.text.tertiary },
-    hint: { fontSize: 14, color: tk.text.tertiary },
-    pressed: { opacity: 0.85 },
-  })
-}
+const coverStyles = StyleSheet.create({
+  box: {
+    height: 120,
+    borderRadius: rnRadius.xl,
+    borderWidth: 1,
+    borderColor: getTokens('light').border.light,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: getTokens('light').surface.light,
+  },
+  previewWrap: {
+    position: 'relative',
+    borderRadius: rnRadius.xl,
+    overflow: 'hidden',
+  },
+  preview: {
+    width: '100%',
+    height: 120,
+    borderRadius: rnRadius.xl,
+  },
+  clearBtn: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 24,
+    height: 24,
+    borderRadius: rnRadius.xl,
+    backgroundColor: baseTokens.overlay.modal,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clearText: { fontSize: 18, color: getTokens('light').surface.light, lineHeight: 18 },
+  icon: { fontSize: 28, color: getTokens('light').text.tertiary },
+  hint: { fontSize: 14, color: getTokens('light').text.tertiary },
+  pressed: { opacity: 0.85 },
+})
 
-function createChipStyles(tk: AppThemeTokens) {
-  return StyleSheet.create({
-    loading: { paddingVertical: 8 },
-    empty: { fontSize: 14, color: tk.text.tertiary, paddingVertical: 4 },
-  })
-}
+const chipStyles = StyleSheet.create({
+  loading: { paddingVertical: 8 },
+  empty: { fontSize: 14, color: getTokens('light').text.tertiary, paddingVertical: 4 },
+})
 
-function createSubmitStyles(tk: AppThemeTokens) {
-  return StyleSheet.create({
-    btn: {
-      height: 50,
-      borderRadius: rnRadius['2xl'],
-      backgroundColor: tk.brand.DEFAULT,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginTop: 8,
-    },
-    text: { fontSize: 16, fontWeight: '600', color: tk.brand.foreground },
-    pressed: { opacity: 0.85 },
-  })
-}
+const submitStyles = StyleSheet.create({
+  btn: {
+    height: 50,
+    borderRadius: rnRadius['2xl'],
+    backgroundColor: getTokens('light').brand.DEFAULT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  text: { fontSize: 16, fontWeight: '600', color: getTokens('light').surface.light },
+  pressed: { opacity: 0.85 },
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

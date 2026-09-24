@@ -17,10 +17,8 @@
  *     范围保持 apps/mobile-rn/src(基线按此口径建立,扩范围会误伤存量)。
  *  R3 纯白填充 ratchet(2026-09-23 立):`(backgroundColor|borderColor): (tokens|tk).brand.DEFAULT`
  *     在深色档案下就是**纯白**(实测压 #1A1A1A 卡面 17.4:1 = 用户报的"刺眼")。
- *     主 CTA 一律 `brand.DEFAULT` + `brand.foreground` **成对**(= web 的 --color-primary /
- *     --color-primary-foreground)。曾为此另立的端内档 `brand.ctaFill`/`brand.ctaText` 已于
- *     2026-09-24 删除(它就是把"删掉端内第二份真相源"退回去的那一步),深色主按钮随 web 走纯白;
- *     要调观感改 tokens.css 的 .dark --color-primary 一处,三端同动。本条不拦存量(基线冻结),只拦"新增/回潮"。范围含 packages/app。
+ *     主 CTA 一律走 `brand.ctaFill`/`brand.ctaText`(浅色与 brand.DEFAULT 同值 ⇒ 存量外观零变化,
+ *     深色给非纯白)。本条不拦存量(基线冻结),只拦"新增/回潮"。范围含 packages/app。
  *  R4 跨 key 品牌底白字(2026-09-24 立,补 R1 的结构性盲区):
  *     R1 只在**同一个 style 块**内配对背景与前景,而真实的 RN `StyleSheet.create` 把按钮的
  *     底和它的文字放在**兄弟 key** 里(`retryBtn` / `retryText`)—— 于是 PlazaScreen 四个按钮
@@ -672,10 +670,10 @@ function selfTest() {
     extractNamedStyleChunks(['  a: {', "    label: 'x: {',", '  },', '  b: { color: tk.text.primary },']).length === 2,
     'R4 具名块:串内 `key: {` 不得额外成块',
   )
-  // R3:brand.DEFAULT 填充/描边计数(退役档名 ctaFill 不计数 —— 引用它本身已由守门 90 判悬空红)
+  // R3:brand.DEFAULT 填充/描边计数;ctaFill 是正解故不计
   assert(countCtaFills(['    backgroundColor: tokens.brand.DEFAULT,']) === 1, 'R3 tokens.brand.DEFAULT 背景计 1')
   assert(countCtaFills(['    borderColor: tk.brand.DEFAULT,']) === 1, 'R3 tk.brand.DEFAULT 描边计 1')
-  assert(countCtaFills(['    backgroundColor: tokens.brand.ctaFill,']) === 0, 'R3 不计数退役档名 ctaFill(它已不存在)')
+  assert(countCtaFills(['    backgroundColor: tokens.brand.ctaFill,']) === 0, 'R3 不应命中 ctaFill(正解)')
   assert(countCtaFills(['    color: tokens.brand.foreground,']) === 0, 'R3 不计前景色')
   // R3 口径(2026-09-24 补):§4 成对主 CTA 不计债;无配对/错配前景仍计 —— 三条都要有对照
   assert(
