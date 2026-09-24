@@ -7368,6 +7368,61 @@
           "notFound": "Not found"
         }
       },
+      "modelLoad": {
+        "ariaLabel": "Model load and queue status",
+        "load": {
+          "low": "Low load, queuing possible",
+          "medium": "Medium load, queuing possible",
+          "high": "High load, queuing possible"
+        },
+        "slowLane": "In the slow lane · position {position} in queue",
+        "fastPass": "Fast pass enabled, no queuing",
+        "recovering": "Model available, resuming your request",
+        "wait": {
+          "under1min": "Estimated wait under 1 minute",
+          "about1min": "Estimated wait about 1 minute",
+          "aboutNmin": "Estimated wait about {minutes} minutes",
+          "over10min": "Estimated wait over 10 minutes"
+        }
+      },
+      "cloudChatOps": {
+        "title": "Cloud chat",
+        "ariaLabel": "Cloud chat interoperability activity",
+        "empty": "No cloud chat activity yet",
+        "waitingUpstream": "Waiting for upstream action",
+        "op": {
+          "attachCloudChat": {
+            "label": "Attach cloud chat",
+            "active": "Attaching",
+            "completed": "Attached",
+            "following": "Waiting to attach"
+          },
+          "createCloudChat": {
+            "label": "Create cloud chat",
+            "active": "Creating",
+            "completed": "Created",
+            "following": "Waiting to create"
+          },
+          "listCloudChats": {
+            "label": "List cloud chats",
+            "active": "Listing",
+            "completed": "Listed",
+            "following": "Waiting to list"
+          },
+          "readCloudChatTurns": {
+            "label": "Read cloud chat turns",
+            "active": "Reading turns",
+            "completed": "Turns read",
+            "following": "Waiting to read turns"
+          },
+          "sendToCloudChat": {
+            "label": "Send message to cloud chat",
+            "active": "Sending",
+            "completed": "Sent",
+            "following": "Waiting to send"
+          }
+        }
+      },
       "prChecks": {
         "title": "CI checks",
         "summary": {
@@ -26870,6 +26925,74 @@
         "inProgress": "Loading",
         "completed": "Loaded",
         "failed": "Load failed"
+      }
+    }
+  },
+  "visualAnnotation": {
+    "pickElement": "Pick element",
+    "panelTitle": "Style annotation",
+    "contextTitle": "Visual annotation",
+    "elementText": "Element text",
+    "styleSnapshot": "Style snapshot",
+    "annotationLabel": "Annotation",
+    "annotationPlaceholder": "Describe the style to change or inspect…",
+    "addToConversation": "Add to conversation",
+    "staleWarning": "Annotation is stale: the element has changed",
+    "close": "Close",
+    "color": "Color",
+    "backgroundColor": "Background",
+    "border": "Border",
+    "borderRadius": "Radius",
+    "fontSize": "Font size",
+    "margin": "Margin",
+    "padding": "Padding"
+  },
+  "artifactTurn": {
+    "turn": "Turn {turn}",
+    "stepBack": "Previous artifact",
+    "stepForward": "Next artifact",
+    "jumpToOrigin": "Jump to the turn that produced it",
+    "kindDocument": "Document",
+    "kindPresentation": "Presentation",
+    "kindSpreadsheet": "Spreadsheet",
+    "kindFile": "File"
+  },
+  "cloudChat": {
+    "header": {
+      "count": "{count, plural, one {# cloud chat} other {# cloud chats}}",
+      "target": "{name}"
+    },
+    "turns": "{turns, plural, one {# turn} other {# turns}}",
+    "action": {
+      "attach": {
+        "label": "Attach cloud chat",
+        "active": "Attaching",
+        "completed": "Attached",
+        "following": "Waiting to attach"
+      },
+      "create": {
+        "label": "Create cloud chat",
+        "active": "Creating",
+        "completed": "Created",
+        "following": "Waiting to create"
+      },
+      "list": {
+        "label": "List cloud chats",
+        "active": "Listing",
+        "completed": "Listed",
+        "following": "Waiting to list"
+      },
+      "readTurns": {
+        "label": "Read cloud chat turns",
+        "active": "Reading turns",
+        "completed": "Turns read",
+        "following": "Waiting to read"
+      },
+      "sendMessage": {
+        "label": "Send message to cloud chat",
+        "active": "Sending",
+        "completed": "Sent",
+        "following": "Waiting to send"
       }
     }
   }
