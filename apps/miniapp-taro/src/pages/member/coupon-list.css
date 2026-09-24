@@ -94,8 +94,8 @@
   align-self: flex-end;
   margin-top: 16rpx;
   font-size: 24rpx;
-  color: var(--color-primary-foreground);
-  background: var(--color-primary);
+  color: var(--color-cta-foreground);
+  background: var(--color-cta);
   border-radius: var(--radius-2xl);
   padding: 0 28rpx;
   line-height: 56rpx;

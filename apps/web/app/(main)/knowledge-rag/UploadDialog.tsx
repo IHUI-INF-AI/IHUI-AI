@@ -174,7 +174,7 @@ export function UploadDialog({
                 type="file"
                 accept=".pdf,.docx,.md,.txt,.html,.htm"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                className="w-full text-sm text-muted-foreground file:mr-3 file:rounded file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-primary-foreground hover:file:bg-primary/90"
+                className="w-full text-sm text-muted-foreground file:mr-3 file:rounded file:border-0 file:bg-cta file:px-3 file:py-1.5 file:text-cta-foreground hover:file:bg-cta/90"
               />
               {file && (
                 <p className="mt-2 text-xs text-muted-foreground">

@@ -113,7 +113,7 @@ export default function CommissionPlanPage() {
               {t('inviteTitle')}
             </h2>
             {inviteCode && (
-              <span className="rounded-md bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+              <span className="rounded-md bg-cta/10 px-2.5 py-0.5 text-xs font-medium text-primary">
                 {t('inviteCode')}: {inviteCode}
               </span>
             )}
@@ -140,7 +140,7 @@ export default function CommissionPlanPage() {
         <CardContent className="space-y-3 pt-0">
           {RULES.map((rule, idx) => (
             <div key={rule.key} className="flex items-start gap-3 rounded-lg bg-muted/30 p-3">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-cta text-xs font-bold text-cta-foreground">
                 {idx + 1}
               </span>
               <div className="space-y-0.5">

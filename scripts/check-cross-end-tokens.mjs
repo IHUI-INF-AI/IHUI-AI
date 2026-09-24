@@ -102,6 +102,35 @@ const MAPPINGS = [
     css: { dark: '--color-primary-foreground' },
     basis: 'rn-tokens.ts rnDarkTokens brand.foreground = #000000(深色底翻黑前景);tokens.css .dark --color-primary-foreground: hsl(0 0% 0%)',
   },
+  // 2026-09-24:CTA 独立档(明暗同值)。它不是 §4 当年删掉的那种"端内自立混血键"
+  // (ctaFill 浅色=web primary、深色另取一档)—— 这一档**两主题逐位同值**,且先在
+  // tokens.css @theme 落变量再登记,正是 §4「真要新增品牌档」规定的顺序。
+  // 为什么必须新增:--color-primary 在 web 兼任墨色(text-primary 1803 处),不能为了
+  // 按钮观感去动它;而 brand.DEFAULT 浅=纯黑/深=纯白,大色块在两主题里都是与页面相反的一极。
+  {
+    label: 'brand.cta (light) ↔ --color-cta (:root/@theme)',
+    rn: { light: ['rnLightTokens', 'brand', 'cta'] },
+    css: { light: '--color-cta' },
+    basis: 'tokens.css @theme --color-cta: #4a7a96(= --color-brand-accent-deep 亮档,2026-09-14 定稿强调色);rn-tokens.ts rnLightTokens brand.cta = #4A7A96',
+  },
+  {
+    label: 'brand.cta (dark) ↔ --color-cta (.dark 无覆盖,cascade 回退)',
+    rn: { dark: ['rnDarkTokens', 'brand', 'cta'] },
+    css: { dark: '--color-cta' },
+    basis: '刻意明暗同值:tokens.css .dark 不覆盖 --color-cta(cascade 回退 @theme 的 #4a7a96);rn-tokens.ts rnDarkTokens brand.cta = #4A7A96',
+  },
+  {
+    label: 'brand.ctaForeground (light) ↔ --color-cta-foreground (:root/@theme)',
+    rn: { light: ['rnLightTokens', 'brand', 'ctaForeground'] },
+    css: { light: '--color-cta-foreground' },
+    basis: 'tokens.css @theme --color-cta-foreground: #ffffff;rn-tokens.ts rnLightTokens brand.ctaForeground = #FFFFFF(白字对 #4A7A96 实测 4.65:1,过 AA)',
+  },
+  {
+    label: 'brand.ctaForeground (dark) ↔ --color-cta-foreground (.dark 无覆盖,cascade 回退)',
+    rn: { dark: ['rnDarkTokens', 'brand', 'ctaForeground'] },
+    css: { dark: '--color-cta-foreground' },
+    basis: '同上,明暗同值 #ffffff',
+  },
   // 2026-09-06:danger/错误红对齐。RN danger.DEFAULT + error.text 与 web --color-danger
   // 统一为同一语义口(亮 #dc2626 / 暗 #ef4444),并纳入守门防漂移。
   {
