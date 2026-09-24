@@ -7014,3 +7014,5 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
   **⑦ 出包验证为何没做(资源冲突,非疏漏)**:`adb devices` 实测设备 `c12612dc` 在线、`scrcpy` 在跑、3 个 java 进程活跃、`app-release.apk` 落盘于 4 分钟前(23:26),而 `zh.ai.sq` 当前未安装 —— 另一会话正在做真机验证,我若再 build + `install -r` 会把它的被测产物换掉(且撞 versionCode 与 gradle daemon),故**主动让位**。期间我试过读那个 APK 内的 bundle 做只读取证,结论是**不可归因**:其 `查看更多` 出现 0 次,而 HEAD 刻意保留 `accessibilityLabel="查看更多模型"` 等字样,与该产物矛盾;`moreText` 那次命中实为压缩字节相邻造成的假阳(`…TextInputView moreTextMAX_SAFE_INTEGER…`)。**教训:只读探针也要先证它能失效**,否则字节相邻噪声会被我当成证据(与本仓"阳性对照"同一条纪律)。
 
   **验证**:`pnpm --filter @ihui/rn-app typecheck` exit 0;`@ihui/mobile-rn` 仅剩 3 组既有报错(`ImagePreviewModal` / `ChatScreen` 的 `SteerNoticeList` / `packages/shared` 的 `AgentInstanceState`),逐条核对均非本票文件;eslint 本票文件零输出;守门 91 通过且**组件数由 213 增至 214**(MoreLink 已被判据认作共享主题组件、489 渲染点 0 未接线)、77 / 98 / 83 全绿;跨端光学尺寸逐点实测:小程序 8 处一律「标签 24rpx + `size={24}`」、RN 12/12、web 12px/`h-3 w-3`。
+- [x] ✅(2026-09-24)**D19 的"派发前置"取证完成，并落地两半(`cd75f590861` + `b81ba7c05d4`)**：
+- [x] ✅(2026-09-24)**D48 定档为"实现已在库、生效从未发生"，并补上缺失的验收门(`9becc88f4ff`)**：
