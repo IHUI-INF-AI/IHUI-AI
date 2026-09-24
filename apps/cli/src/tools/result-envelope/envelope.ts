@@ -17,13 +17,18 @@
  */
 
 import type { ArtifactWrite } from './artifact-store.js';
+import {
+  ENVELOPE_OPEN_MARKER,
+  ENVELOPE_CLOSE_MARKER,
+  ENVELOPE_PREVIEW_FOOTER,
+  isEnvelopeContent,
+} from '@ihui/context-compaction';
 
-/** 信封起始标记(幂等识别的唯一锚点) */
-export const ENVELOPE_OPEN_MARKER = '[[结果信封 v1]]';
-/** 信封结束标记 */
-export const ENVELOPE_CLOSE_MARKER = '[[/结果信封 v1]]';
-/** 预览段与收尾说明的分隔行 */
-export const ENVELOPE_PREVIEW_FOOTER = '---以上为预览---';
+// 标记与识别判据的真源在 @ihui/context-compaction/src/markers.ts:那里是回收侧
+// (reclaim)也必须读同一个判据的层,而依赖方向是 apps/cli → 共享包,反向 import
+// 结构上不可能。本文件按原导出面 re-export,消费方零改动 —— 但**不得**在这里
+// 重新写一遍字面量,那会变成"改一端、另一端静默漂移"的第二份真相。
+export { ENVELOPE_OPEN_MARKER, ENVELOPE_CLOSE_MARKER, ENVELOPE_PREVIEW_FOOTER, isEnvelopeContent };
 
 /** 信封解析结果 */
 export interface ParsedEnvelope {
@@ -41,11 +46,6 @@ export interface ParsedEnvelope {
   budgetChars: number;
   previewChars: number;
   preview: string;
-}
-
-/** 该文本(或其片段)是否已经是信封 */
-export function isEnvelopeContent(text: string): boolean {
-  return typeof text === 'string' && text.includes(ENVELOPE_OPEN_MARKER) && text.includes(ENVELOPE_CLOSE_MARKER);
 }
 
 /** 一段文本里出现了几次信封起始标记(>1 即说明发生了重复封装,应视为缺陷) */

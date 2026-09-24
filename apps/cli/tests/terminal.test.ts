@@ -13,9 +13,18 @@
  *   - mock command-safety(matchDangerousCommand / isReadonlyCommand)和 hooks(runPreToolCall)
  *   - 不依赖真实 PTY 进程,每个测试通过 afterEach terminal_close 清理会话
  */
-import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, beforeAll, vi } from 'vitest';
 import * as os from 'node:os';
 import type * as nodeModule from 'node:module';
+import { setLocale } from '../src/i18n/index.js';
+
+// 拦截提示自本票起走 t()/语言包(守门 70 拦硬编码中文),而取词的 locale 是按
+// `Intl.DateTimeFormat().resolvedOptions().locale` 推的 —— 非中文机器 / CI 上会得到 en 文案,
+// 本文件的中文子串断言就会假红。参照 branch-ops.test.ts 的既有夹具显式钉住 zh-CN,
+// **不得**反过来放宽断言让它在任意语言下都"通过"。
+beforeAll(() => {
+  setLocale('zh-CN');
+});
 
 // ==================== 虚拟 PTY 类型(供测试中访问 mock 状态)====================
 
@@ -93,10 +102,26 @@ vi.mock('node:module', async (importOriginal) => {
     },
   };
 });
-vi.mock('../src/tools/command-safety.js', () => ({
-  matchDangerousCommand: mockState.mockMatchDangerous,
-  isReadonlyCommand: mockState.mockIsReadonly,
-}));
+vi.mock('../src/tools/command-safety.js', async (importOriginal) => {
+  // 真实模块其余导出(含 describeCommandBlock)照常使用:拦截文案只有一处实现,
+  // 桩里再抄一份就等于把"文案改了测试还绿"这类漂移留给自己制造。
+  const actual = (await importOriginal()) as object;
+  return {
+    ...actual,
+    matchDangerousCommand: mockState.mockMatchDangerous,
+    isReadonlyCommand: mockState.mockIsReadonly,
+    // 2026-09-25:执行链改读 gateCommandExecution(见 src/tools/terminal.ts)。
+    // 桩必须同步覆盖这个新增导出面,否则 terminal.ts 拿到 undefined、全部用例 TypeError。
+    // 组合口径与真实实现同形:危险档/免确认档分别取自上面两个桩;
+    // alwaysConfirm / destructive 本文件没有用例涉猎,给中性值 false(不改变任何既有断言语义)。
+    gateCommandExecution: (command: string) => ({
+      dangerousPattern: mockState.mockMatchDangerous(command) as RegExp | null,
+      autoApprovable: mockState.mockIsReadonly(command) as boolean,
+      alwaysConfirm: false,
+      destructive: false,
+    }),
+  };
+});
 vi.mock('../src/hooks/index.js', () => ({
   runPreToolCall: mockState.mockRunPreToolCall,
 }));
