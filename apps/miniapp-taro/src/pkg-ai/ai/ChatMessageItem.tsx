@@ -8,6 +8,11 @@ import { View, Text, Image, Video, Button } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 import { StreamActivityCards, SteerNoticeCard } from './cards/ai-cards'
 import { isErrorTurn } from '@ihui/shared/chat'
+import { thinkingTitleView } from '@ihui/shared/chat/element-pack'
+import {
+  taroPreviewChatImages,
+  taroSaveChatImageToAlbum,
+} from '@/lib/image-preview-pack'
 import Taro from '@tarojs/taro'
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import type { ChatMessage } from '@/api'
@@ -234,10 +239,9 @@ export default function ChatMessageItem({
     if (msg.role === 'user' && onEdit) onEdit()
   }
 
-  /** 预览图片(对标原 ai_assistant.vue previewImage,防御 urls 空数组) */
+  /** 预览图片(D64② 接线:空列表/非法入参防御与共享判定口径一致,真相源 @ihui/shared/chat/element-pack,经端内 adapter 出口) */
   function previewImage(currentUrl: string, urlList: string[]) {
-    if (!urlList || urlList.length === 0) return
-    Taro.previewImage({ current: currentUrl, urls: urlList })
+    taroPreviewChatImages(currentUrl, urlList)
   }
 
   /** 处理段点击(对标原 ai_assistant.vue handleSegmentClick) */
@@ -247,41 +251,47 @@ export default function ChatMessageItem({
     }
   }
 
-  /** 下载图片到相册(对标原 ai_assistant.vue downloadImages:含水印 URL + 相册保存 + 权限申请) */
+  /** 下载图片到相册(D64② 接线:保存成败判定改走共享层 imageTransferView 出口(taroSaveChatImageToAlbum),
+   *  端内不再自行 try/catch 定成败;相册权限被拒的引导保留,探测方式由 errMsg 串改为 getSetting 权限态
+   *  —— adapter 不裸露 errMsg,成败归共享判定,权限归平台 API,各管各的) */
   async function downloadImages() {
     const urls = msg.images || []
     if (!urls.length) return
     Taro.showLoading({ title: t('ai.chatMessageItem.downloading') })
-    try {
-      for (const url of urls) {
+    let labelKey = ''
+    let failed = false
+    for (const url of urls) {
+      let filePath = ''
+      try {
         const res = await Taro.downloadFile({ url })
-        if (res.statusCode === 200) {
-          await Taro.saveImageToPhotosAlbum({ filePath: res.tempFilePath })
-        }
+        if (res.statusCode === 200) filePath = res.tempFilePath
+      } catch {
+        filePath = ''
       }
-      Taro.showToast({
-        title: t('ai.chatMessageItem.downloadSuccess'),
-        icon: 'success',
+      const out = await taroSaveChatImageToAlbum(filePath)
+      labelKey = out.labelKey
+      if (out.result === 'failed') {
+        failed = true
+        break
+      }
+    }
+    Taro.hideLoading()
+    if (!failed) {
+      Taro.showToast({ title: t(labelKey), icon: 'success' })
+      return
+    }
+    const setting = await Taro.getSetting().catch(() => null)
+    if (setting?.authSetting?.['scope.writePhotosAlbum'] === false) {
+      Taro.showModal({
+        title: t('common.hint'),
+        content: t('ai.chatMessageItem.needAlbumAuth'),
+        confirmText: t('common.goSettings'),
+        success: (res) => {
+          if (res.confirm) Taro.openSetting()
+        },
       })
-    } catch (err) {
-      const errMsg = String((err as { errMsg?: string })?.errMsg || '')
-      if (errMsg.includes('auth deny')) {
-        Taro.showModal({
-          title: t('common.hint'),
-          content: t('ai.chatMessageItem.needAlbumAuth'),
-          confirmText: t('common.goSettings'),
-          success: (res) => {
-            if (res.confirm) Taro.openSetting()
-          },
-        })
-      } else {
-        Taro.showToast({
-          title: t('ai.chatMessageItem.downloadFailed'),
-          icon: 'none',
-        })
-      }
-    } finally {
-      Taro.hideLoading()
+    } else {
+      Taro.showToast({ title: t(labelKey), icon: 'none' })
     }
   }
 
@@ -627,10 +637,33 @@ export default function ChatMessageItem({
                 color="var(--color-muted-foreground)"
                 onClick={toggleAnswer}
               />
-              {/* 思考过程(若有 reasoning) */}
-              {msg.reasoning ? (
-                <Image className="action-btn" src={sikaoIcon} onClick={onOpenReasoning} />
-              ) : null}
+              {/* D64③ 双态(判定唯一入口 thinkingTitleView,端内不再自行「有 reasoning 才显示」):
+                  有思考 → 思考过程图标(交互保持既有 onOpenReasoning 浮层);
+                  无思考但本轮带引用 → 「使用了 N 个引用」文本。
+                  本组件没有引用浮层入口(onOpenCitations 不存在),refs 态只出标题、不挂死按钮。 */}
+              {(() => {
+                const titleView = thinkingTitleView(
+                  Boolean(msg.reasoning),
+                  msg.aiCards?.citations?.length ?? 0,
+                )
+                if (!titleView) return null
+                if (titleView.variant === 'thinking') {
+                  return <Image className="action-btn" src={sikaoIcon} onClick={onOpenReasoning} />
+                }
+                return (
+                  <Text
+                    className="action-btn"
+                    style={{
+                      fontSize: '24rpx',
+                      color: 'var(--color-muted-foreground)',
+                      lineHeight: '40rpx',
+                    }}
+                  >
+                    {/* 键在 ai.pane 域(element-pack.ts:251 注释口径),完整路径 = ai.pane.thinkingRefsTitle */}
+                    {t(`ai.pane.${titleView.titleKey}`, titleView.values)}
+                  </Text>
+                )
+              })()}
               {/* 复制 */}
               <Image
                 className="action-btn"

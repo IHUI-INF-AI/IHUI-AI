@@ -5120,3 +5120,26 @@ A: Yes. ~14839+ tests / 719 test files / 67 e2e spec / 4393 API 路由 / 542 数
 镜像测试 `scripts/tests/check-brand-foreground.test.mjs` 13 例;R5(web/ui-react Tailwind 类名面的
 `bg-primary`+`text-primary-foreground` 退役配对,基线键 `webClassPairCounts` 现为空 = 零容忍)
 于 2026-09-24 补上,详见 AGENTS 守门速查第 83 项;紧急跳过
+
+
+
+
+|                   | Credits 用量可见性 | `GET /api/credits/usage/daily`(登录态 + Zod,days≤365,UTC 分桶缺日补零,纯只读零写入)驱动热力图卡;**单日消耗**与**当日新建会话数**是两条独立序列(积分流水的 reference_id 存 HTTP 请求 id 而非会话 id),不可互相换算 |
+|                   | 小元素包(D64) | 图片预览翻页 / 第 N·M 张 / 缩放档位进退 / 保存与复制**成败都说话**;思考卡双态标题(有思考→"思考过程",无思考有引用→"使用了 N 个引用");后台子任务八态含 `stopFailed` 显式文案 + 重试停止;回复反馈问卷卡(三选 + 可跳过 + 免打扰) |
+|                   | 多任务窗格(D73) | 窗格树唯一真相源 `@ihui/shared/chat/multi-pane`:向右/向下拆分、最大化还原、**相邻窗格联动调宽**(最小份额钳制)、空窗格复用 D22 `application/x-ihui-conversation` 通道拖入、Fork 失败三态显式文案 |
+|                   | 跨端词表落点纪律 | `ai.pane.*` 79 叶 × 5 语言由 `messages/web/` **迁入** `messages/shared/` —— web 合并 shared+web,而 miniapp / rn / cli / extension **只合并 shared + 各自端包**,键留在 web 包即四端裸键回显(由 `check-word-table-resolvable` W3/W4 逐键逐语言逐端钉住) |
+| 100        | check-merge-addition-loss.mjs                                            | **合并新增文件存续性对账(blocking,2026-09-24 立)**:堵「合并吞掉对侧独有新增」这一型 —— 它不产生冲突、不进 diff 报告。实测合并 `9a0f7610e9` 写着「双方每一行均存活」,却把对侧独有的 **35 个新增路径整批抹掉**、72 个文件回退成旧基线(相对共同祖先净 **−12014 行**)。判据 **A1**:路径 ∈ 某父提交树 ∧ ∉ 本次合并的共同基底(`merge-base --all`)⇒ 必须 ∈ 合并结果(「∉ 基底」即排除「对侧删过」这一唯一正当解释);确要删除须**合并之后**单独 `git rm`(所有父都不含它 ⇒ 自动放过)。**口径是生命线**:默认只判 `origin/main..HEAD` 的合并,已入库的历史事故不得把后来每次提交钉红(那只会逼人绕过钩子、连带废掉全部守门);别人推来的合并由 `--all-new` 增量台账判到一次,`--limit N` 供人工回看。取证 `--self-test` 9 例(真临时仓:正常合并绿 / 整树回写红 / 未推必拦+已推必放 / 台账不重复红)+ 镜像测试 5 例(钉死两处自伤:`rev-list --parents` 首 token 是提交自己、树缓存键必须剥到 tree oid);紧急跳过 `HUSKY_SKIP_MERGE_ADDITION_LOSS=1`。**修复出口 `scripts/union-converge.mjs`**:合并树 = 本侧整棵树 ∪ 对侧相对共同基底自己动过的路径 ∪ 活文档行 union(每行重数 = max);落地前自证"丢本侧路径 0 ∧ 丢对侧路径 0 ∧ 三份活文档未存活行 0",落地后由本门 A1 复核自己的产物;`git-sync-converge` 的 merge-tree 冲突分支自动调它,`git-guardian` 每轮另跑 `--all-new` 增量台账去判别人推来的合并(只判不修)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| 100        | check-merge-addition-loss.mjs                                            | **合并新增文件存续性对账(blocking,2026-09-24 立)**:堵「合并吞掉对侧独有新增」这一型 —— 它不产生冲突、不进 diff 报告。实测合并 `9a0f7610e9` 写着「双方每一行均存活」,却把对侧独有的 **35 个新增路径整批抹掉**、72 个文件回退成旧基线(相对共同祖先净 **−12014 行**)。判据 **A1**:路径 ∈ 某父提交树 ∧ ∉ 本次合并的共同基底(`merge-base --all`)⇒ 必须 ∈ 合并结果(「∉ 基底」即排除「对侧删过」这一唯一正当解释);确要删除须**合并之后**单独 `git rm`(所有父都不含它 ⇒ 自动放过)。**口径是生命线**:默认只判 `origin/main..HEAD` 的合并,已入库的历史事故不得把后来每次提交钉红(那只会逼人绕过钩子、连带废掉全部守门);别人推来的合并由 `--all-new` 增量台账判到一次,`--limit N` 供人工回看。取证 `--self-test` 9 例(真临时仓:正常合并绿 / 整树回写红 / 未推必拦+已推必放 / 台账不重复红)+ 镜像测试 5 例(钉死两处自伤:`rev-list --parents` 首 token 是提交自己、树缓存键必须剥到 tree oid);紧急跳过 `HUSKY_SKIP_MERGE_ADDITION_LOSS=1`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+### 守门补登:桌面端本地缓存明文巡检(2026-09-24 立,warn-only)
+`scripts/check-desktop-cache-plaintext.mjs` 补的是 D48 那个**看着绿其实空**的验收:加密实现早在库里
+(`apps/web/src/lib/chat-persist-crypto.ts` + `local-vault.ts` + `desktop-token-vault.ts`),但桌面端
+WebView 数据目录里信封字面量 `ihuiVaultV1` 零命中 —— "盘上 grep 不到明文会话"当时成立的真实原因是
+**这台机没登录数据**,不是数据被加密。所以本门第一条判据就是**阳性对照**:自造一条含唯一 nonce 的中文
+记录,先证明扫描动作能看见明文,再证明加密形态看不见;之后的"0 命中"才有意义。
+另三条:结构位断言(顶层恰 `{ihuiVaultV1}`、内层恰 `{alg,kid,iv,ct}`,常量从 `local-vault.ts` 解析而非
+抄第二份)、目录级 CJK 断言并打印实扫清单(刻意排除 `Cache_Data`/`Code Cache`/`GPUCache`)、密钥不入仓
+与 vault 落点单源断言。路径经 `realpathSync` 解析 junction 真身,非 win32 或目录不存在一律判**未判定**
+(不计通过)。全程只读。
+**为什么它是 warn 而不是 blocking**:这道门判的是**机器运行态**(某个目录里有没有我们的产物),提交者在
+结构上无法让它变绿。挂进提交链的唯一结局是每次提交都被迫 `--no-verify`,连带把其余一百多道门一起作废。
+手动跑:`pnpm check:desktop-cache-plaintext`。取证:`--self-test` 10/10、镜像测试 12/12。
