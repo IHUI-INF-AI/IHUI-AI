@@ -33,7 +33,7 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync, mkdirSync, appendFileSync, rmSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
 import { createHash } from 'node:crypto'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { request } from 'node:https'
 import { request as httpRequest } from 'node:http'
 import { resolveGitBin } from './lib/gitdir.mjs'
@@ -389,8 +389,22 @@ function readText(p) {
   }
 }
 
-export function judgeStall({ liveSha, tipSha, lastSuccessIso, nowMs, thresholdMin, inFlight = false }) {
+export function judgeStall({
+  liveSha,
+  tipSha,
+  lastSuccessIso,
+  nowMs,
+  thresholdMin,
+  inFlight = false,
+  deployHost = true,
+}) {
   if (!tipSha) return { level: 'unknown', why: '取不到 origin/main tip,不判定' }
+  // 构建标记只由部署机写(ihui-deploy.ps1 部署成功后写 .next/IHUI_BUILD_SHA)。
+  // 在非部署机上"标记缺失"是**必然**为真 ⇒ 该项恒红,会把真告警淹掉(告警器一乱叫就被静音:
+  // 邮件 10 封/天、Server酱 5 条/天)。判据取"本机有没有部署环痕迹":deploy-loop.log 有无内容。
+  if (!deployHost && !liveSha && !lastSuccessIso) {
+    return { level: 'unknown', why: '本机无部署环痕迹(deploy-loop.log 为空/缺失)⇒ 该项只在部署机评估' }
+  }
   // 部署环**正在跑这一轮**时不得判停摆:2026-09-23 14:05 实测假阳性 —— 14:02 起在构建,
   // 14:06:21 就成功了,而我按"距上次成功 > 阈值"判红并真发了一封邮件。
   // 告警器乱叫就会被静音(邮件 10 封/天、Server酱 5 条/天),所以这一条是硬护栏。
@@ -446,7 +460,15 @@ function deployStallCheck() {
     const lastAge = lm ? (Date.now() - Date.parse(`${lm[1].replace(' ', 'T')}${lm[2]}`)) / 60000 : Infinity
     inFlight = Number.isFinite(lastAge) && lastAge < 20 && !/轮询结束|部署完成/.test(last)
   }
-  const r = judgeStall({ liveSha, tipSha, lastSuccessIso, nowMs: Date.now(), thresholdMin, inFlight })
+  const r = judgeStall({
+    liveSha,
+    tipSha,
+    lastSuccessIso,
+    nowMs: Date.now(),
+    thresholdMin,
+    inFlight,
+    deployHost: Boolean(log.trim()),
+  })
   const diag = errs.length ? ` [诊断: ${errs.join(' ; ')}]` : ''
   return [{ name: '部署停摆(线上构建 vs origin/main)', level: r.level, detail: r.why + diag }]
 }
@@ -469,6 +491,29 @@ function selfTest() {
   eq('同一输入:本轮在飞 ⇒ 不判定', judgeStall({ liveSha: 'A', tipSha: 'B', lastSuccessIso: new Date(1000).toISOString(), nowMs: 1000 + 120 * 60000, thresholdMin: 45, inFlight: true }).level, 'unknown')
   eq('反向对照:同样输入但非在飞 ⇒ 仍判停摆(护栏不得吞掉真故障)', judgeStall({ liveSha: 'A', tipSha: 'B', lastSuccessIso: new Date(1000).toISOString(), nowMs: 1000 + 120 * 60000, thresholdMin: 45, inFlight: false }).level, 'fail')
   eq('无标记判红', judgeStall({ liveSha: '', tipSha: 'B', lastSuccessIso: '', nowMs: 1, thresholdMin: 45 }).level, 'fail')
+  // 非部署机:同样无标记 ⇒ 不得判红(标记只由部署机写,在这里红是恒红)
+  eq(
+    '非部署机无标记判 unknown',
+    judgeStall({ liveSha: '', tipSha: 'B', lastSuccessIso: '', nowMs: 1, thresholdMin: 45, deployHost: false }).level,
+    'unknown',
+  )
+  eq(
+    '反向对照:同输入但确是部署机 ⇒ 仍判红(护栏不得吞掉真停摆)',
+    judgeStall({ liveSha: '', tipSha: 'B', lastSuccessIso: '', nowMs: 1, thresholdMin: 45, deployHost: true }).level,
+    'fail',
+  )
+  eq(
+    '非部署机但有日志痕迹(有 lastSuccess)⇒ 照常判停摆',
+    judgeStall({
+      liveSha: '',
+      tipSha: 'B',
+      lastSuccessIso: new Date(1000).toISOString(),
+      nowMs: 1000 + 120 * 60000,
+      thresholdMin: 45,
+      deployHost: false,
+    }).level,
+    'fail',
+  )
   eq('取不到 tip 不误判', judgeStall({ liveSha: 'A', tipSha: '', lastSuccessIso: '', nowMs: 1, thresholdMin: 45 }).level, 'unknown')
   // ── 邮件通道契约(2026-09-23 迁到品牌派发器;发信路径不得再自拼传输层,守门 81)──
   const norm = (p) => String(p).replace(/\\/g, '/')
@@ -815,7 +860,13 @@ async function maybeAlert(results, dryRun) {
 }
 
 const argv = process.argv.slice(2)
-if (argv.includes('--help') || argv.includes('-h')) {
+// §22d 入口守卫:此前顶层直接跑 else 分支 ⇒ 任何 import(取纯函数写测试)都会**跑一次实检并真投递告警**
+// (2026-09-24 实测:node --input-type=module -e import { judgeStall } 就发掉一封品牌告警邮件,烧掉每日配额)
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (!isDirectRun) {
+  /* 被 import:只暴露纯函数,不产生任何网络/投递副作用 */
+} else if (argv.includes('--help') || argv.includes('-h')) {
   // 必须是真分支:此前未知参数(含 --help)一律落到默认巡检 —— 想查用法的人会顺手打一轮
   // 厂商 API,还可能因当轮判红而真发一封告警(邮件 10 封/天、Server酱 5 条/天的配额是自保项)。
   console.log(
