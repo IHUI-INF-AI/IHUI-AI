@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE).
-// [IHUI-AI-PROVENANCE]: D58 工具类目聚合层 (2026-09-23 · G-71/G-72)
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // @vitest-environment happy-dom
 /**
@@ -65,7 +65,11 @@ describe('D58 卡片 · 同类连续聚合成卡(被中断断卡)', () => {
   it('连续同类合并:read,read,read → 仅 1 张 file_read 卡', () => {
     const { container } = render(
       <ToolCallSummaryCard
-        toolCalls={[{ toolName: 'read_file' }, { toolName: 'read_file' }, { toolName: 'read_file' }]}
+        toolCalls={[
+          { toolName: 'read_file' },
+          { toolName: 'read_file' },
+          { toolName: 'read_file' },
+        ]}
       />,
     )
     const cards = container.querySelectorAll('[data-testid^="tool-call-category-"]')
@@ -104,9 +108,7 @@ describe('D58 卡片 · 折叠点击埋点', () => {
 
   it('不同类目卡各自上报对应 group_key', () => {
     const { container } = render(
-      <ToolCallSummaryCard
-        toolCalls={[{ toolName: 'run_command' }, { toolName: 'web_search' }]}
-      />,
+      <ToolCallSummaryCard toolCalls={[{ toolName: 'run_command' }, { toolName: 'web_search' }]} />,
     )
     const cmdCard = container.querySelector('[data-testid="tool-call-category-command"]')!
     fireEvent.click(cmdCard.querySelector<HTMLElement>('button[data-section-header="true"]')!)
@@ -132,7 +134,9 @@ describe('D58 卡片 · ShowMoreList "更多"容器', () => {
       'web_search',
       'use_skill',
     ]
-    const { container } = render(<ToolCallSummaryCard toolCalls={tools.map((t) => ({ toolName: t }))} />)
+    const { container } = render(
+      <ToolCallSummaryCard toolCalls={tools.map((t) => ({ toolName: t }))} />,
+    )
     const more = container.querySelector('[data-testid="tool-call-summary-category-list-more"]')
     expect(more).not.toBeNull()
     // 按钮文案含隐藏数量
@@ -160,3 +164,4 @@ describe('D58 卡片 · countable=false 类目仍渲染标题', () => {
     expect(title).toContain('catThinking')
   })
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
