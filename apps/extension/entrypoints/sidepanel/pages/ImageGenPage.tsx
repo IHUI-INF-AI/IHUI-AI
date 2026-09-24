@@ -122,7 +122,7 @@ export default function ImageGenPage() {
           type="button"
           onClick={() => void generate()}
           disabled={generating || !prompt.trim()}
-          className="px-3 py-2 text-xs rounded-md border border-border bg-primary text-primary-foreground cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-3 py-2 text-xs rounded-md border border-border bg-cta text-cta-foreground cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {generating ? t('common.loading') : t('common.submit')}
         </button>

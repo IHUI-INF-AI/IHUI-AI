@@ -259,7 +259,7 @@ export function AutomationFormDialog({ open, onOpenChange, editing, onSaved }: P
                   className={cn(
                     'rounded-md border px-3 py-1.5 text-xs font-medium transition-colors',
                     form.scheduleType === value
-                      ? 'border-primary bg-primary text-primary-foreground'
+                      ? 'border-primary bg-cta text-cta-foreground'
                       : 'border-border bg-foreground/5 text-muted-foreground hover:bg-foreground/10',
                   )}
                 >
@@ -325,7 +325,7 @@ export function AutomationFormDialog({ open, onOpenChange, editing, onSaved }: P
                           className={cn(
                             'rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
                             active
-                              ? 'border-primary bg-primary text-primary-foreground'
+                              ? 'border-primary bg-cta text-cta-foreground'
                               : 'border-border bg-foreground/5 text-muted-foreground hover:bg-foreground/10',
                           )}
                         >

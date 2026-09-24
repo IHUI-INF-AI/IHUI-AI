@@ -288,7 +288,7 @@ export default function ManualFaqPage() {
       </section>
 
       {/* 完结 */}
-      <section className="mt-12 rounded-xl border bg-primary/5 p-3 text-center ring-1 ring-primary/20">
+      <section className="mt-12 rounded-xl border bg-cta/5 p-3 text-center ring-1 ring-primary/20">
         <p className="text-lg font-semibold">🎉 手册完结</p>
         <p className="mt-2 text-sm text-muted-foreground">
           恭喜!你已读完智汇 AI 使用说明手册全部 7 章。
@@ -297,7 +297,7 @@ export default function ManualFaqPage() {
         <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
           <a
             href="/docs/manual"
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className="rounded-lg bg-cta px-4 py-2 text-sm font-medium text-cta-foreground hover:bg-cta/90"
           >
             返回手册首页
           </a>

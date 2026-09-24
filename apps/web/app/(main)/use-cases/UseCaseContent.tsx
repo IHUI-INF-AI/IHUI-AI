@@ -391,7 +391,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
         <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {uc.solutionPoints.map((sp, i) => (
             <div key={i} className="rounded-2xl border bg-card p-3 shadow-sm">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cta/10 text-sm font-semibold text-primary">
                 {i + 1}
               </div>
               <h3 className="mt-4 text-lg font-semibold">{sp.title}</h3>
@@ -409,7 +409,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
         <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-4">
           {uc.howItWorks.map((hw) => (
             <div key={hw.step} className="rounded-2xl border bg-card p-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-base font-semibold text-primary-foreground">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cta text-base font-semibold text-cta-foreground">
                 {hw.step}
               </div>
               <h3 className="mt-4 text-base font-semibold">{hw.title}</h3>
@@ -420,7 +420,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
       </section>
 
       {/* 核心收益 */}
-      <section className="mt-16 rounded-2xl border bg-primary/5 p-3">
+      <section className="mt-16 rounded-2xl border bg-cta/5 p-3">
         <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
           核心收益
         </h2>
@@ -429,7 +429,7 @@ export function UseCaseContent({ useCaseId }: { useCaseId: UseCase['id'] }): Rea
             const BIcon = b.icon
             return (
               <div key={i} className="text-center">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-cta/10">
                   <BIcon className="h-6 w-6 text-primary" />
                 </div>
                 <h3 className="mt-3 text-base font-semibold">{b.title}</h3>

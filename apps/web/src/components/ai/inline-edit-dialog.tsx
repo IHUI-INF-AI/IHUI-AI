@@ -162,7 +162,7 @@ export function InlineEditDialog() {
             </button>
             <button
               onClick={acceptPatch}
-              className="flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground hover:bg-primary/90"
+              className="flex items-center gap-1 rounded-md bg-cta px-2 py-1 text-xs text-cta-foreground hover:bg-cta/90"
             >
               <Check className="h-3 w-3" />
               <span>{t('accept')}</span>

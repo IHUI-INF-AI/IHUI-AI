@@ -206,7 +206,7 @@ export default function ComputerUsePage() {
           <button
             onClick={openPage}
             disabled={busy || !url.trim()}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
+            className="inline-flex items-center gap-2 rounded-lg bg-cta px-4 py-2 text-sm font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
           >
             {busy ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -310,7 +310,7 @@ export default function ComputerUsePage() {
             {selectedRef === null ? (
               <span className="text-muted-foreground"> {t('notSelected')}</span>
             ) : (
-              <code className="ml-1 rounded bg-primary/10 px-1.5 py-0.5 font-semibold text-primary">
+              <code className="ml-1 rounded bg-cta/10 px-1.5 py-0.5 font-semibold text-primary">
                 ref={selectedRef}
               </code>
             )}
@@ -334,7 +334,7 @@ export default function ComputerUsePage() {
             <button
               onClick={typeIntoSelected}
               disabled={busy || !openInfo || !typeText.trim()}
-              className="ml-auto inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
+              className="ml-auto inline-flex items-center gap-2 rounded-lg bg-cta px-4 py-2 text-sm font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
             >
               <Keyboard className="h-4 w-4" /> {t('type')}
             </button>

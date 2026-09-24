@@ -25,7 +25,7 @@ const BTN_BASE =
 
 const VARIANT_CLASS: Record<NonNullable<QuickActionButtonProps['variant']>, string> = {
   default: 'border border-border bg-card text-foreground',
-  primary: 'border-none bg-primary text-primary-foreground font-medium',
+  primary: 'border-none bg-cta text-cta-foreground font-medium',
   danger: 'border border-destructive bg-card text-destructive',
 }
 

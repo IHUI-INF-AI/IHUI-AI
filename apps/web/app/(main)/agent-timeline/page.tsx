@@ -178,7 +178,7 @@ export default function AgentTimelinePage() {
         <button
           onClick={() => void load(sessionId)}
           disabled={loading || !sessionId.trim()}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
+          className="inline-flex items-center gap-2 rounded-lg bg-cta px-4 py-2 text-sm font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
           {t('load')}
@@ -301,7 +301,7 @@ export default function AgentTimelinePage() {
                                 <span className="text-xs font-semibold text-muted-foreground">
                                   {t('decision')}
                                 </span>
-                                <code className="rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary">
+                                <code className="rounded bg-cta/10 px-1.5 py-0.5 text-xs text-primary">
                                   {getMetaStr(ev.meta, 'decision')}
                                 </code>
                                 {getMetaStr(ev.meta, 'reason') && (

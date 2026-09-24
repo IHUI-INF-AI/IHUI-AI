@@ -48,7 +48,7 @@ export function MessageBubble({ message, isSelf }: Props) {
       <div
         className={cn(
           'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-medium',
-          isSelf ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
+          isSelf ? 'bg-cta text-cta-foreground' : 'bg-muted text-muted-foreground',
         )}
       >
         {isSelf ? '客' : getInitials(message.sender)}
@@ -74,7 +74,7 @@ export function MessageBubble({ message, isSelf }: Props) {
             className={cn(
               'rounded-2xl px-3 py-2 text-sm',
               isSelf
-                ? 'rounded-br-sm bg-primary text-primary-foreground'
+                ? 'rounded-br-sm bg-cta text-cta-foreground'
                 : 'rounded-bl-sm bg-muted text-muted-foreground',
             )}
           >

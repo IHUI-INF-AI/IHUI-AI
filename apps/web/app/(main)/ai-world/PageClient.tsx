@@ -123,7 +123,7 @@ export default function AiWorldPage() {
         <button
           type="button"
           onClick={() => openPanel()}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground transition-colors hover:bg-primary/90"
+          className="ml-auto inline-flex items-center gap-1.5 rounded-md bg-cta px-3 py-1.5 text-sm text-cta-foreground transition-colors hover:bg-cta/90"
         >
           <Sparkles className="h-4 w-4" />
           <span>AI 对话</span>
