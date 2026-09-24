@@ -104,7 +104,7 @@ export function findChromeExecutable(): string | undefined {
 // ==================== CDP WebSocket 会话层 ====================
 
 /** 单条 CDP ws 连接:send(id 匹配) + waitEvent(事件等待)。 */
-class CdpSession {
+export class CdpSession {
   private ws: WebSocket;
   private nextId = 1;
   private pending = new Map<
@@ -321,7 +321,7 @@ async function acquirePageWsUrl(port: number, host: string): Promise<string> {
 }
 
 /** 获取(必要时创建)可用的 CDP 会话。 */
-async function getBrowserSession(): Promise<{ session: CdpSession; port: number }> {
+export async function getBrowserSession(): Promise<{ session: CdpSession; port: number }> {
   if (activeSession?.isOpen) {
     return { session: activeSession, port: spawnedPort ?? resolveEndpoint().port };
   }
@@ -611,7 +611,7 @@ const browserType: Tool = {
   },
 };
 
-const KEY_MAP: Record<string, { code: string; vk: number; text?: string }> = {
+export const KEY_MAP: Record<string, { code: string; vk: number; text?: string }> = {
   Enter: { code: 'Enter', vk: 13, text: '\r' },
   Tab: { code: 'Tab', vk: 9 },
   Escape: { code: 'Escape', vk: 27 },
