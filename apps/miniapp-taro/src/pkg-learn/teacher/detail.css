@@ -88,8 +88,8 @@
   padding: 12rpx 28rpx;
   font-size: 26rpx;
   font-weight: 600;
-  color: var(--color-primary-foreground);
-  background: var(--color-primary);
+  color: var(--color-cta-foreground);
+  background: var(--color-cta);
   border: none;
   border-radius: var(--radius-2xl);
 }
@@ -335,8 +335,8 @@
 }
 
 .tdetail-action-primary {
-  color: var(--color-primary-foreground);
-  background: var(--color-primary);
+  color: var(--color-cta-foreground);
+  background: var(--color-cta);
 }
 
 .tdetail-action-secondary {
