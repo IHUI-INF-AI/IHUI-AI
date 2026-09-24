@@ -9,6 +9,7 @@
 import { useTt } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
+import LineIcon from '@/components/LineIcon'
 
 export interface MyAgent {
   id: string
@@ -56,7 +57,7 @@ export default function MyAgents({ myAgents }: MyAgentsProps) {
         <Text className="my-title">{tt('communityMyAgents.mine1', '我的AI APP')}</Text>
         <View className="team-button" onClick={goToTeam} hoverClass="opacity-60">
           <Text className="team-button-text">{tt('communityMyAgents.mine2', '我的AI员工')}</Text>
-          <Text className="team-button-arrow">{'>'}</Text>
+          <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
         </View>
       </View>
       <ScrollView scrollX className="my-scroll" showScrollbar={false}>

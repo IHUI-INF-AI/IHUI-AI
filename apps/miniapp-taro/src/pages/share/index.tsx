@@ -15,6 +15,7 @@ import Taro, {
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import * as api from '@/api'
 import { NavBar, Ranking, DrawerComponent, FloatBox, type RankingItem } from '@/components'
+import LineIcon from '@/components/LineIcon'
 import TitleSwitchScrollTitle from '@/components/TitleSwitchScrollTitle'
 import type { TitleSwitchScrollTitleItem } from '@ihui/types'
 import InformationItem from './components/InformationItem'
@@ -595,9 +596,13 @@ export default function ShareIndexPage() {
                 onClick={() => setActiveNavbar(true)}
                 hoverClass="opacity-60"
               >
-                <Text className="share-rank-more-text">
-                  {tt('share.index.viewMore', '查看更多排行')}
-                </Text>
+                <Text className="share-rank-more-text">{tt('common.more', '更多')}</Text>
+                <LineIcon
+                  name="chevron-right"
+                  size={24}
+                  color="var(--color-muted-foreground)"
+                  style={{ marginLeft: '4rpx' }}
+                />
               </View>
             ) : null}
           </View>
