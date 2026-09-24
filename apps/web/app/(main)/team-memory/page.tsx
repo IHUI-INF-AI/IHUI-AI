@@ -187,9 +187,7 @@ export default function TeamMemoryPage() {
                 if (scopeId.trim()) void load(scopeId, k, keyword)
               }}
               className={`rounded px-2 py-1 text-xs ${
-                kindFilter === k
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground'
+                kindFilter === k ? 'bg-cta text-cta-foreground' : 'bg-muted text-muted-foreground'
               }`}
             >
               {k ? t(`kind.${k}`) : t('kindAll')}

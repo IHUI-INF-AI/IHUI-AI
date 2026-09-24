@@ -94,7 +94,7 @@ export function anchorCoordinateText(
           }
         : { main: t('label.pptxSlide', { slide: anchor.slide ?? '' }), secondary: null }
     case 'docx':
-      return docxParagraph != null
+      return docxParagraph !== undefined
         ? { main: t('label.docxText', { paragraph: docxParagraph }), secondary: null }
         : { main: t('label.docx', { page: anchor.page ?? '' }), secondary: null }
     case 'xlsx':
@@ -199,7 +199,7 @@ export function AnnotationAnchorCapture({
               type="button"
               onClick={handleAdd}
               disabled={note.trim().length === 0 || state === 'added'}
-              className="inline-flex items-center rounded-sm bg-primary px-2 py-0.5 text-[10px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center rounded-sm bg-cta px-2 py-0.5 text-[10px] font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:cursor-not-allowed disabled:opacity-50"
               data-action="add"
             >
               {t('addToTask')}
