@@ -48,7 +48,19 @@ const PALETTES: Record<RnThemeMode, TokenBag> = {
 /** 对外暴露的 token 对象引用恒定(95 个文件 import 它),内容随主题就地覆写 */
 export const tokens = mutableTokens as unknown as RnThemeTokens
 
-const modeFile = new File(Paths.document, 'ihui-rn-theme-mode')
+/**
+ * 构造必须容错:网页预览下 expo-file-system 不支持(`Paths.document` 为 undefined),
+ * `new File()` 在**模块求值期**抛 `this.validatePath is not a function`,而本文件被
+ * ThemeContext 顶层 import ⇒ 整个 bundle 崩掉、浏览器只剩白屏(不是"主题降级",是全 app 打不开)。
+ * 落盘本来就只影响下次冷启动的首帧配色,拿不到文件时按 system 解析即为正确降级。
+ */
+const modeFile: File | null = (() => {
+  try {
+    return new File(Paths.document, 'ihui-rn-theme-mode')
+  } catch {
+    return null
+  }
+})()
 
 function apply(mode: RnThemeMode): void {
   const source = PALETTES[mode]
@@ -76,7 +88,7 @@ const PREF_FILE_SCHEMA = 'v2:'
 
 function persistedPreference(): RnThemePreference | null {
   try {
-    if (!modeFile.exists) return null
+    if (!modeFile?.exists) return null
     const raw = modeFile.textSync()
     // 旧格式(裸 'light'/'dark',存的是解析结果)一律不认:把它当偏好会把"跟随系统"
     // 悄悄变成"显式深色",且再也回不来。不认 → 按 system 解析,与 initialTheme 一致。
@@ -110,7 +122,7 @@ export function commitRnTheme(preference: RnThemePreference): boolean {
   applied = next
   apply(next)
   try {
-    modeFile.write(PREF_FILE_SCHEMA + preference)
+    modeFile?.write(PREF_FILE_SCHEMA + preference)
   } catch {
     // 落盘失败只影响下次冷启动的首帧配色,不影响本次生效
   }
