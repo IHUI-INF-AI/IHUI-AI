@@ -171,7 +171,7 @@ export default function StudyIndex() {
 
         {/* FAB 对齐 RN FloatingActionButton:48×48dp→96rpx / 圆角 12dp→24rpx / bg brand / 图标 24dp→48rpx */}
         <View
-          className="fixed bottom-5 right-4 w-[96rpx] h-[96rpx] bg-primary text-primary-foreground rounded-xl flex items-center justify-center text-[48rpx] shadow-md"
+          className="fixed bottom-5 right-4 w-[96rpx] h-[96rpx] bg-cta text-cta-foreground rounded-xl flex items-center justify-center text-[48rpx] shadow-md"
           hoverClass="opacity-60"
           onClick={() => navigate('/pages/study/publish/index')}
         >

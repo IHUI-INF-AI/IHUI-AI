@@ -26,7 +26,7 @@ const PAGE_SIZE = 20
 const STATUS_BASE = 'text-[20rpx] font-semibold py-[8rpx] px-[16rpx] rounded-sm'
 const TAB_BASE =
   'flex-1 flex items-center justify-center h-[96rpx] text-[28rpx] rounded-xl text-muted-foreground'
-const TAB_ACTIVE = 'bg-primary text-primary-foreground font-semibold'
+const TAB_ACTIVE = 'bg-cta text-cta-foreground font-semibold'
 const STATE_TEXT = 'block text-center text-[28rpx] text-muted-foreground py-[96rpx]'
 
 /** 学习记录派生状态:基于 progress 推断 */
