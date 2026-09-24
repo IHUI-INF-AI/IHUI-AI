@@ -81,7 +81,7 @@ export default function MaterialPopup({
         </Text>
         {/* weapp 端不支持 CSS :active,active:bg-primary 为死样式,改用 hoverClass 提供按压反馈 */}
         <View
-          className="px-3 py-1 text-xs rounded-md bg-primary text-primary-foreground"
+          className="px-3 py-1 text-xs rounded-md bg-cta text-cta-foreground"
           hoverClass="opacity-60"
           onClick={handleUploadClick}
         >
