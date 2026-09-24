@@ -52,6 +52,7 @@ import {
   type ConversationDetail,
   type UserStatistics,
 } from '@ihui/api-client'
+import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import { DEFAULT_AVATAR_URL } from '@ihui/shared/constants'
 import { formatDate } from '@ihui/shared/utils/date-utils'
 import { useAuth } from '../context/AuthContext'
@@ -507,8 +508,9 @@ export function ProfileScreen() {
       } else {
         showFloat('当前无自动续费订阅,无需退订', 'info')
       }
-    } catch {
-      showFloat('网络错误,请稍后重试', 'warning')
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      showFloat(detail.trim() ? toUserFriendlyMessage(e) : '网络错误,请稍后重试', 'warning')
     }
   }
 
@@ -796,8 +798,9 @@ function EditProfileModal({
         rnAuthStore.getState().setUser(meRes.data)
       }
       setAvatarHint('头像已更新')
-    } catch {
-      setAvatarHint('网络错误,请稍后重试')
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      setAvatarHint(detail.trim() ? toUserFriendlyMessage(e) : '网络错误,请稍后重试')
     } finally {
       setAvatarUpdating(false)
     }
@@ -818,8 +821,9 @@ function EditProfileModal({
         return
       }
       onSaved()
-    } catch {
-      setSaveError('网络错误,请稍后重试')
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      setSaveError(detail.trim() ? toUserFriendlyMessage(e) : '网络错误,请稍后重试')
     } finally {
       setSaving(false)
     }

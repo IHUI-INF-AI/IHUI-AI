@@ -141,8 +141,36 @@ describe('PlazaScreen 需求广场', () => {
     })
   })
 
-  it('API 失败时设置错误状态并显示错误信息', async () => {
+  // 2026-09-24:此用例原本钉的是"任何失败都显示『加载失败,请下拉刷新重试』"——
+  // 那正是缺陷本身。真机实测:服务端明确回了「请求频率过高,需完成人机验证」,
+  // 而 catch 块连错误对象都没绑定,把它换成了这句无信息文案,用户无从自救。
+  it('服务端给出具体原因时,原样透出而不是换成通用文案', async () => {
+    apiMocks.getPlazaList.mockResolvedValue({
+      success: false,
+      error: '请求频率过高,需完成人机验证',
+    })
+    render(<PlazaScreen />)
+    await waitFor(() => {
+      expect(plazaScreenPropsCaptured.length).toBeGreaterThan(0)
+    })
+    const props = plazaScreenPropsCaptured[plazaScreenPropsCaptured.length - 1]!
+    expect(props.error).toContain('需完成人机验证')
+    expect(props.error).not.toContain('加载失败')
+  })
+
+  it('网络层异常映射成可读的网络文案', async () => {
     apiMocks.getPlazaList.mockRejectedValue(new Error('network error'))
+    render(<PlazaScreen />)
+    await waitFor(() => {
+      expect(plazaScreenPropsCaptured.length).toBeGreaterThan(0)
+    })
+    const props = plazaScreenPropsCaptured[plazaScreenPropsCaptured.length - 1]!
+    expect(props.error).toContain('网络')
+    expect(props.error).not.toBe('network error') // 原始英文串不外泄给用户
+  })
+
+  it('错误里没有任何可用信息时,才回退本页通用文案', async () => {
+    apiMocks.getPlazaList.mockRejectedValue(new Error('   '))
     render(<PlazaScreen />)
     await waitFor(() => {
       expect(plazaScreenPropsCaptured.length).toBeGreaterThan(0)

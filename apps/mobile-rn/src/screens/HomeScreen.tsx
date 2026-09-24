@@ -97,6 +97,7 @@ import {
 } from '@ihui/rn-app'
 import type { CarouselItem } from '@ihui/ui-native'
 import type { AiModelData, ApiResult, AppIcon } from '@ihui/types'
+import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import CourseCarousel, { type CourseCarouselItem } from '../components/CourseCarousel'
 import Carousel from '../components/Carousel'
 import CardWithList, { type CardWithListItem } from '../components/CardWithList'
@@ -1116,8 +1117,9 @@ export function HomeScreen() {
       } else {
         showToast('info', res.error ?? '已领取过首次分享奖励')
       }
-    } catch {
-      showToast('error', '领取失败,请稍后重试')
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      showToast('error', detail.trim() ? toUserFriendlyMessage(e) : '领取失败,请稍后重试')
     }
   }
 
@@ -1431,12 +1433,14 @@ export function HomeScreen() {
       try {
         const res =
           kind === 'like' ? await postAgentLike(uuid, id) : await postAgentCollect(uuid, id)
-        if (!res.success) throw new Error(res.error || '操作失败')
+        if (!res.success) throw new Error(res.error)
         showToast('success', kind === 'like' ? '点赞成功' : '收藏成功')
-      } catch {
+      } catch (e: unknown) {
         // 失败回滚
         setAgentItems(prev)
-        showToast('error', kind === 'like' ? '点赞失败' : '收藏失败')
+        const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+        const fallback = kind === 'like' ? '点赞失败' : '收藏失败'
+        showToast('error', detail.trim() ? toUserFriendlyMessage(e) : fallback)
       }
     },
     [agentItems, user?.id, showToast],

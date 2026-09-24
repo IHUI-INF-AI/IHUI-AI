@@ -49,7 +49,7 @@ import {
   type LlmModel,
 } from '@ihui/api-client'
 import { tokens as tk } from '../theme/active-tokens'
-import { formatRelativeTime } from '@ihui/shared'
+import { formatRelativeTime, toUserFriendlyMessage } from '@ihui/shared'
 import { NavBar } from '../components/NavBar'
 import FloatingActionButton from '../components/FloatingActionButton'
 import Empty from '../components/common/Empty'
@@ -241,8 +241,9 @@ export function StudyIndexScreen() {
         setItems((prev) => (reset ? list : [...prev, ...list]))
         setTotal(res.data.total ?? 0)
         setPage(targetPage)
-      } catch {
-        setError('加载失败,请下拉刷新重试')
+      } catch (e: unknown) {
+        const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+        setError(detail.trim() ? toUserFriendlyMessage(e) : '加载失败,请下拉刷新重试')
       } finally {
         setLoading(false)
         setRefreshing(false)

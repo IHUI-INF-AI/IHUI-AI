@@ -9,6 +9,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
 import { AccountCancelScreen as SharedAccountCancelScreen } from '@ihui/rn-app'
 import { deleteAccount, sendSmsCode } from '@ihui/api-client'
+import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import { useAuth } from '../context/AuthContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -97,8 +98,9 @@ export default function AccountCancelScreen() {
           },
         },
       ])
-    } catch {
-      Alert.alert('提示', '提交失败，请稍后重试')
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      Alert.alert('提示', detail.trim() ? toUserFriendlyMessage(e) : '提交失败，请稍后重试')
     } finally {
       setSubmitting(false)
     }
