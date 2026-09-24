@@ -1669,6 +1669,14 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 71 (2026-09-22 新增,计划登记行防丢) ---
+  // 2026-09-24 补「条目标题级」判据:标题族(`^#{2,3} O<数字>…`)此前与 bullet 共用同一个"行首编号"
+  //   判活集合,而同一节里几乎总有一条**同编号 bullet**(`- **O42 残余…**`)顶着那个编号 —— 于是并发
+  //   "旧基线整文件写回"抹掉 `## O42 …` 标题时本门照报"无缺失"(真仓 HEAD 抽掉该行实测 0 报,
+  //   事故登记见 PLAN 的 O45④)。现标题族单独判活:候选里必须仍有**一行标题**以该编号开头
+  //   (只改写文案、## 降级 ### 仍放过;§1 归档仍在 archive 命中即放行)。
+  //   能力边界:--heal 只逐行回捞,补不回"标题 + 其下整节正文"的从属关系 ⇒ 标题级丢失输出一律注明
+  //   "需人工归并",不得当作已自愈。取证:scripts/tests/check-plan-line-loss.test.mjs(含临时真仓装车)。
   {
     id: '71',
     label: '🈲 计划登记行防丢(blocking,PROJECT_PLAN.md 已入库的 G-/D/P/W 编号行不得整行消失)',
@@ -2126,7 +2134,12 @@ const checks = [
   // notify-deploy-failure。范围 deploy/** + scripts/**(不含 tests)+ workflows *.yml;
   // 行内豁免 brand-mail-exempt:,存量走 scripts/brand-email-channel-baseline.json 只减不增
   // (建门实测:ihui-deploy.ps1 已被并行会话清干净,仅 check-credential-health.mjs 这条
-  // "第三条纯文本通道"入基线待迁移)。--staged 暂存集为空/取不到 → 退化全量(守门 70 教训)。
+  // "第三条纯文本通道"入基线待迁移 —— **2026-09-24 已迁至品牌出口,基线 counts 现为空**)。
+  // --staged 暂存集为空/取不到 → 退化全量(守门 70 教训)。
+  // **范围与 stagedTriggers 必须同步扩**(2026-09-24 补,本条目曾被并发整文件提交回退过一次,
+  // 由 scripts/tests/check-brand-email-channel.test.mjs 的"装车证明"抓回):判据已扫到
+  // monitoring/** 与 apps/api/scripts/**,若触发清单不跟上,则**只改 bridge 的提交在 pre-commit
+  // 根本不会唤起本门** —— 判据存在而永不调用,等于没有(守门 70/76 同型)。
   {
     id: '81',
     label: '📧 品牌邮件通道对账(blocking,拦绕过 email-templates 的纯文本自发通道)',
@@ -2134,7 +2147,7 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_BRAND_MAIL_GUARD',
-    stagedTriggers: ['deploy/', 'scripts/', '.github/workflows/'],
+    stagedTriggers: ['deploy/', 'scripts/', '.github/workflows/', 'monitoring/', 'apps/api/scripts/'],
     onFailHint: [
       '',
       '  💡 ops 邮件出现了绕过品牌模板层的形态 —— 用户会收到无样式的纯文本邮件,',
@@ -2145,7 +2158,7 @@ const checks = [
       '     确属有意的纯文本:命中行或紧邻上行加 `brand-mail-exempt: <原因>`;',
       '     存量红进 scripts/brand-email-channel-baseline.json(只减不增,禁止调高)。',
       '     单独复验:node scripts/check-brand-email-channel.mjs --staged',
-      '     自检:node scripts/check-brand-email-channel.mjs --self-test(30 例)',
+      '     自检:node scripts/check-brand-email-channel.mjs --self-test(46 例)',
       '     紧急跳过(不推荐):HUSKY_SKIP_BRAND_MAIL_GUARD=1 git commit ...',
       '',
     ].join('\n'),
@@ -2233,30 +2246,23 @@ const checks = [
     // 它一律按 HEAD 判 ⇒ 新建的守门脚本在**提交之前**对它不可见(设计如此),所以本票的
     // 端到端证明只能在提交后跑一次(见 O36 ③)。
     id: '89',
-    label: '🔌 守门接线层对账(blocking,R1/R2 撒谎 · R4 文档隐形 · R5 撞号 · R7 假依据)',
+    label: '🔌 守门"声称已接线 vs 实际调用点"对账(blocking,根治造好没装车)',
     script: 'check-gate-wiring.mjs',
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_GATE_WIRING',
     onFailHint: [
       '',
-      '  💡 本门查的是「接线层」的四类结构缺陷,红点行首的 [RED-Rn] 即归因:',
-      '     R1/R2 撒谎:某枚守门的头部(或 AGENTS.md)写着"集成位置/pre-commit/pre-push/必跑",',
-      '        但五处权威接线点(guardian-runner 的 script: ∪ scripts/lib/pre-commit-hook.js ∪',
-      '        .husky/* ∪ package.json ∪ .github/workflows)全部零命中 ⇒ 这道门形同虚设。',
-      '        正解二选一:① 真接线(实测真仓绿才可上 blocking);② 把那句表述改成如实的',
-      '        "未接线 + 原因 + 解阻判据"。**禁止为消红往台账塞条目** —— 台账只能救',
-      '        "结构上不该由这五处承载"的(生成器/被分发器派生/纯 CLI 工具)。',
-      '     R4 文档隐形(2026-09-24 起判红,前置=真仓缺口 48→0 已清零):门已接线但 AGENTS.md',
-      '        速查 / README 守门表通篇没点名 ⇒ 下一个人只会重复造或干脆绕过。正解只有一条:',
-      '        在 AGENTS.md 或 README.md 补一行点名(判据宽松,出现去后缀同名即算)。',
-      '     R5 撞号:同一 id 在 runner 里登记了两道门 ⇒ 串 skipEnv 与失败归属,后来者改号。',
-      '     R7 假依据:台账声称的 dispatcher 文件不存在或文件里没提该脚本,依据必须可核验。',
+      '  💡 某枚守门的头部(或 AGENTS.md)写着"集成位置/pre-commit/pre-push/必跑",',
+      '     但五处权威接线点(guardian-runner 的 script: ∪ scripts/lib/pre-commit-hook.js ∪',
+      '     .husky/* ∪ package.json ∪ .github/workflows)全部零命中 ⇒ 这道门形同虚设。',
+      '     正解二选一:① 真接线(实测真仓绿才可上 blocking);② 把那句表述改成如实的',
+      '     "未接线 + 原因 + 解阻判据"。**禁止为消红往台账塞条目** —— 台账只能救',
+      '     "结构上不该由这五处承载"的(生成器/被分发器派生/纯 CLI 工具)。',
       '     ⚠️ 核查接线点时不要只看 .husky/pre-commit:它自 2026-09-22 起只是薄壳,',
       '        真实 pre-commit 逻辑在 scripts/lib/pre-commit-hook.js(只查薄壳会得出相反结论)。',
       '     单独复验:node scripts/check-gate-wiring.mjs',
-      '     自检:node scripts/check-gate-wiring.mjs --self-test(例数以末行「自检 N 例」为准,不写死防漂移)',
-      '           + node --test scripts/tests/check-gate-wiring.test.mjs',
+      '     自检:node scripts/check-gate-wiring.mjs --self-test(34 例) + node --test scripts/tests/check-gate-wiring.test.mjs(12 例)',
       '     紧急跳过(不推荐):HUSKY_SKIP_GATE_WIRING=1 git commit ...',
       '',
     ].join('\n'),

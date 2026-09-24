@@ -5117,6 +5117,54 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - **给正在做 tag GC 的会话/用户（§29 类操作，需人工 ack）**：`git push --atomic` 一批里只要有一枚空壳 tag 就**整批** `index-pack failed`（实测 8 枚同批全灭、逐枚也全灭）⇒ 必须先分池：可推者小分块单推；空壳者只能回补对象或人工 GC。而 §29 的删除前置是"逐枚确认非唯一引用"，**本表 8 枚全是唯一引用 ⇒ 不满足删除条件**（删掉即切断这些 commit 最后的引用路径）。相关记忆已立：[[tag-gc-must-layer-by-unique-reference]]。
 - **同期门情复核（更新 O38 那节的列表，避免按旧数派单）**：门 **52** `check-no-visible-spawn` 已由并发会话接 `maskInert`（字符串/模板正文不再当派生点）→ 全量实测 `扫描 8088 文件,生产代码 0 违规` ✅；门 **77** 圆角单一源头现 exit 0 ✅；门 **83** `check-brand-foreground` 仍红（其提示的正解是 `brand.ctaFill`/`ctaText`，属 RN 深色族持有者）⚠；门 **7** `check-dedupe` 仍红，要求 `pnpm dedupe` 后提交 lockfile —— 在 5+ 会话并发写工作区的窗口里重排共享依赖树没有干净回归信号，**本会话不执行**，留给依赖负责人在静默窗口做 ⚠。
 
+### 第三十四批(2026-09-24):守门 74 消费端改按符号粒度认 —— 清零 HEAD 上 70 枚 blocking 恒红,并撤回一批会与并发会话抢键的交付
+
+**背景(为什么这批先做这个)**:HEAD 上 `apps/mobile-rn` 挂着 70 枚 **blocking** 红点
+(`check-word-table-resolvable` 守门 74 的 W3),而它触及 `stagedTriggers: ['packages/','apps/']`
+⇒ 任何会话只要提交这两类路径就被拦,只能整链 `--no-verify`,连带跳过其余 100+ 道门。
+一道与改动无关的恒红 = 全队关闸,所以消红优先于任何新增交付。
+
+- **根因不是"缺键",是判据把符号粒度抹平了**:`packages/shared/src/utils/error-messages.ts`
+  同模块导出 3 个函数,只有 `getErrorI18nKey` / `resolveErrorMessage` 会把 `errors.*` 交给 `t()`;
+  `toUserFriendlyMessage` 读的是另一张固定中文表 `ERROR_CODE_TO_ZH`,根本不查词表 —— 而
+  `apps/mobile-rn/src/screens/*.tsx` 约 40 个屏调的正是后者。旧判据"该端提到**任一**导出符号
+  ⇒ 它就是这张键表的消费端",于是 14 枚**全仓零调用方**的键 × 5 语言被判成"界面会回显键名"。
+  取证:`getErrorI18nKey`/`resolveErrorMessage` 在 `apps/` + `packages/` 源码内调用方 = 0
+  (只有 `packages/shared/dist/*.d.ts` 与 `apps/web/src/lib/error-messages.ts` 的 re-export)。
+- **改法**(`scripts/check-word-table-resolvable.mjs`):新增 `tableScopedSymbols` /
+  `tableReachableNames` / `topLevelDeclBlocks` / `exportAliases` —— 从表标识符出发沿顶层声明块
+  相互引用做传递闭包,消费端只认"闭包 ∩ 导出符号";经**私有** helper 间接触表一并算入,
+  `export { 内名 as 外名 }` 按外名回填。`symbolsCache` 键由 `file` 改 `file#table`
+  (一个文件可同时挂多张表:实测 `CourseFilterScreen.tsx` 3 张、`privacy.tsx` 2 张)。
+- **两处兜底是判据的命门,方向一律"退回旧判据、宁可多报"**:① 任一导出符号既无自己的顶层声明块、
+  也不是别名 ⇒ 顶层切分没吃下这个文件(re-export / 新语法形态),退回全量符号面;② 收窄为空同样退回。
+  这条不是投机防御 —— 我第一版正则漏了 `m` 标志导致切分整体失效,后果是"没人是消费端",
+  当场把 `permission-tier` / `AgentRuntimePanel` / `budget-note` 三张表的**真**消费端剔掉
+  (= 门会在真缺键上恒绿)。没有兜底,一次解析失效就是把红点洗成绿。
+- **取证只走权威入口 + 隔离检出**:工作树上连跑两次不可比(并发会话正在改写 web 语言包,
+  5 张表会因语料锚定率变化 checked↔skipped 漂移,我第一次就被这个假信号误导过)。改用
+  `git archive HEAD` 解到隔离目录、**同一份盘只换判据**做 A/B:红点 70 → 0,55 张表里
+  **54 张消费端结论逐字不变**,唯一变化的正是 `error-messages` 那一张,且它没消失而是落到
+  W5 落点债(notices 4 → 5),照报不改退出码。变异对照:删掉 `m` 标志造变异体,`收窄` 用例
+  立即判红;`--self-test` 33 条全绿 + 镜像测试 26 例全绿(含"全量面判出消费端 vs 收窄面判零"
+  的真仓 A/B、"真 accessor 不得被剔掉"的防收窄过窄锚点)。干净 HEAD 真跑 exit 0。
+  落点:commit `0dc34f113b6`。
+- **撤回一批交付(与并发会话抢键)**:本轮原计划补 web 端 14 枚取词缺键
+  (`chat.connectorAuth.*` 8 / `chat.injectionAssembly*` 5 / `goalCard.achievedInTime`),
+  blob 已按 `HEAD + 只插 16 行` 造好并通过形状断言。**落地前复测发现该批已被他人在制**:
+  五份 web 语言包全部 `MM`(已暂存 + 又有改动),`connectorAuth` 已进 en/ja/ko、zh-CN/zh-TW 待发。
+  再落我这批就是同一文件同一族键名起第二套 ⇒ **整批作废不落地**,改由对方按磁盘最终态收。
+  教训(与既有记忆同源):派单/落地前必须按**当前** HEAD 重测债数字,换线后旧清单即作废。
+- **顺带查出的两件共享设施破损**(不在本票修复范围,现场已取证):
+  ① `node_modules/.pnpm/<pkg>/node_modules/<dep>` 大量**空壳包目录**(实测 4594 个唯一包目录里
+  938 个读不到 `package.json`,样例 `.pnpm/picomatch@4.0.5/node_modules/picomatch` 是空目录),
+  使 `.husky/pre-commit` 第 1 步 lint-staged 直接 `ERR_MODULE_NOT_FOUND` 崩掉 —— 即"115 道门被
+  一次依赖树啃食全部旁路"。悬空符号链接 = 0(6430 个全可达),所以不是链接被删而是**包内容被删**,
+  与 §5b 咬 `.git`/嵌套 ref/工作区目录是同一层宿主清理。修法照 §12e:全量 `pnpm install`
+  (不带 `--filter`),验收 = lint-staged `--version` 可跑 + 守门 78 绿 + 空壳计数归零。
+  ② 项目根 `.deploy.lock` 是**死锁**:`meta.json` 记 `pid 33172`、时间戳 09-23 13:08(已 21 小时,
+  远超 10 分钟阈值),该 pid 已不存在。按 §12d"锁异常处理"应先确认无构建进程再清,本次只登记不代删。
+
 ## O39 守门接线层第二批 —— 门 91 补装、8 枚结构性豁免、门 89 新增 R4 反向对账、tag 远端备份改 fail-closed、按钮门补自检(2026-09-24 立并完成 ✅)
 
 - [x] ✅(2026-09-24) **O39 三枚提交**:`f12735e9327`(tag 备份 fail-closed)/ `880a04c229a`(守门 `check-button-height` 补 27 例 `--self-test` + 12 例镜像测试)/ `eabde2a79f2`(接入门 91 + 台账 8 枚 + 门 89 的 R4 维度)。接上一批(O36)同一根因链:**判"门有没有装车"必须先有权威接线点集合**,本仓是五处,不是 `.husky/pre-commit`(它自 09-22 只是薄壳)。
