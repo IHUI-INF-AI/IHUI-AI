@@ -932,6 +932,11 @@ route A 以 `x-internal-service-token` + `x-user-id` 代调，而 `apps/api` 只
   - **关闭程序**:退出时(Ctrl+Q / 托盘退出)自动拦截,检查+下载+安装+重启,全屏进度遮罩 + "跳过"选项
   - **使用中手动检查**:托盘菜单"检查更新"触发,显示弹窗 + "立即更新"按钮,用户自主选择
   - `useUpdater` 状态机(idle → checking → available → downloading → installing → done)+ `quitAndUpdateIfNeeded` 退出更新守卫 + `QuitUpdateOverlay` 全屏遮罩组件
+- 更新 feed 平台覆盖(2026-09-24 收口):站点主端点 `https://aizhs.top/desktop-feed.json` 与 GitHub 回退端点
+  **四平台键齐全**(`windows-x86_64` / `linux-x86_64` / `darwin-x86_64` / `darwin-aarch64`),两处共用同一份判据
+  `scripts/lib/tauri-updater-platforms.mjs`(空签名不出键、macOS 用 `.app.tar.gz` 而非 `.dmg`、mac/linux 直链只认 GitHub)。
+  修前主端点只有 windows 一个键 —— Tauri 的端点循环"200 且能反序列化即 break",**缺键不会回落到第二端点**,
+  故当时 mac/linux 是硬失败。签名密钥全链路只有一把(私钥仅在 CI secrets),四平台产物验签 keyID 已机检一致。
 
 ### 高度 / 对齐根治(2026-07-30 二轮 UI 反馈)
 
