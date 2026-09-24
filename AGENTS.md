@@ -686,6 +686,14 @@ pnpm dev                                       # 启动所有服务(web + api + 
 | `D:\DevEnv\{cache,tools,runtimes}\`  | 工具链缓存唯一根;家目录里的工具状态一律 `robocopy /MOVE` + **junction** 改道(禁改 `HKCU\Environment\Path`),旧路径经 junction 仍可解析 | §26  |
 | `D:\DevEnv\Temp\`                    | `TEMP`/`TMP`/`TMPDIR`(HKCU,需新开终端才继承)                                                                                          | §26  |
 
+> **上表的 `D:` 是"D 盘那份 checkout"的历史值,不得当本机现值照抄**(2026-09-24 实测,登记于 PROJECT_PLAN
+> 第三十三批 续五⑦):`gitArchiveDir()`(`scripts/lib/gitdir.mjs`)按**工作树所在盘**推导,工作树在
+> `G:\IHUI-AI` 时它返回 **`G:/DevEnv/backups/git`**;而 `D:\DevEnv`(Temp/backups/kc-tools/logs)与
+> `G:\DevEnv`(Temp/backups/cache/tools)**同时存在**,各自服务所在盘上的 checkout。
+> **规则:凡脚本需要归档/备份/临时落点,一律 `import` 出口函数(`gitArchiveDir()` / `gitdirArchivePath()` /
+> `resolveBackupDir()`),禁止再硬编码盘符** —— 硬编码的结果是"备份落点解析到不存在的路径",
+> 表现为 `git-guardian --status` 的 `backupOk:false` 这类静默失效(§5b 已记过一次同型)。
+
 **显式例外与已改道项(改道用 junction,故旧路径仍可用)**:
 
 1. `D:\IHUI-AI-git-repo` —— 真 gitdir。§5b 实测宿主层会整体删除工作区内 `.git`,故必须在外;
