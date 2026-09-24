@@ -2605,6 +2605,39 @@ const checks = [
     ].join('\n'),
   },
 
+  //  起因是用户实拍"查看更多按钮图标跟文字错位"。根因不是间距而是**载体选错**:
+  //  箭头被当成文字写(字符 › / >),且字号比自己的标签还大 —— 字形相对自身行盒中心的
+  //  偏移只由字体度量决定(与 line-height、与字号无关),中文偏上、该字符偏下,两者相加
+  //  故实测错位 2.0~2.5px。三端已收口到唯一矢量实现,但没有任何机器检查阻止第四份写法
+  //  或新页面把字符箭头加回来,故立此门(判据必须覆盖门自己产出的形态:三端唯一入口由 S0 守住)。
+  {
+    id: '102',
+    label: '🧷 文本箭头当图标 / 箭头字号倒挂对账(blocking,入口箭头必须是矢量且不小于标签)',
+    script: 'check-glyph-arrow-icon.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_GLYPH_ARROW_ICON',
+    stagedTriggers: ['apps/**/*.tsx', 'apps/**/*.ts', 'packages/app/**/*.tsx', 'packages/**/*.ts'],
+    onFailHint: [
+      '',
+      '  💡 三类红,改法各一条:',
+      '     ① GA1 整格字符箭头(› » → 》 或 {\'>\'})当 chevron 图标 —— 换矢量:RN/共享包用 MoreLink',
+      '        (lucide-react-native ChevronRight)、web 用 ViewMoreLink、小程序用 LineIcon',
+      '        name="chevron-right"(icons.ts 已含,零新素材)。',
+      '     ② GA2 「更多」类标签与同词干 *Arrow* 样式配对后**箭头字号 > 标签字号** —— 两者必须同一',
+      '        光学尺寸(RN/web 12px、小程序 24rpx);单位不同不判红,只如实计入 undetermined。',
+      '     ③ S0 三端唯一实现被摘线或无人 import —— 补回引用,别把共享实现删了留端内自拼。',
+      '     口径:全量判 HEAD blob、--staged 判索引;棘轮锚点 = 该文件 HEAD 自身违规数',
+      '            (行尾字符箭头存量 70 处只报数不拦,免得逼人 --no-verify 连带废掉全部门)。',
+      '     行内豁免:glyph-arrow-exempt: <一句话原因>(须带原因,逐行生效)。',
+      '     单独复验:node scripts/check-glyph-arrow-icon.mjs --staged',
+      '     自检:node scripts/check-glyph-arrow-icon.mjs --self-test(45 例,含阳性对照与棘轮四向)',
+      '     镜像测试:node --test scripts/tests/check-glyph-arrow-icon.test.mjs(13 例,含装车证明)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_GLYPH_ARROW_ICON=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
