@@ -32,6 +32,13 @@
  *      照样搜得到 → 旧判据报"无缺失"、自愈也回捞不到(2026-09-23 注入实锤的残余面)。
  *      刻意**不把这个收紧套到既有 a) 加粗 bullet**(现 214 条):一并改判会把
  *      "把编号挪到句中重写"这类正当编辑判成丢失,误伤面不可估。
+ *   2b. **条目标题(`^#{2,3} O<数字>…`)必须仍以"标题形态"判活,不得只认行首编号**
+ *      (2026-09-24 补,封 `## O42` 事故残留盲区):标题族虽已进基线,判活却走"该编号还有没有
+ *      任何一行登记行以它开头" —— 而同一节里那条加粗 bullet `- **O42 残余…**` 的行首编号
+ *      也是 `O42`,于是**删掉整节标题后门照报"无缺失"**(实测真仓 HEAD 抽掉 `## O42` 那一行:
+ *      旧判据 0 报)。标题是一个任务在计划里唯一的可寻址入口,丢标题 = 把别人一整节的层级连根
+ *      拔掉,比丢一条进度行更严重,故标题族的判活面收窄到"候选里仍有一行**标题**以该编号开头"。
+ *      取舍见 `headingIdSet` 与 `selfTest` 里"只删标题、正文还留着"那一条。
  *   3. 允许两种正当情形:
  *      a) 该登记行原文可在 `.ihui-agent/archive/PROJECT_PLAN_*.md` 里找到(§1 归档流程);
  *      b) 本次提交同时改动了基线里没有该行的位置(即该行本就不是 HEAD 内容) —— 由
@@ -135,6 +142,24 @@ export function headIdSet(src) {
 }
 
 /**
+ * 一份文档里"仍作为**标题行行首**存在"的编号集合(2026-09-24 补)。
+ * 与 `headIdSet` 唯一的差别是只看 `^#{2,4}` 形态的行 —— 标题族判活用它,不再共用大集合。
+ * 为什么必须另开一路:`## O42 …` 这一节里跟着的 `- **O42 残余…**` bullet 行首编号同样是
+ * `O42`,共用 headIdSet 时"删标题留正文"照样判活,而计划文档里**每个任务条目几乎都自带
+ * 一条同编号 bullet**,等于标题族整族不受保护(真仓实测:抽掉 `## O42` 行 → 0 报)。
+ * 这里刻意不加 MIN_LEN 门槛:把 60 字标题正当改写成 30 字仍是合法编辑,不该判丢。
+ */
+export function headingIdSet(src) {
+  const out = new Set()
+  for (const line of src.split(/\r?\n/)) {
+    if (!/^#{2,4}\s/.test(line)) continue
+    const id = headIdOf(line)
+    if (id) out.add(id)
+  }
+  return out
+}
+
+/**
  * 一条登记行的完整身份:marker = 用于"整行是否还在"的文本标记;id = 用于"这个编号还有没有
  * 任何一行登记行以它开头"的行首编号(只有新两族与加粗紧跟编号的行才有)。
  * 为什么要 id 这一路:`O13b 第二段` 这一族的标题被另一条进度行**原样引用**
@@ -161,10 +186,17 @@ export function registrationOf(line) {
  * 该登记行在候选内容里还算不算"存活"。
  * ⚠️ 有行首编号的条目**只认行首编号**,不再退回全文文本搜索 —— 否则"标题被别处原样引用"
  * 那一条正好把文本搜索喂饱,新判据等于没加(本条判据就是为它写的,实测过一遍才发现)。
+ * ⚠️ 标题族(`shape === 'heading'`)再收一档:必须候选里**仍有一行标题**以该编号开头才算活。
+ * 共用大集合时同一节的 `- **O42 残余…**` bullet 会把 `## O42` 标题"喂活",删标题零报
+ * (2026-09-24 真仓实测),而条目正文挂在别人的章节下正是最难发现的一种失真。
+ * 调用方没传标题集时按候选内容现算(绝不静默回落到大集合 —— 回落等于把盲区留回去)。
  */
-export function stillRegistered(entry, candidateSrc, candidateIds) {
-  if (entry.id) return (candidateIds ?? headIdSet(candidateSrc)).has(entry.id)
-  return candidateSrc.includes(entry.marker)
+export function stillRegistered(entry, candidateSrc, candidateIds, candidateHeadingIds) {
+  if (!entry.id) return candidateSrc.includes(entry.marker)
+  if (entry.shape === 'heading') {
+    return (candidateHeadingIds ?? headingIdSet(candidateSrc)).has(entry.id)
+  }
+  return (candidateIds ?? headIdSet(candidateSrc)).has(entry.id)
 }
 
 /** 登记行 → 编号标记(找不到返回 null) */
@@ -217,11 +249,14 @@ export function registeredLines(src) {
 /** 基线里存在、待提交内容里彻底消失的登记行 */
 export function lostMarkers(baselineSrc, candidateSrc) {
   const ids = headIdSet(candidateSrc)
+  const headingIds = headingIdSet(candidateSrc)
   const out = []
-  for (const { line, marker, id } of registeredLines(baselineSrc)) {
+  for (const { line, marker, id, shape } of registeredLines(baselineSrc)) {
     // 双路判活:① 标记文本还在全文任意位置(登记行被改写但留了编号 → 不算丢);
-    //          ② 该编号仍作为**某一行登记行的行首**存在(专治"标题被别处原样引用"把①骗过去)
-    if (!stillRegistered({ marker, id }, candidateSrc, ids)) out.push({ marker, line, id })
+    //          ② 该编号仍作为**某一行登记行的行首**存在(专治"标题被别处原样引用"把①骗过去);
+    //          ③ 标题族另走 headingIds —— 见 stillRegistered
+    if (!stillRegistered({ marker, id, shape }, candidateSrc, ids, headingIds))
+      out.push({ marker, line, id, shape })
   }
   return out
 }
@@ -235,6 +270,23 @@ export function archivedCopy(marker) {
     if (src.includes(marker)) return f
   }
   return null
+}
+
+/**
+ * 丢失清单里排除"已归档"的那些(§1 归档 = 正当移除)。
+ * `archived` 可注入,使"归档放行"这条豁免能被取证而不必往真仓 archive 目录写文件。
+ */
+export function dropArchivedLost(lost, archived = archivedCopy) {
+  return lost.filter((x) => !archived(x.marker) && !(x.id && archived(x.id)))
+}
+
+/**
+ * 丢失清单里的**标题级**条目(`## O42 …` 这种任务条目标题)。
+ * 单独点名是因为它的后果与丢一条 bullet 不同:整节层级被连根拔掉,而 --heal 只会逐行回捞,
+ * 补不回"标题 + 其下正文"的从属关系 —— 报告必须把这一层能力边界说清楚,不得装作已自愈。
+ */
+export function headingLosses(lost) {
+  return lost.filter((x) => x.shape === 'heading')
 }
 
 function candidateContent(isStaged) {
@@ -253,9 +305,7 @@ export function runCheck(isStaged) {
   const baseline = git(['show', `HEAD:${PLAN}`])
   const candidate = candidateContent(isStaged)
   if (candidate === null) return { ok: true, lost: [] }
-  const lost = lostMarkers(baseline, candidate).filter(
-    (x) => !archivedCopy(x.marker) && !(x.id && archivedCopy(x.id)),
-  )
+  const lost = dropArchivedLost(lostMarkers(baseline, candidate))
   return { ok: lost.length === 0, lost, prose: proseLossReport(baseline, candidate) }
 }
 
@@ -295,7 +345,7 @@ export function historyMarkers(depth = 60) {
           break
         }
       }
-      seen.set(marker, { line, marker, id: reg.id, sha, prev })
+      seen.set(marker, { line, marker, id: reg.id, shape: reg.shape, sha, prev })
     })
   }
   return seen
@@ -305,8 +355,9 @@ export function historyMarkers(depth = 60) {
 export function missingFrom(seen, targetSrc) {
   const missing = []
   const ids = headIdSet(targetSrc)
+  const headingIds = headingIdSet(targetSrc)
   for (const [marker, v] of seen) {
-    if (stillRegistered({ marker, id: v.id }, targetSrc, ids)) continue
+    if (stillRegistered({ marker, id: v.id, shape: v.shape }, targetSrc, ids, headingIds)) continue
     if (archivedCopy(marker) || (v.id && archivedCopy(v.id))) continue
     missing.push(v)
   }
@@ -395,13 +446,18 @@ export function healContent(targetSrc, missing) {
   const eol = targetSrc.includes('\r\n') ? '\r\n' : '\n'
   const lines = targetSrc.split(eol)
   const ids = headIdSet(targetSrc)
+  const headingIds = headingIdSet(targetSrc)
   let appended = 0
   let inserted = 0
   for (const entry of missing) {
     const { line, id, prev } = entry
-    if (stillRegistered(entry, lines.join(eol), ids)) continue
+    if (stillRegistered(entry, lines.join(eol), ids, headingIds)) continue
     const clean = line.replace(/\r$/, '')
-    if (id) ids.add(id) // 本轮回插过的行,后续同编号条目不再重复插
+    if (id) {
+      // 本轮回插过的行,后续同编号条目不再重复插
+      ids.add(id)
+      if (entry.shape === 'heading') headingIds.add(id)
+    }
     const at = prev ? lines.findIndex((l) => l.replace(/\r$/, '') === prev.replace(/\r$/, '')) : -1
     if (at >= 0) {
       lines.splice(at + 1, 0, clean)
@@ -516,6 +572,128 @@ function selfTest() {
       const lost = lostMarkers(base, dropped).map((x) => x.marker)
       const kept = lostMarkers(base, renamed).map((x) => x.marker)
       return lost.some((m) => String(m).startsWith('O30')) && !kept.some((m) => String(m).startsWith('O30 一个'))
+    },
+  )
+  // ── 标题级判活(2026-09-24 补,封 `## O42` 事故盲区)正反用例 ──────────────────────
+  // 真实事故形态:同一节里既有 `## O42 …` 标题、又有 `- **O42 残余…**` 这类**同编号 bullet**。
+  // 旧判据把两者都塞进同一个 headIdSet,于是"删标题留正文"在该编号仍被正文顶着的意义上"没丢"
+  // —— 真仓 HEAD 抽掉 `## O42` 那一行实测 0 报。新判据要求候选里仍有**标题**以该编号开头。
+  const O42SEC = [
+    '## O42 台账也不能撒谎 —— 门 89 新增 R7「豁免依据必须可核验」,并当场抓到一条已入库的假依据(2026-09-24)',
+    '- **O42 残余(不写作收口)**:① R7 只核结构事实,自然语言真伪仍无人核 —— 台账 13 条里 8 条是本次新增。',
+    '- [x] ✅(2026-09-24) **O42③ 第三处残留**:仓库里根本没有源的那一份,按跟踪文件 grep 的取证路径自身有盲区。',
+    '  - **普通说明**:这行没有编号,丢了也不该报,是既有职责边界。',
+  ].join('\n')
+  t(
+    '删整节标题(同节仍有同编号 bullet 顶着编号)必须报丢失 —— 旧判据在此处完全无感',
+    () => {
+      const noHeading = O42SEC.split('\n')
+        .filter((l) => !l.startsWith('## O42 '))
+        .join('\n')
+      const lost = lostMarkers(O42SEC, noHeading)
+      // 旧判据的空转面:编号 O42 在候选里仍作为两行 bullet 的行首存在
+      const headingIdsGone = !headingIdSet(noHeading).has('O42') && headIdSet(noHeading).has('O42')
+      return (
+        headingIdsGone &&
+        lost.length === 1 &&
+        lost[0].id === 'O42' &&
+        lost[0].shape === 'heading' &&
+        lost[0].marker.startsWith('O42 台账')
+      )
+    },
+  )
+  t(
+    '标题族只改写文案 / 缩到更短 / ## 降级 ### 而保留编号 ⇒ 都不报(合法编辑不误伤)',
+    () => {
+      const reworded = O42SEC.replace(
+        '## O42 台账也不能撒谎 —— 门 89 新增 R7「豁免依据必须可核验」,并当场抓到一条已入库的假依据(2026-09-24)',
+        '## O42 换个说法:台账不能撒谎,而且这一版还顺手补了依据核验的判据说明文字,足够长所以仍是登记标题',
+      )
+      const shortened = O42SEC.replace(/^## O42 .*$/m, '## O42 短标题,短到不足 MIN_LEN 门槛的字数要求了')
+      const demoted = O42SEC.replace(/^## O42 /m, '### O42 ')
+      return (
+        lostMarkers(O42SEC, reworded).length === 0 &&
+        lostMarkers(O42SEC, shortened).length === 0 &&
+        lostMarkers(O42SEC, demoted).length === 0
+      )
+    },
+  )
+  t(
+    '取舍:只删标题、正文还在 ⇒ 判红(整节被挂到别人章节下正是最难发现的一种失真)',
+    () => {
+      // 刻意不给"正文仍在即视为搬家"的豁免:那样就等于把本次事故重新放回盲区。
+      // 正当移除的两条出口由 dropArchivedLost(§1 归档)与紧急跳过承担,不靠放宽判据。
+      const noHeading = O42SEC.split('\n').filter((l) => !l.startsWith('## O42 ')).join('\n')
+      const bodyIntact = noHeading.includes('O42 残余') && noHeading.includes('第三处残留')
+      return bodyIntact && lostMarkers(O42SEC, noHeading).length === 1
+    },
+  )
+  t(
+    '归档放行对标题族同样成立:archive 里能找到该标题原文 ⇒ 不算丢(§1 归档 = 正当移除)',
+    () => {
+      const noHeading = O42SEC.split('\n').filter((l) => !l.startsWith('## O42 ')).join('\n')
+      const lost = lostMarkers(O42SEC, noHeading)
+      const fakeArchive = (m) => (m.startsWith('O42 台账') ? 'PROJECT_PLAN_2026-09-24.md' : null)
+      return lost.length === 1 && dropArchivedLost(lost, fakeArchive).length === 0
+    },
+  )
+  t('headingLosses 只挑标题级并点名条目号(判红输出靠它给可诊断信息)', () => {
+    const noHeading = O42SEC.split('\n').filter((l) => !l.startsWith('## O42 ')).join('\n')
+    const lost = lostMarkers(O42SEC, noHeading)
+    const hl = headingLosses(lost)
+    return hl.length === 1 && hl[0].id === 'O42' && headingLosses([]).length === 0
+  })
+  t(
+    '回归对照:本次收紧只作用于标题族,bullet 三族的判活路由一字未动',
+    () => {
+      // ① 只删标题:不得连带把同节两条 O42 bullet 报成丢失(它们真的还在)
+      const noHeading = O42SEC.split('\n').filter((l) => !l.startsWith('## O42 ')).join('\n')
+      const onlyHeading = lostMarkers(O42SEC, noHeading)
+      // ② 复选任务行整行消失、且该编号再无别处以它开头 → 仍走老路报丢,shape 未被改道
+      const solo = [
+        '### 某任务',
+        '- [ ] O48 独立任务行(两条子项):① 一条用于验证复选行老判据的登记行,正文可随便改写而不报。',
+        '  - **进度(2026-09-24)**:这一行原样引用了 O48 独立任务行 却不在行首,不构成行首编号。',
+      ].join('\n')
+      const soloDropped = lostMarkers(solo, solo.replace(/^- \[ \] O48[^\n]*\n/m, ''))
+      // ③ 加粗 bullet 只改写 marker 之后的文案 → 不报(既有"不误伤正常编辑"语义)
+      const boldReworded = lostMarkers(
+        O42SEC,
+        O42SEC.replace('① R7 只核结构事实,自然语言真伪仍无人核', '① 换成别的说法,长度仍然足够足够长'),
+      )
+      return (
+        onlyHeading.length === 1 &&
+        onlyHeading[0].shape === 'heading' &&
+        soloDropped.length === 1 &&
+        soloDropped[0].shape === 'checkbox' &&
+        boldReworded.length === 0
+      )
+    },
+  )
+  t(
+    'heal 能力边界:标题级条目只回插一行且幂等;输出必须如实标注需人工归并',
+    () => {
+      const headingLine = O42SEC.split('\n')[0]
+      const noHeading = O42SEC.split('\n').slice(1).join('\n')
+      const reg = registrationOf(headingLine)
+      const entry = {
+        line: headingLine,
+        marker: reg.marker,
+        id: reg.id,
+        shape: reg.shape,
+        prev: null,
+      }
+      const first = healContent(noHeading, [entry])
+      const second = healContent(first.out, [entry])
+      // 回插后判活必须成立(标题集已在 healContent 内同步),否则就是重复插入的循环
+      const ids = headIdSet(noHeading)
+      return (
+        first.inserted + first.appended === 1 &&
+        second.inserted === 0 &&
+        second.appended === 0 &&
+        stillRegistered(entry, first.out, ids, headingIdSet(first.out)) &&
+        !first.out.includes(headingLine + '\n' + headingLine)
+      )
     },
   )
   t(
@@ -839,6 +1017,27 @@ function heal(commit) {
     )
     for (const m of headMissing) console.warn(`     · ${m.marker}`)
   }
+  /**
+   * 标题级丢失的**能力边界必须如实说明**:healContent 只逐行回捞,把 `## O42 …` 这一行插回
+   * 邻居之后,但它不知道整节正文去了哪、也无从恢复从属关系(正文多为非登记行,本就不在回捞面)。
+   * 所以这里只报"标题行已回插、层级需人工归并",绝不打"整节已恢复"这类做不到的结论。
+   */
+  const headingLost = new Map()
+  for (const m of [...diskMissing, ...headMissing])
+    if (m.shape === 'heading' && !headingLost.has(m.marker)) headingLost.set(m.marker, m)
+  if (headingLost.size) {
+    const ids = [...new Set([...headingLost.values()].map((m) => m.id ?? m.marker))].join('、')
+    console.warn(
+      `⚠️  [plan-line-loss] 其中 ${headingLost.size} 条是**任务条目标题**(${ids})——\n` +
+        `     自愈只能把标题这一行插回去,**无法重建"标题 + 其下整节正文"的从属关系**;\n` +
+        `     标题级丢失需人工归并:` +
+        '`git log --all -S "<标题>" -- PROJECT_PLAN.md`' +
+        ` 定位原提交,\n` +
+        `     再 ` +
+        '`git show <sha>:PROJECT_PLAN.md`' +
+        ` 把**整节**原文一起插回原锚点(AGENTS.md §12b 协作收尾)。`,
+    )
+  }
   if (!commit) {
     console.log('   (未加 --commit:只写工作区,不建提交)')
     return 0
@@ -955,14 +1154,31 @@ if (isDirectRun) {
     }
     console.error(
       `❌ [plan-line-loss] ${lost.length} 条已入库的登记行在本次提交内容里彻底消失:\n` +
-        lost.map((x) => `   · ${x.marker}\n     ${x.line.trim().slice(0, 90)}…`).join('\n'),
+        lost
+          .map(
+            (x) =>
+              `   · ${x.marker}${x.shape === 'heading' ? `   ← 条目标题 ${x.id}` : ''}\n` +
+              `     ${x.line.trim().slice(0, 90)}…`,
+          )
+          .join('\n'),
     )
+    const hl = headingLosses(lost)
+    if (hl.length) {
+      console.error(
+        `\n  🔴 标题级丢失 ${hl.length} 处,条目号:${[...new Set(hl.map((x) => x.id ?? x.marker))].join('、')} ——\n` +
+          '     丢的不是一行,而是那个条目在计划里**唯一的可寻址入口**:其下正文会被挂到上一节,\n' +
+          '     而 `--heal` 只回捞单行、补不回整节层级 ⇒ **标题级丢失一律需人工归并**(按下面 1)\n' +
+          '     取那一节的**整节**原文插回原锚点,不要只补标题行)。',
+      )
+    }
     console.error(
       '\n  💡 这几乎总是"按内存里的旧计划文档整文件提交"造成的覆盖,不是有意删除:\n' +
         '     1) 从原始提交逐字取回:`git log --all -S "<标记>" -- PROJECT_PLAN.md` 找到引入它\n' +
         '        的提交,`git show <sha>:PROJECT_PLAN.md` 取整行,插回原锚点后再提交;\n' +
         '     2) 确属归档 → 原文必须出现在 .ihui-agent/archive/PROJECT_PLAN_*.md 里(本闸自动放行);\n' +
-        '     3) 提交计划文档前一律现取 HEAD 版本再插自己的行,别相信自己内存里的那份。\n' +
+        '     3) 提交计划文档前一律现取 HEAD 版本再插自己的行,别相信自己内存里的那份;\n' +
+        '     4) 给**已入库的条目标题改编号**(如 O42 → O45)与本闸要防的"旧基线覆盖"在内容上\n' +
+        '        不可区分,同样判红:旧标题必须留在原处(或按 §1 归档),新编号另起一节。\n' +
         '     紧急跳过:HUSKY_SKIP_PLAN_LINE_LOSS=1(会把别人的登记行写没,慎用)\n',
     )
     process.exit(1)
@@ -970,5 +1186,28 @@ if (isDirectRun) {
     console.error(`❌ [plan-line-loss] 检查失败:${e?.message ?? e}`)
     process.exit(2)
   }
+}
+
+/**
+ * AGENTS.md §22c:镜像测试一律 import 本对象,**禁止**在测试里复制判据实现
+ * (复制 = 两套并行真相,源函数一改测试就"假绿",守门形同虚设)。
+ * §22d 要求本 export 位于 `if (isDirectRun)` 之后,免得测试 import 时把 CLI 主流程带起来。
+ */
+export const __test__ = {
+  markerOf,
+  headIdOf,
+  headIdSet,
+  headingIdSet,
+  registrationOf,
+  registeredLines,
+  stillRegistered,
+  lostMarkers,
+  dropArchivedLost,
+  headingLosses,
+  missingFrom,
+  healContent,
+  proseLossReport,
+  healSuspectRatio,
+  assessHealScale,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
