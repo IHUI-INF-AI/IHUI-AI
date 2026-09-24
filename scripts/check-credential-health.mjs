@@ -19,7 +19,7 @@
  *   node scripts/check-credential-health.mjs              # 人工/CI 巡检,异常 exit 1
  *   node scripts/check-credential-health.mjs --json       # 机器可读(供告警/看板)
  *   node scripts/check-credential-health.mjs --self-test   # 逻辑自检(不触网、不读真凭据)
- *   node scripts/check-credential-health.mjs --test-alert  # 真发一次告警(占配额,须节制)
+ *   node scripts/check-credential-health.mjs --test-alert  # 真发一次告警邮件(会真打扰收件人,须节制)
  *   node scripts/check-credential-health.mjs --mail-dry-run # 只问品牌派发器"通道是否齐备",零网络请求
  *   node scripts/check-credential-health.mjs --alert-dry   # 跑完整巡检但只打印告警正文,不投递
  *   node scripts/check-credential-health.mjs --install     # 注册 6 小时计划任务(经 vbs 隐藏,§5b)
@@ -33,25 +33,16 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync, mkdirSync, appendFileSync, rmSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
 import { createHash } from 'node:crypto'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 import { request } from 'node:https'
 import { request as httpRequest } from 'node:http'
 import { resolveGitBin } from './lib/gitdir.mjs'
-import { keyFile, resolveKeyDir, firstExisting } from './lib/key-dir.mjs'
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const TASK_NAME = 'IHUI credential-health'
 const GIT_BIN = resolveGitBin()
-// 口令表落点同样不得写死盘符:本机 D:/DevEnv 存在但没有 secrets/,真值仍解析为兜底字面量,
-// 于是该项按"权威源缺失"判 unknown(不判红)。换机后若表在别的盘,这里会自动跟上。
-const SECRETS_DIR =
-  process.env.IHUI_SECRETS_DIR ||
-  firstExisting(['D:/DevEnv/secrets', 'F:/DevEnv/secrets', 'G:/DevEnv/secrets', 'E:/DevEnv/secrets']) ||
-  'D:/DevEnv/secrets'
-// 盘符按"存在即真"解析(见 scripts/lib/key-dir.mjs):本机真实库在 F 盘,写死 D 盘会让
-// 镜像活性探测读不到 key ⇒ 报成"国内镜像停摆",把"路径过期"误诊成"凭据失效"。
-// 全都不存在时保留旧字面量,使 detail 里的路径仍指向文档登记的权威位置。
-const GIT_KEY_DIR = process.env.IHUI_MODEL_KEY_DIR_GIT || resolveKeyDir('git仓库') || 'D:/BaiduSyncdisk/密钥/git仓库'
+const SECRETS_DIR = process.env.IHUI_SECRETS_DIR || 'D:/DevEnv/secrets'
+const GIT_KEY_DIR = process.env.IHUI_MODEL_KEY_DIR_GIT || 'D:/BaiduSyncdisk/密钥/git仓库'
 const WEB_PROBE = process.env.IHUI_DEPLOY_PROBE || 'http://127.0.0.1:8801'
 const GITHUB_REPO = 'IHUI-INF-AI/IHUI-AI'
 
@@ -78,28 +69,8 @@ export function readServiceEnv(service, key) {
   }
 }
 
-/** 服务是否装机(三态:true/false/null=探测本身不可用)。
- *  1060 = ERROR_SERVICE_DOES_NOT_EXIST,是唯一能断定"没有这个服务"的退出码;
- *  其余失败(sc.exe 被策略挡、路径异常)一律返回 null,不得当成"服务不存在"。 */
-export function serviceExists(name, scBin = 'C:/Windows/System32/sc.exe') {
-  try {
-    execFileSync(scBin, ['query', name], {
-      stdio: ['ignore', 'ignore', 'pipe'],
-      windowsHide: true,
-      timeout: 15000,
-    })
-    return true
-  } catch (e) {
-    return e && e.status === 1060 ? false : null
-  }
-}
-
 /** 凭据在代码/服务/文件三处是否同值 —— 当天故障的精确形状 */
-export function compareCredential({ serviceValue, authoritativeValue, serviceInstalled = true }) {
-  // 非部署机上根本没有 IHUI-DEPLOYLOOP:把"没这个服务"报成"环境块缺该键 ⇒ 门禁必然失败"
-  // 是一条每次都红、且红得没有道理的告警(与"部署停摆"同族,故复用同一口径:只在部署机评估)。
-  if (serviceInstalled === false) return { level: 'unknown', why: '本机无该服务(只在部署机评估),不判环境块缺失' }
-  if (serviceInstalled === null) return { level: 'unknown', why: '服务存在性探测不可用(sc.exe),不误判' }
+export function compareCredential({ serviceValue, authoritativeValue }) {
   if (!authoritativeValue) return { level: 'unknown', why: '权威源缺失(文件不存在或为空),不判定为过期' }
   if (!serviceValue) return { level: 'fail', why: '服务环境块缺该键 ⇒ 依赖它的门禁必然失败' }
   if (sha(serviceValue) === sha(authoritativeValue)) return { level: 'ok', why: '与服务运行态同值' }
@@ -208,7 +179,7 @@ const GH_REPO = 'IHUI-INF-AI/IHUI-AI'
 const MIRROR_WF = '317969743' // Mirror to CN 的 workflow id(由 API 取,非猜测;变更需重取)
 
 function ghApi(method, path, body) {
-  const token = readText(process.env.IHUI_GH_KEY_FILE || keyFile('git仓库', 'github key.txt') || join(GIT_KEY_DIR, 'github key.txt')).trim()
+  const token = readText(process.env.IHUI_GH_KEY_FILE || 'D:/BaiduSyncdisk/密钥/git仓库/github key.txt').trim()
   if (!token) return Promise.resolve({ status: 0, j: null, why: '未取到 GitHub 权威凭据文件' })
   const payload = body ? JSON.stringify(body) : null
   return new Promise((res) => {
@@ -280,11 +251,6 @@ async function mirrorLivenessCheck() {
   const now = Date.now()
   const giteeTok = readMirrKey('gitee apikey.txt', /^[0-9a-f]{32}$/)
   if (!giteeTok) {
-    // 读不到 key **不等于** key 失效:整个密钥目录不存在(换盘符 / 同步盘未挂载)时判 unknown,
-    // 否则一次挂载抖动就会产出一条假的"镜像停摆",而它看起来完全像凭据事故(本次即如此)。
-    if (!existsSync(GIT_KEY_DIR)) {
-      return [{ name: NAME, level: 'unknown', detail: `密钥目录不存在:${GIT_KEY_DIR}(不判定为凭据失效,先核对盘符)` }]
-    }
     return [{ name: NAME, level: 'fail', detail: 'gitee apikey.txt 取不到形状合法的 token(注意同目录的 _冲突文件_ 副本不可用)' }]
   }
   const [g, gh] = await Promise.all([
@@ -311,7 +277,7 @@ async function mirrorLivenessCheck() {
       {
         name: NAME,
         level: 'fail',
-        detail: `${head} 超阈值,且上一轮 conclusion=failure ⇒ 不补发(补发只会再跑一遍注定失败的 69 分钟)。查 Gitee 侧拒绝原因 —— 2026-09-23 实测为硬配额 \`Repo size 1156MB > 1024MB\`(pre-receive 拒绝),处置面在减 ref/清标签,见 .github/workflows/mirror-to-cn.yml 的 prune 步骤`,
+        detail: `${head} 超阈值,且上一轮 conclusion=failure ⇒ 不补发(补发只会再跑一遍注定失败的 69 分钟)。查 Gitee 侧拒绝原因(今天实测是仓库体积超配额,需减 ref 或清标签)`,
       },
     ];
   }
@@ -330,8 +296,8 @@ async function mirrorLivenessCheck() {
 export async function runChecks() {
   const out = []
   // ⓪ 告警通道自检:上一轮若有故障但一条都没送出去,这本身就是必须报红的一项。
-  //    (今天的教训:Server 酱日额度耗尽 → sent=false → 故障静默丢失,和 12h 去重把
-  //     持续两天的故障压成静默是同一类"放大器"。)
+  //    (今天的教训:通道配额耗尽/投递失败 → sent=false → 故障静默丢失,和 12h 去重把
+  //     持续两天的故障压成静默是同一类"放大器"。邮件是唯一到人通道后,这一项更是硬底线。)
   if (existsSync(UNDEL)) {
     let info = {}
     try {
@@ -348,16 +314,11 @@ export async function runChecks() {
   // ① 服务运行态口令 vs 权威口令表
   const adminInSvc = readServiceEnv('IHUI-DEPLOYLOOP', 'IHUI_ADMIN_PASSWORD')
   const adminAuthority = readFileSyncOr(join(SECRETS_DIR, 'admin-password.txt'))
-  const installed = serviceExists('IHUI-DEPLOYLOOP')
-  const cmp = compareCredential({
-    serviceValue: adminInSvc,
-    authoritativeValue: adminAuthority,
-    serviceInstalled: installed,
-  })
+  const cmp = compareCredential({ serviceValue: adminInSvc, authoritativeValue: adminAuthority })
   out.push({
     name: 'IHUI-DEPLOYLOOP 环境块 IHUI_ADMIN_PASSWORD',
     level: cmp.level,
-    detail: `${cmp.why};服务在位 ${installed === null ? '?' : installed ? 'Y' : 'N'} / 服务侧 ${fingerprint(adminInSvc)} / 权威源 ${fingerprint(adminAuthority)}`,
+    detail: `${cmp.why};服务侧 ${fingerprint(adminInSvc)} / 权威源 ${fingerprint(adminAuthority)}`,
   })
 
   // ② 真登录一次(与门禁同一入口)。127.0.0.1 自有桶,单轮 1 次不撞限流。
@@ -428,25 +389,11 @@ function readText(p) {
   }
 }
 
-export function judgeStall({
-  liveSha,
-  tipSha,
-  lastSuccessIso,
-  nowMs,
-  thresholdMin,
-  inFlight = false,
-  deployHost = true,
-}) {
+export function judgeStall({ liveSha, tipSha, lastSuccessIso, nowMs, thresholdMin, inFlight = false }) {
   if (!tipSha) return { level: 'unknown', why: '取不到 origin/main tip,不判定' }
-  // 构建标记只由部署机写(ihui-deploy.ps1 部署成功后写 .next/IHUI_BUILD_SHA)。
-  // 在非部署机上"标记缺失"是**必然**为真 ⇒ 该项恒红,会把真告警淹掉(告警器一乱叫就被静音:
-  // 邮件 10 封/天、Server酱 5 条/天)。判据取"本机有没有部署环痕迹":deploy-loop.log 有无内容。
-  if (!deployHost && !liveSha && !lastSuccessIso) {
-    return { level: 'unknown', why: '本机无部署环痕迹(deploy-loop.log 为空/缺失)⇒ 该项只在部署机评估' }
-  }
   // 部署环**正在跑这一轮**时不得判停摆:2026-09-23 14:05 实测假阳性 —— 14:02 起在构建,
   // 14:06:21 就成功了,而我按"距上次成功 > 阈值"判红并真发了一封邮件。
-  // 告警器乱叫就会被静音(邮件 10 封/天、Server酱 5 条/天),所以这一条是硬护栏。
+  // 告警器乱叫就会被静音(误报越多,值班越容易忽略真故障),所以这一条是硬护栏。
   if (inFlight) return { level: 'unknown', why: '部署环正在跑这一轮(日志有新活动且非失败态),不判定' }
   if (!liveSha) return { level: 'fail', why: `线上无构建标记(.next/IHUI_BUILD_SHA 缺失),最近成功部署=${lastSuccessIso || '未知'}` }
   if (liveSha === tipSha) return { level: 'ok', why: '线上构建 == origin/main tip' }
@@ -499,15 +446,7 @@ function deployStallCheck() {
     const lastAge = lm ? (Date.now() - Date.parse(`${lm[1].replace(' ', 'T')}${lm[2]}`)) / 60000 : Infinity
     inFlight = Number.isFinite(lastAge) && lastAge < 20 && !/轮询结束|部署完成/.test(last)
   }
-  const r = judgeStall({
-    liveSha,
-    tipSha,
-    lastSuccessIso,
-    nowMs: Date.now(),
-    thresholdMin,
-    inFlight,
-    deployHost: Boolean(log.trim()),
-  })
+  const r = judgeStall({ liveSha, tipSha, lastSuccessIso, nowMs: Date.now(), thresholdMin, inFlight })
   const diag = errs.length ? ` [诊断: ${errs.join(' ; ')}]` : ''
   return [{ name: '部署停摆(线上构建 vs origin/main)', level: r.level, detail: r.why + diag }]
 }
@@ -519,22 +458,6 @@ function selfTest() {
   eq('不一致判 fail(事故形态)', compareCredential({ serviceValue: 'old-pass', authoritativeValue: 'new-pass' }).level, 'fail')
   eq('服务缺键判 fail', compareCredential({ serviceValue: null, authoritativeValue: 'x' }).level, 'fail')
   eq('权威源缺失不误判', compareCredential({ serviceValue: 'x', authoritativeValue: null }).level, 'unknown')
-  // 三态 serviceInstalled:非部署机(本机实测 sc query IHUI-DEPLOYLOOP = 1060)不得判红
-  eq(
-    '服务不装机 ⇒ 不判环境块缺失(假红护栏)',
-    compareCredential({ serviceValue: null, authoritativeValue: 'new-pass', serviceInstalled: false }).level,
-    'unknown',
-  )
-  eq(
-    '反向对照:同输入但服务在位且缺键 ⇒ 仍判 fail(护栏不得吞掉真故障)',
-    compareCredential({ serviceValue: null, authoritativeValue: 'new-pass', serviceInstalled: true }).level,
-    'fail',
-  )
-  eq(
-    'sc.exe 探测本身不可用 ⇒ null,不误判',
-    compareCredential({ serviceValue: null, authoritativeValue: 'x', serviceInstalled: null }).level,
-    'unknown',
-  )
   eq('401 归 fail', classifyHttpStatus(401), 'fail')
   eq('429 不得归 fail(限流≠过期)', classifyHttpStatus(429), 'limited')
   eq('网络不可达归 unreachable', classifyHttpStatus(0), 'unreachable')
@@ -546,29 +469,6 @@ function selfTest() {
   eq('同一输入:本轮在飞 ⇒ 不判定', judgeStall({ liveSha: 'A', tipSha: 'B', lastSuccessIso: new Date(1000).toISOString(), nowMs: 1000 + 120 * 60000, thresholdMin: 45, inFlight: true }).level, 'unknown')
   eq('反向对照:同样输入但非在飞 ⇒ 仍判停摆(护栏不得吞掉真故障)', judgeStall({ liveSha: 'A', tipSha: 'B', lastSuccessIso: new Date(1000).toISOString(), nowMs: 1000 + 120 * 60000, thresholdMin: 45, inFlight: false }).level, 'fail')
   eq('无标记判红', judgeStall({ liveSha: '', tipSha: 'B', lastSuccessIso: '', nowMs: 1, thresholdMin: 45 }).level, 'fail')
-  // 非部署机:同样无标记 ⇒ 不得判红(标记只由部署机写,在这里红是恒红)
-  eq(
-    '非部署机无标记判 unknown',
-    judgeStall({ liveSha: '', tipSha: 'B', lastSuccessIso: '', nowMs: 1, thresholdMin: 45, deployHost: false }).level,
-    'unknown',
-  )
-  eq(
-    '反向对照:同输入但确是部署机 ⇒ 仍判红(护栏不得吞掉真停摆)',
-    judgeStall({ liveSha: '', tipSha: 'B', lastSuccessIso: '', nowMs: 1, thresholdMin: 45, deployHost: true }).level,
-    'fail',
-  )
-  eq(
-    '非部署机但有日志痕迹(有 lastSuccess)⇒ 照常判停摆',
-    judgeStall({
-      liveSha: '',
-      tipSha: 'B',
-      lastSuccessIso: new Date(1000).toISOString(),
-      nowMs: 1000 + 120 * 60000,
-      thresholdMin: 45,
-      deployHost: false,
-    }).level,
-    'fail',
-  )
   eq('取不到 tip 不误判', judgeStall({ liveSha: 'A', tipSha: '', lastSuccessIso: '', nowMs: 1, thresholdMin: 45 }).level, 'unknown')
   // ── 邮件通道契约(2026-09-23 迁到品牌派发器;发信路径不得再自拼传输层,守门 81)──
   const norm = (p) => String(p).replace(/\\/g, '/')
@@ -669,7 +569,7 @@ function taskStatus() {
 /**
  * 告警:把"凭据失效"从静默变成必须有人看。
  *
- * 反今天事故的规则:今天的 `SCT 同签名失败告警 12h 内已推过,跳过` 把一次**持续两天的故障**
+ * 反今天事故的规则:今天那条"同签名失败告警 12h 内已推过,跳过"把一次**持续两天的故障**
  * 压成了静默 —— 去重只能去"重复",不能去"还在发生"。这里因此:
  *   · 失败集合发生变化 ⇒ 立刻发(新故障不等窗口);
  *   · 失败集合不变但仍在失败 ⇒ 每 20 小时重发一次(绝不因去转而消失);
@@ -700,38 +600,7 @@ function loadState() {
     return null
   }
 }
-/** 通用 POST(https),永不抛异常 —— 告警通道自身不能让巡检崩掉 */
-function post({ host, path, headers, body, timeout = 15000 }) {
-  return new Promise((res) => {
-    const r = request({ host, path, method: 'POST', headers, timeout }, (rp) => {
-      let b = ''
-      rp.on('data', (d) => (b += d))
-      rp.on('end', () => res({ status: rp.statusCode, b: String(b).slice(0, 120) }))
-    })
-    r.on('error', (e) => res({ status: 0, b: e.message }))
-    r.on('timeout', () => {
-      r.destroy()
-      res({ status: 0, b: '超时' })
-    })
-    r.end(body)
-  })
-}
-
-async function sendServerChan(key, title, desp) {
-  const body = new URLSearchParams({ title, desp }).toString()
-  const r = await post({
-    host: 'sctapi.ftqq.com',
-    path: `/${key}.send`,
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body) },
-  })
-  let ok = false
-  try {
-    ok = JSON.parse(r.b).code === 0
-  } catch {
-    ok = false
-  }
-  return { ok, b: `HTTP ${r.status} ${r.b}` }
-}
+/** 通用 POST(https)已随第三方推送腿摘除一并删除;发信一律走下方品牌派发器 */
 
 // ── 品牌邮件通道(2026-09-23 迁移,守门 81「品牌邮件通道对账」)─────────────────────
 // 为什么这里不再自拼传输层:旧实现是 `post({ host: 'api.resend.com', path: '/emails' })` 直发、
@@ -750,7 +619,7 @@ const TSX_ENTRY = join(REPO, 'apps', 'api', 'node_modules', 'tsx', 'dist', 'cli.
 const BRAND_MAIL_SCRIPT = join(REPO, 'apps', 'api', 'scripts', 'notify-deploy-failure.ts')
 /** 正文临时文件目录(§15:临时物一律项目内,已 gitignore) */
 const BRAND_MAIL_MSG_DIR = join(REPO, '.ihui-agent', 'tmp', 'credential-health-notify')
-/** 告警收件人(§5e 邮件兜底同一地址) */
+/** 告警收件人(§5e 运维邮件到人同一地址) */
 const ALERT_EMAIL_TO = '502319984@qq.com'
 /** 派发器单次调用的墙上时钟上限:tsx 冷启 + SMTP 握手(nodemailer 自带 10s 超时)的最坏叠加 */
 const BRAND_MAIL_TIMEOUT_MS = 90_000
@@ -838,9 +707,11 @@ function dispatchBrandMail({ title, desp, severity, plain, dryRun }) {
 }
 
 /**
- * §5e 的邮件兜底:Server 酱免费额度仅 5 条/天,耗尽时告警不得静默丢失。
+ * 邮件 = 唯一到人通道(2026-09-24 起,AGENTS.md §5e)。
  * 品牌模板通道失败时,再用同一条传输层的 --plain 降级发纯文本 —— 两条都失败才算未送达
  * (与 ihui-deploy.ps1 的 Send-EmailNotify 同一策略:宁可版式降级,不可静默丢失)。
+ * 第三方推送时代不存在这层担忧:那时邮件只是兜底,推不出去还有主通道;如今没有兜底可退,
+ * 失败必须经 UNDEL 标记在下一轮被判红。
  */
 async function sendEmail(title, desp, severity = 'critical', { dryRun = false } = {}) {
   const branded = dispatchBrandMail({ title, desp, severity, plain: false, dryRun })
@@ -852,21 +723,12 @@ async function sendEmail(title, desp, severity = 'critical', { dryRun = false } 
 }
 
 /**
- * 多通道投递:Server酱 → 邮件。返回每一通的尝试结论,调用方据此留痕。
- * 全通道失败 = 故障从未被人看见,必须写 UNDELIVERED 标记并在下一轮判红。
+ * 投递(邮件单通道,2026-09-24 起无第二通道)。返回尝试结论列表,调用方据此留痕。
+ * 失败 = 故障从未被人看见,必须写 UNDELIVERED 标记并在下一轮判红 —— 没有"另一条腿"可退。
  */
 async function deliver(title, desp, severity = 'critical') {
-  const attempts = []
-  let key = process.env.SERVERCHAN_SENDKEY || ''
-  if (!key) key = readServiceEnv('IHUI-DEPLOYLOOP', 'SERVERCHAN_SENDKEY') || ''
-  if (!key) attempts.push('serverchan: 无 SERVERCHAN_SENDKEY(未尝试,应在计划任务环境里配好)')
-  else {
-    const r = await sendServerChan(key, title, desp)
-    attempts.push(`serverchan: ${r.ok ? '已送达' : `未送达 — ${r.b}`}`)
-    if (r.ok) return { sent: true, via: 'serverchan', attempts }
-  }
   const e = await sendEmail(title, desp, severity)
-  attempts.push(`email: ${e.ok ? `已送达 — ${e.why}` : `未送达 — ${e.why}`}`)
+  const attempts = [`email: ${e.ok ? `已送达 — ${e.why}` : `未送达 — ${e.why}`}`]
   if (e.ok) return { sent: true, via: 'email', attempts }
   return { sent: false, via: null, attempts }
 }
@@ -915,15 +777,9 @@ async function maybeAlert(results, dryRun) {
 }
 
 const argv = process.argv.slice(2)
-// §22d 入口守卫:此前顶层直接跑 else 分支 ⇒ 任何 import(取纯函数写测试)都会**跑一次实检并真投递告警**
-// (2026-09-24 实测:node --input-type=module -e import { judgeStall } 就发掉一封品牌告警邮件,烧掉每日配额)
-const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
-
-if (!isDirectRun) {
-  /* 被 import:只暴露纯函数,不产生任何网络/投递副作用 */
-} else if (argv.includes('--help') || argv.includes('-h')) {
+if (argv.includes('--help') || argv.includes('-h')) {
   // 必须是真分支:此前未知参数(含 --help)一律落到默认巡检 —— 想查用法的人会顺手打一轮
-  // 厂商 API,还可能因当轮判红而真发一封告警(邮件 10 封/天、Server酱 5 条/天的配额是自保项)。
+  // 厂商 API,还可能因当轮判红而真发一封告警邮件(唯一到人通道,打扰真实收件人,须节制)。
   console.log(
     [
       '用法: node scripts/check-credential-health.mjs [模式]',
@@ -932,19 +788,19 @@ if (!isDirectRun) {
       '  --json        机器可读输出(写 .workbuddy/credential-health-last.json 心跳)',
       '  --alert-dry   跑完整巡检,但只打印告警正文,不投递',
       '  --mail-dry-run 只问品牌邮件派发器「通道是否齐备」(零网络请求,不占配额)',
-      '  --test-alert  真发一次通道自测(会占配额,须节制)',
+      '  --test-alert  真发一次通道自测(会真打扰收件人,须节制)',
       '  --self-test   逻辑自检(不触网、不读真凭据)',
       '  --install | --uninstall | --status  计划任务注册/卸载/健康',
       '',
-      '告警通道: Server酱 → 邮件;邮件一律经 apps/api/scripts/notify-deploy-failure.ts',
-      '          的品牌模板(守门 81),全通道失败会写 UNDELIVERED 标记并在下一轮判红。',
+      '告警通道: 仅邮件一条(只按签名去重、无总量封顶);邮件一律经 apps/api/scripts/notify-deploy-failure.ts',
+      '          的品牌模板(守门 81),投递失败会写 UNDELIVERED 标记并在下一轮判红。',
     ].join('\n'),
   )
   process.exit(0)
 } else if (argv.includes('--self-test')) selfTest()
 else if (argv.includes('--test-alert')) {
-  // 通道可用性必须可证:只看"代码写了 fallback"不算,必须真发一次并回读结果。
-  const d = await deliver('【生产环境】凭据巡检通道自测', '这是一条通道自测消息(非故障)。用于验证 Server酱额度耗尽时邮件兜底是否真能落地。')
+  // 通道可用性必须可证:只看"代码写了发信"不算,必须真发一次并回读结果。
+  const d = await deliver('【生产环境】凭据巡检通道自测', '这是一条通道自测消息(非故障)。用于验证唯一到人通道(邮件)是否真能落地。')
   console.log(`通道自测: sent=${d.sent} via=${d.via || '-'}`)
   for (const t of d.attempts) console.log(`  · ${t}`)
   process.exit(d.sent ? 0 : 1)
