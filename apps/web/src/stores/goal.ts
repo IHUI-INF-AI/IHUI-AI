@@ -6,6 +6,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 import { ssrStorage } from './persist-helpers'
+import { createGoalPersistStorage } from '@/lib/chat-persist-crypto'
 
 /**
  * /goal 会话目标状态机(W24,2026-09-14 立)。
@@ -115,7 +116,9 @@ export const useGoalStore = create<GoalState>()(
     }),
     {
       name: 'ihui-goal',
-      storage: ssrStorage,
+      // D48(G-56)目标文本是用户自撰的会话派生内容 → 桌面端与 chat 同层加密,但走独立 HKDF 域
+      // (chat 密文解不开 goal,反之亦然)。浏览器路径原样返回 ssrStorage,行为零变更。
+      storage: createGoalPersistStorage(ssrStorage),
       partialize: (s: GoalState) => ({ goal: s.goal }),
     },
   ),

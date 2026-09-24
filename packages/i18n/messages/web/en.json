@@ -7074,6 +7074,46 @@
       "rollbackConfirmConfirm": "Restore"
     },
     "pane": {
+      "moveToWorktree": {
+        "title": "Move conversation to a worktree",
+        "subtitle": "Check out branch <branch>{branchName}</branch> in a new worktree to keep working in parallel.",
+        "continue": "Move",
+        "cancel": "Cancel",
+        "loading": "Checking whether this chat can be moved…",
+        "existingWorktreeRunning": "Wait for the current reply to finish before moving this chat",
+        "existingWorktreeLabel": "Existing worktree",
+        "createNewLabel": "Create new worktree",
+        "targetLabel": "Move target",
+        "localCheckoutLabel": "Local workspace will switch to",
+        "localBranchPlaceholder": "Select local checkout branch",
+        "noTargetBranch": "No other local branches available",
+        "branchesLoading": "Loading branches…",
+        "branchesError": "Failed to load branches",
+        "branchesRetry": "Retry",
+        "branchAlreadyExists": "A worktree already exists for this branch.",
+        "defaultBranchError": "The worktree branch must differ from the default branch.",
+        "trailingSlashError": "Branch name cannot end with \"/\".",
+        "worktreeBranchRequired": "Enter a worktree branch name.",
+        "worktreeBranchAriaLabel": "Worktree branch name",
+        "worktreeBranchLabel": "Worktree branch name"
+      },
+      "editResend": {
+        "title": "Roll back file changes and resend?",
+        "ariaLabel": "Roll back file changes and resend",
+        "desc": "This will roll back this turn's file changes and resend the message with your edited content.",
+        "confirm": "Roll back & resend",
+        "cancel": "Cancel",
+        "previewFilesTitle": "Files to roll back",
+        "previewEditTitle": "Content to resend",
+        "fileRecorded": "Recorded in checkpoint",
+        "fileUnrecorded": "Not recorded in checkpoint",
+        "previewFilesMore": "and {count} more files",
+        "detailAction": "View per-file changes",
+        "detailLabel": "Edit & resend · file rollback impact preview",
+        "warning": { "partialRollback": "Some changes were not fully recorded by the checkpoint; the rollback result may be incomplete" },
+        "phase": { "idle": "Ready", "previewing": "Previewing", "confirmed": "Confirmed", "executing": "Rolling back files and resending…", "completed": "Rolled back and resent", "editFailed": "Edit failed", "rollbackFailed": "Rollback failed", "rollbackPartial": "Partial rollback", "syncFailed": "Local sync failed", "replaceFailed": "Replace failed" },
+        "failure": { "editFailed": "The edited content could not be applied; execution stopped.", "rollbackFailed": "File rollback failed; execution stopped.", "rollbackPartial": "Only some files were rolled back; execution stopped.", "syncFailed": "Failed to sync local state; execution stopped.", "replaceFailed": "Failed to replace the message; execution stopped." }
+      },
       "agentActions": {
         "title": "Multi-agent actions",
         "header": {
@@ -21757,6 +21797,63 @@
     "purchase": "Purchase membership"
   },
   "wallet": {
+    "autoTopUp": {
+      "title": "Auto top-up",
+      "description": "Automatically top up to the target balance when your balance falls below the threshold.",
+      "enabled": "Enable auto top-up",
+      "enable": {
+        "success": "Auto top-up enabled",
+        "error": "Failed to enable auto top-up. Please try again later"
+      },
+      "disable": {
+        "success": "Auto top-up disabled",
+        "error": "Failed to disable auto top-up. Please try again later"
+      },
+      "save": {
+        "success": "Auto top-up settings saved",
+        "error": "Failed to save auto top-up settings. Please try again later",
+        "action": "Save auto top-up settings"
+      },
+      "dialog": {
+        "title": "Confirm auto top-up",
+        "description": "Once enabled, when your balance falls below the threshold you will be automatically charged to top up to the target balance. Please confirm this is what you want.",
+        "confirm": "Confirm",
+        "cancel": "Cancel"
+      },
+      "target": {
+        "label": "Target balance",
+        "helper": "When your balance falls below the threshold, it is automatically topped up to this number of credits.",
+        "ariaLabel": "Target balance (credits)",
+        "error": {
+          "missing": "Enter a target balance",
+          "wholeNumber": "Target balance must be a whole number",
+          "maximum": "Target balance must not exceed {maximumCredits} credits",
+          "minimumDifference": "Target balance must be higher than the top-up threshold"
+        },
+        "equivalent": {
+          "loading": "Fetching price…",
+          "text": "Top up {creditCount} credits, estimated at <strong>{amount}</strong>",
+          "error": "Failed to fetch the price. Please try again later"
+        }
+      },
+      "threshold": {
+        "label": "Top-up threshold",
+        "helper": "Auto top-up triggers when your balance falls below this number of credits.",
+        "ariaLabel": "Top-up threshold (credits)",
+        "error": {
+          "missing": "Enter a top-up threshold",
+          "wholeNumber": "Top-up threshold must be a whole number",
+          "minimum": "Top-up threshold must be at least 1"
+        }
+      },
+      "immediateTopUpFailure": {
+        "title": "First top-up failed",
+        "amount": "The first top-up of {amount} could not be completed.",
+        "generic": "The first automatic top-up could not be completed.",
+        "updatePaymentMethod": "Update payment method",
+        "buyCredits": "Buy credits directly"
+      }
+    },
     "availableAmount": "Available",
     "backToWallet": "Back to Wallet",
     "balance": "Token Balance",

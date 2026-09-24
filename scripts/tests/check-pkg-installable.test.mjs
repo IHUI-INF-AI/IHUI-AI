@@ -9,7 +9,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { fileURLToPath } from 'node:url'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 
 // §22c:直接 import 源脚本导出的 __test__,不维护任何"镜像常量",杜绝源/测两份真相漂移。
@@ -25,9 +25,11 @@ const MANIFEST = {
 }
 
 /** 临时 manifest 留在仓库内(AGENTS.md §15 工作区卫生),不写 os.tmpdir()。 */
-const SCRATCH = mkdtempSync(
-  join(resolve(dirname(fileURLToPath(import.meta.url)), '..', '..'), '.ihui-agent', 'tmp', 'pkg-installable-test-'),
-)
+// 干净 checkout / CI runner 上 .ihui-agent/tmp 不存在 → mkdtempSync 直接 ENOENT;
+// recursive mkdir 幂等,已存在不报错。落点不变,只补"父目录不存在就建"。
+const TMP_ROOT = join(resolve(dirname(fileURLToPath(import.meta.url)), '..', '..'), '.ihui-agent', 'tmp')
+mkdirSync(TMP_ROOT, { recursive: true })
+const SCRATCH = mkdtempSync(join(TMP_ROOT, 'pkg-installable-test-'))
 function fakeRepoManifest(obj) {
   const dir = SCRATCH
   const p = join(dir, 'package.json')
