@@ -5938,6 +5938,48 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - **O40 残余(一条,不是待办清单)**:TEMP 漂移仍在恶化回潮通道 —— HKCU `TEMP=D:\DevEnv\Temp`,但实测 `pwsh $env:TEMP` 与 `node -p os.tmpdir()` **都还是** `C:\Users\Administrator\AppData\Local\Temp`;环境块只被新进程继承 ⇒ 新开终端/重启宿主前,任何走 `os.tmpdir()` 的脚本会继续落 C(当前 C 侧 TEMP 仅 65.4 MB)。另有 7 个脚本的 `--self-test` 仍直接用 `os.tmpdir()`,由守门 91 提供可见性。
 - **O40 残余(不写作收口)**:① R4 仍有 **45 枚**已接线而文档零点名的门 —— 补登记属机械活但体量不小,且 README.md 此刻仍被并发会话 `MM` 暂存锁住(解阻判据 `git status --porcelain -- README.md` 为空);R4 判据设计为"AGENTS ∪ README 任一提到即算",所以两本都能收账。② `check-watermark-syntax.mjs` 仍是"先修判据再接"在册债:26 条红点里**真存量债 0 条**(22 条落在被 gitignore 的本地产物上,因判据用 `readdirSync` 全 walk 而非 `git ls-files`;另 4 条是正则字面量/自家夹具/`watermark.mjs` 自己注入的 L3 尾行被判红),四步修法已写进 O39 残余 ①。③ `check-sse-dispatch-parity.mjs` 已被并发会话登记为守门 90,但它"帧清单读磁盘、命中集读 HEAD"的跨取材面缺陷**不在本票职权内**,由该门持有人处理;门 89 的 R1/R2 实测对它零红,说明这道门不会自己变红,风险落在判据准确性而非接线状态。④ 台账既有 4 条(`check-lock`/`check-messages-dev-restart`/`check-p2-3-acceptance`/`scan-upstream-models`)仍沿用建账轮的自述分类未逐枚追真调用点,门 89 的"可撤销豁免"巡检会在它们真接线后点名。
 
+### 第三十六批(2026-09-24):全量镜像测试首次统一开考 —— 130 文件 2131 例跑出 9 红并逐条归因;附守门链停摆期间共享文档被搅碎的现场证据
+
+- **本票只补一样东西:一个"跑测试的人"**。`scripts/tests/` 实有 130 份镜像测试,CI 此前只点名
+  6 份,没有任何入口能全量跑(`50d984bf879` 新增 `scripts/run-script-tests.mjs` + 5 例取证 +
+  `pnpm test:scripts`;`7126588258a` 补 prettier 合格式)。工具自带三条反假绿:发现 0 文件即红、
+  TAP 计数缺失按失败计、任一片失败整体 exit 1;按累计字符切片以避开 Windows 命令行长度上限导致的
+  **静默少跑一批**。
+- **首跑真值**:130 文件 / 2131 例 / **2119 绿 / 9 红 / 0 skip**。9 红逐条归因(不是一锅粥):
+  - **4 枚属他人未提交状态**(活工作树专属,干净检出全绿):`tauri-updater-platforms` 3 枚
+    ("入库快照的 windows-x86_64 键逐字节一致 / dmg 未混入 / 装车形状完整")、
+    `check-c-drive-pollution` 1 枚("scanC 只读且两次一致")。
+  - **1 枚是我取证环境的假红**:`check-workspace-dep-links` 的"真仓不变量:所有 workspace:\*
+    均已链接" —— 我的 `git archive` 快照里没有 `node_modules`,该判据结构上不可能绿;
+    真 CI 会先 `pnpm install`,不在此列(本机现在也确实因另一会话未提交的 `apps/web` 新依赖而红)。
+  - **4 枚是真债**,任何环境都红:`check-i18n-keys` 1 枚("ko.json 损坏 ⇒ ko 被跳过、parity 不检查 ko"
+    的期望与实现不符)+ `sync-lost-commit-tags` 3 枚(`--check` 在"origin 不可达/无 ref"的干净临时仓里
+    返回 **exit 2**(脚本自身异常码),而用例要求 exit 0)。我做了对照复现:给它一个**可达**的本地 bare
+    origin ⇒ exit 0,所以红的是"取不到远端"这条路径**没有降级**。同族的守门 30a 今天实测打印的正是
+    「ls-remote 失败/超时…安全降级跳过」⇒ 两道门对同一情形口径不一致。
+    **我没有动它**:这是一道防丢提交门的错误路径,削错方向等于削弱保护(交归属会话按"降级但照报"修)。
+- **决定:本轮不把全量测试接进 CI。** 判据是今天刚为此修过的同一条教训 —— 一道与改动无关的恒红门
+  不会带来质量,只会逼各会话 `--no-verify`,从而把 115 道门一起废掉(今天 09:5x–11:0x 真实发生过一次:
+  lint-staged 被啃空的依赖树打死,守门链整体旁路)。接入门槛写死为:**上述 4 枚真债清零**,
+  且 `pnpm test:scripts` 在**装好依赖的干净检出**上连续两轮 exit 0。在那之前它只作为手动/巡检入口。
+- **顺手钉一件事(共享文档在守门停摆期会被搅碎,而且无人报警)**:第三十四批那一节现在 HEAD 里有
+  **两个同名标题**(行 327 与 5677),其中 5677 是**只剩标题的空壳**,它的正文三段被 union 合并
+  (`57b764ab817 Merge origin/main … PROJECT_PLAN 冲突按 union 双保留`)甩到了它**上方**
+  (5672-5675,读起来像属于上一节);同时另一会话把同一个"第三十四批"编号用作它自己那笔的标题
+  (327 起,正文是"我错在哪…重复消红"的自我复盘)。这与 §25「登记新门前先查编号占用」是同一类
+  撞号,只是发生在计划文档上。**本票不代删、不代并**(那些行分属两个会话,机器分不清谁持有),
+  只把现场与行号钉在这里:损坏发生的窗口正是 lint-staged 崩溃 ⇒ 守门 71(登记行防丢)也随之停跑的时段
+  —— 也就是"守门链整体旁路"的连带代价之一。后续整理应以 `.ihui-agent/tmp` 之外的正文为准源,
+  按 §12b 协作收尾逐段归位,而不是再来一次 union。
+- **本轮依赖树修复的收尾数字**(§12e 全量 install 两轮):空壳包目录 938 → **16**,且残留全是同一类
+  —— 被在跑进程锁住的可选平台二进制(`@next/swc-win32-x64-msvc`、`@swc/core-win32-x64-msvc`、
+  `@tailwindcss/oxide-win32-x64-msvc`、`@parcel/watcher-win32-x64`,每处只剩大 `.node` 而缺
+  `package.json`)加 pnpm 被 `EPERM` 打断的 `*_tmp_*` 垃圾。解法只有一个:下次构建重启窗口再补一轮
+  全量 install(**不杀 8801 进程**、不代删他人 21 小时死锁 `.deploy.lock`)。验收不采信"install 报成功"
+  (它对被清空的目录会说 Already up to date),只认 `pnpm exec <bin> --version` 四件套 + 门 78 单独复验。
+  我自己的计数也修过一处盲区:第一版只走 `.pnpm/<d>/node_modules/<e>` 一层,**scoped 包整批看不见**
+  (`@next/…` 就是这样漏报的),现按层展开重数才是上面这些数字。
+
 ## O40 守门接线层第三批 —— 自己撞的号自己拦:改号 91→92、门 89 补 R4/R5/R6 三维、AGENTS 文档债当场清
 
 - [x] ✅(2026-09-24) **O41① 用户授权后注册计划任务,并给出装车证明**:`IHUI C-Drive AutoMaintain` 每天 03:00,动作链按 §26 下方硬约束走 `wscript.exe → scripts/c-drive-maintain-hidden.vbs → pwsh -File …ps1`(**不直连控制台程序**,否则 InteractiveToken 下每天闪一扇黑窗)。回读 `schtasks /Query /XML` 实证 `LogonType=S4U` / `Command=wscript.exe` / `StartBoundary=03:00` / 下次运行 2026-09-24 03:00。AGENTS.md §26 那条表原先写"每天 3am 跑 ps1"是**设计意图**,同一行下另有"实测本机不存在该任务"的更正 ⇒ 现已从意图改成现状,并补记"注册前只跑过 -DryRun 同体副本"的取证。**注册前先做零删除证明**:复制一份只差命令行多 `-DryRun` 的同体 vbs,用 `cscript //nologo` 实跑,日志写出 `[WARN] … DRY RUN(全脚本不删任何东西)` + `[DRY]` 前缀 ⇒ 语法、GBK 代码页、pwsh 拉起链三项都过,注册全程零真删。
