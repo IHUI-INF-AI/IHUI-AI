@@ -7,6 +7,7 @@ import { Alert, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { updatePassword } from '@ihui/api-client'
+import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import { ChangePwdScreen as SharedChangePwdScreen } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -49,8 +50,9 @@ export function ChangePwdScreen() {
       } else {
         Alert.alert('修改失败', res.error || '请稍后重试')
       }
-    } catch {
-      Alert.alert('修改失败', '网络异常,请稍后重试')
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      Alert.alert('修改失败', detail.trim() ? toUserFriendlyMessage(e) : '网络异常,请稍后重试')
     } finally {
       setSubmitting(false)
     }

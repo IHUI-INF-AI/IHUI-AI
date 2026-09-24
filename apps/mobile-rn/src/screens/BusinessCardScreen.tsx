@@ -16,6 +16,7 @@ import {
   type AuthUser,
 } from '@ihui/api-client'
 import { BusinessCardScreen as SharedBusinessCardScreen, type BusinessCardItem } from '@ihui/rn-app'
+import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -204,8 +205,9 @@ export default function BusinessCardScreen() {
       } else {
         Alert.alert('提示', '名片提交失败')
       }
-    } catch {
-      Alert.alert('提示', '名片定制失败,请重试')
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      Alert.alert('提示', detail.trim() ? toUserFriendlyMessage(e) : '名片定制失败,请重试')
     } finally {
       // 定制完成(同步提示已由 Alert 呈现)
     }
