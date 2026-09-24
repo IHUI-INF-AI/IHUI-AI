@@ -4944,6 +4944,17 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - **接线**:函数由 `heal()` 直接调用,而 `heal()` 就是 `git-guardian` 每 2 分钟巡检里跑的入口(挂在健康早退之前,§5b 既有约定)⇒ 无需人工触发;`--check` 仍保持零副作用口径。
 - **残余**:① 8 枚空壳 tag 的删除属 §29 人工动作(判据与清单在台账里备齐,且须先按"是否唯一引用"分层);② 安装器 >200% 真机像素复验仍被取证禁令排除 —— 但降档逻辑现已同时具备穷举矩阵、守门 61 第 8 条不变量 + 8 例变异测试、以及**真实运行时 A/B(168→65、6650×3500→2572×1354)** 三级证据。
 
+### 第三十三批(2026-09-24):8 枚空壳 tag 全部补全并上远端 —— 两族 4283 枚本地/远端逐名零差异;并登记一条"工作区 PLAN 少 930 行"的在飞敞口
+- **闭环结论**:`lost-commit/*` + `backup/*` 两族本地 4283 枚 ↔ origin 4283 枚,**仅本地 0 / 仅远端 0**(逐名双向集合差为空);此前判死的 8 枚空壳已全部补全历史链,`git ls-remote` 回读 sha 与本地逐枚一致 8/8。台账 `.ihui-agent/archive/hollow-backup-tags-2026-09-24.txt` 已按终数重写(原名与原洞保留供追溯)。
+- **怎么补的(partial 历史的唯一有效通道)**:本仓对象被 `have` 剪枝,普通 `git fetch` 永远取不到那些缺失对象 —— 实测取回 0。改成 ① `--mirror` 克隆 origin 到项目内 scratch(1.1GB)② `git fetch --refetch --no-tags <mirror> '+refs/tags/lost-commit/*:refs/ihui-import/…'` 一次性灌回绝大部分 ③ 余 28 个用 GitHub blobs API 逐枚回补 + `hash-object -w`,每枚**sha 回读一致**才算数 ④ 8 枚的缺失闭包按 GitHub 递归树清单权威对账,起点 **11,615 个对象**。
+- **三条判据教训(比结果更值钱)**:
+  ① **推送回执不可信,`ls-remote` 才可信**:批量推送当时报 `remote: fatal error in commit_refs` + 8 枚 `remote rejected`,逐枚重试又打印"精确投递 0 个 / 全部 4283 枚远端已存在"—— 两种回执互相矛盾。最终由 `ls-remote` 权威回读判定**8 枚其实已全部落上**。远端 ref 事务类失败(`commit_refs`)属**假失败**形态,处置口径:先回读再定性,不得凭回执重推或据回执判死。
+  ② **`git ls-remote --tags` 带 `^{}` 剥离行,集合比对前必须剥掉**:不剥会凭空造出"65 枚仅远端"的假缺口(我这一轮先被它骗了一次)。尺子标定法再次生效:先确认"两族差集为空"这个不可能为假的样例。
+  ③ **回补类操作要同时断言"不删 ∧ 不重复 ∧ 逐枚 sha 一致"**:只验"存在"会把"远端已有但内容不同"读成通过。
+- **scratch 收口(自己产生的临时物自己清干净)**:4273 枚 `refs/ihui-import/*` 临时 ref 用 `git update-ref --stdin` 批量删除,回读**两条**口径(for-each-ref 计数 = 0 **且** `<gitdir>/refs/ihui-import` 文件数 = 0);1.1GB 镜像目录已删,`.ihui-agent/tmp/hollow-rescue/` 空目录移除。本轮**未删任何真实 ref**。
+- **本票不碰工作区 PLAN 的原因(新登记敞口,归属他人)**:此刻工作区 `PROJECT_PLAN.md` 是并发会话的在飞版本,相对 HEAD **多 171 行 / 少 930 行**,被抹的含整节 `## P1 2026-09-23 C 盘污染收口:13.2GB…` 与第三十二批正文证据链,且这 930 行**不在任何归档文件里**(已 grep `.ihui-agent/archive/` 三个归档零命中),工作区 blob 也不等于最近 120 个历史版本中任何一枚 ⇒ 是"按旧基线整文件写回"而非归档搬移。任何一次不带 pathspec 的提交都会把它们从提交树抹掉。按 §12 我不改他人 in-flight 文件,本票登记只在对象空间落地;解阻判据 = 该会话把自己的正文按**插入**方式重放(门 71 的 `--heal` 与 `node scripts/restore-plan-batch-block.mjs --check 第…批` 可逐枚点名缺失)。
+- **残余(不写作收口)**:① 上一条敞口的处置权在持有那 171 行的会话,本票只能把判据与找回工具备好;② 台账外 2 枚"仅本地"tag(`packages/sdk/go/v0.1.0`、`restore/prealign`)不推 —— 两枚目标 commit 均已是 HEAD 祖先,零丢失风险,已在本票与台账双重登记;③ `sync-lost-commit-tags.mjs --check` 的全量逐枚可达性复扫在本轮被 4283 枚的打印量拖成后台任务,终数以两族集合逐名对账(更强判据)为准。
+
 ## O36 守门"接线层"根治 —— 补装三枚造好没装车的门、修一道假阳性、摘掉两处恒绿登记(2026-09-24 立并完成 ✅)
 
 - [x] ✅(2026-09-24) **第 3、4 次同型事故(继守门 64、70 之后)**:用五处权威接线点求差集实测抓到三枚脚本存在却**无人调用**的守门 —— `check-test-paths`(AGENTS §23 写"CI / pre-commit 必跑")、`check-verify-tmp-files`(§25 写"CI")、`check-i18n-messages-exist`(自称 pre-commit 模式)。已按实测档位登记为 **85 blocking / 86 warn / 87 blocking**,装门前逐枚实测真仓全量与 `--staged` 双口径均 exit 0(不误伤任何在途提交)。commit `66d2ae1a26d`。
@@ -4962,6 +4973,7 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - [x] ✅(2026-09-24) **89 号门从绿起步已验证**:提交后回跑 `node scripts/check-gate-wiring.mjs` ⇒ **exit 0**(`✅ R1/R2 零红,已接线 134 / 台账豁免 5`)。恒红门=全队 --no-verify=118 道门全废,所以"上线即绿"是先决条件而非事后说明。三枚提交 `66d2ae1a26d` / `3676f79a88c` / `9042bfad315` 均已经 `git-sync-converge` 推到 origin=`eed641bac99`,converge 回读 `origin=本地 HEAD` ✅。
 - **O36 追加后仍存的残余(不写作收口)**:① README.md 守门清单未同步(§21 命中:新增 85–89 五档),因该文件此刻被并发会话 `MM` 暂存中,改必互抹 —— 解阻判据 `git status --porcelain -- README.md` 为空;② AGENTS.md §4 那句"另有 `check-miniapp-taro-design-tokens.mjs` 与 …"应改写为"校验由 `check-miniapp-tokens-sync.mjs`(36 项)与 `check-design-tokens-sync --target=miniapp-taro` 承担;前者是三源同责的第三份实现,**未接线、仅手动跑,不得为它新增档位**"(文字已备好,同样等 AGENTS.md 索引清空);③ 门 89 只认"有肯定式声称"的孤儿,R3 档现报 11 枚"五处零命中且无声称",其中 `check-sse-dispatch-parity.mjs` 自述"守门 2026-09-23 立"却无调用点 —— 它落在 R3 是因为措辞不含声称词,**这是本类事故最隐蔽的形态**,后续逐枚处置(勿一次全接,须逐枚实测真仓绿)。
 ## O37 8 枚 lost-commit tag 是"唯一引用且本机推不动"（2026-09-24 实证；本会话不动任何 ref，交做 tag GC 的会话/用户定档）
+> **状态更新(2026-09-24,第三十三批)**:本条"本机推不动"已被推翻 —— 8 枚空壳已补全历史链并全部在 origin(两族 4283 枚仅本地 0 / 仅远端 0,ls-remote 回读 sha 逐枚一致)。存续前提变了,但**是否仍属某些丢失提交仅有的引用**需按 §29 重新逐枚分层后再定档;本票仍未删任何 ref。
 
 ## O1 8 枚 lost-commit tag 是"唯一引用且本机推不动"（2026-09-24 实证；本会话不动任何 ref，交做 tag GC 的会话/用户定档）
 
@@ -4989,4 +5001,3 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - [x] ✅(2026-09-24) **R6「同一 skipEnv 挂多个条目」刻意只报数不判红**,并当场证明它的归属逻辑是对的:输出 `HUSKY_SKIP_I18N_PARITY[2,2n-web]` —— 全仓 124 条目里只有这一组,而它正是 runner 里 67-70 行**写明理由的刻意共用**(两者跑同一份 parity 判据)。第一版实现按 `id…skipEnv` 跨条目正则配对,会把"无 skipEnv 的条目"与后一条的变量错配;改成"条目边界=到下一个 `id:` 之前"后才与人工核对一致。教训同 R1/R2:**能报对才有资格判红**。
 - [x] ✅(2026-09-24) **AGENTS.md 文档债没有挂在"等别人解锁"上**:该文件索引清空后立刻做掉(commit `5cc4758357d`)—— ① §27 原文说 `check-pwsh-version` 由 `.husky/pre-commit` 直接调用,实际该文件自 09-22 起只是一行薄壳,真实调用点 `scripts/lib/pre-commit-hook.js:560`;**门是有效的,写错的文档反而会把人引向"再补一次接线"而双跑**,故改文档不动判据(门 89 已正确不判它红)。② §4 补明 `check-miniapp-taro-design-tokens.mjs` 是三源同责的第三份实现、**未接线仅供手动跑、不得为它新增档位**。③ 速查补登 87/88/92 三档 + "登记新门前必须查编号占用"一条。**效果由门 89 自己量化:R4(已接线但文档未点名)49 → 45 枚**;若将来有人用滞后副本把这几行回滚掉,R4 会重新点名 ⇒ 这笔债从"聊天记录"变成每次提交都可见。
 - **O40 残余(不写作收口)**:① R4 仍有 **45 枚**已接线而文档零点名的门 —— 补登记属机械活但体量不小,且 README.md 此刻仍被并发会话 `MM` 暂存锁住(解阻判据 `git status --porcelain -- README.md` 为空);R4 判据设计为"AGENTS ∪ README 任一提到即算",所以两本都能收账。② `check-watermark-syntax.mjs` 仍是"先修判据再接"在册债:26 条红点里**真存量债 0 条**(22 条落在被 gitignore 的本地产物上,因判据用 `readdirSync` 全 walk 而非 `git ls-files`;另 4 条是正则字面量/自家夹具/`watermark.mjs` 自己注入的 L3 尾行被判红),四步修法已写进 O39 残余 ①。③ `check-sse-dispatch-parity.mjs` 已被并发会话登记为守门 90,但它"帧清单读磁盘、命中集读 HEAD"的跨取材面缺陷**不在本票职权内**,由该门持有人处理;门 89 的 R1/R2 实测对它零红,说明这道门不会自己变红,风险落在判据准确性而非接线状态。④ 台账既有 4 条(`check-lock`/`check-messages-dev-restart`/`check-p2-3-acceptance`/`scan-upstream-models`)仍沿用建账轮的自述分类未逐枚追真调用点,门 89 的"可撤销豁免"巡检会在它们真接线后点名。
-
