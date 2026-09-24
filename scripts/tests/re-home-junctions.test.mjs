@@ -265,6 +265,18 @@ test('stash 清理按类型分流,且断链绝不穿透目标内容', () => {
     assert.equal(byPath.get(bare).action, 'kept', '裸文件读不出目录指纹,空集不等于"已被覆盖"')
     assert.ok(existsSync(bare))
     assert.ok(existsSync(join(decoy, 'precious.bin')), '前缀不匹配的兄弟条目不得被碰')
+    // 更强的一条:枚举必须是**按前缀**,不是"按父目录整片"。后者一旦成立,清理就会波及
+    // 同一个家目录里所有无关目录 —— 那才是真正会丢数据的那一型。
+    assert.deepEqual(
+      readdirSync(home).sort(),
+      [
+        '.demo',
+        '.demo.not-a-stash',
+        '.demo.pre-junction-2026-01-03T00-00-00-000Z',
+        '.demo.pre-junction-2026-01-04T00-00-00-000Z.txt',
+      ].sort(),
+      '父目录最终态不对:多删或漏删都在这条里暴露',
+    )
 
     // 源还不是指针时,任何目录型 stash 都可能就是原始数据本身
     const home2 = join(root, 'home2')
