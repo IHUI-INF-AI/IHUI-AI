@@ -182,7 +182,7 @@ export function AigcListScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.light },
-    header: { paddingHorizontal: 10, paddingTop: 48, paddingBottom: 8 },
+    header: { paddingHorizontal: 10, paddingBottom: 8 },
     backText: { fontSize: 16, color: tk.text.secondary },
     title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     headerSubtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
@@ -245,7 +245,12 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: 12,
       alignItems: 'center',
     },
-    audioCover: { width: 64, height: 64, borderRadius: rnRadius.xl, backgroundColor: tk.border.light },
+    audioCover: {
+      width: 64,
+      height: 64,
+      borderRadius: rnRadius.xl,
+      backgroundColor: tk.border.light,
+    },
     audioInfo: { flex: 1, marginLeft: 12 },
     audioDuration: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
     audioPlayBtn: {
