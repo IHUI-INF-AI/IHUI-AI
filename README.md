@@ -2819,6 +2819,26 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-gua
 
 ### 守门补登:已接线但文档从未点名的 48 道(2026-09-24 立,守门 89 的 R4 维度清零票)
 
+### 守门 90 的归因面:覆盖矩阵之外,还得看得见"是谁在接"(2026-09-24 立)
+
+`scripts/check-sse-dispatch-parity.mjs` 的矩阵按**端**聚合命中,所以"该端已覆盖某帧"看不出是
+**哪块界面**接的 —— mobile-rn 的 `budget` 只在 N8n 助手屏注册过、主聊天屏仍一帧不接,矩阵上却与
+"全端已接"同形。`--report` 现在在矩阵之后追加**帧名出现位置归因**:逐端列出每个命中文件接了哪些帧,
+并用 `◇仅此面` 点名"全仓只有一处在接"的帧。实测(HEAD 口径):
+
+| 端           | 仅此一面在接的帧                                                                                            |
+| ------------ | ----------------------------------------------------------------------------------------------------------- |
+| web          | `onQuestion` `onCitations` `onInjectionApplied` `onRetryScheduled` —— 全在 `use-chat/send-message.ts`       |
+| extension    | 11 帧(含 `onCompaction` `onToolSummary` `onUsage` `onTerminalStart/End`)全在 `sidepanel/pages/ChatPage.tsx` |
+| miniapp-taro | `onReasoning` `onCompaction` 只在 `src/api/index.ts`                                                        |
+| mobile-rn    | 7 帧(含 `onBudget`)只在 `screens/AiAssistantN8nScreen.tsx`,主聊天屏 `ChatScreen` 不在其上                   |
+
+**该段刻意不计红**:试过把它升成"新增流式调用点却一帧不承接即拦"的真判据,实测在 HEAD 产 13 处假阳
+(`getStreamBaseUrl` 这类同族符号、纯注释、测试文件都会被算成调用点;连被当成线索的
+`AiAssistantScreen.tsx:130` 也只是注释),一道与改动无关的恒红只会逼人 `--no-verify` 连带废掉全部守门。
+命中图与归因图**共用同一次 `git grep`**,由镜像测试 ②b 钉死"各端文件并集逐帧等于命中集合",
+杜绝"矩阵说已接、归因说没人接"的分歧。紧急跳过 `HUSKY_SKIP_SSE_DISPATCH_PARITY=1`。
+
 ### 新增守门示例:第 64 / 66 项「适配层未接线即拦」与「硬编码颜色基线」(2026-09-22)
 
 `scripts/check-adapter-wiring.mjs`(第 64 项)要求 `apps/miniapp-taro/src/components/adapters/*.taro.tsx` 必须被适配层**目录之外**的源文件从 adapters 路径 import,否则阻塞提交;`scripts/adapter-style-parity-baseline.json` 同族的硬编码颜色门(第 66 项)此前**只挂在 `check:all`,从未进 pre-commit 链路**,本次一并注册。两者基线均**只减不增**,且共用 `stagedTriggers=['apps/miniapp-taro/src/components/adapters/']` 避免无关提交背成本。
