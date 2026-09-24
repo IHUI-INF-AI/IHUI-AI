@@ -45,28 +45,12 @@ const git = (args) =>
   })
 
 const trim = (l) => l.trim()
-export const SIM_THRESHOLD = 0.6
-
-/**
- * 相似度取**字符二元组**而不是"词":台账/文档里的行是中日混排,按空格/标点切词会把整段中文
- * 切成 1-2 个巨块 token,一改写 Jaccard 就断崖下跌(实测同一句话的两种写法只剩 0.357 ⇒
- * 被判成"两件事",老版本被插回 ⇒ 文档里同时留下 `**第 93 项 X**` 与 `**守门 X**` 两行,
- * 正是本工具要防的那种"新老并存")。字符二元组对 CJK 与拉丁都稳定,且不依赖分词器。
- */
-export function tokenize(s) {
-  const norm = s.replace(/[\s]+/g, '').replace(/[、。（）「」]/g, (c) => (c === '、' ? '' : c))
-  const out = new Set()
-  for (let i = 0; i < norm.length - 1; i += 1) out.add(norm.slice(i, i + 2))
-  if (norm.length === 1) out.add(norm)
-  return out
-}
-
-export function jaccard(a, b) {
-  let inter = 0
-  for (const t of a) if (b.has(t)) inter += 1
-  const union = a.size + b.size - inter
-  return union === 0 ? 0 : inter / union
-}
+// 相似度实现**只有一份**,放在 `scripts/lib/live-doc-similarity.mjs`(纯函数、零副作用)。
+// 本文件顶层就是 CLI 主流程(没有 §22d 的 isDirectRun 守卫),谁 `import` 谁就被 `process.exit`
+// 打断 —— 2026-09-25 实测把 `check-task-claims.mjs` 弄死过一次,故把纯函数抽出去而不是被 import。
+// 这里**原样再导出**同名符号,既有调用方(`SIM_THRESHOLD` / `tokenize` / `jaccard`)一字不变。
+export { SIM_THRESHOLD, jaccard, tokenize } from './lib/live-doc-similarity.mjs'
+import { SIM_THRESHOLD, CONTAIN_MIN, jaccard, squash, tokenize } from './lib/live-doc-similarity.mjs'
 
 /**
  * 容器短路:HEAD 行的**全部非空白字符**原样出现在工作树某行里 ⇒ 内容逐字存活,只是被就地延长。
@@ -74,10 +58,8 @@ export function jaccard(a, b) {
  * 字符二元组 Jaccard 随新增长度**单调下降** —— 短行 40 字 / 改后 120 字时相似度只剩 ~0.33,
  * 于是"补证据"这个动作本身被判成真丢失,exit 1 逼人跑 `--apply`,而 `--apply` 会把**改写前的短行
  * 原样插回** ⇒ 同一票两行并存。台账里那批双态行的制造路径之一就是这里,不是谁手滑。
- * 下界 20 个非空白字符:再短的裸标记行(`- [ ]` 等)在满屏清单里必然被"包含",会被误洗成存活。
+ * 下界 CONTAIN_MIN 个非空白字符:再短的裸标记行(`- [ ]` 等)在满屏清单里必然被"包含",会被误洗成存活。
  */
-const CONTAIN_MIN = 20
-const squash = (s) => s.replace(/\s+/g, '')
 
 /** 给每个"HEAD 有而工作树无"的行定性 lost / superseded(被就地改写取代)。 */
 export function classifyMissing(headLines, wtLines, threshold = SIM_THRESHOLD) {
