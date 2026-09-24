@@ -222,7 +222,7 @@ export interface RequestBlockContext {
 }
 
 /** request_block 解释器:命中返回拦截文案,未命中返回 null。 */
-export function evaluateRequestBlock(
+function evaluateRequestBlock(
   plugins: RelayPlugin[],
   ctx: RequestBlockContext,
 ): string | null {
