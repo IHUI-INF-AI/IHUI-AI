@@ -466,7 +466,7 @@ function DataTable<TData>({
                   className={cn(
                     'inline-flex h-8 min-w-8 items-center justify-center rounded-md border px-2 text-xs transition-colors',
                     p === currentPageIndex
-                      ? 'border-primary bg-primary text-primary-foreground'
+                      ? 'border-primary bg-cta text-cta-foreground'
                       : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground',
                   )}
                 >

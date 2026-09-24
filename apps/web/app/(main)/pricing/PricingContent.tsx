@@ -136,7 +136,7 @@ export function PricingContent(): React.JSX.Element {
                 )}
               >
                 {isPopular && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground">
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-md bg-cta px-3 py-1 text-xs font-medium text-cta-foreground">
                     <Sparkles className="mr-1 inline h-3 w-3" />
                     推荐
                   </span>
@@ -213,7 +213,7 @@ export function PricingContent(): React.JSX.Element {
 
       <Guarantee />
 
-      <section className="mt-14 rounded-lg border border-primary/30 bg-primary/5 p-3 text-center">
+      <section className="mt-14 rounded-lg border border-primary/30 bg-cta/5 p-3 text-center">
         <h2 className="text-xl font-bold tracking-tight text-foreground min-[768px]:text-2xl">
           还不确定?免费试用 30 天
         </h2>

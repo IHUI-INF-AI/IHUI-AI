@@ -403,7 +403,7 @@ export default function DocumentsPage() {
               className={
                 'rounded-md border px-3 py-1 text-sm transition-colors ' +
                 (category === c
-                  ? 'border-primary bg-primary text-primary-foreground'
+                  ? 'border-primary bg-cta text-cta-foreground'
                   : 'border-border hover:bg-muted')
               }
             >
@@ -441,7 +441,7 @@ export default function DocumentsPage() {
                       <FileType2 className="h-3 w-3" />
                       {formatLabel}
                     </span>
-                    <span className="shrink-0 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                    <span className="shrink-0 rounded-md bg-cta/10 px-2 py-0.5 text-xs font-medium text-primary">
                       {categoryLabel}
                     </span>
                   </div>
@@ -521,7 +521,7 @@ export default function DocumentsPage() {
             {/* 阅读进度条:2px 高,随内容滚动百分比填充 */}
             <div className="h-0.5 shrink-0 overflow-hidden rounded-sm bg-muted">
               <div
-                className="h-full bg-primary transition-[width] duration-100 ease-out"
+                className="h-full bg-cta transition-[width] duration-100 ease-out"
                 style={{ width: `${progress}%` }}
               />
             </div>
