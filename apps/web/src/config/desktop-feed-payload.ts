@@ -3,32 +3,61 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 桌面端更新器 feed(2026-09-17 终极方案;2026-09-24 覆盖四平台)。
+ * 桌面端 updater feed payload 的唯一拼装器。
  *
- * 背景:更新 feed 此前放在 Gitee 分支——被仓库「单分支守门」规则删除三次;
- * 改放 Gitee release 附件——同名附件下载直链恒取旧文件且无 id 可删。
- * 最终方案:**本站点作为 feed 真源**(与官网下载页共用 desktop-feed.generated.ts 快照,
- * 由 scripts/resolve-desktop-download.mjs 在发版时自动刷新)。
+ * `/desktop-feed.json` 与 `/api/desktop-feed` 两条 App Route 必须共用此函数
+ * (历史上两文件是逐字节复制品,改一处漏一处即是第二份真相的起点)。
  *
- * 2026-09-24:payload 改由 @/config/desktop-feed-payload 统一拼装(与
- * /desktop-feed.json 同源,两 route 不再各自按 /Windows/i 挑单条);
- * platforms 四键映射来自快照 updaterPlatforms(生成侧已做空签名/dmg/宿主白名单过滤)。
- *
- * 端点:https://aizhs.top/api/desktop-feed
- * Tauri 更新器配置见 apps/desktop/src-tauri/tauri.conf.json plugins.updater.endpoints 第一项。
+ * 数据流:scripts/generate-latest-json.mjs 与 scripts/resolve-desktop-download.mjs
+ * 共用 scripts/lib/tauri-updater-platforms.mjs 产出四平台映射 → 持久化进
+ * desktop-feed.generated.ts 的 `updaterPlatforms` 字段 → 此处直接输出。
+ * platform 键的取舍(空签名不出现、dmg 不当 darwin、host 白名单)全部在生成侧
+ * 判定,本函数不再自己按 /Windows/i 挑资产。
  */
-import { DESKTOP_FEED } from '@/config/desktop-feed.generated'
-import { buildDesktopFeedPayload } from '@/config/desktop-feed-payload'
+import type { DesktopFeed, DesktopFeedUpdaterEntry } from './desktop-feed.generated'
 
-export const dynamic = 'force-static'
+export interface DesktopFeedPayload {
+  version: string
+  notes: string
+  pub_date: string
+  platforms: Record<string, DesktopFeedUpdaterEntry>
+}
 
-export function GET() {
-  const payload = buildDesktopFeedPayload(DESKTOP_FEED)
-  if (!payload) {
-    return Response.json({ error: 'no windows asset in snapshot' }, { status: 404 })
+/**
+ * 读取快照资产的更新签名。历史快照在 release 未附 .sig 时整个字段缺失
+ * (而非空串),按可选字段读取并恒定降级为空串,使任何版本形态的快照都能
+ * 编译与运行。
+ */
+function readSignature(asset: { signature?: string } | undefined): string {
+  return asset?.signature ?? ''
+}
+
+/** 快照缺 updaterPlatforms 时的旧行为兜底:仅派生 windows-x86_64 单键。 */
+function legacyWindowsPlatforms(feed: DesktopFeed): Record<string, DesktopFeedUpdaterEntry> | null {
+  const winAsset = feed.assets.find((a) => /Windows/i.test(a.format))
+  if (!winAsset) return null
+  return {
+    'windows-x86_64': {
+      signature: readSignature(winAsset),
+      url: winAsset.href,
+    },
   }
-  return Response.json(payload, {
-    headers: { 'Cache-Control': 'public, max-age=300' },
-  })
+}
+
+/**
+ * 构建 Tauri updater feed payload。返回 null 表示快照无任何可输出平台
+ * (route 侧据此保持历史 404 形态)。
+ */
+export function buildDesktopFeedPayload(feed: DesktopFeed): DesktopFeedPayload | null {
+  const generated = feed.updaterPlatforms
+  const platforms =
+    generated && Object.keys(generated).length > 0 ? generated : legacyWindowsPlatforms(feed)
+  if (!platforms) return null
+  return {
+    version: feed.version,
+    notes: `智汇AI 桌面端 ${feed.version}:极速薄壳(3MB)、首启不白屏、线上部署自动热刷新、断网兜底、自动更新。`,
+    pub_date: new Date(`${feed.releaseDate}T00:00:00Z`).toISOString(),
+    platforms,
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
