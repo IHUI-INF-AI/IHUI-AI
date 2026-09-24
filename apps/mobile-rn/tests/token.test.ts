@@ -7,6 +7,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 const { apiClientMocks, sharedMocks } = vi.hoisted(() => ({
   apiClientMocks: {
     setBaseUrl: vi.fn(),
+    setUserAgent: vi.fn(),
   },
   sharedMocks: {
     bindTokenStoreToApiClient: vi.fn(),
@@ -15,6 +16,7 @@ const { apiClientMocks, sharedMocks } = vi.hoisted(() => ({
 
 vi.mock('@ihui/api-client', () => ({
   setBaseUrl: apiClientMocks.setBaseUrl,
+  setUserAgent: apiClientMocks.setUserAgent,
   setDeviceFingerprintProvider: vi.fn(),
 }))
 
@@ -75,12 +77,25 @@ describe('lib/token', () => {
     resetAsyncStorageMock()
     _resetSecureStoreBackendForTest()
     apiClientMocks.setBaseUrl.mockClear()
+    apiClientMocks.setUserAgent.mockClear()
     sharedMocks.bindTokenStoreToApiClient.mockClear()
   })
 
   it('initApi 调用 setBaseUrl 设置 API_BASE_URL', async () => {
     await initApi()
     expect(apiClientMocks.setBaseUrl).toHaveBeenCalledWith('http://localhost:8802')
+  })
+
+  // 首方 UA:RN 的 fetch 由 okhttp 实现,而后端 bot-detection 把 'okhttp' 列为
+  // curl-like。不显式声明 UA,App 的每个请求都会被当成爬虫(429 要求无法完成的
+  // CAPTCHA + 每请求拉低出口 IP 信誉)。这里钉住"发出去的不是 okhttp 默认串"。
+  it('initApi 注入首方 User-Agent,且不含 okhttp / 空串', async () => {
+    await initApi()
+    expect(apiClientMocks.setUserAgent).toHaveBeenCalledTimes(1)
+    const ua = apiClientMocks.setUserAgent.mock.calls[0]![0] as string
+    expect(ua.length).toBeGreaterThanOrEqual(10)
+    expect(ua).toMatch(/^IHUIAI-App\/\d+\.\d+\.\d+ /)
+    expect(ua.toLowerCase()).not.toContain('okhttp')
   })
 
   it('initApi 调用 bindTokenStoreToApiClient 注册 token 提供器', async () => {

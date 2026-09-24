@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useEffect, useState } from 'react'
+import { useTheme } from '../context/ThemeContext'
 import { Alert, Share } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import { useNavigation } from '@react-navigation/native'
@@ -16,6 +17,7 @@ import {
   type AuthUser,
 } from '@ihui/api-client'
 import { BusinessCardScreen as SharedBusinessCardScreen, type BusinessCardItem } from '@ihui/rn-app'
+import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -48,6 +50,7 @@ function buildDefaultCard(profile: AuthUser): BusinessCardItem {
 
 /** 电子名片:展示个人信息 / 公司 / 职位 / 联系方式 / 二维码,支持分享与保存。 */
 export default function BusinessCardScreen() {
+  const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
   const [card, setCard] = useState<BusinessCardItem | null>(null)
@@ -204,8 +207,9 @@ export default function BusinessCardScreen() {
       } else {
         Alert.alert('提示', '名片提交失败')
       }
-    } catch {
-      Alert.alert('提示', '名片定制失败,请重试')
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      Alert.alert('提示', detail.trim() ? toUserFriendlyMessage(e) : '名片定制失败,请重试')
     } finally {
       // 定制完成(同步提示已由 Alert 呈现)
     }
@@ -230,6 +234,7 @@ export default function BusinessCardScreen() {
       onCustomize={onCustomize}
       onShareWechat={onShareWechat}
       onShareMoments={onShareMoments}
+      colorScheme={resolvedTheme}
     />
   )
 }

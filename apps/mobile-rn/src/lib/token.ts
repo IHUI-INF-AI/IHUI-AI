@@ -15,8 +15,8 @@
  * 调用方:`setToken` / `setRefreshToken` / `clearToken` / `getToken` / `getRefreshToken`。
  * `getToken` / `getRefreshToken` 返回同步缓存值(避免每次 HTTP 都 await SecureStore)。
  */
-import { fetchApi, setBaseUrl, setDeviceFingerprintProvider } from '@ihui/api-client'
-import { API_BASE_URL, TOKEN_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY } from './config'
+import { fetchApi, setBaseUrl, setDeviceFingerprintProvider, setUserAgent } from '@ihui/api-client'
+import { API_BASE_URL, APP_USER_AGENT, TOKEN_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY } from './config'
 import { mobileRnDeviceFingerprintCollector } from './device-fingerprint'
 import { deleteSecureItem, getSecureItem, setSecureItem } from './auth/secure-store'
 import {
@@ -83,6 +83,7 @@ async function refreshAccessToken(): Promise<string | null> {
 
 export async function initApi(): Promise<void> {
   setBaseUrl(API_BASE_URL)
+  setUserAgent(APP_USER_AGENT)
   const [stored, storedRefresh] = await Promise.all([
     getSecureItem(TOKEN_STORAGE_KEY),
     getSecureItem(REFRESH_TOKEN_STORAGE_KEY),

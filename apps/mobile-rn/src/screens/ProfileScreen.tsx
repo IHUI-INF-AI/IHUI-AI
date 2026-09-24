@@ -52,6 +52,7 @@ import {
   type ConversationDetail,
   type UserStatistics,
 } from '@ihui/api-client'
+import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import { DEFAULT_AVATAR_URL } from '@ihui/shared/constants'
 import { formatDate } from '@ihui/shared/utils/date-utils'
 import { useAuth } from '../context/AuthContext'
@@ -507,8 +508,9 @@ export function ProfileScreen() {
       } else {
         showFloat('当前无自动续费订阅,无需退订', 'info')
       }
-    } catch {
-      showFloat('网络错误,请稍后重试', 'warning')
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      showFloat(detail.trim() ? toUserFriendlyMessage(e) : '网络错误,请稍后重试', 'warning')
     }
   }
 
@@ -796,8 +798,9 @@ function EditProfileModal({
         rnAuthStore.getState().setUser(meRes.data)
       }
       setAvatarHint('头像已更新')
-    } catch {
-      setAvatarHint('网络错误,请稍后重试')
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      setAvatarHint(detail.trim() ? toUserFriendlyMessage(e) : '网络错误,请稍后重试')
     } finally {
       setAvatarUpdating(false)
     }
@@ -818,8 +821,9 @@ function EditProfileModal({
         return
       }
       onSaved()
-    } catch {
-      setSaveError('网络错误,请稍后重试')
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      setSaveError(detail.trim() ? toUserFriendlyMessage(e) : '网络错误,请稍后重试')
     } finally {
       setSaving(false)
     }
@@ -2259,12 +2263,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(40),
     paddingVertical: rpx(16),
     borderRadius: rnRadius.lg,
-    backgroundColor: tokens.brand.ctaFill,
+    backgroundColor: tokens.brand.DEFAULT,
   },
   tabRetryText: {
     fontSize: 14,
     fontWeight: '500',
-    color: tokens.brand.ctaText,
+    color: tokens.brand.foreground,
   },
   // ── 等级介绍按钮(对齐 Uniapp level-intro 入口,UserInfoCard 下方独立按钮) ──
   levelIntroBtn: {
@@ -2325,13 +2329,13 @@ const styles = StyleSheet.create({
     height: 22,
     borderBottomRightRadius: rnRadius.xl,
     borderTopLeftRadius: rnRadius.lg,
-    backgroundColor: tokens.brand.ctaFill,
+    backgroundColor: tokens.brand.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
   },
   editProfileAvatarBadgeText: {
     fontSize: 14,
-    color: tokens.brand.ctaText,
+    color: tokens.brand.foreground,
     fontWeight: '700',
     lineHeight: 14,
   },
@@ -2384,7 +2388,7 @@ const styles = StyleSheet.create({
   },
   editProfileSaveBtn: {
     flex: 1,
-    backgroundColor: tokens.brand.ctaFill,
+    backgroundColor: tokens.brand.DEFAULT,
     borderRadius: rnRadius.lg,
     paddingVertical: rpx(24),
     alignItems: 'center',
@@ -2393,7 +2397,7 @@ const styles = StyleSheet.create({
   editProfileSaveBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.brand.ctaText,
+    color: tokens.brand.foreground,
   },
   editProfileSaveBtnDisabled: {
     opacity: 0.6,
@@ -2457,7 +2461,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   levelIntroCloseBtn: {
-    backgroundColor: tokens.brand.ctaFill,
+    backgroundColor: tokens.brand.DEFAULT,
     borderRadius: rnRadius.lg,
     paddingVertical: rpx(24),
     alignItems: 'center',
@@ -2466,7 +2470,7 @@ const styles = StyleSheet.create({
   levelIntroCloseBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.brand.ctaText,
+    color: tokens.brand.foreground,
   },
   // ── 退订确认 Modal(对齐 Uniapp 退订确认弹层,替代 Alert.alert) ──
   unsubscribeOverlay: {
