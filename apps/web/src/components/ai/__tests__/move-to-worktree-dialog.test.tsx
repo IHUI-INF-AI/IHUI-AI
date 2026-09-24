@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​‌‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // D102 移交弹层测试(G-140)。只断言**结构与判据**(data-* 判据,文案一律走 key),
 // 真实文案由「读真实词包」那组用例守住(五语言 parity + zh-CN 逐字 + ja 无简体残留)。
@@ -18,7 +18,9 @@ import { MOVE_TO_WORKTREE_KEYS } from '@ihui/shared/chat/move-to-worktree'
 import { MoveToWorktreeDialog } from '../move-to-worktree-dialog'
 
 const translate = (key: string, values?: Record<string, unknown>) =>
-  values ? `${key}(${JSON.stringify(values, (_k, v) => (typeof v === 'function' ? '<fn>' : v))})` : key
+  values
+    ? `${key}(${JSON.stringify(values, (_k, v) => (typeof v === 'function' ? '<fn>' : v))})`
+    : key
 ;(translate as unknown as { rich: typeof translate }).rich = translate
 
 vi.mock('next-intl', () => ({
@@ -117,14 +119,18 @@ describe('D102 MoveToWorktreeDialog / 结构与判据', () => {
   it('运行中禁止态:turn 活跃 → existingWorktreeRunning 在位 + continue 禁用;终态恢复', () => {
     const running = render(<MoveToWorktreeDialog {...baseProps} turnState="thinking" />)
     expect(q(running.container, '[data-block="existingWorktreeRunning"]')).not.toBeNull()
-    expect((q(running.container, '[data-action="continue"]') as HTMLButtonElement).disabled).toBe(true)
+    expect((q(running.container, '[data-action="continue"]') as HTMLButtonElement).disabled).toBe(
+      true,
+    )
 
     const done = render(<MoveToWorktreeDialog {...baseProps} turnState="completed" />)
     expect(q(done.container, '[data-block="existingWorktreeRunning"]')).toBeNull()
     // 终态 + 合法分支名 ⇒ continue 可用(运行中是唯一硬闸,这里排除 required 干扰)
     const input = q(done.container, '[data-slot="branch-input"]') as HTMLInputElement
     fireEvent.input(input, { target: { value: 'feat/ok' } })
-    expect((q(done.container, '[data-action="continue"]') as HTMLButtonElement).disabled).toBe(false)
+    expect((q(done.container, '[data-action="continue"]') as HTMLButtonElement).disabled).toBe(
+      false,
+    )
   })
 
   it('前置检查三态:loading 行 / error+重试入口 / ready+空态 noTargetBranch / ready+可选分支', () => {
@@ -143,7 +149,9 @@ describe('D102 MoveToWorktreeDialog / 结构与判据', () => {
 
     const ready = render(<MoveToWorktreeDialog {...baseProps} />)
     expect(q(ready.container, '[data-slot="local-branch-select"]')).not.toBeNull()
-    expect(ready.container.querySelectorAll('[data-slot="local-branch-select"] option').length).toBe(3)
+    expect(
+      ready.container.querySelectorAll('[data-slot="local-branch-select"] option').length,
+    ).toBe(3)
   })
 
   it('提交:校验通过点击 continue 回调 (target, branch);existing 目标选中分支后移交', () => {
@@ -179,7 +187,9 @@ describe('D102 MoveToWorktreeDialog / 结构与判据', () => {
 describe('D102 词包覆盖(读真实词包,不 mock)', () => {
   const readNode = (locale: string): Record<string, string> => {
     const raw = readFileSync(join(MESSAGES_ROOT, `${locale}.json`), 'utf8')
-    const parsed = JSON.parse(raw) as { ai?: { pane?: { moveToWorktree?: Record<string, string> } } }
+    const parsed = JSON.parse(raw) as {
+      ai?: { pane?: { moveToWorktree?: Record<string, string> } }
+    }
     const node = parsed.ai?.pane?.moveToWorktree
     if (!node) throw new Error(`missing ai.pane.moveToWorktree in ${locale}.json`)
     return node
@@ -203,7 +213,9 @@ describe('D102 词包覆盖(读真实词包,不 mock)', () => {
   it('zh-CN 关键文案与任务原文逐字一致(continue 是动词"移交",不是"确定")', () => {
     const node = readNode('zh-CN')
     expect(node.title).toBe('将对话移交至工作树')
-    expect(node.subtitle).toBe('在新工作树中检出分支 <branch>{branchName}</branch>，以继续并行工作。')
+    expect(node.subtitle).toBe(
+      '在新工作树中检出分支 <branch>{branchName}</branch>，以继续并行工作。',
+    )
     expect(node.continue).toBe('移交')
     expect(node.continue).not.toBe('确定')
     expect(node.loading).toBe('正在检查能否移交…')
@@ -217,7 +229,25 @@ describe('D102 词包覆盖(读真实词包,不 mock)', () => {
   })
 
   it('ja 不得残留简体中文专用字(协/览/绑/检/树/态/设/变/续/试/误/载/确/进/选/对/场)', () => {
-    const simplifiedOnly = ['协', '览', '绑', '检', '树', '态', '设', '变', '续', '试', '误', '载', '确', '进', '选', '对', '场']
+    const simplifiedOnly = [
+      '协',
+      '览',
+      '绑',
+      '检',
+      '树',
+      '态',
+      '设',
+      '变',
+      '续',
+      '试',
+      '误',
+      '载',
+      '确',
+      '进',
+      '选',
+      '对',
+      '场',
+    ]
     for (const [key, value] of Object.entries(readNode('ja'))) {
       for (const ch of simplifiedOnly) {
         expect(value.includes(ch), `ja.${key} contains "${ch}"`).toBe(false)
@@ -225,4 +255,4 @@ describe('D102 词包覆盖(读真实词包,不 mock)', () => {
     }
   })
 })
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
