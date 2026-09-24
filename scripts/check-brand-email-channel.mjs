@@ -35,6 +35,18 @@
  *     一并纳入会把它判红(实测)。
  *   · 为什么**不**加 .sh/.py:实测 deploy/scripts/monitoring 下 27 个跟踪 .sh/.py
  *     零发信 token(resend/smtp/createTransport/sendMail/Send-MailMessage 全无),无证据不扩。
+ *   · 2026-09-24 R4 扩面:**Alertmanager 语境**的 .yml / .yaml / .tmpl
+ *     (`monitoring/alertmanager/**` 与任何目录下文件名形如 `alertmanager*.yml|yaml|tmpl`)。
+ *     起因:AM 原生 `email_configs` 发的是 Go 模板排版的无版式纯文本(正是用户投诉的那类形态),
+ *     它**不是脚本**、过去扩展名根本进不了面 —— 于是有人往 `alertmanager.yml.tmpl` 加回一段
+ *     `email_configs` 直接 commit,而全链没有一道门会在提交时变红。渲染器
+ *     `scripts/render-alertmanager-config.mjs` 的 `assertBridgeOnlySurface` 结构上早已封死
+ *     这条路,但**"跑渲染"仍是人工动作** —— 提交时无人拦(守门 52 同型:判据存在 ≠ 判据被调用)。
+ *     刻意**不全仓扫 yml**:CI workflows / docker-compose / k8s / prometheus / grafana provisioning
+ *     里的 `url:` / receiver 名与 AM 邮件面毫无关系,全仓扫必产大面积假阳(实测根
+ *     `docker-compose.yml` 的头注释就写着历史 `dingtalk-webhook/feishu-webhook`,
+ *     `monitoring/prometheus/*.yml` 亦整片无关)。R1/R2/R3 对这批新准入的 AM 文件同样生效
+ *     (实测三份文件零命中,全量恒绿)。
  *
  * 判据:
  *   R1 PowerShell `Send-MailMessage` 调用语句(含反引号续行)缺 `-BodyAsHtml` → 红。
@@ -54,6 +66,21 @@
  *         ③ 本文件确在邮件语境(sendMail / api.resend.com / notify-deploy-failure /
  *         email-templates / SMTP / Resend / subject / 邮件 / 收件)。
  *      注释行一律不计。
+ *   R4 **告警接收面(Alertmanager 配置)** —— 只在 Alertmanager 语境的 .yml/.yaml/.tmpl 上判,
+ *      与渲染器 assertBridgeOnlySurface 同取向,把"跑渲染才红"提前到"改了提交就红":
+ *      R4a 原生邮件面:`email_configs`,或 `smtp_*` 键形态(AM 里 smtp_* 的唯一宿主就是
+ *          global 邮件面;渲染器判的是全文 `/smtp_/i`,本门收严到键形态以免注释性正文误伤)。
+ *      R4b IM 中转 receiver:两级特征 —— ① **host/路径签名**(`qyapi.` / `oapi.` /
+ *          `open.feishu` / `connect.dingtalk` / `robot/send`)在任何非注释行命中即红;
+ *          ② 厂商 slug(`dingtalk|feishu|wechat|wecom`)只在 `name:` / `url:` 的**值**上命中才红。
+ *          两级都是"改名也认":`feishu-copy` 仍是 slug 命中,`oapi.dingtalk.com` 换名也命中 host。
+ *      R4c 出口面:`webhook_configs:` 块内出现 **不等于 bridge 出口**(`BRIDGE_URL`)的 url → 红。
+ *          换 host 但端口仍是 9096(如 `http://localhost:9096/alert`)一律判红,理由:bridge
+ *          按部署约定只绑回环 127.0.0.1,而渲染器判的就是"字面等于 BRIDGE_URL"—— 两道门取向
+ *          必须一致,否则又回到"提交时绿、跑渲染才红"这个本门要消灭的落差;真要用别的 host
+ *          是部署变更,应当同批改两处常量并跑一次渲染校验。
+ *      整行 YAML 注释(`#`)不计红,但注释里出现的被禁字面量**如实计数报出**
+ *      (`amCommentLiterals`,见输出计数行)—— 废弃桩 alertmanager.yml 的说明文字正是这一类。
  *
  * 豁免:① 品牌出口本身 `apps/api/scripts/notify-deploy-failure.ts` 不判 R2/R3 —— 它**就是**
  *   品牌层,不存在"绕过";实测它的 R2 假阳来自窗口口径(`RESEND_ENDPOINT` 常量在第 36 行,
@@ -65,6 +92,9 @@
  *   只减不增棘轮:实发条数 ≤ 基线 → 放行并如实计数;超出 → 只把超出部分判红;基线 key
  *   归零 → 输出"余量提示"提醒下调。基线文件缺失按空基线判定(不静默放行),JSON 解析失败
  *   按脚本自身异常 exit 2。
+ *   **R4 不新增第三种豁免姿势,也不新增白名单目录** —— 只复用 ② 行内标记与基线棘轮
+ *   (key 形如 `monitoring/alertmanager/alertmanager.yml.tmpl#R4`),且基线**现须为空**:
+ *   把 AM 旁路写进基线等于给这条通道发长期通行证,与"结构上已封死"的前提直接矛盾。
  *
  * 三模式:
  *   --staged       pre-commit(runner 自动下发):只判**索引里在范围内的文件**(索引 blob
@@ -111,6 +141,16 @@ export const R3B_STYLE_WINDOW = 10
  * (端点常量 :36 vs 带 html 的 payload :416-426),故按路径不判 R2/R3,并如实计数。
  */
 export const BRAND_EXIT_REL = 'apps/api/scripts/notify-deploy-failure.ts'
+/**
+ * R4:bridge 出口唯一 URL(基础设施告警到人的唯一落点)。
+ * 与 `scripts/render-alertmanager-config.mjs` 导出的同名常量**同源等值** —— 那里是渲染器的
+ * 结构判据,这里是提交时判据,两者取一个值。刻意**不 import** 渲染器:那个模块顶层会解析
+ * git 二进制并被 `main()` 拉起文件 IO,把它拖进本门的每次判定既不必要也违反守门 80 的
+ * "热路径 git 只读调用"取向。漂移由镜像测试断言两处字面量等值钉死,不靠人眼比对。
+ */
+export const BRIDGE_URL = 'http://127.0.0.1:9096/alert'
+/** R4 只对 Alertmanager 语境的配置类文件生效(见文件头"为什么不全仓扫 yml")。 */
+const AM_CONFIG_EXTS = new Set(['.yml', '.yaml', '.tmpl'])
 
 const SCANNED_EXTS = new Set(['.ps1', '.mjs', '.js', '.cjs', '.ts', '.mts'])
 const EXEMPT_RE = /brand-mail-exempt\s*:/
@@ -129,6 +169,21 @@ const LAYOUT_STYLE_RE = /#B4FF00|letter-spacing\s*:|border-radius\s*:|font-famil
 /** R3b ③:邮件语境 —— 没有发信/派发的文件里出现 HTML 片段属页面生成,不属本门。 */
 const MAIL_CONTEXT_RE =
   /createTransport|\bsendMail\w*|api\.resend\.com|notify-deploy-failure|email-templates|\bSMTP\b|Resend|\bsubject\b|邮件|收件/i
+
+// ── R4 Alertmanager 接收面判据(整行 YAML 注释一律先剥,与渲染器 blankOutCommentLines 同形态) ──
+/** R4a 原生邮件面:`email_configs` 键,或 `smtp_*` 键形态(AM 里 smtp_* 的唯一宿主是 global 邮件面)。 */
+const AM_EMAIL_SURFACE_RE = /(?:^|[^\w])email_configs\b|(?:^|[\s{[,>-])smtp_[a-z0-9_]*\s*[:=]/i
+/** R4b 一级:host/路径签名 —— 非注释行任意位置命中即红(改名也躲不掉)。 */
+const AM_IM_HOST_RE = /(qyapi\.|oapi\.|open\.feishu|connect\.dingtalk|robot\/send)/i
+/** R4b 二级:厂商 slug —— 只在 name:/url: 的**值**上命中才红(正文里的英文单词不构成 receiver)。 */
+const AM_IM_SLUG_RE = /(dingtalk|feishu|wechat|wecom)/i
+/** R4b 取值行:`name: 'x'` / `- name: x` / `url: 'https://…'`(带引号与裸值都认)。 */
+const AM_NAMED_VALUE_RE = /^\s*(?:-\s+)?(name|url)\s*:\s*(.+)$/
+/** R4c 块定位:`webhook_configs:` 起一个块,块内的 `url:` 才是出口面。 */
+const AM_WEBHOOK_BLOCK_RE = /^(\s*)(?:-\s+)?webhook_configs\s*:/
+const AM_URL_LINE_RE = /^\s*(?:-\s+)?url\s*:\s*(.*)$/
+/** 注释行里的被禁字面量:只如实计数,永不判红(废弃桩/头注释正是在"讲解被禁形态")。 */
+const AM_COMMENT_LITERAL_RE = /email_configs|smtp_[a-z0-9_]*|dingtalk|feishu|wechat|wecom|qyapi\.|oapi\.|open\.feishu/gi
 
 // ── git 派生:绝对路径候选解析 + 强制 windowsHide(守门 52)+ timeout(守门 80) ──
 let _gitBin = undefined
@@ -159,7 +214,8 @@ function gitPathList(args) {
 
 /**
  * 范围判定:deploy/monitoring/apps-api-scripts 三块运维脚本目录 + scripts/**(不含 scripts/tests)
- * + workflows 根层 *.yml。2026-09-24 扩面(monitoring/** 与 .cjs/.mts)的理由见文件头。
+ * + workflows 根层 *.yml + **Alertmanager 语境的配置类文件**(R4,见 isAlertmanagerSurfacePath)。
+ * 2026-09-24 扩面(monitoring/** 与 .cjs/.mts)与同日 R4 扩面(.yml/.yaml/.tmpl 限 AM 语境)的理由见文件头。
  */
 export function isScannedPath(rel) {
   const norm = String(rel || '').replace(/\\/g, '/')
@@ -167,12 +223,30 @@ export function isScannedPath(rel) {
   if (norm.startsWith('.github/workflows/')) {
     return norm.endsWith('.yml') && !norm.slice('.github/workflows/'.length).includes('/')
   }
+  if (isAlertmanagerSurfacePath(norm)) return true
   if (!SCANNED_EXTS.has(ext)) return false
   if (norm.startsWith('deploy/')) return true
   if (norm.startsWith('monitoring/')) return true
   if (norm.startsWith('apps/api/scripts/')) return true
   if (norm.startsWith('scripts/tests/')) return false
   return norm.startsWith('scripts/')
+}
+
+/**
+ * R4 语境判定:这份 yml/yaml/tmpl **是不是** Alertmanager 的接收面配置。
+ * 两条且仅两条准入:① `monitoring/alertmanager/**`(本仓唯一的 AM 配置目录);
+ * ② 任何目录下文件名形如 `alertmanager*.yml|yaml|tmpl`(部署侧再落一份主配置时同样受管)。
+ * **刻意不放宽**:prometheus/loki/grafana/docker-compose/k8s/CI workflows 里的 `url:`、
+ * receiver 名与 AM 邮件面无关,全仓扫 yml 必产大面积假阳(实测根 docker-compose.yml 的
+ * 历史注释里就写着 `dingtalk-webhook/feishu-webhook`)。
+ */
+export function isAlertmanagerSurfacePath(rel) {
+  const norm = String(rel || '').replace(/\\/g, '/')
+  const base = norm.slice(norm.lastIndexOf('/') + 1)
+  const dot = base.lastIndexOf('.')
+  if (dot <= 0 || !AM_CONFIG_EXTS.has(base.slice(dot))) return false
+  if (norm.startsWith('monitoring/alertmanager/')) return true
+  return /^alertmanager[^/]*$/i.test(base.slice(0, dot))
 }
 
 /** 品牌出口自身不判 R2/R3(它**就是**品牌层;见 BRAND_EXIT_REL 注释),但如实计数。 */
@@ -190,7 +264,9 @@ export function isSelfExempt(rel) {
 function langOf(rel) {
   const norm = String(rel || '').toLowerCase()
   if (norm.endsWith('.ps1')) return 'ps'
-  if (norm.endsWith('.yml')) return 'yml'
+  // .yaml / .tmpl 与 .yml 同语言:注释都是整行 `#`。漏了这一条,AM 那份**通篇注释**的
+  // 废弃桩会被按 js 规则当成正文判据素材(而 R4 的取向是"整行注释不计红、只如实计数")。
+  if (norm.endsWith('.yml') || norm.endsWith('.yaml') || norm.endsWith('.tmpl')) return 'yml'
   return 'js'
 }
 
@@ -288,6 +364,75 @@ export function findLayoutCopyHits(lines, lang = 'js') {
   return []
 }
 
+/** YAML 标量取值:去引号、去行尾注释(`a: 'x' # 说明` 里的值不含 `# 说明`)。 */
+function yamlScalar(raw) {
+  let v = String(raw ?? '').trim()
+  const q = v[0]
+  if ((q === "'" || q === '"') && v.length >= 2 && v.endsWith(q)) return v.slice(1, -1)
+  const hash = v.indexOf(' #')
+  if (hash >= 0) v = v.slice(0, hash)
+  return v.trim()
+}
+
+/**
+ * R4 扫描(纯函数,只在 Alertmanager 语境文件上调用)。返回
+ *   { hits:[{ line, idx, snippet, reason }], commentLiterals:number }
+ * hits 一律跑在**剥掉整行注释**的正文上;commentLiterals 是注释行里被禁字面量的出现次数
+ * (永不判红,只如实报出 —— 废弃桩与头注释正是在"讲解被禁形态",见渲染器同名取向的理由)。
+ * 三条子判据(R4a 原生邮件面 / R4b IM 中转 receiver / R4c 非 bridge 出口)逐行独立命中,
+ * 每处命中各一条,便于人一眼定位到**哪一行**要改。
+ */
+export function scanAlertmanagerSurface(lines) {
+  const arr = Array.isArray(lines) ? lines : String(lines ?? '').split(/\r?\n/)
+  const hits = []
+  let commentLiterals = 0
+  let webhookIndent = null // 非 null = 正在某个 webhook_configs: 块内,值是该块的缩进列
+  for (let i = 0; i < arr.length; i += 1) {
+    const raw = String(arr[i])
+    if (isCommentLine(raw, 'yml')) {
+      const found = raw.match(AM_COMMENT_LITERAL_RE)
+      if (found) commentLiterals += found.length
+      continue
+    }
+    const trimmed = raw.trim()
+    const indent = raw.length - raw.trimStart().length
+    if (trimmed === '') continue
+    if (webhookIndent !== null && indent <= webhookIndent) webhookIndent = null
+    const block = AM_WEBHOOK_BLOCK_RE.exec(raw)
+    if (block) webhookIndent = block[1].length
+
+    // ── R4a 原生邮件面 ──
+    if (AM_EMAIL_SURFACE_RE.test(raw)) {
+      hits.push({ line: i + 1, idx: i, snippet: raw, reason: 'R4a Alertmanager 原生邮件面(email_configs / smtp_*)' })
+    }
+    // ── R4b IM 中转 receiver ──
+    const named = AM_NAMED_VALUE_RE.exec(raw)
+    const imValue = named ? yamlScalar(named[2]) : ''
+    const imHit =
+      (named && (AM_IM_SLUG_RE.test(imValue) || AM_IM_HOST_RE.test(imValue))) || AM_IM_HOST_RE.test(raw)
+    if (imHit) {
+      const why = named ? `${named[1]} 取值为 IM 中转形态` : '出现 IM host/回调路径特征'
+      hits.push({ line: i + 1, idx: i, snippet: raw, reason: `R4b IM 中转 receiver(${why})` })
+    }
+    // ── R4c webhook_configs 块内的出口 url ──
+    if (webhookIndent !== null) {
+      const u = AM_URL_LINE_RE.exec(raw)
+      if (u) {
+        const url = yamlScalar(u[1])
+        if (url && url !== BRIDGE_URL) {
+          hits.push({
+            line: i + 1,
+            idx: i,
+            snippet: raw,
+            reason: `R4c webhook_configs 出口不指向 bridge(实得 ${url || '∅'},唯一合法值 ${BRIDGE_URL})`,
+          })
+        }
+      }
+    }
+  }
+  return { hits, commentLiterals }
+}
+
 /**
  * 单文件判定(纯函数)。stats 如实累计:judged / selfExempt / brandExitSkipped / exempted /
  * resendNonEmails。返回 violations:[{ path, rule, line, snippet }]。
@@ -372,6 +517,20 @@ export function judgeText(rel, text, stats = newStats()) {
     violations.push({ path: norm, rule: 'R3', line: hit.line, snippet: hit.snippet })
   }
 
+  // ── R4:Alertmanager 接收面(原生邮件 / IM 中转 receiver / 非 bridge 出口) ──
+  // 只判 AM 语境文件;豁免姿势与 R1-R3 完全一致(行内标记 / 基线棘轮),不新增第三种。
+  if (isAlertmanagerSurfacePath(norm)) {
+    const { hits, commentLiterals } = scanAlertmanagerSurface(lines)
+    stats.amCommentLiterals += commentLiterals
+    for (const hit of hits) {
+      if (isExemptAt(lines, hit.idx)) {
+        stats.exempted += 1
+        continue
+      }
+      violations.push({ path: norm, rule: 'R4', line: hit.line, snippet: hit.snippet, reason: hit.reason })
+    }
+  }
+
   return { violations, stats }
 }
 
@@ -382,6 +541,7 @@ export function newStats() {
     brandExitSkipped: 0,
     exempted: 0,
     unreadable: 0,
+    amCommentLiterals: 0,
     baselineTolerated: 0,
     baselineShrinkKeys: [],
     baselineMissing: false,
@@ -437,6 +597,7 @@ const RULE_LABEL = {
   R1: 'R1 Send-MailMessage 缺 -BodyAsHtml(纯文本直发,无品牌版式)',
   R2: 'R2 Resend /emails 发送上下文无 html 字段(绕过模板的纯文本 API)',
   R3: 'R3 ops 邮件绕过品牌层(不引用 email-templates / notify-deploy-failure,或自拼 HTML 正文手抄版式)',
+  R4: 'R4 告警接收面越界(Alertmanager 原生邮件 / IM 中转 receiver / 非 bridge 出口)',
 }
 
 export function render(modeLabel, totalPaths, fresh, stats) {
@@ -446,7 +607,8 @@ export function render(modeLabel, totalPaths, fresh, stats) {
   if (fresh.length > 0) {
     lines.push(`❌ 检出 ${fresh.length} 处未基线化违规:`)
     for (const v of fresh.slice(0, 40)) {
-      lines.push(`   - ${v.path}:${v.line}  [${RULE_LABEL[v.rule] ?? v.rule}]`)
+      const label = RULE_LABEL[v.rule] ?? v.rule
+      lines.push(`   - ${v.path}:${v.line}  [${label}${v.reason ? ` — ${v.reason}` : ''}]`)
       lines.push(`       ${snippet(v.snippet)}`)
     }
     if (fresh.length > 40) lines.push(`   ... 另有 ${fresh.length - 40} 处`)
@@ -459,6 +621,11 @@ export function render(modeLabel, totalPaths, fresh, stats) {
     lines.push('        (`--message-file`),版式由 email-templates 单点渲染 —— 接了出口也不许自带一份 HTML;')
     lines.push('     ④ 仅"确属有意纯文本且不需版式"(如对拍调试)才允许在命中行或紧邻上行加')
     lines.push('        `brand-mail-exempt: <一句话原因>`;存量红进 ' + BASELINE_REL + '(只减不增)。')
+    lines.push('     ⑤ 命中的是 R4(Alertmanager 接收面):infra 告警到人只有')
+    lines.push(`        webhook → bridge → 品牌邮件一条路,唯一合法出口是 ${BRIDGE_URL};`)
+    lines.push('        AM 原生 email_configs / smtp_* 与钉钉/飞书/企业微信中转 receiver 均已整体')
+    lines.push('        摘除,不可再加回(AGENTS.md §5e)。换 bridge 监听地址属部署变更,必须同批')
+    lines.push('        改 scripts/render-alertmanager-config.mjs 的 BRIDGE_URL 并跑一次渲染校验。')
   } else {
     lines.push('✅ 未检出未基线化违规')
   }
@@ -468,6 +635,9 @@ export function render(modeLabel, totalPaths, fresh, stats) {
   if (stats.selfExempt > 0) notes.push(`自豁免(本门自身与测试,判据含字面量)=${stats.selfExempt}`)
   if (stats.brandExitSkipped > 0) notes.push(`品牌出口自身不判 R2/R3=${stats.brandExitSkipped}(它是版式唯一实现)`)
   if (stats.unreadable > 0) notes.push(`取不到内容=${stats.unreadable}`)
+  if (stats.amCommentLiterals > 0) {
+    notes.push(`AM 注释行内被禁字面量=${stats.amCommentLiterals}(整行 YAML 注释不判红,如实报出)`)
+  }
   if (notes.length) lines.push(`   计数:${notes.join(' · ')}(均为如实计数,非静默)`)
   if (stats.baselineShrinkKeys.length > 0) {
     lines.push(
@@ -947,6 +1117,123 @@ function selfTestRun() {
         !isScannedPath('scripts/db/db_sync.py'),
     )
 
+    // ══ R4 告警接收面(Alertmanager)正反成对 ══
+    // 干净稿:与真仓 monitoring/alertmanager/alertmanager.yml.tmpl 收敛后的形态同构
+    const AM_CLEAN = [
+      'global:',
+      '  resolve_timeout: 5m',
+      '',
+      'route:',
+      "  receiver: 'default-webhook'",
+      "  group_by: ['alertname', 'service']",
+      '',
+      'receivers:',
+      "  - name: 'default-webhook'",
+      '    webhook_configs:',
+      "      - url: 'http://127.0.0.1:9096/alert'",
+      '        send_resolved: true',
+    ].join('\n')
+    const AM_REL = 'monitoring/alertmanager/alertmanager.yml.tmpl'
+    const r4 = (rel, text) => judge(rel, text).filter((v) => v.rule === 'R4')
+
+    check('47 R4 绿:干净 bridge-only 模板判绿(真仓现状的同构样本)', r4(AM_REL, AM_CLEAN).length === 0)
+    check(
+      '48 R4a 红:.tmpl 里加回 email_configs ⇒ 点名该行(本次立项的原始旁路形态)',
+      r4(AM_REL, AM_CLEAN + "\n  - name: 'mail'\n    email_configs:\n      - to: 'ops@example.com'\n").length === 1,
+    )
+    check(
+      '49 R4a 红:global 下加回 smtp_* 段 ⇒ 判红(AM 里 smtp_* 的唯一宿主就是原生邮件面)',
+      r4(AM_REL, AM_CLEAN.replace('  resolve_timeout: 5m', '  resolve_timeout: 5m\n  smtp_smarthost: smtp.example.net:587'))
+        .length === 1,
+    )
+    check(
+      '50 R4b 红:receiver 改名 feishu-copy 仍判红 —— 认的是 slug,不只有原名字',
+      r4(AM_REL, AM_CLEAN + "\n  - name: 'feishu-copy'\n    webhook_configs:\n      - url: 'http://127.0.0.1:9097/hook'\n")
+        .filter((v) => /R4b/.test(v.reason)).length === 1,
+    )
+    check(
+      '51 R4b 红:host 特征独立成立(receiver 叫 alert-bot-copy、名字干净,但 url 是钉钉回调域名)',
+      r4(AM_REL, AM_CLEAN + "\n  - name: 'alert-bot-copy'\n    webhook_configs:\n      - url: 'https://oapi.dingtalk.com/robot/send'\n")
+        .filter((v) => /R4b/.test(v.reason)).length === 1,
+    )
+    check(
+      '52 R4c 红:url 换 host 但端口仍 9096(localhost:9096)⇒ 与渲染器同取向判红(理由见 scanAlertmanagerSurface 注释)',
+      r4(AM_REL, AM_CLEAN.replace('http://127.0.0.1:9096/alert', 'http://localhost:9096/alert')).length === 1,
+    )
+    {
+      // 整行 YAML 注释:不判红,但被禁字面量必须如实计数(废弃桩 alertmanager.yml 就是这个形态)
+      const st = newStats()
+      const res = judgeText(
+        AM_REL,
+        ['# 历史旁路已摘除:email_configs / smtp_smarthost 都不可再加回', '# dingtalk / feishu 中转 receiver 同理', AM_CLEAN].join('\n'),
+        st,
+      )
+      check('53 R4 注释行:不计红(宁漏不误报)但如实计数被禁字面量 ≥4 处', res.violations.length === 0 && st.amCommentLiterals >= 4)
+    }
+    check(
+      '54 R4 豁免姿势未新增:命中行紧邻上行 brand-mail-exempt 同样放过',
+      r4(AM_REL, AM_CLEAN + "\n  - name: 'mail'\n    # brand-mail-exempt: 演练\n    email_configs:\n").length === 0,
+    )
+    check(
+      '55 R4 面反向:非 Alertmanager 语境的 yml 不吃 R4(workflows 只判 R1-R3;compose/prometheus 根本不进面)',
+      r4('.github/workflows/ci.yml', "jobs:\n  a:\n    steps:\n      - run: 'echo hi'\nemail_configs:\n").length === 0 &&
+        isScannedPath('.github/workflows/ci.yml') &&
+        !isScannedPath('docker-compose.yml') &&
+        !isScannedPath('monitoring/prometheus/prometheus.yml') &&
+        !isScannedPath('monitoring/loki/loki-config.yml') &&
+        !isScannedPath('deploy/docker/x.yaml') &&
+        !isAlertmanagerSurfacePath('monitoring/prometheus/alerts.yml'),
+    )
+    check(
+      '56 R4 面:AM 语境两条准入都认(目录 + 文件名形态),且扩展名三种齐进',
+      isAlertmanagerSurfacePath('monitoring/alertmanager/noise-rules.yml') &&
+        isAlertmanagerSurfacePath('monitoring/alertmanager/alertmanager.yml.tmpl') &&
+        isAlertmanagerSurfacePath('deploy/prod-bundle/alertmanager.yml') &&
+        isScannedPath(AM_REL) &&
+        isScannedPath('monitoring/alertmanager/alertmanager.yaml'),
+    )
+    {
+      // 基线棘轮对 R4 同样生效(唯一的"存量"通道),且不引入新豁免姿势
+      const v4 = [{ path: AM_REL, rule: 'R4', line: 3, snippet: '' }]
+      const stR = newStats()
+      check(
+        '57 R4 走既有基线棘轮:key <path>#R4,实发≤基线放行、超出判红',
+        applyBaseline(v4, { [`${AM_REL}#R4`]: 1 }, stR).length === 0 &&
+          stR.baselineTolerated === 1 &&
+          applyBaseline(v4, {}, newStats()).length === 1,
+      )
+    }
+    {
+      // 临时仓端到端:提交链取材面(--staged 读索引 / 全量读工作区)都必须看得见 R4
+      mkdirSync(join(repo, 'monitoring', 'alertmanager'), { recursive: true })
+      const amPath = join(repo, 'monitoring', 'alertmanager', 'alertmanager.yml.tmpl')
+      const BAD_AM = AM_CLEAN + "\n  - name: 'mail'\n    email_configs:\n      - to: 'ops@example.com'\n"
+      writeFileSync(amPath, BAD_AM + '\n')
+      g(['add', 'monitoring/alertmanager/alertmanager.yml.tmpl'])
+      const sA = audit(repo, { staged: true, baseline: {} })
+      check(
+        '58 R4 装车(--staged 面):索引里的旁路模板判红并点名 path+行',
+        sA.code === 1 && sA.violations.some((v) => v.path === AM_REL && v.rule === 'R4'),
+      )
+      g(['commit', '-qm', 'am bad'])
+      const sB = audit(repo, { baseline: {} })
+      check(
+        '59 R4 装车(全量面):同一份内容在缺省模式同样判红并点名该路径(不是只有 --staged 才看得见)',
+        sB.code === 1 && sB.violations.some((v) => v.path === AM_REL && v.rule === 'R4'),
+      )
+      const rendered = render('全量', 1, sB.violations, sB.stats).join('\n')
+      check(
+        '60 R4 输出归因可读:违规行带 R4a 子判据与"唯一合法出口是 bridge"的修复指引',
+        /R4a/.test(rendered) && new RegExp(BRIDGE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).test(rendered),
+      )
+      writeFileSync(amPath, AM_CLEAN + '\n')
+      g(['add', 'monitoring/alertmanager/alertmanager.yml.tmpl'])
+      check('61 R4 可逆:同一文件改回 bridge-only ⇒ 判绿(证明 58/59 红在旁路本身,不是面写死)', audit(repo, { staged: true, baseline: {} }).code === 0)
+      rmSync(amPath, { force: true })
+      g(['add', '-A'])
+      g(['commit', '-qm', 'am cleaned'])
+    }
+
     let fail = 0
     for (const r of results) {
       console.log(`${r.ok ? '✅' : '❌'} ${r.name}`)
@@ -970,13 +1257,16 @@ const HELP = [
   '',
   '  缺省        全量审计:deploy/** monitoring/** apps/api/scripts/** scripts/**(不含 tests)的',
   '              .ps1/.mjs/.js/.cjs/.ts/.mts + workflows/*.yml',
+  '              + Alertmanager 语境(monitoring/alertmanager/** 或文件名 alertmanager*)的',
+  '              .yml/.yaml/.tmpl —— 不扫其余 yml,防 CI/compose/prometheus 大面积假阳',
   '  --staged    pre-commit 模式:只判索引里在范围内的文件;暂存集为空/取不到 → 退化全量',
   '  --self-test 判据正反成对对照 + 临时仓模式取证,不触碰真实仓',
   '',
   '判据:R1 Send-MailMessage 缺 -BodyAsHtml / R2 Resend /emails 发送上下文无 html /',
-  '      R3 ops 绕过品牌层(R3a 不接品牌层;R3b 自拼 HTML 正文、手抄品牌版式)',
+  '      R3 ops 绕过品牌层(R3a 不接品牌层;R3b 自拼 HTML 正文、手抄品牌版式) /',
+  `      R4 告警接收面越界(AM 原生 email_configs·smtp_* / IM 中转 receiver / 非 ${BRIDGE_URL} 出口)`,
   `豁免:品牌出口自身 ${BRAND_EXIT_REL} 不判 R2/R3;命中行或紧邻上行 \`brand-mail-exempt: <原因>\`;`,
-  `      存量:${BASELINE_REL}(只减不增)`,
+  `      存量:${BASELINE_REL}(只减不增;R4 不新增第三种豁免姿势,且基线现须为空)`,
   `退出码:0 通过 / 1 检出未基线化违规 / 2 脚本自身异常。紧急跳过:${SKIP_ENV}=1`,
 ].join('\n')
 
@@ -1020,10 +1310,12 @@ export const __test__ = {
   isSelfExempt,
   isBrandExitScript,
   isExemptAt,
+  isAlertmanagerSurfacePath,
   extractSendMailStatements,
   findResendEndpointHits,
   sendContextHasHtmlField,
   findLayoutCopyHits,
+  scanAlertmanagerSurface,
   judgeText,
   newStats,
   parseBaseline,
@@ -1034,6 +1326,7 @@ export const __test__ = {
   BASELINE_REL,
   SELF_EXEMPT_PREFIX,
   BRAND_EXIT_REL,
+  BRIDGE_URL,
   R3B_STYLE_WINDOW,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
