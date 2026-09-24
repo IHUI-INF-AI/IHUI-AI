@@ -9,7 +9,7 @@
  * - 顶部 NavBar(标题「AI 视频」+ 返回)+ 右侧搜索开关 + 菜单入口(打开 Drawer)
  * - ScrollTitle 赛道分类切换(复用 SingleTypeBar 共享组件,对齐 Uniapp ScrollTitle)
  * - pageType 三态切换(对齐 Uniapp pageType:index 预览 / model 模型全屏 / study 课程全屏)
- * - index 预览态:ModelList 前 3 条 + StudyList 前 3 条 + 各自「查看更多」切全屏
+ * - index 预览态:ModelList 前 3 条 + StudyList 前 3 条 + 各自「更多」切全屏
  * - study 全屏态:双列视频卡片(封面 / 标题 / 时长徽章 / 讲师 / 相对时间)
  * - model 全屏态:ModelList 模型列表(复用 ChatScreen 的 ModelList 组件,对齐 Uniapp ModelList)
  * - Drawer 侧边栏(复用现有 Drawer 组件,对齐 Uniapp DrawerComponent)
@@ -60,7 +60,7 @@ import Drawer, {
   type DrawerTab,
 } from '../components/Drawer'
 import ModelList, { type ModelListGroup } from '../components/ModelList'
-import { SearchInput, CategoryInlineBar } from '@ihui/rn-app'
+import { SearchInput, CategoryInlineBar, MoreLink } from '@ihui/rn-app'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -550,22 +550,19 @@ export function StudyIndexScreen() {
         >
           <TipBanner onPressMyModel={onMyModel} />
 
-          {/* ModelList 预览(对齐 Uniapp model_list index 态:推荐课程合集 + 查看更多) */}
+          {/* ModelList 预览(对齐 Uniapp model_list index 态:推荐课程合集 + 更多) */}
           <View style={styles.previewSection}>
             <View style={styles.previewHeader}>
               <View style={styles.previewTitleRow}>
                 <Flame size={18} color={tk.text.secondary} style={{ marginRight: rpx(12) }} />
                 <Text style={styles.previewTitle}>推荐课程合集</Text>
               </View>
-              <Pressable
-                style={styles.previewMoreRow}
+              <MoreLink
+                label={t('common.more')}
                 onPress={() => setPageType('model')}
-                accessibilityRole="button"
                 accessibilityLabel="查看更多模型"
-              >
-                <Text style={styles.previewMoreText}>查看更多</Text>
-                <Text style={styles.previewMoreArrow}>›</Text>
-              </Pressable>
+                colorScheme={resolvedTheme}
+              />
             </View>
             {previewModels.length > 0 ? (
               previewModels.map((m) => (
@@ -603,22 +600,19 @@ export function StudyIndexScreen() {
             )}
           </View>
 
-          {/* StudyList 预览(对齐 Uniapp study_list index 态:最新课程 + 查看更多) */}
+          {/* StudyList 预览(对齐 Uniapp study_list index 态:最新课程 + 更多) */}
           <View style={styles.previewSection}>
             <View style={styles.previewHeader}>
               <View style={styles.previewTitleRow}>
                 <Film size={18} color={tk.text.secondary} style={{ marginRight: rpx(12) }} />
                 <Text style={styles.previewTitle}>最新课程</Text>
               </View>
-              <Pressable
-                style={styles.previewMoreRow}
+              <MoreLink
+                label={t('common.more')}
                 onPress={() => setPageType('study')}
-                accessibilityRole="button"
                 accessibilityLabel="查看更多课程"
-              >
-                <Text style={styles.previewMoreText}>查看更多</Text>
-                <Text style={styles.previewMoreArrow}>›</Text>
-              </Pressable>
+                colorScheme={resolvedTheme}
+              />
             </View>
             {initialLoading ? (
               <Loading text="加载中..." />
@@ -751,20 +745,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: tk.text.primary,
-  } as TextStyle,
-  previewMoreRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  } as ViewStyle,
-  previewMoreText: {
-    fontSize: 13,
-    color: tk.text.secondary,
-  } as TextStyle,
-  previewMoreArrow: {
-    fontSize: 18,
-    color: tk.text.secondary,
-    marginLeft: rpx(4),
-    lineHeight: 18,
   } as TextStyle,
   // 模型预览行(对齐 ModelList row 简化版)
   previewModelRow: {
