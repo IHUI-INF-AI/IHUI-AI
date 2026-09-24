@@ -151,6 +151,12 @@ a.text-xs:has(> svg):has(> span) > span,
 
 **触发条件**:父级是 `button` / `a` / `[role='button']` / `[role='menuitem']` 语义元素 + 同时含 `svg` 子节点(图标)+ `span` 子节点(文字)。纯文字按钮(no svg)自动排除。
 
+> **2026-09-24 校正(实测,勿照上面代码块去 grep)**:上面两段是 2026-09-15 立项时的形态。规则本体现在
+> `packages/design-tokens/src/styles/tokens.css`(不在 `globals.css`),且已于 2026-08-28 从
+> `transform: translateY()` **改为 `translate` 属性**(原因见 tokens.css 内注:Tailwind v4 的 `translate-y-*`
+> 编译成独立 `translate` 属性,与 `transform` 同时命中会几何叠加成 0.6px)。因此读 `getComputedStyle` 时
+> **必须看 `.translate`** —— 本票复核 `ViewMoreLink` 时先读 `.transform` 得到 `none`,一度误判补偿规则没生效。
+
 ### 4.2 实测调优日志
 
 跨 11 个侧边栏 nav 验证(`getBoundingClientRect` + Range 实测):
@@ -199,6 +205,38 @@ import { CenteredText } from '@/components/common/CenteredText'
 ### 4.5 守门
 
 `apps/web/e2e/icon-text-alignment.spec.ts`:5 个 case,阈值 |delta| ≤ 0.15px,跨 6 个关键 nav + 新建任务按钮 + AI panel header + CSS 变量验证。任何漏改 → CI fail。
+
+### 4.6 区段头「更多」入口(三端唯一实现)
+
+用户实拍反馈"查看更多按钮图标跟文字错位"。量产后确认这不是一处疏忽,而是一类写法错误:
+**箭头被当成文字写**(字符 `›` / `>`),而且给的字号比它自己的标签还大。
+
+| 端 | 唯一实现 | 取用形态 |
+| -- | -------- | -------- |
+| RN(mobile-rn + packages/app) | `packages/app/src/components/MoreLink.tsx`(`@ihui/rn-app` 导出) | `<MoreLink label={t('common.more')} onPress={…} colorScheme={…} />` |
+| web | `apps/web/src/components/common/view-more-link.tsx` | `<ViewMoreLink label={tc('more')} href={…} />` |
+| 小程序 | 复用 `LineIcon name="chevron-right"`(`icons.ts` 已含,零新素材) | `<SectionHeader … />` 或页面级 flex 行 |
+
+**三条硬约束**:
+
+1. **禁止用字符 `›` / `»` / `>` 充当箭头图标**。半行距模型下,字形相对自身行盒中心的偏移
+   `d = (ascent − descent) / 2 + 墨迹中心`,**与 line-height 无关、与字号无关**。用应用实际字体
+   HarmonyOS Sans SC 实测:12px 的「更」d = −1.0px(墨迹偏上),而 `›` 在 14/16/18/20px 档
+   d = +1.0 ~ +1.5px(墨迹偏下)—— 两者是**相加**不是相消,所以"标签 12px + 箭头 16/18px"
+   的旧写法实测错位 **2.0 ~ 2.5px**。lucide `ChevronRight` 是 24 单位网格的固定几何、
+   墨迹天然居中外框中心(d = 0),换掉载体即把"相加"变成"抵消"。
+2. **标签与箭头必须同一光学尺寸**(web/RN 12px、小程序 24rpx),并且**必须同一缩放倍率**。
+   旧写法箭头带 `allowFontScaling={false}` 而标签允许缩放,用户在系统里调大字号后两者分叉 ——
+   换掉字形载体并不消除这一半病因,固定 dp 的 SVG 同样不随字号长。`MoreLink` 现把同一个
+   倍率同时喂给 `Text.maxFontSizeMultiplier` 与图标尺寸(clamp 到 1..1.4)。Android 另需
+   `includeFontPadding: false`(端内既有 8 处同样写法),否则 `fm.top`/`fm.bottom` 的
+   不对称字体留白把行盒撑高,又变回"盒对齐、字不对齐"。
+3. **禁止反向微调补丁** —— 承 §4.4。`MyAgents.tsx` 曾带 `teamArrow: { marginBottom: -2 }`,
+   数值正是在补第 1 条那个 2px,换机型即失效,已随迁移删除。
+
+**文案**:统一取 `common.more`(zh `更多` / en `More` / ja `もっと見る` / ko `더 보기`),
+不得再出现"查看更多 / 查看全部 / 完整榜单"。但 `accessibilityLabel` **刻意保留更长口径**
+(如"查看更多模型")—— 可见文案求短,无障碍名称必须脱离上下文也能成立。
 
 ---
 
