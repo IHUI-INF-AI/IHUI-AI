@@ -13,7 +13,15 @@ $ErrorActionPreference = "Continue"
 function Run-Backup {
     try {
         & "D:\IHUI-AI\deploy\prod-bundle\pg-backup.ps1"
-        Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 备份完成"
+        # ⚠️ PowerShell 的 `&` **不会**因为被调脚本 `exit 1` 抛异常 ⇒ 旧结构里 catch 永远抓不到
+        # 备份失败,失败轮照样打"备份完成"。2026-09-24 实测到后果:pg_hba 在 04:47 被改成
+        # scram-sha-256(全链路不再免密),而本脚本用的是 postgres + 显式空口令 ——
+        # 最后一份成功 dump 停在 04:39,之后每次"成功"都是假的。静默是这类事故唯一的传播方式。
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 备份完成"
+        } else {
+            Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 备份失败:子脚本 exit=$LASTEXITCODE(见上一行 [ERROR])"
+        }
     } catch {
         Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 备份失败: $_"
     }
