@@ -2,48 +2,72 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { Platform } from 'react-native'
-import { SSO_CLIENT_IDS } from '@ihui/shared/constants'
-import { version as PKG_VERSION } from '../../package.json'
+import { describe, it, expect } from 'vitest'
 
-/** 应用版本唯一真相源 = apps/mobile-rn/package.json(此前 SettingsScreen 写死 1.0.2、
- *  SharedDemoScreen 写死 1.0.0,而真实版本是 0.0.5 —— 三个版本号互相矛盾)。 */
-export const APP_VERSION = PKG_VERSION
-
-/**
- * 首方 User-Agent(2026-09-24 立)。RN 的 fetch 由 okhttp 实现,而后端
- * `apps/api/src/utils/bot-detection.ts` 把 `okhttp` 列进 CURL_LIKE_KEYWORDS ——
- * 不设 UA 等于自家 App 的**每个**请求都被判为爬虫:
- *  ① 一旦出口 IP 越过挑战阈值,429 会带 `X-Challenge-Type: bot` 并要求完成一个
- *    RN 端根本无法渲染的 CAPTCHA(`/api/security/challenge` 无任何客户端实现);
- *  ② 每次请求都触发 `recordBadEvent(ip, 'automation-ua')`,持续拉低用户出口 IP 的
- *    信誉,可升级到 403「IP 已被临时封禁 15 分钟」。
- * 手机走运营商 NAT,一个出口 IP 承载大量真实用户,误判代价被成倍放大。
- * 字符串刻意不含任何 curl-like / bot 关键字。
- */
-export const APP_USER_AGENT = `IHUIAI-App/${APP_VERSION} (${Platform.OS}/${
-  typeof Platform.Version === 'number' ? Platform.Version : Platform.Version ?? 'unknown'
-})`
-
-const ENV_API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:8802'
-
-// 10.0.2.2 是 Android 模拟器访问宿主机的专用 IP,web 平台浏览器无法访问,替换为 localhost。
-// 生产环境配置的真实域名(如 https://api.example.com)不受影响。
-export const API_BASE_URL =
-  Platform.OS === 'web' && ENV_API_BASE_URL.includes('10.0.2.2')
-    ? ENV_API_BASE_URL.replace('10.0.2.2', 'localhost')
-    : ENV_API_BASE_URL
-export { TOKEN_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY } from '@ihui/shared/constants'
+import {
+  isCurlLike,
+  isBotUserAgent,
+  isHeadlessBrowser,
+  isMissingOrShortUserAgent,
+} from '../src/utils/bot-detection.js'
 
 /**
- * SSO 配置(移动端作为 SSO client 接入 web 登录中心)
+ * 首方客户端 UA 不得被风控判为爬虫(2026-09-24 立)。
  *
- * 流程:
- * 1. 用户点"使用网页账号登录" → openAuthSession 打开 web /sso/login?redirect=ihui://sso/callback&client_id=mobile-rn
- * 2. 用户在 web 登录后,web 生成 30s sso_code,跳 ihui://sso/callback?sso_code=xxx
- * 3. 系统拦截 deep link,拿 sso_code 调 /api/auth/sso/exchange 换 token → 自动登录
+ * 实测事故:两个首方客户端都落进风控的"爬虫"判定,且是**两条不同的路径** ——
+ *   · mobile-rn:RN 的 fetch 由 okhttp 实现,而 CURL_LIKE_KEYWORDS 含 'okhttp';
+ *   · cli:Node 的 fetch(undici)根本不发 User-Agent,命中 isMissingOrShortUserAgent。
+ * @ihui/api-client 此前从不设 User-Agent ⇒ 自家 App 每个请求都被判为自动化客户端,
+ * 触发两处后果:
+ *   ① 越过挑战阈值后 429 带 `X-Challenge-Type: bot`,并要求完成一个
+ *      客户端根本无法渲染的 CAPTCHA(`/api/security/challenge` 无任何客户端实现);
+ *   ② 每请求 `recordBadEvent(ip,'automation-ua')`,持续拉低出口 IP 信誉,
+ *      可升级到 403「IP 已被临时封禁 15 分钟」。
+ * 手机走运营商 NAT,一个出口 IP 承载大量真实用户,误判代价成倍放大。
+ *
+ * 本文件是**该缺陷的永久反例**:词表就在这里(真相源),所以断言放在 api 侧,
+ * 不在客户端复制一份词表。客户端 UA 的生成处:
+ *   - apps/mobile-rn/src/lib/config.ts        → `IHUIAI-App/<ver> (<os>/<api>)`
+ *   - apps/cli/src/lib/device-fingerprint.ts  → `IHUI-CLI/<ver> (<platform>/<arch>)`
+ * 版本用哨兵值,避免客户端升版本时这里假红 —— 只钉住"前缀形态不被判成爬虫"。
  */
-export const WEB_BASE_URL = process.env.EXPO_PUBLIC_WEB_URL || 'http://localhost:8801'
-export const SSO_CLIENT_ID = SSO_CLIENT_IDS.MOBILE_RN
-export const SSO_REDIRECT_URI = 'ihui://sso/callback'
+
+const FIRST_PARTY_UAS = [
+  'IHUIAI-App/9.9.9 (android/34)',
+  'IHUIAI-App/9.9.9 (ios/17.4)',
+  'IHUIAI-App/9.9.9 (web/unknown)',
+  'IHUI-CLI/9.9.9 (win32/x64)',
+  'IHUI-CLI/9.9.9 (darwin/arm64)',
+  'IHUI-CLI/9.9.9 (linux/x64)',
+] as const
+
+describe('首方 UA 不被误判为自动化客户端', () => {
+  for (const ua of FIRST_PARTY_UAS) {
+    it(`${ua} → 四条判据全 false`, () => {
+      expect(isCurlLike(ua)).toBe(false)
+      expect(isBotUserAgent(ua)).toBe(false)
+      expect(isHeadlessBrowser(ua)).toBe(false)
+      expect(isMissingOrShortUserAgent(ua)).toBe(false)
+    })
+  }
+})
+
+describe('阳性对照:不设 UA 时确实会被判成爬虫', () => {
+  // 这正是修复前两个客户端各自实际落到的判据 —— 两条路径不同,都必须堵:
+  //  · mobile-rn:RN 的 fetch 由 okhttp 实现 → 命中 curl-like 词表
+  //  · cli:Node 的 fetch(undici)**根本不发 User-Agent** → 命中 missing-or-short
+  it('okhttp(RN fetch 的底层实现)命中 curl-like', () => {
+    expect(isCurlLike('okhttp/4.9.1')).toBe(true)
+  })
+
+  it('node-fetch 命中 curl-like', () => {
+    expect(isCurlLike('node-fetch/1.0 (+https://github.com/bitinn/node-fetch)')).toBe(true)
+  })
+
+  it('完全缺失的 UA 命中 missing-or-short(CLI 修复前的真实形态)', () => {
+    expect(isMissingOrShortUserAgent(null)).toBe(true)
+    expect(isMissingOrShortUserAgent('')).toBe(true)
+    expect(isMissingOrShortUserAgent('okhttp')).toBe(true) // 6 字符 < 10
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
