@@ -380,7 +380,7 @@ export function CircleIndexScreen() {
         accessibilityRole="button"
         accessibilityLabel={t('circle.index.goPublish')}
       >
-        <Plus size={24} color={tk.surface.card} />
+        <Plus size={24} color={tk.brand.ctaForeground} />
       </TouchableOpacity>
       <Modal
         visible={preview !== null}
