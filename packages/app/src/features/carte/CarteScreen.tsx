@@ -167,7 +167,6 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 12,
-      paddingTop: 48,
       paddingBottom: 12,
     },
     back: { fontSize: 16, color: tk.text.medium },
