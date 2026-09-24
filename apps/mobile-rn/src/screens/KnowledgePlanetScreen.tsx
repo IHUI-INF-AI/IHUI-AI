@@ -11,6 +11,7 @@
  *   components/common/Loading(对齐原项目 common/Loading 全屏 loading-mask 语义)。
  */
 import { useCallback, useEffect, useState } from 'react'
+import { useTheme } from '../context/ThemeContext'
 import { StyleSheet, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -36,6 +37,7 @@ function toTimestamp(time: string | number | undefined): number {
 }
 
 export function KnowledgePlanetScreen() {
+  const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
   const [items, setItems] = useState<
@@ -105,6 +107,7 @@ export function KnowledgePlanetScreen() {
         onRefresh={onRefresh}
         onItemClick={onItemClick}
         onBack={() => navigation.goBack()}
+        colorScheme={resolvedTheme}
       />
       {/* 加载遮罩(对齐原项目 common/Loading 全屏 loading-mask 语义) */}
       {loading ? <Loading text={t('common.loading')} fullscreen /> : null}

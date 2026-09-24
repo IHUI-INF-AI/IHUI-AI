@@ -13,6 +13,7 @@
  *   ③ 分享(icon-share → RN Share API,对齐 handleShare)
  */
 import { useCallback, useEffect, useState } from 'react'
+import { useTheme } from '../context/ThemeContext'
 import {
   ActivityIndicator,
   FlatList,
@@ -48,6 +49,7 @@ type Route = RouteProp<RootStackParamList, 'ArticleDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 export function ArticleDetailScreen() {
+  const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const route = useRoute<Route>()
   const navigation = useNavigation<NavigationProp>()
@@ -162,6 +164,7 @@ export function ArticleDetailScreen() {
           loading={loading}
           error={error}
           onBack={() => navigation.goBack()}
+          colorScheme={resolvedTheme}
         />
       </View>
       {/* 底部操作栏(对齐 Uniapp news/detail.vue bottom-bar:点赞/评论/分享) */}
