@@ -318,7 +318,7 @@ export function findUnresolvableHookCommands(rootDir, cmds) {
 }
 
 /** 返回 { missing, scanned };判据失效一律 exit(1),不返绿灯 */
-export function audit({ staged = false, root = REPO } = {}) {
+export function audit({ staged = false, root = REPO, strict = false } = {}) {
   const yamlPath = join(root, 'pnpm-workspace.yaml')
   if (!existsSync(yamlPath)) fail('找不到 pnpm-workspace.yaml,判据无法成立')
   const all = expandPatterns(root, parseWorkspacePatterns(readFileSync(yamlPath, 'utf8')))
@@ -368,17 +368,31 @@ export function audit({ staged = false, root = REPO } = {}) {
       `(${Date.now() - t0}ms)`,
   )
   if (missingBins.length) {
-    // 只报数:基线未证明(见 findGuttedLinks 内注释),不允许拿它当红点拦人
+    // 2026-09-24 取证后的定档:提交链里**只报数**,`--strict`(check:all / CI)才判红。
+    // 取证过程(值得留):我一度以为"102 条缺 shim"是未证明的基线、不敢拦人;
+    // 直到一轮**完整跑完**的 install 之后复测 = **0 条**,且 25 个包的 `.bin` 全部存在
+    // (apps/api 45 项 / web 33 / extension 24 / shared 15 …) —— 说明那 102 条不是"本来就该没有",
+    // 而是同一场削损的一部分。但它在并发 install 期间会闪成上百条(实测 0↔113 跳),
+    // 而 pre-commit 每天都跑 ⇒ 拿它做 blocking 会在别人装依赖的窗口里把全队逼进 --no-verify
+    // (本仓最高反面教训:恒红门=全队关闸)。所以判红放到不在提交链上的严格入口。
     const byOwner = {}
     for (const m of missingBins) byOwner[m.owner] = (byOwner[m.owner] || 0) + 1
-    console.log(
-      `   ℹ️ 另有 ${missingBins.length} 条直接依赖声明了 bin 但 .bin 里没有 shim(仅报数,不计红):` +
-        Object.entries(byOwner)
-          .slice(0, 6)
-          .map(([o, n]) => `${o || '.'}=${n}`)
-          .join(' ') +
-        (Object.keys(byOwner).length > 6 ? ` …等 ${Object.keys(byOwner).length} 处` : ''),
-    )
+    const summary =
+      Object.entries(byOwner)
+        .slice(0, 6)
+        .map(([o, n]) => `${o || '.'}=${n}`)
+        .join(' ') + (Object.keys(byOwner).length > 6 ? ` …等 ${Object.keys(byOwner).length} 处` : '')
+    if (strict) {
+      console.error(
+        `❌ ${missingBins.length} 条直接依赖声明了 bin 而该处 .bin 无同名 shim(严格模式判红;提交链默认只报数,` +
+          `因并发 install 期间会闪红):${summary}`,
+      )
+      for (const m of missingBins.slice(0, 20)) console.error(`   [缺可执行入口] ${m.link}  bin: ${m.bin}  ← ${m.owner}`)
+      if (missingBins.length > 20) console.error(`   … 另有 ${missingBins.length - 20} 条`)
+      console.error('   修复:node scripts/repair-node-bin-links.mjs(根)或全量 pnpm install(包级)。')
+    } else {
+      console.log(`   ℹ️ 另有 ${missingBins.length} 条"声明了 bin 但该处无 shim"(提交链只报数;--strict 判红):${summary}`)
+    }
   }
   return {
     missing,
@@ -429,22 +443,28 @@ function run(argv) {
   // --root 供自测夹具显式注入(教训:自测只改 cwd 会静默扫真仓,产出"看起来全绿"的空转结果)
   const rootArg = argv.find((a) => a.startsWith('--root='))
   const root = rootArg ? rootArg.slice('--root='.length) : REPO
+  // --strict:把"声明了 bin 但该处无 shim"也计入退出码(给 check:all / CI 用)。
+  // 提交链默认不加 —— 并发 install 期间这条会闪出上百项(实测 0↔113),
+  // 而在提交链上拦人 = 各会话 --no-verify = 其余约 110 道守门同时被跳过。
+  const strict = argv.includes('--strict')
   const { missing, scanned, gutted = [], missingBins = [], hookBad = [], linksScanned = 0, skipped } = audit({
     staged: argv.includes('--staged'),
     root,
+    strict,
   })
+  const redBins = strict ? missingBins.length : 0
   if (skipped) return 0
   // 反假绿:一条链接都没扫到 = 判据没跑到东西,绝不记绿(与"扫不到包必须红"同族)
   if (linksScanned === 0) {
     console.error('❌ 扫到 0 条 node_modules 链接 —— 判据无从成立,不允许报绿(先确认依赖已安装)')
     return 1
   }
-  if (missing.length === 0 && gutted.length === 0 && hookBad.length === 0) {
+  if (missing.length === 0 && gutted.length === 0 && redBins === 0 && hookBad.length === 0) {
     console.log(
-      `✅ ${scanned} 个包声明的 workspace 依赖均已链接,${linksScanned} 条链接目标内容完好` +
-        `(另有 ${missingBins.length} 条"声明了 bin 但该处无 shim"仅报数 —— 见 §12e 说明:该形态` +
-        `**不**等于坏,` +
-        `实测 apps/api 无自身 .bin 而 \`pnpm --filter @ihui/api run typecheck\` 仍走根 .bin 通过)`,
+      `✅ ${scanned} 个包声明的 workspace 依赖均已链接,${linksScanned} 条链接目标内容完好,钩子命令全部可解析` +
+        (strict
+          ? `,直接依赖声明的 bin 均有 shim`
+          : `(shim 完整性现测 ${missingBins.length} 条缺失,只报数;要判红加 --strict)`),
     )
     return 0
   }
@@ -697,6 +717,37 @@ function selfTest() {
       // run() 只"返回退出码"(process.exit 在 isDirectRun 出口层),所以断言取返回值
       const code = run([`--root=${root}`])
       assert(code === 1, `scanned=0 时 run() 应返回 1, got ${code}`)
+    })
+    t('--strict 开关是**双向**的:同一夹具默认 exit 0、加 --strict 必 exit 1(缺一半就是空开关)', () => {
+      const h = mkScratch('ihui-strict-switch-')
+      try {
+        mkdirSync(join(h, 'packages', 'aa'), { recursive: true })
+        writeFileSync(join(h, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n")
+        writeFileSync(join(h, 'package.json'), JSON.stringify({ name: 'strict-root', dependencies: { mytool: '1.0.0' } }))
+        writeFileSync(join(h, 'packages', 'aa', 'package.json'), JSON.stringify({ name: '@ihui/aa' }))
+        const store = join(h, '.pnpm-fixture3')
+        mkdirSync(join(store, 'mytool@1.0.0', 'node_modules', 'mytool'), { recursive: true })
+        writeFileSync(
+          join(store, 'mytool@1.0.0', 'node_modules', 'mytool', 'package.json'),
+          JSON.stringify({ name: 'mytool', bin: { mytool: './cli.js' } }),
+        )
+        mkdirSync(join(h, 'node_modules'), { recursive: true })
+        try {
+          symlinkSync(join(store, 'mytool@1.0.0', 'node_modules', 'mytool'), join(h, 'node_modules', 'mytool'), 'dir')
+        } catch {
+          assert(false, '本机无法创建符号链接,--strict 未被真正验证')
+        }
+        const code1 = run([`--root=${h}`])
+        const code2 = run([`--root=${h}`, '--strict'])
+        assert(code1 === 0, `默认模式不得因缺 shim 拦人(实得 ${code1})`)
+        assert(code2 === 1, `--strict 必须把同一状态判红(实得 ${code2})`)
+        // 补上 shim ⇒ 两种模式都归零(证明判的是"有没有",不是"报不报")
+        mkdirSync(join(h, 'node_modules', '.bin'), { recursive: true })
+        writeFileSync(join(h, 'node_modules', '.bin', process.platform === 'win32' ? 'mytool.CMD' : 'mytool'), '@ECHO off\n')
+        assert(run([`--root=${h}`, '--strict']) === 0, '补 shim 后 strict 仍红 = 判据不成立')
+      } finally {
+        rmScratch(h)
+      }
     })
     t('真仓不参判据自测(共享工作区在装依赖时链接数会瞬时下跌,写进自检必成 flaky 红)', () => {
       // 真仓规模的"装车证明"放在镜像测试 scripts/tests/check-workspace-dep-links.test.mjs,
