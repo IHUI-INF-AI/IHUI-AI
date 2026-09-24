@@ -122,7 +122,10 @@ test('③ AppImage 无签名时 linux 回落 deb(择低优先级的**有签名**
     ],
     { version: '0.1.45' },
   )
-  assert.deepEqual(platforms['linux-x86_64'], { url: `${GH}/AI_0.1.45_amd64.deb`, signature: 'deb-sig' })
+  assert.deepEqual(platforms['linux-x86_64'], {
+    url: `${GH}/AI_0.1.45_amd64.deb`,
+    signature: 'deb-sig',
+  })
 })
 
 // ─── ④ host 白名单 ──────────────────────────────────────────
@@ -139,7 +142,11 @@ test('④ 相对路径/占位符/未知 host/非 https 一律拒;gitee 仅 windo
     [
       // Gitee 的 linux/darwin 资产实测 404:即便带合法签名也必须被拒
       { name: 'AI_0.1.45_amd64.deb', url: `${GITEE}/AI_0.1.45_amd64.deb`, signature: 'x' },
-      { name: 'AI_universal.app.tar.gz', url: 'releases/download/AI_universal.app.tar.gz', signature: 'x' },
+      {
+        name: 'AI_universal.app.tar.gz',
+        url: 'releases/download/AI_universal.app.tar.gz',
+        signature: 'x',
+      },
       { name: 'AI_0.1.45_amd64.deb', url: `${GH}/AI_0.1.45_amd64.deb`, signature: 'deb-sig' },
     ],
     { version: '0.1.45' },
@@ -167,20 +174,39 @@ test('universal app.tar.gz 同时写入 darwin-x86_64 与 darwin-aarch64(同 url
     [{ name: 'AI_universal.app.tar.gz', url: `${GH}/AI_universal.app.tar.gz`, signature: 'u-sig' }],
     { version: '0.1.45' },
   )
-  assert.deepEqual(platforms['darwin-x86_64'], { url: `${GH}/AI_universal.app.tar.gz`, signature: 'u-sig' })
+  assert.deepEqual(platforms['darwin-x86_64'], {
+    url: `${GH}/AI_universal.app.tar.gz`,
+    signature: 'u-sig',
+  })
   assert.deepEqual(platforms['darwin-aarch64'], platforms['darwin-x86_64'])
 })
 
 test('平台择优先 exe>msi、AppImage>deb>rpm;版本匹配产物压过残留旧版', () => {
   const platforms = buildUpdaterPlatforms(
     [
-      { name: 'AI_0.1.45_x64_en-US.msi', url: `${GH}/AI_0.1.45_x64_en-US.msi`, signature: 'msi-sig' },
-      { name: 'AI_0.1.45_x64-setup.exe', url: `${GH}/AI_0.1.45_x64-setup.exe`, signature: 'exe-sig' },
+      {
+        name: 'AI_0.1.45_x64_en-US.msi',
+        url: `${GH}/AI_0.1.45_x64_en-US.msi`,
+        signature: 'msi-sig',
+      },
+      {
+        name: 'AI_0.1.45_x64-setup.exe',
+        url: `${GH}/AI_0.1.45_x64-setup.exe`,
+        signature: 'exe-sig',
+      },
       { name: 'AI-0.1.45-1.x86_64.rpm', url: `${GH}/AI-0.1.45-1.x86_64.rpm`, signature: 'rpm-sig' },
       { name: 'AI_0.1.45_amd64.deb', url: `${GH}/AI_0.1.45_amd64.deb`, signature: 'deb-sig' },
-      { name: 'AI_0.1.45_amd64.AppImage', url: `${GH}/AI_0.1.45_amd64.AppImage`, signature: 'ai-sig' },
+      {
+        name: 'AI_0.1.45_amd64.AppImage',
+        url: `${GH}/AI_0.1.45_amd64.AppImage`,
+        signature: 'ai-sig',
+      },
       // release 里残留的旧版 exe —— 即便排在最前,也应被版本匹配者替换
-      { name: 'AI_0.1.44_x64-setup.exe', url: `${GH}/stale/AI_0.1.44_x64-setup.exe`, signature: 'stale-sig' },
+      {
+        name: 'AI_0.1.44_x64-setup.exe',
+        url: `${GH}/stale/AI_0.1.44_x64-setup.exe`,
+        signature: 'stale-sig',
+      },
     ],
     { version: '0.1.45' },
   )
@@ -208,7 +234,10 @@ test('输出键序稳定(windows → linux → darwin-x86 → darwin-aarch,快�
 // ─── 装车证明(接线层) ─────────────────────────────────────
 
 test('装车:两条站点 feed route 共用 desktop-feed-payload,且不再自带 /Windows/i 派生', () => {
-  for (const rel of ['apps/web/app/desktop-feed.json/route.ts', 'apps/web/app/api/desktop-feed/route.ts']) {
+  for (const rel of [
+    'apps/web/app/desktop-feed.json/route.ts',
+    'apps/web/app/api/desktop-feed/route.ts',
+  ]) {
     const src = read(rel)
     assert.match(src, /from '@\/config\/desktop-feed-payload'/, `${rel} 必须 import 共享拼装器`)
     assert.match(src, /buildDesktopFeedPayload\(DESKTOP_FEED\)/, `${rel} 必须调用共享拼装器`)
@@ -224,7 +253,10 @@ test('装车:两生成脚本都 import 共享平台判据,不残留本地第二�
   assert.match(resolver, /from '\.\/lib\/tauri-updater-platforms\.mjs'/)
   assert.match(latestJson, /from '\.\/lib\/tauri-updater-platforms\.mjs'/)
   // generate-latest-json 的本地实现必须已删除(留一份 = 第二份真相)
-  assert.ok(!/function inferPlatform\(/.test(latestJson), 'generate-latest-json 仍自带 inferPlatform')
+  assert.ok(
+    !/function inferPlatform\(/.test(latestJson),
+    'generate-latest-json 仍自带 inferPlatform',
+  )
   assert.ok(!/function shouldReplacePlatform\(/.test(latestJson))
   assert.ok(!/function extractVersion\(/.test(latestJson))
 })
@@ -254,7 +286,11 @@ test('装车:入库快照形状完整(四键、签名非空、与 lib 重算结�
  * 两者同为 kind=exe、同版本匹配、签名不同 ⇒ buildUpdaterPlatforms 只"保留首个"且不留痕迹。 */
 test('歧义:同平台同优先级而签名不同 → 报出保留/弃用两条(正反例成对)', () => {
   const entries = [
-    { name: 'AI_0.1.44_x64-setup.exe', url: `${GITEE}/AI_0.1.44_x64-setup.exe`, signature: 'SIG-CI' },
+    {
+      name: 'AI_0.1.44_x64-setup.exe',
+      url: `${GITEE}/AI_0.1.44_x64-setup.exe`,
+      signature: 'SIG-CI',
+    },
     {
       name: '智汇AI_0.1.44_x64-setup.exe',
       url: `${GITEE}/智汇AI_0.1.44_x64-setup.exe`,
@@ -281,15 +317,48 @@ test('歧义:确有优先级差或版本差不算歧义(那是择优,不是并�
     { name: 'AI_0.1.43_x64-setup.exe', url: `${GH}/AI_0.1.43_x64-setup.exe`, signature: 'S-OLD' },
     { name: 'AI_0.1.44_x64-setup.exe', url: `${GH}/AI_0.1.44_x64-setup.exe`, signature: 'S-NEW' },
   ]
-  assert.deepEqual(findPlatformAmbiguity(ok, { version: '0.1.44' }), [], 'AppImage>deb、版本匹配优先都应静默择优')
+  assert.deepEqual(
+    findPlatformAmbiguity(ok, { version: '0.1.44' }),
+    [],
+    'AppImage>deb、版本匹配优先都应静默择优',
+  )
   // 空签名条目既不进键也不制造歧义噪音
-  const withEmpty = [...ok, { name: '智汇AI_0.1.44_x64-setup.exe', url: `${GH}/智汇AI_0.1.44_x64-setup.exe`, signature: '' }]
+  const withEmpty = [
+    ...ok,
+    {
+      name: '智汇AI_0.1.44_x64-setup.exe',
+      url: `${GH}/智汇AI_0.1.44_x64-setup.exe`,
+      signature: '',
+    },
+  ]
   assert.deepEqual(findPlatformAmbiguity(withEmpty, { version: '0.1.44' }), [])
 })
 
-test('装车:快照生成链确实调用歧义探测器(探测函数被摘掉即红)', () => {
-  const resolver = read('scripts/resolve-desktop-download.mjs')
-  assert.match(resolver, /import\s*\{[^}]*findPlatformAmbiguity[^}]*\}\s*from\s*'\.\/lib\/tauri-updater-platforms\.mjs'/s)
-  assert.match(resolver, /findPlatformAmbiguity\(/)
-  assert.match(resolver, /平台键歧义/)
-})
+/**
+ * 取某文件从共享 lib 引入的标识符集合,以及「剥掉该 import 语句之后」的源码。
+ * 断言必须问结构位:整文件搜 `findPlatformAmbiguity(` 会被 import 那一行自己满足,
+ * 于是"import 了却从不调用"的摘线形态照样报绿。
+ */
+function sharedLibUsage(rel) {
+  const src = read(rel)
+  const imp = src.match(/import\s*\{([\s\S]*?)\}\s*from\s*'\.\/lib\/tauri-updater-platforms\.mjs'/)
+  if (!imp) throw new Error(`${rel} 未从共享 lib import —— 单源已断链`)
+  const imported = imp[1]
+    .split(',')
+    .map((s) => s.trim().split(/\s+as\s+/)[0])
+    .filter(Boolean)
+  return { imported, body: src.replace(imp[0], '') }
+}
+
+for (const rel of ['scripts/resolve-desktop-download.mjs', 'scripts/generate-latest-json.mjs']) {
+  test(`装车:${rel} 与快照链同源(建表 + 歧义探测都必须真的被调用)`, () => {
+    const { imported, body } = sharedLibUsage(rel)
+    for (const fn of ['buildUpdaterPlatforms', 'findPlatformAmbiguity']) {
+      assert.ok(imported.includes(fn), `${rel} 必须 import ${fn}`)
+      assert.match(body, new RegExp(`${fn}\\s*\\(`), `${rel} import 了 ${fn} 却没有调用点`)
+    }
+    assert.match(body, /平台键歧义/, `${rel} 探测到歧义必须喊出来,不得静默保留首个`)
+    // 择优只允许在 lib 里做一次:本地再调一次 = 第二份真相(历史缺陷正是它没有 URL 白名单)
+    assert.ok(!/shouldReplacePlatform\s*\(/.test(body), `${rel} 残留本地择优实现`)
+  })
+}
