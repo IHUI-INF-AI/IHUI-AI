@@ -824,6 +824,11 @@ def create_app() -> FastAPI:
     from app.routers import agent_plan as agent_plan_router
     app.include_router(agent_plan_router.router, prefix="/api", tags=["agent-plan"])
 
+    # AGENTS.md §8 第 3 步"独立评估校验(禁止模型自评 yes)"的落地端点。
+    # 路由自带完整路径,这里不加 prefix(端点 = /api/agent/goal-verify)。
+    from app.routers import goal_verification as goal_verification_router
+    app.include_router(goal_verification_router.router, tags=["goal-verification"])
+
     # 对标杀手锏四件套路由(2026-09-03 立)——见上方 import
     app.include_router(research_router, prefix="/api", tags=["research"])
     app.include_router(checkpoint_rewind_router, prefix="/api", tags=["checkpoint-rewind"])

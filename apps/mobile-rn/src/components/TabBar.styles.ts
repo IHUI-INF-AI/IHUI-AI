@@ -16,7 +16,7 @@ export const TAB_BAR_HEIGHT = 56
 export const TAB_BAR_ICON_SIZE = 24
 export const TAB_BAR_FONT_SIZE = 11
 /** 胶囊左右留边(对齐 Telegram/钉钉悬浮栏与屏幕边缘的间距) */
-export const TAB_BAR_FLOAT_MARGIN_H = 12
+const TAB_BAR_FLOAT_MARGIN_H = 12
 /** 胶囊顶部与内容的间距 */
 export const TAB_BAR_FLOAT_GAP_TOP = 6
 /** 胶囊底部最小悬浮间距(无 safe-area 时兜底) */
