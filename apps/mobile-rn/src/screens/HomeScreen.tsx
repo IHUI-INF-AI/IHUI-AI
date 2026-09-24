@@ -101,7 +101,6 @@ import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import CourseCarousel, { type CourseCarouselItem } from '../components/CourseCarousel'
 import Carousel from '../components/Carousel'
 import CardWithList, { type CardWithListItem } from '../components/CardWithList'
-import { OfflineBanner } from '../components/OfflineBanner'
 import AiModelCard from '../components/AiModelCard'
 import { Toolbar } from '../components/Toolbar'
 import { KnowledgePlanet, type KnowledgePlanetItem } from '../components/KnowledgePlanet'
@@ -136,7 +135,6 @@ import { FenLeiOverlay } from '../components/FenLeiOverlay'
 import MyAgents, { type MyAgentItem } from '../components/MyAgents'
 import IntelligentAssistant from '../components/IntelligentAssistant'
 import { useAuth } from '../context/AuthContext'
-import { useNetwork } from '../context/NetworkContext'
 import { useTheme } from '../context/ThemeContext'
 import { useNotificationStore } from '../stores/notification'
 import { useI18n } from '../i18n'
@@ -610,9 +608,8 @@ export function HomeScreen() {
   const { user } = useAuth()
   const { resolvedTheme } = useTheme()
   const { connected, unreadCount, setVisible } = useNotificationStore()
-  // OfflineBanner 数据源:用 NetworkContext 的 fetch 探测(/api/health),而非 WebSocket 通知连接状态。
-  // 通知 WS 断开 ≠ 网络断开(REST 数据仍可正常加载),语义必须区分。
-  const { isOnline } = useNetwork()
+  // 离线横条由 App.tsx 全局挂载(见该处 OfflineBanner);此处曾另挂一份,
+  // 断网时同屏叠两条,且它是普通流节点,会把整屏内容再往下推。
   const [recommends, setRecommends] = useState<HomeRecommendItem[]>([])
   const [lives, setLives] = useState<HomeLiveItem[]>([])
   const [progress, setProgress] = useState<HomeProgressItem[]>([])
@@ -1477,8 +1474,6 @@ export function HomeScreen() {
 
   return (
     <View style={shellStyles.root}>
-      {/* OfflineBanner 网络状态横条(对齐 Uniapp 离线提示) */}
-      <OfflineBanner isOnline={isOnline} />
       {/* NavBar 顶部导航栏(对齐 Uniapp navigation-bars:标题"智汇AI社区"+菜单按钮+加入社区群)
        *  左按钮☰ 触发 Drawer(对齐 handleNavClick);右按钮🤝/🎁 对齐 join-click/share-image
        *  右侧追加分类按钮(对齐 Uniapp tools 页 showFenLei → tagWrapShow 赛道分类弹层)
