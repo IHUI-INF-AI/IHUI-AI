@@ -10,6 +10,8 @@ param(
 # C 盘自动维护脚本(计划任务用,每天凌晨 3 点自动执行)
 # 功能:① 清理 Chrome 缓存(路径不存在则只告警) ② 清理 Temp 旧目录(默认只删本项目产物名字)
 #       ③ 清理本项目落在 C 盘的产物 ④ 报告 C 盘状态
+#       ⑤ 清系统自产残骸(卡死打印队列 / 内核转储 / 孤儿浏览器构建)
+#       ⑥ 封禁回潮源(Chrome 设备端模型下载策略)—— 让它根本不再长回来,而不是天天删
 # 删除面总原则:按名字,不整片。宽口径整片清扫只在 IHUI_TEMP_WIDE_SWEEP=1 时启用。
 # 用法:由计划任务自动调用,也可手动 pwsh -File 此脚本(强烈建议先加 -DryRun)
 
@@ -163,7 +165,7 @@ Log ("清理前 C 盘可用: {0} GB" -f [math]::Round($before/1GB,2))
 [double]$freed = 0
 
 # ===== 1. Chrome 缓存(保留用户数据)=====
-Log "[1/4] 清理 Chrome 缓存"
+Log "[1/6] 清理 Chrome 缓存"
 # 下面这批路径把用户名写死成"荣耀",而计划任务实际注册运行的用户是 $env:USERNAME,
 # 本机该目录不存在 ⇒ 本段常年空转。**故意不改成指向真实用户配置**:那等于让一个每天
 # 3:00 无人值守、DeletePermanently 不进回收站的任务突然开始删一个正在使用的浏览器缓存,
@@ -199,7 +201,7 @@ Log ("  [OK] Chrome 缓存:清理 {0} 项(路径不存在 {1} 项),释放 {2} MB
   $chromeTargets, $chromeMissing.Count, [math]::Round($chromeFreed/1MB,1))
 
 # ===== 2. Temp 旧目录(>3 天,默认只删本项目产物名字)=====
-Log "[2/4] 清理 Temp 旧目录"
+Log "[2/6] 清理 Temp 旧目录"
 $lt = "$env:LOCALAPPDATA\Temp"
 $oldTemp = @(Get-ChildItem $lt -Directory -Force -ErrorAction SilentlyContinue | Where-Object {
   $_.LastWriteTime -lt (Get-Date).AddDays(-3)
@@ -274,7 +276,7 @@ Log ("  [OK] C:\Windows\Temp:{0} {1} 项,释放 {2} MB" -f `
 # ===== 3. 本项目落在 C 盘的产物 =====
 # 2026-09-23 修:这一段原来扫的是 C:\temp,而我们实际写到的地方是 C:\tmp(构建备份,
 # 实攒 13.2GB)、%LOCALAPPDATA%\Temp(git 夹具)、以及盘根本身。扫错目录 = 每天跑也零效果。
-Log "[3/4] 清理本项目在 C 盘的产物"
+Log "[3/6] 清理本项目在 C 盘的产物"
 # 受保护名单与 Test-Protected 已上移到脚本头部(宽口径清扫同样要用),此处不再重复定义。
 
 $cCandidates = @()
@@ -327,7 +329,7 @@ Log ("  [OK] 本项目 C 盘产物:{0} {1} 项,释放 {2} MB" -f `
 # 工作目录恰好是 C:\ ⇒ common_attachment、persistent_data、tmp、tools 直接长在盘根。
 # 光删会再长,所以第 4 段判的是"封口还在不在":被删掉的 junction 会被重新建回来。
 # 唯一真相源在 scripts/seal-c-root-stray.mjs 的名字表里,本段不重复列名字。
-Log "[4/4] 盘根封口体检"
+Log "[4/6] 盘根封口体检"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $seal = Join-Path $PSScriptRoot 'seal-c-root-stray.mjs'
 # node 绝对路径按仓库所在盘推导(服务身份不读 HKCU env,PATH 也不可信)。
@@ -371,6 +373,154 @@ if (-not (Test-Path -LiteralPath $seal)) {
   }
 }
 
+# ===== 5. 系统自产残骸(打印队列 / 内核转储 / 孤儿浏览器构建) =====
+# 这三类的共同点:不是本项目的产物,也不是"某个人的垃圾",而是 Windows/构建器
+# **自己每天在产**、且没有任何一方负责回收。2026-09-24 实测存量:打印队列 487 个
+# .TMP 积压 2.16GB(07-11→09-08)、单个内核看门狗转储 8.51GB、ms-playwright 孤儿构建 1.16GB。
+# 不接进每日维护的话,下一次质问"C 盘怎么又满了"看到的还是这三样。
+Log "[5/6] 清理系统自产残骸"
+
+# --- 5a. 卡死的打印后台队列 ----------------------------------------------
+# 只删 mtime 超 $spoolAgeDays 的队列文件:真实作业几分钟内就出队,超龄的必是
+# 已取消/失败作业的残留(实测最老一条是 7 月前)。
+# 刻意**不**停 Spooler 服务:凌晨 3 点重启服务会连带取消用户过夜排队的真实作业,
+# 代价远大于收益;正被占用的文件会在 ForceDelete 里报 [FAIL],下一轮自然重试。
+$spoolAgeDays = 3
+$spoolDir = "C:\Windows\System32\spool\PRINTERS"
+[int]$spoolTargets = 0
+[double]$spoolFreed = 0
+if (Test-ReparsePoint $spoolDir) {
+  Log ("  [SKIP] 是重解析点,不跟随: {0}" -f $spoolDir) "WARN"
+} elseif (-not (Test-Path -LiteralPath $spoolDir)) {
+  Log ("  [NOTE] 队列目录不存在,无需判定: {0}" -f $spoolDir)
+} else {
+  $staleJobs = @(Get-ChildItem -LiteralPath $spoolDir -Force -File -ErrorAction SilentlyContinue |
+    Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-$spoolAgeDays) })
+  foreach ($f in $staleJobs) {
+    if (Test-Protected $f.FullName) {
+      Log ("  [SKIP] 受保护目录内,不清理: {0}" -f $f.FullName) "WARN"
+      continue
+    }
+    $spoolTargets += 1
+    $sz = ForceDelete $f.FullName
+    $spoolFreed += $sz
+    $freed += $sz
+  }
+  Log ("  [OK] 打印队列:超 {0} 天的残留作业 {1} 个,释放 {2} MB" -f `
+    $spoolAgeDays, $spoolTargets, [math]::Round($spoolFreed/1MB,1))
+}
+
+# --- 5b. 内核实时转储(LiveKernelReports)--------------------------------
+# 一次驱动看门狗事件就是 GB 级:实测 2026-09-03 一条 WATCHDOG-*.dmp = 8.51GB。
+# 双判据:① 超龄(转储只在崩溃当下有意义);② 体积上限 —— 超龄但只有一条时按上限兜底,
+# 避免"偶发一次就永久占 8GB"。永远保留最新一条供事后排查,除非它自己就超上限。
+$dumpAgeDays = 7
+$dumpCapMB = 1024
+$dumpDir = "C:\Windows\LiveKernelReports"
+[int]$dumpTargets = 0
+[double]$dumpFreed = 0
+if (-not (Test-Path -LiteralPath $dumpDir)) {
+  Log ("  [NOTE] 目录不存在,无需判定: {0}" -f $dumpDir)
+} else {
+  $dumps = @(Get-ChildItem -LiteralPath $dumpDir -Recurse -Force -File -Filter '*.dmp' -ErrorAction SilentlyContinue |
+    Sort-Object LastWriteTime)
+  $keepBytes = 0.0
+  $cutTime = (Get-Date).AddDays(-$dumpAgeDays)
+  $capBytes = $dumpCapMB * 1MB
+  foreach ($d in $dumps) {
+    $stale = ($d.LastWriteTime -lt $cutTime)
+    $overCap = (($keepBytes + $d.Length) -gt $capBytes)
+    if (-not $stale -and -not $overCap) { $keepBytes += $d.Length; continue }
+    if (Test-Protected $d.FullName) {
+      Log ("  [SKIP] 受保护目录内,不清理: {0}" -f $d.FullName) "WARN"
+      $keepBytes += $d.Length
+      continue
+    }
+    $why = if ($stale) { "超龄>$( $dumpAgeDays )天" } else { "超出 $( $dumpCapMB )MB 上限" }
+    Log ("  [判定] {0} :: {1:N0} MB · {2:yyyy-MM-dd} · {3}" -f $d.Name, ($d.Length/1MB), $d.LastWriteTime, $why)
+    $dumpTargets += 1
+    $sz = ForceDelete $d.FullName
+    $dumpFreed += $sz
+    $freed += $sz
+  }
+  Log ("  [OK] 内核转储:清理 {0} 条,释放 {1} MB(保留 {2} MB 在 {3} 条内,上限 {4} MB)" -f `
+    $dumpTargets, [math]::Round($dumpFreed/1MB,1), [math]::Round($keepBytes/1MB,1), ($dumps.Count - $dumpTargets), $dumpCapMB)
+}
+
+# --- 5c. 孤儿浏览器构建(改了下载根目录,旧位置的构建永不被清) ----------
+# 这就是 §26 记的那类"改路径不清孤儿"根因:HKCU 的 PLAYWRIGHT_BROWSERS_PATH 一旦
+# 指向外置根,解析链就再也看不到 %LOCALAPPDATA%\ms-playwright,而 Playwright 只往新址装,
+# 旧址的构建**由定义**不可能再被任何调用方使用 —— 实测本机因此压着 1.16GB 两个旧 revision。
+# 反向保险:外置根不存在或为空时**绝不清**,否则会把"唯一可用的浏览器"删掉。
+$pwLocal = Join-Path $env:LOCALAPPDATA 'ms-playwright'
+$pwDeclared = (Get-ItemProperty -LiteralPath 'HKCU:\Environment' -ErrorAction SilentlyContinue).'PLAYWRIGHT_BROWSERS_PATH'
+[int]$pwTargets = 0
+[double]$pwFreed = 0
+if (-not $pwDeclared) {
+  Log "  [SKIP] 未设 PLAYWRIGHT_BROWSERS_PATH,默认位置就是在用的那一个,不能清"
+} elseif (-not (Test-Path -LiteralPath $pwDeclared)) {
+  Log ("  [SKIP] 声明的外置根不存在:{0} ⇒ 默认位置仍是唯一可用副本,不清" -f $pwDeclared) "WARN"
+} elseif (@(Get-ChildItem -LiteralPath $pwDeclared -Directory -Force -ErrorAction SilentlyContinue).Count -eq 0) {
+  Log ("  [SKIP] 声明的外置根是空目录:{0} ⇒ 同上,不清" -f $pwDeclared) "WARN"
+} elseif ((Test-Path -LiteralPath $pwLocal) -and (Test-ReparsePoint $pwLocal)) {
+  Log ("  [SKIP] 默认位置本身已是重解析点(已改道),无需再清: {0}" -f $pwLocal)
+} elseif (-not (Test-Path -LiteralPath $pwLocal)) {
+  Log "  [OK] 默认位置没有残留构建,无需清理"
+} else {
+  # 跳过 mtime 不足一天的条目:可能正被一次安装写入。
+  $orphans = @(Get-ChildItem -LiteralPath $pwLocal -Force -ErrorAction SilentlyContinue |
+    Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-1) })
+  Log ("  [判定] 声明根={0} 与默认位置不一致 ⇒ 默认位置 {1} 项为孤儿构建(没有任何解析链能读到它们)" -f `
+    $pwDeclared, $orphans.Count)
+  foreach ($d in $orphans) {
+    if (Test-Protected $d.FullName) {
+      Log ("  [SKIP] 受保护目录内,不清理: {0}" -f $d.FullName) "WARN"
+      continue
+    }
+    $pwTargets += 1
+    $sz = ForceDelete $d.FullName
+    $pwFreed += $sz
+    $freed += $sz
+  }
+  Log ("  [OK] 孤儿浏览器构建:清理 {0} 项,释放 {1} MB" -f $pwTargets, [math]::Round($pwFreed/1MB,1))
+}
+
+# ===== 6. 回潮源封禁(让垃圾不再产生,而不是每天删它) =====
+# Chrome 的设备端 AI 模型(OptGuideOnDeviceModel)单文件 3.98GB,§26 记录它 2026-07
+# 就删过一次、后来又长回来 —— 只删不封 = 每天回到原点。这里写的是**用户级策略**,
+# 不删任何文件。
+# ⚠️ 如实登记副作用:一旦存在 Google Chrome 策略键,Chrome 会在设置页显示
+#    「浏览器由所属组织管理」。这是策略机制的固有表现,不是异常;要撤销就删该值。
+Log "[6/6] 回潮源封禁策略"
+$chromePolicyKey = 'HKCU:\SOFTWARE\Policies\Google\Chrome'
+$chromePolicyName = 'OptimizationGuideModelDownloadingEnabled'
+$policyState = '未判定'
+$cur = (Get-ItemProperty -LiteralPath $chromePolicyKey -Name $chromePolicyName -ErrorAction SilentlyContinue).$chromePolicyName
+if ($DryRun) {
+  $policyState = if ($null -eq $cur) { 'DRY RUN:未设,将要写 0' } else { "DRY RUN:现值 $cur" }
+  Log ("  [DRY] {0}\{1} 现值 = {2} ⇒ 预演不写注册表" -f $chromePolicyKey, $chromePolicyName, $(if ($null -eq $cur) { '<未设置>' } else { $cur }))
+} else {
+  try {
+    if (-not (Test-Path -LiteralPath $chromePolicyKey)) {
+      New-Item -Path $chromePolicyKey -Force | Out-Null
+    }
+    New-ItemProperty -Path $chromePolicyKey -Name $chromePolicyName -PropertyType DWord -Value 0 -Force | Out-Null
+    # 写完必须回读消费者真正读的那份:New-ItemProperty 的返回对象不代表落盘成功。
+    $back = (Get-ItemProperty -LiteralPath $chromePolicyKey -Name $chromePolicyName -ErrorAction Stop).$chromePolicyName
+    if ($back -eq 0) {
+      $policyState = '已生效(回读=0)'
+      Log ("  [OK] 已禁 Chrome 设备端模型下载,回读 {0}\{1} = {2}" -f $chromePolicyKey, $chromePolicyName, $back)
+      Log "  [NOTE] 副作用:Chrome 设置页将显示「浏览器由所属组织管理」;撤销=删该 DWORD 值" "WARN"
+    } else {
+      $policyState = "回读异常(值=$back)"
+      Log ("  [FAIL] 写入后回读不等于 0,视为未生效: {0}" -f $back) "WARN"
+    }
+  } catch {
+    $policyState = '写入失败'
+    Log ("  [FAIL] 策略写入失败(已跳过,不影响其他段): {0}" -f $_.Exception.Message) "WARN"
+  }
+}
+
 # ===== 总结 =====
 Start-Sleep -Seconds 1
 $after = (Get-PSDrive C).Free
@@ -380,8 +530,8 @@ if ($DryRun) {
 }
 Log ("清理后 C 盘可用: {0} GB" -f [math]::Round($after/1GB,2))
 Log ("本次释放:       {0} GB" -f [math]::Round(($after-$before)/1GB,2))
-Log ("删除面汇总:     Chrome 缓存 {0} 项 / Temp 旧目录 {1} 项 / C:\Windows\Temp {2} 项 / 本项目产物 {3} 项;按名字判据跳过的 Temp 目录 {4} 项({5} MB);宽口径开关 IHUI_TEMP_WIDE_SWEEP = {6};封口体检退出码 = {7}(0=完好;1=预演到待处置,或重封后复检仍待处置)" -f `
-  $chromeTargets, $tempTargets, $wtTargets, $projTargets, $tempSkipped, [math]::Round($tempSkippedSize/1MB,1), $(if ($wideSweep) { '已启用' } else { '未启用' }), $sealNeedsAction)
+Log ("删除面汇总:     Chrome 缓存 {0} 项 / Temp 旧目录 {1} 项 / C:\Windows\Temp {2} 项 / 本项目产物 {3} 项 / 打印队列 {4} 项 / 内核转储 {5} 条 / 孤儿浏览器构建 {6} 项;按名字判据跳过的 Temp 目录 {7} 项({8} MB);宽口径开关 IHUI_TEMP_WIDE_SWEEP = {9};封口体检退出码 = {10}(0=完好;1=预演到待处置,或重封后复检仍待处置);Chrome 模型策略 = {11}" -f `
+  $chromeTargets, $tempTargets, $wtTargets, $projTargets, $spoolTargets, $dumpTargets, $pwTargets, $tempSkipped, [math]::Round($tempSkippedSize/1MB,1), $(if ($wideSweep) { '已启用' } else { '未启用' }), $sealNeedsAction, $policyState)
 Log ("合计释放:       {0} MB" -f [math]::Round($freed/1MB,1))
 Log ("==========================================")
 
