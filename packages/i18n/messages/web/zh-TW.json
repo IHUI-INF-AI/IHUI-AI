@@ -968,6 +968,25 @@
       "fieldTitle": "標題",
       "fieldType": "類型",
       "loading": "加載中...",
+      "maintenanceNotice": {
+        "action": "維護公告郵件",
+        "desc": "以「智匯通報」維護通知版式群發給狀態正常且有郵箱的用戶",
+        "downtimePlaceholder": "如 2 小時",
+        "dryRun": "試運行（只統計收件人，不實際發送）",
+        "fieldDowntime": "預計停機時長",
+        "fieldLimit": "首批發送上限",
+        "fieldScope": "影響範圍",
+        "fieldWindow": "維護時段",
+        "limitInvalid": "首批發送上限須為正整數",
+        "limitPlaceholder": "留空表示全量發送",
+        "required": "請填寫維護時段、影響範圍與預計停機時長",
+        "resultDryRun": "試運行完成：{total} 位收件人將收到「{subject}」",
+        "resultSent": "發送完成：成功 {sent} 封 / 失敗 {failed} 封 / 通道未配置 {stubbed} 封",
+        "scopePlaceholder": "如 API 與控制台",
+        "send": "發送",
+        "title": "發送維護公告郵件",
+        "windowPlaceholder": "如 2026-09-25 02:00–04:00"
+      },
       "no": "否",
       "noData": "暫無公告",
       "published": "已發布",
@@ -6903,6 +6922,21 @@
       "statusSuccess": "成功",
       "title": "工具調用鏈",
       "waiting": "等待工具調用..."
+    },
+    "card": {
+      "roleResearcher": "研究員",
+      "roleCoder": "編碼員",
+      "roleReviewer": "審查員",
+      "roleTester": "測試員",
+      "roleCustom": "自定義",
+      "unnamed": "未命名",
+      "lastActive": "最後活躍 {time}",
+      "actionStart": "啟動",
+      "actionPause": "暫停",
+      "actionStop": "停止",
+      "actionCopyConfig": "複製配置",
+      "permissionMode": "權限模式",
+      "maxIterations": "最大迭代"
     }
   },
   "agents": {
@@ -7040,6 +7074,379 @@
       "rollbackConfirmConfirm": "確認恢復"
     },
     "pane": {
+      "businessForms": {
+        "ariaLabel": "業務表單卡",
+        "aria": {
+          "email": "郵件撰寫卡",
+          "calendarEvent": "日曆表單卡"
+        },
+        "fields": {
+          "to": "收件人",
+          "cc": "副本",
+          "bcc": "密件副本",
+          "subject": "主旨",
+          "replyTo": "回覆至",
+          "body": "內文",
+          "start": "開始",
+          "end": "結束",
+          "attendees": "出席人"
+        },
+        "action": {
+          "approve": "批准",
+          "reject": "拒絕",
+          "create": "建立",
+          "save": "儲存"
+        },
+        "error": {
+          "required": "請填寫必填欄位",
+          "invalidEmail": "電子郵件格式不正確",
+          "endBeforeStart": "結束時間需晚於開始時間",
+          "noAttendees": "請至少新增一位出席人"
+        },
+        "fold": {
+          "expand": "展開全部 {count} 位出席人",
+          "collapse": "收合出席人"
+        },
+        "status": {
+          "submitting": "提交中…",
+          "approved": "已批准",
+          "rejected": "已拒絕",
+          "failed": "提交失敗，請重試"
+        }
+      },
+      "inputSources": {
+        "ariaLabel": "輸入源與佇列",
+        "snapshot": {
+          "attachApp": "附加 {appName}",
+          "state": {
+            "disabled": "未啟用智慧快照",
+            "enabled": "已啟用智慧快照",
+            "failed": "智慧快照失敗"
+          },
+          "enable": "啟用智慧快照",
+          "firstRunGuideTitle": "首次使用智慧快照",
+          "firstRunGuideBody": "智慧快照會為目前應用程式建立上下文快照，訊息將自動附帶應用程式資訊",
+          "failedHint": "快照建立失敗，可重試或改用一般附件傳送"
+        },
+        "route": {
+          "appSnapshot": "應用程式快照",
+          "remoteFile": "遠端檔案",
+          "remotePhoto": "遠端照片"
+        },
+        "command": {
+          "queuePrompt": "將提示加入佇列",
+          "queuePromptDesc": "本輪回覆結束後自動按順序傳送佇列中的提示",
+          "steerPrompt": "引導提示",
+          "steerPromptDesc": "向正在產生的回覆中途插入引導，不打斷目前輸出"
+        },
+        "undo": {
+          "restoring": "正在復原佇列中的訊息",
+          "restored": "已復原佇列中的訊息",
+          "restoredQueued": "已復原排隊的訊息",
+          "failed": "復原失敗，訊息仍在佇列中"
+        },
+        "memoryRefs": {
+          "count": "{count} 條記憶引用",
+          "tooltip": "引用的記憶",
+          "empty": "暫無記憶引用"
+        },
+        "goal": {
+          "achievedIn": "已在 {totalTime} 內達成目標"
+        }
+      },
+      "inputNotices": {
+        "ariaLabel": "壓縮與排隊提示",
+        "compaction": {
+          "block": {
+            "cause": {
+              "runningTurn": "目前 Turn 正在執行中",
+              "insufficientCredits": "壓縮會消耗少量積分",
+              "noTurnBoundary": "目前沒有可用的 Turn 邊界"
+            },
+            "consequence": {
+              "runningTurn": "壓縮將在目前 Turn 完成後執行，不能插入正在執行的 Turn",
+              "insufficientCredits": "積分不足，本次壓縮不會執行，對話上下文保持不變",
+              "noTurnBoundary": "壓縮暫時無法執行，對話上下文保持不變"
+            }
+          }
+        },
+        "queue": {
+          "reasonTitle": "排隊原因",
+          "reason": {
+            "turnRunning": "目前回覆正在產生，訊息將在本輪結束後傳送",
+            "queueAhead": "前面的訊息尚未處理完成，正在按順序等待",
+            "runtimeNoInterject": "目前 Runtime 不支援插話，訊息將繼續排隊"
+          },
+          "denied": {
+            "reorder": "無法調整排隊順序",
+            "undo": "無法撤回排隊訊息",
+            "interject": "目前 Runtime 不支援插話，訊息將繼續排隊"
+          },
+          "reorderAria": "拖動調整排隊順序；聚焦後可使用上下方向鍵"
+        }
+      },
+      "voiceSubtitles": {
+        "muteAndShowSubtitles": "靜音並顯示字幕",
+        "subtitleTitle": "語音字幕",
+        "micError": {
+          "noPermission": "無麥克風權限,請在瀏覽器或系統設定中允許麥克風存取",
+          "noDevice": "未偵測到麥克風裝置,請接入麥克風後重試",
+          "occupied": "麥克風被其他應用程式佔用,請關閉佔用後重試",
+          "startFailed": "麥克風啟動失敗,請重試"
+        },
+        "micErrorAria": {
+          "noPermission": "麥克風無權限,需要先在設定中授權",
+          "noDevice": "未偵測到麥克風裝置,需要先接入麥克風",
+          "occupied": "麥克風被其他應用程式佔用,需要先釋放",
+          "startFailed": "麥克風啟動失敗,可重試"
+        },
+        "conflict": "錄音紀要進行中,語音播報已暫停;錄音與播報不能同時進行",
+        "view": {
+          "discussionSummary": "討論紀要",
+          "taskFlow": "任務流"
+        },
+        "viewAriaLabel": "切換討論紀要與任務流視圖",
+        "ariaLabel": "語音字幕與麥克風狀態"
+      },
+      "annotationAnchors": {
+        "label": {
+          "pdf": "PDF 第 {page} 頁",
+          "docx": "文件第 {page} 頁",
+          "docxText": "文件第 {paragraph} 段",
+          "pptx": "第 {slide} 張 · {element}",
+          "pptxSlide": "第 {slide} 張",
+          "pptxComment": "批註 {element}",
+          "xlsx": "{sheet} · {range}",
+          "xlsxSheet": "{sheet}",
+          "xlsxSelected": "已選擇 {range}"
+        },
+        "taskInputPlaceholder": "描述希望 Agent 修改或檢查的內容",
+        "addToTask": "加入到任務",
+        "cancel": "取消",
+        "delete": "刪除",
+        "relabel": "重新標註",
+        "ariaLabel": "文件批註錨點"
+      },
+      "quotaOwnership": {
+        "title": {
+          "personalDaily": "個人今日額度",
+          "freeModelDaily": "免費模型今日額度",
+          "teamAdmin": "團隊·需管理員",
+          "billingGroupCredits": "計費組·Credits 上限"
+        },
+        "action": {
+          "viewUsage": "查看用量明細",
+          "switchFreeModel": "切換免費模型",
+          "upgradeOrAdmin": "升級或聯絡管理員"
+        },
+        "discount": {
+          "active": "離峰折扣進行中",
+          "upcoming": "{{time}}後進入離峰折扣"
+        },
+        "duration": {
+          "hour": "小時",
+          "minute": "分"
+        },
+        "degradeHint": "免費額度仍可使用,可切換免費模型繼續,無需儲值",
+        "ariaLabel": "額度歸屬與處理建議"
+      },
+      "moveToWorktree": {
+        "title": "將對話移交至工作樹",
+        "subtitle": "在新工作樹中檢出分支 <branch>{branchName}</branch>，以繼續並行工作。",
+        "continue": "移交",
+        "cancel": "取消",
+        "loading": "正在檢查能否移交…",
+        "existingWorktreeRunning": "請等待目前回覆完成後再移動此聊天",
+        "existingWorktreeLabel": "已有工作樹",
+        "createNewLabel": "建立新工作樹",
+        "targetLabel": "移交目標",
+        "localCheckoutLabel": "本地工作空間將切換至",
+        "localBranchPlaceholder": "選擇本地檢出分支",
+        "noTargetBranch": "沒有其他本地分支可用",
+        "branchesLoading": "正在載入分支…",
+        "branchesError": "分支載入失敗",
+        "branchesRetry": "重試",
+        "branchAlreadyExists": "該分支已有工作樹。",
+        "defaultBranchError": "工作樹分支必須不同於預設分支。",
+        "trailingSlashError": "分支名不能以\"/\"結尾。",
+        "worktreeBranchRequired": "請輸入工作樹分支名。",
+        "worktreeBranchAriaLabel": "工作樹分支名",
+        "worktreeBranchLabel": "工作樹分支名"
+      },
+      "editResend": {
+        "title": "回退檔案修改並重新發送？",
+        "ariaLabel": "回退檔案修改並重新發送",
+        "desc": "將回退本輪檔案變更，並用編輯後的內容重新發送訊息。",
+        "confirm": "回退並重新發送",
+        "cancel": "取消",
+        "previewFilesTitle": "將回退的檔案",
+        "previewEditTitle": "將重新發送的內容",
+        "fileRecorded": "檢查點已記錄",
+        "fileUnrecorded": "檢查點未記錄",
+        "previewFilesMore": "等 {count} 個檔案",
+        "detailAction": "查看逐檔案變更",
+        "detailLabel": "編輯重發 · 檔案回退影響預覽",
+        "warning": {
+          "partialRollback": "部分修改未被檢查點完整記錄，回退結果可能不完整"
+        },
+        "phase": {
+          "idle": "待發起",
+          "previewing": "預覽中",
+          "confirmed": "已確認",
+          "executing": "正在回退檔案並重新發送…",
+          "completed": "已回退並重新發送",
+          "editFailed": "編輯失敗",
+          "rollbackFailed": "回退失敗",
+          "rollbackPartial": "部分回退",
+          "syncFailed": "本機同步失敗",
+          "replaceFailed": "替換失敗"
+        },
+        "failure": {
+          "editFailed": "編輯內容未能套用，已停止執行。",
+          "rollbackFailed": "檔案回退失敗，已停止執行。",
+          "rollbackPartial": "僅部分檔案回退成功，已停止執行。",
+          "syncFailed": "本機狀態同步失敗，已停止執行。",
+          "replaceFailed": "訊息替換失敗，已停止執行。"
+        }
+      },
+      "agentActions": {
+        "title": "多智能體操作",
+        "header": {
+          "count": "{count, plural, one {1 個智能體} other {# 個智能體}}"
+        },
+        "row": {
+          "agent": "{action} {agent}{stateSuffix}"
+        },
+        "meta": {
+          "prompt": "輸入：{prompt}"
+        },
+        "action": {
+          "spawn": {
+            "label": "建立",
+            "inProgress": "建立中",
+            "completed": "已建立",
+            "failed": "建立失敗"
+          },
+          "resume": {
+            "label": "恢復",
+            "inProgress": "恢復中",
+            "completed": "已恢復",
+            "failed": "恢復失敗"
+          },
+          "sendInput": {
+            "label": "傳送輸入",
+            "inProgress": "傳送中",
+            "completed": "已傳送",
+            "failed": "傳送失敗"
+          },
+          "interrupt": {
+            "label": "中斷",
+            "inProgress": "正在中斷",
+            "completed": "已中斷",
+            "failed": "中斷未成功"
+          },
+          "close": {
+            "label": "關閉",
+            "inProgress": "正在關閉",
+            "completed": "已關閉",
+            "failed": "無法關閉"
+          },
+          "list": {
+            "label": "列出",
+            "inProgress": "載入中",
+            "completed": "已載入",
+            "failed": "載入失敗"
+          }
+        },
+        "state": {
+          "running": "執行中",
+          "completed": "已完成",
+          "errored": "發生錯誤",
+          "interrupted": "已中斷",
+          "pendingInit": "準備中",
+          "shutdown": "已關閉",
+          "notFound": "找不到"
+        }
+      },
+      "modelLoad": {
+        "ariaLabel": "模型負載與排隊狀態",
+        "load": {
+          "low": "低負載可能排隊",
+          "medium": "中負載可能排隊",
+          "high": "高負載可能排隊"
+        },
+        "slowLane": "已進入慢速佇列·目前排位 {position}",
+        "fastPass": "已開啟速通免排",
+        "recovering": "模型可用，正在繼續請求",
+        "wait": {
+          "under1min": "預計等待 不足1分鐘",
+          "about1min": "預計等待 約1分鐘",
+          "aboutNmin": "預計等待 約{minutes}分鐘",
+          "over10min": "預計等待 超過10分鐘"
+        }
+      },
+      "cloudChatOps": {
+        "title": "雲端聊天",
+        "ariaLabel": "雲端聊天互通活動",
+        "empty": "目前沒有雲端聊天操作",
+        "waitingUpstream": "等待上游動作",
+        "op": {
+          "attachCloudChat": {
+            "label": "附加雲端聊天",
+            "active": "附加中",
+            "completed": "已附加",
+            "following": "等待附加"
+          },
+          "createCloudChat": {
+            "label": "建立雲端聊天",
+            "active": "建立中",
+            "completed": "已建立",
+            "following": "等待建立"
+          },
+          "listCloudChats": {
+            "label": "列出雲端聊天",
+            "active": "列出中",
+            "completed": "已列出",
+            "following": "等待列出"
+          },
+          "readCloudChatTurns": {
+            "label": "讀取雲端聊天輪次",
+            "active": "讀取中",
+            "completed": "已讀取",
+            "following": "等待讀取"
+          },
+          "sendToCloudChat": {
+            "label": "向雲端聊天傳送訊息",
+            "active": "傳送中",
+            "completed": "已傳送",
+            "following": "等待傳送"
+          }
+        }
+      },
+      "prChecks": {
+        "title": "CI 檢查",
+        "summary": {
+          "failing": "檢查未通過",
+          "pending": "檢查待處理",
+          "successful": "檢查已通過",
+          "none": "無 CI 檢查"
+        },
+        "state": {
+          "failed": "測試失敗",
+          "passed": "測試已通過",
+          "pending": "待測試",
+          "skipped": "已跳過的測試",
+          "neutral": "中性測試",
+          "unknown": "測試狀態未知"
+        },
+        "action": {
+          "checksFix": "修復",
+          "checksRemove": "移除",
+          "commentsAddress": "新增到對話",
+          "commentsRemove": "移除"
+        },
+        "countLabel": "{passed}/{total} 項通過"
+      },
       "retryScheduled": "上游暫不可用，第 {attempt}/{max} 次重試，{seconds} 秒後繼續",
       "retryScheduledNow": "上游正在切換通道，第 {attempt}/{max} 次重試（立即繼續）",
       "ariaLabel": "Agent 任務進度面板",
@@ -7252,7 +7659,6 @@
       "thinkingChars": "字",
       "thinkingElapsedTitle": "已思考 {time}",
       "thinkingStreaming": "思考中...",
-      "thinkingTitle": "思考過程",
       "timelineClearFilters": "清空過濾",
       "timelineCountDone": "已完成",
       "timelineCountFailed": "失敗",
@@ -7390,6 +7796,618 @@
         "noReasonText": "自動審查未提供理由",
         "noDecision": "暫無自動審查記錄",
         "expandAria": "命令歷史(展開/收起)"
+      },
+      "toolSummaryShowMore": "更多",
+      "toolSummaryShowLess": "收起",
+      "handoff": {
+        "title": "失敗診斷交接單",
+        "ariaLabel": "失敗診斷交接單",
+        "section": {
+          "diagnosis": "診斷方法",
+          "fixSteps": "已嘗試的修復步驟",
+          "evidence": "已脫敏證據：",
+          "productSurface": "產品介面"
+        },
+        "source": {
+          "local": "本機判據",
+          "external": "輔助訊號"
+        },
+        "externalCaveat": "外部服務回傳 down 僅作輔助訊號,未單獨作為結論依據(§5d:網路不可達 ≠ 失敗)。",
+        "localUnknown": "本機暫無確定性判據,未下結論",
+        "empty": {
+          "fixSteps": "未嘗試任何修復步驟",
+          "evidence": "無可用證據",
+          "productSurface": "未提供產品介面資訊",
+          "incidents": "暫無可能相關的事件"
+        },
+        "incidentLine": "狀態：可能相關的事件：{incidentNames}",
+        "truncated": "已截斷 {count} 個字元",
+        "degraded": "資料來源無法連線,以下交接單僅含本機已取得的資訊(§5d:網路不可達 ≠ 失敗)",
+        "redacted": "本交接單已完成脫敏(金鑰 / 權杖 / 郵件 / IP 已替換)",
+        "copy": "複製交接單",
+        "copied": "已複製交接單"
+      },
+      "turnStatus": {
+        "title": "輪次狀態",
+        "state": {
+          "queued": "排隊中",
+          "preparing": "準備中",
+          "thinking": "思考中",
+          "usingTool": "使用工具",
+          "waitingConfirm": "等待確認",
+          "backgroundRunning": "背景執行中",
+          "stopping": "正在停止",
+          "completed": "已完成",
+          "failed": "失敗",
+          "stopped": "已停止"
+        },
+        "aria": {
+          "queued": "本輪正在排隊,前面的請求完成後才會開始",
+          "preparing": "正在為本輪準備上下文",
+          "thinking": "模型正在思考",
+          "usingTool": "正在使用工具",
+          "waitingConfirm": "本輪已暫停,等你確認後才會繼續",
+          "backgroundRunning": "本輪已轉入背景執行,你可以繼續輸入新的內容",
+          "stopping": "正在停止本輪",
+          "completed": "本輪已完成",
+          "failed": "本輪失敗,可重試",
+          "stopped": "本輪已停止,可繼續"
+        },
+        "hint": {
+          "queued": "前面的請求完成後本輪會自動開始",
+          "waitingConfirm": "已暫停等你確認;不確認本輪不會繼續",
+          "backgroundRunning": "已在背景繼續執行,不會阻塞你的新輸入",
+          "stopping": "正在收尾,稍後即停"
+        },
+        "action": {
+          "stop": "停止",
+          "retry": "重試",
+          "resume": "繼續"
+        }
+      },
+      "errorCatalog": {
+        "ACCOUNT_RESTRICTED": {
+          "title": "帳戶受限",
+          "action": "聯絡管理員"
+        },
+        "API_BRIDGE_ERROR": {
+          "title": "介面橋接呼叫失敗",
+          "action": "稍後重試"
+        },
+        "BAD_PARAMS": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "BUDGET_EXHAUSTED": {
+          "title": "額度已用盡",
+          "action": "稍後再試或改用免費模型"
+        },
+        "CAPTURE_FAILED": {
+          "title": "工具執行失敗",
+          "action": "重試"
+        },
+        "CDP_DISABLED": {
+          "title": "瀏覽器除錯通道不可用",
+          "action": "開啟後重試"
+        },
+        "CDP_UNAVAILABLE": {
+          "title": "瀏覽器除錯通道不可用",
+          "action": "開啟後重試"
+        },
+        "CONCURRENCY_LIMIT_EXCEEDED": {
+          "title": "請求過於頻繁",
+          "action": "稍後重試"
+        },
+        "CONTEXT_TOO_LONG": {
+          "title": "上下文過長",
+          "action": "精簡上下文"
+        },
+        "CRON_NOT_SUPPORTED": {
+          "title": "定時設定無效",
+          "action": "修改定時設定後重試"
+        },
+        "DANGEROUS_COMMAND": {
+          "title": "該操作已被安全原則攔截",
+          "action": "修改後重試"
+        },
+        "DANGEROUS_COMMAND_BLOCKED": {
+          "title": "該操作已被安全原則攔截",
+          "action": "修改後重試"
+        },
+        "DELEGATE_ERROR": {
+          "title": "子任務執行失敗",
+          "action": "重試"
+        },
+        "DELEGATE_NO_RESULT": {
+          "title": "子任務執行失敗",
+          "action": "重試"
+        },
+        "DELEGATE_TIMEOUT": {
+          "title": "請求逾時",
+          "action": "重試"
+        },
+        "DEP_MISSING": {
+          "title": "相依套件缺失",
+          "action": "安裝相依套件後重試"
+        },
+        "DOWNLOAD_FAILED": {
+          "title": "網路請求失敗",
+          "action": "檢查網路後重試"
+        },
+        "DUAL_MODE": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "EMPTY_AUDIO": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "EMPTY_DIFF": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "EMPTY_OLD_STRING": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "EMPTY_RESULT": {
+          "title": "沒有可顯示的結果",
+          "action": "修改後重試"
+        },
+        "EMPTY_TASKS": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "ENCODING_ERROR": {
+          "title": "檔案讀寫失敗",
+          "action": "檢查檔案後重試"
+        },
+        "ENGINE_ERROR": {
+          "title": "服務內部處理錯誤",
+          "action": "重試"
+        },
+        "ENGINE_UNAVAILABLE": {
+          "title": "模型服務暫時不可用",
+          "action": "更換模型或稍後重試"
+        },
+        "EXECUTION_EXCEPTION": {
+          "title": "服務內部處理錯誤",
+          "action": "重試"
+        },
+        "EXECUTION_FAILED": {
+          "title": "服務內部處理錯誤",
+          "action": "重試"
+        },
+        "EXECUTOR_DISABLED": {
+          "title": "該功能已停用",
+          "action": "聯絡管理員"
+        },
+        "EXEC_POLICY_DENIED": {
+          "title": "該操作已被安全原則攔截",
+          "action": "修改後重試"
+        },
+        "EXEC_POLICY_NEEDS_APPROVAL": {
+          "title": "需要確認後才會執行",
+          "action": "前往確認"
+        },
+        "FALLBACK_FAILED": {
+          "title": "模型服務暫時不可用",
+          "action": "更換模型或稍後重試"
+        },
+        "FETCH_FAILED": {
+          "title": "網路請求失敗",
+          "action": "檢查網路後重試"
+        },
+        "FILE_NOT_FOUND": {
+          "title": "找不到目標資源",
+          "action": "檢查後重試"
+        },
+        "FILE_TOO_LARGE": {
+          "title": "檔案過大",
+          "action": "精簡檔案後重試"
+        },
+        "GENERATION_FAILED": {
+          "title": "生成失敗",
+          "action": "重試"
+        },
+        "GITHUB_API_ERROR": {
+          "title": "外部服務呼叫失敗",
+          "action": "稍後重試"
+        },
+        "IMAGE_FETCH_FAILED": {
+          "title": "網路請求失敗",
+          "action": "檢查網路後重試"
+        },
+        "IMAGE_TOO_LARGE": {
+          "title": "圖片過大",
+          "action": "壓縮圖片後重試"
+        },
+        "INTERNAL_AUTH_UNAVAILABLE": {
+          "title": "登入已過期",
+          "action": "重新登入"
+        },
+        "INTERNAL_ERROR": {
+          "title": "服務內部處理錯誤",
+          "action": "重試"
+        },
+        "INVALID_ARGS": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "INVALID_ARGUMENT": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "INVALID_CHART_TYPE": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "INVALID_CONFIG": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "INVALID_DATA": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "INVALID_OUTPUT_DIR": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "INVALID_PARAMS": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "INVALID_PR": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "INVALID_PROVIDER": {
+          "title": "模型服務暫時不可用",
+          "action": "更換模型或稍後重試"
+        },
+        "INVALID_REPO": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "INVALID_TRIGGER": {
+          "title": "定時設定無效",
+          "action": "修改定時設定後重試"
+        },
+        "IS_A_DIRECTORY": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "LLM_ERROR": {
+          "title": "模型服務暫時不可用",
+          "action": "更換模型或稍後重試"
+        },
+        "LLM_FAILED": {
+          "title": "模型服務暫時不可用",
+          "action": "更換模型或稍後重試"
+        },
+        "MEDIA_COUNT_EXCEEDED": {
+          "title": "媒體檔案數量超出限制",
+          "action": "精簡附件後重試"
+        },
+        "MISSING_DATA": {
+          "title": "缺少必填參數",
+          "action": "補充參數後重試"
+        },
+        "MISSING_PARAMS": {
+          "title": "缺少必填參數",
+          "action": "補充參數後重試"
+        },
+        "MISSING_PATH_PARAM": {
+          "title": "缺少必填參數",
+          "action": "補充參數後重試"
+        },
+        "MISSING_SECRET": {
+          "title": "未設定可用的模型服務",
+          "action": "先設定模型服務"
+        },
+        "MISSING_TITLE": {
+          "title": "缺少必填參數",
+          "action": "補充參數後重試"
+        },
+        "MODEL_NOT_CONFIGURED": {
+          "title": "未設定可用的模型服務",
+          "action": "先設定模型服務"
+        },
+        "MODEL_REFUSED": {
+          "title": "目前模型拒絕了本次請求",
+          "action": "更換模型"
+        },
+        "MULTIPLE_MATCHES": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "NESTING_DEPTH_EXCEEDED": {
+          "title": "結構層級超出可處理範圍",
+          "action": "簡化後重試"
+        },
+        "NETWORK_APPROVAL_DENIED": {
+          "title": "需要確認後才會執行",
+          "action": "前往確認"
+        },
+        "NETWORK_ERROR": {
+          "title": "網路請求失敗",
+          "action": "檢查網路後重試"
+        },
+        "NOT_A_DIRECTORY": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "NOT_FOUND": {
+          "title": "找不到目標資源",
+          "action": "檢查後重試"
+        },
+        "NO_FILE_VERSIONS": {
+          "title": "檔案版本不可用",
+          "action": "選擇版本後重試"
+        },
+        "OLD_STRING_NOT_FOUND": {
+          "title": "找不到目標資源",
+          "action": "檢查後重試"
+        },
+        "PATH_NOT_ALLOWED": {
+          "title": "路徑不在允許的範圍內",
+          "action": "更換路徑後重試"
+        },
+        "PATH_NOT_IN_WORKSPACE": {
+          "title": "路徑不在允許的範圍內",
+          "action": "更換路徑後重試"
+        },
+        "PERMISSION_DENIED": {
+          "title": "沒有執行該操作的權限",
+          "action": "聯絡管理員"
+        },
+        "PROVIDER_ERROR": {
+          "title": "模型服務暫時不可用",
+          "action": "更換模型或稍後重試"
+        },
+        "PROVIDER_NOT_CONFIGURED": {
+          "title": "未設定可用的模型服務",
+          "action": "先設定模型服務"
+        },
+        "PROVIDER_QUOTA_EXHAUSTED": {
+          "title": "額度已用盡",
+          "action": "稍後再試或改用免費模型"
+        },
+        "PR_NOT_FOUND": {
+          "title": "找不到目標資源",
+          "action": "檢查後重試"
+        },
+        "RATE_LIMITED": {
+          "title": "請求過於頻繁",
+          "action": "稍後重試"
+        },
+        "REQUEST_TIMEOUT": {
+          "title": "請求逾時",
+          "action": "重試"
+        },
+        "RESOURCE_NOT_REGISTERED": {
+          "title": "找不到目標資源",
+          "action": "檢查後重試"
+        },
+        "RISK_CONFIRM_REQUIRED": {
+          "title": "需要確認後才會執行",
+          "action": "前往確認"
+        },
+        "SCHEME_REJECTED": {
+          "title": "該位址不被允許存取",
+          "action": "更換位址後重試"
+        },
+        "SCREENSHOT_FAILED": {
+          "title": "工具執行失敗",
+          "action": "重試"
+        },
+        "SENSITIVE_FILE_BLOCKED": {
+          "title": "該操作已被安全原則攔截",
+          "action": "修改後重試"
+        },
+        "SSRF_BLOCKED": {
+          "title": "該位址不被允許存取",
+          "action": "更換位址後重試"
+        },
+        "STEP_FAILED": {
+          "title": "工具執行失敗",
+          "action": "重試"
+        },
+        "SUBAGENT_FAILED": {
+          "title": "子任務執行失敗",
+          "action": "重試"
+        },
+        "TASK_FAILED": {
+          "title": "子任務執行失敗",
+          "action": "重試"
+        },
+        "TEXT_TOO_LONG": {
+          "title": "上下文過長",
+          "action": "精簡上下文"
+        },
+        "TIMEOUT": {
+          "title": "請求逾時",
+          "action": "重試"
+        },
+        "TOKEN_EXPIRED": {
+          "title": "登入已過期",
+          "action": "重新登入"
+        },
+        "TOOL_FAILED": {
+          "title": "工具執行失敗",
+          "action": "重試"
+        },
+        "TOOL_NOT_FOUND": {
+          "title": "找不到目標資源",
+          "action": "檢查後重試"
+        },
+        "TOO_LARGE": {
+          "title": "檔案過大",
+          "action": "精簡檔案後重試"
+        },
+        "TRIAL_QUOTA_EXCEEDED": {
+          "title": "額度已用盡",
+          "action": "稍後再試或改用免費模型"
+        },
+        "UNKNOWN_API_TOOL": {
+          "title": "找不到目標資源",
+          "action": "檢查後重試"
+        },
+        "UNSUPPORTED_FORMAT": {
+          "title": "不支援該檔案格式",
+          "action": "更換檔案格式後重試"
+        },
+        "UNSUPPORTED_IMAGE_FORMAT": {
+          "title": "不支援該檔案格式",
+          "action": "更換檔案格式後重試"
+        },
+        "VERSION_NOT_FOUND": {
+          "title": "檔案版本不可用",
+          "action": "選擇版本後重試"
+        },
+        "VERSION_SELECTOR_REQUIRED": {
+          "title": "檔案版本不可用",
+          "action": "選擇版本後重試"
+        },
+        "VERSION_TOO_LOW": {
+          "title": "版本過低",
+          "action": "升級至最新版本"
+        },
+        "VIDEO_FETCH_FAILED": {
+          "title": "網路請求失敗",
+          "action": "檢查網路後重試"
+        },
+        "WRITE_FAILED": {
+          "title": "檔案讀寫失敗",
+          "action": "檢查檔案後重試"
+        }
+      },
+      "worktree": {
+        "title": "Worktree",
+        "state": {
+          "creating": "建立中",
+          "ready": "已建立",
+          "initFailed": "初始化失敗",
+          "timeout": "逾時",
+          "cleaned": "此任務的 Worktree 已被清理以釋放磁碟空間。",
+          "restoring": "還原中",
+          "restored": "已還原",
+          "restoreFailed": "無法還原"
+        },
+        "hint": {
+          "timeout": "請檢查倉庫狀態",
+          "cleaned": "可還原該 Worktree 以繼續此任務,或回收磁碟空間。",
+          "singleWriter": "同一任務同時僅允許一個使用中的 Worktree。"
+        },
+        "action": {
+          "reclaimDisk": "回收磁碟空間",
+          "restore": "還原 Worktree",
+          "retryRestore": "重試還原",
+          "dismiss": "知道了"
+        },
+        "ariaLabel": "Worktree 生命週期"
+      },
+      "sideTask": {
+        "title": "側邊任務",
+        "ariaLabel": "側邊任務生命週期",
+        "ephemeralNotice": "這是暫時任務,關閉後即消失,不會保留到下次開啟。",
+        "empty": "暫無側邊任務",
+        "state": {
+          "running": "執行中",
+          "completed": "已完成",
+          "expired": "已過期",
+          "cleaned": "已清理"
+        },
+        "aria": {
+          "running": "側邊任務執行中",
+          "completed": "側邊任務已完成",
+          "expired": "側邊任務已過期",
+          "cleaned": "側邊任務已清理"
+        },
+        "hint": {
+          "expired": "已超過暫時任務的保留期限,可被清理。",
+          "cleaned": "內容已無法取得,僅保留標題。"
+        },
+        "location": {
+          "label": "執行位置",
+          "sameFolder": "與主任務在同一個資料夾",
+          "sameEnvironment": "與主任務在同一個執行環境"
+        },
+        "cleanedFrom": "來自已清理的 {title}",
+        "files": {
+          "label": "檔案變更",
+          "changedCount": "已變更 {count} 個檔案",
+          "empty": "這次側邊任務沒有變更任何檔案"
+        },
+        "action": {
+          "close": "關閉任務",
+          "cleanup": "清理過期任務"
+        },
+        "closeConfirm": {
+          "title": "關閉這個側邊任務?",
+          "desc": "這個暫時任務有 {artifacts} 個未落盤產物、{children} 個仍在執行的子行程,關閉後即消失且無法復原。",
+          "confirm": "仍要關閉",
+          "cancel": "暫不"
+        }
+      },
+      "writingBlock": {
+        "title": "寫作區塊",
+        "ariaLabel": "寫作區塊",
+        "empty": "此訊息暫無寫作區塊",
+        "status": {
+          "idle": "待處理",
+          "editing": "編輯中",
+          "accepted": "已接受",
+          "reverted": "已還原",
+          "failed": "無法更新此寫作區塊"
+        },
+        "action": {
+          "accept": "接受",
+          "acceptAll": "全部接受",
+          "revert": "撤銷"
+        },
+        "phase": {
+          "accept": {
+            "inProgress": "正在接受",
+            "completed": "已接受",
+            "failed": "無法接受此寫作區塊"
+          },
+          "acceptAll": {
+            "inProgress": "正在全部接受",
+            "completed": "已全部接受",
+            "failed": "無法全部接受此寫作區塊"
+          },
+          "revert": {
+            "inProgress": "正在撤銷",
+            "completed": "已撤銷",
+            "failed": "無法撤銷此寫作區塊"
+          }
+        },
+        "openIn": {
+          "label": "開啟方式",
+          "email": "使用預設電子郵件應用程式開啟電子郵件",
+          "browser": "使用預設瀏覽器開啟網頁"
+        }
+      },
+      "promptPolish": {
+        "entryLabel": "潤色",
+        "ariaLabel": "潤色提示詞",
+        "phase": {
+          "idle": "未潤色",
+          "polishing": "正在潤色…",
+          "succeeded": "潤色完成",
+          "failed": "潤色失敗"
+        },
+        "action": {
+          "polish": "潤色",
+          "retry": "重試"
+        },
+        "failureDraftKept": "暫時無法潤色提示詞，草稿已保留。",
+        "rejection": {
+          "emptyDraft": "草稿為空，請先輸入內容再潤色。"
+        },
+        "restartHint": "潤色服務需重新啟動後生效，草稿已保留。"
       }
     },
     "permissionConfirm": {
@@ -8258,6 +9276,12 @@
     },
     "metaDescription": "聚合國內外 41 個權威信源(微博/知乎/36氪/HackerNews/TechCrunch/OpenAI Blog/Arxiv 等),每 6 小時自動採集,模型/產品/行業/論文分類與趨勢信號實時更新。",
     "metaTitle": "AI 資訊 · 全網實時聚合流",
+    "priceChart": {
+      "inputPrice": "{name} · 輸入價: {price}",
+      "outputPrice": "{name} · 輸出價: {price}",
+      "legendInput": "輸入",
+      "legendOutput": "輸出"
+    },
     "trendChart": {
       "days": "天",
       "hotValue": "熱度值",
@@ -8566,6 +9590,7 @@
     "adoptHint": "把選中候選內容寫入當前對話"
   },
   "goalCard": {
+    "achievedInTime": "已在 {totalTime} 內達成目標",
     "empty": "尚未設定會話目標",
     "emptyHint": "在輸入框輸入 /goal <目標> 設定,或由 AI 自動推進",
     "progress": "進度",
@@ -9115,6 +10140,48 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "voiceNote": {
+      "title": "語音筆記",
+      "phase": {
+        "ready": "準備就緒",
+        "recording": "正在錄音",
+        "waitingTranscript": "等待轉寫",
+        "completed": "已完成",
+        "cancelled": "已取消",
+        "failed": "錄音失敗",
+        "error": "出錯了",
+        "interrupted": "已中斷"
+      },
+      "errors": {
+        "permission": "麥克風權限被拒絕,請在瀏覽器設定中允許後重試",
+        "noMicrophone": "未偵測到麥克風裝置",
+        "startFailed": "錄音啟動失敗,請重試",
+        "saveFailed": "錄音儲存失敗",
+        "recognitionFailed": "語音辨識中斷",
+        "emptyTranscript": "未辨識到內容",
+        "sttPending": "轉寫暫不可用,可稍後重試或僅儲存音訊"
+      },
+      "action": {
+        "start": "開始錄音",
+        "stop": "停止錄音",
+        "retry": "重試",
+        "saveAudioOnly": "僅儲存音訊",
+        "insertToInput": "插入對話",
+        "dismiss": "關閉"
+      }
+    },
+    "connectorAuth": {
+      "title": "連接到 {connectorName}",
+      "connected": "已連接",
+      "reconnect": "重新連接 {connectorName}",
+      "connect": "連接",
+      "connecting": "連接中…",
+      "moreInfo": "更多資訊",
+      "decline": "暫不",
+      "declined": "已拒絕連接 {connectorName}。本次對話不受影響。"
+    },
+    "queueUndoRestoredQueued": "已恢復排隊的訊息",
+    "queueUndoRestored": "已恢復佇列中的訊息",
     "usageEstimated": "估算",
     "turnChanges": {
       "title": "本輪變更",
@@ -9660,8 +10727,6 @@
     "sideUsage": "快速側問,不寫入主線歷史。用法:/side <問題>",
     "sideBadge": "側問",
     "sideEnqueued": "AI 生成中,側問已排隊,目前回答結束後自動補答",
-    "sideQueued": "側問待答",
-    "sideAnswerNow": "立即補答",
     "sideNoConversation": "對話尚未持久化,無法排隊側問,請先發送一條訊息",
     "sideAnswerFailed": "側問回答失敗: {error}",
     "commitNoWorkspace": "未選擇工作區,無法執行 /commit",
@@ -10066,6 +11131,25 @@
     "callingTool": "正在呼叫工具...",
     "waitingResponse": "等待回覆...",
     "pdfOpenExternal": "新視窗開啟",
+    "injectionAssemblyBadge": "本輪上下文 {count} 項",
+    "injectionAssemblySourcesTitle": "本輪上下文來源",
+    "injectionAssemblySourceCitations": "知識引用 {count} 條",
+    "injectionAssemblySourceSteer": "已引導 {count} 次",
+    "injectionAssemblyRetry": "上游重試 {attempt}/{max} 次",
+    "officeTooLarge": "檔案過大，無法預覽 — 請下載查看",
+    "officeExpired": "預覽連結已失效",
+    "officeUnsupported": "該檔案類型不支援預覽",
+    "officeLazyLoad": "點擊載入預覽",
+    "officeLoading": "正在載入預覽…",
+    "officeFailed": "預覽載入失敗",
+    "officeDownload": "下載查看",
+    "officeSelectedCell": "已選擇 {cell}",
+    "officeRowsTruncated": "僅顯示前 {rows} 行",
+    "pdfPageIndicator": "第 {page} / {total} 頁",
+    "pdfPageOnly": "第 {page} 頁",
+    "pdfPageJump": "跳轉到頁",
+    "pdfPageJumpLabel": "頁碼",
+    "pptxNotes": "備註",
     "csvPreviewMeta": "共 {rows} 列 × {cols} 欄",
     "csvExpand": "展開全部",
     "csvCollapse": "收合",
@@ -10262,6 +11346,16 @@
       "view": "檢視"
     },
     "commands": {
+      "steerPrompt": {
+        "label": "引導提示",
+        "description": "向正在執行的回覆中途插入引導，無需等待當前輪完成",
+        "keywords": ["引導", "插話", "steer"]
+      },
+      "queuePrompt": {
+        "label": "將提示加入佇列",
+        "description": "把目前輸入加入 W27 預備訊息佇列，串流結束後自動依序傳送",
+        "keywords": ["佇列", "排隊", "queue"]
+      },
       "agent": {
         "description": "管理並調度 AI 智能體",
         "keywords": ["智能體", "調度", "agent"],
@@ -10834,6 +11928,30 @@
     "savePreview": "保存預覽",
     "saved": "已保存「{name}」",
     "templates": {
+      "blank": "空白頁面",
+      "blankDesc": "從零開始的空白畫布,不含任何預置結構",
+      "landing": "落地頁",
+      "landingDesc": "主標題 + 賣點 + 行動按鈕的行銷首屏",
+      "dashboard": "數據儀表盤",
+      "dashboardDesc": "指標卡 + 圖表 + 清單的控制檯佈局",
+      "login": "登入頁",
+      "loginDesc": "帳號密碼表單 + 第三方登入入口",
+      "blog": "部落格清單",
+      "blogDesc": "文章卡片流 + 側欄導覽",
+      "product": "商品詳情",
+      "productDesc": "圖集 + 規格 + 購買按鈕的商品頁",
+      "pricing": "定價方案",
+      "pricingDesc": "多檔方案對比 + 權益清單",
+      "profile": "個人中心",
+      "profileDesc": "頭像 + 資料 + 設定項的帳戶頁",
+      "categories": {
+        "blank": "空白",
+        "marketing": "行銷",
+        "app": "應用介面",
+        "content": "內容",
+        "commerce": "電商",
+        "unknown": "未分類"
+      },
       "title": "模板"
     },
     "title": "設計模式",
@@ -14282,7 +15400,9 @@
     "summaryPlaceholder": "一句話描述文章內容",
     "tagsLabel": "標簽",
     "titleLabel": "標題",
-    "titlePlaceholder": "輸入文章標題"
+    "titlePlaceholder": "輸入文章標題",
+    "tagInputPlaceholder": "輸入標籤後回車",
+    "add": "添加"
   },
   "kbEditPage": {
     "backToArticle": "返回文章",
@@ -14387,7 +15507,11 @@
     },
     "title": "知識庫",
     "edit": "編輯知識",
-    "search": "搜索知識"
+    "search": "搜索知識",
+    "metaTitle": "RAG 知識檢索 — 向量 + BM25 + 知識圖譜 | 智匯 AI",
+    "metaDescription": "智匯 AI RAG 知識檢索:文檔分塊、向量化、混合檢索(向量 + BM25 + 知識圖譜),支持實時搜索與引用追溯。企業級 RAG 管理平臺。",
+    "metaOgTitle": "RAG 知識檢索 — 向量 + BM25 + 知識圖譜",
+    "metaOgDescription": "文檔分塊 + 向量化 + 混合檢索 + 引用追溯"
   },
   "learn": {
     "allCategories": "全部分類",
@@ -14875,7 +15999,15 @@
         "temperatureHelp": "採樣溫度,0~2,越低越確定,越高越發散",
         "title": "默認參數",
         "topP": "Top P",
-        "topPHelp": "核採樣閾值,0~1,只考慮概率最高的 token"
+        "topPHelp": "核採樣閾值,0~1,只考慮概率最高的 token",
+        "presetPrecise": "Precise(精確)",
+        "presetPreciseDesc": "低溫度,適合代碼 / 事實問答",
+        "presetBalanced": "Balanced(均衡)",
+        "presetBalancedDesc": "默認配置,適合日常對話",
+        "presetCreative": "Creative(創意)",
+        "presetCreativeDesc": "高溫度,適合寫作 / 頭腦風暴",
+        "presetJson": "JSON Mode",
+        "presetJsonDesc": "結構化輸出,適合 API 集成"
       },
       "modelsCount": "{count} 個模型",
       "more": "共 {total} 個,展開省略",
@@ -14953,7 +16085,30 @@
       "testSuccessWithTime": "成功 {ms}ms · {date}",
       "testTimeOnly": "耗時 {ms}ms",
       "untested": "未測試",
-      "usage30d": "30 天 Token"
+      "usage30d": "30 天 Token",
+      "byok": {
+        "modeLabel": "BYOK 模式",
+        "modeDesc": ":你配置的 API Key 加密存儲(AES-256-GCM),調用時直接使用你的 Key 訪問大廠。平臺只收 5-20% 服務費,Cloudflare / GitHub Models / HuggingFace 等免費 provider 不收費。",
+        "viewGuide": "查看引導",
+        "welcomeTitle": "歡迎使用 BYOK 平臺模式",
+        "welcomeDesc": "自帶 API Key 調用大廠模型,平臺僅收 5-20% 服務費",
+        "whyTitle": "為什麼選擇 BYOK?",
+        "whyDesc": "BYOK(Bring Your Own Key)讓你自帶大廠 API Key 調用模型,大廠直接扣你的賬戶,平臺只收 5-20% 服務費。相比傳統中轉站,你無需付中間商加價。",
+        "freeProvidersTitle": "免費 Provider 推薦",
+        "cfDesc": "@cf/ · 免費,無需 API Key",
+        "githubDesc": "github/ · 免費,用 GitHub token",
+        "hfDesc": "huggingface/ · 免費,用 HF token",
+        "pollinationsDesc": "pollinations/ · 免費,無需 API Key",
+        "llm7Desc": "llm7/ · 免費,無需 API Key",
+        "freeNote": "以上免費 provider 平臺完全不收費(0 服務費)",
+        "stepsTitle": "操作步驟",
+        "step1": "點擊左側「添加 Provider」按鈕",
+        "step2": "選擇廠商(如 OpenAI / DeepSeek / 智譜)或免費 provider(如 cloudflare)",
+        "step3": "填入你的 API Key(AES-256-GCM 加密存儲,平臺無法看到明文)",
+        "step4": "添加你要用的模型",
+        "step5": "調用時系統自動優先使用你的 Key",
+        "gotIt": "知道了"
+      }
     }
   },
   "market": {
@@ -20953,6 +22108,63 @@
     "purchase": "購買會員"
   },
   "wallet": {
+    "autoTopUp": {
+      "title": "自動儲值",
+      "description": "餘額低於門檻時,自動儲值到目標餘額。",
+      "enabled": "開啟自動儲值",
+      "enable": {
+        "success": "已開啟自動儲值",
+        "error": "開啟自動儲值失敗,請稍後再試"
+      },
+      "disable": {
+        "success": "已關閉自動儲值",
+        "error": "關閉自動儲值失敗,請稍後再試"
+      },
+      "save": {
+        "success": "已儲存自動儲值設定",
+        "error": "儲存自動儲值設定失敗,請稍後再試",
+        "action": "儲存自動儲值設定"
+      },
+      "dialog": {
+        "title": "確認開啟自動儲值",
+        "description": "開啟後,當餘額低於儲值門檻時,將自動扣款儲值到目標餘額。請確認這是你要的操作。",
+        "confirm": "確認開啟",
+        "cancel": "取消"
+      },
+      "target": {
+        "label": "目標餘額",
+        "helper": "餘額低於門檻時,自動儲值到此額度數。",
+        "ariaLabel": "目標餘額(額度數)",
+        "error": {
+          "missing": "請輸入目標餘額",
+          "wholeNumber": "目標餘額必須是整數",
+          "maximum": "目標餘額不得超過 {maximumCredits} 額度",
+          "minimumDifference": "目標餘額必須高於儲值門檻"
+        },
+        "equivalent": {
+          "loading": "正在取得價格…",
+          "text": "自動儲值 {creditCount} 額度,預計 <strong>{amount}</strong>",
+          "error": "取得價格失敗,請稍後再試"
+        }
+      },
+      "threshold": {
+        "label": "儲值門檻",
+        "helper": "餘額低於該額度數時觸發自動儲值。",
+        "ariaLabel": "儲值門檻(額度數)",
+        "error": {
+          "missing": "請輸入儲值門檻",
+          "wholeNumber": "儲值門檻必須是整數",
+          "minimum": "儲值門檻至少為 1"
+        }
+      },
+      "immediateTopUpFailure": {
+        "title": "首次自動儲值失敗",
+        "amount": "首次自動儲值預計 {amount},但付款未成功。",
+        "generic": "首次自動儲值未能完成。",
+        "updatePaymentMethod": "更新付款方式",
+        "buyCredits": "直接購買額度"
+      }
+    },
     "availableAmount": "可提現金額",
     "backToWallet": "返回錢包",
     "balance": "Token 餘額",
@@ -21512,11 +22724,6 @@
   },
   "permission": {
     "inputWarning": "偵測到高風險操作，建議確認後繼續",
-    "mode": {
-      "full": "完整權限",
-      "auto": "自動",
-      "ask": "詢問"
-    },
     "dangerousCommandTitle": "偵測到危險命令",
     "dangerousCommandDesc": "偵測到危險命令「{pattern}」：{reason}。是否仍然繼續執行？",
     "dangerousCommandProceed": "仍然執行",
@@ -21528,7 +22735,6 @@
     "copyText": "複製文字",
     "copyMarkdown": "複製 Markdown",
     "regenerate": "重新產生",
-    "feedback": "回饋",
     "deleteMessage": "刪除訊息"
   },
   "activityBar": {
@@ -22441,7 +23647,6 @@
     "copiedText": "已複製文字",
     "copiedMarkdown": "已複製 Markdown",
     "regenerating": "正在重新生成",
-    "feedbackRecorded": "已記錄回饋",
     "messageDeleted": "訊息已刪除",
     "operationFailed": "操作失敗"
   },
@@ -24490,7 +25695,22 @@
     "uploadFailedWithReason": "上傳失敗:{error}",
     "unknownError": "未知錯誤",
     "missingFileId": "上傳響應缺少 file.id",
-    "maxAttachmentsReached": "最多 {count} 個附件"
+    "maxAttachmentsReached": "最多 {count} 個附件",
+    "placeholder": "點選或拖拽檔案到此處上傳",
+    "done": "已完成",
+    "cancelUpload": "取消上傳",
+    "removeUploadedAriaLabel": "刪除已上傳檔案",
+    "removeItemAriaLabel": "移除上傳項",
+    "sizeLimitHint": "單檔案不超過 {size}",
+    "maxCountReached": "已達上限 {max} 個檔案",
+    "oversizeFiles": "以下檔案超過 {size}: {files}",
+    "uploadFailed": "上傳失敗",
+    "uploadFailedWithStatus": "上傳失敗:HTTP {status}",
+    "invalidJsonResponse": "回應不是合法 JSON",
+    "noUrlField": "回應中未找到可用的 URL 欄位",
+    "networkError": "網路錯誤",
+    "uploadCancelled": "上傳已取消",
+    "imagePlaceholder": "點選或拖拽上傳圖片"
   },
   "eduScheduling": {
     "title": "智能排課",
@@ -25443,5 +26663,195 @@
     "rotateSecretDesc": "輪換「{name}」的 secret 後,舊 secret 立即失效,使用舊 secret 的應用需更新。確認繼續?",
     "deleteKeyTitle": "刪除 API 密鑰",
     "deleteKeyDesc": "確定刪除「{name}」?刪除後該密鑰立即失效,且無法恢復。"
+  },
+  "knowledgeList": {
+    "title": "知識庫",
+    "subtitle": "通過語義搜索檢索記憶庫中的知識內容",
+    "searchPlaceholder": "搜索知識庫...",
+    "searchAriaLabel": "搜索知識庫",
+    "empty": "暫無搜索結果",
+    "searchHint": "輸入關鍵詞搜索知識庫內容",
+    "resultCount": "共 {count} 條結果"
+  },
+  "knowledgeBase": {
+    "backToList": "返回列表",
+    "searchPlaceholder": "搜索知識庫文章...",
+    "metaTitle": "知識庫 — 企業 RAG 知識管理系統 | 智匯 AI",
+    "metaDescription": "智匯 AI 知識庫:支持 30+ 數據源接入,混合檢索(向量 + BM25 + 知識圖譜),引用追溯,細粒度權限管控。幫企業把散落文檔變成可對話的 AI 知識大腦。",
+    "metaOgTitle": "企業知識庫 RAG — 智匯 AI",
+    "metaOgDescription": "30+ 數據源 + 混合檢索 + 引用追溯 + 權限管控",
+    "list": {
+      "title": "知識庫",
+      "subtitle": "瀏覽、搜索與管理知識庫文章",
+      "allCategories": "全部分類",
+      "empty": "暫無文章"
+    },
+    "detail": {
+      "notFound": "文章不存在",
+      "viewCount": "{count} 次瀏覽",
+      "toc": "目錄",
+      "prev": "上一篇",
+      "next": "下一篇"
+    },
+    "search": {
+      "backToKb": "返回知識庫",
+      "title": "搜索結果",
+      "resultSummary": "關鍵詞「{q}」共找到 {count} 條結果",
+      "inputKeyword": "請輸入搜索關鍵詞",
+      "searching": "搜索中...",
+      "noResult": "未找到相關文章"
+    },
+    "create": {
+      "title": "新建知識庫文章",
+      "subtitle": "撰寫新的知識庫文章併發布"
+    }
+  },
+  "webviewFrame": {
+    "loadingText": "加載中...",
+    "screenshotNotice": "該網站禁止嵌入,已切換到截圖模式",
+    "blockedTitle": "URL 不安全,已攔截",
+    "failedTitle": "加載失敗",
+    "externalTitle": "無法在面板內嵌入",
+    "retry": "重試",
+    "openExternal": "在外部瀏覽器開啟",
+    "idlePlaceholder": "輸入網址或點擊 AI 訊息中的連結以開啟"
+  },
+  "conversationDetailMode": {
+    "label": "顯示檔位",
+    "steps": "步驟",
+    "commands": "指令",
+    "narrative": "敘述"
+  },
+  "ambientSuggestions": {
+    "title": "下一步建議",
+    "suggestionResumeTask": "繼續執行未完成的任務",
+    "suggestionReviewFiles": "檢視剛才修改的檔案",
+    "suggestionAnswerQuestion": "回答 AI 的提問",
+    "suggestionContinueTopic": "就上述內容繼續追問",
+    "dismiss": "忽略這條建議",
+    "close": "關閉建議列",
+    "restore": "顯示建議"
+  },
+  "taskMonitor": {
+    "displayMode": "展示方式",
+    "modeSections": "分區",
+    "modeTabs": "平鋪",
+    "sections": {
+      "progress": "進度與上下文",
+      "activity": "執行活動",
+      "results": "結果與來源",
+      "auxiliary": "輔助入口"
+    }
+  },
+  "multiAgentAction": {
+    "header": {
+      "count": "{count, plural, one {# 個智能體} other {# 個智能體}}"
+    },
+    "action": {
+      "spawn": {
+        "label": "建立",
+        "inProgress": "建立中",
+        "completed": "已建立",
+        "failed": "建立失敗"
+      },
+      "resume": {
+        "label": "恢復",
+        "inProgress": "恢復中",
+        "completed": "已恢復",
+        "failed": "恢復失敗"
+      },
+      "sendInput": {
+        "label": "傳送輸入",
+        "inProgress": "傳送中",
+        "completed": "已傳送",
+        "failed": "傳送失敗"
+      },
+      "interrupt": {
+        "label": "中斷",
+        "inProgress": "正在中斷",
+        "completed": "已中斷",
+        "failed": "中斷未成功"
+      },
+      "close": {
+        "label": "關閉",
+        "inProgress": "正在關閉",
+        "completed": "已關閉",
+        "failed": "無法關閉"
+      },
+      "list": {
+        "label": "列出",
+        "inProgress": "載入中",
+        "completed": "已載入",
+        "failed": "載入失敗"
+      }
+    }
+  },
+  "visualAnnotation": {
+    "pickElement": "點選元素",
+    "panelTitle": "樣式標註",
+    "contextTitle": "視覺標註",
+    "elementText": "元素文字",
+    "styleSnapshot": "樣式快照",
+    "annotationLabel": "批註",
+    "annotationPlaceholder": "描述希望修改或檢查的樣式…",
+    "addToConversation": "加入到對話",
+    "staleWarning": "標註已失效,元素已變化",
+    "close": "關閉",
+    "color": "顏色",
+    "backgroundColor": "背景色",
+    "border": "邊框",
+    "borderRadius": "圓角",
+    "fontSize": "字號",
+    "margin": "外邊距",
+    "padding": "內邊距"
+  },
+  "artifactTurn": {
+    "turn": "第 {turn} 輪",
+    "stepBack": "上一處產物",
+    "stepForward": "下一處產物",
+    "jumpToOrigin": "跳到產生它的那輪",
+    "kindDocument": "文件",
+    "kindPresentation": "簡報",
+    "kindSpreadsheet": "電子試算表",
+    "kindFile": "檔案"
+  },
+  "cloudChat": {
+    "header": {
+      "count": "{count, plural, one {# 個雲端聊天} other {# 個雲端聊天}}",
+      "target": "{name}"
+    },
+    "turns": "{turns, plural, one {# 輪} other {# 輪}}",
+    "action": {
+      "attach": {
+        "label": "附加雲端聊天",
+        "active": "附加中",
+        "completed": "已附加",
+        "following": "等待附加"
+      },
+      "create": {
+        "label": "建立雲端聊天",
+        "active": "建立中",
+        "completed": "已建立",
+        "following": "等待建立"
+      },
+      "list": {
+        "label": "列出雲端聊天",
+        "active": "列出中",
+        "completed": "已列出",
+        "following": "等待列出"
+      },
+      "readTurns": {
+        "label": "讀取雲端聊天輪次",
+        "active": "讀取輪次中",
+        "completed": "已讀取輪次",
+        "following": "等待讀取"
+      },
+      "sendMessage": {
+        "label": "向雲端聊天傳送訊息",
+        "active": "傳送中",
+        "completed": "已傳送",
+        "following": "等待傳送"
+      }
+    }
   }
 }
