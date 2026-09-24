@@ -25,6 +25,7 @@ import { ScrollJumpButtons } from './scroll-jump-buttons'
 import { DetailModeSwitcher } from './detail-mode-switcher'
 import { applyConversationDetailMode } from './detail-mode-filter'
 import { useConversationDetailModeStore } from '@/stores/conversation-detail-mode'
+import { useFocusArtifactScroll } from '@/components/media/artifact-turn-badge'
 import { AmbientSuggestions } from '@/components/ai/ambient-suggestions'
 import { CanvasOverlay } from '@/components/chat/canvas-overlay'
 import { EmptyState } from './EmptyState'
@@ -224,6 +225,11 @@ export function MessageList({
     window.addEventListener('ihui:scroll-to-message', onScrollTo as EventListener)
     return () => window.removeEventListener('ihui:scroll-to-message', onScrollTo as EventListener)
   }, [flashHighlight, containerRef])
+
+  // D76 反向联动(2026-09-24 立):产物面板/画布导航 → ihui:focus-artifact →
+  // 滚动定位消息流里的产物卡并描边高亮。挂本容器(长期存活节点),
+  // 禁挂会被卸载的深层组件(dead dispatch 教训)。
+  useFocusArtifactScroll(containerRef)
 
   // 2026-08-30 立:重新生成 / 分支事件监听(MessageItem 按钮 + 右键菜单派发)。
   // 2026-09-12 立:编辑重跑事件监听(四竞品对标 P0-1,MessageItem 编辑 Dialog 派发)。

@@ -252,9 +252,17 @@ test('内容归因经 __test__ 装车:特征数组在位且四族各有锚(仓�
   assert.ok(Array.isArray(G.CONTENT_SIGNATURES) && G.CONTENT_SIGNATURES.length >= 5, 'CONTENT_SIGNATURES 未导出或缩水')
   assert.ok(G.CONTENT_SIGNATURES.every((s) => s.re instanceof RegExp && s.why.includes('内容归因')), '每条特征须自带可区分的 why')
   const hitBy = (text) => G.CONTENT_SIGNATURES.filter((s) => s.re.test(text)).length
-  assert.ok(hitBy('D:\\IHUI-AI\\x') >= 1, '仓库根反斜杠形态未命中')
-  assert.ok(hitBy('D:/IHUI-AI/x') >= 1, '仓库根正斜杠形态未命中')
-  assert.ok(hitBy('G:\\IHUI-AI\\old.cjs') >= 1, '旧盘 G: 强特征未命中(迁移前脚本会重新失明)')
+  // 仓库根那族由**本 checkout 的盘符**派生(源脚本 rootSigRe 就是如此),测试里不得写死 D:/G::
+  // 写死的后果已实测 —— 本机是 G:\IHUI-AI,那两条"我们的必须命中"就恒红,把同一文件里其他
+  // 断言的结论一起盖掉(§15b/§26 的"盘符不得写死"禁令连测试自己也算在内)。
+  assert.ok(hitBy(`${G.REPO}\\x`) >= 1, '仓库根反斜杠形态未命中')
+  assert.ok(hitBy(`${G.REPO.replace(/\\/g, '/')}/x`) >= 1, '仓库根正斜杠形态未命中')
+  // 「旧盘符」必须是**独立钉死的一族**(迁移前的脚本只认当前盘符就会重新失明),
+  // 故按 why 锁定它、再验两种分隔符形态 —— 与本机 checkout 在哪个盘无关。
+  const legacy = G.CONTENT_SIGNATURES.filter((s) => /旧盘符/.test(s.why))
+  assert.equal(legacy.length, 1, '旧盘 G: 强特征缺失或重复(应恰好一条)')
+  assert.ok(legacy[0].re.test('G:\\IHUI-AI\\old.cjs'), '旧盘 G: 反斜杠形态未命中(迁移前脚本会重新失明)')
+  assert.ok(legacy[0].re.test('G:/IHUI-AI/a.ts'), '旧盘 G: 正斜杠形态未命中')
   assert.ok(hitBy("import { x } from '@ihui/shared'") >= 1, '@ihui/ 命名空间未命中')
   assert.ok(hitBy('// [IHUI-AI-PROVENANCE]:…') >= 1, '溯源横幅未命中')
   assert.ok(hitBy('// © 2026 IHUI AI') >= 1, '版权横幅 IHUI AI 未命中')
@@ -264,8 +272,9 @@ test('内容归因正反成对(真文件走 attributeByContent):我们的必须 
   const base = mkScratch('pollution-attr-')
   try {
     const ours = [
-      ["const root='D:\\\\IHUI-AI'\n", '探针原始形状:转义双写 + 引号收口'],
-      ["select 1 from t; -- G:/IHUI-AI/scripts\n", '旧盘正斜杠'],
+      // 形态即探针原样(JS 字符串字面量里的反斜杠双写 + 引号收口),盘符取本 checkout 真值
+      [`const root='${G.REPO.replace(/\\/g, '\\\\')}'\n`, '探针原始形状:转义双写 + 引号收口'],
+      ["select 1 from t; -- G:/IHUI-AI/scripts\n", '旧盘正斜杠(钉死族,与本机盘符无关)'],
       ['console.log(require("@ihui/api-client"))\n', '包命名空间'],
     ]
     for (const [i, [content, label]] of ours.entries()) {
@@ -278,7 +287,9 @@ test('内容归因正反成对(真文件走 attributeByContent):我们的必须 
     for (const [i, content] of [
       '{"sessionId":"qoder-000b","cwd":"C:\\\\Users\\\\me"}',
       'PUT /v1/bucket/object HTTP/1.1',
-      'D:\\IHUI-AIIsHugeOtherThing\\readme.txt',
+      // 前缀相似但不是仓库根:这枚反例的分量全在"接着的字符是字母数字",故必须跟着本机真根拼,
+      // 写死别的盘符就退化成一条永远不误伤的空断言
+      `${G.REPO}IsHugeOtherThing\\readme.txt`,
     ].entries()) {
       const p = join(base, `attr-foreign-${i}.cjs`)
       writeFileSync(p, content)
@@ -309,5 +320,85 @@ test('scanC 的结果必须始终携带 contentAttribution 四计数(空扫靠�
   for (const k of ['candidates', 'hits', 'skippedSizeOrBinary', 'readFailed'])
     assert.ok(Number.isFinite(r.contentAttribution?.[k]), `缺 ${k} ⇒ 报告面会把没扫到当成通过`)
   assert.ok(r.contentAttribution.hits <= r.contentAttribution.candidates, '命中数不得大于候选数(计数口径错)')
+})
+
+// ─── 计划任务活性三态(2026-09-24 补)───────────────────────────────────────
+// 起因:本门结论行硬编码「每天 03:00 已注册(S4U,wscript 包装)」,而脚本内一次 schtasks 都没调过;
+// 本机实测该任务**并不在**(权威全量列表法零命中)。一道揭示污染可见性的门替不存在的防护背书,
+// 比没有这行更糟 —— 读者据此不会去查真正没在跑的东西。以下断言把它钉成"只能实测"。
+const csvRows = (names) => names.map((n) => `"${n}","2026/9/25 03:00:00","Ready"`).join('\r\n') + '\r\n'
+const SRC = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'check-c-drive-pollution.mjs'), 'utf8')
+
+test('判据经 __test__ 装车(§22c):三态函数与名字常量可从源脚本取到', () => {
+  for (const k of ['judgeTaskRegistration', 'queryMaintainTask', 'describeMaintainTask', 'MAINTAIN_TASK_NAME'])
+    assert.ok(G[k], `__test__ 缺 ${k} ⇒ 测试只能另抄一份判据实现`)
+  assert.equal(G.MAINTAIN_TASK_NAME, 'IHUI C-Drive AutoMaintain', '注册名含空格是 §26 记过的陷阱,名字不得改')
+})
+
+test('正向:全量 CSV 列表里命中 c-drive ⇒ 判已注册并点名命中项', () => {
+  const r = G.judgeTaskRegistration(csvRows(['\\AliProctectUpdate', '\\IHUI C-Drive AutoMaintain', '\\Microsoft\\Windows\\ScheduleTask']))
+  assert.equal(r.state, 'registered', `命中却未判已注册:${JSON.stringify(r)}`)
+  assert.deepEqual(r.matched, ['\\IHUI C-Drive AutoMaintain'], '必须报出命中的任务名,供人核对不是撞了别人的名字')
+  assert.match(G.describeMaintainTask(r), /已注册/)
+})
+
+test('反向对照(关键):零命中样本 ⇒ 未注册,且结论行里一个"已注册"字样都不许出现', () => {
+  // 这份 fixture 就是本机今天的实况:一堆 IHUI* 任务在位、唯独没有 C-Drive AutoMaintain。
+  // 断言"不得输出已注册"而不是只断言 state —— 原缺陷正是措辞层面把不存在说成在跑。
+  const r = G.judgeTaskRegistration(csvRows(['\\IHUI-AI git-guardian', '\\IHUI credential-health', '\\NvTmMon_20260924']))
+  assert.equal(r.state, 'unregistered', `零命中却没判未注册:${JSON.stringify(r)}`)
+  assert.doesNotMatch(G.describeMaintainTask(r), /已注册/, '未注册却给出含"已注册"的结论行 ⇒ 假绿灯复活')
+  assert.match(G.describeMaintainTask(r), /未注册/)
+  assert.ok(r.rows > 0, '判未注册必须建立在"确实取到了全量列表"上(rows>0),否则与空扫无法区分')
+})
+
+test('失效对照:命令不可用 / 超时 / 空输出 / 形态不符 ⇒ 一律未判定且原因非空,绝不记为通过', () => {
+  // 行为级取证(不是读源码猜):bin/timeout/raw 三个注入口把每条失效分支真走一遍。
+  const cases = [
+    ['ENOENT(命令不可用)', () => G.queryMaintainTask({ bin: 'definitely-not-a-real-binary.exe' })],
+    ['超时被杀', () => G.queryMaintainTask({ timeout: 1 })],
+    ['空输出', () => G.queryMaintainTask({ raw: '' })],
+    ['报错文本(非 CSV)', () => G.judgeTaskRegistration('ERROR: Access is denied.\r\n')],
+    ['字段无 \\ 开头(形态不符)', () => G.judgeTaskRegistration('"TaskName","Next Run Time","Status"\r\n')],
+    ['null', () => G.judgeTaskRegistration(null)],
+  ]
+  for (const [label, run] of cases) {
+    const r = run()
+    assert.equal(r.state, 'undetermined', `${label} 必须判未判定,实得 ${JSON.stringify(r)}`)
+    assert.ok(String(r.reason || '').trim(), `${label} 判了未判定却没写原因`)
+    assert.ok(!/已注册/.test(G.describeMaintainTask(r)), `${label} 不得被说成已注册`)
+  }
+})
+
+test('查法防回归:必须全量列表 + 名字片段匹配,禁止退回点名查(§26 名字陷阱)', () => {
+  // 点名查(/Query /TN "<全名>")对含空格/改过名的任务会得到"系统找不到指定的文件",
+  // 于是查法失效与"任务真的不存在"产出同一个结论 —— 本仓已因此误判过一次"从未注册"。
+  assert.match(SRC, /'\/Query',\s*'\/FO',\s*'CSV'/, '未使用全量 CSV 列表法')
+  assert.doesNotMatch(SRC, /['"]\/Query['"]\s*,\s*['"]\/TN['"]/, '出现点名查 ⇒ 名字一变就假阴性')
+  const region = SRC.slice(SRC.indexOf('export function queryMaintainTask'), SRC.indexOf('export function describeMaintainTask'))
+  assert.ok(region.length > 100, '未定位到查询函数区间')
+  assert.match(region, /windowsHide:\s*true/, '派生 schtasks 未带 windowsHide ⇒ 守门 52 会拦(钩子进程弹窗)')
+  assert.match(region, /timeout:\s*options\.timeout/, '派生 schtasks 未带 timeout ⇒ 守门 80 会拦(热路径可无界挂起)')
+  assert.match(region, /'\/FO',\s*'CSV',\s*'\/NH'/, 'CSV 列表未带 /NH(有表头行时首字段判据会被表头干扰)')
+})
+
+test('源码级防回归:无条件"已注册"断言不得回潮(判据串分片拼,避免门咬自己尾巴)', () => {
+  const claim = '每天 03:00' + ' 已注册'
+  assert.ok(!SRC.includes(claim), '硬编码断言回潮 ⇒ 门又开始替不存在的防护背书')
+  // 报告面必须真接住三态(判据在而输出不接 = 没有,守门 70/76 同型):
+  // 第三态走 else 分支,故按"三处都调 describeMaintainTask"取证,而不是去找一个字面量。
+  const printRegion = SRC.slice(SRC.indexOf('const task = queryMaintainTask()'), SRC.indexOf('if (r.brokenSeal.length)'))
+  assert.ok(printRegion.length > 200, '未定位到计划任务的打印区')
+  const wired = printRegion.match(/describeMaintainTask\(task\)/g) || []
+  assert.equal(wired.length, 3, `三态分支应各调一次结论行函数,实得 ${wired.length} 次`)
+  assert.match(printRegion, /task\.state === 'registered'/, '输出面未接 registered 分支')
+  assert.match(printRegion, /task\.state === 'unregistered'/, '输出面未接 unregistered 分支')
+})
+
+test('只读语义:未注册不得改变退出码(warn-only 定级不许被顺手升红)', () => {
+  // 盘根/计划任务都不是本仓产物债,升红只会逼人 --no-verify 并废掉全部守门(§26 明写)。
+  const strictLine = SRC.split(/\r?\n/).find((l) => l.includes('if (strict &&'))
+  assert.ok(strictLine, '未找到 --strict 判红行(判红面被改写,须复核)')
+  assert.doesNotMatch(strictLine, /task|maintain/i, '--strict 判红面不得含计划任务状态')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
