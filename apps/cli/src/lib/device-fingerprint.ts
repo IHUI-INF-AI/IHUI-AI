@@ -19,18 +19,27 @@ const pkg: { version: string } =
     : { version: '0.0.0' }
 
 /**
+ * 首方标识单一源头:既作设备指纹的 userAgent 字段,也作 HTTP `User-Agent` 请求头。
+ * 后者必需 —— Node 的 fetch(undici)默认**根本不发 User-Agent**,直接命中后端
+ * `apps/api/src/utils/bot-detection.ts` 的 isMissingOrShortUserAgent,不显式声明
+ * 就等于 CLI 每个请求都被判为自动化客户端(429 要求一个无法完成的 CAPTCHA,
+ * 且每请求 recordBadEvent 持续拉低出口 IP 信誉)。
+ */
+export const CLI_USER_AGENT = `IHUI-CLI/${pkg.version} (${process.platform}/${process.arch})`
+
+/**
  * cli 端设备指纹采集器(Node.js CLI)。
  *
  * Node.js 环境无 DOM,采集:
  * - platform: process.platform('win32' / 'darwin' / 'linux')
- * - userAgent: `IHUI-CLI/${version} (${platform}/${arch})`,version 从 package.json 读取
+ * - userAgent: 复用上面的 CLI_USER_AGENT(单一源头,不再各写一份)
  * - hardwareConcurrency: os.cpus().length
  * 不采集 screen/canvas/webgl(Node.js 无 DOM)。
  */
 export const cliDeviceFingerprintCollector = createDeviceFingerprintCollector({
   collect: () => ({
     platform: process.platform,
-    userAgent: `IHUI-CLI/${pkg.version} (${process.platform}/${process.arch})`,
+    userAgent: CLI_USER_AGENT,
     hardwareConcurrency: os.cpus().length,
   }),
 })
