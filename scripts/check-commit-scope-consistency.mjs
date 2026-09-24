@@ -58,9 +58,14 @@
  *   (注:'multi' 2026-07-26 新增 — 多任务聚合 commit 合法,误报修复)
  *
  * 退出码:
- *   0 — 通过(无污染特征 或 无 scope 或 无 staged 文件)
+ *   0 — 通过(无污染特征 或 无 scope 或 无 staged 文件 或 本次是合并提交)
  *   1 — blocking(检测到污染特征签名)
  *   紧急跳过: HUSKY_SKIP_SCOPE_CHECK=1
+ *
+ * 合并提交豁免(2026-09-24):MERGE_HEAD 在位时本门直接判"不适用"并 exit 0 ——
+ *   合并的暂存集是两条分支的并集,R1~R4 的"这次 git add 混入了别人改动"前提不成立。
+ *   取不到 MERGE_HEAD 一律按非合并判(宁可不豁免)。判据由
+ *   scripts/tests/check-commit-scope-consistency.test.mjs 双向钉死(合并必豁免 / 非合并必判红)。
  *
  * 用法:
  *   node scripts/check-commit-scope-consistency.mjs <commit-msg-file>
@@ -69,7 +74,7 @@
  * 集成位置: .husky/commit-msg
  */
 import { execSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 const C = {
@@ -86,6 +91,27 @@ const C = {
 if (process.env.HUSKY_SKIP_SCOPE_CHECK === '1') {
   console.log('⏭  HUSKY_SKIP_SCOPE_CHECK=1 — 跳过 commit scope 一致性检查')
   process.exit(0)
+}
+
+// ─── 合并提交豁免(2026-09-24 立)────────────────────────────
+// 本门的四条规则判的都是"这一次 `git add` 是否把别人的改动扫进来了"。合并提交的暂存集
+// 按定义是两条分支的并集,领域必然分散 ⇒ 前提不成立。此前它没有任何出口,实测每一枚
+// 合并提交都被 R2 打死,只能整条 `--no-verify`(连带跳过全部 132 项 pre-commit 守门)——
+// 恒红门的唯一结局就是没人再守门(§12e 同型)。这里只豁免**本门**的判定,
+// 不豁免任何 pre-commit 门,也不改变非合并提交的任何一条判据。
+// ⚠️ 只在 main() 里判:单元测试要 import 本模块取纯函数,顶层 exit(0) 会让
+//    整个测试文件在"仓库正好处于合并中"时**静默零用例**(判据失效表现为绿)。
+function isMergeCommit() {
+  try {
+    const p = execSync('git rev-parse --git-path MERGE_HEAD', {
+      encoding: 'utf8',
+      timeout: 15000,
+      windowsHide: true,
+    }).trim()
+    return p ? existsSync(p) : false
+  } catch {
+    return false // 取不到一律按"非合并"判,宁可不豁免,也不让判据静默失效
+  }
 }
 
 // ─── 配置:文件路径 → 领域映射 ──────────────────────────────
@@ -338,6 +364,14 @@ function getStagedFiles() {
 // ─── 主逻辑 ───────────────────────────────────────────────
 
 function main() {
+  // 0. 合并提交:本门前提不成立(见上方注释),如实打印原因后直接通过。
+  if (isMergeCommit()) {
+    console.log(
+      `${C.dim}⏭  commit scope 一致性检查(合并提交:暂存集是两条分支的并集,领域分散属定义使然 — 跳过本门)${C.reset}`,
+    )
+    process.exit(0)
+  }
+
   // 1. 读取 commit message 文件
   const commitMsgFile = process.argv[2]
   if (!commitMsgFile) {
