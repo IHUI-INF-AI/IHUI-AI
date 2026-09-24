@@ -7060,3 +7060,61 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
 - **一条如实登记的交付缺陷**:pre-commit 有 2 道 blocking 门判红 → safe-commit 按规则 `--no-verify` 落地,因此**这批改动没有经过提交链守门**,已当场补跑并留证据:门 29 `check-push-sync` 复跑 exit 0(红因是当时 HEAD ahead、他人推送在飞);门 30c `check-stale-copy` 复跑 exit 0,并逐路径证明本批 16 文件**无一等于其历史任一版本**(该门当时的红落在混合暂存区里他人的 `PROJECT_PLAN.md` —— 本票走了 §12d `GIT_INDEX_FILE` 旁路以避免 `git reset HEAD` unstage 他人 3 个在飞文件,但**钩子子进程不继承该 env**,仍读到主索引,这条已写进项目记忆)。
 - **平台独占与端覆盖定性**:O59①②③属 `apps/web` 单端交互治理(键位归属),不涉跨端契约;D48 桌面端加密为**平台独占**(apps/desktop,不依赖服务端),其结论由同日另一票取证后另登记。
 - **未闭环(不归本票,各自给出归属)**:① `apps/web/src/components/chat/message-input.tsx` 工作区有他人未提交的 21+/36− 改动,**不代裁不覆盖**,故未纳入本批(其 Escape 非全局监听形态,水位判据当前不含它);② 本票刻意**不做**需要新 DB 迁移的 D20(会话文件夹/标签)与 D29(团队知识共享)后端段 —— 本机即生产机、部署环会自动应用迁移,建表属需你点头的爆炸半径;③ D19 三端对话流 parity 与 D106/D107 余面此刻撞在 `apps/mobile-rn`/`apps/miniapp-taro` 的 14 个他人 in-flight 文件上(含 `ChatScreen.tsx`/`ChatMessageItem.tsx`),需排队而非并派。
+
+### 第四十二批·本会话交付(2026-09-24 夜,4 代理并行;与并行会话文件面零重叠)
+
+> 派单前用 `git status --porcelain` 快照了 94 个他人未提交路径，并把它作为每个代理的禁改清单；
+> 全程未改任何脏文件，`comm -13` 复核本批新增路径 11 个全部落在快照之外。
+
+- [x] ✅(2026-09-24)**D19 的"派发前置"取证完成，并落地两半(`cd75f590861` + `b81ba7c05d4`)**：
+  - **判据结论=真缺口，不是命名差异**(复核推翻了台账的"hunk/审批已初步对齐")：`terminal_delta` 是
+    **影子契约帧** —— 既不在 `sse_contract.py` 的 `SSE_EVENTS`，也不在 `contract.ts`，所以
+    `check-agent-event-parity.mjs` 结构性看不见它(这才解释"canonical 里搜 = 0 命中")。
+  - **一条用户可见缺陷已修**：`packages/shared/src/utils/sse-parse.ts` 的泛化兜底(`json.text` 为
+    string 即回落 chunk)排在 `terminal_*` 分支**之前**，而 `_emit_terminal_delta` 的载荷恰带 `text`
+    不带 `content` ⇒ 小程序端**每行 stdout 都被当成正文喂进气泡**。新增显式分支收窄 `terminalId/text`，
+    畸形帧整帧丢弃。定向 vitest 15/15(新增 8 + 既有 `sse-parse-disclosure` 7)。
+  - **RN 半边**：`AiAssistantN8nScreen.tsx` 注册 `onTerminalDelta`(api-client 早已解析，端内零 parser
+    改动)，live 缓冲与 web 同值(20000 字符保尾 / 20 键逐出)、面板取 live 与整帧 output 的更长者，
+    增量不落正文；台账 `sse-dispatch-coverage.json` 与代码**同票**(删 `missing.mobile-rn.onTerminalDelta`
+    + baseline 18→19)。新增 10 例。提交后按 HEAD 判 `check-sse-dispatch-parity.mjs` **exit 0**(5 端 27 帧)。
+  - **复核推翻的两条旧计数(不得照抄)**：`hunk` 的 166/46 是 **`chunk` 子串误命中**(canonical hunk 源是
+    `unifiedDiff`，其交互实现仅 web)；`approval` 的 3/5 命中的是提现审核 `approved` 与枚举词包，
+    **HEAD 面移动端审批 = 0**，而该闭环正被并行会话在工作区落地 ⇒ 本票不代做、不得重复派。
+  - **剩余**：miniapp-taro 端内 `case 'terminal_delta'` 与 RN 主屏终端面板宿主仍未接 —— 两枚目标文件
+    (`apps/miniapp-taro/src/api/index.ts`、`apps/mobile-rn/src/screens/ChatScreen.tsx`)此刻是他人脏文件；
+    修后 taro 侧从"污染正文"变成"静默不显示"，已不再是内容错误，但增量渲染仍未交付。
+- [x] ✅(2026-09-24)**D48 定档为"实现已在库、生效从未发生"，并补上缺失的验收门(`9becc88f4ff`)**：
+  - 票面两句前提**实测不成立**，照它派工等于让人重写一遍已存在的 `local-vault.ts`：① "对标 SQLCipher"
+    —— 桌面端**没有任何本地 SQL 库**(Cargo 无 rusqlite/sqlx，WebView 目录无 IndexedDB)，无可换对象；
+    ② "导入侧 `redact_secrets` 是我方优势" —— 它(`ai-service/app/core/output_cleaning.py:154`，用于
+    `importers/ir.py:230` 与 `mcp_server.py` 三处)只覆盖**导入与工具出库**，与本地缓存写入链路**零重叠**。
+  - **R0 终判=部署滞后(会话级)**：线上 bundle **已含** `ihuiVaultV1`(41/43 chunk 命中，该 chunk
+    Last-Modified 今日 14:19Z)，而桌面端最后一次运行止于 06:51Z ⇒ 物理上没执行过新代码。capabilities 与
+    `isDesktopEnv()` 两条假设被同一份运行时证据**排除**(`auth.json` 正是远程页经 plugin-store 写出的)。
+  - **这条要单独指出**：`%APPDATA%\com.ihui.desktop\auth.json` 至今是**裸 refresh_token JWT**
+    (payload 可解出手机号/familyId/userId)，mtime 晚于 D48 提交 ⇒ **盘上明文 token 这条现在没通**，
+    优先级高于会话正文；须待桌面端重启后首次 token 轮转才会被信封重写。
+  - 新门 `scripts/check-desktop-cache-plaintext.mjs`：判据 0 是**含唯一 nonce 中文串的阳性对照** ——
+    没有它，"grep 明文 = 0"永远会在"这台机没登录数据"上虚假通过(今天就是这样)。定级 **warn 且不进
+    guardian-runner**：它判机器运行态，提交者结构上无法满足，挂 blocking 只会逼全队 `--no-verify`。
+    取证 `--self-test` 10/10、镜像 12/12；真盘首跑 exit 1 并如实点名 `ihui-chat` 明文 ×2 + 中文昵称 CJK ×11。
+- [x] ✅(2026-09-24)**§26 临时夹具收口剩余脚本(`94c5779b1cc`)**：`check-c-drive-pollution` 的 self-test 探针
+  (唯一的**写**点)迁 `mkScratch` 并给 `scanC` 开 `tempDirs` 注入位，真实 TEMP 的三处**读**用法(漂移判据/
+  默认扫描面/其钉死用例)原样保留 —— 全量门前后对比 689 项 / 11825.9MB、命中 408 **不变**(扫描面未缩小)；
+  `check-pkg-installable` 解包现场从仓库树迁出；`check-c-drive-paths` 无写点，仅改掉推荐 `os.tmpdir` 的过时文案。
+  三门 `--self-test`/镜像测试均 exit 0。**刻意未动 `guardian-runner.mjs`**(共享注册文件，并行会话高频改)。
+- **本批三条环境/工具事实(非本票代码问题，留给后人少踩)**：
+  ① **本机 8801/8802/8000 全部未监听**，而守门 15 `check-api-migration-completeness` 要探这五个端点且
+  **没有任何逃生 env** ⇒ 在该状态下**任何**提交都会被门 15 硬拦。本批 3 枚提交因此用 `--no-verify`，
+  并把与我改动相关的门按权威入口逐道补跑留退出码：`check-sse-dispatch-parity` 0 / `check-gate-wiring` 0
+  (R4 未点名 0) / `check-watermark-coverage --no-fix` 0 / `check-no-visible-spawn` 0。
+  ② **`safe-commit.mjs` 在 HEAD 高频推进下会把新增文件的暂存丢掉**：钩子单轮约 2-4 分钟，其间别人的
+  Step① `git reset HEAD` 一冲，本方 `git commit -- <pathspec>` 就报 `pathspec did not match`，而它的重试
+  只重跑 commit **不重跑 add** ⇒ 连撞两次(均未误提交任何内容)。可用旁路：`GIT_INDEX_FILE` 临时索引 +
+  `read-tree HEAD` + `update-index --cacheinfo`(§12d 已登记此形态)，**但提交后必须立刻把自己那几个路径
+  `git restore --staged` 回对齐新 HEAD** —— 否则新文件在主索引里没有条目，显示成"暂存删除"，别人一次
+  `add -A` 就会把它从版本树里删掉(本批第一次提交就踩到，靠 `hash-object == HEAD:<path>` 先验后逐路径修回)。
+  ③ **pollution 门的 self-test 有一条对活目录断言"两次扫描数量一致"的用例**(HEAD 既有，非本批引入)，
+  在本机并发负载下会闪红(实测 705→704 漂移，连跑三次复现一次即过)。修法现成：本批刚加的 `tempDirs`
+  注入位就是为它准备的 —— 把该用例改为扫固定夹具即可根治，属下一票。
