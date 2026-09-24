@@ -173,7 +173,7 @@ export function AnnotationStylePanel({
               <input
                 value={value}
                 onChange={(e) => setStyles((prev) => ({ ...prev, [field]: e.target.value }))}
-                disabled={styles[field] == null}
+                disabled={typeof styles[field] !== 'string'}
                 data-testid={`style-${field}`}
                 className="h-6 rounded border border-input bg-background px-1.5 text-[11px] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-40"
               />
@@ -195,7 +195,7 @@ export function AnnotationStylePanel({
         type="button"
         onClick={handleAdd}
         disabled={note.trim().length === 0}
-        className="self-start rounded-sm bg-primary px-2 py-0.5 text-[10px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+        className="self-start rounded-sm bg-cta px-2 py-0.5 text-[10px] font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:cursor-not-allowed disabled:opacity-50"
         data-testid="add-to-conversation"
       >
         {t('addToConversation')}
