@@ -58,7 +58,7 @@ export function CloudChatOpsCard({
     const map = {} as Record<CloudChatOp, string>
     for (const op of CLOUD_CHAT_OPS) map[op] = t(cloudChatOpLabelKey(op))
     return map
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [t])
 
   if (!view || view.rows.length === 0) return null
@@ -92,10 +92,7 @@ export function CloudChatOpsCard({
                   className="flex flex-wrap items-center gap-1.5 text-[11px]"
                   aria-label={t(cell.ariaKey)}
                 >
-                  <span
-                    className={cn(PHASE_TONE[row.phase])}
-                    data-cloud-chat-phase={row.phase}
-                  >
+                  <span className={cn(PHASE_TONE[row.phase])} data-cloud-chat-phase={row.phase}>
                     {t(cell.labelKey)}
                   </span>
                   {row.target ? (
