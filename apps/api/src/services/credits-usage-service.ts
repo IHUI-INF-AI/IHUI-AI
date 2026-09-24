@@ -8,7 +8,7 @@
 // 任意值不拼接进 SQL(天数只参与 JS 侧日期偏移,查询参数全部走 drizzle 占位符)。
 
 import { and, eq, gte, sql } from 'drizzle-orm'
-import { pointTransactions } from '@ihui/database'
+import { chatConversations, pointTransactions } from '@ihui/database'
 import { db } from '../db/index.js'
 import { shiftDate } from '../utils/checkin-helpers.js'
 
@@ -24,6 +24,13 @@ export interface DailyUsageBucket {
   count: number
   /** 当日消耗积分总量(point_transactions.amount 存负数,取 ABS 求和,恒 ≥0) */
   points: number
+  /**
+   * 当日**新建会话数**(chat_conversations.created_at 分桶)。
+   * 口径说明:它是"当天开了多少个会话",与积分消耗**无因果**——积分消耗按 token 计,
+   * 而 spend 流水的 reference_id 存的是 HTTP 请求 id(proxy-llm.ts 实测),没有会话维度外键。
+   * 所以"会话视图"与"热力视图"是两条独立序列,不得互相换算,也不得被读成"该会话花了多少"。
+   */
+  sessions: number
 }
 
 export interface CreditsDailyUsage {
@@ -65,6 +72,7 @@ export function buildBuckets(
   raw: readonly RawUsageRow[],
   startDate: string,
   endDate: string,
+  sessionsByDate?: ReadonlyMap<string, number>,
 ): DailyUsageBucket[] {
   const byDate = new Map<string, { count: number; points: number }>()
   for (const row of raw) {
@@ -79,7 +87,12 @@ export function buildBuckets(
   for (let i = 0; i < total; i += 1) {
     const date = shiftDate(startDate, i)
     const hit = byDate.get(date)
-    buckets.push({ date, count: hit?.count ?? 0, points: hit?.points ?? 0 })
+    buckets.push({
+      date,
+      count: hit?.count ?? 0,
+      points: hit?.points ?? 0,
+      sessions: sessionsByDate?.get(date) ?? 0,
+    })
   }
   return buckets
 }
@@ -121,12 +134,31 @@ export async function getDailyCreditsUsage(input: {
     )
     .groupBy(dateExpr)
 
+  const sinceDate = new Date(`${startDate}T00:00:00.000Z`)
+  const convDateExpr = sql<string>`to_char(${chatConversations.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD')`
+  const convRows = await db
+    .select({
+      date: convDateExpr,
+      sessions: sql<number>`COUNT(*)`,
+    })
+    .from(chatConversations)
+    .where(
+      and(eq(chatConversations.userId, input.userId), gte(chatConversations.createdAt, sinceDate)),
+    )
+    .groupBy(convDateExpr)
+
+  const sessionsByDate = new Map<string, number>()
+  for (const row of convRows) {
+    if (!row.date) continue
+    sessionsByDate.set(row.date, toFiniteNumber(row.sessions))
+  }
+
   return {
     days,
     startDate,
     endDate,
     timezone: CREDITS_USAGE_TIMEZONE,
-    buckets: buildBuckets(rows, startDate, endDate),
+    buckets: buildBuckets(rows, startDate, endDate, sessionsByDate),
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

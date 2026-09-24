@@ -29,8 +29,8 @@ describe('getDailyCreditsUsage(GET /api/credits/usage/daily)', () => {
       endDate: '2026-09-02',
       timezone: 'UTC',
       buckets: [
-        { date: '2026-08-30', count: 0, points: 0 },
-        { date: '2026-08-31', count: 2, points: 30 },
+        { date: '2026-08-30', count: 0, points: 0, sessions: 0 },
+        { date: '2026-08-31', count: 2, points: 30, sessions: 3 },
       ],
     })
     setTransport(transport)
@@ -39,6 +39,7 @@ describe('getDailyCreditsUsage(GET /api/credits/usage/daily)', () => {
     expect(res.success).toBe(true)
     expect(res.data?.timezone).toBe('UTC')
     expect(res.data?.buckets[1]?.count).toBe(2)
+    expect(res.data?.buckets[1]?.sessions).toBe(3)
     const url = (transport.mock.calls[0] as [string, unknown] | undefined)?.[0]
     expect(url).toBe('/api/credits/usage/daily?days=4')
   })
