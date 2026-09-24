@@ -7659,6 +7659,8 @@
       "thinkingChars": "字",
       "thinkingElapsedTitle": "已思考 {time}",
       "thinkingStreaming": "思考中...",
+      "thinkingTitle": "思考過程",
+      "thinkingRefsTitle": "使用了 {count} 個引用",
       "timelineClearFilters": "清空過濾",
       "timelineCountDone": "已完成",
       "timelineCountFailed": "失敗",
@@ -8408,6 +8410,119 @@
           "emptyDraft": "草稿為空，請先輸入內容再潤色。"
         },
         "restartHint": "潤色服務需重新啟動後生效，草稿已保留。"
+      },
+      "queueOps": {
+        "ariaLabel": "排隊訊息操作列",
+        "reorderAria": "拖動調整排隊順序；聚焦後可使用上下方向鍵",
+        "undo": "撤回",
+        "edit": "編輯",
+        "editConfirm": "儲存",
+        "editCancel": "取消",
+        "interruptAndRun": "打斷並執行",
+        "mode": {
+          "label": "排隊模式",
+          "steer": "插話優先",
+          "queue": "排隊優先"
+        },
+        "denied": {
+          "reorder": "無法調整排隊順序",
+          "undo": "無法撤回排隊訊息",
+          "interject": "目前 Runtime 不支援插話，訊息將繼續排隊"
+        },
+        "degraded": {
+          "runtimeNoInterject": "目前 Runtime 不支援插話，訊息將繼續排隊"
+        }
+      },
+      "elementPack": {
+        "heatmap": {
+          "title": "積分消耗熱力圖",
+          "legendLabel": "圖例",
+          "dayTitle": "{date} 的單日消耗",
+          "tab": {
+            "heatmap": "熱力",
+            "sessions": "會話明細"
+          },
+          "legend": {
+            "zero": "無消耗",
+            "low": "低",
+            "mid": "中",
+            "high": "高"
+          },
+          "sessionsEmpty": "暫無會話明細"
+        },
+        "imagePreview": {
+          "counter": "第 {index} · {total} 張",
+          "saveSuccess": "圖片已儲存",
+          "saveFailed": "圖片儲存失敗",
+          "copySuccess": "圖片已複製",
+          "copyFailed": "圖片複製失敗",
+          "prev": "上一張",
+          "next": "下一張",
+          "zoomOut": "縮小",
+          "zoomIn": "放大",
+          "save": "儲存圖片",
+          "copy": "複製圖片"
+        },
+        "backgroundTask": {
+          "state": {
+            "pending": "等待啟動",
+            "running": "運行中",
+            "stopping": "正在停止",
+            "stopFailed": "停止失敗",
+            "completed": "已完成",
+            "failed": "執行失敗",
+            "cancelled": "已取消",
+            "timeout": "已逾時"
+          },
+          "hint": {
+            "stopping": "停止請求已送出，等待任務收尾",
+            "stopFailed": "子任務仍在運行，請重試停止",
+            "timeout": "任務已逾時，可重試"
+          },
+          "action": {
+            "none": "無可用操作",
+            "stop": "停止",
+            "retryStop": "重試停止",
+            "retry": "重試"
+          }
+        },
+        "feedbackSurvey": {
+          "question": "這次回覆有沒有幫你解決問題？",
+          "scale": {
+            "1": "很差",
+            "2": "較差",
+            "3": "一般",
+            "4": "較好",
+            "5": "很好"
+          },
+          "commentPlaceholder": "補充說明（選填）",
+          "submit": "提交",
+          "dismiss": "暫不評價",
+          "submitted": "感謝你的回饋",
+          "answer": {
+            "solved": "已解決",
+            "partial": "部分解決",
+            "notSolved": "未解決"
+          }
+        }
+      },
+      "multiPane": {
+        "ariaLabel": "多任務窗格",
+        "resizeAriaLabel": "拖動調整窗格大小",
+        "splitRight": "向右拆分",
+        "splitDown": "向下拆分",
+        "maximize": "最大化窗格",
+        "restore": "還原窗格",
+        "closePane": "關閉窗格",
+        "forkFailureAriaLabel": "會話副本開啟失敗",
+        "forkFailure": {
+          "conversationMissing": "原會話不存在，無法開啟副本",
+          "capacityFull": "窗格數量已達上限，請先關閉其他窗格",
+          "unknown": "開啟會話副本失敗，請重試"
+        },
+        "retryFork": "重試",
+        "emptyPaneAriaLabel": "空窗格，可從側欄拖入會話",
+        "emptyPlaceholder": "從側欄拖入會話到此窗格"
       }
     },
     "permissionConfirm": {
