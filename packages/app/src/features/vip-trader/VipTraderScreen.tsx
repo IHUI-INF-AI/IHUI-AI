@@ -221,7 +221,7 @@ export function VipTraderScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.light },
-    header: { paddingHorizontal: 10, paddingTop: 48, paddingBottom: 8 },
+    header: { paddingHorizontal: 10, paddingBottom: 8 },
     backText: { fontSize: 16, color: tk.text.secondary, marginBottom: 8 },
     title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },

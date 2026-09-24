@@ -12,8 +12,9 @@ import { getTokens, type AppThemeMode } from '../theme/tokens'
  *
  * 平台无关:
  * - 不依赖 @tarojs/* 或 react-native,使用 div/span + style + onClick
- * - 状态栏高度通过 `statusBarHeight` prop 注入(替代 RN `StatusBar.currentHeight`),
- *   默认 0(SSR/测试环境);web 端通常为 0,iOS/H5 可由调用方传入安全区域值
+ * - **不处理状态栏顶距**:顶距的唯一注入点是 `apps/mobile-rn/App.tsx` 的
+ *   `<SafeAreaView edges={['top']}>`。这里再开一个 `statusBarHeight` 岔口 = 第二个真相源
+ *   (守门 `check-statusbar-single-source.mjs` 直接拦该标识符)。
  * - i18n 通过 `t: TFunction` prop 注入(可选用,用于未来国际化扩展)
  */
 export interface NavBarProps {
@@ -27,8 +28,6 @@ export interface NavBarProps {
   rightAction?: ReactNode
   /** 透传模式(无背景色 + 无下边框) */
   transparent?: boolean
-  /** 状态栏高度(px,默认 0);web 端通常为 0 */
-  statusBarHeight?: number
   className?: string
   /** 已解析主题,默认 'light' */
   colorScheme?: AppThemeMode
@@ -40,16 +39,11 @@ const BACK_BUTTON_SIZE = 32
 const SIDE_PLACEHOLDER_WIDTH = 32
 
 const viewStyles = {
-  container: (
-    tk: ReturnType<typeof getTokens>,
-    transparent: boolean,
-    statusBarHeight: number,
-  ): CSSProperties => ({
+  container: (tk: ReturnType<typeof getTokens>, transparent: boolean): CSSProperties => ({
     width: '100%',
     backgroundColor: transparent ? 'transparent' : tk.surface.bg,
     borderBottomWidth: 0,
     borderBottomStyle: 'none',
-    paddingTop: statusBarHeight,
   }),
   row: (contentHeight: number): CSSProperties => ({
     display: 'flex',
@@ -119,7 +113,6 @@ export function NavBar({
   onBack,
   rightAction,
   transparent = false,
-  statusBarHeight = 0,
   className,
   colorScheme = 'light',
 }: NavBarProps) {
@@ -127,7 +120,7 @@ export function NavBar({
   const contentHeight = subtitle ? HEIGHT_WITH_SUBTITLE : HEIGHT_DEFAULT
 
   return (
-    <div className={className} style={viewStyles.container(tk, transparent, statusBarHeight)}>
+    <div className={className} style={viewStyles.container(tk, transparent)}>
       <div style={viewStyles.row(contentHeight)}>
         {onBack ? (
           <div
