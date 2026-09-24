@@ -7,9 +7,9 @@
  *
  * 对齐历史项目 CardWithList.vue(卡片 + 横向滚动的列表项):
  * - 卡片容器:浅色 surface.light 底,padding 12,borderRadius 12
- * - 卡片头:可选标题(粗体) + 右侧「完整榜单」入口(带箭头,对齐原版 more-click)
+ * - 卡片头:可选标题(粗体) + 右侧「更多」入口(矢量箭头,对齐原版 more-click)
  * - 主体:水平 ScrollView,内含若干 item 卡片(图标占位 + 标题 + 副标题)
- * - 点击单个 item → onItemClick(id);点击「完整榜单」→ onMore()
+ * - 点击单个 item → onItemClick(id);点击「更多」→ onMore()
  * - 浅色优雅风,无霓虹无渐变,无分割线
  *
  * 任务规格:
@@ -43,9 +43,9 @@ export interface CardWithListProps {
   title?: string
   items: CardWithListItem[]
   onItemClick?: (id: string) => void
-  /** 卡片头右侧「完整榜单」入口回调(对齐原版 more-click;不传则不渲染入口) */
+  /** 卡片头右侧「更多」入口回调(对齐原版 more-click;不传则不渲染入口) */
   onMore?: () => void
-  /** 入口文案,缺省「完整榜单」 */
+  /** 入口文案,缺省「更多」 */
   moreText?: string
 }
 
