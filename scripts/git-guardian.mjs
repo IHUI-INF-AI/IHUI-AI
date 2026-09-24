@@ -34,8 +34,10 @@
  *   node scripts/git-guardian.mjs --status   # 只打印健康详情
  *   node scripts/git-guardian.mjs --daemon   # 常驻巡检(需自备托管;本机未装 nssm,实际未用)
  *   node scripts/git-guardian.mjs --install  # 注册 Windows 任务计划(每 2 分钟自检;2026-09-12 实测可用并已启用,任务名 IHUI-AI git-guardian)
+ *   node scripts/git-guardian.mjs --notify-test [名字]  # 真发一封"通知链路自测"邮件(绕过当轮去重,须节制)
+ *   node scripts/git-guardian.mjs --notify-dry-run      # 只问品牌邮件派发器「通道是否齐备」(零网络请求)
  */
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import {
   appendFileSync,
   cpSync,
@@ -47,7 +49,9 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { createHash } from 'node:crypto'
+import { hostname } from 'node:os'
 import { judgeTaskForm, taskFormAcceptable } from './lib/schtasks-form.mjs'
 import {
   HOME_HEAL_FIXER_TIMEOUT_MS,
@@ -84,6 +88,25 @@ const POINTER = join(WORKTREE, '.git')
 const EXPECTED_POINTER = `gitdir: ${GITDIR}\n`
 // 嵌套 ref( depth>=2 )的期望值清单 —— gitdir 顶层文件,宿主清理不到(2026-09-12 立)
 const REFS_MANIFEST = join(GITDIR, 'refs-manifest.json')
+
+// —— 判红 → 邮件到人层(2026-09-24 立,§5e 唯一通道)——
+// 此前守护判红只写 .workbuddy/git-guardian.log:实测"合并吞并对账"抓到 38 个路径被合并抹掉
+// 那类事,只有去翻日志的人才知道,而它的后果是**已入库功能被静默回滚**。到人一律经品牌派发器
+// (apps/api/scripts/notify-deploy-failure.ts),不在本文件自拼 SMTP/Resend(守门 81 硬拦);
+// 形态照抄 scripts/check-credential-health.mjs(同为 scripts/ 下 .mjs 的现役生产者)。
+const NOTIFY_STATE = join(WORKTREE, '.workbuddy', 'git-guardian-notify-state.json')
+/** 投递失败标记:邮件寄不出去必须留可诊断痕迹(§5e),下一次成功投递自动清除 */
+const NOTIFY_UNDEL = join(WORKTREE, '.workbuddy', 'git-guardian-notify-UNDELIVERED.json')
+/** 去重窗:同 (alert 名 + 内容指纹) 在窗口内只寄一封。**没有**任何"每日 N 封"总量闸 —— 那是把"告警静默"再复制一遍 */
+const NOTIFY_DEFAULT_WINDOW_MS = 4 * 60 * 60 * 1000
+/** 投递失败后的重试间隔(反 spam 用的退避,不是配额:窗口照常重发,与"封顶 N 封"不同) */
+const NOTIFY_DEFAULT_FAIL_COOLDOWN_MS = 30 * 60 * 1000
+const TSX_ENTRY = join(WORKTREE, 'apps', 'api', 'node_modules', 'tsx', 'dist', 'cli.mjs')
+const BRAND_MAIL_SCRIPT = join(WORKTREE, 'apps', 'api', 'scripts', 'notify-deploy-failure.ts')
+/** 正文临时文件目录(§15 临时物项目内;§26 服务身份 TEMP 指向不定,不得信任 os.tmpdir) */
+const NOTIFY_MSG_DIR = join(WORKTREE, '.ihui-agent', 'tmp', 'git-guardian-notify')
+/** 派发器单次调用墙上时钟上限:tsx 冷启 + SMTP 握手最坏叠加(同 check-credential-health 实测值) */
+const NOTIFY_DISPATCH_TIMEOUT_MS = 90_000
 
 const CHECK_ONLY = process.argv.includes('--check')
 const STATUS_ONLY = process.argv.includes('--status')
@@ -614,6 +637,11 @@ function healHomeJunctions() {
     log(
       `⚠️ 家目录改道修复后仍判红(exit ${after.code})⇒ 实测原因:${why || '修复器未给出失败标签'};冷却项 ${cool < 0 ? '读不到' : cool} 个${applied.timedOut ? ';本轮被超时掐断' : ''}`,
     )
+    // 门 96 是 blocking:这一红若不到人,每一次提交都在被逼成 --no-verify(§12e 同型事故)
+    notifyGuardRed(
+      '家目录改道修复后仍判红',
+      `re-home-junctions --apply 之后 check-home-junctions 仍 exit ${after.code} ⇒ 实测原因:${why || '修复器未给出失败标签'};冷却项 ${cool < 0 ? '读不到' : cool} 个${applied.timedOut ? ';本轮被超时掐断' : ''}。手动:node scripts/re-home-junctions.mjs --check`,
+    )
   } finally {
     try {
       rmSync(HOME_HEAL_LOCK, { force: true })
@@ -646,11 +674,21 @@ function auditMergeAdditionLoss() {
   if (res.code === 0) return
   if (res.code === 2) {
     log('⚠️ 合并吞并对账自身异常(exit 2)⇒ 不重试,需人工跑 node scripts/check-merge-addition-loss.mjs')
+    notifyGuardRed(
+      '合并吞并对账自身异常',
+      'check-merge-addition-loss.mjs --all-new exit 2 ⇒ 对账层自己没在跑(与"判据存在但永不被调用"同型),需人工:node scripts/check-merge-addition-loss.mjs',
+      { severity: 'critical' },
+    )
     return
   }
   const n = (res.out.match(/丢失新增路径\s+(\d+)/) || [])[1] || '?'
   log(
     `⚠️ 合并吞并对账判红:发现合并抹掉对侧独有新增共 ${n} 个路径 —— 修法:node scripts/union-converge.mjs --apply(文件面零丢失 union,先不带 --apply 看报告)`,
+  )
+  notifyGuardRed(
+    '合并吞并对账判红',
+    `发现合并抹掉对侧独有新增共 ${n} 个路径 —— 后果是已入库功能被静默回滚,且这枚合并不产生冲突也不进 diff 报告。修法:node scripts/union-converge.mjs --apply(文件面零丢失 union,先不带 --apply 看报告)`,
+    { severity: 'critical' },
   )
 }
 
@@ -690,6 +728,313 @@ function refreshRecoverySource() {
     return
   }
   log(`⚠️ 本地恢复源刷新失败(exit ${applied.code})⇒ 下次 tick 自动重试;手动:node scripts/git-backup-refresh.mjs`)
+  // 恢复源不追平 = 宿主再删一次 .git 时只能恢复到旧提交(§5b 记的"回滚 97 个提交"同型),
+  // 属"只有守护看得见"的红 —— 判红必须到人,邮件是旁路,失败不影响下轮重试本身。
+  notifyGuardRed(
+    '本地恢复源刷新失败',
+    `git-backup-refresh.mjs 刷新 exit ${applied.code} ⇒ 本地恢复源正在落后于 main,宿主清除 .git 后从它恢复等价回滚。手动:node scripts/git-backup-refresh.mjs`,
+    { severity: 'critical' },
+  )
+}
+
+// ══ 判红 → 邮件到人层(2026-09-24 立,§5e 唯一通道)═══════════════════════════════
+// 此前守护判红只写 .workbuddy/git-guardian.log:实测"合并吞并对账"抓到 38 个路径被合并抹掉
+// 那类事,只有去翻日志的人才知道,而它的后果是**已入库功能被静默回滚**。发信不在此文件自拼
+// SMTP/Resend(守门 81 硬拦),唯一出口 = 派生 apps/api/scripts/notify-deploy-failure.ts;
+// 形态照抄 scripts/check-credential-health.mjs(同为 scripts/ 下 .mjs 的现役生产者)。
+// 纯判据(指纹/去重/状态读写/argv)export 给镜像测试离线取证(§22c/§22d)。
+
+/**
+ * 内容指纹:数字与哈希归一后再散列。不归一的话"丢失 38 个路径"里一个计数浮动、
+ * 或"→ 9f2ab1c"里 sha 换一个前缀,每 2 分钟都会产新指纹 ⇒ 每趟重发(轰炸)。
+ * 归一后表达的是"同一故障仍在发生";实时数字保留在邮件正文里,不丢诊断价值。
+ */
+export function alertFingerprint(name, detail) {
+  const norm = String(detail ?? '')
+    .replace(/\b[0-9a-f]{7,40}\b/gi, '<sha>')
+    .replace(/\d+/g, '#')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return createHash('sha1').update(`${name}\u0000${norm}`, 'utf8').digest('hex')
+}
+
+/**
+ * 状态表解析:坏 JSON / 数组 / 缺字段条目一律归一为空表或剔除。
+ * 取向:"多寄一封"的代价远小于"通知层自己抛异常把守护流程带崩"(守护崩了才是事故)。
+ */
+export function parseNotifyState(text) {
+  if (!text) return {}
+  try {
+    const obj = JSON.parse(String(text))
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return {}
+    const out = {}
+    for (const [k, v] of Object.entries(obj)) {
+      if (v && typeof v === 'object' && typeof v.fp === 'string' && Number.isFinite(v.ts)) {
+        out[k] = { fp: v.fp, ts: v.ts, delivered: Boolean(v.delivered) }
+      }
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+/**
+ * 当轮是否应当发信(纯函数,去重的全部判据):
+ *  · 无记录 / 指纹变了(新故障或旧故障演化)⇒ 立刻发,不等窗口;
+ *  · 同指纹且上次**已送达** ⇒ 窗口(默认 4h)内压住,过期重发 —— 去重只能去"重复",
+ *    不能去"还在发生",所以这里没有时间窗就永远沉默的路径;
+ *  · 同指纹且上次**没送达**(含无收件人降级)⇒ 按失败退避(默认 30min)重试。
+ *    这是反 spam 退避,不是"每日 N 封"配额闸:窗口与退避只推迟下一封,永不封死。
+ */
+export function shouldAlert(state, key, fp, now, { windowMs, failCooldownMs } = {}) {
+  const e = state && state[key]
+  if (!e) return true
+  if (e.fp !== fp) return true
+  const w = Number.isFinite(windowMs) ? windowMs : NOTIFY_DEFAULT_WINDOW_MS
+  const fc = Number.isFinite(failCooldownMs) ? failCooldownMs : NOTIFY_DEFAULT_FAIL_COOLDOWN_MS
+  return e.delivered ? now - e.ts > w : now - e.ts > fc
+}
+
+/** 写回一条发信标记(送达与否由调用方按派发结论给);返回新对象,不改入参 */
+export function withAlertMark(state, key, fp, now, delivered) {
+  return { ...state, [key]: { fp, ts: now, delivered: Boolean(delivered) } }
+}
+
+/** 收件人脱敏展示:日志/状态里只留 local-part 首字符 + 域名(地址不是密钥,但也不扩散) */
+export function maskEmail(addr) {
+  const [local = '', domain = ''] = String(addr ?? '').split('@')
+  return domain ? `${local.slice(0, 1)}***@${domain}` : '***'
+}
+
+function notifyWindowMs() {
+  const n = Number(process.env.GIT_GUARDIAN_NOTIFY_WINDOW_MS)
+  return Number.isFinite(n) && n >= 0 ? n : NOTIFY_DEFAULT_WINDOW_MS
+}
+
+function notifyFailCooldownMs() {
+  const n = Number(process.env.GIT_GUARDIAN_NOTIFY_FAIL_COOLDOWN_MS)
+  return Number.isFinite(n) && n >= 0 ? n : NOTIFY_DEFAULT_FAIL_COOLDOWN_MS
+}
+
+/**
+ * 收件人 = apps/api/.env 的 ALERT_EMAIL_TO(§5e:缺该键 ⇒ 告警链整条排除)。
+ * process.env 优先,便于当场取证;本函数只读,绝不写回任何 env 域。
+ */
+function resolveAlertTo() {
+  const fromEnv = String(process.env.ALERT_EMAIL_TO || '').trim()
+  if (fromEnv) return fromEnv
+  try {
+    for (const line of readFileSync(join(WORKTREE, 'apps', 'api', '.env'), 'utf8').split(/\r?\n/)) {
+      const m = /^\s*ALERT_EMAIL_TO\s*=\s*(.+?)\s*$/.exec(line)
+      if (m) return m[1].replace(/^["']|["']$/g, '')
+    }
+  } catch {
+    /* .env 读不到 = 无收件人,由调用方如实降级并写明原因 */
+  }
+  return ''
+}
+
+/**
+ * 拼派发器 argv(纯函数,镜像测试钉契约)。
+ * ⚠️ 绝不传 `--env-file`:tsx v4 会把它劫持转发给 node 自身,路径不存在时 node 直接 exit 9
+ * (§5e 实测坑;check-credential-health 同款约束)。多行中文正文一律 --message-file。
+ */
+export function buildGuardMailArgv({ to, title, severity, messageFile, dryRun = false }) {
+  return [
+    TSX_ENTRY,
+    BRAND_MAIL_SCRIPT,
+    '--to',
+    to,
+    '--title',
+    title,
+    '--severity',
+    severity,
+    '--source',
+    'git-guardian',
+    '--message-file',
+    messageFile,
+    ...(dryRun ? ['--dry-run'] : []),
+    '--strict', // 成功 exit 0 / 失败 exit 1,本层据此写/清 UNDELIVERED 标记
+  ]
+}
+
+/** 子进程输出转诊断文本:逐行脱敏 + 截断(派发器崩溃可能把 .env 片段倒进 stderr,不落地) */
+const SECRETISH_RE = /(api[_-]?key|token|secret|passw|authorization|bearer)/i
+export function redactChildOutput(raw, limit = 300) {
+  const kept = String(raw ?? '')
+    .split(/\r?\n/)
+    .map((l) => {
+      const line = l.trimEnd()
+      if (!SECRETISH_RE.test(line)) return line
+      const sep = /[=:]/.exec(line)
+      return sep && sep.index < 40 ? `${line.slice(0, sep.index + 1)}***` : '[已脱敏]'
+    })
+    .filter((l) => l !== '')
+    .join(' / ')
+  if (!kept) return '(无输出)'
+  return kept.length > limit ? `${kept.slice(0, limit)}…(截断)` : kept
+}
+
+/** dry-run 通道判定:派发器自报"至少一条通道齐备"才算可用(与 check-credential-health 同判据) */
+export function judgeDryRunChannel(stdout) {
+  return /通道判定 (?:SMTP|Resend): 可用/.test(String(stdout ?? ''))
+}
+
+/** 品牌派发器的一次调用:异常/超时一律归为失败,绝不抛出(通知层不能把守护带崩) */
+function dispatchGuardMail({ title, desp, severity, dryRun = false }) {
+  if (!existsSync(TSX_ENTRY) || !existsSync(BRAND_MAIL_SCRIPT)) {
+    return {
+      ok: false,
+      why: `品牌派发器缺失(tsx=${existsSync(TSX_ENTRY)} 脚本=${existsSync(BRAND_MAIL_SCRIPT)})`,
+    }
+  }
+  const to = resolveAlertTo()
+  if (!to) return { ok: false, why: '无收件人(apps/api/.env 缺 ALERT_EMAIL_TO)' }
+  let msgFile = null
+  try {
+    mkdirSync(NOTIFY_MSG_DIR, { recursive: true })
+    // 无 BOM UTF-8 文件:命令行参数要过一层控制台代码页(GBK),多行中文必被截坏(§5e)
+    msgFile = join(NOTIFY_MSG_DIR, `${Date.now()}-${process.pid}.txt`)
+    writeFileSync(msgFile, desp, 'utf8')
+    const r = spawnSync(process.execPath, buildGuardMailArgv({ to, title, severity, messageFile: msgFile, dryRun }), {
+      encoding: 'utf8',
+      windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+      timeout: NOTIFY_DISPATCH_TIMEOUT_MS,
+    })
+    if (r.error) return { ok: false, why: `派发器进程异常(${r.error.code || r.error.name}): ${redactChildOutput(r.error.message)}` }
+    if (dryRun) return { ok: judgeDryRunChannel(r.stdout), why: `通道判定: ${redactChildOutput(r.stdout)}` }
+    if (r.status === 0) return { ok: true, why: '已送达' }
+    return { ok: false, why: `exit=${r.status} ${redactChildOutput(r.stderr || r.stdout)}` }
+  } catch (e) {
+    return { ok: false, why: `派发器调用异常: ${redactChildOutput((e && e.message) || e)}` }
+  } finally {
+    // §26:临时物用完必须删 —— 守护身份下落错的临时文件没人回收
+    if (msgFile) rmSync(msgFile, { force: true })
+  }
+}
+
+function readNotifyText(file) {
+  try {
+    return readFileSync(file, 'utf8')
+  } catch {
+    return ''
+  }
+}
+
+function writeNotifyJson(file, obj) {
+  mkdirSync(dirname(file), { recursive: true })
+  writeFileSync(file, JSON.stringify(obj, null, 1), 'utf8')
+}
+
+/**
+ * 守护判红时的唯一出口。**旁路通知,不改自愈行为本身**:整个函数体裹 try,
+ * 落盘/派发/状态任一环节炸掉都只降级为日志一行,原调用方(三个自愈层)照常走完。
+ * 所有依赖(时间/派发/路径/日志)可注入,离线取证见镜像测试。
+ * @returns {{sent:boolean, suppressed?:boolean, why:string}}
+ */
+export function notifyGuardRed(name, detail, opts = {}) {
+  const {
+    severity = 'warning',
+    now = Date.now(),
+    dispatch = dispatchGuardMail,
+    stateFile = NOTIFY_STATE,
+    undelFile = NOTIFY_UNDEL,
+    windowMs = notifyWindowMs(),
+    failCooldownMs = notifyFailCooldownMs(),
+    force = false,
+    logger = log,
+  } = opts
+  try {
+    if (!force) {
+      // --check 是 CI 口径(零副作用),通知归真巡检轮;显式开关只关"要不要发",不关"发几封"
+      if (process.env.GIT_GUARDIAN_NOTIFY_DISABLED === '1') return { sent: false, why: 'GIT_GUARDIAN_NOTIFY_DISABLED=1,已关闭' }
+      if (CHECK_ONLY) return { sent: false, why: '--check 模式零副作用,不发' }
+    }
+    const fp = alertFingerprint(name, detail)
+    const state = parseNotifyState(readNotifyText(stateFile))
+    if (!force && !shouldAlert(state, name, fp, now, { windowMs, failCooldownMs })) {
+      return { sent: false, suppressed: true, why: '同一原因窗口内已通报,本轮压住' }
+    }
+    const title = `【git-guardian】${name}`
+    const desp =
+      `${detail}\n\n` +
+      `来源:git-guardian 周期守护(计划任务 "${TASK_NAME}",每 2 分钟一趟)@ ${hostname()}。\n` +
+      `去重:同指纹 ${Math.round(windowMs / 60000)} 分钟窗口内只寄一封(按身份去重、无总量封顶);` +
+      `内容变化视为新故障立即重报。投递失败按 ${Math.round(failCooldownMs / 60000)} 分钟退避重试并留 UNDELIVERED 标记。\n` +
+      `本层只是旁路通知,不改变守护的自愈行为;紧急静音:GIT_GUARDIAN_NOTIFY_DISABLED=1。`
+    const callDispatch = () => {
+      // 派发器抛异常 = 投递失败(写 UNDELIVERED、按退避重试),不是"通知层炸了就走人" ——
+      // 失败必须响(§5e);真正的兜底是外层 catch,它接的是落盘/状态这类结构性异常。
+      try {
+        return dispatch({ title, desp, severity, dryRun: false })
+      } catch (e) {
+        return {
+          ok: false,
+          why: `派发器调用异常(通知层接住): ${String((e && e.message) || e).slice(0, 160)}`,
+        }
+      }
+    }
+    if (force) {
+      // 人工核验入口(--notify-test):不读写去重状态(一次手工测试不该污染或抢占窗口)
+      const r = callDispatch()
+      if (r.ok) logger(`✅ 通知自测已送达: ${name} → ${maskEmail(resolveAlertTo())}`)
+      else {
+        writeNotifyJson(undelFile, { ts: now, name, fp, why: r.why })
+        logger(`⚠️ 通知自测失败: ${name} — ${r.why}`)
+      }
+      return { sent: Boolean(r.ok), why: r.why }
+    }
+    const r = callDispatch()
+    if (r.ok) {
+      writeNotifyJson(stateFile, withAlertMark(state, name, fp, now, true))
+      rmSync(undelFile, { force: true }) // 下一次成功投递自动清除失败标记(§5e)
+      logger(`✅ 判红通报已寄出: ${name} → ${maskEmail(resolveAlertTo())}`)
+    } else {
+      // 失败不记"已送达"⇒ 下轮(退避后)还会重试;标记落盘让人在 --status/日志里看得见
+      writeNotifyJson(stateFile, withAlertMark(state, name, fp, now, false))
+      writeNotifyJson(undelFile, { ts: now, name, fp, why: r.why })
+      logger(`⚠️ 判红通报投递失败: ${name} — ${r.why}(已写 UNDELIVERED 标记,${Math.round(failCooldownMs / 60000)} 分钟后重试)`)
+    }
+    return { sent: Boolean(r.ok), why: r.why }
+  } catch (e) {
+    // 兜底:通知层自身任何异常都吞掉 —— 守护崩了比不发邮件严重得多(原自愈与退出码不受影响)
+    try {
+      logger(`⚠️ 通知层自身异常(已忽略,不影响自愈): ${String((e && e.message) || e).slice(0, 160)}`)
+    } catch {}
+    return { sent: false, why: '通知层自身异常(已忽略)' }
+  }
+}
+
+/** 通知层健康摘要(供 --status 如实显示:已配置/无收件人/上次投递失败) */
+function notifySummary() {
+  try {
+    const to = resolveAlertTo()
+    const undel = readNotifyText(NOTIFY_UNDEL)
+    let undelivered = null
+    if (undel) {
+      try {
+        undelivered = JSON.parse(undel)
+      } catch {
+        undelivered = { raw: undel.slice(0, 200) }
+      }
+    }
+    const state = parseNotifyState(readNotifyText(NOTIFY_STATE))
+    return {
+      configured: Boolean(to) && existsSync(TSX_ENTRY) && existsSync(BRAND_MAIL_SCRIPT),
+      to: to ? maskEmail(to.split(',')[0].trim()) : '(无收件人:apps/api/.env 缺 ALERT_EMAIL_TO)',
+      disabled: process.env.GIT_GUARDIAN_NOTIFY_DISABLED === '1',
+      windowMs: notifyWindowMs(),
+      alerts: Object.entries(state).map(([k, v]) => ({
+        name: k,
+        delivered: v.delivered,
+        ts: new Date(v.ts).toISOString(),
+      })),
+      undelivered,
+    }
+  } catch (e) {
+    return { configured: false, error: `通知层状态无法判定(${String((e && e.message) || e).slice(0, 120)})` }
+  }
 }
 
 function healRootSeal() {
@@ -921,6 +1266,9 @@ function status() {
     backupOk: existsSync(join(BACKUP, 'HEAD')),
     refsOk: refsOk(),
     refsMissing: missingRefs(),
+    // 通知层状态如实进 --status:"已配置/无收件人/上次投递失败"必须能被人工核验,
+    // 否则"接线了"只是纸面结论(只读三个小文件,零副作用,--check 口径不变)
+    notify: notifySummary(),
   }
   return health
 }
@@ -1031,6 +1379,29 @@ function taskActionOk() {
 }
 
 function main() {
+  // 通知层人工核验入口(先于 INSTALL):只"真发一次/只问通道齐备",不参与自愈。
+  // --notify-test 绕过当轮去重(force),否则"想核验的人"会被上一条同因告警的窗口挡住,
+  // 得到一次假阴性;--notify-dry-run 零网络请求、不占收件人。
+  const notifyTestAt = process.argv.indexOf('--notify-test')
+  if (notifyTestAt >= 0) {
+    const label = String(process.argv[notifyTestAt + 1] || '').trim() || 'manual'
+    const r = notifyGuardRed(`通知链路自测(${label})`, '这是一条通道自测消息(非故障)。用于验证 git-guardian 唯一到人通道(邮件)是否真能落地。', {
+      severity: 'info',
+      force: true,
+    })
+    console.log(`--notify-test: sent=${r.sent} ${r.why}`)
+    return r.sent ? 0 : 1
+  }
+  if (process.argv.includes('--notify-dry-run')) {
+    const r = dispatchGuardMail({
+      title: '【git-guardian】邮件通道演练(dry-run)',
+      desp: '这是一条 dry-run 演练正文,未实际发送。\n第二行用于验证多行中文经文件通道原样送达。',
+      severity: 'warning',
+      dryRun: true,
+    })
+    console.log(`邮件通道(dry-run): ok=${r.ok} ${r.why}`)
+    return r.ok ? 0 : 1
+  }
   if (INSTALL) {
     // 必须注册 wscript 包装而非 node.exe 本身:计划任务以 InteractiveToken 直接执行控制台程序
     // (node.exe)时 Windows 会显示控制台 → 用户桌面每 2 分钟闪一扇黑窗(2026-09-20 实测踩坑)。
@@ -1188,9 +1559,32 @@ function startDaemon() {
   tick()
 }
 
-if (DAEMON) {
-  startDaemon()
-} else {
-  process.exit(main())
+// §22d isDirectRun:本模块需要"双形态"——CLI 直接跑守护 / 镜像测试 import 纯判据。
+// 不守卫的话 `node --test` 一 import 就会把整轮巡检(含真发信)跑起来,这正是 §22d 立的禁忌。
+const isDirectRun = Boolean(process.argv[1]) && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  if (DAEMON) {
+    startDaemon()
+  } else {
+    process.exit(main())
+  }
+}
+
+// §22c 镜像测试出口:通知层"是否应当发信"的全部判据(指纹/去重窗口/退避/状态归一/argv 契约)
+// 必须能在零副作用、零网络、零真收件人的前提下取证。
+export const __test__ = {
+  alertFingerprint,
+  parseNotifyState,
+  shouldAlert,
+  withAlertMark,
+  maskEmail,
+  resolveAlertTo,
+  buildGuardMailArgv,
+  redactChildOutput,
+  judgeDryRunChannel,
+  notifyGuardRed,
+  NOTIFY_DEFAULT_WINDOW_MS,
+  NOTIFY_DEFAULT_FAIL_COOLDOWN_MS,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
