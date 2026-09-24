@@ -6,7 +6,7 @@
 
 # STATE.md (loop-daily-triage 自动维护)
 
-last_run: 2026-09-23T02:35:29+0000
+last_run: 2026-09-24T02:24:30+0000
 last_status: ok
 next_run: 下一个工作日 08:00 (Asia/Shanghai)
 consecutive_degraded: 0
