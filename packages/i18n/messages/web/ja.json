@@ -7074,6 +7074,46 @@
       "rollbackConfirmConfirm": "復元"
     },
     "pane": {
+      "moveToWorktree": {
+        "title": "会話をワークツリーへ移管",
+        "subtitle": "新しいワークツリーでブランチ <branch>{branchName}</branch> をチェックアウトし、並行作業を継続します。",
+        "continue": "移管",
+        "cancel": "キャンセル",
+        "loading": "移管できるか確認しています…",
+        "existingWorktreeRunning": "現在の返信が完了してからこのチャットを移動してください",
+        "existingWorktreeLabel": "既存のワークツリー",
+        "createNewLabel": "新しいワークツリーを作成",
+        "targetLabel": "移管先",
+        "localCheckoutLabel": "ローカルワークスペースは次に切り替わります",
+        "localBranchPlaceholder": "ローカルチェックアウトブランチを選択",
+        "noTargetBranch": "利用可能な他のローカルブランチがありません",
+        "branchesLoading": "ブランチを読み込み中…",
+        "branchesError": "ブランチの読み込みに失敗しました",
+        "branchesRetry": "再試行",
+        "branchAlreadyExists": "このブランチには既にワークツリーが存在します。",
+        "defaultBranchError": "ワークツリーのブランチはデフォルトブランチと異なる必要があります。",
+        "trailingSlashError": "ブランチ名を\"/\"で終えることはできません。",
+        "worktreeBranchRequired": "ワークツリーのブランチ名を入力してください。",
+        "worktreeBranchAriaLabel": "ワークツリーのブランチ名",
+        "worktreeBranchLabel": "ワークツリーのブランチ名"
+      },
+      "editResend": {
+        "title": "ファイル変更をロールバックして再送信しますか？",
+        "ariaLabel": "ファイル変更をロールバックして再送信",
+        "desc": "このターンのファイル変更をロールバックし、編集後の内容でメッセージを再送信します。",
+        "confirm": "ロールバックして再送信",
+        "cancel": "キャンセル",
+        "previewFilesTitle": "ロールバック対象のファイル",
+        "previewEditTitle": "再送信する内容",
+        "fileRecorded": "チェックポイントに記録済み",
+        "fileUnrecorded": "チェックポイントに未記録",
+        "previewFilesMore": "ほか {count} 件のファイル",
+        "detailAction": "ファイルごとの変更を見る",
+        "detailLabel": "編集して再送信 · ファイルロールバックの影響プレビュー",
+        "warning": { "partialRollback": "一部の変更がチェックポイントに完全に記録されておらず、ロールバック結果が不完全になる可能性があります" },
+        "phase": { "idle": "待機中", "previewing": "プレビュー中", "confirmed": "確認済み", "executing": "ファイルをロールバックして再送信中…", "completed": "ロールバックして再送信しました", "editFailed": "編集に失敗しました", "rollbackFailed": "ロールバックに失敗しました", "rollbackPartial": "部分ロールバック", "syncFailed": "ローカル同期に失敗しました", "replaceFailed": "置換に失敗しました" },
+        "failure": { "editFailed": "編集内容を適用できなかったため、処理を中止しました。", "rollbackFailed": "ファイルのロールバックに失敗したため、処理を中止しました。", "rollbackPartial": "一部のファイルのみロールバックされたため、処理を中止しました。", "syncFailed": "ローカル状態の同期に失敗したため、処理を中止しました。", "replaceFailed": "メッセージの置換に失敗したため、処理を中止しました。" }
+      },
       "agentActions": {
         "title": "マルチエージェント操作",
         "header": {
@@ -21747,6 +21787,63 @@
     "purchase": "会員を購入"
   },
   "wallet": {
+    "autoTopUp": {
+      "title": "自動チャージ",
+      "description": "残高がしきい値を下回ると、目標残高まで自動チャージします。",
+      "enabled": "自動チャージを有効にする",
+      "enable": {
+        "success": "自動チャージを有効にしました",
+        "error": "自動チャージの有効化に失敗しました。しばらくしてからもう一度お試しください"
+      },
+      "disable": {
+        "success": "自動チャージを無効にしました",
+        "error": "自動チャージの無効化に失敗しました。しばらくしてからもう一度お試しください"
+      },
+      "save": {
+        "success": "自動チャージ設定を保存しました",
+        "error": "自動チャージ設定の保存に失敗しました。しばらくしてからもう一度お試しください",
+        "action": "自動チャージ設定を保存"
+      },
+      "dialog": {
+        "title": "自動チャージの有効化を確認",
+        "description": "有効にすると、残高がしきい値を下回った時点で目標残高まで自動的に課金されます。意図した操作であることをご確認ください。",
+        "confirm": "有効にする",
+        "cancel": "キャンセル"
+      },
+      "target": {
+        "label": "目標残高",
+        "helper": "残高がしきい値を下回ると、このクレジット数まで自動チャージします。",
+        "ariaLabel": "目標残高(クレジット数)",
+        "error": {
+          "missing": "目標残高を入力してください",
+          "wholeNumber": "目標残高は整数で入力してください",
+          "maximum": "目標残高は {maximumCredits} クレジットを超えられません",
+          "minimumDifference": "目標残高はチャージしきい値より大きくしてください"
+        },
+        "equivalent": {
+          "loading": "価格を取得しています…",
+          "text": "クレジット {creditCount} をチャージ、予定金額 <strong>{amount}</strong>",
+          "error": "価格の取得に失敗しました。しばらくしてからもう一度お試しください"
+        }
+      },
+      "threshold": {
+        "label": "チャージしきい値",
+        "helper": "残高がこのクレジット数を下回ると自動チャージが実行されます。",
+        "ariaLabel": "チャージしきい値(クレジット数)",
+        "error": {
+          "missing": "チャージしきい値を入力してください",
+          "wholeNumber": "チャージしきい値は整数で入力してください",
+          "minimum": "チャージしきい値は 1 以上にしてください"
+        }
+      },
+      "immediateTopUpFailure": {
+        "title": "初回チャージに失敗しました",
+        "amount": "初回チャージの予定金額は {amount} ですが、支払いが完了しませんでした。",
+        "generic": "初回の自動チャージが完了しませんでした。",
+        "updatePaymentMethod": "支払い方法を更新",
+        "buyCredits": "クレジットを直接購入"
+      }
+    },
     "availableAmount": "できるできる",
     "backToWallet": "ウォレットにる",
     "balance": "TokenBalance",
