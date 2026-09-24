@@ -163,4 +163,86 @@ test('每日维护脚本必须带"重解析点只断链、绝不递归删"的护
   // 断链必须是 non-recursive:`Delete($path, $true)` 或 -Recurse 会顺着 junction 清空外置根
   assert.match(ps1, /\[System\.IO\.Directory\]::Delete\(\$path,\s*\$false\)/, '断链写成递归删除 ⇒ 会穿透删目标')
 })
+
+test('页面文件量大小必须用 WMI 的 AllocatedBaseSize(不是 MSDN 文档那个名字)', () => {
+  // 实测:本机 Win32_PageFileUsage 只有 `AllocatedBaseSize`;写成文档里的 `AllocBaseSize`
+  // 不会报错,PowerShell 把它渲染成**空串** ⇒ 一条都量不到。这正是"属性名错但静默通过"的形状。
+  const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'check-c-drive-pollution.mjs'), 'utf8')
+  assert.match(src, /\$_.AllocatedBaseSize/, '未使用 AllocatedBaseSize')
+  assert.doesNotMatch(src, /\$_.AllocBaseSize/, '用了会被静默渲染成空串的属性名')
+})
+
+test('页面文件哨兵:一条都没量到必须报"未判定",不得报"一致"(假绿灯防回归)', () => {
+  const r = G.pagefilePending(G.parsePagingFiles('    C:\\pagefile.sys 2048 2048'), new Map())
+  assert.equal(r.readable, true, '配置读到了')
+  assert.equal(r.measured, 0, '不该记为量到')
+  assert.equal(r.pending.length, 0, '量不到不得造待办')
+  // 报告文本里必须出现"未判定"字样 —— 判据没量到却打印"一致"就是假绿
+  assert.ok(r.entries > r.measured, 'entries/measured 差必须可见,供报告区分未判定')
+})
+
+// —— TEMP 内容归因(2026-09-24 补):特征串唯一真相源在源脚本的 CONTENT_SIGNATURES,
+// 本测试只经 __test__ 引用它(§22c),写第二份字面量清单即为漂移。 ——
+test('内容归因经 __test__ 装车:特征数组在位且四族各有锚(仓库根/旧盘 G:/@ihui//水印横幅)', () => {
+  assert.ok(Array.isArray(G.CONTENT_SIGNATURES) && G.CONTENT_SIGNATURES.length >= 5, 'CONTENT_SIGNATURES 未导出或缩水')
+  assert.ok(G.CONTENT_SIGNATURES.every((s) => s.re instanceof RegExp && s.why.includes('内容归因')), '每条特征须自带可区分的 why')
+  const hitBy = (text) => G.CONTENT_SIGNATURES.filter((s) => s.re.test(text)).length
+  assert.ok(hitBy('D:\\IHUI-AI\\x') >= 1, '仓库根反斜杠形态未命中')
+  assert.ok(hitBy('D:/IHUI-AI/x') >= 1, '仓库根正斜杠形态未命中')
+  assert.ok(hitBy('G:\\IHUI-AI\\old.cjs') >= 1, '旧盘 G: 强特征未命中(迁移前脚本会重新失明)')
+  assert.ok(hitBy("import { x } from '@ihui/shared'") >= 1, '@ihui/ 命名空间未命中')
+  assert.ok(hitBy('// [IHUI-AI-PROVENANCE]:…') >= 1, '溯源横幅未命中')
+  assert.ok(hitBy('// © 2026 IHUI AI') >= 1, '版权横幅 IHUI AI 未命中')
+})
+
+test('内容归因正反成对(真文件走 attributeByContent):我们的必须 hit,他人工具态必须 notMatched', () => {
+  const base = mkScratch('pollution-attr-')
+  try {
+    const ours = [
+      ["const root='D:\\\\IHUI-AI'\n", '探针原始形状:转义双写 + 引号收口'],
+      ["select 1 from t; -- G:/IHUI-AI/scripts\n", '旧盘正斜杠'],
+      ['console.log(require("@ihui/api-client"))\n', '包命名空间'],
+    ]
+    for (const [i, [content, label]] of ours.entries()) {
+      const p = join(base, `attr-ours-${i}.cjs`)
+      writeFileSync(p, content)
+      const r = G.attributeByContent(p)
+      assert.equal(r.state, 'hit', `${label} 未被内容归因抓到`)
+      assert.match(r.why, /内容归因/, 'why 必须能区分"按内容认出"与"按名字认出"')
+    }
+    for (const [i, content] of [
+      '{"sessionId":"qoder-000b","cwd":"C:\\\\Users\\\\me"}',
+      'PUT /v1/bucket/object HTTP/1.1',
+      'D:\\IHUI-AIIsHugeOtherThing\\readme.txt',
+    ].entries()) {
+      const p = join(base, `attr-foreign-${i}.cjs`)
+      writeFileSync(p, content)
+      assert.equal(G.attributeByContent(p).state, 'notMatched', '他人/近邻内容被误判为本项目产物(清理任务最严重方向)')
+    }
+  } finally {
+    rmScratch(base)
+  }
+})
+
+test('内容归因护栏如实计数:超 2MB 与前 8KB 含 NUL 必须判 skipped,不得混进 hit/notMatched 任一态', () => {
+  const base = mkScratch('pollution-guard-')
+  try {
+    const big = join(base, 'huge.log')
+    writeFileSync(big, Buffer.concat([Buffer.from("x '@ihui/y' "), Buffer.alloc(G.CONTENT_SNIFF_MAX_BYTES + 16, 0x41)]))
+    assert.equal(G.attributeByContent(big).state, 'skipped', '超大文件必须被体积护栏跳过(守门不整读)')
+    const bin = join(base, 'core.bin')
+    writeFileSync(bin, Buffer.concat([Buffer.from("IHUI-AI-PROVENANCE"), Buffer.from([0, 0]), Buffer.from('IHUI AI')]))
+    assert.equal(G.attributeByContent(bin).state, 'skipped', '二进制必须被 NUL 护栏跳过(带特征串也不整读)')
+    assert.equal(G.attributeByContent(join(base, 'gone.cjs')).state, 'failed', '读不到必须判 failed,不得当未命中静默吞掉')
+  } finally {
+    rmScratch(base)
+  }
+})
+
+test('scanC 的结果必须始终携带 contentAttribution 四计数(空扫靠它们报"未判定",绝不静默)', () => {
+  const r = G.scanC()
+  for (const k of ['candidates', 'hits', 'skippedSizeOrBinary', 'readFailed'])
+    assert.ok(Number.isFinite(r.contentAttribution?.[k]), `缺 ${k} ⇒ 报告面会把没扫到当成通过`)
+  assert.ok(r.contentAttribution.hits <= r.contentAttribution.candidates, '命中数不得大于候选数(计数口径错)')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
