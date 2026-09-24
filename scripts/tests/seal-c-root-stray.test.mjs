@@ -153,7 +153,18 @@ test('装车证明③:git 守护必须真的调封口自愈(重启会清掉 junc
   assert.match(g, /call\(\['--apply'\]\)/, '重封调用缺失(只报不修 = 每天要人手动跑)')
   // 挂点必须在"真巡检"分支里:挂在 CHECK_ONLY 路径上等于永不执行(工作区自愈层踩过同一坑)
   assert.match(g, /if \(!CHECK_ONLY\) healRootSeal\(\)/, '未挂在 !CHECK_ONLY 分支 ⇒ 永不触发')
-  assert.match(g, /healRootSeal\(\)[\s\S]{0,80}\n\s*\} catch/, 'daemon tick 的成功分支里也要调')
+  // 挂点必须落在 daemon tick 的巡检 try 里。旧写法判「healRootSeal() 之后 80 字符内必须出现
+  // } catch」——任何人往它下面新增一个兄弟自愈(实际就新增了 healHomeJunctions)就会把窗口
+  // 撑破,于是**接线完好而断言恒红**。现改问结构:取该 try 到其 catch 之间的区间再要求内含调用。
+  const catchAt = g.indexOf("log('巡检异常")
+  assert.ok(catchAt > 0, '未定位到 tick 的巡检 catch —— 判据失效不得当成"没接线"')
+  const tryAt = g.lastIndexOf('try {', catchAt)
+  assert.ok(tryAt > 0 && tryAt < catchAt, '未定位到巡检 try 起点(同上,宁红不误绿)')
+  assert.match(
+    g.slice(tryAt, catchAt),
+    /healRootSeal\(\)/,
+    'healRootSeal 未挂在 tick 的 try 里 ⇒ 永不触发(挂在 CHECK_ONLY 路径同样等于没有)',
+  )
   // 派生一律带超时与 windowsHide(守门 52/80)
   const body = g.slice(g.indexOf('function healRootSeal'), g.indexOf('function healRootSeal') + 2200)
   assert.match(body, /windowsHide: true/, 'healRootSeal 缺 windowsHide ⇒ 守护下必弹控制台窗')
