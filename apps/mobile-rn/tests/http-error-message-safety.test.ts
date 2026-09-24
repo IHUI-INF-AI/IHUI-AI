@@ -2,48 +2,62 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { Platform } from 'react-native'
-import { SSO_CLIENT_IDS } from '@ihui/shared/constants'
-import { version as PKG_VERSION } from '../../package.json'
+import { describe, it, expect } from 'vitest'
 
-/** 应用版本唯一真相源 = apps/mobile-rn/package.json(此前 SettingsScreen 写死 1.0.2、
- *  SharedDemoScreen 写死 1.0.0,而真实版本是 0.0.5 —— 三个版本号互相矛盾)。 */
-export const APP_VERSION = PKG_VERSION
+import { toUserFriendlyMessage } from '@ihui/shared/utils'
 
 /**
- * 首方 User-Agent(2026-09-24 立)。RN 的 fetch 由 okhttp 实现,而后端
- * `apps/api/src/utils/bot-detection.ts` 把 `okhttp` 列进 CURL_LIKE_KEYWORDS ——
- * 不设 UA 等于自家 App 的**每个**请求都被判为爬虫:
- *  ① 一旦出口 IP 越过挑战阈值,429 会带 `X-Challenge-Type: bot` 并要求完成一个
- *    RN 端根本无法渲染的 CAPTCHA(`/api/security/challenge` 无任何客户端实现);
- *  ② 每次请求都触发 `recordBadEvent(ip, 'automation-ua')`,持续拉低用户出口 IP 的
- *    信誉,可升级到 403「IP 已被临时封禁 15 分钟」。
- * 手机走运营商 NAT,一个出口 IP 承载大量真实用户,误判代价被成倍放大。
- * 字符串刻意不含任何 curl-like / bot 关键字。
- */
-export const APP_USER_AGENT = `IHUIAI-App/${APP_VERSION} (${Platform.OS}/${
-  typeof Platform.Version === 'number' ? Platform.Version : Platform.Version ?? 'unknown'
-})`
-
-const ENV_API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:8802'
-
-// 10.0.2.2 是 Android 模拟器访问宿主机的专用 IP,web 平台浏览器无法访问,替换为 localhost。
-// 生产环境配置的真实域名(如 https://api.example.com)不受影响。
-export const API_BASE_URL =
-  Platform.OS === 'web' && ENV_API_BASE_URL.includes('10.0.2.2')
-    ? ENV_API_BASE_URL.replace('10.0.2.2', 'localhost')
-    : ENV_API_BASE_URL
-export { TOKEN_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY } from '@ihui/shared/constants'
-
-/**
- * SSO 配置(移动端作为 SSO client 接入 web 登录中心)
+ * 消费侧契约:HTTP 失败带 status 时,**绝不**把上游正文念给用户。
  *
- * 流程:
- * 1. 用户点"使用网页账号登录" → openAuthSession 打开 web /sso/login?redirect=ihui://sso/callback&client_id=mobile-rn
- * 2. 用户在 web 登录后,web 生成 30s sso_code,跳 ihui://sso/callback?sso_code=xxx
- * 3. 系统拦截 deep link,拿 sso_code 调 /api/auth/sso/exchange 换 token → 自动登录
+ * 链路两端各测一半(本包能同时看到两端,所以放这里):
+ *  - `packages/api-client/tests/http-error-meta.test.ts` 测 fetchRaw/fetchText 有没有挂上 status;
+ *  - 这里测挂上之后 `toUserFriendlyMessage` 是否真的因此避开"原样返回正文"那一支。
+ *
+ * 背景:fetchRaw/fetchText 曾只抛 `Error("<status>: <raw body>")`。TTS 等调用方把
+ * e.message 丢给 toUserFriendlyMessage 进 toast 时,该函数 errorCode / status 两步
+ * 都取不到值,会退到第 4 步"已是中文就原样返回 / 否则英文关键词匹配 / 兜底",
+ * 于是 nginx 429 的整页 HTML 有机会直接显示在手机上。
  */
-export const WEB_BASE_URL = process.env.EXPO_PUBLIC_WEB_URL || 'http://localhost:8801'
-export const SSO_CLIENT_ID = SSO_CLIENT_IDS.MOBILE_RN
-export const SSO_REDIRECT_URI = 'ihui://sso/callback'
+
+function httpLikeError(status: number, body: string): Error {
+  // 与 api-client 抛出的形状保持一致:message 里带正文,元信息挂在属性上。
+  const error = new Error(`${status}: ${body}`) as Error & { status?: number }
+  error.status = status
+  return error
+}
+
+const NGINX_429_PAGE =
+  '<html>\r\n<head><title>503 Service Temporarily Unavailable</title></head>\r\n' +
+  '<body bgcolor="white"><center><h1>503 Service Temporarily Unavailable</h1></center></body>\r\n</html>'
+
+describe('带 status 的 HTTP 错误不外泄正文', () => {
+  it('429 + 整页 HTML → 返回状态码文案,不含标签、不含 "nginx"', () => {
+    const out = toUserFriendlyMessage(httpLikeError(429, NGINX_429_PAGE))
+    expect(out).not.toContain('<')
+    expect(out).not.toContain('html')
+    expect(out).not.toContain('Service Temporarily Unavailable')
+    expect(out.length).toBeLessThan(40)
+  })
+
+  it('status 命中映射表时优先于正文(第 2 步早于第 4 步)', () => {
+    const withStatus = toUserFriendlyMessage(httpLikeError(429, '请求频率过高 xyz'))
+    const withoutStatus = toUserFriendlyMessage(new Error('429: 请求频率过高 xyz'))
+    expect(withStatus).not.toBe(withoutStatus)
+    expect(withStatus).not.toContain('xyz')
+  })
+
+  it('errorCode 比 status 更优先(业务码文案更精确)', () => {
+    const error = httpLikeError(429, 'ignored') as Error & { errorCode?: string }
+    error.errorCode = 'BUDGET_EXHAUSTED'
+    const out = toUserFriendlyMessage(error)
+    expect(out).not.toContain('ignored')
+    expect(out.length).toBeGreaterThan(0)
+  })
+
+  it('无 status 无 errorCode 且正文是英文 → 落到安全兜底,不回显原文', () => {
+    expect(toUserFriendlyMessage(new Error('429: upstream throttled the request'))).not.toContain(
+      'upstream throttled',
+    )
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
