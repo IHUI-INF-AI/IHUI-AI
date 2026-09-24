@@ -684,6 +684,14 @@ pnpm dev                                       # 启动所有服务(web + api + 
 | `D:\DevEnv\{cache,tools,runtimes}\`  | 工具链缓存唯一根;家目录里的工具状态一律 `robocopy /MOVE` + **junction** 改道(禁改 `HKCU\Environment\Path`),旧路径经 junction 仍可解析 | §26  |
 | `D:\DevEnv\Temp\`                    | `TEMP`/`TMP`/`TMPDIR`(HKCU,需新开终端才继承)                                                                                          | §26  |
 
+> **上表的 `D:` 是"D 盘那份 checkout"的历史值,不得当本机现值照抄**(2026-09-24 实测,登记于 PROJECT_PLAN
+> 第三十三批 续五⑦):`gitArchiveDir()`(`scripts/lib/gitdir.mjs`)按**工作树所在盘**推导,工作树在
+> `G:\IHUI-AI` 时它返回 **`G:/DevEnv/backups/git`**;而 `D:\DevEnv`(Temp/backups/kc-tools/logs)与
+> `G:\DevEnv`(Temp/backups/cache/tools)**同时存在**,各自服务所在盘上的 checkout。
+> **规则:凡脚本需要归档/备份/临时落点,一律 `import` 出口函数(`gitArchiveDir()` / `gitdirArchivePath()` /
+> `resolveBackupDir()`),禁止再硬编码盘符** —— 硬编码的结果是"备份落点解析到不存在的路径",
+> 表现为 `git-guardian --status` 的 `backupOk:false` 这类静默失效(§5b 已记过一次同型)。
+
 **显式例外与已改道项(改道用 junction,故旧路径仍可用)**:
 
 1. `D:\IHUI-AI-git-repo` —— 真 gitdir。§5b 实测宿主层会整体删除工作区内 `.git`,故必须在外;
@@ -1499,6 +1507,15 @@ nssm 服务(IHUI-API / IHUI-DEPLOYLOOP 以 LocalSystem 运行)拿到的仍是 `C
 **2026-09-23 曾实测:该任务在本机并不存在**(当时代号未注册,`D:\DevEnv\logs\c-drive-maintain.log` 也从未生成)。当时的表是**设计意图**而非现状,曾据此以为"每天在清"⇒ 实际零执行,这是 C 盘能攒下 13.2GB `.next` 构建备份的直接原因之一。
 
 **同日 23:59 经用户授权后已真正注册**(状态=现状,不再是设计意图):
+
+> **该"现状"于 2026-09-24 再次失真,已三路取证终判为「当前不存在」**(本节下方表格里的"每天 3am"因此也是设计意图而非实况):
+> ① `schtasks /query /fo CSV | grep -i c-drive` **零命中**(这正是本节规定的权威查法);
+> ② `Get-ScheduledTask | Where TaskName -match 'C-Drive|Maintain'` 返回**空**;
+> ③ 递归枚举 `C:\Windows\System32\Tasks\*.XML`,**没有**任何 C-Drive/Maintain 定义文件 —— 而同目录其余 **14 个 `IHUI*` 任务全部在位可列**
+> ⇒ 排除"查法失效"这一假阴性解释,任务确实不在了。
+> `D:\DevEnv\logs\c-drive-maintain.log` 今天(09-24 10:59)那条记录是**人工 `-DryRun` 预演**,不是 03:00 自动执行(全文 `[DRY]` 无 `[DEL]`,合计释放 0 MB),
+> 所以"每天在清"在今天并没有发生。**注册动作 = 影响全机的每日自动删除,仍须用户授权,agent 不得自行 `schtasks /create` 恢复**;
+> 上一条"回读 `schtasks /Query /XML` 实证 `LogonType=S4U`"当时为真,但那份定义现已不在 —— 名字陷阱的解释**不成立**(权威全量列表法连空格名一起扫,零命中)。
 
 - **动作链按本节下方「计划任务禁止直接执行控制台程序」硬约束走**:`wscript.exe` → 纯 ASCII 的 `scripts/c-drive-maintain-hidden.vbs` → `pwsh -NoProfile -ExecutionPolicy Bypass -File …ps1`。注册前用 `cscript //nologo` 实跑过一份**只带 `-DryRun` 的同体副本**做语法+拉起链证明(实测写出 `[WARN] … DRY RUN(全脚本不删任何东西)`),因此注册过程零删除。
 - **登录类型已升 S4U**(与凭据巡检同一套 `scripts/task-set-s4u.vbs`),否则 3am 无人登录时不会跑。回读 `schtasks /Query /XML` 实证:`LogonType=S4U`、`Command=wscript.exe`、`StartBoundary=03:00`、下次运行 `2026-09-24 03:00`。

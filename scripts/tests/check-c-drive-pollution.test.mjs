@@ -77,11 +77,76 @@ test('Temp 里只认我们的前缀,他人随机名一律放过', () => {
   assert.equal(G.classifyTmp('qoder-000b-cwd'), null, '宿主工具态被误判为本项目产物')
 })
 
-test('scanC 只读:结果含 temp 结论且两次一致', () => {
+test('scanC 默认面:结论结构合法(不断言两次计数相等 —— 见下方注入用例的理由)', () => {
   const a = G.scanC()
-  const b = G.scanC()
-  assert.equal(a.ours.length, b.ours.length, '两次扫描数量漂移(本门不应改文件)')
   assert.ok(['ok', 'drift', 'unknown'].includes(a.temp.status), `TEMP 判定状态异常:${a.temp.status}`)
+  assert.ok(Array.isArray(a.ours) && Array.isArray(a.unknownRoot), 'ours/unknownRoot 必须是数组')
+  assert.ok(typeof a.totalMB === 'number' && a.totalMB >= 0, 'totalMB 必须是可量数值')
+  // 曾经这里断言"两次扫描条数相等"。它测的是"本门只读",但在**全量并行批次**里必然间歇红:
+  // 兄弟测试正在同一台机器的 TEMP 里创建/删除 `ihui-*` 夹具,而本门扫的正是那些目录
+  // (2026-09-24 全量首跑即此因)。**只读性改由上面两条注入用例确定性取证**,
+  // 这里只保证默认扫描面给出的结论形状合法。
+})
+
+// ─── 扫描面注入(2026-09-24 加):让上面那条"两次一致"可被**确定性地**测 ───────
+// 上面那条在**全量并行批次**里是间歇红的:兄弟测试正在创建/删除 `ihui-*` 夹具,
+// 而本门的 TEMP 枚举扫的就是这台机器此刻的临时目录 —— 21s 双扫描窗口内数量必然漂移。
+// 那与"本门是否只读"无关,却在 CI 上会表现为一道与任何改动都无关的常红门。
+// 修法不是削断言,而是把扫描面钉到调用方自己的隔离目录(默认行为一字不变)。
+test('注入:钉住 tempDirs + skipDriveRoot ⇒ 结果确定、不碰真机内容', () => {
+  const iso = mkScratch('pollution-iso-')
+  try {
+    mkdirSync(iso, { recursive: true })
+    const opt = { tempDirs: [iso], skipDriveRoot: true }
+    const a = G.scanC(opt)
+    const b = G.scanC(opt)
+    assert.deepEqual(a.ours, [], '隔离空目录下不得有任何本项目残骸')
+    assert.equal(a.ours.length, b.ours.length, '注入后两次必须严格一致')
+    assert.equal(a.totalMB, b.totalMB)
+    assert.deepEqual(a.unknownRoot, [], 'skipDriveRoot 不得伪报盘根未知项')
+    assert.equal(a.pagefile.count, b.pagefile.count, 'pagefile 量取在两次调用间不得漂移(纯读注册表/WMI)')
+  } finally {
+    rmScratch(iso)
+  }
+})
+
+test('注入:在隔离目录造一枚 ihui-* 残骸 ⇒ 只量到它,且再扫仍只量到它', () => {
+  const iso = mkScratch('pollution-bait-')
+  try {
+    mkdirSync(iso, { recursive: true })
+    const bait = join(iso, 'ihui-bait-fixture')
+    mkdirSync(bait, { recursive: true })
+    // 体积判据按 0.1MB 取整 ⇒ KB 级诱饵会被抹成 0(第一版就是这样"量到条目却报 0MB")。
+    // 这里要的是真实量级,才能同时钉住"目录体积确实算了"。
+    writeFileSync(join(bait, 'x.bin'), Buffer.alloc(1_300_000, 0x61), 'utf8')
+    const r = G.scanC({ tempDirs: [iso], skipDriveRoot: true })
+    assert.equal(r.ours.length, 1, `应只量到诱饵一枚,实得 ${r.ours.length}:${JSON.stringify(r.ours.map((o) => o.path))}`)
+    assert.match(r.ours[0].path, /ihui-bait-fixture/)
+    assert.ok(r.totalMB >= 1.2, `量到 1.3MB 条目却报 totalMB=${r.totalMB} ⇒ 目录体积没算(旧假绿灯形态)`)
+    // 反向对照:同一次调用不得把 D 盘的夹具算成 C 盘债(扫面被钉住即不外溢)
+    assert.ok(!r.ours.some((o) => /^[CD]:\\Users/.test(o.path)), '注入后不得越界扫到用户目录')
+  } finally {
+    rmScratch(iso)
+  }
+})
+
+test('detectTempDrift 经 scanC 注入:三态各自成立(默认仍读注册表)', () => {
+  const iso = mkScratch('pollution-drift-')
+  try {
+    mkdirSync(iso, { recursive: true })
+    const same = G.scanC({ tempDirs: [iso], skipDriveRoot: true, procTmp: iso, declaredTemp: iso })
+    assert.equal(same.temp.status, 'ok', '声明==进程 ⇒ ok')
+    const other = join(iso, 'elsewhere')
+    mkdirSync(other, { recursive: true })
+    const drift = G.scanC({ tempDirs: [iso], skipDriveRoot: true, procTmp: iso, declaredTemp: other })
+    assert.equal(drift.temp.status, 'drift', '声明≠进程 ⇒ drift(这条判据正是"改了指针但残骸天天还在长")')
+    const unknown = G.scanC({ tempDirs: [iso], skipDriveRoot: true, procTmp: iso, declaredTemp: null })
+    assert.equal(unknown.temp.status, 'unknown', '注册表读不到 ⇒ unknown,绝不记为通过')
+    // 默认路径未被改动:不给 declaredTemp 时仍走真实注册表读取
+    assert.ok(['ok', 'drift', 'unknown'].includes(G.scanC({ tempDirs: [iso], skipDriveRoot: true }).temp.status))
+  } finally {
+    rmScratch(iso)
+  }
 })
 
 test('TEMP 漂移判据:注册表与进程不一致必须报 drift', () => {
