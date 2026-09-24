@@ -188,7 +188,7 @@ export default function DataAnalysisPage() {
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {capabilities.map((c, i) => (
               <div key={c.title} className="rounded-2xl border bg-card p-3 shadow-sm">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cta/10 text-sm font-semibold text-primary">
                   {i + 1}
                 </div>
                 <h3 className="mt-4 text-lg font-semibold">{c.title}</h3>
@@ -205,7 +205,7 @@ export default function DataAnalysisPage() {
           <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {steps.map((s) => (
               <div key={s.step} className="rounded-2xl border bg-card p-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary text-base font-semibold text-primary-foreground">
+                <div className="flex h-10 w-10 items-center justify-center rounded-md bg-cta text-base font-semibold text-cta-foreground">
                   {s.step}
                 </div>
                 <h3 className="mt-4 text-base font-semibold">{s.title}</h3>
@@ -226,7 +226,7 @@ export default function DataAnalysisPage() {
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link
               href="/sso/register"
-              className="inline-flex h-11 items-center justify-center rounded-md bg-primary px-8 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              className="inline-flex h-11 items-center justify-center rounded-md bg-cta px-8 text-sm font-medium text-cta-foreground hover:bg-cta/90"
             >
               免费注册
             </Link>

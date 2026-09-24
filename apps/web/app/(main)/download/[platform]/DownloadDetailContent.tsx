@@ -103,7 +103,7 @@ export function DownloadDetailContent({ platform: platformParam }: { platform: s
       <Card className="mb-6 p-3">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md bg-cta/10 text-primary">
               <Icon className="h-7 w-7" />
             </div>
             <div className="min-w-0">
@@ -265,7 +265,7 @@ function DownloadAssetCard({
   return (
     <Card className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-cta/10 text-primary">
           <Download className="h-5 w-5" />
         </div>
         <div className="min-w-0">
@@ -293,7 +293,7 @@ function DownloadAssetCard({
         rel={isExternal ? 'noopener noreferrer' : undefined}
         onClick={() => trackDownload(platform, 'detail_page', asset.href)}
         className={cn(
-          'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+          'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-md bg-cta px-4 text-sm font-medium text-cta-foreground transition-colors hover:bg-cta/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         )}
       >
         <Download className="h-4 w-4" />

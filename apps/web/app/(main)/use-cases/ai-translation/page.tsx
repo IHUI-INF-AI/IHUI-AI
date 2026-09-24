@@ -248,7 +248,7 @@ export default function AiTranslationPage() {
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
             {capabilities.map((c, i) => (
               <div key={c.title} className="rounded-2xl border bg-card p-3 shadow-sm">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cta/10 text-sm font-semibold text-primary">
                   {i + 1}
                 </div>
                 <h3 className="mt-4 text-lg font-semibold">{c.title}</h3>
@@ -259,7 +259,7 @@ export default function AiTranslationPage() {
         </section>
 
         {/* 案例 */}
-        <section className="mt-16 rounded-2xl border bg-primary/5 p-3">
+        <section className="mt-16 rounded-2xl border bg-cta/5 p-3">
           <h2 className="text-center text-xl font-bold tracking-tight min-[768px]:text-2xl">
             客户落地案例
           </h2>
@@ -307,7 +307,7 @@ export default function AiTranslationPage() {
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link
               href="/sso/register"
-              className="inline-flex h-11 items-center justify-center rounded-md bg-primary px-8 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              className="inline-flex h-11 items-center justify-center rounded-md bg-cta px-8 text-sm font-medium text-cta-foreground hover:bg-cta/90"
             >
               免费注册
             </Link>

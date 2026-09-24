@@ -167,7 +167,7 @@ export default function EduExamTakePage() {
                     className={cn(
                       'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-xs',
                       selected
-                        ? 'border-primary bg-primary text-primary-foreground'
+                        ? 'border-primary bg-cta text-cta-foreground'
                         : 'text-muted-foreground',
                     )}
                   >
