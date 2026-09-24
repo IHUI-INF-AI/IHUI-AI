@@ -13,8 +13,14 @@ import { Tooltip } from '@/components/feedback'
 import { CenteredText } from '@/components/common/CenteredText'
 import { useClipboard } from '@/hooks/use-clipboard'
 import { useCanvasStore } from '@/stores/canvas-store'
+import { useChatStore } from '@/stores/chat'
 import { parseChartTemplateJson } from '@ihui/design-tokens'
 import { ChartTemplateCard } from '@/components/ai/chart-template-card'
+import {
+  ArtifactKindBadge,
+  ArtifactTurnBadge,
+  assistantTurnOf,
+} from '@/components/media/artifact-turn-badge'
 import { CanvasVersionMenu } from './canvas-overlay'
 
 /**
@@ -71,6 +77,9 @@ type TabKey = 'preview' | 'code'
 
 interface ArtifactCanvasProps {
   artifact: Artifact
+  /** D76 挂载:该产物挂在哪条 assistant 消息下(MessageItem 传 m.id),
+   *  用于派生"第 N 轮"徽章;缺省不渲染徽章。 */
+  turnMessageId?: string
 }
 
 /**
@@ -80,11 +89,19 @@ interface ArtifactCanvasProps {
  * - 版本历史下拉回退;Maximize2 一键打开全屏画布(CanvasOverlay,Esc/X 关闭)
  * - 仅 path 无内联 content 的文件型产物:交还 ChartArtifactBlock 处理,本组件返回 null
  */
-export function ArtifactCanvas({ artifact }: ArtifactCanvasProps) {
+export function ArtifactCanvas({ artifact, turnMessageId }: ArtifactCanvasProps) {
   const t = useTranslations('chat')
   const clipboard = useClipboard()
   const [tab, setTab] = React.useState<TabKey>('preview')
   const content = typeof artifact.content === 'string' ? artifact.content : ''
+
+  // D76 挂载:第 N 轮 = 该 assistant 消息在消息流中的序号(store 订阅式派生,
+  // 旧消息 turn 不随后续消息 append 漂移);无 messageId 上下文时徽章不渲染
+  const turn = useChatStore((s) =>
+    turnMessageId ? assistantTurnOf(s.messages, turnMessageId) : null,
+  )
+  // 反向定位锚(MessageList 容器的 ihui:focus-artifact 监听按此查询)
+  const artifactAnchor = artifact.path ?? artifact.name ?? undefined
 
   // 本地「已应用」内容(预览渲染源)与「草稿」(textarea 编辑源)
   const [applied, setApplied] = React.useState(content)
@@ -146,9 +163,17 @@ export function ArtifactCanvas({ artifact }: ArtifactCanvasProps) {
   const copyLabel = clipboard.copied ? t('copied') : t('copy')
 
   return (
-    <div className="overflow-hidden rounded-sm border border-border/30 bg-card/50">
+    <div
+      className="overflow-hidden rounded-sm border border-border/30 bg-card/50"
+      data-artifact-path={artifactAnchor}
+    >
       <div className="flex items-center justify-between gap-2 bg-muted/30 px-2 py-1">
         <div className="flex items-center gap-1">
+          {/* D76 挂载:轮次徽章(点击跳回产生它的消息)+ 分型徽章(判据唯一真相源) */}
+          {turn !== null && turnMessageId && (
+            <ArtifactTurnBadge turn={turn} messageId={turnMessageId} />
+          )}
+          {artifactAnchor && <ArtifactKindBadge nameOrPath={artifactAnchor} />}
           {showTabs ? (
             <>
               <ArtifactTabButton
