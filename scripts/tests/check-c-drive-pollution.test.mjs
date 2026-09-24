@@ -163,4 +163,21 @@ test('每日维护脚本必须带"重解析点只断链、绝不递归删"的护
   // 断链必须是 non-recursive:`Delete($path, $true)` 或 -Recurse 会顺着 junction 清空外置根
   assert.match(ps1, /\[System\.IO\.Directory\]::Delete\(\$path,\s*\$false\)/, '断链写成递归删除 ⇒ 会穿透删目标')
 })
+
+test('页面文件量大小必须用 WMI 的 AllocatedBaseSize(不是 MSDN 文档那个名字)', () => {
+  // 实测:本机 Win32_PageFileUsage 只有 `AllocatedBaseSize`;写成文档里的 `AllocBaseSize`
+  // 不会报错,PowerShell 把它渲染成**空串** ⇒ 一条都量不到。这正是"属性名错但静默通过"的形状。
+  const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'check-c-drive-pollution.mjs'), 'utf8')
+  assert.match(src, /\$_.AllocatedBaseSize/, '未使用 AllocatedBaseSize')
+  assert.doesNotMatch(src, /\$_.AllocBaseSize/, '用了会被静默渲染成空串的属性名')
+})
+
+test('页面文件哨兵:一条都没量到必须报"未判定",不得报"一致"(假绿灯防回归)', () => {
+  const r = G.pagefilePending(G.parsePagingFiles('    C:\\pagefile.sys 2048 2048'), new Map())
+  assert.equal(r.readable, true, '配置读到了')
+  assert.equal(r.measured, 0, '不该记为量到')
+  assert.equal(r.pending.length, 0, '量不到不得造待办')
+  // 报告文本里必须出现"未判定"字样 —— 判据没量到却打印"一致"就是假绿
+  assert.ok(r.entries > r.measured, 'entries/measured 差必须可见,供报告区分未判定')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
