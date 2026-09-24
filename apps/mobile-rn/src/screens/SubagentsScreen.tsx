@@ -29,6 +29,11 @@ import {
   type SwarmTopology,
   type SwarmTopologyNode,
 } from '@ihui/api-client/endpoints/subagents'
+import {
+  ELEMENT_PACK_NAMESPACE,
+  backgroundTaskView,
+  isBackgroundTaskState,
+} from '@ihui/shared/chat/element-pack'
 import NavBar from '../components/NavBar'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
@@ -52,41 +57,39 @@ interface StatItem {
   suffix?: string
 }
 
-/** 状态徽章样式 + 文案(暗色由调用方用 Tailwind dark: 变体处理) */
+/**
+ * 状态徽章样式(D64④ 接线 2026-09-25)。
+ * 八态一律取 element-pack 的 tone —— 端内不再自写第二份状态表;
+ * 非八态(后端 DispatchStatus 的 paused 不在八态内)不猜语义,保留端内中性兜底。
+ * 暗色由调用方用 Tailwind dark: 变体处理。
+ */
 function statusBadgeClass(status: string): string {
-  switch (status) {
-    case 'running':
+  const neutral = 'bg-gray-200 text-gray-500 dark:bg-neutral-700 dark:text-neutral-400'
+  if (!isBackgroundTaskState(status)) return neutral
+  switch (backgroundTaskView(status).tone) {
+    case 'info':
       return 'bg-orange-100 text-orange-600 dark:bg-orange-900 dark:text-orange-300'
-    case 'pending':
+    case 'warning':
       return 'bg-amber-100 text-amber-600 dark:bg-amber-900 dark:text-amber-300'
-    case 'completed':
+    case 'success':
       return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300'
-    case 'failed':
+    case 'danger':
       return 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-300'
-    case 'cancelled':
-    case 'paused':
-    default:
-      return 'bg-gray-200 text-gray-500 dark:bg-neutral-700 dark:text-neutral-400'
+    case 'neutral':
+      return neutral
   }
+  return neutral
 }
 
-function statusLabel(status: string): string {
-  switch (status) {
-    case 'running':
-      return '运行中'
-    case 'pending':
-      return '排队中'
-    case 'completed':
-      return '已完成'
-    case 'failed':
-      return '失败'
-    case 'cancelled':
-      return '已取消'
-    case 'paused':
-      return '已暂停'
-    default:
-      return status
+/** 非八态的端内兜底文案(不并入真相源:该态在八态之外,判据层刻意不认识它) */
+const OFF_SOURCE_LABELS: Readonly<Record<string, string>> = { paused: '已暂停' }
+
+/** 状态文案:八态 → ai.pane.elementPack.backgroundTask.state.*(shared 词包,RN i18n 已 merge) */
+function statusLabel(status: string, t: (key: string) => string): string {
+  if (isBackgroundTaskState(status)) {
+    return t(`${ELEMENT_PACK_NAMESPACE}.backgroundTask.${backgroundTaskView(status).titleKey}`)
   }
+  return OFF_SOURCE_LABELS[status] ?? status
 }
 
 function priorityLabel(priority: string): string {
@@ -339,7 +342,7 @@ export function SubagentsScreen() {
                         {d.goal}
                       </Text>
                       <View className={`ml-2 rounded px-2 py-0.5 ${statusBadgeClass(d.status)}`}>
-                        <Text className="text-xs">{statusLabel(d.status)}</Text>
+                        <Text className="text-xs">{statusLabel(d.status, t)}</Text>
                       </View>
                     </View>
                     <Text className={`mt-1 text-xs ${textTertiary}`}>
@@ -389,7 +392,7 @@ export function SubagentsScreen() {
                         <View
                           className={`ml-2 rounded px-2 py-0.5 ${statusBadgeClass(node.status)}`}
                         >
-                          <Text className="text-xs">{statusLabel(node.status)}</Text>
+                          <Text className="text-xs">{statusLabel(node.status, t)}</Text>
                         </View>
                       </View>
                       <Text className={`mt-1 text-xs ${textTertiary}`} numberOfLines={1}>
