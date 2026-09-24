@@ -15,10 +15,15 @@
  *     `rgba(255,255,255,α≥0.5)`(近实心白)、className `bg-white`(非 dark: 变体)。
  *     每文件计数与 scripts/brand-foreground-baseline.json 的 `counts` 比对,只减不增。
  *     范围保持 apps/mobile-rn/src(基线按此口径建立,扩范围会误伤存量)。
- *  R3 纯白填充 ratchet(2026-09-23 立):`(backgroundColor|borderColor): (tokens|tk).brand.DEFAULT`
- *     在深色档案下就是**纯白**(实测压 #1A1A1A 卡面 17.4:1 = 用户报的"刺眼")。
- *     主 CTA 一律走 `brand.ctaFill`/`brand.ctaText`(浅色与 brand.DEFAULT 同值 ⇒ 存量外观零变化,
- *     深色给非纯白)。本条不拦存量(基线冻结),只拦"新增/回潮"。范围含 packages/app。
+ *  R3 品牌实底填充 ratchet(2026-09-23 立,2026-09-24 扩面):
+ *     `(backgroundColor|borderColor): (tokens|tk).brand.(DEFAULT|cta)` —— DEFAULT 在深色档案下是**纯白**
+ *     (实测压 #1A1A1A 卡面 17.4:1 = 用户报的"刺眼");`brand.cta` 是随后立的明暗同值主 CTA 档(#4A7A96)。
+ *     **判据必须覆盖门自己产出的形态**:全仓"品牌实底+其上文字"已按 AGENTS §4 迁到 brand.cta,
+ *     R1_BG 同日扩认 DEFAULT|cta,而 R3 若不同形扩面,那 235 处实底就整片搬进门盲区
+ *     (实测:迁移前 R3 存量 235 → 迁移后"掉"到 87,不是债变少,是形态进了盲区)。
+ *     成对即合规、不计债,但**按档配对**:DEFAULT 底 ↔ brand.foreground、cta 底 ↔ brand.ctaForeground
+ *     (同块或 R4 同一套兄弟命名);跨档配对(如 DEFAULT 底 × ctaForeground,深色档案下=白底白字)仍计。
+ *     本条不拦存量(基线冻结),只拦"新增/回潮"。范围含 packages/app。
  *  R4 跨 key 品牌底白字(2026-09-24 立,补 R1 的结构性盲区):
  *     R1 只在**同一个 style 块**内配对背景与前景,而真实的 RN `StyleSheet.create` 把按钮的
  *     底和它的文字放在**兄弟 key** 里(`retryBtn` / `retryText`)—— 于是 PlazaScreen 四个按钮
@@ -67,7 +72,13 @@ const STYLE_OBJ_END = /^ {2}\}/
 const R2_SURFACE_LIGHT = /backgroundColor:\s*tokens\.surface\.light\b/
 const R2_RGBA_WHITE = /backgroundColor:\s*['"]rgba\(255,\s*255,\s*255,\s*(0?\.\d+|1)\)/
 const R2_BG_WHITE_CLASS = /\bbg-white\b/
-const R3_BRAND_FILL = new RegExp(`(?:backgroundColor|borderColor):\\s*${TKS}\\.brand\\.DEFAULT\\b`)
+/**
+ * R3 填充面:与 R1_BG 同形(DEFAULT|cta 两档都认)。只认 DEFAULT 会让迁移后的主实底整片隐身 ——
+ * 门推荐怎么写,判据就得能看见怎么写(AGENTS §4 2026-09-24 改档,教训同守门 77 B6 括号形态盲区)。
+ */
+const R3_BRAND_FILL = new RegExp(`(?:backgroundColor|borderColor):\\s*${TKS}\\.brand\\.(?:DEFAULT|cta)\\b`)
+/** R3 分档:cta 填充的正配前景只有 brand.ctaForeground;DEFAULT 填充的正配前景只有 brand.foreground */
+const R3_FILL_CTA = new RegExp(`(?:backgroundColor|borderColor):\\s*${TKS}\\.brand\\.cta\\b`)
 /** R4:兄弟 key 的名字后缀(文字侧 / 底侧的角色后缀) */
 const TEXT_ROLE_SUFFIXES = ['Text', 'Label']
 const BG_ROLE_SUFFIXES = ['Btn', 'Button']
@@ -261,25 +272,32 @@ export function countLightContainers(lines) {
   return count
 }
 
-/** 某 style 块内是否用了 brand.foreground(= 该底的正配前景) */
+/** 某 style 块内是否用了 brand.foreground(= DEFAULT 底的正配前景) */
 const BRAND_FG = new RegExp(`(?:^|[,{\\s])color:\\s*${TKS}\\.brand\\.foreground\\b`)
+/** 某 style 块内是否用了 brand.ctaForeground(= brand.cta 底的正配前景,2026-09-24 改档) */
+const BRAND_FG_CTA = new RegExp(`(?:^|[,{\\s])color:\\s*${TKS}\\.brand\\.ctaForeground\\b`)
 
 /**
- * R3:单文件「brand.DEFAULT 作填充/描边」计数(深色档案下即纯白)。
+ * R3:单文件「品牌实底(brand.DEFAULT / brand.cta 作填充/描边)」计数。
  *
- * **不计** §4 认可的成对主 CTA:填充所在 style 块自己带 `color: *.brand.foreground`,
- * 或其**兄弟键**(X ↔ XText / XBtn ↔ XBtnText / X ↔ XLabel —— 用 R4 同一套命名配对)用了 brand.foreground。
+ * **不计** §4 认可的成对主 CTA,但**按档配对**:
+ *  - DEFAULT 填充 ↔ `color: *.brand.foreground`(深色档案翻黑)
+ *  - cta 填充 ↔ `color: *.brand.ctaForeground`(明暗同值白字)
+ *  前景在填充所在 style 块自己带,或其**兄弟键**(X ↔ XText / XBtn ↔ XBtnText / X ↔ XLabel ——
+ *  用 R4 同一套命名配对)使用时豁免。跨档配对不放行:DEFAULT 底 × ctaForeground 在深色档案下
+ *  是白压白,恰属该计的债。
  *
- * 为什么必须排除:2026-09-24 删掉端内自立的 `brand.ctaFill`/`ctaText` 之后,主 CTA 的
- * **唯一写法**就是 brand.DEFAULT + brand.foreground(AGENTS §4)。再把它计为债务,等于
- * "按规矩写就红" —— 而恒红的 blocking 门只会逼人 `--no-verify`,连带废掉全部守门。
- * 不合法的用法仍然计:brand.DEFAULT 底 × text.primary/surface.light 字由 R1、R4 判红;
- * 而**完全没有**配对前景的白卡片(R3 原本真正要拦的东西)照旧计数。
+ * 为什么必须排除成对的:AGENTS §4 规定主 CTA 的唯一写法就是"实底 + 配对前景"这套两档
+ * (旧档 DEFAULT+foreground、新档 cta+ctaForeground)。再按规矩写就计债,等于"按规矩写就红" ——
+ * 而恒红的 blocking 门只会逼人 `--no-verify`,连带废掉全部守门。
+ * 不合法的用法仍然计:实底 × text.primary/surface.light 字由 R1、R4 判红;
+ * 而**完全没有**配对前景的实底卡片(R3 原本真正要拦的东西)照旧计数。
  */
 export function countCtaFills(lines) {
   const deltas = computeBraceDeltas(lines)
   const ownerAt = new Array(lines.length).fill(null)
-  const fgKeys = new Set()
+  const fgKeysDefault = new Set()
+  const fgKeysCta = new Set()
   for (let i = 0; i < lines.length; i++) {
     const m = ANY_STYLE_KEY_START.exec(lines[i])
     if (!m) continue
@@ -292,13 +310,17 @@ export function countCtaFills(lines) {
         break
       }
     }
-    if (BRAND_FG.test(lines.slice(i, end + 1).join('\n'))) fgKeys.add(m[1])
+    const block = lines.slice(i, end + 1).join('\n')
+    if (BRAND_FG.test(block)) fgKeysDefault.add(m[1])
+    if (BRAND_FG_CTA.test(block)) fgKeysCta.add(m[1])
     for (let k = i; k <= end; k++) if (ownerAt[k] === null) ownerAt[k] = m[1]
     i = end
   }
   let count = 0
   for (let i = 0; i < lines.length; i++) {
     if (!R3_BRAND_FILL.test(lines[i])) continue
+    // 按档取前景集:cta 填充只认 ctaForeground,DEFAULT 填充只认 foreground
+    const fgKeys = R3_FILL_CTA.test(lines[i]) ? fgKeysCta : fgKeysDefault
     const owner = ownerAt[i]
     if (owner && fgKeys.has(owner)) continue
     let paired = false
@@ -416,7 +438,11 @@ function run(options) {
   for (const [rel, pairs] of Object.entries(r4ByFile)) r4Counts[rel] = pairs.length
 
   if (options.updateBaseline) {
-    writeFileSync(BASELINE_PATH, `${JSON.stringify({ counts, ctaCounts, r4Counts }, null, 2)}\n`)
+    // 重新校准只重写三个计数面;他人手记的文档性注记(如 pairedCtaNotVisibleToRule)
+    // 不得被回写吞掉 —— 那是"计数为什么这样"的取证,吞了等于下一个人只能重查一遍。
+    const prev = existsSync(BASELINE_PATH) ? JSON.parse(readFileSync(BASELINE_PATH, 'utf8')) : {}
+    const { counts: _omitCounts, ctaCounts: _omitCta, r4Counts: _omitR4, ...notes } = prev
+    writeFileSync(BASELINE_PATH, `${JSON.stringify({ counts, ctaCounts, r4Counts, ...notes }, null, 2)}\n`)
     const sum = (o) => `${Object.keys(o).length} 文件 / ${Object.values(o).reduce((a, b) => a + b, 0)} 处`
     console.log(`✅ 基线已更新:R2 ${sum(counts)};R3 ${sum(ctaCounts)};R4 ${sum(r4Counts)}`)
     return 0
@@ -450,7 +476,7 @@ function run(options) {
   }
   if (r3.length > 0) {
     failed = true
-    console.error(`❌ R3 新增纯白填充(brand.DEFAULT 深色档案=纯白,基线棘轮只减不增):${r3.length} 文件`)
+    console.error(`❌ R3 新增品牌实底(brand.DEFAULT/brand.cta 作填充或描边,未与配对前景成文,基线棘轮只减不增):${r3.length} 文件`)
     for (const v of r3) console.error(`   ${v}`)
   }
 
@@ -670,7 +696,7 @@ function selfTest() {
     extractNamedStyleChunks(['  a: {', "    label: 'x: {',", '  },', '  b: { color: tk.text.primary },']).length === 2,
     'R4 具名块:串内 `key: {` 不得额外成块',
   )
-  // R3:brand.DEFAULT 填充/描边计数;ctaFill 是正解故不计
+  // R3:brand.DEFAULT/brand.cta 填充/描边计数(端内自立的 ctaFill 不是任何一档正解,不认)
   assert(countCtaFills(['    backgroundColor: tokens.brand.DEFAULT,']) === 1, 'R3 tokens.brand.DEFAULT 背景计 1')
   assert(countCtaFills(['    borderColor: tk.brand.DEFAULT,']) === 1, 'R3 tk.brand.DEFAULT 描边计 1')
   assert(countCtaFills(['    backgroundColor: tokens.brand.ctaFill,']) === 0, 'R3 不应命中 ctaFill(正解)')
@@ -693,6 +719,62 @@ function selfTest() {
     'R3 反向对照:配 text.primary(非 brand.foreground)的填充不得被当成已配对放行',
   )
   assert(countCtaFills(['    backgroundColor: tokens.brand.DEFAULTISH,']) === 0, 'R3 边界:同前缀字段不得误计')
+  // ═══ 2026-09-24 补盲:brand.cta 是主 CTA 改档后的**唯一实底写法**(AGENTS §4),
+  //     R1/R3/R4 必须能看见它 —— 判据必须覆盖门自己产出的形态(教训同守门 77 B6 括号盲区)。═══
+  // F1 R1 坏例子:cta 实底 + 同块 surface.light → 必红(深色档案 #262626 压 #4A7A96 仅 3.25:1,掉出 AA)
+  assert(
+    findR1Violations(['  btn: {', '    backgroundColor: tokens.brand.cta,', '    color: tokens.surface.light,', '  },']).length === 1,
+    'R1-F1 应命中 cta 底 + surface.light(跨档错配)',
+  )
+  // F2 R1 好例子:cta 实底 + 同块 ctaForeground → 必绿(§4 成对即合规)
+  assert(
+    findR1Violations(['  btn: {', '    backgroundColor: tokens.brand.cta,', '    color: tokens.brand.ctaForeground,', '  },']).length === 0,
+    'R1-F2 不应命中 cta + ctaForeground(成对即合规)',
+  )
+  // F3 R4 兄弟键形态:retryBtn(cta 底)× retryText(surface.light 字)→ 必命中
+  assert(
+    findR4Violations([
+      '  retryBtn: {',
+      '    backgroundColor: tk.brand.cta,',
+      '  },',
+      '  retryText: {',
+      '    color: tk.surface.light,',
+      '  },',
+    ]).join() === 'retryBtn×retryText',
+    'R4-F3 应命中 retryBtn(cta) × retryText(surface.light)',
+  )
+  // F4 R3 计数:cta 填充必须计(修盲区前这一组实测 0 = 235 处实底整片隐身的确证)
+  assert(countCtaFills(['    backgroundColor: tk.brand.cta,']) === 1, 'R3-F4 tk.brand.cta 背景计 1(修前为 0 ⇒ 盲区)')
+  assert(countCtaFills(['    borderColor: tokens.brand.cta,']) === 1, 'R3-F4 tokens.brand.cta 描边计 1')
+  // F4b R3 按档配对:cta ↔ ctaForeground(同块/兄弟)豁免;跨档配对仍计债
+  assert(
+    countCtaFills(['  btn: {', '    backgroundColor: tk.brand.cta,', '    color: tk.brand.ctaForeground,', '  },']) === 0,
+    'R3-F4b cta 同块成对(ctaForeground)不计',
+  )
+  assert(
+    countCtaFills(['  btn: {', '    backgroundColor: tk.brand.cta,', '  },', '  btnText: {', '    color: tk.brand.ctaForeground,', '  },']) === 0,
+    'R3-F4b cta 兄弟键成对(ctaForeground)不计',
+  )
+  assert(
+    countCtaFills(['  btn: {', '    backgroundColor: tk.brand.cta,', '    color: tk.brand.foreground,', '  },']) === 1,
+    'R3-F4b 跨档(cta 底 × brand.foreground)不认作配对,仍计 1',
+  )
+  assert(
+    countCtaFills(['  btn: {', '    backgroundColor: tk.brand.DEFAULT,', '    color: tk.brand.ctaForeground,', '  },']) === 1,
+    'R3-F4b 跨档(DEFAULT 底 × ctaForeground,深色档案=白压白)不认作配对,仍计 1',
+  )
+  assert(countCtaFills(['    backgroundColor: tk.brand.ctaForegroundish,']) === 0, 'R3 边界:ctaForeground 不得被当成填充误计')
+  // F5 反向对照:把 R1_BG/R3_BRAND_FILL 退回只认 DEFAULT 时,F1/F4 夹具必须变绿 ——
+  //    证明那几条断言真的在守"扩认 cta"这个点,而不是碰巧过(谁改回去,这几条当场红)。
+  const legacyR1BG = /backgroundColor:\s*(?:tokens|tk)\.brand\.DEFAULT\b/
+  const legacyR3Fill = /(?:backgroundColor|borderColor):\s*(?:tokens|tk)\.brand\.DEFAULT\b/
+  assert(legacyR1BG.test('    backgroundColor: tokens.brand.DEFAULT,'), 'F5 前提:旧 R1_BG 对 DEFAULT 行是匹配的')
+  assert(!legacyR1BG.test('    backgroundColor: tokens.brand.cta,'), 'F5 旧 R1_BG(只认 DEFAULT)对 cta 行必不匹配 ⇒ F1 的红只可能来自扩面')
+  assert(R1_BG.test('    backgroundColor: tokens.brand.cta,'), 'F5 现 R1_BG 必须匹配 cta 填充行')
+  assert(!legacyR3Fill.test('    backgroundColor: tk.brand.cta,'), 'F5 旧 R3 判据对 cta 行必不匹配 ⇒ F4 的计 1 只可能来自扩面')
+  assert(R3_BRAND_FILL.test('    backgroundColor: tk.brand.cta,'), 'F5 现 R3_BRAND_FILL 必须匹配 cta 填充行')
+  assert(R3_BRAND_FILL.test('    borderColor: tk.brand.DEFAULT,'), 'F5 现 R3_BRAND_FILL 对 DEFAULT 描边仍匹配(扩面不缩旧面)')
+  assert(!R3_BRAND_FILL.test('    backgroundColor: tk.brand.ctaForeground,'), 'F5 R3 不得把 ctaForeground(前景档)当填充')
   console.log('✅ check-brand-foreground self-test 全部通过')
   return 0
 }
@@ -718,5 +800,13 @@ export const __test__ = {
   extractNamedStyleChunks,
   isSiblingStylePair,
   findR4Violations,
+  // §22c:判据正则本体也导出 —— 镜像测试用"旧版只认 DEFAULT 的正则 vs 现版"做变异对照,
+  // 证明 cta 夹具的红/绿确实挂在扩面上(仅导出函数无法证伪"判据被改回只认 DEFAULT")。
+  R1_BG,
+  R1_BAD_FG,
+  R3_BRAND_FILL,
+  R3_FILL_CTA,
+  BRAND_FG,
+  BRAND_FG_CTA,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
