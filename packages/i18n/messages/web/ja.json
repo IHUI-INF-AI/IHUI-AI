@@ -7074,6 +7074,70 @@
       "rollbackConfirmConfirm": "復元"
     },
     "pane": {
+      "voiceSubtitles": {
+        "muteAndShowSubtitles": "ミュートして字幕を表示",
+        "subtitleTitle": "音声字幕",
+        "micError": {
+          "noPermission": "マイクの権限がありません。ブラウザまたはシステム設定でマイクへのアクセスを許可してください",
+          "noDevice": "マイクデバイスが検出されません。接続してから再試行してください",
+          "occupied": "マイクは他のアプリで使用中です。解放してから再試行してください",
+          "startFailed": "マイクの起動に失敗しました。再試行してください"
+        },
+        "micErrorAria": {
+          "noPermission": "マイクの権限がありません。先に設定で許可が必要です",
+          "noDevice": "マイクデバイスが検出されません。先に接続が必要です",
+          "occupied": "マイクは他のアプリで使用中です。先に解放が必要です",
+          "startFailed": "マイクの起動に失敗しました。再試行できます"
+        },
+        "conflict": "議事録の録音が進行中のため、音声読み上げを一時停止しました。録音と読み上げは同時に実行できません",
+        "view": {
+          "discussionSummary": "討論要約",
+          "taskFlow": "タスクフロー"
+        },
+        "viewAriaLabel": "討論要約とタスクフローの表示を切り替え",
+        "ariaLabel": "音声字幕とマイクの状態"
+      },
+      "annotationAnchors": {
+        "label": {
+          "pdf": "PDF {page} ページ",
+          "docx": "ドキュメント {page} ページ",
+          "pptx": "スライド {slide} ・ {element}",
+          "pptxSlide": "スライド {slide}",
+          "pptxComment": "注釈 {element}",
+          "xlsx": "{sheet} ・ {range}",
+          "xlsxSheet": "{sheet}",
+          "xlsxSelected": "{range} を選択しました"
+        },
+        "taskInputPlaceholder": "Agent に修正または確認してほしい内容を入力",
+        "addToTask": "タスクに追加",
+        "cancel": "キャンセル",
+        "delete": "削除",
+        "relabel": "再注釈",
+        "ariaLabel": "ドキュメント注釈アンカー"
+      },
+      "quotaOwnership": {
+        "title": {
+          "personalDaily": "個人本日のクォータ",
+          "freeModelDaily": "無料モデル本日のクォータ",
+          "teamAdmin": "チーム・管理者が必要",
+          "billingGroupCredits": "課金グループ・Credits 上限"
+        },
+        "action": {
+          "viewUsage": "使用量の詳細を見る",
+          "switchFreeModel": "無料モデルに切り替え",
+          "upgradeOrAdmin": "アップグレードまたは管理者に連絡"
+        },
+        "discount": {
+          "active": "オフピーク割引を実施中",
+          "upcoming": "{{time}}後にオフピーク割引が開始"
+        },
+        "duration": {
+          "hour": "時間",
+          "minute": "分"
+        },
+        "degradeHint": "無料プランは引き続き利用できます。無料モデルに切り替えて続行でき、チャージは不要です",
+        "ariaLabel": "クォータの種別と対処の提案"
+      },
       "moveToWorktree": {
         "title": "会話をワークツリーへ移管",
         "subtitle": "新しいワークツリーでブランチ <branch>{branchName}</branch> をチェックアウトし、並行作業を継続します。",

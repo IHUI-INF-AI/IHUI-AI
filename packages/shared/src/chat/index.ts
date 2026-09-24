@@ -59,3 +59,10 @@ export * from './edit-resend-rollback'
 // 未知档位不静默)。规则收在此处而非逐端复写 —— web 曾无条件播报"明日 0 点重置"(resetAt 可选)
 // 并把 85300 印成「8.5 万」(该单位在 en/ja/ko 不成立),复写两份漂移即由此来
 export * from './budget-note'
+// D62 语音字幕与讨论纪要(麦克风四类错误/录音↔播报互斥/静音≠隐藏字幕/双视图;复用 voice 栈不新建录音栈)
+export * from './voice-subtitles'
+// D91 四类文档批注锚点分型(PDF/PPTX/DOCX/XLSX 坐标逐字对齐原文;四类共用单一状态机,禁止各写一套)
+export * from './annotation-anchors'
+// D67 额度归属分型与折扣倒计时(四型归属 + 三动作族 + 「不充值可用心智」机器判据:免费档可用时判定层剔除付费动作;
+// 与 D71 error-catalog 两道闸协同,映射不到不硬塞)
+export * from './quota-ownership'
