@@ -233,7 +233,7 @@ export interface ReplOptions {
   permissionMode?: PermissionMode;
 }
 
-interface ReplState {
+export interface ReplState {
   opts: ReplOptions;
   /** 实时任务状态行(plan_updated / 工具事件驱动,TTY 下渲染在输出流) */
   statusLine: TaskStatusLine;

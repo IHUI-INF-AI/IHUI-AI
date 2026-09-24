@@ -26,6 +26,8 @@ import {
   type ChatMessage,
   type CompressionResult,
 } from './context.js';
+// 内部 import 的 type 不会自动对外可见;测试与调用方按本模块取词,故显式转导出。
+export type { ChatMessage, CompressionResult };
 // 阈值常量从共享包引用(跨端统一 0.88,与 context.ts / API / ai-service 一致)
 import {
   DEFAULT_KEEP_RECENT,
