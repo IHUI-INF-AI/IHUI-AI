@@ -7074,6 +7074,70 @@
       "rollbackConfirmConfirm": "确认恢复"
     },
     "pane": {
+      "voiceSubtitles": {
+        "muteAndShowSubtitles": "静音并显示字幕",
+        "subtitleTitle": "语音字幕",
+        "micError": {
+          "noPermission": "无麦克风权限,请在浏览器或系统设置中允许麦克风访问",
+          "noDevice": "未检测到麦克风设备,请接入麦克风后重试",
+          "occupied": "麦克风被其他应用占用,请关闭占用后重试",
+          "startFailed": "麦克风启动失败,请重试"
+        },
+        "micErrorAria": {
+          "noPermission": "麦克风无权限,需要先在设置中授权",
+          "noDevice": "未检测到麦克风设备,需要先接入麦克风",
+          "occupied": "麦克风被其他应用占用,需要先释放",
+          "startFailed": "麦克风启动失败,可重试"
+        },
+        "conflict": "录音纪要进行中,语音播报已暂停;录音与播报不能同时进行",
+        "view": {
+          "discussionSummary": "讨论纪要",
+          "taskFlow": "任务流"
+        },
+        "viewAriaLabel": "切换讨论纪要与任务流视图",
+        "ariaLabel": "语音字幕与麦克风状态"
+      },
+      "annotationAnchors": {
+        "label": {
+          "pdf": "PDF 第 {page} 页",
+          "docx": "文档第 {page} 页",
+          "pptx": "第 {slide} 张 · {element}",
+          "pptxSlide": "第 {slide} 张",
+          "pptxComment": "批注 {element}",
+          "xlsx": "{sheet} · {range}",
+          "xlsxSheet": "{sheet}",
+          "xlsxSelected": "已选择 {range}"
+        },
+        "taskInputPlaceholder": "描述希望 Agent 修改或检查的内容",
+        "addToTask": "添加到任务",
+        "cancel": "取消",
+        "delete": "删除",
+        "relabel": "重新标注",
+        "ariaLabel": "文档批注锚点"
+      },
+      "quotaOwnership": {
+        "title": {
+          "personalDaily": "个人今日额度",
+          "freeModelDaily": "免费模型今日额度",
+          "teamAdmin": "团队·需管理员",
+          "billingGroupCredits": "计费组·Credits 上限"
+        },
+        "action": {
+          "viewUsage": "查看用量明细",
+          "switchFreeModel": "切换免费模型",
+          "upgradeOrAdmin": "升级或联系管理员"
+        },
+        "discount": {
+          "active": "低峰折扣进行中",
+          "upcoming": "{{time}}后进入低峰折扣"
+        },
+        "duration": {
+          "hour": "小时",
+          "minute": "分"
+        },
+        "degradeHint": "免费额度仍可使用,可切换免费模型继续,无需充值",
+        "ariaLabel": "额度归属与处理建议"
+      },
       "moveToWorktree": {
         "title": "将对话移交至工作树",
         "subtitle": "在新工作树中检出分支 <branch>{branchName}</branch>，以继续并行工作。",
