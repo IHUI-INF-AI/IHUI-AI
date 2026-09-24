@@ -28,7 +28,7 @@ export interface CategoryBarProps {
 const ITEM =
   'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-3 text-[13px] leading-[18px] whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 const ITEM_IDLE = 'border-border bg-card text-muted-foreground hover:bg-muted'
-const ITEM_ACTIVE = 'border-primary bg-primary text-primary-foreground font-semibold'
+const ITEM_ACTIVE = 'border-primary bg-cta text-cta-foreground font-semibold'
 /** §4 数字计数徽章确定性居中模板(任意位数不偏移,等宽数字不抖) */
 const BADGE =
   'inline-flex h-4 min-w-4 items-center justify-center rounded px-1 text-[10px] font-semibold leading-none tabular-nums'

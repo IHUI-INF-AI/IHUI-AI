@@ -114,7 +114,7 @@ export default function UserExamPage() {
                   {inProgress ? (
                     <Link
                       href={`/exam/${e.id}`}
-                      className="shrink-0 rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                      className="shrink-0 rounded-md bg-cta px-3 py-1 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
                     >
                       {t('continue', { default: '继续考试' })}
                     </Link>

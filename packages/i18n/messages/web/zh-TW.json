@@ -7191,13 +7191,13 @@
         "micError": {
           "noPermission": "無麥克風權限,請在瀏覽器或系統設定中允許麥克風存取",
           "noDevice": "未偵測到麥克風裝置,請接入麥克風後重試",
-          "occupied": "麥克風被其他應用程式占用,請關閉占用後重試",
+          "occupied": "麥克風被其他應用程式佔用,請關閉佔用後重試",
           "startFailed": "麥克風啟動失敗,請重試"
         },
         "micErrorAria": {
           "noPermission": "麥克風無權限,需要先在設定中授權",
           "noDevice": "未偵測到麥克風裝置,需要先接入麥克風",
-          "occupied": "麥克風被其他應用程式占用,需要先釋放",
+          "occupied": "麥克風被其他應用程式佔用,需要先釋放",
           "startFailed": "麥克風啟動失敗,可重試"
         },
         "conflict": "錄音紀要進行中,語音播報已暫停;錄音與播報不能同時進行",
@@ -7660,6 +7660,7 @@
       "thinkingElapsedTitle": "已思考 {time}",
       "thinkingStreaming": "思考中...",
       "thinkingTitle": "思考過程",
+      "thinkingRefsTitle": "使用了 {count} 個引用",
       "timelineClearFilters": "清空過濾",
       "timelineCountDone": "已完成",
       "timelineCountFailed": "失敗",
@@ -8409,6 +8410,119 @@
           "emptyDraft": "草稿為空，請先輸入內容再潤色。"
         },
         "restartHint": "潤色服務需重新啟動後生效，草稿已保留。"
+      },
+      "queueOps": {
+        "ariaLabel": "排隊訊息操作列",
+        "reorderAria": "拖動調整排隊順序；聚焦後可使用上下方向鍵",
+        "undo": "撤回",
+        "edit": "編輯",
+        "editConfirm": "儲存",
+        "editCancel": "取消",
+        "interruptAndRun": "打斷並執行",
+        "mode": {
+          "label": "排隊模式",
+          "steer": "插話優先",
+          "queue": "排隊優先"
+        },
+        "denied": {
+          "reorder": "無法調整排隊順序",
+          "undo": "無法撤回排隊訊息",
+          "interject": "目前 Runtime 不支援插話，訊息將繼續排隊"
+        },
+        "degraded": {
+          "runtimeNoInterject": "目前 Runtime 不支援插話，訊息將繼續排隊"
+        }
+      },
+      "elementPack": {
+        "heatmap": {
+          "title": "積分消耗熱力圖",
+          "legendLabel": "圖例",
+          "dayTitle": "{date} 的單日消耗",
+          "tab": {
+            "heatmap": "熱力",
+            "sessions": "會話明細"
+          },
+          "legend": {
+            "zero": "無消耗",
+            "low": "低",
+            "mid": "中",
+            "high": "高"
+          },
+          "sessionsEmpty": "暫無會話明細"
+        },
+        "imagePreview": {
+          "counter": "第 {index} · {total} 張",
+          "saveSuccess": "圖片已儲存",
+          "saveFailed": "圖片儲存失敗",
+          "copySuccess": "圖片已複製",
+          "copyFailed": "圖片複製失敗",
+          "prev": "上一張",
+          "next": "下一張",
+          "zoomOut": "縮小",
+          "zoomIn": "放大",
+          "save": "儲存圖片",
+          "copy": "複製圖片"
+        },
+        "backgroundTask": {
+          "state": {
+            "pending": "等待啟動",
+            "running": "運行中",
+            "stopping": "正在停止",
+            "stopFailed": "停止失敗",
+            "completed": "已完成",
+            "failed": "執行失敗",
+            "cancelled": "已取消",
+            "timeout": "已逾時"
+          },
+          "hint": {
+            "stopping": "停止請求已送出，等待任務收尾",
+            "stopFailed": "子任務仍在運行，請重試停止",
+            "timeout": "任務已逾時，可重試"
+          },
+          "action": {
+            "none": "無可用操作",
+            "stop": "停止",
+            "retryStop": "重試停止",
+            "retry": "重試"
+          }
+        },
+        "feedbackSurvey": {
+          "question": "這次回覆有沒有幫你解決問題？",
+          "scale": {
+            "1": "很差",
+            "2": "較差",
+            "3": "一般",
+            "4": "較好",
+            "5": "很好"
+          },
+          "commentPlaceholder": "補充說明（選填）",
+          "submit": "提交",
+          "dismiss": "暫不評價",
+          "submitted": "感謝你的回饋",
+          "answer": {
+            "solved": "已解決",
+            "partial": "部分解決",
+            "notSolved": "未解決"
+          }
+        }
+      },
+      "multiPane": {
+        "ariaLabel": "多任務窗格",
+        "resizeAriaLabel": "拖動調整窗格大小",
+        "splitRight": "向右拆分",
+        "splitDown": "向下拆分",
+        "maximize": "最大化窗格",
+        "restore": "還原窗格",
+        "closePane": "關閉窗格",
+        "forkFailureAriaLabel": "會話副本開啟失敗",
+        "forkFailure": {
+          "conversationMissing": "原會話不存在，無法開啟副本",
+          "capacityFull": "窗格數量已達上限，請先關閉其他窗格",
+          "unknown": "開啟會話副本失敗，請重試"
+        },
+        "retryFork": "重試",
+        "emptyPaneAriaLabel": "空窗格，可從側欄拖入會話",
+        "emptyPlaceholder": "從側欄拖入會話到此窗格"
       }
     },
     "permissionConfirm": {
@@ -8576,12 +8690,7 @@
       "targetPlaceholder": "如:重點高中、985大學"
     },
     "options": {
-      "classLevel": [
-        "優秀(班級前 10%)",
-        "良好(10-30%)",
-        "中等(30-70%)",
-        "一般(後 30%)"
-      ],
+      "classLevel": ["優秀(班級前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(後 30%)"],
       "difficulty": [
         "語文閱讀理解",
         "英語聽力口語",
@@ -8598,12 +8707,7 @@
         "考試焦慮",
         "家庭環境影響"
       ],
-      "school": [
-        "重點中學",
-        "普通中學",
-        "國際學校",
-        "私立學校"
-      ]
+      "school": ["重點中學", "普通中學", "國際學校", "私立學校"]
     },
     "result": {
       "failed": "AI 分析失敗",
@@ -10151,6 +10255,36 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "voiceNote": {
+      "title": "語音筆記",
+      "phase": {
+        "ready": "準備就緒",
+        "recording": "正在錄音",
+        "waitingTranscript": "等待轉寫",
+        "completed": "已完成",
+        "cancelled": "已取消",
+        "failed": "錄音失敗",
+        "error": "出錯了",
+        "interrupted": "已中斷"
+      },
+      "errors": {
+        "permission": "麥克風權限被拒絕,請在瀏覽器設定中允許後重試",
+        "noMicrophone": "未偵測到麥克風裝置",
+        "startFailed": "錄音啟動失敗,請重試",
+        "saveFailed": "錄音儲存失敗",
+        "recognitionFailed": "語音辨識中斷",
+        "emptyTranscript": "未辨識到內容",
+        "sttPending": "轉寫暫不可用,可稍後重試或僅儲存音訊"
+      },
+      "action": {
+        "start": "開始錄音",
+        "stop": "停止錄音",
+        "retry": "重試",
+        "saveAudioOnly": "僅儲存音訊",
+        "insertToInput": "插入對話",
+        "dismiss": "關閉"
+      }
+    },
     "connectorAuth": {
       "title": "連接到 {connectorName}",
       "connected": "已連接",
@@ -11332,232 +11466,126 @@
       "steerPrompt": {
         "label": "引導提示",
         "description": "向正在執行的回覆中途插入引導，無需等待當前輪完成",
-        "keywords": [
-          "引導",
-          "插話",
-          "steer"
-        ]
+        "keywords": ["引導", "插話", "steer"]
       },
       "queuePrompt": {
         "label": "將提示加入佇列",
         "description": "把目前輸入加入 W27 預備訊息佇列，串流結束後自動依序傳送",
-        "keywords": [
-          "佇列",
-          "排隊",
-          "queue"
-        ]
+        "keywords": ["佇列", "排隊", "queue"]
       },
       "agent": {
         "description": "管理並調度 AI 智能體",
-        "keywords": [
-          "智能體",
-          "調度",
-          "agent"
-        ],
+        "keywords": ["智能體", "調度", "agent"],
         "label": "AI 智能體"
       },
       "browser": {
         "description": "在工作區內瀏覽網頁",
-        "keywords": [
-          "瀏覽器",
-          "網頁",
-          "browser"
-        ],
+        "keywords": ["瀏覽器", "網頁", "browser"],
         "label": "內建瀏覽器"
       },
       "capabilityMarket": {
         "description": "發現並安裝能力包",
-        "keywords": [
-          "能力",
-          "市場",
-          "market",
-          "插件"
-        ],
+        "keywords": ["能力", "市場", "market", "插件"],
         "label": "能力市場"
       },
       "codeChanges": {
         "description": "查看工作區程式碼變更",
-        "keywords": [
-          "程式碼",
-          "變更",
-          "diff",
-          "修改"
-        ],
+        "keywords": ["程式碼", "變更", "diff", "修改"],
         "label": "程式碼變更"
       },
       "connectors": {
         "description": "管理外部服務連接",
-        "keywords": [
-          "連接",
-          "外部服務",
-          "connector"
-        ],
+        "keywords": ["連接", "外部服務", "connector"],
         "label": "連接器"
       },
       "document": {
         "description": "編輯工作區文件",
-        "keywords": [
-          "文件",
-          "編輯",
-          "doc"
-        ],
+        "keywords": ["文件", "編輯", "doc"],
         "label": "文件"
       },
       "editor": {
         "description": "開啟程式碼編輯器",
-        "keywords": [
-          "編輯器",
-          "程式碼",
-          "code"
-        ],
+        "keywords": ["編輯器", "程式碼", "code"],
         "label": "編輯器"
       },
       "mcp": {
         "description": "管理 MCP 伺服器與工具",
-        "keywords": [
-          "MCP",
-          "伺服器",
-          "工具"
-        ],
+        "keywords": ["MCP", "伺服器", "工具"],
         "label": "MCP 管理"
       },
       "mcpStore": {
         "description": "瀏覽與安裝 MCP 服務",
-        "keywords": [
-          "MCP",
-          "廣場",
-          "store",
-          "安裝"
-        ],
+        "keywords": ["MCP", "廣場", "store", "安裝"],
         "label": "MCP 廣場"
       },
       "modeAsk": {
         "description": "切換到純問答模式,停用工具",
-        "keywords": [
-          "問答",
-          "ask",
-          "模式"
-        ],
+        "keywords": ["問答", "ask", "模式"],
         "label": "問答模式"
       },
       "modeBuild": {
         "description": "讓 AI 直接建構與修改",
-        "keywords": [
-          "建構",
-          "模式",
-          "build"
-        ],
+        "keywords": ["建構", "模式", "build"],
         "label": "建構模式"
       },
       "modePlan": {
         "description": "先制定計劃再執行",
-        "keywords": [
-          "規劃",
-          "計劃",
-          "plan"
-        ],
+        "keywords": ["規劃", "計劃", "plan"],
         "label": "規劃模式"
       },
       "modeReview": {
         "description": "審查與評審現有程式碼",
-        "keywords": [
-          "審查",
-          "評審",
-          "review"
-        ],
+        "keywords": ["審查", "評審", "review"],
         "label": "審查模式"
       },
       "modeSpec": {
         "description": "從規格生成實現",
-        "keywords": [
-          "規格",
-          "spec",
-          "模式"
-        ],
+        "keywords": ["規格", "spec", "模式"],
         "label": "規格模式"
       },
       "skill": {
         "description": "管理與呼叫 AI 技能",
-        "keywords": [
-          "技能",
-          "skill",
-          "能力"
-        ],
+        "keywords": ["技能", "skill", "能力"],
         "label": "技能"
       },
       "terminal": {
         "description": "開啟整合終端機",
-        "keywords": [
-          "終端機",
-          "命令列",
-          "terminal"
-        ],
+        "keywords": ["終端機", "命令列", "terminal"],
         "label": "終端機"
       },
       "ai-world": {
         "description": "探索 AI 應用世界",
-        "keywords": [
-          "AI",
-          "世界",
-          "應用"
-        ],
+        "keywords": ["AI", "世界", "應用"],
         "label": "AI 世界"
       },
       "chat": {
         "description": "與 AI 助手開始對話",
-        "keywords": [
-          "對話",
-          "聊天",
-          "AI",
-          "chat"
-        ],
+        "keywords": ["對話", "聊天", "AI", "chat"],
         "label": "AI 對話"
       },
       "drama": {
         "description": "AI 生成的精彩短劇",
-        "keywords": [
-          "短劇",
-          "視頻",
-          "AI",
-          "drama"
-        ],
+        "keywords": ["短劇", "視頻", "AI", "drama"],
         "label": "AI 短劇"
       },
       "profile": {
         "description": "管理個人資料和設置",
-        "keywords": [
-          "個人",
-          "資料",
-          "設置"
-        ],
+        "keywords": ["個人", "資料", "設置"],
         "label": "個人中心"
       },
       "search": {
         "description": "全局內容搜索",
-        "keywords": [
-          "搜索",
-          "查找",
-          "search"
-        ],
+        "keywords": ["搜索", "查找", "search"],
         "label": "搜索"
       },
       "settings": {
         "description": "系統偏好與配置",
-        "keywords": [
-          "設置",
-          "偏好",
-          "配置"
-        ],
+        "keywords": ["設置", "偏好", "配置"],
         "label": "系統設置"
       },
       "skillsMarket": {
         "description": "瀏覽並安裝自進化 Skill",
-        "keywords": [
-          "skill",
-          "技能",
-          "市場",
-          "market"
-        ],
+        "keywords": ["skill", "技能", "市場", "market"],
         "label": "Skill 市場"
       }
     },
@@ -13960,37 +13988,25 @@
       "quadrants": [
         {
           "description": "簡單決策 + 簡單執行,快速部署高頻應用",
-          "examples": [
-            "知識問答",
-            "流程自動化"
-          ],
+          "examples": ["知識問答", "流程自動化"],
           "tag": "Q1",
           "title": "高效助手"
         },
         {
           "description": "復雜決策 + 簡單執行,提供深度分析與建議",
-          "examples": [
-            "數據分析",
-            "決策支持"
-          ],
+          "examples": ["數據分析", "決策支持"],
           "tag": "Q2",
           "title": "智慧顧問"
         },
         {
           "description": "簡單決策 + 復雜執行,處理跨系統復雜任務",
-          "examples": [
-            "會議安排",
-            "審批流程"
-          ],
+          "examples": ["會議安排", "審批流程"],
           "tag": "Q3",
           "title": "執行專家"
         },
         {
           "description": "復雜決策 + 復雜執行,自主規劃與多智能體協作",
-          "examples": [
-            "營銷自動化",
-            "多智能體協同"
-          ],
+          "examples": ["營銷自動化", "多智能體協同"],
           "tag": "Q4",
           "title": "全能專家"
         }
@@ -14124,31 +14140,19 @@
       "items": [
         {
           "description": "線下課程、探索活動與互助社群,深度鏈接志同道合的決策者",
-          "features": [
-            "系統化課程",
-            "實踐探索",
-            "社群互助"
-          ],
+          "features": ["系統化課程", "實踐探索", "社群互助"],
           "tag": "MODULE 01",
           "title": "在地社群"
         },
         {
           "description": "便捷的在線交流平臺,隨時隨地獲取信息與支持",
-          "features": [
-            "交流平臺",
-            "經驗共享",
-            "資源對接"
-          ],
+          "features": ["交流平臺", "經驗共享", "資源對接"],
           "tag": "MODULE 02",
           "title": "線上社群"
         },
         {
           "description": "專業大模型與智能體服務,提供深度AI化諮詢與支持",
-          "features": [
-            "專業大模型",
-            "智能體服務",
-            "諮詢服務"
-          ],
+          "features": ["專業大模型", "智能體服務", "諮詢服務"],
           "tag": "MODULE 03",
           "title": "AI專業服務"
         }
@@ -16962,15 +16966,7 @@
       "title": "Top 5 頁面",
       "visitsHeader": "訪問數"
     },
-    "weekdays": [
-      "週一",
-      "週二",
-      "週三",
-      "週四",
-      "週五",
-      "週六",
-      "週日"
-    ]
+    "weekdays": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"]
   },
   "models": {
     "relay": {
@@ -17718,12 +17714,7 @@
         ]
       },
       "starter": {
-        "features": [
-          "1M tokens 額度",
-          "基礎模型可用",
-          "5 個 API 令牌",
-          "社區支持"
-        ]
+        "features": ["1M tokens 額度", "基礎模型可用", "5 個 API 令牌", "社區支持"]
       }
     },
     "productSchema": {
@@ -18960,24 +18951,12 @@
       "enterprise": {
         "contactSales": "聯系銷售",
         "cta": "聯系銷售",
-        "features": [
-          "不限積分",
-          "私有化部署",
-          "SSO/SAML 2.0",
-          "審計日誌",
-          "專屬技術支持"
-        ],
+        "features": ["不限積分", "私有化部署", "SSO/SAML 2.0", "審計日誌", "專屬技術支持"],
         "name": "企業版"
       },
       "free": {
         "cta": "立即開始",
-        "features": [
-          "每月 1000 積分",
-          "所有 AI 模型",
-          "所有 6 個客戶端",
-          "API 訪問",
-          "社區支持"
-        ],
+        "features": ["每月 1000 積分", "所有 AI 模型", "所有 6 個客戶端", "API 訪問", "社區支持"],
         "name": "免費版"
       },
       "pro": {
@@ -20370,13 +20349,7 @@
     "cards": {
       "consulting": {
         "desc": "架構諮詢 / 技術選型 / 代碼 review",
-        "features": [
-          "視頻會議 / 遠程桌面",
-          "2 小時起",
-          "故障排查",
-          "增值稅發票",
-          "響應 SLA 24h"
-        ],
+        "features": ["視頻會議 / 遠程桌面", "2 小時起", "故障排查", "增值稅發票", "響應 SLA 24h"],
         "price": "¥999",
         "title": "技術諮詢",
         "unit": "/小時"

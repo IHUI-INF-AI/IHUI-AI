@@ -146,7 +146,7 @@ function createStyles(tk: AppThemeTokens) {
     submitBtn: {
       height: 50,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
     },

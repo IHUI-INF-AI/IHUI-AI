@@ -419,7 +419,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 14, // rpx(28)
       paddingVertical: 6, // rpx(12)
       borderRadius: rnRadius['2xl'], // rpx(32)
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     followBtnActive: {
       backgroundColor: tk.surface.muted,
@@ -571,7 +571,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       paddingVertical: 12, // rpx(24)
       borderRadius: rnRadius['2xl'], // 原 rpx(44)=22,R1 吸附至 2xl(16)
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     footerBtnText: {
       fontSize: 15,

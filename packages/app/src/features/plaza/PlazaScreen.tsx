@@ -418,11 +418,11 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 24,
       paddingVertical: 8,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     } as ViewStyle,
     retryText: {
       fontSize: 16,
-      color: tk.brand.foreground,
+      color: tk.brand.ctaForeground,
     } as TextStyle,
     emptyWrap: {
       alignItems: 'center',
@@ -449,11 +449,11 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 24,
       paddingVertical: 10,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     } as ViewStyle,
     emptyBtnText: {
       fontSize: 16,
-      color: tk.brand.foreground,
+      color: tk.brand.ctaForeground,
       fontWeight: '600',
     } as TextStyle,
     card: {
@@ -542,14 +542,14 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 10,
       paddingVertical: 4,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     } as ViewStyle,
     chatBtnPressed: {
       opacity: 0.75,
     } as ViewStyle,
     chatBtnText: {
       fontSize: 11,
-      color: tk.brand.foreground,
+      color: tk.brand.ctaForeground,
       fontWeight: '600',
     } as TextStyle,
     statusDone: {
@@ -578,12 +578,12 @@ function createStyles(tk: AppThemeTokens) {
       width: 50,
       height: 50,
       borderRadius: 50 / 2, // radius-exempt: 50dp 见方悬浮按钮,半径=边长一半为真圆,改方档会变成方块
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
     } as ViewStyle,
     fabIcon: {
-      color: tk.brand.foreground,
+      color: tk.brand.ctaForeground,
       textAlign: 'center',
       lineHeight: 50,
       fontSize: 28,

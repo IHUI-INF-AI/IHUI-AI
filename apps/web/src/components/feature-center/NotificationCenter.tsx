@@ -50,7 +50,7 @@ export function NotificationCenter({
           <Bell className="h-4 w-4 text-primary" />
           <span className="font-semibold">通知中心</span>
           {unreadCount > 0 && (
-            <span className="rounded-md bg-primary px-2 py-0.5 text-xs text-primary-foreground">
+            <span className="rounded-md bg-cta px-2 py-0.5 text-xs text-cta-foreground">
               {unreadCount}
             </span>
           )}
@@ -106,7 +106,7 @@ export function NotificationCenter({
                     {formatDate(item.createdAt)}
                   </p>
                 </div>
-                {!item.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />}
+                {!item.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-cta" />}
               </div>
             ))}
           </div>
