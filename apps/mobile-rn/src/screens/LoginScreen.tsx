@@ -1,7 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
 
 import {
   useCallback,
@@ -42,7 +41,7 @@ import {
 import { useLoginForm, type LoginApiResult } from '@ihui/shared/hooks'
 import { LoginScreen as SharedLoginScreen, getTokens, type NationOption } from '@ihui/rn-app'
 import type { LoginTab, ThirdPartyLoginOption, ThirdPartyPlatform } from '@ihui/types'
-import { OAUTH_BRAND_COLORS, withAlpha } from '@ihui/design-tokens'
+import { OAUTH_BRAND_COLORS, withAlpha, rnRadius } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -670,12 +669,12 @@ export function LoginScreen() {
   // 颜色严格取自 AppThemeTokens(getTokens),禁止硬编码;未配置则不注入节点(hidden)。
   const carrierEntryNode = useMemo(() => {
     const tk = getTokens(resolvedTheme)
-    // 底色主题黑白(brand.DEFAULT:亮色纯黑/暗色纯白,2026-09-14 用户定稿,不再用强调色 token),
-    // 对齐主登录按钮;文字/spinner 取主题反色(黑底白字/白底黑字)
-    const onCarrierColor = resolvedTheme === 'dark' ? tk.gray.black : tk.surface.light
+    // 底色与文字取品牌 CTA 成对档(brand.cta / brand.ctaForeground,明暗同值 #4A7A96 / #FFFFFF),
+    // 对齐主登录按钮;这一档刻意不随主题反转,所以前景不再手算黑白三元式。
+    const onCarrierColor = tk.brand.ctaForeground
     return (
       <TouchableOpacity
-        style={[styles.carrierOneKeyBtn, { backgroundColor: tk.brand.DEFAULT }]}
+        style={[styles.carrierOneKeyBtn, { backgroundColor: tk.brand.cta }]}
         onPress={handleCarrierOneClickLogin}
         disabled={carrierLoading}
         activeOpacity={0.8}
@@ -1325,12 +1324,12 @@ const styles = StyleSheet.create({
     height: rpx(88),
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     borderRadius: rnRadius.xl,
   },
   agreementModalConfirmText: {
     fontSize: rpx(32),
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
   },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

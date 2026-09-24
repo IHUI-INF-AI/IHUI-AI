@@ -18,7 +18,9 @@ import {
   getDesktopRefreshToken,
   setDesktopRefreshToken,
 } from '@/lib/desktop-token-vault'
-import { createPersistConfig } from './persist-helpers'
+import { createPersistConfig, ssrStorage } from './persist-helpers'
+import { createAuthPersistStorage } from '@/lib/chat-persist-crypto'
+import type { PersistStorage } from 'zustand/middleware'
 
 /** 与共享层 @ihui/api-client AuthUser 完全一致,确保 5 端用户类型统一 */
 export type AuthUser = ApiAuthUser
@@ -149,10 +151,19 @@ export const useAuthStore = create<AuthState>()(
     // access_token 改用 httpOnly cookie(由后端 Set-Cookie 写入,JS 无法读取)
     // refresh_token 必须由后端管理(httpOnly cookie + 定期轮换)
     // 此处仅保留 isAuthenticated 标志位用于 UI 渲染决策
-    createPersistConfig<AuthState>('ihui-auth', (s) => ({
-      isAuthenticated: s.isAuthenticated,
-      user: s.user,
-    })),
+    // D48′(2026-09-24):桌面端把这块 blob 也接进信封加密 —— 它按上面的审计**不含任何 token**,
+    // 但 `user` 里有手机号与昵称,明文留在 WebView Local Storage 仍属个人数据落盘(巡检门的
+    // CJK 判据点名的正是它)。浏览器路径 createAuthPersistStorage 原样返回 ssrStorage,零行为变更。
+    createPersistConfig<AuthState>(
+      'ihui-auth',
+      (s) => ({
+        isAuthenticated: s.isAuthenticated,
+        user: s.user,
+      }),
+      createAuthPersistStorage<Partial<AuthState>>(
+        ssrStorage as PersistStorage<Partial<AuthState>>,
+      ),
+    ),
   ),
 )
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
