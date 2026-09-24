@@ -438,10 +438,14 @@ function runHookEntry(
   entry: HookEntry,
   env: Record<string, string>,
 ): { exitCode: number; stdout: string; stderr: string } {
-  if (entry.webhook) {
-    return runWebhookSync(entry, env);
-  }
-  if (!entry.command) {
+  // 两种形态过**同一道**门:判据只写一份。webhook 的外泄面不比 command 小 ——
+  // IHUI_TOOL_INPUT / IHUI_TOOL_OUTPUT 会被原样 POST 到配置里的外部 URL
+  // (见 extractWebhookVars 的 toolArgs),等价于"把工具输入输出发给外人"。
+  // 上一版只在 command 分支查门,所以 clone 陌生仓库 + 仓库自带 webhook 钩子
+  // 仍然会在无人知晓的情况下把会话内容送到外部地址。
+  //
+  // 先短路"两者皆空"的条目:它没有任何外部副作用,不值得为它查门并刷一行提示。
+  if (!entry.webhook && !entry.command) {
     return { exitCode: 0, stdout: '', stderr: '' };
   }
   const skipReason = hookTrustSkipReason(entry);
@@ -455,7 +459,10 @@ function runHookEntry(
     }
     return { exitCode: 0, stdout: '', stderr: skipReason };
   }
-  const result = spawnSync(entry.command, {
+  if (entry.webhook) {
+    return runWebhookSync(entry, env);
+  }
+  const result = spawnSync(entry.command!, {
     shell: true,
     encoding: 'utf-8',
     timeout: entry.timeout ?? 10_000,

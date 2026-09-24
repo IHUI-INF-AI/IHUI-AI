@@ -37,6 +37,12 @@ import { SUMMARY_MARKER } from './markers.js'
 import type { ChatMessage } from './types.js'
 
 export { SUMMARY_MARKER, isSummaryMessage } from './markers.js'
+export {
+  ENVELOPE_OPEN_MARKER,
+  ENVELOPE_CLOSE_MARKER,
+  ENVELOPE_PREVIEW_FOOTER,
+  isEnvelopeContent,
+} from './markers.js'
 
 // ==================== 跨端统一常量 ====================
 
