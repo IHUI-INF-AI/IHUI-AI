@@ -1,7 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
 
 /**
  * CardWithList 卡片列表 (mobile-rn 端)
@@ -26,9 +25,12 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
-import { tokens as tk } from '../theme/active-tokens'
+import { tokens as tk, currentRnTheme } from '../theme/active-tokens'
+import { MoreLink } from '@ihui/rn-app'
 import type { AppIcon } from '@ihui/types'
 import { Tag } from 'lucide-react-native'
+
+import { rnRadius } from '@ihui/design-tokens'
 
 export interface CardWithListItem {
   id: string
@@ -57,8 +59,7 @@ const ICON_FONT_SIZE = 24
 const ITEM_TITLE_FONT_SIZE = 12
 const ITEM_SUBTITLE_FONT_SIZE = 10
 const TITLE_FONT_SIZE = 16
-const MORE_FONT_SIZE = 12
-const MORE_ARROW_FONT_SIZE = 16
+const DEFAULT_MORE_TEXT = '更多'
 
 const DEFAULT_ICON = Tag
 
@@ -73,18 +74,12 @@ export function CardWithList({ title, items, onItemClick, onMore, moreText }: Ca
             </Text>
           ) : null}
           {onMore ? (
-            <TouchableOpacity
-              activeOpacity={0.7}
+            <MoreLink
+              label={moreText ?? DEFAULT_MORE_TEXT}
               onPress={onMore}
+              colorScheme={currentRnTheme()}
               style={styles.more}
-              accessibilityRole="button"
-              accessibilityLabel={moreText ?? '完整榜单'}
-            >
-              <Text style={styles.moreText}>{moreText ?? '完整榜单'}</Text>
-              <Text style={styles.moreArrow} allowFontScaling={false}>
-                ›
-              </Text>
-            </TouchableOpacity>
+            />
           ) : null}
         </View>
       ) : null}
@@ -147,19 +142,8 @@ const styles = StyleSheet.create({
     color: tk.text.primary,
   } as TextStyle,
   more: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginLeft: 8,
   } as ViewStyle,
-  moreText: {
-    fontSize: MORE_FONT_SIZE,
-    color: tk.text.secondary,
-  } as TextStyle,
-  moreArrow: {
-    fontSize: MORE_ARROW_FONT_SIZE,
-    color: tk.text.secondary,
-    marginLeft: 2,
-  } as TextStyle,
   itemsContainer: {
     gap: ITEM_GAP,
   } as ViewStyle,

@@ -29,7 +29,8 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
-import { tokens } from '../theme/active-tokens'
+import { tokens, currentRnTheme } from '../theme/active-tokens'
+import { MoreLink } from '@ihui/rn-app'
 import { formatRelativeTime } from '@ihui/shared'
 import { Eye, MessageCircle, Share2, ThumbsUp, type LucideIcon } from 'lucide-react-native'
 
@@ -212,17 +213,7 @@ export function KnowledgePlanet({
           <View style={styles.headerIcon} />
           <Text style={styles.headerTitle}>知识星球</Text>
         </View>
-        <Pressable
-          style={({ pressed }) => [styles.enterBtn, pressed ? styles.enterBtnPressed : null]}
-          onPress={onEnter}
-          accessibilityRole="button"
-          accessibilityLabel="进入星球"
-        >
-          <Text style={styles.enterText}>进入星球</Text>
-          <Text style={styles.enterArrow} allowFontScaling={false}>
-            {'›'}
-          </Text>
-        </Pressable>
+        <MoreLink label="进入星球" onPress={onEnter} colorScheme={currentRnTheme()} />
       </View>
 
       {/* Tab 切换(对齐原项目 popular-courses-tab-box) */}
@@ -301,23 +292,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: tokens.text.primary,
-  } as TextStyle,
-  enterBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  } as ViewStyle,
-  enterBtnPressed: {
-    opacity: 0.7,
-  } as ViewStyle,
-  enterText: {
-    fontSize: 12,
-    color: tokens.text.secondary,
-  } as TextStyle,
-  enterArrow: {
-    fontSize: 16,
-    lineHeight: 18,
-    color: tokens.text.secondary,
-    marginLeft: 2,
   } as TextStyle,
   // ── Tab 切换(对齐原项目 popular-courses-tab-box) ──
   tabBox: {
