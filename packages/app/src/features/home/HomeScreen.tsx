@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import { Bell } from 'lucide-react-native'
+import { Bell, ChevronRight } from 'lucide-react-native'
 import type {
   HomeRecommendItem,
   HomeLiveItem,
@@ -21,7 +21,7 @@ import type {
   HomeMenuItem,
   HomeScreenProps,
 } from '../../types'
-import { MoreLink } from '../../components/MoreLink'
+import { MoreLink, useFontMultiplier } from '../../components/MoreLink'
 
 import { rnRadius } from '@ihui/design-tokens'
 
@@ -67,6 +67,7 @@ export function HomeScreen({
 }: HomeScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  const fontMultiplier = useFontMultiplier()
 
   if (loading) {
     return (
@@ -254,7 +255,7 @@ export function HomeScreen({
                   <m.icon size={18} color={tk.text.primary} />
                 ) : null}
                 <Text style={styles.menuLabel}>{t(m.labelKey)}</Text>
-                <Text style={styles.menuArrow}>›</Text>
+                <ChevronRight size={Math.round(16 * fontMultiplier)} color={tk.text.tertiary} />
               </View>
             </TouchableOpacity>
           ))}
@@ -369,7 +370,6 @@ function createStyles(tk: AppThemeTokens) {
     menuRow: { flexDirection: 'row', alignItems: 'center' },
     menuIcon: { fontSize: 18 },
     menuLabel: { marginLeft: 12, flex: 1, fontSize: 16, color: tk.text.primary },
-    menuArrow: { color: tk.text.tertiary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
