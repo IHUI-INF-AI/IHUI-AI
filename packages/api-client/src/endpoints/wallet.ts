@@ -70,6 +70,8 @@ export interface CreditsUsageBucket {
   count: number
   /** 当日消耗积分总量(≥0) */
   points: number
+  /** 当日新建会话数(与积分消耗是两条独立序列,不可互相换算) */
+  sessions: number
 }
 
 /** GET /api/credits/usage/daily 响应(按日积分消耗聚合,只读) */
