@@ -71,6 +71,27 @@ export function lsStageChunked(g, paths, chunkSize = 150) {
   return lines
 }
 
+/**
+ * 逐批把路径恢复到 HEAD。**一次锁竞争不该让整轮自愈崩掉**:
+ * 共享工作区里并行会话的 commit 会瞬时持有 index.lock(实测本会话就撞上一次),
+ * 原先三处 restore 循环都是直接 execFileSync —— 抛出即整 tick 失败,而这一层的意义正是
+ * "下一轮自己补上"。故失败只记账、延到下一 tick,并把延后数如实返回。
+ */
+function restoreToHead(g, paths) {
+  const done = []
+  const deferred = []
+  for (let i = 0; i < paths.length; i += 40) {
+    const batch = paths.slice(i, i + 40)
+    try {
+      g(['restore', '--source=HEAD', '--worktree', '--', ...batch], { stdio: ['ignore', 'pipe', 'pipe'] })
+      done.push(...batch)
+    } catch {
+      deferred.push(...batch)
+    }
+  }
+  return { done, deferred }
+}
+
 /** 工作区缺失但索引与 HEAD 完全一致的已跟踪文件 = 被外部删除 */
 export function findOrphanedDeletions(repoRoot) {
   const g = makeGit(repoRoot)
@@ -393,14 +414,13 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
   }
   // 护栏④:拼合通道覆盖前留现场快照(整块通道命中的工作区内容本就 == 某历史版本,无独有数据)
   const snapshots = snapshotWorktreeBytes(repoRoot, composite)
-  for (let i = 0; i < paths.length; i += 40) {
-    g(['restore', '--source=HEAD', '--worktree', '--', ...paths.slice(i, i + 40)])
-  }
+  const { done, deferred } = restoreToHead(g, paths)
   return {
-    aligned: paths.length,
-    paths,
+    aligned: done.length,
+    paths: done,
     composite: composite.length,
     snapshots: snapshots.length,
+    deferred,
     skippedStaged: dirty.length - eligible.length,
   }
 }
@@ -478,12 +498,15 @@ function reconcileStaleIndexOrphansInner(g, repoRoot, dryRun) {
       reason: '陈旧索引,可对齐(未执行)',
     }
   g(['read-tree', 'HEAD'])
-  for (let i = 0; i < staged.length; i += 40) {
-    g(['restore', '--source=HEAD', '--worktree', '--', ...staged.slice(i, i + 40)], {
-      stdio: ['ignore', 'pipe', 'ignore'],
-    })
+  const rec2 = restoreToHead(g, staged)
+  return {
+    reconciled: rec2.done.length,
+    paths: rec2.done,
+    deferred: rec2.deferred,
+    reason: rec2.deferred.length
+      ? `陈旧索引已对齐 ${rec2.done.length} 个,${rec2.deferred.length} 个因 git 写锁竞争延到下一轮`
+      : '陈旧索引已对齐 HEAD',
   }
-  return { reconciled: staged.length, paths: staged, reason: '陈旧索引已对齐 HEAD' }
 }
 
 export function heal(repoRoot, { dryRun = false } = {}) {
@@ -493,10 +516,15 @@ export function heal(repoRoot, { dryRun = false } = {}) {
   if (dryRun)
     return { restored: 0, held: held.length, reconciled: rec.reconciled, paths: safe, dryRun: true }
   const g = makeGit(repoRoot)
-  for (let i = 0; i < safe.length; i += 40) {
-    g(['restore', '--source=HEAD', '--worktree', '--', ...safe.slice(i, i + 40)])
+  const { done, deferred } = restoreToHead(g, safe)
+  return {
+    restored: done.length,
+    held: held.length,
+    reconciled: rec.reconciled,
+    paths: done,
+    deferred,
+    restoreDeferred: deferred.length,
   }
-  return { restored: safe.length, held: held.length, reconciled: rec.reconciled, paths: safe }
 }
 
 /** 独立临时仓演练:①外部删除必被识别并恢复 ②他人 `git rm --cached` 的删除绝不碰 */
@@ -626,6 +654,14 @@ function selfTestRun() {
     g(['restore', '--source=HEAD', '--worktree', '--', 'mix.ts'])
 
 
+    // ⑳ 一次 git 写锁竞争不得让整轮自愈崩掉:失败批次只记账、延到下一 tick(实测本会话就撞上过)
+    const boom = () => {
+      throw new Error('index.lock: File exists')
+    }
+    const r20 = restoreToHead(boom, ['a.ts', 'b.ts'])
+    check('⑳ 锁竞争降级为延后而非抛出', r20.done.length === 0 && r20.deferred.length === 2)
+    const r20b = restoreToHead(boom, [])
+    check('⑳b 空清单不产生假延后', r20b.done.length === 0 && r20b.deferred.length === 0)
     // ⑧ 暂存后工作区又有新改动(判据③不成立)⇒ 绝不刷新、绝不对齐(protect 现场)
     writeFileSync(join(tmp, 'keep.ts'), 'v1\n')
     g(['add', 'keep.ts']) // index = v1(祖先版本)
@@ -799,5 +835,5 @@ if (isDirectRun) {
     })
 }
 
-export const __test__ = { findOrphanedDeletions, heal, alignDrifts, refreshStaleIndex, compositeDriftPaths, SKIP_ENV }
+export const __test__ = { findOrphanedDeletions, heal, alignDrifts, refreshStaleIndex, compositeDriftPaths, restoreToHead, SKIP_ENV }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
