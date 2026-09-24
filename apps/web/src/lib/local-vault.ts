@@ -42,12 +42,13 @@ const ENVELOPE_FIELDS_SORTED: readonly string[] = [...ENVELOPE_FIELDS].sort()
 const ALG = 'A256GCM' as const
 
 /** 派生域:每处密文各用一把互不通用的子密钥(HKDF info 隔离) */
-export type VaultDomain = 'chat-persist' | 'refresh-token' | 'goal-persist'
+export type VaultDomain = 'chat-persist' | 'refresh-token' | 'goal-persist' | 'auth-persist'
 
 const DOMAIN_INFO: Record<VaultDomain, string> = {
   'chat-persist': 'ihui/desktop/vault/chat-persist/v1',
   'refresh-token': 'ihui/desktop/vault/refresh-token/v1',
   'goal-persist': 'ihui/desktop/vault/goal-persist/v1',
+  'auth-persist': 'ihui/desktop/vault/auth-persist/v1',
 }
 
 /** Tauri v2 运行时探测(原 desktop-token-vault 的定义,移到这里做单一事实源) */
