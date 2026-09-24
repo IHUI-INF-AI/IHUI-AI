@@ -621,7 +621,7 @@ function ProjectPluginCard({
     >
       <Card className="flex h-full flex-col gap-3 p-3 transition-all hover:bg-accent/40 hover:shadow-md">
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground transition-colors group-hover:bg-cta/10 group-hover:text-primary">
             <Icon className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
@@ -653,7 +653,7 @@ function ProjectPluginCard({
           {plugin.tags.map((tag) => (
             <span
               key={tag}
-              className="rounded-md bg-primary/8 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+              className="rounded-md bg-cta/8 px-1.5 py-0.5 text-[10px] font-medium text-primary"
             >
               {tag}
             </span>
@@ -752,7 +752,7 @@ function MarketPluginCard({
   const card = (
     <Card className="flex h-full flex-col gap-3 p-3 transition-all hover:bg-accent/40 hover:shadow-md">
       <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground transition-colors group-hover:bg-cta/10 group-hover:text-primary">
           {plugin.vendor ? (
             <BrandIcon vendor={plugin.vendor} size={22} fallbackIcon={FallbackIcon} />
           ) : (
@@ -810,7 +810,7 @@ function MarketPluginCard({
             className={cn(
               'flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors',
               isAddedToChat
-                ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                ? 'bg-cta text-cta-foreground hover:bg-cta/90'
                 : 'text-muted-foreground hover:bg-accent hover:text-foreground',
             )}
           >

@@ -270,7 +270,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
                   onClick={() => setActiveChannel(ch.key)}
                   className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
                     isActive
-                      ? 'bg-primary text-primary-foreground'
+                      ? 'bg-cta text-cta-foreground'
                       : 'bg-background/60 text-muted-foreground hover:bg-accent hover:text-foreground'
                   }`}
                 >

@@ -63,7 +63,7 @@ export function FreeAiContent() {
     <div className="mx-auto w-full max-w-4xl px-4 py-10" data-testid="free-ai-page">
       {/* Hero */}
       <div className="mb-8 text-center">
-        <div className="mb-3 inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+        <div className="mb-3 inline-flex items-center gap-1.5 rounded-md bg-cta/10 px-3 py-1 text-xs font-medium text-primary">
           <Rocket className="h-3.5 w-3.5" />
           {t('heroBadge')}
         </div>
@@ -128,7 +128,7 @@ export function FreeAiContent() {
       <div className="mt-6 text-center">
         <Link
           href="/chat"
-          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          className="inline-flex items-center gap-1.5 rounded-md bg-cta px-4 py-2 text-sm font-medium text-cta-foreground transition-colors hover:bg-cta/90"
         >
           <Rocket className="h-4 w-4" />
           {t('startChat')}

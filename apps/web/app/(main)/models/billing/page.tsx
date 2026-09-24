@@ -195,7 +195,7 @@ export default async function BillingPage() {
                 className={p.highlighted ? 'relative border-primary shadow-md' : 'relative'}
               >
                 {p.highlighted && (
-                  <span className="absolute -top-2 left-4 inline-flex items-center rounded bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                  <span className="absolute -top-2 left-4 inline-flex items-center rounded bg-cta px-2 py-0.5 text-[10px] font-semibold text-cta-foreground">
                     {t('billing.packages.recommended')}
                   </span>
                 )}
