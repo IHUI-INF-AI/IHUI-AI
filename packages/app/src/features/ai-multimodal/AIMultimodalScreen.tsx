@@ -150,13 +150,18 @@ export function AIMultimodalScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingTop: 48, paddingBottom: 8 },
+    header: { paddingHorizontal: 10, paddingBottom: 8 },
     backText: { fontSize: 16, color: tk.text.secondary },
     title: { marginTop: 8, fontSize: 24, fontWeight: '700', color: tk.text.primary },
     subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     userText: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
     modeRow: { flexDirection: 'row', paddingHorizontal: 10, paddingVertical: 8, gap: 8 },
-    modeBtn: { flex: 1, paddingVertical: 8, borderRadius: rnRadius.xl, backgroundColor: tk.surface.card },
+    modeBtn: {
+      flex: 1,
+      paddingVertical: 8,
+      borderRadius: rnRadius.xl,
+      backgroundColor: tk.surface.card,
+    },
     modeBtnActive: { backgroundColor: tk.brand.DEFAULT },
     modeBtnText: { textAlign: 'center', fontSize: 14, color: tk.text.medium },
     modeBtnTextActive: { color: tk.surface.light, fontWeight: '600' },

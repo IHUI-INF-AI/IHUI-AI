@@ -415,5 +415,60 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
     }
   })
 
+  //  2026-09-24 事故:`cd505a4374` 把 apps/cli/src 等三端加进扫描面,却没为它们生成基线条目
+  //  (targets 仍 5 个旧根、apps/cli 条目 0)⇒ 这些端每个既有中文文件额度都是 0。
+  //  本次只把 `interface ReplState` 改成 `export interface ReplState`(中文 250→250,差值 0)
+  //  仍被判"新增 245"并拦住提交。修法是让额度锚点自己会说话:max(静态清单, 该文件 HEAD 命中数)。
+  //  夹具用**真 git 临时仓**:脚本的 HEAD 维度按 ROOT 取,而 ROOT 可由 --root 指到夹具,
+  //  于是能造出"基线文件不存在(额度 0)+ 文件在 HEAD 里本来就有中文"这一精确形态。
+  function createGitProject() {
+    const root = mkdtempSync(join(tmpdir(), 'ihui-scan-zh-git-'))
+    const GIT = 'C:/Program Files/Git/cmd/git.exe'
+    const git = (args) =>
+      spawnSync(GIT, ['-c', `user.name=t`, '-c', 'user.email=t@t', '-c', 'safe.directory=*', ...args], {
+        cwd: root,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 60000,
+      })
+    git(['init', '-q', '-b', 'main'])
+    return { root, git }
+  }
+
+  test('HEAD 锚点:既有中文不因"没进静态清单"而被判新增(正反成对)', () => {
+    const { root, git } = createGitProject()
+    try {
+      const rel = 'apps/cli/src/commands/repl.ts'
+      mkdirSync(join(root, 'apps/cli/src/commands'), { recursive: true })
+      const base = `export const A = '确定'\nexport const B = '取消'\nexport const C = '关闭'\n`
+      writeFileSync(join(root, rel), base, 'utf8')
+      git(['add', '-A'])
+      git(['commit', '-q', '-m', 'init'])
+      // 反向对照:内容一字未动,只是工作树副本存在 ⇒ 不得判红
+      let r = runScript(['--exit', '1'], { cwd: root })
+      assert.equal(r.status, 0, `未改动却被判红:\n${r.stdout}\n${r.stderr}`)
+      // 正向对照:真加一条硬编码中文 ⇒ 必须判红(违规清单走 stderr,报告走 stdout,两面都要看)
+      writeFileSync(join(root, rel), `${base}export const D = '新增文案'\n`, 'utf8')
+      r = runScript(['--exit', '1'], { cwd: root })
+      const both = `${r.stdout}\n${r.stderr}`
+      assert.notEqual(r.status, 0, '新增一条硬编码中文必须判红 —— HEAD 锚点不得把门改成没牙')
+      //  "基线 3" 就是 HEAD 那一维在起作用:额度不再是静态清单的 0,而是该文件 HEAD 自身的命中数;
+      //  若退回只看清单,这里会变成"4 处 > 基线 0 处(新增 4)"—— 把既有债全算成本次新增。
+      assert.match(both, /repl\.ts: 4 处 > 基线 3 处\(新增 1\)/)
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  test('额度表达式必须同时含静态清单与 HEAD 命中数(防被改回只看清单)', () => {
+    const src = readFileSync(SCRIPT_PATH, 'utf8')
+    assert.match(
+      src,
+      /Math\.max\(baseline\[h\.file\] \?\? 0, headCountOf\(h\.file\)\)/,
+      '锚点维度不得退回单一静态清单',
+    )
+    assert.match(src, /n = 0 \/\/ 该路径不在 HEAD\(新文件\)/, '新文件额度必须仍为 0(否则"新文件写死中文即拦"失效)')
+  })
+
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

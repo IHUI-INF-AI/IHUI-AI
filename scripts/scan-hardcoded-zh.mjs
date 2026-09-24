@@ -201,14 +201,11 @@ const scopeFiles =
     ? allFiles.filter((f) => stagedSet.has(path.relative(ROOT, f).replace(/\\/g, '/')))
     : allFiles
 
-let totalHits = 0
-const fileHits = []
-// 内容文案豁免清单(见 contentExemptReason):只报数不判红,但必须逐文件可见
-const contentExempts = []
-
-for (const f of scopeFiles) {
-  const src = fs.readFileSync(f, 'utf8')
-  if (!ZH_RE.test(src)) continue
+/** 对一份源码文本跑同一套命中判定(磁盘/索引/HEAD 三种取材共用一份判据,不得有两套真相)。
+ *  本文件是"全顶层 + process.exit"的 CLI 脚本,没有 isDirectRun 守卫,故不 export ——
+ *  镜像测试改用**真 git 临时仓夹具**(--root 指过去)从外部证明这条判据。 */
+function scanSource(src) {
+  if (!ZH_RE.test(src)) return []
   const lines = src.split('\n')
   const hits = []
   let inBlockComment = false
@@ -245,6 +242,17 @@ for (const f of scopeFiles) {
     if (SKIP_TOKEN_RE.test(codeFull)) continue
     hits.push({ line: i + 1, text: code.trim().slice(0, 200) })
   }
+  return hits
+}
+
+let totalHits = 0
+const fileHits = []
+// 内容文案豁免清单(见 contentExemptReason):只报数不判红,但必须逐文件可见
+const contentExempts = []
+
+for (const f of scopeFiles) {
+  const src = fs.readFileSync(f, 'utf8')
+  const hits = scanSource(src)
   if (hits.length > 0) {
     const rel = path.relative(ROOT, f).replace(/\\/g, '/')
     const reason = contentExemptReason(src)
@@ -267,11 +275,41 @@ for (const f of scopeFiles) {
 fileHits.sort((a, b) => b.count - a.count)
 
 // ── 基线(ratchet)判定 ─────────────────────────────────────────────────────
-// 只拦"比基线更多"的命中:存量额度冻结在 scripts/hardcoded-zh-baseline.json,
-// 不在基线里的新文件额度为 0(新文件出现硬编码即拦)。
+// 只拦"比额度更多"的命中。**额度 = max(静态清单, 该文件 HEAD 版本自身的命中数)**。
+//
+// 为什么必须带 HEAD 这一维(2026-09-24 实测事故):`cd505a4374` 把 apps/cli/src 等三端加进
+// 扫描面时,注释写着"存量按 HEAD 提交面首次入账",但基线 JSON 从未为它们生成条目
+// (targets 仍是 5 个旧根、apps/cli 条目数 **0**)⇒ 这些端里**每个**既有中文文件额度都是 0,
+// 任何人碰一下就被拦 —— 本次实例:只把 `interface ReplState` 改成 `export interface ReplState`
+// (中文命中 250 → 250,差值 0)仍被判"新增 245"。静态清单漏入账 = 该端永久红灯 = 逼人绕过钩子,
+// 连带废掉全部守门(与守门 77 换锚点同一条教训:**锚点必须能让它自己说话**)。
+// 新文件不在 HEAD ⇒ headCount 取 0,额度仍为 0,"新文件写死中文即拦"的语义不变。
+const GIT_BIN = 'C:/Program Files/Git/cmd/git.exe'
 const baseline = readBaseline()
+const headCountCache = new Map()
+function headCountOf(rel) {
+  if (headCountCache.has(rel)) return headCountCache.get(rel)
+  let n = 0
+  try {
+    const src = execFileSync(GIT_BIN, ['-c', 'safe.directory=*', '-C', ROOT, 'show', `HEAD:${rel}`], {
+      encoding: 'utf8',
+      windowsHide: true,
+      maxBuffer: 32 << 20,
+      timeout: 60000,
+    })
+    n = scanSource(src).length
+  } catch {
+    n = 0 // 该路径不在 HEAD(新文件)⇒ 额度 0
+  }
+  headCountCache.set(rel, n)
+  return n
+}
 const violations = fileHits
-  .map((h) => ({ file: h.file, count: h.count, allowed: baseline[h.file] ?? 0 }))
+  .map((h) => ({
+    file: h.file,
+    count: h.count,
+    allowed: Math.max(baseline[h.file] ?? 0, headCountOf(h.file)),
+  }))
   .filter((v) => v.count > v.allowed)
   .sort((a, b) => b.count - b.allowed - (a.count - a.allowed))
 
