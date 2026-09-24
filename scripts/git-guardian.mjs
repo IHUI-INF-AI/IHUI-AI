@@ -462,6 +462,46 @@ function healWorktreeTracked() {
 }
 
 /**
+ * 盘根封口自愈(2026-09-24 立)。`seal-c-root-stray.mjs` 把"第三方以 CWD=C:\ 写歪"的
+ * 那几个名字换成指向外置根的 junction;但**重启会把它们清掉** —— 当天实测:开机后
+ * `C:\common_attachment`、`C:\persistent_data`、`C:\tmp` 三个链接消失(只有 `tools` 活下来),
+ * 而 D 侧目标内容完好。只靠每日 03:00 的 [4/4] 体检,意味着最长 23 小时空窗 ——
+ * 这段时间够剪映/微信输入法自建真目录,回到"删了又长"的原点。本守护每 2 分钟一趟,
+ * 挂在这里等于把空窗压到一个巡检周期。
+ * 与其它自愈层同规矩:不改 status()/退出码语义,失败只记日志;--check 零副作用,
+ * 仅真异常或真重封才写行(健康轮次不写日志是本守护的既有口径)。
+ */
+function healRootSeal() {
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'seal-c-root-stray.mjs')
+  if (!existsSync(script)) return
+  const call = (args) => {
+    try {
+      const out = execFileSync(process.execPath, [script, ...args], {
+        cwd: WORKTREE,
+        encoding: 'utf8',
+        windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+        timeout: 120000, // 守门 80:热路径派生一律带上限,挂死不拖垮整轮巡检
+        stdio: ['ignore', 'pipe', 'ignore'],
+      })
+      return { code: 0, out: String(out || '') }
+    } catch (e) {
+      return { code: typeof e.status === 'number' ? e.status : 2, out: String(e.stdout || '') }
+    }
+  }
+  const first = call(['--check'])
+  if (first.code === 0) return
+  if (first.code !== 1) {
+    log(`盘根封口体检异常(忽略,不阻断其余守护):exit ${first.code}`)
+    return
+  }
+  const applied = call(['--apply'])
+  const resealed = (applied.out.match(/\[(?:MISSING|REAL-DIR)→sealed\]/g) || []).length
+  if (resealed) log(`✅ 盘根封口自愈:重封 ${resealed} 个被外部删除/回退的改道点`)
+  const after = call(['--check'])
+  if (after.code !== 0) log(`⚠️ 盘根封口重封后体检仍非 0(exit ${after.code})⇒ 需人工看 seal-c-root-stray 输出`)
+}
+
+/**
  * 看门人的看守(2026-09-23 立)。凭据/部署停摆巡检靠 schtasks 每 6 小时自跑,而它的故障
  * 形态是**安静**:任务被删/被停、node 路径失效、计划任务账户看不到代理 —— 任何一种都会让
  * "本该报警的那条链"静默消失,与今天"生产冻结两天无人知"同构。本守护每 2 分钟一趟且自身
@@ -826,6 +866,8 @@ function main() {
     // 健康轮次的早退之前是唯一能挂工作区自愈的位置 —— 不在此处就永远不执行。
     // --check 保持零副作用(CI 口径);真巡检才动手,且只在真恢复/发现他人删除时写日志。
     if (!CHECK_ONLY) healWorktreeTracked()
+    // 盘根封口同理:重启会清掉 junction,而第三方重建真目录只需要一次启动。
+    if (!CHECK_ONLY) healRootSeal()
     // 看门人也要有人看:凭据/停摆巡检靠 schtasks 每 6 小时自跑,任务被删/被停/node 路径
     // 失效时它**自己不会喊**(故障形态是"安静",正是今天两天冻结的同类)。本守护每 2 分钟
     // 一趟且自身分层自愈,由它盯心跳最省。--check 仍零副作用。
@@ -885,6 +927,8 @@ function startDaemon() {
       } else {
         // 核心与 ref 都健康时,才轮到工作区存续性(宿主成批删工作区文件,实测高频)
         healWorktreeTracked()
+        // 以及盘根封口(重启清掉 junction 后的 2 分钟内自动补回)
+        healRootSeal()
       }
     } catch (e) {
       log('巡检异常(忽略): ' + String(e.message || e))
