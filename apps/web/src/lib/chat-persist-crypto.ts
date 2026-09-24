@@ -196,4 +196,20 @@ export function createGoalPersistStorage<S>(
     domain: 'goal-persist',
   })
 }
+
+/**
+ * auth store 的唯一入口(独立 HKDF 域)。
+ * 该 store 按 2026-07-21 审计只持久化 `{isAuthenticated, user}`,**不含任何 token**,
+ * 但 `user` 里有手机号与昵称 —— 桌面端整块明文留在 WebView 的 Local Storage 里同样是
+ * 个人数据落盘,故与 chat/goal 同通道加密(浏览器路径仍原样返回 base,零行为变更)。
+ */
+export function createAuthPersistStorage<S>(
+  base: PersistStorage<S> | undefined,
+): PersistStorage<S> | undefined {
+  return createVaultBackedPersistStorage({
+    base,
+    kv: resolveBrowserKv(),
+    domain: 'auth-persist',
+  })
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

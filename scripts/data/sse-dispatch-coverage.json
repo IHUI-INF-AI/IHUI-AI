@@ -5,7 +5,7 @@
     "web": 27,
     "extension": 16,
     "miniapp-taro": 21,
-    "mobile-rn": 18,
+    "mobile-rn": 19,
     "cli": 12
   },
   "endpoints": {
@@ -60,7 +60,6 @@
       "onSubagentEnd": "no-subagent-ui",
       "onSubagentProgress": "no-subagent-ui",
       "onSubagentSpawn": "no-subagent-ui",
-      "onTerminalDelta": "no-terminal-delta-ui",
       "onToolDelegate": "no-tool-delegate-ui",
       "onToolSummary": "no-tool-summary-ui"
     },
