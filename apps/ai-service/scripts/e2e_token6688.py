@@ -26,12 +26,24 @@ key 解析优先级:--key 参数 > 环境变量 TOKEN6688_API_KEY > .env(TOKEN66
     .venv/Scripts/python.exe scripts/e2e_token6688.py --cheap     # 仅 1~5(近零成本)
     .venv/Scripts/python.exe scripts/e2e_token6688.py --yes       # 全矩阵且跳过确认
     .venv/Scripts/python.exe scripts/e2e_token6688.py --key sk-xx # 临时 key(不落盘)
+    python scripts/e2e_token6688.py --free                        # 免费语音通道(零 key 零成本)
+
+--free 模式(2026-09-24 免费替代改造,TOKEN6688_API_KEY 因费用不配置):
+  语音链路免费替代验收 —— 驱动 app/providers/free_voice_provider.py(edge-tts,
+  零 key 零成本),与 VOICE_PROVIDER=edge-tts 生产开关同代码路径:
+  F1. 免费通道自述(VOICE_PROVIDER 解析 + edge-tts 可导入)
+  F2. TTS 生成(中文短句 → mp3,产物落盘 scripts/.e2e_free_tts.mp3)
+  F3. TTS 生成取消(合成中 task.cancel() → CancelledError 语义正确)
+  F4. 声纹克隆 SKIP(免费通道无此能力,写明原因与决策建议)
+  轻依赖:仅 edge-tts(单文件加载 provider 模块,绕过 app.providers 包聚合 import,
+  不需要 litellm/fastapi 等重依赖),任意隔离 venv 装 edge-tts 即可跑。
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import importlib.util
 import json
 import os
 import sys
@@ -41,9 +53,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.providers.base_provider import ProviderError  # noqa: E402
-from app.providers.token6688_provider import Token6688Provider  # noqa: E402
-
+# token6688 依赖 httpx→llm_gateway 重链;--free 模式不 import(惰性加载,见 main)
 ROOT = Path(__file__).resolve().parents[1]
 ENV_PATH = ROOT / ".env"
 
@@ -76,6 +86,102 @@ def _load_key_from_env_file() -> str:
 
 def _resolve_key(cli_key: str) -> str:
     return cli_key or os.environ.get("TOKEN6688_API_KEY", "").strip() or _load_key_from_env_file()
+
+
+# ---------------------------------------------------------------------------
+# 免费语音通道验收步骤(--free;驱动 app/providers/free_voice_provider.py)
+# ---------------------------------------------------------------------------
+
+
+def _load_free_voice_provider() -> Any:
+    """单文件加载 free_voice_provider 模块(绕过 app.providers 包聚合 import)。
+
+    app/providers/__init__.py 会聚合 import 全部 provider(→ base_provider →
+    llm_gateway → litellm 重链)。--free 模式只需要 edge-tts,故按文件路径
+    直接加载模块,任意装了 edge-tts 的隔离 venv 均可跑。
+    """
+    mod_path = ROOT / "app" / "providers" / "free_voice_provider.py"
+    spec = importlib.util.spec_from_file_location("free_voice_provider", mod_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["free_voice_provider"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+async def step_free_intro(fvp: Any, provider: Any) -> tuple[bool, str]:
+    code = fvp.current_provider_code()
+    try:
+        import edge_tts  # noqa: F401
+        edge_ver = getattr(edge_tts, "__version__", "ok")
+        imported = True
+    except ImportError:
+        edge_ver, imported = "未安装", False
+    return imported and code == "edge-tts", (
+        f"VOICE_PROVIDER={os.environ.get('VOICE_PROVIDER', '(未配,默认)')} → 通道={code}, "
+        f"edge-tts {edge_ver}, provider={provider.provider_code}"
+    )
+
+
+async def step_free_tts(provider: Any, out_path: Path) -> tuple[bool, str]:
+    audio, ctype = await provider.tts("你好,这是免费语音通道端到端验收测试。", voice="zh-CN-XiaoxiaoNeural")
+    out_path.write_bytes(audio)
+    ok = len(audio) > 1000 and "audio" in ctype and out_path.stat().st_size == len(audio)
+    return ok, f"{len(audio)} 字节 {ctype}, 产物={out_path}, 头部={audio[:4]!r}"
+
+
+async def step_free_cancel(provider: Any) -> tuple[bool, str]:
+    long_text = "这段合成会在中途被取消。" * 80  # ~960 字(<2000 上限,0.5s 内不可能完成)
+    task = asyncio.create_task(provider.tts(long_text))
+    await asyncio.sleep(0.5)
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        return True, "合成中 task.cancel() → CancelledError 正确传播,无计费无残留"
+    return False, f"取消失败:任务未被取消即终态(done={task.done()}, cancelled={task.cancelled()})"
+
+
+async def step_free_voice_clone(provider: Any) -> tuple[bool, str]:
+    try:
+        await provider.upload_voice(b"RIFF-fake" * 8, "ref.wav")
+    except Exception as e:  # noqa: BLE001 — 预期抛 501,如实展示即 SKIP 通过
+        return True, (
+            f"SKIP(免费通道无此能力): {type(e).__name__} — {str(e)[:120]}。"
+            "结论:免费云 API 无声纹克隆;开源自托管(GPT-SoVITS/OpenVoice/CosyVoice)"
+            "需本地 GPU 常驻服务属重运维,待 owner 决策;克隆需求切 token6688 付费通道。"
+        )
+    return False, "免费通道竟然返回了声纹克隆成功?(不应发生)"
+
+
+async def run_free_mode() -> int:
+    fvp = _load_free_voice_provider()
+    provider = fvp.FreeVoiceProvider()
+    out_path = ROOT / "scripts" / ".e2e_free_tts.mp3"
+    print("免费语音通道 E2E 验收 · edge-tts(零 key 零成本)· VOICE_PROVIDER 开关同代码路径\n")
+    failures: list[str] = []
+    steps: list[tuple[str, Any]] = [
+        ("F1 免费通道自述(VOICE_PROVIDER/edge-tts)", lambda: step_free_intro(fvp, provider)),
+        (f"F2 TTS 生成(晓晓中文,产物={out_path.name})", lambda: step_free_tts(provider, out_path)),
+        ("F3 TTS 生成取消(合成中 task.cancel)", lambda: step_free_cancel(provider)),
+        ("F4 声纹克隆(免费可行性结论)", lambda: step_free_voice_clone(provider)),
+    ]
+    for name, fn in steps:
+        try:
+            ok, msg = await fn()
+        except Exception as e:  # noqa: BLE001 — E2E 顶层兜底,不让单步异常中断矩阵
+            ok, msg = False, f"{type(e).__name__}: {e}"
+        if not ok:
+            failures.append(name)
+        print(f"[{'PASS' if ok else 'FAIL'}] {name}: {msg}")
+
+    print()
+    if failures:
+        print(f"验收失败 {len(failures)} 项: {failures}")
+        return 1
+    print("免费语音通道验收通过:VOICE_PROVIDER=edge-tts 覆盖 生成/取消;"
+          "声纹克隆免费不可行(已写明决策建议),付费通道保留可切。")
+    return 0
 
 
 # ---------------------------------------------------------------------------
@@ -191,14 +297,23 @@ async def main() -> int:
     parser = argparse.ArgumentParser(description="token6688 全模态真实 key E2E 验收")
     parser.add_argument("--key", default="", help="临时 key(不落盘;默认读 .env)")
     parser.add_argument("--cheap", action="store_true", help="仅近零成本项(跳过图片/音乐/视频)")
+    parser.add_argument("--free", action="store_true", help="免费语音通道验收(edge-tts 零 key;无需 TOKEN6688_API_KEY)")
     parser.add_argument("--yes", action="store_true", help="付费项跳过确认")
     parser.add_argument("--status", default="", help="只查询指定视频/音乐任务状态后退出")
     args = parser.parse_args()
+
+    if args.free:
+        return await run_free_mode()
+
+    # token6688 链路依赖 httpx→llm_gateway 重链,仅付费/近零成本模式加载
+    from app.providers.base_provider import ProviderError  # noqa: E402
+    from app.providers.token6688_provider import Token6688Provider  # noqa: E402
 
     key = _resolve_key(args.key)
     if not key:
         print("未找到 token6688 key。请在 .env 配置 TOKEN6688_API_KEY=sk-xxx 后重跑,")
         print("或临时传入:python scripts/e2e_token6688.py --key sk-xxx")
+        print("零 key 语音链路验收可改跑免费通道:python scripts/e2e_token6688.py --free")
         return 2
     p = Token6688Provider(api_key=key)
     if args.status:

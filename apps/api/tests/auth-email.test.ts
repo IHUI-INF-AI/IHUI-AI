@@ -17,10 +17,6 @@ vi.mock('../src/config/index.js', () => ({
     MAIL_PROVIDER: 'auto',
     RESEND_API_KEY: '',
     RESEND_FROM: '',
-    TENCENT_SES_SECRET_ID: '',
-    TENCENT_SES_SECRET_KEY: '',
-    TENCENT_SES_FROM: '',
-    TENCENT_SES_REGION: 'ap-hongkong',
   },
 }))
 
@@ -114,8 +110,9 @@ describe('email-service — resolveProvider (auto + 全部 provider 未配置 �
   it('auto 模式下强制未配置的 resend 不会返回 resend', () => {
     expect(resolveProvider('test@gmail.com')).not.toBe('resend')
   })
-  it('auto 模式下强制未配置的 tencent 不会返回 tencent', () => {
+  it('回归保护:SES 删除后任何收件人都不再解析出 tencent 通道', () => {
     expect(resolveProvider('test@qq.com')).not.toBe('tencent')
+    expect(resolveProvider('test@gmail.com')).not.toBe('tencent')
   })
 })
 
