@@ -5147,3 +5147,5 @@ WebView 数据目录里信封字面量 `ihuiVaultV1` 零命中 —— "盘上 gr
 **为什么它是 warn 而不是 blocking**:这道门判的是**机器运行态**(某个目录里有没有我们的产物),提交者在
 结构上无法让它变绿。挂进提交链的唯一结局是每次提交都被迫 `--no-verify`,连带把其余一百多道门一起作废。
 手动跑:`pnpm check:desktop-cache-plaintext`。取证:`--self-test` 10/10、镜像测试 12/12。
+镜像测试 `scripts/tests/check-brand-foreground.test.mjs` 13 例;R5(web/ui-react Tailwind 类名面的
+于 2026-09-24 补上,详见 AGENTS 守门速查第 83 项;紧急跳过
