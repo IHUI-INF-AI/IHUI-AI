@@ -151,7 +151,7 @@ export function MessageInput({
                   <Image source={{ uri: f.url }} style={styles.fileImage} resizeMode="cover" />
                 ) : f.type === 'video' ? (
                   <View style={styles.fileVideoPlaceholder}>
-                    <Play size={16} color={tk.surface.light} />
+                    <Play size={16} color={tk.text.secondary} />
                     <Text style={styles.fileVideoText} numberOfLines={1}>
                       {f.filename || t('messageInput.video')}
                     </Text>
@@ -369,13 +369,13 @@ function createStyles(tk: AppThemeTokens) {
     fileVideoPlaceholder: {
       width: '100%',
       height: '100%',
-      backgroundColor: tk.text.primary,
+      backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
       padding: 4,
     },
-    fileVideoBadge: { color: tk.surface.light, fontSize: 16, marginBottom: 2 },
-    fileVideoText: { color: tk.surface.light, fontSize: 9, textAlign: 'center' },
+    fileVideoBadge: { color: tk.text.secondary, fontSize: 16, marginBottom: 2 },
+    fileVideoText: { color: tk.text.secondary, fontSize: 9, textAlign: 'center' },
     fileDocPlaceholder: {
       width: '100%',
       height: '100%',
