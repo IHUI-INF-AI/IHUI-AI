@@ -44,45 +44,45 @@ const FILTERS = (
 ): Array<{ key: FilterType; labelKey: string; fallback: string; icon: string }> => [
   {
     key: 'all',
-    labelKey: 'ai.historyPage.filterAll',
+    labelKey: 'common.all',
     fallback: tt('common.all', '全部'),
     icon: ICONS.message,
   },
   {
     key: 'chat',
-    labelKey: 'ai.historyPage.filterChat',
+    labelKey: 'toolbar.ai',
     fallback: tt('toolbar.ai', 'AI对话'),
     icon: ICONS.message,
   },
   {
     key: 'image',
-    labelKey: 'ai.historyPage.filterImage',
+    labelKey: 'aiHistory.d1',
     fallback: tt('aiHistory.d1', 'AI绘图'),
     icon: ICONS.imageOr,
   },
   {
     key: 'voice',
-    labelKey: 'ai.historyPage.filterVoice',
+    labelKey: 'aiHistory.d2',
     fallback: tt('aiHistory.d2', 'AI语音'),
     icon: ICONS.aimusic,
   },
   {
     key: 'agent',
-    labelKey: 'ai.historyPage.filterAgent',
+    labelKey: 'agent.title',
     fallback: tt('agent.title', '智能体'),
     icon: ICONS.jiqiren,
   },
 ]
 
 const GROUP_LABELS = (tt: TtFn): Array<{ key: GroupKey; labelKey: string; fallback: string }> => [
-  { key: 'today', labelKey: 'ai.historyPage.today', fallback: tt('live.calendar.today', '今天') },
+  { key: 'today', labelKey: 'live.calendar.today', fallback: tt('live.calendar.today', '今天') },
   {
     key: 'yesterday',
-    labelKey: 'ai.historyPage.yesterday',
+    labelKey: 'index.mock.yesterday',
     fallback: tt('index.mock.yesterday', '昨天'),
   },
-  { key: 'thisWeek', labelKey: 'ai.historyPage.thisWeek', fallback: tt('aiHistory.d3', '本周') },
-  { key: 'earlier', labelKey: 'ai.historyPage.earlier', fallback: tt('aiHistory.d4', '更早') },
+  { key: 'thisWeek', labelKey: 'aiHistory.d3', fallback: tt('aiHistory.d3', '本周') },
+  { key: 'earlier', labelKey: 'aiHistory.d4', fallback: tt('aiHistory.d4', '更早') },
 ]
 
 function loadAll(): HistoryItem[] {
