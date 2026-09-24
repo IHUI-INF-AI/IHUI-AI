@@ -105,6 +105,7 @@ export * from './endpoints/admin-business'
 export * from './endpoints/admin-content'
 export * from './endpoints/admin-member'
 export * from './endpoints/admin-monitor'
+export * from './endpoints/admin-deploy'
 export * from './endpoints/admin-system'
 // P1-2.2a: SaaS 部署层管理后台 API 端点
 export * from './endpoints/admin-tenants'
