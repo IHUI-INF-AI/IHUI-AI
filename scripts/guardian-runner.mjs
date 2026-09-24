@@ -232,7 +232,9 @@ const checks = [
     skipEnv: 'HUSKY_SKIP_TAGSVIEW_GUARD',
     // 2026-09-24 补齐:本门头注一直写着「紧急跳过 HUSKY_SKIP_TAGSVIEW_GUARD=1」,但 runner 从未声明该字段、
     // 脚本自己也不读 ⇒ 那是**假逃生舱**(设了毫无效果,只会逼人改用 --no-verify 连带废掉全部门)。
-    // runner 的分发循环统一 honors skipEnv,故补这一行即让承诺成真;由守门 89 的 R8 常驻核验。
+    // runner 的分发循环统一 honors skipEnv,故补这一行即让承诺成真。
+    // (此处原文还写着"由守门 89 的 R8 常驻核验",而 89 只有 R1–R7、**没有 R8** —— 谎称有防线
+    //  比没有防线更坏:后人会以为这类漂移已被机器看守。核验入口见计划登记的 R8 待办。)
   },
   {
     id: '11d',
@@ -486,6 +488,11 @@ const checks = [
     script: 'check-staged-typecheck-mirror-sync.mjs',
     args: [],
     mode: 'blocking',
+    // 本条目头注承诺 `HUSKY_SKIP_STAGED_TYPECHECK_MIRROR_SYNC=1` 可应急跳过,而 runner 分发
+    // 循环只认注册块里的 skipEnv —— 不声明就是**假逃生舱**:唯一出路退化成 --no-verify,
+    // 一次绕过等于全部守门对该提交作废(§12e 同型)。2026-09-24 全量审计:151 个 check 脚本
+    // 里仅此一枚如此,其余 75 枚均已声明或由脚本自读。
+    skipEnv: 'HUSKY_SKIP_STAGED_TYPECHECK_MIRROR_SYNC',
   },
   // --- 45 (2026-08-19 新增,C 盘路径硬编码扫描守门,AGENTS.md §26 配套) ---
   // warn-only:§26 C 盘防护已配置 11 个环境变量永久指向 D 盘,但 agent 偶尔会在
@@ -1021,7 +1028,9 @@ const checks = [
     skipEnv: 'HUSKY_SKIP_INLINE_BACK_GUARD',
     // 2026-09-24 补齐:本门头注一直写着「紧急跳过 HUSKY_SKIP_INLINE_BACK_GUARD=1」,但 runner 从未声明该字段、
     // 脚本自己也不读 ⇒ 那是**假逃生舱**(设了毫无效果,只会逼人改用 --no-verify 连带废掉全部门)。
-    // runner 的分发循环统一 honors skipEnv,故补这一行即让承诺成真;由守门 89 的 R8 常驻核验。
+    // runner 的分发循环统一 honors skipEnv,故补这一行即让承诺成真。
+    // (此处原文还写着"由守门 89 的 R8 常驻核验",而 89 只有 R1–R7、**没有 R8** —— 谎称有防线
+    //  比没有防线更坏:后人会以为这类漂移已被机器看守。核验入口见计划登记的 R8 待办。)
     onFailHint: [
       '',
       '  💡 页面私接了 router.back()/history.back(),绕过顶栏统一返回键。',
@@ -1118,7 +1127,9 @@ const checks = [
     skipEnv: 'HUSKY_SKIP_NEXT_ENV_DIST',
     // 2026-09-24 补齐:本门头注一直写着「紧急跳过 HUSKY_SKIP_NEXT_ENV_DIST=1」,但 runner 从未声明该字段、
     // 脚本自己也不读 ⇒ 那是**假逃生舱**(设了毫无效果,只会逼人改用 --no-verify 连带废掉全部门)。
-    // runner 的分发循环统一 honors skipEnv,故补这一行即让承诺成真;由守门 89 的 R8 常驻核验。
+    // runner 的分发循环统一 honors skipEnv,故补这一行即让承诺成真。
+    // (此处原文还写着"由守门 89 的 R8 常驻核验",而 89 只有 R1–R7、**没有 R8** —— 谎称有防线
+    //  比没有防线更坏:后人会以为这类漂移已被机器看守。核验入口见计划登记的 R8 待办。)
     onFailHint: [
       '',
       '  💡 apps/web/next-env.d.ts 引用了 .next-* 变体(.next-staging/.next-static 等),',
@@ -1206,7 +1217,9 @@ const checks = [
     skipEnv: 'HUSKY_SKIP_ADMIN_GATE_GUARD',
     // 2026-09-24 补齐:本门头注一直写着「紧急跳过 HUSKY_SKIP_ADMIN_GATE_GUARD=1」,但 runner 从未声明该字段、
     // 脚本自己也不读 ⇒ 那是**假逃生舱**(设了毫无效果,只会逼人改用 --no-verify 连带废掉全部门)。
-    // runner 的分发循环统一 honors skipEnv,故补这一行即让承诺成真;由守门 89 的 R8 常驻核验。
+    // runner 的分发循环统一 honors skipEnv,故补这一行即让承诺成真。
+    // (此处原文还写着"由守门 89 的 R8 常驻核验",而 89 只有 R1–R7、**没有 R8** —— 谎称有防线
+    //  比没有防线更坏:后人会以为这类漂移已被机器看守。核验入口见计划登记的 R8 待办。)
     onFailHint: [
       '',
       '  💡 apps/api 出现新的裸 `roleId >= 1` 式判定 / 本地重定义 requireAdmin / platform 数据类别误开放。',
