@@ -22,8 +22,10 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 
 test('装车证明:守门 96 在 runner 中必须出现恰好一次,且为 blocking + 有 skipEnv', () => {
   const runner = readFileSync(join(HERE, '..', 'guardian-runner.mjs'), 'utf8')
+  // 注册块允许 `id:` 之前带说明注释(2026-09-24 起门 96 的改判理由就写在那里)——
+  // 只认"`{` 紧跟 id"的写法会让装车证明因**注释变多**而假报未接线,那是比漏判更糟的噪声。
   const block = runner.match(
-    /\{\s*\n\s*id: '([0-9]+[a-z]?)',[\s\S]{0,400}?script: 'check-home-junctions\.mjs'/,
+    /\{\s*\n(?:\s*\/\/[^\n]*\n)*\s*id: '([0-9]+[a-z]?)',[\s\S]{0,400}?script: 'check-home-junctions\.mjs'/,
   )
   assert.ok(block, '本门未接入 runner(找不到 id→script 相邻的注册块)')
   const myId = block[1]
