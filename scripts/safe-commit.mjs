@@ -32,7 +32,7 @@
  *   2  环境错误(非 git 仓库/无 origin 等)
  */
 import { execSync, spawn, spawnSync } from 'node:child_process'
-import { appendFileSync, mkdirSync } from 'node:fs'
+import { appendFileSync, closeSync, mkdirSync, openSync, readSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { classifyHookFailure, verdictLine } from './lib/commit-gate-attribution.mjs'
@@ -423,8 +423,28 @@ if (hookFailed && commitResult.status !== 0) {
   // ③门判的是机器/远端态。实测 134 道门跑完只有 check-push-sync(远端态)红,输出仍写
   // "因其他 agent 代码" —— 归因从未被计算过。现在:把红的门逐道**复跑**,用它们自己这次的
   // 输出比对本次声明的文件集。点名我 ⇒ 拒绝跳门;一个都没点名 ⇒ 才允许跳,且只说量到的话。
+  // 实测(2026-09-25):pre-commit 常把守门汇总**只**写进 .workbuddy/hook-logs/pre-commit.log,
+  // stdout 停在半路 —— 没有这第二输入源,归因在真仓里的命中率是 0(每次都说"未归因")。
+  // 只喂尾部 256KB:整份日志是多轮追加的,全量读既慢又会把别人的轮子卷进来。
+  let hookLogTail = ''
+  try {
+    const logPath = join(repoRoot, '.workbuddy', 'hook-logs', 'pre-commit.log')
+    const size = statSync(logPath).size
+    const len = Math.min(size, 256 * 1024)
+    const fd = openSync(logPath, 'r')
+    try {
+      const buf = Buffer.alloc(len)
+      readSync(fd, buf, 0, len, size - len)
+      hookLogTail = buf.toString('utf8')
+    } finally {
+      closeSync(fd)
+    }
+  } catch {
+    hookLogTail = ''
+  }
   const verdict = classifyHookFailure({
     text: hookOutput,
+    fallbackText: hookLogTail,
     stagedFiles: expectedFiles,
     runGate: (script) => {
       const g = spawnSync(process.execPath, [join(repoRoot, 'scripts', script), '--staged'], {
