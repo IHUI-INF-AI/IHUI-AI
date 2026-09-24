@@ -1274,6 +1274,15 @@ C 盘 120 GB 频繁告急,根因排查发现:
 因此**不需要也不允许**去改 `Path` 或逐个改码;改环境变量反而会造出"双根分裂"。
 校验方法:`rustup show home`、`reg query HKCU\Environment`、`(Get-Item ~\.cargo).Attributes -match ReparsePoint`。
 新增工具的缓存落点一律走 `D:\DevEnv\cache\userhome\<名称>` + junction,不得再在家目录留实体目录。
+**改道完整性已由机器看守(2026-09-24 立,守门 `check-home-junctions.mjs`)**:上面那三条人肉命令长期
+等于没有校验 —— 实测 `AppData\Roaming\npm` 长成 **2.05GB**、`AppData\Local\pnpm-cache` **758MB** 都是实体目录
+(同期 `~\.ihui`、桌面端两处 `com.ihui.desktop` 早已是 junction ⇒ 机制有效,**缺的只是回潮哨兵**)。
+该门登记 16 项工具态,判三条:存在却不是指针 = `REAL-DIR` 红(且必须量出体积,否则报告写成"合计约 0 MB"的
+假小量级)、指针目标不可达 = `DANGLING` 红、登记表被过滤空 = `EMPTY-REGISTRY` 红;非 Windows 如实报"未判定"
+不计通过。**第三方 IDE 自管态(`.workbuddy`、`.qoder-cn`)刻意不进登记表** —— 由镜像测试反向钉死,
+防止有人把它们加进来逼后人去挪别人的运行态(挪 `.qoder-cn` 等于丢记忆)。
+同日已按 §26 机制把这两处收口(镜像复制→逐文件字节校验→源改名→`mklink /J`→经 junction 回读一致→才删源),
+C 盘可用 44G → **45.75G**。
 **⚠️ junction 只管"路径",管不了"身份"(2026-09-24 实测的第四类真因)**:同一个 `$env:TEMP` /
 `os.tmpdir()` 在**不同身份下指向不同目录** —— HKCU 把交互账户 TEMP 迁到 `D:\DevEnv\Temp` 之后,
 nssm 服务(IHUI-API / IHUI-DEPLOYLOOP 以 LocalSystem 运行)拿到的仍是 `C:\Windows\Temp`。
