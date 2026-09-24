@@ -7118,3 +7118,4 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
   ③ **pollution 门的 self-test 有一条对活目录断言"两次扫描数量一致"的用例**(HEAD 既有，非本批引入)，
   在本机并发负载下会闪红(实测 705→704 漂移，连跑三次复现一次即过)。修法现成：本批刚加的 `tempDirs`
   注入位就是为它准备的 —— 把该用例改为扫固定夹具即可根治，属下一票。
+- [ ] **O59⑤ D48 的验收在盘上仍不成立(本票实测,交持有桌面端运行条件的人)**:加密层接线经核属实 —— `apps/web/src/stores/chat.ts:1430` 的 `name: 'ihui-chat'` 走 `storage: createChatPersistStorage(ssrStorage)`,且该文件 import 了 `chat-persist-crypto`/`local-vault`(2 处)。但项目自己那道 `scripts/check-desktop-cache-plaintext.mjs` 实测 **exit 1**:`…\EBWebView\Default\Local Storage\leveldb\000003.log` 内 `ihui-chat` 明文 persist 记录 2 处 + utf16 CJK 命中 11 处,而同文件 **`ihuiVaultV1` 密文标记 0 命中**;该 log mtime 停在 2026-09-23 18:11(早于今日加密提交)。即:盘上是改造前的残留明文,而改造后桌面端从未在这台机跑过 ⇒ **"加密生效"缺正面证据**(不是反证)。解阻判据:在桌面端跑一次登录并产生会话持久化后复跑该门,须见 `ihuiVaultV1` 记录出现且 plain 命中归零。该门刻意定级 warn 不挂提交链(判的是机器状态,挂 blocking 会逼全队跳门),所以它红不会自动惊动任何人 —— 由本条钉住归属。
