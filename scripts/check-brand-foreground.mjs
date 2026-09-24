@@ -144,6 +144,15 @@ const R5_COMMENT_LINE = /^\s*(?:\/\/|\/\*|\*)/
  * `statusbar-exempt:` / `brand-mail-exempt:` 同一套形态,**必须带原因**。
  */
 const R5_EXEMPT = /r5-cta-exempt:/
+/**
+ * R3 的人工出口(2026-09-24 立,与上面同一套形态、同样必须带原因)。
+ * R3 的配对判据是**结构**的:底与前景得在同一个 style 块或同一套兄弟命名里。
+ * 但图标按钮的正解是"底写在 style、前景走 JSX 的 `color={tokens.brand.ctaForeground}`"
+ * (Send / Plus / ActivityIndicator 都这样) —— 那种配对结构上看不见,却又确实是
+ * AGENTS §4 的唯一写法。给它一个同行标记,而不是把棘轮调高(棘轮只减不增是死规矩),
+ * 更不是逼人 `--no-verify`(那等于废掉全部守门)。只在**同一行**生效,不外溢到后续行。
+ */
+const R3_EXEMPT = /r3-cta-exempt:/
 
 /**
  * R5 前置:类名 token 是否作为**完整 Tailwind 类**出现在这一行。
@@ -514,6 +523,8 @@ export function countCtaFills(lines) {
   let count = 0
   for (let i = 0; i < lines.length; i++) {
     if (!R3_BRAND_FILL.test(lines[i])) continue
+    // 人工出口:同行或紧邻上行(注释常写在被解释的那行上方)标了 r3-cta-exempt 即不计
+    if (R3_EXEMPT.test(lines[i]) || (i > 0 && R3_EXEMPT.test(lines[i - 1]))) continue
     // 按档取前景集:cta 填充只认 ctaForeground,DEFAULT 填充只认 foreground
     const fgKeys = R3_FILL_CTA.test(lines[i]) ? fgKeysCta : fgKeysDefault
     const owner = ownerAt[i]
@@ -990,6 +1001,35 @@ function selfTest() {
   // F4 R3 计数:cta 填充必须计(修盲区前这一组实测 0 = 235 处实底整片隐身的确证)
   assert(countCtaFills(['    backgroundColor: tk.brand.cta,']) === 1, 'R3-F4 tk.brand.cta 背景计 1(修前为 0 ⇒ 盲区)')
   assert(countCtaFills(['    borderColor: tokens.brand.cta,']) === 1, 'R3-F4 tokens.brand.cta 描边计 1')
+  // F4c R3 人工出口:r3-cta-exempt 同行与紧邻上行都认,但**不得外溢**到同文件另一处
+  assert(
+    countCtaFills([
+      '  btn: {',
+      '    backgroundColor: tk.brand.cta, // r3-cta-exempt: 图标钮,前景在同一元素 color={tk.brand.ctaForeground}',
+      '  },',
+    ]) === 0,
+    'R3-F4c 同行 r3-cta-exempt 必须豁免(结构看不见 JSX 图标前景 ⇒ 没有出口就是逼人跳门)',
+  )
+  assert(
+    countCtaFills([
+      '  btn: {',
+      '    // r3-cta-exempt: 前景写在 <Send color=…>',
+      '    backgroundColor: tk.brand.cta,',
+      '  },',
+    ]) === 0,
+    'R3-F4c 紧邻上行标记也必须生效(注释常写在被解释行的上方)',
+  )
+  assert(
+    countCtaFills([
+      '  a: {',
+      '    backgroundColor: tk.brand.cta, // r3-cta-exempt: 只豁免这一处',
+      '  },',
+      '  b: {',
+      '    backgroundColor: tk.brand.cta,',
+      '  },',
+    ]) === 1,
+    'R3-F4c 反向:一行标记救不了同文件第二处(与守门 97 M2 / R5-N9c 同规)',
+  )
   // F4b R3 按档配对:cta ↔ ctaForeground(同块/兄弟)豁免;跨档配对仍计债
   assert(
     countCtaFills(['  btn: {', '    backgroundColor: tk.brand.cta,', '    color: tk.brand.ctaForeground,', '  },']) === 0,
