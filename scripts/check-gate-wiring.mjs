@@ -33,15 +33,16 @@
  *              2026-09-24 收紧:声称窗口含「可选/手动/后续项/待接/已废弃…」等**未来时或
  *              如实否定**措辞时不判红(那是「还没接线」的诚实说明,不是撒谎);逐出现点各判,
  *              任一处为肯定式即成立。
- *   R2 blocking:AGENTS.md 点名 scripts/<name>.mjs 且**同一句**(句界 。；;\n)出现
+ *   R2 blocking:AGENTS.md(文档面取材 = HEAD∪索引,见下方「取材铁律」的例外条款)
+ *              点名 scripts/<name>.mjs 且**同一句**(句界 。；;\n)出现
  *              「接入/blocking/BLOCKING/守门/pre-commit/必跑」,但五处全部零命中。
  *              2026-09-24 收紧:原「同一条款」过粗(条款按空行切,bullet 列表整块算一条,
  *              于是块内他句的「守门」会把顺带提到的脚本一并判成撒谎),现要求同句。
  *   R3 只报数 :脚本存在、五处零命中、且没有任何**肯定式**「已接线」声称 → 仅计数(本仓大量
  *              脚本是 CLI 工具或被分发器派生,判红会满天假红)
  *   弱接线    :仅点 5 命中 → 不算红,单独计数如实报出
- *   R4 blocking:**反向**差集 —— 已在五处权威点登记的门,AGENTS.md/README.md 通篇没点名
- *              (文档看不见的门会被重复造或被绕过)。2026-09-24 由"仅报数"升档,前置 =
+ *   R4 blocking:**反向**差集 —— 已在五处权威点登记的门,AGENTS.md/README.md(文档面取材 =
+ *              HEAD∪索引)通篇没点名(文档看不见的门会被重复造或被绕过)。2026-09-24 由"仅报数"升档,前置 =
  *              真仓缺口 48→0 已清零;比对宽松到"出现去后缀同名即算点名",只会漏报不会误拦。
  *   R5 blocking:同一 id 在 guardian-runner 里登记多道门 ⇒ 串 skipEnv 与失败归属(同日实测撞号)。
  *   R6 只报数 :同一 skipEnv 挂两个以上条目(本仓 id 2/2n-web 是刻意共用,故不判红)。
@@ -54,6 +55,14 @@
  *   可能滞后/脏,读它会产出相反结论)。子进程一律 execFileSync(<git 绝对路径>,
  *   ['-c','safe.directory=*','-C',root,…],{ windowsHide:true, timeout, maxBuffer })。
  *   取文件内容**不 .trim()**(尾行曾被吃掉,使一道自愈闸静默失效一整天);只有取 sha 才 trim。
+ *   **例外(2026-09-24,文档面 R2/R4)**:AGENTS.md / README.md 按 **HEAD ∪ 索引(staged)**判。
+ *   成因是本门在 pre-commit 阶段读取,而 HEAD 还是"提交前"——同一枚提交里注册守门又补文档点名行时,
+ *   文档行尚未进 HEAD 就会被判 R4 红(结构性时序陷阱);89 是 blocking,唯一出路 --no-verify 会连带
+ *   废掉全部约 110 道守门。"正在被这枚提交写进仓库的文档内容"必须参与判定。
+ *   边界:**不得退化成读工作区**(他人未提交的编辑不算仓库内容,守门 57/77/83 同取向);
+ *   索引取不到(未暂存 / 未合并冲突态 / 非 git 环境)退回 HEAD,HEAD 也取不到退回空串,
+ *   实际用的口径由结论行 / --json 的 docSourceModes 如实报出,不得静默。
+ *   R1(各门脚本头部声称)与 R7(台账依据文件)**不在此例外内**,仍只判 HEAD。
  *
  * 用法:
  *   node scripts/check-gate-wiring.mjs                 全量对账(人类可读)
@@ -133,6 +142,65 @@ function gitGrep(patterns, rev, paths, root) {
   }
 }
 
+/**
+ * 文档面取材口径(R2/R4,2026-09-24 立):HEAD ∪ 索引(staged 内容)。纯函数,供自检与镜像测试钉死。
+ *
+ * 为什么必须并上索引:本门在 pre-commit 阶段跑,HEAD 还是「提交前」的状态。新会话在**同一枚提交**
+ * 里注册守门并补 AGENTS.md 点名行时,文档行还没进 HEAD,旧「仅 HEAD」口径把正在入库的那行判成
+ * R4 红(或对应场景的 R2 漏判)。89 是 blocking,恒红的唯一出路是 --no-verify,连带废掉全部守门 ——
+ * 「正在被这枚提交写进仓库的文档内容」必须参与判定。
+ *
+ * 硬边界:**不得读工作区**(readFileSync 不参与文档面取材)。多会话共享工作区里他人未提交的编辑
+ * 按定义不是仓库内容,算进来会产出与真实提交相反的结论(守门 57/77/83 同取向)。
+ * 索引取不到(未暂存 / 未合并冲突态 / 非 git 环境)→ 退回 HEAD;HEAD 取不到 → 退回空串;
+ * mode 字段如实说明用了哪个口径,供结论行输出,不得静默。
+ *
+ * @param headText  {string|null} `git show HEAD:<path>` 的内容(null = HEAD 里没有该文档)
+ * @param indexText {string|null} `git show :<path>`(索引/staged)的内容(null = 索引里没有)
+ */
+export function combineDocSources({ headText, indexText }) {
+  const hasHead = typeof headText === 'string'
+  const hasIndex = typeof indexText === 'string'
+  if (hasHead && hasIndex) {
+    if (headText === indexText) return { text: headText, mode: 'HEAD(索引同内容)' }
+    // 并集:两侧内容都参与判定(R2 按条款切、R4 按子串比,拼接顺序不影响结论)
+    return { text: `${indexText}\n${headText}`, mode: 'HEAD∪索引(两侧不同内容,取并集)' }
+  }
+  if (hasIndex) return { text: indexText, mode: '仅索引(HEAD 无该文档)' }
+  if (hasHead) return { text: headText, mode: '仅HEAD(索引无该文档/未暂存,已退回)' }
+  return { text: '', mode: '取不到(HEAD 与索引均无该文档,按空串)' }
+}
+
+/**
+ * 按路径读取权威文档:HEAD 与索引各取一次,交给 combineDocSources 归并;
+ * modes() 返回每份文档实际使用的口径(结论行如实报出用哪个,绝不静默)。
+ */
+function makeDocReader(root) {
+  const used = []
+  const seen = new Set()
+  const read = (rel) => {
+    let headText = null
+    let indexText = null
+    try {
+      headText = git(['show', `HEAD:${rel}`], root)
+    } catch {
+      /* HEAD 里没有(新文档/首枚提交前的夹具):退回并由 mode 如实报出 */
+    }
+    try {
+      indexText = git(['show', `:${rel}`], root)
+    } catch {
+      /* 索引里没有(未跟踪),或处于未合并冲突态(:<path> 歧义):退回 HEAD */
+    }
+    const r = combineDocSources({ headText, indexText })
+    if (!seen.has(rel)) {
+      seen.add(rel)
+      used.push(`${rel}=${r.mode}`)
+    }
+    return r.text
+  }
+  return { read, modes: () => used.slice() }
+}
+
 // ─── 接线点清单(纯数据,供 self-test 复用) ─────────────────────────────
 export const WIRING_POINTS = {
   strong: [
@@ -146,7 +214,11 @@ export const WIRING_POINTS = {
     { id: 'package-json', label: '根 package.json scripts', paths: ['package.json'] },
   ],
   weak: [
-    { id: 'ci-workflows', label: '.github/workflows/*.yml(CI:弱一档)', paths: ['.github/workflows'] },
+    {
+      id: 'ci-workflows',
+      label: '.github/workflows/*.yml(CI:弱一档)',
+      paths: ['.github/workflows'],
+    },
     {
       id: 'cert-runner',
       label: 'scripts/run-8end-consistency-cert.mjs(CI 编排:弱一档)',
@@ -164,7 +236,10 @@ export const HEADER_CLAIM_PATTERNS = [
   { re: /集成位置/, tag: '集成位置' },
   { re: /接入\s*pre-commit/, tag: '接入 pre-commit' },
   { re: /pre-push/, tag: 'pre-push' },
-  { re: /guardian-runner[^\n]{0,40}?第\s*\*{0,2}\s*\d+[a-z]?\s*\*{0,2}\s*项/, tag: 'guardian-runner 第 N 项' },
+  {
+    re: /guardian-runner[^\n]{0,40}?第\s*\*{0,2}\s*\d+[a-z]?\s*\*{0,2}\s*项/,
+    tag: 'guardian-runner 第 N 项',
+  },
   { re: /CI\s*必跑/, tag: 'CI 必跑' },
   { re: /CI\s*\/\s*pre-commit/, tag: 'CI / pre-commit' },
 ]
@@ -191,16 +266,18 @@ export const CLAIM_NEGATION_RE =
 
 /** 从 git ls-tree 输出里挑出被测守门脚本(纯函数,全集口径) */
 export function filterGatePaths(lsTreeOut) {
-  return String(lsTreeOut)
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .filter((p) => p.startsWith('scripts/'))
-    // 只认顶层 scripts/ 直属文件:scripts/lib/check-*.mjs 是库不是门
-    .filter((p) => p.slice('scripts/'.length).indexOf('/') === -1)
-    .filter((p) => GATE_FILE_RE.test(basename(p)))
-    .map((p) => p.replace(/^scripts\//, ''))
-    .sort()
+  return (
+    String(lsTreeOut)
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .filter((p) => p.startsWith('scripts/'))
+      // 只认顶层 scripts/ 直属文件:scripts/lib/check-*.mjs 是库不是门
+      .filter((p) => p.slice('scripts/'.length).indexOf('/') === -1)
+      .filter((p) => GATE_FILE_RE.test(basename(p)))
+      .map((p) => p.replace(/^scripts\//, ''))
+      .sort()
+  )
 }
 
 /**
@@ -269,7 +346,10 @@ export function extractHeaderClaims(headerText) {
 export function claimWindow(lines, lineNo) {
   const first = String(lines[lineNo] ?? '')
   let win = first
-  const bodyAfterLabel = first.replace(/^\s*\*+\s*/, '').replace(/^[^:：]*[:：]/, '').trim()
+  const bodyAfterLabel = first
+    .replace(/^\s*\*+\s*/, '')
+    .replace(/^[^:：]*[:：]/, '')
+    .trim()
   if (bodyAfterLabel === '') {
     for (let i = lineNo + 1; i < lines.length && i <= lineNo + 6; i += 1) {
       // 注释块里的「*」空行同样算段落结束,否则窗口会一路吞进下一小节
@@ -289,7 +369,6 @@ export function claimWindow(lines, lineNo) {
 export function buildTemplateMatchers(corpusText) {
   const text = String(corpusText).replace(ZERO_WIDTH_RE, '')
   const tokens = new Set()
-  const tokRe = /[A-Za-z0-9_$.\-{}+]*/g
   let idx = 0
   // 逐个 .mjs 出现点,向前吞可构成文件名的字符集(含 ${} 与字符串拼接的引号+空白除外)
   for (;;) {
@@ -382,7 +461,9 @@ export function findAgentsClaims(clauses, gateName) {
 
 /** 纯函数:AGENTS.md 切条款(以空行为界;HTML 注释块并入所在条款) */
 export function splitAgentClauses(agentsText) {
-  return String(agentsText).split(/\r?\n[ \t]*\r?\n/).filter((c) => c.trim().length > 0)
+  return String(agentsText)
+    .split(/\r?\n[ \t]*\r?\n/)
+    .filter((c) => c.trim().length > 0)
 }
 
 /**
@@ -393,20 +474,35 @@ export function splitAgentClauses(agentsText) {
  * 通道一开,本门当场作废)。台账只救 R3 —— 五处零命中且无任何已接线声称时,
  * 用它登记「由 X 分发 / 纯 CLI 工具 / 仅文档」的结构事实。
  */
-export function classifyGate({ name, strongPoints, weakPoints, headerClaims, agentsClaims, allowEntry }) {
+export function classifyGate({
+  name,
+  strongPoints,
+  weakPoints,
+  headerClaims,
+  agentsClaims,
+  allowEntry,
+}) {
   if (name === SELF_EXEMPT_SCRIPT) {
     return { status: 'self-exempt', reason: '本门自身:创建当期 HEAD 内无它,接线由登记方补' }
   }
-  if (strongPoints && strongPoints.length > 0) return { status: 'wired', reason: strongPoints.join(' + ') }
-  if (weakPoints && weakPoints.length > 0) return { status: 'wired-weak', reason: weakPoints.join(' + ') }
+  if (strongPoints && strongPoints.length > 0)
+    return { status: 'wired', reason: strongPoints.join(' + ') }
+  if (weakPoints && weakPoints.length > 0)
+    return { status: 'wired-weak', reason: weakPoints.join(' + ') }
   if (headerClaims && headerClaims.length > 0) {
-    return { status: 'red-r1', reason: `头部声称[${headerClaims.join(', ')}]但五处权威点全部零命中` }
+    return {
+      status: 'red-r1',
+      reason: `头部声称[${headerClaims.join(', ')}]但五处权威点全部零命中`,
+    }
   }
   if (agentsClaims && agentsClaims.length > 0) {
     return { status: 'red-r2', reason: 'AGENTS.md 点名并声称已接线,但五处权威点全部零命中' }
   }
   if (allowEntry) {
-    return { status: 'exempt', reason: `${allowEntry.type}: ${allowEntry.reason || ''}${allowEntry.dispatcher ? `(由 ${allowEntry.dispatcher} 分发)` : ''}` }
+    return {
+      status: 'exempt',
+      reason: `${allowEntry.type}: ${allowEntry.reason || ''}${allowEntry.dispatcher ? `(由 ${allowEntry.dispatcher} 分发)` : ''}`,
+    }
   }
   return { status: 'unwired-unclaimed', reason: '五处零命中且无任何已接线声称' }
 }
@@ -499,7 +595,11 @@ export function validateDispatcherClaims(entries, readAtHead) {
     const d = String(e.dispatcher || '')
     const token = d.split(/[\s,;]+/).find((t) => t.includes('/') || /\.[a-z]{1,6}$/i.test(t))
     if (!token) {
-      problems.push({ script: e.script, dispatcher: d, why: 'dispatcher 字段里没有一个像路径的 token,无法核验' })
+      problems.push({
+        script: e.script,
+        dispatcher: d,
+        why: 'dispatcher 字段里没有一个像路径的 token,无法核验',
+      })
       continue
     }
     const content = readAtHead(token)
@@ -509,7 +609,11 @@ export function validateDispatcherClaims(entries, readAtHead) {
     }
     const stem = e.script.replace(/\.mjs$/, '')
     if (!content.includes(stem)) {
-      problems.push({ script: e.script, dispatcher: d, why: `${token} 里根本没提到 "${stem}" —— 依据与事实不符` })
+      problems.push({
+        script: e.script,
+        dispatcher: d,
+        why: `${token} 里根本没提到 "${stem}" —— 依据与事实不符`,
+      })
     }
   }
   return problems
@@ -553,7 +657,8 @@ export function validateAllowlist(raw) {
     if (!e.reason || String(e.reason).trim().length < 8) {
       problems.push(`entries[${i}](${e.script}) 缺依据说明(reason < 8 字)`)
     }
-    if (e.type === 'dispatcher' && !e.dispatcher) problems.push(`entries[${i}](${e.script}) dispatcher 类型缺 dispatcher 字段`)
+    if (e.type === 'dispatcher' && !e.dispatcher)
+      problems.push(`entries[${i}](${e.script}) dispatcher 类型缺 dispatcher 字段`)
   })
   return { entries, problems }
 }
@@ -605,12 +710,16 @@ async function main(argv = process.argv.slice(2)) {
     return 1
   }
 
-  const tracked = new Set(git(['ls-tree', '-r', '--name-only', 'HEAD'], root).split('\n').map((l) => l.trim()))
+  const tracked = new Set(
+    git(['ls-tree', '-r', '--name-only', 'HEAD'], root)
+      .split('\n')
+      .map((l) => l.trim()),
+  )
   const pointPathsWithFiles = []
   for (const tier of ['strong', 'weak']) {
     for (const pt of WIRING_POINTS[tier]) {
-      const files = [...tracked].filter(
-        (p) => pt.paths.some((spec) => p === spec || p.startsWith(`${spec}/`)),
+      const files = [...tracked].filter((p) =>
+        pt.paths.some((spec) => p === spec || p.startsWith(`${spec}/`)),
       )
       pointPathsWithFiles.push({ tier, id: pt.id, label: pt.label, files })
     }
@@ -638,7 +747,12 @@ async function main(argv = process.argv.slice(2)) {
   for (const pt of pointPathsWithFiles) {
     if (pt.tier !== 'strong') continue
     for (const f of pt.files) {
-      if (f.endsWith('.mjs') || f.endsWith('.js') || f === 'package.json' || f.startsWith('.husky/')) {
+      if (
+        f.endsWith('.mjs') ||
+        f.endsWith('.js') ||
+        f === 'package.json' ||
+        f.startsWith('.husky/')
+      ) {
         try {
           strongCorpus.push(git(['show', `HEAD:${f}`], root))
         } catch {
@@ -681,7 +795,9 @@ async function main(argv = process.argv.slice(2)) {
   })
 
   // 5) R1 头部声称:只对本轮「未接线」候选读 blob(省 spawn 次数)
-  const agentsText = git(['show', 'HEAD:AGENTS.md'], root)
+  //    文档面(R2/R4)自 2026-09-24 起按 HEAD∪索引判 —— 理由与边界见文件头「取材铁律」例外条款。
+  const docReader = makeDocReader(root)
+  const agentsText = docReader.read('AGENTS.md')
   const agentsClauses = splitAgentClauses(agentsText)
   const candidates = gateNames.filter(
     (n) => !templateHit.has(n) && ![...hitsByPoint.values()].some((s) => s.has(n)),
@@ -716,12 +832,19 @@ async function main(argv = process.argv.slice(2)) {
       strongPoints,
       weakPoints,
       headerClaims: headerClaimsByName.get(n) || [],
-      agentsClaims: n.startsWith('check-') || n.startsWith('scan-') || n.startsWith('guard')
-        ? findAgentsClaims(agentsClauses, n)
-        : [],
+      agentsClaims:
+        n.startsWith('check-') || n.startsWith('scan-') || n.startsWith('guard')
+          ? findAgentsClaims(agentsClauses, n)
+          : [],
       allowEntry: allowByName.get(n),
     })
-    results.push({ script: n, ...status, strongPoints, weakPoints, headerClaims: headerClaimsByName.get(n) || [] })
+    results.push({
+      script: n,
+      ...status,
+      strongPoints,
+      weakPoints,
+      headerClaims: headerClaimsByName.get(n) || [],
+    })
   }
 
   const by = (s) => results.filter((r) => r.status === s)
@@ -733,7 +856,9 @@ async function main(argv = process.argv.slice(2)) {
   try {
     runnerText = git(['show', 'HEAD:scripts/guardian-runner.mjs'], root)
   } catch (e) {
-    console.error(`❌ 读不到 HEAD:scripts/guardian-runner.mjs ⇒ R5/R6 无法判定(拒绝当作已通过):${e.message}`)
+    console.error(
+      `❌ 读不到 HEAD:scripts/guardian-runner.mjs ⇒ R5/R6 无法判定(拒绝当作已通过):${e.message}`,
+    )
     return 2
   }
   const dupIds = findDuplicateIds(runnerText)
@@ -757,14 +882,9 @@ async function main(argv = process.argv.slice(2)) {
     )
   }
   // R4 反向差集:已接线但文档通篇没点名 ⇒ 文档看不见的门会被重复造或被绕过。
-  const readDoc = (p) => {
-    try {
-      return git(['show', `HEAD:${p}`], root)
-    } catch {
-      return ''
-    }
-  }
-  const docText = readDoc('AGENTS.md') + '\n' + readDoc('README.md')
+  // 文档面口径 = HEAD∪索引(同 R2,见「取材铁律」例外):AGENTS.md 直接复用上面已读的并集文本,
+  // 不再单独 HEAD-only 读一次;README.md 同口径。实际用的口径由 docReader.modes() 如实报出。
+  const docText = agentsText + '\n' + docReader.read('README.md')
   const undocumented = findUndocumentedGates(
     [...by('wired'), ...by('wired-weak')].map((r) => r.script),
     docText,
@@ -782,12 +902,15 @@ async function main(argv = process.argv.slice(2)) {
     })
   }
 
+  const docModes = docReader.modes()
+
   if (opts.json) {
     console.log(
       JSON.stringify(
         {
           root,
           totalGates: gateNames.length,
+          docSourceModes: docModes,
           counts: {
             wired: by('wired').length,
             wiredWeak: by('wired-weak').length,
@@ -819,7 +942,10 @@ async function main(argv = process.argv.slice(2)) {
       ),
     )
   } else {
-    console.log('🧷 守门脚本接线对账(权威接线点 5 处 · 一律按 HEAD 内容判)')
+    console.log(
+      '🧷 守门脚本接线对账(权威接线点 5 处 · 接线/脚本侧按 HEAD 判,文档面 R2/R4 按 HEAD∪索引判)',
+    )
+    console.log(`   文档面实际取材口径(绝不读工作区): ${docModes.join(' | ')}`)
     console.log(
       `   被测 ${gateNames.length} 枚 | 已接线 ${by('wired').length} | 仅 CI 接线 ${by('wired-weak').length}` +
         ` | 台账豁免 ${by('exempt').length} | 本门自身豁免 ${by('self-exempt').length}`,
@@ -837,7 +963,11 @@ async function main(argv = process.argv.slice(2)) {
       `   R6(同一 skipEnv 挂多个条目,只报数): ${sharedEnvs.length ? sharedEnvs.map((s) => `${s.env}[${s.ids.join(',')}]`).join(' ') : '0 组'}`,
     )
     if (undocumented.length) {
-      console.log('     ' + undocumented.slice(0, 14).join(' ') + (undocumented.length > 14 ? ` …等 ${undocumented.length} 枚` : ''))
+      console.log(
+        '     ' +
+          undocumented.slice(0, 14).join(' ') +
+          (undocumented.length > 14 ? ` …等 ${undocumented.length} 枚` : ''),
+      )
     }
     if (by('unwired-unclaimed').length) {
       console.log(
@@ -849,7 +979,8 @@ async function main(argv = process.argv.slice(2)) {
     }
     if (by('wired-weak').length) {
       console.log('   仅 CI 接线(弱一档,不判红):')
-      for (const r of by('wired-weak')) console.log(`     - ${r.script}  ← ${r.weakPoints.join(', ')}`)
+      for (const r of by('wired-weak'))
+        console.log(`     - ${r.script}  ← ${r.weakPoints.join(', ')}`)
     }
     if (allowProblems.length) {
       console.log('   ⚠ 台账问题:')
@@ -867,17 +998,26 @@ async function main(argv = process.argv.slice(2)) {
 
   if (reds.length > 0) {
     if (!opts.json) {
-      console.error(`\n❌ 接线层结构性缺陷共 ${reds.length} 枚(R1/R2 撒谎 · R4 文档隐形 · R5 撞号 · R7 假依据)—— 禁止为消红塞台账:`)
-      for (const r of reds) console.error(`   [${r.status.toUpperCase()}] ${r.script.startsWith('(') ? r.script : `scripts/${r.script}`} —— ${r.reason}`)
+      console.error(
+        `\n❌ 接线层结构性缺陷共 ${reds.length} 枚(R1/R2 撒谎 · R4 文档隐形 · R5 撞号 · R7 假依据)—— 禁止为消红塞台账:`,
+      )
+      for (const r of reds)
+        console.error(
+          `   [${r.status.toUpperCase()}] ${r.script.startsWith('(') ? r.script : `scripts/${r.script}`} —— ${r.reason}`,
+        )
       for (const r of reds) {
         if (r.status === 'red-r2') {
           const clauses = findAgentsClaims(agentsClauses, r.script)
           for (const c of clauses) console.error(`        AGENTS.md: ${c}`)
         }
       }
-      console.error('   修复:R1/R2 → 在 scripts/guardian-runner.mjs 注册(或 .husky/、package.json 接线),')
+      console.error(
+        '   修复:R1/R2 → 在 scripts/guardian-runner.mjs 注册(或 .husky/、package.json 接线),',
+      )
       console.error('         或改正脚本头部/AGENTS.md 里那句撒谎的表述;')
-      console.error('         R4 → 在 AGENTS.md「守门脚本速查」或 README 补一行点名(写清判据/自检/跳过变量);')
+      console.error(
+        '         R4 → 在 AGENTS.md「守门脚本速查」或 README 补一行点名(写清判据/自检/跳过变量);',
+      )
       console.error('         R5 → 后来者改用空闲编号。紧急跳过 HUSKY_SKIP_GATE_WIRING=1')
     }
     return 1
@@ -902,7 +1042,8 @@ function makeFixtureRepo(baseDir, extra = {}) {
     '.husky/pre-commit':
       '#!/bin/sh\nwscript //nologo scripts/hook-run-hidden.vbs pre-commit scripts/lib/pre-commit-hook.js\n',
     'package.json': '{ "name":"x", "scripts": { "check:pkg": "node scripts/check-pkg.mjs" } }\n',
-    '.github/workflows/ci.yml': 'name: ci\njobs:\n  a:\n    steps:\n      - run: node scripts/check-ci-only.mjs\n',
+    '.github/workflows/ci.yml':
+      'name: ci\njobs:\n  a:\n    steps:\n      - run: node scripts/check-ci-only.mjs\n',
     'scripts/run-8end-consistency-cert.mjs': "#!/usr/bin/env node\nconst L = ['check-cert.mjs']\n",
     'scripts/check-wired.mjs': '#!/usr/bin/env node\n/**\n * check-wired.mjs — 已接线\n */\n',
     'scripts/check-joined.mjs': '#!/usr/bin/env node\n/**\n * 由 path.join 派生\n */\n',
@@ -918,20 +1059,20 @@ function makeFixtureRepo(baseDir, extra = {}) {
     'scripts/check-lying-r2.mjs': '#!/usr/bin/env node\n/**\n * 头部什么都没声称\n */\n',
     'AGENTS.md':
       '# 假 AGENTS\n\n## 某规则\n\n- 守门:`scripts/check-lying-r2.mjs`(blocking,2026-09-24 立并接入)\n\n' +
-        '## 守门脚本速查(R4 要求"已接线的门必须在文档点名"，夹具因此要写全)\n\n' +
-        '- 已接线:`scripts/check-wired.mjs`(blocking)\n' +
-        '- 已接线:`scripts/check-joined.mjs`(blocking)\n' +
-        '- 已接线:`scripts/check-prepush.mjs`(blocking)\n' +
-        '- 已接线:`scripts/check-pkg.mjs`(blocking)\n' +
-        '- 已接线:`scripts/check-ci-only.mjs`(仅 CI)\n' +
-        '- 已接线:`scripts/check-cert.mjs`(仅 CI)\n' +
-        '- 已接线:`scripts/scan-web-dead-i18n-keys.mjs`(仅 CI)\n' +
-        '- 已接线:`scripts/scan-desktop-dead-i18n-keys.mjs`(仅 CI)\n' +
-        // 变异夹具(repo2/repo4/repo7)会把下面两枚转为"已接线",R4 判红后它们必须在基线里点名,
-        // 否则 M1/M3/M6 会把 R4 红误读成"接线仍未被识别"。
-        '- 已接线:`scripts/check-lying-r1.mjs`(blocking)\n' +
-        '- 已接线:`scripts/check-pwsh-form.mjs`(blocking)\n\n' +
-        '## 无关条款\n\n- 这里只讲别的,scripts/some-doc.mjs 不参与对账。\n',
+      '## 守门脚本速查(R4 要求"已接线的门必须在文档点名"，夹具因此要写全)\n\n' +
+      '- 已接线:`scripts/check-wired.mjs`(blocking)\n' +
+      '- 已接线:`scripts/check-joined.mjs`(blocking)\n' +
+      '- 已接线:`scripts/check-prepush.mjs`(blocking)\n' +
+      '- 已接线:`scripts/check-pkg.mjs`(blocking)\n' +
+      '- 已接线:`scripts/check-ci-only.mjs`(仅 CI)\n' +
+      '- 已接线:`scripts/check-cert.mjs`(仅 CI)\n' +
+      '- 已接线:`scripts/scan-web-dead-i18n-keys.mjs`(仅 CI)\n' +
+      '- 已接线:`scripts/scan-desktop-dead-i18n-keys.mjs`(仅 CI)\n' +
+      // 变异夹具(repo2/repo4/repo7)会把下面两枚转为"已接线",R4 判红后它们必须在基线里点名,
+      // 否则 M1/M3/M6 会把 R4 红误读成"接线仍未被识别"。
+      '- 已接线:`scripts/check-lying-r1.mjs`(blocking)\n' +
+      '- 已接线:`scripts/check-pwsh-form.mjs`(blocking)\n\n' +
+      '## 无关条款\n\n- 这里只讲别的,scripts/some-doc.mjs 不参与对账。\n',
     ...(extra.files || {}),
   }
   for (const [rel, content] of Object.entries(files)) {
@@ -952,15 +1093,22 @@ function makeFixtureRepo(baseDir, extra = {}) {
 
 function runGateCli(args) {
   try {
-    const out = execFileSync(process.execPath, [join(__dirname, 'check-gate-wiring.mjs'), ...args], {
-      encoding: 'utf8',
-      windowsHide: true,
-      maxBuffer: 32 * 1024 * 1024,
-      timeout: 180000,
-    })
+    const out = execFileSync(
+      process.execPath,
+      [join(__dirname, 'check-gate-wiring.mjs'), ...args],
+      {
+        encoding: 'utf8',
+        windowsHide: true,
+        maxBuffer: 32 * 1024 * 1024,
+        timeout: 180000,
+      },
+    )
     return { code: 0, out }
   } catch (e) {
-    return { code: typeof e.status === 'number' ? e.status : 2, out: `${e.stdout || ''}${e.stderr || ''}` }
+    return {
+      code: typeof e.status === 'number' ? e.status : 2,
+      out: `${e.stdout || ''}${e.stderr || ''}`,
+    }
   }
 }
 
@@ -971,27 +1119,40 @@ function runSelfTest() {
   // 纯函数层
   assert(
     'P1 filterGatePaths 只认 basename 锚定 + 顶层 scripts/ 直属',
-    JSON.stringify(filterGatePaths('scripts/check-a.mjs\nscripts/_i18n-scan-helpers.mjs\nscripts/lib/check-b.mjs\nscripts/check-c.test.mjs\nscripts/check-d.ts')) ===
-      '["check-a.mjs"]',
+    JSON.stringify(
+      filterGatePaths(
+        'scripts/check-a.mjs\nscripts/_i18n-scan-helpers.mjs\nscripts/lib/check-b.mjs\nscripts/check-c.test.mjs\nscripts/check-d.ts',
+      ),
+    ) === '["check-a.mjs"]',
   )
   assert(
     'P2 模板 ${target} → 通配命中分发出去的子门',
-    !!gateMatchesTemplates('scan-miniapp-taro-dead-i18n-keys.mjs', buildTemplateMatchers('scripts/scan-${target}-dead-i18n-keys.mjs')),
+    !!gateMatchesTemplates(
+      'scan-miniapp-taro-dead-i18n-keys.mjs',
+      buildTemplateMatchers('scripts/scan-${target}-dead-i18n-keys.mjs'),
+    ),
   )
   assert(
     'P3 模板不误伤无关名',
-    !gateMatchesTemplates('check-other.mjs', buildTemplateMatchers('scripts/scan-${target}-dead-i18n-keys.mjs')),
+    !gateMatchesTemplates(
+      'check-other.mjs',
+      buildTemplateMatchers('scripts/scan-${target}-dead-i18n-keys.mjs'),
+    ),
   )
   assert(
     'P4 头部区在第一个非注释行前截断',
     (() => {
-      const h = extractHeaderRegion('/**\n * 头\n */\nconst claimsWiring = "集成位置: pre-commit 第 3 项"\n')
+      const h = extractHeaderRegion(
+        '/**\n * 头\n */\nconst claimsWiring = "集成位置: pre-commit 第 3 项"\n',
+      )
       return !h.includes('claimsWiring')
     })(),
   )
   assert(
     'P5 代码里的字符串常量不得被当作 R1 声称',
-    extractHeaderClaims(extractHeaderRegion('/**\n * 正常头\n */\nconst x = "guardian-runner 第 5 项"')).length === 0,
+    extractHeaderClaims(
+      extractHeaderRegion('/**\n * 正常头\n */\nconst x = "guardian-runner 第 5 项"'),
+    ).length === 0,
   )
   assert(
     'P6 R1 声称识别(guardian-runner 第 N 项 + 集成位置)',
@@ -999,31 +1160,69 @@ function runSelfTest() {
   )
   assert(
     'P7 classifyGate:仅弱接线不判红',
-    classifyGate({ name: 'check-x.mjs', strongPoints: [], weakPoints: ['ci-workflows'], headerClaims: ['集成位置'], agentsClaims: [], allowEntry: null }).status === 'wired-weak',
+    classifyGate({
+      name: 'check-x.mjs',
+      strongPoints: [],
+      weakPoints: ['ci-workflows'],
+      headerClaims: ['集成位置'],
+      agentsClaims: [],
+      allowEntry: null,
+    }).status === 'wired-weak',
   )
   assert(
     'P8 classifyGate:零接线 + 头部声称 = R1',
-    classifyGate({ name: 'check-x.mjs', strongPoints: [], weakPoints: [], headerClaims: ['pre-push'], agentsClaims: [], allowEntry: null }).status === 'red-r1',
+    classifyGate({
+      name: 'check-x.mjs',
+      strongPoints: [],
+      weakPoints: [],
+      headerClaims: ['pre-push'],
+      agentsClaims: [],
+      allowEntry: null,
+    }).status === 'red-r1',
   )
   assert(
     'P9 classifyGate:零接线 + 无声称 = R3 只报数',
-    classifyGate({ name: 'check-x.mjs', strongPoints: [], weakPoints: [], headerClaims: [], agentsClaims: [], allowEntry: null }).status === 'unwired-unclaimed',
+    classifyGate({
+      name: 'check-x.mjs',
+      strongPoints: [],
+      weakPoints: [],
+      headerClaims: [],
+      agentsClaims: [],
+      allowEntry: null,
+    }).status === 'unwired-unclaimed',
   )
   assert(
     'P10 classifyGate:本门自身豁免',
-    classifyGate({ name: SELF_EXEMPT_SCRIPT, strongPoints: [], weakPoints: [], headerClaims: ['集成位置'], agentsClaims: ['x'], allowEntry: null }).status === 'self-exempt',
+    classifyGate({
+      name: SELF_EXEMPT_SCRIPT,
+      strongPoints: [],
+      weakPoints: [],
+      headerClaims: ['集成位置'],
+      agentsClaims: ['x'],
+      allowEntry: null,
+    }).status === 'self-exempt',
   )
   assert(
     'P11 台账可撤销豁免识别(幂等守卫只判存在会冻结冗余)',
-    findRevocableExemptions([{ script: 'check-wired.mjs', type: 'standalone-tool', reason: 'x x x x x x x x' }], new Set(['check-wired.mjs'])).length === 1,
+    findRevocableExemptions(
+      [{ script: 'check-wired.mjs', type: 'standalone-tool', reason: 'x x x x x x x x' }],
+      new Set(['check-wired.mjs']),
+    ).length === 1,
   )
   assert(
     'P12 台账缺依据说明被报出',
-    validateAllowlist({ entries: [{ script: 'check-a.mjs', type: 'dispatcher' }] }).problems.length === 2,
+    validateAllowlist({ entries: [{ script: 'check-a.mjs', type: 'dispatcher' }] }).problems
+      .length === 2,
   )
   assert(
     'P13 parseGrepHits 解析 HEAD:<path>:<match>',
-    parseGrepHits('HEAD:scripts/guardian-runner.mjs:check-a.mjs\nHEAD:package.json:check-b.mjs', ['check-a.mjs', 'check-b.mjs', 'check-z.mjs']).get('package.json').has('check-b.mjs'),
+    parseGrepHits('HEAD:scripts/guardian-runner.mjs:check-a.mjs\nHEAD:package.json:check-b.mjs', [
+      'check-a.mjs',
+      'check-b.mjs',
+      'check-z.mjs',
+    ])
+      .get('package.json')
+      .has('check-b.mjs'),
   )
   assert(
     'P14 AGENTS 条款含 blocking+点名才构成 R2 声称',
@@ -1035,12 +1234,14 @@ function runSelfTest() {
   // R1 负向 1:真仓 check-ignore-todos.mjs 原文形态 —— 「可选挂到 / 手动」是如实陈述
   assert(
     'P15 R1 负向:「集成位置: 可选挂到 pre-commit…或手动 pnpm …」不得判红',
-    extractHeaderClaims('集成位置: 可选挂到 pre-commit(不阻塞)或手动 `pnpm check:routes:ignore`').length === 0,
+    extractHeaderClaims('集成位置: 可选挂到 pre-commit(不阻塞)或手动 `pnpm check:routes:ignore`')
+      .length === 0,
   )
   // R1 负向 2:真仓 check-ui-react-usage.mjs 原文形态 —— 「后续项」= 还没接
   assert(
     'P16 R1 负向:「集成位置: CI / guardian-runner 后续项」不得判红',
-    extractHeaderClaims('集成位置: CI / guardian-runner 后续项(暂 FAIL-blocking + WARN-only)').length === 0,
+    extractHeaderClaims('集成位置: CI / guardian-runner 后续项(暂 FAIL-blocking + WARN-only)')
+      .length === 0,
   )
   // R1 正向:标签行换行后的**肯定式**两行子弹必须判红(真仓 guard-push 原文形态)
   assert(
@@ -1054,7 +1255,9 @@ function runSelfTest() {
   // R1 正向:同一 header 内「先如实、后撒谎」不得被第一处的否定吞掉
   assert(
     'P18 R1 正向:同文件前句「可选」后句肯定式声称,仍须判红(逐出现点各判)',
-    extractHeaderClaims('集成位置: 可选手动跑\n\n另一段\n\n集成位置: .husky/pre-push 已集成').includes('集成位置'),
+    extractHeaderClaims(
+      '集成位置: 可选手动跑\n\n另一段\n\n集成位置: .husky/pre-push 已集成',
+    ).includes('集成位置'),
   )
   // R2 负向:真仓 §1 原文形态 —— 同一条款他句(示例代码里的「守门」)不得算到本脚本头上
   assert(
@@ -1066,7 +1269,9 @@ function runSelfTest() {
       'check-task-claims.mjs',
     ).length === 0 &&
       findAgentsClaims(
-        ['- 另有 `scripts/check-a.mjs` 与 `scripts/check-b.mjs`(后者为 guardian-runner 第 36 项实际调用项)校验同步一致性。'],
+        [
+          '- 另有 `scripts/check-a.mjs` 与 `scripts/check-b.mjs`(后者为 guardian-runner 第 36 项实际调用项)校验同步一致性。',
+        ],
         'check-a.mjs',
       ).length === 0,
   )
@@ -1074,10 +1279,14 @@ function runSelfTest() {
   assert(
     'P20 R2 正向:同句含守门/blocking 的点名必须判红(含 bullet 列表内)',
     findAgentsClaims(
-      ['- 另有 `scripts/check-a.mjs`(守门,blocking)与 `scripts/check-b.mjs`。', '- **守门**:`scripts/check-c.mjs`(接入 pre-commit 第 87 项)'],
+      [
+        '- 另有 `scripts/check-a.mjs`(守门,blocking)与 `scripts/check-b.mjs`。',
+        '- **守门**:`scripts/check-c.mjs`(接入 pre-commit 第 87 项)',
+      ],
       'check-a.mjs',
     ).length === 1 &&
-      findAgentsClaims(['- 别的说明。另见 `scripts/check-d.mjs`,该门 blocking。'], 'check-d.mjs').length === 1,
+      findAgentsClaims(['- 别的说明。另见 `scripts/check-d.mjs`,该门 blocking。'], 'check-d.mjs')
+        .length === 1,
   )
 
   assert(
@@ -1089,47 +1298,94 @@ function runSelfTest() {
   )
   assert(
     'P22 R4 正向:接线了但两份文档通篇没点名的门必须进名单(名单由 M8 端到端证明参与退出码)',
-    findUndocumentedGates(['check-silent.mjs', 'check-named.mjs'], '只有 `scripts/check-named.mjs` 被写到。').join(
-      ',',
-    ) === 'check-silent.mjs',
+    findUndocumentedGates(
+      ['check-silent.mjs', 'check-named.mjs'],
+      '只有 `scripts/check-named.mjs` 被写到。',
+    ).join(',') === 'check-silent.mjs',
   )
 
   assert(
     'P23 R5 重复 id 必判红(2026-09-24 实测撞号:两会话同日各加一道 91)',
     findDuplicateIds(
-      [{ id: '91', s: 'a' }, { id: '91', s: 'b' }, { id: '92', s: 'c' }]
+      [
+        { id: '91', s: 'a' },
+        { id: '91', s: 'b' },
+        { id: '92', s: 'c' },
+      ]
         .map((x) => `\n  {\n    id: '${x.id}',\n    script: '${x.s}.mjs',`)
         .join('\n'),
     ).join(',') === '91',
   )
   assert(
     'P24 R5 负向 + R6 语义:编号唯一不得报红;共用 skipEnv 只计数不判红',
-    findDuplicateIds("\n  {\n    id: '91',\n    script: 'a.mjs',\n  },\n  {\n    id: '92',\n    script: 'b.mjs',\n  },").length === 0 &&
+    findDuplicateIds(
+      "\n  {\n    id: '91',\n    script: 'a.mjs',\n  },\n  {\n    id: '92',\n    script: 'b.mjs',\n  },",
+    ).length === 0 &&
       // 两处共用同一 skipEnv ⇒ R6 报 1 组,但 R5 仍为 0(本仓 id 2 / 2n-web 是**刻意**共用,runner 里写明理由)
       findSharedSkipEnvs(
         "\n  {\n    id: '2',\n    script: 'a.mjs',\n    skipEnv: 'HUSKY_SKIP_X',\n  },\n  {\n    id: '2n-web',\n    script: 'a.mjs',\n    skipEnv: 'HUSKY_SKIP_X',\n  },",
       ).length === 1 &&
-        findDuplicateIds(
-          "\n  {\n    id: '2',\n    skipEnv: 'HUSKY_SKIP_X',\n  },\n  {\n    id: '2n-web',\n    skipEnv: 'HUSKY_SKIP_X',\n  },",
-        ).length === 0,
+      findDuplicateIds(
+        "\n  {\n    id: '2',\n    skipEnv: 'HUSKY_SKIP_X',\n  },\n  {\n    id: '2n-web',\n    skipEnv: 'HUSKY_SKIP_X',\n  },",
+      ).length === 0,
   )
 
   assert(
     'P25 R7 负向:依据可核验的 dispatcher 不得报问题(文件存在且真提到被豁免脚本)',
     validateDispatcherClaims(
-      [{ script: 'check-tool.mjs', type: 'dispatcher', dispatcher: 'scripts/host.ps1 prebuild', reason: 'x x x x x x x x' }],
-      (rel) => (rel === 'scripts/host.ps1' ? "node scripts/check-tool.mjs --check\n" : null),
+      [
+        {
+          script: 'check-tool.mjs',
+          type: 'dispatcher',
+          dispatcher: 'scripts/host.ps1 prebuild',
+          reason: 'x x x x x x x x',
+        },
+      ],
+      (rel) => (rel === 'scripts/host.ps1' ? 'node scripts/check-tool.mjs --check\n' : null),
     ).length === 0,
   )
   assert(
     'P26 R7 正向:文件不存在 / 文件里没提该脚本 两种假依据都必须报(实测抓到 check-lock 那条)',
     validateDispatcherClaims(
       [
-        { script: 'check-a.mjs', type: 'dispatcher', dispatcher: 'scripts/ghost.ps1', reason: 'y y y y y y y y' },
-        { script: 'check-b.mjs', type: 'dispatcher', dispatcher: 'apps/web/package.json prebuild', reason: 'z z z z z z z z' },
+        {
+          script: 'check-a.mjs',
+          type: 'dispatcher',
+          dispatcher: 'scripts/ghost.ps1',
+          reason: 'y y y y y y y y',
+        },
+        {
+          script: 'check-b.mjs',
+          type: 'dispatcher',
+          dispatcher: 'apps/web/package.json prebuild',
+          reason: 'z z z z z z z z',
+        },
       ],
-      (rel) => (rel === 'apps/web/package.json' ? 'node ../../scripts/deploy-lock.mjs acquire\n' : null),
+      (rel) =>
+        rel === 'apps/web/package.json' ? 'node ../../scripts/deploy-lock.mjs acquire\n' : null,
     ).length === 2,
+  )
+
+  assert(
+    'P27 文档面口径:两侧一致取单份 / 不一致取并集 / 索引缺退 HEAD / HEAD 缺取索引 / 双缺空串,且口径必须如实报出',
+    (() => {
+      const same = combineDocSources({ headText: 'A\n', indexText: 'A\n' })
+      const both = combineDocSources({ headText: 'H\n', indexText: 'I\n' })
+      const headOnly = combineDocSources({ headText: 'H\n', indexText: null })
+      const indexOnly = combineDocSources({ headText: null, indexText: 'I\n' })
+      const none = combineDocSources({ headText: null, indexText: null })
+      return (
+        same.text === 'A\n' &&
+        both.text.includes('H\n') &&
+        both.text.includes('I\n') &&
+        headOnly.text === 'H\n' &&
+        indexOnly.text === 'I\n' &&
+        none.text === '' &&
+        [same, both, headOnly, indexOnly, none].every(
+          (x) => typeof x.mode === 'string' && x.mode.length > 0,
+        )
+      )
+    })(),
   )
 
   // 端到端层(独立临时假仓库 + 显式 --root 注入:自测只改 cwd 会静默扫真仓)
@@ -1144,16 +1400,37 @@ function runSelfTest() {
       `E2 基线红点恰为两枚撒谎门(实得 ${reds1.join('|')})`,
       JSON.stringify(reds1) === JSON.stringify(['check-lying-r1.mjs', 'check-lying-r2.mjs']),
     )
-    assert('E3 强接线四形态全部识别(runner/husky/package.json/path.join)', j1.counts.wired >= 5, JSON.stringify(j1.counts))
-    assert('E4 模板分发子门算强接线', j1.counts.wired >= 5 && !j1.reds.some((x) => x.script.startsWith('scan-')))
-    assert('E5 仅 CI 算弱接线不判红', j1.wiredWeak.some((x) => x.script === 'check-ci-only.mjs'))
-    assert('E6 R3 只报数不判红', j1.counts.unwiredUnclaimed >= 1 && !j1.reds.some((x) => x.script === 'check-tool-only.mjs'))
+    assert(
+      'E3 强接线四形态全部识别(runner/husky/package.json/path.join)',
+      j1.counts.wired >= 5,
+      JSON.stringify(j1.counts),
+    )
+    assert(
+      'E4 模板分发子门算强接线',
+      j1.counts.wired >= 5 && !j1.reds.some((x) => x.script.startsWith('scan-')),
+    )
+    assert(
+      'E5 仅 CI 算弱接线不判红',
+      j1.wiredWeak.some((x) => x.script === 'check-ci-only.mjs'),
+    )
+    assert(
+      'E6 R3 只报数不判红',
+      j1.counts.unwiredUnclaimed >= 1 && !j1.reds.some((x) => x.script === 'check-tool-only.mjs'),
+    )
 
     // 变异 0:台账只救 R3(五处零命中且无声称),绝不救 R1/R2
     const repoA = makeFixtureRepo(base, {
       files: {
         'scripts/gate-wiring-allowlist.json': JSON.stringify(
-          { entries: [{ script: 'check-tool-only.mjs', type: 'standalone-tool', reason: '纯 CLI 工具,人工按需跑' }] },
+          {
+            entries: [
+              {
+                script: 'check-tool-only.mjs',
+                type: 'standalone-tool',
+                reason: '纯 CLI 工具,人工按需跑',
+              },
+            ],
+          },
           null,
           2,
         ),
@@ -1184,11 +1461,28 @@ function runSelfTest() {
     const repo3 = makeFixtureRepo(base)
     writeFileSync(
       join(repo3, 'scripts', 'gate-wiring-allowlist.json'),
-      JSON.stringify({ entries: [{ script: 'check-lying-r1.mjs', type: 'dispatcher', dispatcher: 'guardian-runner.mjs', reason: '为消红而登记' }] }, null, 2),
+      JSON.stringify(
+        {
+          entries: [
+            {
+              script: 'check-lying-r1.mjs',
+              type: 'dispatcher',
+              dispatcher: 'guardian-runner.mjs',
+              reason: '为消红而登记',
+            },
+          ],
+        },
+        null,
+        2,
+      ),
       'utf8',
     )
     git(['add', '-A'], repo3, { quiet: true })
-    git(['-c', 'user.name=t', '-c', 'user.email=t@e', 'commit', '-q', '--no-verify', '-m', 'allow'], repo3, { quiet: true })
+    git(
+      ['-c', 'user.name=t', '-c', 'user.email=t@e', 'commit', '-q', '--no-verify', '-m', 'allow'],
+      repo3,
+      { quiet: true },
+    )
     const r3 = runGateCli([`--root=${repo3}`, '--json'])
     const j3 = JSON.parse(r3.out.slice(r3.out.indexOf('{')))
     assert(
@@ -1210,35 +1504,58 @@ function runSelfTest() {
     // 变异 4:台账登记了实际已接线的门 → 必须报「可撤销豁免」
     writeFileSync(
       join(repo4, 'scripts', 'gate-wiring-allowlist.json'),
-      JSON.stringify({ entries: [{ script: 'check-wired.mjs', type: 'standalone-tool', reason: '已接线却仍挂着豁免' }] }, null, 2),
+      JSON.stringify(
+        {
+          entries: [
+            { script: 'check-wired.mjs', type: 'standalone-tool', reason: '已接线却仍挂着豁免' },
+          ],
+        },
+        null,
+        2,
+      ),
       'utf8',
     )
     git(['add', '-A'], repo4, { quiet: true })
-    git(['-c', 'user.name=t', '-c', 'user.email=t@e', 'commit', '-q', '--no-verify', '-m', 'allow2'], repo4, { quiet: true })
+    git(
+      ['-c', 'user.name=t', '-c', 'user.email=t@e', 'commit', '-q', '--no-verify', '-m', 'allow2'],
+      repo4,
+      { quiet: true },
+    )
     const r5 = runGateCli([`--root=${repo4}`, '--json'])
     const j5 = JSON.parse(r5.out.slice(r5.out.indexOf('{')))
-    assert('M4 已接线条目仍挂台账 → 报可撤销豁免', (j5.revocableExemptions || []).some((x) => x.script === 'check-wired.mjs'))
+    assert(
+      'M4 已接线条目仍挂台账 → 报可撤销豁免',
+      (j5.revocableExemptions || []).some((x) => x.script === 'check-wired.mjs'),
+    )
 
     // 变异 5:以 .husky/pre-commit 薄壳为判据的反例 —— check-pwsh-version 形态
     const repo6 = makeFixtureRepo(base, {
       files: {
-        'scripts/check-pwsh-form.mjs': '#!/usr/bin/env node\n/**\n * 集成位置: .husky/pre-commit(blocking)\n */\n',
+        'scripts/check-pwsh-form.mjs':
+          '#!/usr/bin/env node\n/**\n * 集成位置: .husky/pre-commit(blocking)\n */\n',
       },
     })
     const r6 = runGateCli([`--root=${repo6}`, '--json'])
     const j6 = JSON.parse(r6.out.slice(r6.out.indexOf('{')))
-    assert('M5 薄壳未含门名 → 仍判 R1 红(证明薄壳不是判据)', j6.reds.some((x) => x.script === 'check-pwsh-form.mjs'))
+    assert(
+      'M5 薄壳未含门名 → 仍判 R1 红(证明薄壳不是判据)',
+      j6.reds.some((x) => x.script === 'check-pwsh-form.mjs'),
+    )
     const repo7 = makeFixtureRepo(base, {
       files: {
-        'scripts/check-pwsh-form.mjs': '#!/usr/bin/env node\n/**\n * 集成位置: scripts/lib/pre-commit-hook.js 直接调用\n */\n',
+        'scripts/check-pwsh-form.mjs':
+          '#!/usr/bin/env node\n/**\n * 集成位置: scripts/lib/pre-commit-hook.js 直接调用\n */\n',
         'scripts/lib/pre-commit-hook.js':
-          '#!/usr/bin/env node\nrun(\'x\', \'node scripts/check-pwsh-form.mjs --staged\')\n' +
+          "#!/usr/bin/env node\nrun('x', 'node scripts/check-pwsh-form.mjs --staged')\n" +
           'execSync(`node scripts/scan-${target}-dead-i18n-keys.mjs --exit 1`)\n',
       },
     })
     const r7 = runGateCli([`--root=${repo7}`, '--json'])
     const j7 = JSON.parse(r7.out.slice(r7.out.indexOf('{')))
-    assert('M6 真实逻辑在 pre-commit-hook.js → 必须判已接线(反例 check-pwsh-version)', !j7.reds.some((x) => x.script === 'check-pwsh-form.mjs'))
+    assert(
+      'M6 真实逻辑在 pre-commit-hook.js → 必须判已接线(反例 check-pwsh-version)',
+      !j7.reds.some((x) => x.script === 'check-pwsh-form.mjs'),
+    )
 
     // 变异 7:2026-09-24 判据收紧的端到端**双向**对照 —— 同一 bullet 块里「他句」的守门
     // 不得算到被顺带提到的脚本头上(负向:三枚都不得红);**同句**声称照旧必须红(正向)。
@@ -1273,8 +1590,9 @@ function runSelfTest() {
     // 该夹具里所有门都已真接线(两枚撒谎门也补进了 runner),所以基线零红;
     // 只把 AGENTS.md 里 check-joined 那一行删掉 ⇒ 必须单独因 R4 变红(exit 1),
     // 补回那一行并入库 ⇒ 必须回到 exit 0。缺一半都不算证明(只证"会红"不证"红是因为它")。
-    const m8Doc = (withJoined) =>
-      '# 假 AGENTS\n\n## 某规则\n\n- 守门:`scripts/check-lying-r2.mjs`(blocking,2026-09-24 立并接入)\n\n' +
+    const m8Doc = (withJoined, withLieR2 = true) =>
+      '# 假 AGENTS\n\n## 某规则\n\n' +
+      (withLieR2 ? '- 守门:`scripts/check-lying-r2.mjs`(blocking,2026-09-24 立并接入)\n\n' : '') +
       '## 守门脚本速查\n\n' +
       '- 已接线:`scripts/check-wired.mjs`(blocking)\n' +
       (withJoined ? '- 已接线:`scripts/check-joined.mjs`(blocking)\n' : '') +
@@ -1297,18 +1615,104 @@ function runSelfTest() {
     const r4a = (jM8a.reds || []).filter((x) => x.status === 'red-r4')
     assert(
       `M8a 已接线但文档未点名 → 单独因 R4 变红(实得 code=${rM8a.code} reds=${jM8a.reds.map((x) => x.script).join('|')})`,
-      rM8a.code === 1 && r4a.length === 1 && r4a[0].script === 'check-joined.mjs' && jM8a.reds.length === 1,
+      rM8a.code === 1 &&
+        r4a.length === 1 &&
+        r4a[0].script === 'check-joined.mjs' &&
+        jM8a.reds.length === 1,
     )
     writeFileSync(join(repoM8, 'AGENTS.md'), m8Doc(true), 'utf8')
     git(['add', '-A'], repoM8, { quiet: true })
-    git(['-c', 'user.name=t', '-c', 'user.email=t@e', 'commit', '-q', '--no-verify', '-m', 'doc-m8'], repoM8, {
-      quiet: true,
-    })
+    git(
+      ['-c', 'user.name=t', '-c', 'user.email=t@e', 'commit', '-q', '--no-verify', '-m', 'doc-m8'],
+      repoM8,
+      {
+        quiet: true,
+      },
+    )
     const rM8b = runGateCli([`--root=${repoM8}`, '--json'])
     const jM8b = JSON.parse(rM8b.out.slice(rM8b.out.indexOf('{')))
     assert(
       `M8b 补上文档点名(同 HEAD 侧)后必须回到 exit 0(实得 ${rM8b.code})`,
       rM8b.code === 0 && jM8b.reds.length === 0,
+    )
+
+    // 变异 9:2026-09-24 文档面取材从「仅 HEAD」改为「HEAD∪索引」的**四态双向**端到端对照。
+    // 同一组门 + 同一份 AGENTS.md,唯一变量 = "点名行在哪一侧":
+    //   ① HEAD 与索引都没有 ⇒ 必须判 R4 红(对照组,证明"红"不是因为换了口径);
+    //   ② 只在索引(已 add 未 commit)⇒ 必须**不**判红 —— 这正是旧口径误判红、逼 --no-verify 的时序陷阱;
+    //   ③ 已在 HEAD ⇒ 必须不判红(与 ② 唯一差别只是 commit 与否);
+    //   ④ **只改工作区(不 add)** ⇒ 仍必须判红 —— 本条钉死"口径没有退化成读工作区"。
+    const m9Runner =
+      "#!/usr/bin/env node\nconst GATES = [\n  { id: 1, script: 'check-wired.mjs' },\n  { id: 2, script: 'check-lying-r1.mjs' },\n  { id: 3, script: 'check-lying-r2.mjs' },\n]\n"
+    const runM9 = (dir) => {
+      const r = runGateCli([`--root=${dir}`, '--json'])
+      const j = JSON.parse(r.out.slice(r.out.indexOf('{')))
+      return { code: r.code, reds: (j.reds || []).map((x) => `${x.script}:${x.status}`) }
+    }
+    const stageDoc = (dir) => git(['add', 'AGENTS.md'], dir, { quiet: true })
+    const commitDoc = (dir, msg) =>
+      git(
+        ['-c', 'user.name=t', '-c', 'user.email=t@e', 'commit', '-q', '--no-verify', '-m', msg],
+        dir,
+        { quiet: true },
+      )
+
+    const repoM9 = makeFixtureRepo(base, {
+      files: { 'scripts/guardian-runner.mjs': m9Runner, 'AGENTS.md': m8Doc(false) },
+    })
+    // ① 两侧都没有
+    const s9a = runM9(repoM9)
+    assert(
+      `M9a 点名行 HEAD 与索引都没有 → R4 必须红(实得 code=${s9a.code} reds=${s9a.reds.join('|')})`,
+      s9a.code === 1 && s9a.reds.length === 1 && s9a.reds[0] === 'check-joined.mjs:red-r4',
+    )
+    // ② 只进索引(add 而未 commit)
+    writeFileSync(join(repoM9, 'AGENTS.md'), m8Doc(true), 'utf8')
+    stageDoc(repoM9)
+    const s9b = runM9(repoM9)
+    assert(
+      `M9b 点名行只在索引(正在被这枚提交写进仓库)→ 不得判 R4 红(实得 code=${s9b.code} reds=${s9b.reds.join('|')})`,
+      s9b.code === 0 && s9b.reds.length === 0,
+    )
+    // ③ 落进 HEAD(同一内容,唯一变量只剩"是否已提交")
+    commitDoc(repoM9, 'doc-m9-index-to-head')
+    const s9c = runM9(repoM9)
+    assert(
+      `M9c 点名行已在 HEAD → 不得判 R4 红(实得 code=${s9c.code})`,
+      s9c.code === 0 && s9c.reds.length === 0,
+    )
+    // ④ 只改工作区、不 add → 必须仍红(防"顺手读磁盘"的退化);再 add 即翻绿构成可逆对照
+    const repoM9w = makeFixtureRepo(base, {
+      files: { 'scripts/guardian-runner.mjs': m9Runner, 'AGENTS.md': m8Doc(false) },
+    })
+    writeFileSync(join(repoM9w, 'AGENTS.md'), m8Doc(true), 'utf8')
+    const s9d = runM9(repoM9w)
+    assert(
+      `M9d 点名行只在工作区(未 add)→ 必须仍按 HEAD∪索引判红(证明未退化读工作区;实得 code=${s9d.code} reds=${s9d.reds.join('|')})`,
+      s9d.code === 1 && s9d.reds.length === 1 && s9d.reds[0] === 'check-joined.mjs:red-r4',
+    )
+    stageDoc(repoM9w)
+    const s9e = runM9(repoM9w)
+    assert(
+      `M9e 同一内容 add 进索引后即翻绿(可逆对照,证明 M9d 的红确由"未入索引"造成;实得 code=${s9e.code})`,
+      s9e.code === 0 && s9e.reds.length === 0,
+    )
+
+    // 变异 10:并集口径是**双向生效**,不只是放宽 R4 —— 「撒谎点名行」只出现在索引里时,
+    // R2 也必须立刻看得见(否则新登记的撒谎门在入库前那一枚提交永远判不到)。
+    const repoM10 = makeFixtureRepo(base, { files: { 'AGENTS.md': m8Doc(true, false) } })
+    const jM10a = runM9(repoM10)
+    assert(
+      `M10a 无撒谎行时 check-lying-r2 只落 R3 报数不判红(基线 reds=${jM10a.reds.join('|')})`,
+      !jM10a.reds.some((x) => x.startsWith('check-lying-r2.mjs')) &&
+        jM10a.reds.some((x) => x.startsWith('check-lying-r1.mjs')),
+    )
+    writeFileSync(join(repoM10, 'AGENTS.md'), m8Doc(true, true), 'utf8')
+    stageDoc(repoM10)
+    const jM10b = runM9(repoM10)
+    assert(
+      `M10b 撒谎点名行只在索引 → R2 必须同样判红(并集双向生效;实得 reds=${jM10b.reds.join('|')})`,
+      jM10b.reds.includes('check-lying-r2.mjs:red-r2'),
     )
   } catch (e) {
     assert(`EX 端到端异常: ${e && e.message}`, false)
@@ -1321,8 +1725,11 @@ function runSelfTest() {
   }
 
   const failed = cases.filter((c) => !c.ok)
-  for (const c of cases) console.log(`${c.ok ? '  ok' : '  FAIL'} ${c.name}${c.detail && !c.ok ? ` — ${c.detail}` : ''}`)
-  console.log(`\n自检 ${cases.length} 例:${cases.length - failed.length} 通过 / ${failed.length} 失败`)
+  for (const c of cases)
+    console.log(`${c.ok ? '  ok' : '  FAIL'} ${c.name}${c.detail && !c.ok ? ` — ${c.detail}` : ''}`)
+  console.log(
+    `\n自检 ${cases.length} 例:${cases.length - failed.length} 通过 / ${failed.length} 失败`,
+  )
   return failed.length === 0 ? 0 : 1
 }
 
@@ -1355,6 +1762,7 @@ export const __test__ = {
   buildTemplateMatchers,
   gateMatchesTemplates,
   parseGrepHits,
+  combineDocSources,
   splitAgentClauses,
   findAgentsClaims,
   classifyGate,
