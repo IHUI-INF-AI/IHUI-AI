@@ -609,22 +609,6 @@
       "system": "System"
     }
   },
-  "errors": {
-    "conflict": "Operation conflict. Please refresh and try again.",
-    "forbidden": "You do not have permission to perform this action.",
-    "internalError": "The server encountered an issue. Please try again later.",
-    "invalidMoney": "Invalid amount format.",
-    "invalidTimezone": "Invalid timezone format.",
-    "locked": "The resource is locked. Please try again later.",
-    "memberExists": "This member already exists.",
-    "notFound": "The requested resource was not found.",
-    "optimisticLock": "The data has been modified by someone else. Please refresh and try again.",
-    "rateLimited": "Too many requests. Please try again later.",
-    "serviceUnavailable": "Service is temporarily unavailable. Please try again later.",
-    "unauthorized": "Your session has expired. Please log in again.",
-    "upstreamFailure": "Upstream service error. Please try again later.",
-    "validationFailed": "The submitted information is incorrect. Please check and try again."
-  },
   "faq": {
     "categoryDeploy": "Deployment & Operations",
     "categoryGeneral": "Platform Introduction",
