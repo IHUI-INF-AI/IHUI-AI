@@ -2426,12 +2426,20 @@ const checks = [
   // 登记表被过滤空 = EMPTY-REGISTRY 红(空表即恒绿假门)。非 Windows 如实报"未判定",不计通过。
   // **刻意不收录第三方 IDE 自管态**(.workbuddy 含被 gitdir.mjs 当 git 二进制首选的 PortableGit、
   // .qoder-cn 是本会话宿主的记忆/工作区)—— 否则会把别人的运行态判成我们的债,挪一次丢一次记忆。
+  // **2026-09-24 落点改判 warn(用户授权)**:本门判的是**机器态**,与任何 diff 无关 —— 实测
+  // `Get-Item -Force` 的 LinkType 为空、无 ReparsePoint,`.codex` 583MB / `.trae-cn` 371MB / `.ihui`
+  // / npm 前缀等 11 项确实回潮成实体目录(C 盘实体合计 4990MB)。判据没错,错的是落点:提交者改不动
+  // 机器态 ⇒ **每次提交必红** ⇒ 唯一出路是 --no-verify,连带把另外 126 道门一起跳掉(同日实证:
+  // 本门红着的那轮守门批量检查以 4/127 红收场,而提交照样落地)。恒红 blocking 门 = 全队关闸。
+  // 三条判据一字未削,每次提交仍打红字(不静默);非提交入口:`pnpm check:home-junctions [--json]`。
+  // 真做 §26 改道属机器级动作(要先停正在写这些目录的 IDE/CLI;robocopy 非零返回码会"内容搬走却
+  // 不建 junction"→ 路径消失),由人放到部署窗口做,不由提交链逼出来。
   {
     id: '96',
-    label: '🏠 §26 家目录改道完整性(blocking,拦"实体工具态回潮到 C 盘")',
+    label: '🏠 §26 家目录改道完整性(warn,机器态与 diff 无关 ⇒ 不拦提交链,回潮即打红字)',
     script: 'check-home-junctions.mjs',
     args: [],
-    mode: 'blocking',
+    mode: 'warn',
     skipEnv: 'HUSKY_SKIP_HOME_JUNCTIONS',
     onFailHint: [
       '',
@@ -2442,7 +2450,8 @@ const checks = [
       '     ⚠ robocopy 非零返回码时内容已搬走但**不会**建 junction,路径直接消失 —— 必须回读再补建。',
       '     单独复验:node scripts/check-home-junctions.mjs --json',
       '     自检:node scripts/check-home-junctions.mjs --self-test(6 例,含悬空 junction 反例)',
-      '     紧急跳过(不推荐):HUSKY_SKIP_HOME_JUNCTIONS=1 git commit ...',
+      '     本门已改 warn(不拦提交),此变量现在的实际作用只剩"连红字警告一起关掉"——',
+      '     关掉之后回潮就真的没人看见了,除非有明确理由,否则不要设。',
       '',
     ].join('\n'),
   },
