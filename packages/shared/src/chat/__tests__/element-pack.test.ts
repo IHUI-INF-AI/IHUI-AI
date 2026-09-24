@@ -151,7 +151,7 @@ describe('D64 ⑤ 反馈问卷判据', () => {
 
   it('scaleLabelKey 五档穷尽;越界由 isSurveyScale 拦截', () => {
     for (const n of SURVEY_SCALES) {
-      expect(scaleLabelKey(n), n).toBe(`feedbackSurvey.scale.${n}`)
+      expect(scaleLabelKey(n), String(n)).toBe(`feedbackSurvey.scale.${n}`)
     }
     expect(isSurveyScale(0)).toBe(false)
     expect(isSurveyScale(6)).toBe(false)
