@@ -405,7 +405,8 @@ function nameFromHref(href) {
  * GitHub 直链 —— Gitee mac/linux 资产实测 404)。空签名/白名单外 host 不出键。
  */
 function withUpdaterPlatforms(data) {
-  const { updaterEntries, giteeReleasesUrl, ...rest } = data
+  // gitee 源单独命中时 data 带着 giteeReleasesUrl,它不进快照 → 解构剥离(下划线前缀 = 刻意弃用,eslint /^_/u)
+  const { updaterEntries, giteeReleasesUrl: _giteeReleasesUrl, ...rest } = data
   const assetEntries = (data.assets || []).map((a) => ({
     name: nameFromHref(a.href),
     url: a.href,
