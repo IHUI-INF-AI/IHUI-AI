@@ -5,10 +5,12 @@
 // C 盘污染实地扫描(编号以 runner 里本 script 所在条目为准,文档不写死)。
 // 与 check-c-drive-paths(只看源码字面量)互补:那道门看不见 os.tmpdir() 派生的写入,
 // 而实测残骸正是从那条路来的。2026-09-24 起还认"盘根写歪项是否已封口"(见 seal-c-root-stray.mjs)。
+// 同日补 TEMP 内容归因一维:名字白名单结构性抓不到随手起名的残骸(实测 clean-o7b.cjs 等 5 个
+// 自己的脚本对全链失明),故对按名字认不出的 TEMP 文件改按**内容**认(仓库根路径/@ihui/ 包名/水印横幅)。
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, lstatSync, mkdirSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
+import { basename, dirname, join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
@@ -33,6 +35,70 @@ const OUR_TMP_PATTERNS = [
   { re: /^probe-.*\.sh$/, why: '现场探查脚本' },
   { re: /^wb-ext-debug\.log$/, why: '扩展调试日志' },
 ]
+
+/**
+ * TEMP 内容归因的特征串(2026-09-24 加)—— **导出的唯一真相源**,测试经 __test__ 直接引用,
+ * 不得在别处再抄一份(§22c)。名字白名单抓不到"随手起名"的残骸(实测 C:\Windows\Temp 里
+ * clean-o7b.cjs / verify-o7b.cjs 等 5 个自己的脚本既不计产物也不进未识别清单),而内容里
+ * 出现仓库根路径 / @ihui/ 包名 / 溯源横幅的证据强度远高于文件名。
+ * 仓库根特征按**本 checkout 的 REPO** 动态派生:反斜杠/正斜杠两种分隔符都认,串内转义形态
+ * (`'D:\\IHUI-AI'` 双写)与行尾/引号收口(后面不是字母数字)也认 —— 残骸里的路径多为 JS 字符串字面量;
+ * `G:\IHUI-AI` / `G:/IHUI-AI` 是额外钉死的强特征 —— 仓库历史上从 G: 迁到 D:(AGENTS.md 顶部),
+ * 旧盘符只可能来自我们的旧脚本,同样归因给我们。
+ */
+function rootSigRe(root) {
+  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const m = /^([A-Za-z]:)([\\/])(.+)$/.exec(root)
+  // 尾随判据用"下一个字符不得是字母数字":`IHUI-AI\bak` 之类近邻目录不误伤,
+  // 而 `IHUI-AI\scripts`(更深路径)/ `IHUI-AI'`(引号收口)/ `IHUI-AI.git-backup-*`(归档)都放过。
+  if (!m) return new RegExp(esc(root))
+  return new RegExp(`${esc(m[1])}[\\\\/]{1,2}${esc(m[3])}(?![A-Za-z0-9])`)
+}
+export const CONTENT_SIGNATURES = [
+  { re: rootSigRe(REPO), why: '内容含本仓仓库根路径(内容归因)' },
+  { re: /G:[\\/]{1,2}IHUI-AI(?![A-Za-z0-9])/i, why: '内容含旧盘符仓库根 G:\\IHUI-AI(迁移前的我方脚本,内容归因)' },
+  { re: /@ihui\//, why: '内容含本仓包命名空间 @ihui/(内容归因)' },
+  { re: /IHUI-AI-PROVENANCE/, why: '内容含溯源水印横幅特征(§5c,内容归因)' },
+  { re: /IHUI AI/, why: '内容含版权横幅 "IHUI AI"(§5c L1,内容归因)' },
+]
+
+/** 内容嗅探的大小上限:守门不为归因整读大文件,超限如实计 skipped 而非静默放过。 */
+export const CONTENT_SNIFF_MAX_BYTES = 2 * 1024 * 1024
+
+/**
+ * 纯函数:对已读出的文本做特征匹配(与 IO 分离,便于 --self-test 不碰真盘钉死判据)。
+ * 命中返回 { matched:true, why };不命中返回 { matched:false }。
+ */
+export function matchContentSignatures(text, sigs = CONTENT_SIGNATURES) {
+  for (const s of sigs) if (s.re.test(text)) return { matched: true, why: s.why }
+  return { matched: false }
+}
+
+/**
+ * 读一个小文本文件并按内容归因。返回状态恒为四态之一,**绝不存在"没结论"**:
+ *  - hit          命中仓库特征 ⇒ 归因"本项目产物(内容归因)"
+ *  - notMatched   正常读完但未命中 ⇒ 继续留在"未识别"侧(他人工具态不得判成我们的)
+ *  - skipped      目录 / 超 CONTENT_SNIFF_MAX_BYTES / 前 8KB 含 NUL(二进制)
+ *  - failed       读取抛错(EISDIR/权限/竞态删除);若解码出的文本已命中特征则仍判 hit,
+ *                 一条既有证据不因解码噪音(U+FFFD 等)被丢掉
+ */
+export function attributeByContent(path, sigs = CONTENT_SIGNATURES) {
+  try {
+    const st = statSync(path)
+    if (st.isDirectory()) return { state: 'skipped', reason: '目录' }
+    if (st.size > CONTENT_SNIFF_MAX_BYTES) return { state: 'skipped', reason: `超体积上限 ${CONTENT_SNIFF_MAX_BYTES}B` }
+    const head = readFileSync(path)
+    if (head.subarray(0, 8192).includes(0)) return { state: 'skipped', reason: '二进制(前 8KB 含 NUL)' }
+    const text = head.toString('utf8')
+    const m = matchContentSignatures(text, sigs)
+    if (m.matched) return { state: 'hit', why: m.why }
+    if (text.includes('\uFFFD')) return { state: 'failed', reason: 'utf8 解码含替代符(乱码/非 utf8)' }
+    return { state: 'notMatched' }
+  } catch (e) {
+    if (e?.code === 'EISDIR') return { state: 'skipped', reason: '目录' }
+    return { state: 'failed', reason: e?.code || e?.message || '读取异常' }
+  }
+}
 
 /** 明确不属于本项目的盘根条目:只登记不报违规,免得把别人的东西当成我们的债。 */
 const FOREIGN_ROOT = new Set([
@@ -449,6 +515,8 @@ export function scanC(options = {}) {
   const dirs = options.tempDirs || tempScanDirs(sysRoot, options.procTmp || tmpdir())
   const items = []
   const sealedScanSkipped = []
+  // 内容归因一维的如实计数(绝不静默):candidates=按名字认不出、真去嗅探了的文件数
+  const contentAttribution = { candidates: 0, hits: 0, skippedSizeOrBinary: 0, readFailed: 0, hitPaths: [] }
   for (const d of new Set(dirs)) {
     // 已改道的扫描位(现 C:\tmp 就是 junction)一律不跟随:跟随会把 D 盘目标算成 C 盘残骸,
     // 而任何"按名字删"的下游动作会顺着链接打进 D 盘 —— 实测 PS 的 -Recurse 确实穿透 junction。
@@ -457,6 +525,34 @@ export function scanC(options = {}) {
       continue
     }
     items.push(...scanTargets(d, (n) => classifyTmp(n)))
+    // 名字判据是必要非充分的:命中过的不再嗅探;其余**文件**候选做内容归因。
+    // 用 dirname 精确匹配而不是 startsWith(d):'C:\temp\x' 能以字面 'C:\tmp' 开头,前缀比较会把
+    // 邻目录的名字误当本目录已命中,使那枚文件两头都不看(名字没判、内容被跳过)= 静默漏归因。
+    // 候选目录清单取不到(readdir 抛错)按候选 0 计,由输出面的"未判定"行揭穿,不静默记通过。
+    const byName = new Set(items.filter((h) => dirname(h.path) === d).map((h) => basename(h.path)))
+    let names
+    try {
+      names = readdirSync(d)
+    } catch {
+      continue
+    }
+    for (const name of names) {
+      if (byName.has(name)) continue
+      const full = join(d, name)
+      try {
+        if (!statSync(full).isFile()) continue // 目录不是文件候选,不计任何一态
+      } catch {
+        continue // 竞态删除/权限:量不到身份,不充候选
+      }
+      contentAttribution.candidates++
+      const r = attributeByContent(full)
+      if (r.state === 'hit') {
+        contentAttribution.hits++
+        contentAttribution.hitPaths.push(full)
+        items.push({ path: full, kind: 'file', why: r.why, sizeMB: fileSizeMB(full), capped: false })
+      } else if (r.state === 'skipped') contentAttribution.skippedSizeOrBinary++
+      else if (r.state === 'failed') contentAttribution.readFailed++
+    }
   }
   const ours = [...root.hits, ...items]
   const brokenSeal = ours.filter((h) => /封口|孤儿组件复现/.test(h.why))
@@ -472,6 +568,7 @@ export function scanC(options = {}) {
     sealed: root.sealed,
     sealedScanSkipped,
     brokenSeal,
+    contentAttribution,
     temp: detectTempDrift(options),
     totalMB: Math.round(bytesMB * 10) / 10,
   }
@@ -506,6 +603,16 @@ function main(argv) {
     }
     if (r.sealedScanSkipped.length)
       console.log(`\n扫描位已改道、本门刻意不跟随(跟随会把 D 盘目标算成 C 的债):${r.sealedScanSkipped.join(', ')}`)
+    // 内容归因一维**永不静默**:三态计数一律打印;候选为 0 时如实报"未判定"而非默默记通过
+    // (空扫 = 扫描目录读不到/全被跳过,与"扫过了、确实没有"是两件必须让读者分开的事)。
+    const ca = r.contentAttribution
+    console.log(
+      `\nTEMP 内容归因(按名字认不出的候选再做内容嗅探):候选 ${ca.candidates} 个 |` +
+        ` 命中 ${ca.hits} 个 | 因体积>2MB/二进制跳过 ${ca.skippedSizeOrBinary} 个 | 读取失败 ${ca.readFailed} 个`,
+    )
+    if (ca.candidates === 0)
+      console.log('  ⚠️ 本轮一个 TEMP 文件候选都没扫到 ⇒ 内容归因**未判定**,不计为通过(扫描目录不可读?新装机器?)')
+    for (const p of ca.hitPaths) console.log(`  ⚠️  ${p}  [本项目产物(内容归因:命中仓库特征串)]`)
     console.log(
       r.temp.status === 'ok'
         ? `\nTEMP 一致:进程 ${r.temp.proc}`
@@ -570,6 +677,83 @@ function selfTest() {
   t('Temp 里 ihui- 夹具识别', () => eq(classifyTmp('ihui-origin-Ab12Cd') !== null, true, '命中'))
   t('Temp 里 .next 备份识别', () => eq(classifyTmp('next-backup-node22-20260918-094636') !== null, true, '命中'))
   t('Temp 里他人随机 .tmp 不得命中', () => eq(classifyTmp('8f575ef0-6180-4c22-b1d4-4161278b643b.tmp'), null, '误判'))
+
+  // —— TEMP 内容归因(2026-09-24 补,堵名字白名单的结构性盲区:clean-o7b.cjs 那型) ——
+  t('内容特征串:仓库根两种分隔符 + 旧盘 G: + @ihui/ + 水印横幅两形都必须命中', () => {
+    for (const s of [
+      `${REPO}\\scripts\\x.mjs`,
+      `${REPO.replace(/\\/g, '/')}/apps`,
+      // JS 字符串字面量里的双写转义形态 + 引号收口(探针的原始形状,判据必须吃下)
+      `const root='${REPO.replace(/\\/g, '\\\\')}'`,
+      'G:\\IHUI-AI\\.git.broken-x',
+      'G:/IHUI-AI/a.ts',
+      "from '@ihui/design-tokens'",
+      '// [IHUI-AI-PROVENANCE]:…',
+      '// © 2026 IHUI AI (智汇AI)',
+    ])
+      eq(matchContentSignatures(s).matched, true, `漏命中:${s}`)
+  })
+  t('内容归因反向对照:他人工具态与泛文本不得判为我们的(清理任务最严重的失误方向)', () => {
+    for (const s of [
+      'C:\\Users\\me\\AppData\\Local\\Temp\\out.log',
+      '{"k":1}',
+      'D:\\OtherRepo\\src\\a.ts',
+      'ihui-ai-provenance-lowercase',
+      'qoder session state dump',
+      // 前缀相似但不是仓库根(后面紧跟的既不是分隔符也不是旧盘特征):不得误伤
+      'D:\\IHUI-AIIsHugeOtherThing\\x',
+    ])
+      eq(matchContentSignatures(s).matched, false, `误判:${s}`)
+    // 旧盘 G: 特征是钉死的:迁移前的旧脚本只认当前 REPO 就会重新失明
+    if (!CONTENT_SIGNATURES.some((x) => x.re.test('G:\\IHUI-AI\\'))) throw new Error('G: 盘强特征缺失')
+  })
+  t('内容归因四态护栏:hit/notMatched/skipped(体积·二进制·目录)/failed 各有结论,绝不静默', () => {
+    const base = mkScratch('content-attr-')
+    try {
+      const hit = join(base, 'probeattr-hit.cjs')
+      writeFileSync(hit, `const root='${REPO}\\scripts'\n`)
+      eq(attributeByContent(hit).state, 'hit', '默认特征集下,含仓库根的文件必须判 hit')
+      eq(/内容归因/.test(attributeByContent(hit).why || ''), true, 'hit 必须带可区分的 why')
+      const foreign = join(base, 'qoder-session.json')
+      writeFileSync(foreign, '{"id":"abc","cwd":"C:\\\\Users\\\\me"}')
+      eq(attributeByContent(foreign).state, 'notMatched', '他人文件必须判 notMatched 而非 hit')
+      const big = join(base, 'big.log')
+      writeFileSync(big, Buffer.concat([Buffer.from(`${REPO}\\x `), Buffer.alloc(CONTENT_SNIFF_MAX_BYTES + 16, 0x41)]))
+      eq(attributeByContent(big).state, 'skipped', '超 2MB 必须跳过(守门不为归因整读大文件)')
+      const bin = join(base, 'dump.bin')
+      writeFileSync(bin, Buffer.concat([Buffer.from(`${REPO}\\x`), Buffer.from([0, 1, 2]), Buffer.from('IHUI AI')]))
+      eq(attributeByContent(bin).state, 'skipped', '前 8KB 含 NUL 必须按二进制跳过(即便带特征串也不整读)')
+      eq(attributeByContent(base).state, 'skipped', '目录不是文件候选')
+      eq(attributeByContent(join(base, 'no-such-file.cjs')).state, 'failed', '读不到必须判 failed,不得当 notMatched 混过去')
+      const mojibake = join(base, 'gbk.txt')
+      writeFileSync(mojibake, Buffer.from([0xff, 0xfe, 0xfd, 0x41, 0x42]))
+      eq(attributeByContent(mojibake).state, 'failed', 'utf8 解码出替代符(乱码)必须计入读取失败而非静默')
+    } finally {
+      rmScratch(base)
+    }
+  })
+  t('端到端取证:真 TEMP 里名字不带项目前缀、内容带仓库路径的探针必须被抓到,删掉后必须消失', () => {
+    const probe = join(tmpdir(), `probeattr-${Date.now().toString(36)}.cjs`)
+    writeFileSync(probe, `const root='${REPO}\\scripts'; // @ihui/probe\n`)
+    try {
+      const a = scanC()
+      if (!a.contentAttribution.hitPaths.includes(probe))
+        throw new Error(
+          `探针未被内容归因抓到(候选 ${a.contentAttribution.candidates}/命中 ${a.contentAttribution.hits})⇒ 新维度空转`,
+        )
+      if (!a.ours.some((h) => h.path === probe && /内容归因/.test(h.why)))
+        throw new Error('内容归因命中未计入「本项目产物」统计口径(--strict 判红通路会漏掉它)')
+    } finally {
+      rmSync(probe, { force: true })
+    }
+    const b = scanC()
+    if (b.ours.some((h) => h.path === probe)) throw new Error('现场未清理:探针删除后仍被计为产物')
+  })
+  t('内容归因结构在位:candidates/hits/skipped/readFailed 四计数必须始终存在(报告面靠它们拒绝静默)', () => {
+    const ca = scanC().contentAttribution
+    for (const k of ['candidates', 'hits', 'skippedSizeOrBinary', 'readFailed'])
+      if (!Number.isFinite(ca[k])) throw new Error(`缺计数 ${k} ⇒ 空扫/跳过会被静默成通过`)
+  })
   t('TEMP 扫描面必须含**服务身份**的 TEMP(门跑在交互账户,污染写在 C:\\Windows\\Temp)', () => {
     const d = tempScanDirs('D:\\WinNT', 'X:\\mineTmp')
     eq(d.includes('X:\\mineTmp'), true, '没扫调用者自己的 TEMP')
@@ -750,5 +934,10 @@ export const __test__ = {
   scanC,
   detectTempDrift,
   FOREIGN_ROOT,
+  // 内容归因一维(§22c:测试从这里取,不得另抄一份特征串)
+  CONTENT_SIGNATURES,
+  CONTENT_SNIFF_MAX_BYTES,
+  matchContentSignatures,
+  attributeByContent,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

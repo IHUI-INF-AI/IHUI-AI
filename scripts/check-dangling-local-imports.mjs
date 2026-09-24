@@ -80,9 +80,17 @@ function catBatch(revs) {
 }
 
 function trackedSourceFiles(rev) {
-  return git(['ls-tree', '-r', '--name-only', rev])
-    .split('\n')
-    .filter((p) => SRC_RE.test(p) && !SKIP_DIR.test(p) && !FIXTURE_ROOT.test(p))
+  return treePaths(rev).filter((p) => SRC_RE.test(p) && !SKIP_DIR.test(p) && !FIXTURE_ROOT.test(p))
+}
+
+/** 某个 revision 的**全量**路径集(存在性面)。
+ *  必须与内容取材同一个 rev:首版存在性取 `git ls-files`(索引)、内容取 `HEAD:`(树),
+ *  而并行会话正在 `git rm` 一批文件 ⇒ 索引里没有、HEAD 里有 ⇒ 那批合法导入被整片假报 D2
+ *  (实测 11 处)。判 HEAD 的门,存在性也只能按 HEAD 树判。 */
+function treePaths(rev) {
+  return rev === '' || rev === 'INDEX'
+    ? git(['ls-files', '-z']).split('\0').filter(Boolean)
+    : git(['ls-tree', '-r', '--name-only', rev, '-z']).split('\0').filter(Boolean)
 }
 
 const NON_CODE_EXT = /\.(css|scss|less|svg|png|jpe?g|gif|webp|ico|woff2?|ttf|eot|mp3|mp4|md|html|txt|glb|hdr|json|map)$/i
@@ -125,6 +133,12 @@ function resolveSpec(fromPath, rawSpec) {
  *  prettier 下真实导入恒在 0 列,而 JSDoc 示例、被注释掉的旧导入都在缩进或 `*`/`//` 之后。
  *  `export` 那一路额外要求紧跟 `{`/`*`/`type {` —— 否则 `export const k = 1` 这类普通导出行
  *  会顺着续行把后面的注释示例拼成一条"导入语句"(自检抓到过的真实假红形态)。 */
+/** 数一行的花括号净深度,**先剥掉字符串字面量**(否则 `['"`]` 这类正则/字符串里的括号会算错) */
+function braceDepth(line) {
+  const s = line.replace(/'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`/g, '""')
+  return (s.match(/\{/g) || []).length - (s.match(/\}/g) || []).length
+}
+
 export function parseImports(text) {
   const out = []
   const lines = text.split('\n')
@@ -140,13 +154,23 @@ export function parseImports(text) {
     if (!isImport && !isReexport) continue
     let stmt = first
     let j = i
-    while (!/from\s*['"][^'"]+['"]\s*;?\s*$/.test(stmt)) {
+    // 续行判据是**括号闭合且读到 from**,不是"读到 from 为止"。
+    //   首版只找 from,于是 `export { baseTest, baseExpect }`(本地转导出,无 from)会把
+    //   紧随其后的 `export {\n …\n} from '../../../e2e/fixtures'` 拼成一条语句,再把
+    //   从第一个 { 到最后一个 } 的整段当成"从那个模块导入"⇒ 把合法写法报成 D1 悬空。
+    let depth = braceDepth(first)
+    while (!(depth === 0 && /from\s*['"][^'"]+['"]\s*;?\s*$/.test(stmt))) {
+      if (depth === 0) {
+        stmt = '' // 括号已闭合却没有 from ⇒ 本条不是导入语句(纯本地导出)
+        break
+      }
       j++
       if (j - i > 30 || j >= lines.length || /^\s*(\/\/|\*|\/\*)/.test(lines[j])) {
         stmt = ''
         break
       }
       stmt += '\n' + lines[j]
+      depth += braceDepth(lines[j])
     }
     if (!stmt) continue
     const fm = /from\s*['"]([^'"]+)['"]/.exec(stmt)
@@ -302,7 +326,7 @@ async function main() {
   const readHead = mkRead('HEAD', headFiles)
   // 存在性面 = 跟踪路径 ∪ 磁盘路径。生成物(`*.generated.ts` / `*.config.*` 一类)按设计
   //   不入 git,只按跟踪集判会把它们全报成 D2 —— 本门管的是"标识符悬空",不是入库卫生。
-  const trackedAll = new Set(git(['ls-files', '-z']).split('\0').filter(Boolean))
+  const trackedAll = new Set(treePaths('HEAD'))
   const hasPath = (p) => trackedAll.has(p) || existsSync(join(ROOT, p))
   const scanSet = FILES_MODE ? FILES_MODE.filter((p) => readHead(p) !== null) : headFiles
   const byHead = auditTree(readHead, scanSet, hasPath)
@@ -343,6 +367,16 @@ async function main() {
   console.log(
     `[dangling-imports] 扫描 ${isStaged ? `${stagedCount} 个暂存源文件(锚点面 ${scanSet.length})` : `${scanSet.length} 文件`} | 悬空 ${total} 处(HEAD 存量容忍 ${tolerated} / 新增 ${fresh.length} 文件)`,
   )
+  //  **全量审计零容忍**(2026-09-24 存量清零后钉死):HEAD 普查必须为 0。
+  //    为什么不放在 `--staged`:那会因别人未入库的回归拦住无关提交(= 逼人绕过,连带废掉全部守门);
+  //    全量模式只跑在 check:all / CI,正适合当"合并把已修好的悬空导入带回来"的哨兵。
+  if (!isStaged && !FILES_MODE && total > 0) {
+    console.log(`❌ 全量口径为零容忍:HEAD 上仍有 ${total} 处悬空具名导入(存量已于 2026-09-24 清零)`)
+    for (const [f, list] of byPending) for (const v of list) console.log(`   ${f}:${v.line} [${v.rule}] ${v.raw}  → ${v.hint}`)
+    console.log('   单独复现:node scripts/check-dangling-local-imports.mjs')
+    console.log(`   紧急跳过:${SELF_SKIP}=1(仅对 check:all/CI 有意义,提交链走 --staged)`)
+    process.exit(1)
+  }
   if (!fresh.length) {
     console.log('✅ 无新增悬空具名导入' + (total ? `(存量 ${total} 处如实报数,见下)` : ''))
     for (const [f, list] of byPending) for (const v of list) console.log(`   · 存量 ${f}:${v.line} [${v.rule}] ${v.raw}`)
@@ -379,6 +413,14 @@ function selfTest() {
     { name: '解构导出 export const { X } = factory 必须算导出(7 处假红的成因)', files: { 'a/i.ts': "import { useAuthStore } from './store'", 'a/store.ts': 'const factory = {}\nexport const { useAuthStore } = factory' }, red: 0 },
     { name: '模板字符串里拼出来的 import 不判(生成器夹具)', files: { 'a/gen.mjs': 'export const SRC = 1', 'a/g.mjs': "const tpl = `\nimport { Ghost } from './nope'\n`\nexport const t = tpl" }, red: 0 },
     {
+      name: '本地转导出 export { X } 不得把下一条 export-from 拼进来(web e2e fixtures 假红的成因)',
+      files: {
+        'a/i.ts': "import { test as baseTest } from '@playwright/test'\nexport { baseTest }\nexport {\n  A,\n} from './b'",
+        'a/b.ts': 'export const A = 1',
+      },
+      red: 0,
+    },
+    {
       name: '导出名单里夹块注释(本仓 types.ts 满屏都是)不得吃掉注释后那个名字',
       files: {
         'a/b/i.ts': "import { LiveStatus } from '../../types'",
@@ -398,7 +440,7 @@ function selfTest() {
   }
   // 真仓对照:HEAD 上这一类的真实存量必须是**已知且有限**的,判据不得凭空放大
   const real = trackedSourceFiles('HEAD')
-  const trackedAll = new Set(git(['ls-files', '-z']).split('\0').filter(Boolean))
+  const trackedAll = new Set(treePaths('HEAD'))
   const readHead = catBatch(real.map((p) => `HEAD:${p}`))
   const cache = new Map()
   const read = (p) => {
@@ -411,8 +453,8 @@ function selfTest() {
   const total = [...found.values()].reduce((s, v) => s + v.length, 0)
   console.log(`\n📎 真仓 HEAD 实测:${real.length} 个跟踪源文件,悬空 ${total} 处`)
   for (const [f, list] of found) for (const v of list) console.log(`   ${f}:${v.line} [${v.rule}] ${v.raw}`)
-  if (total > 40) {
-    console.log('❌ 存量异常放大 —— 判据大概率误伤(解析口径太宽),拒绝报绿')
+  if (total > 0) {
+    console.log(`❌ 存量已清零后本门零容忍 —— HEAD 上仍有 ${total} 处,说明有回归(多半是合并把已修好的导出又吞了)`)
     process.exit(1)
   }
   if (fail) {
