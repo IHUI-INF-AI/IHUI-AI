@@ -38,6 +38,10 @@ import { AnnotationStylePanel, type PickedVisualElement } from './annotation-sty
 
 import { buildBrowserWsUrl, setBrowserWsToken } from '@ihui/api-client'
 import { useAuthStore } from '@/stores/auth'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
+
+/** 层栈 id(见 @/lib/overlay-stack):画布右键菜单浮层 */
+const CDP_CTX_MENU_OVERLAY_ID = 'cdp-browser-view-ctx-menu'
 
 export interface CdpBrowserViewProps {
   /** Browser Hub 会话 ID(后端 createBrowserSession 返回) */
@@ -579,12 +583,17 @@ export function CdpBrowserView({
   React.useEffect(() => {
     if (!ctxMenu) return
     const close = () => setCtxMenu(null)
+    pushOverlay(CDP_CTX_MENU_OVERLAY_ID)
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setCtxMenu(null)
+      if (e.key === 'Escape') {
+        if (!isTopOverlay(CDP_CTX_MENU_OVERLAY_ID)) return
+        setCtxMenu(null)
+      }
     }
     document.addEventListener('mousedown', close)
     document.addEventListener('keydown', onKey)
     return () => {
+      popOverlay(CDP_CTX_MENU_OVERLAY_ID)
       document.removeEventListener('mousedown', close)
       document.removeEventListener('keydown', onKey)
     }

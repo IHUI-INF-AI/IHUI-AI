@@ -10,6 +10,7 @@ import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { fetchAiTrendChart, type TrendChartData } from '@/lib/ai-news-api'
 import { CloseButton } from '@ihui/ui-react'
 import { formatCompact, getLocale } from '@/lib/number-format'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 
 interface Props {
   itemId: string
@@ -17,6 +18,9 @@ interface Props {
   open: boolean
   onClose: () => void
 }
+
+/** 层栈 id(见 @/lib/overlay-stack):本弹窗的 Esc 只在栈顶时被消费 */
+const TREND_CHART_OVERLAY_ID = 'ai-news-trend-chart-dialog'
 
 /**
  * 趋势图表弹窗:展示单条资讯 7/14 天热度+排名曲线。
@@ -47,10 +51,13 @@ export function TrendChartDialog({ itemId, title, open, onClose }: Props) {
   // 无障碍:ESC 关闭 + focus trap + 焦点还原
   React.useEffect(() => {
     if (!open) return
+    // 层栈:本弹窗打开即入栈为栈顶;Esc 只由栈顶消费(多层同时打开时不再一起关)
+    pushOverlay(TREND_CHART_OVERLAY_ID)
     const previouslyFocused = document.activeElement as HTMLElement | null
     closeButtonRef.current?.focus()
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (!isTopOverlay(TREND_CHART_OVERLAY_ID)) return
         e.stopPropagation()
         onClose()
         return
@@ -73,6 +80,7 @@ export function TrendChartDialog({ itemId, title, open, onClose }: Props) {
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => {
+      popOverlay(TREND_CHART_OVERLAY_ID)
       document.removeEventListener('keydown', handleKeyDown)
       previouslyFocused?.focus()
     }
