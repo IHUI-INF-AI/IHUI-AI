@@ -77,7 +77,7 @@ export function CheckpointHistoryPanel({
                 className={cn(
                   'px-2 py-0.5 text-xs transition-colors',
                   scope === s
-                    ? 'bg-primary text-primary-foreground'
+                    ? 'bg-cta text-cta-foreground'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                 )}
               >

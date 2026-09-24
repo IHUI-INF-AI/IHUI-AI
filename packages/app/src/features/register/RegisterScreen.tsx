@@ -275,7 +275,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     checkboxChecked: {
       borderColor: tk.brand.DEFAULT,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     checkboxError: { borderColor: tk.danger.DEFAULT },
     checkmark: { fontSize: 11, fontWeight: '700', lineHeight: 14 },

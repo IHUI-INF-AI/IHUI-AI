@@ -183,7 +183,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 14,
       paddingVertical: 8,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     sendDisabled: { backgroundColor: tk.text.tertiary },
     sendText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
@@ -192,7 +192,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 10,
       paddingVertical: 8,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     btnText: { color: tk.surface.light, fontSize: 16 },
   })

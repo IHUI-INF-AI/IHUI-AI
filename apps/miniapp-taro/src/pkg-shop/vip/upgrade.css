@@ -123,8 +123,8 @@
   right: 32rpx;
   height: 88rpx;
   line-height: 88rpx;
-  background: var(--color-primary);
-  color: var(--color-primary-foreground);
+  background: var(--color-cta);
+  color: var(--color-cta-foreground);
   border-radius: var(--radius-2xl);
   font-size: 32rpx;
   font-weight: 600;

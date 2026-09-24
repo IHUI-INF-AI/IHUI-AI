@@ -38,7 +38,7 @@ export function AgreementCheckbox({ checked, onChange, error }: AgreementCheckbo
           error
             ? 'border-destructive'
             : checked
-              ? 'border-primary bg-primary text-primary-foreground'
+              ? 'border-primary bg-cta text-cta-foreground'
               : 'border-input bg-background group-hover:border-foreground/60',
         ].join(' ')}
         aria-checked={checked}

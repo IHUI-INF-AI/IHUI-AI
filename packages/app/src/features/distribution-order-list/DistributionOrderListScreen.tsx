@@ -204,7 +204,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     },
     tabActive: {
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     tabText: {
       fontSize: 14,

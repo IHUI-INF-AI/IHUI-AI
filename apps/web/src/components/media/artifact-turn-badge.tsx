@@ -159,6 +159,89 @@ export function emitFocusArtifact(path: string): void {
   window.dispatchEvent(new CustomEvent(FOCUS_ARTIFACT_EVENT, { detail: { path } }))
 }
 
+// ------------------------------------------------- 挂载接线(D76 第二票) ----
+
+/**
+ * 消息 id → originating turn 序号(= 截至(含)该消息的 assistant 计数)。
+ * 产物卡(ArtifactCanvas)侧用:只知自己挂在哪条 assistant 消息下,
+ * 不需要该消息真有产物(内联 content 型产物不走 summary_data 也算一轮)。
+ */
+export function assistantTurnOf(
+  messages: readonly ArtifactTurnSourceMessage[],
+  messageId: string,
+): number | null {
+  let turn = 0
+  for (const m of messages) {
+    if (m.role !== 'assistant') continue
+    turn += 1
+    if (m.id === messageId) return turn
+  }
+  return null
+}
+
+/**
+ * 面板侧(全屏画布头部)TurnNav 状态机:从消息流派生产物 turn 序列,
+ * onChangeIndex 联动双向跳转 — jumpToMessageOrigin 滚回产生该轮的消息,
+ * 并 emitFocusArtifact 把消息流里的产物卡定位出来(监听在 MessageList 容器)。
+ */
+export function useArtifactTurnNav(messages: readonly ArtifactTurnSourceMessage[]): {
+  readonly count: number
+  readonly activeIndex: number
+  readonly onChangeIndex: (next: number) => void
+  readonly reset: () => void
+} {
+  const turns = React.useMemo(() => collectArtifactTurns(messages), [messages])
+  const [activeIndex, setActiveIndex] = React.useState(0)
+  const reset = React.useCallback(() => setActiveIndex(0), [])
+  const onChangeIndex = React.useCallback(
+    (next: number) => {
+      setActiveIndex(next)
+      const entry = turns[next]
+      if (!entry) return
+      jumpToMessageOrigin(entry.messageId)
+      const path = entry.artifacts[0]?.path
+      if (path) emitFocusArtifact(path)
+    },
+    [turns],
+  )
+  return {
+    count: turns.length,
+    activeIndex: Math.min(activeIndex, Math.max(turns.length - 1, 0)),
+    onChangeIndex,
+    reset,
+  }
+}
+
+/**
+ * 产物面板容器的反向监听(ihui:focus-artifact):收到后滚动定位并短暂描边高亮
+ * 对应产物卡([data-artifact-path] 锚点,由 ArtifactCanvas 根节点标注)。
+ * 必须挂在长期存活节点(MessageList 容器) — 挂会被卸载的深层组件会复现
+ * dead dispatch 缺陷(派发到空气)。
+ */
+export function useFocusArtifactScroll<T extends HTMLElement>(
+  containerRef: React.RefObject<T | null>,
+): void {
+  React.useEffect(() => {
+    const onFocus = (e: Event) => {
+      const path = (e as CustomEvent<{ path?: string }>).detail?.path
+      if (!path) return
+      const el = containerRef.current?.querySelector(
+        `[data-artifact-path="${path}"]`,
+      ) as HTMLElement | null
+      if (!el) return
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      // 高亮:临时 outline,600ms 后还原(与 MessageList flashHighlight 同节奏)
+      const prev = el.style.outline
+      el.style.outline = '2px solid hsl(var(--primary))'
+      window.setTimeout(() => {
+        el.style.outline = prev
+      }, 600)
+    }
+    window.addEventListener(FOCUS_ARTIFACT_EVENT, onFocus as EventListener)
+    return () => window.removeEventListener(FOCUS_ARTIFACT_EVENT, onFocus as EventListener)
+  }, [containerRef])
+}
+
 // ----------------------------------------------------------------- 组件 ----
 
 interface ArtifactTurnBadgeProps {

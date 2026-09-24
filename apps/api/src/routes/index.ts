@@ -29,6 +29,7 @@ import { socialRoutes } from './social.js'
 import { interactionsRoutes } from './interactions.js'
 import { promotionRoutes, adminPromotionRoutes } from './promotions.js'
 import { gamificationRoutes } from './gamification.js'
+import { creditsUsageRoutes } from './credits-usage.js'
 import { pointsTasksRoutes } from './points-tasks.js'
 import { userExtraRoutes } from './user-extras.js'
 import { aiSkillsProxyRoutes } from './ai-skills-proxy.js'
@@ -328,6 +329,9 @@ import { repoWikiRoutes } from './repo-wiki.js'
 import { knowledgeCardRoutes } from './knowledge-card.js'
 import automationsRoutes from './automations.js'
 import patrolRoutes from './patrol.js'
+import githubAppRoutes from './github-app.js'
+import { createAgentRunRoutes } from './agent-runs.js'
+import { createKvFromRedis } from '../services/run-idempotency.js'
 
 // R81 补建：D 盘 coze_zhs_py 代理类路由
 import { n8nProxyRoutes } from './n8n-proxy.js'
@@ -534,6 +538,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(adminLearnRoutes, { prefix: '/api/admin' })
   // 积分 / 等级 / 签到：/api/points /api/sign-in /api/levels /api/leaderboard
   server.register(gamificationRoutes, { prefix: '/api' })
+  // 按日积分消耗聚合（只读，需登录）：/api/credits/usage/daily
+  server.register(creditsUsageRoutes, { prefix: '/api/credits' })
   server.register(pointsTasksRoutes, { prefix: '/api' })
   server.register(userExtraRoutes, { prefix: '/api/user' })
   server.register(aiSkillsProxyRoutes, { prefix: '/api/ai-skills' })
@@ -1284,5 +1290,31 @@ export function registerRoutes(server: FastifyInstance) {
 
   // 主动巡逻 Agent(P3 #40,2026-09-17 立)
   server.register(patrolRoutes, { prefix: '/api/patrol' })
+
+  // D15 GitHub App:webhook 自动 PR review + @机器人触发(G-20,2026-09-24 立)
+  // 必须带 prefix 注册 —— 该插件作用域内装了保留原始字节的 JSON body parser(签名校验要用),
+  // 挂到根实例会把全站 JSON 解析改成返回字符串。
+  server.register(githubAppRoutes, { prefix: '/api/github-app' })
+
+  // O10 对外 run 语义:幂等 run 创建 + 外部 run 句柄 + 游标分页(G-14/O10,2026-09-24 立)
+  // 同带 prefix:插件内装了 preHandler 鉴权钩子,挂根实例会全站强制登录。
+  // 路径形态注意:插件声明的是 `POST '/'`,而本服未开 `ignoreTrailingSlash`,
+  // 因此对外真实可达路径是 `/api/agent-runs/`(带尾斜杠)。要收成无斜杠形态,
+  // 应改插件内的路由声明并同步 api-client 与文档,不要动全局 routerOption(影响所有面)。
+  // 密钥缺失时**跳过挂载并告警**,而不是让工厂抛错把整个 API 启动带崩(本机即生产机)。
+  const agentRunHandleSecret = process.env.AGENT_RUN_HANDLE_SECRET ?? process.env.JWT_SECRET
+  if (agentRunHandleSecret) {
+    server.register(
+      createAgentRunRoutes({
+        kv: createKvFromRedis(server.redis),
+        handleSecret: agentRunHandleSecret,
+      }),
+      { prefix: '/api/agent-runs' },
+    )
+  } else {
+    server.log.warn(
+      'O10 agent-runs 面未挂载:缺 AGENT_RUN_HANDLE_SECRET / JWT_SECRET,句柄无签名根可取',
+    )
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -107,6 +107,11 @@ test('装车证明:收敛器冲突分支真的会调它,守护真的会调 --all
   assert.match(guard, /function auditMergeAdditionLoss\(\)/, '守护里必须有这一层')
   assert.match(guard, /\[script, '--all-new'\]/, '必须走增量台账面(默认面只判未推的合并)')
   assert.match(guard, /if \(!CHECK_ONLY\) auditMergeAdditionLoss\(\)/, '挂点必须在非 --check 分支(挂错等于永不执行)')
+  // §5b 那条恢复源刷新原本挂在计划任务上,而任务已实测消失 ⇒ 挂点必须在守护里,
+  //   且同样只能挂非 --check 分支;写在这里是因为这三层是同一族"判了得有地方修"。
+  assert.match(guard, /function refreshRecoverySource\(\)/, '守护里必须有恢复源刷新层')
+  assert.match(guard, /\[script, '--check'\]|judge\.code === 0/, '必须先零副作用早退,不许每轮都去刷')
+  assert.match(guard, /if \(!CHECK_ONLY\) refreshRecoverySource\(\)/, '挂点必须在非 --check 分支')
 
   const hot = readFileSync(new URL('../check-git-read-timeout.mjs', import.meta.url), 'utf8')
   assert.match(hot, /'scripts\/union-converge\.mjs'/, '必须进守门 80 的 HOT 清单')

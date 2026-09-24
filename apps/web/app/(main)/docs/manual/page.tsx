@@ -145,7 +145,7 @@ export default function ManualIndexPage() {
               href={ch.href}
               className="group flex items-center gap-4 rounded-2xl border bg-card p-3 transition-colors hover:bg-accent"
             >
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary min-[768px]:h-14 min-[768px]:w-14">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-cta/10 text-primary min-[768px]:h-14 min-[768px]:w-14">
                 {typeof ch.icon === 'string' ? ch.icon : <ch.icon className="h-6 w-6" />}
               </span>
               <div className="flex-1 min-w-0">
@@ -171,7 +171,7 @@ export default function ManualIndexPage() {
         </a>
         <a
           href="/docs/manual/getting-started"
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          className="rounded-lg bg-cta px-4 py-2 text-sm font-medium text-cta-foreground hover:bg-cta/90"
         >
           开始阅读 →
         </a>

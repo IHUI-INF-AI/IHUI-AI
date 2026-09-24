@@ -116,7 +116,7 @@ function Row({
       <View style={styles.rowRight}>
         {selected ? (
           <Animated.View style={[styles.selectedIcon, { transform: [{ scale }] }]}>
-            <Check size={11} color={tokens.brand.foreground} />
+            <Check size={11} color={tokens.brand.ctaForeground} />
           </Animated.View>
         ) : null}
       </View>
@@ -261,12 +261,12 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: rnRadius.lg,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
   },
   selectedIconText: {
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
     fontSize: 11,
     fontWeight: '700',
     lineHeight: 13,

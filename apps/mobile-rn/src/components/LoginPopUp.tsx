@@ -251,7 +251,7 @@ export function LoginPopUp({
               {showAgreementRow ? (
                 <Pressable style={styles.agreementRow} onPress={handleAgreeToggle}>
                   <View style={[styles.checkbox, agreeChecked ? styles.checkboxChecked : null]}>
-                    {agreeChecked ? <Check size={11} color={tokens.brand.foreground} /> : null}
+                    {agreeChecked ? <Check size={11} color={tokens.brand.ctaForeground} /> : null}
                   </View>
                   <Text style={styles.agreementText}>
                     <Text style={styles.agreementLink}>《用户协议》</Text>
@@ -441,7 +441,7 @@ function ProfileForm({
             accessibilityLabel="绑定手机号"
           >
             {bindPhoneLoading ? (
-              <ActivityIndicator size="small" color={tokens.brand.foreground} />
+              <ActivityIndicator size="small" color={tokens.brand.ctaForeground} />
             ) : (
               <Text style={styles.bindLabel}>{phone ? '重绑' : '绑定'}</Text>
             )}
@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     height: BUTTON_HEIGHT,
     borderRadius: rnRadius.lg,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: PRIMARY_BUTTON_MARGIN_BOTTOM,
@@ -549,7 +549,7 @@ const styles = StyleSheet.create({
   primaryButtonLabel: {
     fontSize: BUTTON_FONT_SIZE,
     fontWeight: '500',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
     textAlign: 'center',
   },
   secondaryButton: {
@@ -586,13 +586,13 @@ const styles = StyleSheet.create({
     marginRight: AGREEMENT_GAP,
   },
   checkboxChecked: {
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     borderColor: tokens.brand.DEFAULT,
   },
   checkboxMark: {
     fontSize: 11,
     lineHeight: 12,
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
     fontWeight: '700',
   },
   agreementText: {
@@ -699,7 +699,7 @@ const styles = StyleSheet.create({
     height: UPGRADE_HEIGHT,
     paddingHorizontal: UPGRADE_PADDING_HORIZONTAL,
     borderRadius: rnRadius.md,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -709,7 +709,7 @@ const styles = StyleSheet.create({
   bindLabel: {
     fontSize: HINT_FONT_SIZE,
     fontWeight: '600',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
   },
   hintText: {
     fontSize: HINT_FONT_SIZE,

@@ -72,8 +72,8 @@
 .income-withdraw-btn {
   font-size: 28rpx;
   font-weight: 600;
-  color: var(--color-primary-foreground);
-  background: var(--color-primary);
+  color: var(--color-cta-foreground);
+  background: var(--color-cta);
   padding: 12rpx 20rpx;
   border-radius: var(--radius-xl);
 }

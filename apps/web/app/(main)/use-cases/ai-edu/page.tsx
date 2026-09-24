@@ -232,7 +232,7 @@ export default async function AiEduPage() {
           <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
             <Link
               href="/use-cases"
-              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-4 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-cta px-4 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
             >
               查看更多用例
               <ArrowRight className="h-3.5 w-3.5" />

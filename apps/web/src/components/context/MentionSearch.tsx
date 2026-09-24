@@ -87,7 +87,7 @@ export function MentionSearch({
             className={cn(
               'whitespace-nowrap min-[768px]:shrink-0 rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
               activeType === t.value
-                ? 'bg-primary text-primary-foreground'
+                ? 'bg-cta text-cta-foreground'
                 : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
             )}
           >

@@ -172,7 +172,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
-    tabActive: { backgroundColor: tk.brand.DEFAULT },
+    tabActive: { backgroundColor: tk.brand.cta },
     tabText: { fontSize: 14, color: tk.text.secondary },
     tabTextActive: { color: tk.surface.light },
     errorBar: {
@@ -238,7 +238,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 10,
       height: 44,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
     },

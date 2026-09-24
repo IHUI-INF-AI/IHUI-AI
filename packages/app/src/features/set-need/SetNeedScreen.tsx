@@ -299,7 +299,7 @@ function createStyles(tk: AppThemeTokens) {
     imageRow: { gap: 8, paddingVertical: 4 } as ViewStyle,
     imagePreview: { width: 72, height: 72, borderRadius: rnRadius.lg } as ImageStyle,
     submitBtn: {
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       borderRadius: rnRadius.xl,
       paddingVertical: 15,
       alignItems: 'center',

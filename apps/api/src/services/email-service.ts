@@ -2,7 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { createHmac, createHash } from 'node:crypto'
 import { config } from '../config/index.js'
 import { logger } from '../utils/logger.js'
 import { renderNoticeEmail } from './email-templates.js'
@@ -27,38 +26,18 @@ function maskEmail(email: string): string {
 }
 
 /**
- * 腾讯云 SES SendEmail API 不允许直接传 HTML/Text 字符串,
- * Simple.Html / Simple.Text 字段必须 base64 编码(UTF-8)。
- */
-function base64Utf8(str: string): string {
-  return Buffer.from(str, 'utf8').toString('base64')
-}
-
-/**
- * 验证码场景 → 腾讯云 SES Template ID 映射。
- * 配置了对应 scene 的 template id 才走 Template 模式(腾讯云默认权限)。
- */
-function resolveTemplateId(scene?: string): number | undefined {
-  if (scene === 'register') return config.TENCENT_SES_TEMPLATE_REGISTER
-  if (scene === 'login') return config.TENCENT_SES_TEMPLATE_LOGIN
-  if (scene === 'reset') return config.TENCENT_SES_TEMPLATE_RESET
-  return undefined
-}
-
-/**
  * 邮件发送服务。
  *
  * 支持的 provider:
- * 1. smtp   — 通用 SMTP(nodemailer),兜底通道
+ * 1. smtp   — 通用 SMTP(nodemailer),全域名兜底通道(含国内收件人)
  * 2. resend  — Resend REST API(国外邮箱优先)
- * 3. tencent — 腾讯云 SES V3 签名(国内邮箱优先)
- * 4. stub    — 无任何 provider 配置时,不发送;logger.warn 点名缺失配置(见 SendEmailResult.reasons)
+ * 3. stub    — 无任何 provider 配置时,不发送;logger.warn 点名缺失配置(见 SendEmailResult.reasons)
  *
  * 智能路由(MAIL_PROVIDER=auto):
- * - 收件域名 ∈ DOMESTIC_EMAIL_DOMAINS → tencent(若配置)→ smtp → stub
+ * - 收件域名 ∈ DOMESTIC_EMAIL_DOMAINS → smtp(若配置)→ stub
  * - 收件域名国外 → resend(若配置)→ smtp → stub
  *
- * 显式指定 MAIL_PROVIDER=smtp/resend/tencent 时跳过智能路由,但仍走 SMTP 兜底。
+ * 显式指定 MAIL_PROVIDER=smtp/resend 时跳过智能路由,但仍走 SMTP 兜底。
  */
 
 export interface SendEmailOptions {
@@ -74,16 +53,10 @@ export interface SendEmailOptions {
   templateSlug?: string
   /** 模板变量(用于重发或回溯) */
   metadata?: Record<string, unknown>
-  /**
-   * 腾讯云 SES 模板变量(走 Template 模式时使用)。
-   * 例如验证码场景:{ code: '123456', nickname: '张三' }
-   * 腾讯云模板正文里用 {{code}} / {{nickname}} 占位符引用。
-   */
-  templateVariables?: Record<string, unknown>
 }
 
 /** 邮件发送通道。'stub' = 当前配置下该收件人路由上无任何可用通道(未发送)。 */
-export type EmailProvider = 'smtp' | 'resend' | 'tencent' | 'stub'
+export type EmailProvider = 'smtp' | 'resend' | 'stub'
 
 /**
  * provider=stub(未发送)的根因枚举。精确联合而非 string 兜底:
@@ -96,8 +69,6 @@ export type EmailNotSentReason =
   | 'smtp_host_missing'
   /** 海外收件人路由:RESEND_API_KEY 未配置 */
   | 'resend_api_key_missing'
-  /** 国内收件人路由:TENCENT_SES_SECRET_ID / TENCENT_SES_SECRET_KEY 未配置 */
-  | 'tencent_ses_keys_missing'
 
 export interface SendEmailResult {
   sent: boolean
@@ -135,7 +106,7 @@ interface NodemailerModule {
 }
 
 /**
- * 国内主流邮箱域名。命中则优先走腾讯云 SES(国内送达率更高)。
+ * 国内主流邮箱域名。用于智能路由判定(国内收件人不走 Resend 海外优先通道)。
  */
 const DOMESTIC_EMAIL_DOMAINS = new Set<string>([
   'qq.com',
@@ -187,23 +158,12 @@ function resendBlocker(): EmailNotSentReason | null {
   return config.RESEND_API_KEY ? null : 'resend_api_key_missing'
 }
 
-/** 腾讯云 SES 通道(SECRET_ID && SECRET_KEY)的缺口;null = 可用 */
-function tencentBlocker(): EmailNotSentReason | null {
-  return config.TENCENT_SES_SECRET_ID && config.TENCENT_SES_SECRET_KEY
-    ? null
-    : 'tencent_ses_keys_missing'
-}
-
 function resolveProviderWithBlockers(email: string): ProviderResolution {
   const forced = config.MAIL_PROVIDER
   // 显式指定:凭据缺失即 stub(与历史行为逐分支等价,不自动落到其他通道)
   if (forced === 'resend') {
     const b = resendBlocker()
     return b ? { provider: 'stub', blockers: [b] } : { provider: 'resend', blockers: [] }
-  }
-  if (forced === 'tencent') {
-    const b = tencentBlocker()
-    return b ? { provider: 'stub', blockers: [b] } : { provider: 'tencent', blockers: [] }
   }
   if (forced === 'smtp') {
     const b = smtpBlocker()
@@ -213,11 +173,9 @@ function resolveProviderWithBlockers(email: string): ProviderResolution {
   // auto:按收件域名智能路由
   const smtpB = smtpBlocker()
   if (isDomesticEmail(email)) {
-    const b = tencentBlocker()
-    if (!b) return { provider: 'tencent', blockers: [] }
+    // 国内收件人:不依赖海外通道,直接走 SMTP 全域名兜底
     if (!smtpB) return { provider: 'smtp', blockers: [] }
-    // SMTP 是全域名兜底,其缺口排在首位 — 静默事故的根因几乎总在"没开",而非首选通道
-    return { provider: 'stub', blockers: [smtpB, b] }
+    return { provider: 'stub', blockers: [smtpB] }
   }
   const b = resendBlocker()
   if (!b) return { provider: 'resend', blockers: [] }
@@ -236,7 +194,6 @@ const BLOCKER_HINTS: Record<EmailNotSentReason, string> = {
   smtp_disabled: 'SMTP_ENABLED=false(SMTP 兜底通道未开启)',
   smtp_host_missing: 'SMTP_HOST 未配置(SMTP_ENABLED 已开)',
   resend_api_key_missing: 'RESEND_API_KEY 未配置(海外收件人通道)',
-  tencent_ses_keys_missing: 'TENCENT_SES_SECRET_ID/KEY 未配置(国内收件人首选通道)',
 }
 
 function formatBlockerHints(blockers: EmailNotSentReason[]): string {
@@ -333,10 +290,9 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
  */
 async function dispatch(
   options: SendEmailOptions,
-  primary: 'resend' | 'tencent' | 'smtp',
+  primary: 'resend' | 'smtp',
 ): Promise<SendEmailResult> {
   if (primary === 'resend') return sendViaResend(options)
-  if (primary === 'tencent') return sendViaTencentSes(options)
   return sendViaSmtp(options)
 }
 
@@ -430,161 +386,7 @@ async function sendViaResend(options: SendEmailOptions): Promise<SendEmailResult
 }
 
 /**
- * 腾讯云 SES 通道(SubmitSignUrl 风格的 V3 签名 + SendEmail API)。
- * 文档:https://cloud.tencent.com/document/product/1288/51034
- *
- * 发件模式(自动选择):
- * - Template 模式(默认推荐):scene ∈ {register, login, reset} 且配置了对应 TENCENT_SES_TEMPLATE_*
- *   → 走 Template,腾讯云默认权限即可使用,正文由腾讯云模板 + TemplateData 渲染
- * - Simple 模式(fallback):无对应 template id 时走 Simple,Simple.Html/Text base64 编码
- *   ⚠️ Simple 需在腾讯云控制台申请"自定义发送权限",否则返回 FailedOperation.WithOutPermission
- */
-async function sendViaTencentSes(options: SendEmailOptions): Promise<SendEmailResult> {
-  if (!config.TENCENT_SES_SECRET_ID || !config.TENCENT_SES_SECRET_KEY) {
-    return { sent: false, stub: false, provider: 'tencent', error: 'tencent ses not configured' }
-  }
-  const from = config.TENCENT_SES_FROM || 'IHUI-AI@aizhs.top'
-  const region = config.TENCENT_SES_REGION || 'ap-hongkong'
-  const host = `ses.${region}.tencentcloudapi.com`
-  const endpoint = `https://${host}`
-
-  // 选择发件模式:验证码场景优先 Template,其他场景 fallback Simple
-  const templateId = resolveTemplateId(options.scene)
-  const useTemplate = templateId !== undefined
-
-  try {
-    const body: Record<string, unknown> = {
-      FromEmailAddress: from,
-      Destination: [options.to],
-      Subject: options.subject,
-    }
-    if (useTemplate) {
-      body.Template = {
-        TemplateID: templateId,
-        TemplateData: JSON.stringify(options.templateVariables ?? {}),
-      }
-    } else {
-      body.Simple = {
-        Html: base64Utf8(options.html),
-        Text: base64Utf8(options.text ?? ''),
-      }
-    }
-    const payload = JSON.stringify(body)
-
-    const { SignedHeaders, Authorization } = await buildTencentV3Signature({
-      secretId: config.TENCENT_SES_SECRET_ID,
-      secretKey: config.TENCENT_SES_SECRET_KEY,
-      host,
-      payload,
-      region,
-      service: 'ses',
-    })
-
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        Host: host,
-        'X-TC-Action': 'SendEmail',
-        'X-TC-Version': '2020-10-02',
-        'X-TC-Region': region,
-        'X-TC-Timestamp': String(Math.floor(Date.now() / 1000)),
-        Authorization,
-        'Content-Type': 'application/json',
-        'X-TC-SignedHeaders': SignedHeaders,
-      },
-      body: payload,
-    })
-
-    if (!res.ok) {
-      const errText = await res.text().catch(() => '')
-      return {
-        sent: false,
-        stub: false,
-        provider: 'tencent',
-        error: `tencent ${res.status}: ${errText.slice(0, 200)}`,
-      }
-    }
-    const json = (await res.json().catch(() => ({}))) as {
-      Response?: { Error?: { Message?: string; Code?: string } }
-    }
-    if (json.Response?.Error?.Message) {
-      return {
-        sent: false,
-        stub: false,
-        provider: 'tencent',
-        error: `[${json.Response.Error.Code ?? 'Unknown'}] ${json.Response.Error.Message}`,
-      }
-    }
-    return { sent: true, stub: false, provider: 'tencent' }
-  } catch (e) {
-    return { sent: false, stub: false, provider: 'tencent', error: (e as Error).message }
-  }
-}
-
-/**
- * 构造腾讯云 V3 签名(TC3-HMAC-SHA256)。
- * 参考文档:https://cloud.tencent.com/document/api/213/30654
- *
- * 导出供单元测试直接验证签名算法(避免依赖外部网络 + 真实凭据)。
- */
-export async function buildTencentV3Signature(params: {
-  secretId: string
-  secretKey: string
-  host: string
-  payload: string
-  region: string
-  service: string
-}): Promise<{ SignedHeaders: string; Authorization: string }> {
-  const algorithm = 'TC3-HMAC-SHA256'
-  const timestamp = Math.floor(Date.now() / 1000)
-  const date = new Date(timestamp * 1000).toISOString().slice(0, 10)
-
-  // Step 1: 拼接规范请求串
-  const httpRequestMethod = 'POST'
-  const canonicalUri = '/'
-  const canonicalQueryString = ''
-  const canonicalHeaders = `content-type:application/json\nhost:${params.host}\nx-tc-action:sendemail\n`
-  const signedHeaders = 'content-type;host;x-tc-action'
-  const hashedRequestPayload = sha256Hex(params.payload)
-  const canonicalRequest = `${httpRequestMethod}\n${canonicalUri}\n${canonicalQueryString}\n${canonicalHeaders}\n${signedHeaders}\n${hashedRequestPayload}`
-
-  // Step 2: 拼接签名串
-  const credentialScope = `${date}/${params.service}/tc3_request`
-  const hashedCanonicalRequest = sha256Hex(canonicalRequest)
-  const stringToSign = `${algorithm}\n${timestamp}\n${credentialScope}\n${hashedCanonicalRequest}`
-
-  // Step 3: 计算签名
-  const secretDate = hmacSha256Raw(`TC3${params.secretKey}`, date)
-  const secretService = hmacSha256Raw(secretDate, params.service)
-  const secretSigning = hmacSha256Raw(secretService, 'tc3_request')
-  const signature = hmacSha256Hex(secretSigning, stringToSign)
-
-  // Step 4: 拼接 Authorization
-  const authorization =
-    `${algorithm} ` +
-    `Credential=${params.secretId}/${credentialScope}, ` +
-    `SignedHeaders=${signedHeaders}, ` +
-    `Signature=${signature}`
-
-  return { SignedHeaders: signedHeaders, Authorization: authorization }
-}
-
-function sha256Hex(str: string): string {
-  return createHash('sha256').update(str, 'utf8').digest('hex')
-}
-
-function hmacSha256Raw(key: string | Buffer, data: string): Buffer {
-  return createHmac('sha256', key).update(data, 'utf8').digest()
-}
-
-function hmacSha256Hex(key: string | Buffer, data: string): string {
-  return createHmac('sha256', key).update(data, 'utf8').digest('hex')
-}
-
-/**
  * 发送验证码邮件(场景化)。模板渲染见 email-templates.ts(机械风设计系统)。
- * 腾讯云 SES Template 模式下,code/nickname 通过 templateVariables 传给腾讯云模板,
- * 模板正文里用 {{code}} / {{nickname}} 占位符引用。
  */
 export async function sendVerificationEmail(
   email: string,
@@ -592,11 +394,6 @@ export async function sendVerificationEmail(
   scene: EmailCodeScene = 'login',
   nickname?: string,
 ): Promise<SendEmailResult> {
-  const sceneTextMap: Record<EmailCodeScene, string> = {
-    register: '注册',
-    login: '登录',
-    reset: '重置密码',
-  }
   const rendered = renderVerificationEmail(code, scene as VerificationScene, nickname)
   const subjectMap: Record<EmailCodeScene, string> = {
     register: '【智汇AI】注册验证码',
@@ -611,7 +408,6 @@ export async function sendVerificationEmail(
     scene,
     templateSlug: 'verify_code',
     metadata: nickname ? { nickname } : undefined,
-    templateVariables: { code, nickname: nickname ?? '', scene, sceneText: sceneTextMap[scene] },
   })
 }
 
