@@ -25,7 +25,7 @@ import { __test__ as gate } from '../check-brand-foreground.mjs'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
 
-test('__test__ 出口齐备(§22c 锚点:8 个判据函数 + 扩面所系的正则本体,缺一不可)', () => {
+test('__test__ 出口齐备(§22c 锚点:判据函数 + 扩面所系的正则本体 + R5 词法与取材层,缺一不可)', () => {
   for (const fn of [
     'extractStyleChunks',
     'findR1Violations',
@@ -35,12 +35,21 @@ test('__test__ 出口齐备(§22c 锚点:8 个判据函数 + 扩面所系的正�
     'extractNamedStyleChunks',
     'isSiblingStylePair',
     'findR4Violations',
+    'countWebClassPairs',
+    'hasClassToken',
+    'isR5Scope',
+    'r5Prefilter',
   ]) {
     assert.equal(typeof gate[fn], 'function', `缺少导出函数 ${fn}`)
   }
   for (const rx of ['R1_BG', 'R1_BAD_FG', 'R3_BRAND_FILL', 'R3_FILL_CTA', 'BRAND_FG', 'BRAND_FG_CTA']) {
     assert.ok(gate[rx] instanceof RegExp, `缺少导出正则 ${rx}(镜像测试要靠它做变异对照)`)
   }
+  // R5 的常量出口(键名/类名/范围被改时,下面的对照断言才有意义)
+  assert.equal(typeof gate.BASELINE_R5_KEY, 'string')
+  assert.equal(gate.R5_BG_CLASS, 'bg-primary')
+  assert.equal(gate.R5_FG_CLASS, 'text-primary-foreground')
+  assert.deepEqual(gate.R5_DIRS, ['apps/web', 'packages/ui-react'])
 })
 
 // ══ 缺陷 2 的五条必补夹具(成对:坏例子必红 + 好例子必绿)══
@@ -137,6 +146,117 @@ test('夹具 5(变异对照):旧判据(只认 DEFAULT)匹配不上 cta 夹具 �
   assert.equal(gate.R3_BRAND_FILL.test('    backgroundColor: tk.brand.cta,'), true, '现 R3_BRAND_FILL 对 cta 行必匹配')
   // \b 防误伤:ctaForeground 是前景档,不得被 `brand\.cta\b` 当成填充命中
   assert.equal(gate.R3_BRAND_FILL.test('    color: tk.brand.ctaForeground,'), false)
+})
+
+// ══ R5(2026-09-24 立):web / ui-react 类名面退役配对 ══
+//
+// R1..R4 只看 RN style 对象,对 Tailwind 类名形态零覆盖 —— 退役档 `bg-primary` +
+// `text-primary-foreground` 因此能在 web 侧无门看着地增长。本组断言的职责有三层:
+//  ① 词法边界(N 组)—— 同一行两个 token 只是"够格",变体/透明档/前景档都不算实底;
+//  ② **真内容阳性对照** —— 基线当日被并行会话清空(`4e0b24689a` 把 22 处迁完了),
+//     于是"存量 0 处"既可能是"债清了"也可能是"门瞎了"。故必须拿真仓 HEAD 的
+//     button.tsx 原文喂进判据(现值 0),再把 cta 档改名回退役档(必 >0):
+//     同一条读文件+判据链,只有内容不同 ⇒ 这一对钉死"0 是判出来的,不是看不见"。
+//  ③ **预筛完备性** —— 全量模式用 git grep 预筛(3453 文件逐个 git show 慢到不能用),
+//     预筛静默丢文件 = 棘轮恒绿。断言按"每一条应计行所在文件必须在预筛结果里"做**完整**
+//     证明(计数要求同行含 fg 字面量 ⇒ 该文件必在 fg 清单内),而非抽样。
+test('R5 词法边界:实底/透明档/前景档/变体前缀/注释/豁免各判其所(实现在源脚本,本文件只调用)', () => {
+  // 阳性:真仓退役形态(立项时 HEAD 的 22 处即是这类行)
+  assert.equal(gate.countWebClassPairs(["  default: 'bg-primary text-primary-foreground shadow',"]), 1)
+  // 反向四条:少一条判据就会把非债当债
+  assert.equal(gate.countWebClassPairs(["  x: 'bg-primary/90 text-primary-foreground'"]), 0, '透明档不是实底')
+  assert.equal(gate.countWebClassPairs(["  x: 'bg-primary-foreground text-primary-foreground'"]), 0, '前景档不是底')
+  assert.equal(gate.countWebClassPairs(["  x: 'hover:bg-primary text-primary-foreground'"]), 0, '变体前缀不算实底')
+  assert.equal(gate.countWebClassPairs(["  x: 'bg-cta text-cta-foreground'"]), 0, '正解档绝不得计债')
+  // 注释与豁免出口(零容忍门必须有人工出口,否则唯一出路是 --no-verify)
+  assert.equal(gate.countWebClassPairs(['   * - active 态:bg-primary + text-primary-foreground']), 0, '整行注释不计')
+  assert.equal(gate.countWebClassPairs(["  x: 'bg-primary text-primary-foreground' // r5-cta-exempt: 合法浮层"]), 0)
+  assert.equal(gate.countWebClassPairs(['  // r5-cta-exempt: 原因', "  x: 'bg-primary text-primary-foreground'"]), 0, '上行豁免')
+  assert.equal(
+    gate.countWebClassPairs(["  x: 'bg-primary text-primary-foreground'", "  y: 'bg-primary text-primary-foreground'"]),
+    2,
+    '豁免不得外溢到后续行',
+  )
+  // 变异对照:naive includes 会把前三条误计 ⇒ 上面那三条的红真挂在词法规则上
+  const naive = (l) => l.includes(gate.R5_BG_CLASS) && l.includes(gate.R5_FG_CLASS)
+  for (const line of ["  x: 'bg-primary/90 text-primary-foreground'", "  x: 'bg-primary-foreground text-primary-foreground'"]) {
+    assert.equal(naive(line), true, '对照前提:naive 判据对此会误计')
+    assert.equal(gate.countWebClassPairs([line]), 0, '词法规则必须判 0')
+  }
+})
+
+test('R5 真内容阳性对照:HEAD 的 button.tsx 现值 0 处,但改名回退役档必 >0(证明"0"是判出来的)', () => {
+  const rel = 'packages/ui-react/src/components/button.tsx'
+  const head = execFileSync('git', ['-c', 'safe.directory=*', 'show', `HEAD:${rel}`], {
+    cwd: REPO,
+    encoding: 'utf8',
+    maxBuffer: 1 << 26,
+    windowsHide: true,
+    timeout: 30000,
+  })
+  const retired = head.split('\n').map((l) => l.split('bg-cta').join('bg-primary').split('text-cta-foreground').join('text-primary-foreground'))
+  const current = head.split('\n')
+  const nNow = gate.countWebClassPairs(current)
+  const nIfRetired = gate.countWebClassPairs(retired)
+  assert.equal(nNow, 0, `${rel} 在 HEAD 已迁到 cta 档(存量 0 是现状,不是判据失效)`)
+  assert.ok(nIfRetired >= 4, `把 cta 档改名回退役档必须命中 ≥4 处(Button 主按钮 variant 有 6 个),实得 ${nIfRetired}`)
+  // 反向钉:若有人把判据改窄到看不见 className 字符串,nIfRetired 会掉到 0 ⇒ 本条当场红
+  assert.ok(nIfRetired > nNow, '阳性对照必须严格大于现值,否则本门对 R5 形态是瞎的')
+})
+
+test('R5 预筛完备性:每一条应计行所在文件都必须在预筛结果里(完整证明,非抽样)', () => {
+  // 完备性论证(不靠抽样):一条被计数的行**必须**含 `text-primary-foreground` 字面量,
+  // 故"含该字面量的文件集"是"可被计数的文件集"的严格超集。把这个超集**逐个**读 HEAD blob
+  // 算一遍,凡有债的文件都必须在预筛结果里 ⇒ 预筛丢文件必然被本条抓到。
+  const fgFiles = execFileSync(
+    'git',
+    ['-c', 'safe.directory=*', 'grep', '-l', '-I', '-e', gate.R5_FG_CLASS, 'HEAD', '--', ...gate.R5_DIRS],
+    { cwd: REPO, encoding: 'utf8', maxBuffer: 1 << 26, windowsHide: true, timeout: 60000 },
+  )
+    .split('\n')
+    .filter(Boolean)
+    .map((f) => f.replace(/^HEAD:/, ''))
+    .filter((f) => gate.isR5Scope(f))
+  assert.ok(fgFiles.length > 0, 'R5 范围里连一处 text-primary-foreground 都找不到 ⇒ 取材面(范围/扩展名)已失效')
+  const pre = gate.r5Prefilter(true)
+  assert.ok(Array.isArray(pre), 'r5Prefilter 必须返回数组(null = 判不出来,全量模式会退回枚举;本条要的是"能判时不失")')
+  const preSet = new Set(pre)
+  let total = 0
+  for (const rel of fgFiles) {
+    const txt = execFileSync('git', ['-c', 'safe.directory=*', 'show', `HEAD:${rel}`], {
+      cwd: REPO,
+      encoding: 'utf8',
+      maxBuffer: 1 << 26,
+      windowsHide: true,
+      timeout: 30000,
+    })
+    const n = gate.countWebClassPairs(txt.split('\n'))
+    total += n
+    if (n > 0) assert.ok(preSet.has(rel), `预筛丢了有应计行的文件:${rel} ⇒ 棘轮恒绿而债在长`)
+  }
+  // 今天的真仓状态:有候选文件、零债(22 处已由并行会话在 4e0b24689a 迁完)。
+  assert.ok(pre.length > 0, '预筛候选为 0 ⇒ 范围正则或 grep 取材面已失效(HEAD 至少有 fg∩bg 文件)')
+  assert.equal(total, 0, `HEAD 现存 ${total} 条应计行 —— 债已回归:迁移到 bg-cta 或按流程收紧基线,勿改本断言糊过去`)
+})
+
+test('R5 基线键独立且不得与 R2/R3/R4 复用;失败文案必须点名 cta 正解', () => {
+  const src = readFileSync(join(REPO, 'scripts', 'check-brand-foreground.mjs'), 'utf8')
+  const base = JSON.parse(readFileSync(join(REPO, 'scripts', 'brand-foreground-baseline.json'), 'utf8'))
+  assert.equal(gate.BASELINE_R5_KEY, 'webClassPairCounts')
+  for (const other of ['counts', 'ctaCounts', 'r4Counts']) {
+    assert.notEqual(gate.BASELINE_R5_KEY, other, `R5 复用了 ${other} ⇒ 一次 --update-baseline 会把另一条判据的存量发给 R5`)
+  }
+  assert.ok(
+    Object.hasOwn(base, gate.BASELINE_R5_KEY),
+    '基线必须含 webClassPairCounts 键(缺键时 ?? 0 等于零容忍,须是有意为之而非漏写)',
+  )
+  // --update-baseline 只重写四个计数面,必须把 webClassPairCounts 也列进 omit 清单,
+  // 否则它会作为 ...notes 被旧值带走 ⇒ "实测清零但基线仍是旧数"的假绿
+  assert.match(src, /webClassPairCounts:\s*_omitWebPair/, '--update-baseline 未把 R5 面列入 omit ⇒ 会拿旧值当新基线')
+  // 失败面:红点必须给出唯一正解与复现命令
+  assert.match(src, /❌ R5 /, 'R5 失败行缺失')
+  assert.match(src, /改为 bg-cta \/ text-cta-foreground \/ hover:bg-cta\/90/, 'R5 失败提示必须点名 cta 正解写法')
+  assert.match(src, /check-brand-foreground\.mjs --staged/, 'R5 失败提示必须给单独复现命令')
 })
 
 test('装车证明:guardian-runner 里确有本门注册块(blocking + skipEnv),编号反查且全 runner 唯一', () => {
