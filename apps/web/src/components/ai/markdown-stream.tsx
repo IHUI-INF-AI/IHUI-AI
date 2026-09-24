@@ -37,6 +37,9 @@ import { splitMarkdownStable } from '@/lib/markdown-stable-split'
 import { CsvPreview, PdfEmbed } from '@/components/media/message-file-preview'
 // D41(2026-09-24 立):docx/xlsx/pptx 消息内富预览(docx-preview / SheetJS / jszip 降级)
 import { OfficePreview } from '@/components/media/office-preview'
+// D76 残余②(2026-09-25 立):正文产物链接 → 反向聚焦产物卡。复用 MessageList 已挂的
+// ihui:focus-artifact 通道(不新增事件名/payload 形状);无对应卡时接管失败,保持原行为。
+import { tryFocusArtifactFromLink } from '@/components/media/artifact-turn-badge'
 // 语法高亮主题(对象常量,体积小,可静态导入;同时导入 dark/light 两份,运行时按主题切换)
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
@@ -593,6 +596,13 @@ function MarkdownLink({
         rel="noopener noreferrer"
         download={fileName}
         className="my-0 flex items-center gap-2 rounded-md border border-border bg-streamed-container-bg px-3 py-2 text-sm transition-colors hover:bg-streamed-container-bg-hover"
+        onClick={(e) => {
+          // D76 残余②:正文产物链接反向聚焦。仅当消息流里有同锚点产物卡时接管
+          // (preventDefault + ihui:focus-artifact);无卡保持原下载行为不改语义。
+          // 修饰键/中键点击交还浏览器(与新标签页/另存为惯例一致)。
+          if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return
+          if (tryFocusArtifactFromLink(hrefStr)) e.preventDefault()
+        }}
       >
         <FileText className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
         <span className="truncate">{fileName}</span>
@@ -629,6 +639,9 @@ function MarkdownLink({
       onClick={(e) => {
         if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return
         e.preventDefault()
+        // D76 残余②:命中产物卡的链接优先反向聚焦卡片(与下载卡分支同一判据),
+        // 无卡再走 WorkPanel 打开原行为。
+        if (tryFocusArtifactFromLink(hrefStr)) return
         useWorkPanelStore.getState().openPanel({ url: hrefStr, source: 'markdown-link' })
       }}
     >
