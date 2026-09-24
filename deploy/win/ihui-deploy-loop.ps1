@@ -15,6 +15,13 @@
 #   1. 并发锁(带 PID 存活检测):避免 daemon 与手工运行重叠
 #   2. 调用 ihui-deploy.ps1(幂等:behind=0 直接优雅退出,不部署)
 #   3. 全量输出落盘 deploy-loop.log,便于回看失败原因
+#   4. **每轮墙钟预算($RunBudgetMin,默认 45 分钟)**:超预算即 taskkill /T 整树并按
+#      失败记录 —— 2026-09-24 实测一轮在健康门禁里阻塞 20 分钟(CPU 两次采样恒为
+#      32.359375s、日志停更),而子进程是以同步管道 `& pwsh … | ForEach-Object` 调起的,
+#      它不返回则**整个守护永不进入下一轮 poll** ⇒ 此后所有提交都不再部署。
+#      这与 ihui-deploy.ps1:552 那次「构建静默死亡 + 孤儿孙进程持管道 ⇒ 日志停更 7.5h」
+#      是同一型故障,那一处已按"Start-Process 重定向到文件 + WaitForExit 墙钟 + taskkill"
+#      根治,本层此前仍是无界等待,故照同一先例补齐。
 #
 # -----------------------------------------------------------------------------
 # 2026-09-13 变更记录(实测):
@@ -36,7 +43,8 @@
 # =============================================================================
 param(
     [switch]$Daemon,
-    [int]$IntervalSeconds = 60
+    [int]$IntervalSeconds = 60,
+    [int]$RunBudgetMin = 45          # 单轮墙钟预算:构建本身允许 30 分钟,留余量给门禁与重启
 )
 
 $ErrorActionPreference = 'Continue'   # 本层不因下层退出码中断,交给日志判定
@@ -99,8 +107,62 @@ function Invoke-PollOnce {
         # 流式落盘(2026-09-21 根治):旧写法 `$out = & pwsh ... 2>&1` 先在内存攒完子进程
         # 全部输出再统一落盘,部署全程(最长 30+ 分钟)日志零写入 —— 「日志停更」无法
         # 区分是故障还是正常构建中(本次事故排查的主要干扰源)。改管道逐行实时落盘。
-        & $PwshExe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $WinDir 'ihui-deploy.ps1') 2>&1 |
-            ForEach-Object { Log "[deploy] $_" }
+        #
+        # 但"管道逐行"仍是**无界等待**:2026-09-24 实测子进程在健康门禁里阻塞 20 分钟
+        # (两次采样 CPU 恒为 32.359375s ⇒ 卡在 I/O 而非空转),守护因此永不进入下一轮 poll,
+        # 此后所有提交都不再部署。故这一层改成"Start-Process 重定向到文件 + 增量尾读 +
+        # 墙钟",既保住实时落盘,又给得出确定性收口 —— 与 ihui-deploy.ps1:552 那处构建的
+        # 根治法同形(文件不依赖存活写者,天然免疫管道挂死)。
+        # 落点**不得用 $env:TEMP**:服务身份是 LocalSystem,其 TEMP 是 C:\Windows\Temp
+        # (HKCU 的 TEMP 迁移对它无效,§26 第四类真因),故显式落项目内并被 gitignore 的目录。
+        $runDir  = Join-Path $Root '.ihui-agent\tmp\deploy-loop'
+        $runOut  = Join-Path $runDir "run-$PID.out.log"
+        $runErr  = Join-Path $runDir "run-$PID.err.log"
+        New-Item -ItemType Directory -Path $runDir -Force -ErrorAction SilentlyContinue | Out-Null
+        $child = $null
+        $timedOut = $false
+        try {
+            $child = Start-Process -FilePath $PwshExe -ArgumentList @(
+                '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $WinDir 'ihui-deploy.ps1')
+            ) -NoNewWindow -PassThru -RedirectStandardOutput $runOut -RedirectStandardError $runErr
+            $deadline = (Get-Date).AddMinutes($RunBudgetMin)
+            $seen = 0L
+            while ($true) {
+                foreach ($f in @($runOut, $runErr)) {
+                    if (-not (Test-Path $f)) { continue }
+                    $len = (Get-Item $f).Length
+                    if ($len -le $seen) { continue }
+                    try {
+                        $fs = [System.IO.File]::Open($f, 'Open', 'Read', 'ReadWrite')
+                        $sr = New-Object System.IO.StreamReader($fs)
+                        [void]$sr.BaseStream.Seek($seen, 'Begin')
+                        while (-not $sr.EndOfStream) {
+                            $line = $sr.ReadLine()
+                            if ($null -ne $line) { Log "[deploy] $line" }
+                        }
+                        $seen = $sr.BaseStream.Position
+                        $sr.Close(); $fs.Close()
+                    } catch { Start-Sleep -Milliseconds 300 }   # 子进程正在写:下一轮再读
+                }
+                if ($child.HasExited) { break }
+                if ((Get-Date) -gt $deadline) {
+                    $timedOut = $true
+                    Log "FAIL  本轮超墙钟预算 $RunBudgetMin 分钟,判挂死 → taskkill /T 整树(pid=$($child.Id))"
+                    & taskkill /PID $child.Id /T /F 2>&1 | Out-Null
+                    Start-Sleep -Seconds 3
+                    break
+                }
+                Start-Sleep -Milliseconds 700
+            }
+            $global:LASTEXITCODE = if ($timedOut) { 124 } elseif ($null -ne $child -and $null -ne $child.ExitCode) { $child.ExitCode } else { 1 }
+        } catch {
+            Log "Start-Process 调起子部署脚本异常($($_.Exception.Message)),回退直调"
+            & $PwshExe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $WinDir 'ihui-deploy.ps1') 2>&1 |
+                ForEach-Object { Log "[deploy] $_" }
+        } finally {
+            # §26:临时物用完必须删 —— 部署环每 60 秒一轮,不清就是每天数千个文件
+            Remove-Item $runOut, $runErr -Force -ErrorAction SilentlyContinue
+        }
         Log "———— 部署轮询结束(exit=$LASTEXITCODE) ————"
     } finally {
         Remove-Item $LockFile -Force -ErrorAction SilentlyContinue
