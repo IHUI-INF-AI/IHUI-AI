@@ -3,14 +3,15 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * email-service 单元测试(V3 签名 / 智能路由 / Fallback)
+ * email-service 单元测试(智能路由 / Fallback)
  *
  * 覆盖:
- * 1. TC3-HMAC-SHA256 签名算法正确性(直接对 buildTencentV3Signature 喂入已知输入,验证输出格式)
- * 2. 智能路由:isDomesticEmail + resolveProvider 在不同 MAIL_PROVIDER 下的判定
- * 3. Fallback 链路:primary provider 失败 → SMTP 兜底 → 最终失败时不抛错
+ * 1. 智能路由:isDomesticEmail + resolveProvider 在不同 MAIL_PROVIDER 下的判定
+ * 2. Fallback 链路:primary provider 失败 → SMTP 兜底 → 最终失败时不抛错
+ * 3. 回归保护:SES 通道删除后,任何配置组合下 provider 永不返回 'tencent',
+ *    stub 原因枚举与 warn 文案不再出现 TENCENT_SES 相关字样
  *
- * 与 email-e2e-test.ts / tencent-ses-sign-test.ts 的差异:
+ * 与 email-e2e-test.ts 的差异:
  * - 本文件是 vitest 单元测试,跑 `pnpm --filter @ihui/api test` 全量套件时自动执行
  * - 不依赖 mock SMTP 服务器 / 真实 API / dotenv 手动加载
  * - 通过 vi.mock config + vi.stubGlobal fetch 实现 provider 切换与降级验证
@@ -28,16 +29,9 @@ const { mockConfig, mockSmtpSendMail, mockLogger } = vi.hoisted(() => ({
     SMTP_PASS: 'pass',
     SMTP_FROM: 'noreply@aizhs.top',
     SMTP_ENABLED: false,
-    MAIL_PROVIDER: 'auto' as 'auto' | 'smtp' | 'resend' | 'tencent',
+    MAIL_PROVIDER: 'auto' as 'auto' | 'smtp' | 'resend',
     RESEND_API_KEY: '',
     RESEND_FROM: '',
-    TENCENT_SES_SECRET_ID: '',
-    TENCENT_SES_SECRET_KEY: '',
-    TENCENT_SES_FROM: 'noreply@aizhs.top',
-    TENCENT_SES_REGION: 'ap-hongkong',
-    TENCENT_SES_TEMPLATE_REGISTER: undefined as number | undefined,
-    TENCENT_SES_TEMPLATE_LOGIN: undefined as number | undefined,
-    TENCENT_SES_TEMPLATE_RESET: undefined as number | undefined,
     DATABASE_URL: 'postgresql://test:test@localhost:5432/test',
     REDIS_URL: 'redis://localhost:6379',
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!',
@@ -106,7 +100,6 @@ import {
   resolveProvider,
   diagnoseMailTransport,
   sendEmail,
-  buildTencentV3Signature,
 } from '../src/services/email-service.js'
 
 describe('email-service — isDomesticEmail', () => {
@@ -156,8 +149,6 @@ describe('email-service — resolveProvider', () => {
     // 重置为 auto + 全部 provider 未配置
     mockConfig.MAIL_PROVIDER = 'auto'
     mockConfig.RESEND_API_KEY = ''
-    mockConfig.TENCENT_SES_SECRET_ID = ''
-    mockConfig.TENCENT_SES_SECRET_KEY = ''
     mockConfig.SMTP_ENABLED = false
     mockConfig.SMTP_HOST = ''
   })
@@ -167,27 +158,14 @@ describe('email-service — resolveProvider', () => {
     expect(resolveProvider('user@gmail.com')).toBe('stub')
   })
 
-  it('auto 模式 + 腾讯云已配置 + 国内邮箱 → tencent', () => {
-    mockConfig.TENCENT_SES_SECRET_ID = 'AKIDtest'
-    mockConfig.TENCENT_SES_SECRET_KEY = 'secret'
-    expect(resolveProvider('user@qq.com')).toBe('tencent')
-  })
-
-  it('auto 模式 + 腾讯云已配置 + 国外邮箱 → 不走 tencent(走 smtp 或 stub)', () => {
-    mockConfig.TENCENT_SES_SECRET_ID = 'AKIDtest'
-    mockConfig.TENCENT_SES_SECRET_KEY = 'secret'
-    // 国外邮箱,tencent 优先度低于 resend/smtp,这里都没配 → stub
-    expect(resolveProvider('user@gmail.com')).toBe('stub')
-  })
-
   it('auto 模式 + Resend 已配置 + 国外邮箱 → resend', () => {
     mockConfig.RESEND_API_KEY = 're_test123'
     expect(resolveProvider('user@gmail.com')).toBe('resend')
   })
 
-  it('auto 模式 + Resend 已配置 + 国内邮箱 → 不走 resend(走 tencent 或 smtp/stub)', () => {
+  it('auto 模式 + Resend 已配置 + 国内邮箱 → 不走 resend(走 smtp 或 stub)', () => {
     mockConfig.RESEND_API_KEY = 're_test123'
-    // 国内邮箱,resend 优先度低,腾讯云/SMTP 都未配 → stub
+    // 国内邮箱,resend 优先度低,SMTP 未配 → stub
     expect(resolveProvider('user@qq.com')).toBe('stub')
   })
 
@@ -196,22 +174,6 @@ describe('email-service — resolveProvider', () => {
     mockConfig.SMTP_HOST = 'smtp.example.com'
     expect(resolveProvider('user@qq.com')).toBe('smtp')
     expect(resolveProvider('user@gmail.com')).toBe('smtp')
-  })
-
-  it('auto 模式 + 腾讯云 + SMTP 兜底:国内邮箱走 tencent(优先)', () => {
-    mockConfig.TENCENT_SES_SECRET_ID = 'AKIDtest'
-    mockConfig.TENCENT_SES_SECRET_KEY = 'secret'
-    mockConfig.SMTP_ENABLED = true
-    mockConfig.SMTP_HOST = 'smtp.example.com'
-    expect(resolveProvider('user@qq.com')).toBe('tencent')
-  })
-
-  it('显式 MAIL_PROVIDER=tencent + 凭据未配置 → 不返回 tencent(降级)', () => {
-    mockConfig.MAIL_PROVIDER = 'tencent'
-    mockConfig.TENCENT_SES_SECRET_ID = ''
-    mockConfig.TENCENT_SES_SECRET_KEY = ''
-    // 强制 tencent 但凭据缺失,应降级到 stub(因为 SMTP 也未启用)
-    expect(resolveProvider('user@qq.com')).toBe('stub')
   })
 
   it('显式 MAIL_PROVIDER=resend + API Key 未配置 → 不返回 resend(降级)', () => {
@@ -225,99 +187,20 @@ describe('email-service — resolveProvider', () => {
     mockConfig.SMTP_ENABLED = false
     expect(resolveProvider('user@qq.com')).toBe('stub')
   })
-})
 
-describe('email-service — buildTencentV3Signature (TC3-HMAC-SHA256)', () => {
-  it('生成符合规范的 Authorization 格式', async () => {
-    const result = await buildTencentV3Signature({
-      secretId: 'AKIDz8krbsJ5yKBZQpn74WFkmLPx3EXAMPLE',
-      secretKey: 'Gu5t9xGARNpq86cd98joQYCN3EXAMPLEKEY',
-      host: 'ses.ap-hongkong.tencentcloudapi.com',
-      payload: '{"FromEmailAddress":"noreply@aizhs.top","Destination":["test@qq.com"]}',
-      region: 'ap-hongkong',
-      service: 'ses',
-    })
-
-    expect(result.SignedHeaders).toBe('content-type;host;x-tc-action')
-    expect(result.Authorization).toMatch(
-      /^TC3-HMAC-SHA256 Credential=AKIDz8krbsJ5yKBZQpn74WFkmLPx3EXAMPLE\/\d{4}-\d{2}-\d{2}\/ses\/tc3_request, SignedHeaders=content-type;host;x-tc-action, Signature=[a-f0-9]{64}$/,
-    )
-  })
-
-  it('签名为 SHA256 hex(64 字符)', async () => {
-    const result = await buildTencentV3Signature({
-      secretId: 'AKIDtest',
-      secretKey: 'testkey',
-      host: 'ses.ap-hongkong.tencentcloudapi.com',
-      payload: '{}',
-      region: 'ap-hongkong',
-      service: 'ses',
-    })
-    const match = result.Authorization.match(/Signature=([a-f0-9]+)/)
-    expect(match).not.toBeNull()
-    expect(match![1]).toHaveLength(64)
-  })
-
-  it('相同输入产生相同签名(确定性)', async () => {
-    const params = {
-      secretId: 'AKIDtest',
-      secretKey: 'testkey',
-      host: 'ses.ap-hongkong.tencentcloudapi.com',
-      payload: '{"x":1}',
-      region: 'ap-hongkong',
-      service: 'ses',
-    }
-    const a = await buildTencentV3Signature(params)
-    const b = await buildTencentV3Signature(params)
-    // 时间戳可能不同,只比 Signature 段
-    const sigA = a.Authorization.match(/Signature=([a-f0-9]+)/)![1]
-    const sigB = b.Authorization.match(/Signature=([a-f0-9]+)/)![1]
-    // 注意:timestamp 会变,但同一秒内两次签名应相同
-    // 实际测试中 timestamp 可能跨秒,因此只验证格式合法 + 不同 payload 产生不同签名
-    expect(sigA).toMatch(/^[a-f0-9]{64}$/)
-    expect(sigB).toMatch(/^[a-f0-9]{64}$/)
-  })
-
-  it('不同 payload 产生不同签名', async () => {
-    const base = {
-      secretId: 'AKIDtest',
-      secretKey: 'testkey',
-      host: 'ses.ap-hongkong.tencentcloudapi.com',
-      region: 'ap-hongkong',
-      service: 'ses',
-    }
-    const a = await buildTencentV3Signature({ ...base, payload: '{"a":1}' })
-    const b = await buildTencentV3Signature({ ...base, payload: '{"a":2}' })
-    const sigA = a.Authorization.match(/Signature=([a-f0-9]+)/)![1]
-    const sigB = b.Authorization.match(/Signature=([a-f0-9]+)/)![1]
-    expect(sigA).not.toBe(sigB)
-  })
-
-  it('不同 secretKey 产生不同签名', async () => {
-    const base = {
-      secretId: 'AKIDtest',
-      host: 'ses.ap-hongkong.tencentcloudapi.com',
-      payload: '{}',
-      region: 'ap-hongkong',
-      service: 'ses',
-    }
-    const a = await buildTencentV3Signature({ ...base, secretKey: 'key1' })
-    const b = await buildTencentV3Signature({ ...base, secretKey: 'key2' })
-    const sigA = a.Authorization.match(/Signature=([a-f0-9]+)/)![1]
-    const sigB = b.Authorization.match(/Signature=([a-f0-9]+)/)![1]
-    expect(sigA).not.toBe(sigB)
-  })
-
-  it('Credential 段包含 date/service/tc3_request', async () => {
-    const result = await buildTencentV3Signature({
-      secretId: 'AKIDtest',
-      secretKey: 'testkey',
-      host: 'ses.ap-hongkong.tencentcloudapi.com',
-      payload: '{}',
-      region: 'ap-hongkong',
-      service: 'ses',
-    })
-    expect(result.Authorization).toMatch(/Credential=AKIDtest\/\d{4}-\d{2}-\d{2}\/ses\/tc3_request/)
+  it('回归保护:SES 删除后,任何配置组合下 provider 永不返回 tencent', () => {
+    // 全未配置
+    expect(resolveProvider('user@qq.com')).not.toBe('tencent')
+    expect(resolveProvider('user@gmail.com')).not.toBe('tencent')
+    // 仅 Resend
+    mockConfig.RESEND_API_KEY = 're_test123'
+    expect(resolveProvider('user@qq.com')).not.toBe('tencent')
+    expect(resolveProvider('user@gmail.com')).not.toBe('tencent')
+    // 仅 SMTP
+    mockConfig.SMTP_ENABLED = true
+    mockConfig.SMTP_HOST = 'smtp.example.com'
+    expect(resolveProvider('user@qq.com')).not.toBe('tencent')
+    expect(resolveProvider('user@gmail.com')).not.toBe('tencent')
   })
 })
 
@@ -328,8 +211,6 @@ describe('email-service — sendEmail Fallback 链路', () => {
     // 重置为所有 provider 未配置(默认 stub 路径)
     mockConfig.MAIL_PROVIDER = 'auto'
     mockConfig.RESEND_API_KEY = ''
-    mockConfig.TENCENT_SES_SECRET_ID = ''
-    mockConfig.TENCENT_SES_SECRET_KEY = ''
     mockConfig.SMTP_ENABLED = false
     mockConfig.SMTP_HOST = ''
 
@@ -423,73 +304,25 @@ describe('email-service — sendEmail Fallback 链路', () => {
     )
   })
 
-  it('腾讯云 SES 失败:返回 sent=false + provider=tencent + 不抛错', async () => {
-    mockConfig.MAIL_PROVIDER = 'tencent'
-    mockConfig.TENCENT_SES_SECRET_ID = 'AKIDtest'
-    mockConfig.TENCENT_SES_SECRET_KEY = 'testkey'
+  it('回归保护:SES 删除后发送结果永不携带 provider=tencent', async () => {
+    // Resend 成功
+    mockConfig.RESEND_API_KEY = 're_test123'
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'msg-r' }) })
+    const r1 = await sendEmail({ to: 'user@gmail.com', subject: 'x', html: '<p>x</p>' })
+    expect(r1.provider).not.toBe('tencent')
 
-    fetchMock.mockResolvedValueOnce({
-      ok: false,
-      status: 403,
-      text: async () => 'SignatureDoesNotMatch',
-    })
+    // Resend 失败 + SMTP 兜底
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 500, text: async () => 'err' })
+    mockConfig.SMTP_ENABLED = true
+    mockConfig.SMTP_HOST = 'smtp.example.com'
+    mockSmtpSendMail.mockClear()
+    mockSmtpSendMail.mockResolvedValueOnce({ messageId: '<mock-r2@smtp>' })
+    const r2 = await sendEmail({ to: 'user@qq.com', subject: 'x', html: '<p>x</p>' })
+    expect(r2.provider).not.toBe('tencent')
 
-    const result = await sendEmail({
-      to: 'user@qq.com',
-      subject: 'hello',
-      html: '<p>x</p>',
-    })
-    expect(result.sent).toBe(false)
-    expect(result.provider).toBe('tencent')
-    expect(result.error).toContain('403')
-  })
-
-  it('腾讯云 SES 成功:Authorization 头包含 TC3-HMAC-SHA256 + X-TC-Action=SendEmail', async () => {
-    mockConfig.MAIL_PROVIDER = 'tencent'
-    mockConfig.TENCENT_SES_SECRET_ID = 'AKIDtest'
-    mockConfig.TENCENT_SES_SECRET_KEY = 'testkey'
-
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ Response: { MessageId: 'ses-1' } }),
-    })
-
-    const result = await sendEmail({
-      to: 'user@qq.com',
-      subject: 'hello',
-      html: '<p>x</p>',
-    })
-    expect(result.sent).toBe(true)
-    expect(result.provider).toBe('tencent')
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
-    expect(url).toContain('tencentcloudapi.com')
-    const headers = init.headers as Record<string, string>
-    expect(headers['X-TC-Action']).toBe('SendEmail')
-    expect(headers['X-TC-Version']).toBe('2020-10-02')
-    expect(headers['X-TC-Region']).toBe('ap-hongkong')
-    expect(headers.Authorization).toMatch(/^TC3-HMAC-SHA256 /)
-  })
-
-  it('腾讯云 SES API 业务错误:Response.Error.Message 被透传', async () => {
-    mockConfig.MAIL_PROVIDER = 'tencent'
-    mockConfig.TENCENT_SES_SECRET_ID = 'AKIDtest'
-    mockConfig.TENCENT_SES_SECRET_KEY = 'testkey'
-
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        Response: { Error: { Code: 'TemplateNotFound', Message: 'TemplateNotFound' } },
-      }),
-    })
-
-    const result = await sendEmail({
-      to: 'user@qq.com',
-      subject: 'hello',
-      html: '<p>x</p>',
-    })
-    expect(result.sent).toBe(false)
-    expect(result.provider).toBe('tencent')
-    expect(result.error).toBe('[TemplateNotFound] TemplateNotFound')
+    // 全部失败落 stub
+    const r3 = await sendEmail({ to: 'user@qq.com', subject: 'x', html: '<p>x</p>' })
+    expect(r3.provider).not.toBe('tencent')
   })
 
   it('fetch 抛网络异常:被 catch 后返回 sent=false + error 包含异常 message', async () => {
@@ -511,8 +344,6 @@ describe('email-service — sendVerificationEmail', () => {
   beforeEach(() => {
     mockConfig.MAIL_PROVIDER = 'auto'
     mockConfig.RESEND_API_KEY = ''
-    mockConfig.TENCENT_SES_SECRET_ID = ''
-    mockConfig.TENCENT_SES_SECRET_KEY = ''
     mockConfig.SMTP_ENABLED = false
     vi.stubGlobal('fetch', vi.fn())
   })
@@ -551,194 +382,12 @@ describe('email-service — sendVerificationEmail', () => {
   })
 })
 
-describe('email-service — 腾讯云 SES Template 模式 + Simple base64 修复', () => {
-  let fetchMock: ReturnType<typeof vi.fn>
-
-  beforeEach(() => {
-    mockConfig.MAIL_PROVIDER = 'tencent'
-    mockConfig.TENCENT_SES_SECRET_ID = 'AKIDtest'
-    mockConfig.TENCENT_SES_SECRET_KEY = 'testkey'
-    mockConfig.TENCENT_SES_TEMPLATE_REGISTER = undefined
-    mockConfig.TENCENT_SES_TEMPLATE_LOGIN = undefined
-    mockConfig.TENCENT_SES_TEMPLATE_RESET = undefined
-    mockConfig.SMTP_ENABLED = false
-    mockConfig.SMTP_HOST = ''
-    fetchMock = vi.fn()
-    vi.stubGlobal('fetch', fetchMock)
-  })
-
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
-
-  it('Template 模式:scene=register + 配置了 TENCENT_SES_TEMPLATE_REGISTER → payload 含 Template 无 Simple', async () => {
-    mockConfig.TENCENT_SES_TEMPLATE_REGISTER = 12345
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ Response: { MessageId: 'ses-tpl-1' } }),
-    })
-
-    const result = await sendEmail({
-      to: 'user@qq.com',
-      subject: 'verify',
-      html: '<p>x</p>',
-      scene: 'register',
-      templateVariables: { code: '123456', nickname: '张三' },
-    })
-    expect(result.sent).toBe(true)
-    expect(result.provider).toBe('tencent')
-
-    const init = fetchMock.mock.calls[0]![1] as RequestInit
-    const body = JSON.parse(init.body as string) as {
-      Template?: { TemplateID: number; TemplateData: string }
-      Simple?: { Html: string; Text: string }
-    }
-    expect(body.Template).toBeDefined()
-    expect(body.Template!.TemplateID).toBe(12345)
-    expect(body.Simple).toBeUndefined()
-    // TemplateData 是 JSON 字符串
-    expect(JSON.parse(body.Template!.TemplateData)).toEqual({
-      code: '123456',
-      nickname: '张三',
-    })
-  })
-
-  it('Template 模式:scene=login → 用 TENCENT_SES_TEMPLATE_LOGIN', async () => {
-    mockConfig.TENCENT_SES_TEMPLATE_LOGIN = 22222
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ Response: { MessageId: 'ses-tpl-2' } }),
-    })
-    await sendEmail({
-      to: 'user@qq.com',
-      subject: 'verify',
-      html: '<p>x</p>',
-      scene: 'login',
-      templateVariables: { code: '999999' },
-    })
-    const init = fetchMock.mock.calls[0]![1] as RequestInit
-    const body = JSON.parse(init.body as string)
-    expect(body.Template.TemplateID).toBe(22222)
-  })
-
-  it('Template 模式:scene=reset → 用 TENCENT_SES_TEMPLATE_RESET', async () => {
-    mockConfig.TENCENT_SES_TEMPLATE_RESET = 33333
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ Response: { MessageId: 'ses-tpl-3' } }),
-    })
-    await sendEmail({
-      to: 'user@qq.com',
-      subject: 'verify',
-      html: '<p>x</p>',
-      scene: 'reset',
-      templateVariables: { code: '000000' },
-    })
-    const init = fetchMock.mock.calls[0]![1] as RequestInit
-    const body = JSON.parse(init.body as string)
-    expect(body.Template.TemplateID).toBe(33333)
-  })
-
-  it('Simple fallback:无 template id → payload 含 Simple 无 Template,Html/Text 是 base64', async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ Response: { MessageId: 'ses-simple-1' } }),
-    })
-    const html = '<p>hello 中文</p>'
-    const text = 'plain text 内容'
-    await sendEmail({
-      to: 'user@qq.com',
-      subject: 'notification',
-      html,
-      text,
-      scene: 'transaction', // 非验证码场景,无 template id
-    })
-    const init = fetchMock.mock.calls[0]![1] as RequestInit
-    const body = JSON.parse(init.body as string) as {
-      Template?: unknown
-      Simple?: { Html: string; Text: string }
-    }
-    expect(body.Template).toBeUndefined()
-    expect(body.Simple).toBeDefined()
-    // base64 解码后等于原字符串(验证 UTF-8 编码 + base64 编码正确)
-    expect(Buffer.from(body.Simple!.Html, 'base64').toString('utf8')).toBe(html)
-    expect(Buffer.from(body.Simple!.Text, 'base64').toString('utf8')).toBe(text)
-  })
-
-  it('Simple fallback:验证码场景但未配置 template id → 仍走 Simple', async () => {
-    // scene=register 但 TENCENT_SES_TEMPLATE_REGISTER 没配 → fallback Simple
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ Response: { MessageId: 'ses-simple-2' } }),
-    })
-    await sendEmail({
-      to: 'user@qq.com',
-      subject: 'verify',
-      html: '<p>code</p>',
-      scene: 'register',
-    })
-    const init = fetchMock.mock.calls[0]![1] as RequestInit
-    const body = JSON.parse(init.body as string)
-    expect(body.Simple).toBeDefined()
-    expect(body.Template).toBeUndefined()
-  })
-
-  it('sendVerificationEmail 透传 templateVariables 供 Template 模式使用', async () => {
-    mockConfig.TENCENT_SES_TEMPLATE_LOGIN = 99999
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ Response: { MessageId: 'ses-verify-1' } }),
-    })
-
-    const { sendVerificationEmail } = await import('../src/services/email-service.js')
-    const result = await sendVerificationEmail('user@qq.com', '654321', 'login', '李四')
-    expect(result.sent).toBe(true)
-
-    const init = fetchMock.mock.calls[0]![1] as RequestInit
-    const body = JSON.parse(init.body as string)
-    expect(body.Template.TemplateID).toBe(99999)
-    expect(JSON.parse(body.Template.TemplateData)).toEqual({
-      code: '654321',
-      nickname: '李四',
-      scene: 'login',
-      sceneText: '登录',
-    })
-  })
-
-  it('腾讯云返回业务错误时,error 包含 [Code] 前缀', async () => {
-    mockConfig.TENCENT_SES_TEMPLATE_LOGIN = 99999
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        Response: {
-          Error: {
-            Code: 'FailedOperation.WithOutPermission',
-            Message: '未开通自定义发送权限',
-          },
-        },
-      }),
-    })
-
-    const result = await sendEmail({
-      to: 'user@qq.com',
-      subject: 'verify',
-      html: '<p>x</p>',
-      scene: 'login',
-    })
-    expect(result.sent).toBe(false)
-    expect(result.error).toContain('[FailedOperation.WithOutPermission]')
-    expect(result.error).toContain('未开通自定义发送权限')
-  })
-})
-
 describe('email-service — stub 静默故障可见化(warn + reasons)', () => {
   beforeEach(() => {
     // 复刻 2026-09-23 生产实况:host/user/pass 全配好,唯独 SMTP_ENABLED 缺省 false,
-    // 且腾讯云凭据未配 ⇒ 国内收件人全部落 stub,一封不发。
+    // ⇒ 国内收件人全部落 stub,一封不发。
     mockConfig.MAIL_PROVIDER = 'auto'
     mockConfig.RESEND_API_KEY = ''
-    mockConfig.TENCENT_SES_SECRET_ID = ''
-    mockConfig.TENCENT_SES_SECRET_KEY = ''
     mockConfig.SMTP_ENABLED = false
     mockConfig.SMTP_HOST = 'smtp.qq.com'
     mockLogger.warn.mockClear()
@@ -749,14 +398,28 @@ describe('email-service — stub 静默故障可见化(warn + reasons)', () => {
     vi.unstubAllGlobals()
   })
 
-  it('stub 分支:result.reasons 点名 smtp_disabled + 腾讯云缺失(SMTP 兜底缺口在前)', async () => {
+  it('stub 分支:result.reasons 点名 smtp_disabled(SMTP 兜底缺口)', async () => {
     const result = await sendEmail({
       to: 'someone@qq.com',
       subject: 'test',
       html: '<p>x</p>',
       scene: 'login',
     })
-    expect(result.reasons).toEqual(['smtp_disabled', 'tencent_ses_keys_missing'])
+    expect(result.reasons).toEqual(['smtp_disabled'])
+  })
+
+  it('回归保护:stub reasons 与 warn 文案不再出现任何 TENCENT_SES/tencent 字样', async () => {
+    const result = await sendEmail({
+      to: 'someone@qq.com',
+      subject: 'test',
+      html: '<p>x</p>',
+      scene: 'login',
+    })
+    expect(result.reasons ?? []).not.toContain('tencent_ses_keys_missing')
+    expect(mockLogger.warn).toHaveBeenCalledTimes(1)
+    const msg = String(mockLogger.warn.mock.calls[0]![0])
+    expect(msg).not.toContain('TENCENT')
+    expect(msg).not.toContain('tencent')
   })
 
   it('stub 分支:logger.warn 一行内含缺失配置提示 + scene,运维无需查代码即知缺什么', async () => {
@@ -765,18 +428,14 @@ describe('email-service — stub 静默故障可见化(warn + reasons)', () => {
     const msg = String(mockLogger.warn.mock.calls[0]![0])
     expect(msg).toContain('[email-stub]')
     expect(msg).toContain('SMTP_ENABLED=false')
-    expect(msg).toContain('TENCENT_SES_SECRET_ID/KEY 未配置')
     expect(msg).toContain('scene: login')
   })
 
   it('stub 分支 warn 不泄露完整邮箱与任何密钥值', async () => {
-    mockConfig.TENCENT_SES_SECRET_KEY = 'super-secret-value-should-not-log'
-    mockConfig.SMTP_HOST = '' // 让腾讯云缺口也进 blockers,同时验证不泄露 secret 值
     await sendEmail({ to: 'someone@qq.com', subject: 'test', html: '<p>x</p>', scene: 'login' })
     const msg = String(mockLogger.warn.mock.calls[0]![0])
     expect(msg).toContain('s***@qq.com')
     expect(msg).not.toContain('someone@qq.com')
-    expect(msg).not.toContain('super-secret-value-should-not-log')
     expect(msg).not.toContain(mockConfig.SMTP_PASS)
   })
 
@@ -791,8 +450,6 @@ describe('email-service — 现状钉死:SMTP_ENABLED=false 时国内邮箱落 s
   beforeEach(() => {
     mockConfig.MAIL_PROVIDER = 'auto'
     mockConfig.RESEND_API_KEY = ''
-    mockConfig.TENCENT_SES_SECRET_ID = ''
-    mockConfig.TENCENT_SES_SECRET_KEY = ''
     mockConfig.SMTP_ENABLED = false
     mockConfig.SMTP_HOST = 'smtp.qq.com'
   })
@@ -813,23 +470,22 @@ describe('email-service — diagnoseMailTransport(全局通道体检)', () => {
   beforeEach(() => {
     mockConfig.MAIL_PROVIDER = 'auto'
     mockConfig.RESEND_API_KEY = ''
-    mockConfig.TENCENT_SES_SECRET_ID = ''
-    mockConfig.TENCENT_SES_SECRET_KEY = ''
     mockConfig.SMTP_ENABLED = false
     mockConfig.SMTP_HOST = ''
   })
 
-  it('全不可用:国内/海外双 stub,blockers 汇总三类缺失配置', () => {
+  it('全不可用:国内/海外双 stub,blockers 汇总两类缺失配置(不含 tencent)', () => {
     const d = diagnoseMailTransport()
     expect(d.providerForDomestic).toBe('stub')
     expect(d.providerForOverseas).toBe('stub')
-    expect(d.blockers).toEqual(
-      expect.arrayContaining([
-        'smtp_disabled',
-        'resend_api_key_missing',
-        'tencent_ses_keys_missing',
-      ]),
-    )
+    expect(d.blockers).toEqual(['smtp_disabled', 'resend_api_key_missing'])
+  })
+
+  it('回归保护:诊断输出不再含 tencent 相关原因', () => {
+    const d = diagnoseMailTransport()
+    expect(d.blockers).not.toContain('tencent_ses_keys_missing')
+    expect(d.providerForDomestic).not.toBe('tencent')
+    expect(d.providerForOverseas).not.toBe('tencent')
   })
 
   it('仅 Resend:海外走 resend,国内仍 stub;blockers 不再含 resend_api_key_missing', () => {
@@ -839,7 +495,6 @@ describe('email-service — diagnoseMailTransport(全局通道体检)', () => {
     expect(d.providerForDomestic).toBe('stub')
     expect(d.blockers).not.toContain('resend_api_key_missing')
     expect(d.blockers).toContain('smtp_disabled')
-    expect(d.blockers).toContain('tencent_ses_keys_missing')
   })
 
   it('SMTP 已开:双路 smtp,blockers 为空(启动期全局 warn 的条件不成立)', () => {
@@ -852,4 +507,5 @@ describe('email-service — diagnoseMailTransport(全局通道体检)', () => {
     })
   })
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
