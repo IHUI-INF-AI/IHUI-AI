@@ -185,7 +185,7 @@ function PaneSplitView(props: ViewProps & { node: PaneSplitNode }) {
                 aria-label={t('resizeAriaLabel')}
                 aria-valuemin={Math.round(MIN_PANE_SIZE * 100)}
                 aria-valuemax={Math.round((1 - MIN_PANE_SIZE) * 100)}
-                aria-valuenow={Math.round(node.sizes[index] * 100)}
+                aria-valuenow={Math.round((node.sizes[index] ?? MIN_PANE_SIZE) * 100)}
                 tabIndex={0}
                 className={RESIZER_CLASS[axis].track}
                 data-pane-resizer=""
