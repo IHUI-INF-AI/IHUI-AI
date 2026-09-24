@@ -10,8 +10,10 @@ describe('SANDBOX_PROFILES 5 级预设', () => {
     expect(Object.keys(SANDBOX_PROFILES).sort()).toEqual(['full', 'limited', 'open', 'readonly', 'trusted'])
   })
 
-  it('readonly 的 commandAllowlist 是空数组', () => {
-    expect(SANDBOX_PROFILES.readonly.overrides.commandAllowlist).toEqual([])
+  it('readonly 的 commandAllowlist 是 null(= 一律拒绝),不是空数组', () => {
+    // 旧值 [] 在判定里等价于"未设置",于是本档描述写的"无 shell 命令"根本不成立。
+    // null 才是"显式禁止一切命令"的机器可表达形态。
+    expect(SANDBOX_PROFILES.readonly.overrides.commandAllowlist).toBeNull()
   })
 
   it('limited 的 commandAllowlist 包含 node/npm/pnpm', () => {

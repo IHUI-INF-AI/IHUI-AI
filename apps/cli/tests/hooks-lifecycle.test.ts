@@ -12,6 +12,12 @@ import {
   type HooksConfig,
 } from '../src/hooks/index.js';
 
+// 本文件的断言是"钩子确实被执行了什么结果",而 command 形态的钩子现在必须先过目录信任门
+// (src/hooks/index.ts 的 hookTrustSkipReason,唯一收口点在 runHookEntry)。
+// 测试机上没有 ~/.ihui/trusted-folders,所以显式走那条为非交互场景留的出口 ——
+// 这不是绕过被测行为,信任门本身由 tests/hooks-trust-gate.test.ts 专门验。
+process.env.IHUI_TRUST_WORKSPACE = '1';
+
 const isWindows = process.platform === 'win32';
 const exit0 = isWindows ? 'cmd /c exit 0' : "sh -c 'exit 0'";
 const exit1 = isWindows ? 'cmd /c exit 1' : "sh -c 'exit 1'";

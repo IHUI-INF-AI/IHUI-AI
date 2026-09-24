@@ -39,6 +39,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { tryParseJson, isRecord } from '../util/json.js';
+import { gateHook } from './trust.js';
 
 export interface HookEntry {
   name: string;
@@ -56,6 +57,15 @@ export interface HookEntry {
   blockOnError?: boolean;
   /** 超时毫秒(command 与 webhook 共用,默认 10000) */
   timeout?: number;
+  /** 来源标记,由 loadHooksConfig 按配置文件落点盖章:
+   *  - `'project'` = 工作区里带的配置(clone 下来的仓库可写)→ command 形态必须过目录信任门
+   *  - `'user'`    = 用户主目录下的配置 → 行为与接线前完全一致
+   *  未盖章(`undefined`)按 `'project'` 处理:来源不明不能变成免检通道。 */
+  source?: 'project' | 'user';
+  /** 来源配置所在目录(绝对路径)。目录信任判定按**它**而不是 process.cwd() ——
+   *  IHUI_HOOKS_CONFIG 可以把配置指到任意目录,按 cwd 判会把陌生目录的钩子
+   *  算成"已信任目录里长出来的"。 */
+  sourceFolder?: string;
 }
 
 export type HookEvent =
@@ -150,20 +160,24 @@ export function buildWebhookBody(template: string, vars: Record<string, string>)
   });
 }
 
+/** HooksConfig 的全部事件键 —— 合并与来源盖章两处共用一份清单
+ *  (两处各抄一份时,新增事件只改一处就会静默漏掉另一处)。 */
+const HOOK_EVENT_KEYS: Array<keyof HooksConfig> = [
+  'preToolCall', 'postToolCall', 'sessionStart', 'sessionEnd',
+  'userPromptSubmit', 'preCompact', 'postCompact', 'notification',
+  'stop', 'stopFailure', 'postToolUseFailure', 'permissionDenied',
+  'subagentStart', 'subagentStop',
+  // P2-4 Turn 级事件
+  'turnStart', 'turnEnd', 'turnError', 'turnComplete',
+];
+
 /**
  * 深合并两个 HooksConfig:b 的标量/数组与 a 合并。
  * 数组字段(preToolCall 等)拼接为 [...a, ...b](a 在前);仅一边存在则保留该边。
  */
 export function deepMergeHooks(a: HooksConfig, b: HooksConfig): HooksConfig {
   const result: HooksConfig = {};
-  const keys: Array<keyof HooksConfig> = [
-    'preToolCall', 'postToolCall', 'sessionStart', 'sessionEnd',
-    'userPromptSubmit', 'preCompact', 'postCompact', 'notification',
-    'stop', 'stopFailure', 'postToolUseFailure', 'permissionDenied',
-    'subagentStart', 'subagentStop',
-    // P2-4 Turn 级事件
-    'turnStart', 'turnEnd', 'turnError', 'turnComplete',
-  ];
+  const keys: Array<keyof HooksConfig> = HOOK_EVENT_KEYS;
   for (const k of keys) {
     const av = a[k];
     const bv = b[k];
@@ -189,6 +203,65 @@ function listHooksConfigPaths(cwd: string): string[] {
   return paths;
 }
 
+/**
+ * 配置文件归属的"目录" —— 目录信任判定要以它为粒度,而不是以 hooks.json 所在目录:
+ * `<repo>/.ihui/hooks.json` 的归属目录是 `<repo>`(用户要信任的是这个仓库,
+ * 而不是它的 `.ihui` 子目录)。约定目录名不在 CONFIG_SOURCE_DIRS 里时,取其自身父目录。
+ */
+export function owningFolderOfConfig(configFile: string): string {
+  const dir = path.dirname(path.resolve(configFile));
+  return CONFIG_SOURCE_DIRS.includes(path.basename(dir)) ? path.dirname(dir) : dir;
+}
+
+function isSameOrUnder(candidate: string, root: string): boolean {
+  return candidate === root || candidate.startsWith(root + path.sep);
+}
+
+/**
+ * 按配置文件落点判定来源:
+ * - 归属目录落在工作区内 → `'project'`(clone 下来的仓库自带的配置走这一支)
+ * - 落在用户主目录下 → `'user'`(用户自己写的,不算外来代码)
+ * - 两处都不落(单源模式指到别处 / 判不出来)→ `'project'`
+ *   最后一支是**刻意的保守**:默认放行等于把"来源不明"当免检通道。
+ */
+export function classifyHooksSource(configFile: string, cwd: string): 'project' | 'user' {
+  const owning = owningFolderOfConfig(configFile);
+  if (isSameOrUnder(owning, path.resolve(cwd))) return 'project';
+  if (isSameOrUnder(owning, path.resolve(os.homedir()))) return 'user';
+  return 'project';
+}
+
+/** 给一份从磁盘读到的配置逐条盖来源戳(必须在合并**之前**做,合并后无法区分谁带来的) */
+function stampConfigSource(
+  config: HooksConfig,
+  source: 'project' | 'user',
+  sourceFolder: string,
+): HooksConfig {
+  const stamped: HooksConfig = {};
+  for (const key of HOOK_EVENT_KEYS) {
+    const entries = config[key];
+    if (!entries) continue;
+    // 已带 source 的条目不覆盖:允许调用方(或再上一层生成器)显式声明来源
+    stamped[key] = entries.map((e) => ({
+      ...e,
+      source: e.source ?? source,
+      sourceFolder: e.sourceFolder ?? sourceFolder,
+    })) as never;
+  }
+  return stamped;
+}
+
+function readHooksConfigFile(p: string): HooksConfig | null {
+  if (!fs.existsSync(p)) return null;
+  try {
+    const parsed = tryParseJson(fs.readFileSync(p, 'utf-8'));
+    // 损坏文件返回 null,由调用方继续下一源(与旧行为一致)
+    return isRecord(parsed) ? (parsed as unknown as HooksConfig) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function getHooksPath(): string {
   if (process.env.IHUI_HOOKS_CONFIG) return process.env.IHUI_HOOKS_CONFIG;
   return path.join(os.homedir(), '.ihui', 'hooks.json');
@@ -197,29 +270,21 @@ export function getHooksPath(): string {
 /**
  * 多源加载 hooks.json,按优先级深合并(高优先级覆盖低优先级)。
  * IHUI_HOOKS_CONFIG 环境变量设置时退化为单源(向后兼容)。
+ * 每条钩子都会被盖上 `source` / `sourceFolder`(派发时判目录信任要用)。
  */
 export function loadHooksConfig(cwd: string = process.cwd()): HooksConfig {
   if (process.env.IHUI_HOOKS_CONFIG) {
     const p = process.env.IHUI_HOOKS_CONFIG;
-    if (!fs.existsSync(p)) return {};
-    try {
-      const parsed = tryParseJson(fs.readFileSync(p, 'utf-8'));
-      return isRecord(parsed) ? (parsed as unknown as HooksConfig) : {};
-    } catch {
-      return {};
-    }
+    const parsed = readHooksConfigFile(p);
+    if (!parsed) return {};
+    return stampConfigSource(parsed, classifyHooksSource(p, cwd), owningFolderOfConfig(p));
   }
   const paths = listHooksConfigPaths(cwd);
   let acc: HooksConfig = {};
   for (const p of [...paths].reverse()) {
-    if (!fs.existsSync(p)) continue;
-    try {
-      const parsed = tryParseJson(fs.readFileSync(p, 'utf-8'));
-      if (isRecord(parsed)) {
-        acc = deepMergeHooks(acc, parsed as unknown as HooksConfig);
-      }
-    } catch {
-      // 损坏文件忽略,继续下一源
+    const parsed = readHooksConfigFile(p);
+    if (parsed) {
+      acc = deepMergeHooks(acc, stampConfigSource(parsed, classifyHooksSource(p, cwd), owningFolderOfConfig(p)));
     }
   }
   return acc;
@@ -324,6 +389,51 @@ function runWebhookSync(
   return { exitCode: 1, stdout: '', stderr: res.message || 'webhook 网络错误' };
 }
 
+/** IHUI_TRUST_WORKSPACE 放行只提示一次,免得每条钩子刷一行 */
+let workspaceTrustWarned = false;
+/** 已提示过的被跳过钩子(按 来源+名字 去重:同一钩子每次工具调用都跑,不能每次都刷) */
+const announcedSkips = new Set<string>();
+
+/** 提示走 stderr:不得占用钩子的 stdout/stderr 通道,那两条是钩子结果本身 */
+function warnOnce(line: string): void {
+  try {
+    process.stderr.write(`${line}\n`);
+  } catch {
+    // 提示写不出去也不影响派发判定
+  }
+}
+
+/**
+ * 派发前的目录信任判定 —— 只挂在 runHookEntry 这一个执行收口点上。
+ *
+ * 为什么必须有:配置可以从**工作区**里加载(`loadHooksConfig` 读 `<cwd>/.{ihui,claude,cursor}/
+ * hooks.json`),而 command 形态是 `spawnSync(cmd, { shell: true, env: {...process.env} })` ——
+ * 没有这道门时,clone 一个陌生仓库并在里面跑 CLI,仓库自带的命令就会带着全部 API key 执行。
+ * trust.ts 里这道门早就写好了,只是从来没有被调用。
+ *
+ * @returns 跳过原因文案;null = 允许执行
+ */
+export function hookTrustSkipReason(entry: HookEntry): string | null {
+  // 用户主目录里的配置:行为与接线前完全一致(不查门)
+  if (entry.source === 'user') return null;
+  // 未盖章的条目按 project 处理 —— "来源不明"不构成免检通道。
+  // 判定用来源目录而不是 process.cwd():IHUI_HOOKS_CONFIG 可以把配置指到任意目录。
+  const folder = entry.sourceFolder ?? process.cwd();
+  const gate = gateHook({ name: entry.name }, folder);
+  if (gate.allowed) return null;
+  // IHUI_TRUST_WORKSPACE=1 = 非交互场景(CI / 脚本 / 无 TTY)的显式出口。
+  // 只免"目录信任",不免 disabled-hooks:后者是用户逐条关掉的开关,
+  // 一个环境变量不该把它复活。
+  if (gate.reason === 'folder-not-trusted' && process.env.IHUI_TRUST_WORKSPACE === '1') {
+    if (!workspaceTrustWarned) {
+      workspaceTrustWarned = true;
+      warnOnce(`⚠ IHUI_TRUST_WORKSPACE=1 已生效:本项目会话内的项目钩子一律按"已信任"执行(首个来源目录 ${folder})`);
+    }
+    return null;
+  }
+  return gate.detail ?? `hook "${entry.name}" 未通过信任门控`;
+}
+
 function runHookEntry(
   entry: HookEntry,
   env: Record<string, string>,
@@ -333,6 +443,17 @@ function runHookEntry(
   }
   if (!entry.command) {
     return { exitCode: 0, stdout: '', stderr: '' };
+  }
+  const skipReason = hookTrustSkipReason(entry);
+  if (skipReason) {
+    // 跳过 ≠ 失败:exitCode 必须给 0。返回非 0 会让 blockOnError 的钩子反过来
+    // 阻断工具调用,用户看到的是"我的工具坏了",而不是真实原因"这个目录没被信任"。
+    const key = `${entry.source ?? 'unstamped'}::${entry.name}`;
+    if (!announcedSkips.has(key)) {
+      announcedSkips.add(key);
+      warnOnce(`⚠ 已跳过钩子 "${entry.name}":${skipReason}`);
+    }
+    return { exitCode: 0, stdout: '', stderr: skipReason };
   }
   const result = spawnSync(entry.command, {
     shell: true,
