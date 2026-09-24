@@ -327,6 +327,10 @@
       "failed": "失败",
       "refunded": "已退款",
       "refunding": "退款中"
+    },
+    "tab": {
+      "cancelled": "已取消",
+      "refunded": "已退款"
     }
   },
   "wallet": {
@@ -436,7 +440,12 @@
       "empty": "暂无通知设置项",
       "moreTitle": "更多",
       "detail": "通知详情",
-      "detailDesc": "查看历史通知消息"
+      "detailDesc": "查看历史通知消息",
+      "wxSubscribe": "微信催费提醒",
+      "subscribed": "已开启提醒订阅",
+      "subscribeFailed": "未开启订阅,可稍后重试",
+      "myBills": "我的学费账单",
+      "myBillsDesc": "查看应缴/已缴/欠费并在线缴费"
     },
     "changePhone": "更换手机号",
     "changePassword": "修改密码",
@@ -585,6 +594,7 @@
       "copy": "复制",
       "digitalHuman": "数字人",
       "downloadFailed": "下载失败",
+      "downloadSuccess": "下载成功",
       "downloading": "下载中...",
       "edit": "编辑",
       "errorCardTitle": "请求出错",
@@ -748,7 +758,20 @@
       "share": "分享",
       "succeeded": "生成成功",
       "taskSubmitted": "任务已提交",
-      "title": "AI 视频"
+      "title": "AI 视频",
+      "duration": "时长",
+      "resolution": "分辨率",
+      "fps": "帧率",
+      "vendors": {
+        "sora2": "Sora2",
+        "sora2Desc": "使用 Sora2 生成视频",
+        "kling": "Kling",
+        "klingDesc": "生成高质量 AI 视频",
+        "doubao": "豆包",
+        "doubaoDesc": "使用豆包模型生成视频",
+        "dashscope": "DashScope",
+        "dashscopeDesc": "使用阿里云 DashScope 生成视频"
+      }
     },
     "voice": {
       "chatFailed": "对话失败,请重试",
@@ -1166,7 +1189,12 @@
     "goDiscover": "去发现",
     "searchPlaceholder": "搜索收藏的内容",
     "selectFirst": "请先选择",
-    "total": "已收藏"
+    "total": "已收藏",
+    "tabCourse": "课程",
+    "tabLive": "直播",
+    "tabPost": "帖子",
+    "tabAigc": "AI作品",
+    "tabNews": "资讯"
   },
   "distribution": {
     "withdraw": {
@@ -1883,6 +1911,12 @@
       "loading": "加载中...",
       "noMore": "没有更多了",
       "retry": "点击重试"
+    },
+    "tabs": {
+      "recommend": "推荐",
+      "follow": "关注",
+      "latest": "最新",
+      "hot": "热门"
     }
   },
   "devEnter": {
@@ -1947,7 +1981,8 @@
       "submitting": "创建中…",
       "submit": "创建智能体",
       "fileSizeExceeded": "文件不能超过10MB",
-      "n8nFilePlaceholder": "点击上传 n8n 备份 JSON 文件"
+      "n8nFilePlaceholder": "点击上传 n8n 备份 JSON 文件",
+      "typeJson": "JSON"
     },
     "modelEdit": {
       "title": "编辑模型",
@@ -2135,7 +2170,9 @@
       "detailStatus": "状态",
       "detailAuthor": "发布人",
       "viewDetail": "查看详情",
-      "identityTitle": "切换身份"
+      "identityTitle": "切换身份",
+      "identityDemander": "需求方",
+      "identityDeveloper": "开发者"
     },
     "cover": {
       "entryTitle": "成为开发者",
@@ -2155,7 +2192,8 @@
       "renew": "续费",
       "continueOrder": "继续接单",
       "qaTitle": "常见问题"
-    }
+    },
+    "p1": "营销"
   },
   "postCreate": {
     "title": "发布帖子",
@@ -2559,7 +2597,8 @@
     "weeklyStudy": "本周学习",
     "completedLessons": "完成课时",
     "totalDuration": "累计时长",
-    "streakDays": "连续天数"
+    "streakDays": "连续天数",
+    "record": "学习记录"
   },
   "subscriptions": {
     "cancel": "取消订阅",
@@ -2808,7 +2847,10 @@
     "confirm3": "确定退订会员吗？退订后将失去会员权益。",
     "success4": "退订成功",
     "failed5": "退订失败，请联系客服",
-    "text6": "等级介绍页未配置"
+    "text6": "等级介绍页未配置",
+    "menu": {
+      "subscriptions": "我的订阅"
+    }
   },
   "vipTrader": {
     "openTitle": "开通会员",
@@ -4129,5 +4171,8 @@
       }
     },
     "vividTail": "，马上就好"
+  },
+  "profile": {
+    "myCourses": "我的课程"
   }
 }

@@ -23,11 +23,11 @@ interface Param {
 }
 
 const PARAM_TYPES = (tt: TtFn): { value: ParamType; key: string; fb: string }[] => [
-  { value: 'string', key: 'devEnter.n8nModel.typeString', fb: tt('aigc.list.catText', '文本') },
-  { value: 'number', key: 'devEnter.n8nModel.typeNumber', fb: tt('deventerN8nmodel.d1', '数字') },
-  { value: 'boolean', key: 'devEnter.n8nModel.typeBoolean', fb: tt('deventerN8nmodel.d2', '布尔') },
-  { value: 'file', key: 'devEnter.n8nModel.typeFile', fb: tt('search.tabs.files', '文件') },
-  { value: 'select', key: 'devEnter.n8nModel.typeSelect', fb: tt('deventerN8nmodel.d3', '选择') },
+  { value: 'string', key: 'aigc.list.catText', fb: tt('aigc.list.catText', '文本') },
+  { value: 'number', key: 'deventerN8nmodel.d1', fb: tt('deventerN8nmodel.d1', '数字') },
+  { value: 'boolean', key: 'deventerN8nmodel.d2', fb: tt('deventerN8nmodel.d2', '布尔') },
+  { value: 'file', key: 'search.tabs.files', fb: tt('search.tabs.files', '文件') },
+  { value: 'select', key: 'deventerN8nmodel.d3', fb: tt('deventerN8nmodel.d3', '选择') },
   { value: 'json', key: 'devEnter.n8nModel.typeJson', fb: 'JSON' },
 ]
 

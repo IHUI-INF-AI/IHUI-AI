@@ -38,10 +38,10 @@ export interface MaterialPopupProps {
 }
 
 const TABS: { key: MaterialTab; labelKey: string; icon: string }[] = [
-  { key: 1, labelKey: 'ai.materialPopup.tabText', icon: icon('addText') },
-  { key: 2, labelKey: 'ai.materialPopup.tabImage', icon: icon('addPicter') },
-  { key: 3, labelKey: 'ai.materialPopup.tabVideo', icon: icon('addVideo') },
-  { key: 4, labelKey: 'ai.materialPopup.tabAudio', icon: icon('addAudio') },
+  { key: 1, labelKey: 'aigc.list.catText', icon: icon('addText') },
+  { key: 2, labelKey: 'aigc.list.catImage', icon: icon('addPicter') },
+  { key: 3, labelKey: 'aigc.list.catVideo', icon: icon('addVideo') },
+  { key: 4, labelKey: 'aigc.list.catAudio', icon: icon('addAudio') },
 ]
 
 function formatTime(ts?: string): string {
