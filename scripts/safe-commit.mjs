@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * safe-commit.mjs — 多 agent 并行 commit 边界守门
@@ -143,7 +142,14 @@ try {
 try {
   spawn(
     process.execPath,
-    [`${repoRoot}/scripts/git-lock.mjs`, 'heartbeat', '--unit', LOCK_UNIT, '--parent-pid', String(process.pid)],
+    [
+      `${repoRoot}/scripts/git-lock.mjs`,
+      'heartbeat',
+      '--unit',
+      LOCK_UNIT,
+      '--parent-pid',
+      String(process.pid),
+    ],
     // windowsHide 必须带:Windows 下 detached+控制台程序会弹新 cmd 窗口(用户实测"莫名弹窗"根因)
     { detached: true, windowsHide: true, stdio: 'ignore' },
   ).unref()
@@ -161,13 +167,38 @@ process.on('exit', () => {
 log('info', `safe-commit 启动 → 分支: ${C.bold}${currentBranch}${C.reset}`)
 log('info', `期望暂存 ${C.cyan}${expectedFiles.length}${C.reset} 个文件`)
 
+/**
+ * git 索引锁争用分诊(2026-09-24 立)。共享工作区里 `.git/index.lock` 常常**瞬时**存在又消失
+ * (实测本会话 12:0x 一次:safe-commit 死在 Step 1 的 `git reset HEAD`,再看锁已没了)——
+ * 这类失败一次钩子都没跑过,绝不能当成"钩子判红",更不能拿 --no-verify 去"修"它。
+ */
+const GIT_LOCK_MISS =
+  /Unable to create .*index\.lock|Another git process|index\.lock'?: ?File exists|cannot lock ref/i
+const isGitLockFailure = (status, out) => status === 128 || GIT_LOCK_MISS.test(out)
+const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+const LOCK_RETRIES = Number(process.env.IHUI_SAFE_COMMIT_LOCK_RETRIES || 10)
+function gitStep(args, label) {
+  let last = null
+  for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
+    last = spawnSync('git', args, { encoding: 'utf8', cwd: repoRoot, windowsHide: true })
+    if (last.status === 0) return last
+    const out = `${last.stdout || ''}${last.stderr || ''}`
+    if (isGitLockFailure(last.status, out) && attempt <= LOCK_RETRIES) {
+      log(
+        'warn',
+        `…${label} 撞 git 索引锁(exit ${last.status},钩子还没轮到),第 ${attempt}/${LOCK_RETRIES} 次重试`,
+      )
+      sleep(3000)
+      continue
+    }
+    return last
+  }
+  return last
+}
+
 // ─── 1. git reset HEAD (清空整个暂存区) ────────────────────
 log('info', 'Step 1/5: git reset HEAD — 清空暂存区(无论谁 staged 的)')
-const resetResult = spawnSync('git', ['reset', 'HEAD'], {
-  encoding: 'utf8',
-  cwd: repoRoot,
-  windowsHide: true,
-})
+const resetResult = gitStep(['reset', 'HEAD'], 'git reset HEAD')
 if (resetResult.status !== 0) {
   log('err', `git reset HEAD 失败: ${resetResult.stderr}`)
   process.exit(2)
@@ -177,11 +208,7 @@ if (resetResult.status !== 0) {
 // 修复(2026-07-22): 原 `git add --` 对已删除文件报错 pathspec did not match。
 // `git add -A --` 同时暂存新增/修改/删除三种变更, 第 3 步校验仍保证精确匹配。
 log('info', `Step 2/5: git add -A <${expectedFiles.length} files> — 只暂存自己声明的文件(含删除)`)
-const addResult = spawnSync('git', ['add', '-A', '--', ...expectedFiles], {
-  encoding: 'utf8',
-  cwd: repoRoot,
-  windowsHide: true,
-})
+const addResult = gitStep(['add', '-A', '--', ...expectedFiles], 'git add')
 if (addResult.status !== 0) {
   log('err', `git add 失败: ${addResult.stderr}`)
   log('warn', '可能原因: 路径错误/仓库锁定/权限问题')
@@ -229,13 +256,22 @@ if (agentScope) {
     return !scopeDirs.some((scope) => fn.startsWith(scope + '/') || fn === scope)
   })
   if (outOfScope.length > 0) {
-    log('err', `${C.red}${outOfScope.length}${C.reset} 个文件超出本 agent 范围 ${C.yellow}{${agentScope}}${C.reset}:`)
+    log(
+      'err',
+      `${C.red}${outOfScope.length}${C.reset} 个文件超出本 agent 范围 ${C.yellow}{${agentScope}}${C.reset}:`,
+    )
     for (const f of outOfScope) console.log(`     ${C.red}× ${f}${C.reset}`)
-    log('warn', `如需跨域 commit,设置 AGENT_SCOPE_OVERRIDE=1 或在 commit message 显式标注 [cross-domain]`)
+    log(
+      'warn',
+      `如需跨域 commit,设置 AGENT_SCOPE_OVERRIDE=1 或在 commit message 显式标注 [cross-domain]`,
+    )
     if (process.env.AGENT_SCOPE_OVERRIDE !== '1' && !message.includes('[cross-domain]')) {
       process.exit(1)
     }
-    log('warn', `已用 ${message.includes('[cross-domain]') ? 'message 标注' : 'AGENT_SCOPE_OVERRIDE'} 跨域豁免`)
+    log(
+      'warn',
+      `已用 ${message.includes('[cross-domain]') ? 'message 标注' : 'AGENT_SCOPE_OVERRIDE'} 跨域豁免`,
+    )
   }
 }
 
@@ -271,10 +307,6 @@ const beforeSha = (run('git rev-parse HEAD', { allowFail: true }) || '').trim()
  * 而旧流程把它与"pre-commit 判红"同形对待,立刻 `--no-verify` 重试并成功,交付看起来干净,
  * 实际所有质量门都被跳过且无人知晓。判据:lock 类失败重试;真·钩子失败才允许应急跳过。
  */
-const GIT_LOCK_MISS =
-  /Unable to create .*index\.lock|Another git process|index\.lock'?: ?File exists|cannot lock ref/i
-const isGitLockFailure = (status, out) => status === 128 || GIT_LOCK_MISS.test(out)
-const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
 const commitArgs = (skipHooks) => [
   'commit',
   ...(skipHooks ? ['--no-verify'] : []),
@@ -289,7 +321,6 @@ const pump = (r) => {
   return `${r.stdout || ''}${r.stderr || ''}`
 }
 
-const LOCK_RETRIES = Number(process.env.IHUI_SAFE_COMMIT_LOCK_RETRIES || 10)
 let commitResult = null
 let hookFailed = false
 for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
@@ -312,7 +343,10 @@ for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
       )
       process.exit(1)
     }
-    log('warn', `…exit ${r.status} 像是 git 锁争用(钩子未跑完),第 ${attempt}/${LOCK_RETRIES} 次重试`)
+    log(
+      'warn',
+      `…exit ${r.status} 像是 git 锁争用(钩子未跑完),第 ${attempt}/${LOCK_RETRIES} 次重试`,
+    )
     sleep(3000)
     continue
   }
@@ -320,7 +354,10 @@ for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
   if (r.status === 129) {
     // exit 129 = git 用法错误 ⇒ 是**我们拼出的命令**坏了,不是别人代码没过门。
     // 绝不能走 --no-verify 兜底:那会把工具自身的 bug 洗成"门跳过了但提交成功了"。
-    log('err', `git exit 129(用法错误)= safe-commit 自身参数拼错,拒绝 --no-verify 兜底;请修命令构造`)
+    log(
+      'err',
+      `git exit 129(用法错误)= safe-commit 自身参数拼错,拒绝 --no-verify 兜底;请修命令构造`,
+    )
     process.exit(1)
   }
   break
@@ -329,7 +366,10 @@ for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
 let hookSkipped = false
 if (hookFailed && commitResult.status !== 0) {
   log('warn', `首次 commit 失败(exit ${commitResult.status})—— 判为 pre-commit 钩子阻塞(非锁争用)`)
-  log('info', `按用户规则"hook 失败因其他 agent 代码 → --no-verify 重试";本次将**跳过全部守门**,请自行复跑相关门并在交付里写明`)
+  log(
+    'info',
+    `按用户规则"hook 失败因其他 agent 代码 → --no-verify 重试";本次将**跳过全部守门**,请自行复跑相关门并在交付里写明`,
+  )
   const r = spawnSync('git', commitArgs(true), {
     encoding: 'utf8',
     cwd: repoRoot,
@@ -346,7 +386,10 @@ if (hookFailed && commitResult.status !== 0) {
 
 if (commitResult.status !== 0) {
   log('err', `git commit 最终失败(exit ${commitResult.status})`)
-  log('warn', '常见原因: (a) commit message 格式问题;(b) 文件无改动(nothing to commit);(c) 其他未知错误')
+  log(
+    'warn',
+    '常见原因: (a) commit message 格式问题;(b) 文件无改动(nothing to commit);(c) 其他未知错误',
+  )
   process.exit(1)
 }
 
@@ -395,7 +438,10 @@ if (newShas.length === 0) {
   }
   committedSha = mine
   committedFiles = filesOfCommit(mine)
-  log('warn', `检测到 ${newShas.length - 1} 个并发提交,已定位本次提交 ${C.cyan}${committedSha.slice(0, 9)}${C.reset}`)
+  log(
+    'warn',
+    `检测到 ${newShas.length - 1} 个并发提交,已定位本次提交 ${C.cyan}${committedSha.slice(0, 9)}${C.reset}`,
+  )
 }
 
 const committedUnexpected = committedFiles.filter((f) => !expectedNorm.has(f))
@@ -405,6 +451,9 @@ if (committedUnexpected.length > 0) {
   process.exit(1)
 }
 
-log('ok', `commit 干净,仅包含 ${C.cyan}${committedFiles.length}${C.reset} 个预期文件${hookSkipped ? C.yellow + ' (pre-commit hook 已跳过)' : C.reset}`)
+log(
+  'ok',
+  `commit 干净,仅包含 ${C.cyan}${committedFiles.length}${C.reset} 个预期文件${hookSkipped ? C.yellow + ' (pre-commit hook 已跳过)' : C.reset}`,
+)
 log('ok', `post-commit hook 将自动调用 git-push-guard 推送`)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
