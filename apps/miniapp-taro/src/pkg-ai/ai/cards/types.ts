@@ -26,6 +26,11 @@ export interface ToolCallView {
   durationMs?: number
   /** 工具来源(内置 / 插件 / MCP),用于角标展示 */
   serverSource?: ToolCallEvent['serverSource']
+  /**
+   * MCP server 显示名 / ID(serverSource='mcp' 时由 SSE 透传)。
+   * D83 定制措辞层(describeMcpToolActivity)按 server×tool 查表用,缺失即走回落链。
+   */
+  serverName?: string
   isError?: boolean
   /**
    * 工具入参(SSE tool-call-start / tool-result 事件透传)。
