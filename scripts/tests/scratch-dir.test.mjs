@@ -27,15 +27,37 @@ test('mkScratch 建的目录不在仓库树内(否则"非 git"夹具会逃逸到
   }
 })
 
-test('mkScratch 不跟随进程 TEMP(活进程 %TEMP% 可能仍钉在 C 盘)', () => {
-  const dir = mkScratch('temp-env-')
+test('mkScratch 不跟随进程 TEMP(把 TEMP 指向一个钉在 C 盘的旧值也必须不理它)', () => {
+  // 旧写法是"夹具落在 process.env.TEMP 之下就算失败"。这句在本机 TEMP **已迁移成功**时
+  // 自相矛盾:mkScratch 的锚点按定义就是 `<工作树盘>\DevEnv\Temp\ihui-scratch`,
+  // 而 TEMP 现值正是 `D:\DevEnv\Temp` ⇒ 迁移越成功,这条越红(2026-09-24 实测红在此)。
+  // 要钉的性质不是"与 TEMP 不同",而是"**不受 TEMP 影响**":所以显式把 TEMP 改成一个
+  // 未迁移的 C 盘路径再取证,这才是原意。
+  const before = { TEMP: process.env.TEMP, TMP: process.env.TMP, TMPDIR: process.env.TMPDIR }
+  const stale = 'C:\\Users\\someone\\AppData\\Local\\Temp'
+  process.env.TEMP = stale
+  process.env.TMP = stale
+  delete process.env.TMPDIR
   try {
-    const staleTemp = process.env.TEMP || process.env.TMP || ''
-    if (staleTemp && resolve(dir).startsWith(resolve(staleTemp))) {
-      assert.fail(`夹具仍落在进程 TEMP(${staleTemp}),迁移后的 TEMP 未生效`)
+    const dir = mkScratch('temp-env-')
+    try {
+      const r = resolve(dir)
+      assert.ok(
+        !r.toLowerCase().startsWith(resolve(stale).toLowerCase()),
+        `夹具跟随了进程 TEMP ⇒ ${dir}(选址必须与工作树同盘,不看 TEMP 脸色)`,
+      )
+      assert.ok(
+        /^[A-Za-z]:\\DevEnv\\Temp\\ihui-scratch/i.test(r) || !/^[Cc]:\\/.test(r),
+        `夹具落点异常(既不在 DevEnv\\Temp\\ihui-scratch,又落在 C 盘):${dir}`,
+      )
+    } finally {
+      rmScratch(dir)
     }
   } finally {
-    rmScratch(dir)
+    for (const [k, v] of Object.entries(before)) {
+      if (v === undefined) delete process.env[k]
+      else process.env[k] = v
+    }
   }
 })
 
