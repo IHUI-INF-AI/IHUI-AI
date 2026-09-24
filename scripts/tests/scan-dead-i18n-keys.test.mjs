@@ -43,6 +43,14 @@ import path from 'node:path'
 import os from 'node:os'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+// §22c:判据实现只此一份,测试直接 import,不复制
+import {
+  contractEntriesFor,
+  verifyContractEntries,
+  unknownContractTargets,
+  loadContractFile,
+} from '../_i18n-scan-helpers.mjs'
+import { resolveGitBin } from '../lib/gitdir.mjs'
 
 const ORIGINAL_CWD = process.cwd()
 
@@ -401,6 +409,298 @@ describe('scan-dead-i18n-keys.mjs CLI 入口测试', () => {
     })
     const { status, stdout } = runCli(['--target', 'cli', '--dry-run', '--exit', '1'])
     assert.equal(status, 0, `跨包动态拼键应判活,实际:\n${stdout}`)
+  })
+})
+
+/**
+ * 契约键声明(scripts/i18n-contract-keys.json)
+ *
+ * 判据实现一律从 ../_i18n-scan-helpers.mjs import(AGENTS.md §22c:禁止在测试里复制判据实现)。
+ * 取证分两层:
+ *   ① 纯函数单例(注入假 readHead,零 git 依赖) —— 覆盖 6 类失效码 + 形状校验;
+ *   ② 端到端(在 tmpDir 里 git init + commit 一个真仓库) —— 证明走**真实 HEAD 读取器**时
+ *      「依据成立 ⇒ 免除死键」「依据漂移 ⇒ 判红且不免除」「真孤儿键照旧判红」三条都成立。
+ */
+describe('契约键声明:跨端词包契约键 / 被测试钉住的形状键', () => {
+  const REPO_ROOT = path.resolve(__dirname, '../..')
+  const REASON = '跨端词包契约键,本端无消费方是设计选择而非孤儿(测试用理由)'
+
+  /** 构造 entries Map(复用被测的 contractEntriesFor,避免测试自己解释声明格式) */
+  function entriesOf(targetBlock) {
+    const { entries } = contractEntriesFor({ targets: { 'mobile-rn': targetBlock } }, 'mobile-rn')
+    return entries
+  }
+
+  test('单元:依据全部可核验 + 键确为死键 → 免除死键判定', () => {
+    const entries = entriesOf({
+      'contract.key': { reason: REASON, evidence: [{ file: 'a.ts', line: 2, contains: 'contract.key' }] },
+    })
+    const { violations, exempted } = verifyContractEntries({
+      entries,
+      leafKeys: new Set(['contract.key']),
+      deadKeys: new Set(['contract.key']),
+      readHead: () => 'l1\n// contract.key\n',
+      target: 'mobile-rn',
+    })
+    assert.deepEqual(violations, [])
+    assert.deepEqual(exempted.map((e) => e.key), ['contract.key'])
+  })
+
+  test('单元:依据文件不在 HEAD → EVIDENCE_UNVERIFIED 且不免除', () => {
+    const entries = entriesOf({
+      'contract.key': { reason: REASON, evidence: [{ file: 'gone.ts', line: 1, contains: 'contract.key' }] },
+    })
+    const { violations, exempted } = verifyContractEntries({
+      entries,
+      leafKeys: new Set(['contract.key']),
+      deadKeys: new Set(['contract.key']),
+      readHead: () => null,
+      target: 'mobile-rn',
+    })
+    assert.equal(exempted.length, 0, '依据不成立绝不能免除')
+    assert.equal(violations[0].code, 'EVIDENCE_UNVERIFIED')
+    assert.match(violations[0].msg, /HEAD 中不存在/)
+  })
+
+  test('单元:行号越界 / 该行不含标识符 → 各自点名', () => {
+    const mk = (ev, head) =>
+      verifyContractEntries({
+        entries: entriesOf({ 'contract.key': { reason: REASON, evidence: [ev] } }),
+        leafKeys: new Set(['contract.key']),
+        deadKeys: new Set(['contract.key']),
+        readHead: () => head,
+        target: 'mobile-rn',
+      })
+    const range = mk({ file: 'a.ts', line: 99, contains: 'contract.key' }, 'l1\nl2\n')
+    assert.equal(range.violations[0].code, 'EVIDENCE_UNVERIFIED')
+    assert.match(range.violations[0].msg, /行号越界/)
+    const drift = mk({ file: 'a.ts', line: 2, contains: 'moved.away' }, 'l1\n// contract.key\n')
+    assert.match(drift.violations[0].msg, /依据已漂移/)
+  })
+
+  test('单元:声明的键不在本端语言包 → KEY_NOT_IN_PACK(防清单腐烂)', () => {
+    const { violations } = verifyContractEntries({
+      entries: entriesOf({
+        'ghost.key': { reason: REASON, evidence: [{ file: 'a.ts', line: 1, contains: 'ghost.key' }] },
+      }),
+      leafKeys: new Set(['other.key']),
+      deadKeys: new Set(),
+      readHead: () => '// ghost.key\n',
+      target: 'mobile-rn',
+    })
+    assert.equal(violations[0].code, 'KEY_NOT_IN_PACK')
+  })
+
+  test('单元:键已被本端静态引用(不再死) → DECLARATION_UNNEEDED', () => {
+    const { violations, exempted } = verifyContractEntries({
+      entries: entriesOf({
+        'wired.key': { reason: REASON, evidence: [{ file: 'a.ts', line: 1, contains: 'wired.key' }] },
+      }),
+      leafKeys: new Set(['wired.key']),
+      deadKeys: new Set(),
+      readHead: () => '// wired.key\n',
+      target: 'mobile-rn',
+    })
+    assert.equal(exempted.length, 0)
+    assert.equal(violations[0].code, 'DECLARATION_UNNEEDED')
+  })
+
+  test('单元:reason 过短 / line 非整数 / evidence 空 → 形状不合法(不是静默跳过)', () => {
+    const { entries, issues } = contractEntriesFor(
+      {
+        targets: {
+          'mobile-rn': {
+            'short.reason': { reason: '太短', evidence: [{ file: 'a.ts', line: 1, contains: 'x' }] },
+            'bad.line': {
+              reason: REASON,
+              evidence: [{ file: 'a.ts', line: '1', contains: 'x' }],
+            },
+            'no.evidence': { reason: REASON, evidence: [] },
+          },
+        },
+      },
+      'mobile-rn',
+    )
+    assert.equal(entries.size, 0, '形状不合法的条目不得进入免除面')
+    assert.equal(issues.length, 3)
+    assert.deepEqual(issues.map((i) => i.key).sort(), ['bad.line', 'no.evidence', 'short.reason'])
+  })
+
+  test('单元:声明里出现未知 target → 点名(拼错的端名没有读者)', () => {
+    const bogus = unknownContractTargets(
+      { targets: { 'mobile-rn': {}, 'miniapp-ten': {} } },
+      ['web', 'mobile-rn', 'cli'],
+    )
+    assert.deepEqual(bogus, ['miniapp-ten'])
+  })
+
+  test('装车证明:真仓 scripts/i18n-contract-keys.json 形状合法且已登记 mobile-rn 的契约键', () => {
+    const file = loadContractFile(REPO_ROOT)
+    assert.ok(file.exists, '契约声明文件必须入库(缺文件 = 该端重新恒红)')
+    const knownTargets = ['web', 'miniapp-taro', 'mobile-rn', 'cli', 'extension', 'desktop']
+    assert.deepEqual(unknownContractTargets(file.raw, knownTargets), [])
+    const { entries, issues } = contractEntriesFor(file.raw, 'mobile-rn')
+    assert.deepEqual(issues, [], `声明形状不合法:${JSON.stringify(issues)}`)
+    const decl = entries.get('permissionTier.label')
+    assert.ok(decl, 'permissionTier.label 必须以契约键身份登记,而不是靠缩窄扫描面绕过')
+    assert.ok(decl.evidence.length >= 3, '依据须含共享层契约声明 + 钉住它的测试 + 另一端真实消费方')
+    assert.ok(
+      decl.evidence.some((e) => e.file === 'apps/mobile-rn/tests/permission-tier-pack.test.ts'),
+      '必须点名把它钉死的本端测试',
+    )
+  })
+
+  // ── 端到端:真 HEAD 读取器 ────────────────────────────────────────────────
+
+  const GIT_IN_TESTS = process.env.IHUI_GIT_BIN || resolveGitBin() || 'git'
+
+  function gitInRepo(args) {
+    return spawnSync(GIT_IN_TESTS, ['-c', 'safe.directory=*', '-C', tmpDir, ...args], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 30_000,
+      env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1' },
+    })
+  }
+
+  /**
+   * 写夹具 + git init + commit,使依据文件真的存在于 HEAD。
+   * @param {Object<string, string|object>} files - 相对路径 → 内容(对象自动 stringify)
+   */
+  function setupCommittedFixture(files) {
+    for (const [rel, content] of Object.entries(files)) {
+      const full = path.join(tmpDir, rel)
+      fs.mkdirSync(path.dirname(full), { recursive: true })
+      fs.writeFileSync(full, typeof content === 'string' ? content : JSON.stringify(content, null, 2), 'utf8')
+    }
+    const init = gitInRepo(['init', '-q'])
+    assert.equal(init.status, 0, `git init 失败:${init.stderr}`)
+    const add = gitInRepo(['add', '-A'])
+    assert.equal(add.status, 0, `git add 失败:${add.stderr}`)
+    const commit = gitInRepo([
+      '-c', 'user.name=fixture', '-c', 'user.email=fixture@example.invalid',
+      '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'fixture',
+    ])
+    assert.equal(commit.status, 0, `git commit 失败:${commit.stderr}${commit.stdout}`)
+  }
+
+  /** 五语齐备的本端语言包(避免"翻译不完整"混进退出码断言) */
+  function packsFor() {
+    const files = {}
+    for (const locale of ['zh-CN', 'en', 'ja', 'ko', 'zh-TW']) {
+      files[`packages/i18n/messages/mobile-rn/${locale}.json`] = {
+        contract: { key: `${locale} 值` },
+        used: { key: `${locale} 另一枚` },
+      }
+    }
+    return files
+  }
+
+  const CONTRACT_FILE = 'scripts/i18n-contract-keys.json'
+
+  function contractWith(evidence) {
+    return { targets: { 'mobile-rn': { 'contract.key': { reason: REASON, evidence } } } }
+  }
+
+  test('端到端:依据在 HEAD 可核验 → 死键被免除,exit 0 且逐条打印理由与依据', () => {
+    setupCommittedFixture({
+      ...packsFor(),
+      'apps/mobile-rn/src/screen.tsx': "t('used.key')",
+      'packages/shared/src/chat/contract-owner.ts': '// 词表约定:\n//   contract.key\nexport const K = 1\n',
+      [CONTRACT_FILE]: contractWith([
+        { file: 'packages/shared/src/chat/contract-owner.ts', line: 2, contains: 'contract.key' },
+      ]),
+    })
+    const { status, stdout, stderr } = runCli(['--target', 'mobile-rn', '--exit', '1'])
+    assert.equal(status, 0, `应 exit 0,实际 ${status}\n${stdout}\n${stderr}`)
+    assert.match(stdout, /契约键声明/, '必须逐条打印,不得静默')
+    assert.match(stdout, /contract\.key/, '命中的键名必须可见')
+    assert.match(stdout, /contract-owner\.ts:2/, '依据位置必须可见')
+  })
+
+  test('端到端:假依据(HEAD 里没有该文件)→ exit 1 点名,且该键照旧算死键', () => {
+    setupCommittedFixture({
+      ...packsFor({}),
+      'apps/mobile-rn/src/screen.tsx': "t('other.key')",
+      [CONTRACT_FILE]: contractWith([
+        { file: 'packages/shared/src/chat/never-committed.ts', line: 2, contains: 'contract.key' },
+      ]),
+    })
+    const { status, stderr } = runCli(['--target', 'mobile-rn', '--exit', '1'])
+    assert.equal(status, 1, '依据不可核验必须判红')
+    assert.match(stderr, /EVIDENCE_UNVERIFIED/)
+    assert.match(stderr, /never-committed\.ts/, '必须点名是哪条依据')
+    assert.match(stderr, /声明失效/, '必须明说豁免未生效')
+  })
+
+  test('端到端:真孤儿键不被契约声明波及(整端判据未被放宽)', () => {
+    setupCommittedFixture({
+      ...packsFor({}),
+      'apps/mobile-rn/src/screen.tsx': "t('used.key')",
+      'packages/shared/src/chat/contract-owner.ts': '// 词表约定:\n//   contract.key\nexport const K = 1\n',
+      [CONTRACT_FILE]: contractWith([
+        { file: 'packages/shared/src/chat/contract-owner.ts', line: 2, contains: 'contract.key' },
+      ]),
+    })
+    // 额外往基准语言包里塞一枚没有任何引用的真孤儿键
+    const zh = path.join(tmpDir, 'packages/i18n/messages/mobile-rn/zh-CN.json')
+    const obj = JSON.parse(fs.readFileSync(zh, 'utf8'))
+    obj.stranded = { orphan: '没人取' }
+    fs.writeFileSync(zh, JSON.stringify(obj, null, 2), 'utf8')
+    const { status, stdout } = runCli(['--target', 'mobile-rn', '--exit', '1'])
+    assert.equal(status, 1, '有真孤儿键时必须仍判红 —— 豁免只能是键级的')
+    assert.match(stdout, /契约键声明/, '声明那枚照样生效')
+    const report = fs
+      .readdirSync(path.join(tmpDir, '.ihui-agent/tmp'))
+      .filter((f) => f.endsWith('.md'))
+      .map((f) => fs.readFileSync(path.join(tmpDir, '.ihui-agent/tmp', f), 'utf8'))
+      .join('\n')
+    assert.match(report, /stranded\.orphan/, '报告必须点名那枚真孤儿键')
+    assert.doesNotMatch(report, /- `contract\.key`(?!\s*—)/m, '被声明的键不得出现在死键列表里')
+  })
+
+  test('端到端:声明只免除死键 —— 同键在 en.json 缺失时仍计入翻译不完整', () => {
+    setupCommittedFixture({
+      ...packsFor({}),
+      'apps/mobile-rn/src/screen.tsx': "t('used.key')",
+      'packages/shared/src/chat/contract-owner.ts': '// 词表约定:\n//   contract.key\nexport const K = 1\n',
+      [CONTRACT_FILE]: contractWith([
+        { file: 'packages/shared/src/chat/contract-owner.ts', line: 2, contains: 'contract.key' },
+      ]),
+    })
+    const en = path.join(tmpDir, 'packages/i18n/messages/mobile-rn/en.json')
+    const obj = JSON.parse(fs.readFileSync(en, 'utf8'))
+    delete obj.contract.key
+    fs.writeFileSync(en, JSON.stringify(obj, null, 2), 'utf8')
+    const { stdout } = runCli(['--target', 'mobile-rn', '--exit', '1'])
+    assert.match(stdout, /翻译不完整 key: 1/, '契约声明不得顺手免掉 parity 判据')
+  })
+
+  test('端到端:声明过期(键已被本端引用)→ exit 1 并点名多余条目', () => {
+    setupCommittedFixture({
+      ...packsFor({}),
+      'apps/mobile-rn/src/screen.tsx': "t('contract.key')",
+      'packages/shared/src/chat/contract-owner.ts': '// 词表约定:\n//   contract.key\nexport const K = 1\n',
+      [CONTRACT_FILE]: contractWith([
+        { file: 'packages/shared/src/chat/contract-owner.ts', line: 2, contains: 'contract.key' },
+      ]),
+    })
+    const { status, stderr } = runCli(['--target', 'mobile-rn', '--exit', '1'])
+    assert.equal(status, 1, '没有依据的豁免留在清单里就是腐烂,必须响')
+    assert.match(stderr, /DECLARATION_UNNEEDED/)
+  })
+
+  test('端到端:声明里写了不存在的端名 → exit 1 点名(不会被任何判定读到)', () => {
+    setupCommittedFixture({
+      ...packsFor({}),
+      'apps/mobile-rn/src/screen.tsx': "t('contract.key')",
+      [CONTRACT_FILE]: {
+        targets: { 'mobile-rn': {}, 'miniapp-ten': { 'contract.key': { reason: REASON, evidence: [{ file: 'x.ts', line: 1, contains: 'x' }] } } },
+      },
+    })
+    const { status, stderr } = runCli(['--target', 'mobile-rn', '--exit', '1'])
+    assert.equal(status, 1)
+    assert.match(stderr, /miniapp-ten/)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
