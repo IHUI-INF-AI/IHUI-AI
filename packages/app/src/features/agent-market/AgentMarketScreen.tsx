@@ -121,7 +121,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.cta,
     },
-    btnText: { color: tk.surface.light, fontSize: 16 },
+    btnText: { color: tk.brand.ctaForeground, fontSize: 16 },
     back: { fontSize: 16, color: tk.text.secondary },
     title: {
       marginTop: 8,
