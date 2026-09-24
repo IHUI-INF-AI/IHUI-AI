@@ -2,68 +2,15 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { describe, expect, it } from 'vitest'
-import { SANDBOX_PROFILES, resolveSandboxOptions, type SandboxOptions } from '../src/sandbox/index.js'
+// 摘要消息标记的单一真源(此前各模块各自写死 '[上下文摘要' 字面量,属二次写死)。
+// 历史摘要消息以该标记开头:再压缩时正文原样并入、条数累加(防嵌套),
+// 回收/溢出丢弃则一律把它当"不可再压的产物"整条保护。
 
-describe('SANDBOX_PROFILES 5 级预设', () => {
-  it('包含 5 个 profile(readonly/limited/trusted/open/full)', () => {
-    expect(Object.keys(SANDBOX_PROFILES).sort()).toEqual(['full', 'limited', 'open', 'readonly', 'trusted'])
-  })
+/** 摘要消息内容前缀标记(防嵌套检测:后续压缩识别到该前缀时合并重写而非再摘要) */
+export const SUMMARY_MARKER = '[上下文摘要'
 
-  it('readonly 的 commandAllowlist 是 null(= 一律拒绝),不是空数组', () => {
-    // 旧值 [] 在判定里等价于"未设置",于是本档描述写的"无 shell 命令"根本不成立。
-    // null 才是"显式禁止一切命令"的机器可表达形态。
-    expect(SANDBOX_PROFILES.readonly.overrides.commandAllowlist).toBeNull()
-  })
-
-  it('limited 的 commandAllowlist 包含 node/npm/pnpm', () => {
-    const list = SANDBOX_PROFILES.limited.overrides.commandAllowlist!
-    expect(list).toContain('node')
-    expect(list).toContain('npm')
-    expect(list).toContain('pnpm')
-  })
-
-  it('limited 的 blockedEnvVars 包含 *_API_KEY', () => {
-    expect(SANDBOX_PROFILES.limited.overrides.blockedEnvVars).toContain('*_API_KEY')
-  })
-
-  it('trusted 的 timeoutMs = 120_000', () => {
-    expect(SANDBOX_PROFILES.trusted.overrides.timeoutMs).toBe(120_000)
-  })
-
-  it('open 没有设置 commandAllowlist(允许全部)', () => {
-    expect(SANDBOX_PROFILES.open.overrides.commandAllowlist).toBeUndefined()
-  })
-
-  it('full 没有任何 blockedEnvVars', () => {
-    expect(SANDBOX_PROFILES.full.overrides.blockedEnvVars).toBeUndefined()
-  })
-})
-
-describe('resolveSandboxOptions', () => {
-  it('profile 为 undefined 时返回原 userOpts(同一引用)', () => {
-    const userOpts: Partial<SandboxOptions> = { timeoutMs: 5000, commandAllowlist: ['node'] }
-    expect(resolveSandboxOptions(undefined, userOpts)).toBe(userOpts)
-  })
-
-  it("profile='readonly' 且 opts 为空时返回 readonly 的 overrides", () => {
-    const result = resolveSandboxOptions('readonly', {})
-    expect(result).toEqual(SANDBOX_PROFILES.readonly.overrides)
-  })
-
-  it("profile='trusted' 时用户 opts 的 timeoutMs 覆盖 profile", () => {
-    const result = resolveSandboxOptions('trusted', { timeoutMs: 200_000 })
-    expect(result.timeoutMs).toBe(200_000)
-  })
-
-  it("profile='limited' 时用户 opts 的 commandAllowlist 覆盖 profile", () => {
-    const result = resolveSandboxOptions('limited', { commandAllowlist: ['custom'] })
-    expect(result.commandAllowlist).toEqual(['custom'])
-  })
-
-  it("无效 profile 不报错,返回原 opts(同一引用)", () => {
-    const userOpts: Partial<SandboxOptions> = { timeoutMs: 9999 }
-    expect(resolveSandboxOptions('invalid' as any, userOpts)).toBe(userOpts)
-  })
-})
+/** 该消息是否为压缩产物(历史摘要消息) */
+export function isSummaryMessage(message: { role: string; content: string }): boolean {
+  return message.role === 'user' && message.content.startsWith(SUMMARY_MARKER)
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

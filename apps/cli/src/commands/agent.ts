@@ -64,6 +64,10 @@ import type { HunkTracker } from '../checkpoints/hunk-tracker.js';
 import { compressContextIfNeeded, estimateTokens, estimateMessagesTokens, type CompressionResult, UsageLedger } from '../context.js';
 import { compressContextV2, type CompactionSampler, type CompactionObserver } from '../compaction-v2.js';
 import { CONTEXT_BUDGET_THRESHOLD, DEFAULT_TRIGGER_RATIO } from '@ihui/context-compaction';
+// WP-2 三道有效性守卫的运行期装配 + WP-3 工具结果预算信封与已读状态跟踪
+import { ContextGuards } from '../context-guards.js';
+import { isPromptTooLongErrorMessage, recoverAfterOverflow } from '../context-guards.js';
+import { envelopeToolResult, ReadStateTracker } from '../tools/result-envelope/index.js';
 import {
   primeCompactionSummary,
   getCachedCompactionSummary,
@@ -452,6 +456,23 @@ export interface RunToolLoopOptions {
    */
   usageLedger?: UsageLedger;
   /**
+   * 上下文有效性守卫(压缩真值复测 / 快速回填熔断 / 溢出整组丢弃)。
+   * 不传则内部按 contextLimit 建一个;注入用于测试断言"熔断真的让循环停了",
+   * 以及 REPL/headless 在会话恢复时把上一轮的 latch 带回来。
+   */
+  contextGuards?: ContextGuards;
+  /** 守卫熔断诊断出口(面向用户;每轮挂起都会回调一次) */
+  onContextDiagnostic?: (diagnostic: string) => void;
+  /**
+   * 压缩动作注入点(默认走 decideCompaction)。
+   * 存在的必要:熔断的价值是"真的不再自动压缩",而按默认路径跑没法从外部观察到
+   * "这一轮到底调没调压缩"。留出这个接缝后,该结论可以由测试直接数调用次数钉死。
+   */
+  compactContext?: (
+    messages: ChatMessage[],
+    ctx: { turnIndex: number; lastActivityAtMs?: number },
+  ) => Promise<CompressionResult>;
+  /**
    * L1-4(2026-07-25 立):跨会话记忆用户 ID。
    * 若传入,doom_loop 首轮 alert 触发时会 fire-and-forget 调 ai-service POST /api/memory/procedural,
    * 把失败模式沉淀为 procedural memory,让 agent 未来能规避相同陷阱(对标 Hermes Agent 反思沉淀)。
@@ -682,6 +703,11 @@ interface SampleWithRetryOptions {
   onSteer?: NonNullable<StreamChatOptions['onSteer']>;
   /** 额度分档告警(budget) — 未传时零开销(与 onPlanUpdate 同一条纪律) */
   onBudget?: NonNullable<StreamChatOptions['onBudget']>;
+  /**
+   * provider usage 帧 — WP-2 守卫一「压缩后真值复测」的唯一权威基准。
+   * 未传时零开销(与 onPlanUpdate 同一条纪律)。
+   */
+  onUsage?: NonNullable<StreamChatOptions['onUsage']>;
 }
 
 interface SampleWithRetryResult {
@@ -788,6 +814,7 @@ async function sampleWithRetry(
         ...(opts.onCitations ? { onCitations: opts.onCitations } : {}),
         ...(opts.onSteer ? { onSteer: opts.onSteer } : {}),
         ...(opts.onBudget ? { onBudget: opts.onBudget } : {}),
+        ...(opts.onUsage ? { onUsage: opts.onUsage } : {}),
         ...(opts.sampler ?? {}),
         onError: (msg, info) => { streamErr = msg; streamErrInfo = info; },
       } as Parameters<typeof streamChat>[0]);
@@ -894,7 +921,20 @@ export function createCompactionSampler(model: string): CompactionSampler {
 export async function decideCompaction(
   messages: ChatMessage[],
   settings: Settings,
-  opts: { contextLimit: number; modelId: string; sessionId?: string; triggerRatioOverride?: number },
+  opts: {
+    contextLimit: number;
+    modelId: string;
+    sessionId?: string;
+    triggerRatioOverride?: number;
+    /**
+     * 会话最近一次活动时间戳(ms)—— 透给 compressContextV2 的 reclaim 空闲触发。
+     * 不传则回收只有"窗口比例"这一条触发路径(此前调用方一个都没传,
+     * 空闲触发等于不存在 —— 守卫造好了没接线)。
+     */
+    lastActivityAtMs?: number;
+    /** 判定时钟(测试注入) */
+    nowMs?: number;
+  },
 ): Promise<CompressionResult> {
   const v2Config = settings.compactionV2;
   if (v2Config?.enabled === true) {
@@ -937,6 +977,9 @@ export async function decideCompaction(
         observer,
         cachedSummary,
         sessionId,
+        // 回收的空闲触发只有调用方知道"上次真实活动是几点",这里透传给 reclaim;
+        // 不传则 reclaim 永远只能靠窗口比例触发(空闲那条腿等于没装)。
+        ...(typeof opts.lastActivityAtMs === 'number' ? { lastActivityAtMs: opts.lastActivityAtMs } : {}),
       });
       if (result.compressed && !cachedSummary) {
         // 回写:把本次压缩覆盖的消息序列与摘要正文写入缓存(hash 基于除最近 6 条外的序列化,
@@ -1011,6 +1054,16 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   // P1-2 Compaction V2:加载 settings 一次(feature flag 默认关闭,启用后用 LLM 摘要压缩)
   const settings = loadSettings();
 
+  // ===== WP-2 三道守卫 + WP-3 已读状态:一次运行一个实例 =====
+  // 默认 128K:与 @ihui/api-client DEFAULT_CONTEXT_CAPACITY 跨端一致
+  const guardContextLimit = opts.contextLimit ?? 128_000;
+  const contextGuards = opts.contextGuards ?? new ContextGuards({ contextLimit: guardContextLimit });
+  /** 已读文件跟踪器:压缩后重建提醒的数据源(信封落盘时也由它记账) */
+  const readState = new ReadStateTracker();
+  readState.collectFromMessages(opts.messages);
+  /** 提醒段一旦因压缩点亮就持续注入(压缩掉的已读事实不会自己回来,直到本次运行结束) */
+  let contextReminderActive = false;
+
   // 原生 function calling 三态解析(优先级:显式 opts.providerSupportsTools > settings.nativeFunctionCalling > 'auto')
   // 注意 false 是合法值,不能用 ?? 判断「是否显式传入」,必须用 !== undefined
   const nativeToolsMode =
@@ -1062,12 +1115,31 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       drainAndAppendInterjections();
 
       // 默认 128K:与 @ihui/api-client DEFAULT_CONTEXT_CAPACITY 跨端一致,旧值 8000 会在 ~7k token 就触发 88% 自动压缩
-      const compression = await decideCompaction(opts.messages, settings, {
-        contextLimit: opts.contextLimit ?? 128_000,
-        modelId: opts.modelId,
-        sessionId: opts.sessionId,
-      });
-      const effectiveMessages = compression.messages;
+      const guarded = await contextGuards.compactIfNeeded(
+        opts.messages,
+        iterations,
+        opts.compactContext
+          ? (msgs, gctx) => Promise.resolve(opts.compactContext!(msgs as ChatMessage[], gctx))
+          : (msgs, gctx) =>
+              decideCompaction(msgs as ChatMessage[], settings, {
+                contextLimit: guardContextLimit,
+                modelId: opts.modelId,
+                sessionId: opts.sessionId,
+                lastActivityAtMs: gctx.lastActivityAtMs,
+              }),
+      );
+      if (guarded.userDiagnostic) {
+        // 熔断后不再自动压缩,但**必须**让用户知道为什么不动了(静默停止会被当成卡死)
+        process.stderr.write(chalk.yellow(`[context-guard] ${guarded.userDiagnostic}\n`));
+        opts.onContextDiagnostic?.(guarded.userDiagnostic);
+      }
+      // 本轮真正下发的消息:压缩后的结果 + (压缩过则)重建的"最近已读文件"提醒段
+      let requestMessages = guarded.messages;
+      const readStateReminder = contextReminderActive || guarded.compressed ? readState.buildReminder() : null;
+      if (readStateReminder) {
+        contextReminderActive = true;
+        requestMessages = [...requestMessages, { role: 'user' as const, content: readStateReminder }];
+      }
 
       let iterationText = '';
       let iterError = false;
@@ -1082,8 +1154,13 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         sampleWithRetry(
           {
             modelId: opts.modelId,
-            messages: effectiveMessages,
+            messages: requestMessages as ChatMessage[],
             signal: opts.signal,
+            // WP-2 守卫一的取数口:provider 回来的 usage 是真值复测唯一的权威基准,
+            // 估算(BPE)与实发量可能差数千 token,只按估算判"压没压下去"会误判成功。
+            onUsage: (u) => {
+              contextGuards.recordProviderUsage({ promptTokens: u.promptTokens, totalTokens: u.totalTokens });
+            },
             onDelta: (delta) => {
               iterationText += delta;
               void opts.onDelta?.(delta);
@@ -1124,7 +1201,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         const result = await streamOpenAiCompatible({
           url: localProvider.chatCompletionsUrl!,
           model: localProvider.model || opts.modelId,
-          messages: toOpenAiMessages(effectiveMessages),
+          messages: toOpenAiMessages(requestMessages),
           ...(withTools && nativeExtraBody
             ? { tools: (nativeExtraBody as { tools?: unknown[] }).tools }
             : {}),
@@ -1160,6 +1237,31 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         nativeToolEvents = [];
         process.stderr.write(chalk.dim('[native-fc] provider 不支持原生 tools,降级为 prompt 模式\n'));
         samplerResult = await sampleOnce(false);
+      }
+
+      // WP-2 守卫三装车:连请求本身都被拒(prompt-too-long)时,按**完整 round 边界**
+      // 整组丢弃最老轮次后重试一次。只改写本轮下发的 requestMessages,
+      // 不动 opts.messages(与压缩同构:历史是事实,下发的是裁剪后的视图)。
+      if (samplerResult.error && isPromptTooLongErrorMessage(samplerResult.error)) {
+        const recovery = recoverAfterOverflow(requestMessages, { contextLimit: guardContextLimit });
+        if (recovery.resolved) {
+          requestMessages = recovery.messages;
+          contextGuards.touchActivity();
+          iterationText = '';
+          nativeToolEvents = [];
+          process.stderr.write(
+            chalk.yellow(
+              `[context-guard] 上下文超长:已整组丢弃最老 ${recovery.droppedRounds} 轮后重试(${recovery.beforeTokens}→${recovery.afterTokens} tokens)\n`,
+            ),
+          );
+          samplerResult = await sampleOnce(useNativeTools);
+        } else {
+          const diagnostic =
+            contextGuards.diagnosticMessage ??
+            '上下文已超出模型窗口且没有可整组丢弃的历史轮次,请开新会话或改用分块读取(offset/limit)后重试。';
+          process.stderr.write(chalk.yellow(`[context-guard] ${diagnostic}\n`));
+          opts.onContextDiagnostic?.(diagnostic);
+        }
       }
 
       if (samplerResult.error) {
@@ -1201,8 +1303,25 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       }
 
       // Token 累计:prompt 从压缩后 messages 估算,completion 从 iterationText 估算
-      const iterPromptTokens = estimateMessagesTokens(effectiveMessages);
+      const iterPromptTokens = estimateMessagesTokens(requestMessages);
       const iterCompletionTokens = estimateTokens(iterationText);
+      // WP-2 守卫一装车:压缩过的轮次用 provider 真值复测,不把"摘要生成成功"当"压缩成功"。
+      // 未压缩的轮次内部直接返回 null(不给无关请求打分)。
+      const reverified = contextGuards.verifyAfterRequest({
+        messages: requestMessages,
+        ...(typeof guarded.compression?.compressedTokens === 'number'
+          ? { tokensAfterCompaction: guarded.compression.compressedTokens }
+          : {}),
+      });
+      if (reverified && !reverified.meetsTarget) {
+        console.warn(
+          chalk.yellow(
+            `  ⚠️ [context-guard] 压缩后仍高于目标线:${reverified.effectiveTokens}/${guardContextLimit}` +
+              `(source=${reverified.source},下一轮预测 ${reverified.nextTurnPredictedTokens},` +
+              `${reverified.nextTurnWouldTrigger ? '仍会触发压缩' : '预计不再触发'})`,
+          ),
+        );
+      }
       totalPromptTokens += iterPromptTokens;
       totalCompletionTokens += iterCompletionTokens;
       const iterCostUsd = estimateIterationCost(opts.modelId, iterPromptTokens, iterCompletionTokens);
@@ -1464,7 +1583,17 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           args: call.arguments,
           result,
         });
-        resultParts.push(formatToolResult(call, result));
+        // WP-3 预算信封:超限结果**不得整段进上下文** —— 落盘到项目内会话产物目录,
+        // 这里只回灌"路径 + 前 K 字符预览 + 已截断说明"的信封(已信封的结果幂等跳过)。
+        const budgeted = envelopeToolResult({
+          call,
+          result,
+          workspacePath: opts.ctx.workspacePath,
+          sessionId: opts.sessionId,
+          turn: iterations,
+          tracker: readState,
+        });
+        resultParts.push(formatToolResult(call, { ...result, output: budgeted.output }));
       }
 
       // P1-2 Reminders:工具结果后自动注入系统提醒(context budget / iteration progress)
@@ -1491,6 +1620,9 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       }
 
       opts.messages.push({ role: 'user', content: resultParts.join('\n\n') });
+      // 本轮有真实产出(工具结果已进历史)→ 重置空闲计时。reclaim 的空闲触发以此为准,
+      // 不接这一步就等于永远没有 lastActivityAtMs 可传(守卫二/回收触发都会失真)。
+      contextGuards.touchActivity();
 
       // P2-4 agent-lifecycle:turnEnd hook(本轮成功结束 - 工具调用执行完毕)
       runHook('turnEnd', {
