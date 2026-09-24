@@ -7074,6 +7074,77 @@
       "rollbackConfirmConfirm": "Restore"
     },
     "pane": {
+      "inputSources": {
+        "ariaLabel": "Input sources and queue",
+        "snapshot": {
+          "attachApp": "Attach {appName}",
+          "state": {
+            "disabled": "Smart snapshot is off",
+            "enabled": "Smart snapshot enabled",
+            "failed": "Smart snapshot failed"
+          },
+          "enable": "Enable smart snapshot",
+          "firstRunGuideTitle": "First time with smart snapshot",
+          "firstRunGuideBody": "Smart snapshot captures the current app context so messages carry app info automatically",
+          "failedHint": "Snapshot failed. Retry or send as a regular attachment"
+        },
+        "route": {
+          "appSnapshot": "App snapshot",
+          "remoteFile": "Remote file",
+          "remotePhoto": "Remote photo"
+        },
+        "command": {
+          "queuePrompt": "Queue prompt",
+          "queuePromptDesc": "Send queued prompts in order after the current reply finishes",
+          "steerPrompt": "Steer prompt",
+          "steerPromptDesc": "Insert guidance into the running reply without interrupting it"
+        },
+        "undo": {
+          "restoring": "Restoring queued messages",
+          "restored": "Restored messages from the queue",
+          "restoredQueued": "Restored queued messages",
+          "failed": "Restore failed. Messages remain in the queue"
+        },
+        "memoryRefs": {
+          "count": "{count} memory references",
+          "tooltip": "Referenced memories",
+          "empty": "No memory references yet"
+        },
+        "goal": {
+          "achievedIn": "Goal achieved in {totalTime}"
+        }
+      },
+      "inputNotices": {
+        "ariaLabel": "Compaction and queue notices",
+        "compaction": {
+          "block": {
+            "cause": {
+              "runningTurn": "The current Turn is still running",
+              "insufficientCredits": "Compaction consumes a small amount of credits",
+              "noTurnBoundary": "No Turn boundary is available right now"
+            },
+            "consequence": {
+              "runningTurn": "Compaction runs after the current Turn completes; it cannot be injected into a running Turn",
+              "insufficientCredits": "Not enough credits, so this compaction will not run and the conversation context stays unchanged",
+              "noTurnBoundary": "Compaction cannot run right now and the conversation context stays unchanged"
+            }
+          }
+        },
+        "queue": {
+          "reasonTitle": "Queue reason",
+          "reason": {
+            "turnRunning": "A reply is being generated; your message will be sent after this Turn ends",
+            "queueAhead": "Earlier messages are still being processed; waiting in order",
+            "runtimeNoInterject": "The current Runtime does not support interjection; your message will stay queued"
+          },
+          "denied": {
+            "reorder": "Cannot reorder queued messages",
+            "undo": "Cannot unsend the queued message",
+            "interject": "The current Runtime does not support interjection; your message will stay queued"
+          },
+          "reorderAria": "Drag to reorder queued messages; use the up and down arrow keys while focused"
+        }
+      },
       "voiceSubtitles": {
         "muteAndShowSubtitles": "Mute and show subtitles",
         "subtitleTitle": "Voice subtitles",
@@ -9415,6 +9486,7 @@
     "adoptHint": "Write the selected candidate into the current conversation"
   },
   "goalCard": {
+    "achievedInTime": "Goal achieved in {totalTime}",
     "empty": "No conversation goal set yet",
     "emptyHint": "Type /goal <goal> in the input box, or let the AI drive it",
     "progress": "Progress",
@@ -9964,6 +10036,18 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
+    "connectorAuth": {
+      "title": "Connect to {connectorName}",
+      "connected": "Connected",
+      "reconnect": "Reconnect {connectorName}",
+      "connect": "Connect",
+      "connecting": "Connecting…",
+      "moreInfo": "More info",
+      "decline": "Not now",
+      "declined": "Declined to connect {connectorName}. This conversation is unaffected."
+    },
+    "queueUndoRestoredQueued": "Restored the queued message",
+    "queueUndoRestored": "Restored the message from the queue",
     "usageEstimated": "Est.",
     "turnChanges": {
       "title": "Changes in this turn",
@@ -11111,6 +11195,24 @@
       "view": "View"
     },
     "commands": {
+      "steerPrompt": {
+        "description": "Inject the current input as guidance into the running answer",
+        "keywords": [
+          "steer",
+          "guide",
+          "redirect"
+        ],
+        "label": "Steer prompt"
+      },
+      "queuePrompt": {
+        "description": "Queue the current input; it sends automatically after the current answer finishes",
+        "keywords": [
+          "queue",
+          "pending",
+          "send later"
+        ],
+        "label": "Queue prompt"
+      },
       "agent": {
         "description": "Manage and dispatch AI agents",
         "keywords": ["agent", "bot", "dispatch"],
