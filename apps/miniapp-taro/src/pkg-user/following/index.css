@@ -186,11 +186,11 @@
 .following-empty-btn {
   margin-top: 24rpx;
   padding: 16rpx 40rpx;
-  background: var(--color-primary);
+  background: var(--color-cta);
   border-radius: var(--radius-md);
 }
 .following-empty-btn-text {
-  color: var(--color-foreground);
+  color: var(--color-cta-foreground);
   font-size: 26rpx;
 }
 
