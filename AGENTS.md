@@ -140,7 +140,7 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 ### 区段头「更多」入口单一源头(强制,2026-09-24 立)
 
 - **三端唯一实现**:RN = `packages/app/src/components/MoreLink.tsx`(经 `@ihui/rn-app` 导出);web = `apps/web/src/components/common/view-more-link.tsx`;小程序 = `LineIcon name="chevron-right"`(`components/LineIcon/icons.ts` 已含该图标,零新素材)。**禁止在任何端再自拼第四份**「标签 + 箭头」。
-- **箭头必须是矢量图标,禁止用字符 `›` / `»` / `>` 充当**。字符与文字没有共用度量,`align-items:center` 居中的是各自行盒:实测「更」12px 墨迹偏上 1.0px,而 `›` 在 14/16/18/20px 档偏下 1.0~~1.5px —— 是**相加**关系,所以"标签小、箭头大"的旧写法错位 2.0~~2.5px。算式与完整根因见 `docs/UI_GUIDELINES.md` §4.6。
+- **箭头必须是矢量图标,禁止用字符 `›` / `»` / `>` 充当**。字符与文字没有共用度量,`align-items:center` 居中的是各自行盒:实测「更」12px 墨迹偏上 1.0px,而 `›` 在 14/16/18/20px 档偏下 1.0 至 1.5px —— 是**相加**关系,所以"标签小、箭头大"的旧写法错位 2.0 至 2.5px。算式与完整根因见 `docs/UI_GUIDELINES.md` §4.6。
 - **标签与箭头必须同一光学尺寸(RN/web 12px、小程序 24rpx)+ 同一缩放倍率**:旧写法箭头带 `allowFontScaling={false}` 而标签允许缩放,用户调大系统字号即分叉。RN 侧把倍率同时喂 `Text.maxFontSizeMultiplier` 与图标 `size`(clamp 1..1.4),并保留 `includeFontPadding: false`(Android 字体留白不对称,端内已有 8 处同写法)。
 - **禁止反向微调补丁**:`marginBottom: -2` / `translateY` / 负 margin 凑数(与本节上方"严禁 -mt-px"同一条禁令,换机型即失效)。
 - **文案统一 `common.more`**(更多 / More / もっと見る / 더 보기),不得再写"查看更多 / 查看全部 / 完整榜单";但 `accessibilityLabel` **刻意保留长口径**(如"查看更多模型")—— 可见文案求短,无障碍名称须脱离上下文成立。
