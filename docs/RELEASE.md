@@ -630,10 +630,55 @@ git branch -d hotfix/v1.2.4
 桌面端基于 Tauri 2 `tauri-plugin-updater` 实现应用内自动更新,发布/更新链路**已全部配置完毕**:
 
 - 前端更新逻辑:[use-updater.ts](../apps/web/src/hooks/use-updater.ts)(web 端 Tauri WebView 内运行)+ Rust 端 `restart_app` 命令
-- [tauri.conf.json](../apps/desktop/src-tauri/tauri.conf.json):`bundle.createUpdaterArtifacts: true` 已启用,updater endpoint 指向固定 feed tag:
-  `https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-updater-feed/latest.json`
-  (用固定 feed tag 而非 `releases/latest`,避免被 nightly-ios 等其他 release 漂移占用导致 404)
-- 签名密钥对已通过 `generate-tauri-keys.yml` 生成,公钥已写入 conf
+- [tauri.conf.json](../apps/desktop/src-tauri/tauri.conf.json):`bundle.createUpdaterArtifacts: true` 已启用,updater 配的是**两个端点按序回退**:
+  1. `https://aizhs.top/desktop-feed.json` —— **主端点**,是 Next App Route
+     (`apps/web/app/desktop-feed.json/route.ts`,`force-static`),数据来自入库快照
+     `apps/web/src/config/desktop-feed.generated.ts`(由 `resolve-desktop-download.mjs` 在
+     `release-desktop.yml` 与每日 `sync-downloads.yml` 两处刷新);Windows 包直链走 **Gitee 国内发行**;
+  2. `https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-updater-feed/latest.json` —— **回退端点**,挂在固定 feed tag 上
+     (用固定 feed tag 而非 `releases/latest`,避免被 nightly-ios 等其他 release 漂移占用导致 404)。
+
+  > ⚠️ **2026-09-24 实测纠偏**:上面"已全部配置完毕"当时并不成立。回退端点的 git ref
+  > `refs/tags/desktop-updater-feed` **在 origin 上已不存在**(`git ls-remote` 与 `GET` 双双 404,而 Release 对象还在、
+  > 资产还被 CI 正常更新),即第 2 条整条是死的。已把 feed tag 归位到它原本的目标提交(不前移)并复验:
+  > 回退端点 `GET=200`、`version 0.1.44`、平台数 4。判据提示:**端点是否活着只能靠 HTTP 实测 + `git ls-remote` 双向核**,
+  > 不能读文档、也不能看 CI 绿灯 —— `Publish Updater JSON` job 全程 success,而它的产物当时 404。
+  >
+  > 🔴 **"两个端点按序回退"这句话本身也是错的(2026-09-24 读 crate 源码实证)**:
+  > `tauri-plugin-updater` 的端点循环**只要某个端点返回 200 且 JSON 能反序列化就 `break`**,
+  > 之后才在 `download_url()` 里查平台键、查不到即 `Err(TargetNotFound)` **直接失败**。
+  > 所以"主端点缺 mac/linux 键、mac 客户端会自己回落到 GitHub"是不成立的 —— 缺键当年是**硬故障**不是软降级。
+  >
+  > ✅ **主端点缺 mac/linux 键已修(2026-09-24)**:站点 feed 的 `platforms` 不再由 route 自己
+  > `find(a => /Windows/i.test(a.format))` 拼单键,而是输出快照的 `updaterPlatforms` 四键映射。
+  > 平台推断/择优(`exe>msi`、`AppImage>deb>rpm`、universal 一次填 `darwin-x86_64`+`darwin-aarch64`)、
+  > 空签名不出键、URL host 白名单(mac/linux 只认 GitHub,因 Gitee 镜像的 mac/linux 资产实测 404)
+  > 全部收在唯一真相源 `scripts/lib/tauri-updater-platforms.mjs`,CI 的 `generate-latest-json.mjs`
+  > 与快照生成器 `resolve-desktop-download.mjs` 共用它 —— 两条 feed 从此同源同形。
+  > **macOS 绝不能用 `.dmg` 填 darwin 键**:dmg 不是可更新产物、没有配套 `.sig`(快照里 dmg 的 signature 恒为空串),
+  > 用它 = 客户端下载后验签失败,比"没有更新"更糟;可更新产物是 `AI_universal.app.tar.gz` + 其 `.sig`。
+  >
+  > ⚠️ **`/api/desktop-feed` 这条同义路由在公网是死的**:边缘 nginx `location /api/` 整体
+  > `proxy_pass` 到 `apps/api`(Fastify),Next 侧那个 App Route 永远收不到请求
+  > (实测 `GET https://aizhs.top/api/desktop-feed` = 404 且响应头是 API 服务的 `x-api-version: 1`,
+  > 而 `/desktop-feed.json` = 200 带 `vary: rsc`)。它**没有**被配进任何 endpoint 列表,故不影响客户端;
+  > 保留只为与 `/desktop-feed.json` 共用同一拼装器(`desktop-feed-payload.ts`)不再产出第二份真相。
+  > **要新增公网 feed 端点,必须用非 `/api/` 前缀的路径**,否则会被 API 服务吃掉。
+- 签名密钥:**全链路只有一把**(`B5D7E67EA2B1DB08`,即 conf 里的 pinned 公钥)。2026-09-24 机检:CI 产的
+  exe/AppImage/universal-app.tar.gz 三枚 `.sig`、Gitee 上两枚 exe `.sig`、以及快照里四个平台键的 signature,
+  内嵌 keyID **逐一对该公钥相等** ⇒ "mac/linux 要补签名密钥"是伪命题,**不得新建密钥对**
+  (新建即让存量客户端验签全废)。`deploy/prod-bundle/keys/ihui-desktop.key` 是**另一对** keyID
+  (`664FF5770686C5AC`)、未入仓、也未参与任何已发布产物,不要误当发布私钥。
+  公钥在仓库、**私钥只在 CI secrets** 与发版机 `~/.tauri/ihui-updater.key`;本机若无该文件,
+  本地打包只能走 `DESKTOP_ALLOW_UNSIGNED=1` 出**不可发版**的包。
+
+> ✅ **触发方式铁律已被实测推翻(2026-09-24)**:本节下方原先写"tag push 触发 `release-desktop.yml` 历史上
+> #15-#22 几乎全失败,必须用 workflow_dispatch"。本次 **0.1.44 用 `git push origin refs/tags/desktop-v0.1.44`
+> 触发,run #82 六个 job 全 success**(windows / macos-universal / linux 三平台构建 + Publish Updater JSON +
+> Sync Downloads + Sync release to Gitee),Release 资产 14 个齐全(含 `AI_0.1.44_x64-setup.exe` 与 `.sig`)。
+> 原文保留是为了不让后人重蹈当时的误判方向。两条操作注意:回读 feed/资产一律用 `GET`(HEAD 经代理不稳);
+> **别重推旧的 `desktop-v*` tag** —— 那会再触发一次该平台发版,可能把 `latest.json` 写回旧版本(等于给用户降级)。
+
 
 ### 发版流程(每次桌面版发布)
 
