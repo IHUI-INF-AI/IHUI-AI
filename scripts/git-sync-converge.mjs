@@ -475,7 +475,33 @@ function main() {
         tree = out.trim().split('\n')[0].trim()
         if (!/^[0-9a-f]{40}$/.test(tree)) throw new Error(out)
       } catch (e) {
-        log(C.red, `❌ 合并冲突或 merge-tree 失败,需人工介入:\n${e.stdout ?? e.message}`)
+        // 冲突 ≠ 只能人工。人工接手时最容易犯的错是**选边** —— 2026-09-24 就是有一枚"取某一侧整棵树"
+        // 的合并把对侧独有新增的 35 个路径整批抹掉(净 −12014 行),而它的提交信息写着"每一行均存活"。
+        // 所以先让 union-converge 试一次**文件面零丢失**的归并(本侧整棵树 ∪ 对侧自身改动 ∪ 活文档
+        // 行 union,落地前自证 0 丢失、落地后由守门 100 复核);它也不收敛才退回人工。
+        let uni = ''
+        try {
+          uni = execFileSync(
+            process.execPath,
+            ['scripts/union-converge.mjs', '--apply', '--theirs', freshRemote],
+            {
+              cwd: repoRoot,
+              encoding: 'utf8',
+              windowsHide: true, // §5b:漏此参数在钩子/守护派生下必弹控制台窗
+              timeout: 300000, // 守门 80:热路径 git 派生一律封顶,挂起会拖死整条收敛链
+            },
+          )
+        } catch (ue) {
+          uni = String(ue.stdout || ue.message || '')
+        }
+        if (uni.includes('✅ 合并落地')) {
+          log(C.green, `↻ merge-tree 冲突已由 union-converge 归并,转下一轮复核\n${uni.trim()}`)
+          continue
+        }
+        log(
+          C.red,
+          `❌ 合并冲突,且 union-converge 亦判需人工(见上)。\n原始输出:\n${e.stdout ?? e.message}`,
+        )
         process.exit(1)
       }
       log(C.dim, `  合并树 ${tree.slice(0, 11)}(无冲突)`)

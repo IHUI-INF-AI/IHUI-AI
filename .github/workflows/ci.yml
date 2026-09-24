@@ -41,8 +41,37 @@ jobs:
           node-version: 22
           cache: 'pnpm'
 
-      - name: Install dependencies
+      # ═════════════════ 构建真值门(2026-09-24 立)═════════════════
+      # 立因:origin/main 一天内两次携带"本地全绿、生产构建必炸"的缺陷,而 typecheck / lint /
+      # 单测 / 约 110 道本地守门全部判绿,部署环停摆 1.5h+。这两枚缺陷只有下面这些步骤能抓:
+      #   缺陷 1 = @ihui/shared 的 barrel 写了 `export * from './不存在的模块'`
+      #   缺陷 2 = apps/web/package.json 与 pnpm-lock.yaml 的 importer specifier 不一致
+      # 排序原则:先证明"依赖是真的",再证明"包能被编译器读通",再"真跑一次构建并核验产物";
+      # 分析类门(typecheck / lint / test)一律排在其后 —— 原顺序里 Build 是全 job 最后一步,
+      # 前面任一步变红或被 runner cancel(见下方 Build 注释:连续两轮遭 runner shutdown),
+      # 等价于"这一次 CI 根本没有产出构建结论",而这一类缺陷恰好只在构建时显形。
+      # 本门一律不使用 continue-on-error / `|| true`(一条吞掉退出码的步骤等于没有该步骤)。
+      # ══════════════════════════════════════════════════════════════
+      # 缺陷 2 的门:`xlsx: ^0.18.5` vs 锁里 `npm:@e965/xlsx@^0.20.3` 这类 specifier 漂移时,
+      # pnpm **静默跳过**该包的链接步骤(不报错、不改锁),本地 node_modules 早就装好了所以全绿,
+      # 直到 bundler 报 Module not found。--frozen-lockfile 是唯一会在此处非零退出的写法。
+      # **禁止**改成裸 `pnpm install` 或加 --no-frozen-lockfile —— 那等于把这道门删掉;
+      # 也**禁止**挪到任何 build 步骤之后。
+      - name: Install dependencies (frozen lockfile = dependency truth)
         run: pnpm install --frozen-lockfile
+
+      # 缺陷 1 的门:@ihui/shared 的 exports["."] 直指 src/index.ts,而 index.ts:19 再
+      # `export * from './chat'`,apps/web 有 25 个文件 import 根 barrel(2026-09-24 实测计数)。
+      # 为什么必须单独跑这一步:悬空 re-export 在 TS 侧是 TS2307,而 apps/web/next.config.ts:63
+      # 设了 typescript.ignoreBuildErrors = true —— web 构建**主动放弃**了这类错误(多 agent
+      # 并行期的既有权衡),于是 web 侧只剩 bundler 的 Module not found 会炸;而 @ihui/shared
+      # 自己那套 tsc 没有这个开关,把它当**自己的**编译单元跑一次就必红。两道门各管一种形态。
+      # 实测取证(2026-09-24):本命令在当前 HEAD exit 0、约 2s,--listFiles 证明其程序含
+      # packages/shared/src/chat/index.ts(即缺陷载体)等 183 个源文件;把历史那行
+      # `export * from './voice-note'` 注进同一文件即报
+      # `error TS2307: Cannot find module './voice-note'`(exit≠0),撤掉即回绿。
+      - name: Shared package typecheck (dangling `export *` gate)
+        run: pnpm --filter @ihui/shared typecheck
 
       - name: Build database package
         run: pnpm --filter @ihui/database build
@@ -58,6 +87,29 @@ jobs:
       # 本地由 apps/extension 的 postinstall 兜底, CI 显式前置保证确定性。
       - name: Prepare WXT types (extension)
         run: pnpm --filter @ihui/extension exec wxt prepare
+
+      # ↓↓↓ Build 原是本 job 的**最后**一步(排在 typecheck/schema/migration/routes/ports/
+      # lint/test 之后)。那些步骤里任何一步红、或 runner 中途 shutdown,本次 CI 就完全不产出
+      # "能不能构建"这个结论 —— 而"只有真跑一次构建才会暴露"正是本类缺陷的定义。故把 Build
+      # 上移到分析门之前,并在两侧各加一条断言。命令本身未改(仍排除 desktop,原因见其注释)。
+      #
+      # 前置断言:turbo 的 --filter 对"该包没有这个 script"是**静默跳过**(实测 2026-09-24
+      # `turbo run build --filter=@ihui/tsconfig` → "Tasks: 0 successful, 0 total" 且 exit 0)。
+      # 也就是有人把 apps/web 的 build 脚本改名或删掉,turbo 照样全绿而 web 端从未被构建。
+      - name: Assert web declares a build script
+        run: node -e "const p=require('./apps/web/package.json'); if(!p.scripts||!p.scripts.build){console.error('apps/web 缺 build 脚本 -> turbo run build 会静默跳过,web 端本次从未被构建验证');process.exit(1)} console.log('web build =',p.scripts.build)"
+
+      - name: Build
+        # desktop(tauri) 构建极重且发布由专门工作流负责,CI 仅验证其余包可构建;
+        # 连续两轮 desktop build 阶段遭 runner shutdown(cancel)。
+        # 禁止加 continue-on-error / `|| true`:这一步是"生产构建能不能过"的唯一真值来源。
+        run: pnpm turbo run build --filter=!@ihui/desktop
+
+      # 后置断言:"这一步报绿"与"web 端真的产出了产物"是两件事。.next/BUILD_ID 由 next build
+      # 独占生成(turbo 会把 .next/** 作为 outputs 一并回缓存),它不在位就说明本次根本没有
+      # 构建过 web —— 宁可在这里红,也不让"形同虚设的构建步骤"继续给人假绿。
+      - name: Assert web build artifact exists
+        run: node -e "const fs=require('fs');const f='apps/web/.next/BUILD_ID';if(!fs.existsSync(f)){console.error('Build 步报绿但没有 '+f+' -> web 端本次未被真正构建,该步骤形同虚设');process.exit(1)}console.log('web BUILD_ID =',fs.readFileSync(f,'utf8').trim())"
 
       - name: Typecheck
         run: pnpm turbo run typecheck
@@ -83,10 +135,8 @@ jobs:
       - name: Test
         run: pnpm turbo run test
 
-      - name: Build
-        # desktop(tauri) 构建极重且发布由专门工作流负责,CI 仅验证其余包可构建;
-        # 连续两轮 desktop build 阶段遭 runner shutdown(cancel)。
-        run: pnpm turbo run build --filter=!@ihui/desktop
+      # Build 步已上移至 2026-09-24(见 Prepare WXT types 之后),不再作为本 job 最后一步 ——
+      # 留在末尾意味着任何前置步骤变红时"能否构建"这一结论直接缺失。
 
   python-ai-service:
     runs-on: ubuntu-latest
