@@ -39,8 +39,18 @@
  *   node scripts/scan-desktop-dead-i18n-keys.mjs      # → --target=desktop
  *
  * 死 key 判定 / 翻译完整性 / 动态 key:见 _i18n-scan-helpers.mjs 注释
+ *
+ * 契约键出口:scripts/i18n-contract-keys.json(跨端词包契约键 / 被测试钉住的形状键)。
+ * 静态扫描只能看见"本端有没有人取这个词",看不见"这个词是不是契约的一部分";
+ * 没有这个出口,唯一的出路就是把 --target all 缩回单端 —— 那等于把其余四端的红点重新藏起来。
+ * 逐条依据必须能在 HEAD 里核验(文件存在 / 行号在范围内 / 该行含被引用的标识符),不成立即判红。
  */
-import { main as runScan } from './_i18n-scan-helpers.mjs'
+import {
+  main as runScan,
+  loadContractFile,
+  unknownContractTargets,
+  CONTRACT_FILE_REL,
+} from './_i18n-scan-helpers.mjs'
 
 const TARGETS = {
   web: {
@@ -148,11 +158,24 @@ function printHelp() {
 
 输出:.ihui-agent/tmp/i18n-dead-keys-${TODAY}-<target>.md(默认,web 无 target 后缀)
 排除:node_modules / .next / dist / __tests__ / *.test.ts(x) / *.spec.ts(x) / .d.ts
+契约键:${CONTRACT_FILE_REL}(按 target → key → { reason, evidence[] } 登记,依据逐条按 HEAD 核验)
 `)
 }
 
 const args = parseArgs(process.argv.slice(2))
 if (args.help) { printHelp(); process.exit(0) }
+
+// 契约声明的 target 名必须真存在:拼错的端名不会被任何一次判定读到,
+// 等于把一枚没有读者的豁免永久留在清单里(与守门 90「豁免项若已不存在同样算红」同取向)。
+const contractFile = loadContractFile(process.cwd())
+const bogusContractTargets = unknownContractTargets(contractFile.raw, Object.keys(TARGETS))
+if (bogusContractTargets.length > 0) {
+  console.error(
+    `[scan-dead-i18n-keys] ❌ ${CONTRACT_FILE_REL} 登记了未知 target:${bogusContractTargets.join(', ')}` +
+      `(可用:${Object.keys(TARGETS).join(', ')})`,
+  )
+  process.exit(1)
+}
 
 const names =
   args.target === 'all'
