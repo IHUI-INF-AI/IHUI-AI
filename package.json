@@ -59,6 +59,7 @@
     "db:mirror": "apps\\ai-service\\.venv\\Scripts\\python.exe scripts/db/db_sync.py mirror --yes",
     "check:migration-from-zero": "node scripts/check-migration-from-zero.mjs",
     "check:sanitizer-bypass": "node scripts/check-sanitizer-bypass.mjs",
+    "check:home-junctions": "node scripts/check-home-junctions.mjs",
     "check:nav-dead-links": "node scripts/check-nav-dead-links.mjs",
     "check:popover-trigger-data-state": "node scripts/check-popover-trigger-data-state.mjs",
     "check:rn-parity": "node scripts/check-mobile-rn-style-parity.mjs",
