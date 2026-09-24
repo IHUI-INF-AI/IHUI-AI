@@ -15,7 +15,14 @@
  * - 向后兼容:title?/onBack?/rightAction?/transparent? 旧 API 全保留
  */
 import { type ReactNode } from 'react'
-import { Image, StyleSheet, Text, TouchableOpacity, View, type ViewStyle } from 'react-native'
+import {
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  type ViewStyle,
+} from 'react-native'
 import { tokens } from '../theme/active-tokens'
 import type { AppIcon } from '@ihui/types'
 

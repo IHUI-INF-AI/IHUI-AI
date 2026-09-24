@@ -462,6 +462,10 @@ function run(argv) {
     )
     for (const x of gutted.slice(0, 25)) console.error(`   [${x.kind}] ${x.link}  ← ${x.owner}`)
     if (gutted.length > 25) console.error(`   … 另有 ${gutted.length - 25} 条`)
+    console.error(
+      '   ⚠️ 若此刻有并发 `pnpm install` 在跑,这类红会在装完后自行消失(半复制态)。',
+    )
+    console.error('      正确反应是**等一等再复跑本门**,不是 --no-verify(那会连带跳过其余全部守门)。')
   }
   if (hookBad.length) {
     console.error(`❌ ${hookBad.length} 条 pre-commit 第一步必然 spawn 的 lint-staged 命令解析不到(根 node_modules/.bin 里没有 shim):`)
@@ -557,7 +561,7 @@ function selfTest() {
         try {
           symlinkSync(target, abs, 'dir')
           return true
-        } catch (e) {
+        } catch {
           return false // Windows 无符号链接权限 ⇒ 由下一条用例显式报告
         }
       }
