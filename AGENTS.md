@@ -1269,6 +1269,7 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 
 - **HEAD 悬空具名导入对账**(98):`scripts/check-dangling-local-imports.mjs`(blocking,2026-09-24 立)—— 与守门 77 B6 同族的**另一半**:77 管"用了标识符却没 import",本门管"`import { X } from './y'` 而 y 根本不导出 X"。两者都只在编译期可见,而 `pnpm typecheck` 只跑共享工作区 —— 工作区恰好是旧基线时**两边都不红**。2026-09-24 一天内各中一次:`rnRadius['2xl']` 两处未 import 让真机 release 包启动即 SIGABRT(Metro 不查类型,打包成功≠能跑);`PermissionTierRow` 经 `git log --all -S` 证明**从未在任何提交里存在过**,而引用它的注释还写着"已抽到 ChatDisclosure"。判据 D1(具名导入无对应导出)/ D2(相对路径解析不到);口径与 77/83/90 一致:全量判 **HEAD blob**、`--staged` 判索引 blob、**棘轮锚点恒为该文件 HEAD 自身违规数**(把锚点写成 0 会让存量 300+ 文件整片报红 ⇒ 逼人 `--no-verify` ⇒ 全部守门作废);宁漏不误报 —— `export *` 目标不可枚举即放过,缩进/注释/模板字符串里的 import 形态一律不判。真仓 HEAD 实测 8042 源文件、悬空 6 处且**全在测试面**,生产代码 0 处。取证 `--self-test` 19 例 + §22c 镜像测试 5 例(含"存量只允许落在测试文件"与 runner 装车证明)。紧急跳过 `HUSKY_SKIP_DANGLING_IMPORTS=1`。
 - **守门 77 B6 的括号形态盲区(2026-09-24 补)**:B6 首版的使用形态正则是 `rnRadius\s*\.`,而本门 `targetOf()` 对 2xl 档**规定的写法恰是 `rnRadius['2xl']`**(`rnRadius.2xl` 不是合法 JS)—— 门让你怎么写,门就看不见怎么写。现判据改为 `\s*(?:\.|\[)` 两种形态同视,`--self-test` 补 3 例成对正反对照,镜像测试补"括号形态必须被看见"的装车证明。教训:**判据必须覆盖自己产出的那一种形态**,否则它只拦得住别人、拦不住自己。
+
 ### 计划任务与 .vbs 的硬约束(2026-09-20 立,由本人引入的弹窗回归收口)
 
 - **🚫 计划任务禁止直接执行控制台程序**:InteractiveToken 下 `/tr "node.exe xxx"` 会让 Windows **显示控制台窗口**(每 2 分钟闪一扇黑窗)。一律经 `wscript.exe "<name>-hidden.vbs"` 包装(`objShell.Run(cmd, 0, False)` = SW_HIDE);`-WindowStyle Hidden` 与 `powershell -WindowStyle Hidden` **仍会闪**,不作为豁免手段。现存正例:`git-guardian-hidden.vbs` / `cleanup-zombie-processes-hidden.vbs` / `kill-git-selector-hidden.vbs`。
@@ -1473,9 +1474,9 @@ nssm 服务(IHUI-API / IHUI-DEPLOYLOOP 以 LocalSystem 运行)拿到的仍是 `C
 
 ### 自动维护计划任务
 
-| 任务名                      | 触发     | 实际执行体                                                                                 | 功能                                  |
-| --------------------------- | -------- | ------------------------------------------------------------------------------------------ | ------------------------------------- |
-| `IHUI C-Drive AutoMaintain` | 每天 3am | `wscript.exe scripts/c-drive-maintain-hidden.vbs` → `pwsh -File c-drive-auto-maintain.ps1` | 清理 Chrome/Temp 缓存 + 报告 C 盘状态 |
+| 任务名                      | 触发     | 实际执行体                                                                                 | 功能                                                                                                                                                                            |
+| --------------------------- | -------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `IHUI C-Drive AutoMaintain` | 每天 3am | `wscript.exe scripts/c-drive-maintain-hidden.vbs` → `pwsh -File c-drive-auto-maintain.ps1` | **六段**:①Chrome 缓存 ②Temp 旧目录 ③本项目 C 盘产物 ④盘根封口体检 ⑤系统自产残骸(卡死打印队列/内核转储/孤儿浏览器构建) ⑥回潮源封禁(Chrome 政策,写前先验政策名真在 chrome.dll 里) |
 
 **⚠️ 注册名含空格,不是连字符**(`schtasks /query /fo CSV` 实读回 = `\IHUI C-Drive AutoMaintain`)。按文档里旧写的 `IHUI-C-Drive-AutoMaintain` 去查,`schtasks` 回「系统找不到指定的文件」—— 2026-09-23 我就是因此**误判成"任务从未注册"**,而它当时确实还没注册(23:55 才注册),但**名字陷阱会让人在任何一天都得出同样的错结论**。Git Bash 下查还要加 `MSYS_NO_PATHCONV=1`,否则 `/query` 被改写成路径。判存在与否只认 `schtasks /query /fo CSV | grep -i c-drive` 这种全量列名法,不要拿文档里的名字去点名查。
 
