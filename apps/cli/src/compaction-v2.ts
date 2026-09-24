@@ -33,6 +33,8 @@ import {
   DEFAULT_KEEP_RECENT,
   DEFAULT_TRIGGER_RATIO,
   DEFAULT_TARGET_RATIO,
+  reclaimStaleToolResults,
+  type ReclaimResult,
 } from '@ihui/context-compaction';
 
 // ==================== 类型定义 ====================
@@ -95,6 +97,15 @@ export interface CompactionV2Options {
   /** 透传给 fallback 的 compressContextIfNeeded */
   workspacePath?: string;
   sessionId?: string;
+  /**
+   * 关闭"回收先行"这一免费阶段(默认开)。关掉后行为与旧版逐字一致,
+   * 用于对照实验或调用方自己已经做过回收的场景。
+   */
+  reclaimEnabled?: boolean;
+  /** 会话最近一次活动时间戳(ms epoch)—— 回收的空闲触发用;不传则只按窗口比例触发 */
+  lastActivityAtMs?: number;
+  /** 判定时钟(默认 Date.now(),测试可注入) */
+  nowMs?: number;
 }
 
 export interface SelectTurnsResult {
@@ -336,13 +347,31 @@ function fallbackToV1(messages: ChatMessage[], opts: CompactionV2Options): Compr
   });
 }
 
+/** 回收结果的对外形态(与 CompressionResult 对齐,trigger 固定 'reclaim') */
+function reclaimAsCompression(
+  reclaim: ReclaimResult,
+  originalTokens: number,
+  contextLimit: number,
+): CompressionResult {
+  return {
+    messages: reclaim.messages,
+    compressed: true,
+    originalTokens,
+    compressedTokens: reclaim.afterTokens,
+    removedCount: reclaim.reclaimedCount,
+    trigger: 'reclaim',
+    usageRatio: contextLimit > 0 ? originalTokens / contextLimit : 0,
+  };
+}
+
 /**
  * compressContextV2 — 主入口。
- * 流程:shouldCompact → selectTurnsToCompact → sampler → isDegenerateSummary →
- *       formatCompactSummary → reductionGuard,任一步失败 fallback 到 compressContextIfNeeded。
+ * 流程:reclaim(零模型请求,免费体积先拿回来)→ shouldCompact → selectTurnsToCompact →
+ *       sampler → isDegenerateSummary → formatCompactSummary → reductionGuard,
+ *       任一步失败 fallback 到 compressContextIfNeeded。
  */
 export async function compressContextV2(
-  messages: ChatMessage[],
+  inputMessages: ChatMessage[],
   opts: CompactionV2Options,
 ): Promise<CompressionResult> {
   const contextLimit = opts.contextLimit;
@@ -357,19 +386,49 @@ export async function compressContextV2(
   const retryDelayMs = opts.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
   const samplingTimeoutMs = opts.samplingTimeoutMs ?? DEFAULT_SAMPLING_TIMEOUT_MS;
 
-  const originalTokens = estimateMessagesTokens(messages);
+  const originalTokens = estimateMessagesTokens(inputMessages);
 
-  // 1. 检查触发条件
-  const trigger = shouldCompact(originalTokens, contextLimit, undefined, { triggerRatio });
+  // 0. 回收先行(不请求模型):旧工具结果占的体积是"免费"的,先就地拿回来。
+  //    单靠回收就回到触发线以下时,整条摘要路径都不必走 —— 省一次 LLM 调用,
+  //    且不损失推理链(摘要会把决策压掉,回收只压掉已经有结论的原始输出)。
+  const reclaim =
+    opts.reclaimEnabled === false
+      ? null
+      : reclaimStaleToolResults(inputMessages, {
+          contextLimit,
+          currentTokens: originalTokens,
+          ...(typeof opts.lastActivityAtMs === 'number'
+            ? { lastActivityAtMs: opts.lastActivityAtMs }
+            : {}),
+          ...(typeof opts.nowMs === 'number' ? { nowMs: opts.nowMs } : {}),
+        });
+  const messages = reclaim?.applied ? reclaim.messages : inputMessages;
+  const currentTokens = reclaim?.applied ? reclaim.afterTokens : originalTokens;
+  if (reclaim?.applied) {
+    opts.observer?.onSuccess({
+      target: 'compaction-reclaim',
+      tokensBefore: reclaim.beforeTokens,
+      tokensAfter: reclaim.afterTokens,
+      turnsCompacted: reclaim.reclaimedCount,
+      elapsedMs: 0,
+    });
+  }
+
+  // 1. 检查触发条件(以回收后的真实体量为基准,不把回收算成"仍需摘要")
+  const trigger = shouldCompact(currentTokens, contextLimit, undefined, { triggerRatio });
   if (!trigger.shouldCompact) {
+    if (reclaim?.applied) {
+      // 免费回收已足够:如实报 compressed,trigger='reclaim' 标明零模型请求
+      return reclaimAsCompression(reclaim, originalTokens, contextLimit);
+    }
     return {
       messages,
       compressed: false,
       originalTokens,
-      compressedTokens: originalTokens,
+      compressedTokens: currentTokens,
       removedCount: 0,
       trigger: 'none',
-      usageRatio: contextLimit > 0 ? originalTokens / contextLimit : 0,
+      usageRatio: contextLimit > 0 ? currentTokens / contextLimit : 0,
     };
   }
 
