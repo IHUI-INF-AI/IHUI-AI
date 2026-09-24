@@ -4,7 +4,7 @@
 
  
 /**
- * 守门 90(跨端色值同源对账)的镜像测试。
+ * 跨端色值同源对账守门的镜像测试(编号不写死:由 runner 按 script 名反查,见文件末尾两条自证)。
  *
  * 三条判据各配正反例,外加两条"装车证明":本门必须真的注册在 guardian-runner 里
  * (blocking + 有紧急跳过变量),以及真仓 HEAD 必须真的全绿 —— 判据没装车 = 没有判据。
@@ -57,15 +57,42 @@ test('R3:悬空引用只认 token 袋前缀,局部变量 brand 不得假红', ()
   assert.equal(danglingBrandRefs('const brand = { nameKey: "a", src: "b" }\n<Img k={brand.nameKey} s={brand.src} />', allowed).length, 0, '局部变量 brand 的属性不是 token 引用')
 })
 
-test('装车证明:本门注册在 guardian-runner 且为 blocking,并有紧急跳过变量', () => {
+/**
+ * 本门编号**不写死**。同日多会话在数组同一位各加一道门必撞号,撞号后按 AGENTS 门 80 的纪律是
+ * "后登记者改号" —— 实测 2026-09-24 本门由 90 改到 93 时,红的是这道把编号字面值钉死的自证测试,
+ * 而不是撞号本身(判据锚错了对象)。现按 script 名反查自己的编号,只钉三条真不变量:
+ * 编号在 runner 里唯一 / mode 是 blocking / 有紧急跳过变量。
+ */
+const MY_SCRIPT = "script: 'check-cross-end-tokens.mjs'"
+const idCount = (text, id) => text.split(`id: '${id}'`).length - 1
+function myGateId(runner) {
+  const at = runner.indexOf(MY_SCRIPT)
+  assert.ok(at > 0, 'runner 里必须注册本门(按 script 名反查)')
+  const before = [...runner.slice(0, at).matchAll(/^\s+id:\s*'([^']+)',?$/gm)]
+  assert.ok(before.length, '本门注册块之前必须能找到 id 行')
+  return before[before.length - 1][1]
+}
+
+test('装车证明:编号唯一 + blocking + 紧急跳过变量(按 script 名反查,不写死编号)', () => {
   const runner = readFileSync(join(ROOT, 'scripts', 'guardian-runner.mjs'), 'utf8')
-  const at = runner.indexOf("id: '90'")
-  assert.ok(at > 0, 'runner 里必须有 id 90')
-  assert.equal(runner.split("id: '90'").length - 1, 1, 'id 90 只能出现一次(同日多会话在数组同一位各加一道门必撞号)')
-  const block = runner.slice(at, at + 600)
-  assert.match(block, /script: 'check-cross-end-tokens\.mjs'/)
+  const id = myGateId(runner)
+  assert.equal(
+    idCount(runner, id),
+    1,
+    `id ${id} 在 runner 里必须出现恰好一次 —— 同号两道 blocking 门会共用 skipEnv 与失败归属(AGENTS 门 80)`,
+  )
+  const block = runner.slice(runner.indexOf(`id: '${id}'`), runner.indexOf(MY_SCRIPT) + 600)
   assert.match(block, /mode: 'blocking'/, 'warn 模式的同源对账等于没有对账')
   assert.match(block, /skipEnv: 'HUSKY_SKIP_CROSS_END_TOKENS'/)
+})
+
+test('反空绿:判据必须真能"看见"撞号(合成夹具,与仓内现状无关)', () => {
+  const runner = readFileSync(join(ROOT, 'scripts', 'guardian-runner.mjs'), 'utf8')
+  const id = myGateId(runner)
+  assert.equal(idCount(runner, id), 1, '先确认现网唯一,否则下面的合成没有意义')
+  // 在最前面一道门的 label 前插一行同号 ⇒ 必须立刻数出 2,证明这条断言不是恒真
+  const dup = runner.replace(/\n(\s+)label:/, `\n$1id: '${id}',\n$1label:`)
+  assert.equal(idCount(dup, id), 2, '合成撞号未被识别 = 本条自证恒真')
 })
 
 test('端到端:真仓 HEAD 与 --self-test 都必须全绿', () => {
