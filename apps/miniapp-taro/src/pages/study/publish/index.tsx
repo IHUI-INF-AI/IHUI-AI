@@ -141,7 +141,7 @@ export default function StudyPublish() {
         </View>
 
         <Button
-          className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[100rpx] leading-[100rpx] bg-primary text-primary-foreground rounded-2xl text-[32rpx] font-semibold text-center"
+          className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-2xl text-[32rpx] font-semibold text-center"
           loading={saving}
           onClick={submit}
           disabled={saving}

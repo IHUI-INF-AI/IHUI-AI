@@ -1,7 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
 
 /**
  * MyAgents 我的AI APP (mobile-rn 端)
@@ -16,7 +15,10 @@ import { rnRadius } from '@ihui/design-tokens'
  * 类型零 any;圆角守门(无 rounded-full);无分割线(gap 间距);复用 design-tokens;禁用 purple/indigo。
  */
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { tokens } from '../theme/active-tokens'
+import { tokens, currentRnTheme } from '../theme/active-tokens'
+import { MoreLink } from '@ihui/rn-app'
+
+import { rnRadius } from '@ihui/design-tokens'
 
 export interface MyAgentItem {
   /** 智能体 ID(对齐原项目 agentId;兼容短字段 id) */
@@ -59,16 +61,12 @@ export default function MyAgents({
       <View style={styles.header}>
         <Text style={styles.title}>{'我的AI APP'}</Text>
         {onTeamPress ? (
-          <TouchableOpacity
-            style={styles.teamButton}
+          <MoreLink
+            label="我的AI员工"
             onPress={onTeamPress}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel="我的AI员工"
-          >
-            <Text style={styles.teamButtonText}>{'我的AI员工'}</Text>
-            <Text style={styles.teamArrow}>{'›'}</Text>
-          </TouchableOpacity>
+            colorScheme={currentRnTheme()}
+            style={styles.teamButton}
+          />
         ) : null}
       </View>
       <ScrollView
@@ -132,19 +130,7 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
   },
   teamButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 4,
-  },
-  teamButtonText: {
-    fontSize: 14,
-    color: tokens.text.secondary,
-    marginRight: 4,
-  },
-  teamArrow: {
-    fontSize: 16,
-    color: tokens.text.secondary,
-    marginBottom: -2,
+    marginLeft: 8,
   },
   scroll: {
     flexDirection: 'row',

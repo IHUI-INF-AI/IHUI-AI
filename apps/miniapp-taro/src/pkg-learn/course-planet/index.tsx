@@ -210,7 +210,7 @@ export default function CoursePlanet() {
               {tt('coursePlanet.loadFailed', '加载失败')}
             </Text>
             <Text
-              className="inline-block mt-[24rpx] px-[48rpx] py-[16rpx] bg-primary text-primary-foreground text-center rounded-md text-[28rpx]"
+              className="inline-block mt-[24rpx] px-[48rpx] py-[16rpx] bg-cta text-cta-foreground text-center rounded-md text-[28rpx]"
               onClick={loadData}
             >
               {t('common.retry')}
