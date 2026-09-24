@@ -66,6 +66,16 @@ export * from './annotation-anchors'
 // D67 额度归属分型与折扣倒计时(四型归属 + 三动作族 + 「不充值可用心智」机器判据:免费档可用时判定层剔除付费动作;
 // 与 D71 error-catalog 两道闸协同,映射不到不硬塞)
 export * from './quota-ownership'
+// D43 / D36 / D35 这三个模块(voice-note、prompt-drafts、history-projection)在全仓任何 ref 上
+// 都不存在,而 `export * from` 一个解析不到的路径会让 @ihui/shared 的根出口整体不可用 —— 28 个
+// 走 `from '@ihui/shared'` 根 barrel 的 web 文件因此整片无法构建(部署环卡在 next build)。
+// 模块落地后逐行去掉注释即可恢复出口。
+// D43 会话内快捷笔记(录音 12 phase 状态机逐字对齐 Qoder recordingNote;转写复用既有 voice 栈,归档纯逻辑)
+// export * from './voice-note'
+// D36 会话内输入草稿(截断上限/安全读取;分桶 key 由调用方决定,形态对齐 prompt-history)
+// export * from './prompt-drafts'
+// D35 长会话分页投影(turn 分片纯函数:keyset cursor 往返一致 + 流追加后旧页稳定=增量回放语义)
+// export * from './history-projection'
 // D65 Hook 失败可见性(定档 C:hook_engine 失败信息内存有/SSE 通道无/DLQ 消费出口无 ⇒ 本票仅契约先行
 // 六态词汇表含 resultNotRecorded 终态缺省;attachment stderr/command 过 shared/utils/redact;渲染位待 D34 补事件)
 export * from './hook-failures'
