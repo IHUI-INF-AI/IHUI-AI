@@ -37,12 +37,21 @@ import { fileURLToPath } from 'node:url'
 import { request } from 'node:https'
 import { request as httpRequest } from 'node:http'
 import { resolveGitBin } from './lib/gitdir.mjs'
+import { keyFile, resolveKeyDir, firstExisting } from './lib/key-dir.mjs'
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const TASK_NAME = 'IHUI credential-health'
 const GIT_BIN = resolveGitBin()
-const SECRETS_DIR = process.env.IHUI_SECRETS_DIR || 'D:/DevEnv/secrets'
-const GIT_KEY_DIR = process.env.IHUI_MODEL_KEY_DIR_GIT || 'D:/BaiduSyncdisk/密钥/git仓库'
+// 口令表落点同样不得写死盘符:本机 D:/DevEnv 存在但没有 secrets/,真值仍解析为兜底字面量,
+// 于是该项按"权威源缺失"判 unknown(不判红)。换机后若表在别的盘,这里会自动跟上。
+const SECRETS_DIR =
+  process.env.IHUI_SECRETS_DIR ||
+  firstExisting(['D:/DevEnv/secrets', 'F:/DevEnv/secrets', 'G:/DevEnv/secrets', 'E:/DevEnv/secrets']) ||
+  'D:/DevEnv/secrets'
+// 盘符按"存在即真"解析(见 scripts/lib/key-dir.mjs):本机真实库在 F 盘,写死 D 盘会让
+// 镜像活性探测读不到 key ⇒ 报成"国内镜像停摆",把"路径过期"误诊成"凭据失效"。
+// 全都不存在时保留旧字面量,使 detail 里的路径仍指向文档登记的权威位置。
+const GIT_KEY_DIR = process.env.IHUI_MODEL_KEY_DIR_GIT || resolveKeyDir('git仓库') || 'D:/BaiduSyncdisk/密钥/git仓库'
 const WEB_PROBE = process.env.IHUI_DEPLOY_PROBE || 'http://127.0.0.1:8801'
 const GITHUB_REPO = 'IHUI-INF-AI/IHUI-AI'
 
@@ -69,8 +78,44 @@ export function readServiceEnv(service, key) {
   }
 }
 
+/** 服务是否装机(三态:true/false/null=探测本身不可用)。
+ *  1060 = ERROR_SERVICE_DOES_NOT_EXIST,是唯一能断定"没有这个服务"的退出码;
+ *  其余失败(sc.exe 被策略挡、路径异常)一律返回 null,不得当成"服务不存在"。 */
+export function serviceExists(name, scBin = 'C:/Windows/System32/sc.exe') {
+  try {
+    execFileSync(scBin, ['query', name], {
+      stdio: ['ignore', 'ignore', 'pipe'],
+      windowsHide: true,
+      timeout: 15000,
+    })
+    return true
+  } catch (e) {
+    return e && e.status === 1060 ? false : null
+  }
+}
+
+/** 告警标题的环境标签(§5e:开发机【开发环境】/ 生产机【生产环境】)。
+ *  此前写死"生产环境",而本机实测既无 IHUI-DEPLOYLOOP 服务也无 deploy-loop.log ⇒
+ *  收到的告警分不出是哪台机发出的,正是该规约要防的事。
+ *  判据用"部署机痕迹"(日志在位或服务装机),不新增需人工维护的配置;IHUI_ENV_LABEL 可显式覆盖。 */
+export function envLabel({ override, deployLogPresent, serviceInstalled } = {}) {
+  if (override) return override
+  if (deployLogPresent || serviceInstalled === true) return '生产环境'
+  return '开发环境'
+}
+const envLabelHere = () =>
+  envLabel({
+    override: process.env.IHUI_ENV_LABEL,
+    deployLogPresent: existsSync(join(REPO, 'deploy', 'win', 'deploy-loop.log')),
+    serviceInstalled: serviceExists('IHUI-DEPLOYLOOP'),
+  })
+
 /** 凭据在代码/服务/文件三处是否同值 —— 当天故障的精确形状 */
-export function compareCredential({ serviceValue, authoritativeValue }) {
+export function compareCredential({ serviceValue, authoritativeValue, serviceInstalled = true }) {
+  // 非部署机上根本没有 IHUI-DEPLOYLOOP:把"没这个服务"报成"环境块缺该键 ⇒ 门禁必然失败"
+  // 是一条每次都红、且红得没有道理的告警(与"部署停摆"同族,故复用同一口径:只在部署机评估)。
+  if (serviceInstalled === false) return { level: 'unknown', why: '本机无该服务(只在部署机评估),不判环境块缺失' }
+  if (serviceInstalled === null) return { level: 'unknown', why: '服务存在性探测不可用(sc.exe),不误判' }
   if (!authoritativeValue) return { level: 'unknown', why: '权威源缺失(文件不存在或为空),不判定为过期' }
   if (!serviceValue) return { level: 'fail', why: '服务环境块缺该键 ⇒ 依赖它的门禁必然失败' }
   if (sha(serviceValue) === sha(authoritativeValue)) return { level: 'ok', why: '与服务运行态同值' }
@@ -179,7 +224,7 @@ const GH_REPO = 'IHUI-INF-AI/IHUI-AI'
 const MIRROR_WF = '317969743' // Mirror to CN 的 workflow id(由 API 取,非猜测;变更需重取)
 
 function ghApi(method, path, body) {
-  const token = readText(process.env.IHUI_GH_KEY_FILE || 'D:/BaiduSyncdisk/密钥/git仓库/github key.txt').trim()
+  const token = readText(process.env.IHUI_GH_KEY_FILE || keyFile('git仓库', 'github key.txt') || join(GIT_KEY_DIR, 'github key.txt')).trim()
   if (!token) return Promise.resolve({ status: 0, j: null, why: '未取到 GitHub 权威凭据文件' })
   const payload = body ? JSON.stringify(body) : null
   return new Promise((res) => {
@@ -251,6 +296,11 @@ async function mirrorLivenessCheck() {
   const now = Date.now()
   const giteeTok = readMirrKey('gitee apikey.txt', /^[0-9a-f]{32}$/)
   if (!giteeTok) {
+    // 读不到 key **不等于** key 失效:整个密钥目录不存在(换盘符 / 同步盘未挂载)时判 unknown,
+    // 否则一次挂载抖动就会产出一条假的"镜像停摆",而它看起来完全像凭据事故(本次即如此)。
+    if (!existsSync(GIT_KEY_DIR)) {
+      return [{ name: NAME, level: 'unknown', detail: `密钥目录不存在:${GIT_KEY_DIR}(不判定为凭据失效,先核对盘符)` }]
+    }
     return [{ name: NAME, level: 'fail', detail: 'gitee apikey.txt 取不到形状合法的 token(注意同目录的 _冲突文件_ 副本不可用)' }]
   }
   const [g, gh] = await Promise.all([
@@ -277,7 +327,7 @@ async function mirrorLivenessCheck() {
       {
         name: NAME,
         level: 'fail',
-        detail: `${head} 超阈值,且上一轮 conclusion=failure ⇒ 不补发(补发只会再跑一遍注定失败的 69 分钟)。查 Gitee 侧拒绝原因(今天实测是仓库体积超配额,需减 ref 或清标签)`,
+        detail: `${head} 超阈值,且上一轮 conclusion=failure ⇒ 不补发。CI 现已装**0 字节配额探针**(mirror-to-cn.yml):实测被拒的全量推送每轮仍向服务端堆 ~135MB(1060.676MB→1603.148MB,4 轮),**重试本身就是恢复的障碍**;探针确认配额未释放时本轮直接短路。差的是 Gitee 服务端体积回收(等 housekeeping,或由所有者在仓库 settings 点「Git GC」,无 GC API)—— 改判据/改触发器都无效。`,
       },
     ];
   }
@@ -314,11 +364,16 @@ export async function runChecks() {
   // ① 服务运行态口令 vs 权威口令表
   const adminInSvc = readServiceEnv('IHUI-DEPLOYLOOP', 'IHUI_ADMIN_PASSWORD')
   const adminAuthority = readFileSyncOr(join(SECRETS_DIR, 'admin-password.txt'))
-  const cmp = compareCredential({ serviceValue: adminInSvc, authoritativeValue: adminAuthority })
+  const installed = serviceExists('IHUI-DEPLOYLOOP')
+  const cmp = compareCredential({
+    serviceValue: adminInSvc,
+    authoritativeValue: adminAuthority,
+    serviceInstalled: installed,
+  })
   out.push({
     name: 'IHUI-DEPLOYLOOP 环境块 IHUI_ADMIN_PASSWORD',
     level: cmp.level,
-    detail: `${cmp.why};服务侧 ${fingerprint(adminInSvc)} / 权威源 ${fingerprint(adminAuthority)}`,
+    detail: `${cmp.why};服务在位 ${installed === null ? '?' : installed ? 'Y' : 'N'} / 服务侧 ${fingerprint(adminInSvc)} / 权威源 ${fingerprint(adminAuthority)}`,
   })
 
   // ② 真登录一次(与门禁同一入口)。127.0.0.1 自有桶,单轮 1 次不撞限流。
@@ -458,6 +513,27 @@ function selfTest() {
   eq('不一致判 fail(事故形态)', compareCredential({ serviceValue: 'old-pass', authoritativeValue: 'new-pass' }).level, 'fail')
   eq('服务缺键判 fail', compareCredential({ serviceValue: null, authoritativeValue: 'x' }).level, 'fail')
   eq('权威源缺失不误判', compareCredential({ serviceValue: 'x', authoritativeValue: null }).level, 'unknown')
+  // 三态 serviceInstalled:非部署机(本机实测 sc query IHUI-DEPLOYLOOP = 1060)不得判红
+  eq(
+    '服务不装机 ⇒ 不判环境块缺失(假红护栏)',
+    compareCredential({ serviceValue: null, authoritativeValue: 'new-pass', serviceInstalled: false }).level,
+    'unknown',
+  )
+  eq(
+    '反向对照:同输入但服务在位且缺键 ⇒ 仍判 fail(护栏不得吞掉真故障)',
+    compareCredential({ serviceValue: null, authoritativeValue: 'new-pass', serviceInstalled: true }).level,
+    'fail',
+  )
+  eq(
+    'sc.exe 探测本身不可用 ⇒ null,不误判',
+    compareCredential({ serviceValue: null, authoritativeValue: 'x', serviceInstalled: null }).level,
+    'unknown',
+  )
+  // 环境标签(§5e):写死"生产环境"会让两台机的告警长得一模一样,分不出来源
+  eq('两台机都无部署痕迹 ⇒ 开发环境', envLabel({ deployLogPresent: false, serviceInstalled: false }), '开发环境')
+  eq('有 deploy-loop.log ⇒ 生产环境', envLabel({ deployLogPresent: true, serviceInstalled: false }), '生产环境')
+  eq('服务装机(无日志)⇒ 生产环境', envLabel({ deployLogPresent: false, serviceInstalled: true }), '生产环境')
+  eq('显式 IHUI_ENV_LABEL 覆盖优先', envLabel({ override: '预发', deployLogPresent: true, serviceInstalled: true }), '预发')
   eq('401 归 fail', classifyHttpStatus(401), 'fail')
   eq('429 不得归 fail(限流≠过期)', classifyHttpStatus(429), 'limited')
   eq('网络不可达归 unreachable', classifyHttpStatus(0), 'unreachable')
@@ -744,7 +820,7 @@ async function maybeAlert(results, dryRun) {
   if (fails.length === 0 && !recovered) return { sent: false, why: '无失败且此前也未告警,不打扰' }
   if (fails.length > 0 && !changed && !overdue) return { sent: false, why: '同一故障已在窗口内通报过(仍会每 20h 重发)' }
 
-  const title = recovered ? '【生产环境】凭据巡检已恢复' : '【生产环境】凭据失效/部署停摆告警'
+  const title = recovered ? `【${envLabelHere()}】凭据巡检已恢复` : `【${envLabelHere()}】凭据失效/部署停摆告警`
   // 严重度进品牌模板的色带/前缀:恢复通知不该长得和一次凭据失效一样
   const severity = recovered ? 'info' : 'critical'
   const desp = recovered
@@ -800,7 +876,7 @@ if (argv.includes('--help') || argv.includes('-h')) {
 } else if (argv.includes('--self-test')) selfTest()
 else if (argv.includes('--test-alert')) {
   // 通道可用性必须可证:只看"代码写了发信"不算,必须真发一次并回读结果。
-  const d = await deliver('【生产环境】凭据巡检通道自测', '这是一条通道自测消息(非故障)。用于验证唯一到人通道(邮件)是否真能落地。')
+  const d = await deliver(`【${envLabelHere()}】凭据巡检通道自测`, '这是一条通道自测消息(非故障)。用于验证唯一到人通道(邮件)是否真能落地。')
   console.log(`通道自测: sent=${d.sent} via=${d.via || '-'}`)
   for (const t of d.attempts) console.log(`  · ${t}`)
   process.exit(d.sent ? 0 : 1)
@@ -808,7 +884,7 @@ else if (argv.includes('--test-alert')) {
   // 邮件通道要能在"不打扰收件人、不占配额"的前提下自证:派发器的 --dry-run 只做渲染与通道
   // 判定,零网络请求(输出里的 html 字节数 + 机械风横幅命中=yes 就是版式真生效的证据)。
   const r = await sendEmail(
-    '【生产环境】凭据巡检邮件通道演练(dry-run)',
+    `【${envLabelHere()}】凭据巡检邮件通道演练(dry-run)`,
     '这是一条 dry-run 演练正文,未实际发送。\n第二行用于验证多行中文经文件通道原样送达。',
     'critical',
     { dryRun: true },
