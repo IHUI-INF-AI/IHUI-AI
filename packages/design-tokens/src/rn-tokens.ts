@@ -124,9 +124,9 @@ export const rnTokens = {
     deepText: '#065F46',
   } satisfies RnSuccessTokens,
   danger: {
-    light: '#fef2f2',
-    DEFAULT: '#ff3333',
-    bright: '#ff5c5c',
+    light: '#fee2e2',
+    DEFAULT: '#dc2626',
+    bright: '#f87171',
   } satisfies RnDangerTokens,
   vip: {
     gold: '#FFD700',
