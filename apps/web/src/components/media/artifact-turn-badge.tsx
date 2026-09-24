@@ -19,58 +19,48 @@ import { cn } from '@/lib/utils'
 import { SUPPORTED_EXTS } from './office-preview'
 
 /**
- * D76 产物归属 turn 与产物面板分型(G-103/G-105,2026-09-24 立)。
+ * D76 产物归属 turn 与产物面板分型(G-103/G-105,2026-09-24 立;
+ * 残余票 2026-09-25 把纯派生提取至 @ihui/shared/chat/artifact-turn)。
  *
- * 本模块是产物 turn 归属的 web 渲染层唯一实现,含四件:
- *  1. artifactKindOf:扩展名 → 四型判据(显式 const 表,Office 三型 import 复用
- *     D41 office-preview 的 SUPPORTED_EXTS,禁止第二套判据);
- *  2. collectArtifactTurns:从消息流现有结构派生 originating turn(产物产生于
- *     哪条 assistant 消息),不需要新契约字段(持久化缺口在 D76 报告登记,D33 同批);
- *  3. ArtifactTurnBadge / ArtifactKindBadge:产物卡上的"第 N 轮"徽章与分型徽章;
- *  4. ArtifactTurnNav:逐 turn 前后跳导航(step-back/step-forward,←/→ 键盘支持)。
+ * 平台特有:依赖 DOM(document/window/scrollIntoView),不适合共享;本模块保留
+ * web 渲染层与 DOM 通道四件:
+ *  1. ArtifactTurnBadge / ArtifactKindBadge:产物卡上的"第 N 轮"徽章与分型徽章;
+ *  2. ArtifactTurnNav:逐 turn 前后跳导航(step-back/step-forward,←/→ 键盘支持);
+ *  3. ihui:scroll-to-message / ihui:focus-artifact 双通道与 tryFocusArtifactFromLink
+ *     发起端接线(残余②,2026-09-25:正文产物链接 → 反向聚焦产物卡);
+ *  4. assertOfficeExtAlignment:D41 SUPPORTED_EXTS(web 定义)与共享分型表的对齐守卫。
+ * 派生(artifactKindOf / collectArtifactTurns / assistantTurnOf / artifactTurnIndex)
+ * 唯一真相源在共享层,此处原样 re-export(§3 各端只做薄接线,禁止端内复制派生)。
  *
  * 跳转复用既有消息锚点机制(MessageList.tsx 监听):DOM 锚 `[data-message-id]`
  * 直接 scrollIntoView + `ihui:scroll-to-message` 事件兜底(虚拟滚动窗口化时
  * 目标未渲染,由 MessageList 的监听器统一处理)。
  */
 
-/** 产物四型。 */
-export type ArtifactKind = 'document' | 'presentation' | 'spreadsheet' | 'file'
+import {
+  ARTIFACT_KIND_BY_EXT,
+  artifactKindOf,
+  artifactTurnIndex,
+  collectArtifactTurns,
+} from '@ihui/shared/chat/artifact-turn'
+import type { ArtifactKind, ArtifactTurnSourceMessage } from '@ihui/shared/chat/artifact-turn'
 
-/**
- * 扩展名 → 分型判据表(显式 const,小写、不带点):
- *  - docx/pptx/xlsx 与 D41 OfficePreview 的 SUPPORTED_EXTS(import 复用)一一对应;
- *  - md 走消息流 markdown 渲染、csv 走 message-file-preview 的 CsvPreview,
- *    语义同为文档/电子表格;
- *  - 其余一律 'file',不做启发式扩散(判据可穷举,不猜)。
- */
-const ARTIFACT_KIND_BY_EXT: Readonly<Record<string, ArtifactKind>> = {
-  docx: 'document',
-  md: 'document',
-  pptx: 'presentation',
-  xlsx: 'spreadsheet',
-  csv: 'spreadsheet',
-}
-
-/** 文件名/路径/URL → 产物分型。取最后一段扩展名,忽略 ?query/#hash;无扩展名归 'file'。 */
-export function artifactKindOf(nameOrPath: string): ArtifactKind {
-  const base = nameOrPath.split(/[?#]/, 1)[0] ?? ''
-  const dot = base.lastIndexOf('.')
-  if (dot < 0) return 'file'
-  return ARTIFACT_KIND_BY_EXT[base.slice(dot + 1).toLowerCase()] ?? 'file'
-}
-
-/** 模块级对齐守卫:D41 Office 三型(docx/xlsx/pptx)必须在本判据表内一一有位,
- *  错位(漂移出第二套判据)时首次调用即抛,防两表悄悄分叉。 */
-export function assertOfficeExtAlignment(): void {
-  for (const ext of SUPPORTED_EXTS) {
-    if (ARTIFACT_KIND_BY_EXT[ext] === undefined) {
-      throw new Error(
-        `artifact-turn: ext "${ext}" 缺失于 ARTIFACT_KIND_BY_EXT,须与 office-preview SUPPORTED_EXTS 对齐`,
-      )
-    }
-  }
-}
+// 派生层 re-export(共享层单一真相源;含 from 的 re-export 形态,§3 允许)。
+// 残余①(聚焦粒度)新增出口 artifactTurnIndex:产物锚点 → 派生 turn 序列下标,
+// 复用 collectArtifactTurns 的结果,不另建第二份映射。
+export {
+  ARTIFACT_KIND_BY_EXT,
+  artifactKindOf,
+  artifactTurnIndex,
+  assistantTurnOf,
+  collectArtifactTurns,
+} from '@ihui/shared/chat/artifact-turn'
+export type {
+  ArtifactKind,
+  TurnArtifact,
+  ArtifactTurnEntry,
+  ArtifactTurnSourceMessage,
+} from '@ihui/shared/chat/artifact-turn'
 
 type IconComponent = React.ComponentType<{ className?: string }>
 
@@ -86,65 +76,29 @@ const KIND_META: Readonly<Record<ArtifactKind, KindMeta>> = {
   file: { Icon: Paperclip, labelKey: 'kindFile' },
 }
 
-// ------------------------------------------------------- turn 派生(纯函数) ----
+// ------------------------------------------------- 共享派生的 web 对齐守卫 ----
 
-/** 产物条目(渲染层最小形态,path/name 二选一)。 */
-export interface TurnArtifact {
-  readonly path: string
-  readonly kind: ArtifactKind
-}
-
-/** 一个"有产物的 turn":第 N 轮 = 第 N 条 assistant 回答(1 起)。 */
-export interface ArtifactTurnEntry {
-  readonly turn: number
-  readonly messageId: string
-  readonly artifacts: readonly TurnArtifact[]
-}
-
-/** 消息流最小结构面(直接兼容 ChatMessage,不引入契约依赖)。 */
-export interface ArtifactTurnSourceMessage {
-  readonly id: string
-  readonly role: string
-  readonly toolCalls?: ReadonlyArray<{
-    readonly summary_data?: {
-      readonly artifacts?: ReadonlyArray<{ readonly path?: string; readonly name?: string }>
+/** 模块级对齐守卫:D41 Office 三型(docx/xlsx/pptx)必须在共享分型表内一一有位,
+ *  错位(漂移出第二套判据)时调用即抛,防两表悄悄分叉。
+ *  SUPPORTED_EXTS 定义在 web 的 office-preview,故此守卫留在端内(跨端消费方
+ *  各自有对齐义务时应在端内跑同形守卫,不得复制分型表)。 */
+export function assertOfficeExtAlignment(): void {
+  for (const ext of SUPPORTED_EXTS) {
+    if (ARTIFACT_KIND_BY_EXT[ext] === undefined) {
+      throw new Error(
+        `artifact-turn: ext "${ext}" 缺失于 ARTIFACT_KIND_BY_EXT,须与 office-preview SUPPORTED_EXTS 对齐`,
+      )
     }
-  }>
-}
-
-/**
- * 从消息流派生"有产物的 turn"序列(保持会话顺序):
- * originating turn = 产物所在 toolCall 挂着的那条 assistant 消息,
- * turn 序号 = 该 assistant 消息在全部 assistant 消息中的 1 基序号。
- * 无 path/name 的产物条目跳过;无产物的 assistant 消息不出现在结果里(但仍占序号)。
- */
-export function collectArtifactTurns(
-  messages: readonly ArtifactTurnSourceMessage[],
-): ArtifactTurnEntry[] {
-  let turn = 0
-  const out: ArtifactTurnEntry[] = []
-  for (const m of messages) {
-    if (m.role !== 'assistant') continue
-    turn += 1
-    const artifacts: TurnArtifact[] = []
-    for (const tc of m.toolCalls ?? []) {
-      for (const a of tc.summary_data?.artifacts ?? []) {
-        const p = a.path ?? a.name
-        if (typeof p === 'string' && p.length > 0) {
-          artifacts.push({ path: p, kind: artifactKindOf(p) })
-        }
-      }
-    }
-    if (artifacts.length > 0) out.push({ turn, messageId: m.id, artifacts })
   }
-  return out
 }
 
 // ----------------------------------------------------------- 跳转锚点机制 ----
 
 /** 既有事件名(MessageList.tsx 监听,勿改字面量)。 */
 export const SCROLL_TO_MESSAGE_EVENT = 'ihui:scroll-to-message'
-/** 反向(消息侧 → 产物面板)事件名;面板侧监听本票暂未接线(见 D76 报告缺口)。 */
+/** 反向聚焦通道事件名。发起端两处:面板 TurnNav(useArtifactTurnNav)与正文产物链接
+ *  (markdown-stream → tryFocusArtifactFromLink);监听端 MessageList 容器
+ *  (useFocusArtifactScroll)。payload 恒为 `{ path }`,禁止第二套事件名/载荷形状。 */
 export const FOCUS_ARTIFACT_EVENT = 'ihui:focus-artifact'
 
 /** 从产物跳回产生它的那轮:DOM 锚点直跳 + 既有事件兜底。 */
@@ -162,32 +116,21 @@ export function emitFocusArtifact(path: string): void {
 // ------------------------------------------------- 挂载接线(D76 第二票) ----
 
 /**
- * 消息 id → originating turn 序号(= 截至(含)该消息的 assistant 计数)。
- * 产物卡(ArtifactCanvas)侧用:只知自己挂在哪条 assistant 消息下,
- * 不需要该消息真有产物(内联 content 型产物不走 summary_data 也算一轮)。
- */
-export function assistantTurnOf(
-  messages: readonly ArtifactTurnSourceMessage[],
-  messageId: string,
-): number | null {
-  let turn = 0
-  for (const m of messages) {
-    if (m.role !== 'assistant') continue
-    turn += 1
-    if (m.id === messageId) return turn
-  }
-  return null
-}
-
-/**
  * 面板侧(全屏画布头部)TurnNav 状态机:从消息流派生产物 turn 序列,
  * onChangeIndex 联动双向跳转 — jumpToMessageOrigin 滚回产生该轮的消息,
  * 并 emitFocusArtifact 把消息流里的产物卡定位出来(监听在 MessageList 容器)。
+ *
+ * 残余①(同轮多产物聚焦首个 → 按产物 id 精确聚焦,2026-09-25):
+ * onChangeIndex 是 **turn 粒度**控件的前后跳,无法表达"被点的那一个";
+ * focusArtifact 补上产物粒度 —— 入参即被点产物的锚点(与卡片侧
+ * `[data-artifact-path]` 同源),用共享层 artifactTurnIndex 在既有派生序列上
+ * 解析所属轮(不另建映射),activeIndex 同步落到该轮后走同一条跳转通道。
  */
 export function useArtifactTurnNav(messages: readonly ArtifactTurnSourceMessage[]): {
   readonly count: number
   readonly activeIndex: number
   readonly onChangeIndex: (next: number) => void
+  readonly focusArtifact: (artifactPath: string) => void
   readonly reset: () => void
 } {
   const turns = React.useMemo(() => collectArtifactTurns(messages), [messages])
@@ -204,12 +147,50 @@ export function useArtifactTurnNav(messages: readonly ArtifactTurnSourceMessage[
     },
     [turns],
   )
+  const focusArtifact = React.useCallback(
+    (artifactPath: string) => {
+      const idx = artifactTurnIndex(turns, artifactPath)
+      if (idx === null) return
+      const entry = turns[idx]
+      if (!entry) return
+      setActiveIndex(idx)
+      jumpToMessageOrigin(entry.messageId)
+      emitFocusArtifact(artifactPath)
+    },
+    [turns],
+  )
   return {
     count: turns.length,
     activeIndex: Math.min(activeIndex, Math.max(turns.length - 1, 0)),
     onChangeIndex,
+    focusArtifact,
     reset,
   }
+}
+
+/**
+ * 残余②(发起端接线,2026-09-25):页面上是否存在该锚点的产物卡。
+ * 选择器构造与 useFocusArtifactScroll 的容器内查询同源(`[data-artifact-path]`);
+ * 锚点含选择器元字符时querySelector 抛错 → 判"无卡"(监听端同样命中不了,行为一致)。
+ */
+export function hasArtifactCard(anchor: string): boolean {
+  try {
+    return document.querySelector(`[data-artifact-path="${anchor}"]`) !== null
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 残余②(发起端接线,2026-09-25):正文产物链接点击 → 反向聚焦对应产物卡。
+ * 仅当页面上有同锚点卡片时接管(派发既有 ihui:focus-artifact,由 MessageList
+ * 容器监听滚动定位 + 描边);无卡返回 false,调用方保持原下载 / 打开面板行为,
+ * 不降级既有 UX。复用既有通道,不新增事件名 / payload 形状。
+ */
+export function tryFocusArtifactFromLink(href: string): boolean {
+  if (!hasArtifactCard(href)) return false
+  emitFocusArtifact(href)
+  return true
 }
 
 /**
@@ -334,7 +315,10 @@ export function ArtifactTurnNav({ count, activeIndex, onChangeIndex }: ArtifactT
   return (
     <div
       data-testid="artifact-turn-nav"
-      role="group"
+      // role=toolbar:按钮组 + ←/→ 键盘导航的 WAI-ARIA 正形(可聚焦复合控件);
+      // role=group 会被 jsx-a11y 判"非交互元素挂键盘监听/tabIndex"两条红。
+      // 组内两按钮均自带 aria-label,不新增 i18n 键(组无强制可访问名要求)。
+      role="toolbar"
       tabIndex={0}
       onKeyDown={onKeyDown}
       className="inline-flex items-center gap-0.5 rounded-md border border-border bg-muted/30 px-1 py-0.5"
