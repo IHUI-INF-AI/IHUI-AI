@@ -10255,6 +10255,36 @@
     "expiryDate": "만료 날짜"
   },
   "chat": {
+    "voiceNote": {
+      "title": "음성 메모",
+      "phase": {
+        "ready": "준비 완료",
+        "recording": "녹음 중",
+        "waitingTranscript": "텍스트 변환 대기",
+        "completed": "완료",
+        "cancelled": "취소됨",
+        "failed": "녹음 실패",
+        "error": "오류가 발생했습니다",
+        "interrupted": "중단됨"
+      },
+      "errors": {
+        "permission": "마이크 권한이 거부되었습니다. 브라우저 설정에서 허용한 뒤 다시 시도해 주세요.",
+        "noMicrophone": "마이크 장치를 찾을 수 없습니다",
+        "startFailed": "녹음을 시작할 수 없습니다. 다시 시도해 주세요.",
+        "saveFailed": "녹음을 저장할 수 없습니다",
+        "recognitionFailed": "음성 인식이 중단되었습니다",
+        "emptyTranscript": "인식된 내용이 없습니다",
+        "sttPending": "현재 텍스트 변환을 사용할 수 없습니다. 나중에 다시 시도하거나 오디오만 저장하세요."
+      },
+      "action": {
+        "start": "녹음 시작",
+        "stop": "녹음 중지",
+        "retry": "다시 시도",
+        "saveAudioOnly": "오디오만 저장",
+        "insertToInput": "입력창에 삽입",
+        "dismiss": "닫기"
+      }
+    },
     "connectorAuth": {
       "title": "{connectorName}에 연결",
       "connected": "연결됨",

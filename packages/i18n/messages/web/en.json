@@ -10265,6 +10265,36 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
+    "voiceNote": {
+      "title": "Voice note",
+      "phase": {
+        "ready": "Ready",
+        "recording": "Recording",
+        "waitingTranscript": "Awaiting transcription",
+        "completed": "Completed",
+        "cancelled": "Cancelled",
+        "failed": "Recording failed",
+        "error": "Something went wrong",
+        "interrupted": "Interrupted"
+      },
+      "errors": {
+        "permission": "Microphone permission was denied. Allow it in your browser settings and try again.",
+        "noMicrophone": "No microphone device found",
+        "startFailed": "Could not start recording. Please try again.",
+        "saveFailed": "Could not save the recording",
+        "recognitionFailed": "Speech recognition was interrupted",
+        "emptyTranscript": "Nothing was recognized",
+        "sttPending": "Transcription is not available right now. Try again later, or save the audio only."
+      },
+      "action": {
+        "start": "Start recording",
+        "stop": "Stop recording",
+        "retry": "Retry",
+        "saveAudioOnly": "Save audio only",
+        "insertToInput": "Insert into message",
+        "dismiss": "Close"
+      }
+    },
     "connectorAuth": {
       "title": "Connect to {connectorName}",
       "connected": "Connected",
