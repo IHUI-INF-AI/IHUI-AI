@@ -11,12 +11,13 @@
  * - 右侧:rightActions(搜索/设置/分类等,多按钮)+ rightAction(兼容旧 ReactNode)
  * - sticky 支持(对齐 Uniapp viscosity,position:sticky + top:0 + zIndex)
  * - backgroundColor 自定义(对齐 Uniapp backgroundColor)
- * - 状态栏:顶距由 App.tsx 的 SafeAreaView 单点注入,本组件不再自加(否则双份)
+ * - 状态栏:paddingTop = StatusBar.currentHeight(动态)
  * - 向后兼容:title?/onBack?/rightAction?/transparent? 旧 API 全保留
  */
 import { type ReactNode } from 'react'
 import {
   Image,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -53,6 +54,7 @@ export interface NavBarProps {
 
 const HEIGHT_DEFAULT = 44
 const HEIGHT_WITH_SUBTITLE = 56
+const STATUS_BAR_HEIGHT = StatusBar.currentHeight ?? 0
 const BACK_HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 } as const
 const ACTION_HIT_SLOP = { top: 8, bottom: 8, left: 4, right: 4 } as const
 
@@ -99,6 +101,7 @@ export function NavBar({
           backgroundColor: resolvedBg,
           borderBottomWidth: showBorder ? 1 : 0,
           borderBottomColor: tokens.border.light,
+          paddingTop: STATUS_BAR_HEIGHT,
         },
         sticky ? STICKY_STYLE : null,
       ]}
