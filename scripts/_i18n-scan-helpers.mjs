@@ -25,6 +25,8 @@
  * 死 key 判定:zh-CN.json 存在 + 代码无静态 t('key') 引用 + 不在任何 useTranslations/getTranslations namespace 下 = 死 key
  * 翻译不完整:5 语言任一缺该 key(不计入死 key,单列)
  * 动态 key:t(`prefix.${var}`) 模板字符串不算静态引用,会列在"动态 key 提示"段
+ * 契约键出口:scripts/i18n-contract-keys.json —— 跨端词包契约键 / 被测试钉住的形状键在此声明,
+ *          依据逐条按 HEAD 核验(见 CONTRACT_FILE_REL 处注释);它只免除"死键"一项,不影响其他判据
  *
  * 跳过条件:
  *   - messagesPath 不存在(messages 目录缺失,如 desktop 端)
@@ -33,6 +35,8 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
+import { execFileSync } from 'node:child_process'
+import { resolveGitBin } from './lib/gitdir.mjs'
 
 const ROOT = process.cwd()
 const LOCALES = ['zh-CN', 'en', 'ja', 'ko', 'zh-TW']
@@ -428,6 +432,208 @@ export function groupByNamespace(keys) {
 }
 
 /**
+ * 契约键声明(2026-09-24 立,补本扫描器缺失的那一半机制)
+ *
+ * 成因:`--target all --exit 1` 在 main 上恒红,红点唯一来源是 mobile-rn 端 1 枚
+ * `permissionTier.label`。它**不是孤儿键**:
+ *   - `packages/shared/src/chat/permission-tier.ts:9` 把它列为跨端词包形状的一部分;
+ *   - extension 端两处运行时真取(`AgentRuntimePanel.tsx:71` / `MessageContent.tsx:682`);
+ *   - mobile-rn 自己的测试 `tests/permission-tier-pack.test.ts:41` 把"五语都必须有它"钉死,
+ *     删键 = 打爆别人的测试;
+ *   - 同端 `tests/agent-runtime-permission-mode.test.tsx:118` 写明该端审批面板**有意**改用
+ *     既有键 `agent.runtimePermissionMode` 作行 label —— 所以"本端暂无运行时消费方"是设计选择。
+ * 也就是说:静态扫描只能看见"本端有没有人取这个词",看不见"这个词是不是契约的一部分"。
+ * 缺的不是一个绿点,是**声明出口**;没有它,唯一出路就是把 `--target all` 缩回单端(HEAD
+ * 提交 `5de2116f1` 的目的恰恰是"逐端判定",缩回去等于把其余四端的红点重新藏起来)。
+ *
+ * 出口形态照守门 70 在 2026-09-24 补的 `i18n-content-exempt-file:` 同款:
+ * **豁免永远是一行可见、可审计、带理由的声明,而不是藏在基线数字里的计数**,并且如实计数、
+ * 逐条打印,绝不静默。数据放 `scripts/i18n-contract-keys.json`(不在代码里硬写清单)。
+ *
+ * 三条硬边界:
+ *  1. **依据必须可核验**(与守门 89 的 R7、守门 90 的"清单腐烂即红"同取向):每条 evidence 指向的
+ *     文件必须在 HEAD 里真实存在、行号在范围内、该行确实含被引用的标识符。不成立即判红。
+ *     未经核验的豁免就是第二条"藏在数字里"的口子。取 HEAD 而非工作区,理由与守门 77 一致:
+ *     并行会话的未提交草稿会让磁盘内容滞后,按磁盘核验会产出与仓库真实状态相反的结论。
+ *  2. **只免除"死键"这一项**:parity / 翻译不完整 / 语言纯度一律不受影响。
+ *  3. **声明过期也算红**:键已不再是死键、或键根本不在本端语言包里,都点名要求删除条目 ——
+ *     否则这份清单只会越长越没人看。
+ */
+export const CONTRACT_FILE_REL = 'scripts/i18n-contract-keys.json'
+const CONTRACT_REASON_MIN_CHARS = 12
+
+/** 读声明文件本身:不存在 = 没有任何声明(不是错误);内容损坏由 loadJson 抛。 */
+export function loadContractFile(root = ROOT) {
+  const p = path.join(root, CONTRACT_FILE_REL)
+  if (!fs.existsSync(p)) return { path: p, exists: false, raw: null }
+  return { path: p, exists: true, raw: loadJson(p) }
+}
+
+/**
+ * 声明里出现未知 target → 点名。拼错的端名永远不会被任何一次判定读到,
+ * 等于把一枚没有读者的豁免留在清单里(守门 90 的"清单腐烂"同型)。
+ * @param {unknown} raw - 声明文件解析结果
+ * @param {string[]} knownTargets - 扫描器真实支持的端名
+ * @returns {string[]} 未知端名(已按字面排序)
+ */
+export function unknownContractTargets(raw, knownTargets) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return []
+  const targets = raw.targets
+  if (!targets || typeof targets !== 'object' || Array.isArray(targets)) return []
+  const known = new Set(knownTargets)
+  return Object.keys(targets)
+    .filter((t) => !known.has(t))
+    .sort()
+}
+
+/**
+ * 取出本端的声明并做形状校验。形状不成立的条目**不进 entries、只进 issues**(必判红),
+ * 因为"少写一个 line"若被当作没有依据,就会被静默跳过。
+ * @returns {{ entries: Map<string, {reason: string, evidence: Array<{file:string,line:number,contains:string}>}>, issues: Array<{key:string,problems:string[]}> }}
+ */
+export function contractEntriesFor(raw, target) {
+  const entries = new Map()
+  const issues = []
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { entries, issues }
+  const targets = raw.targets
+  if (!targets || typeof targets !== 'object' || Array.isArray(targets)) {
+    return { entries, issues: [{ key: '(root)', problems: ['缺少对象字段 targets'] }] }
+  }
+  const block = targets[target]
+  if (block === undefined || block === null) return { entries, issues }
+  if (typeof block !== 'object' || Array.isArray(block)) {
+    return { entries, issues: [{ key: target, problems: ['targets.<端> 必须是「键 → 声明对象」的字典'] }] }
+  }
+  for (const [key, decl] of Object.entries(block)) {
+    const problems = []
+    let reason = ''
+    let evidence = []
+    if (!decl || typeof decl !== 'object' || Array.isArray(decl)) problems.push('声明必须是对象 { reason, evidence }')
+    else {
+      reason = typeof decl.reason === 'string' ? decl.reason.trim() : ''
+      if (reason.length < CONTRACT_REASON_MIN_CHARS)
+        problems.push(`reason 必须是不短于 ${CONTRACT_REASON_MIN_CHARS} 字的理由(现 ${reason.length} 字)`)
+      const rawEvidence = decl.evidence
+      if (!Array.isArray(rawEvidence) || rawEvidence.length === 0) problems.push('evidence 至少 1 条,且每条都要可核验')
+      else {
+        evidence = []
+        rawEvidence.forEach((e, i) => {
+          if (!e || typeof e !== 'object' || Array.isArray(e)) {
+            problems.push(`evidence[${i}] 必须是对象 { file, line, contains }`)
+            return
+          }
+          const okFile = typeof e.file === 'string' && e.file.trim() !== ''
+          const okLine = Number.isInteger(e.line) && e.line >= 1
+          const okText = typeof e.contains === 'string' && e.contains.trim() !== ''
+          if (!okFile) problems.push(`evidence[${i}].file 必须是非空字符串`)
+          if (!okLine) problems.push(`evidence[${i}].line 必须是 ≥1 的整数`)
+          if (!okText) problems.push(`evidence[${i}].contains 必须是非空字符串(HEAD 该行必须真的含它)`)
+          if (okFile && okLine && okText)
+            evidence.push({ file: e.file.trim().split('\\').join('/'), line: e.line, contains: e.contains })
+        })
+      }
+    }
+    if (problems.length > 0) {
+      issues.push({ key, problems })
+      continue
+    }
+    entries.set(key, { reason, evidence })
+  }
+  return { entries, issues }
+}
+
+/**
+ * 逐条核验依据,产出「可免除」与「违规」两张清单。
+ * @param {Object} p
+ * @param {Map<string, {reason:string, evidence:Array<Object>}>} p.entries - contractEntriesFor 的结果
+ * @param {Set<string>} p.leafKeys - 本端基准语言包 leaf key 全集
+ * @param {Set<string>} p.deadKeys - 本端判出的死键集合
+ * @param {(rel: string) => string|null} p.readHead - 读 HEAD 版本内容,不存在返回 null
+ * @param {string} [p.target]
+ * @returns {{ violations: Array<{key:string,code:string,msg:string}>, exempted: Array<{key:string,reason:string,evidence:Array<Object>}> }}
+ */
+export function verifyContractEntries({ entries, leafKeys, deadKeys, readHead, target = '' }) {
+  const violations = []
+  const exempted = []
+  for (const [key, decl] of entries) {
+    if (!leafKeys.has(key)) {
+      violations.push({
+        key,
+        target,
+        code: 'KEY_NOT_IN_PACK',
+        msg: '声明的键不在本端基准语言包里(条目已过期或写错端,请删除/改正 —— 它现在免除的是一枚不存在的键)',
+      })
+      continue
+    }
+    const evidenceProblems = []
+    for (const ev of decl.evidence) {
+      const content = readHead(ev.file)
+      if (typeof content !== 'string') {
+        evidenceProblems.push(`${ev.file}:${ev.line} 依据文件在 HEAD 中不存在`)
+        continue
+      }
+      const lines = content.split(/\r?\n/)
+      if (ev.line > lines.length) {
+        evidenceProblems.push(`${ev.file}:${ev.line} 行号越界(HEAD 该文件共 ${lines.length} 行)`)
+        continue
+      }
+      const text = lines[ev.line - 1] ?? ''
+      if (!text.includes(ev.contains)) {
+        evidenceProblems.push(`${ev.file}:${ev.line} 该行不含被引用的标识符 ${JSON.stringify(ev.contains)}(依据已漂移)`)
+      }
+    }
+    if (evidenceProblems.length > 0) {
+      violations.push({
+        key,
+        target,
+        code: 'EVIDENCE_UNVERIFIED',
+        msg: `依据不可核验 ⇒ 本条不免除死键判定:${evidenceProblems.join(' / ')}`,
+      })
+      continue
+    }
+    if (!deadKeys.has(key)) {
+      violations.push({
+        key,
+        target,
+        code: 'DECLARATION_UNNEEDED',
+        msg: '本端代码已能静态引用到该键,声明已多余(留着它就是一句无人复核的豁免)',
+      })
+      continue
+    }
+    exempted.push({ key, reason: decl.reason, evidence: decl.evidence })
+  }
+  return { violations, exempted }
+}
+
+/**
+ * HEAD 版本读取器(带同文件缓存)。git 调用一律绝对路径 + `-c safe.directory=*` +
+ * `windowsHide` + `timeout`(§5b / 守门 52 / 守门 80):读不到就返回 null,由判据如实判红,
+ * 绝不"读不到就当通过"。
+ */
+export function makeHeadReader(root = ROOT) {
+  const cache = new Map()
+  let bin
+  return (rel) => {
+    if (cache.has(rel)) return cache.get(rel)
+    let content = null
+    try {
+      if (bin === undefined) bin = process.env.IHUI_GIT_BIN || resolveGitBin() || 'git'
+      content = execFileSync(bin, ['-c', 'safe.directory=*', '-C', root, 'show', `HEAD:${rel}`], {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 15_000,
+        maxBuffer: 64 * 1024 * 1024,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      })
+    } catch {
+      content = null
+    }
+    cache.set(rel, content)
+    return content
+  }
+}
+
+/**
  * 主流程入口(供 4 端脚本 + web 兼容入口调用)
  *
  * @param {Object} opts
@@ -439,7 +645,7 @@ export function groupByNamespace(keys) {
  * @param {boolean} [opts.exitOnDead=false] - 发现死 key 时返回 1
  * @param {string|null} [opts.out=null] - 自定义输出路径(覆盖 outputPattern)
  * @param {string} [opts.scriptName] - 日志前缀(默认 scan-{name}-dead-i18n-keys)
- * @returns {number} 0 成功,1 --exit 1 模式且发现死 key
+ * @returns {number} 0 成功;1 = --exit 1 模式发现死 key,或契约声明不成立(后者与 --exit 无关,必红)
  */
 export function main(opts) {
   const {
@@ -506,6 +712,33 @@ export function main(opts) {
   for (const k of leafKeys) {
     if (!staticRefs.has(k) && !isInUsedNamespace(k, usedNamespaces)) deadKeys.add(k)
   }
+  // 3b. 契约键声明:仅把「有依据且依据已在 HEAD 逐条核验」的键从死键判定里免除(见文件头注释)
+  const contract = loadContractFile(ROOT)
+  const { entries: contractEntries, issues: contractShapeIssues } = contractEntriesFor(contract.raw, name)
+  const { violations: contractViolations, exempted: contractExempted } = verifyContractEntries({
+    entries: contractEntries,
+    leafKeys,
+    deadKeys,
+    readHead: makeHeadReader(ROOT),
+    target: name,
+  })
+  for (const e of contractExempted) deadKeys.delete(e.key)
+  const contractHardFail = contractShapeIssues.length > 0 || contractViolations.length > 0
+  if (contractExempted.length > 0) {
+    console.log(
+      `[${TAG}] 契约键声明:${contractExempted.length} 枚按声明免除死键判定(依据已在 HEAD 逐条核验,不影响 parity/翻译完整性)`,
+    )
+    for (const e of contractExempted) {
+      console.log(`  - \`${e.key}\` ← ${e.reason}`)
+      for (const ev of e.evidence) console.log(`      依据 ${ev.file}:${ev.line}(须含 ${JSON.stringify(ev.contains)})`)
+    }
+  }
+  for (const issue of contractShapeIssues) {
+    console.error(`[${TAG}] ❌ ${CONTRACT_FILE_REL} 形状不合法 [${issue.key}]:${issue.problems.join('; ')}`)
+  }
+  for (const v of contractViolations) {
+    console.error(`[${TAG}] ❌ ${CONTRACT_FILE_REL} 声明失效 [${v.code}] ${v.key}:${v.msg}`)
+  }
   // 4. 翻译不完整
   const incompleteKeys = new Set()
   for (const k of leafKeys) {
@@ -540,10 +773,12 @@ export function main(opts) {
   console.log(`  useTranslations/getTranslations namespace: ${totalNamespaces}`)
   console.log(`  死 key: ${deadCount} (${deadRatio}%)`)
   console.log(`  翻译不完整 key: ${incompleteCount}`)
+  console.log(`  契约键声明免除: ${contractExempted.length} 枚(仅免死键判定)`)
   console.log(`  动态 t(\`prefix.\${var}\`) 命中: ${dynamicHits.length} 处`)
 
   if (dryRun) {
     console.log(`\n[${TAG}] --dry-run:跳过报告写入`)
+    if (contractHardFail) return 1
     if (exitOnDead && deadCount > 0) return 1
     return 0
   }
@@ -576,6 +811,25 @@ export function main(opts) {
       L(`### \`${ns}.*\`  (${keys.length} 个)`)
       for (const k of keys) L(`- \`${k}\``)
     }
+  L(`## 契约键声明(${CONTRACT_FILE_REL},仅免除"死键"判定)`)
+  L(
+    '> 这些键在本端无静态引用**不是孤儿**,而是跨端词包契约 / 被测试钉住的形状键。' +
+      '每条依据都按 HEAD 内容核验过(文件存在 + 行号在范围内 + 该行含被引用的标识符);' +
+      '依据不成立即判红。**parity / 翻译完整性 / 语言纯度一律不受本节影响。**',
+  )
+  if (contractExempted.length === 0) {
+    L('_本端无契约声明命中_')
+  } else {
+    for (const e of contractExempted) {
+      L(`- \`${e.key}\` — ${e.reason}`)
+      for (const ev of e.evidence) L(`  - 依据 \`${ev.file}:${ev.line}\`(须含 \`${ev.contains}\`)`)
+    }
+  }
+  if (contractShapeIssues.length + contractViolations.length > 0) {
+    L('### ❌ 声明失效清单(必改,不影响退出码的"死键"语义)')
+    for (const issue of contractShapeIssues) L(`- [SHAPE] \`${issue.key}\`:${issue.problems.join(';')}`)
+    for (const v of contractViolations) L(`- [${v.code}] \`${v.key}\`:${v.msg}`)
+  }
   L('## 翻译不完整 key 列表(5 语言中任一缺失)')
   if (incompleteCount === 0) {
     L('_翻译完整_ ✅')
@@ -618,6 +872,13 @@ export function main(opts) {
   fs.writeFileSync(outPath, lines.join('\n') + '\n', 'utf8')
   console.log(`\n[${TAG}] 报告写入: ${path.relative(ROOT, outPath)}`)
 
+  if (contractHardFail) {
+    console.error(
+      `[${TAG}] ❌ 契约声明不成立:${contractShapeIssues.length} 处形状不合法 + ${contractViolations.length} 处依据失效` +
+        ` —— 修 \`scripts/i18n-contract-keys.json\`(补真实依据或删掉过期条目),不要把它改成静默通过`,
+    )
+    return 1
+  }
   if (exitOnDead && deadCount > 0) {
     console.error(`[${TAG}] --exit 1:发现 ${deadCount} 个死 key`)
     return 1
