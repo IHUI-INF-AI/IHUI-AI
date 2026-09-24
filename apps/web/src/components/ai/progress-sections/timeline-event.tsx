@@ -19,8 +19,9 @@ import {
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
-import { stepDecisionLabel, type StepDecisionState } from '@ihui/shared/chat'
+import { stepDecisionLabel, isAgentAction, isAgentActionPhase, type StepDecisionState } from '@ihui/shared/chat'
 import { rollbackCheckpoint } from '@ihui/api-client'
+import { MultiAgentActionCard, type MultiAgentActionEntry } from './multi-agent-action-card'
 import {
   useTimelineStore,
   type TimelineEvent,
@@ -120,6 +121,31 @@ function translateWithFallback(
   } catch {
     return fallback
   }
+}
+
+// ─── D103 多智能体批量动作 meta 提取(G-141,2026-09-24 立) ─────────────
+
+/**
+ * 从 event.meta 安全提取 multiAgentAction 载荷(类型守卫,逐条校验动作/相位;
+ * 非法条目整条丢弃,不猜不补)。载荷形状与 MultiAgentActionEntry 对齐,
+ * 供展开区渲染 MultiAgentActionCard(动作 × 三态矩阵)。
+ */
+function extractMultiAgentActionEntries(meta: unknown): MultiAgentActionEntry[] {
+  if (!isRecord(meta)) return []
+  const raw = meta['multiAgentAction']
+  if (!Array.isArray(raw)) return []
+  const out: MultiAgentActionEntry[] = []
+  for (const item of raw) {
+    if (!isRecord(item)) continue
+    const action = item['action']
+    const phase = item['phase']
+    const agent = item['agent']
+    if (typeof action !== 'string' || !isAgentAction(action)) continue
+    if (typeof phase !== 'string' || !isAgentActionPhase(phase)) continue
+    if (typeof agent !== 'string' || agent.length === 0) continue
+    out.push({ action, phase, agent })
+  }
+  return out
 }
 
 // ─── H4 证据链 meta 提取(2026-09-09 立,对齐 1-1 agent_step_recorder 契约) ──
@@ -331,6 +357,11 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
     [evidence?.decision, tDecision],
   )
   const evidenceAvailable = hasAnyEvidence(evidence)
+  // D103(G-141):meta.multiAgentAction 载荷存在 ⇒ 行可展开,展开区渲染批量动作卡
+  const actionEntries = React.useMemo(
+    () => extractMultiAgentActionEntries(event.meta),
+    [event.meta],
+  )
   const workspacePath = useIDEWorkspace((s) => s.workspacePath)
   const [rollbackState, setRollbackState] = React.useState<'idle' | 'rolling' | 'done' | 'failed'>(
     'idle',
@@ -376,8 +407,8 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
 
   // 至少有一种交互目标(children / evidence / messageId / planStepId / toolCallId)才可点
   const hasJumpTarget = !!(event.messageId || event.planStepId || event.toolCallId)
-  const isClickable = hasChildren || evidenceAvailable || hasJumpTarget
-  const isExpandable = hasChildren || evidenceAvailable
+  const isClickable = hasChildren || evidenceAvailable || hasJumpTarget || actionEntries.length > 0
+  const isExpandable = hasChildren || evidenceAvailable || actionEntries.length > 0
 
   return (
     <div
@@ -446,6 +477,14 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
         <div className="px-2 py-1">
           {description && (
             <div className="mb-1.5 text-[10px] text-muted-foreground/70">{description}</div>
+          )}
+          {actionEntries.length > 0 && (
+            <div className="mb-1.5">
+              <MultiAgentActionCard
+                entries={actionEntries}
+                data-testid="timeline-multi-agent-action-card"
+              />
+            </div>
           )}
           {hasChildren && (
             <div className="space-y-0.5">
