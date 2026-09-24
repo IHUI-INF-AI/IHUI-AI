@@ -47,7 +47,14 @@ import { createLogger } from './lib/logger.mjs';
 
 const log = createLogger();
 
-const ROOT = resolve(fileURLToPath(new URL('../', import.meta.url)));
+// ROOT 默认由脚本自身位置推导(§15:不接受用 cwd 挪动扫描面 —— 改 cwd 会让自测静默扫真仓)。
+// `--root <dir>` 是**显式测试通道**(守门 70 同法):生产链不带它,语义与改前逐字相同。
+// 没有它,自测夹具只能落在被扫描的真仓树里,于是一次被 SIGKILL 打断的运行就把带着
+// `$env:TEMP\…` 字面量的夹具永久留在盘上 —— 之后每次全量审计都报一条"项目数据写到系统 temp"
+// 的**假违规**,而违规者早已不存在(2026-09-25 实测盘上就挂着 19:23 那一轮的残留)。
+const _rootIdx = process.argv.indexOf('--root');
+const _rootArg = _rootIdx > -1 ? process.argv[_rootIdx + 1] : null;
+const ROOT = _rootArg ? resolve(_rootArg) : resolve(fileURLToPath(new URL('../', import.meta.url)));
 
 // ===== 文件类型 =====
 const SCRIPT_EXTS = new Set(['.ps1', '.py', '.js', '.mjs', '.cjs', '.ts', '.tsx', '.sh', '.bat', '.json', '.yaml', '.yml']);
