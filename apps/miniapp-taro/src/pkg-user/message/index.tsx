@@ -17,6 +17,7 @@ import {
 } from '@/api'
 import { getUserInfo } from '@/utils/auth'
 import { logger } from '@/utils/logger'
+import { getTopBarMetrics } from '@/utils/system-info'
 import ThemeRoot from '@/components/ThemeRoot'
 import {
   NavBar,
@@ -46,7 +47,7 @@ interface Room {
   isUnread?: boolean
 }
 
-const menuButton = Taro.getMenuButtonBoundingClientRect?.() || { top: 26, height: 32 }
+const { menuButton } = getTopBarMetrics()
 
 const DEFAULT_SYSTEM: SystemNoticeItem[] = []
 const DEFAULT_PRIVATE: PrivateMessageItem[] = []
