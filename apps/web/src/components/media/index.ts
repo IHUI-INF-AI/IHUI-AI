@@ -15,8 +15,13 @@ export {
   ArtifactTurnNav,
   artifactKindOf,
   collectArtifactTurns,
+  assistantTurnOf,
+  artifactTurnIndex,
   jumpToMessageOrigin,
   emitFocusArtifact,
+  tryFocusArtifactFromLink,
+  useArtifactTurnNav,
+  useFocusArtifactScroll,
   SCROLL_TO_MESSAGE_EVENT,
   FOCUS_ARTIFACT_EVENT,
 } from './artifact-turn-badge'

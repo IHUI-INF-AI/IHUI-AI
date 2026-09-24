@@ -95,3 +95,6 @@ export * from './cloud-chat-ops'
 // 与 D71 turn-status 正交(turn 阶段/负载等待两维度);isInducementRisk 对齐 D67 口径;
 // 数据面 model_queue 帧归 D34 批次,帧落地前渲染件恒 null 不用假数据占位)
 export * from './model-load'
+// D76 产物归属 turn 派生层(分型判据 + originating turn 序列 + 轮次序号 + 产物锚点→轮下标;
+// 纯函数零平台依赖,web 渲染层 artifact-turn-badge 原样 re-export,残余票 2026-09-25 自端内提取)
+export * from './artifact-turn'
