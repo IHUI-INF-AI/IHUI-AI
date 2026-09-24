@@ -1,12 +1,13 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { RealNameAuthStatus, RealNameAuthItem, RealNameAuthScreenProps } from '../../types'
+
+import { rnRadius } from '@ihui/design-tokens'
 
 /** 实名认证共享屏 — props 注入式跨端组件 */
 export type { RealNameAuthStatus, RealNameAuthItem, RealNameAuthScreenProps }
@@ -155,10 +156,10 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       borderRadius: rnRadius.xl,
       alignItems: 'center',
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     submitBtnDisabled: { backgroundColor: tk.text.tertiary },
-    submitBtnText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
+    submitBtnText: { color: tk.brand.ctaForeground, fontSize: 16, fontWeight: '600' },
     muted: { fontSize: 14, color: tk.text.secondary },
   })
 }
