@@ -4,7 +4,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /**
  * generate-latest-json.mjs — 聚合多平台 .sig 文件生成 Tauri updater latest.json
  * v0.1.14 — retry round 8
@@ -55,10 +54,14 @@ async function githubApi(path, init, attempt = 0) {
   })
   if (res.status === 403) {
     const retryAfter = res.headers.get('Retry-After')
-    const waitMs = retryAfter ? parseInt(retryAfter) * 1000 : Math.min(1000 * Math.pow(2, attempt), 30000)
+    const waitMs = retryAfter
+      ? parseInt(retryAfter) * 1000
+      : Math.min(1000 * Math.pow(2, attempt), 30000)
     if (attempt < MAX_RETRIES) {
-      console.log(`[api] 403 rate limited, waiting ${waitMs}ms before retry (attempt ${attempt + 1}/${MAX_RETRIES})...`)
-      await new Promise(r => setTimeout(r, waitMs))
+      console.log(
+        `[api] 403 rate limited, waiting ${waitMs}ms before retry (attempt ${attempt + 1}/${MAX_RETRIES})...`,
+      )
+      await new Promise((r) => setTimeout(r, waitMs))
       return githubApi(path, init, attempt + 1)
     }
   }
@@ -80,65 +83,65 @@ async function githubApi(path, init, attempt = 0) {
 const EXPECTED_MIN_ASSETS = 8
 const EXPECTED_MIN_SIGS = 3
 /** 等待 release assets 达到预期数量,防止竞态条件导致 sig 文件未上传完成 */
-async function waitForRelease(tag, expectedMinAssets = EXPECTED_MIN_ASSETS, maxRetries = 36, retryInterval = 15000) {
+async function waitForRelease(
+  tag,
+  expectedMinAssets = EXPECTED_MIN_ASSETS,
+  maxRetries = 36,
+  retryInterval = 15000,
+) {
   for (let i = 0; i < maxRetries; i++) {
     const release = await githubApi(`/repos/${repo}/releases/tags/${tag}`)
-    const sigCount = release.assets.filter(a => a.name.endsWith('.sig')).length
-    console.log(`[poll] Attempt ${i + 1}/${maxRetries}: release has ${release.assets.length} assets, ${sigCount} sig files`)
+    const sigCount = release.assets.filter((a) => a.name.endsWith('.sig')).length
+    console.log(
+      `[poll] Attempt ${i + 1}/${maxRetries}: release has ${release.assets.length} assets, ${sigCount} sig files`,
+    )
     if (release.assets.length >= expectedMinAssets && sigCount >= EXPECTED_MIN_SIGS) {
       console.log(`[poll] Release ready: ${release.assets.length} assets, ${sigCount} sig files`)
       return release
     }
     if (i < maxRetries - 1) {
       console.log(`[poll] Waiting ${retryInterval / 1000}s for assets to finish uploading...`)
-      await new Promise(resolve => setTimeout(resolve, retryInterval))
+      await new Promise((resolve) => setTimeout(resolve, retryInterval))
     }
   }
   // 超时:输出实际资产清单辅助诊断(2026-09-16:run#41 失败时无任何资产可见性,无法定位是上传慢还是上传缺)
   const release = await githubApi(`/repos/${repo}/releases/tags/${tag}`).catch(() => null)
-  const names = release ? release.assets.map(a => a.name) : []
+  const names = release ? release.assets.map((a) => a.name) : []
   console.error(`[poll] Assets at timeout (${names.length}):`)
   for (const n of names) console.error(`  - ${n}`)
-  throw new Error(`Release assets not ready after ${maxRetries} retries (waited ~${Math.round(maxRetries * retryInterval / 1000)}s). Expected >= ${expectedMinAssets} assets / ${EXPECTED_MIN_SIGS} sigs.`)
+  throw new Error(
+    `Release assets not ready after ${maxRetries} retries (waited ~${Math.round((maxRetries * retryInterval) / 1000)}s). Expected >= ${expectedMinAssets} assets / ${EXPECTED_MIN_SIGS} sigs.`,
+  )
 }
 
-// 平台判定/择优逻辑的唯一真相源在 scripts/lib/tauri-updater-platforms.mjs
+// 平台判定/择优/URL 白名单/歧义探测的唯一真相源在 scripts/lib/tauri-updater-platforms.mjs
 // (站点 feed 快照 scripts/resolve-desktop-download.mjs 与本脚本共用同一份,不得在此二次实现)。
 import {
   inferPlatform,
-  extractVersion,
-  shouldReplacePlatform,
+  buildUpdaterPlatforms,
+  findPlatformAmbiguity,
 } from './lib/tauri-updater-platforms.mjs'
 
-async function main() {
-  // 1. 等待 release assets 全部上传完成(防止竞态条件)
-  console.log('Waiting for release assets to be ready...')
-  const release = await waitForRelease(tag)
-  console.log(`Release: ${release.name} (id=${release.id}, assets=${release.assets.length})`)
-
-  // 2. 遍历 .sig 文件,收集各平台 signature + url。
-  //    同平台多产物时优先版本匹配(release 版本)的,其次按 PLATFORM_PRIORITY 择优。
-  const platforms = {}
-  const platformKinds = {}
-  const platformVerMatch = {}
+/**
+ * 采集 Release 里「有配套 .sig ∧ 平台可判定 ∧ 签名非空」的产物条目。
+ * 只负责 IO,择优与建表一律交给共享判据 —— 本脚本自行 shouldReplace 会造出第二份真相,
+ * 而那份历史上就没有 URL 白名单与稳定键序(2026-09-24 登记的未闭环 ④)。
+ */
+async function collectUpdaterEntries(release) {
+  const entries = []
   for (const asset of release.assets) {
     if (!asset.name.endsWith('.sig')) continue
-    const inferred = inferPlatform(asset.name)
-    if (!inferred) {
+    if (!inferPlatform(asset.name)) {
       console.warn(`Skip unknown platform sig: ${asset.name}`)
       continue
     }
-    const { platform, kind, alsoPlatforms } = inferred
-    // 安装包文件名(去 .sig 后缀)中的版本号,用于版本匹配判断
+    // 签名对象是安装包本身:去 .sig 后缀即配套产物名(dmg 无 sig,天然不进入)
     const pkgName = asset.name.replace(/\.sig$/, '')
-    const assetVersion = extractVersion(pkgName)
-    const verMatch = assetVersion === version
-    // 同平台已有更高优先级产物时跳过(如已有 0.1.14 exe 时忽略 msi/旧版 exe)
-    if (!shouldReplacePlatform(platform, kind, verMatch, platformKinds[platform], platformVerMatch[platform])) {
-      console.log(`Skip lower-priority sig: ${asset.name} (platform=${platform}, kind=${kind}, verMatch=${verMatch}, existing=${platformKinds[platform] ?? 'none'}/${platformVerMatch[platform] ?? 'none'})`)
+    const urlAsset = release.assets.find((a) => a.name === pkgName)
+    if (!urlAsset) {
+      console.warn(`Corresponding asset not found for ${asset.name}: ${pkgName}`)
       continue
     }
-
     // 下载 .sig 文件内容(公开 repo 可直接 fetch,私有 repo 需带 token)
     const sigRes = await fetch(asset.browser_download_url, {
       headers: { Authorization: `Bearer ${token}` },
@@ -148,28 +151,38 @@ async function main() {
       continue
     }
     const signature = (await sigRes.text()).trim()
-
-    // 找到对应的安装包文件(去掉 .sig 后缀)
-    const urlAsset = release.assets.find((a) => a.name === pkgName)
-    if (!urlAsset) {
-      console.warn(`Corresponding asset not found for ${asset.name}: ${pkgName}`)
+    if (!signature) {
+      console.warn(`Skip empty signature: ${asset.name}`)
       continue
     }
-
-    const allPlatforms = [platform, ...(alsoPlatforms || [])]
-    for (const pf of allPlatforms) {
-      platforms[pf] = {
-        signature,
-        url: urlAsset.browser_download_url,
-      }
-      platformKinds[pf] = kind
-      platformVerMatch[pf] = verMatch
-      console.log(`Added platform ${pf} (${kind}, verMatch=${verMatch}): ${urlAsset.name}`)
-    }
+    entries.push({ name: pkgName, url: urlAsset.browser_download_url, signature })
+    console.log(`Collected candidate: ${pkgName}`)
   }
+  return entries
+}
+
+async function main() {
+  // 1. 等待 release assets 全部上传完成(防止竞态条件)
+  console.log('Waiting for release assets to be ready...')
+  const release = await waitForRelease(tag)
+  console.log(`Release: ${release.name} (id=${release.id}, assets=${release.assets.length})`)
+
+  // 2. 采集候选产物 → 共享判据建表(同平台多产物按 PLATFORM_PRIORITY 择优,版本匹配压残留)
+  const entries = await collectUpdaterEntries(release)
+
+  // 归属只由采集顺序决定的争抢必须喊出来:那种 feed 看起来完全正常,
+  // 却可能把平台键锁到旧签名(2026-09-24 Gitee 双 exe 实案)。
+  for (const a of findPlatformAmbiguity(entries, { version })) {
+    console.warn(
+      `[latest.json] ⚠ 平台键歧义 ${a.platform}:保留 ${a.kept},弃 ${a.dropped}` +
+        `(两者签名不同、优先级相同 —— 请清掉多余产物,勿依赖采集顺序)`,
+    )
+  }
+  const platforms = buildUpdaterPlatforms(entries, { version })
 
   if (Object.keys(platforms).length === 0) {
-    console.error('No valid platform sigs found')
+    console.error(`No valid platform sigs found (${entries.length} candidates collected):`)
+    for (const e of entries) console.error(`  - ${e.name} ${e.url}`)
     process.exit(1)
   }
 
