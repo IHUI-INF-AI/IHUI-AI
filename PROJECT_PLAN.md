@@ -2653,6 +2653,10 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
     - **一处测量手法错必须更正（原写"这三处落地后须跑 `gen:i18n` 刷小程序离线包（现含 `ai.pane` 0 命中）"—— 那句"0 命中"是假的）**：`remote-locales.gen.ts` 存的是 **gzip + base64**，对它做明文 grep 必然 0 命中。改按 **HEAD blob** 解码实测（`.ihui-agent/tmp/d-batch-verify/decode-offline-from-head.mjs`）：`en/ja/ko/zh-TW` 四语言 `queueOps=11 · elementPack=49 · multiPane=14 · thinkingRefsTitle=1 · thinkingTitle=1` **全都在包里**（zh-CN 是基准包不进离线件）。所以离线包**无需为这三处重生成**；教训入账：**判"产物里没有"之前先确认产物是不是编码态**，否则会把测量工具的空转当成上游的缺失（与"验证全绿前先验尺子"同族）。
     - 剩余材料指针（仍欠的宿主/缺件，见上条"仍欠的 H18 空格"）：`.ihui-agent/tmp/mount-d73/`(候选按 D43 前基线造，禁整文件覆盖) 与 `.ihui-agent/tmp/{end-*,mount-{miniapp,rn,extension}}/`（`*.candidate.tsx` / `SPLICE.md` / `BLOCKED.md` / `INCIDENT.md`）。
   - **B 类（不是"宿主脏了所以没做"，是该端根本还没有这一层，缺件逐条点名）**：D38 队列五动词在 miniapp / rn / extension **三端均无队列态**（rn 侧实测 `if (!text || isStreaming) return` 是直接丢弃而非入队）；D64④ 子任务八态缺 SSE 帧与 `stopFailed` 产生方（`grep -rln stopFailed apps packages` 只命中判据层与其测试）；D64⑤ 反馈问卷缺 `api-client` 提交出口（后端 `chat.ts:1000` 只收 `{messageId,rating}`，三选/评论/跳过无处落，且该文件与 schema/journal 仍被 chat-history-projection 迁移占用）。
+  - **D64⑤ 的阻塞表述已就地更正（2026-09-25 01:1x 实测，上一条里"待 chat-history-projection 迁移入库"这半句是错的）**：反馈**表早已入库** —— `packages/database/src/schema/chat.ts:136` `chat_message_feedbacks`(+ journal idx **287** `20260923120000_chat_message_feedbacks` + 真库测试 `apps/api/tests/chat-message-feedbacks.real.test.ts` + 生产方 `chat-queries.ts` 在用)。所以真缺口不是"等那张表"，而是**该表只有 `rating` 一列**，三选/评论/跳过/免打扰**没有列可写** ⇒ 需要一次**加列迁移**。而加列要碰的四个路径此刻确实被他人占用(`git status --porcelain`：`M packages/database/src/schema/chat.ts` / `M drizzle/meta/_journal.json` / `?? 20260924100000_chat_history_projection.sql` / `M apps/api/src/db/chat-queries.ts`)，且 journal 是 **idx 追加语义**——两个会话各追一枚 idx 288 必然撞号(守门 49 判 journal↔SQL 双向双射,撞了整批红)。**解阻判据**：上述四路径 `git status` 全空且那枚 .sql 已被跟踪，届时一次加列 + idx 289(不复用他人 idx)。
+  - **会话级分叉的跨端宿主已接三端（owner 批准的第三项，实测它不是新增能力而是既有能力的接线）**：`extension` `d36542f7739`(sidepanel `ChatPage.tsx` assistant 气泡下「从此处分支」+ 判据层 `chat-branch-utils.ts` + 40 例；该端原为**无会话纯流式**，故先懒建会话 + 逐条落库才谈得上分叉，落库失败走**非阻断 notice** 以免既有聊天倒退)、`cli` `e9753c2d4fc`(`/branch [标题]` 注册进既有 `SLASH_COMMANDS` + `handleSlashCommand`，38 例，`cli.branch.*` 18 键 × 5 语言)、`mobile-rn`(本票，宿主 `AiAssistantN8nScreen.tsx` + `src/utils/branch-conversation.ts` + 17 例 + `ai.pane.branch` 8 键 × 5 语言，**只落 shared**：shared=8/web=0 逐语言实测，小程序离线包解码后 `branch=8` × 4 语言)。**双份落点风险已核**：web 端 `grep '"branch"'` 命中 1 处是 HEAD 既有的 `chat.contextMenu.branch`(另一表面右键菜单)，**不是** `ai.pane.branch` 副本 —— 我给子代理的判据"`web` 应为 0"因此是错的尺子，被该代理按实测推翻(教训同"验证全绿前先验尺子")。
+  - **本票顺带修掉我自己留在 HEAD 的类型错**：`ImagePreviewModal.tsx:130` 把 `pointerEvents="none"` 挂在 RN `<Image>` 上(`ImageProps` 无此属性)，由**我自己的**提交 `c63eff2a8c8`(§9 三端接线那票)引入 —— 该票当时报的"端内 tsc 0 错"不成立。归属取证 `git log -S 'pointerEvents="none"'` 唯一命中该提交；修法是把属性移到包裹它的 `<View>`(外层本就是 `onPress={onClose}` 的 Pressable，点击穿透语义逐字等价)，落地 `8a6d081b350`，修后该文件 tsc 错误 0。
+  - **他人 in-flight 的存量红（本票只登记、一律未动）**：`apps/mobile-rn` 全量 typecheck 仍有 **6** 处 `tokens.brand.ctaFill` / `ctaText`(`SingleTypeBar.tsx:305,310` + `ChatScreen.tsx:3413,3417,3563,3571`)——正是 AGENTS §4 明令"不得再加回"的端内自立混血 CTA 档，改法照文档是一行(`ctaFill`→`cta`、`ctaText`→`ctaForeground`)，但那两个文件一个正被他人修改、一个是他人新建未跟踪，按 §12 不代修；另有 `tests/__mocks__/design-tokens.ts`(他人新建未接线)使 14 个 suite 报 `SyntaxError: Unexpected token 'typeof'`，与 `category-bar-style.test.tsx` 仍锁 `brand.DEFAULT` 黑白旧档(实测现值 `#4A7A96` = CTA 档)。`apps/cli` 包级 build/typecheck 红在 `src/tools/result-envelope/`(他人未跟踪目录，验证期间其行号从 117 漂到 120)——排除该目录后本票范围 tsc 0 错。
 
 
 
@@ -6379,8 +6383,27 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
     **正解是顺序化的两步**:先把存量 11 处清零(须等路由类在飞改动入库后做一次归一重生成),
     **再**把 `--fresh` 比对接进提交链 —— 顺序颠倒就等于造一台恒红门,唯一结局是人人 `--no-verify`。
     归属:下一次动 `apps/api/src/routes/**` 的票(它必须在同票重跑 export),或一张专门的契约归一门票。
+### 第四十五批(2026-09-24,三路并行把 132 道守门在 HEAD 上全量考了一遍):修 4 补 1,并把"红"拆成仓库缺陷 / 判据坏了 / 机器态三类
+
+### 第四十六批(2026-09-25,复测上一批"归他人"的四条):真正的慢不在门里,在自测夹具的落点和子进程的等待形态;另记两路代理交回捏造证据
+- **为什么做**:上一批留下四条未闭环(门 25 间歇红 / 门 62 ">120s 最慢 blocking 门" / 门 33 机器态红 / 门 91 红)。本轮派两路只读代理复量,同时自己动手。
+- **两路代理交回的是捏造证据,照做就是给不存在的文件改 300 行**:
+  - 路 A 称"门 62 = `scripts/check-chat-ux-parity.mjs`,单次 131.6s,热点在 :597 的 `isFollowupCallSite`,1.28M 次 slice/7.06s",并附三套加速方案与私有 worktree `E:\IHUI-AI-wt-g62`。实测:runner `id:'62'` 的 `script:` 是 **`desktop-nsis-template.mjs`**,`--check` 单跑 **0.14s**;`check-chat-ux-parity.mjs` 在 `git ls-files` 里 **0 命中**;`E:\IHUI-AI-wt-g62` 与 `E:\IHUI-AI-wt-f62b` **都不存在**,`git worktree list` 只有主仓。
+  - 路 B 称"守门 25 = `check-port-registry.mjs`,红因是它自己的自测夹具"。实测 `id:'25'` = **`check-workspace-hygiene.mjs`(项目外路径违规)**;`check-port-registry.mjs` 是另一道门。
+  - **教训(已是本仓第 N 次,升级为本票口径)**:代理报里每一个**可核验标识符**(runner id ↔ script、文件路径、worktree/临时目录、行号)都必须自己跑一遍再采信;"停顿在 :597"这种带行号的细节看着最可信,恰恰最不需要真读过文件就能编出来。同日重派的两份报告是可信的(其"门 62 只有 18ms 计算量"与我实测逐字吻合)——**同一句话重派比追问更便宜**。
+- **">120s 最慢门"这笔账不成立,但量到了一个真的挂**:整条 133 道门提交链总耗时 **93.4s**(日志现读),门 62 本体 0.14s。慢的是**自测**:
+  - `check-workspace-hygiene.test.mjs` 14 例里 11 例各做**一次整仓扫描**(~90s/例)≈ **21 分钟**。证据不是猜的:盘上残留夹具的 mtime 两两相隔 **86s / 79s**。根因是 ROOT 只由脚本自身位置推导(§15 防 cwd 挪扫描面),于是夹具**必须**落在被它自己扫描的真仓树里。
+  - 根治 = 给门补 `--root <dir>` **显式测试通道**(守门 70 同法;生产链不带,语义逐字不变)+ 夹具迁到仓库外 `mkScratch` + 开局**陈年清理**(年龄闸 30 分钟,不踩并行会话正在跑的那一轮)+ 一条"落点必须在树外"的落点断言。该文件 21 分钟 → **198s**,只剩 3 条基线用例真扫全仓。顺带:旧落点留下的 `hygiene-test-*` 残留由自愈清掉,全量审计那条"项目数据写到系统 temp"的**假违规**不再出现。
+  - `installer-gates-wiring.test.mjs` 两处门禁调用改异步 spawn + **单次 20s 上限 + 只重试超时**(绝不重试判红)+ 取不到退出码时降级按门禁自己打印的终局结论行判定**并把降级打印出来**;夹具同批改 `mkScratch`(此前 `os.tmpdir()` 在本机活进程仍指 C 盘,已攒 7 个 `ihui-installer-gate-*`)。挂的实测形状:子进程**早已把完整结论写进管道**(6 次里 4 次收满 94B 却等不到 'exit'/'close';同一门在 bash 重定向到文件 8/8 都 0.10s 返回),即"判据算完了,父进程的等待没回来"—— 与守门 80 立项原因("`execSync('git ls-files')` 挂住 80 分钟而 CPU 只用 2.84s")**同型**;是子进程不再退出还是事件没投递,**未取证,不作为结论**,已写进代码注释供后人接续。改后连跑 3/3 全绿、0 次降级。
+- **补一道从未有过的回归网**:`check-no-emoji-icons.mjs`(blocking)此前**没有任何镜像测试**。补 3 例,并把**变异对照做进测试自身** —— 把 `9974db24956^` 那版主循环读取原样嵌进来当反例,同一判据函数必须判它"不成形";缺这条,任何把正则写宽的改动都会让测试退化成"永远为真的断言"。过程中我自己的**第一版对照**误报"断言无效(旧版 0 项未通过)",实为对照脚本锚错(取了第一次出现的读点 + 整文件比对);独立探针逐条复测证明六项判据在旧版上 **6/6 拦住** —— **对照失效不等于被测失效**,先验尺子。
+- **三条旧结论被本轮复测推翻/更正**:① 门 33(`check-llm-provider-schema.mjs`)现 **exit 0**,不再是"机器态 blocking 红",本票不动它(它 `.env` 缺失时 exit 2 的语义由镜像测试 45 例看守);② 门 91 的红**不是仓库债**:HEAD 与索引各有 1 处 `colorScheme`,**工作树 0 处** —— 是他人正在重写 `ChatScreen.tsx` 的半编辑态,而该门全量口径 `readFileSync` **读的是磁盘**(AGENTS 写的是"全量判 HEAD blob",代码没做,取材在 `:46/:527/:620`)⇒ **该修的是门的取材面,不是 ChatScreen**;该门的镜像测试文件此刻正被他人持有(` M`),按 §12 不碰,交回门 91 持有人;③ 门 83/90/openapi 三项上一批判"必须别人做"的**已被别人做掉**(本票按 `--staged` 与全量双口径复测 exit 0),不再挂账。
+- **自己制造的一次险情(如实记,不留美化)**:改写 `installer-gates-wiring.test.mjs` 期间两次收到"文件在我上次读取后已被改动"的告警,期间一度据截断的 grep 输出判断"测试数从 8 掉到 6 = 我删掉了别人的 `--self-test` 用例"。用 `git diff HEAD` 逐 hunk 复核 + 与 `git show HEAD:` 版对标题后确认:HEAD 本来就只有 6 例,被删的 0 例,那 8 例读数来自另一份文件的输出串台。**结论:共享工作树里判断"我是否伤了他人内容",唯一可信的是逐 hunk diff,不是记忆和 grep。**
+- **未闭环(有主体、有解阻判据,不是建议)**:① 门 91 全量口径读工作树 —— 归属:门 91 持有人(其测试文件正被他人持有,本票不并发改);解阻判据:把取材面改为 HEAD blob(同 77/83/90/98)并加"他人半编辑态不得钉红"的镜像用例。② `pnpm test:scripts` 仍有个位他人面红点,本票未逐一归因(整包跑一次约 20 分钟,已让给在飞会话)。③ 上述子进程管道等待挂起的机器级根因未取证。
+- **交付**:`629c7f348e7`(emoji 门镜像测试)、`dbcaa09c9d5`(--root 通道 + 两处夹具落点 + 等待形态)。
 
 ### 第四十五批(2026-09-24,三路并行把 132 道守门在 HEAD 上全量考了一遍):修 4 补 1,并把"红"拆成仓库缺陷 / 判据坏了 / 机器态三类
+
+
 - **编号撞车本身记一笔(与守门 id 撞号同族)**:本节最初登记为"第四十二批",而 HEAD 里 42/43/44 三个号**已被并行会话分别占用**(它们的内容与本票无关)。批次号在这个仓里是**并发抢占资源**,没有登记处也没有守门判重 —— 唯一可靠做法是落笔前 0 逐个查号,后到的让位。本会话据此改号为四十五。
 
 - **为什么做**:任何一道 blocking 门在 HEAD 上无端变红,后果不是"这一次提交红",而是**每一次提交都被迫 `--no-verify`,连带其余 130 道全部作废**(本仓当天已真实发生过两次)。而"132 道门现在到底几道红"此前无人系统量过 —— 每道门都只在自己那票里自证过。
@@ -7245,3 +7268,112 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
   形态写的而非抽公共库 —— 抽库要连改动过那两门的镜像测试,与本票"对齐一门"的范围不同,且那两门眼下正被
   并行会话高频改。登记为后续可合并项,**不得**据此认为"重复实现三份"是终态。
 
+---
+
+## 第四十六批(2026-09-25,竞品机制吸收:八包 clean-room 落地 + 顺手修出两条 P0)
+
+用户原话"都要做 并且做细致做完美做彻底 但是不允许有任何搬运抄袭痕迹"。执行方式定为
+**clean-room**:先由主 agent 把外部机制读成一份我方自己的自然语言规格
+(`.ihui-agent/tmp/zcode-absorb/MECHANISM-SPEC.md`,该目录 gitignore、不入库),
+实现阶段各代理**禁止读上游源码**,只按规格重写 ⇒ 无逐行搬运、无第三方归属义务残留。
+命名一律走 `ihui` 语义域,注释只写"为什么",全文零对标对象名。
+
+### 已完成
+
+- [x] ✅(2026-09-25) **WP-1 命令安全从字符串匹配升级为 argv 三态求值**
+  `apps/cli/src/tools/command-policy/{tokenizer,syntax-table,evaluate,types,index}.ts`(新)+
+  `command-safety.ts` 改薄壳(83→119 行,旧导出面保留并委托新求值器)+ `tests/command-policy.test.ts`(新 224 行)。
+  三态 `read-only / mutating / unknown`,**默认 unknown**;语法表自建不引第三方生成物,含子命令 / 选项 arity /
+  effect 归类,支持短选项簇与 `--opt=value`。修掉的真洞:旧 `READONLY_COMMAND_BASENAMES` 把 `git`/`docker`/
+  `kubectl`/`cargo` 整个 basename 判只读 ⇒ `git push` 免确认自动放行。既有 102 条断言**零反转**。
+  取证:`npx vitest run` 全量 **125 files / 2632 tests passed**,`npx tsc --noEmit` 0 error。
+- [x] ✅(2026-09-25) **WP-2 上下文回收三道有效性守卫**
+  `packages/context-compaction/src/{reclaim,validity-guards,types,token-estimate,markers}.ts`(新):
+  ① **零模型请求的旧工具结果回收**(27 工具显式白名单、编辑类 14 项一票否决、多模态块不动、
+  试算节省 <600 token 即放弃改写并返回原数组引用、双触发);② **压缩后真值复测**(provider usage 覆盖估算,
+  `meetsTarget` 只由体量决定 + 预测下轮是否再触发);③ **快速回填熔断**(轮距≤2 计一次,连续 3 次 latch,
+  给用户可读诊断而非继续烧钱);④ **溢出按完整 round 边界整组丢弃重试**(上限 6,自证配对未截断)。
+  9 项阈值常量 TS/Python 两侧同值,对账入口 `tunables.py` ↔ `packages/shared/src/constants.ts` ↔
+  `test_killer_parity.py` ↔ `consistency-fixtures.json#strategy_constants`,并由**变异取证**(600→601 两侧同红)钉住。
+- [x] ✅(2026-09-25) **WP-3 工具结果预算信封 + 三道守卫接线**
+  `apps/cli/src/tools/result-envelope/`(新)+ `src/context-guards.ts`(新)+ `commands/agent.ts` 接线
+  (`:1588` 信封与记账、`:1117`/`:1310`/`:1245` 三道守卫、`:1625` 空闲计时)。
+  `[[结果信封 v1]]` 幂等(已封装不重复封装、不重复产物文件),落盘 `.ihui-agent/tmp/tool-artifacts/<sid>/`,
+  **未用 `os.tmpdir()`**(测试反向断言)。`tests/context-guards-wiring.test.ts` 12 例是**装车证明**:
+  注入必然触发熔断的序列,断言第 4 轮压缩调用次数为 0 且诊断真到达出口 —— 不测单元测接线。
+- [x] ✅(2026-09-25) **WP-4 `docs/runtime-capability-disclosure.md`(616 行,102 处 `路径:行号` 取证)**
+  + `SECURITY.md` 追加一节。价值主要在它**否证了本仓 8 条自述**(见下"顺带揪出的 P0")。
+- [x] ✅(2026-09-25) **WP-6 prompt cache 锚点漂移:假设成立并已修**
+  `app/providers/anthropic_provider.py`(+58/−10)新增 `_split_stable_system_prefix()`:断点只钉**稳定前缀**末尾,
+  逐轮注入的易变尾段照发但不进缓存;无动态段时与改前**逐字节等价**。
+  改前实测:同一会话两轮锚定块指纹 `daae1106…`(3242 字符)vs `83386845…`(3238),首差偏移 3204
+  ⇒ 99% 前缀相同却整段 miss。改后两轮同为 `e7adf6cc…`。回归测试
+  `tests/test_prompt_cache_anchor_drift.py`(4 例,先红后绿取证)。
+  **一条子假设被实测否证**:"压缩轮跳断点"不成立 —— 压缩调用的 gateway 路径不带 `tools`,
+  根本不进 Anthropic provider,加开关是死代码,故未做。
+- [x] ✅(2026-09-25) **WP-5 架构契约门 = 守门 103**(编号说明:任务书原定 102,落地前被并发会话的
+  `check-glyph-arrow-icon` 占用,按"后来者改号"顺延 103 并注册前复测)。
+  `config/architecture-policy.yaml`(24 模块声明表)+ `scripts/check-architecture-policy.mjs` +
+  `scripts/tests/check-architecture-policy.test.mjs`。与其余门方向相反:其余是"发现一类违规写一条判据",
+  本门**读声明表反查违规**(依赖方向 D1/D2、深导入 D3、体积 C1、表与现实脱节 T1)。
+  **存量 24 个模块一律 `managed:false` ⇒ 只报数不判红**(实测全量 exit 0,报数 3 处),
+  避免造出一台恒红机器。阈值 6000 行高于 HEAD 实测最大文件 5258 行(依据写进 yaml 注释)。
+  取证:自检 51 例成对正反 + 镜像 10 例含装车证明;`guardian-runner` 注册块为定点插入,`git diff --numstat` 零删除。
+- [x] ✅(2026-09-25) **顺带揪出并修掉两条 P0(WP-4 否证的直接后果)**
+  ① **项目级钩子的 trust gate 造好没装车**:`hooks/trust.ts` 的 `gateHook` 注释自述"security P0",
+  但全仓**零调用方**,而 5 个派发点都走 `runHookEntry → spawnSync(shell:true, env:{...process.env})`,
+  钩子来源含 `<cwd>/.{ihui,claude,cursor}/hooks.json` ⇒ clone 陌生仓库即可让仓库自带钩子带着
+  **模型 API key 环境**直接执行。修法:加载期按路径给条目盖 `source` 戳,在唯一执行收口点查门,
+  不放行则跳过(exitCode 0 + 说明,不反向阻断工具),`IHUI_TRUST_WORKSPACE=1` 为非交互出口。
+  **行为变化(有意收紧)**:工作区钩子 default-deny,`~/.ihui/trusted-folders` 不存在即停摆;
+  `disabled-hooks` 名单自此真正生效;user 来源钩子行为不变。
+  ② **`readonly` 沙箱档描述与行为相反**:描述"无 shell 命令",配置 `commandAllowlist: []`,
+  而两处强制点都是 `if (list.length > 0)` ⇒ **空数组=完全不限制**。修法:`string[] | null` 且
+  `null`=一律拒绝(含解析不出命令名,fail closed),`readonly` 档改 `null`,两处强制点收敛到
+  共用判据 `evaluateCommandAllowlist`。第二套 `tools/sandbox/policy.ts` 实测**同病**,已同批修
+  (两套 tokenizer 的差异如实登记,未强行合并以免破"纯函数不触碰进程"的边界)。
+  取证:`hooks-trust-gate.test.ts` 12/12 + `sandbox-command-allowlist.test.ts` 14/14,
+  各含**反向对照**(user 钩子不得被关掉 / `[]` 与 `undefined` 不得变成全禁)。
+
+### 归属证明(本批未新增红点,亦未代他人修)
+
+`apps/ai-service` 全量选择集里 3 failed + 66 errors 全部**不属本批**:66 errors 同一因
+—— 他人**未跟踪**的 `app/services/sandbox/` 包(2026-09-24 20:18)遮蔽已跟踪 `sandbox.py`,
+致 `_DANGEROUS_PATTERNS` 导入失败;`settings_48` 那条在 HEAD 干净对照组(`git archive`)里**同样红**
+(他人 `permission_mode: 'always'` 在飞改动);把本批两处 ai-service 改动逐一叠进对照组后
+17 passed ⇒ 反证不关本票。他人未提交文件一律未动。
+
+### 未闭环(不写作收口)
+
+- [ ]（进行中）**WP-7 浏览器语义快照与可复用元素句柄**(规格已写,未开工)。
+- [ ]（进行中）**WP-8 上下文占用归因 + 流式工具账本 + 目标完成独立校验轮**。后者是补
+  `AGENTS.md §8` 早就要求但**从未实现**的"禁止模型自评 yes"。
+- [ ] 钩子 trust 的**残余面**:webhook 形态钩子仍不过门(本批按 command 收口);
+  且缺 `ihui hooks trust <path>` 子命令(旧错误文案指向该不存在的命令,已改为指向真实出口),CLI 化信任需另票。
+- [ ] `reclaim` 改写信封内容的边界:本批只在 CLI 侧由"重建提醒"兜回产物指针,
+  彻底解法需在 `reclaim.ts` 加 `isEnvelopeContent` 跳过 —— 属改他人在飞文件,未做。
+- [ ] WP-1 新 API 尚未接入 `builtins.ts`/`terminal.ts` 执行链(接一行即可恢复 YOLO 观感,
+  但需同步改他人 `terminal.test.ts` 的 `vi.mock`,本批未动)。
+- [ ] `config/architecture-policy.yaml` 目前 0 个模块 `managed:true` —— 渐进收口的第一块翻正面尚未选定。
+
+
+## O61 safe-commit 的"钩子失败归因"从抄来的结论改成量出来的结论（2026-09-25 立并完成 ✅）
+
+- [x] ✅(2026-09-25)**`safe-commit.mjs` 在首次 commit 失败后打印「按用户规则"hook 失败因其他 agent 代码 → --no-verify 重试"」，但它从未计算过归因** —— 那句是抄来的结论，不是量出来的。
+  **触发现场就是上一票（O60）**：一轮 134 道门跑完 111 通过 / 2 警告 / **1 失败**，红的是 `check-push-sync`（判"本地是否领先远端"这种**远端态**，与提交内容无关），输出照样写成"因其他 agent 代码"并整批 `--no-verify`。三种不相干成因被压成同一条措辞：① 我的内容真红 ⇒ 本该修完再提，跳门等于把违规送进主干；② 他人内容红 ⇒ 跳门合法（§12）；③ 门判机器/远端态 ⇒ 提交者结构上无法满足，跳门合法但写成"他人代码"会让人以为门在别人问题上生效过。
+- **改法（判据落在新文件 `scripts/lib/commit-gate-attribution.mjs`，safe-commit 只做接线）**：
+  解析 runner 汇总块里的 `· [id] label` + `单独复现:node scripts/<script>` 清单 → **逐道复跑**该门 →
+  用它们自己这次的输出比对本次声明的文件集：
+  **点名我的文件 ⇒ `mine` ⇒ 拒绝 `--no-verify` 并 exit 1**（这是旧版完全没有的一条）；
+  一个都没点名 ⇒ `not-ours`，允许跳门但措辞只说量到的话；
+  批未跑完 / 解析不到 / 复跑全部不可用 ⇒ `unattributed`，按应急路径落地但明写"未归因，勿读成已过门"。
+  三种 kind 各自落一行 `.workbuddy/safe-commit-attestation.jsonl`（gitignore 内），使"跳了几道门、为什么跳"事后查得到。
+- **刻意不维护"机器态门 id 清单"**：清单必然腐烂（AGENTS 对 `RN_ONLY_BRAND_KEYS` 的教训是"豁免项若已不存在同样算红"）。改成按当次证据判定，门自己说了什么就是什么。
+- **取证**：
+  - 镜像测试 `scripts/tests/safe-commit-gate-attribution.test.mjs` **5/5**：判据自测（P0 可解析 + P0b 去重 + A1–A10 十条正反对照）、归因不得反向、**装车证明**（未 import / import 了不调用 / `mine` 分支不 exit / 无留痕 四种"造好没装车"各一条）、旧措辞不得再作为结论直接打印、**真实日志取样**。
+  - **真实数据而非夹具**：`.workbuddy/hook-logs/pre-commit.log`（多轮追加的原始 runner 输出）实测解析出 `[26][29][41][44][57][76][30c][2n-web] …` 且 `batchReported=true` —— 我最初手搓的夹具正是被这份日志反过来校验的；该文件属机器运行态且被忽略，缺席时测试**记 skipped 不记通过**。
+  - **格式漂移即红**：自测先从 `guardian-runner.mjs` 源码里抠出四条打印格式锚点（`总检查数:` / `道 blocking 门失败` / `· [${g.id}]` / `单独复现:node scripts/${g.script}`）逐条断言仍在。runner 改措辞会让归因静默退化成"永不归因"（表现仍是照常跳门），这一条把它变成显式红。
+  - **变异自证 3/3 非等价变异全部变红**：G1 `hit` 恒空 ⇒ 红在 A2；G2 删掉"未归因"入口 ⇒ 红在 A6b（reason 会被说成"复跑不可用"，解释错但结论碰巧对 —— 正是要拦的那类）；G4 复跑全抛异常仍判 `not-ours` ⇒ 红在 A7。
+    **G3（不剥 ANSI）存活，登记为等价变异**：真实 runner 的失败行不打色码，剥色在当前格式上不可观测；不为此造假具硬凑一个红。
+  - 配套：`prettier` 已跑、`eslint` 三文件 0 error、`watermark verify` 全绿、既有 `staging-snapshot.test.mjs` 38/38 未受影响；新增两文件 337 + 107 行（门 11e 阈值 800 以内）。
+- **本票顺带纠正我自己上一票的一句交付表述**：我在交付报告里写"134 道门跑完只有 1 道红，属机器态门"——那句是**我事后手工判断的**，而当时 safe-commit 打的是"因其他 agent 代码"。判据如今由机器算，且下次不再需要人肉补这一步。
