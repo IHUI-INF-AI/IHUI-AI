@@ -7617,3 +7617,29 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
     (10506/10507，1 个未覆盖)，**当前 HEAD 复跑 `check-watermark-coverage --no-fix` 与
     `watermark.mjs verify` 均 exit 0(10510/10510)** ⇒ 已由该文件属主会话在同一窗口内自愈，
     非本批遗留。
+
+
+### O60b 本轮并行编码落地(2026-09-25 夜):D83 / D16 入库并逐道补跑门禁,D17 / D19 产出保留在工作树并挂认领
+
+- [x] ✅(2026-09-25) **D83 MCP 定制措辞层装车入库 `9b024c54940`**(8 文件 +409/−10):web `task-status-bar.tsx` / `tool-call-card.tsx`、miniapp `cards/tool-line.ts`(+ `cards/types.ts` 加 `serverName` 可选字段、`chat.tsx` 三处透传),各配新测试(web 7 例 / miniapp 6 例)。此前状态是"判定层 + 29 枚措辞键 + 门 55/56 覆盖全在库,全仓零消费点" —— 即用户看到的仍是通用名。**主代理独立复跑(不采信代理转述)**:`pnpm --filter {web,miniapp-taro,shared} typecheck` 本批文件 0 错、vitest web 7 / miniapp 6 / shared **1253** 全过、门 55 ✅ 86/86、门 56 ✅ 3964 项、门 74 ✅、门 57 ✅、门 89 ✅、水印 verify 10507/10507。
+- [x] ✅(2026-09-25) **D16 成本感知选模 + 预算降级接进网关入库 `1da740ab494`**(3 文件):在 `_resolve_auto_model()` 取 `candidates[0]` 前接 `ModelRouter.from_catalog()/route_live()/route(budget_usd=)`,**只重排不扩池**(决策模型不在池内即维持既有顺序,挡住 `from_catalog` 兜底带回本部署不可用模型),五态回落(开关关 / 候选<2 / 池取不到 / 越池 / 任何异常)全部原路返回。复跑:`.venv pytest` 三文件 **138 passed**、`mypy app/core/llm_gateway.py` 0 issues。
+- [x] ✅(2026-09-25) **两枚提交的钩子实况都记下来,因为两种失效形态不同**:① D83 那枚钩子**未产出守门汇总**(可能提前退出),按 §12 应急路径 `--no-verify` 落地,归因写的是 `unattributed` 而**不是**"他人代码",留痕 `.workbuddy/safe-commit-attestation.jsonl`,随后按权威入口逐道补跑 12 项(11 绿 + 1 红见下)。② D16 那枚被**门 35 mypy 挡下**,量出来的红是 `app/services/tool_input_scanner.py:32` 与 `mcp_server.py:1954` 引用 `app.services.sandbox` —— 该包在工作树是 `??` 未入库目录(另一会话在途),本票三文件一个都没被点名;**反向对照**:`git archive HEAD` 造干净检出跑 mypy = `Success: no issues found in 542 source files` ⇒ 红不在提交树,在工作树的未入库目录。据此按 §12 的"他人代码致钩子红"路径手工提交,并把量到的两行写进提交信息。
+- [ ]（进行中） **D19(extension + cli 的 `terminal_delta` 宿主)产出完整但按住**:代码 `apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx`(+61)、`apps/cli/src/commands/{agent,repl}.ts`、两份新测试(extension 8 例 / cli 6 例,实测全过)、台账 `scripts/data/sse-dispatch-coverage.json` 与门 90 镜像测试。**按住的理由是两条硬阻塞,不是"没做完"**:① `apps/cli/src/commands/agent.ts` 同一份 diff 里叠着并行会话 WP-8 的 132 行 `stream-tool-ledger` 改动,而那个模块至今 `??` 未入库 —— 只提 agent.ts 会让 HEAD 出现悬空 import(门 98/77 B6 那一族);② 台账基线按"代码同票"抬高到 extension 17 / cli 14,单提台账必造恒红。**副作用如实登记**:工作树里 `node scripts/check-sse-dispatch-parity.mjs` 全量模式现红 4 项(台账先行、代码未入库),提交链的 `--staged` 模式不受影响。**解阻判据**:等 WP-8 的 `stream-tool-ledger.ts` 入库后,把上述文件与台账同一枚提交,再跑门 90 全量须 exit 0。
+- [ ]（进行中） **D17(生态统一入口)页面已写完但缺语言包,按住**:`apps/web/app/(main)/ecosystem/page.tsx` + `components/ecosystem/ecosystem-hub.tsx` + `sidebar/nav-data.ts` 2 行入口,五语 typecheck 本批 0 错、门 57/死链门 ✅。**按住理由**:21 键 × 5 语必须落进 `packages/i18n/messages/web/*.json`,而这五份文件正被并行会话 WP-8 改(各 22+/8−,`segSystem`/`topContributor` 等),整文件提交会把他人未提交的键一起写进 HEAD —— 而那些键在 HEAD 无引用,会立刻变成死键(CI `check:all` 的 `--exit 1` 口径)。**解阻判据**:待 web 语言包 `git status` 干净,按 `i18n-d17/` 载荷 parse→插入(不做整篇重排)→ `node scripts/i18n-apply.mjs`/`check-i18n-keys.mjs` 验五语对称 → 与页面、nav-data **同一枚**提交。裸提交页面而不带键 = 界面直出 `ecosystem.title` 键名,禁止。
+- [x] ✅(2026-09-25) **WP-1(CLI 策略层接线)归并行会话,本会话零写入**:派单代理开工时目标文件 clean,中途 `builtins.ts`/`terminal.ts`/`command-safety.ts` 被同仓另一会话改成 `M` 且实现的正是本票 —— 按单写者检查立即停写,未产生任何越界改动。**顺带量到对方当时未收敛的两处**:`apps/cli/tests/command-policy-wiring.test.ts` 有 2 例红(`rm -rf` 的 alwaysConfirm 期望与实现未对齐),`settings.ts` 的 yolo 注释指向不存在的 `config/yolo.ts` —— 后者本票已改为指向 HEAD 真实入口 `tools/command-policy/`,前者**不代裁**,留给持有者。
+- **O60b 残余(不写作收口)**:① D17 / D19 两票按上面的解阻判据走,归属本会话可续派;② `门 90 全量模式红 4 项`在 D19 落地前一直存在,任何人跑到请先读本条而不是改判据;③ 30 张双态票上共 41 行未勾登记,其中 **15 行**经"正文逐字包含"判据量出是裸副本并已改指针行(见 O60 与本轮提交),其余 26 行与已勾行讲的是不同范围(部分完成 + 剩余项),不属漂移,不动;④ web 语言包 HEAD 侧原有 20 枚缺失键(`admin.deployDiagnosis` 15 + `ecosystem` 5)与 `git fsck` 的 16 万条坏链一样属"先于本票存在"的债,本票未新增。
+- **本票上线 6 分钟后就咬到自己一次（误伤，已修，如实记）**：02:22 另一会话的提交被新判据判成
+  `kind=mine` 而**拒绝跳门**——但 mypy 真正报错的是 `app/services/{tool_input_scanner,mcp_server}.py`
+  两个**不在他声明清单里**的文件；判据之所以点名他，是因为门 35 会先回显
+  「staged 检测到 N 个 Python 文件改动：- <他的文件>」这段**触发清单**，而我用的是整段
+  `output.includes(声明文件)` ⇒ 把回显当成了点名。**"拦下一次真红"和"冤枉一次合法提交"是同一处
+  代码的两个后果，只报前者就是交付不实。**
+  修法：`findingLines()` 只在**长得像结论的行**（含 `error|错误|违规|❌|✗|:\d+|报数|判定`）里找点名，
+  纯清单/回显行不算；明细里仍如实写出"该文件在输出里出现过，但只在回显行"，不静默吞掉。
+  取证：A11 用**门 35 真实输出全文**作夹具（不编形状）判 `not-ours`，A11b 反向把报错文件换成本人
+  声明的文件必须仍判 `mine`（防"修过头变成永不归责"）；变异 G7/G7b 两条各红在 A2 与 A11，
+  证明两头都不是恒真。真实那一轮重放现判 `not-ours` 并列明理由。
+  **顺带登记一条他人归属的事实**：门 35 现仍红，根因是未跟踪的 `apps/ai-service/app/services/sandbox/`
+  半成品包尚未导出被 `tool_input_scanner.py:32` / `mcp_server.py:1954` 引用的
+  `_DANGEROUS_PATTERNS`、`sandbox_executor` 两个符号 —— 属 D14 云端沙箱那条线（该会话另有
+  `llm_gateway.py`、`test_model_router_wiring.py` 在暂存中），本票不代改、也不代它跳门。
