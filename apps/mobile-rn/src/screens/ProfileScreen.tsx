@@ -66,7 +66,6 @@ import { VideoPlayer } from '../components/VideoPlayer'
 import Empty from '../components/common/Empty'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 // 对齐 Uniapp user/index.vue 行 8 <FloatBox />:悬浮导航(赚米/客服/反馈),补齐 ProfileScreen
-import { GlobalFloatBox } from '../components/GlobalFloatBox'
 // 底部导航(对齐原 customTabBar 5 主 Tab,ProfileScreen 对应「我的」Tab)
 import TabBar, { type TabBarKey } from '../components/TabBar'
 import { UserCard, type UserCardKey } from '../components/UserCard'
@@ -656,12 +655,8 @@ export function ProfileScreen() {
         message={floatMessage}
         onHide={() => setFloatVisible(false)}
       />
-      {/* GlobalFloatBox 悬浮导航(对齐 Uniapp user/index.vue 行 8 <FloatBox />:赚米/客服/反馈) */}
-      <GlobalFloatBox
-        onPromote={() => rootNav?.navigate('Promote')}
-        onConsult={() => rootNav?.navigate('CustomerService')}
-        onFeedback={() => rootNav?.navigate('Settings')}
-      />
+      {/* 悬浮栏(赚米/客服/反馈)由 App.tsx 的 GlobalFloatBox 单点渲染;此处曾另挂一份,
+          两份同屏叠出双栏,且这份的「反馈」错跳 Settings。 */}
       {/* Drawer 侧滑抽屉(对齐 Uniapp user/index.vue DrawerComponentall) */}
       <Drawer
         visible={drawerVisible}
