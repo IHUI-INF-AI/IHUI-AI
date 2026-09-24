@@ -7074,6 +7074,46 @@
       "rollbackConfirmConfirm": "復元"
     },
     "pane": {
+      "businessForms": {
+        "ariaLabel": "業務フォームカード",
+        "aria": {
+          "email": "メール作成カード",
+          "calendarEvent": "カレンダーフォームカード"
+        },
+        "fields": {
+          "to": "宛先",
+          "cc": "CC",
+          "bcc": "BCC",
+          "subject": "件名",
+          "replyTo": "返信先",
+          "body": "本文",
+          "start": "開始",
+          "end": "終了",
+          "attendees": "出席者"
+        },
+        "action": {
+          "approve": "承認",
+          "reject": "却下",
+          "create": "作成",
+          "save": "保存"
+        },
+        "error": {
+          "required": "この項目は必須です",
+          "invalidEmail": "メールアドレスの形式が正しくありません",
+          "endBeforeStart": "終了時刻は開始時刻より後にしてください",
+          "noAttendees": "出席者を少なくとも1名追加してください"
+        },
+        "fold": {
+          "expand": "全 {count} 名の出席者を表示",
+          "collapse": "出席者を折りたたむ"
+        },
+        "status": {
+          "submitting": "送信中…",
+          "approved": "承認済み",
+          "rejected": "却下済み",
+          "failed": "送信に失敗しました。再試行してください"
+        }
+      },
       "inputSources": {
         "ariaLabel": "入力ソースとキュー",
         "snapshot": {
@@ -7172,6 +7212,7 @@
         "label": {
           "pdf": "PDF {page} ページ",
           "docx": "ドキュメント {page} ページ",
+          "docxText": "ドキュメントの段落 {paragraph}",
           "pptx": "スライド {slide} ・ {element}",
           "pptxSlide": "スライド {slide}",
           "pptxComment": "注釈 {element}",
@@ -7245,9 +7286,28 @@
         "previewFilesMore": "ほか {count} 件のファイル",
         "detailAction": "ファイルごとの変更を見る",
         "detailLabel": "編集して再送信 · ファイルロールバックの影響プレビュー",
-        "warning": { "partialRollback": "一部の変更がチェックポイントに完全に記録されておらず、ロールバック結果が不完全になる可能性があります" },
-        "phase": { "idle": "待機中", "previewing": "プレビュー中", "confirmed": "確認済み", "executing": "ファイルをロールバックして再送信中…", "completed": "ロールバックして再送信しました", "editFailed": "編集に失敗しました", "rollbackFailed": "ロールバックに失敗しました", "rollbackPartial": "部分ロールバック", "syncFailed": "ローカル同期に失敗しました", "replaceFailed": "置換に失敗しました" },
-        "failure": { "editFailed": "編集内容を適用できなかったため、処理を中止しました。", "rollbackFailed": "ファイルのロールバックに失敗したため、処理を中止しました。", "rollbackPartial": "一部のファイルのみロールバックされたため、処理を中止しました。", "syncFailed": "ローカル状態の同期に失敗したため、処理を中止しました。", "replaceFailed": "メッセージの置換に失敗したため、処理を中止しました。" }
+        "warning": {
+          "partialRollback": "一部の変更がチェックポイントに完全に記録されておらず、ロールバック結果が不完全になる可能性があります"
+        },
+        "phase": {
+          "idle": "待機中",
+          "previewing": "プレビュー中",
+          "confirmed": "確認済み",
+          "executing": "ファイルをロールバックして再送信中…",
+          "completed": "ロールバックして再送信しました",
+          "editFailed": "編集に失敗しました",
+          "rollbackFailed": "ロールバックに失敗しました",
+          "rollbackPartial": "部分ロールバック",
+          "syncFailed": "ローカル同期に失敗しました",
+          "replaceFailed": "置換に失敗しました"
+        },
+        "failure": {
+          "editFailed": "編集内容を適用できなかったため、処理を中止しました。",
+          "rollbackFailed": "ファイルのロールバックに失敗したため、処理を中止しました。",
+          "rollbackPartial": "一部のファイルのみロールバックされたため、処理を中止しました。",
+          "syncFailed": "ローカル状態の同期に失敗したため、処理を中止しました。",
+          "replaceFailed": "メッセージの置換に失敗したため、処理を中止しました。"
+        }
       },
       "agentActions": {
         "title": "マルチエージェント操作",
@@ -8461,7 +8521,12 @@
       "targetPlaceholder": "例:名門高校、985大学"
     },
     "options": {
-      "classLevel": ["優秀(クラス上位 10%)", "良好(10-30%)", "普通(30-70%)", "やや劣る(下位 30%)"],
+      "classLevel": [
+        "優秀(クラス上位 10%)",
+        "良好(10-30%)",
+        "普通(30-70%)",
+        "やや劣る(下位 30%)"
+      ],
       "difficulty": [
         "国語読解",
         "英語ヒアリング・スピーキング",
@@ -8478,7 +8543,12 @@
         "試験不安",
         "家庭環境の影響"
       ],
-      "school": ["重点中学校", "普通中学校", "インターナショナルスクール", "私立学校"]
+      "school": [
+        "重点中学校",
+        "普通中学校",
+        "インターナショナルスクール",
+        "私立学校"
+      ]
     },
     "result": {
       "failed": "AI 分析に失敗しました",
@@ -10989,6 +11059,25 @@
     "callingTool": "ツールを呼び出し中...",
     "waitingResponse": "返信を待機中...",
     "pdfOpenExternal": "新しいウィンドウで開く",
+    "injectionAssemblyBadge": "このターンのコンテキスト {count} 件",
+    "injectionAssemblySourcesTitle": "このターンのコンテキストソース",
+    "injectionAssemblySourceCitations": "知識引用 {count} 件",
+    "injectionAssemblySourceSteer": "ガイド済み {count} 回",
+    "injectionAssemblyRetry": "上流再試行 {attempt}/{max}",
+    "officeTooLarge": "ファイルが大きすぎてプレビューできません — ダウンロードしてご覧ください",
+    "officeExpired": "プレビューリンクの有効期限が切れています",
+    "officeUnsupported": "このファイル形式はプレビュー非対応です",
+    "officeLazyLoad": "クリックでプレビューを読み込む",
+    "officeLoading": "プレビューを読み込み中…",
+    "officeFailed": "プレビューの読み込みに失敗しました",
+    "officeDownload": "ダウンロードして表示",
+    "officeSelectedCell": "選択中 {cell}",
+    "officeRowsTruncated": "先頭 {rows} 行のみ表示",
+    "pdfPageIndicator": "{page} / {total} ページ",
+    "pdfPageOnly": "{page} ページ",
+    "pdfPageJump": "ページへ移動",
+    "pdfPageJumpLabel": "ページ番号",
+    "pptxNotes": "ノート",
     "csvPreviewMeta": "{rows} 行 × {cols} 列",
     "csvExpand": "すべて表示",
     "csvCollapse": "折りたたむ",
@@ -11205,117 +11294,215 @@
       },
       "agent": {
         "description": "AI エージェントの管理とディスパッチ",
-        "keywords": ["エージェント", "agent", "bot"],
+        "keywords": [
+          "エージェント",
+          "agent",
+          "bot"
+        ],
         "label": "AI エージェント"
       },
       "browser": {
         "description": "ワークスペース内でウェブを閲覧",
-        "keywords": ["ブラウザ", "ウェブ", "browser"],
+        "keywords": [
+          "ブラウザ",
+          "ウェブ",
+          "browser"
+        ],
         "label": "組み込みブラウザ"
       },
       "capabilityMarket": {
         "description": "ケイパビリティパックの発見とインストール",
-        "keywords": ["ケイパビリティ", "マーケット", "market", "プラグイン"],
+        "keywords": [
+          "ケイパビリティ",
+          "マーケット",
+          "market",
+          "プラグイン"
+        ],
         "label": "ケイパビリティマーケット"
       },
       "codeChanges": {
         "description": "ワークスペースのコード変更を確認",
-        "keywords": ["コード", "変更", "diff", "修正"],
+        "keywords": [
+          "コード",
+          "変更",
+          "diff",
+          "修正"
+        ],
         "label": "コード変更"
       },
       "connectors": {
         "description": "外部サービス接続を管理",
-        "keywords": ["コネクタ", "接続", "connector"],
+        "keywords": [
+          "コネクタ",
+          "接続",
+          "connector"
+        ],
         "label": "コネクタ"
       },
       "document": {
         "description": "ワークスペースのドキュメントを編集",
-        "keywords": ["ドキュメント", "編集", "doc"],
+        "keywords": [
+          "ドキュメント",
+          "編集",
+          "doc"
+        ],
         "label": "ドキュメント"
       },
       "editor": {
         "description": "コードエディタを開く",
-        "keywords": ["エディタ", "コード", "editor"],
+        "keywords": [
+          "エディタ",
+          "コード",
+          "editor"
+        ],
         "label": "エディタ"
       },
       "mcp": {
         "description": "MCP サーバーとツールを管理",
-        "keywords": ["MCP", "サーバー", "ツール"],
+        "keywords": [
+          "MCP",
+          "サーバー",
+          "ツール"
+        ],
         "label": "MCP 管理"
       },
       "mcpStore": {
         "description": "MCP サービスの閲覧とインストール",
-        "keywords": ["MCP", "ストア", "store", "インストール"],
+        "keywords": [
+          "MCP",
+          "ストア",
+          "store",
+          "インストール"
+        ],
         "label": "MCP ストア"
       },
       "modeAsk": {
         "description": "質問モードへ切替(ツール無効)",
-        "keywords": ["質問", "ask", "モード"],
+        "keywords": [
+          "質問",
+          "ask",
+          "モード"
+        ],
         "label": "質問モード"
       },
       "modeBuild": {
         "description": "AI に直接構築・修正させる",
-        "keywords": ["ビルド", "モード", "build"],
+        "keywords": [
+          "ビルド",
+          "モード",
+          "build"
+        ],
         "label": "ビルドモード"
       },
       "modePlan": {
         "description": "計画を立ててから実行",
-        "keywords": ["計画", "モード", "plan"],
+        "keywords": [
+          "計画",
+          "モード",
+          "plan"
+        ],
         "label": "計画モード"
       },
       "modeReview": {
         "description": "既存コードをレビュー",
-        "keywords": ["レビュー", "モード", "review"],
+        "keywords": [
+          "レビュー",
+          "モード",
+          "review"
+        ],
         "label": "レビューモード"
       },
       "modeSpec": {
         "description": "仕様から実装を生成",
-        "keywords": ["仕様", "モード", "spec"],
+        "keywords": [
+          "仕様",
+          "モード",
+          "spec"
+        ],
         "label": "仕様モード"
       },
       "skill": {
         "description": "AI スキルの管理と呼び出し",
-        "keywords": ["スキル", "skill", "機能"],
+        "keywords": [
+          "スキル",
+          "skill",
+          "機能"
+        ],
         "label": "スキル"
       },
       "terminal": {
         "description": "統合ターミナルを開く",
-        "keywords": ["ターミナル", "端末", "terminal"],
+        "keywords": [
+          "ターミナル",
+          "端末",
+          "terminal"
+        ],
         "label": "ターミナル"
       },
       "ai-world": {
         "description": "AI アプリの世界を探索",
-        "keywords": ["AI", "ワールド", "アプリ"],
+        "keywords": [
+          "AI",
+          "ワールド",
+          "アプリ"
+        ],
         "label": "AI ワールド"
       },
       "chat": {
         "description": "AI アシスタントと会話",
-        "keywords": ["チャット", "会話", "AI", "chat"],
+        "keywords": [
+          "チャット",
+          "会話",
+          "AI",
+          "chat"
+        ],
         "label": "AI チャット"
       },
       "drama": {
         "description": "AI 生成ショートドラマ",
-        "keywords": ["ドラマ", "ビデオ", "AI", "drama"],
+        "keywords": [
+          "ドラマ",
+          "ビデオ",
+          "AI",
+          "drama"
+        ],
         "label": "AI ドラマ"
       },
       "profile": {
         "description": "プロフィールと設定を管理",
-        "keywords": ["プロフィール", "ユーザー", "設定"],
+        "keywords": [
+          "プロフィール",
+          "ユーザー",
+          "設定"
+        ],
         "label": "プロフィール"
       },
       "search": {
         "description": "グローバルコンテンツ検索",
-        "keywords": ["検索", "search", "search"],
+        "keywords": [
+          "検索",
+          "search",
+          "search"
+        ],
         "label": "検索"
       },
       "settings": {
         "description": "システム環境設定と構成",
-        "keywords": ["設定", "環境設定", "構成"],
+        "keywords": [
+          "設定",
+          "環境設定",
+          "構成"
+        ],
         "label": "設定"
       },
       "skillsMarket": {
         "description": "自己進化スキルの閲覧と導入",
-        "keywords": ["skill", "スキル", "マーケット", "market"],
+        "keywords": [
+          "skill",
+          "スキル",
+          "マーケット",
+          "market"
+        ],
         "label": "Skill マーケット"
       }
     },
@@ -11791,12 +11978,12 @@
       "profile": "プロフィール",
       "profileDesc": "アバター・基本情報・設定項目を備えたアカウントページ",
       "categories": {
-      "blank": "空白",
-      "marketing": "マーケティング",
-      "app": "アプリ UI",
-      "content": "コンテンツ",
-      "commerce": "EC",
-      "unknown": "未分類"
+        "blank": "空白",
+        "marketing": "マーケティング",
+        "app": "アプリ UI",
+        "content": "コンテンツ",
+        "commerce": "EC",
+        "unknown": "未分類"
       },
       "title": "テンプレート"
     },
@@ -13718,25 +13905,37 @@
       "quadrants": [
         {
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": ["ナレッジQ&A", "プロセス自動化"],
+          "examples": [
+            "ナレッジQ&A",
+            "プロセス自動化"
+          ],
           "tag": "Q1",
           "title": "効率的アシスタント"
         },
         {
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": ["データ分析", "意思決定サポート"],
+          "examples": [
+            "データ分析",
+            "意思決定サポート"
+          ],
           "tag": "Q2",
           "title": "スマートアドバイザー"
         },
         {
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": ["会議調整", "承認プロセス"],
+          "examples": [
+            "会議調整",
+            "承認プロセス"
+          ],
           "tag": "Q3",
           "title": "実行エキスパート"
         },
         {
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": ["マーケティング自動化", "マルチエージェント連携"],
+          "examples": [
+            "マーケティング自動化",
+            "マルチエージェント連携"
+          ],
           "tag": "Q4",
           "title": "オールラウンドエキスパート"
         }
@@ -13870,19 +14069,31 @@
       "items": [
         {
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"],
+          "features": [
+            "体系化コース",
+            "実践探求",
+            "コミュニティ相互支援"
+          ],
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ"
         },
         {
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"],
+          "features": [
+            "交流プラットフォーム",
+            "経験共有",
+            "リソースマッチング"
+          ],
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ"
         },
         {
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"],
+          "features": [
+            "プロの大規模モデル",
+            "エージェントサービス",
+            "コンサルティングサービス"
+          ],
           "tag": "MODULE 03",
           "title": "AI専門サービス"
         }
@@ -16696,7 +16907,15 @@
       "title": "トップ5ページ",
       "visitsHeader": "アクセス数"
     },
-    "weekdays": ["月", "火", "水", "木", "金", "土", "日"]
+    "weekdays": [
+      "月",
+      "火",
+      "水",
+      "木",
+      "金",
+      "土",
+      "日"
+    ]
   },
   "models": {
     "relay": {
@@ -26584,5 +26803,75 @@
     "retry": "再試行",
     "openExternal": "外部ブラウザで開く",
     "idlePlaceholder": "URL を入力するか、AI メッセージ内のリンクをクリックして開いてください"
+  },
+  "conversationDetailMode": {
+    "label": "表示レベル",
+    "steps": "ステップ",
+    "commands": "コマンド",
+    "narrative": "説明文"
+  },
+  "ambientSuggestions": {
+    "title": "次のアクションの候補",
+    "suggestionResumeTask": "未完了のタスクを続行",
+    "suggestionReviewFiles": "先ほど変更したファイルを確認",
+    "suggestionAnswerQuestion": "AI の質問に回答",
+    "suggestionContinueTopic": "上記の内容についてさらに質問",
+    "dismiss": "この候補を閉じる",
+    "close": "候補を非表示",
+    "restore": "候補を表示"
+  },
+  "taskMonitor": {
+    "displayMode": "表示モード",
+    "modeSections": "パーティション",
+    "modeTabs": "フラット",
+    "sections": {
+      "progress": "進捗とコンテキスト",
+      "activity": "実行アクティビティ",
+      "results": "結果とソース",
+      "auxiliary": "補助エントリ"
+    }
+  },
+  "multiAgentAction": {
+    "header": {
+      "count": "{count, plural, other {# 個のエージェント}}"
+    },
+    "action": {
+      "spawn": {
+        "label": "作成",
+        "inProgress": "作成中",
+        "completed": "作成済み",
+        "failed": "作成失敗"
+      },
+      "resume": {
+        "label": "再開",
+        "inProgress": "再開中",
+        "completed": "再開済み",
+        "failed": "再開失敗"
+      },
+      "sendInput": {
+        "label": "入力送信",
+        "inProgress": "送信中",
+        "completed": "送信済み",
+        "failed": "送信失敗"
+      },
+      "interrupt": {
+        "label": "中断",
+        "inProgress": "中断中",
+        "completed": "中断済み",
+        "failed": "中断失敗"
+      },
+      "close": {
+        "label": "クローズ",
+        "inProgress": "クローズ中",
+        "completed": "クローズ済み",
+        "failed": "クローズ失敗"
+      },
+      "list": {
+        "label": "一覧",
+        "inProgress": "取得中",
+        "completed": "取得済み",
+        "failed": "取得失敗"
+      }
+    }
   }
 }
