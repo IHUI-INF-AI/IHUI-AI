@@ -6,9 +6,7 @@
  * 桌面端更新器 feed(2026-09-17 终极方案;2026-09-24 覆盖四平台)。
  *
  * 背景:更新 feed 此前放在 Gitee 分支——被仓库「单分支守门」规则删除三次;
- * 改放 Gitee release 附件——同名附件下载直链恒取旧文件;而"附件无法删除"这句已被实测推翻
- * (2026-09-24:GET /repos/{o}/{r}/releases/{id}/attach_files 会返回每个附件的 id,
- *  DELETE /repos/{o}/{r}/releases/{id}/attach_files/{file_id} 返回 204 即真删)。
+ * 改放 Gitee release 附件——同名附件下载直链恒取旧文件且无 id 可删。
  * 最终方案:**本站点作为 feed 真源**(与官网下载页共用 desktop-feed.generated.ts 快照,
  * 由 scripts/resolve-desktop-download.mjs 在发版时自动刷新)。
  *

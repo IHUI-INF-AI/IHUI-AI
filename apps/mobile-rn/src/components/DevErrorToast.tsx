@@ -18,7 +18,7 @@
  * 堆栈面板为简版(纯文本可选中),完整符号化堆栈仍看 metro 终端输出。
  */
 import { useEffect, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 import { X } from 'lucide-react-native'
 
@@ -156,8 +156,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: SIDE_INSET,
     right: SIDE_INSET,
-    /* 顶距已由 App.tsx 的 SafeAreaView 单点注入;absolute 相对其 padding 盒定位,再加一次会把浮窗推出 */
-    top: TOP_INSET,
+    top: (StatusBar.currentHeight ?? 0) + TOP_INSET,
     zIndex: Z_INDEX,
   },
   bar: {
