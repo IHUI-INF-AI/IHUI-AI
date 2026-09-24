@@ -114,6 +114,14 @@ function extractOpacityPalette(content) {
 }
 
 /**
+ * alpha 通道三元组的变量名与声明形态(--color-X-rgb: r, g, b;)。
+ * 定义提前到 extractStandaloneRootBlock 之前是因为它在里面被用到,
+ * 而 const 不提升会让「先声明后使用」的读者误判顺序。
+ */
+const ALPHA_RGB_NAME_RE = /^--color-[\w-]+-rgb$/
+const ALPHA_RGB_DECL_RE = /^--color-[\w-]+-rgb:\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3};$/
+
+/**
  * 从 tokens.css 提取「独立 :root 块」中的业务品牌变量(--color-miniapp-green* 等。
  * 这些变量定义在非 @theme、非 .dark 的 :root 块,extractThemeBlock / extractDarkBlock
  * 不会提取到,导致小程序端 var(--color-miniapp-green) 运行时未定义 → 微信按钮底色丢失。
@@ -136,12 +144,41 @@ function extractStandaloneRootBlock(content, themeMap, darkMap) {
       if (name.startsWith('--color-gradient-')) continue
       if (!l.endsWith(';')) continue
       if (name.startsWith('--color-white-') || name.startsWith('--color-black-')) continue
+      // alpha 通道三元组由 extractAlphaChannelBlock 单独收(挂进语义 :root),此处跳过避免重复声明
+      if (ALPHA_RGB_NAME_RE.test(name)) continue
       if (themeMap.has(name) || darkMap.has(name)) continue
       lines.push(l)
     }
   }
   return filterTokens(lines.filter((l, i) => lines.indexOf(l) === i))
 }
+
+/**
+ * Tailwind v3 端的 alpha 通道三元组(--color-X-rgb,2026-09-25 立)。
+ *
+ * 它为什么必须单独收:这一组**亮值**定义在 tokens.css 的独立 :root 块、**暗值**定义在 .dark 块。
+ * 而上面的 extractStandaloneRootBlock 有条去重规则「凡 .dark 里有同名就不从独立 :root 收」——
+ * 这条规则对业务品牌色是对的(那些变量本来就不该出现两次),对本组是**致命的**:7 条亮值里
+ * 有 6 条存在暗色覆盖,于是 app.css 只落了 1 条,小程序端 `rgba(var(--color-primary-rgb), .1)`
+ * 在亮色主题下取到未定义变量 → 整条背景静默失效(实测,2026-09-25 首次同步即暴露)。
+ * 所以本组绕开那条去重,单独收集并直接挂进语义 :root —— 保证「先亮后 .dark」的级联顺序。
+ *
+ * 命名规则与唯一生产方一致:packages/design-tokens/src/tailwind-alpha-plugin.js 的
+ * ALPHA_CHANNEL_SUFFIX('-rgb')+ ALPHA_USAGE 登记表;值必须是三段 0-255 的十进制通道。
+ */
+function extractAlphaChannelBlock(content) {
+  const rootRe = /:root\s*\{([^{}]*)\}/g
+  const lines = []
+  let m
+  while ((m = rootRe.exec(content)) !== null) {
+    for (const raw of m[1].split('\n')) {
+      const l = raw.trim()
+      if (ALPHA_RGB_DECL_RE.test(l)) lines.push(l)
+    }
+  }
+  return lines.filter((l, i) => lines.indexOf(l) === i)
+}
+
 
 /**
  * 生成业务品牌色 CSS 块(:root 包裹,挂到透明度色板之后)。无匹配时返回空串。
@@ -388,9 +425,19 @@ function main() {
   // app.css 同步:用过滤后的变量(去掉 web 独有的字体/动画/断点等)
   const themeLines = filterTokens(themeLinesRaw)
   const darkLines = filterTokens(darkLinesRaw)
+  // Tailwind v3 端 alpha 通道三元组:亮值挂进语义 :root(必须与 .dark 保持「先亮后暗」的顺序,
+  // 所以不能像业务品牌色那样另起一个 :root 块 —— 那个块会落在 .dark 之后,暗色就压不住它)
+  const alphaRgbLines = extractAlphaChannelBlock(tokensContent)
+  const alphaRgbGroup =
+    alphaRgbLines.length > 0
+      ? `
+  /* ===== Tailwind v3 alpha 通道三元组(自动同步自 tokens.css,勿手动编辑;
+     给 bg/text/border-*-/<透明度> 用,见 packages/design-tokens/src/tailwind-alpha-plugin.js)===== */
+${formatBlock(alphaRgbLines, '  ')}`
+      : ''
   const newRootBlock = `:root {
   /* ===== 语义色(自动同步自 tokens.css @theme 块,勿手动编辑)===== */
-${formatBlock(themeLines, '  ')}
+${formatBlock(themeLines, '  ')}${alphaRgbGroup}
 }`
 
   // 透明度色板(--color-black-* / --color-white-*):独立 :root 块,需单独收集并挂到语义 :root 后
