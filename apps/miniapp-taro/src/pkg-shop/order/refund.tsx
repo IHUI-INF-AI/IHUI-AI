@@ -11,11 +11,11 @@ import { refund, getOrderDetail, type Order } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 
 const REASONS = (tt: TtFn): Array<{ key: string; fb: string }> => [
-  { key: 'order.refund.reasonUnwanted', fb: tt('orderRefund.d1', '不想要了') },
-  { key: 'order.refund.reasonWrongItem', fb: tt('orderRefund.d2', '拍错/多拍') },
-  { key: 'order.refund.reasonQuality', fb: tt('orderRefund.d3', '质量问题') },
-  { key: 'order.refund.reasonMismatch', fb: tt('orderRefund.d4', '与描述不符') },
-  { key: 'order.refund.reasonOther', fb: tt('orderRefund.d5', '其他原因') },
+  { key: 'orderRefund.d1', fb: tt('orderRefund.d1', '不想要了') },
+  { key: 'orderRefund.d2', fb: tt('orderRefund.d2', '拍错/多拍') },
+  { key: 'orderRefund.d3', fb: tt('orderRefund.d3', '质量问题') },
+  { key: 'orderRefund.d4', fb: tt('orderRefund.d4', '与描述不符') },
+  { key: 'orderRefund.d5', fb: tt('orderRefund.d5', '其他原因') },
 ]
 
 export default function OrderRefund() {

@@ -7645,3 +7645,102 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
   半成品包尚未导出被 `tool_input_scanner.py:32` / `mcp_server.py:1954` 引用的
   `_DANGEROUS_PATTERNS`、`sandbox_executor` 两个符号 —— 属 D14 云端沙箱那条线（该会话另有
   `llm_gateway.py`、`test_model_router_wiring.py` 在暂存中），本票不代改、也不代它跳门。
+- [x] ✅(2026-09-25) **起因与根因**:用户实拍反馈「浅色模式有大面积黑色背景,深色模式也有大面积白色背景」。根因不是配色而是**档位选错**:主 CTA 一直取 `brand.DEFAULT`,该档亮=`#000`、暗=`#fff`,即大色块永远落在与页面相反的那一极。**不能改 `--color-primary` 挪旧档** —— 它在 web 端兼任墨色(`text-primary` 实测 1803 处),改它等于给全站正文染色。
+- [x] ✅(2026-09-25) **修法(单一源头,不新增第二份真相)**:在 `packages/design-tokens/src/styles/tokens.css` 落**明暗同值、刻意不随主题反转**的一档 `--color-cta: #4A7A96` + `--color-cta-foreground: #FFFFFF`,取值 = `--color-brand-accent-deep` 亮档(2026-09-14 用户定稿的全项目统一强调色),不引入新色相;再经 `rn-tokens.ts` / `tailwind-preset.js` / `sync-design-tokens.mjs` 同步到 RN / 小程序,web 22 处 + `Button` 6 变体 + hero-cta 渐变、小程序 11 CSS + 35 TSX、RN 40 文件填充 + 38 处前景配对全部迁移。对比度实测:白字 4.65:1、亮页 4.27:1、暗页 3.34:1(≥3:1 过 WCAG 1.4.11)。
+- [x] ✅(2026-09-25) **自己引入又自己抓回的 AA 回归**:第一轮 codemod 只改底不改前景,留下 `surface.light` 作文字色 —— 深色档案下它是 `#262626`,压在 `#4A7A96` 上只有 **3.25:1**,掉出 AA。教训:**改填充必须同批改前景**,判据要覆盖门自己产出的形态。38 处已补配对。
+- [x] ✅(2026-09-25) **守门 83 扩两条判据(不是抬基线)**:**R5** 原先看不见小程序端、也看不见渐变端(`from-primary`/`to-primary`),现两端皆入射程;**R7** 补的是**结构盲区** —— 内联在图标上的 `color` prop(如 `<Plus color={tk.surface.card}/>` 坐在 `brand.cta` 底里)R1/R4 按 style 块与兄弟键配对,对这一型**永远看不见**。R7 用递归下降 JSX 扫描把前景归属到**最近的持底祖先**,16 处存量已实修清零,`nestMismatchCounts` 基线现为 `{}`(其余四本账 24/237/127/3 一格未动)。
+- [x] ✅(2026-09-25) **镜像测试的两处自锁已拆**:`assert.equal(measured, 16)` 里 `measured` 就是基线自己的求和 —— 恒真、永不发现漂移,却会拦住每一次正当扩面。改为**两个独立来源交叉对账**(全量扫描计数 ∧ 基线合计必须相等),另把两条 A/B 对照改成注入式(先断当前为 0,再把 `ctaForeground` 换成 `surface.light`,断 ≥6 命中)。镜像 17/17 绿。
+- [x] ✅(2026-09-25) **Tailwind v3 端 `/alpha` 修饰符(提交 `349c409e0d`)**:v3 的 `bg-<色>/<透明度>` 要求颜色能拆成 rgb 分量,而共享 preset 全部写成 `var(` 单值 ⇒ 小程序端这类类名**根本不产出 CSS**,页面"样式没生效"却零报错(web/v4 原生支持,故又是"手机上改了 web 没改")。新增 `packages/design-tokens/src/tailwind-alpha-plugin.js`(233 行,纯 `addUtilities`)挂进共享 preset。取证三条:① **可加性**(真 miniapp 源码 Avatar/Catalog/CourseHeader)选择器 73 → 91,**REMOVED 0 / ADDED 18**,含此前结构上取不到的任意值形态 `bg-muted/[0.12]`;② 五道同源对账全绿(`check-miniapp-tokens-sync` / `check-miniapp-taro-design-tokens` / `check-cross-end-tokens` / `check-rn-global-css-sync` / `check-brand-foreground`);③ **NativeWind 零回归**:真机 Redmi(720x1640/density 320)装 release 包 v21→v22 逐指标 A/B —— 浅色首页 cta 填充 90.7%、白字 427 / 黑字 0,暗色首页 cta 填充 90.9%,整屏 near-black 56.68% / near-white 1.49%,**六项读数与 v21 逐位相同**。
+- [x] ✅(2026-09-25) **真机终检(原始投诉口径)**:浅色首页近黑格 11 → **0**;深色首页近白 **1.49%**(即用户拍到的"大面积白"已消失);悬浮加号/发送钮/选中胶囊在两个主题下均为 `#4A7A96` 实底 + 白字。设备 `uimode` 与 App 主题偏好均已复原为浅色。
+- **两条流程教训(本票自己付出代价换的,不是建议)**:
+  ① **`safe-commit` 走 `GIT_INDEX_FILE` 旁路时,Step 0 的 `git reset HEAD` 仍打在共享索引上** —— 实测把并发会话刚 staged 的 **27 个路径整批 unstage**(内容在工作树完好,无数据丢失,但对方的暂存态被清)。⇒ 旁路提交**不得**与他人的 staged 窗口重叠;动手前必须 `git diff --cached --name-only` 确认索引为空,非空则等锁或改走 worktree。
+  ② **CAS / 旁路提交推进 HEAD 后共享索引停在旧 tree**(本票 6 个路径全部呈 `M ` 幻影漂移,`git diff --cached` 报「索引比 HEAD 少 357 行」)—— 任何人一次不带 pathspec 的普通 commit 就把本票整批写回旧版。§12d 的 `refreshStaleIndex()` 三条判据里「工作区 == 索引」这一条在此**不成立**(工作区已是新版、索引是旧版),所以自愈不会动它,**必须逐路径 `git update-index --add --cacheinfo` 手工刷**(且首次要带 `--add`,该路径此前从未被跟踪)。
+  ③ 本票提交落在 pre-commit 的 token-sync 步骤被一次**瞬时 I/O 锁**(`UNKNOWN: -4094, open app.css`)打断,`safe-commit` 随即 `--no-verify` 兜底并如实标 **归因 = unattributed**(它自己写明"请勿读成通过了守门")。⇒ 这种提交**必须**把守门链对 HEAD 内容补跑一次再收口,不得以"门没红"当"门跑过"。
+## O62 品牌实底「大面积反色」全栈收口 + Tailwind v3 端 /alpha 修饰符落地(2026-09-25 立并完成 ✅)
+- [ ] O20f **并行会话 tree 重置事件**(工程治理,非业务功能):2026-09-21 11:4x–11:5x 期间,本会话两份未提交改动被同仓库的并行会话以某种 `git checkout`/reset 类操作清空 —— ① `response-sanitizer.ts` 一版"onSend 改回调风格"的在改文件(含 `done(null,payload)` 形态与其注释),现 HEAD 仍是 async 返回 payload 版;② 一份 `check-capability-catalog.mjs` 的 `[E]` 反向覆盖检查(路由有注册点但目录未声明 → 反向漂移)连同 guardian 第 54 项 warn 接线。②的重建价值需再评估:同类判据在 `scripts/openapi-check.mjs` 的 `[C]` 已存在且是 blocking,重复建门反而增加噪音。**本条不是待办功能,是事故登记**:多会话共享同一 working tree 时未提交工作随时可被清空,再次确认 §12d(worktree 隔离)/直接 commit 的必要性。
+- [ ] **D110 WorkBuddy 一手证据已打通 → 对话流 9 条新差距(G-150~G-158,第 54 轮)**:**先前"本机不可取证"的结论作废** —— 用户指出已安装,实测 `G:workbuddyWorkBuddy.exe` 正在运行(4 进程),Electron + `resources/app.asar`(297MB / 逻辑 830MB / 20,474 文件),内部即**腾讯 CodeBuddy**(`/cli/dist/codebuddy.js` 23MB、`betterleaks.exe`、`@tencent/tencent-docs-ai-engine`)。取证法(只读、不 unpack):asar 头部用"扫首个 `{` + 花括号配平(跳字符串/转义)"定位,本机 header 5.4MB 需 ≥96MB 缓冲;**dataStart = header JSON 结束偏移**,条目 `offset` 为相对值;**坑**:`unpacked:true` 的文件(如根 `package.json`)`offset` 为 null,用它标定基址必然假失败 —— 只信 `offset != null` 的条目。对话流主包 `/renderer/assets/lib-chat-ui-*.js`(10,454,844B)**去重中文串 6,725 条**(脚本与产物在 `.ihui-agent/tmp/wb-evidence/`),按族计数:变更 214 / 重试 132 / 上下文 119 / 模式 116 / 权限 81 / 引用 80 / 计划 47 / 耗时 42 / 思考 30 / 回滚 29 / 终端 15 / 记忆 16 / 子任务 6。**由此暴露我方 9 条差距(逐条以对方原文为规格,不再靠猜)**:
+- [ ] **D39 错误重试可观测 + 额度耗尽处置动作族(G-44/G-45)**:error 卡补「第 N/M 次 · Xs 后重试」倒计时 + HTTP 状态 + 无响应超时;**额度型错误**补动作族(补积分/升级套餐/切档/查看用量/重登/重试),接我方既有钱包/VIP/BYOK 体系。**验收**:`FallbackBanner` 与 error 卡两套动作族用例 + 消费 D34 `retry_scheduled`/`injection_applied` 帧 + 免费额度心智不回退(2026-09-21 三轮口径:不充值仍可用心智不得被动作族打断)
+- [ ] **D48 本地会话数据主权与加密(G-56)**:桌面端本地缓存加密(对标 Trae SQLCipher;我方优势:导入侧已有 redact_secrets 实测 0.07% 命中)。**验收**:静态盘 grep 明文会话为 0 + 解锁失败降级可读空态不崩 + 密钥不落仓(§5d)
+- [ ] **D55 机器代批决策条(G-66,P0 首批,低成本反超项)**:我方后端 1-1 已产出 `decision`/`reason` 八类推导(`agent_loop_v2._derive_step_decision` + `_decision_hints`),**对话流里却没有这条徽章**。补「自动审查中 / 已自动批准 / 已拒绝 / 请求用户确认 + 理由：」四态卡,~~数据零新增、只补渲染位~~(第 61 轮实测**作废**:缺 5 层,见下方进度行)。**验收**:四态各一用例 + 与 D34 `injection_applied` 帧不重复计数 + 现有 timeline 测试不回退
+- [ ] **D62 语音字幕与讨论纪要(G-76)**:播报时字幕可见(`静音并显示字幕`语义)+ 语音讨论纪要/任务流双视图 + 麦克风四类错误(无权限/无设备/被占用/启动失败)与"录音纪要进行中"互斥提示。复用 `voice-toolbar`/`voice-stream-speaker`,不新建录音栈。**验收**:四类错误态用例 + 互斥断言 + miniapp 平台独占豁免标注
+- [ ] **D67 额度归属分型与折扣倒计时(G-90,与 D56 合并)**:额度错误按**归属**分四类标题+对应动作(个人今日/免费模型今日/团队·需管理员/计费组·Credits 上限)+ 三动作族 + `低峰折扣进行中`/`{{time}}后进入低峰折扣` 倒计时。**判据用已复现原文**;实施前须与"不充值可用心智"边界对表(免费档可用时不得弹诱导)。**验收**:四型各一用例 + 倒计时纯函数测试
+- [ ] **D78 连接器授权卡(G-107)**:对话流内 `连接到 {connectorName}` / 已连接 / **`重新连接 {connectorName}`** / 更多信息 / **`暂不`**(负向出口必须存在,不得只有"允许")。复用我方 connectors 体系与 `permission-mode-popover` 通道,不新建授权流。**验收**:五态用例(未连/连接中/已连/需重连/已拒绝)+ 断言"暂不"后本轮任务可继续而非中断
+- [ ] **D80 两条待自证定档(G-110/G-111)**:①Codex `widgets.hermes.workflow` 60 键说明其有对话流内**工作流 widget** → 核我方 `agentCanvas`/orchestration-hub 是否已在**消息流内**渲染 workflow(非独立页面);②`widgets.hermes.elicitation` 4 键 = **MCP elicitation**(模型向用户索取输入)→ 核我方 `question-dialog` 是否已是 elicitation 语义或仅私有协议。**未定档前不得开工**,若我方已具备则只登记"文案对齐",不得列为能力差距
+- [ ] **D85 自动审查统计条(G-116,与 D55 合批)**:在 D55 决策徽章之上加**聚合**——`自动审查统计`、`已接受 N / 已拒绝 N`、`命令历史` 展开、**`自动审查未提供理由`** 显式缺省(Trae 有代批无统计、Codex 有统计无逐条理由文案,我方一次做完可同超两家)。**验收**:统计计数与逐条徽章同源(不许两套数)+ 无理由缺省用例
+- [ ] **D91 四类文档批注锚点分型(G-124,扩展 D87)**:Qoder 的批注不是单一"选中文字",而是四种定位坐标——PDF `PDF 第 {page} 页`、PPTX `第 {slide} 张 · {element}` + `批注 {element}`、DOCX `文档第 {page} 页`、XLSX `{sheet} · {range}` + `已选择 {range}`;统一动作是 `描述希望 Agent 修改或检查的内容` → **添加到任务**,并支持 取消/删除。落点 `artifact-canvas` + 圈选事件族(D22 的 `ihui:add-text-reference` 同机制),**禁止**为四类各写一套批注状态机 **依赖定档(2026-09-24)**:圈选事件族(ihui:add-text-reference)与 D87 批注双向锚点已就绪,但四类坐标(PDF 页码/PPTX slide/DOCX 页码/XLSX range)依赖 D41 四类 Office 预览器先行——D41 因依赖选型+lockfile 时机待 owner(见其行内定档),本条随之阻塞;解阻顺序=D41 落地 → 本条按预览器能力逐类接批注坐标。。**验收**:四坐标各一用例 + 回流成任务输入 + 删除/取消态
+- [ ] **D90 预览降级三态与"文件已更新"提示(G-123)**:对标 Qoder `工具记录内容` / **`无法读取当前文件，已展示工具记录中的内容。`** / `这次文件变更没有记录完整内容。` / `没有可预览内容。` 四级降级,加 `文件已更新`+`刷新以查看最新内容`+关闭提示。与 D33 同批(降级依据正是"工具记录里存了什么")。**验收**:四级各一用例 + 断言降级时**明确告知展示的是历史快照而非当前文件**(防用户误以为看到最新)
+- [ ] **D91 四类文档批注锚点分型(G-124,扩展 D87)**:Qoder 的批注不是单一"选中文字",而是四种定位坐标——PDF `PDF 第 {page} 页`、PPTX `第 {slide} 张 · {element}` + `批注 {element}`、DOCX `文档第 {page} 页`、XLSX `{sheet} · {range}` + `已选择 {range}`;统一动作是 `描述希望 Agent 修改或检查的内容` → **添加到任务**,并支持 取消/删除。落点 `artifact-canvas` + 圈选事件族(D22 的 `ihui:add-text-reference` 同机制),**禁止**为四类各写一套批注状态机。**验收**:四坐标各一用例 + 回流成任务输入 + 删除/取消态
+- [ ] **D107 交代帧的"端内注册层"与"阶段标签"缺口(第 44 轮实测新立)**:守门 63 只对齐到 parser 层,**帧到了各端 dispatch 表仍会二次静默丢弃**,本条覆盖剩下两层。
+- [ ] **D69 输入区文案族补齐(G-91/G-92 + D38/D43 规格补强)**:①压缩不可用的**因与后果**文案(含"压缩会消耗少量积分""压缩在当前 Turn 完成后执行,不能插入正在运行的 Turn");②**两处**开关失败反馈(模型切换 / 停止生成)——**权限切换失败我方已有 `permission-mode-popover.tsx:231-242` 且带撤销动作,不在本任务范围内,禁止重做削弱**;③排队族精确规格(`排队原因`/`拖动调整排队顺序;聚焦后可使用上下方向键`/`无法撤回排队消息`/`无法调整排队顺序`/**`当前 Runtime 不支持插话,消息将继续排队`**——能力协商降级句我方完全没有);④附件与速记上限族(数量 20、单图 ≤10MB、每条 ≤5 图、总量 ≤20MB 等逐项提示)。**验收**:每族有原文对齐的 i18n 五语言键 + 用例;不新增自创措辞
+### 第四十八批·网页预览线(2026-09-25 凌晨,5 代理并行):从"打开 app 让我看看"挖出的四类缺陷与两处静默失效
+起因是用户要看最新修改后的 App 界面,实际交付的是四层东西:
+**① 网页预览整包白屏(已修 `a0ae2599d2`)**。`apps/mobile-rn/src/theme/active-tokens.ts:51`
+在模块求值期执行 `new File(Paths.document, ...)`,web 端 expo-file-system 不支持、
+`Paths.document` 为 undefined ⇒ 抛 `this.validatePath is not a function`;该文件被
+ThemeContext 顶层 import,整个 bundle 崩在挂载前,`#root` 零子节点且无错误浮层。
+改为构造失败置 null,读/写两处随之容错。真机路径行为不变。
+**② 界面回显裸 i18n 键(共三处已修)**。
+ · `ae16cf560b` mobile-rn 首页「发现」9 个 `menu.*` 键从未存在于任何语言包。不新增字符串:
+   9 个条目路由名与同名命名空间一一对应、各自 `.title` 五语在位,改指 `<route>.title`。
+ · `355bef0849` shared 补 `common.open` / `common.remove` 两键五语(ui-react 与 packages/app
+   各一处调用点在回显键路径)。
+ · `cb73f0a721` miniapp-taro 128 个裸键清零:94 个改指既有键(零新字符串)、34 个按五语补、
+   1 个排除(只出现在反向断言里)。**刻意未含离线包** `remote-locales.gen.ts` —— 重生成会把
+   并行会话对 `shared/ja.json` 的 29 键删除烘进产物,为加 34 键丢 29 个已有键不可接受。
+**③ 重复全局挂载(用户实拍"怎么有两套侧边栏")**。
+ `GlobalFloatBox` 同时挂在 `App.tsx`(全局,盖在 RootNavigator 之上)与 4 个屏内,同屏两条;
+ 且屏内那份 `onFeedback` 跳 `Settings` 而全局那份跳 `Feedback`,谁压谁取决于挂载顺序,
+ 行为不可预期。另按同一判据扫出 `NotificationPanel`(RootNavigator 全局 + ChatScreen)与
+ `OfflineBanner`(`App.tsx` 全局 + HomeScreen)两处同类。已全部收口为单点
+ (`681aba4cb7` / `5cba353546` / `0a2e649238`)。**附带解决 −59px 整屏左偏**:重复那份是
+ relative 兄弟节点,吃掉 430px 机身框内 95px 布局宽度把整列推歪,摘掉后实测 offset=0。
+ 未采纳的一处:`ShareScreen:382` 的 `PrivacyPolicyModal` 经核是"每次分享动作级"同意门
+ (`onAgree` 内直接 `doShare()`),与 `App.tsx` 那个应用启动级、落盘持久化的隐私闸是两个
+ 不同关注点,摘掉等于删一步真实同意流程 —— 保留。
+**④ PushBanner 接通(`8c32192725`,用户批准)**。该组件全仓零挂载点、PROJECT_PLAN 与归档
+亦无登记,即"造好没装车"。因 `NotificationPanel.tsx` 正被并行会话改写(其 hunk 压在
+HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只从调用侧接**:
+`RootNavigator` 取 `notifications[0]` 派生可见性(不建第二份状态)、`bannerSeenId` 防重弹、
+面板开启时抑制(不叠 Modal)、`topOffset` 走 `useSafeAreaInsets`(守门 97 S2 禁第二顶距源)、
+`title` 显式传 i18n 键以绕开组件默认值那个硬编码「新消息」。单端交付(§9 平台独占)。
+**⑤ 两处"静默失效"是本轮真正的根因级发现**。
+ · `03c0ce33f5`:§19 翻译流水线 `i18n-diff/apply` 只认 4 个 target,而 `messages/` 下实有 7 个
+   端目录;`TARGET_CONFIG[TARGET] || TARGET_CONFIG.web` 使拼错或不支持的端**不报错而去读写
+   web 语言包**。mobile-rn 因此从未被流水线服务,五语 parity 静默腐烂 —— 这正是 ② 那批裸键
+   能进 HEAD 的机制。现补 mobile-rn/cli/api 并把未知 target 改为读写前 exit 2,apply 另加
+   写前对账。已证明 typo 调用前后 `messages/web` 逐字节未变。
+ · `守门 74 W6`:该门职责就是"词表逐键×五语言在合并视图必须解析得出",却因 W1 只认对象
+   字面量词表,对散在数组里的 `labelKey:` 字符串整类不可见,一路绿灯放行 ② 那 9 个键。
+   新增 W6 散落取词判据,口径改判 HEAD blob、棘轮锚点取该文件 HEAD 自身违规数(不另立
+   基线文件)。立项即再报 **HEAD 存量 86 处 / 18 文件**(计入容忍、新增即拦)。
+   判据有牙已端到端证明:故意把 `search.title` 改成 `search.bogusW6Probe` 并暂存,
+   `--staged` 立即 exit 1 点名该键/该文件/第 161 行,还原后归 0。
+**⑥ 环境层三件事**(非本票代码缺陷,但都直接导致交付失真)。
+ · 共享工作树 `packages/i18n/messages/shared/*.json` 五语被整体回退成旧基线(各缺 92 叶、
+   新增 0、改动 0)。用**只增不覆**的归并补回 —— `ja.json` 含他人 4 处真实未提交改动,
+   整文件 restore 会吞掉,故走 add-only 并逐键回读证明原值零改动。
+ · `scripts/lib/commit-gate-attribution.mjs` 在 HEAD 存在但磁盘消失且索引里是 `D ` 暂存删除
+   ⇒ **HEAD 自己的 safe-commit 第 38 行 import 它**,于是全仓 agent 的提交链在跑任何钩子前
+   就崩在模块解析。该文件不在 `heal-worktree-tracked` 的判据内(它要求索引==HEAD),门 99
+   对整批索引层删除只报数不判红。我只做了不越权的一步:`git restore --worktree` 单文件、
+   不碰索引。同批还有 `cli/src/tools/command-policy/*` 等十余条索引层删除待归属会话处置。
+ · `mcp-tool-activity.ts` 及其测试被宿主清理层删除,导致预览 500;已由自愈找回。
+**我自己这轮犯并被抓到的三个错(记下来比修完更有价值)**:
+ ① 用工作树源码 × HEAD 词表做诊断,把并行会话未提交的重写当成 11 个本仓缺陷(实为 9 个),
+    还据此差点去"修"别人的在途文件 —— 已原样撤回两处编辑。
+ ② 两次把命令 `| tail`,管道吃掉退出码,于是 safe-commit 因 pathspec 不存在与索引锁
+    各失败一次却被报成成功;改显式记录 `REAL_EXIT` 后两次都当场暴露。
+ ③ 凭代理报告里的路径简写手拼提交清单(`order/refund/index.tsx` 并不存在),
+    改为全部从 `git status` 派生,并对 45 个脏 miniapp 文件按"diff 是否真动 i18n 键"筛出 22 个。
+**留给归属会话、不由我代裁的三件事**:
+ · `shared/ja.json` 的 29 个 `taskStatus.toolMcp*Activity` 删除 + 4 处简中残留(它使
+   `i18n-diff --target=shared` 报 37 pending);落地后需重跑 `pnpm --filter @ihui/miniapp-taro gen:i18n`
+   才能把 ② 的 34 个新键带进离线包。
+ · PushBanner 组件内部三处从调用侧修不了:`formatPushTime` 是共享 `formatRelativeTime`
+   (date-utils.ts:164)的第二份实现且只出中文;`accessibilityLabel` 硬编码「关闭」;
+   服务端下发的 title/content 不翻译。
+ · `check-i18n-broken-en.mjs` 与刚修的流水线同族 —— 其 target 链没有 miniapp-taro 分支,
+   `--target=miniapp-taro` 落到 `web/en.json`,故该端新增英文值实际不受这道 blocking 门覆盖。
+- [ ]**D38 队列语义完整交互(G-42)**:拖拽重排 / 撤回 / 编辑队列项 / 「打断并执行」/ 队列模式可配(steer vs queue,对标 Codex `followUpQueueMode`)。复用 D28 侧问队列与 W2 abort 通道,不造第二套排队。**验收**:五动词各有 e2e + 与 /side 互不回归 + 重排后发送顺序断言
+- [ ]**D64 小元素包(G-72/75/77/79/82/83)**:①Credits 热力图(单日消耗 + 会话/热力切换);②图片预览器补翻页/第 N·M 张/缩放比例/保存与复制成败;③思考卡双态标题(有思考→「思考过程」,无思考→「使用了 N 个引用」);④后台子任务八态与"停止失败"文案;⑤反馈问卷化(把 D49①的 toast 兜底升级为「这次回复有没有帮你解决问题?」结构化落库);⑥**goal 卡先自证再定档**——逐字段比对我方 `ai/goal-card.tsx` 与 Trae/Qoder 五态·操作·时长格式,**未核对前不列差距**(第 5 轮已因此拦下一条幻影差距)。**验收**:每项独立用例;⑥必须先产出对照表再决定做/不做
+- [ ]**D73 多任务窗格(G-100)**:向右/向下拆分、最大化还原、**联动调整相邻窗格**、空窗格"从侧栏拖入一个任务"、Fork 失败提示。落点在既有 `ai-side-panel` + `work-panel` 之上做分屏容器,**禁止**新建第二套会话承载体系(与 D52/D68 协同)。**验收**:拆分/拖入/Fork 失败三用例 + 拖拽复用 D22 已建的 `application/x-ihui-conversation` 通道
