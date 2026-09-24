@@ -7659,8 +7659,6 @@
       "thinkingChars": "文字",
       "thinkingElapsedTitle": "{time} 思考中",
       "thinkingStreaming": "思考中...",
-      "thinkingTitle": "思考プロセス",
-      "thinkingRefsTitle": "{count} 件の参照を使用しました",
       "timelineClearFilters": "フィルターをクリア",
       "timelineCountDone": "完了",
       "timelineCountFailed": "失敗",
@@ -8410,119 +8408,6 @@
           "emptyDraft": "下書きが空です。入力してから推敲してください。"
         },
         "restartHint": "再起動後に反映されます。下書きは保持されています。"
-      },
-      "queueOps": {
-        "ariaLabel": "キューメッセージ操作バー",
-        "reorderAria": "ドラッグでキューの順序を変更。フォーカス中は上下方向キーも使用できます",
-        "undo": "取り消す",
-        "edit": "編集",
-        "editConfirm": "保存",
-        "editCancel": "キャンセル",
-        "interruptAndRun": "中断して実行",
-        "mode": {
-          "label": "キューモード",
-          "steer": "割り込み優先",
-          "queue": "キュー優先"
-        },
-        "denied": {
-          "reorder": "キューの順序を変更できません",
-          "undo": "キュー内のメッセージを取り消せません",
-          "interject": "現在の Runtime は割り込みに対応していないため、メッセージはキューに残ります"
-        },
-        "degraded": {
-          "runtimeNoInterject": "現在の Runtime は割り込みに対応していないため、メッセージはキューに残ります"
-        }
-      },
-      "elementPack": {
-        "heatmap": {
-          "title": "クレジット消費ヒートマップ",
-          "legendLabel": "凡例",
-          "dayTitle": "{date} の1日の消費量",
-          "tab": {
-            "heatmap": "ヒートマップ",
-            "sessions": "セッション詳細"
-          },
-          "legend": {
-            "zero": "消費なし",
-            "low": "低め",
-            "mid": "中くらい",
-            "high": "高め"
-          },
-          "sessionsEmpty": "セッション明細はまだありません"
-        },
-        "imagePreview": {
-          "counter": "{index} / {total} 枚目",
-          "saveSuccess": "画像を保存しました",
-          "saveFailed": "画像の保存に失敗しました",
-          "copySuccess": "画像をコピーしました",
-          "copyFailed": "画像のコピーに失敗しました",
-          "prev": "前の画像",
-          "next": "次の画像",
-          "zoomOut": "縮小",
-          "zoomIn": "拡大",
-          "save": "画像を保存",
-          "copy": "画像をコピー"
-        },
-        "backgroundTask": {
-          "state": {
-            "pending": "開始待ち",
-            "running": "実行中",
-            "stopping": "停止中",
-            "stopFailed": "停止に失敗",
-            "completed": "完了",
-            "failed": "失敗",
-            "cancelled": "キャンセル済み",
-            "timeout": "タイムアウト"
-          },
-          "hint": {
-            "stopping": "停止リクエストを送信しました。タスクの終了を待っています",
-            "stopFailed": "サブタスクはまだ実行中です。停止を再試行してください",
-            "timeout": "タスクがタイムアウトしました。再試行できます"
-          },
-          "action": {
-            "none": "操作不可",
-            "stop": "停止",
-            "retryStop": "停止を再試行",
-            "retry": "再試行"
-          }
-        },
-        "feedbackSurvey": {
-          "question": "今回の回答は問題解決に役立ちましたか？",
-          "scale": {
-            "1": "とても悪い",
-            "2": "やや悪い",
-            "3": "普通",
-            "4": "やや良い",
-            "5": "とても良い"
-          },
-          "commentPlaceholder": "補足コメント（任意）",
-          "submit": "送信",
-          "dismiss": "今はしない",
-          "submitted": "ご意見ありがとうございます",
-          "answer": {
-            "solved": "解決済み",
-            "partial": "一部解決",
-            "notSolved": "未解決"
-          }
-        }
-      },
-      "multiPane": {
-        "ariaLabel": "マルチペイン",
-        "resizeAriaLabel": "ドラッグでペインのサイズを調整",
-        "splitRight": "右に分割",
-        "splitDown": "下に分割",
-        "maximize": "ペインを最大化",
-        "restore": "ペインを復元",
-        "closePane": "ペインを閉じる",
-        "forkFailureAriaLabel": "セッションの複製を開けません",
-        "forkFailure": {
-          "conversationMissing": "元のセッションが存在しないため、複製を開けません",
-          "capacityFull": "ペイン数が上限に達しました。他のペインを閉じてください",
-          "unknown": "セッションの複製を開けませんでした。再試行してください"
-        },
-        "retryFork": "再試行",
-        "emptyPaneAriaLabel": "空のペイン。サイドバーからセッションをドラッグできます",
-        "emptyPlaceholder": "サイドバーからこのペインへセッションをドラッグ"
       }
     },
     "permissionConfirm": {
@@ -10842,8 +10727,6 @@
     "sideUsage": "クイックサイド質問。メイン履歴には書き込まれません。使い方: /side <質問>",
     "sideBadge": "サイド質問",
     "sideEnqueued": "AI 生成中のためサイド質問をキューに追加しました。現在の回答終了後に自動で回答します",
-    "sideQueued": "サイド質問の待機中",
-    "sideAnswerNow": "今すぐ回答",
     "sideNoConversation": "会話がまだ保存されていないため、サイド質問をキューに追加できません。先にメッセージを送信してください",
     "sideAnswerFailed": "サイド質問の回答に失敗: {error}",
     "commitNoWorkspace": "ワークスペース未選択のため /commit を実行できません",
