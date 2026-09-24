@@ -92,7 +92,33 @@ function runScript(args = [], opts = {}) {
     cwd: opts.cwd || process.cwd(),
     encoding: 'utf8',
     stdio: ['pipe', 'pipe', 'pipe'],
+    // §5b 弹窗治理 + 守门 52/80:派生控制台程序必须 windowsHide,且不得无界挂起
+    windowsHide: true,
+    timeout: 60_000,
   })
+}
+
+// 某端语言包目录的字节指纹(文件名 + 内容),用于证明"这一端一个字节都没动"
+function dirFingerprint(root, target) {
+  const dir = path.join(root, 'packages', 'i18n', 'messages', target)
+  if (!fs.existsSync(dir)) return '<missing>'
+  return fs
+    .readdirSync(dir)
+    .sort()
+    .map((f) => `${f}::${fs.readFileSync(path.join(dir, f), 'utf8')}`)
+    .join('||')
+}
+
+// 同时铺两端(web + 被测端)的干净夹具:错读/错写任何一端都能被指纹区分出来
+function writeTwoEndFixture(root, end, translations) {
+  for (const target of ['web', end]) {
+    fs.mkdirSync(path.join(root, 'packages', 'i18n', 'messages', target), { recursive: true })
+    writeMessages(root, target, BASE_LANG, { save: '保存' })
+    for (const lang of TARGET_LANGS) {
+      writeMessages(root, target, lang, { save: '保存' })
+    }
+  }
+  writeTranslations(root, translations)
 }
 
 describe('CLI 基础行为 — 输入校验 + 退出码', () => {
@@ -457,6 +483,218 @@ describe('应用后 parity 自动校验 — 翻译不完整仍 exit 1', () => {
       assert.match(stripAnsi(r.stderr), /\[en\] 仍缺 2 键/)
       // save 仍被应用了(写回发生)
       assert.equal(readMessages(root, 'web', 'en').save, 'Save Updated')
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+})
+
+// ─── 2026-09-25:--target 端注册 + 写错端的两道防线 ──────────────────────────
+// 旧实现 `TARGET_CONFIG[TARGET] || TARGET_CONFIG.web` 让 `--target=mobile-rn` **改写 web 的语言包**,
+// 而输出全程报告"成功"。这里两侧都钉:① 写对了那一端(阳性对照:两端都铺夹具,靠指纹区分),
+// ② 未知值 / 输入与 --target 不符时零写入。
+describe('--target 端注册:mobile-rn / cli / api 真的能写对目录', () => {
+  for (const end of ['mobile-rn', 'cli', 'api']) {
+    test(`--target=${end} 写 ${end},web 逐字节不变`, () => {
+      const root = createTempProject(end)
+      try {
+        writeTwoEndFixture(root, end, {
+          translatedAt: '2026-09-25T00:00:00Z',
+          translatedBy: 'AI agent (test)',
+          target: end,
+          messagesDir: `packages/i18n/messages/${end}`,
+          translations: { en: { save: `Save-${end}` } },
+        })
+        const webBefore = dirFingerprint(root, 'web')
+        const r = runScript([`--target=${end}`], { cwd: root })
+        const out = stripAnsi(r.stdout) + stripAnsi(r.stderr)
+        assert.equal(r.status, 0, `应 exit 0\n${out}`)
+        // 写对了那一端(若回落到 web,这一条必然失败)
+        assert.equal(readMessages(root, end, 'en').save, `Save-${end}`)
+        // web 一个字节都没动
+        assert.equal(dirFingerprint(root, 'web'), webBefore, `web 语言包不得被改写`)
+        // 输出必须自证目标目录
+        assert.ok(out.includes(`packages/i18n/messages/${end}`), `stdout 应点名写入目录:\n${out}`)
+      } finally {
+        fs.rmSync(root, { recursive: true, force: true })
+      }
+    })
+  }
+
+  test('不带 --target 仍默认写 web(既有行为未变)', () => {
+    const root = createTempProject('web')
+    try {
+      writeTwoEndFixture(root, 'mobile-rn', {
+        translations: { en: { save: 'Save-web' } }, // 未声明 target → 只警告,不判死
+      })
+      const rnBefore = dirFingerprint(root, 'mobile-rn')
+      const r = runScript([], { cwd: root })
+      assert.equal(r.status, 0, `stdout: ${r.stdout}\nstderr: ${r.stderr}`)
+      assert.equal(readMessages(root, 'web', 'en').save, 'Save-web')
+      assert.equal(dirFingerprint(root, 'mobile-rn'), rnBefore, 'mobile-rn 不得被动')
+      assert.match(stripAnsi(r.stderr), /未声明 target \/ messagesDir ⇒ 写前对账无从进行/)
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  test('显式 --target 指向不存在的目录 → exit 2,不创建目录、不写文件', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-i18n-apply-'))
+    fs.mkdirSync(path.join(root, '.ihui-agent', 'tmp'), { recursive: true })
+    try {
+      writeTranslations(root, { translations: { en: { save: 'Save' } } })
+      const r = runScript(['--target=mobile-rn'], { cwd: root })
+      const out = stripAnsi(r.stdout) + stripAnsi(r.stderr)
+      assert.equal(r.status, 2, `应 exit 2,实际 ${r.status}\n${out}`)
+      assert.match(out, /语言包目录不存在/)
+      assert.ok(
+        !fs.existsSync(path.join(root, 'packages', 'i18n', 'messages', 'mobile-rn')),
+        '不得顺手创建目标目录',
+      )
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('未知 / 拼错的 --target 一律判死(旧行为:静默按 web 处理)', () => {
+  for (const [bad, why] of [
+    ['mobile_rn', '下划线代替连字符'],
+    ['Miniapp-Taro', '大小写不符'],
+    ['nonsense', '根本不存在的名'],
+    ['', '空值(--target=)'],
+  ]) {
+    test(`--target=${bad || '(空)'} (${why}) → exit 2 + 点名错值 + 列可用端 + web 零写入`, () => {
+      const root = createTempProject('web')
+      try {
+        writeMessages(root, 'web', BASE_LANG, { save: '保存' })
+        for (const lang of TARGET_LANGS) writeMessages(root, 'web', lang, { save: '保存' })
+        writeTranslations(root, { translations: { en: { save: 'Hijacked' } } })
+        const webBefore = dirFingerprint(root, 'web')
+
+        const r = runScript([`--target=${bad}`], { cwd: root })
+        const out = stripAnsi(r.stdout) + stripAnsi(r.stderr)
+        assert.equal(r.status, 2, `应 exit 2(用法错误),实际 ${r.status}\n${out}`)
+        assert.match(out, /不是受支持的端/)
+        assert.ok(out.includes(JSON.stringify(bad)), `须原样点名 "${bad}":\n${out}`)
+        for (const end of ['web', 'extension', 'miniapp-taro', 'shared', 'mobile-rn', 'cli', 'api']) {
+          assert.match(out, new RegExp(`\\b${end.replace(/-/g, '\\-')}\\b`), `可用端清单应含 ${end}`)
+        }
+        // 关键反证:旧实现在这里会把 "Hijacked" 写进 web
+        assert.equal(dirFingerprint(root, 'web'), webBefore, '判死前不得发生任何写入')
+        assert.equal(readMessages(root, 'web', 'en').save, '保存')
+      } finally {
+        fs.rmSync(root, { recursive: true, force: true })
+      }
+    })
+  }
+
+  test('回归锁:源码里不得再出现"未知 target 回落到 web"的那一表达式', () => {
+    // 必须先剥注释 —— resolveTarget 的头注逐字引用那串旧表达式来解释为什么禁它,
+    // 不剥的话这条锁会在完全合规的源码上恒红(判据看见了自己产出的形态)。
+    const src = fs.readFileSync(SCRIPT_PATH, 'utf8')
+    const code = src
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .split('\n')
+      .filter((line) => !/^\s*\/\//.test(line))
+      .join('\n')
+      .replace(/\/\/[^\n]*/g, '')
+    assert.ok(
+      !/TARGET_CONFIG\s*\[\s*TARGET\s*\]\s*\|\|/.test(code),
+      'i18n-apply.mjs 不得再有 `TARGET_CONFIG[TARGET] || TARGET_CONFIG.web` 静默回落',
+    )
+    assert.match(code, /function resolveTarget\(/, '应经 resolveTarget 显式解析')
+    assert.match(code, /targetMismatchProblems\(/, '写前对账函数必须存在')
+  })
+})
+
+describe('写前对账:输入声明的端必须与 --target 一致(防"拿错文件")', () => {
+  test('输入 target=web 而 --target=mobile-rn → exit 2,两端都不写', () => {
+    const root = createTempProject('mobile-rn')
+    try {
+      writeTwoEndFixture(root, 'mobile-rn', {
+        target: 'web',
+        messagesDir: 'packages/i18n/messages/web',
+        translations: { en: { save: 'WrongEnd' } },
+      })
+      const webBefore = dirFingerprint(root, 'web')
+      const rnBefore = dirFingerprint(root, 'mobile-rn')
+      const r = runScript(['--target=mobile-rn'], { cwd: root })
+      const out = stripAnsi(r.stdout) + stripAnsi(r.stderr)
+      assert.equal(r.status, 2, `应 exit 2,实际 ${r.status}\n${out}`)
+      assert.match(out, /拒绝写入/)
+      assert.match(out, /target=web/, '须点名输入声明的那一端')
+      assert.match(out, /--target=mobile-rn/, '须点名本次要求的那一端')
+      assert.equal(dirFingerprint(root, 'web'), webBefore, 'web 不得被写')
+      assert.equal(dirFingerprint(root, 'mobile-rn'), rnBefore, 'mobile-rn 也不得被写')
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  test('输入 messagesDir 与解析出的目录不符(哪怕 target 写得对)→ exit 2', () => {
+    const root = createTempProject('cli')
+    try {
+      writeTwoEndFixture(root, 'cli', {
+        target: 'cli',
+        messagesDir: 'packages/i18n/messages/web', // 目录串露馅
+        translations: { en: { save: 'X' } },
+      })
+      const before = dirFingerprint(root, 'cli')
+      const r = runScript(['--target=cli'], { cwd: root })
+      assert.equal(r.status, 2, `stdout: ${r.stdout}\nstderr: ${r.stderr}`)
+      assert.match(stripAnsi(r.stderr), /messagesDir=packages\/i18n\/messages\/web/)
+      assert.equal(dirFingerprint(root, 'cli'), before)
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  test('一致时不误伤:target/messagesDir 与 --target 相符 → 正常写入 exit 0', () => {
+    const root = createTempProject('cli')
+    try {
+      writeTwoEndFixture(root, 'cli', {
+        target: 'cli',
+        messagesDir: 'packages/i18n/messages/cli',
+        translations: { en: { save: 'Save-ok' } },
+      })
+      const r = runScript(['--target=cli'], { cwd: root })
+      assert.equal(r.status, 0, `对账通过应正常写入\n${r.stdout}${r.stderr}`)
+      assert.equal(readMessages(root, 'cli', 'en').save, 'Save-ok')
+      assert.ok(!stripAnsi(r.stderr).includes('拒绝写入'))
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  test('输入声明了一个不受支持的 target → exit 2 并说明该值本身不是端', () => {
+    const root = createTempProject('web')
+    try {
+      writeMessages(root, 'web', BASE_LANG, { save: '保存' })
+      for (const lang of TARGET_LANGS) writeMessages(root, 'web', lang, { save: '保存' })
+      writeTranslations(root, { target: 'desktop', translations: { en: { save: 'X' } } })
+      const before = dirFingerprint(root, 'web')
+      const r = runScript([], { cwd: root })
+      assert.equal(r.status, 2, `stdout: ${r.stdout}\nstderr: ${r.stderr}`)
+      assert.match(stripAnsi(r.stderr), /不是受支持的端/)
+      assert.equal(dirFingerprint(root, 'web'), before)
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  test('--check 模式同样先对账(不写入也不等于可以拿错端的输入)', () => {
+    const root = createTempProject('mobile-rn')
+    try {
+      writeTwoEndFixture(root, 'mobile-rn', {
+        target: 'web',
+        translations: { en: { save: 'X' } },
+      })
+      const rnBefore = dirFingerprint(root, 'mobile-rn')
+      const r = runScript(['--check', '--target=mobile-rn'], { cwd: root })
+      assert.equal(r.status, 2, `stdout: ${r.stdout}\nstderr: ${r.stderr}`)
+      assert.match(stripAnsi(r.stderr), /拒绝写入/)
+      assert.equal(dirFingerprint(root, 'mobile-rn'), rnBefore)
     } finally {
       fs.rmSync(root, { recursive: true, force: true })
     }
