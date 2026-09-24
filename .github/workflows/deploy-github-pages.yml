@@ -48,6 +48,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
+      - name: Build api-client package
+        # @ihui/api-client 的 exports 全部映射到 ./dist/*，而 dist/ 不入库(.gitignore:67)。
+        # pnpm --filter @ihui/web 不做 workspace 依赖的拓扑构建 ⇒ 缺本步则 webpack 打包期
+        # 直接 Module not found: '@ihui/api-client'(2026-09-24 Pages 连红三次的根因;
+        # 尾缀 `...` 连同上游依赖拓扑构建，与 ci.yml:70/94/222 既有正解同口径)。
+        run: pnpm --filter "@ihui/api-client..." run build
+
       - name: Build web
         # 2026-08-28:改走 build-static(与 Tauri 同一静态导出入口)。
         # 该入口会临时移出 app/cdn|uploads 等 force-dynamic 运行时路由
