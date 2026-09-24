@@ -361,7 +361,7 @@ export default function DeveloperIndex() {
                   <View className="flex items-center gap-[16rpx]">
                     {/* RN setBtn: px 16rpx py 6rpx radius 6dp=12rpx bg brand(→primary) 白字 12dp=24rpx */}
                     <Text
-                      className="text-[24rpx] px-[16rpx] py-[6rpx] rounded-md text-primary-foreground bg-primary font-medium"
+                      className="text-[24rpx] px-[16rpx] py-[6rpx] rounded-md text-cta-foreground bg-cta font-medium"
                       onClick={() => onEdit(agent)}
                     >
                       {status === 2
