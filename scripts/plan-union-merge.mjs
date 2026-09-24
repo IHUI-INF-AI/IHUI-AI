@@ -102,6 +102,7 @@ try {
   const show = (rev, f) =>
     execFileSync('git', ['-C', REPO, 'show', `${rev}:${f}`], {
       encoding: 'utf8',
+      windowsHide: true,
       maxBuffer: 256 * 1048576,
       stdio: ['ignore', 'pipe', 'ignore'],
     })
@@ -113,6 +114,7 @@ try {
   try {
     execFileSync('git', ['-C', REPO, 'merge-file', '--union', '-L', 'ours', '-L', 'base', '-L', 'theirs', pOurs, pBase, pTheirs], {
       encoding: 'utf8',
+      windowsHide: true,
       cwd: REPO,
       stdio: ['ignore', 'pipe', 'pipe'],
     })
@@ -168,6 +170,7 @@ try {
     try {
       const hit = execFileSync('git', ['-C', REPO, 'grep', '-l', '--fixed-strings', '--', prefix, `${theirs}`], {
         encoding: 'utf8',
+        windowsHide: true,
         stdio: ['ignore', 'pipe', 'ignore'],
         maxBuffer: 64 * 1048576,
       })
@@ -215,8 +218,8 @@ try {
   const env = { ...process.env, GIT_INDEX_FILE: idx }
   // read-tree 载入单棵树只能用 `--reset`(`-m` 是"合并多棵树",两者同时给 git 会报
   // 「Which one? -m, --reset, or --prefix?」—— 首版就是这么崩的,崩在 update-ref 之前,未动 ref)。
-  execFileSync('git', ['-C', REPO, 'read-tree', '--reset', git(['rev-parse', `${ours}^{tree}`]).trim()], { env, stdio: 'pipe' })
-  execFileSync('git', ['-C', REPO, 'update-index', '--cacheinfo', `100644,${blob},${FILE}`], { env, stdio: 'pipe' })
+  execFileSync('git', ['-C', REPO, 'read-tree', '--reset', git(['rev-parse', `${ours}^{tree}`]).trim()], { env, stdio: 'pipe', windowsHide: true })
+  execFileSync('git', ['-C', REPO, 'update-index', '--cacheinfo', `100644,${blob},${FILE}`], { env, stdio: 'pipe', windowsHide: true })
   const tree = git(['write-tree'], { env }).trim()
   const msg = `Merge ${theirs.slice(0, 11)} into ${ours.slice(0, 11)} —— 台账按 union 归并(仅 ${FILE} 一处冲突,双方每一行均存活)\n\n由 scripts/plan-union-merge.mjs 生成:C1 单路径 / C2 零丢行 / C3 零新增长行重复。`
   const commit = git(['commit-tree', tree, '-p', ours, '-p', theirs, '-m', msg]).trim()
