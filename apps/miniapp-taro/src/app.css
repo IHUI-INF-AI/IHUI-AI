@@ -515,7 +515,7 @@ iframe#webpack-dev-server-client-overlay {
   height: 96rpx;
   padding: 0;
   margin: 0;
-  background: var(--color-primary);
+  background: var(--color-cta);
   border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
@@ -531,12 +531,12 @@ iframe#webpack-dev-server-client-overlay {
 .cs-float-icon {
   font-size: 32rpx;
   line-height: 1;
-  color: var(--color-primary-foreground);
+  color: var(--color-cta-foreground);
 }
 
 .cs-float-label {
   font-size: 20rpx;
-  color: var(--color-primary-foreground);
+  color: var(--color-cta-foreground);
   margin-top: 4rpx;
   line-height: 1;
 }
@@ -885,8 +885,8 @@ iframe#webpack-dev-server-client-overlay {
 }
 
 .btn-primary {
-  background-color: var(--color-primary);
-  color: var(--color-primary-foreground);
+  background-color: var(--color-cta);
+  color: var(--color-cta-foreground);
 }
 
 .btn-outline {

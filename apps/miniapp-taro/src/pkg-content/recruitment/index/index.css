@@ -181,8 +181,8 @@
 }
 .apply-btn {
   height: 88rpx;
-  background: var(--color-primary);
-  color: var(--color-foreground);
+  background: var(--color-cta);
+  color: var(--color-cta-foreground);
   font-size: 32rpx;
   border-radius: var(--radius-2xl);
   display: flex;
