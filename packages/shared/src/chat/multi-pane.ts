@@ -202,7 +202,10 @@ export function closePane(tree: PaneNode, paneId: string): PaneNode {
     if (index >= 0) {
       const removedSize = node.sizes[index]
       const children = node.children.filter((_, i) => i !== index)
-      if (children.length === 1) return children[0]
+      const only = children[0]
+      if (children.length === 1 && only) return only
+      // sizes 与 children 同长是建树不变式;取不到即视为不变返回原树,不猜一个份额
+      if (removedSize === undefined) return node
       const sizes = node.sizes.filter((_, i) => i !== index).map((size) => size / (1 - removedSize))
       return { ...node, children, sizes }
     }
@@ -262,11 +265,12 @@ export function resizePanes(tree: PaneNode, paneId: string, delta: number): Pane
     const siblingIndex = index + 1 < tree.children.length ? index + 1 : index - 1
     if (siblingIndex < 0) return tree
     const sizes = [...tree.sizes]
-    const pairTotal = sizes[index] + sizes[siblingIndex]
-    const clamped = Math.min(
-      Math.max(sizes[index] + delta, MIN_PANE_SIZE),
-      pairTotal - MIN_PANE_SIZE,
-    )
+    const own = sizes[index]
+    const adjacent = sizes[siblingIndex]
+    // 份额数组与 children 同长是建树不变式;取不到就不动,绝不按 0 兜底(会把那格压没)
+    if (own === undefined || adjacent === undefined) return tree
+    const pairTotal = own + adjacent
+    const clamped = Math.min(Math.max(own + delta, MIN_PANE_SIZE), pairTotal - MIN_PANE_SIZE)
     sizes[index] = clamped
     sizes[siblingIndex] = pairTotal - clamped
     return { ...tree, sizes }
