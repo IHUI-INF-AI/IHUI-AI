@@ -29,6 +29,7 @@ import { socialRoutes } from './social.js'
 import { interactionsRoutes } from './interactions.js'
 import { promotionRoutes, adminPromotionRoutes } from './promotions.js'
 import { gamificationRoutes } from './gamification.js'
+import { creditsUsageRoutes } from './credits-usage.js'
 import { pointsTasksRoutes } from './points-tasks.js'
 import { userExtraRoutes } from './user-extras.js'
 import { aiSkillsProxyRoutes } from './ai-skills-proxy.js'
@@ -535,6 +536,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(adminLearnRoutes, { prefix: '/api/admin' })
   // 积分 / 等级 / 签到：/api/points /api/sign-in /api/levels /api/leaderboard
   server.register(gamificationRoutes, { prefix: '/api' })
+  // 按日积分消耗聚合（只读，需登录）：/api/credits/usage/daily
+  server.register(creditsUsageRoutes, { prefix: '/api/credits' })
   server.register(pointsTasksRoutes, { prefix: '/api' })
   server.register(userExtraRoutes, { prefix: '/api/user' })
   server.register(aiSkillsProxyRoutes, { prefix: '/api/ai-skills' })
