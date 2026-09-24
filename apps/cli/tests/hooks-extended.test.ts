@@ -30,6 +30,11 @@ import {
 } from '../src/hooks/index.js';
 import { compressContextIfNeeded, type ChatMessage } from '../src/context.js';
 
+// 夹具靠"钩子真被执行"产出 marker / env 文件,而 command 钩子现在必须先过目录信任门
+// (src/hooks/index.ts hookTrustSkipReason)。这里走非交互出口声明信任;
+// 门自身的判定由 tests/hooks-trust-gate.test.ts 覆盖。
+process.env.IHUI_TRUST_WORKSPACE = '1';
+
 const isWindows = process.platform === 'win32';
 
 const ALL_EVENTS: HookEvent[] = [

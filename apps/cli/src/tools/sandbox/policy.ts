@@ -8,7 +8,8 @@
  *
  * 纯函数实现:不触碰进程 / 文件系统,只做策略校验与命令评估,便于单测。
  * 白名单优先设计:
- *   1. commandAllowlist 设置后,不在白名单的命令直接拒绝(白名单优先)
+ *   1. commandAllowlist 设置后,不在白名单的命令直接拒绝(白名单优先);
+ *      取 null 表示"一律拒绝",取 undefined/[] 表示"不检查"(旧语义)
  *   2. 内置危险命令黑名单 + 用户追加 denyPatterns(黑名单兜底)
  *   3. denyPaths 优先级最高,即使路径落在 allowWrite/allowRead 内也拒绝
  *   4. allowRead/allowWrite 未显式设置时默认 = [workspaceRoot](默认最小授权)
@@ -30,8 +31,11 @@ export interface SandboxPolicy {
   allowNet?: boolean;
   /** 显式拒绝路径(优先级最高,即使落在工作区内也拒绝) */
   denyPaths?: string[];
-  /** 命令白名单(设置后只允许执行列表内命令;空/未设置=允许全部) */
-  commandAllowlist?: string[];
+  /** 命令白名单三态(与 src/sandbox/index.ts 的 SandboxOptions 同口径):
+   *  - `null` = 一律拒绝所有命令(含解析不出命令名的畸形输入,fail closed)
+   *  - 非空数组 = 只允许列表内命令
+   *  - `undefined` / `[]` = 不检查(旧语义,保留:现网设置里空数组等价"未限制") */
+  commandAllowlist?: string[] | null;
   /** 额外危险命令正则源字符串(追加到内置黑名单) */
   denyPatterns?: string[];
   /** 屏蔽的环境变量名(支持 * 通配,子进程不继承) */
@@ -149,8 +153,9 @@ export function validatePolicy(policy: SandboxPolicy): string[] {
   if (/^[a-zA-Z]:\\?$/.test(normalized)) {
     errors.push(`workspaceRoot 不能是盘符根目录(授权面过大): ${policy.workspaceRoot}`);
   }
-  if (policy.commandAllowlist !== undefined && !Array.isArray(policy.commandAllowlist)) {
-    errors.push('commandAllowlist 必须为字符串数组');
+  // null 是本策略的合法取值("一律拒绝"),不得被"必须是数组"这条误判成非法
+  if (policy.commandAllowlist !== undefined && policy.commandAllowlist !== null && !Array.isArray(policy.commandAllowlist)) {
+    errors.push('commandAllowlist 必须为字符串数组或 null');
   }
   for (const key of ['allowRead', 'allowWrite', 'denyPaths'] as const) {
     const v = policy[key];
@@ -233,8 +238,16 @@ export function evaluateCommand(policy: SandboxPolicy, commandLine: string): Pol
     return { allowed: false, violations: [{ kind: 'empty_command', message: '命令为空' }] };
   }
 
-  // 1. 白名单优先:设置了 commandAllowlist 时,未列入白名单的命令直接拒绝
-  if (policy.commandAllowlist && policy.commandAllowlist.length > 0) {
+  // 1. 白名单优先:三态判定,与 src/sandbox/index.ts 的 evaluateCommandAllowlist 同口径。
+  //    null = 一律拒绝(连命令名都解析不出时也拒,fail closed);
+  //    undefined / [] = 不检查(旧语义)。刻意不 import 那份实现:本模块头注承诺
+  //    "纯函数,不触碰进程 / 文件系统",而 sandbox/index.ts 派生子进程,拉进来会破掉这个边界。
+  if (policy.commandAllowlist === null) {
+    violations.push({
+      kind: 'command_not_allowed',
+      message: `沙箱策略禁止执行任何命令,但收到命令: ${extractCommandName(trimmed) || '<无法解析命令名>'}`,
+    });
+  } else if (policy.commandAllowlist && policy.commandAllowlist.length > 0) {
     if (!isCommandAllowed(trimmed, policy.commandAllowlist)) {
       violations.push({
         kind: 'command_not_allowed',

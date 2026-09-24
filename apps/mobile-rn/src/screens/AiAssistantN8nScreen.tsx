@@ -74,6 +74,7 @@ import {
   Eye,
   EyeOff,
   Folder,
+  GitBranchPlus,
   Image as ImageIcon,
   MessageCircle,
   RefreshCw,
@@ -85,6 +86,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { navigateDrawerTab } from '../navigation/tab-utils'
 import { AddPanel } from '../components/AddPanel'
 import {
+  branchConversation,
   deleteConversation,
   fetchModels,
   formatSSEError,
@@ -134,6 +136,12 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import { uiControlToolsFor } from '../lib/ui-control-tools'
 import { rpx } from '../utils/rpx'
 import { budgetNoteText } from '../utils/budget-note'
+// 会话级分叉的判据层(纯函数 + 五条出口文案选择),网络出口/词表/提示/切会话由本屏注入。
+import {
+  branchConversationFromMessage,
+  isBranchableTarget,
+  type OpenConversationResult,
+} from '../utils/branch-conversation'
 import { FREE_RESOURCE_URL } from '../constants/links'
 import {
   applyPlanUpdate,
@@ -178,6 +186,9 @@ type RootNav = NativeStackNavigationProp<RootStackParamList>
 
 interface N8nMessage {
   id: string
+  /** 服务端消息 id(仅历史回放可得)。本地乐观消息没有它,因此**不可**作为分叉锚点 ——
+   *  这是 `isBranchableTarget` 的准入条件,不是可选装饰。 */
+  serverId?: string
   role: 'user' | 'assistant'
   content: string
   /** 失败轮标记(词汇与共享层 ChatMessage.error 同一份,不另立字段):
@@ -595,6 +606,9 @@ interface MessageBubbleProps {
   onToast: (type: FloatBoxType, message: string) => void
   /** 失败轮重试:仅当该轮确实可重发时由父级传入;缺失即不渲染重试按钮 */
   onRetry?: () => void
+  /** 会话级分叉:仅当"会话已落库 ∧ 该消息已落库"时由父级传入(同一判据 `isBranchableTarget`
+   *  在渲染期与点击期共用);缺失即不渲染按钮,免得出现"渲染出来了、点下去没反应"。 */
+  onBranch?: () => void
   /** D19 terminal_delta 的 live 缓冲(键 = terminalId);缺失即面板退化为改造前形态 */
   terminalLive?: Record<string, string>
 }
@@ -604,6 +618,7 @@ function MessageBubble({
   onPreviewImage,
   onToast,
   onRetry,
+  onBranch,
   terminalLive,
 }: MessageBubbleProps): React.JSX.Element {
   const { t } = useI18n()
@@ -797,6 +812,18 @@ function MessageBubble({
               >
                 <Copy size={16} color={tokens.text.secondary} />
               </TouchableOpacity>
+              {/* 从该消息分叉出新会话(仅已落库消息;源会话原样保留,由后端事务保证) */}
+              {onBranch ? (
+                <TouchableOpacity
+                  style={bubbleStyles.actionBtn}
+                  hitSlop={6}
+                  onPress={onBranch}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('ai.pane.branch.ariaLabel')}
+                >
+                  <GitBranchPlus size={16} color={tokens.text.secondary} />
+                </TouchableOpacity>
+              ) : null}
               {/* 下载图片(仅消息含图片时显示,对齐 Uniapp downloadImages) */}
               {hasImages ? (
                 <TouchableOpacity
@@ -940,6 +967,29 @@ export default function AiAssistantN8nScreen() {
   const [currentConversationId, setCurrentConversationId] = useState<string | undefined>(
     routeConversationId,
   )
+
+  /**
+   * 会话切换的**取证**装置(2026-09-25 立,配合分叉)。
+   *
+   * 为什么不能只看"switch 那一步没抛错":`setCurrentConversationId` 是异步生效的,
+   * 而且组件已卸载时它干脆不动 —— 拿"没抛错"当"已切换",判据层就会在界面还停在源会话时
+   * 提示"已分叉出新会话",用户看到的是假成功。所以:
+   * ① `currentConversationIdRef` 由 `switchConversationTo` **同步**写,读回它才是"界面现在
+   *    落在哪个会话"的证据;② `mountedRef` 兜住卸载后的空切换。
+   */
+  const currentConversationIdRef = useRef<string | undefined>(routeConversationId)
+  const mountedRef = useRef(true)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
+  /** 换会话的唯一入口:先同步写 ref(取证),再驱动 state 重渲染。两者不得只做一个。 */
+  const switchConversationTo = useCallback((id: string | undefined): void => {
+    currentConversationIdRef.current = id
+    setCurrentConversationId(id)
+  }, [])
 
   // 剩余智汇值(对齐 Uniapp 顶部 intelligent-assistant tokenQuantity,接 getTokenBalance 真实余额)
   const [tokenBalance, setTokenBalance] = useState(0)
@@ -1135,7 +1185,9 @@ export default function AiAssistantN8nScreen() {
   }, [drawerVisible, drawerConversationsLoaded, authUser, loadDrawerConversations])
 
   // ── 加载历史对话消息(对齐 ChatScreen loadConversationMessages) ──
-  const loadConversationMessages = useCallback(async (id: string): Promise<void> => {
+  // 返回 res.success:调用方(分叉后的 openConversation)要用它区分"切过去了但内容没读回来"。
+  // 吞掉这个布尔值就等于把两种故障合并成同一条文案,用户按它去重试会找错方向。
+  const loadConversationMessages = useCallback(async (id: string): Promise<boolean> => {
     const res = await getMessages(id, { direction: 'initial', pageSize: 100 })
     if (res.success) {
       // G-165①:档位行数据源换挡 —— 取最近一条已盖章助手消息的 metadata.permissionMode
@@ -1239,6 +1291,7 @@ export default function AiAssistantN8nScreen() {
           const steerNotices = readSteerAppliedFromMetadata(meta?.steerApplied)
           return {
             id: `${m.id}-${idx}`,
+            serverId: m.id,
             role: m.role as 'user' | 'assistant',
             content: m.content,
             ...(planSteps && planSteps.length > 0 ? { planSteps } : {}),
@@ -1252,7 +1305,10 @@ export default function AiAssistantN8nScreen() {
       requestAnimationFrame(() => {
         listRef.current?.scrollToEnd({ animated: true })
       })
+      return true
     }
+    // 读回失败也要出声:把它折成 false,调用方才能区分"切过去了但内容没读回来"
+    return false
   }, [])
 
   // 从路由 conversationId 加载历史对话(对齐 Uniapp onLoad 有 agentId 时拉取历史)
@@ -1261,6 +1317,44 @@ export default function AiAssistantN8nScreen() {
       void loadConversationMessages(routeConversationId)
     }
   }, [routeConversationId, loadConversationMessages])
+
+  /**
+   * 分叉成功后的"切到新会话"—— 两条自报值各自取证,不得互相顶替:
+   * `switched` 看切换前后 ref(前值必须不同、后值必须等于新 id)**且**组件仍挂载;
+   * `loaded` 看 `loadConversationMessages` 返回的 `res.success`。
+   * 判据层据此把"会话建好了但界面没切过去"与"切过去了但内容没读回来"分成两句说。
+   */
+  const openConversationForBranch = useCallback(
+    async (newId: string): Promise<OpenConversationResult> => {
+      const previousId = currentConversationIdRef.current
+      switchConversationTo(newId)
+      const switched = mountedRef.current && previousId !== newId
+      if (!switched) return { switched: false, loaded: false }
+      const loaded = await loadConversationMessages(newId)
+      // 加载期间可能已被卸载(用户退屏),此时读回成功也不等于界面还在新会话上
+      if (!mountedRef.current || currentConversationIdRef.current !== newId) {
+        return { switched: false, loaded: false }
+      }
+      return { switched: true, loaded }
+    },
+    [loadConversationMessages, switchConversationTo],
+  )
+
+  /** 消息气泡上的分叉入口:判据与提示全在 `src/utils/branch-conversation`,本屏只注入边界。 */
+  const handleBranchFromMessage = useCallback(
+    (message: N8nMessage): void => {
+      void branchConversationFromMessage(
+        {
+          branch: branchConversation,
+          t,
+          notify: (level, text) => showToast(level, text),
+          openConversation: openConversationForBranch,
+        },
+        { conversationId: currentConversationId, messageId: message.serverId },
+      )
+    },
+    [currentConversationId, openConversationForBranch, showToast, t],
+  )
 
   const onSend = async (text: string): Promise<void> => {
     if (!text || sending) return
@@ -1606,11 +1700,11 @@ export default function AiAssistantN8nScreen() {
   const handleDrawerCreateNewChat = (): void => {
     setMessages([])
     setInput('')
-    setCurrentConversationId(undefined)
+    switchConversationTo(undefined)
   }
   const handleDrawerSelectConversation = (id: string): void => {
     setDrawerVisible(false)
-    setCurrentConversationId(id)
+    switchConversationTo(id)
     void loadConversationMessages(id)
   }
   const handleDrawerDeleteConversation = (id: string): void => {
@@ -1680,6 +1774,12 @@ export default function AiAssistantN8nScreen() {
       onPreviewImage={handlePreviewImage}
       onToast={showToast}
       onRetry={isErrorTurn(item) && resendTargetText(messages) !== null ? retryLastTurn : undefined}
+      onBranch={
+        // 准入与点击期共用同一条判据:本地乐观消息没有 serverId,源会话未落库时也没有
+        isBranchableTarget({ conversationId: currentConversationId, messageId: item.serverId })
+          ? () => handleBranchFromMessage(item)
+          : undefined
+      }
       terminalLive={terminalLive}
     />
   )

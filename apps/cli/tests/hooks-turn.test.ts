@@ -26,6 +26,10 @@ import {
 import { PluginRegistry } from '../src/plugins/registry.js';
 import type { PluginDefinition, TurnContributorContext } from '../src/plugins/types.js';
 
+// 同上:Turn 级夹具要真的跑出 marker / env 文件,而 command 钩子现在先过目录信任门
+// (src/hooks/index.ts hookTrustSkipReason);门的判定见 tests/hooks-trust-gate.test.ts。
+process.env.IHUI_TRUST_WORKSPACE = '1';
+
 const isWindows = process.platform === 'win32';
 const exit1 = isWindows ? 'cmd /c exit 1' : "sh -c 'exit 1'";
 

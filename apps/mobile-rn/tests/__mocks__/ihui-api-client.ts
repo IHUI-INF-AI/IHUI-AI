@@ -17,6 +17,56 @@ export function listConversations(_opts?: unknown) {
 export function deleteConversation(_id: string) {
   return Promise.resolve({ success: true })
 }
+
+/**
+ * `branchConversation` 的替身 —— 与真实出口 `packages/api-client/src/endpoints/chat.ts`
+ * 逐字对齐的那一层只有两件事:URL 形状(`POST /api/chat/conversations/:id/branch`,
+ * id 走 encodeURIComponent)与信封语义(`{ code, message, data }`,`code === 0` 才算成功)。
+ *
+ * 刻意**不**写成"恒返回成功"的常量桩:接线用例断言的是"真调用发生了、请求体带 messageId、
+ * 返回信封里 id 是字符串",所以这里必须真的过 fetch。成功/失败两种结果由用例自己 stub 的
+ * 全局 fetch 决定,替身不参与编造 —— 否则测的就只是替身。
+ */
+export interface BranchConversationResult {
+  conversation: {
+    id: string
+    userId?: string
+    title?: string
+    model?: string
+    createdAt?: string
+    updatedAt?: string
+    [key: string]: unknown
+  }
+}
+
+/** 与 `@ihui/types` 的 ApiResult 同形(此处内联,避免 mock 依赖真实类型包)。 */
+export type BranchConversationApiResult =
+  | { success: true; data: BranchConversationResult; error?: undefined; status?: number }
+  | { success: false; error: string; status?: number; errorCode?: string }
+
+export async function branchConversation(
+  conversationId: string,
+  messageId: string,
+  _options?: { title?: string; model?: string },
+): Promise<BranchConversationApiResult> {
+  const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:8802'
+  const url = `${base}/api/chat/conversations/${encodeURIComponent(conversationId)}/branch`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messageId }),
+  })
+  const json = (await res.json()) as { code?: number; message?: string; data?: unknown }
+  if (!res.ok || json.code !== 0 || !json.data) {
+    return {
+      success: false,
+      error: typeof json.message === 'string' ? json.message : `HTTP ${res.status}`,
+      status: res.status,
+    }
+  }
+  return { success: true, data: json.data as BranchConversationResult, status: res.status }
+}
+
 export type AgentCategoryItem = { id: string; name: string }
 export type ConversationDetail = Record<string, unknown>
 
