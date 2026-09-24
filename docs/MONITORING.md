@@ -377,7 +377,15 @@ service:
 
 ## 7. Alertmanager
 
-> 配置文件:`monitoring/alertmanager/alertmanager.yml`
+> 单一真相源:`monitoring/alertmanager/alertmanager.yml.tmpl`(带 `${VAR}` 占位符的**模板**)
+>
+> Alertmanager 不展开配置里的 `${VAR}`(本机 0.34.0 实测),所以模板**不能**直接挂给它。
+> 先渲染再加载:`node scripts/render-alertmanager-config.mjs`
+> → 产物 `monitoring/alertmanager/alertmanager.rendered.yml`(含真实 SMTP 授权码,已被 .gitignore)。
+> 校验用 `--check`(只渲染不落盘)。本机 `amtool.exe` 无法启动,渲染器自带的
+> `assertRenderedSurface`(SMTP 五项齐全 / TLS 与端口自洽 / from==登录账号)是等价替代。
+>
+> 静态对账测试:`node --test scripts/tests/render-alertmanager-config.test.mjs`
 
 ### 告警规则
 

@@ -229,6 +229,7 @@ const checks = [
     script: 'check-tagsview-visual.mjs',
     args: [],
     mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_TAGSVIEW_GUARD',
     // 2026-09-24 补齐:本门头注一直写着「紧急跳过 HUSKY_SKIP_TAGSVIEW_GUARD=1」,但 runner 从未声明该字段、
     // 脚本自己也不读 ⇒ 那是**假逃生舱**(设了毫无效果,只会逼人改用 --no-verify 连带废掉全部门)。
     // runner 的分发循环统一 honors skipEnv,故补这一行即让承诺成真;由守门 89 的 R8 常驻核验。
@@ -1017,6 +1018,7 @@ const checks = [
     script: 'check-inline-back-button.mjs',
     args: [],
     mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_INLINE_BACK_GUARD',
     // 2026-09-24 补齐:本门头注一直写着「紧急跳过 HUSKY_SKIP_INLINE_BACK_GUARD=1」,但 runner 从未声明该字段、
     // 脚本自己也不读 ⇒ 那是**假逃生舱**(设了毫无效果,只会逼人改用 --no-verify 连带废掉全部门)。
     // runner 的分发循环统一 honors skipEnv,故补这一行即让承诺成真;由守门 89 的 R8 常驻核验。
@@ -1113,6 +1115,7 @@ const checks = [
     script: 'check-next-env-dist.mjs',
     args: [],
     mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_NEXT_ENV_DIST',
     // 2026-09-24 补齐:本门头注一直写着「紧急跳过 HUSKY_SKIP_NEXT_ENV_DIST=1」,但 runner 从未声明该字段、
     // 脚本自己也不读 ⇒ 那是**假逃生舱**(设了毫无效果,只会逼人改用 --no-verify 连带废掉全部门)。
     // runner 的分发循环统一 honors skipEnv,故补这一行即让承诺成真;由守门 89 的 R8 常驻核验。
@@ -1200,6 +1203,7 @@ const checks = [
     script: 'check-admin-gate-consistency.mjs',
     args: [],
     mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_ADMIN_GATE_GUARD',
     // 2026-09-24 补齐:本门头注一直写着「紧急跳过 HUSKY_SKIP_ADMIN_GATE_GUARD=1」,但 runner 从未声明该字段、
     // 脚本自己也不读 ⇒ 那是**假逃生舱**(设了毫无效果,只会逼人改用 --no-verify 连带废掉全部门)。
     // runner 的分发循环统一 honors skipEnv,故补这一行即让承诺成真;由守门 89 的 R8 常驻核验。
