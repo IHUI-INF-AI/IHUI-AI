@@ -1,5 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
@@ -29,6 +30,7 @@ import {
   useArtifactTurnNav,
   useFocusArtifactScroll,
   emitFocusArtifact,
+  tryFocusArtifactFromLink,
   FOCUS_ARTIFACT_EVENT,
   SCROLL_TO_MESSAGE_EVENT,
 } from '@/components/media/artifact-turn-badge'
@@ -91,16 +93,18 @@ afterEach(() => {
 
 describe('ArtifactCanvas 挂载 D76 徽章(①)', () => {
   it('给定含产物的消息流 fixture,产物卡渲染出"第 N 轮"徽章(turn=assistant 序号)与分型徽章', () => {
-    render(withProviders(
-      <ArtifactCanvas
-        artifact={{
-          type: 'html',
-          content: '<!DOCTYPE html><html><body>ok</body></html>',
-          name: 'report.html',
-        }}
-        turnMessageId="a3"
-      />,
-    ))
+    render(
+      withProviders(
+        <ArtifactCanvas
+          artifact={{
+            type: 'html',
+            content: '<!DOCTYPE html><html><body>ok</body></html>',
+            name: 'report.html',
+          }}
+          turnMessageId="a3"
+        />,
+      ),
+    )
     const turnBadge = screen.getByTestId('artifact-turn-badge')
     // a3 是第 3 条 assistant(a1/a2/a3)→ 第 3 轮(不依赖该消息是否有 summary_data 产物)
     expect(turnBadge.getAttribute('data-turn')).toBe('3')
@@ -111,12 +115,14 @@ describe('ArtifactCanvas 挂载 D76 徽章(①)', () => {
   })
 
   it('反向定位锚:根节点带 data-artifact-path(path 优先于 name)', () => {
-    render(withProviders(
-      <ArtifactCanvas
-        artifact={{ type: 'html', content: '<html><body>x</body></html>', path: 'tmp/a.docx' }}
-        turnMessageId="a1"
-      />,
-    ))
+    render(
+      withProviders(
+        <ArtifactCanvas
+          artifact={{ type: 'html', content: '<html><body>x</body></html>', path: 'tmp/a.docx' }}
+          turnMessageId="a1"
+        />,
+      ),
+    )
     expect(screen.getByTestId('artifact-turn-badge').getAttribute('data-turn')).toBe('1')
     const card = document.querySelector('[data-artifact-path="tmp/a.docx"]')
     expect(card).not.toBeNull()
@@ -132,15 +138,17 @@ describe('ArtifactCanvas 挂载 D76 徽章(①)', () => {
 
 describe('ArtifactCanvas 轮次徽章点击跳转(②)', () => {
   it('点击徽章 scrollIntoView 到 [data-message-id] 锚点并派发既有事件', () => {
-    render(withProviders(
-      <div>
-        <div data-message-id="a1" />
-        <ArtifactCanvas
-          artifact={{ content: '<html><body>x</body></html>', path: 'tmp/a.docx' }}
-          turnMessageId="a1"
-        />
-      </div>,
-    ))
+    render(
+      withProviders(
+        <div>
+          <div data-message-id="a1" />
+          <ArtifactCanvas
+            artifact={{ content: '<html><body>x</body></html>', path: 'tmp/a.docx' }}
+            turnMessageId="a1"
+          />
+        </div>,
+      ),
+    )
     const anchor = document.querySelector('[data-message-id="a1"]') as HTMLElement
     const scrollSpy = vi.spyOn(anchor, 'scrollIntoView').mockImplementation(() => {})
     const onScroll = vi.fn()
@@ -173,13 +181,15 @@ function PanelNavHarness({ onChange }: { onChange?: (n: number) => void }) {
 describe('面板头部 ArtifactTurnNav × useArtifactTurnNav(③)', () => {
   it('产物 turn 序列上前后移动,首末边界禁用,onChange 联动滚消息 + focus-artifact', () => {
     // fixture:a1=第1轮(docx) a2=第2轮(无产物) a3=第3轮(csv) → 有产物 turn 序列 [a1, a3]
-    render(withProviders(
-      <div>
-        <div data-message-id="a1" />
-        <div data-message-id="a3" />
-        <PanelNavHarness />
-      </div>,
-    ))
+    render(
+      withProviders(
+        <div>
+          <div data-message-id="a1" />
+          <div data-message-id="a3" />
+          <PanelNavHarness />
+        </div>,
+      ),
+    )
     const back = screen.getByTestId('artifact-step-back') as HTMLButtonElement
     const forward = screen.getByTestId('artifact-step-forward') as HTMLButtonElement
     const position = screen.getByTestId('artifact-turn-position')
@@ -204,8 +214,7 @@ describe('面板头部 ArtifactTurnNav × useArtifactTurnNav(③)', () => {
     expect(forward.disabled).toBe(true)
     expect(spyA3).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
     const detail = (onFocus.mock.calls[0]?.[0] as CustomEvent | undefined)?.detail as
-      | { path: string }
-      | undefined
+      { path: string } | undefined
     expect(detail?.path).toBe('tmp/artifacts/t.csv')
 
     // back:→ a1
@@ -254,4 +263,199 @@ describe('useFocusArtifactScroll 反向监听(④)', () => {
     scrollSpy.mockRestore()
   })
 })
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​​‌‌‌‍‍​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​‌​‍‍​​‌‌​​‌​⁠
+
+// ------------- 残余①(2026-09-25):同轮多产物按产物 id 精确聚焦 ----------------
+//
+// 反向对照:本票前 useArtifactTurnNav **没有** focusArtifact(只有 turn 粒度的
+// onChangeIndex,反向聚焦恒取该轮 artifacts[0])。旧实现在这组用例上必红:
+// 点击"第 2 个产物"要么 TypeError(API 不存在),要么 detail.path 落回第 1 个。
+
+function FocusArtifactHarness() {
+  const messages = useChatStore((s) => s.messages)
+  const nav = useArtifactTurnNav(messages)
+  return (
+    <div>
+      <button
+        type="button"
+        data-testid="focus-first"
+        onClick={() => nav.focusArtifact('tmp/artifacts/one.docx')}
+      />
+      <button
+        type="button"
+        data-testid="focus-second"
+        onClick={() => nav.focusArtifact('tmp/artifacts/two.csv')}
+      />
+      <button
+        type="button"
+        data-testid="focus-unknown"
+        onClick={() => nav.focusArtifact('tmp/absent.pptx')}
+      />
+      <span data-testid="nav-position">{nav.activeIndex}</span>
+    </div>
+  )
+}
+
+describe('useArtifactTurnNav.focusArtifact 残余①(按产物 id 精确聚焦)', () => {
+  it('同轮 2 产物分别点第 1 / 第 2 个 → 聚焦目标不同(不恒等于轮内首个),activeIndex 同步', () => {
+    useChatStore.setState({
+      messages: [
+        msg({
+          id: 'a1',
+          role: 'assistant',
+          content: '',
+          createdAt: 1,
+          toolCalls: [
+            {
+              id: 't1',
+              toolName: 'summarize_artifacts',
+              status: 'success',
+              summary_data: {
+                artifacts: [
+                  { type: 'file', path: 'tmp/artifacts/one.docx' },
+                  { type: 'file', path: 'tmp/artifacts/two.csv' },
+                ],
+              },
+            },
+          ],
+        }),
+        msg({
+          id: 'a2',
+          role: 'assistant',
+          content: '',
+          createdAt: 2,
+          toolCalls: [
+            {
+              id: 't2',
+              toolName: 'summarize_artifacts',
+              status: 'success',
+              summary_data: { artifacts: [{ type: 'file', path: 'tmp/deck.pptx' }] },
+            },
+          ],
+        }),
+      ],
+    })
+    render(
+      withProviders(
+        <div>
+          <div data-message-id="a1" />
+          <div data-message-id="a2" />
+          <FocusArtifactHarness />
+        </div>,
+      ),
+    )
+    const spyA1 = vi
+      .spyOn(document.querySelector('[data-message-id="a1"]') as HTMLElement, 'scrollIntoView')
+      .mockImplementation(() => {})
+    const spyA2 = vi
+      .spyOn(document.querySelector('[data-message-id="a2"]') as HTMLElement, 'scrollIntoView')
+      .mockImplementation(() => {})
+    const emitted: unknown[] = []
+    const onFocus = (e: Event) => emitted.push((e as CustomEvent<{ path?: string }>).detail?.path)
+    window.addEventListener(FOCUS_ARTIFACT_EVENT, onFocus)
+
+    // 点第 2 个 → 聚焦的是它本身(旧实现唯一可表达的是轮内第 1 个 → 此断言必红)
+    fireEvent.click(screen.getByTestId('focus-second'))
+    // 点第 1 个 → 目标与上一步不同
+    fireEvent.click(screen.getByTestId('focus-first'))
+    // 未知产物 → 不派发(派发到空气防回归)
+    fireEvent.click(screen.getByTestId('focus-unknown'))
+    window.removeEventListener(FOCUS_ARTIFACT_EVENT, onFocus)
+
+    expect(emitted).toEqual(['tmp/artifacts/two.csv', 'tmp/artifacts/one.docx'])
+    // 两次都滚回同一 origin 消息(a1),activeIndex 随聚焦轮次落位(未知产物不动)
+    expect(spyA1).toHaveBeenCalledTimes(2)
+    expect(spyA2).not.toHaveBeenCalled()
+    expect(screen.getByTestId('nav-position').textContent).toBe('0')
+    spyA1.mockRestore()
+    spyA2.mockRestore()
+  })
+
+  it('聚焦第 2 轮的产物 → 滚回第 2 轮消息且 detail 即被点锚点', () => {
+    useChatStore.setState({
+      messages: [
+        msg({
+          id: 'a1',
+          role: 'assistant',
+          content: '',
+          createdAt: 1,
+          toolCalls: [
+            {
+              id: 't1',
+              toolName: 'summarize_artifacts',
+              status: 'success',
+              summary_data: { artifacts: [{ type: 'file', path: 'tmp/deck.pptx' }] },
+            },
+          ],
+        }),
+        msg({
+          id: 'a2',
+          role: 'assistant',
+          content: '',
+          createdAt: 2,
+          toolCalls: [
+            {
+              id: 't2',
+              toolName: 'summarize_artifacts',
+              status: 'success',
+              summary_data: {
+                artifacts: [
+                  { type: 'file', path: 'tmp/artifacts/one.docx' },
+                  { type: 'file', path: 'tmp/artifacts/two.csv' },
+                ],
+              },
+            },
+          ],
+        }),
+      ],
+    })
+    render(
+      withProviders(
+        <div>
+          <div data-message-id="a1" />
+          <div data-message-id="a2" />
+          <FocusArtifactHarness />
+        </div>,
+      ),
+    )
+    const spyA1 = vi
+      .spyOn(document.querySelector('[data-message-id="a1"]') as HTMLElement, 'scrollIntoView')
+      .mockImplementation(() => {})
+    const spyA2 = vi
+      .spyOn(document.querySelector('[data-message-id="a2"]') as HTMLElement, 'scrollIntoView')
+      .mockImplementation(() => {})
+    const onFocus = vi.fn()
+    window.addEventListener(FOCUS_ARTIFACT_EVENT, onFocus)
+    fireEvent.click(screen.getByTestId('focus-second'))
+    window.removeEventListener(FOCUS_ARTIFACT_EVENT, onFocus)
+    expect((onFocus.mock.calls[0]?.[0] as CustomEvent).detail?.path).toBe('tmp/artifacts/two.csv')
+    expect(spyA2).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
+    expect(spyA1).not.toHaveBeenCalled()
+    expect(screen.getByTestId('nav-position').textContent).toBe('1')
+    spyA1.mockRestore()
+    spyA2.mockRestore()
+  })
+})
+
+// ------------- 残余②(2026-09-25):链接发起端接管判据(通道级) ------------------
+
+describe('tryFocusArtifactFromLink 残余②(有卡接管 / 无卡放行)', () => {
+  it('页面上有同锚点产物卡 → 接管(true)+派发既有事件+监听端定位高亮', () => {
+    render(<FocusHarness />)
+    const card = screen.getByTestId('artifact-card')
+    const scrollSpy = vi.spyOn(card, 'scrollIntoView').mockImplementation(() => {})
+    expect(tryFocusArtifactFromLink('tmp/artifacts/report.docx')).toBe(true)
+    expect(scrollSpy).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
+    expect(card.style.outline).toContain('solid')
+    scrollSpy.mockRestore()
+  })
+
+  it('无对应卡 → false 且不派发(调用方保持原下载 / 打开面板行为)', () => {
+    render(<FocusHarness />)
+    const onFocus = vi.fn()
+    window.addEventListener(FOCUS_ARTIFACT_EVENT, onFocus)
+    expect(tryFocusArtifactFromLink('https://example.com/loose.docx')).toBe(false)
+    expect(onFocus).not.toHaveBeenCalled()
+    window.removeEventListener(FOCUS_ARTIFACT_EVENT, onFocus)
+  })
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
