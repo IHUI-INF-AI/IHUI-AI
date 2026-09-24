@@ -170,7 +170,7 @@ export function maskSecret(value: string | undefined | null): string | undefined
 // ==================== 4. 出站凭据 ====================
 
 /** settings.json 中与凭据相关的字段子集(独立定义以免与 Settings 形成循环依赖)。 */
-export interface CredentialConfigFields {
+interface CredentialConfigFields {
   apiKey?: string;
   apiSecret?: string;
   credentialKind?: CredentialKindDeclaration;

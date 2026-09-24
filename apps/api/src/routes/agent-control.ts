@@ -52,7 +52,7 @@ function isInternalSecret(authHeader: string | undefined): boolean {
 // ---------------------------------------------------------------------------
 
 // 导出供下方 __test__ 断言用(tsc declaration 阶段要求公共签名可命名)
-export interface RegisteredEndpoint {
+interface RegisteredEndpoint {
   capability: AgentControlCapability
   userId: string
   lastSeen: number
