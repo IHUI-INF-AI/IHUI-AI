@@ -12,6 +12,7 @@
  * 改坏的两侧:放宽过头=门失效，收紧过头=假红逼人 --no-verify)。
  */
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -102,6 +103,21 @@ test('CLI 必须认 --all(被无声忽略=我以为跑了全量而实际没有)'
   const src = readFileSync(join(ROOT, 'scripts/check-statusbar-single-source.mjs'), 'utf8')
   assert.match(src, /argv\.includes\('--all'\)/)
   assert.match(src, /--staged'\)\s*\?\s*'index'\s*:\s*'head'/, '取材面切换不在 main 里 = 口径可能旁路')
+})
+
+test('--json 的 stdout 必须是**单份可 parse** 的文档(人话尾巴会崩掉任何机器消费方)', () => {
+  const script = join(ROOT, 'scripts/check-statusbar-single-source.mjs')
+  let out = ''
+  try {
+    out = execFileSync(process.execPath, [script, '--json'], { cwd: ROOT, encoding: 'utf8', windowsHide: true, timeout: 180000, maxBuffer: 64 * 1024 * 1024 })
+  } catch (e) {
+    out = e?.stdout ?? '' // 红着退出也是合法输出，照样得能 parse
+  }
+  const j = JSON.parse(out)
+  assert.ok(Array.isArray(j.violations?.s1) && Array.isArray(j.violations?.s3), 'violations 结构不对')
+  assert.equal(typeof j.total, 'number')
+  assert.equal(typeof j.ok, 'boolean', '缺 ok 字段 = 消费方得自己重算总数')
+  assert.equal(j.face, 'head', '默认取材面必须是 HEAD')
 })
 
 test('AGENTS.md 与 README 必须点名本门(守门 89 R4:判据在而文档不点名即拦)', () => {
