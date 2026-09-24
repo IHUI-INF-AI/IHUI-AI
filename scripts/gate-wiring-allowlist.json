@@ -25,9 +25,8 @@
     },
     {
       "script": "check-lock.mjs",
-      "type": "dispatcher",
-      "dispatcher": "apps/web/package.json prebuild/predev",
-      "reason": "dev-vs-build 互斥锁检查器,调用点在端内包的 prebuild/predev 钩子(非根 package.json,不属五处权威点);部署侧另有 deploy-lock.mjs"
+      "type": "standalone-tool",
+      "reason": "【2026-09-24 依据更正】原条目写「调用点在 apps/web/package.json prebuild/predev」是**假依据**:实测该两处调的是 scripts/deploy-lock.mjs 与 scripts/check-stale-stashes.mjs,全仓除台账自身外对 scripts/check-lock.mjs 零引用。本脚本是 dev-vs-build 互斥锁的历史实现,真实生效的是 deploy-lock.mjs(AGENTS §12 部署锁一节)。保留文件不删(共享工作区他人可见,§7 删除三问未过),仅供查阅;若将来确需复活,须先说明与 deploy-lock.mjs 的分工再登记接线。"
     },
     {
       "script": "check-messages-dev-restart.mjs",
