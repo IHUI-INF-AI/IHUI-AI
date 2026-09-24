@@ -46,3 +46,12 @@ export * from './handoff-package'
 // D75 侧边任务生命周期四态(running/completed/expired/cleaned,仅 cleaned 为终态)+ 临时性显式声明
 // + 过期批量清理 + 并行运行位置 + 文件变更计数 + 关闭前确认判据;不触碰 /side 队列语义(W27 预备消息优先)
 export * from './side-task-lifecycle'
+// D100 计费自助状态机(开关四态/保存/确认门 —— 凡自动扣款必先说明性确认,跳过确认不得触发 enable/
+// 逐字段校验 minimumDifference 等/价格三态/首充失败恢复两形状;不取数,onAction 注入)
+export * from './auto-topup'
+// D102 对话移交工作树(四条分支名校验固定顺序:required→trailingSlash→defaultBranch→alreadyExists/
+// existing 目标免 alreadyExists/运行中禁止复用 D71 isActiveTurnState 不另立第二套)
+export * from './move-to-worktree'
+// D66 编辑并重新发送 = 文件回退组合操作(十相位/四组失败态逐一落名/部分回退警示
+// 「部分修改未被检查点完整记录,回退结果可能不完整」/编排失败即停报告步骤;回退走既有 checkpoint 通道,不新建)
+export * from './edit-resend-rollback'
