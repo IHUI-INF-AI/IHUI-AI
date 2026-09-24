@@ -494,6 +494,85 @@ function detectTempDrift(options = {}) {
   return { status: 'drift', proc, declared }
 }
 
+export const MAINTAIN_TASK_NAME = 'IHUI C-Drive AutoMaintain'
+/** 按名字**片段**而非全名匹配:注册名含空格,§26 记录过拿文档旧名点名查会得到"系统找不到指定的文件",
+ *  于是"查法失效"与"任务真不存在"产出同一个结论;片段比对大小写不敏感,不吃尾空格与连字符变体。 */
+const MAINTAIN_TASK_NEEDLE = 'c-drive'
+
+/**
+ * 纯函数:`schtasks /Query /FO CSV /NH` 的原始 stdout → 三态(registered / unregistered / undetermined)。
+ * 判「未注册」的前置条件是**输出形态自证**:至少要有一行首字段是 `\` 开头的任务路径。
+ * 为什么把"没查到"与"查法失效"分成两态:本门此前反过来把不存在的任务硬写成"已注册" —— 两者是
+ * 同一种病(结论没有依据),只是方向相反;把空扫说成未注册,同样会在别的机器上造出一个假红。
+ */
+export function judgeTaskRegistration(raw, needle = MAINTAIN_TASK_NEEDLE) {
+  const text = raw === null || raw === undefined ? '' : String(raw)
+  if (!text.trim()) return { state: 'undetermined', reason: 'schtasks 输出为空(命令没跑成 / stdout 被吞)', rows: 0, matched: [] }
+  const lines = text.split(/\r?\n/)
+  const names = []
+  for (const line of lines) {
+    const m = /^\s*"((?:[^"]|"")*)"/.exec(line)
+    if (m) names.push(m[1].replace(/""/g, '"'))
+  }
+  if (!names.length)
+    return { state: 'undetermined', reason: `输出里解不出任何 CSV 首字段(共 ${lines.filter((l) => l.trim()).length} 行非空)`, rows: 0, matched: [] }
+  const shaped = names.filter((n) => n.startsWith('\\'))
+  if (!shaped.length)
+    return {
+      state: 'undetermined',
+      reason: `解出 ${names.length} 个字段却无一项是 \\ 开头的任务路径 ⇒ 输出形态不是 /fo CSV,不能据此判未注册`,
+      rows: 0,
+      matched: [],
+    }
+  const n = String(needle).toLowerCase()
+  const matched = shaped.filter((x) => x.toLowerCase().includes(n))
+  return matched.length
+    ? { state: 'registered', reason: '', rows: shaped.length, matched }
+    : { state: 'unregistered', reason: '', rows: shaped.length, matched: [] }
+}
+
+/**
+ * 计划任务在不在 —— 只回答"在不在",不伸到 S4U/StartBoundary 等注册验收细节(那是注册动作的验收,
+ * 不属本只读门)。非 win32 / 命令不可用 / 超时 / 退出异常 / 输出形态不符 ⇒ 一律 `未判定` + 原因,
+ * **绝不记为通过**(与本门"空扫不报绿"、§26"一条都没量到必须未判定"同一取向)。
+ * `raw` / `bin` / `timeout` 是给测试与离线巡检的注入口(与本文件 `scanC` 的注入约定同形,
+ * **默认行为一字不变**):没有它们,「命令不可用」「超时」两条失效分支就只能靠读源码断言 ——
+ * 而那种断言会跟着判据一起被改坏,不等于测过。
+ */
+export function queryMaintainTask(options = {}) {
+  if (typeof options.raw === 'string') return judgeTaskRegistration(options.raw, options.needle)
+  if (process.platform !== 'win32')
+    return { state: 'undetermined', reason: `非 win32 平台(${process.platform}),没有 schtasks 可查`, rows: 0, matched: [] }
+  try {
+    const out = execFileSync(options.bin || 'schtasks.exe', ['/Query', '/FO', 'CSV', '/NH'], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: options.timeout || 15000,
+      maxBuffer: 1 << 24,
+    })
+    return judgeTaskRegistration(out, options.needle)
+  } catch (e) {
+    const detail = String(e?.stderr || e?.message || '')
+      .replace(/\r?\n/g, ' ')
+      .trim()
+      .slice(0, 160)
+    const reason =
+      e?.code === 'ENOENT'
+        ? 'schtasks.exe 不可用(ENOENT)'
+        : e?.code === 'ETIMEDOUT' || e?.signal === 'SIGTERM'
+          ? `schtasks 查询超时(${options.timeout || 15000}ms)被杀`
+          : `schtasks 查询失败(${detail || e?.code || '未知异常'})`
+    return { state: 'undetermined', reason, rows: 0, matched: [] }
+  }
+}
+
+/** 三态到人话(输出面与 --json 共用一份措辞,避免两处各写一版)。 */
+export function describeMaintainTask(task) {
+  if (task.state === 'registered') return `已注册(实测命中:${task.matched.join(', ')})`
+  if (task.state === 'unregistered') return `未注册(全量 ${task.rows} 项任务里零命中 "${MAINTAIN_TASK_NEEDLE}")`
+  return `未判定(${task.reason})`
+}
+
 export function scanC(options = {}) {
   const drive = options.drive || 'C:'
   const devEnv = options.devEnv || devEnvRoot()
@@ -579,8 +658,9 @@ function main(argv) {
   const strict = argv.includes('--strict')
   if (argv.includes('--self-test')) return selfTest()
   const r = scanC()
+  const task = queryMaintainTask()
   if (json) {
-    console.log(JSON.stringify(r, null, 2))
+    console.log(JSON.stringify({ ...r, maintainTask: task }, null, 2))
   } else {
     console.log(`C 盘污染实地扫描:本项目产物 ${r.ours.length} 项,合计约 ${r.totalMB} MB`)
     for (const i of r.ours)
@@ -648,7 +728,24 @@ function main(argv) {
     console.log('\n本门只读,不删除任何文件。清理(只删上面列出的本项目产物,按名字筛):')
     console.log('  1) 预演  pwsh -NoProfile -File scripts/c-drive-auto-maintain.ps1 -DryRun')
     console.log('  2) 执行  pwsh -NoProfile -File scripts/c-drive-auto-maintain.ps1')
-    console.log('  计划任务 IHUI C-Drive AutoMaintain 每天 03:00 已注册(S4U,wscript 包装)')
+    // 这一行原先无条件打印「已注册(S4U,wscript 包装)」,而脚本内一次 schtasks 都没调过 ——
+    // 一道揭示 C 盘污染可见性的门,替一个已经不存在的防护背书:读它输出的人会以为每天在自动清理,
+    // 从而不去查真正没在跑的东西。现改为实测三态(权威查法 = 全量列表 + 名字片段匹配,见 §26)。
+    if (task.state === 'registered') {
+      console.log(`  ✔ 计划任务 ${MAINTAIN_TASK_NAME}:${describeMaintainTask(task)}(全量 ${task.rows} 项任务)`)
+    } else if (task.state === 'unregistered') {
+      console.log(`  ❌ 计划任务 ${MAINTAIN_TASK_NAME}:${describeMaintainTask(task)}⇒ **每日自动清理当前没有在跑**`)
+      console.log('     注册 = 影响全机的每日自动删除,须用户授权 ⇒ 本门只报不注册(注册动作由人执行,见 AGENTS.md §26)。')
+      const windir = process.env.WINDIR || process.env.SystemRoot || 'C:\\Windows'
+      const q = (p) => `\\"${p}\\"`
+      const tr = `"${q(join(windir, 'System32', 'wscript.exe'))} //B ${q(join(REPO, 'scripts', 'c-drive-maintain-hidden.vbs'))}"`
+      console.log('     人工注册两步(① 必须经 wscript 包装 —— 直跑 pwsh/node 每天闪黑窗;② 必须升 S4U —— 否则无人登录的凌晨不跑):')
+      console.log(`     1) schtasks /Create /F /TN "${MAINTAIN_TASK_NAME}" /SC DAILY /ST 03:00 /TR ${tr}`)
+      console.log(`     2) cscript //nologo "${join(REPO, 'scripts', 'task-set-s4u.vbs')}" "${MAINTAIN_TASK_NAME}"`)
+      console.log('     注册后回读仍只认全量列表法:node scripts/check-c-drive-pollution.mjs | grep 计划任务')
+    } else {
+      console.log(`  ⚠️ 计划任务 ${MAINTAIN_TASK_NAME}:${describeMaintainTask(task)}⇒ 不记为已注册,也不据此判未注册`)
+    }
     if (r.brokenSeal.length)
       console.log(
         '\n❌ 上面有「封口丢失/孤儿复现」项 ⇒ 根治器重跑一次即可(幂等):node scripts/seal-c-root-stray.mjs --apply',
@@ -700,12 +797,19 @@ function selfTest() {
       'D:\\OtherRepo\\src\\a.ts',
       'ihui-ai-provenance-lowercase',
       'qoder session state dump',
-      // 前缀相似但不是仓库根(后面紧跟的既不是分隔符也不是旧盘特征):不得误伤
-      'D:\\IHUI-AIIsHugeOtherThing\\x',
+      // 前缀相似但不是仓库根(后面紧跟的既不是分隔符也不是旧盘特征):不得误伤。
+      // 必须跟着本机真根拼:写死别的盘符时,这条在本仓不是那个盘时根本进不了 guard 的射程,
+      // 于是"不误伤"退化成人畜无害的空断言 —— 绿色但不看守任何东西。
+      `${REPO}IsHugeOtherThing\\x`,
     ])
       eq(matchContentSignatures(s).matched, false, `误判:${s}`)
-    // 旧盘 G: 特征是钉死的:迁移前的旧脚本只认当前 REPO 就会重新失明
-    if (!CONTENT_SIGNATURES.some((x) => x.re.test('G:\\IHUI-AI\\'))) throw new Error('G: 盘强特征缺失')
+    // 旧盘 G: 特征是钉死的:迁移前的旧脚本只认当前 REPO 就会重新失明。
+    // 按 why 锁定"旧盘符"那一族,而不是随便找一条能 test('G:\IHUI-AI\') 的 —— 后者在本仓就在 G: 时
+    // 会被"当前仓库根"特征顺手满足,删掉钉死族也照样报绿(假绿)。
+    const legacy = CONTENT_SIGNATURES.filter((x) => /旧盘符/.test(x.why))
+    if (legacy.length !== 1) throw new Error(`旧盘符强特征须恰好一条,实得 ${legacy.length} 条`)
+    if (!legacy[0].re.test('G:\\IHUI-AI\\')) throw new Error('G: 盘强特征不吃反斜杠形态')
+    if (!legacy[0].re.test('G:/IHUI-AI/a.ts')) throw new Error('G: 盘强特征不吃正斜杠形态')
   })
   t('内容归因四态护栏:hit/notMatched/skipped(体积·二进制·目录)/failed 各有结论,绝不静默', () => {
     const base = mkScratch('content-attr-')
@@ -899,6 +1003,53 @@ function selfTest() {
     eq(parsePagefileUsage('').size, 0, '空输出必须作废')
   })
 
+  // —— 计划任务活性三态(取代原先那句无条件的"已注册"断言;判据全部走注入,不碰真机) ——
+  const csvWith = (names) => names.map((n) => `"${n}","2026/9/25 03:00:00","Ready"`).join('\r\n') + '\r\n'
+  t('计划任务:全量列表命中 c-drive ⇒ 已注册', () =>
+    eq(judgeTaskRegistration(csvWith(['\\AliProctectUpdate', '\\IHUI C-Drive AutoMaintain'])).state, 'registered', '命中却未判已注册'))
+  t('计划任务反向对照(关键):零命中样本判未注册,且结论行里不得出现"已注册"字样', () => {
+    const r = judgeTaskRegistration(
+      csvWith(['\\IHUI-AI git-guardian', '\\IHUI credential-health', '\\Microsoft\\Windows\\ScheduleTask']),
+    )
+    eq(r.state, 'unregistered', '零命中却没判未注册')
+    const line = describeMaintainTask(r)
+    if (/已注册/.test(line)) throw new Error(`未注册的结论行里出现了"已注册":${line}`)
+    eq(/未注册/.test(line), true, `结论行没如实说明:${line}`)
+    eq(r.rows > 0, true, '判未注册时 rows 必须>0(证明确实取到了全量列表,而非空扫)')
+  })
+  t('计划任务失效对照:空输出/报错文本/形态不符 ⇒ 一律未判定且原因非空(绝不记为通过)', () => {
+    for (const [label, raw] of [
+      ['空字符串', ''],
+      ['只有空白行', '   \r\n\t\r\n'],
+      ['非 CSV 的报错文本', 'ERROR: Access is denied.\r\n'],
+      ['解得出字段但无 \\ 开头(表头行/别的分隔格式)', '"TaskName","Next Run Time","Status"\r\n'],
+      [null, null],
+    ]) {
+      const r = judgeTaskRegistration(raw)
+      eq(r.state, 'undetermined', `${label} 必须判未判定`)
+      if (!r.reason) throw new Error(`${label} 判了未判定却没写原因`)
+    }
+  })
+  t('计划任务:大小写与含空格/连字符名不得影响命中(§26 名字陷阱的正面解法)', () => {
+    eq(judgeTaskRegistration(csvWith(['\\ihui c-drive automaintain'])).state, 'registered', '小写名漏判')
+    // 文档旧名那型:点名查会得"系统找不到指定的文件",全量列表法必须连这种写法也认住
+    eq(judgeTaskRegistration(csvWith(['\\IHUI-C-Drive-AutoMaintain'])).state, 'registered', '连字符变体漏判')
+  })
+  t('计划任务装车证明:真机查询落在三态之一且各态自带依据(不得退回硬编码)', () => {
+    const r = queryMaintainTask()
+    if (!['registered', 'unregistered', 'undetermined'].includes(r.state)) throw new Error(`非法状态:${r.state}`)
+    if (r.state === 'undetermined' && !r.reason) throw new Error('未判定却无原因')
+    if (r.state === 'unregistered' && !(r.rows > 0)) throw new Error('判未注册却没量到全量列表 ⇒ 与空扫无法区分')
+    if (r.state === 'registered' && !r.matched.length) throw new Error('判已注册却无命中项')
+  })
+  t('源码级防回归:无条件"已注册"断言不得回潮(判据串自身分片拼,否则门咬自己尾巴恒红)', () => {
+    const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+    // needle 必须分片拼:写成连续字面量的话,本用例自己的标题/正则就成了它所禁的那个串 ——
+    // 于是"门让你怎么写,门就看不见怎么写"(守门 77 B6 括号形态同型坑)。
+    const claim = '每天 03:00' + ' 已注册'
+    if (src.includes(claim)) throw new Error('硬编码断言回潮 ⇒ 门又开始替不存在的防护背书')
+  })
+
   let failed = 0
   for (const c of cases) {
     try {
@@ -934,6 +1085,13 @@ export const __test__ = {
   scanC,
   detectTempDrift,
   FOREIGN_ROOT,
+  // 仓库根:内容归因特征由它派生,测试必须同源取(§22c)—— 在测试里另写一个盘符,换 checkout 即恒红
+  REPO,
+  // 计划任务活性三态(§22c:判据只从这里出,测试不得另抄一份匹配逻辑)
+  MAINTAIN_TASK_NAME,
+  judgeTaskRegistration,
+  queryMaintainTask,
+  describeMaintainTask,
   // 内容归因一维(§22c:测试从这里取,不得另抄一份特征串)
   CONTENT_SIGNATURES,
   CONTENT_SNIFF_MAX_BYTES,
