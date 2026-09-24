@@ -184,7 +184,7 @@ def test_reject_with_reason_records_hint(persist):
     )
     assert result == "user_rejected"
     assert persist.check(key, "mcp_tool") is None  # 拒绝不落任何授权
-    assert stub._decision_hints.get("tc_1") == ("user_rejected_reason", "不要动这个文件")
+    assert stub._decision_hints.get("tc_1") == ("rejected_by_user", "不要动这个文件")
 
 
 def test_reject_without_reason_writes_no_hint(persist):
