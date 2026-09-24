@@ -298,11 +298,14 @@ test('listCandidates(--staged):只认暂存区,不把未跟踪文件拉进来(�
 
 const SAMPLE_INSIDE = `spawnSync('git', ['status'])`
 const SAMPLE_OUTSIDE = `execSync('git log -1')`
+// 区间内必须写成**真调用**:scanSource 有意不看字符串/模板字面量里的样例(那正是
+// "全量扫描恒红"被修好的机制 —— 文档里的示例不算生产违规)。把样例嵌在 `src: \`…\`` 里,
+// 扫描器按设计看不见,于是本用例测的是"模板字面量可见性"而不是"自我豁免",断言必然差 1 处。
 function fixtureWithRegion() {
   return [
     `function selfTest() {`,
     src.SELFTEST_BEGIN,
-    `  const cases = [{ src: \`${SAMPLE_INSIDE}\` }]`,
+    `  ${SAMPLE_INSIDE}`,
     src.SELFTEST_END,
     `  ${SAMPLE_OUTSIDE}`,
     `}`,
