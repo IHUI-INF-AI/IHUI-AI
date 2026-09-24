@@ -9,6 +9,7 @@ import { useLocale } from 'next-intl'
 import { MessageSquare, Loader2, Eye } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { Button, CloseButton } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
@@ -30,6 +31,9 @@ const STATUS_CLS: Record<string, string> = {
   paused: 'bg-amber-500/10 text-amber-600',
   closed: 'bg-muted text-muted-foreground',
 }
+
+/** 层栈 id(见 @/lib/overlay-stack):会话详情遮罩的 Esc 只在栈顶时被消费 */
+const SESSIONS_DETAIL_OVERLAY_ID = 'admin-clawdbot-sessions-detail'
 
 export default function ClawdbotSessionsPage() {
   const locale = useLocale()
@@ -58,6 +62,15 @@ export default function ClawdbotSessionsPage() {
   React.useEffect(() => {
     void load()
   }, [load])
+
+  // 层栈:详情遮罩打开即入栈为栈顶,Esc 只由栈顶消费(多层同开时不再一起关)
+  React.useEffect(() => {
+    if (!selected) return
+    pushOverlay(SESSIONS_DETAIL_OVERLAY_ID)
+    return () => {
+      popOverlay(SESSIONS_DETAIL_OVERLAY_ID)
+    }
+  }, [selected])
 
   const viewDetail = async (s: SessionItem) => {
     const res = await fetchApi<SessionItem>(`/api/admin/clawdbot/sessions/${s.id}`)
@@ -122,7 +135,10 @@ export default function ClawdbotSessionsPage() {
           tabIndex={0}
           onClick={() => setSelected(null)}
           onKeyDown={(e) => {
-            if (e.key === 'Escape') setSelected(null)
+            if (e.key === 'Escape') {
+              if (!isTopOverlay(SESSIONS_DETAIL_OVERLAY_ID)) return
+              setSelected(null)
+            }
           }}
         >
           <div

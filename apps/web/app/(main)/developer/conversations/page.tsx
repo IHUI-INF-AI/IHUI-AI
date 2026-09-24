@@ -14,6 +14,7 @@ import { fetchApi } from '@/lib/api'
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { BackButton } from '@/components/common'
 
 // --- 类型定义(与后端 schema 对齐,JSON 序列化后 Date → string) ---
@@ -57,6 +58,9 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 
 const PAGE_SIZE = 20
 
+/** 层栈 id(见 @/lib/overlay-stack):行内改标题输入框的 Esc 只在栈顶时被消费 */
+const TITLE_EDIT_OVERLAY_ID = 'developer-conversations-title-edit'
+
 export default function ConversationsPage() {
   const locale = useLocale()
   const qc = useQueryClient()
@@ -64,6 +68,15 @@ export default function ConversationsPage() {
   const [expandedId, setExpandedId] = React.useState<string | null>(null)
   const [editingId, setEditingId] = React.useState<string | null>(null)
   const [editTitle, setEditTitle] = React.useState('')
+
+  // 层栈:进入行内改名态即入栈为栈顶,此态下的 Esc 只由本层消费(不再连带关掉外层浮层)
+  React.useEffect(() => {
+    if (!editingId) return
+    pushOverlay(TITLE_EDIT_OVERLAY_ID)
+    return () => {
+      popOverlay(TITLE_EDIT_OVERLAY_ID)
+    }
+  }, [editingId])
 
   const dateFmt = new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' })
   const num = new Intl.NumberFormat(locale)
@@ -183,7 +196,10 @@ export default function ConversationsPage() {
                               className="flex-1 rounded-md border border-border bg-background px-2 py-1 text-sm"
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') saveEdit()
-                                if (e.key === 'Escape') setEditingId(null)
+                                if (e.key === 'Escape') {
+                                  if (!isTopOverlay(TITLE_EDIT_OVERLAY_ID)) return
+                                  setEditingId(null)
+                                }
                               }}
                             />
                             <Button size="sm" onClick={saveEdit} disabled={titleMut.isPending}>
