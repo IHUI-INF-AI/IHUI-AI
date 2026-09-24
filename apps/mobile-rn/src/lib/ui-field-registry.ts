@@ -28,7 +28,7 @@ import type { AgentActionErrorCode, AppUiElement } from '@ihui/types'
  * globalThis 的一个约定键上,ui-native 用结构化局部类型读取(见 packages/ui-native/src/input.tsx)。
  */
 
-export type RnFieldKind = 'input' | 'button' | 'form'
+type RnFieldKind = 'input' | 'button' | 'form'
 
 /** 组件交给注册表的一张登记表:全部字段用访问器表达,快照读到的永远是"当下"的值 */
 export interface RnFieldSpec {
