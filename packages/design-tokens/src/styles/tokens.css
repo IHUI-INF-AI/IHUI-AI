@@ -310,6 +310,29 @@
   --text-vcenter-offset: 0.3px;
 }
 
+/* ============ Tailwind v3 端 alpha 通道三元组(2026-09-25 立) ============
+ * 为什么需要:miniapp-taro(Taro 4)与 mobile-rn(NativeWind)走 **Tailwind v3**,颜色取自
+ * packages/design-tokens/src/tailwind-preset.js 里的 JS theme,形如 `primary: 'var(--color-primary)'`。
+ * v3 只有在能把颜色**解析成通道**时才产出透明度修饰符工具类,而 `var(...)` 解析不出来 ⇒
+ * `bg-primary/10` 这类写法在这两端**静默地一条规则都不生成**(类名在、样式无、不报错、不红)。
+ * 实测:miniapp 18 个 alpha 形态全部缺失(最高频 `bg-primary/10` 37 处)。
+ * web 端是 Tailwind v4,自己会算 alpha,**不消费这组变量**(它们在这里只是给 v3 端用的)。
+ *
+ * 唯一生产者:`packages/design-tokens/src/tailwind-alpha-plugin.js` 的 `ALPHA_TIERS` 清单
+ * (按**实际用量**推导,不整表铺开 ⇒ 新增一档必须先有真实用量)。
+ * 每档三元组必须等于同名 `--color-X` 的 RGB 通道分解 —— 由守门 `check-cross-end-tokens` 的 R6
+ * 现算通道逐位对账(写错一个数字即红),不得在别处再抄第二份。
+ * 明暗同值的档位(destructive)只在 :root 声明一次靠级联回退,.dark 不复制第二份。 */
+:root {
+  --color-foreground-rgb: 10, 10, 10;
+  --color-primary-rgb: 0, 0, 0;
+  --color-primary-foreground-rgb: 255, 255, 255;
+  --color-muted-rgb: 235, 235, 235;
+  --color-destructive-rgb: 255, 51, 51;
+  --color-success-rgb: 33, 196, 93;
+  --color-warning-rgb: 245, 159, 10;
+}
+
 /* ============ 透明度色板(共享 — 2026-07-24 从 web 本地 design-tokens.css 迁移) ============ */
 /* 源: _global-tokens.scss L225-278
  * 白色档位 26 个、黑色档位 24 个(共 50 档),存在档位间隔(如 7/9/11 等缺失),忠实保留源文件档位。
@@ -610,6 +633,15 @@ select:-webkit-autofill:focus {
   --color-agent-name: #517bff;
   /* RN 屏幕画布暗色覆盖(bg-white ↔ dark:bg-neutral-900 #171717) */
   --color-screen-canvas: #171717;
+  /* Tailwind v3 端 alpha 通道三元组的暗色分解(与上方 :root 的 *-rgb 块成对;
+   * 每行值 = 本块同名 --color-X 的 RGB 通道,由守门 check-cross-end-tokens R6 对账。
+   * destructive 明暗同值 ⇒ 此处刻意不重复,靠级联回退到 :root 那一份) */
+  --color-foreground-rgb: 250, 250, 250;
+  --color-primary-rgb: 255, 255, 255;
+  --color-primary-foreground-rgb: 0, 0, 0;
+  --color-muted-rgb: 38, 38, 38;
+  --color-success-rgb: 45, 210, 105;
+  --color-warning-rgb: 238, 166, 43;
 }
 
 /* ============ 全局基础变量(2026-07-27 上提自 web 本地 design-tokens.css) ============
