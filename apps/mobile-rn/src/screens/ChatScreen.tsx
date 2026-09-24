@@ -148,7 +148,6 @@ import ModelPickerList, { type ModelListItem } from '../components/ModelPickerLi
 import AgentList, { type AgentListItem } from '../components/AgentList'
 import { BottomPops } from '../components/BottomPops'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
-import NotificationPanel from '../components/NotificationPanel'
 import { useAuth } from '../context/AuthContext'
 import { useChatInput } from '../hooks/useChatInput'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -1440,13 +1439,13 @@ export function ChatScreen() {
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                       <MessageSquare size={12} color={tokens.text.secondary} />
                       <Text style={styles.thinkingTitle}>
-                      {t(`ai.pane.${thinkingView.titleKey}`, thinkingView.values)}
-                    </Text>
+                        {t(`ai.pane.${thinkingView.titleKey}`, thinkingView.values)}
+                      </Text>
                     </View>
                     {reasoning.trim() !== '' ? (
-
-                      <Text style={styles.thinkingToggle}>{thinkingExpanded ? '收起' : '展开'}</Text>
-
+                      <Text style={styles.thinkingToggle}>
+                        {thinkingExpanded ? '收起' : '展开'}
+                      </Text>
                     ) : null}
                   </Pressable>
                   {thinkingExpanded && reasoning.trim() !== '' ? (
@@ -2154,8 +2153,8 @@ export function ChatScreen() {
 
   return (
     <View style={styles.root}>
-      {/* 推送通知弹窗(对齐 Uniapp 顶层 PushNotification,组件自管 visible) */}
-      <NotificationPanel />
+      {/* 推送通知弹窗由 RootNavigator 全局挂载(见该处 <NotificationPanel />);
+          此处曾另挂一份,两者读同一个 store 的 visible,打开通知会叠出两个相同面板。 */}
 
       {/* 顶部导航区(对齐 Uniapp navigation-bars:菜单 + 标题 + 加入) */}
       <NavBar
