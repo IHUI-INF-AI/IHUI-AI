@@ -28,7 +28,7 @@ import {
 import type { Tool, ToolContext, ToolResult } from './index.js';
 import { todo_write } from './todo-write.js';
 import { ask_user_question } from './ask-user.js';
-import { matchDangerousCommand, isReadonlyCommand } from './command-safety.js';
+import { gateCommandExecution, describeCommandBlock } from './command-safety.js';
 import { tryParseJson, isRecord } from '../util/json.js';
 import {
   terminal_open,
@@ -439,17 +439,16 @@ export const run_command: Tool = {
     const command = args.command as string;
     if (!command) return { success: false, output: '', error: '缺少 command 参数' };
     const background = args.background === true;
-    // 危险命令模式检查:即使 allowDangerous=true 也强制拦截,除非 IHUI_YOLO=1
-    const dangerousMatch = matchDangerousCommand(command);
-    if (dangerousMatch && !process.env.IHUI_YOLO) {
-      return {
-        success: false,
-        output: `⚠ 危险命令被拦截:命令匹配危险模式 ${dangerousMatch.source}\n如确需执行,请设置 IHUI_YOLO=1`,
-      };
+    // 安全闸门:危险档(可被 IHUI_YOLO 越)+ alwaysConfirm 档(逃生舱也拦)
+    // + 只读免确认档,三档一次算完 —— 判据在 command-safety 的 gateCommandExecution 里,
+    // 本文件与 tools/terminal.ts 共用同一份,不各写一遍。
+    const gate = gateCommandExecution(command);
+    const blockMessage = describeCommandBlock(gate, !!process.env.IHUI_YOLO);
+    if (blockMessage) {
+      return { success: false, output: blockMessage };
     }
-    // readonly 命令自动批准(trusted profile 默认):免 confirmDangerous 提示
-    const readonlyAutoApproved = isReadonlyCommand(command);
-    if (!readonlyAutoApproved) {
+    // 只读命令自动批准(trusted profile 默认):免 confirmDangerous 提示
+    if (!gate.autoApprovable) {
       // 默认拒绝策略:未提供 confirmDangerous 回调时,dangerous 工具直接拒绝(安全优先)
       if (run_command.dangerLevel === 'dangerous' && !ctx.confirmDangerous) {
         return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${run_command.name}` };
