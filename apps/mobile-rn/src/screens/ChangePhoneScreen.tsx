@@ -7,6 +7,7 @@ import { Alert, StyleSheet, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import { ChangePhoneScreen as SharedChangePhoneScreen, type NationOption } from '@ihui/rn-app'
 import { InputArea } from '../components/InputArea'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
@@ -99,12 +100,14 @@ export function ChangePhoneScreen({ route }: { route?: { params?: { uuid?: strin
         method: 'POST',
         body: JSON.stringify({ phone: phoneNumber, type: 2 }),
       })
-      if (!res.success) throw new Error()
+      if (!res.success) throw new Error(res.error)
       startCountdown()
       showToast('success', '验证码已发送')
-    } catch {
-      setTip('验证码发送失败,请稍后重试')
-      showToast('error', '验证码发送失败')
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      const friendly = detail.trim() ? toUserFriendlyMessage(e) : ''
+      setTip(friendly || '验证码发送失败,请稍后重试')
+      showToast('error', friendly || '验证码发送失败')
     }
   }
 
@@ -142,9 +145,11 @@ export function ChangePhoneScreen({ route }: { route?: { params?: { uuid?: strin
         clearTimeout(tm)
         navigation.goBack()
       }, 1000)
-    } catch {
-      setTip('网络异常,请稍后重试')
-      showToast('error', '网络异常')
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      const friendly = detail.trim() ? toUserFriendlyMessage(e) : ''
+      setTip(friendly || '网络异常,请稍后重试')
+      showToast('error', friendly || '网络异常')
     } finally {
       setSubmitting(false)
     }
