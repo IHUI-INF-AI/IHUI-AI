@@ -156,14 +156,14 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   tokenButton: {
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: rnRadius.xl,
   },
   tokenButtonText: {
     fontSize: 12,
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
     fontWeight: '700',
   },
 })

@@ -183,7 +183,7 @@ function createStyles(tk: AppThemeTokens) {
       width: 48,
       height: 48,
       borderRadius: 24, // radius-exempt: 48dp 圆形成员头像,取边长一半
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -210,7 +210,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       backgroundColor: tk.surface.card,
     },
-    actionBtnPrimary: { backgroundColor: tk.brand.DEFAULT },
+    actionBtnPrimary: { backgroundColor: tk.brand.cta },
     actionBtnText: { fontSize: 16, fontWeight: '500', color: tk.text.primary },
     actionBtnPrimaryText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
     pressed: { opacity: 0.85 },
@@ -222,7 +222,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     retryText: { fontSize: 14, fontWeight: '500', color: tk.surface.light },
   })

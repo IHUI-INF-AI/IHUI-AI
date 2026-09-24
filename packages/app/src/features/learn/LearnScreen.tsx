@@ -262,7 +262,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 16,
       paddingVertical: 8,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     } as ViewStyle,
     retryText: { fontSize: 14, fontWeight: '600', color: tk.surface.light } as TextStyle,
 
