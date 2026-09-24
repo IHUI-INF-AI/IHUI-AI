@@ -51,7 +51,7 @@ Grafana Explore（LogQL 查询 + 可视化，127.0.0.1:8816）
 | Loki                 | **3100**          | 日志推送 / 查询 / /ready / /metrics                    | 3100                 |
 | Promtail             | **9080**          | 自身指标 /health / /targets（抓取目标）                | 9080                 |
 | Alertmanager         | **9093**          | 告警分组/抑制/路由                                     | 9093                 |
-| alert-webhook-bridge | 9096              | 告警转 Server酱（见 monitoring/alertbridge/README.md） | —                    |
+| alert-webhook-bridge | 9096              | 告警转运维邮件（见 monitoring/alertbridge/README.md） | —                    |
 | otel-collector       | 8888              | 当前**未部署**（无进程）                               | 8812/8813            |
 | Jaeger               | 16686             | 当前**未部署**（无进程）                               | 8814                 |
 
@@ -282,12 +282,12 @@ Get-ChildItem D:\DevEnv\monitor\loki-data -Recurse | Measure-Object -Property Le
 │  Grafana（统一可视化，127.0.0.1:8816）                         │
 │  ├─ Prometheus 数据源 → 指标（CPU/内存/QPS/延迟） 127.0.0.1:8815 │
 │  ├─ Loki 数据源      → 日志（本机应用日志）      127.0.0.1:3100  │
-│  └─ Alertmanager    → 告警（Server酱 → 微信）   127.0.0.1:9093  │
+│  └─ Alertmanager    → 告警（bridge → 运维邮件）   127.0.0.1:9093  │
 └──────────────────────────────────────────────────────────────┘
        ▲                  ▲                  ▲
 ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐
 │ Prometheus   │  │ Loki         │  │ Alertmanager + Bridge│
-│ (拉 /metrics) │  │ (Promtail 推) │  │ (告警路由 → 微信)     │
+│ (拉 /metrics) │  │ (Promtail 推) │  │ (告警路由 → 邮件)     │
 └──────────────┘  └──────────────┘  └──────────────────────┘
        ▲                  ▲
 ┌──────────────────────────────────────┐
@@ -299,7 +299,7 @@ Get-ChildItem D:\DevEnv\monitor\loki-data -Recurse | Measure-Object -Property Le
 
 - **Prometheus**: 拉模式,抓 `/metrics` 数值时序。
 - **Loki**: 推模式,由 Promtail 推送日志文本(源是本机日志文件)。
-- **Alertmanager + alert-webhook-bridge**: 告警最后一跳 → Server酱 → 个人微信(详见 `monitoring/alertbridge/README.md`)。
+- **Alertmanager + alert-webhook-bridge**: 告警最后一跳 → 运维邮件（唯一到人通道，详见 `monitoring/alertbridge/README.md`）。
 - **Jaeger / OTel**: 当前未部署,无进程,不作为线上追踪依据。
 
 三者解耦:任一服务异常不影响其他。Loki 自身指标可查 `http://127.0.0.1:3100/metrics`,如需接 Prometheus,可在 `prometheus.yml` 的 `scrape_configs` 中加一个指向 `127.0.0.1:3100` 的 job。
