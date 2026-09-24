@@ -609,22 +609,6 @@
       "system": "系統"
     }
   },
-  "errors": {
-    "conflict": "操作沖突,請刷新後重試",
-    "forbidden": "沒有權限執行此操作",
-    "internalError": "服務器開小差了,請稍後重試",
-    "invalidMoney": "金額格式不正確",
-    "invalidTimezone": "時區格式不正確",
-    "locked": "資源已被鎖定,請稍後再試",
-    "memberExists": "該成員已存在",
-    "notFound": "找不到對應的資源",
-    "optimisticLock": "數據已被其他人修改,請刷新後重試",
-    "rateLimited": "操作過於頻繁,請稍後再試",
-    "serviceUnavailable": "服務暫不可用,請稍後重試",
-    "unauthorized": "登錄已過期,請重新登錄",
-    "upstreamFailure": "上游服務異常,請稍後重試",
-    "validationFailed": "提交的信息有誤,請檢查後重試"
-  },
   "faq": {
     "categoryDeploy": "部署與維運",
     "categoryGeneral": "平臺介紹",
