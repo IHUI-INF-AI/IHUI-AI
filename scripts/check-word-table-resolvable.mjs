@@ -354,6 +354,107 @@ export function exportedSymbols(text) {
   return out
 }
 
+/**
+ * 顶层声明块:名字 → 该声明的文本切片。切片终点取"下一个顶层声明的起点"(最后一块到 EOF),
+ * 因此函数体必被覆盖。只认**第 0 列**的声明 —— 缩进的声明是嵌套在别的块里,其文本已含于外层切片。
+ * 切片偏"过含"(末尾块把后续杂项也算进来)是有意方向:多算一次引用只会保留判据,不会造成放行。
+ */
+function topLevelDeclBlocks(src) {
+  const re =
+    /^(?:export\s+)?(?:default\s+)?(?:async\s+)?(?:const|let|var|function|class|type|interface|enum)\s+([A-Za-z_$][\w$]*)/gm
+  const starts = []
+  let m
+  while ((m = re.exec(src))) {
+    starts.push({ at: m.index, name: m[1] })
+    re.lastIndex = m.index + 1
+  }
+  const blocks = new Map()
+  for (let i = 0; i < starts.length; i++) {
+    const end = i + 1 < starts.length ? starts[i + 1].at : src.length
+    const prev = blocks.get(starts[i].name)
+    blocks.set(starts[i].name, (prev ? prev + '\n' : '') + src.slice(starts[i].at, end))
+  }
+  return blocks
+}
+
+/** `export { a as b, c }` 的别名回填:b → a(判据认内部真名,消费端写的是对外名字) */
+function exportAliases(src) {
+  const map = new Map()
+  for (const x of src.matchAll(/\bexport\s*\{([^}]*)\}/g)) {
+    for (const part of x[1].split(',')) {
+      const seg = part.trim().replace(/^type\s+/, '')
+      if (!seg || seg === 'default') continue
+      const as = seg.split(/\s+as\s+/)
+      const from = as[0].trim()
+      const to = (as[1] ?? as[0]).trim()
+      if (/^[A-Za-z_$][\w$]*$/.test(from) && /^[A-Za-z_$][\w$]*$/.test(to)) map.set(to, from)
+    }
+  }
+  return map
+}
+
+/** 该表标识符在模块内**被谁读到**:从表名出发沿顶层声明块相互引用做传递闭包 */
+export function tableReachableNames(moduleText, tableName) {
+  return reachableFromBlocks(topLevelDeclBlocks(stripComments(moduleText)), tableName)
+}
+
+function reachableFromBlocks(blocks, tableName) {
+  const word = new Map()
+  const reFor = (name) => {
+    if (!word.has(name))
+      word.set(name, new RegExp(String.raw`\b${name.replace(/[$]/g, '\\$')}\b`))
+    return word.get(name)
+  }
+  const tainted = new Set([tableName])
+  let grew = true
+  while (grew) {
+    grew = false
+    for (const [name, text] of blocks) {
+      if (tainted.has(name)) continue
+      for (const t of tainted) {
+        if (reFor(t).test(text)) {
+          tainted.add(name)
+          grew = true
+          break
+        }
+      }
+    }
+  }
+  return tainted
+}
+
+/**
+ * 消费端判定的符号面 = 模块导出符号 ∩ 真正读到这张表的符号。
+ *
+ * 为什么必须收到这一层(2026-09-24 实测盲区,70 枚 blocking 恒红的真因):
+ * `packages/shared/src/utils/error-messages.ts` 同模块导出 3 个函数 —— 只有
+ * `getErrorI18nKey` / `resolveErrorMessage` 会把 `errors.*` 交给 `t()`;
+ * `toUserFriendlyMessage` 读的是另一张固定中文表 `ERROR_CODE_TO_ZH`,压根不查词表。
+ * 而 mobile-rn 约 40 个屏调的正是后者。旧判据"该端提到**任一**导出符号 ⇒ 它是这张键表的
+ * 消费端",符号粒度被抹平,于是 14 枚全仓零调用方的键在 mobile-rn 上被判"界面会回显键名"。
+ *
+ * 两处兜底(方向一律是"退回旧判据、宁可多报"):
+ * ① 覆盖性自检 —— 任一导出符号既没有自己的顶层声明块、也不是 `export { 内名 as 外名 }` 的别名,
+ *   说明顶层切分没吃下这个文件(新语法形态 / 从别处 re-export)。**这条是命门**:切分一旦失效,
+ *   触表面会缩成"只剩表自己"⇒ 消费端被判成 0 ⇒ 门在真缺陷上恒绿(首轮实测就是这样误伤了
+ *   permission-tier / AgentRuntimePanel / budget-note 三张表的真消费端)。
+ * ② 收窄后为空(表只被模块内的非导出代码读)→ 同样退回全量。
+ */
+export function tableScopedSymbols(moduleText, tableName) {
+  const src = stripComments(moduleText)
+  const all = exportedSymbols(moduleText)
+  const blocks = topLevelDeclBlocks(src)
+  const alias = exportAliases(src)
+  const uncovered = [...all].filter((s) => !blocks.has(s) && !blocks.has(alias.get(s) ?? ''))
+  if (!blocks.size || uncovered.length) return all
+  const reach = reachableFromBlocks(blocks, tableName)
+  const scoped = new Set()
+  for (const s of all) {
+    if (reach.has(s) || reach.has(alias.get(s) ?? s)) scoped.add(s)
+  }
+  return scoped.size ? scoped : all
+}
+
 const sourceCache = new Map()
 export function sourceFile(rel) {
   if (sourceCache.has(rel)) return sourceCache.get(rel)
@@ -708,8 +809,11 @@ export function run({ staged = false, json = false, quiet = false } = {}) {
   const taro = taroBundleViews(sourceFile(TARO_GEN_SCRIPT), sourceFile(TARO_GEN))
   const symbolsCache = new Map()
   for (const t of scoped) {
-    if (!symbolsCache.has(t.file)) symbolsCache.set(t.file, exportedSymbols(sourceFile(t.file)))
-    t.consumerEnds = consumerEnds(t, importers, symbolsCache.get(t.file))
+    // 键必须带表名:一个文件可同时挂多张键表(实测 CourseFilterScreen.tsx 3 张、privacy.tsx 2 张),
+    // 各表的"触表符号"不同,按文件缓存会把前一张表的结论漏给后一张。
+    const skey = `${t.file}#${t.name}`
+    if (!symbolsCache.has(skey)) symbolsCache.set(skey, tableScopedSymbols(sourceFile(t.file), t.name))
+    t.consumerEnds = consumerEnds(t, importers, symbolsCache.get(skey))
     const m = /^(packages\/[^/]+)\//.exec(t.file)
     t.dependentEnds = m ? endsDependingOnPackage(m[1], pkgMap, deps) : []
   }
@@ -1028,6 +1132,82 @@ function selfTest() {
     guardNoTables({ tablesFound: 9, mode: 'staged', scopedCount: 0 }) === null,
   )
 
+  // ── 消费端符号粒度(2026-09-24 补):只认"真读到这张表"的导出符号 ──────
+  const modMulti = [
+    "export const WORDS: Record<string, string> = { a: 'ns.a', b: 'ns.b' }",
+    'const ZH_ONLY: Record<string, string> = { a: "甲", b: "乙" }',
+    'export function keyOf(k: string) { return WORDS[k] }',
+    'export function zhOnly(k: string) { return ZH_ONLY[k] }',
+  ].join('\n')
+  const scopedMulti = [...tableScopedSymbols(modMulti, 'WORDS')].sort()
+  t(
+    '收窄:读表的导出符号留下、读另一张中文字面量表的不留',
+    scopedMulti.join(',') === 'WORDS,keyOf',
+  )
+  t(
+    '反例(判据非恒真):把 zhOnly 改成也读这张表 → 它必须进触表面',
+    [...tableScopedSymbols(modMulti.replace('ZH_ONLY[k]', 'WORDS[k]'), 'WORDS')]
+      .sort()
+      .join(',') === 'WORDS,keyOf,zhOnly',
+  )
+  t(
+    '兜底①:符号没有自己的顶层声明块(re-export 形态)⇒ 退回全量,切分失效不得变绿',
+    (() => {
+      const viaReexport = ['export { nope } from "./other"', 'export const T = 1'].join('\n')
+      return [...tableScopedSymbols(viaReexport, 'nope')].sort().join(',') === 'T,nope'
+    })(),
+  )
+  t(
+    '传递闭包:导出符号经**私有** helper 间接读表,仍须算触表',
+    (() => {
+      const viaPrivateHelper = [
+        "const PRIV: Record<string, string> = { a: 'ns.a', b: 'ns.b' }",
+        'function pick(k: string) { return PRIV[k] }',
+        'export function unrelated() { return pick("a") }',
+      ].join('\n')
+      return [...tableScopedSymbols(viaPrivateHelper, 'PRIV')].join(',') === 'unrelated'
+    })(),
+  )
+  t(
+    '兜底②:无任何导出符号触表(收窄为空)⇒ 退回全量,不得判成"没有消费端"',
+    (() => {
+      const noExportReader = [
+        "const PRIV: Record<string, string> = { a: 'ns.a', b: 'ns.b' }",
+        'function pick(k: string) { return PRIV[k] }',
+        'export function noop() { return 1 }',
+      ].join('\n')
+      return [...tableScopedSymbols(noExportReader, 'PRIV')].join(',') === 'noop'
+    })(),
+  )
+  t(
+    '别名:`export { 内名 as 外名 }` 时消费端写的是外名,判据须按外名收',
+    [...tableScopedSymbols(`${modMulti}\nexport { keyOf as pickKey }`, 'WORDS')].includes(
+      'pickKey',
+    ),
+  )
+  // 真仓 A/B:同一份盘、只换符号面,证明收窄只影响该收的那一张
+  t(
+    '真仓:permission-tier 的真 accessor 不被收窄掉(收窄过窄即伪绿)',
+    [...tableScopedSymbols(sourceFile('packages/shared/src/chat/permission-tier.ts'), 'PERMISSION_TIER_WORD_KEYS')].includes(
+      'permissionTierWordKeys',
+    ),
+  )
+  t(
+    '真仓 A/B:error-messages 用全量符号面算出消费端、用收窄面算出零消费端',
+    (() => {
+      const EM = 'packages/shared/src/utils/error-messages.ts'
+      const importers = buildReverseIndex(listSourceFiles(), buildPackageMap())
+      const full = exportedSymbols(sourceFile(EM))
+      const narrow = tableScopedSymbols(sourceFile(EM), 'ERROR_CODE_TO_I18N_KEY')
+      return (
+        consumerEnds({ file: EM }, importers, full).includes('mobile-rn') &&
+        consumerEnds({ file: EM }, importers, narrow).length === 0 &&
+        !narrow.has('toUserFriendlyMessage') &&
+        narrow.has('resolveErrorMessage')
+      )
+    })(),
+  )
+
   // 真仓锚点:走权威入口 run()(全量),不拼内部件
   const live = run({ quiet: true })
   const tier = (live?.consumers ?? []).find((c) => c.table.includes('permission-tier.ts'))
@@ -1113,6 +1293,8 @@ export const __test__ = {
   resolveSpecifier,
   importSpecifiers,
   exportedSymbols,
+  tableScopedSymbols,
+  tableReachableNames,
   buildReverseIndex,
   reverseClosure,
   consumerEnds,
