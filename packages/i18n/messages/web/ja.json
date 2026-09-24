@@ -7368,6 +7368,61 @@
           "notFound": "見つかりません"
         }
       },
+      "modelLoad": {
+        "ariaLabel": "モデル負荷とキュー状態",
+        "load": {
+          "low": "低負荷のため待ちが発生する可能性があります",
+          "medium": "中負荷のため待ちが発生する可能性があります",
+          "high": "高負荷のため待ちが発生する可能性があります"
+        },
+        "slowLane": "スローキューに入りました · 現在 {position} 番目",
+        "fastPass": "優先パス有効、順番待ちなし",
+        "recovering": "モデルが利用可能になり、リクエストを継続しています",
+        "wait": {
+          "under1min": "予想待ち時間 1分未満",
+          "about1min": "予想待ち時間 約1分",
+          "aboutNmin": "予想待ち時間 約{minutes}分",
+          "over10min": "予想待ち時間 10分超"
+        }
+      },
+      "cloudChatOps": {
+        "title": "クラウドチャット",
+        "ariaLabel": "クラウドチャット連携アクティビティ",
+        "empty": "クラウドチャットの操作はありません",
+        "waitingUpstream": "上流のアクションを待っています",
+        "op": {
+          "attachCloudChat": {
+            "label": "クラウドチャットを添付",
+            "active": "添付中",
+            "completed": "添付済み",
+            "following": "添付待ち"
+          },
+          "createCloudChat": {
+            "label": "クラウドチャットを作成",
+            "active": "作成中",
+            "completed": "作成済み",
+            "following": "作成待ち"
+          },
+          "listCloudChats": {
+            "label": "クラウドチャットを一覧表示",
+            "active": "一覧取得中",
+            "completed": "一覧取得済み",
+            "following": "一覧取得待ち"
+          },
+          "readCloudChatTurns": {
+            "label": "クラウドチャットのターンを読み取り",
+            "active": "読み取り中",
+            "completed": "読み取り済み",
+            "following": "読み取り待ち"
+          },
+          "sendToCloudChat": {
+            "label": "クラウドチャットにメッセージを送信",
+            "active": "送信中",
+            "completed": "送信済み",
+            "following": "送信待ち"
+          }
+        }
+      },
       "prChecks": {
         "title": "CI チェック",
         "summary": {
@@ -26871,6 +26926,74 @@
         "inProgress": "取得中",
         "completed": "取得済み",
         "failed": "取得失敗"
+      }
+    }
+  },
+  "visualAnnotation": {
+    "pickElement": "要素を選択",
+    "panelTitle": "スタイル注釈",
+    "contextTitle": "視覚注釈",
+    "elementText": "要素テキスト",
+    "styleSnapshot": "スタイルスナップショット",
+    "annotationLabel": "注釈",
+    "annotationPlaceholder": "変更または確認したいスタイルを入力…",
+    "addToConversation": "会話に追加",
+    "staleWarning": "注釈は無効です:要素が変更されました",
+    "close": "閉じる",
+    "color": "色",
+    "backgroundColor": "背景色",
+    "border": "枠線",
+    "borderRadius": "角丸",
+    "fontSize": "文字サイズ",
+    "margin": "外側余白",
+    "padding": "内側余白"
+  },
+  "artifactTurn": {
+    "turn": "ターン {turn}",
+    "stepBack": "前の成果物",
+    "stepForward": "次の成果物",
+    "jumpToOrigin": "生成元のターンへ移動",
+    "kindDocument": "ドキュメント",
+    "kindPresentation": "プレゼンテーション",
+    "kindSpreadsheet": "スプレッドシート",
+    "kindFile": "ファイル"
+  },
+  "cloudChat": {
+    "header": {
+      "count": "{count, plural, other {# 件のクラウドチャット}}",
+      "target": "{name}"
+    },
+    "turns": "{turns, plural, other {# ターン}}",
+    "action": {
+      "attach": {
+        "label": "クラウドチャットを追加",
+        "active": "追加中",
+        "completed": "追加済み",
+        "following": "追加待ち"
+      },
+      "create": {
+        "label": "クラウドチャットを作成",
+        "active": "作成中",
+        "completed": "作成済み",
+        "following": "作成待ち"
+      },
+      "list": {
+        "label": "クラウドチャットを一覧",
+        "active": "一覧取得中",
+        "completed": "一覧取得済み",
+        "following": "一覧待ち"
+      },
+      "readTurns": {
+        "label": "クラウドチャットのターンを読込",
+        "active": "ターン読込中",
+        "completed": "ターン読込済み",
+        "following": "読込待ち"
+      },
+      "sendMessage": {
+        "label": "クラウドチャットへメッセージを送信",
+        "active": "送信中",
+        "completed": "送信済み",
+        "following": "送信待ち"
       }
     }
   }
