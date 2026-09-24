@@ -289,7 +289,12 @@ function main() {
     }
     console.error('')
     console.error(`${C.yellow}修复方法 (AGENTS.md §26):${C.reset}`)
-    console.error('  - 临时文件 → 用 os.tmpdir() (Node) 或 $env:TEMP (PowerShell),自动走 D 盘')
+    // 原文案推荐"TEMP 变量自动走 D 盘" —— 该前提已被 AGENTS.md §26 实测证伪:
+    // 活进程的 TEMP 可能仍钉在 C 盘(环境块不刷新),服务身份(LocalSystem)的 TEMP 更是
+    // 根本不走 HKCU。本门的修复指引不得再把 TEMP 变量当安全落点推荐(§26 临时夹具唯一落点)。
+    console.error('  - 临时文件/夹具 → Node 脚本唯一落点是 scripts/lib/scratch-dir.mjs 的 mkScratch (AGENTS.md §26);')
+    console.error('    非 Node 脚本显式选工作树同盘的临时目录 —— 不要信任 TEMP 环境变量,')
+    console.error('    活进程与服务身份的 TEMP 可能仍钉在 C 盘,"改指 D 盘"只对重启后的新进程生效(§26 TEMP 漂移)')
     console.error('  - 用户配置目录 → 用工具自带配置 (pnpm config / npm config / pip config)')
     console.error('  - 系统日志 → 写 $env:TEMP (已指向 D 盘)')
     console.error('  - 唯一例外:Tauri 内部 API 路径 (apps/desktop/src-tauri/,已自动排除)')

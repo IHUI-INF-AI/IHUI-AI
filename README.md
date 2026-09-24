@@ -5119,3 +5119,20 @@ A: Yes. ~14839+ tests / 719 test files / 67 e2e spec / 4393 API 路由 / 542 数
 镜像测试 `scripts/tests/check-brand-foreground.test.mjs` 13 例;R5(web/ui-react Tailwind 类名面的
 `bg-primary`+`text-primary-foreground` 退役配对,基线键 `webClassPairCounts` 现为空 = 零容忍)
 于 2026-09-24 补上,详见 AGENTS 守门速查第 83 项;紧急跳过
+
+
+
+
+### 守门补登:桌面端本地缓存明文巡检(2026-09-24 立,warn-only)
+`scripts/check-desktop-cache-plaintext.mjs` 补的是 D48 那个**看着绿其实空**的验收:加密实现早在库里
+(`apps/web/src/lib/chat-persist-crypto.ts` + `local-vault.ts` + `desktop-token-vault.ts`),但桌面端
+WebView 数据目录里信封字面量 `ihuiVaultV1` 零命中 —— "盘上 grep 不到明文会话"当时成立的真实原因是
+**这台机没登录数据**,不是数据被加密。所以本门第一条判据就是**阳性对照**:自造一条含唯一 nonce 的中文
+记录,先证明扫描动作能看见明文,再证明加密形态看不见;之后的"0 命中"才有意义。
+另三条:结构位断言(顶层恰 `{ihuiVaultV1}`、内层恰 `{alg,kid,iv,ct}`,常量从 `local-vault.ts` 解析而非
+抄第二份)、目录级 CJK 断言并打印实扫清单(刻意排除 `Cache_Data`/`Code Cache`/`GPUCache`)、密钥不入仓
+与 vault 落点单源断言。路径经 `realpathSync` 解析 junction 真身,非 win32 或目录不存在一律判**未判定**
+(不计通过)。全程只读。
+**为什么它是 warn 而不是 blocking**:这道门判的是**机器运行态**(某个目录里有没有我们的产物),提交者在
+结构上无法让它变绿。挂进提交链的唯一结局是每次提交都被迫 `--no-verify`,连带把其余一百多道门一起作废。
+手动跑:`pnpm check:desktop-cache-plaintext`。取证:`--self-test` 10/10、镜像测试 12/12。
