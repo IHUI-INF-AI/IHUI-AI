@@ -185,17 +185,12 @@
 .team-button {
   display: flex;
   align-items: center;
-  gap: 8rpx;
+  gap: 4rpx;
   padding: 8rpx 0;
 }
 
 .team-button-text {
-  font-size: 28rpx;
-  color: var(--color-muted-foreground);
-}
-
-.team-button-arrow {
-  font-size: 32rpx;
+  font-size: 24rpx;
   color: var(--color-muted-foreground);
 }
 
@@ -455,8 +450,12 @@
 }
 
 .community-agent-list-more {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4rpx;
   font-size: 24rpx;
-  color: var(--color-primary);
+  color: var(--color-muted-foreground);
 }
 
 /* ===== 加载 / 空 / 没有更多 ===== */

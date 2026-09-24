@@ -816,7 +816,7 @@ export default function Community() {
                 >
                   {tt('community.posts', '帖子')}
                 </Text>
-                <Text
+                <View
                   className="community-agent-list-more"
                   onClick={() =>
                     Taro.navigateTo({
@@ -828,9 +828,11 @@ export default function Community() {
                         }),
                     })
                   }
+                  hoverClass="opacity-60"
                 >
-                  {tt('tail.19', '查看更多')} {'>'}
-                </Text>
+                  <Text>{tt('common.more', '更多')}</Text>
+                  <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
+                </View>
               </View>
               <AgentListPanel
                 visible
