@@ -63,8 +63,26 @@ function Test-Protected {
 }
 
 # 体积统计单点实现(ForceDelete 与 skipped 计数共用,避免两份算法)。
+# ⚠️ 先判重解析点:junction 必须"就地断链",绝不能跟着递归 —— 实测 PowerShell 7 的
+# `Get-ChildItem -Recurse` **会穿过 junction** 枚举到目标里的文件(本仓 2026-09-24 实测),
+# 于是"按名字删 C:\tmp\ihui-*"会顺着链接打到 D:\DevEnv\Temp\c-root-tmp\ 的真实目标上。
+# 体积口径同理:跟进去就把 D 盘的量算成 C 盘的债。
+function Test-ReparsePoint {
+  param([string]$path)
+  # 必须显式判存在 + ErrorAction Stop:默认 Continue 下"路径不存在"是**非终止错误**,
+  # catch 根本接不住 ⇒ 每天对不存在的 C:\temp 甩一条红字到日志(实测)。
+  if (-not (Test-Path -LiteralPath $path)) { return $false }
+  try {
+    $attr = (Get-Item -LiteralPath $path -Force -ErrorAction Stop).Attributes
+    return ($attr -match 'ReparsePoint')
+  } catch {
+    return $false
+  }
+}
+
 function Get-PathSize {
   param([string]$path)
+  if (Test-ReparsePoint $path) { return [double]0 }
   $sum = (Get-ChildItem $path -Recurse -Force -ErrorAction SilentlyContinue |
     Measure-Object -Property Length -Sum).Sum
   if (-not $sum) { return [double]0 }
@@ -79,6 +97,20 @@ function ForceDelete {
   if ($DryRun) {
     Log ("  {0}  {1}" -f $delTag, $path)
     return [double]0
+  }
+  # 重解析点只能**断链**,绝不能进 DeleteDirectory/递归分支:那会顺着 junction 删掉
+  # 外置根里的真实内容(§26 的改道机制因此变成自毁机制)。
+  if (Test-ReparsePoint $path) {
+    try {
+      # System.IO.Directory::Delete(path,false) 对 mount point 只移除链接本身;
+      # 传 $true 或在 PS7 用 -Recurse 才是危险形态。
+      [System.IO.Directory]::Delete($path, $false)
+      Log ("  {0} 断链(未跟随目标) {1}" -f $delTag, $path) "WARN"
+      return [double]0
+    } catch {
+      Log ("  [FAIL] 断链失败,已跳过: {0}" -f $path) "WARN"
+      return [double]0
+    }
   }
   # 单文件走另一条 API:原实现只有 DeleteDirectory 分支,对文件路径必然抛后被 catch
   # 吞掉 → 静默"清理成功但什么都没删"(盘根的 IHUI-*.ps1 就属于这一类)。
@@ -131,7 +163,7 @@ Log ("清理前 C 盘可用: {0} GB" -f [math]::Round($before/1GB,2))
 [double]$freed = 0
 
 # ===== 1. Chrome 缓存(保留用户数据)=====
-Log "[1/3] 清理 Chrome 缓存"
+Log "[1/4] 清理 Chrome 缓存"
 # 下面这批路径把用户名写死成"荣耀",而计划任务实际注册运行的用户是 $env:USERNAME,
 # 本机该目录不存在 ⇒ 本段常年空转。**故意不改成指向真实用户配置**:那等于让一个每天
 # 3:00 无人值守、DeletePermanently 不进回收站的任务突然开始删一个正在使用的浏览器缓存,
@@ -167,7 +199,7 @@ Log ("  [OK] Chrome 缓存:清理 {0} 项(路径不存在 {1} 项),释放 {2} MB
   $chromeTargets, $chromeMissing.Count, [math]::Round($chromeFreed/1MB,1))
 
 # ===== 2. Temp 旧目录(>3 天,默认只删本项目产物名字)=====
-Log "[2/3] 清理 Temp 旧目录"
+Log "[2/4] 清理 Temp 旧目录"
 $lt = "$env:LOCALAPPDATA\Temp"
 $oldTemp = @(Get-ChildItem $lt -Directory -Force -ErrorAction SilentlyContinue | Where-Object {
   $_.LastWriteTime -lt (Get-Date).AddDays(-3)
@@ -242,7 +274,7 @@ Log ("  [OK] C:\Windows\Temp:{0} {1} 项,释放 {2} MB" -f `
 # ===== 3. 本项目落在 C 盘的产物 =====
 # 2026-09-23 修:这一段原来扫的是 C:\temp,而我们实际写到的地方是 C:\tmp(构建备份,
 # 实攒 13.2GB)、%LOCALAPPDATA%\Temp(git 夹具)、以及盘根本身。扫错目录 = 每天跑也零效果。
-Log "[3/3] 清理本项目在 C 盘的产物"
+Log "[3/4] 清理本项目在 C 盘的产物"
 # 受保护名单与 Test-Protected 已上移到脚本头部(宽口径清扫同样要用),此处不再重复定义。
 
 $cCandidates = @()
@@ -255,7 +287,13 @@ if ((Test-Path "C:\.pnpm-store") -and ((Get-Item "C:\.pnpm-store").LastWriteTime
   $cCandidates += Get-Item "C:\.pnpm-store" -Force
 }
 # C:\tmp 与 C:\temp:构建备份 / 探查脚本 / 调试日志
+# 已封口(= junction 改道到外置根)的扫描位**整体跳过**:列进去会把 D 盘目标里的名字当成
+# C 盘删除面(实测 PS7 的 -Recurse 会穿过 junction)。封口位的健康度由第 4 段单独管。
 foreach ($t in @("C:\tmp", "C:\temp")) {
+  if (Test-ReparsePoint $t) {
+    Log ("  [SKIP] 已改道(junction),不跟随其目标枚举: {0}" -f $t)
+    continue
+  }
   $cCandidates += Get-ChildItem $t -Force -ErrorAction SilentlyContinue | Where-Object {
     $_.Name -like 'ihui-*' -or $_.Name -like 'IHUI-*' -or
     $_.Name -like 'next-backup-*' -or $_.Name -like 'probe-*' -or
@@ -284,6 +322,55 @@ foreach ($d in ($cCandidates | Sort-Object FullName -Unique)) {
 Log ("  [OK] 本项目 C 盘产物:{0} {1} 项,释放 {2} MB" -f `
   $(if ($DryRun) { '预演命中' } else { '清理' }), $projTargets, [math]::Round($projFreed/1MB,1))
 
+# ===== 4. 盘根写歪项封口体检(根治回潮,不靠"看见了再删") =====
+# 成因:一批程序(剪映 / 微信输入法 / MSYS 侧工具 / 安装器)用**相对路径**写状态,而进程
+# 工作目录恰好是 C:\ ⇒ common_attachment、persistent_data、tmp、tools 直接长在盘根。
+# 光删会再长,所以第 4 段判的是"封口还在不在":被删掉的 junction 会被重新建回来。
+# 唯一真相源在 scripts/seal-c-root-stray.mjs 的名字表里,本段不重复列名字。
+Log "[4/4] 盘根封口体检"
+$repoRoot = Split-Path -Parent $PSScriptRoot
+$seal = Join-Path $PSScriptRoot 'seal-c-root-stray.mjs'
+# node 绝对路径按仓库所在盘推导(服务身份不读 HKCU env,PATH 也不可信)。
+# 注意 Join-Path 是 -Path/-ChildPath 两段式,把整串当 Path 传会因缺 ChildPath 直接报错(实测)。
+$driveLetter = $repoRoot.Substring(0, 1)
+$nodeCandidate = "${driveLetter}:\DevEnv\runtimes\node\node.exe"
+$nodeExe = if (Test-Path -LiteralPath $nodeCandidate) { $nodeCandidate } else { 'node' }
+[int]$sealNeedsAction = 0
+
+function Invoke-Seal {
+  param([string[]]$SealArgs)
+  # ① 子进程 stdout 默认按控制台代码页(GBK)解码 ⇒ 中文全成乱码(实测「封口」变「封?」);
+  # ② `& node 2>&1` 是**按块**产出的,多行会被并成一行 ⇒ 先收进变量再按行切。
+  $prev = [Console]::OutputEncoding
+  try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    $out = & $nodeExe $seal @SealArgs 2>&1
+    $code = $LASTEXITCODE
+  } finally {
+    [Console]::OutputEncoding = $prev
+  }
+  (@($out) -join "`n") -split "`r?`n" | Where-Object { $_.Trim() -ne '' } | ForEach-Object { Log ("  {0}" -f $_) }
+  return $code
+}
+
+if (-not (Test-Path -LiteralPath $seal)) {
+  Log ("  [FAIL] 封口器不存在:{0} ⇒ 本段无法判定,不做任何假设" -f $seal) "WARN"
+} else {
+  # --check 零副作用;退出码 1 = 有待处置项。
+  $sealNeedsAction = Invoke-Seal -SealArgs @('--check')
+  if ($sealNeedsAction -eq 0) {
+    Log "  [OK] 封口完好(盘根写歪项均已改道,不占 C)"
+  } elseif ($DryRun) {
+    Log "  [NOTE] DRY RUN:封口体检发现待处置项,已跳过重封(--apply 才动手)" "WARN"
+    $null = Invoke-Seal -SealArgs @('--dry-run')
+  } else {
+    Log "  [HEAL] 封口有缺失/回潮 ⇒ 重跑封口器(幂等)" "WARN"
+    $applied = Invoke-Seal -SealArgs @('--apply')
+    if ($applied -ne 0) { Log "  [FAIL] 封口器 apply 仍报错,需人工看上面的输出" "WARN" }
+    $sealNeedsAction = Invoke-Seal -SealArgs @('--check')
+  }
+}
+
 # ===== 总结 =====
 Start-Sleep -Seconds 1
 $after = (Get-PSDrive C).Free
@@ -293,8 +380,8 @@ if ($DryRun) {
 }
 Log ("清理后 C 盘可用: {0} GB" -f [math]::Round($after/1GB,2))
 Log ("本次释放:       {0} GB" -f [math]::Round(($after-$before)/1GB,2))
-Log ("删除面汇总:     Chrome 缓存 {0} 项 / Temp 旧目录 {1} 项 / C:\Windows\Temp {2} 项 / 本项目产物 {3} 项;按名字判据跳过的 Temp 目录 {4} 项({5} MB);宽口径开关 IHUI_TEMP_WIDE_SWEEP = {6}" -f `
-  $chromeTargets, $tempTargets, $wtTargets, $projTargets, $tempSkipped, [math]::Round($tempSkippedSize/1MB,1), $(if ($wideSweep) { '已启用' } else { '未启用' }))
+Log ("删除面汇总:     Chrome 缓存 {0} 项 / Temp 旧目录 {1} 项 / C:\Windows\Temp {2} 项 / 本项目产物 {3} 项;按名字判据跳过的 Temp 目录 {4} 项({5} MB);宽口径开关 IHUI_TEMP_WIDE_SWEEP = {6};封口体检退出码 = {7}(0=完好;1=预演到待处置,或重封后复检仍待处置)" -f `
+  $chromeTargets, $tempTargets, $wtTargets, $projTargets, $tempSkipped, [math]::Round($tempSkippedSize/1MB,1), $(if ($wideSweep) { '已启用' } else { '未启用' }), $sealNeedsAction)
 Log ("合计释放:       {0} MB" -f [math]::Round($freed/1MB,1))
 Log ("==========================================")
 
