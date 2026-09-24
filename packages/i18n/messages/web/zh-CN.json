@@ -5753,7 +5753,24 @@
     "relayOverview": "中继概览",
     "themeEdit": "主题编辑",
     "unauthorized": "未授权",
-    "userMargin": "用户保证金"
+    "userMargin": "用户保证金",
+    "deployDiagnosis": {
+      "title": "部署诊断",
+      "subtitle": "粘贴部署结果、健康检查或日志片段，由 AI 给出根因与可直接执行的修复命令",
+      "pasteNote": "至少填写一项输入，留空的字段不会发送给模型",
+      "run": "开始诊断",
+      "running": "诊断中…",
+      "reportTitle": "诊断报告",
+      "model": "使用模型",
+      "duration": "耗时",
+      "rootCause": "根因分析",
+      "impact": "影响范围",
+      "fixCommands": "修复命令",
+      "copy": "复制",
+      "summary": "结论摘要",
+      "rawNote": "以下为模型原始输出，未经排版处理",
+      "empty": "填写左侧输入后点击「开始诊断」生成报告"
+    }
   },
   "connectors": {
     "title": "中文连接器",
@@ -10363,7 +10380,26 @@
       "referenceTitle": "上下文引用",
       "noReferences": "暂无引用",
       "uploading": "附件上传中",
-      "uploadFailed": "附件上传失败"
+      "uploadFailed": "附件上传失败",
+      "cacheHit": "缓存命中 {ratio}（读回 {read}）",
+      "cacheOccupancyNote": "命中部分仍占窗口 {occupied}，只是无需重新预填充",
+      "cacheUnavailable": "本轮用量帧未携带缓存读数，无法判断命中与否",
+      "detailsTruncated": "另有 {count} 条未展开",
+      "residualNote": "另有 {tokens} 为协议包装与序列化开销，未计入上述构成",
+      "resultSuffix": "结果",
+      "segRoleAssistant": "助手回复",
+      "segRoleToolCall": "工具调用参数",
+      "segRoleToolResult": "工具结果",
+      "segRoleUser": "用户消息",
+      "segSkill": "技能正文",
+      "segSystem": "系统提示",
+      "segSystemPrompt": "系统提示（整段）",
+      "segToolSchema": "工具定义",
+      "topContributor": "占用最高：{name} {share}",
+      "unnamedItem": "未命名条目",
+      "unobservedNotSupplied": "本轮未下发该系统段",
+      "unobservedServerOnly": "该部分在服务端装配，本端取不到确切用量",
+      "ringBasis": "上下文窗口中已占用 {percent}%（{used} / {max}）"
     },
     "copied": "已复制",
     "copy": "复制",
@@ -18334,7 +18370,8 @@
     "courses": "课程",
     "faq": "常见问题",
     "home": "首页",
-    "settings": "设置"
+    "settings": "设置",
+    "adminDeployDiagnosis": "部署诊断"
   },
   "news": {
     "allCategories": "全部分类",
