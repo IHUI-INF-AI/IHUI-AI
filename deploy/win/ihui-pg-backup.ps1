@@ -30,7 +30,13 @@ Get-Content "$ProjectRoot\.env" | ForEach-Object {
 }
 if (-not $dbName) { $dbName = "ihui_dev" }
 if (-not $dbPort) { $dbPort = "8810" }
-# 备份用 postgres 超级用户(BYPASSRLS,绕过 FORCE RLS 表导出限制;pg_hba 本地 trust 免密)
+# 备份用 postgres 超级用户(BYPASSRLS,绕过 FORCE RLS 表导出限制)。
+# ⚠️ 原来这行注释写"pg_hba 本地 trust 免密",**2026-09-24 04:47 起是假的**:
+#    pg_hba.conf 已被改成 local/host 127.0.0.1/::1 一律 scram-sha-256(实测该文件 mtime 04:47,
+#    PostgreSQL 12:39 重启生效),而本脚本显式把口令清空 ⇒ 备份链从 04:39 那份之后就再没成功过,
+#    且因为调用方用 `&`+try/catch 的结构缺陷一直打"备份完成"(那一半已修,这一半要人定凭据策略)。
+#    在下面两处客户端调用上加 `-w`(禁止提示):没有它,认证不通时 pg_dump/psql 会**阻塞在
+#    控制台口令提示**上(实测 3.5 分钟零输出),把整条调度循环钉死 —— 挂起比失败危险得多。
 $dbUser = "postgres"
 $dbPw = ""
 
@@ -42,7 +48,7 @@ $env:PGPASSWORD = $dbPw
 
 Write-Host "[1/3] 备份中: $dbName@localhost:$dbPort(超管) → $outFile" -ForegroundColor Cyan
 # -Fc = 自定义压缩格式(pg_restore 可直接还原,自带压缩);超管绕过 RLS
-& $pgDump -Fc -h localhost -p $dbPort -U $dbUser -d $dbName --no-owner --no-privileges -f $outFile
+& $pgDump -w -Fc -h localhost -p $dbPort -U $dbUser -d $dbName --no-owner --no-privileges -f $outFile
 
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path $outFile)) {
     Write-Host "[ERROR] 备份失败" -ForegroundColor Red
@@ -54,7 +60,7 @@ $sizeMB = [math]::Round((Get-Item $outFile).Length / 1MB, 2)
 Write-Host "[OK] 备份完成: $sizeMB MB" -ForegroundColor Green
 
 Write-Host "[2/3] 校验备份文件..." -ForegroundColor Cyan
-$check = & $psql -h localhost -p $dbPort -U postgres -d $dbName -t -A -c "SELECT count(*) FROM information_schema.tables WHERE table_schema='public';" 2>$null
+$check = & $psql -w -h localhost -p $dbPort -U postgres -d $dbName -t -A -c "SELECT count(*) FROM information_schema.tables WHERE table_schema='public';" 2>$null
 Write-Host "  备份前表数量: $($check.Trim())"
 
 Write-Host "[3/3] 清理 $retentionDays 天前旧备份..." -ForegroundColor Cyan
