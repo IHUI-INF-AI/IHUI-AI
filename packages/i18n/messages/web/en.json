@@ -968,6 +968,25 @@
       "fieldTitle": "Title",
       "fieldType": "Type",
       "loading": "Loading...",
+      "maintenanceNotice": {
+        "action": "Maintenance Notice Email",
+        "desc": "Send a maintenance notice in the IHUI Bulletin layout to all active users with an email on file",
+        "downtimePlaceholder": "e.g., 2 hours",
+        "dryRun": "Dry run (count recipients only, do not actually send)",
+        "fieldDowntime": "Estimated Downtime",
+        "fieldLimit": "First Batch Limit",
+        "fieldScope": "Affected Scope",
+        "fieldWindow": "Maintenance Window",
+        "limitInvalid": "The first batch limit must be a positive integer",
+        "limitPlaceholder": "Leave empty to send to everyone",
+        "required": "Maintenance window, affected scope, and estimated downtime are required",
+        "resultDryRun": "Dry run complete: {total} recipients will receive \"{subject}\"",
+        "resultSent": "Send complete: {sent} succeeded / {failed} failed / {stubbed} not sent (channel not configured)",
+        "scopePlaceholder": "e.g., API and Console",
+        "send": "Send",
+        "title": "Send Maintenance Notice Email",
+        "windowPlaceholder": "e.g., 2026-09-25 02:00-04:00"
+      },
       "no": "No",
       "noData": "No announcements",
       "published": "Published",
@@ -6903,6 +6922,21 @@
       "statusSuccess": "Success",
       "title": "Tool call chain",
       "waiting": "Waiting for tool calls..."
+    },
+    "card": {
+      "roleResearcher": "Researcher",
+      "roleCoder": "Coder",
+      "roleReviewer": "Reviewer",
+      "roleTester": "Tester",
+      "roleCustom": "Custom",
+      "unnamed": "Unnamed",
+      "lastActive": "Last active {time}",
+      "actionStart": "Start",
+      "actionPause": "Pause",
+      "actionStop": "Stop",
+      "actionCopyConfig": "Copy configuration",
+      "permissionMode": "Permission mode",
+      "maxIterations": "Max iterations"
     }
   },
   "agents": {
@@ -7040,6 +7074,379 @@
       "rollbackConfirmConfirm": "Restore"
     },
     "pane": {
+      "businessForms": {
+        "ariaLabel": "Business form card",
+        "aria": {
+          "email": "Email compose card",
+          "calendarEvent": "Calendar form card"
+        },
+        "fields": {
+          "to": "To",
+          "cc": "Cc",
+          "bcc": "Bcc",
+          "subject": "Subject",
+          "replyTo": "Reply to",
+          "body": "Body",
+          "start": "Start",
+          "end": "End",
+          "attendees": "Attendees"
+        },
+        "action": {
+          "approve": "Approve",
+          "reject": "Reject",
+          "create": "Create",
+          "save": "Save"
+        },
+        "error": {
+          "required": "This field is required",
+          "invalidEmail": "Invalid email address",
+          "endBeforeStart": "End time must be after start time",
+          "noAttendees": "Add at least one attendee"
+        },
+        "fold": {
+          "expand": "Show all {count} attendees",
+          "collapse": "Collapse attendees"
+        },
+        "status": {
+          "submitting": "Submitting…",
+          "approved": "Approved",
+          "rejected": "Rejected",
+          "failed": "Submission failed, please retry"
+        }
+      },
+      "inputSources": {
+        "ariaLabel": "Input sources and queue",
+        "snapshot": {
+          "attachApp": "Attach {appName}",
+          "state": {
+            "disabled": "Smart snapshot is off",
+            "enabled": "Smart snapshot enabled",
+            "failed": "Smart snapshot failed"
+          },
+          "enable": "Enable smart snapshot",
+          "firstRunGuideTitle": "First time with smart snapshot",
+          "firstRunGuideBody": "Smart snapshot captures the current app context so messages carry app info automatically",
+          "failedHint": "Snapshot failed. Retry or send as a regular attachment"
+        },
+        "route": {
+          "appSnapshot": "App snapshot",
+          "remoteFile": "Remote file",
+          "remotePhoto": "Remote photo"
+        },
+        "command": {
+          "queuePrompt": "Queue prompt",
+          "queuePromptDesc": "Send queued prompts in order after the current reply finishes",
+          "steerPrompt": "Steer prompt",
+          "steerPromptDesc": "Insert guidance into the running reply without interrupting it"
+        },
+        "undo": {
+          "restoring": "Restoring queued messages",
+          "restored": "Restored messages from the queue",
+          "restoredQueued": "Restored queued messages",
+          "failed": "Restore failed. Messages remain in the queue"
+        },
+        "memoryRefs": {
+          "count": "{count} memory references",
+          "tooltip": "Referenced memories",
+          "empty": "No memory references yet"
+        },
+        "goal": {
+          "achievedIn": "Goal achieved in {totalTime}"
+        }
+      },
+      "inputNotices": {
+        "ariaLabel": "Compaction and queue notices",
+        "compaction": {
+          "block": {
+            "cause": {
+              "runningTurn": "The current Turn is still running",
+              "insufficientCredits": "Compaction consumes a small amount of credits",
+              "noTurnBoundary": "No Turn boundary is available right now"
+            },
+            "consequence": {
+              "runningTurn": "Compaction runs after the current Turn completes; it cannot be injected into a running Turn",
+              "insufficientCredits": "Not enough credits, so this compaction will not run and the conversation context stays unchanged",
+              "noTurnBoundary": "Compaction cannot run right now and the conversation context stays unchanged"
+            }
+          }
+        },
+        "queue": {
+          "reasonTitle": "Queue reason",
+          "reason": {
+            "turnRunning": "A reply is being generated; your message will be sent after this Turn ends",
+            "queueAhead": "Earlier messages are still being processed; waiting in order",
+            "runtimeNoInterject": "The current Runtime does not support interjection; your message will stay queued"
+          },
+          "denied": {
+            "reorder": "Cannot reorder queued messages",
+            "undo": "Cannot unsend the queued message",
+            "interject": "The current Runtime does not support interjection; your message will stay queued"
+          },
+          "reorderAria": "Drag to reorder queued messages; use the up and down arrow keys while focused"
+        }
+      },
+      "voiceSubtitles": {
+        "muteAndShowSubtitles": "Mute and show subtitles",
+        "subtitleTitle": "Voice subtitles",
+        "micError": {
+          "noPermission": "No microphone permission. Allow microphone access in your browser or system settings.",
+          "noDevice": "No microphone detected. Connect a microphone and try again.",
+          "occupied": "The microphone is in use by another app. Close it and try again.",
+          "startFailed": "Failed to start the microphone. Please try again."
+        },
+        "micErrorAria": {
+          "noPermission": "Microphone permission missing; grant access in settings first",
+          "noDevice": "No microphone detected; connect one first",
+          "occupied": "Microphone in use by another app; release it first",
+          "startFailed": "Microphone failed to start; retry available"
+        },
+        "conflict": "Voice minutes recording in progress; voice playback has been paused. Recording and playback cannot run at the same time.",
+        "view": {
+          "discussionSummary": "Discussion summary",
+          "taskFlow": "Task flow"
+        },
+        "viewAriaLabel": "Switch between discussion summary and task flow views",
+        "ariaLabel": "Voice subtitles and microphone status"
+      },
+      "annotationAnchors": {
+        "label": {
+          "pdf": "PDF page {page}",
+          "docx": "Document page {page}",
+          "docxText": "Document paragraph {paragraph}",
+          "pptx": "Slide {slide} · {element}",
+          "pptxSlide": "Slide {slide}",
+          "pptxComment": "Comment on {element}",
+          "xlsx": "{sheet} · {range}",
+          "xlsxSheet": "{sheet}",
+          "xlsxSelected": "Selected {range}"
+        },
+        "taskInputPlaceholder": "Describe what you want the agent to modify or check",
+        "addToTask": "Add to task",
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "relabel": "Re-annotate",
+        "ariaLabel": "Document annotation anchors"
+      },
+      "quotaOwnership": {
+        "title": {
+          "personalDaily": "Personal daily quota",
+          "freeModelDaily": "Free model daily quota",
+          "teamAdmin": "Team · admin required",
+          "billingGroupCredits": "Billing group · Credits limit"
+        },
+        "action": {
+          "viewUsage": "View usage details",
+          "switchFreeModel": "Switch to a free model",
+          "upgradeOrAdmin": "Upgrade or contact an admin"
+        },
+        "discount": {
+          "active": "Off-peak discount in progress",
+          "upcoming": "Off-peak discount starts in {{time}}"
+        },
+        "duration": {
+          "hour": "h",
+          "minute": "m"
+        },
+        "degradeHint": "Your free tier is still available. Switch to a free model to continue — no top-up needed",
+        "ariaLabel": "Quota ownership and suggested actions"
+      },
+      "moveToWorktree": {
+        "title": "Move conversation to a worktree",
+        "subtitle": "Check out branch <branch>{branchName}</branch> in a new worktree to keep working in parallel.",
+        "continue": "Move",
+        "cancel": "Cancel",
+        "loading": "Checking whether this chat can be moved…",
+        "existingWorktreeRunning": "Wait for the current reply to finish before moving this chat",
+        "existingWorktreeLabel": "Existing worktree",
+        "createNewLabel": "Create new worktree",
+        "targetLabel": "Move target",
+        "localCheckoutLabel": "Local workspace will switch to",
+        "localBranchPlaceholder": "Select local checkout branch",
+        "noTargetBranch": "No other local branches available",
+        "branchesLoading": "Loading branches…",
+        "branchesError": "Failed to load branches",
+        "branchesRetry": "Retry",
+        "branchAlreadyExists": "A worktree already exists for this branch.",
+        "defaultBranchError": "The worktree branch must differ from the default branch.",
+        "trailingSlashError": "Branch name cannot end with \"/\".",
+        "worktreeBranchRequired": "Enter a worktree branch name.",
+        "worktreeBranchAriaLabel": "Worktree branch name",
+        "worktreeBranchLabel": "Worktree branch name"
+      },
+      "editResend": {
+        "title": "Roll back file changes and resend?",
+        "ariaLabel": "Roll back file changes and resend",
+        "desc": "This will roll back this turn's file changes and resend the message with your edited content.",
+        "confirm": "Roll back & resend",
+        "cancel": "Cancel",
+        "previewFilesTitle": "Files to roll back",
+        "previewEditTitle": "Content to resend",
+        "fileRecorded": "Recorded in checkpoint",
+        "fileUnrecorded": "Not recorded in checkpoint",
+        "previewFilesMore": "and {count} more files",
+        "detailAction": "View per-file changes",
+        "detailLabel": "Edit & resend · file rollback impact preview",
+        "warning": {
+          "partialRollback": "Some changes were not fully recorded by the checkpoint; the rollback result may be incomplete"
+        },
+        "phase": {
+          "idle": "Ready",
+          "previewing": "Previewing",
+          "confirmed": "Confirmed",
+          "executing": "Rolling back files and resending…",
+          "completed": "Rolled back and resent",
+          "editFailed": "Edit failed",
+          "rollbackFailed": "Rollback failed",
+          "rollbackPartial": "Partial rollback",
+          "syncFailed": "Local sync failed",
+          "replaceFailed": "Replace failed"
+        },
+        "failure": {
+          "editFailed": "The edited content could not be applied; execution stopped.",
+          "rollbackFailed": "File rollback failed; execution stopped.",
+          "rollbackPartial": "Only some files were rolled back; execution stopped.",
+          "syncFailed": "Failed to sync local state; execution stopped.",
+          "replaceFailed": "Failed to replace the message; execution stopped."
+        }
+      },
+      "agentActions": {
+        "title": "Multi-agent actions",
+        "header": {
+          "count": "{count, plural, one {1 agent} other {# agents}}"
+        },
+        "row": {
+          "agent": "{action} {agent}{stateSuffix}"
+        },
+        "meta": {
+          "prompt": "Input: {prompt}"
+        },
+        "action": {
+          "spawn": {
+            "label": "Create",
+            "inProgress": "Creating",
+            "completed": "Created",
+            "failed": "Create failed"
+          },
+          "resume": {
+            "label": "Resume",
+            "inProgress": "Resuming",
+            "completed": "Resumed",
+            "failed": "Resume failed"
+          },
+          "sendInput": {
+            "label": "Send input",
+            "inProgress": "Sending",
+            "completed": "Sent",
+            "failed": "Send failed"
+          },
+          "interrupt": {
+            "label": "Interrupt",
+            "inProgress": "Interrupting",
+            "completed": "Interrupted",
+            "failed": "Interrupt failed"
+          },
+          "close": {
+            "label": "Close",
+            "inProgress": "Closing",
+            "completed": "Closed",
+            "failed": "Unable to close"
+          },
+          "list": {
+            "label": "List",
+            "inProgress": "Loading",
+            "completed": "Loaded",
+            "failed": "Load failed"
+          }
+        },
+        "state": {
+          "running": "Running",
+          "completed": "Completed",
+          "errored": "Errored",
+          "interrupted": "Interrupted",
+          "pendingInit": "Preparing",
+          "shutdown": "Shut down",
+          "notFound": "Not found"
+        }
+      },
+      "modelLoad": {
+        "ariaLabel": "Model load and queue status",
+        "load": {
+          "low": "Low load, queuing possible",
+          "medium": "Medium load, queuing possible",
+          "high": "High load, queuing possible"
+        },
+        "slowLane": "In the slow lane · position {position} in queue",
+        "fastPass": "Fast pass enabled, no queuing",
+        "recovering": "Model available, resuming your request",
+        "wait": {
+          "under1min": "Estimated wait under 1 minute",
+          "about1min": "Estimated wait about 1 minute",
+          "aboutNmin": "Estimated wait about {minutes} minutes",
+          "over10min": "Estimated wait over 10 minutes"
+        }
+      },
+      "cloudChatOps": {
+        "title": "Cloud chat",
+        "ariaLabel": "Cloud chat interoperability activity",
+        "empty": "No cloud chat activity yet",
+        "waitingUpstream": "Waiting for upstream action",
+        "op": {
+          "attachCloudChat": {
+            "label": "Attach cloud chat",
+            "active": "Attaching",
+            "completed": "Attached",
+            "following": "Waiting to attach"
+          },
+          "createCloudChat": {
+            "label": "Create cloud chat",
+            "active": "Creating",
+            "completed": "Created",
+            "following": "Waiting to create"
+          },
+          "listCloudChats": {
+            "label": "List cloud chats",
+            "active": "Listing",
+            "completed": "Listed",
+            "following": "Waiting to list"
+          },
+          "readCloudChatTurns": {
+            "label": "Read cloud chat turns",
+            "active": "Reading turns",
+            "completed": "Turns read",
+            "following": "Waiting to read turns"
+          },
+          "sendToCloudChat": {
+            "label": "Send message to cloud chat",
+            "active": "Sending",
+            "completed": "Sent",
+            "following": "Waiting to send"
+          }
+        }
+      },
+      "prChecks": {
+        "title": "CI checks",
+        "summary": {
+          "failing": "Checks failing",
+          "pending": "Checks pending",
+          "successful": "Checks passing",
+          "none": "No CI checks"
+        },
+        "state": {
+          "failed": "Test failed",
+          "passed": "Tests passed",
+          "pending": "Pending",
+          "skipped": "Skipped tests",
+          "neutral": "Neutral tests",
+          "unknown": "Test status unknown"
+        },
+        "action": {
+          "checksFix": "Fix",
+          "checksRemove": "Remove",
+          "commentsAddress": "Add to chat",
+          "commentsRemove": "Remove"
+        },
+        "countLabel": "{passed}/{total} checks passed"
+      },
       "retryScheduled": "Upstream unavailable — retry {attempt} of {max}, continuing in {seconds}s",
       "retryScheduledNow": "Switching upstream channel — retry {attempt} of {max}, continuing now",
       "ariaLabel": "Agent Task Progress Panel",
@@ -7252,7 +7659,6 @@
       "thinkingChars": "chars",
       "thinkingElapsedTitle": "Thinking for {time}",
       "thinkingStreaming": "Thinking...",
-      "thinkingTitle": "Thinking process",
       "timelineClearFilters": "Clear filters",
       "timelineCountDone": "Completed",
       "timelineCountFailed": "Failed",
@@ -7390,6 +7796,618 @@
         "noReasonText": "Auto-review gave no reason",
         "noDecision": "No auto-review records",
         "expandAria": "Command history (expand/collapse)"
+      },
+      "toolSummaryShowMore": "More",
+      "toolSummaryShowLess": "Collapse",
+      "handoff": {
+        "title": "Failure diagnosis handoff",
+        "ariaLabel": "Failure diagnosis handoff",
+        "section": {
+          "diagnosis": "Diagnosis method",
+          "fixSteps": "Fix steps attempted",
+          "evidence": "Redacted evidence:",
+          "productSurface": "Product surface"
+        },
+        "source": {
+          "local": "Local evidence",
+          "external": "Auxiliary signal"
+        },
+        "externalCaveat": "An external service reporting down is an auxiliary signal only and never a conclusion on its own (network unreachable ≠ failure).",
+        "localUnknown": "No deterministic local evidence; no conclusion was drawn",
+        "empty": {
+          "fixSteps": "No fix steps were attempted",
+          "evidence": "No evidence available",
+          "productSurface": "No product surface information provided",
+          "incidents": "No possibly related incidents"
+        },
+        "incidentLine": "Status: possibly related incidents: {incidentNames}",
+        "truncated": "{count} characters truncated",
+        "degraded": "Data source unreachable; this handoff contains only locally available information (network unreachable ≠ failure)",
+        "redacted": "This handoff has been redacted (keys / tokens / emails / IPs replaced)",
+        "copy": "Copy handoff",
+        "copied": "Handoff copied"
+      },
+      "turnStatus": {
+        "title": "Turn status",
+        "state": {
+          "queued": "Queued",
+          "preparing": "Preparing",
+          "thinking": "Thinking",
+          "usingTool": "Using tool",
+          "waitingConfirm": "Waiting for confirmation",
+          "backgroundRunning": "Running in background",
+          "stopping": "Stopping",
+          "completed": "Completed",
+          "failed": "Failed",
+          "stopped": "Stopped"
+        },
+        "aria": {
+          "queued": "This turn is queued; it starts once earlier requests finish",
+          "preparing": "Preparing context for this turn",
+          "thinking": "The model is thinking",
+          "usingTool": "A tool is being used",
+          "waitingConfirm": "This turn is paused and will not continue until you confirm",
+          "backgroundRunning": "This turn moved to the background; you can keep sending new input",
+          "stopping": "Stopping this turn",
+          "completed": "This turn is complete",
+          "failed": "This turn failed; you can retry",
+          "stopped": "This turn was stopped; you can continue"
+        },
+        "hint": {
+          "queued": "It starts automatically once earlier requests finish",
+          "waitingConfirm": "Paused until you confirm; it will not continue on its own",
+          "backgroundRunning": "Still running in the background; your new input is not blocked",
+          "stopping": "Wrapping up; it will stop shortly"
+        },
+        "action": {
+          "stop": "Stop",
+          "retry": "Retry",
+          "resume": "Continue"
+        }
+      },
+      "errorCatalog": {
+        "ACCOUNT_RESTRICTED": {
+          "title": "Account is restricted",
+          "action": "Contact the administrator"
+        },
+        "API_BRIDGE_ERROR": {
+          "title": "API bridge call failed",
+          "action": "Retry later"
+        },
+        "BAD_PARAMS": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "BUDGET_EXHAUSTED": {
+          "title": "Quota exhausted",
+          "action": "Try later or switch to a free model"
+        },
+        "CAPTURE_FAILED": {
+          "title": "Tool execution failed",
+          "action": "Retry"
+        },
+        "CDP_DISABLED": {
+          "title": "Browser debug channel unavailable",
+          "action": "Enable it and retry"
+        },
+        "CDP_UNAVAILABLE": {
+          "title": "Browser debug channel unavailable",
+          "action": "Enable it and retry"
+        },
+        "CONCURRENCY_LIMIT_EXCEEDED": {
+          "title": "Too many requests",
+          "action": "Retry later"
+        },
+        "CONTEXT_TOO_LONG": {
+          "title": "Context is too long",
+          "action": "Shorten the context"
+        },
+        "CRON_NOT_SUPPORTED": {
+          "title": "Schedule configuration is invalid",
+          "action": "Fix the schedule and retry"
+        },
+        "DANGEROUS_COMMAND": {
+          "title": "This action was blocked by a security policy",
+          "action": "Adjust and retry"
+        },
+        "DANGEROUS_COMMAND_BLOCKED": {
+          "title": "This action was blocked by a security policy",
+          "action": "Adjust and retry"
+        },
+        "DELEGATE_ERROR": {
+          "title": "Subtask execution failed",
+          "action": "Retry"
+        },
+        "DELEGATE_NO_RESULT": {
+          "title": "Subtask execution failed",
+          "action": "Retry"
+        },
+        "DELEGATE_TIMEOUT": {
+          "title": "Request timed out",
+          "action": "Retry"
+        },
+        "DEP_MISSING": {
+          "title": "A dependency is missing",
+          "action": "Install it and retry"
+        },
+        "DOWNLOAD_FAILED": {
+          "title": "Network request failed",
+          "action": "Check your connection and retry"
+        },
+        "DUAL_MODE": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "EMPTY_AUDIO": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "EMPTY_DIFF": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "EMPTY_OLD_STRING": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "EMPTY_RESULT": {
+          "title": "There is no result to show",
+          "action": "Adjust and retry"
+        },
+        "EMPTY_TASKS": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "ENCODING_ERROR": {
+          "title": "File read/write failed",
+          "action": "Check the file and retry"
+        },
+        "ENGINE_ERROR": {
+          "title": "Internal service error",
+          "action": "Retry"
+        },
+        "ENGINE_UNAVAILABLE": {
+          "title": "Model service is temporarily unavailable",
+          "action": "Switch model or retry later"
+        },
+        "EXECUTION_EXCEPTION": {
+          "title": "Internal service error",
+          "action": "Retry"
+        },
+        "EXECUTION_FAILED": {
+          "title": "Internal service error",
+          "action": "Retry"
+        },
+        "EXECUTOR_DISABLED": {
+          "title": "This feature is disabled",
+          "action": "Contact the administrator"
+        },
+        "EXEC_POLICY_DENIED": {
+          "title": "This action was blocked by a security policy",
+          "action": "Adjust and retry"
+        },
+        "EXEC_POLICY_NEEDS_APPROVAL": {
+          "title": "This action needs your confirmation first",
+          "action": "Confirm now"
+        },
+        "FALLBACK_FAILED": {
+          "title": "Model service is temporarily unavailable",
+          "action": "Switch model or retry later"
+        },
+        "FETCH_FAILED": {
+          "title": "Network request failed",
+          "action": "Check your connection and retry"
+        },
+        "FILE_NOT_FOUND": {
+          "title": "Target resource not found",
+          "action": "Check and retry"
+        },
+        "FILE_TOO_LARGE": {
+          "title": "File is too large",
+          "action": "Shrink the file and retry"
+        },
+        "GENERATION_FAILED": {
+          "title": "Generation failed",
+          "action": "Retry"
+        },
+        "GITHUB_API_ERROR": {
+          "title": "External service call failed",
+          "action": "Retry later"
+        },
+        "IMAGE_FETCH_FAILED": {
+          "title": "Network request failed",
+          "action": "Check your connection and retry"
+        },
+        "IMAGE_TOO_LARGE": {
+          "title": "Image is too large",
+          "action": "Compress the image and retry"
+        },
+        "INTERNAL_AUTH_UNAVAILABLE": {
+          "title": "Your session has expired",
+          "action": "Sign in again"
+        },
+        "INTERNAL_ERROR": {
+          "title": "Internal service error",
+          "action": "Retry"
+        },
+        "INVALID_ARGS": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "INVALID_ARGUMENT": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "INVALID_CHART_TYPE": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "INVALID_CONFIG": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "INVALID_DATA": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "INVALID_OUTPUT_DIR": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "INVALID_PARAMS": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "INVALID_PR": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "INVALID_PROVIDER": {
+          "title": "Model service is temporarily unavailable",
+          "action": "Switch model or retry later"
+        },
+        "INVALID_REPO": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "INVALID_TRIGGER": {
+          "title": "Schedule configuration is invalid",
+          "action": "Fix the schedule and retry"
+        },
+        "IS_A_DIRECTORY": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "LLM_ERROR": {
+          "title": "Model service is temporarily unavailable",
+          "action": "Switch model or retry later"
+        },
+        "LLM_FAILED": {
+          "title": "Model service is temporarily unavailable",
+          "action": "Switch model or retry later"
+        },
+        "MEDIA_COUNT_EXCEEDED": {
+          "title": "Too many media files",
+          "action": "Reduce attachments and retry"
+        },
+        "MISSING_DATA": {
+          "title": "Required parameters are missing",
+          "action": "Fill them in and retry"
+        },
+        "MISSING_PARAMS": {
+          "title": "Required parameters are missing",
+          "action": "Fill them in and retry"
+        },
+        "MISSING_PATH_PARAM": {
+          "title": "Required parameters are missing",
+          "action": "Fill them in and retry"
+        },
+        "MISSING_SECRET": {
+          "title": "No model service configured",
+          "action": "Configure a model service first"
+        },
+        "MISSING_TITLE": {
+          "title": "Required parameters are missing",
+          "action": "Fill them in and retry"
+        },
+        "MODEL_NOT_CONFIGURED": {
+          "title": "No model service configured",
+          "action": "Configure a model service first"
+        },
+        "MODEL_REFUSED": {
+          "title": "The current model refused this request",
+          "action": "Switch model"
+        },
+        "MULTIPLE_MATCHES": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "NESTING_DEPTH_EXCEEDED": {
+          "title": "Nesting is deeper than we can handle",
+          "action": "Simplify and retry"
+        },
+        "NETWORK_APPROVAL_DENIED": {
+          "title": "This action needs your confirmation first",
+          "action": "Confirm now"
+        },
+        "NETWORK_ERROR": {
+          "title": "Network request failed",
+          "action": "Check your connection and retry"
+        },
+        "NOT_A_DIRECTORY": {
+          "title": "Parameters are incomplete or invalid",
+          "action": "Fix and retry"
+        },
+        "NOT_FOUND": {
+          "title": "Target resource not found",
+          "action": "Check and retry"
+        },
+        "NO_FILE_VERSIONS": {
+          "title": "File version unavailable",
+          "action": "Select a version and retry"
+        },
+        "OLD_STRING_NOT_FOUND": {
+          "title": "Target resource not found",
+          "action": "Check and retry"
+        },
+        "PATH_NOT_ALLOWED": {
+          "title": "The path is outside the allowed scope",
+          "action": "Use another path and retry"
+        },
+        "PATH_NOT_IN_WORKSPACE": {
+          "title": "The path is outside the allowed scope",
+          "action": "Use another path and retry"
+        },
+        "PERMISSION_DENIED": {
+          "title": "You do not have permission for this action",
+          "action": "Contact the administrator"
+        },
+        "PROVIDER_ERROR": {
+          "title": "Model service is temporarily unavailable",
+          "action": "Switch model or retry later"
+        },
+        "PROVIDER_NOT_CONFIGURED": {
+          "title": "No model service configured",
+          "action": "Configure a model service first"
+        },
+        "PROVIDER_QUOTA_EXHAUSTED": {
+          "title": "Quota exhausted",
+          "action": "Try later or switch to a free model"
+        },
+        "PR_NOT_FOUND": {
+          "title": "Target resource not found",
+          "action": "Check and retry"
+        },
+        "RATE_LIMITED": {
+          "title": "Too many requests",
+          "action": "Retry later"
+        },
+        "REQUEST_TIMEOUT": {
+          "title": "Request timed out",
+          "action": "Retry"
+        },
+        "RESOURCE_NOT_REGISTERED": {
+          "title": "Target resource not found",
+          "action": "Check and retry"
+        },
+        "RISK_CONFIRM_REQUIRED": {
+          "title": "This action needs your confirmation first",
+          "action": "Confirm now"
+        },
+        "SCHEME_REJECTED": {
+          "title": "This address is not allowed",
+          "action": "Use another address and retry"
+        },
+        "SCREENSHOT_FAILED": {
+          "title": "Tool execution failed",
+          "action": "Retry"
+        },
+        "SENSITIVE_FILE_BLOCKED": {
+          "title": "This action was blocked by a security policy",
+          "action": "Adjust and retry"
+        },
+        "SSRF_BLOCKED": {
+          "title": "This address is not allowed",
+          "action": "Use another address and retry"
+        },
+        "STEP_FAILED": {
+          "title": "Tool execution failed",
+          "action": "Retry"
+        },
+        "SUBAGENT_FAILED": {
+          "title": "Subtask execution failed",
+          "action": "Retry"
+        },
+        "TASK_FAILED": {
+          "title": "Subtask execution failed",
+          "action": "Retry"
+        },
+        "TEXT_TOO_LONG": {
+          "title": "Context is too long",
+          "action": "Shorten the context"
+        },
+        "TIMEOUT": {
+          "title": "Request timed out",
+          "action": "Retry"
+        },
+        "TOKEN_EXPIRED": {
+          "title": "Your session has expired",
+          "action": "Sign in again"
+        },
+        "TOOL_FAILED": {
+          "title": "Tool execution failed",
+          "action": "Retry"
+        },
+        "TOOL_NOT_FOUND": {
+          "title": "Target resource not found",
+          "action": "Check and retry"
+        },
+        "TOO_LARGE": {
+          "title": "File is too large",
+          "action": "Shrink the file and retry"
+        },
+        "TRIAL_QUOTA_EXCEEDED": {
+          "title": "Quota exhausted",
+          "action": "Try later or switch to a free model"
+        },
+        "UNKNOWN_API_TOOL": {
+          "title": "Target resource not found",
+          "action": "Check and retry"
+        },
+        "UNSUPPORTED_FORMAT": {
+          "title": "This file format is not supported",
+          "action": "Use a supported format and retry"
+        },
+        "UNSUPPORTED_IMAGE_FORMAT": {
+          "title": "This file format is not supported",
+          "action": "Use a supported format and retry"
+        },
+        "VERSION_NOT_FOUND": {
+          "title": "File version unavailable",
+          "action": "Select a version and retry"
+        },
+        "VERSION_SELECTOR_REQUIRED": {
+          "title": "File version unavailable",
+          "action": "Select a version and retry"
+        },
+        "VERSION_TOO_LOW": {
+          "title": "Version is too old",
+          "action": "Upgrade to the latest version"
+        },
+        "VIDEO_FETCH_FAILED": {
+          "title": "Network request failed",
+          "action": "Check your connection and retry"
+        },
+        "WRITE_FAILED": {
+          "title": "File read/write failed",
+          "action": "Check the file and retry"
+        }
+      },
+      "worktree": {
+        "title": "Worktree",
+        "state": {
+          "creating": "Creating",
+          "ready": "Created",
+          "initFailed": "Initialization failed",
+          "timeout": "Timed out",
+          "cleaned": "This task's worktree has been cleaned up to free disk space.",
+          "restoring": "Restoring",
+          "restored": "Restored",
+          "restoreFailed": "Unable to restore"
+        },
+        "hint": {
+          "timeout": "Please check the repository status",
+          "cleaned": "Restore this worktree to continue the task, or reclaim disk space.",
+          "singleWriter": "Only one active worktree is allowed per task at a time."
+        },
+        "action": {
+          "reclaimDisk": "Reclaim disk space",
+          "restore": "Restore worktree",
+          "retryRestore": "Retry restore",
+          "dismiss": "Got it"
+        },
+        "ariaLabel": "Worktree lifecycle"
+      },
+      "sideTask": {
+        "title": "Side task",
+        "ariaLabel": "Side task lifecycle",
+        "ephemeralNotice": "This is a temporary task: it disappears once closed and will not be kept for your next visit.",
+        "empty": "No side tasks yet",
+        "state": {
+          "running": "Running",
+          "completed": "Completed",
+          "expired": "Expired",
+          "cleaned": "Cleaned up"
+        },
+        "aria": {
+          "running": "Side task is running",
+          "completed": "Side task is completed",
+          "expired": "Side task has expired",
+          "cleaned": "Side task has been cleaned up"
+        },
+        "hint": {
+          "expired": "Its temporary-task retention window has passed, so it can be cleaned up.",
+          "cleaned": "Its content is no longer retrievable; only the title is kept."
+        },
+        "location": {
+          "label": "Runs in",
+          "sameFolder": "The same folder as the main task",
+          "sameEnvironment": "The same environment as the main task"
+        },
+        "cleanedFrom": "From cleaned-up {title}",
+        "files": {
+          "label": "Changed files",
+          "changedCount": "{count} file changed",
+          "empty": "This side task did not change any files"
+        },
+        "action": {
+          "close": "Close task",
+          "cleanup": "Clean up expired tasks"
+        },
+        "closeConfirm": {
+          "title": "Close this side task?",
+          "desc": "This temporary task has {artifacts} unsaved artifact(s) and {children} subprocess(es) still running. Once closed it disappears for good and cannot be recovered.",
+          "confirm": "Close anyway",
+          "cancel": "Not now"
+        }
+      },
+      "writingBlock": {
+        "title": "Writing block",
+        "ariaLabel": "Writing block",
+        "empty": "No writing blocks in this message",
+        "status": {
+          "idle": "Idle",
+          "editing": "Editing",
+          "accepted": "Accepted",
+          "reverted": "Reverted",
+          "failed": "Unable to update this writing block"
+        },
+        "action": {
+          "accept": "Accept",
+          "acceptAll": "Accept all",
+          "revert": "Revert"
+        },
+        "phase": {
+          "accept": {
+            "inProgress": "Accepting",
+            "completed": "Accepted",
+            "failed": "Unable to accept this writing block"
+          },
+          "acceptAll": {
+            "inProgress": "Accepting all",
+            "completed": "All accepted",
+            "failed": "Unable to accept all writing blocks"
+          },
+          "revert": {
+            "inProgress": "Reverting",
+            "completed": "Reverted",
+            "failed": "Unable to revert this writing block"
+          }
+        },
+        "openIn": {
+          "label": "Open with",
+          "email": "Open email in your default email app",
+          "browser": "Open the page in your default browser"
+        }
+      },
+      "promptPolish": {
+        "entryLabel": "Polish",
+        "ariaLabel": "Polish prompt",
+        "phase": {
+          "idle": "Not polished",
+          "polishing": "Polishing…",
+          "succeeded": "Polished",
+          "failed": "Polish failed"
+        },
+        "action": {
+          "polish": "Polish",
+          "retry": "Retry"
+        },
+        "failureDraftKept": "Can't polish the prompt right now. Your draft has been kept.",
+        "rejection": {
+          "emptyDraft": "The draft is empty. Enter some text before polishing."
+        },
+        "restartHint": "Polishing takes effect after a restart. Your draft has been kept."
       }
     },
     "permissionConfirm": {
@@ -8268,6 +9286,12 @@
     },
     "metaDescription": "Aggregating 41 authoritative sources (Weibo/Zhihu/36Kr/HackerNews/TechCrunch/OpenAI Blog/Arxiv etc.), auto-collecting every 6 hours, with model/product/industry/paper categories and real-time trend signals.",
     "metaTitle": "AI News · Real-time Aggregation",
+    "priceChart": {
+      "inputPrice": "{name} · Input price: {price}",
+      "outputPrice": "{name} · Output price: {price}",
+      "legendInput": "Input",
+      "legendOutput": "Output"
+    },
     "trendChart": {
       "days": "d",
       "hotValue": "Hotness",
@@ -8576,6 +9600,7 @@
     "adoptHint": "Write the selected candidate into the current conversation"
   },
   "goalCard": {
+    "achievedInTime": "Goal achieved in {totalTime}",
     "empty": "No conversation goal set yet",
     "emptyHint": "Type /goal <goal> in the input box, or let the AI drive it",
     "progress": "Progress",
@@ -9125,6 +10150,48 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
+    "voiceNote": {
+      "title": "Voice note",
+      "phase": {
+        "ready": "Ready",
+        "recording": "Recording",
+        "waitingTranscript": "Awaiting transcription",
+        "completed": "Completed",
+        "cancelled": "Cancelled",
+        "failed": "Recording failed",
+        "error": "Something went wrong",
+        "interrupted": "Interrupted"
+      },
+      "errors": {
+        "permission": "Microphone permission was denied. Allow it in your browser settings and try again.",
+        "noMicrophone": "No microphone device found",
+        "startFailed": "Could not start recording. Please try again.",
+        "saveFailed": "Could not save the recording",
+        "recognitionFailed": "Speech recognition was interrupted",
+        "emptyTranscript": "Nothing was recognized",
+        "sttPending": "Transcription is not available right now. Try again later, or save the audio only."
+      },
+      "action": {
+        "start": "Start recording",
+        "stop": "Stop recording",
+        "retry": "Retry",
+        "saveAudioOnly": "Save audio only",
+        "insertToInput": "Insert into message",
+        "dismiss": "Close"
+      }
+    },
+    "connectorAuth": {
+      "title": "Connect to {connectorName}",
+      "connected": "Connected",
+      "reconnect": "Reconnect {connectorName}",
+      "connect": "Connect",
+      "connecting": "Connecting…",
+      "moreInfo": "More info",
+      "decline": "Not now",
+      "declined": "Declined to connect {connectorName}. This conversation is unaffected."
+    },
+    "queueUndoRestoredQueued": "Restored the queued message",
+    "queueUndoRestored": "Restored the message from the queue",
     "usageEstimated": "Est.",
     "turnChanges": {
       "title": "Changes in this turn",
@@ -9670,8 +10737,6 @@
     "sideUsage": "Quick side question, not written to the main history. Usage: /side <question>",
     "sideBadge": "Side Q&A",
     "sideEnqueued": "AI is generating; your side question is queued and will be answered when the current reply finishes",
-    "sideQueued": "Side question queued",
-    "sideAnswerNow": "Answer now",
     "sideNoConversation": "Conversation not persisted yet; cannot queue a side question. Send a message first",
     "sideAnswerFailed": "Side question failed: {error}",
     "commitNoWorkspace": "No workspace selected, cannot run /commit",
@@ -10076,6 +11141,25 @@
     "callingTool": "Calling tool...",
     "waitingResponse": "Waiting for response...",
     "pdfOpenExternal": "Open in new window",
+    "injectionAssemblyBadge": "{count} context items this turn",
+    "injectionAssemblySourcesTitle": "Context sources this turn",
+    "injectionAssemblySourceCitations": "{count} knowledge citations",
+    "injectionAssemblySourceSteer": "Steered {count} times",
+    "injectionAssemblyRetry": "Upstream retry {attempt}/{max}",
+    "officeTooLarge": "File is too large to preview — download to view",
+    "officeExpired": "Preview link has expired",
+    "officeUnsupported": "Preview not supported for this file type",
+    "officeLazyLoad": "Click to load preview",
+    "officeLoading": "Loading preview…",
+    "officeFailed": "Failed to load preview",
+    "officeDownload": "Download to view",
+    "officeSelectedCell": "Selected {cell}",
+    "officeRowsTruncated": "Showing first {rows} rows",
+    "pdfPageIndicator": "Page {page} / {total}",
+    "pdfPageOnly": "Page {page}",
+    "pdfPageJump": "Jump to page",
+    "pdfPageJumpLabel": "Page number",
+    "pptxNotes": "Notes",
     "csvPreviewMeta": "{rows} rows × {cols} cols",
     "csvExpand": "Show all",
     "csvCollapse": "Collapse",
@@ -10272,6 +11356,16 @@
       "view": "View"
     },
     "commands": {
+      "steerPrompt": {
+        "description": "Inject the current input as guidance into the running answer",
+        "keywords": ["steer", "guide", "redirect"],
+        "label": "Steer prompt"
+      },
+      "queuePrompt": {
+        "description": "Queue the current input; it sends automatically after the current answer finishes",
+        "keywords": ["queue", "pending", "send later"],
+        "label": "Queue prompt"
+      },
       "agent": {
         "description": "Manage and dispatch AI agents",
         "keywords": ["agent", "bot", "dispatch"],
@@ -10844,6 +11938,30 @@
     "savePreview": "Save Preview",
     "saved": "Saved \"{name}\"",
     "templates": {
+      "blank": "Blank page",
+      "blankDesc": "A blank canvas with no preset structure",
+      "landing": "Landing page",
+      "landingDesc": "Hero with headline, selling points and a call-to-action button",
+      "dashboard": "Dashboard",
+      "dashboardDesc": "Console layout with metric cards, charts and a list",
+      "login": "Sign-in page",
+      "loginDesc": "Credential form with third-party sign-in entry",
+      "blog": "Blog listing",
+      "blogDesc": "Post cards with a sidebar navigation",
+      "product": "Product detail",
+      "productDesc": "Product page with gallery, options and a buy button",
+      "pricing": "Pricing plans",
+      "pricingDesc": "Plan comparison with entitlement lists",
+      "profile": "Profile",
+      "profileDesc": "Account page with avatar, details and settings",
+      "categories": {
+        "blank": "Blank",
+        "marketing": "Marketing",
+        "app": "App UI",
+        "content": "Content",
+        "commerce": "E-commerce",
+        "unknown": "Uncategorized"
+      },
       "title": "Templates"
     },
     "title": "Design Mode",
@@ -14292,7 +15410,9 @@
     "summaryPlaceholder": "Describe the article in one sentence",
     "tagsLabel": "Tags",
     "titleLabel": "Title",
-    "titlePlaceholder": "Enter article title"
+    "titlePlaceholder": "Enter article title",
+    "tagInputPlaceholder": "Type a tag, then press Enter",
+    "add": "Add"
   },
   "kbEditPage": {
     "backToArticle": "Back to article",
@@ -14397,7 +15517,11 @@
     },
     "title": "Knowledge Base",
     "edit": "Edit Knowledge",
-    "search": "Search Knowledge"
+    "search": "Search Knowledge",
+    "metaTitle": "RAG Knowledge Retrieval — Vector + BM25 + Knowledge Graph | IHUI AI",
+    "metaDescription": "IHUI AI RAG knowledge retrieval: document chunking, vectorization and hybrid retrieval (vector + BM25 + knowledge graph), with real-time search and citation tracing. An enterprise-grade RAG management platform.",
+    "metaOgTitle": "RAG Knowledge Retrieval — Vector + BM25 + Knowledge Graph",
+    "metaOgDescription": "Document chunking + vectorization + hybrid retrieval + citation tracing"
   },
   "learn": {
     "allCategories": "All Categories",
@@ -14885,7 +16009,15 @@
         "temperatureHelp": "Sampling temperature, 0-2. Lower = more deterministic, higher = more diverse.",
         "title": "Default Params",
         "topP": "Top P",
-        "topPHelp": "Nucleus sampling threshold, 0-1. Only top probability tokens are considered."
+        "topPHelp": "Nucleus sampling threshold, 0-1. Only top probability tokens are considered.",
+        "presetPrecise": "Precise",
+        "presetPreciseDesc": "Low temperature, for code / factual Q&A",
+        "presetBalanced": "Balanced",
+        "presetBalancedDesc": "Default configuration, for everyday chat",
+        "presetCreative": "Creative",
+        "presetCreativeDesc": "High temperature, for writing / brainstorming",
+        "presetJson": "JSON Mode",
+        "presetJsonDesc": "Structured output, for API integration"
       },
       "modelsCount": "{count} models",
       "more": "{total} more, truncated",
@@ -14963,7 +16095,30 @@
       "testSuccessWithTime": "OK {ms}ms · {date}",
       "testTimeOnly": "{ms}ms",
       "untested": "Untested",
-      "usage30d": "30d Tokens"
+      "usage30d": "30d Tokens",
+      "byok": {
+        "modeLabel": "BYOK mode:",
+        "modeDesc": "Your API keys are stored encrypted (AES-256-GCM) and used directly to access vendors when calling. The platform charges only a 5-20% service fee; free providers such as Cloudflare / GitHub Models / HuggingFace cost nothing.",
+        "viewGuide": "View guide",
+        "welcomeTitle": "Welcome to BYOK platform mode",
+        "welcomeDesc": "Call vendor models with your own API key; the platform charges only a 5-20% service fee",
+        "whyTitle": "Why choose BYOK?",
+        "whyDesc": "BYOK (Bring Your Own Key) lets you call models with your own vendor API key, billed directly against your vendor account. The platform takes only a 5-20% service fee — unlike traditional relay services, there is no reseller markup.",
+        "freeProvidersTitle": "Recommended free providers",
+        "cfDesc": "@cf/ · free, no API key required",
+        "githubDesc": "github/ · free, with a GitHub token",
+        "hfDesc": "huggingface/ · free, with an HF token",
+        "pollinationsDesc": "pollinations/ · free, no API key required",
+        "llm7Desc": "llm7/ · free, no API key required",
+        "freeNote": "The free providers above cost nothing on the platform (0% service fee)",
+        "stepsTitle": "Steps",
+        "step1": "Click the 'Add Provider' button on the left",
+        "step2": "Choose a vendor (e.g. OpenAI / DeepSeek / Zhipu AI) or a free provider (e.g. cloudflare)",
+        "step3": "Enter your API key (stored encrypted with AES-256-GCM; the platform never sees the plaintext)",
+        "step4": "Add the models you want to use",
+        "step5": "When calling, the system automatically prefers your key",
+        "gotIt": "Got it"
+      }
     }
   },
   "market": {
@@ -20986,6 +22141,63 @@
     "purchase": "Purchase membership"
   },
   "wallet": {
+    "autoTopUp": {
+      "title": "Auto top-up",
+      "description": "Automatically top up to the target balance when your balance falls below the threshold.",
+      "enabled": "Enable auto top-up",
+      "enable": {
+        "success": "Auto top-up enabled",
+        "error": "Failed to enable auto top-up. Please try again later"
+      },
+      "disable": {
+        "success": "Auto top-up disabled",
+        "error": "Failed to disable auto top-up. Please try again later"
+      },
+      "save": {
+        "success": "Auto top-up settings saved",
+        "error": "Failed to save auto top-up settings. Please try again later",
+        "action": "Save auto top-up settings"
+      },
+      "dialog": {
+        "title": "Confirm auto top-up",
+        "description": "Once enabled, when your balance falls below the threshold you will be automatically charged to top up to the target balance. Please confirm this is what you want.",
+        "confirm": "Confirm",
+        "cancel": "Cancel"
+      },
+      "target": {
+        "label": "Target balance",
+        "helper": "When your balance falls below the threshold, it is automatically topped up to this number of credits.",
+        "ariaLabel": "Target balance (credits)",
+        "error": {
+          "missing": "Enter a target balance",
+          "wholeNumber": "Target balance must be a whole number",
+          "maximum": "Target balance must not exceed {maximumCredits} credits",
+          "minimumDifference": "Target balance must be higher than the top-up threshold"
+        },
+        "equivalent": {
+          "loading": "Fetching price…",
+          "text": "Top up {creditCount} credits, estimated at <strong>{amount}</strong>",
+          "error": "Failed to fetch the price. Please try again later"
+        }
+      },
+      "threshold": {
+        "label": "Top-up threshold",
+        "helper": "Auto top-up triggers when your balance falls below this number of credits.",
+        "ariaLabel": "Top-up threshold (credits)",
+        "error": {
+          "missing": "Enter a top-up threshold",
+          "wholeNumber": "Top-up threshold must be a whole number",
+          "minimum": "Top-up threshold must be at least 1"
+        }
+      },
+      "immediateTopUpFailure": {
+        "title": "First top-up failed",
+        "amount": "The first top-up of {amount} could not be completed.",
+        "generic": "The first automatic top-up could not be completed.",
+        "updatePaymentMethod": "Update payment method",
+        "buyCredits": "Buy credits directly"
+      }
+    },
     "availableAmount": "Available",
     "backToWallet": "Back to Wallet",
     "balance": "Token Balance",
@@ -21545,11 +22757,6 @@
   },
   "permission": {
     "inputWarning": "High-risk operation detected. Please confirm before continuing",
-    "mode": {
-      "full": "Full",
-      "auto": "Auto",
-      "ask": "Ask"
-    },
     "dangerousCommandTitle": "Dangerous command detected",
     "dangerousCommandDesc": "Dangerous command \"{pattern}\" detected: {reason}. Continue anyway?",
     "dangerousCommandProceed": "Continue anyway",
@@ -21561,7 +22768,6 @@
     "copyText": "Copy text",
     "copyMarkdown": "Copy as Markdown",
     "regenerate": "Regenerate",
-    "feedback": "Feedback",
     "deleteMessage": "Delete message"
   },
   "activityBar": {
@@ -22474,7 +23680,6 @@
     "copiedText": "Text copied",
     "copiedMarkdown": "Markdown copied",
     "regenerating": "Regenerating",
-    "feedbackRecorded": "Feedback recorded",
     "messageDeleted": "Message deleted",
     "operationFailed": "Operation failed"
   },
@@ -24523,7 +25728,22 @@
     "uploadFailedWithReason": "Upload failed: {error}",
     "unknownError": "Unknown error",
     "missingFileId": "Upload response is missing file.id",
-    "maxAttachmentsReached": "At most {count} attachments allowed"
+    "maxAttachmentsReached": "At most {count} attachments allowed",
+    "placeholder": "Click or drag files here to upload",
+    "done": "Completed",
+    "cancelUpload": "Cancel upload",
+    "removeUploadedAriaLabel": "Remove uploaded file",
+    "removeItemAriaLabel": "Remove upload item",
+    "sizeLimitHint": "Max {size} per file",
+    "maxCountReached": "Limit of {max} files reached",
+    "oversizeFiles": "The following files exceed {size}: {files}",
+    "uploadFailed": "Upload failed",
+    "uploadFailedWithStatus": "Upload failed: HTTP {status}",
+    "invalidJsonResponse": "Response is not valid JSON",
+    "noUrlField": "No usable URL field found in response",
+    "networkError": "Network error",
+    "uploadCancelled": "Upload cancelled",
+    "imagePlaceholder": "Click or drag images here to upload"
   },
   "eduScheduling": {
     "title": "Smart Scheduling",
@@ -24562,12 +25782,6 @@
       "selectTerm": "Select term",
       "subjectPlaceholder": "Math"
     },
-    "loading": {
-      "text": "Loading...",
-      "rules": "Loading scheduling rules...",
-      "teachers": "Loading teacher schedules...",
-      "changes": "Loading change requests..."
-    },
     "actions": {
       "edit": "Edit",
       "add": "Add",
@@ -24580,6 +25794,12 @@
       "autoSchedule": "Auto Schedule",
       "checkConflicts": "Check Conflicts",
       "addTimeEntry": "Add Time Entry"
+    },
+    "loading": {
+      "text": "Loading...",
+      "rules": "Loading scheduling rules...",
+      "teachers": "Loading teacher schedules...",
+      "changes": "Loading change requests..."
     },
     "empty": {
       "rules": "No scheduling rules yet",
@@ -25476,5 +26696,195 @@
     "rotateSecretDesc": "Rotating the secret for \"{name}\" invalidates the old secret immediately, and apps using it must be updated. Continue?",
     "deleteKeyTitle": "Delete API Key",
     "deleteKeyDesc": "Delete \"{name}\"? The key becomes invalid immediately and cannot be recovered."
+  },
+  "knowledgeList": {
+    "title": "Knowledge Base",
+    "subtitle": "Search knowledge stored in your memory library with semantic search",
+    "searchPlaceholder": "Search knowledge base...",
+    "searchAriaLabel": "Search knowledge base",
+    "empty": "No search results yet",
+    "searchHint": "Enter keywords to search the knowledge base",
+    "resultCount": "{count} results"
+  },
+  "knowledgeBase": {
+    "backToList": "Back to list",
+    "searchPlaceholder": "Search knowledge base articles...",
+    "metaTitle": "Knowledge Base — Enterprise RAG Knowledge Management | IHUI AI",
+    "metaDescription": "IHUI AI knowledge base: connect 30+ data sources, hybrid retrieval (vector + BM25 + knowledge graph), citation tracing and fine-grained permission control. Turn scattered documents into a conversable AI knowledge brain for your enterprise.",
+    "metaOgTitle": "Enterprise Knowledge Base RAG — IHUI AI",
+    "metaOgDescription": "30+ data sources + hybrid retrieval + citation tracing + permission control",
+    "list": {
+      "title": "Knowledge Base",
+      "subtitle": "Browse, search and manage knowledge base articles",
+      "allCategories": "All categories",
+      "empty": "No articles yet"
+    },
+    "detail": {
+      "notFound": "Article not found",
+      "viewCount": "{count} views",
+      "toc": "Contents",
+      "prev": "Previous",
+      "next": "Next"
+    },
+    "search": {
+      "backToKb": "Back to knowledge base",
+      "title": "Search results",
+      "resultSummary": "Found {count} results for \"{q}\"",
+      "inputKeyword": "Enter a search keyword",
+      "searching": "Searching...",
+      "noResult": "No matching articles found"
+    },
+    "create": {
+      "title": "New knowledge base article",
+      "subtitle": "Write and publish a new knowledge base article"
+    }
+  },
+  "webviewFrame": {
+    "loadingText": "Loading...",
+    "screenshotNotice": "This site blocks embedding; switched to screenshot mode",
+    "blockedTitle": "Unsafe URL blocked",
+    "failedTitle": "Failed to load",
+    "externalTitle": "Cannot embed in panel",
+    "retry": "Retry",
+    "openExternal": "Open in external browser",
+    "idlePlaceholder": "Enter a URL or click a link in an AI message to open it"
+  },
+  "conversationDetailMode": {
+    "label": "Detail level",
+    "steps": "Steps",
+    "commands": "Commands",
+    "narrative": "Narrative"
+  },
+  "ambientSuggestions": {
+    "title": "Suggested next steps",
+    "suggestionResumeTask": "Resume the unfinished tasks",
+    "suggestionReviewFiles": "Review the files just modified",
+    "suggestionAnswerQuestion": "Answer the AI's question",
+    "suggestionContinueTopic": "Ask a follow-up on the above",
+    "dismiss": "Dismiss this suggestion",
+    "close": "Hide suggestions",
+    "restore": "Show suggestions"
+  },
+  "taskMonitor": {
+    "displayMode": "Display",
+    "modeSections": "Sections",
+    "modeTabs": "Tabs",
+    "sections": {
+      "progress": "Progress & context",
+      "activity": "Activity",
+      "results": "Results & sources",
+      "auxiliary": "Auxiliary"
+    }
+  },
+  "multiAgentAction": {
+    "header": {
+      "count": "{count, plural, one {# agent} other {# agents}}"
+    },
+    "action": {
+      "spawn": {
+        "label": "Create",
+        "inProgress": "Creating",
+        "completed": "Created",
+        "failed": "Create failed"
+      },
+      "resume": {
+        "label": "Resume",
+        "inProgress": "Resuming",
+        "completed": "Resumed",
+        "failed": "Resume failed"
+      },
+      "sendInput": {
+        "label": "Send input",
+        "inProgress": "Sending",
+        "completed": "Sent",
+        "failed": "Send failed"
+      },
+      "interrupt": {
+        "label": "Interrupt",
+        "inProgress": "Interrupting",
+        "completed": "Interrupted",
+        "failed": "Interrupt failed"
+      },
+      "close": {
+        "label": "Close",
+        "inProgress": "Closing",
+        "completed": "Closed",
+        "failed": "Close failed"
+      },
+      "list": {
+        "label": "List",
+        "inProgress": "Loading",
+        "completed": "Loaded",
+        "failed": "Load failed"
+      }
+    }
+  },
+  "visualAnnotation": {
+    "pickElement": "Pick element",
+    "panelTitle": "Style annotation",
+    "contextTitle": "Visual annotation",
+    "elementText": "Element text",
+    "styleSnapshot": "Style snapshot",
+    "annotationLabel": "Annotation",
+    "annotationPlaceholder": "Describe the style to change or inspect…",
+    "addToConversation": "Add to conversation",
+    "staleWarning": "Annotation is stale: the element has changed",
+    "close": "Close",
+    "color": "Color",
+    "backgroundColor": "Background",
+    "border": "Border",
+    "borderRadius": "Radius",
+    "fontSize": "Font size",
+    "margin": "Margin",
+    "padding": "Padding"
+  },
+  "artifactTurn": {
+    "turn": "Turn {turn}",
+    "stepBack": "Previous artifact",
+    "stepForward": "Next artifact",
+    "jumpToOrigin": "Jump to the turn that produced it",
+    "kindDocument": "Document",
+    "kindPresentation": "Presentation",
+    "kindSpreadsheet": "Spreadsheet",
+    "kindFile": "File"
+  },
+  "cloudChat": {
+    "header": {
+      "count": "{count, plural, one {# cloud chat} other {# cloud chats}}",
+      "target": "{name}"
+    },
+    "turns": "{turns, plural, one {# turn} other {# turns}}",
+    "action": {
+      "attach": {
+        "label": "Attach cloud chat",
+        "active": "Attaching",
+        "completed": "Attached",
+        "following": "Waiting to attach"
+      },
+      "create": {
+        "label": "Create cloud chat",
+        "active": "Creating",
+        "completed": "Created",
+        "following": "Waiting to create"
+      },
+      "list": {
+        "label": "List cloud chats",
+        "active": "Listing",
+        "completed": "Listed",
+        "following": "Waiting to list"
+      },
+      "readTurns": {
+        "label": "Read cloud chat turns",
+        "active": "Reading turns",
+        "completed": "Turns read",
+        "following": "Waiting to read"
+      },
+      "sendMessage": {
+        "label": "Send message to cloud chat",
+        "active": "Sending",
+        "completed": "Sent",
+        "following": "Waiting to send"
+      }
+    }
   }
 }
