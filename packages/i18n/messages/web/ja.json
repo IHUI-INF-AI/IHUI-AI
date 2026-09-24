@@ -5753,7 +5753,24 @@
     "relayOverview": "リレー概要",
     "themeEdit": "テーマ編集",
     "unauthorized": "未承認",
-    "userMargin": "ユーザー保証金"
+    "userMargin": "ユーザー保証金",
+    "deployDiagnosis": {
+      "title": "デプロイ診断",
+      "subtitle": "デプロイ結果・ヘルスチェック・ログ抜粋を貼り付けると、AI が原因と実行可能な修正コマンドを提示します",
+      "pasteNote": "1 つ以上入力してください。空の項目はモデルに送信されません",
+      "run": "診断を開始",
+      "running": "診断中…",
+      "reportTitle": "診断レポート",
+      "model": "使用モデル",
+      "duration": "所要時間",
+      "rootCause": "原因分析",
+      "impact": "影響範囲",
+      "fixCommands": "修正コマンド",
+      "copy": "コピー",
+      "summary": "概要",
+      "rawNote": "以下はモデルの生出力で、整形していません",
+      "empty": "左の入力後に「診断を開始」を押すとレポートが表示されます"
+    }
   },
   "connectors": {
     "title": "中文コネクタ",
@@ -10363,7 +10380,26 @@
       "referenceTitle": "コンテキスト参照",
       "noReferences": "参照がありません",
       "uploading": "添付ファイルをアップロード中",
-      "uploadFailed": "添付ファイルのアップロードに失敗"
+      "uploadFailed": "添付ファイルのアップロードに失敗",
+      "cacheHit": "キャッシュヒット {ratio}（読み戻し {read}）",
+      "cacheOccupancyNote": "ヒット分もウィンドウ {occupied} を占有しますが、再プリフィルは不要です",
+      "cacheUnavailable": "今回の使用量フレームにキャッシュ数値が含まれていないため、ヒット可否は判定できません",
+      "detailsTruncated": "ほか {count} 件は折りたたまれています",
+      "residualNote": "ほか {tokens} はプロトコルラッパとシリアライズのオーバーヘッドで、上記の構成には含まれません",
+      "resultSuffix": "結果",
+      "segRoleAssistant": "アシスタントの応答",
+      "segRoleToolCall": "ツール呼び出し引数",
+      "segRoleToolResult": "ツール結果",
+      "segRoleUser": "ユーザーメッセージ",
+      "segSkill": "スキル本文",
+      "segSystem": "システムプロンプト",
+      "segSystemPrompt": "システムプロンプト（全文）",
+      "segToolSchema": "ツール定義",
+      "topContributor": "最大要因: {name} {share}",
+      "unnamedItem": "名前未設定の項目",
+      "unobservedNotSupplied": "このターンでは該当するシステム区間が配信されませんでした",
+      "unobservedServerOnly": "この部分はサーバー側で組み立てられるため、クライアント側では正確な使用量を取得できません",
+      "ringBasis": "コンテキストウィンドウのうち {percent}% 使用済み（{used} / {max}）"
     },
     "copied": "コピーしました",
     "copy": "コピー",
@@ -18339,7 +18375,8 @@
     "courses": "コース",
     "faq": "よくある質問",
     "home": "ホーム",
-    "settings": "設定"
+    "settings": "設定",
+    "adminDeployDiagnosis": "デプロイ診断"
   },
   "news": {
     "allCategories": "All categories",
