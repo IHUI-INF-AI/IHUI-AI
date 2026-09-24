@@ -1,0 +1,36 @@
+{
+  "counts": {
+    "apps/mobile-rn/src/screens/CourseDetailScreen.tsx": {
+      "missing": 1,
+      "literal": 0
+    },
+    "apps/mobile-rn/src/screens/DistributionScreen.tsx": {
+      "missing": 1,
+      "literal": 0
+    },
+    "apps/mobile-rn/src/screens/LiveDetailScreen.tsx": {
+      "missing": 1,
+      "literal": 0
+    },
+    "apps/mobile-rn/src/screens/ModelPlazaScreen.tsx": {
+      "missing": 1,
+      "literal": 0
+    },
+    "apps/mobile-rn/src/screens/N8nModelScreen.tsx": {
+      "missing": 1,
+      "literal": 0
+    },
+    "apps/mobile-rn/src/screens/PostCreateScreen.tsx": {
+      "missing": 1,
+      "literal": 0
+    },
+    "apps/mobile-rn/src/screens/SharedDemoScreen.tsx": {
+      "missing": 1,
+      "literal": 0
+    },
+    "packages/app/src/features/study-publish/StudyPublishScreen.tsx": {
+      "missing": 2,
+      "literal": 0
+    }
+  }
+}
