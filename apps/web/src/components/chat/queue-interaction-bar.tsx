@@ -23,7 +23,10 @@ import { useTranslations } from 'next-intl'
 import { GripVertical } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import type { QueueInteractionPerms } from '@ihui/shared/chat/input-notices'
+import {
+  INPUT_NOTICES_NAMESPACE,
+  type QueueInteractionPerms,
+} from '@ihui/shared/chat/input-notices'
 import {
   QUEUE_OPS_NAMESPACE,
   effectiveMode,
@@ -89,6 +92,9 @@ export function QueueInteractionBar({
   'data-testid': testId,
 }: QueueInteractionBarProps) {
   const t = useTranslations(QUEUE_OPS_NAMESPACE)
+  // 单点消费(2026-09-24 收口):deniedNotice 三枚拒绝键的唯一文案本体在 D69
+  // `ai.pane.inputNotices.queue.denied.*`;queueOps 命名空间下的同文副本已删除,不得再加回。
+  const tn = useTranslations(INPUT_NOTICES_NAMESPACE)
 
   const [dragIndex, setDragIndex] = React.useState<number | null>(null)
   const [editingId, setEditingId] = React.useState<string | null>(null)
@@ -322,7 +328,7 @@ export function QueueInteractionBar({
             data-queue-denied={kind}
             data-denied-key={verdict.deniedKey}
           >
-            {t(verdict.deniedKey)}
+            {tn(`queue.${verdict.deniedKey}`)}
           </span>
         )
       })}
