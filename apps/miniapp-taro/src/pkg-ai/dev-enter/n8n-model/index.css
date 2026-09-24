@@ -44,9 +44,9 @@
   font-size: 28rpx; /* RN createText 14dp */
   font-weight: 600;
   /* RN 文字色 surface.light(#FFF) 在暗色 brand(白底)上不可读,按语义修正为 primary-foreground */
-  color: var(--color-primary-foreground);
+  color: var(--color-cta-foreground);
   padding: 12rpx 28rpx;
-  background: var(--color-primary);
+  background: var(--color-cta);
   border-radius: var(--radius-xl);
 }
 .nm-create-btn:active {
@@ -274,9 +274,9 @@
   opacity: 0.8;
 }
 .nm-type-active {
-  background: var(--color-primary); /* RN brand.DEFAULT */
+  background: var(--color-cta); /* RN brand.DEFAULT */
   /* RN surface.light 暗色不可读,语义修正为 primary-foreground,亮暗自动适配 */
-  color: var(--color-primary-foreground);
+  color: var(--color-cta-foreground);
   font-weight: 600;
 }
 /* 布尔选择(同类型 chip 语言) */
@@ -294,8 +294,8 @@
   text-align: center;
 }
 .nm-bool-active {
-  background: var(--color-primary);
-  color: var(--color-primary-foreground);
+  background: var(--color-cta);
+  color: var(--color-cta-foreground);
   font-weight: 600;
 }
 /* 添加参数(RN 无对应;次级按钮对齐 RN actionEdit/retryText: border light + brand 文字) */
@@ -320,9 +320,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-primary);
+  background: var(--color-cta);
   /* RN 文字色 surface.light(#FFF) 在暗色 brand(白底)上不可读,按语义修正为 primary-foreground */
-  color: var(--color-primary-foreground);
+  color: var(--color-cta-foreground);
   text-align: center;
   border-radius: var(--radius-lg);
   font-size: 30rpx; /* RN modalBtnTextConfirm 15dp */
