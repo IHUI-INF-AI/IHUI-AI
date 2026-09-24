@@ -2406,20 +2406,12 @@ const checks = [
   // 登记表被过滤空 = EMPTY-REGISTRY 红(空表即恒绿假门)。非 Windows 如实报"未判定",不计通过。
   // **刻意不收录第三方 IDE 自管态**(.workbuddy 含被 gitdir.mjs 当 git 二进制首选的 PortableGit、
   // .qoder-cn 是本会话宿主的记忆/工作区)—— 否则会把别人的运行态判成我们的债,挪一次丢一次记忆。
-  // **2026-09-24 落点改判 warn(用户授权)**:本门判的是**机器态**,与任何 diff 无关 —— 实测
-  // `Get-Item -Force` 的 LinkType 为空、无 ReparsePoint,`.codex` 583MB / `.trae-cn` 371MB / `.ihui`
-  // / npm 前缀等 11 项确实回潮成实体目录(C 盘实体合计 4990MB)。判据没错,错的是落点:提交者改不动
-  // 机器态 ⇒ **每次提交必红** ⇒ 唯一出路是 --no-verify,连带把另外 126 道门一起跳掉(同日实证:
-  // 本门红着的那轮守门批量检查以 4/127 红收场,而提交照样落地)。恒红 blocking 门 = 全队关闸。
-  // 三条判据一字未削,每次提交仍打红字(不静默);非提交入口:`pnpm check:home-junctions [--json]`。
-  // 真做 §26 改道属机器级动作(要先停正在写这些目录的 IDE/CLI;robocopy 非零返回码会"内容搬走却
-  // 不建 junction"→ 路径消失),由人放到部署窗口做,不由提交链逼出来。
   {
     id: '96',
-    label: '🏠 §26 家目录改道完整性(warn,机器态与 diff 无关 ⇒ 不拦提交链,回潮即打红字)',
+    label: '🏠 §26 家目录改道完整性(blocking,拦"实体工具态回潮到 C 盘")',
     script: 'check-home-junctions.mjs',
     args: [],
-    mode: 'warn',
+    mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_HOME_JUNCTIONS',
     onFailHint: [
       '',
@@ -2430,8 +2422,7 @@ const checks = [
       '     ⚠ robocopy 非零返回码时内容已搬走但**不会**建 junction,路径直接消失 —— 必须回读再补建。',
       '     单独复验:node scripts/check-home-junctions.mjs --json',
       '     自检:node scripts/check-home-junctions.mjs --self-test(6 例,含悬空 junction 反例)',
-      '     本门已改 warn(不拦提交),此变量现在的实际作用只剩"连红字警告一起关掉"——',
-      '     关掉之后回潮就真的没人看见了,除非有明确理由,否则不要设。',
+      '     紧急跳过(不推荐):HUSKY_SKIP_HOME_JUNCTIONS=1 git commit ...',
       '',
     ].join('\n'),
   },
@@ -2453,12 +2444,14 @@ const checks = [
       '  💡 三类红,改法各一条:',
       '     ① S1 单点被摘 —— 顶距唯一源是 `apps/mobile-rn/App.tsx` 的 <SafeAreaView edges={[\'top\']}>;',
       '        它没了就是全屏叠字回来(真机实测差 34dp)。恢复该单点,不要逐屏补。',
-      '     ② S2 第二取值口 —— `StatusBar.currentHeight` 在 iOS 恒为 undefined(⇒ 0),',
-      '        `statusBarHeight` prop 是共享 NavBar 曾开的岔口(零调用方,已删)。一律删掉。',
+      '     ② S2 第二取值口 —— `StatusBar.currentHeight` 在 iOS 恒为 undefined(⇒ 0)见即红;',
+      '        `statusBarHeight` 只拦"布局取值"(paddingTop/top/marginTop/= …),共享层"调用方注入、默认 0"的声明不判红。',
       '     ③ S3 魔法顶距 —— 页头/根容器上 `paddingTop: 24..60` 的字面量就是在蒙状态栏高度;',
-      '        删掉它,顶距由单点负责;确属设计需要的顶距请写 `statusbar-exempt: <一句话原因>`。',
+      '        删掉它,顶距由单点负责;确属设计需要的顶距请写 `statusbar-exempt: <一句话原因>`(逐行生效,必须带原因)。',
+      '     泄压阀 M1:含 JSX <Modal 的文件渲染在导航树外、不继承单点,其顶距命中只报数不判红(--all 逐条列出);',
+      '        注释里提 <Modal 不配豁免。',
       '     单独复验:node scripts/check-statusbar-single-source.mjs',
-      '     自检:node scripts/check-statusbar-single-source.mjs --self-test(20 例,含临时仓端到端)',
+      '     自检:node scripts/check-statusbar-single-source.mjs --self-test(40 例,含 Modal 豁免与逐行豁免阳性对照)',
       '     紧急跳过(不推荐):HUSKY_SKIP_STATUSBAR_SINGLE_SOURCE=1 git commit ...',
       '',
     ].join('\n'),
@@ -2487,6 +2480,33 @@ const checks = [
       '     单独复验:node scripts/check-dangling-local-imports.mjs --files <你的文件>',
       '     自检:node scripts/check-dangling-local-imports.mjs --self-test(19 例,含真仓 HEAD 实测)',
       '     紧急跳过(不推荐):HUSKY_SKIP_DANGLING_IMPORTS=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // 暂存删除的存续性对账(2026-09-24 立,Agent A 交付)。守门 65 只看删除规模(≥1000/≥20%),
+  // 十几条精准打击全放过;heal-worktree-tracked 对暂存删除按设计"只报数、不代裁"。本门补的正是
+  // 这个空档:删除规模不大、但仓库(索引 blob)仍在引用它 —— 任何人跑一次不带 pathspec 的普通
+  // commit 就把已入库功能与测试从版本树里删掉。判据 E1(引用仍在)∧ E2(索引里无替代路径)
+  // 同时成立才判红;引用方自己一起删 = 正当删除的形态,放行。不加 stagedTriggers —— 暂存删除
+  // 可触及任意路径,任何提交都不得跳过。
+  {
+    id: '99',
+    label: '🗑️ 暂存删除存续性对账(blocking,被删文件必须无人引用且无替代路径)',
+    script: 'check-staged-deletions.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_STAGED_DELETIONS',
+    onFailHint: [
+      '',
+      '  💡 先分清成因,再决定动作(本门只读,不代恢复):',
+      '     ① 宿主清理层成批删的? 逐路径找回:`git checkout HEAD -- <path>`(禁止全局 reset --hard)。',
+      '     ② 确属有意删除? 把引用方(barrel/import)一并改掉,或登记进 scripts/staged-deletions-allowlist.json(必须写 reason)。',
+      '     口径:一律判索引 blob,不判滞后的共享工作树;E1∧E2 只成立一条时仅报数不判红。',
+      '     单独复验:node scripts/check-staged-deletions.mjs',
+      '     自检:node scripts/check-staged-deletions.mjs --self-test(33 例,正反成对)',
+      '     镜像测试:node --test scripts/tests/check-staged-deletions.test.mjs(12 例,含装车证明)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_STAGED_DELETIONS=1 git commit ...',
       '',
     ].join('\n'),
   },
