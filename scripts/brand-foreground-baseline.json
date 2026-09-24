@@ -264,6 +264,28 @@
     "apps/miniapp-taro/src/components/SkillsPopup.tsx": 1,
     "apps/miniapp-taro/src/pages/distribution/plan/index.tsx": 2
   },
+  "nestMismatchCounts": {
+    "apps/mobile-rn/src/screens/CircleIndexScreen.tsx": 1,
+    "packages/app/src/features/agent-market/AgentMarketScreen.tsx": 1,
+    "packages/app/src/features/ai-group/AiGroupScreen.tsx": 1,
+    "packages/app/src/features/app-topup/AppTopupScreen.tsx": 2,
+    "packages/app/src/features/cert-apply/CertApplyScreen.tsx": 1,
+    "packages/app/src/features/live-host/LiveHostScreen.tsx": 1,
+    "packages/app/src/features/profile-edit/ProfileEditScreen.tsx": 2,
+    "packages/app/src/features/promote/PromoteScreen.tsx": 1,
+    "packages/app/src/features/token-value/TokenValueScreen.tsx": 6
+  },
+  "r7NestMismatchLedger": {
+    "addedBy": "R7 立门 2026-09-25",
+    "why": "nestMismatchCounts 是 R7(跨 JSX 嵌套层的品牌底/前景错配)的存量登记:立门当日按 HEAD blob 实测 16 处 / 9 文件,逐条人工目检成立 —— 容器 style key 与文字 style key 既不在同一块(R1 看不见)也不同名兄弟(R4 看不见),只有渲染嵌套能把两者连起来。",
+    "howVerified": "16 处逐个开文件核对(见交付报告);其中 2 处是内联在图标/ActivityIndicator 上的 color prop(CircleIndexScreen 的 <Plus>、ProfileEditScreen 的 <SquarePen>/<ActivityIndicator>),正是 R1/R4 结构上永远不可能命中的那一型。",
+    "retire": "棘轮只减不增:把该处的文字前景换成容器所属档位的正配(cta → brand.ctaForeground,DEFAULT → brand.foreground)后,把该文件的数调小;全仓清零后本键与 r7NestMismatchLedger 一并删除。禁止为过门调高。",
+    "knownFalsePositiveShapes": [
+      "card(cta) > badge(自有 rgba 底) > badgeText(白字):badge 是归属边界,已判不计(self-test N3)",
+      "container(surface.light) 页面底上的正文 text.primary:非品牌底一律不判(self-test N4)",
+      "color={active ? styles.on : styles.off} 三元:候选里有一枚合法即不判(self-test N5)"
+    ]
+  },
   "pairedCtaNotVisibleToRule": {
     "addedBy": "本会话 2026-09-24",
     "why": "§4 成对主 CTA,但配对形态在规则视野外(兄弟命名不匹配 / 前景走 JSX prop)。不为此放宽规则,否则\"同一 StyleSheet 内无配对的白卡片\"会一起被放过 —— 那才是 R3 真正要拦的东西。",
