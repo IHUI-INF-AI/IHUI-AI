@@ -50,7 +50,7 @@ const trim = (l) => l.trim()
 // 打断 —— 2026-09-25 实测把 `check-task-claims.mjs` 弄死过一次,故把纯函数抽出去而不是被 import。
 // 这里**原样再导出**同名符号,既有调用方(`SIM_THRESHOLD` / `tokenize` / `jaccard`)一字不变。
 export { SIM_THRESHOLD, jaccard, tokenize } from './lib/live-doc-similarity.mjs'
-import { SIM_THRESHOLD, CONTAIN_MIN, jaccard, squash, tokenize } from './lib/live-doc-similarity.mjs'
+import { SIM_THRESHOLD, CONTAIN_MIN, jaccard, squash, stripState, tokenize } from './lib/live-doc-similarity.mjs'
 
 /**
  * 容器短路:HEAD 行的**全部非空白字符**原样出现在工作树某行里 ⇒ 内容逐字存活,只是被就地延长。
@@ -68,13 +68,20 @@ export function classifyMissing(headLines, wtLines, threshold = SIM_THRESHOLD) {
   const localOnly = wtLines.map(trim).filter((t) => t.length > 0 && !headSet.has(t))
   const localTok = localOnly.map(tokenize)
   const localSquashed = localOnly.map(squash)
+  // 翻勾会改行首状态(`- [ ]（进行中）` → `- [x] ✅(日期)`),不剥掉它就永远"不逐字包含",
+  // 于是把刚翻勾的那行判成真丢失、`--apply` 再插回一遍 —— 双态行就是这么造出来的。
+  const localBare = localOnly.map((l) => squash(stripState(l)))
   const verdict = new Map()
   for (const raw of headLines) {
     const t = trim(raw)
     if (!t.length || wtSet.has(t)) continue
     const tt = tokenize(t)
     const sq = squash(t)
-    if (sq.length >= CONTAIN_MIN && localSquashed.some((w) => w.includes(sq))) {
+    const bare = squash(stripState(t))
+    if (
+      (sq.length >= CONTAIN_MIN && localSquashed.some((w) => w.includes(sq))) ||
+      (bare.length >= CONTAIN_MIN && localBare.some((w) => w.includes(bare)))
+    ) {
       verdict.set(t, 'superseded')
       continue
     }
@@ -280,6 +287,30 @@ function selfTest() {
       ['anchor', '- [ ] 某条长待办正文内容远超容器下界'],
     )
     assert(v2.get('- [ ]') === 'lost', '短裸标记行被容器短路误洗')
+  })
+
+  // ⑪ 2026-09-25 第二次被同一机制咬到:⑨ 只覆盖"正文原样 + 追加",而真实翻勾还会
+  // 改行首状态(`- [ ]（进行中）` → `- [x] ✅(日期)`)。状态前缀不剥,容器通道对这一整类
+  // 直接失效 —— 后果就是 `--apply` 把我刚翻勾的那行按"真丢失"插回来,当场造出双态行。
+  ck('⑪ 翻勾改的是行首状态前缀:剥掉状态后正文仍逐字存活 ⇒ 判 superseded 不插回', () => {
+    const held = '- [ ]（进行中） **D17(生态统一入口)**:页面已写完但缺语言包,按住'
+    const flipped =
+      '- [x] ✅(2026-09-25) **D17(生态统一入口)**:页面已写完但缺语言包,按住' +
+      ' **同票补齐并入库**:五语 30 键已插入,vitest 8 passed,check-i18n-keys 由红转 parity OK。'
+    assert(!squash(flipped).includes(squash(held)), '本例必须"带状态前缀就不互含",否则测不到 stripState 的意义')
+    const head = ['anchor', held, 'tail']
+    const wt = ['anchor', flipped, 'tail']
+    const v = classifyMissing(head, wt)
+    assert(v.get(held) === 'superseded', `应判 superseded,实判 ${v.get(held)}`)
+    assert(mergeByAnchors(head, wt, v).lines === 0, '把刚翻勾的行又插回一遍(= 造双态行)')
+  })
+
+  // ⑫ ⑪ 的对照组:状态前缀**不能**变成万能洗地通道。
+  ck('⑫ 剥状态前缀不得替真丢失洗地(整条正文没存活的行仍判 lost)', () => {
+    const gone = '- [ ]（进行中） **D99 交还前必须自行复验**:按权威入口复跑并贴末行输出,不得转述'
+    const unrelated = '- [x] ✅(2026-09-25) **D98 别的条目**:已完成,与 D99 无关,只是同样带状态前缀'
+    const v = classifyMissing(['anchor', gone], ['anchor', unrelated])
+    assert(v.get(gone) === 'lost', '剥了状态前缀就把不相关行当成同一条 ⇒ 真丢失会被洗绿')
   })
 
   for (const [mark, name] of cases) console.log(`${mark} ${name}`)
