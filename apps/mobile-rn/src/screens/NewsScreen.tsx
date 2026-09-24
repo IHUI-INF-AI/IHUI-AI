@@ -20,6 +20,7 @@ import {
   type ConversationDetail,
   type Knowledge,
 } from '@ihui/api-client'
+import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import { tokens } from '../theme/active-tokens'
 import Drawer, {
   type DrawerConversationItem,
@@ -331,10 +332,11 @@ export default function NewsScreenWrapper() {
             setError(res.error || '加载失败')
           }
         }
-      } catch {
+      } catch (e: unknown) {
+        const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
         if (!append) {
           setItems([])
-          setError('网络异常')
+          setError(detail.trim() ? toUserFriendlyMessage(e) : '网络异常')
         }
       } finally {
         if (!append) setLoading(false)

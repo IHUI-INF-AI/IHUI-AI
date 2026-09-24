@@ -17,6 +17,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
 import { KnowledgePlanetScreen as SharedKnowledgePlanetScreen } from '@ihui/rn-app'
 import { fetchApi } from '@ihui/api-client'
+import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import Loading from '../components/common/Loading'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -57,7 +58,7 @@ export function KnowledgePlanetScreen() {
         }[]
         total: number
       }>(API_PATH)
-      if (!res.success) throw new Error()
+      if (!res.success) throw new Error(res.error)
       const rawList = res.data?.list ?? []
       setItems(
         rawList.map((raw) => ({
@@ -68,8 +69,9 @@ export function KnowledgePlanetScreen() {
           createdAt: toTimestamp(raw.createdAt),
         })),
       )
-    } catch {
-      setError('加载失败，请下拉刷新重试')
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      setError(detail.trim() ? toUserFriendlyMessage(e) : '加载失败，请下拉刷新重试')
     } finally {
       setLoading(false)
       setRefreshing(false)
