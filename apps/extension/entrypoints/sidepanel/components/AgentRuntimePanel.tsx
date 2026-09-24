@@ -14,11 +14,36 @@ import {
   permissionTierWordKeys,
   type RenderPlanStep,
 } from '@ihui/shared'
+// D64④ 后台子任务态色档判定唯一真相源(element-pack):端内不得再手写状态→色 switch
+import {
+  backgroundTaskView,
+  fromAgentStatus,
+  type ElementPackTone,
+} from '@ihui/shared/chat/element-pack'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
 import { PlanStepsView, enumLabel, makeToolTranslate, toolDisplayName } from './MessageContent'
 
 type AgentStatus = 'idle' | 'running' | 'completed' | 'failed'
+
+/** 语义色档 → Tailwind 类(仅样式映射;状态→色档的判定在共享层 backgroundTaskView) */
+const TONE_DOT_CLASS: Record<ElementPackTone, string> = {
+  neutral: 'bg-muted-foreground',
+  info: 'bg-primary',
+  success: 'bg-success',
+  // 本端 AgentStatus 四态经 fromAgentStatus 归并后不产生 warning 档(无 timeout),
+  // 结构上不可达;兜底同 info,避免自造第二色源。
+  warning: 'bg-primary',
+  danger: 'bg-destructive',
+}
+
+/**
+ * D64④ 状态点色档唯一出口(导出供回归)。
+ * 判据派发自真相源:backgroundTaskView(fromAgentStatus(status)).tone。
+ */
+export function agentStatusDotClass(status: AgentStatus): string {
+  return TONE_DOT_CLASS[backgroundTaskView(fromAgentStatus(status)).tone]
+}
 
 interface PermissionEvent {
   mode: string
@@ -218,14 +243,8 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
     [permission],
   )
 
-  const statusDotClass =
-    status === 'running'
-      ? 'bg-primary'
-      : status === 'completed'
-        ? 'bg-success'
-        : status === 'failed'
-          ? 'bg-destructive'
-          : 'bg-muted-foreground'
+  // D64④ 色档派发自共享判据(端内不再手写状态→色 switch);回归见 tests/agent-runtime-panel-element-pack.test.tsx
+  const statusDotClass = TONE_DOT_CLASS[backgroundTaskView(fromAgentStatus(status)).tone]
 
   return (
     <div className="flex flex-col gap-2" data-testid="agent-runtime-panel">
