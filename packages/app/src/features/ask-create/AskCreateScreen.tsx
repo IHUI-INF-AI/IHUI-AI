@@ -134,7 +134,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 20,
       paddingVertical: 12,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },
     submitDisabled: { backgroundColor: tk.text.tertiary },

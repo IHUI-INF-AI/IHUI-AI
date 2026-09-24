@@ -340,13 +340,13 @@ const styles = StyleSheet.create({
     right: 8,
     paddingHorizontal: VIP_BADGE_PADDING * 2,
     paddingVertical: VIP_BADGE_PADDING,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     borderRadius: rnRadius.xl,
   },
   vipBadgeText: {
     fontSize: 10,
     fontWeight: '600',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
   },
   info: {
     paddingTop: 8,
