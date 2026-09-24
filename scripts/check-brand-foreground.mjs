@@ -123,7 +123,7 @@ const R2_DIR = 'apps/mobile-rn/src'
  * R5 扫描范围:web 端 + 共享 React 组件包(类名形态的退役档只出现在这两处)。
  * 与 SCAN_DIRS(RN style 对象面)互不重叠 —— R1..R4 对本范围**零覆盖**,这正是 R5 立项的原因。
  */
-const R5_DIRS = ['apps/web', 'packages/ui-react']
+const R5_DIRS = ['apps/web', 'packages/ui-react', 'apps/miniapp-taro']
 const R5_EXT = /\.(tsx|jsx|ts)$/
 /** R5 排除面:测试/e2e 里合法描述退役档,不构成 UI 债务 */
 const R5_SKIP_DIR = /(^|\/)(e2e|tests|__tests__|node_modules)\//
@@ -197,7 +197,13 @@ export function countWebClassPairs(lines) {
     // 豁免:同行,或紧邻上行(多行 className 的注释通常写在属性上方)
     if (R5_EXEMPT.test(line) || (i > 0 && R5_EXEMPT.test(lines[i - 1]))) continue
     if (!hasClassToken(line, R5_FG_CLASS, '')) continue
-    if (hasClassToken(line, R5_BG_CLASS, '-/')) count++
+    // 实底 `bg-primary` **或** 渐变端 `from-primary`/`to-primary`。后者是 2026-09-25 补的盲区:
+    // `@ihui/ui-react` Button 的 hero-cta 写 `bg-gradient-to-r from-primary to-primary/70`,
+    // 行内没有 `bg-primary` —— 迁移判据与 R5 同形,于是两边一起看不见同一处。
+    // 渐变两端与实底同属"品牌实底 + 其上文字",§4 不因填色是单色还是渐变而豁免。
+    const solid = hasClassToken(line, R5_BG_CLASS, '-/')
+    const grad = hasClassToken(line, 'from-primary', '/') || hasClassToken(line, 'to-primary', '/')
+    if (solid || grad) count++
   }
   return count
 }
@@ -621,7 +627,7 @@ function run(options) {
   const r5Scan = options.staged ? stagedR5Files() : listR5Files()
   console.log(`📎 内容口径:${options.staged ? '暂存区/磁盘' : 'HEAD blob(工作树滞后不参与判定)'}`)
   if (options.staged && files.length === 0 && r5Scan.files.length === 0) {
-    console.log('⏭ 暂存区无 apps/mobile-rn/src、packages/app/src、apps/web、packages/ui-react 文件,跳过')
+    console.log('⏭ 暂存区无 apps/mobile-rn/src、packages/app/src、apps/web、packages/ui-react、apps/miniapp-taro 文件,跳过')
     return 0
   }
 
@@ -756,9 +762,11 @@ function run(options) {
         '     配对由**名字**成立,故改法是给文字 key 换前景 brand.foreground;',
         '     ⚠️ brand.ctaFill / ctaText 已于 2026-09-24 删除(AGENTS §4 品牌 CTA 同源),',
         '        不得作为修法加回来 —— 悬空引用由守门 90 R3 判红;',
-        '        要调暗色主按钮观感,改 tokens.css 的 .dark --color-primary 一处,三端同时动;',
-        '     主 CTA / 选中态胶囊一律 brand.DEFAULT + brand.foreground 成对(= web 的',
-        '     --color-primary + --color-primary-foreground)—— 不要逐处硬写颜色;',
+        '        要调主按钮观感,改 tokens.css 的 --color-cta **一处**(它不分 .dark,明暗两态同时动);',
+        '     主 CTA / 选中态胶囊 / 悬浮钮一律 brand.cta + brand.ctaForeground 成对(= web 的',
+        '     --color-cta + --color-cta-foreground,明暗同值不反转)—— 不要逐处硬写颜色;',
+        '     brand.DEFAULT / --color-primary 只保留墨色、描边、文字色三义,**不再**作大色块底',
+        '     (2026-09-24 改档;旧写法亮=纯黑/暗=纯白,与页面反极);',
         '     R5(web / ui-react 类名面)唯一正解:bg-cta + text-cta-foreground(+ hover:bg-cta/90),',
         '     对应 RN 侧 brand.cta + brand.ctaForeground —— bg-primary/text-primary-foreground 是',
         '     2026-09-24 已废的退役档(明暗反极,用户实拍"浅色一大片黑 / 深色一大片白");',
@@ -918,6 +926,18 @@ function selfTest() {
   )
   // 名字关系单测:XButton + XButtonText / X + XLabel 同为合法配对
   assert(isSiblingStylePair('shareButton', 'shareButtonText'), 'R4 名字:XButton × XButtonText 成对')
+
+  // R5 范围必须真的含小程序端 —— 缩回范围会让已迁的 37 处重新隐身,且不会有任何声响
+  assert(
+    [
+      ['apps/miniapp-taro/src/components/Carousel.tsx', ["  x: 'bg-primary text-primary-foreground'"]],
+      ['apps/web/src/App.tsx', ["  x: 'bg-primary text-primary-foreground'"]],
+      ['packages/ui-react/src/components/button.tsx', ["  x: 'bg-primary text-primary-foreground'"]],
+    ].every(([f, L]) => isR5Scope(f) && countWebClassPairs(L) === 1),
+    'R5-S1 三端(web / ui-react / miniapp-taro)都必须在 R5 视野内且能计 1',
+  )
+  assert(!isR5Scope('apps/mobile-rn/src/App.tsx'), 'R5-S2 RN 端不属类名面范围(它走 R1/R3/R4)')
+
   assert(isSiblingStylePair('section', 'sectionLabel'), 'R4 名字:X × XLabel 成对')
   assert(isSiblingStylePair('retryBtn', 'retryText'), 'R4 名字:跨后缀 XBtn × XText 成对')
   assert(!isSiblingStylePair('retryBtn', 'retryBtn'), 'R4 名字:同 key 不成对(归 R1 管辖)')
@@ -1087,6 +1107,21 @@ function selfTest() {
   assert(countWebClassPairs(["  x: 'bg-cta text-primary text-cta-foreground'"]) === 0, 'R5-N4 正解档 bg-cta 绝不得计债')
   // (N5) 只有一半:有实底无前景 → 不成对,不计(R5 判的是"底字同行配对",不是查 bg-primary 本身)
   assert(countWebClassPairs(["  x: 'bg-primary text-xs'"]) === 0, 'R5-N5 无同行前景不计')
+  // 渐变端形态(hero-cta 事故形态):必须计 1
+  assert(
+    countWebClassPairs([
+      "        'bg-gradient-to-r from-primary to-primary/70 text-primary-foreground shadow-md px-8 py-3',",
+    ]) === 1,
+    'R5-P4 渐变端 from-primary × text-primary-foreground 必须计 1(实底判据看不见它)',
+  )
+  assert(
+    countWebClassPairs(["  x: 'bg-gradient-to-r from-cta to-cta/70 text-cta-foreground'"]) === 0,
+    'R5-N6 渐变正解档 from-cta/to-cta 不得计债(反向对照,证明 P4 不是无条件放行)',
+  )
+  assert(
+    countWebClassPairs(["  x: 'from-primary to-emerald-500 text-xs'"]) === 0,
+    'R5-N7 渐变端但无同行前景不计',
+  )
   // (N6) 已知限制:**跨行**拆开的配对不计(见文件头 R5 限制①)—— 本条把该限制钉成契约,
   //      谁将来实现了跨行判定,这条会红并强制他回来改注释,而不是让限制悄悄变成隐债。
   assert(
