@@ -176,7 +176,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
       alignItems: 'center',
     },
-    tabActive: { backgroundColor: tk.brand.DEFAULT },
+    tabActive: { backgroundColor: tk.brand.cta },
     tabText: { fontSize: 14, color: tk.text.secondary },
     tabTextActive: { color: tk.surface.light, fontWeight: '600' },
     errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },

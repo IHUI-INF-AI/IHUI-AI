@@ -65,7 +65,7 @@ export function AgentInputArea({
           type="button"
           onClick={onRun}
           disabled={!canRun}
-          className="inline-flex h-7 items-center gap-1 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-7 items-center gap-1 rounded-md bg-cta px-2.5 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:cursor-not-allowed disabled:opacity-40"
           data-testid="agent-pane-run-btn"
         >
           {isRunning ? (

@@ -140,5 +140,31 @@ describe('TimelineEventRow evidence details', () => {
     expect(screen.getByText(/external change/)).toBeTruthy()
     expect(screen.getByText(/agent baseline/)).toBeTruthy()
   })
+
+  // D55(G-66) 四态各一用例:approved / rejected / needsUser / unknown。
+  // 徽章 = meta.decision 经 stepDecisionLabel 归并(state) + 真实词包取词(text);
+  // unknown 态必须原样显示未知码,绝不编造文案。
+  const d55Cases = [
+    { code: 'auto_skip_approval', state: 'approved', label: '自动批准(免审批)' },
+    { code: 'security_blocked', state: 'rejected', label: '被安全策略拦截' },
+    { code: 'approval_policy_always', state: 'needsUser', label: '策略要求审批' },
+    { code: 'mystery_decision_code', state: 'unknown', label: 'mystery_decision_code' },
+  ] as const
+  it.each(d55Cases)('D55 决策徽章 $state 态:$code → $label', ({ code, state, label }) => {
+    render(
+      <TimelineEventRow
+        event={{
+          ...baseEvent,
+          meta: { decision: code, reason: '低风险只读操作' },
+        }}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('timeline-event-toggle'))
+    const badge = screen.getByTestId('timeline-evidence-decision')
+    const span = badge.querySelector('[data-decision-state]') as HTMLElement | null
+    expect(span).not.toBeNull()
+    expect(span!.getAttribute('data-decision-state')).toBe(state)
+    expect(span!.textContent).toBe(label)
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

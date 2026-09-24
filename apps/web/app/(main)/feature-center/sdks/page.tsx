@@ -81,7 +81,7 @@ export default function SdksPage() {
               className={
                 'rounded-md border px-3 py-1 text-sm transition-colors ' +
                 (language === l
-                  ? 'border-primary bg-primary text-primary-foreground'
+                  ? 'border-primary bg-cta text-cta-foreground'
                   : 'border-border hover:bg-muted')
               }
             >

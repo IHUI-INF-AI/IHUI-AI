@@ -554,7 +554,7 @@ function FilterChip({
       className={cn(
         'inline-flex h-7 items-center gap-1 rounded-md border px-2.5 text-xs font-medium transition-colors [&>span]:translate-y-[var(--text-vcenter-offset)]',
         active
-          ? 'border-primary bg-primary text-primary-foreground'
+          ? 'border-primary bg-cta text-cta-foreground'
           : 'border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground',
       )}
     >
@@ -626,7 +626,7 @@ function ModelCardGrid({
       />
 
       <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground transition-colors group-hover:bg-cta/10 group-hover:text-primary">
           <BrandIcon vendor={model.provider} size={20} />
         </div>
         <div className="min-w-0 flex-1">
@@ -712,7 +712,7 @@ function ModelCardGrid({
           {model.features.slice(0, model.relayPublic ? 3 : 4).map((f) => (
             <span
               key={f}
-              className="rounded-md bg-primary/8 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+              className="rounded-md bg-cta/8 px-1.5 py-0.5 text-[10px] font-medium text-primary"
             >
               {f}
             </span>
@@ -857,7 +857,7 @@ function ModelCardList({
       }}
       className="group flex cursor-pointer items-center gap-3 p-3 transition-all hover:bg-accent/40 focus:outline-none focus:ring-2 focus:ring-ring/20"
     >
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted text-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted text-foreground transition-colors group-hover:bg-cta/10 group-hover:text-primary">
         <BrandIcon vendor={model.provider} size={18} />
       </div>
 
@@ -906,7 +906,7 @@ function ModelCardList({
           {model.features.slice(0, 2).map((f) => (
             <span
               key={f}
-              className="rounded-md bg-primary/8 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+              className="rounded-md bg-cta/8 px-1.5 py-0.5 text-[10px] font-medium text-primary"
             >
               {f}
             </span>

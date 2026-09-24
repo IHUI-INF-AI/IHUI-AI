@@ -225,7 +225,7 @@ export function ApiRelaysSection() {
                 onClick={() => setActiveVendor(null)}
                 className={`rounded px-1.5 py-0.5 text-[10px] transition-colors ${
                   activeVendor === null
-                    ? 'bg-primary text-primary-foreground'
+                    ? 'bg-cta text-cta-foreground'
                     : 'bg-muted text-muted-foreground hover:bg-accent'
                 }`}
               >
@@ -238,7 +238,7 @@ export function ApiRelaysSection() {
                   onClick={() => setActiveVendor((cur) => (cur === v ? null : v))}
                   className={`rounded px-1.5 py-0.5 text-[10px] transition-colors ${
                     activeVendor === v
-                      ? 'bg-primary text-primary-foreground'
+                      ? 'bg-cta text-cta-foreground'
                       : 'bg-muted text-muted-foreground hover:bg-accent'
                   }`}
                 >
@@ -332,7 +332,7 @@ export function ApiRelaysSection() {
                 type="button"
                 onClick={handleSpeedTestAll}
                 disabled={testing || filtered.length === 0}
-                className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
+                className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-primary transition-colors hover:bg-cta/10 disabled:opacity-50"
               >
                 <Gauge className={`h-2.5 w-2.5 ${testing ? 'animate-spin' : ''}`} />
                 <span>{testing ? t('speedTesting') : t('speedTest')}</span>
@@ -399,7 +399,7 @@ export function ApiRelaysSection() {
                   <button
                     type="button"
                     onClick={() => handleRelayImport(relay.baseUrl, relay.name)}
-                    className="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary transition-colors hover:bg-primary/20"
+                    className="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary transition-colors hover:bg-cta/20"
                   >
                     <Zap className="h-2.5 w-2.5" />
                     <span>{t('import')}</span>
