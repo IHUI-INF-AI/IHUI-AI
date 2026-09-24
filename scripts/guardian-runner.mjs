@@ -1860,6 +1860,65 @@ const checks = [
     ].join('\n'),
   },
 
+  {
+    id: '90',
+    label: '🎨 跨端色值同源对账(blocking,RN rn-tokens ↔ tokens.css 逐位同值 + 品牌档不得端内自立)',
+    script: 'check-cross-end-tokens.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CROSS_END_TOKENS',
+    // 不声明 stagedTriggers:R3 判的是"这次提交会带走的悬空引用",可能出现在任何端内文件
+    // (mobile-rn / packages/app / ui-native …),收窄触发面等于给漏网留口;
+    // 且实测开销仅 0.46s(--staged)/ 1.3s(全量),没有为之省时间的理由。
+    onFailHint: [
+      '',
+      '  💡 三条判据:',
+      '     R1 已声明映射逐位同值 —— rn-tokens.ts 的色值必须等于 tokens.css 对应 CSS 变量(亮/暗各自对账)。',
+      '     R2 品牌键覆盖 —— rn-tokens 的 brand 命名空间里每个键,必须被某条映射声明,或在 RN_ONLY_BRAND_KEYS',
+      '        写明"web 无对应变量"的理由(豁免项若已不存在同样算红,防清单腐烂)。',
+      '     R3 悬空引用 —— tokens.brand.<key> / tk.brand.<key> 必须命中已声明键集合(默认判 HEAD,--staged 判索引)。',
+      '',
+      '     品牌 CTA 的唯一写法:backgroundColor/borderColor = brand.DEFAULT,其上文字 = brand.foreground',
+      '     (等价 web 的 --color-primary + --color-primary-foreground);**不得再立 brand.ctaFill/ctaText 这类端内档',
+      '     —— 2026-09-24 已删,理由:浅色=web primary、深色=brand-accent 的混血档让同一语义三端三个值。**',
+      '     要调暗色主按钮对比度,改 tokens.css 的 .dark --color-primary 一处,三端一起动。',
+      '',
+      '     定位:node scripts/check-cross-end-tokens.mjs --list(看映射与依据)',
+      '     自检:node scripts/check-cross-end-tokens.mjs --self-test(8 例正反对照)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_CROSS_END_TOKENS=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+  // 主题接线对账(2026-09-24 立)。起因是真机实测:广场页顶栏/底栏 #1a1a1a 而正文
+  // #f5f5f5 —— 同一屏幕两套档案。根因在共享层:packages/app 里 213 个组件形参默认
+  // `colorScheme = 'light'` 并据此 getTokens(),调用方只要漏传或写字面量,整棵子树
+  // 就静默按该档案渲染,而端内 chrome 跟着真主题走。首轮实测命中 118 处 / 117 文件,
+  // 已修 108 处;余 9 处(他人 M 在制的 7 个屏 + study-publish 需整文件主题化改造)
+  // 冻结在 scripts/theme-prop-wiring-baseline.json,棘轮只减不增。
+  // 组件清单由源码自动推导、不维护手工名单 —— 手工清单正是上一版判据漏东西的原因。
+  {
+    id: '91',
+    label: '🌗 主题接线对账(blocking,theme-driven 共享组件必须拿到调用方解析出的主题)',
+    script: 'check-theme-prop-wiring.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_THEME_PROP_WIRING',
+    onFailHint: [
+      '',
+      '  💡 两类红:',
+      '     ① 漏传 colorScheme —— 共享组件形参默认值是 \'light\',漏传等于静默锁死浅色档案;',
+      '        正解 `<X colorScheme={resolvedTheme} />`,值须来自 useTheme()/主题 store。',
+      '     ② 写死字面量 "light"/"dark" —— 永远错,后果同①(真机实测即此形)。',
+      '     跨行元素要连属性一起看;`{...props}` 展开不算传值(实测 115 处即藏在这里)。',
+      '',
+      '     定位:node scripts/check-theme-prop-wiring.mjs --json',
+      '     自检:node scripts/check-theme-prop-wiring.mjs --self-test',
+      '     收紧基线(人工确认后):node scripts/check-theme-prop-wiring.mjs --update-baseline',
+      '     紧急跳过(不推荐):HUSKY_SKIP_THEME_PROP_WIRING=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- blocking (OpenAPI 契约) ---
   {
     id: '10',
@@ -1909,9 +1968,18 @@ const checks = [
     skipEnv: 'HUSKY_SKIP_BRAND_FOREGROUND',
     onFailHint: [
       '',
-      '  💡 R1(brand.DEFAULT 作背景且文字用 surface.light/text.primary)= 深色下白底白字,必须改 brand.foreground;',
+      '  💡 R1(同一 style 块内 brand.DEFAULT 背景 + surface.light/text.primary 字)= 深色下白底白字;',
+      '     R4(2026-09-24 补,**兄弟 key** 之间的同一缺陷):底在 `retryBtn`、字在 `retryText` ——',
+      '        RN 的 StyleSheet 天然把按钮底和它的文字拆成两个 key,所以 R1 的同块判据',
+      '        对这类结构性缺陷全程沉默,PlazaScreen 四个 1.06:1 黑压黑按钮因此 shipped 到真机。',
+      '        R4 用**名字**配对(X/XText、XBtn|XButton 与 XBtnText|XButtonText、X/XLabel,顺序无关),',
+      '        不用行距滑窗 ⇒ 不会误伤不相干的相邻样式。',
+      '     唯一正解:品牌实底 + 其上文字一律成对写 brand.DEFAULT + **brand.foreground**;',
+      '        ⚠️ brand.ctaFill / ctaText 这对混血档已于 2026-09-24 删除(AGENTS §4 品牌 CTA 同源),',
+      '        不得作为修法再加回来 —— 悬空引用由守门 90 R3 直接判红。',
       '     R2(surface.light / rgba 白 / bg-white 作容器底)= 深色不切换,改用 tokens.surface.*(深浅皆可)或补 dark: 变体;',
       '     覆盖在媒体/彩色底上的合法浮层被误报时,先核语义再决定改码或 --update-baseline(禁止为过门而调高基线)。',
+      '     ⚠️ --update-baseline 会一并重写 R2/R3 基线,共享工作区脏时等于把别人的存量抬上去 —— 先确认可全量口径。',
       '     单独复验:node scripts/check-brand-foreground.mjs;自检:node scripts/check-brand-foreground.mjs --self-test',
     ].join('\n'),
   },

@@ -625,7 +625,7 @@ const styles = StyleSheet.create({
   purchasePayBtn: {
     height: 44,
     borderRadius: rnRadius.lg,
-    backgroundColor: tokens.brand.ctaFill,
+    backgroundColor: tokens.brand.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
@@ -637,7 +637,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 20,
     fontWeight: '600',
-    color: tokens.brand.ctaText,
+    color: tokens.brand.foreground,
   } as TextStyle,
 })
 
