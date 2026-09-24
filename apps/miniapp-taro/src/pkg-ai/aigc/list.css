@@ -60,14 +60,14 @@
   background: var(--color-card);
 }
 .category-chip.active {
-  background: var(--color-primary);
+  background: var(--color-cta);
 }
 .category-text {
   font-size: 28rpx;
   color: var(--color-text-medium);
 }
 .category-chip.active .category-text {
-  color: var(--color-primary-foreground);
+  color: var(--color-cta-foreground);
   font-weight: 600;
 }
 
