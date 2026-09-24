@@ -10,6 +10,14 @@
   // 不在产品运行时依赖图中,knip 会把它们误判为「未引用文件」→ 统一忽略以消除此类误报,
   // 并避免后续新增运维脚本再次打破棘轮。(这些脚本的 next 等运行时解析依赖随之免检。)
   "ignore": ["scripts/**", "deploy/scripts/**"],
+  // 2026-09-25(B6 定性票):CI 工作流 run 步骤里以 root 上下文调用的真二进制 = 框架装载型,非未声明依赖。
+  // 立因:knip 把 .github/workflows/e2e-browser-hub.yml 的 `pnpm exec playwright`(L157)与
+  // `pnpm exec drizzle-kit`(L202)记进 root workspace 的 binaries,而这两个包声明在 apps/web /
+  // packages/database,root workspace 结构上看不见 —— 同形态的 migration-tests.yml|drizzle-kit
+  // 早已计入 09-15 基线(binaries 16 即含它),所以这不是新增死代码,是配置盲区新增第 2 次发作(+2 超基线)。
+  // 只在本 root workspace 免检这两个名字;任一"端"真删了 playwright/drizzle-kit 声明,
+  // dependencies/unlisted 判据仍会红,本行不会掩盖。
+  "ignoreBinaries": ["playwright", "drizzle-kit"],
   "workspaces": {
     "apps/api": {
       "entry": ["src/server.ts"],

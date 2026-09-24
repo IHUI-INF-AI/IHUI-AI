@@ -74,7 +74,8 @@ export interface ToolContext {
   confirmDangerous?: (tool: Tool, args: Record<string, unknown>) => Promise<boolean>;
   /** 沙盒配置(命令白名单 + env 过滤),由 setupAgentTools 从 settings.json 注入 */
   sandbox?: {
-    commandAllowlist?: string[];
+    /** 三态:null = 禁止一切命令,undefined / [] = 不检查(与 SandboxOptions 同口径) */
+    commandAllowlist?: string[] | null;
     blockedEnvVars?: string[];
     allowedPaths?: string[];
   };
