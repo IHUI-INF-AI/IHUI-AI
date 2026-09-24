@@ -20,6 +20,7 @@ from typing import Any
 
 import pytest
 
+from app.core import tunables
 from app.core.context_compaction import (
     _build_structured_summary,
     estimate_messages_tokens,
@@ -52,6 +53,22 @@ class TestConsistencyFixtures:
     def _load(self) -> None:
         self.doc = _load_doc()
         self.fixtures = self.doc.get("fixtures", [])
+
+    def test_strategy_constants_match_tunables(self) -> None:
+        """跨端阈值对账(Python 一侧):app.core.tunables 的实现值 == fixture 表。
+
+        TS 一侧的同一断言在 packages/context-compaction/test/consistency.test.ts。
+        任一侧改数字而忘改 consistency-fixtures.json 的 strategy_constants 即失败。
+        """
+        expected = self.doc.get("strategy_constants") or {}
+        keys = [k for k in expected if k != "_comment"]
+        assert keys, "fixtures 缺 strategy_constants 表(对账入口不得为空)"
+        failures: list[str] = []
+        for name in keys:
+            actual = getattr(tunables, name, "<tunables 缺该常量>")
+            if actual != expected[name]:
+                failures.append(f"{name}: Py={actual!r} != fixture={expected[name]!r}")
+        assert not failures, "回收/压缩有效性阈值跨端漂移:\n" + "\n".join(failures)
 
     def test_estimate_messages_tokens(self) -> None:
         dirty = False
