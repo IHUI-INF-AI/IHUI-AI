@@ -2742,5 +2742,8 @@
       }
     },
     "vividTail": "，馬上就好"
+  },
+  "notification": {
+    "pushBannerTitle": "新訊息"
   }
 }
