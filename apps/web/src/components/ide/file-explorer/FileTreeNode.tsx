@@ -16,6 +16,10 @@ import { getFileIcon, getFileColor } from '../file-icons'
 import { ChevronRight, Folder, FolderOpen, FileText, Pencil, Trash2, Copy } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getRenamedPath, validateFileName, isPathInWorkspace } from './model'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
+
+/** 层栈 id(见 @/lib/overlay-stack):重命名输入框(行内编辑态即为一层) */
+const FILE_TREE_RENAME_OVERLAY_ID = 'file-tree-node-rename'
 
 interface FileTreeNodeProps {
   node: FileNode
@@ -72,11 +76,13 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
   // 重命名输入框自动聚焦 + 选中文本
   React.useEffect(() => {
     if (renaming) {
+      pushOverlay(FILE_TREE_RENAME_OVERLAY_ID)
       requestAnimationFrame(() => {
         renameInputRef.current?.focus()
         renameInputRef.current?.select()
       })
     }
+    return () => popOverlay(FILE_TREE_RENAME_OVERLAY_ID)
   }, [renaming])
 
   const handleCopyPath = async () => {
@@ -243,6 +249,7 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
                 void handleRename()
               }
               if (e.key === 'Escape') {
+                if (!isTopOverlay(FILE_TREE_RENAME_OVERLAY_ID)) return
                 setRenaming(false)
               }
             }}
