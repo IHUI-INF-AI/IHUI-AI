@@ -22,6 +22,9 @@ import {
 } from '@/api/checkpoint-api'
 import { useChatStore } from '@/stores/chat'
 import { useAiToolsPanelStore } from '@/stores/ai-tools-panel'
+// D52(2026-09-24 立):任务监控分区面板——在既有 tab 体系之上做分组层,不新建第二套 Tab
+import { TaskMonitorZonesView } from '@/components/ai/task-monitor-sections'
+import { useTaskMonitorStore } from '@/stores/task-monitor'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import {
   useActiveDispatches,
@@ -85,7 +88,7 @@ interface TraceData {
 /** Trace 组件独立声明了同构接口,此处用最小结构注入 */
 type TraceViewerProps = React.ComponentProps<typeof AgentTraceViewer>
 
-type ToolTabKey =
+export type ToolTabKey =
   | 'goal'
   | 'memory'
   | 'plan'
@@ -263,8 +266,13 @@ function dispatchToBgStatus(d: SubagentDispatch): BackgroundAgent['status'] {
  */
 export function AiSidePanelTools() {
   const t = useTranslations('aiToolsPanel')
+  // D52:任务监控分区文案(「展示方式」/ 四区名)
+  const tm = useTranslations('taskMonitor')
   const open = useAiToolsPanelStore((s) => s.open)
   const [activeTab, setActiveTab] = React.useState<ToolTabKey>('plan')
+  // D52:展示方式(sections 分区视图默认 / tabs 平铺旧行为),persist 持久化
+  const displayMode = useTaskMonitorStore((s) => s.displayMode)
+  const setDisplayMode = useTaskMonitorStore((s) => s.setDisplayMode)
 
   // chat store 数据源
   const messages = useChatStore((s) => s.messages)
@@ -720,44 +728,79 @@ export function AiSidePanelTools() {
 
       {open && (
         <>
-          {/* tab 导航条(横向滚动) */}
-          <div
-            role="tablist"
-            aria-label={t('title')}
-            className="flex gap-1 overflow-x-auto border-b px-2 pb-1.5"
-          >
-            {TAB_KEYS.map((key) => (
-              <button
-                key={key}
-                type="button"
-                role="tab"
-                id={`ai-tools-tab-${key}`}
-                aria-selected={activeTab === key}
-                aria-controls={`ai-tools-panel-${key}`}
-                data-testid={`ai-panel-tab-${key}`}
-                onClick={() => setActiveTab(key)}
-                className={cn(
-                  'shrink-0 rounded-md px-2.5 py-1 text-xs transition-colors',
-                  activeTab === key
-                    ? 'bg-accent font-medium text-accent-foreground'
-                    : 'text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground',
-                )}
-              >
-                {t(`tabs.${key}`)}
-              </button>
-            ))}
+          {/* 展示方式切换器(D52):紧凑胶囊,sections 分区视图(默认)/ tabs 平铺旧行为 */}
+          <div className="flex items-center gap-2 border-b px-2 py-1.5">
+            <span className="text-[10px] text-muted-foreground">{tm('displayMode')}</span>
+            <div
+              role="group"
+              data-testid="task-monitor-display-mode"
+              className="flex items-center rounded-full bg-muted p-0.5"
+            >
+              {(['sections', 'tabs'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  data-testid={`task-monitor-mode-${mode}`}
+                  aria-pressed={displayMode === mode}
+                  onClick={() => setDisplayMode(mode)}
+                  className={cn(
+                    'rounded-full px-2.5 py-0.5 text-[11px] transition-colors',
+                    displayMode === mode
+                      ? 'bg-background font-medium text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {tm(mode === 'sections' ? 'modeSections' : 'modeTabs')}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* tab 内容区 */}
-          <div
-            role="tabpanel"
-            id={`ai-tools-panel-${activeTab}`}
-            aria-labelledby={`ai-tools-tab-${activeTab}`}
-            data-testid={`ai-panel-content-${activeTab}`}
-            className="max-h-80 overflow-y-auto p-3"
-          >
-            {renderTab(activeTab)}
-          </div>
+          {displayMode === 'sections' ? (
+            /* 分区视图(D52):四区分组层,激活 Tab 逻辑与 renderTab 全部复用既有实现 */
+            <TaskMonitorZonesView activeTab={activeTab} onSelectTab={setActiveTab} renderTab={renderTab} />
+          ) : (
+            <>
+              {/* tab 导航条(横向滚动) */}
+              <div
+                role="tablist"
+                aria-label={t('title')}
+                className="flex gap-1 overflow-x-auto border-b px-2 pb-1.5"
+              >
+                {TAB_KEYS.map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    role="tab"
+                    id={`ai-tools-tab-${key}`}
+                    aria-selected={activeTab === key}
+                    aria-controls={`ai-tools-panel-${key}`}
+                    data-testid={`ai-panel-tab-${key}`}
+                    onClick={() => setActiveTab(key)}
+                    className={cn(
+                      'shrink-0 rounded-md px-2.5 py-1 text-xs transition-colors',
+                      activeTab === key
+                        ? 'bg-accent font-medium text-accent-foreground'
+                        : 'text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground',
+                    )}
+                  >
+                    {t(`tabs.${key}`)}
+                  </button>
+                ))}
+              </div>
+
+              {/* tab 内容区 */}
+              <div
+                role="tabpanel"
+                id={`ai-tools-panel-${activeTab}`}
+                aria-labelledby={`ai-tools-tab-${activeTab}`}
+                data-testid={`ai-panel-content-${activeTab}`}
+                className="max-h-80 overflow-y-auto p-3"
+              >
+                {renderTab(activeTab)}
+              </div>
+            </>
+          )}
         </>
       )}
     </div>

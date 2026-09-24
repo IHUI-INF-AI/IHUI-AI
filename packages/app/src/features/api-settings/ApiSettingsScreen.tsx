@@ -233,7 +233,13 @@ function createStyles(tk: AppThemeTokens) {
     eyeText: { fontSize: 16 },
     hint: { fontSize: 11, color: tk.text.tertiary, marginTop: 12 },
     btnRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
-    btn: { flex: 1, height: 50, justifyContent: 'center', borderRadius: rnRadius.xl, alignItems: 'center' },
+    btn: {
+      flex: 1,
+      height: 50,
+      justifyContent: 'center',
+      borderRadius: rnRadius.xl,
+      alignItems: 'center',
+    },
     btnPrimary: { backgroundColor: tk.brand.DEFAULT },
     btnGhost: {
       backgroundColor: tk.surface.bg,
@@ -241,7 +247,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
     },
     btnDisabled: { opacity: 0.6 },
-    btnTextPrimary: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
+    btnTextPrimary: { color: tk.brand.foreground, fontSize: 16, fontWeight: '600' },
     btnTextGhost: { color: tk.text.medium, fontSize: 16, fontWeight: '600' },
     testRow: {
       flexDirection: 'row',
@@ -253,10 +259,10 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 10,
       paddingVertical: 8,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.text.primary,
+      backgroundColor: tk.brand.DEFAULT,
     },
     testBtnRunning: { opacity: 0.6 },
-    testBtnText: { color: tk.surface.light, fontSize: 14, fontWeight: '600' },
+    testBtnText: { color: tk.brand.foreground, fontSize: 14, fontWeight: '600' },
     statusOk: { fontSize: 14, color: tk.success.DEFAULT, marginTop: 8 },
     statusErr: { fontSize: 14, color: tk.danger.DEFAULT, marginTop: 8 },
     toast: {

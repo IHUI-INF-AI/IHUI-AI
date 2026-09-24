@@ -24,7 +24,9 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { createPortal } from 'react-dom'
-import { Loader2, ArrowLeft, ArrowRight, RotateCw, Copy, ExternalLink } from 'lucide-react'
+import { Loader2, ArrowLeft, ArrowRight, RotateCw, Copy, ExternalLink, MousePointerClick } from 'lucide-react'
+
+import { AnnotationStylePanel, type PickedVisualElement } from './annotation-style-panel'
 
 import { buildBrowserWsUrl, setBrowserWsToken } from '@ihui/api-client'
 import { useAuthStore } from '@/stores/auth'
@@ -86,6 +88,83 @@ function mapKey(key: string): string {
   return KEY_MAP[key] ?? key
 }
 
+// ---- D42 浏览器视觉标注(G-50):复用既有 execute/execute_result 通道注入点选 ----
+
+/** 注入:点选模式安装脚本(捕获态 hover 高亮 + click 采集,幂等;重复安装零副作用) */
+const PICK_INSTALL_SCRIPT = `(() => {
+  const w = window
+  if (w.__ihuiPickInstalled) { w.__ihuiPick = null; return 'ok' }
+  w.__ihuiPickInstalled = true
+  const style = document.createElement('style')
+  style.id = 'ihui-pick-style'
+  style.textContent = '*{cursor:crosshair!important}.ihui-pick-hl{outline:2px solid #6366f1!important;outline-offset:-1px!important}'
+  document.head.appendChild(style)
+  let prev = null
+  const clearHl = () => { if (prev) { prev.classList.remove('ihui-pick-hl'); prev = null } }
+  document.addEventListener('mouseover', (e) => {
+    if (!document.getElementById('ihui-pick-style')) return
+    clearHl()
+    prev = e.target
+    prev.classList.add('ihui-pick-hl')
+  }, true)
+  document.addEventListener('click', (e) => {
+    if (!document.getElementById('ihui-pick-style')) return
+    e.preventDefault()
+    e.stopPropagation()
+    const el = e.target
+    if (!(el instanceof Element)) return
+    let s = el.tagName.toLowerCase()
+    if (el.id) s += '#' + el.id
+    else {
+      const c = typeof el.className === 'string' ? el.className.trim().split(/\\s+/)[0] : ''
+      if (c) s += '.' + c
+    }
+    const text = (el.innerText || '').trim().slice(0, 80)
+    const cs = getComputedStyle(el)
+    w.__ihuiPick = {
+      selector: s,
+      textExcerpt: text,
+      signature: s + '|' + text,
+      styles: {
+        color: cs.color,
+        backgroundColor: cs.backgroundColor,
+        border: cs.borderStyle === 'none' ? 'none' : cs.borderWidth + ' ' + cs.borderStyle + ' ' + cs.borderColor,
+        borderRadius: cs.borderRadius,
+        fontSize: cs.fontSize,
+        margin: cs.margin,
+        padding: cs.padding,
+      },
+    }
+  }, true)
+  return 'ok'
+})()`
+
+/** 注入:读取并清空点选结果(read-and-clear,轮询一次一取) */
+const PICK_READ_SCRIPT =
+  `(() => { const p = window.__ihuiPick || null; window.__ihuiPick = null; return p ? JSON.stringify(p) : 'null' })()`
+
+/** 注入:退出点选模式(摘样式表,清结果;监听器保留但被 ihui-pick-style 哨兵短路) */
+const PICK_REMOVE_SCRIPT =
+  `(() => { const st = document.getElementById('ihui-pick-style'); if (st) st.remove(); window.__ihuiPick = null; return 'ok' })()`
+
+/** ④ stale 重查脚本:selector 存在性 + 签名(选择器+文本指纹)比对 */
+function buildRecheckScript(el: PickedVisualElement): string {
+  const sel = JSON.stringify(el.selector)
+  const sig = JSON.stringify(el.signature)
+  return `(() => {
+  const el = document.querySelector(${sel})
+  if (!el) return JSON.stringify({ match: false })
+  let s = el.tagName.toLowerCase()
+  if (el.id) s += '#' + el.id
+  else {
+    const c = typeof el.className === 'string' ? el.className.trim().split(/\\s+/)[0] : ''
+    if (c) s += '.' + c
+  }
+  const text = (el.innerText || '').trim().slice(0, 80)
+  return JSON.stringify({ match: s + '|' + text === ${sig} })
+})()`
+}
+
 export function CdpBrowserView({
   sessionId,
   onNavigation,
@@ -117,6 +196,83 @@ export function CdpBrowserView({
   const [hintDismissed, setHintDismissed] = React.useState(false)
   const t = useTranslations('workPanel')
   const ta = useTranslations('a11y')
+  const tv = useTranslations('visualAnnotation')
+
+  // D42 浏览器视觉标注(2026-09-24):点选模式开关 + 注入/轮询 + 选中元素
+  const [pickMode, setPickMode] = React.useState(false)
+  const [picked, setPicked] = React.useState<PickedVisualElement | null>(null)
+  // execute 串行队列:execute_result 按 ws 连接广播,并发 execute 会串结果 → 链式排队
+  const execQueueRef = React.useRef<Promise<unknown>>(Promise.resolve())
+  const executeJson = React.useCallback((script: string): Promise<string | null> => {
+    const run = (): Promise<string | null> => {
+      const ws = wsRef.current
+      if (!ws || ws.readyState !== WebSocket.OPEN) return Promise.resolve(null)
+      return new Promise((resolve) => {
+        const onMsg = (e: MessageEvent) => {
+          try {
+            const m = JSON.parse(e.data as string) as { type?: string; data?: unknown }
+            if (m.type === 'execute_result') {
+              ws.removeEventListener('message', onMsg)
+              window.clearTimeout(fallback)
+              resolve(typeof m.data === 'string' ? m.data : JSON.stringify(m.data))
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+        const fallback = window.setTimeout(() => {
+          ws.removeEventListener('message', onMsg)
+          resolve(null)
+        }, 3000)
+        ws.addEventListener('message', onMsg)
+        ws.send(JSON.stringify({ type: 'execute', script }))
+      })
+    }
+    const next = execQueueRef.current.then(run, run)
+    execQueueRef.current = next.catch(() => null)
+    return next
+  }, [])
+
+  // 点选模式:注入安装脚本 + 600ms 轮询 read-and-clear;退出时摘除样式表
+  React.useEffect(() => {
+    if (!pickMode) return
+    const ws = wsRef.current
+    if (!ws || ws.readyState !== WebSocket.OPEN) return
+    void executeJson(PICK_INSTALL_SCRIPT)
+    let busy = false
+    const timer = window.setInterval(() => {
+      if (busy) return
+      busy = true
+      void executeJson(PICK_READ_SCRIPT).then((out) => {
+        busy = false
+        if (out && out !== 'null') {
+          try {
+            setPicked(JSON.parse(out) as PickedVisualElement)
+          } catch {
+            /* ignore */
+          }
+        }
+      })
+    }, 600)
+    return () => {
+      window.clearInterval(timer)
+      void executeJson(PICK_REMOVE_SCRIPT)
+    }
+  }, [pickMode, executeJson, sessionId])
+
+  // ④ stale 重查:注入比对脚本,selector 不存在或签名不一致 → 已失效
+  const recheckStale = React.useCallback(
+    async (el: PickedVisualElement): Promise<boolean> => {
+      const out = await executeJson(buildRecheckScript(el))
+      try {
+        const m = JSON.parse(out ?? '') as { match?: boolean }
+        return m.match === false
+      } catch {
+        return false
+      }
+    },
+    [executeJson],
+  )
 
   // 开发者工具(2026-08-17):控制台日志 + JS 执行(类似 F12)
   const [devToolsOpen, setDevToolsOpen] = React.useState(false)
@@ -553,6 +709,29 @@ export function CdpBrowserView({
         <span className="font-mono font-semibold">{'</>'}</span>
         {t('devTools')}
       </button>
+      {/* D42 点选元素开关:开启后注入采集脚本,点中元素 → 样式面板 */}
+      <button
+        type="button"
+        onClick={() => setPickMode((o) => !o)}
+        aria-pressed={pickMode}
+        data-testid="pick-element-toggle"
+        className={`absolute right-2 top-9 z-20 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] shadow-sm transition-colors ${
+          pickMode
+            ? 'border-primary/40 bg-primary text-primary-foreground'
+            : 'border-border bg-background/90 text-muted-foreground hover:bg-accent hover:text-foreground'
+        }`}
+      >
+        <MousePointerClick className="h-3 w-3 shrink-0" />
+        {tv('pickElement')}
+      </button>
+      {picked && (
+        <AnnotationStylePanel
+          element={picked}
+          recheckStale={recheckStale}
+          onDismiss={() => setPicked(null)}
+          className="absolute inset-x-2 bottom-2 z-30"
+        />
+      )}
       {devToolsOpen && (
         <div className="absolute inset-x-2 bottom-2 top-10 z-20 flex flex-col overflow-hidden rounded-md border border-border bg-background/95 shadow-lg">
           <div className="flex items-center justify-between border-b border-border/60 px-2 py-1">
