@@ -33,6 +33,11 @@ vi.mock('../src/services/wechat-pay.js', () => ({
 }))
 
 process.env.NODE_ENV = 'development'
+// 闸门在 2026-09-18 收紧为「development **且** 显式 PAYMENT_DEV_AUTO_ACTIVATE=1」才直发 VIP
+// (apps/api/src/routes/vip.ts:246,防止环境标识误配导致未付款即得会员)。
+// 本文件下方仍按收紧前的语义断言"已激活",所以必须把第二个开关一起设上 ——
+// **不得反过来放宽闸门去迁就测试**。
+process.env.PAYMENT_DEV_AUTO_ACTIVATE = '1'
 
 const { vipRoutes, adminVipRoutes } = await import('../src/routes/vip.js')
 
