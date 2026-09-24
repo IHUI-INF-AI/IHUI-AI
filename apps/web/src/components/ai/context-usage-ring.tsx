@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { Loader2, Minimize2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { ChevronDown, ChevronRight, Loader2, Minimize2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 
@@ -18,10 +18,13 @@ import { useChatStore } from '@/stores/chat'
 import { compressConversation } from '@ihui/api-client'
 import { getModelContextCapacity, formatTokenCount } from '@/lib/model-context-capacity'
 import {
-  estimateChatMessagesTokens,
-  estimateMessageTokens,
-  estimateTokens,
-} from '@/lib/token-estimate'
+  LABEL_SENTINELS,
+  computeContextAttribution,
+  formatShare,
+  type AttributionDetail,
+  type AttributionKey,
+  type AttributionMessage,
+} from '@ihui/shared/utils/context-attribution'
 
 /** 层栈 id(见 @/lib/overlay-stack):本弹层的 Esc 只在栈顶时被消费 */
 const CONTEXT_USAGE_OVERLAY_ID = 'context-usage-ring'
@@ -70,113 +73,96 @@ function getUsageLevel(ratio: number): UsageLevel {
 }
 
 // ============================================================================
-// W19 分类明细(系统 / 历史 / 工具 / 文件)
+// 上下文占用归因分解(按构成来源,而非只报总量)
 // ============================================================================
 
-type BreakdownKind = 'system' | 'history' | 'tools' | 'files'
+/**
+ * 七档构成来源 → 占比色 + 词表键。
+ *
+ * 词表键一律是 `chat.contextUsage` 下的静态字面量(守门要求 useTranslations 的
+ * 命名空间/键可静态解析),所以这里显式列出联合类型而不是拼字符串。
+ */
+type SegmentLabelKey =
+  | 'segSystem'
+  | 'segToolSchema'
+  | 'segSkill'
+  | 'segRoleUser'
+  | 'segRoleAssistant'
+  | 'segRoleToolCall'
+  | 'segRoleToolResult'
 
-interface BreakdownSegment {
-  key: BreakdownKind
-  tokens: number
-  colorClass: string
-  labelKey: 'categorySystem' | 'categoryHistory' | 'categoryTools' | 'categoryFiles'
+const SEGMENT_META: Record<AttributionKey, { colorClass: string; labelKey: SegmentLabelKey }> = {
+  system: { colorClass: 'bg-sky-500', labelKey: 'segSystem' },
+  toolSchema: { colorClass: 'bg-amber-500', labelKey: 'segToolSchema' },
+  skill: { colorClass: 'bg-fuchsia-500', labelKey: 'segSkill' },
+  roleUser: { colorClass: 'bg-emerald-500', labelKey: 'segRoleUser' },
+  roleAssistant: { colorClass: 'bg-teal-500', labelKey: 'segRoleAssistant' },
+  roleToolCall: { colorClass: 'bg-orange-500', labelKey: 'segRoleToolCall' },
+  roleToolResult: { colorClass: 'bg-violet-500', labelKey: 'segRoleToolResult' },
 }
 
-const BREAKDOWN_COLORS: Record<BreakdownKind, string> = {
-  system: 'bg-sky-500',
-  history: 'bg-emerald-500',
-  tools: 'bg-amber-500',
-  files: 'bg-violet-500',
-}
-
-const BREAKDOWN_LABELS: Record<BreakdownKind, BreakdownSegment['labelKey']> = {
-  system: 'categorySystem',
-  history: 'categoryHistory',
-  tools: 'categoryTools',
-  files: 'categoryFiles',
-}
-
-/** 安全序列化(循环引用等 JSON.stringify 抛错时降级为空串) */
-function safeStringify(value: unknown): string {
+/** 工具结果体落盘形态不一(字符串 / 对象 / 尚未回传),统一成文本再交给归因引擎 */
+function resultTextOf(result: unknown): string | undefined {
+  if (result === undefined || result === null) return undefined
+  if (typeof result === 'string') return result
   try {
-    return JSON.stringify(value) ?? ''
+    return JSON.stringify(result) ?? undefined
   } catch {
-    return ''
+    return undefined
   }
+}
+
+/** store 的 ChatMessage → 归因引擎入参(只取归因需要的字段,避免耦合) */
+function toAttributionMessages(
+  messages: Array<{
+    role: string
+    content: string
+    error?: boolean
+    toolCalls?: Array<{
+      toolName?: string
+      args?: Record<string, unknown>
+      /** 成功结果体:类型是 unknown,归因引擎只吃文本,故在下方字符串化 */
+      result?: unknown
+      /** 失败原因(与成功结果体互斥落盘) */
+      error?: string
+    }>
+  }>,
+): AttributionMessage[] {
+  return messages.map((m) => ({
+    role: m.role,
+    content: m.content ?? '',
+    error: m.error,
+    toolCalls: m.toolCalls?.map((tc) => ({
+      toolName: tc.toolName,
+      args: tc.args,
+      // 成功结果体**必须**计入占用:一次 read_file 动辄几十 KB,是窗口里最大的一块。
+      // 此前只把 error 传下去 ⇒ 成功的结果被算成 0,恰好把最该看见的东西藏掉。
+      result: resultTextOf(tc.result),
+      // 工具结果体挂在 error 上时(失败态)同样要计入占用,否则失败被隐形
+      error: tc.error,
+    })),
+  }))
 }
 
 /**
- * 从用户消息正文中提取附件派生的文本块(估算文件类 token 占用)。
+ * 明细行的可读文本。
  *
- * use-message-send.ts 的 doSend 把附件以引用块形式内联进正文:
- * - 图片/视频:`![label](url)` / `<video src="...">` / `> 📎 label`
- * - 文本引用:```fenced code block```
- * - 其他文件:`> 📎 label (preview)`
- * 据此启发式抽取,误差在客户端估算可接受范围内(±10%)。
+ * 优先级:哨兵键 → 词表;正文类明细 → **尾部**摘录(头部往往是他粘贴的正文
+ * 或滚了半屏的日志,结尾才是这一条真正的信息量:提问、失败原因);
+ * 名字类明细(工具名 / 技能名)无尾部 ⇒ 回退 label。
  */
-function extractAttachmentBlocks(content: string): string {
-  const out: string[] = []
-  let inFence = false
-  for (const line of content.split('\n')) {
-    if (line.trimStart().startsWith('```')) {
-      inFence = !inFence
-      out.push(line)
-      continue
-    }
-    if (inFence) {
-      out.push(line)
-      continue
-    }
-    const trimmed = line.trimStart()
-    if (trimmed.startsWith('> 📎') || trimmed.startsWith('![') || trimmed.startsWith('<video')) {
-      out.push(line)
-    }
-  }
-  return out.join('\n')
-}
-
-interface TokenBreakdown {
-  system: number
-  history: number
-  tools: number
-  files: number
-}
-
-/** 按分类聚合消息 token:系统提示 / 工具调用参数 / 附件文本块;历史 = 总量 − 其余(clamp ≥ 0) */
-function computeTokenBreakdown(
-  messages: ChatMessageForBreakdown[],
-  usedTokens: number,
-): TokenBreakdown {
-  let system = 0
-  let tools = 0
-  let files = 0
-  for (const m of messages) {
-    if (m.error) continue
-    if (m.role === 'system') {
-      system += estimateMessageTokens(m)
-      continue
-    }
-    if (m.role === 'assistant') {
-      for (const tc of m.toolCalls ?? []) {
-        // 工具名 + 参数 JSON + 错误信息计入工具类
-        tools += estimateTokens(tc.toolName ?? '') + 4
-        tools += estimateTokens(safeStringify(tc.args))
-        if (tc.error) tools += estimateTokens(tc.error)
-      }
-    }
-    if (m.role === 'user') {
-      files += estimateTokens(extractAttachmentBlocks(m.content))
-    }
-  }
-  return { system, tools, files, history: Math.max(0, usedTokens - system - tools - files) }
-}
-
-/** computeTokenBreakdown 的消息入参最小结构(避免依赖 store 类型导致耦合) */
-interface ChatMessageForBreakdown {
-  role: string
-  content: string
-  error?: boolean
-  toolCalls?: Array<{ toolName?: string; args?: Record<string, unknown>; error?: string }>
+function useDetailLabelTranslator() {
+  const t = useTranslations('chat.contextUsage')
+  return React.useCallback(
+    (detail: AttributionDetail): string => {
+      if (detail.label === LABEL_SENTINELS.systemPrompt) return t('segSystemPrompt')
+      if (detail.label === LABEL_SENTINELS.unnamed) return t('unnamedItem')
+      const preview = detail.tailPreview ?? detail.label
+      if (detail.kind === 'result') return `${preview || t('unnamedItem')} · ${t('resultSuffix')}`
+      return preview || t('unnamedItem')
+    },
+    [t],
+  )
 }
 
 // ============================================================================
@@ -190,6 +176,7 @@ interface TriggerRingProps {
 }
 
 function TriggerRing({ ratio, usedTokens, maxTokens }: TriggerRingProps) {
+  const t = useTranslations('chat.contextUsage')
   const level = getUsageLevel(ratio)
   const style = USAGE_STYLES[level]
   // ratio > 1 时 clamp 到 1,但中心数字仍显示真实百分比(警示超限)
@@ -198,18 +185,14 @@ function TriggerRing({ ratio, usedTokens, maxTokens }: TriggerRingProps) {
   const percent = Math.round(ratio * 100)
 
   return (
-    <span
-      className={cn(
-        'relative inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
-        'hover:bg-accent',
-      )}
-      aria-hidden="true"
-    >
+    <span className="relative inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-accent">
       <svg
         width={TRIGGER_SIZE}
         height={TRIGGER_SIZE}
         viewBox={`0 0 ${TRIGGER_SIZE} ${TRIGGER_SIZE}`}
         className={style.text}
+        // 图形本身是装饰:环 + 中心数字的语义由下面的 sr-only 口径承担
+        aria-hidden="true"
       >
         {/* 背景圆环 */}
         <circle
@@ -250,9 +233,15 @@ function TriggerRing({ ratio, usedTokens, maxTokens }: TriggerRingProps) {
           {percent}
         </text>
       </svg>
-      {/* a11y:整个 trigger 由外层 button 提供 label,这里隐藏 */}
+      {/* 口径:环中心只有一个数字,数值含义(占窗口多少、分子分母分别是什么)
+          由这段仅供读屏/文本读取的说明承载。此前这里写的是裸 "used / max",
+          既没有百分比口径,也没有单位 —— 等于把口径藏在一个最不被读到的位置。 */}
       <span className="sr-only">
-        {usedTokens} / {maxTokens}
+        {t('ringBasis', {
+          percent: String(percent),
+          used: formatTokenCount(usedTokens),
+          max: formatTokenCount(maxTokens),
+        })}
       </span>
     </span>
   )
@@ -349,27 +338,44 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
   const t = useTranslations('chat.contextUsage')
   const messages = useChatStore((s) => s.messages)
   const conversationId = useChatStore((s) => s.conversationId)
+  const usageByMessageId = useChatStore((s) => s.usageByMessageId)
+  const translateDetail = useDetailLabelTranslator()
 
   const maxTokens = React.useMemo(() => getModelContextCapacity(model), [model])
-  const usedTokens = React.useMemo(() => estimateChatMessagesTokens(messages), [messages])
+
+  /**
+   * 归因分解:由本地按构成来源自己算(不取 provider 估算做分解)。
+   * provider 回传的 promptTokens 只用来**校准总量**并算出未归类差额 ——
+   * 它只有一个总数,给不出"是谁占满的"。
+   *
+   * 系统提示 / 工具 schema / 技能正文三档在服务端装配,浏览器端拿不到,
+   * 引擎会把它们标 observed=false 而不是记 0(见 shared/context-attribution)。
+   */
+  const attribution = React.useMemo(() => {
+    const lastAssistant = [...messages]
+      .reverse()
+      .find((m) => m.role === 'assistant' && !m.error && m.content)
+    const providerUsage = lastAssistant ? usageByMessageId[lastAssistant.id] : undefined
+    return computeContextAttribution({
+      messages: toAttributionMessages(messages),
+      providerPromptTokens: providerUsage?.promptTokens ?? null,
+      // 后端 usage 帧当前不携带缓存读数 —— 显式传 null 让 UI 如实显示"不可得",
+      // 不得用 0 顶替(0 会被读成"一次都没命中",那是另一个结论)。
+      cacheReadTokens: null,
+      cacheWriteTokens: null,
+    })
+  }, [messages, usageByMessageId])
+
+  const usedTokens = attribution.totalTokens
   const ratio = maxTokens > 0 ? usedTokens / maxTokens : 0
   const messageCount = messages.filter(
     (m) => !m.error && (m.role === 'user' || m.role === 'assistant') && m.content,
   ).length
 
-  // W19:分类明细(系统 / 历史 / 工具 / 文件)token 占用
-  const breakdown = React.useMemo(
-    () => computeTokenBreakdown(messages, usedTokens),
-    [messages, usedTokens],
-  )
-  const segments: BreakdownSegment[] = (Object.keys(BREAKDOWN_COLORS) as BreakdownKind[]).map(
-    (key) => ({
-      key,
-      tokens: breakdown[key],
-      colorClass: BREAKDOWN_COLORS[key],
-      labelKey: BREAKDOWN_LABELS[key],
-    }),
-  )
+  const [expandedKeys, setExpandedKeys] = React.useState<Record<string, boolean>>({})
+  const toggleSegment = React.useCallback((key: string) => {
+    setExpandedKeys((prev) => ({ ...prev, [key]: !prev[key] }))
+  }, [])
 
   const [compressing, setCompressing] = React.useState(false)
   const [compressResult, setCompressResult] = React.useState<{
@@ -558,12 +564,12 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
             // 祖先 z-10 会整体压住弹层(与 add-menu-popover 同根因)
             // p-3(2026-09-21 补):对齐全局弹层四边内边距规范(permission-mode/history
             // 同族统一 p-3),此前容器漏写 padding 导致标题/圆环/明细全部贴边
-            className="z-popover w-72 rounded-md border bg-popover p-3 text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            style={
-              coords
-                ? { position: 'fixed', top: coords.top, left: coords.left }
-                : { position: 'fixed', top: -9999, left: -9999 }
-            }
+            // fixed(2026-09-25 补):定位口径显式落进类名。此前 position 只在 inline
+            // style 里,portal 挂 body 的容器一旦被读 DOM 的一方(守门 check-portal-fixed、
+            // 无障碍遍历、后续改样式的人)检查,类名上看不出它是浮层 —— 而"忘了写定位"
+            // 正是弹层跟着页面滚走那一类事故的成因。top/left 仍由 inline 给(坐标是动态的)。
+            className="fixed z-popover w-72 rounded-md border bg-popover p-3 text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            style={coords ? { top: coords.top, left: coords.left } : { top: -9999, left: -9999 }}
             role="dialog"
             aria-label={t('title')}
             aria-modal="true"
@@ -594,38 +600,173 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
               </div>
             </div>
 
-            {/* W19:分类明细(系统 / 历史 / 工具 / 文件)分段进度条 */}
-            <div className="mt-3" data-testid="context-usage-breakdown">
-              <div className="mb-1.5 text-xs font-medium">{t('breakdownTitle')}</div>
-              <div className="flex h-2 w-full overflow-hidden rounded-sm bg-muted">
-                {segments.map((seg) => {
-                  const pct = maxTokens > 0 ? (seg.tokens / maxTokens) * 100 : 0
-                  return (
+            {/* 归因分解:按构成来源回答"是谁占满的",每档可展开明细 */}
+            <div className="mt-3" data-testid="context-usage-attribution">
+              <div className="mb-1.5 flex items-baseline justify-between gap-2">
+                <span className="text-xs font-medium">{t('breakdownTitle')}</span>
+                {attribution.topKey && (
+                  <span className="min-w-0 truncate text-[10px] text-muted-foreground">
+                    {t('topContributor', {
+                      name: t(SEGMENT_META[attribution.topKey].labelKey),
+                      share: formatShare(
+                        attribution.segments.find((s) => s.key === attribution.topKey)?.share ?? 0,
+                      ),
+                    })}
+                  </span>
+                )}
+              </div>
+
+              {/* 构成条:只画本端可观测且确有占用的档;不可观测档另列说明,不得凭空填色 */}
+              <div
+                className="flex h-2 w-full overflow-hidden rounded-sm bg-muted"
+                data-testid="context-usage-attribution-bar"
+              >
+                {attribution.segments
+                  .filter((seg) => seg.observed && seg.tokens > 0)
+                  .map((seg) => (
                     <div
                       key={seg.key}
-                      className={cn('h-full', seg.colorClass)}
-                      style={{ width: `${Math.min(pct, 100)}%` }}
-                      data-testid={`context-usage-breakdown-${seg.key}`}
+                      className={cn('h-full', SEGMENT_META[seg.key].colorClass)}
+                      style={{ width: `${Math.min(seg.share * 100, 100)}%` }}
+                      data-testid={`context-usage-attribution-${seg.key}`}
                     />
+                  ))}
+              </div>
+
+              <div className="mt-1.5 flex flex-col gap-0.5">
+                {attribution.segments.map((seg) => {
+                  const meta = SEGMENT_META[seg.key]
+                  const open = expandedKeys[seg.key] === true
+                  const expandable = seg.observed && seg.details.length > 0
+                  // foldDetails 已按 tokens 降序 ⇒ [0] 就是本档最大的一项
+                  const topDetail = expandable ? seg.details[0] : undefined
+                  return (
+                    <div key={seg.key} data-testid={`context-usage-attribution-row-${seg.key}`}>
+                      <button
+                        type="button"
+                        onClick={() => expandable && toggleSegment(seg.key)}
+                        disabled={!expandable}
+                        aria-expanded={expandable ? open : undefined}
+                        className={cn(
+                          'flex w-full items-center gap-1.5 rounded-sm px-1 py-0.5 text-left text-[11px] transition-colors',
+                          expandable ? 'hover:bg-accent' : 'cursor-default',
+                          !seg.observed && 'text-muted-foreground',
+                        )}
+                      >
+                        {expandable ? (
+                          open ? (
+                            <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          )
+                        ) : (
+                          // 不可展开时留同宽占位,避免箭头出现/消失把标签左右推
+                          <span className="h-3 w-3 shrink-0" aria-hidden="true" />
+                        )}
+                        <span
+                          className={cn(
+                            'h-2 w-2 shrink-0 rounded-sm',
+                            seg.observed ? meta.colorClass : 'bg-muted-foreground/40',
+                          )}
+                        />
+                        <span className="min-w-0 truncate">{t(meta.labelKey)}</span>
+                        {/* 收起态就把"本档最大的一项"摊在档名之后:这一档到底是谁
+                            占掉的,不该要先点开才知道(失败结果的原因尤其如此)。
+                            展开后这行让位给完整明细,不重复占位。 */}
+                        {!open && topDetail ? (
+                          <span className="min-w-0 flex-1 truncate text-[10px] text-muted-foreground/80">
+                            {translateDetail(topDetail)}
+                          </span>
+                        ) : null}
+                        <span className="ml-auto shrink-0 tabular-nums text-foreground">
+                          {seg.observed ? formatTokenCount(seg.tokens) : '—'}
+                        </span>
+                        <span className="w-11 shrink-0 text-right tabular-nums text-muted-foreground">
+                          {seg.observed ? formatShare(seg.share) : '—'}
+                        </span>
+                      </button>
+
+                      {!seg.observed && (
+                        <p className="py-0.5 pl-6 text-[10px] leading-relaxed text-muted-foreground">
+                          {seg.unobservedCode === 'server-only'
+                            ? t('unobservedServerOnly')
+                            : t('unobservedNotSupplied')}
+                        </p>
+                      )}
+
+                      {expandable && open && (
+                        <div
+                          className="mt-0.5 mb-1 rounded-sm bg-muted/40 px-2 py-1.5"
+                          data-testid={`context-usage-attribution-details-${seg.key}`}
+                        >
+                          <div className="flex flex-col gap-0.5">
+                            {seg.details.map((detail, idx) => (
+                              <div
+                                key={`${detail.label}-${idx}`}
+                                className="flex items-baseline gap-2 text-[10px]"
+                              >
+                                <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                                  {translateDetail(detail)}
+                                </span>
+                                <span className="shrink-0 tabular-nums text-foreground">
+                                  {formatTokenCount(detail.tokens)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                          {seg.truncated > 0 && (
+                            <p className="mt-1 text-[10px] text-muted-foreground">
+                              {t('detailsTruncated', { count: String(seg.truncated) })}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   )
                 })}
               </div>
-              <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1">
-                {segments.map((seg) => (
-                  <div
-                    key={seg.key}
-                    className="flex items-center gap-1.5 text-[11px]"
-                    data-testid={`context-usage-breakdown-legend-${seg.key}`}
-                  >
-                    <span className={cn('h-2 w-2 shrink-0 rounded-sm', seg.colorClass)} />
-                    <span className="min-w-0 truncate text-muted-foreground">
-                      {t(seg.labelKey)}
-                    </span>
-                    <span className="ml-auto tabular-nums text-foreground">
-                      {formatTokenCount(seg.tokens)}
-                    </span>
-                  </div>
-                ))}
+
+              {/* 未归类开销:provider 真值高于归因和时如实交代差额来源,不假装对得上 */}
+              {attribution.residualTokens > 0 && (
+                <p
+                  className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground"
+                  data-testid="context-usage-residual"
+                >
+                  {t('residualNote', {
+                    tokens: formatTokenCount(attribution.residualTokens),
+                  })}
+                </p>
+              )}
+
+              {/* 缓存命中:占用不变、重算量变 —— 两个数分开报,不得混为一谈 */}
+              <div
+                className="mt-2 rounded-sm bg-muted/40 px-2 py-1.5 text-[10px] leading-relaxed"
+                data-testid="context-usage-cache"
+              >
+                {attribution.cache.observed ? (
+                  <>
+                    <div className="flex items-center gap-1.5">
+                      <span className="min-w-0 flex-1 text-muted-foreground">
+                        {t('cacheHit', {
+                          ratio: formatShare(attribution.cache.hitRatio),
+                          read: formatTokenCount(attribution.cache.cacheReadTokens),
+                        })}
+                      </span>
+                      <span className="shrink-0 tabular-nums text-foreground">
+                        {formatTokenCount(attribution.cache.recomputeTokens)}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-muted-foreground">
+                      {t('cacheOccupancyNote', {
+                        occupied: formatTokenCount(attribution.cache.occupiedTokens),
+                      })}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-muted-foreground" data-testid="context-usage-cache-unavailable">
+                    {t('cacheUnavailable')}
+                  </p>
+                )}
               </div>
             </div>
 
