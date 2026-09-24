@@ -11,6 +11,7 @@
  * - 直播非原项目 5 主 Tab:底部 TabBar 常驻无高亮,可切换主 Tab(对齐原内容页底部导航)
  */
 import { useEffect, useState } from 'react'
+import { useTheme } from '../context/ThemeContext'
 import { StyleSheet, View, type ViewStyle } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -25,6 +26,7 @@ type NavigationProp = NativeStackNavigationProp<MainStackParamList, 'LiveMain'>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
 
 export function LiveScreen() {
+  const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
   const rootNav = navigation.getParent<RootNav>()
@@ -100,6 +102,7 @@ export function LiveScreen() {
           onRefresh={() => load(true)}
           onPressItem={(id) => rootNav?.navigate('LiveDetail', { id })}
           onBack={() => navigation.goBack()}
+          colorScheme={resolvedTheme}
         />
       </View>
       {/* 底部导航(直播非主 Tab,TabBar 常驻无高亮) */}

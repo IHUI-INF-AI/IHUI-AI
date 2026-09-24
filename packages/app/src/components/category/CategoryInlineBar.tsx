@@ -66,7 +66,7 @@ function CountBadge({
 
 /**
  * 横滑分类条(形态 A):左右滑动,单选,选中自动滚入视野。
- * 视觉:高 32 / radius-md(6) / 完整描边 / 选中 ctaFill+ctaText 成对,无 pill/渐变/蓝光。
+ * 视觉:高 32 / radius-md(6) / 完整描边 / 选中 brand.DEFAULT+brand.foreground 成对,无 pill/渐变/蓝光。
  */
 export function CategoryInlineBar({
   items,
@@ -116,7 +116,7 @@ export function CategoryInlineBar({
           {Icon ? (
             <Icon
               size={item.iconSize ?? 16}
-              color={active ? tk.brand.ctaText : tk.text.secondary}
+              color={active ? tk.brand.foreground : tk.text.secondary}
             />
           ) : item.image ? (
             <Image
@@ -140,9 +140,9 @@ export function CategoryInlineBar({
               value={item.count}
               selected={active}
               styles={styles}
-              activeTextColor={tk.brand.ctaFill}
+              activeTextColor={tk.brand.DEFAULT}
               idleTextColor={tk.text.secondary}
-              activeBg={tk.brand.ctaText}
+              activeBg={tk.brand.foreground}
               idleBg={tk.surface.muted}
             />
           ) : null}
@@ -188,8 +188,8 @@ function createStyles(tk: AppThemeTokens) {
       maxWidth: 160,
     },
     itemActive: {
-      borderColor: tk.brand.ctaFill,
-      backgroundColor: tk.brand.ctaFill,
+      borderColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.DEFAULT,
     },
     itemPressed: {
       opacity: 0.7,
@@ -203,7 +203,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     itemTextActive: {
       fontWeight: '600',
-      color: tk.brand.ctaText,
+      color: tk.brand.foreground,
     },
     itemImage: {
       width: 16,
