@@ -68,7 +68,11 @@ export { ThemeLogo } from './components/theme-logo'
 export { Sidebar, SidebarItem, SidebarGroup } from './components/sidebar'
 export { VipBadge } from './components/vip-badge'
 export { Upload } from './components/Upload'
-export type { UploadProps } from './components/Upload'
+// `UploadLabels` 是**对外契约**的一部分:`apps/web/src/hooks/use-upload-labels.ts` 按
+// `import type { UploadLabels } from '@ihui/ui-react'` 取它来钉住"标签必须由调用方注入"
+// 这条本地化纪律。漏导出 ⇒ 消费方 TS2305(且 `UploadProps.labels` 是 Partial<它>,
+// 类型在包内被用、在包外不可名,正是"写了没人能接"的那一类断链)。
+export type { UploadProps, UploadLabels } from './components/Upload'
 export { Badge, badgeVariants } from './components/badge'
 export type { BadgeProps } from './components/badge'
 export { Collapsible, CollapsibleTrigger, CollapsibleContent } from './components/collapsible'
