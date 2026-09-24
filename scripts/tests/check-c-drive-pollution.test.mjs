@@ -7,11 +7,14 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { __test__ as G } from '../check-c-drive-pollution.mjs'
+// 封口清单只从源脚本取,测试里同样不抄第二份名字(§22c)
+import { SEALED_DIRS, pathsFor } from '../seal-c-root-stray.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 // 编号唯一性:同日多会话在同一位置各加一道门必然撞号。本门一天内撞了三次 ——
 // 85(与 check-test-paths)→ 90(与 check-sse-dispatch-parity)→ 91(与
@@ -89,5 +92,75 @@ test('TEMP 漂移判据:注册表与进程不一致必须报 drift', () => {
   } else if (r.status === 'ok') {
     assert.equal(r.proc.toLowerCase().replace(/[\\/]+$/, ''), r.declared.toLowerCase().replace(/[\\/]+$/, ''))
   }
+})
+
+// —— 封口形态(2026-09-24 加):本门对盘根写歪项必须给**相反且正确**的两个结论 ——
+test('classifySeal 四态:表内真目录=BROKEN / 表内链接=SEALED / 表外=FOREIGN / 不存在=ABSENT', () => {
+  const name = SEALED_DIRS[0].name
+  assert.equal(G.classifySeal(name, { exists: true, isLink: false, isDir: true }), 'BROKEN')
+  assert.equal(G.classifySeal(name, { exists: true, isLink: true, isDir: false }), 'SEALED')
+  assert.equal(G.classifySeal(name, { exists: false, isLink: false, isDir: false }), 'ABSENT')
+  assert.equal(G.classifySeal('Windows', { exists: true, isLink: false, isDir: true }), 'FOREIGN')
+  // 大小写不敏感:Windows 文件系统本就如此,漏了会让 TMP/Tmp 这类变体绕过判据
+  assert.equal(G.classifySeal(name.toUpperCase(), { exists: true, isLink: true, isDir: false }), 'SEALED')
+})
+
+test('端到端:改道前判残骸、改道后判已封口且**绝不跟随链接量体积**', () => {
+  const base = mkScratch('pollution-seal-')
+  try {
+    const root = join(base, 'root')
+    const dev = join(base, 'devenv')
+    const entry = SEALED_DIRS[0]
+    const stray = join(root, entry.name)
+    mkdirSync(stray, { recursive: true })
+    writeFileSync(join(stray, 'a.json'), 'x'.repeat(50000))
+
+    const before = G.scanDriveRoot(root, dev)
+    assert.ok(
+      before.hits.some((h) => h.why.includes('封口丢失')),
+      '真目录没判回潮 ⇒ 根治失效时门是瞎的',
+    )
+
+    const target = pathsFor(entry, root, dev).target
+    mkdirSync(target, { recursive: true })
+    writeFileSync(join(target, 'a.json'), 'x'.repeat(50000))
+    rmSync(stray, { recursive: true, force: true })
+    symlinkSync(target, stray, 'junction')
+
+    const after = G.scanDriveRoot(root, dev)
+    assert.equal(
+      after.hits.filter((h) => h.why.includes('封口丢失')).length,
+      0,
+      '已封口仍判回潮 ⇒ 每日必红',
+    )
+    assert.ok(after.sealed.some((s) => s.name === entry.name), '已封口项没进 sealed 清单')
+    const attributed = after.hits.reduce((a, b) => a + (b.sizeMB || 0), 0)
+    assert.equal(attributed, 0, `跟随了链接、把 D 盘目标算成 C 盘残骸:${attributed}MB`)
+  } finally {
+    rmScratch(base)
+  }
+})
+
+test('扫描位不得跟随改道后的 junction(实测 PS 的 -Recurse 会穿透,Node 侧同理)', () => {
+  const base = mkScratch('pollution-rep-')
+  try {
+    const t = join(base, 'tgt')
+    mkdirSync(t)
+    const ln = join(base, 'lnk')
+    symlinkSync(t, ln, 'junction')
+    assert.equal(G.isReparsePoint(ln), true, 'junction 未被认出 ⇒ 扫描会跟进外置根')
+    assert.equal(G.isReparsePoint(t), false, '真目录被误判 ⇒ 残骸会被整体跳过(假绿)')
+    assert.equal(G.isReparsePoint(join(base, 'nope')), false, '不存在的路径不得判真')
+  } finally {
+    rmScratch(base)
+  }
+})
+
+test('每日维护脚本必须带"重解析点只断链、绝不递归删"的护栏', () => {
+  const ps1 = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'c-drive-auto-maintain.ps1'), 'utf8')
+  assert.match(ps1, /function\s+Test-ReparsePoint/, '缺重解析点判据函数')
+  assert.match(ps1, /Test-ReparsePoint\s+\$path/, 'ForceDelete 未在唯一删除出口上判重解析点')
+  // 断链必须是 non-recursive:`Delete($path, $true)` 或 -Recurse 会顺着 junction 清空外置根
+  assert.match(ps1, /\[System\.IO\.Directory\]::Delete\(\$path,\s*\$false\)/, '断链写成递归删除 ⇒ 会穿透删目标')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
