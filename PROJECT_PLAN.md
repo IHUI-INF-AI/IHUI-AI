@@ -7483,3 +7483,93 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
   夹具顺序按真实日志摆（`上一轮汇总 → 本轮 staged 清单 → 本轮汇总`）；我第一版把清单摆在整个日志最前面，
   B1 直接判成 `unattributed` —— 顺序错位正是这类"守卫逻辑看着对、真数据下不成立"的标准暴露方式。
   - **残余归属逐条点名（本会话做不了的，都不是遗漏）**：① **D64⑤ 加列迁移** —— 卡 `packages/database/src/schema/chat.ts` / `drizzle/meta/_journal.json` / `?? 20260924100000_chat_history_projection.sql` / `apps/api/src/db/chat-queries.ts` 四处他人未提交态，解阻判据 = 这四路径 `git status` 全空且那枚 .sql 已被跟踪（然后追 idx **289**，不复用他人 idx）；② **D73 web 宿主 + miniapp 分叉宿主 + D64③ miniapp** —— 分别卡 `ai-side-panel.tsx`（他人 D43 的 4 行 `VoiceNote` 未提交，HEAD 侧 `VoiceNote` 实测 0）与 `ChatMessageItem.tsx`（他人 `M`），两处的候选/patch 都已备在 `.ihui-agent/tmp/mount-d73/` 与 `mount-miniapp/`，**必须三路重放不得整文件覆盖**；③ **D38 三端队列态** —— 是缺整层（端内排队 state + SSE），按 §9 属大活，非接线可了；④ **knip 基线刷新** —— `--update` 会把他人增量一并平账，属 owner 决策，本会话按"基线只下调、限本票范围"纪律未动；⑤ **extension 那 6 项被误删的他人未提交件**（见"交付事故登记"条）—— 三个文件增量 + 三个未跟踪文件，三层恢复通道均取证为取不到，**只能由归属会话重新产出**。
+
+
+
+
+
+
+
+
+- [ ] **D38 队列语义完整交互(G-42)**:拖拽重排 / 撤回 / 编辑队列项 / 「打断并执行」/ 队列模式可配(steer vs queue,对标 Codex `followUpQueueMode`)。复用 D28 侧问队列与 W2 abort 通道,不造第二套排队。**验收**:五动词各有 e2e + 与 /side 互不回归 + 重排后发送顺序断言
+- [ ] **D64 小元素包(G-72/75/77/79/82/83)**:①Credits 热力图(单日消耗 + 会话/热力切换);②图片预览器补翻页/第 N·M 张/缩放比例/保存与复制成败;③思考卡双态标题(有思考→「思考过程」,无思考→「使用了 N 个引用」);④后台子任务八态与"停止失败"文案;⑤反馈问卷化(把 D49①的 toast 兜底升级为「这次回复有没有帮你解决问题?」结构化落库);⑥**goal 卡先自证再定档**——逐字段比对我方 `ai/goal-card.tsx` 与 Trae/Qoder 五态·操作·时长格式,**未核对前不列差距**(第 5 轮已因此拦下一条幻影差距)。**验收**:每项独立用例;⑥必须先产出对照表再决定做/不做
+- [ ] **D73 多任务窗格(G-100)**:向右/向下拆分、最大化还原、**联动调整相邻窗格**、空窗格"从侧栏拖入一个任务"、Fork 失败提示。落点在既有 `ai-side-panel` + `work-panel` 之上做分屏容器,**禁止**新建第二套会话承载体系(与 D52/D68 协同)。**验收**:拆分/拖入/Fork 失败三用例 + 拖拽复用 D22 已建的 `application/x-ihui-conversation` 通道
+- [ ] D15 GitHub App(webhook 自动 PR review+@机器人触发)(G-20) **本行是 union 归并留下的裸副本**,现行判定与剩余项见紧邻下一条(其列明 6 项未完成 ⇒ 本票属部分开工),勿照本行派单。
+- [ ] D16 多模型智能路由(任务类型分类器+成本感知选模+预算降级)(G-21) **本行是裸副本**,现行对账见紧邻下一条;2026-09-25 补测:`route()/route_live()/from_catalog()` 在 `apps/ai-service/app` 内**零非测试调用点** ⇒ 成本感知选模与预算降级对用户仍不可达,本票属部分开工。
+- [ ]**D38 队列语义完整交互(G-42)**:拖拽重排 / 撤回 / 编辑队列项 / 「打断并执行」/ 队列模式可配(steer vs queue,对标 Codex `followUpQueueMode`)。复用 D28 侧问队列与 W2 abort 通道,不造第二套排队。**验收**:五动词各有 e2e + 与 /side 互不回归 + 重排后发送顺序断言
+- [ ]**D64 小元素包(G-72/75/77/79/82/83)**:①Credits 热力图(单日消耗 + 会话/热力切换);②图片预览器补翻页/第 N·M 张/缩放比例/保存与复制成败;③思考卡双态标题(有思考→「思考过程」,无思考→「使用了 N 个引用」);④后台子任务八态与"停止失败"文案;⑤反馈问卷化(把 D49①的 toast 兜底升级为「这次回复有没有帮你解决问题?」结构化落库);⑥**goal 卡先自证再定档**——逐字段比对我方 `ai/goal-card.tsx` 与 Trae/Qoder 五态·操作·时长格式,**未核对前不列差距**(第 5 轮已因此拦下一条幻影差距)。**验收**:每项独立用例;⑥必须先产出对照表再决定做/不做
+  - **他人存量红（本会话只登记未代修，§12 越权红线）**：`apps/mobile-rn` 6 处 `tokens.brand.ctaFill`/`ctaText`（AGENTS §4 已废旧档，一行改法：`ctaFill`→`cta`、`ctaText`→`ctaForeground`）、`tests/__mocks__/design-tokens.ts` 未接线致 14 个 suite 报 `Unexpected token 'typeof'`、`category-bar-style.test.tsx` 仍锁 `brand.DEFAULT` 黑白（现值实测 `#4A7A96`）、`apps/cli/src/tools/result-envelope/` 未跟踪目录使该包 build/typecheck 红、`scan-hardcoded-zh` 越线 10 个文件全属他人。`apps/mobile-rn` 全量 typecheck 仍有 **6** 处 `tokens.brand.ctaFill` / `ctaText`(`SingleTypeBar.tsx:305,310` + `ChatScreen.tsx:3413,3417,3563,3571`)——正是 AGENTS §4 明令"不得再加回"的端内自立混血 CTA 档，改法照文档是一行(`ctaFill`→`cta`、`ctaText`→`ctaForeground`)，但那两个文件一个正被他人修改、一个是他人新建未跟踪，按 §12 不代修；另有 `tests/__mocks__/design-tokens.ts`(他人新建未接线)使 14 个 suite 报 `SyntaxError: Unexpected token 'typeof'`，与 `category-bar-style.test.tsx` 仍锁 `brand.DEFAULT` 黑白旧档(实测现值 `#4A7A96` = CTA 档)。`apps/cli` 包级 build/typecheck 红在 `src/tools/result-envelope/`(他人未跟踪目录，验证期间其行号从 117 漂到 120)——排除该目录后本票范围 tsc 0 错。
+- [ ]**D73 多任务窗格(G-100)**:向右/向下拆分、最大化还原、**联动调整相邻窗格**、空窗格"从侧栏拖入一个任务"、Fork 失败提示。落点在既有 `ai-side-panel` + `work-panel` 之上做分屏容器,**禁止**新建第二套会话承载体系(与 D52/D68 协同)。**验收**:拆分/拖入/Fork 失败三用例 + 拖拽复用 D22 已建的 `application/x-ihui-conversation` 通道
+- [x] ✅(2026-09-25) **D106 消息级"交代帧"跨端消费缺口(G-148;实测量化,不是推测)**:多落点 grep(`--include=*.ts --include=*.tsx`,排除 node_modules)得 **extension / miniapp-taro / mobile-rn / cli 四端对 `citations` 与 `onSteer` 均 0 命中,只有 web 消费**;对照 `compaction` 四端各有落点(extension 1 / miniapp-taro 3 / mobile-rn 2 / cli 15)→ 证明**不是"这些端不接 SSE 交代帧",而是逐帧漏接**,同一类缺口第 N 次出现(D34 的 `injection_applied` 我一开始也只接了 web,即本条的又一实例)。**根因层 = C 客户端通道(api-client 已给 `onInjectionApplied` / `onRetryScheduled` / `onCitations` 回调,端内没人注册)+ P 呈现(各端无对应组件)**。**做法纪律**:① 表现层组件沉 `@ihui/ui-react`(取词函数由 props 注入,不得在组件内 `useTranslations`,否则又变成 web 独占);② 每端注册回调时必须**逐字段显式承接**(各端 store 都是枚举式合并,未知字段会被静默丢掉 —— 与 D40 截断字段完全同因);③ 交代类文案一律走各端命名空间词表,**禁止把后端 `collapsed` 中文当界面文本**(第 42 轮已为此把 kind 定为取词键);④ 端内不得再抄一份渲染模型(mobile-rn 的 `utils/chat-render-model.ts` 属既有违例,收编另立任务)。**验收(可机检)**:守门 57 的 `context-injection-disclosure` 元素锚点从"仅 web"扩到 **web + extension + miniapp-taro + mobile-rn**;每端至少 1 条"帧字段进了 store、界面出本地化文案、未知 kind 回退 collapsed"的用例;`citations` 与 `steer` 在四端的命中数由 0 变非 0(脚本可复算,分母用四端目录)。 **2026-09-25 本会话 HEAD 复跑改判**:四端 `onSteer` 命中实测 extension 2 / miniapp-taro 4 / mobile-rn 6 / cli 3(全非 0),`steer-injection-disclosure` 13 锚点在册且 `node scripts/check-chat-element-coverage.mjs` exit 0 ⇒ 票面验收四条件齐,原"四端 0 命中"前提已过期。
+- [x] ✅(2026-09-25) **D106 消息级"交代帧"跨端消费缺口(G-148;实测量化,不是推测)**:多落点 grep(`--include=*.ts --include=*.tsx`,排除 node_modules)得 **extension / miniapp-taro / mobile-rn / cli 四端对 `citations` 与 `onSteer` 均 0 命中,只有 web 消费**;对照 `compaction` 四端各有落点(extension 1 / miniapp-taro 3 / mobile-rn 2 / cli 15)→ 证明**不是"这些端不接 SSE 交代帧",而是逐帧漏接**,同一类缺口第 N 次出现(D34 的 `injection_applied` 我一开始也只接了 web,即本条的又一实例)。**根因层 = C 客户端通道(api-client 已给 `onInjectionApplied` / `onRetryScheduled` / `onCitations` 回调,端内没人注册)+ P 呈现(各端无对应组件)**。**做法纪律**:① 表现层组件沉 `@ihui/ui-react`(取词函数由 props 注入,不得在组件内 `useTranslations`,否则又变成 web 独占);② 每端注册回调时必须**逐字段显式承接**(各端 store 都是枚举式合并,未知字段会被静默丢掉 —— 与 D40 截断字段完全同因);③ 交代类文案一律走各端命名空间词表,**禁止把后端 `collapsed` 中文当界面文本**(第 42 轮已为此把 kind 定为取词键);④ 端内不得再抄一份渲染模型(mobile-rn 的 `utils/chat-render-model.ts` 属既有违例,收编另立任务)。**验收(可机检)**:守门 57 的 `context-injection-disclosure` 元素锚点从"仅 web"扩到 **web + extension + miniapp-taro + mobile-rn**;每端至少 1 条"帧字段进了 store、界面出本地化文案、未知 kind 回退 collapsed"的用例;`citations` 与 `steer` 在四端的命中数由 0 变非 0(脚本可复算,分母用四端目录)。**进度(2026-09-24)**:① **三端 onSteer 消费落地**(cli/miniapp-taro/mobile-rn,各自 streamChat 调用点注册 + 渲染"引导已生效"交代,词表 15 文件直入正仓 packages/i18n/messages/{cli,miniapp-taro,mobile-rn} 五语言、译法与 web steerNoticeBar 逐字同源,端内 override 已摘除);测试 cli 4/4 + miniapp 7/7 + rn 9/9 全绿,三端文件域 tsc 0 错误;`onSteer` 命中 cli/miniapp/rn 由 0 变非 0。② **extension 已补齐(2026-09-24 第三轮,前述"无通道"结论系分母路径错误:extension 代码在 entrypoints/ 非 src/,该端早有 onCitations/onInjectionApplied/onRetryScheduled 消费)**:ChatPage 注册 onSteer(逐字段承接/空文本防御/8 条封顶)、MessageContent 渲染 steer-notice 交代条、词表五语言 steerNoticeTitle(与 web steerNoticeBar 同源)、@ihui/types ChatMessage 加 steerNotices 字段,steer-notice.test.tsx 4/4 过、tsc 0 错误。③ **守门 57 已闭合**:steer-injection-disclosure 条目入清单(implemented 32→33,13 锚点:ai-service 收集点/api schema/api-client 回调/五端消费与渲染),check-chat-element-coverage.mjs 实跑 EXIT 0(清单 125 条一致)。④ **历史灌回三端闭合(2026-09-24 第四轮)**:web readSteerAppliedFromMetadata(第一轮)+ miniapp backfillSteerNoticesFromMetadata(types.ts 守卫同 web/8 封顶/全坏不写,chat.tsx 两处历史恢复点接入)+ mobile-rn readSteerAppliedFromMetadata(chat-render-model 纯函数,双入口历史加载接入;顺带修复 ChatScreen toChatScreenMessage 不透传 steerNotices 导致 live 渲染死代码的缺陷);测试 miniapp 17/17 + rn 16/16,两端文件域 tsc 0。miniapp 注意:该端无服务端会话消息拉取(历史走本地存储),跨端 metadata 读回需先接服务端历史接口(读回函数已备好,行带 metadata 进来即可消费)。 **2026-09-25 本会话 HEAD 复跑改判**:四端 `onSteer` 命中实测 extension 2 / miniapp-taro 4 / mobile-rn 6 / cli 3(全非 0),`steer-injection-disclosure` 13 锚点在册且 `node scripts/check-chat-element-coverage.mjs` exit 0 ⇒ 票面验收四条件齐,原"四端 0 命中"前提已过期。
+### O60 未认领票全量 HEAD 对账(2026-09-25 完成 ✅):53 张票三态判定 + 台账漂移量化 + 三处代理判据被复跑推翻
+- [x] ✅(2026-09-25) **尺子先自证**:认领面 `node scripts/check-task-claims.mjs` 报 830 行 = 已完成 694 / 进行中 26 / 无人认领 110。但**"110 项没开工"是个假数** —— 去重后 105 条里 ~57 条是进度/遗留/受阻述评,真正带任务编号且无在途标记的条目只有 32 行 / **53 个唯一编号**。口径不先讲清,这个数字会直接误导派单。
+- [x] ✅(2026-09-25) **53 张票逐票判 HEAD 实现面**(8 个只读代理并行取证 + 本会话对每条结论逐条复跑)。**A-确未开工 7 张,全部是本会话亲手量到的否定式**:`D31` Figma 转码(figma 命中**全是营销页与 mock 市场数据**,`absoluteBoundingBox`/`componentSet`/`figma_node` 三个数据模型特征各 **0 文件**)、`D35` 长会话历史投影(`turn_ordinal` 与 `history_projection_state` **0 文件**,点名迁移不在树)、`D43` 语音笔记(`voice-note.ts` 不在任何 ref)、`D50` 多端遥控配对(`remote_control_enrollments` 唯一命中是覆盖台账 JSON 自身)、`D68` 多源建议面板(HEAD `message-input.tsx` 仍三浮层并存 import)、`D86` 钩子摘要卡(`packages/database/src/schema/` 下**根本没有 hooks 表** —— 该目录只有 `webhooks.ts`/`webhook-subscriptions.ts`,票面点名的 source/blocked 列无处可取)、`WP-1` CLI 策略层(`builtins.ts` HEAD 原文仍是 `dangerousMatch && !process.env.IHUI_YOLO`,策略函数零调用点)。**C-已在库该翻勾 1 张**:`D106`(四端 `onSteer` 实测 extension 2 / miniapp-taro 4 / mobile-rn 6 / cli 3 全非 0 + 13 锚点 + 守门 57 exit 0),两行均已翻。其余 45 张为 **B-部分开工**。
+- [x] ✅(2026-09-25) **台账漂移规模量出来了**:HEAD 副本上**同一编号"未勾 + 已勾"并存 = 30 张**(D6 D14 D16 D18 D19 D29 D30 D31 D39 D47 D48 D55 D62 D67 D69 D71 D78 D80 D83 D85 D90 D91 D106 D107 D110 D111 O13b O20f O25 O59 WP-1),未勾行合计 90。**这才是"看起来还剩一大截"的真实成因** —— 很大一块是同一件事登记两行、一行已勾一行没勾。本轮动作保守:只把 2 枚**裸副本短行**(D15 L2403 / D16 L2405)就地改写为指向现行条目的指针行(保留编号 ⇒ 守门 71 不误报),外加 D106 两行按证据翻勾;其余双态行**未批量处理**(理由见残余①)。
+- [x] ✅(2026-09-25) **三处代理判据被复跑推翻,记下来是因为三种失效形态互不相同**:① "路由注册点在"被当成"票已完工" —— `D15` 我量到注册 + 两条派发 + 签名校验都在,但票面正文由实现方自己列了 6 项未完成(installation 映射 / web 配置界面 / 只接 3 种事件 / 幂等是内存 LRU / nginx 两份配置 / README 同步)⇒ 判 B 不翻勾。**注册点存在 ≠ 票面验收齐**。② `D55` 被声称"三端 AgentRuntimePanel 真渲染",而 `stepDecisionState|deriveStepDecision` 在 `apps/**` 只命中 **1 个文件**(web)⇒ 三端渲染不成立。③ 反向漏判:`D69` 的 `InputNoticeBanner` 被判"只被自己测试渲染",HEAD 实测该符号已在 `message-input.tsx` 出现 ⇒ 早已装车。**口径固化:编码类"零消费点"判定一律以 `git grep -l <符号> HEAD` 的文件清单为唯一依据,不采信转述。**
+- [x] ✅(2026-09-25) **碰撞面先量后派**(§12d 单写者):开工前 `git status --porcelain` 得 **81 条在途路径**,与可动票求交后判 **14 个功能域正被并行会话实现**(D14 沙箱 / D35 投影 / D36 草稿 / D43 笔记 / D58 类目 / D62 字幕 / D39·D69 输入区 / D73 多窗格 / D78 连接器卡 / D85·D55 决策条 / D86·D107 钩子 / D91 批注 / D106 rn 交代 / TTS 音频),**这 14 域本轮一律不派单**(共享工作树下写同一批文件 = 抹除他人未提交工作)。派单只落在"目标文件 `git status` 为空"的 5 域:WP-1、D17、D83、D19(只做 extension + cli,显式禁改 miniapp/rn)、D16(只做 `llm_gateway.py`,显式禁改已脏的 `routers/llm.py`)。
+- **O60 残余(不写作收口,逐条给归属与解阻判据)**:① **30 枚双态行未逐张裁决** —— 判"哪一侧与 HEAD 一致"必须逐票做,批量删除或批量翻勾都会造伪账;归属 = 下一轮派单,判据 = 本条 O60 的 A/B/C 三态。② **B 类 45 张的欠项清单目前只在 `.ihui-agent/tmp/plan-audit/report-{1..8}.md`**(临时件,按 §15/§25 收尾要么把欠项逐条转正成台账内联证据、要么明确废弃),**不得长期只躺在 tmp**。③ **O14 / O14b2 / O19b② 三项 agent 不得单方执行**(0 tag、brew sha256 占位、Go 模块路径改动波及全部 import、tsvector 触发器列并回),属凭据与产品口径决策。④ **D31 需 Figma 厂商 token 与产品边界**(票面对标 Trae 设计还原),非纯工程可闭环。⑤ **本轮 5 路并行编码的产出尚未并入台账判定** —— 若某票被这些实现推进到 C,须按 O60 的复跑口径重测后才允许翻勾。
+### 第四十三批·本会话交付（2026-09-25 凌晨，5 代理并行；开工前快照 106→120 个他人未提交路径并全程作为禁改清单）
+> 派单前重测：本会话第二批留下的 94 路径快照已作废（HEAD 两小时内推进 60+ 枚），
+> 故重新取 `.ihui-agent/tmp/dirty2/dirty3.txt` 作禁改清单。**本批选择的落点全部在
+> CI 编排、守门脚本、语言包与"零消费者导出"上，与任何在途功能文件不相交。**
+- [x] ✅(2026-09-25) **四条 CI 连红收口**（`7c6c24fd693` / `ebb1e57e393`）—— 三条同型、一条不同型：
+  - `ci.yml` 的 "Shared package typecheck (dangling `export *` gate)" 步**先于任何构建**执行，
+    而 `@ihui/api-client` 入口指向不入库的 `dist` ⇒ 14×TS2307 + 7×TS7006(后者是下游派生，
+    不是独立缺陷)。补 `pnpm --filter "@ihui/api-client..." run build`(带 `...` 才连依赖，
+    抄 `openapi-check.yml:77` 既证先例)，并把 `:94`/`:222` 两处不带 `...` 的旧写法一并升级。
+    自证：挪空 dist ⇒ tsc EXIT=1 且报错签名与 CI **逐行同型**；恢复 dist(400 文件清单复验)
+    + 拓扑构建 ⇒ 同一条 tsc EXIT=0。
+  - `deploy-github-pages.yml` 的 `Build web` **同型漏补**(实测 `--log-failed` 原文
+    `Module not found: '@ihui/api-client'`)，同样补一步。
+  - `e2e-browser-hub.yml` 是**另一型且更隐蔽**：workflow 级 `env:` 写了 `${{ runner.temp }}`，
+    该作用域只允许 `github/inputs/secrets/vars` ⇒ Actions **编译期整文件拒绝** ⇒
+    `jobs:[]`、`--log-failed` 报 `log not found`、**run 名退化成文件路径**
+    （`gh run list` 里那 3 条红正是这个形态，是识别本型的最快信号）。
+    修法：`AI_SERVICE_LOG` 落 `/tmp` 字面量(job 级 env 经实测同样不含 runner)；
+    顺带修预检步 working-dir 错位(`cd apps/web` → `$GITHUB_WORKSPACE/apps/web`)并补拓扑构建。
+  - 判据侧复验：`check-workflow-step-order`(门 48，会解析全部 workflow) exit 0。
+- [x] ✅(2026-09-25) **守门 77 不再"空扫记绿"**（`acffb4a3ef7`）—— 真仓跑 `扫描 6230 文件 ✅` 是对的，
+  但**无 `.git` 的检出**里同一条命令打印 `扫描 0 文件 … ✅ 通过` 且 exit 0：判据一条没执行却记绿。
+  根因不是"预筛被 catch"(文件里根本没有 git grep)，而是 **git 向上逃逸到外层仓库**，
+  `git ls-files` 返回 *exit 0 + 空清单*(不报错)，空 Set 是 truthy ⇒ 把 6230 候选整批滤成 0。
+  修法对齐本仓既有口径而非另立一套(`resolveGitContext()`：toplevel ≠ ROOT 即 exit 2 无法判定；
+  清单取不到/0 条/候选 0 ⇒ exit 2；判据 C 失败由记红改 exit 2)——同族先例见门 78
+  "空扫不报绿"、门 94/101 "取不到输入 ⇒ 无法判定，既不冒红也不记绿"。
+  四条退出码：修前隔离假绿 0 → 修后无 git **2** → 真仓仍绿 **0**(结论行形态不变，
+  证明没为修边界把主判据改坏) → 注入绕档取用判红 **1**；`--self-test` 49 例、镜像 8 例 exit 0。
+- [x] ✅(2026-09-25) **i18n 死键审计 CI 的真债清零**（`47cd430cc4f`）—— 先定性再动手：
+  真仓与 `git archive HEAD` 干净检出**两面同修订对跑**，死键集合逐条一致(差集为空) ⇒ 是真债不是尺子。
+  但**原报 10 枚里 9 枚已被并行提交 `9a22716e0bf` 在 HEAD 摘除**，磁盘副本只是滞后
+  （又一次印证"开工量到的红可能已被人修好"，逐条复验是硬要求）。本票只删唯一仍在的
+  `ai.chatMessageItem.downloadSuccess`，**行级删除 ×5 语言**(各 1 删 0 增，五语叶子键集 identical)，
+  **刻意不跑 `i18n:apply`**(它会重排整包键序，把 diff 变成"像删了一大片")；离线包是需重生的
+  第二真相，故跑 `gen:i18n` 并解码证实该键已从压缩载荷消失。
+  判据：`check-i18n-keys` exit 0；扫描器由 exit 1(5/2/3) → **五 target 全 0、exit 0**。
+- [x] ✅(2026-09-25) **knip 五类超基线定性 + ① 类还账**（`11ded4071a7` + `ba651b312ac`）：
+  - `binaries +2` 是**尺子盲区**：`e2e-browser-hub.yml` 在 root workspace 上下文调
+    `pnpm exec playwright/drizzle-kit`，被记成根包未声明二进制 ⇒ 只在 `knip.jsonc` 登记
+    `ignoreBinaries` 并写依据(8 行纯新增)，**未动基线**；复跑该类 18→16 转绿。
+  - `exports +266 / types +112 / duplicates +65` 的大头**在 HEAD 真实存在**(工作树−CI 差集
+    证明在途噪声不占这部分)。按三态归因抽样 66 条：duplicates 抽样 **20/20 是 Named+default
+    双导出被计重**(尺子不认)；②"消费方存在但判据看不见"≈21；③"09-24 在途、消费方还在路上"=5。
+  - 本票只做 ①：18 条**逐条过三道关**(`git grep HEAD` 判仓库真值 / 排除 barrel·公共 API 面·
+    **被任何 `scripts/check-*.mjs` 按字面量点名的符号** / 定义文件此刻必须不在他人未提交清单)
+    后摘除；16 条只去 `export` 关键字保留实现，2 条(`registerDebugTools`/`LotteryListData`)零消费者整体删。
+    **三条主动跳过并留因**：`untrustFolder`(实时 `git M` 判脏 —— 快照会滞后，必须现判)、
+    `DesktopFeedAsset`(生成物且在途)、`PromptPolishNoticeProps`(宿主 `message-input.tsx` 在途)。
+  - 判据：门 98 `check-dangling-local-imports` **exit 0**(8206 文件，悬空 0，删多了会直接报)、
+    门 40 / 门 89 exit 0、api 包定向 tsc exit 0(其余包错误全在他人未提交文件)。
+    knip A/B 实测 exports 1820→1813、types 1380→1373(18 个目标全部消失，剩余差额是窗口内他人新增)。
+- **本批未闭环（各自点名归属与解阻判据，不写作已完成）**：
+  1. **knip 仍红**：`exports/types` 的 ② 类(≈21 条)属**判据看不见消费方**，要么在 `knip.jsonc`
+     按 target 补 `entry`/`project` 口径、要么由对应端把消费点显式化 —— 两种都会改判据面，
+     需人工定档；③ 类 5 条由那批在途会话自己收尾。**本批刻意未动
+     `scripts/knip-baseline.json` 与 `--update`**(基线只能人工确认后收紧，为过门平账他人回归是本仓明令禁止)。
+  2. **`unlisted +1` 未做**：`apps/extension` 的测试 import `happy-dom`，而全仓只在 `apps/web` 声明
+     ⇒ 是真漏声明。补它必须**同批**改 `apps/extension/package.json` + 全量 `pnpm install` 刷
+     `pnpm-lock.yaml`(否则守门 101 的清单↔锁对账当场判红)，而本机此刻有 ~120 个他人未提交路径，
+     全量 install 会重排依赖树(§12e 的 lint-staged 削损事故同型)。**判据已备好，等一个干净的
+     依赖窗口再动**，不在只读定性票里顺手做。
+  3. **extension 的 3 枚死键**已由并行提交清掉，无需等 —— 该条 CI 具备转绿条件，
+     以下次 push 的 `i18n Dead Key Audit` job 结论为准。
