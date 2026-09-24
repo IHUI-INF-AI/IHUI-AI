@@ -13,6 +13,8 @@
 
 import chalk from 'chalk';
 
+import { t } from '../i18n/index.js';
+
 export type SlashCommandCategory = 'basic' | 'session' | 'task' | 'checkpoint' | 'file';
 
 export interface SlashCommandMeta {
@@ -51,6 +53,10 @@ export const SLASH_COMMANDS: readonly SlashCommandMeta[] = [
   { name: 'queue', description: '提示词排队(agent 完成后自动执行)', usage: '/queue [list|clear|rm <id>|<prompt>]', category: 'session' },
   { name: 'rewind', description: '回退 N 步(无参数弹出快照选择列表)', usage: '/rewind [N]', category: 'session' },
   { name: 'fork', description: '从指定消息位置 fork 新 session', usage: '/fork [msg-index]', category: 'session' },
+  // D44 服务端会话分叉(cli 宿主;判据与文案见 src/commands/branch-ops.ts)。
+  // 与 /fork 不重叠:/fork 切的是本地 session 历史,本命令走 @ihui/api-client 的 branchConversation。
+  // 描述取词而非硬编码 —— 本文件在守门 70(硬编码中文棘轮)射程内,新增行不得加命中数。
+  { name: 'branch', description: t('cli.branch.menu'), usage: t('cli.branch.usageShort'), category: 'session' },
   { name: 'repair', description: '自愈当前会话历史', usage: '/repair', category: 'session' },
   { name: 'bg', aliases: ['background'], description: '启动/管理后台任务', usage: '/bg <cmd> | /bg list|live <id>|out <id>|wait <id>|kill <id>', category: 'task' },
   { name: 'loop', description: '周期执行命令', usage: '/loop <intvl> <cmd> | /loop list|stop <id>|clear', category: 'task' },

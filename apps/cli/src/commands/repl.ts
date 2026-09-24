@@ -125,6 +125,18 @@ import {
 } from './queue-ops.js';
 import type { FollowUpMode } from '@ihui/shared/chat/queue-interactions';
 import { fetchModels, type LlmModel } from '@ihui/api-client';
+// D44 服务端会话分叉:参数解析 / 分叉点判定 / 编排 / 失败文案全在 src/commands/branch-ops.ts,
+// 本处只做宿主(与 queue-ops 同一形态 —— 端内不写第二套判据,不自行拼 fetch)。
+import {
+  formatBranchArgsError,
+  formatBranchFailure,
+  formatBranchSuccess,
+  formatResolvedSource,
+  parseBranchArgs,
+  runBranch,
+  usageLine,
+} from './branch-ops.js';
+
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS } from '@ihui/shared';
 import {
   MODEL_CATEGORY_META,
@@ -1407,6 +1419,28 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       console.info(chalk.green(
         `已 fork 新 session: ${newSession.id},从消息 #${forkIndex} 分叉,包含 ${result.forkedHistory.length} 条消息`,
       ));
+      break;
+    }
+
+    case 'branch': {
+      // D44 服务端会话分叉。args 由 handleSlashCommand 剥掉命令名后传入(与 /queue 同形态)。
+      const parsedBranch = parseBranchArgs(args);
+      if (!parsedBranch.ok) {
+        console.info(chalk.yellow(formatBranchArgsError(parsedBranch)));
+        console.info(chalk.dim(usageLine()));
+        break;
+      }
+      const branchOutcome = await runBranch(parsedBranch.args);
+      if (branchOutcome.ok) {
+        // 用了"最近活跃远端会话"兜底时必须点名动的是谁 —— 终端里没有可见的会话选择器
+        if (branchOutcome.usedFallbackConversation) {
+          console.info(chalk.dim(formatResolvedSource(branchOutcome)));
+        }
+        console.info(chalk.green(formatBranchSuccess(branchOutcome)));
+        break;
+      }
+      // 失败要响:原因 + 状态码 + 服务端原文一并打出,绝不静默 break。
+      console.info(chalk.red(formatBranchFailure(branchOutcome)));
       break;
     }
 

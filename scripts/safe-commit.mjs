@@ -32,8 +32,10 @@
  *   2  环境错误(非 git 仓库/无 origin 等)
  */
 import { execSync, spawn, spawnSync } from 'node:child_process'
+import { appendFileSync, closeSync, mkdirSync, openSync, readSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { classifyHookFailure, verdictLine } from './lib/commit-gate-attribution.mjs'
 
 // 本脚本所在仓的根(AGENTS §15:由自身位置推导,不得写死盘符)
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -372,6 +374,7 @@ const pump = (r) => {
 
 let commitResult = null
 let hookFailed = false
+let hookOutput = ''
 for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
   const r = spawnSync('git', commitArgs(false), {
     encoding: 'utf8',
@@ -380,6 +383,7 @@ for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
     windowsHide: true,
   })
   const out = pump(r)
+  hookOutput += out
   commitResult = r
   if (r.status === 0) break
   if (isGitLockFailure(r.status, out)) {
@@ -414,11 +418,72 @@ for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
 
 let hookSkipped = false
 if (hookFailed && commitResult.status !== 0) {
-  log('warn', `首次 commit 失败(exit ${commitResult.status})—— 判为 pre-commit 钩子阻塞(非锁争用)`)
-  log(
-    'info',
-    `按用户规则"hook 失败因其他 agent 代码 → --no-verify 重试";本次将**跳过全部守门**,请自行复跑相关门并在交付里写明`,
+  // ── 归因(2026-09-25 立,替代旧的一句"按用户规则…因其他 agent 代码")────────────────
+  // 旧流程把三种不相干成因压成同一条措辞并一律 --no-verify:①我的内容真红 ②他人内容红
+  // ③门判的是机器/远端态。实测 134 道门跑完只有 check-push-sync(远端态)红,输出仍写
+  // "因其他 agent 代码" —— 归因从未被计算过。现在:把红的门逐道**复跑**,用它们自己这次的
+  // 输出比对本次声明的文件集。点名我 ⇒ 拒绝跳门;一个都没点名 ⇒ 才允许跳,且只说量到的话。
+  // 实测(2026-09-25):pre-commit 常把守门汇总**只**写进 .workbuddy/hook-logs/pre-commit.log,
+  // stdout 停在半路 —— 没有这第二输入源,归因在真仓里的命中率是 0(每次都说"未归因")。
+  // 只喂尾部 256KB:整份日志是多轮追加的,全量读既慢又会把别人的轮子卷进来。
+  let hookLogTail = ''
+  try {
+    const logPath = join(repoRoot, '.workbuddy', 'hook-logs', 'pre-commit.log')
+    const size = statSync(logPath).size
+    const len = Math.min(size, 256 * 1024)
+    const fd = openSync(logPath, 'r')
+    try {
+      const buf = Buffer.alloc(len)
+      readSync(fd, buf, 0, len, size - len)
+      hookLogTail = buf.toString('utf8')
+    } finally {
+      closeSync(fd)
+    }
+  } catch {
+    hookLogTail = ''
+  }
+  const verdict = classifyHookFailure({
+    text: hookOutput,
+    fallbackText: hookLogTail,
+    stagedFiles: expectedFiles,
+    runGate: (script) => {
+      const g = spawnSync(process.execPath, [join(repoRoot, 'scripts', script), '--staged'], {
+        encoding: 'utf8',
+        cwd: repoRoot,
+        env: process.env,
+        windowsHide: true,
+        timeout: 300000,
+        maxBuffer: 32 << 20,
+      })
+      return { status: g.status ?? 1, output: `${g.stdout || ''}${g.stderr || ''}` }
+    },
+  })
+  log('warn', `首次 commit 失败(exit ${commitResult.status})—— 开始逐道复跑失败门以计算归因`)
+  for (const line of verdict.detail) log('info', `  · ${line}`)
+  log(verdict.kind === 'mine' ? 'err' : 'info', verdictLine(verdict))
+
+  mkdirSync(join(repoRoot, '.workbuddy'), { recursive: true })
+  appendFileSync(
+    join(repoRoot, '.workbuddy', 'safe-commit-attestation.jsonl'),
+    `${JSON.stringify({
+      ts: new Date().toISOString(),
+      kind: verdict.kind,
+      ranFullBatch: verdict.ranFullBatch,
+      reason: verdict.reason,
+      failedGates: verdict.failed.map((f) => f.id),
+      declaredFiles: expectedFiles,
+      headBefore: beforeSha,
+    })}\n`,
   )
+
+  if (verdict.kind === 'mine') {
+    log(
+      'err',
+      '拒绝 --no-verify:上表已点名本次声明的文件,这是本任务自己的红。修完再提;' +
+        '确属误判时请改判据或按 AGENTS §16 显式说明后手工提交',
+    )
+    process.exit(1)
+  }
   const r = spawnSync('git', commitArgs(true), {
     encoding: 'utf8',
     cwd: repoRoot,
@@ -429,7 +494,11 @@ if (hookFailed && commitResult.status !== 0) {
   commitResult = r
   if (r.status === 0) {
     hookSkipped = true
-    log('warn', `⚠️  已用 --no-verify 落地(守门未跑,不是"通过了守门")`)
+    log(
+      'warn',
+      `⚠️  已用 --no-verify 落地(归因=${verdict.kind};守门未在本次提交链上重跑,` +
+        `逐道复跑记录见上,留痕于 .workbuddy/safe-commit-attestation.jsonl)`,
+    )
   }
 }
 

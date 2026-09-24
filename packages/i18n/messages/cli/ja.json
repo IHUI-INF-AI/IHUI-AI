@@ -58,6 +58,26 @@
       "runEmpty": "キューが空のため、実行できません",
       "modeSet": "✓ 追加入力モード = {mode}",
       "degradedNote": "（降格: {reason}）"
+    },
+    "branch": {
+      "usage": "使い方: /branch [タイトル] | /branch -c <会話ID> [タイトル]",
+      "usageShort": "/branch [タイトル] | /branch -c <会話ID> [タイトル]",
+      "menu": "サーバー側の会話を最新のアシスタント回答から新しい会話に枝分かれします",
+      "errUnknownFlag": "サポートされていない引数です",
+      "errBadConversationId": "会話IDはサーバー側のUUIDである必要があります",
+      "errBadTitle": "タイトルが長すぎます(最大255文字)",
+      "errNoConversations": "分岐できる会話がありません",
+      "errNoMessages": "この会話にはまだメッセージがないため、分岐できません",
+      "errNoBranchable": "この会話の履歴に保存されたメッセージIDがないため、分岐できません",
+      "errRequestFailed": "サーバーがリクエストを拒否しました",
+      "errTransportFailed": "バックエンドに接続できません",
+      "withDetail": "{reason}: {detail}",
+      "failedWithStatus": "分岐に失敗しました: {reason}(HTTPステータス {status})",
+      "failedNoStatus": "分岐に失敗しました: {reason}",
+      "resolvedLatest": "会話が指定されていないため、直近で更新された会話「{sourceTitle}」({sourceId})を使用します",
+      "created": "✓「{sourceTitle}」を{anchor}メッセージの位置で分岐し、「{branchTitle}」を作成しました。新しい会話ID: {branchId}",
+      "roleAssistant": "アシスタント",
+      "roleUser": "ユーザー"
     }
   },
   "waiting": {
