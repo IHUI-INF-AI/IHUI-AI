@@ -1247,23 +1247,26 @@ C 盘 120 GB 频繁告急,根因排查发现:
 `D:\caches\*` 是**死路径**,本机不存在 `D:\caches`,且 `CARGO_HOME`/`RUSTUP_HOME`/`OLLAMA_MODELS`
 当时**根本没设**,即"文档说已迁、实际还在 C 盘";真实外置根是 `D:\DevEnv\`)。
 
-| 工具                | 环境变量 / 配置                           | 实测路径                                                            |
-| ------------------- | ----------------------------------------- | ------------------------------------------------------------------- |
-| Temp/TMP            | `TEMP` / `TMP` / `TMPDIR`                 | `D:\DevEnv\Temp`(2026-09-23 才真正写入 HKCU)                        |
-| pnpm                | `PNPM_HOME` + `pnpm store path`           | `D:\DevEnv\tools\pnpm`,store=`...\pnpm\store\v11`                   |
-| npm                 | `npm config`                              | `D:\DevEnv\cache\npm`                                               |
-| pip                 | `PIP_CACHE_DIR`                           | `D:\DevEnv\cache\pip`                                               |
-| uv                  | `UV_CACHE_DIR`                            | `D:\DevEnv\cache\uv`                                                |
-| Cargo               | junction(`%USERPROFILE%\.cargo`)          | `D:\DevEnv\cache\userhome\.cargo`                                   |
-| Rustup              | junction(`%USERPROFILE%\.rustup`)         | `D:\DevEnv\cache\userhome\.rustup`                                  |
-| Maven/.m2           | junction(`%USERPROFILE%\.m2`)             | `D:\DevEnv\cache\userhome\.m2`                                      |
-| Codex/.cache/.codex | junction                                  | `D:\DevEnv\cache\userhome\{.cache,.codex,.codex-session-delete}`    |
-| Trae 全家           | junction(`.trae`/`.trae-cn`/`.trae-aicc`) | `D:\DevEnv\cache\userhome\`                                         |
-| DeepSeek CLI        | junction(`%USERPROFILE%\.deepseek`)       | `D:\DevEnv\cache\userhome\.deepseek`                                |
-| Ollama(含服务)      | junction(`%USERPROFILE%\.ollama`)         | `D:\DevEnv\cache\ollama`(服务 `OLLAMA_MODELS` 路径经 junction 解析) |
-| IHUI CLI 状态       | junction(`%USERPROFILE%\.ihui`)           | `D:\DevEnv\cache\userhome\.ihui`                                    |
-| Go                  | `GOPATH` / `GOMODCACHE` / `GOCACHE`       | `D:\DevEnv\cache\go{,\pkg\mod}` / `...\go-build`                    |
-| Playwright          | `PLAYWRIGHT_BROWSERS_PATH`                | `D:\DevEnv\cache\playwright`                                        |
+| 工具                | 环境变量 / 配置                             | 实测路径                                                                            |
+| ------------------- | ------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Temp/TMP            | `TEMP` / `TMP` / `TMPDIR`                   | `D:\DevEnv\Temp`(2026-09-23 才真正写入 HKCU)                                        |
+| pnpm                | `PNPM_HOME` + `pnpm store path`             | `D:\DevEnv\tools\pnpm`,store=`...\pnpm\store\v11`                                   |
+| npm                 | `npm config`                                | `D:\DevEnv\cache\npm`                                                               |
+| pip                 | `PIP_CACHE_DIR`                             | `D:\DevEnv\cache\pip`                                                               |
+| uv                  | `UV_CACHE_DIR`                              | `D:\DevEnv\cache\uv`                                                                |
+| Cargo               | junction(`%USERPROFILE%\.cargo`)            | `D:\DevEnv\cache\userhome\.cargo`                                                   |
+| Rustup              | junction(`%USERPROFILE%\.rustup`)           | `D:\DevEnv\cache\userhome\.rustup`                                                  |
+| Maven/.m2           | junction(`%USERPROFILE%\.m2`)               | `D:\DevEnv\cache\userhome\.m2`                                                      |
+| Codex/.cache/.codex | junction                                    | `D:\DevEnv\cache\userhome\{.cache,.codex,.codex-session-delete}`                    |
+| Trae 全家           | junction(`.trae`/`.trae-cn`/`.trae-aicc`)   | `D:\DevEnv\cache\userhome\`                                                         |
+| DeepSeek CLI        | junction(`%USERPROFILE%\.deepseek`)         | `D:\DevEnv\cache\userhome\.deepseek`                                                |
+| Ollama(含服务)      | junction(`%USERPROFILE%\.ollama`)           | `D:\DevEnv\cache\ollama`(服务 `OLLAMA_MODELS` 路径经 junction 解析)                 |
+| IHUI CLI 状态       | junction(`%USERPROFILE%\.ihui`)             | `D:\DevEnv\cache\userhome\.ihui`                                                    |
+| 桌面端 Local 态     | junction(`%LOCALAPPDATA%\com.ihui.desktop`) | `D:\DevEnv\cache\userhome\appdata-local-com.ihui.desktop`(515 文件/39.25MB)         |
+| 桌面端 Roaming 态   | junction(`%APPDATA%\com.ihui.desktop`)      | `D:\DevEnv\cache\userhome\appdata-roaming-com.ihui.desktop`(auth/tray/window-state) |
+| **服务身份 TEMP**   | **没有 env 可改**(HKCU 迁移对它无效)        | 必须显式选目录 + 用完删除,详见下方"junction 管不了身份"                             |
+| Go                  | `GOPATH` / `GOMODCACHE` / `GOCACHE`         | `D:\DevEnv\cache\go{,\pkg\mod}` / `...\go-build`                                    |
+| Playwright          | `PLAYWRIGHT_BROWSERS_PATH`                  | `D:\DevEnv\cache\playwright`                                                        |
 
 **改道机制定为 junction,不 env 优先**:家目录工具态一律 `robocopy <src> <dst> /E /MOVE` →
 `mklink /J <旧路径> <新路径>`。理由:工具态常有**硬编码**读取方(如 `~/.cargo\bin` 在
@@ -1271,6 +1274,24 @@ C 盘 120 GB 频繁告急,根因排查发现:
 因此**不需要也不允许**去改 `Path` 或逐个改码;改环境变量反而会造出"双根分裂"。
 校验方法:`rustup show home`、`reg query HKCU\Environment`、`(Get-Item ~\.cargo).Attributes -match ReparsePoint`。
 新增工具的缓存落点一律走 `D:\DevEnv\cache\userhome\<名称>` + junction,不得再在家目录留实体目录。
+**⚠️ junction 只管"路径",管不了"身份"(2026-09-24 实测的第四类真因)**:同一个 `$env:TEMP` /
+`os.tmpdir()` 在**不同身份下指向不同目录** —— HKCU 把交互账户 TEMP 迁到 `D:\DevEnv\Temp` 之后,
+nssm 服务(IHUI-API / IHUI-DEPLOYLOOP 以 LocalSystem 运行)拿到的仍是 `C:\Windows\Temp`。
+**任何"改成 `$env:TEMP`"式修复对它只是往 C 盘内部挪坑。**所以三条硬要求:
+① 服务/守护类脚本若要落临时物,必须**显式指定目录**,不能信任 `$env:TEMP`;
+② **用完必须删** —— 实测反例:`deploy/win/ihui-deploy.ps1` 把构建 stdout/stderr 重定向到
+`$env:TEMP` 的 `ihui-next-build-<PID>-try<N>-{out,err}.log`,Tail 进 deploy-loop.log 之后**从不删除**
+⇒ 部署环每 30 分钟漏 2 个,`C:\Windows\Temp` 攒到 **526 项 / 6.86MB**(同文件里的
+`ihui-align-$PID.log` 反而有删,所以泄漏面精确到构建这一处;2026-09-24 已改为用完即删,
+并现场观察到一轮构建结束后该 2 个文件自动消失);
+③ **守门必须扫"服务身份的 TEMP"** —— 守门 `check-c-drive-pollution.mjs`(编号同日漂移过
+同日三次撞号)此前只扫 `tmpdir()`,即"看门人自己的 TEMP",于是它一路报"本项目产物 0 项"
+而真凶全在 `C:\Windows\Temp`。现 `tempScanDirs()` 显式并入 `SystemRoot\Temp` 并由 `--self-test`
+钉死(扫描面缩回去即红)。**同批修掉这条门自身的两处假绿灯**:同一目录因大小写被计两次
+(`C:\windows\Temp` 与 `C:\Windows\Temp` ⇒ 实测 1056 项 vs 真实 526,按小写键去重)、文件一律
+记 `sizeMB: 0`(只有目录量体积 ⇒ 526 个小文件把 6.86MB 报成"合计约 0 MB")。
+它的修复提示原写 `pnpm c-drive:clean-ours`,而根 package.json **从来没有这个脚本**
+(实测取该键得 undefined)⇒ 门给出的是跑不通的出路,已改为真实入口并要求先 `-DryRun`。
 **该方法唯一的真实危险**:`robocopy` 非零返回码(如 `.codex` 持锁 rc=9)会让内容已搬走但**不建 junction**,
 路径直接消失 —— 必须回读"旧路径是否存在 + 新路径文件数/字节"再补 junction(本次即手工补建后凭据零丢失)。
 **校验必须逐文件比对相对路径 + 字节数**(`robocopy /E` 不带 `/MOVE` 先做镜像副本),通过后才删源。
@@ -1300,7 +1321,8 @@ C 盘 120 GB 频繁告急,根因排查发现:
 - **它的删除面是"按名字"的,不是"按目录整片"**(2026-09-24 把行为收拢到与这句话一致,之前并非如此):盘根只认 `IHUI-*` / `.empty-tmp*` / `.pnpm-store`;`C:\tmp` 与 `C:\temp` 内只删 `ihui-*` / `IHUI-*` / `next-backup-*` / `probe-*` / `wb-ext-debug.log`;`%LOCALAPPDATA%\Temp` **默认也只删这四类名字**,原来是对"所有 mtime>3 天的目录"整片删(09-23 一次误跑就是因此清掉约 29.8MB 无主旧目录)—— 宽口径整片清扫现在必须显式设 `IHUI_TEMP_WIDE_SWEEP=1` 才恢复,未开启时把"被跳过多少个、合计多少 MB"如实打印,不静默。唯一剩下的非按名字删除面是 `C:\Windows\Temp` 里 mtime>3 天的**文件**(系统临时文件,保留原语义),日志里以 `[NOTE]` + 逐条留痕明示。
 - **Chrome 缓存那 6 条路径是死路径,但故意不"修好"**:它们硬编码 `C:\Users\荣耀\AppData\Local\...`,本机用户是 `Administrator` ⇒ 天天空转。改成指向真实用户配置等于**突然开始删一个在用浏览器的缓存**,风险远大于收益;现在改为检测到路径不存在就显式 `[WARN]`(6/6 不存在 + 当前用户名),不再静默。要清这台机器的 Chrome 缓存,请人工确认后再动。
 - **全脚本的删除出口只有 `ForceDelete` 一个**,且每次过 `Test-Protected`(`secrets` / `密钥` / `credentials` / `backups` / `BaiduSyncdisk` 等整目录不碰);`-DryRun` 拦在该出口上,预演模式**一条 `[DEL]` 都不会出现**(实测 179 行日志 `[DEL]` 计数 = 0)。
-- **仍未闭环的一条**:TEMP 漂移 —— HKCU `TEMP` 已指 `D:\DevEnv\Temp`,但活着的宿主/终端进程仍持 `C:\Users\Administrator\AppData\Local\Temp`(实测 `node -p os.tmpdir()` 即旧值),所以走 `os.tmpdir()` 的脚本会继续落 C 盘;新开终端/重启宿主后自愈。判据与污染可见性由守门 **93** `check-c-drive-pollution.mjs`(只读、永不删)承担。
+- **TEMP 漂移(2026-09-24 已根治写入侧,残余只是"活进程不刷新")**:HKCU `TEMP` 已指 `D:\DevEnv\Temp`,但活着的宿主/终端进程仍持 `C:\Users\Administrator\AppData\Local\Temp`(实测 `node -p os.tmpdir()` 即旧值),新开终端/重启宿主后自愈。**更严重的那一半是"服务身份根本不读 HKCU"** —— LocalSystem 的 TEMP 是 `C:\Windows\Temp`,已按上文③把守门扫描面补齐,并把 `deploy/win/ihui-deploy.ps1` 的构建重定向日志改为**用完即删**(实测存量 526 项 / 6.86MB 清完、下一轮构建结束后 2 个文件自行消失)。判据与污染可见性由守门 `check-c-drive-pollution.mjs`(只读、永不删;编号见 runner)承担。
+- **家目录实体目录再少两处**(2026-09-24):桌面端 `%LOCALAPPDATA%\com.ihui.desktop`(515 文件/39.25MB)与 `%APPDATA%\com.ihui.desktop`(auth/tray/window-state)已按本节 junction 机制改道到 `D:\DevEnv\cache\userhome\appdata-{local,roaming}-com.ihui.desktop`;流程是"镜像复制 ⇒ 逐文件(相对路径+字节)校验 ⇒ 源改名为 `.pre-junction-<ts>` ⇒ `mklink /J` ⇒ 经 junction 回读数量一致 ⇒ 才删源",任一步不符即改名回退。改道前已确认桌面端不在运行(该目录最后写入 09-06,机上 13 个 `msedgewebview2.exe` 全属他应用)。同批删除 `AppData\Local\智汇AI` 与 `AppData\Local\ihui-node-hooks` 两个**空**孤儿目录(后者说明机器级 windowsHide 钩子当前未装:`HKCU\Environment\NODE_OPTIONS` 实测未设)。
 
 **同日修 `c-drive-auto-maintain.ps1` 的三处失效**(全部实测取证):
 
@@ -1335,12 +1357,12 @@ C 盘 120 GB 频繁告急,根因排查发现:
 ### 守门(已实现,guardian-runner 第 45 项)
 
 - `scripts/check-c-drive-paths.mjs`(guardian-runner 第 45 项,warn-only,2026-08-13 立):扫描 staged 文件中硬编码的 C 盘写入路径(`C:\temp\` / `C:\Users\*\AppData\Local\Temp\` 等,排除 `os.tmpdir()` / `$env:TEMP` / 注释 / 文档)。
-- **`scripts/check-c-drive-pollution.mjs`(guardian-runner 第 93 项,warn-only,2026-09-23 立)—— 补上第 45 项看不见的那一半**。成因:第 45 项只扫**源码字面量**,而 C 盘残骸恰恰是从 `os.tmpdir()` / `$env:TEMP` 这类"源码里没写 C"的路径流出去的;`check-parent-pollution`(只扫项目父目录 `D:\`)和 `check-root-dir-clean`(只扫项目根)同样不看 C 盘文件系统 —— 全链 90+ 道门没有一道实地扫过 C,于是 13.2GB `.next` 备份和单日 45 个 git 夹具可以在全量审计恒绿的情况下一直堆在 C 盘。本门实地扫 `C:\` 根 + `C:\tmp` + `C:\temp` + 活 TEMP,按名字白名单只认**本项目产物**(他人条目进"未识别清单",只登记不定性、不清理);并单独判 **TEMP 漂移**(注册表 `HKCU\Environment\TEMP` 已指 `D:\DevEnv\Temp` 而活进程仍持 `C:\Users\...\AppData\Local\Temp`)—— 这就是"改了指针但残骸天天还在长"的机制,新建终端/重启宿主后自愈。
+- **`scripts/check-c-drive-pollution.mjs`(guardian-runner 已注册项,warn-only,2026-09-23 立。**编号同日重排 5 次(85→90→91→92→93→96),文档一律不写死,以 runner 里该 `script:` 所在条目的 `id` 为准**)—— 补上第 45 项看不见的那一半**。成因:第 45 项只扫**源码字面量**,而 C 盘残骸恰恰是从 `os.tmpdir()` / `$env:TEMP` 这类"源码里没写 C"的路径流出去的;`check-parent-pollution`(只扫项目父目录 `D:\`)和 `check-root-dir-clean`(只扫项目根)同样不看 C 盘文件系统 —— 全链 90+ 道门没有一道实地扫过 C,于是 13.2GB `.next` 备份和单日 45 个 git 夹具可以在全量审计恒绿的情况下一直堆在 C 盘。本门实地扫 `C:\` 根 + `C:\tmp` + `C:\temp` + 活 TEMP,按名字白名单只认**本项目产物**(他人条目进"未识别清单",只登记不定性、不清理);并单独判 **TEMP 漂移**(注册表 `HKCU\Environment\TEMP` 已指 `D:\DevEnv\Temp` 而活进程仍持 `C:\Users\...\AppData\Local\Temp`)—— 这就是"改了指针但残骸天天还在长"的机制,新建终端/重启宿主后自愈。
   - **定级 warn 而非 blocking**:盘根多数条目不属本仓,拦提交只会逼人 `--no-verify`,连带废掉其余守门(与守门 77/52 同取向)。`--strict` 供 CI/巡检改判红。
   - 本门**只读,永不删文件**;清理动作一律走 `c-drive-auto-maintain.ps1`(带 `-DryRun` 与逐条留痕)。
-  - 取证:`--self-test` 11 例 + §22c 镜像测试 `node --test scripts/tests/check-c-drive-pollution.test.mjs`(7 例,含"他人工具态不得被判为我们的"、"TEMP 漂移判据"与**"本门编号在 runner 中必须唯一(反查 id,不硬写编号)+ 邻门注册块不得缺失)"**)。
+  - 取证:`--self-test` 12 例 + §22c 镜像测试 `node --test scripts/tests/check-c-drive-pollution.test.mjs`(7 例,含"他人工具态不得被判为我们的"、"TEMP 漂移判据"与**"本门编号在 runner 中必须唯一(反查 id,不硬写编号)+ 邻门注册块不得缺失)"**)。
   - **自有产物特征含一条"盘根单字母目录"**:`C:\c` 这类是 MSYS/Git-Bash 把 `/c/...` 当**相对路径**用的错位指纹。实测 2026-08-06 一次就这样在 C 盘里套出 515MB(4 份 origin 浅克隆 + 一份错位的 npm 全局前缀),`git status` 与其余守门全都不知道。只认目录、同名文件不判(宁漏不误报);本门仍**只报不删**,该形态是否清理由人定。
-  - **编号事故实录(一天撞四次,且"先查占用"被证明不够)**:85(与 `check-test-paths` 撞)→ 90(与 `ce261e1a8` 的 `check-sse-dispatch-parity` 撞)→ 91(与 `check-error-code-coverage` 撞)→ 92 又撞一次 —— **这次不是我没查**:我取 92 时它确实在 91,是别的会话随后把 `errorCode` 从 91 重排到 92,把重复号**带进了 origin/main**。⇒ 在高并发同日仓里,"提交前查一次占用"挡不住别人事后挪号,**唯一可靠的是让 runner 自己说话**:本门镜像测试现在断言"全 runner 任何 id 不得出现两次"(反查法,不硬写编号),它正是这次红掉的成因;终落 **93**。其中改 90 那次最严重:按整文件提交 `guardian-runner.mjs`(提交 `5db08f26e`)曾把别人刚装上的门**注册块直接覆盖掉**(diff 里就是一行 `script:` 被替换)—— 撞号只是重名,覆盖却是替别人卸闸;已按原文回插,并把断言写成"邻门注册块必须存在"。⇒ 两条硬规矩:① 改共享注册类文件(runner / package.json / CI)必须 `git show <commit> -- <f> | grep '^[-+].*(id:|script:|label:)'` 逐块核对;② **判据要能让机器自己发现撞号**,不要依赖人记得去查。紧急跳过 `HUSKY_SKIP_C_DRIVE_POLLUTION=1`。
+  - **编号事故实录(一天撞四次,且"先查占用"被证明不够)**:85(与 `check-test-paths` 撞)→ 90(与 `ce261e1a8` 的 `check-sse-dispatch-parity` 撞)→ 91(与 `check-error-code-coverage` 撞)→ 92 又撞一次 —— **这次不是我没查**:我取 92 时它确实在 91,是别的会话随后把 `errorCode` 从 91 重排到 92,把重复号**带进了 origin/main**。⇒ 在高并发同日仓里,"提交前查一次占用"挡不住别人事后挪号,**唯一可靠的是让 runner 自己说话**:本门镜像测试现在断言"全 runner 任何 id 不得出现两次"(反查法,不硬写编号),它正是这次红掉的成因;本门编号此后仍在漂移,现值一律以 runner 为准。其中改 90 那次最严重:按整文件提交 `guardian-runner.mjs`(提交 `5db08f26e`)曾把别人刚装上的门**注册块直接覆盖掉**(diff 里就是一行 `script:` 被替换)—— 撞号只是重名,覆盖却是替别人卸闸;已按原文回插,并把断言写成"邻门注册块必须存在"。⇒ 两条硬规矩:① 改共享注册类文件(runner / package.json / CI)必须 `git show <commit> -- <f> | grep '^[-+].*(id:|script:|label:)'` 逐块核对;② **判据要能让机器自己发现撞号**,不要依赖人记得去查。紧急跳过 `HUSKY_SKIP_C_DRIVE_POLLUTION=1`。
 - **临时夹具唯一落点:`scripts/lib/scratch-dir.mjs`(`mkScratch` / `rmScratch`,2026-09-23 立)**。两条选址硬约束都由实测踩坑固化:① 不得用 `os.tmpdir()`(活进程 TEMP 可能仍钉在 C 盘);② 不得落在仓库树内 —— git 夹具要模拟"非 git 目录",放在 `.ihui-agent/tmp/` 里时 `git rev-parse --show-toplevel` 会向上逃逸到真仓库,使该用例恒红(已用 HEAD 副本 A/B 实证,是当初先试后撤的方案)。现锚定**工作树同盘的 `DevEnv/Temp/ihui-scratch`**(§15b 批准的临时物落点),与 `gitArchiveDir()` 同一套盘符推导;`IHUI_SCRATCH_DIR` 为换机/CI 逃生舱,指向仓库内时按硬约束直接拒建而非静默产出会逃逸的夹具。回归:`node --test scripts/tests/scratch-dir.test.mjs`(4 例)。
 - **行为(与 guardian-runner.mjs 实际一致)**:本脚本违规时 exit 1(供统计),guardian-runner 以 warn 模式捕获后计为"警告"、**不阻塞 commit**;仅 blocking 项失败才 exit 1 阻塞 commit。
 - 紧急跳过(应急,默认不推荐):`HUSKY_SKIP_C_DRIVE_PATHS=1 git commit ...`
