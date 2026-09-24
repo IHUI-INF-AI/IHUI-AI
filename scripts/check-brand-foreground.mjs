@@ -123,7 +123,7 @@ const R2_DIR = 'apps/mobile-rn/src'
  * R5 扫描范围:web 端 + 共享 React 组件包(类名形态的退役档只出现在这两处)。
  * 与 SCAN_DIRS(RN style 对象面)互不重叠 —— R1..R4 对本范围**零覆盖**,这正是 R5 立项的原因。
  */
-const R5_DIRS = ['apps/web', 'packages/ui-react']
+const R5_DIRS = ['apps/web', 'packages/ui-react', 'apps/miniapp-taro']
 const R5_EXT = /\.(tsx|jsx|ts)$/
 /** R5 排除面:测试/e2e 里合法描述退役档,不构成 UI 债务 */
 const R5_SKIP_DIR = /(^|\/)(e2e|tests|__tests__|node_modules)\//
@@ -610,7 +610,7 @@ function run(options) {
   const r5Scan = options.staged ? stagedR5Files() : listR5Files()
   console.log(`📎 内容口径:${options.staged ? '暂存区/磁盘' : 'HEAD blob(工作树滞后不参与判定)'}`)
   if (options.staged && files.length === 0 && r5Scan.files.length === 0) {
-    console.log('⏭ 暂存区无 apps/mobile-rn/src、packages/app/src、apps/web、packages/ui-react 文件,跳过')
+    console.log('⏭ 暂存区无 apps/mobile-rn/src、packages/app/src、apps/web、packages/ui-react、apps/miniapp-taro 文件,跳过')
     return 0
   }
 
@@ -907,6 +907,18 @@ function selfTest() {
   )
   // 名字关系单测:XButton + XButtonText / X + XLabel 同为合法配对
   assert(isSiblingStylePair('shareButton', 'shareButtonText'), 'R4 名字:XButton × XButtonText 成对')
+
+  // R5 范围必须真的含小程序端 —— 缩回范围会让已迁的 37 处重新隐身,且不会有任何声响
+  assert(
+    [
+      ['apps/miniapp-taro/src/components/Carousel.tsx', ["  x: 'bg-primary text-primary-foreground'"]],
+      ['apps/web/src/App.tsx', ["  x: 'bg-primary text-primary-foreground'"]],
+      ['packages/ui-react/src/components/button.tsx', ["  x: 'bg-primary text-primary-foreground'"]],
+    ].every(([f, L]) => isR5Scope(f) && countWebClassPairs(L) === 1),
+    'R5-S1 三端(web / ui-react / miniapp-taro)都必须在 R5 视野内且能计 1',
+  )
+  assert(!isR5Scope('apps/mobile-rn/src/App.tsx'), 'R5-S2 RN 端不属类名面范围(它走 R1/R3/R4)')
+
   assert(isSiblingStylePair('section', 'sectionLabel'), 'R4 名字:X × XLabel 成对')
   assert(isSiblingStylePair('retryBtn', 'retryText'), 'R4 名字:跨后缀 XBtn × XText 成对')
   assert(!isSiblingStylePair('retryBtn', 'retryBtn'), 'R4 名字:同 key 不成对(归 R1 管辖)')
