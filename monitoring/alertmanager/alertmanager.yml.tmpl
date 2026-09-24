@@ -1,57 +1,30 @@
-# Alertmanager 主配置模板 — IHUI-AI
-# 告警通道: Email / 钉钉 / 飞书 / 企业微信
+# Alertmanager 主配置 — IHUI-AI(告警出口唯一:webhook → alert-bridge → 品牌邮件)
 #
-# ⚠ 本文件是**模板**,Alertmanager 读不了它 —— 必须先渲染再加载。
-#   取证(2026-09-23,本机 D:\DevEnv\monitor\alertmanager 的 0.34.0,带阳性对照):
-#   Alertmanager **不做环境变量展开**。把 repeat_interval 写成 '${X}' 且环境里 X=4h,
-#   启动直接报 not a valid duration string: "${X}";同格式写字面量 4h 则正常加载。
-#   (对照:塞一个不存在的键 smtp_bogus_key_zzz 会被严格解析拒绝 ⇒ "没报错"才等于"支持"。)
-#   渲染命令: node scripts/render-alertmanager-config.mjs [--out <运行副本路径>]
-#   渲染产物 monitoring/alertmanager/alertmanager.rendered.yml 不入库,真实凭据只在运行时注入。
+# 基础设施告警"到人"只有一条路(AGENTS.md §5e,守门 81 的"品牌邮件单通道"在 AM 侧的落点):
+#   Prometheus → Alertmanager → 本文件唯一 receiver(default-webhook)
+#     → http://127.0.0.1:9096/alert(alert-bridge,身份去重 + 协议转码)
+#     → apps/api/scripts/notify-deploy-failure.ts → 品牌版式邮件(email-templates.ts)→ 运维邮箱
 #
-# 因此这里的所有 ${VAR} 都由渲染器负责替换。三件事会让渲染失败而不是静默产出坏配置:
-#   ① 用了 VAR_SPEC 没登记的变量名;② 登记了但值取不到(fail-closed,见下 H1);
-#   ③ 产物里 global 的值仍以 "${ 开头(= 压根没替换)。
-# 判据实现见 scripts/render-alertmanager-config.mjs,取证测试见
-# scripts/tests/render-alertmanager-config.test.mjs(静态对账,不依赖本机凭据)。
+# Alertmanager 的原生邮件通道与 IM 群机器人中转 receiver 已全部从模板移除,并且**不可再加回**:
+#   scripts/render-alertmanager-config.mjs 的 assertBridgeOnlySurface 对最终产物做结构自校验 ——
+#   出现原生邮件配置、IM 旁路特征(钉钉/飞书/企业微信三家的接收器名、host、路径签名,英文 slug
+#   与域名形态都算)、route 最终不落 9096 那个 webhook、或产物里重新出现占位符,任一命中即 exit 1。
+#   `pnpm alerts:check`(只渲染校验不落盘)与镜像测试
+#   scripts/tests/render-alertmanager-config.test.mjs 都会抓到,不依赖"没人去跑渲染器"这种巧合。
+#   原生邮件通道发的是无版式纯文本,挂上去等于新开一条绕过品牌层的运维邮件流(用户最初的投诉);
+#   IM 中转腿属于已摘除的第三方推送面,不再恢复。
+#
+# 本文件仍是"渲染前源"(运行实例加载的是渲染落点),但它已不含任何占位符 ——
+# 占位符机制当初唯一的服务对象是 SMTP 凭据注入(Alertmanager 不展开 ${VAR},本机 0.34.0 实测),
+# 注入对象删除后"渲染"收敛为"结构校验 + 落盘"。若有人再写 ${X},渲染器判红而不是替你注入。
+# 渲染产物 monitoring/alertmanager/alertmanager.rendered.yml 不入库:它不含凭据,但生成物入库
+# 就是第二份真相(模板改了产物忘重刷的漂移不可见)。渲染器拒绝把它写进任何被 git 跟踪的路径。
 
 global:
   resolve_timeout: 5m
-  # host:port 合并成一个占位符,由渲染器从 SMTP_HOST + SMTP_PORT 组装。
-  # 分两个变量写的话,"改了端口忘了改 TLS 形态"就有两处可以各说各话。
-  smtp_smarthost: '${ALERT_SMTP_SMARTHOST}'
-  # 发信账号只有**一个**占位符,同时喂给 smtp_from 与 smtp_auth_username,
-  # 从结构上杜绝两者漂移:QQ 中继要求 From 的邮箱段 == 登录账号,否则收信侧被 550 拒。
-  # (同一条约束今天刚在 deploy/win/ihui-deploy.ps1 上踩过并修掉,别再犯第二次。)
-  smtp_from: '${ALERT_SMTP_ACCOUNT}'
-  smtp_auth_username: '${ALERT_SMTP_ACCOUNT}'
-  # 授权指令整行由渲染器给出,两种形态二选一:
-  #   ALERT_SMTP_PASSWORD_FILE 已给 → smtp_auth_password_file: '<路径>'(真实授权码不进渲染产物)
-  #   否则                        → smtp_auth_password: '<值>'
-  # 为什么整行都是一个占位符而不是写死 smtp_auth_password: '${...}':
-  #   0.34.0 实测**只有密码有原生 secret 文件通道**(smtp_auth_password_file 可加载,
-  #   而 smtp_auth_username_file 被严格解析拒掉),所以密码能做到零落盘 —— 优先这条。
-  # 本模板里**任何时候都不该出现真实授权码**;静态测试会钉住这一点。
-  ${ALERT_SMTP_PASSWORD_DIRECTIVE}
-  # TLS 形态必须与端口自洽:587/25 = STARTTLS ⇒ require_tls: true;465 = 隐式 TLS 端口 ⇒ false。
-  # 旧占位符的真问题不是这一对值配反(465 + false 内部是自洽的),而是 host/密码全是假字面量
-  # 且**从来没有注入机制** —— 见本文件头。真正危险的是"照抄这套值去连 smtp.qq.com:587":
-  # 587 上留 require_tls: false 就永远不发起 STARTTLS,凭据要么明文外送被中继拒掉、要么连不通。
-  # Alertmanager 自己不校验这一对值(本机实测:587 + require_tls:false 照样加载并监听),
-  # 所以该值一律由渲染器按端口推导(requireTlsFromPort),不允许在本文件里写死布尔字面量。
-  smtp_require_tls: ${ALERT_SMTP_REQUIRE_TLS}
-  smtp_hello: 'aizhs.top'
-  # 钉钉 / 飞书 / 企业微信 webhook 占位符 (实际地址由对应 receiver 引用)
-  # 通过环境变量注入: DINGTALK_WEBHOOK_URL / FEISHU_WEBHOOK_URL / WECHAT_WEBHOOK_URL
-
-# 原 templates: '/etc/alertmanager/templates/*.tmpl' 已删(2026-09-23):
-# 本配置没有任何自定义模板文件,邮件标题用的是下面 headers 里的内联 Go 模板;
-# 那行 glob 在容器里匹配不到文件、在本机(原生 Windows 运行副本)更是根本不存在的路径,
-# 属于"写了不生效还让人以为生效"的死配置。要做定制邮件版式请走 apps/api 的 email-templates
-# 品牌层(守门 81 管的就是"绕过品牌层自拼邮件"),不要在这里加回一个空 glob。
 
 # 静默窗口:夜间维护窗口(每日 00:00-02:00)暂停非 critical 告警推送,避免夜间噪音。
-# 说明:critical 路由不挂该静默,保障 P0/P1 半夜仍能报警(自保链不断)。
+# critical 路由不挂该静默,保障 P0/P1 半夜仍能报警(自保链不断)。
 # 需调整维护时间在此修改即可;若需"维护周日全天",再额外追加一个含 weekdays 的区间项。
 mute_time_intervals:
   - name: nightly-maintenance
@@ -62,57 +35,31 @@ mute_time_intervals:
         weekdays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 
 route:
-  # 根 receiver 只在"没有任何子 route 命中"时兜底,不能当作"critical 也会发邮件"的依据。
-  receiver: 'default-email'
+  receiver: 'default-webhook'
   group_by: ['alertname', 'service']
   group_wait: 30s
   group_interval: 5m
   repeat_interval: 4h
   routes:
-    # critical 第 1 跳:钉钉,continue 让告警继续向下匹配(不是"到此为止")。
+    # critical:直落 bridge,不挂任何静默窗口(半夜的 P0 不许被吞)。
     - matchers: ['severity="critical"']
-      receiver: 'dingtalk'
-      continue: true
-    # critical 第 2 跳:邮件。**这一条是 2026-09-23 补的**——旧文件只有上面一条 critical
-    # route,continue 之后再无匹配项,而 default-email 只挂在根上兜底,于是 critical
-    # 实际从不进邮件,与旧注释"critical: 钉钉 + 邮件"相反。
-    # 这条同样**不挂** mute_time_intervals:夜间静默只吞 warning / info。
-    - matchers: ['severity="critical"']
-      receiver: 'default-email'
-      continue: false
-    # warning: 飞书(夜间维护窗口静默,次日/维护结束后补发到聚合)
+      receiver: 'default-webhook'
+    # warning:直落 bridge(夜间维护窗口静默,维护结束后按 group_interval 聚合补发)。
     - matchers: ['severity="warning"']
-      receiver: 'feishu'
+      receiver: 'default-webhook'
       mute_time_intervals:
         - nightly-maintenance
-    # info: 邮件(夜间维护窗口静默)
+    # info:同上,只多一道夜间静默。
     - matchers: ['severity="info"']
-      receiver: 'default-email'
+      receiver: 'default-webhook'
       mute_time_intervals:
         - nightly-maintenance
 
 receivers:
-  - name: 'default-email'
-    email_configs:
-      # 收件人同样走注入:生产上是运维邮箱,自检/演练时用 --set ALERT_SMTP_TO= 指给自己。
-      # 本仓约定:任何"为了验证"的外发只允许落到 502319984@qq.com。
-      - to: '${ALERT_SMTP_TO}'
-        send_resolved: true
-        headers:
-          Subject: '[IHUI-AI Alert] {{ .CommonLabels.alertname }}'
-  - name: 'dingtalk'
+  # 唯一 receiver。收件人/去重/版式都不在本文件 —— 那是 bridge 与品牌邮件层的职责。
+  - name: 'default-webhook'
     webhook_configs:
-      - url: 'http://dingtalk-webhook:8060/dingtalk/webhook/send'
-        send_resolved: true
-        max_alerts: 0
-  - name: 'feishu'
-    webhook_configs:
-      - url: 'http://feishu-webhook:8060/feishu/webhook/send'
-        send_resolved: true
-        max_alerts: 0
-  - name: 'wechat'
-    webhook_configs:
-      - url: 'http://wechat-webhook:8060/wechat/webhook/send'
+      - url: 'http://127.0.0.1:9096/alert'
         send_resolved: true
         max_alerts: 0
 
