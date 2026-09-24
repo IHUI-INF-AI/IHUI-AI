@@ -74,6 +74,42 @@ function classifyTmp(name) {
   return null
 }
 
+/** 单文件体积(MB)。门原先对文件一律记 0,导致"合计 0 MB"的假小量级。 */
+function fileSizeMB(p) {
+  try {
+    return statSync(p).size / 1048576
+  } catch {
+    return 0
+  }
+}
+
+/** 输出用:小于 0.01MB 走 KB,免得 500 多个小文件读成一屏 0.000MB 噪音。 */
+function fmtMB(mb) {
+  if (!mb) return ''
+  if (mb < 0.01) return (mb * 1024).toFixed(1) + 'KB'
+  return mb.toFixed(2) + 'MB'
+}
+
+/**
+ * 要扫的 TEMP 落点 —— **必须包含服务身份的 TEMP**,不能只有调用者的 `tmpdir()`。
+ * 单独抽成函数是为了让它可被 `--self-test` 钉住:这条清单被谁缩回"只扫自己那一侧",
+ * 本门就会重新给出假绿灯(2026-09-24 实测:部署脚本向 `C:\Windows\Temp` 泄漏 526 项,
+ * 而门一路报 0 项)。纯函数,不碰文件系统,所以测试可以自己喂 sysRoot 断言。
+ */
+export function tempScanDirs(sysRoot, procTmp) {
+  const win = (sysRoot || 'C:\\Windows').replace(/[\\/]$/, '')
+  const list = ['C:\\tmp', 'C:\\temp', procTmp, win + '\\Temp', 'C:\\Windows\\Temp']
+  // Windows 文件系统**大小写不敏感**:`SystemRoot` 实测可能是 `C:\windows`,与兜底字面量
+  // `C:\Windows\Temp` 是同一个目录却成了两个条目 ⇒ 同一批文件被计两次(实跑 1056 项 vs 真实
+  // 526)。按小写键去重,顺序保持"先精确后兜底"。
+  const seen = new Set()
+  return list.filter((p) => {
+    if (!p || seen.has(p.toLowerCase())) return false
+    seen.add(p.toLowerCase())
+    return true
+  })
+}
+
 function dirSizeMB(path) {
   let bytes = 0
   let visited = 0
@@ -127,11 +163,15 @@ function scanTargets(target, classify) {
     } catch {
       /* 竞态删除:仍按命中报告,体积记 0 */
     }
+    let fileSizeMBv = 0
+    if (kind === 'file') fileSizeMBv = fileSizeMB(full)
     hits.push({
       path: full,
       kind,
       why,
-      ...((kind === 'dir' ? dirSizeMB(full) : { sizeMB: 0, capped: false })),
+      // ⚠️ 原来这里对**文件**直接写 `sizeMB: 0`,只有目录才量体积 ⇒ 526 个泄漏日志全按 0 计,
+      // 门打印"合计约 0 MB"把真量级(6.9MB)报没了。文件必须量单文件字节。
+      ...(kind === 'dir' ? dirSizeMB(full) : { sizeMB: fileSizeMBv, capped: false }),
     })
   }
   return hits
@@ -164,7 +204,7 @@ function scanDriveRoot(drive) {
         path: full,
         kind: isDir ? 'dir' : 'file',
         why,
-        ...(isDir ? dirSizeMB(full) : { sizeMB: 0, capped: false }),
+        ...(isDir ? dirSizeMB(full) : { sizeMB: fileSizeMB(full), capped: false }),
       })
       continue
     }
@@ -204,7 +244,14 @@ export function scanC(options = {}) {
   const drive = options.drive || 'C:'
   const root = scanDriveRoot(drive)
   // 夹具落点一律要扫(落在哪盘都要报);"是不是又掉回 C 盘"由 temp 漂移单独结论回答
-  const dirs = ['C:\\tmp', 'C:\\temp', tmpdir()]
+  // ⚠️ 这里必须列**所有身份的 TEMP**,不能只列 `tmpdir()`:同一个 `$env:TEMP` 在不同身份下
+  // 指向不同目录 —— 守门跑在交互账户下拿到 `C:\Users\<me>\AppData\Local\Temp`,而
+  // nssm 服务(IHUI-API / IHUI-DEPLOYLOOP)跑在 LocalSystem 下拿到 `C:\Windows\Temp`。
+  // 2026-09-24 实测:部署脚本每次构建泄漏 2 个 `ihui-next-build-*.log` 到服务侧 TEMP,
+  // 攒了 **526 项 / 6.9MB、当天还在 +5**,而本门一直报"本项目产物 0 项" —— 因为它只扫自己
+  // 那一侧的 TEMP。这类"守门与污染源不同身份"的盲区,比漏扫一个目录更危险:它给的是假绿灯。
+  const sysRoot = process.env.SystemRoot || process.env.windir || 'C:\\Windows'
+  const dirs = tempScanDirs(sysRoot, tmpdir())
   const items = []
   for (const d of new Set(dirs)) items.push(...scanTargets(d, (n) => classifyTmp(n)))
   const ours = [...root.hits, ...items]
@@ -228,7 +275,7 @@ function main(argv) {
     console.log(`C 盘污染实地扫描:本项目产物 ${r.ours.length} 项,合计约 ${r.totalMB} MB`)
     for (const i of r.ours)
       console.log(
-        `  ⚠️  ${i.path}  [${i.why}]${i.sizeMB ? ` ${i.capped ? '≈' : ''}${i.sizeMB}MB` : ''}`,
+        `  ⚠️  ${i.path}  [${i.why}]${i.sizeMB ? ` ${fmtMB(i.sizeMB)}` : ''}`,
       )
     if (r.unknownRoot.length) {
       console.log(`\n未识别的盘根条目 ${r.unknownRoot.length} 项(只登记,不定性、不清理):`)
@@ -242,7 +289,13 @@ function main(argv) {
           ? `\n❌ TEMP 漂移:注册表=${r.temp.declared},本进程仍=${r.temp.proc}\n   ⇒ 活进程环境块未刷新,夹具会继续落回旧盘。新建终端/重启宿主后自愈。`
           : `\nTEMP 注册表值读不到(离线/权限),仅比对进程 TEMP=${r.temp.proc}`,
     )
-    console.log('\n本门只读,不删除任何文件。清理:pnpm c-drive:clean-ours(只删上面列出的本项目产物)')
+    // 原提示写的是 `pnpm c-drive:clean-ours`,而根 package.json 里**从来没有这个脚本**
+    // (实测 `node -p "...scripts['c-drive:clean-ours']"` → undefined)⇒ 门给出了一个跑不通的
+    // 修复动作,等于没有修复动作。这里改成真实存在的入口,并要求先预演。
+    console.log('\n本门只读,不删除任何文件。清理(只删上面列出的本项目产物,按名字筛):')
+    console.log('  1) 预演  pwsh -NoProfile -File scripts/c-drive-auto-maintain.ps1 -DryRun')
+    console.log('  2) 执行  pwsh -NoProfile -File scripts/c-drive-auto-maintain.ps1')
+    console.log('  计划任务 IHUI C-Drive AutoMaintain 每天 03:00 已注册(S4U,wscript 包装)')
   }
   if (strict && r.ours.length) return 1
   return 0
@@ -265,6 +318,16 @@ function selfTest() {
   t('Temp 里 ihui- 夹具识别', () => eq(classifyTmp('ihui-origin-Ab12Cd') !== null, true, '命中'))
   t('Temp 里 .next 备份识别', () => eq(classifyTmp('next-backup-node22-20260918-094636') !== null, true, '命中'))
   t('Temp 里他人随机 .tmp 不得命中', () => eq(classifyTmp('8f575ef0-6180-4c22-b1d4-4161278b643b.tmp'), null, '误判'))
+  t('TEMP 扫描面必须含**服务身份**的 TEMP(门跑在交互账户,污染写在 C:\\Windows\\Temp)', () => {
+    const d = tempScanDirs('D:\\WinNT', 'X:\\mineTmp')
+    eq(d.includes('X:\\mineTmp'), true, '没扫调用者自己的 TEMP')
+    eq(d.includes('D:\\WinNT\\Temp'), true, '没扫 SystemRoot\\Temp(服务/LocalSystem 侧 TEMP)')
+    eq(d.includes('C:\\Windows\\Temp'), true, '丢了兜底的 C:\\Windows\\Temp')
+    // 真实环境里这一条才是本票的根因防回归:清单必须真的覆盖到 Windows\Temp
+    const live = tempScanDirs(process.env.SystemRoot || 'C:\\Windows', tmpdir())
+    eq(live.some((p) => /[\\/]Windows[\\/]Temp$/i.test(p)), true, '实机扫描面不含 Windows\\Temp ⇒ 服务侧泄漏不可见')
+    return true
+  })
   t('scanC 不改文件:跑两次结果一致', () => {
     const a = scanC().ours.length
     const b = scanC().ours.length
