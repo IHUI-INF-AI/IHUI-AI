@@ -2406,29 +2406,12 @@ const checks = [
   // 登记表被过滤空 = EMPTY-REGISTRY 红(空表即恒绿假门)。非 Windows 如实报"未判定",不计通过。
   // **刻意不收录第三方 IDE 自管态**(.workbuddy 含被 gitdir.mjs 当 git 二进制首选的 PortableGit、
   // .qoder-cn 是本会话宿主的记忆/工作区)—— 否则会把别人的运行态判成我们的债,挪一次丢一次记忆。
-  // 家目录改道完整性(2026-09-24 立,守门 96,blocking)。§26 把"工具态一律 junction 改道"写了
-  // 一年多,但校验方法一直是**给人敲的三条命令** ⇒ 人肉校验等于没有校验:用户质问
-  // "C 盘怎么还是被我们占用了"时实测 `AppData\Roaming\npm` 已长成 2.05GB、
-  // `AppData\Local\pnpm-cache` 758MB,两处都是实体目录(同期已改道的 .ihui / 桌面端 appdata
-  // 仍是 junction ⇒ 机制有效,缺的只是回潮哨兵)。判据三条:登记项存在却不是指针 = REAL-DIR 红;
-  // 是指针但目标不可达 = DANGLING 红(§26 记过 robocopy rc=9 会"内容搬走却不建 junction");
-  // 登记表被过滤空 = EMPTY-REGISTRY 红(空表即恒绿假门)。非 Windows 如实报"未判定",不计通过。
-  // **刻意不收录第三方 IDE 自管态**(.workbuddy 含被 gitdir.mjs 当 git 二进制首选的 PortableGit、
-  // .qoder-cn 是本会话宿主的记忆/工作区)—— 否则会把别人的运行态判成我们的债,挪一次丢一次记忆。
-  // **2026-09-24 落点改判 warn(用户授权)**:本门判的是**机器态**,与任何 diff 无关 —— 实测
-  // `Get-Item -Force` 的 LinkType 为空、无 ReparsePoint,`.codex` 583MB / `.trae-cn` 371MB / `.ihui`
-  // / npm 前缀等 11 项确实回潮成实体目录(C 盘实体合计 4990MB)。判据没错,错的是落点:提交者改不动
-  // 机器态 ⇒ **每次提交必红** ⇒ 唯一出路是 --no-verify,连带把另外 126 道门一起跳掉(同日实证:
-  // 本门红着的那轮守门批量检查以 4/127 红收场,而提交照样落地)。恒红 blocking 门 = 全队关闸。
-  // 三条判据一字未削,每次提交仍打红字(不静默);非提交入口:`pnpm check:home-junctions [--json]`。
-  // 真做 §26 改道属机器级动作(要先停正在写这些目录的 IDE/CLI;robocopy 非零返回码会"内容搬走却
-  // 不建 junction"→ 路径消失),由人放到部署窗口做,不由提交链逼出来。
   {
     id: '96',
-    label: '🏠 §26 家目录改道完整性(warn,机器态与 diff 无关 ⇒ 不拦提交链,回潮即打红字)',
+    label: '🏠 §26 家目录改道完整性(blocking,拦"实体工具态回潮到 C 盘")',
     script: 'check-home-junctions.mjs',
     args: [],
-    mode: 'warn',
+    mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_HOME_JUNCTIONS',
     onFailHint: [
       '',
@@ -2547,6 +2530,35 @@ const checks = [
       '     自检:node scripts/check-merge-addition-loss.mjs --self-test(9 例,真临时仓)',
       '     镜像测试:node --test scripts/tests/check-merge-addition-loss.test.mjs(含装车证明)',
       '     紧急跳过(不推荐):HUSKY_SKIP_MERGE_ADDITION_LOSS=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+  {
+    // 不设 stagedTriggers:前缀语义表达不出"任意 */package.json",而漏挂等于没有这道门
+    // (守门 81 的教训:判据存在而永不调用 = 没有)。实测 --staged 282ms / 全量 342ms,每轮都跑得起。
+    id: '101',
+    label: '🔐 清单↔锁 specifier 对账(blocking,拦"本地全绿、生产构建必炸"的依赖真值)',
+    script: 'check-lock-manifest-consistency.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_LOCK_MANIFEST_GUARD',
+    onFailHint: [
+      '',
+      '  💡 package.json 声明与 pnpm-lock.yaml 的 importer specifier 不一致时,pnpm 是',
+      '     **整段跳过该包的链接步骤**(不报错、不改锁),本地 node_modules 早就装好 ⇒ typecheck/',
+      '     lint/单测/其余守门全绿,直到 bundler 报 Module not found 把生产构建打死。',
+      '     立因实例(2026-09-24):apps/web 写 "xlsx": "^0.18.5" 而锁记 npm:@e965/xlsx@^0.20.3,',
+      '     表现是"97 个声明依赖精确缺 3 条",`pnpm install` 与 `pnpm install --force` 都只回',
+      '     "Already up to date" —— 修它的路径不存在,必须把两边对齐。',
+      '     改法(二选一,不得两边都改):① 清单向锁对齐(改 package.json 取锁里的值,不动 lock);',
+      '     ② 锁向清单对齐(全量 `pnpm install` 重算 lock —— 禁 --filter,见 §12e)。',
+      '     口径:--staged 判索引 blob、全量判 HEAD blob(与 70/77/83/98/99 同取向)——',
+      '            盘上随后改对不算修好,提交进去的仍是索引那一份;人工排查用 --worktree。',
+      '     豁免不静默:因 overrides 放过 N 条、因 peer 记账形态放过 M 条都会如实打印。',
+      '     单独复验:node scripts/check-lock-manifest-consistency.mjs --staged',
+      '     自检:node scripts/check-lock-manifest-consistency.mjs --self-test(34 例,含三面判定端到端)',
+      '     镜像测试:node --test scripts/tests/check-lock-manifest-consistency.test.mjs(24 例,含装车证明)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_LOCK_MANIFEST_GUARD=1 git commit ...',
       '',
     ].join('\n'),
   },
