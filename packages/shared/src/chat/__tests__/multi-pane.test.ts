@@ -36,7 +36,18 @@ function buildTwoLeafTree() {
   const leafA = root
   const split = splitPane(root, leafA.id, 'right', 'conv-b', 'pane-b')
   if (!split || split.kind !== 'split') throw new Error('split failed')
-  return { root: split, leafA, leafB: split.children[1] }
+  const leafB = split.children[1]
+  if (leafB?.kind !== 'leaf') throw new Error('split failed: 右子不是叶窗格')
+  return { root: split, leafA, leafB }
+}
+
+/** 相邻两窗格份额之和(sizes 与 children 等长是建树不变式;取不到即 setup 失败,不猜份额) */
+function pairSum(sizes: readonly number[]): number {
+  const [first, second] = sizes
+  if (first === undefined || second === undefined) {
+    throw new Error('setup failed: sizes 长度不足 2')
+  }
+  return first + second
 }
 
 describe('D73 splitPane / 拆分', () => {
@@ -66,8 +77,8 @@ describe('D73 splitPane / 拆分', () => {
     // 根仍是 right split,children[1] 变成 down split
     expect(next.direction).toBe('right')
     const inner = next.children[1]
-    expect(inner.kind).toBe('split')
-    if (inner.kind !== 'split') return
+    expect(inner?.kind).toBe('split')
+    if (inner?.kind !== 'split') return
     expect(inner.direction).toBe('down')
     expect(collectPaneLeaves(next).map((l) => l.conversationId)).toEqual([
       'conv-a',
@@ -126,7 +137,7 @@ describe('D73 closePane / 关闭并占', () => {
     const next = closePane(three, 'pane-c')
     if (next.kind !== 'split') return
     expect(next.children.map((c) => c.id)).toEqual(['leaf-a', 'leaf-b'])
-    expect(next.sizes[0] + next.sizes[1]).toBeCloseTo(1, 10)
+    expect(pairSum(next.sizes)).toBeCloseTo(1, 10)
     expect(next.sizes[0]).toBeCloseTo(0.25 / 0.75, 10)
     expect(next.sizes[1]).toBeCloseTo(0.5 / 0.75, 10)
   })
@@ -168,7 +179,7 @@ describe('D73 resizePanes / 联动调整相邻窗格', () => {
     if (next.kind !== 'split') return
     expect(next.sizes[0]).toBeCloseTo(0.6, 10)
     expect(next.sizes[1]).toBeCloseTo(0.4, 10)
-    expect(next.sizes[0] + next.sizes[1]).toBeCloseTo(1, 10)
+    expect(pairSum(next.sizes)).toBeCloseTo(1, 10)
   })
 
   it('末位窗格扩大时由前一位(左/上)兄弟吸收', () => {
@@ -198,14 +209,16 @@ describe('D73 resizePanes / 联动调整相邻窗格', () => {
     const nested = splitPane(root, leafB.id, 'down', 'conv-c', 'pane-c')
     if (!nested || nested.kind !== 'split') return
     const inner = nested.children[1]
-    if (inner.kind !== 'split') return
-    const next = resizePanes(nested, inner.children[1].id, 0.1)
+    if (inner?.kind !== 'split') return
+    const innerLast = inner.children[1]
+    if (!innerLast) throw new Error('setup failed: 内层 split 缺少第二个子窗格')
+    const next = resizePanes(nested, innerLast.id, 0.1)
     if (next.kind !== 'split') return
     // 祖父级份额不动
     expect(next.sizes).toEqual(nested.sizes)
     const nextInner = next.children[1]
-    if (nextInner.kind !== 'split') return
-    expect(nextInner.sizes[0] + nextInner.sizes[1]).toBeCloseTo(1, 10)
+    if (nextInner?.kind !== 'split') return
+    expect(pairSum(nextInner.sizes)).toBeCloseTo(1, 10)
     expect(nextInner.sizes[1]).toBeCloseTo(0.6, 10)
   })
 
@@ -354,6 +367,6 @@ describe('D73 轴向与键盘步长判定(端内不得自写第二套)', () => {
     for (let i = 0; i < 20; i += 1) tree = resizePanes(tree, leafA.id, -PANE_RESIZE_STEP)
     if (tree.kind !== 'split') throw new Error('setup failed')
     expect(tree.sizes[0]).toBeCloseTo(MIN_PANE_SIZE, 10)
-    expect(tree.sizes[0] + tree.sizes[1]).toBeCloseTo(1, 10)
+    expect(pairSum(tree.sizes)).toBeCloseTo(1, 10)
   })
 })
