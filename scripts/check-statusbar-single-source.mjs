@@ -22,8 +22,15 @@
  *        默认 0"的 prop 声明(`statusBarHeight?: number` / `statusBarHeight = 0`)是**合法形态**，
  *        判红即假红 —— 本门只拦"接线使用"，不拦"形参存在"。
  *  S3 不得再写状态栏量级的魔法顶距 —— 页头/页面根样式键(container/page/root/wrapper/
- *     header/headerRow/screen/body)的对象内出现 `paddingTop: <24..60 字面量>` 即红，零容忍。
+ *     header/headerRow/screen/body + headerBar/topBar/navBar/tabBar/banner)的对象内
+ *     出现 `paddingTop: <24..60 字面量>` 即红，零容忍。
  *     区间取自状态栏可能高度(24~59dp)；不认表达式，因为 `insets.top` 才是想要的写法。
+ *     **两条刻意不扩的面**(2026-09-24 实测后决定，避免后人再推一遍)：
+ *       ① `paddingVertical` / `padding` 简写 —— HEAD 里区间内命中 106 + 20 = 126 处，
+ *          且它们全是 center/empty/行内对称间距等**合法**用法；纳入即造 126 处恒红。
+ *       ② JSX 内联 `style={{ paddingTop: N }}` —— HEAD 里 0 处，但内联样式同样承载任意
+ *          卡片间距，为零存量换一条会误伤的判据不划算。两者都属于"绕门最顺手"的通道，
+ *          真出现回潮时按实例补，而不是先建一条宽判据逼人写豁免。
  *
  * 豁免面(两类，都必须"报数不静默"):
  *  M1 **RN `<Modal>` 类文件不判红** —— Modal 渲染在导航树**之外的原生窗口**，不继承 App.tsx
@@ -59,7 +66,25 @@ const MECHANISM_FILE = 'apps/mobile-rn/App.tsx'
  */
 const SCAN_DIRS = ['packages/app', 'apps/mobile-rn']
 /** 页头 / 页面根容器 —— 只有这两类样式键上的顶距才是状态栏补偿的形态 */
-const TOP_STYLE_KEYS = ['container', 'page', 'root', 'wrapper', 'header', 'headerRow', 'screen', 'body']
+const TOP_STYLE_KEYS = [
+  'container',
+  'page',
+  'root',
+  'wrapper',
+  'header',
+  'headerRow',
+  'screen',
+  'body',
+  // 2026-09-24 扩面:这五个键名本身就是"页顶"语义,加进来即时红 0(实测 HEAD 里
+  // 它们在 24..60 区间无任何字面量,最大只有 headerBar=12 / title=8),纯拦未来。
+  // 刻意**不**加 title / content / modalContent —— 那些键常承载合法的 ≥24 内容间距,
+  // 加了是面向未来的误伤;而一道按规矩写就红的门,唯一结局是逼人绕过钩子、连带废掉全部守门。
+  'headerBar',
+  'topBar',
+  'navBar',
+  'tabBar',
+  'banner',
+]
 /** 状态栏可能高度(dp):下界排除普通间距,上界排除整屏留白 */
 const MAGIC_MIN = 24
 const MAGIC_MAX = 60
