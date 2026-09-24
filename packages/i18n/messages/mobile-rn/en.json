@@ -410,6 +410,7 @@
     "budgetUsedTokens": "used {used} / {limit} tokens",
     "budgetResetTomorrow": "resets at midnight",
     "budgetTier": "{tier} plan",
+    "more": "More",
     "viewMore": "View more",
     "close": "Close",
     "delete": "Delete",
