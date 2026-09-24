@@ -68,6 +68,12 @@ export default defineConfig({
       '@ihui/shared/constants': resolve(__dirname, 'tests/__mocks__/ihui-shared.ts'),
       // D111:权限档展示为纯逻辑模块(chat barrel 无 DOM/RN 依赖),指向真实源码而非 mock ——
       // 档位取词的价值就是"三端同源",给它写 mock 测的就是 mock。子路径 alias 必须在根 alias 前。
+      // 子路径别名必须排在父路径之前(最长匹配优先,同 @ihui/shared/utils 的注释)。
+      // D64② 接线回归:imagePreview 判据直连真实 element-pack,不写 mock(测 mock 即测假)。
+      '@ihui/shared/chat/element-pack': resolve(
+        __dirname,
+        '../../packages/shared/src/chat/element-pack.ts',
+      ),
       '@ihui/shared/chat': resolve(__dirname, '../../packages/shared/src/chat/index.ts'),
       '@ihui/types/permission-mode': resolve(
         __dirname,

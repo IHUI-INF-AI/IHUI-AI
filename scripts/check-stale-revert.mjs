@@ -35,6 +35,27 @@ export const ANCESTOR_WINDOW = 40
 // 每文件一次 `git log` + 一次批量 cat-file;超大暂存集(整仓重排)按上限跳过,
 // 避免把 pre-commit 拖到分钟级 —— 那只会逼人 --no-verify 把所有守门一起关掉。
 export const MAX_FILES = 300
+/** "乘数级"路径:被写回旧版时**不会**表现为"少了一个功能",而是让一批守门/钩子静默失效,
+ *  所以它们不得吃上面的性能护栏。立因(2026-09-24 同日两次实测):共享工作区对 HEAD 的
+ *  拼合式滞后常年有 500+ 个文件,`--align-drift` 的形状面只管 style/import 那一种,于是
+ *  `guardian-runner.mjs` 的工作树副本落后 61 行(别人刚落地的守门 78 五维升级)而无人报 ——
+ *  任何人一次 `git add` 就替全队摘门。判据要能在**它自己那把尺子被改短**时还响。 */
+export const MULTIPLIER_RE = [
+  /^scripts\/guardian-runner\.mjs$/,
+  /^scripts\/check-[^/]+\.mjs$/,
+  /^scripts\/lib\//,
+  /^\.husky\//,
+  /^package\.json$/,
+  /^pnpm-(workspace|lock)\.yaml$/,
+  /^\.github\/workflows\//,
+  /^scripts\/tests\//,
+]
+
+export function isMultiplierPath(p) {
+  const rel = String(p).replace(/\\/g, '/').replace(/^\.\//, '')
+  return MULTIPLIER_RE.some((re) => re.test(rel))
+}
+
 // 这些操作进行中允许取旧版本(merge/cherry-pick/revert 的解析结果本就可能是历史内容)
 const REVERT_CONTEXT_FILES = ['MERGE_HEAD', 'CHERRY_PICK_HEAD', 'REVERT_HEAD', 'REBASE_HEAD']
 
@@ -173,14 +194,24 @@ function audit(repoRoot, { staged }) {
     lines.push('✅ 反回退守门通过(无可判定文件)')
     return { code: 0, lines }
   }
-  if (modified.length > MAX_FILES) {
-    lines.push(`ℹ️  本次判定 ${modified.length} 个文件 > 上限 ${MAX_FILES},反回退守门跳过(性能护栏)`)
-    if (deleted.length) lines.push(...deleteWarn(deleted))
-    return { code: 0, lines }
+  // 护栏只管普通文件;乘数级路径恒照判(见 MULTIPLIER_RE 上方实测成因)。
+  const always = modified.filter(isMultiplierPath)
+  const rest = modified.filter((p) => !isMultiplierPath(p))
+  let judged = modified
+  if (rest.length > MAX_FILES) {
+    lines.push(
+      `ℹ️  普通文件 ${rest.length} 个 > 上限 ${MAX_FILES} ⇒ 本轮只判**乘数级** ${always.length} 个(它们的回写不会表现为少一个功能,而是让一批守门静默失效)`,
+    )
+    judged = always
+    if (!judged.length) {
+      if (deleted.length) lines.push(...deleteWarn(deleted))
+      lines.push('✅ 反回退守门通过(超限跳过普通文件,无乘数级路径待判)')
+      return { code: 0, lines }
+    }
   }
 
   const exempt = inRevertContext(repoRoot)
-  const violations = exempt ? [] : analyze(repoRoot, modified, { source: staged ? 'index' : 'worktree' })
+  const violations = exempt ? [] : analyze(repoRoot, judged, { source: staged ? 'index' : 'worktree' })
   if (exempt) lines.push('⚠️  处于 merge/cherry-pick/revert 上下文,R1 本轮豁免')
   if (violations.length) {
     failed = true
@@ -306,5 +337,5 @@ if (isDirectRun) {
   })
 }
 
-export const __test__ = { analyze, stagedPaths, resolveBlobs, inRevertContext, audit, SKIP_ENV, ANCESTOR_WINDOW }
+export const __test__ = { analyze, stagedPaths, resolveBlobs, inRevertContext, audit, isMultiplierPath, MULTIPLIER_RE, SKIP_ENV, ANCESTOR_WINDOW, MAX_FILES }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

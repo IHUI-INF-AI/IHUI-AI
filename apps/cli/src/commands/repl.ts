@@ -117,6 +117,13 @@ import {
   formatTranscribeResult,
 } from '../voice/index.js';
 import { PromptQueue, type PromptQueueItem } from '../prompt-queue.js';
+// D38 队列语义完整交互:许可/模式/打断计划一律经端内唯一适配器取共享判据
+import {
+  cliInterruptRunPlan,
+  cliQueueInteractionAllowed,
+  cliResolveFollowUpMode,
+} from './queue-ops.js';
+import type { FollowUpMode } from '@ihui/shared/chat/queue-interactions';
 import { fetchModels, type LlmModel } from '@ihui/api-client';
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS } from '@ihui/shared';
 import {
@@ -267,6 +274,10 @@ export interface ReplState {
   toolLog: ToolCallRecord[];
   /** P3-3 Prompt Queue:用户在 agent 运行时排队的提示词,agent 完成后自动 drain 顺序执行 */
   promptQueue: PromptQueue;
+  /** D38 队列模式(真相源 queue-interactions FOLLOW_UP_MODES):steer=运行中输入进插话缓冲(现状默认);queue=运行中输入排队优先 */
+  followUpMode: FollowUpMode;
+  /** D38 「打断并执行」一次性放行标记:abort 后 drain 仅执行队首一项,用完即清(剩余项仍按中止语义保留) */
+  queueInterruptOnce: boolean;
 }
 
 export function formatContextStats(
@@ -607,6 +618,9 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     toolLog: [],
     // P3-3 Prompt Queue:初始化提示词队列
     promptQueue: new PromptQueue(),
+    // D38 默认 steer(维持现状:运行中输入进插话缓冲);/queue mode 可切 queue
+    followUpMode: 'steer',
+    queueInterruptOnce: false,
   };
   // Sessions 模块集成:若 opts.sessionId 提供且 history 为空,尝试从新 sessions 模块加载
   // (兼容老 session.ts 模块:若老模块已加载 history,新模块不覆盖)
@@ -774,6 +788,15 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     // 斜杠命令仍立即执行(如 /exit /clear 等紧急命令不能等 agent 完成)
     // P0-4 扩展:输入包装为 text block(支持 image block 的统一数据结构)
     if (state.agentRunning && !input.startsWith('/')) {
+      // D38 setMode:queue 模式下运行中输入排队优先(判据/模式集来自共享层 FOLLOW_UP_MODES)
+      if (state.followUpMode === 'queue') {
+        const qItem = state.promptQueue.enqueue(input);
+        console.info(
+          chalk.dim(`  ↳ enqueued [${qItem.id}] (follow-up mode=queue, ${state.promptQueue.size()} pending)`),
+        );
+        rl.prompt();
+        return;
+      }
       state.interjectionBuffer.push(input);
       console.info(chalk.dim(`  ↳ 已追加到 interjection buffer(当前 ${state.interjectionBuffer.size()} 条),agent 下一轮处理`));
       rl.prompt();
@@ -1961,6 +1984,11 @@ function handleQueue(args: string[], state: ReplState): void {
     console.info(`│  ${chalk.bold('/queue list')}       显示队列(同上)`);
     console.info(`│  ${chalk.bold('/queue rm <id>')}    取消指定 id 的 pending 项`);
     console.info(`│  ${chalk.bold('/queue clear')}      清空所有 pending 项`);
+    // D38 队列交互子命令(判据 = @ihui/shared/chat/queue-interactions,许可门复用 D69)
+    console.info(`│  ${chalk.bold('/queue move <f> <t>')}  reorder pending items (locked while streaming)`);
+    console.info(`│  ${chalk.bold('/queue edit <id> <text>')}  edit pending text (metadata unchanged)`);
+    console.info(`│  ${chalk.bold('/queue run')}      interrupt current turn and run queue head`);
+    console.info(`│  ${chalk.bold('/queue mode <steer|queue>')}  follow-up mode for input while running`);
     console.info(chalk.cyan('╰─'));
     console.info('');
     return;
@@ -1982,8 +2010,103 @@ function handleQueue(args: string[], state: ReplState): void {
       console.info(chalk.yellow(`未找到 id: ${id}(/queue 查看可用 id)`));
       return;
     }
+    // D38 undo:撤回先过共享层许可门(队列空即拒;deniedKey 与 D69 deniedNotice 同键)
+    const undoVerdict = cliQueueInteractionAllowed('undo', {
+      hasQueuedMessages: state.promptQueue.snapshot().some((it) => it.status === 'pending'),
+      streaming: state.agentRunning,
+    });
+    if (!undoVerdict.allowed) {
+      console.info(chalk.yellow(`denied: ${undoVerdict.deniedKey ?? 'undo'}`));
+      return;
+    }
     state.promptQueue.cancel(id);
     console.info(chalk.green(`✓ 已取消 ${id}`));
+    return;
+  }
+  // ---- D38 队列交互(重排/编辑/打断并执行/模式切换;判据见 src/commands/queue-ops.ts)----
+  if (sub === 'move') {
+    const from = Number(args[1]);
+    const to = Number(args[2]);
+    if (!Number.isInteger(from) || !Number.isInteger(to)) {
+      console.info(chalk.yellow('usage: /queue move <fromIndex> <toIndex> (see order: /queue list)'));
+      return;
+    }
+    const verdict = cliQueueInteractionAllowed('reorder', {
+      hasQueuedMessages: state.promptQueue.snapshot().some((it) => it.status === 'pending'),
+      streaming: state.agentRunning,
+    });
+    if (!verdict.allowed) {
+      console.info(chalk.yellow(`denied: ${verdict.deniedKey ?? 'reorder'}`));
+      return;
+    }
+    if (state.promptQueue.reorderPending(from, to)) {
+      console.info(chalk.green(`✓ reordered (${from} -> ${to})`));
+    } else {
+      console.info(chalk.yellow('no-op: index out of range or same position'));
+    }
+    return;
+  }
+  if (sub === 'edit') {
+    const id = args[1] ?? '';
+    const text = args.slice(2).join(' ').trim();
+    if (!id || !text) {
+      console.info(chalk.yellow('usage: /queue edit <id> <new text>'));
+      return;
+    }
+    const verdict = cliQueueInteractionAllowed('edit', {
+      hasQueuedMessages: state.promptQueue.snapshot().some((it) => it.status === 'pending'),
+      streaming: state.agentRunning,
+    });
+    if (!verdict.allowed) {
+      console.info(chalk.yellow(`denied: ${verdict.deniedKey ?? 'edit'}`));
+      return;
+    }
+    if (state.promptQueue.editPendingText(id, text)) {
+      console.info(chalk.green(`✓ edited [${id}] (metadata unchanged)`));
+    } else {
+      console.info(chalk.yellow(`no-op: id not found or empty text(${id})`));
+    }
+    return;
+  }
+  if (sub === 'run') {
+    const head = state.promptQueue.snapshot().find((it) => it.status === 'pending');
+    const plan = cliInterruptRunPlan(
+      {
+        hasQueuedMessages: Boolean(head),
+        streaming: state.agentRunning,
+      },
+      head?.id ?? null,
+    );
+    if (!plan.allowed) {
+      console.info(chalk.yellow(`denied: ${plan.deniedKey ?? 'interject'}`));
+      return;
+    }
+    if (plan.stopFirst && plan.thenRun) {
+      // 打断并执行:中止当前流(SIGINT 同一 abort 通道),drain 仅放行队首一项
+      state.aborted = true;
+      state.queueInterruptOnce = true;
+      state.abortController?.abort();
+      console.info(chalk.cyan(`interrupting current turn to run queued [${plan.thenRun}]`));
+    } else if (plan.thenRun) {
+      console.info(
+        chalk.dim(`no running turn; head [${plan.thenRun}] executes after next prompt cycle`),
+      );
+    } else {
+      console.info(chalk.yellow('queue empty, nothing to run'));
+    }
+    return;
+  }
+  if (sub === 'mode') {
+    const res = cliResolveFollowUpMode(args[1] ?? '');
+    if (!res.ok) {
+      console.info(chalk.yellow('usage: /queue mode <steer|queue>'));
+      return;
+    }
+    state.followUpMode = res.resolution.mode;
+    const degradedNote = res.resolution.degradedKey
+      ? ` (degraded: ${res.resolution.degradedKey})`
+      : '';
+    console.info(chalk.green(`✓ follow-up mode = ${res.resolution.mode}${degradedNote}`));
     return;
   }
   // 其他文本视为 prompt 入队
@@ -2482,8 +2605,11 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
 
   // P3-3 Prompt Queue drain:只在顶层(depth=0)执行,避免递归时重复 drain
   // aborted 时不 drain(语义对齐 SIGINT 用户意图:用户中止后剩余队列项保留,用户可 /queue 查看)
-  if (depth === 0 && !state.aborted) {
-    while (!state.aborted && state.promptQueue.size() > 0) {
+  // D38 interruptAndRun 例外:queueInterruptOnce 标记允许 abort 后仅放行队首一项(循环顶部即清)
+  if (depth === 0 && (!state.aborted || state.queueInterruptOnce)) {
+    while ((!state.aborted || state.queueInterruptOnce) && state.promptQueue.size() > 0) {
+      // 循环顶部即清:abort 后仅放行队首一项,后续轮次回到「中止即停 drain」原语义
+      state.queueInterruptOnce = false;
       const next = state.promptQueue.dequeue();
       if (!next) break;
       const preview = next.prompt.length > 80 ? `${next.prompt.slice(0, 80)}...` : next.prompt;
