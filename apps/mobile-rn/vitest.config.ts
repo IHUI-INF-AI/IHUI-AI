@@ -15,6 +15,10 @@ export default defineConfig({
       // 真实包入口指向 Flow 源码导致 esbuild SyntaxError 'typeof' → 5 suite 加载失败。
       // mock 为渲染原生 SVG DOM 标签的 stub 组件(需配合 server.deps.inline)。
       'react-native-svg': resolve(__dirname, 'tests/__mocks__/react-native-svg.ts'),
+      // nativewind 真实入口拉 react-native-css-interop(原生依赖),vitest 下解析失败会让整个
+      // 测试文件加载不进来。src/context/ThemeContext.tsx 现在要同步它的 colorScheme store
+      // (否则全端 dark: 类只跟系统外观、不跟 App 主题)⇒ 必须替身 + 可断言调用记录。
+      nativewind: resolve(__dirname, 'tests/__mocks__/nativewind.ts'),
       'react-native-safe-area-context': resolve(
         __dirname,
         'tests/__mocks__/react-native-safe-area-context.ts',
