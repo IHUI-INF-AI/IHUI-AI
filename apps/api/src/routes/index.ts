@@ -328,6 +328,7 @@ import { repoWikiRoutes } from './repo-wiki.js'
 import { knowledgeCardRoutes } from './knowledge-card.js'
 import automationsRoutes from './automations.js'
 import patrolRoutes from './patrol.js'
+import githubAppRoutes from './github-app.js'
 
 // R81 补建：D 盘 coze_zhs_py 代理类路由
 import { n8nProxyRoutes } from './n8n-proxy.js'
@@ -1284,5 +1285,10 @@ export function registerRoutes(server: FastifyInstance) {
 
   // 主动巡逻 Agent(P3 #40,2026-09-17 立)
   server.register(patrolRoutes, { prefix: '/api/patrol' })
+
+  // D15 GitHub App:webhook 自动 PR review + @机器人触发(G-20,2026-09-24 立)
+  // 必须带 prefix 注册 —— 该插件作用域内装了保留原始字节的 JSON body parser(签名校验要用),
+  // 挂到根实例会把全站 JSON 解析改成返回字符串。
+  server.register(githubAppRoutes, { prefix: '/api/github-app' })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
