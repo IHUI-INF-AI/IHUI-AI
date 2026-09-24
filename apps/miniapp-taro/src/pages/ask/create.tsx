@@ -28,11 +28,11 @@ const IMAGE_MAX = 3
 const DRAFT_KEY = 'ask_create_draft'
 
 const CATEGORIES = [
-  { key: 'tech', labelKey: 'ask.create.categoryTech', fb: t('askCreate.d1') },
-  { key: 'product', labelKey: 'ask.create.categoryProduct', fb: t('askCreate.d2') },
-  { key: 'design', labelKey: 'ask.create.categoryDesign', fb: t('pagesindexindex.d11') },
-  { key: 'operation', labelKey: 'ask.create.categoryOperation', fb: t('askCreate.d4') },
-  { key: 'other', labelKey: 'ask.create.categoryOther', fb: t('setting.other') },
+  { key: 'tech', labelKey: 'askCreate.d1', fb: t('askCreate.d1') },
+  { key: 'product', labelKey: 'askCreate.d2', fb: t('askCreate.d2') },
+  { key: 'design', labelKey: 'pagesindexindex.d11', fb: t('pagesindexindex.d11') },
+  { key: 'operation', labelKey: 'askCreate.d4', fb: t('askCreate.d4') },
+  { key: 'other', labelKey: 'setting.other', fb: t('setting.other') },
 ]
 
 const REWARDS = [0, 5, 10, 20, 50]

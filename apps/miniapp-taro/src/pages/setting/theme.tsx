@@ -26,9 +26,9 @@ interface ThemeOption {
 const AUTO_THEME = (tt: TtFn): ThemeOption => ({
   value: 'auto',
   icon: 'refresh-cw',
-  labelKey: 'setting.theme.auto',
+  labelKey: 'settings.themeSystem',
   label: tt('settings.themeSystem', '跟随系统'),
-  descKey: 'setting.theme.autoDesc',
+  descKey: 'settingTheme.d1',
   desc: tt('settingTheme.d1', '根据系统设置自动切换浅色或深色'),
 })
 
@@ -37,17 +37,17 @@ const THEMES = (tt: TtFn): ThemeOption[] => [
   {
     value: 'light',
     icon: 'sun',
-    labelKey: 'setting.theme.light',
+    labelKey: 'themeToggle.lightMode',
     label: tt('themeToggle.lightMode', '浅色模式'),
-    descKey: 'setting.theme.lightDesc',
+    descKey: 'settingTheme.d2',
     desc: tt('settingTheme.d2', '明亮的浅色界面,适合白天使用'),
   },
   {
     value: 'dark',
     icon: 'moon',
-    labelKey: 'setting.theme.dark',
+    labelKey: 'themeToggle.darkMode',
     label: tt('themeToggle.darkMode', '深色模式'),
-    descKey: 'setting.theme.darkDesc',
+    descKey: 'settingTheme.d3',
     desc: tt('settingTheme.d3', '深色界面,护眼且省电,适合夜间使用'),
   },
 ]
