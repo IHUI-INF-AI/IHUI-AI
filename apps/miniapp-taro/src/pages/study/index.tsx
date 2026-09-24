@@ -71,9 +71,9 @@ export default function StudyIndex() {
 
   const entries = [
     { icon: recordBackIcon, labelKey: 'study.record', url: '/pages/study/record' },
-    { icon: studyIconAddIcon, labelKey: 'study.plan', url: '/pages/study/plan' },
-    { icon: rankoneIcon, labelKey: 'study.rank', url: '/pages/study/rank' },
-    { icon: wenjianIcon, labelKey: 'study.exam', url: '/pages/exam/list' },
+    { icon: studyIconAddIcon, labelKey: 'studyPlan.title', url: '/pages/study/plan' },
+    { icon: rankoneIcon, labelKey: 'ranking.title', url: '/pages/study/rank' },
+    { icon: wenjianIcon, labelKey: 'exam.title', url: '/pages/exam/list' },
     { icon: kechengIcon, labelKey: 'profile.myCourses', url: '/pages/study/my-study/index' },
   ]
 
