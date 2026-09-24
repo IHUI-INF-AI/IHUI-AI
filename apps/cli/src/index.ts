@@ -22,8 +22,8 @@ import chalk from 'chalk';
 import { readFileSync, statSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
-import { setBaseUrl, setTokenProvider, setDeviceFingerprintProvider } from '@ihui/api-client';
-import { cliDeviceFingerprintCollector } from './lib/device-fingerprint.js';
+import { setBaseUrl, setTokenProvider, setDeviceFingerprintProvider, setUserAgent } from '@ihui/api-client';
+import { cliDeviceFingerprintCollector, CLI_USER_AGENT } from './lib/device-fingerprint.js';
 import { tryParseJson, isRecord } from './util/json.js';
 import { padCell } from './util/text-width.js';
 import {
@@ -351,6 +351,10 @@ program.hook('preAction', async () => {
   });
   setBaseUrl(cfg.apiUrl);
   setDeviceFingerprintProvider(cliDeviceFingerprintCollector);
+  // 首方 UA:Node 的 fetch(undici)默认根本不发 User-Agent,直接命中后端
+  // isMissingOrShortUserAgent ⇒ CLI 每个请求都被判为自动化客户端
+  // (429 要求一个无法完成的 CAPTCHA + 每请求拉低出口 IP 信誉)。
+  setUserAgent(CLI_USER_AGENT);
   // O12 机器凭据:出站必须同时携带 Authorization: Bearer ihui_xxx 与 X-Api-Secret: sk_xxx
   // (api-client 只负责前者)。人凭据(JWT)在此 passthrough,行为完全不变 ⇒ 零回归。
   installOutboundCredentialHeaders(

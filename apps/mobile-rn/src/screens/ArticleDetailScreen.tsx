@@ -13,6 +13,7 @@
  *   ③ 分享(icon-share → RN Share API,对齐 handleShare)
  */
 import { useCallback, useEffect, useState } from 'react'
+import { useTheme } from '../context/ThemeContext'
 import {
   ActivityIndicator,
   FlatList,
@@ -30,6 +31,7 @@ import {
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { createComment, fetchApi, getComments, type CommentItem } from '@ihui/api-client'
+import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import { tokens } from '../theme/active-tokens'
 import {
   ArticleDetailScreen as SharedArticleDetailScreen,
@@ -47,6 +49,7 @@ type Route = RouteProp<RootStackParamList, 'ArticleDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 export function ArticleDetailScreen() {
+  const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const route = useRoute<Route>()
   const navigation = useNavigation<NavigationProp>()
@@ -135,8 +138,9 @@ export function ArticleDetailScreen() {
       } else {
         setCommentError(res.error || '评论失败')
       }
-    } catch {
-      setCommentError('评论失败,请重试')
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      setCommentError(detail.trim() ? toUserFriendlyMessage(e) : '评论失败,请重试')
     } finally {
       setCommentSubmitting(false)
     }
@@ -160,6 +164,7 @@ export function ArticleDetailScreen() {
           loading={loading}
           error={error}
           onBack={() => navigation.goBack()}
+          colorScheme={resolvedTheme}
         />
       </View>
       {/* 底部操作栏(对齐 Uniapp news/detail.vue bottom-bar:点赞/评论/分享) */}
@@ -373,14 +378,14 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: rnRadius['2xl'],
-    backgroundColor: tokens.brand.ctaFill,
+    backgroundColor: tokens.brand.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
   } as ViewStyle,
   commentAvatarText: {
     fontSize: 13,
-    color: tokens.brand.ctaText,
+    color: tokens.brand.foreground,
     fontWeight: '600',
   } as TextStyle,
   commentBody: {

@@ -355,12 +355,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(40),
     paddingVertical: rpx(10),
     borderRadius: rnRadius.lg,
-    backgroundColor: tokens.brand.ctaFill,
+    backgroundColor: tokens.brand.DEFAULT,
   } as ViewStyle,
   entryBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.brand.ctaText,
+    color: tokens.brand.foreground,
   } as TextStyle,
   // ── 开发者信息区 ──
   infoCard: {
@@ -459,12 +459,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(24),
     paddingVertical: rpx(8),
     borderRadius: rnRadius.md,
-    backgroundColor: tokens.brand.ctaFill,
+    backgroundColor: tokens.brand.DEFAULT,
   } as ViewStyle,
   problemBtnText: {
     fontSize: 13,
     fontWeight: '500',
-    color: tokens.brand.ctaText,
+    color: tokens.brand.foreground,
   } as TextStyle,
   bigBtn: {
     backgroundColor: tokens.surface.card,

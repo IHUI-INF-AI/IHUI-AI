@@ -38,11 +38,14 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { resolveKeyDir } from './lib/key-dir.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
-/** 默认密钥目录(可用 --key-dir 或 IHUI_MODEL_KEY_DIR 覆盖) */
-const DEFAULT_KEY_DIR = process.env.IHUI_MODEL_KEY_DIR || 'D:/BaiduSyncdisk/密钥/模型'
+/** 默认密钥目录(可用 --key-dir 或 IHUI_MODEL_KEY_DIR 覆盖)。
+ *  盘符按"存在即真"解析:本机真实库在 F 盘而文档写的是 D 盘,写死会让巡检把
+ *  "读不到文件"报成"key 无效"(同 scripts/lib/key-dir.mjs 立项原因)。 */
+const DEFAULT_KEY_DIR = process.env.IHUI_MODEL_KEY_DIR || resolveKeyDir('模型') || 'D:/BaiduSyncdisk/密钥/模型'
 
 /** 探测超时(ms):超时视为「本机网络不可达」,不据此否定 key 本身 */
 const PROBE_TIMEOUT_MS = 8000
@@ -214,7 +217,7 @@ if (args.help) {
       '',
       '  --verify             联网验活每个候选 key(推荐,可自动消解同文件多 key 歧义)',
       '  --apply              实际回填(默认仅巡检 dry-run)',
-      '  --key-dir <path>     密钥目录,默认 D:/BaiduSyncdisk/密钥/模型',
+      '  --key-dir <path>     密钥目录,默认按盘符探测 F:/D:/E:/G:/C: 下存在的 BaiduSyncdisk/密钥/模型',
       '  --env <path>         .env 路径,默认 <仓库根>/.env',
       '  --backup-dir <path>  .env 备份目录,默认 <仓库根>/.ihui-agent/env-backup',
       '',
