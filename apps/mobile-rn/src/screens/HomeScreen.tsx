@@ -2342,11 +2342,11 @@ const shellStyles = {
     paddingHorizontal: rpx(32),
     paddingVertical: rpx(12),
     borderRadius: rnRadius.md,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
   } as const,
   detailDialogRetryText: {
     fontSize: 13,
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
     fontWeight: '600',
   } as const,
   // ── ModelList Modal 弹窗(对齐 BottomPopup sheet 风格) ──
@@ -2473,13 +2473,13 @@ const shellStyles = {
     paddingHorizontal: rpx(48),
     paddingVertical: rpx(20),
     borderRadius: rnRadius.md,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     minWidth: '70%',
     alignItems: 'center',
   } as const,
   shareBtnText: {
     fontSize: 14,
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
     fontWeight: '500',
   } as const,
   shareBtnSecondary: {

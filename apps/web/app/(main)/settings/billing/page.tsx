@@ -22,7 +22,8 @@ import {
 import { BackButton } from '@/components/common'
 import { fetchApi } from '@/lib/api'
 import { buildQs, type PageData } from '@/lib/edu'
-import type { Order } from '@ihui/api-client'
+import { getDailyCreditsUsage, type Order } from '@ihui/api-client'
+import { CreditsHeatmapCard } from '@/components/billing/credits-heatmap-card'
 
 import { OrdersTab } from './OrdersTab'
 import { InvoicesTab } from './InvoicesTab'
@@ -76,9 +77,44 @@ export default function BillingPage() {
     enabled: tab === 'invoices',
   })
 
+  // 按日积分消耗热力图(§D64 卡不取数,数据面 = GET /api/credits/usage/daily,UTC 分桶缺日补零)
+  const dailyUsageQuery = useQuery({
+    queryKey: ['settings', 'billing', 'credits-usage-daily'],
+    queryFn: async () => {
+      const res = await getDailyCreditsUsage({ days: 90 })
+      if (!res.success) throw new Error(res.error)
+      return res.data
+    },
+  })
+  const heatmapDayCounts = React.useMemo(() => {
+    const buckets = dailyUsageQuery.data?.buckets
+    if (!buckets || buckets.length === 0) return undefined
+    return Object.fromEntries(buckets.map((b) => [b.date, b.count] as const))
+  }, [dailyUsageQuery.data])
+  // 会话视图取"当日新建会话数"(与积分消耗是两条独立序列);只递交日 >0 的日子,
+  // 否则 90 天区间会把一串 0 排进列表(卡的会话视图是清单不是热力)
+  const heatmapSessionCounts = React.useMemo(() => {
+    const buckets = dailyUsageQuery.data?.buckets ?? []
+    const hit = buckets.filter((b) => b.sessions > 0)
+    if (hit.length === 0) return undefined
+    return Object.fromEntries(hit.map((b) => [b.date, b.sessions] as const))
+  }, [dailyUsageQuery.data])
+
   return (
     <div className="px-4 space-y-4 py-4">
       <BackButton />
+      {/* 无数据时不渲染空壳卡片(卡内契约:dayCounts 缺省 → null;外层同步收起) */}
+      {heatmapDayCounts ? (
+        <Card>
+          <CardContent>
+            <CreditsHeatmapCard
+              dayCounts={heatmapDayCounts}
+              sessionCounts={heatmapSessionCounts}
+              data-testid="settings-credits-heatmap"
+            />
+          </CardContent>
+        </Card>
+      ) : null}
       <Tabs value={tab} onValueChange={(v) => setTab(v as 'orders' | 'invoices')}>
         <TabsList>
           <TabsTrigger value="orders">{t('billingOrders')}</TabsTrigger>

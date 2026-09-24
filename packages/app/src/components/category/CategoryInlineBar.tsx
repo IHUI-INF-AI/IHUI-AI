@@ -116,7 +116,7 @@ export function CategoryInlineBar({
           {Icon ? (
             <Icon
               size={item.iconSize ?? 16}
-              color={active ? tk.brand.foreground : tk.text.secondary}
+              color={active ? tk.brand.ctaForeground : tk.text.secondary}
             />
           ) : item.image ? (
             <Image
@@ -142,7 +142,7 @@ export function CategoryInlineBar({
               styles={styles}
               activeTextColor={tk.brand.DEFAULT}
               idleTextColor={tk.text.secondary}
-              activeBg={tk.brand.foreground}
+              activeBg={tk.brand.ctaForeground}
               idleBg={tk.surface.muted}
             />
           ) : null}
@@ -189,7 +189,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     itemActive: {
       borderColor: tk.brand.DEFAULT,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     itemPressed: {
       opacity: 0.7,
@@ -203,7 +203,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     itemTextActive: {
       fontWeight: '600',
-      color: tk.brand.foreground,
+      color: tk.brand.ctaForeground,
     },
     itemImage: {
       width: 16,

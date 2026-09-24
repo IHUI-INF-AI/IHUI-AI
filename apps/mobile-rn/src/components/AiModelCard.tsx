@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: rnRadius.sm,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     marginRight: 6,
   },
   groupFooterText: {
@@ -404,12 +404,12 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     paddingHorizontal: 12,
     paddingVertical: 4,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     borderRadius: rnRadius.md,
   },
   buyBtnText: {
     fontSize: 12,
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
     fontWeight: '500',
   },
   modelFooter: {

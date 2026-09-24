@@ -1,0 +1,371 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+name: e2e-browser-hub
+
+# =============================================================================
+# Browser Hub「真画面」档 E2E —— D42 浏览器视觉标注回传对话的 CI 编排
+#
+# 为什么需要单独一份 workflow(而不是改 .github/workflows/e2e.yml):
+#   真接口链是
+#     浏览器 → 同源 /api/browser/sessions/*(apps/web/next.config.ts:492 rewrite)
+#           → ai-service:8803(apps/ai-service/app/routers/browser_hub.py:76,102)
+#           → Playwright Chromium 引擎(apps/ai-service/app/services/browser_hub.py:829)
+#   而 e2e.yml 的 `services:` 段只有 postgres + redis —— 既没有 ai-service,也没有
+#   Chromium。这就是"真画面"档今天跑不通的**唯一**原因(不缺凭据、不缺新功能)。
+#   本 workflow 补齐这两件,并只跑 @browser-hub 这一档 spec。
+#
+# 触发口径(硬要求:**绝不允许**变成每次 push 全量跑的常驻门):
+#   - workflow_dispatch 手动
+#   - push 到 main 且**只**命中 browser hub / D42 相关文件
+#   绝不加 `pull_request:`(会与 e2e.yml 抢同一批端口与 CI 时长)。
+#
+# 已在本机实证(2026-09-24,不是"yaml 里意图正确"):
+#   1) ai-service **不需要任何模型 key** 就能起来并服务 /health:
+#      实测在**没有 .env、没有 LLM key、没有 DB、没有 Redis**的进程里
+#      `uvicorn app.main:app` 12s 内打印 "Application startup complete",
+#      `GET /health` → 200 `{"status":"ok","service":"ihui-ai-service"}`;
+#      DB 认证失败 / Redis 连接超时只打 WARNING(schema_check 与 im_bridge 均 fail-open)。
+#      ⇒ 本 workflow 不向 CI 注入任何模型密钥;缺什么由活性断言步骤打印。
+#   2) ai-service 侧真能拉起 Chromium:实测 python playwright 1.62.0
+#      `chromium.launch(headless=True)` → OK(version 151.0.7922.34)。
+#   3) node @playwright/test 1.62.1 与 python playwright 1.62.0 解析出的浏览器
+#      **同一个安装目录**(实测两侧 `install --dry-run chromium` 均指向
+#      `…/chromium-1234`,同一 build 151.0.7922.34)⇒ 只装一次就够。
+#      但这是"版本配对恰好相等"推出来的,不是不变量 ⇒ 下面仍各装一次
+#      (第二次命中即秒回),并在真拉起前做一次**引擎预检**,漂移时红得有名有姓。
+#
+# 端口口径同 docs/port-management.md:web 8801 / api 8802 / ai-service 8803。
+# =============================================================================
+
+on:
+  workflow_dispatch:
+    inputs:
+      grep:
+        description: 'Playwright --grep 表达式(后续"真画面"票往 @browser-hub 这一档里加用例即可,无需改本文件)'
+        required: false
+        default: '@browser-hub'
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/web/e2e/browser-hub-smoke.spec.ts'
+      - 'apps/web/e2e/fixtures.ts'
+      - 'apps/web/e2e/auth.setup.ts'
+      - 'apps/web/e2e/global-setup.ts'
+      - 'apps/web/playwright.config.ts'
+      - 'apps/web/next.config.ts'
+      - 'apps/web/src/components/work-panel/**'
+      - 'apps/ai-service/app/routers/browser_hub.py'
+      - 'apps/ai-service/app/services/browser_hub.py'
+      - 'apps/ai-service/app/core/jwt_auth.py'
+      - 'apps/ai-service/app/core/config.py'
+      - 'apps/ai-service/pyproject.toml'
+      - 'packages/api-client/src/endpoints/browser-hub.ts'
+      - '.github/workflows/e2e-browser-hub.yml'
+
+permissions:
+  contents: read
+
+# 与本 workflow 自身互斥(共享 concurrency group 只能约束同名 workflow:e2e.yml 未声明
+# concurrency,所以这里保证的是"别把两份 browser-hub 同时跑上",跨 workflow 的端口争用
+# 靠下面的 paths 收窄来避免 —— 两个 job 都只在独立 runner 上跑,真正的冲突源是"同一次 push
+# 触发两条 e2e 流",而本 workflow 的 paths 是 e2e.yml 的子集,故保留 concurrency 兜底。)
+concurrency:
+  group: e2e-browser-hub-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+  PNPM_VERSION: '9.15'
+  PYTHON_VERSION: '3.12'
+  # 与 e2e.yml 逐字同值:两端必须同一个 JWT_SECRET,否则 ai-service 验不过 api 签发的
+  # cookie auth_token(jwt_auth.py:162 HS256),链路会表现为 401 而不是"引擎坏了"。
+  JWT_SECRET: test-jwt-secret-for-e2e-0123456789abcdef
+  CREDENTIALS_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+  DATABASE_URL: postgres://ihui:ihui_test@localhost:5432/ihui_test
+  AI_SERVICE_LOG: ${{ runner.temp }}/ai-service-browser-hub.log
+
+jobs:
+  browser-hub-e2e:
+    name: Browser Hub 真画面 E2E(web 8801 + api 8802 + ai-service 8803)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      # 用 pgvector 官方镜像而非 postgres:18:drizzle 迁移 0123(embedding)用到
+      # vector(1536),纯 postgres 镜像上该迁移会回滚整段 DDL(与 ci.yml:170 /
+      # test-real-db.yml 同一口径,不是本票的新发明)。
+      postgres:
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_USER: ihui
+          POSTGRES_PASSWORD: ihui_test
+          POSTGRES_DB: ihui_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ihui"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 顺序硬约束(守门 check-workflow-step-order):pnpm/action-setup 必须在
+      # actions/setup-node 的 cache: pnpm 之前,否则 setup-node 找不到 pnpm 直接失败。
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers (node 侧 —— 跑测试用例的浏览器)
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Install ai-service python dependencies
+        working-directory: apps/ai-service
+        # 与 apps/ai-service/Dockerfile builder 阶段同一口径(非 editable,只装运行时依赖)。
+        # 需要 node 在 PATH 上:python playwright 的 async_playwright().start() 会 spawn
+        # node driver(apps/ai-service/app/services/browser_hub.py:15 注释),
+        # setup-node 已把 node 放进 PATH。
+        run: uv pip install --system --no-cache-dir .
+
+      - name: Install Playwright browsers (python 侧 —— ai-service 引擎的浏览器)
+        working-directory: apps/ai-service
+        # 与上一步 node 侧同版本时这里是秒级 no-op;版本配对一旦漂移,这一行就是唯一
+        # 能把引擎的浏览器补齐的动作(见顶部实证 3)。
+        run: python -m playwright install chromium
+
+      - name: 引擎预检 —— ai-service 的 playwright 必须真能拉起 Chromium
+        working-directory: apps/ai-service
+        # 这一步存在的理由:"装上了"不等于"能跑"(缺系统库 / 浏览器目录与 python 版本
+        # 不配对,都会表现为后面 e2e 里的 500,而那时日志已被三个服务混在一起)。
+        run: |
+          set -euo pipefail
+          echo "node   playwright: $(cd apps/web && pnpm exec playwright --version)"
+          echo "python playwright: $(python -c 'import importlib.metadata as m; print(m.version("playwright"))')"
+          python - <<'PY'
+          import asyncio
+          import sys
+          from playwright.async_api import async_playwright
+
+          async def main() -> int:
+              async with async_playwright() as p:
+                  browser = await p.chromium.launch(headless=True)
+                  page = await browser.new_page()
+                  await page.goto('about:blank')
+                  print(f'chromium launch OK: {browser.version}')
+                  await browser.close()
+              return 0
+
+          sys.exit(asyncio.run(main()))
+          PY
+
+      - name: Run database migrations
+        working-directory: packages/database
+        run: pnpm exec drizzle-kit migrate
+
+      - name: Seed E2E 测试用户(test@aizhs.top)
+        # browser_hub 全部端点都要鉴权(routers/browser_hub.py 每个 handler 都
+        # Depends(get_current_user_id)),没有这个用户就没有登录态,链路证不了。
+        env:
+          NODE_ENV: test
+        run: pnpm --filter @ihui/api run seed:test-users
+
+      - name: Build database package
+        # web 产物引用 @ihui/database 的 dist;缺此步 next build 预渲染会
+        # ERR_MODULE_NOT_FOUND(与 e2e.yml 同一教训)。
+        run: pnpm --filter @ihui/database run build
+
+      - name: Build API
+        run: pnpm --filter @ihui/api run build
+
+      - name: Build web (production)
+        # JWT_SECRET 构建期必传:proxy.ts 的 verifyAccessTokenEdge 在 edge bundle 里读它
+        # (e2e.yml:128 同一实锤)。
+        run: pnpm --filter @ihui/web run build
+
+      - name: 'Start ai-service (8803) + 活性断言'
+        working-directory: apps/ai-service
+        # 关键设计:**起了不等于活着**。这里轮询 /health 拿 200,拿不到就把启动日志
+        # 整段打出来并 exit 1 —— 后面所有失败都会退化成"8803 没在服务"这一句话。
+        env:
+          NODE_ENV: test
+          JWT_SECRET: ${{ env.JWT_SECRET }}
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          REDIS_URL: redis://localhost:6379/0
+          CORS_ORIGIN: http://localhost:8801
+          # CI 里不跑任何会消耗 LLM token / 打外网的后台调度器(实测这些开关默认已是
+          # false,显式写出来是为了让"这一轮 CI 为什么没碰模型"可被读到)。
+          SCHEDULE_ENABLED: 'false'
+          SELF_MEDIA_CRON_ENABLED: 'false'
+          NEWS_CRON_ENABLED: 'false'
+          DB_SYNC_ENABLED: 'false'
+          DREAM_ENABLED: 'false'
+          SKILL_EVOLUTION_ENABLED: 'false'
+          META_LEARNER_ENABLED: 'false'
+          AB_TEST_ENABLED: 'false'
+        run: |
+          set -uo pipefail
+          echo "== 端口占用预检(应全空)=="
+          ss -ltnp || true
+          # ai-service 启动会在 lifespan 里 ping provider / 连 DB / 连 Redis,
+          # 本机实测 ~12s 到 "Application startup complete";CI 慢机给 180s。
+          nohup uvicorn app.main:app --host 127.0.0.1 --port 8803 > "$AI_SERVICE_LOG" 2>&1 &
+          AI_PID=$!
+          echo "ai-service pid=$AI_PID log=$AI_SERVICE_LOG"
+          for i in $(seq 1 180); do
+            code=$(curl -s -o /tmp/ai-health.json -w '%{http_code}' --max-time 3 http://127.0.0.1:8803/health || echo 000)
+            if [ "$code" = "200" ]; then
+              echo "✅ 活性断言通过:GET /health → 200($(cat /tmp/ai-health.json)),耗时 ${i}s"
+              curl -s --max-time 5 http://127.0.0.1:8803/health/ready || true
+              exit 0
+            fi
+            if ! kill -0 "$AI_PID" 2>/dev/null; then
+              echo "❌ ai-service 进程已退出(code $code),启动日志:"
+              tail -n 120 "$AI_SERVICE_LOG"
+              exit 1
+            fi
+            sleep 1
+          done
+          echo "❌ 活性断言失败:180s 内 /health 未返回 200(最后 code=$code),启动日志:"
+          tail -n 120 "$AI_SERVICE_LOG"
+          exit 1
+
+      - name: Start API server (8802)
+        working-directory: apps/api
+        env:
+          NODE_ENV: test
+          PORT: '8802'
+          HOST: '0.0.0.0'
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET: ${{ env.JWT_SECRET }}
+          CREDENTIALS_ENCRYPTION_KEY: ${{ env.CREDENTIALS_ENCRYPTION_KEY }}
+          # browser.ts 的 /screenshot、/probe 经 aiServiceFetch 转发到 8803(config 默认值
+          # 就是它,显式写出来防"默认被改"这一类静默失效)。
+          AI_SERVICE_URL: http://localhost:8803
+          # e2e.yml:146 同一实锤:默认 15min TTL 撑不完一轮 CI。
+          JWT_ACCESS_TTL_SECONDS: '86400'
+        run: |
+          set -euo pipefail
+          node --import tsx dist/index.js &
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8802/health; then
+              echo "API ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API health check timeout after 60s"
+          exit 1
+
+      - name: Start web server (8801)
+        working-directory: apps/web
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8802
+          JWT_SECRET: ${{ env.JWT_SECRET }}
+        run: |
+          set -euo pipefail
+          pnpm start &
+          for i in $(seq 1 60); do
+            if curl -sf -o /dev/null http://localhost:8801; then
+              echo "web ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "web health check timeout after 60s"
+          exit 1
+
+      - name: '链路探针:web 同源 /api/browser/sessions 必须被 ai-service 应答(401)'
+        # 这一步证明的是**编排本身**,与浏览器无关,所以红了不必怀疑测试用例:
+        #   期望 401 —— 未登录时由 ai-service 的 JWT 中间件拒绝(jwt_auth.py:127)。
+        #   404 ⇒ Next.js rewrite 没命中,请求被 /api/:path* 通配吞到 api:8802;
+        #   000/502 ⇒ 8803 没在服务(或 rewrite 目标配错);
+        #   200 ⇒ 反而要红:说明鉴权被绕过(未登录能看到会话清单)。
+        run: |
+          set -uo pipefail
+          code=$(curl -s -o /tmp/probe-body.txt -w '%{http_code}' --max-time 20 \
+            http://localhost:8801/api/browser/sessions)
+          echo "GET http://localhost:8801/api/browser/sessions → $code"
+          echo "响应体: $(head -c 300 /tmp/probe-body.txt)"
+          if [ "$code" != "401" ]; then
+            echo "❌ 期望 401(ai-service 应答且要求鉴权),实际 $code —— 链路或鉴权面不符合预期"
+            echo "--- ai-service 日志尾部 ---"
+            tail -n 60 "$AI_SERVICE_LOG" || true
+            exit 1
+          fi
+          echo "✅ 链路探针通过:同源请求确实打到了 ai-service:8803 并被其鉴权层接管"
+
+      - name: Run Playwright @browser-hub specs
+        working-directory: apps/web
+        # continue-on-error: false —— 这一档红了就是编排/链路红了,不允许"看起来会跑"。
+        continue-on-error: false
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:8801
+          E2E_SKIP_SEED: '1'
+          E2E_AUTO_CLEANUP: '0'
+          PLAYWRIGHT_REUSE_SERVER: '1'
+          IHUI_E2E_GREP: ${{ inputs.grep || '@browser-hub' }}
+        run: |
+          set -euo pipefail
+          echo "== 本次只跑这一档:--grep '$IHUI_E2E_GREP' =="
+          pnpm exec playwright test --grep "$IHUI_E2E_GREP" --reporter=list
+
+      - name: Upload playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-hub-playwright-report
+          path: apps/web/playwright-report/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload playwright test-results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-hub-test-results
+          path: apps/web/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload ai-service startup log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-hub-ai-service-log
+          path: ${{ env.AI_SERVICE_LOG }}
+          if-no-files-found: warn
+          retention-days: 14
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

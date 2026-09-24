@@ -330,7 +330,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 22,
       height: 44,
       borderRadius: rnRadius['2xl'], // 原 15,R1 吸附至 2xl(16)
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
     },
