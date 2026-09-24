@@ -37,8 +37,17 @@ test('装车证明:守门 96 在 runner 中必须出现恰好一次,且为 block
     'runner 存在重号(本仓同日撞号 4 次,靠这条钉死)',
   )
   const body = runner.slice(block.index, runner.indexOf('},', block.index))
-  assert.match(body, /mode: 'blocking'/, '本门必须是 blocking,否则回潮只会静默累积')
+  // 2026-09-24 落点改 warn(用户授权):本门判机器态、与 diff 无关 ⇒ blocking 会让人人必红 + 人人
+  // --no-verify(同日 4/127 红实证),等于用 126 道门的命换这条哨兵。warn 仍"不静默":每次提交打红字。
+  // 这条断言反过来钉住"不许悄悄退回 blocking 拦路",也不许被改成 mode 缺失(那才是真静默累积)。
+  assert.match(body, /mode: 'warn'/, '本门须为 warn:判机器态的门拦在提交链上会逼出全量 --no-verify')
+  assert.doesNotMatch(body, /mode: 'blocking'/, '不得回到 blocking(理由见 runner 内 2026-09-24 改批判据)')
   assert.match(body, /skipEnv: 'HUSKY_SKIP_HOME_JUNCTIONS'/, '缺 skipEnv 则应急无出口')
+  assert.match(
+    body,
+    /check-home-junctions\.mjs/,
+    'script 字段必须仍在(落点变了不等于摘线)',
+  )
 })
 
 test('登记表不得含第三方 IDE 自管态(§26 例外条:只登记不搬动)', () => {
