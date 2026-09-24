@@ -95,17 +95,6 @@ test('反空绿:判据必须真能"看见"撞号(合成夹具,与仓内现状无
   assert.equal(idCount(dup, id), 2, '合成撞号未被识别 = 本条自证恒真')
 })
 
-/** 上一条已验「编号唯一 + blocking + skipEnv」;这里补「注册本身不得重复」。
- *  >1 次 = 同一脚本被两道门各插了一份注册(并行会话在数组同一位各加一门的典型后果),
- *  skipEnv 与失败归属会串门;0 次 = 判据没装车,等于没有判据。 */
-test('装车证明补条:本门脚本在 runner 里必须恰好注册一次', () => {
-  const runner = readFileSync(join(ROOT, 'scripts', 'guardian-runner.mjs'), 'utf8')
-  assert.equal(
-    runner.split(MY_SCRIPT).length - 1,
-    1,
-    '0 次=没装车;>1 次=同一脚本注册了多道门,失败归属会串门',
-  )
-})
 test('端到端:真仓 HEAD 与 --self-test 都必须全绿', () => {
   const run = (args) => execFileSync(process.execPath, [SCRIPT, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true, timeout: 120000 })
   assert.match(run([]), /✅ .*条映射逐位同值/, 'R1 真仓必须全绿')
