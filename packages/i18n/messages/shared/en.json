@@ -2288,6 +2288,16 @@
   },
   "ai": {
     "pane": {
+      "branch": {
+        "ariaLabel": "Branch a new conversation from this message",
+        "notPersisted": "This message is not saved yet, so it cannot be branched",
+        "success": "Branched a new conversation",
+        "switchFailure": "The new conversation was created, but this screen could not switch to it. Open it from the conversation list.",
+        "loadFailure": "Switched to the new conversation, but its messages did not load. Try again in a moment.",
+        "failure": "Branch failed: {reason} (HTTP {status})",
+        "noReason": "No reason was returned",
+        "unknownStatus": "unknown"
+      },
       "queueOps": {
         "ariaLabel": "Queued message actions",
         "reorderAria": "Drag to reorder queued messages; use the up and down arrow keys while focused",
