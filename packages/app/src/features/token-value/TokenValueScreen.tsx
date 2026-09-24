@@ -207,7 +207,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     backText: { fontSize: 16, color: tk.text.medium },
     headerTitle: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    balanceCard: { padding: 14, borderRadius: rnRadius.xl, backgroundColor: tk.brand.DEFAULT },
+    balanceCard: { padding: 14, borderRadius: rnRadius.xl, backgroundColor: tk.brand.cta },
     balanceLabel: { fontSize: 14, color: tk.surface.light },
     balanceValue: {
       marginTop: 8,
@@ -246,7 +246,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 8,
       paddingVertical: 2,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     popularText: { fontSize: 10, fontWeight: '600', color: tk.surface.light },
     pkgTokens: {
@@ -262,7 +262,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 12,
       height: 28,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
     },

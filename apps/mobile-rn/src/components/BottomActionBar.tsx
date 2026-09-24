@@ -579,7 +579,7 @@ function ChatInputBar(props: BottomActionBarProps) {
             accessibilityLabel={isLoading ? '加载中' : '发送'}
           >
             {isLoading ? (
-              <ActivityIndicator size="small" color={tokens.brand.foreground} />
+              <ActivityIndicator size="small" color={tokens.brand.ctaForeground} />
             ) : (
               <Text style={styles.sendLabel} numberOfLines={1}>
                 {'发送'}
@@ -750,7 +750,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: ACTION_BUTTON_HEIGHT,
     borderRadius: rnRadius.lg,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
   } as ViewStyle,
@@ -762,7 +762,7 @@ const styles = StyleSheet.create({
     lineHeight: ACTION_BUTTON_FONT_SIZE + 4,
     fontWeight: '500',
     letterSpacing: LABEL_LETTER_SPACING,
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
     textAlign: 'center',
   } as TextStyle,
   secondaryButton: {
@@ -858,7 +858,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   } as ViewStyle,
   toggleChipActive: {
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     borderColor: tokens.brand.DEFAULT,
   } as ViewStyle,
   toggleChipPressed: {
@@ -871,7 +871,7 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
   } as TextStyle,
   toggleChipLabelActive: {
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
   } as TextStyle,
 
   // ── 新模式:图片预览 ──
@@ -925,7 +925,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   } as ViewStyle,
   voiceBtnActive: {
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     borderColor: tokens.brand.DEFAULT,
   } as ViewStyle,
   voiceEmoji: {
@@ -950,7 +950,7 @@ const styles = StyleSheet.create({
     width: SEND_BTN_WIDTH,
     height: SEND_BTN_HEIGHT,
     borderRadius: INPUT_BORDER_RADIUS,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
   } as ViewStyle,
@@ -960,7 +960,7 @@ const styles = StyleSheet.create({
   sendLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
   } as TextStyle,
 
   // ── 新模式:辅助按钮行 ──
