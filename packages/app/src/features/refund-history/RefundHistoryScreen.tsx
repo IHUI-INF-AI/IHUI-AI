@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { RefundHistoryItem, RefundHistoryScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 退款历史/Props 类型 re-export(单一来源 @ihui/types) */
 export type { RefundHistoryItem, RefundHistoryScreenProps }
 
