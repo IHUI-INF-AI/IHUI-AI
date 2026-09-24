@@ -10,7 +10,10 @@
 #      再 `git fetch --refetch --no-tags <mirror> '+refs/tags/lost-commit/*:refs/ihui-import/...'`,
 #      一次性把绝大部分对象补进本仓 objects;余 28 个用 blobs API 逐枚回补 + sha 回读(两轮,
 #      末轮日志 12 个对象、"确认销毁 0")。
-#   ④ 收尾核验:删除 4273 枚临时 ref(`git update-ref --stdin` 批量,for-each-ref 与文件系统双回读=0)、
+#   ④ 终数复扫(逐枚、权威判据):8 枚 `git rev-list --objects refs/tags/<t>` 退出码全 0 ⇒ 完整 8 / 缺失 0。
+#      两族集合对账另证"仅本地 0 / 仅远端 0"。`sync-lost-commit-tags.mjs --check` 在 4283 枚规模下
+#      会先打印 8700+ 行逐名清单、本机两次跑到输出仅 1 行仍未完成,不适合当终数判据 —— 用上面两条即可。
+#   ⑤ 收尾核验:删除 4273 枚临时 ref(`git update-ref --stdin` 批量,for-each-ref 与文件系统双回读=0)、
 #      删除 1.1GB 镜像 scratch。临时 ref 命名空间 refs/ihui-import/* 已不存在。
 # 判据(留档,供下次复用):
 #   - 单枚完整性:`git rev-list --objects <commit>` 退出码 / stderr 命中 "fatal: missing"。
