@@ -7583,3 +7583,29 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
      依赖窗口再动**，不在只读定性票里顺手做。
   3. **extension 的 3 枚死键**已由并行提交清掉，无需等 —— 该条 CI 具备转绿条件，
      以下次 push 的 `i18n Dead Key Audit` job 结论为准。
+
+#### 第四十三批·续（同夜，2 枚追加票 + CI 回读判定）
+
+- [x] ✅(2026-09-25) **脱敏中间件的子串误伤**(`39ef399b5cd`)：CI 里 e2e-browser-hub **第一次真跑起来**
+  (前一条红被"整文件编译期拒绝"挡着，从没执行过)就抓到 `app/middleware/response_sanitizer.py`
+  把 `cookie_count` 按 **"cookie" 子串**规则打成 `"***"` ⇒ 前端 `typeof` 从 number 变 string。
+  生产方 `routers/browser_hub.py:132` 的 `SessionInfo.cookie_count = len(cookies)` 本是 int，
+  故定性为**脱敏侧过度匹配**，不是契约缺字段、也不是 spec 期望写错(三种可能逐一排除后才动)。
+  修法沿用本仓 `prompt_tokens` 的 P0-5m 同型先例：加进 SAFE_KEYS 并注明依据，
+  **cookie 真内容(`cookie`/`cookies`/`cookie_string`)仍照常脱敏**。
+  主会话独立复跑：pytest 30 passed exit 0(含反向对照)、mypy --strict 0 错。
+- **CI 回读判定(只认远端实跑，不认本机绿)**：
+  - `i18n Dead Key Audit` = **success** ✅（本批死键票的直接效果）。
+  - `e2e-browser-hub` 的 run 名已从 `.github/workflows/e2e-browser-hub.yml` **恢复成 `e2e-browser-hub`**
+    ⇒ 编译期拒绝已消除(这正是该型的唯一判据)，失败点下移到真实断言，即上面那枚 `cookie_count`。
+  - `ci.yml` 里 "Shared package typecheck (dangling `export *`)" 步**不再出现**于失败清单
+    ⇒ 拓扑构建票生效；该 job 现余两处失败，见下条归属。
+  - **未闭环(不属本批，各自点名)**：① `ai-service-schema-check` 在我之前**至少连续 5 轮 CI 就红**
+    (`36036452869`/`36037290003`/`36038436365`/`36038478370`/`36038774068` 逐一回读)，
+    报错形态 `cookies / del / sqlite_master / approval_grants / sso_identities: exists=False source=?`
+    —— 把 SQL 关键字与 sqlite 内省表当成待对账表，属该 job 的表名抽取判据缺陷或 ai-service
+    在途 schema 改动，**归 ai-service 现场会话**，本批未代改；② `Knip` 仍红，原因与解阻判据
+    已写在上一节"未闭环"第 1、2 条；③ `Provenance watermark check` 在 `36038774068` 红
+    (10506/10507，1 个未覆盖)，**当前 HEAD 复跑 `check-watermark-coverage --no-fix` 与
+    `watermark.mjs verify` 均 exit 0(10510/10510)** ⇒ 已由该文件属主会话在同一窗口内自愈，
+    非本批遗留。
