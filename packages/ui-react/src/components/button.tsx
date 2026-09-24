@@ -28,7 +28,7 @@ const buttonVariants = cva(
 
         primary: 'bg-cta text-cta-foreground shadow-sm hover:bg-cta/90',
         'hero-cta':
-          'bg-gradient-to-r from-primary to-primary/70 text-primary-foreground shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all px-8 py-3 text-base font-semibold rounded-lg',
+          'bg-gradient-to-r from-cta to-cta/70 text-cta-foreground shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all px-8 py-3 text-base font-semibold rounded-lg',
         login: 'w-full bg-cta text-cta-foreground hover:bg-cta/90 h-11 rounded-md font-medium',
         send: 'bg-cta text-cta-foreground hover:bg-cta/90 rounded-md px-4 py-2',
         'card-action':

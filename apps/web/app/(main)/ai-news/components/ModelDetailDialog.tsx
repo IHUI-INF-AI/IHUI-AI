@@ -12,6 +12,7 @@ import { TrendingUp, TrendingDown, Minus, ExternalLink, Zap, Copy } from 'lucide
 import { Tooltip } from '@/components/feedback'
 import { CloseButton } from '@ihui/ui-react'
 import type { LeaderboardEntry } from '@/lib/ai-news-api'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { CapabilityRadar } from './CapabilityRadar'
 import { getVendorPlatform, encodePrefill } from './vendor-platforms'
 import { parseNumeric, highlight, CAPABILITY_THRESHOLDS } from './text-utils'
@@ -44,6 +45,9 @@ function extractCapabilityTags(entry: LeaderboardEntry): Array<{ key: string; la
   return tags
 }
 
+/** 层栈 id(见 @/lib/overlay-stack):本弹窗的 Esc 只在栈顶时被消费 */
+const MODEL_DETAIL_OVERLAY_ID = 'ai-news-model-detail-dialog'
+
 /** 模型详情弹窗:评分 + 核心参数 + 能力雷达图 + 官方 Key + 一键导入 */
 export function ModelDetailDialog({ entry, open, onClose, searchQuery = '' }: Props) {
   const router = useRouter()
@@ -51,11 +55,19 @@ export function ModelDetailDialog({ entry, open, onClose, searchQuery = '' }: Pr
 
   React.useEffect(() => {
     if (!open) return
+    // 层栈:本弹窗打开即入栈为栈顶;Esc 只由栈顶消费(多层同时打开时不再一起关)
+    pushOverlay(MODEL_DETAIL_OVERLAY_ID)
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') {
+        if (!isTopOverlay(MODEL_DETAIL_OVERLAY_ID)) return
+        onClose()
+      }
     }
     window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
+    return () => {
+      popOverlay(MODEL_DETAIL_OVERLAY_ID)
+      window.removeEventListener('keydown', handler)
+    }
   }, [open, onClose])
 
   const capabilityTags = React.useMemo(() => extractCapabilityTags(entry), [entry])

@@ -132,6 +132,7 @@ import {
   type MessageInjection,
   type SteerNotice,
 } from '../utils/chat-render-model'
+import { thinkingTitleView } from '@ihui/shared/chat/element-pack'
 import { BottomActionBar, type BottomActionBarIconType } from '../components/BottomActionBar'
 // 对齐 Uniapp ai_index2.vue 行 117-131:对话页顶部「查看卡片」折叠区(智汇值卡)
 import IntelligentAssistant from '../components/IntelligentAssistant'
@@ -1377,6 +1378,11 @@ export function ChatScreen() {
       // 思考过程(对齐 ai_index2 thinking-process:assistant 消息带 reasoning 时渲染折叠区块,
       // 默认收起只显示标题行;reasoning 由 toChatScreenMessage 映射透传)
       const reasoning = !isUser ? ((item as ChatScreenMessageWithReasoning).reasoning ?? '') : ''
+      // D64③ 双态标题判据走共享真相源:有思考 → thinkingTitle;无思考但有引用 → thinkingRefsTitle
+      const thinkingView = thinkingTitleView(
+        reasoning.trim() !== '',
+        (item as ChatScreenMessageWithReasoning).citations?.length ?? 0,
+      )
       const thinkingKey = item.id
       const thinkingExpanded = expandedThinking.has(thinkingKey)
       return (
@@ -1415,7 +1421,7 @@ export function ChatScreen() {
                     </TouchableOpacity>
                   ) : null}
                 </View>
-              ) : reasoning.trim() !== '' ? (
+              ) : thinkingView ? (
                 <View style={styles.thinkingBlock}>
                   <Pressable
                     style={styles.thinkingHeader}
@@ -1433,11 +1439,17 @@ export function ChatScreen() {
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                       <MessageSquare size={12} color={tokens.text.secondary} />
-                      <Text style={styles.thinkingTitle}>思考过程</Text>
+                      <Text style={styles.thinkingTitle}>
+                      {t(`ai.pane.${thinkingView.titleKey}`, thinkingView.values)}
+                    </Text>
                     </View>
-                    <Text style={styles.thinkingToggle}>{thinkingExpanded ? '收起' : '展开'}</Text>
+                    {reasoning.trim() !== '' ? (
+
+                      <Text style={styles.thinkingToggle}>{thinkingExpanded ? '收起' : '展开'}</Text>
+
+                    ) : null}
                   </Pressable>
-                  {thinkingExpanded ? (
+                  {thinkingExpanded && reasoning.trim() !== '' ? (
                     <Text style={styles.thinkingContent} selectable>
                       {reasoning}
                     </Text>

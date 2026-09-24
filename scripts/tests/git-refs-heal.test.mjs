@@ -6,6 +6,9 @@
 // 被 import 时不会触发任何写动作,因此这里直接 import __test__,不复制判据实现。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { __test__ } from '../git-refs-heal.mjs'
 
 const { splitDeadRefs, isNestedRef, objectExists } = __test__
@@ -79,5 +82,32 @@ test('isNestedRef 只把 depth>=2 的命名空间纳入固化范围', () => {
   assert.equal(isNestedRef('refs/tags/backup/x'), true)
   assert.equal(isNestedRef('refs/remotes/origin/main'), true)
   assert.equal(isNestedRef('refs/heads/main'), false) // depth1 天然存活,入清单反而成噪音
+})
+
+/**
+ * 装车证明:守护侧不得再养第 2 份"无校验写 ref"的路径。
+ *
+ * 成因实测:`git-refs-heal.mjs` 里 `splitDeadRefs` 把死值挡在写盘之前,但
+ * `git-guardian.mjs` 有一份**同名同实现的私有 writeLooseRef**,而每 2 分钟真跑的 `healRefs()`
+ * 直接遍历 broken 无校验地写 —— 修好的那一份只在人工敲 CLI 时才生效,活的那份恰恰是没修的。
+ * 写出指向不存在对象的 ref ⇒ 每一次 `git fetch` 直接 fatal(§5b 当日坏链 83,108 条即此型)。
+ * 本条把"共用同一份判定"钉成源码级不变量:任一条件被后人拆掉即红。
+ */
+test('装车证明:守护必须复用同一份死值分流,且写 ref 前自证对象存在', () => {
+  const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'git-guardian.mjs'), 'utf8')
+  assert.match(
+    src,
+    /import \{ splitDeadRefs, objectExists \} from '\.\/git-refs-heal\.mjs'/,
+    '守护未 import 那份纯函数 ⇒ 它会再长出自己的无校验副本',
+  )
+  assert.match(src, /splitDeadRefs\(broken, objectExists\)/, 'healRefs 未走分流就写 ref')
+  assert.match(
+    src,
+    /function writeLooseRef\(ref, sha\) \{[\s\S]{0,260}if \(!objectExists\(sha\)\)/,
+    'writeLooseRef 丢了"写前自证对象存在"这道兜底(双层防御的第二层,护后来的调用者)',
+  )
+  // 反向对照:不得有人把校验删掉后靠"调用方自觉"
+  const writer = src.slice(src.indexOf('function writeLooseRef'))
+  assert.ok(writer.indexOf('objectExists') < writer.indexOf('writeFileSync'), '校验必须在写盘之前')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

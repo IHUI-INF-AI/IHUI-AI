@@ -42,6 +42,10 @@ import { isTauri, pickDirectory as pickTauriDirectory } from '@/lib/tauri-bridge
 import { saveBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
 import { loadBrowserWorkspaceContextByName } from '@/hooks/use-chat/workspace'
 import { WorkspacePermissionDialog } from './workspace-permission-dialog'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
+
+/** 层栈 id(见 @/lib/overlay-stack):PathNav 手输路径态(行内编辑即一层) */
+const PATH_NAV_INPUT_OVERLAY_ID = 'local-folder-picker-path-input'
 
 interface LocalFolderPickerProps {
   open: boolean
@@ -238,11 +242,15 @@ function PathNav({
   // 切到 input 模式自动聚焦
   React.useEffect(() => {
     if (mode === 'input') {
+      pushOverlay(PATH_NAV_INPUT_OVERLAY_ID)
       const id = window.setTimeout(() => {
         inputRef.current?.focus()
         inputRef.current?.select()
       }, 0)
-      return () => window.clearTimeout(id)
+      return () => {
+        popOverlay(PATH_NAV_INPUT_OVERLAY_ID)
+        window.clearTimeout(id)
+      }
     }
     return
   }, [mode])
@@ -278,6 +286,7 @@ function PathNav({
               e.preventDefault()
               commitInput()
             } else if (e.key === 'Escape') {
+              if (!isTopOverlay(PATH_NAV_INPUT_OVERLAY_ID)) return
               e.preventDefault()
               cancelInput()
             }
