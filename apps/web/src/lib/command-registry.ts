@@ -23,6 +23,8 @@ import {
   Wand2,
   Library,
   Boxes,
+  ListPlus,
+  Navigation,
 } from 'lucide-react'
 import type { ChatMode, IDETabType } from '@ihui/types'
 
@@ -211,10 +213,46 @@ export const BUILTIN_COMMANDS: CommandDef[] = [
 export const COMMAND_GROUP_ORDER: CommandGroup[] = ['navigate', 'view', 'tools', 'settings', 'mode']
 
 // ============================================================================
-// i18n 静态映射(消除动态 key 拼接,next-intl 约束)
+// D89 ② 队列与引导命令化(2026-09-24 立,G-121)
 // ============================================================================
 
-const ALL_IDS = BUILTIN_COMMANDS.map((c) => c.id)
+/**
+ * 排队语义命令(将提示加入队列 / 引导提示)。
+ *
+ * **为何不在 BUILTIN_COMMANDS 里**:`CommandAction` 是闭联合约,被
+ * `lib/ui-action-registry.ts` 三处穷尽 switch 消费(`commandTarget` 的 TS2366
+ * 返回路径检查、`COMMAND_GROUP_BY_ACTION` 的 Record 完整性检查、`invoke` 分发),
+ * 该文件不在 D89 写域内——扩联合类型必在其文件域产生编译错误。
+ * 接入 BUILTIN_COMMANDS 的前置(接线点,届时按既有排队语义分发、不得建第二套排队):
+ * - `queuePrompt` → W27 预备消息 FIFO(`use-message-send.ts` setPendingMessages /
+ *   `message-input.tsx` 流结束出队 effect:423-438);
+ * - `steerPrompt` → steer 中途引导既有通道(`send-message.ts:467` 闪电按钮 → steer 端点,
+ *   conversationId+messageId 反查 upstreamSessionId)。
+ * 前置改动:ui-action-registry 三处 switch 同步扩档 + CommandPalette.execute 扩档
+ * + composer 文本经 chat store draftInput 到达命令层。
+ * i18n:`commandPalette.commands.queuePrompt|steerPrompt.{label,description,keywords}`
+ * 已五语言落词表(经下方 ALL_IDS 纳入 COMMAND_*_KEY 映射)。
+ */
+export type ChatQueueCommandId = 'queuePrompt' | 'steerPrompt'
+
+export interface ChatQueueCommandDef {
+  id: ChatQueueCommandId
+  icon: LucideIcon
+  /** 既有排队语义归属:queuePrompt=W27 预备消息 FIFO;steerPrompt=steer 中途引导 */
+  semantic: 'w27-pending' | 'steer'
+}
+
+export const CHAT_QUEUE_COMMANDS: ChatQueueCommandDef[] = [
+  { id: 'queuePrompt', icon: ListPlus, semantic: 'w27-pending' },
+  { id: 'steerPrompt', icon: Navigation, semantic: 'steer' },
+]
+
+// ============================================================================
+// i18n 静态映射(消除动态 key 拼接,next-intl 约束)
+// D89 ②:排队语义命令一并纳入映射(词表键已五语言落地)
+// ============================================================================
+
+const ALL_IDS = [...BUILTIN_COMMANDS.map((c) => c.id), ...CHAT_QUEUE_COMMANDS.map((c) => c.id)]
 
 export const COMMAND_LABEL_KEY: Record<string, string> = Object.fromEntries(
   ALL_IDS.map((id) => [id, `commands.${id}.label`]),
