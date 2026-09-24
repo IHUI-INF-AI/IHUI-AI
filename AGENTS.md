@@ -515,6 +515,7 @@ pnpm dev                                       # 启动所有服务(web + api + 
 
 - 多会话/多 agent 在同一仓库并行工作时,**禁止**任何破坏性 git 操作:`git restore` / `git stash push` / `git clean -f` / `git reset --hard` / `Remove-Item` 删除其他 agent 创建的文件(包括"看着像垃圾"的 `commit_msg.txt` / 临时测试文件 / 调试日志)。
 - commit 阶段**只 add 本任务相关文件**:`git add <file1> <file2>`,**禁止** `git add .` / `git add -A` / `git add -u`。
+- **提交活文档前必须做"工作树 ⊇ HEAD"行级对账(2026-09-24 立,一夜三次自伤换来的)**:`README.md` / `AGENTS.md` / `PROJECT_PLAN.md` 这类多会话共写的文件,工作树副本**常年滞后于 HEAD**(实测分别少 57 / 48 / 54 行),而 `safe-commit` 的 Step ④ 是 `git commit -- <pathspec>` —— 按路径取**工作树**版本,于是"只 add 本任务文件"的规范提交照样把别人已入库的行整批写回旧态,`git status`、diff 行数、typecheck、守门 71 全都看不出来。动作:① 提交前 `node scripts/merge-live-doc.mjs --file <该文档>`(exit 1 = 存在真丢失);② 需归并时 `--apply`(它按锚点把 HEAD 缺失块插回工作树,并区分"被吃掉"与"被就地改写",后者不插回以免新老并存);③ 归并后必须报"仍判 lost = 0 且长行重复新增 = 0"。**但提交前的报告有时效边界**(2026-09-24 实测:`merge-live-doc` 报 0 丢失之后、`safe-commit` 落地之前,并发会话又推进了一轮 ⇒ 那次提交仍丢掉 2 条他人登记行)。所以顺序必须是四步:**报告 → 提交 → 立刻 `git show <新提交>^..<新提交>` 做行级对账 → 有丢失就地回补**(发现手段只能是提交后的 diff,`git status` 与提交前那次报告都看不见)。判据是**字符二元组** Jaccard ≥ 0.6 —— 前缀与按空格切词在中文里都会漏(工具自己栽过一次,README 里一度同时留下 `**第 93 项 X**` 与 `**守门 X**` 两行),已由 `--self-test` 8 例钉死。登记条目见 PLAN 的 O46④/O46⑩。
 - **提交活文档前必须做"工作树 ⊇ HEAD"行级对账(2026-09-24 立,一夜三次自伤换来的)**:`README.md` / `AGENTS.md` / `PROJECT_PLAN.md` 这类多会话共写的文件,工作树副本**常年滞后于 HEAD**(实测分别少 57 / 48 / 54 行),而 `safe-commit` 的 Step ④ 是 `git commit -- <pathspec>` —— 按路径取**工作树**版本,于是"只 add 本任务文件"的规范提交照样把别人已入库的行整批写回旧态,`git status`、diff 行数、typecheck、守门 71 全都看不出来。动作:① 提交前 `node scripts/merge-live-doc.mjs --file <该文档>`(exit 1 = 存在真丢失);② 需归并时 `--apply`(它按锚点把 HEAD 缺失块插回工作树,并区分"被吃掉"与"被就地改写",后者不插回以免新老并存);③ 归并后必须报"仍判 lost = 0 且长行重复新增 = 0"。判据是**字符二元组** Jaccard ≥ 0.6 —— 前缀与按空格切词在中文里都会漏(工具自己栽过一次,README 里一度同时留下 `**第 93 项 X**` 与 `**守门 X**` 两行),已由 `--self-test` 8 例钉死。登记条目见 PLAN 的 O46④/O46⑩。
 - 正确流程:预检(`git status --porcelain`)→ 隔离 add 本任务文件 → 验证 staged 仅含本任务文件。
 - **任务完成必须自动 commit(2026-09-20 用户指令,强制)**:任务/批次完成且验证全绿后,agent **必须立即自动 commit**——不经询问、不等用户确认、禁止以"不擅自 commit"为由把已验证的工作留在未提交状态。push 仍按 §16/§20 执行(用户未要求时不主动 push)。commit 形态仍受本节约束(多 agent 并行必须 safe-commit.mjs;单 agent 直接 add 声明文件;禁止 `git add .` / `-A` / `-u`)。
@@ -1376,6 +1377,20 @@ C 盘 120 GB 频繁告急,根因排查发现:
 `HKCU\Environment\Path` 首位、守门脚本按 `%USERPROFILE%` 拼路径),junction 让旧路径继续可解析,
 因此**不需要也不允许**去改 `Path` 或逐个改码;改环境变量反而会造出"双根分裂"。
 校验方法:`rustup show home`、`reg query HKCU\Environment`、`(Get-Item ~\.cargo).Attributes -match ReparsePoint`。
+**盘根"写歪项"一律封口改道,不许只删(2026-09-24 立)**:第三方程序(剪映、微信输入法、MSYS 侧工具、
+各类安装器)用**相对路径**写自己的状态,而进程工作目录恰好是 `C:\` ⇒ `common_attachment`、
+`persistent_data`、`tmp`、`tools` 直接长在盘根。**这类残骸删掉必然复发,因为成因改不了(闭源)**。
+唯一正解是把那个名字换成 junction 指向 §15b 落点 —— 程序按原路径读写不变,内容落到 D 盘。
+清单与执行的唯一入口是 `scripts/seal-c-root-stray.mjs`(`--check` 零副作用 / `--apply` 幂等,
+**换机或重装后需重跑一次**),守门与 `c-drive-auto-maintain.ps1` 第 4 段都 import 同一份清单,
+**禁止在别处再抄一份名字**。发现某新残骸也属这一型:加进 `SEALED_DIRS`(必须带 `owner` + `evidence`
+两项取证)而不是写进删除名单。
+**⚠️ junction 的头号危险是"被递归穿透"(同日实测)**:PowerShell 7 的 `Get-ChildItem -Recurse`
+**会穿过 junction** 枚举到目标里的文件,于是"按名字删 `C:\tmp\ihui-*`"会顺着链接清空 D 盘真实目标,
+把改道机制变成自毁机制。三条要求:① 任何递归删除/枚举前必须判 `ReparsePoint`,重解析点只能
+`[System.IO.Directory]::Delete($path, $false)` 断链;② 量体积的工具遇 junction **不得跟随**
+(否则把 D 盘的量报成 C 盘的债);③ Node 侧 `lstatSync(p).isSymbolicLink()` 对 junction 报 `true`,
+`rmSync(link)` 只断链不穿透(均已实测)。判据由 `seal-c-root-stray` 与 C 盘污染守门的镜像测试钉死。
 新增工具的缓存落点一律走 `D:\DevEnv\cache\userhome\<名称>` + junction,不得再在家目录留实体目录。
 **⚠️ junction 只管"路径",管不了"身份"(2026-09-24 实测的第四类真因)**:同一个 `$env:TEMP` /
 `os.tmpdir()` 在**不同身份下指向不同目录** —— HKCU 把交互账户 TEMP 迁到 `D:\DevEnv\Temp` 之后,
