@@ -4,6 +4,26 @@
 
 import { Platform } from 'react-native'
 import { SSO_CLIENT_IDS } from '@ihui/shared/constants'
+import { version as PKG_VERSION } from '../../package.json'
+
+/** 应用版本唯一真相源 = apps/mobile-rn/package.json(此前 SettingsScreen 写死 1.0.2、
+ *  SharedDemoScreen 写死 1.0.0,而真实版本是 0.0.5 —— 三个版本号互相矛盾)。 */
+export const APP_VERSION = PKG_VERSION
+
+/**
+ * 首方 User-Agent(2026-09-24 立)。RN 的 fetch 由 okhttp 实现,而后端
+ * `apps/api/src/utils/bot-detection.ts` 把 `okhttp` 列进 CURL_LIKE_KEYWORDS ——
+ * 不设 UA 等于自家 App 的**每个**请求都被判为爬虫:
+ *  ① 一旦出口 IP 越过挑战阈值,429 会带 `X-Challenge-Type: bot` 并要求完成一个
+ *    RN 端根本无法渲染的 CAPTCHA(`/api/security/challenge` 无任何客户端实现);
+ *  ② 每次请求都触发 `recordBadEvent(ip, 'automation-ua')`,持续拉低用户出口 IP 的
+ *    信誉,可升级到 403「IP 已被临时封禁 15 分钟」。
+ * 手机走运营商 NAT,一个出口 IP 承载大量真实用户,误判代价被成倍放大。
+ * 字符串刻意不含任何 curl-like / bot 关键字。
+ */
+export const APP_USER_AGENT = `IHUIAI-App/${APP_VERSION} (${Platform.OS}/${
+  typeof Platform.Version === 'number' ? Platform.Version : Platform.Version ?? 'unknown'
+})`
 
 const ENV_API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:8802'
 
