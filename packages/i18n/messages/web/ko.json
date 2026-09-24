@@ -7660,6 +7660,7 @@
       "thinkingElapsedTitle": "{time} 동안 사고 중",
       "thinkingStreaming": "사고 중...",
       "thinkingTitle": "사고 과정",
+      "thinkingRefsTitle": "{count}개의 참조를 사용했습니다",
       "timelineClearFilters": "필터 지우기",
       "timelineCountDone": "완료",
       "timelineCountFailed": "실패",
@@ -8409,6 +8410,119 @@
           "emptyDraft": "초안이 비어 있습니다. 내용을 입력한 뒤 다듬어 주세요."
         },
         "restartHint": "다시 시작한 뒤 적용됩니다. 초안은 그대로 보관되었습니다."
+      },
+      "queueOps": {
+        "ariaLabel": "대기 메시지 조작 바",
+        "reorderAria": "드래그하여 대기열 순서를 변경합니다. 포커스된 상태에서 위/아래 방향키를 사용할 수 있습니다",
+        "undo": "메시지 취소",
+        "edit": "편집",
+        "editConfirm": "저장",
+        "editCancel": "취소",
+        "interruptAndRun": "중단 후 실행",
+        "mode": {
+          "label": "대기열 모드",
+          "steer": "끼어들기 우선",
+          "queue": "대기 우선"
+        },
+        "denied": {
+          "reorder": "대기열 순서를 변경할 수 없습니다",
+          "undo": "대기 중인 메시지를 취소할 수 없습니다",
+          "interject": "현재 Runtime은 끼어들기를 지원하지 않으므로 메시지는 대기열에 남아 있습니다"
+        },
+        "degraded": {
+          "runtimeNoInterject": "현재 Runtime은 끼어들기를 지원하지 않으므로 메시지는 대기열에 남아 있습니다"
+        }
+      },
+      "elementPack": {
+        "heatmap": {
+          "title": "크레딧 소비 히트맵",
+          "legendLabel": "범례",
+          "dayTitle": "{date}의 하루 소비량",
+          "tab": {
+            "heatmap": "히트맵",
+            "sessions": "세션 상세"
+          },
+          "legend": {
+            "zero": "소비 없음",
+            "low": "낮음",
+            "mid": "중간",
+            "high": "높음"
+          },
+          "sessionsEmpty": "세션 상세가 없습니다"
+        },
+        "imagePreview": {
+          "counter": "{index} / {total} 번째 이미지",
+          "saveSuccess": "이미지를 저장했습니다",
+          "saveFailed": "이미지 저장에 실패했습니다",
+          "copySuccess": "이미지를 복사했습니다",
+          "copyFailed": "이미지 복사에 실패했습니다",
+          "prev": "이전 이미지",
+          "next": "다음 이미지",
+          "zoomOut": "축소",
+          "zoomIn": "확대",
+          "save": "이미지 저장",
+          "copy": "이미지 복사"
+        },
+        "backgroundTask": {
+          "state": {
+            "pending": "시작 대기",
+            "running": "실행 중",
+            "stopping": "중지 중",
+            "stopFailed": "중지 실패",
+            "completed": "완료",
+            "failed": "실패",
+            "cancelled": "취소됨",
+            "timeout": "시간 초과"
+          },
+          "hint": {
+            "stopping": "중지 요청을 보냈습니다. 작업 종료를 기다리는 중입니다",
+            "stopFailed": "하위 작업이 아직 실행 중입니다. 중지를 다시 시도하세요",
+            "timeout": "작업 시간이 초과되었습니다. 다시 시도할 수 있습니다"
+          },
+          "action": {
+            "none": "사용 가능한 작업 없음",
+            "stop": "중지",
+            "retryStop": "중지 재시도",
+            "retry": "재시도"
+          }
+        },
+        "feedbackSurvey": {
+          "question": "이번 답변이 문제 해결에 도움이 되었나요?",
+          "scale": {
+            "1": "매우 나쁨",
+            "2": "나쁨",
+            "3": "보통",
+            "4": "좋음",
+            "5": "매우 좋음"
+          },
+          "commentPlaceholder": "추가 의견 (선택)",
+          "submit": "제출",
+          "dismiss": "나중에",
+          "submitted": "의견을 보내주셔서 감사합니다",
+          "answer": {
+            "solved": "해결됨",
+            "partial": "부분적으로 해결됨",
+            "notSolved": "해결되지 않음"
+          }
+        }
+      },
+      "multiPane": {
+        "ariaLabel": "다중 작업 패널",
+        "resizeAriaLabel": "드래그하여 패널 크기 조절",
+        "splitRight": "오른쪽으로 분할",
+        "splitDown": "아래로 분할",
+        "maximize": "패널 최대화",
+        "restore": "패널 복원",
+        "closePane": "패널 닫기",
+        "forkFailureAriaLabel": "세션 사본 열기 실패",
+        "forkFailure": {
+          "conversationMissing": "원본 세션이 없어 사본을 열 수 없습니다",
+          "capacityFull": "패널 수 한도에 도달했습니다. 다른 패널을 닫으세요",
+          "unknown": "세션 사본 열기에 실패했습니다. 다시 시도하세요"
+        },
+        "retryFork": "재시도",
+        "emptyPaneAriaLabel": "빈 패널입니다. 사이드바에서 세션을 드래그할 수 있습니다",
+        "emptyPlaceholder": "사이드바에서 이 패널로 세션을 드래그하세요"
       }
     },
     "permissionConfirm": {
@@ -8576,12 +8690,7 @@
       "targetPlaceholder": "예:명문 고등학교, 985대학"
     },
     "options": {
-      "classLevel": [
-        "우수(학급 상위 10%)",
-        "양호(10-30%)",
-        "보통(30-70%)",
-        "미흡(하위 30%)"
-      ],
+      "classLevel": ["우수(학급 상위 10%)", "양호(10-30%)", "보통(30-70%)", "미흡(하위 30%)"],
       "difficulty": [
         "국어 독해",
         "영어 청취·회화",
@@ -8598,12 +8707,7 @@
         "시험 불안",
         "가정 환경 영향"
       ],
-      "school": [
-        "주요 중학교",
-        "일반 중학교",
-        "국제 학교",
-        "사립 학교"
-      ]
+      "school": ["주요 중학교", "일반 중학교", "국제 학교", "사립 학교"]
     },
     "result": {
       "failed": "AI 분석 실패",
@@ -11331,233 +11435,127 @@
     "commands": {
       "steerPrompt": {
         "description": "실행 중인 답변에 현재 입력을 가이드로 주입합니다",
-        "keywords": [
-          "스티어",
-          "가이드",
-          "steer"
-        ],
+        "keywords": ["스티어", "가이드", "steer"],
         "label": "프롬프트 스티어"
       },
       "queuePrompt": {
         "description": "현재 입력을 대기열에 추가하여 현재 답변이 끝나면 자동으로 전송합니다",
-        "keywords": [
-          "대기열",
-          "큐",
-          "queue"
-        ],
+        "keywords": ["대기열", "큐", "queue"],
         "label": "프롬프트를 대기열에 추가"
       },
       "agent": {
         "description": "AI 에이전트 관리 및 디스패치",
-        "keywords": [
-          "에이전트",
-          "agent",
-          "bot"
-        ],
+        "keywords": ["에이전트", "agent", "bot"],
         "label": "AI 에이전트"
       },
       "browser": {
         "description": "작업 공간에서 웹 탐색",
-        "keywords": [
-          "브라우저",
-          "웹",
-          "browser"
-        ],
+        "keywords": ["브라우저", "웹", "browser"],
         "label": "내장 브라우저"
       },
       "capabilityMarket": {
         "description": "기능 팩 탐색 및 설치",
-        "keywords": [
-          "기능",
-          "마켓",
-          "market",
-          "플러그인"
-        ],
+        "keywords": ["기능", "마켓", "market", "플러그인"],
         "label": "기능 마켓"
       },
       "codeChanges": {
         "description": "작업 공간 코드 변경 확인",
-        "keywords": [
-          "코드",
-          "변경",
-          "diff",
-          "수정"
-        ],
+        "keywords": ["코드", "변경", "diff", "수정"],
         "label": "코드 변경"
       },
       "connectors": {
         "description": "외부 서비스 연결 관리",
-        "keywords": [
-          "커넥터",
-          "연결",
-          "connector"
-        ],
+        "keywords": ["커넥터", "연결", "connector"],
         "label": "커넥터"
       },
       "document": {
         "description": "작업 공간 문서 편집",
-        "keywords": [
-          "문서",
-          "편집",
-          "doc"
-        ],
+        "keywords": ["문서", "편집", "doc"],
         "label": "문서"
       },
       "editor": {
         "description": "코드 에디터 열기",
-        "keywords": [
-          "에디터",
-          "코드",
-          "editor"
-        ],
+        "keywords": ["에디터", "코드", "editor"],
         "label": "에디터"
       },
       "mcp": {
         "description": "MCP 서버 및 도구 관리",
-        "keywords": [
-          "MCP",
-          "서버",
-          "도구"
-        ],
+        "keywords": ["MCP", "서버", "도구"],
         "label": "MCP 관리"
       },
       "mcpStore": {
         "description": "MCP 서비스 탐색 및 설치",
-        "keywords": [
-          "MCP",
-          "스토어",
-          "store",
-          "설치"
-        ],
+        "keywords": ["MCP", "스토어", "store", "설치"],
         "label": "MCP 스토어"
       },
       "modeAsk": {
         "description": "질문 모드로 전환(도구 비활성)",
-        "keywords": [
-          "질문",
-          "ask",
-          "모드"
-        ],
+        "keywords": ["질문", "ask", "모드"],
         "label": "질문 모드"
       },
       "modeBuild": {
         "description": "AI가 직접 빌드하고 수정",
-        "keywords": [
-          "빌드",
-          "모드",
-          "build"
-        ],
+        "keywords": ["빌드", "모드", "build"],
         "label": "빌드 모드"
       },
       "modePlan": {
         "description": "계획 수립 후 실행",
-        "keywords": [
-          "계획",
-          "모드",
-          "plan"
-        ],
+        "keywords": ["계획", "모드", "plan"],
         "label": "계획 모드"
       },
       "modeReview": {
         "description": "기존 코드 검토",
-        "keywords": [
-          "리뷰",
-          "모드",
-          "review"
-        ],
+        "keywords": ["리뷰", "모드", "review"],
         "label": "리뷰 모드"
       },
       "modeSpec": {
         "description": "스펙에서 구현 생성",
-        "keywords": [
-          "스펙",
-          "모드",
-          "spec"
-        ],
+        "keywords": ["스펙", "모드", "spec"],
         "label": "스펙 모드"
       },
       "skill": {
         "description": "AI 스킬 관리 및 호출",
-        "keywords": [
-          "스킬",
-          "skill",
-          "능력"
-        ],
+        "keywords": ["스킬", "skill", "능력"],
         "label": "스킬"
       },
       "terminal": {
         "description": "통합 터미널 열기",
-        "keywords": [
-          "터미널",
-          "콘솔",
-          "terminal"
-        ],
+        "keywords": ["터미널", "콘솔", "terminal"],
         "label": "터미널"
       },
       "ai-world": {
         "description": "AI 애플리케이션 세계 탐색",
-        "keywords": [
-          "AI",
-          "월드",
-          "앱"
-        ],
+        "keywords": ["AI", "월드", "앱"],
         "label": "AI 월드"
       },
       "chat": {
         "description": "AI 어시스턴트와 대화",
-        "keywords": [
-          "채팅",
-          "대화",
-          "AI",
-          "chat"
-        ],
+        "keywords": ["채팅", "대화", "AI", "chat"],
         "label": "AI 채팅"
       },
       "drama": {
         "description": "AI 생성 단편 드라마",
-        "keywords": [
-          "드라마",
-          "비디오",
-          "AI",
-          "drama"
-        ],
+        "keywords": ["드라마", "비디오", "AI", "drama"],
         "label": "AI 드라마"
       },
       "profile": {
         "description": "프로필 및 설정 관리",
-        "keywords": [
-          "프로필",
-          "사용자",
-          "설정"
-        ],
+        "keywords": ["프로필", "사용자", "설정"],
         "label": "프로필"
       },
       "search": {
         "description": "전역 콘텐츠 검색",
-        "keywords": [
-          "검색",
-          "찾기",
-          "search"
-        ],
+        "keywords": ["검색", "찾기", "search"],
         "label": "검색"
       },
       "settings": {
         "description": "시스템 환경 설정 및 구성",
-        "keywords": [
-          "설정",
-          "환경설정",
-          "구성"
-        ],
+        "keywords": ["설정", "환경설정", "구성"],
         "label": "설정"
       },
       "skillsMarket": {
         "description": "자가 진화 스킬 탐색 및 설치",
-        "keywords": [
-          "skill",
-          "스킬",
-          "마켓",
-          "market"
-        ],
+        "keywords": ["skill", "스킬", "마켓", "market"],
         "label": "스킬 마켓"
       }
     },
@@ -13960,37 +13958,25 @@
       "quadrants": [
         {
           "description": "단순 결정 + 단순 실행, 고빈도 앱 신속 배포",
-          "examples": [
-            "지식 Q&A",
-            "프로세스 자동화"
-          ],
+          "examples": ["지식 Q&A", "프로세스 자동화"],
           "tag": "Q1",
           "title": "효율적 어시스턴트"
         },
         {
           "description": "복잡한 결정 + 단순 실행, 심층 분석 및 제안 제공",
-          "examples": [
-            "데이터 분석",
-            "의사결정 지원"
-          ],
+          "examples": ["데이터 분석", "의사결정 지원"],
           "tag": "Q2",
           "title": "스마트 어드바이저"
         },
         {
           "description": "단순 결정 + 복잡한 실행, 크로스시스템 복잡 작업 처리",
-          "examples": [
-            "회의 일정",
-            "승인 프로세스"
-          ],
+          "examples": ["회의 일정", "승인 프로세스"],
           "tag": "Q3",
           "title": "실행 전문가"
         },
         {
           "description": "복잡한 결정 + 복잡한 실행, 자율 기획 및 멀티에이전트 협업",
-          "examples": [
-            "마케팅 자동화",
-            "멀티에이전트 협업"
-          ],
+          "examples": ["마케팅 자동화", "멀티에이전트 협업"],
           "tag": "Q4",
           "title": "올라운드 전문가"
         }
@@ -14124,31 +14110,19 @@
       "items": [
         {
           "description": "오프라인 과정, 탐구 활동, 상호 지원 커뮤니티로 뜻이 맞는 의사결정자와 깊이 연결",
-          "features": [
-            "체계적 과정",
-            "실천 탐구",
-            "커뮤니티 상호 지원"
-          ],
+          "features": ["체계적 과정", "실천 탐구", "커뮤니티 상호 지원"],
           "tag": "MODULE 01",
           "title": "오프라인 커뮤니티"
         },
         {
           "description": "편리한 온라인 소통 플랫폼, 언제 어디서나 정보와 지원 획득",
-          "features": [
-            "소통 플랫폼",
-            "경험 공유",
-            "자원 연결"
-          ],
+          "features": ["소통 플랫폼", "경험 공유", "자원 연결"],
           "tag": "MODULE 02",
           "title": "온라인 커뮤니티"
         },
         {
           "description": "전문 대형 모델과 에이전트 서비스, 심층 AI화 컨설팅 및 지원 제공",
-          "features": [
-            "전문 대형 모델",
-            "에이전트 서비스",
-            "컨설팅 서비스"
-          ],
+          "features": ["전문 대형 모델", "에이전트 서비스", "컨설팅 서비스"],
           "tag": "MODULE 03",
           "title": "AI 전문 서비스"
         }
@@ -16962,15 +16936,7 @@
       "title": "Top 5 페이지",
       "visitsHeader": "방문수"
     },
-    "weekdays": [
-      "월",
-      "화",
-      "수",
-      "목",
-      "금",
-      "토",
-      "일"
-    ]
+    "weekdays": ["월", "화", "수", "목", "금", "토", "일"]
   },
   "models": {
     "relay": {
@@ -17718,12 +17684,7 @@
         ]
       },
       "starter": {
-        "features": [
-          "1M 토큰 한도",
-          "기본 모델 사용 가능",
-          "5개 API 토큰",
-          "커뮤니티 지원"
-        ]
+        "features": ["1M 토큰 한도", "기본 모델 사용 가능", "5개 API 토큰", "커뮤니티 지원"]
       }
     },
     "productSchema": {
@@ -18960,13 +18921,7 @@
       "enterprise": {
         "contactSales": "문의하기",
         "cta": "문의하기",
-        "features": [
-          "무제한 크레딧",
-          "사설 배포",
-          "SSO/SAML 2.0",
-          "감사 로그",
-          "전담 기술 지원"
-        ],
+        "features": ["무제한 크레딧", "사설 배포", "SSO/SAML 2.0", "감사 로그", "전담 기술 지원"],
         "name": "기업판"
       },
       "free": {
