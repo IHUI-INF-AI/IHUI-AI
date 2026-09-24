@@ -37,6 +37,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { getAgents, fetchApi, type Agent, type AgentStatus } from '@ihui/api-client'
+import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import { tokens } from '../theme/active-tokens'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -130,8 +131,9 @@ export default function DevEnterScreen() {
         } else {
           Alert.alert(t('common.hint'), res.error || '加载失败，请重试')
         }
-      } catch {
-        Alert.alert(t('common.hint'), '加载失败，请检查网络')
+      } catch (e: unknown) {
+        const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+        Alert.alert(t('common.hint'), detail.trim() ? toUserFriendlyMessage(e) : '加载失败，请检查网络')
       } finally {
         setLoading(false)
         setRefreshing(false)
@@ -179,8 +181,9 @@ export default function DevEnterScreen() {
       } else {
         Alert.alert(t('common.hint'), res.error || '下架失败，请重试')
       }
-    } catch {
-      Alert.alert(t('common.hint'), '下架失败，请检查网络')
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      Alert.alert(t('common.hint'), detail.trim() ? toUserFriendlyMessage(e) : '下架失败，请检查网络')
     } finally {
       setOfflining(false)
     }
