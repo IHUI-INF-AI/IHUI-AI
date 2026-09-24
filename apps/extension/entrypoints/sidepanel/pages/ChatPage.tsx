@@ -8,15 +8,26 @@ import {
   fetchModels,
   formatSSEError,
   getModelContextCapacity,
+  createConversation,
+  sendMessage as persistChatMessage,
+  branchConversation,
+  getMessages as getConversationMessages,
   type StreamChatOptions,
   type LlmModel,
 } from '@ihui/api-client'
+import { GitBranch } from 'lucide-react'
 import { formatTokenCount } from '@ihui/shared/utils'
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS } from '@ihui/shared'
 import { Button, Input } from '@ihui/ui-react'
 import { useOutletContext } from 'react-router-dom'
 import { useI18n } from '../../../src/i18n'
 import { pickRetryTarget } from './chat-send-utils'
+import {
+  branchTargetServerId,
+  failureReasonText,
+  failureStatusText,
+  hydrateBranchTranscript,
+} from './chat-branch-utils'
 import { categoryLabel, historyLabel, splitModelCatalog } from '../../../src/lib/model-catalog'
 import { toolsForChatRequest } from '../../../lib/ui-control-tools'
 import { VoiceInput } from '../components/VoiceInput'
@@ -53,6 +64,13 @@ export default function ChatPage() {
   const [model, setModel] = useState<string>(FALLBACK_MODELS[0]!.id)
   const [notice, setNotice] = useState('')
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  // 分叉(2026-09-25 接后端既有 branch 出口):扩展端原本是"无会话"纯流式聊天,
+  // 后端 branch 接口只认已落库的 conversationId + messageId,所以宿主必须先持有
+  // 一条真实会话。首轮发送时懒创建会话并逐条落库,才谈得上"对某条 AI 回复分叉"。
+  const [conversationId, setConversationId] = useState<string | null>(null)
+  /** 本地消息 id → 后端 chat_messages.id(只有持久化成功的消息才有) */
+  const [serverIds, setServerIds] = useState<Record<string, string>>({})
+  const [branching, setBranching] = useState(false)
 
   // 默认只展示"最新 + 对话类",其余按用途分类收进"历史模型"optgroup
   // (原生 select 无法折叠,optgroup 就是它的折叠区)
@@ -107,6 +125,95 @@ export default function ChatPage() {
     })
   }
 
+  /** 懒创建后端会话;失败不阻断本轮对话(流式本身不依赖会话),但必须交代原因。 */
+  const ensureConversation = async (): Promise<string | null> => {
+    if (conversationId) return conversationId
+    const res = await createConversation({ model })
+    if (!res.success) {
+      setNotice(
+        t('chat.conversationCreateFailed', {
+          reason: failureReasonText(res.error),
+          status: failureStatusText(res.status),
+        }),
+      )
+      return null
+    }
+    setConversationId(res.data.conversation.id)
+    return res.data.conversation.id
+  }
+
+  /** 逐条落库(与 web persistMessageSafe 同一形态:失败要响但不打断对话)。
+   *  成功后登记 本地 id → 服务端 id,该条才具备被分叉的资格。 */
+  const persistTurnMessage = async (
+    localId: string,
+    cid: string,
+    content: string,
+    role: 'user' | 'assistant',
+  ) => {
+    const trimmed = content.trim()
+    if (!trimmed) return
+    const res = await persistChatMessage(cid, trimmed, role)
+    if (!res.success) {
+      setNotice(
+        t('chat.messageSaveFailed', {
+          reason: failureReasonText(res.error),
+          status: failureStatusText(res.status),
+        }),
+      )
+      return
+    }
+    const serverId = res.data.message.id
+    setServerIds((cur) => ({ ...cur, [localId]: serverId }))
+  }
+
+  /** 对某条 AI 回复分叉出新会话(后端既有出口 branchConversation)。
+   *  成功后整页切到新会话:新会话消息由服务端回读,本地 id 即服务端 id。 */
+  const onBranch = async (messageId: string) => {
+    if (!conversationId || branching) return
+    const targetServerId = serverIds[messageId]
+    if (!targetServerId) return
+    setBranching(true)
+    setError('')
+    setNotice('')
+    try {
+      const res = await branchConversation(conversationId, targetServerId)
+      if (!res.success) {
+        setError(
+          t('chat.branchFailed', {
+            reason: failureReasonText(res.error),
+            status: failureStatusText(res.status),
+          }),
+        )
+        return
+      }
+      const newConversationId = res.data.conversation.id
+      const loaded = await getConversationMessages(newConversationId, { pageSize: 100 })
+      if (!loaded.success) {
+        setError(
+          t('chat.branchFailed', {
+            reason: failureReasonText(loaded.error),
+            status: failureStatusText(loaded.status),
+          }),
+        )
+        return
+      }
+      const hydrated = hydrateBranchTranscript(loaded.data.messages)
+      setConversationId(newConversationId)
+      setServerIds(hydrated.serverIds)
+      setMessages(hydrated.messages)
+      setNotice(t('chat.branchDone'))
+    } catch (err) {
+      setError(
+        t('chat.branchFailed', {
+          reason: failureReasonText(err instanceof Error ? err.message : String(err)),
+          status: failureStatusText(undefined),
+        }),
+      )
+    } finally {
+      setBranching(false)
+    }
+  }
+
   /** overrideText 用于 G-152「重试上一条」:错误后不要求用户重新输入同一句话。 */
   const onSend = async (overrideText?: string) => {
     const text = (overrideText ?? input).trim()
@@ -114,13 +221,22 @@ export default function ChatPage() {
     setInput('')
     setError('')
     setNotice('')
+    const userLocalId = `u-${Date.now()}`
+    const assistantLocalId = `a-${Date.now()}`
     const next: ChatMessage[] = [
       ...messages,
-      { id: `u-${Date.now()}`, role: 'user', content: text },
-      { id: `a-${Date.now()}`, role: 'assistant', content: '' },
+      { id: userLocalId, role: 'user', content: text },
+      { id: assistantLocalId, role: 'assistant', content: '' },
     ]
     setMessages(next)
     setStreaming(true)
+
+    // 会话与落库:失败只交代、不打断流式(流式不依赖会话)
+    const cid = await ensureConversation()
+    if (cid) void persistTurnMessage(userLocalId, cid, text, 'user')
+    // onDone 时 React 状态未必已刷新,正文用局部累加量兜住;出错的那轮不落库
+    let assistantText = ''
+    let streamFailed = false
 
     const controller = new AbortController()
     const timeoutId = window.setTimeout(() => controller.abort(), 15_000)
@@ -151,6 +267,7 @@ export default function ChatPage() {
       },
       onDelta: (delta) => {
         window.clearTimeout(timeoutId)
+        assistantText += delta
         updateAssistantMessage((m) => ({ ...m, content: m.content + delta }))
       },
       // W6:推理过程(reasoning model),追加到 assistant 消息的 reasoning 字段
@@ -160,6 +277,8 @@ export default function ChatPage() {
       },
       onError: (msg, info) => {
         window.clearTimeout(timeoutId)
+        // 错误正文是端内自造的占位文本,不得当成 AI 回复落库(否则分叉过去是半截错误)
+        streamFailed = true
         // info 必须透传给 formatSSEError:errorCode 是"厂商账号额度耗尽"等稳定码的唯一判据
         // (ai-service 未登记该码的 HTTP 状态,实际仍回落默认 502,按状态码分类会误判)
         const formatted = formatSSEError(new Error(msg), info)
@@ -180,6 +299,9 @@ export default function ChatPage() {
       onDone: () => {
         window.clearTimeout(timeoutId)
         setStreaming(false)
+        if (cid && !streamFailed) {
+          void persistTurnMessage(assistantLocalId, cid, assistantText, 'assistant')
+        }
       },
       // ===== W6 新增回调:与 web 端 use-chat 对齐,补齐工具/用量/计划/终端 =====
       // 工具调用:start 追加 running 项;result 按 toolCallId 回填状态、结果与耗时
@@ -457,6 +579,21 @@ export default function ChatPage() {
                   <MessageContent message={m} streaming={streaming && m.id === lastMessageId} />
                 )}
               </div>
+              {/* 分叉入口(2026-09-25):仅对**已落库的 AI 回复**给出 —— 判据见 chat-branch-utils */}
+              {branchTargetServerId(m, serverIds, { streaming }) ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  className="mt-1 self-start px-1.5 text-xs text-muted-foreground"
+                  disabled={branching}
+                  data-testid="branch-from-here"
+                  onClick={() => void onBranch(m.id)}
+                >
+                  <GitBranch className="h-3 w-3" aria-hidden />
+                  {t('chat.branchFromHere')}
+                </Button>
+              ) : null}
             </div>
           ))
         )}
