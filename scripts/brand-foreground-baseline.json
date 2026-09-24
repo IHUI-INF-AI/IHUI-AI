@@ -24,7 +24,7 @@
     "apps/mobile-rn/src/components/EarningsStatisticsCard.tsx": 1,
     "apps/mobile-rn/src/components/FloatingActionButton.tsx": 1,
     "apps/mobile-rn/src/components/FullRankingList.tsx": 1,
-    "apps/mobile-rn/src/components/InputArea.tsx": 1,
+    "apps/mobile-rn/src/components/InputArea.tsx": 3,
     "apps/mobile-rn/src/components/KnowledgePlanet.tsx": 1,
     "apps/mobile-rn/src/components/LoginPopUp.tsx": 3,
     "apps/mobile-rn/src/components/PayButton.tsx": 1,
@@ -260,7 +260,10 @@
     "packages/app/src/features/wallet/WalletScreen.tsx": 1,
     "packages/app/src/features/withdraw/WithdrawScreen.tsx": 1
   },
-  "webClassPairCounts": {},
+  "webClassPairCounts": {
+    "apps/miniapp-taro/src/components/SkillsPopup.tsx": 1,
+    "apps/miniapp-taro/src/pages/distribution/plan/index.tsx": 2
+  },
   "pairedCtaNotVisibleToRule": {
     "addedBy": "本会话 2026-09-24",
     "why": "§4 成对主 CTA,但配对形态在规则视野外(兄弟命名不匹配 / 前景走 JSX prop)。不为此放宽规则,否则\"同一 StyleSheet 内无配对的白卡片\"会一起被放过 —— 那才是 R3 真正要拦的东西。",
