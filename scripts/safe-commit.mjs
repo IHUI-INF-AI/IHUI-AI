@@ -264,35 +264,83 @@ log('info', 'Step 4/5: git commit -- <pathspec> — 首次尝试(含 pre-commit 
 // Step 5 执行前抢先提交,HEAD 即前移 → 误判"污染事故"并误导 agent 执行 git reset HEAD~1
 // (会破坏他人提交)。改为基于 beforeSha..HEAD 区间定位本次提交后再校验。
 const beforeSha = (run('git rev-parse HEAD', { allowFail: true }) || '').trim()
-let commitResult = spawnSync(
-  'git',
-  ['commit', '-m', finalMessage, '--', ...expectedFiles],
-  {
-    stdio: 'inherit',
+
+/**
+ * 首次失败**必须分诊**,否则一次环境抖动就会被升级成"109 道门全跳"。
+ * 实测事故(2026-09-24):`git commit` 因并发 `.git/index.lock` 争用直接 exit 128 —— 钩子一次没跑,
+ * 而旧流程把它与"pre-commit 判红"同形对待,立刻 `--no-verify` 重试并成功,交付看起来干净,
+ * 实际所有质量门都被跳过且无人知晓。判据:lock 类失败重试;真·钩子失败才允许应急跳过。
+ */
+const GIT_LOCK_MISS =
+  /Unable to create .*index\.lock|Another git process|index\.lock'?: ?File exists|cannot lock ref/i
+const isGitLockFailure = (status, out) => status === 128 || GIT_LOCK_MISS.test(out)
+const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+const commitArgs = (skipHooks) => [
+  'commit',
+  ...(skipHooks ? ['--no-verify'] : []),
+  '-m',
+  finalMessage,
+  '--',
+  ...expectedFiles,
+]
+const pump = (r) => {
+  if (r.stdout) process.stdout.write(r.stdout)
+  if (r.stderr) process.stderr.write(r.stderr)
+  return `${r.stdout || ''}${r.stderr || ''}`
+}
+
+const LOCK_RETRIES = Number(process.env.IHUI_SAFE_COMMIT_LOCK_RETRIES || 10)
+let commitResult = null
+let hookFailed = false
+for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
+  const r = spawnSync('git', commitArgs(false), {
+    encoding: 'utf8',
     cwd: repoRoot,
     env: process.env,
     windowsHide: true,
-  },
-)
+  })
+  const out = pump(r)
+  commitResult = r
+  if (r.status === 0) break
+  if (isGitLockFailure(r.status, out)) {
+    if (attempt > LOCK_RETRIES) {
+      log(
+        'err',
+        `git 索引锁连续 ${LOCK_RETRIES} 次争用未释放 —— 这**不是**钩子判红,拒绝用 --no-verify 兜底` +
+          '(那等于把全部守门一起跳掉,且事后无人能察觉)。等并发 git 写操作结束后重跑本命令;' +
+          '先看是谁持锁:node scripts/git-lock.mjs check',
+      )
+      process.exit(1)
+    }
+    log('warn', `…exit ${r.status} 像是 git 锁争用(钩子未跑完),第 ${attempt}/${LOCK_RETRIES} 次重试`)
+    sleep(3000)
+    continue
+  }
+  hookFailed = true
+  if (r.status === 129) {
+    // exit 129 = git 用法错误 ⇒ 是**我们拼出的命令**坏了,不是别人代码没过门。
+    // 绝不能走 --no-verify 兜底:那会把工具自身的 bug 洗成"门跳过了但提交成功了"。
+    log('err', `git exit 129(用法错误)= safe-commit 自身参数拼错,拒绝 --no-verify 兜底;请修命令构造`)
+    process.exit(1)
+  }
+  break
+}
 
 let hookSkipped = false
-if (commitResult.status !== 0) {
-  log('warn', `首次 commit 失败(exit ${commitResult.status}),可能是 pre-commit hook 阻塞`)
-  log('info', `按用户规则"hook 失败因其他 agent 代码 → --no-verify 跳过"重试...`)
-  commitResult = spawnSync(
-    'git',
-    ['commit', '--no-verify', '-m', finalMessage, '--', ...expectedFiles],
-    {
-      stdio: 'inherit',
-      cwd: repoRoot,
-      env: process.env,
-      windowsHide: true,
-    },
-  )
-  if (commitResult.status === 0) {
+if (hookFailed && commitResult.status !== 0) {
+  log('warn', `首次 commit 失败(exit ${commitResult.status})—— 判为 pre-commit 钩子阻塞(非锁争用)`)
+  log('info', `按用户规则"hook 失败因其他 agent 代码 → --no-verify 重试";本次将**跳过全部守门**,请自行复跑相关门并在交付里写明`)
+  const r = spawnSync('git', commitArgs(true), {
+    encoding: 'utf8',
+    cwd: repoRoot,
+    env: process.env,
+    windowsHide: true,
+  })
+  pump(r)
+  commitResult = r
+  if (r.status === 0) {
     hookSkipped = true
-    log('warn', `⚠️  首次 commit 因 pre-commit hook 失败,已用 --no-verify 重试成功`)
-    log('warn', `   本任务文件已自验通过 typecheck,其他 agent 代码的 hook 失败不阻塞本任务 commit`)
+    log('warn', `⚠️  已用 --no-verify 落地(守门未跑,不是"通过了守门")`)
   }
 }
 
