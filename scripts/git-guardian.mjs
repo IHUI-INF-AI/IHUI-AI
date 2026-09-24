@@ -516,6 +516,39 @@ function healHomeJunctions() {
     log(`⚠️ 家目录改道修复后仍判红(exit ${after.code})⇒ 多为进程占用(EBUSY),30 分钟冷却后自动再试;长期不消需人工`)
 }
 
+/** 守门 100 的"别人造好再推来"面(2026-09-24 立)。
+ *  提交链上那道门按设计只判 `origin/main..HEAD`(把已入库历史纳入默认面 = 之后每次提交恒红
+ *  = 逼人绕过钩子,见其头注"口径是生命线"),而 `git-sync-converge` / `plan-union-merge` /
+ *  手工 commit-tree **都不跑钩子** ⇒ "判据存在但永不被调用"这一型必须由守护补一层。
+ *  用增量台账(`--all-new`):每枚合并只判一次,老提交不会反复红。
+ *  **只判不修**:自动重做合并的风险远大于收益;出口是 `scripts/union-converge.mjs --apply`(人来点)。 */
+function auditMergeAdditionLoss() {
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-merge-addition-loss.mjs')
+  if (!existsSync(script)) return
+  let res
+  try {
+    const out = execFileSync(process.execPath, [script, '--all-new'], {
+      cwd: WORKTREE,
+      encoding: 'utf8',
+      windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+      timeout: 240000, // 守门 80:热路径派生一律带上限
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+    res = { code: 0, out: String(out || '') }
+  } catch (e) {
+    res = { code: typeof e.status === 'number' ? e.status : 2, out: String(e.stdout || '') }
+  }
+  if (res.code === 0) return
+  if (res.code === 2) {
+    log('⚠️ 合并吞并对账自身异常(exit 2)⇒ 不重试,需人工跑 node scripts/check-merge-addition-loss.mjs')
+    return
+  }
+  const n = (res.out.match(/丢失新增路径\s+(\d+)/) || [])[1] || '?'
+  log(
+    `⚠️ 合并吞并对账判红:发现合并抹掉对侧独有新增共 ${n} 个路径 —— 修法:node scripts/union-converge.mjs --apply(文件面零丢失 union,先不带 --apply 看报告)`,
+  )
+}
+
 function healRootSeal() {
   const script = join(dirname(fileURLToPath(import.meta.url)), 'seal-c-root-stray.mjs')
   if (!existsSync(script)) return
@@ -916,6 +949,9 @@ function main() {
     // §26 家目录改道同理:改道树被清掉后工具会立刻在 C 盘重建实体目录,而门 96 是 blocking
     // ⇒ 不自动补回就等于逼每一次提交绕过全部守门。
     if (!CHECK_ONLY) healHomeJunctions()
+    // 合并吞并对账:别人机器上造好推来的合并跑不到提交链那道门(commit-tree 旁路不跑钩子),
+    // 由本层按增量台账判到一次(只判不修)。
+    if (!CHECK_ONLY) auditMergeAdditionLoss()
     // 看门人也要有人看:凭据/停摆巡检靠 schtasks 每 6 小时自跑,任务被删/被停/node 路径
     // 失效时它**自己不会喊**(故障形态是"安静",正是今天两天冻结的同类)。本守护每 2 分钟
     // 一趟且自身分层自愈,由它盯心跳最省。--check 仍零副作用。
