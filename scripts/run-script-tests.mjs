@@ -124,7 +124,13 @@ export function main(argv = process.argv.slice(2), rootDir = ROOT) {
   const files = discover(rootDir, filters)
 
   if (LIST) {
-    for (const f of files) console.log(f.slice(rootDir.length + 1).split('\\').join('/'))
+    for (const f of files)
+      console.log(
+        f
+          .slice(rootDir.length + 1)
+          .split('\\')
+          .join('/'),
+      )
     console.log(`共 ${files.length} 个`)
     return files.length ? 0 : 1
   }
