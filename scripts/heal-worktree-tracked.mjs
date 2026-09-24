@@ -116,10 +116,29 @@ export function findOrphanedDeletions(repoRoot) {
   )
   const safe = []
   const held = []
+  /**
+   * **只报不修**的一类:`git status` 首列 `D ` —— 索引里没有、磁盘也没有,而 HEAD 有该路径。
+   * 两种成因在机器上分不开:① 会话有意 `git rm`(暂存删除,尚未提交);② 旁路提交
+   * (commit-tree/merge-tree)把路径**加进** HEAD 却没动共享索引 ⇒ 索引成了"缺该路径"的孤儿态。
+   * ② 的真实代价是静默烂掉:本仓 2026-09-24 有 5 个测试文件因 `packages/shared/src/chat/voice-subtitles.ts`
+   * 处于此态而**加载失败**(报的是 vite "Failed to resolve import",看不出与工作区存续有关),
+   * 而当时的巡检口径把它整个漏掉、还回一句"存续正常"。故本分支**如实报数**(退出码非 0),
+   * 恢复动作仍交归属会话 —— 与守门层"分不清就不动"的取向一致。
+   */
+  const orphanIndex = []
   for (const rec of st.split('\0')) {
     if (!rec) continue
     const xy = rec.slice(0, 2)
     const path = rec.slice(3).trim()
+    if (xy === 'D ' && path) {
+      try {
+        g(['rev-parse', `HEAD:${path}`], { stdio: ['ignore', 'pipe', 'ignore'] })
+        if (!existsSync(resolve(repoRoot, path))) orphanIndex.push(path)
+      } catch {
+        /* HEAD 也没有 ⇒ 不是本类,忽略 */
+      }
+      continue
+    }
     if (xy !== ' D' || !path) continue
     let indexBlob = ''
     try {
@@ -138,7 +157,7 @@ export function findOrphanedDeletions(repoRoot) {
     if (indexBlob && indexBlob === headBlob && !existsSync(resolve(repoRoot, path))) safe.push(path)
     else if (!indexBlob) held.push(path) // 索引里也没有:他人已暂存删除,不碰
   }
-  return { safe, held }
+  return { safe, held, orphanIndex }
 }
 
 /** 该 blob 是否出现在此路径的历史版本里(祖先判定) */
@@ -510,11 +529,12 @@ function reconcileStaleIndexOrphansInner(g, repoRoot, dryRun) {
 }
 
 export function heal(repoRoot, { dryRun = false } = {}) {
-  const { safe, held } = findOrphanedDeletions(repoRoot)
+  const { safe, held, orphanIndex } = findOrphanedDeletions(repoRoot)
   const rec = reconcileStaleIndexOrphans(repoRoot, { dryRun })
-  if (!safe.length) return { restored: 0, held: held.length, reconciled: rec.reconciled, paths: [] }
+  if (!safe.length)
+    return { restored: 0, held: held.length, reconciled: rec.reconciled, orphanIndex: orphanIndex.length, paths: [] }
   if (dryRun)
-    return { restored: 0, held: held.length, reconciled: rec.reconciled, paths: safe, dryRun: true }
+    return { restored: 0, held: held.length, reconciled: rec.reconciled, orphanIndex: orphanIndex.length, paths: safe, dryRun: true }
   const g = makeGit(repoRoot)
   const { done, deferred } = restoreToHead(g, safe)
   return {
@@ -524,6 +544,7 @@ export function heal(repoRoot, { dryRun = false } = {}) {
     paths: done,
     deferred,
     restoreDeferred: deferred.length,
+    orphanIndex: orphanIndex.length,
   }
 }
 
@@ -700,6 +721,16 @@ function selfTestRun() {
         readFileSync(join(tmp, 'keep.ts'), 'utf8') === 'v11\n',
     )
 
+    // ⑴ HEAD 有、索引与磁盘都没有(旁路提交把路径加进 HEAD 却不动共享索引,或有意 git rm)
+    //    ⇒ 必须**报数**(本仓 5 个测试文件因此静默加载失败),但不得自动恢复(与有意删除分不清)
+    writeFileSync(join(tmp, 'orphan.ts'), 'export const orphan = 1' + String.fromCharCode(10))
+    g(['add', 'orphan.ts'])
+    g(['commit', '-qm', 'G: 新增 orphan.ts'])
+    g(['rm', '--cached', '-q', 'orphan.ts'])
+    rmSync(join(tmp, 'orphan.ts'), { force: true })
+    const o1 = findOrphanedDeletions(tmp)
+    check('⑴ 索引孤儿被如实报数', o1.orphanIndex.includes('orphan.ts'))
+    check('⑴b 索引孤儿绝不自动恢复', !o1.safe.includes('orphan.ts') && !existsSync(join(tmp, 'orphan.ts')))
     // ⑬ 暂存删除(工作区根本没有该文件)不得把刷新整条打崩
     //     —— hash-object --stdin-paths 遇到缺失文件会 fatal 退出,曾使本自愈每轮必崩。
     writeFileSync(join(tmp, 'gone.ts'), 'to be deleted\n')
@@ -806,18 +837,23 @@ async function main() {
   const res = heal(repoRoot, { dryRun })
   if (argv.includes('--json')) {
     console.log(JSON.stringify(res))
-    return checkOnly && res.paths.length ? 1 : 0
+    return checkOnly && (res.paths.length || res.orphanIndex) ? 1 : 0
   }
-  if (!res.restored && !res.paths.length && !res.held) {
+  if (!res.restored && !res.paths.length && !res.held && !res.orphanIndex) {
     console.log('✅ 工作区已跟踪文件存续正常')
     return 0
   }
   console.log(
     `${dryRun ? '[check] 可恢复' : '已恢复'} ${res.restored || res.paths.length} 个被外部删除的跟踪文件` +
-      (res.held ? `;另有 ${res.held} 个他人已暂存的删除(不碰)` : ''),
+      (res.held ? `;另有 ${res.held} 个他人已暂存的删除(不碰)` : '') +
+      (res.orphanIndex ? `;⚠️ ${res.orphanIndex} 个路径 HEAD 有而索引+磁盘都无(旁路提交孤儿或有意 git rm,只报不修)` : ''),
   )
   for (const p of res.paths.slice(0, 20)) console.log('   - ' + p)
-  return checkOnly && res.paths.length ? 1 : 0
+  if (res.orphanIndex) {
+    const { orphanIndex } = findOrphanedDeletions(repoRoot)
+    for (const p of orphanIndex.slice(0, 10)) console.log('   ⚠ 索引孤儿 ' + p + ' —— 归属会话提交或 git rm --cached 后方可判清')
+  }
+  return checkOnly && (res.paths.length || res.orphanIndex) ? 1 : 0
 }
 
 export const healTrackedFiles = heal
@@ -835,5 +871,13 @@ if (isDirectRun) {
     })
 }
 
-export const __test__ = { findOrphanedDeletions, heal, alignDrifts, refreshStaleIndex, compositeDriftPaths, restoreToHead, SKIP_ENV }
+export const __test__ = {
+  findOrphanedDeletions,
+  heal,
+  alignDrifts,
+  refreshStaleIndex,
+  compositeDriftPaths,
+  restoreToHead,
+  SKIP_ENV,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
