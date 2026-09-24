@@ -10,7 +10,8 @@
 //   ④ 取材基准是 HEAD 而不是工作树 —— 这是本票补的那处结构缺陷,回归会把它悄悄改回去。
 
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { copyFileSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
@@ -23,12 +24,31 @@ import {
   readFrameSource,
   resolveFrameCallbacks,
 } from '../check-sse-dispatch-parity.mjs'
+import { resolveGitBin } from '../lib/gitdir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
 const RUNNER = join(REPO, 'scripts', 'guardian-runner.mjs')
 const LEDGER = join(REPO, 'scripts', 'data', 'sse-dispatch-coverage.json')
 const GATE_ID = '90'
+const GIT_BIN = resolveGitBin() || 'git'
+
+/** 用临时索引跑 git —— 绝不动共享工作区的主索引(多会话同用一个 .git) */
+function gitRun(args, env) {
+  return execFileSync(GIT_BIN, ['-c', 'safe.directory=*', '-C', REPO, ...args], {
+    encoding: 'utf8',
+    windowsHide: true,
+    maxBuffer: 32 * 1024 * 1024,
+    timeout: 120000,
+    env,
+  })
+}
+
+/** 主索引的真实路径(.git 可能是指针文件,故问 git 自己而不是拼字符串) */
+function resolveGitIndex() {
+  const gitdir = gitRun(['rev-parse', '--absolute-git-dir']).trim()
+  return join(gitdir, 'index')
+}
 
 const realData = () => JSON.parse(readFileSync(LEDGER, 'utf8'))
 
@@ -89,17 +109,41 @@ test('④ 注入违规:baseline 抬高 1 必须判红(ratchet 真的咬住)', ()
   assert.ok(result.errors.some((e) => e.includes('低于 baseline')))
 })
 
-test('⑤ 取材基准是 HEAD,不是工作树(并发会话未提交的新帧不得算成五端漏接)', () => {
+test('⑤ 取材基准是提交树,不是工作树(pre-commit 须切暂存区,否则同票推进被自己卡死)', () => {
   const src = readFileSync(join(REPO, 'scripts', 'check-sse-dispatch-parity.mjs'), 'utf8')
-  assert.match(
-    src,
-    /git\(\s*\[\s*'show',\s*`HEAD:\$\{API_CLIENT_PATH\}`\s*\]\s*\)/u,
-    '帧清单未走 git show HEAD:',
-  )
+  // 帧清单与命中侧都走 git,且两侧同一修订
+  assert.match(src, /git\(\['show',\s*spec\]\)/u, '帧清单未走 git show')
+  assert.match(src, /basis === 'index' \? '' : 'HEAD'/u, "帧清单未支持 'index' 修订")
+  assert.match(src, /'grep',\s*'--cached',\s*'-o',\s*'-E',\s*alt/u, '暂存区口径的 --cached 未放在模式串之前')
+  assert.match(src, /argv\.includes\('--staged'\) \? 'index' : 'head'/u, 'pre-commit 模式未切到暂存区')
   assert.ok(
     !/readFileSync\(\s*API_CLIENT_FILE/u.test(src),
-    '帧清单又改回读工作树的 client.ts —— 命中侧读 HEAD、清单侧读工作树会让未提交的新帧把五端一起判红',
+    '帧清单又改回读工作树的 client.ts —— 命中侧读提交树、清单侧读工作树会让未提交的新帧把五端一起判红',
   )
+})
+
+test('⑤b 暂存区口径实跑:cli 的 budget 接线进临时索引后门必须判绿(代码与台账同票)', () => {
+  const tmpIndex = join(tmpdir(), `ihui-sse-idx-${process.pid}-${Date.now()}`)
+  copyFileSync(resolveGitIndex(), tmpIndex)
+  const env = { ...process.env, GIT_INDEX_FILE: tmpIndex }
+  try {
+    for (const p of [
+      'apps/cli/src/commands/task-status-line.ts',
+      'apps/cli/src/commands/agent.ts',
+      'apps/cli/src/commands/repl.ts',
+      'scripts/data/sse-dispatch-coverage.json',
+    ]) {
+      gitRun(['add', '--', p], env)
+    }
+    const out = execFileSync(
+      process.execPath,
+      [join(REPO, 'scripts', 'check-sse-dispatch-parity.mjs'), '--staged'],
+      { encoding: 'utf8', windowsHide: true, timeout: 120000, env },
+    )
+    assert.match(out, /守门通过/u, `暂存区口径未判绿:${out}`)
+  } finally {
+    rmSync(tmpIndex, { force: true })
+  }
 })
 
 test('⑥ 台账卫生:groups 里不得留无人引用的分组(登记项不得变墓志铭)', () => {

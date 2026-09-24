@@ -402,6 +402,8 @@ export interface RunToolLoopOptions {
   onCitations?: NonNullable<StreamChatOptions['onCitations']>;
   /** D106 引导交代(steer) — 透传 api-client 的 onSteer,REPL 借此打印"引导已生效"一行 */
   onSteer?: NonNullable<StreamChatOptions['onSteer']>;
+  /** 额度分档告警(budget) — 同上,REPL 据此打印"今日用量较高/即将耗尽"一行 */
+  onBudget?: NonNullable<StreamChatOptions['onBudget']>;
   /** 模型上下文窗口大小(tokens)。达 85% 自动压缩到 60%,默认 128_000(与 @ihui/api-client DEFAULT_CONTEXT_CAPACITY 跨端一致)。 */
   contextLimit?: number;
   /** 是否启用 plan 强制阻断(配合 planApproved 控制) */
@@ -678,6 +680,8 @@ interface SampleWithRetryOptions {
   onCitations?: NonNullable<StreamChatOptions['onCitations']>;
   /** D106 引导交代(steer) — 未传时零开销(与 onPlanUpdate 同一条纪律) */
   onSteer?: NonNullable<StreamChatOptions['onSteer']>;
+  /** 额度分档告警(budget) — 未传时零开销(与 onPlanUpdate 同一条纪律) */
+  onBudget?: NonNullable<StreamChatOptions['onBudget']>;
 }
 
 interface SampleWithRetryResult {
@@ -783,6 +787,7 @@ async function sampleWithRetry(
         ...(opts.onRetryScheduled ? { onRetryScheduled: opts.onRetryScheduled } : {}),
         ...(opts.onCitations ? { onCitations: opts.onCitations } : {}),
         ...(opts.onSteer ? { onSteer: opts.onSteer } : {}),
+        ...(opts.onBudget ? { onBudget: opts.onBudget } : {}),
         ...(opts.sampler ?? {}),
         onError: (msg, info) => { streamErr = msg; streamErrInfo = info; },
       } as Parameters<typeof streamChat>[0]);
@@ -1093,6 +1098,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         ...(opts.onRetryScheduled ? { onRetryScheduled: opts.onRetryScheduled } : {}),
         ...(opts.onCitations ? { onCitations: opts.onCitations } : {}),
         ...(opts.onSteer ? { onSteer: opts.onSteer } : {}),
+        ...(opts.onBudget ? { onBudget: opts.onBudget } : {}),
             sampler: opts.sampler,
             ...(withTools && nativeExtraBody ? { extraBody: nativeExtraBody } : {}),
             ...(withTools
