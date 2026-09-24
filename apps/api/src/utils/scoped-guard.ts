@@ -176,7 +176,7 @@ export function isComputeAllowedTable(table: string): boolean {
 }
 
 /** scoped-* 模式(必须带 owner 谓词)。 */
-export function isScopedMode(mode: DbAccessMode): boolean {
+function isScopedMode(mode: DbAccessMode): boolean {
   return mode === 'read-owned' || mode === 'write-owned'
 }
 

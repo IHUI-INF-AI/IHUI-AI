@@ -67,7 +67,7 @@ const MASK = '***'
 export const PROTOCOL_NO_MASK_PREFIXES: readonly string[] = ['/oauth/', '/.well-known/']
 
 /** 命中协议豁免前缀则不脱敏;query 串不参与前缀判定。 */
-export function isProtocolNoMaskPath(url: string): boolean {
+function isProtocolNoMaskPath(url: string): boolean {
   const path = url.split('?', 1)[0] ?? url
   return PROTOCOL_NO_MASK_PREFIXES.some((p) => path === p.slice(0, -1) || path.startsWith(p))
 }

@@ -52,7 +52,7 @@ export async function fetchConversationMessages(id: string): Promise<ExportMessa
 }
 
 /** 文件名前缀:去控制字符 + 非法字符替换 + 截断 40 */
-export function toFileBase(title: string): string {
+function toFileBase(title: string): string {
   const safe = sanitizeText(title) || 'ai-chat'
   return safe.slice(0, 40).replace(/[\\/:*?"<>| ]+/g, '-')
 }
