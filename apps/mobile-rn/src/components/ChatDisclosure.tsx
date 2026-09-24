@@ -16,7 +16,6 @@ import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { rpx } from '../utils/rpx'
 import type { MessageCitation, MessageInjection, SteerNotice } from '../utils/chat-render-model'
-import { permissionTierWordKeys } from '@ihui/shared/chat'
 
 /**
  * 引用来源列表:来源标签 + 条目文字。
@@ -170,27 +169,6 @@ export function SteerNoticeList({
   )
 }
 
-
-/**
- * 权限档交代行(D111/G-165①):档名 + 该档会导致什么。
- *
- * 取词与 extension `WorkspacePermissionTierRow` / taro 页头行**同源**
- * (`permissionTierWordKeys` → `@ihui/types/permission-mode` 唯一真源),端内只负责排版。
- * `mode === null` 表示"消息未盖章且工作区默认档取数失败" —— 整行不渲染,
- * 不假装知道档位(认不出具体档位时由共享层归到 unknown,不会静默显示成默认档)。
- */
-export function PermissionTierRow({ mode }: { mode: string | null }): React.JSX.Element | null {
-  const { t } = useI18n()
-  if (mode === null) return null
-  const text = permissionTierWordKeys(mode)
-  return (
-    <View style={disclosureStyles.tierRow}>
-      <Text style={disclosureStyles.tierLabel}>{t('permissionTier.label')}</Text>
-      <Text style={disclosureStyles.tierTitle}>{t(text.title)}</Text>
-      <Text style={disclosureStyles.tierDesc}>{t(text.desc)}</Text>
-    </View>
-  )
-}
 const disclosureStyles = StyleSheet.create({
   block: {
     maxWidth: '78%',
@@ -226,17 +204,6 @@ const disclosureStyles = StyleSheet.create({
     paddingBottom: rpx(10),
     gap: rpx(6),
   },
-  tierRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: rpx(6),
-    paddingHorizontal: rpx(16),
-    paddingVertical: rpx(6),
-  },
-  tierLabel: { fontSize: 11, fontWeight: '600', color: tokens.text.tertiary },
-  tierTitle: { fontSize: 11, color: tokens.text.secondary },
-  tierDesc: { fontSize: 11, color: tokens.text.tertiary },
   text: { flex: 1, fontSize: 12, lineHeight: 18, color: tokens.text.primary },
   meta: { fontSize: 10, color: tokens.text.tertiary },
 })
