@@ -2899,6 +2899,15 @@ R2 用基线棘轮拦"浅色当容器底":`surface.light` 背景 / α≥0.5 的�
 这条唯一删除出口对重解析点只 `[System.IO.Directory]::Delete($path,$false)` 断链,量体积遇 junction
 一律不跟随(否则把 D 盘的量报成 C 盘的债)。取证:封口器 `--self-test` 11 例 + 镜像测试 7 例
 (含两条装车证明:维护脚本必须真的调 `--check`+`--apply`;守门必须 import 而非自抄清单)。
+本门另报一条 **页面文件"待重启生效"哨兵**:比对注册表 `PagingFiles` 的配置上限与 WMI
+`Win32_PageFileUsage.AllocatedBaseSize` 的已分配大小,落差 >512MB 且 >25% 就点名"下次重启才释放"
+(2026-09-24 把本机 `C:\pagefile.sys` 从手设 32768MB 压到 2048MB;磁盘上旧大小必须重启才收缩,
+而本机是生产机 ⇒ 重启时机归用户,所以哨兵必须替人记着这件事)。量这一步的三连坑全部
+**不报错、只给假绿**:`fs.statSync` 对 `pagefile.sys` 必报 `EINVAL`(打不开句柄)、
+`cmd /c for %A in (...) do %~zA` 被"Node 加引号 + cmd 剥首尾引号"的双层规则打掉、属性名写成
+MSDN 文档的 `AllocBaseSize`(本机真名 `AllocatedBaseSize`)会被 PowerShell 静默渲染成空串。
+因此本门的口径是:**一条都没量到时打印「未判定」,绝不写成「一致」**——第一版就把它写成了
+「配置与磁盘一致(合计 0 GB)」,正是本仓反复在防的那类假绿灯。
 **编号一天撞四次 + 一次卸闸的实录**(比门本身更值钱):85(与 `check-test-paths` 撞)→ 90(与
 `check-sse-dispatch-parity` 撞)→ 91(与 `check-error-code-coverage` 撞)→ 92 **又**撞一次 ——
 最后一次不是没查:取 92 时它确实在 91,是别的会话随后把 `errorCode` 重排到 92、把重复号带进了
