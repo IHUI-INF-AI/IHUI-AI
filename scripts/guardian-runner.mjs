@@ -2176,7 +2176,7 @@ const checks = [
   // 即残骸天天新增的机制)。只读、不删文件;定级 warn 而非 blocking,因为盘根多数条目
   // 不属本仓,拦提交只会逼人 --no-verify 连带废掉其余守门(与守门 77/52 同取向)。
   {
-    id: '91',
+    id: '92',
     label: '💽 C 盘污染实地扫描(warn,拦"源码没写死但东西真掉在 C 盘")',
     script: 'check-c-drive-pollution.mjs',
     args: [],

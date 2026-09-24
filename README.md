@@ -2797,6 +2797,30 @@ R2 用基线棘轮拦"浅色当容器底":`surface.light` 背景 / α≥0.5 的�
 
 ---
 
+**第 92 项 `check-c-drive-pollution.mjs`(warn-only)**(2026-09-23 立) —— 补的是**全链没有一道门看过文件系统**这个缺口。
+第 45 项 `check-c-drive-paths.mjs` 只扫 staged 源码里的字面量 `C:\temp\`,而 C 盘残骸恰恰是从
+`os.tmpdir()` / `$env:TEMP` 这类"源码里根本没写 C"的路径流出去的;`check-parent-pollution` 只扫项目父目录
+(`D:\`),`check-root-dir-clean` 只扫项目根。三道门全绿的同一台机器上,C 盘实攒了 **13.2GB** 的 `.next`
+构建备份(`build-next-prod.ps1` 的 `$BackupRoot` 曾写死 `C:\tmp`)和单日 **45 个** git 测试夹具。本门实地扫
+`C:\` 根 + `C:\tmp` + `C:\temp` + 活 TEMP,按名字白名单**只认本项目产物**;认不出的条目进"未识别清单",
+只登记、不定性、不清理(清理类任务的铁律:先验明身份)。自有特征里有一条
+**"盘根单字母目录"** —— `C:\c` 是 MSYS 把 `/c/...` 当相对路径用的错位指纹,实测 08-06 一次就这样在 C 盘
+套出 515MB(4 份 origin 浅克隆 + 一份错位的 npm 全局前缀)。另单独判一条 **TEMP 漂移** ——
+注册表 `HKCU\Environment\TEMP` 已于 2026-09-23 改指 `D:\DevEnv\Temp`,但环境块只对**新启动的进程**生效,
+活着的宿主仍持 `C:\Users\...\AppData\Local\Temp`,这就是"指针改完了、残骸照样天天长"的机制。
+定级 warn 而非 blocking:盘根多数条目不属本仓,拦提交只会逼人 `--no-verify` 连带废掉全部守门
+(与第 77/52 项同取向);本门**只读,永不删文件**,清理一律走 `scripts/c-drive-auto-maintain.ps1`
+(同日修其三段:原扫 `C:\temp` 属**扫错目录**、`ForceDelete` 对单文件必然静默失败、`-DryRun` 必须拦在
+`ForceDelete` 这个唯一删除出口上而不是某一段里)。取证:`--self-test` 11 例 + §22c 镜像测试 7 例。
+**编号一天撞三次 + 一次卸闸的实录**(比门本身更值钱):85(与 `check-test-paths` 撞)→ 90(与
+`check-sse-dispatch-parity` 撞)→ 91(与 `check-error-code-coverage` 撞)→ 终落 **92**。改 90 那次最严重:
+整文件提交 `guardian-runner.mjs` 时把别人刚装上的门**注册块直接覆盖**(提交 `5db08f26e`),撞号只是重名,
+覆盖却是替别人卸闸。三条规矩:① 查编号占用必须在提交前最后一刻重做;② 改共享注册文件必须逐块核对
+`git show <commit> -- <f> | grep '^[-+].*(id:|script:|label:)'`;③ **断言不硬写编号**,要从文件反查 ——
+本门镜像测试即按"反查本门 id + 全 runner 无重号 + 三道邻门注册块必须存在"写,第三次撞号就是它当场抓出来的。
+
+---
+
 ### 新增守门示例:第 79 项「提交内容含 Git 冲突标记」(2026-09-23)
 
 **第 79 项 `check-no-conflict-markers.mjs`(blocking)** —— 补的是一个**已经漏过一次**的缺口。
