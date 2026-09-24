@@ -35,6 +35,8 @@ import { useCodeBlockRun, isRunnableLanguage, type RunResult } from '@/component
 import { splitMarkdownStable } from '@/lib/markdown-stable-split'
 // P3 #32(2026-09-16 立):PDF/CSV 消息内富预览(非流式时升级渲染)
 import { CsvPreview, PdfEmbed } from '@/components/media/message-file-preview'
+// D41(2026-09-24 立):docx/xlsx/pptx 消息内富预览(docx-preview / SheetJS / jszip 降级)
+import { OfficePreview } from '@/components/media/office-preview'
 // 语法高亮主题(对象常量,体积小,可静态导入;同时导入 dark/light 两份,运行时按主题切换)
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
@@ -578,6 +580,10 @@ function MarkdownLink({
     }
     if (!isStreaming && ext === 'csv') {
       return <CsvPreview src={hrefStr} />
+    }
+    // D41:docx/xlsx/pptx 非流式时升级为消息内富预览(四态降级见 office-preview)
+    if (!isStreaming && (ext === 'docx' || ext === 'xlsx' || ext === 'pptx')) {
+      return <OfficePreview src={hrefStr} ext={ext} />
     }
 
     return (
