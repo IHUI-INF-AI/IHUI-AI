@@ -39,6 +39,15 @@ export async function getDesktopRefreshToken(): Promise<string | null> {
   if (stored.status !== 'ok' || stored.value === null) return null
   const opened = await openVaultText('refresh-token', stored.value)
   if (opened.kind === 'unreadable') return null
+  // D48′ 读时即封(2026-09-24):原本要等下一次 token 轮转才把明文改写成密文,而轮转最长
+  // 15 分钟一次、且要求页面真的跑过新代码 —— 盘上那颗能解出手机号的裸 JWT 就多活多久。
+  // 这条读取路径在桌面端每次启动的 bootstrap 刷新里必然走到,于是"读到 = 已封好"。
+  // 判据取**层数**而非"是否存在密文"(同 chat-persist-crypto:只判存在会把已封的再包一层);
+  // seal 或写回失败一律保持原值可用 —— 绝不为"加密上了"而把登录态弄丢。
+  if (opened.kind === 'plain' || opened.layers !== 1) {
+    const sealed = await sealVaultText('refresh-token', opened.text)
+    if (sealed !== null) await writeVaultEntry(STORE_FILE, REFRESH_TOKEN_KEY, sealed)
+  }
   return opened.text
 }
 
