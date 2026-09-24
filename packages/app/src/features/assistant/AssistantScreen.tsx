@@ -316,7 +316,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 16,
       height: 32,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
     },

@@ -62,4 +62,34 @@ export async function getRechargeRecords(
 ): Promise<ApiResult<PageData<WalletRecord>>> {
   return fetchApi<PageData<WalletRecord>>(`/api/wallet/recharge/records${buildQs(query)}`)
 }
+
+/** 单日消耗桶(date 为 UTC 日期键 YYYY-MM-DD;缺日由服务端补零) */
+export interface CreditsUsageBucket {
+  date: string
+  /** 当日积分消耗笔数 */
+  count: number
+  /** 当日消耗积分总量(≥0) */
+  points: number
+  /** 当日新建会话数(与积分消耗是两条独立序列,不可互相换算) */
+  sessions: number
+}
+
+/** GET /api/credits/usage/daily 响应(按日积分消耗聚合,只读) */
+export interface CreditsDailyUsage {
+  days: number
+  startDate: string
+  endDate: string
+  timezone: 'UTC'
+  buckets: CreditsUsageBucket[]
+}
+
+/**
+ * 按日积分消耗聚合(需登录;days 上限 365,越界服务端返 400)。
+ * 返回的 buckets 已按日期升序逐日补零,可直接折叠成热力图 dayCounts。
+ */
+export async function getDailyCreditsUsage(
+  query: { days?: number } = {},
+): Promise<ApiResult<CreditsDailyUsage>> {
+  return fetchApi<CreditsDailyUsage>(`/api/credits/usage/daily${buildQs(query)}`)
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

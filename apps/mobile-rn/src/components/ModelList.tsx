@@ -135,7 +135,7 @@ function EmptyState(): React.ReactElement {
 function Check(): React.ReactElement {
   return (
     <View style={styles.check}>
-      <CheckIcon size={12} color={tokens.brand.foreground} />
+      <CheckIcon size={12} color={tokens.brand.ctaForeground} />
     </View>
   )
 }
@@ -444,12 +444,12 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10, // radius-exempt: 20x20 圆形勾选底,半径=边长一半
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkText: {
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
     fontSize: 12,
     fontWeight: '700',
     lineHeight: 14,

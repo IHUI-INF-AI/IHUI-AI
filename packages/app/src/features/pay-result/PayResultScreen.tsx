@@ -225,7 +225,7 @@ function createStyles(tk: AppThemeTokens) {
     primaryBtn: {
       height: 44, // rpx(88)
       borderRadius: rnRadius.lg, // rpx(16)
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
     },

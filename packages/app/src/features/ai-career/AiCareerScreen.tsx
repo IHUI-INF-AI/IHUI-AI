@@ -154,7 +154,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
     },
     optionItemActive: {
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       borderColor: tk.brand.DEFAULT,
     },
     optionText: {
@@ -210,7 +210,7 @@ function createStyles(tk: AppThemeTokens) {
       width: '100%',
       height: 48,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
     },

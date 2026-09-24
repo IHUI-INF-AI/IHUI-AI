@@ -158,7 +158,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 16,
       paddingVertical: 8,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     btnText: { color: tk.surface.light, fontSize: 16 },
   })

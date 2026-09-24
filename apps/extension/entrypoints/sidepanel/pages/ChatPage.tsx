@@ -447,7 +447,7 @@ export default function ChatPage() {
               className={`flex flex-col max-w-[85%] md:max-w-[75%] lg:max-w-[70%] ${m.role === 'user' ? 'self-end' : ''}`}
             >
               <div
-                className={`px-2.5 py-2 rounded-lg text-sm break-words leading-relaxed ${m.role === 'user' ? 'bg-primary text-primary-foreground whitespace-pre-wrap' : 'bg-muted text-foreground'}`}
+                className={`px-2.5 py-2 rounded-lg text-sm break-words leading-relaxed ${m.role === 'user' ? 'bg-cta text-cta-foreground whitespace-pre-wrap' : 'bg-muted text-foreground'}`}
               >
                 {m.role === 'user' ? (
                   m.content
@@ -462,7 +462,7 @@ export default function ChatPage() {
         )}
       </div>
       {notice ? (
-        <div className="bg-primary/10 text-primary px-2.5 py-2 rounded-md border border-primary my-2 text-xs">
+        <div className="bg-cta/10 text-primary px-2.5 py-2 rounded-md border border-primary my-2 text-xs">
           {notice}
         </div>
       ) : null}

@@ -298,8 +298,8 @@
 }
 
 .exam-result-btn-primary {
-  background: var(--color-primary);
-  color: var(--color-primary-foreground);
+  background: var(--color-cta);
+  color: var(--color-cta-foreground);
 }
 
 .exam-result-btn-secondary {

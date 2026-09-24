@@ -117,7 +117,7 @@ export function GoalCard() {
       {goal.status === 'done' && (
         <div
           data-testid="goal-achieved-time"
-          className="flex items-center gap-1.5 rounded-md bg-primary/5 px-2 py-1 text-xs text-primary"
+          className="flex items-center gap-1.5 rounded-md bg-cta/5 px-2 py-1 text-xs text-primary"
         >
           <CheckCircle2 className="h-3 w-3 shrink-0" />
           <span>
@@ -137,7 +137,7 @@ export function GoalCard() {
         <div className="h-1.5 w-full overflow-hidden rounded-sm bg-muted">
           <div
             data-testid="goal-progress-bar"
-            className="h-full rounded-sm bg-primary transition-all"
+            className="h-full rounded-sm bg-cta transition-all"
             style={{ width: `${goal.progress}%` }}
           />
         </div>
@@ -225,7 +225,7 @@ export function GoalCard() {
           type="button"
           data-testid="goal-continue"
           onClick={handleContinue}
-          className="flex items-center gap-1 rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          className="flex items-center gap-1 rounded-md bg-cta px-2.5 py-1.5 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
         >
           <Zap className="h-3 w-3" />
           {t('continue')}

@@ -2902,7 +2902,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius['2xl'],
   },
   msgBubbleUser: {
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
   },
   msgBubbleAi: {
     backgroundColor: tokens.surface.card,
@@ -2955,7 +2955,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   msgTextUser: {
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
   },
   msgTextAi: {
     color: tokens.text.primary,
@@ -3213,7 +3213,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   inputIconBtnActive: {
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
   },
   input: {
     flex: 1,
@@ -3310,11 +3310,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(48),
     paddingVertical: rpx(20),
     borderRadius: rnRadius.md,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
   },
   shareBtnText: {
     fontSize: 14,
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
     fontWeight: '500',
   },
   shareBtnSecondary: {
@@ -3387,11 +3387,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(32),
     paddingVertical: rpx(12),
     borderRadius: rnRadius.md,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
   },
   detailDialogRetryText: {
     fontSize: 13,
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
     fontWeight: '600',
   },
   // ── 功能面板/来源面板(BottomPops 子内容样式) ──
@@ -3460,7 +3460,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
   },
   fangdaSendBtn: {
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     borderRadius: rnRadius.lg,
     paddingVertical: rpx(24),
     alignItems: 'center',
@@ -3468,7 +3468,7 @@ const styles = StyleSheet.create({
   fangdaSendBtnText: {
     fontSize: 16,
     fontWeight: '600',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
   },
   // ── P1.1 转语音 Modal ──
   ttsLoadingWrap: {
@@ -3514,7 +3514,7 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
   },
   urlInputConfirmBtn: {
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     borderRadius: rnRadius.lg,
     paddingVertical: rpx(24),
     alignItems: 'center',
@@ -3522,7 +3522,7 @@ const styles = StyleSheet.create({
   urlInputConfirmText: {
     fontSize: 15,
     fontWeight: '500',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
   },
   // ── P1.5 文件上传 Modal ──
   fileUploadBody: {
@@ -3554,7 +3554,7 @@ const styles = StyleSheet.create({
     color: tokens.text.tertiary,
   },
   fileUploadConfirmBtn: {
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     borderRadius: rnRadius.lg,
     paddingVertical: rpx(24),
     alignItems: 'center',
@@ -3563,7 +3563,7 @@ const styles = StyleSheet.create({
   fileUploadConfirmText: {
     fontSize: 15,
     fontWeight: '500',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
   },
 })
 

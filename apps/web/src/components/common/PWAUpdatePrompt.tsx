@@ -39,7 +39,7 @@ export function PWAUpdatePrompt({ onUpdate, className }: PWAUpdatePromptProps) {
       </div>
       <button
         onClick={handleUpdate}
-        className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+        className="rounded-md bg-cta px-3 py-1.5 text-xs font-medium text-cta-foreground hover:bg-cta/90"
       >
         更新
       </button>

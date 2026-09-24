@@ -7660,6 +7660,7 @@
       "thinkingElapsedTitle": "Thinking for {time}",
       "thinkingStreaming": "Thinking...",
       "thinkingTitle": "Thinking process",
+      "thinkingRefsTitle": "Used {count} references",
       "timelineClearFilters": "Clear filters",
       "timelineCountDone": "Completed",
       "timelineCountFailed": "Failed",
@@ -8409,6 +8410,119 @@
           "emptyDraft": "The draft is empty. Enter some text before polishing."
         },
         "restartHint": "Polishing takes effect after a restart. Your draft has been kept."
+      },
+      "queueOps": {
+        "ariaLabel": "Queued message actions",
+        "reorderAria": "Drag to reorder queued messages; use the up and down arrow keys while focused",
+        "undo": "Undo",
+        "edit": "Edit",
+        "editConfirm": "Save",
+        "editCancel": "Cancel",
+        "interruptAndRun": "Interrupt & run",
+        "mode": {
+          "label": "Queue mode",
+          "steer": "Interject first",
+          "queue": "Queue first"
+        },
+        "denied": {
+          "reorder": "Cannot reorder queued messages",
+          "undo": "Cannot unsend the queued message",
+          "interject": "The current Runtime does not support interjection; your message will stay queued"
+        },
+        "degraded": {
+          "runtimeNoInterject": "The current Runtime does not support interjection; your message will stay queued"
+        }
+      },
+      "elementPack": {
+        "heatmap": {
+          "title": "Credits usage heatmap",
+          "legendLabel": "Legend",
+          "dayTitle": "Credits used on {date}",
+          "tab": {
+            "heatmap": "Heatmap",
+            "sessions": "Session details"
+          },
+          "legend": {
+            "zero": "None",
+            "low": "Low",
+            "mid": "Medium",
+            "high": "High"
+          },
+          "sessionsEmpty": "No session details yet"
+        },
+        "imagePreview": {
+          "counter": "Image {index} of {total}",
+          "saveSuccess": "Image saved",
+          "saveFailed": "Failed to save the image",
+          "copySuccess": "Image copied",
+          "copyFailed": "Failed to copy the image",
+          "prev": "Previous image",
+          "next": "Next image",
+          "zoomOut": "Zoom out",
+          "zoomIn": "Zoom in",
+          "save": "Save image",
+          "copy": "Copy image"
+        },
+        "backgroundTask": {
+          "state": {
+            "pending": "Waiting to start",
+            "running": "Running",
+            "stopping": "Stopping",
+            "stopFailed": "Stop failed",
+            "completed": "Completed",
+            "failed": "Failed",
+            "cancelled": "Cancelled",
+            "timeout": "Timed out"
+          },
+          "hint": {
+            "stopping": "Stop requested; waiting for the task to wind down",
+            "stopFailed": "The subtask is still running; try stopping it again",
+            "timeout": "The task timed out; you can retry it"
+          },
+          "action": {
+            "none": "No action",
+            "stop": "Stop",
+            "retryStop": "Retry stop",
+            "retry": "Retry"
+          }
+        },
+        "feedbackSurvey": {
+          "question": "Did this reply help you solve the problem?",
+          "scale": {
+            "1": "Very poor",
+            "2": "Poor",
+            "3": "Okay",
+            "4": "Good",
+            "5": "Excellent"
+          },
+          "commentPlaceholder": "Additional comments (optional)",
+          "submit": "Submit",
+          "dismiss": "Not now",
+          "submitted": "Thanks for your feedback",
+          "answer": {
+            "solved": "Solved",
+            "partial": "Partially solved",
+            "notSolved": "Not solved"
+          }
+        }
+      },
+      "multiPane": {
+        "ariaLabel": "Multi-pane layout",
+        "resizeAriaLabel": "Drag to resize panes",
+        "splitRight": "Split right",
+        "splitDown": "Split down",
+        "maximize": "Maximize pane",
+        "restore": "Restore panes",
+        "closePane": "Close pane",
+        "forkFailureAriaLabel": "Failed to open the conversation copy",
+        "forkFailure": {
+          "conversationMissing": "The original conversation no longer exists, so the copy could not be opened",
+          "capacityFull": "Pane limit reached; close another pane first",
+          "unknown": "Could not open the conversation copy. Please try again"
+        },
+        "retryFork": "Retry",
+        "emptyPaneAriaLabel": "Empty pane; drag a conversation in from the sidebar",
+        "emptyPlaceholder": "Drag a conversation here from the sidebar"
       }
     },
     "permissionConfirm": {
@@ -10151,6 +10265,36 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
+    "voiceNote": {
+      "title": "Voice note",
+      "phase": {
+        "ready": "Ready",
+        "recording": "Recording",
+        "waitingTranscript": "Awaiting transcription",
+        "completed": "Completed",
+        "cancelled": "Cancelled",
+        "failed": "Recording failed",
+        "error": "Something went wrong",
+        "interrupted": "Interrupted"
+      },
+      "errors": {
+        "permission": "Microphone permission was denied. Allow it in your browser settings and try again.",
+        "noMicrophone": "No microphone device found",
+        "startFailed": "Could not start recording. Please try again.",
+        "saveFailed": "Could not save the recording",
+        "recognitionFailed": "Speech recognition was interrupted",
+        "emptyTranscript": "Nothing was recognized",
+        "sttPending": "Transcription is not available right now. Try again later, or save the audio only."
+      },
+      "action": {
+        "start": "Start recording",
+        "stop": "Stop recording",
+        "retry": "Retry",
+        "saveAudioOnly": "Save audio only",
+        "insertToInput": "Insert into message",
+        "dismiss": "Close"
+      }
+    },
     "connectorAuth": {
       "title": "Connect to {connectorName}",
       "connected": "Connected",
@@ -11331,232 +11475,127 @@
     "commands": {
       "steerPrompt": {
         "description": "Inject the current input as guidance into the running answer",
-        "keywords": [
-          "steer",
-          "guide",
-          "redirect"
-        ],
+        "keywords": ["steer", "guide", "redirect"],
         "label": "Steer prompt"
       },
       "queuePrompt": {
         "description": "Queue the current input; it sends automatically after the current answer finishes",
-        "keywords": [
-          "queue",
-          "pending",
-          "send later"
-        ],
+        "keywords": ["queue", "pending", "send later"],
         "label": "Queue prompt"
       },
       "agent": {
         "description": "Manage and dispatch AI agents",
-        "keywords": [
-          "agent",
-          "bot",
-          "dispatch"
-        ],
+        "keywords": ["agent", "bot", "dispatch"],
         "label": "AI Agents"
       },
       "browser": {
         "description": "Browse the web inside the workspace",
-        "keywords": [
-          "browser",
-          "web",
-          "preview"
-        ],
+        "keywords": ["browser", "web", "preview"],
         "label": "Built-in Browser"
       },
       "capabilityMarket": {
         "description": "Discover and install capability packs",
-        "keywords": [
-          "capability",
-          "market",
-          "pack",
-          "install"
-        ],
+        "keywords": ["capability", "market", "pack", "install"],
         "label": "Capability Market"
       },
       "codeChanges": {
         "description": "Review workspace code changes",
-        "keywords": [
-          "changes",
-          "diff",
-          "git",
-          "code"
-        ],
+        "keywords": ["changes", "diff", "git", "code"],
         "label": "Code Changes"
       },
       "connectors": {
         "description": "Manage external service connections",
-        "keywords": [
-          "connector",
-          "integration",
-          "service"
-        ],
+        "keywords": ["connector", "integration", "service"],
         "label": "Connectors"
       },
       "document": {
         "description": "Edit workspace documents",
-        "keywords": [
-          "document",
-          "docs",
-          "edit"
-        ],
+        "keywords": ["document", "docs", "edit"],
         "label": "Documents"
       },
       "editor": {
         "description": "Open the code editor",
-        "keywords": [
-          "editor",
-          "code",
-          "monaco"
-        ],
+        "keywords": ["editor", "code", "monaco"],
         "label": "Editor"
       },
       "mcp": {
         "description": "Manage MCP servers and tools",
-        "keywords": [
-          "mcp",
-          "server",
-          "tools"
-        ],
+        "keywords": ["mcp", "server", "tools"],
         "label": "MCP Manager"
       },
       "mcpStore": {
         "description": "Browse and install MCP services",
-        "keywords": [
-          "mcp",
-          "store",
-          "market",
-          "install"
-        ],
+        "keywords": ["mcp", "store", "market", "install"],
         "label": "MCP Store"
       },
       "modeAsk": {
         "description": "Switch to Ask mode with tools disabled",
-        "keywords": [
-          "ask",
-          "question",
-          "mode"
-        ],
+        "keywords": ["ask", "question", "mode"],
         "label": "Ask mode"
       },
       "modeBuild": {
         "description": "Let the AI build and modify directly",
-        "keywords": [
-          "build",
-          "mode",
-          "generate"
-        ],
+        "keywords": ["build", "mode", "generate"],
         "label": "Build Mode"
       },
       "modePlan": {
         "description": "Plan first, then execute",
-        "keywords": [
-          "plan",
-          "mode",
-          "todo"
-        ],
+        "keywords": ["plan", "mode", "todo"],
         "label": "Plan Mode"
       },
       "modeReview": {
         "description": "Review and assess existing code",
-        "keywords": [
-          "review",
-          "mode",
-          "audit"
-        ],
+        "keywords": ["review", "mode", "audit"],
         "label": "Review Mode"
       },
       "modeSpec": {
         "description": "Generate implementations from specs",
-        "keywords": [
-          "spec",
-          "mode",
-          "generate"
-        ],
+        "keywords": ["spec", "mode", "generate"],
         "label": "Spec Mode"
       },
       "skill": {
         "description": "Manage and invoke AI skills",
-        "keywords": [
-          "skill",
-          "ability",
-          "plugin"
-        ],
+        "keywords": ["skill", "ability", "plugin"],
         "label": "Skills"
       },
       "terminal": {
         "description": "Open the integrated terminal",
-        "keywords": [
-          "terminal",
-          "shell",
-          "console"
-        ],
+        "keywords": ["terminal", "shell", "console"],
         "label": "Terminal"
       },
       "ai-world": {
         "description": "Explore the world of AI applications",
-        "keywords": [
-          "AI",
-          "world",
-          "apps"
-        ],
+        "keywords": ["AI", "world", "apps"],
         "label": "AI World"
       },
       "chat": {
         "description": "Start a conversation with AI assistant",
-        "keywords": [
-          "chat",
-          "talk",
-          "AI",
-          "conversation"
-        ],
+        "keywords": ["chat", "talk", "AI", "conversation"],
         "label": "AI Chat"
       },
       "drama": {
         "description": "AI-generated short dramas",
-        "keywords": [
-          "drama",
-          "video",
-          "AI",
-          "show"
-        ],
+        "keywords": ["drama", "video", "AI", "show"],
         "label": "AI Drama"
       },
       "profile": {
         "description": "Manage your profile and settings",
-        "keywords": [
-          "profile",
-          "user",
-          "settings"
-        ],
+        "keywords": ["profile", "user", "settings"],
         "label": "Profile"
       },
       "search": {
         "description": "Global content search",
-        "keywords": [
-          "search",
-          "find",
-          "query"
-        ],
+        "keywords": ["search", "find", "query"],
         "label": "Search"
       },
       "settings": {
         "description": "System preferences and configuration",
-        "keywords": [
-          "settings",
-          "preferences",
-          "config"
-        ],
+        "keywords": ["settings", "preferences", "config"],
         "label": "Settings"
       },
       "skillsMarket": {
         "description": "Browse and install self-evolving skills",
-        "keywords": [
-          "skill",
-          "market",
-          "plugin"
-        ],
+        "keywords": ["skill", "market", "plugin"],
         "label": "Skill Market"
       }
     },
@@ -13959,37 +13998,25 @@
       "quadrants": [
         {
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": [
-            "Knowledge Q&A",
-            "Process automation"
-          ],
+          "examples": ["Knowledge Q&A", "Process automation"],
           "tag": "Q1",
           "title": "Efficient Assistant"
         },
         {
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": [
-            "Data analysis",
-            "Decision support"
-          ],
+          "examples": ["Data analysis", "Decision support"],
           "tag": "Q2",
           "title": "Smart Advisor"
         },
         {
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": [
-            "Meeting scheduling",
-            "Approval workflows"
-          ],
+          "examples": ["Meeting scheduling", "Approval workflows"],
           "tag": "Q3",
           "title": "Execution Expert"
         },
         {
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": [
-            "Marketing automation",
-            "Multi-agent collaboration"
-          ],
+          "examples": ["Marketing automation", "Multi-agent collaboration"],
           "tag": "Q4",
           "title": "All-round Expert"
         }
@@ -14123,31 +14150,19 @@
       "items": [
         {
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": [
-            "Systematic courses",
-            "Hands-on exploration",
-            "Community mutual aid"
-          ],
+          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"],
           "tag": "MODULE 01",
           "title": "Local Community"
         },
         {
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": [
-            "Communication platform",
-            "Experience sharing",
-            "Resource matching"
-          ],
+          "features": ["Communication platform", "Experience sharing", "Resource matching"],
           "tag": "MODULE 02",
           "title": "Online Community"
         },
         {
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": [
-            "Professional LLMs",
-            "Agent services",
-            "Consulting services"
-          ],
+          "features": ["Professional LLMs", "Agent services", "Consulting services"],
           "tag": "MODULE 03",
           "title": "AI Professional Services"
         }
@@ -16961,15 +16976,7 @@
       "title": "Top 5 Pages",
       "visitsHeader": "Visits"
     },
-    "weekdays": [
-      "Mon",
-      "Tue",
-      "Wed",
-      "Thu",
-      "Fri",
-      "Sat",
-      "Sun"
-    ]
+    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
   },
   "models": {
     "relay": {

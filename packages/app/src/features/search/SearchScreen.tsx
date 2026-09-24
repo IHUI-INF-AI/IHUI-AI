@@ -117,7 +117,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 14,
       paddingVertical: 8,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     searchText: { color: tk.surface.light, fontSize: 16 },
     muted: { fontSize: 14, color: tk.text.secondary },

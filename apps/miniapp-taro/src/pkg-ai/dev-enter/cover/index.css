@@ -65,9 +65,9 @@
    文字色 RN surface.light 在暗色 primary(白底)上不可读,按语义修正为 primary-foreground */
 .dc-become-btn {
   padding: 10rpx 40rpx;
-  background: var(--color-primary);
+  background: var(--color-cta);
   border-radius: var(--radius-lg);
-  color: var(--color-primary-foreground);
+  color: var(--color-cta-foreground);
   font-size: 28rpx;
   font-weight: 600;
   text-align: center;
@@ -197,9 +197,9 @@
 }
 .dc-plaza-btn {
   padding: 16rpx 40rpx;
-  background: var(--color-primary);
+  background: var(--color-cta);
   border-radius: var(--radius-md);
-  color: var(--color-primary-foreground);
+  color: var(--color-cta-foreground);
   font-size: 28rpx;
   font-weight: 600;
   text-align: center;
@@ -259,9 +259,9 @@
 .dc-faq-item-btn {
   align-self: flex-start;
   padding: 8rpx 24rpx;
-  background: var(--color-primary);
+  background: var(--color-cta);
   border-radius: var(--radius-md);
-  color: var(--color-primary-foreground);
+  color: var(--color-cta-foreground);
   font-size: 26rpx; /* 13dp */
   font-weight: 500;
 }
