@@ -875,9 +875,23 @@ def allowed_request_hosts() -> list[str]:
     return [h for h in (settings.mcp_export_allowed_hosts or "").replace(",", " ").split() if h]
 
 
+def raw_forwarded_host(headers: Mapping[str, str]) -> str:
+    """Host 取值单一来源:x-forwarded-host 优先(反代链路,多级取首段),缺失落回 host。
+
+    2026-09-24 O20:web 反代(next rewrites)指向本服务时,Host 头会被代理重写为
+    内网目标(localhost:8803),原公网 Host 只在 `x-forwarded-host` 里。与 api 端
+    `resolveIssuer` 读转发头同型。伪造的转发头由 `validate_request_host` 白名单兜底
+    (不在白名单 ⇒ 拒绝/回落公网域名),不引入新攻击面。
+    """
+    raw = (headers.get("x-forwarded-host") or headers.get("host") or "").strip()
+    if "," in raw:
+        raw = raw.split(",", 1)[0].strip()
+    return raw
+
+
 def request_host_of(headers: Mapping[str, str]) -> str:
     """取 Host 头的主机部分:去端口(仅单个冒号时)、保留 IPv6 方括号。"""
-    raw = (headers.get("host") or "").strip()
+    raw = raw_forwarded_host(headers)
     if raw.startswith("["):
         end = raw.find("]")
         return raw[: end + 1] if end != -1 else raw

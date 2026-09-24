@@ -81,12 +81,17 @@ const OPTS = {
   requireLive: argv.includes('--require-live') || process.env.E2E_AGENT_ACCESS_REQUIRE_LIVE === '1',
   noTsx: argv.includes('--no-tsx'),
   apiUrl: (
-    flagOf('api-url') ||
-    envOr(['IHUI_AGENT_API_URL', 'API_URL'], 'http://127.0.0.1:8802')
+    flagOf('api-url') || envOr(['IHUI_AGENT_API_URL', 'API_URL'], 'http://127.0.0.1:8802')
   ).replace(/\/$/, ''),
   aiUrl: (
-    flagOf('ai-url') ||
-    envOr(['IHUI_AGENT_AI_URL', 'AI_SERVICE_URL'], 'http://127.0.0.1:8803')
+    flagOf('ai-url') || envOr(['IHUI_AGENT_AI_URL', 'AI_SERVICE_URL'], 'http://127.0.0.1:8803')
+  ).replace(/\/$/, ''),
+  /**
+   * 公网入口(2026-09-24 O20:web 反代白名单暴露发现文档后的可达性回归)。
+   * 默认生产域;本地跑 --live 时公网用例对它做只读 GET,不可达 → SKIP 写原因,不算 FAIL。
+   */
+  publicUrl: (
+    flagOf('public-url') || envOr(['IHUI_AGENT_PUBLIC_URL', 'PUBLIC_URL'], 'https://aizhs.top')
   ).replace(/\/$/, ''),
   timeoutMs: Number(flagOf('timeout') || envOr(['E2E_AGENT_ACCESS_TIMEOUT'], '8000')),
   apiKey: flagOf('api-key') || envOr(['IHUI_API_KEY']),
@@ -187,7 +192,7 @@ const TS_PROBE = [
   '    ok: true,',
   '    scopes,',
   '    defaults: Array.from(k.DEFAULT_API_KEY_PERMISSIONS).map(String),',
-  '    unknownScopeAllowed: c.isM2MAllowed(\'nope:read\'),',
+  "    unknownScopeAllowed: c.isM2MAllowed('nope:read'),",
   '  }));',
   '}).catch((e) => { console.log(JSON.stringify({ ok: false, error: String((e && e.message) || e) })); })',
 ].join('\n')
@@ -200,8 +205,13 @@ function evalRealJudges() {
   if (OPTS.noTsx) return { engine: 'artifact-fallback(--no-tsx)' }
   const cli = findTsx()
   if (!cli) return { engine: 'artifact-fallback(未找到 tsx)' }
-  const code = TS_PROBE.replace('SPEC_CAT', JSON.stringify(pathToFileURL(resolve(ROOT, 'packages/types/src/capability-catalog.ts')).href))
-    .replace('SPEC_KEY', JSON.stringify(pathToFileURL(resolve(ROOT, 'packages/types/src/api-key.ts')).href))
+  const code = TS_PROBE.replace(
+    'SPEC_CAT',
+    JSON.stringify(pathToFileURL(resolve(ROOT, 'packages/types/src/capability-catalog.ts')).href),
+  ).replace(
+    'SPEC_KEY',
+    JSON.stringify(pathToFileURL(resolve(ROOT, 'packages/types/src/api-key.ts')).href),
+  )
   const r = spawnSync(process.execPath, [cli, '-e', code], {
     cwd: ROOT,
     encoding: 'utf8',
@@ -211,7 +221,10 @@ function evalRealJudges() {
   })
   const line = (r.stdout || '').trim().split('\n').filter(Boolean).pop()
   if (r.status !== 0 || !line) {
-    return { engine: 'artifact-fallback(tsx 调用失败)', error: (r.stderr || '').split('\n')[0] || `exit=${r.status}` }
+    return {
+      engine: 'artifact-fallback(tsx 调用失败)',
+      error: (r.stderr || '').split('\n')[0] || `exit=${r.status}`,
+    }
   }
   try {
     const parsed = JSON.parse(line)
@@ -242,7 +255,10 @@ function parseJwtPublicPaths(configPySource) {
 function parseEnvList(envSource, key) {
   const m = new RegExp(`^${key}=(.*)$`, 'm').exec(envSource || '')
   if (!m) return null
-  return m[1].split(',').map((s) => s.trim()).filter(Boolean)
+  return m[1]
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
 }
 
 /**
@@ -274,7 +290,9 @@ function parseSecurityBoundaryTuples(jwtAuthSource) {
 function isNeverPublicEntry(entry, tuples) {
   const normalized = String(entry).trim()
   if (tuples.catchAllEntries.includes(normalized)) return true
-  return tuples.neverPublicRoots.some((root) => normalized === root || normalized.startsWith(`${root}/`))
+  return tuples.neverPublicRoots.some(
+    (root) => normalized === root || normalized.startsWith(`${root}/`),
+  )
 }
 
 /**
@@ -289,15 +307,18 @@ function detectPrivilegedPublicEntries(entries, tuples) {
   const violations = []
   for (const entry of entries) {
     const normalized = String(entry).trim()
-    const root = tuples.neverPublicRoots.find((r) => normalized === r || normalized.startsWith(`${r}/`))
+    const root = tuples.neverPublicRoots.find(
+      (r) => normalized === r || normalized.startsWith(`${r}/`),
+    )
     if (root) {
       violations.push({
         entry: normalized,
         kind: 'privileged-router-root',
         routerRoot: root,
-        reason: `/api 前缀 = 一个 FastAPI router 根;该 router 自身无端点级鉴权(无 Depends、无属主校验),`
-          + `安全性全押在 JWTAuthMiddleware 上 ⇒ 一条目录前缀会静默放行该 router 现在与将来的每一个端点。`
-          + `确需公开单个端点:在 router 内显式实现凭据门禁并走 code review,不得靠 .env 静默重开。`,
+        reason:
+          `/api 前缀 = 一个 FastAPI router 根;该 router 自身无端点级鉴权(无 Depends、无属主校验),` +
+          `安全性全押在 JWTAuthMiddleware 上 ⇒ 一条目录前缀会静默放行该 router 现在与将来的每一个端点。` +
+          `确需公开单个端点:在 router 内显式实现凭据门禁并走 code review,不得靠 .env 静默重开。`,
       })
       continue
     }
@@ -306,8 +327,9 @@ function detectPrivilegedPublicEntries(entries, tuples) {
         entry: normalized,
         kind: 'catch-all',
         routerRoot: normalized,
-        reason: `兜底放行写法:命中该条目后全部路由匿名可达(等同于关掉整条鉴权链),`
-          + `属于配置层面的鉴权失效,不得出现在 JWT_PUBLIC_PATHS 的任何一侧。`,
+        reason:
+          `兜底放行写法:命中该条目后全部路由匿名可达(等同于关掉整条鉴权链),` +
+          `属于配置层面的鉴权失效,不得出现在 JWT_PUBLIC_PATHS 的任何一侧。`,
       })
     }
   }
@@ -316,8 +338,19 @@ function detectPrivilegedPublicEntries(entries, tuples) {
 
 /** 消费方检索时需要跳过的产物/副本目录(命中它们等于命中构建输出,不是真的调用方)。 */
 const CONSUMER_SKIP_DIRS = new Set([
-  'node_modules', 'dist', 'build', 'out', 'coverage', '.turbo', '.output',
-  'android', 'ios', 'www', 'intermediates', 'generated', '.next-static-r2',
+  'node_modules',
+  'dist',
+  'build',
+  'out',
+  'coverage',
+  '.turbo',
+  '.output',
+  'android',
+  'ios',
+  'www',
+  'intermediates',
+  'generated',
+  '.next-static-r2',
 ])
 const CONSUMER_EXT_RE = /\.(ts|tsx|js|mjs)$/
 
@@ -483,10 +516,15 @@ function m2mAllowedOf(scope) {
   return !!c && c.dataClass !== 'platform' && c.thirdPartyEligible === true
 }
 function platformishScopes() {
-  if (REAL.scopes) return REAL.scopes.filter((s) => s.dataClass === 'platform' || s.thirdPartyEligible === false)
+  if (REAL.scopes)
+    return REAL.scopes.filter((s) => s.dataClass === 'platform' || s.thirdPartyEligible === false)
   return [...manifestIndex.values()]
     .filter((c) => c.dataClass === 'platform' || c.thirdPartyEligible === false)
-    .map((c) => ({ scope: c.scope, dataClass: c.dataClass, thirdPartyEligible: c.thirdPartyEligible === true }))
+    .map((c) => ({
+      scope: c.scope,
+      dataClass: c.dataClass,
+      thirdPartyEligible: c.thirdPartyEligible === true,
+    }))
 }
 
 async function runOfflineChecks() {
@@ -494,7 +532,13 @@ async function runOfflineChecks() {
 
   // ── OFF-01 能力目录产物可读且非空 ──
   if (!MANIFEST || !Array.isArray(MANIFEST.capabilities) || MANIFEST.capabilities.length === 0) {
-    add(G, 'OFF-01', '能力目录产物可读', 'FAIL', 'packages/types/generated/capabilities.json 缺失或不可解析 —— 运行 pnpm capabilities:export')
+    add(
+      G,
+      'OFF-01',
+      '能力目录产物可读',
+      'FAIL',
+      'packages/types/generated/capabilities.json 缺失或不可解析 —— 运行 pnpm capabilities:export',
+    )
     return
   }
   add(
@@ -526,9 +570,21 @@ async function runOfflineChecks() {
   )
 
   if (!publicPaths) {
-    add(G, 'OFF-02', '特权 router 根不在 JWT 白名单(jwt_public_paths 默认值)', 'FAIL', '读不到 apps/ai-service/app/core/config.py 的 jwt_public_paths 默认值,判据失效即视为未证明')
+    add(
+      G,
+      'OFF-02',
+      '特权 router 根不在 JWT 白名单(jwt_public_paths 默认值)',
+      'FAIL',
+      '读不到 apps/ai-service/app/core/config.py 的 jwt_public_paths 默认值,判据失效即视为未证明',
+    )
   } else if (!tuples) {
-    add(G, 'OFF-02', '特权 router 根不在 JWT 白名单(jwt_public_paths 默认值)', 'FAIL', '边界清单解析失败(OFF-02a),本用例未执行 —— 按未证明处理,不得留绿')
+    add(
+      G,
+      'OFF-02',
+      '特权 router 根不在 JWT 白名单(jwt_public_paths 默认值)',
+      'FAIL',
+      '边界清单解析失败(OFF-02a),本用例未执行 —— 按未证明处理,不得留绿',
+    )
   } else {
     const defaultViolations = detectPrivilegedPublicEntries(publicPaths, tuples)
     add(
@@ -576,24 +632,28 @@ async function runOfflineChecks() {
           ? `${OPTS.envFile} 覆盖值 ${envPaths.length} 项,逐条比对 ${tuples.neverPublicRoots.length} 个特权根 + ${tuples.catchAllEntries.length} 个兜底写法,均不命中`
           : [
               `${OPTS.envFile} 的 JWT_PUBLIC_PATHS 原文含 ${envViolations.length} 条特权条目:`,
-              ...envViolations.map((v) => `  · ${v.entry} → (${v.kind === 'catch-all' ? '兜底放行写法' : `router 根 ${v.routerRoot}`}) —— ${v.reason}`),
+              ...envViolations.map(
+                (v) =>
+                  `  · ${v.entry} → (${v.kind === 'catch-all' ? '兜底放行写法' : `router 根 ${v.routerRoot}`}) —— ${v.reason}`,
+              ),
               codeEnforcesNeverPublic
-                ? `  注:jwt_auth 侧 fail-safe 已在运行时剔除这些条目(${envViolations.map((v) => v.entry).join(', ')} 不在运行时 PUBLIC_PATHS 内),`
-                  + '但**配置债不随加固消失** —— .env 是 gitignored 的机器态(根 .gitignore `**/.env`),换机/重新 clone 后这条后门就没了记录,'
-                  + '而下一次 jwt_auth 判据被改动(或有人把剔除逻辑当成"反正会兜住"而删掉)就是既成越权。必须从 .env 删除,或显式认领并走 code review。'
+                ? `  注:jwt_auth 侧 fail-safe 已在运行时剔除这些条目(${envViolations.map((v) => v.entry).join(', ')} 不在运行时 PUBLIC_PATHS 内),` +
+                  '但**配置债不随加固消失** —— .env 是 gitignored 的机器态(根 .gitignore `**/.env`),换机/重新 clone 后这条后门就没了记录,' +
+                  '而下一次 jwt_auth 判据被改动(或有人把剔除逻辑当成"反正会兜住"而删掉)就是既成越权。必须从 .env 删除,或显式认领并走 code review。'
                 : '  且 jwt_auth 侧未见强制剔除逻辑 ⇒ 这些条目在运行时**真实匿名可达**,属部署态未收口,须立即处理。',
             ].join('\n'),
       )
       for (const v of envViolations) {
-        const attribution = v.kind === 'catch-all'
-          ? `兜底放行写法 ${v.entry} 命中 _CATCH_ALL_PUBLIC_ENTRIES`
-          : `条目 ${v.entry} 命中特权 router 根 ${v.routerRoot}`
+        const attribution =
+          v.kind === 'catch-all'
+            ? `兜底放行写法 ${v.entry} 命中 _CATCH_ALL_PUBLIC_ENTRIES`
+            : `条目 ${v.entry} 命中特权 router 根 ${v.routerRoot}`
         finding(
           'high',
           `JWT_PUBLIC_PATHS(.env 原文)放行特权条目:${v.entry}`,
-          `${attribution} —— ${v.reason} `
-            + '实测越权证据(O19):匿名方可 ① GET /api/agents/sessions 列出全站会话 ② POST /api/agents/approval-response 抵达人工审批决策写入点 '
-            + '③ 订阅 /api/agents/tasks/stream 收到他人会话实时工具事件。',
+          `${attribution} —— ${v.reason} ` +
+            '实测越权证据(O19):匿名方可 ① GET /api/agents/sessions 列出全站会话 ② POST /api/agents/approval-response 抵达人工审批决策写入点 ' +
+            '③ 订阅 /api/agents/tasks/stream 收到他人会话实时工具事件。',
         )
       }
       // 漂移条目逐条认领:.env 多出而代码默认值没有的条目 = 只存在于某台机器的授权决定。
@@ -615,8 +675,8 @@ async function runOfflineChecks() {
             `${OPTS.envFile} 比 config.py 默认值多出 ${strayEntries.length} 条(特权条目已在 OFF-02c 单独判定):`,
             ...lines,
             deadEntries.length > 0
-              ? `  ❌ 死条目 ${deadEntries.length} 个:${deadEntries.join(', ')} —— 匿名放行却零调用方,只可能是历史试验残留或后门;"没人用的公开端点"没有任何保留理由。`
-                + '请二选一并留痕:① 从 .env 删除;② 若确有消费方(如 Python 内部回调/外部平台 webhook),把它写进 config.py 默认值并在注释注明鉴权方式与理由,让决定进入 git 而不是某台机器。'
+              ? `  ❌ 死条目 ${deadEntries.length} 个:${deadEntries.join(', ')} —— 匿名放行却零调用方,只可能是历史试验残留或后门;"没人用的公开端点"没有任何保留理由。` +
+                '请二选一并留痕:① 从 .env 删除;② 若确有消费方(如 Python 内部回调/外部平台 webhook),把它写进 config.py 默认值并在注释注明鉴权方式与理由,让决定进入 git 而不是某台机器。'
               : `  其余条目均有源码消费方,请确认每条在 config.py 默认值一侧有对应登记(${strayEntries.length} 条待双写)。`,
           ].join('\n'),
         )
@@ -644,9 +704,9 @@ async function runOfflineChecks() {
       finding(
         dropped.length || extra.length ? 'medium' : 'low',
         `${OPTS.envFile} 的 JWT_PUBLIC_PATHS 与 config.py 默认值已分叉(+${extra.length} / -${dropped.length})`,
-        `多出的:${extra.join(', ') || '(无)'};丢掉的:${dropped.join(', ') || '(无)'}`
-          + `${deadEntries.length ? `;其中零消费方的死条目:${deadEntries.join(', ')}(见 OFF-02d,必须显式认领)` : ''} `
-          + '—— 白名单是整串替换而非增量,任何一侧的改动都必须双写,否则出现"默认收了权、部署又放开"或"默认放开了、部署又锁死"。',
+        `多出的:${extra.join(', ') || '(无)'};丢掉的:${dropped.join(', ') || '(无)'}` +
+          `${deadEntries.length ? `;其中零消费方的死条目:${deadEntries.join(', ')}(见 OFF-02d,必须显式认领)` : ''} ` +
+          '—— 白名单是整串替换而非增量,任何一侧的改动都必须双写,否则出现"默认收了权、部署又放开"或"默认放开了、部署又锁死"。',
       )
     }
   }
@@ -689,7 +749,13 @@ async function runOfflineChecks() {
     guardReport = null
   }
   if (!guardReport) {
-    add(G, 'OFF-04', '/v1 无未登记端点', 'FAIL', `check-capability-catalog --json 未能给出结论(exit=${guard.status}):${(guard.stderr || '').split('\n')[0] ?? ''}`)
+    add(
+      G,
+      'OFF-04',
+      '/v1 无未登记端点',
+      'FAIL',
+      `check-capability-catalog --json 未能给出结论(exit=${guard.status}):${(guard.stderr || '').split('\n')[0] ?? ''}`,
+    )
   } else {
     const blocking = guardReport.failures.filter((f) => f.code !== 'REGENERATE_HINT')
     add(
@@ -700,10 +766,12 @@ async function runOfflineChecks() {
       `扫 ${guardReport.stats.filesScanned} 个 v1 路由文件 / ${guardReport.stats.handlers} handler → 已覆盖 ${guardReport.stats.covered},未覆盖 ${guardReport.stats.uncovered};未知 scope ${guardReport.stats.unknownScopes} / platform 泄漏 ${guardReport.stats.platformLeaks};产物一致 ${guardReport.stats.catalogScopes}↔${guardReport.stats.artifactScopes}`,
     )
     if (blocking.length > 0) {
-      for (const f of blocking.slice(0, 6)) finding('high', `能力目录守门失败 [${f.code}]`, f.message)
+      for (const f of blocking.slice(0, 6))
+        finding('high', `能力目录守门失败 [${f.code}]`, f.message)
     }
     const warnCodes = new Map()
-    for (const w of guardReport.warnings ?? []) warnCodes.set(w.code, (warnCodes.get(w.code) ?? 0) + 1)
+    for (const w of guardReport.warnings ?? [])
+      warnCodes.set(w.code, (warnCodes.get(w.code) ?? 0) + 1)
     if (warnCodes.size > 0) {
       finding(
         'low',
@@ -725,12 +793,17 @@ async function runOfflineChecks() {
     'OFF-05',
     '能力闸判据引擎自证(check-capability-catalog --self-test)',
     selfTest.status === 0 ? 'PASS' : 'FAIL',
-    selfTest.status === 0 ? '覆盖判定/产物比对/platform 泄漏检测逻辑正常' : `self-test exit=${selfTest.status}:${(selfTest.stdout || '').split('\n').filter((l) => l.includes('❌'))[0] ?? (selfTest.stderr || '').split('\n')[0]}`,
+    selfTest.status === 0
+      ? '覆盖判定/产物比对/platform 泄漏检测逻辑正常'
+      : `self-test exit=${selfTest.status}:${(selfTest.stdout || '').split('\n').filter((l) => l.includes('❌'))[0] ?? (selfTest.stderr || '').split('\n')[0]}`,
   )
 
   // ── OFF-06 MCP 网关(v1-mcp-gateway.ts)接闸 + scope 可对机器开放 ──
   // §22c:直接 import 守门导出的核心判据,不复刻解析逻辑。
-  let mcpFileVerdict = { status: 'FAIL', detail: '无法加载 check-capability-catalog 的 __test__ 导出' }
+  let mcpFileVerdict = {
+    status: 'FAIL',
+    detail: '无法加载 check-capability-catalog 的 __test__ 导出',
+  }
   try {
     const modPath = resolve(ROOT, 'scripts/check-capability-catalog.mjs')
     const { __test__ } = await import(pathToFileURL(modPath).href)
@@ -747,13 +820,25 @@ async function runOfflineChecks() {
   } catch (e) {
     mcpFileVerdict = { status: 'FAIL', detail: `断言异常:${String(e?.message ?? e)}` }
   }
-  add(G, 'OFF-06', '/v1/mcp/* 网关全量接能力闸且 scope 可对机器开放', mcpFileVerdict.status, mcpFileVerdict.detail)
+  add(
+    G,
+    'OFF-06',
+    '/v1/mcp/* 网关全量接能力闸且 scope 可对机器开放',
+    mcpFileVerdict.status,
+    mcpFileVerdict.detail,
+  )
 
   // ── OFF-07 /api 登记表:无通配 + 全在 /api 下 + 参数段合法 + (方法,路径) 唯一 ──
   const registrySrc = read('apps/api/src/config/open-capability-registry.ts')
   const entries = parseOpenRegistry(registrySrc)
   if (!entries || entries.length === 0) {
-    add(G, 'OFF-07', '/api 能力开放登记表结构(无通配)', 'FAIL', '解析不到 config/open-capability-registry.ts 的 DECLARATIONS(结构变了,判据需同步)')
+    add(
+      G,
+      'OFF-07',
+      '/api 能力开放登记表结构(无通配)',
+      'FAIL',
+      '解析不到 config/open-capability-registry.ts 的 DECLARATIONS(结构变了,判据需同步)',
+    )
   } else {
     const problems = []
     const seen = new Map()
@@ -764,7 +849,8 @@ async function runOfflineChecks() {
         if (!p.startsWith('/api/')) problems.push(`${e.key}: ${p} 不在 /api/ 下`)
         if (p.includes('*')) problems.push(`${e.key}: ${p} 含通配 "*"`)
         for (const seg of p.split('/')) {
-          if (seg.includes(':') && !/^:[A-Za-z_][A-Za-z0-9_]*$/.test(seg)) problems.push(`${e.key}: ${p} 参数段 ${seg} 非法`)
+          if (seg.includes(':') && !/^:[A-Za-z_][A-Za-z0-9_]*$/.test(seg))
+            problems.push(`${e.key}: ${p} 参数段 ${seg} 非法`)
         }
         for (const m of e.methods.length ? e.methods : ['*']) {
           const id = `${m} ${p}`
@@ -805,7 +891,13 @@ async function runOfflineChecks() {
     : null
   const defaults = REAL.defaults ?? parsedDefaults ?? null
   if (!defaults) {
-    add(G, 'OFF-09', '新建 API Key 默认权限不含 chat:write', 'FAIL', '既调不到真实常量也解析不到源码字面量')
+    add(
+      G,
+      'OFF-09',
+      '新建 API Key 默认权限不含 chat:write',
+      'FAIL',
+      '既调不到真实常量也解析不到源码字面量',
+    )
   } else {
     add(
       G,
@@ -829,24 +921,48 @@ async function runOfflineChecks() {
   const leaked = forbidden.filter((e) => m2mAllowedOf(e.scope))
   const guardSrc = read('apps/api/src/utils/capability-guard.ts') ?? ''
   const authSrc = read('apps/api/src/plugins/api-key-auth.ts') ?? ''
-  const m2mBeforeWildcard = guardSrc.indexOf('if (!isM2MAllowed(scope))') >= 0 &&
+  const m2mBeforeWildcard =
+    guardSrc.indexOf('if (!isM2MAllowed(scope))') >= 0 &&
     guardSrc.indexOf("granted.includes('*')") > guardSrc.indexOf('if (!isM2MAllowed(scope))')
-  const wildcardNarrowed = /coveredByWildcard\s*=\s*permList\.includes\('\*'\)\s*&&\s*isScopeThirdPartyEligible\(perm\)/.test(authSrc)
+  const wildcardNarrowed =
+    /coveredByWildcard\s*=\s*permList\.includes\('\*'\)\s*&&\s*isScopeThirdPartyEligible\(perm\)/.test(
+      authSrc,
+    )
   add(
     G,
     'OFF-10',
     "platform / thirdPartyEligible=false 的 scope 不会被 '*' 通配穿透",
     leaked.length === 0 && m2mBeforeWildcard && wildcardNarrowed ? 'PASS' : 'FAIL',
-    `目录内 platform/不可申请共 ${forbidden.length} 个(${forbidden.slice(0, 6).map((e) => e.scope).join(', ')}…)全部 isM2MAllowed=false;闸内 M2M 判定先于 '*' 放行=${m2mBeforeWildcard};requireApiKeyPermission 的 '*' 已收窄为「目录内且 thirdPartyEligible」=${wildcardNarrowed}`,
+    `目录内 platform/不可申请共 ${forbidden.length} 个(${forbidden
+      .slice(0, 6)
+      .map((e) => e.scope)
+      .join(
+        ', ',
+      )}…)全部 isM2MAllowed=false;闸内 M2M 判定先于 '*' 放行=${m2mBeforeWildcard};requireApiKeyPermission 的 '*' 已收窄为「目录内且 thirdPartyEligible」=${wildcardNarrowed}`,
   )
   if (REAL.scopes && REAL.unknownScopeAllowed) {
-    add(G, 'OFF-10b', '未登记 scope 一律拒(真实 isM2MAllowed("nope:read"))', 'FAIL', '未登记 scope 被判为可对机器开放 = 默认放行漏洞')
+    add(
+      G,
+      'OFF-10b',
+      '未登记 scope 一律拒(真实 isM2MAllowed("nope:read"))',
+      'FAIL',
+      '未登记 scope 被判为可对机器开放 = 默认放行漏洞',
+    )
   } else if (REAL.scopes) {
-    add(G, 'OFF-10b', '未登记 scope 一律拒(真实 isM2MAllowed("nope:read")=false)', 'PASS', '默认拒绝,未登记不进 M2M 白名单')
+    add(
+      G,
+      'OFF-10b',
+      '未登记 scope 一律拒(真实 isM2MAllowed("nope:read")=false)',
+      'PASS',
+      '默认拒绝,未登记不进 M2M 白名单',
+    )
   }
 
   // ── OFF-11 scoped-* 走受控出口 ──
-  const hits = countScopedCallSites(resolve(ROOT, 'apps/api/src'), new Set(['db/index.ts', 'utils/scoped-guard.ts']))
+  const hits = countScopedCallSites(
+    resolve(ROOT, 'apps/api/src'),
+    new Set(['db/index.ts', 'utils/scoped-guard.ts']),
+  )
   add(
     G,
     'OFF-11',
@@ -854,7 +970,9 @@ async function runOfflineChecks() {
     hits.length >= 5 ? 'PASS' : 'FAIL',
     `调用点 ${hits.length} 处(${[...new Set(hits)].join(', ')})—— 判定口径同 apps/api/tests/o4-route-wiring.test.ts(剥注释、排 import、排闸实现文件)`,
   )
-  const scopedDataClasses = MANIFEST.capabilities.filter((c) => c.dataClass === 'scoped-read' || c.dataClass === 'scoped-write')
+  const scopedDataClasses = MANIFEST.capabilities.filter(
+    (c) => c.dataClass === 'scoped-read' || c.dataClass === 'scoped-write',
+  )
   add(
     G,
     'OFF-11b',
@@ -878,7 +996,8 @@ async function runOfflineChecks() {
 
   // ── OFF-13 /api 面默认拒绝(未登记路径不注入机器授权) ──
   const gateSrc = read('apps/api/src/utils/open-capability-gate.ts') ?? ''
-  const denyBranch = /findOpenCapability\(request\.method,\s*urlPath\(request\.url\)\)/.test(gateSrc) &&
+  const denyBranch =
+    /findOpenCapability\(request\.method,\s*urlPath\(request\.url\)\)/.test(gateSrc) &&
     /if \(!entry\)\s*return/.test(gateSrc)
   add(
     G,
@@ -893,12 +1012,16 @@ async function runOfflineChecks() {
   // ── OFF-14 OAuth 根路径是否在 CSRF 公开白名单内(决定外部 Agent 能否真建客户端) ──
   const csrfSrc = read('apps/api/src/plugins/csrf.ts') ?? ''
   const publicBlock = /const PUBLIC_PREFIXES\s*=\s*\[([\s\S]*?)\n\]/.exec(csrfSrc)
-  const prefixes = publicBlock
-    ? [...publicBlock[1].matchAll(/'([^']+)'/g)].map((m) => m[1])
-    : []
-  const dcrPath = /server\.post\(\s*'\/oauth\/register'/.test(read('apps/api/src/routes/oauth-register.ts') ?? '')
-  const tokenPath = /server\.post\(\s*'\/oauth\/token'/.test(read('apps/api/src/routes/oauth-tokens.ts') ?? '')
-  const covered = prefixes.some((p) => '/oauth/register'.startsWith(p) || '/oauth/token'.startsWith(p))
+  const prefixes = publicBlock ? [...publicBlock[1].matchAll(/'([^']+)'/g)].map((m) => m[1]) : []
+  const dcrPath = /server\.post\(\s*'\/oauth\/register'/.test(
+    read('apps/api/src/routes/oauth-register.ts') ?? '',
+  )
+  const tokenPath = /server\.post\(\s*'\/oauth\/token'/.test(
+    read('apps/api/src/routes/oauth-tokens.ts') ?? '',
+  )
+  const covered = prefixes.some(
+    (p) => '/oauth/register'.startsWith(p) || '/oauth/token'.startsWith(p),
+  )
   add(
     G,
     'OFF-14',
@@ -929,7 +1052,12 @@ async function http(method, url, { headers = {}, body, form } = {}) {
     payload = JSON.stringify(body)
   }
   try {
-    const resp = await fetch(url, { method, headers: h, body: payload, signal: AbortSignal.timeout(OPTS.timeoutMs) })
+    const resp = await fetch(url, {
+      method,
+      headers: h,
+      body: payload,
+      signal: AbortSignal.timeout(OPTS.timeoutMs),
+    })
     const text = await resp.text()
     let json = null
     try {
@@ -939,7 +1067,13 @@ async function http(method, url, { headers = {}, body, form } = {}) {
     }
     return { status: resp.status, json, text, ms: Date.now() - t0, error: null }
   } catch (e) {
-    return { status: null, json: null, text: '', ms: Date.now() - t0, error: `${e?.name ?? 'Error'}:${e?.cause?.code ?? e?.message ?? ''}` }
+    return {
+      status: null,
+      json: null,
+      text: '',
+      ms: Date.now() - t0,
+      error: `${e?.name ?? 'Error'}:${e?.cause?.code ?? e?.message ?? ''}`,
+    }
   }
 }
 
@@ -948,7 +1082,8 @@ async function probeAny(base, paths) {
   let last = null
   for (const p of paths) {
     const r = await http('GET', base + p)
-    if (r.status !== null && r.status < 500) return { online: true, detail: `GET ${p} → HTTP ${r.status} in ${r.ms}ms` }
+    if (r.status !== null && r.status < 500)
+      return { online: true, detail: `GET ${p} → HTTP ${r.status} in ${r.ms}ms` }
     last = r.error ? `${p}: ${r.error}` : `${p}: HTTP ${r.status}`
   }
   return { online: false, detail: `探测失败(${paths.length} 个路径全不可用)—— 最后一次:${last}` }
@@ -989,9 +1124,13 @@ async function runLiveChecks(api, ai) {
       const r = await http('GET', `${OPTS.apiUrl}/v1/models`)
       if (r.status === null) return ['SKIP', `请求失败:${r.error}`]
       const leak = leakCheck('匿名 /v1/models', r)
-      if (r.status !== 401 && r.status !== 403) return ['FAIL', `实际 HTTP ${r.status}(期望 401/403):${r.text.slice(0, 160)}`]
+      if (r.status !== 401 && r.status !== 403)
+        return ['FAIL', `实际 HTTP ${r.status}(期望 401/403):${r.text.slice(0, 160)}`]
       if (leak) return ['FAIL', `401 正确但${leak}`]
-      return ['PASS', `HTTP ${r.status} ${JSON.stringify(r.json?.message ?? r.json?.error ?? '').slice(0, 80)}(${r.ms}ms)`]
+      return [
+        'PASS',
+        `HTTP ${r.status} ${JSON.stringify(r.json?.message ?? r.json?.error ?? '').slice(0, 80)}(${r.ms}ms)`,
+      ]
     },
   })
 
@@ -1000,13 +1139,18 @@ async function runLiveChecks(api, ai) {
     needsCred: 'none',
     run: async () => {
       const bogus = 'ihui_'.padEnd(37, '0')
-      const r = await http('GET', `${OPTS.apiUrl}/v1/models`, { headers: { Authorization: `Bearer ${bogus}` } })
+      const r = await http('GET', `${OPTS.apiUrl}/v1/models`, {
+        headers: { Authorization: `Bearer ${bogus}` },
+      })
       if (r.status === null) return ['SKIP', `请求失败:${r.error}`]
       const body = r.text ?? ''
       const leaks = /\bFailed query\b|select\s+"[a-z_]+"/i.test(body) || body.includes(bogus)
       if (r.status !== 401) return ['FAIL', `无效 key 未被拒(HTTP ${r.status})`]
       if (leaks) {
-        return ['FAIL', `HTTP 401 正确,但响应体把内部 SQL 语句与提交的凭据原样回显:${body.slice(0, 140).replace(/\s+/g, ' ')}…`]
+        return [
+          'FAIL',
+          `HTTP 401 正确,但响应体把内部 SQL 语句与提交的凭据原样回显:${body.slice(0, 140).replace(/\s+/g, ' ')}…`,
+        ]
       }
       return ['PASS', 'HTTP 401 且错误体未含 SQL/凭据']
     },
@@ -1016,10 +1160,15 @@ async function runLiveChecks(api, ai) {
     ...A('LIVE-A03', '带 ihui_ key 但缺 X-Api-Secret → 401 SECRET_REQUIRED(双因子默认必开)'),
     needsCred: 'key',
     run: async () => {
-      const r = await http('GET', `${OPTS.apiUrl}/v1/models`, { headers: { Authorization: `Bearer ${OPTS.apiKey}` } })
+      const r = await http('GET', `${OPTS.apiUrl}/v1/models`, {
+        headers: { Authorization: `Bearer ${OPTS.apiKey}` },
+      })
       const hit = r.status === 401 && /SECRET_REQUIRED|X-Api-Secret/i.test(r.text)
       return hit
-        ? ['PASS', `HTTP 401 + ${(r.json?.errorCode ?? r.json?.code ?? '')} ${(r.json?.message ?? '').slice(0, 60)}`]
+        ? [
+            'PASS',
+            `HTTP 401 + ${r.json?.errorCode ?? r.json?.code ?? ''} ${(r.json?.message ?? '').slice(0, 60)}`,
+          ]
         : ['FAIL', `期望 401 SECRET_REQUIRED,实际 HTTP ${r.status}:${r.text.slice(0, 140)}`]
     },
   })
@@ -1031,31 +1180,54 @@ async function runLiveChecks(api, ai) {
       const r = await http('GET', `${OPTS.apiUrl}/v1/models`, { headers: keyHeaders() })
       if (r.status === null) return ['SKIP', `请求失败:${r.error}`]
       if (r.status !== 200) {
-        const why = /\bFailed query\b/i.test(r.text) ? ' —— 服务端 DB 不可用(dev 环境连不上/表缺失),属环境故障非鉴权结论' : ''
+        const why = /\bFailed query\b/i.test(r.text)
+          ? ' —— 服务端 DB 不可用(dev 环境连不上/表缺失),属环境故障非鉴权结论'
+          : ''
         return ['FAIL', `HTTP ${r.status}:${r.text.slice(0, 140)}${why}`]
       }
       const data = Array.isArray(r.json?.data) ? r.json.data : []
-      const shape = r.json?.object === 'list' && data.every((m) => m && typeof m.id === 'string' && (m.object ?? 'model') === 'model')
+      const shape =
+        r.json?.object === 'list' &&
+        data.every((m) => m && typeof m.id === 'string' && (m.object ?? 'model') === 'model')
       return shape
-        ? ['PASS', `object=list / ${data.length} 个模型,字段 {id,object,created,owned_by} 兼容 openai SDK;client=raw-openai-wire`]
+        ? [
+            'PASS',
+            `object=list / ${data.length} 个模型,字段 {id,object,created,owned_by} 兼容 openai SDK;client=raw-openai-wire`,
+          ]
         : ['FAIL', `HTTP 200 但形状不是 OpenAI 兼容:${JSON.stringify(r.json).slice(0, 160)}`]
     },
   })
 
   aCases.push({
-    ...A('LIVE-A05', '仅 models:read 的 key 打 POST /v1/chat/completions → 403 SCOPE_REQUIRED(数据/计费不越权)'),
+    ...A(
+      'LIVE-A05',
+      '仅 models:read 的 key 打 POST /v1/chat/completions → 403 SCOPE_REQUIRED(数据/计费不越权)',
+    ),
     needsCred: 'key+secret',
     run: async () => {
       const r = await http('POST', `${OPTS.apiUrl}/v1/chat/completions`, {
         headers: keyHeaders(),
-        body: { model: 'gpt-4o-mini', messages: [{ role: 'user', content: 'ping' }], max_tokens: 1 },
+        body: {
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: 'ping' }],
+          max_tokens: 1,
+        },
       })
       if (r.status === null) return ['SKIP', `请求失败:${r.error}`]
-      if (r.status === 403 && (r.json?.errorCode === 'SCOPE_REQUIRED' || r.json?.requiredScope === 'chat:write')) {
-        return ['PASS', `HTTP 403 errorCode=${r.json.errorCode} requiredScope=${r.json.requiredScope}`]
+      if (
+        r.status === 403 &&
+        (r.json?.errorCode === 'SCOPE_REQUIRED' || r.json?.requiredScope === 'chat:write')
+      ) {
+        return [
+          'PASS',
+          `HTTP 403 errorCode=${r.json.errorCode} requiredScope=${r.json.requiredScope}`,
+        ]
       }
       if (r.status === 200) {
-        return ['FAIL', 'HTTP 200 —— 所给 key 实际持有 chat:write(不是 models:read-only key),断言前提不成立;请换一把只授 models:read 的 key 复跑']
+        return [
+          'FAIL',
+          'HTTP 200 —— 所给 key 实际持有 chat:write(不是 models:read-only key),断言前提不成立;请换一把只授 models:read 的 key 复跑',
+        ]
       }
       return ['FAIL', `期望 403 SCOPE_REQUIRED,实际 HTTP ${r.status}:${r.text.slice(0, 140)}`]
     },
@@ -1065,27 +1237,47 @@ async function runLiveChecks(api, ai) {
     ...A('LIVE-A06', `未登记 /api 路径带合法 key(${OPTS.unregisteredApiPath})→ 401(默认拒绝)`),
     needsCred: 'key+secret',
     run: async () => {
-      const r = await http('GET', `${OPTS.apiUrl}${OPTS.unregisteredApiPath}`, { headers: keyHeaders() })
+      const r = await http('GET', `${OPTS.apiUrl}${OPTS.unregisteredApiPath}`, {
+        headers: keyHeaders(),
+      })
       if (r.status === null) return ['SKIP', `请求失败:${r.error}`]
-      if (r.status === 404) return ['FAIL', `HTTP 404 —— 该路径当前不存在,无法证明默认拒绝;用 --unregistered-path 指定一条真实存在的 /api 路由`]
+      if (r.status === 404)
+        return [
+          'FAIL',
+          `HTTP 404 —— 该路径当前不存在,无法证明默认拒绝;用 --unregistered-path 指定一条真实存在的 /api 路由`,
+        ]
       return r.status === 401
-        ? ['PASS', `HTTP 401 ${(r.json?.message ?? '').slice(0, 60)}(机器凭据未获登记表放行,端点自身按人通道鉴权拒绝)`]
+        ? [
+            'PASS',
+            `HTTP 401 ${(r.json?.message ?? '').slice(0, 60)}(机器凭据未获登记表放行,端点自身按人通道鉴权拒绝)`,
+          ]
         : ['FAIL', `期望 401,实际 HTTP ${r.status}:${r.text.slice(0, 140)}`]
     },
   })
 
   aCases.push({
-    ...A('LIVE-A07', `正向对照:登记表已放行的 ${OPTS.registeredApiPath} 带 key 不得 401(只能 200 或 403 scope)`),
+    ...A(
+      'LIVE-A07',
+      `正向对照:登记表已放行的 ${OPTS.registeredApiPath} 带 key 不得 401(只能 200 或 403 scope)`,
+    ),
     needsCred: 'key+secret',
     run: async () => {
-      const r = await http('GET', `${OPTS.apiUrl}${OPTS.registeredApiPath}`, { headers: keyHeaders() })
+      const r = await http('GET', `${OPTS.apiUrl}${OPTS.registeredApiPath}`, {
+        headers: keyHeaders(),
+      })
       if (r.status === null) return ['SKIP', `请求失败:${r.error}`]
       if (r.status === 401) {
         const db = /\bFailed query\b/i.test(r.text)
-        return ['FAIL', `HTTP 401 —— 登记过的机器通道未放行${db ? '(服务端 DB 查询失败,见响应体;属环境故障)' : ''}:${r.text.slice(0, 120)}`]
+        return [
+          'FAIL',
+          `HTTP 401 —— 登记过的机器通道未放行${db ? '(服务端 DB 查询失败,见响应体;属环境故障)' : ''}:${r.text.slice(0, 120)}`,
+        ]
       }
       if (r.status === 200 || r.status === 403) {
-        return ['PASS', `HTTP ${r.status} ${r.status === 403 ? `(缺 scope:${r.json?.errorCode ?? ''} ${r.json?.requiredScope ?? ''})` : '(已进入业务面)'} —— 证明"登记=可进,未登记=拒"`]
+        return [
+          'PASS',
+          `HTTP ${r.status} ${r.status === 403 ? `(缺 scope:${r.json?.errorCode ?? ''} ${r.json?.requiredScope ?? ''})` : '(已进入业务面)'} —— 证明"登记=可进,未登记=拒"`,
+        ]
       }
       return ['FAIL', `期望 200/403,实际 HTTP ${r.status}:${r.text.slice(0, 140)}`]
     },
@@ -1113,7 +1305,11 @@ async function runLiveChecks(api, ai) {
         const n = Array.isArray(r.json?.data?.tools) ? r.json.data.tools.length : null
         return ['PASS', `HTTP 200${n === null ? '' : ` / ${n} 个工具`}(tools:read 通道打通)`]
       }
-      if (r.status === 403) return ['PASS', `HTTP 403 ${(r.json?.errorCode ?? '')} —— 已进闸但 scope/白名单不足,机器通道本身可达`]
+      if (r.status === 403)
+        return [
+          'PASS',
+          `HTTP 403 ${r.json?.errorCode ?? ''} —— 已进闸但 scope/白名单不足,机器通道本身可达`,
+        ]
       return ['FAIL', `期望 200/403,实际 HTTP ${r.status}:${r.text.slice(0, 140)}`]
     },
   })
@@ -1126,22 +1322,41 @@ async function runLiveChecks(api, ai) {
     ...B('LIVE-B01', '匿名 POST /api/mcp initialize 必须被拒(401/403)—— O1 收权回归点'),
     needsCred: 'none',
     run: async () => {
-      const r = await http('POST', `${OPTS.aiUrl}/api/mcp`, { body: rpc(1, 'initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'o17-probe', version: '1' } }) })
+      const r = await http('POST', `${OPTS.aiUrl}/api/mcp`, {
+        body: rpc(1, 'initialize', {
+          protocolVersion: '2025-06-18',
+          capabilities: {},
+          clientInfo: { name: 'o17-probe', version: '1' },
+        }),
+      })
       if (r.status === null) return ['SKIP', `请求失败:${r.error}`]
       if (r.status === 401 || r.status === 403) {
-        return ['PASS', `HTTP ${r.status} JSON-RPC error:${(r.json?.error?.message ?? '').slice(0, 90)}`]
+        return [
+          'PASS',
+          `HTTP ${r.status} JSON-RPC error:${(r.json?.error?.message ?? '').slice(0, 90)}`,
+        ]
       }
-      return ['FAIL', `HTTP ${r.status} —— 匿名 MCP 仍可握手(${r.json?.result?.serverInfo?.name ?? '无 serverInfo'});非生产环境的 dev 回退主体在放行,生产必须 node_env=production`]
+      return [
+        'FAIL',
+        `HTTP ${r.status} —— 匿名 MCP 仍可握手(${r.json?.result?.serverInfo?.name ?? '无 serverInfo'});非生产环境的 dev 回退主体在放行,生产必须 node_env=production`,
+      ]
     },
   })
 
   bCases.push({
-    ...B('LIVE-B02', '机器凭据(ihui_ key)直连 ai-service /api/mcp 必须 401(机器通道只走 apps/api 网关)'),
+    ...B(
+      'LIVE-B02',
+      '机器凭据(ihui_ key)直连 ai-service /api/mcp 必须 401(机器通道只走 apps/api 网关)',
+    ),
     needsCred: 'key',
     run: async () => {
       const r = await http('POST', `${OPTS.aiUrl}/api/mcp`, {
         headers: { Authorization: `Bearer ${OPTS.apiKey}` },
-        body: rpc(1, 'initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'o17-probe', version: '1' } }),
+        body: rpc(1, 'initialize', {
+          protocolVersion: '2025-06-18',
+          capabilities: {},
+          clientInfo: { name: 'o17-probe', version: '1' },
+        }),
       })
       if (r.status === null) return ['SKIP', `请求失败:${r.error}`]
       return r.status === 401 || r.status === 403
@@ -1155,15 +1370,31 @@ async function runLiveChecks(api, ai) {
     needsCred: 'jwt',
     run: async () => {
       const headers = { Authorization: `Bearer ${OPTS.jwt}` }
-      const init = await http('POST', `${OPTS.aiUrl}/api/mcp`, { headers, body: rpc(1, 'initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'o17-probe', version: '1' } }) })
-      if (init.status !== 200) return ['FAIL', `initialize HTTP ${init.status}:${init.text.slice(0, 140)}`]
+      const init = await http('POST', `${OPTS.aiUrl}/api/mcp`, {
+        headers,
+        body: rpc(1, 'initialize', {
+          protocolVersion: '2025-06-18',
+          capabilities: {},
+          clientInfo: { name: 'o17-probe', version: '1' },
+        }),
+      })
+      if (init.status !== 200)
+        return ['FAIL', `initialize HTTP ${init.status}:${init.text.slice(0, 140)}`]
       const proto = init.json?.result?.protocolVersion
-      const list = await http('POST', `${OPTS.aiUrl}/api/mcp`, { headers, body: rpc(2, 'tools/list', {}) })
+      const list = await http('POST', `${OPTS.aiUrl}/api/mcp`, {
+        headers,
+        body: rpc(2, 'tools/list', {}),
+      })
       const tools = Array.isArray(list.json?.result?.tools) ? list.json.result.tools : null
-      if (list.status !== 200 || !tools) return ['FAIL', `tools/list HTTP ${list.status}:${list.text.slice(0, 140)}`]
+      if (list.status !== 200 || !tools)
+        return ['FAIL', `tools/list HTTP ${list.status}:${list.text.slice(0, 140)}`]
       const pick = tools.find((t) => t?.name === 'list_skills') ?? tools[0]
-      const call = await http('POST', `${OPTS.aiUrl}/api/mcp`, { headers, body: rpc(3, 'tools/call', { name: pick.name, arguments: {} }) })
-      const called = call.status === 200 && (call.json?.result ?? null) !== null && call.json?.error == null
+      const call = await http('POST', `${OPTS.aiUrl}/api/mcp`, {
+        headers,
+        body: rpc(3, 'tools/call', { name: pick.name, arguments: {} }),
+      })
+      const called =
+        call.status === 200 && (call.json?.result ?? null) !== null && call.json?.error == null
       const detail = `initialize→${proto} / tools=${tools.length} / tools/call(${pick.name}) HTTP ${call.status}${call.json?.error ? ` error=${JSON.stringify(call.json.error).slice(0, 90)}` : ''}`
       if (called) return ['PASS', detail]
       return ['FAIL', `三步未全通:${detail}`]
@@ -1181,18 +1412,34 @@ async function runLiveChecks(api, ai) {
     run: async () => {
       const r = await http('GET', `${OPTS.apiUrl}/.well-known/oauth-authorization-server`)
       if (r.status === null) return ['SKIP', `请求失败:${r.error}`]
-      const need = ['issuer', 'token_endpoint', 'registration_endpoint', 'response_types_supported', 'grant_types_supported']
+      const need = [
+        'issuer',
+        'token_endpoint',
+        'registration_endpoint',
+        'response_types_supported',
+        'grant_types_supported',
+      ]
       const missing = r.status === 200 ? need.filter((k) => r.json?.[k] === undefined) : need
-      if (missing.length) return ['FAIL', `HTTP ${r.status},缺字段 ${missing.join(', ') || r.text.slice(0, 120)}`]
-      return ['PASS', `issuer=${r.json.issuer} token=${r.json.token_endpoint} register=${r.json.registration_endpoint}`]
+      if (missing.length)
+        return ['FAIL', `HTTP ${r.status},缺字段 ${missing.join(', ') || r.text.slice(0, 120)}`]
+      return [
+        'PASS',
+        `issuer=${r.json.issuer} token=${r.json.token_endpoint} register=${r.json.registration_endpoint}`,
+      ]
     },
   })
 
   cCases.push({
-    ...C('LIVE-C02', 'POST /oauth/register 建机密客户端(loopback redirect + client_credentials)→ 201 + client_id/secret'),
+    ...C(
+      'LIVE-C02',
+      'POST /oauth/register 建机密客户端(loopback redirect + client_credentials)→ 201 + client_id/secret',
+    ),
     needsCred: 'none',
     run: async () => {
-      const stamp = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 17)
+      const stamp = new Date()
+        .toISOString()
+        .replace(/[-:.TZ]/g, '')
+        .slice(0, 17)
       const meta = (name) => ({
         client_name: name,
         redirect_uris: ['http://127.0.0.1:4319/callback'],
@@ -1201,9 +1448,12 @@ async function runLiveChecks(api, ai) {
         token_endpoint_auth_method: 'client_secret_post',
         scope: 'read:profile',
       })
-      const plain = await http('POST', `${OPTS.apiUrl}/oauth/register`, { body: meta(`o17-agent-access-${stamp}`) })
+      const plain = await http('POST', `${OPTS.apiUrl}/oauth/register`, {
+        body: meta(`o17-agent-access-${stamp}`),
+      })
       if (plain.status === null) return ['SKIP', `请求失败:${plain.error}`]
-      if (plain.status === 429) return ['SKIP', 'DCR 限流 10 次/小时/IP 已耗尽(本脚本每次探测都吃配额),等窗口过后复跑']
+      if (plain.status === 429)
+        return ['SKIP', 'DCR 限流 10 次/小时/IP 已耗尽(本脚本每次探测都吃配额),等窗口过后复跑']
       const csrfBlocked = plain.status === 403 && /CSRF/.test(plain.text)
       if (csrfBlocked) {
         const bypass = await http('POST', `${OPTS.apiUrl}/oauth/register`, {
@@ -1212,19 +1462,29 @@ async function runLiveChecks(api, ai) {
         })
         dcr =
           bypass.status === 201 || bypass.status === 200
-            ? { clientId: bypass.json?.client_id ?? null, clientSecret: bypass.json?.client_secret ?? null }
+            ? {
+                clientId: bypass.json?.client_id ?? null,
+                clientSecret: bypass.json?.client_secret ?? null,
+              }
             : { clientId: null, clientSecret: null }
         return [
           'FAIL',
           `HTTP 403「CSRF 令牌缺失或无效」—— 标准 RFC 7591 客户端不带任何 Authorization 头,被 CSRF 闸挡死(CSRF 白名单只有 /api/oauth/,端点却注册在 /oauth/*)。同请求带一个假 Bearer 头反而 HTTP ${bypass.status}${dcr.clientId ? ` 并建成 client_id=${dcr.clientId.slice(0, 12)}…` : ''} —— 豁免条件可被任意 Bearer 值绕过,既挡正当客户端又留绕道口。`,
         ]
       }
-      if (plain.status !== 201 && plain.status !== 200) return ['FAIL', `HTTP ${plain.status}:${plain.text.slice(0, 160)}`]
+      if (plain.status !== 201 && plain.status !== 200)
+        return ['FAIL', `HTTP ${plain.status}:${plain.text.slice(0, 160)}`]
       if (!plain.json?.client_id || !plain.json?.client_secret) {
-        return ['FAIL', `HTTP ${plain.status} 但缺 client_id/client_secret:${JSON.stringify(plain.json).slice(0, 160)}`]
+        return [
+          'FAIL',
+          `HTTP ${plain.status} 但缺 client_id/client_secret:${JSON.stringify(plain.json).slice(0, 160)}`,
+        ]
       }
       dcr = { clientId: plain.json.client_id, clientSecret: plain.json.client_secret }
-      return ['PASS', `HTTP ${plain.status} client_id=${plain.json.client_id.slice(0, 12)}… client_secret=${mask(plain.json.client_secret)} auth_method=${plain.json.token_endpoint_auth_method}`]
+      return [
+        'PASS',
+        `HTTP ${plain.status} client_id=${plain.json.client_id.slice(0, 12)}… client_secret=${mask(plain.json.client_secret)} auth_method=${plain.json.token_endpoint_auth_method}`,
+      ]
     },
   })
 
@@ -1232,18 +1492,41 @@ async function runLiveChecks(api, ai) {
     ...C('LIVE-C03', '用 DCR 拿到的 client 凭 client_credentials 换 access_token(RFC 6749 §4.4)'),
     needsCred: 'dcr',
     run: async () => {
-      const body = { grant_type: 'client_credentials', scope: 'read:profile', client_id: dcr.clientId, client_secret: dcr.clientSecret }
-      const post = await http('POST', `${OPTS.apiUrl}/oauth/token`, { headers: { Authorization: 'Bearer csrf-exempt-placeholder' }, body })
-      if (post.status === null) return ['SKIP', `请求失败:${post.error}`]
-      if (post.status === 200 && typeof post.json?.access_token === 'string' && post.json?.token_type) {
-        return ['PASS', `HTTP 200 token_type=${post.json.token_type} expires_in=${post.json.expires_in} jwt_parts=${post.json.access_token.split('.').length} scope=${post.json.scope ?? '-'}(注:带占位 Bearer 头才过 CSRF)`]
+      const body = {
+        grant_type: 'client_credentials',
+        scope: 'read:profile',
+        client_id: dcr.clientId,
+        client_secret: dcr.clientSecret,
       }
-      const basic = Buffer.from(`${encodeURIComponent(dcr.clientId)}:${encodeURIComponent(dcr.clientSecret)}`).toString('base64')
+      const post = await http('POST', `${OPTS.apiUrl}/oauth/token`, {
+        headers: { Authorization: 'Bearer csrf-exempt-placeholder' },
+        body,
+      })
+      if (post.status === null) return ['SKIP', `请求失败:${post.error}`]
+      if (
+        post.status === 200 &&
+        typeof post.json?.access_token === 'string' &&
+        post.json?.token_type
+      ) {
+        return [
+          'PASS',
+          `HTTP 200 token_type=${post.json.token_type} expires_in=${post.json.expires_in} jwt_parts=${post.json.access_token.split('.').length} scope=${post.json.scope ?? '-'}(注:带占位 Bearer 头才过 CSRF)`,
+        ]
+      }
+      const basic = Buffer.from(
+        `${encodeURIComponent(dcr.clientId)}:${encodeURIComponent(dcr.clientSecret)}`,
+      ).toString('base64')
       const viaBasic = await http('POST', `${OPTS.apiUrl}/oauth/token`, {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', Authorization: `Basic ${basic}` },
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Authorization: `Basic ${basic}`,
+        },
         form: { grant_type: 'client_credentials', scope: 'read:profile' },
       })
-      return ['FAIL', `client_credentials 换令牌失败 —— client_secret_post HTTP ${post.status}:${(post.json?.error_description ?? post.text ?? '').slice(0, 90)};client_secret_basic HTTP ${viaBasic.status}:${(viaBasic.json?.error_description ?? viaBasic.json?.message ?? viaBasic.text ?? '').slice(0, 90)}。新注册客户端被判 invalid_client 说明 DCR 写入的 secret 摘要与校验链不同代次(或 CSRF 先挡),外部 Agent 无法只靠 DCR 拿到令牌`]
+      return [
+        'FAIL',
+        `client_credentials 换令牌失败 —— client_secret_post HTTP ${post.status}:${(post.json?.error_description ?? post.text ?? '').slice(0, 90)};client_secret_basic HTTP ${viaBasic.status}:${(viaBasic.json?.error_description ?? viaBasic.json?.message ?? viaBasic.text ?? '').slice(0, 90)}。新注册客户端被判 invalid_client 说明 DCR 写入的 secret 摘要与校验链不同代次(或 CSRF 先挡),外部 Agent 无法只靠 DCR 拿到令牌`,
+      ]
     },
   })
 
@@ -1260,16 +1543,25 @@ async function runLiveChecks(api, ai) {
       if (r.status === null) return ['SKIP', `请求失败:${r.error}`]
       if (r.status === 429) return ['SKIP', 'DCR 限流 10 次/小时/IP 已耗尽,等窗口过后复跑']
       if (r.status === 403 && /CSRF/.test(r.text)) {
-        r = await http('POST', `${OPTS.apiUrl}/oauth/register`, { headers: { Authorization: 'Bearer csrf-exempt-placeholder' }, body })
+        r = await http('POST', `${OPTS.apiUrl}/oauth/register`, {
+          headers: { Authorization: 'Bearer csrf-exempt-placeholder' },
+          body,
+        })
         if (r.status === null) return ['SKIP', `重试请求失败:${r.error}`]
       }
       if (r.json?.error) {
         return r.status >= 400 && r.status < 500
-          ? ['PASS', `HTTP ${r.status} error=${r.json.error} desc=${(r.json.error_description ?? '').slice(0, 70)}`]
+          ? [
+              'PASS',
+              `HTTP ${r.status} error=${r.json.error} desc=${(r.json.error_description ?? '').slice(0, 70)}`,
+            ]
           : ['FAIL', `RFC 判定返回了 2xx/5xx:HTTP ${r.status}:${r.text.slice(0, 140)}`]
       }
       if (r.status === 201 || r.status === 200) {
-        return ['FAIL', `公开客户端 + client_credentials 竟被接受:HTTP ${r.status}:${r.text.slice(0, 140)}`]
+        return [
+          'FAIL',
+          `公开客户端 + client_credentials 竟被接受:HTTP ${r.status}:${r.text.slice(0, 140)}`,
+        ]
       }
       return ['FAIL', `未触达 RFC 判定,被中间件截胡:HTTP ${r.status}:${r.text.slice(0, 140)}`]
     },
@@ -1286,8 +1578,42 @@ async function runLiveChecks(api, ai) {
       run: async () => {
         const r = await http('GET', `${OPTS.aiUrl}/.well-known/agent.json`)
         if (r.status === null) return ['SKIP', `请求失败:${r.error}`]
-        if (r.status !== 200) return ['FAIL', `HTTP ${r.status}:${r.text.slice(0, 140)} —— 发现文档必须匿名可抓取,否则严格 A2A 客户端拿不到能力`]
-        return ['PASS', `HTTP 200 name=${JSON.stringify(r.json?.name ?? '')} url=${r.json?.url ?? '-'} skills=${(r.json?.skills ?? []).length}`]
+        if (r.status !== 200)
+          return [
+            'FAIL',
+            `HTTP ${r.status}:${r.text.slice(0, 140)} —— 发现文档必须匿名可抓取,否则严格 A2A 客户端拿不到能力`,
+          ]
+        return [
+          'PASS',
+          `HTTP 200 name=${JSON.stringify(r.json?.name ?? '')} url=${r.json?.url ?? '-'} skills=${(r.json?.skills ?? []).length}`,
+        ]
+      },
+    },
+    {
+      group: 'live:a2a',
+      id: 'LIVE-D02',
+      title: `GET ${OPTS.publicUrl}/.well-known/agent.json 公网可达且卡片 url 是公网域(O20 反代白名单回归)`,
+      service: ai,
+      needsCred: 'none',
+      run: async () => {
+        const r = await http('GET', `${OPTS.publicUrl}/.well-known/agent.json`)
+        if (r.status === null)
+          return ['SKIP', `公网请求失败:${r.error} —— 公网链路不可达时不阻断内网结论`]
+        if (r.status !== 200)
+          return [
+            'FAIL',
+            `公网 HTTP ${r.status}:${r.text.slice(0, 140)} —— 发现文档经 web 反代必须匿名可抓取(白名单:/.well-known/agent.json|agent-card.json)`,
+          ]
+        const cardUrl = String(r.json?.url ?? '')
+        const cardHost = new URL(cardUrl).host
+        const pubHost = new URL(OPTS.publicUrl).host
+        if (!cardHost.endsWith(pubHost.split('.').slice(-2).join('.'))) {
+          return [
+            'FAIL',
+            `卡片 url=${cardUrl} 不是公网域(${pubHost} 家族)—— resolve_public_base_url 推导失败,第三方会拿到内网地址`,
+          ]
+        }
+        return ['PASS', `公网 HTTP 200 url=${cardUrl} skills=${(r.json?.skills ?? []).length}`]
       },
     },
   ]
@@ -1295,19 +1621,43 @@ async function runLiveChecks(api, ai) {
   const all = [...aCases, ...bCases, ...cCases, ...dCases]
   for (const c of all) {
     if (!c.service.online) {
-      add(c.group, c.id, c.title, 'SKIP', `服务不可达(${c.service.base} 探测失败:${c.service.detail})—— 本用例未验证,禁止当作 PASS`)
+      add(
+        c.group,
+        c.id,
+        c.title,
+        'SKIP',
+        `服务不可达(${c.service.base} 探测失败:${c.service.detail})—— 本用例未验证,禁止当作 PASS`,
+      )
       continue
     }
     if (c.needsCred === 'key' && !hasKey) {
-      add(c.group, c.id, c.title, 'SKIP', '缺 ihui_ 机器凭据(设 IHUI_API_KEY 或 --api-key)—— 匿名侧结论由 LIVE-A01/A02/B01 承担')
+      add(
+        c.group,
+        c.id,
+        c.title,
+        'SKIP',
+        '缺 ihui_ 机器凭据(设 IHUI_API_KEY 或 --api-key)—— 匿名侧结论由 LIVE-A01/A02/B01 承担',
+      )
       continue
     }
     if (c.needsCred === 'key+secret' && !(hasKey && hasSecret)) {
-      add(c.group, c.id, c.title, 'SKIP', `缺凭据组合(需要 key${hasKey ? '' : ' + secret'};IHUI_API_KEY=${mask(OPTS.apiKey)} / IHUI_API_SECRET=${OPTS.apiSecret ? 'set' : 'unset'})`)
+      add(
+        c.group,
+        c.id,
+        c.title,
+        'SKIP',
+        `缺凭据组合(需要 key${hasKey ? '' : ' + secret'};IHUI_API_KEY=${mask(OPTS.apiKey)} / IHUI_API_SECRET=${OPTS.apiSecret ? 'set' : 'unset'})`,
+      )
       continue
     }
     if (c.needsCred === 'jwt' && !hasJwt) {
-      add(c.group, c.id, c.title, 'SKIP', '缺人通道 JWT(IHUI_JWT / --jwt)—— ai-service MCP 只认 JWT 或内网 X-IHUI-Principal')
+      add(
+        c.group,
+        c.id,
+        c.title,
+        'SKIP',
+        '缺人通道 JWT(IHUI_JWT / --jwt)—— ai-service MCP 只认 JWT 或内网 X-IHUI-Principal',
+      )
       continue
     }
     if (c.needsCred === 'dcr' && !dcr.clientId) {
@@ -1367,11 +1717,27 @@ async function main() {
     const pAi = await probeAny(OPTS.aiUrl, ['/health', '/api/health'])
     api = { ...pApi, base: OPTS.apiUrl }
     ai = { ...pAi, base: OPTS.aiUrl }
-    if (!api.online) finding('medium', `apps/api(${OPTS.apiUrl}) 不可达,OpenAI/MCP 网关/OAuth 三组在线用例全部 SKIP`, pApi.detail)
-    if (!ai.online) finding('medium', `ai-service(${OPTS.aiUrl}) 不可达,MCP JSON-RPC 与 A2A 在线用例全部 SKIP`, pAi.detail)
+    if (!api.online)
+      finding(
+        'medium',
+        `apps/api(${OPTS.apiUrl}) 不可达,OpenAI/MCP 网关/OAuth 三组在线用例全部 SKIP`,
+        pApi.detail,
+      )
+    if (!ai.online)
+      finding(
+        'medium',
+        `ai-service(${OPTS.aiUrl}) 不可达,MCP JSON-RPC 与 A2A 在线用例全部 SKIP`,
+        pAi.detail,
+      )
     await runLiveChecks(api, ai)
   } else {
-    add('live', 'LIVE-00', '在线三通道(OpenAI 兼容 / MCP JSON-RPC / OAuth DCR / A2A)', 'SKIP', '未加 --live:离线模式不假设任何服务在跑;加 --live 才会真发请求')
+    add(
+      'live',
+      'LIVE-00',
+      '在线三通道(OpenAI 兼容 / MCP JSON-RPC / OAuth DCR / A2A)',
+      'SKIP',
+      '未加 --live:离线模式不假设任何服务在跑;加 --live 才会真发请求',
+    )
   }
 
   const c = counts()
@@ -1381,30 +1747,54 @@ async function main() {
   if (OPTS.live && OPTS.requireLive && liveSkippedAll) exitCode = 1
 
   if (OPTS.json) {
-    console.log(JSON.stringify({
-      ok: exitCode === 0,
-      mode: OPTS.live ? 'offline+live' : 'offline',
-      counts: c,
-      engines: { judge: REAL.engine, ...(REAL.error ? { judgeError: REAL.error } : {}) },
-      endpoints: { api: OPTS.apiUrl, ai: OPTS.aiUrl, apiOnline: api.online, aiOnline: ai.online },
-      credentials: { apiKey: OPTS.apiKey ? 'set' : 'unset', apiSecret: OPTS.apiSecret ? 'set' : 'unset', jwt: OPTS.jwt ? 'set' : 'unset' },
-      results,
-      findings,
-      requireLive: OPTS.requireLive,
-      liveSkippedAll,
-    }, null, 2))
+    console.log(
+      JSON.stringify(
+        {
+          ok: exitCode === 0,
+          mode: OPTS.live ? 'offline+live' : 'offline',
+          counts: c,
+          engines: { judge: REAL.engine, ...(REAL.error ? { judgeError: REAL.error } : {}) },
+          endpoints: {
+            api: OPTS.apiUrl,
+            ai: OPTS.aiUrl,
+            apiOnline: api.online,
+            aiOnline: ai.online,
+          },
+          credentials: {
+            apiKey: OPTS.apiKey ? 'set' : 'unset',
+            apiSecret: OPTS.apiSecret ? 'set' : 'unset',
+            jwt: OPTS.jwt ? 'set' : 'unset',
+          },
+          results,
+          findings,
+          requireLive: OPTS.requireLive,
+          liveSkippedAll,
+        },
+        null,
+        2,
+      ),
+    )
   } else {
     console.log(`\n${'═'.repeat(78)}`)
-    console.log(`外部 Agent 接入能力端到端证明(O17)  mode=${OPTS.live ? 'offline+live' : 'offline'}  判据引擎=${REAL.engine}`)
+    console.log(
+      `外部 Agent 接入能力端到端证明(O17)  mode=${OPTS.live ? 'offline+live' : 'offline'}  判据引擎=${REAL.engine}`,
+    )
     console.log(`${'═'.repeat(78)}`)
     if (!OPTS.quiet) console.log(render())
     else {
-      for (const r of results.filter((x) => x.status !== 'PASS')) console.log(`  ${r.status === 'FAIL' ? '❌' : '⏭️ '} ${r.id} ${r.title}\n      ${r.detail}`)
+      for (const r of results.filter((x) => x.status !== 'PASS'))
+        console.log(`  ${r.status === 'FAIL' ? '❌' : '⏭️ '} ${r.id} ${r.title}\n      ${r.detail}`)
       for (const f of findings) console.log(`  ⚠️ [${f.severity}] ${f.title}\n      ${f.detail}`)
     }
-    console.log(`\n汇总:PASS ${c.PASS} / FAIL ${c.FAIL} / SKIP ${c.SKIP}${OPTS.live && liveSkippedAll ? ' —— ⚠️ 在线用例全部 SKIP,未验证真接通' : ''}`)
-    console.log(`凭据:api-key=${mask(OPTS.apiKey)} api-secret=${OPTS.apiSecret ? 'set' : 'unset'} jwt=${OPTS.jwt ? 'set' : 'unset'}`)
-    console.log(`退出码:${exitCode}${exitCode === 1 && c.FAIL === 0 ? '(--require-live 且在线全 SKIP)' : ''}`)
+    console.log(
+      `\n汇总:PASS ${c.PASS} / FAIL ${c.FAIL} / SKIP ${c.SKIP}${OPTS.live && liveSkippedAll ? ' —— ⚠️ 在线用例全部 SKIP,未验证真接通' : ''}`,
+    )
+    console.log(
+      `凭据:api-key=${mask(OPTS.apiKey)} api-secret=${OPTS.apiSecret ? 'set' : 'unset'} jwt=${OPTS.jwt ? 'set' : 'unset'}`,
+    )
+    console.log(
+      `退出码:${exitCode}${exitCode === 1 && c.FAIL === 0 ? '(--require-live 且在线全 SKIP)' : ''}`,
+    )
   }
   return exitCode
 }

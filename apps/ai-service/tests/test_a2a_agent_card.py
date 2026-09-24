@@ -277,6 +277,39 @@ def test_base_url_rejects_subdomain_of_allowlisted_host(monkeypatch: pytest.Monk
     assert "evil" not in base
 
 
+def test_base_url_prefers_forwarded_host_through_reverse_proxy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """O20 web 反代场景:host 被代理重写为内网目标,原公网 Host 在 x-forwarded-host。"""
+    monkeypatch.setattr(settings, "mcp_export_allowed_hosts", "aizhs.top")
+    monkeypatch.setattr(settings, "node_env", "production")
+    headers = {"host": "localhost:8803", "x-forwarded-host": "aizhs.top"}
+    base = agent_card.resolve_public_base_url(headers, "http")
+    assert base == "https://aizhs.top"
+    assert "localhost" not in base
+
+
+def test_forwarded_host_multihop_takes_first_hop(monkeypatch: pytest.MonkeyPatch) -> None:
+    """多级代理的 x-forwarded-host 是逗号列表,取第一段(最靠近客户端的一跳)。"""
+    monkeypatch.setattr(settings, "mcp_export_allowed_hosts", "aizhs.top")
+    headers = {
+        "host": "localhost:8803",
+        "x-forwarded-host": "aizhs.top, inner-proxy.local",
+        "x-forwarded-proto": "https",
+    }
+    assert agent_card.resolve_public_base_url(headers, "http") == "https://aizhs.top"
+
+
+def test_forged_forwarded_host_falls_back_to_allowlist(monkeypatch: pytest.MonkeyPatch) -> None:
+    """伪造 x-forwarded-host 不在白名单 ⇒ 与伪造 host 同口径:回落公网域,不回显。"""
+    monkeypatch.setattr(settings, "mcp_export_allowed_hosts", "aizhs.top")
+    monkeypatch.setattr(settings, "node_env", "production")
+    headers = {"host": "localhost:8803", "x-forwarded-host": "evil.example.com"}
+    base = agent_card.resolve_public_base_url(headers, "http")
+    assert base == "https://aizhs.top"
+    assert "evil" not in base
+
+
 # ===========================================================================
 # 5. 发现端点(HTTP 层)
 # ===========================================================================
