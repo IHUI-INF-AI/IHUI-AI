@@ -1,19 +1,39 @@
-# 空壳备份 tag 台账(2026-09-24 实测,含两轮扫尾后的终数)
-# 备份 tag 总数 4282 枚 | 仅本地 10 枚 | 本台账收录其中空壳 8 枚。
-# 回收过程:217 枚仅本地 → sibling gitdir 通配 fetch + 11 枚按对象从 GitHub blobs API 回补(sha 回读一致)解锁共享历史,
-#   再逐枚实推 + 精确投递 ⇒ 仅本地由 217 降到 10 枚(净上远端 207 枚),剩下的才是真·空壳。
-# 判据:git rev-list --objects <commit> 的退出码 / stderr 命中 "fatal: missing" ⇒ 历史链里对象已不在本机。
-#   ⚠️ 不要用 --missing=allow-any 数缺失:缺失 tree 之下它不展开子树,其下 blob 根本不进清单 ——
-#   实测它既能把可推的报成"全都坏了",也能把空壳报成"0 缺失";地面真值只有实推一次才知道。
-# 后果:git push 必然 remote rejected(fatal: unable to read <sha> → remote unpack failed: index-pack failed),
-#   补推、换网络、缩小批量都无用;要精确投递已确认完整的项请用 IHUI_TAG_ONLY=<逗号清单>(见 sync 脚本)。
-# 处置:AGENTS.md §29 的人工 GC,且必须先按"是否是某枚丢失提交仅有的引用"分层 ——
-#   一次性全删会把这些中间提交唯一的指针一起抹掉。本文件是台账,不是待办清单;本轮不删任何 ref。
-lost-commit/21d15f976686-p2-7-跨会话接力	fatal: missing blob object '670cd45323f63024684a8c5f3c1cdb8cd7bf0f65'
-lost-commit/2364aded	fatal: missing blob object '0e69eeff04e3d714cb406058829ea8cc438d583a'
-lost-commit/fix-ai-运行时真实度审计修复-索引触发链根治-3-孤儿路由打通	fatal: missing blob object '670cd45323f63024684a8c5f3c1cdb8cd7bf0f65'
-lost-commit/fix-web-button-size-token	fatal: missing blob object '670cd45323f63024684a8c5f3c1cdb8cd7bf0f65'
-lost-commit/fix-web-button-size-token-2	fatal: missing blob object '670cd45323f63024684a8c5f3c1cdb8cd7bf0f65'
-lost-commit/fix-web-button-高度覆盖全量迁移至-size-token-档位-xs-icon-xs-	fatal: missing blob object '670cd45323f63024684a8c5f3c1cdb8cd7bf0f65'
-lost-commit/wip-12ec31d56b	fatal: missing blob object '6f964a9c201d2a1f3b71fa79673e43f3bebd73ed'
-lost-commit/wip-13f2ff6f80	fatal: missing blob object '6f964a9c201d2a1f3b71fa79673e43f3bebd73ed'
+# 空壳备份 tag 台账(2026-09-24 终数,回补闭环已完成)
+# 结论:lost-commit/* 与 backup/* 两族共 4283 枚,本地与 origin **逐名双向零差异**
+#   (仅本地 0 枚 / 仅远端 0 枚)。此前判为"空壳、结构性推不上去"的 8 枚已全部补全历史链并上远端,
+#   逐枚 ls-remote 回读 sha 与本地一致 8/8 ⇒ 空壳计数现为 **0**。
+# 回收路径(每一步都是实跑判据,不是测量推断):
+#   ① 217 枚仅本地 → sibling gitdir 通配 fetch + 11 枚按对象从 GitHub blobs API 回补(sha 回读一致)
+#      解锁共享历史,再逐枚实推 + IHUI_TAG_ONLY 精确投递 ⇒ 降到 10 枚仅本地,剩下 8 枚才是真·空壳。
+#   ② 8 枚空壳的缺失对象闭包按 GitHub 递归树清单权威对账 = 11,615 个(hollow8-missing.txt)。
+#   ③ 本机 partial 历史被 `have` 剪枝挡住,普通 fetch 取不到 ⇒ 先 `--mirror` 克隆 origin(1.1GB)
+#      再 `git fetch --refetch --no-tags <mirror> '+refs/tags/lost-commit/*:refs/ihui-import/...'`,
+#      一次性把绝大部分对象补进本仓 objects;余 28 个用 blobs API 逐枚回补 + sha 回读(两轮,
+#      末轮日志 12 个对象、"确认销毁 0")。
+#   ④ 收尾核验:删除 4273 枚临时 ref(`git update-ref --stdin` 批量,for-each-ref 与文件系统双回读=0)、
+#      删除 1.1GB 镜像 scratch。临时 ref 命名空间 refs/ihui-import/* 已不存在。
+# 判据(留档,供下次复用):
+#   - 单枚完整性:`git rev-list --objects <commit>` 退出码 / stderr 命中 "fatal: missing"。
+#   - ⚠️ 不要用 `--missing=allow-any` 数缺失:缺失 tree 之下它不展开子树,其下 blob 根本不进清单 ——
+#     实测它既能把可推的报成"全都坏了",也能把空壳报成"0 缺失"。
+#   - ⚠️ 集合比对必须剥掉 `ls-remote --tags` 的 `^{}` 剥离行:不剥会凭空造出 65 枚"仅远端"假缺口。
+#   - 地面真值只有实推一次才知道;反过来说,**一枚 tag 能出现在 origin 上,就证明它推送当时历史链完整**
+#     (空壳必然 remote rejected:unable to read <sha> → index-pack failed),这也是"两族逐名一致"
+#     之所以能当作完整性强判据的原因。
+#   - `commit_refs` 类远端报错可能是**假失败**:本轮批量推送回执 `remote: fatal error in commit_refs`
+#     + 8 枚 remote rejected,但 ls-remote 权威回读显示 8 枚全部落上去了。结论一律以 ls-remote 为准。
+# 台账外仍"仅本地"的 2 枚(不属两族,不推):`packages/sdk/go/v0.1.0`(annotated tag → 2c53a4b6)、
+#   `restore/prealign`(→ 299eeeaa)。两枚的目标 commit **均已是 HEAD 祖先**,内容在主线里,零丢失风险;
+#   且前者是 depth≥3 的嵌套 ref,按 §5b 本机宿主清理层会反复吃掉松散形态,推与不推都不构成存续问题。
+# 处置:本轮不删任何 ref。§29 的人工 GC 若启动,现在的前提已变化 —— 两族已全部在 origin,
+#   本地删除不再等于"唯一引用消失",但仍须按"是否唯一引用"分层后再动。
+#
+# ── 本轮回补的 8 枚(留原名与原洞,供追溯;现均已历史链完整 + 在 origin)────────────────
+lost-commit/21d15f976686-p2-7-跨会话接力	原洞: missing blob 670cd45323f63024684a8c5f3c1cdb8cd7bf0f65 → 已回补
+lost-commit/2364aded	原洞: missing blob 0e69eeff04e3d714cb406058829ea8cc438d583a → 已回补
+lost-commit/fix-ai-运行时真实度审计修复-索引触发链根治-3-孤儿路由打通	原洞: missing blob 670cd45323f63024684a8c5f3c1cdb8cd7bf0f65 → 已回补
+lost-commit/fix-web-button-size-token	原洞: missing blob 670cd45323f63024684a8c5f3c1cdb8cd7bf0f65 → 已回补
+lost-commit/fix-web-button-size-token-2	原洞: missing blob 670cd45323f63024684a8c5f3c1cdb8cd7bf0f65 → 已回补
+lost-commit/fix-web-button-高度覆盖全量迁移至-size-token-档位-xs-icon-xs-	原洞: missing blob 670cd45323f63024684a8c5f3c1cdb8cd7bf0f65 → 已回补
+lost-commit/wip-12ec31d56b	原洞: missing blob 6f964a9c201d2a1f3b71fa79673e43f3bebd73ed → 已回补
+lost-commit/wip-13f2ff6f80	原洞: missing blob 6f964a9c201d2a1f3b71fa79673e43f3bebd73ed → 已回补
