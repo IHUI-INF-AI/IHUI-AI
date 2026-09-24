@@ -59,13 +59,19 @@ test('R3:悬空引用只认 token 袋前缀,局部变量 brand 不得假红', ()
 
 test('装车证明:本门注册在 guardian-runner 且为 blocking,并有紧急跳过变量', () => {
   const runner = readFileSync(join(ROOT, 'scripts', 'guardian-runner.mjs'), 'utf8')
-  const at = runner.indexOf("id: '90'")
-  assert.ok(at > 0, 'runner 里必须有 id 90')
-  assert.equal(runner.split("id: '90'").length - 1, 1, 'id 90 只能出现一次(同日多会话在数组同一位各加一道门必撞号)')
-  const block = runner.slice(at, at + 600)
-  assert.match(block, /script: 'check-cross-end-tokens\.mjs'/)
-  assert.match(block, /mode: 'blocking'/, 'warn 模式的同源对账等于没有对账')
-  assert.match(block, /skipEnv: 'HUSKY_SKIP_CROSS_END_TOKENS'/)
+  // **钉接线,不钉编号**:本仓同日多会话会在数组同一位各加一道门,后来的按"后来者改号"规矩挪号
+  // (本门历史号 90 → 93 就是这样被改走的)。所以断言只认 script,并回头验它所用 id 在 runner 内唯一。
+  const hits = runner.split("script: 'check-cross-end-tokens.mjs'").length - 1
+  assert.equal(hits, 1, '本门脚本在 runner 里必须恰好注册一次(0 次=没装车,>1 次=重复注册)')
+  const at = runner.indexOf("script: 'check-cross-end-tokens.mjs'")
+  const entryStart = runner.lastIndexOf('{', at)
+  const entry = runner.slice(entryStart, runner.indexOf('\n  }', at) + 4)
+  const idm = /id:\s*'(\d+)'/.exec(entry)
+  assert.ok(idm, `注册块里必须自带 id(块首:${entry.slice(0, 60)})`)
+  const id = idm[1]
+  assert.equal(runner.split(`id: '${id}'`).length - 1, 1, `本门所用 id ${id} 在 runner 内必须唯一(撞号会让 skipEnv 与失败归属串门)`)
+  assert.match(entry, /mode: 'blocking'/, 'warn 模式的同源对账等于没有对账')
+  assert.match(entry, /skipEnv: 'HUSKY_SKIP_CROSS_END_TOKENS'/)
 })
 
 test('端到端:真仓 HEAD 与 --self-test 都必须全绿', () => {
