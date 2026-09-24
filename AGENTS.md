@@ -261,7 +261,7 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 > ① **活 gitdir 就是工作区内的 `G:\IHUI-AI\.git`(实体目录 2.4GB,不是 28 字节指针)**,`refs-manifest.json` 在它里面;而 `G:\IHUI-AI-git-repo`(810MB)**没有 manifest**,是无人读取的残壳。守护自评 `node scripts/git-guardian.mjs --status` 对当前形态给 `pointerOk:true / gitdirOk:true`。⇒ §5b"必须外置 + 指针"与 §12d"禁止迁出工作区/改指针(**并行会话的恢复逻辑会把指针文件当损坏清除**,2026-09-10 立)"这两条在本机**互斥**;本票只如实登记、**不动任何一侧**——把 `.git` 迁出去是一次破坏性迁移(会连带移动 2.4GB 对象库并撞上清理层),不是"修复文档与现状不符"。
 > ② `git remote get-url origin` 实测 **`ssh://git@ssh.github.com:443/IHUI-INF-AI/IHUI-AI.git`**,且 `ls-remote` / `fetch` / 后台 `git-push-guard` 推送全通;上方"origin 实测为 HTTPS `github.com`,`ssh://git@ssh.github.com:443` 形态在本机从未成立"在这一台机上**不成立**。
 > ③ `git config --local http.proxy` 实测 **unset**;上方"本机已另配仓库级持久代理(因为钩子进程不继承 shell env)"在这一台机上**不成立**(ssh-over-443 通道不需要它)。
-> **口径(本条的真正约束):凡「盘符 / gitdir 形态 / 远端 URL / 代理」四类,每次使用前按当次实测取值**,不得把另一台机的现状当本机事实写进判据,也不得据此推断"通道坏了"。
+> **口径(本条的真正约束):凡「盘符 / gitdir 形态 / 远端 URL / 代理」四类,每次使用前按当次实测取值**,不得把另一台机的现状当本机事实写进判据,也不得据此推断"通道坏了"。 —— **本行 2026-09-24 被并发旧基线回写带走过一次,同日原地补注使其重新成为"本侧修改"**
 
 ### 嵌套 ref 存续(2026-09-12 立,与 `.git` 同源问题)
 
@@ -690,7 +690,7 @@ pnpm dev                                       # 启动所有服务(web + api + 
 | `D:\DevEnv\{cache,tools,runtimes}\`  | 工具链缓存唯一根;家目录里的工具状态一律 `robocopy /MOVE` + **junction** 改道(禁改 `HKCU\Environment\Path`),旧路径经 junction 仍可解析 | §26  |
 | `D:\DevEnv\Temp\`                    | `TEMP`/`TMP`/`TMPDIR`(HKCU,需新开终端才继承)                                                                                          | §26  |
 
-> **上表的 `D:` 是"D 盘那份 checkout"的历史值,不得当本机现值照抄**(2026-09-24 实测,登记于 PROJECT_PLAN
+> **上表的 `D:` 是"D 盘那份 checkout"的历史值,不得当本机现值照抄**(2026-09-24 实测,登记于 PROJECT_PLAN —— **本行 2026-09-24 被并发旧基线回写带走过一次,同日原地补注使其重新成为"本侧修改"**
 > 第三十三批 续五⑦):`gitArchiveDir()`(`scripts/lib/gitdir.mjs`)按**工作树所在盘**推导,工作树在
 > `G:\IHUI-AI` 时它返回 **`G:/DevEnv/backups/git`**;而 `D:\DevEnv`(Temp/backups/kc-tools/logs)与
 > `G:\DevEnv`(Temp/backups/cache/tools)**同时存在**,各自服务所在盘上的 checkout。
@@ -1520,6 +1520,25 @@ nssm 服务(IHUI-API / IHUI-DEPLOYLOOP 以 LocalSystem 运行)拿到的仍是 `C
 > `D:\DevEnv\logs\c-drive-maintain.log` 今天(09-24 10:59)那条记录是**人工 `-DryRun` 预演**,不是 03:00 自动执行(全文 `[DRY]` 无 `[DEL]`,合计释放 0 MB),
 > 所以"每天在清"在今天并没有发生。**注册动作 = 影响全机的每日自动删除,仍须用户授权,agent 不得自行 `schtasks /create` 恢复**;
 > 上一条"回读 `schtasks /Query /XML` 实证 `LogonType=S4U`"当时为真,但那份定义现已不在 —— 名字陷阱的解释**不成立**(权威全量列表法连空格名一起扫,零命中)。
+>
+> **同日 17:1x 已按用户授权重新注册,并留配对证明(本条从"设计意图"重新变回现状)**:
+> ① **注册前实跑预检**(§26 硬约束):在 `scripts/` 放一份与 `c-drive-maintain-hidden.vbs` 同体、仅把参数换成
+> `-DryRun` 的副本,用 `cscript //nologo` 真跑一遍 —— `cscript` 退出 0、日志新增 76 行、
+> 首行 `DRY RUN(全脚本不删任何东西)`、**`[DEL]` 计数 = 0**(证明拉起链通且零删除),预检副本当场删除;
+> ② 注册命令 `schtasks /create /tn "IHUI C-Drive AutoMaintain" /tr "wscript.exe \"<工作树实测绝对路径>\c-drive-maintain-hidden.vbs\"" /sc daily /st 03:00 /f`,
+> 再 `cscript //nologo scripts/task-set-s4u.vbs "IHUI C-Drive AutoMaintain"` 升 S4U(`/RU <user> /NP` 会**弹密码提示**、非交互跑不通,
+> 而本机 pwsh 无 ScheduledTasks 模块 ⇒ 只有 Schedule.Service COM 这条活路,该工具头注已记);
+> ③ **XML 回读独立取证**:`<LogonType>S4U</LogonType>`、`<StartBoundary>…T03:00:00</StartBoundary>`、
+> `<Command>wscript.exe</Command>` ⇒ 三项齐备才算注册落地(不得把 `schtasks` 打印的"成功"当成功);
+> ④ 权威存在法同一时刻由 0 命中翻成 **1 命中**(`\IHUI C-Drive AutoMaintain`)。
+> **盘符按当次实测取**:本机工作树是 `G:\IHUI-AI`,注册的 `/tr` 就指 `G:\…`,不得照抄本节正文里的 `D:/…`(§5b/§15b 已各记过一次盘符失真)。
+>
+> **同批根掉了一句会再骗一次的东西**:守门 92 `check-c-drive-pollution.mjs` 原先在结论后**无条件打印**
+> "计划任务 IHUI C-Drive AutoMaintain 每天 03:00 已注册(S4U,wscript 包装)",而脚本内**一次 `schtasks` 都没调过**
+> —— 一道只读污染门正在替一个当时并不存在的防护背书。现改为**实测三态判据** `registered / unregistered / undetermined`
+> (查法仍是全量 `/FO CSV /NH` + 名字不区分大小写匹配,**禁止**点名查),非 win32 / ENOENT / 超时 / 空输出 /
+> 输出形态解不出任务路径一律 `未判定` 并写原因,**绝不计为通过**;本门仍只读、未注册不改退出码(warn-only 语义由断言钉死)。
+> 配对证明:注册前该判据实测 `unregistered`(346 项零命中),注册后 `registered`(347 项命中 1 条),两次退出码均 0。
 
 - **动作链按本节下方「计划任务禁止直接执行控制台程序」硬约束走**:`wscript.exe` → 纯 ASCII 的 `scripts/c-drive-maintain-hidden.vbs` → `pwsh -NoProfile -ExecutionPolicy Bypass -File …ps1`。注册前用 `cscript //nologo` 实跑过一份**只带 `-DryRun` 的同体副本**做语法+拉起链证明(实测写出 `[WARN] … DRY RUN(全脚本不删任何东西)`),因此注册过程零删除。
 - **登录类型已升 S4U**(与凭据巡检同一套 `scripts/task-set-s4u.vbs`),否则 3am 无人登录时不会跑。回读 `schtasks /Query /XML` 实证:`LogonType=S4U`、`Command=wscript.exe`、`StartBoundary=03:00`、下次运行 `2026-09-24 03:00`。
