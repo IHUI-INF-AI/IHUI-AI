@@ -220,9 +220,7 @@ export default function SignInPage() {
                 <span
                   className={cn(
                     'flex h-8 w-8 items-center justify-center rounded-lg text-xs font-medium tabular-nums',
-                    isSigned
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-muted-foreground',
+                    isSigned ? 'bg-cta text-cta-foreground' : 'bg-muted text-muted-foreground',
                   )}
                 >
                   {isSigned ? (

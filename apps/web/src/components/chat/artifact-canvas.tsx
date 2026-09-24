@@ -241,7 +241,7 @@ export function ArtifactCanvas({ artifact, turnMessageId }: ArtifactCanvasProps)
               type="button"
               onClick={applyEdit}
               disabled={!dirty}
-              className="rounded-sm bg-primary px-2 py-0.5 text-[10px] text-primary-foreground disabled:opacity-40"
+              className="rounded-sm bg-cta px-2 py-0.5 text-[10px] text-cta-foreground disabled:opacity-40"
             >
               {t('canvasApplyRefresh')}
             </button>
