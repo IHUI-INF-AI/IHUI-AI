@@ -37,6 +37,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { getAgents, fetchApi, type Agent, type AgentStatus } from '@ihui/api-client'
+import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import { tokens } from '../theme/active-tokens'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -130,8 +131,9 @@ export default function DevEnterScreen() {
         } else {
           Alert.alert(t('common.hint'), res.error || '加载失败，请重试')
         }
-      } catch {
-        Alert.alert(t('common.hint'), '加载失败，请检查网络')
+      } catch (e: unknown) {
+        const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+        Alert.alert(t('common.hint'), detail.trim() ? toUserFriendlyMessage(e) : '加载失败，请检查网络')
       } finally {
         setLoading(false)
         setRefreshing(false)
@@ -179,8 +181,9 @@ export default function DevEnterScreen() {
       } else {
         Alert.alert(t('common.hint'), res.error || '下架失败，请重试')
       }
-    } catch {
-      Alert.alert(t('common.hint'), '下架失败，请检查网络')
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      Alert.alert(t('common.hint'), detail.trim() ? toUserFriendlyMessage(e) : '下架失败，请检查网络')
     } finally {
       setOfflining(false)
     }
@@ -405,14 +408,14 @@ const styles = StyleSheet.create({
     height: 38,
     paddingHorizontal: rpx(20),
     borderRadius: rnRadius.lg,
-    backgroundColor: tokens.brand.ctaFill,
+    backgroundColor: tokens.brand.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
   } as ViewStyle,
   searchBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.brand.ctaText,
+    color: tokens.brand.foreground,
   } as TextStyle,
   subTabBar: {
     flexDirection: 'row',
@@ -494,11 +497,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(16),
     paddingVertical: rpx(6),
     borderRadius: rnRadius.md,
-    backgroundColor: tokens.brand.ctaFill,
+    backgroundColor: tokens.brand.DEFAULT,
   } as ViewStyle,
   setBtnText: {
     fontSize: 12,
-    color: tokens.brand.ctaText,
+    color: tokens.brand.foreground,
     fontWeight: '500',
   } as TextStyle,
   statusText: {

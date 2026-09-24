@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     height: BUTTON_HEIGHT,
     borderRadius: rnRadius.lg,
-    backgroundColor: tokens.brand.ctaFill,
+    backgroundColor: tokens.brand.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: PRIMARY_BUTTON_MARGIN_BOTTOM,
@@ -549,7 +549,7 @@ const styles = StyleSheet.create({
   primaryButtonLabel: {
     fontSize: BUTTON_FONT_SIZE,
     fontWeight: '500',
-    color: tokens.brand.ctaText,
+    color: tokens.brand.foreground,
     textAlign: 'center',
   },
   secondaryButton: {
