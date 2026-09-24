@@ -4066,7 +4066,7 @@ class AgentLoopV2:
                 # D84:拒绝原因进决策提示(供 timeline/审计侧消费;缺省不写 key)。
                 _reason = settled.reason if settled is not None else None
                 if _reason:
-                    self._decision_hints[tc.id] = ("user_rejected_reason", _reason)
+                    self._decision_hints[tc.id] = ("rejected_by_user", _reason)
             return "user_rejected"
         finally:
             # 防内存泄漏:无论批准/拒绝/超时,清理注册表条目
