@@ -143,6 +143,13 @@ function isMostlyEnglish(s: string): boolean {
  *
  * @param error 任意错误(string / Error / { error?, message?, errorCode?, status? } / unknown)
  * @returns 普通用户能看懂的中文消息
+ *
+ * ⚠️ **返回值恒非空**(第 5/6 步都会给出兜底文案)。因此
+ * `toUserFriendlyMessage(e) || '本页自己的文案'` 里的 `||` 分支是**死代码** ——
+ * 想让"错误确实没带任何可用信息"时回落到调用方本地文案,必须先判可用性再调用:
+ * `const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''`
+ * `const msg = detail.trim() ? toUserFriendlyMessage(e) : '本页文案'`
+ * (2026-09-24 实测:mobile-rn 24 处吞错改造全按此写法,故在此钉住,避免后人退回 `||`。)
  */
 export function toUserFriendlyMessage(error: unknown): string {
   // 解构出关键字段
