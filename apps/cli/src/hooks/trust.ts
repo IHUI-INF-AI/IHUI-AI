@@ -257,7 +257,12 @@ export function gateHook(spec: HookSpecLite, absCwd: string): HookGateResult {
     return {
       allowed: false,
       reason: 'folder-not-trusted',
-      detail: `folder "${absCwd}" is not in ~/.ihui/trusted-folders; run \`ihui hooks trust ${absCwd}\` to allow hooks here`,
+      // 措辞必须给**存在**的出口:CLI 里没有 `ihui hooks trust` 子命令
+      // (commands/hooks.ts 只有 list / enable / disable),指它会把用户带进死路。
+      detail:
+        `folder "${absCwd}" is not in ~/.ihui/trusted-folders; ` +
+        '把该路径单独作为一行追加进这个文件即可在本机信任它,' +
+        '非交互场景可设 IHUI_TRUST_WORKSPACE=1 让本次运行信任当前工作区',
     }
   }
   return { allowed: true }
