@@ -120,6 +120,7 @@ import { VoiceInput } from '../components/VoiceInput'
 import { ModelConfigDialog, type ModelConfig } from '../components/ModelConfigDialog'
 import ModelPickerList, { type ModelListItem } from '../components/ModelPickerList'
 import ImagePreviewModal from '../components/ImagePreviewModal'
+import { type ImageTransferKind, type ImageTransferResult } from '@ihui/shared/chat/element-pack'
 import Drawer, {
   type DrawerConversationItem,
   type DrawerExtraMenu,
@@ -1076,6 +1077,30 @@ export default function AiAssistantN8nScreen() {
 
   const previewSource: ImageSourcePropType | null = previewImage ? { uri: previewImage } : null
 
+  // D64② 传输动作半格(宿主注入):保存相册 / 复制图片到剪贴板。
+  // 平台特有:落相册依赖 expo-media-library 权限、写图剪贴板依赖原生实现 ⇒ 动作归宿主;
+  // 成败**文案**判据在 element-pack(imageTransferView),本函数只如实回报成败,失败不静默吞。
+  const handlePreviewTransfer = async (kind: ImageTransferKind): Promise<ImageTransferResult> => {
+    const url = previewImage
+    if (!url) return 'failed'
+    try {
+      const ext = imageExtFromUrl(url)
+      const dest = new FileSystem.File(FileSystem.Paths.cache, `preview_${Date.now()}.${ext}`)
+      const local = await FileSystem.File.downloadFileAsync(url, dest, { idempotent: true })
+      if (kind === 'save') {
+        const perm = await MediaLibrary.requestPermissionsAsync()
+        if (!perm.granted) return 'failed'
+        await MediaLibrary.saveToLibraryAsync(local.uri)
+        return 'success'
+      }
+      const base64 = await local.base64()
+      Clipboard.setImage(`data:image/${ext === 'jpg' ? 'jpeg' : ext};base64,${base64}`)
+      return 'success'
+    } catch {
+      return 'failed'
+    }
+  }
+
   // 任务进度状态条数据源(对齐 web task-status-bar):plan_updated 权威快照写在
   // "那一条 assistant 消息"上,取最后一条带 planSteps 的 assistant 消息(倒序扫描)。
   const planMessage = useMemo(() => {
@@ -1856,6 +1881,7 @@ export default function AiAssistantN8nScreen() {
         visible={previewImage !== null}
         source={previewSource}
         onClose={() => setPreviewImage(null)}
+        onTransfer={handlePreviewTransfer}
       />
 
       {/* 模型配置弹层(对齐 Uniapp ModelConfigDialog:温度/top_p/maxTokens 等
