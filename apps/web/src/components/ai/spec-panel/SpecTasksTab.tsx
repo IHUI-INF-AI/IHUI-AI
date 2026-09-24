@@ -18,7 +18,7 @@ export function SpecTasksTab({ p }: { p: SpecPanelApi }) {
           disabled={p.tasksLoading}
           className={cn(
             'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
-            'bg-primary text-primary-foreground hover:bg-primary/90',
+            'bg-cta text-cta-foreground hover:bg-cta/90',
             p.tasksLoading && 'cursor-not-allowed opacity-60',
           )}
         >

@@ -65,7 +65,7 @@ function ErrorView({
       <button
         type="button"
         onClick={onRetry}
-        className="inline-flex items-center gap-1.5 rounded-md bg-primary px-6 py-2.5 text-sm text-primary-foreground transition-colors hover:bg-primary/90"
+        className="inline-flex items-center gap-1.5 rounded-md bg-cta px-6 py-2.5 text-sm text-cta-foreground transition-colors hover:bg-cta/90"
       >
         <RotateCcw className="h-4 w-4" />
         {t('retry')}

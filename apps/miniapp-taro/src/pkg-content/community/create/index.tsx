@@ -77,7 +77,7 @@ const viewStyles = {
     paddingTop: toRpx(12),
     paddingBottom: toRpx(12),
     borderRadius: toRpx(12),
-    backgroundColor: tk.brand.DEFAULT,
+    backgroundColor: tk.brand.cta,
   }),
 }
 

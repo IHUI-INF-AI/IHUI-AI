@@ -112,7 +112,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 16,
       paddingVertical: 15,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },
     btnDisabled: { backgroundColor: tk.text.tertiary },
