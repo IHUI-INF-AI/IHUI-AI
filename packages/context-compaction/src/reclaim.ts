@@ -16,7 +16,8 @@
  *      因为每次改写都会打破 provider 的前缀缓存,无收益的改写是纯成本。
  *   3. 双触发 —— 占窗口比例达阈值 **或** 会话空闲超过设定时长(空闲时改写
  *      不打断在途对话,可以更早动手)。
- *   4. 保护面 —— 多模态块(图片/文件 data URI)、编辑类工具结果、
+ *   4. 保护面 —— 多模态块(图片/文件 data URI)、**结果信封**(它带着产物路径,
+ *      撕掉等于让模型找不回大输出)、编辑类工具结果、
  *      最近 RECLAIM_KEEP_RECENT_ROUNDS 轮、历史摘要消息、system 段一律不回收。
  *   5. 白名单是显式清单 —— "所有工具一视同仁"会把有长期价值的结果
  *      (如 todo、记忆写入)一起抹掉。
@@ -38,7 +39,7 @@
  */
 
 import { estimateMessagesTokens, estimateTokens } from './token-estimate.js'
-import { isSummaryMessage } from './markers.js'
+import { isSummaryMessage, isEnvelopeContent } from './markers.js'
 import type { ChatMessage } from './types.js'
 
 // ==================== 跨端同值阈值(真源 tunables.py) ====================
@@ -133,6 +134,18 @@ export function hasMultimodalBlock(text: string): boolean {
 /** 该文本是否已是回收占位(幂等保护:已回收的不重复改写,也不重复计收益) */
 export function isReclaimedPlaceholder(text: string): boolean {
   return typeof text === 'string' && text.includes(RECLAIM_PLACEHOLDER)
+}
+
+/**
+ * 该文本是否是**结果信封**(超限工具回灌的结构性替身,见 markers.ts)。
+ *
+ * 为什么必须整段保护:超限的大输出早就被换成信封了 —— 里面那行
+ * `完整输出: <产物文件路径>` 是模型找回正文的**唯一线索**。把它换成占位串,
+ * 等于先给模型一本目录、再把它撕掉:正文还在磁盘上,但没人知道去哪读。
+ * 判据本身也住 markers.ts,与封装侧 apps/cli 共用同一份,不抄第二遍字面量。
+ */
+export function isEnvelopeResult(text: string): boolean {
+  return isEnvelopeContent(text)
 }
 
 /** 该 user 消息是否承载内嵌工具结果(用于轮次边界判定) */
@@ -374,6 +387,7 @@ function tryReclaimToolMessage(
 ): ChatMessage | null {
   if (!isReclaimableToolName(name, whitelist)) return null
   if (isReclaimedPlaceholder(msg.content) || hasMultimodalBlock(msg.content)) return null
+  if (isEnvelopeResult(msg.content)) return null
   if (estimateTokens(msg.content) < minResultTokens) return null
   return { ...msg, content: RECLAIM_PLACEHOLDER }
 }
@@ -398,6 +412,7 @@ function tryReclaimEmbedded(
     const body = m[3] ?? ''
     if (!isReclaimableToolName(name, whitelist)) return part
     if (isReclaimedPlaceholder(body)) return part
+    if (isEnvelopeResult(body)) return part
     if (hasMultimodalBlock(body) || hasMultimodalBlock(part)) return part
     if (estimateTokens(body) < minResultTokens) return part
     changed++

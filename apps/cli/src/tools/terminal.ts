@@ -9,7 +9,8 @@
  * 简化策略(做减法):
  *   - 动态加载 node-pty,缺失时降级到 child_process.spawn(设置 FORCE_COLOR 模拟 TTY)
  *   - 模块级 Map 管理会话,30 分钟无活动自动清理,最多 10 个并发
- *   - 复用 matchDangerousCommand + isReadonlyCommand + confirmDangerous + runPreToolCall 安全护栏
+ *   - 复用 command-safety 的执行链闸门(gateCommandExecution + describeCommandBlock,
+ *     内部含危险档 / alwaysConfirm 档 / 只读免确认档)+ confirmDangerous + runPreToolCall 安全护栏
  *   - 会话输出累积到 outputBuffer,terminal_read 返回自上次读取以来的增量
  */
 
@@ -17,7 +18,7 @@ import { spawn as spawnChild } from 'node:child_process';
 import { createRequire } from 'node:module';
 import * as crypto from 'node:crypto';
 import type { Tool, ToolResult } from './index.js';
-import { matchDangerousCommand, isReadonlyCommand } from './command-safety.js';
+import { gateCommandExecution, describeCommandBlock } from './command-safety.js';
 import { runPreToolCall } from '../hooks/index.js';
 import { execSandboxed, precheckSandboxedCommand, type SandboxPolicy } from './sandbox/index.js';
 import { loadSettings, type SandboxSettings } from '../commands/settings.js';
@@ -226,16 +227,15 @@ export const terminal_open: Tool = {
     const command = args.command as string;
     if (!command) return { success: false, output: '', error: '缺少 command 参数' };
 
-    // 安全:复用 run_command 模式 — matchDangerousCommand + confirmDangerous + runPreToolCall
-    const dangerousMatch = matchDangerousCommand(command);
-    if (dangerousMatch && !process.env.IHUI_YOLO) {
-      return {
-        success: false,
-        output: `⚠ 危险命令被拦截:命令匹配危险模式 ${dangerousMatch.source}\n如确需执行,请设置 IHUI_YOLO=1`,
-      };
+    // 安全:与 run_command 走**同一个**闸门判定(command-safety 的 gateCommandExecution
+    // + describeCommandBlock),两档语义一处实现:危险档可被 IHUI_YOLO 越,
+    // alwaysConfirm 档连逃生舱也不放行;免确认资格只给"只读且非破坏性"。
+    const gate = gateCommandExecution(command);
+    const blockMessage = describeCommandBlock(gate, !!process.env.IHUI_YOLO);
+    if (blockMessage) {
+      return { success: false, output: blockMessage };
     }
-    const readonlyAutoApproved = isReadonlyCommand(command);
-    if (!readonlyAutoApproved) {
+    if (!gate.autoApprovable) {
       if (!ctx.confirmDangerous) {
         return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${terminal_open.name}` };
       }
