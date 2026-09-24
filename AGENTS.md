@@ -1689,3 +1689,41 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 | `docs/learning-assets.md` | 学习资产登记(34 个工作流反馈来源,新增/删除工作流必须同步更新) |
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
+
+| 路径                                                                                                                                                                                                                                                                       | 角色                                                        |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `D:/IHUI-AI/.git`                                                                                                                                                                                                                                                          | **28 字节指针文件**(`gitdir: D:/IHUI-AI-git-repo`),不是目录 |
+| `D:/IHUI-AI-git-repo`                                                                                                                                                                                                                                                      | 真实 gitdir(544MB),在工作区之外                             |
+| `D:/IHUI-AI.git-backup-20260912`                                                                                                                                                                                                                                           | gitdir 完整备份,守护的本地恢复源                            |
+| **守护**:计划任务 **`IHUI-AI git-guardian`**(每 2 分钟)→ `"C:/Program Files/nodejs/node.exe" D:/IHUI-AI/scripts/git-guardian.mjs`。本机**未安装 nssm**,故未采用 `--daemon` 常驻服务形态,改用脚本自带的 schtasks 兜底(2026-09-12 15:30 实测启用;16:12 实测**自愈已生效**)。 |
+| 分层自愈:`指针 → 环境 → HEAD 语法 → 嵌套 ref → 本地备份 → 远端`;每步破坏性覆盖前先归档现场。实测自愈 **0.9s**(refs 自愈实测 **0.14s**)。                                                                                                                                   |
+  - **回补过的行还要在"每次收敛/合并之后"复验它仍在 HEAD(2026-09-24 实测该文件第 4 次被顶掉)**:
+    并发会话的 union 合并会把别人刚回补的行**再次吃掉** —— 实测
+    `packages/shared/src/chat/handoff-package.ts` 的 `i18n-content-exempt-file:` 声明:被 `cfe8f65e4`
+    抹掉 → `9e01f6aa9` 原样补回 → 几轮合并后 `git show HEAD:<该文件>` 又是 0 命中。"提交前对账 +
+    提交后 diff"两道都保不住它,因为吃掉它的不是回补那次提交。复验是一行的事:
+    `git show HEAD:<该文件> | grep -c '<该行稳定前缀>'` 应为非 0,为 0 即重新回补(工作树通常还留着,
+    `git diff HEAD -- <该文件>` 立刻可见)。守门 70 的声明式出口是**随行内联**的 —— 行一丢,该文件
+    49 处中文立刻判红:红点会等下一个碰它的人来吃,不会静默,但也只有那个人会以为是自己的错。
+- 排查同类问题的顺序:`grep "Cannot find module" .workbuddy/hook-logs/pre-commit.log`,先怀疑依赖树被动过,再怀疑守门判据。
+- **workspace 依赖链接对账**(78):check-workspace-dep-links.mjs(blocking,2026-09-23 立)—— 堵"**本地全绿、部署环恒红**"这一整类:`package.json` 声明了 `workspace:*` 但 `node_modules` 里没那条链接(§12e 的 `pnpm install --filter` 后遗症即此)。当天实例:`@ihui/extension` 缺 `@ihui/design-tokens` → rollup `failed to resolve import` → `pnpm -r build` 连 4 次全红 → 部署进入 30 分钟冷却循环、线上停在旧提交,而 **typecheck/lint/单测全都不会红**(TS 走 tsconfig paths,不看 node_modules)。判据 = 每个包 dependencies/devDependencies/peerDependencies 里所有 `workspace:` 声明,必须在 `<pkg>/node_modules/<dep>` 或根 `node_modules/<dep>` 可解析(`existsSync` 跟随符号链接 ⇒ **悬空链接同样判红**)。**第二维判据(2026-09-24 补,`findGuttedLinks`)**:根 + 各包 `node_modules/` 下每条**符号链接**的目标必须是真包(有可 parse 且带 `name` 的 `package.json`)——`existsSync` 对"指向**空目录**的链接"仍返回 true,而本机 09-24 实测正是这一型:`node_modules/typescript`、`node_modules/eslint` 指向 `.pnpm` 里的空目录,`.bin` 只剩 16 项(无 eslint/tsc/tsserver/vitest/next)⇒ lint-staged 第一步 `✖ eslint --fix` 并阻止提交 ⇒ **每一次提交都被迫 `--no-verify`,约 110 道守门对全队同时失效**,而 `git status`/typecheck/其余报告全都看不出来。刻意**不**比 name(pnpm 别名安装 `foo@npm:bar` 必产假阳);真目录(file:/workspace: 直连形态)不参与;扫到 0 条链接一律判红(空扫不报绿)。两条反假绿护栏:扫不到任何 workspace 包 → `exit 1`(不报绿);根 `node_modules` 不存在 → 显式提示"先 pnpm install"并 **无法判定**(不记为通过)。`--staged` **不**随暂存收窄范围,恒全量判定(全量 25 包约 1s)—— 因为这类破损与"本次改了什么"无关:手动删链接、他机跑过 `--filter`、清理工具动过依赖树,按 staged 收范围恰好放过整类;取不到暂存集也按全量判。取证:`--self-test` 9 例(含"缺链接必红/补上必绿/再删必红"三段可逆对照)+ `node --test scripts/tests/check-workspace-dep-links.test.mjs` 7 例(含**装车证明**:runner 里必须真有 id 78 + blocking + skipEnv)。**修复动作只有一个:全量 `pnpm install`**(不带 `--filter`)。紧急跳过 `HUSKY_SKIP_WORKSPACE_DEP_LINKS=1`。
+**要藏住 junction 的名字,只能用 PowerShell 提供器 + 父目录枚举复核(2026-09-24 实测)**:用户选择
+"设隐藏,保留改道"后,`attrib +h <junction>` 是**陷阱** —— 它把 Hidden 设到**目标**那一侧,链接本体
+纹丝不动,而 `attrib` 回显时又顺着链接读目标,于是打印出 `H` 让调用者以为成功了(本仓第一版就这样
+"隐藏了 4 次",C 盘那 4 个名字照旧可见,反倒把 D 盘的 4 个数据目录藏掉了)。正确做法:
+`(Get-Item -LiteralPath <链接> -Force).Attributes = $i.Attributes -bor [System.IO.FileAttributes]::Hidden`,
+并且**唯一可信的 oracle 是父目录枚举** `Get-ChildItem <父目录> -Force`(那正是 Explorer 读的那份目录项
+属性)—— 设完必须自己回读,不许把"没抛错"当成成功。隐藏只影响浏览,穿透读写与
+`isSymbolicLink()` 判定均不受影响(已实测)。策略固化在 `seal-c-root-stray.mjs` 的 `setLinkHidden`,
+每次 `--apply` 都确保在位(封口被重建也不会露回来),镜像测试断言源码里**不得再出现 `attrib`**。
+**改页面文件必须留"待重启生效"哨兵(2026-09-24 立)**:本机 C/D 两个 pagefile 都是**手设固定值**
+(C 32768MB / D 98304MB)而非系统管理。要缩 C 的占用,改的是
+`HKLM\...\Session Manager\Memory Management\PagingFiles`(用 `Set-CimInstance Win32_PageFileSetting`
+写入,回读该注册表值才算落盘)—— 但**内存管理器运行期锁住 pagefile.sys,磁盘上的旧大小只有重启才收缩**,
+而本机是生产机(20+ 个 IHUI-* 服务在跑),重启时机归用户。所以任何这类改动都必须同时留一条
+会自我清空的哨兵:比对「配置上限 vs WMI `Win32_PageFileUsage.AllocatedBaseSize`」,落差 >512MB 且 >25%
+就报「待重启生效」,缩到位后不再报。**量这个大小有三连坑,都不报错、只给假绿**:`fs.statSync` 对
+`pagefile.sys` 必报 `EINVAL`(打不开句柄);`cmd /c for %A in (...) do %~zA` 会被 Node 的加引号 +
+cmd 剥首尾引号的双层规则打掉;属性名写成 MSDN 文档的 `AllocBaseSize`(本机真名是
+**`AllocatedBaseSize`**)会被 PowerShell 静默渲染成空串。三条已由守门 `--self-test` 与镜像测试钉死,
+且"一条都没量到"必须打印**未判定**、绝不记为通过。
