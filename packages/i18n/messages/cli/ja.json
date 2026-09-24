@@ -34,7 +34,31 @@
     "errorPromptFile": "--prompt-file エラー: {error}",
     "agentUsage": "使い方: ihui agent <task>  または  ihui agent --prompt-file <path>",
     "agentsMdExists": "AGENTS.md は既に存在します。--force で上書きしてください。",
-    "agentsMdCreated": "作成しました: {path}"
+    "agentsMdCreated": "作成しました: {path}",
+    "queue": {
+      "enqueued": "キューに追加しました [{id}] (追加入力モード=queue、保留 {n} 件)",
+      "helpMove": "待機項目の順序を変更（実行中はロック）",
+      "helpEdit": "待機テキストを編集（メタデータは変更なし）",
+      "helpRun": "現在のターンを中断してキュー先頭を実行",
+      "helpMode": "実行中の入力の追加入力モードを設定",
+      "usageMove": "使い方: /queue move <開始番号> <終了番号>（順序は /queue list で確認）",
+      "usageEdit": "使い方: /queue edit <id> <新しいテキスト>",
+      "usageMode": "使い方: /queue mode <steer|queue>",
+      "denied": {
+        "reorder": "キューの順序を変更できません",
+        "undo": "キュー内のメッセージを取り消せません",
+        "interject": "現在の Runtime は割り込みに対応していないため、メッセージはキューに残ります"
+      },
+      "reordered": "✓ 順序を変更しました（{from} → {to}）",
+      "edited": "✓ 編集しました [{id}]（メタデータは変更なし）",
+      "noopMove": "実行されませんでした：番号が範囲外か現在と同じ位置です",
+      "noopEdit": "実行されませんでした：該当 id が見つからないかテキストが空です（{id}）",
+      "interrupting": "現在のターンを中断し、キュー先頭 [{id}] を実行します",
+      "noRunning": "実行中のターンはありません。キュー先頭 [{id}] は次のサイクルで実行されます",
+      "runEmpty": "キューが空のため、実行できません",
+      "modeSet": "✓ 追加入力モード = {mode}",
+      "degradedNote": "（降格: {reason}）"
+    }
   },
   "waiting": {
     "agent": {
@@ -224,7 +248,7 @@
     "historyDesc": "セッションインポート履歴を照会(直近 50 件)",
     "conversationMeta": "· メッセージ {count} 件 · モデル {model} · 開始 {started}",
     "historyCappedSuffix": "、サーバー上限の 50 件に到達"
-},
+  },
   "cliEntry": {
     "tagline": "IHUI AI Coding Agent — Claude Code / Codex を目指すコーディングエージェント",
     "modelIdDesc": "モデル ID",
@@ -337,7 +361,7 @@
     "auditColSuccess": "成功",
     "auditColFailure": "失敗",
     "auditColRate": "成功率"
-},
+  },
   "cliWorkflows": {
     "contextBadJson": "--context が有効な JSON ではありません: {message}",
     "noWorkflows": "(ワークフローなし)",
@@ -388,5 +412,5 @@
     "instanceShowDesc": "インスタンス詳細を表示(tasks 含む)",
     "cancelDesc": "実行中のインスタンスをキャンセル",
     "unknownValue": "(不明)"
-}
+  }
 }
