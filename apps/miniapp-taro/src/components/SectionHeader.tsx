@@ -5,10 +5,14 @@
 import { useTt } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import type { ReactNode } from 'react'
+import LineIcon from '@/components/LineIcon'
 
 /**
- * 通用"标题 + 查看更多"区块头部组件。
- * 对齐原项目 components/MoreTitles/index.vue:左侧标题(可选副标题)+ 右侧"查看更多 >"。
+ * 通用"标题 + 更多"区块头部组件。
+ * 对齐原项目 components/MoreTitles/index.vue:左侧标题(可选副标题)+ 右侧「更多 ›」。
+ *
+ * 箭头必须是矢量(LineIcon chevron-right),不得用 `>` / `›` 字符:字符箭头与标签字号
+ * 不同时必上下错位,且与 RN 侧 MoreLink、web 侧 ViewMore 不同形。
  */
 export interface SectionHeaderProps {
   title: string
@@ -30,7 +34,7 @@ export default function SectionHeader({
   className = '',
 }: SectionHeaderProps) {
   const tt = useTt()
-  const moreLabel = moreText ?? tt('common.viewMore', '查看更多')
+  const moreLabel = moreText ?? tt('common.more', '更多')
 
   return (
     <View className={`flex items-center justify-between ${className}`}>
@@ -44,8 +48,13 @@ export default function SectionHeader({
         {extra}
         {showMore && (
           <View className="flex items-center ml-2" onClick={onMore} hoverClass="opacity-60">
-            <Text className="text-[24rpx] text-primary">{moreLabel}</Text>
-            <Text className="ml-1 text-[24rpx] text-primary">{'>'}</Text>
+            <Text className="text-[24rpx] text-muted-foreground">{moreLabel}</Text>
+            <LineIcon
+              name="chevron-right"
+              size={24}
+              color="var(--color-muted-foreground)"
+              style={{ marginLeft: '4rpx' }}
+            />
           </View>
         )}
       </View>
