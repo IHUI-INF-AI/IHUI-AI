@@ -36,8 +36,11 @@
  *
  * 退出码:
  *   0 — 成功(所有 tag 本地+远端一致 + tag 对象可达)
+ *       含一种**如实上报的跳过**:未配置 origin **且**本地零枚待备份;
+ *       "有 tag 却没有 origin" 不算跳过(那正是远端备份缺失的故障形态)
  *   1 — 失败(任何不一致或不可达)
- *   2 — 异常(脚本执行错误,例如 git 命令找不到)
+ *   2 — 异常(脚本执行错误,例如 git 命令找不到;或配了 origin 却取不到远端真值
+ *       ⇒ 拒绝带着假结论继续)
  *
  * 豁免:
  *   HUSKY_SKIP_TAG_SYNC=1 — 跳过 --auto-push 模式(给 post-commit 钩子用,紧急场景)
@@ -149,6 +152,53 @@ function listLocalBackupTags() {
   return out.split('\n').filter(Boolean).sort()
 }
 
+/** origin 是否**配置了**(不是"配了但连不上"):无该 remote 时 get-url 非零退出 ⇒ ''。 */
+function hasOriginRemote() {
+  return run('git remote get-url origin', { allowFail: true }).length > 0
+}
+
+/**
+ * 「没配 origin」与「配了却读不到真值」是两件事,不能共用一个 exit 2(2026-09-24 修)。
+ * 原实现把两者混在一起 ⇒ 一个刚 `git init`、一枚 tag 都没有的干净仓库(各道门的镜像测试
+ * 就是在这种仓库里跑的)也被判成脚本异常 exit 2,而这工具自己的用例写的是 exit 0。
+ *
+ * 但**不许反过来放水**:只要本地还有 lost-commit/backup tag,没有 origin 就等于
+ * "远端备份这条线压根不存在",那是真故障 —— 照旧交回 requireRemoteTagSets 走 fail-loud,
+ * 因为上面那段注释记着的事故(失败被吞成空集 ⇒ 4283 枚全判"待推" ⇒ 撞阈值后整条静默失效)
+ * 正是"把没有真值当成没有风险"造成的。只有"无 origin ∧ 本地零枚"才允许如实跳过。
+ *
+ * @returns {boolean} true 表示已按跳过处理(调用方应立即返回)
+ */
+function skipIfNothingToBackUp(localLost, localBackup) {
+  if (hasOriginRemote()) return false
+  if (localLost.length || localBackup.length) return false
+  const reason =
+    '未配置 origin remote,且本地无 lost-commit/backup tag 待备份 ⇒ 没有远端可比,也没有任何东西处于未备份状态'
+  if (isJson) {
+    console.log(
+      JSON.stringify(
+        {
+          status: 'ok',
+          skipped: reason,
+          local: { lostCommit: [], backup: [] },
+          remote: null,
+          diff: null,
+          reachability: [],
+          summary: { total: 0, reachable: 0, unreachable: 0 },
+        },
+        null,
+        2,
+      ),
+    )
+    process.exit(0)
+  }
+  console.log(`${C.yellow}⏭  ${reason} ⇒ 跳过远端一致性判定${C.reset}`)
+  console.log(header('5. 完整性判定'))
+  console.log(`  ${C.green}✅ 无可比对象(如实跳过,不等于"已核验一致")${C.reset}`)
+  process.exit(0)
+  return true
+}
+
 function lsRemoteTagNames(pattern) {
   // IHUI_TAG_REMOTE 是**测试接缝**:注入一个不存在的远端名即可验证"取不到远端真值"这条
   // fail-closed 分支(实测用 GIT_CONFIG_* 覆盖 remote.origin.url 不生效,故留这个开关)。
@@ -238,6 +288,8 @@ function checkMode() {
 
   const localLost = listLocalLostTags()
   const localBackup = listLocalBackupTags()
+  // 无 origin ∧ 本地零枚 ⇒ 如实跳过(与"配了 origin 却读不到真值"分开处理,见 skipIfNothingToBackUp)
+  skipIfNothingToBackUp(localLost, localBackup)
   const remoteSets = requireRemoteTagSets('check')
   const { lost: remoteLost, backup: remoteBackup } = remoteSets
   const lostDiff = diffTagSets(localLost, remoteSets.lost)

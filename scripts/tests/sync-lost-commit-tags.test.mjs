@@ -127,6 +127,22 @@ test('CLI: --check --json 在干净仓库 → exit 0 + JSON status=ok', () => {
   }
 })
 
+test('反例:无 origin 但本地**有** lost-commit tag ⇒ 不得走"跳过"分支(那正是备份线缺失的故障)', () => {
+  const dir = createTempRepo() // 该夹具不配 origin
+  try {
+    execSync('git tag lost-commit/orphan HEAD', { cwd: dir, stdio: 'pipe' })
+    const r = runScript(['--check'], { cwd: dir })
+    assert.notEqual(
+      r.status,
+      0,
+      '本地有 tag 却没 origin,绝不能被"无 origin ⇒ 跳过"洗成绿(必须仍 fail-loud)',
+    )
+    assert.doesNotMatch(r.stdout, /无可比对象/, '有可比对象时不得打印跳过结论')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('CLI: --check --json 有仅本地 lost-commit tag → exit 1 + JSON status=fail', () => {
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
