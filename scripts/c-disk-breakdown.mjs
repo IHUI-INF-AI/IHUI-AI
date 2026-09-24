@@ -44,13 +44,6 @@ const norm = (p) => p.split(sep).join('/')
 /** 根键必须去掉尾斜杠:`C:/` 与逐层 dirname 得出的 `C:` 不是同一个字符串,
  *  留着尾斜杠会让根条目永远查不到 ⇒ 对账行输出"遍历到 0 GB / 未解释 82 GB"的假结论。 */
 const ROOTKEY = norm(ROOT).replace(/\/+$/, '')
-const isLink = (p) => {
-  try {
-    return lstatSync(p).isSymbolicLink()
-  } catch {
-    return false
-  }
-}
 
 /** 一次遍历,把每个文件的字节滚到它的全部祖先目录(滚到根,不按 depth 截断 —— 截断会让浅层总数偏小)。 */
 function rollUp(root) {
@@ -109,17 +102,25 @@ function volumeBytes(root) {
   return { total: b * Number(s.blocks), avail: b * Number(s.bavail), free: b * Number(s.bfree) }
 }
 
-/** 被句柄持有的特殊文件:statfs 已计入用量但遍历量不到,必须单独补上,否则对账永远差 2-3GB。 */
-function specialFilesMB(drive) {
+/** 被句柄持有的特殊文件:statfs 已计入用量但遍历量不到,必须单独补上,否则对账永远差 2-3GB。
+ *  盘符按入参走(硬编码 C:\ 会让 `--root D:/` 报出"特殊文件 0 MB"的假对账)。
+ *  ⚠️ 路径字面量必须是 `'C:\\'`(双反斜杠) —— 实测单反斜杠形态 `Join-Path 'C:\' $n` 会让
+ *  PowerShell 报「Cannot find a provider with the name 'C'」并让整段静默无量。 */
+function specialFilesMB(driveLetter) {
   const ps = 'C:/Program Files/PowerShell/7/pwsh.exe'
+  // 入参可能是 'C:' 或 'C' —— 归一到字母再拼,否则 PS 会收到 `C::\` 这种废路径,
+  // 表现是 Test-Path 全 false ⇒ 静默返回空表 ⇒ 对账行印出"特殊文件 0 MB"的**假结论**。
+  const letter = String(driveLetter || 'C').replace(/[:\\/].*$/, '')
   const script =
-    "foreach($n in 'pagefile.sys','swapfile.sys','hiberfil.sys'){$p=Join-Path 'C:\\' $n;if(Test-Path -LiteralPath $p){" +
+    `foreach($n in 'pagefile.sys','swapfile.sys','hiberfil.sys'){$p=Join-Path '${letter}:\\\\' $n;if(Test-Path -LiteralPath $p){` +
     '"{0}={1}" -f $n,(Get-Item -LiteralPath $p -Force).Length}}'
   try {
     const out = execFileSync(ps, ['-NoProfile', '-NonInteractive', '-Command', script], {
       encoding: 'utf8',
       windowsHide: true,
       timeout: 40000,
+      // stderr 必须吃掉:PS 的报错原文会直接泄进工具输出,读者会把它当成本工具的结论。
+      stdio: ['ignore', 'pipe', 'ignore'],
     })
     const map = {}
     for (const line of String(out).split(/\r?\n/)) {
@@ -176,30 +177,38 @@ const out = {
 }
 
 if (AS_JSON) {
-  console.log(JSON.stringify(out, null, 2))
+  console.info(JSON.stringify(out, null, 2))
 } else {
-  console.log(`扫描根 ${ROOT} —— 卷口径(与 Explorer/fsutil 同源,不用 df)`)
-  console.log(
+  console.info(`扫描根 ${ROOT} —— 卷口径(与 Explorer/fsutil 同源,不用 df)`)
+  console.info(
     `  总 ${out.volume.totalGB} GB | 已用 ${out.volume.usedGB} GB (${((usedByVolume / vol.total) * 100).toFixed(0)}%) | 可用 ${out.volume.freeGB} GB`,
   )
-  console.log(`\n账要对平:遍历所得 + 特殊文件 + 未解释 = 已用`)
-  console.log(
-    `  遍历到 ${out.accounting.walkedGB} GB  +  pagefile 类 ${Object.values(out.accounting.specialFilesMB).reduce((s, n) => s + n, 0)} MB  +  ` +
+  console.info(`\n账要对平:遍历所得 + 特殊文件 + 未解释 = 已用`)
+  const spCount = Object.keys(out.accounting.specialFilesMB).length
+  console.info(
+    `  遍历到 ${out.accounting.walkedGB} GB  +  pagefile 类 ${Object.values(out.accounting.specialFilesMB).reduce((s, n) => s + n, 0)} MB(量到 ${spCount} 个)  +  ` +
       `未解释 ${out.accounting.unexplainedGB} GB`,
   )
-  console.log(
+  if (spCount === 0)
+    console.info('  ⚠️ 特殊文件一个都没量到:若该盘确有 pagefile.sys,则上面"未解释"里含它,别当成可删垃圾')
+  console.info(
     `  读不到/不可 stat 的条目 ${denied} 个 | **刻意未跟随的重解析点 ${links} 个**(跟随会把 D 盘目标算成 C 的债)`,
   )
-  if (special.error) console.log(`  ⚠️ 特殊文件未量到(${special.error.slice(0, 60)})⇒ 未解释项会偏大,不是垃圾`)
+  if (special.error) console.info(`  ⚠️ 特殊文件未量到(${special.error.slice(0, 60)})⇒ 未解释项会偏大,不是垃圾`)
   if (out.accounting.unexplainedGB > 2)
-    console.log(`  ⚠️ 未解释 >2GB:可能含卷存储保留/NTFS 元数据/授权受限目录,须人工定性,不得当作"还可以删这么多"`)
+    console.info(`  ⚠️ 未解释 >2GB:可能含卷存储保留/NTFS 元数据/授权受限目录,须人工定性,不得当作"还可以删这么多"`)
+  if (out.accounting.unexplainedGB < -1)
+    console.info(
+      '  ⚠️ 未解释为**负**数:遍历有重复计数(硬链接如 pnpm store、或某 junction 目标被两侧各算一次)' +
+        ' ⇒ 含硬链接的盘上"遍历所得"只是上界,不得据此推算可回收量',
+    )
   for (let d = 1; d <= MAX_DEPTH; d++) {
     const rows = out.levels[`depth${d}`]
     if (!rows || !rows.length) continue
-    console.log(`\n===== 第 ${d} 层(≥${MIN_MB}MB,前 ${TOP}) =====`)
-    for (const r of rows) console.log(`  ${String(r.mb).padStart(9)} MB  files=${String(r.files).padStart(7)}  ${r.path}`)
+    console.info(`\n===== 第 ${d} 层(≥${MIN_MB}MB,前 ${TOP}) =====`)
+    for (const r of rows) console.info(`  ${String(r.mb).padStart(9)} MB  files=${String(r.files).padStart(7)}  ${r.path}`)
   }
-  console.log(`\n(本工具只读:未删除、未移动任何文件。清理入口是 scripts/c-drive-auto-maintain.ps1。`)
+  console.info(`\n(本工具只读:未删除、未移动任何文件。清理入口是 scripts/c-drive-auto-maintain.ps1。`)
 }
 
 export const __test__ = { rollUp, volumeBytes, depthOf, specialFilesMB }
