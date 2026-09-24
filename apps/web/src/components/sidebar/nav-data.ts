@@ -413,6 +413,8 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/ai-world', labelKey: 'aiWorld', icon: Globe },
       { href: '/models', labelKey: 'models', icon: Bot },
       { href: '/settings/import', labelKey: 'hotModelImport', icon: Download },
+      // D17 生态入口收敛:顶栏并列的 5 个市场入口在 /ecosystem 统一聚合(老 URL 直达仍可用)
+      { href: '/ecosystem', labelKey: 'ecosystemHub', icon: LayoutGrid },
     ],
   },
   {
