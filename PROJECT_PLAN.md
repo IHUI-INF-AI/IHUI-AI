@@ -5173,6 +5173,35 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
   (windows / linux-x86_64 / darwin-x86_64 / darwin-aarch64)⇒ macOS 与 Linux 客户端目前只能靠回退端点续命。
   修法是让 `sync-downloads` 生成的站点 feed 也带 mac/linux 键,但前提是先确认这两个平台的包是否真的面向用户发布。
 
+### 第四阶段(2026-09-24 01:30–02:10):用户追问"C 盘怎么还是被我们占用了" ⇒ 审到用户配置目录,补上改道完整性守门
+
+我的守门当时只扫了 4 个根(C 根 / `C:\tmp` / `C:\temp` / 我自己的 TEMP),**用户配置目录根本不在它的
+扫描面里** —— 这是门的漏洞,不是漏报。按名字与尺寸实审后:
+
+- [x] ✅ **两处真凶已按 §26 机制改道**:`AppData\Roaming\npm` **2.05GB**(npm 全局前缀,25840 个文件)与
+  `AppData\Local\pnpm-cache` **758MB**(3389 个文件)。两处都走"镜像复制 → **逐文件(相对路径+字节)双向校验**
+  → 源改名 `.pre-junction-<ts>` → `mklink /J` → **经 junction 回读一致** → 才删源",中途任何不符即回退。
+  实测:`onlyInSrc=0 onlyInDst=0 mismatch=0` × 2;`npm` 下的 `agent-browser.cmd`/`cc-i18n.cmd` 等 shim
+  经 junction 正常解析(PATH 未动 ⇒ 无"双根分裂")。C 盘可用 **44G → 45.75G**。
+  `AppData\Roaming\npm-cache` 实测 0 字节(空壳),不占空间也不动它。
+- [x] ✅ **新增守门 `check-home-junctions.mjs`(blocking,同日取号 96)**:§26 的改道此前只有
+  "给人敲的三条命令"作为校验 —— 人肉校验等于没有校验,所以 2GB 长出来没人知道。该门登记 16 项,判
+  `REAL-DIR`(并必须量出体积)/ `DANGLING`(指针目标丢了 = §26 的"路径直接消失")/ `EMPTY-REGISTRY`
+  (表被过滤空 = 恒绿假门);非 Windows 如实报"未判定"不计通过。`--self-test` 6 例 + 镜像测试 5 例
+  (含**装车证明**:id 唯一 + blocking + skipEnv,以及**反向断言第三方 IDE 自管态不得进登记表**)。
+- [x] ✅ **本会话自踩两处,都已就地修正**:① 迁移脚本第 5 步的**格式化字符串写坏**(`$(... | ForEach-Object)`
+  嵌在插值里)⇒ 脚本抛错却**返回 exit 0**,幸好我自己回读现场才发现改名后的 1.9G 源没删、第二处没跑;
+  ⇒ 教训:**后台任务的退出码不可信,必须看产物**。② 新门第一版的 fixture 用例把 `rmScratch` 写在**注册期**,
+  断言循环在其后才跑 ⇒ 三条 fixture 断言集体对着"已不存在的路径"判定(要么全红要么假绿),已在两处
+  都把"夹具必须活到断言之后"写成显式检查。③ 行内 `pwsh -Command` 被 GBK 代码页吃掉引号(§5e 明令的坑),
+  改为写 `.ps1` 文件再 `-File` 执行。
+- [x] ✅ **审过但未动、并写进判据例外条**:`.workbuddy` 3.1GB(内含被 `scripts/lib/gitdir.mjs` 当 git
+  二进制首选的 PortableGit)、`.qoder-cn` 299MB(**本会话宿主的记忆/工作区,挪了即丢记忆**)——
+  按 §26"第三方 IDE 自管态只登记不搬动"处理,并由镜像测试反向钉死"不许加进登记表",防止后人把它们
+  判成我们的债再去挪。
+- [ ] **仍在这台机器上、不由我裁的**:C 盘剩余 5 项未识别条目(优酷 1.3G / ClipFlow / 输入法字典 /
+  两个 AppVerifier dll)与 `C:\tools\openssh-inst`(部署链路可能按绝对路径找 `ssh.exe`),全部属人或属第三方。
+
 ### 遗留(已量化)
 
   `os.tmpdir()` 调用仍会落 C 盘(守门 93 会把这件事直接报成 **TEMP 漂移**,不是靠人记)。
