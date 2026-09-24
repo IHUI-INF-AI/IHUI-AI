@@ -10255,6 +10255,36 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "voiceNote": {
+      "title": "語音筆記",
+      "phase": {
+        "ready": "準備就緒",
+        "recording": "正在錄音",
+        "waitingTranscript": "等待轉寫",
+        "completed": "已完成",
+        "cancelled": "已取消",
+        "failed": "錄音失敗",
+        "error": "出錯了",
+        "interrupted": "已中斷"
+      },
+      "errors": {
+        "permission": "麥克風權限被拒絕,請在瀏覽器設定中允許後重試",
+        "noMicrophone": "未偵測到麥克風裝置",
+        "startFailed": "錄音啟動失敗,請重試",
+        "saveFailed": "錄音儲存失敗",
+        "recognitionFailed": "語音辨識中斷",
+        "emptyTranscript": "未辨識到內容",
+        "sttPending": "轉寫暫不可用,可稍後重試或僅儲存音訊"
+      },
+      "action": {
+        "start": "開始錄音",
+        "stop": "停止錄音",
+        "retry": "重試",
+        "saveAudioOnly": "僅儲存音訊",
+        "insertToInput": "插入對話",
+        "dismiss": "關閉"
+      }
+    },
     "connectorAuth": {
       "title": "連接到 {connectorName}",
       "connected": "已連接",
