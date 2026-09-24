@@ -11,6 +11,8 @@ export {
   setDeviceFingerprintProvider,
   getDeviceFingerprintProvider,
   setBaseUrl,
+  setUserAgent,
+  getUserAgent,
   setStreamBaseUrl,
   getStreamBaseUrl,
   getToken,
