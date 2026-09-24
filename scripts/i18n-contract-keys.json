@@ -12,38 +12,5 @@
     "硬约束四:条目过期(键已被本端静态引用,或键不在本端语言包里)同样判红,防止清单腐烂。",
     "不得登记 desktop:该端无 JS 扫描面,声明永远不会被读到。"
   ],
-  "targets": {
-    "mobile-rn": {
-      "permissionTier.label": {
-        "reason": "跨端权限档词包契约键,共享层与测试把它钉为形状键;本端面板有意改用 agent.runtimePermissionMode 作行 label",
-        "evidence": [
-          {
-            "file": "packages/shared/src/chat/permission-tier.ts",
-            "line": 9,
-            "contains": "permissionTier.label"
-          },
-          {
-            "file": "apps/mobile-rn/tests/permission-tier-pack.test.ts",
-            "line": 41,
-            "contains": "permissionTier.label"
-          },
-          {
-            "file": "apps/mobile-rn/tests/agent-runtime-permission-mode.test.tsx",
-            "line": 118,
-            "contains": "permissionTier 词表"
-          },
-          {
-            "file": "apps/extension/entrypoints/sidepanel/components/AgentRuntimePanel.tsx",
-            "line": 71,
-            "contains": "permissionTier.label"
-          },
-          {
-            "file": "apps/extension/entrypoints/sidepanel/components/MessageContent.tsx",
-            "line": 682,
-            "contains": "permissionTier.label"
-          }
-        ]
-      }
-    }
-  }
+  "targets": {}
 }
