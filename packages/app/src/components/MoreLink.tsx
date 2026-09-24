@@ -2,60 +2,78 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-/**
- * MoreTitles 更多标题 (mobile-rn 端)
- *
- * 对齐历史项目 MoreTitles/index.vue(列表区段头):
- * - 左侧:标题文字(粗体),单行截断
- * - 右侧(仅当 onMore 提供时渲染):「更多」入口 —— 委托共享层 MoreLink,
- *   不得在此自拼 `›` 字符箭头(字符箭头与标签字号不同时必上下错位)
- * - 单行布局,space-between,无分割线
- * - 浅色优雅风,系统字体,无霓虹无渐变
- *
- * 任务规格:
- *   interface MoreTitlesProps { title: string; moreText?: string; onMore?: () => void }
- */
-import { StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native'
-import { MoreLink } from '@ihui/rn-app'
-import { tokens as tk, currentRnTheme } from '../theme/active-tokens'
+import { Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from 'react-native'
+import { ChevronRight } from 'lucide-react-native'
+import { getTokens, type AppThemeMode } from '../theme/tokens'
 
-export interface MoreTitlesProps {
-  title: string
-  moreText?: string
-  onMore?: () => void
+/**
+ * 区块头「更多」入口 —— RN 端唯一实现。
+ *
+ * 箭头用 lucide 矢量而非 `›` / `>` 字符:文本箭头的字形在自身 em 盒里的位置随字号变,
+ * 与不同字号的标签同行时必然上下错位(迁移前标签 12/13/14、箭头 14/16/18/20 各写一档),
+ * 端内曾用 `marginBottom: -2` 手调。固定尺寸的 SVG 在 alignItems:'center' 下才是真居中。
+ */
+
+/** 与 web 端 `text-xs` + `ChevronRight h-3 w-3` 同档 */
+const LABEL_FONT_SIZE = 12
+const ICON_SIZE = 12
+const GAP = 2
+
+export interface MoreLinkProps {
+  /** 已取词的入口文案(由调用方注入,组件不内置语种) */
+  label: string
+  onPress?: () => void
+  /** 已解析主题;共享层组件必须由调用方显式传入,缺省默认 light */
+  colorScheme?: AppThemeMode
+  /** 无障碍标签,缺省用 label */
+  accessibilityLabel?: string
+  style?: StyleProp<ViewStyle>
+  testID?: string
 }
 
-const DEFAULT_MORE_TEXT = '更多'
-const TITLE_FONT_SIZE = 14
-const CONTAINER_PADDING_V = 10
+export function MoreLink({
+  label,
+  onPress,
+  colorScheme = 'light',
+  accessibilityLabel,
+  style,
+  testID,
+}: MoreLinkProps) {
+  const tk = getTokens(colorScheme)
+  const color = tk.text.secondary
 
-export function MoreTitles({ title, moreText = DEFAULT_MORE_TEXT, onMore }: MoreTitlesProps) {
   return (
-    <View style={styles.container}>
-      <Text style={styles.title} numberOfLines={1}>
-        {title}
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+      hitSlop={4}
+      testID={testID}
+      style={({ pressed }) => [styles.hit, pressed ? styles.pressed : null, style]}
+    >
+      <Text style={[styles.label, { color }]} numberOfLines={1}>
+        {label}
       </Text>
-      {onMore ? (
-        <MoreLink label={moreText} onPress={onMore} colorScheme={currentRnTheme()} />
-      ) : null}
-    </View>
+      <ChevronRight size={ICON_SIZE} color={color} />
+    </Pressable>
   )
 }
 
 const styles = StyleSheet.create({
-  container: {
+  hit: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: CONTAINER_PADDING_V,
-  } as ViewStyle,
-  title: {
-    flex: 1,
-    fontSize: TITLE_FONT_SIZE,
-    fontWeight: '600',
-    color: tk.text.primary,
-  } as TextStyle,
+    gap: GAP,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+  },
+  pressed: {
+    opacity: 0.6,
+  },
+  label: {
+    fontSize: LABEL_FONT_SIZE,
+  },
 })
 
-export default MoreTitles
+export default MoreLink
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

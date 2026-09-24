@@ -60,7 +60,7 @@ import Drawer, {
   type DrawerTab,
 } from '../components/Drawer'
 import ModelList, { type ModelListGroup } from '../components/ModelList'
-import { SearchInput, CategoryInlineBar } from '@ihui/rn-app'
+import { SearchInput, CategoryInlineBar, MoreLink } from '@ihui/rn-app'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -557,15 +557,12 @@ export function StudyIndexScreen() {
                 <Flame size={18} color={tk.text.secondary} style={{ marginRight: rpx(12) }} />
                 <Text style={styles.previewTitle}>推荐课程合集</Text>
               </View>
-              <Pressable
-                style={styles.previewMoreRow}
+              <MoreLink
+                label="更多"
                 onPress={() => setPageType('model')}
-                accessibilityRole="button"
                 accessibilityLabel="查看更多模型"
-              >
-                <Text style={styles.previewMoreText}>查看更多</Text>
-                <Text style={styles.previewMoreArrow}>›</Text>
-              </Pressable>
+                colorScheme={resolvedTheme}
+              />
             </View>
             {previewModels.length > 0 ? (
               previewModels.map((m) => (
@@ -610,15 +607,12 @@ export function StudyIndexScreen() {
                 <Film size={18} color={tk.text.secondary} style={{ marginRight: rpx(12) }} />
                 <Text style={styles.previewTitle}>最新课程</Text>
               </View>
-              <Pressable
-                style={styles.previewMoreRow}
+              <MoreLink
+                label="更多"
                 onPress={() => setPageType('study')}
-                accessibilityRole="button"
                 accessibilityLabel="查看更多课程"
-              >
-                <Text style={styles.previewMoreText}>查看更多</Text>
-                <Text style={styles.previewMoreArrow}>›</Text>
-              </Pressable>
+                colorScheme={resolvedTheme}
+              />
             </View>
             {initialLoading ? (
               <Loading text="加载中..." />
@@ -751,20 +745,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: tk.text.primary,
-  } as TextStyle,
-  previewMoreRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  } as ViewStyle,
-  previewMoreText: {
-    fontSize: 13,
-    color: tk.text.secondary,
-  } as TextStyle,
-  previewMoreArrow: {
-    fontSize: 18,
-    color: tk.text.secondary,
-    marginLeft: rpx(4),
-    lineHeight: 18,
   } as TextStyle,
   // 模型预览行(对齐 ModelList row 简化版)
   previewModelRow: {

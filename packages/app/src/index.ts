@@ -237,6 +237,10 @@ export type {
   SearchInputProps,
 } from './components'
 
+/** 区块头「更多」入口:RN 端唯一实现,箭头走 lucide 矢量(勿在端内再用 `›` 字符自拼) */
+export { MoreLink } from './components'
+export type { MoreLinkProps } from './components'
+
 /** 统一分类栏(横滑条 + 点击下拉窗),两端共用;文案与图标一律由调用方 items 传入 */
 export { CategoryInlineBar, CategoryDropdown } from './components'
 export type { CategoryInlineBarProps, CategoryDropdownProps, CategoryItem } from './components'
