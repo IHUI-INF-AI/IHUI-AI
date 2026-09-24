@@ -58,6 +58,10 @@ class RoutingDecision:
     reason: str
     alternatives: list[str] = field(default_factory=list)
     estimated_cost: float = 0.0  # 美元
+    # 预算降级(D16 ③)回显:调用方据此决定是否提示用户/是否放行,
+    # 而不是拿一个"看起来选了模型"的结论继续跑。
+    budget_usd: float | None = None
+    budget_exceeded: bool = False
 
 class ModelRouter:
     """智能模型路由器。
@@ -148,20 +152,31 @@ class ModelRouter:
         has_code: bool = False,
         has_vision: bool = False,
         preferred_model: str | None = None,
+        budget_usd: float | None = None,
     ) -> RoutingDecision:
         """路由到最优模型。
 
         - 如果指定 preferred_model 且可用,直接返回
         - 否则按复杂度评估 + 模型能力矩阵选择
         - 优先本地模型(免费),不满足要求时升级到付费模型
+        - budget_usd:本轮花费上限(美元)。给出时按原排序取**第一个付得起**的候选;
+          全部超预算则落到最便宜的一档并置 budget_exceeded=True(**绝不静默**改选后
+          当作正常结果 —— 调用方要靠这个标志提示用户或改走免排队路径)。
+          传 None 时行为与未加此参数前逐字一致。
         """
         # 指定模型优先
         if preferred_model and preferred_model in self.models:
+            pinned = self.models[preferred_model]
+            pinned_cost = self._estimate_cost(pinned, token_count)
             return RoutingDecision(
                 selected_model=preferred_model,
                 complexity=TaskComplexity.TRIVIAL,
                 reason=f"用户指定模型 {preferred_model}",
                 alternatives=[],
+                estimated_cost=round(pinned_cost, 6),
+                budget_usd=budget_usd,
+                # 用户点名 = 显式意图,不擅自换模型,只如实标超支
+                budget_exceeded=budget_usd is not None and pinned_cost > budget_usd,
             )
 
         complexity = self.assess_complexity(prompt, token_count, has_tools, has_code, has_vision)
@@ -190,11 +205,21 @@ class ModelRouter:
         if not candidates:
             # 无候选,用最强模型
             best = max(self.models.values(), key=lambda m: m.reasoning_power)
+            best_cost = self._estimate_cost(best, token_count)
+            best_exceeded = budget_usd is not None and best_cost > budget_usd
+            no_cand_reason = f"无满足要求的模型,降级到最强模型 {best.model_id}"
+            if budget_usd is not None:
+                # 标志位与 reason 必须同形:只置 budget_exceeded 而文案不提预算,
+                # 日志/UI 读到的就是一条"看起来正常"的降级(本仓记过多次这种静默)。
+                no_cand_reason += f",预算${budget_usd:g}" + ("已超·无更省可选" if best_exceeded else "内")
             return RoutingDecision(
                 selected_model=best.model_id,
                 complexity=complexity,
-                reason=f"无满足要求的模型,降级到最强模型 {best.model_id}",
+                reason=no_cand_reason,
                 alternatives=[],
+                estimated_cost=round(best_cost, 6),
+                budget_usd=budget_usd,
+                budget_exceeded=best_exceeded,
             )
 
         # 排序:优先本地(免费)→ 速度(如果 prefer_speed)→ 价格 → 推理能力
@@ -206,19 +231,50 @@ class ModelRouter:
 
         candidates.sort(key=sort_key)
 
-        selected = candidates[0]
-        alternatives = [m.model_id for m in candidates[1:4]]  # 最多 3 个备选
+        # 预算降级:在**已按质量/成本排好序**的候选里取第一个付得起的。
+        # 不重排、不引入新候选 —— 预算只应当把选择"往下截",不应当把更差的模型提到前面。
+        budget_exceeded = False
+        if budget_usd is not None:
+            affordable = [
+                m for m in candidates if self._estimate_cost(m, token_count) <= budget_usd
+            ]
+            if affordable:
+                selected = affordable[0]
+                alternatives = [m.model_id for m in affordable[1:4]]
+            else:
+                # 全超预算 → 落最便宜的一档,并如实标记(让调用方去提示/改道,而不是假装正常)
+                selected = min(candidates, key=lambda m: self._estimate_cost(m, token_count))
+                alternatives = [m.model_id for m in candidates if m.model_id != selected.model_id][:3]
+                budget_exceeded = True
+        else:
+            selected = candidates[0]
+            alternatives = [m.model_id for m in candidates[1:4]]  # 最多 3 个备选
 
         # 估算成本
-        est_cost = (token_count * selected.input_price + token_count * 0.5 * selected.output_price) / 1_000_000
+        est_cost = self._estimate_cost(selected, token_count)
+
+        reason = (
+            f"复杂度={complexity.value},选择 {selected.name}"
+            f"(推理={selected.reasoning_power},速度={selected.speed_tps}tps,"
+            f"价格=${selected.input_price}/1M)"
+        )
+        if budget_usd is not None:
+            reason += f",预算${budget_usd:g}" + ("已超·落到最便宜档" if budget_exceeded else "内")
 
         return RoutingDecision(
             selected_model=selected.model_id,
             complexity=complexity,
-            reason=f"复杂度={complexity.value},选择 {selected.name}(推理={selected.reasoning_power},速度={selected.speed_tps}tps,价格=${selected.input_price}/1M)",
+            reason=reason,
             alternatives=alternatives,
             estimated_cost=round(est_cost, 6),
+            budget_usd=budget_usd,
+            budget_exceeded=budget_exceeded,
         )
+
+    @staticmethod
+    def _estimate_cost(model: ModelCapability, token_count: int) -> float:
+        """单次请求成本估算(输出按 0.5×输入量计,与本模块既有口径一致)。"""
+        return (token_count * model.input_price + token_count * 0.5 * model.output_price) / 1_000_000
 
     def get_model_info(self, model_id: str) -> ModelCapability | None:
         """获取模型信息。"""
