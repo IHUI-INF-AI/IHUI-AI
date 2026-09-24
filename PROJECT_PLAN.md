@@ -7440,7 +7440,53 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
   彻底解法需在 `reclaim.ts` 加 `isEnvelopeContent` 跳过 —— 属改他人在飞文件,未做。
 - [ ] WP-1 新 API 尚未接入 `builtins.ts`/`terminal.ts` 执行链(接一行即可恢复 YOLO 观感,
   但需同步改他人 `terminal.test.ts` 的 `vi.mock`,本批未动)。
-- [ ] `config/architecture-policy.yaml` 目前 0 个模块 `managed:true` —— 渐进收口的第一块翻正面尚未选定。
+- [x] ✅(2026-09-25) **WP-7 浏览器语义快照与活句柄层**(CLI + 扩展两端入库 `9f404d0`/前一枚 15 文件提交)。
+  契约在 `packages/dom-actions/src/page-snapshot/{contract,page-api,serialize,host}`:
+  句柄 `el:<scope8>:<serial36>`(WeakMap 保同元素跨轮同句柄、WeakRef 判存活、**scope 以页面为准**);
+  12 个结构化错误码(刻意不复用 `SELECTOR_NOT_FOUND`——那条把"选择器没匹配"与"活引用失效"混成一码);
+  句柄配额与正文预算**两本账互不挪用**;丢弃阶梯语义优先(role/name/text/value/disabled/checked/handle 受保护);
+  `sideEffect: none|uncertain` 防盲重试;兜底动词 `browser_page_pick_at_point`。
+  **提交前拦下一个真实路径必炸的缺陷**:安装源按 `.toString()` 取,其可执行性**绑在打包器上** ——
+  tsx/esbuild 会插模块级辅助符 `__name(fn,"n")`,搬进页面即 `ReferenceError: __name is not defined`,
+  而 vitest 档案不产生它 ⇒ "11/11 绿 + 真实 CLI 每次快照失败"。修法是新增唯一装配入口
+  `buildPageApiInstallExpression()`(辅助符按当次源码**实测扫出**并就地定义;扫出未登记名
+  **装配期抛错**,绝不把注定崩的表达式发进页面),两端共用、端内不得自拼。
+  定位用的"无模块作用域间接 eval"探针留在 `.ihui-agent/tmp/wp7-probe/`(不入库),
+  该类脆弱点已写成永久回归 `apps/cli/tests/browser-page-snapshot-injection.test.ts`(7 例,含合成牙)。
+  同批给 `packages/types` 的 `AgentActionErrorCode` 补 10 条页内侧码 —— 扩展端 `lib/agent-control.ts:184`
+  原样赋值,少一条就是 TS2322(**编译期即护栏,故不另建对账清单**;代理把它误标成"既有债",复核后否证)。
+- [x] ✅(2026-09-25) **WP-8 之 A/C 落地**:① 上下文占用按 `系统段 / 工具 schema / 技能 / 消息角色`
+  归因分解,唯一实现 `packages/shared/src/utils/context-attribution.ts`(19 例)+ 落到
+  `apps/web/src/components/ai/context-usage-ring.tsx`(6/6 绿);不可观测段显式给原因而非静默计 0,
+  缓存读数不可得显示"不可得"**不得显示 0%**;(已入库)
+  ② `AGENTS.md §8` 那条"禁止模型自评 yes"自立项起从未实现(实测 `completion_verif|independent_verif`
+  零命中),现落 `apps/ai-service/app/services/completion_verification.py` + 端点
+  `POST /api/agent/goal-verify`(31 例 pytest、mypy 干净、main.py:829 注册)。
+- [x] ✅(2026-09-25) **收尾四件 + 新文案五语**(75 条 key,`9f404d03`):webhook 形态过同一道 trust 门;
+  补 `ihui hooks trust|untrust` 子命令(门 default-deny 后旧文案指向不存在的命令);
+  `reclaim` 不再改写结果信封(常量上移 `markers.ts` 单源);argv 求值器**真正装车**
+  (`builtins.ts`/`terminal.ts` 走 `gateCommandExecution`,31 例含静态"不得再直调旧函数"断言)。
+  守门 70 由 33/3 回到 20/0 额度内,**未跑 `--update-baseline`**(无账可下,整表重写等于替他人平账)。
+- [x] ✅(2026-09-25) 渐进收口第一块翻正面已由并发会话选定:`config/architecture-policy.yaml` 中
+  `packages/api-client` 改 `managed: true`(实测门 103 仍全量 exit 0 —— 该包契约本就干净)。
+
+### 第二波未闭环(不写作收口,各自给解阻判据)
+
+- [ ] **`stream-tool-ledger` 未入库**:模块与单测已绿(`apps/cli/src/stream-tool-ledger.ts`),
+  但唯一接线点 `apps/cli/src/commands/agent.ts` **同时含他人未提交的 D19 terminal_delta 工作**,
+  整文件提交即混提(§12 红线)。解阻判据:待该文件他人改动落地后,单独提一枚"账本接线"票。
+- [ ] `/api/agent/goal-verify` **无生产消费方**(端点已注册、测试已断言路由存在,但 goal 运行循环
+  还没调它)—— 属"生产者已备、消费面未接",另票接 CLI/服务端 goal 循环调用点。
+- [ ] `--allow-dangerous` 确认旁路仍在调用方(`commands/agent.ts:1757`、`server/agent-core.ts:101`),
+  工具层结构上看不见;收口需改确认回调契约,本批按现状入库并在披露文档写明边界。
+- [ ] page_* 动词的**跨端登记**未做:web / miniapp-taro / RN / desktop / api 侧 `agent_action` 枚举与
+  capability 目录(`scripts/check-capability-catalog.mjs` 覆盖面)尚未收;扩展真机加载 MV3、
+  真实多帧页面坐标累加均未取证。
+- [ ] RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 zh-TW/en/ja/ko 四语归因译文待人复核。
+- [ ] **他人现场(非本批账,但会拦所有人的提交链)**:`apps/ai-service/app/services/sandbox/` 未跟踪目录
+  遮蔽已跟踪 `sandbox.py` ⇒ 守门 35 mypy 恒红(`tool_input_scanner.py:32` / `mcp_server.py:1954`,
+  两文件均工作树==HEAD);`check-i18n-keys` 的 5 处缺失键在 `ecosystem` 命名空间;
+  `apps/web` 另有 3 例 `tool-call-rollback-badge` 因缺 `TooltipProvider` 基线红。三者归属均为他人,本批未代改。
 
 
 - [x] ✅(2026-09-25)**渐进收口的第一块已选定并翻正**：`config/architecture-policy.yaml` 里
