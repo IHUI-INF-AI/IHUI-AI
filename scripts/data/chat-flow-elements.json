@@ -792,6 +792,10 @@
         {
           "file": "apps/web/src/stores/chat.ts",
           "mustMatch": "requeue"
+        },
+        {
+          "file": "apps/web/src/components/chat/message-input.tsx",
+          "mustMatch": "QueueInteractionBar"
         }
       ]
     },
