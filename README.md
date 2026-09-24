@@ -2797,7 +2797,7 @@ R2 用基线棘轮拦"浅色当容器底":`surface.light` 背景 / α≥0.5 的�
 
 ---
 
-**第 93 项 `check-c-drive-pollution.mjs`(warn-only)**(2026-09-23 立) —— 补的是**全链没有一道门看过文件系统**这个缺口。
+**守门 `check-c-drive-pollution.mjs`(warn-only;同日重排 5 次编号,以 runner 为准,故此处不写号)**(2026-09-23 立) —— 补的是**全链没有一道门看过文件系统**这个缺口。
 第 45 项 `check-c-drive-paths.mjs` 只扫 staged 源码里的字面量 `C:\temp\`,而 C 盘残骸恰恰是从
 `os.tmpdir()` / `$env:TEMP` 这类"源码里根本没写 C"的路径流出去的;`check-parent-pollution` 只扫项目父目录
 (`D:\`),`check-root-dir-clean` 只扫项目根。三道门全绿的同一台机器上,C 盘实攒了 **13.2GB** 的 `.next`
@@ -2811,13 +2811,13 @@ R2 用基线棘轮拦"浅色当容器底":`surface.light` 背景 / α≥0.5 的�
 定级 warn 而非 blocking:盘根多数条目不属本仓,拦提交只会逼人 `--no-verify` 连带废掉全部守门
 (与第 77/52 项同取向);本门**只读,永不删文件**,清理一律走 `scripts/c-drive-auto-maintain.ps1`
 (同日修其三段:原扫 `C:\temp` 属**扫错目录**、`ForceDelete` 对单文件必然静默失败、`-DryRun` 必须拦在
-`ForceDelete` 这个唯一删除出口上而不是某一段里)。取证:`--self-test` 11 例 + §22c 镜像测试 7 例。
+`ForceDelete` 这个唯一删除出口上而不是某一段里)。取证:`--self-test` 12 例 + §22c 镜像测试 7 例。
 **编号一天撞四次 + 一次卸闸的实录**(比门本身更值钱):85(与 `check-test-paths` 撞)→ 90(与
 `check-sse-dispatch-parity` 撞)→ 91(与 `check-error-code-coverage` 撞)→ 92 **又**撞一次 ——
 最后一次不是没查:取 92 时它确实在 91,是别的会话随后把 `errorCode` 重排到 92、把重复号带进了
 `origin/main`。⇒ **"提交前查一次占用"在高并发仓里挡不住别人事后挪号**,唯一可靠的是让 runner 自己说话:
 本门镜像测试按"反查本门 id + 全 runner 任何 id 不得出现两次 + 三道邻门注册块必须存在"写,
-第 3、4 次撞号都是它当场红出来的;本门终落 **93**。另一次更严重:改 90 时整文件提交 `guardian-runner.mjs`
+第 3、4 次撞号都是它当场红出来的；本门编号此后仍在漂移，现值以 runner 为准。另一次更严重：改 90 时整文件提交 `guardian-runner.mjs`
 把别人刚装上的门**注册块直接覆盖**(提交 `5db08f26e`)—— 撞号只是重名,覆盖却是替别人卸闸,已按原文回插。
 两条规矩:① 改共享注册文件必须逐块核对 `git show <commit> -- <f> | grep '^[-+].*(id:|script:|label:)'`;
 ② **判据要能让机器自己发现撞号**,不要依赖人记得去查。
@@ -2896,7 +2896,7 @@ setext 标题下划线、表格分隔、ASCII 示意图里都是合法内容,只
 - **源-运行分裂收口**:`deploy/prod-bundle/alert-webhook-bridge.cjs` 手工副本已落后 11 天且藏真缺陷(去重命中时 `return { skipped: toDedupCount }` 抛 ReferenceError ⇒ 对 Alertmanager 回 500)。现改为**转发器**(`require` 入库源码,路径由 `__dirname` 推导)—— 复制只能修今天,转发器让"改源码忘同步"在结构上不存在。
 - 取证:bridge `--self-test` **47/47**(入库源码与转发器分别跑同一份代码各 47/47,含去重跨重启正反对照、无总量封顶、失败必留痕三组新用例)、`apps/api/tests/sqli-guard.test.ts` **44 passed** 且邻接 `csrf / mail-routes / prompt-injection-guard` 同跑 **102 passed**、守门 81 全量 0 违规、守门 52/80 全量 0 违规、水印 verify 完整。
 
-### 运维到人 = 邮件单通道:第三方微信推送腿整体摘除(2026-09-24,O42)
+### 运维到人 = 邮件单通道:第三方微信推送腿整体摘除(2026-09-24,O45)
 
 用户侧的起因很具体:**"部署失败的邮件怎么还是没有我们自己设计的模板样式"**。追下去发现不是模板坏了,而是**到人链路上并行跑着四条通道**,其中三条压根不发邮件:
 
