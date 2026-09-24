@@ -9,6 +9,7 @@
  * 2026-08-21:真实 API 接入(getTeamMemberDetail,后端 /api/distribution/team/members/:id),
  * 替代原 buildMockMember mock 数据(对齐 Uniapp distribution_personnel_list/detail.vue)。
  */
+import { useTheme } from '../context/ThemeContext'
 import { useCallback, useEffect, useState } from 'react'
 import { Alert, Linking, StyleSheet, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
@@ -28,6 +29,7 @@ type TeamDetailRouteProp = RouteProp<LocalParamList, 'TeamDetail'>
 type NavigationProp = NativeStackNavigationProp<LocalParamList>
 
 export default function TeamDetailScreenWrapper() {
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
   const route = useRoute<TeamDetailRouteProp>()
   const { memberId } = route.params
@@ -94,7 +96,7 @@ export default function TeamDetailScreenWrapper() {
       : null,
     onContact,
     onViewOrders,
-    colorScheme: 'light',
+    colorScheme: resolvedTheme,
   }
 
   return (
