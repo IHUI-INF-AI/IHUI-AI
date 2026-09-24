@@ -248,7 +248,7 @@ export default function OrderList() {
             key={tab.value}
             className={`px-[28rpx] py-[12rpx] rounded-xl text-[28rpx] ${
               status === tab.value
-                ? 'bg-primary text-primary-foreground font-semibold'
+                ? 'bg-cta text-cta-foreground font-semibold'
                 : 'bg-card text-muted-foreground'
             }`}
             onClick={() => switchTab(tab.value)}
@@ -335,7 +335,7 @@ export default function OrderList() {
                     <View className="flex justify-end mt-[20rpx]">
                       {o.status === 'pending' && (
                         <Text
-                          className="inline-block text-[24rpx] text-primary-foreground bg-primary px-[32rpx] py-[10rpx] rounded-md"
+                          className="inline-block text-[24rpx] text-cta-foreground bg-cta px-[32rpx] py-[10rpx] rounded-md"
                           onClick={(e) => {
                             e.stopPropagation()
                             goPay(o)
