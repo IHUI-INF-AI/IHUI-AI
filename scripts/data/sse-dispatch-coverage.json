@@ -27,8 +27,7 @@
     "no-tool-summary-ui": "该端无工具摘要卡(tool-call-summary 族)展示位。",
     "no-terminal-stream-ui": "该端无终端流展示位(整段也没有终端面板)。",
     "no-compaction-ui": "该端无上下文压缩分割线展示位。",
-    "no-fallback-ui": "该端无模型降级提示位。",
-    "no-usage-ui": "该端无用量明细(usageDetail)展示位,以 tokens 概览替代。"
+    "no-fallback-ui": "该端无模型降级提示位。"
   },
   "missing": {
     "web": {},
@@ -77,8 +76,7 @@
       "onTerminalEnd": "no-terminal-stream-ui",
       "onTerminalStart": "no-terminal-stream-ui",
       "onToolDelegate": "no-tool-delegate-ui",
-      "onToolSummary": "no-tool-summary-ui",
-      "onUsage": "no-usage-ui"
+      "onToolSummary": "no-tool-summary-ui"
     }
   }
 }

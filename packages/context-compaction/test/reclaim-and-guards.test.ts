@@ -13,6 +13,9 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  ENVELOPE_CLOSE_MARKER,
+  ENVELOPE_OPEN_MARKER,
+  ENVELOPE_PREVIEW_FOOTER,
   NON_RECLAIMABLE_EDIT_TOOLS,
   RECLAIM_MIN_RESULT_TOKENS,
   RECLAIM_PLACEHOLDER,
@@ -20,6 +23,7 @@ import {
   buildRefillDiagnostic,
   findOrphanToolMessages,
   hasMultimodalBlock,
+  isEnvelopeContent,
   reclaimStaleToolResults,
   reverifyContextAfterCompaction,
   retryAfterOverflowDrop,
@@ -210,6 +214,49 @@ describe('reclaim(零模型请求的旧工具结果回收)', () => {
     expect(out.applied).toBe(true)
     expect(out.messages.find((m) => m.tool_call_id === 'h1')?.content).toBe(body)
     expect(out.messages.find((m) => m.tool_call_id === 'h2')?.content).toBe(RECLAIM_PLACEHOLDER)
+  })
+
+  it('结果信封不回收(撕掉信封=让模型找不回大输出的产物路径)', () => {
+    // 用真标记拼一份信封,避免测试里再抄一份字面量;刻意不含空行 ——
+    // 内嵌形态按 \n\n 分段,含空行会让信封被切成两半而测不到判据。
+    const envelopePreview = filler(30).trim()
+    const envelope =
+      `${ENVELOPE_OPEN_MARKER}\n` +
+      '工具: read_file\n' +
+      '源文件: src/foo.ts\n' +
+      '完整输出: .ihui-agent/tmp/artifacts/foo-1.txt (共 900000 字符 / 21000 行,上下文预算 4000 字符)\n' +
+      `预览(前 ${envelopePreview.length} 字符):\n` +
+      envelopePreview + '\n' +
+      `${ENVELOPE_PREVIEW_FOOTER}\n${ENVELOPE_CLOSE_MARKER}\n` +
+      '正文未进入上下文。需要更多内容请对上列路径用 read_file 分块读取(带 offset/limit),不要重复执行原工具。'
+    expect(isEnvelopeContent(envelope)).toBe(true)
+    expect(envelope).not.toContain('\n\n')
+
+    const messages: ChatMessage[] = [
+      { role: 'system', content: 'sys' },
+      // OpenAI 形态:信封整条不动,同批的普通大结果照收
+      ...toolRound('read_file', 'env1', envelope),
+      ...toolRound('read_file', 'env2', filler(50)),
+      // IHUI 内嵌形态:同一条 user 消息里,信封分段不动、另一分段回收
+      ...embeddedRound([
+        embeddedChunk('grep', envelope),
+        embeddedChunk('grep', filler(60)),
+      ]),
+      { role: 'user', content: '继续' },
+    ]
+    const out = reclaimStaleToolResults(messages, {
+      contextLimit: 1000,
+      keepRecentRounds: 1,
+      minSavedTokens: 1,
+    })
+    expect(out.applied).toBe(true)
+    expect(out.messages.find((m) => m.tool_call_id === 'env1')?.content).toBe(envelope)
+    expect(out.messages.find((m) => m.tool_call_id === 'env2')?.content).toBe(RECLAIM_PLACEHOLDER)
+    const carrier = out.messages.find((m) => m.role === 'user' && m.content.includes('工具结果'))!
+    expect(carrier.content).toContain(envelope) // 信封分段逐字保留
+    expect(carrier.content).toContain('.ihui-agent/tmp/artifacts/foo-1.txt') // 产物路径没被换掉
+    expect(carrier.content).toContain(RECLAIM_PLACEHOLDER) // 另一分段确实被回收了
+    expect(carrier.content).not.toContain(filler(60)) // 反向对照:非信封正文已消失
   })
 
   it('IHUI 内嵌形态:只替换结果正文,同消息的提醒段原样保留且 ✓/✗ 标记不丢', () => {

@@ -20,6 +20,7 @@
  */
 
 import { evaluateCommand } from './command-policy/index.js';
+import { t } from '../i18n/index.js';
 
 /**
  * 危险模式表 —— 现在是"求值器的等价面 + 判不出时的兜底扫描",不再是唯一判据。
@@ -89,6 +90,9 @@ function scanLegacyPatterns(command: string): RegExp | null {
  * 判据是"结构化 danger ∪ 旧字符串扫描",而不是二选一:
  * 只要旧扫描还会命中的输入继续被拦,这次重构才可能是纯收紧而不是"顺手放宽"。
  * (旧扫描对 `"rm" -rf` 这类写法本来就漏 —— 那一半由结构化面补上。)
+ *
+ * 执行链(run_command / terminal_open)不直接调本函数,而是调 `gateCommandExecution`,
+ * 后者把本函数的结论与 alwaysConfirm / destructive 一起给出 —— 判据只有一个出处。
  */
 export function matchDangerousCommand(command: string): RegExp | null {
   if (!command || !command.trim()) return null;
@@ -110,5 +114,70 @@ export function isReadonlyCommand(command: string): boolean {
   const assessment = evaluateCommand(command);
   if (assessment.verdict !== 'read-only') return false;
   return assessment.basename !== undefined && READONLY_COMMAND_BASENAMES.includes(assessment.basename);
+}
+
+// ==================== 执行链闸门(两个调用方的唯一判据出口)====================
+
+/**
+ * 执行链一次判定需要的四个事实。
+ *
+ * 为什么要有这个对象而不是让 builtins/terminal 各自再调一遍函数:
+ * `command-policy/` 求出来的 `alwaysConfirm` 与 `destructive` 此前**没有任何调用方读它**
+ * —— 求值器造好了却没装车,于是 `npm uninstall x`、`kubectl delete pod y`、`git rebase`
+ * 这类"新登记为永远需确认"的命令在真实执行链上和任意写操作没有区别
+ * (`isReadonlyCommand` 判非只读 → 走 confirm → 而 `--allow-dangerous` 下的 confirm
+ * 是一枚橡皮图章 → 静默执行)。
+ */
+export interface CommandExecutionGate {
+  /** 旧危险档等价面(结构化 danger ∪ 旧模式扫描)命中的模式;null = 未命中 */
+  dangerousPattern: RegExp | null;
+  /** 结构化"永远需要确认"子集:IHUI_YOLO 也不得静默放行 */
+  alwaysConfirm: boolean;
+  /** 结构化破坏性(新增知识,不入危险档,只用于取消免确认捷径) */
+  destructive: boolean;
+  /** 免确认放行 */
+  autoApprovable: boolean;
+}
+
+/**
+ * 执行链闸门判定 —— builtins.ts(run_command)与 terminal.ts(terminal_open)共用这一份。
+ *
+ * 与两个旧函数的关系是**只收紧不放宽**:`autoApprovable` 是旧只读档再减掉
+ * `alwaysConfirm` / `destructive` 两档,任何一档命中都不会拿到免确认资格。
+ * (旧只读档要求 verdict=read-only,而这两档按语法表定义都带写/删效果,正常情况下
+ * 不会同时成立 —— 这里显式再减一次,是因为"两个函数各判各的"正是 alwaysConfirm
+ * 之前不生效的原因:判据放在一起,以后加档才可能同时生效。)
+ */
+export function gateCommandExecution(command: string): CommandExecutionGate {
+  const assessment = command && command.trim() ? evaluateCommand(command) : null;
+  return {
+    dangerousPattern: matchDangerousCommand(command),
+    alwaysConfirm: assessment?.alwaysConfirm ?? false,
+    destructive: assessment?.destructive ?? false,
+    autoApprovable: isReadonlyCommand(command) && !(assessment?.alwaysConfirm ?? false) && !(assessment?.destructive ?? false),
+  };
+}
+
+/**
+ * 该不该硬拦,以及拦下来对用户说什么。**两个调用方必须共用这段文案判定**。
+ *
+ * 两档的区别就是逃生舱能不能越:
+ *   - 危险档:`IHUI_YOLO=1` 可以越(既有语义,逐字保留文案);
+ *   - alwaysConfirm 档:逃生舱**不能**越 —— YOLO 意味着"没有人在场",
+ *     而这一档的定义就是"逃生舱也不得静默放行"。
+ *
+ * 说清本门的边界:另一枚逃生舱 `--allow-dangerous` 是调用方在
+ * `confirmDangerous` 里直接 return true(见 commands/agent.ts、server/agent-core.ts),
+ * 工具层看不见它,所以本门能给的只有"绝不让它拿到 autoApprovable"。
+ * 要把那条橡皮图章也管住,得改确认回调的契约 —— 那是另一次决策,不在本票内。
+ */
+export function describeCommandBlock(gate: CommandExecutionGate, yolo: boolean): string | null {
+  if (gate.dangerousPattern && !yolo) {
+    return t('cli.commandSafety.dangerous', { pattern: gate.dangerousPattern.source });
+  }
+  if (gate.alwaysConfirm && yolo) {
+    return t('cli.commandSafety.alwaysConfirm');
+  }
+  return null;
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

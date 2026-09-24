@@ -5149,3 +5149,4 @@ WebView 数据目录里信封字面量 `ihuiVaultV1` 零命中 —— "盘上 gr
 手动跑:`pnpm check:desktop-cache-plaintext`。取证:`--self-test` 10/10、镜像测试 12/12。
 镜像测试 `scripts/tests/check-brand-foreground.test.mjs` 13 例;R5(web/ui-react Tailwind 类名面的
 于 2026-09-24 补上,详见 AGENTS 守门速查第 83 项;紧急跳过
+| | 管理台 AI 部署诊断(P2-13) | 整棵子树 `POST /api/admin/deploy-diagnosis` 走 `requireAdmin` preHandler(**先于**参数校验,非管理员一次都不碰模型);粘贴部署结果 / 健康检查 / 日志尾部 / 容器日志四类输入,**缺失项以 `[缺失]` 显式标注**送模型(让模型区分"没采到"与"内容为空");模型返回剥 ` ```json ` 围栏后解析,解析失败降级为 `parseOk:false` + 原文落 `raw`(**不塌 500**),`fixCommands` 只留字符串与非空数字(`null`/对象不许变成"看着像命令"的文案);上游 error 或不可达一律 502 带原因。管理页 `/admin/deploy-diagnosis` + `AdminNav` 入口 + api-client `runDeployDiagnosis()` + `admin.deployDiagnosis.*` 15 键 × 5 语言 |

@@ -23,6 +23,7 @@ import { redactSecrets } from '../redact.js';
 import { checkFolderTrust, type FolderTrustMap } from '../sandbox/index.js';
 import { checkPermission, type PermissionRules } from './permissions.js';
 import { BROWSER_TOOLS } from './browser.js';
+import { BROWSER_PAGE_TOOLS } from './browser-page.js';
 import {
   InMemoryRegistry,
   CompoundResolver,
@@ -145,6 +146,9 @@ export function registerTools(tools: Tool[]): void {
 /** 注册浏览器自动化工具(幂等,重复调用仅覆盖同名工具) */
 export function registerBrowserTools(): void {
   registerTools(BROWSER_TOOLS);
+  // 句柄族动词与选择器族同属 browser 工具面，在这里并入一次，
+  // 免得每个调用点（repl / acp / headless）各自记得加一遍 —— 漏一处就是造好没装车。
+  registerTools(BROWSER_PAGE_TOOLS);
 }
 
 export function getTool(name: string): Tool | undefined {

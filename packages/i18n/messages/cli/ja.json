@@ -78,6 +78,25 @@
       "created": "✓「{sourceTitle}」を{anchor}メッセージの位置で分岐し、「{branchTitle}」を作成しました。新しい会話ID: {branchId}",
       "roleAssistant": "アシスタント",
       "roleUser": "ユーザー"
+    },
+    "hooks": {
+      "trustedHeader": "信頼済みディレクトリ（~/.ihui/trusted-folders）：",
+      "trustedNone": "  なし —— プロジェクト同梱のフックはひとつも実行されません",
+      "currentDirMark": "  ← カレントディレクトリ",
+      "currentDirUntrusted": "  カレントディレクトリは未信頼です：{path}（`ihui hooks trust` で信頼させてください）",
+      "trustDesc": "指定したディレクトリ（省略時はカレントディレクトリ）を信頼し、同梱のプロジェクトフックの実行を許可する",
+      "trustErrNotDir": "✗ ディレクトリが存在しないため、信頼一覧に書き込みませんでした：{path}",
+      "trustAlready": "✓ このディレクトリはすでに信頼一覧に含まれています：{path}",
+      "trustWriteFailed": "✗ ~/.ihui/trusted-folders の書き込みに失敗しました：{path}",
+      "trustOk": "✓ ディレクトリを信頼しました：{path}",
+      "trustWarning": "  これ以降このディレクトリ配下の .ihui/.claude/.cursor hooks.json は実際に実行されます（command は shell 経由、webhook はツールの入出力を外部へ送信します）。自分で書いた設定だけを信頼してください。",
+      "untrustDesc": "ディレクトリを信頼一覧（~/.ihui/trusted-folders）から外す",
+      "untrustNotListed": "✓ このディレクトリはそもそも信頼一覧に入っていません：{path}",
+      "untrustOk": "✓ 信頼を取り消しました：{path}"
+    },
+    "commandSafety": {
+      "dangerous": "⚠ 危険なコマンドがブロックされました：危険パターン {pattern} と一致しました\nどうしても実行する場合は IHUI_YOLO=1 を設定してください",
+      "alwaysConfirm": "⚠ コマンドがブロックされました：これは「常に確認が必要」段階（削除 / 強制 push / rebase / リリースなど取り消しが難しい操作）に属し、IHUI_YOLO でも黙って通過させません。\nIHUI_YOLO を外して再試行し、1 件ずつ確認してください。"
     }
   },
   "waiting": {

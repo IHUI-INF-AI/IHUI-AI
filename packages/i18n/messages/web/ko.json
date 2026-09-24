@@ -5753,7 +5753,24 @@
     "relayOverview": "릴레이 개요",
     "themeEdit": "테마 편집기",
     "unauthorized": "승인되지 않음",
-    "userMargin": "사용자 여백"
+    "userMargin": "사용자 여백",
+    "deployDiagnosis": {
+      "title": "배포 진단",
+      "subtitle": "배포 결과, 상태 확인, 로그 일부를 붙여넣으면 AI가 원인과 실행 가능한 복구 명령을 안내합니다",
+      "pasteNote": "하나 이상 입력하세요. 비어 있는 항목은 모델로 전송되지 않습니다",
+      "run": "진단 시작",
+      "running": "진단 중…",
+      "reportTitle": "진단 보고서",
+      "model": "사용 모델",
+      "duration": "소요 시간",
+      "rootCause": "원인 분석",
+      "impact": "영향 범위",
+      "fixCommands": "복구 명령",
+      "copy": "복사",
+      "summary": "요약",
+      "rawNote": "아래는 모델의 원시 출력으로, 서식 처리되지 않았습니다",
+      "empty": "왼쪽 입력 후「진단 시작」을 누르면 보고서가 생성됩니다"
+    }
   },
   "connectors": {
     "title": "중국 커넥터",
@@ -10363,7 +10380,26 @@
       "referenceTitle": "컨텍스트 참조",
       "noReferences": "참조가 없습니다",
       "uploading": "첨부 업로드 중",
-      "uploadFailed": "첨부 업로드 실패"
+      "uploadFailed": "첨부 업로드 실패",
+      "cacheHit": "캐시 적중 {ratio} ({read} 재사용)",
+      "cacheOccupancyNote": "적중된 부분도 여전히 창에 {occupied}를 차지하지만 다시 프리필할 필요는 없습니다",
+      "cacheUnavailable": "이번 사용량 프레임에 캐시 수치가 없어 적중 여부를 판단할 수 없습니다",
+      "detailsTruncated": "외 {count}개 항목은 접혀 있습니다",
+      "residualNote": "총 {tokens}는 프로토콜 포장 및 직렬화 오버헤드로 위 구성에 포함되지 않았습니다",
+      "resultSuffix": "결과",
+      "segRoleAssistant": "어시스턴트 응답",
+      "segRoleToolCall": "도구 호출 인자",
+      "segRoleToolResult": "도구 결과",
+      "segRoleUser": "사용자 메시지",
+      "segSkill": "스킬 본문",
+      "segSystem": "시스템 프롬프트",
+      "segSystemPrompt": "시스템 프롬프트 (전체)",
+      "segToolSchema": "도구 정의",
+      "topContributor": "가장 큰 점유: {name} {share}",
+      "unnamedItem": "이름 없는 항목",
+      "unobservedNotSupplied": "이번 라운드에 해당 시스템 구간이 전송되지 않았습니다",
+      "unobservedServerOnly": "이 부분은 서버에서 조립되어 이 클라이언트에서 정확한 사용량을 알 수 없습니다",
+      "ringBasis": "컨텍스트 창에서 {percent}% 사용됨 ({used} / {max})"
     },
     "copied": "복사됨",
     "copy": "복사",
@@ -18334,7 +18370,8 @@
     "courses": "강의",
     "faq": "FAQ",
     "home": "홈",
-    "settings": "설정"
+    "settings": "설정",
+    "adminDeployDiagnosis": "배포 진단"
   },
   "news": {
     "allCategories": "All categories",
