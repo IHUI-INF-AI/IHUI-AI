@@ -7659,6 +7659,8 @@
       "thinkingChars": "chars",
       "thinkingElapsedTitle": "Thinking for {time}",
       "thinkingStreaming": "Thinking...",
+      "thinkingTitle": "Thinking process",
+      "thinkingRefsTitle": "Used {count} references",
       "timelineClearFilters": "Clear filters",
       "timelineCountDone": "Completed",
       "timelineCountFailed": "Failed",
@@ -8408,6 +8410,119 @@
           "emptyDraft": "The draft is empty. Enter some text before polishing."
         },
         "restartHint": "Polishing takes effect after a restart. Your draft has been kept."
+      },
+      "queueOps": {
+        "ariaLabel": "Queued message actions",
+        "reorderAria": "Drag to reorder queued messages; use the up and down arrow keys while focused",
+        "undo": "Undo",
+        "edit": "Edit",
+        "editConfirm": "Save",
+        "editCancel": "Cancel",
+        "interruptAndRun": "Interrupt & run",
+        "mode": {
+          "label": "Queue mode",
+          "steer": "Interject first",
+          "queue": "Queue first"
+        },
+        "denied": {
+          "reorder": "Cannot reorder queued messages",
+          "undo": "Cannot unsend the queued message",
+          "interject": "The current Runtime does not support interjection; your message will stay queued"
+        },
+        "degraded": {
+          "runtimeNoInterject": "The current Runtime does not support interjection; your message will stay queued"
+        }
+      },
+      "elementPack": {
+        "heatmap": {
+          "title": "Credits usage heatmap",
+          "legendLabel": "Legend",
+          "dayTitle": "Credits used on {date}",
+          "tab": {
+            "heatmap": "Heatmap",
+            "sessions": "Session details"
+          },
+          "legend": {
+            "zero": "None",
+            "low": "Low",
+            "mid": "Medium",
+            "high": "High"
+          },
+          "sessionsEmpty": "No session details yet"
+        },
+        "imagePreview": {
+          "counter": "Image {index} of {total}",
+          "saveSuccess": "Image saved",
+          "saveFailed": "Failed to save the image",
+          "copySuccess": "Image copied",
+          "copyFailed": "Failed to copy the image",
+          "prev": "Previous image",
+          "next": "Next image",
+          "zoomOut": "Zoom out",
+          "zoomIn": "Zoom in",
+          "save": "Save image",
+          "copy": "Copy image"
+        },
+        "backgroundTask": {
+          "state": {
+            "pending": "Waiting to start",
+            "running": "Running",
+            "stopping": "Stopping",
+            "stopFailed": "Stop failed",
+            "completed": "Completed",
+            "failed": "Failed",
+            "cancelled": "Cancelled",
+            "timeout": "Timed out"
+          },
+          "hint": {
+            "stopping": "Stop requested; waiting for the task to wind down",
+            "stopFailed": "The subtask is still running; try stopping it again",
+            "timeout": "The task timed out; you can retry it"
+          },
+          "action": {
+            "none": "No action",
+            "stop": "Stop",
+            "retryStop": "Retry stop",
+            "retry": "Retry"
+          }
+        },
+        "feedbackSurvey": {
+          "question": "Did this reply help you solve the problem?",
+          "scale": {
+            "1": "Very poor",
+            "2": "Poor",
+            "3": "Okay",
+            "4": "Good",
+            "5": "Excellent"
+          },
+          "commentPlaceholder": "Additional comments (optional)",
+          "submit": "Submit",
+          "dismiss": "Not now",
+          "submitted": "Thanks for your feedback",
+          "answer": {
+            "solved": "Solved",
+            "partial": "Partially solved",
+            "notSolved": "Not solved"
+          }
+        }
+      },
+      "multiPane": {
+        "ariaLabel": "Multi-pane layout",
+        "resizeAriaLabel": "Drag to resize panes",
+        "splitRight": "Split right",
+        "splitDown": "Split down",
+        "maximize": "Maximize pane",
+        "restore": "Restore panes",
+        "closePane": "Close pane",
+        "forkFailureAriaLabel": "Failed to open the conversation copy",
+        "forkFailure": {
+          "conversationMissing": "The original conversation no longer exists, so the copy could not be opened",
+          "capacityFull": "Pane limit reached; close another pane first",
+          "unknown": "Could not open the conversation copy. Please try again"
+        },
+        "retryFork": "Retry",
+        "emptyPaneAriaLabel": "Empty pane; drag a conversation in from the sidebar",
+        "emptyPlaceholder": "Drag a conversation here from the sidebar"
       }
     },
     "permissionConfirm": {

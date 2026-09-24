@@ -167704,7 +167704,8 @@
                     "type": "string"
                   },
                   "permissionMode": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "权限模式:default / acceptEdits / bypassPermissions / plan / manual(别名 auto、accept-edits、accept-all、read-only、plan-only 由网关归一)"
                   },
                   "maxIterations": {
                     "type": "number"
