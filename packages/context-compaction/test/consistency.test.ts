@@ -24,6 +24,15 @@ import {
   IMAGE_TOKEN_PLACEHOLDER,
   MESSAGE_OVERHEAD_TOKENS,
   TOOL_CALL_OVERHEAD_TOKENS,
+  RECLAIM_KEEP_RECENT_ROUNDS,
+  RECLAIM_MIN_RESULT_TOKENS,
+  RECLAIM_MIN_SAVED_TOKENS,
+  RECLAIM_WINDOW_RATIO_TRIGGER,
+  RECLAIM_IDLE_TRIGGER_MS,
+  REFILL_QUICK_WINDOW_ROUNDS,
+  REFILL_BREAKER_MAX_CONSECUTIVE,
+  OVERFLOW_DROP_MAX_ROUNDS,
+  NEXT_TURN_GROWTH_TOKENS,
   type ChatMessage,
 } from '../src/index.js'
 
@@ -40,8 +49,44 @@ type Fixture = {
   expect_struct_summary_lines_python: string[]
 }
 
-const fixturesDoc = JSON.parse(readFileSync(fixturesPath, 'utf-8')) as { fixtures: Fixture[] }
+const fixturesDoc = JSON.parse(readFileSync(fixturesPath, 'utf-8')) as {
+  fixtures: Fixture[]
+  strategy_constants?: Record<string, number | string>
+}
 const fixtures = fixturesDoc.fixtures
+
+/**
+ * 跨端阈值对账(TS 一侧):实现常量必须逐值等于对账 fixture。
+ * Python 一侧的同一断言在 apps/ai-service/tests/test_consistency_fixtures.py
+ * (取 app.core.tunables),两侧共用这张表 ⇒ "一侧改数字、一侧没改" 必红。
+ */
+describe('回收/压缩有效性阈值的跨端对账', () => {
+  const expected = fixturesDoc.strategy_constants ?? {}
+  const impl: Record<string, number> = {
+    RECLAIM_KEEP_RECENT_ROUNDS,
+    RECLAIM_MIN_SAVED_TOKENS,
+    RECLAIM_WINDOW_RATIO_TRIGGER,
+    RECLAIM_IDLE_TRIGGER_MS,
+    RECLAIM_MIN_RESULT_TOKENS,
+    REFILL_QUICK_WINDOW_ROUNDS,
+    REFILL_BREAKER_MAX_CONSECUTIVE,
+    OVERFLOW_DROP_MAX_ROUNDS,
+    NEXT_TURN_GROWTH_TOKENS,
+  }
+
+  it('fixture 的 strategy_constants 覆盖全部实现常量(不因清单腐烂而静默漏比)', () => {
+    const fixtureKeys = Object.keys(expected)
+      .filter((k) => k !== '_comment')
+      .sort()
+    expect(fixtureKeys).toEqual(Object.keys(impl).sort())
+  })
+
+  for (const [name, value] of Object.entries(impl)) {
+    it(`${name} === fixture 值`, () => {
+      expect(expected[name]).toBe(value)
+    })
+  }
+})
 
 /** 把 buildStructuredSummary 输出按行拆分并规范化(去 [角色] 之外的多余空行) */
 function summaryLines(summary: string): string[] {
