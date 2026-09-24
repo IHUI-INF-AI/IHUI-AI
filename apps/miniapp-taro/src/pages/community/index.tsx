@@ -25,6 +25,7 @@ import { FloatBox, EmptyState, PayPopup } from '@/components'
 import type { PayInfo } from '@/components'
 import { requestPayment } from '@/platform/pay'
 import { chooseImages } from '@/utils/upload-image'
+import { getTopBarMetrics } from '@/utils/system-info'
 import LineIcon from '@/components/LineIcon'
 import RecentAgents from './components/RecentAgents'
 import MyAgents from './components/MyAgents'
@@ -136,8 +137,8 @@ export default function Community() {
 
   // 顶部固定导航占位高度(= 状态栏 + 导航栏,与 NavBar ai-home 算法一致),注入给
   // --app-top-bar-height 供内容 padding 与 s_t_b 弹层 top 定位使用(原 web 静态变量迁移)
-  const menuBtn = Taro.getMenuButtonBoundingClientRect?.() || { top: 26, height: 32 }
-  const appTopBarHeight = px(menuBtn.top + menuBtn.height + 8)
+  const { menuButton } = getTopBarMetrics()
+  const appTopBarHeight = px(menuButton.top + menuButton.height + 8)
 
   /* ============ 数据加载 ============ */
 
