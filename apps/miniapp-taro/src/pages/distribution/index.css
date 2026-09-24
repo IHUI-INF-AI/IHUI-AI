@@ -107,8 +107,8 @@
 }
 .dist-stats-tab.active {
   /* 对齐 RN tabItemActive brand 底;暗色文字用 primary-foreground 保证对比度 */
-  background: var(--color-primary);
-  color: var(--color-primary-foreground);
+  background: var(--color-cta);
+  color: var(--color-cta-foreground);
   font-weight: 600;
 }
 .dist-stats-body {
