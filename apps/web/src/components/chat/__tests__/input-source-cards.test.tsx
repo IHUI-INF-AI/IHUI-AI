@@ -13,12 +13,7 @@ import { fileURLToPath } from 'node:url'
 import { render } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
-import {
-  SNAPSHOT_STATES,
-  UNDO_RESTORE_PHASES,
-  type SnapshotState,
-  type UndoRestorePhase,
-} from '@ihui/shared/chat/input-sources'
+import { SNAPSHOT_STATES, UNDO_RESTORE_PHASES } from '@ihui/shared/chat/input-sources'
 
 import { MemoryRefCard, QueueCommandCard, SnapshotSourceCard } from '../input-source-cards'
 
@@ -61,7 +56,9 @@ describe('D89 ① SnapshotSourceCard / 三态渲染', () => {
     const again = render(<SnapshotSourceCard state="enabled" guidedBefore={true} />)
     expect(again.container.querySelector('[data-snapshot-guide]')).toBeNull()
     for (const state of ['disabled', 'failed'] as const) {
-      const { container, unmount } = render(<SnapshotSourceCard state={state} guidedBefore={false} />)
+      const { container, unmount } = render(
+        <SnapshotSourceCard state={state} guidedBefore={false} />,
+      )
       expect(container.querySelector('[data-snapshot-guide]'), state).toBeNull()
       unmount()
     }
@@ -121,7 +118,9 @@ describe('D89 ② QueueCommandCard / 命令化 + Undo 三态', () => {
     expect(onCommand).toHaveBeenCalledWith('steerPrompt')
 
     const readonly = render(<QueueCommandCard />)
-    const btn = readonly.container.querySelector('[data-command="queuePrompt"]') as HTMLButtonElement
+    const btn = readonly.container.querySelector(
+      '[data-command="queuePrompt"]',
+    ) as HTMLButtonElement
     expect(btn.disabled).toBe(true)
   })
 })
@@ -161,7 +160,9 @@ describe('D89 ③ MemoryRefCard / 计数空态 + goal 耗时', () => {
 describe('D89 词包覆盖 / ai.pane.inputSources', () => {
   const flat = (obj: Record<string, unknown>, prefix = ''): string[] =>
     Object.entries(obj).flatMap(([k, v]) =>
-      v && typeof v === 'object' ? flat(v as Record<string, unknown>, `${prefix}${k}.`) : [`${prefix}${k}`],
+      v && typeof v === 'object'
+        ? flat(v as Record<string, unknown>, `${prefix}${k}.`)
+        : [`${prefix}${k}`],
     )
 
   const readPane = (locale: string): Record<string, unknown> => {
@@ -236,7 +237,9 @@ describe('D89 词包覆盖 / ai.pane.inputSources', () => {
   it('zh-CN 关键文案与台账原文逐字一致(防自创措辞)', () => {
     const node = readSources('zh-CN') as Record<string, never>
     const get = (path: string): string =>
-      path.split('.').reduce<unknown>((acc, k) => (acc as Record<string, unknown>)?.[k], node) as string
+      path
+        .split('.')
+        .reduce<unknown>((acc, k) => (acc as Record<string, unknown>)?.[k], node) as string
     // ① 智能快照
     expect(get('snapshot.attachApp')).toBe('附加 {appName}')
     expect(get('snapshot.enable')).toBe('启用智能快照')
