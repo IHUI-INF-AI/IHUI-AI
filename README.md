@@ -2871,7 +2871,12 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-gua
 
 **第 83 项 `check-brand-foreground.mjs`(blocking)**(原登记为第 75 项) —— RN 深色档案里 `tokens.brand.DEFAULT`
 是**纯白**。它**可以**当主 CTA 的底,但必须与 `tokens.brand.foreground` **成对**(AGENTS §4,= web 的
+是**纯白**。⚠️ 本行起为 2026-09-24 就地改写**前**的原文(现行档为 brand.cta,见上一条),保留以不丢行:它**可以**当主 CTA 的底,但必须与 `tokens.brand.foreground` **成对**(AGENTS §4,= web 的
 `--color-primary` + `--color-primary-foreground`);配错前景就是白底白字。四条判据:
+是**纯白**。2026-09-24 起主 CTA 的唯一写法是**独立的非反转档** `brand.cta` + `brand.ctaForeground`(= web 的
+`--color-cta` / `--color-cta-foreground`,明暗同值 #4A7A96 / #FFFFFF,AGENTS §4)—— DEFAULT 浅色纯黑、
+深色纯白,作大色块两态都与页面反极,这正是用户实拍"浅色一大片黑 / 深色一大片白"的成因。本门对
+`DEFAULT` 与 `cta` **同形认**:只认 DEFAULT 会让迁移后的主实底整片躲进门盲区。配错前景就是白底白字。五条判据:
 **R1** 同一 style 块内 brand.DEFAULT 作背景 × `surface.light`(两端恒白)或 `text.primary`(深色翻白)
 作前景,零豁免;**R4** 同一对关系被拆到**兄弟 key**(`retryBtn` × `retryText`)时按命名配对判定
 (实测 4 处黑压黑就是这样一路 shipped 到真机的),走基线棘轮;**R2** 拦"浅色当容器底":
@@ -2885,7 +2890,10 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-gua
 (两端恒白)或 `tokens.text.primary`(深色翻白),结果就是白底白字 —— R1 零豁免拦这一类。
 R2 用基线棘轮拦"浅色当容器底":`surface.light` 背景 / α≥0.5 的白 rgba / 无 `dark:` 变体的
 `bg-white`,13 文件 24 处合法存量(图片、视频上的浮层,以及自带 `dark:` 变体的文件)冻结在
-`scripts/brand-foreground-baseline.json`,只减不增。`--self-test` 11 例;紧急跳过
+`scripts/brand-foreground-baseline.json`,只减不增。`--self-test` 94 条断言(含阳性对照与变异对照)+
+镜像测试 `scripts/tests/check-brand-foreground.test.mjs` 13 例;R5(web/ui-react Tailwind 类名面的
+`bg-primary`+`text-primary-foreground` 退役配对,基线键 `webClassPairCounts` 现为空 = 零容忍)
+于 2026-09-24 补上,详见 AGENTS 守门速查第 83 项;紧急跳过
 `HUSKY_SKIP_BRAND_FOREGROUND=1`。
 **第 84 项 `check-stale-revert.mjs`(blocking)**(原登记为第 76 项) —— 堵**共享工作区静默回滚**。§12d 的 converge
 
