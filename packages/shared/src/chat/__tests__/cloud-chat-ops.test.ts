@@ -30,7 +30,9 @@ const LOCALES = ['zh-CN', 'zh-TW', 'en', 'ja', 'ko'] as const
 
 const flat = (obj: Record<string, unknown>, prefix = ''): string[] =>
   Object.entries(obj).flatMap(([k, v]) =>
-    v && typeof v === 'object' ? flat(v as Record<string, unknown>, `${prefix}${k}.`) : [`${prefix}${k}`],
+    v && typeof v === 'object'
+      ? flat(v as Record<string, unknown>, `${prefix}${k}.`)
+      : [`${prefix}${k}`],
   )
 
 const readCloudChatOps = (locale: string): Record<string, unknown> => {
@@ -178,11 +180,17 @@ describe('D97 词包覆盖(读真实词包,不 mock)', () => {
   it('15 格相位键 + 5 个动作名键 + 标题/aria/空态/等待位 全齐(五语言)', () => {
     for (const locale of LOCALES) {
       const keys = new Set(flat(readCloudChatOps(locale)))
-      for (const key of cloudChatOpMatrixKeys()) expect(keys.has(key), `${locale} ${key}`).toBe(true)
+      for (const key of cloudChatOpMatrixKeys())
+        expect(keys.has(key), `${locale} ${key}`).toBe(true)
       for (const op of CLOUD_CHAT_OPS) {
         expect(keys.has(cloudChatOpLabelKey(op)), `${locale} ${op}.label`).toBe(true)
       }
-      for (const extra of [CLOUD_CHAT_OPS_TITLE_KEY, CLOUD_CHAT_OPS_ARIA_KEY, CLOUD_CHAT_OPS_EMPTY_KEY, CLOUD_CHAT_OPS_WAITING_KEY]) {
+      for (const extra of [
+        CLOUD_CHAT_OPS_TITLE_KEY,
+        CLOUD_CHAT_OPS_ARIA_KEY,
+        CLOUD_CHAT_OPS_EMPTY_KEY,
+        CLOUD_CHAT_OPS_WAITING_KEY,
+      ]) {
         expect(keys.has(extra), `${locale} ${extra}`).toBe(true)
       }
     }
