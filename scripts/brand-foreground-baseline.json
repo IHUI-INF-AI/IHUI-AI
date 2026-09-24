@@ -260,6 +260,7 @@
     "packages/app/src/features/wallet/WalletScreen.tsx": 1,
     "packages/app/src/features/withdraw/WithdrawScreen.tsx": 1
   },
+  "webClassPairCounts": {},
   "pairedCtaNotVisibleToRule": {
     "addedBy": "本会话 2026-09-24",
     "why": "§4 成对主 CTA,但配对形态在规则视野外(兄弟命名不匹配 / 前景走 JSX prop)。不为此放宽规则,否则\"同一 StyleSheet 内无配对的白卡片\"会一起被放过 —— 那才是 R3 真正要拦的东西。",
