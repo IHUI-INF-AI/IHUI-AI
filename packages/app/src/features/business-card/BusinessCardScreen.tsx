@@ -150,7 +150,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius['2xl'],
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     avatarText: { fontSize: 24, fontWeight: '700', color: tk.surface.light },
     headerInfo: { marginLeft: 12, flex: 1 },
@@ -205,7 +205,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       height: 44,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     actionPrimaryText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
     customActionRow: {
