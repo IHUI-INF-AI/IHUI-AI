@@ -520,32 +520,51 @@ test('R7 真内容 A/B:HEAD 实档必命中,把前景换成正配后必归 0(证
     nBank >= 2,
     `把 ctaForeground 换回 surface.light 必须命中 ≥2 处(bankName / cardNumber),实得 ${nBank}`,
   )
-  // (2) TokenValueScreen:HEAD 现存债,必须逐条判出(该文件登记在棘轮基线里)
+  // (2) TokenValueScreen:本票已把它的 6 处改成正配 ⇒ 现状必须 0;
+  //     判别力改用**注入**取证(与 (1) 同一形态)—— 控制不能依赖"仓库里还留着这个 bug",
+  //     否则每清掉一处债就红一条测试,那等于用测试把缺陷锁在原地。
   const tv = read('packages/app/src/features/token-value/TokenValueScreen.tsx').split('\n')
-  const nTv = gate.findR7Violations(tv)
+  assert.equal(
+    gate.findR7Violations(tv).length,
+    0,
+    'TokenValueScreen 的 6 处已在 a5ef02c76d 改成正配,现状必须 0',
+  )
+  const regressedTv = tv.map((l) =>
+    /\bcolor:\s*tk\.brand\.ctaForeground\b/.test(l)
+      ? l.replace('tk.brand.ctaForeground', 'tk.surface.light')
+      : l,
+  )
+  const nTv = gate.findR7Violations(regressedTv)
   assert.ok(
     nTv.length >= 6,
-    `TokenValueScreen 在 HEAD 确有 ≥6 处嵌套错配,实得 ${nTv.length} ⇒ 判据失效`,
+    `把 ctaForeground 换回 surface.light 必须命中 ≥6 处(balanceLabel/balanceValue/metaLabel/metaValue/popularText/pkgPrice),实得 ${nTv.length} ⇒ 判据失效`,
   )
   assert.ok(
     nTv.every((v) => v.tier === 'brand.cta' && v.fgTok === 'surface.light'),
-    'TokenValueScreen 的存量必须全是 cta 底 × surface.light(出现别的组合说明矩阵被改宽)',
-  )
-  const fixedTv = tv.map((l) =>
-    /\bcolor:\s*tk\.surface\.light\b/.test(l)
-      ? l.replace('tk.surface.light', 'tk.brand.ctaForeground')
-      : l,
+    'TokenValueScreen 注入出的存量必须全是 cta 底 × surface.light(出现别的组合说明矩阵被改宽)',
   )
   assert.equal(
-    gate.findR7Violations(fixedTv).length,
+    gate.findR7Violations(tv.map((l) => l)).length,
     0,
-    '同一文件只换前景就应归 0 —— 证明红点真挂在前景档位上',
+    '同一文件只换前景就应归 0 —— 证明红点真挂在前景档位上,而不是挂在文件本身',
   )
-  // (3) 反向对照:内联在图标上的 color prop(R1/R4 结构上永远看不见的一型)
+  // (3) 反向对照:内联在图标上的 color prop(R1/R4 结构上永远看不见的一型)。
+  //     CircleIndexScreen 的 fab 也已改正 ⇒ 现状 0,注入 surface.card 后必须重新判出。
   const circle = read('apps/mobile-rn/src/screens/CircleIndexScreen.tsx').split('\n')
   assert.ok(
-    gate.findR7Violations(circle).some((v) => v.container === 'fab' && v.fgTok === 'surface.card'),
-    'CircleIndexScreen 的悬浮加号必须判出(<Plus color={tk.surface.card}/> 在 brand.cta 底里)',
+    !circle.some((l) => /<Plus[^>]*color=\{tk\.surface\.card\}/.test(l)),
+    'CircleIndexScreen 的 <Plus> 已改成正配,现状不得再残留 surface.card',
+  )
+  const regressedCircle = circle.map((l) =>
+    /<Plus[^>]*color=\{tk\.brand\.ctaForeground\}/.test(l)
+      ? l.replace('tk.brand.ctaForeground', 'tk.surface.card')
+      : l,
+  )
+  assert.ok(
+    gate
+      .findR7Violations(regressedCircle)
+      .some((v) => v.container === 'fab' && v.fgTok === 'surface.card'),
+    '把 <Plus> 换回 surface.card 后必须判出 fab 的内联图标错配(注入式判别力,不依赖存量)',
   )
   // (4) 建门第一版的假阳现场:ArticleDetailScreen 的 `<FlatList ListEmptyComponent=…>`
   //     当时把子元素的 style 并进了宿主 key 集,使 commentEmptyText 冒充 commentNickname
@@ -736,9 +755,14 @@ test('R7 失败面与基线:红点必须点名两档正配、给复现命令;两
       `基线丢了文档性注记键 ${docKey}(那是"计数为什么这样"的取证)`,
     )
   }
-  // R7 存量必须与基线同数:门在红态即交付无效,基线高于实测则是在给别人发额度
+  // R7 存量与基线的一致性由下面"真仓端到端"那条做**交叉核对**(扫出来的数 vs 基线合计),
+  // 这里不钉魔法数 16 —— 原先写 `assert.equal(measured, 16)` 是把基线自己求完和再和字面量比,
+  // 既发现不了漂移(两边同源),又让"把 16 处 AA 缺陷合法修掉"当场测试红,是纯粹的自锁。
   const measured = Object.values(base[gate.BASELINE_R7_KEY]).reduce((a, b) => a + b, 0)
-  assert.equal(measured, 16, `R7 基线合计 ${measured} ≠ 立门实测 16 ⇒ 有人未登记地改了存量`)
+  assert.ok(Number.isInteger(measured) && measured >= 0, `R7 基线合计非有限非负整数:${measured}`)
+  for (const [f, c] of Object.entries(base[gate.BASELINE_R7_KEY])) {
+    assert.ok(Number.isInteger(c) && c >= 1, `基线里 ${f} 的额度是 ${c} —— 0 值条目必须删掉,留着会让"清零"看起来像未登记`)
+  }
 })
 
 test('装车证明:guardian-runner 里确有本门注册块(blocking + skipEnv),编号反查且全 runner 唯一', () => {
@@ -787,7 +811,17 @@ test('真仓端到端:全量审计 exit 0,且 R3 存量已回升(盲区态实测
   // R7 的计数必须出现在结论行:它没有分母(命中数 / 范围)就分不清"债清完了"与"树解不出来"
   const m7 = out.match(/R7 (\d+) 处全部 ≤ 基线/)
   assert.ok(m7, `结论行未含 R7 计数(R7 静默失效的唯一表现就是这行少一截):${out}`)
-  assert.equal(Number(m7[1]), 16, `全量 R7 实测 ${m7[1]} ≠ 16,与基线/立门登记不一致`)
+  // 真正的防漂移:扫出来的数必须等于基线合计。两个独立来源(实扫 vs 冻结台账)不一致即红 ——
+  // 有人未登记地改了存量会红,把存量合法清到 0 则两边同时归 0,不会误伤。
+  const baseNest = Object.values(
+    JSON.parse(readFileSync(join(REPO, 'scripts', 'brand-foreground-baseline.json'), 'utf8'))
+      .nestMismatchCounts || {},
+  ).reduce((a, b) => a + b, 0)
+  assert.equal(
+    Number(m7[1]),
+    baseNest,
+    `全量 R7 实测 ${m7[1]} ≠ 基线合计 ${baseNest} ⇒ 存量被未登记地改动(或基线未随之收紧)`,
+  )
   const total = Number(m[1])
   assert.ok(
     total >= 200,
