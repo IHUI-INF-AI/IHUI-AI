@@ -50,8 +50,10 @@ import {
   distributeContent,
   consoleAdapter,
 } from '../src/services/tour/tour-multi-platform.js'
-import type { PlatformAdapter, TourEvent } from '../src/services/tour/tour-event-bus.js'
-import type { Platform } from '../src/services/tour/tour-multi-platform.js'
+import type { TourEvent } from '../src/services/tour/tour-event-bus.js'
+// PlatformAdapter 由 tour-multi-platform 提供(tour-event-bus 只给事件契约),
+// 原先从 event-bus 取它是 TS2305 —— 由守门 98「HEAD 悬空具名导入」查出。
+import type { Platform, PlatformAdapter } from '../src/services/tour/tour-multi-platform.js'
 
 describe('tour-multi-platform — 多平台分发', () => {
   beforeEach(() => {
