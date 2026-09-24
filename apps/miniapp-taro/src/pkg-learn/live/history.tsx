@@ -19,9 +19,9 @@ interface HistoryItem extends Live {
 type FilterTab = 'today' | 'week' | 'month'
 
 const FILTER_TABS: Array<{ key: FilterTab; i18nKey: string; fb: string }> = [
-  { key: 'today', i18nKey: 'live.history.today', fb: '今天' },
-  { key: 'week', i18nKey: 'live.history.week', fb: '本周' },
-  { key: 'month', i18nKey: 'live.history.month', fb: '本月' },
+  { key: 'today', i18nKey: 'live.calendar.today', fb: '今天' },
+  { key: 'week', i18nKey: 'aiHistory.d3', fb: '本周' },
+  { key: 'month', i18nKey: 'distribution.thisMonth', fb: '本月' },
 ]
 
 const PAGE_SIZE = 10

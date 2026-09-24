@@ -53,9 +53,9 @@ const pick = (obj: Record<string, unknown>, keys: string[]): string => {
 
 /** 状态码映射:2→已发布 / 4→测试中 / 6→已下线 / 其他→未知 */
 const STATUS_MAP = (tt: TtFn): Record<string, { key: string; fallback: string }> => ({
-  '2': { key: 'ranking.statusPublished', fallback: tt('developer.index.published', '已发布') },
-  '4': { key: 'ranking.statusTesting', fallback: tt('rankingDetail.d1', '测试中') },
-  '6': { key: 'ranking.statusOffline', fallback: tt('rankingDetail.d2', '已下线') },
+  '2': { key: 'developer.index.published', fallback: tt('developer.index.published', '已发布') },
+  '4': { key: 'rankingDetail.d1', fallback: tt('rankingDetail.d1', '测试中') },
+  '6': { key: 'rankingDetail.d2', fallback: tt('rankingDetail.d2', '已下线') },
 })
 
 /** 抽屉模式:menu=历史菜单 / fenlei=分类 */
