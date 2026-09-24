@@ -2104,7 +2104,7 @@ const pickerStyles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
   sheet: {
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderTopLeftRadius: rnRadius['2xl'],
     borderTopRightRadius: rnRadius['2xl'],
     maxHeight: '70%',
