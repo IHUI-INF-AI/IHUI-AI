@@ -2427,6 +2427,38 @@ const checks = [
     ].join('\n'),
   },
 
+  // 顶部状态栏避让单一源头(2026-09-24 立,真机走查 P0 收口)。
+  // 真机实测 inset = 34dp(Redmi 720x1640/density 320),而 399 个 *Screen.tsx 里真读 inset 的只有 3 个:
+  // 83 处在页头/根容器写死 `paddingTop: 48` 硬蒙量级、113 处完全没有顶距 ⇒ 页头与系统时钟叠字。
+  // 单点在 apps/mobile-rn/App.tsx 的 <SafeAreaView edges={['top']}>;本门 S1 就是防它被人摘掉。
+  {
+    id: '97',
+    label: '📱 顶部状态栏避让单一源头对账(blocking,顶距只有一个注入点)',
+    script: 'check-statusbar-single-source.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_STATUSBAR_SINGLE_SOURCE',
+    stagedTriggers: ['apps/mobile-rn/**', 'packages/app/**'],
+    onFailHint: [
+      '',
+      '  💡 三类红,改法各一条:',
+      '     ① S1 单点被摘 —— 顶距唯一源是 `apps/mobile-rn/App.tsx` 的 <SafeAreaView edges={[\'top\']}>;',
+      '        它没了就是全屏叠字回来(真机实测差 34dp)。恢复该单点,不要逐屏补。',
+      '     ② S2 第二取值口 —— `StatusBar.currentHeight` 在 iOS 恒为 undefined(⇒ 0),',
+      '        `statusBarHeight` prop 是共享 NavBar 曾开的岔口(零调用方,已删)。一律删掉。',
+      '     ③ S3 魔法顶距 —— 页头/根容器上 `paddingTop: 24..60` 的字面量就是在蒙状态栏高度;',
+      '        删掉它,顶距由单点负责;确属设计需要的顶距请写 `statusbar-exempt: <一句话原因>`。',
+      '     单独复验:node scripts/check-statusbar-single-source.mjs',
+      '     自检:node scripts/check-statusbar-single-source.mjs --self-test(20 例,含临时仓端到端)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_STATUSBAR_SINGLE_SOURCE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  //  与守门 77 B6 是同一类事故的两个方向:77 管"用了标识符却没 import",本门管
+  //  "import 了目标根本不导出的名字"。两者都只在编译期可见,而 tsc 只跑共享工作区 ——
+  //  工作区恰好是旧基线时两边都不红(2026-09-24 一天内各中一次:rnRadius 启动即崩 /
+  //  PermissionTierRow 从未在任何提交里存在过)。
   {
     id: '98',
     label: '🧩 HEAD 悬空具名导入对账(blocking,import 的名字目标必须真导出)',

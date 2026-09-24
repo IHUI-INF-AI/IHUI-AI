@@ -223,7 +223,7 @@ function statusToStyle(status: PaymentOrderStatus, tk: AppThemeTokens) {
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingTop: 48, paddingBottom: 8 },
+    header: { paddingHorizontal: 10, paddingBottom: 8 },
     backText: { fontSize: 18, color: tk.text.medium },
     title: { marginTop: 8, fontSize: 24, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
@@ -255,7 +255,12 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
     },
     cardTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: tk.text.primary },
-    statusTag: { marginLeft: 8, paddingHorizontal: 8, paddingVertical: 2, borderRadius: rnRadius.sm },
+    statusTag: {
+      marginLeft: 8,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: rnRadius.sm,
+    },
     statusTagText: { fontSize: 14, color: tk.text.primary },
     cardMetaRow: {
       flexDirection: 'row',
