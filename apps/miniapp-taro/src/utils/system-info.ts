@@ -38,6 +38,36 @@ const DEFAULT_INFO: CompatSystemInfo = {
   language: '',
 }
 
+// 全端唯一兜底点:胶囊矩形 API 不可用时由状态栏高度推算的量(px),页面不得再自写顶距字面量
+const FALLBACK_STATUS_BAR_HEIGHT = 20
+const CAPSULE_GAP = 4
+const CAPSULE_HEIGHT = 32
+
+/**
+ * 状态栏高度 + 右上角胶囊按钮矩形(px)。
+ *
+ * 背景:胶囊 API 在 H5 / 非微信宿主下取不到,此前各页面逐字复制内联兜底,与 pages/index 的
+ * `statusBarHeight || 20` 并存成三套机制、三个兜底值。取值一律经本出口。
+ */
+export function getTopBarMetrics(): {
+  menuButton: { top: number; height: number }
+  statusBarHeight: number
+} {
+  const statusBarHeight = getSystemInfoCompat().statusBarHeight || FALLBACK_STATUS_BAR_HEIGHT
+  try {
+    const rect = Taro.getMenuButtonBoundingClientRect?.()
+    if (rect && rect.top > 0 && rect.height > 0) {
+      return { menuButton: { top: rect.top, height: rect.height }, statusBarHeight }
+    }
+  } catch {
+    // 非微信环境该 API 可能直接抛错,落到下方推算
+  }
+  return {
+    menuButton: { top: statusBarHeight + CAPSULE_GAP, height: CAPSULE_HEIGHT },
+    statusBarHeight,
+  }
+}
+
 export function getSystemInfoCompat(): CompatSystemInfo {
   try {
     const dev = Taro.getDeviceInfo()

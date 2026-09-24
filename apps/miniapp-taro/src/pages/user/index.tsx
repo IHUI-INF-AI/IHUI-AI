@@ -16,7 +16,7 @@ import {
   type UserInfo,
 } from '@/utils/auth'
 import { getShareInfo } from '@/utils/share'
-import { getSystemInfoCompat } from '@/utils/system-info'
+import { getSystemInfoCompat, getTopBarMetrics } from '@/utils/system-info'
 import * as api from '@/api'
 import { icon } from '@/constants/remote-icons'
 import NavBar from '@/components/NavBar'
@@ -63,8 +63,7 @@ interface BindUserParams {
 }
 
 // 状态栏高度（对齐原项目 statusBarHeight，用于 DrawerComponent 顶部 padding）
-const menuButton = Taro.getMenuButtonBoundingClientRect?.() || { top: 26, height: 32 }
-const statusBarHeight = menuButton.top
+const statusBarHeight = getTopBarMetrics().menuButton.top
 
 // 判断 icon 是否为图片路径(http(s):// 远程 URL 或 / 开头本地路径),非图片视为 emoji
 function isImagePath(icon: string): boolean {

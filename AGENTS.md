@@ -242,11 +242,6 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 | `D:/IHUI-AI/.git`                                                                                                                                                                                                                                                          | **28 字节指针文件**(`gitdir: D:/IHUI-AI-git-repo`),不是目录 |
 | `D:/IHUI-AI-git-repo`                                                                                                                                                                                                                                                      | 真实 gitdir(544MB),在工作区之外                             |
 | `D:/IHUI-AI.git-backup-20260912`                                                                                                                                                                                                                                           | gitdir 完整备份,守护的本地恢复源                            |
-| 路径                                                                                                                                                                                                                                                                       | 角色                                                        |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| `D:/IHUI-AI/.git`                                                                                                                                                                                                                                                          | **28 字节指针文件**(`gitdir: D:/IHUI-AI-git-repo`),不是目录 |
-| `D:/IHUI-AI-git-repo`                                                                                                                                                                                                                                                      | 真实 gitdir(544MB),在工作区之外                             |
-| `D:/IHUI-AI.git-backup-20260912`                                                                                                                                                                                                                                           | gitdir 完整备份,守护的本地恢复源                            |
 | **守护**:计划任务 **`IHUI-AI git-guardian`**(每 2 分钟)→ `"C:/Program Files/nodejs/node.exe" D:/IHUI-AI/scripts/git-guardian.mjs`。本机**未安装 nssm**,故未采用 `--daemon` 常驻服务形态,改用脚本自带的 schtasks 兜底(2026-09-12 15:30 实测启用;16:12 实测**自愈已生效**)。 |
 | 分层自愈:`指针 → 环境 → HEAD 语法 → 嵌套 ref → 本地备份 → 远端`;每步破坏性覆盖前先归档现场。实测自愈 **0.9s**(refs 自愈实测 **0.14s**)。                                                                                                                                   |
 
@@ -256,6 +251,12 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 
 > **本句原先还写"本机未安装 nssm,故未采用 `--daemon` 常驻服务形态" —— 该前提已失真并于 2026-09-24 更正**:实测 `C:\Windows\System32\nssm.exe` 在位(331264 字节),且存在 NSSM 服务 **`IHUI-GIT-GUARD`**(`git-guardian.mjs --daemon`,进程自 2026-09-15 08:48:42 常驻),与上面那条每 2 分钟的计划任务**同时运行**。即"守护"当前是**双执行体并存**(常驻 daemon + 2 分钟 tick)。本票只如实登记、不动任何一侧:砍哪一侧属 `.git` 存续决策(§5b 的分层自愈依赖"每 2 分钟必有一次巡检"来兜底,而 daemon 侧是否等价覆盖尚未取证),且它**没有任何到人出口**(实测 `grep -niE "mail|smtp|resend|notify|ftqq|sct|pushplus|alert" scripts/git-guardian.mjs` 零命中),故不影响 §5e 通道口径。
 > 分层自愈:`指针 → 环境 → HEAD 语法 → 嵌套 ref → 本地备份 → 远端`;每步破坏性覆盖前先归档现场。实测自愈 **0.9s**(refs 自愈实测 **0.14s**)。
+>
+> **本节三条"机器事实"于 2026-09-24 在 `G:` 那份 checkout 上被逐条测反,照抄会误诊(与 §15b 的盘符补注同族)**:
+> ① **活 gitdir 就是工作区内的 `G:\IHUI-AI\.git`(实体目录 2.4GB,不是 28 字节指针)**,`refs-manifest.json` 在它里面;而 `G:\IHUI-AI-git-repo`(810MB)**没有 manifest**,是无人读取的残壳。守护自评 `node scripts/git-guardian.mjs --status` 对当前形态给 `pointerOk:true / gitdirOk:true`。⇒ §5b"必须外置 + 指针"与 §12d"禁止迁出工作区/改指针(**并行会话的恢复逻辑会把指针文件当损坏清除**,2026-09-10 立)"这两条在本机**互斥**;本票只如实登记、**不动任何一侧**——把 `.git` 迁出去是一次破坏性迁移(会连带移动 2.4GB 对象库并撞上清理层),不是"修复文档与现状不符"。
+> ② `git remote get-url origin` 实测 **`ssh://git@ssh.github.com:443/IHUI-INF-AI/IHUI-AI.git`**,且 `ls-remote` / `fetch` / 后台 `git-push-guard` 推送全通;上方"origin 实测为 HTTPS `github.com`,`ssh://git@ssh.github.com:443` 形态在本机从未成立"在这一台机上**不成立**。
+> ③ `git config --local http.proxy` 实测 **unset**;上方"本机已另配仓库级持久代理(因为钩子进程不继承 shell env)"在这一台机上**不成立**(ssh-over-443 通道不需要它)。
+> **口径(本条的真正约束):凡「盘符 / gitdir 形态 / 远端 URL / 代理」四类,每次使用前按当次实测取值**,不得把另一台机的现状当本机事实写进判据,也不得据此推断"通道坏了"。
 
 ### 嵌套 ref 存续(2026-09-12 立,与 `.git` 同源问题)
 
@@ -684,6 +685,14 @@ pnpm dev                                       # 启动所有服务(web + api + 
 | `D:\DevEnv\{cache,tools,runtimes}\`  | 工具链缓存唯一根;家目录里的工具状态一律 `robocopy /MOVE` + **junction** 改道(禁改 `HKCU\Environment\Path`),旧路径经 junction 仍可解析 | §26  |
 | `D:\DevEnv\Temp\`                    | `TEMP`/`TMP`/`TMPDIR`(HKCU,需新开终端才继承)                                                                                          | §26  |
 
+> **上表的 `D:` 是"D 盘那份 checkout"的历史值,不得当本机现值照抄**(2026-09-24 实测,登记于 PROJECT_PLAN
+> 第三十三批 续五⑦):`gitArchiveDir()`(`scripts/lib/gitdir.mjs`)按**工作树所在盘**推导,工作树在
+> `G:\IHUI-AI` 时它返回 **`G:/DevEnv/backups/git`**;而 `D:\DevEnv`(Temp/backups/kc-tools/logs)与
+> `G:\DevEnv`(Temp/backups/cache/tools)**同时存在**,各自服务所在盘上的 checkout。
+> **规则:凡脚本需要归档/备份/临时落点,一律 `import` 出口函数(`gitArchiveDir()` / `gitdirArchivePath()` /
+> `resolveBackupDir()`),禁止再硬编码盘符** —— 硬编码的结果是"备份落点解析到不存在的路径",
+> 表现为 `git-guardian --status` 的 `backupOk:false` 这类静默失效(§5b 已记过一次同型)。
+
 **显式例外与已改道项(改道用 junction,故旧路径仍可用)**:
 
 1. `D:\IHUI-AI-git-repo` —— 真 gitdir。§5b 实测宿主层会整体删除工作区内 `.git`,故必须在外;
@@ -933,6 +942,44 @@ reflog 记录 18:12-18:20 期间发生 **6 次 `reset: moving to HEAD~` 操作**
 防止有人把它们加进来逼后人去挪别人的运行态(挪 `.qoder-cn` 等于丢记忆)。
 同日已按 §26 机制把这两处收口(镜像复制→逐文件字节校验→源改名→`mklink /J`→经 junction 回读一致→才删源),
 C 盘可用 44G → **45.75G**。
+
+**但"能判"不等于"能修"(2026-09-24 补第二层)**:门 96 上线后当天,`D:\DevEnv\cache\userhome` 整棵被清
+(13:15 前后,同分钟 `cache/Temp/tools` 被重建),16 项登记里 **已改道 0 / 违规 9**、4770MB 回到 C 盘。
+门判红是对的,可它是 **blocking** 而修复只有人肉五步 —— 结果是**每一次提交都被逼成绕过钩子**,
+一次绕过等于约 110 道守门对该提交全部作废(§12e 同型)。恒红门的唯一结局就是没人再守门。
+所以补了幂等修复器 `scripts/re-home-junctions.mjs`( `--check` / `--apply` / `--reset-dst` / `--self-test` ):
+登记表**复用门 96 的 `registryOf()`**、D 盘根**复用 `seal-c-root-stray` 的 `devEnvRoot()`**,不另立第二份表、
+不写死盘符;流程仍是"镜像复制 → 逐文件(相对路径 + 字节)校验 → 源改名 → `mklink /J` → 经 junction
+回读一致 → 才删源",任一步不符一律回退(源在校验通过前一字不动);robocopy 返回码 ≥8 视为失败。
+**两条实测教训**:① 复制语义必须与校验语义一致 —— 要带 `/XJ /SL`,否则源内部的重解析点被 robocopy
+展开成真实文件,而指纹两侧都跳过重解析点,永不收敛(`.cargo` 四轮稳定差 13 个即此;**我第一版把它
+误报成"目标正被持续写入",是判据错、不是世界错**);② 被进程占用(EBUSY)的项由修复器自己记
+30 分钟冷却,免得守护每 2 分钟重抄一遍 108MB 去撞同一个失败。触发点挂在 `git-guardian` 的
+`healHomeJunctions()`(与 `healRootSeal` 同位、**早退之前**;每日 03:00 体检兜不住 23 小时空窗)。
+实测:9 项违规 → 8 项已改道并逐字节校验一致(含 `.cargo` 947MB/21760 文件);剩 `~\.codex` 被别的会话
+正在跑的 `codex-windows-sandbox-service` 占用 ⇒ 进冷却,该服务退出后 2 分钟内自动补回,**不杀别人的进程**。
+
+**第三层:悬空目标必须能重建,冷却不得拦住人工窗口(2026-09-24 同日补,前向更正上面最后一句)**
+上面"该服务退出后自动补回"是**错的**:`CodexSandboxService.OpenAI.Codex` 是 StartMode=Auto 的
+LocalSystem 服务(实测 PID 6196,exe 在 `WindowsApps\OpenAI.Codex_*` 里、**不在 `~\.codex` 内**),
+它**永不退出**,所以"等它释放"等于无限期恒红。处置是把窗口**造出来**而不是等:停服务 → `--apply` →
+`finally` 里无条件启回 → 复核(服务 `Running`、事件日志 15 分钟内无 codex 相关报错、`Get-Item -Force`
+的 `Attributes` 含 `ReparsePoint` 且 `Target` 指向 D 盘)。实测 **5732 个文件逐字节校验一致后改道**,
+门 96 从"违规 1 / C 盘 108.8MB"到 **违规 0 / exit 0**。动手前必须先确认**只有该服务自身**匹配 codex
+(无并发 CLI/IDE 会话),否则不 stop。
+
+补这一层时暴露了两个真缺陷,都由自检抓出(不是演练抓的 —— **演练只能证明"会红",判据才证明"不会修"**):
+
+1. **`repairOne` 的判序**:第一行是 `if (!existsSync(srcPath)) return 'absent'`,而**悬空 junction 的
+   `existsSync` 返回 `false`**(它跟随重解析点,目标已被删)。于是"源不存在、无需改道"把这一整型吞掉,
+   表现就是上面演练里"守护跑完什么都没补"。门 96 自己判的是 `!existsSync(p) && !isLink(p)`(两半都有),
+   修复器只抄了前半 ⇒ **同一个判据在两处必须同形**,否则一边判红、一边判无需修,合起来是恒红且永不自愈。
+   现判序改为先 `isLink`(lstat);并把"指针指向与登记表算出的目标不一致"单列 `link-moved` **判红交人工**,
+   不擅自改指向 —— 那等于替人决定数据落点。
+2. **冷却吞掉人工窗口**:第一次 `--apply --no-cooldown` 之前,上一轮 EBUSY 留下的 30 分钟冷却把服务
+   已停好的窗口判成了"跳过"。故加 `--apply --no-cooldown`:**绕过判定但保留既有条目**(守护侧仍需拦住
+   "每 2 分钟重抄 108MB 再撞同一个 EBUSY"),且本轮再失败时**不再续冷却**,否则下一个人工窗口照样被拦。
+   两处都由镜像测试用正则钉死(`scripts/tests/re-home-junctions.test.mjs`),因为它们是行为分支,不是注释。
 
 ### 历史案例
 
@@ -1325,6 +1372,7 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 
 - **顶部状态栏避让单一源头**(97):`scripts/check-statusbar-single-source.mjs`(blocking,2026-09-24 立)—— 真机实测(Redmi 720x1640 / density 320)状态栏 inset = 68px = **34dp**;而 399 个 `*Screen.tsx` 里真读 inset 的只有 3 个:83 处在页头/根容器写死 `paddingTop: 48` 硬蒙量级(换机型即失配)、113 处完全没有顶距 ⇒ 页头与系统时钟/电量**叠字**。**唯一注入点 = `apps/mobile-rn/App.tsx` 的 `<SafeAreaView edges={['top']}>`**;状态栏是平台概念,所以 `packages/app`(跨端共享屏)一律不碰顶距,共享层 NavBar 那个默认 0、零调用方的 `statusBarHeight` prop 属第二个真相源,**已删**,不得再加回。三判据:**S1** 单点在位(该文件必须真有 `SafeAreaView` 且 `edges` 含 `'top'` —— 防"装好被摘线",机制不在而门仍报绿等于没有)/ **S2** 第二取值口(代码里出现 `StatusBar.currentHeight` 或 `statusBarHeight` 即红;前者 iOS 恒 `undefined` ⇒ 0)/ **S3** 魔法顶距(`container|page|root|wrapper|header|headerRow|screen|body` 的对象内 `paddingTop: 24..60` 字面量即红,**零容忍** —— 83 处已随本票清零,所以不需要基线)。口径同守门 77/83:全量判 HEAD blob、`--staged` 判索引 blob,不判滞后的共享工作树。行内豁免 `statusbar-exempt: <一句话原因>`(**M2:逐行生效且必须带原因**,一行标记救不了同文件另一处)。**M1 泄压阀**:含 JSX `<Modal` 的文件(Drawer/SideMenu/BottomPops/HandPlatePops 等)渲染在导航树外、不继承单点,其顶距命中只报数不判红(`--all` 逐条列出);注释里提 `<Modal` **不配豁免**。S2 的 `statusBarHeight` 只拦"布局取值"(`paddingTop/top/marginTop/= …`),共享层"调用方注入、默认 0"的 prop 声明不判红。扫描面为整包 `packages/app` + `apps/mobile-rn`(App.tsx 自身也在 S2/S3 射程内);全量经一次 `git grep` 预筛(627→87,38s→5s,模式串为判据字面量严格超集,筛不动退回全量)。取证 `--self-test` **40 例**(含 Modal 豁免、逐行豁免、单点被摘等 E2E 阳性对照)+ §22c 镜像测试 12 例(装车证明 + `--json` 可 parse + AGENTS/README 点名)。**两条写门过程中的教训值得留**:① 第一版"沉浸式豁免名单"是拿"出现 `position:'absolute'` + `top:0`"探的,8 个候选全是假阳(命中的是眼睛按钮和下拉框)—— 判据探不到就别硬编,默认值本身就是正确答案;② `readFileSync` 漏 import 被外层 `catch` 吞成"取不到内容",一个编码错误伪装成业务结论,故**工作树面不得套 try**。紧急跳过 `HUSKY_SKIP_STATUSBAR_SINGLE_SOURCE=1`。
 - **暂存删除存续性对账**(99):`scripts/check-staged-deletions.mjs`(blocking,2026-09-24 立,Agent A 交付)—— 堵守门 65(整树删除拦截,只看规模 ≥1000/≥20%)与 `heal-worktree-tracked`(对暂存删除按设计"只报数、不代裁")之间的**空档**:删除规模不大、但仓库仍在引用它的暂存删除(`D `),任何人跑一次不带 pathspec 的普通 commit 就把已入库的功能与测试从版本树里删掉 —— 一次静默回滚,而 `git status`/diff/守门 65 全都看不见。判"误删"依据两条同时成立才判红:**E1 引用仍在**(索引 blob 里的相对 import / require / 动态 import / barrel `export *` / 别名路径含父目录名 / 整仓库路径字面量,覆盖代码+配置,`.md` 叙述与夹具/产物/记账 JSON/生成物不算)∧ **E2 无替代路径**(同名同后缀文件不在索引其他目录,有 = 已迁移放行)。只成立一条 → 不计红但**如实报数**(绝不静默成"看起来全绿");引用方(barrel)自己也一起删 = 正当删除形态,放行。护栏:名字 <4 字符 / 候选引用方 >2000 / 删除面 >400(那是 65 的地盘)一律 `undetermined` 只报数;豁免清单 `scripts/staged-deletions-allowlist.json`(坏 JSON 显式报错,不静默当空清单)。**不加 stagedTriggers —— 暂存删除可触及任意路径,任何提交都不得跳过**。口径:判索引 blob(与 70/77/83 同取向),全程只读。取证 `--self-test` 33 例(正反成对:barrel 仍 export 必红 / 引用方一起删必绿 / 歧义、注释、夹具、生成物各一反例)+ §22c 镜像测试 `scripts/tests/check-staged-deletions.test.mjs` 12 例(含"未注册时绿、注册后必须 blocking + skipEnv"的装车前置断言)。紧急跳过 `HUSKY_SKIP_STAGED_DELETIONS=1`。
+- **合并新增文件存续性对账**(100):`scripts/check-merge-addition-loss.mjs`(blocking,2026-09-24 立)—— 堵的是**合并提交在文件面上的静默吞并**,与守门 71(只管 PROJECT_PLAN 登记行)、84(只管「暂存内容 == 祖先 blob」)都不重叠:2026-09-24 实测一枚写着「台账按 union 归并,双方每一行均存活」的合并 `9a0f7610e9`,把对侧**独有的 35 个新增路径整批抹掉**、连带 72 个文件回退成旧基线(相对共同祖先净 **−12014 行**),而它**不产生冲突、也不进 diff 报告** —— 「一侧新增、另一侧从未有过」的路径在「取某一侧整棵树」的合并里会直接消失。判据一条,且结构上排除了误伤正常合并:**A1** 路径 P ∈ 某父提交树 ∧ P ∉ 本次合并的共同基底(`git merge-base --all <parents>`)⇒ P 必须 ∈ 合并结果;「∉ 基底」正是把「对侧曾删除它」这一唯一正当解释排除掉。真要在合并里删除,必须**合并之后**单独 `git rm`(那时所有父都不含它,自动放过)。**口径是本门的生命线**:默认只判 `origin/main..HEAD` 里的合并 —— 已入库的历史事故若每轮重判,会让之后每一次提交恒红,唯一结局是人人绕过钩子、连带废掉全部守门;别人推来的合并由 `--all-new` 增量台账(`.workbuddy/merge-addition-loss-audited.json`)判到**一次**,`--limit N` 留给人工回看。取证 `--self-test` 9 例(真临时仓:正常合并必绿 / 整树回写必红并点名 / 未推必拦与已推必放用同一条判据 / 台账不重复判红)+ §22c 镜像测试 5 例。含两条**写门时自己踩到**的缺陷:① `rev-list --parents` 的第一个 token 是提交**自己**,`slice(2)` 会把合并误判成单父 ⇒ 整门恒绿;② 树缓存键必须先剥到 tree oid,按 `'HEAD'` 这种符号名缓存会在 ref 移动后读到旧树(自检第一轮就是把真事故判成了绿)。紧急跳过 `HUSKY_SKIP_MERGE_ADDITION_LOSS=1`。
 
 ### 守门手动触发 / 紧急跳过抽查
 
@@ -1483,6 +1531,15 @@ nssm 服务(IHUI-API / IHUI-DEPLOYLOOP 以 LocalSystem 运行)拿到的仍是 `C
 **2026-09-23 曾实测:该任务在本机并不存在**(当时代号未注册,`D:\DevEnv\logs\c-drive-maintain.log` 也从未生成)。当时的表是**设计意图**而非现状,曾据此以为"每天在清"⇒ 实际零执行,这是 C 盘能攒下 13.2GB `.next` 构建备份的直接原因之一。
 
 **同日 23:59 经用户授权后已真正注册**(状态=现状,不再是设计意图):
+
+> **该"现状"于 2026-09-24 再次失真,已三路取证终判为「当前不存在」**(本节下方表格里的"每天 3am"因此也是设计意图而非实况):
+> ① `schtasks /query /fo CSV | grep -i c-drive` **零命中**(这正是本节规定的权威查法);
+> ② `Get-ScheduledTask | Where TaskName -match 'C-Drive|Maintain'` 返回**空**;
+> ③ 递归枚举 `C:\Windows\System32\Tasks\*.XML`,**没有**任何 C-Drive/Maintain 定义文件 —— 而同目录其余 **14 个 `IHUI*` 任务全部在位可列**
+> ⇒ 排除"查法失效"这一假阴性解释,任务确实不在了。
+> `D:\DevEnv\logs\c-drive-maintain.log` 今天(09-24 10:59)那条记录是**人工 `-DryRun` 预演**,不是 03:00 自动执行(全文 `[DRY]` 无 `[DEL]`,合计释放 0 MB),
+> 所以"每天在清"在今天并没有发生。**注册动作 = 影响全机的每日自动删除,仍须用户授权,agent 不得自行 `schtasks /create` 恢复**;
+> 上一条"回读 `schtasks /Query /XML` 实证 `LogonType=S4U`"当时为真,但那份定义现已不在 —— 名字陷阱的解释**不成立**(权威全量列表法连空格名一起扫,零命中)。
 
 - **动作链按本节下方「计划任务禁止直接执行控制台程序」硬约束走**:`wscript.exe` → 纯 ASCII 的 `scripts/c-drive-maintain-hidden.vbs` → `pwsh -NoProfile -ExecutionPolicy Bypass -File …ps1`。注册前用 `cscript //nologo` 实跑过一份**只带 `-DryRun` 的同体副本**做语法+拉起链证明(实测写出 `[WARN] … DRY RUN(全脚本不删任何东西)`),因此注册过程零删除。
 - **登录类型已升 S4U**(与凭据巡检同一套 `scripts/task-set-s4u.vbs`),否则 3am 无人登录时不会跑。回读 `schtasks /Query /XML` 实证:`LogonType=S4U`、`Command=wscript.exe`、`StartBoundary=03:00`、下次运行 `2026-09-24 03:00`。
@@ -1739,3 +1796,9 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 | `docs/learning-assets.md` | 学习资产登记(34 个工作流反馈来源,新增/删除工作流必须同步更新) |
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
+
+| 路径                             | 角色                                                        |
+| -------------------------------- | ----------------------------------------------------------- |
+| `D:/IHUI-AI/.git`                | **28 字节指针文件**(`gitdir: D:/IHUI-AI-git-repo`),不是目录 |
+| `D:/IHUI-AI-git-repo`            | 真实 gitdir(544MB),在工作区之外                             |
+| `D:/IHUI-AI.git-backup-20260912` | gitdir 完整备份,守护的本地恢复源                            |

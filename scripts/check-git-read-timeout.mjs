@@ -57,6 +57,8 @@ export const HOT = [
   'scripts/check-commit-loss-guard.mjs',
   //  守门 98 由 pre-commit 直调,git 挂住 = 提交像死掉了(§80 的原始成因形态)
   'scripts/check-dangling-local-imports.mjs',
+  //  守门 100 由 pre-commit 直调,一次审计要 ls-tree 多棵全量树 ⇒ 无界挂起会直接冻结提交链
+  'scripts/check-merge-addition-loss.mjs',
   'scripts/backup-unreachable-commits.mjs',
   'scripts/check-port-registry.mjs',
   'scripts/lib/gitdir.mjs',

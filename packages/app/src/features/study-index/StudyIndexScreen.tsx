@@ -576,7 +576,7 @@ function createStyles(tk: AppThemeTokens) {
       width: '100%',
       height: GRID_COVER_HEIGHT,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.text.primary,
+      backgroundColor: tk.surface.muted,
     } as ImageStyle,
     gridCoverPlaceholder: {
       width: '100%',
