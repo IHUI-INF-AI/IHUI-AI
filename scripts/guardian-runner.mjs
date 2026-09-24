@@ -2158,7 +2158,7 @@ const checks = [
       '     确属有意的纯文本:命中行或紧邻上行加 `brand-mail-exempt: <原因>`;',
       '     存量红进 scripts/brand-email-channel-baseline.json(只减不增,禁止调高)。',
       '     单独复验:node scripts/check-brand-email-channel.mjs --staged',
-      '     自检:node scripts/check-brand-email-channel.mjs --self-test(46 例)',
+      '     自检:node scripts/check-brand-email-channel.mjs --self-test(61 例)',
       '     紧急跳过(不推荐):HUSKY_SKIP_BRAND_MAIL_GUARD=1 git commit ...',
       '',
     ].join('\n'),
