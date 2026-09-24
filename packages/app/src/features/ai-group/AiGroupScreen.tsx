@@ -390,7 +390,7 @@ function createStyles(tk: AppThemeTokens) {
       maxWidth: '80%',
       marginBottom: 8,
     },
-    previewTextMine: { fontSize: 14, color: tk.surface.light, lineHeight: 18 },
+    previewTextMine: { fontSize: 14, color: tk.brand.ctaForeground, lineHeight: 18 },
     enterBtn: {
       marginTop: 16,
       height: 44,

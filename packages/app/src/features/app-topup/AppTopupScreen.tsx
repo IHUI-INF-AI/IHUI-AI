@@ -191,13 +191,13 @@ function createStyles(tk: AppThemeTokens) {
     },
     balanceLabel: {
       fontSize: 14,
-      color: tk.surface.light,
+      color: tk.brand.ctaForeground,
       opacity: 0.8,
     },
     balanceValue: {
       fontSize: 32,
       fontWeight: '700',
-      color: tk.surface.light,
+      color: tk.brand.ctaForeground,
     },
     section: {
       paddingHorizontal: 10,
