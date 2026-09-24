@@ -17,7 +17,6 @@ import test from 'node:test'
 import { __test__ as gate } from '../check-statusbar-single-source.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
-const SRC = 'scripts/check-statusbar-single-source.mjs'
 const RUNNER = readFileSync(join(ROOT, 'scripts/guardian-runner.mjs'), 'utf8')
 
 test('源脚本必须 export __test__ 且含核心判据(§22c phase B)', () => {
