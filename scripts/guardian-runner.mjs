@@ -2427,6 +2427,29 @@ const checks = [
     ].join('\n'),
   },
 
+  {
+    id: '98',
+    label: '🧩 HEAD 悬空具名导入对账(blocking,import 的名字目标必须真导出)',
+    script: 'check-dangling-local-imports.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_DANGLING_IMPORTS',
+    stagedTriggers: ['apps/**/*.ts', 'apps/**/*.tsx', 'packages/**/*.ts', 'packages/**/*.tsx', 'scripts/**/*.mjs'],
+    onFailHint: [
+      '',
+      '  💡 两类红,改法不同:',
+      '     ① D1 具名导入在目标文件里不存在 —— 要么补上那个导出(优先,别删消费者:',
+      '        删导入等于把别人正在接的功能摘掉),要么改从真正提供它的模块取。',
+      '     ② D2 相对路径解析不到 —— 路径改名/文件被删/大小写不符;目录只能经 `目录/index.*`。',
+      '     口径:棘轮锚点 = 该文件 HEAD 自身违规数(存量如实报数不拦),所以本门只拦',
+      '        "这次把悬空导入加回来了",不替历史债背红。',
+      '     单独复验:node scripts/check-dangling-local-imports.mjs --files <你的文件>',
+      '     自检:node scripts/check-dangling-local-imports.mjs --self-test(19 例,含真仓 HEAD 实测)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_DANGLING_IMPORTS=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
