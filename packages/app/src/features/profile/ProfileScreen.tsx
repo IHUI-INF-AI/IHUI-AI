@@ -6,6 +6,8 @@ import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native'
 import type { ProfileScreenProps, SharedUserStatistics } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { ChevronRight } from 'lucide-react-native'
+import { useFontMultiplier } from '../../components/MoreLink'
 
 import { rnRadius } from '@ihui/design-tokens'
 
@@ -31,6 +33,7 @@ export function ProfileScreen({
 }: ProfileScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  const fontMultiplier = useFontMultiplier()
 
   if (loading) {
     return (
@@ -94,7 +97,7 @@ export function ProfileScreen({
                     <item.icon size={20} color={tk.text.primary} />
                   ) : null}
                   <Text style={styles.menuLabel}>{item.label}</Text>
-                  <Text style={styles.menuArrow}>›</Text>
+                  <ChevronRight size={Math.round(16 * fontMultiplier)} color={tk.text.tertiary} />
                 </TouchableOpacity>
               ))}
             </View>
@@ -210,7 +213,6 @@ function createStyles(tk: AppThemeTokens) {
     menuItemGap: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: tk.border.light },
     menuIcon: { fontSize: 16 },
     menuLabel: { flex: 1, fontSize: 16, color: tk.text.primary },
-    menuArrow: { fontSize: 18, color: tk.text.tertiary },
     logoutBtn: {
       marginTop: 8,
       height: 50,
