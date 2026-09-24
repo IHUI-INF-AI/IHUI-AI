@@ -149,10 +149,10 @@
 
 .btn-login {
   border-radius: var(--radius-xl);
-  background-color: var(--color-primary);
+  background-color: var(--color-cta);
   font-size: 32rpx;
   font-weight: 600;
-  color: var(--color-primary-foreground);
+  color: var(--color-cta-foreground);
 }
 
 .btn-text {
