@@ -70,6 +70,12 @@ test('装车证明:safe-commit 必须真的 import 并调用本判据', () => {
     /留痕|attestation/i,
     '跳门必须留下可事后核查的记录,否则每一次跳过都长得像没跳过',
   )
+  // 第二输入源必须真接上:实测 pre-commit 把汇总只写进日志,不接它的归因命中率恒为 0
+  assert.match(
+    safeCommitSource,
+    /fallbackText\s*:\s*hookLogTail/,
+    '未接日志尾部第二输入源 ⇒ 真仓里永远只会得到 unattributed',
+  )
 })
 
 test('反向对照:旧那句未经计算的"因其他 agent 代码"不得再作为唯一措辞出现', () => {
