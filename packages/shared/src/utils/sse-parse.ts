@@ -15,6 +15,8 @@ import type {
   BudgetEvent,
   InjectionAppliedEvent,
   RetryScheduledEvent,
+  /** 终端实时输出增量(api-client 2026-09-18 立,本解析器 D19-A1 才接上) */
+  TerminalDeltaEvent,
 } from '@ihui/api-client'
 import type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
 
@@ -54,6 +56,11 @@ export interface SSEEvent {
     | 'budget'
     | 'injection_applied'
     | 'retry_scheduled'
+    // ===== D19-A1(2026-09-24 立):终端实时输出增量帧 =====
+    // 后端 mcp_server._emit_terminal_delta 产的帧**带 text、不带 content/delta**,
+    // 在下方兜底抽取链之前无人认领 ⇒ 曾被判成 chunk,把 stdout 混进聊天正文。
+    // 本类型**只消污染**:跨端渲染接线属另一票(mobile-rn 注册 + 契约对账)。
+    | 'terminal_delta'
   content?: string
   sessionId?: string
   /** 错误码(对齐 @ihui/api-client SSEErrorInfo 字段) */
@@ -110,6 +117,8 @@ export interface SSEEvent {
   injectionApplied?: InjectionAppliedEvent
   /** D39 重试交代帧(retry_scheduled) */
   retryScheduled?: RetryScheduledEvent
+  /** D19-A1 终端实时输出增量帧(terminal_delta):字段口径与 api-client tryParseTerminalDelta 一致 */
+  terminalDelta?: TerminalDeltaEvent
 }
 
 function applyErrorMeta(evt: SSEEvent, json: Record<string, unknown>): void {
@@ -304,6 +313,28 @@ function parseLine(line: string): SSEEvent | null {
           ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
         },
       }
+    }
+    // ===== D19-A1(2026-09-24 立):terminal_delta 必须在兜底抽取链之前认领 =====
+    // 后端 apps/ai-service/app/services/mcp_server.py::_emit_terminal_delta 产的帧形如
+    // {"type":"terminal_delta","terminalId","command","stream","text","iteration"[,"messageId"]}
+    // —— 带 text、不带 content/delta,原先一路滑到 `typeof json?.text === 'string'` 那条泛化
+    // 兜底,被判成 {type:'chunk'},miniapp-taro 的 dispatch 再 emitDelta 进气泡
+    // ⇒ **终端 stdout 混进聊天正文**(用户可见的内容污染)。
+    // 字段收窄口径与 @ihui/api-client client.ts 的 tryParseTerminalDelta 逐位一致,不另立第二种命名。
+    // 校验不过(terminalId / text 不是 string)一律**丢弃**,绝不回落 chunk。
+    if (json?.type === 'terminal_delta') {
+      const terminalId = json.terminalId
+      const text = json.text
+      if (typeof terminalId !== 'string' || typeof text !== 'string') return null
+      const delta: TerminalDeltaEvent = {
+        terminalId,
+        command: typeof json.command === 'string' ? json.command : '',
+        stream: json.stream === 'stderr' ? 'stderr' : 'stdout',
+        text,
+        iteration: typeof json.iteration === 'number' ? json.iteration : 0,
+        ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
+      }
+      return { type: 'terminal_delta', terminalDelta: delta }
     }
     const choices = json?.choices as Array<Record<string, unknown>> | undefined
     const choice = choices?.[0]
