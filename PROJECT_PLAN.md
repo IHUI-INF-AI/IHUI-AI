@@ -6205,6 +6205,8 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
 - [x] ✅(2026-09-24) **推送已收敛 + 一处台账撞号自纠**:`git-push-converge` 读回 `origin=ALREADY`,并发会话那枚 `70650f556`(它自己解的 `Merge origin/main`)把本票 `9ec0567f0` 一并带上远端 —— 本票开工时登记的"阻塞:他人 merge 未提交"因此自然解除,**我全程没有替它解那 3 个冲突、没有 abort、没有 reset**(当时暂存区里还压着他人 70+ 项在途工作,`git merge --abort` 会整批重置 index)。另:本票首登记时取了 `O50`,与并发会话同日新增的「守门 77 B6 括号盲区 + 新守门 98」那节**撞号**(与守门 80 那条"同日多会话同一位置各加一道门必然撞号"是同一形状),按"改自己不动别人"的原则把本节改为 **O52**(O52/O53 全仓 0 命中后取),正文内 `O50 残余` 一并改名;`9ec0567f0` 提交信息里写的 O50 属历史事实不回改。
 - **O52 残余(不写作收口)**:① **DriverStore 里两份 `iigd_dch.inf`(2.21+1.70GB)旧显卡驱动包未动** —— 需 `pnputil /enum-drivers` 精确点名被取代的那份再删,误删当前版等于打坏 GPU 驱动,收益 1.7GB 不值得盲做。② 飞书 `Service Worker` 缓存**应用侧无上限**,还会回潮;真要根治只能在飞书设置里限缓存,不归本仓管。③ Adobe CameraRaw 2.23GB、Trae SOLO CN 4.14GB、`Local\Programs\Python`(torch)1.83GB 属"应用数据/在用环境",按 [[feedback-cleanup-verify-before-delete]] 一律未动,只登记。④ **口径混淆(本票新暴露,未改)**:`check-c-drive-pollution.mjs` 标题写「C 盘污染实地扫描」,但它按 §26③ 把**服务身份 TEMP**(`SystemRoot\Temp`)与**活 TEMP** 并入扫描面,而活 TEMP 自 09-23 起已在 **D** 盘 —— 于是 `D:\DevEnv\Temp\ihui-scratch`(以及别的会话留的 `ihui-union-*`)这类**根本不占 C 的**条目被报成"C 盘污染 3 项 / 1.4MB"。判据没错(它们确实是本仓夹具),错的是**报表口径**:同一行里"C 盘"与"D 盘路径"并存,读的人会朝 C 盘去找。修法是把 ours 按所在盘分栏或改标题,属输出层重构、且该门正被并发持有,不夹带在本票。⑤ `chrome://policy` 的 UI 层直接观察仍缺(原因见第 6 条),下次用户浏览器在场时可补一次。
 - [x] ✅(2026-09-24) **O52 追加:造一件常驻仪器 `scripts/c-disk-breakdown.mjs`(只读,永不删)** —— 用户第二次质问"C 盘怎么还是占了这么多",而这台机器上**没有任何一件工具能一次回答"84.5GB 在哪、还剩多少没被解释"**:`check-c-drive-pollution.mjs` 只认本项目产物(它天生不回答空间去哪了)、维护脚本只删不量、Git Bash 的 `df` 还给出过相反百分比。上一轮为回答同一问题现写的遍历脚本,又在本票收尾按 §15 清理临时目录时被自己删掉 ⇒ **同一问题每次都要重造工具,这就是它该进 `scripts/` 的理由**。三条口径写死在源码注释里:① 绝不跟随重解析点(实测本机 247 个,跟进去就把 D 盘算成 C 的债);② 容量一律 `statfsSync`(与 `fsutil`/Explorer 同源),并强制做 **已用 = 遍历所得 + 特殊文件 + 未解释** 的对账,差值 >2GB 如实打 ⚠️ 且明写"不得当作还可以删这么多";③ pagefile 类 `statSync` 必 EINVAL,单独走 pwsh 口径,量不到时报"特殊文件未量到 ⇒ 未解释项会偏大,不是垃圾"。**首跑就自曝一次假结论**:根键写成 `C:/` 而逐层 dirname 得出 `C:`,根条目永远查不到 ⇒ 对账行输出"遍历到 0 GB / 未解释 82.49 GB",而分层数字全对 —— 又一个"头部结论错、明细对"的形状,已修并留注释。**本机终值**:已用 84.51GB = 遍历 75.89 + pagefile/swap 2.06 + 未解释 6.6(fsutil 明示卷存储保留 5.94GB + SVI/元数据,属地板),回潮定点检查 6 项全未回潮、两个"看起来又出现"的路径量出来是 **0 字节空壳**(网盘与 Playwright 启动即自建,按存在性判会误报,须按字节判)。
+- [x] ✅(2026-09-24) **O52 追加②:上一枚提交 `55c3fd570` 的 `--no-verify` 归因是错的,自查后正常重提** —— safe-commit 打印"hook 失败因其他 agent 代码 → 跳过全部守门",但复跑 `eslint scripts/c-disk-breakdown.mjs` 得 **2 errors 全在本文件**:`isLink` 定义未用、`specialFilesMB(drive)` 收参数却硬编码 `C:\\`(正是 §12"失败原因是本任务自己代码必须修复后正常提交"那一类)。**教训:safe-commit 的归因文案不能替代复核** —— 它按"不在本任务范围"猜,而 lint-staged 报错清单里就写着我的路径与行号。已修(删死码 + 参数化盘符 + `console.log`→`console.info` 清掉 11 条噪音)并正常提交。
+- [x] ✅(2026-09-24) **O52 追加③:参数化盘符又造出两个"静默零",都被对账行自曝** —— (a) `drive` 变量本身含冒号,模板再拼一个 ⇒ PS 收到 `C::\`、`Test-Path` 全 false ⇒ 对账行印成「pagefile 类 **0 MB**」且**不抛错**(空结果长得像正常结果,与今晚早前"回读证明写、不证明认"同族);(b) PS 侧另有一层:`Join-Path 'C:\'` 单反斜杠会报「Cannot find a provider with the name 'C'」,必须给双反斜杠。两条都修,并把**"量到 K 个"写进对账行**(K=0 另加警示),让"根本没有这东西"与"探针没读到"从此可分;再加 `未解释 < −1GB ⇒ 遍历有重复计数(硬链接/junction 目标)⇒ 只是上界` —— D 盘实测就给出 −2.54GB(pnpm store 硬链接 + 16687 个 junction),负数同样不许被读成结论。**这件仪器到此可一命令复现口径**:`node scripts/c-disk-breakdown.mjs` → 已用 84.48GB = 遍历 75.88 + pagefile/swap 2.06 + 未解释 6.58(卷存储保留 5.94GB + SVI/元数据,属地板,不是垃圾)。
 
 ## O50 真机 release 包启动即崩的根因收口 —— 守门 77 B6 括号形态盲区 + 新守门 98「HEAD 悬空具名导入」(2026-09-24)
 
@@ -6293,7 +6295,11 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
   **值得留的一条判据**:遇"install 说 Already up to date 但东西不在",不要去怀疑锁文件的服务进程,
   先做 **package.json ↔ lock importer 的 specifier 逐条比对** —— 不一致时 pnpm 是整段跳过该 importer,
   因此缺的永远是"那一个 importer 的全部新增项",这个形状本身就是指纹。
-- [x] ✅(2026-09-24) **登记一条"文档隐形"实证**:AGENTS.md 通篇登记守门 **97 `check-statusbar-single-source.mjs`**
-  (三判据 + 20 例 self-test + 镜像测试 + 装车证明,写得很完整),但**该脚本文件在全仓不存在**
+- [x] ✅(2026-09-24) **登记一条"文档隐形"实证,并在本票内被上游闭环**:AGENTS.md 通篇登记守门 **97 `check-statusbar-single-source.mjs`**
+  (三判据 + 20 例 self-test + 镜像测试 + 装车证明,写得很完整),但我登记时**该脚本文件在全仓不存在**
   (`git cat-file -e e070fb273:scripts/check-statusbar-single-source.mjs` 失败、`find` 零命中、
   `guardian-runner.mjs` 里也没有它的注册块)。这是守门 89 R1/R2 那类的现状样本:登记文本比实现跑得快。
+  **闭环更新(同日)**:上游 `def23aceb` 已注册守门 97、`f5c199073` 把最后两处状态栏顶距残留清零,
+  复验 `git cat-file -e FETCH_HEAD:scripts/check-statusbar-single-source.mjs` 已成功 ⇒ 本条从"缺陷"转"已落地"。
+  连带把我自己在 `apps/mobile-rn/App.tsx` 里写的那句"`SearchScreen` 仍留 `paddingTop: 48`"改回"四处已摘"
+  —— 上游那版当时列它为"已摘"与代码不符我才改的,现在两者一致了,注释不该留住一时的中间态。
