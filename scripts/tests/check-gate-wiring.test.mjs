@@ -13,6 +13,9 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { __test__ as G } from '../check-gate-wiring.mjs'
 
@@ -186,5 +189,36 @@ test('T12 R2 判据收紧**双向**:同块他句不算声称 / 同句声称必�
     1,
   )
   assert.ok(G.AGENTS_SENTENCE_SPLIT_RE.test('a。b'), '句界常量必须认 。')
+})
+
+test('T13 装车证明:本门自己必须真在 runner 里 blocking,且 R4 真参与 reds(本门自豁免 ⇒ 无人替它兜底)', () => {
+  // 89 号门对自身是 SELF_EXEMPT 的(创建当期 HEAD 里还没有它,设计如此),
+  // 所以"它自己被摘掉接线"这件事 R1/R2/R4 都看不见 —— 只能由本用例钉死。
+  const root = fileURLToPath(new URL('../..', import.meta.url))
+  const runner = readFileSync(join(root, 'scripts/guardian-runner.mjs'), 'utf8')
+  const blocks = runner.split(/\n(?=\s*\{\n\s*(?:\/\/[^\n]*\n\s*)?id:\s*)/)
+  const mine = blocks.filter((b) => /script:\s*'check-gate-wiring\.mjs'/.test(b))
+  assert.equal(mine.length, 1, `runner 里本门条目应恰好 1 份(实得 ${mine.length})`)
+  assert.match(mine[0], /id:\s*'89'/, '本门编号 89 漂移')
+  assert.match(mine[0], /mode:\s*'blocking'/, '本门必须是 blocking(warn 等于没有)')
+  assert.match(mine[0], /skipEnv:\s*'HUSKY_SKIP_GATE_WIRING'/, '本门必须有应急通道')
+
+  // R4 升 blocking 的装车证明:未点名者必须进 reds 数组(而不是只 console.log 报数)。
+  const self = readFileSync(join(root, 'scripts/check-gate-wiring.mjs'), 'utf8')
+  assert.equal(
+    (self.match(/status:\s*'red-r4'/g) || []).length,
+    1,
+    'R4 必须恰好一次进入 reds(行为由源脚本 --self-test 的 M8a/M8b 双向证明)',
+  )
+  // 输出文案不得再声称 R4 仅报数(与实现相反 = 文档漂移)。只约束那行结论模板,
+  // 不约束历史说明(源注释里"由「仅报数」升档"是如实陈述)。
+  assert.doesNotMatch(self, /R4\([^)\n]*仅报数/, 'R4 结论行仍写「仅报数」,与实现相反')
+
+  // 文档可见性:本门不得只靠 README 表格里的一枚 incidental 提及活着。
+  const docs = readFileSync(join(root, 'AGENTS.md'), 'utf8') + readFileSync(join(root, 'README.md'), 'utf8')
+  assert.ok(
+    /^- \*\*.*\*\*\(89\)/m.test(docs) || /^## .*89/m.test(docs),
+    'AGENTS.md 速查须有本门专属条目(标题含 (89))',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
