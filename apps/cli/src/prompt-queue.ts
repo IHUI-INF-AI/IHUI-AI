@@ -30,6 +30,8 @@ import { EventEmitter } from 'node:events';
 import { promises as fs, existsSync } from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+// D38 队列交互的编排判据唯一真相源(端内不得手写重排/编辑逻辑,§3 共享层优先)
+import { applyQueueEdit, reorderQueue } from '@ihui/shared/chat/queue-interactions';
 
 /** 队列项状态 */
 export type PromptQueueItemStatus = 'pending' | 'running' | 'completed' | 'cancelled';
@@ -110,6 +112,47 @@ export class PromptQueue extends EventEmitter {
     next.startedAt = Date.now();
     this.emit('dequeued', next);
     return next;
+  }
+
+  /**
+   * D38 reorder — 重排 pending 项(判据复用共享层 reorderQueue,W27 不变式:
+   * 输出与输入 length/元素引用集恒等,越界/同位 no-op)。
+   * @returns true 表示顺序发生变化;false = no-op(越界/同位/无 pending)
+   */
+  reorderPending(fromIndex: number, toIndex: number): boolean {
+    const pending = this.items.filter((it) => it.status === 'pending');
+    if (pending.length === 0) return false;
+    const next = reorderQueue(pending, fromIndex, toIndex);
+    if (next === pending) return false;
+    let k = 0;
+    for (let i = 0; i < this.items.length; i += 1) {
+      const cur = this.items[i];
+      const moved = next[k];
+      if (cur && cur.status === 'pending' && moved) {
+        this.items[i] = moved;
+        k += 1;
+      }
+    }
+    this.emit('reordered', next.map((it) => it.id));
+    return true;
+  }
+
+  /**
+   * D38 edit — 编辑 pending 项文本(判据复用共享层 applyQueueEdit:
+   * 只改文本,enqueuedAt/status/id 等元数据不动;空文本/找不到 = no-op)。
+   */
+  editPendingText(id: string, text: string): boolean {
+    const pending = this.items.filter((it) => it.status === 'pending');
+    if (pending.length === 0) return false;
+    const view = pending.map((it) => ({ id: it.id, text: it.prompt, createdAt: it.enqueuedAt }));
+    const nextView = applyQueueEdit(view, id, { text });
+    if (nextView === view) return false;
+    const edited = nextView.find((v) => v.id === id);
+    const item = this.items.find((it) => it.id === id && it.status === 'pending');
+    if (!edited || !item) return false;
+    item.prompt = edited.text;
+    this.emit('edited', item);
+    return true;
   }
 
   /** 标记指定 id 的项为 completed */
