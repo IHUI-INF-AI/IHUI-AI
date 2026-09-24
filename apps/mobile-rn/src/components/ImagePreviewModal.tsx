@@ -121,13 +121,12 @@ export default function ImagePreviewModal({
             <X size={30} color={HUD_COLOR} />
           </Pressable>
         </View>
-        <View style={styles.imageWrap}>
+        <View style={styles.imageWrap} pointerEvents="none">
           {current ? (
             <Image
               source={current}
               style={[styles.image, { transform: [{ scale: zoom }] }]}
               resizeMode="contain"
-              pointerEvents="none"
             />
           ) : null}
         </View>
