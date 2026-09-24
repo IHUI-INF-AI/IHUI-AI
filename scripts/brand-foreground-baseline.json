@@ -168,7 +168,9 @@
     "packages/app/src/features/topup-success/TopupSuccessScreen.tsx": 1,
     "packages/app/src/features/vip-trader/VipTraderScreen.tsx": 1,
     "packages/app/src/features/wallet/WalletScreen.tsx": 1,
-    "packages/app/src/features/withdraw/WithdrawScreen.tsx": 1
+    "packages/app/src/features/withdraw/WithdrawScreen.tsx": 1,
+    "apps/mobile-rn/src/components/FloatingActionButton.tsx": 1,
+    "packages/app/src/components/category/CategoryInlineBar.tsx": 2
   },
   "r4Counts": {
     "packages/app/src/features/account-cancel/AccountCancelScreen.tsx": 1,
@@ -267,5 +269,14 @@
     "packages/app/src/features/vip-trader/VipTraderScreen.tsx": 1,
     "packages/app/src/features/wallet/WalletScreen.tsx": 1,
     "packages/app/src/features/withdraw/WithdrawScreen.tsx": 1
+  },
+  "pairedCtaNotVisibleToRule": {
+    "addedBy": "本会话 2026-09-24",
+    "why": "§4 成对主 CTA,但配对形态在规则视野外(兄弟命名不匹配 / 前景走 JSX prop)。不为此放宽规则,否则\"同一 StyleSheet 内无配对的白卡片\"会一起被放过 —— 那才是 R3 真正要拦的东西。",
+    "sites": {
+      "apps/mobile-rn/src/components/FloatingActionButton.tsx": "fabCircle 底 × fabIcon 字(命名非兄弟对,规则按 X↔XText 配不上);两处都在同一 StyleSheet.create 内",
+      "packages/app/src/components/category/CategoryInlineBar.tsx": "itemActive 的 backgroundColor+borderColor 选中态;前景以 JSX prop 传入 color={active ? tk.brand.foreground : …},style 块内无 color 行"
+    },
+    "howToRetire": "把前景改成与底色同块或兄弟键(chip 组件内部把 color 落到 style),再下调本表"
   }
 }

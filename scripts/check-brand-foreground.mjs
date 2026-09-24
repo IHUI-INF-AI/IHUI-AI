@@ -261,10 +261,56 @@ export function countLightContainers(lines) {
   return count
 }
 
-/** R3:单文件「brand.DEFAULT 作填充/描边」计数(深色下即纯白) */
+/** 某 style 块内是否用了 brand.foreground(= 该底的正配前景) */
+const BRAND_FG = new RegExp(`(?:^|[,{\\s])color:\\s*${TKS}\\.brand\\.foreground\\b`)
+
+/**
+ * R3:单文件「brand.DEFAULT 作填充/描边」计数(深色档案下即纯白)。
+ *
+ * **不计** §4 认可的成对主 CTA:填充所在 style 块自己带 `color: *.brand.foreground`,
+ * 或其**兄弟键**(X ↔ XText / XBtn ↔ XBtnText / X ↔ XLabel —— 用 R4 同一套命名配对)用了 brand.foreground。
+ *
+ * 为什么必须排除:2026-09-24 删掉端内自立的 `brand.ctaFill`/`ctaText` 之后,主 CTA 的
+ * **唯一写法**就是 brand.DEFAULT + brand.foreground(AGENTS §4)。再把它计为债务,等于
+ * "按规矩写就红" —— 而恒红的 blocking 门只会逼人 `--no-verify`,连带废掉全部守门。
+ * 不合法的用法仍然计:brand.DEFAULT 底 × text.primary/surface.light 字由 R1、R4 判红;
+ * 而**完全没有**配对前景的白卡片(R3 原本真正要拦的东西)照旧计数。
+ */
 export function countCtaFills(lines) {
+  const deltas = computeBraceDeltas(lines)
+  const ownerAt = new Array(lines.length).fill(null)
+  const fgKeys = new Set()
+  for (let i = 0; i < lines.length; i++) {
+    const m = ANY_STYLE_KEY_START.exec(lines[i])
+    if (!m) continue
+    let depth = 0
+    let end = lines.length - 1
+    for (let j = i; j < lines.length; j++) {
+      depth += deltas[j]
+      if (depth <= 0) {
+        end = j
+        break
+      }
+    }
+    if (BRAND_FG.test(lines.slice(i, end + 1).join('\n'))) fgKeys.add(m[1])
+    for (let k = i; k <= end; k++) if (ownerAt[k] === null) ownerAt[k] = m[1]
+    i = end
+  }
   let count = 0
-  for (const line of lines) if (R3_BRAND_FILL.test(line)) count++
+  for (let i = 0; i < lines.length; i++) {
+    if (!R3_BRAND_FILL.test(lines[i])) continue
+    const owner = ownerAt[i]
+    if (owner && fgKeys.has(owner)) continue
+    let paired = false
+    for (const k of fgKeys) {
+      if (isSiblingStylePair(owner, k)) {
+        paired = true
+        break
+      }
+    }
+    if (paired) continue
+    count++
+  }
   return count
 }
 
@@ -295,8 +341,38 @@ function stagedFiles() {
   return out.map((rel) => path.join(ROOT, rel))
 }
 
-function readLines(file) {
-  return readFileSync(file, 'utf8').split('\n')
+/** 取 HEAD blob;HEAD 没有该路径返回 null */
+function headText(rel) {
+  try {
+    return execFileSync('git', ['-c', 'safe.directory=*', 'show', `HEAD:${rel}`], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      maxBuffer: 1 << 26,
+      windowsHide: true,
+      timeout: 20000,
+    })
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 判据取内容的口径:**全量审计与 --update-baseline 判 HEAD blob,`--staged` 判磁盘/暂存**。
+ *
+ * 共享工作树对成百上千个路径滞后 HEAD —— §12d 的 commit-tree/merge-tree 旁路只推进 HEAD 与
+ * 索引、从不 checkout;`--update-baseline` 又把按磁盘算出的数写回基线,于是这道门在"恒红"与
+ * "假绿"之间来回跳(同一份 HEAD 内容,本机与干净检出算出不同的数;本仓 2026-09-24 一天内
+ * R3 登记被整文件回退三次,每次都要人重跑归属核查)。守门 77 / 57 / 70 同日已改判仓库内容。
+ *
+ * @returns 判据文本行数组;null = HEAD 与磁盘都没有该文件(不判,不猜)
+ */
+function readText(file, fromHead) {
+  const rel = path.relative(ROOT, file).replace(/\\/g, '/')
+  if (fromHead) {
+    const t = headText(rel)
+    if (t !== null) return t.split('\n')
+  }
+  return existsSync(file) ? readFileSync(file, 'utf8').split('\n') : null
 }
 
 function run(options) {
@@ -312,6 +388,7 @@ function run(options) {
   }
   const all = listTargetFiles()
   const files = options.staged ? stagedFiles().filter((f) => all.includes(f)) : all
+  console.log(`📎 内容口径:${options.staged ? '暂存区/磁盘' : 'HEAD blob(工作树滞后不参与判定)'}`)
   if (options.staged && files.length === 0) {
     console.log('⏭ 暂存区无 apps/mobile-rn/src 或 packages/app/src 文件,跳过')
     return 0
@@ -322,9 +399,9 @@ function run(options) {
   const ctaCounts = {}
   const r4ByFile = {}
   for (const file of files) {
-    if (!existsSync(file)) continue
-    const lines = readLines(file)
     const rel = path.relative(ROOT, file).replace(/\\/g, '/')
+    const lines = readText(file, !options.staged)
+    if (lines === null) continue
     for (const v of findR1Violations(lines)) r1.push(`${rel} → ${v}`)
     const r4Pairs = findR4Violations(lines)
     if (r4Pairs.length > 0) r4ByFile[rel] = r4Pairs
@@ -598,6 +675,23 @@ function selfTest() {
   assert(countCtaFills(['    borderColor: tk.brand.DEFAULT,']) === 1, 'R3 tk.brand.DEFAULT 描边计 1')
   assert(countCtaFills(['    backgroundColor: tokens.brand.ctaFill,']) === 0, 'R3 不应命中 ctaFill(正解)')
   assert(countCtaFills(['    color: tokens.brand.foreground,']) === 0, 'R3 不计前景色')
+  // R3 口径(2026-09-24 补):§4 成对主 CTA 不计债;无配对/错配前景仍计 —— 三条都要有对照
+  assert(
+    countCtaFills(['  btn: {', '    backgroundColor: tk.brand.DEFAULT,', '    color: tk.brand.foreground,', '  },']) === 0,
+    'R3 同块成对(brand.foreground)不计 —— 这是按 §4 写的正确主 CTA',
+  )
+  assert(
+    countCtaFills(['  btn: {', '    backgroundColor: tk.brand.DEFAULT,', '  },', '  btnText: {', '    color: tk.brand.foreground,', '  },']) === 0,
+    'R3 兄弟键成对(xBtn ↔ xBtnText)同样不计(与 R4 同一套命名配对)',
+  )
+  assert(
+    countCtaFills(['  card: {', '    backgroundColor: tk.brand.DEFAULT,', '  },']) === 1,
+    'R3 反向对照:无任何配对前景的白卡片必须仍计 1',
+  )
+  assert(
+    countCtaFills(['  card: {', '    backgroundColor: tk.brand.DEFAULT,', '  },', '  cardText: {', '    color: tk.text.primary,', '  },']) === 1,
+    'R3 反向对照:配 text.primary(非 brand.foreground)的填充不得被当成已配对放行',
+  )
   assert(countCtaFills(['    backgroundColor: tokens.brand.DEFAULTISH,']) === 0, 'R3 边界:同前缀字段不得误计')
   console.log('✅ check-brand-foreground self-test 全部通过')
   return 0
