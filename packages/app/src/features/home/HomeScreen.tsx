@@ -21,6 +21,7 @@ import type {
   HomeMenuItem,
   HomeScreenProps,
 } from '../../types'
+import { MoreLink } from '../../components/MoreLink'
 
 import { rnRadius } from '@ihui/design-tokens'
 
@@ -158,12 +159,7 @@ export function HomeScreen({
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{t('home.livePreview')}</Text>
-          <TouchableOpacity
-            onPress={onNavigateLives}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={styles.linkText}>{t('home.livePreviewMore')}</Text>
-          </TouchableOpacity>
+          <MoreLink label={t('common.more')} onPress={onNavigateLives} colorScheme={colorScheme} />
         </View>
         {lives.length === 0 ? (
           <View style={styles.card}>
@@ -205,12 +201,11 @@ export function HomeScreen({
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{t('home.recommend')}</Text>
-          <TouchableOpacity
+          <MoreLink
+            label={t('common.more')}
             onPress={onNavigateCourses}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={styles.linkText}>{t('home.livePreviewMore')}</Text>
-          </TouchableOpacity>
+            colorScheme={colorScheme}
+          />
         </View>
         {recommends.length === 0 ? (
           <View style={styles.card}>
@@ -319,7 +314,6 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
       color: tk.text.primary,
     },
-    linkText: { fontSize: 14, color: tk.success.DEFAULT },
     card: {
       padding: 14,
       borderRadius: rnRadius['2xl'],
