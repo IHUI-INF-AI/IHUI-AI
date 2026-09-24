@@ -1,4 +1,43 @@
 {
+  "ecosystem": {
+    "title": "Ecosystem",
+    "description": "Several market entries that used to sit side by side now converge on one page: skills, MCP, capabilities, connectors and expert bundles, all reachable from here.",
+    "marketsSection": "Capability Markets",
+    "bundlesSection": "Expert Bundles",
+    "bundlesHint": "Capabilities from several markets grouped by expert workflow; tap a tag to go straight to its page",
+    "cards": {
+      "aiSkills": {
+        "title": "AI Skills",
+        "desc": "Attach AI skills to agents to extend conversations and tasks"
+      },
+      "mcpStore": {
+        "title": "MCP Store",
+        "desc": "Browse built-in MCP servers and register them in one click"
+      },
+      "capabilityMarket": {
+        "title": "Capability Market",
+        "desc": "Enable first-party MCP capabilities (tools, resources, prompts)"
+      },
+      "skillsMarket": {
+        "title": "Skill Market",
+        "desc": "Self-evolving skills: install, rate and subscribe"
+      },
+      "connectors": {
+        "title": "CN Connectors",
+        "desc": "Connect Yuque, Feishu, WeCom and DingTalk document sources"
+      }
+    },
+    "bundles": {
+      "contentCreator": {
+        "title": "Content Creator Bundle",
+        "desc": "A combined entry for the writing and publishing workflow: AI skills, skill market and CN connectors"
+      },
+      "developerExtension": {
+        "title": "Developer Extension Bundle",
+        "desc": "A combined entry for the tooling workflow: MCP store registration and platform capabilities"
+      }
+    }
+  },
   "aiWs": {
     "videoDone": "Video generation complete",
     "videoFailed": "Video generation failed, please try again",
@@ -18051,6 +18090,7 @@
     "none": "None"
   },
   "nav": {
+    "ecosystemHub": "Ecosystem Market",
     "adminRelayInsights": "Insights",
     "adminRelayEnterprise": "Enterprise Compliance",
     "adminRelayPlugins": "Plugins",
