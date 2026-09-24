@@ -66,7 +66,7 @@ export function MessageErrorCard({
   // 帧缺失:retryInfo 为 null/undefined → remaining 无意义,view 为 null,倒计时块不渲染
   const remaining = useRetryCountdown(retryInfo?.retryInMs)
   const view =
-    retryInfo != null
+    retryInfo !== null && retryInfo !== undefined
       ? buildRetryCountdownView(
           { ...retryInfo, noResponse: noResponseTimeout || retryInfo.noResponse },
           t,
@@ -74,8 +74,11 @@ export function MessageErrorCard({
         )
       : null
   const showRetryBlock =
-    view != null &&
-    (view.scheduleLabel != null || view.httpStatusLabel != null || view.noResponseLabel != null)
+    view !== null &&
+    view !== undefined &&
+    ((view.scheduleLabel !== null && view.scheduleLabel !== undefined) ||
+      (view.httpStatusLabel !== null && view.httpStatusLabel !== undefined) ||
+      (view.noResponseLabel !== null && view.noResponseLabel !== undefined))
 
   return (
     <div
@@ -96,13 +99,13 @@ export function MessageErrorCard({
           data-testid={`message-error-retry-${messageId}`}
           className="flex flex-wrap items-center gap-2 px-3 pb-1 pt-0.5 text-xs text-muted-foreground"
         >
-          {view!.scheduleLabel != null && (
+          {view!.scheduleLabel !== null && view!.scheduleLabel !== undefined && (
             <span data-testid="error-retry-schedule">{view!.scheduleLabel}</span>
           )}
-          {view!.httpStatusLabel != null && (
+          {view!.httpStatusLabel !== null && view!.httpStatusLabel !== undefined && (
             <span data-testid="error-retry-http">{view!.httpStatusLabel}</span>
           )}
-          {view!.noResponseLabel != null && (
+          {view!.noResponseLabel !== null && view!.noResponseLabel !== undefined && (
             <span data-testid="error-retry-noresponse">{view!.noResponseLabel}</span>
           )}
         </div>

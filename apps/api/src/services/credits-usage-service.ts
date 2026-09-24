@@ -13,7 +13,7 @@ import { db } from '../db/index.js'
 import { shiftDate } from '../utils/checkin-helpers.js'
 
 /** 分桶时区(唯一口径,前端热力图 dateKey 与之逐位对应) */
-export const CREDITS_USAGE_TIMEZONE = 'UTC' as const
+const CREDITS_USAGE_TIMEZONE = 'UTC' as const
 /** 查询区间天数上限 */
 export const MAX_CREDITS_USAGE_DAYS = 365
 
@@ -55,7 +55,7 @@ export function utcDateKey(d: Date): string {
 }
 
 /** UTC 日期表达式:to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') */
-export function usageDateSql() {
+function usageDateSql() {
   return sql<string>`to_char(${pointTransactions.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD')`
 }
 
