@@ -138,9 +138,7 @@ export function BestOfCompare({ onAdopt, runId }: BestOfCompareProps) {
             onClick={() => setDiffMode((v) => !v)}
             className={cn(
               'flex items-center gap-1 rounded-md border px-2 py-0.5 transition-colors',
-              diffMode
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-accent',
+              diffMode ? 'bg-cta text-cta-foreground' : 'text-muted-foreground hover:bg-accent',
             )}
           >
             <GitCompareArrows className="h-3 w-3" />
