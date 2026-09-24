@@ -269,6 +269,17 @@ test('mergeThreeBlobs 三态:干净出 buffer、冲突报 conflict、二进制�
   }
 })
 
+test('CAS 失败的悬空提交必须本工具自己 tag 掉(否则把噪声留给下一个人)', () => {
+  const src = readFileSync(new URL('../union-converge.mjs', import.meta.url), 'utf8')
+  const at = src.indexOf('if (cas.status !== 0)')
+  assert.ok(at > 0, '找不到 CAS 失败分支')
+  const branch = src.slice(at, at + 1200)
+  assert.match(branch, /git\(\['tag', tagName, sha/, 'CAS 失败要就地按 §22 打 lost-commit tag')
+  assert.match(branch, /lost-commit\/wip-/, "tag 名必须走本仓既有命名族(lost-commit/wip-<sha>)")
+  // tag 失败不得掩盖原始故障:仍要 exit 1 并给出手工命令
+  assert.match(branch, /process\.exit\(1\)/, 'CAS 失败必须非零退出')
+})
+
 test('装车证明:收敛器冲突分支真的会调它,守护真的会调 --all-new 台账', () => {
   const conv = readFileSync(new URL('../git-sync-converge.mjs', import.meta.url), 'utf8')
   assert.match(
