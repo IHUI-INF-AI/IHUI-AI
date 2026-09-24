@@ -85,3 +85,13 @@ export * from './input-notices'
 // D89 输入源与队列小项(智能快照三态+首用引导+三源分流 / 队列命令化+Undo 三态与 W27 只读纪律 /
 // 记忆引用计数空态 + goal 成就耗时复用 formatDurationHuman)
 export * from './input-sources'
+// D77 对话流业务表单卡(email/calendarEvent 两类 schema 与 form_request 事件形状对齐 + 判定层校验
+// + 动作成对硬约束 approve↔reject 拒绝路径零副作用;复用 ui-react 表单件,不取数 onAction 注入)
+export * from './business-forms'
+// D97 云端聊天互操作活动卡(五动作 × active/completed/following 三态 = 15 格矩阵穷尽;
+// 数据面复用 /api/task-messages + W2 abort,CloudChatOpEntry 为 D50 投递层唯一对接载荷,零新增传输)
+export * from './cloud-chat-ops'
+// D59 模型负载与排队条(负载三级 + 排队五态 + waitBucket 四档边界 + 排位插值;
+// 与 D71 turn-status 正交(turn 阶段/负载等待两维度);isInducementRisk 对齐 D67 口径;
+// 数据面 model_queue 帧归 D34 批次,帧落地前渲染件恒 null 不用假数据占位)
+export * from './model-load'
