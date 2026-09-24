@@ -6,7 +6,7 @@
  * StudyIndexScreen AI 视频页(共享层,平台无关 UI)
  *
  * 对齐 mobile-rn StudyIndexScreen 核心 UI:
- * - index 预览态:TipBanner 滚动 + 推荐模型前 3 + 最新课程前 3 + 各自「查看更多」
+ * - index 预览态:TipBanner 滚动 + 推荐模型前 3 + 最新课程前 3 + 各自「更多」
  * - study 全屏态:双列视频卡片(封面/标题/时长/讲师/相对时间)
  * - 赛道分类 chip 切换(替代 SingleTypeBar,保持平台无关)
  * - 搜索输入框 + 下拉刷新 + 上拉分页 + 空态/加载态/错误重试
