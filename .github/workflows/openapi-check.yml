@@ -67,6 +67,15 @@ jobs:
       - name: Run OpenAPI check
         run: node scripts/openapi-check.mjs
 
+      - name: Build workspace packages the export graph imports
+        # `openapi:export` 启动的是**真实 Fastify 依赖图**(不监听端口/不连库),而图里
+        # packages/shared/src/auth/token-store.ts → `@ihui/api-client` 走的是该包 package.json
+        # 的 `main`(指向 dist/index.js)。CI 的 `pnpm install --frozen-lockfile` 从不构建
+        # workspace 包 ⇒ dist 不存在 ⇒ ERR_MODULE_NOT_FOUND,与本仓任何一处代码改动无关。
+        # 本地永远绿(我的 dist 早在),正是"本地全绿、CI 恒红"那一族(同守门 72/78 取向)。
+        # `@ihui/api-client...`(后缀三个点)= 该包**及其 workspace 依赖**,故 @ihui/types 一并构建。
+        run: pnpm --filter "@ihui/api-client..." run build
+
       - name: Assert committed contract has no drift (O8 [E])
         # committed 的 apps/api/openapi.json 是入库产物(见 .gitignore 的 negation)。
         # 这里从当前代码重新导出一份,逐键比对 —— 只校验 committed 产物的话,
