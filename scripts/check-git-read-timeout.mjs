@@ -55,6 +55,8 @@ export const HOT = [
   'scripts/git-push-converge.mjs',
   'scripts/heal-worktree-tracked.mjs',
   'scripts/check-commit-loss-guard.mjs',
+  //  守门 98 由 pre-commit 直调,git 挂住 = 提交像死掉了(§80 的原始成因形态)
+  'scripts/check-dangling-local-imports.mjs',
   'scripts/backup-unreachable-commits.mjs',
   'scripts/check-port-registry.mjs',
   'scripts/lib/gitdir.mjs',
