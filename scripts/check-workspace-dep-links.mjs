@@ -23,10 +23,11 @@
  *   node scripts/check-workspace-dep-links.mjs --self-test
  */
 import { execFileSync } from 'node:child_process'
-import { existsSync, readdirSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { existsSync, readdirSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = dirname(HERE)
@@ -198,7 +199,7 @@ function assert(cond, msg) {
 
 /** 自建夹具跑真判据;每一步都断言夹具非空,防"扫了个空"式假绿 */
 function selfTest() {
-  const root = mkdtempSync(join(tmpdir(), 'ihui-dep-link-'))
+  const root = mkScratch('ihui-dep-link-')
   const cases = []
   const t = (name, fn) => cases.push({ name, fn })
   try {
@@ -245,7 +246,7 @@ function selfTest() {
       assert(findMissingLinks(root, dirs).length === 0, `普通依赖不该进本门: ${JSON.stringify(findMissingLinks(root, dirs))}`)
     })
     t('patterns 为空/错 → 判据失效必须红', () => {
-      const emptyRoot = mkdtempSync(join(tmpdir(), 'ihui-dep-link-empty-'))
+      const emptyRoot = mkScratch('ihui-dep-link-empty-')
       try {
         writeFileSync(join(emptyRoot, 'pnpm-workspace.yaml'), "nodeLinker: isolated\n")
         let code = 0
@@ -263,7 +264,7 @@ function selfTest() {
         }
         assert(code === 1, `扫不到包时应 exit 1, got ${code}`)
       } finally {
-        rmSync(emptyRoot, { recursive: true, force: true })
+        rmScratch(emptyRoot)
       }
     })
 
@@ -280,7 +281,7 @@ function selfTest() {
     console.log(failed === 0 ? `--self-test ${cases.length}/${cases.length} 通过` : `--self-test 失败 ${failed}/${cases.length}`)
     return failed === 0 ? 0 : 1
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 }
 
