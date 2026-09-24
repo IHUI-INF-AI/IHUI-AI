@@ -442,6 +442,75 @@ export function assessHealScale(missingCount, seenCount, ratio = healSuspectRati
   return { ok: true, ratio: r, reason: '' }
 }
 
+/**
+ * 本门自己的"接线自检"。
+ *
+ * 为什么必须有(2026-09-24):本门存在的理由就是"并发会话把别人已入库的登记行整文件回写掉",
+ * 而它**自己没有任何东西看守注册块**。今天一天内共享工作树就被旧基线回写过多轮,
+ * `guardian-runner.mjs` 里那道 id 71 注册块正是这类回写的普通牺牲品 —— 一旦被抹掉:
+ *   · pre-commit 不再跑本门(提交裸奔,登记行开始丢);
+ *   · CI 也不会发现(它不在提交链上);
+ *   · 镜像测试**连红都不是** —— 它断言的是"本门编号在 runner 中恰好一次",摘线后
+ *     该测试文件根本不会被调用。
+ * 即"防丢门被摘掉"这件事本身不受任何门保护,只能自指。判据口径与守门 89 一致:
+ * 按**内容**点名本脚本,且必须查满五处权威点 —— `.husky/pre-commit` 自 2026-09-22 起
+ * 只是薄壳,只查它必然得出相反结论。
+ */
+export const WIRE_POINTS = [
+  ['scripts/guardian-runner.mjs', 'guardian-runner 注册表'],
+  ['scripts/lib/pre-commit-hook.js', 'pre-commit 真实逻辑'],
+  ['.husky/pre-commit', 'pre-commit 薄壳'],
+  ['.husky/post-commit', 'post-commit 自愈层'],
+  ['package.json', '根 package.json scripts'],
+]
+
+export function planLineLossWired(root = ROOT) {
+  const present = []
+  const missing = []
+  let existingPoints = 0
+  for (const [rel, label] of WIRE_POINTS) {
+    let text = ''
+    try {
+      text = readFileSync(path.join(root, rel), 'utf8')
+    } catch {
+      missing.push(`${label}(读不到 ${rel})`)
+      continue
+    }
+    existingPoints++
+    if (text.includes('check-plan-line-loss')) present.push(label)
+    else missing.push(`${label}(${rel} 未点名本脚本)`)
+  }
+  /**
+   * `applicable` —— 一个注册落点文件都不存在时,这里**不是**本仓,而是被复制出去的夹具
+   * (本门的端到端用例就把本脚本 copy 进临时 git 仓跑)。那种场合判"摘线"是错的,
+   * 会让一个正常工作的副本以"门被摘掉"的名义 exit 1(第一版就踩了:连带弄红三枚既有端到端用例)。
+   * 所以摘线只在"落点文件在、但都不点名本门"时成立。
+   */
+  return {
+    applicable: existingPoints > 0,
+    wired: present.length > 0,
+    present,
+    missing,
+  }
+}
+
+/** 打印摘线告警;`hard` 时(提交链上的 check 模式)直接判红 exit 1。 */
+function guardWiring(hard) {
+  const w = planLineLossWired()
+  if (w.wired || !w.applicable) return w
+  console.warn(
+    '\n❌ [plan-line-loss] 本门已从提交链上被摘掉 —— 五处权威接线点无一再点名本脚本' +
+      `(登记行正在无人看守地丢失):\n   ${w.missing.join('\n   ')}`,
+  )
+  console.warn(
+    '   修法(一行,立即恢复):在 `scripts/guardian-runner.mjs` 恢复 id 71 注册块' +
+      "(`script: 'check-plan-line-loss.mjs'`);\n" +
+      '   若同时需要 post-commit 自愈层,还要在 `.husky/post-commit` 恢复对 `--heal` 的调用。\n',
+  )
+  if (hard) process.exit(1)
+  return w
+}
+
 export function healContent(targetSrc, missing) {
   const eol = targetSrc.includes('\r\n') ? '\r\n' : '\n'
   const lines = targetSrc.split(eol)
@@ -972,6 +1041,8 @@ function selfTest() {
  * 返回退出码:0 = 无需恢复或已恢复成功;1 = 恢复失败(不动历史,交人工)。
  */
 function heal(commit) {
+  // 自愈层只**告警**不拒跑:摘线时它恰恰是唯一还能把行捞回来的东西,拒绝执行等于见死不救
+  guardWiring(false)
   const head = git(['show', `HEAD:${PLAN}`])
   const disk = readFileSync(path.join(ROOT, PLAN), 'utf8')
   const seen = historyMarkers()
@@ -1128,6 +1199,9 @@ if (isDirectRun) {
     console.warn('⚠️  HUSKY_SKIP_PLAN_LINE_LOSS=1,已跳过计划登记行防丢守门')
     process.exit(0)
   }
+  // 提交链/CI 上的 check 模式:**先验自己还在不在链上**。摘线时若照常报"无丢失",
+  // 那就是最坏的一种绿 —— 门没跑,却以门的名义宣布通过。
+  guardWiring(true)
   const isStaged = args.includes('--staged')
   try {
     const { ok, lost, prose } = runCheck(isStaged)
