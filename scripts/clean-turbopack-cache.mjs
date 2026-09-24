@@ -41,9 +41,10 @@
  *   node scripts/clean-turbopack-cache.mjs --selftest # 内置自测(临时目录模拟验证统计/清理)
  */
 import { promises as fs } from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = path.resolve(__dirname, '..')
@@ -65,7 +66,7 @@ function parseArgs(argv) {
 }
 
 /**
- * 内置自测(2026-08-27 立):在系统临时目录构造假的 turbopack 缓存结构,
+ * 内置自测(2026-08-27 立):在统一临时夹具落点(mkScratch,不落 C 盘)构造假的 turbopack 缓存结构,
  * 验证「递归统计(含嵌套子目录)+ MB 换算 + 阈值判定 + 删除清理」四步正确,
  * 防 2026-08-27 单位换算 bug 之类回归。无副作用,不触碰真实 .next。
  */
@@ -77,7 +78,7 @@ async function selfTest() {
   }
 
   console.log('[turbopack-cache] ===== 自测开始 =====')
-  const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'turbocache-selftest-'))
+  const tmpRoot = mkScratch('turbocache-selftest-')
   const fakeTarget = path.join(tmpRoot, 'dev', 'cache', 'turbopack')
   const verDir = path.join(fakeTarget, 'v16.2.12')
   try {
@@ -104,7 +105,12 @@ async function selfTest() {
     const gone = !(await fs.access(fakeTarget).then(() => true).catch(() => false))
     check('删除清理', gone, '目录已消失')
   } finally {
-    await fs.rm(tmpRoot, { recursive: true, force: true }).catch(() => {})
+    // 原语义为 best-effort 清理(清理失败不得影响自测结论),故保留吞异常。
+    try {
+      rmScratch(tmpRoot)
+    } catch {
+      /* Windows 偶发句柄占用,忽略 */
+    }
   }
 
   const allOk = results.every(([, ok]) => ok)
