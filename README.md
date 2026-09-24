@@ -2897,8 +2897,20 @@ R2 用基线棘轮拦"浅色当容器底":`surface.light` 背景 / α≥0.5 的�
 **头号危险不是没封住,而是被穿透**:实测 PowerShell 7 的 `Get-ChildItem -Recurse` 会穿过 junction
 枚举到目标里的文件 ⇒ "按名字删 `C:\tmp\ihui-*`"会顺着链接清空 D 盘真实目标。故 `ForceDelete`
 这条唯一删除出口对重解析点只 `[System.IO.Directory]::Delete($path,$false)` 断链,量体积遇 junction
-一律不跟随(否则把 D 盘的量报成 C 盘的债)。取证:封口器 `--self-test` 11 例 + 镜像测试 7 例
+一律不跟随(否则把 D 盘的量报成 C 盘的债)。取证:封口器 `--self-test` 13 例 + 镜像测试 8 例
 (含两条装车证明:维护脚本必须真的调 `--check`+`--apply`;守门必须 import 而非自抄清单)。
+**改道之后还要"看不见"**:junction 在资源管理器里与文件夹长得完全一样,所以 `--apply` 会按策略给
+**链接本体**加 Hidden(用户 2026-09-24 选"设隐藏,保留改道")。这里有个能骗过自检的陷阱:
+`attrib +h <junction>` 把 Hidden 设到**目标**那侧、链接不动,而 `attrib` 回显又顺着链接读目标 ⇒
+打印 `H` 看着像成功(实测第一轮就这样,4 个名字照旧可见、反倒把 D 盘数据目录藏掉了)。正确设法是
+PowerShell 提供器位或,**复核只能用父目录枚举** `Get-ChildItem <父> -Force`(Explorer 读的就是那份
+目录项属性);隐藏不影响穿透读写,也不影响 `isSymbolicLink()` 判定。
+**改名之后还要"看不见"**:junction 在资源管理器里与文件夹长得完全一样,所以 `--apply` 会按策略给
+链接本体加 Hidden(用户 2026-09-24 拍板"设隐藏,保留改道")。这里有个足以骗过任何自检的陷阱:
+`attrib +h <junction>` 把 Hidden 设到**目标**那侧、链接本体不动,而 `attrib` 回显又顺着链接读目标
+⇒ 打印 `H` 看着像成功(实测第一轮就这样"隐藏了 4 次",C 盘名字照旧可见,D 盘数据目录反被藏)。
+正确设法是 PowerShell 提供器位或,**复核只能用父目录枚举**(`Get-ChildItem <父> -Force`,即 Explorer
+读的那份目录项属性)。隐藏不影响穿透读写,也不影响 `isSymbolicLink()` 判定。
 本门另报一条 **页面文件"待重启生效"哨兵**:比对注册表 `PagingFiles` 的配置上限与 WMI
 `Win32_PageFileUsage.AllocatedBaseSize` 的已分配大小,落差 >512MB 且 >25% 就点名"下次重启才释放"
 (2026-09-24 把本机 `C:\pagefile.sys` 从手设 32768MB 压到 2048MB;磁盘上旧大小必须重启才收缩,
