@@ -34,6 +34,15 @@ export default {
           DEFAULT: 'var(--color-primary)',
           foreground: 'var(--color-primary-foreground)',
         },
+        /* 品牌实底档(2026-09-24 立)。miniapp-taro / mobile-rn 走 Tailwind **v3**,
+         * 色值来自这份 JS theme 而**不是** tokens.css 的 @theme —— 只在 CSS 侧落
+         * `--color-cta` 的话,这两端写 `bg-cta` 会**静默生成不出任何规则**(类名在、样式无,
+         * 不报错也不红)。这里补映射,值仍指同一个 CSS 变量 ⇒ 单一源头不变。
+         * 与 `--color-*` 的对应关系由守门 check-cross-end-tokens 的镜像测试钉住。 */
+        cta: {
+          DEFAULT: 'var(--color-cta)',
+          foreground: 'var(--color-cta-foreground)',
+        },
         secondary: {
           DEFAULT: 'var(--color-secondary)',
           foreground: 'var(--color-secondary-foreground)',
@@ -69,6 +78,27 @@ export default {
         info: {
           DEFAULT: 'var(--color-info)',
           foreground: 'var(--color-info-foreground)',
+        },
+        /* 以下四档此前只在 tokens.css 有、preset 没有 —— 因为 v3 端(miniapp-taro / mobile-rn)
+         * 当时**一处都没用到**,所以不是 bug 而是缺口没被触发。补齐是为了让
+         * "tokens.css @theme 里凡 X + X-foreground 成对的色档,preset 必须有对应键"
+         * 这条不变量可以**无条件成立**(不留豁免表 = 没有会腐烂的清单)。
+         * 由 scripts/tests/check-cross-end-tokens.test.mjs 钉死。 */
+        danger: {
+          DEFAULT: 'var(--color-danger)',
+          foreground: 'var(--color-danger-foreground)',
+        },
+        sidebar: {
+          DEFAULT: 'var(--color-sidebar)',
+          foreground: 'var(--color-sidebar-foreground)',
+        },
+        scrim: {
+          DEFAULT: 'var(--color-scrim)',
+          foreground: 'var(--color-scrim-foreground)',
+        },
+        'brand-accent': {
+          DEFAULT: 'var(--color-brand-accent)',
+          foreground: 'var(--color-brand-accent-foreground)',
         },
       },
       borderRadius: RADIUS_REM,

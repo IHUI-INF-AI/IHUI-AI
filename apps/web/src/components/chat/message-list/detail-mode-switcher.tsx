@@ -43,7 +43,7 @@ export function DetailModeSwitcher() {
             onClick={() => setMode(m)}
             className={
               mode === m
-                ? 'rounded-full bg-primary px-2.5 py-0.5 text-xs text-primary-foreground transition-colors'
+                ? 'rounded-full bg-cta px-2.5 py-0.5 text-xs text-cta-foreground transition-colors'
                 : 'rounded-full px-2.5 py-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground'
             }
           >
