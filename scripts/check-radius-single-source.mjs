@@ -38,6 +38,10 @@
  *   node scripts/check-radius-single-source.mjs --staged     # pre-commit:只扫暂存文件
  *   node scripts/check-radius-single-source.mjs --self-test  # 判据正反例取证
  *   node scripts/check-radius-single-source.mjs --update-baseline  # 清理后下调基线(须人工确认)
+ *
+ * 退出码(与守门 94/99/101 同口径):
+ *   0 = 判据执行且通过;1 = 判据执行且发现红线;2 = **无法判定**(取材面失效:本检出无 .git 而 git
+ *   向上逃逸到外层仓、跟踪清单解析失败或"退出码 0 但 0 条"的空扫)—— 空扫绝不记绿。
  */
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs'
 import { join, relative, dirname } from 'node:path'
@@ -103,6 +107,30 @@ function gitNameSet(args) {
   } catch {
     return null
   }
+}
+
+/**
+ * 仓库活性判定:跟踪清单只有在"git 上下文确实指向本检出"时才可信。
+ * 隔离检出(本目录无 .git、但某个祖先是 git 仓)会让 git **向上逃逸**到外层仓:
+ * 从该 cwd 执行 `git ls-files` 返回的是「退出码 0 + 空清单」而非报错(外层仓在本路径下
+ * 没有跟踪文件),于是 auditHead 的棘轮过滤把 6000+ 候选整批滤成 0,判据 C 同样拿到空清单
+ * ——整道门一条判据都没执行,却打印「✅ 圆角单一源头对账通过」并以 0 退出(2026-09-25 实测)。
+ * 口径对齐守门 78/94/99/101:toplevel 不匹配 / 清单取不到 / 空扫 ⇒ **exit 2 显式"无法判定"**,
+ * 绝不冒烟成判据红,也绝不记绿。
+ */
+function resolveGitContext() {
+  let top
+  try {
+    top = gitRo(['rev-parse', '--show-toplevel']).trim()
+  } catch (e) {
+    return { ok: false, reason: `git rev-parse --show-toplevel 未能执行:${String(e?.stderr || e?.message || e).split('\n')[0]}` }
+  }
+  if (!top) return { ok: false, reason: 'git rev-parse --show-toplevel 返回空输出' }
+  const norm = (p) => p.replaceAll('\\', '/').replace(/\/+$/, '').toLowerCase()
+  if (norm(top) !== norm(ROOT)) {
+    return { ok: false, reason: `git 上下文指向 ${top},不是本门 ROOT(${ROOT})—— 本检出没有自己的 .git,跟踪清单会被读成外层仓库的口径` }
+  }
+  return { ok: true }
 }
 
 function* walk(dir) {
@@ -489,6 +517,13 @@ async function main() {
     await selfTest()
     return 0
   }
+  // 取材面活性:先确认 git 上下文就是本检出,再谈"扫到了什么"。
+  // 判据没跑成(exit 2 无法判定)与判据跑了 0 命中(exit 0)必须可区分 —— 后者合法,前者绝不记绿。
+  const ctx = resolveGitContext()
+  if (!ctx.ok) {
+    console.error(`❌ [radius-guard] 无法判定:${ctx.reason} —— 判据未能执行,不计通过`)
+    return 2
+  }
   const { errors: tableErrors, table: rawTable } = await checkTableConsistency()
   const mod = await loadTable()
   const table = {
@@ -500,7 +535,11 @@ async function main() {
   const files = []
   if (FILES_MODE) {
     for (const f of fileList) if (!skipped(f.replaceAll('\\', '/'))) files.push(f.replaceAll('\\', '/'))
-  } else if (isStaged && STAGED_SET) {
+  } else if (isStaged) {
+    if (!STAGED_SET) {
+      console.error('❌ [radius-guard] 无法判定:git diff --cached 未能执行,--staged 无法收窄到暂存区 —— 判据未能执行,不计通过')
+      return 2
+    }
     for (const f of STAGED_SET) if (!skipped(f) && !isDoc(f)) files.push(f)
   } else {
     for (const d of SCAN_DIRS) for (const abs of walk(join(ROOT, d))) {
@@ -518,8 +557,22 @@ async function main() {
   const auditHead = !isStaged && !FILES_MODE
   const diverged = auditHead ? gitNameSet(['diff', '--name-only', 'HEAD']) : null
   const trackedSet = auditHead ? gitNameSet(['ls-files']) : null
-  if (auditHead && trackedSet) {
+  if (auditHead) {
+    // 全量审计的取材面是 HEAD:清单取不到、或"退出码 0 但 0 条"(守门 78:空扫不报绿)都是尺子失效,
+    // 不是"判据执行了、命中 0"。真仓不可能没有跟踪文件 —— 0 只可能是 git 上下文不对。
+    if (!trackedSet) {
+      console.error('❌ [radius-guard] 无法判定:git ls-files 未能执行,HEAD 口径的全仓跟踪清单取不到 —— 不计通过')
+      return 2
+    }
+    if (trackedSet.size === 0) {
+      console.error('❌ [radius-guard] 无法判定:git ls-files 列出 0 个路径(空扫不报绿,真仓不可能没有跟踪文件)—— 不计通过')
+      return 2
+    }
     for (let i = files.length - 1; i >= 0; i--) if (!trackedSet.has(files[i])) files.splice(i, 1)
+    if (files.length === 0) {
+      console.error('❌ [radius-guard] 无法判定:全量候选为 0 文件(SCAN_DIRS ∩ 跟踪清单为空)—— 判据未能执行,不计通过')
+      return 2
+    }
   }
   const headCounts = new Map()
   const headCountOf = (rel) => {
@@ -562,8 +615,8 @@ async function main() {
       .filter(Boolean)
     cov = coverageAudit(tracked, (f) => readFileSync(join(ROOT, f), 'utf8'))
   } catch (e) {
-    console.error(`❌ 判据 C 无法执行(git ls-files 失败):${e?.message || e} —— 按失败处理,不静默放行`)
-    tableErrors.push('覆盖面对账(判据 C)未能执行')
+    console.error(`❌ [radius-guard] 无法判定:判据 C 的跟踪文件清单取不到(git ls-files 失败:${String(e?.message || e).split('\n')[0]})—— 判据未能执行,既不记红也不记绿`)
+    return 2
   }
   // 棘轮锚点从"会腐烂的手工清单"换成**该文件 HEAD 版本自身的违规数**:
   // 只拦"这次改动把绕档取用加回来了",不拦仓库既有债;工作区滞后既不能藏债也不能造债。

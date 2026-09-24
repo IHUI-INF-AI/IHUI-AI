@@ -2641,6 +2641,44 @@ const checks = [
     ].join('\n'),
   },
 
+  //  架构契约门(2026-09-24 立):与其余门相反的方向 —— 其余门是"发现一类违规 → 写一条判据",
+  //  本门读 config/architecture-policy.yaml 这张**声明表**,从声明反查违规(模块清单/依赖方向/
+  //  公开入口/层序 + 体积上限)。存量模块一律 managed:false ⇒ 只报数不判红,收口才翻 true;
+  //  全仓即时判红的只有 C1(单文件行上限,阈值 6000 高于 HEAD 实测最大值 5258)与 T1(表与现实脱节)。
+  //  id 说明:任务书指定的 102 在本门落地前被并行会话占用(check-glyph-arrow-icon),故按"后来者改号"
+  //  规矩顺延取 103 —— 注册前已 `grep -n "id: '10[0-9]'"` 逐个复测,103 出现 0 次。
+  {
+    id: '103',
+    label: '🏛️ 架构契约对账(blocking,从 config/architecture-policy.yaml 的声明反查违规)',
+    script: 'check-architecture-policy.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_ARCH_POLICY',
+    onFailHint: [
+      '',
+      '  💡 本门不新增"风格洁癖",它只问一句:代码里真实存在的 import,和策略表声明的',
+      '     模块契约是不是同一件事。四类红各自对应一个会在生产上炸的形态:',
+      '     T1 表与现实脱节 —— 模块改名/目录搬走而 config/architecture-policy.yaml 没跟上;',
+      '        表一过期,所有依赖它的判断都在对着空气打分(本仓"清单腐烂"同一类)。',
+      '     C1 单文件行上限 —— 阈值取 6000,高于 HEAD 实测最大文件 5258 行,所以它只会咬',
+      '        "再写一个巨型文件"这件事,不会把既有存量变成人人绕过的红。',
+      '     D1/D2 依赖方向 —— 包 import 端、或 requires 里没声明就 import:',
+      '        今天不红是因为该模块 managed:false(只报数);翻 true 前先用',
+      '        `--managed-trial <id>` 看条数,别拿提交去试。',
+      '     D3 深导入 —— 绕过 public_entrypoints 直接摸别的包/src/内部:',
+      '        它让"改一个内部文件"变成跨端事故,是端内重复实现的入口。',
+      '     渐进收口是设计前提,**不得为了消红去改阈值或把不该对外的模块标成 exported**;',
+      '     要放行就地加 `// arch-exempt: <原因>`(必须带原因,缺原因只计数不放行)。',
+      '     口径:--staged 判索引 blob、全量判 HEAD blob;表自身按 HEAD→索引→工作树降级取,',
+      '            退到工作树会大声提示(说明落表提交没和注册同批)。',
+      '     单独复验:node scripts/check-architecture-policy.mjs --staged',
+      '     自检:node scripts/check-architecture-policy.mjs --self-test(48 例,成对正反例)',
+      '     镜像测试:node --test scripts/tests/check-architecture-policy.test.mjs(含装车证明)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_ARCH_POLICY=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
