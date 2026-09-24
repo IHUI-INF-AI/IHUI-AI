@@ -69,6 +69,36 @@
  *         等于给下一个无关提交造一条只能 `--no-verify` 的红。
  *      4) 需要故意保留时,同行或紧邻上行写 `r5-cta-exempt: <原因>`(与 `radius-exempt:` 同形态)。
  *      5) 后置 `-` `/` 排除,故 `bg-primary-foreground`(前景档)与 `bg-primary/40`(透明档)不计。
+ *  R7 跨 JSX 嵌套层的品牌底 / 前景错配(2026-09-25 立,补 R1+R4 的**结构盲区**):
+ *     R1 只在同一个 style 块内配对,R4 只在**名字**成兄弟(X ↔ XText / XBtn ↔ XBtnText / X ↔ XLabel)
+ *     时配对。而真仓大量实例两边都不沾 —— 底在 `card`、字在 `bankName`,把两者连起来的
+ *     唯一事实是**渲染嵌套**(`<View style={styles.card}>` 里出现 `<Text style={styles.bankName}>`)。
+ *     立因两例(2026-09-25 人工改稿,门当时完全看不见):
+ *       packages/app/src/features/bank-card/BankCardScreen.tsx               card × bankName / cardNumber
+ *       packages/app/src/features/ai-assistant-n8n/AiAssistantN8nScreen.tsx  messageBubbleUser × messageTextUser
+ *     另含内联在图标上的 `color={…}`(`<Plus color={tk.surface.card}/>` 在 cta 悬浮钮里)——
+ *     这一型 R1/R4 结构上永远不可能看见(它根本不在 style 对象里)。
+ *     **归属规则是这条判据的全部精度**:一个前景只归给**最近的、自身带背景的祖先**(含中间层
+ *     View 的 style key 与内联 style);最近边界混着非品牌档(条件样式两态)→ 不判;
+ *     前景候选里有一枚合法(三元两分支)→ 不判。
+ *     与 R1/R4 **互斥**:兄弟命名对一律让给 R4,同块让给 R1 —— 两条判据各计同一次债会让
+ *     两份基线互相顶掉(棘轮按文件计数,重复计数等于凭空给基线加额度)。
+ *     ⚠️ 已知限制(如实登记,不假装覆盖):
+ *      1) 只认**同文件**的 style 定义与 JSX。底在子组件、字由父组件经 `textStyle` prop 传入的
+ *         跨文件组合看不见(那需要全仓解析,不是提交链跑得动的量)。
+ *      2) 只收 `style=` / `contentContainerStyle=` 两个 style prop,以及元素上的 `color=`。
+ *         `titleStyle` / `placeholderTextColor` 这类"同名不同层"的 prop 一律不收 ——
+ *         放宽它必然造假阳,与"宁漏不误报"冲突。
+ *      3) 绝对定位浮层 / Modal 里"视觉上并不压在该底色上"的元素,静态判不出来,会误归。
+ *         立门时 16 处存量逐条人工核过,无一属这一型;真遇到就按流程登记棘轮,不得改判据。
+ *      4) "前景归最近带背景祖先"这一条同时挡掉两类假阳:`card(cta) > badge(自有底) >
+ *         badgeText(白字)`,以及 `container(surface.light)` 页面底上的普通正文 `text.primary`
+ *         —— 后者若计入,全站正文都是债,门当场不可用。
+ *      5) 确属合法(文字其实压在图片/渐变图上而非该底色上)时,在**容器 style 定义行**或
+ *         **前景所在行**(或其紧邻上行)写 `r7-nest-exempt: <一句话原因>` 豁免该配对。
+ *         不带原因不生效;一行标记只救它自己那一处(同守门 97 M2)。
+ *     走基线棘轮(新键 `nestMismatchCounts`,与 counts/ctaCounts/r4Counts/webClassPairCounts
+ *     互不重叠):立门当日 HEAD 实测 16 处真跨档配对,已全部人工目检成立 ⇒ 冻存量、赦新增。
  *
  * 用法:
  *   node scripts/check-brand-foreground.mjs                  # 全量
@@ -91,6 +121,12 @@ const BASELINE_PATH = path.join(__dirname, 'brand-foreground-baseline.json')
  * 三条计数面各自的"只减不增"承诺建立在键互不重叠上,故此键名单点声明、两处引用同一常量。
  */
 const BASELINE_R5_KEY = 'webClassPairCounts'
+/**
+ * R7 的基线键同样**必须**是新键(理由与 BASELINE_R5_KEY 一字不差:四条计数面各自的
+ * "只减不增"承诺建立在键互不重叠上)。R7 立门当日在 HEAD 实测 16 处**真跨档配对**
+ * (逐条人工核过,见 README/AGENTS 登记),故按棘轮登记存量而非赦免。
+ */
+const BASELINE_R7_KEY = 'nestMismatchCounts'
 
 const SKIP_ENV = 'HUSKY_SKIP_BRAND_FOREGROUND'
 // 前缀 `tokens.`(apps/mobile-rn 端)与 `tk.`(packages/app 共享组件的别名)必须同时认,
@@ -109,7 +145,9 @@ const R2_BG_WHITE_CLASS = /\bbg-white\b/
  * R3 填充面:与 R1_BG 同形(DEFAULT|cta 两档都认)。只认 DEFAULT 会让迁移后的主实底整片隐身 ——
  * 门推荐怎么写,判据就得能看见怎么写(AGENTS §4 2026-09-24 改档,教训同守门 77 B6 括号形态盲区)。
  */
-const R3_BRAND_FILL = new RegExp(`(?:backgroundColor|borderColor):\\s*${TKS}\\.brand\\.(?:DEFAULT|cta)\\b`)
+const R3_BRAND_FILL = new RegExp(
+  `(?:backgroundColor|borderColor):\\s*${TKS}\\.brand\\.(?:DEFAULT|cta)\\b`,
+)
 /** R3 分档:cta 填充的正配前景只有 brand.ctaForeground;DEFAULT 填充的正配前景只有 brand.foreground */
 const R3_FILL_CTA = new RegExp(`(?:backgroundColor|borderColor):\\s*${TKS}\\.brand\\.cta\\b`)
 /** R4:兄弟 key 的名字后缀(文字侧 / 底侧的角色后缀) */
@@ -144,15 +182,6 @@ const R5_COMMENT_LINE = /^\s*(?:\/\/|\/\*|\*)/
  * `statusbar-exempt:` / `brand-mail-exempt:` 同一套形态,**必须带原因**。
  */
 const R5_EXEMPT = /r5-cta-exempt:/
-/**
- * R3 的人工出口(2026-09-24 立,与上面同一套形态、同样必须带原因)。
- * R3 的配对判据是**结构**的:底与前景得在同一个 style 块或同一套兄弟命名里。
- * 但图标按钮的正解是"底写在 style、前景走 JSX 的 `color={tokens.brand.ctaForeground}`"
- * (Send / Plus / ActivityIndicator 都这样) —— 那种配对结构上看不见,却又确实是
- * AGENTS §4 的唯一写法。给它一个同行标记,而不是把棘轮调高(棘轮只减不增是死规矩),
- * 更不是逼人 `--no-verify`(那等于废掉全部守门)。只在**同一行**生效,不外溢到后续行。
- */
-const R3_EXEMPT = /r3-cta-exempt:/
 
 /**
  * R5 前置:类名 token 是否作为**完整 Tailwind 类**出现在这一行。
@@ -210,7 +239,12 @@ export function countWebClassPairs(lines) {
 
 function isR5Scope(rel) {
   const p = rel.replace(/\\/g, '/')
-  return R5_DIRS.some((d) => p.startsWith(`${d}/`)) && R5_EXT.test(p) && !R5_SKIP_DIR.test(p) && !R5_SKIP_FILE.test(p)
+  return (
+    R5_DIRS.some((d) => p.startsWith(`${d}/`)) &&
+    R5_EXT.test(p) &&
+    !R5_SKIP_DIR.test(p) &&
+    !R5_SKIP_FILE.test(p)
+  )
 }
 
 /**
@@ -237,7 +271,10 @@ function r5Prefilter(fromHead) {
           timeout: 30000,
         },
       )
-      return out.split('\n').filter(Boolean).map((f) => (fromHead ? f.replace(/^HEAD:/, '') : f))
+      return out
+        .split('\n')
+        .filter(Boolean)
+        .map((f) => (fromHead ? f.replace(/^HEAD:/, '') : f))
     } catch (err) {
       // git grep 用 exit 1 表示"零匹配"(合法结论);其余(2 及以上 / 无 status)是判不出来
       if (err && err.status === 1) return []
@@ -281,11 +318,12 @@ function listR5Files() {
 
 /** R5 待判文件清单(--staged 口径:暂存文件 ∩ R5 范围,清单已经很小,不预筛) */
 function stagedR5Files() {
-  const out = execFileSync(
-    'git',
-    ['diff', '--cached', '--name-only', '--diff-filter=ACM'],
-    { cwd: ROOT, encoding: 'utf8', windowsHide: true, timeout: 30000 },
-  )
+  const out = execFileSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACM'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 30000,
+  })
     .split('\n')
     .filter((f) => isR5Scope(f))
   return {
@@ -295,7 +333,6 @@ function stagedR5Files() {
     prefallback: false,
   }
 }
-
 
 /** 从源码行提取 style 属性块(2 空格缩进的顶层样式对象),返回块文本数组 */
 export function extractStyleChunks(lines) {
@@ -416,8 +453,537 @@ export function extractNamedStyleChunks(lines) {
         break
       }
     }
-    out.push({ name: m[1], text: lines.slice(i, end + 1).join('\n') })
+    out.push({ name: m[1], text: lines.slice(i, end + 1).join('\n'), start: i })
     i = end
+  }
+  return out
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// R7 —— 跨「JSX 嵌套层」的品牌底 / 前景错配(2026-09-25 立)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// R1 只看同一个 style 块,R4 只看**名字**成兄弟的一对 —— 而真仓大量实例两边都不沾:
+//
+//   // packages/app/src/features/bank-card/BankCardScreen.tsx
+//   card:      { backgroundColor: tk.brand.cta }     // 底
+//   bankName:  { color: tk.surface.light }           // 渲染在 <View style={styles.card}> **之内**
+//
+//   // packages/app/src/features/ai-assistant-n8n/AiAssistantN8nScreen.tsx
+//   messageBubbleUser: { backgroundColor: tk.brand.cta }
+//   messageTextUser:   { color: tk.surface.light }
+//
+// `card` 与 `bankName` 名字毫无关系(主干不同 → R4 的 isSiblingStylePair 判否),
+// 也不在同一块(→ R1 看不见)。唯一能把两者连起来的事实是 **JSX 渲染嵌套**:
+// 哪个 style key 出现在哪个容器 style key 的子树里。R7 就是补这条边。
+//
+// 与 R1/R4 不重叠的前提:同块归 R1、兄弟名归 R4、嵌套归 R7,三条各自计数。
+
+/**
+ * **跨档矩阵**(与 AGENTS §4 的 rn-tokens 实测值一一对应,不得凭感觉扩):
+ *   brand.cta      = #4A7A96 / #4A7A96(明暗同值,不反转)
+ *   brand.DEFAULT  = #000000 / #FFFFFF(与页面反极)
+ *   surface.light  = #FFFFFF / #262626   text.primary = #0A0A0A / #FAFAFA
+ *   surface.card   = #FFFFFF / (深色另档)
+ *
+ *  - cta 底:前景若取 `surface.light`,**深色档案**下是 #262626 压 #4A7A96 = 3.25:1,掉出 AA。
+ *    `text.primary` / `surface.card` 同理属"另一档前景",§4 的正配只有 brand.ctaForeground。
+ *  - DEFAULT 底:`surface.light` **两态都可见**(#FFF 压 #000 / #262626 压 #FFF)⇒ 不算债
+ *    (R4 建门时 127 处存量全是这一型,已按"合法兄弟对"入基线,此处必须同口径)。
+ *    而 `text.primary` 两态都与底同色(黑压黑 / 白压白),`brand.ctaForeground` 与
+ *    常量白在**深色档案**下是 #FFF 压 #FFF ⇒ 判错配。
+ */
+const R7_BAD_ON_CTA = new Set(['surface.light', 'text.primary', 'surface.card'])
+const R7_BAD_ON_DEFAULT = new Set(['text.primary', 'brand.ctaForeground'])
+const R7_FILL_TIERS = new Set(['brand.cta', 'brand.DEFAULT'])
+/** R7 只认这两个 props 作 style 载体(其余 *Style 如 titleStyle/highlightColor 一律不收,防串位) */
+const R7_STYLE_PROPS = ['style', 'contentContainerStyle']
+/**
+ * R7 解析异常流水(全量模式每轮开跑前清零)。
+ * 判据"看不见"必须比"判错"更响 —— 否则一次解析崩溃会把整条判据洗成恒绿。
+ */
+const r7ParseErrors = []
+
+/**
+ * 行内豁免出口(与 `r5-cta-exempt:` / `radius-exempt:` / `statusbar-exempt:` 同一套形态):
+ * 写在**容器 style 定义行**或**前景所在行**(或其紧邻上行)任一处即豁免该配对。
+ * **必须带原因** —— `r7-nest-exempt:` 后紧跟空白再换行不算数,否则豁免会退化成
+ * "先加上再说"的静默通道(守门 97 M2 的同一课:一行标记只救它自己那一处)。
+ */
+const R7_EXEMPT = /r7-nest-exempt:\s*\S/
+
+/** 该 1-based 行(或其紧邻上行)是否带豁免标记 */
+function r7ExemptAt(lines, ln) {
+  if (!ln || ln < 1 || ln > lines.length) return false
+  if (R7_EXEMPT.test(lines[ln - 1])) return true
+  return ln > 1 && R7_EXEMPT.test(lines[ln - 2])
+}
+
+/** 常量白(R7 视同 brand.ctaForeground 的等价物,只用于"压 brand.DEFAULT 深色档=白压白") */
+function isConstantWhite(tok) {
+  if (!tok) return false
+  const t = tok.toLowerCase().replace(/\s+/g, '')
+  if (
+    t === "'#fff'" ||
+    t === "'#ffffff'" ||
+    t === '"#fff"' ||
+    t === '"#ffffff"' ||
+    t === "'white'" ||
+    t === '"white"'
+  )
+    return true
+  const rgba = t.match(/^['"]rgba\(255,255,255,(0?\.\d+|1)\)['"]$/)
+  return !!rgba && Number.parseFloat(rgba[1]) >= 0.9
+}
+
+/** 某前景 token 落在某品牌档底上是否跨档错配(未知 token 一律不判 —— 宁漏不误报) */
+export function r7IsMismatch(fillTier, fgTok) {
+  if (!R7_FILL_TIERS.has(fillTier)) return false
+  if (fgTok === 'constant-white') return fillTier === 'brand.DEFAULT'
+  return (fillTier === 'brand.cta' ? R7_BAD_ON_CTA : R7_BAD_ON_DEFAULT).has(fgTok)
+}
+
+/** 从一段表达式文本里抽出 `tokens.X.Y` / `tk.X.Y` 令牌路径(取 `X.Y`) */
+function tokenPathsIn(expr) {
+  const out = []
+  if (!expr) return out
+  const re = new RegExp(`(?:^|[^\\w$.])(?:${TKS})\\.([a-zA-Z_$][\\w$]*\\.[a-zA-Z_$][\\w$]*)`, 'g')
+  let m
+  while ((m = re.exec(expr)) !== null) out.push(m[1])
+  return out
+}
+
+/** 从一段 style 表达式里收集背景/前景令牌(具名 token 与字面量都要 —— 字面量是"边界") */
+function collectInlineColors(expr) {
+  const bg = new Set()
+  const fg = new Set()
+  if (!expr) return { bg, fg }
+  let m
+  const bgm = new RegExp(
+    `backgroundColor\\s*:\\s*(?:${TKS})\\.([a-zA-Z_$][\\w$]*\\.[a-zA-Z_$][\\w$]*)`,
+    'g',
+  )
+  const fgm = new RegExp(
+    `(?:^|[,{\\s])color\\s*:\\s*(?:${TKS})\\.([a-zA-Z_$][\\w$]*\\.[a-zA-Z_$][\\w$]*)`,
+    'g',
+  )
+  const litBg = /backgroundColor\s*:\s*(['"][^'"]*['"])/g
+  const litFg = new RegExp(`(?:^|[,{\\s])color\\s*:\\s*(['"][^'"]*['"])`, 'g')
+  while ((m = bgm.exec(expr)) !== null) bg.add(m[1])
+  while ((m = fgm.exec(expr)) !== null) fg.add(m[1])
+  while ((m = litBg.exec(expr)) !== null)
+    bg.add(isConstantWhite(m[1]) ? 'constant-white' : 'literal')
+  while ((m = litFg.exec(expr)) !== null)
+    fg.add(isConstantWhite(m[1]) ? 'constant-white' : 'literal')
+  return { bg, fg }
+}
+
+/**
+ * style key → { bg:Set<令牌路径|'literal'>, fg:Set<令牌路径|'constant-white'|'literal'> }
+ * 只收同一文件内**具名 style 块**;字面量也计入(它们构成"背景边界",见 findR7Violations)。
+ */
+export function collectR7StyleKeys(lines) {
+  const map = new Map()
+  for (const chunk of extractNamedStyleChunks(lines)) {
+    const { bg, fg } = collectInlineColors(chunk.text)
+    if (bg.size === 0 && fg.size === 0) continue
+    const prev = map.get(chunk.name)
+    if (prev) {
+      // 同文件同名 key(两个 StyleSheet)取并集:两边都可能被引用,漏收会造"看不见"
+      for (const v of bg) prev.bg.add(v)
+      for (const v of fg) prev.fg.add(v)
+    } else {
+      map.set(chunk.name, { bg, fg, line: chunk.start + 1 })
+    }
+  }
+  return map
+}
+
+/**
+ * 从 style 表达式里取「被引用的 style key 名」。
+ * 对象名必须**含 style**(styles / cardStyles / footerStyle…)或为单字母 `s` —— 这一条
+ * 是精度关键:`a.card`、`item.card` 这类普通成员访问不得被当成样式引用而串进关系里。
+ * 调用方还要再叠加 `keyMap.has(key)`(本文件确有其 key)才算成立。
+ */
+export function styleKeyRefsIn(expr) {
+  const out = []
+  if (!expr) return out
+  const re = /(?:^|[^\w$.])([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)\b/g
+  let m
+  while ((m = re.exec(expr)) !== null) {
+    if (/style/i.test(m[1]) || m[1] === 's') out.push(m[2])
+  }
+  return out
+}
+
+/** 从 JSX 开标签属性区读 `name={...}` / `name="..."` 的值(括号配平,串内不计) */
+function readJsxAttrValues(region, names) {
+  const found = []
+  for (const name of names) {
+    const re = new RegExp(`(^|[\\s])${name}\\s*=\\s*`, 'g')
+    let m
+    while ((m = re.exec(region))) {
+      let j = m.index + m[0].length
+      if (j >= region.length) break
+      const c = region[j]
+      if (c === '"' || c === "'") {
+        const e = region.indexOf(c, j + 1)
+        if (e === -1) continue
+        found.push({ name, value: region.slice(j, e + 1) })
+        j = e + 1
+      } else if (c === '{') {
+        let depth = 0
+        let k = j
+        for (; k < region.length; k++) {
+          const ch = region[k]
+          if (ch === '"' || ch === "'" || ch === '`') {
+            const e = region.indexOf(ch, k + 1)
+            if (e === -1) break
+            k = e
+            continue
+          }
+          if (ch === '{') depth++
+          else if (ch === '}') {
+            depth--
+            if (depth === 0) break
+          }
+        }
+        if (depth !== 0) continue
+        found.push({ name, value: region.slice(j + 1, k) })
+      }
+    }
+  }
+  return found
+}
+
+/**
+ * 扫一个 JSX 区域,产出**带父子关系**的元素序列。
+ * `st = { text, keyMap, nodes }`;`stopName` 非空时,遇到 `</stopName>` 即返回其下标。
+ * 递归而非"整文件括号配平":属性表达式里以 prop 形式传入的子元素(`<FlatList renderItem={…}>`)
+ * 同样是渲染后代,必须进同一棵树 —— 真仓 BankCardScreen 的 `card` 就长在 `renderItem` 里。
+ */
+function scanJsxRegion(st, from, to, parentIdx, stopName) {
+  const { text, keyMap, nodes } = st
+  let i = from
+  while (i < to) {
+    const c = text[i]
+    const c2 = text[i + 1] || ''
+    if (c === '/' && c2 === '/') {
+      while (i < to && text[i] !== '\n') i++
+      continue
+    }
+    if (c === '/' && c2 === '*') {
+      const e = text.indexOf('*/', i + 2)
+      i = e === -1 ? to : Math.min(e + 2, to)
+      continue
+    }
+    if (c === '"' || c === "'") {
+      const e = text.indexOf(c, i + 1)
+      const nl = text.indexOf('\n', i + 1)
+      i = e === -1 || (nl !== -1 && e > nl) ? i + 1 : Math.min(e + 1, to)
+      continue
+    }
+    if (c === '`') {
+      const e = text.indexOf('`', i + 1)
+      i = e === -1 || e >= to ? i + 1 : Math.min(e + 1, to)
+      continue
+    }
+    if (c === '<' && c2 === '/') {
+      const m = /^<\/([A-Z][\w$]*)/.exec(text.slice(i, Math.min(to, i + 80)))
+      if (m && m[1] === stopName) return i
+      const g = text.indexOf('>', i)
+      i = g === -1 || g >= to ? to : g + 1
+      continue
+    }
+    if (c === '<' && /[A-Z]/.test(c2)) {
+      const head = parseTagHead(text, i, to)
+      if (!head) {
+        i++
+        continue
+      }
+      const attrs = maskNestedElements(text, head.attrStart, head.attrEnd)
+      const keys = []
+      const fg = new Set()
+      const bg = new Set()
+      for (const a of readJsxAttrValues(attrs, R7_STYLE_PROPS)) {
+        for (const k of styleKeyRefsIn(a.value)) if (keyMap.has(k)) keys.push(k)
+        const inline = collectInlineColors(a.value)
+        for (const t of inline.bg) bg.add(t)
+        for (const t of inline.fg) fg.add(t)
+      }
+      for (const a of readJsxAttrValues(attrs, ['color'])) {
+        for (const t of tokenPathsIn(a.value)) fg.add(t)
+        if (isConstantWhite(a.value.trim())) fg.add('constant-white')
+      }
+      nodes.push({ parent: parentIdx, keys, fg, bg, line: lineOf(st, i), name: head.name })
+      const idx = nodes.length - 1
+      scanJsxRegion(st, head.attrStart, head.attrEnd, idx, null)
+      if (!head.selfClosing) {
+        const closeAt = scanJsxRegion(st, head.end, to, idx, head.name)
+        const g = text.indexOf('>', closeAt)
+        i = g === -1 || g >= to ? to : g + 1
+        continue
+      }
+      i = head.end
+      continue
+    }
+    i++
+  }
+  return to
+}
+
+/** 由预置换行表算 1-based 行号(逐节点重新数换行会把全量扫描拖成 O(n²)) */
+function lineOf(st, idx) {
+  const starts = st.lineStarts
+  let lo = 0
+  let hi = starts.length - 1
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1
+    if (starts[mid] <= idx) lo = mid
+    else hi = mid - 1
+  }
+  return lo + 1
+}
+
+/** 解析 `<Name ...>` 的头:返回属性区 [attrStart,attrEnd) 与标签终点(含 `>` / `/>`) */
+function parseTagHead(text, i, to) {
+  const m = /^<([A-Z][\w$]*)/.exec(text.slice(i, Math.min(to, i + 120)))
+  if (!m) return null
+  let j = i + m[0].length
+  let brace = 0
+  let angle = 0
+  const attrStart = j
+  while (j < to) {
+    const c = text[j]
+    const c2 = text[j + 1] || ''
+    if (c === '/' && c2 === '/') {
+      while (j < to && text[j] !== '\n') j++
+      continue
+    }
+    if (c === '/' && c2 === '*') {
+      const e = text.indexOf('*/', j + 2)
+      j = e === -1 ? to : Math.min(e + 2, to)
+      continue
+    }
+    if (c === '"' || c === "'") {
+      const e = text.indexOf(c, j + 1)
+      const nl = text.indexOf('\n', j + 1)
+      j = e === -1 || (nl !== -1 && e > nl) ? j + 1 : e + 1
+      continue
+    }
+    if (c === '`') {
+      const e = text.indexOf('`', j + 1)
+      j = e === -1 ? j + 1 : Math.min(e + 1, to)
+      continue
+    }
+    if (c === '{') {
+      brace++
+      j++
+      continue
+    }
+    if (c === '}') {
+      if (brace > 0) brace--
+      j++
+      continue
+    }
+    if (brace === 0) {
+      if (c === '<') {
+        angle++
+        j++
+        continue
+      }
+      if (c === '>') {
+        if (angle > 0) {
+          angle--
+          j++
+          continue
+        }
+        return {
+          name: m[1],
+          attrStart,
+          attrEnd: text[j - 1] === '/' ? j - 1 : j,
+          end: j + 1,
+          selfClosing: text[j - 1] === '/',
+        }
+      }
+    }
+    j++
+  }
+  return null
+}
+
+/** 跳过一个完整元素(含其子树),返回其后继下标;解不出则前进 1 格 */
+function skipElement(text, i, to) {
+  const head = parseTagHead(text, i, to)
+  if (!head) return i + 1
+  if (head.selfClosing) return head.end
+  let j = head.end
+  while (j < to) {
+    const c = text[j]
+    const c2 = text[j + 1] || ''
+    if (c === '/' && (c2 === '/' || c2 === '*')) {
+      j += 2
+      continue
+    }
+    if (c === '"' || c === "'") {
+      const e = text.indexOf(c, j + 1)
+      const nl = text.indexOf('\n', j + 1)
+      j = e === -1 || (nl !== -1 && e > nl) ? j + 1 : e + 1
+      continue
+    }
+    if (c === '<' && c2 === '/') {
+      const m = /^<\/([A-Z][\w$]*)/.exec(text.slice(j, Math.min(to, j + 80)))
+      if (m && m[1] === head.name) {
+        const g = text.indexOf('>', j)
+        return g === -1 || g >= to ? to : g + 1
+      }
+      const g = text.indexOf('>', j)
+      j = g === -1 || g >= to ? to : g + 1
+      continue
+    }
+    if (c === '<' && /[A-Z]/.test(c2)) {
+      j = skipElement(text, j, to)
+      continue
+    }
+    j++
+  }
+  return to
+}
+
+/**
+ * 把属性区里**嵌套元素**的整段抹成空格(长度不变)。
+ * 不做这一步的话:`<FlatList ListEmptyComponent={<Text style={styles.a}>} renderItem={…}>`
+ * 会把子元素的 `style=` 一并算进 FlatList 自己的 style key 集 —— 于是"祖先边界"继承了
+ * 孙层的背景,ArticleDetailScreen 的 `commentEmptyText` 因此被当成 `commentNickname` 的
+ * 品牌底容器(实测假阳)。属性区与子树两条通道必须各收各的 style。
+ */
+function maskNestedElements(text, from, to) {
+  let out = text.slice(from, to)
+  let i = from
+  while (i < to) {
+    const c = text[i]
+    const c2 = text[i + 1] || ''
+    if (c === '<' && /[A-Z]/.test(c2)) {
+      const end = skipElement(text, i, to)
+      const head = out.slice(0, i - from)
+      const tail = out.slice(Math.min(end, to) - from)
+      out = head + ' '.repeat(Math.max(0, Math.min(end, to) - i)) + tail
+      i = end
+      continue
+    }
+    i++
+  }
+  return out
+}
+
+/**
+ * R7:容器风格的品牌实底 × **嵌套在其内的**前景跨档错配。
+ * 归属规则(本条精度的全部来源):一个前景 token 只归给**最近的、自身带背景的祖先**
+ * (含中间层 View 的 style key / 内联 style)。最近边界不是品牌档 → 不判。
+ * 这条边界规则同时挡掉两类假阳:
+ *  ① `card(cta)` 里的 `badge(rgba 白)` 上的 `badgeText(surface.light)` —— 实际底是 badge;
+ *  ② `container(surface.light)` 页面底上的 `title(text.primary)` —— 与品牌档无关。
+ * 自身 key 自带的 bg+color 组合归 R1、兄弟 key 归 R4,故这里**从父级开始**找边界。
+ */
+export function findR7Violations(lines) {
+  const joined = lines.join('\n')
+  // 便宜的入场券:文件里既无品牌底也无 R7 视野内的前景 token ⇒ 直接跳过
+  // (全量面 600+ 文件,不做这一步会把提交链从秒级拖到十秒级)
+  if (!/\b(?:brand)\s*\.\s*(?:cta|DEFAULT)\b/.test(joined)) return []
+  const keyMap = collectR7StyleKeys(lines)
+  if (keyMap.size === 0) return []
+  const nodes = []
+  const st = {
+    text: joined,
+    keyMap,
+    nodes,
+    lineStarts: [0],
+  }
+  for (let k = 0; k < joined.length; k++) if (joined[k] === '\n') st.lineStarts.push(k + 1)
+  try {
+    scanJsxRegion(st, 0, joined.length, -1, null)
+  } catch (err) {
+    // 解析异常不得冒报,但**也绝不静默**:计入 r7ParseErrors,由 run() 如实打印
+    // (恒绿的判据比红判据危险 —— 本仓"扫到 0 必须先怀疑判据"的同一条教训)
+    r7ParseErrors.push(`${err && err.message ? err.message : String(err)}`)
+    return []
+  }
+  /** 祖先边界缓存:同一父链重复展开会把热点文件算成平方级 */
+  const boundaryCache = new Map()
+  const boundaryOf = (nodeIdx) => {
+    if (boundaryCache.has(nodeIdx)) return boundaryCache.get(nodeIdx)
+    let p = nodes[nodeIdx].parent
+    let found = null
+    while (p >= 0) {
+      const node = nodes[p]
+      const bgSet = new Set(node.bg)
+      for (const k of node.keys) {
+        const info = keyMap.get(k)
+        if (info) for (const t of info.bg) bgSet.add(t)
+      }
+      if (bgSet.size > 0) {
+        found = { node, bgSet }
+        break
+      }
+      p = node.parent
+    }
+    boundaryCache.set(nodeIdx, found)
+    return found
+  }
+  const out = []
+  const seen = new Set()
+  for (let n = 0; n < nodes.length; n++) {
+    const fgSet = new Set(nodes[n].fg)
+    for (const k of nodes[n].keys) {
+      const info = keyMap.get(k)
+      if (info) for (const t of info.fg) fgSet.add(t)
+    }
+    if (fgSet.size === 0) continue
+    const boundary = boundaryOf(n)
+    if (!boundary) continue
+    const tiers = [...boundary.bgSet].filter((t) => R7_FILL_TIERS.has(t))
+    // 边界背景**全部**是品牌档才判:混着一档非品牌底(条件样式两态)时归属不确定
+    if (tiers.length === 0 || tiers.length !== boundary.bgSet.size) continue
+    const fgs = [...fgSet]
+    const bad = fgs.filter((t) => tiers.every((tier) => r7IsMismatch(tier, t)))
+    // 有一枚前景合法(如 `color={active ? ctaForeground : surface.light}` 三元)⇒ 不判
+    if (bad.length === 0 || bad.length !== fgs.length) continue
+    /** 该前景 token 的**定义行**(用于 `r7-nest-exempt:` 的逐行落点;内联 color= 没有定义行) */
+    const fgOwner = new Map()
+    for (const k of nodes[n].keys) {
+      const info = keyMap.get(k)
+      if (!info) continue
+      for (const t of info.fg) if (!fgOwner.has(t)) fgOwner.set(t, info.line)
+    }
+    const cname = boundary.node.keys[0] || null
+    const container = cname || `${tiers[0]}(inline)`
+    const containerLine = (cname && keyMap.get(cname)?.line) || boundary.node.line
+    for (const b of bad) {
+      const fgName = nodes[n].keys[0] || `${b}(@JSX)`
+      // R7 与 R1/R4 **必须互斥**,否则同一次债被两道判据各计一次、基线彼此打架:
+      //  同块归 R1(结构上不可能:底与字来自两个 key)、兄弟命名归 R4(`X` × `XText`)。
+      //  剩下的"名字毫无关系、只靠渲染嵌套成立"才是 R7 的独有面 —— 也正是 R1/R4 的盲区。
+      if (cname && isSiblingStylePair(cname, nodes[n].keys[0])) continue
+      // 行内豁免:容器 style 定义行、前景 style 定义行、或前景所在 JSX 行
+      // (各含其紧邻上行)任一处标了 `r7-nest-exempt: <原因>` 即不计该配对
+      if (
+        r7ExemptAt(lines, containerLine) ||
+        r7ExemptAt(lines, fgOwner.get(b)) ||
+        r7ExemptAt(lines, nodes[n].line)
+      )
+        continue
+      const sig = `${container}×${fgName}×${b}`
+      if (seen.has(sig)) continue
+      seen.add(sig)
+      out.push({
+        container,
+        containerLine,
+        fg: fgName,
+        fgTok: b,
+        fgLine: nodes[n].line,
+        tier: tiers[0],
+      })
+    }
   }
   return out
 }
@@ -529,8 +1095,6 @@ export function countCtaFills(lines) {
   let count = 0
   for (let i = 0; i < lines.length; i++) {
     if (!R3_BRAND_FILL.test(lines[i])) continue
-    // 人工出口:同行或紧邻上行(注释常写在被解释的那行上方)标了 r3-cta-exempt 即不计
-    if (R3_EXEMPT.test(lines[i]) || (i > 0 && R3_EXEMPT.test(lines[i - 1]))) continue
     // 按档取前景集:cta 填充只认 ctaForeground,DEFAULT 填充只认 foreground
     const fgKeys = R3_FILL_CTA.test(lines[i]) ? fgKeysCta : fgKeysDefault
     const owner = ownerAt[i]
@@ -627,7 +1191,9 @@ function run(options) {
   const r5Scan = options.staged ? stagedR5Files() : listR5Files()
   console.log(`📎 内容口径:${options.staged ? '暂存区/磁盘' : 'HEAD blob(工作树滞后不参与判定)'}`)
   if (options.staged && files.length === 0 && r5Scan.files.length === 0) {
-    console.log('⏭ 暂存区无 apps/mobile-rn/src、packages/app/src、apps/web、packages/ui-react、apps/miniapp-taro 文件,跳过')
+    console.log(
+      '⏭ 暂存区无 apps/mobile-rn/src、packages/app/src、apps/web、packages/ui-react、apps/miniapp-taro 文件,跳过',
+    )
     return 0
   }
 
@@ -635,6 +1201,8 @@ function run(options) {
   const counts = {}
   const ctaCounts = {}
   const r4ByFile = {}
+  const r7ByFile = {}
+  r7ParseErrors.length = 0
   for (const file of files) {
     const rel = path.relative(ROOT, file).replace(/\\/g, '/')
     const lines = readText(file, !options.staged)
@@ -642,6 +1210,8 @@ function run(options) {
     for (const v of findR1Violations(lines)) r1.push(`${rel} → ${v}`)
     const r4Pairs = findR4Violations(lines)
     if (r4Pairs.length > 0) r4ByFile[rel] = r4Pairs
+    const r7Items = findR7Violations(lines)
+    if (r7Items.length > 0) r7ByFile[rel] = r7Items
     if (isR2Scope(rel)) {
       const c = countLightContainers(lines)
       if (c > 0) counts[rel] = c
@@ -660,9 +1230,11 @@ function run(options) {
   }
   const r4Counts = {}
   for (const [rel, pairs] of Object.entries(r4ByFile)) r4Counts[rel] = pairs.length
+  const nestMismatchCounts = {}
+  for (const [rel, items] of Object.entries(r7ByFile)) nestMismatchCounts[rel] = items.length
 
   if (options.updateBaseline) {
-    // 重新校准只重写四个计数面;他人手记的文档性注记(如 pairedCtaNotVisibleToRule)
+    // 重新校准只重写五个计数面;他人手记的文档性注记(如 pairedCtaNotVisibleToRule)
     // 不得被回写吞掉 —— 那是"计数为什么这样"的取证,吞了等于下一个人只能重查一遍。
     const prev = existsSync(BASELINE_PATH) ? JSON.parse(readFileSync(BASELINE_PATH, 'utf8')) : {}
     const {
@@ -670,15 +1242,21 @@ function run(options) {
       ctaCounts: _omitCta,
       r4Counts: _omitR4,
       webClassPairCounts: _omitWebPair,
+      nestMismatchCounts: _omitNest,
       ...notes
     } = prev
     writeFileSync(
       BASELINE_PATH,
-      `${JSON.stringify({ counts, ctaCounts, r4Counts, webClassPairCounts, ...notes }, null, 2)}\n`,
+      `${JSON.stringify(
+        { counts, ctaCounts, r4Counts, webClassPairCounts, nestMismatchCounts, ...notes },
+        null,
+        2,
+      )}\n`,
     )
-    const sum = (o) => `${Object.keys(o).length} 文件 / ${Object.values(o).reduce((a, b) => a + b, 0)} 处`
+    const sum = (o) =>
+      `${Object.keys(o).length} 文件 / ${Object.values(o).reduce((a, b) => a + b, 0)} 处`
     console.log(
-      `✅ 基线已更新:R2 ${sum(counts)};R3 ${sum(ctaCounts)};R4 ${sum(r4Counts)};R5 ${sum(webClassPairCounts)}`,
+      `✅ 基线已更新:R2 ${sum(counts)};R3 ${sum(ctaCounts)};R4 ${sum(r4Counts)};R5 ${sum(webClassPairCounts)};R7 ${sum(nestMismatchCounts)}`,
     )
     return 0
   }
@@ -686,13 +1264,13 @@ function run(options) {
   let failed = false
   if (r1.length > 0) {
     failed = true
-    console.error(`❌ R1 品牌底白字(brand.DEFAULT 背景 + surface.light/text.primary 前景,深色下白底白字):${r1.length} 处`)
+    console.error(
+      `❌ R1 品牌底白字(brand.DEFAULT 背景 + surface.light/text.primary 前景,深色下白底白字):${r1.length} 处`,
+    )
     for (const v of r1) console.error(`   ${v}`)
   }
 
-  const baseline = existsSync(BASELINE_PATH)
-    ? JSON.parse(readFileSync(BASELINE_PATH, 'utf8'))
-    : {}
+  const baseline = existsSync(BASELINE_PATH) ? JSON.parse(readFileSync(BASELINE_PATH, 'utf8')) : {}
   const r2 = []
   for (const [file, count] of Object.entries(counts)) {
     const allowed = baseline.counts?.[file] ?? 0
@@ -711,7 +1289,9 @@ function run(options) {
   }
   if (r3.length > 0) {
     failed = true
-    console.error(`❌ R3 新增品牌实底(brand.DEFAULT/brand.cta 作填充或描边,未与配对前景成文,基线棘轮只减不增):${r3.length} 文件`)
+    console.error(
+      `❌ R3 新增品牌实底(brand.DEFAULT/brand.cta 作填充或描边,未与配对前景成文,基线棘轮只减不增):${r3.length} 文件`,
+    )
     for (const v of r3) console.error(`   ${v}`)
   }
 
@@ -748,7 +1328,46 @@ function run(options) {
       `❌ R5 web 类名面新增退役主按钮配对(bg-primary 实底 + text-primary-foreground 同行,AGENTS §4 已于 2026-09-24 改档,基线棘轮只减不增):${r5.length} 文件`,
     )
     for (const v of r5) console.error(`   ${v}`)
-    console.error('   改为 bg-cta / text-cta-foreground / hover:bg-cta/90(= RN 侧 brand.cta + brand.ctaForeground)')
+    console.error(
+      '   改为 bg-cta / text-cta-foreground / hover:bg-cta/90(= RN 侧 brand.cta + brand.ctaForeground)',
+    )
+    console.error('   单独复验:node scripts/check-brand-foreground.mjs --staged')
+  }
+
+  const r7 = []
+  let r7Total = 0
+  if (r7ParseErrors.length > 0) {
+    console.error(
+      `⚠️ R7 解析异常 ${r7ParseErrors.length} 处(该轮这些文件**未按 R7 判定**,不得当成"已清"): ${r7ParseErrors.slice(0, 3).join(' / ')}`,
+    )
+  }
+  for (const [file, items] of Object.entries(r7ByFile)) {
+    r7Total += items.length
+    const allowed = baseline[BASELINE_R7_KEY]?.[file] ?? 0
+    if (items.length > allowed) {
+      r7.push(`${file}: ${items.length} > 基线 ${allowed}`)
+      for (const it of items) {
+        console.error(
+          `   ${file} → L${it.containerLine} ${it.container}(底=${it.tier}) 内 L${it.fgLine} ${it.fg}(字=${it.fgTok}) —— 跨档`,
+        )
+      }
+    }
+  }
+  if (r7.length > 0) {
+    failed = true
+    console.error(
+      `❌ R7 跨 JSX 嵌套层的品牌底/前景错配(容器 style key 与文字 style key **既不同块也不同名**,只有渲染嵌套能把它们连起来;基线棘轮只减不增):${r7.length} 文件`,
+    )
+    for (const v of r7) console.error(`   ${v}`)
+    console.error(
+      '   底取 brand.cta 时文字**只能**取 brand.ctaForeground;底取 brand.DEFAULT 时只能取 brand.foreground。',
+    )
+    console.error(
+      '   surface.light / text.primary / surface.card 都是另一档(深色档案下 surface.light=#262626 压 #4A7A96 = 3.25:1,掉出 AA)。',
+    )
+    console.error(
+      '   确属合法(文字实际压在图片/渐变图上,不压在该底色上)时:在容器 style 行或前景行写 `r7-nest-exempt: <原因>`。',
+    )
     console.error('   单独复验:node scripts/check-brand-foreground.mjs --staged')
   }
 
@@ -770,6 +1389,11 @@ function run(options) {
         '     R5(web / ui-react 类名面)唯一正解:bg-cta + text-cta-foreground(+ hover:bg-cta/90),',
         '     对应 RN 侧 brand.cta + brand.ctaForeground —— bg-primary/text-primary-foreground 是',
         '     2026-09-24 已废的退役档(明暗反极,用户实拍"浅色一大片黑 / 深色一大片白");',
+        '     R7(跨 JSX 嵌套层)与 R1/R4 同一缺陷,只是底和字**连名字都不共享**:',
+        '     `card:{backgroundColor:brand.cta}` 里渲染 `<Text style={styles.bankName}/>`,',
+        '     改法只有一处 —— 给那个文字 key 换 brand.ctaForeground(不得换 surface.light);',
+        '     内联在图标上的 `color={…}` 同理(`<Plus color={tk.surface.card}/>` 在 cta 悬浮钮里):',
+        '     图标不是"装饰白",它取哪一档由**它所在容器**决定;',
         '     覆盖在图片/彩色底上的白色前景属合法,基线棘轮只拦「比基线更多」。',
         '     收紧基线(人工确认后,全量口径):node scripts/check-brand-foreground.mjs --update-baseline',
         '     自检:node scripts/check-brand-foreground.mjs --self-test',
@@ -780,7 +1404,7 @@ function run(options) {
     return 1
   }
   console.log(
-    `✅ mobile-rn/共享包 前景/容器守门通过(${files.length} 文件,R1=0,R4 ${r4Total} 处全部 ≤ 基线,R2/R3 全部 ≤ 基线;R3 存量 ${Object.values(ctaCounts).reduce((a, b) => a + b, 0)} 处)`,
+    `✅ mobile-rn/共享包 前景/容器守门通过(${files.length} 文件,R1=0,R4 ${r4Total} 处全部 ≤ 基线,R7 ${r7Total} 处全部 ≤ 基线,R2/R3 全部 ≤ 基线;R3 存量 ${Object.values(ctaCounts).reduce((a, b) => a + b, 0)} 处)`,
   )
   // R5 的"范围文件数 / 候选数"必须与"命中数"同行打印:预筛(git grep)或范围正则一旦静默失效,
   // 命中数会掉到 0 而棘轮依然全绿 —— 只有把分母摆出来,镜像测试才能区分
@@ -800,46 +1424,103 @@ function selfTest() {
   }
   // R1 正例:同一块内 brand 背景 + 恒白前景
   assert(
-    findR1Violations(['  btn: {', '    backgroundColor: tokens.brand.DEFAULT,', '    color: tokens.surface.light,', '  },']).length === 1,
+    findR1Violations([
+      '  btn: {',
+      '    backgroundColor: tokens.brand.DEFAULT,',
+      '    color: tokens.surface.light,',
+      '  },',
+    ]).length === 1,
     'R1 应命中同块 brand 背景 + surface.light 前景',
   )
   // R1 正例:text.primary 前景同样恒白(深色)
   // ⚠️ 这条断言钉的是 **R1 的同块语义**,不得因为 R4 上线而放宽 —— 其他会话依赖 R1 只判同块。
   // 跨块那一半由 R4 负责(见下方 R4 用例组),这里必须继续为 0。
   assert(
-    findR1Violations(['  btn: {', '    backgroundColor: tokens.brand.DEFAULT,', '  },', '  btnText: {', '    color: tokens.text.primary,', '  },']).length === 0,
+    findR1Violations([
+      '  btn: {',
+      '    backgroundColor: tokens.brand.DEFAULT,',
+      '  },',
+      '  btnText: {',
+      '    color: tokens.text.primary,',
+      '  },',
+    ]).length === 0,
     'R1 不应跨块命中(text.primary 在另一块)',
   )
   // R1 反例:brand.foreground 是正确前景
   assert(
-    findR1Violations(['  btn: {', '    backgroundColor: tokens.brand.DEFAULT,', '    color: tokens.brand.foreground,', '  },']).length === 0,
+    findR1Violations([
+      '  btn: {',
+      '    backgroundColor: tokens.brand.DEFAULT,',
+      '    color: tokens.brand.foreground,',
+      '  },',
+    ]).length === 0,
     'R1 不应命中 brand.foreground',
   )
   // R2 计数
-  assert(countLightContainers(['    backgroundColor: tokens.surface.light,']) === 1, 'R2 surface.light 计 1')
-  assert(countLightContainers(["    backgroundColor: 'rgba(255,255,255,0.6)',"]) === 1, 'R2 α=0.6 计 1')
-  assert(countLightContainers(["    backgroundColor: 'rgba(255, 255, 255, 0.18)',"]) === 0, 'R2 α=0.18 是淡出层不计')
-  assert(countLightContainers(['<View className="flex-1 bg-white">']) === 1, 'R2 className bg-white 计 1(Drawer 事故形态)')
-  assert(countLightContainers(['<View className="bg-white dark:bg-gray-900">']) === 0, 'R2 dark: 变体不计')
-  assert(countLightContainers(['  tabActive: {', '    backgroundColor: tokens.brand.DEFAULT,', '  },']) === 0, 'R2 brand 背景不计')
+  assert(
+    countLightContainers(['    backgroundColor: tokens.surface.light,']) === 1,
+    'R2 surface.light 计 1',
+  )
+  assert(
+    countLightContainers(["    backgroundColor: 'rgba(255,255,255,0.6)',"]) === 1,
+    'R2 α=0.6 计 1',
+  )
+  assert(
+    countLightContainers(["    backgroundColor: 'rgba(255, 255, 255, 0.18)',"]) === 0,
+    'R2 α=0.18 是淡出层不计',
+  )
+  assert(
+    countLightContainers(['<View className="flex-1 bg-white">']) === 1,
+    'R2 className bg-white 计 1(Drawer 事故形态)',
+  )
+  assert(
+    countLightContainers(['<View className="bg-white dark:bg-gray-900">']) === 0,
+    'R2 dark: 变体不计',
+  )
+  assert(
+    countLightContainers([
+      '  tabActive: {',
+      '    backgroundColor: tokens.brand.DEFAULT,',
+      '  },',
+    ]) === 0,
+    'R2 brand 背景不计',
+  )
   // 块提取:未闭合块也应产出
   assert(extractStyleChunks(['  a: {', '    x: 1,']).length === 1, '未闭合块仍应提取')
   // R1 补盲:packages/app 共享组件一律写 `tk.`,原判据只认 tokens. → 共享包整片不可见
   assert(
-    findR1Violations(['  btn: {', '    backgroundColor: tk.brand.DEFAULT,', '    color: tk.surface.light,', '  },']).length === 1,
+    findR1Violations([
+      '  btn: {',
+      '    backgroundColor: tk.brand.DEFAULT,',
+      '    color: tk.surface.light,',
+      '  },',
+    ]).length === 1,
     'R1 应命中 tk. 前缀(共享包补盲)',
   )
   assert(
-    findR1Violations(['  btn: {', '    backgroundColor: tk.brand.DEFAULT,', '    color: tk.text.primary,', '  },']).length === 1,
+    findR1Violations([
+      '  btn: {',
+      '    backgroundColor: tk.brand.DEFAULT,',
+      '    color: tk.text.primary,',
+      '  },',
+    ]).length === 1,
     'R1 应命中 tk. 前缀 + text.primary 前景',
   )
   assert(
-    findR1Violations(['  btn: {', '    backgroundColor: tk.brand.DEFAULT,', '    color: tk.brand.foreground,', '  },']).length === 0,
+    findR1Violations([
+      '  btn: {',
+      '    backgroundColor: tk.brand.DEFAULT,',
+      '    color: tk.brand.foreground,',
+      '  },',
+    ]).length === 0,
     'R1 不应命中 tk.brand.foreground(正确前景)',
   )
   // === R4 跨 key 兄弟配对(2026-09-24 立,PlazaScreen 四个黑压黑按钮的根治)===
   // R4 与 R1 的分工必须钉死:同块归 R1、兄弟 key 归 R4,两边都不得沉默。
-  assert(extractNamedStyleChunks(['  retryBtn: {', '    x: 1,', '  },']).length === 1, 'R4 具名块:多行块应提取 1 块')
+  assert(
+    extractNamedStyleChunks(['  retryBtn: {', '    x: 1,', '  },']).length === 1,
+    'R4 具名块:多行块应提取 1 块',
+  )
   assert(
     extractNamedStyleChunks(['  retryBtn: {', '    x: 1,', '  },'])[0].name === 'retryBtn',
     'R4 具名块:key 名须为 retryBtn',
@@ -930,9 +1611,15 @@ function selfTest() {
   // R5 范围必须真的含小程序端 —— 缩回范围会让已迁的 37 处重新隐身,且不会有任何声响
   assert(
     [
-      ['apps/miniapp-taro/src/components/Carousel.tsx', ["  x: 'bg-primary text-primary-foreground'"]],
+      [
+        'apps/miniapp-taro/src/components/Carousel.tsx',
+        ["  x: 'bg-primary text-primary-foreground'"],
+      ],
       ['apps/web/src/App.tsx', ["  x: 'bg-primary text-primary-foreground'"]],
-      ['packages/ui-react/src/components/button.tsx', ["  x: 'bg-primary text-primary-foreground'"]],
+      [
+        'packages/ui-react/src/components/button.tsx',
+        ["  x: 'bg-primary text-primary-foreground'"],
+      ],
     ].every(([f, L]) => isR5Scope(f) && countWebClassPairs(L) === 1),
     'R5-S1 三端(web / ui-react / miniapp-taro)都必须在 R5 视野内且能计 1',
   )
@@ -945,7 +1632,12 @@ function selfTest() {
   assert(isSiblingStylePair('Btn', 'BtnText'), 'R4 名字:Btn × BtnText 走 X/XText 规则成对')
   // 真新缺陷不得因为"同时命中 R1"而被 R4 沉默:同块 + 兄弟 key 同时存在 → 两条各自计数
   assert(
-    findR1Violations(['  btn: {', '    backgroundColor: tk.brand.DEFAULT,', '    color: tk.text.primary,', '  },']).length === 1,
+    findR1Violations([
+      '  btn: {',
+      '    backgroundColor: tk.brand.DEFAULT,',
+      '    color: tk.text.primary,',
+      '  },',
+    ]).length === 1,
     'R4 上线后 R1 同块语义不变(阳性对照)',
   )
   assert(
@@ -966,23 +1658,52 @@ function selfTest() {
   // 块提取的配平卫生:字符串 / 注释内的括号不得参与收口
   assert(computeBraceDeltas(["  a: { content: '{}',"])[0] === 1, 'R4 配平:串内 {} 不计')
   assert(computeBraceDeltas(['  a: { // } 注释里的闭包不计'])[0] === 1, 'R4 配平:// 注释内不计')
-  assert(computeBraceDeltas(['  a: {', "    t: 'don\\'t',", '  },'])[2] === -1, 'R4 配平:转义引号不得吃掉后文')
   assert(
-    extractNamedStyleChunks(['  a: {', "    label: 'x: {',", '  },', '  b: { color: tk.text.primary },']).length === 2,
+    computeBraceDeltas(['  a: {', "    t: 'don\\'t',", '  },'])[2] === -1,
+    'R4 配平:转义引号不得吃掉后文',
+  )
+  assert(
+    extractNamedStyleChunks([
+      '  a: {',
+      "    label: 'x: {',",
+      '  },',
+      '  b: { color: tk.text.primary },',
+    ]).length === 2,
     'R4 具名块:串内 `key: {` 不得额外成块',
   )
   // R3:brand.DEFAULT/brand.cta 填充/描边计数(端内自立的 ctaFill 不是任何一档正解,不认)
-  assert(countCtaFills(['    backgroundColor: tokens.brand.DEFAULT,']) === 1, 'R3 tokens.brand.DEFAULT 背景计 1')
-  assert(countCtaFills(['    borderColor: tk.brand.DEFAULT,']) === 1, 'R3 tk.brand.DEFAULT 描边计 1')
-  assert(countCtaFills(['    backgroundColor: tokens.brand.ctaFill,']) === 0, 'R3 不应命中 ctaFill(正解)')
+  assert(
+    countCtaFills(['    backgroundColor: tokens.brand.DEFAULT,']) === 1,
+    'R3 tokens.brand.DEFAULT 背景计 1',
+  )
+  assert(
+    countCtaFills(['    borderColor: tk.brand.DEFAULT,']) === 1,
+    'R3 tk.brand.DEFAULT 描边计 1',
+  )
+  assert(
+    countCtaFills(['    backgroundColor: tokens.brand.ctaFill,']) === 0,
+    'R3 不应命中 ctaFill(正解)',
+  )
   assert(countCtaFills(['    color: tokens.brand.foreground,']) === 0, 'R3 不计前景色')
   // R3 口径(2026-09-24 补):§4 成对主 CTA 不计债;无配对/错配前景仍计 —— 三条都要有对照
   assert(
-    countCtaFills(['  btn: {', '    backgroundColor: tk.brand.DEFAULT,', '    color: tk.brand.foreground,', '  },']) === 0,
+    countCtaFills([
+      '  btn: {',
+      '    backgroundColor: tk.brand.DEFAULT,',
+      '    color: tk.brand.foreground,',
+      '  },',
+    ]) === 0,
     'R3 同块成对(brand.foreground)不计 —— 这是按 §4 写的正确主 CTA',
   )
   assert(
-    countCtaFills(['  btn: {', '    backgroundColor: tk.brand.DEFAULT,', '  },', '  btnText: {', '    color: tk.brand.foreground,', '  },']) === 0,
+    countCtaFills([
+      '  btn: {',
+      '    backgroundColor: tk.brand.DEFAULT,',
+      '  },',
+      '  btnText: {',
+      '    color: tk.brand.foreground,',
+      '  },',
+    ]) === 0,
     'R3 兄弟键成对(xBtn ↔ xBtnText)同样不计(与 R4 同一套命名配对)',
   )
   assert(
@@ -990,20 +1711,40 @@ function selfTest() {
     'R3 反向对照:无任何配对前景的白卡片必须仍计 1',
   )
   assert(
-    countCtaFills(['  card: {', '    backgroundColor: tk.brand.DEFAULT,', '  },', '  cardText: {', '    color: tk.text.primary,', '  },']) === 1,
+    countCtaFills([
+      '  card: {',
+      '    backgroundColor: tk.brand.DEFAULT,',
+      '  },',
+      '  cardText: {',
+      '    color: tk.text.primary,',
+      '  },',
+    ]) === 1,
     'R3 反向对照:配 text.primary(非 brand.foreground)的填充不得被当成已配对放行',
   )
-  assert(countCtaFills(['    backgroundColor: tokens.brand.DEFAULTISH,']) === 0, 'R3 边界:同前缀字段不得误计')
+  assert(
+    countCtaFills(['    backgroundColor: tokens.brand.DEFAULTISH,']) === 0,
+    'R3 边界:同前缀字段不得误计',
+  )
   // ═══ 2026-09-24 补盲:brand.cta 是主 CTA 改档后的**唯一实底写法**(AGENTS §4),
   //     R1/R3/R4 必须能看见它 —— 判据必须覆盖门自己产出的形态(教训同守门 77 B6 括号盲区)。═══
   // F1 R1 坏例子:cta 实底 + 同块 surface.light → 必红(深色档案 #262626 压 #4A7A96 仅 3.25:1,掉出 AA)
   assert(
-    findR1Violations(['  btn: {', '    backgroundColor: tokens.brand.cta,', '    color: tokens.surface.light,', '  },']).length === 1,
+    findR1Violations([
+      '  btn: {',
+      '    backgroundColor: tokens.brand.cta,',
+      '    color: tokens.surface.light,',
+      '  },',
+    ]).length === 1,
     'R1-F1 应命中 cta 底 + surface.light(跨档错配)',
   )
   // F2 R1 好例子:cta 实底 + 同块 ctaForeground → 必绿(§4 成对即合规)
   assert(
-    findR1Violations(['  btn: {', '    backgroundColor: tokens.brand.cta,', '    color: tokens.brand.ctaForeground,', '  },']).length === 0,
+    findR1Violations([
+      '  btn: {',
+      '    backgroundColor: tokens.brand.cta,',
+      '    color: tokens.brand.ctaForeground,',
+      '  },',
+    ]).length === 0,
     'R1-F2 不应命中 cta + ctaForeground(成对即合规)',
   )
   // F3 R4 兄弟键形态:retryBtn(cta 底)× retryText(surface.light 字)→ 必命中
@@ -1019,92 +1760,129 @@ function selfTest() {
     'R4-F3 应命中 retryBtn(cta) × retryText(surface.light)',
   )
   // F4 R3 计数:cta 填充必须计(修盲区前这一组实测 0 = 235 处实底整片隐身的确证)
-  assert(countCtaFills(['    backgroundColor: tk.brand.cta,']) === 1, 'R3-F4 tk.brand.cta 背景计 1(修前为 0 ⇒ 盲区)')
-  assert(countCtaFills(['    borderColor: tokens.brand.cta,']) === 1, 'R3-F4 tokens.brand.cta 描边计 1')
-  // F4c R3 人工出口:r3-cta-exempt 同行与紧邻上行都认,但**不得外溢**到同文件另一处
   assert(
-    countCtaFills([
-      '  btn: {',
-      '    backgroundColor: tk.brand.cta, // r3-cta-exempt: 图标钮,前景在同一元素 color={tk.brand.ctaForeground}',
-      '  },',
-    ]) === 0,
-    'R3-F4c 同行 r3-cta-exempt 必须豁免(结构看不见 JSX 图标前景 ⇒ 没有出口就是逼人跳门)',
+    countCtaFills(['    backgroundColor: tk.brand.cta,']) === 1,
+    'R3-F4 tk.brand.cta 背景计 1(修前为 0 ⇒ 盲区)',
   )
   assert(
-    countCtaFills([
-      '  btn: {',
-      '    // r3-cta-exempt: 前景写在 <Send color=…>',
-      '    backgroundColor: tk.brand.cta,',
-      '  },',
-    ]) === 0,
-    'R3-F4c 紧邻上行标记也必须生效(注释常写在被解释行的上方)',
-  )
-  assert(
-    countCtaFills([
-      '  a: {',
-      '    backgroundColor: tk.brand.cta, // r3-cta-exempt: 只豁免这一处',
-      '  },',
-      '  b: {',
-      '    backgroundColor: tk.brand.cta,',
-      '  },',
-    ]) === 1,
-    'R3-F4c 反向:一行标记救不了同文件第二处(与守门 97 M2 / R5-N9c 同规)',
+    countCtaFills(['    borderColor: tokens.brand.cta,']) === 1,
+    'R3-F4 tokens.brand.cta 描边计 1',
   )
   // F4b R3 按档配对:cta ↔ ctaForeground(同块/兄弟)豁免;跨档配对仍计债
   assert(
-    countCtaFills(['  btn: {', '    backgroundColor: tk.brand.cta,', '    color: tk.brand.ctaForeground,', '  },']) === 0,
+    countCtaFills([
+      '  btn: {',
+      '    backgroundColor: tk.brand.cta,',
+      '    color: tk.brand.ctaForeground,',
+      '  },',
+    ]) === 0,
     'R3-F4b cta 同块成对(ctaForeground)不计',
   )
   assert(
-    countCtaFills(['  btn: {', '    backgroundColor: tk.brand.cta,', '  },', '  btnText: {', '    color: tk.brand.ctaForeground,', '  },']) === 0,
+    countCtaFills([
+      '  btn: {',
+      '    backgroundColor: tk.brand.cta,',
+      '  },',
+      '  btnText: {',
+      '    color: tk.brand.ctaForeground,',
+      '  },',
+    ]) === 0,
     'R3-F4b cta 兄弟键成对(ctaForeground)不计',
   )
   assert(
-    countCtaFills(['  btn: {', '    backgroundColor: tk.brand.cta,', '    color: tk.brand.foreground,', '  },']) === 1,
+    countCtaFills([
+      '  btn: {',
+      '    backgroundColor: tk.brand.cta,',
+      '    color: tk.brand.foreground,',
+      '  },',
+    ]) === 1,
     'R3-F4b 跨档(cta 底 × brand.foreground)不认作配对,仍计 1',
   )
   assert(
-    countCtaFills(['  btn: {', '    backgroundColor: tk.brand.DEFAULT,', '    color: tk.brand.ctaForeground,', '  },']) === 1,
+    countCtaFills([
+      '  btn: {',
+      '    backgroundColor: tk.brand.DEFAULT,',
+      '    color: tk.brand.ctaForeground,',
+      '  },',
+    ]) === 1,
     'R3-F4b 跨档(DEFAULT 底 × ctaForeground,深色档案=白压白)不认作配对,仍计 1',
   )
-  assert(countCtaFills(['    backgroundColor: tk.brand.ctaForegroundish,']) === 0, 'R3 边界:ctaForeground 不得被当成填充误计')
+  assert(
+    countCtaFills(['    backgroundColor: tk.brand.ctaForegroundish,']) === 0,
+    'R3 边界:ctaForeground 不得被当成填充误计',
+  )
   // F5 反向对照:把 R1_BG/R3_BRAND_FILL 退回只认 DEFAULT 时,F1/F4 夹具必须变绿 ——
   //    证明那几条断言真的在守"扩认 cta"这个点,而不是碰巧过(谁改回去,这几条当场红)。
   const legacyR1BG = /backgroundColor:\s*(?:tokens|tk)\.brand\.DEFAULT\b/
   const legacyR3Fill = /(?:backgroundColor|borderColor):\s*(?:tokens|tk)\.brand\.DEFAULT\b/
-  assert(legacyR1BG.test('    backgroundColor: tokens.brand.DEFAULT,'), 'F5 前提:旧 R1_BG 对 DEFAULT 行是匹配的')
-  assert(!legacyR1BG.test('    backgroundColor: tokens.brand.cta,'), 'F5 旧 R1_BG(只认 DEFAULT)对 cta 行必不匹配 ⇒ F1 的红只可能来自扩面')
+  assert(
+    legacyR1BG.test('    backgroundColor: tokens.brand.DEFAULT,'),
+    'F5 前提:旧 R1_BG 对 DEFAULT 行是匹配的',
+  )
+  assert(
+    !legacyR1BG.test('    backgroundColor: tokens.brand.cta,'),
+    'F5 旧 R1_BG(只认 DEFAULT)对 cta 行必不匹配 ⇒ F1 的红只可能来自扩面',
+  )
   assert(R1_BG.test('    backgroundColor: tokens.brand.cta,'), 'F5 现 R1_BG 必须匹配 cta 填充行')
-  assert(!legacyR3Fill.test('    backgroundColor: tk.brand.cta,'), 'F5 旧 R3 判据对 cta 行必不匹配 ⇒ F4 的计 1 只可能来自扩面')
-  assert(R3_BRAND_FILL.test('    backgroundColor: tk.brand.cta,'), 'F5 现 R3_BRAND_FILL 必须匹配 cta 填充行')
-  assert(R3_BRAND_FILL.test('    borderColor: tk.brand.DEFAULT,'), 'F5 现 R3_BRAND_FILL 对 DEFAULT 描边仍匹配(扩面不缩旧面)')
-  assert(!R3_BRAND_FILL.test('    backgroundColor: tk.brand.ctaForeground,'), 'F5 R3 不得把 ctaForeground(前景档)当填充')
+  assert(
+    !legacyR3Fill.test('    backgroundColor: tk.brand.cta,'),
+    'F5 旧 R3 判据对 cta 行必不匹配 ⇒ F4 的计 1 只可能来自扩面',
+  )
+  assert(
+    R3_BRAND_FILL.test('    backgroundColor: tk.brand.cta,'),
+    'F5 现 R3_BRAND_FILL 必须匹配 cta 填充行',
+  )
+  assert(
+    R3_BRAND_FILL.test('    borderColor: tk.brand.DEFAULT,'),
+    'F5 现 R3_BRAND_FILL 对 DEFAULT 描边仍匹配(扩面不缩旧面)',
+  )
+  assert(
+    !R3_BRAND_FILL.test('    backgroundColor: tk.brand.ctaForeground,'),
+    'F5 R3 不得把 ctaForeground(前景档)当填充',
+  )
   // ═══ R5(2026-09-24 立):web / ui-react 类名面的退役主按钮配对 ═══
   // 本仓硬规则:判据报"0 处"不可信,除非同一判据先拿**已知应命中**的正例喂过一遍。
   // 故 P 组(阳性对照)在前,N 组(反向对照)逐条钉住词法边界 —— 两组都必须存在。
   // (P1) 真仓形态:packages/ui-react/src/components/button.tsx:21 的原文一行,必须计 1
   assert(
-    countWebClassPairs(["    default: 'bg-primary text-primary-foreground shadow hover:bg-primary/90',"]) === 1,
+    countWebClassPairs([
+      "    default: 'bg-primary text-primary-foreground shadow hover:bg-primary/90',",
+    ]) === 1,
     'R5-P1 阳性对照:实底 bg-primary + 同行 text-primary-foreground 必须计 1(否则整条判据是瞎的)',
   )
   // (P2) 真仓形态:apps/web 页面按钮原文一行(带一堆间距/圆角类,不影响判定)
   assert(
-    countWebClassPairs(
-      ['          className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"'],
-    ) === 1,
+    countWebClassPairs([
+      '          className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"',
+    ]) === 1,
     'R5-P2 阳性对照:JSX className 属性形态同样计 1',
   )
   // (P3) 类名落在**行尾**:`'' .includes('')` 为 true,naive 写法会让这一行永不匹配 ——
   //      而 `'bg-primary text-primary-foreground'` 这种结尾形态恰恰是最常见写法。
-  assert(countWebClassPairs(['bg-primary text-primary-foreground']) === 1, 'R5-P3 行尾前景档必须计 1(空后置陷阱)')
+  assert(
+    countWebClassPairs(['bg-primary text-primary-foreground']) === 1,
+    'R5-P3 行尾前景档必须计 1(空后置陷阱)',
+  )
   // (N1) 只有透明档 `bg-primary/90` + 前景 → 不是实底,不计
-  assert(countWebClassPairs(["  x: 'bg-primary/90 text-primary-foreground'"]) === 0, 'R5-N1 bg-primary/90 是透明档,不计')
+  assert(
+    countWebClassPairs(["  x: 'bg-primary/90 text-primary-foreground'"]) === 0,
+    'R5-N1 bg-primary/90 是透明档,不计',
+  )
   // (N2) `bg-primary-foreground` 是前景档不是底 → 不计(naive includes 会误计,故必须钉)
-  assert(countWebClassPairs(["  x: 'bg-primary-foreground text-primary-foreground'"]) === 0, 'R5-N2 后置 `-` 必须排除')
+  assert(
+    countWebClassPairs(["  x: 'bg-primary-foreground text-primary-foreground'"]) === 0,
+    'R5-N2 后置 `-` 必须排除',
+  )
   // (N3) 变体前缀 `hover:bg-primary` → 前置 `:` 排除,该行没有实底
-  assert(countWebClassPairs(["  x: 'hover:bg-primary text-primary-foreground'"]) === 0, 'R5-N3 变体前置 `:` 必须排除')
+  assert(
+    countWebClassPairs(["  x: 'hover:bg-primary text-primary-foreground'"]) === 0,
+    'R5-N3 变体前置 `:` 必须排除',
+  )
   // (N4) `text-primary`(墨色文字)+ 合法 bg-cta → 与新档无关,不计
-  assert(countWebClassPairs(["  x: 'bg-cta text-primary text-cta-foreground'"]) === 0, 'R5-N4 正解档 bg-cta 绝不得计债')
+  assert(
+    countWebClassPairs(["  x: 'bg-cta text-primary text-cta-foreground'"]) === 0,
+    'R5-N4 正解档 bg-cta 绝不得计债',
+  )
   // (N5) 只有一半:有实底无前景 → 不成对,不计(R5 判的是"底字同行配对",不是查 bg-primary 本身)
   assert(countWebClassPairs(["  x: 'bg-primary text-xs'"]) === 0, 'R5-N5 无同行前景不计')
   // 渐变端形态(hero-cta 事故形态):必须计 1
@@ -1136,30 +1914,43 @@ function selfTest() {
   // (N8) 整行注释不计(零容忍门下,注释里提到退役档不得拦住无关提交)—— 真仓实测形态:
   //      apps/web/app/(main)/models/ModelsNav.tsx 的 JSDoc 就照原样写着这两个类名。
   assert(
-    countWebClassPairs(['   * - active 态:bg-primary + text-primary-foreground(主色填充,无下划线)']) === 0,
+    countWebClassPairs([
+      '   * - active 态:bg-primary + text-primary-foreground(主色填充,无下划线)',
+    ]) === 0,
     'R5-N8 整行注释不计(真仓 ModelsNav.tsx:33 形态)',
   )
-  assert(countWebClassPairs(['// bg-primary text-primary-foreground 已废']) === 0, 'R5-N8b 行注释不计')
+  assert(
+    countWebClassPairs(['// bg-primary text-primary-foreground 已废']) === 0,
+    'R5-N8b 行注释不计',
+  )
   // (N9) 行内豁免出口必须真起作用(零容忍门若没有人出口,唯一出路就是 --no-verify)
   assert(
-    countWebClassPairs(["      'bg-primary text-primary-foreground' // r5-cta-exempt: 覆盖在图片上的合法浮层"]) === 0,
+    countWebClassPairs([
+      "      'bg-primary text-primary-foreground' // r5-cta-exempt: 覆盖在图片上的合法浮层",
+    ]) === 0,
     'R5-N9 同行 r5-cta-exempt 豁免必须生效',
   )
   assert(
-    countWebClassPairs(['  // r5-cta-exempt: 旧截图预览底色', "  x: 'bg-primary text-primary-foreground'"]) === 0,
+    countWebClassPairs([
+      '  // r5-cta-exempt: 旧截图预览底色',
+      "  x: 'bg-primary text-primary-foreground'",
+    ]) === 0,
     'R5-N9b 紧邻上行豁免必须生效',
   )
   assert(
-    countWebClassPairs(["  x: 'bg-primary text-primary-foreground'", "  y: 'bg-primary text-primary-foreground'"]) === 2,
+    countWebClassPairs([
+      "  x: 'bg-primary text-primary-foreground'",
+      "  y: 'bg-primary text-primary-foreground'",
+    ]) === 2,
     'R5-N9c 反向:豁免不得外溢到后续行(一行标记救不了同文件另一处,同守门 97 M2)',
   )
   // (N10) 前向登记的盲区:变体前缀 `data-[state=checked]:bg-primary` 不判为实底
   //       (真仓 packages/ui-react/checkbox.tsx:28 即此型)。本条不是"验收",而是把窄口径钉成契约:
   //       谁放宽 `:` 规则,这条会红并强制他回来改注释与基线,而不是让口径悄悄漂移。
   assert(
-    countWebClassPairs(
-      ["      'data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground hover:border-foreground/60',"],
-    ) === 0,
+    countWebClassPairs([
+      "      'data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground hover:border-foreground/60',",
+    ]) === 0,
     'R5-N10 已登记盲区:变体前缀形态不判(放宽此条须同步改头注限制②与基线)',
   )
   // 变异对照:naive `includes` 判据会把 N1/N2/N3 三条全计成债 —— 证明上面那三条的红真挂在词法规则上,
@@ -1171,21 +1962,39 @@ function selfTest() {
     ["  x: 'hover:bg-primary text-primary-foreground'", '变体前缀'],
   ]
   for (const [i, [line, label]] of r5NaiveFixtures.entries()) {
-    assert(naiveR5(line) === true, `R5 变异对照前提 ${i + 1}(${label}):naive 判据应对该行误计(否则本对照无意义)`)
-    assert(countWebClassPairs([line]) === 0, `R5 变异对照 ${i + 1}(${label})必须由词法规则判 0,不得靠 naive 碰巧`)
+    assert(
+      naiveR5(line) === true,
+      `R5 变异对照前提 ${i + 1}(${label}):naive 判据应对该行误计(否则本对照无意义)`,
+    )
+    assert(
+      countWebClassPairs([line]) === 0,
+      `R5 变异对照 ${i + 1}(${label})必须由词法规则判 0,不得靠 naive 碰巧`,
+    )
   }
   // hasClassToken 的边界单测(它同时服务 R5 两侧,判据本身要能单独取证)
-  assert(hasClassToken('bg-primary', 'bg-primary', '-/') === true, 'R5 词法:整行只有一个类名(前后皆空)必须匹配')
+  assert(
+    hasClassToken('bg-primary', 'bg-primary', '-/') === true,
+    'R5 词法:整行只有一个类名(前后皆空)必须匹配',
+  )
   assert(hasClassToken('bg-primaryFoo', 'bg-primary', '-/') === false, 'R5 词法:后置字母不得算整词')
   assert(hasClassToken('bg-primary/90', 'bg-primary', '-/') === false, 'R5 词法:后置 `/` 排除')
-  assert(hasClassToken('bg-primary-foreground', 'bg-primary', '-/') === false, 'R5 词法:后置 `-` 排除')
+  assert(
+    hasClassToken('bg-primary-foreground', 'bg-primary', '-/') === false,
+    'R5 词法:后置 `-` 排除',
+  )
   assert(hasClassToken('-bg-primary', 'bg-primary', '-/') === false, 'R5 词法:前置 `-` 排除')
   assert(hasClassToken('hover:bg-primary', 'bg-primary', '-/') === false, 'R5 词法:前置 `:` 排除')
-  assert(hasClassToken('text-primary-foreground/50', R5_FG_CLASS, '') === true, 'R5 词法:前景档允许带透明后缀仍算前景')
+  assert(
+    hasClassToken('text-primary-foreground/50', R5_FG_CLASS, '') === true,
+    'R5 词法:前景档允许带透明后缀仍算前景',
+  )
   assert(hasClassToken('text-primary-foo', R5_FG_CLASS, '') === false, 'R5 词法:前景档必须整词')
   // R5 范围口径:测试面/e2e 不判,非 tsx/jsx/ts 不判
   assert(isR5Scope('apps/web/src/components/x.tsx'), 'R5 范围:apps/web .tsx 在射程内')
-  assert(isR5Scope('packages/ui-react/src/components/button.tsx'), 'R5 范围:ui-react 在射程内(共享按钮组件本身仍是退役档)')
+  assert(
+    isR5Scope('packages/ui-react/src/components/button.tsx'),
+    'R5 范围:ui-react 在射程内(共享按钮组件本身仍是退役档)',
+  )
   assert(!isR5Scope('apps/web/e2e/icon-text-alignment.spec.ts'), 'R5 范围:e2e 不判')
   assert(!isR5Scope('apps/web/src/components/x.test.tsx'), 'R5 范围:*.test.tsx 不判')
   assert(!isR5Scope('apps/mobile-rn/src/components/X.tsx'), 'R5 范围:RN 端归 R1..R4,不在 R5')
@@ -1193,6 +2002,269 @@ function selfTest() {
   assert(!isR5Scope('packages/shared/src/utils/x.ts'), 'R5 范围:未列入的包不判')
   // 基线键必须独立:R5 用 webClassPairCounts,不得复用 counts/ctaCounts/r4Counts
   assert(BASELINE_R5_KEY === 'webClassPairCounts', 'R5 基线键必须是新键 webClassPairCounts')
+  // ═══ R7(2026-09-25 立):跨 JSX 嵌套层的品牌底 / 前景错配 ═══
+  // 本仓硬规则:"判据报 0" 必须配阳性对照。R7 报 0 处比 R1..R5 更危险 —— 它靠一棵
+  // 手搓的 JSX 树,树一旦解不出来就静默退化成"没有违规"。故 P 组两条就是用户点名的
+  // 两个真仓实例的原样形态,必须红;N 组钉住三类会造假阳的形态。
+  const sig = (v) => v.map((x) => `${x.container}×${x.fg}×${x.fgTok}`).join()
+  // (P1) 真仓形态:BankCardScreen 的 card(cta) 内渲染 bankName(surface.light)
+  assert(
+    sig(
+      findR7Violations([
+        '    card: {',
+        '      padding: 12,',
+        '      backgroundColor: tk.brand.cta,',
+        '    },',
+        '    bankName: { fontSize: 16, fontWeight: "600", color: tk.surface.light },',
+        '  return (',
+        '    <View style={styles.card}>',
+        '      <Text style={styles.bankName}>{item.bankName}</Text>',
+        '    </View>',
+        '  )',
+      ]),
+    ) === 'card×bankName×surface.light',
+    'R7-P1 阳性对照:card(cta) × bankName(surface.light) 必命中(真仓 BankCardScreen 原样形态)',
+  )
+  // (P2) 真仓形态:AiAssistantN8nScreen 的消息气泡 —— 名字同样毫无关系
+  assert(
+    sig(
+      findR7Violations([
+        '    messageBubbleUser: { backgroundColor: tk.brand.cta, padding: 8 },',
+        '    messageTextUser: { color: tk.surface.light },',
+        '  return (',
+        '    <View style={styles.messageBubbleUser}>',
+        '      <Text style={styles.messageTextUser}>{msg.content}</Text>',
+        '    </View>',
+        '  )',
+      ]),
+    ) === 'messageBubbleUser×messageTextUser×surface.light',
+    'R7-P2 阳性对照:messageBubbleUser(cta) × messageTextUser(surface.light) 必命中',
+  )
+  // (P3) 内联在图标上的 color prop(R1/R4 结构上永远看不见这一型)
+  assert(
+    findR7Violations([
+      '    sendBtn: { backgroundColor: tk.brand.cta, width: 40 },',
+      '  return (',
+      '    <TouchableOpacity style={styles.sendBtn}>',
+      '      <Send size={18} color={tk.surface.light} />',
+      '    </TouchableOpacity>',
+      '  )',
+    ]).length === 1,
+    'R7-P3 内联 color={…} 的图标前景同样归容器档位',
+  )
+  // (N1) 正确成对:cta 底 + ctaForeground 文字 → 必绿(按 §4 写就红 = 逼人 --no-verify)
+  assert(
+    findR7Violations([
+      '    card: { backgroundColor: tk.brand.cta },',
+      '    cardTitle: { color: tk.brand.ctaForeground },',
+      '  return (<View style={styles.card}><Text style={styles.cardTitle}>x</Text></View>)',
+    ]).length === 0,
+    'R7-N1 成对(cta + ctaForeground)不得计债',
+  )
+  // (N2) 非嵌套的兄弟 key:文字不在容器里渲染 → R7 无从成立(它归 R4)
+  assert(
+    findR7Violations([
+      '    card: { backgroundColor: tk.brand.cta },',
+      '    bankName: { color: tk.surface.light },',
+      '  return (',
+      '    <View>',
+      '      <View style={styles.card} />',
+      '      <Text style={styles.bankName}>x</Text>',
+      '    </View>',
+      '  )',
+    ]).length === 0,
+    'R7-N2 平行兄弟元素(未嵌套)不得被当成"底上的字"',
+  )
+  // (N3) 前景归**最近的带背景祖先**:card(cta) > badge(自有底) > badgeText(surface.light)
+  assert(
+    findR7Violations([
+      '    card: { backgroundColor: tk.brand.cta },',
+      "    badge: { backgroundColor: 'rgba(255,255,255,0.25)' },",
+      '    badgeText: { fontSize: 10, color: tk.surface.light },',
+      '  return (',
+      '    <View style={styles.card}>',
+      '      <View style={styles.badge}>',
+      '        <Text style={styles.badgeText}>x</Text>',
+      '      </View>',
+      '    </View>',
+      '  )',
+    ]).length === 0,
+    'R7-N3 中间层自带背景时它是归属边界(真仓 BankCardScreen.badge 即此型)',
+  )
+  // (N4) 前景来自非品牌背景:页面底 surface.light 上的 text.primary 与品牌档无关
+  assert(
+    findR7Violations([
+      '    container: { flex: 1, backgroundColor: tk.surface.light },',
+      '    title: { fontSize: 20, color: tk.text.primary },',
+      '  return (<View style={styles.container}><Text style={styles.title}>x</Text></View>)',
+    ]).length === 0,
+    'R7-N4 非品牌底容器内的前景一律不判(否则全站正文都成债)',
+  )
+  // (N5) 条件三元前景:有一枚前景合法即放过 —— 判不出归属时不得猜
+  assert(
+    findR7Violations([
+      '    card: { backgroundColor: tk.brand.cta },',
+      '    label: { color: tk.surface.light },',
+      '  return (',
+      '    <View style={styles.card}>',
+      '      <Text style={active ? styles.label : styles.labelOn}>x</Text>',
+      '    </View>',
+      '  )',
+      '    labelOn: { color: tk.brand.ctaForeground },',
+    ]).length === 0,
+    'R7-N5 前景候选里只要有一枚合法就不判(宁漏不误报)',
+  )
+  // (N6) R7 与 R4 互斥:X × XText 兄弟命名归 R4,不得被两条判据各计一次
+  assert(
+    findR7Violations([
+      '    retryBtn: { backgroundColor: tk.brand.cta },',
+      '    retryText: { color: tk.surface.light },',
+      '  return (<View style={styles.retryBtn}><Text style={styles.retryText}>x</Text></View>)',
+    ]).length === 0,
+    'R7-N6 兄弟命名对归 R4(重叠计数会让两条基线互相顶掉)',
+  )
+  // (N7) 名字无关系但**确属**兄弟族的另一型:linkBtn+copyBtn 复合底 × linkBtnText
+  //      copyBtn 与 linkBtnText 不成 R4 兄弟对(主干 copy vs linkBtn),但底来自 copyBtn
+  assert(
+    sig(
+      findR7Violations([
+        '    linkBtn: { flex: 1, alignItems: "center" },',
+        '    copyBtn: { backgroundColor: tk.brand.cta },',
+        '    linkBtnText: { fontSize: 14, color: tk.surface.light },',
+        '  return (',
+        '    <TouchableOpacity style={[styles.linkBtn, styles.copyBtn]}>',
+        '      <Text style={styles.linkBtnText}>x</Text>',
+        '    </TouchableOpacity>',
+        '  )',
+      ]),
+    ) === 'copyBtn×linkBtnText×surface.light',
+    'R7-N7 数组复合 style 的底必须参与归属(真仓 PromoteScreen 即此型)',
+  )
+  // (N8) 属性里的子元素不得算作宿主的 style(ListEmptyComponent 型假阳的回归钉)
+  assert(
+    findR7Violations([
+      '    emptyText: { color: tk.text.tertiary },',
+      '    itemBody: { padding: 8 },',
+      '    itemTitle: { color: tk.text.primary },',
+      '  return (',
+      '    <FlatList',
+      '      ListEmptyComponent={<Text style={styles.emptyText}>无</Text>}',
+      '      renderItem={() => (',
+      '        <View style={styles.itemBody}>',
+      '          <Text style={styles.itemTitle}>t</Text>',
+      '        </View>',
+      '      )}',
+      '    />',
+      '  )',
+    ]).length === 0,
+    'R7-N8 属性内嵌套元素的 style 不得并入宿主 key 集(建门第一版即在此造出假阳)',
+  )
+  // (N9) brand.DEFAULT × surface.light 两态都可见 ⇒ 不是债(与 R4 建门实测同一口径)
+  assert(
+    findR7Violations([
+      '    btn: { backgroundColor: tokens.brand.DEFAULT },',
+      '    btnCaption: { color: tokens.surface.light },',
+      '  return (<View style={styles.btn}><Text style={styles.btnCaption}>x</Text></View>)',
+    ]).length === 0,
+    'R7-N9 DEFAULT 底 × surface.light 不得判(深色 #262626 压 #FFF 清晰)',
+  )
+  // (N10) brand.DEFAULT × 常量白:深色档案 #FFF 压 #FFF = 白压白 → 必红
+  assert(
+    findR7Violations([
+      '    btn: { backgroundColor: tokens.brand.DEFAULT },',
+      '    btnCaption: { color: "#FFFFFF" },',
+      '  return (<View style={styles.btn}><Text style={styles.btnCaption}>x</Text></View>)',
+    ]).length === 1,
+    'R7-N10 DEFAULT 底 × 常量白(深色=白压白)必判',
+  )
+  // 判据矩阵本身要能单独取证(未知 token 一律不判 —— 宁漏不误报)
+  assert(r7IsMismatch('brand.cta', 'surface.light') === true, 'R7 矩阵:cta × surface.light')
+  assert(r7IsMismatch('brand.cta', 'surface.card') === true, 'R7 矩阵:cta × surface.card')
+  assert(
+    r7IsMismatch('brand.cta', 'brand.ctaForeground') === false,
+    'R7 矩阵:cta × ctaForeground 正配',
+  )
+  assert(
+    r7IsMismatch('brand.DEFAULT', 'surface.light') === false,
+    'R7 矩阵:DEFAULT × surface.light 两态可见',
+  )
+  assert(
+    r7IsMismatch('brand.DEFAULT', 'constant-white') === true,
+    'R7 矩阵:DEFAULT × 常量白(深色白压白)',
+  )
+  assert(r7IsMismatch('surface.muted', 'surface.light') === false, 'R7 矩阵:非品牌底一律不判')
+  assert(r7IsMismatch('brand.cta', 'text.quaternary') === false, 'R7 矩阵:未知 token 不猜')
+  assert(
+    isConstantWhite("'#fff'") && isConstantWhite('"#FFFFFF"') && isConstantWhite("'white'"),
+    'R7 常量白三种写法',
+  )
+  assert(isConstantWhite("'rgba(255,255,255,0.95)'"), 'R7 α≥0.9 视作实心白')
+  assert(!isConstantWhite("'rgba(255,255,255,0.85)'"), 'R7 α<0.9 是半透明点缀,不当实心白')
+  assert(!isConstantWhite("'#262626'"), 'R7 深色字面量不是常量白')
+  // style 引用识别的假阳闸门:`item.card` / `theme.brand` 不得被当成样式引用
+  assert(
+    styleKeyRefsIn('{[styles.card, active && styles.cardOn]}').join() === 'card,cardOn',
+    'R7 style 数组解析',
+  )
+  assert(styleKeyRefsIn('{item.card}').length === 0, 'R7 非 style 宿主标识符不得算 style 引用')
+  assert(styleKeyRefsIn('tk.surface.light').length === 0, 'R7 令牌路径不得被当成 style key')
+  // 解析器遇到畸形 JSX 必须**照常判定**,不得退化成"0 处"(静默的绿比红危险)
+  assert(
+    findR7Violations([
+      '    card: { backgroundColor: tk.brand.cta },',
+      '    t1: { color: tk.surface.light },',
+      '  return (<View style={styles.card}><Text style={styles.t1}></View>',
+    ]).length === 1,
+    'R7 未闭合标签仍须判出 card×t1(解析失败不得伪装成"没有债")',
+  )
+  // 基线键独立:R7 用 nestMismatchCounts,与 R2/R3/R4/R5 四面互不重叠
+  assert(BASELINE_R7_KEY === 'nestMismatchCounts', 'R7 基线键必须是新键 nestMismatchCounts')
+  // (N11) 人工豁免出口必须真起作用,且**逐行**生效、**必须带原因**
+  assert(
+    findR7Violations([
+      '    card: { backgroundColor: tk.brand.cta }, // r7-nest-exempt: 底是渐变图的一部分',
+      '    cap: { color: tk.surface.light },',
+      '  return (<View style={styles.card}><Text style={styles.cap}>x</Text></View>)',
+    ]).length === 0,
+    'R7-N11 容器行 r7-nest-exempt 必须生效',
+  )
+  assert(
+    findR7Violations([
+      '    card: { backgroundColor: tk.brand.cta },',
+      '    cap: { color: tk.surface.light },',
+      '  return (',
+      '    <View style={styles.card}>',
+      '      {/* r7-nest-exempt: 这行字其实压在图片上 */}',
+      '      <Text style={styles.cap}>x</Text>',
+      '    </View>',
+      '  )',
+    ]).length === 0,
+    'R7-N11b 前景行的紧邻上行豁免必须生效(与 R5 同形态)',
+  )
+  assert(
+    findR7Violations([
+      '    card: { backgroundColor: tk.brand.cta }, // r7-nest-exempt:',
+      '    cap: { color: tk.surface.light },',
+      '  return (<View style={styles.card}><Text style={styles.cap}>x</Text></View>)',
+    ]).length === 1,
+    'R7-N11c 不带原因的豁免不算豁免(否则豁免会退化成"先加上再说")',
+  )
+  assert(
+    findR7Violations([
+      '    card: { backgroundColor: tk.brand.cta },',
+      '    cap: { color: tk.surface.light }, // r7-nest-exempt: 覆盖在图片上',
+      '    spacer: { height: 1 },',
+      '    other: { color: tk.surface.light },',
+      '  return (<View style={styles.card}><Text style={styles.cap}>a</Text><Text style={styles.other}>b</Text></View>)',
+    ]).length === 1,
+    'R7-N11d 豁免不得外溢到同文件另一处配对(一行标记只救它自己那一处)',
+  )
+  for (const other of ['counts', 'ctaCounts', 'r4Counts', BASELINE_R5_KEY]) {
+    assert(
+      BASELINE_R7_KEY !== other,
+      `R7 复用了 ${other} ⇒ 一次 --update-baseline 会把另一条判据的存量发给 R7`,
+    )
+  }
   console.log('✅ check-brand-foreground self-test 全部通过')
   return 0
 }
@@ -1228,6 +2300,24 @@ export const __test__ = {
   R5_BG_CLASS,
   R5_FG_CLASS,
   R5_DIRS,
+  // R7(JSX 嵌套层):判据函数 + 归属矩阵 + 解析前置 + 基线键。
+  // 镜像测试要靠这些做"矩阵被改宽 / style 引用识别被改松 / 基线键被复用"的变异对照。
+  findR7Violations,
+  collectR7StyleKeys,
+  r7IsMismatch,
+  isConstantWhite,
+  styleKeyRefsIn,
+  readJsxAttrValues,
+  parseTagHead,
+  maskNestedElements,
+  BASELINE_R7_KEY,
+  R7_BAD_ON_CTA,
+  R7_BAD_ON_DEFAULT,
+  R7_FILL_TIERS,
+  R7_STYLE_PROPS,
+  R7_EXEMPT,
+  r7ExemptAt,
+  r7ParseErrors,
   // §22c:判据正则本体也导出 —— 镜像测试用"旧版只认 DEFAULT 的正则 vs 现版"做变异对照,
   // 证明 cta 夹具的红/绿确实挂在扩面上(仅导出函数无法证伪"判据被改回只认 DEFAULT")。
   R1_BG,
