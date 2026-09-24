@@ -209,7 +209,7 @@ export function CanvasOverlay() {
               type="button"
               onClick={applyEdit}
               disabled={!dirty}
-              className="rounded-sm bg-primary px-2 py-1 text-[11px] text-primary-foreground disabled:opacity-40"
+              className="rounded-sm bg-cta px-2 py-1 text-[11px] text-cta-foreground disabled:opacity-40"
             >
               {t('canvasApplyRefresh')}
             </button>
