@@ -264,17 +264,7 @@
     "apps/miniapp-taro/src/components/SkillsPopup.tsx": 1,
     "apps/miniapp-taro/src/pages/distribution/plan/index.tsx": 2
   },
-  "nestMismatchCounts": {
-    "apps/mobile-rn/src/screens/CircleIndexScreen.tsx": 1,
-    "packages/app/src/features/agent-market/AgentMarketScreen.tsx": 1,
-    "packages/app/src/features/ai-group/AiGroupScreen.tsx": 1,
-    "packages/app/src/features/app-topup/AppTopupScreen.tsx": 2,
-    "packages/app/src/features/cert-apply/CertApplyScreen.tsx": 1,
-    "packages/app/src/features/live-host/LiveHostScreen.tsx": 1,
-    "packages/app/src/features/profile-edit/ProfileEditScreen.tsx": 2,
-    "packages/app/src/features/promote/PromoteScreen.tsx": 1,
-    "packages/app/src/features/token-value/TokenValueScreen.tsx": 6
-  },
+  "nestMismatchCounts": {},
   "r7NestMismatchLedger": {
     "addedBy": "R7 立门 2026-09-25",
     "why": "nestMismatchCounts 是 R7(跨 JSX 嵌套层的品牌底/前景错配)的存量登记:立门当日按 HEAD blob 实测 16 处 / 9 文件,逐条人工目检成立 —— 容器 style key 与文字 style key 既不在同一块(R1 看不见)也不同名兄弟(R4 看不见),只有渲染嵌套能把两者连起来。",
