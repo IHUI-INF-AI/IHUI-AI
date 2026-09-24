@@ -23,7 +23,7 @@ interface FastifyLogger {
   error: (msg: string, meta?: object) => void
 }
 
-interface FastifyLogInstance {
+export interface FastifyLogInstance {
   log: {
     debug: (m: object, msg: string) => void
     info: (m: object, msg: string) => void
