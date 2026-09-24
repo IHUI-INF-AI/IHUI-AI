@@ -12,7 +12,17 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { __test__ as R } from '../re-home-junctions.mjs'
@@ -74,7 +84,13 @@ test('目标里有上次失败留下的残留:只清目标、绝不动源,清完
 test('字节不同 = 真没复制对,不得当成残留清掉后硬收敛(判据必须分得清两种失败)', () => {
   const { root, src } = fixture()
   try {
-    const d = R.diffFingerprint(R.fingerprintTree(src), new Map([['a.txt', 999], ['nested/b.bin', 2048]]))
+    const d = R.diffFingerprint(
+      R.fingerprintTree(src),
+      new Map([
+        ['a.txt', 999],
+        ['nested/b.bin', 2048],
+      ]),
+    )
     assert.deepEqual(d.differ, ['a.txt'], '字节不同必须归入 differ,而不是 onlyB')
     assert.equal(d.onlyA.length, 0)
     assert.equal(d.onlyB.length, 0)
@@ -110,8 +126,22 @@ test('幂等:改道完成后再跑一次,必须报"已是指针"而不是重复�
 
 test('清单与盘符都复用既有真相源(不得自带第二份)', () => {
   const src = readFileSync(new URL('../re-home-junctions.mjs', import.meta.url), 'utf8')
-  assert.match(src, /import \{ registryOf \} from '\.\/check-home-junctions\.mjs'/, '登记表必须来自门 96')
-  assert.match(src, /import \{ devEnvRoot \} from '\.\/seal-c-root-stray\.mjs'/, 'D 盘根必须复用 devEnvRoot()')
+  assert.match(
+    src,
+    /import \{[^}]*\bregistryOf\b[^}]*\} from '\.\/check-home-junctions\.mjs'/,
+    '登记表必须来自门 96',
+  )
+  assert.match(
+    src,
+    /import \{[^}]*\bfindStashes\b[^}]*\} from '\.\/check-home-junctions\.mjs'/,
+    'stash 枚举必须复用门 96 的那一份(抄第二份必然漂移)',
+  )
+  assert.doesNotMatch(src, /^export function findStashes\(/m, '修复器里不得另写一份 findStashes')
+  assert.match(
+    src,
+    /import \{ devEnvRoot \} from '\.\/seal-c-root-stray\.mjs'/,
+    'D 盘根必须复用 devEnvRoot()',
+  )
   // 抄一份清单的指纹是"字面量条目对象";plan 必须是对 registry 的 map
   assert.doesNotMatch(src, /\{\s*p:\s*join\(\s*home/, '不得在修复器里另列家目录项')
   assert.match(src, /registry\.map\(/, 'plan 必须由 registryOf() 推导')
@@ -151,7 +181,11 @@ test('装车证明:守护每轮真的会触发修复器,且修复器真的会跳
   const guard = readFileSync(new URL('../git-guardian.mjs', import.meta.url), 'utf8')
   assert.match(guard, /function healHomeJunctions\(\)/, '守护里必须有这一层自愈')
   assert.match(guard, /call\(fixer, \['--apply'\]/, '判红后必须真的调修复器')
-  assert.match(guard, /if \(!CHECK_ONLY\) healHomeJunctions\(\)/, '挂点必须在早退之前(--check 挂这里等于永不执行)')
+  assert.match(
+    guard,
+    /if \(!CHECK_ONLY\) healHomeJunctions\(\)/,
+    '挂点必须在早退之前(--check 挂这里等于永不执行)',
+  )
   const fixer = readFileSync(new URL('../re-home-junctions.mjs', import.meta.url), 'utf8')
   assert.match(fixer, /cool\[it\.src\] > now/, 'main 必须先查冷却再决定是否重抄')
   assert.match(fixer, /action: 'cooldown'/, '被跳过的项必须如实报 cooldown,不得静默')
@@ -190,5 +224,126 @@ test('repairOne 的判序:isLink 必须在 existsSync(src) 之前(悬空 junctio
   const iExists = body.indexOf('if (!existsSync(srcPath))')
   assert.ok(iLink >= 0, '必须先判 isLink')
   assert.ok(iExists > iLink, `existsSync(absent) 早退必须排在 isLink 之后,实际 isLink@${iLink} exists@${iExists}`)
+})
+
+/**
+ * 2026-09-24 实测:`C:\Users\Administrator\.trae-cn` 搬完之后,家目录里仍挂着
+ * `.trae-cn.pre-junction-2026-09-24T08-41-30-024Z`,而它自己又是一个**指向在用目标的 junction**。
+ * 原来那条"stash 不残留"的断言查的是 `${src}.pre-junction-`(不带时间戳的字面名),而真名永远
+ * 带 ISO 时间戳 ⇒ **该断言从写下那天起就恒真**,所以残留攒在家目录里没有任何一处知道。
+ * 这里换成按前缀枚举,并给每一型配正/反对照(link 断链 / 目录须证明无独有内容 / 判不准就不删)。
+ */
+test('stash 清理按类型分流,且断链绝不穿透目标内容', () => {
+  const root = mkdtempSync(join(tmpdir(), 'ihui-stash-it-'))
+  const home = join(root, 'home')
+  const dst = join(root, 'dstside')
+  try {
+    mkdirSync(home, { recursive: true })
+    mkdirSync(join(dst, 'sub'), { recursive: true })
+    writeFileSync(join(dst, 'k.txt'), '12345', 'utf8')
+    writeFileSync(join(dst, 'sub', 'x.bin'), '1234567', 'utf8')
+    const src = join(home, '.demo')
+    spawnSync('cmd.exe', ['/c', 'mklink', '/J', src, dst], { windowsHide: true, timeout: 20000 })
+    assert.ok(lstatSync(src).isSymbolicLink(), '夹具没建起来:src 不是指针')
+
+    const linkStash = join(home, '.demo.pre-junction-2026-01-01T00-00-00-000Z')
+    spawnSync('cmd.exe', ['/c', 'mklink', '/J', linkStash, dst], {
+      windowsHide: true,
+      timeout: 20000,
+    })
+    const covered = join(home, '.demo.pre-junction-2026-01-02T00-00-00-000Z')
+    mkdirSync(join(covered, 'sub'), { recursive: true })
+    writeFileSync(join(covered, 'k.txt'), 'abcde', 'utf8') // 字节数与在用内容等 ⇒ 同指纹
+    writeFileSync(join(covered, 'sub', 'x.bin'), 'abcdefg', 'utf8')
+    const unique = join(home, '.demo.pre-junction-2026-01-03T00-00-00-000Z')
+    mkdirSync(unique, { recursive: true })
+    writeFileSync(join(unique, 'k.txt'), '12345', 'utf8')
+    writeFileSync(join(unique, 'not-in-use.bin'), 'only-here', 'utf8')
+    const bare = join(home, '.demo.pre-junction-2026-01-04T00-00-00-000Z.txt')
+    writeFileSync(bare, 'x', 'utf8')
+    const decoy = join(home, '.demo.not-a-stash') // 名字不匹配前缀,内容还独有一份
+    mkdirSync(decoy, { recursive: true })
+    writeFileSync(join(decoy, 'precious.bin'), 'do-not-touch', 'utf8')
+
+    assert.deepEqual(
+      R.findStashes(src).map((p) => p.slice(home.length + 1)),
+      [
+        '.demo.pre-junction-2026-01-01T00-00-00-000Z',
+        '.demo.pre-junction-2026-01-02T00-00-00-000Z',
+        '.demo.pre-junction-2026-01-03T00-00-00-000Z',
+        '.demo.pre-junction-2026-01-04T00-00-00-000Z.txt',
+      ],
+      '枚举必须恰好命中这 4 个前缀项(decoy 不得混进来)',
+    )
+
+    const dry = R.pruneStashes(src, dst, { apply: false })
+    assert.ok(
+      dry.every((r) => r.action === 'would-prune' || r.action === 'kept'),
+      `只判模式出现动作:${JSON.stringify(dry)}`,
+    )
+    assert.ok(
+      [linkStash, covered, unique, bare, decoy].every((p) => existsSync(p)),
+      '只判模式就动了盘',
+    )
+
+    const rows = R.pruneStashes(src, dst, { apply: true })
+    const byPath = new Map(rows.map((r) => [r.path, r]))
+    assert.equal(byPath.get(linkStash).action, 'pruned', 'link 型未清理')
+    assert.ok(!existsSync(linkStash), 'link 型 stash 必须断掉')
+    assert.equal(
+      R.fingerprintTree(dst).size,
+      2,
+      '删掉那个 junction 之后目标内容必须一个字都没少(穿透删除即为此而设的反例)',
+    )
+    assert.equal(byPath.get(covered).action, 'pruned', '被逐文件覆盖的目录型应可清')
+    assert.ok(!existsSync(covered))
+    assert.equal(byPath.get(unique).action, 'kept', '有独有文件的目录型被删了 = 数据事故')
+    assert.ok(existsSync(unique), 'unique stash 必须还在')
+    assert.equal(byPath.get(bare).action, 'kept', '裸文件读不出目录指纹,空集不等于"已被覆盖"')
+    assert.ok(existsSync(bare))
+    assert.ok(existsSync(join(decoy, 'precious.bin')), '前缀不匹配的兄弟条目不得被碰')
+    // 更强的一条:枚举必须是**按前缀**,不是"按父目录整片"。后者一旦成立,清理就会波及
+    // 同一个家目录里所有无关目录 —— 那才是真正会丢数据的那一型。
+    assert.deepEqual(
+      readdirSync(home).sort(),
+      [
+        '.demo',
+        '.demo.not-a-stash',
+        '.demo.pre-junction-2026-01-03T00-00-00-000Z',
+        '.demo.pre-junction-2026-01-04T00-00-00-000Z.txt',
+      ].sort(),
+      '父目录最终态不对:多删或漏删都在这条里暴露',
+    )
+
+    // 源还不是指针时,任何目录型 stash 都可能就是原始数据本身
+    const home2 = join(root, 'home2')
+    const src2 = join(home2, '.demo2')
+    mkdirSync(src2, { recursive: true })
+    writeFileSync(join(src2, 'orig.bin'), 'real-data', 'utf8')
+    const stash2 = join(home2, '.demo2.pre-junction-x')
+    mkdirSync(stash2, { recursive: true })
+    writeFileSync(join(stash2, 'orig.bin'), 'real-data', 'utf8')
+    const r2 = R.pruneStashes(src2, join(root, 'nowhere'), { apply: true })
+    assert.equal(r2[0].action, 'kept', r2[0].note)
+    assert.ok(existsSync(stash2) && existsSync(join(src2, 'orig.bin')), '源未改道时不得动 stash')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('装车证明:门 96 会枚举 stash,守护会因 stash 残留叫起修复器', () => {
+  const judge = readFileSync(new URL('../check-home-junctions.mjs', import.meta.url), 'utf8')
+  assert.match(judge, /export function findStashes\(/, '门 96 必须自带 stash 枚举面')
+  assert.match(judge, /stashes: staleStashes\(registry\)/, 'audit 必须把 stash 带进报告面')
+  assert.match(judge, /--check-stash/, '必须有独立出口供守护查询(不进 blocking 退出码)')
+  const fixer = readFileSync(new URL('../re-home-junctions.mjs', import.meta.url), 'utf8')
+  assert.match(
+    fixer,
+    /pruneStashes\(it\.src, it\.dst, \{ apply \}\)/,
+    '修复器每轮必须真调清理(与"本轮有没有项要搬"无关)',
+  )
+  const guard = readFileSync(new URL('../git-guardian.mjs', import.meta.url), 'utf8')
+  assert.match(guard, /\['--check-stash'\]/, '守护必须查 stash 残留,否则修复器永远不会为它被叫起')
+  assert.match(guard, /first\.code === 0 && stash\.code === 0/, '体检绿但仍有 stash 残留时不得早退')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
