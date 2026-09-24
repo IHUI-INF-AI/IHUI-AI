@@ -108,6 +108,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       backgroundColor: tk.surface.bg,
       paddingHorizontal: 10,
+      paddingTop: 48,
       paddingBottom: 32,
     },
     center: {
