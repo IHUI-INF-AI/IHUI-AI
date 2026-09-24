@@ -55,8 +55,13 @@ import { useMentionFiles, useAiSkills } from '@/hooks/use-lazy-resource-hooks'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 import { Tooltip } from '@/components/feedback'
 import { toast } from '@/components/common'
-import { useChatStore, type SideQueueItem } from '@/stores/chat'
+import { useChatStore } from '@/stores/chat'
 import { answerSideQuestion } from '@/hooks/use-chat/slash-commands'
+// D38 队列语义完整交互(G-42):交互条只做展示与回调上抛,许可判定一律走 D69 的
+// queueInteractionPerms(与本文件下方 queueCtx 同一对象),动作落 store 的四个新 action。
+import { QueueInteractionBar } from '@/components/chat/queue-interaction-bar'
+import { queueInteractionPerms } from '@ihui/shared/chat/input-notices'
+import type { FollowUpMode } from '@ihui/shared/chat/queue-interactions'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { compactConversation, getMessages } from '@ihui/api-client'
 import { MARKET_PLUGINS, PROJECT_PLUGINS, getPluginIntegration } from '@plugins-data'
@@ -397,8 +402,9 @@ export function MessageInput({
   const sideQueue = useChatStore((s) =>
     conversationId ? s.sideQueueByConversation[conversationId] : undefined,
   )
-  const removeSideQuestion = useChatStore((s) => s.removeSideQuestion)
   const shiftSideQuestion = useChatStore((s) => s.shiftSideQuestion)
+  // D38 队列模式偏好(steer=插话优先 / queue=排队优先),持久化在 chat store
+  const followUpQueueMode = useChatStore((s) => s.followUpQueueMode)
   // 补答一条侧问文本(runBestOfN 单候选,回答以 sidechat 消息入本地流,不入主线历史);
   // 失败仅 toast 提示,不打断主流程
   const answerWithToast = React.useCallback(
@@ -860,17 +866,21 @@ export function MessageInput({
     requestAnimationFrame(() => inputCoreRef.current?.resize())
   }
 
-  // D28:侧问队列条目「删除」—— 直接移除不回填输入框(与 W27 取消回填行为区分)
-  const handleSideQueueRemove = (id: string) => {
-    if (!conversationId) return
-    removeSideQuestion(conversationId, id)
-  }
-  // D28:侧问「立即补答」(仅非流式渲染)—— 出队该条并立即请求补答
-  const handleSideQueueAnswerNow = (item: SideQueueItem) => {
-    if (!conversationId) return
-    removeSideQuestion(conversationId, item.id)
-    answerWithToast(item.text)
-  }
+  // D38 起:侧问队列的「删除/立即补答」入口由 QueueInteractionBar 的 undo 与
+  // interruptAndRun 两动词承担,故删去 D28 的两个本地 handler(不留第二条移除路径)。
+  // D38「打断并执行」:计划由判定层产出(只含 stopFirst/thenRun),停流走 W2 既有 onStop
+  // (abortRef.abort 链),取队首走 store 的 interruptAndRun —— 与 shiftSideQuestion 同为
+  // queue[0] 读取路径,宿主与组件都不写第三种队首语义。
+  const handleInterruptAndRun = React.useCallback(
+    (plan: { readonly stopFirst: boolean; readonly thenRun: string | null }) => {
+      if (!conversationId || !plan.thenRun) return
+      if (plan.stopFirst) onStop()
+      const head = useChatStore.getState().interruptAndRun(conversationId)
+      if (head && head.id === plan.thenRun) answerWithToast(head.text)
+    },
+    // answerWithToast 是 useCallback 稳定引用,列入依赖防闭包读旧 conversationId
+    [conversationId, onStop, answerWithToast],
+  )
 
   // #18 流式中输入框保持可输入(2026-07-25 立):流式中 textarea 不再 disabled,用户可输入下一条消息草稿(对标 Cursor/ChatGPT 行为)。
   // 发送按钮已移入 WebInputCore(由 !isStreaming 守门,流式中显示 Stop 按钮)。
@@ -961,44 +971,34 @@ export function MessageInput({
             ))}
           </div>
         )}
-        {/* D28 /side 侧问队列(2026-09-20):流式期间排队的侧问逐条显示,流结束后自动补答
-            队首一条;「立即补答」仅非流式渲染,「删除」直接移除不回填输入框 */}
-        {sideQueue && sideQueue.length > 0 && (
-          <div data-testid="side-queue" className="mb-2 space-y-1">
-            {sideQueue.map((sq) => (
-              <div
-                key={sq.id}
-                data-testid={`side-queue-item-${sq.id}`}
-                className="flex items-center gap-2 rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 px-3 py-2 text-sm"
-              >
-                <span className="shrink-0 text-xs font-medium text-amber-700 dark:text-amber-300">
-                  💬 {t('sideQueued')}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-amber-700 dark:text-amber-300">
-                  {sq.text}
-                </span>
-                {!isStreaming && (
-                  <button
-                    type="button"
-                    data-testid={`side-queue-answer-${sq.id}`}
-                    onClick={() => handleSideQueueAnswerNow(sq)}
-                    className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    {t('sideAnswerNow')}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  data-testid={`side-queue-remove-${sq.id}`}
-                  onClick={() => handleSideQueueRemove(sq.id)}
-                  className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
-                >
-                  {t('cancel') ?? '取消'}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+        {/* D38(G-42)接管 D28 侧问队列渲染:五动词交互条(重排/撤回/编辑/打断并执行/模式切换)。
+            许可判定复用 D69 queueInteractionPerms(与 InputNoticeBanner 同一函数,不另立第二套);
+            runtimeSupportsInterjection 暂恒 false —— 全仓尚无该能力协商的生产者(D69 banner 亦未挂载),
+            诚实降级为"回落排队优先 + 打断入口显式渲染被拒原因",不得端内自建能力判定。 */}
+        <QueueInteractionBar
+          items={(sideQueue ?? []).map((sq) => ({ id: sq.id, text: sq.text }))}
+          perms={queueInteractionPerms({
+            runtimeSupportsInterjection: false,
+            streaming: isStreaming,
+            hasQueuedMessages: (sideQueue?.length ?? 0) > 0,
+          })}
+          mode={followUpQueueMode}
+          runtimeSupportsInterjection={false}
+          streaming={isStreaming}
+          onReorder={(from, to) => {
+            if (conversationId) useChatStore.getState().requeue(conversationId, from, to)
+          }}
+          onUndo={(id) => {
+            if (conversationId) useChatStore.getState().removeQueued(conversationId, id)
+          }}
+          onEdit={(id, text) => {
+            if (conversationId) useChatStore.getState().editQueued(conversationId, id, text)
+          }}
+          onModeChange={(mode: FollowUpMode) =>
+            useChatStore.getState().setFollowUpQueueMode(mode)
+          }
+          onInterruptAndRun={handleInterruptAndRun}
+        />
         <div ref={inputAreaRef} className="relative">
           <FileMentionPopover
             files={mentionFiles}
