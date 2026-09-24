@@ -24,13 +24,16 @@ vi.mock('next-intl', () => ({
 const here = dirname(fileURLToPath(import.meta.url))
 // __tests__ → chat → components → src → web(apps/web) → apps → 仓库根,共 6 级
 const MESSAGES_ROOT = join(here, '../../../../../../packages/i18n/messages/web')
+// ai.pane.queueOps 落在 shared 包(web 运行时 mergeMessages(shared, web) 后可见);
+// denied.* 单点消费收口后唯一文案本体在 web 包 ai.pane.inputNotices.queue.denied.*。
+const SHARED_MESSAGES_ROOT = join(here, '../../../../../../packages/i18n/messages/shared')
 const LOCALES = ['zh-CN', 'zh-TW', 'en', 'ja', 'ko'] as const
 
 /** ai.pane.queueOps 词包是否已落(键由 i18n 子任务独占写入;键清单见本组用例与交付报告)。
  *  未落时该组用例整体 **skip(不删不弱化)** —— 键一落地自动恢复执行,缺任意键即红。 */
 const queueOpsAvailable = LOCALES.every((loc) => {
   try {
-    const parsed = JSON.parse(readFileSync(join(MESSAGES_ROOT, `${loc}.json`), 'utf8')) as {
+    const parsed = JSON.parse(readFileSync(join(SHARED_MESSAGES_ROOT, `${loc}.json`), 'utf8')) as {
       ai?: { pane?: { queueOps?: unknown } }
     }
     return !!parsed.ai?.pane?.queueOps
@@ -288,7 +291,7 @@ describe.skipIf(!queueOpsAvailable)(
       )
 
     const readQueueOps = (locale: string): Record<string, unknown> => {
-      const raw = readFileSync(join(MESSAGES_ROOT, `${locale}.json`), 'utf8')
+      const raw = readFileSync(join(SHARED_MESSAGES_ROOT, `${locale}.json`), 'utf8')
       const parsed = JSON.parse(raw) as { ai?: { pane?: Record<string, unknown> } }
       const node = parsed.ai?.pane?.queueOps
       if (!node) throw new Error(`missing ai.pane.queueOps in ${locale}.json`)
@@ -297,13 +300,13 @@ describe.skipIf(!queueOpsAvailable)(
 
     it('五语言键集完全一致(parity)', () => {
       const base = flat(readQueueOps('zh-CN')).sort()
-      expect(base.length).toBeGreaterThanOrEqual(13)
+      expect(base.length).toBeGreaterThanOrEqual(11)
       for (const locale of LOCALES) {
         expect(flat(readQueueOps(locale)).sort(), locale).toEqual(base)
       }
     })
 
-    it('四动作 + 模式 + 降级 + 三拒绝键全齐(五语言)', () => {
+    it('四动作 + 模式 + 降级键全齐(五语言);拒绝三键不在本命名空间(单点消费在 inputNotices.queue.denied)', () => {
       for (const locale of LOCALES) {
         const keys = flat(readQueueOps(locale))
         expect(keys, `${locale} reorderAria`).toContain('reorderAria')
@@ -313,9 +316,11 @@ describe.skipIf(!queueOpsAvailable)(
         expect(keys, `${locale} mode.steer`).toContain('mode.steer')
         expect(keys, `${locale} mode.queue`).toContain('mode.queue')
         expect(keys, `${locale} degraded`).toContain('degraded.runtimeNoInterject')
-        expect(keys, `${locale} denied.reorder`).toContain('denied.reorder')
-        expect(keys, `${locale} denied.undo`).toContain('denied.undo')
-        expect(keys, `${locale} denied.interject`).toContain('denied.interject')
+        // 2026-09-24 收口:queueOps.denied.* 同文副本已删,不得再加回
+        expect(
+          keys.some((k) => k.startsWith('denied.')),
+          `${locale} queueOps.denied 回潮`,
+        ).toBe(false)
       }
     })
 
@@ -332,11 +337,6 @@ describe.skipIf(!queueOpsAvailable)(
       })
       expect(node.degraded).toEqual({
         runtimeNoInterject: '当前 Runtime 不支持插话，消息将继续排队',
-      })
-      expect(node.denied).toEqual({
-        reorder: '无法调整排队顺序',
-        undo: '无法撤回排队消息',
-        interject: '当前 Runtime 不支持插话，消息将继续排队',
       })
     })
 
@@ -363,6 +363,23 @@ describe.skipIf(!queueOpsAvailable)(
 )
 
 describe('D38 同批键存活(与 queueOps 键是否落地无关,恒执行)', () => {
+  it('拒绝三键唯一本体在 ai.pane.inputNotices.queue.denied.*,五语言齐且非空(bar 单点消费路径)', () => {
+    for (const locale of LOCALES) {
+      const raw = readFileSync(join(MESSAGES_ROOT, `${locale}.json`), 'utf8')
+      const parsed = JSON.parse(raw) as {
+        ai?: { pane?: { inputNotices?: { queue?: { denied?: Record<string, unknown> } } } }
+      }
+      const denied = parsed.ai?.pane?.inputNotices?.queue?.denied
+      expect(denied, `${locale} inputNotices.queue.denied`).toBeTruthy()
+      for (const action of ['reorder', 'undo', 'interject'] as const) {
+        const value = denied?.[action]
+        expect(typeof value === 'string' && value.trim().length > 0, `${locale} ${action}`).toBe(
+          true,
+        )
+      }
+    }
+  })
+
   it('ai.pane.inputNotices 五语言仍在;ai.pane.multiPane 存在则为对象', () => {
     for (const locale of LOCALES) {
       const raw = readFileSync(join(MESSAGES_ROOT, `${locale}.json`), 'utf8')

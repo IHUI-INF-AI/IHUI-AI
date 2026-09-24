@@ -23,7 +23,12 @@
 //   · `interruptPlan` 不触碰任何队列数组,只产出 {stopFirst, thenRun} 计划,
 //     队首由**调用方**以既有读取路径(queue[0])传入 —— 队首选择逻辑一行不动。
 
-/** 词包命名空间(web 侧 `useTranslations('ai.pane.queueOps')`) */
+/**
+ * 词包命名空间(web 侧 `useTranslations('ai.pane.queueOps')`)。
+ * 注意:**拒绝提示不在本命名空间取词** —— deniedNotice 产出的 `denied.<action>`
+ * 唯一文案本体在 D69 `ai.pane.inputNotices.queue.denied.*`(2026-09-24 单点消费收口,
+ * 曾在 shared 包 ai.pane.queueOps.denied.* 留过一份同文副本,已删除,不得再加回)。
+ */
 export const QUEUE_OPS_NAMESPACE = 'ai.pane.queueOps' as const
 
 import type { QueueInteractionPerms, QueueDeniedAction, QueueDenyReason } from './input-notices'
@@ -79,7 +84,7 @@ export interface QueueInteraction {
 /** 单次交互的许可结论;被拒时 deniedKey 非空(denied.<action> 族,与 D69 deniedNotice 同键) */
 export interface InteractionVerdict {
   readonly allowed: boolean
-  /** 拒绝提示键(`ai.pane.queueOps.denied.<key>`);allowed=true 时恒 null */
+  /** 拒绝提示键(`denied.<action>`,渲染层在 D69 命名空间下加 `queue.` 前缀消费,即 `ai.pane.inputNotices.queue.denied.<action>`);allowed=true 时恒 null */
   readonly deniedKey: string | null
 }
 
@@ -134,7 +139,8 @@ function assertNeverDeniedAction(action: never): never {
  * 交互动词 → 许可结论(**许可门唯一入口**,perms 必须来自 D69 `queueInteractionPerms`)。
  *
  * setMode 恒可切(模式是用户偏好;Runtime 不支持插话时的降级由 `effectiveMode` 处理,
- * 不在这里拦)。其余动词被拒时 deniedKey 与 D69 `deniedNotice` 同键:
+ * 不在这里拦)。其余动词被拒时 deniedKey 与 D69 `deniedNotice` 同键(在 inputNotices
+ * 命名空间下加 `queue.` 前缀取词,单一文案本体):
  *   reorder → denied.reorder / undo,edit → denied.undo / interruptAndRun → denied.interject
  */
 export function interactionAllowed(
