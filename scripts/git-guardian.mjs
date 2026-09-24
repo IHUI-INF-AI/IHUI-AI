@@ -471,6 +471,51 @@ function healWorktreeTracked() {
  * 与其它自愈层同规矩:不改 status()/退出码语义,失败只记日志;--check 零副作用,
  * 仅真异常或真重封才写行(健康轮次不写日志是本守护的既有口径)。
  */
+/** §26 家目录改道自愈:门 96 判红就调修复器。
+ *  为什么挂在守护而不是等人跑:2026-09-24 实测 `D:\DevEnv\cache\userhome` 整棵消失,
+ *  16 项登记里 9 项退回 C 盘实体目录,而门 96 是 blocking ⇒ **每一次提交都被逼成绕过钩子**,
+ *  一次绕过等于约 110 道守门对该提交全部作废(§12e 同型)。每日 03:00 体检兜不住 23 小时空窗
+ *  —— 与盘根封口同一个道理(见 healRootSeal 上方 §26 说明)。
+ *  两条节流:① 判定用门 96(它把体积遍历封在 8000 条内,便宜),修复器只在判红时才跑;
+ *  ② 被进程占用而失败的项目记 30 分钟冷却,避免每轮都重抄一遍 108MB 再去撞 EBUSY。 */
+function healHomeJunctions() {
+  const dir = dirname(fileURLToPath(import.meta.url))
+  const judge = join(dir, 'check-home-junctions.mjs')
+  const fixer = join(dir, 're-home-junctions.mjs')
+  if (!existsSync(judge) || !existsSync(fixer)) return
+  const call = (script, args, timeout) => {
+    try {
+      const out = execFileSync(process.execPath, [script, ...args], {
+        cwd: WORKTREE,
+        encoding: 'utf8',
+        windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+        timeout,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      })
+      return { code: 0, out: String(out || '') }
+    } catch (e) {
+      return { code: typeof e.status === 'number' ? e.status : 2, out: String(e.stdout || '') }
+    }
+  }
+  const first = call(judge, [], 120000)
+  if (first.code === 0) return
+  if (first.code !== 1) {
+    log(`家目录改道体检异常(忽略,不阻断其余守护):exit ${first.code}`)
+    return
+  }
+  // 冷却由修复器自己管(只有它知道哪项为什么失败:EBUSY / 仍在被写)。
+  const applied = call(fixer, ['--apply'], 240000)
+  if (applied.code === 2) {
+    log(`⚠️ 家目录改道修复器自身异常(exit 2)⇒ 不重试,需人工看 re-home-junctions 输出`)
+    return
+  }
+  const moved = (applied.out.match(/\[moved\]/g) || []).length
+  if (moved) log(`✅ 家目录改道自愈:重新改道 ${moved} 项(§26)`)
+  const after = call(judge, [], 120000)
+  if (after.code !== 0)
+    log(`⚠️ 家目录改道修复后仍判红(exit ${after.code})⇒ 多为进程占用(EBUSY),30 分钟冷却后自动再试;长期不消需人工`)
+}
+
 function healRootSeal() {
   const script = join(dirname(fileURLToPath(import.meta.url)), 'seal-c-root-stray.mjs')
   if (!existsSync(script)) return
@@ -868,6 +913,9 @@ function main() {
     if (!CHECK_ONLY) healWorktreeTracked()
     // 盘根封口同理:重启会清掉 junction,而第三方重建真目录只需要一次启动。
     if (!CHECK_ONLY) healRootSeal()
+    // §26 家目录改道同理:改道树被清掉后工具会立刻在 C 盘重建实体目录,而门 96 是 blocking
+    // ⇒ 不自动补回就等于逼每一次提交绕过全部守门。
+    if (!CHECK_ONLY) healHomeJunctions()
     // 看门人也要有人看:凭据/停摆巡检靠 schtasks 每 6 小时自跑,任务被删/被停/node 路径
     // 失效时它**自己不会喊**(故障形态是"安静",正是今天两天冻结的同类)。本守护每 2 分钟
     // 一趟且自身分层自愈,由它盯心跳最省。--check 仍零副作用。
@@ -929,6 +977,8 @@ function startDaemon() {
         healWorktreeTracked()
         // 以及盘根封口(重启清掉 junction 后的 2 分钟内自动补回)
         healRootSeal()
+        // 以及 §26 家目录改道(改道树被清后 2 分钟内自动补回;占用项 30 分钟冷却)
+        healHomeJunctions()
       }
     } catch (e) {
       log('巡检异常(忽略): ' + String(e.message || e))

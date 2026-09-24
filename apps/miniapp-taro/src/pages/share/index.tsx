@@ -26,6 +26,7 @@ import SearchBar from '@/components/SearchBar'
 import { aizhsUrl } from '@/constants/icon-urls'
 import ThemeRoot from '@/components/ThemeRoot'
 import CategoryBar from '@/components/CategoryBar'
+import { getTopBarMetrics } from '@/utils/system-info'
 
 type Tab = 'latest' | 'hot' | 'following'
 
@@ -70,8 +71,7 @@ interface ShareCategoryState {
 const PAGE_SIZE = 10
 
 /** 状态栏 + 胶囊按钮高度(对标 NavBar 组件,确保 fixed navbar 不遮挡状态栏) */
-const menuButton = Taro.getMenuButtonBoundingClientRect?.() || { top: 26, height: 32 }
-const NAV_PADDING_TOP = menuButton.top
+const NAV_PADDING_TOP = getTopBarMetrics().menuButton.top
 
 function asString(v: unknown): string {
   return typeof v === 'string' ? v : ''
