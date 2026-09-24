@@ -1,7 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import {
@@ -16,6 +15,8 @@ import {
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { N8nModelItem, N8nModelScreenProps, N8nModelTab } from '../../types'
+
+import { rnRadius } from '@ihui/design-tokens'
 
 /** n8n 模型管理共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { N8nModelItem, N8nModelScreenProps }
@@ -211,9 +212,9 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 14,
       paddingVertical: 6,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
-    createText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
+    createText: { fontSize: 14, fontWeight: '600', color: tk.brand.ctaForeground },
     searchRow: { paddingHorizontal: 10 },
     searchInput: {
       height: 50,
