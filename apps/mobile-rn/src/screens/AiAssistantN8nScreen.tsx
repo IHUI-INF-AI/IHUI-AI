@@ -104,14 +104,14 @@ import {
   describeToolCall,
   type ToolCallView,
 } from '@ihui/shared'
-import {
-  applyStreamError,
-  isErrorTurn,
-  permissionTierWordKeys,
-  resendTargetText,
-} from '@ihui/shared/chat'
+import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
 import { rnLightTokens as tokens, rnRadius } from '@ihui/design-tokens'
-import { CitationList, InjectionDisclosure, SteerNoticeList } from '../components/ChatDisclosure'
+import {
+  CitationList,
+  InjectionDisclosure,
+  PermissionTierRow,
+  SteerNoticeList,
+} from '../components/ChatDisclosure'
 import { NavBar } from '../components/NavBar'
 import { InputArea } from '../components/InputArea'
 import { TaskStatusBar } from '../components/ai/TaskStatusBar'
@@ -131,6 +131,7 @@ import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { uiControlToolsFor } from '../lib/ui-control-tools'
 import { rpx } from '../utils/rpx'
+import { budgetNoteText } from '../utils/budget-note'
 import { FREE_RESOURCE_URL } from '../constants/links'
 import {
   applyPlanUpdate,
@@ -1054,9 +1055,7 @@ export default function AiAssistantN8nScreen() {
             typeof (m.metadata as { permissionMode?: unknown } | null)?.permissionMode === 'string',
         )
       if (stampedMeta) {
-        setStampedTier(
-          (stampedMeta.metadata as { permissionMode: string }).permissionMode,
-        )
+        setStampedTier((stampedMeta.metadata as { permissionMode: string }).permissionMode)
       }
       // 历史消息回放:后端把工具调用 / plan 步骤持久化在消息 metadata(D24,toolCalls 已落库;
       // planSteps 随 #15 持久化上线后自动生效)。映射回端内 N8nMessage.toolCalls / planSteps,
@@ -1387,6 +1386,11 @@ export default function AiAssistantN8nScreen() {
             }),
           )
         },
+        // 额度分档告警:网关在流首发 warning(80~95%)/ critical(95~100%),本条消息照常生成,
+        // 只是让用户知道"今天快用完了"。措辞装配在 @ihui/shared/chat(两屏共用一份,见 utils/budget-note)
+        onBudget: (event) => {
+          showToast(event.level === 'critical' ? 'warning' : 'info', budgetNoteText(event, t))
+        },
         // 上下文自动压缩提示(W7):后端达阈值自动压缩时提示用户(对齐 onCompaction 契约)
         onCompaction: (info) => {
           showToast(
@@ -1595,20 +1599,9 @@ export default function AiAssistantN8nScreen() {
         />
       </View>
       {/* D111/G-165①:权限档交代行 —— 数据源优先级:消息盖章值 > 工作区默认档;
-          两者皆缺(盖章不存在且取数失败)整行隐藏,不假装知道档位。 */}
-      {(() => {
-        const tierValue = stampedTier ?? workspaceTier
-        if (tierValue === null || tierValue === undefined) return null
-        return (
-          <View style={{ paddingHorizontal: 16, paddingVertical: 4 }}>
-            <Text style={{ fontSize: 11, color: tokens.text.tertiary }}>
-              {`${t('permissionTier.label')}: ${t(permissionTierWordKeys(tierValue).title)} · ${t(
-                permissionTierWordKeys(tierValue).desc,
-              )}`}
-            </Text>
-          </View>
-        )
-      })()}
+          两者皆缺(盖章不存在且取数失败)整行隐藏,不假装知道档位。
+          渲染与取词已抽到 ChatDisclosure.PermissionTierRow,与 ChatScreen 同一实现。 */}
+      <PermissionTierRow mode={stampedTier ?? workspaceTier} />
       <KeyboardAvoidingView
         style={styles.body}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
