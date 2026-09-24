@@ -151,23 +151,34 @@ export const IMAGE_ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2] as const
 export type ZoomDirection = 'in' | 'out'
 
 /**
+ * 取档位数组的端点。数组是 `as const` 非空元组,越界结构上不可达;
+ * 但 `noUncheckedIndexedAccess` 下索引取值仍带 `undefined`,故显式抛而非 `??` 兜底 ——
+ * 兜底等于把档位值抄第二份。
+ */
+function zoomEdge(index: number): number {
+  const step = IMAGE_ZOOM_STEPS[index]
+  if (step === undefined) throw new Error(`image zoom step missing at index ${index}`)
+  return step
+}
+
+/**
  * 缩放档位进退:'in' 取严格大于 current 的最小档;'out' 取严格小于 current 的最大档;
  * 已在端点则原地不动(钳制,不循环)。current 不在档位数组里也成立(按上述比较语义)。
  */
 export function zoomStep(current: number, direction: ZoomDirection): number {
-  if (!Number.isFinite(current))
-    return direction === 'in' ? IMAGE_ZOOM_STEPS[0] : IMAGE_ZOOM_STEPS[IMAGE_ZOOM_STEPS.length - 1]
+  const last = IMAGE_ZOOM_STEPS.length - 1
+  if (!Number.isFinite(current)) return direction === 'in' ? zoomEdge(0) : zoomEdge(last)
   if (direction === 'in') {
     for (const step of IMAGE_ZOOM_STEPS) {
       if (step > current) return step
     }
-    return IMAGE_ZOOM_STEPS[IMAGE_ZOOM_STEPS.length - 1]
+    return zoomEdge(last)
   }
-  for (let i = IMAGE_ZOOM_STEPS.length - 1; i >= 0; i--) {
+  for (let i = last; i >= 0; i--) {
     const step = IMAGE_ZOOM_STEPS[i]
-    if (step < current) return step
+    if (step !== undefined && step < current) return step
   }
-  return IMAGE_ZOOM_STEPS[0]
+  return zoomEdge(0)
 }
 
 /**
