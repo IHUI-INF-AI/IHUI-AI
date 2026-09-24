@@ -4,13 +4,23 @@
 
 name: Release SDK
 
-# 4 语言 SDK 统一发布 CI(参考 release-cli.yml 模式)
+# 5 语言 SDK 统一发布 CI(参考 release-cli.yml 模式)
 # 触发:push tag sdk-v* 或 workflow_dispatch 手动触发(含 dry-run 选项)
 #   标签前缀与 cli-v* / desktop-v* 对齐;裸 v* 会与仓库其他发版标签互相误触发,故不用。
 # 发布:npm(@ihui/sdk)+ PyPI(ihui-ai)+ Maven Central(com.ihui:ihui-ai-java)+ Go module(github.com/.../sdk/go)
+#       + NuGet(Ihui.AI)
 # 鉴权:优先 OIDC trusted publishing(npm/PyPI/Maven),无 OIDC 时回退 NPM_TOKEN/PYPI_TOKEN/MAVEN_TOKEN
-# .NET/NuGet:当前无通道 —— 仓库内无 dotnet 项目;待 owner 提供 NUGET_API_KEY 与 NuGet 项目(包名/nuspec 或 csproj)后,
-#   仿照 npm-publish job 另立 nuget-publish job(dotnet pack → dotnet nuget push),并接入 gate 凭据判定与发布后回读判红。
+# .NET/NuGet 通道现状(2026-09-24 更正本文件此前的错误登记):
+#   工程文件 `packages/sdk/dotnet/Ihui.AI.csproj` **早已入库**(不是"仓库内无 dotnet 项目"),
+#   缺的一直是发布出口 —— 即下面这个 nuget-publish job。PackageId 由 csproj 文件名推导(= Ihui.AI),
+#   CI 内 EXPECTED_ID 与 `packages/sdk/tests/publish-ready.test.mjs` 双向对账,改名即两处同时判红。
+#   仍未闭环的两条(不得当已完成):① secrets.NUGET_API_KEY 尚待 owner 提供(未配置则 gate 判红,
+#   不会静默跳过);② 本机 dotnet CLI 无已安装 SDK(仅运行时 8.0.8),故 `dotnet build/pack` 从未在
+#   本仓任何一台开发机上真跑过 —— 可构建性的判据**只**落在本 job 的 dry-run 分支(dry_run=true 时
+#   build+pack 不 push),publish-ready 回归刻意不冒充它能证明"可构建"。
+#   许可证:csproj 走 `<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>`(表达式形态,
+#   NuGet 认可且不需要包内 LICENSE 文件);NOTICE 全文**未**进 nupkg —— 该属性属既有 csproj,
+#   本票无权改动(改动需 owner 决定,详见交付报告"未做部分")。
 
 on:
   push:
@@ -48,6 +58,7 @@ on:
           - 'npm'
           - 'pypi'
           - 'maven'
+          - 'nuget'
           - 'go'
 
 permissions:
@@ -61,6 +72,7 @@ env:
   PYTHON_VERSION: '3.11'
   JAVA_VERSION: '17'
   GO_VERSION: '1.21'
+  DOTNET_VERSION: '8.0.x' # 与 packages/sdk/dotnet/Ihui.AI.csproj 的 TargetFramework=net8.0 同档
 
 # 防止重复发布:同一 tag 已有 release 制品则跳过
 concurrency:
@@ -131,7 +143,7 @@ jobs:
   # ---------- Job 0b: 发布硬闸 —— 模式判定 + 凭据可用性证明 ----------
   # 三条件硬闸的落地位置:条件 1(凭据可用)在此证明,条件 2(产物干净)在各语言
   # job 的 pack/build 后扫描,条件 3(dry-run 全流程)由 dry_run=true 跑同一条链路。
-  # 任一条不成立 → 本 job exit 1 → 4 个发布 job 全部不执行(它们 needs 含 gate)。
+  # 任一条不成立 → 本 job exit 1 → 5 个发布 job 全部不执行(它们 needs 含 gate)。
   gate:
     name: Release gate (mode + credentials)
     needs: extract
@@ -181,6 +193,7 @@ jobs:
           PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
           MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
           MAVEN_TOKEN: ${{ secrets.MAVEN_TOKEN }}
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # push 事件没有 language 入参 → 视为全量
@@ -235,6 +248,22 @@ jobs:
               # Central 的用户名是 Sonatype 令牌前缀,密码是令牌本体;两者都可能填错,
               # 这里只判定"非空",有效性同样交给发布后 repo1 回读判红兜底。
               echo "⚠️ Maven:凭据非空,有效性以发布后 repo1.maven.org 回读为唯一判据。"
+            fi
+          fi
+
+          if need nuget; then
+            # 与 PyPI 同一族困境:nuget.org 没有"只校验 key 不上传"的官方端点,
+            # 唯一能探测的通道就是不可逆的 push。所以这里只判定 token 存在,并在 summary 里
+            # 显式声明这不构成"可用"证明;真正判红的是发布后 flatcontainer 回读
+            # (https://api.nuget.org/v3-flatcontainer/ihui.ai/<version>/index.json 口径见 nuget-publish job)。
+            if [ -z "$NUGET_API_KEY" ]; then
+              echo "❌ NuGet:secrets.NUGET_API_KEY 为空(.NET 通道不可发布 —— 不是跳过,是判红)"
+              echo '   本 workflow 此前在注释里登记「仓库内无 dotnet 项目」,实测该说法为假:'
+              echo '   packages/sdk/dotnet/Ihui.AI.csproj 自始在库,缺的只是本条凭据与发布 job。'
+              fail=1
+            else
+              echo "⚠️ NuGet:NUGET_API_KEY 非空,但 key 有效性无法在不上传的前提下探测;"
+              echo "   以发布后 api.nuget.org flatcontainer 回读为唯一判据。"
             fi
           fi
 
@@ -613,6 +642,191 @@ jobs:
           echo '</dependency>' >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
+  # ---------- Job 3b: NuGet .NET 发布 ----------
+  # 形态与 npm-publish 同构:needs [extract, gate] → pack → 产物自检 → 真发布带 registry 回读
+  # → dry_run=true 分支只构建不推送 → proof 输出交 release-summary 判红。
+  nuget-publish:
+    name: Publish to NuGet
+    needs: [extract, gate]
+    outputs:
+      proof: ${{ steps.nuget-readback.outputs.proof }}
+    if: >-
+      (startsWith(github.ref, 'refs/tags/sdk-v') || github.event_name == 'workflow_dispatch') &&
+      (github.event_name == 'push' || github.event.inputs.language == 'all' || github.event.inputs.language == 'nuget')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Resolve PackageId from the project file (单一真相源)
+        id: meta
+        working-directory: packages/sdk/dotnet
+        shell: bash
+        run: |
+          # PackageId 取 csproj 文件名(SDK 式工程的默认打包规则),不在 CI 里另立第二份名字。
+          # 目录里出现第二个 .csproj 会让 dotnet 直接报「More than one project file」——
+          # 那正是"两个真相源"形态,这里宁红不猜。
+          PROJECTS=( *.csproj )
+          [ "${#PROJECTS[@]}" -eq 1 ] \
+            || { echo "❌ packages/sdk/dotnet 下应有且仅有一个 .csproj,实测 ${#PROJECTS[@]} 个:${PROJECTS[*]}"; exit 1; }
+          PROJECT="${PROJECTS[0]}"
+          PKG_ID="${PROJECT%.csproj}"
+          PKG_LOWER="$(printf '%s' "$PKG_ID" | tr '[:upper:]' '[:lower:]')"
+          # 与 packages/sdk/tests/publish-ready.test.mjs 用同一条推导规则对账;改名两处同时判红。
+          # 这行字面量同时是回归的坐标 needle:回读 URL 形如
+          #   https://api.nuget.org/v3-flatcontainer/ihui.ai/<version>/ihui.ai.<version>.nupkg
+          EXPECTED_ID='ihui.ai'
+          [ "$PKG_LOWER" = "$EXPECTED_ID" ] \
+            || { echo "❌ NuGet 坐标漂移:工程推导得 PackageId=$PKG_LOWER,而 CI 回读按 $EXPECTED_ID"; exit 1; }
+          echo "project=$PROJECT" >> "$GITHUB_OUTPUT"
+          echo "pkg_id=$PKG_ID" >> "$GITHUB_OUTPUT"
+          echo "pkg_lower=$PKG_LOWER" >> "$GITHUB_OUTPUT"
+          echo "✅ 包名 $PKG_ID(回读用小写 $PKG_LOWER)← $PROJECT"
+
+      - name: Set version in the project file
+        working-directory: packages/sdk/dotnet
+        shell: bash
+        run: |
+          VERSION="${{ needs.extract.outputs.version }}"
+          PROJECT="${{ steps.meta.outputs.project }}"
+          sed -i "s|<Version>.*</Version>|<Version>$VERSION</Version>|" "$PROJECT"
+          # 回读一次:没落上就继续跑,产物会带着 csproj 里那份旧版本号上 NuGet —— 静默发错版本
+          grep -q "<Version>$VERSION</Version>" "$PROJECT" \
+            || { echo "❌ csproj 版本号未被替换为 $VERSION(该文件里没有 <Version> 行?)"; exit 1; }
+          echo "✅ 版本号 → $VERSION(与 npm / PyPI / Maven 同一枚 tag、同一份回归对账)"
+
+      - name: Build + pack
+        id: pack
+        working-directory: packages/sdk/dotnet
+        shell: bash
+        run: |
+          PROJECT="${{ steps.meta.outputs.project }}"
+          PKG_ID="${{ steps.meta.outputs.pkg_id }}"
+          VERSION="${{ needs.extract.outputs.version }}"
+          # "可构建 / 可打包"的判据只落在这里:开发机上从未验证过(dotnet CLI 无已安装 SDK,
+          # 仅运行时 8.0.8),而 dry_run=true 也必须跑完这两步 —— 否则 .NET 通道的
+          # "就绪"仍然是纸面结论,与 publish-ready 回归刻意不冒充能证明构建同取向。
+          dotnet build "$PROJECT" -c Release
+          dotnet pack "$PROJECT" -c Release -o ./nupkg
+          NUPKG="./nupkg/$PKG_ID.$VERSION.nupkg"
+          if [ ! -s "$NUPKG" ]; then
+            echo "❌ 打包后取不到 $NUPKG"; ls -l ./nupkg 2>&1 || true; exit 1
+          fi
+          echo "nupkg=$NUPKG" >> "$GITHUB_OUTPUT"
+          ls -lh "$NUPKG"
+
+      - name: Inspect nupkg (fail on junk / metadata drift)
+        working-directory: packages/sdk/dotnet
+        shell: bash
+        run: |
+          VERSION="${{ needs.extract.outputs.version }}"
+          NUPKG="${{ steps.pack.outputs.nupkg }}"
+          unzip -Z1 "$NUPKG"
+          # 条件 2 的 NuGet 侧:产物清单摊开,源码 / 其他语言切片 / 凭据噪音即判红
+          JUNK="$(unzip -Z1 "$NUPKG" | grep -Ei '(\.env|\.pem$|\.key$|id_rsa|credential|secret|\.npmrc|node_modules|^src/|(^|/)(java|python|go)/)' || true)"
+          if [ -n "$JUNK" ]; then echo "❌ nupkg 混入敏感/噪音条目:"; printf '%s\n' "$JUNK"; exit 1; fi
+          NUSPEC="$(unzip -Z1 "$NUPKG" | grep -Ei '\.nuspec$' | head -1)"
+          [ -n "$NUSPEC" ] || { echo "❌ nupkg 里没有 .nuspec —— 元数据无从回读"; exit 1; }
+          unzip -p "$NUPKG" "$NUSPEC" > /tmp/ihui-local.nuspec
+          grep -q "<version>$VERSION</version>" /tmp/ihui-local.nuspec \
+            || { echo "❌ nuspec 版本不是 $VERSION(实测:$(grep -o '<version>[^<]*</version>' /tmp/ihui-local.nuspec | tr '\n' ' '))"; exit 1; }
+          # Apache-2.0 在 NuGet 上有两种合法形态:表达式或包内许可文件。本工程用表达式。
+          grep -Eq '<license[^>]*type="expression"[^>]*>[[:space:]]*Apache-2\.0' /tmp/ihui-local.nuspec \
+            || { echo "❌ nuspec 未声明 Apache-2.0 许可证表达式(元数据漂移)"; exit 1; }
+          echo "✅ nupkg 自洽:版本=$VERSION、许可证表达式=Apache-2.0、无噪音"
+          echo "ℹ️ 已知残余:NOTICE 全文未随包(csproj 的 PackageLicenseExpression 形态不要求许可文件," \
+               "补随包 NOTICE 需改 csproj,属既有文件、不在本票授权范围)"
+
+      - name: Publish to NuGet (API key)
+        id: nuget-readback
+        if: needs.extract.outputs.dry_run == 'false'
+        working-directory: packages/sdk/dotnet
+        shell: bash
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          VERSION="${{ needs.extract.outputs.version }}"
+          PKG_LOWER="${{ steps.meta.outputs.pkg_lower }}"
+          NUPKG="${{ steps.pack.outputs.nupkg }}"
+          echo "📦 Publishing $PKG_LOWER@$VERSION to nuget.org..."
+          # --skip-duplicate:NuGet tag 不可变,重跑同一枚版本幂等跳过(与 go-publish 的幂等口径一致)
+          dotnet nuget push "$NUPKG" \
+            --api-key "$NUGET_API_KEY" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+          # 回读 ①(判"没发"):flatcontainer 版本清单里没有这个版本号 = 没发出去。
+          # push 的退出码不算证据 —— 与 npm / PyPI / Maven 三条 job 同一口径。
+          IDX="https://api.nuget.org/v3-flatcontainer/$PKG_LOWER/index.json"
+          HIT=""
+          for i in $(seq 1 18); do
+            if curl -fsS --max-time 20 "$IDX" 2>/dev/null | tr -d ' \n' | grep -q "\"$VERSION\""; then
+              HIT=1; break
+            fi
+            echo "  …第 $i 次回读未命中 $VERSION,20s 后重试"
+            sleep 20
+          done
+          if [ -z "$HIT" ]; then
+            echo "❌ 判红:6 分钟内在 $IDX 查不到 $VERSION —— 结论是「没发出去」,不得写成已发布"
+            exit 1
+          fi
+          # 回读 ②(判"发了但版本/坐标不符"):取回产物本体读它的 nuspec,与期望逐项比。
+          # 这一步是 ① 区分不开的哪一型:清单收录了版本号但内容却是另一份(版本号没同步进
+          # csproj、或包名撞了别人),① 只看 index.json 会照样绿。
+          NUPKG_URL="https://api.nuget.org/v3-flatcontainer/$PKG_LOWER/$VERSION/$PKG_LOWER.$VERSION.nupkg"
+          if ! curl -fsS --max-time 60 "$NUPKG_URL" -o /tmp/ihui-published.nupkg; then
+            echo "❌ 判红:清单收录了 $VERSION,但产物取不到($NUPKG_URL)"
+            exit 1
+          fi
+          unzip -p /tmp/ihui-published.nupkg '*.nuspec' > /tmp/ihui-published.nuspec
+          PUB_VER="$(grep -o '<version>[^<]*</version>' /tmp/ihui-published.nuspec | head -1 | sed -E 's,</?version>,,g')"
+          PUB_ID="$(grep -o '<id>[^<]*</id>' /tmp/ihui-published.nuspec | head -1 | sed -E 's,</?id>,,g')"
+          if [ "$PUB_VER" != "$VERSION" ]; then
+            echo "❌ 判红:发了,但 nuget.org 上那份的 version=$PUB_VER ≠ $VERSION"
+            exit 1
+          fi
+          if [ "$(printf '%s' "$PUB_ID" | tr '[:upper:]' '[:lower:]')" != "$PKG_LOWER" ]; then
+            echo "❌ 判红:回读到的包 id=$PUB_ID 与工程推导的 $PKG_LOWER 不符(发到别人包上了?)"
+            exit 1
+          fi
+          echo "proof=$PUB_ID@$VERSION (flatcontainer 回读确认:nupkg 本体 id/version 双符)" >> "$GITHUB_OUTPUT"
+          echo "✅ NuGet 回读通过:$PUB_ID@$VERSION"
+
+      - name: Dry-run verification
+        if: needs.extract.outputs.dry_run == 'true'
+        working-directory: packages/sdk/dotnet
+        shell: bash
+        run: |
+          VERSION="${{ needs.extract.outputs.version }}"
+          PKG_LOWER="${{ steps.meta.outputs.pkg_lower }}"
+          IDX="https://api.nuget.org/v3-flatcontainer/$PKG_LOWER/index.json"
+          echo "🔍 Dry-run:nupkg 已构建并自检通过,本步不执行 dotnet nuget push(零不可逆动作)"
+          # 只读探测:该版本是否已在册 —— 已存在意味着真发布会被 --skip-duplicate 幂等跳过,
+          # 这是 dry-run 能给出的最有信息量的信号。取不到状态码就判红,不猜。
+          HTTP="$(curl -sS -o /tmp/nuget-index-probe.json -w '%{http_code}' --max-time 20 "$IDX" 2>/dev/null || echo 000)"
+          case "$HTTP" in
+            200)
+              if tr -d ' \n' < /tmp/nuget-index-probe.json | grep -q "\"$VERSION\""; then
+                echo "⚠️ $VERSION 已存在于 nuget.org(真发布将幂等跳过)—— 本轮仍未发布任何产物"
+              else
+                echo "✅ $VERSION 尚未存在;真发布会推 $PKG_LOWER@$VERSION(本轮未推)"
+              fi
+              ;;
+            404) echo "✅ 包在 nuget.org 上尚不存在(首次发布形态)—— 本轮 dry-run 未推送" ;;
+            *) echo "❌ Dry-run 无法判定回读通道(HTTP=$HTTP),宁红不猜"; exit 1 ;;
+          esac
+
+      - name: Summary
+        run: |
+          VERSION="${{ needs.extract.outputs.version }}"
+          echo "### NuGet SDK 发布" >> $GITHUB_STEP_SUMMARY
+          echo "- 包名: \`Ihui.AI@$VERSION\`(PackageId 由 Ihui.AI.csproj 推导)" >> $GITHUB_STEP_SUMMARY
+          echo "- 安装: \`dotnet add package Ihui.AI\`" >> $GITHUB_STEP_SUMMARY
+
   # ---------- Job 4: Go module github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go 发布 ----------
   go-publish:
     name: Publish Go module
@@ -735,7 +949,7 @@ jobs:
   # ---------- Job 5: 发布总结 ----------
   release-summary:
     name: Release Summary
-    needs: [extract, gate, npm-publish, pypi-publish, maven-publish, go-publish]
+    needs: [extract, gate, npm-publish, pypi-publish, maven-publish, nuget-publish, go-publish]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -744,10 +958,12 @@ jobs:
           PROOF_NPM: ${{ needs.npm-publish.outputs.proof }}
           PROOF_PYPI: ${{ needs.pypi-publish.outputs.proof }}
           PROOF_MAVEN: ${{ needs.maven-publish.outputs.proof }}
+          PROOF_NUGET: ${{ needs.nuget-publish.outputs.proof }}
           PROOF_GO: ${{ needs.go-publish.outputs.proof }}
           RESULT_NPM: ${{ needs.npm-publish.result }}
           RESULT_PYPI: ${{ needs.pypi-publish.result }}
           RESULT_MAVEN: ${{ needs.maven-publish.result }}
+          RESULT_NUGET: ${{ needs.nuget-publish.result }}
           RESULT_GO: ${{ needs.go-publish.result }}
           RESULT_GATE: ${{ needs.gate.result }}
           LANGUAGE: ${{ github.event.inputs.language }}
@@ -774,9 +990,10 @@ jobs:
           echo "| npm \`@ihui/sdk\` | ${{ needs.npm-publish.result }} | @ihui/sdk@$VERSION |" >> $GITHUB_STEP_SUMMARY
           echo "| PyPI \`ihui-ai\` | ${{ needs.pypi-publish.result }} | ihui-ai==$VERSION |" >> $GITHUB_STEP_SUMMARY
           echo "| Maven Central | ${{ needs.maven-publish.result }} | com.ihui:ihui-ai-java:$VERSION |" >> $GITHUB_STEP_SUMMARY
+          echo "| NuGet | ${{ needs.nuget-publish.result }} | Ihui.AI@$VERSION |" >> $GITHUB_STEP_SUMMARY
           echo "| Go module | ${{ needs.go-publish.result }} | github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go tag=packages/sdk/go/v$VERSION |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 4 语言安装命令" >> $GITHUB_STEP_SUMMARY
+          echo "### 5 语言安装命令" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
           echo "# TypeScript / JavaScript" >> $GITHUB_STEP_SUMMARY
           echo "npm install @ihui/sdk" >> $GITHUB_STEP_SUMMARY
@@ -784,6 +1001,8 @@ jobs:
           echo "pip install ihui-ai" >> $GITHUB_STEP_SUMMARY
           echo "# Java (Maven)" >> $GITHUB_STEP_SUMMARY
           echo "mvn dependency:get -Dartifact=com.ihui:ihui-ai-java:$VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "# .NET (NuGet)" >> $GITHUB_STEP_SUMMARY
+          echo "dotnet add package Ihui.AI" >> $GITHUB_STEP_SUMMARY
           echo "# Go" >> $GITHUB_STEP_SUMMARY
           echo "go get github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go@v$VERSION" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
@@ -822,6 +1041,7 @@ jobs:
           check npm "$PROOF_NPM" "$RESULT_NPM"
           check pypi "$PROOF_PYPI" "$RESULT_PYPI"
           check maven "$PROOF_MAVEN" "$RESULT_MAVEN"
+          check nuget "$PROOF_NUGET" "$RESULT_NUGET"
           check go "$PROOF_GO" "$RESULT_GO"
 
           if [ "$RESULT_GATE" != "success" ]; then
