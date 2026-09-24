@@ -7074,6 +7074,70 @@
       "rollbackConfirmConfirm": "Restore"
     },
     "pane": {
+      "voiceSubtitles": {
+        "muteAndShowSubtitles": "Mute and show subtitles",
+        "subtitleTitle": "Voice subtitles",
+        "micError": {
+          "noPermission": "No microphone permission. Allow microphone access in your browser or system settings.",
+          "noDevice": "No microphone detected. Connect a microphone and try again.",
+          "occupied": "The microphone is in use by another app. Close it and try again.",
+          "startFailed": "Failed to start the microphone. Please try again."
+        },
+        "micErrorAria": {
+          "noPermission": "Microphone permission missing; grant access in settings first",
+          "noDevice": "No microphone detected; connect one first",
+          "occupied": "Microphone in use by another app; release it first",
+          "startFailed": "Microphone failed to start; retry available"
+        },
+        "conflict": "Voice minutes recording in progress; voice playback has been paused. Recording and playback cannot run at the same time.",
+        "view": {
+          "discussionSummary": "Discussion summary",
+          "taskFlow": "Task flow"
+        },
+        "viewAriaLabel": "Switch between discussion summary and task flow views",
+        "ariaLabel": "Voice subtitles and microphone status"
+      },
+      "annotationAnchors": {
+        "label": {
+          "pdf": "PDF page {page}",
+          "docx": "Document page {page}",
+          "pptx": "Slide {slide} · {element}",
+          "pptxSlide": "Slide {slide}",
+          "pptxComment": "Comment on {element}",
+          "xlsx": "{sheet} · {range}",
+          "xlsxSheet": "{sheet}",
+          "xlsxSelected": "Selected {range}"
+        },
+        "taskInputPlaceholder": "Describe what you want the agent to modify or check",
+        "addToTask": "Add to task",
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "relabel": "Re-annotate",
+        "ariaLabel": "Document annotation anchors"
+      },
+      "quotaOwnership": {
+        "title": {
+          "personalDaily": "Personal daily quota",
+          "freeModelDaily": "Free model daily quota",
+          "teamAdmin": "Team · admin required",
+          "billingGroupCredits": "Billing group · Credits limit"
+        },
+        "action": {
+          "viewUsage": "View usage details",
+          "switchFreeModel": "Switch to a free model",
+          "upgradeOrAdmin": "Upgrade or contact an admin"
+        },
+        "discount": {
+          "active": "Off-peak discount in progress",
+          "upcoming": "Off-peak discount starts in {{time}}"
+        },
+        "duration": {
+          "hour": "h",
+          "minute": "m"
+        },
+        "degradeHint": "Your free tier is still available. Switch to a free model to continue — no top-up needed",
+        "ariaLabel": "Quota ownership and suggested actions"
+      },
       "moveToWorktree": {
         "title": "Move conversation to a worktree",
         "subtitle": "Check out branch <branch>{branchName}</branch> in a new worktree to keep working in parallel.",
