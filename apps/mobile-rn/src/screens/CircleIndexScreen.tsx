@@ -492,7 +492,7 @@ const createStyles = (tk: RnThemeTokens) =>
       paddingHorizontal: rpx(28),
       paddingVertical: rpx(8),
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     userFollowActive: {
       backgroundColor: tk.surface.muted,
@@ -604,7 +604,7 @@ const createStyles = (tk: RnThemeTokens) =>
       paddingHorizontal: rpx(40),
       paddingVertical: rpx(16),
       borderRadius: rnRadius['2xl'],
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     emptyBtnText: {
       fontSize: 13,
@@ -622,7 +622,7 @@ const createStyles = (tk: RnThemeTokens) =>
       width: rpx(104),
       height: rpx(104),
       borderRadius: rpx(52), // radius-exempt: 圆形发布悬浮按钮,半径=宽高一半
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
     },

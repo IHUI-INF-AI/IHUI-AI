@@ -165,7 +165,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 10,
       paddingVertical: 8,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     searchBtnText: { color: tk.surface.light, fontSize: 16 },
     toastText: {
@@ -218,7 +218,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 10,
       paddingVertical: 8,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     enrollBtnDisabled: { backgroundColor: tk.text.tertiary },
     enrollBtnText: { color: tk.surface.light, fontSize: 14, fontWeight: '600' },
