@@ -55,7 +55,7 @@ class StreamingRecognizer {
     })
     this.recorderManager.onError((err) => {
       this.isRecording = false
-      this.onError?.(err.errMsg || t('utilsStreamingrecognizer.p1'))
+      this.onError?.(err.errMsg || t('utilsStreamingrecognizer.q1'))
     })
     // 流式帧上传已废弃(2026-07-28 改用整段上传 + faster-whisper 本地推理)
   }

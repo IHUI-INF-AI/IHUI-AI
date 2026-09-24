@@ -37,7 +37,7 @@ const LEARN_PATHS = (tt: TtFn): LearnPath[] => [
   {
     id: 'p1',
     icon: chuangkeIcon,
-    nameKey: 'learnDevelop.pathFrontend',
+    nameKey: 'learndevelop.d1',
     name: tt('learndevelop.d1', '前端工程师'),
     courses: 12,
     progress: 35,
@@ -45,7 +45,7 @@ const LEARN_PATHS = (tt: TtFn): LearnPath[] => [
   {
     id: 'p2',
     icon: aiallIcon,
-    nameKey: 'learnDevelop.pathAI',
+    nameKey: 'learndevelop.d2',
     name: tt('learndevelop.d2', 'AI 应用开发'),
     courses: 8,
     progress: 0,
@@ -53,7 +53,7 @@ const LEARN_PATHS = (tt: TtFn): LearnPath[] => [
   {
     id: 'p3',
     icon: useNumIcon,
-    nameKey: 'learnDevelop.pathData',
+    nameKey: 'learndevelop.d3',
     name: tt('learndevelop.d3', '数据分析师'),
     courses: 15,
     progress: 60,

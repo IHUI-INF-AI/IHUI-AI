@@ -27,7 +27,7 @@ interface CategoryDef {
 
 // 分类 Tab:全部/课程/直播/帖子/AI作品/资讯
 const CATEGORY_TABS: CategoryDef[] = [
-  { key: 'all', labelKey: 'favorites.tabAll', fallback: '全部', targetType: '' },
+  { key: 'all', labelKey: 'common.all', fallback: '全部', targetType: '' },
   { key: 'course', labelKey: 'favorites.tabCourse', fallback: '课程', targetType: 'course' },
   { key: 'live', labelKey: 'favorites.tabLive', fallback: '直播', targetType: 'live' },
   { key: 'post', labelKey: 'favorites.tabPost', fallback: '帖子', targetType: 'post' },
