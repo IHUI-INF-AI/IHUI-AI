@@ -184,7 +184,9 @@ function ImagePreview({
   const [internalIndex, setInternalIndex] = React.useState<number>(galleryIndex ?? 0)
   const requested = isControlled ? (galleryIndex as number) : internalIndex
   const active = pageImage(requested, total) ?? 0
-  const current = items[active]
+  // items 按构造恒非空(无 gallery 时回落成单图),但索引取值带 `| undefined`;
+  // 用同一个回落式兜住而不是断言 —— 兜底值与构造路径逐字相同,不会引入第二套语义
+  const current = items[active] ?? { url, name }
   const counter = imageCounterView(active, total)
   const feed = usePreviewMediaProbe(current.url)
 
