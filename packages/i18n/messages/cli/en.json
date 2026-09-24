@@ -78,6 +78,25 @@
       "created": "✓ Branched \"{sourceTitle}\" into \"{branchTitle}\" after the {anchor} message. New conversation id: {branchId}",
       "roleAssistant": "assistant",
       "roleUser": "user"
+    },
+    "hooks": {
+      "trustedHeader": "Trusted folders (~/.ihui/trusted-folders):",
+      "trustedNone": "  none - project-provided hooks will never run",
+      "currentDirMark": "  ← current folder",
+      "currentDirUntrusted": "  Current folder is not trusted: {path} (run `ihui hooks trust` to trust it)",
+      "trustDesc": "Trust a folder (the current one by default) so the project hooks it ships may run",
+      "trustErrNotDir": "✗ Folder does not exist, nothing was written to the trust list: {path}",
+      "trustAlready": "✓ This folder is already in the trust list: {path}",
+      "trustWriteFailed": "✗ Failed to write ~/.ihui/trusted-folders: {path}",
+      "trustOk": "✓ Trusted folder: {path}",
+      "trustWarning": "  From now on the .ihui/.claude/.cursor hooks.json files under this folder really run (commands go through a shell, webhooks send tool input and output out). Only trust configuration you wrote yourself.",
+      "untrustDesc": "Remove a folder from the trust list (~/.ihui/trusted-folders)",
+      "untrustNotListed": "✓ This folder was not in the trust list to begin with: {path}",
+      "untrustOk": "✓ Trust revoked for: {path}"
+    },
+    "commandSafety": {
+      "dangerous": "⚠ Dangerous command blocked: the command matched danger pattern {pattern}\nIf you really need to run it, set IHUI_YOLO=1",
+      "alwaysConfirm": "⚠ Command blocked: it belongs to the \"always confirm\" tier (delete / force push / rebase / release, the hard-to-undo kind), and IHUI_YOLO must not let it pass silently.\nDrop IHUI_YOLO and retry so that you confirm each command."
     }
   },
   "waiting": {
