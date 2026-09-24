@@ -47,7 +47,7 @@ export type ReadOutcome =
   | { readonly kind: 'failed' }
   | { readonly kind: 'aborted' }
 
-export type PreviewFeedAction =
+type PreviewFeedAction =
   | {
       readonly type: 'read'
       readonly outcome: ReadOutcome
