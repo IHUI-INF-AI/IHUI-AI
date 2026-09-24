@@ -27,10 +27,16 @@ export interface SandboxOptions {
   maxCpuMs?: number;
   /** 允许访问的额外路径白名单(绝对路径或相对 cwd)。cwd 本身始终允许。 */
   allowedPaths?: string[];
-  /** 命令白名单(只允许这些命令,空数组或 undefined=允许全部,向后兼容)。
+  /** 命令白名单三态:
+   *  - `null`      = 一律拒绝所有命令(**含解析不出命令名的畸形输入**,fail closed)
+   *  - `string[]` 非空 = 只允许这些命令
+   *  - `undefined` / `[]` = 不检查(沿用旧语义,向后兼容)
+   *  为什么把"禁止一切"做成 null 而不是空数组:空数组历史上一直被当作"未设置"
+   *  (`length > 0` 才检查),所以只写 `commandAllowlist: []` 的档位对命令名**零限制**,
+   *  与 readonly 档描述相反 —— null 是机器能表达、且不改动旧免确认面的那一档。
    *  匹配规则:取命令行第一个 token 的 basename,与白名单做大小写不敏感比对。
    *  Windows 上会自动尝试 .exe/.cmd/.bat 后缀匹配。 */
-  commandAllowlist?: string[];
+  commandAllowlist?: string[] | null;
   /** 屏蔽的环境变量名(子进程不会继承这些变量)。
    *  默认会屏蔽常见 API key 相关变量(见 DEFAULT_BLOCKED_ENV_VARS)。 */
   blockedEnvVars?: string[];
@@ -92,7 +98,8 @@ export const SANDBOX_PROFILES: Record<SandboxProfile, SandboxProfileConfig> = {
   readonly: {
     description: '只读:无写操作,无网络,无 shell 命令',
     overrides: {
-      commandAllowlist: [],
+      // null 而不是 []:[] 在判定里等价于"未设置",会让本档描述里的"无 shell 命令"落空
+      commandAllowlist: null,
       blockedEnvVars: ['*'],
       timeoutMs: 10_000,
       maxOutputBytes: 1024 * 1024,
@@ -222,6 +229,30 @@ function isCommandAllowed(commandName: string, allowlist: string[]): boolean {
   return allowlist.some((p) => matchPattern(commandName, p));
 }
 
+/**
+ * 命令白名单判定 —— `runSandboxed` 与 `precheckSandbox` 两处强制点**共用这一份实现**。
+ *
+ * 为什么必须共用:同一条判据写在两处时,改一处漏一处是这里出现过的真实缺陷
+ * (readonly 档描述与行为相反就是两处各自判 `length > 0` 的结果)。
+ *
+ * @returns 拒绝时返回 blockReason 字符串;放行时返回 null
+ */
+export function evaluateCommandAllowlist(
+  commandLine: string,
+  allowlist: string[] | null | undefined,
+): string | null {
+  if (allowlist === null) {
+    // 一律拒绝:连命令名都取不出来时也拒绝(这一档的意义就是"这里不许跑任何命令")
+    const cmdName = extractCommandName(commandLine);
+    return `command_not_allowed: ${cmdName || '<无法解析命令名>'}`;
+  }
+  // undefined / 空数组 = 不检查(旧语义,不得改动:全仓现有免确认面依赖它)
+  if (!allowlist || allowlist.length === 0) return null;
+  const cmdName = extractCommandName(commandLine);
+  if (!cmdName) return null;
+  return isCommandAllowed(cmdName, allowlist) ? null : `command_not_allowed: ${cmdName}`;
+}
+
 function buildFilteredEnv(blocked: string[]): NodeJS.ProcessEnv {
   const env = { ...process.env };
   for (const key of Object.keys(env)) {
@@ -331,34 +362,31 @@ export function runSandboxed(commandLine: string, opts: SandboxOptions): Sandbox
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const maxOutput = opts.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES;
   const allowed = opts.allowedPaths ?? [];
-  const commandAllowlist = opts.commandAllowlist ?? [];
   const blockedEnvVars = opts.blockedEnvVars ?? DEFAULT_BLOCKED_ENV_VARS;
 
-  // 命令白名单检查
-  if (commandAllowlist.length > 0) {
-    const cmdName = extractCommandName(commandLine);
-    if (cmdName && !isCommandAllowed(cmdName, commandAllowlist)) {
-      appendSandboxAuditLog({
-        timestamp: new Date().toISOString(),
-        command: commandLine,
-        cwd: opts.cwd,
-        exitCode: null,
-        timedOut: false,
-        truncated: false,
-        blocked: true,
-        blockReason: `command_not_allowed: ${cmdName}`,
-        durationMs: Date.now() - startedAt,
-      });
-      return {
-        stdout: '',
-        stderr: `⛔ 命令被沙盒拒绝: ${cmdName}(不在白名单)`,
-        exitCode: null,
-        timedOut: false,
-        truncated: false,
-        blocked: true,
-        blockReason: `command_not_allowed: ${cmdName}`,
-      };
-    }
+  // 命令白名单检查(判据见 evaluateCommandAllowlist,与 precheckSandbox 同一份实现)
+  const commandBlockReason = evaluateCommandAllowlist(commandLine, opts.commandAllowlist);
+  if (commandBlockReason) {
+    appendSandboxAuditLog({
+      timestamp: new Date().toISOString(),
+      command: commandLine,
+      cwd: opts.cwd,
+      exitCode: null,
+      timedOut: false,
+      truncated: false,
+      blocked: true,
+      blockReason: commandBlockReason,
+      durationMs: Date.now() - startedAt,
+    });
+    return {
+      stdout: '',
+      stderr: `⛔ 命令被沙盒拒绝: ${commandBlockReason}(命令白名单未放行)`,
+      exitCode: null,
+      timedOut: false,
+      truncated: false,
+      blocked: true,
+      blockReason: commandBlockReason,
+    };
   }
 
   // 路径白名单检查
@@ -446,13 +474,8 @@ export interface SandboxPrecheckResult {
 /** 沙盒预检查(命令白名单 + 路径白名单),供同步/异步版本共用。 */
 export function precheckSandbox(commandLine: string, opts: SandboxOptions): SandboxPrecheckResult {
   const allowed = opts.allowedPaths ?? [];
-  const commandAllowlist = opts.commandAllowlist ?? [];
-  if (commandAllowlist.length > 0) {
-    const cmdName = extractCommandName(commandLine);
-    if (cmdName && !isCommandAllowed(cmdName, commandAllowlist)) {
-      return { blocked: true, blockReason: `command_not_allowed: ${cmdName}` };
-    }
-  }
+  const commandBlockReason = evaluateCommandAllowlist(commandLine, opts.commandAllowlist);
+  if (commandBlockReason) return { blocked: true, blockReason: commandBlockReason };
   if (allowed.length > 0) {
     const pathsInCmd = extractPathsFromCommand(commandLine);
     for (const p of pathsInCmd) {

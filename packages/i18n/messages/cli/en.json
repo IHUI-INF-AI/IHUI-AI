@@ -58,6 +58,26 @@
       "runEmpty": "queue empty, nothing to run",
       "modeSet": "✓ follow-up mode = {mode}",
       "degradedNote": " (degraded: {reason})"
+    },
+    "branch": {
+      "usage": "Usage: /branch [title] | /branch -c <conversation-id> [title]",
+      "usageShort": "/branch [title] | /branch -c <conversation-id> [title]",
+      "menu": "Branch a server conversation into a new one from its latest reply",
+      "errUnknownFlag": "Unsupported argument",
+      "errBadConversationId": "The conversation id must be a server-side UUID",
+      "errBadTitle": "Title is too long (255 characters max)",
+      "errNoConversations": "There is no conversation to branch",
+      "errNoMessages": "This conversation has no messages yet, so there is nothing to branch from",
+      "errNoBranchable": "No stored message id was found in this conversation, so it cannot be branched",
+      "errRequestFailed": "The server rejected the request",
+      "errTransportFailed": "The backend could not be reached",
+      "withDetail": "{reason}: {detail}",
+      "failedWithStatus": "Branch failed: {reason} (HTTP status {status})",
+      "failedNoStatus": "Branch failed: {reason}",
+      "resolvedLatest": "No conversation was given, so the most recently active one was used: \"{sourceTitle}\" ({sourceId})",
+      "created": "✓ Branched \"{sourceTitle}\" into \"{branchTitle}\" after the {anchor} message. New conversation id: {branchId}",
+      "roleAssistant": "assistant",
+      "roleUser": "user"
     }
   },
   "waiting": {
