@@ -163,7 +163,7 @@ export default function LearnDevelop() {
                 {tt('learnDevelop.loadFailed', '加载失败')}
               </Text>
               <Text
-                className="inline-block mt-[24rpx] py-[16rpx] px-[48rpx] bg-primary text-primary-foreground text-center rounded-md text-[28rpx]"
+                className="inline-block mt-[24rpx] py-[16rpx] px-[48rpx] bg-cta text-cta-foreground text-center rounded-md text-[28rpx]"
                 onClick={loadData}
               >
                 {t('common.retry')}

@@ -81,7 +81,7 @@ export default function QrCodeShare({
           {tt('wallet.recharge.success.shareFriend', '分享给好友')}
         </Button>
         <Button
-          className="flex-1 !bg-primary !text-primary-foreground text-sm rounded-md"
+          className="flex-1 !bg-cta !text-cta-foreground text-sm rounded-md"
           onClick={handleSave}
         >
           {tt('invite.saveImage', '保存图片')}

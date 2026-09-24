@@ -102,7 +102,7 @@ export default function DistributionWithdraw() {
             {payTypes.map((pt) => (
               <View
                 key={pt.value}
-                className={`flex-1 py-[12rpx] text-center rounded-xl text-[28rpx] ${payType === pt.value ? 'bg-primary text-primary-foreground font-semibold' : 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]'}`}
+                className={`flex-1 py-[12rpx] text-center rounded-xl text-[28rpx] ${payType === pt.value ? 'bg-cta text-cta-foreground font-semibold' : 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]'}`}
                 onClick={() => setPayType(pt.value)}
                 hoverClass="opacity-60"
               >
@@ -114,7 +114,7 @@ export default function DistributionWithdraw() {
       </View>
       {/* 对齐 RN submitBtn:brand 底(语义 primary)+ 100rpx 高 + 24rpx 圆角;disabled 取 text-tertiary */}
       <Button
-        className={`mx-[20rpx] mt-[40rpx] rounded-xl text-[32rpx] font-semibold h-[100rpx] leading-[100rpx] ${submitting ? 'bg-[var(--color-text-tertiary)] text-[var(--color-surface-light)]' : 'bg-primary text-primary-foreground'}`}
+        className={`mx-[20rpx] mt-[40rpx] rounded-xl text-[32rpx] font-semibold h-[100rpx] leading-[100rpx] ${submitting ? 'bg-[var(--color-text-tertiary)] text-[var(--color-surface-light)]' : 'bg-cta text-cta-foreground'}`}
         disabled={submitting}
         onClick={onSubmit}
       >

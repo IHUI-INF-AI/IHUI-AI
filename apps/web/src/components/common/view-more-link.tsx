@@ -2,60 +2,55 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-/**
- * MoreTitles 更多标题 (mobile-rn 端)
- *
- * 对齐历史项目 MoreTitles/index.vue(列表区段头):
- * - 左侧:标题文字(粗体),单行截断
- * - 右侧(仅当 onMore 提供时渲染):「更多」入口 —— 委托共享层 MoreLink,
- *   不得在此自拼 `›` 字符箭头(字符箭头与标签字号不同时必上下错位)
- * - 单行布局,space-between,无分割线
- * - 浅色优雅风,系统字体,无霓虹无渐变
- *
- * 任务规格:
- *   interface MoreTitlesProps { title: string; moreText?: string; onMore?: () => void }
- */
-import { StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native'
-import { MoreLink } from '@ihui/rn-app'
-import { tokens as tk, currentRnTheme } from '../theme/active-tokens'
+'use client'
 
-export interface MoreTitlesProps {
-  title: string
-  moreText?: string
-  onMore?: () => void
+import Link from 'next/link'
+import { ChevronRight } from 'lucide-react'
+import { cn } from '@ihui/ui-react'
+
+// 平台特有:依赖 next/link 的客户端路由,故不进 packages/ui-react
+// (该共享包有一条既有约定 —— 引 next/link 会在扩展端出错,见 ui-react/login-form 头注)。
+
+interface ViewMoreLinkProps {
+  /** 已取词的入口文案 */
+  label: string
+  /** 跳转地址;给了 href 走客户端路由,否则按 onClick 渲染成按钮 */
+  href?: string
+  onClick?: () => void
+  className?: string
 }
 
-const DEFAULT_MORE_TEXT = '更多'
-const TITLE_FONT_SIZE = 14
-const CONTAINER_PADDING_V = 10
+/**
+ * 区段头「更多」入口 —— web 端唯一实现,与 RN 侧 `@ihui/rn-app` 的 MoreLink 同档:
+ * 文字 `text-xs`(12px)+ lucide 矢量 `ChevronRight h-3 w-3`(12px)、gap 2、muted 前景。
+ *
+ * 箭头一律用矢量,不得写 `>` / `›` 字符:字符字形在自身 em 盒里的位置随字号变,
+ * 与不同字号的标签同行必上下错位。文字必须包 `<span>`(中文垂直补偿规则只命中 span)。
+ */
+export function ViewMoreLink({ label, href, onClick, className }: ViewMoreLinkProps) {
+  const classes = cn(
+    'inline-flex items-center gap-0.5 text-xs text-muted-foreground transition-colors hover:text-primary',
+    className,
+  )
+  const content = (
+    <>
+      <span>{label}</span>
+      <ChevronRight className="h-3 w-3" aria-hidden="true" />
+    </>
+  )
 
-export function MoreTitles({ title, moreText = DEFAULT_MORE_TEXT, onMore }: MoreTitlesProps) {
+  if (href) {
+    return (
+      <Link href={href} className={classes}>
+        {content}
+      </Link>
+    )
+  }
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title} numberOfLines={1}>
-        {title}
-      </Text>
-      {onMore ? (
-        <MoreLink label={moreText} onPress={onMore} colorScheme={currentRnTheme()} />
-      ) : null}
-    </View>
+    <button type="button" onClick={onClick} className={classes}>
+      {content}
+    </button>
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: CONTAINER_PADDING_V,
-  } as ViewStyle,
-  title: {
-    flex: 1,
-    fontSize: TITLE_FONT_SIZE,
-    fontWeight: '600',
-    color: tk.text.primary,
-  } as TextStyle,
-})
-
-export default MoreTitles
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

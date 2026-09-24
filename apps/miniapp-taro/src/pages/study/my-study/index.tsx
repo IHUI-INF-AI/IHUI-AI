@@ -148,7 +148,7 @@ export default function MyStudy() {
               key={tab.key}
               className={`flex-1 flex items-center justify-center py-[12rpx] rounded-xl text-[28rpx] ${
                 activeTab === tab.key
-                  ? 'bg-primary text-primary-foreground font-semibold'
+                  ? 'bg-cta text-cta-foreground font-semibold'
                   : 'bg-card text-muted-foreground'
               }`}
               hoverClass="opacity-60"

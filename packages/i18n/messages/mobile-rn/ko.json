@@ -410,6 +410,7 @@
     "budgetUsedTokens": "{used} / {limit} 토큰 사용",
     "budgetResetTomorrow": "자정 초기화",
     "budgetTier": "{tier} 플랜",
+    "more": "더 보기",
     "viewMore": "더 보기",
     "close": "닫기",
     "delete": "삭제",

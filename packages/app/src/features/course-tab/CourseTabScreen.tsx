@@ -18,6 +18,7 @@ import {
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { SearchInput } from '../../components/SearchInput'
+import { MoreLink } from '../../components/MoreLink'
 import type { TFunction } from '../../types'
 import type { AppIcon } from '@ihui/types'
 import { BarChart3, BookOpen, PenLine, Smartphone, Users } from 'lucide-react-native'
@@ -126,9 +127,7 @@ export function CourseTabScreen({
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionTitle}>{title}</Text>
       {onMore ? (
-        <Pressable hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} onPress={onMore}>
-          <Text style={styles.moreLink}>{'更多'}</Text>
-        </Pressable>
+        <MoreLink label={t('common.more')} onPress={onMore} colorScheme={colorScheme} />
       ) : null}
     </View>
   )
@@ -413,10 +412,6 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 20,
       fontWeight: '600',
       color: tk.text.primary,
-    } as TextStyle,
-    moreLink: {
-      fontSize: 14,
-      color: tk.text.secondary,
     } as TextStyle,
 
     // 学习路径

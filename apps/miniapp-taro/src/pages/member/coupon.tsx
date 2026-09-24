@@ -178,7 +178,7 @@ export default function CouponPage() {
                   </Text>
                   {c.status === 'unused' ? (
                     <Button
-                      className="self-start mt-[16rpx] text-[22rpx] text-primary-foreground bg-primary rounded-lg px-[16rpx] leading-[44rpx]"
+                      className="self-start mt-[16rpx] text-[22rpx] text-cta-foreground bg-cta rounded-lg px-[16rpx] leading-[44rpx]"
                       onClick={useCoupon}
                     >
                       {tt('member.coupon.use', '立即使用')}
@@ -212,7 +212,7 @@ export default function CouponPage() {
           </View>
         )}
         <Button
-          className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] bg-primary text-primary-foreground rounded-xl text-[28rpx] h-[88rpx] leading-[88rpx]"
+          className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] bg-cta text-cta-foreground rounded-xl text-[28rpx] h-[88rpx] leading-[88rpx]"
           onClick={goList}
         >
           {tt('member.coupon.couponCenter', '领券中心')}

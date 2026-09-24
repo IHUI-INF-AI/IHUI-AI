@@ -608,7 +608,7 @@ export default function AgentDialogue() {
               {msg.type === 'user' ? (
                 <>
                   <View
-                    className={`max-w-[85%] p-[20rpx] rounded-xl relative bg-primary text-primary-foreground ${isMedia(msg) ? 'p-0 bg-transparent' : ''}`}
+                    className={`max-w-[85%] p-[20rpx] rounded-xl relative bg-cta text-cta-foreground ${isMedia(msg) ? 'p-0 bg-transparent' : ''}`}
                   >
                     {renderBubble(msg)}
                     {msg.read ? (

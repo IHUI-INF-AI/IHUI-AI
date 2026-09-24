@@ -214,8 +214,12 @@
   color: var(--color-foreground);
 }
 .cd-comments-more {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4rpx;
   font-size: 24rpx;
-  color: var(--color-primary);
+  color: var(--color-muted-foreground);
 }
 .cd-comments {
   display: flex;
