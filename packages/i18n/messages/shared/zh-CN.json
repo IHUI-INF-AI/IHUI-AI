@@ -609,22 +609,6 @@
       "system": "系统"
     }
   },
-  "errors": {
-    "conflict": "操作冲突,请刷新后重试",
-    "forbidden": "没有权限执行此操作",
-    "internalError": "服务器开小差了,请稍后重试",
-    "invalidMoney": "金额格式不正确",
-    "invalidTimezone": "时区格式不正确",
-    "locked": "资源已被锁定,请稍后再试",
-    "memberExists": "该成员已存在",
-    "notFound": "找不到对应的资源",
-    "optimisticLock": "数据已被其他人修改,请刷新后重试",
-    "rateLimited": "操作过于频繁,请稍后再试",
-    "serviceUnavailable": "服务暂不可用,请稍后重试",
-    "unauthorized": "登录已过期,请重新登录",
-    "upstreamFailure": "上游服务异常,请稍后重试",
-    "validationFailed": "提交的信息有误,请检查后重试"
-  },
   "faq": {
     "categoryDeploy": "部署与运维",
     "categoryGeneral": "平台介绍",
