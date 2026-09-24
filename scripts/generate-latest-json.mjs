@@ -102,68 +102,13 @@ async function waitForRelease(tag, expectedMinAssets = EXPECTED_MIN_ASSETS, maxR
   throw new Error(`Release assets not ready after ${maxRetries} retries (waited ~${Math.round(maxRetries * retryInterval / 1000)}s). Expected >= ${expectedMinAssets} assets / ${EXPECTED_MIN_SIGS} sigs.`)
 }
 
-// 根据 .sig 文件名推断 Tauri updater 平台标识 + 产物类型(kind)。
-// 同一平台存在多种安装包(如 Windows 的 exe/msi,Linux 的 AppImage/deb/rpm)时,
-// 由 PLATFORM_PRIORITY 决定写入 latest.json 的优先级,避免后遍历者覆盖先遍历者。
-const PLATFORM_PRIORITY = {
-  'windows-x86_64': { exe: 10, msi: 5 },
-  'linux-x86_64': { AppImage: 10, deb: 7, rpm: 5 },
-}
-
-function inferPlatform(sigName) {
-  // Windows: exe.sig / msi.sig — 优先 NSIS exe(与 tauri-action updaterJsonPreferNsis 语义一致),
-  // MSI 仅作为无 exe 时的 fallback(MSI 需管理员权限且 NSIS/MSI 安装类型混用有已知坑)。
-  if (sigName.endsWith('.exe.sig')) return { platform: 'windows-x86_64', kind: 'exe' }
-  if (sigName.endsWith('.msi.sig')) return { platform: 'windows-x86_64', kind: 'msi' }
-  // macOS: app.tar.gz.sig
-  // 2026-09-17:Universal 二进制(CI 用 --target universal-apple-darwin 交叉编译)同时覆盖
-  // Apple Silicon 与 Intel → 同一份签名/包写入 darwin-aarch64 与 darwin-x86_64 两个平台键。
-  if (sigName.endsWith('.app.tar.gz.sig')) {
-    if (sigName.includes('universal')) {
-      return { platform: 'darwin-aarch64', kind: 'app', alsoPlatforms: ['darwin-x86_64'] }
-    }
-    if (sigName.includes('aarch64') || sigName.includes('arm64')) return { platform: 'darwin-aarch64', kind: 'app' }
-    return { platform: 'darwin-x86_64', kind: 'app' }
-  }
-  // Linux: AppImage.sig / deb.sig / rpm.sig — 优先 AppImage(通用性最高,无需系统包管理器)
-  if (sigName.endsWith('.AppImage.sig')) return { platform: 'linux-x86_64', kind: 'AppImage' }
-  if (sigName.endsWith('.deb.sig')) return { platform: 'linux-x86_64', kind: 'deb' }
-  if (sigName.endsWith('.rpm.sig')) return { platform: 'linux-x86_64', kind: 'rpm' }
-  return null
-}
-
-/**
- * 判断新产物是否应替换已有平台条目。
- * 规则(按优先级):
- *  1. 产物版本与 release 版本(tag 提取)匹配的优先——同一 release 可能混有历史版本产物
- *     (如 desktop-v0.1.14 资产中残留 0.1.13 的 exe/msi),必须选与 version 一致的;
- *  2. 版本匹配相同时,按 PLATFORM_PRIORITY 择优(exe > msi,AppImage > deb > rpm);
- *  3. 单产物平台(如 darwin app),保留首个。
- * @param {string} platform
- * @param {string} newKind
- * @param {boolean} newVerMatch - 新产物文件名是否含 release 版本号
- * @param {string | undefined} existingKind
- * @param {boolean} existingVerMatch - 现有产物文件名是否含 release 版本号
- * @returns {boolean} true 表示写入新条目
- */
-function shouldReplacePlatform(platform, newKind, newVerMatch, existingKind, existingVerMatch) {
-  if (!existingKind) return true
-  // 版本匹配不一致时:优先版本匹配的产物(与 latest.json 的 version 保持一致)
-  if (newVerMatch !== existingVerMatch) return newVerMatch
-  const priority = PLATFORM_PRIORITY[platform]
-  if (!priority) return false // 单产物平台(如 darwin),保留首个
-  return (priority[newKind] ?? 0) > (priority[existingKind] ?? 0)
-}
-
-/**
- * 从安装包文件名提取 SemVer 版本号(如 "IHUI.AI_0.1.14_x64-setup.exe" → "0.1.14")。
- * @param {string} assetName
- * @returns {string | null}
- */
-function extractVersion(assetName) {
-  const m = assetName.match(/(\d+\.\d+\.\d+)/)
-  return m ? m[1] : null
-}
+// 平台判定/择优逻辑的唯一真相源在 scripts/lib/tauri-updater-platforms.mjs
+// (站点 feed 快照 scripts/resolve-desktop-download.mjs 与本脚本共用同一份,不得在此二次实现)。
+import {
+  inferPlatform,
+  extractVersion,
+  shouldReplacePlatform,
+} from './lib/tauri-updater-platforms.mjs'
 
 async function main() {
   // 1. 等待 release assets 全部上传完成(防止竞态条件)
