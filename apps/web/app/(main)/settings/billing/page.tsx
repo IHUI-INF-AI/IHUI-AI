@@ -91,6 +91,14 @@ export default function BillingPage() {
     if (!buckets || buckets.length === 0) return undefined
     return Object.fromEntries(buckets.map((b) => [b.date, b.count] as const))
   }, [dailyUsageQuery.data])
+  // 会话视图取"当日新建会话数"(与积分消耗是两条独立序列);只递交日 >0 的日子,
+  // 否则 90 天区间会把一串 0 排进列表(卡的会话视图是清单不是热力)
+  const heatmapSessionCounts = React.useMemo(() => {
+    const buckets = dailyUsageQuery.data?.buckets ?? []
+    const hit = buckets.filter((b) => b.sessions > 0)
+    if (hit.length === 0) return undefined
+    return Object.fromEntries(hit.map((b) => [b.date, b.sessions] as const))
+  }, [dailyUsageQuery.data])
 
   return (
     <div className="px-4 space-y-4 py-4">
@@ -101,6 +109,7 @@ export default function BillingPage() {
           <CardContent>
             <CreditsHeatmapCard
               dayCounts={heatmapDayCounts}
+              sessionCounts={heatmapSessionCounts}
               data-testid="settings-credits-heatmap"
             />
           </CardContent>
