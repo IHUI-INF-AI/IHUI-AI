@@ -83,6 +83,7 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 - compact 紧凑、elegant 优雅。hover 用 subtle 颜色变化,**不要蓝色发光边框**。复用 `packages/ui-react` 的 Card/Button/Input/Dialog。每个页面 < 250 行。时间用 `Intl.DateTimeFormat`,头像用 initials。状态徽章:draft 灰 / published 绿。积分正数绿色,负数红色。
 
 ### 品牌 CTA / 主按钮色同源(强制,2026-09-24 收口)
+
 - **唯一写法**:主按钮、选中胶囊、悬浮加号这类"品牌实底 + 其上文字",RN/共享包写 `brand.DEFAULT`(底)+ `brand.foreground`(文字)**成对**;CSS/类名侧用 `--color-primary` + `--color-primary-foreground`(小程序 `CategoryBar`/FAB 同值)。这两档在两主题下逐位同值(亮 `#000/#fff`、暗 `#fff/#000`),对账由「跨端色值同源对账」守门负责(编号以 `scripts/guardian-runner.mjs` 现值为准,勿照抄文档)。
 
 - **唯一写法**:主按钮、选中胶囊、悬浮加号这类"品牌实底 + 其上文字",RN/共享包写 `brand.DEFAULT`(底)+ `brand.foreground`(文字)成对;CSS/类名侧用 `--color-primary` + `--color-primary-foreground`(小程序 `CategoryBar`/FAB 同值)。这两档在两主题下逐位同值(亮 `#000/#fff`、暗 `#fff/#000`),对账由守门 90 负责。
@@ -237,13 +238,13 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 
 **现状结构(不可改回)**:
 
-| 路径                             | 角色                                                        |
-| -------------------------------- | ----------------------------------------------------------- |
-| `D:/IHUI-AI/.git`                | **28 字节指针文件**(`gitdir: D:/IHUI-AI-git-repo`),不是目录 |
-| `D:/IHUI-AI-git-repo`            | 真实 gitdir(544MB),在工作区之外                             |
-| `D:/IHUI-AI.git-backup-20260912` | gitdir 完整备份,守护的本地恢复源                            |
-**守护**:计划任务 **`IHUI-AI git-guardian`**(每 2 分钟)→ `"C:/Program Files/nodejs/node.exe" D:/IHUI-AI/scripts/git-guardian.mjs`。本机**未安装 nssm**,故未采用 `--daemon` 常驻服务形态,改用脚本自带的 schtasks 兜底(2026-09-12 15:30 实测启用;16:12 实测**自愈已生效**)。
-分层自愈:`指针 → 环境 → HEAD 语法 → 嵌套 ref → 本地备份 → 远端`;每步破坏性覆盖前先归档现场。实测自愈 **0.9s**(refs 自愈实测 **0.14s**)。
+| 路径                                                                                                                                                                                                                                                                       | 角色                                                        |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `D:/IHUI-AI/.git`                                                                                                                                                                                                                                                          | **28 字节指针文件**(`gitdir: D:/IHUI-AI-git-repo`),不是目录 |
+| `D:/IHUI-AI-git-repo`                                                                                                                                                                                                                                                      | 真实 gitdir(544MB),在工作区之外                             |
+| `D:/IHUI-AI.git-backup-20260912`                                                                                                                                                                                                                                           | gitdir 完整备份,守护的本地恢复源                            |
+| **守护**:计划任务 **`IHUI-AI git-guardian`**(每 2 分钟)→ `"C:/Program Files/nodejs/node.exe" D:/IHUI-AI/scripts/git-guardian.mjs`。本机**未安装 nssm**,故未采用 `--daemon` 常驻服务形态,改用脚本自带的 schtasks 兜底(2026-09-12 15:30 实测启用;16:12 实测**自愈已生效**)。 |
+| 分层自愈:`指针 → 环境 → HEAD 语法 → 嵌套 ref → 本地备份 → 远端`;每步破坏性覆盖前先归档现场。实测自愈 **0.9s**(refs 自愈实测 **0.14s**)。                                                                                                                                   |
 
 **守护**:计划任务 **`IHUI-AI git-guardian`**(每 2 分钟)→ `"C:/Program Files/nodejs/node.exe" D:/IHUI-AI/scripts/git-guardian.mjs`。改用脚本自带的 schtasks 兜底(2026-09-12 15:30 实测启用;16:12 实测**自愈已生效**)。
 
@@ -1243,6 +1244,7 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 
 <!-- 合并归并说明:本行下方两条登记分属两个会话同日新增的闸门(78 workspace 依赖链接对账 / 79 提交内容含冲突标记),两侧均保留,不构成互斥。
      (2026-9-24 校正:原写法把冲突标记门写成 77,而 77 是「全 8 端圆角单一源头对账」——同日撞号正是本节要防的事,登记新门前请按守门速查逐条核对 id。) -->
+
 - **workspace 依赖链接对账**(78):check-workspace-dep-links.mjs(blocking,2026-09-23 立)—— 堵"**本地全绿、部署环恒红**"这一整类:`package.json` 声明了 `workspace:*` 但 `node_modules` 里没那条链接(§12e 的 `pnpm install --filter` 后遗症即此)。当天实例:`@ihui/extension` 缺 `@ihui/design-tokens` → rollup `failed to resolve import` → `pnpm -r build` 连 4 次全红 → 部署进入 30 分钟冷却循环、线上停在旧提交,而 **typecheck/lint/单测全都不会红**(TS 走 tsconfig paths,不看 node_modules)。判据 = 每个包 dependencies/devDependencies/peerDependencies 里所有 `workspace:` 声明,必须在 `<pkg>/node_modules/<dep>` 或根 `node_modules/<dep>` 可解析(`existsSync` 跟随符号链接 ⇒ **悬空链接同样判红**)。**第二维判据(2026-09-24 补,`findGuttedLinks`)**:根 + 各包 `node_modules/` 下每条**符号链接**的目标必须是真包(有可 parse 且带 `name` 的 `package.json`)——`existsSync` 对"指向**空目录**的链接"仍返回 true,而本机 09-24 实测正是这一型:`node_modules/typescript`、`node_modules/eslint` 指向 `.pnpm` 里的空目录,`.bin` 只剩 16 项(无 eslint/tsc/tsserver/vitest/next)⇒ lint-staged 第一步 `✖ eslint --fix` 并阻止提交 ⇒ **每一次提交都被迫 `--no-verify`,约 110 道守门对全队同时失效**,而 `git status`/typecheck/其余报告全都看不出来。刻意**不**比 name(pnpm 别名安装 `foo@npm:bar` 必产假阳);真目录(file:/workspace: 直连形态)不参与;扫到 0 条链接一律判红(空扫不报绿)。两条反假绿护栏:扫不到任何 workspace 包 → `exit 1`(不报绿);根 `node_modules` 不存在 → 显式提示"先 pnpm install"并 **无法判定**(不记为通过)。`--staged` **不**随暂存收窄范围,恒全量判定(全量 25 包约 1s)—— 因为这类破损与"本次改了什么"无关:手动删链接、他机跑过 `--filter`、清理工具动过依赖树,按 staged 收范围恰好放过整类;取不到暂存集也按全量判。取证:`--self-test` 9 例(含"缺链接必红/补上必绿/再删必红"三段可逆对照)+ `node --test scripts/tests/check-workspace-dep-links.test.mjs` 7 例(含**装车证明**:runner 里必须真有 id 78 + blocking + skipEnv)。**修复动作只有一个:全量 `pnpm install`**(不带 `--filter`)。紧急跳过 `HUSKY_SKIP_WORKSPACE_DEP_LINKS=1`。
 
 - **workspace 依赖链接对账**(78):check-workspace-dep-links.mjs(blocking,2026-09-23 立)—— 堵"**本地全绿、部署环恒红**"这一整类:`package.json` 声明了 `workspace:*` 但 `node_modules` 里没那条链接(§12e 的 `pnpm install --filter` 后遗症即此)。当天实例:`@ihui/extension` 缺 `@ihui/design-tokens` → rollup `failed to resolve import` → `pnpm -r build` 连 4 次全红 → 部署进入 30 分钟冷却循环、线上停在旧提交,而 **typecheck/lint/单测全都不会红**(TS 走 tsconfig paths,不看 node_modules)。判据 = 每个包 dependencies/devDependencies/peerDependencies 里所有 `workspace:` 声明,必须在 `<pkg>/node_modules/<dep>` 或根 `node_modules/<dep>` 可解析(`existsSync` 跟随符号链接 ⇒ **悬空链接同样判红**)。两条反假绿护栏:扫不到任何 workspace 包 → `exit 1`(不报绿);根 `node_modules` 不存在 → 显式提示"先 pnpm install"并 **无法判定**(不记为通过)。`--staged` **不**随暂存收窄范围,恒全量判定(全量 25 包约 1s)—— 因为这类破损与"本次改了什么"无关:手动删链接、他机跑过 `--filter`、清理工具动过依赖树,按 staged 收范围恰好放过整类;取不到暂存集也按全量判。取证:`--self-test` 9 例(含"缺链接必红/补上必绿/再删必红"三段可逆对照)+ `node --test scripts/tests/check-workspace-dep-links.test.mjs` 7 例(含**装车证明**:runner 里必须真有 id 78 + blocking + skipEnv)。**修复动作只有一个:全量 `pnpm install`**(不带 `--filter`)。紧急跳过 `HUSKY_SKIP_WORKSPACE_DEP_LINKS=1`。
@@ -1399,6 +1401,15 @@ C 盘 120 GB 频繁告急,根因排查发现:
 `[System.IO.Directory]::Delete($path, $false)` 断链;② 量体积的工具遇 junction **不得跟随**
 (否则把 D 盘的量报成 C 盘的债);③ Node 侧 `lstatSync(p).isSymbolicLink()` 对 junction 报 `true`,
 `rmSync(link)` 只断链不穿透(均已实测)。判据由 `seal-c-root-stray` 与 C 盘污染守门的镜像测试钉死。
+**要藏住 junction 的名字,只能用 PowerShell 提供器 + 父目录枚举复核(2026-09-24 实测)**:用户选择
+"设隐藏,保留改道"后,`attrib +h <junction>` 是**陷阱** —— 它把 Hidden 设到**目标**那一侧,链接本体
+纹丝不动,而 `attrib` 回显时又顺着链接读目标,于是打印出 `H` 让调用者以为成功了(本仓第一版就这样
+"隐藏了 4 次",C 盘那 4 个名字照旧可见,反倒把 D 盘的 4 个数据目录藏掉了)。正确做法:
+`(Get-Item -LiteralPath <链接> -Force).Attributes = $i.Attributes -bor [System.IO.FileAttributes]::Hidden`,
+并且**唯一可信的 oracle 是父目录枚举** `Get-ChildItem <父目录> -Force`(那正是 Explorer 读的那份目录项
+属性)—— 设完必须自己回读,不许把"没抛错"当成成功。隐藏只影响浏览,穿透读写与
+`isSymbolicLink()` 判定均不受影响(已实测)。策略固化在 `seal-c-root-stray.mjs` 的 `setLinkHidden`,
+每次 `--apply` 都确保在位(封口被重建也不会露回来),镜像测试断言源码里**不得再出现 `attrib`**。
 **改页面文件必须留"待重启生效"哨兵(2026-09-24 立)**:本机 C/D 两个 pagefile 都是**手设固定值**
 (C 32768MB / D 98304MB)而非系统管理。要缩 C 的占用,改的是
 `HKLM\...\Session Manager\Memory Management\PagingFiles`(用 `Set-CimInstance Win32_PageFileSetting`
