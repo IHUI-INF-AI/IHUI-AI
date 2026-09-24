@@ -39,8 +39,10 @@ export const OFFICE_HARD_MAX = 50 * 1024 * 1024
 /** xlsx 表格默认最多渲染行数(防巨表)。 */
 export const XLSX_PREVIEW_MAX_ROWS = 200
 
-/** 支持富预览的扩展名(小写、不带点)。 */
-const SUPPORTED_EXTS = new Set(['docx', 'xlsx', 'pptx'])
+/** 支持富预览的扩展名(小写、不带点)。
+ *  D76(2026-09-24 立)导出供 artifact-turn-badge 分型判据 import 复用——
+ *  docx/xlsx/pptx 三型的 kind 判据唯一真相源在此,禁止第二套。 */
+export const SUPPORTED_EXTS = new Set(['docx', 'xlsx', 'pptx'])
 
 export type OfficePreviewStatus =
   | 'probing'

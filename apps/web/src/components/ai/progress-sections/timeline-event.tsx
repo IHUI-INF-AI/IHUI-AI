@@ -23,6 +23,12 @@ import { stepDecisionLabel, isAgentAction, isAgentActionPhase, type StepDecision
 import { rollbackCheckpoint } from '@ihui/api-client'
 import { MultiAgentActionCard, type MultiAgentActionEntry } from './multi-agent-action-card'
 import {
+  CloudChatActivityCard,
+  isCloudChatAction,
+  isCloudChatPhase,
+  type CloudChatEntry,
+} from './cloud-chat-activity-card'
+import {
   useTimelineStore,
   type TimelineEvent,
   type TimelineEventStatus,
@@ -144,6 +150,35 @@ function extractMultiAgentActionEntries(meta: unknown): MultiAgentActionEntry[] 
     if (typeof phase !== 'string' || !isAgentActionPhase(phase)) continue
     if (typeof agent !== 'string' || agent.length === 0) continue
     out.push({ action, phase, agent })
+  }
+  return out
+}
+
+// ─── D97 云端聊天互操作 meta 提取(G-133,2026-09-24 立) ────────────────
+
+/**
+ * 从 event.meta 安全提取 cloudChatActivity 载荷(类型守卫,逐条校验动作/相位;
+ * 非法条目整条丢弃,不猜不补)。载荷形状与 CloudChatEntry 对齐,供展开区渲染
+ * CloudChatActivityCard(动作 × 三态矩阵)。数据面(D28 多端 + /api/task-messages)
+ * 已有,本守卫只做呈现侧提取。
+ */
+function extractCloudChatEntries(meta: unknown): CloudChatEntry[] {
+  if (!isRecord(meta)) return []
+  const raw = meta['cloudChatActivity']
+  if (!Array.isArray(raw)) return []
+  const out: CloudChatEntry[] = []
+  for (const item of raw) {
+    if (!isRecord(item)) continue
+    const action = item['action']
+    const phase = item['phase']
+    if (typeof action !== 'string' || !isCloudChatAction(action)) continue
+    if (typeof phase !== 'string' || !isCloudChatPhase(phase)) continue
+    const entry: CloudChatEntry = { action, phase }
+    const session = item['session']
+    if (typeof session === 'string' && session.length > 0) entry.session = session
+    const turns = item['turns']
+    if (typeof turns === 'number' && Number.isFinite(turns) && turns >= 0) entry.turns = turns
+    out.push(entry)
   }
   return out
 }
@@ -362,6 +397,11 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
     () => extractMultiAgentActionEntries(event.meta),
     [event.meta],
   )
+  // D97(G-133):meta.cloudChatActivity 载荷存在 ⇒ 行可展开,展开区渲染云端聊天活动卡
+  const cloudChatEntries = React.useMemo(
+    () => extractCloudChatEntries(event.meta),
+    [event.meta],
+  )
   const workspacePath = useIDEWorkspace((s) => s.workspacePath)
   const [rollbackState, setRollbackState] = React.useState<'idle' | 'rolling' | 'done' | 'failed'>(
     'idle',
@@ -407,8 +447,8 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
 
   // 至少有一种交互目标(children / evidence / messageId / planStepId / toolCallId)才可点
   const hasJumpTarget = !!(event.messageId || event.planStepId || event.toolCallId)
-  const isClickable = hasChildren || evidenceAvailable || hasJumpTarget || actionEntries.length > 0
-  const isExpandable = hasChildren || evidenceAvailable || actionEntries.length > 0
+  const isClickable = hasChildren || evidenceAvailable || hasJumpTarget || actionEntries.length > 0 || cloudChatEntries.length > 0
+  const isExpandable = hasChildren || evidenceAvailable || actionEntries.length > 0 || cloudChatEntries.length > 0
 
   return (
     <div
@@ -483,6 +523,14 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
               <MultiAgentActionCard
                 entries={actionEntries}
                 data-testid="timeline-multi-agent-action-card"
+              />
+            </div>
+          )}
+          {cloudChatEntries.length > 0 && (
+            <div className="mb-1.5">
+              <CloudChatActivityCard
+                entries={cloudChatEntries}
+                data-testid="timeline-cloud-chat-activity-card"
               />
             </div>
           )}
