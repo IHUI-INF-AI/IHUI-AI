@@ -78,13 +78,18 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: 运行 i18n 扫描器单测 + 4 端集成测试
-        # 5 个测试文件:
+        # 6 个测试文件:
         #   - i18n-scan-helpers.test.mjs:正则单元测试(STATIC_T_RE / USE_T_RE / DYNAMIC_T_RE)
-        #   - scan-{web,miniapp-taro,mobile-rn,extension}-dead-i18n-keys.test.mjs:4 端 main() 端到端集成测试
+        #   - scan-web-dead-i18n-keys.test.mjs 等 4 份:各端 main() 端到端集成测试
+        #   - scan-dead-i18n-keys.test.mjs:公共入口 main() 的**契约键声明**判据(依据按 HEAD 逐条
+        #     核验、形状不合法/依据漂移/未知 target 一律 exit 1)—— 2026-09-24 补进清单:该文件
+        #     此前只在本地跑,CI 不执行 ⇒ 免除口腐烂(依据漂移后仍判绿)无人知道,正是本仓
+        #     "造好没装车"那一型;下面那行注释的计数也因此是假的,一并改成实测值。
         # 用 Node.js 内置 test runner,无第三方依赖
         run: |
           node --test \
             scripts/tests/i18n-scan-helpers.test.mjs \
+            scripts/tests/scan-dead-i18n-keys.test.mjs \
             scripts/tests/scan-web-dead-i18n-keys.test.mjs \
             scripts/tests/scan-miniapp-taro-dead-i18n-keys.test.mjs \
             scripts/tests/scan-mobile-rn-dead-i18n-keys.test.mjs \
