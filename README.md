@@ -2777,12 +2777,18 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-gua
 ### 新增守门示例:第 75 / 76 项「mobile-rn 深色前景容器对账」与「反回退对账」(2026-09-23)
 
 **第 83 项 `check-brand-foreground.mjs`(blocking)**(原登记为第 75 项) —— RN 深色档案里 `tokens.brand.DEFAULT`
-是**纯白**,所以它只能当前景色用。同一个 style 块内它作背景、文字又取 `tokens.surface.light`
-(两端恒白)或 `tokens.text.primary`(深色翻白),结果就是白底白字 —— R1 零豁免拦这一类。
-R2 用基线棘轮拦"浅色当容器底":`surface.light` 背景 / α≥0.5 的白 rgba / 无 `dark:` 变体的
-`bg-white`,13 文件 24 处合法存量(图片、视频上的浮层,以及自带 `dark:` 变体的文件)冻结在
-`scripts/brand-foreground-baseline.json`,只减不增。`--self-test` 11 例;紧急跳过
-`HUSKY_SKIP_BRAND_FOREGROUND=1`。
+是**纯白**。它**可以**当主 CTA 的底,但必须与 `tokens.brand.foreground` **成对**(AGENTS §4,= web 的
+`--color-primary` + `--color-primary-foreground`);配错前景就是白底白字。四条判据:
+**R1** 同一 style 块内 brand.DEFAULT 作背景 × `surface.light`(两端恒白)或 `text.primary`(深色翻白)
+作前景,零豁免;**R4** 同一对关系被拆到**兄弟 key**(`retryBtn` × `retryText`)时按命名配对判定
+(实测 4 处黑压黑就是这样一路 shipped 到真机的),走基线棘轮;**R2** 拦"浅色当容器底":
+`surface.light` 背景 / α≥0.5 的白 rgba / 无 `dark:` 变体的 `bg-white`,存量冻结在
+`scripts/brand-foreground-baseline.json` 只减不增;**R3** 数 brand.DEFAULT 作填充/描边的行数,
+但**不计 §4 认可的成对 CTA**(同块或兄弟键用了 brand.foreground)—— 删掉端内自立档之后按规矩写
+就会红的话,这道门只是在逼人 `--no-verify`。无任何配对前景的白卡片照旧计,自检里用两条阳性对照钉住。
+**内容口径**:全量审计与 `--update-baseline` 判 **HEAD blob**(`--staged` 判暂存)—— 共享工作树对
+大量路径滞后 HEAD,按磁盘算会让这道门在恒红/假绿之间来回跳,并把错数写回基线。`--self-test` 含
+上述正反例;紧急跳过 `HUSKY_SKIP_BRAND_FOREGROUND=1`。
 
 **第 84 项 `check-stale-revert.mjs`(blocking)**(原登记为第 76 项) —— 堵**共享工作区静默回滚**。§12d 的 converge
 走 `merge-tree` / `commit-tree`,只推进 HEAD 与 index、**不 checkout**,于是工作区长期落后 HEAD
