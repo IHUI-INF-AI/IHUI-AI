@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -53,12 +53,14 @@ describe('D62 VoiceSubtitleBar / 麦克风四类错误逐态', () => {
 
   it('tone 落标(判定层派发,组件不得自写第二套分类)', () => {
     expect(
-      render(<VoiceSubtitleBar micError="noPermission" />).container
-        .querySelector('[data-mic-error-tone]')?.getAttribute('data-mic-error-tone'),
+      render(<VoiceSubtitleBar micError="noPermission" />)
+        .container.querySelector('[data-mic-error-tone]')
+        ?.getAttribute('data-mic-error-tone'),
     ).toBe('warning')
     expect(
-      render(<VoiceSubtitleBar micError="startFailed" />).container
-        .querySelector('[data-mic-error-tone]')?.getAttribute('data-mic-error-tone'),
+      render(<VoiceSubtitleBar micError="startFailed" />)
+        .container.querySelector('[data-mic-error-tone]')
+        ?.getAttribute('data-mic-error-tone'),
     ).toBe('danger')
   })
 
@@ -127,18 +129,16 @@ describe('D62 VoiceSubtitleBar / 字幕可见性(静音 ≠ 隐藏字幕)', () =
 
 describe('D62 VoiceSubtitleBar / 纪要双视图', () => {
   it('录音中渲染两视图按钮,当前视图 aria-pressed', () => {
-    const { container } = render(
-      <VoiceSubtitleBar summaryRecording view="discussionSummary" />,
-    )
+    const { container } = render(<VoiceSubtitleBar summaryRecording view="discussionSummary" />)
     for (const v of SUMMARY_VIEWS) {
       expect(container.querySelector(`[data-view="${v}"]`), v).not.toBeNull()
     }
     expect(
       container.querySelector('[data-view="discussionSummary"]')?.getAttribute('aria-pressed'),
     ).toBe('true')
-    expect(
-      container.querySelector('[data-view="taskFlow"]')?.getAttribute('aria-pressed'),
-    ).toBe('false')
+    expect(container.querySelector('[data-view="taskFlow"]')?.getAttribute('aria-pressed')).toBe(
+      'false',
+    )
   })
 
   it('点击非当前视图 → 回调带上对侧视图(toggleSummaryView 同源)', () => {
@@ -166,7 +166,9 @@ describe('D62 VoiceSubtitleBar / 平台豁免标注', () => {
     ]) {
       const { container, unmount } = render(<VoiceSubtitleBar {...props} />)
       expect(
-        container.querySelector('[data-testid="voice-subtitle-bar"]')?.getAttribute('data-platform-exempt'),
+        container
+          .querySelector('[data-testid="voice-subtitle-bar"]')
+          ?.getAttribute('data-platform-exempt'),
         JSON.stringify(props),
       ).toBe(PLATFORM_EXCLUSIVE)
       unmount()
@@ -177,7 +179,9 @@ describe('D62 VoiceSubtitleBar / 平台豁免标注', () => {
 describe('D62 词包覆盖(读真实词包,不 mock)', () => {
   const flat = (obj: Record<string, unknown>, prefix = ''): string[] =>
     Object.entries(obj).flatMap(([k, v]) =>
-      v && typeof v === 'object' ? flat(v as Record<string, unknown>, `${prefix}${k}.`) : [`${prefix}${k}`],
+      v && typeof v === 'object'
+        ? flat(v as Record<string, unknown>, `${prefix}${k}.`)
+        : [`${prefix}${k}`],
     )
 
   const readVoiceSubtitles = (locale: string): Record<string, unknown> => {

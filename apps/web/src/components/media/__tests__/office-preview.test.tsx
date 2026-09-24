@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:IHUI-AI·智汇AI·李春川·LC·aizhs.top·PROVENANCE-2026
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
@@ -74,7 +74,14 @@ function toArrayBuffer(x: unknown): ArrayBuffer {
 /** 用 SheetJS 现场生成最小 xlsx:两个 sheet,内容可辨识。 */
 function makeXlsx(): ArrayBuffer {
   const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['A1', 'A2'], ['A3', 'A4']]), '表A')
+  XLSX.utils.book_append_sheet(
+    wb,
+    XLSX.utils.aoa_to_sheet([
+      ['A1', 'A2'],
+      ['A3', 'A4'],
+    ]),
+    '表A',
+  )
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['B1']]), '表B')
   return toArrayBuffer(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }))
 }
@@ -92,37 +99,37 @@ async function makePptx(): Promise<ArrayBuffer> {
 // ---------------------------------------------------------- fetch stubs ----
 
 interface FetchPlan {
-  readonly head?: { readonly ok?: boolean; readonly reject?: boolean; readonly size?: number | null }
+  readonly head?: {
+    readonly ok?: boolean
+    readonly reject?: boolean
+    readonly size?: number | null
+  }
   readonly get?: { readonly ok?: boolean; readonly body?: ArrayBuffer }
 }
 
 function stubFetch(plan: FetchPlan): ReturnType<typeof vi.fn> {
-  const impl = vi.fn(
-    async (input: string | URL, init?: { method?: string }): Promise<Response> => {
-      void input
-      if (init?.method === 'HEAD') {
-        const head = plan.head ?? {}
-        if (head.reject) throw new Error('network down')
-        return {
-          ok: head.ok ?? true,
-          status: head.ok === false ? 404 : 200,
-          headers: {
-            get: (name: string) =>
-              name.toLowerCase() === 'content-length' && head.size != null
-                ? String(head.size)
-                : null,
-          },
-        } as unknown as Response
-      }
-      const get = plan.get ?? {}
+  const impl = vi.fn(async (input: string | URL, init?: { method?: string }): Promise<Response> => {
+    void input
+    if (init?.method === 'HEAD') {
+      const head = plan.head ?? {}
+      if (head.reject) throw new Error('network down')
       return {
-        ok: get.ok ?? true,
-        status: get.ok === false ? 404 : 200,
-        headers: { get: () => null },
-        arrayBuffer: async () => get.body ?? new ArrayBuffer(0),
+        ok: head.ok ?? true,
+        status: head.ok === false ? 404 : 200,
+        headers: {
+          get: (name: string) =>
+            name.toLowerCase() === 'content-length' && head.size != null ? String(head.size) : null,
+        },
       } as unknown as Response
-    },
-  )
+    }
+    const get = plan.get ?? {}
+    return {
+      ok: get.ok ?? true,
+      status: get.ok === false ? 404 : 200,
+      headers: { get: () => null },
+      arrayBuffer: async () => get.body ?? new ArrayBuffer(0),
+    } as unknown as Response
+  })
   vi.stubGlobal('fetch', impl)
   return impl
 }
@@ -279,3 +286,4 @@ describe('词表键五语言直锁(D41)', () => {
     expect(xlsxColumnRef(26)).toBe('AA')
   })
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
