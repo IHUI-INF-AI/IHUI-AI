@@ -269,7 +269,7 @@ function createStyles(tk: AppThemeTokens) {
     btnSuccess: { backgroundColor: tk.brand.cta },
     btnDanger: { backgroundColor: tk.danger.DEFAULT },
     btnDisabled: { opacity: 0.5 },
-    actionBtnText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
+    actionBtnText: { color: tk.brand.ctaForeground, fontSize: 16, fontWeight: '600' },
     statsRow: { flexDirection: 'row', flexWrap: 'wrap' },
     statItem: { width: '50%', marginBottom: 8 },
     statLabel: { fontSize: 14, color: tk.text.tertiary },

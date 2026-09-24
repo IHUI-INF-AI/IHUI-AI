@@ -106,7 +106,7 @@ export function ProfileEditScreen({
             </View>
           )}
           <View style={styles.avatarEditBadge}>
-            <SquarePen size={14} color={tk.surface.light} />
+            <SquarePen size={14} color={tk.brand.ctaForeground} />
           </View>
         </TouchableOpacity>
         <Text style={styles.avatarTip}>{t('profileEdit.avatarTip')}</Text>
@@ -168,7 +168,7 @@ export function ProfileEditScreen({
         disabled={saving}
       >
         {saving ? (
-          <ActivityIndicator color={tk.surface.light} />
+          <ActivityIndicator color={tk.brand.ctaForeground} />
         ) : (
           <Text style={styles.saveText}>{t('profileEdit.save')}</Text>
         )}
