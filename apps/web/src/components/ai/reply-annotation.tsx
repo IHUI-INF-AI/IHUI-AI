@@ -176,7 +176,7 @@ export function ReplyAnnotationLayer({
     if (!container) return
     const { text } = readContainerText(container)
     const loc = locateAnnotation(text, ann)
-    if (loc.state === 'valid' && loc.start != null && loc.end != null) {
+    if (loc.state === 'valid' && loc.start !== null && loc.end !== null) {
       selectRange(container, loc.start, loc.end)
     }
   }
@@ -185,6 +185,7 @@ export function ReplyAnnotationLayer({
     <div className="relative">
       <div
         ref={containerRef}
+        role="presentation"
         data-testid="reply-annotation-layer"
         onMouseUp={handleMouseUp}
       >
@@ -211,7 +212,7 @@ export function ReplyAnnotationLayer({
               type="button"
               onClick={submitAnnotation}
               disabled={draft.trim().length === 0}
-              className="inline-flex items-center rounded-sm bg-primary px-2 py-1 text-[10px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center rounded-sm bg-cta px-2 py-1 text-[10px] font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:cursor-not-allowed disabled:opacity-50"
               data-testid="annotation-save"
             >
               {t('save')}
@@ -317,7 +318,7 @@ export function ReplyAnnotationLayer({
                           type="button"
                           onClick={() => handleEditSave(ann.id)}
                           disabled={editDraft.trim().length === 0}
-                          className="inline-flex items-center rounded-sm bg-primary px-2 py-1 text-[10px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="inline-flex items-center rounded-sm bg-cta px-2 py-1 text-[10px] font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:cursor-not-allowed disabled:opacity-50"
                           data-testid={`annotation-edit-save-${ann.id}`}
                         >
                           {t('save')}
