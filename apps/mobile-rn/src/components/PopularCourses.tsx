@@ -7,7 +7,7 @@ import { rnRadius } from '@ihui/design-tokens'
  * PopularCourses 热门课程列表 (mobile-rn 端)
  *
  * 对齐历史项目 PopularCourses/index.vue(标题 + 查看全部 + 双 tab + 课程列表):
- * - 标题栏:左侧标题/副标题,右侧「查看全部」入口(popular-courses-more,onMore)
+ * - 标题栏:左侧标题/副标题,右侧「更多」入口(popular-courses-more,onMore)
  * - 双 Tab:爆款入门 / 爆款精选(popular-courses-tab,selectedTab 驱动列表切换)
  * - 纵向 2 列网格课程列表,卡片包含:缩略图 + VIP 角标 + 标题 + 讲师行 + 价格行。
  *   vertical 模式用于首页/分类页热门区。
@@ -62,9 +62,9 @@ export interface PopularCoursesProps {
   onPress?: (id: string) => void
   title?: string
   subtitle?: string
-  /** 「查看全部」回调(对齐原项目 popular-courses-more);未传入则不渲染入口 */
+  /** 「更多」回调(对齐原项目 popular-courses-more);未传入则不渲染入口 */
   onMore?: () => void
-  /** 「查看全部」文案(对齐原项目,默认「查看全部」) */
+  /** 「更多」文案(原项目作「查看全部」,现统一为「更多」) */
   moreText?: string
   /** 「爆款精选」Tab 列表(对齐原项目 CourseList2);缺省时精选 Tab 复用 courses */
   featuredCourses?: PopularCourse[]
