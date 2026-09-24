@@ -18,6 +18,7 @@ import { useCallback, useEffect, type ReactNode } from 'react'
 import { createThemeStore, type ThemeMode } from '@ihui/shared/stores'
 import { createAsyncStorageTransport } from '../stores/storage-adapter'
 import { commitRnTheme, reloadForTheme } from '../theme/active-tokens'
+import { syncNativeWindColorScheme } from '../theme/color-scheme-sync'
 
 // 全局单例 store(自动持久化到 AsyncStorage,默认 key = 'ihui-theme',与 web/miniapp-taro/extension 一致)
 export const themeStore = createThemeStore({
@@ -59,6 +60,16 @@ export function useTheme() {
  */
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const themeMode = themeStore.useThemeStore((s) => s.theme)
+  const systemScheme = useColorScheme()
+  const resolved: 'light' | 'dark' =
+    themeMode === 'system' ? (systemScheme === 'dark' ? 'dark' : 'light') : themeMode
+  /**
+   * 把 App 解析出的主题落到 NativeWind 的 store —— 不同步的话全端 `dark:*` 类只跟系统外观走,
+   * 用户在设置里手动选深色时它们一条都不生效(而守门 83 的 R2 正是把"同行有 dark: 变体"记为已配对)。
+   */
+  useEffect(() => {
+    syncNativeWindColorScheme(resolved)
+  }, [resolved])
   useEffect(() => {
     if (themeMode !== 'system') return
     const sub = Appearance.addChangeListener(() => {
