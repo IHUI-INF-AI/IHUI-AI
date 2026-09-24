@@ -58,7 +58,7 @@ export default function MessageDetail({
               <View
                 className={`px-3 py-2 rounded-2xl ${
                   msg.self
-                    ? 'bg-primary text-primary-foreground rounded-tr-sm'
+                    ? 'bg-cta text-cta-foreground rounded-tr-sm'
                     : 'bg-card text-foreground rounded-tl-sm'
                 }`}
               >
@@ -82,7 +82,7 @@ export default function MessageDetail({
         <View
           className={`ml-2 px-4 py-2 rounded-md text-sm ${
             inputValue.trim()
-              ? 'bg-primary text-primary-foreground'
+              ? 'bg-cta text-cta-foreground'
               : 'bg-muted text-muted-foreground'
           }`}
           onClick={() => inputValue.trim() && onSend()}
