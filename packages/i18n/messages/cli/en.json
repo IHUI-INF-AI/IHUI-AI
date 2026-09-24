@@ -34,7 +34,31 @@
     "errorPromptFile": "--prompt-file error: {error}",
     "agentUsage": "Usage: ihui agent <task>  or  ihui agent --prompt-file <path>",
     "agentsMdExists": "AGENTS.md already exists. Use --force to overwrite.",
-    "agentsMdCreated": "Created: {path}"
+    "agentsMdCreated": "Created: {path}",
+    "queue": {
+      "enqueued": "Queued [{id}] (follow-up mode=queue, {n} pending)",
+      "helpMove": "reorder pending items (locked while streaming)",
+      "helpEdit": "edit pending text (metadata unchanged)",
+      "helpRun": "interrupt current turn and run queue head",
+      "helpMode": "follow-up mode for input while running",
+      "usageMove": "usage: /queue move <fromIndex> <toIndex> (see order: /queue list)",
+      "usageEdit": "usage: /queue edit <id> <new text>",
+      "usageMode": "usage: /queue mode <steer|queue>",
+      "denied": {
+        "reorder": "Cannot reorder queued messages",
+        "undo": "Cannot unsend the queued message",
+        "interject": "The current Runtime does not support interjection; your message will stay queued"
+      },
+      "reordered": "✓ reordered ({from} -> {to})",
+      "edited": "✓ edited [{id}] (metadata unchanged)",
+      "noopMove": "no-op: index out of range or same position",
+      "noopEdit": "no-op: id not found or empty text ({id})",
+      "interrupting": "interrupting current turn to run queued [{id}]",
+      "noRunning": "no running turn; head [{id}] executes after next prompt cycle",
+      "runEmpty": "queue empty, nothing to run",
+      "modeSet": "✓ follow-up mode = {mode}",
+      "degradedNote": " (degraded: {reason})"
+    }
   },
   "waiting": {
     "agent": {
@@ -224,7 +248,7 @@
     "historyDesc": "Query session import history (latest 50 rows)",
     "conversationMeta": "· {count} messages · model {model} · started {started}",
     "historyCappedSuffix": ", server cap of 50 reached"
-},
+  },
   "cliEntry": {
     "tagline": "IHUI AI Coding Agent — a coding agent benchmarked against Claude Code / Codex",
     "modelIdDesc": "Model ID",
@@ -337,7 +361,7 @@
     "auditColSuccess": "OK",
     "auditColFailure": "Failed",
     "auditColRate": "Success rate"
-},
+  },
   "cliWorkflows": {
     "contextBadJson": "--context is not valid JSON: {message}",
     "noWorkflows": "(no workflows)",
@@ -388,5 +412,5 @@
     "instanceShowDesc": "Show instance details (including tasks)",
     "cancelDesc": "Cancel a running instance",
     "unknownValue": "(unknown)"
-}
+  }
 }
