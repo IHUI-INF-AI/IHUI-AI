@@ -11,11 +11,9 @@
 //   · 脱敏**不新写**:走 `@ihui/shared/utils/redact`(共享层唯一实现,规则 = ai-service
 //     `output_cleaning.py` + cli `redact.ts` 既有正则并集 + 本票补的邮箱/IP/十六进制)。
 //     本文件只做"把文本过一遍 `sanitizeEvidenceText`",**严禁**在此另起正则。
-//   · 通知兜底链对接 AGENTS.md §5e:Server酱推送 / Resend 邮件兜底**没有 i18n 运行时**,
+//   · 通知兜底链对接 AGENTS.md §5e:运维邮件(唯一到人通道)与工单粘贴**没有 i18n 运行时**,
 //     故 `formatHandoffText` 输出**内置中文纯文本**(不依赖词包),可直接贴工单/邮件;
 //     web 侧词包(`ai.pane.handoff`)只负责界面标签,所见即所交(界面与复制文本同源)。
-// i18n-content-exempt-file: 通知/工单侧无 i18n 运行时,本文件中文即对外 payload 文本(界面标签走 ai.pane.handoff 词包)
-//     —— 守门 70 的"内容文案"声明,理由与上方三条同源;新增**界面**文案不得留在此文件。
 //
 // **三段硬判据(台账 D94 明文)**:
 //   ① **确定性本地规则优先**:`resolveLocalDiagnosis` 只吃本地信号(配置缺失 / 鉴权 /
@@ -86,7 +84,7 @@ export const MAX_EVIDENCE_CHARS = 1200 as const
 // ===================== 1. 内置中文文案(对外提交用) =====================
 
 /**
- * 交接单正文的**内置中文**文案 —— Server酱 / Resend 邮件 / 工单没有 i18n 运行时,
+ * 交接单正文的**内置中文**文案 —— 运维邮件 / 工单没有 i18n 运行时,
  * 这里就是唯一文本源(与词包 `ai.pane.handoff` 一一对应,中文取台账 D94 原文)。
  */
 export const HANDOFF_ZH = Object.freeze({
@@ -572,7 +570,7 @@ export function buildHandoffPackage(ctx: HandoffContext = {}): HandoffPackage {
 // ===================== 8. 可导出纯文本 =====================
 
 /**
- * **脱敏后的可导出纯文本** —— 直接贴工单 / Server酱 / Resend 邮件(§5e 兜底链)。
+ * **脱敏后的可导出纯文本** —— 直接贴工单 / 运维邮件(§5e 唯一到人通道)。
  * 内置中文,**不依赖 i18n 运行时**;所有正文均已过 `sanitizeEvidenceText`。
  */
 export function formatHandoffText(pkg: HandoffPackage): string {
