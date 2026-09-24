@@ -155,16 +155,21 @@ type RootNav = NativeStackNavigationProp<RootStackParamList>
 
 /** 社群二维码图片(对齐 Uniapp ai_index /static/images/qewm.png 二维码弹窗) */
 
+/**
+ * 「发现」区入口标签一律取目标页自己的 `<route>.title` —— 这 9 个命名空间与
+ * `key`(路由名)同名,五语言在位。此前写的是 `menu.search` 等 9 个从未存在的键,
+ * 界面直接回显键名;另立一份 `menu.*` 会让入口标签和页面标题变成两处真相。
+ */
 const MENU_ITEMS: HomeMenuItem[] = [
-  { key: 'Search', labelKey: 'menu.search', icon: Search },
-  { key: 'History', labelKey: 'menu.history', icon: History },
-  { key: 'Bookmark', labelKey: 'menu.bookmark', icon: Bookmark },
-  { key: 'CourseFilter', labelKey: 'menu.courseFilter', icon: Target },
-  { key: 'LiveList', labelKey: 'menu.liveList', icon: Radio },
-  { key: 'LivePlaybackList', labelKey: 'menu.livePlaybackList', icon: Clapperboard },
-  { key: 'CourseAnnex', labelKey: 'menu.courseAnnex', icon: Paperclip },
-  { key: 'CourseResource', labelKey: 'menu.courseResource', icon: BookOpen },
-  { key: 'CourseQAList', labelKey: 'menu.courseQAList', icon: HelpCircle },
+  { key: 'Search', labelKey: 'search.title', icon: Search },
+  { key: 'History', labelKey: 'history.title', icon: History },
+  { key: 'Bookmark', labelKey: 'bookmark.title', icon: Bookmark },
+  { key: 'CourseFilter', labelKey: 'courseFilter.title', icon: Target },
+  { key: 'LiveList', labelKey: 'liveList.title', icon: Radio },
+  { key: 'LivePlaybackList', labelKey: 'livePlaybackList.title', icon: Clapperboard },
+  { key: 'CourseAnnex', labelKey: 'courseAnnex.title', icon: Paperclip },
+  { key: 'CourseResource', labelKey: 'courseResource.title', icon: BookOpen },
+  { key: 'CourseQAList', labelKey: 'courseQAList.title', icon: HelpCircle },
 ]
 
 function toRecommend(courses: Course[]): HomeRecommendItem[] {
