@@ -6841,7 +6841,6 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
   - **D99 / D106**:机制主体在 HEAD,剩余是规模化与两端渲染期基建,属另一会话在飞票,本批不动。
   - **D50① / D77 / D68 / D58**:§24 新能力,待 owner 启动。
 - **一条台账卫生事实(只登记,不代改他人内容)**:`PROJECT_PLAN.md` 现存多组**同一登记行 2-5 份副本**(本批实测 D34×2、D37×2、D62×2、D66×2、D106×5、键名对齐批 ×3、O13b×3),源自并行 union 合并 —— 门 71 防"丢行"不防"重行"。去重会动别人登记的原文,须由台账持有者统一裁定。
-- [x] ✅(2026-09-24) **给 `union-converge` 补上"声明式例外" `--take-ours <path>`,并当场用它收敛一次真实分叉**:两侧同改且真三方报冲突时默认交人工是对的,但"报冲突"与"必须人工"不是一回事 —— 若**合并树的内容**已让对侧那一版判据必红,取本侧就是被内容强制的唯一解。实例:`scripts/tests/check-cross-end-tokens.test.mjs` 两侧在同一段各写各的,对侧留着回归锁「brand 里不得再有 CTA 档」,而 `packages/design-tokens` 只有本侧改过(对侧动过数实测 **0**)⇒ 合并树必含 `brand.cta` ⇒ 那把锁必红;**跑两版取证**:本侧 `pass 11 / fail 0`,对侧 `pass 7 / fail 1`(红的正是那把锁)。落地后该合并经守门 100 的 A1 复核 **0 丢失**,`check-cross-end-tokens` 在新 HEAD 上 **12/12 绿**。例外不留隐形的地方:`keptOurs` 逐条打进度量、并写进合并提交信息;镜像测试钉三条(默认必 `needHuman` / 声明后必点名 / 一条例外不得连带丢掉对侧其它独有新增),11 例全绿。
 - **O58 残余(带证据,不是"待办")**:① **i18n 死键守门今天拦住了所有人**,而它的正解此刻不可执行:5 枚死键(`contextMenu.feedback`、`permission.mode.{full,auto,ask}`、`toast.feedbackRecorded`)逐条核过命名空间 ⇒ **全是真孤儿**(`useTranslations('toast')` 零消费端;`contextMenu` 那位实际走 `useTranslations('chat')`;`permission.mode.*` 只被 `apps/web/tests/message-list.test.tsx` 的 mock 引用,生产码早在 G-166 迁到 `permissionTier.mode.*`)。**我没有**把它们塞进 `scripts/i18n-contract-keys.json` —— 那份清单的硬约束就是"依据必须可核验",把真孤儿写成契约键等于造一台在故障现场报绿的尺子。不删的实测理由:5 份 locale 的工作树副本**各含 23/288 条 HEAD 没有的独有行**(且落后 HEAD 1550+ 行)⇒ 他人在途,按 §12 不得覆盖;正解是该会话落地后删 5 键 × 5 语言并跑 `pnpm i18n:parity`。② **`lost-commit/*` tag 的双备份仍在追赶**:本地 4699 / 远端 4318(差 381),`sync-lost-commit-tags --fetch` 已把"仅远端"的那枚 `backup/wip-o10-2026-09-24` 拉回;补推在途。这一层是 §29"删 tag 前必须先双备份"的前置条件,差额没清零之前**不得做任何 tag GC**。
 ### 第四十二批(2026-09-24):把"落不下去的合并"当成一门学问做完 —— 一枚合并撞四次、每次换一个真因;含我自己覆盖他人 717 行测试的自伤
 - **生产侧终态(回读,不是推断)**:`apps/web/.next/IHUI_BUILD_SHA` == `git rev-parse HEAD` ==
@@ -6917,12 +6916,50 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
   ② **部署环按共享工作树构建**(`IHUI-DEPLOYLOOP` 的 `AppDirectory=D:\IHUI-AI`):在途文件仍会进产物。
   解阻判据:构建改从提交树取源(`git archive` 到隔离目录),这是架构改动,需用户点头。
   ③ **守门 93 看不见 `rnTokens` 基础档色值漂移**(它按 CSS 变量对账,RN 基础档不在映射表里)。
-  ④ **`scripts/generate-latest-json.mjs:137` 没接新的歧义检测器**,与同日立的清单不同源。
+  ④ ~~**`scripts/generate-latest-json.mjs:137` 没接新的歧义检测器**,与同日立的清单不同源。~~
+  ✅(2026-09-24 第四十三批收口:该脚本的建表与歧义探测已全部改走共享 lib,取证见本文件末尾「第四十三批」。)
   ⑤ **生产数据库备份跑在 `deploy/prod-bundle/pg-backup.ps1`,该目录被 `.gitignore:383` 整目录忽略、
   没有入库源** —— §5e 说过的"运行副本盲区"在这一处仍然成立。
   ⑥ `pnpm test:scripts` 接进提交链的门槛未达(第三十六批写死的两条:4 枚真债清零 + 干净检出连续两轮绿)。
 
+### 第四十三批(2026-09-24):CI 的 latest.json 生成链接上共享判据 —— 消掉第四十二批未闭环④,顺手把"装车证明"从相邻文本改成结构位
+- **票源**:上节未闭环 ④。`scripts/generate-latest-json.mjs`(release-desktop workflow 的
+  `node scripts/generate-latest-json.mjs` 一步)自己跑 `shouldReplacePlatform` + 手写 `platforms[pf]=…`
+  建表,**既没接同日立的 `findPlatformAmbiguity`,也没有 lib 里的 URL host 白名单与稳定键序** ⇒
+  同一份产物在"站点 feed 快照"与"GitHub latest.json"两条链上可以算出不同的平台映射。
+- **改法(不做第二份实现)**:脚本只留 IO —— `collectUpdaterEntries()` 采集「有配套 `.sig` ∧ 平台可判定
+  ∧ 签名非空」的条目,建表交 `buildUpdaterPlatforms(entries,{version})`,歧义探测交
+  `findPlatformAmbiguity(entries,{version})` 并逐条 `⚠ 平台键歧义` 吼出来。
+  副作用三条如实登记:① 现在对每枚候选 `.sig` 都下载(旧写法在择优淘汰后提前 continue,一次 release
+  多约 1~2 个几百字节 GET,换来的是歧义可判);② latest.json 的键序改为按 `UPDATER_PLATFORM_ORDER`
+  稳定输出;③ 非白名单 host 的 `browser_download_url` 现在会被丢键而非照发 —— 丢光时 exit 1 并**列出全部候选**,
+  不再是一句没有上下文的 `No valid platform sigs found`。
+- **把"摘线即红"从相邻文本升到结构位**:旧断言 `assert.match(resolver,/findPlatformAmbiguity\(/)`
+  会被 import 那一行自己满足 ⇒ "import 了却从不调用"完全报绿。新增 `sharedLibUsage(rel)` 先解析
+  import 说明符集合、再把该 import 语句从源码里**剥掉**,在其余正文里找调用点;两条生成链
+  (`resolve-desktop-download` / `generate-latest-json`)由同一个循环判定,并各自断言
+  "正文里不得再出现 `shouldReplacePlatform(`"。变异自证:把 `findPlatformAmbiguity(entries,{version})`
+  的调用换成注释(import 仍在)⇒ 该用例立即 fail,复现后 18/18 恢复。
+- **取证**:干净 HEAD 隔离检出(`git archive HEAD` → `.ihui-agent/tmp/latest-json-iso/`)叠加本批两个文件
+  ⇒ `node --test scripts/tests/tauri-updater-platforms.test.mjs` **18/18 exit 0**;`node --check` 通过;
+  `pnpm exec eslint` 两文件零输出;`pnpm exec prettier --write` 已跑(HEAD 版这两文件**本来就不符合
+  prettier 口径**,故 diff 里含整文件重排噪声,非本批引入)。
+- **一条环境事实(不是本批缺陷,别代裁)**:`scripts/tests/tauri-updater-platforms.test.mjs` 在**本机共享
+  工作树**上有 3 枚红,全部关于"入库快照" —— 原因是磁盘副本
+  `apps/web/src/config/desktop-feed.generated.ts` 是**上一代快照**(`resolvedAt` 00:47 而 HEAD 是 02:45,
+  且整块 `updaterPlatforms` 与 `DesktopFeedUpdaterEntry` 接口缺失;`git diff HEAD --numstat` = `1 19`),
+  而该文件在 `.prettierignore` 里。改前复跑同为 3 红 ⇒ 与本批无关,该副本是否复位归其持有人。
+- **量体积时踩到的旧陷阱(复记)**:用 `.ihui-agent/` 下的副本做 prettier 基线对照会得
+  "All matched files use Prettier code style" 的**假绿**,因为 `.prettierignore` 首段就忽略 `.ihui-agent/`;
+  必须 `--ignore-path <空文件>` 才能量出 HEAD 版真实不合规。
+- **未闭环**:无 —— 本票范围内四条判据(同源/歧义可判/摘线即红/格式化)均已实测归绿。
+  第四十二批其余 ①②③⑤⑥ 仍按原样开放,其中 ⑤ 在本机**不成立**:`deploy/prod-bundle/`(G: 这份
+  checkout)只有 `deploy.ps1` / `gen-secrets.ps1` / `health-check.ps1` 等模板,**没有** `pg-backup.ps1`
+  与 `monitor.ps1`;后者的入库真身 `deploy/win/ihui-monitor.ps1` 在仓、备份逻辑 `apps/api/scripts/pg-backup.mjs`
+  也在仓 ⇒ ⑤ 那处"运行副本无入库源"属 D: 生产机,归属不变但不得当本机债务复记。
 
+- [x] ✅(2026-09-24) **给 `union-converge` 补上"声明式例外" `--take-ours <path>`,并当场用它收敛一次真实分叉**:两侧同改且真三方报冲突时默认交人工是对的,但"报冲突"与"必须人工"不是一回事 —— 若**合并树的内容**已让对侧那一版判据必红,取本侧就是被内容强制的唯一解。实例:`scripts/tests/check-cross-end-tokens.test.mjs` 两侧在同一段各写各的,对侧留着回归锁「brand 里不得再有 CTA 档」,而 `packages/design-tokens` 只有本侧改过(对侧动过数实测 **0**)⇒ 合并树必含 `brand.cta` ⇒ 那把锁必红;**跑两版取证**:本侧 `pass 11 / fail 0`,对侧 `pass 7 / fail 1`(红的正是那把锁)。落地后该合并经守门 100 的 A1 复核 **0 丢失**,`check-cross-end-tokens` 在新 HEAD 上 **12/12 绿**。例外不留隐形的地方:`keptOurs` 逐条打进度量、并写进合并提交信息;镜像测试钉三条(默认必 `needHuman` / 声明后必点名 / 一条例外不得连带丢掉对侧其它独有新增),11 例全绿。
+  ④ **`scripts/generate-latest-json.mjs:137` 没接新的歧义检测器**,与同日立的清单不同源。
 ### 第四十二批·续(2026-09-24):部署环被一次 I/O 阻塞钉死 20 分钟 —— 无界等待才是"生产停在旧提交"的下一颗雷
 - **现场(全部实测,不是推断)**:12:27 完成换流后进入健康门禁,12:28:40 打完"第 1/8 轮"就没有第二行。
   子部署进程 PID 11312 在 12:44 仍存活,**两次间隔 8 秒采样 CPU 恒为 `32.359375s`** ⇒ 卡在 I/O 而不是空转;
