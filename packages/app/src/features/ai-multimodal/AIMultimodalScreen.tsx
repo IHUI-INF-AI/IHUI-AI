@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import {
@@ -15,8 +16,6 @@ import {
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AIMultimodalScreenProps, AiMultimodalMode } from '../../types'
-
-import { rnRadius } from '@ihui/design-tokens'
 
 /** AI 多模态对话共享屏 — props 注入式跨端组件(纯 UI,wrapper 保留 API 调用) */
 export type { AIMultimodalScreenProps }
@@ -151,18 +150,13 @@ export function AIMultimodalScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingBottom: 8 },
+    header: { paddingHorizontal: 10, paddingTop: 48, paddingBottom: 8 },
     backText: { fontSize: 16, color: tk.text.secondary },
     title: { marginTop: 8, fontSize: 24, fontWeight: '700', color: tk.text.primary },
     subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     userText: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
     modeRow: { flexDirection: 'row', paddingHorizontal: 10, paddingVertical: 8, gap: 8 },
-    modeBtn: {
-      flex: 1,
-      paddingVertical: 8,
-      borderRadius: rnRadius.xl,
-      backgroundColor: tk.surface.card,
-    },
+    modeBtn: { flex: 1, paddingVertical: 8, borderRadius: rnRadius.xl, backgroundColor: tk.surface.card },
     modeBtnActive: { backgroundColor: tk.brand.DEFAULT },
     modeBtnText: { textAlign: 'center', fontSize: 14, color: tk.text.medium },
     modeBtnTextActive: { color: tk.surface.light, fontWeight: '600' },
