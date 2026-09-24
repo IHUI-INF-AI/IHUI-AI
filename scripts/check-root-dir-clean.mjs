@@ -98,6 +98,10 @@ const ALLOWED_DIRS = new Set([
   'docs',
   'deploy',
   'monitoring',
+  // 2026-09-24 显式审批:架构策略声明表 config/architecture-policy.yaml(守门 103
+  // check-architecture-policy.mjs 的唯一输入)。它是**被代码读取的配置**,不是临时产物,
+  // 与 docs/ 的区别在于有判据依赖它 —— 挪进 docs/ 会让那道门的表路径与 AGENTS 的写法一起腐掉。
+  'config',
   'reports',
   'sdks',
   // 2026-09-03 显式审批:评测基准套件(run.mjs/gen.mjs/tasks/reports),长期存在的合法一级目录

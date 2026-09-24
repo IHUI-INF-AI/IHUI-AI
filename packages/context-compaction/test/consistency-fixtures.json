@@ -1,5 +1,17 @@
 {
   "version": 1,
+  "strategy_constants": {
+    "_comment": "跨端必须同值的回收/压缩有效性阈值。TS 侧断言取 packages/context-compaction/src/{reclaim,validity-guards}.ts 的实现常量;Python 侧断言取 app.core.tunables(杀手锏真源)。任一侧改数字未改本表即红。",
+    "RECLAIM_KEEP_RECENT_ROUNDS": 3,
+    "RECLAIM_MIN_SAVED_TOKENS": 600,
+    "RECLAIM_WINDOW_RATIO_TRIGGER": 0.6,
+    "RECLAIM_IDLE_TRIGGER_MS": 120000,
+    "RECLAIM_MIN_RESULT_TOKENS": 120,
+    "REFILL_QUICK_WINDOW_ROUNDS": 2,
+    "REFILL_BREAKER_MAX_CONSECUTIVE": 3,
+    "OVERFLOW_DROP_MAX_ROUNDS": 6,
+    "NEXT_TURN_GROWTH_TOKENS": 1200
+  },
   "fixtures": [
     {
       "name": "plain_text_dialogue",
