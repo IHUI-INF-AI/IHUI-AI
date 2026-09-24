@@ -80,6 +80,24 @@ const SKIP_LINE_RE = /^\s*(\/\/|\/\*|\*|import |export type|interface |type [A-Z
 const SKIP_TOKEN_RE = /useTranslations|getTranslations|next-intl|metadata|description:/
 
 /**
+ * 内容文案出口(2026-09-24 立)。本门自己的结论文案把"确属内容文案"列为一种真实情形,
+ * 但除了"调高基线"(AGENTS 守门 70 明令禁止)之外**没有任何诚实出口**,于是这类文件只能恒红
+ * 或被 --no-verify 绕过 —— 两种结果都是把判断权丢掉。现给一个文件级声明:
+ *   首 40 行内写 `i18n-content-exempt-file: <不少于 12 字的理由>` 才算数。
+ * 生效时该文件不计红,但命中数与理由**必须逐文件打印并进 --json 产物**:
+ * 豁免永远是可见、可审计的一行声明,而不是藏在基线数字里的一个计数。
+ */
+const CONTENT_EXEMPT_RE = /i18n-content-exempt-file:[ \t]*(\S[^\n]{11,})/
+const CONTENT_EXEMPT_HEAD_LINES = 40
+
+/** 只认文件头 40 行内的声明:防止在命中行附近随手插一句就把债务就地抹掉 */
+function contentExemptReason(src) {
+  const head = src.split('\n', CONTENT_EXEMPT_HEAD_LINES).join('\n')
+  const m = CONTENT_EXEMPT_RE.exec(head)
+  return m ? m[1].trim() : null
+}
+
+/**
  * 把字符串字面量的**内容**替换成空格(定界符保留、长度不变)。
  * 只用于"这一行是否开了跨行块注释"的判定:避免 `'https://x/*'` 里字符串内的 `//`、`/*`
  * 骗到状态机。命中判定仍走原始行 —— 模板串里的中文是真界面文案,不能掩掉。
@@ -185,6 +203,8 @@ const scopeFiles =
 
 let totalHits = 0
 const fileHits = []
+// 内容文案豁免清单(见 contentExemptReason):只报数不判红,但必须逐文件可见
+const contentExempts = []
 
 for (const f of scopeFiles) {
   const src = fs.readFileSync(f, 'utf8')
@@ -226,10 +246,18 @@ for (const f of scopeFiles) {
     hits.push({ line: i + 1, text: code.trim().slice(0, 200) })
   }
   if (hits.length > 0) {
+    const rel = path.relative(ROOT, f).replace(/\\/g, '/')
+    const reason = contentExemptReason(src)
+    if (reason) {
+      // 内容文案声明生效:不入 fileHits(不参与基线/越线判定),但逐文件报数与理由,
+      // 并写进 --json 产物 —— 豁免必须可见,否则这道门就退化成"谁都会写一行注释"。
+      contentExempts.push({ file: rel, count: hits.length, reason })
+      continue
+    }
     totalHits += hits.length
     fileHits.push({
       // 归一为正斜杠:基线要入仓,Windows 的 path.relative 给反斜杠会跨平台漂移
-      file: path.relative(ROOT, f).replace(/\\/g, '/'),
+      file: rel,
       count: hits.length,
       samples: hits,
     })
@@ -282,6 +310,8 @@ if (JSON_OUT) {
       totalFiles: fileHits.length,
       totalHits,
       targets: TARGETS.map(t => path.relative(ROOT, t)),
+      // 内容文案豁免必须进产物:审计面看不到"哪些文件被谁免了",等于没有豁免制度
+      contentExempts,
       files: fileHits,
     }, null, 2),
     'utf8',
@@ -301,6 +331,12 @@ console.log(`  含硬编码中文的文件: ${fileHits.length}`)
 console.log(`  硬编码中文行数: ${totalHits}`)
 console.log(`  扫描路径: ${TARGETS.map(t => path.relative(ROOT, t)).join(' + ')}`)
 console.log(`  排除目录: ${[...EXCLUDE_DIRS].join(', ')}`)
+if (contentExempts.length > 0) {
+  const n = contentExempts.reduce((a, e) => a + e.count, 0)
+  console.log(`\n=== 内容文案豁免(声明式,不计红) ===`)
+  console.log(`  共 ${contentExempts.length} 个文件 / ${n} 处中文按声明放行,逐文件列出理由供人工复核:`)
+  for (const e of contentExempts) console.log(`    ${e.file} (${e.count} 处) ← ${e.reason}`)
+}
 
 if (violations.length > 0) {
   console.error(`\n[scan-hardcoded-zh] 越过基线(${violations.length} 个文件新增硬编码中文):`)
