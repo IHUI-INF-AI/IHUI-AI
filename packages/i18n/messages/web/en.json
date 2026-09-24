@@ -7074,6 +7074,46 @@
       "rollbackConfirmConfirm": "Restore"
     },
     "pane": {
+      "businessForms": {
+        "ariaLabel": "Business form card",
+        "aria": {
+          "email": "Email compose card",
+          "calendarEvent": "Calendar form card"
+        },
+        "fields": {
+          "to": "To",
+          "cc": "Cc",
+          "bcc": "Bcc",
+          "subject": "Subject",
+          "replyTo": "Reply to",
+          "body": "Body",
+          "start": "Start",
+          "end": "End",
+          "attendees": "Attendees"
+        },
+        "action": {
+          "approve": "Approve",
+          "reject": "Reject",
+          "create": "Create",
+          "save": "Save"
+        },
+        "error": {
+          "required": "This field is required",
+          "invalidEmail": "Invalid email address",
+          "endBeforeStart": "End time must be after start time",
+          "noAttendees": "Add at least one attendee"
+        },
+        "fold": {
+          "expand": "Show all {count} attendees",
+          "collapse": "Collapse attendees"
+        },
+        "status": {
+          "submitting": "Submitting…",
+          "approved": "Approved",
+          "rejected": "Rejected",
+          "failed": "Submission failed, please retry"
+        }
+      },
       "inputSources": {
         "ariaLabel": "Input sources and queue",
         "snapshot": {
@@ -7172,6 +7212,7 @@
         "label": {
           "pdf": "PDF page {page}",
           "docx": "Document page {page}",
+          "docxText": "Document paragraph {paragraph}",
           "pptx": "Slide {slide} · {element}",
           "pptxSlide": "Slide {slide}",
           "pptxComment": "Comment on {element}",
@@ -7245,9 +7286,28 @@
         "previewFilesMore": "and {count} more files",
         "detailAction": "View per-file changes",
         "detailLabel": "Edit & resend · file rollback impact preview",
-        "warning": { "partialRollback": "Some changes were not fully recorded by the checkpoint; the rollback result may be incomplete" },
-        "phase": { "idle": "Ready", "previewing": "Previewing", "confirmed": "Confirmed", "executing": "Rolling back files and resending…", "completed": "Rolled back and resent", "editFailed": "Edit failed", "rollbackFailed": "Rollback failed", "rollbackPartial": "Partial rollback", "syncFailed": "Local sync failed", "replaceFailed": "Replace failed" },
-        "failure": { "editFailed": "The edited content could not be applied; execution stopped.", "rollbackFailed": "File rollback failed; execution stopped.", "rollbackPartial": "Only some files were rolled back; execution stopped.", "syncFailed": "Failed to sync local state; execution stopped.", "replaceFailed": "Failed to replace the message; execution stopped." }
+        "warning": {
+          "partialRollback": "Some changes were not fully recorded by the checkpoint; the rollback result may be incomplete"
+        },
+        "phase": {
+          "idle": "Ready",
+          "previewing": "Previewing",
+          "confirmed": "Confirmed",
+          "executing": "Rolling back files and resending…",
+          "completed": "Rolled back and resent",
+          "editFailed": "Edit failed",
+          "rollbackFailed": "Rollback failed",
+          "rollbackPartial": "Partial rollback",
+          "syncFailed": "Local sync failed",
+          "replaceFailed": "Replace failed"
+        },
+        "failure": {
+          "editFailed": "The edited content could not be applied; execution stopped.",
+          "rollbackFailed": "File rollback failed; execution stopped.",
+          "rollbackPartial": "Only some files were rolled back; execution stopped.",
+          "syncFailed": "Failed to sync local state; execution stopped.",
+          "replaceFailed": "Failed to replace the message; execution stopped."
+        }
       },
       "agentActions": {
         "title": "Multi-agent actions",
@@ -10999,6 +11059,25 @@
     "callingTool": "Calling tool...",
     "waitingResponse": "Waiting for response...",
     "pdfOpenExternal": "Open in new window",
+    "injectionAssemblyBadge": "{count} context items this turn",
+    "injectionAssemblySourcesTitle": "Context sources this turn",
+    "injectionAssemblySourceCitations": "{count} knowledge citations",
+    "injectionAssemblySourceSteer": "Steered {count} times",
+    "injectionAssemblyRetry": "Upstream retry {attempt}/{max}",
+    "officeTooLarge": "File is too large to preview — download to view",
+    "officeExpired": "Preview link has expired",
+    "officeUnsupported": "Preview not supported for this file type",
+    "officeLazyLoad": "Click to load preview",
+    "officeLoading": "Loading preview…",
+    "officeFailed": "Failed to load preview",
+    "officeDownload": "Download to view",
+    "officeSelectedCell": "Selected {cell}",
+    "officeRowsTruncated": "Showing first {rows} rows",
+    "pdfPageIndicator": "Page {page} / {total}",
+    "pdfPageOnly": "Page {page}",
+    "pdfPageJump": "Jump to page",
+    "pdfPageJumpLabel": "Page number",
+    "pptxNotes": "Notes",
     "csvPreviewMeta": "{rows} rows × {cols} cols",
     "csvExpand": "Show all",
     "csvCollapse": "Collapse",
@@ -11215,117 +11294,214 @@
       },
       "agent": {
         "description": "Manage and dispatch AI agents",
-        "keywords": ["agent", "bot", "dispatch"],
+        "keywords": [
+          "agent",
+          "bot",
+          "dispatch"
+        ],
         "label": "AI Agents"
       },
       "browser": {
         "description": "Browse the web inside the workspace",
-        "keywords": ["browser", "web", "preview"],
+        "keywords": [
+          "browser",
+          "web",
+          "preview"
+        ],
         "label": "Built-in Browser"
       },
       "capabilityMarket": {
         "description": "Discover and install capability packs",
-        "keywords": ["capability", "market", "pack", "install"],
+        "keywords": [
+          "capability",
+          "market",
+          "pack",
+          "install"
+        ],
         "label": "Capability Market"
       },
       "codeChanges": {
         "description": "Review workspace code changes",
-        "keywords": ["changes", "diff", "git", "code"],
+        "keywords": [
+          "changes",
+          "diff",
+          "git",
+          "code"
+        ],
         "label": "Code Changes"
       },
       "connectors": {
         "description": "Manage external service connections",
-        "keywords": ["connector", "integration", "service"],
+        "keywords": [
+          "connector",
+          "integration",
+          "service"
+        ],
         "label": "Connectors"
       },
       "document": {
         "description": "Edit workspace documents",
-        "keywords": ["document", "docs", "edit"],
+        "keywords": [
+          "document",
+          "docs",
+          "edit"
+        ],
         "label": "Documents"
       },
       "editor": {
         "description": "Open the code editor",
-        "keywords": ["editor", "code", "monaco"],
+        "keywords": [
+          "editor",
+          "code",
+          "monaco"
+        ],
         "label": "Editor"
       },
       "mcp": {
         "description": "Manage MCP servers and tools",
-        "keywords": ["mcp", "server", "tools"],
+        "keywords": [
+          "mcp",
+          "server",
+          "tools"
+        ],
         "label": "MCP Manager"
       },
       "mcpStore": {
         "description": "Browse and install MCP services",
-        "keywords": ["mcp", "store", "market", "install"],
+        "keywords": [
+          "mcp",
+          "store",
+          "market",
+          "install"
+        ],
         "label": "MCP Store"
       },
       "modeAsk": {
         "description": "Switch to Ask mode with tools disabled",
-        "keywords": ["ask", "question", "mode"],
+        "keywords": [
+          "ask",
+          "question",
+          "mode"
+        ],
         "label": "Ask mode"
       },
       "modeBuild": {
         "description": "Let the AI build and modify directly",
-        "keywords": ["build", "mode", "generate"],
+        "keywords": [
+          "build",
+          "mode",
+          "generate"
+        ],
         "label": "Build Mode"
       },
       "modePlan": {
         "description": "Plan first, then execute",
-        "keywords": ["plan", "mode", "todo"],
+        "keywords": [
+          "plan",
+          "mode",
+          "todo"
+        ],
         "label": "Plan Mode"
       },
       "modeReview": {
         "description": "Review and assess existing code",
-        "keywords": ["review", "mode", "audit"],
+        "keywords": [
+          "review",
+          "mode",
+          "audit"
+        ],
         "label": "Review Mode"
       },
       "modeSpec": {
         "description": "Generate implementations from specs",
-        "keywords": ["spec", "mode", "generate"],
+        "keywords": [
+          "spec",
+          "mode",
+          "generate"
+        ],
         "label": "Spec Mode"
       },
       "skill": {
         "description": "Manage and invoke AI skills",
-        "keywords": ["skill", "ability", "plugin"],
+        "keywords": [
+          "skill",
+          "ability",
+          "plugin"
+        ],
         "label": "Skills"
       },
       "terminal": {
         "description": "Open the integrated terminal",
-        "keywords": ["terminal", "shell", "console"],
+        "keywords": [
+          "terminal",
+          "shell",
+          "console"
+        ],
         "label": "Terminal"
       },
       "ai-world": {
         "description": "Explore the world of AI applications",
-        "keywords": ["AI", "world", "apps"],
+        "keywords": [
+          "AI",
+          "world",
+          "apps"
+        ],
         "label": "AI World"
       },
       "chat": {
         "description": "Start a conversation with AI assistant",
-        "keywords": ["chat", "talk", "AI", "conversation"],
+        "keywords": [
+          "chat",
+          "talk",
+          "AI",
+          "conversation"
+        ],
         "label": "AI Chat"
       },
       "drama": {
         "description": "AI-generated short dramas",
-        "keywords": ["drama", "video", "AI", "show"],
+        "keywords": [
+          "drama",
+          "video",
+          "AI",
+          "show"
+        ],
         "label": "AI Drama"
       },
       "profile": {
         "description": "Manage your profile and settings",
-        "keywords": ["profile", "user", "settings"],
+        "keywords": [
+          "profile",
+          "user",
+          "settings"
+        ],
         "label": "Profile"
       },
       "search": {
         "description": "Global content search",
-        "keywords": ["search", "find", "query"],
+        "keywords": [
+          "search",
+          "find",
+          "query"
+        ],
         "label": "Search"
       },
       "settings": {
         "description": "System preferences and configuration",
-        "keywords": ["settings", "preferences", "config"],
+        "keywords": [
+          "settings",
+          "preferences",
+          "config"
+        ],
         "label": "Settings"
       },
       "skillsMarket": {
         "description": "Browse and install self-evolving skills",
-        "keywords": ["skill", "market", "plugin"],
+        "keywords": [
+          "skill",
+          "market",
+          "plugin"
+        ],
         "label": "Skill Market"
       }
     },
@@ -11801,12 +11977,12 @@
       "profile": "Profile",
       "profileDesc": "Account page with avatar, details and settings",
       "categories": {
-      "blank": "Blank",
-      "marketing": "Marketing",
-      "app": "App UI",
-      "content": "Content",
-      "commerce": "E-commerce",
-      "unknown": "Uncategorized"
+        "blank": "Blank",
+        "marketing": "Marketing",
+        "app": "App UI",
+        "content": "Content",
+        "commerce": "E-commerce",
+        "unknown": "Uncategorized"
       },
       "title": "Templates"
     },
@@ -13728,25 +13904,37 @@
       "quadrants": [
         {
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": ["Knowledge Q&A", "Process automation"],
+          "examples": [
+            "Knowledge Q&A",
+            "Process automation"
+          ],
           "tag": "Q1",
           "title": "Efficient Assistant"
         },
         {
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": ["Data analysis", "Decision support"],
+          "examples": [
+            "Data analysis",
+            "Decision support"
+          ],
           "tag": "Q2",
           "title": "Smart Advisor"
         },
         {
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": ["Meeting scheduling", "Approval workflows"],
+          "examples": [
+            "Meeting scheduling",
+            "Approval workflows"
+          ],
           "tag": "Q3",
           "title": "Execution Expert"
         },
         {
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": ["Marketing automation", "Multi-agent collaboration"],
+          "examples": [
+            "Marketing automation",
+            "Multi-agent collaboration"
+          ],
           "tag": "Q4",
           "title": "All-round Expert"
         }
@@ -13880,19 +14068,31 @@
       "items": [
         {
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"],
+          "features": [
+            "Systematic courses",
+            "Hands-on exploration",
+            "Community mutual aid"
+          ],
           "tag": "MODULE 01",
           "title": "Local Community"
         },
         {
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": ["Communication platform", "Experience sharing", "Resource matching"],
+          "features": [
+            "Communication platform",
+            "Experience sharing",
+            "Resource matching"
+          ],
           "tag": "MODULE 02",
           "title": "Online Community"
         },
         {
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": ["Professional LLMs", "Agent services", "Consulting services"],
+          "features": [
+            "Professional LLMs",
+            "Agent services",
+            "Consulting services"
+          ],
           "tag": "MODULE 03",
           "title": "AI Professional Services"
         }
@@ -16706,7 +16906,15 @@
       "title": "Top 5 Pages",
       "visitsHeader": "Visits"
     },
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ]
   },
   "models": {
     "relay": {
@@ -26594,5 +26802,75 @@
     "retry": "Retry",
     "openExternal": "Open in external browser",
     "idlePlaceholder": "Enter a URL or click a link in an AI message to open it"
+  },
+  "conversationDetailMode": {
+    "label": "Detail level",
+    "steps": "Steps",
+    "commands": "Commands",
+    "narrative": "Narrative"
+  },
+  "ambientSuggestions": {
+    "title": "Suggested next steps",
+    "suggestionResumeTask": "Resume the unfinished tasks",
+    "suggestionReviewFiles": "Review the files just modified",
+    "suggestionAnswerQuestion": "Answer the AI's question",
+    "suggestionContinueTopic": "Ask a follow-up on the above",
+    "dismiss": "Dismiss this suggestion",
+    "close": "Hide suggestions",
+    "restore": "Show suggestions"
+  },
+  "taskMonitor": {
+    "displayMode": "Display",
+    "modeSections": "Sections",
+    "modeTabs": "Tabs",
+    "sections": {
+      "progress": "Progress & context",
+      "activity": "Activity",
+      "results": "Results & sources",
+      "auxiliary": "Auxiliary"
+    }
+  },
+  "multiAgentAction": {
+    "header": {
+      "count": "{count, plural, one {# agent} other {# agents}}"
+    },
+    "action": {
+      "spawn": {
+        "label": "Create",
+        "inProgress": "Creating",
+        "completed": "Created",
+        "failed": "Create failed"
+      },
+      "resume": {
+        "label": "Resume",
+        "inProgress": "Resuming",
+        "completed": "Resumed",
+        "failed": "Resume failed"
+      },
+      "sendInput": {
+        "label": "Send input",
+        "inProgress": "Sending",
+        "completed": "Sent",
+        "failed": "Send failed"
+      },
+      "interrupt": {
+        "label": "Interrupt",
+        "inProgress": "Interrupting",
+        "completed": "Interrupted",
+        "failed": "Interrupt failed"
+      },
+      "close": {
+        "label": "Close",
+        "inProgress": "Closing",
+        "completed": "Closed",
+        "failed": "Close failed"
+      },
+      "list": {
+        "label": "List",
+        "inProgress": "Loading",
+        "completed": "Loaded",
+        "failed": "Load failed"
+      }
+    }
   }
 }
