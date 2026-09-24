@@ -24,7 +24,15 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { createPortal } from 'react-dom'
-import { Loader2, ArrowLeft, ArrowRight, RotateCw, Copy, ExternalLink, MousePointerClick } from 'lucide-react'
+import {
+  Loader2,
+  ArrowLeft,
+  ArrowRight,
+  RotateCw,
+  Copy,
+  ExternalLink,
+  MousePointerClick,
+} from 'lucide-react'
 
 import { AnnotationStylePanel, type PickedVisualElement } from './annotation-style-panel'
 
@@ -97,7 +105,9 @@ const PICK_INSTALL_SCRIPT = `(() => {
   w.__ihuiPickInstalled = true
   const style = document.createElement('style')
   style.id = 'ihui-pick-style'
-  style.textContent = '*{cursor:crosshair!important}.ihui-pick-hl{outline:2px solid #6366f1!important;outline-offset:-1px!important}'
+  // 该样式表注入的是**用户正在浏览的外部页面**,站方自己的 cursor/outline 规则
+  // 特异度不可知,不加 !important 则点选态高亮会被静默吃掉(功能不可用而非样式微差)。
+  style.textContent = '*{cursor:crosshair!important;/*!ihui-allow-important:压过被点选外部页面自带的cursor*/}.ihui-pick-hl{outline:2px solid #6366f1!important;outline-offset:-1px!important;/*!ihui-allow-important:压过被点选外部页面自带的outline*/}' // -- ihui-allow-important: 注入外部页面的点选态高亮,必须压过站方自带 cursor/outline
   document.head.appendChild(style)
   let prev = null
   const clearHl = () => { if (prev) { prev.classList.remove('ihui-pick-hl'); prev = null } }
@@ -140,12 +150,10 @@ const PICK_INSTALL_SCRIPT = `(() => {
 })()`
 
 /** 注入:读取并清空点选结果(read-and-clear,轮询一次一取) */
-const PICK_READ_SCRIPT =
-  `(() => { const p = window.__ihuiPick || null; window.__ihuiPick = null; return p ? JSON.stringify(p) : 'null' })()`
+const PICK_READ_SCRIPT = `(() => { const p = window.__ihuiPick || null; window.__ihuiPick = null; return p ? JSON.stringify(p) : 'null' })()`
 
 /** 注入:退出点选模式(摘样式表,清结果;监听器保留但被 ihui-pick-style 哨兵短路) */
-const PICK_REMOVE_SCRIPT =
-  `(() => { const st = document.getElementById('ihui-pick-style'); if (st) st.remove(); window.__ihuiPick = null; return 'ok' })()`
+const PICK_REMOVE_SCRIPT = `(() => { const st = document.getElementById('ihui-pick-style'); if (st) st.remove(); window.__ihuiPick = null; return 'ok' })()`
 
 /** ④ stale 重查脚本:selector 存在性 + 签名(选择器+文本指纹)比对 */
 function buildRecheckScript(el: PickedVisualElement): string {
