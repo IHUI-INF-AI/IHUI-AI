@@ -68,19 +68,34 @@ export function jaccard(a, b) {
   return union === 0 ? 0 : inter / union
 }
 
+/**
+ * 容器短路:HEAD 行的**全部非空白字符**原样出现在工作树某行里 ⇒ 内容逐字存活,只是被就地延长。
+ * 为什么必须有这一条(2026-09-25 实测到机制):翻勾的仓库写法是「改前缀 + 追加证据」,而追加会让
+ * 字符二元组 Jaccard 随新增长度**单调下降** —— 短行 40 字 / 改后 120 字时相似度只剩 ~0.33,
+ * 于是"补证据"这个动作本身被判成真丢失,exit 1 逼人跑 `--apply`,而 `--apply` 会把**改写前的短行
+ * 原样插回** ⇒ 同一票两行并存。台账里那批双态行的制造路径之一就是这里,不是谁手滑。
+ * 下界 20 个非空白字符:再短的裸标记行(`- [ ]` 等)在满屏清单里必然被"包含",会被误洗成存活。
+ */
+const CONTAIN_MIN = 20
+const squash = (s) => s.replace(/\s+/g, '')
+
 /** 给每个"HEAD 有而工作树无"的行定性 lost / superseded(被就地改写取代)。 */
 export function classifyMissing(headLines, wtLines, threshold = SIM_THRESHOLD) {
   const wtSet = new Set(wtLines.map(trim).filter(Boolean))
   const headSet = new Set(headLines.map(trim).filter(Boolean))
-  const localTok = wtLines
-    .map(trim)
-    .filter((t) => t.length > 0 && !headSet.has(t))
-    .map(tokenize)
+  const localOnly = wtLines.map(trim).filter((t) => t.length > 0 && !headSet.has(t))
+  const localTok = localOnly.map(tokenize)
+  const localSquashed = localOnly.map(squash)
   const verdict = new Map()
   for (const raw of headLines) {
     const t = trim(raw)
     if (!t.length || wtSet.has(t)) continue
     const tt = tokenize(t)
+    const sq = squash(t)
+    if (sq.length >= CONTAIN_MIN && localSquashed.some((w) => w.includes(sq))) {
+      verdict.set(t, 'superseded')
+      continue
+    }
     let best = 0
     for (const lt of localTok) {
       const s = jaccard(tt, lt)
@@ -251,6 +266,38 @@ function selfTest() {
     const wt = ['anchor', '本地在途改写的说明行,HEAD 里还没有它']
     const r = mergeByAnchors(head, wt, classifyMissing(head, wt))
     assert(r.out.includes('本地在途改写的说明行,HEAD 里还没有它'), '在途改写被丢掉')
+  })
+
+  // ⑨⑩ 是 2026-09-25 补的一对:本工具当时把"翻勾时追加证据"的每一次编辑都判成真丢失,
+  // 而 `--apply` 的"修复"动作会把改写前的短行原样插回 ⇒ 直接制造台账双态行。
+  // 容器短路加完之后,⑨ 必须绿、⑩ 必须仍然红 —— 缺一侧就是拿判据洗地。
+  ck('⑨ 追加证据型改写(HEAD 行逐字存活在更长的新行里)判 superseded,不插回', () => {
+    const oldLine = '- [ ] D15 GitHub App(webhook 自动 PR review+@机器人触发)(G-20)'
+    const newLine =
+      oldLine +
+      ' **本行是 union 归并留下的裸副本**,现行判定与剩余项见紧邻下一条(其列明 6 项未完成 ⇒ 本票属部分开工),勿照本行派单。'
+    const head = ['anchor', oldLine, 'tail']
+    const wt = ['anchor', newLine, 'tail']
+    assert(
+      jaccard(tokenize(oldLine), tokenize(newLine)) < SIM_THRESHOLD,
+      '本例必须让"仅靠二元组相似度"的旧判据失效,否则测不到容器短路存在的意义',
+    )
+    const v = classifyMissing(head, wt)
+    assert(v.get(oldLine) === 'superseded', `应判 superseded,实判 ${v.get(oldLine)}`)
+    assert(mergeByAnchors(head, wt, v).lines === 0, '把已存活的行又插回了一遍(= 制造双态)')
+  })
+
+  ck('⑩ 容器短路不得替真丢失洗地(只共享片段≠整行存活;短标记行不走容器)', () => {
+    const gone = '- [ ] **D71 交还前必须自行复验**:交付前跑一次全量镜像测试并贴出末行'
+    const decoy =
+      '本地另一条行,里面也提到 交付前跑一次全量镜像测试并贴出末行 这句话,但整行内容完全不同以至于 D71 那条其实没了'
+    const v1 = classifyMissing(['anchor', gone], ['anchor', decoy])
+    assert(v1.get(gone) === 'lost', '只共享片段就被判存活 ⇒ 真丢失会被洗绿')
+    const v2 = classifyMissing(
+      ['anchor', '- [ ]'],
+      ['anchor', '- [ ] 某条长待办正文内容远超容器下界'],
+    )
+    assert(v2.get('- [ ]') === 'lost', '短裸标记行被容器短路误洗')
   })
 
   for (const [mark, name] of cases) console.log(`${mark} ${name}`)

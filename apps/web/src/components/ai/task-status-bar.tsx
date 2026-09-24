@@ -13,7 +13,7 @@ import {
   computeFileChangesFromDiff,
   deriveTaskStatusBar,
   humanizeToolText,
-  describeToolActivity,
+  describeMcpToolActivity,
   type TaskStatusKind,
   type TaskStatusStepView,
 } from '@ihui/shared/chat'
@@ -147,9 +147,12 @@ export function TaskStatusBar() {
     if (!isStreaming) return ''
     switch (currentTask.kind) {
       case 'tool':
-        // 界面禁止直显英文工具码名:走双时态活动措辞(本条只在流式期间出现 → 恒为进行时)
+        // 界面禁止直显英文工具码名:走双时态活动措辞(本条只在流式期间出现 → 恒为进行时)。
+        // D83 接线:MCP 调用带 mcpName 时先走共享层 server×tool 定制措辞,
+        // 非 MCP(mcpName 缺省)时定制级按回落链整体不命中,行为与旧 describeToolActivity 等价。
         if (currentTask.toolName) {
-          const activity = describeToolActivity({
+          const activity = describeMcpToolActivity({
+            serverName: currentTask.mcpName ?? null,
             toolName: currentTask.toolName,
             state: 'running',
             translate: (key, params) => t(key, params),
