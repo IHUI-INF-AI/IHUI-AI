@@ -29,15 +29,15 @@ interface Tab {
 }
 
 const TABS = (tt: TtFn): Tab[] => [
-  { value: '', labelKey: 'distribution.orderList.all', fallback: tt('common.all', '全部') },
+  { value: '', labelKey: 'common.all', fallback: tt('common.all', '全部') },
   {
     value: 'settled',
-    labelKey: 'distribution.orderList.settled',
+    labelKey: 'developer.income.settled',
     fallback: tt('developer.income.settled', '已结算'),
   },
   {
     value: 'pending',
-    labelKey: 'distribution.orderList.pending',
+    labelKey: 'distribution.pendingSettle',
     fallback: tt('distribution.pendingSettle', '待结算'),
   },
 ]
@@ -45,22 +45,22 @@ const TABS = (tt: TtFn): Tab[] => [
 /* 对齐 RN DistributionOrderListScreen statusColor:已结算→success 底、待结算→tertiary 底,文字恒白 */
 const STATUS_LABELS = (tt: TtFn): Record<string, { key: string; fb: string; cls: string }> => ({
   settled: {
-    key: 'distribution.orderList.settled',
+    key: 'developer.income.settled',
     fb: tt('developer.income.settled', '已结算'),
     cls: 'bg-[var(--color-success)] text-[var(--color-surface-light)]',
   },
   pending: {
-    key: 'distribution.orderList.pending',
+    key: 'distribution.pendingSettle',
     fb: tt('distribution.pendingSettle', '待结算'),
     cls: 'bg-[var(--color-text-tertiary)] text-[var(--color-surface-light)]',
   },
   paid: {
-    key: 'distribution.orderList.settled',
+    key: 'developer.income.settled',
     fb: tt('developer.income.settled', '已结算'),
     cls: 'bg-[var(--color-success)] text-[var(--color-surface-light)]',
   },
   unpaid: {
-    key: 'distribution.orderList.pending',
+    key: 'distribution.pendingSettle',
     fb: tt('distribution.pendingSettle', '待结算'),
     cls: 'bg-[var(--color-text-tertiary)] text-[var(--color-surface-light)]',
   },

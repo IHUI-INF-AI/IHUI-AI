@@ -44,16 +44,16 @@ interface AgentItem {
 
 // 一级状态 tab(对标原 headTypes)
 const STATUS_TABS = [
-  { id: 0, key: 'developer.index.pendingPublish', name: t('assistant.tabDraft') },
-  { id: 1, key: 'developer.index.underReview', name: t('order.refundList.stepReview') },
+  { id: 0, key: 'assistant.tabDraft', name: t('assistant.tabDraft') },
+  { id: 1, key: 'order.refundList.stepReview', name: t('order.refundList.stepReview') },
   { id: 2, key: 'developer.index.published', name: t('developer.index.published') },
 ]
 
 // 二级 tab(对标原 tabbarList,仅 status ∈ {0,4,5} 显示)
 const SUB_TABS = [
-  { id: 0, key: 'developer.index.all', name: t('common.all') },
-  { id: 4, key: 'developer.index.reviewFailed', name: t('assistant.subTabRejected') },
-  { id: 5, key: 'developer.index.offShelf', name: t('assistant.subTabOffline') },
+  { id: 0, key: 'common.all', name: t('common.all') },
+  { id: 4, key: 'assistant.subTabRejected', name: t('assistant.subTabRejected') },
+  { id: 5, key: 'assistant.subTabOffline', name: t('assistant.subTabOffline') },
 ]
 
 const PAGE_SIZE = 10
@@ -182,11 +182,11 @@ export default function DeveloperIndex() {
   // 状态文案
   const statusText = (s: number) => {
     const map: Record<number, [string, string]> = {
-      0: ['developer.index.pendingPublish', t('assistant.tabDraft')],
-      1: ['developer.index.underReview', t('order.refundList.stepReview')],
+      0: ['assistant.tabDraft', t('assistant.tabDraft')],
+      1: ['order.refundList.stepReview', t('order.refundList.stepReview')],
       2: ['developer.index.published', t('developer.index.published')],
-      4: ['developer.index.reviewFailed', t('assistant.subTabRejected')],
-      5: ['developer.index.offShelf', t('assistant.subTabOffline')],
+      4: ['assistant.subTabRejected', t('assistant.subTabRejected')],
+      5: ['assistant.subTabOffline', t('assistant.subTabOffline')],
     }
     const entry = map[s]
     return entry ? tt(entry[0], entry[1]) : tt('developer.index.published', '已发布')

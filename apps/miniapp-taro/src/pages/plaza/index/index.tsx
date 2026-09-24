@@ -42,12 +42,12 @@ const STATUS_TABS = [
 
 /** 赛道分类(对标原项目 ScrollTitle 横向赛道) */
 const TRACKS = [
-  { key: '', labelKey: 'plaza.index.trackAll' },
-  { key: 'writing', labelKey: 'plaza.index.trackWriting' },
-  { key: 'coding', labelKey: 'plaza.index.trackCoding' },
-  { key: 'design', labelKey: 'plaza.index.trackDesign' },
-  { key: 'marketing', labelKey: 'plaza.index.trackMarketing' },
-  { key: 'education', labelKey: 'plaza.index.trackEducation' },
+  { key: '', labelKey: 'common.all' },
+  { key: 'writing', labelKey: 'ai.agentList.categories.writing' },
+  { key: 'coding', labelKey: 'ai.agentList.categories.coding' },
+  { key: 'design', labelKey: 'pagesindexindex.d11' },
+  { key: 'marketing', labelKey: 'plaza.p1' },
+  { key: 'education', labelKey: 'ai.agentList.categories.education' },
 ]
 
 /** 身份切换(对标原项目 identity-modal) */
