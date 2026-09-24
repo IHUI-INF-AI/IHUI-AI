@@ -5753,7 +5753,24 @@
     "relayOverview": "Relay Overview",
     "themeEdit": "Theme Edit",
     "unauthorized": "Unauthorized",
-    "userMargin": "User Margin"
+    "userMargin": "User Margin",
+    "deployDiagnosis": {
+      "title": "Deployment Diagnosis",
+      "subtitle": "Paste deployment results, health checks or log snippets and let the AI return the root cause with runnable fix commands",
+      "pasteNote": "Provide at least one field — empty fields are not sent to the model",
+      "run": "Run diagnosis",
+      "running": "Diagnosing…",
+      "reportTitle": "Diagnosis report",
+      "model": "Model",
+      "duration": "Duration",
+      "rootCause": "Root cause",
+      "impact": "Impact",
+      "fixCommands": "Fix commands",
+      "copy": "Copy",
+      "summary": "Summary",
+      "rawNote": "Raw model output below, not reformatted",
+      "empty": "Fill in the inputs on the left, then choose Run diagnosis"
+    }
   },
   "connectors": {
     "title": "Chinese Connectors",
@@ -10373,7 +10390,26 @@
       "referenceTitle": "Context references",
       "noReferences": "No references yet",
       "uploading": "Uploading attachment",
-      "uploadFailed": "Attachment upload failed"
+      "uploadFailed": "Attachment upload failed",
+      "cacheHit": "Cache hit {ratio} ({read} read back)",
+      "cacheOccupancyNote": "Cached tokens still occupy {occupied} of the window; only the re-prefill is skipped",
+      "cacheUnavailable": "This usage frame carried no cache counters, so the hit rate cannot be judged",
+      "detailsTruncated": "{count} more items not shown",
+      "residualNote": "Another {tokens} is protocol framing and serialization overhead, not counted above",
+      "resultSuffix": "result",
+      "segRoleAssistant": "Assistant replies",
+      "segRoleToolCall": "Tool call arguments",
+      "segRoleToolResult": "Tool results",
+      "segRoleUser": "User messages",
+      "segSkill": "Skill bodies",
+      "segSystem": "System prompt",
+      "segSystemPrompt": "System prompt (whole)",
+      "segToolSchema": "Tool definitions",
+      "topContributor": "Largest share: {name} {share}",
+      "unnamedItem": "Unnamed item",
+      "unobservedNotSupplied": "No system segment was supplied for this turn",
+      "unobservedServerOnly": "Assembled on the server, so exact usage is not observable from this client",
+      "ringBasis": "Of the context window, {percent}% used ({used} / {max})"
     },
     "copied": "Copied",
     "copy": "Copy",
@@ -18349,7 +18385,8 @@
     "courses": "Courses",
     "faq": "FAQ",
     "home": "Home",
-    "settings": "Settings"
+    "settings": "Settings",
+    "adminDeployDiagnosis": "Deployment Diagnosis"
   },
   "news": {
     "allCategories": "All Categories",

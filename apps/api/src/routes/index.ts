@@ -35,6 +35,7 @@ import { userExtraRoutes } from './user-extras.js'
 import { aiSkillsProxyRoutes } from './ai-skills-proxy.js'
 import { contentRoutes, adminContentRoutes } from './content.js'
 import { learnRoutes, adminLearnRoutes } from './learn.js'
+import { deployDiagnosisRoutes } from './deploy-diagnosis.js'
 import { systemRoutes, adminSystemRoutes } from './system.js'
 import { examRoutes } from './exam.js'
 import { orderRoutes, adminOrderRoutes } from './order.js'
@@ -536,6 +537,8 @@ export function registerRoutes(server: FastifyInstance) {
   // 学习模块：/api/learn/* + /api/admin/learn/*
   server.register(learnRoutes, { prefix: '/api' })
   server.register(adminLearnRoutes, { prefix: '/api/admin' })
+  // 管理台 AI 部署诊断：POST /api/admin/deploy-diagnosis（整条子树走 requireAdmin，登录+roleId 门禁在 handler 内）
+  server.register(deployDiagnosisRoutes, { prefix: '/api/admin' })
   // 积分 / 等级 / 签到：/api/points /api/sign-in /api/levels /api/leaderboard
   server.register(gamificationRoutes, { prefix: '/api' })
   // 按日积分消耗聚合（只读，需登录）：/api/credits/usage/daily
