@@ -630,10 +630,29 @@ git branch -d hotfix/v1.2.4
 桌面端基于 Tauri 2 `tauri-plugin-updater` 实现应用内自动更新,发布/更新链路**已全部配置完毕**:
 
 - 前端更新逻辑:[use-updater.ts](../apps/web/src/hooks/use-updater.ts)(web 端 Tauri WebView 内运行)+ Rust 端 `restart_app` 命令
-- [tauri.conf.json](../apps/desktop/src-tauri/tauri.conf.json):`bundle.createUpdaterArtifacts: true` 已启用,updater endpoint 指向固定 feed tag:
-  `https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-updater-feed/latest.json`
-  (用固定 feed tag 而非 `releases/latest`,避免被 nightly-ios 等其他 release 漂移占用导致 404)
-- 签名密钥对已通过 `generate-tauri-keys.yml` 生成,公钥已写入 conf
+- [tauri.conf.json](../apps/desktop/src-tauri/tauri.conf.json):`bundle.createUpdaterArtifacts: true` 已启用,updater 配的是**两个端点按序回退**:
+  1. `https://aizhs.top/desktop-feed.json` —— **主端点**,由 `sync-downloads` job 生成到 `apps/web/public/`,Windows 包直链走 **Gitee 国内发行**;
+  2. `https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-updater-feed/latest.json` —— **回退端点**,挂在固定 feed tag 上
+     (用固定 feed tag 而非 `releases/latest`,避免被 nightly-ios 等其他 release 漂移占用导致 404)。
+
+  > ⚠️ **2026-09-24 实测纠偏**:上面"已全部配置完毕"当时并不成立。回退端点的 git ref
+  > `refs/tags/desktop-updater-feed` **在 origin 上已不存在**(`git ls-remote` 与 `GET` 双双 404,而 Release 对象还在、
+  > 资产还被 CI 正常更新),即第 2 条整条是死的;同时**主端点只写 `windows-x86_64` 一个平台键**
+  > (GitHub 上那份 latest.json 资产是 4 平台齐全:windows/linux/darwin-x86_64/darwin-aarch64)。
+  > 叠加后果:**macOS / Linux 客户端两条端点都拿不到更新**。已把 feed tag 归位到它原本的目标提交(不前移)并复验:
+  > 回退端点 `GET=200`、`version 0.1.44`、平台数 4。**剩一条未修(如实登记)**:主端点缺 mac/linux 键,
+  > mac/linux 目前只能靠回退端点续命。判据提示:**端点是否活着只能靠 HTTP 实测 + `git ls-remote` 双向核**,
+  > 不能读文档、也不能看 CI 绿灯 —— `Publish Updater JSON` job 全程 success,而它的产物当时 404。
+- 签名密钥对已通过 `generate-tauri-keys.yml` 生成,公钥已写入 conf(公钥在仓库、**私钥只在 CI secrets** 与发版机
+  `~/.tauri/ihui-updater.key`;本机若无该文件,本地打包只能走 `DESKTOP_ALLOW_UNSIGNED=1` 出**不可发版**的包)
+
+> ✅ **触发方式铁律已被实测推翻(2026-09-24)**:本节下方原先写"tag push 触发 `release-desktop.yml` 历史上
+> #15-#22 几乎全失败,必须用 workflow_dispatch"。本次 **0.1.44 用 `git push origin refs/tags/desktop-v0.1.44`
+> 触发,run #82 六个 job 全 success**(windows / macos-universal / linux 三平台构建 + Publish Updater JSON +
+> Sync Downloads + Sync release to Gitee),Release 资产 14 个齐全(含 `AI_0.1.44_x64-setup.exe` 与 `.sig`)。
+> 原文保留是为了不让后人重蹈当时的误判方向。两条操作注意:回读 feed/资产一律用 `GET`(HEAD 经代理不稳);
+> **别重推旧的 `desktop-v*` tag** —— 那会再触发一次该平台发版,可能把 `latest.json` 写回旧版本(等于给用户降级)。
+
 
 ### 发版流程(每次桌面版发布)
 
