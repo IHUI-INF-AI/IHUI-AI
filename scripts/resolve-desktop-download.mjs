@@ -40,6 +40,8 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+// 平台映射判据唯一真相源(与 scripts/generate-latest-json.mjs 共用,勿在此二次实现)
+import { inferPlatformForPackage, buildUpdaterPlatforms } from './lib/tauri-updater-platforms.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -174,11 +176,14 @@ async function readLocalSnapshot() {
   if (!existsSync(SNAPSHOT_PATH)) return null
   try {
     const src = await readFile(SNAPSHOT_PATH, 'utf-8')
-    const marker = 'export const DESKTOP_FEED = '
-    const start = src.indexOf(marker)
-    if (start === -1) return null
-    // 自产格式:marker 之后即对象字面量(无尾分号),整体 eval 解析
-    const body = src.slice(start + marker.length)
+    // 2026-09-24 修既有缺陷:快照实际导出形态是带类型标注的
+    // `export const DESKTOP_FEED: DesktopFeed = {`,旧 marker 找的是无标注形态,
+    // 永远 indexOf === -1 → 本地快照恒读成 null → --check 恒判"有差异"、
+    // snapshotEqual 恒 false(每次 CI 都重写快照)。改为容忍类型标注的正则。
+    const markerMatch = src.match(/export const DESKTOP_FEED(?:\s*:\s*[\w.<>\s|]+)?\s*=\s*/)
+    if (!markerMatch || markerMatch.index === undefined) return null
+    // 自产格式:marker 之后即对象字面量(尾随注释不影响 eval),整体 eval 解析
+    const body = src.slice(markerMatch.index + markerMatch[0].length)
     return Function(`"use strict"; return (${body})`)()
   } catch {
     return null
@@ -241,7 +246,10 @@ async function resolveFromGitee() {
     }
     const mapped = mapAsset({ name: asset.name, browser_download_url: href, size }, version)
     if (mapped) {
-      // 2026-09-17:同步抓取 .sig 签名内容(几 KB)→ 供 /api/desktop-feed 输出 updater 格式
+      // 2026-09-17:同步抓取 .sig 签名内容(几 KB)→ 供站点 feed 输出 updater 格式。
+      // Gitee 不单独产 updater 条目:windows 键必须与下载页 assets 取同一合并结果
+      // (Gitee 同名平台可能有多个历史资产,assets 的 format|arch 归一已定序);
+      // mac/linux 的 Gitee 直链实测 404,由 GitHub 源补齐。
       mapped.signature = await fetchSignature(`${href}.sig`)
       assets.push(mapped)
     }
@@ -310,12 +318,32 @@ async function resolveFromGithub() {
       .filter((a) => typeof a.name === 'string' && a.name.endsWith('.sig'))
       .map((a) => [a.name, a.browser_download_url]),
   )
+  // 同一 .sig 可能被下载页资产与 updater 条目各取一次 → 会话内缓存去重
+  const sigCache = new Map()
+  /** @param {string | undefined} url @returns {Promise<string>} */
+  const getSignature = async (url) => {
+    if (!url) return ''
+    if (!sigCache.has(url)) sigCache.set(url, await fetchSignature(url))
+    return sigCache.get(url)
+  }
   const assets = []
+  // updater 候选(2026-09-24):含下载页不展示的 `.app.tar.gz`(macOS 唯一可更新产物);
+  // dmg 由 inferPlatformForPackage 判 null 天然排除。空签名条目由 buildUpdaterPlatforms 过滤。
+  const updaterEntries = []
   for (const asset of release.assets || []) {
     const mapped = mapAsset(asset, version)
-    if (!mapped) continue
-    mapped.signature = await fetchSignature(sigUrlByName.get(`${asset.name}.sig`))
-    assets.push(mapped)
+    // `.sig` 资产名同样能被 inferPlatformForPackage 命中(.app.tar.gz.sig 等),
+    // 但其 URL 是签名文件本体,绝不能作为安装包条目 → 显式排除。
+    const isUpdaterPkg = !asset.name.endsWith('.sig') && Boolean(inferPlatformForPackage(asset.name))
+    if (!mapped && !isUpdaterPkg) continue
+    const signature = await getSignature(sigUrlByName.get(`${asset.name}.sig`))
+    if (mapped) {
+      mapped.signature = signature
+      assets.push(mapped)
+    }
+    if (isUpdaterPkg) {
+      updaterEntries.push({ name: asset.name, url: asset.browser_download_url, signature })
+    }
   }
   if (assets.length === 0) {
     throw new Error(`No install assets found in release ${release.tag_name} for version ${version}`)
@@ -328,6 +356,7 @@ async function resolveFromGithub() {
     resolvedFromTag: release.tag_name,
     resolvedAt: new Date().toISOString(),
     assets,
+    updaterEntries,
   }
 }
 
@@ -358,6 +387,39 @@ function sortAssets(assets) {
  *   - 跨版本窗口期(本机发版后 CI 未跑完):Gitee=新 / GitHub=旧 时会混入旧版
  *     macOS/Linux 资产,输出 warn;CI sync-downloads 跑完后自动归一。
  */
+/** 从资产 href 反解文件名(github 直链为原样名、gitee 直链为 encodeURIComponent 形态) */
+function nameFromHref(href) {
+  const last = String(href).split('/').pop().split('?')[0]
+  try {
+    return decodeURIComponent(last)
+  } catch {
+    return last
+  }
+}
+
+/**
+ * 由最终快照数据构建 updaterPlatforms(站点 feed 的 platforms 映射)。
+ * 条目取序 = 合并后的 assets(下载页与 feed 同源 —— windows 键与旧 route
+ * `assets.find(/Windows/i)` 消费的是同一对象,逐字节不变),再加下载页不展示的
+ * updater 专属产物兜底(macOS 唯一可更新产物 `.app.tar.gz`、rpm 等,URL 恒为
+ * GitHub 直链 —— Gitee mac/linux 资产实测 404)。空签名/白名单外 host 不出键。
+ */
+function withUpdaterPlatforms(data) {
+  // gitee 源单独命中时 data 带着 giteeReleasesUrl,它不进快照 → 解构剥离(下划线前缀 = 刻意弃用,eslint /^_/u)
+  const { updaterEntries, giteeReleasesUrl: _giteeReleasesUrl, ...rest } = data
+  const assetEntries = (data.assets || []).map((a) => ({
+    name: nameFromHref(a.href),
+    url: a.href,
+    signature: a.signature || '',
+  }))
+  const seenNames = new Set(assetEntries.map((e) => e.name))
+  const extras = (updaterEntries || []).filter((e) => !seenNames.has(e.name))
+  return {
+    ...rest,
+    updaterPlatforms: buildUpdaterPlatforms([...assetEntries, ...extras], { version: data.version }),
+  }
+}
+
 async function resolveOnline() {
   const fromGitee = await resolveFromGitee()
   let fromGithub = null
@@ -368,15 +430,19 @@ async function resolveOnline() {
     console.warn(
       `[resolve] GitHub 源解析失败(${err instanceof Error ? err.message : String(err)}),仅用 Gitee 源 ${fromGitee.resolvedFromTag}(${fromGitee.assets.length} 个资产)`,
     )
-    return {
-      ...fromGitee,
-      resolvedAt: new Date().toISOString(),
-      githubReleasesUrl: fromGitee.giteeReleasesUrl,
-    }
+    // GitHub 不可达时 darwin/linux 无可靠直链(Gitee 侧实测 404),updaterPlatforms
+    // 只会剩 windows 键 —— 空签名/被拒 host 不出键,行为与旧版站点 feed 等价。
+    return withUpdaterPlatforms(
+      {
+        ...fromGitee,
+        resolvedAt: new Date().toISOString(),
+        githubReleasesUrl: fromGitee.giteeReleasesUrl,
+      },
+    )
   }
   if (!fromGitee) {
     console.log(`[resolve] Gitee 源未命中,使用 GitHub 源: ${fromGithub.resolvedFromTag}(${fromGithub.assets.length} 个资产)`)
-    return fromGithub
+    return withUpdaterPlatforms(fromGithub)
   }
   if (fromGitee.version !== fromGithub.version) {
     console.warn(
@@ -395,14 +461,17 @@ async function resolveOnline() {
   })
   for (const g of giteeMap.values()) merged.push(g)
 
-  return {
+  return withUpdaterPlatforms({
     version: fromGitee.version,
     releaseDate: fromGitee.releaseDate,
     githubReleasesUrl: fromGitee.giteeReleasesUrl,
     resolvedFromTag: fromGitee.resolvedFromTag,
     resolvedAt: new Date().toISOString(),
     assets: sortAssets(merged),
-  }
+    // extras 用 GitHub 全量 updater 候选(含下载页不展示的 .app.tar.gz;
+    // 与 assets 重名者由 withUpdaterPlatforms 去重)
+    updaterEntries: fromGithub.updaterEntries,
+  })
 }
 
 /** 序列化快照为 TS 文件内容(prettier 兼容格式:单引号 + 2 空格 + 尾逗号) */
@@ -413,6 +482,11 @@ function serializeSnapshot(data) {
       // 下游 TS 类型因此稳定,不会出现「快照一刷新就 typecheck 报 TS2339」的反复回归。
       return `    { href: '${a.href}', sizeBytes: ${a.sizeBytes}, format: '${a.format}', arch: '${a.arch}', signature: '${a.signature || ''}' },`
     })
+    .join('\n')
+  // 2026-09-24:updater 四平台映射(站点 feed 直接输出,不再由 route 自己按
+  // /Windows/i 挑单条)。键由 buildUpdaterPlatforms 保证稳定序与非空签名。
+  const platformLines = Object.entries(data.updaterPlatforms || {})
+    .map(([k, v]) => `    '${k}': { url: '${v.url}', signature: '${v.signature}' },`)
     .join('\n')
   return `// AUTO-GENERATED by scripts/resolve-desktop-download.mjs — 请勿手动编辑
 // 数据源:GitHub Releases 最新 ${RELEASE_PREFIX}* release 资产(发版后由 CI 自动刷新)
@@ -425,6 +499,12 @@ export interface DesktopFeedAsset {
   signature: string
 }
 
+/** Tauri updater 平台条目:url 必须是 GitHub/Gitee 资产直链,signature 非空 */
+export interface DesktopFeedUpdaterEntry {
+  url: string
+  signature: string
+}
+
 export interface DesktopFeed {
   version: string
   releaseDate: string
@@ -432,6 +512,12 @@ export interface DesktopFeed {
   resolvedFromTag: string
   resolvedAt: string
   assets: DesktopFeedAsset[]
+  /**
+   * Tauri updater feed 的 platforms 映射(键:windows-x86_64 / linux-x86_64 /
+   * darwin-x86_64 / darwin-aarch64;缺签名/host 不可达的平台不出现)。
+   * 历史快照无此字段(route 有 windows 兜底派生)。
+   */
+  updaterPlatforms?: Record<string, DesktopFeedUpdaterEntry>
 }
 
 export const DESKTOP_FEED: DesktopFeed = {
@@ -442,9 +528,22 @@ export const DESKTOP_FEED: DesktopFeed = {
   resolvedAt: '${data.resolvedAt}',
   assets: [
 ${assetLines}
-  ],
+  ],${platformLines ? `
+  updaterPlatforms: {
+${platformLines}
+  },` : ''}
 }
 `
+}
+
+/** 深度比较两份 updaterPlatforms(键集 + 每键 url/signature) */
+function updaterPlatformsEqual(a, b) {
+  const pa = (a && a.updaterPlatforms) || {}
+  const pb = (b && b.updaterPlatforms) || {}
+  const ka = Object.keys(pa).sort()
+  const kb = Object.keys(pb).sort()
+  if (ka.join('|') !== kb.join('|')) return false
+  return ka.every((k) => pa[k].url === pb[k].url && (pa[k].signature || '') === (pb[k].signature || ''))
 }
 
 /** 深度比较两份快照(忽略 resolvedAt) */
@@ -453,6 +552,7 @@ function snapshotEqual(a, b) {
   if (a.version !== b.version || a.releaseDate !== b.releaseDate) return false
   if (a.githubReleasesUrl !== b.githubReleasesUrl) return false
   if ((a.assets || []).length !== (b.assets || []).length) return false
+  if (!updaterPlatformsEqual(a, b)) return false
   return (a.assets || []).every((item, i) => {
     const other = (b.assets || [])[i]
     return (
@@ -474,6 +574,12 @@ function printSnapshot(label, data) {
   for (const a of data.assets) {
     console.log(`  - ${a.format}${a.arch ? ` (${a.arch})` : ''} ${formatBytes(a.sizeBytes)}`)
     console.log(`    ${C.dim}${a.href}${C.reset}`)
+  }
+  const platformKeys = Object.keys(data.updaterPlatforms || {})
+  if (platformKeys.length === 0) {
+    console.log(`  updaterPlatforms: ${C.yellow}(空 — 站点 feed 将回落 windows 派生)${C.reset}`)
+  } else {
+    console.log(`  updaterPlatforms: ${platformKeys.join(', ')}`)
   }
 }
 
