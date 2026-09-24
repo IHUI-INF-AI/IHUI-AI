@@ -2742,5 +2742,8 @@
       }
     },
     "vividTail": "、まもなくです"
+  },
+  "notification": {
+    "pushBannerTitle": "新着メッセージ"
   }
 }
