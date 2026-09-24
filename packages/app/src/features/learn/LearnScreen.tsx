@@ -66,7 +66,9 @@ export function LearnScreen({
   const renderSectionHeader = (title: string, onMore?: () => void) => (
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionTitle}>{title}</Text>
-      {onMore ? <MoreLink label="更多" onPress={onMore} colorScheme={colorScheme} /> : null}
+      {onMore ? (
+        <MoreLink label={t('common.more')} onPress={onMore} colorScheme={colorScheme} />
+      ) : null}
     </View>
   )
 
