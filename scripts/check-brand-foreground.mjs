@@ -17,8 +17,11 @@
  *     范围保持 apps/mobile-rn/src(基线按此口径建立,扩范围会误伤存量)。
  *  R3 纯白填充 ratchet(2026-09-23 立):`(backgroundColor|borderColor): (tokens|tk).brand.DEFAULT`
  *     在深色档案下就是**纯白**(实测压 #1A1A1A 卡面 17.4:1 = 用户报的"刺眼")。
- *     主 CTA 一律走 `brand.ctaFill`/`brand.ctaText`(浅色与 brand.DEFAULT 同值 ⇒ 存量外观零变化,
- *     深色给非纯白)。本条不拦存量(基线冻结),只拦"新增/回潮"。范围含 packages/app。
+ *     主 CTA 一律 `brand.DEFAULT` + `brand.foreground` **成对**(= web 的 --color-primary /
+ *     --color-primary-foreground,AGENTS §4 品牌 CTA 同源)。曾为此另立的端内档 `brand.ctaFill`/
+ *     `brand.ctaText` 已于 2026-09-24 删除 —— 它是"RN 自成一份主按钮色"的第二真相源,删档后
+ *     深色主按钮随 web 走纯白(要调观感改 tokens.css 的 .dark --color-primary 一处,三端同动)。
+ *     本条不拦存量(基线冻结),只拦"新增/回潮"。范围含 packages/app。
  *
  * 用法:
  *   node scripts/check-brand-foreground.mjs                  # 全量
@@ -219,8 +222,10 @@ function run(options) {
         '',
         '  💡 修复:容器背景用 tokens.surface.card / surface.muted / surface.inputBg;',
         '     品牌底(brand.DEFAULT)上的文字用 tokens.brand.foreground(深色自动翻黑);',
-        '     主 CTA / 选中态胶囊改用 brand.ctaFill + brand.ctaText(浅色与 brand.DEFAULT 同值,',
-        '     深色非纯白)—— 这是 R3 的正解,不要逐处硬写颜色;',
+        '     主 CTA / 选中态胶囊一律 brand.DEFAULT + brand.foreground 成对(= web 的 --color-primary',
+        '     + --color-primary-foreground,AGENTS §4),不要逐处硬写颜色;',
+        '     ⚠️ brand.ctaFill / ctaText 已于 2026-09-24 删除(消掉 RN 第二份主按钮色真相源),',
+        '        不得按旧文档把它加回来 —— 对已删键的引用由守门 90 R3 判红;',
         '     覆盖在图片/彩色底上的白色前景属合法,基线棘轮只拦「比基线更多」。',
         '     收紧基线(人工确认后,全量口径):node scripts/check-brand-foreground.mjs --update-baseline',
         '     自检:node scripts/check-brand-foreground.mjs --self-test',
@@ -280,10 +285,10 @@ function selfTest() {
     findR1Violations(['  btn: {', '    backgroundColor: tk.brand.DEFAULT,', '    color: tk.brand.foreground,', '  },']).length === 0,
     'R1 不应命中 tk.brand.foreground(正确前景)',
   )
-  // R3:brand.DEFAULT 填充/描边计数;ctaFill 是正解故不计
+  // R3:brand.DEFAULT 填充/描边计数(与前景是否成对由 R1 管;退役档名 ctaFill 不计数,引用它即守门 90 的悬空红)
   assert(countCtaFills(['    backgroundColor: tokens.brand.DEFAULT,']) === 1, 'R3 tokens.brand.DEFAULT 背景计 1')
   assert(countCtaFills(['    borderColor: tk.brand.DEFAULT,']) === 1, 'R3 tk.brand.DEFAULT 描边计 1')
-  assert(countCtaFills(['    backgroundColor: tokens.brand.ctaFill,']) === 0, 'R3 不应命中 ctaFill(正解)')
+  assert(countCtaFills(['    backgroundColor: tokens.brand.ctaFill,']) === 0, 'R3 不计数退役档名 ctaFill(它已不存在,引用即守门 90 的悬空红)')
   assert(countCtaFills(['    color: tokens.brand.foreground,']) === 0, 'R3 不计前景色')
   assert(countCtaFills(['    backgroundColor: tokens.brand.DEFAULTISH,']) === 0, 'R3 边界:同前缀字段不得误计')
   console.log('✅ check-brand-foreground self-test 全部通过')
