@@ -948,9 +948,121 @@ def _resolve_ihui_auto_model() -> str:
     return chosen
 
 
+# ============================================================================
+# D16:成本感知智能路由接线(2026-09-25 立)
+# ----------------------------------------------------------------------------
+# `app/services/model_router.py` 早已具备 assess_complexity / route / route_live /
+# from_catalog / budget_usd 五块能力,但生产链只调了 assess_complexity ⇒
+# "选哪个模型"仍走静态优先级,成本感知与预算降级对用户不可达。以下三个入口把
+# route_live()/from_catalog() 接进 `_resolve_auto_model` 的候选池收口处。
+#
+# 安全前提(不可放宽):路由器**只能在网关已经过滤过的候选池里重排**,不得引入
+# 池外模型 —— from_catalog 在过滤后为空时会兜底回 DEFAULT_MODELS(gpt-4o 等本部署
+# 明确不可用的模型,见 _AUTO_ROUTE_EXCLUDED 注释),所以决策结果必须回查池成员,
+# 不在池内即维持既有顺序。路由层任何异常同样只维持既有结果:一次路由失败绝不
+# 能变成一次用户请求失败。
+# ============================================================================
+
+def _model_router_wiring_enabled() -> bool:
+    """成本感知路由接线开关(D16)。
+
+    默认 on:实测本部署默认目录/凭据状态下,路由器给出的首选与接线前
+    `candidates[0]`(运维预设 settings.litellm_model)**逐字相同**(由
+    tests/test_model_router_wiring.py::test_real_catalog_path_consumed_and_safe 钉住),
+    所以默认启用不构成行为回退;真正的差异只在目录带上真实价格后才会显现。
+    设为 off/0/false/no 即逐字回到接线前的选择顺序(应急回退通道,无需改码)。
+    """
+    return os.environ.get("LLM_MODEL_ROUTER_WIRING_ENABLED", "true").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _auto_route_budget_usd_from_env() -> float | None:
+    """本轮 auto 路由的花费上限(美元),来自 LLM_AUTO_ROUTE_BUDGET_USD。
+
+    未设 / 非数 / 非正 ⇒ None(不施加预算降级,行为与未加该参数前一致)。
+    """
+    raw = os.environ.get("LLM_AUTO_ROUTE_BUDGET_USD", "").strip()
+    if not raw:
+        return None
+    try:
+        value = float(raw)
+    except ValueError:
+        logger.warning("[auto-route] LLM_AUTO_ROUTE_BUDGET_USD=%r 无法解析,忽略预算降级", raw)
+        return None
+    return value if value > 0 else None
+
+
+def _apply_cost_aware_routing(
+    candidates: list[str],
+    models_by_id: dict[str, dict[str, Any]],
+    prompt_text: str,
+    *,
+    has_tools: bool,
+    budget_usd: float | None,
+) -> list[str]:
+    """用 ModelRouter 对**已有候选池**做成本感知重排,返回新的候选顺序。
+
+    - 入参 `candidates` 即接线前网关已经过可用性/LOCAL/预设过滤的有序候选;
+      本函数只会重排它,绝不新增、绝不删除 ⇒ 决策不可能指向池外(不可调用)的模型。
+    - `budget_usd` 给出时走 `route(budget_usd=...)`(预算降级会把选择往下截,
+      并在全部超预算时落到最便宜档 + `budget_exceeded=True`,据实 warn);
+      未给出时走语义化的实时入口 `route_live()`。
+    - 开关关闭 / 候选不足 2 / 目录取不到 / 决策模型不在池内 / 任何异常
+      ⇒ 原样返回入参列表(降级不阻塞)。
+    """
+    original = list(candidates)
+    if len(original) < 2 or not _model_router_wiring_enabled():
+        return original
+    try:
+        from ..services.model_router import ModelRouter
+
+        pool = [models_by_id[mid] for mid in original if mid in models_by_id]
+        if len(pool) < 2:
+            return original
+        token_count = max(0, len(prompt_text) // 4)
+        router = ModelRouter.from_catalog(models=pool)
+        kwargs: dict[str, Any] = {
+            "prompt": prompt_text[:20000],  # 截断避免超大 prompt 评估开销(与 assess_complexity 同口径)
+            "token_count": token_count,
+            "has_tools": has_tools,
+            "has_code": "```" in prompt_text,
+        }
+        if budget_usd is None:
+            decision = router.route_live(**kwargs)
+        else:
+            decision = router.route(**kwargs, budget_usd=budget_usd)
+        picked = decision.selected_model
+        if picked not in set(original):
+            # from_catalog 兜底会带回 DEFAULT_MODELS(本部署不可用),这里必须挡住
+            logger.info(
+                "[auto-route] 成本感知路由决策 %r 不在可用候选池内,维持既有顺序", picked
+            )
+            return original
+        if decision.budget_exceeded:
+            logger.warning(
+                "[auto-route] 预算 $%g 已超且无更省可选,落到最便宜档 %r (est_cost=$%.6f)",
+                budget_usd or 0.0, picked, decision.estimated_cost,
+            )
+        else:
+            logger.info(
+                "[auto-route] 成本感知路由 %r -> %r (complexity=%s, est_cost=$%.6f, "
+                "budget=%s, reason=%s)",
+                original[0], picked, decision.complexity.value, decision.estimated_cost,
+                f"${budget_usd:g}" if budget_usd is not None else "none", decision.reason,
+            )
+        if picked == original[0]:
+            return original
+        return [picked] + [c for c in original if c != picked]
+    except Exception as e:  # noqa: BLE001 - 路由失败绝不允许打穿到用户请求
+        logger.warning("[auto-route] 成本感知路由失败,维持既有顺序(降级): %s", e)
+        return original
+
+
 async def _resolve_auto_model(
     has_tools: bool = False,
     messages: list[dict[str, Any]] | None = None,
+    budget_usd: float | None = None,
 ) -> str:
     """跨厂商自动路由:从 model_availability 全量可用模型中选最优。
 
@@ -959,7 +1071,11 @@ async def _resolve_auto_model(
     2. 优先 zero_cost / LOCAL(完全免费)
     3. 按 tier 选最小可用档(0/1 → 3 → 10 → 30,逐步升级,避免一开始就烧高级模型)
     4. tool calling 场景(has_tools=True):在前 3 名候选中筛掉不支持 function calling 的
-    5. 全部失败:回退 settings.litellm_model(由运维预设,通常是稳定的 plan 套餐模型)
+    5. D16(2026-09-25):对上面收口出的候选池再做一次**成本感知重排**
+       (model_router.route_live()/route(budget_usd=)),只重排不扩池
+    6. 全部失败:回退 settings.litellm_model(由运维预设,通常是稳定的 plan 套餐模型)
+
+    `budget_usd` 缺省时取环境变量 LLM_AUTO_ROUTE_BUDGET_USD(未设即不施预算)。
 
     行为日志:返回前 logger.info 记录「auto → X」便于审计,生产环境可观测路由决策。
     """
@@ -969,7 +1085,8 @@ async def _resolve_auto_model(
         from ..services.model_availability import model_availability
         from .provider_caps import get_provider_cap
 
-        # 加载 default_models.json(只取 id 字段足够,其他元数据不强制需要)
+        # 加载 default_models.json(保留完整条目:D16 起 model_router 需要
+        # context_length / input_price / caps 等元数据做成本感知打分)
         default_file = Path(__file__).resolve().parent.parent / "data" / "default_models.json"
         all_models: list[dict[str, Any]] = []
         if default_file.exists():
@@ -977,9 +1094,12 @@ async def _resolve_auto_model(
                 raw = json.loads(default_file.read_text(encoding="utf-8"))
                 for m in raw.get("models", []):
                     if isinstance(m, dict) and m.get("id"):
-                        all_models.append({"id": m["id"]})
+                        all_models.append(m)
             except Exception as e:
                 logger.warning("[auto-route] 读取 default_models.json 失败: %s", e)
+        models_by_id: dict[str, dict[str, Any]] = {
+            str(m["id"]): m for m in all_models if m.get("id")
+        }
 
         # 过滤:只保留 model_availability 判定为可用的,且排除 LOCAL provider
         # (ollama/lmstudio/llamacpp/vllm):is_model_available 对 LOCAL 直接返回 True(UI 显示用),
@@ -1032,12 +1152,12 @@ async def _resolve_auto_model(
         # L5-6(2026-08-12):任务复杂度感知路由——复杂/专家任务跳过免费与廉价模型,
         # 直接给高级模型(能力匹配),简单任务维持免费优先(成本优先)。
         # 评估失败/无高级模型时静默维持原候选(降级不阻塞)。
+        prompt_text = ""
+        if messages:
+            for m in messages:
+                if isinstance(m, dict) and isinstance(m.get("content"), str):
+                    prompt_text += m["content"] + "\n"
         try:
-            prompt_text = ""
-            if messages:
-                for m in messages:
-                    if isinstance(m, dict) and isinstance(m.get("content"), str):
-                        prompt_text += m["content"] + "\n"
             from ..services.model_router import TaskComplexity, model_router
 
             complexity = model_router.assess_complexity(
@@ -1078,6 +1198,19 @@ async def _resolve_auto_model(
                 candidates = free_pool + [c["id"] for c in cheap_pool[:3]]
                 if not candidates:
                     return fallback
+
+        # D16(2026-09-25):成本感知智能路由 —— 对上一步收口出的候选池做重排
+        # (model_router.route_live()/route(budget_usd=))。只重排不扩池,
+        # 失败/决策模型不在池内一律维持既有顺序,绝不让一次路由失败变成请求失败。
+        if budget_usd is None:
+            budget_usd = _auto_route_budget_usd_from_env()
+        candidates = _apply_cost_aware_routing(
+            candidates,
+            models_by_id,
+            prompt_text,
+            has_tools=has_tools,
+            budget_usd=budget_usd,
+        )
 
         chosen = candidates[0] if candidates else fallback
         logger.info(
