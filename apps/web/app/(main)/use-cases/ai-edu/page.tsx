@@ -234,7 +234,7 @@ export default async function AiEduPage() {
               href="/use-cases"
               className="inline-flex h-9 items-center gap-1.5 rounded-md bg-cta px-4 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
             >
-              查看更多用例
+              <span>查看更多用例</span>
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
             <Link

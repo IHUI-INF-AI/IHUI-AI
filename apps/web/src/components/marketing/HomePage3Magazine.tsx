@@ -9,9 +9,10 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronRight, FileText, Loader2, RefreshCw } from 'lucide-react'
+import { FileText, Loader2, RefreshCw } from 'lucide-react'
 import { Card } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
+import { ViewMoreLink } from '@/components/common/view-more-link'
 
 interface NewsItem {
   id: string
@@ -194,6 +195,7 @@ function Skeleton() {
 
 export function HomePage3Magazine() {
   const t = useTranslations('marketing.magazine')
+  const tc = useTranslations('common')
   const [activeTab, setActiveTab] = React.useState<TabKey>('platform')
 
   // 2026-08-12 新增:拉取 status 端点拿"今日生成 / 最后更新时间"用于 header 文案。
@@ -402,13 +404,7 @@ export function HomePage3Magazine() {
           配合根容器 flex-1,空数据时 Card 已占满中间空间,链接紧跟 Card 下方
           不再悬空。 */}
       <div className="mt-auto flex justify-end pt-2">
-        <Link
-          href="/news"
-          className="flex items-center gap-0.5 text-xs text-muted-foreground transition-colors hover:text-primary"
-        >
-          {t('viewMore')}
-          <ChevronRight className="h-3 w-3" />
-        </Link>
+        <ViewMoreLink label={tc('more')} href="/news" />
       </div>
     </div>
   )
