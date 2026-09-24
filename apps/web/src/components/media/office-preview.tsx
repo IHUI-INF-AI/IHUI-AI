@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:IHUI-AI·智汇AI·李春川·LC·aizhs.top·PROVENANCE-2026
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 'use client'
 
@@ -8,6 +8,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { ExternalLink, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { AnnotationAnchorCapture } from '@/components/chat/annotation-anchor'
 import type { WorkBook } from 'xlsx'
 
 /**
@@ -38,8 +39,10 @@ export const OFFICE_HARD_MAX = 50 * 1024 * 1024
 /** xlsx 表格默认最多渲染行数(防巨表)。 */
 export const XLSX_PREVIEW_MAX_ROWS = 200
 
-/** 支持富预览的扩展名(小写、不带点)。 */
-const SUPPORTED_EXTS = new Set(['docx', 'xlsx', 'pptx'])
+/** 支持富预览的扩展名(小写、不带点)。
+ *  D76(2026-09-24 立)导出供 artifact-turn-badge 分型判据 import 复用——
+ *  docx/xlsx/pptx 三型的 kind 判据唯一真相源在此,禁止第二套。 */
+export const SUPPORTED_EXTS = new Set(['docx', 'xlsx', 'pptx'])
 
 export type OfficePreviewStatus =
   | 'probing'
@@ -74,6 +77,12 @@ function DocxBody({ data }: { data: ArrayBuffer }) {
   const t = useTranslations('chat')
   const ref = React.useRef<HTMLDivElement | null>(null)
   const [failed, setFailed] = React.useState(false)
+  // D91(2026-09-24 立):渲染 DOM 文本选区 → 段落序号锚,经 AnnotationAnchorCapture
+  // 走 D22 事件族派发(docx-preview 无页码概念,按任务规格锚段落序号/文本摘要)。
+  const [selection, setSelection] = React.useState<{
+    readonly paragraph: number
+    readonly excerpt: string
+  } | null>(null)
 
   React.useEffect(() => {
     let cancelled = false
@@ -92,12 +101,50 @@ function DocxBody({ data }: { data: ArrayBuffer }) {
   if (failed) {
     return <p className="p-3 text-xs text-muted-foreground">{t('officeFailed')}</p>
   }
+  // D91 选区采集:mouseup 时取 window 选区,锚定所在段落(1 起)与文本摘要
+  const handleDocxMouseUp = (): void => {
+    const container = ref.current
+    const sel = document.getSelection()
+    const text = sel?.toString().trim() ?? ''
+    if (!container || !sel || sel.isCollapsed || !text) {
+      setSelection(null)
+      return
+    }
+    const node = sel.anchorNode
+    if (!node || !container.contains(node)) {
+      setSelection(null)
+      return
+    }
+    const el = node.nodeType === Node.TEXT_NODE ? node.parentElement : (node as Element)
+    const p = el?.closest('p') ?? null
+    const paragraphs = container.querySelectorAll('p')
+    const index = p ? Array.prototype.indexOf.call(paragraphs, p) : -1
+    if (index < 0) {
+      setSelection(null)
+      return
+    }
+    setSelection({ paragraph: index + 1, excerpt: text.slice(0, 200) })
+  }
+
   return (
-    <div
-      ref={ref}
-      data-testid="docx-body"
-      className="max-h-[420px] overflow-auto bg-white p-3 text-sm"
-    />
+    <>
+      {selection && (
+        <AnnotationAnchorCapture
+          anchor={{ kind: 'docx' }}
+          docxParagraph={selection.paragraph}
+          initialNote={selection.excerpt}
+          source="docx-selection"
+          onDispose={() => setSelection(null)}
+          data-testid="docx-anchor-capture"
+        />
+      )}
+      <div
+        ref={ref}
+        onMouseUp={handleDocxMouseUp}
+        data-testid="docx-body"
+        className="max-h-[420px] overflow-auto bg-white p-3 text-sm"
+      />
+    </>
   )
 }
 
@@ -123,6 +170,12 @@ function XlsxGrid({ data, maxRows }: { data: ArrayBuffer; maxRows: number }) {
   const t = useTranslations('chat')
   const [state, setState] = React.useState<XlsxGridState>(INITIAL_XLSX_STATE)
   const [failed, setFailed] = React.useState(false)
+  // D91(2026-09-24 立):单元格选区 → {sheet, range} 批注锚(AnnotationAnchorCapture
+  // 走 D22 事件族派发;左上角 officeSelectedCell 只读展示保持不变)
+  const [anchorCell, setAnchorCell] = React.useState<{
+    readonly sheet: string
+    readonly range: string
+  } | null>(null)
 
   React.useEffect(() => {
     let cancelled = false
@@ -196,7 +249,10 @@ function XlsxGrid({ data, maxRows }: { data: ArrayBuffer; maxRows: number }) {
             type="button"
             data-testid="xlsx-sheet-tab"
             data-active={name === state.active}
-            onClick={() => setState((prev) => ({ ...prev, active: name }))}
+            onClick={() => {
+              setAnchorCell(null)
+              setState((prev) => ({ ...prev, active: name }))
+            }}
             className={cn(
               'rounded px-1.5 py-0.5 text-[10px] transition-colors',
               name === state.active
@@ -238,7 +294,10 @@ function XlsxGrid({ data, maxRows }: { data: ArrayBuffer; maxRows: number }) {
                 <td
                   key={`c-${ci}`}
                   data-testid="xlsx-cell"
-                  onClick={() => setState((prev) => ({ ...prev, selected: { row: ri + 1, col: ci } }))}
+                  onClick={() => {
+                    setAnchorCell({ sheet: state.active, range: `${xlsxColumnRef(ci)}${ri + 1}` })
+                    setState((prev) => ({ ...prev, selected: { row: ri + 1, col: ci } }))
+                  }}
                   className="cursor-pointer border border-border px-2 py-1 hover:bg-muted/50"
                 >
                   {c}
@@ -248,6 +307,14 @@ function XlsxGrid({ data, maxRows }: { data: ArrayBuffer; maxRows: number }) {
           ))}
         </tbody>
       </table>
+      {anchorCell && (
+        <AnnotationAnchorCapture
+          anchor={{ kind: 'xlsx', sheet: anchorCell.sheet, range: anchorCell.range }}
+          source="xlsx-selection"
+          onDispose={() => setAnchorCell(null)}
+          data-testid="xlsx-anchor-capture"
+        />
+      )}
     </div>
   )
 }
@@ -483,3 +550,4 @@ export function OfficePreview({
     </div>
   )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
