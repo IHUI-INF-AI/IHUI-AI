@@ -283,6 +283,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingHorizontal: 10,
+      paddingTop: 48,
     },
     headerLeft: { flex: 1 },
     headerRight: { flexDirection: 'row', alignItems: 'center' },

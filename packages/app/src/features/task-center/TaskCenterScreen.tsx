@@ -1,13 +1,12 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TaskCenterItem, TaskCenterScreenProps, TaskCenterTab } from '../../types'
-
-import { rnRadius } from '@ihui/design-tokens'
 
 /** 任务中心共享屏 — props 注入式跨端组件 */
 export type { TaskCenterItem, TaskCenterScreenProps, TaskCenterTab }
@@ -156,7 +155,7 @@ function createStyles(tk: AppThemeTokens) {
     center: { alignItems: 'center', paddingVertical: 32 },
     emptyText: { fontSize: 14, color: tk.text.tertiary, marginTop: 8 },
     errorText: { fontSize: 14, color: tk.danger.DEFAULT },
-    header: { paddingHorizontal: 10, paddingBottom: 8 },
+    header: { paddingHorizontal: 10, paddingTop: 48, paddingBottom: 8 },
     backText: { fontSize: 16, color: tk.text.secondary },
     title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },

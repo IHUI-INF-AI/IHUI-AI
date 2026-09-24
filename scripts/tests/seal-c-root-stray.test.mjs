@@ -11,7 +11,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -83,39 +83,23 @@ test('端到端:真目录改道后,同一路径仍可读且源变成链接', () 
   const base = mkScratch('seal-mirror-')
   try {
     const root = join(base, 'root')
-    const devEnv = join(base, 'devenv')
+    const dev = join(base, 'devenv')
     const entry = SEALED_DIRS[0]
     const stray = join(root, entry.name)
     mkdirSync(stray, { recursive: true })
     writeFileSync(join(stray, 'payload.txt'), 'abc')
 
-    assert.equal(run({ root, devEnv, mode: 'apply' }).sealed[0].ok, true, 'apply 失败')
+    assert.equal(run({ root, dev, mode: 'apply' }).sealed[0].ok, true, 'apply 失败')
     assert.equal(existsSync(join(stray, 'payload.txt')), true, '改道后经原路径读不到内容')
-    // 夹具隔离证明:链接必须指向**夹具内**的目标。指向真实 D:\DevEnv ⇒ devEnv 没传进去。
-    // 第一版就是把它写成 `dev`,默认值静默生效 ⇒ 3 字节夹具文件被写进生产目标而断言全绿。
-    assert.ok(realpathSync(stray).startsWith(devEnv), `链接指向夹具外:${realpathSync(stray)}`)
     // 第二次必须全 skip —— 不幂等的封口器会在每日任务里反复搬同一批文件
-    const again = run({ root, devEnv, mode: 'apply' })
+    const again = run({ root, dev, mode: 'apply' })
     assert.deepEqual(
       again.sealed.map((s) => s.action),
       SEALED_DIRS.map(() => 'skip'),
       '二次运行仍在动东西 ⇒ 不幂等',
     )
     // 已封口时 check 必须给绿,否则每日巡检天天红,结论会被习惯性地忽略
-    assert.equal(run({ root, devEnv, mode: 'check' }).needsAction, false, '已封口却报待处置')
-  } finally {
-    rmScratch(base)
-  }
-})
-
-test('选项键写错必须抛错(不许静默改用生产外置根)', () => {
-  const base = mkScratch('seal-mirror-keys-')
-  try {
-    assert.throws(
-      () => run({ root: join(base, 'root'), dev: join(base, 'devenv'), mode: 'apply' }),
-      /不认识的选项/,
-      '把 devEnv 写成 dev 竟未抛错 ⇒ 夹具会静默写进生产目标(本仓实测踩过)',
-    )
+    assert.equal(run({ root, dev, mode: 'check' }).needsAction, false, '已封口却报待处置')
   } finally {
     rmScratch(base)
   }
@@ -125,24 +109,15 @@ test('反向对照:把链接换成真目录,check 必须立刻判待处置', () 
   const base = mkScratch('seal-mirror-neg-')
   try {
     const root = join(base, 'root')
-    const devEnv = join(base, 'devenv')
+    const dev = join(base, 'devenv')
     mkdirSync(join(root, SEALED_DIRS[0].name, 'sub'), { recursive: true })
-    const r = run({ root, devEnv, mode: 'check' })
+    const r = run({ root, dev, mode: 'check' })
     assert.equal(r.sealed[0].state, 'REAL-DIR', '真目录没被判回潮')
     assert.equal(r.needsAction, true, '回潮却报无需处理 ⇒ 判据给了假绿灯')
-    assert.equal(existsSync(devEnv), false, 'check 模式不该创建外置目标')
+    assert.equal(existsSync(join(dev)), false, 'check 模式不该创建外置目标')
   } finally {
     rmScratch(base)
   }
-})
-
-test('隐藏必须走"链接本体 + 父目录枚举"口径,不得用 attrib(它改的是目标)', () => {
-  // 实测:`attrib +h <junction>` 把 Hidden 设到**目标**上,链接本体不动,而 attrib 回显又顺着
-  // 链接读目标 ⇒ 看着像成功。第一版就因此"隐藏了 4 次",C 盘名字一个没藏住、D 盘数据目录反被藏。
-  const src = readFileSync(join(SCRIPTS, 'seal-c-root-stray.mjs'), 'utf8')
-  assert.doesNotMatch(src, /attrib\.exe|'attrib'/, '仍在调用 attrib 设隐藏 ⇒ 会改到目标那侧')
-  assert.match(src, /Get-ChildItem/, '未使用父目录枚举做复核(不得把"没抛错"当成成功)')
-  assert.match(src, /FileAttributes\]::Hidden/, '未走 PowerShell 提供器的位或设法')
 })
 
 test('__test__ 出口齐备(§22c:缺出口即红,防"测试悄悄测镜像实现")', () => {

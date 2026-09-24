@@ -374,6 +374,21 @@ const nextConfig: NextConfig = {
           source: '/api/self-healing/:path*',
           destination: `${IHUI_AI_PROXY_TARGET}/api/v1/self-healing/:path*`,
         },
+        // 2026-09-24 新增(O20 公网拓扑,owner 拍板"web 层反代白名单"方案):
+        // A2A 发现文档两条精确路径转发到 ai-service 8803。此前 ai-service 公网零暴露,
+        // 能力目录里 71 项 host:'ai-service' 的对外能力第三方根本连不通(2026-09-21 逐条实测)。
+        // 白名单纪律:**只放只读发现文档**(GET /.well-known/agent.json + agent-card.json),
+        // 不做 /ai-service/* 通配、不暴露 /.well-known/* 全域;调用类端点须逐项评估后另行显式登记。
+        // 卡片对外基址由 ai-service resolve_public_base_url 推导(request_host_of 优先
+        // x-forwarded-host + MCP_EXPORT_ALLOWED_HOSTS 白名单兜底),对反代 Host 重写免疫。
+        {
+          source: '/.well-known/agent.json',
+          destination: `${IHUI_AI_PROXY_TARGET}/.well-known/agent.json`,
+        },
+        {
+          source: '/.well-known/agent-card.json',
+          destination: `${IHUI_AI_PROXY_TARGET}/.well-known/agent-card.json`,
+        },
         // 2026-07-31 新增:MCP 路由直接转发到 ai-service 8803
         // 原因:MCP 工具/资源/提示词/skill/slash 命令的 router 注册在 ai-service 8803 的 /api 前缀下,
         // IDE McpPane 组件调用 listMCPTools 等端点路径为 /mcp/*,normalizeUrl 加 /api 前缀后变成 /api/mcp/*,
