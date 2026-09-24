@@ -23,6 +23,9 @@ const {
   resolveSpecifier,
   importSpecifiers,
   exportedSymbols,
+  consumerEnds,
+  buildReverseIndex,
+  listSourceFiles,
   buildPackageMap,
   buildDirectDeps,
   endsDependingOnPackage,
@@ -67,6 +70,8 @@ test('§22c:源脚本必须 export __test__ 且关键判据函数可 import(唯�
     'resolveSpecifier',
     'consumerEnds',
     'reverseClosure',
+    'tableScopedSymbols',
+    'tableReachableNames',
     'taroBundleViews',
     'guardNoTables',
     'run',
@@ -382,6 +387,74 @@ test('真表 × 真语料注入:删掉 web/ko 的一个键 → W3 点名 1 处',
   assert.equal(r.failures[0].rule, 'W3')
   assert.equal(r.failures[0].where, 'web/ko')
   assert.equal(r.failures[0].key, target)
+})
+
+test('消费端符号粒度:同模块多导出时,只认读到这张表的那几个', () => {
+  const SRC = [
+    "export const WORDS: Record<string, string> = { a: 'ns.a', b: 'ns.b' }",
+    'const ZH_ONLY: Record<string, string> = { a: "甲", b: "乙" }',
+    'export function keyOf(k: string) { return WORDS[k] }',
+    'export function zhOnly(k: string) { return ZH_ONLY[k] }',
+  ].join('\n')
+  assert.deepEqual([...gate.tableScopedSymbols(SRC, 'WORDS')].sort(), ['WORDS', 'keyOf'])
+  // 变异对照:让 zhOnly 也读这张表,它必须立刻进触表面(判据不是按名字写死的白名单)
+  assert.equal(
+    gate.tableScopedSymbols(SRC.replace('ZH_ONLY[k]', 'WORDS[k]'), 'WORDS').has('zhOnly'),
+    true,
+  )
+})
+
+test('消费端符号粒度:两处兜底都必须退回全量,切分失效不得洗成绿', () => {
+  // ① re-export 形态:符号没有自己的顶层声明块
+  const REEXPORT = ['export { nope } from "./other"', 'export const T = 1'].join('\n')
+  assert.deepEqual([...gate.tableScopedSymbols(REEXPORT, 'nope')].sort(), ['T', 'nope'])
+  // ② 没有任何导出符号触表 → 退回全量。与下面的"链式触表"刻意成对:同一个 noop
+  //    在 NO_READER 里是靠**兜底**留下的,在 VIA_PRIVATE 里是**真触表**留下的 ——
+  //    两条路径结果相同,所以必须用 tableReachableNames 把机制差别钉住,否则等式是空判据。
+  const NO_READER = [
+    "const PRIV: Record<string, string> = { a: 'ns.a', b: 'ns.b' }",
+    'function pick(k: string) { return PRIV[k] }',
+    'export function noop() { return 1 }',
+  ].join('\n')
+  const VIA_PRIVATE = NO_READER.replace('return 1', 'return pick("a")')
+  assert.ok(
+    gate.tableReachableNames(NO_READER, 'PRIV').has('pick') &&
+      !gate.tableReachableNames(NO_READER, 'PRIV').has('noop'),
+    'NO_READER 里 noop 不该被判触表(它是走兜底的那一侧)',
+  )
+  assert.equal(
+    gate.tableReachableNames(VIA_PRIVATE, 'PRIV').has('noop'),
+    true,
+    '传递闭包没吃到经私有 helper 的间接触表',
+  )
+  assert.deepEqual([...gate.tableScopedSymbols(NO_READER, 'PRIV')], ['noop'])
+  assert.deepEqual([...gate.tableScopedSymbols(VIA_PRIVATE, 'PRIV')], ['noop'])
+  // 变异对照:再导出不触表的符号时,收窄面必须把它剔出去(证明判据真在收窄,不是一律返回全量)
+  assert.deepEqual([...gate.tableScopedSymbols(`${VIA_PRIVATE}\nexport const d = () => 1`, 'PRIV')], [
+    'noop',
+  ])
+})
+
+test('真仓 A/B:error-messages 的全量符号面判出消费端、收窄面判零(70 枚恒红的根因)', () => {
+  const EM = 'packages/shared/src/utils/error-messages.ts'
+  const text = readText(EM)
+  const importers = buildReverseIndex(listSourceFiles(), buildPackageMap())
+  const narrow = gate.tableScopedSymbols(text, 'ERROR_CODE_TO_I18N_KEY')
+  assert.ok(!narrow.has('toUserFriendlyMessage'), '不查词表的符号不得留在触表面')
+  assert.ok(narrow.has('resolveErrorMessage'), '经 getErrorI18nKey 查词表的符号必须留在触表面')
+  assert.ok(
+    consumerEnds({ file: EM }, importers, exportedSymbols(text)).includes('mobile-rn'),
+    '前置:旧判据(全量符号面)必须真能算出 mobile-rn,否则本用例什么都没比',
+  )
+  assert.deepEqual(consumerEnds({ file: EM }, importers, narrow), [])
+})
+
+test('真仓防收窄过窄:四端都在用的 permission-tier 真 accessor 不能被剔掉', () => {
+  const scoped = gate.tableScopedSymbols(
+    readText('packages/shared/src/chat/permission-tier.ts'),
+    'PERMISSION_TIER_WORD_KEYS',
+  )
+  assert.ok(scoped.has('permissionTierWordKeys'), '真 accessor 被剔掉 = 门会在缺键上恒绿')
 })
 
 test('taro 离线包取法与既有闸同源(生成器格式变了要立即炸)', () => {
