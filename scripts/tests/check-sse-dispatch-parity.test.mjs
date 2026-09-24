@@ -30,7 +30,6 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
 const RUNNER = join(REPO, 'scripts', 'guardian-runner.mjs')
 const LEDGER = join(REPO, 'scripts', 'data', 'sse-dispatch-coverage.json')
-const GATE_ID = '90'
 const GIT_BIN = resolveGitBin() || 'git'
 
 /** 用临时索引跑 git —— 绝不动共享工作区的主索引(多会话同用一个 .git) */
@@ -122,19 +121,25 @@ test('⑤ 取材基准是提交树,不是工作树(pre-commit 须切暂存区,�
   )
 })
 
-test('⑤b 暂存区口径实跑:cli 的 budget 接线进临时索引后门必须判绿(代码与台账同票)', () => {
+test('⑤b 暂存区口径实跑:budget 一族的端内接线进临时索引后门必须判绿(代码与台账同票)', () => {
+  // 清单 = 本族"端内注册层"改动的全集。**少列一个端不会让本例假绿** —— 临时索引里
+  // 该端仍是 HEAD 的旧命中数,低于台账 baseline 即判红,失效方式是响的。
+  // 再有端接入 budget 时把它加进来(以及 --staged 的 baseline 同票上调)。
+  const TICKET_FILES = [
+    'scripts/data/sse-dispatch-coverage.json',
+    'packages/shared/src/chat/budget-note.ts',
+    'packages/shared/src/chat/index.ts',
+    'apps/cli/src/commands/task-status-line.ts',
+    'apps/cli/src/commands/agent.ts',
+    'apps/cli/src/commands/repl.ts',
+    'apps/mobile-rn/src/utils/budget-note.ts',
+    'apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx',
+  ]
   const tmpIndex = join(tmpdir(), `ihui-sse-idx-${process.pid}-${Date.now()}`)
   copyFileSync(resolveGitIndex(), tmpIndex)
   const env = { ...process.env, GIT_INDEX_FILE: tmpIndex }
   try {
-    for (const p of [
-      'apps/cli/src/commands/task-status-line.ts',
-      'apps/cli/src/commands/agent.ts',
-      'apps/cli/src/commands/repl.ts',
-      'scripts/data/sse-dispatch-coverage.json',
-    ]) {
-      gitRun(['add', '--', p], env)
-    }
+    for (const p of TICKET_FILES) gitRun(['add', '--', p], env)
     const out = execFileSync(
       process.execPath,
       [join(REPO, 'scripts', 'check-sse-dispatch-parity.mjs'), '--staged'],
@@ -157,24 +162,36 @@ test('⑥ 台账卫生:groups 里不得留无人引用的分组(登记项不得�
   )
 })
 
-test('⑦ 装车证明:guardian-runner 注册了守门 90 且为 blocking', () => {
+/**
+ * 从 runner 反查本门注册块 —— **不硬写编号**。
+ * 硬写 id 的断言在并发重排号时会二选一失效:要么把在位的门判成"没装车",
+ * 要么更糟 —— 悄悄通过(编号被人挪走而块还在)。今天本仓就为此撞了三次号(85→90→91→92)。
+ */
+function findOwnBlock(runnerSrc) {
+  const blocks = [...runnerSrc.matchAll(/^ {2}\{[\s\S]*?^ {2}\},/gmu)]
+  const own = blocks.find((m) => /script:\s*'check-sse-dispatch-parity\.mjs'/u.test(m[0]))
+  return own ? own[0] : null
+}
+
+test('⑦ 装车证明:runner 里有本门注册块且为 blocking(编号从文件反查)', () => {
   const runner = readFileSync(RUNNER, 'utf8')
-  const blocks = runner.match(new RegExp(`id:\\s*'${GATE_ID}',[\\s\\S]{0,3000}?\\n {2}\\},`, 'u'))
-  assert.ok(blocks, '未找到守门 90 注册块 —— 脚本存在但没接上守门链等于没有闸')
-  assert.match(blocks[0], /script:\s*'check-sse-dispatch-parity\.mjs'/u)
-  assert.match(blocks[0], /mode:\s*'blocking'/u)
-  assert.match(blocks[0], /skipEnv:\s*'HUSKY_SKIP_SSE_DISPATCH_PARITY'/u)
+  const block = findOwnBlock(runner)
+  assert.ok(block, '未找到 check-sse-dispatch-parity.mjs 的注册块 —— 脚本存在但没接上守门链等于没有闸')
+  assert.match(block, /mode:\s*'blocking'/u)
+  assert.match(block, /skipEnv:\s*'HUSKY_SKIP_SSE_DISPATCH_PARITY'/u)
+  assert.match(block, /stagedTriggers:/u, '缺 stagedTriggers ⇒ 每次提交全量跑,拖慢提交链会逼人 --no-verify')
 })
 
-test('⑧ 编号唯一:守门 90 在 runner 中必须恰好出现一次(并发抢号教训)', () => {
+test('⑧ 编号唯一:本门所用的 id 在 runner 中必须恰好出现一次(并发抢号教训)', () => {
   const runner = readFileSync(RUNNER, 'utf8')
-  const ids = [...runner.matchAll(/^\s{4}id:\s*'(\d+)'/gmu)].map((m) => m[1])
+  const block = findOwnBlock(runner)
+  assert.ok(block, '找不到本门注册块')
+  const ownId = (block.match(/id:\s*'([^']+)'/u) || [])[1]
+  assert.ok(ownId, '本门注册块里没有 id 字段')
+  const ids = [...runner.matchAll(/^\s{4}id:\s*'([^']+)'/gmu)].map((m) => m[1])
   assert.ok(ids.length > 80, `只解析到 ${ids.length} 个 id,缩进锚点疑似失效`)
-  assert.equal(
-    ids.filter((x) => x === GATE_ID).length,
-    1,
-    `id ${GATE_ID} 出现次数异常(同 id 两道 blocking 门会串 skipEnv 与失败归属)`,
-  )
+  const hits = ids.filter((x) => x === ownId).length
+  assert.equal(hits, 1, `id ${ownId} 出现 ${hits} 次 —— 同 id 两道门会串 skipEnv 与失败归属,后来者必须改号`)
 })
 
 test('⑨ --self-test 入口可用且全绿', () => {
