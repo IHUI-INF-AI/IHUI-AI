@@ -124,7 +124,7 @@ export function CreditsHeatmapCard({
                   aria-label={t('dayTitle', { date: key })}
                   onClick={() => setSelectedDay((prev) => (prev === key ? null : key))}
                   className={cn(
-                    'h-6 min-w-6 rounded-sm px-1 text-[10px] tabular-nums transition-colors',
+                    'h-6 min-w-6 rounded-sm px-1 text-[10px] tabular-nums transition-colors hover:opacity-75',
                     TONE_CLASS[heatmapBucketTone(bucket)],
                   )}
                 >
