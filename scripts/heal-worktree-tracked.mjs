@@ -28,7 +28,7 @@
  * 紧急跳过:IHUI_SKIP_WORKTREE_HEAL=1
  */
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 // 判据复用守门 84(§22d 已把 CLI 入口与导出分离,import 不会触发副作用)
@@ -143,6 +143,128 @@ function isAncestorBlob(g, path, blob) {
 }
 
 /**
+ * 覆盖前留退路:把工作区现场字节按 UTC 时间戳目录快照一份,返回快照落点。
+ * 只给"需要被覆盖的那几个文件"用,故不做全仓扫描;单文件上限由调用方的 maxBytes 保证。
+ */
+export function snapshotWorktreeBytes(repoRoot, paths, destDir) {
+  if (!paths.length) return []
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z')
+  const dir = join(destDir || repoRoot, '.ihui-agent', 'tmp', 'worktree-align-snapshots', stamp)
+  const done = []
+  for (const p of paths) {
+    try {
+      const abs = resolve(repoRoot, p)
+      const to = join(dir, p.replace(/[\\/]/g, '_'))
+      mkdirSync(dirname(to), { recursive: true })
+      copyFileSync(abs, to)
+      done.push(to)
+    } catch {
+      /* 快照失败不阻断对齐:判据本身已保证不含独有内容 */
+    }
+  }
+  return done
+}
+
+/**
+ * 复合滞后判定(2026-09-24 补,`alignDrifts` 的第二条判据通道)。
+ *
+ * 整块 blob **不等于**任何祖先版本,但工作区相对 HEAD 的**每一个改动块**都是该路径自己在
+ * 某个历史提交里逐字有过的文本 ⇒ 同样是"回潮",按定义不含任何独有内容。
+ *
+ * 为什么整块判据不够:并行会话的「索引层重建 / 旧基线回写」产出的是**拼合态**(迁移前的取色段
+ * + 迁移前的圆角段拼进同一份文件),这个组合从未作为整体提交过 —— 于是它既躲过守门 84 的整块
+ * 祖先判定,也躲过 alignDrifts,却会在任何一次不带 pathspec 的 commit 里把已入库的迁移整体回滚。
+ * 本会话实测 8 个 mobile-rn/共享包文件 18 处已删键悬空引用即此态。
+ *
+ * 四条硬护栏(宁可漏,不可误覆盖他人现场):
+ *   ① **形状限定**:diff 里每一行(增、删两侧都算)必须是"取用行本身" —— 单行样式属性赋值
+ *      (`color` / `backgroundColor` / `borderColor` / `border*Radius`)、import/export 行或空行。
+ *      这一条同时挡住三类误伤:改逻辑/改 JSX;删掉整段尾巴(git 会把删除并进相邻改动块,
+ *      所以"只删不增"的 hunk 判据单独用会漏 —— 见 self-test ⑱);新增任何成段代码。
+ *   ② 每个新增块都必须逐字见于该路径某个历史 blob(真新编辑必打破此条);
+ *   ③ **纯重排不算**:同一批行只是换了位置(import 排序等)既不携带回退风险,写回 HEAD 又会和
+ *      lint-staged 的格式化器来回打架 —— 实测本仓这种"假滞后"多达 184 个文件;
+ *   ④ 覆盖前把现场字节快照到 `.ihui-agent/tmp/worktree-align-snapshots/<UTC>/` 并报出份数,
+ *      判据再严也留一次可逆退路(整块通道命中时工作区内容本就 == 某历史版本,无需快照)。
+ *
+ * 代价说清楚:只有"批量取色/圆角迁移被回写成旧档名"这一种形态能被自动收口。而那恰是本仓两次
+ * 批量迁移(圆角 309 文件、CTA 26 文件)真实留下的滞后形态;其余拼合滞后仍需人判,不留机器错觉。
+ */
+/** 取用行:单行样式属性赋值,或 import/export 行 —— 两者都不可能是"一段功能逻辑" */
+const STYLE_TAKE_LINE =
+  /^\s*(?:border(?:Top|Bottom)?(?:Left|Right)?Radius|backgroundColor|borderColor|color)\s*:\s*[A-Za-z_$][\w$]*(?:\.[\w$]+)*\s*,?\s*$/
+const MODULE_TAKE_LINE = /^\s*(?:import|export)\b/
+
+export function compositeDriftPaths(
+  repoRoot,
+  paths,
+  { lookback = 30, maxBytes = 512 * 1024, maxFiles = 80 } = {},
+) {
+  const g = makeGit(repoRoot)
+  const hits = []
+  for (const p of paths.slice(0, maxFiles)) {
+    let size = 0
+    try {
+      size = statSync(resolve(repoRoot, p)).size
+    } catch {
+      continue
+    }
+    if (!size || size > maxBytes) continue
+    let diff = ''
+    try {
+      diff = g(['diff', '--no-color', '-U0', 'HEAD', '--', p])
+    } catch {
+      continue
+    }
+    const groups = []
+    let cur = null
+    let allTakeLines = true
+    const shaped = (l) => !l.trim() || STYLE_TAKE_LINE.test(l) || MODULE_TAKE_LINE.test(l)
+    for (const line of diff.split('\n')) {
+      if (line.startsWith('@@')) {
+        if (cur && cur.length) groups.push(cur)
+        cur = []
+        continue
+      }
+      if (!/^[-+]/.test(line) || /^(\+\+\+|---)/.test(line)) continue
+      const body = line.slice(1).replace(/\r$/, '')
+      if (!shaped(body)) allTakeLines = false
+      if (line[0] === '+' && cur) cur.push(body)
+    }
+    if (cur && cur.length) groups.push(cur)
+    if (!allTakeLines || !groups.length) continue
+    const joined = groups.map((ls) => ls.join('\n'))
+    let anc = []
+    try {
+      anc = g(['log', `--max-count=${lookback}`, '--format=%H', 'HEAD', '--', p]).split('\n').filter(Boolean)
+    } catch {
+      continue
+    }
+    const texts = []
+    for (const c of anc) {
+      try {
+        texts.push(g(['show', `${c}:${p}`]))
+      } catch {
+        /* 该版本无此路径:跳过 */
+      }
+    }
+    if (!texts.length) continue
+    // 只做"内容回潮"的收口:**纯重排**(同一批行换了位置,典型是 import 排序)不在此列 ——
+    // 它不携带任何回退风险,而把它写回 HEAD 会和 lint-staged 的格式化器来回打架。
+    const norm = (s) =>
+      s
+        .split('\n')
+        .map((l) => l.replace(/\r$/, '').trim())
+        .filter(Boolean)
+        .sort()
+        .join('\n')
+    if (norm(g(['show', `HEAD:${p}`])) === norm(readFileSync(resolve(repoRoot, p), 'utf8'))) continue
+    if (joined.every((grp) => texts.some((t) => t.includes(grp)))) hits.push(p)
+  }
+  return hits
+}
+
+/**
  * 刷新"落后索引"(CAS / converge 用 commit-tree+update-ref 推进 HEAD 却不动主索引的后遗症)。
  * 危险在于:此时 `git status` 首列为 `M `,任何人一次不带 pathspec 的普通 commit
  * 就会把这批文件整体写回旧版 ⇒ 一次性静默回滚(实测本仓同一天出现 14 个这样的路径)。
@@ -221,8 +343,11 @@ export function refreshStaleIndex(repoRoot, { dryRun = false } = {}) {
 /**
  * 幻影漂移对齐(比缺失恢复更严的判据,供 `--align-drift` 与 git-sync-converge 调用):
  * 只对齐**同时满足**三条的路径 —— ① 索引 blob == HEAD blob(该路径上无人暂存过任何东西);
- * ② 工作区内容 != HEAD;③ 守门 84 判定工作区内容**字节级等于该路径某祖先提交版本**
- * (⇒ 不含任何独有内容)。会话真实未提交编辑必然打破 ① 或 ③,故不会被覆盖。
+ * ② 工作区内容 != HEAD;③ 内容属"回潮",两条通道任一成立即算:
+ *    ③a 守门 84 判定工作区内容**字节级等于该路径某祖先提交版本**;
+ *    ③b `compositeDriftPaths` 判定**每个改动块**逐字见于该路径某个历史版本,且**无纯删除块**
+ *       (拼合旧基线形态:整块从未作为整体提交过,③a 看不见它)。
+ * 会话真实未提交编辑必然打破 ① 或 ③,故不会被覆盖。
  *
  * 为什么需要它:§12d 的 converge 用 merge-tree/commit-tree 只推进 HEAD 与 index、从不 checkout,
  * HEAD 每前进一次,工作区就多一批落后文件(实测 503 个文件落后 486 个提交)。这些文件被
@@ -256,14 +381,28 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
   })
   if (!eligible.length) return { aligned: 0, paths: [], skippedStaged: dirty.length }
   const hits = analyze(repoRoot, eligible, { source: 'worktree' })
-  const paths = hits.map((h) => h.path)
+  const whole = new Set(hits.map((h) => h.path))
+  // 第二条通道:整块不等于任何祖先、但逐块都能对上(索引层重建的拼合旧基线)
+  const composite = compositeDriftPaths(
+    repoRoot,
+    eligible.filter((p) => !whole.has(p)),
+  )
+  const paths = [...whole, ...composite]
   if (!paths.length || dryRun) {
-    return { aligned: 0, paths, dryRun: true, skippedStaged: dirty.length - eligible.length }
+    return { aligned: 0, paths, composite: composite.length, dryRun: true, skippedStaged: dirty.length - eligible.length }
   }
+  // 护栏④:拼合通道覆盖前留现场快照(整块通道命中的工作区内容本就 == 某历史版本,无独有数据)
+  const snapshots = snapshotWorktreeBytes(repoRoot, composite)
   for (let i = 0; i < paths.length; i += 40) {
     g(['restore', '--source=HEAD', '--worktree', '--', ...paths.slice(i, i + 40)])
   }
-  return { aligned: paths.length, paths, skippedStaged: dirty.length - eligible.length }
+  return {
+    aligned: paths.length,
+    paths,
+    composite: composite.length,
+    snapshots: snapshots.length,
+    skippedStaged: dirty.length - eligible.length,
+  }
 }
 
 /**
@@ -415,6 +554,77 @@ function selfTestRun() {
       '⑦ 真编辑不被覆盖',
       d2.aligned === 0 && readFileSync(join(tmp, 'keep.ts'), 'utf8') === 'v3 未提交的新工作\n',
     )
+
+
+
+    // ⑭ 拼合旧基线(取用行形态):整块从未作为整体提交过(整块通道看不见),
+    //    但每一块逐字见于历史 ⇒ 复合通道判回潮并对齐。改动行一律写成真实的
+    //    单行属性赋值(backgroundColor / color / borderColor),与 §4 取用形态同构。
+    const P1 = Array.from({ length: 12 }, (_, i) => '  padA' + i + ': 0,').join('\n')
+    const P2 = Array.from({ length: 12 }, (_, i) => '  padB' + i + ': 0,').join('\n')
+    const mix = (x, y, z) =>
+      'export const st = {\n  backgroundColor: tokens.brand.' + x + ',\n' +
+      P1 + '\n  color: tokens.brand.' + y + ',\n' + P2 + '\n  borderColor: tokens.brand.' + z + ',\n}\n'
+    writeFileSync(join(tmp, 'mix.ts'), mix('one', 'one', 'one'))
+    g(['add', 'mix.ts'])
+    g(['commit', '-qm', 'M1 one/one/one'])
+    writeFileSync(join(tmp, 'mix.ts'), mix('two', 'one', 'one'))
+    g(['commit', '-qam', 'M2 two/one/one'])
+    writeFileSync(join(tmp, 'mix.ts'), mix('two', 'two', 'one'))
+    g(['commit', '-qam', 'M3 two/two/one'])
+    writeFileSync(join(tmp, 'mix.ts'), mix('two', 'two', 'two'))
+    g(['commit', '-qam', 'M4(HEAD) two/two/two'])
+    writeFileSync(join(tmp, 'mix.ts'), mix('one', 'one', 'two')) // 该组合从未整体提交过
+    check('⑭a 拼合态整块不等于任何祖先(整块通道失效)', analyze(tmp, ['mix.ts'], { source: 'worktree' }).length === 0)
+    check('⑭b 取用行逐块可对上历史 ⇒ 判为回潮', compositeDriftPaths(tmp, ['mix.ts']).includes('mix.ts'))
+    const d14 = alignDrifts(tmp)
+    check('⑭c 对齐后工作区回到 HEAD', d14.composite === 1 && readFileSync(join(tmp, 'mix.ts'), 'utf8') === mix('two', 'two', 'two'))
+    check('⑭d 覆盖前留了现场快照(护栏③)', d14.snapshots === 1 && existsSync(join(tmp, '.ihui-agent/tmp/worktree-align-snapshots')))
+
+    // ⑮ 单块回潮:本仓 8 个滞后文件的真实形态就是"一条取用行换回旧档名" ⇒ 不受块数限制
+    writeFileSync(join(tmp, 'mix.ts'), mix('one', 'two', 'two'))
+    check('⑮ 单块取用行回潮同样判拼合', compositeDriftPaths(tmp, ['mix.ts']).includes('mix.ts'))
+    alignDrifts(tmp)
+    check('⑮b 已复位到 HEAD', readFileSync(join(tmp, 'mix.ts'), 'utf8') === mix('two', 'two', 'two'))
+
+    // ⑯ 逻辑行被改回旧写法(逐字见于历史,但不是取用行)⇒ 形状护栏不认领本通道;
+    //    该文件整块恰等于 M5,故由**既有整块通道**收口 —— 两条通道的分工在这里钉死。
+    const lg = (v) => 'export function run() {\n' + P1 + '\n  return ' + v + '\n}\n'
+    writeFileSync(join(tmp, 'mix2.ts'), lg('a1'))
+    g(['add', 'mix2.ts'])
+    g(['commit', '-qm', 'M5 mix2=a1'])
+    writeFileSync(join(tmp, 'mix2.ts'), lg('a2'))
+    g(['commit', '-qam', 'M6(HEAD) mix2=a2'])
+    writeFileSync(join(tmp, 'mix2.ts'), lg('a1'))
+    check('⑯ 非取用行 ⇒ 本通道不认领(护栏①)', compositeDriftPaths(tmp, ['mix2.ts']).length === 0)
+    const d16 = alignDrifts(tmp)
+    check('⑯b 整块等于祖先 ⇒ 由既有整块通道收口(composite=0/aligned=1)', d16.composite === 0 && d16.aligned === 1)
+
+    // ⑰ 取用行形态、但该写法从未出现在任何历史版本 ⇒ 判据②挡下
+    writeFileSync(join(tmp, 'mix.ts'), mix('zz9', 'two', 'two'))
+    check('⑰ 未见过的取用行 ⇒ 不判拼合(护栏②)', compositeDriftPaths(tmp, ['mix.ts']).length === 0)
+    alignDrifts(tmp)
+    check('⑰b 该文件未被覆盖', readFileSync(join(tmp, 'mix.ts'), 'utf8') === mix('zz9', 'two', 'two'))
+
+    // ⑱ 删掉整段尾巴:git 会把删除并进相邻改动块,"只删不增"的 hunk 判据单独用会漏 —— 靠形状护栏兜住
+    const cut = mix('one', 'one', 'two').replace(P2 + '\n', '')
+    writeFileSync(join(tmp, 'mix.ts'), cut)
+    check('⑱ 含非取用行的删除 ⇒ 不判拼合', compositeDriftPaths(tmp, ['mix.ts']).length === 0)
+    alignDrifts(tmp)
+    check('⑱b 删除现场保留', readFileSync(join(tmp, 'mix.ts'), 'utf8') === cut)
+    g(['restore', '--source=HEAD', '--worktree', '--', 'mix.ts'])
+
+    // ⑲ 纯重排(同一批行只是换位置)⇒ 护栏③不认领:写回 HEAD 只会和 lint-staged 的格式化器互踩
+    //    (实测本仓这种"假滞后"184 个文件,若不排除会让守护与格式化器永久对打)
+    const headTxt = mix('two', 'two', 'two')
+    const hl = headTxt.replace(/\n$/, '').split('\n')
+    const reorderTxt = [hl[0], ...hl.slice(2), hl[1], hl[hl.length - 1]].join('\n') + '\n'
+    writeFileSync(join(tmp, 'mix.ts'), reorderTxt)
+    check('⑲ 纯重排 ⇒ 本通道不认领(护栏③)', compositeDriftPaths(tmp, ['mix.ts']).length === 0)
+    alignDrifts(tmp)
+    check('⑲b 重排现场保留', readFileSync(join(tmp, 'mix.ts'), 'utf8') === reorderTxt)
+    g(['restore', '--source=HEAD', '--worktree', '--', 'mix.ts'])
+
 
     // ⑧ 暂存后工作区又有新改动(判据③不成立)⇒ 绝不刷新、绝不对齐(protect 现场)
     writeFileSync(join(tmp, 'keep.ts'), 'v1\n')
@@ -589,5 +799,5 @@ if (isDirectRun) {
     })
 }
 
-export const __test__ = { findOrphanedDeletions, heal, alignDrifts, refreshStaleIndex, SKIP_ENV }
+export const __test__ = { findOrphanedDeletions, heal, alignDrifts, refreshStaleIndex, compositeDriftPaths, SKIP_ENV }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
