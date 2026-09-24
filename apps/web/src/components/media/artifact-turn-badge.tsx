@@ -315,7 +315,10 @@ export function ArtifactTurnNav({ count, activeIndex, onChangeIndex }: ArtifactT
   return (
     <div
       data-testid="artifact-turn-nav"
-      role="group"
+      // role=toolbar:按钮组 + ←/→ 键盘导航的 WAI-ARIA 正形(可聚焦复合控件);
+      // role=group 会被 jsx-a11y 判"非交互元素挂键盘监听/tabIndex"两条红。
+      // 组内两按钮均自带 aria-label,不新增 i18n 键(组无强制可访问名要求)。
+      role="toolbar"
       tabIndex={0}
       onKeyDown={onKeyDown}
       className="inline-flex items-center gap-0.5 rounded-md border border-border bg-muted/30 px-1 py-0.5"
