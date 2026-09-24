@@ -46,6 +46,7 @@ import {
   type CategoryItem,
   type PlazaScreenProps,
 } from '@ihui/rn-app'
+import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import { tokens } from '../theme/active-tokens'
 import { useTheme } from '../context/ThemeContext'
 import Drawer, {
@@ -211,8 +212,10 @@ export function PlazaScreen() {
         setItems((prev) => (reset ? list : [...prev, ...list]))
         setTotal(res.data.total ?? 0)
         setPage(targetPage)
-      } catch {
-        const errMsg = '加载失败,请下拉刷新重试'
+      } catch (e: unknown) {
+        // 透出服务端的具体原因(如 429 需人机验证);错误体无可用信息时才回退本页通用文案
+        const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+        const errMsg = detail.trim() ? toUserFriendlyMessage(e) : '加载失败,请下拉刷新重试'
         setError(errMsg)
         showFloat(errMsg)
       } finally {

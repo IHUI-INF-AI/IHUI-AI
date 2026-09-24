@@ -33,16 +33,25 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync, mkdirSync, appendFileSync, rmSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
 import { createHash } from 'node:crypto'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { request } from 'node:https'
 import { request as httpRequest } from 'node:http'
 import { resolveGitBin } from './lib/gitdir.mjs'
+import { keyFile, resolveKeyDir, firstExisting } from './lib/key-dir.mjs'
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const TASK_NAME = 'IHUI credential-health'
 const GIT_BIN = resolveGitBin()
-const SECRETS_DIR = process.env.IHUI_SECRETS_DIR || 'D:/DevEnv/secrets'
-const GIT_KEY_DIR = process.env.IHUI_MODEL_KEY_DIR_GIT || 'D:/BaiduSyncdisk/密钥/git仓库'
+// 口令表落点同样不得写死盘符:本机 D:/DevEnv 存在但没有 secrets/,真值仍解析为兜底字面量,
+// 于是该项按"权威源缺失"判 unknown(不判红)。换机后若表在别的盘,这里会自动跟上。
+const SECRETS_DIR =
+  process.env.IHUI_SECRETS_DIR ||
+  firstExisting(['D:/DevEnv/secrets', 'F:/DevEnv/secrets', 'G:/DevEnv/secrets', 'E:/DevEnv/secrets']) ||
+  'D:/DevEnv/secrets'
+// 盘符按"存在即真"解析(见 scripts/lib/key-dir.mjs):本机真实库在 F 盘,写死 D 盘会让
+// 镜像活性探测读不到 key ⇒ 报成"国内镜像停摆",把"路径过期"误诊成"凭据失效"。
+// 全都不存在时保留旧字面量,使 detail 里的路径仍指向文档登记的权威位置。
+const GIT_KEY_DIR = process.env.IHUI_MODEL_KEY_DIR_GIT || resolveKeyDir('git仓库') || 'D:/BaiduSyncdisk/密钥/git仓库'
 const WEB_PROBE = process.env.IHUI_DEPLOY_PROBE || 'http://127.0.0.1:8801'
 const GITHUB_REPO = 'IHUI-INF-AI/IHUI-AI'
 
@@ -69,8 +78,28 @@ export function readServiceEnv(service, key) {
   }
 }
 
+/** 服务是否装机(三态:true/false/null=探测本身不可用)。
+ *  1060 = ERROR_SERVICE_DOES_NOT_EXIST,是唯一能断定"没有这个服务"的退出码;
+ *  其余失败(sc.exe 被策略挡、路径异常)一律返回 null,不得当成"服务不存在"。 */
+export function serviceExists(name, scBin = 'C:/Windows/System32/sc.exe') {
+  try {
+    execFileSync(scBin, ['query', name], {
+      stdio: ['ignore', 'ignore', 'pipe'],
+      windowsHide: true,
+      timeout: 15000,
+    })
+    return true
+  } catch (e) {
+    return e && e.status === 1060 ? false : null
+  }
+}
+
 /** 凭据在代码/服务/文件三处是否同值 —— 当天故障的精确形状 */
-export function compareCredential({ serviceValue, authoritativeValue }) {
+export function compareCredential({ serviceValue, authoritativeValue, serviceInstalled = true }) {
+  // 非部署机上根本没有 IHUI-DEPLOYLOOP:把"没这个服务"报成"环境块缺该键 ⇒ 门禁必然失败"
+  // 是一条每次都红、且红得没有道理的告警(与"部署停摆"同族,故复用同一口径:只在部署机评估)。
+  if (serviceInstalled === false) return { level: 'unknown', why: '本机无该服务(只在部署机评估),不判环境块缺失' }
+  if (serviceInstalled === null) return { level: 'unknown', why: '服务存在性探测不可用(sc.exe),不误判' }
   if (!authoritativeValue) return { level: 'unknown', why: '权威源缺失(文件不存在或为空),不判定为过期' }
   if (!serviceValue) return { level: 'fail', why: '服务环境块缺该键 ⇒ 依赖它的门禁必然失败' }
   if (sha(serviceValue) === sha(authoritativeValue)) return { level: 'ok', why: '与服务运行态同值' }
@@ -179,7 +208,7 @@ const GH_REPO = 'IHUI-INF-AI/IHUI-AI'
 const MIRROR_WF = '317969743' // Mirror to CN 的 workflow id(由 API 取,非猜测;变更需重取)
 
 function ghApi(method, path, body) {
-  const token = readText(process.env.IHUI_GH_KEY_FILE || 'D:/BaiduSyncdisk/密钥/git仓库/github key.txt').trim()
+  const token = readText(process.env.IHUI_GH_KEY_FILE || keyFile('git仓库', 'github key.txt') || join(GIT_KEY_DIR, 'github key.txt')).trim()
   if (!token) return Promise.resolve({ status: 0, j: null, why: '未取到 GitHub 权威凭据文件' })
   const payload = body ? JSON.stringify(body) : null
   return new Promise((res) => {
@@ -251,6 +280,11 @@ async function mirrorLivenessCheck() {
   const now = Date.now()
   const giteeTok = readMirrKey('gitee apikey.txt', /^[0-9a-f]{32}$/)
   if (!giteeTok) {
+    // 读不到 key **不等于** key 失效:整个密钥目录不存在(换盘符 / 同步盘未挂载)时判 unknown,
+    // 否则一次挂载抖动就会产出一条假的"镜像停摆",而它看起来完全像凭据事故(本次即如此)。
+    if (!existsSync(GIT_KEY_DIR)) {
+      return [{ name: NAME, level: 'unknown', detail: `密钥目录不存在:${GIT_KEY_DIR}(不判定为凭据失效,先核对盘符)` }]
+    }
     return [{ name: NAME, level: 'fail', detail: 'gitee apikey.txt 取不到形状合法的 token(注意同目录的 _冲突文件_ 副本不可用)' }]
   }
   const [g, gh] = await Promise.all([
@@ -277,7 +311,7 @@ async function mirrorLivenessCheck() {
       {
         name: NAME,
         level: 'fail',
-        detail: `${head} 超阈值,且上一轮 conclusion=failure ⇒ 不补发(补发只会再跑一遍注定失败的 69 分钟)。查 Gitee 侧拒绝原因(今天实测是仓库体积超配额,需减 ref 或清标签)`,
+        detail: `${head} 超阈值,且上一轮 conclusion=failure ⇒ 不补发(补发只会再跑一遍注定失败的 69 分钟)。查 Gitee 侧拒绝原因 —— 2026-09-23 实测为硬配额 \`Repo size 1156MB > 1024MB\`(pre-receive 拒绝),处置面在减 ref/清标签,见 .github/workflows/mirror-to-cn.yml 的 prune 步骤`,
       },
     ];
   }
@@ -314,11 +348,16 @@ export async function runChecks() {
   // ① 服务运行态口令 vs 权威口令表
   const adminInSvc = readServiceEnv('IHUI-DEPLOYLOOP', 'IHUI_ADMIN_PASSWORD')
   const adminAuthority = readFileSyncOr(join(SECRETS_DIR, 'admin-password.txt'))
-  const cmp = compareCredential({ serviceValue: adminInSvc, authoritativeValue: adminAuthority })
+  const installed = serviceExists('IHUI-DEPLOYLOOP')
+  const cmp = compareCredential({
+    serviceValue: adminInSvc,
+    authoritativeValue: adminAuthority,
+    serviceInstalled: installed,
+  })
   out.push({
     name: 'IHUI-DEPLOYLOOP 环境块 IHUI_ADMIN_PASSWORD',
     level: cmp.level,
-    detail: `${cmp.why};服务侧 ${fingerprint(adminInSvc)} / 权威源 ${fingerprint(adminAuthority)}`,
+    detail: `${cmp.why};服务在位 ${installed === null ? '?' : installed ? 'Y' : 'N'} / 服务侧 ${fingerprint(adminInSvc)} / 权威源 ${fingerprint(adminAuthority)}`,
   })
 
   // ② 真登录一次(与门禁同一入口)。127.0.0.1 自有桶,单轮 1 次不撞限流。
@@ -389,8 +428,22 @@ function readText(p) {
   }
 }
 
-export function judgeStall({ liveSha, tipSha, lastSuccessIso, nowMs, thresholdMin, inFlight = false }) {
+export function judgeStall({
+  liveSha,
+  tipSha,
+  lastSuccessIso,
+  nowMs,
+  thresholdMin,
+  inFlight = false,
+  deployHost = true,
+}) {
   if (!tipSha) return { level: 'unknown', why: '取不到 origin/main tip,不判定' }
+  // 构建标记只由部署机写(ihui-deploy.ps1 部署成功后写 .next/IHUI_BUILD_SHA)。
+  // 在非部署机上"标记缺失"是**必然**为真 ⇒ 该项恒红,会把真告警淹掉(告警器一乱叫就被静音:
+  // 邮件 10 封/天、Server酱 5 条/天)。判据取"本机有没有部署环痕迹":deploy-loop.log 有无内容。
+  if (!deployHost && !liveSha && !lastSuccessIso) {
+    return { level: 'unknown', why: '本机无部署环痕迹(deploy-loop.log 为空/缺失)⇒ 该项只在部署机评估' }
+  }
   // 部署环**正在跑这一轮**时不得判停摆:2026-09-23 14:05 实测假阳性 —— 14:02 起在构建,
   // 14:06:21 就成功了,而我按"距上次成功 > 阈值"判红并真发了一封邮件。
   // 告警器乱叫就会被静音(邮件 10 封/天、Server酱 5 条/天),所以这一条是硬护栏。
@@ -446,7 +499,15 @@ function deployStallCheck() {
     const lastAge = lm ? (Date.now() - Date.parse(`${lm[1].replace(' ', 'T')}${lm[2]}`)) / 60000 : Infinity
     inFlight = Number.isFinite(lastAge) && lastAge < 20 && !/轮询结束|部署完成/.test(last)
   }
-  const r = judgeStall({ liveSha, tipSha, lastSuccessIso, nowMs: Date.now(), thresholdMin, inFlight })
+  const r = judgeStall({
+    liveSha,
+    tipSha,
+    lastSuccessIso,
+    nowMs: Date.now(),
+    thresholdMin,
+    inFlight,
+    deployHost: Boolean(log.trim()),
+  })
   const diag = errs.length ? ` [诊断: ${errs.join(' ; ')}]` : ''
   return [{ name: '部署停摆(线上构建 vs origin/main)', level: r.level, detail: r.why + diag }]
 }
@@ -458,6 +519,22 @@ function selfTest() {
   eq('不一致判 fail(事故形态)', compareCredential({ serviceValue: 'old-pass', authoritativeValue: 'new-pass' }).level, 'fail')
   eq('服务缺键判 fail', compareCredential({ serviceValue: null, authoritativeValue: 'x' }).level, 'fail')
   eq('权威源缺失不误判', compareCredential({ serviceValue: 'x', authoritativeValue: null }).level, 'unknown')
+  // 三态 serviceInstalled:非部署机(本机实测 sc query IHUI-DEPLOYLOOP = 1060)不得判红
+  eq(
+    '服务不装机 ⇒ 不判环境块缺失(假红护栏)',
+    compareCredential({ serviceValue: null, authoritativeValue: 'new-pass', serviceInstalled: false }).level,
+    'unknown',
+  )
+  eq(
+    '反向对照:同输入但服务在位且缺键 ⇒ 仍判 fail(护栏不得吞掉真故障)',
+    compareCredential({ serviceValue: null, authoritativeValue: 'new-pass', serviceInstalled: true }).level,
+    'fail',
+  )
+  eq(
+    'sc.exe 探测本身不可用 ⇒ null,不误判',
+    compareCredential({ serviceValue: null, authoritativeValue: 'x', serviceInstalled: null }).level,
+    'unknown',
+  )
   eq('401 归 fail', classifyHttpStatus(401), 'fail')
   eq('429 不得归 fail(限流≠过期)', classifyHttpStatus(429), 'limited')
   eq('网络不可达归 unreachable', classifyHttpStatus(0), 'unreachable')
@@ -469,6 +546,29 @@ function selfTest() {
   eq('同一输入:本轮在飞 ⇒ 不判定', judgeStall({ liveSha: 'A', tipSha: 'B', lastSuccessIso: new Date(1000).toISOString(), nowMs: 1000 + 120 * 60000, thresholdMin: 45, inFlight: true }).level, 'unknown')
   eq('反向对照:同样输入但非在飞 ⇒ 仍判停摆(护栏不得吞掉真故障)', judgeStall({ liveSha: 'A', tipSha: 'B', lastSuccessIso: new Date(1000).toISOString(), nowMs: 1000 + 120 * 60000, thresholdMin: 45, inFlight: false }).level, 'fail')
   eq('无标记判红', judgeStall({ liveSha: '', tipSha: 'B', lastSuccessIso: '', nowMs: 1, thresholdMin: 45 }).level, 'fail')
+  // 非部署机:同样无标记 ⇒ 不得判红(标记只由部署机写,在这里红是恒红)
+  eq(
+    '非部署机无标记判 unknown',
+    judgeStall({ liveSha: '', tipSha: 'B', lastSuccessIso: '', nowMs: 1, thresholdMin: 45, deployHost: false }).level,
+    'unknown',
+  )
+  eq(
+    '反向对照:同输入但确是部署机 ⇒ 仍判红(护栏不得吞掉真停摆)',
+    judgeStall({ liveSha: '', tipSha: 'B', lastSuccessIso: '', nowMs: 1, thresholdMin: 45, deployHost: true }).level,
+    'fail',
+  )
+  eq(
+    '非部署机但有日志痕迹(有 lastSuccess)⇒ 照常判停摆',
+    judgeStall({
+      liveSha: '',
+      tipSha: 'B',
+      lastSuccessIso: new Date(1000).toISOString(),
+      nowMs: 1000 + 120 * 60000,
+      thresholdMin: 45,
+      deployHost: false,
+    }).level,
+    'fail',
+  )
   eq('取不到 tip 不误判', judgeStall({ liveSha: 'A', tipSha: '', lastSuccessIso: '', nowMs: 1, thresholdMin: 45 }).level, 'unknown')
   // ── 邮件通道契约(2026-09-23 迁到品牌派发器;发信路径不得再自拼传输层,守门 81)──
   const norm = (p) => String(p).replace(/\\/g, '/')
@@ -815,7 +915,13 @@ async function maybeAlert(results, dryRun) {
 }
 
 const argv = process.argv.slice(2)
-if (argv.includes('--help') || argv.includes('-h')) {
+// §22d 入口守卫:此前顶层直接跑 else 分支 ⇒ 任何 import(取纯函数写测试)都会**跑一次实检并真投递告警**
+// (2026-09-24 实测:node --input-type=module -e import { judgeStall } 就发掉一封品牌告警邮件,烧掉每日配额)
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (!isDirectRun) {
+  /* 被 import:只暴露纯函数,不产生任何网络/投递副作用 */
+} else if (argv.includes('--help') || argv.includes('-h')) {
   // 必须是真分支:此前未知参数(含 --help)一律落到默认巡检 —— 想查用法的人会顺手打一轮
   // 厂商 API,还可能因当轮判红而真发一封告警(邮件 10 封/天、Server酱 5 条/天的配额是自保项)。
   console.log(
