@@ -123,6 +123,37 @@ function listFiles(root, face) {
 }
 
 /**
+ * 一次 git grep 把"根本不可能命中任何判据"的文件筛掉。
+ *
+ * 为什么需要:逐文件 `git show` 在 627 个 tsx 上实测 38s —— 这是钩子链上的门，
+ * 慢到一定程度就等于逼人 `--no-verify`。
+ * 为什么安全:这个模式串是**三条判据所需字面量的严格超集**
+ *   paddingTop(S3) / statusBarHeight、StatusBar.currentHeight(S2) / `<Modal`、`Modal.`(M1 豁免面)
+ * 少一个词都没有的文件，按定义产不出任何命中，所以筛掉它不改变结论。
+ * **筛不动就退回全量读**(git grep 异常/exit>=2)，绝不退成"少扫文件=少违规"。
+ * 工作树面不筛(要读磁盘，grep 的 tree 形态对它不适用)，如实按全量走。
+ */
+const PREFILTER_PATTERN = 'paddingTop|statusBarHeight|StatusBar\\.currentHeight|<Modal|Modal\\.'
+function candidateSet(root, face) {
+  if (face === 'worktree') return null
+  const args = face === 'index' ? ['grep', '--cached', '-l', '-I', '-E', PREFILTER_PATTERN, '--', ...SCAN_DIRS] : ['grep', '-l', '-I', '-E', PREFILTER_PATTERN, 'HEAD', '--', ...SCAN_DIRS]
+  let out
+  try {
+    out = git(args, root)
+  } catch (e) {
+    // git grep 用 exit 1 表达"零命中"(合法的空候选集)，其余非零是真失败 → 退回全量
+    if (e?.status === 1) return new Set()
+    return null
+  }
+  return new Set(
+    out
+      .split('\n')
+      .filter(Boolean)
+      .map((l) => l.replace(/^HEAD:/, '').replaceAll('\\', '/')),
+  )
+}
+
+/**
  * 剥注释 + 抹字符串(保留**行与列偏移**，便于报出准确行号)。
  *
  * 两件事必须一次做完，且必须是**字符级状态机**，不能"先按行判注释、再按行判字符串":
@@ -239,7 +270,7 @@ function findMagicPads(code) {
  */
 export function scan(root = ROOT, face = 'head') {
   const v = { s1: [], s2: [], s3: [] }
-  const notes = { unreadable: 0, exempt: 0, modalFiles: 0, modalSuppressed: [] }
+  const notes = { unreadable: 0, exempt: 0, modalFiles: 0, modalSuppressed: [], totalFiles: 0, prefiltered: 0 }
 
   // 机制文件必须与屏文件走**同一个取材面** —— 否则 --root/工作树通道下发的是 worktree,
   // 而 S1 偷偷读 HEAD,结论会自相矛盾(第一版就踩在这里)。
@@ -252,7 +283,14 @@ export function scan(root = ROOT, face = 'head') {
     )
   }
 
-  const files = face === 'index' ? listFiles(root, 'index') : listFiles(root, 'all')
+  const allFiles = face === 'index' ? listFiles(root, 'index') : listFiles(root, 'all')
+  const cand = candidateSet(root, face)
+  const files = cand ? allFiles.filter((f) => cand.has(f)) : [...allFiles]
+  // 机制文件永远实读:它被筛掉虽然不会漏判(没命中词=没有 S2/S3)，但"App.tsx 自己也射程内"
+  // 这条不变量就得能被观察 —— 多读 1 个文件换一句能证明的话，值。
+  if (allFiles.includes(MECHANISM_FILE) && !files.includes(MECHANISM_FILE)) files.push(MECHANISM_FILE)
+  notes.totalFiles = allFiles.length
+  notes.prefiltered = cand ? allFiles.length - files.length : 0
   for (const rel of files) {
     const raw = readBlob(root, rel, face)
     if (raw === null) {
@@ -298,7 +336,8 @@ function report(res) {
   const { violations: v, notes, fileCount } = res
   const total = v.s1.length + v.s2.length + v.s3.length
   const lines = [
-    `顶部状态栏避让单一源头对账:判定 ${fileCount} 个源文件 + 1 个机制文件`,
+    `顶部状态栏避让单一源头对账:实读 ${fileCount} 个源文件 + 1 个机制文件` +
+      (notes.prefiltered ? `(候选面 ${notes.totalFiles}，${notes.prefiltered} 个经一次 git grep 筛除:不含任何判据所需字面量)` : ''),
     `  S1 单点在位    ${v.s1.length ? '❌ ' + v.s1.length : '✅ 0'}`,
     `  S2 第二取值口  ${v.s2.length ? '❌ ' + v.s2.length : '✅ 0'}`,
     `  S3 魔法顶距    ${v.s3.length ? '❌ ' + v.s3.length : '✅ 0'}`,
@@ -491,11 +530,15 @@ function selfTest() {
     t('E2E 带原因的行内豁免应放过', r.violations.s3.length === 0 && r.notes.exempt === 1)
 
     // 端到端 6/7:**任务书点名的成对阳性对照** —— 同一段代码，非 Modal 必红、Modal 必放过
+    // 顺带钉住"一次 git grep 预筛"的侧漏风险:旁边放一个不含任何判据字面量的文件，
+    // 它必须被筛除(prefiltered=1)，而**同一轮里的脏文件仍须被判红** —— 筛得快不等于筛错。
+    put('packages/app/src/features/y/Noise.ts', 'export const a = 1\n')
     put('packages/app/src/features/x/XScreen.tsx', PLAIN_SCREEN_WITH_SNIPPET)
     commitAll()
     r = scan(GITROOT, 'head')
     t('E2E 非 Modal 文件 paddingTop: StatusBar.currentHeight ?? 0 必红', r.violations.s2.length >= 1, JSON.stringify(r.violations.s2))
     t('E2E 非 Modal 文件不得被误记为 Modal 豁免', r.notes.modalFiles === 0 && r.notes.modalSuppressed.length === 0)
+    t('E2E 预筛只筛掉无命中的文件(脏文件不得被筛走)', r.notes.prefiltered === 1 && r.fileCount === 2, `prefiltered=${r.notes.prefiltered} fileCount=${r.fileCount}`)
 
     // 先把上一个非 Modal 夹具清空，否则"放过"的结论会被它自己的红混淆(阳性残留)
     put('packages/app/src/features/x/XScreen.tsx', SCREEN_CLEAN)
@@ -550,13 +593,16 @@ function main(argv) {
     return 2
   }
   const { lines, total } = report(res)
-  if (argv.includes('--json')) console.log(JSON.stringify({ ...res, total }, null, 2))
-  else {
-    lines.forEach((l) => console.log(l))
-    if (argv.includes('--all') && res.notes.modalSuppressed.length) {
-      console.log('  —— 以下为 Modal 文件内计数(不判红，供人工核:)')
-      for (const m of res.notes.modalSuppressed) console.log(`  · ${m}`)
-    }
+  if (argv.includes('--json')) {
+    // JSON 模式必须**只**吐一份可被 `| jq` 直接吃的文档:此前人话尾巴接在 JSON 后面，
+    // 任何机器消费方 JSON.parse 必崩(报错还看起来像判据的问题)
+    console.log(JSON.stringify({ ...res, total, ok: total === 0, face }, null, 2))
+    return total > 0 ? 1 : 0
+  }
+  lines.forEach((l) => console.log(l))
+  if (argv.includes('--all') && res.notes.modalSuppressed.length) {
+    console.log('  —— 以下为 Modal 文件内计数(不判红，供人工核:)')
+    for (const m of res.notes.modalSuppressed) console.log(`  · ${m}`)
   }
   if (total > 0) {
     console.log(`\n共 ${total} 处违规。顶距唯一源 = ${MECHANISM_FILE} 的 <SafeAreaView edges={['top']}>。`)
