@@ -384,6 +384,9 @@ importers:
       '@ihui/design-tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens
+      '@ihui/dom-actions':
+        specifier: workspace:*
+        version: link:../../packages/dom-actions
       '@ihui/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
