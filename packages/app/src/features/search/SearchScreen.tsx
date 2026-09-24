@@ -97,7 +97,7 @@ export function SearchScreen({
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.bg, paddingHorizontal: 10, paddingTop: 48 },
+    container: { flex: 1, backgroundColor: tk.surface.bg, paddingHorizontal: 10 },
     header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
     back: { fontSize: 16, color: tk.text.secondary },
     title: { flex: 1, fontSize: 22, fontWeight: '600', color: tk.text.primary },
