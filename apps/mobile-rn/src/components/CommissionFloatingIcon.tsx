@@ -1,7 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
 
 /**
  * CommissionFloatingIcon 佣金悬浮按钮 (mobile-rn 端)
@@ -26,6 +25,8 @@ import {
 } from 'react-native'
 import { tokens as tk } from '../theme/active-tokens'
 import { Banknote } from 'lucide-react-native'
+
+import { rnRadius } from '@ihui/design-tokens'
 
 export interface CommissionFloatingIconProps {
   amount?: string | number
@@ -58,7 +59,7 @@ export function CommissionFloatingIcon({ amount, onPress }: CommissionFloatingIc
       accessibilityRole="button"
       accessibilityLabel={LABEL}
     >
-      <ICON size={18} color={tk.brand.foreground} />
+      <ICON size={18} color={tk.brand.ctaForeground} />
       <View style={styles.textWrap}>
         <Text style={styles.label} numberOfLines={1}>
           {LABEL}
@@ -81,7 +82,7 @@ const styles = StyleSheet.create({
     bottom: BOTTOM_OFFSET,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: tk.brand.DEFAULT,
+    backgroundColor: tk.brand.cta,
     borderRadius: rnRadius.xl,
     paddingHorizontal: CONTAINER_PADDING_H,
     paddingVertical: CONTAINER_PADDING_V,
@@ -92,14 +93,14 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   label: {
     fontSize: LABEL_FONT_SIZE,
-    color: tk.brand.foreground,
+    color: tk.brand.ctaForeground,
     opacity: 0.85,
   } as TextStyle,
   amount: {
     marginTop: AMOUNT_MARGIN_TOP,
     fontSize: AMOUNT_FONT_SIZE,
     fontWeight: '700',
-    color: tk.brand.foreground,
+    color: tk.brand.ctaForeground,
   } as TextStyle,
 })
 
