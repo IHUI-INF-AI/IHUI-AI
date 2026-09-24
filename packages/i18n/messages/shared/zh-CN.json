@@ -2288,6 +2288,16 @@
   },
   "ai": {
     "pane": {
+      "branch": {
+        "ariaLabel": "从该消息分叉出新会话",
+        "notPersisted": "这条消息还没保存，暂时无法分叉",
+        "success": "已分叉出新会话",
+        "switchFailure": "新会话已创建，但界面没能切换过去，请到会话列表里打开它",
+        "loadFailure": "已切到新会话，但消息还没加载出来，请稍后重试",
+        "failure": "分叉失败：{reason}（HTTP {status}）",
+        "noReason": "未提供原因",
+        "unknownStatus": "未知"
+      },
       "queueOps": {
         "ariaLabel": "排队消息操作条",
         "reorderAria": "拖动调整排队顺序；聚焦后可使用上下方向键",
