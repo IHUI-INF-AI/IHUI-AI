@@ -295,4 +295,25 @@ def test_is_sensitive_key_tokenusage_safe():
     # 纯敏感字段仍应脱敏(白名单只保护计量字段)
     assert _is_sensitive_key("refreshToken") is True
     assert _is_sensitive_key("api_key") is True
+
+
+def test_is_sensitive_key_cookie_count_safe():
+    """B10(2026-09-25):cookie_count 是计数(len(cookies)),不是 cookie 内容。
+
+    CI e2e-browser-hub 首跑抓到:"cookie" 子串规则把浏览器会话信息里的
+    cookie_count 从数字打成 "***"(typeof 变 string,
+    apps/ai-service/app/routers/browser_hub.py:70 Pydantic 契约 cookie_count: int)。
+    与 P0-5m 对 prompt_tokens 的同型误伤,白名单只放计数键。
+    """
+    assert _is_sensitive_key("cookie_count") is False
+    # 计数经递归脱敏后必须仍是数字原值(生产方 GET /api/browser/sessions/{id} 的线格式)
+    assert _sanitize_response({"data": {"session_id": "x", "cookie_count": 0}}) == {
+        "data": {"session_id": "x", "cookie_count": 0}
+    }
+    # 反向对照:cookie 真内容仍必须被脱敏,白名单不得开出泄密口子
+    assert _is_sensitive_key("cookie") is True
+    assert _is_sensitive_key("cookies") is True
+    assert _is_sensitive_key("cookie_string") is True
+    assert _is_sensitive_key("cookie_header") is True
+    assert _sanitize_response({"cookie": "session=abc123"}) == {"cookie": MASK}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

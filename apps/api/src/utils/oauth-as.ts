@@ -84,7 +84,7 @@ export function applyDiscoveryHeaders(reply: FastifyReply): FastifyReply {
 }
 
 /** error_uri 允许的主机名集合(小写、无端口);配置留空时只允许 issuer 自身。 */
-export function allowedErrorUriHosts(issuer: string): string[] {
+function allowedErrorUriHosts(issuer: string): string[] {
   const fromConfig = config.OAUTH_ERROR_URI_HOSTS.split(',')
     .map((h) => h.trim().toLowerCase())
     .filter((h) => h.length > 0)

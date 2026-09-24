@@ -22,6 +22,23 @@
 #     T1 表自洽性(requires 图不得有环 / 层级单调 / roots 必须真实存在)
 #   其余(D1 依赖方向、D3 深导入、C2 契约行上限、C3 公开出口数)一律 managed-only。
 #
+# 已收口模块(逐块登记,附**为什么是它**与**试跑数字**):
+# - packages/api-client —— 2026-09-25 翻正面,是本表第一块 managed:true。
+#     选它的三条理由:① 它有**实质契约**(requires 1 条 + public_entrypoints 6 个 + exported:true),
+#        翻上去 D1/D2/D3 三条判据立刻有对象可审;对照 `apps/desktop` 的声明是
+#        `requires: [] / public_entrypoints: [] / exported:false` —— 翻那种空壳等于让门对着空气打分
+#        (正是本表 T1 判据要拦的"表与现实脱节"),所以它不配当第一块;
+#      ② AGENTS §3 规定"所有 API 调用必须走 @ihui/api-client、禁止端内直接 fetch",
+#        它的依赖是否诚实本来就是手工在守的规矩,现在交给门;
+#      ③ 面小 ⇒ 将来任何一条红都只能是改这个包的人自己造的,不会摊派给无关提交。
+#     试跑取证:`--managed-trial packages/api-client` ⇒ 判红 0 处(全仓 24 个模块逐一试跑均 0 处,
+#     现存 3 条软账都归属别的模块:`packages/i18n` 2 条 + `repo-tooling` 1 条)。
+#     下一块要先还的账:翻 `packages/i18n` 前须先处置 `tests/waiting-keys-in-end-packages.test.ts`
+#     跨包相对 import(要么把该出口补进 requires 并确认层级不反向,要么改走公开出口);
+#     翻 `repo-tooling` 前须处置 `scripts/tests/export-openapi-stub-key.test.mjs` 同类问题。
+#     收口进度不得退回:镜像测试 `check-architecture-policy.test.mjs` 钉的是
+#     "真表里 managed:true ≥ 1"这一**不变量**(不钉具体条目 —— 合法回退不该把测试变红)。
+#
 # ---------------------------------------------------------------------------
 # 阈值实测依据(2026-09-24,全部按 **HEAD blob** 口径量,不按滞后的共享工作树)
 # 量法(可复现,不留临时脚本):git ls-tree -r --name-only HEAD 取 8288 个
@@ -229,7 +246,7 @@ modules:
     package: '@ihui/api-client'
     layer: 'platform'
     exported: true
-    managed: false
+    managed: true
     roots:
       - 'packages/api-client'
     requires:
