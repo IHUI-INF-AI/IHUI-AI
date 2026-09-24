@@ -65,10 +65,11 @@ function waitForPushState(headSha, timeoutMs = 8 * 60 * 1000) {
       /* 无状态文件 */
     }
     if (Date.now() > deadline) return 'timeout'
-    execFileSync(process.execPath, ['-e', 'setTimeout(()=>{},3000)'], {
-      stdio: 'ignore',
-      windowsHide: true,
-    })
+    // 同步休眠改用 Atomics.wait(仓内既有正例:desktop-installer-assets.mjs),不再派生 node 子进程。
+    // 诱因是实测事实:2026-09-24 该 `node -e` 派生在一轮收敛中失败过一次(隔离复现 3/3 成功 ⇒
+    // 瞬时派生失败,根因未定位),而 execFileSync 抛出会把**整轮收敛**连带中止 —— 此时合并提交已推进、
+    // 后续轮次与推送检查全部没跑。休眠不该是收敛器的失败模式。
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 3000)
   }
 }
 

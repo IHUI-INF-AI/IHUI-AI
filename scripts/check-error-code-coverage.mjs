@@ -24,7 +24,9 @@
 // 全量模式宁漏不误报:只扫 `packages/api-client/src` 与 `apps/ai-service/app` 的
 // **显式 errorCode 字面量位**,不做全仓模糊匹配。
 //
-// 本门**不注册进 guardian-runner.mjs**(该文件本批次他人 in-flight),只保证自身可跑:
+// 本门**已注册进 guardian-runner.mjs(守门 91,blocking,skipEnv=HUSKY_SKIP_ERROR_CODE_COVERAGE)**,
+// 2026-09-24 由守门接线对账(门 89)从"造好没装车"名单里补装;改这句时请同步改 runner,
+// 否则门 89 会把本行判成 R1「声称已接线但五处零命中」而拦下提交。
 //   node scripts/check-error-code-coverage.mjs
 //   node scripts/check-error-code-coverage.mjs --self-test
 //   node scripts/check-error-code-coverage.mjs --list

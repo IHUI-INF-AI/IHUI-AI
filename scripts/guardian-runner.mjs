@@ -2236,6 +2236,109 @@ const checks = [
     ].join('\n'),
   },
 
+  // C 盘污染实地扫描(2026-09-23 立,守门 90,warn-only)。成因:§15/§26 的三道旧门没有
+  // 一道真去看文件系统 —— check-c-drive-paths 只扫 staged 源码里的字面量 C:\temp,看不见
+  // os.tmpdir() 派生的写入;check-parent-pollution 只扫项目父目录(D:\);check-root-dir-clean
+  // 只扫项目根。于是 C 盘实攒 13.2G .next 构建备份 + 单日 45 个 git 夹具而全链恒绿。
+  // 本门实地扫 C 盘根 + C:\tmp + 活 TEMP,并单独判"TEMP 漂移"(注册表已指 D、活进程仍拿 C,
+  // 即残骸天天新增的机制)。只读、不删文件;定级 warn 而非 blocking,因为盘根多数条目
+  // 不属本仓,拦提交只会逼人 --no-verify 连带废掉其余守门(与守门 77/52 同取向)。
+  {
+    id: '92',
+    label: '💽 C 盘污染实地扫描(warn,拦"源码没写死但东西真掉在 C 盘")',
+    script: 'check-c-drive-pollution.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_C_DRIVE_POLLUTION',
+    onFailHint: [
+      '',
+      '  💡 列出的都是**本项目产物**落在 C 盘。名字不认识的条目只登记、不定性,',
+      '     不要顺手删 —— 先验明身份再决定(清理类任务的铁律)。',
+      '     看清单:node scripts/check-c-drive-pollution.mjs',
+      '     若报"TEMP 漂移":注册表 TEMP 已指 D 而活进程仍拿 C,新建终端/重启宿主后自愈;',
+      '     在此之前,任何走 os.tmpdir() 的脚本都会继续往 C 盘堆夹具。',
+      '     紧急跳过(不推荐):HUSKY_SKIP_C_DRIVE_POLLUTION=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 90 (2026-09-24 装车,PROJECT_PLAN D107 ① 配套) ---
+  // 本门 2026-09-23 就写好了,但**从未进入提交链**(守门 89 的 R3 名单里一直有点它),
+  // 即"造好没装车"的第五次同型。装车同时校准台账:HEAD 实测四端已注册 onSteer,
+  // 而台账仍按 D106 早先的 WONTFIX 判定挂着 `no-steer-ui` ⇒ 判据③(唯一真源)红四条,
+  // baseline 也落后一格 —— 这正是它不上车道时没人能看见的漂移。
+  // 取材基准一律 HEAD(含帧清单的 client.ts),否则并发会话未提交的新帧会让五端同时判红。
+  // 2026-09-23 深夜说明:本条曾被提交 5db08f26e 整文件覆盖(该会话的新门最初也登记 90,
+  // 撞号后其已改 91)。此处按 ce261e1a8 原文回插,勿再改写。
+  {
+    id: '90',
+    label: '📡 SSE 帧端内 dispatch 注册层对账(blocking,补守门 63 覆盖不到的第 3 层)',
+    script: 'check-sse-dispatch-parity.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'packages/api-client/src/client.ts',
+      'scripts/data/sse-dispatch-coverage.json',
+      'scripts/check-sse-dispatch-parity.mjs',
+      'apps/web/src/',
+      'apps/extension/',
+      'apps/miniapp-taro/src/',
+      'apps/mobile-rn/',
+      'apps/cli/',
+    ],
+    skipEnv: 'HUSKY_SKIP_SSE_DISPATCH_PARITY',
+    onFailHint: [
+      '',
+      '  💡 帧被解析出来 ≠ 端内有人接:各端 streamChat 的回调表里没有这个 case,界面上就是"没这个功能"。',
+      '     看补接工单:node scripts/check-sse-dispatch-parity.mjs --report',
+      '     补接一帧后:删 scripts/data/sse-dispatch-coverage.json 里对应的 missing[端][帧] 条目,',
+      '                并把 baseline[端] 上调到新实测值(降回去就是在倒退)。',
+      '     该端确实无处渲染:必须在 missing 里写明**为什么**(空理由同样拦;',
+      '                已接却还挂着条目同样拦 —— 登记项不得变成墓志铭)。',
+      '     自检:node scripts/check-sse-dispatch-parity.mjs --self-test(8 例)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_SSE_DISPATCH_PARITY=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  {
+    // D71 错误码覆盖率对账。此前该门自己写明"不注册进 guardian-runner(他人 in-flight)",
+    // 2026-09-24 由守门接线对账(门 89)判为 R3 孤儿;实测真仓 exit 0 / 0.4s / 无写盘副作用
+    // / 自带 25+ 例 --self-test 反演 ⇒ 属"今天就能接"的那一枚,已接线并同步改掉头部那句。
+    // 守的是一整类静默失败:后端新增 errorCode 而界面把它压成同一句"AI 服务异常"。
+    // ⚠️ 编号 91 → **92**(2026-09-24 改号):本门最初登记为 91 时,并发会话在同一位置也
+    // 加了一道 91(check-c-drive-pollution)—— 同 id 两道 blocking 门会串 skipEnv 与失败归属,
+    // 这是本仓第 N 次撞号(先例:75/76 各重复一次、79→80)。改号后由守门 89 的 R5 维度
+    // (重复 id 判红)常驻看守,**登记新门前必须先查占用**:`git show HEAD:scripts/guardian-runner.mjs | grep -oE "id: '[0-9]+" | sort -u -V | tail -1`。
+    id: '92',
+    label: '🧭 errorCode 覆盖率对账(blocking,零"未知错误"兜底,补装)',
+    script: 'check-error-code-coverage.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_ERROR_CODE_COVERAGE',
+    // 判据要扫 641 个文件提取显式 errorCode 字面量;仅在触及码面/词表/账本时跑,纯文档提交不背。
+    stagedTriggers: [
+      'packages/api-client/src/',
+      'apps/ai-service/app/',
+      'packages/shared/src/chat/error-catalog.ts',
+      'packages/i18n/messages/web/zh-CN.json',
+      'scripts/check-error-code-coverage.mjs',
+      'scripts/data/',
+    ],
+    onFailHint: [
+      '',
+      '  💡 有 errorCode 没进 `packages/shared/src/chat/error-catalog.ts`,或八类分类缺项 ⇒',
+      '     用户会看到笼统的"AI 服务异常"而不是具体原因(对标 Qoder 的码级标题)。',
+      '     修复:在该 catalog 补 `{ code: { category, titleKey, actionKey } }` 一条,',
+      '     并补 `packages/i18n/messages/*/`(五语言)对应标题/动作键;分类**复用 D92 的',
+      '     ViewFailureKind 15 类主干,禁止另起第二张表**(AGENTS §4/D71 硬约束)。',
+      '     单独复验:node scripts/check-error-code-coverage.mjs',
+      '     自检:node scripts/check-error-code-coverage.mjs --self-test',
+      '     紧急跳过(不推荐):HUSKY_SKIP_ERROR_CODE_COVERAGE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',

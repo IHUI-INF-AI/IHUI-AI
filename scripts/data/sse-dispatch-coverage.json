@@ -3,10 +3,10 @@
   "toolCallbacks": ["onAbort"],
   "baseline": {
     "web": 27,
-    "extension": 15,
-    "miniapp-taro": 20,
-    "mobile-rn": 16,
-    "cli": 10
+    "extension": 16,
+    "miniapp-taro": 21,
+    "mobile-rn": 17,
+    "cli": 12
   },
   "endpoints": {
     "web": ["apps/web/src", "apps/web/app"],
@@ -16,7 +16,6 @@
     "cli": ["apps/cli"]
   },
   "groups": {
-    "no-steer-ui": "该端无「引导输入(steer)」入口,帧无处消费;台账 D106 已判 onSteer 对无引导输入的端为 WONTFIX(不是遗漏)。补齐后请删除本组引用并上调 baseline。",
     "no-subagent-ui": "该端未实现子代理活动流水(SubAgentActivityFeed 族),故 spawn/progress/end 三帧无渲染位;补齐见 PROJECT_PLAN D40 / D103。",
     "no-question-ui": "该端无「AI 提问卡 + 作答续流」整条闭环(web 侧为 onQuestion → pendingQuestion → sendAnswer),只解析会让用户看到提问却无法回答;理由与守门 63 的 webOnly.question 同源。",
     "no-budget-ui": "该端无预算/额度条展示位,故不消费 onBudget。",
@@ -40,7 +39,6 @@
       "onMemoryUpdates": "no-memory-update-ui",
       "onQuestion": "no-question-ui",
       "onReconnect": "no-reconnect-ui",
-      "onSteer": "no-steer-ui",
       "onSubagentEnd": "no-subagent-ui",
       "onSubagentProgress": "no-subagent-ui",
       "onSubagentSpawn": "no-subagent-ui",
@@ -53,7 +51,6 @@
       "onDelta": "该端聊天渲染按 tokens 概览驱动,未逐 delta 消费;seed 现状,若后续接入逐字流请删除本项并上调 baseline。",
       "onMemoryUpdates": "no-memory-update-ui",
       "onQuestion": "no-question-ui",
-      "onSteer": "no-steer-ui",
       "onTerminalDelta": "no-terminal-delta-ui"
     },
     "mobile-rn": {
@@ -61,7 +58,6 @@
       "onBudget": "no-budget-ui",
       "onMemoryUpdates": "no-memory-update-ui",
       "onReconnect": "no-reconnect-ui",
-      "onSteer": "no-steer-ui",
       "onSubagentEnd": "no-subagent-ui",
       "onSubagentProgress": "no-subagent-ui",
       "onSubagentSpawn": "no-subagent-ui",
@@ -71,13 +67,11 @@
     },
     "cli": {
       "onAgentDelta": "no-agent-delta-ui",
-      "onBudget": "no-budget-ui",
       "onCompaction": "no-compaction-ui",
       "onFallback": "no-fallback-ui",
       "onMemoryUpdates": "no-memory-update-ui",
       "onQuestion": "no-question-ui",
       "onReconnect": "no-reconnect-ui",
-      "onSteer": "no-steer-ui",
       "onSubagentEnd": "no-subagent-ui",
       "onSubagentProgress": "no-subagent-ui",
       "onSubagentSpawn": "no-subagent-ui",

@@ -722,8 +722,6 @@
       "gatewayRetry": "{attempt}/{max}회 재시도, {seconds}초 후 계속합니다",
       "subagent": "하위 작업: {phase}",
       "title": "실행 과정",
-      "toolCall": "도구 호출: {name}",
-      "toolResult": "도구 반환: {name}",
       "toolSummary": "도구 집계: {calls}회",
       "terminal": "터미널 작업: {status}",
       "usage": "사용량: {n} tokens"
@@ -2486,18 +2484,12 @@
     "unsupportedEnv": "현재 환경은 결제를 지원하지 않습니다",
     "resultPending": "결제 결과 확인 중",
     "agreementPrefix": "지금 결제를 클릭하면 동의하는 것으로 간주합니다",
-    "countLabel": "수량",
     "coupon": "쿠폰",
     "createTime": "주문 시간",
-    "defaultName": "AI 어시스턴트",
     "orderNo": "주문번호",
     "payFailed": "결제 실패, 다시 시도하세요",
-    "payNow": "지금 결제",
     "paying": "결제 중...",
-    "perMonth": "월",
-    "priceLabel": "가격",
     "purchaseContent": "구매 내용",
-    "subscribeTip": "구독 후 무제한 이용 가능",
     "userAgreement": "《사용자 약관》"
   },
   "study": {
@@ -3218,7 +3210,6 @@
       "empty": "자료가 없습니다"
     },
     "qrCodeHint": "QR 코드를 스캔하여 커뮤니티 가입",
-    "thinking": "생각 중...",
     "voice": {
       "listening": "듣는 중...",
       "tapToStop": "클릭하여 녹음 중지"
@@ -3246,16 +3237,6 @@
     "5": "다이아몬드",
     "6": "킹",
     "distance": "남은"
-  },
-  "messageCenter": {
-    "empty": "메시지가 없습니다",
-    "title": "메시지 센터",
-    "type": {
-      "course": "강좌",
-      "order": "주문",
-      "social": "소셜",
-      "system": "시스템"
-    }
   },
   "interaction": {
     "collect": "나를 즐겨찾기함",
@@ -3579,16 +3560,6 @@
     "d19": "심우주 메아리",
     "r1": "데이터 홍수 속에서 우리는 코드를 붓으로, 알고리즘을 잉크로 삼아 디지털 시대의 시와 먼 지평선을 그린다. 모든 문장은 사고의 연장이며, 모든 생성은 창조의 시작이다."
   },
-  "adaptersOrderScreentaro": {
-    "d1": "결제 대기",
-    "d2": "결제 완료",
-    "d3": "결제 대기",
-    "d4": "결제 완료"
-  },
-  "adaptersFeedbackScreentaro": {
-    "d1": "피드백을 입력해 주세요...",
-    "d2": "연락처(선택)"
-  },
   "aiAgentdetail": {
     "q1": "에이전트 상세 가져오기",
     "r6": "에이전트 권한 가져오기 실패"
@@ -3626,11 +3597,6 @@
     "d16": "브랜드, 성장, SEO",
     "text1": "건너뛰기",
     "z1": "관심 분야를 선택하세요"
-  },
-  "adaptersPayButtontaro": {
-    "d1": "무료 사용",
-    "d2": "월 이용료",
-    "d3": "구매 완료"
   },
   "aiSpecial": {
     "d1": "Google Gemini 2.5 Flash 텍스트 모델, 빠른 응답·멀티모달 입력",
@@ -3717,11 +3683,6 @@
     "d3": "다크 인터페이스, 눈 보호·절전, 야간에 적합"
   },
   "AgentListPanel": {
-    "d1": "무료 사용",
-    "d2": "월 이용료",
-    "d3": "구매 완료"
-  },
-  "PayButton": {
     "d1": "무료 사용",
     "d2": "월 이용료",
     "d3": "구매 완료"
@@ -3910,27 +3871,10 @@
     "r2": "지린성 아이즈후이 인공지능 과학기술 유한회사",
     "p1": "Ji ICP License No. 2025027274-7A"
   },
-  "last": {
-    "1": "AI IHUI |",
-    "3": "결제 기능은 백엔드 연동 대기 중"
-  },
-  "adaptersUserInfoCardtaro": {
-    "y1": "{p1}억",
-    "y2": "{p1}만"
-  },
-  "api": {
-    "y1": "요청 실패({p1})",
-    "y2": "요청 실패({p1})"
-  },
   "StudyStats": {
     "y1": "h, 완료"
   },
   "tail": {
-    "1": "관심 있는 트랙을 선택하여 맞춤 추천 받기",
-    "2": "원탭 로그인",
-    "3": "편집",
-    "4": "남은 지혜값:",
-    "5": "충전",
     "6": "데이터 없음",
     "7": "다시 시도",
     "8": "로딩 중...",
@@ -3992,9 +3936,6 @@
   },
   "VipUpgradeToast": {
     "p1": "회원 업그레이드로 더 많은 기능 해제"
-  },
-  "adaptersCarouseltaro": {
-    "q1": "캐러셀 이미지가 없습니다"
   },
   "aboutApppermission": {
     "q1": "권한 상태 가져오기"

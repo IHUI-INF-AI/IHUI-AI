@@ -3,6 +3,62 @@
   "updatedAt": "2026-09-24",
   "entries": [
     {
+      "script": "check-agents.mjs",
+      "type": "standalone-tool",
+      "reason": "一次性 DB 探查脚本(读 information_schema 打印 agents 新列与 zhs_agent_* 在位情况)。真跑连 PostgreSQL ⇒ 接进 pre-commit 会把\"数据库没起/没配\"变成全队提交失败,直接违反 AGENTS §5 测试隔离铁律。"
+    },
+    {
+      "script": "check-dev-env-consistency.mjs",
+      "type": "dispatcher",
+      "dispatcher": "scripts/start-dev.ps1",
+      "reason": "三端 env 一致性硬闸,真实触发点在 start-dev.ps1(启动前置)。校验对象是被 gitignore 的本机 .env ⇒ 缺文件即 exit 1,接成提交门则干净 checkout / CI / 新机首次提交必红。"
+    },
+    {
+      "script": "check-downloads-config.mjs",
+      "type": "standalone-tool",
+      "reason": "运营发布就绪度 CLI:默认恒 exit 0(无阻断能力),加 --strict 今天即红(iOS App Store / 微信小程序两端 env 未填)。把\"运营没填下载配置\"判成开发者提交违规,属恒红门入口。"
+    },
+    {
+      "script": "check-ignore-todos.mjs",
+      "type": "standalone-tool",
+      "reason": "头部如实写「退出码: 始终 0 (warn-only)」,代码三处 exit(0)、无 exit 1 路径 ⇒ 接线零收益。且 IGNORE_FILE 按 process.cwd() 推导,钩子工作目录不保证是仓库根 ⇒ 读不到就静默\"跳过\",接线只会制造假绿。"
+    },
+    {
+      "script": "check-lock.mjs",
+      "type": "standalone-tool",
+      "reason": "【2026-09-24 依据更正】原条目写「调用点在 apps/web/package.json prebuild/predev」是**假依据**:实测该两处调的是 scripts/deploy-lock.mjs 与 scripts/check-stale-stashes.mjs,全仓除台账自身外对 scripts/check-lock.mjs 零引用。本脚本是 dev-vs-build 互斥锁的历史实现,真实生效的是 deploy-lock.mjs(AGENTS §12 部署锁一节)。保留文件不删(共享工作区他人可见,§7 删除三问未过),仅供查阅;若将来确需复活,须先说明与 deploy-lock.mjs 的分工再登记接线。"
+    },
+    {
+      "script": "check-messages-dev-restart.mjs",
+      "type": "standalone-tool",
+      "reason": "i18n messages 变更后提示重启 dev server 的开发期提醒脚本,不判成败、不阻断提交"
+    },
+    {
+      "script": "check-miniapp-taro-design-tokens.mjs",
+      "type": "standalone-tool",
+      "reason": "重复真相:同一件事已由已接线的 runner 第 36 项 check-miniapp-tokens-sync.mjs 与 CI 侧 check-design-tokens-sync --target=miniapp-taro 承担(213 变量同结论),其独有段(app.config.ts 硬编码色值)又与 check-miniapp-taro-style-parity.mjs 重叠。正解是并进既有门,再挂一枚只会多一处漂移源。"
+    },
+    {
+      "script": "check-p2-3-acceptance.mjs",
+      "type": "standalone-tool",
+      "reason": "P2-3 一次性验收脚本(历史里程碑),长期挂守门链无意义,人工按需复跑"
+    },
+    {
+      "script": "check-task-claims.mjs",
+      "type": "standalone-tool",
+      "reason": "AGENTS §1 把它定位为派单前的「扫描工具」(查 PROJECT_PLAN 三态认领),不是判据:代码无任何 exit(1),且计划文档常态数十项无人认领 ⇒ 红/绿语义不成立。"
+    },
+    {
+      "script": "check-web-tokens-import.mjs",
+      "type": "standalone-tool",
+      "reason": "重复门:tokens.css 的 @import 存在性已由已接线的 check-web-tokens-sync.mjs(第 135-141 行)以 REGRESSION exit 1 承载,本门唯一增量是 base.css 那一条断言 ⇒ 应并入前者,不另挂一道。"
+    },
+    {
+      "script": "guard-push-other-agent-changes.mjs",
+      "type": "standalone-tool",
+      "reason": "头部自述「已废弃、未接线(2026-09-24 守门接线对账判定)」:其职责已由 safe-commit.mjs 五步法 / lib/staging-snapshot.js / check-staged-pollution.mjs(已注册 runner)三层覆盖,且它需调用方传\"本任务文件白名单\",钩子结构上拿不到。重接=与 check-staged-pollution 双门互踩。"
+    },
+    {
       "script": "guardian-utils.mjs",
       "type": "standalone-tool",
       "reason": "守门脚本共享工具模块(库,被 import 而非被调用);名字被 ^(guard) 前缀误收进被测全集,不存在接线点"
@@ -11,22 +67,6 @@
       "script": "scan-upstream-models.mjs",
       "type": "standalone-tool",
       "reason": "上游 provider 模型扫描注册机(生成器,人工/运维触发写库),不属提交门禁,不进 pre-commit 热路径"
-    },
-    {
-      "script": "check-lock.mjs",
-      "type": "dispatcher",
-      "dispatcher": "apps/web/package.json prebuild/predev",
-      "reason": "dev-vs-build 互斥锁检查器,调用点在端内包的 prebuild/predev 钩子(非根 package.json,不属五处权威点);部署侧另有 deploy-lock.mjs"
-    },
-    {
-      "script": "check-messages-dev-restart.mjs",
-      "type": "standalone-tool",
-      "reason": "i18n messages 变更后提示重启 dev server 的开发期提醒脚本,不判成败、不阻断提交"
-    },
-    {
-      "script": "check-p2-3-acceptance.mjs",
-      "type": "standalone-tool",
-      "reason": "P2-3 一次性验收脚本(历史里程碑),长期挂守门链无意义,人工按需复跑"
     }
   ]
 }
