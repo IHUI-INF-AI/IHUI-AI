@@ -39,11 +39,11 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
     : 'unknown'
 
   return (
-    <View className="flex-1 bg-white">
-      <View className="flex-row items-center border-b border-gray-100 px-3 py-2">
-        <Text className="text-sm font-semibold text-gray-800">{t('agent.runtimeTitle')}</Text>
+    <View className="flex-1 bg-white dark:bg-neutral-900">
+      <View className="flex-row items-center border-b border-gray-100 dark:border-neutral-700 px-3 py-2">
+        <Text className="text-sm font-semibold text-gray-800 dark:text-neutral-100">{t('agent.runtimeTitle')}</Text>
         {sessionId ? (
-          <Text className="ml-2 text-xs text-gray-400" numberOfLines={1}>
+          <Text className="ml-2 text-xs text-gray-400 dark:text-neutral-500" numberOfLines={1}>
             #{sessionId.slice(0, 8)}
           </Text>
         ) : null}
@@ -54,29 +54,29 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
         <Pressable
           onPress={handleClear}
           disabled={status === 'running'}
-          className="rounded-md bg-gray-50 px-2 py-1"
+          className="rounded-md bg-gray-50 dark:bg-neutral-800 px-2 py-1"
         >
-          <Text className="text-xs text-gray-500">{t('agent.runtimeClear')}</Text>
+          <Text className="text-xs text-gray-500 dark:text-neutral-400">{t('agent.runtimeClear')}</Text>
         </Pressable>
       </View>
 
       <ScrollView className="flex-1 px-3 py-3">
         {plan ? (
-          <View className="mb-3 rounded-md border border-gray-100 bg-gray-50 p-3">
-            <Text className="mb-1.5 text-xs font-medium text-gray-500">
+          <View className="mb-3 rounded-md border border-gray-100 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800 p-3">
+            <Text className="mb-1.5 text-xs font-medium text-gray-500 dark:text-neutral-400">
               {t('agent.runtimePlan')}
             </Text>
-            <Text className="text-xs leading-relaxed text-gray-700">{plan}</Text>
+            <Text className="text-xs leading-relaxed text-gray-700 dark:text-neutral-300">{plan}</Text>
           </View>
         ) : null}
 
         {permission ? (
-          <View className="mb-3 rounded-md border border-amber-200 bg-amber-50 p-3">
-            <Text className="mb-1.5 text-xs font-medium text-amber-700">
+          <View className="mb-3 rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900 p-3">
+            <Text className="mb-1.5 text-xs font-medium text-amber-700 dark:text-amber-300">
               {t('agent.runtimePermission')}:{' '}
               {permissionDecisionWord(permission.decision, (k) => t(`stepDecision.${k}`))}
             </Text>
-            <Text className="text-xs text-gray-600">
+            <Text className="text-xs text-gray-600 dark:text-neutral-300">
               {t('agent.runtimePermissionTool')}: {permToolLabel} ·{' '}
               {t('agent.runtimePermissionLevel')}: {permission.dangerLevel ?? 'read'} ·{' '}
               {t('agent.runtimePermissionMode')}: {t(permissionTierWordKeys(permission.mode).title)}
@@ -86,28 +86,28 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
 
         {output ? (
           <View className="mb-3">
-            <Text className="mb-1.5 text-xs font-medium text-gray-500">
+            <Text className="mb-1.5 text-xs font-medium text-gray-500 dark:text-neutral-400">
               {t('agent.runtimeOutput')}
             </Text>
-            <Text className="text-sm leading-relaxed text-gray-800">{output}</Text>
+            <Text className="text-sm leading-relaxed text-gray-800 dark:text-neutral-100">{output}</Text>
           </View>
         ) : null}
 
         {error ? (
-          <View className="mb-3 rounded-md border border-red-200 bg-red-50 p-3">
-            <Text className="mb-1 text-xs font-medium text-red-700">{t('agent.runtimeError')}</Text>
-            <Text className="text-xs text-red-600">{error}</Text>
+          <View className="mb-3 rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900 p-3">
+            <Text className="mb-1 text-xs font-medium text-red-700 dark:text-red-300">{t('agent.runtimeError')}</Text>
+            <Text className="text-xs text-red-600 dark:text-red-300">{error}</Text>
           </View>
         ) : null}
 
         {!plan && !output && !error && !permission ? (
           <View className="items-center py-8">
-            <Text className="text-sm text-gray-400">{t('agent.runtimeEmpty')}</Text>
+            <Text className="text-sm text-gray-400 dark:text-neutral-500">{t('agent.runtimeEmpty')}</Text>
           </View>
         ) : null}
       </ScrollView>
 
-      <View className="border-t border-gray-100 p-3">
+      <View className="border-t border-gray-100 dark:border-neutral-700 p-3">
         <View className="flex-row items-end">
           <Input
             value={input}
@@ -115,7 +115,7 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
             placeholder={t('agent.runtimeInputPlaceholder')}
             editable={status !== 'running'}
             multiline
-            className="h-auto min-h-[120px] min-h-[60px] flex-1 rounded-md border border-gray-200 bg-white p-2 text-sm text-gray-900"
+            className="h-auto min-h-[120px] min-h-[60px] flex-1 rounded-md border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2 text-sm text-gray-900 dark:text-neutral-100"
           />
           {status === 'running' ? (
             <Pressable
