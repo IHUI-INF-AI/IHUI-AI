@@ -5,15 +5,16 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import React from 'react'
-import { render, cleanup, screen } from '@testing-library/react'
+import { render, cleanup, screen, fireEvent } from '@testing-library/react'
 
 vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string) => {
+  useTranslations: () => (key: string, values?: { count?: number }) => {
     const map: Record<string, string> = {
       thinkingTitle: '思考过程',
       thinkingStreaming: '思考中',
       thinkingChars: '字符',
     }
+    if (key === 'thinkingRefsTitle') return `使用了 ${String(values?.count ?? 0)} 个引用`
     return map[key] ?? key
   },
 }))
@@ -107,6 +108,101 @@ describe('ThinkingSection 分节渲染(P3 #33)', () => {
     // 预览文本并入活动行的 subject 槽位(基元用 data-stream-subject 标识,不再有独立 testid)
     const subject = document.querySelector('[data-stream-subject]')?.textContent ?? ''
     expect(subject).toBe(`…${longPara.slice(-60)}`)
+  })
+})
+
+/**
+ * D64 ③(2026-09-24):思考卡**双态标题**装车。判定在 `element-pack#thinkingTitleView`,
+ * 本组用例只验渲染位真的用上了它(端内不得再写第二套判据)。
+ */
+describe('D64 ③ 思考卡双态标题 + H22 手动展开不被自动收起', () => {
+  afterEach(() => cleanup())
+
+  it('态一:有思考内容 → 「思考过程」(现状单态不回退)', () => {
+    render(
+      <ThinkingSection
+        content="先拆解需求。"
+        currentNode={null}
+        isStreaming={false}
+        expanded={false}
+        refsCount={7}
+      />,
+    )
+    const root = screen.getByTestId('thinking-section')
+    expect(root.getAttribute('data-thinking-title-variant')).toBe('thinking')
+    expect(root.textContent).toContain('思考过程')
+    // 有思考时引用数不得抢标题(两态互斥,思考优先)
+    expect(root.textContent).not.toContain('个引用')
+  })
+
+  it('态二:无思考但引用数 > 0 → 「使用了 N 个引用」;引用数非法/为 0 → 整段不渲染', () => {
+    const { unmount } = render(
+      <ThinkingSection
+        content=""
+        currentNode={null}
+        isStreaming={false}
+        expanded={false}
+        refsCount={3}
+      />,
+    )
+    const root = screen.getByTestId('thinking-section')
+    expect(root.getAttribute('data-thinking-title-variant')).toBe('refs')
+    expect(root.textContent).toContain('使用了 3 个引用')
+    unmount()
+
+    // 反例:0 / 负数 / 非有限 + 无思考 ⇒ 与改造前一致,不渲染空壳
+    for (const bad of [0, -2, Number.NaN]) {
+      render(
+        <ThinkingSection
+          content=""
+          currentNode={null}
+          isStreaming={false}
+          expanded={false}
+          refsCount={bad}
+        />,
+      )
+      expect(screen.queryByTestId('thinking-section')).toBeNull()
+      cleanup()
+    }
+  })
+
+  it('H22 反超判据:非受控下用户手动展开,流式开始→结束后仍保持展开', () => {
+    const view = render(
+      <ThinkingSection content="先拆解需求。" currentNode={null} isStreaming={false} />,
+    )
+    // 初始折叠(无 localStorage 偏好)
+    expect(screen.getByTestId('thinking-section').getAttribute('data-thinking-expanded')).toBe(
+      'false',
+    )
+    // 用户手动展开
+    fireEvent.click(screen.getByTestId('thinking-toggle'))
+    expect(screen.getByTestId('thinking-section').getAttribute('data-thinking-expanded')).toBe(
+      'true',
+    )
+    // 走一轮流式:自动展开逻辑不得把"用户已展开"认作自己接管的结果
+    view.rerender(
+      <ThinkingSection content="先拆解需求,再定工具。" currentNode={null} isStreaming={true} />,
+    )
+    view.rerender(
+      <ThinkingSection content="先拆解需求,再定工具。" currentNode={null} isStreaming={false} />,
+    )
+    expect(screen.getByTestId('thinking-section').getAttribute('data-thinking-expanded')).toBe(
+      'true',
+    )
+    expect(screen.getByTestId('thinking-content').textContent).toContain('再定工具')
+  })
+
+  it('对照:H22 只在"自动展开"时成立 —— 未手动干预的流式结束照旧自动收起', () => {
+    const view = render(
+      <ThinkingSection content="先拆解需求。" currentNode={null} isStreaming={true} />,
+    )
+    expect(screen.getByTestId('thinking-section').getAttribute('data-thinking-expanded')).toBe(
+      'true',
+    )
+    view.rerender(<ThinkingSection content="先拆解需求。" currentNode={null} isStreaming={false} />)
+    expect(screen.getByTestId('thinking-section').getAttribute('data-thinking-expanded')).toBe(
+      'false',
+    )
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
