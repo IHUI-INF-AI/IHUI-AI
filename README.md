@@ -5118,9 +5118,12 @@ A: Yes. ~14839+ tests / 719 test files / 67 e2e spec / 4393 API 路由 / 542 数
 深色纯白,作大色块两态都与页面反极,这正是用户实拍"浅色一大片黑 / 深色一大片白"的成因。本门对
 `DEFAULT` 与 `cta` **同形认**:只认 DEFAULT 会让迁移后的主实底整片躲进门盲区。配错前景就是白底白字。五条判据:
 `scripts/brand-foreground-baseline.json`,只减不增。`--self-test` 94 条断言(含阳性对照与变异对照)+
-镜像测试 `scripts/tests/check-brand-foreground.test.mjs` 13 例;R5(web/ui-react Tailwind 类名面的
+镜像测试 `scripts/tests/check-brand-foreground.test.mjs` 17 例;R5(web/ui-react Tailwind 类名面的
 `bg-primary`+`text-primary-foreground` 退役配对,基线键 `webClassPairCounts` 现为空 = 零容忍)
-于 2026-09-24 补上,详见 AGENTS 守门速查第 83 项;紧急跳过
+于 2026-09-24 补上,**R7(JSX 渲染嵌套级跨档配对:递归下降把前景归到最近持底祖先,并覆盖内联
+`color=` 的 icon/spinner —— R1/R4 对这一型结构上看不见;基线键 `nestMismatchCounts` 现须为空)**
+于 2026-09-25 补上,且 R5 的射程同日扩到 miniapp-taro 与渐变端(`from-primary`/`to-primary`)。
+详见 AGENTS 守门速查第 83 项;紧急跳过
 
 | | Credits 用量可见性 | `GET /api/credits/usage/daily`(登录态 + Zod,days≤365,UTC 分桶缺日补零,纯只读零写入)驱动热力图卡;**单日消耗**与**当日新建会话数**是两条独立序列(积分流水的 reference_id 存 HTTP 请求 id 而非会话 id),不可互相换算 |
 | | 会话级分叉(跨端宿主) | 分叉三层**早已入库**(W17 2026-09-14):端点 `POST /api/chat/conversations/:id/branch` + 客户端 `branchConversation()` + DB 事务 `branchConversationFrom`(新会话 metadata 记 `forkedFromMessageId`/`forkedFromMessageCount`/`forkedAt`,供分支树溯源)。**宿主覆盖**：web 消息级 `use-chat/send-message.ts`;extension sidepanel 2026-09-25 接(`ChatPage.tsx` assistant 气泡下方「从此处分支」;该端原为**无会话纯流式**,故先懒建会话 + 逐条落库才谈得上分叉,落库失败走非阻断 notice 不打断既有聊天)。rn **2026-09-25 接**(宿主 `AiAssistantN8nScreen.tsx`:气泡动作行 `GitBranchPlus` 钮 + 只有落过库的消息才给分叉资格;切换成功靠"切换前 id≠新 id ∧ 切后立即读回 ref===新 id ∧ 组件仍挂载"三条件取证,**不拿"没抛错"当"已切换"**,故"调用成功但没切过去"不会被谎报成"加载失败")。cli 2026-09-25 接 `/branch [标题]`(注册进既有 `SLASH_COMMANDS` 表 + `handleSlashCommand`,故 `/help`/Tab 补全/相似度建议自动生效;`-c <会话id>` 显式指定源)。cli 的 REPL 会话是**纯本地**的(全端 `conversationId` 零引用、`streamChat` 不带 `metadata.conversationId`),而服务端 `branchSchema` 要求 UUID 且必须属于该远端会话 —— 所以无参时取"账号内最近活跃的远端会话"并**在输出里点名解析到了谁**,分叉点取该会话最近一条 assistant 服务端消息(本地占位 id 一律跳过),不与既有 `/fork`(本地历史分叉)语义重叠。 |
