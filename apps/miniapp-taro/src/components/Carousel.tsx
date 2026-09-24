@@ -149,7 +149,7 @@ export default function Carousel({
                             {tt('course.free', '免费')}
                           </Text>
                         ) : meta.price !== undefined ? (
-                          <Text className="text-xs text-primary-foreground bg-primary px-2 py-0.5 rounded-sm">
+                          <Text className="text-xs text-cta-foreground bg-cta px-2 py-0.5 rounded-sm">
                             ¥{meta.price}
                           </Text>
                         ) : null}

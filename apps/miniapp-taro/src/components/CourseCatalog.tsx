@@ -82,7 +82,7 @@ export default function CourseCatalog({
               }}
               className={cn(
                 'px-4 py-1.5 rounded-md',
-                joined ? 'bg-muted text-muted-foreground' : 'bg-primary text-primary-foreground',
+                joined ? 'bg-muted text-muted-foreground' : 'bg-cta text-cta-foreground',
               )}
             >
               <Text className="text-sm">

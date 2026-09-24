@@ -74,7 +74,7 @@ export default function SetNeed() {
        区块间距 scrollContent gap 8dp→16rpx,label→选项组 8dp→16rpx /
        选项块按 input 块语言: bg surface.muted→bg-muted 圆角 12dp→24rpx
        padding 12/14dp→24/28rpx 字 16dp→32rpx text.primary→text-foreground /
-       激活态 brand.DEFAULT→bg-primary + text-primary-foreground
+       激活态 brand.DEFAULT→bg-cta + text-cta-foreground
        (RN 选中强调用 surface.light 固定白字,暗色下 brand=白会白上白不可读,
        按语义 token 修正为 primary-foreground,亮色表现与 RN 完全一致) /
        提交钮: bg brand→bg-primary 圆角 12dp→24rpx 字 16dp→32rpx 600
@@ -162,7 +162,7 @@ export default function SetNeed() {
       </View>
 
       <Button
-        className="fixed bottom-[32rpx] left-[20rpx] right-[20rpx] h-[100rpx] leading-[100rpx] bg-primary text-primary-foreground rounded-xl text-[32rpx] font-semibold"
+        className="fixed bottom-[32rpx] left-[20rpx] right-[20rpx] h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-xl text-[32rpx] font-semibold"
         loading={saving}
         onClick={save}
         disabled={saving}
