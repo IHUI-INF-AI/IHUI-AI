@@ -127,3 +127,13 @@ function extractBrandBlock(src) {
   }
   return `brand: {${tail.slice(start, i - 1)}}`
 }
+/** 追加一条自证:上面那条只验「编号唯一 + blocking + skipEnv」,这里补「注册本身不得重复」。
+ *  0 次 = 判据没装车(等于没有判据);>1 次 = 同一脚本被两道门各插了一份注册 ——
+ *  并行会话在 runner 数组同一位各加一道门的典型后果,那会让 skipEnv 与失败归属串门。 */
+test('装车证明补条:本门脚本在 guardian-runner 里必须恰好注册一次', () => {
+  const runner = readFileSync(join(ROOT, 'scripts', 'guardian-runner.mjs'), 'utf8')
+  const hits = runner.split(`script: 'check-cross-end-tokens.mjs'`).length - 1
+  assert.equal(hits, 1, 
+    '0 次 = 判据没装车;>1 次 = 同一脚本注册了多道门,失败归属会串门',
+  )
+})
