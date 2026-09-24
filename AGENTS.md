@@ -1284,7 +1284,7 @@ nssm 服务(IHUI-API / IHUI-DEPLOYLOOP 以 LocalSystem 运行)拿到的仍是 `C
 ⇒ 部署环每 30 分钟漏 2 个,`C:\Windows\Temp` 攒到 **526 项 / 6.86MB**(同文件里的
 `ihui-align-$PID.log` 反而有删,所以泄漏面精确到构建这一处;2026-09-24 已改为用完即删,
 并现场观察到一轮构建结束后该 2 个文件自动消失);
-③ **守门必须扫"服务身份的 TEMP"** —— 守门 96 `check-c-drive-pollution.mjs`(编号 91→93→96,
+③ **守门必须扫"服务身份的 TEMP"** —— 守门 `check-c-drive-pollution.mjs`(编号同日漂移过
 同日三次撞号)此前只扫 `tmpdir()`,即"看门人自己的 TEMP",于是它一路报"本项目产物 0 项"
 而真凶全在 `C:\Windows\Temp`。现 `tempScanDirs()` 显式并入 `SystemRoot\Temp` 并由 `--self-test`
 钉死(扫描面缩回去即红)。**同批修掉这条门自身的两处假绿灯**:同一目录因大小写被计两次
