@@ -166,6 +166,53 @@ describe('D64 ③ 思考卡双态标题 + H22 手动展开不被自动收起', (
     }
   })
 
+  it('态二的展开体只渲染调用方注入的 refsSlot;有思考态一律不渲染 slot', () => {
+    // 无思考 + 引用数 > 0 + 展开 → slot 出现(卡片不自取引用数据,也不复制列表)
+    const view = render(
+      <ThinkingSection
+        content=""
+        currentNode={null}
+        isStreaming={false}
+        expanded
+        refsCount={2}
+        refsSlot={<span data-testid="citation-bar-stub">两条引用</span>}
+      />,
+    )
+    expect(screen.getByTestId('thinking-refs-wrapper')).toBeTruthy()
+    expect(screen.getByTestId('citation-bar-stub')).toBeTruthy()
+    expect(screen.queryByTestId('thinking-content')).toBeNull()
+    view.unmount()
+
+    // 折叠态不得挂载 slot(与"折叠时子项不挂载"既有口径一致)
+    const collapsed = render(
+      <ThinkingSection
+        content=""
+        currentNode={null}
+        isStreaming={false}
+        expanded={false}
+        refsCount={2}
+        refsSlot={<span data-testid="citation-bar-stub">两条引用</span>}
+      />,
+    )
+    expect(collapsed.container.querySelector('[data-testid="thinking-refs-wrapper"]')).toBeNull()
+    collapsed.unmount()
+
+    // 反例:有思考内容时 slot 必须让位于思考正文,否则同一条引用会出现两处
+    const withThinking = render(
+      <ThinkingSection
+        content="先拆解需求。"
+        currentNode={null}
+        isStreaming={false}
+        expanded
+        refsCount={2}
+        refsSlot={<span data-testid="citation-bar-stub">两条引用</span>}
+      />,
+    )
+    expect(withThinking.container.querySelector('[data-testid="thinking-refs-wrapper"]')).toBeNull()
+    expect(withThinking.queryByTestId('citation-bar-stub')).toBeNull()
+    expect(withThinking.getByTestId('thinking-content')).toBeTruthy()
+  })
+
   it('H22 反超判据:非受控下用户手动展开,流式开始→结束后仍保持展开', () => {
     const view = render(
       <ThinkingSection content="先拆解需求。" currentNode={null} isStreaming={false} />,
