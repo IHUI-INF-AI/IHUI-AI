@@ -430,6 +430,46 @@ export function findStaleExemptions(entries, gateSet) {
 }
 
 /**
+ * 纯函数(R5,判红):runner 里出现**两次以上的同一 id**。
+ * 成因是结构性的:并发会话都在数组同一位置各加一道门,不查占用必撞号(本仓先例 75/76、79→80,
+ * 2026-09-24 实测又撞一次 91 —— 由本维度在撞号当天拦下并改号为 92)。同 id 的两道 blocking 门
+ * 会串 skipEnv 与失败归属:跳一次关两道,汇总里也只认第一个匹配项。
+ */
+export function findDuplicateIds(runnerText) {
+  const ids = [...String(runnerText || '').matchAll(/\bid:\s*'([^']+)'/g)].map((m) => m[1])
+  const seen = new Set()
+  const dup = new Set()
+  for (const id of ids) {
+    if (seen.has(id)) dup.add(id)
+    else seen.add(id)
+  }
+  return [...dup].sort()
+}
+
+/**
+ * 纯函数(R6,只报数):同一 skipEnv 挂在两个以上条目上。
+ * **不判红**:本仓有一处是**刻意**共用(id 2 与 2n-web 同用 HUSKY_SKIP_I18N_PARITY,runner 里
+ * 67-70 行写明理由 —— 两者跑的是同一份 parity 判据)。粒度问题该由门的持有人裁,不是"撒谎"。
+ */
+export function findSharedSkipEnvs(runnerText) {
+  const src = String(runnerText || '')
+  const starts = [...src.matchAll(/\n\s*id:\s*'([^']+)'/g)]
+  const map = new Map()
+  starts.forEach((m, i) => {
+    // 条目边界 = 到下一个 id: 之前。不这样切会把"无 skipEnv 的条目"与后一条的 skipEnv 错配。
+    const body = src.slice(m.index, i + 1 < starts.length ? starts[i + 1].index : src.length)
+    const env = (body.match(/\bskipEnv:\s*'([^']+)'/) || [])[1]
+    if (!env) return
+    const list = map.get(env) || []
+    list.push(m[1])
+    map.set(env, list)
+  })
+  return [...map.entries()]
+    .filter(([, ids]) => new Set(ids).size > 1)
+    .map(([env, ids]) => ({ env, ids: [...new Set(ids)] }))
+}
+
+/**
  * 纯函数:反向差集(R4)—— 已在权威点登记的门,但 AGENTS.md / README.md 通篇**没点过它的名**。
  *
  * 为什么需要:文档看不到的门,下一个人只会重复造或干脆绕过(实测三例在 hook.js 生效却零见于速查:
@@ -633,6 +673,25 @@ async function main(argv = process.argv.slice(2)) {
   const reds = [...by('red-r1'), ...by('red-r2')]
   const revocable = findRevocableExemptions(allowEntries, new Set(by('wired').map((r) => r.script)))
   const staleExempt = findStaleExemptions(allowEntries, new Set(gateNames))
+  // R5 重复 id(判红)/ R6 共用 skipEnv(只报数):都是"接线层的结构性自撞",不是内容判据。
+  let runnerText = ''
+  try {
+    runnerText = git(['show', 'HEAD:scripts/guardian-runner.mjs'], root)
+  } catch (e) {
+    console.error(`❌ 读不到 HEAD:scripts/guardian-runner.mjs ⇒ R5/R6 无法判定(拒绝当作已通过):${e.message}`)
+    return 2
+  }
+  const dupIds = findDuplicateIds(runnerText)
+  const sharedEnvs = findSharedSkipEnvs(runnerText)
+  if (dupIds.length) {
+    reds.push(
+      ...dupIds.map((id) => ({
+        script: `(runner id '${id}')`,
+        status: 'red-r5',
+        reason: '同一 id 在 guardian-runner 里登记了多道门 ⇒ 串 skipEnv 与失败归属;后来者必须改号',
+      })),
+    )
+  }
   // R4 反向差集(只报数):已接线但文档通篇没点名 ⇒ 文档看不见的门会被重复造或被绕过。
   const readDoc = (p) => {
     try {
@@ -662,7 +721,11 @@ async function main(argv = process.argv.slice(2)) {
             unwiredUnclaimed: by('unwired-unclaimed').length,
             selfExempt: by('self-exempt').length,
             undocumentedR4: undocumented.length,
+            duplicateIds: dupIds.length,
+            sharedSkipEnvs: sharedEnvs.length,
           },
+          duplicateIds: dupIds,
+          sharedSkipEnvs: sharedEnvs,
           reds,
           undocumented: undocumented,
           unwiredUnclaimed: by('unwired-unclaimed').map((r) => r.script),
@@ -688,6 +751,10 @@ async function main(argv = process.argv.slice(2)) {
     console.log(
       `   R4(已接线但 AGENTS.md/README.md 通篇未点名,仅报数): ${undocumented.length} 枚` +
         (undocumented.length ? ' —— 文档看不见的门会被重复造或被绕过;清零后可升 blocking' : ''),
+    )
+    console.log(`   R5(重复 id,判红): ${dupIds.length ? dupIds.join(' / ') : '0 枚'}`)
+    console.log(
+      `   R6(同一 skipEnv 挂多个条目,只报数): ${sharedEnvs.length ? sharedEnvs.map((s) => `${s.env}[${s.ids.join(',')}]`).join(' ') : '0 组'}`,
     )
     if (undocumented.length) {
       console.log('     ' + undocumented.slice(0, 14).join(' ') + (undocumented.length > 14 ? ` …等 ${undocumented.length} 枚` : ''))
@@ -927,6 +994,26 @@ function runSelfTest() {
     findUndocumentedGates(['check-silent.mjs', 'check-named.mjs'], '只有 `scripts/check-named.mjs` 被写到。').join(
       ',',
     ) === 'check-silent.mjs',
+  )
+
+  assert(
+    'P23 R5 重复 id 必判红(2026-09-24 实测撞号:两会话同日各加一道 91)',
+    findDuplicateIds(
+      [{ id: '91', s: 'a' }, { id: '91', s: 'b' }, { id: '92', s: 'c' }]
+        .map((x) => `\n  {\n    id: '${x.id}',\n    script: '${x.s}.mjs',`)
+        .join('\n'),
+    ).join(',') === '91',
+  )
+  assert(
+    'P24 R5 负向 + R6 语义:编号唯一不得报红;共用 skipEnv 只计数不判红',
+    findDuplicateIds("\n  {\n    id: '91',\n    script: 'a.mjs',\n  },\n  {\n    id: '92',\n    script: 'b.mjs',\n  },").length === 0 &&
+      // 两处共用同一 skipEnv ⇒ R6 报 1 组,但 R5 仍为 0(本仓 id 2 / 2n-web 是**刻意**共用,runner 里写明理由)
+      findSharedSkipEnvs(
+        "\n  {\n    id: '2',\n    script: 'a.mjs',\n    skipEnv: 'HUSKY_SKIP_X',\n  },\n  {\n    id: '2n-web',\n    script: 'a.mjs',\n    skipEnv: 'HUSKY_SKIP_X',\n  },",
+      ).length === 1 &&
+        findDuplicateIds(
+          "\n  {\n    id: '2',\n    skipEnv: 'HUSKY_SKIP_X',\n  },\n  {\n    id: '2n-web',\n    skipEnv: 'HUSKY_SKIP_X',\n  },",
+        ).length === 0,
   )
 
   // 端到端层(独立临时假仓库 + 显式 --root 注入:自测只改 cwd 会静默扫真仓)

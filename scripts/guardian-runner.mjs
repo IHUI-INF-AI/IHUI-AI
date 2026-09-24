@@ -2238,7 +2238,11 @@ const checks = [
     // 2026-09-24 由守门接线对账(门 89)判为 R3 孤儿;实测真仓 exit 0 / 0.4s / 无写盘副作用
     // / 自带 25+ 例 --self-test 反演 ⇒ 属"今天就能接"的那一枚,已接线并同步改掉头部那句。
     // 守的是一整类静默失败:后端新增 errorCode 而界面把它压成同一句"AI 服务异常"。
-    id: '91',
+    // ⚠️ 编号 91 → **92**(2026-09-24 改号):本门最初登记为 91 时,并发会话在同一位置也
+    // 加了一道 91(check-c-drive-pollution)—— 同 id 两道 blocking 门会串 skipEnv 与失败归属,
+    // 这是本仓第 N 次撞号(先例:75/76 各重复一次、79→80)。改号后由守门 89 的 R5 维度
+    // (重复 id 判红)常驻看守,**登记新门前必须先查占用**:`git show HEAD:scripts/guardian-runner.mjs | grep -oE "id: '[0-9]+" | sort -u -V | tail -1`。
+    id: '92',
     label: '🧭 errorCode 覆盖率对账(blocking,零"未知错误"兜底,补装)',
     script: 'check-error-code-coverage.mjs',
     args: [],
