@@ -15,6 +15,7 @@ import {
 } from '@ihui/design-tokens'
 import { CloseButton } from '@ihui/ui-react'
 import type { LeaderboardEntry, ModelCapabilities } from '@/lib/ai-news-api'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { parseNumeric } from './text-utils'
 import { PriceChart } from './PriceChart'
 
@@ -128,17 +129,28 @@ function MultiRadar({ entries }: { entries: LeaderboardEntry[] }) {
   )
 }
 
+/** 层栈 id(见 @/lib/overlay-stack):本弹窗的 Esc 只在栈顶时被消费 */
+const MODEL_COMPARE_OVERLAY_ID = 'ai-news-model-compare-dialog'
+
 /** side-by-side 模型对比弹窗 + 价格柱状图 + 能力雷达叠加 */
 export function ModelCompareDialog({ entries, open, onClose }: Props) {
   const t = useTranslations('aiNews')
 
   React.useEffect(() => {
     if (!open) return
+    // 层栈:本弹窗打开即入栈为栈顶;Esc 只由栈顶消费(多层同时打开时不再一起关)
+    pushOverlay(MODEL_COMPARE_OVERLAY_ID)
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') {
+        if (!isTopOverlay(MODEL_COMPARE_OVERLAY_ID)) return
+        onClose()
+      }
     }
     window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
+    return () => {
+      popOverlay(MODEL_COMPARE_OVERLAY_ID)
+      window.removeEventListener('keydown', handler)
+    }
   }, [open, onClose])
 
   if (!open) return null
