@@ -288,7 +288,7 @@ export default function QuickstartPage() {
         <ol className="space-y-6">
           <li className="rounded-2xl border bg-card p-3">
             <div className="flex items-start gap-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg font-bold">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cta text-cta-foreground text-lg font-bold">
                 1
               </span>
               <div className="flex-1 min-w-0 space-y-2">
@@ -312,7 +312,7 @@ export default function QuickstartPage() {
 
           <li className="rounded-2xl border bg-card p-3">
             <div className="flex items-start gap-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg font-bold">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cta text-cta-foreground text-lg font-bold">
                 2
               </span>
               <div className="flex-1 min-w-0 space-y-2">
@@ -339,7 +339,7 @@ export default function QuickstartPage() {
 
           <li className="rounded-2xl border bg-card p-3">
             <div className="flex items-start gap-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg font-bold">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cta text-cta-foreground text-lg font-bold">
                 3
               </span>
               <div className="flex-1 min-w-0 space-y-2">
@@ -366,7 +366,7 @@ export default function QuickstartPage() {
 
           <li className="rounded-2xl border bg-card p-3">
             <div className="flex items-start gap-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg font-bold">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cta text-cta-foreground text-lg font-bold">
                 4
               </span>
               <div className="flex-1 min-w-0 space-y-2">
@@ -389,7 +389,7 @@ export default function QuickstartPage() {
 
           <li className="rounded-2xl border bg-card p-3">
             <div className="flex items-start gap-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg font-bold">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cta text-cta-foreground text-lg font-bold">
                 5
               </span>
               <div className="flex-1 min-w-0 space-y-2">
@@ -465,7 +465,7 @@ open http://localhost:8801`}</code>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <a
             href="https://aizhs.top/agents"
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className="rounded-lg bg-cta px-4 py-2 text-sm font-medium text-cta-foreground hover:bg-cta/90"
           >
             浏览 Agent 市场
           </a>

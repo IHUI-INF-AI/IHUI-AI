@@ -74,7 +74,7 @@ export default function PointsTasksPage() {
             className={cn(
               'rounded-md px-3 py-1.5 text-sm transition-colors',
               tab === key
-                ? 'bg-primary text-primary-foreground'
+                ? 'bg-cta text-cta-foreground'
                 : 'bg-secondary text-secondary-foreground hover:bg-secondary/70',
             )}
           >

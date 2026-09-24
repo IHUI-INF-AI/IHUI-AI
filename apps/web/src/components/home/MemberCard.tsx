@@ -103,7 +103,7 @@ export function MemberCard() {
                 className={`mt-3 inline-flex items-center gap-1.5 rounded-md border px-4 py-1.5 text-xs transition-colors ${
                   checkedIn
                     ? 'border-border text-muted-foreground'
-                    : 'border-primary text-primary hover:bg-primary hover:text-primary-foreground'
+                    : 'border-primary text-primary hover:bg-cta hover:text-cta-foreground'
                 }`}
               >
                 <CalendarCheck className="h-3.5 w-3.5" />
@@ -115,7 +115,7 @@ export function MemberCard() {
                 <Link
                   key={s.label}
                   href={s.href}
-                  className="flex flex-col items-center gap-0.5 bg-card py-3 transition-colors hover:bg-primary/5"
+                  className="flex flex-col items-center gap-0.5 bg-card py-3 transition-colors hover:bg-cta/5"
                 >
                   <strong className="text-lg font-semibold text-primary">{s.value}</strong>
                   <span className="text-xs text-muted-foreground">{s.label}</span>
@@ -145,7 +145,7 @@ export function MemberCard() {
                 <Link
                   key={q.href}
                   href={q.href}
-                  className="flex flex-col items-center gap-1 rounded-lg bg-muted/50 py-3 text-xs text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                  className="flex flex-col items-center gap-1 rounded-lg bg-muted/50 py-3 text-xs text-muted-foreground transition-colors hover:bg-cta/10 hover:text-primary"
                 >
                   {q.label}
                 </Link>
