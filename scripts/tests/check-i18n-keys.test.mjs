@@ -225,7 +225,7 @@ test('JSON 解析失败: zh-CN.json 损坏 → exit 0(messages 不完整,跳过)
 })
 
 // ─── 9b. JSON 解析失败(非基准语言损坏 → 该语言被跳过) ──
-test('JSON 解析失败: ko.json 损坏(非基准)→ ko 被跳过,parity 不检查 ko', () => {
+test('JSON 解析失败: ko.json 损坏(非基准)⇒ 判红并点名(旧政策"跳过该语言"就是假绿)', () => {
   const root = createTempProject()
   try {
     const dir = join(root, 'packages', 'i18n', 'messages', 'web')
@@ -237,8 +237,18 @@ test('JSON 解析失败: ko.json 损坏(非基准)→ ko 被跳过,parity 不检
       writeFileSync(join(dir, `${lang}.json`), JSON.stringify(PARITY_OK[lang]))
     }
     const r = runScript(['--parity-only'], { cwd: root })
-    // ko 解析失败 → ko 不在 langs 中 → parity 不检查 ko → exit 0(zh-TW/ja/en 都 OK)
-    assert.equal(r.status, 0, `ko 解析失败应跳过 ko,parity 仍 OK,实际 ${r.status}`)
+    // 本门在 2026-09-24 把"读不出即跳过"改成"读不出即判红"(脚本第 213 行注释记着变异实测:
+    // 一个拼错的 revspec 让五语言变四语言而全绿)。旧断言"exit 0 + 跳过 ko"编码的正是
+    // 那个被堵掉的假绿 —— 少一门就少一门的漏检,绝不能算通过。
+    assert.equal(r.status, 1, `ko 读不出必须判红,实际 ${r.status}\n${r.stdout}`)
+    const out = `${r.stdout}\n${r.stderr}`
+    assert.match(out, /读不出来/, '应说明是"读不出"而非普通 parity 差异')
+    assert.match(out, /拒绝当作通过/, '结论行必须明写不记为通过')
+    assert.match(out, /ko/, '必须点名是哪一门')
+    // 变异对照:把 ko 修好即应绿 ⇒ 证明上面那枚红确实是"读不出"造成的,不是夹具恒红
+    writeFileSync(join(dir, 'ko.json'), JSON.stringify(PARITY_OK['ko']))
+    const ok = runScript(['--parity-only'], { cwd: root })
+    assert.equal(ok.status, 0, `ko 修好后应通过(否则本用例是空判据):\n${ok.stdout}`)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
