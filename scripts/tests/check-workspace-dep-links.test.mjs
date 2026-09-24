@@ -11,7 +11,15 @@
 // 本测试钉住:①真仓当前不变量;②夹具正/反对照(缺链接必红、补上必绿);
 // ③**装车证明** —— guardian-runner 必须真的注册了这道门(§22c「造好没装车」教训)。
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -19,6 +27,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import { __test__ as gate } from '../check-workspace-dep-links.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
@@ -32,8 +41,72 @@ test('__test__ 出口齐备(§22c 锚点)', () => {
     'findGuttedLinks',
     'lintStagedCommands',
     'findUnresolvableHookCommands',
+    'resolveShimEntry',
+    'shimEntryCandidates',
   ]) {
     assert.equal(typeof gate[fn], 'function', `缺少导出 ${fn}`)
+  }
+})
+
+test('第五型(shim 在而入口文件没了)**双向**:删入口必判红、补回必判绿', () => {
+  // 第四维只验 shim 文件存不存在;这一型是"shim 完好、被指向的 cli 不见了",
+  // lint-staged 能 spawn 到命令,随即 Cannot find module —— 症状不同、修复动作也不同。
+  const root = mkScratch('ihui-shim5-test-')
+  try {
+    const pkg = join(root, 'node_modules', 'mytool')
+    mkdirSync(join(pkg, 'bin'), { recursive: true })
+    mkdirSync(join(root, 'node_modules', '.bin'), { recursive: true })
+    writeFileSync(
+      join(pkg, 'package.json'),
+      JSON.stringify({ name: 'mytool', bin: { mytool: './bin/tool.js' } }),
+    )
+    writeFileSync(join(pkg, 'bin', 'tool.js'), '//\n')
+    // 逐字照抄 pnpm 的 .CMD 骨架:第一个候选是 "%~dp0\node.exe"(存在性分支头),
+    // 判据若按"第一个命中"取值就会在**完好仓库**上恒红 —— 本行钉住这个反向对照。
+    writeFileSync(
+      join(root, 'node_modules', '.bin', 'mytool.CMD'),
+      '@ECHO off\r\n@IF EXIST "%~dp0\\node.exe" (\r\n  "%~dp0\\node.exe"  "%~dp0\\..\\mytool\\bin\\tool.js" %*\r\n) ELSE (\r\n  node "%~dp0\\..\\mytool\\bin\\tool.js" %*\r\n)\r\n',
+    )
+    assert.deepEqual(
+      gate.shimEntryCandidates(
+        readFileSync(join(root, 'node_modules', '.bin', 'mytool.CMD'), 'utf8'),
+      ),
+      ['..\\mytool\\bin\\tool.js', '..\\mytool\\bin\\tool.js'],
+      'node.exe 必须被剔除,其余两个分支各出一条候选',
+    )
+    const ok = gate.resolveShimEntry(root, 'mytool')
+    assert.equal(ok.state, 'ok', `完好夹具必须绿, got ${JSON.stringify(ok)}`)
+    assert.ok(existsSync(ok.target), `ok 必须给出存在的目标, got ${ok.target}`)
+    rmSync(join(pkg, 'bin', 'tool.js'), { force: true })
+    assert.equal(gate.resolveShimEntry(root, 'mytool').state, 'missing-entry', '入口被删必须判红')
+    writeFileSync(join(pkg, 'bin', 'tool.js'), '//\n')
+    assert.equal(
+      gate.resolveShimEntry(root, 'mytool').state,
+      'ok',
+      '补回入口必须归零(单向断言不算证明)',
+    )
+    assert.equal(
+      gate.resolveShimEntry(root, 'nosuchcmd').state,
+      'no-shim',
+      '没有 shim 归第四维,本维不得重复计红',
+    )
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('真仓反向对照:eslint / prettier 的 shim 第五维必须判绿(这条一红就是恒红门)', () => {
+  // 判据在夹具里绿不代表在**真实 pnpm 生成物**上绿 —— 模板形态有成千上万种,
+  // 而本门在提交链上是 blocking:真仓红 = 每次提交被逼 --no-verify = 全部守门作废。
+  const cmds = gate.lintStagedCommands(JSON.parse(readFileSync(join(REPO, 'package.json'), 'utf8')))
+  assert.ok(cmds.length >= 1, '根 lint-staged 没提出任何命令 ⇒ 本用例是空转')
+  for (const cmd of cmds) {
+    const r = gate.resolveShimEntry(REPO, cmd)
+    assert.ok(
+      r.state === 'ok' || r.state === 'unresolved' || r.state === 'no-shim',
+      `真仓命令 ${cmd} 被判成 ${r.state}(${r.target || '-'})—— 判据在完好仓库上冒红`,
+    )
+    if (r.state === 'ok') assert.ok(existsSync(r.target), `${cmd} 判 ok 但目标不存在: ${r.target}`)
   }
 })
 
@@ -44,18 +117,33 @@ test('第四型(2026-09-24 全机停摆的直接指纹)**双向**:包体在而 s
   const root = mkdtempSync(join(tmpdir(), 'ihui-hookcmd-test-'))
   try {
     mkdirSync(join(root, 'node_modules', 'eslint', 'node_modules'), { recursive: true })
-    writeFileSync(join(root, 'node_modules', 'eslint', 'package.json'), JSON.stringify({ name: 'eslint' }))
+    writeFileSync(
+      join(root, 'node_modules', 'eslint', 'package.json'),
+      JSON.stringify({ name: 'eslint' }),
+    )
     assert.deepEqual(
       gate.findUnresolvableHookCommands(root, ['eslint']).map((x) => x.cmd),
       ['eslint'],
       '包体在、shim 没了必须判红',
     )
     mkdirSync(join(root, 'node_modules', '.bin'), { recursive: true })
-    writeFileSync(join(root, 'node_modules', '.bin', process.platform === 'win32' ? 'eslint.CMD' : 'eslint'), '@ECHO off\n')
-    assert.deepEqual(gate.findUnresolvableHookCommands(root, ['eslint']), [], '补上 shim 后必须归零')
+    writeFileSync(
+      join(root, 'node_modules', '.bin', process.platform === 'win32' ? 'eslint.CMD' : 'eslint'),
+      '@ECHO off\n',
+    )
+    assert.deepEqual(
+      gate.findUnresolvableHookCommands(root, ['eslint']),
+      [],
+      '补上 shim 后必须归零',
+    )
     // 命令集来源:lint-staged 配置三种形态都要能提出命令名,node/pnpm 前缀不参与
-    const cmds = gate.lintStagedCommands({ 'lint-staged': { '*.ts': 'eslint --fix', '*.js': ['node a.mjs'] } })
-    assert.ok(cmds.includes('eslint') && !cmds.includes('node'), `命令名提取不对: ${cmds.join(',')}`)
+    const cmds = gate.lintStagedCommands({
+      'lint-staged': { '*.ts': 'eslint --fix', '*.js': ['node a.mjs'] },
+    })
+    assert.ok(
+      cmds.includes('eslint') && !cmds.includes('node'),
+      `命令名提取不对: ${cmds.join(',')}`,
+    )
   } finally {
     rmSync(root, { recursive: true, force: true, maxRetries: 5 })
   }
@@ -67,10 +155,14 @@ test('链接完整性判据(掏空/悬空)夹具**双向**:空目标必红、完
   const root = mkdtempSync(join(tmpdir(), 'ihui-gutted-test-'))
   try {
     mkdirSync(join(root, 'store', 'good', 'node_modules', 'good'), { recursive: true })
-    writeFileSync(join(root, 'store', 'good', 'node_modules', 'good', 'package.json'), JSON.stringify({ name: 'good' }))
+    writeFileSync(
+      join(root, 'store', 'good', 'node_modules', 'good', 'package.json'),
+      JSON.stringify({ name: 'good' }),
+    )
     mkdirSync(join(root, 'store', 'hollow', 'node_modules', 'hollow'), { recursive: true }) // 空目录
     mkdirSync(join(root, 'node_modules', '@sc'), { recursive: true })
-    const link = (target, name) => symlinkSync(join(root, 'store', target), join(root, 'node_modules', name), 'dir')
+    const link = (target, name) =>
+      symlinkSync(join(root, 'store', target), join(root, 'node_modules', name), 'dir')
     link('good/node_modules/good', 'good')
     link('hollow/node_modules/hollow', 'hollow')
     link('ghost/node_modules/ghost', 'ghost') // 悬空
@@ -87,7 +179,10 @@ test('链接完整性判据(掏空/悬空)夹具**双向**:空目标必红、完
     assert.equal(gutted.find((x) => x.link === 'node_modules/ghost').kind, '悬空')
     assert.equal(gutted.find((x) => x.link === 'node_modules/hollow').kind, '掏空')
     // 反向对照:existsSync 对"掏空"仍为 true ⇒ 钉住旧判据看不见这一型的前提
-    assert.ok(existsSync(join(root, 'node_modules', 'hollow')), 'existsSync 对空目标应为 true,否则本用例前提不成立')
+    assert.ok(
+      existsSync(join(root, 'node_modules', 'hollow')),
+      'existsSync 对空目标应为 true,否则本用例前提不成立',
+    )
     // 全部补齐 → 必绿(可反复检出)
     rmSync(join(root, 'node_modules', 'hollow'), { force: true })
     rmSync(join(root, 'node_modules', 'ghost'), { force: true })
@@ -110,9 +205,16 @@ test('真仓:workspace patterns 与包目录展开均非空', () => {
 })
 
 test('真仓不变量:所有 workspace:* 声明均已链接', () => {
-  const dirs = gate.expandPatterns(REPO, gate.parseWorkspacePatterns(readFileSync(join(REPO, 'pnpm-workspace.yaml'), 'utf8')))
+  const dirs = gate.expandPatterns(
+    REPO,
+    gate.parseWorkspacePatterns(readFileSync(join(REPO, 'pnpm-workspace.yaml'), 'utf8')),
+  )
   const missing = gate.findMissingLinks(REPO, dirs)
-  assert.notEqual(missing, null, '根 node_modules 不存在 —— 本机未安装依赖,先跑 pnpm install 再跑本测试')
+  assert.notEqual(
+    missing,
+    null,
+    '根 node_modules 不存在 —— 本机未安装依赖,先跑 pnpm install 再跑本测试',
+  )
   assert.deepEqual(missing, [], `声明未链接:${JSON.stringify(missing)}`)
 })
 
@@ -123,7 +225,10 @@ test('夹具反向对照:声明未链接必红,补上链接必绿', () => {
     mkdirSync(join(root, 'apps', 'bb'), { recursive: true })
     mkdirSync(join(root, 'node_modules'), { recursive: true })
     writeFileSync(join(root, 'pnpm-workspace.yaml'), "packages:\n  - 'apps/*'\n  - 'packages/*'\n")
-    writeFileSync(join(root, 'packages', 'aa', 'package.json'), JSON.stringify({ name: '@ihui/aa' }))
+    writeFileSync(
+      join(root, 'packages', 'aa', 'package.json'),
+      JSON.stringify({ name: '@ihui/aa' }),
+    )
     writeFileSync(
       join(root, 'apps', 'bb', 'package.json'),
       JSON.stringify({ name: '@ihui/bb', devDependencies: { '@ihui/aa': 'workspace:^' } }),
@@ -175,8 +280,23 @@ test('落点证明:shim 完整性的严格判红必须挂在**提交链之外**�
     'check:all 必须串上严格版,否则"判红"这一档永远没人执行',
   )
   const gate = readFileSync(join(REPO, 'scripts', 'check-workspace-dep-links.mjs'), 'utf8')
-  assert.ok(/const strict = argv\.includes\('--strict'\)/.test(gate), "脚本没接 --strict ⇒ package.json 那个 flag 是空开关")
-  assert.ok(/const redBins = strict \? missingBins\.length : 0/.test(gate), 'strict 未真正参与退出码判定')
+  assert.ok(
+    /const strict = argv\.includes\('--strict'\)/.test(gate),
+    '脚本没接 --strict ⇒ package.json 那个 flag 是空开关',
+  )
+  assert.ok(
+    /const redBins = strict \? missingBins\.length : 0/.test(gate),
+    'strict 未真正参与退出码判定',
+  )
+  // 第五维(入口文件在不在)必须**进退出码**,不能只是打印一行 —— 只报数的维度防不住事故。
+  assert.ok(
+    /shimBad\.length === 0/.test(gate),
+    'resolveShimEntry 判出的 missing-entry 未参与绿/红判定 ⇒ 第五维是装饰',
+  )
+  assert.ok(
+    gate.includes("state === 'missing-entry'"),
+    'audit 未按 state 归集红点 ⇒ 第五维没有接线',
+  )
 })
 
 test('自检入口可用(--self-test 退出码 0)', () => {
