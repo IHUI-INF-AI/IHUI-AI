@@ -35,11 +35,12 @@
  *   --parity-only: 仅做 5 语言 parity 校验,跳过源文件扫描;与 --staged 一起用时强制跑 parity
  *   无参数:        全量检查(CI 用, 历史遗留问题标 warning, exit 0)
  */
-import { execSync } from 'node:child_process'
+import { execSync, execFileSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { createRequire } from 'node:module'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
+import { resolveGitBin } from './lib/gitdir.mjs'
 
 const ROOT = process.cwd()
 // 2026-09:解析端内 lib/*.ts 的 messagesZhCN TS 对象字面量。
@@ -187,16 +188,46 @@ const stagedI18nFiles = (() => {
   }
 })()
 
+/** 取"将要进入本次提交"的语言包内容。
+ *  2026-09-24 根治:旧实现假设"文件不在暂存区 ⇒ 工作区与 HEAD 一致",在**共享工作区**里
+ *  这个前提不成立 —— 并发会话未暂存的 i18n WIP(本次实测:web 的 en/ja/ko 三包被删掉
+ *  `admin.announcements.maintenanceNotice` 整块,而 HEAD 里五语言齐全)会让 parity 读到
+ *  脏数据,于是**完全不含 packages/i18n/\*\* 的提交也被这道 blocking 门拦下** ⇒
+ *  每个会话只能 --no-verify ⇒ 115 道门一起被跳过(本会话实测连续两次因此跳门)。
+ *  判据必须落在 HEAD(已入库真相)+ 本次暂存(将要入库)上,才与提交结果等价。
+ *  全量模式(不带 --staged,CI/人工审计)仍读工作区 —— 那是它该看的口径。 */
+/** 读某个 git 版本里的文件(spec 为**完整** revspec,如 `:a/b.json` 取索引、`HEAD:a/b.json`)。
+ *  刻意不拆成 `${spec}:${path}` 两段拼接 —— 变异测试实测:索引前缀本身就含冒号,
+ *  再拼一次会产出 `::path`,git 报 "ambiguous argument",而调用方把它当"读不到"静默跳过,
+ *  于是 parity 少比一门语言仍然打印"通过"(假绿)。签名要与两种口径天然兼容。 */
+function gitBlob(spec) {
+  return execFileSync(resolveGitBin(), ['show', spec], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    windowsHide: true,
+    timeout: 60_000,
+  })
+}
+
+/** 读不出/解析失败的语言包 ⇒ 记名,末尾**判红**。
+ *  为什么必须记:两处调用点原本 `catch {}` / `catch { continue }` 静默跳过,parity 于是
+ *  只比对"剩下的那几门"却照样打印 `通过, N 语言 parity OK`。变异测试实测:一个 `::path`
+ *  拼错的 revspec 就让五语言变成四语言而全绿 —— 少一门就少一门的漏检,绝不能算通过。 */
+const unreadablePacks = []
+
 function readMessageJson(absPath) {
   const repoRel = absPath.replaceAll('\\', '/').replace(/^.*?packages\/i18n\//, 'packages/i18n/')
   if (stagedI18nFiles && stagedI18nFiles.has(repoRel)) {
-    const blob = execSync(`git show ":${repoRel}"`, {
-      cwd: REPO_ROOT,
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024,
-      windowsHide: true,
-    })
-    return JSON.parse(blob)
+    return JSON.parse(gitBlob(`:${repoRel}`))
+  }
+  if (stagedI18nFiles) {
+    try {
+      return JSON.parse(gitBlob(`HEAD:${repoRel}`))
+    } catch {
+      // HEAD 里没有这个包(本轮新增的语言包)⇒ 退回工作区读,不得因为读不到就当作"无键"
+      return JSON.parse(readFileSync(absPath, 'utf8'))
+    }
   }
   return JSON.parse(readFileSync(absPath, 'utf8'))
 }
@@ -247,7 +278,9 @@ function loadMessages() {
       if (!entry.endsWith('.json')) continue
       try {
         langs[entry.replace('.json', '')] = readMessageJson(join(MESSAGES_DIR, entry))
-      } catch {}
+      } catch (e) {
+        unreadablePacks.push({ file: `shared/<${entry}>`, why: String((e && e.message) || e).slice(0, 130) })
+      }
     }
     return langs
   }
@@ -258,7 +291,8 @@ function loadMessages() {
     let targetMsg
     try {
       targetMsg = readMessageJson(join(MESSAGES_DIR, entry))
-    } catch {
+    } catch (e) {
+      unreadablePacks.push({ file: entry, why: String((e && e.message) || e).slice(0, 130) })
       continue
     }
     // 读 shared/<lang>.json 作为 base
@@ -268,7 +302,9 @@ function loadMessages() {
       if (existsSync(sharedPath)) {
         try {
           sharedMsg = readMessageJson(sharedPath)
-        } catch {}
+        } catch (e) {
+          unreadablePacks.push({ file: `base:${entry}`, why: String((e && e.message) || e).slice(0, 130) })
+        }
       }
     }
     langs[entry.replace('.json', '')] = deepMerge(sharedMsg, targetMsg)
@@ -1143,6 +1179,13 @@ const parityScope =
   checkedFiles > 0
     ? `已检查 ${checkedFiles} 文件, ${checkedKeys} 键`
     : `parity 比对 ${langNames.length} 语言 × ${baseLeaves.size} 键路径(该模式按设计跳过源码扫描)`
+if (unreadablePacks.length) {
+  console.error(
+    `${C.red}[i18n 键检查] ❌ ${unreadablePacks.length} 个语言包读不出来 ⇒ parity 实际只比对了 ${langNames.length} 门语言,拒绝当作通过${C.reset}`,
+  )
+  for (const u of unreadablePacks.slice(0, 8)) console.error(`   · ${u.file} — ${u.why}`)
+  process.exit(1)
+}
 console.log(
   `${C.green}[i18n 键检查] ${targetLabel}通过,${parityScope}, ${langNames.length} 语言 parity OK${C.reset}`,
 )
