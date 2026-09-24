@@ -14,6 +14,7 @@
  * 生产构建无 DevSettings 时,落盘仍生效 —— 下次冷启动自动是正确主题。
  */
 import { Appearance, DevSettings } from 'react-native'
+import RNRestart from 'react-native-restart'
 import { File, Paths } from 'expo-file-system'
 import { rnDarkTokens, rnLightTokens, type RnThemeTokens } from '@ihui/design-tokens'
 
@@ -63,11 +64,25 @@ function systemMode(): RnThemeMode {
   return Appearance.getColorScheme() === 'dark' ? 'dark' : 'light'
 }
 
-function persistedMode(): RnThemeMode | null {
+/**
+ * 落盘的是**偏好**(light/dark/system),不是解析结果。
+ *
+ * 旧实现落的是解析结果,而冷启动 `applied = persistedMode() ?? systemMode()` **无条件优先读文件** ——
+ * 偏好为 system 时文件只是"上一次系统档位"的缓存,系统翻档后它就过期了:下次冷启动仍按旧档取色,
+ * 而 `useColorScheme()` 给的是新档 ⇒ 同屏分裂**在重启之后依然成立**,且没有 change 事件再去纠正它。
+ * 真机实测正是这条路径(系统夜间档冷启动后变化 → 广场正文浅色、chrome 深色)。
+ */
+const PREF_FILE_SCHEMA = 'v2:'
+
+function persistedPreference(): RnThemePreference | null {
   try {
     if (!modeFile.exists) return null
     const raw = modeFile.textSync()
-    return raw === 'dark' || raw === 'light' ? raw : null
+    // 旧格式(裸 'light'/'dark',存的是解析结果)一律不认:把它当偏好会把"跟随系统"
+    // 悄悄变成"显式深色",且再也回不来。不认 → 按 system 解析,与 initialTheme 一致。
+    if (!raw.startsWith(PREF_FILE_SCHEMA)) return null
+    const v = raw.slice(PREF_FILE_SCHEMA.length)
+    return v === 'light' || v === 'dark' || v === 'system' ? v : null
   } catch {
     return null
   }
@@ -78,7 +93,7 @@ export function resolveRnTheme(preference: RnThemePreference): RnThemeMode {
   return preference === 'light' || preference === 'dark' ? preference : systemMode()
 }
 
-let applied: RnThemeMode = persistedMode() ?? systemMode()
+let applied: RnThemeMode = resolveRnTheme(persistedPreference() ?? 'system')
 apply(applied)
 
 export function currentRnTheme(): RnThemeMode {
@@ -95,19 +110,36 @@ export function commitRnTheme(preference: RnThemePreference): boolean {
   applied = next
   apply(next)
   try {
-    modeFile.write(next)
+    modeFile.write(PREF_FILE_SCHEMA + preference)
   } catch {
     // 落盘失败只影响下次冷启动的首帧配色,不影响本次生效
   }
   return true
 }
 
-/** 模块级样式只在求值时取色,切换主题必须重载 JS 才能全端重算 */
+/**
+ * 让模块级 StyleSheet 重新求值。
+ *
+ * `DevSettings.reload` 在 `__DEV__` 之外是空实现(react-native 的 stub 分支),所以 release 包里
+ * 只调它 = 什么都没发生:共享层已按新档翻色,而 86 个文件的模块级取色停在旧档 ⇒ 同屏分裂
+ * 会一直持续到用户自己杀掉 App。故 release 走真重启(重启进程 = JS 全量重求值,与冷启动同语义)。
+ *
+ * 只在**真实换档事件**里被调用(ThemeContext 的 Appearance 监听 / 设置页显式选择),
+ * 不在挂载路径上,所以不会自触发循环;`commitRnTheme` 返回 false(解析结果未变)时也不会被调到。
+ */
 export function reloadForTheme(): void {
+  if (__DEV__) {
+    try {
+      DevSettings?.reload?.('theme')
+      return
+    } catch {
+      // 落到下面的进程重启
+    }
+  }
   try {
-    DevSettings?.reload?.('theme')
+    RNRestart.restart('theme')
   } catch {
-    // 生产构建无 DevSettings:已落盘,下次冷启动生效
+    // 重启失败退回下次冷启动生效(偏好已落盘,不会丢)
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
