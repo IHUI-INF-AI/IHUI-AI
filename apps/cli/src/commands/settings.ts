@@ -35,8 +35,9 @@ export interface SandboxSettings {
   profile?: 'readonly' | 'limited' | 'trusted' | 'open' | 'full';
   /** 额外允许的路径白名单(cwd 始终允许) */
   allowedPaths?: string[];
-  /** 命令白名单(只允许这些命令执行,空数组=允许全部,向后兼容) */
-  commandAllowlist?: string[];
+  /** 命令白名单三态:null = 禁止一切命令;非空数组 = 仅允许列表内;
+   *  undefined / 空数组 = 不检查(旧语义)。见 src/sandbox/index.ts 的 SandboxOptions。 */
+  commandAllowlist?: string[] | null;
   /** 屏蔽的环境变量名(子进程不会继承这些变量) */
   blockedEnvVars?: string[];
 }
@@ -534,7 +535,9 @@ export function resolveEffectiveConfig(args: {
   enableMcp: boolean;
   auditEnabled: boolean;
   sandboxAllowedPaths: string[];
-  sandboxCommandAllowlist: string[];
+  /** 三态透传:null = 禁止一切命令,undefined/[] = 不检查。不得用 `?? []` 归一 ——
+   *  那会把 readonly 档的"一律拒绝"吃成"不限制",与档位语义正好相反。 */
+  sandboxCommandAllowlist: string[] | null | undefined;
   sandboxBlockedEnvVars: string[];
   sampler?: SamplerSettings;
   permissionMode: PermissionMode;
@@ -601,7 +604,8 @@ export function resolveEffectiveConfig(args: {
     settings.sandbox ?? {}
   );
   const sandboxAllowedPaths = sandboxResolved.allowedPaths ?? [];
-  const sandboxCommandAllowlist = sandboxResolved.commandAllowlist ?? [];
+  // 原样透传三态(见返回类型上的说明):`?? []` 会把 null 伪装成"不限制"
+  const sandboxCommandAllowlist = sandboxResolved.commandAllowlist;
   const sandboxBlockedEnvVars = sandboxResolved.blockedEnvVars ?? [];
 
   const cliSampler: Partial<SamplerSettings> = {};
