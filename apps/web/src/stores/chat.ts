@@ -17,6 +17,7 @@ import type {
 } from '@ihui/api-client'
 import type { ChatMessage as BaseChatMessage, ToolCall as BaseToolCall } from '@ihui/shared'
 import { markStreamError } from '@ihui/shared/chat'
+import type { FollowUpMode } from '@ihui/shared/chat/queue-interactions'
 import type { ToolCallSummary, PlanStep, TerminalTask, CitationEntry } from '@ihui/types/ai'
 
 export type { ChatRole } from '@ihui/shared'
@@ -432,6 +433,24 @@ interface ChatState {
   removeSideQuestion: (conversationId: string, id: string) => void
   /** D28 快速侧问:出队指定会话桶的队首一条(流结束自动补答时调用);桶空返回 null */
   shiftSideQuestion: (conversationId: string) => SideQueueItem | null
+  /** D38 队列语义完整交互(2026-09-24 立,对标 Codex followUpQueueMode)四动作。
+   *  **W27 纪律**:只作用于尚未消费的队列项(重排/移除/编辑),队首选择逻辑
+   *  (shiftSideQuestion + message-input.tsx 流结束 effect + use-message-send.ts 短路)一行不动。 */
+  /** D38:重排指定会话桶的队列项(fromIndex → toIndex,先摘后插);越界/同位为 no-op */
+  requeue: (conversationId: string, fromIndex: number, toIndex: number) => void
+  /** D38:按 id 移除队列项(队列条「撤回」入口;语义同 removeSideQuestion,供交互条独立调用) */
+  removeQueued: (conversationId: string, id: string) => void
+  /** D38:编辑队列项文本(只改 text,createdAt 元数据不动);找不到/trim 空为 no-op */
+  editQueued: (conversationId: string, id: string, text: string) => void
+  /** D38:「打断并执行」预备:读取并移除队首项后返回,**不负责停流** ——
+   *  调用方先经 W2 abort 通道停止当前流,再以返回项发起发送;桶空返回 null(队列不动) */
+  interruptAndRun: (conversationId: string) => SideQueueItem | null
+  /** D38:队列模式偏好(对标 Codex followUpQueueMode),默认 'queue'(排队优先)。
+   *  steer 请求在 Runtime 不支持插话时由渲染层 `effectiveMode` 降级为 queue 执行,
+   *  偏好本身保留用户选择;判定唯一入口 @ihui/shared/chat/queue-interactions。 */
+  followUpQueueMode: FollowUpMode
+  /** D38:setMode 动词落点(恒可切,无许可门;同值 no-op 不产生新状态) */
+  setFollowUpQueueMode: (mode: FollowUpMode) => void
   /** D60 发送可靠性草稿保全(2026-09-23 立):写入失败保留草稿 + 状态;draft 为 null 时清空 */
   setFailedDraft: (draft: string | null, status?: SendReliabilityStatus | null) => void
   /** D60:清空失败保留草稿(输入框消费恢复后调用) */
@@ -547,6 +566,9 @@ export const useChatStore = create<ChatState>()(
       inputHistory: [],
       // D28 快速侧问(2026-09-20 立):按会话分桶的侧问 FIFO 队列(持久化,见 partialize)
       sideQueueByConversation: {},
+      // D38 队列交互模式偏好(2026-09-24 立):默认排队优先;steer 在 Runtime 不支持插话时
+      // 由渲染层 effectiveMode 降级为 queue 执行,偏好保留(持久化,见 partialize)
+      followUpQueueMode: 'queue',
       // D60 发送可靠性草稿保全(2026-09-23 立):失败保留草稿(执行期 + 持久化,见 partialize)
       failedDraft: null,
       failedDraftStatus: null,
@@ -1210,6 +1232,78 @@ export const useChatStore = create<ChatState>()(
         return head
       },
 
+      // D38 队列语义完整交互(2026-09-24 立):重排/移除/编辑/打断预备四动作。
+      // 许可判定复用 @ihui/shared/chat/queue-interactions 的 interactionAllowed(渲染层调用);
+      // 这里只做幂等状态变更 —— 越界/同位/找不到/空文本一律 no-op 返回原状态。
+      // **禁改区声明**:上方 enqueue/remove/shift 三 action 与下方消费点均未触碰。
+      requeue: (conversationId, fromIndex, toIndex) =>
+        set((s) => {
+          const bucket = s.sideQueueByConversation[conversationId]
+          if (!bucket || fromIndex === toIndex) return s
+          if (!Number.isInteger(fromIndex) || !Number.isInteger(toIndex)) return s
+          if (
+            fromIndex < 0 ||
+            fromIndex >= bucket.length ||
+            toIndex < 0 ||
+            toIndex >= bucket.length
+          )
+            return s
+          const next = bucket.slice()
+          const [moved] = next.splice(fromIndex, 1)
+          if (!moved) return s
+          next.splice(toIndex, 0, moved)
+          return {
+            sideQueueByConversation: { ...s.sideQueueByConversation, [conversationId]: next },
+          }
+        }),
+
+      removeQueued: (conversationId, id) =>
+        set((s) => {
+          const bucket = s.sideQueueByConversation[conversationId]
+          if (!bucket?.some((q) => q.id === id)) return s
+          const next = bucket.filter((q) => q.id !== id)
+          const nextMap = { ...s.sideQueueByConversation }
+          if (next.length > 0) nextMap[conversationId] = next
+          else delete nextMap[conversationId]
+          return { sideQueueByConversation: nextMap }
+        }),
+
+      editQueued: (conversationId, id, text) =>
+        set((s) => {
+          const trimmed = text.trim()
+          if (!trimmed) return s
+          const bucket = s.sideQueueByConversation[conversationId]
+          if (!bucket) return s
+          const idx = bucket.findIndex((q) => q.id === id)
+          if (idx === -1) return s
+          const target = bucket[idx]
+          if (!target) return s
+          const next = bucket.slice()
+          next[idx] = { ...target, text: trimmed }
+          return {
+            sideQueueByConversation: { ...s.sideQueueByConversation, [conversationId]: next },
+          }
+        }),
+
+      interruptAndRun: (conversationId) => {
+        const head = get().sideQueueByConversation[conversationId]?.[0]
+        if (!head) return null
+        set((s) => {
+          const next = (s.sideQueueByConversation[conversationId] ?? []).slice(1)
+          const nextMap = { ...s.sideQueueByConversation }
+          if (next.length > 0) nextMap[conversationId] = next
+          else delete nextMap[conversationId]
+          return { sideQueueByConversation: nextMap }
+        })
+        return head
+      },
+
+      // D38 setMode 落点:模式偏好恒可切(许可门只管 interject 能力,不管用户想不想 steer);
+      // steer 能否真正生效由渲染层 effectiveMode 判定(Runtime 不支持则降级 queue 并显式提示)。
+      // 同值 no-op(不产生新状态引用,渲染层可跳过重渲染)。
+      setFollowUpQueueMode: (mode) =>
+        set((s) => (s.followUpQueueMode === mode ? s : { followUpQueueMode: mode })),
+
       // D60 发送可靠性草稿保全(2026-09-23 立):失败时保留正文 + 状态,供输入框回填/重发。
       // 空正文(trim 后为空)不保留(避免把空串当草稿覆盖有效内容);draft null = 显式清空。
       setFailedDraft: (draft, status) =>
@@ -1356,6 +1450,8 @@ export const useChatStore = create<ChatState>()(
         failedDraftStatus: s.failedDraftStatus,
         // D22(2026-09-19):网页搜索开关用户偏好持久化(初始 state 已有 localStorage 双保险)
         webSearchEnabled: s.webSearchEnabled,
+        // D38(2026-09-24):队列模式偏好(steer/queue)用户设置持久化
+        followUpQueueMode: s.followUpQueueMode,
         // 2026-07-28 移除独立 PlanActToggle 后,plan_mode 字段已从持久化中删除
         // ChatMode 由 useModeStore 独立管理,持久化不重复存储
         // #12 store messages 持久化(2026-07-25 立):

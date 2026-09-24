@@ -15,6 +15,7 @@ import {
   probeEmbed,
   takeScreenshot,
 } from '@ihui/api-client'
+import { WORK_PANEL_STORAGE_KEY } from '@ihui/shared/constants'
 import type { WebViewMode, WebViewStatus, WorkPanelTab } from '@ihui/types'
 
 import { createPersistConfig } from './persist-helpers'
@@ -133,6 +134,138 @@ function patchActiveTabState(
   }))
 }
 
+/* ---------------------------------------------------------------------------
+ * D50② 工作面板 Tab 状态按会话(conversationId)分桶持久化
+ *
+ * 模型:活视图(tabs/activeTabId)永远属于「当前作用域」;非当前作用域的快照
+ * 存在 conversationTabs 桶里。作用域 = 某 conversationId,或 null(全局)。
+ * 持久化形态(buildWorkPanelPersistedState):
+ *  - 顶层 tabs/activeTabId 恒等于**全局视图**(与旧单键形态逐位一致 → 向后兼容,
+ *    老数据无 conversationTabs 字段时按空归档合并,行为不变);
+ *  - 会话快照存入同键的 conversationTabs 字段,按 updatedAt 做 LRU 上限裁剪。
+ *
+ * 留在 web 端而非下沉共享工厂(§3 判据「有第二个端需要它吗?」):工作展示区
+ * 是 web 端独有的右侧面板布局,mobile-rn / miniapp-taro / desktop 均无对应 UI,
+ * 且持久化复用端内既有 persist 工厂 createPersistConfig,不造第二套存储机制。
+ * ------------------------------------------------------------------------- */
+
+/** 单个作用域的 Tab 快照桶(tabs + 激活指针 + LRU 时间戳) */
+export interface WorkPanelTabBucket {
+  tabs: WorkPanelTab[]
+  activeTabId: string | null
+  /** 归档时刻(ms),LRU 裁剪依据 */
+  updatedAt: number
+}
+
+/**
+ * 持久化会话桶数量上限(LRU 超限裁剪最旧)。
+ * 取值依据:每桶至多 MAX_TABS=5 个 tab,持久化时剔除 screenshot 等大字段,
+ * 单桶实测 <10KB;20 桶合计约 200KB,远低于 localStorage 单键 ~5MB 预算,
+ * 同时覆盖重度用户来回切换的活跃会话数;超出即回退空视图(重新打开即可恢复)。
+ */
+export const MAX_CONVERSATION_TAB_BUCKETS = 20
+
+/**
+ * 全局作用域(conversationId=null)在内存归档中的暂存键。
+ * 只存活于 state.conversationTabs;持久化时**不**进 conversationTabs 字段
+ * (全局桶落盘走顶层 tabs/activeTabId,保持旧形态)。
+ */
+export const WORK_PANEL_GLOBAL_BUCKET_KEY = '__global__'
+
+/** 持久化时剔除瞬态大字段(screenshot / loading 态 / progress),全局桶与会话桶共用 */
+function scrubTabForPersist(t: WorkPanelTab): WorkPanelTab {
+  return {
+    ...t,
+    state: {
+      ...t.state,
+      screenshot: undefined,
+      status: 'idle' as WebViewStatus,
+      progress: undefined,
+    },
+  }
+}
+
+/** 把一组 tabs 归档进 buckets[key](不可变)。tabs 为空 → 移除该桶,不占 LRU 名额 */
+function stashBucket(
+  buckets: Record<string, WorkPanelTabBucket>,
+  key: string,
+  tabs: WorkPanelTab[],
+  activeTabId: string | null,
+  now: number,
+): Record<string, WorkPanelTabBucket> {
+  const next = { ...buckets }
+  if (tabs.length === 0) delete next[key]
+  else next[key] = { tabs, activeTabId, updatedAt: now }
+  return next
+}
+
+/**
+ * LRU 裁剪:会话桶总数(含 protectKey,不含 globalKey 暂存位)超过 max 时,
+ * 按 updatedAt 升序丢弃最旧,直到回到 max。protectKey(正在装入/使用的作用域)
+ * 永不驱逐——它挤掉的应是更旧的桶;globalKey 不计名额、不参与驱逐。
+ * 纯函数,setConversationScope 与 partialize 共用同一实现,保证内存与磁盘口径一致。
+ */
+export function pruneTabBuckets(
+  buckets: Record<string, WorkPanelTabBucket>,
+  max: number,
+  opts?: { globalKey?: string; protectKey?: string },
+): Record<string, WorkPanelTabBucket> {
+  const globalKey = opts?.globalKey
+  const protectKey = opts?.protectKey
+  const conversationKeys = Object.keys(buckets).filter((k) => k !== globalKey)
+  if (conversationKeys.length <= max) return buckets
+  const evictable = conversationKeys
+    .filter((k) => k !== protectKey)
+    .sort((a, b) => (buckets[a]?.updatedAt ?? 0) - (buckets[b]?.updatedAt ?? 0))
+  const drop = new Set(evictable.slice(0, conversationKeys.length - max))
+  const next: Record<string, WorkPanelTabBucket> = {}
+  for (const [k, v] of Object.entries(buckets)) if (!drop.has(k)) next[k] = v
+  return next
+}
+
+/**
+ * persist partialize:把「活视图 + 归档桶」折叠成稳定磁盘形态。
+ * 导出供单测直接对账(分桶读写 / 全局回退 / 上限裁剪均可纯函数验证)。
+ */
+export function buildWorkPanelPersistedState(s: WorkPanelState): Partial<WorkPanelState> {
+  const scope = s.conversationId
+  const scrubbedLive = s.tabs.map(scrubTabForPersist)
+  // 顶层全局视图:scope 为 null 时活视图就是全局;否则取内存 __global__ 暂存
+  const globalBucket =
+    scope === null
+      ? { tabs: scrubbedLive, activeTabId: s.activeTabId }
+      : {
+          tabs: (s.conversationTabs[WORK_PANEL_GLOBAL_BUCKET_KEY]?.tabs ?? []).map(
+            scrubTabForPersist,
+          ),
+          activeTabId: s.conversationTabs[WORK_PANEL_GLOBAL_BUCKET_KEY]?.activeTabId ?? null,
+        }
+  // 会话桶:归档(剔除全局暂存位)+ 折入当前作用域的活视图
+  const folded: Record<string, WorkPanelTabBucket> = {}
+  for (const [k, v] of Object.entries(s.conversationTabs)) {
+    if (k === WORK_PANEL_GLOBAL_BUCKET_KEY) continue
+    folded[k] = {
+      tabs: v.tabs.map(scrubTabForPersist),
+      activeTabId: v.activeTabId,
+      updatedAt: v.updatedAt,
+    }
+  }
+  if (scope !== null) {
+    folded[scope] = { tabs: scrubbedLive, activeTabId: s.activeTabId, updatedAt: Date.now() }
+  }
+  const pruned = pruneTabBuckets(folded, MAX_CONVERSATION_TAB_BUCKETS, {
+    protectKey: scope ?? undefined,
+  })
+  return {
+    width: s.width,
+    tabs: globalBucket.tabs,
+    activeTabId: globalBucket.activeTabId,
+    favorites: s.favorites,
+    recentUrls: s.recentUrls,
+    conversationTabs: pruned,
+  }
+}
+
 interface WorkPanelState {
   /** 面板是否展开 */
   open: boolean
@@ -143,10 +276,20 @@ interface WorkPanelState {
   /** 地址栏输入值(全局,切换 tab 时同步为 active tab url) */
   addressInput: string
 
-  /** Tab 列表 */
+  /** Tab 列表(当前作用域的活视图:属于 conversationId 指向的会话,null 时为全局) */
   tabs: WorkPanelTab[]
-  /** 当前激活 Tab ID */
+  /** 当前激活 Tab ID(活视图内) */
   activeTabId: string | null
+
+  /** 当前会话作用域(D50②);null = 无会话/新会话,退回全局桶,行为与改造前一致 */
+  conversationId: string | null
+  /**
+   * 非当前作用域的 Tab 快照归档(含 WORK_PANEL_GLOBAL_BUCKET_KEY 暂存位)。
+   * 当前作用域的快照**不在**此处(它就是 tabs/activeTabId 活视图),落盘时由
+   * buildWorkPanelPersistedState 折入,读取(setConversationScope)时取出并删除,
+   * 保证同一时刻只有一份真相。
+   */
+  conversationTabs: Record<string, WorkPanelTabBucket>
 
   /** 收藏夹 */
   favorites: FavoriteItem[]
@@ -206,6 +349,12 @@ interface WorkPanelState {
   onEmbedNavigation: (url: string, title?: string, kind?: 'nav' | 'loaded') => void
   /** 直接用已有 sessionId 打开 CDP tab(扫码登录用,跳过 probeEmbed 探测 + createBrowserSession) */
   openCdpSession: (url: string, sessionId: string, title?: string) => void
+  /**
+   * 切换会话作用域(D50②):把活视图 stash 进旧作用域的桶,再装入新作用域的桶
+   * (无桶 → 空视图)。conversationId=null 退回全局桶。同值调用为 no-op。
+   * 由本文件底部的 chat store 订阅自动驱动,组件无需直接调用。
+   */
+  setConversationScope: (conversationId: string | null) => void
   /** 重置到 idle */
   reset: () => void
 }
@@ -219,6 +368,8 @@ export const useWorkPanelStore = create<WorkPanelState>()(
       addressInput: '',
       tabs: [],
       activeTabId: null,
+      conversationId: null,
+      conversationTabs: {},
       favorites: [],
       recentUrls: [],
 
@@ -875,6 +1026,39 @@ export const useWorkPanelStore = create<WorkPanelState>()(
         })
       },
 
+      setConversationScope: (nextId) =>
+        set((s) => {
+          const target = nextId ?? null
+          if (s.conversationId === target) return s
+          const now = Date.now()
+          // 1) 活视图 stash 进它所属旧作用域的桶(空 tabs → 移桶,不留空桶)
+          const oldKey = s.conversationId ?? WORK_PANEL_GLOBAL_BUCKET_KEY
+          let buckets = stashBucket(s.conversationTabs, oldKey, s.tabs, s.activeTabId, now)
+          // 2) 取出目标桶并删除 —— 桶一旦成为活视图就不再留在归档里(单份真相)。
+          //    stashBucket 返回的是浅拷贝,delete 不污染原 state 的 record。
+          const bucket = buckets[target ?? WORK_PANEL_GLOBAL_BUCKET_KEY]
+          delete buckets[target ?? WORK_PANEL_GLOBAL_BUCKET_KEY]
+          // 3) LRU 裁剪(全局暂存位不计名额、不驱逐)
+          buckets = pruneTabBuckets(buckets, MAX_CONVERSATION_TAB_BUCKETS, {
+            globalKey: WORK_PANEL_GLOBAL_BUCKET_KEY,
+          })
+          const tabs = bucket?.tabs ?? []
+          const activeTabId =
+            tabs.length === 0
+              ? null
+              : bucket?.activeTabId && tabs.some((t) => t.id === bucket.activeTabId)
+                ? bucket.activeTabId
+                : tabs[0]!.id
+          const addressInput = tabs.find((t) => t.id === activeTabId)?.url ?? ''
+          return {
+            conversationId: target,
+            conversationTabs: buckets,
+            tabs,
+            activeTabId,
+            addressInput,
+          }
+        }),
+
       reset: () =>
         set({
           tabs: [],
@@ -883,24 +1067,64 @@ export const useWorkPanelStore = create<WorkPanelState>()(
         }),
     }),
     {
-      ...createPersistConfig<WorkPanelState>('ihui-work-panel', (s) => ({
-        width: s.width,
-        // 持久化 tabs 但清除 screenshot(体积大,需重新加载)
-        tabs: s.tabs.map((t) => ({
-          ...t,
-          state: {
-            ...t.state,
-            screenshot: undefined,
-            status: 'idle' as WebViewStatus,
-            progress: undefined,
-          },
-        })),
-        favorites: s.favorites,
-        recentUrls: s.recentUrls,
-      })),
+      ...createPersistConfig<WorkPanelState>(WORK_PANEL_STORAGE_KEY, buildWorkPanelPersistedState),
+      // D50②:hydrate 完成前挂起 chat 作用域装配(防止 persist 的浅合并把已装入的
+      // 会话视图覆盖回顶层全局桶);完成后立即补装最近一次请求的作用域。
+      onRehydrateStorage: () => () => {
+        markWorkPanelHydrated()
+      },
     },
   ),
 )
+
+/* ---------------------------------------------------------------------------
+ * D50② 接线:监听 chat store 的 conversationId → 自动切换 Tab 桶。
+ * 组件清单不在本票允许改动面内,且「会话切换」的真相源本就是 chat store,
+ * 故订阅放在 store 层自举;动态 import 断开 work-panel ↔ chat 的静态依赖环
+ * (chat 侧不 import work-panel,此处若静态 import 会把 1500 行 chat 模块
+ * 拖进每个用到工作面板的单测)。加载失败静默降级为全局桶 = 改造前行为。
+ * NODE_ENV=test 不自动接线:单测直接调 setConversationScope,避免拉真 chat store。
+ * ------------------------------------------------------------------------- */
+
+let _workPanelHydrated = false
+let _pendingScope: { readonly has: boolean; readonly id: string | null } = {
+  has: false,
+  id: null,
+}
+
+function markWorkPanelHydrated() {
+  _workPanelHydrated = true
+  if (_pendingScope.has) {
+    const id = _pendingScope.id
+    _pendingScope = { has: false, id: null }
+    useWorkPanelStore.getState().setConversationScope(id)
+  }
+}
+
+/** 应用作用域;persist hydration 尚未完成时排队,完成后由 markWorkPanelHydrated 补装 */
+function requestConversationScope(id: string | null) {
+  if (!_workPanelHydrated) {
+    _pendingScope = { has: true, id }
+    return
+  }
+  useWorkPanelStore.getState().setConversationScope(id)
+}
+
+if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'test') {
+  void import('@/stores/chat')
+    .then(({ useChatStore }) => {
+      // 初值:chat store 可能已 hydrate 完(persist 浅合并直接 set,不保证再触发 subscribe)
+      requestConversationScope(useChatStore.getState().conversationId ?? null)
+      useChatStore.subscribe((state, prev) => {
+        if (state.conversationId !== prev.conversationId) {
+          requestConversationScope(state.conversationId ?? null)
+        }
+      })
+    })
+    .catch(() => {
+      // chat store 不可用 → 保持全局桶(与改造前行为一致),不打断渲染
+    })
+}
 
 // 开发调试暴露(非 production):供 browser 验证 / DevTools 触发 openPanel
 if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {

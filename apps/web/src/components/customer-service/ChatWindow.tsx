@@ -123,7 +123,7 @@ export function ChatWindow({ roomId, onClose }: Props) {
       <button
         type="button"
         onClick={handleOpen}
-        className="fixed bottom-6 right-6 z-modal flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105"
+        className="fixed bottom-6 right-6 z-modal flex h-12 w-12 items-center justify-center rounded-xl bg-cta text-cta-foreground shadow-lg transition-transform hover:scale-105"
         aria-label={t('openCustomerService')}
       >
         <MessageCircle className="h-6 w-6" />
@@ -138,7 +138,7 @@ export function ChatWindow({ roomId, onClose }: Props) {
 
   return (
     <div className="fixed bottom-6 right-6 z-modal flex h-[min(480px,60vh)] w-[min(360px,calc(100vw-3rem))] flex-col overflow-hidden rounded-lg border bg-card shadow-xl">
-      <div className="flex items-center justify-between border-b bg-primary px-4 py-3 text-primary-foreground">
+      <div className="flex items-center justify-between border-b bg-cta px-4 py-3 text-cta-foreground">
         <div className="flex items-center gap-2">
           <span className={statusDot} />
           <span className="text-sm font-medium">在线客服</span>
@@ -197,7 +197,7 @@ export function ChatWindow({ roomId, onClose }: Props) {
               'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors',
               sending || !input.trim()
                 ? 'cursor-not-allowed bg-muted text-muted-foreground/50'
-                : 'bg-primary text-primary-foreground hover:bg-primary/90',
+                : 'bg-cta text-cta-foreground hover:bg-cta/90',
             )}
             aria-label={t('send')}
           >

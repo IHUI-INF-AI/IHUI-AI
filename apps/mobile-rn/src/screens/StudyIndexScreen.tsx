@@ -1007,12 +1007,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(32),
     paddingVertical: rpx(16),
     borderRadius: rnRadius.lg,
-    backgroundColor: tk.brand.DEFAULT,
+    backgroundColor: tk.brand.cta,
   } as ViewStyle,
   retryText: {
     fontSize: 13,
     fontWeight: '600',
-    color: tk.brand.foreground,
+    color: tk.brand.ctaForeground,
   } as TextStyle,
 })
 

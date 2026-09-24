@@ -370,7 +370,7 @@ export function ShareScreen() {
               accessibilityLabel={t('share.submit')}
             >
               {sharing ? (
-                <ActivityIndicator color={tk.brand.foreground} />
+                <ActivityIndicator color={tk.brand.ctaForeground} />
               ) : (
                 <Text style={styles.shareBtnText}>{t('share.submit')}</Text>
               )}
@@ -523,7 +523,7 @@ function createStyles(tk: RnThemeTokens) {
     shareBtn: {
       height: 46,
       borderRadius: rnRadius.lg,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
     } as ViewStyle,
@@ -533,7 +533,7 @@ function createStyles(tk: RnThemeTokens) {
     shareBtnText: {
       fontSize: 15,
       fontWeight: '600',
-      color: tk.brand.foreground,
+      color: tk.brand.ctaForeground,
     } as TextStyle,
   })
 }
