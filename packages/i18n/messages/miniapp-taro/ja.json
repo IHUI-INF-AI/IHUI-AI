@@ -327,6 +327,10 @@
       "failed": "失敗",
       "refunded": "返金済み",
       "refunding": "返金処理中"
+    },
+    "tab": {
+      "cancelled": "キャンセル済み",
+      "refunded": "返金済み"
     }
   },
   "wallet": {
@@ -436,7 +440,12 @@
       "empty": "通知設定項目なし",
       "moreTitle": "もっと見る",
       "detail": "通知詳細",
-      "detailDesc": "過去の通知メッセージを見る"
+      "detailDesc": "過去の通知メッセージを見る",
+      "wxSubscribe": "微信 納付リマインダー",
+      "subscribed": "リマインダーを有効にしました",
+      "subscribeFailed": "有効になりませんでした。後で再試行してください",
+      "myBills": "授業料の請求書",
+      "myBillsDesc": "未納・納付済み・滞納を確認しオンラインで支払えます"
     },
     "changePhone": "電話番号変更",
     "changePassword": "パスワード変更",
@@ -519,6 +528,7 @@
       "digitalHuman": "デジタルヒューマン生成 →",
       "voiceMessage": "音声メッセージ",
       "downloading": "ダウンロード中",
+      "downloadSuccess": "アルバムに保存しました",
       "downloadFailed": "ダウンロード失敗",
       "needAlbumAuth": "画像を保存するにはアルバム権限が必要です。設定で有効にしてください",
       "collapse": "折りたたむ",
@@ -604,7 +614,20 @@
       "notAvailable": "未対応",
       "taskSubmitted": "タスクが送信されました、履歴で確認してください",
       "downloadSuccess": "アルバムに保存しました",
-      "downloadFailed": "ダウンロード失敗、再試行してください"
+      "downloadFailed": "ダウンロード失敗、再試行してください",
+      "duration": "所要時間",
+      "resolution": "解像度",
+      "fps": "フレームレート",
+      "vendors": {
+        "sora2": "Sora2",
+        "sora2Desc": "Sora2 で動画を生成",
+        "kling": "Kling",
+        "klingDesc": "高品質な AI 動画を生成",
+        "doubao": "豆包",
+        "doubaoDesc": "Doubao モデルで動画を生成",
+        "dashscope": "DashScope",
+        "dashscopeDesc": "Alibaba Cloud DashScope で動画を生成"
+      }
     },
     "agent": {
       "searchPlaceholder": "エージェントを検索",
@@ -1171,7 +1194,12 @@
     "goDiscover": "発見へ",
     "searchPlaceholder": "コレクションしたコンテンツを検索",
     "selectFirst": "先に選択してください",
-    "total": "コレクション済み"
+    "total": "コレクション済み",
+    "tabCourse": "コース",
+    "tabLive": "ライブ",
+    "tabPost": "投稿",
+    "tabAigc": "AI作品",
+    "tabNews": "ニュース"
   },
   "distribution": {
     "withdraw": {
@@ -1888,6 +1916,12 @@
       "loading": "読み込み中...",
       "noMore": "これ以上はありません",
       "retry": "クリックして再試行"
+    },
+    "tabs": {
+      "recommend": "おすすめ",
+      "follow": "フォロー中",
+      "latest": "最新",
+      "hot": "人気"
     }
   },
   "devEnter": {
@@ -1952,7 +1986,8 @@
       "submitting": "作成中…",
       "submit": "エージェント作成",
       "fileSizeExceeded": "ファイルは10MBを超えることはできません",
-      "n8nFilePlaceholder": "n8nバックアップJSONファイルをアップロード"
+      "n8nFilePlaceholder": "n8nバックアップJSONファイルをアップロード",
+      "typeJson": "JSON"
     },
     "modelEdit": {
       "title": "モデル編集",
@@ -2147,7 +2182,9 @@
       "detailStatus": "ステータス",
       "detailAuthor": "投稿者",
       "viewDetail": "詳細を見る",
-      "identityTitle": "身分切替"
+      "identityTitle": "身分切替",
+      "identityDemander": "発注者",
+      "identityDeveloper": "開発者"
     },
     "cover": {
       "entryTitle": "開発者になる",
@@ -2167,7 +2204,8 @@
       "renew": "更新",
       "continueOrder": "注文受付を続ける",
       "qaTitle": "よくある質問"
-    }
+    },
+    "p1": "マーケティング"
   },
   "postCreate": {
     "title": "投稿を公開",
@@ -2578,7 +2616,8 @@
     "weeklyStudy": "今週の学習",
     "completedLessons": "完了レッスン",
     "totalDuration": "累計時間",
-    "streakDays": "連続日数"
+    "streakDays": "連続日数",
+    "record": "学習記録"
   },
   "subscriptions": {
     "cancel": "サブスク解除",
@@ -2827,7 +2866,10 @@
     "confirm3": "会員を退会しますか?退会後は会員特典を失います。",
     "failed5": "退会失敗、カスタマーサービスにご連絡ください",
     "success4": "退会成功",
-    "text6": "レベル紹介ページ未設定"
+    "text6": "レベル紹介ページ未設定",
+    "menu": {
+      "subscriptions": "マイ購読"
+    }
   },
   "vipTrader": {
     "openTitle": "会員登録",
@@ -4148,5 +4190,8 @@
       }
     },
     "vividTail": "、まもなくです"
+  },
+  "profile": {
+    "myCourses": "マイコース"
   }
 }

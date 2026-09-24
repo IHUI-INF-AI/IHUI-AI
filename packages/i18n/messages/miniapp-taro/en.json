@@ -327,6 +327,10 @@
       "failed": "Failed",
       "refunded": "Refunded",
       "refunding": "Refunding"
+    },
+    "tab": {
+      "cancelled": "Cancelled",
+      "refunded": "Refunded"
     }
   },
   "wallet": {
@@ -436,7 +440,12 @@
       "empty": "No notification settings",
       "moreTitle": "More",
       "detail": "Notification details",
-      "detailDesc": "View past notifications"
+      "detailDesc": "View past notifications",
+      "wxSubscribe": "WeChat payment reminder",
+      "subscribed": "Reminder subscription enabled",
+      "subscribeFailed": "Subscription not enabled, please try again later",
+      "myBills": "My tuition bills",
+      "myBillsDesc": "View due, paid and overdue amounts and pay online"
     },
     "changePhone": "Change phone",
     "changePassword": "Change password",
@@ -590,6 +599,7 @@
       "copy": "Copy",
       "digitalHuman": "Digital Human Generation →",
       "downloadFailed": "Download failed",
+      "downloadSuccess": "Saved to album",
       "downloading": "Downloading",
       "edit": "Edit",
       "errorCardTitle": "Request failed",
@@ -753,7 +763,20 @@
       "share": "Share",
       "succeeded": "Generation complete",
       "taskSubmitted": "Task submitted, please check history later",
-      "title": "Video Generation"
+      "title": "Video Generation",
+      "duration": "Duration",
+      "resolution": "Resolution",
+      "fps": "Frame Rate",
+      "vendors": {
+        "sora2": "Sora2",
+        "sora2Desc": "Generate videos with Sora2",
+        "kling": "Kling",
+        "klingDesc": "Generate high-quality AI videos",
+        "doubao": "Doubao",
+        "doubaoDesc": "Generate videos with the Doubao model",
+        "dashscope": "DashScope",
+        "dashscopeDesc": "Generate videos with Alibaba Cloud DashScope"
+      }
     },
     "voice": {
       "chatFailed": "Chat failed, please retry",
@@ -1171,7 +1194,12 @@
     "goDiscover": "Discover",
     "searchPlaceholder": "Search favorited content",
     "selectFirst": "Please select first",
-    "total": "Favorited"
+    "total": "Favorited",
+    "tabCourse": "Courses",
+    "tabLive": "Live",
+    "tabPost": "Posts",
+    "tabAigc": "AI Works",
+    "tabNews": "News"
   },
   "distribution": {
     "withdraw": {
@@ -1894,6 +1922,12 @@
       "loading": "Loading...",
       "noMore": "No more",
       "retry": "Click to retry"
+    },
+    "tabs": {
+      "recommend": "Recommended",
+      "follow": "Following",
+      "latest": "Latest",
+      "hot": "Hot"
     }
   },
   "devEnter": {
@@ -1958,7 +1992,8 @@
       "submitting": "Creating…",
       "submit": "Create Agent",
       "fileSizeExceeded": "File cannot exceed 10MB",
-      "n8nFilePlaceholder": "Click to upload n8n backup JSON file"
+      "n8nFilePlaceholder": "Click to upload n8n backup JSON file",
+      "typeJson": "JSON"
     },
     "modelEdit": {
       "title": "Edit model",
@@ -2153,7 +2188,9 @@
       "detailStatus": "Status",
       "detailAuthor": "Author",
       "viewDetail": "View detail",
-      "identityTitle": "Switch identity"
+      "identityTitle": "Switch identity",
+      "identityDemander": "Demander",
+      "identityDeveloper": "Developer"
     },
     "cover": {
       "entryTitle": "Become a developer",
@@ -2173,7 +2210,8 @@
       "renew": "Renew",
       "continueOrder": "Continue taking orders",
       "qaTitle": "FAQ"
-    }
+    },
+    "p1": "Marketing"
   },
   "postCreate": {
     "title": "New Post",
@@ -2584,7 +2622,8 @@
     "weeklyStudy": "This Week",
     "completedLessons": "Completed Lessons",
     "totalDuration": "Total Duration",
-    "streakDays": "Streak Days"
+    "streakDays": "Streak Days",
+    "record": "Learning records"
   },
   "subscriptions": {
     "cancel": "Cancel subscription",
@@ -2833,7 +2872,10 @@
     "confirm3": "Cancel membership? You will lose member benefits.",
     "success4": "Unsubscribed successfully",
     "failed5": "Unsubscribe failed, please contact support",
-    "text6": "Level intro page not configured"
+    "text6": "Level intro page not configured",
+    "menu": {
+      "subscriptions": "My subscriptions"
+    }
   },
   "vipTrader": {
     "openTitle": "Open membership",
@@ -4161,5 +4203,8 @@
       }
     },
     "vividTail": ", almost there"
+  },
+  "profile": {
+    "myCourses": "My courses"
   }
 }
