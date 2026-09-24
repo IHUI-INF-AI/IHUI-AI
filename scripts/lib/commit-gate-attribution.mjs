@@ -29,6 +29,23 @@
 
 const ANSI_RE = /\x1b\[[0-9;]*m/g
 
+/**
+ * "长得像结论的行"的标记。
+ * ⚠️ 为什么必须逐行筛而不是整段 includes:守门脚本常在开头**回显本次触发它的文件清单**
+ * (门 35 mypy 实测就打 `[mypy 守门] staged 检测到 2 个 Python 文件改动:\n - apps/ai-service/...`)。
+ * 整段子串匹配会把这行清单当成"该门点名了我的违规"⇒ 误判 `mine` ⇒ 把别人一次本该合法的提交
+ * 拒死(2026-09-25 02:22 真实发生,留痕 kind=mine,而 mypy 真正报错的是另外两个文件)。
+ * 结论行必带定位或错误字样;纯清单行不带,故排除。
+ */
+const FINDING_LINE_RE = /(error|错误|违规|failure|failed|❌|✗|:\d+\b|报数|判定)/i
+
+/** 只在"结论行"里找本次声明的文件 */
+export function findingLines(output) {
+  return stripAnsi(output)
+    .split(/\r?\n/)
+    .filter((l) => FINDING_LINE_RE.test(l))
+}
+
 export function stripAnsi(text) {
   return String(text ?? '').replace(ANSI_RE, '')
 }
@@ -157,12 +174,23 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate }
       detail.push(`[${g.id}] ${g.label} —— 复跑已通过(exit 0),该红不在本次内容里`)
       continue
     }
-    const hit = stagedFiles.filter((f) => stripAnsi(r.output).includes(f))
-    if (hit.length > 0) {
+    const lines = findingLines(r.output)
+    const named = stagedFiles.filter((f) => lines.some((l) => l.includes(f)))
+    if (named.length > 0) {
       mine++
-      detail.push(`[${g.id}] ${g.label} —— 复跑仍红且点名本次文件:${hit.join(' , ')}`)
+      detail.push(
+        `[${g.id}] ${g.label} —— 复跑仍红,且**结论行**点名本次文件:${named.join(' , ')}` +
+          `(取证行:${lines
+            .filter((l) => named.some((f) => l.includes(f)))
+            .slice(0, 2)
+            .join(' ⏎ ')})`,
+      )
     } else {
-      detail.push(`[${g.id}] ${g.label} —— 复跑仍红,但未点名本次任何文件`)
+      const echo = stagedFiles.filter((f) => stripAnsi(r.output).includes(f))
+      detail.push(
+        `[${g.id}] ${g.label} —— 复跑仍红,但未点名本次任何文件` +
+          (echo.length ? `(输出里出现过 ${echo.join(' , ')},但只出现在清单/回显行,不算点名)` : ''),
+      )
     }
   }
 
@@ -355,12 +383,50 @@ export function selfTest(assert, runnerSource) {
     runGate: (script) =>
       script.startsWith('check-push-sync')
         ? { status: 0, output: '' }
-        : { status: 1, output: 'apps/mobile-rn/x.tsx scripts/foo.mjs 绕档' },
+        : { status: 1, output: 'apps/mobile-rn/x.tsx:4 scripts/foo.mjs:9 绕档' },
   })
   assert(a9.kind === 'mine', `A9 任一门点名本次文件即须判 mine,实得 ${a9.kind}`)
   assert(a9.failed.length === 2, `A9 应解析出 2 道失败门,实得 ${a9.failed.length}`)
   // --- A10 措辞层:三种 kind 各说各的话,不得互相冒充 ---
   assert(/❌/.test(verdictLine(a2)), 'A10 mine 的措辞必须是失败口吻')
+
+  // --- A11 真实误伤回归:门回显"触发我的文件清单"不得被当成点名 ---
+  // 文本取自 2026-09-25 02:22 门 35 (check-mypy) 的真实输出:它回显了本次 staged 的 Python 文件,
+  // 而 mypy 真正报错的是另外两个文件。旧实现用整段 includes ⇒ 判成 mine ⇒ 拒掉了别人一次合法提交。
+  const MYPY_REAL = `[mypy 守门] staged 检测到 2 个 Python 文件改动,触发 mypy 检查:
+  - apps/ai-service/app/core/llm_gateway.py
+  - apps/ai-service/tests/test_model_router_wiring.py
+
+❌ mypy 守门失败(1.7s)
+--- mypy 输出 ---
+app\\services\\tool_input_scanner.py:32: error: Module "app.services.sandbox" has no attribute "_DANGEROUS_PATTERNS"  [attr-defined]
+app\\services\\mcp_server.py:1954: error: Module "app.services.sandbox" has no attribute "sandbox_executor"  [attr-defined]
+Found 2 errors in 2 files (checked 548 source files)
+--- end ---`
+  const a11 = classifyHookFailure({
+    text: SUMMARY + FAIL_29,
+    stagedFiles: [
+      'apps/ai-service/app/core/llm_gateway.py',
+      'apps/ai-service/tests/test_model_router_wiring.py',
+    ],
+    runGate: () => ({ status: 1, output: MYPY_REAL }),
+  })
+  assert(a11.kind === 'not-ours', `A11 清单回显不得判成 mine,实得 ${a11.kind}`)
+  assert(
+    /只出现在清单\/回显行/.test(a11.detail.join('\n')),
+    'A11 必须把"为什么不算点名"写进明细,不得静默',
+  )
+  // 反向:若 mypy 真报在本人声明的文件上,必须立刻判 mine(本条防"修过头变成永不归责")
+  const a11b = classifyHookFailure({
+    text: SUMMARY + FAIL_29,
+    stagedFiles: ['apps/ai-service/app/core/llm_gateway.py'],
+    runGate: () => ({
+      status: 1,
+      output:
+        'apps/ai-service/app/core/llm_gateway.py:88: error: Missing type annotation  [no-any-return]',
+    }),
+  })
+  assert(a11b.kind === 'mine', `A11b 真报在本人文件上时必须仍判 mine,实得 ${a11b.kind}`)
 
   // --- B1 第二输入源:stdout 没有汇总(实测真仓就是这样),必须从同一轮日志尾部取到 ---
   // 真实日志的顺序是「上一轮汇总 … 本轮 staged 清单 … 本轮汇总」,清单夹在两轮之间。
@@ -422,6 +488,7 @@ export function selfTest(assert, runnerSource) {
 /** §22c 约定:核心判据一律经 __test__ 暴露,镜像测试直接 import,不再抄第二份实现 */
 export const __test__ = {
   stripAnsi,
+  findingLines,
   parseGateSummary,
   pickLastSummaryRun,
   classifyHookFailure,
