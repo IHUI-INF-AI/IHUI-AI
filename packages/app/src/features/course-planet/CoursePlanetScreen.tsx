@@ -196,7 +196,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 10,
       paddingVertical: 8,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     retryText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
     typeTabsRow: {
@@ -212,7 +212,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     },
     typeTabActive: {
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     typeTabText: {
       fontSize: 14,
