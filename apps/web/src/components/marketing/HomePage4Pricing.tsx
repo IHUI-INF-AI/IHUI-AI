@@ -118,6 +118,10 @@ export function HomePage4Pricing() {
                 )}
                 {isRecommended && (
                   <div className="absolute right-2 top-2 z-10">
+                    {/* r5-cta-exempt: 双色系装饰渐变(from-primary→to-emerald-500 的推荐角标),
+                        不是"品牌实底 + 其上文字"那一档;其前景 text-primary-foreground 与
+                        from-primary 同步反转,两态均 ≥15:1 无缺陷。换成 from-cta 会把
+                        黑→翠绿改成蓝→翠绿,属营销观感决策,不在同源迁移范围内。 */}
                     <span className="inline-flex items-center gap-1 rounded-md bg-gradient-to-r from-primary to-emerald-500 px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-md shadow-primary/30">
                       <Sparkles className="h-3 w-3" />
                       {t('recommended')}
