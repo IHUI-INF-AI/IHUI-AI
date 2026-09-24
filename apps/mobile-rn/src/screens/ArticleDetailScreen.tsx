@@ -30,6 +30,7 @@ import {
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { createComment, fetchApi, getComments, type CommentItem } from '@ihui/api-client'
+import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import { tokens } from '../theme/active-tokens'
 import {
   ArticleDetailScreen as SharedArticleDetailScreen,
@@ -135,8 +136,9 @@ export function ArticleDetailScreen() {
       } else {
         setCommentError(res.error || '评论失败')
       }
-    } catch {
-      setCommentError('评论失败,请重试')
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      setCommentError(detail.trim() ? toUserFriendlyMessage(e) : '评论失败,请重试')
     } finally {
       setCommentSubmitting(false)
     }

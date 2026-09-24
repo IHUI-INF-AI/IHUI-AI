@@ -29,6 +29,7 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi, getCourses, type Course } from '@ihui/api-client'
+import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import type { CarouselItem } from '@ihui/ui-native'
@@ -129,8 +130,9 @@ export function MoreCourseScreen() {
       const res = await getCourses({ page: 1, pageSize: PAGE_SIZE })
       if (!res.success) throw new Error(res.error)
       setItems(res.data.list ?? [])
-    } catch {
-      setError('加载失败,请下拉刷新重试')
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      setError(detail.trim() ? toUserFriendlyMessage(e) : '加载失败,请下拉刷新重试')
     } finally {
       setLoading(false)
       setRefreshing(false)
