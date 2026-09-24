@@ -64,8 +64,6 @@ const MIN_STEM = 4
 const MAX_CANDIDATES = 2000
 /** 删除面超上限 → 那是守门 65(整树删除拦截)的地盘,本门只报数不判红,免得 pre-commit 卡死 */
 const MAX_DELETED_JUDGED = 400
-/** 人类可读输出里最多点名多少条(其余只报数,避免刷屏) */
-const PRINT_CAP = 40
 
 const SRC_EXT = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']
 /** 可作"引用方"的文件类型:代码 + 配置。`.md`/`.txt` 里提到某路径是叙述,不是依赖。 */
