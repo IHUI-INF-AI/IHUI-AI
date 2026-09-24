@@ -38,6 +38,7 @@ import {
 import { Badge, Button, Input } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { fetchApi } from '@/lib/api'
 import { formatTimeOnly } from '@/lib/date-utils'
 import { Tooltip } from '@/components/feedback'
@@ -169,6 +170,9 @@ const SOURCE_BADGE_KEY: Record<UnifiedSource, string> = {
   local: 'sourceLocal',
   cloud: 'sourceCloud',
 }
+
+/** 层栈 id(见 @/lib/overlay-stack):看板行内改名的 Esc 只在栈顶时被消费 */
+const RENAME_OVERLAY_ID = 'unified-task-dashboard-rename'
 
 /**
  * UnifiedTaskDashboard - 统一任务运行时看板(四源聚合 + 搜索/启动/停止/改名 + @任务消息)
@@ -331,7 +335,13 @@ export function UnifiedTaskDashboard() {
   // jsx-a11y/no-autofocus 禁用 autoFocus prop,进入编辑态改由 effect 聚焦
   const renameInputRef = React.useRef<HTMLInputElement | null>(null)
   React.useEffect(() => {
-    if (editingKey) renameInputRef.current?.focus()
+    if (!editingKey) return
+    // 层栈:进入行内改名态即入栈为栈顶,此态下的 Esc 只由本层消费(不再连带关掉外层浮层)
+    pushOverlay(RENAME_OVERLAY_ID)
+    renameInputRef.current?.focus()
+    return () => {
+      popOverlay(RENAME_OVERLAY_ID)
+    }
   }, [editingKey])
 
   const submitRename = (row: UnifiedTaskRow) => {
@@ -489,7 +499,10 @@ export function UnifiedTaskDashboard() {
                     onChange={(e) => setEditDraft(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') submitRename(row)
-                      if (e.key === 'Escape') setEditingKey(null)
+                      if (e.key === 'Escape') {
+                        if (!isTopOverlay(RENAME_OVERLAY_ID)) return
+                        setEditingKey(null)
+                      }
                     }}
                     maxLength={200}
                     className="h-7 flex-1 text-xs"

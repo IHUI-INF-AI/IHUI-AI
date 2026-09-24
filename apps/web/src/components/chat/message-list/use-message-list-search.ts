@@ -5,6 +5,10 @@
 import * as React from 'react'
 import type { ChatMessage } from '@/stores/chat'
 import { searchMessages } from '@/lib/message-search'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
+
+/** 层栈 id(见 @/lib/overlay-stack):消息列表页内搜索条(仅搜索条可见时占一层) */
+const MESSAGE_LIST_SEARCH_OVERLAY_ID = 'message-list-search-bar'
 
 export interface MessageListSearchOptions {
   messages: ChatMessage[]
@@ -105,6 +109,10 @@ export function useMessageListSearch({
   // 全局快捷键:Ctrl+F 打开搜索栏 / Esc 关闭搜索栏
   // 注:与已有键盘导航监听器共存 —— 已有监听器对 Ctrl/Meta 修饰键 return,不拦截 Ctrl+F
   React.useEffect(() => {
+    // 层栈:搜索条只在"可见"这一档占一层。不可见时必须出栈 —— 否则本层会压在
+    // 已打开的弹层之上,而它的 Escape 分支因 searchBarVisible 为 false 什么都不做,
+    // 结果是"按 Esc 谁都不退"的假死。
+    if (searchBarVisible) pushOverlay(MESSAGE_LIST_SEARCH_OVERLAY_ID)
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ctrl+F / Cmd+F → 打开搜索栏(阻止浏览器原生 find)
       if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
@@ -114,12 +122,16 @@ export function useMessageListSearch({
       }
       // Esc → 关闭搜索栏(搜索栏可见时)
       if (e.key === 'Escape' && searchBarVisible) {
+        if (!isTopOverlay(MESSAGE_LIST_SEARCH_OVERLAY_ID)) return
         e.preventDefault()
         setSearchBarVisible(false)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    return () => {
+      if (searchBarVisible) popOverlay(MESSAGE_LIST_SEARCH_OVERLAY_ID)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
   }, [searchBarVisible])
 
   return {
