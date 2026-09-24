@@ -11,7 +11,7 @@
 // 本测试钉住:①真仓当前不变量;②夹具正/反对照(缺链接必红、补上必绿);
 // ③**装车证明** —— guardian-runner 必须真的注册了这道门(§22c「造好没装车」教训)。
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -24,8 +24,77 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
 
 test('__test__ 出口齐备(§22c 锚点)', () => {
-  for (const fn of ['parseWorkspacePatterns', 'expandPatterns', 'workspaceDepsOf', 'findMissingLinks']) {
+  for (const fn of [
+    'parseWorkspacePatterns',
+    'expandPatterns',
+    'workspaceDepsOf',
+    'findMissingLinks',
+    'findGuttedLinks',
+    'lintStagedCommands',
+    'findUnresolvableHookCommands',
+  ]) {
     assert.equal(typeof gate[fn], 'function', `缺少导出 ${fn}`)
+  }
+})
+
+test('第四型(2026-09-24 全机停摆的直接指纹)**双向**:包体在而 shim 没了必须判红', () => {
+  // 这台尺子必须在"故障现场"报红:`node_modules/eslint` 内容完好、能直接 node 跑出 v10.8.1,
+  // 但 `node_modules/.bin/eslint(.CMD)` 没了 ⇒ lint-staged 按 PATH 找 eslint 报
+  // 「不是内部或外部命令」。若把"`node_modules/<cmd>` 目录存在"当作通过,这条红就永远测不出来。
+  const root = mkdtempSync(join(tmpdir(), 'ihui-hookcmd-test-'))
+  try {
+    mkdirSync(join(root, 'node_modules', 'eslint', 'node_modules'), { recursive: true })
+    writeFileSync(join(root, 'node_modules', 'eslint', 'package.json'), JSON.stringify({ name: 'eslint' }))
+    assert.deepEqual(
+      gate.findUnresolvableHookCommands(root, ['eslint']).map((x) => x.cmd),
+      ['eslint'],
+      '包体在、shim 没了必须判红',
+    )
+    mkdirSync(join(root, 'node_modules', '.bin'), { recursive: true })
+    writeFileSync(join(root, 'node_modules', '.bin', process.platform === 'win32' ? 'eslint.CMD' : 'eslint'), '@ECHO off\n')
+    assert.deepEqual(gate.findUnresolvableHookCommands(root, ['eslint']), [], '补上 shim 后必须归零')
+    // 命令集来源:lint-staged 配置三种形态都要能提出命令名,node/pnpm 前缀不参与
+    const cmds = gate.lintStagedCommands({ 'lint-staged': { '*.ts': 'eslint --fix', '*.js': ['node a.mjs'] } })
+    assert.ok(cmds.includes('eslint') && !cmds.includes('node'), `命令名提取不对: ${cmds.join(',')}`)
+  } finally {
+    rmSync(root, { recursive: true, force: true, maxRetries: 5 })
+  }
+})
+
+test('链接完整性判据(掏空/悬空)夹具**双向**:空目标必红、完好目标必绿', () => {
+  // 2026-09-24 全机门禁停摆的第二型:链接在、目标被掏空。existsSync 对这一型返回 true,
+  // 所以旧判据(findMissingLinks)恒绿 —— 本用例钉住"新判据真的在看内容"。
+  const root = mkdtempSync(join(tmpdir(), 'ihui-gutted-test-'))
+  try {
+    mkdirSync(join(root, 'store', 'good', 'node_modules', 'good'), { recursive: true })
+    writeFileSync(join(root, 'store', 'good', 'node_modules', 'good', 'package.json'), JSON.stringify({ name: 'good' }))
+    mkdirSync(join(root, 'store', 'hollow', 'node_modules', 'hollow'), { recursive: true }) // 空目录
+    mkdirSync(join(root, 'node_modules', '@sc'), { recursive: true })
+    const link = (target, name) => symlinkSync(join(root, 'store', target), join(root, 'node_modules', name), 'dir')
+    link('good/node_modules/good', 'good')
+    link('hollow/node_modules/hollow', 'hollow')
+    link('ghost/node_modules/ghost', 'ghost') // 悬空
+    link('good/node_modules/good', '@sc/good')
+    link('hollow/node_modules/hollow', '@sc/hollow')
+
+    const { gutted, scanned } = gate.findGuttedLinks(root, [])
+    assert.equal(scanned, 5, `应扫到 5 条链接, got ${scanned}`)
+    assert.deepEqual(
+      gutted.map((x) => x.link).sort(),
+      ['node_modules/@sc/hollow', 'node_modules/ghost', 'node_modules/hollow'],
+      `红点清单不对: ${JSON.stringify(gutted)}`,
+    )
+    assert.equal(gutted.find((x) => x.link === 'node_modules/ghost').kind, '悬空')
+    assert.equal(gutted.find((x) => x.link === 'node_modules/hollow').kind, '掏空')
+    // 反向对照:existsSync 对"掏空"仍为 true ⇒ 钉住旧判据看不见这一型的前提
+    assert.ok(existsSync(join(root, 'node_modules', 'hollow')), 'existsSync 对空目标应为 true,否则本用例前提不成立')
+    // 全部补齐 → 必绿(可反复检出)
+    rmSync(join(root, 'node_modules', 'hollow'), { force: true })
+    rmSync(join(root, 'node_modules', 'ghost'), { force: true })
+    rmSync(join(root, 'node_modules', '@sc', 'hollow'), { force: true })
+    assert.deepEqual(gate.findGuttedLinks(root, []).gutted, [], '补齐后仍报红 = 判据不成立')
+  } finally {
+    rmSync(root, { recursive: true, force: true, maxRetries: 5 })
   }
 })
 

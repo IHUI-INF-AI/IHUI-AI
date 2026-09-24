@@ -110,6 +110,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
+      paddingTop: 48,
       paddingBottom: 12,
       gap: 12,
     },
