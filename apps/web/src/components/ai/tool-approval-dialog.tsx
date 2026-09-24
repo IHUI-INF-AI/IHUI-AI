@@ -168,7 +168,7 @@ export function ToolApprovalDialog() {
             onClick={() => void handleDecision('approve', scope, reason)}
             disabled={state.sending}
             data-testid="tool-approval-approve"
-            className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md bg-cta px-4 text-sm font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-50"
           >
             {state.sending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -196,9 +196,7 @@ export function ToolApprovalDialog() {
           </div>
           {/* D84:审批作用域(批准时生效;授权按 工具+参数 精确匹配,不放大到全局) */}
           <div>
-            <div className="mb-1 text-xs font-medium text-muted-foreground">
-              {t('scopeLabel')}
-            </div>
+            <div className="mb-1 text-xs font-medium text-muted-foreground">{t('scopeLabel')}</div>
             <div
               className="flex gap-1"
               role="radiogroup"
