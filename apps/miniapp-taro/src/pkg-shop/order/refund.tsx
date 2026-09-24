@@ -204,7 +204,7 @@ export default function OrderRefund() {
         <Button
           className={`fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[100rpx] leading-[100rpx] rounded-xl text-[32rpx] font-semibold text-center border-none p-0 ${
             disabled ? 'opacity-50' : ''
-          } bg-primary text-primary-foreground`}
+          } bg-cta text-cta-foreground`}
           disabled={disabled}
           loading={submitting}
           onClick={onSubmit}

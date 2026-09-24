@@ -14,10 +14,10 @@ export interface ToastProps {
 }
 
 const COLORS: Record<string, string> = {
-  success: 'bg-primary text-primary-foreground',
+  success: 'bg-cta text-cta-foreground',
   error: 'bg-destructive text-destructive-foreground',
   warning: 'bg-warning text-warning-foreground',
-  info: 'bg-primary text-primary-foreground',
+  info: 'bg-cta text-cta-foreground',
 }
 
 const ICONS: Record<string, string> = {
