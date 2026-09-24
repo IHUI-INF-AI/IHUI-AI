@@ -108,6 +108,37 @@ jobs:
           # 与其让它带着坏判据去跑 69 分钟,不如 3 秒内失败并点名。
           LOCAL_INTERNAL_N=$(git for-each-ref --format='%(refname)' refs/tags | grep -Ec "$INTERNAL_TAG_RE" || true)
           echo "本地内部备份标签(按同一 RE 计)= ${LOCAL_INTERNAL_N}"
+          # ── 配额探针(0 字节) ─────────────────────────────────────────────────────
+          # 为什么必须有:被 pre-receive 拒掉的那一轮**照样把整包对象传到了服务端**
+          # (receive-pack 收完 pack 才跑钩子,包留在服务端等 housekeeping)。实测:
+          # 09-23 21:55 `Repo size: 1060.676MB` → 09-24 00:17 `1603.148MB`,中间正好 4 轮
+          # ≈ 135MB/轮,与我们每轮发送的 pack 大小同量级。**每 20 分钟一轮的重试
+          # 就是将仓库体积持续推高、让 Gitee 永远回不到配额内的那只手。**
+          # 探针推一个"服务端已有的 commit"到一个新 ref 名 ⇒ 对象全在,传输 0 字节,
+          # 但 pre-receive 照样执行 ⇒ 能不喂体积地把配额判词拿回来。探针 ref 用完立即删除。
+          PROBE_REF="refs/heads/ci-quota-probe"
+          REMOTE_MAIN=$(git ls-remote "$REMOTE" refs/heads/main 2>/dev/null | cut -f1)
+          if [ -n "${REMOTE_MAIN}" ]; then
+            PROBE_OUT=/tmp/gitee-probe.out
+            # `|| PROBE_RC=$?` 是必需的:本步跑在 `bash -e` 下,裸写一行可能失败的命令会让脚本
+            # 当场退出,下面的配额结论分支永远走不到(同文件上方 push 那处已踩过这个坑)。
+            PROBE_RC=0
+            git push --no-verify "$REMOTE" "${REMOTE_MAIN}:${PROBE_REF}" > "$PROBE_OUT" 2>&1 || PROBE_RC=$?
+            sed "s|${GITEE_TOKEN}|***|g" "$PROBE_OUT"
+            if grep -qE 'exceeds quota|size exceeds limit' "$PROBE_OUT"; then
+              echo "::error::Gitee 配额仍未释放(0 字节探针确认,本轮未向服务端发送任何对象)。差的是服务端体积回收:等 Gitee housekeeping,或由仓库所有者在 https://gitee.com/${GITEE_OWNER}/IHUI-AI/settings 点一次「Git GC」(Gitee 无 GC API)。在恢复之前**不再做全量推送** —— 每次被拒的全量推送会再堆 ~135MB,把恢复推得更远。"
+              exit 1
+            fi
+            if [ "${PROBE_RC}" -eq 0 ]; then
+              git push --no-verify --delete "$REMOTE" "${PROBE_REF}" >/dev/null 2>&1 \
+                || echo "::warning::探针 ref ${PROBE_REF} 删除失败,请手工清理(不影响本轮镜像)"
+              echo "✅ 配额探针通过(0 字节),继续全量镜像"
+            else
+              echo "::warning::探针以 rc=${PROBE_RC} 失败但不是配额原因(凭据/网络?),仍继续全量镜像并让真实失败自解释"
+            fi
+          else
+            echo "::warning::读不到远端 main 的 sha,跳过探针(直接尝试推送)"
+          fi
           if [ "${LOCAL_INTERNAL_N}" -lt 1000 ]; then
             echo "::error::INTERNAL_TAG_RE 在本仓库只匹配到 ${LOCAL_INTERNAL_N} 个标签,远低于实测 4206 —— 判据失效,拒绝以「无需删除/已排除」的假绿继续"
             exit 1
