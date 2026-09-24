@@ -44,7 +44,6 @@ import Drawer, {
 } from '../components/Drawer'
 import FloatBox, { type FloatBoxType } from '../components/FloatBox'
 // 对齐 Uniapp tools/index.vue float-box:悬浮导航(赚米/客服/反馈),原页面 5 个核心 Tab 页均有,补齐 AgentScreen
-import { GlobalFloatBox } from '../components/GlobalFloatBox'
 // 底部导航(对齐原 customTabBar 5 主 Tab,AgentScreen 对应「AI」Tab)
 import TabBar, { type TabBarKey } from '../components/TabBar'
 import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
@@ -768,12 +767,8 @@ export function AgentScreen() {
         message={toast.message}
         onHide={handleToastHide}
       />
-      {/* GlobalFloatBox 悬浮导航(对齐 Uniapp tools/index.vue float-box:赚米/客服/反馈) */}
-      <GlobalFloatBox
-        onPromote={() => rootNav?.navigate('Promote')}
-        onConsult={() => rootNav?.navigate('CustomerService')}
-        onFeedback={() => rootNav?.navigate('Settings')}
-      />
+      {/* 悬浮栏(赚米/客服/反馈)由 App.tsx 的 GlobalFloatBox 单点渲染;
+          此处曾另挂一份,两份同屏叠出双栏,且这份的「反馈」错跳 Settings。 */}
       <Drawer
         visible={drawerVisible}
         onClose={closeDrawer}
