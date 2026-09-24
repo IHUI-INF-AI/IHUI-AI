@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "_readme": [
+    "i18n 死键审计器(scripts/scan-dead-i18n-keys.mjs)的契约键声明清单。",
+    "登记条件:该键在本端确实无静态引用(否则扫描器不会报它),但它不是孤儿 —— 而是跨端词包契约的一部分,",
+    "或被某条测试钉住的形状键。静态扫描只能看见「本端有没有人取这个词」,看不见「这个词是不是契约的一部分」。",
+    "组织形态:targets.<端>.<键> = { reason, evidence[] }。evidence 每条 = { file, line, contains }。",
+    "硬约束一:逐端登记。同一契约若覆盖多端,就按各端各自的证据逐端写,不得为了少写条目而放宽到多个端。",
+    "硬约束二:依据必须可核验 —— file 必须在 HEAD 里真实存在、line 必须在文件行数范围内、该行必须真含 contains,",
+    "不成立即判红(未经核验的豁免等于第二条「藏在数字里」的口子)。",
+    "硬约束三:本清单只免除「死键」这一项判据,不影响 parity / 翻译不完整 / 语言纯度。",
+    "硬约束四:条目过期(键已被本端静态引用,或键不在本端语言包里)同样判红,防止清单腐烂。",
+    "不得登记 desktop:该端无 JS 扫描面,声明永远不会被读到。"
+  ],
+  "targets": {
+    "mobile-rn": {
+      "permissionTier.label": {
+        "reason": "跨端权限档词包契约键,共享层与测试把它钉为形状键;本端面板有意改用 agent.runtimePermissionMode 作行 label",
+        "evidence": [
+          {
+            "file": "packages/shared/src/chat/permission-tier.ts",
+            "line": 9,
+            "contains": "permissionTier.label"
+          },
+          {
+            "file": "apps/mobile-rn/tests/permission-tier-pack.test.ts",
+            "line": 41,
+            "contains": "permissionTier.label"
+          },
+          {
+            "file": "apps/mobile-rn/tests/agent-runtime-permission-mode.test.tsx",
+            "line": 118,
+            "contains": "permissionTier 词表"
+          },
+          {
+            "file": "apps/extension/entrypoints/sidepanel/components/AgentRuntimePanel.tsx",
+            "line": 71,
+            "contains": "permissionTier.label"
+          },
+          {
+            "file": "apps/extension/entrypoints/sidepanel/components/MessageContent.tsx",
+            "line": 682,
+            "contains": "permissionTier.label"
+          }
+        ]
+      }
+    }
+  }
+}

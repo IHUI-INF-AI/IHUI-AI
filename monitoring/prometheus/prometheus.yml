@@ -20,7 +20,8 @@ rule_files:
   - 'alerts.yml'
 
 # Prometheus → Alertmanager 告警路由通知
-# Alertmanager 负责分组/抑制/路由到 Email/钉钉/飞书/企业微信 4 通道(见 monitoring/alertmanager/alertmanager.yml)
+# Alertmanager 负责分组/抑制/路由,出口唯一:webhook → 本机 alert-webhook-bridge(9096) → 品牌邮件
+# (2026-09-24 收口:模板里的 AM 原生 email 与钉钉/飞书/企微 receiver 已删,渲染器结构自校验钉死不可加回)
 alerting:
   alertmanagers:
     - static_configs:
