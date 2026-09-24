@@ -206,4 +206,76 @@ test('端到端(--heal 能力边界):只回插标题行,并如实声明层级需
     rmScratch(dir)
   }
 })
+
+test('接线自检:真仓五处权威点里至少一处仍点名本门(防"防丢门被摘线"无人看守)', () => {
+  const w = PLAN_LOSS_SRC.planLineLossWired()
+  assert.equal(w.wired, true, `本门已不在提交链上:${w.missing.join(' | ')}`)
+  assert.ok(
+    w.present.length > 0,
+    `至少要有一处在场,实得 present=${w.present.join(' | ')} missing=${w.missing.join(' | ')}`,
+  )
+})
+
+test('接线自检(端到端反例):把五处注册块全抹掉 ⇒ 判"未接线";恢复任一处 ⇒ 判回绿', () => {
+  const dir = mkScratch('planloss-unwired-')
+  try {
+    let copied = 0
+    for (const [rel] of PLAN_LOSS_SRC.WIRE_POINTS) {
+      let t
+      try {
+        t = readFileSync(join(process.cwd(), rel), 'utf8')
+      } catch {
+        continue // 该落点在本仓不存在(本就是一处 missing,不必伪造)
+      }
+      const dst = join(dir, rel)
+      mkdirSync(dirname(dst), { recursive: true })
+      writeFileSync(dst, t.split('check-plan-line-loss').join('some-other-gate.mjs'), 'utf8')
+      copied++
+    }
+    assert.ok(copied >= 3, `夹具复制到的落点太少(${copied}),反例不成立`)
+    const w = PLAN_LOSS_SRC.planLineLossWired(dir)
+    assert.equal(w.wired, false, '五处(已复制的那些)全被抹名后仍判已接线 ⇒ 守卫是空判据')
+    assert.equal(w.present.length, 0)
+    // 恢复其中一处即回绿 ⇒ 证明判据认的是"内容点名本脚本",不是"文件存在"
+    const rPath = join(dir, 'scripts/guardian-runner.mjs')
+    writeFileSync(rPath, readFileSync(rPath, 'utf8') + "\n// script: 'check-plan-line-loss.mjs'\n", 'utf8')
+    assert.equal(PLAN_LOSS_SRC.planLineLossWired(dir).wired, true, '恢复 runner 注册块后必须判回绿')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('接线自检:脚本被复制进临时夹具仓(五处落点全不存在)⇒ 判"不适用",绝不以摘线名义 exit 1', () => {
+  const dir = mkScratch('planloss-fixture-')
+  try {
+    const dst = join(dir, 'scripts')
+    mkdirSync(dst, { recursive: true })
+    copyFileSync(join(process.cwd(), 'scripts/check-plan-line-loss.mjs'), join(dst, 'check-plan-line-loss.mjs'))
+    // 本门要求跑在 git 仓里(它读 HEAD),所以夹具也得 init 一个仓并放入一份最小 PLAN
+    const gi = (a) =>
+      spawnSync('git', a, { cwd: dir, encoding: 'utf8', windowsHide: true, stdio: 'pipe' })
+    gi(['init', '-q', '-b', 'main'])
+    gi(['config', 'user.email', 't@t.t'])
+    gi(['config', 'user.name', 't'])
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), '## O9 夹具标题\n\n- [ ] 一条登记\n')
+    gi(['add', 'PROJECT_PLAN.md'])
+    gi(['commit', '-q', '-m', 'fixture'])
+    // 夹具里连 guardian-runner / .husky 都没有:这不是"门被摘掉",是"这里不是本仓"。
+    // 第一版把两者混为一谈 ⇒ 本门自己的三枚端到端用例(它们正是这么跑的)被提前 exit 1 弄红。
+    const w = PLAN_LOSS_SRC.planLineLossWired(dir)
+    assert.equal(w.applicable, false, '一个注册落点都不存在时必须判不适用')
+    assert.equal(w.wired, false)
+    // 端到端:在这样一个复制出来的脚本上跑 --check,不得因接线判据而红
+    const r = spawnSync(process.execPath, [join(dst, 'check-plan-line-loss.mjs'), '--check'], {
+      cwd: dir,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 60000,
+    })
+    assert.doesNotMatch(`${r.stdout}\n${r.stderr}`, /已从提交链上被摘掉/, '夹具仓不得报摘线')
+    assert.equal(r.status, 0, `夹具仓 --check 应正常跑完,实际 ${r.status}\n${r.stdout}${r.stderr}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
