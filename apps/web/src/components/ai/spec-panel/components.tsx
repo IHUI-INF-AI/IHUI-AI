@@ -35,7 +35,7 @@ export function SpecScopeSelector({ p }: { p: SpecPanelApi }) {
                   'flex h-7 items-center gap-1 px-2 text-xs font-medium transition-colors',
                   idx < SCOPE_OPTIONS.length - 1 && 'border-border',
                   isActive
-                    ? 'bg-primary text-primary-foreground'
+                    ? 'bg-cta text-cta-foreground'
                     : 'bg-muted text-muted-foreground hover:bg-muted/80',
                 )}
               >
@@ -65,7 +65,7 @@ export function SpecScopeSelector({ p }: { p: SpecPanelApi }) {
         disabled={p.loading}
         className={cn(
           'flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
-          'bg-primary text-primary-foreground hover:bg-primary/90',
+          'bg-cta text-cta-foreground hover:bg-cta/90',
           p.loading && 'cursor-not-allowed opacity-60',
         )}
       >

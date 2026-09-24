@@ -88,7 +88,7 @@ function TwoFactorPanel({
           type="button"
           onClick={handleSubmit}
           disabled={!code.trim()}
-          className="h-9 flex-1 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="h-9 flex-1 rounded-md bg-cta px-4 text-sm font-medium text-cta-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
         >
           {tAuth('twoFactorSubmit')}
         </button>

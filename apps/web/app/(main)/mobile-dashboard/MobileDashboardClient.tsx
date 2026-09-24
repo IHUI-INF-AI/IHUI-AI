@@ -239,7 +239,7 @@ export function MobileDashboardClient() {
                             <span
                               className={`inline-flex h-6 w-6 items-center justify-center rounded-md text-xs font-semibold ${
                                 idx === 0
-                                  ? 'bg-primary text-primary-foreground'
+                                  ? 'bg-cta text-cta-foreground'
                                   : 'bg-muted text-muted-foreground'
                               }`}
                             >
@@ -290,7 +290,7 @@ function StatCard({ labelKey, value, sub, trendUp, Icon }: StatCardProps) {
   return (
     <Card>
       <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-cta/10 text-primary">
           <Icon className="h-5 w-5" />
         </div>
         <div className="space-y-0.5">

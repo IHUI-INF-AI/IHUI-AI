@@ -794,7 +794,7 @@ function SkillEditDialog({ skill, onCancel, onSave }: SkillEditDialogProps) {
             'rounded-md px-2 py-1 text-[11px] transition-colors',
             saving || !name.trim() || !prompt.trim()
               ? 'cursor-not-allowed bg-muted text-muted-foreground/50'
-              : 'bg-primary text-primary-foreground hover:bg-primary/90',
+              : 'bg-cta text-cta-foreground hover:bg-cta/90',
           )}
         >
           {saving ? t('saving') : t('save')}
@@ -829,7 +829,7 @@ function AiSkillItem({ skill, onPick }: AiSkillItemProps) {
         'hover:bg-accent hover:text-accent-foreground',
       )}
     >
-      <div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-primary/10 text-[10px] font-bold text-primary">
+      <div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-cta/10 text-[10px] font-bold text-primary">
         AI
       </div>
       <div className="flex-1 min-w-0 space-y-0.5">
@@ -915,7 +915,7 @@ export function AiSkillInvokeDialog({
             href={skill.sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[11px] text-primary-foreground transition-colors hover:bg-primary/90"
+            className="inline-flex items-center gap-1 rounded-md bg-cta px-2 py-1 text-[11px] text-cta-foreground transition-colors hover:bg-cta/90"
           >
             <ExternalLink className="h-3 w-3" />
             {t('openGitHub')}
@@ -1074,7 +1074,7 @@ export function AiSkillInvokeDialog({
             'rounded-md px-2 py-1 text-[11px] transition-colors',
             running
               ? 'cursor-not-allowed bg-muted text-muted-foreground/50'
-              : 'bg-primary text-primary-foreground hover:bg-primary/90',
+              : 'bg-cta text-cta-foreground hover:bg-cta/90',
           )}
         >
           {running ? t('invokeRunning') : t('invokeButton')}
@@ -1154,7 +1154,7 @@ export function AiSkillResultDialog({
               onSendToChat(result.content)
               onClose()
             }}
-            className="rounded-md bg-primary px-2 py-1 text-[11px] text-primary-foreground transition-colors hover:bg-primary/90"
+            className="rounded-md bg-cta px-2 py-1 text-[11px] text-cta-foreground transition-colors hover:bg-cta/90"
           >
             {t('invokeSendToChat')}
           </button>
@@ -1162,7 +1162,7 @@ export function AiSkillResultDialog({
         <button
           type="button"
           onClick={() => onFillInput(result.content)}
-          className="rounded-md bg-primary px-2 py-1 text-[11px] text-primary-foreground transition-colors hover:bg-primary/90"
+          className="rounded-md bg-cta px-2 py-1 text-[11px] text-cta-foreground transition-colors hover:bg-cta/90"
         >
           {t('invokeFillInput')}
         </button>

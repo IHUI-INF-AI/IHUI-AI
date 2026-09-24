@@ -161,7 +161,7 @@ export function PermissionShortcutsModal({ open, onClose }: PermissionShortcutsM
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+            className="inline-flex items-center gap-1 rounded-md bg-cta px-3 py-1.5 text-xs font-medium text-cta-foreground hover:bg-cta/90"
             data-testid="permission-shortcuts-close"
           >
             {t('shortcutsClose')}

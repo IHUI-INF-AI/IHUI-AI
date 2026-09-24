@@ -182,7 +182,7 @@ export default function App() {
     <div className="flex flex-col gap-3 p-4 min-w-[280px]">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 py-2 border-b border-border flex-1 min-w-0">
-          <div className="w-9 h-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center text-base font-semibold shrink-0">
+          <div className="w-9 h-9 rounded-lg bg-cta text-cta-foreground flex items-center justify-center text-base font-semibold shrink-0">
             {user.nickname?.[0] || user.phone?.[0] || '?'}
           </div>
           <div className="flex flex-col gap-0.5 min-w-0 flex-1">

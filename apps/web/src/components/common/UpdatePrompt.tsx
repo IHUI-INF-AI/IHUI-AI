@@ -141,14 +141,14 @@ export function UpdatePrompt() {
             )}
 
             {status === 'available' && (
-              <div className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-primary/10 px-4">
+              <div className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-cta/10 px-4">
                 <RefreshCw className="h-4 w-4 animate-spin text-primary" />
                 <span className="text-sm font-medium text-primary">{t('preparing')}</span>
               </div>
             )}
 
             {status === 'downloading' && (
-              <div className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-primary/10 px-4">
+              <div className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-cta/10 px-4">
                 {/* 进度环 */}
                 <svg className="h-5 w-5 -rotate-90" viewBox="0 0 36 36" fill="none">
                   <circle
@@ -183,7 +183,7 @@ export function UpdatePrompt() {
             )}
 
             {status === 'installing' && (
-              <div className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-primary/10 px-4">
+              <div className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-cta/10 px-4">
                 <RefreshCw className="h-4 w-4 animate-spin text-primary" />
                 <span className="text-sm font-medium text-primary">{t('installing')}</span>
               </div>
@@ -207,7 +207,7 @@ export function UpdatePrompt() {
                   <button
                     type="button"
                     onClick={() => void restartNow()}
-                    className="h-8 flex-1 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                    className="h-8 flex-1 rounded-lg bg-cta px-3 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
                   >
                     {t('restartNow')}
                   </button>
@@ -235,7 +235,7 @@ export function UpdatePrompt() {
 
           {/* 下载进度条(细线,downloading/installing 时显示) */}
           {(status === 'downloading' || status === 'installing') && (
-            <div className="mt-2 h-0.5 w-full overflow-hidden rounded-sm bg-primary/10">
+            <div className="mt-2 h-0.5 w-full overflow-hidden rounded-sm bg-cta/10">
               <div
                 className={cn(
                   'h-full rounded-sm bg-primary transition-[width] duration-300 ease-out',

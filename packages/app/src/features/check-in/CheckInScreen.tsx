@@ -157,7 +157,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 44,
       justifyContent: 'center',
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     retryBtnText: { color: tk.surface.light, fontSize: 16 },
     header: { paddingHorizontal: 10, paddingBottom: 8 },
@@ -180,7 +180,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       borderRadius: rnRadius.xl,
       alignItems: 'center',
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     signBtnDisabled: { backgroundColor: tk.surface.muted },
     signBtnText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
@@ -209,7 +209,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     calendarCellSigned: {
       borderColor: tk.brand.DEFAULT,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     calendarCellUnsigned: {
       borderColor: tk.border.light,

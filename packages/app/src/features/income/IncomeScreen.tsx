@@ -274,7 +274,7 @@ function createStyles(tk: AppThemeTokens) {
     withdrawBtn: {
       height: 50,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -294,7 +294,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
-    tabActive: { backgroundColor: tk.brand.DEFAULT },
+    tabActive: { backgroundColor: tk.brand.cta },
     tabText: { fontSize: 14, color: tk.text.secondary },
     tabTextActive: { color: tk.surface.light, fontWeight: '600' },
     separator: { height: StyleSheet.hairlineWidth, backgroundColor: tk.border.light },

@@ -61,7 +61,7 @@ const viewStyles = {
     paddingRight: toRpx(16),
     height: toRpx(44),
     borderRadius: toRpx(12),
-    backgroundColor: tk.brand.DEFAULT,
+    backgroundColor: tk.brand.cta,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',

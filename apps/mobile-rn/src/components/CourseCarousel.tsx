@@ -577,7 +577,7 @@ const listStyles = StyleSheet.create({
     borderRadius: rnRadius.xl,
   },
   tabItemActive: {
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
   },
   tabText: {
     fontSize: 12,
@@ -585,7 +585,7 @@ const listStyles = StyleSheet.create({
     color: tokens.text.tertiary,
   },
   tabTextActive: {
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
   },
   listContent: {
     paddingBottom: 8,

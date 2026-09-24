@@ -208,7 +208,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 50,
       justifyContent: 'center',
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },
     withdrawBtnDisabled: { backgroundColor: tk.border.light },
@@ -248,7 +248,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 44,
       justifyContent: 'center',
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     retryBtnText: { color: tk.surface.light, fontSize: 14 },
   })

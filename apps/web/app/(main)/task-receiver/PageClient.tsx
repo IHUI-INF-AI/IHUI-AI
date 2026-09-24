@@ -146,7 +146,7 @@ export default function TaskReceiverPageClient() {
                         type="button"
                         onClick={() => onExecute(task)}
                         disabled={busyId === task.id}
-                        className="rounded-md bg-primary px-3 py-1 text-xs text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                        className="rounded-md bg-cta px-3 py-1 text-xs text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-50"
                       >
                         {busyId === task.id ? t('loading') : t('execute')}
                       </button>

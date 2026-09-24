@@ -864,9 +864,9 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
   },
-  tabActive: { backgroundColor: tokens.brand.DEFAULT },
+  tabActive: { backgroundColor: tokens.brand.cta },
   tabText: { fontSize: 13, color: tokens.text.secondary },
-  tabTextActive: { fontSize: 13, color: tokens.brand.foreground, fontWeight: '600' },
+  tabTextActive: { fontSize: 13, color: tokens.brand.ctaForeground, fontWeight: '600' },
   viewport: { minHeight: 400, paddingHorizontal: rpx(20) },
   // 已选模型操作条(模型选择视图下方,消费 selectedModelIds)
   modelSelectionBar: {
@@ -889,9 +889,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(20),
     paddingVertical: rpx(8),
     borderRadius: rnRadius.md,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
   },
-  modelStartBtnText: { fontSize: 13, color: tokens.brand.foreground, fontWeight: '600' },
+  modelStartBtnText: { fontSize: 13, color: tokens.brand.ctaForeground, fontWeight: '600' },
   backToTopBtn: {
     position: 'absolute',
     bottom: 20,

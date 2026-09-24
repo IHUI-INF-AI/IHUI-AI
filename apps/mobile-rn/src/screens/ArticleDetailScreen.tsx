@@ -378,14 +378,14 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: rnRadius['2xl'],
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
   } as ViewStyle,
   commentAvatarText: {
     fontSize: 13,
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
     fontWeight: '600',
   } as TextStyle,
   commentBody: {
@@ -432,7 +432,7 @@ const styles = StyleSheet.create({
     height: 38,
     paddingHorizontal: 18,
     borderRadius: 19, // radius-exempt: 发送按钮胶囊端=高度 38 的一半
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
   } as ViewStyle,
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   commentSendText: {
     fontSize: 14,
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
     fontWeight: '600',
   } as TextStyle,
 })
