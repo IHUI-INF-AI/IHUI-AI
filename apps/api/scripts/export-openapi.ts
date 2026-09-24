@@ -52,8 +52,25 @@ export const CAPABILITIES_REL_PATH = 'packages/types/generated/capabilities.json
 // ════════════════════════════════ 基础设施桩 ════════════════════════════════
 
 /** 需要按"解析后的绝对路径"拦截的内部模块(相对路径 specifier 在各目录写法不同)。 */
+/**
+ * 桩键归一化 —— **装载 needle 的一侧与钩子算 key 的一侧必须共用这一个实现**。
+ *
+ * `new URL('file:///home/runner/...').pathname` 在 POSIX 上带前导斜杠,钩子必须剥掉它
+ * 才等于 `resolve()` 的产物(Windows 上 pathname 是 `/G:/...`,同样要剥)。
+ * 若装载 needle 时保留前导斜杠,则 Linux/CI 上两侧永远不相等 ⇒ `src/db/index.ts` 的桩
+ * **静默不生效** ⇒ 号称"不监听端口、不连 PG、不连 Redis"的导出脚本真的去连库,并在路由
+ * 注册期的幂等建表(`live-gifts.ts:70`)上崩。Windows 本地永远绿,所以这是一条只在 CI
+ * 现形的平台性失效(与守门 72/78 "本地全绿、出事的是别人"同族)。
+ *
+ * 写成无类型标注的普通 function:它要被 `.toString()` 注入 `data:` URL 的钩子模块里,
+ * 那里跑的是纯 JS。
+ */
+function normalizeStubKey(p) {
+  return p.replace(/\\/g, '/').replace(/^\//, '').toLowerCase()
+}
+
 const STUBBED_INTERNAL_FILES = new Set([
-  resolve(apiRoot, 'src', 'db', 'index.ts').replace(/\\/g, '/').toLowerCase(),
+  normalizeStubKey(resolve(apiRoot, 'src', 'db', 'index.ts')),
 ])
 
 /**
@@ -215,6 +232,7 @@ export const Semantics = {}
 
 /** 钩子源码:导出顶层 initialize/resolve(Node 要求具名导出,不接受 register({hooks}) 对象形态)。 */
 const HOOKS_SOURCE = `
+${normalizeStubKey.toString()}
 let STUB_PACKAGES = new Map()
 let STUB_INTERNAL = new Map()
 export async function initialize(data) {
@@ -229,7 +247,7 @@ export async function resolve(specifier, context, nextResolve) {
   if (resolved?.url && resolved.url.startsWith('file:')) {
     let file = ''
     try { file = decodeURIComponent(new URL(resolved.url).pathname) } catch { return resolved }
-    const key = file.replace(/^\\//, '').replace(/\\\\/g, '/').toLowerCase()
+    const key = normalizeStubKey(file)
     for (const [needle, src] of STUB_INTERNAL) {
       if (key === needle || key.startsWith(needle + '/')) {
         return { url: asDataUrl(src), shortCircuit: true, format: 'module' }
@@ -921,6 +939,7 @@ function injectWatermark(file: string): void {
 }
 
 export const __test__ = {
+  normalizeStubKey,
   buildDbStubSource,
   applyDeterministicEnv,
   installInfraStubs,
