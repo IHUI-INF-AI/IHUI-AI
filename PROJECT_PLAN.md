@@ -7498,3 +7498,70 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
 - [x] ✅(2026-09-25) **三处代理判据被复跑推翻,记下来是因为三种失效形态互不相同**:① "路由注册点在"被当成"票已完工" —— `D15` 我量到注册 + 两条派发 + 签名校验都在,但票面正文由实现方自己列了 6 项未完成(installation 映射 / web 配置界面 / 只接 3 种事件 / 幂等是内存 LRU / nginx 两份配置 / README 同步)⇒ 判 B 不翻勾。**注册点存在 ≠ 票面验收齐**。② `D55` 被声称"三端 AgentRuntimePanel 真渲染",而 `stepDecisionState|deriveStepDecision` 在 `apps/**` 只命中 **1 个文件**(web)⇒ 三端渲染不成立。③ 反向漏判:`D69` 的 `InputNoticeBanner` 被判"只被自己测试渲染",HEAD 实测该符号已在 `message-input.tsx` 出现 ⇒ 早已装车。**口径固化:编码类"零消费点"判定一律以 `git grep -l <符号> HEAD` 的文件清单为唯一依据,不采信转述。**
 - [x] ✅(2026-09-25) **碰撞面先量后派**(§12d 单写者):开工前 `git status --porcelain` 得 **81 条在途路径**,与可动票求交后判 **14 个功能域正被并行会话实现**(D14 沙箱 / D35 投影 / D36 草稿 / D43 笔记 / D58 类目 / D62 字幕 / D39·D69 输入区 / D73 多窗格 / D78 连接器卡 / D85·D55 决策条 / D86·D107 钩子 / D91 批注 / D106 rn 交代 / TTS 音频),**这 14 域本轮一律不派单**(共享工作树下写同一批文件 = 抹除他人未提交工作)。派单只落在"目标文件 `git status` 为空"的 5 域:WP-1、D17、D83、D19(只做 extension + cli,显式禁改 miniapp/rn)、D16(只做 `llm_gateway.py`,显式禁改已脏的 `routers/llm.py`)。
 - **O60 残余(不写作收口,逐条给归属与解阻判据)**:① **30 枚双态行未逐张裁决** —— 判"哪一侧与 HEAD 一致"必须逐票做,批量删除或批量翻勾都会造伪账;归属 = 下一轮派单,判据 = 本条 O60 的 A/B/C 三态。② **B 类 45 张的欠项清单目前只在 `.ihui-agent/tmp/plan-audit/report-{1..8}.md`**(临时件,按 §15/§25 收尾要么把欠项逐条转正成台账内联证据、要么明确废弃),**不得长期只躺在 tmp**。③ **O14 / O14b2 / O19b② 三项 agent 不得单方执行**(0 tag、brew sha256 占位、Go 模块路径改动波及全部 import、tsvector 触发器列并回),属凭据与产品口径决策。④ **D31 需 Figma 厂商 token 与产品边界**(票面对标 Trae 设计还原),非纯工程可闭环。⑤ **本轮 5 路并行编码的产出尚未并入台账判定** —— 若某票被这些实现推进到 C,须按 O60 的复跑口径重测后才允许翻勾。
+
+### 第四十三批·本会话交付（2026-09-25 凌晨，5 代理并行；开工前快照 106→120 个他人未提交路径并全程作为禁改清单）
+
+> 派单前重测：本会话第二批留下的 94 路径快照已作废（HEAD 两小时内推进 60+ 枚），
+> 故重新取 `.ihui-agent/tmp/dirty2/dirty3.txt` 作禁改清单。**本批选择的落点全部在
+> CI 编排、守门脚本、语言包与"零消费者导出"上，与任何在途功能文件不相交。**
+
+- [x] ✅(2026-09-25) **四条 CI 连红收口**（`7c6c24fd693` / `ebb1e57e393`）—— 三条同型、一条不同型：
+  - `ci.yml` 的 "Shared package typecheck (dangling `export *` gate)" 步**先于任何构建**执行，
+    而 `@ihui/api-client` 入口指向不入库的 `dist` ⇒ 14×TS2307 + 7×TS7006(后者是下游派生，
+    不是独立缺陷)。补 `pnpm --filter "@ihui/api-client..." run build`(带 `...` 才连依赖，
+    抄 `openapi-check.yml:77` 既证先例)，并把 `:94`/`:222` 两处不带 `...` 的旧写法一并升级。
+    自证：挪空 dist ⇒ tsc EXIT=1 且报错签名与 CI **逐行同型**；恢复 dist(400 文件清单复验)
+    + 拓扑构建 ⇒ 同一条 tsc EXIT=0。
+  - `deploy-github-pages.yml` 的 `Build web` **同型漏补**(实测 `--log-failed` 原文
+    `Module not found: '@ihui/api-client'`)，同样补一步。
+  - `e2e-browser-hub.yml` 是**另一型且更隐蔽**：workflow 级 `env:` 写了 `${{ runner.temp }}`，
+    该作用域只允许 `github/inputs/secrets/vars` ⇒ Actions **编译期整文件拒绝** ⇒
+    `jobs:[]`、`--log-failed` 报 `log not found`、**run 名退化成文件路径**
+    （`gh run list` 里那 3 条红正是这个形态，是识别本型的最快信号）。
+    修法：`AI_SERVICE_LOG` 落 `/tmp` 字面量(job 级 env 经实测同样不含 runner)；
+    顺带修预检步 working-dir 错位(`cd apps/web` → `$GITHUB_WORKSPACE/apps/web`)并补拓扑构建。
+  - 判据侧复验：`check-workflow-step-order`(门 48，会解析全部 workflow) exit 0。
+- [x] ✅(2026-09-25) **守门 77 不再"空扫记绿"**（`acffb4a3ef7`）—— 真仓跑 `扫描 6230 文件 ✅` 是对的，
+  但**无 `.git` 的检出**里同一条命令打印 `扫描 0 文件 … ✅ 通过` 且 exit 0：判据一条没执行却记绿。
+  根因不是"预筛被 catch"(文件里根本没有 git grep)，而是 **git 向上逃逸到外层仓库**，
+  `git ls-files` 返回 *exit 0 + 空清单*(不报错)，空 Set 是 truthy ⇒ 把 6230 候选整批滤成 0。
+  修法对齐本仓既有口径而非另立一套(`resolveGitContext()`：toplevel ≠ ROOT 即 exit 2 无法判定；
+  清单取不到/0 条/候选 0 ⇒ exit 2；判据 C 失败由记红改 exit 2)——同族先例见门 78
+  "空扫不报绿"、门 94/101 "取不到输入 ⇒ 无法判定，既不冒红也不记绿"。
+  四条退出码：修前隔离假绿 0 → 修后无 git **2** → 真仓仍绿 **0**(结论行形态不变，
+  证明没为修边界把主判据改坏) → 注入绕档取用判红 **1**；`--self-test` 49 例、镜像 8 例 exit 0。
+- [x] ✅(2026-09-25) **i18n 死键审计 CI 的真债清零**（`47cd430cc4f`）—— 先定性再动手：
+  真仓与 `git archive HEAD` 干净检出**两面同修订对跑**，死键集合逐条一致(差集为空) ⇒ 是真债不是尺子。
+  但**原报 10 枚里 9 枚已被并行提交 `9a22716e0bf` 在 HEAD 摘除**，磁盘副本只是滞后
+  （又一次印证"开工量到的红可能已被人修好"，逐条复验是硬要求）。本票只删唯一仍在的
+  `ai.chatMessageItem.downloadSuccess`，**行级删除 ×5 语言**(各 1 删 0 增，五语叶子键集 identical)，
+  **刻意不跑 `i18n:apply`**(它会重排整包键序，把 diff 变成"像删了一大片")；离线包是需重生的
+  第二真相，故跑 `gen:i18n` 并解码证实该键已从压缩载荷消失。
+  判据：`check-i18n-keys` exit 0；扫描器由 exit 1(5/2/3) → **五 target 全 0、exit 0**。
+- [x] ✅(2026-09-25) **knip 五类超基线定性 + ① 类还账**（`11ded4071a7` + `ba651b312ac`）：
+  - `binaries +2` 是**尺子盲区**：`e2e-browser-hub.yml` 在 root workspace 上下文调
+    `pnpm exec playwright/drizzle-kit`，被记成根包未声明二进制 ⇒ 只在 `knip.jsonc` 登记
+    `ignoreBinaries` 并写依据(8 行纯新增)，**未动基线**；复跑该类 18→16 转绿。
+  - `exports +266 / types +112 / duplicates +65` 的大头**在 HEAD 真实存在**(工作树−CI 差集
+    证明在途噪声不占这部分)。按三态归因抽样 66 条：duplicates 抽样 **20/20 是 Named+default
+    双导出被计重**(尺子不认)；②"消费方存在但判据看不见"≈21；③"09-24 在途、消费方还在路上"=5。
+  - 本票只做 ①：18 条**逐条过三道关**(`git grep HEAD` 判仓库真值 / 排除 barrel·公共 API 面·
+    **被任何 `scripts/check-*.mjs` 按字面量点名的符号** / 定义文件此刻必须不在他人未提交清单)
+    后摘除；16 条只去 `export` 关键字保留实现，2 条(`registerDebugTools`/`LotteryListData`)零消费者整体删。
+    **三条主动跳过并留因**：`untrustFolder`(实时 `git M` 判脏 —— 快照会滞后，必须现判)、
+    `DesktopFeedAsset`(生成物且在途)、`PromptPolishNoticeProps`(宿主 `message-input.tsx` 在途)。
+  - 判据：门 98 `check-dangling-local-imports` **exit 0**(8206 文件，悬空 0，删多了会直接报)、
+    门 40 / 门 89 exit 0、api 包定向 tsc exit 0(其余包错误全在他人未提交文件)。
+    knip A/B 实测 exports 1820→1813、types 1380→1373(18 个目标全部消失，剩余差额是窗口内他人新增)。
+- **本批未闭环（各自点名归属与解阻判据，不写作已完成）**：
+  1. **knip 仍红**：`exports/types` 的 ② 类(≈21 条)属**判据看不见消费方**，要么在 `knip.jsonc`
+     按 target 补 `entry`/`project` 口径、要么由对应端把消费点显式化 —— 两种都会改判据面，
+     需人工定档；③ 类 5 条由那批在途会话自己收尾。**本批刻意未动
+     `scripts/knip-baseline.json` 与 `--update`**(基线只能人工确认后收紧，为过门平账他人回归是本仓明令禁止)。
+  2. **`unlisted +1` 未做**：`apps/extension` 的测试 import `happy-dom`，而全仓只在 `apps/web` 声明
+     ⇒ 是真漏声明。补它必须**同批**改 `apps/extension/package.json` + 全量 `pnpm install` 刷
+     `pnpm-lock.yaml`(否则守门 101 的清单↔锁对账当场判红)，而本机此刻有 ~120 个他人未提交路径，
+     全量 install 会重排依赖树(§12e 的 lint-staged 削损事故同型)。**判据已备好，等一个干净的
+     依赖窗口再动**，不在只读定性票里顺手做。
+  3. **extension 的 3 枚死键**已由并行提交清掉，无需等 —— 该条 CI 具备转绿条件，
+     以下次 push 的 `i18n Dead Key Audit` job 结论为准。
