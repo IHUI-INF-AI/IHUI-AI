@@ -7659,8 +7659,6 @@
       "thinkingChars": "字",
       "thinkingElapsedTitle": "已思考 {time}",
       "thinkingStreaming": "思考中...",
-      "thinkingTitle": "思考过程",
-      "thinkingRefsTitle": "使用了 {count} 个引用",
       "timelineClearFilters": "清空过滤",
       "timelineCountDone": "已完成",
       "timelineCountFailed": "失败",
@@ -8410,119 +8408,6 @@
           "emptyDraft": "草稿为空，请先输入内容再润色。"
         },
         "restartHint": "润色服务需重启后生效，草稿已保留。"
-      },
-      "queueOps": {
-        "ariaLabel": "排队消息操作条",
-        "reorderAria": "拖动调整排队顺序；聚焦后可使用上下方向键",
-        "undo": "撤回",
-        "edit": "编辑",
-        "editConfirm": "保存",
-        "editCancel": "取消",
-        "interruptAndRun": "打断并执行",
-        "mode": {
-          "label": "队列模式",
-          "steer": "插话优先",
-          "queue": "排队优先"
-        },
-        "denied": {
-          "reorder": "无法调整排队顺序",
-          "undo": "无法撤回排队消息",
-          "interject": "当前 Runtime 不支持插话，消息将继续排队"
-        },
-        "degraded": {
-          "runtimeNoInterject": "当前 Runtime 不支持插话，消息将继续排队"
-        }
-      },
-      "elementPack": {
-        "heatmap": {
-          "title": "积分消耗热力图",
-          "legendLabel": "图例",
-          "dayTitle": "{date} 的单日消耗",
-          "tab": {
-            "heatmap": "热力",
-            "sessions": "会话明细"
-          },
-          "legend": {
-            "zero": "无消耗",
-            "low": "低",
-            "mid": "中",
-            "high": "高"
-          },
-          "sessionsEmpty": "暂无会话明细"
-        },
-        "imagePreview": {
-          "counter": "第 {index} · {total} 张",
-          "saveSuccess": "图片已保存",
-          "saveFailed": "图片保存失败",
-          "copySuccess": "图片已复制",
-          "copyFailed": "图片复制失败",
-          "prev": "上一张",
-          "next": "下一张",
-          "zoomOut": "缩小",
-          "zoomIn": "放大",
-          "save": "保存图片",
-          "copy": "复制图片"
-        },
-        "backgroundTask": {
-          "state": {
-            "pending": "等待启动",
-            "running": "运行中",
-            "stopping": "正在停止",
-            "stopFailed": "停止失败",
-            "completed": "已完成",
-            "failed": "执行失败",
-            "cancelled": "已取消",
-            "timeout": "已超时"
-          },
-          "hint": {
-            "stopping": "停止请求已发送，等待任务收尾",
-            "stopFailed": "子任务仍在运行，请重试停止",
-            "timeout": "任务已超时，可重试"
-          },
-          "action": {
-            "none": "无可用操作",
-            "stop": "停止",
-            "retryStop": "重试停止",
-            "retry": "重试"
-          }
-        },
-        "feedbackSurvey": {
-          "question": "这次回复有没有帮你解决问题？",
-          "scale": {
-            "1": "很差",
-            "2": "较差",
-            "3": "一般",
-            "4": "较好",
-            "5": "很好"
-          },
-          "commentPlaceholder": "补充说明（可选）",
-          "submit": "提交",
-          "dismiss": "暂不评价",
-          "submitted": "感谢你的反馈",
-          "answer": {
-            "solved": "已解决",
-            "partial": "部分解决",
-            "notSolved": "未解决"
-          }
-        }
-      },
-      "multiPane": {
-        "ariaLabel": "多任务窗格",
-        "resizeAriaLabel": "拖动调整窗格大小",
-        "splitRight": "向右拆分",
-        "splitDown": "向下拆分",
-        "maximize": "最大化窗格",
-        "restore": "还原窗格",
-        "closePane": "关闭窗格",
-        "forkFailureAriaLabel": "会话副本打开失败",
-        "forkFailure": {
-          "conversationMissing": "原会话不存在，无法打开副本",
-          "capacityFull": "窗格数量已达上限，请先关闭其他窗格",
-          "unknown": "打开会话副本失败，请重试"
-        },
-        "retryFork": "重试",
-        "emptyPaneAriaLabel": "空窗格，可从侧栏拖入会话",
-        "emptyPlaceholder": "从侧栏拖入会话到此窗格"
       }
     },
     "permissionConfirm": {
