@@ -32,6 +32,11 @@
  *   2  环境错误(非 git 仓库/无 origin 等)
  */
 import { execSync, spawn, spawnSync } from 'node:child_process'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+// 本脚本所在仓的根(AGENTS §15:由自身位置推导,不得写死盘符)
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 const C = {
   red: '\x1b[31m',
@@ -276,6 +281,50 @@ if (agentScope) {
 }
 
 log('ok', `暂存区精确匹配预期 ${C.cyan}${stagedFiles.length}${C.reset} 个文件`)
+
+// 3e. 活文档"工作树 ⊇ HEAD"行级对账 —— 把 AGENTS §12 从"人肉记得跑"变成机制
+// (2026-09-24 立)。背景:`README.md` / `AGENTS.md` / `PROJECT_PLAN.md` 是多会话共写的文档,
+// 工作树副本**常年滞后于 HEAD**(实测一日三次自伤,分别少 57 / 48 / 54 行)。而本脚本 Step 4
+// 用的是 `git commit -- <pathspec>` —— 按**路径**取工作树版本,所以"只 add 本任务文件"的
+// 规范提交照样会把别人已入库的行整批写回旧态,且 `git status`、diff 行数、typecheck 全看不出来。
+// 规则本来就写着"提交前先跑 merge-live-doc",但它只存在于文档里 ⇒ 谁忘了都成立,
+// 而忘了的代价是**别人的内容消失**。这里改成:声明了活文档就必须先过对账,不过即拒提交。
+const LIVE_DOCS = ['README.md', 'AGENTS.md', 'PROJECT_PLAN.md']
+const liveDocsStaged = expectedFiles
+  .map((f) => f.replace(/\\/g, '/'))
+  .filter((f) => LIVE_DOCS.includes(f))
+if (liveDocsStaged.length && process.env.IHUI_SKIP_LIVE_DOC_CHECK !== '1') {
+  for (const f of liveDocsStaged) {
+    const r = spawnSync(
+      process.execPath,
+      [join(ROOT, 'scripts', 'merge-live-doc.mjs'), '--file', f],
+      { cwd: ROOT, encoding: 'utf8', windowsHide: true, maxBuffer: 64 * 1024 * 1024 },
+    )
+    if (r.status === 0) {
+      log('info', `活文档对账通过:${C.cyan}${f}${C.reset} 工作树 ⊇ HEAD`)
+      continue
+    }
+    if (r.status === 2) {
+      log(
+        'warn',
+        `活文档对账取不到版本(不阻断):${f} — ${String(r.stderr || r.stdout)
+          .trim()
+          .slice(0, 120)}`,
+      )
+      continue
+    }
+    log(
+      'err',
+      `活文档对账判红:${C.cyan}${f}${C.reset} 的工作树副本**吃掉 HEAD 已入库的行**。\n` +
+        `   若照此提交,会把别人已入库的内容整批写回旧态(git status 与 diff 都看不出来)。\n` +
+        `   修法:${C.cyan}node scripts/merge-live-doc.mjs --file ${f} --apply${C.reset} 后重新提交;\n` +
+        `   归并后必须看到"lost = 0 且长行重复新增 = 0"。确属有意重写整份文档时:${C.cyan}IHUI_SKIP_LIVE_DOC_CHECK=1${C.reset}(会在报告里留痕)。`,
+    )
+    process.exit(1)
+  }
+} else if (liveDocsStaged.length) {
+  log('warn', `已跳过活文档对账(IHUI_SKIP_LIVE_DOC_CHECK=1)—— 本枚提交可能把别人的行写回旧态`)
+}
 
 // 3d. commit message 加 agent 标识前缀(若未指定)
 let finalMessage = message
