@@ -9,12 +9,20 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { __test__ as gate } from '../check-word-table-resolvable.mjs'
 
 const REPO = join(import.meta.dirname, '..', '..')
-const readText = (rel) => readFileSync(join(REPO, rel), 'utf8')
+const SRC_FILE = join(REPO, 'scripts', 'check-word-table-resolvable.mjs')
+/**
+ * 真仓取材一律走本门的判定面(HEAD blob),**不得按磁盘读**。
+ * 磁盘副本由多个并行会话共写、常年滞后 HEAD,还混着别人半编辑的语料 ——
+ * 测试若按磁盘读源码、判据按 HEAD 读,量的是两份不同的仓库(§"诊断只能取同一个面")。
+ */
+const FACE = gate.makeFaceReader('head')
+const readText = (rel) => FACE.read(rel)
 
 const {
   discoverWordTables,
@@ -34,6 +42,11 @@ const {
   evaluateWordTables,
   guardNoTables,
   taroBundleViews,
+  scanScatteredKeys,
+  keySuffixes,
+  buildKeyUniverse,
+  evaluateScatteredKeys,
+  splitScatteredRatchet,
   LANGS,
   END_DIRS,
 } = gate
@@ -75,9 +88,22 @@ test('§22c:源脚本必须 export __test__ 且关键判据函数可 import(唯�
     'taroBundleViews',
     'guardNoTables',
     'run',
+    // W6 与判定面:漏一条 = 测试拿不到真判据,只能自我安慰
+    'scanScatteredKeys',
+    'keySuffixes',
+    'buildKeyUniverse',
+    'evaluateScatteredKeys',
+    'splitScatteredRatchet',
+    'makeFaceReader',
+    'setActive',
+    'sourceFile',
+    'UndeterminedError',
   ]) {
     assert.equal(typeof gate[fn], 'function', `__test__ 缺导出 ${fn}`)
   }
+  // 常量类锚点也要钉住:宇宙铺在哪些语料上、什么算带点键,漂移即判据静默变窄
+  assert.deepEqual(gate.CORPUS_SOURCES, ['shared', ...END_DIRS])
+  assert.ok(gate.DOTTED_KEY_BARE_RE.test('menu.search') && !gate.DOTTED_KEY_BARE_RE.test('Search'))
   assert.deepEqual(gate.LANGS, ['zh-CN', 'zh-TW', 'en', 'ja', 'ko'])
   assert.ok(!gate.END_DIRS.includes('api'), 'api 不产界面文案,不得进端清单(与既有闸同口径)')
 })
@@ -461,5 +487,150 @@ test('taro 离线包取法与既有闸同源(生成器格式变了要立即炸)'
   const r = taroBundleViews(readText(gate.TARO_GEN_SCRIPT), readText(gate.TARO_GEN))
   assert.deepEqual(r.remote, ['en', 'ja', 'ko', 'zh-TW'], 'REMOTE_LOCALES 取法漂移')
   assert.deepEqual(r.broken, [], '离线包有语言载荷解不出(需 pnpm gen:i18n)')
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// W6 散落取词 + 判定面(2026-09-25 补,首页 menu.* 事故的回归锁)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** 与 buildKeyUniverse 同一套后缀构造,自检不得另立第二份真相 */
+const uni = (leafPaths) => new Set(leafPaths.flatMap((p) => keySuffixes(p)))
+
+test('W6 阳性对照:数组里的 labelKey 从未入库 → 必被抓且点名键/行', () => {
+  const src = [
+    'const MENU_ITEMS: HomeMenuItem[] = [',
+    "  { key: 'Search', labelKey: 'menu.search', icon: Search },",
+    "  { key: 'History', labelKey: 'menu.history', icon: History },",
+    ']',
+  ].join('\n')
+  const bad = evaluateScatteredKeys({ file: 'apps/mobile-rn/src/screens/HomeScreen.tsx', text: src, universe: uni(['common.ok']) })
+  assert.deepEqual(
+    bad.map((b) => `${b.key}@${b.line}`),
+    ['menu.search@2', 'menu.history@3'],
+    'W6 必须逐键点名(少一条 = 判据没真跑)',
+  )
+  // 发现层单独钉一次:形状识别与语料判缺是两回事,任一坏了都不得表现为"零违规"
+  assert.deepEqual(
+    scanScatteredKeys(src).map((h) => `${h.field}=${h.key}:${h.line}`),
+    ['labelKey=menu.search:2', 'labelKey=menu.history:3'],
+  )
+})
+
+test('W6 反例(判据非恒红):入库绝对键 / 相对命名空间 / 裸 key / 非取词属性 / 注释 全放过', () => {
+  const universe = uni(['footer.platforms.n8n', 'search.title'])
+  const src = [
+    "  { key: 'Search', label: 'Search' },", // 属性名不以 Key 结尾 ⇒ 路由名/枚举值,不判
+    "  { key: 'Ok', labelKey: 'search.title' },", // 绝对路径已入库
+    "  { nameKey: 'platforms.n8n' },", // 相对取词:命名空间在别的文件里,按后缀吸收
+    "  { queryKey: 'not.i18n' },", // 非取词属性名单
+    "  { label: 'menu.search' },", // 属性名不以 Key 结尾
+    "// 注释里写: labelKey: 'menu.search'",
+    "/* 块注释: labelKey: 'menu.search' */",
+    'const v = t(`search.${dyn}.title`)', // 动态键:静态判据不猜
+    'const ok1 = t("search.title")',
+    "const ok2 = i18n.t('search.title')",
+  ].join('\n')
+  assert.deepEqual(
+    evaluateScatteredKeys({ file: 'apps/demo/src/x.tsx', text: src, universe }),
+    [],
+    `反例被误判:${JSON.stringify(evaluateScatteredKeys({ file: 'a', text: src, universe }))}`,
+  )
+})
+
+test('W6 阳性对照:t()/tt() 直调的未入库键同样必抓', () => {
+  const universe = uni(['search.title'])
+  const bad = evaluateScatteredKeys({
+    file: 'apps/demo/src/y.tsx',
+    text: "const a = t('menu.search')\nconst b = tt('menu.history')",
+    universe,
+  })
+  assert.deepEqual(bad.map((b) => b.key).sort(), ['menu.history', 'menu.search'])
+})
+
+test('W6 真仓端到端:HomeScreen 现状零违规,把当年那批 menu.* 塞回去即点名', () => {
+  const HOME = 'apps/mobile-rn/src/screens/HomeScreen.tsx'
+  const universe = buildKeyUniverse(FACE)
+  const real = FACE.read(HOME)
+  assert.match(real, /labelKey: '[^']+'/)
+  assert.deepEqual(evaluateScatteredKeys({ file: HOME, text: real, universe }), [])
+  const broken = evaluateScatteredKeys({
+    file: HOME,
+    text: real.replace(/labelKey: '[^']+'/, "labelKey: 'menu.search'"),
+    universe,
+  })
+  assert.equal(broken.length, 1)
+  assert.equal(broken[0].key, 'menu.search')
+})
+
+test('W6 棘轮:与 HEAD 齐平放过、超出必红、新文件锚 0(存量数十文件不得变恒红)', () => {
+  const mk = (file, n) => [file, Array.from({ length: n }, (_, i) => ({ key: `k${i}`, line: i + 1 }))]
+  const pending = new Map([mk('a.tsx', 3), mk('b.tsx', 4), mk('brand-new.tsx', 1)])
+  const r = splitScatteredRatchet(pending, (f) => ({ 'a.tsx': 3, 'b.tsx': 3 })[f] ?? 0)
+  assert.deepEqual(
+    r.fresh.map((x) => x.file).sort(),
+    ['b.tsx', 'brand-new.tsx'],
+  )
+  assert.equal(r.tolerated, 3, '齐平的存量必须只报数不计红')
+})
+
+test('判定面:全量入口按 HEAD blob 自报口径,且在 HEAD 上判绿(反恒红)', () => {
+  const r = gate.run({ quiet: true })
+  try {
+    assert.match(r.face, /HEAD/, '全量模式必须自报「HEAD blob」口径')
+    assert.equal(r.ok, true, `HEAD 上判红 = 恒红门,唯一结局是各会话 --no-verify:${JSON.stringify(r.failures?.slice(0, 3))}`)
+    assert.ok(r.scattered.filesScanned > 3000, 'W6 覆盖面塌了(扫不到文件等于没有这条判据)')
+    assert.ok(r.scattered.missingKeys >= 1, 'W6 存量必须如实报数,扫到 0 要先怀疑判据')
+    assert.equal(r.scattered.freshFiles, 0, '全量模式判的是 HEAD,新增必须为 0')
+    assert.equal(
+      r.scattered.inventory.reduce((a, x) => a + x.count, 0),
+      r.scattered.missingKeys,
+      '--json 必须能还原全量存量清单(文本输出只截 12 行,数字对不上就是报告造假)',
+    )
+  } finally {
+    gate.setActive(gate.makeFaceReader('head'))
+  }
+})
+
+test('判定面:--staged 判索引 blob 而非滞后的共享工作树', () => {
+  const r = gate.run({ staged: true, quiet: true })
+  gate.setActive(gate.makeFaceReader('head'))
+  assert.match(r.face, /索引/, `--staged 走错了面:${r.face}`)
+})
+
+test('判定面:取不到输入是「无法判定」(exit 2 语义),既不冒红也不记绿', () => {
+  assert.throws(() => gate.makeFaceReader('nope'), gate.UndeterminedError)
+  assert.throws(
+    () => gate.makeFaceReader('head').read('packages/definitely-not-here/x.ts'),
+    gate.UndeterminedError,
+  )
+})
+
+test('反混面:CLI 同时给 --staged 与 --worktree 必须 exit 2,不得猜一个面', () => {
+  let code = 0
+  let err = ''
+  try {
+    execFileSync(process.execPath, [SRC_FILE, '--staged', '--worktree'], {
+      cwd: REPO,
+      encoding: 'utf8',
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+  } catch (e) {
+    code = e.status
+    err = String(e.stderr ?? '')
+  }
+  assert.equal(code, 2, '两面同给必须按「无法判定」退出')
+  assert.match(err, /互斥/)
+})
+
+test('判据不得按磁盘读:fs 直读只允许出现在 makeWorktreeReader(人工逃生舱)内', () => {
+  const src = readFileSync(SRC_FILE, 'utf8')
+  const start = src.indexOf('function makeWorktreeReader')
+  const end = src.indexOf('export function makeFaceReader')
+  assert.ok(start > 0 && end > start, '取材层结构变了,本断言需随之更新')
+  const outside = [...src.matchAll(/\b(?:readFileSync|readdirSync|statSync|existsSync)\s*\(/g)]
+    .map((m) => m.index)
+    .filter((i) => i < start || i > end)
+  assert.deepEqual(outside, [], '判据路径里出现了磁盘直读 —— 混面即假绿(本门口径的命门)')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
