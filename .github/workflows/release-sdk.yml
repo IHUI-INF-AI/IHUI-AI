@@ -9,6 +9,8 @@ name: Release SDK
 #   标签前缀与 cli-v* / desktop-v* 对齐;裸 v* 会与仓库其他发版标签互相误触发,故不用。
 # 发布:npm(@ihui/sdk)+ PyPI(ihui-ai)+ Maven Central(com.ihui:ihui-ai-java)+ Go module(github.com/.../sdk/go)
 # 鉴权:优先 OIDC trusted publishing(npm/PyPI/Maven),无 OIDC 时回退 NPM_TOKEN/PYPI_TOKEN/MAVEN_TOKEN
+# .NET/NuGet:当前无通道 —— 仓库内无 dotnet 项目;待 owner 提供 NUGET_API_KEY 与 NuGet 项目(包名/nuspec 或 csproj)后,
+#   仿照 npm-publish job 另立 nuget-publish job(dotnet pack → dotnet nuget push),并接入 gate 凭据判定与发布后回读判红。
 
 on:
   push:
