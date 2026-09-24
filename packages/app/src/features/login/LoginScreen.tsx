@@ -1568,7 +1568,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       width: 53,
       height: 53,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -1835,7 +1835,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     checkboxChecked: {
       borderColor: tk.brand.DEFAULT,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     checkboxError: {
       borderColor: tk.danger.DEFAULT,
@@ -1927,7 +1927,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     loginBtn: {
       height: 40,
       borderRadius: rnRadius.md,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -2171,7 +2171,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.brand.DEFAULT,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     qrOpenWebText: {
       fontSize: 13,
