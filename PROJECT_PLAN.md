@@ -7488,3 +7488,17 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
   G3（不剥 ANSI）存活，登记为**等价变异**：真实 runner 的失败行不打色码，不为此造假具凑红。
   夹具顺序按真实日志摆（`上一轮汇总 → 本轮 staged 清单 → 本轮汇总`）；我第一版把清单摆在整个日志最前面，
   B1 直接判成 `unattributed` —— 顺序错位正是这类"守卫逻辑看着对、真数据下不成立"的标准暴露方式。
+
+## O62 品牌实底「大面积反色」全栈收口 + Tailwind v3 端 /alpha 修饰符落地(2026-09-25 立并完成 ✅)
+
+- [x] ✅(2026-09-25) **起因与根因**:用户实拍反馈「浅色模式有大面积黑色背景,深色模式也有大面积白色背景」。根因不是配色而是**档位选错**:主 CTA 一直取 `brand.DEFAULT`,该档亮=`#000`、暗=`#fff`,即大色块永远落在与页面相反的那一极。**不能改 `--color-primary` 挪旧档** —— 它在 web 端兼任墨色(`text-primary` 实测 1803 处),改它等于给全站正文染色。
+- [x] ✅(2026-09-25) **修法(单一源头,不新增第二份真相)**:在 `packages/design-tokens/src/styles/tokens.css` 落**明暗同值、刻意不随主题反转**的一档 `--color-cta: #4A7A96` + `--color-cta-foreground: #FFFFFF`,取值 = `--color-brand-accent-deep` 亮档(2026-09-14 用户定稿的全项目统一强调色),不引入新色相;再经 `rn-tokens.ts` / `tailwind-preset.js` / `sync-design-tokens.mjs` 同步到 RN / 小程序,web 22 处 + `Button` 6 变体 + hero-cta 渐变、小程序 11 CSS + 35 TSX、RN 40 文件填充 + 38 处前景配对全部迁移。对比度实测:白字 4.65:1、亮页 4.27:1、暗页 3.34:1(≥3:1 过 WCAG 1.4.11)。
+- [x] ✅(2026-09-25) **自己引入又自己抓回的 AA 回归**:第一轮 codemod 只改底不改前景,留下 `surface.light` 作文字色 —— 深色档案下它是 `#262626`,压在 `#4A7A96` 上只有 **3.25:1**,掉出 AA。教训:**改填充必须同批改前景**,判据要覆盖门自己产出的形态。38 处已补配对。
+- [x] ✅(2026-09-25) **守门 83 扩两条判据(不是抬基线)**:**R5** 原先看不见小程序端、也看不见渐变端(`from-primary`/`to-primary`),现两端皆入射程;**R7** 补的是**结构盲区** —— 内联在图标上的 `color` prop(如 `<Plus color={tk.surface.card}/>` 坐在 `brand.cta` 底里)R1/R4 按 style 块与兄弟键配对,对这一型**永远看不见**。R7 用递归下降 JSX 扫描把前景归属到**最近的持底祖先**,16 处存量已实修清零,`nestMismatchCounts` 基线现为 `{}`(其余四本账 24/237/127/3 一格未动)。
+- [x] ✅(2026-09-25) **镜像测试的两处自锁已拆**:`assert.equal(measured, 16)` 里 `measured` 就是基线自己的求和 —— 恒真、永不发现漂移,却会拦住每一次正当扩面。改为**两个独立来源交叉对账**(全量扫描计数 ∧ 基线合计必须相等),另把两条 A/B 对照改成注入式(先断当前为 0,再把 `ctaForeground` 换成 `surface.light`,断 ≥6 命中)。镜像 17/17 绿。
+- [x] ✅(2026-09-25) **Tailwind v3 端 `/alpha` 修饰符(提交 `349c409e0d`)**:v3 的 `bg-<色>/<透明度>` 要求颜色能拆成 rgb 分量,而共享 preset 全部写成 `var(` 单值 ⇒ 小程序端这类类名**根本不产出 CSS**,页面"样式没生效"却零报错(web/v4 原生支持,故又是"手机上改了 web 没改")。新增 `packages/design-tokens/src/tailwind-alpha-plugin.js`(233 行,纯 `addUtilities`)挂进共享 preset。取证三条:① **可加性**(真 miniapp 源码 Avatar/Catalog/CourseHeader)选择器 73 → 91,**REMOVED 0 / ADDED 18**,含此前结构上取不到的任意值形态 `bg-muted/[0.12]`;② 五道同源对账全绿(`check-miniapp-tokens-sync` / `check-miniapp-taro-design-tokens` / `check-cross-end-tokens` / `check-rn-global-css-sync` / `check-brand-foreground`);③ **NativeWind 零回归**:真机 Redmi(720x1640/density 320)装 release 包 v21→v22 逐指标 A/B —— 浅色首页 cta 填充 90.7%、白字 427 / 黑字 0,暗色首页 cta 填充 90.9%,整屏 near-black 56.68% / near-white 1.49%,**六项读数与 v21 逐位相同**。
+- [x] ✅(2026-09-25) **真机终检(原始投诉口径)**:浅色首页近黑格 11 → **0**;深色首页近白 **1.49%**(即用户拍到的"大面积白"已消失);悬浮加号/发送钮/选中胶囊在两个主题下均为 `#4A7A96` 实底 + 白字。设备 `uimode` 与 App 主题偏好均已复原为浅色。
+- **两条流程教训(本票自己付出代价换的,不是建议)**:
+  ① **`safe-commit` 走 `GIT_INDEX_FILE` 旁路时,Step 0 的 `git reset HEAD` 仍打在共享索引上** —— 实测把并发会话刚 staged 的 **27 个路径整批 unstage**(内容在工作树完好,无数据丢失,但对方的暂存态被清)。⇒ 旁路提交**不得**与他人的 staged 窗口重叠;动手前必须 `git diff --cached --name-only` 确认索引为空,非空则等锁或改走 worktree。
+  ② **CAS / 旁路提交推进 HEAD 后共享索引停在旧 tree**(本票 6 个路径全部呈 `M ` 幻影漂移,`git diff --cached` 报「索引比 HEAD 少 357 行」)—— 任何人一次不带 pathspec 的普通 commit 就把本票整批写回旧版。§12d 的 `refreshStaleIndex()` 三条判据里「工作区 == 索引」这一条在此**不成立**(工作区已是新版、索引是旧版),所以自愈不会动它,**必须逐路径 `git update-index --add --cacheinfo` 手工刷**(且首次要带 `--add`,该路径此前从未被跟踪)。
+  ③ 本票提交落在 pre-commit 的 token-sync 步骤被一次**瞬时 I/O 锁**(`UNKNOWN: -4094, open app.css`)打断,`safe-commit` 随即 `--no-verify` 兜底并如实标 **归因 = unattributed**(它自己写明"请勿读成通过了守门")。⇒ 这种提交**必须**把守门链对 HEAD 内容补跑一次再收口,不得以"门没红"当"门跑过"。
