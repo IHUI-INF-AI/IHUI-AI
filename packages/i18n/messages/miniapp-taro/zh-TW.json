@@ -327,6 +327,10 @@
       "failed": "失敗",
       "refunded": "已退款",
       "refunding": "退款中"
+    },
+    "tab": {
+      "cancelled": "已取消",
+      "refunded": "已退款"
     }
   },
   "wallet": {
@@ -436,7 +440,12 @@
       "empty": "暫無通知設定項",
       "moreTitle": "更多",
       "detail": "通知詳情",
-      "detailDesc": "查看歷史通知訊息"
+      "detailDesc": "查看歷史通知訊息",
+      "wxSubscribe": "微信催費提醒",
+      "subscribed": "已開啟提醒訂閱",
+      "subscribeFailed": "未開啟訂閱,可稍後重試",
+      "myBills": "我的學費賬單",
+      "myBillsDesc": "查看應繳/已繳/欠費並在線繳費"
     },
     "changePhone": "更換手機號",
     "changePassword": "修改密碼",
@@ -514,6 +523,7 @@
       "digitalHuman": "數字人生成 →",
       "voiceMessage": "語音消息",
       "downloading": "下載中",
+      "downloadSuccess": "已儲存到相簿",
       "downloadFailed": "下載失敗",
       "needAlbumAuth": "需要相簿權限才能儲存圖片,請在設定中開啟",
       "collapse": "收起",
@@ -599,7 +609,20 @@
       "notAvailable": "未開放",
       "taskSubmitted": "任務已提交,請稍後查看歷史",
       "downloadSuccess": "已儲存到相簿",
-      "downloadFailed": "下載失敗,請重試"
+      "downloadFailed": "下載失敗,請重試",
+      "duration": "時長",
+      "resolution": "分辨率",
+      "fps": "幀率",
+      "vendors": {
+        "sora2": "Sora2",
+        "sora2Desc": "使用 Sora2 生成視頻",
+        "kling": "Kling",
+        "klingDesc": "生成高質量 AI 視頻",
+        "doubao": "豆包",
+        "doubaoDesc": "使用豆包模型生成視頻",
+        "dashscope": "DashScope",
+        "dashscopeDesc": "使用阿里雲 DashScope 生成視頻"
+      }
     },
     "agent": {
       "searchPlaceholder": "搜尋智慧體",
@@ -1166,7 +1189,12 @@
     "goDiscover": "去發現",
     "searchPlaceholder": "搜尋收藏的內容",
     "selectFirst": "請先選擇",
-    "total": "已收藏"
+    "total": "已收藏",
+    "tabCourse": "課程",
+    "tabLive": "直播",
+    "tabPost": "帖子",
+    "tabAigc": "AI作品",
+    "tabNews": "資訊"
   },
   "distribution": {
     "withdraw": {
@@ -1883,6 +1911,12 @@
       "loading": "載入中...",
       "noMore": "沒有更多了",
       "retry": "點擊重試"
+    },
+    "tabs": {
+      "recommend": "推薦",
+      "follow": "關注",
+      "latest": "最新",
+      "hot": "熱門"
     }
   },
   "devEnter": {
@@ -1947,7 +1981,8 @@
       "submitting": "建立中…",
       "submit": "建立智慧體",
       "fileSizeExceeded": "檔案不能超過10MB",
-      "n8nFilePlaceholder": "點擊上傳 n8n 備份 JSON 檔案"
+      "n8nFilePlaceholder": "點擊上傳 n8n 備份 JSON 檔案",
+      "typeJson": "JSON"
     },
     "modelEdit": {
       "title": "編輯模型",
@@ -2135,7 +2170,9 @@
       "detailStatus": "狀態",
       "detailAuthor": "發布人",
       "viewDetail": "查看詳情",
-      "identityTitle": "切換身份"
+      "identityTitle": "切換身份",
+      "identityDemander": "需求方",
+      "identityDeveloper": "開發者"
     },
     "cover": {
       "entryTitle": "成為開發者",
@@ -2155,7 +2192,8 @@
       "renew": "續費",
       "continueOrder": "繼續接單",
       "qaTitle": "常見問題"
-    }
+    },
+    "p1": "行銷"
   },
   "postCreate": {
     "title": "發布貼文",
@@ -2559,7 +2597,8 @@
     "weeklyStudy": "本週學習",
     "completedLessons": "完成課時",
     "totalDuration": "累計時長",
-    "streakDays": "連續天數"
+    "streakDays": "連續天數",
+    "record": "學習記錄"
   },
   "subscriptions": {
     "cancel": "取消訂閱",
@@ -2808,7 +2847,10 @@
     "confirm3": "確定退訂會員嗎?退訂後將失去會員權益。",
     "failed5": "退訂失敗,請聯絡客服",
     "success4": "退訂成功",
-    "text6": "等級介紹頁未設定"
+    "text6": "等級介紹頁未設定",
+    "menu": {
+      "subscriptions": "我的訂閱"
+    }
   },
   "vipTrader": {
     "openTitle": "開通會員",
@@ -4129,5 +4171,8 @@
       }
     },
     "vividTail": "，馬上就好"
+  },
+  "profile": {
+    "myCourses": "我的課程"
   }
 }
