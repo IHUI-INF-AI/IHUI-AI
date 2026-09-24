@@ -58,6 +58,26 @@
       "runEmpty": "隊列為空，無可執行項",
       "modeSet": "✓ 後續輸入模式 = {mode}",
       "degradedNote": "(已降級: {reason})"
+    },
+    "branch": {
+      "usage": "用法: /branch [標題] | /branch -c <會話id> [標題]",
+      "usageShort": "/branch [標題] | /branch -c <會話id> [標題]",
+      "menu": "分支遠端會話：從最近一則回覆處開立新會話",
+      "errUnknownFlag": "不支持的參數",
+      "errBadConversationId": "會話 id 必須是伺服器 UUID",
+      "errBadTitle": "標題過長(最多 255 字)",
+      "errNoConversations": "帳號下沒有可分叉的會話",
+      "errNoMessages": "該會話還沒有訊息,無法分叉",
+      "errNoBranchable": "該會話的歷史裡沒有伺服器訊息 id,無法分叉",
+      "errRequestFailed": "伺服器拒絕了請求",
+      "errTransportFailed": "無法連線到後端",
+      "withDetail": "{reason}: {detail}",
+      "failedWithStatus": "分叉失敗: {reason}(狀態碼 {status})",
+      "failedNoStatus": "分叉失敗: {reason}",
+      "resolvedLatest": "未指定會話,已取最近活躍的遠端會話「{sourceTitle}」({sourceId})",
+      "created": "✓ 已從「{sourceTitle}」分叉出「{branchTitle}」,分叉點={anchor}訊息,新會話 id={branchId}",
+      "roleAssistant": "助手",
+      "roleUser": "使用者"
     }
   },
   "waiting": {

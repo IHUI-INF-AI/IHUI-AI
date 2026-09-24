@@ -58,6 +58,26 @@
       "runEmpty": "대기열이 비어 있어 실행할 항목이 없습니다",
       "modeSet": "✓ 후속 입력 모드 = {mode}",
       "degradedNote": " (강등: {reason})"
+    },
+    "branch": {
+      "usage": "사용법: /branch [제목] | /branch -c <대화 ID> [제목]",
+      "usageShort": "/branch [제목] | /branch -c <대화 ID> [제목]",
+      "menu": "서버 대화를 최근 응답 지점에서 새 대화로 분기합니다",
+      "errUnknownFlag": "지원하지 않는 인수입니다",
+      "errBadConversationId": "대화 ID는 서버 측 UUID여야 합니다",
+      "errBadTitle": "제목이 너무 깁니다(최대 255자)",
+      "errNoConversations": "분기할 대화가 없습니다",
+      "errNoMessages": "이 대화에는 메시지가 아직 없어 분기할 수 없습니다",
+      "errNoBranchable": "이 대화의 기록에 저장된 메시지 ID가 없어 분기할 수 없습니다",
+      "errRequestFailed": "서버가 요청을 거부했습니다",
+      "errTransportFailed": "백엔드에 연결할 수 없습니다",
+      "withDetail": "{reason}: {detail}",
+      "failedWithStatus": "분기 실패: {reason}(HTTP 상태 코드 {status})",
+      "failedNoStatus": "분기 실패: {reason}",
+      "resolvedLatest": "대화를 지정하지 않아 최근에 갱신된 대화 '{sourceTitle}'({sourceId})을 사용합니다",
+      "created": "✓ '{sourceTitle}'을(를) {anchor} 메시지 위치에서 분기하여 '{branchTitle}'을(를) 만들었습니다. 새 대화 ID: {branchId}",
+      "roleAssistant": "어시스턴트",
+      "roleUser": "사용자"
     }
   },
   "waiting": {
