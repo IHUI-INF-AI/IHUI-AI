@@ -589,9 +589,9 @@ export function InputArea({
                 accessibilityLabel={sendLabel ?? 'send'}
               >
                 {loading ? (
-                  <ActivityIndicator size="small" color={tokens.surface.light} />
+                  <ActivityIndicator size="small" color={tokens.brand.ctaForeground} />
                 ) : (
-                  <Send size={16} color={tokens.surface.light} />
+                  <Send size={16} color={tokens.brand.ctaForeground} />
                 )}
               </TouchableOpacity>
             )}
@@ -743,9 +743,9 @@ export function InputArea({
             accessibilityLabel={sendLabel ?? 'send'}
           >
             {loading ? (
-              <ActivityIndicator size="small" color={tokens.surface.light} />
+              <ActivityIndicator size="small" color={tokens.brand.ctaForeground} />
             ) : (
-              <Send size={18} color={tokens.surface.light} />
+              <Send size={18} color={tokens.brand.ctaForeground} />
             )}
           </TouchableOpacity>
         )
@@ -949,9 +949,10 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     alignItems: 'center',
     justifyContent: 'center',
-    // 深色下 brand.DEFAULT=#FFFFFF(纯白),与深色主题不协调;
-    // 改用 gray[900]=#171717(深灰),两态均为深灰底白字,与深色主题协调
-    backgroundColor: tokens.gray[900],
+    // 主 CTA 实底走 brand.cta(明暗同值 #4A7A96,AGENTS §4);
+    // 旧写法取 gray[900]=#171717 是端内自造的第三个色源 —— 它把"深色纯白刺眼"换成了
+    // "浅色一大片黑"(用户实拍的那一处),两态各错一半,且不与 web/小程序同源。
+    backgroundColor: tokens.brand.cta,
   },
 
   voiceBtn: {
@@ -1078,9 +1079,8 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: rnRadius.xl,
-    // 深色下 brand.DEFAULT=#FFFFFF(纯白),与深色主题不协调;
-    // 改用 gray[900]=#171717(深灰),两态均为深灰底白字,与深色主题协调
-    backgroundColor: tokens.gray[900],
+    // 同 sendInShell:主 CTA 实底走 brand.cta,不得取端内自造的 gray[900]
+    backgroundColor: tokens.brand.cta,
     marginLeft: 8,
     alignItems: 'center',
     justifyContent: 'center',
