@@ -78,6 +78,25 @@
       "created": "✓ 已從「{sourceTitle}」分叉出「{branchTitle}」,分叉點={anchor}訊息,新會話 id={branchId}",
       "roleAssistant": "助手",
       "roleUser": "使用者"
+    },
+    "hooks": {
+      "trustedHeader": "已信任的目錄（~/.ihui/trusted-folders）：",
+      "trustedNone": "  無 —— 任何項目自帶的鉤子都不會執行",
+      "currentDirMark": "  ← 當前目錄",
+      "currentDirUntrusted": "  當前目錄未信任：{path}（用 `ihui hooks trust` 信任它）",
+      "trustDesc": "信任指定目錄（預設為當前目錄），允許它自帶的項目鉤子執行",
+      "trustErrNotDir": "✗ 目錄不存在，未寫入信任名單：{path}",
+      "trustAlready": "✓ 該目錄已在信任名單裡：{path}",
+      "trustWriteFailed": "✗ 寫入 ~/.ihui/trusted-folders 失敗：{path}",
+      "trustOk": "✓ 已信任目錄：{path}",
+      "trustWarning": "  該目錄下的 .ihui/.claude/.cursor hooks.json 從此會真實執行（command 走 shell，webhook 會外發工具輸入輸出）。只信任你自己寫過的設定。",
+      "untrustDesc": "把目錄移出信任名單（~/.ihui/trusted-folders）",
+      "untrustNotListed": "✓ 該目錄本來就不在信任名單裡：{path}",
+      "untrustOk": "✓ 已取消信任：{path}"
+    },
+    "commandSafety": {
+      "dangerous": "⚠ 危險命令被攔截：命令匹配危險模式 {pattern}\n如確需執行，請設定 IHUI_YOLO=1",
+      "alwaysConfirm": "⚠ 命令被攔截：它屬於\"永遠需要確認\"檔（刪除 / 強推 / rebase / 發布一類難以撤銷的操作），IHUI_YOLO 不得靜默放行。\n去掉 IHUI_YOLO 後重試，由你逐條確認。"
     }
   },
   "waiting": {

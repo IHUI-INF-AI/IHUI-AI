@@ -37,8 +37,12 @@ const DISABLED_HOOKS_PATH = join(homedir(), '.ihui', 'disabled-hooks')
 /** ~/.ihui/trusted-folders — 每行一个被信任的绝对路径 */
 const TRUSTED_FOLDERS_PATH = join(homedir(), '.ihui', 'trusted-folders')
 
-/** 路径规范化:去尾部斜杠 + lowercase(Windows 大小写不敏感) */
-function normalizePath(p: string): string {
+/**
+ * 路径规范化:去尾部斜杠 + lowercase(Windows 大小写不敏感)。
+ * 导出是为了让展示侧(hooks list 标"当前目录")与判侧(isFolderTrusted)
+ * 用同一把尺子 —— 两处各算一次"是不是同一个目录",迟早分叉。
+ */
+export function normalizeFolderPath(p: string): string {
   let n = resolve(p)
   if (n.length > 1 && (n.endsWith('/') || n.endsWith('\\'))) {
     n = n.slice(0, -1)
@@ -128,14 +132,14 @@ export function enableHook(hookName: string): boolean {
  */
 export function isFolderTrusted(folderPath: string): boolean {
   if (!isAbsolute(folderPath)) folderPath = resolve(folderPath)
-  const target = normalizePath(folderPath)
+  const target = normalizeFolderPath(folderPath)
   if (!existsSync(TRUSTED_FOLDERS_PATH)) return false
   try {
     const content = readFileSync(TRUSTED_FOLDERS_PATH, 'utf-8')
     for (const rawLine of content.split('\n')) {
       const line = rawLine.trim()
       if (!line || line.startsWith('#')) continue
-      if (normalizePath(line) === target) return true
+      if (normalizeFolderPath(line) === target) return true
     }
     return false
   } catch {
@@ -169,13 +173,13 @@ export function untrustFolder(folderPath: string): boolean {
   if (!isAbsolute(folderPath)) folderPath = resolve(folderPath)
   try {
     const content = readFileSync(TRUSTED_FOLDERS_PATH, 'utf-8')
-    const target = normalizePath(folderPath)
+    const target = normalizeFolderPath(folderPath)
     const next = content
       .split('\n')
       .filter((line) => {
         const trimmed = line.trim()
         if (!trimmed) return false
-        return normalizePath(trimmed) !== target
+        return normalizeFolderPath(trimmed) !== target
       })
       .join('\n')
     writeFileSync(TRUSTED_FOLDERS_PATH, next, 'utf-8')
@@ -257,11 +261,11 @@ export function gateHook(spec: HookSpecLite, absCwd: string): HookGateResult {
     return {
       allowed: false,
       reason: 'folder-not-trusted',
-      // 措辞必须给**存在**的出口:CLI 里没有 `ihui hooks trust` 子命令
-      // (commands/hooks.ts 只有 list / enable / disable),指它会把用户带进死路。
+      // 措辞必须给**存在**的出口:`ihui hooks trust <path>` 自 2026-09-25 起是真实子命令
+      // (见 commands/hooks.ts);~/.ihui/trusted-folders 只是它背后的落盘文件。
       detail:
         `folder "${absCwd}" is not in ~/.ihui/trusted-folders; ` +
-        '把该路径单独作为一行追加进这个文件即可在本机信任它,' +
+        `执行 \`ihui hooks trust "${absCwd}"\` 即可在本机信任它,` +
         '非交互场景可设 IHUI_TRUST_WORKSPACE=1 让本次运行信任当前工作区',
     }
   }
