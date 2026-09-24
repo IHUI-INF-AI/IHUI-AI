@@ -16,6 +16,7 @@
  * 因此加键后必须重跑 `pnpm gen:i18n`。
  */
 import {
+  describeMcpToolActivity,
   describeToolCall,
   humanizeToolText,
   toolDisplayKey,
@@ -46,8 +47,21 @@ export function localizeToolText(text: string, t: TranslateFn): string {
 /**
  * 工具行的主标题:命中映射 → 功能名;未命中(动态名)→ "调用 {name}"。
  * 任何分支都不会把 read_file 这类码名裸着放进界面(动态名本就无中文名可译)。
+ *
+ * D83 接线:MCP 调用先走共享层 server×tool 定制措辞(describeMcpToolActivity,
+ * 回落链 server-tool → server → tool → 功能名 → 码名,取不到定制即落回下方既有逻辑)。
+ * error 态刻意不进双时态链 —— 对失败的调用声称"已 X"是假陈述(与 web 同一口径)。
  */
 export function toolRowTitle(call: ToolCallView, t: TranslateFn): string {
+  if (call.serverSource === 'mcp' && call.status !== 'error') {
+    const line = describeMcpToolActivity({
+      serverName: call.serverName ?? null,
+      toolName: call.name,
+      state: call.status === 'running' ? 'running' : 'completed',
+      translate: (key, params) => t(toDisplayKey(key), params),
+    })
+    if (line !== call.name) return line
+  }
   const key = toolDisplayKey(call.name)
   return key ? t(toDisplayKey(key)) : t(toDisplayKey('activityTool'), { tool: call.name })
 }

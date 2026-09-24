@@ -13,7 +13,13 @@ import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { useClipboard } from '@/hooks/use-clipboard'
 import { useWorkPanelStore } from '@/stores/work-panel'
-import { describeToolActivityByStatus, describeToolCall, toolDisplayKey } from '@ihui/shared/chat'
+import {
+  describeToolActivityByStatus,
+  describeToolCall,
+  describeMcpToolActivity,
+  toolActivityState,
+  toolDisplayKey,
+} from '@ihui/shared/chat'
 import {
   StreamDetail,
   StreamLabel,
@@ -900,11 +906,21 @@ export const ToolCallCard = React.memo(function ToolCallCard({
   // 双时态活动措辞(D98/D102):running "正在读取文件" / success "已读取文件"。
   // 此前本行只有图标承载状态(状态文字仅进 aria-label),对屏幕外的用户等于没有状态;
   // error / cancelled 仍只出功能名 —— 对失败或被撤回的调用声称"已完成 X"是假陈述。
-  const rowTitle = describeToolActivityByStatus({
-    toolName,
-    status,
-    translate: (key, params) => tStatus(key, params),
-  })
+  // D83 接线:MCP 调用(serverSource='mcp')先走共享层 server×tool 定制措辞
+  // (describeMcpToolActivity 内含同一条双时态回落链),未定制的工具行为与旧链等价。
+  const activityState = toolActivityState(status)
+  const rowTitle = activityState
+    ? describeMcpToolActivity({
+        serverName: serverSource === 'mcp' ? (serverName ?? serverId ?? null) : null,
+        toolName,
+        state: activityState,
+        translate: (key, params) => tStatus(key, params),
+      })
+    : describeToolActivityByStatus({
+        toolName,
+        status,
+        translate: (key, params) => tStatus(key, params),
+      })
   const rowTags: string[] = []
   if (serverSource === 'plugin') rowTags.push(serverName || tStatus('sourcePlugin'))
   if (serverSource === 'mcp')
