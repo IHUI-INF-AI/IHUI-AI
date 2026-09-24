@@ -119,13 +119,27 @@ test('④ 降级链路在位:品牌失败后走 --plain,两条都失败才返回
   assert.match(fnBody(src, 'Invoke-FailNotify'), /Send-EmailNotify\s+-subject/, 'Invoke-FailNotify 不再调 Send-EmailNotify ⇒ 邮件兜底成死代码')
 })
 
-test('⑤ Server酱成功时不得再发邮件(配额与骚扰约束保持不变)', () => {
+test('⑤ 邮件是唯一到人通道:无当日计数闸、按签名去重、失败必留未送达标记', () => {
   const fail = fnBody(src, 'Invoke-FailNotify')
-  assert.match(fail, /if\s*\(\$sent\)\s*\{\s*\$sctCount\+\+/, '缺少 SCT 成功计数')
-  assert.match(fail, /if\s*\(\s*-not\s+\$sent\s*\)\s*\{/, '邮件未包在"微信未送达"条件里 ⇒ 变成两路都发')
-  const idxMail = fail.indexOf('Send-EmailNotify')
-  const idxGuard = fail.lastIndexOf('if (-not $sent)', idxMail)
-  assert.ok(idxGuard > -1 && idxGuard < idxMail, 'Send-EmailNotify 不在 -not $sent 分支内')
+  // 旧"每日 N 封"计数闸随第三方推送腿一并摘除(配额是他方硬限才需要的自保;自有 SMTP 不设总量封顶)
+  for (const dead of ['sctCount', 'emailCount', '$SctStateFile', 'SCT_']) {
+    assert.ok(!fail.includes(dead), `Invoke-FailNotify 仍引用计数/推送时代变量 ${dead}(应当只有签名去重)`)
+  }
+  // 同签名重发窗口必须仍在(去重≠封顶:窗口压的是"重复",不是"新故障")
+  assert.match(fail, /FailAlertRepeatHours/, '签名重发周期丢失 ⇒ 同一条持续故障会被静默压掉')
+  // 失败必响:Send-EmailNotify 返回 false 时写 UNDELIVERED 标记
+  assert.match(fnBody(src, 'Invoke-FailNotify'), /mailOk/, '未回读 Send-EmailNotify 结论 ⇒ 唯一通道失败无人知')
+  assert.match(src, /\$AlertUndelFile/, '未送达标记文件常量丢失(参照 check-credential-health 的 UNDEL 机制)')
+  // 全文件零推送时代残留:环境变量、端点、旧状态文件名一律不得复活
+  for (const [label, re] of [
+    ['SERVERCHAN_SENDKEY(第三方推送凭据环境变量)', /SERVERCHAN_SENDKEY/],
+    ['sctapi 端点', /sctapi/],
+    ['Get-SctSendKey / Send-SctNotify(推送函数)', /\b(Get-SctSendKey|Send-SctNotify)\b/],
+    ['.sct-notify-state.json(旧状态文件)', /\.sct-notify-state/],
+  ]) {
+    const hit = src.split(/\r?\n/).find((line) => re.test(line))
+    assert.equal(hit, undefined, `部署脚本残留 ${label}:${hit && hit.trim()}`)
+  }
 })
 
 test('⑥ node 解析必须有绝对路径兜底且不经 pnpm/npx;路径从脚本自身位置推导', () => {
