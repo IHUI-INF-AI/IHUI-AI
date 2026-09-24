@@ -66,3 +66,18 @@ export * from './annotation-anchors'
 // D67 额度归属分型与折扣倒计时(四型归属 + 三动作族 + 「不充值可用心智」机器判据:免费档可用时判定层剔除付费动作;
 // 与 D71 error-catalog 两道闸协同,映射不到不硬塞)
 export * from './quota-ownership'
+// D43 会话内快捷笔记(录音 12 phase 状态机逐字对齐 Qoder recordingNote;转写复用既有 voice 栈,归档纯逻辑)
+export * from './voice-note'
+// D36 会话内输入草稿(截断上限/安全读取;分桶 key 由调用方决定,形态对齐 prompt-history)
+export * from './prompt-drafts'
+// D35 长会话分页投影(turn 分片纯函数:keyset cursor 往返一致 + 流追加后旧页稳定=增量回放语义)
+export * from './history-projection'
+// D65 Hook 失败可见性(定档 C:hook_engine 失败信息内存有/SSE 通道无/DLQ 消费出口无 ⇒ 本票仅契约先行
+// 六态词汇表含 resultNotRecorded 终态缺省;attachment stderr/command 过 shared/utils/redact;渲染位待 D34 补事件)
+export * from './hook-failures'
+// D69 输入区文案族(压缩不可用三类原因因/果成对 + 排队许可纯函数 canReorder/canUndo/canInterject +
+// deniedNotice 组合矩阵非法组合 null;只读不写不碰 W27;交互本体归 D38)
+export * from './input-notices'
+// D89 输入源与队列小项(智能快照三态+首用引导+三源分流 / 队列命令化+Undo 三态与 W27 只读纪律 /
+// 记忆引用计数空态 + goal 成就耗时复用 formatDurationHuman)
+export * from './input-sources'
