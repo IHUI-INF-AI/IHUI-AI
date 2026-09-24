@@ -8,6 +8,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
 import { createPlaza } from '@ihui/api-client'
+import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import { SetNeedScreen as SharedSetNeedScreen } from '@ihui/rn-app'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -108,8 +109,9 @@ export function SetNeedScreen() {
       } else {
         showAlert(res.error || '提交失败,请稍后重试')
       }
-    } catch {
-      showAlert('网络异常,请稍后重试')
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      showAlert(detail.trim() ? toUserFriendlyMessage(e) : '网络异常,请稍后重试')
     } finally {
       setSubmitting(false)
     }
