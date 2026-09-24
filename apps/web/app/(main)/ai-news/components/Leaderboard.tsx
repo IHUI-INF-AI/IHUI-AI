@@ -457,7 +457,7 @@ export function Leaderboard({ entries }: Props) {
       className="overflow-hidden rounded-xl border bg-card shadow-sm"
     >
       {/* 头部 */}
-      <div className="flex items-center gap-2 bg-primary/5 px-5 py-3">
+      <div className="flex items-center gap-2 bg-cta/5 px-5 py-3">
         <Trophy className="h-4 w-4 text-primary" />
         <h2 className="text-sm font-semibold">{t('leaderboard.title')}</h2>
         <span className="ml-auto text-[10px] text-muted-foreground">
@@ -474,7 +474,7 @@ export function Leaderboard({ entries }: Props) {
             onClick={() => setActiveCategory(tab.key)}
             className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
               activeCategory === tab.key
-                ? 'bg-primary text-primary-foreground'
+                ? 'bg-cta text-cta-foreground'
                 : 'text-muted-foreground hover:bg-accent hover:text-foreground'
             }`}
           >
@@ -525,7 +525,7 @@ export function Leaderboard({ entries }: Props) {
               onClick={() => setActiveVendor(null)}
               className={`rounded px-1.5 py-0.5 text-[10px] transition-colors ${
                 activeVendor === null
-                  ? 'bg-primary text-primary-foreground'
+                  ? 'bg-cta text-cta-foreground'
                   : 'bg-muted text-muted-foreground hover:bg-accent'
               }`}
             >
@@ -538,7 +538,7 @@ export function Leaderboard({ entries }: Props) {
                 onClick={() => setActiveVendor((cur) => (cur === v ? null : v))}
                 className={`rounded px-1.5 py-0.5 text-[10px] transition-colors ${
                   activeVendor === v
-                    ? 'bg-primary text-primary-foreground'
+                    ? 'bg-cta text-cta-foreground'
                     : 'bg-muted text-muted-foreground hover:bg-accent'
                 }`}
               >
@@ -621,7 +621,7 @@ export function Leaderboard({ entries }: Props) {
                         <span
                           className={`inline-flex h-3 w-3 items-center justify-center rounded-sm border ${
                             visible
-                              ? 'border-primary bg-primary text-primary-foreground'
+                              ? 'border-primary bg-cta text-cta-foreground'
                               : 'border-muted-foreground/40'
                           }`}
                         >
@@ -677,7 +677,7 @@ export function Leaderboard({ entries }: Props) {
                           setSearchQuery('')
                           setActiveVendor(null)
                         }}
-                        className="inline-flex items-center gap-1 rounded bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary transition-colors hover:bg-primary/20"
+                        className="inline-flex items-center gap-1 rounded bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary transition-colors hover:bg-cta/20"
                       >
                         {t('leaderboard.clearFilter')}
                       </button>

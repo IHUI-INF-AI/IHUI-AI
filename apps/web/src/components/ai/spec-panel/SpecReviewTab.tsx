@@ -29,7 +29,7 @@ export function SpecReviewTab({ p }: { p: SpecPanelApi }) {
             type="button"
             onClick={p.handleSubmitReview}
             disabled={p.reviewLoading}
-            className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+            className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-md bg-cta px-3 text-xs font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-60"
           >
             {p.reviewLoading ? (
               <Loader2 className="h-3 w-3 animate-spin" />

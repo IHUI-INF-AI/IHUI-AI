@@ -209,7 +209,7 @@ function createStyles(tk: AppThemeTokens) {
     linkText: { marginTop: 8, fontSize: 14, color: tk.success.DEFAULT },
     linkActions: { flexDirection: 'row', gap: 8, marginTop: 10 },
     linkBtn: { flex: 1, paddingVertical: 8, borderRadius: rnRadius.lg, alignItems: 'center' },
-    copyBtn: { backgroundColor: tk.brand.DEFAULT },
+    copyBtn: { backgroundColor: tk.brand.cta },
     shareBtn: { backgroundColor: tk.surface.card },
     linkBtnText: { fontSize: 14, color: tk.surface.light },
     codeText: { marginTop: 10, fontSize: 11, color: tk.text.tertiary },
@@ -260,7 +260,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 44,
       justifyContent: 'center',
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     retryBtnText: { color: tk.surface.light, fontSize: 14 },
   })

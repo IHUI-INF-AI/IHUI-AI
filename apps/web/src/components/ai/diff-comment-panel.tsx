@@ -91,7 +91,7 @@ export function DiffCommentPanel({
           type="button"
           onClick={handleSubmit}
           disabled={!canSubmit}
-          className="inline-flex items-center gap-1 rounded-sm bg-primary px-2 py-1 text-[10px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center gap-1 rounded-sm bg-cta px-2 py-1 text-[10px] font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:cursor-not-allowed disabled:opacity-50"
           data-testid="diff-comment-submit"
         >
           <CornerDownLeft className="h-2.5 w-2.5" />

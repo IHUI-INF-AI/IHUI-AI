@@ -375,7 +375,7 @@ function EventFeedTab() {
           className={cn(
             'rounded-md border px-2 py-1 text-xs transition-colors',
             pillarFilter === null
-              ? 'border-primary bg-primary text-primary-foreground'
+              ? 'border-primary bg-cta text-cta-foreground'
               : 'border-border bg-muted/40 text-muted-foreground hover:bg-muted',
           )}
         >
@@ -389,7 +389,7 @@ function EventFeedTab() {
             className={cn(
               'rounded-md border px-2 py-1 text-xs transition-colors',
               pillarFilter === p
-                ? 'border-primary bg-primary text-primary-foreground'
+                ? 'border-primary bg-cta text-cta-foreground'
                 : cn('hover:opacity-80', pillarStyle(p)),
             )}
           >
@@ -1032,7 +1032,7 @@ export function OrchestrationHubPanel() {
     <div className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background/80 backdrop-blur-md">
       {/* 标题栏 */}
       <header className="flex h-11 shrink-0 items-center gap-2 bg-muted/30 px-3">
-        <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
+        <div className="flex h-6 w-6 items-center justify-center rounded-md bg-cta text-cta-foreground">
           <Activity className="h-3.5 w-3.5" />
         </div>
         <span className="text-sm font-semibold">{t('title')}</span>
@@ -1055,7 +1055,7 @@ export function OrchestrationHubPanel() {
               className={cn(
                 'inline-flex h-7 items-center gap-1 rounded-md px-2.5 text-xs transition-colors',
                 active
-                  ? 'bg-primary text-primary-foreground'
+                  ? 'bg-cta text-cta-foreground'
                   : 'text-muted-foreground hover:bg-accent hover:text-foreground',
               )}
             >
