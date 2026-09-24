@@ -2126,7 +2126,12 @@ const checks = [
   // notify-deploy-failure。范围 deploy/** + scripts/**(不含 tests)+ workflows *.yml;
   // 行内豁免 brand-mail-exempt:,存量走 scripts/brand-email-channel-baseline.json 只减不增
   // (建门实测:ihui-deploy.ps1 已被并行会话清干净,仅 check-credential-health.mjs 这条
-  // "第三条纯文本通道"入基线待迁移)。--staged 暂存集为空/取不到 → 退化全量(守门 70 教训)。
+  // "第三条纯文本通道"入基线待迁移 —— **2026-09-24 已迁至品牌出口,基线 counts 现为空**)。
+  // --staged 暂存集为空/取不到 → 退化全量(守门 70 教训)。
+  // **范围与 stagedTriggers 必须同步扩**(2026-09-24 补,本条目曾被并发整文件提交回退过一次,
+  // 由 scripts/tests/check-brand-email-channel.test.mjs 的"装车证明"抓回):判据已扫到
+  // monitoring/** 与 apps/api/scripts/**,若触发清单不跟上,则**只改 bridge 的提交在 pre-commit
+  // 根本不会唤起本门** —— 判据存在而永不调用,等于没有(守门 70/76 同型)。
   {
     id: '81',
     label: '📧 品牌邮件通道对账(blocking,拦绕过 email-templates 的纯文本自发通道)',
@@ -2134,7 +2139,7 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_BRAND_MAIL_GUARD',
-    stagedTriggers: ['deploy/', 'scripts/', '.github/workflows/'],
+    stagedTriggers: ['deploy/', 'scripts/', '.github/workflows/', 'monitoring/', 'apps/api/scripts/'],
     onFailHint: [
       '',
       '  💡 ops 邮件出现了绕过品牌模板层的形态 —— 用户会收到无样式的纯文本邮件,',
@@ -2145,7 +2150,7 @@ const checks = [
       '     确属有意的纯文本:命中行或紧邻上行加 `brand-mail-exempt: <原因>`;',
       '     存量红进 scripts/brand-email-channel-baseline.json(只减不增,禁止调高)。',
       '     单独复验:node scripts/check-brand-email-channel.mjs --staged',
-      '     自检:node scripts/check-brand-email-channel.mjs --self-test(30 例)',
+      '     自检:node scripts/check-brand-email-channel.mjs --self-test(46 例)',
       '     紧急跳过(不推荐):HUSKY_SKIP_BRAND_MAIL_GUARD=1 git commit ...',
       '',
     ].join('\n'),
