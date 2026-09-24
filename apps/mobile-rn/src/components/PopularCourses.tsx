@@ -22,7 +22,8 @@ import { rnRadius } from '@ihui/design-tokens'
  *   - 系统字体,无 ttf;颜色全部使用 主题 token 入口(禁用 purple/indigo)
  *   - 禁止硬编码颜色/尺寸,类型零 any
  */
-import { tokens } from '../theme/active-tokens'
+import { tokens, currentRnTheme } from '../theme/active-tokens'
+import { MoreLink } from '@ihui/rn-app'
 import { useState } from 'react'
 import {
   FlatList,
@@ -76,7 +77,7 @@ const GRID_GAP = 8
 const THUMB_HEIGHT = 100
 const VIP_BADGE_PADDING = 4
 const DEFAULT_BOOK_ICON = BookOpen
-const DEFAULT_MORE_TEXT = '查看全部'
+const DEFAULT_MORE_TEXT = '更多'
 
 /** 双 Tab(对齐原项目 popular-courses-tab:爆款入门 / 爆款精选) */
 const COURSE_TABS: ReadonlyArray<string> = ['爆款入门', '爆款精选']
@@ -190,17 +191,12 @@ export default function PopularCourses({
             {subtitle ? <Text style={styles.headerSubtitle}>{subtitle}</Text> : null}
           </View>
           {onMore ? (
-            <Pressable
-              style={({ pressed }) => [styles.moreBtn, pressed ? styles.moreBtnPressed : null]}
+            <MoreLink
+              label={moreText}
               onPress={onMore}
-              accessibilityRole="button"
-              accessibilityLabel={moreText}
-            >
-              <Text style={styles.moreText}>{moreText}</Text>
-              <Text style={styles.moreArrow} allowFontScaling={false}>
-                {'›'}
-              </Text>
-            </Pressable>
+              colorScheme={currentRnTheme()}
+              style={styles.moreBtn}
+            />
           ) : null}
         </View>
       ) : null}
@@ -273,25 +269,8 @@ const styles = StyleSheet.create({
     marginTop: 4,
   } as TextStyle,
   moreBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    paddingVertical: 4,
-    paddingHorizontal: 2,
+    marginLeft: 8,
   } as ViewStyle,
-  moreBtnPressed: {
-    opacity: 0.6,
-  } as ViewStyle,
-  moreText: {
-    fontSize: 12,
-    color: tokens.text.secondary,
-  } as TextStyle,
-  moreArrow: {
-    fontSize: 16,
-    lineHeight: 18,
-    color: tokens.text.secondary,
-    marginLeft: 2,
-  } as TextStyle,
   tabBox: {
     flexDirection: 'row',
     paddingHorizontal: CONTAINER_PADDING,
