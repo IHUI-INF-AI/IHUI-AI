@@ -58,6 +58,26 @@
       "runEmpty": "队列为空, 无可执行项",
       "modeSet": "✓ 后续输入模式 = {mode}",
       "degradedNote": "(已降级: {reason})"
+    },
+    "branch": {
+      "usage": "用法: /branch [标题] | /branch -c <会话id> [标题]",
+      "usageShort": "/branch [标题] | /branch -c <会话id> [标题]",
+      "menu": "分支远端会话:从最近一条回答处开一个新会话",
+      "errUnknownFlag": "不支持的参数",
+      "errBadConversationId": "会话 id 必须是服务端 UUID",
+      "errBadTitle": "标题过长(最多 255 字)",
+      "errNoConversations": "账号下没有可分叉的会话",
+      "errNoMessages": "该会话还没有消息,无法分叉",
+      "errNoBranchable": "该会话的历史里没有服务端消息 id,无法分叉",
+      "errRequestFailed": "服务端拒绝了请求",
+      "errTransportFailed": "无法连接后端",
+      "withDetail": "{reason}: {detail}",
+      "failedWithStatus": "分叉失败: {reason}(状态码 {status})",
+      "failedNoStatus": "分叉失败: {reason}",
+      "resolvedLatest": "未指定会话,已取最近活跃的远端会话「{sourceTitle}」({sourceId})",
+      "created": "✓ 已从「{sourceTitle}」分叉出「{branchTitle}」,分叉点={anchor}消息,新会话 id={branchId}",
+      "roleAssistant": "助手",
+      "roleUser": "用户"
     }
   },
   "waiting": {
