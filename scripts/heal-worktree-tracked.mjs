@@ -60,7 +60,9 @@ export function lsStageChunked(g, paths, chunkSize = 150) {
   for (let i = 0; i < paths.length; i += chunkSize) {
     const batch = paths.slice(i, i + chunkSize)
     if (!batch.length) continue
-    for (const l of g(['ls-files', '--stage', '--', ...batch]).split('\n').filter(Boolean)) {
+    for (const l of g(['ls-files', '--stage', '--', ...batch])
+      .split('\n')
+      .filter(Boolean)) {
       if (seen.has(l)) continue
       seen.add(l)
       lines.push(l)
@@ -72,11 +74,25 @@ export function lsStageChunked(g, paths, chunkSize = 150) {
 /** 工作区缺失但索引与 HEAD 完全一致的已跟踪文件 = 被外部删除 */
 export function findOrphanedDeletions(repoRoot) {
   const g = makeGit(repoRoot)
-  const st = execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', '-C', repoRoot, 'status', '--porcelain', '-z'], {
-    encoding: 'utf8',
-    windowsHide: true,
-    maxBuffer: 1 << 28,
-  })
+  const st = execFileSync(
+    GIT,
+    [
+      '-c',
+      'safe.directory=*',
+      '-c',
+      'core.quotepath=false',
+      '-C',
+      repoRoot,
+      'status',
+      '--porcelain',
+      '-z',
+    ],
+    {
+      encoding: 'utf8',
+      windowsHide: true,
+      maxBuffer: 1 << 28,
+    },
+  )
   const safe = []
   const held = []
   for (const rec of st.split('\0')) {
@@ -108,7 +124,9 @@ export function findOrphanedDeletions(repoRoot) {
 function isAncestorBlob(g, path, blob) {
   if (!blob) return false
   try {
-    const anc = g(['log', '--max-count=30', '--format=%H', 'HEAD', '--', path]).split('\n').filter(Boolean)
+    const anc = g(['log', '--max-count=30', '--format=%H', 'HEAD', '--', path])
+      .split('\n')
+      .filter(Boolean)
     for (const c of anc) {
       let v = ''
       try {
@@ -141,7 +159,9 @@ function isAncestorBlob(g, path, blob) {
  */
 export function refreshStaleIndex(repoRoot, { dryRun = false } = {}) {
   const g = makeGit(repoRoot)
-  const staged = g(['diff', '--name-only', 'HEAD', '--cached', '--no-renames']).split('\n').filter(Boolean)
+  const staged = g(['diff', '--name-only', 'HEAD', '--cached', '--no-renames'])
+    .split('\n')
+    .filter(Boolean)
   if (!staged.length) return { refreshed: 0, paths: [], held: 0 }
   const idxBlob = new Map()
   for (const l of lsStageChunked(g, staged)) {
@@ -246,20 +266,105 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
   return { aligned: paths.length, paths, skippedStaged: dirty.length - eligible.length }
 }
 
+/**
+ * 对齐"旁路提交没回写共享索引"留下的孤儿删除(2026-09-24 实测:本会话台账文件与另一会话
+ * 9 个新文件都以 `D ` 躺在索引里,他人一次 `git add -A` + commit 就会把这些已入库的交付删掉)。
+ *
+ * 与 `git rm --cached`(有意删除)的区分**不看意图,看树**:
+ *   索引当前树 == HEAD 某个祖先的树  ⇒ 索引是一份**陈旧快照**(里面没有任何人的暂存改动),
+ *   那些 D 只是因为 HEAD 被 commit-tree 推进过而索引没跟着走 ⇒ 可安全整体对齐;
+ *   有意删除会把索引变成"祖先树都不等于"的那棵(祖先树里该文件还在)⇒ 不碰。
+ *
+ * 动作两步且都只在上面成立时执行:`read-tree HEAD`(索引对齐) + `restore --source=HEAD --worktree`
+ * (把只在提交里存在、磁盘上从未有过副本的新文件写回来)。逐路径不整体 reset 的顾虑在这里不适用,
+ * 因为前提已经保证索引不含任何人的在飞暂存。
+ */
+export function reconcileStaleIndexOrphans(repoRoot, { dryRun = false } = {}) {
+  const g = makeGit(repoRoot)
+  try {
+    return reconcileStaleIndexOrphansInner(g, repoRoot, dryRun)
+  } catch (e) {
+    // 共享仓里 git 随时可能被别人的写操作占住索引;守护每 2 分钟跑一轮 ⇒ **让路**比报错正确,
+    // 但必须把让路的原因如实带出来(静默 skip 与"无事发生"是两回事)。
+    const msg = String(e?.message ?? e)
+    if (/lock|Another git process/i.test(msg))
+      return { reconciled: 0, paths: [], reason: 'git 索引被占用,本轮让路' }
+    throw e
+  }
+}
+function reconcileStaleIndexOrphansInner(g, repoRoot, dryRun) {
+  // ⚠️ 形态是 `D `(索引相对 HEAD 是删除),不是 ` D`(工作区删除)—— 两者检测命令不同,
+  //    混用会一条都抓不到(本函数第一版就是这么被自测当场抓红的)。
+  const staged = g(['diff', '--cached', '--diff-filter=D', '--name-only', '-z'])
+    .split('\0')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  if (!staged.length) return { reconciled: 0, paths: [], reason: 'no-staged-deletions' }
+  let idxTree = ''
+  try {
+    idxTree = g(['write-tree']).trim()
+  } catch {
+    return { reconciled: 0, paths: staged, reason: 'index-unmerged(有冲突条目,跳过)' }
+  }
+  // ⚠️ 别用 `rev-list --format=%T` 再按 "tree " 前缀过滤 —— %T 展开的是**裸 sha**(没有前缀),
+  //    那样祖先树集合恒为空,本判据会永远走"属有意删除,不碰"这支(自测 ⑭ 就是这么抓出来的)。
+  // 一次子进程问结论:把每个祖先 commit 的 ^{tree} 喂给 cat-file --batch。
+  const anc = g(['rev-list', '--max-count=60', 'HEAD']).split('\n').filter(Boolean)
+  const ancTrees = new Set(
+    g(['cat-file', '--batch'], { input: anc.map((c) => `${c}^{tree}`).join('\n') + '\n' })
+      .split('\n')
+      .filter((l) => /^\w{40} tree /.test(l))
+      .map((l) => l.split(' ')[0]),
+  )
+  if (!ancTrees.has(idxTree))
+    return {
+      reconciled: 0,
+      paths: staged,
+      // 把两侧值带进 reason:这条判据一旦"恒不碰",没有这几个值就查不出是树没算出来还是真不同
+      reason: `索引不是任何祖先树 ⇒ 属有意删除,不碰(idx=${idxTree.slice(0, 10)} 祖先树 ${ancTrees.size} 个${
+        ancTrees.size
+          ? ': ' +
+            [...ancTrees]
+              .slice(0, 2)
+              .map((x) => x.slice(0, 10))
+              .join(',')
+          : ''
+      })`,
+    }
+  if (dryRun)
+    return {
+      reconciled: staged.length,
+      paths: staged,
+      dryRun: true,
+      reason: '陈旧索引,可对齐(未执行)',
+    }
+  g(['read-tree', 'HEAD'])
+  for (let i = 0; i < staged.length; i += 40) {
+    g(['restore', '--source=HEAD', '--worktree', '--', ...staged.slice(i, i + 40)], {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+  }
+  return { reconciled: staged.length, paths: staged, reason: '陈旧索引已对齐 HEAD' }
+}
+
 export function heal(repoRoot, { dryRun = false } = {}) {
   const { safe, held } = findOrphanedDeletions(repoRoot)
-  if (!safe.length) return { restored: 0, held: held.length, paths: [] }
-  if (dryRun) return { restored: 0, held: held.length, paths: safe, dryRun: true }
+  const rec = reconcileStaleIndexOrphans(repoRoot, { dryRun })
+  if (!safe.length) return { restored: 0, held: held.length, reconciled: rec.reconciled, paths: [] }
+  if (dryRun)
+    return { restored: 0, held: held.length, reconciled: rec.reconciled, paths: safe, dryRun: true }
   const g = makeGit(repoRoot)
   for (let i = 0; i < safe.length; i += 40) {
     g(['restore', '--source=HEAD', '--worktree', '--', ...safe.slice(i, i + 40)])
   }
-  return { restored: safe.length, held: held.length, paths: safe }
+  return { restored: safe.length, held: held.length, reconciled: rec.reconciled, paths: safe }
 }
 
 /** 独立临时仓演练:①外部删除必被识别并恢复 ②他人 `git rm --cached` 的删除绝不碰 */
 function selfTestRun() {
-  const tmp = mkdtempSync(join(dirname(fileURLToPath(import.meta.url)), '..', '.ihui-agent', 'tmp', 'wt-heal-drill-'))
+  const tmp = mkdtempSync(
+    join(dirname(fileURLToPath(import.meta.url)), '..', '.ihui-agent', 'tmp', 'wt-heal-drill-'),
+  )
   const g = makeGit(tmp)
   const out = []
   const check = (n, ok) => out.push({ n, ok })
@@ -298,12 +403,18 @@ function selfTestRun() {
     g(['commit', '-qam', 'C: v2'])
     writeFileSync(join(tmp, 'keep.ts'), 'v1\n') // == 提交 A 的版本,!= HEAD
     const d1 = alignDrifts(tmp)
-    check('⑥ 漂移被识别并对齐', d1.aligned === 1 && readFileSync(join(tmp, 'keep.ts'), 'utf8') === 'v2\n')
+    check(
+      '⑥ 漂移被识别并对齐',
+      d1.aligned === 1 && readFileSync(join(tmp, 'keep.ts'), 'utf8') === 'v2\n',
+    )
 
     // ⑦ 真实未提交编辑 ⇒ 绝不覆盖
     writeFileSync(join(tmp, 'keep.ts'), 'v3 未提交的新工作\n')
     const d2 = alignDrifts(tmp)
-    check('⑦ 真编辑不被覆盖', d2.aligned === 0 && readFileSync(join(tmp, 'keep.ts'), 'utf8') === 'v3 未提交的新工作\n')
+    check(
+      '⑦ 真编辑不被覆盖',
+      d2.aligned === 0 && readFileSync(join(tmp, 'keep.ts'), 'utf8') === 'v3 未提交的新工作\n',
+    )
 
     // ⑧ 暂存后工作区又有新改动(判据③不成立)⇒ 绝不刷新、绝不对齐(protect 现场)
     writeFileSync(join(tmp, 'keep.ts'), 'v1\n')
@@ -312,7 +423,10 @@ function selfTestRun() {
     const r0 = refreshStaleIndex(tmp)
     check('⑧ 暂存后又有改动 ⇒ 不刷新', r0.refreshed === 0)
     alignDrifts(tmp)
-    check('⑧b 该文件工作区改动未被覆盖', readFileSync(join(tmp, 'keep.ts'), 'utf8') === 'v4 暂存后又改了\n')
+    check(
+      '⑧b 该文件工作区改动未被覆盖',
+      readFileSync(join(tmp, 'keep.ts'), 'utf8') === 'v4 暂存后又改了\n',
+    )
     g(['restore', '--staged', '--worktree', '--', 'keep.ts'])
 
     // ⑨ 落后索引(CAS/converge 只推进 HEAD 的后遗症)⇒ 逐路径刷新,并随之对齐工作区
@@ -346,6 +460,46 @@ function selfTestRun() {
     g(['add', 'gone.ts'])
     g(['commit', '-qm', 'F: 新增 gone.ts'])
     g(['rm', '-q', 'gone.ts']) // 索引=删除态,工作区无文件
+    // ⑭⑮ 旁路提交新增文件的残留形态 —— 用**独立小仓**造现场,不复用上面 17 例累积的索引状态
+    //     (第一版复用同一仓库时,祖先树判据被前序用例留下的改动污染,⑭b 恒红 ⇒ 假故障)。
+    {
+      const t3 = mkdtempSync(
+        join(dirname(fileURLToPath(import.meta.url)), '..', '.ihui-agent', 'tmp', 'wt-heal-idx-'),
+      )
+      const q = makeGit(t3)
+      q(['init', '-q', '--initial-branch=main'])
+      q(['config', 'user.email', 't@t'])
+      q(['config', 'user.name', 't'])
+      writeFileSync(join(t3, 'a.ts'), 'a1\n')
+      q(['add', '-A'])
+      q(['commit', '-qm', 'root'])
+      const bornBlob = q(['hash-object', '-w', '--stdin'], {
+        input: 'born by commit-tree\n',
+      }).trim()
+      const aBlob = q(['rev-parse', 'HEAD:a.ts']).trim()
+      // mktree 的清单走 stdin(注意:makeGit 第二参是 options,不是内容 —— 传错会静默生成空树)
+      const t2 = q(['mktree'], {
+        input: `100644 blob ${aBlob}\ta.ts\n100644 blob ${bornBlob}\tborn-by-bypass.ts\n`,
+      }).trim()
+      const c2 = q(['commit-tree', t2, '-p', 'HEAD']).trim()
+      q(['update-ref', 'refs/heads/main', c2]) // 索引原地不动 ⇒ 与真实现场同形
+      const rec = reconcileStaleIndexOrphans(t3)
+      check(
+        '⑭ 旁路新增文件以"暂存删除"形态被识别并回写(reason=' + rec.reason + ')',
+        rec.reconciled === 1 &&
+          rec.paths.includes('born-by-bypass.ts') &&
+          existsSync(join(t3, 'born-by-bypass.ts')),
+      )
+      q(['rm', '-q', '--cached', 'a.ts']) // 这次是**有意**删除:索引不再是任何祖先树
+      rmSync(join(t3, 'a.ts'), { force: true })
+      const rec2 = reconcileStaleIndexOrphans(t3, { dryRun: true })
+      check(
+        '⑮ 有意 rm --cached(索引非祖先树)绝不插手',
+        rec2.reconciled === 0 && /不碰/.test(rec2.reason),
+      )
+      rmSync(t3, { recursive: true, force: true })
+    }
+
     let threw = false
     try {
       refreshStaleIndex(tmp)
@@ -368,7 +522,11 @@ function selfTestRun() {
       console.log(`${r.ok ? '✅' : '❌'} ${r.n}`)
       if (!r.ok) fail++
     }
-    console.log(fail ? `self-test FAILED ${fail}/${out.length}` : `✅ check heal-worktree-tracked self-test 全部通过(${out.length} 例)`)
+    console.log(
+      fail
+        ? `self-test FAILED ${fail}/${out.length}`
+        : `✅ check heal-worktree-tracked self-test 全部通过(${out.length} 例)`,
+    )
     return fail ? 1 : 0
   } finally {
     rmSync(tmp, { recursive: true, force: true })
@@ -389,8 +547,14 @@ async function main() {
   if (argv.includes('--align-drift')) {
     const d = alignDrifts(repoRoot, { dryRun })
     if (argv.includes('--json')) console.log(JSON.stringify(d))
-    else if (d.aligned) console.log(`${dryRun ? '[check] 可对齐' : '✅ 幻影漂移对齐'} ${d.aligned} 个文件(索引==HEAD 且内容==祖先版本)`)
-    else console.log(`✅ 无需对齐(可判定 ${d.paths ? d.paths.length : 0} 个,已跳过有暂存的 ${d.skippedStaged || 0} 个)`)
+    else if (d.aligned)
+      console.log(
+        `${dryRun ? '[check] 可对齐' : '✅ 幻影漂移对齐'} ${d.aligned} 个文件(索引==HEAD 且内容==祖先版本)`,
+      )
+    else
+      console.log(
+        `✅ 无需对齐(可判定 ${d.paths ? d.paths.length : 0} 个,已跳过有暂存的 ${d.skippedStaged || 0} 个)`,
+      )
     return d.aligned && checkOnly ? 1 : 0
   }
   const res = heal(repoRoot, { dryRun })
