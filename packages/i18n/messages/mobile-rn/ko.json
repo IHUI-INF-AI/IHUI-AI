@@ -165,7 +165,7 @@
       "freetime": "기간 한정 무료",
       "hasbuy": "구매 완료",
       "monthly": "매월"
-},
+    },
     "recharge": "충전하기"
   },
   "order": {
@@ -404,6 +404,12 @@
     "show": "표시",
     "hide": "숨기기",
     "submitting": "제출 중...",
+    "budgetNote": "{title}: {detail}",
+    "budgetWarningTitle": "오늘 AI 사용량이 많습니다",
+    "budgetCriticalTitle": "오늘 AI 사용량이 곧 한도에 도달합니다",
+    "budgetUsedTokens": "{used} / {limit} 토큰 사용",
+    "budgetResetTomorrow": "자정 초기화",
+    "budgetTier": "{tier} 플랜",
     "viewMore": "더 보기",
     "close": "닫기",
     "delete": "삭제",

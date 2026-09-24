@@ -165,7 +165,7 @@
       "freetime": "Free for a limited time",
       "hasbuy": "Purchased",
       "monthly": "Monthly"
-},
+    },
     "recharge": "Top up"
   },
   "order": {
@@ -404,6 +404,12 @@
     "show": "Show",
     "hide": "Hide",
     "submitting": "Submitting...",
+    "budgetNote": "{title}: {detail}",
+    "budgetWarningTitle": "High AI usage today",
+    "budgetCriticalTitle": "Today's AI usage is nearly exhausted",
+    "budgetUsedTokens": "used {used} / {limit} tokens",
+    "budgetResetTomorrow": "resets at midnight",
+    "budgetTier": "{tier} plan",
     "viewMore": "View more",
     "close": "Close",
     "delete": "Delete",

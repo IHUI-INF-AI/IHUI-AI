@@ -165,7 +165,7 @@
       "freetime": "期間限定無料",
       "hasbuy": "購入済み",
       "monthly": "毎月"
-},
+    },
     "recharge": "チャージする"
   },
   "order": {
@@ -404,6 +404,12 @@
     "show": "表示",
     "hide": "非表示",
     "submitting": "送信中...",
+    "budgetNote": "{title}：{detail}",
+    "budgetWarningTitle": "本日の AI 使用量が多めです",
+    "budgetCriticalTitle": "本日の AI 使用量はまもなく上限に達します",
+    "budgetUsedTokens": "使用済み {used} / {limit} トークン",
+    "budgetResetTomorrow": "午前 0 時にリセット",
+    "budgetTier": "{tier} プラン",
     "viewMore": "もっと見る",
     "close": "閉じる",
     "delete": "削除",
