@@ -73,8 +73,15 @@ export const Platform = { OS: 'web' as const }
  * 任何 transitively import 主题层的测试文件都会以 "No 'Appearance' export is
  * defined on the 'react-native' mock" 整文件加载失败(2026-09-23 实测 5 个文件)。
  */
+export const windowColorSchemeCalls: Array<'light' | 'dark' | 'unspecified'> = []
+export function __resetWindowColorSchemeCalls(): void {
+  windowColorSchemeCalls.length = 0
+}
 export const Appearance = {
   getColorScheme: () => 'light' as 'light' | 'dark' | null,
+  setColorScheme: (scheme: 'light' | 'dark' | 'unspecified') => {
+    windowColorSchemeCalls.push(scheme)
+  },
   addChangeListener: (_cb: (s: { colorScheme: 'light' | 'dark' | null }) => void) => ({
     remove() {},
   }),
