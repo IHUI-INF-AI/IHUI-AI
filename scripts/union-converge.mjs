@@ -617,8 +617,19 @@ async function main() {
     },
   )
   if (cas.status !== 0) {
+    // CAS 失败留下的这枚悬空提交**本工具自己兜掉**:守门 30a 会因为"未备份悬空 commit"
+    // 拦下此后每一次提交(今天实测连吃数轮 --no-verify,而一次绕过 = 约 130 道门作废)。
+    // 与其把噪声留给下一个人,就地按 §22 的规矩打 tag —— tag 只是加引用,不改任何历史。
+    const tagName = `lost-commit/wip-${sha.slice(0, 10)}`
+    let tagged = false
+    try {
+      git(['tag', tagName, sha, '-m', 'union-converge CAS 失败的悬空合并提交(§22 备份)'])
+      tagged = true
+    } catch {
+      /* tag 失败不得掩盖原始故障,下面如实说明 */
+    }
     console.log(
-      `❌ CAS 失败(HEAD 被他人推进)⇒ 本轮作废,重跑即可;产物 ${sha.slice(0, 11)} 是悬空提交,守门 30a 会要求先 tag`,
+      `❌ CAS 失败(HEAD 被他人推进)⇒ 本轮作废,重跑即可;产物 ${sha.slice(0, 11)} ${tagged ? `已按 §22 备份为 ${tagName}(随后由 tag-sync 推远端)` : `是悬空提交且 tag 失败 ⇒ 手工:git tag ${tagName} ${sha}`} —— 不这么做,守门 30a 会替我们记住这笔`,
     )
     process.exit(1)
   }
