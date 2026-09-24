@@ -26,6 +26,10 @@ vi.mock('react-native', async () => {
     props.visible ? createElement('div', null, props.children) : null
   return {
     View: mk('div'),
+    // SettingsScreen 用 ScrollView 作根容器(68bf1d85f6)—— 本测试自带的是**局部**替身,
+    // 少导出一个就在 vitest 下抛 "No ScrollView export is defined on the react-native mock",
+    // 4 例全灭且报的是渲染错,看不出是替身缺项。补上,并在同处说明为什么不能用共享替身。
+    ScrollView: mk('div'),
     Text: mk('span'),
     TouchableOpacity: mk('button'),
     TextInput: mk('input'),
