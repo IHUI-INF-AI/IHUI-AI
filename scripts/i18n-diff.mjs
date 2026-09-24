@@ -26,13 +26,22 @@
  *   node scripts/i18n-diff.mjs --staged         # 仅检测 staged 涉及的 locale 文件
  *   node scripts/i18n-diff.mjs --output <path>  # 自定义输出路径
  *   node scripts/i18n-diff.mjs --quiet          # 只输出 JSON,不打印报告
- *   node scripts/i18n-diff.mjs --target=extension  # 扫描 extension i18n(packages/i18n/messages/extension/)
- *   node scripts/i18n-diff.mjs --target=miniapp-taro  # 扫描 miniapp-taro i18n(apps/miniapp-taro/src/i18n/,解析 .ts)
+ *   node scripts/i18n-diff.mjs --target=web           # packages/i18n/messages/web/*.json(默认)
+ *   node scripts/i18n-diff.mjs --target=extension     # packages/i18n/messages/extension/*.json
+ *   node scripts/i18n-diff.mjs --target=miniapp-taro  # packages/i18n/messages/miniapp-taro/*.json
+ *   node scripts/i18n-diff.mjs --target=shared        # packages/i18n/messages/shared/*.json
+ *   node scripts/i18n-diff.mjs --target=mobile-rn     # packages/i18n/messages/mobile-rn/*.json
+ *   node scripts/i18n-diff.mjs --target=cli           # packages/i18n/messages/cli/*.json
+ *   node scripts/i18n-diff.mjs --target=api           # packages/i18n/messages/api/*.json
+ *
+ * --target 取值必须与 packages/i18n/messages/ 下的目录名逐字相同。
+ * 2026-09-25 修:未知 / 拼错的 --target(如 `mobile_rn`、`Miniapp-Taro`)过去会**静默回落到 web**,
+ * 于是"以为在检测 mobile-rn"实际在读写 web 语言包,且没有任何提示。现一律 exit 2 并点名错误值。
  *
  * 退出码:
  *   0 = 无 pending
  *   1 = 有 pending(用于守门,warn-only 场景不阻塞)
- *   2 = 用法错误
+ *   2 = 用法错误(未知 --target / --target 指向的目录不存在)
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -45,9 +54,21 @@ const outputIdx = process.argv.indexOf('--output')
 const customOutput = outputIdx >= 0 ? process.argv[outputIdx + 1] : null
 const targetArg = process.argv.find((a) => a.startsWith('--target='))
 const TARGET = targetArg ? targetArg.split('=')[1] : 'web'
+// 调用方是否**显式**传了 --target —— 决定"目录不存在"是否判死(见 resolveTarget 内注释)
+const TARGET_IS_EXPLICIT = targetArg !== undefined
 
 // target → 目录 + 文件扩展名 + staged 前缀
 // 2026-07-25 i18n 单一来源:web/miniapp-taro 翻译迁移到 packages/i18n/messages/<platform>/
+// 2026-09-25 补 mobile-rn / cli / api:packages/i18n/messages/ 下实测有 7 个端目录,本表此前
+//   只登记 4 个 ⇒ 另外 3 端**根本接不进 §19 强制的翻译流水线**,mobile-rn 的 5 语言 parity
+//   因此无人能补、静默劣化(2026-09-25 修 HomeScreen 9 个裸 key 之前的成因即此)。
+//   三端目录内容均为 zh-CN/en/ja/ko/zh-TW 五个 .json,与 web 同构,故 ext 一致、无需特殊解析。
+//   api 也登记的决定性依据(实测,非猜测):scripts/check-i18n-messages-exist.mjs 的 ENDPOINTS
+//   已把 packages/i18n/messages/api 列为第 7 个"必须存在且可解析"的语言包端 —— 不登记它,
+//   `--target=api` 就在本脚本这里成为下一个静默黑洞。如实登记它的**不完整**处:apps/api 目前
+//   不加载 @ihui/i18n(预算告警模板在 budget-alert-service.ts 内联中文,注释自述这份 JSON 是
+//   "翻译单一来源…供未来 i18n-loader 接入"),且 scripts/check-i18n-keys.mjs 无 api 目标
+//   ⇒ api 端流水线只到"检测 + 写回",parity 守门仍不覆盖它;登记不等于假装已验收。
 const TARGET_CONFIG = {
   web: {
     dir: 'packages/i18n/messages/web',
@@ -69,8 +90,72 @@ const TARGET_CONFIG = {
     ext: '.json',
     stagedPrefix: 'packages/i18n/messages/shared/',
   },
+  'mobile-rn': {
+    dir: 'packages/i18n/messages/mobile-rn',
+    ext: '.json',
+    stagedPrefix: 'packages/i18n/messages/mobile-rn/',
+  },
+  cli: {
+    dir: 'packages/i18n/messages/cli',
+    ext: '.json',
+    stagedPrefix: 'packages/i18n/messages/cli/',
+  },
+  api: {
+    dir: 'packages/i18n/messages/api',
+    ext: '.json',
+    stagedPrefix: 'packages/i18n/messages/api/',
+  },
 }
-const TARGET_CFG = TARGET_CONFIG[TARGET] || TARGET_CONFIG.web
+const VALID_TARGETS = Object.keys(TARGET_CONFIG)
+
+/**
+ * 解析 --target。**绝不回落到 web**(2026-09-25 的修复本体)。
+ *
+ * 两类判死,均为 exit 2(用法错误),且都在读/写任何文件之前发生:
+ *   1. 值不在 TARGET_CONFIG 里 —— 含 `mobile_rn`、`Miniapp-Taro`、空值这类拼错。
+ *      旧写法 `TARGET_CONFIG[TARGET] || TARGET_CONFIG.web` 会把它们统统当成 web,
+ *      表现为"报告全绿而检测的是另一个端的语言包"(diff 侧)或"改写错端语言包"(apply 侧)。
+ *   2. 显式 --target 指向的目录在磁盘上不存在 —— 目录名打错/端尚未落地,同样不能当"没有差异"。
+ *
+ * 判死 2 只对**显式** --target 生效:不带 --target 走默认 web,而 scripts/tests/i18n-diff.test.mjs
+ * 钉死了"messages 目录不存在 → exit 0 + 跳过"(空仓库 / 部分 checkout 的合法形态)。
+ * 这里保留该行为是有意的非对称:调用方点名了一个端,沉默就是撒谎;没点名而目录缺失,如实报"跳过"。
+ *
+ * @param {string} raw      --target= 的原始值
+ * @param {string} root     仓库根(沿用本脚本既有的 cwd 口径)
+ * @param {boolean} explicit 调用方是否显式传了 --target
+ * @param {(msg: string[]) => void} onFatal 判死出口(CLI 传 process.exit 包装,便于子进程断言)
+ * @returns {{target: string, cfg: {dir: string, ext: string, stagedPrefix: string}}}
+ */
+function resolveTarget(raw, root, explicit, onFatal) {
+  const given = raw === undefined || raw === null ? '' : String(raw)
+  const cfg = TARGET_CONFIG[given]
+  if (!cfg) {
+    onFatal([
+      `❌ [i18n] --target=${JSON.stringify(given)} 不是受支持的端,已拒绝执行(未读任何语言包、未写任何文件)。`,
+      `   可用目标(须与 packages/i18n/messages/ 下的目录名逐字相同): ${VALID_TARGETS.join(' / ')}`,
+      `   拼写陷阱:连字符不是下划线、大小写敏感 —— "mobile_rn"、"Miniapp-Taro" 都会被拒。`,
+      `   为什么不再容忍:此前未知 --target 会静默按 web 处理,于是打错一个字母`,
+      `            就把"A 端的翻译"写进了"B 端的语言包",而报告看起来一切正常。`,
+    ])
+  }
+  if (explicit && !fs.existsSync(path.join(root, cfg.dir))) {
+    onFatal([
+      `❌ [i18n] --target=${JSON.stringify(given)} 的语言包目录不存在: ${cfg.dir}`,
+      `   可用目标: ${VALID_TARGETS.join(' / ')}`,
+      `   已拒绝执行(未读任何语言包、未写任何文件)。`,
+    ])
+  }
+  return { target: given, cfg }
+}
+
+/** CLI 出口:打印到 stderr 并以用法错误码退出(exit 2,与头注一致)。 */
+function fatalUsage(lines) {
+  for (const line of lines) console.error(line)
+  process.exit(2)
+}
+
+const TARGET_CFG = resolveTarget(TARGET, ROOT, TARGET_IS_EXPLICIT, fatalUsage).cfg
 
 const MESSAGES_DIR = path.join(ROOT, TARGET_CFG.dir)
 const TMP_DIR = path.join(ROOT, '.ihui-agent/tmp')
@@ -346,16 +431,35 @@ function printReport(result, targetLangs) {
   }
 
   console.log(`${C.bold}下一步(AI agent 自主执行,零用户算力):${C.reset}`)
-  console.log(`  1. 读取 ${C.cyan}.ihui-agent/tmp/i18n-pending.json${C.reset}`)
+  console.log(`  1. 读取 ${C.cyan}.ihui-agent/tmp/i18n-pending.json${C.reset}(本清单 target=${TARGET})`)
   console.log(`  2. AI agent 自己翻译(参考 scripts/brand-glossary.json 保证品牌名一致)`)
   console.log(`  3. 写入 ${C.cyan}.ihui-agent/tmp/i18n-translations.json${C.reset}`)
-  console.log(`  4. 运行 ${C.cyan}node scripts/i18n-apply.mjs${C.reset} 应用翻译`)
-  console.log(`  5. 运行 ${C.cyan}node scripts/check-i18n-keys.mjs${C.reset} 验证 parity`)
+  console.log(
+    `     并把本清单的 ${C.cyan}target / messagesDir${C.reset} 两个字段原样抄进去 ——`,
+  )
+  console.log(`     i18n-apply 用它做"写的就是刚检测的那一端"对账,不一致直接拒写`)
+  console.log(`  4. 运行 ${C.cyan}node scripts/i18n-apply.mjs --target=${TARGET}${C.reset} 应用翻译`)
+  console.log(
+    `  5. 运行 ${C.cyan}node scripts/check-i18n-keys.mjs --target=${TARGET}${C.reset} 验证 parity`,
+  )
+  console.log(
+    `     ${C.dim}(api 端尚无 parity 守门覆盖,原因见本文件 TARGET_CONFIG 注释)${C.reset}`,
+  )
 }
 
 function main() {
   const messages = loadMessages()
   const langNames = Object.keys(messages).sort()
+
+  // 先自证"这一轮看的是哪一端的语言包"。exit 0 的"无 pending"在端搞错时输出完全同形,
+  // 这正是本次修复要消灭的形态 —— 报告必须自带目标路径,人能一眼对账。
+  if (!isQuiet) {
+    console.log(
+      `${C.cyan}[i18n 流水线目标]${C.reset} ${TARGET} → ${TARGET_CFG.dir}` +
+        `(${langNames.length} 个 locale:${langNames.join(', ') || '无'})`,
+    )
+    console.log('')
+  }
 
   if (langNames.length === 0 || !messages[BASE_LANG]) {
     if (!isQuiet) {
@@ -394,6 +498,10 @@ function main() {
 
   const output = {
     generatedAt: new Date().toISOString(),
+    // 2026-09-25:清单必须自证"是哪一端产出的"。i18n-apply 拿这两个字段做写前对账,
+    // 从而堵死"检测了 A 端、却把翻译写进 B 端语言包"这一类静默错端写入。
+    target: TARGET,
+    messagesDir: TARGET_CFG.dir,
     baseLang: BASE_LANG,
     targetLangs: TARGET_LANGS,
     stats: {
@@ -414,9 +522,9 @@ function main() {
       steps: [
         '1. 读取本文件 .ihui-agent/tmp/i18n-pending.json',
         '2. AI agent 自己翻译(结合 glossary 字段保证品牌名/术语一致)',
-        '3. 写入 .ihui-agent/tmp/i18n-translations.json (结构: { translations: { [lang]: { [key]: translatedValue } } })',
-        '4. 运行 node scripts/i18n-apply.mjs 应用翻译',
-        '5. 运行 node scripts/check-i18n-keys.mjs 验证 parity',
+        `3. 写入 .ihui-agent/tmp/i18n-translations.json,结构 { target: "${TARGET}", messagesDir: "${TARGET_CFG.dir}", translations: { [lang]: { [key]: translatedValue } } } —— target/messagesDir 从本清单原样抄过去,i18n-apply 会据此拒写错端`,
+        `4. 运行 node scripts/i18n-apply.mjs --target=${TARGET} 应用翻译`,
+        `5. 运行 node scripts/check-i18n-keys.mjs --target=${TARGET} 验证 parity(api 端尚无该守门,详见本脚本 TARGET_CONFIG 注释)`,
       ],
       translationRules: [
         '品牌名优先用 glossary.brands 中的 canonical 英文名(如 智谱清言→Zhipu AI)',
