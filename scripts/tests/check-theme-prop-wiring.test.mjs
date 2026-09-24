@@ -24,17 +24,35 @@ import { __test__ } from '../check-theme-prop-wiring.mjs'
 const here = dirname(fileURLToPath(import.meta.url))
 const runner = readFileSync(join(here, '..', 'guardian-runner.mjs'), 'utf8')
 
-test('门已装车:runner 里 id 91 必须 blocking 且指向本脚本', () => {
-  const block = runner.match(/id: '91',[\s\S]{0,400}/)
-  assert.ok(block, 'guardian-runner 里找不到 id 91')
-  assert.match(block[0], /script: 'check-theme-prop-wiring\.mjs'/)
-  assert.match(block[0], /mode: 'blocking'/)
-  assert.match(block[0], /skipEnv: 'HUSKY_SKIP_THEME_PROP_WIRING'/)
+/**
+ * 编号不写死:同日多会话在数组同一位各加一道门必撞号,而撞号后的正当处置就是"后登记者改号"
+ * (AGENTS 门 80 的登记纪律)。把断言锚在编号字面值上,会让每次正常改号都把自证测试变红 ——
+ * 2026-09-24 同日另一道门 90→93 时红的就是它自己。现按 script 名反查自己的编号,
+ * 只钉真不变量:该编号在 runner 里唯一 / blocking / 有紧急跳过变量。
+ */
+const MY_SCRIPT = "script: 'check-theme-prop-wiring.mjs'"
+const idCount = (text, id) => text.split(`id: '${id}'`).length - 1
+function myGateId(text) {
+  const at = text.indexOf(MY_SCRIPT)
+  assert.ok(at > 0, 'runner 里必须注册本门(按 script 名反查)')
+  const before = [...text.slice(0, at).matchAll(/^\s+id:\s*'([^']+)',?$/gm)]
+  assert.ok(before.length, '本门注册块之前必须能找到 id 行')
+  return before[before.length - 1][1]
+}
+
+test('门已装车:本门编号(反查所得)必须 blocking 且指向本脚本', () => {
+  const id = myGateId(runner)
+  const block = runner.slice(runner.indexOf(`id: '${id}'`), runner.indexOf(MY_SCRIPT) + 400)
+  assert.match(block, /script: 'check-theme-prop-wiring\.mjs'/)
+  assert.match(block, /mode: 'blocking'/)
+  assert.match(block, /skipEnv: 'HUSKY_SKIP_THEME_PROP_WIRING'/)
 })
 
-test('编号唯一:id 91 在 runner 中恰好出现一次', () => {
-  const n = (runner.match(/id: '91'/g) ?? []).length
-  assert.equal(n, 1, `id 91 出现 ${n} 次,应为 1 次`)
+test('编号唯一(并配合成撞号反空绿,证明本条不是恒真)', () => {
+  const id = myGateId(runner)
+  assert.equal(idCount(runner, id), 1, `id ${id} 出现 ${idCount(runner, id)} 次,应为 1 次`)
+  const dup = runner.replace(/\n(\s+)label:/, `\n$1id: '${id}',\n$1label:`)
+  assert.equal(idCount(dup, id), 2, '合成撞号未被识别 = 本条判据恒真')
 })
 
 test('导出面稳定:__test__ 必须暴露这三个函数,否则本文件会假绿', () => {
