@@ -2391,6 +2391,36 @@ const checks = [
     ].join('\n'),
   },
 
+  // 家目录改道完整性(2026-09-24 立,守门 96,blocking)。§26 把"工具态一律 junction 改道"写了
+  // 一年多,但校验方法一直是**给人敲的三条命令** ⇒ 人肉校验等于没有校验:用户质问
+  // "C 盘怎么还是被我们占用了"时实测 `AppData\Roaming\npm` 已长成 2.05GB、
+  // `AppData\Local\pnpm-cache` 758MB,两处都是实体目录(同期已改道的 .ihui / 桌面端 appdata
+  // 仍是 junction ⇒ 机制有效,缺的只是回潮哨兵)。判据三条:登记项存在却不是指针 = REAL-DIR 红;
+  // 是指针但目标不可达 = DANGLING 红(§26 记过 robocopy rc=9 会"内容搬走却不建 junction");
+  // 登记表被过滤空 = EMPTY-REGISTRY 红(空表即恒绿假门)。非 Windows 如实报"未判定",不计通过。
+  // **刻意不收录第三方 IDE 自管态**(.workbuddy 含被 gitdir.mjs 当 git 二进制首选的 PortableGit、
+  // .qoder-cn 是本会话宿主的记忆/工作区)—— 否则会把别人的运行态判成我们的债,挪一次丢一次记忆。
+  {
+    id: '96',
+    label: '🏠 §26 家目录改道完整性(blocking,拦"实体工具态回潮到 C 盘")',
+    script: 'check-home-junctions.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_HOME_JUNCTIONS',
+    onFailHint: [
+      '',
+      '  💡 登记项又变回**实体目录**(或 junction 目标丢了),意味着工具链正在往 C 盘写。',
+      '     一律按 §26 的 junction 机制收口,不得改 Path/env 硬指(那会造"双根分裂"):',
+      '       robocopy <src> <D 盘目标> /E  →  逐文件(相对路径+字节)校验  →  源改名',
+      '       →  mklink /J <src> <D 盘目标>  →  经 junction 回读一致  →  才删源',
+      '     ⚠ robocopy 非零返回码时内容已搬走但**不会**建 junction,路径直接消失 —— 必须回读再补建。',
+      '     单独复验:node scripts/check-home-junctions.mjs --json',
+      '     自检:node scripts/check-home-junctions.mjs --self-test(6 例,含悬空 junction 反例)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_HOME_JUNCTIONS=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
