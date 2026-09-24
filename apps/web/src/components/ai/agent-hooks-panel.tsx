@@ -103,7 +103,7 @@ export function AgentHooksPanel() {
             type="button"
             data-testid="agent-hooks-add"
             onClick={handleAdd}
-            className="flex flex-1 items-center justify-center gap-1 rounded-md bg-primary px-2 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            className="flex flex-1 items-center justify-center gap-1 rounded-md bg-cta px-2 py-1.5 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
           >
             <Plus className="h-3 w-3" />
             {t('add')}

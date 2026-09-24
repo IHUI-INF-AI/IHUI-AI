@@ -197,7 +197,7 @@ export default function AiSkillsPageClient() {
           <button
             type="button"
             onClick={() => setImportOpen(true)}
-            className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            className="inline-flex items-center gap-1 rounded-md bg-cta px-3 py-1.5 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
           >
             <Upload className="h-3.5 w-3.5" />
             {td('importBtn')}
@@ -369,7 +369,7 @@ function SkillCard({ skill, stats }: SkillCardProps) {
       className="group flex flex-col gap-2 rounded-lg border bg-card p-3 transition-colors hover:border-foreground/20 hover:bg-accent/30"
     >
       <div className="flex items-start gap-2.5">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-cta/10 text-primary">
           <Icon className="h-5 w-5" />
         </div>
         <div className="flex-1 min-w-0 space-y-1">
@@ -510,7 +510,7 @@ function RecommendSection() {
               className="group flex min-w-[200px] max-w-[240px] shrink-0 snap-start flex-col gap-2 rounded-lg border bg-card p-3 transition-colors hover:border-foreground/20 hover:bg-accent/30"
             >
               <div className="flex items-start gap-2.5">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-cta/10 text-primary">
                   <Icon className="h-4.5 w-4.5" />
                 </div>
                 <div className="min-w-0 flex-1 space-y-0.5">

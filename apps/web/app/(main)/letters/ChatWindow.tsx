@@ -170,7 +170,7 @@ export function ChatWindow({ memberId, memberName }: ChatWindowProps) {
                 <div
                   className={cn(
                     'max-w-[70%] rounded-2xl px-3 py-2 text-sm',
-                    isMine ? 'bg-primary text-primary-foreground' : 'bg-muted',
+                    isMine ? 'bg-cta text-cta-foreground' : 'bg-muted',
                   )}
                 >
                   <p className="whitespace-pre-wrap break-words">{msg.content}</p>

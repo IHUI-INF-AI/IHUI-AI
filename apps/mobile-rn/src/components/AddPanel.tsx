@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   plusButtonActive: {
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
   },
   iconGroup: {
     flexDirection: 'row',

@@ -153,7 +153,7 @@ export default function DarkModePage() {
           <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-3 text-slate-900">
             <p className="text-sm font-semibold">亮色模式</p>
             <p className="text-xs opacity-80">示例正文内容</p>
-            <span className="inline-block rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground">
+            <span className="inline-block rounded-md bg-cta px-2 py-1 text-xs text-cta-foreground">
               主按钮
             </span>
           </div>

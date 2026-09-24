@@ -192,7 +192,7 @@ export default function AiSkillDetailPage() {
 
       {/* 头部:icon + name + 状态徽章 + sourceUrl */}
       <header className="flex items-start gap-3">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-cta/10 text-primary">
           <Icon className="h-6 w-6" />
         </div>
         <div className="flex-1 min-w-0 space-y-1">
@@ -204,7 +204,7 @@ export default function AiSkillDetailPage() {
             {skill.available && (
               <Link
                 href="/models/openclaw"
-                className="inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                className="inline-flex items-center gap-1 rounded-md bg-cta px-2.5 py-1 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
               >
                 <Bot className="h-3.5 w-3.5" />
                 {t('addToAgent')}
@@ -408,7 +408,7 @@ export default function AiSkillDetailPage() {
                 'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors',
                 running
                   ? 'cursor-not-allowed bg-muted text-muted-foreground/60'
-                  : 'bg-primary text-primary-foreground hover:bg-primary/90',
+                  : 'bg-cta text-cta-foreground hover:bg-cta/90',
               )}
             >
               {running ? (
@@ -456,7 +456,7 @@ export default function AiSkillDetailPage() {
             <button
               type="button"
               onClick={() => sendToChat(result.content)}
-              className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground transition-colors hover:bg-primary/90"
+              className="inline-flex items-center gap-1 rounded-md bg-cta px-3 py-1.5 text-xs text-cta-foreground transition-colors hover:bg-cta/90"
             >
               <MessageSquare className="h-3 w-3" />
               {t('sendToChat')}
@@ -623,7 +623,7 @@ function FeedbackSection({
                 'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors',
                 submitting
                   ? 'cursor-not-allowed bg-muted text-muted-foreground/60'
-                  : 'bg-primary text-primary-foreground hover:bg-primary/90',
+                  : 'bg-cta text-cta-foreground hover:bg-cta/90',
               )}
             >
               {submitting ? (
@@ -682,7 +682,7 @@ function RecommendationsSection({
               className="group flex w-64 shrink-0 flex-col gap-2 rounded-md border border-border bg-background p-3 transition-colors hover:border-foreground/20 hover:bg-accent/50"
             >
               <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-cta/10 text-primary">
                   <Wand2 className="h-4 w-4" />
                 </div>
                 <span className="truncate text-sm font-medium">{rec.name}</span>
