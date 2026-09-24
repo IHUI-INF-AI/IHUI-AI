@@ -55,3 +55,7 @@ export * from './move-to-worktree'
 // D66 编辑并重新发送 = 文件回退组合操作(十相位/四组失败态逐一落名/部分回退警示
 // 「部分修改未被检查点完整记录,回退结果可能不完整」/编排失败即停报告步骤;回退走既有 checkpoint 通道,不新建)
 export * from './edit-resend-rollback'
+// budget 额度分档告警的跨端措辞装配(三条硬规则:载荷没给的不说 / 无 detail 不留悬空冒号 /
+// 未知档位不静默)。规则收在此处而非逐端复写 —— web 曾无条件播报"明日 0 点重置"(resetAt 可选)
+// 并把 85300 印成「8.5 万」(该单位在 en/ja/ko 不成立),复写两份漂移即由此来
+export * from './budget-note'
