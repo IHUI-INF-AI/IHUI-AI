@@ -53,6 +53,12 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createHash } from 'node:crypto'
 import { hostname } from 'node:os'
 import { judgeTaskForm, taskFormAcceptable } from './lib/schtasks-form.mjs'
+// 死值分流必须与 `git-refs-heal.mjs` **共用同一份实现**。本文件原先有一份同名同实现的私有
+// `writeLooseRef`,而 `healRefs()` 直接遍历 broken 无校验地写 —— 于是"修好的那一份"只在人工
+// 按文档敲 `node scripts/git-refs-heal.mjs` 时生效,**每 2 分钟真跑的这一个恰恰是无校验的那份**。
+// 写出指向不存在对象的 ref 会让每一次 `git fetch` 直接 fatal(§5b:当日 fsck 坏链 83,108 条
+// 即这一型),等于把一次 ref 抖动升级成整条推送链死亡。
+import { splitDeadRefs, objectExists } from './git-refs-heal.mjs'
 import {
   HOME_HEAL_FIXER_TIMEOUT_MS,
   HOME_HEAL_TTL_MS,
@@ -337,11 +343,22 @@ function packRefs() {
   git(['pack-refs', '--all', '--prune'], true)
 }
 
-/** 直写松散 ref:`git update-ref` 对嵌套命名空间静默不落盘,故用 node fs */
+/**
+ * 直写松散 ref:`git update-ref` 对嵌套命名空间静默不落盘,故用 node fs。
+ * **写之前必须证明对象存在** —— 指向不存在对象的 ref 会让每一次 `git fetch` 直接 fatal,
+ * 而清单值可能因宿主抹掉 `objects/xx/` 变成死值(§5b 当日实测坏链 83,108 条)。
+ * 这道闸与 `healRefs()` 里的 `splitDeadRefs` 是双层防御:分流管"别反复重试",本闸管
+ * "任何后来调用者都不能亲手造死指针"。
+ */
 function writeLooseRef(ref, sha) {
+  if (!objectExists(sha)) {
+    log(`  ⚠️ 拒绝写 ${ref} = ${String(sha).slice(0, 12)}:该对象不可解析(写下去就是一次 fetch 全死)`)
+    return false
+  }
   const p = join(GITDIR, ref)
   mkdirSync(dirname(p), { recursive: true })
   writeFileSync(p, sha + '\n', 'utf8')
+  return true
 }
 
 /**
@@ -409,10 +426,29 @@ function healRefs() {
   })
   if (broken.length === 0) return true
 
-  log(`修复: 重建 ${broken.length} 个缺失的嵌套 ref(宿主清理 depth>=2 目录所致)`)
-  for (const [ref, sha] of broken) {
-    writeLooseRef(ref, sha)
-    log(`  - ${ref} = ${sha.slice(0, 12)}`)
+  // 先分流:清单值本身可能是死值(宿主抹过 objects/),死值一律不写 ref,
+  // 而是从清单剔除并指明恢复途径 —— 与 git-refs-heal.mjs 同口径、同一份纯函数。
+  const { dead, rebuildable } = splitDeadRefs(broken, objectExists)
+  log(
+    `修复: 重建 ${rebuildable.length} 个缺失的嵌套 ref(宿主清理 depth>=2 目录所致)` +
+      (dead.length ? `,另 ${dead.length} 个清单值为死值(不写 ref,已从清单剔除)` : ''),
+  )
+  for (const [ref, sha] of rebuildable) {
+    if (writeLooseRef(ref, sha)) log(`  - ${ref} = ${sha.slice(0, 12)}`)
+  }
+  if (dead.length) {
+    for (const [ref] of dead) delete map[ref]
+    for (const [ref, sha] of dead) {
+      log(
+        `  ⚠️ 死值 ${ref} = ${String(sha).slice(0, 12)}:对象不可解析,需联网校准 ` +
+          `(node scripts/git-refs-heal.mjs --refresh-remote)`,
+      )
+    }
+    try {
+      writeFileSync(REFS_MANIFEST, JSON.stringify(map, null, 1) + '\n', 'utf8')
+    } catch (e) {
+      log(`refs 清单剔除死值失败: ${String(e.message || e)}`)
+    }
   }
   packRefs()
   const still = Object.entries(map)
@@ -422,7 +458,7 @@ function healRefs() {
     log(`refs 修复未完全达标: ${still.join(', ')}`)
     return false
   }
-  log(`✅ refs 自愈成功(${broken.length} 个已重建并固化进 packed-refs)`)
+  log(`✅ refs 自愈成功(${rebuildable.length} 个已重建并固化进 packed-refs)`)
   return true
 }
 
