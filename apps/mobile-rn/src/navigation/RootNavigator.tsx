@@ -2,8 +2,9 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { View, Text } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { type NavigatorScreenParams } from '@react-navigation/native'
@@ -12,7 +13,8 @@ import { useAuth } from '../context/AuthContext'
 import { useNotificationWebSocket } from '../hooks/use-websocket'
 import { useUiControlBridge } from '../hooks/use-ui-control-bridge'
 import { NotificationProvider, useNotificationStore } from '../stores/notification'
-import NotificationPanel from '../components/NotificationPanel'
+import NotificationPanel, { PushBanner } from '../components/NotificationPanel'
+import { useI18n } from '../i18n'
 import { LoginScreen } from '../screens/LoginScreen'
 import { HomeScreen } from '../screens/HomeScreen'
 import { ChatScreen } from '../screens/ChatScreen'
@@ -526,11 +528,22 @@ function UiControlBridgeLayer({ token }: { token: string | null }) {
   return null
 }
 
+/** PushBanner 自动收起时长(ms)。显式传入,不依赖组件的默认值。 */
+const PUSH_BANNER_DURATION_MS = 5000
+
 function RootNavigatorInner() {
   const { token, ready } = useAuth()
   const { resolvedTheme } = useTheme()
   const ws = useNotificationWebSocket(token)
-  const { setConnected, addFromWs } = useNotificationStore()
+  const { t } = useI18n()
+  const insets = useSafeAreaInsets()
+  const {
+    setConnected,
+    addFromWs,
+    notifications,
+    visible: panelVisible,
+    setVisible,
+  } = useNotificationStore()
 
   useEffect(() => {
     setConnected(ws.connected)
@@ -539,6 +552,38 @@ function RootNavigatorInner() {
   useEffect(() => {
     addFromWs(ws.lastMessage)
   }, [ws.lastMessage, addFromWs])
+
+  /* -------------------------------------------------------------------------- */
+  /* PushBanner 装车(2026-09-25):顶部横幅推送,组件早已实现但全仓零挂载点          */
+  /* -------------------------------------------------------------------------- */
+
+  // 不新增第二份通知状态:横幅内容直接取 store 列表头部那条 —— 它正是上面
+  // addFromWs(ws.lastMessage) 刚转出来的同一条(端内 wrapper 已把 agent.action
+  // 指令帧挡在 addFromWs 之外,所以这里天然不会被 AI 操控帧触发)。只用 id 认身份。
+  const bannerEntry = notifications.length > 0 ? notifications[0] : null
+  const bannerHeadId = bannerEntry ? bannerEntry.id : null
+  /** 已经弹过(自动收起 / 手动关闭 / 点进面板)的那条 id。初值 = 首帧头部 id,冷启动不把历史通知再弹一次。 */
+  const [bannerSeenId, setBannerSeenId] = useState<string | null>(bannerHeadId)
+  // 面板已开时不叠第二个 Modal(两个 Modal 同时挂是本轮刚清掉的那类缺陷)
+  const bannerVisible = bannerEntry !== null && bannerHeadId !== bannerSeenId && !panelVisible
+
+  // 面板开着时到达的通知:直接记为"已展示"。面板列表本就实时含它,关掉面板再补弹一条横幅属重复提示。
+  useEffect(() => {
+    if (panelVisible && bannerHeadId !== null && bannerHeadId !== bannerSeenId) {
+      setBannerSeenId(bannerHeadId)
+    }
+  }, [panelVisible, bannerHeadId, bannerSeenId])
+
+  // onClose / onClick 必须以 id 为依赖保持稳定:组件内自动关闭的 useEffect 依赖 onClose,
+  // 每次渲染换新函数会把 5 秒计时反复重置,横幅就再也收不起来。
+  const handleBannerClose = useCallback(() => {
+    if (bannerHeadId !== null) setBannerSeenId(bannerHeadId)
+  }, [bannerHeadId])
+
+  const handleBannerPress = useCallback(() => {
+    setVisible(true)
+    if (bannerHeadId !== null) setBannerSeenId(bannerHeadId)
+  }, [bannerHeadId, setVisible])
 
   if (!ready) {
     return (
@@ -804,6 +849,18 @@ function RootNavigatorInner() {
           必须挂在 Navigator 之外 —— React Navigation 只允许 Screen/Group/Fragment 作为直接子节点 */}
       {token ? <UiControlBridgeLayer token={token} /> : null}
       <NotificationPanel />
+      {/* 横幅的 title 必须显式传:组件默认值是硬编码中文「新消息」,漏传即所有语言都渲染它。
+          顶距用 insets.top —— 与 App.tsx 的 SafeAreaView 同一取值口(守门 97 单点) */}
+      <PushBanner
+        visible={bannerVisible}
+        title={t('notification.pushBannerTitle')}
+        content={bannerEntry ? bannerEntry.content : ''}
+        timestamp={bannerEntry ? Date.parse(bannerEntry.createdAt) : undefined}
+        duration={PUSH_BANNER_DURATION_MS}
+        topOffset={insets.top}
+        onClick={handleBannerPress}
+        onClose={handleBannerClose}
+      />
     </>
   )
 }
