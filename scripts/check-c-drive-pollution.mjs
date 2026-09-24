@@ -56,6 +56,19 @@ function classifyRoot(name) {
   return null
 }
 
+/**
+ * 盘根出现"单个字母命名的目录"= MSYS/Git-Bash 把 `/c/...` 当相对路径用的错位指纹。
+ * 实测:2026-08-06 一次克隆就是这样在 C 盘里套出 `C:\c`(内含 4 份 origin 浅克隆 379MB
+ * 与一份错位的 npm 全局前缀 136MB,共 515MB),`git status` 与其余守门全都不知道。
+ * 只认目录:同名文件(如某些工具的 `c` 脚本)不判,宁漏不误报。
+ */
+function classifyRootEntry(name, isDir) {
+  const byName = classifyRoot(name)
+  if (byName) return byName
+  if (isDir && /^[a-z]$/i.test(name)) return '盘根单字母目录(MSYS 把 /c/... 当相对路径的错位指纹)'
+  return null
+}
+
 function classifyTmp(name) {
   for (const p of OUR_TMP_PATTERNS) if (p.re.test(name)) return p.why
   return null
@@ -138,9 +151,21 @@ function scanDriveRoot(drive) {
   }
   for (const name of names) {
     if (name.endsWith('.sys') || name.toLowerCase() === 'bootmgr' || name === 'BOOTNXT') continue
-    const why = classifyRoot(name)
+    let isDir = false
+    try {
+      isDir = statSync(join(root, name)).isDirectory()
+    } catch {
+      /* 竞态/权限:按文件处理,单字母规则自然不命中 */
+    }
+    const why = classifyRootEntry(name, isDir)
     if (why) {
-      hits.push({ path: join(root, name), kind: 'entry', why })
+      const full = join(root, name)
+      hits.push({
+        path: full,
+        kind: isDir ? 'dir' : 'file',
+        why,
+        ...(isDir ? dirSizeMB(full) : { sizeMB: 0, capped: false }),
+      })
       continue
     }
     if (!FOREIGN_ROOT.has(name.toLowerCase())) unknown.push(join(root, name))
@@ -231,6 +256,10 @@ function selfTest() {
   }
 
   t('盘根 IHUI- 前缀识别为自有产物', () => eq(classifyRoot('IHUI-probe-tail.ps1') !== null, true, '命中'))
+  t('盘根单字母**目录**判为 MSYS 错位指纹(C:\\c 曾藏 515MB 浅克隆)', () =>
+    eq(classifyRootEntry('c', true) !== null, true, '未识别 C:\\c 这类错位目录'))
+  t('单字母**文件**不判(宁漏不误报)', () => eq(classifyRootEntry('c', false), null, '误判单字母文件'))
+  t('多字母目录不因新规则误判', () => eq(classifyRootEntry('Windows', true), null, 'Windows 误判'))
   t('盘根 .pnpm-store 识别', () => eq(classifyRoot('.pnpm-store') !== null, true, '命中'))
   t('系统条目不得判为我们的', () => eq(classifyRoot('Windows'), null, 'Windows 误判'))
   t('Temp 里 ihui- 夹具识别', () => eq(classifyTmp('ihui-origin-Ab12Cd') !== null, true, '命中'))
@@ -274,5 +303,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   }
 }
 
-export const __test__ = { classifyRoot, classifyTmp, scanC, detectTempDrift, FOREIGN_ROOT }
+export const __test__ = {
+  classifyRoot,
+  classifyRootEntry,
+  classifyTmp,
+  scanC,
+  detectTempDrift,
+  FOREIGN_ROOT,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
