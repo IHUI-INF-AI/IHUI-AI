@@ -171,7 +171,7 @@ function createStyles(tk: AppThemeTokens) {
     container: { flex: 1, backgroundColor: tk.surface.bg },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 32 },
     emptyText: { fontSize: 14, color: tk.text.tertiary, marginTop: 8 },
-    header: { paddingHorizontal: 10, paddingBottom: 8 },
+    header: { paddingHorizontal: 10, paddingTop: 48, paddingBottom: 8 },
     backBtn: { marginBottom: 8 },
     backText: { fontSize: 16, color: tk.text.secondary },
     title: { fontSize: 24, fontWeight: '700', color: tk.text.primary },

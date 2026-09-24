@@ -515,16 +515,8 @@ pnpm dev                                       # 启动所有服务(web + api + 
 
 - 多会话/多 agent 在同一仓库并行工作时,**禁止**任何破坏性 git 操作:`git restore` / `git stash push` / `git clean -f` / `git reset --hard` / `Remove-Item` 删除其他 agent 创建的文件(包括"看着像垃圾"的 `commit_msg.txt` / 临时测试文件 / 调试日志)。
 - commit 阶段**只 add 本任务相关文件**:`git add <file1> <file2>`,**禁止** `git add .` / `git add -A` / `git add -u`。
-- **提交活文档前必须做"工作树 ⊇ HEAD"行级对账(2026-09-24 立,一夜三次自伤换来的)**:`README.md` / `AGENTS.md` / `PROJECT_PLAN.md` 这类多会话共写的文件,工作树副本**常年滞后于 HEAD**(实测分别少 57 / 48 / 54 行),而 `safe-commit` 的 Step ④ 是 `git commit -- <pathspec>` —— 按路径取**工作树**版本,于是"只 add 本任务文件"的规范提交照样把别人已入库的行整批写回旧态,`git status`、diff 行数、typecheck、守门 71 全都看不出来。动作:① 提交前 `node scripts/merge-live-doc.mjs --file <该文档>`(exit 1 = 存在真丢失);② 需归并时 `--apply`(它按锚点把 HEAD 缺失块插回工作树,并区分"被吃掉"与"被就地改写",后者不插回以免新老并存);③ 归并后必须报"仍判 lost = 0 且长行重复新增 = 0"。判据是**字符二元组** Jaccard ≥ 0.6 —— 前缀与按空格切词在中文里都会漏(工具自己栽过一次,README 里一度同时留下 `**第 93 项 X**` 与 `**守门 X**` 两行),已由 `--self-test` 8 例钉死。登记条目见 PLAN 的 O46④/O46⑩。
 - **提交活文档前必须做"工作树 ⊇ HEAD"行级对账(2026-09-24 立,一夜三次自伤换来的)**:`README.md` / `AGENTS.md` / `PROJECT_PLAN.md` 这类多会话共写的文件,工作树副本**常年滞后于 HEAD**(实测分别少 57 / 48 / 54 行),而 `safe-commit` 的 Step ④ 是 `git commit -- <pathspec>` —— 按路径取**工作树**版本,于是"只 add 本任务文件"的规范提交照样把别人已入库的行整批写回旧态,`git status`、diff 行数、typecheck、守门 71 全都看不出来。动作:① 提交前 `node scripts/merge-live-doc.mjs --file <该文档>`(exit 1 = 存在真丢失);② 需归并时 `--apply`(它按锚点把 HEAD 缺失块插回工作树,并区分"被吃掉"与"被就地改写",后者不插回以免新老并存);③ 归并后必须报"仍判 lost = 0 且长行重复新增 = 0"。**但提交前的报告有时效边界**(2026-09-24 实测:`merge-live-doc` 报 0 丢失之后、`safe-commit` 落地之前,并发会话又推进了一轮 ⇒ 那次提交仍丢掉 2 条他人登记行)。所以顺序必须是四步:**报告 → 提交 → 立刻 `git show <新提交>^..<新提交>` 做行级对账 → 有丢失就地回补**(发现手段只能是提交后的 diff,`git status` 与提交前那次报告都看不见)。判据是**字符二元组** Jaccard ≥ 0.6 —— 前缀与按空格切词在中文里都会漏(工具自己栽过一次,README 里一度同时留下 `**第 93 项 X**` 与 `**守门 X**` 两行),已由 `--self-test` 8 例钉死。登记条目见 PLAN 的 O46④/O46⑩。
-  - **回补过的行还要在"每次收敛/合并之后"复验它仍在 HEAD(2026-09-24 实测该文件第 4 次被顶掉)**:
-    并发会话的 union 合并会把别人刚回补的行**再次吃掉** —— 实测
-    `packages/shared/src/chat/handoff-package.ts` 的 `i18n-content-exempt-file:` 声明:被 `cfe8f65e4`
-    抹掉 → `9e01f6aa9` 原样补回 → 几轮合并后 `git show HEAD:<该文件>` 又是 0 命中。"提交前对账 +
-    提交后 diff"两道都保不住它,因为吃掉它的不是回补那次提交。复验是一行的事:
-    `git show HEAD:<该文件> | grep -c '<该行稳定前缀>'` 应为非 0,为 0 即重新回补(工作树通常还留着,
-    `git diff HEAD -- <该文件>` 立刻可见)。守门 70 的声明式出口是**随行内联**的 —— 行一丢,该文件
-    49 处中文立刻判红:红点会等下一个碰它的人来吃,不会静默,但也只有那个人会以为是自己的错。
+- **提交活文档前必须做"工作树 ⊇ HEAD"行级对账(2026-09-24 立,一夜三次自伤换来的)**:`README.md` / `AGENTS.md` / `PROJECT_PLAN.md` 这类多会话共写的文件,工作树副本**常年滞后于 HEAD**(实测分别少 57 / 48 / 54 行),而 `safe-commit` 的 Step ④ 是 `git commit -- <pathspec>` —— 按路径取**工作树**版本,于是"只 add 本任务文件"的规范提交照样把别人已入库的行整批写回旧态,`git status`、diff 行数、typecheck、守门 71 全都看不出来。动作:① 提交前 `node scripts/merge-live-doc.mjs --file <该文档>`(exit 1 = 存在真丢失);② 需归并时 `--apply`(它按锚点把 HEAD 缺失块插回工作树,并区分"被吃掉"与"被就地改写",后者不插回以免新老并存);③ 归并后必须报"仍判 lost = 0 且长行重复新增 = 0"。判据是**字符二元组** Jaccard ≥ 0.6 —— 前缀与按空格切词在中文里都会漏(工具自己栽过一次,README 里一度同时留下 `**第 93 项 X**` 与 `**守门 X**` 两行),已由 `--self-test` 8 例钉死。登记条目见 PLAN 的 O46④/O46⑩。
 - 正确流程:预检(`git status --porcelain`)→ 隔离 add 本任务文件 → 验证 staged 仅含本任务文件。
 - **任务完成必须自动 commit(2026-09-20 用户指令,强制)**:任务/批次完成且验证全绿后,agent **必须立即自动 commit**——不经询问、不等用户确认、禁止以"不擅自 commit"为由把已验证的工作留在未提交状态。push 仍按 §16/§20 执行(用户未要求时不主动 push)。commit 形态仍受本节约束(多 agent 并行必须 safe-commit.mjs;单 agent 直接 add 声明文件;禁止 `git add .` / `-A` / `-u`)。
 - pre-push / pre-commit hook 失败因**其他 agent 引入的代码问题**(schema drift / 其他模块 TS/lint 错误 / 其他 agent 未完成 migration 等,不在本任务范围):**直接用 `--no-verify` 跳过 hook** 完成自己的 commit + push;**禁止**修改其他 agent 代码"帮他们修" / `git reset --hard` / 把"等其他 agent 修复再 push"作为交付结论 / 用 AskUserQuestion 询问用户;自己 commit + push 前只需保证**本任务改动文件** typecheck + lint + build 全绿即可;`--no-verify` 合法场景**仅限**"hook 失败原因是其他 agent 代码",若失败原因是**本任务自己代码**必须修复后正常 commit。
@@ -631,7 +623,6 @@ pnpm dev                                       # 启动所有服务(web + api + 
 - 实测:为 `apps/extension` 加 `@ihui/design-tokens` workspace 依赖时跑 `pnpm install --filter @ihui/extension`,pnpm 按"只装被选中项目所需"重链接,**顺带剪掉根 `node_modules` 里未被该包引用的链接** —— `lint-staged` 就此消失,`.husky/pre-commit` 第一步即崩,每次 commit 都失败并逼出 `--no-verify`,连带 109 道守门全废(而 `git status` 与 typecheck 都看不出依赖树被削)。
 - **规则**:本仓任何"新增/调整 workspace 依赖"一律跑**全量 `pnpm install`**(不带 `--filter`);改完必须验证 `node_modules/lint-staged/bin/lint-staged.js` 与 `node_modules/.bin` 关键入口在位,再提交。
 - 排查同类问题的顺序:`grep "Cannot find module" .workbuddy/hook-logs/pre-commit.log`,先怀疑依赖树被动过,再怀疑守门判据。**但"根 `node_modules/.bin` 缺 shim"这一型既不看 package.json 也不报 Cannot find module** —— 它表现为 lint-staged 第一步 `'eslint' 不是内部或外部命令` → 每次 commit 必红 → 各会话合法 `--no-verify` → 约 110 道守门对全队同时失效(2026-09-24 实测连吃三次)。此型 `pnpm install` 与 `pnpm install --force` 都在 1.2 秒内回 "Already up to date"(pnpm 认为树是好的),**上一行那个 remedy 不起作用**;唯一生效的是 `node scripts/repair-node-bin-links.mjs`,且**判据只认实测版本号**:`node_modules/.bin/eslint --version` 与 `tsc --version` 必须都出版本号(或 `pnpm exec eslint --version`)。
-- 排查同类问题的顺序:`grep "Cannot find module" .workbuddy/hook-logs/pre-commit.log`,先怀疑依赖树被动过,再怀疑守门判据。
 
 ## 13. 文件修改持久化强制规则(强制)
 
@@ -1245,7 +1236,7 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 <!-- 合并归并说明:本行下方两条登记分属两个会话同日新增的闸门(78 workspace 依赖链接对账 / 79 提交内容含冲突标记),两侧均保留,不构成互斥。
      (2026-9-24 校正:原写法把冲突标记门写成 77,而 77 是「全 8 端圆角单一源头对账」——同日撞号正是本节要防的事,登记新门前请按守门速查逐条核对 id。) -->
 
-- **workspace 依赖链接对账**(78):check-workspace-dep-links.mjs(blocking,2026-09-23 立)—— 堵"**本地全绿、部署环恒红**"这一整类:`package.json` 声明了 `workspace:*` 但 `node_modules` 里没那条链接(§12e 的 `pnpm install --filter` 后遗症即此)。当天实例:`@ihui/extension` 缺 `@ihui/design-tokens` → rollup `failed to resolve import` → `pnpm -r build` 连 4 次全红 → 部署进入 30 分钟冷却循环、线上停在旧提交,而 **typecheck/lint/单测全都不会红**(TS 走 tsconfig paths,不看 node_modules)。判据 = 每个包 dependencies/devDependencies/peerDependencies 里所有 `workspace:` 声明,必须在 `<pkg>/node_modules/<dep>` 或根 `node_modules/<dep>` 可解析(`existsSync` 跟随符号链接 ⇒ **悬空链接同样判红**)。**第二维判据(2026-09-24 补,`findGuttedLinks`)**:根 + 各包 `node_modules/` 下每条**符号链接**的目标必须是真包(有可 parse 且带 `name` 的 `package.json`)——`existsSync` 对"指向**空目录**的链接"仍返回 true,而本机 09-24 实测正是这一型:`node_modules/typescript`、`node_modules/eslint` 指向 `.pnpm` 里的空目录,`.bin` 只剩 16 项(无 eslint/tsc/tsserver/vitest/next)⇒ lint-staged 第一步 `✖ eslint --fix` 并阻止提交 ⇒ **每一次提交都被迫 `--no-verify`,约 110 道守门对全队同时失效**,而 `git status`/typecheck/其余报告全都看不出来。刻意**不**比 name(pnpm 别名安装 `foo@npm:bar` 必产假阳);真目录(file:/workspace: 直连形态)不参与;扫到 0 条链接一律判红(空扫不报绿)。两条反假绿护栏:扫不到任何 workspace 包 → `exit 1`(不报绿);根 `node_modules` 不存在 → 显式提示"先 pnpm install"并 **无法判定**(不记为通过)。`--staged` **不**随暂存收窄范围,恒全量判定(全量 25 包约 1s)—— 因为这类破损与"本次改了什么"无关:手动删链接、他机跑过 `--filter`、清理工具动过依赖树,按 staged 收范围恰好放过整类;取不到暂存集也按全量判。取证:`--self-test` 9 例(含"缺链接必红/补上必绿/再删必红"三段可逆对照)+ `node --test scripts/tests/check-workspace-dep-links.test.mjs` 7 例(含**装车证明**:runner 里必须真有 id 78 + blocking + skipEnv)。**修复动作只有一个:全量 `pnpm install`**(不带 `--filter`)。紧急跳过 `HUSKY_SKIP_WORKSPACE_DEP_LINKS=1`。
+- **workspace 依赖链接对账**(78):check-workspace-dep-links.mjs(blocking,2026-09-23 立)—— 堵"**本地全绿、部署环恒红**"这一整类:`package.json` 声明了 `workspace:*` 但 `node_modules` 里没那条链接(§12e 的 `pnpm install --filter` 后遗症即此)。当天实例:`@ihui/extension` 缺 `@ihui/design-tokens` → rollup `failed to resolve import` → `pnpm -r build` 连 4 次全红 → 部署进入 30 分钟冷却循环、线上停在旧提交,而 **typecheck/lint/单测全都不会红**(TS 走 tsconfig paths,不看 node_modules)。判据 = 每个包 dependencies/devDependencies/peerDependencies 里所有 `workspace:` 声明,必须在 `<pkg>/node_modules/<dep>` 或根 `node_modules/<dep>` 可解析(`existsSync` 跟随符号链接 ⇒ **悬空链接同样判红**)。**第二维判据(2026-09-24 补,`findGuttedLinks`)**:根 + 各包 `node_modules/` 下每条**符号链接**的目标必须是真包(有可 parse 且带 `name` 的 `package.json`)——`existsSync` 对"指向**空目录**的链接"仍返回 true,而本机 09-24 实测正是这一型:`node_modules/typescript`、`node_modules/eslint` 指向 `.pnpm` 里的空目录,`.bin` 只剩 16 项(无 eslint/tsc/tsserver/vitest/next)⇒ lint-staged 第一步 `✖ eslint --fix` 并阻止提交 ⇒ **每一次提交都被迫 `--no-verify`,约 110 道守门对全队同时失效**,而 `git status`/typecheck/其余报告全都看不出来。刻意**不**比 name(pnpm 别名安装 `foo@npm:bar` 必产假阳);真目录(file:/workspace: 直连形态)不参与;扫到 0 条链接一律判红(空扫不报绿)。两条反假绿护栏:扫不到任何 workspace 包 → `exit 1`(不报绿);根 `node_modules` 不存在 → 显式提示"先 pnpm install"并 **无法判定**(不记为通过)。`--staged` **不**随暂存收窄范围,恒全量判定(全量 25 包约 1s)—— 因为这类破损与"本次改了什么"无关:手动删链接、他机跑过 `--filter`、清理工具动过依赖树,按 staged 收范围恰好放过整类;取不到暂存集也按全量判。取证:`--self-test` 9 例(含"缺链接必红/补上必绿/再删必红"三段可逆对照)+ `node --test scripts/tests/check-workspace-dep-links.test.mjs` 7 例(含**装车证明**:runner 里必须真有 id 78 + blocking + skipEnv)。**修复动作只有一个:全量 `pnpm install`**(不带 `--filter`)。紧急跳过 `HUSKY_SKIP_WORKSPACE_DEP_LINKS=1`。**shim 完整性(仅报数,不计红)**:直接声明的依赖有 `bin` 而该处 `.bin` 无同名 shim(真仓实测 102 条,含 `apps/api` 15 条)。不判红是因为**基线未证明** —— `apps/api` 根本没有自身 `.bin`,而 `pnpm --filter @ihui/api run typecheck` 照样通过(pnpm 会把**根** `.bin` 加进 PATH);且 pnpm 只为**直接声明的依赖**建 shim(根里的 `expo` / `react-native` 是 hoist 上来的传递依赖,不在根 `package.json` 内,按定义没有)。判据里的 `declaredFor(owner)` 就是为剔除这类假阳而存在(自检有反向对照钉住)。**命令可解析性(判红,不需基线假设)**:`package.json` 的 `lint-staged` 配置里必然会被 spawn 的命令(现 `eslint` / `prettier`)必须在**根** `node_modules/.bin` 解析得到 —— 解析不到就是每次提交被 `✖ eslint --fix` 阻止。两处刻意的窄口径:**不**接受"`node_modules/<cmd>` 包目录存在"作为通过(今天恰恰是"包体完好、shim 没了":`node node_modules/eslint/bin/eslint.js --version` 出 v10.8.1,而按 PATH 找 `eslint` 报「不是内部或外部命令」);**不**查全局 PATH(本会话 `where eslint` 能命中全局版,而钩子进程的 PATH 里没有 ⇒ 拿全局命中当"能解析"就是造一台**在故障现场报绿的尺子**)。⚠️ 修复形态实测:包内容用全量 `pnpm install` 补得回,但 **shim 不会被 `pnpm install` 或 `pnpm install --force` 重建**(两条都只回 `Already up to date`,1.2s 收工);本机实际起作用的入口是并发会话 11:35 入库的 `scripts/repair-node-bin-links.mjs`(`--check` 现报「根依赖 16 个包 / bin 声明 9 个:.bin 完整,无缺失」),shim 的 mtime 11:22:56 与本人跑 `--force` 同窗口 ⇒ **归属未定,只记事实不记成果**。验收一律实测命令本身(`.bin/eslint --version` + `.bin/tsc --version` 出版本号、api typecheck 真跑、门 78 全量 exit 0),只看 `node_modules/eslint` 在不在等于没测。
 - **workspace 依赖链接对账**(78):check-workspace-dep-links.mjs(blocking,2026-09-23 立)—— 堵"**本地全绿、部署环恒红**"这一整类:`package.json` 声明了 `workspace:*` 但 `node_modules` 里没那条链接(§12e 的 `pnpm install --filter` 后遗症即此)。当天实例:`@ihui/extension` 缺 `@ihui/design-tokens` → rollup `failed to resolve import` → `pnpm -r build` 连 4 次全红 → 部署进入 30 分钟冷却循环、线上停在旧提交,而 **typecheck/lint/单测全都不会红**(TS 走 tsconfig paths,不看 node_modules)。判据 = 每个包 dependencies/devDependencies/peerDependencies 里所有 `workspace:` 声明,必须在 `<pkg>/node_modules/<dep>` 或根 `node_modules/<dep>` 可解析(`existsSync` 跟随符号链接 ⇒ **悬空链接同样判红**)。两条反假绿护栏:扫不到任何 workspace 包 → `exit 1`(不报绿);根 `node_modules` 不存在 → 显式提示"先 pnpm install"并 **无法判定**(不记为通过)。`--staged` **不**随暂存收窄范围,恒全量判定(全量 25 包约 1s)—— 因为这类破损与"本次改了什么"无关:手动删链接、他机跑过 `--filter`、清理工具动过依赖树,按 staged 收范围恰好放过整类;取不到暂存集也按全量判。取证:`--self-test` 9 例(含"缺链接必红/补上必绿/再删必红"三段可逆对照)+ `node --test scripts/tests/check-workspace-dep-links.test.mjs` 7 例(含**装车证明**:runner 里必须真有 id 78 + blocking + skipEnv)。**修复动作只有一个:全量 `pnpm install`**(不带 `--filter`)。紧急跳过 `HUSKY_SKIP_WORKSPACE_DEP_LINKS=1`。
 - **提交内容含冲突标记**(79):check-no-conflict-markers.mjs(blocking,2026-09-23 立)—— 2026-09-23 15:49 `.git` 被宿主清除,恢复期某会话在共享工作区跑真实 `git merge`,留下 103 个未合并路径与 94 个带字面标记的工作区文件;而全链守门**没有任何一道**看"被提交的内容含冲突标记",于是 `apps/cli/tests/file-edit.test.ts` 带着 `<<<<<<<` 一路进 HEAD 树,整轮 merge 结束都没被发现。判据 = 同文件内**成对**出现的行首 `<<<<<<< ` 与 `>>>>>>> `(中间允许夹整行 `=======`);**强制成对**是硬要求 —— 单行 `=======` 在 Markdown setext 标题下划线、表格分隔、ASCII 示意图里都合法,只判单行会满天假红(实测全仓 `^=======$` 命中远多于成对命中);未配对的孤立标记不计红但如实报数("只剩一半"= 标记被手删的强信号)。三模式:`--staged`(只判索引内容,`git show :<path>`,取不到退回工作区;路径清单含 `U` 未合并态,因 merge 冲突时 git 把该文件标为 unmerged,只按 ACMR 过滤会恰好漏掉本门要拦的那一类)/ 缺省(判所有跟踪文件工作区内容,`git ls-files`,实测 16561 候选 1.5s)/ `--rev <sha|HEAD>`(判提交树,`git grep -Ilz` 定位候选 + blob 复核,供事后核验)。护栏:自豁免(本门脚本与测试必含字面量,按文件名前缀跳过)、>2MB 大文件、二进制(前 8KB 含 NUL),三类**均在输出里如实计数**;退出码 0/1/2(2=git 候选解析失败等脚本自身异常,绝不静默放行)。取证 `--self-test` 23 例(含正反成对对照 + 真实 merge 未合并路径现场:成对判红 / 单行 setext 判绿 / 索引脏即红而仅工作区脏判绿 / rev 隔离 / 自豁免与大文件二进制计数)+ §22c 镜像测试 11 例。修复口径:**用 `git checkout --ours/--theirs` 或按 §12b 协作收尾重新归并,禁止手删三行标记当作已解决**;紧急跳过 `HUSKY_SKIP_CONFLICT_MARKERS=1`。
 
@@ -1311,8 +1302,6 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 - **web 死 i18n key 审计别名 wrapper**(无 id,wiring 仅 template 层引用): `scripts/scan-web-dead-i18n-keys.mjs`(手动别名) —— 自身零判据:转发全部参数到 `scan-dead-i18n-keys.mjs --target=web` 并透传退出码(`:11-15` spawnSync,status 透传),实际判据/报告在统一入口(check:all 走 `--target all --exit 1`,CI 审计 workflow 跑其镜像测试);真跑 rc=0(3s,经委托链);无 --self-test,但镜像测试 node --test 真跑 rc=0(7 例)(其本体);无应急通道;⚠️门 89 判其接线为 template 弱接线,登记时勿当作独立闸。
 - **守门接线层对账**(89): `scripts/check-gate-wiring.mjs`(blocking) —— 本门是其余全部守门的"装车检",查接线层四类结构缺陷:**R1/R2** 脚本头部或 AGENTS.md 声称"已接 pre-commit/pre-push/CI 必跑/第 N 项"而五处权威点(`guardian-runner` 的 `script:` ∪ `scripts/lib/pre-commit-hook.js` ∪ `.husky/*` ∪ 根 `package.json` ∪ `.github/workflows`+cert)全部零命中 → 拦;**R4**(2026-09-24 由"仅报数"升档,前置=真仓缺口 48→0 已清零)门已接线但 AGENTS.md/README.md 通篇未点名 → 拦(判据刻意宽松:出现去后缀同名即算,故只会漏报不会误拦);**R5** 同一 `id` 登记两道门 → 拦(串 skipEnv 与失败归属);**R7** 台账 `type=dispatcher` 的依据文件不存在或文件里没提该脚本 → 拦。R3(五处零命中且无肯定式声称)/R6(共用 skipEnv)/弱接线(仅 CI)只如实报数不判红。**一律按 HEAD 内容判**(共享工作区的工作区文件会滞后产出相反结论);台账 `scripts/gate-wiring-allowlist.json` 只能救 R3,凡声称已接线者台账不救。⚠️ 本门对自身 `SELF_EXEMPT`(创建当期 HEAD 里还没有它),所以"它自己被摘线"由镜像测试 T13 钉死。真跑 `node scripts/check-gate-wiring.mjs` exit 0(已接线 139 / 台账豁免 13 / R4 0 枚);自检 `--self-test`(42 例,M8a/M8b 为 R4 升档的双向端到端证明)+ `node --test scripts/tests/check-gate-wiring.test.mjs`(13 例);紧急跳过 `HUSKY_SKIP_GATE_WIRING=1`。
 - **跨端主题透线对账**(91): `scripts/check-theme-prop-wiring.mjs`(blocking) —— packages/app 的主题驱动组件(形参解构含 `colorScheme` 且一律带 `= 'light'` 默认值)必须在每个 JSX 渲染点被**真的传参**:默认值就是"静默失效开关"，写死或漏传都不报错、typecheck 也不红。拦两类真事故形态 —— L1 调用方写死 `colorScheme="light"`(实测导航栏深色而页面体浅色，同一屏两套档案)、L2 漏传(当前 0 处，本门把它钉死在 0；刻意不把 213 处形参改成必填:无收益且会与并行会话在 213 个文件上对撞)。组件集**不靠手工清单**(清单过期正是上一道门漏判的原因)，改为扫 `packages/app/src` 导出组件名 + **import 解析**(含 alias / 默认导入 / 命名空间成员)，只有解析到 `@ihui/rn-app` 或包内相对路径才算共享主题组件 —— 端内同名自绘版(NavBar/TabBar/Carousel/UserInfoCard)因此不会误判；`{...spread}` 转发的渲染点单列「不确定」如实报数(不静默放过、也不误判为红)。实测真仓 `--staged` exit 0；应急跳过 `HUSKY_SKIP_THEME_PROP_WIRING=1`。
-
-- **顶部状态栏避让单一源头**(97):`scripts/check-statusbar-single-source.mjs`(blocking,2026-09-24 立)—— 真机实测(Redmi 720x1640 / density 320)状态栏 inset = 68px = **34dp**;而 399 个 `*Screen.tsx` 里真读 inset 的只有 3 个:83 处在页头/根容器写死 `paddingTop: 48` 硬蒙量级(换机型即失配)、113 处完全没有顶距 ⇒ 页头与系统时钟/电量**叠字**。**唯一注入点 = `apps/mobile-rn/App.tsx` 的 `<SafeAreaView edges={['top']}>`**;状态栏是平台概念,所以 `packages/app`(跨端共享屏)一律不碰顶距,共享层 NavBar 那个默认 0、零调用方的 `statusBarHeight` prop 属第二个真相源,**已删**,不得再加回。三判据:**S1** 单点在位(该文件必须真有 `SafeAreaView` 且 `edges` 含 `'top'` —— 防"装好被摘线",机制不在而门仍报绿等于没有)/ **S2** 第二取值口(代码里出现 `StatusBar.currentHeight` 或 `statusBarHeight` 即红;前者 iOS 恒 `undefined` ⇒ 0)/ **S3** 魔法顶距(`container|page|root|wrapper|header|headerRow|screen|body` 的对象内 `paddingTop: 24..60` 字面量即红,**零容忍** —— 83 处已随本票清零,所以不需要基线)。口径同守门 77/83:全量判 HEAD blob、`--staged` 判索引 blob,不判滞后的共享工作树。行内豁免 `statusbar-exempt: <一句话原因>`。取证 `--self-test` 20 例(含**临时独立仓端到端**:净仓绿 → 写死 48 必红 → 第二取值口必红 → **摘掉单点必红** → 带原因豁免放过)+ §22c 镜像测试(含装车证明:runner 里 id 97 恰好一次 + blocking + skipEnv + **AGENTS/README 必须点名**,否则守门 89 R4 判红)。**两条写门过程中的教训值得留**:① 第一版"沉浸式豁免名单"是拿"出现 `position:'absolute'` + `top:0`"探的,8 个候选全是假阳(命中的是眼睛按钮和下拉框)—— 判据探不到就别硬编,默认值本身就是正确答案;② `readFileSync` 漏 import 被外层 `catch` 吞成"取不到内容",一个编码错误伪装成业务结论,故**工作树面不得套 try**。紧急跳过 `HUSKY_SKIP_STATUSBAR_SINGLE_SOURCE=1`。
 
 ### 守门手动触发 / 紧急跳过抽查
 
@@ -1388,7 +1377,6 @@ C 盘 120 GB 频繁告急,根因排查发现:
 `HKCU\Environment\Path` 首位、守门脚本按 `%USERPROFILE%` 拼路径),junction 让旧路径继续可解析,
 因此**不需要也不允许**去改 `Path` 或逐个改码;改环境变量反而会造出"双根分裂"。
 校验方法:`rustup show home`、`reg query HKCU\Environment`、`(Get-Item ~\.cargo).Attributes -match ReparsePoint`。
-新增工具的缓存落点一律走 `D:\DevEnv\cache\userhome\<名称>` + junction,不得再在家目录留实体目录。
 **盘根"写歪项"一律封口改道,不许只删(2026-09-24 立)**:第三方程序(剪映、微信输入法、MSYS 侧工具、
 各类安装器)用**相对路径**写自己的状态,而进程工作目录恰好是 `C:\` ⇒ `common_attachment`、
 `persistent_data`、`tmp`、`tools` 直接长在盘根。**这类残骸删掉必然复发,因为成因改不了(闭源)**。
@@ -1403,26 +1391,7 @@ C 盘 120 GB 频繁告急,根因排查发现:
 `[System.IO.Directory]::Delete($path, $false)` 断链;② 量体积的工具遇 junction **不得跟随**
 (否则把 D 盘的量报成 C 盘的债);③ Node 侧 `lstatSync(p).isSymbolicLink()` 对 junction 报 `true`,
 `rmSync(link)` 只断链不穿透(均已实测)。判据由 `seal-c-root-stray` 与 C 盘污染守门的镜像测试钉死。
-**要藏住 junction 的名字,只能用 PowerShell 提供器 + 父目录枚举复核(2026-09-24 实测)**:用户选择
-"设隐藏,保留改道"后,`attrib +h <junction>` 是**陷阱** —— 它把 Hidden 设到**目标**那一侧,链接本体
-纹丝不动,而 `attrib` 回显时又顺着链接读目标,于是打印出 `H` 让调用者以为成功了(本仓第一版就这样
-"隐藏了 4 次",C 盘那 4 个名字照旧可见,反倒把 D 盘的 4 个数据目录藏掉了)。正确做法:
-`(Get-Item -LiteralPath <链接> -Force).Attributes = $i.Attributes -bor [System.IO.FileAttributes]::Hidden`,
-并且**唯一可信的 oracle 是父目录枚举** `Get-ChildItem <父目录> -Force`(那正是 Explorer 读的那份目录项
-属性)—— 设完必须自己回读,不许把"没抛错"当成成功。隐藏只影响浏览,穿透读写与
-`isSymbolicLink()` 判定均不受影响(已实测)。策略固化在 `seal-c-root-stray.mjs` 的 `setLinkHidden`,
-每次 `--apply` 都确保在位(封口被重建也不会露回来),镜像测试断言源码里**不得再出现 `attrib`**。
-**改页面文件必须留"待重启生效"哨兵(2026-09-24 立)**:本机 C/D 两个 pagefile 都是**手设固定值**
-(C 32768MB / D 98304MB)而非系统管理。要缩 C 的占用,改的是
-`HKLM\...\Session Manager\Memory Management\PagingFiles`(用 `Set-CimInstance Win32_PageFileSetting`
-写入,回读该注册表值才算落盘)—— 但**内存管理器运行期锁住 pagefile.sys,磁盘上的旧大小只有重启才收缩**,
-而本机是生产机(20+ 个 IHUI-* 服务在跑),重启时机归用户。所以任何这类改动都必须同时留一条
-会自我清空的哨兵:比对「配置上限 vs WMI `Win32_PageFileUsage.AllocatedBaseSize`」,落差 >512MB 且 >25%
-就报「待重启生效」,缩到位后不再报。**量这个大小有三连坑,都不报错、只给假绿**:`fs.statSync` 对
-`pagefile.sys` 必报 `EINVAL`(打不开句柄);`cmd /c for %A in (...) do %~zA` 会被 Node 的加引号 +
-cmd 剥首尾引号的双层规则打掉;属性名写成 MSDN 文档的 `AllocBaseSize`(本机真名是
-**`AllocatedBaseSize`**)会被 PowerShell 静默渲染成空串。三条已由守门 `--self-test` 与镜像测试钉死,
-且"一条都没量到"必须打印**未判定**、绝不记为通过。
+新增工具的缓存落点一律走 `D:\DevEnv\cache\userhome\<名称>` + junction,不得再在家目录留实体目录。
 **⚠️ junction 只管"路径",管不了"身份"(2026-09-24 实测的第四类真因)**:同一个 `$env:TEMP` /
 `os.tmpdir()` 在**不同身份下指向不同目录** —— HKCU 把交互账户 TEMP 迁到 `D:\DevEnv\Temp` 之后,
 nssm 服务(IHUI-API / IHUI-DEPLOYLOOP 以 LocalSystem 运行)拿到的仍是 `C:\Windows\Temp`。
@@ -1720,3 +1689,41 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 | `docs/learning-assets.md` | 学习资产登记(34 个工作流反馈来源,新增/删除工作流必须同步更新) |
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
+
+| 路径                                                                                                                                                                                                                                                                       | 角色                                                        |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `D:/IHUI-AI/.git`                                                                                                                                                                                                                                                          | **28 字节指针文件**(`gitdir: D:/IHUI-AI-git-repo`),不是目录 |
+| `D:/IHUI-AI-git-repo`                                                                                                                                                                                                                                                      | 真实 gitdir(544MB),在工作区之外                             |
+| `D:/IHUI-AI.git-backup-20260912`                                                                                                                                                                                                                                           | gitdir 完整备份,守护的本地恢复源                            |
+| **守护**:计划任务 **`IHUI-AI git-guardian`**(每 2 分钟)→ `"C:/Program Files/nodejs/node.exe" D:/IHUI-AI/scripts/git-guardian.mjs`。本机**未安装 nssm**,故未采用 `--daemon` 常驻服务形态,改用脚本自带的 schtasks 兜底(2026-09-12 15:30 实测启用;16:12 实测**自愈已生效**)。 |
+| 分层自愈:`指针 → 环境 → HEAD 语法 → 嵌套 ref → 本地备份 → 远端`;每步破坏性覆盖前先归档现场。实测自愈 **0.9s**(refs 自愈实测 **0.14s**)。                                                                                                                                   |
+  - **回补过的行还要在"每次收敛/合并之后"复验它仍在 HEAD(2026-09-24 实测该文件第 4 次被顶掉)**:
+    并发会话的 union 合并会把别人刚回补的行**再次吃掉** —— 实测
+    `packages/shared/src/chat/handoff-package.ts` 的 `i18n-content-exempt-file:` 声明:被 `cfe8f65e4`
+    抹掉 → `9e01f6aa9` 原样补回 → 几轮合并后 `git show HEAD:<该文件>` 又是 0 命中。"提交前对账 +
+    提交后 diff"两道都保不住它,因为吃掉它的不是回补那次提交。复验是一行的事:
+    `git show HEAD:<该文件> | grep -c '<该行稳定前缀>'` 应为非 0,为 0 即重新回补(工作树通常还留着,
+    `git diff HEAD -- <该文件>` 立刻可见)。守门 70 的声明式出口是**随行内联**的 —— 行一丢,该文件
+    49 处中文立刻判红:红点会等下一个碰它的人来吃,不会静默,但也只有那个人会以为是自己的错。
+- 排查同类问题的顺序:`grep "Cannot find module" .workbuddy/hook-logs/pre-commit.log`,先怀疑依赖树被动过,再怀疑守门判据。
+- **workspace 依赖链接对账**(78):check-workspace-dep-links.mjs(blocking,2026-09-23 立)—— 堵"**本地全绿、部署环恒红**"这一整类:`package.json` 声明了 `workspace:*` 但 `node_modules` 里没那条链接(§12e 的 `pnpm install --filter` 后遗症即此)。当天实例:`@ihui/extension` 缺 `@ihui/design-tokens` → rollup `failed to resolve import` → `pnpm -r build` 连 4 次全红 → 部署进入 30 分钟冷却循环、线上停在旧提交,而 **typecheck/lint/单测全都不会红**(TS 走 tsconfig paths,不看 node_modules)。判据 = 每个包 dependencies/devDependencies/peerDependencies 里所有 `workspace:` 声明,必须在 `<pkg>/node_modules/<dep>` 或根 `node_modules/<dep>` 可解析(`existsSync` 跟随符号链接 ⇒ **悬空链接同样判红**)。**第二维判据(2026-09-24 补,`findGuttedLinks`)**:根 + 各包 `node_modules/` 下每条**符号链接**的目标必须是真包(有可 parse 且带 `name` 的 `package.json`)——`existsSync` 对"指向**空目录**的链接"仍返回 true,而本机 09-24 实测正是这一型:`node_modules/typescript`、`node_modules/eslint` 指向 `.pnpm` 里的空目录,`.bin` 只剩 16 项(无 eslint/tsc/tsserver/vitest/next)⇒ lint-staged 第一步 `✖ eslint --fix` 并阻止提交 ⇒ **每一次提交都被迫 `--no-verify`,约 110 道守门对全队同时失效**,而 `git status`/typecheck/其余报告全都看不出来。刻意**不**比 name(pnpm 别名安装 `foo@npm:bar` 必产假阳);真目录(file:/workspace: 直连形态)不参与;扫到 0 条链接一律判红(空扫不报绿)。两条反假绿护栏:扫不到任何 workspace 包 → `exit 1`(不报绿);根 `node_modules` 不存在 → 显式提示"先 pnpm install"并 **无法判定**(不记为通过)。`--staged` **不**随暂存收窄范围,恒全量判定(全量 25 包约 1s)—— 因为这类破损与"本次改了什么"无关:手动删链接、他机跑过 `--filter`、清理工具动过依赖树,按 staged 收范围恰好放过整类;取不到暂存集也按全量判。取证:`--self-test` 9 例(含"缺链接必红/补上必绿/再删必红"三段可逆对照)+ `node --test scripts/tests/check-workspace-dep-links.test.mjs` 7 例(含**装车证明**:runner 里必须真有 id 78 + blocking + skipEnv)。**修复动作只有一个:全量 `pnpm install`**(不带 `--filter`)。紧急跳过 `HUSKY_SKIP_WORKSPACE_DEP_LINKS=1`。
+**要藏住 junction 的名字,只能用 PowerShell 提供器 + 父目录枚举复核(2026-09-24 实测)**:用户选择
+"设隐藏,保留改道"后,`attrib +h <junction>` 是**陷阱** —— 它把 Hidden 设到**目标**那一侧,链接本体
+纹丝不动,而 `attrib` 回显时又顺着链接读目标,于是打印出 `H` 让调用者以为成功了(本仓第一版就这样
+"隐藏了 4 次",C 盘那 4 个名字照旧可见,反倒把 D 盘的 4 个数据目录藏掉了)。正确做法:
+`(Get-Item -LiteralPath <链接> -Force).Attributes = $i.Attributes -bor [System.IO.FileAttributes]::Hidden`,
+并且**唯一可信的 oracle 是父目录枚举** `Get-ChildItem <父目录> -Force`(那正是 Explorer 读的那份目录项
+属性)—— 设完必须自己回读,不许把"没抛错"当成成功。隐藏只影响浏览,穿透读写与
+`isSymbolicLink()` 判定均不受影响(已实测)。策略固化在 `seal-c-root-stray.mjs` 的 `setLinkHidden`,
+每次 `--apply` 都确保在位(封口被重建也不会露回来),镜像测试断言源码里**不得再出现 `attrib`**。
+**改页面文件必须留"待重启生效"哨兵(2026-09-24 立)**:本机 C/D 两个 pagefile 都是**手设固定值**
+(C 32768MB / D 98304MB)而非系统管理。要缩 C 的占用,改的是
+`HKLM\...\Session Manager\Memory Management\PagingFiles`(用 `Set-CimInstance Win32_PageFileSetting`
+写入,回读该注册表值才算落盘)—— 但**内存管理器运行期锁住 pagefile.sys,磁盘上的旧大小只有重启才收缩**,
+而本机是生产机(20+ 个 IHUI-* 服务在跑),重启时机归用户。所以任何这类改动都必须同时留一条
+会自我清空的哨兵:比对「配置上限 vs WMI `Win32_PageFileUsage.AllocatedBaseSize`」,落差 >512MB 且 >25%
+就报「待重启生效」,缩到位后不再报。**量这个大小有三连坑,都不报错、只给假绿**:`fs.statSync` 对
+`pagefile.sys` 必报 `EINVAL`(打不开句柄);`cmd /c for %A in (...) do %~zA` 会被 Node 的加引号 +
+cmd 剥首尾引号的双层规则打掉;属性名写成 MSDN 文档的 `AllocBaseSize`(本机真名是
+**`AllocatedBaseSize`**)会被 PowerShell 静默渲染成空串。三条已由守门 `--self-test` 与镜像测试钉死,
+且"一条都没量到"必须打印**未判定**、绝不记为通过。

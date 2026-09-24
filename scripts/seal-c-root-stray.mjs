@@ -23,7 +23,6 @@
 //
 // 换机 / 重装后需重跑一次 `--apply`(与 install-console-window-hook.mjs 同一类"每机一次")。
 
-import { execFileSync } from 'node:child_process'
 import {
   cpSync,
   existsSync,
@@ -37,7 +36,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
-import { basename, dirname, join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -107,81 +106,6 @@ export const ORPHAN_FILES = [
 
 export function pathsFor(entry, root, devEnv) {
   return { link: join(root, entry.name), target: join(devEnv, ...entry.target.split('/')) }
-}
-
-/**
- * 封口后给该 junction 的**链接本体**加 Hidden(用户 2026-09-24 拍板:"设隐藏,保留改道")。
- * 必须是**策略而不是手工做一次**:apply 每次都会确保它是隐藏的,否则哪天封口被重建
- * (新链接不带 H)就又在资源管理器里露出来 —— 而"看见了"正是这次动机的起点。
- *
- * ⚠️ 不能用 `attrib +h <junction>`:实测它把 Hidden 设到**目标**那侧,链接本体属性纹丝不动,
- * 而 attrib 回显时又顺着链接读目标 ⇒ 看上去"成功"了(本工具第一版就被这个回显骗过,
- * 结果 4 个 D 盘目标被误隐藏、而 C 盘那 4 个名字一个都没藏住)。
- * 正确设法是 PowerShell 提供器的位或;唯一可信的 oracle 是**父目录枚举**
- * (`Get-ChildItem <父目录> -Force`),因为那正是 Explorer 读的那份目录项属性。
- */
-function setLinkHidden(link, wantHidden) {
-  const dir = dirname(link)
-  const name = basename(link)
-  const expr = wantHidden ?
-    `$i.Attributes = $i.Attributes -bor [System.IO.FileAttributes]::Hidden` :
-    `$i.Attributes = $i.Attributes -band (-bnot [System.IO.FileAttributes]::Hidden)`
-  try {
-    execFileSync(
-      'pwsh.exe',
-      [
-        '-NoProfile',
-        '-NonInteractive',
-        '-Command',
-        `$i=Get-Item -LiteralPath '${link.replace(/'/g, "''")}' -Force; ${expr}`,
-      ],
-      { windowsHide: true, timeout: 30000, stdio: 'ignore' },
-    )
-    // 用自己的视角复核一遍(父目录枚举),不采信"没抛错"
-    const listed = execFileSync(
-      'pwsh.exe',
-      [
-        '-NoProfile',
-        '-NonInteractive',
-        '-Command',
-        `Get-ChildItem -LiteralPath '${dir.replace(/'/g, "''")}' -Force | Where-Object Name -eq '${name.replace(/'/g, "''")}' | ForEach-Object { $_.Attributes }`,
-      ],
-      { encoding: 'utf8', windowsHide: true, timeout: 30000 },
-    ).trim()
-    return wantHidden ? /Hidden/i.test(listed) : !/Hidden/i.test(listed)
-  } catch {
-    return false
-  }
-}
-
-/** 父目录枚举(`名字=属性`)—— Explorer 读的就是这份,故作为隐藏与否的唯一 oracle。 */
-function parentListing(dir) {
-  return execFileSync(
-    'pwsh.exe',
-    [
-      '-NoProfile',
-      '-NonInteractive',
-      '-Command',
-      `Get-ChildItem -LiteralPath '${String(dir).replace(/'/g, "''")}' -Force | ForEach-Object { "{0}={1}" -f $_.Name, $_.Attributes }`,
-    ],
-    { encoding: 'utf8', windowsHide: true, timeout: 30000 },
-  )
-}
-
-/** 封口后是否给该 junction 加 Hidden 属性(用户 2026-09-24 拍板:"设隐藏,保留改道")。
- *  apply 每次都确保它在位 —— 否则封口被重建(新链接不带 H)就又露出来。 */
-function ensureHidden(link, dryRun) {
-  if (dryRun) return true
-  return setLinkHidden(link, true)
-}
-
-/** 父目录枚举结果(`lnk=Hidden, Directory, ReparsePoint` 这种行)→ 该项是否隐藏。纯函数。 */
-export function isHiddenInParentListing(lines, name) {
-  for (const line of String(lines || '').split(/\r?\n/)) {
-    const m = line.match(/^\s*(.+?)\s*=\s*(.+?)\s*$/)
-    if (m && m[1].toLowerCase() === String(name).toLowerCase()) return /hidden/i.test(m[2])
-  }
-  return null
 }
 
 /**
@@ -269,11 +193,7 @@ function sealOne(entry, root, devEnv, dryRun) {
     isDir: !!st && !st.isSymbolicLink() && st.isDirectory(),
   })
 
-  if (state === 'SEALED') {
-    // 已是链接也要确保隐藏属性在位:封口被人重建过(新链接不带 H)就会重新露出来
-    const kept = entry.hide === false || dryRun || ensureHidden(link, dryRun)
-    return { action: 'skip', ok: kept, note: kept ? '已封口' : '已封口,但隐藏属性设置失败(不影响改道)', state }
-  }
+  if (state === 'SEALED') return { action: 'skip', ok: true, note: '已封口', state }
   if (state === 'FOREIGN-LINK' || state === 'UNREADABLE-LINK')
     return { action: 'touch-nothing', ok: false, note: `该名字已是指向别处的链接(${linkTarget ?? '读不到'})`, state }
   if (state === 'REAL-FILE')
@@ -329,14 +249,7 @@ function sealOne(entry, root, devEnv, dryRun) {
   } catch (e) {
     return { action: 'link', ok: false, note: `建 junction 失败:${e.code || e.message}`, state }
   }
-  // 建完立刻按策略隐藏(用户 2026-09-24 拍板:"设隐藏,保留改道");失败只降级为提示,不算封口失败
-  const hidden = entry.hide === false || ensureHidden(link, false)
-  return {
-    action: 'sealed',
-    ok: true,
-    note: `${link} → ${target}${hidden ? ' +Hidden' : ' (隐藏属性未设上)'}`,
-    state,
-  }
+  return { action: 'sealed', ok: true, note: `${link} → ${target}`, state }
 }
 
 function removeOrphans(root, dryRun) {
@@ -361,16 +274,7 @@ function removeOrphans(root, dryRun) {
   return out
 }
 
-export function run(opts = {}) {
-  // 选项键拼错**必须抛错**:曾经有人(本仓的镜像测试作者,即我)把 `devEnv` 写成 `dev`,
-  // 于是默认值生效 = **生产外置根 D:\DevEnv**,夹具内容被真写进 `D:\DevEnv\cache\c-root-stray\*`
-  // 而测试照样全绿。静默降级比失败危险得多,这里直接拒。
-  const unknown = Object.keys(opts).filter((k) => !['root', 'devEnv', 'mode'].includes(k))
-  if (unknown.length)
-    throw new Error(`run() 收到不认识的选项:${unknown.join(', ')} —— 会被静默忽略并改用生产外置根`)
-  const root = opts.root ?? 'C:'
-  const devEnv = opts.devEnv ?? devEnvRoot()
-  const mode = opts.mode ?? 'check'
+export function run({ root = 'C:', devEnv = devEnvRoot(), mode = 'check' }) {
   const sealed = SEALED_DIRS.map((e) => sealOne(e, root, devEnv, mode !== 'apply'))
   const orphans = mode === 'apply' ? removeOrphans(root, false) : probeOrphans(root)
   const needsAction =
@@ -479,35 +383,6 @@ function selfTest() {
   })
   t('check 在已封口后必须报「无需处理」', () => {
     if (runFake('check').needsAction) throw new Error('已封口仍报待处置 ⇒ 每日巡检会天天红')
-  })
-  t('隐藏策略:Explorer 的视角(父目录枚举)里链接本体必须带 Hidden,目标侧不得被隐藏', () => {
-    const b = join(fake, 'hide-case')
-    const r0 = join(b, 'root')
-    const d0 = join(b, 'devenv')
-    const e = SEALED_DIRS[1]
-    const stray = join(r0, e.name)
-    mkdirSync(stray, { recursive: true })
-    writeFileSync(join(stray, 'keep.txt'), 'through')
-    run({ root: r0, devEnv: d0, mode: 'apply' })
-    // oracle 必须是父目录枚举。`attrib <链接>` 不能用 —— 它顺着链接读**目标**的属性,
-    // 于是"把 Hidden 设到错误的一侧"也会显示成成功(本工具第一版正是这么假通过的)。
-    const listed = parentListing(r0)
-    if (!isHiddenInParentListing(listed, e.name))
-      throw new Error(`链接本体未隐藏,Explorer 仍会显示:${JSON.stringify(listed.trim())}`)
-    const target = pathsFor(e, r0, d0).target
-    if (isHiddenInParentListing(parentListing(dirname(target)), basename(target)))
-      throw new Error('Hidden 落在目标上 ⇒ 藏掉的是 D 盘数据目录,C 盘那个名字照旧可见')
-    // 隐藏只该影响浏览,不该影响穿透 —— 这才是"设隐藏会不会弄坏改道"的真正答案
-    if (readFileSync(join(stray, 'keep.txt'), 'utf8') !== 'through') throw new Error('隐藏后读不回原内容')
-    writeFileSync(join(stray, 'w2.txt'), 'ok')
-    if (!existsSync(join(target, 'w2.txt'))) throw new Error('隐藏后写入没落到目标 ⇒ 穿透被破坏')
-    rmSync(b, { recursive: true, force: true })
-  })
-  t('isHiddenInParentListing:解析枚举结果;查无此项返回 null(不得当成"未隐藏")', () => {
-    const l = 'lnk=Hidden, Directory, ReparsePoint\ntgt=Directory'
-    eq(isHiddenInParentListing(l, 'lnk'), true, '链接应判隐藏')
-    eq(isHiddenInParentListing(l, 'TGT'), false, '目标应判未隐藏(大小写不敏感)')
-    eq(isHiddenInParentListing(l, 'nope'), null, '查无此项必须 null,否则漏报变通过')
   })
   t('删除只断链,不穿透目标(目标内容必须还在)', () => {
     const entry = SEALED_DIRS.find((x) => x.name === 'persistent_data')
