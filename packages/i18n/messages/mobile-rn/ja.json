@@ -410,6 +410,7 @@
     "budgetUsedTokens": "使用済み {used} / {limit} トークン",
     "budgetResetTomorrow": "午前 0 時にリセット",
     "budgetTier": "{tier} プラン",
+    "more": "もっと見る",
     "viewMore": "もっと見る",
     "close": "閉じる",
     "delete": "削除",
