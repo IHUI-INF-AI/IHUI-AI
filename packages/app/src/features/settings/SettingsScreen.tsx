@@ -5,7 +5,7 @@ import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { View, Text, Switch, TextInput, TouchableOpacity, Modal, StyleSheet } from 'react-native'
+import { View, Text, Switch, TextInput, TouchableOpacity, Modal, StyleSheet, ScrollView } from 'react-native'
 import type { SettingsScreenProps, SharedNotificationToggles } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
@@ -99,7 +99,9 @@ export function SettingsScreen({
         <Text style={styles.title}>{t('settings.title')}</Text>
       </View>
 
-      <View style={styles.body}>
+      {/* 必须可滚动:整页有 语言/主题/通知/账号 四个分区 + 退出登录 + 版本号,
+          此前是裸 View,在手机上"账号"分区及其下全部内容被裁掉且滚不到(实测滚动手势零响应)。 */}
+      <ScrollView style={styles.bodyScroll} contentContainerStyle={styles.body}>
         {user && onEditProfile ? (
           <TouchableOpacity style={styles.userCard} onPress={onEditProfile}>
             <View style={styles.avatar}>
@@ -176,7 +178,7 @@ export function SettingsScreen({
             {t('settings.version')} {appVersion}
           </Text>
         ) : null}
-      </View>
+      </ScrollView>
 
       <Modal
         visible={pwdModalVisible}
@@ -315,6 +317,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     backText: { fontSize: 16, color: tk.text.medium },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    bodyScroll: { flex: 1 },
     body: { paddingHorizontal: 10, paddingTop: 12, paddingBottom: 24, gap: 16 },
     userCard: {
       flexDirection: 'row',
