@@ -19,6 +19,7 @@ import assert from 'node:assert/strict'
 
 import {
   collectHitMap,
+  collectSurfaceMap,
   evaluateDispatchParity,
   extractCallbackNames,
   readFrameSource,
@@ -57,6 +58,7 @@ test('① 出口齐备(§22c 锚点)', () => {
     resolveFrameCallbacks,
     evaluateDispatchParity,
     collectHitMap,
+    collectSurfaceMap,
     readFrameSource,
   ]) {
     assert.equal(typeof fn, 'function', '存在未导出的核心函数')
@@ -75,6 +77,41 @@ test('② 真仓:HEAD 实测与台账精确一致(判据在真数据上为绿)',
   assert.deepEqual(result.errors, [], '真仓判定不应有红项')
   assert.deepEqual(result.warnings, [], '真仓不应留 baseline 待上调的警告(增长后必须同票上调)')
   assert.equal(result.ok, true)
+})
+
+/**
+ * 归因图与命中图**同源**证明:两张图共用同一次 grep,所以"某端已覆盖 N 帧"
+ * 必须严格等于"该端各命中文件的并集"。若哪天有人把归因改成另跑一遍(或加了过滤),
+ * 这条会红 —— 那正是"矩阵说已接、归因说没人接"这类分歧的探测器。
+ */
+test('②b 归因图并集 === 命中图(两图不得各自为政)', () => {
+  const data = realData()
+  const { source, error } = readFrameSource()
+  assert.equal(error, null)
+  const callbacks = resolveFrameCallbacks(source, data.toolCallbacks)
+  const hit = collectHitMap(data, callbacks)
+  const surfaces = collectSurfaceMap(data, callbacks)
+  assert.deepEqual(
+    Object.keys(surfaces).sort(),
+    Object.keys(hit).sort(),
+    '归因图的端集合与命中图不一致',
+  )
+  for (const ep of Object.keys(hit)) {
+    const union = new Set()
+    for (const set of surfaces[ep].values()) for (const cb of set) union.add(cb)
+    assert.deepEqual(
+      [...union].sort(),
+      [...hit[ep]].sort(),
+      `端 ${ep} 的并集与命中集合不同(归因漏计或多计)`,
+    )
+    for (const [file, set] of surfaces[ep]) {
+      assert.ok(
+        (data.endpoints[ep] ?? []).some((d) => file.startsWith(`${d}/`)),
+        `文件 ${file} 不落在端 ${ep} 的任一声明目录内`,
+      )
+      assert.ok(set.size > 0, `文件 ${file} 出现在归因表里却零帧,属空条目`)
+    }
+  }
 })
 
 test('③ 注入违规:抽走一个端的一个命中必须判红(红因是"静默丢弃")', () => {
