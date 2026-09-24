@@ -48,7 +48,6 @@
     "uploading": "Uploading...",
     "user": "User",
     "more": "More",
-    "viewMore": "View More",
     "discountAmount": "Discount"
   },
   "login": {
@@ -832,8 +831,7 @@
       "tabFollowing": "Following",
       "history": "History",
       "selectCategory": "Select Category",
-      "subtitle": "Curating cutting-edge tech news",
-      "viewMore": "View More Rankings"
+      "subtitle": "Curating cutting-edge tech news"
     },
     "creation": {
       "title": "AI Creation Share",
@@ -1872,7 +1870,6 @@
       "commentSent": "Comment posted",
       "aigcTag": "AI Work",
       "commentsTitle": "Comments",
-      "viewMore": "View more",
       "noComments": "No comments yet, be the first",
       "commentPlaceholder": "Say something…",
       "commentListSoon": "Comment list coming soon",
@@ -3902,7 +3899,6 @@
     "16": "Using \"data flood\" as imagery, generate a prose poem about creation in the digital age.",
     "17": "Paid, ¥{m}",
     "18": "When machines begin to think, is humanity ready? This is a story about consciousness, freedom, and coexistence. At the intersection of silicon-based and carbon-based life, we re-examine the meaning of \"existence\".",
-    "19": "View more",
     "20": "Confirm selection{count}",
     "21": "More free AI assistant uses",
     "22": "Free access to selected courses",
