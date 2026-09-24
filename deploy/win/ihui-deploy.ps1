@@ -1066,15 +1066,36 @@ if ($behind -gt 0) {
         $dirtyAfter = Get-TrackedDirtyEntry
         Log "ff-only 前置:对齐后剩余 $($dirtyAfter.Count) 个未提交被跟踪文件(本轮对齐掉 $($dirtyBefore.Count - $dirtyAfter.Count) 个)"
     }
-    & git merge --ff-only FETCH_HEAD 2>&1 | Out-String | Write-Host
+    $mergeOut = (& git merge --ff-only FETCH_HEAD 2>&1 | Out-String)
+    Write-Host $mergeOut
     if ($LASTEXITCODE -ne 0) {
-        # 两种成因必须分开报:"有真人在写"(等对方收尾即可)vs "仓库真分叉"(要人决策,勿盲目强推)
+        # 2026-09-24 更正判据的成因归属:下面这段原先只看"工作树有没有脏文件"就判 BLOCKED-WIP,
+        # 但"有脏文件"只是背景,不是这次 merge 失败的原因。真分叉时 git 报的是
+        # "Not possible to fast-forward",而只要树上恰有脏文件(共享工作区常年如此),旧代码就会
+        # 把结论写成"有人在写,等对方收尾" —— 实测把排查整个带去清扫工作树,白耗 1.5h 并寄出一次
+        # 错因告警。现按 git 自己说的话分类,且 WIP 一支只点名**真正挡住 ff 的那几个路径**
+        # (= 脏 ∩ 本次要改),不再把 41 个无关脏文件列成阻塞项。
         $stillDirty = Get-TrackedDirtyEntry
-        if ($stillDirty.Count -gt 0) {
-            Report-BlockedWip -Entries $stillDirty
-            Fail "git merge --ff-only FETCH_HEAD 失败:工作树仍有被跟踪文件存在真实未提交改动(BLOCKED-WIP,清单见紧邻上一行),已停止,未切流"
+        if ($mergeOut -match 'Not possible to fast-forward') {
+            Log "BLOCKED-DIVERGED 远端与本地已分叉(git 原话:Not possible to fast-forward),这不是脏文件造成的。"
+            Log "BLOCKED-DIVERGED 处置:只能由人/持有人会话跑 node scripts/git-sync-converge.mjs(本脚本永不强推、永不硬回退、永不动他人未提交改动)。"
+            Log "BLOCKED-DIVERGED 背景(非成因):工作树另有 $($stillDirty.Count) 个未提交被跟踪文件。"
+            Fail "git merge --ff-only FETCH_HEAD 失败:仓库真分叉,需人工收敛后才能切流(未强推、未动任何在途改动)"
         }
-        Fail "git merge --ff-only FETCH_HEAD 失败(工作树已无未提交改动,疑为真分叉/冲突),已停止,未切流"
+        $dirtyPaths = @($stillDirty | ForEach-Object { $_.Substring([Math]::Min(3, $_.Length)).Trim() })
+        $mustTouch = @(& git -C $Root diff --name-only HEAD FETCH_HEAD 2>&1 | Out-String) -split "`r?`n" |
+            Where-Object { $_.Trim() }
+        $blockers = @($dirtyPaths | Where-Object { $mustTouch -contains $_ })
+        if ($blockers.Count -gt 0) {
+            Report-BlockedWip -Entries (@($blockers | ForEach-Object { " M $_" }))
+            Fail "git merge --ff-only FETCH_HEAD 失败:上面 $($blockers.Count) 个未提交文件与本次要更新的路径重叠,挡住 ff(不代提交不删除),已停止,未切流"
+        }
+        if ($stillDirty.Count -gt 0) {
+            # 走到这里 = git 既没说分叉、脏文件也不与本次更新重叠 ⇒ 未判定,如实报出原文
+            Log "WARN  merge 失败成因未归类(git 输出不含上述两种指纹);脏文件 $($stillDirty.Count) 个但与本次更新不重叠。git 原文尾 5 行:"
+            @($mergeOut -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -Last 5) | ForEach-Object { Log "  [git] $_" }
+        }
+        Fail "git merge --ff-only FETCH_HEAD 失败(成因见紧邻上一行),已停止,未切流"
     }
     Ok "merge 完成,HEAD=$(git rev-parse --short HEAD | Out-String)"
 }
