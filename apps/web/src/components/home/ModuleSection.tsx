@@ -6,10 +6,11 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import { ViewMoreLink } from '@/components/common/view-more-link'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
-import { Loader2, ChevronRight, FileText, type LucideIcon } from 'lucide-react'
+import { Loader2, FileText, type LucideIcon } from 'lucide-react'
 import { Card } from '@ihui/ui-react'
 
 export interface HomeItem {
@@ -41,6 +42,7 @@ export function ModuleSection({
   variant = 'card',
 }: ModuleSectionProps) {
   const t = useTranslations('home.moduleSection')
+  const tc = useTranslations('common')
   const { data: items = [], isLoading } = useQuery({
     queryKey,
     queryFn,
@@ -58,13 +60,7 @@ export function ModuleSection({
             {englishTitle}
           </span>
         </div>
-        <Link
-          href={href}
-          className="flex items-center gap-0.5 text-xs text-muted-foreground transition-colors hover:text-primary"
-        >
-          {t('viewMore')}
-          <ChevronRight className="h-3 w-3" />
-        </Link>
+        <ViewMoreLink label={tc('more')} href={href} />
       </header>
       <div className="p-3">
         {isLoading ? (
