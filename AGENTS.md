@@ -1395,6 +1395,11 @@ C 盘 120 GB 频繁告急,根因排查发现:
 **换机或重装后需重跑一次**),守门与 `c-drive-auto-maintain.ps1` 第 4 段都 import 同一份清单,
 **禁止在别处再抄一份名字**。发现某新残骸也属这一型:加进 `SEALED_DIRS`(必须带 `owner` + `evidence`
 两项取证)而不是写进删除名单。
+**封口必须同时挂进 `git-guardian` 的自愈轮(2026-09-24 实测)**:`--apply` 做的 junction **会被重启清掉**
+(当天 4 个里死 3 个,D 侧内容完好)。只靠每日 03:00 体检 = 最长 23 小时空窗,够第三方自建真目录回到
+复发原点。正解是第三层 `healRootSeal()` 挂在 `git-guardian` 的 `!CHECK_ONLY` 分支(与
+`healWorktreeTracked` 同位,2 分钟一轮),`seal --check` 判红才 `--apply`;挂点写成 CHECK_ONLY
+路径等于永不执行(工作区自愈层踩过同一坑),三条装车证明由 `scripts/tests/seal-c-root-stray.test.mjs` 钉死。
 **⚠️ junction 的头号危险是"被递归穿透"(同日实测)**:PowerShell 7 的 `Get-ChildItem -Recurse`
 **会穿过 junction** 枚举到目标里的文件,于是"按名字删 `C:\tmp\ihui-*`"会顺着链接清空 D 盘真实目标,
 把改道机制变成自毁机制。三条要求:① 任何递归删除/枚举前必须判 `ReparsePoint`,重解析点只能
