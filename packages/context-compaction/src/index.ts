@@ -20,96 +20,23 @@
  * 灵感来源:参考行业 Agent 框架的上下文管理机制,统一所有端的行为。
  */
 
-import { encode } from 'gpt-tokenizer'
+// 类型与 token 估算内核已抽为叶子模块(见 src/types.ts、src/token-estimate.ts),
+// 让回收/有效性守卫子模块单向依赖内核而不是反向 import 本文件(避免运行期循环)。
+// 本文件按原导出面 re-export,消费方(apps/api、apps/cli、packages/shared)零改动。
+export type { ChatMessage, ChatMessageToolCall } from './types.js'
+export {
+  MESSAGE_OVERHEAD_TOKENS,
+  TOOL_CALL_OVERHEAD_TOKENS,
+  IMAGE_TOKEN_PLACEHOLDER,
+  estimateTokens,
+  estimateMessagesTokens,
+} from './token-estimate.js'
 
-/** OpenAI 兼容的工具调用描述(压缩配对保护按 id 匹配) */
-export interface ChatMessageToolCall {
-  id: string
-  type?: string
-  function?: { name?: string; arguments?: string }
-}
+import { estimateMessagesTokens, estimateTokens } from './token-estimate.js'
+import { SUMMARY_MARKER } from './markers.js'
+import type { ChatMessage } from './types.js'
 
-/** 跨端共享的聊天消息结构(与 @ihui/types/message-repair 的 RepairableMessage 兼容) */
-export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant' | 'tool'
-  content: string
-  /** assistant 发起的工具调用列表(存在时与其后的 tool 结果消息构成配对组,压缩不拆散) */
-  tool_calls?: ChatMessageToolCall[]
-  /** tool 结果消息对应的 tool_call id(与前面 assistant 的 tool_calls[].id 配对) */
-  tool_call_id?: string
-}
-
-// ==================== Token 估算开销常量(2026-09-02 跨端对齐) ====================
-/** 单条消息固定开销(role/name 分隔),与 OpenAI/Anthropic 协议一致 */
-export const MESSAGE_OVERHEAD_TOKENS = 4
-/** 单条 tool_call 的固定 JSON 协议开销(name/arguments 包装) */
-export const TOOL_CALL_OVERHEAD_TOKENS = 4
-/** 多模态图片占位估算(每张图按 OpenAI low-detail ~85 tokens、high-detail ~170 tokens 的中位值取整);
- *  对超大 base64 数据 URI,避免对整段 base64 做 BPE(慢且虚高) */
-export const IMAGE_TOKEN_PLACEHOLDER = 1200
-
-/** data:image/...;base64,XXX 多模态图片占位正则(全局) */
-const DATA_IMAGE_RE = /data:image\/[a-zA-Z0-9+.-]+;base64,[A-Za-z0-9+/=]+/g
-
-/** 估算字符串 token 数,自动替换 base64 图片为固定占位(避免巨串 BPE) */
-function estimateTextWithImagePlaceholders(text: string): number {
-  if (!text) return 0
-  // 命中图片时:每张图占 IMAGE_TOKEN_PLACEHOLDER,其余文本正常 BPE
-  if (DATA_IMAGE_RE.test(text)) {
-    DATA_IMAGE_RE.lastIndex = 0
-    let total = 0
-    let lastIndex = 0
-    let m: RegExpExecArray | null
-    while ((m = DATA_IMAGE_RE.exec(text)) !== null) {
-      if (m.index > lastIndex) {
-        total += encode(text.slice(lastIndex, m.index)).length
-      }
-      total += IMAGE_TOKEN_PLACEHOLDER
-      lastIndex = m.index + m[0].length
-    }
-    if (lastIndex < text.length) {
-      total += encode(text.slice(lastIndex)).length
-    }
-    return total
-  }
-  return encode(text).length
-}
-
-/** 估算单条 tool_call 的 token(id+type+name+arguments + 固定开销) */
-function estimateToolCallTokens(tc: ChatMessageToolCall): number {
-  if (!tc || typeof tc.id !== 'string') return 0
-  const inner =
-    tc.id +
-    (typeof tc.type === 'string' ? tc.type : '') +
-    (tc.function && typeof tc.function.name === 'string' ? tc.function.name : '') +
-    (tc.function && typeof tc.function.arguments === 'string' ? tc.function.arguments : '')
-  return estimateTextWithImagePlaceholders(inner) + TOOL_CALL_OVERHEAD_TOKENS
-}
-
-/** 估算字符串 token 数(BPE);含图片占位短路。导出供跨端共享。 */
-export function estimateTokens(text: string): number {
-  return estimateTextWithImagePlaceholders(text)
-}
-
-/** 估算消息列表总 token 数(content + tool_calls.arguments + tool_call_id + 每条固定开销)
- *  跨端对齐:与 Python 端 estimate_messages_tokens 增量规则一致
- *  (tool_calls 参数计 +TOOL_CALL_OVERHEAD_TOKENS;tool 消息 +TOOL_CALL_OVERHEAD_TOKENS;每消息 +MESSAGE_OVERHEAD_TOKENS) */
-export function estimateMessagesTokens(messages: ChatMessage[]): number {
-  let total = 0
-  for (const m of messages) {
-    total += MESSAGE_OVERHEAD_TOKENS
-    total += estimateTokens(m.content ?? '')
-    if (Array.isArray(m.tool_calls)) {
-      for (const tc of m.tool_calls) {
-        total += estimateToolCallTokens(tc)
-      }
-    }
-    if (m.role === 'tool' && typeof m.tool_call_id === 'string' && m.tool_call_id) {
-      total += TOOL_CALL_OVERHEAD_TOKENS
-    }
-  }
-  return total
-}
+export { SUMMARY_MARKER, isSummaryMessage } from './markers.js'
 
 // ==================== 跨端统一常量 ====================
 
@@ -131,8 +58,7 @@ export const MIN_TRUNCATE_CHARS = 100
 export const TRUNCATION_MARKER = '…[已截断]'
 /** 截断迭代最大次数 */
 export const MAX_TRUNCATE_ATTEMPTS = 8
-/** 摘要消息内容前缀标记(防嵌套检测:后续压缩识别到该前缀时合并重写而非再摘要) */
-export const SUMMARY_MARKER = '[上下文摘要'
+// SUMMARY_MARKER 已收口到 src/markers.ts 单源(见本文件顶部 re-export),此处不再定义
 
 // 分层金字塔摘要常量:按时间距离分层 —— 越近的保留越多细节,越远的越浓缩,
 // 同样 token 预算下信息保留度显著更高(与 ai-service Python 端逐语义一致)
@@ -160,8 +86,10 @@ export interface CompressionResult {
    *   - 'none':未达阈值,不压缩
    *   - 'truncated':常规摘要压缩压不动,已对最后一条消息做内容级截断降级(截断成功,保证对话可用)
    *   - 'incompressible':截断到最小长度仍 >= 触发阈值(典型:system 本身巨大),返回原消息防循环
+   *   - 'reclaim':仅靠**零模型请求**的旧工具结果回收就把体量降到触发线以下
+   *     (没花一次摘要调用,见 src/reclaim.ts)
    */
-  trigger?: 'ratio' | 'absolute' | 'none' | 'truncated' | 'incompressible'
+  trigger?: 'ratio' | 'absolute' | 'none' | 'truncated' | 'incompressible' | 'reclaim'
   usageRatio?: number
 }
 
@@ -772,4 +700,44 @@ export function compressContextIfNeeded(
   })
   return finalResult
 }
+
+// ==================== 回收(reclaim)与三道有效性守卫 ====================
+// 实现分文件,re-export 保持"一个包一个入口"的公开面(apps/cli、apps/api 不深导入内部路径)
+export {
+  RECLAIMABLE_TOOL_NAMES,
+  RECLAIM_KEEP_RECENT_ROUNDS,
+  RECLAIM_MIN_RESULT_TOKENS,
+  RECLAIM_MIN_SAVED_TOKENS,
+  NON_RECLAIMABLE_EDIT_TOOLS,
+  RECLAIM_PLACEHOLDER,
+  RECLAIM_WINDOW_RATIO_TRIGGER,
+  RECLAIM_IDLE_TRIGGER_MS,
+  reclaimStaleToolResults,
+  splitAssistantRounds,
+  hasMultimodalBlock,
+  isReclaimedPlaceholder,
+  type ReclaimOptions,
+  type ReclaimResult,
+  type ReclaimSkipReason,
+  type ReclaimTrigger,
+} from './reclaim.js'
+export {
+  REFILL_QUICK_WINDOW_ROUNDS,
+  REFILL_BREAKER_MAX_CONSECUTIVE,
+  OVERFLOW_DROP_MAX_ROUNDS,
+  NEXT_TURN_GROWTH_TOKENS,
+  reverifyContextAfterCompaction,
+  pickAuthoritativeTokens,
+  RefillBreaker,
+  buildRefillDiagnostic,
+  retryAfterOverflowDrop,
+  findOrphanToolMessages,
+  type ProviderUsage,
+  type ReverifyOptions,
+  type ReverifiedContext,
+  type RefillBreakerOptions,
+  type RefillObservation,
+  type OverflowDropOptions,
+  type OverflowDropResult,
+} from './validity-guards.js'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
