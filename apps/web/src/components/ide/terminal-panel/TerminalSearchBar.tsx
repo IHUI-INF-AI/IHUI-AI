@@ -9,6 +9,10 @@ import { cn } from '@/lib/utils'
 import { ChevronUp, ChevronDown, X } from 'lucide-react'
 import { SearchInput } from '@ihui/ui-react'
 import type { SearchOptions } from './types'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
+
+/** 层栈 id(见 @/lib/overlay-stack):终端内搜索条(挂载即为一层) */
+const TERMINAL_SEARCH_BAR_OVERLAY_ID = 'terminal-search-bar'
 
 interface TerminalSearchBarProps {
   searchTerm: string
@@ -44,6 +48,12 @@ export function TerminalSearchBar({
     clearDecorations()
   }, [setSearchOpen, setSearchTerm, clearDecorations])
 
+  // 层栈:本组件挂载即"搜索条"这一层(卸载即出栈),Esc 只在栈顶时消费
+  React.useEffect(() => {
+    pushOverlay(TERMINAL_SEARCH_BAR_OVERLAY_ID)
+    return () => popOverlay(TERMINAL_SEARCH_BAR_OVERLAY_ID)
+  }, [])
+
   return (
     <div className="flex flex-col gap-1 bg-card px-2 py-1.5">
       <div className="flex items-center gap-1.5">
@@ -56,6 +66,7 @@ export function TerminalSearchBar({
               e.preventDefault()
               doSearch(!e.shiftKey)
             } else if (e.key === 'Escape') {
+              if (!isTopOverlay(TERMINAL_SEARCH_BAR_OVERLAY_ID)) return
               e.preventDefault()
               handleClose()
             }

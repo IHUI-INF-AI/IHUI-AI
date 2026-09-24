@@ -1,7 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
 
 /**
  * AiAssistantN8nScreen AI 助手对话(共享层,平台无关 UI)
@@ -31,6 +30,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 import { Settings } from 'lucide-react-native'
+
+import { rnRadius } from '@ihui/design-tokens'
 
 /** N8n 消息项 */
 export interface N8nMessage {
@@ -270,7 +271,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.xl,
     } as ViewStyle,
     messageBubbleUser: {
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     } as ViewStyle,
     messageBubbleAi: {
       backgroundColor: tk.surface.card,
@@ -280,7 +281,7 @@ function createStyles(tk: AppThemeTokens) {
       lineHeight: 20,
     } as TextStyle,
     messageTextUser: {
-      color: tk.surface.light,
+      color: tk.brand.ctaForeground,
     } as TextStyle,
     messageTextAi: {
       color: tk.text.primary,
@@ -387,12 +388,12 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 16,
       height: 50,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
     } as ViewStyle,
     sendBtnText: {
-      color: tk.surface.light,
+      color: tk.brand.ctaForeground,
       fontSize: 16,
       fontWeight: '600',
     } as TextStyle,

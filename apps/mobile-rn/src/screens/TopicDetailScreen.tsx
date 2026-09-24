@@ -1,7 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
 
 /**
  * TopicDetailScreen 话题详情页(mobile-rn 端)
@@ -31,7 +30,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Heart, MessageCircle, PenLine } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
+import { getRnTokens, type RnThemeTokens, rnRadius } from '@ihui/design-tokens'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -340,7 +339,7 @@ const createStyles = (tk: RnThemeTokens) =>
       paddingHorizontal: rpx(32),
       paddingVertical: rpx(12),
       borderRadius: rnRadius['2xl'],
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     followBtnActive: {
       backgroundColor: tk.surface.muted,
@@ -348,7 +347,7 @@ const createStyles = (tk: RnThemeTokens) =>
     followBtnText: {
       fontSize: 13,
       fontWeight: '600',
-      color: tk.surface.card,
+      color: tk.brand.ctaForeground,
     },
     followBtnTextActive: {
       color: tk.text.secondary,

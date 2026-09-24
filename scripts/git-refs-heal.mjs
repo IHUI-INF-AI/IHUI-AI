@@ -129,7 +129,12 @@ function refResolvable(ref) {
  * ⚠️ 谓词写法:`cat-file -e` 成功时**输出是空串**,而 git(..., allowFail=true) 只在失败时返回 null。
  *    用 `!!git(...)` 判断会把"对象存在"读成"不存在"⇒ 每条好 ref 都被当成死的删掉。
  */
-function objectExists(sha) {
+/**
+ * 对象是否可解析。`export` 是给 `git-guardian.mjs` 复用的 —— 守护每 2 分钟跑的 `healRefs()`
+ * 与本文件的离线重建必须共用同一份判定(此前它只挂在 `__test__` 上,守护 import 直接
+ * `SyntaxError: does not provide an export named`,是运行时抓到而不是靠人眼)。
+ */
+export function objectExists(sha) {
   return /^[0-9a-f]{7,40}$/.test(String(sha || '')) && git(['cat-file', '-e', sha], true) !== null
 }
 
