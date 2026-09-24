@@ -6269,7 +6269,7 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
   而 `@ihui/shared` 的 `exports["."]` 直指 `src/index.ts`、`index.ts:19` 再 `export * from './chat'`、
   apps/web 有 28 个文件 import 根 barrel ⇒ 整个 web 端不可构建。修法只摘出口不造模块(造=新增功能,§24),
   票号与"落地后逐行去掉注释即恢复"留在原处。验证:`@ihui/shared` typecheck 由 3×TS2307 → exit 0。
-- [ ] **缺陷二(未闭环,需用户决定)**:`apps/web/package.json` 声明的 `xlsx`(锁里是 `@e965/xlsx@0.20.3` 别名)
+- [x] ✅(2026-09-24) **缺陷二(已闭环)**:`apps/web/package.json` 声明的 `xlsx`(锁里是 `@e965/xlsx@0.20.3` 别名)
   /`docx-preview@^0.3.5`/`jszip@^3.10.1` **三者在依赖树里根本没装**(97 个声明依赖精确缺这 3 个;
   `jszip`/`@e965+xlsx` 在 `.pnpm` 里但没链进 `apps/web/node_modules`,`docx-preview` 连 store 都没有)。
   这就是 `office-preview.tsx` 三处 Module not found 的真因 —— **与那 42 个未提交文件无关**:
@@ -6277,6 +6277,22 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
   与 §12e 记的那型同源。npmmirror 可达(实测 `npm view docx-preview` 200),但同批另一会话已写下
   更尖锐的教训:"install 每轮都在被 8801 锁住的 `@next/swc` 上 EPERM 中止 ⇒ relink 永远走不到"。
   所以补齐这 3 条链接大概率要**短停 `IHUI-WEB`** 再装 —— 那是有意的生产瞬时中断,归用户定档,本会话不擅自停服务。
+  该文件的 import 在 HEAD 版本里就有(实测 4 处)。
+- [x] ✅(2026-09-24) **两条错假设都被实测打掉,真因是 main 上的一处清单↔锁不一致**(用户定档"清单向锁对齐"):
+  ① "短停 IHUI-WEB 再装" —— 停服后 `pnpm install --force` 仍 285ms 回 "Already up to date"、三条链接照旧不建,
+  所以 §12e/另一会话记的 `@next/swc` EPERM **不是本例成因**(那条教训本身仍成立,只是不适用于此)。
+  ② npmmirror 可达(实测 `npm view docx-preview` 200),网络也不是原因。
+  真因:`pnpm-lock.yaml` 的 `importers.apps.web.dependencies.xlsx` 记 `specifier: npm:@e965/xlsx@^0.20.3`,
+  而 `apps/web/package.json` 写 `^0.18.5` —— **两者在 main 上就已不一致**(实测 `git status --porcelain`
+  对 `apps/web/package.json` 与 `pnpm-lock.yaml` 均无输出,不是我或他人在途改的)。这个不一致使 pnpm
+  **整段跳过 apps/web 的链接步骤**(其状态标记 `node_modules/.modules.yaml` 停在 09-23 11:48,早于这三条依赖),
+  表现为"97 个声明依赖精确缺 3 条",且 `pnpm ls --filter @ihui/web` 根本不列它们(= pnpm 自己也不认为装过)。
+  改法取"清单向锁对齐"一行(`xlsx: npm:@e965/xlsx@^0.20.3`),**不动解析图、不重写 lock**(装完 lock 仍不在改动集)。
+  验收:三条链接全部落地;8 个包抽查 325 条声明依赖解析不到 **0** 条;`.bin/eslint --version`=v10.8.1、
+  `tsc`=5.9.3(§12e 实测口径);门 78 全量 exit 0(710 条链接破损 0)。
+  **值得留的一条判据**:遇"install 说 Already up to date 但东西不在",不要去怀疑锁文件的服务进程,
+  先做 **package.json ↔ lock importer 的 specifier 逐条比对** —— 不一致时 pnpm 是整段跳过该 importer,
+  因此缺的永远是"那一个 importer 的全部新增项",这个形状本身就是指纹。
 - [x] ✅(2026-09-24) **登记一条"文档隐形"实证**:AGENTS.md 通篇登记守门 **97 `check-statusbar-single-source.mjs`**
   (三判据 + 20 例 self-test + 镜像测试 + 装车证明,写得很完整),但**该脚本文件在全仓不存在**
   (`git cat-file -e e070fb273:scripts/check-statusbar-single-source.mjs` 失败、`find` 零命中、

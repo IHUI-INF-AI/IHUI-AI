@@ -98,7 +98,7 @@
     "tailwindcss-animate": "^1.0.7",
     "three": "^0.185.1",
     "xstate": "^5.32.5",
-    "xlsx": "^0.18.5",
+    "xlsx": "npm:@e965/xlsx@^0.20.3",
     "zod": "catalog:",
     "zustand": "catalog:"
   },
