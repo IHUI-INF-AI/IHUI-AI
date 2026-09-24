@@ -202,7 +202,7 @@ function createStyles(tk: AppThemeTokens) {
     stateWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 14 },
     stateText: { fontSize: 14, color: tk.text.tertiary, marginTop: 8 },
     errorText: { fontSize: 14, color: tk.danger.DEFAULT },
-    header: { paddingHorizontal: 10, paddingTop: 48, paddingBottom: 8 },
+    header: { paddingHorizontal: 10, paddingBottom: 8 },
     backBtn: { paddingVertical: 4, marginBottom: 8 },
     backText: { fontSize: 16, color: tk.text.secondary },
     title: { fontSize: 22, fontWeight: '600', color: tk.text.primary },
