@@ -379,7 +379,7 @@ export function InputArea({
           accessibilityLabel={collapsedFabLabel ?? '展开提问输入'}
           accessibilityState={{ expanded: false }}
         >
-          <Plus size={26} color={tokens.brand.foreground} />
+          <Plus size={26} color={tokens.brand.ctaForeground} />
         </Pressable>
       </View>
     )
@@ -1114,7 +1114,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 56 / 2, // radius-exempt: 折叠态 FAB 几何正圆(56dp 直径/2)
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
     // shadow(iOS)

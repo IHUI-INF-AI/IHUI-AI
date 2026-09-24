@@ -133,7 +133,7 @@ function createStyles(tk: AppThemeTokens) {
       width: 44,
       height: 44,
       borderRadius: 44 / 2, // radius-exempt: 圆形头像 fallback,半径=宽高一半
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
       marginRight: 12,
@@ -147,7 +147,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 3,
       borderRadius: rnRadius.sm,
     },
-    roleBadgeOwner: { backgroundColor: tk.brand.DEFAULT },
+    roleBadgeOwner: { backgroundColor: tk.brand.cta },
     roleBadgeAdmin: { backgroundColor: tk.success.DEFAULT },
     roleBadgeMember: { backgroundColor: tk.text.tertiary },
     roleText: { fontSize: 11, fontWeight: '600', color: tk.surface.light },

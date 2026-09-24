@@ -45,7 +45,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: rnRadius.xl,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 3,
@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   fabIcon: {
     fontSize: 24,
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
     fontWeight: '600',
   } as TextStyle,
 })

@@ -266,7 +266,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.xl,
       alignItems: 'center',
     },
-    btnSuccess: { backgroundColor: tk.brand.DEFAULT },
+    btnSuccess: { backgroundColor: tk.brand.cta },
     btnDanger: { backgroundColor: tk.danger.DEFAULT },
     btnDisabled: { opacity: 0.5 },
     actionBtnText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },

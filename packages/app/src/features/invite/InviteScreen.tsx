@@ -165,7 +165,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 50,
       justifyContent: 'center',
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },
     shareBtnText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
