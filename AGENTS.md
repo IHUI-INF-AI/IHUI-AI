@@ -1277,6 +1277,7 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 
 - **HEAD 悬空具名导入对账**(98):`scripts/check-dangling-local-imports.mjs`(blocking,2026-09-24 立)—— 与守门 77 B6 同族的**另一半**:77 管"用了标识符却没 import",本门管"`import { X } from './y'` 而 y 根本不导出 X"。两者都只在编译期可见,而 `pnpm typecheck` 只跑共享工作区 —— 工作区恰好是旧基线时**两边都不红**。2026-09-24 一天内各中一次:`rnRadius['2xl']` 两处未 import 让真机 release 包启动即 SIGABRT(Metro 不查类型,打包成功≠能跑);`PermissionTierRow` 经 `git log --all -S` 证明**从未在任何提交里存在过**,而引用它的注释还写着"已抽到 ChatDisclosure"。判据 D1(具名导入无对应导出)/ D2(相对路径解析不到);口径与 77/83/90 一致:全量判 **HEAD blob**、`--staged` 判索引 blob、**棘轮锚点恒为该文件 HEAD 自身违规数**(把锚点写成 0 会让存量 300+ 文件整片报红 ⇒ 逼人 `--no-verify` ⇒ 全部守门作废);宁漏不误报 —— `export *` 目标不可枚举即放过,缩进/注释/模板字符串里的 import 形态一律不判。真仓 HEAD 实测 8042 源文件、悬空 6 处且**全在测试面**,生产代码 0 处。取证 `--self-test` 19 例 + §22c 镜像测试 5 例(含"存量只允许落在测试文件"与 runner 装车证明)。紧急跳过 `HUSKY_SKIP_DANGLING_IMPORTS=1`。
 - **守门 77 B6 的括号形态盲区(2026-09-24 补)**:B6 首版的使用形态正则是 `rnRadius\s*\.`,而本门 `targetOf()` 对 2xl 档**规定的写法恰是 `rnRadius['2xl']`**(`rnRadius.2xl` 不是合法 JS)—— 门让你怎么写,门就看不见怎么写。现判据改为 `\s*(?:\.|\[)` 两种形态同视,`--self-test` 补 3 例成对正反对照,镜像测试补"括号形态必须被看见"的装车证明。教训:**判据必须覆盖自己产出的那一种形态**,否则它只拦得住别人、拦不住自己。
+
 ### 计划任务与 .vbs 的硬约束(2026-09-20 立,由本人引入的弹窗回归收口)
 
 - **🚫 计划任务禁止直接执行控制台程序**:InteractiveToken 下 `/tr "node.exe xxx"` 会让 Windows **显示控制台窗口**(每 2 分钟闪一扇黑窗)。一律经 `wscript.exe "<name>-hidden.vbs"` 包装(`objShell.Run(cmd, 0, False)` = SW_HIDE);`-WindowStyle Hidden` 与 `powershell -WindowStyle Hidden` **仍会闪**,不作为豁免手段。现存正例:`git-guardian-hidden.vbs` / `cleanup-zombie-processes-hidden.vbs` / `kill-git-selector-hidden.vbs`。
@@ -1490,6 +1491,15 @@ nssm 服务(IHUI-API / IHUI-DEPLOYLOOP 以 LocalSystem 运行)拿到的仍是 `C
 **2026-09-23 曾实测:该任务在本机并不存在**(当时代号未注册,`D:\DevEnv\logs\c-drive-maintain.log` 也从未生成)。当时的表是**设计意图**而非现状,曾据此以为"每天在清"⇒ 实际零执行,这是 C 盘能攒下 13.2GB `.next` 构建备份的直接原因之一。
 
 **同日 23:59 经用户授权后已真正注册**(状态=现状,不再是设计意图):
+
+> **该"现状"于 2026-09-24 再次失真,已三路取证终判为「当前不存在」**(本节下方表格里的"每天 3am"因此也是设计意图而非实况):
+> ① `schtasks /query /fo CSV | grep -i c-drive` **零命中**(这正是本节规定的权威查法);
+> ② `Get-ScheduledTask | Where TaskName -match 'C-Drive|Maintain'` 返回**空**;
+> ③ 递归枚举 `C:\Windows\System32\Tasks\*.XML`,**没有**任何 C-Drive/Maintain 定义文件 —— 而同目录其余 **14 个 `IHUI*` 任务全部在位可列**
+> ⇒ 排除"查法失效"这一假阴性解释,任务确实不在了。
+> `D:\DevEnv\logs\c-drive-maintain.log` 今天(09-24 10:59)那条记录是**人工 `-DryRun` 预演**,不是 03:00 自动执行(全文 `[DRY]` 无 `[DEL]`,合计释放 0 MB),
+> 所以"每天在清"在今天并没有发生。**注册动作 = 影响全机的每日自动删除,仍须用户授权,agent 不得自行 `schtasks /create` 恢复**;
+> 上一条"回读 `schtasks /Query /XML` 实证 `LogonType=S4U`"当时为真,但那份定义现已不在 —— 名字陷阱的解释**不成立**(权威全量列表法连空格名一起扫,零命中)。
 
 - **动作链按本节下方「计划任务禁止直接执行控制台程序」硬约束走**:`wscript.exe` → 纯 ASCII 的 `scripts/c-drive-maintain-hidden.vbs` → `pwsh -NoProfile -ExecutionPolicy Bypass -File …ps1`。注册前用 `cscript //nologo` 实跑过一份**只带 `-DryRun` 的同体副本**做语法+拉起链证明(实测写出 `[WARN] … DRY RUN(全脚本不删任何东西)`),因此注册过程零删除。
 - **登录类型已升 S4U**(与凭据巡检同一套 `scripts/task-set-s4u.vbs`),否则 3am 无人登录时不会跑。回读 `schtasks /Query /XML` 实证:`LogonType=S4U`、`Command=wscript.exe`、`StartBoundary=03:00`、下次运行 `2026-09-24 03:00`。
