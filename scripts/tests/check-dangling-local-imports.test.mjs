@@ -55,20 +55,26 @@ test('装车证明:guardian-runner 里 id 98 必须存在、blocking、只出现
   assert.match(block, /skipEnv: 'HUSKY_SKIP_DANGLING_IMPORTS'/)
 })
 
-test('真仓 HEAD 全绿:生产代码 0 处悬空,存量只允许落在测试文件里', () => {
-  const out = execFileSync(process.execPath, [GUARD], {
-    cwd: ROOT,
-    encoding: 'utf8',
-    windowsHide: true,
-    maxBuffer: 128 << 20,
-    timeout: 420000,
-  })
+test('真仓 HEAD 零容忍:悬空必须为 0(存量已于 2026-09-24 清零,任何回归都是合并把修复吞了)', () => {
+  let out
+  try {
+    out = execFileSync(process.execPath, [GUARD], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      windowsHide: true,
+      maxBuffer: 128 << 20,
+      timeout: 420000,
+    })
+  } catch (e) {
+    //  exit 1 时也要把"到底是哪几处"报出来 —— 只说"失败了"等于没有哨兵
+    const back = [...((e.stdout || '').toString().matchAll(/^   (\S+):\d+ \[(D\d)\] (.+?)  →/gm))]
+    assert.fail(
+      `HEAD 上出现 ${back.length} 处悬空具名导入(本门零容忍):\n` +
+        back.map(([, f, r, raw]) => `     ${f} [${r}] ${raw}`).join('\n'),
+    )
+  }
   assert.match(out, /内容口径:HEAD 内容/)
   assert.match(out, /新增 0 文件/)
-  const stock = [...out.matchAll(/· 存量 (\S+):\d+ \[(D\d)\]/g)]
-  for (const [line, file] of stock) {
-    assert.match(file, /(tests?|__tests__|e2e)\//, `存量必须全在测试面,生产代码出现即真缺陷:${line}`)
-  }
-  assert.ok(stock.length <= 12, `存量异常放大(${stock.length} 处)—— 判据大概率在误伤`)
+  assert.match(out, /悬空 0 处/)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
