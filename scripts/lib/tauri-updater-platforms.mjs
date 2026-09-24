@@ -138,6 +138,76 @@ export function isUpdaterUrlAllowed(platform, url) {
 }
 
 /**
+ * 找出"某个平台键的归属**只由采集顺序决定**"的歧义。
+ *
+ * 为什么单独要这一步:`buildUpdaterPlatforms` 在同优先级(如两枚都是 `kind=exe`)时是
+ * **保留首个**且不留痕迹,而这种情况在本仓真出现过 —— 2026-09-24 实测 Gitee 的
+ * desktop-v0.1.44 同时挂着 CI 的 `AI_0.1.44_x64-setup.exe`(6,171,153) 与本机发版通道的
+ * `智汇AI_0.1.44_x64-setup.exe`(6,020,276),两者签名不同,按 release 原序采集会把
+ * windows 键锁到旧签名那条,而 feed 输出看起来完全正常。
+ *
+ * 判据严格镜像 buildUpdaterPlatforms(否则报的"保留/弃用"会与实得不符):
+ *  - 因**优先级差**或**版本匹配差**被弃 → 那是择优,不报(AppImage>deb、新版压旧残留);
+ *  - 平级(同 kind 优先级 ∧ 同 verMatch)而**签名不同** → 报;签名相同 = 同一份产物重复挂载,不报;
+ *  - `alsoPlatforms`(universal 一次填双 darwin 键)对已有键是**无条件覆盖** → 只要覆盖了不同签名也报。
+ *
+ * @param {Array<{ name: string, url: string, signature?: string }>} entries
+ * @param {{ version?: string }} [opts]
+ * @returns {Array<{ platform: string, kept: string, dropped: string, keptUrl: string, droppedUrl: string }>}
+ */
+export function findPlatformAmbiguity(entries, opts = {}) {
+  const { version } = opts
+  /** @type {Record<string, { kind: string, verMatch: boolean, name: string, signature: string, url: string }>} */
+  const winner = {}
+  const ambiguous = []
+  const report = (pf, cur, cand) => {
+    if (cur.signature === cand.signature) return
+    ambiguous.push({
+      platform: pf,
+      kept: cur.name,
+      dropped: cand.name,
+      keptUrl: cur.url,
+      droppedUrl: cand.url,
+    })
+  }
+  for (const entry of entries || []) {
+    if (!entry || typeof entry.name !== 'string') continue
+    const inferred = inferPlatformForPackage(entry.name)
+    if (!inferred) continue
+    const signature = typeof entry.signature === 'string' ? entry.signature.trim() : ''
+    if (!signature) continue
+    if (!allTargetsAllowed(inferred, entry.url)) continue
+    const assetVersion = extractVersion(entry.name)
+    const verMatch = version ? assetVersion === version : true
+    const cand = { kind: inferred.kind, verMatch, name: entry.name, signature, url: entry.url }
+    const ip = inferred.platform
+    const cur = winner[ip]
+    if (cur) {
+      const replaces = shouldReplacePlatform(ip, cand.kind, verMatch, cur.kind, cur.verMatch)
+      if (!replaces) {
+        // 被弃:只有"平级并列"才是顺序决定的歧义;优先级/版本差属正常择优
+        const prio = PLATFORM_PRIORITY[ip] || {}
+        const tie = verMatch === cur.verMatch && (prio[cand.kind] ?? 0) === (prio[cur.kind] ?? 0)
+        if (tie) report(ip, cur, cand)
+        continue
+      }
+    }
+    for (const pf of [ip, ...(inferred.alsoPlatforms || [])]) {
+      // 与 builder 一致:主平台走上面的判据,alsoPlatforms 是无条件覆盖
+      if (pf !== ip && winner[pf]) report(pf, winner[pf], cand)
+      winner[pf] = cand
+    }
+  }
+  return ambiguous
+}
+
+/** allTargets 的 host 白名单判定(buildUpdaterPlatforms 与本函数共用,避免两处口径漂移) */
+function allTargetsAllowed(inferred, url) {
+  const targets = [inferred.platform, ...(inferred.alsoPlatforms || [])]
+  return targets.every((pf) => isUpdaterUrlAllowed(pf, url))
+}
+
+/**
  * 由候选安装包条目构建 feed 的 platforms 映射。
  * @param {Array<{ name: string, url: string, signature?: string }>} entries
  *   安装包资产条目(不含 .sig 后缀形态;name 为资产文件名)。
@@ -160,7 +230,7 @@ export function buildUpdaterPlatforms(entries, opts = {}) {
     // 空签名一律不出键:客户端拿到无签名条目 = 下载后验签失败,比"没有更新"更糟
     if (!signature) continue
     const allTargets = [inferred.platform, ...(inferred.alsoPlatforms || [])]
-    if (!allTargets.every((pf) => isUpdaterUrlAllowed(pf, entry.url))) continue
+    if (!allTargetsAllowed(inferred, entry.url)) continue
     const assetVersion = extractVersion(entry.name)
     const verMatch = version ? assetVersion === version : true
     if (
