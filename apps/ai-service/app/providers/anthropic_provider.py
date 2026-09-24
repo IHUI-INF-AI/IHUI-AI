@@ -36,6 +36,26 @@ from .base_provider import BaseProvider, ProviderError
 
 _ANTHROPIC_VERSION = "2023-06-01"
 
+# WP-6(2026-09-25 实测立):逐轮变化的注入段签名(前缀匹配,见各注入器落点)。
+#
+# 为什么需要这张表:system 各段是被注入器用 "\n\n" 逐段拼到同一条 system 消息里的
+# (记忆子图 / 自动语义检索 / 元知识 …),而 Anthropic 的缓存断点覆盖"断点之前的整段
+# 前缀"。旧实现把整段 system 合成**一个块**并在它末尾打断点 ⇒ 尾部一行记忆内容变了,
+# 前面 3200+ 字符逐字相同的稳定段也一起 miss(实测:turn1 锚定块 sha=daae11068ebaa0c9
+# / turn2=833868452b7f55ef,首差偏移 3204,即 99% 相同仍整段不命中)。
+# 现在按签名切开稳定段与易变尾段,断点只钉在稳定段末尾。
+#
+# 新增逐轮注入器**必须**在此登记其段落起始签名,否则它会把断点重新推回动态内容里
+# (回归锁:apps/ai-service/tests/test_prompt_cache_anchor_drift.py)。
+_VOLATILE_SYSTEM_SEGMENT_MARKERS: tuple[str, ...] = (
+    "<memory_graph>",  # routers/llm._inject_memory_graph(按最后一条 user 查询命中)
+    "[auto-context]",  # routers/llm D7 自动语义检索(按查询命中)
+    "<!-- repo-wiki-auto -->",  # routers/llm._maybe_inject_auto_repo_wiki(增量同步)
+    "[线程目标]",  # agent_loop_v2.run 线程持久目标(可在轮间变更)
+    "## 元知识",  # meta_learner.build_system_prompt_snippet(避坑指南随轮累积)
+    "## 元认知提示",  # metacognition.build_system_prompt_snippet(反思发现随轮累积)
+)
+
 
 class AnthropicProvider(BaseProvider):
     """Anthropic Messages API 原生适配器。"""
@@ -78,6 +98,24 @@ class AnthropicProvider(BaseProvider):
         """
         return openai_tools_to_anthropic(tools)
 
+    def _split_stable_system_prefix(self, system: str) -> tuple[str, str]:
+        """把整段 system 切成 (稳定前缀, 易变尾部)。
+
+        切点 = 第一个动态注入段的起点(注入器一律以 ``\\n\\n`` 追加新段,故按**段首**
+        匹配,不做子串模糊匹配 —— 正文里提到该词的稳定段不得被误判成动态)。
+        无动态段时尾部为空串,断点仍钉在整段末尾 —— 与改造前逐字节等价。
+        """
+        cut = -1
+        for marker in _VOLATILE_SYSTEM_SEGMENT_MARKERS:
+            if system.startswith(marker):
+                return "", system
+            at = system.find("\n\n" + marker)
+            if at >= 0 and (cut < 0 or at < cut):
+                cut = at
+        if cut < 0:
+            return system, ""
+        return system[:cut], system[cut + len("\n\n") :]
+
     def _build_payload(
         self,
         messages: list[dict[str, Any]],
@@ -96,16 +134,26 @@ class AnthropicProvider(BaseProvider):
             "max_tokens": kwargs.pop("max_tokens", max_tokens),
         }
         if system:
-            # P0-① Prompt 缓存:system 走 block 数组形态并在末块打 ephemeral 断点。
-            # 断点之前的前缀(此处即全部 system)命中缓存后按 0.1x 计价;
-            # block 形态与纯字符串形态等价,API 均接受。
-            payload["system"] = [
-                {
-                    "type": "text",
-                    "text": system,
-                    "cache_control": {"type": "ephemeral"},
-                }
-            ]
+            # P0-① Prompt 缓存(2026-09-18 立)+ WP-6 两段式装配(2026-09-25 修):
+            # system 走 block 数组形态,但**断点只钉在稳定前缀末尾** —— 逐轮变化的注入段
+            # 排在尾部且不进缓存。旧写法把整段 system 合成一个块并在它末尾打断点,
+            # 于是尾部一行动态内容会连带前面逐字相同的稳定段一起 miss(实测见
+            # _VOLATILE_SYSTEM_SEGMENT_MARKERS 注释)。block 形态与纯字符串形态等价,
+            # API 均接受。
+            stable, volatile = self._split_stable_system_prefix(system)
+            system_blocks: list[dict[str, Any]] = []
+            if stable:
+                system_blocks.append(
+                    {
+                        "type": "text",
+                        "text": stable,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                )
+            if volatile:
+                system_blocks.append({"type": "text", "text": volatile})
+            if system_blocks:
+                payload["system"] = system_blocks
         converted_tools = self._convert_tools(tools)
         if converted_tools:
             # P0-① Prompt 缓存:tools 末项(紧跟 system 的稳定前缀)再打一个断点,
