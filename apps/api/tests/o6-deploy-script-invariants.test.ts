@@ -140,5 +140,37 @@ describe('O6 部署脚本静态判据(deploy/win/ihui-deploy.ps1)', () => {
       '全绿判据被削弱',
     )
   })
+
+  it('⑤ ff 失败按 git 自述原因分类;BLOCKED-WIP 只许点名"脏∩本次要改",不得拿脏文件数当成因', () => {
+    // 2026-09-24 实测事故:本地 0 领先 / 24 落后以外的真分叉场景下,git 报的是
+    // "Not possible to fast-forward",但旧代码只判断"树上有没有脏文件",于是把结论写成
+    // "有真人在写,等对方收尾"(并列出全部 41 个无关脏文件)。排查因此被带去清扫工作树,
+    // 白耗 1.5h,还寄出一封错因告警。三条断言各钉住这个缺陷的一面。
+    const branch = src.slice(src.indexOf('& git merge --ff-only FETCH_HEAD'))
+    const iDiv = branch.search(/Not possible to fast-forward/)
+    const iWip = branch.indexOf('Report-BlockedWip')
+    assert.ok(iDiv >= 0, '部署脚本已不再识别 git 的分叉原话(误诊回归)')
+    assert.ok(iWip >= 0, 'BLOCKED-WIP 归因路径消失')
+    assert.ok(iDiv < iWip, '分叉判定必须排在 WIP 判定之前 —— 反序就会重演今天的误诊')
+
+    // WIP 一支必须喂"交集",不得再喂全量脏文件
+    const wipCall = branch.slice(iWip, iWip + 220)
+    assert.match(wipCall, /\$blockers/, 'BLOCKED-WIP 又退回把全部脏文件列成阻塞项')
+    assert.doesNotMatch(wipCall, /-Entries\s+\$stillDirty/, '把无关脏文件当成阻塞项(旧缺陷形态)')
+    // 交集的两个来源都得真在算,否则 $blockers 是凭空来的
+    assert.match(
+      branch,
+      /\$mustTouch\s*=\s*@\(&\s*git[\s\S]{0,120}diff --name-only HEAD FETCH_HEAD/,
+    )
+    assert.match(
+      branch,
+      /\$blockers\s*=\s*@\(\$dirtyPaths\s*\|\s*Where-Object\s*\{\s*\$mustTouch\s*-contains\s+\$_\s*\}\)/,
+    )
+
+    // 三条出口都不得静默:未归类分支也要 Fail,且要吐出 git 原文
+    const unknown = branch.slice(branch.indexOf('merge 失败成因未归类'))
+    assert.ok(unknown.length > 0, '未归类分支消失(会退回"看起来全绿")')
+    assert.match(unknown, /Fail\s+"git merge --ff-only FETCH_HEAD 失败/)
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
