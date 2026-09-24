@@ -7074,6 +7074,77 @@
       "rollbackConfirmConfirm": "确认恢复"
     },
     "pane": {
+      "inputSources": {
+        "ariaLabel": "输入源与队列",
+        "snapshot": {
+          "attachApp": "附加 {appName}",
+          "state": {
+            "disabled": "未启用智能快照",
+            "enabled": "已启用智能快照",
+            "failed": "智能快照失败"
+          },
+          "enable": "启用智能快照",
+          "firstRunGuideTitle": "首次使用智能快照",
+          "firstRunGuideBody": "智能快照会为当前应用创建上下文快照，消息将自动附带应用信息",
+          "failedHint": "快照创建失败，可重试或改用普通附件发送"
+        },
+        "route": {
+          "appSnapshot": "应用快照",
+          "remoteFile": "远程文件",
+          "remotePhoto": "远程照片"
+        },
+        "command": {
+          "queuePrompt": "将提示加入队列",
+          "queuePromptDesc": "本轮回复结束后自动按顺序发送队列中的提示",
+          "steerPrompt": "引导提示",
+          "steerPromptDesc": "向正在生成的回复中途插入引导，不打断当前输出"
+        },
+        "undo": {
+          "restoring": "正在恢复队列中的消息",
+          "restored": "已恢复队列中的消息",
+          "restoredQueued": "已恢复排队的消息",
+          "failed": "恢复失败，消息仍在队列中"
+        },
+        "memoryRefs": {
+          "count": "{count} 条记忆引用",
+          "tooltip": "引用的记忆",
+          "empty": "暂无记忆引用"
+        },
+        "goal": {
+          "achievedIn": "已在 {totalTime} 内达成目标"
+        }
+      },
+      "inputNotices": {
+        "ariaLabel": "压缩与排队提示",
+        "compaction": {
+          "block": {
+            "cause": {
+              "runningTurn": "当前 Turn 正在运行中",
+              "insufficientCredits": "压缩会消耗少量积分",
+              "noTurnBoundary": "当前没有可用的 Turn 边界"
+            },
+            "consequence": {
+              "runningTurn": "压缩在当前 Turn 完成后执行，不能插入正在运行的 Turn",
+              "insufficientCredits": "积分不足，本次压缩不会执行，对话上下文保持不变",
+              "noTurnBoundary": "压缩暂时无法执行，对话上下文保持不变"
+            }
+          }
+        },
+        "queue": {
+          "reasonTitle": "排队原因",
+          "reason": {
+            "turnRunning": "当前回复正在生成，消息将在本轮结束后发送",
+            "queueAhead": "前面的消息尚未处理完成，正在按顺序等待",
+            "runtimeNoInterject": "当前 Runtime 不支持插话，消息将继续排队"
+          },
+          "denied": {
+            "reorder": "无法调整排队顺序",
+            "undo": "无法撤回排队消息",
+            "interject": "当前 Runtime 不支持插话，消息将继续排队"
+          },
+          "reorderAria": "拖动调整排队顺序；聚焦后可使用上下方向键"
+        }
+      },
       "voiceSubtitles": {
         "muteAndShowSubtitles": "静音并显示字幕",
         "subtitleTitle": "语音字幕",
@@ -9399,6 +9470,7 @@
     "adoptHint": "把选中候选内容写入当前对话"
   },
   "goalCard": {
+    "achievedInTime": "已在 {totalTime} 内达成目标",
     "empty": "尚未设定会话目标",
     "emptyHint": "在输入框输入 /goal <目标> 设定,或由 AI 自动推进",
     "progress": "进度",
@@ -9948,6 +10020,18 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "connectorAuth": {
+      "title": "连接到 {connectorName}",
+      "connected": "已连接",
+      "reconnect": "重新连接 {connectorName}",
+      "connect": "连接",
+      "connecting": "连接中…",
+      "moreInfo": "更多信息",
+      "decline": "暂不",
+      "declined": "已拒绝连接 {connectorName}。本次对话不受影响。"
+    },
+    "queueUndoRestoredQueued": "已恢复排队的消息",
+    "queueUndoRestored": "已恢复队列中的消息",
     "usageEstimated": "估算",
     "turnChanges": {
       "title": "本轮变更",
@@ -11095,6 +11179,24 @@
       "view": "视图"
     },
     "commands": {
+      "steerPrompt": {
+        "label": "引导提示",
+        "description": "向正在运行的回复中途插入引导，无需等待当前轮完成",
+        "keywords": [
+          "引导",
+          "插话",
+          "steer"
+        ]
+      },
+      "queuePrompt": {
+        "label": "将提示加入队列",
+        "description": "把当前输入加入 W27 预备消息队列，流式结束后自动依次发送",
+        "keywords": [
+          "队列",
+          "排队",
+          "queue"
+        ]
+      },
       "agent": {
         "description": "管理并调度 AI 智能体",
         "keywords": ["智能体", "调度", "agent"],
