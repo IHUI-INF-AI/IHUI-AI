@@ -469,7 +469,7 @@ function healWorktreeTracked() {
  * 心跳 = 巡检 --json 模式写的 .workbuddy/credential-health-last.json(内含 ts)。
  * 超时(18h = 标称周期 3 倍,避开机器休眠/夜间空档误报)时:① 重跑 --install 找回任务
  * (脚本自带"注册前用 cscript 实跑一次 vbs 预检"的护栏),② 就地拉起一轮(它会自己走
- * Server酱→邮件双通道告警)。kick 标记落盘做 6h 冷却,避免每 2 分钟重复拉起。
+ * 邮件单通道告警)。kick 标记落盘做 6h 冷却,避免每 2 分钟重复拉起。
  */
 const WATCHDOG_HEARTBEAT = join(WORKTREE, '.workbuddy', 'credential-health-last.json')
 const WATCHDOG_KICK = join(WORKTREE, '.workbuddy', 'credential-health-kick.ts')
@@ -526,7 +526,7 @@ function watchWatchdog() {
  * (`schtasks /RU <u> /NP` 会交互索要密码;pwsh 无 ScheduledTasks cmdlet),
  * 唯一可行形态是 Schedule.Service COM + `NewTask(0)` 可写 XmlText + SID/Null/2,
  * 已由 `scripts/task-set-s4u.vbs` 封装并在真任务上验证(切后 Last Result=0、探针显示
- * HKCU 的 SERVERCHAN_SENDKEY 与同步盘凭据文件在 S4U 下依然可读)。
+ * HKCU 的用户级环境变量与同步盘凭据文件在 S4U 下依然可读)。
  */
 function ensureS4u() {
   const vbs = join(dirname(fileURLToPath(import.meta.url)), 'task-set-s4u.vbs')

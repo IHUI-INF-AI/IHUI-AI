@@ -59,17 +59,11 @@
  * 关联:AGENTS.md §6 验证命令、§22c/§22d(本文件导出 __test__ 供测试直接 import)。
  */
 import { execFileSync } from 'node:child_process'
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs'
-import { tmpdir } from 'node:os'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(process.env.OPENAPI_CHECK_ROOT || resolve(__dirname, '..'))
@@ -984,7 +978,7 @@ function runSelfTest() {
 function fixtureHelpers() {
   return {
     writeFixtureTree(files) {
-      const root = mkdtempSync(join(tmpdir(), 'openapi-check-'))
+      const root = mkScratch('openapi-check-')
       for (const [rel, content] of Object.entries(files)) {
         const abs = join(root, rel)
         mkdirSync(dirname(abs), { recursive: true })
@@ -1008,7 +1002,7 @@ function fixtureHelpers() {
         return { status: e?.status ?? 2, stdout: e?.stdout ?? '', stderr: e?.stderr ?? '' }
       } finally {
         try {
-          rmSync(root, { recursive: true, force: true })
+          rmScratch(root)
         } catch {
           /* Windows 偶发句柄占用,忽略 */
         }
