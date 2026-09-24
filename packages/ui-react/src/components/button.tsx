@@ -18,7 +18,7 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground shadow hover:bg-primary/90',
+        default: 'bg-cta text-cta-foreground shadow hover:bg-cta/90',
         destructive: 'bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90',
         outline:
           'border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground',
@@ -26,20 +26,19 @@ const buttonVariants = cva(
         ghost: 'hover:bg-accent hover:text-accent-foreground',
         link: 'text-primary underline-offset-4 hover:underline',
 
-        primary: 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90',
+        primary: 'bg-cta text-cta-foreground shadow-sm hover:bg-cta/90',
         'hero-cta':
           'bg-gradient-to-r from-primary to-primary/70 text-primary-foreground shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all px-8 py-3 text-base font-semibold rounded-lg',
-        login:
-          'w-full bg-primary text-primary-foreground hover:bg-primary/90 h-11 rounded-md font-medium',
-        send: 'bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2',
+        login: 'w-full bg-cta text-cta-foreground hover:bg-cta/90 h-11 rounded-md font-medium',
+        send: 'bg-cta text-cta-foreground hover:bg-cta/90 rounded-md px-4 py-2',
         'card-action':
           'text-sm text-muted-foreground hover:text-foreground hover:bg-accent rounded-md px-2 py-1',
         'mobile-login':
-          'w-full bg-primary text-primary-foreground hover:bg-primary/90 h-12 rounded-lg text-base font-semibold',
+          'w-full bg-cta text-cta-foreground hover:bg-cta/90 h-12 rounded-lg text-base font-semibold',
         'btn-luxe':
           'bg-gradient-to-r from-vip-gold-start to-vip-gold-end text-white shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all px-6 py-2.5 rounded-md font-semibold',
         'agreement-agree':
-          'w-full bg-primary text-primary-foreground hover:bg-primary/90 h-12 rounded-md font-medium',
+          'w-full bg-cta text-cta-foreground hover:bg-cta/90 h-12 rounded-md font-medium',
         'switch-project':
           'border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md px-3 py-1.5 text-sm',
       },

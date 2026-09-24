@@ -157,8 +157,8 @@
   padding: 0 32rpx;
   height: 80rpx;
   line-height: 80rpx;
-  background: var(--color-primary);
-  color: var(--color-foreground);
+  background: var(--color-cta);
+  color: var(--color-cta-foreground);
   border-radius: var(--radius-lg);
   font-size: 28rpx;
 }

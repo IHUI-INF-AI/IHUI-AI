@@ -184,6 +184,27 @@ test('两侧同改同一行区域 ⇒ 判失败并点名该文件,绝不悄悄�
   }
 })
 
+test('take-ours 是"声明式例外",不是选边后门:同一文件从需人工变成本侧 blob,且必须留名', () => {
+  const { dir, ours, theirs } = bothTouchedFixture()
+  try {
+    const def = U.plan(ours, theirs, dir)
+    assert.ok(def.needHuman.some((h) => h.path === 'clash.ts'), '默认必须交人工')
+
+    const forced = U.plan(ours, theirs, dir, new Set(['clash.ts']))
+    assert.equal(forced.needHuman.length, 0, '声明取本侧后不得再报需人工')
+    assert.deepEqual(forced.keptOurs, ['clash.ts'], '被声明的路径必须逐条点名(不得静默)')
+    assert.equal(U.show(forced.tree, 'clash.ts', dir), 'x1\nOURS\nx3', '该路径树内容必须等于本侧版本')
+    assert.equal(
+      U.blobOf(forced.tree, 'only-theirs.ts', dir),
+      U.blobOf(theirs, 'only-theirs.ts', dir),
+      '一条例外不得连带丢掉对侧其它独有新增 —— 落地闸其余断言必须照常全绿',
+    )
+    assert.deepEqual(forced.bad, [], `声明后整棵合并树仍须过零丢失自证:${forced.bad.slice(0, 2).join(' / ')}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
 test('仅对侧动过 ⇒ 与改前行为逐字一致(整文件取对侧 blob)', () => {
   const { dir, ours, theirs } = bothTouchedFixture()
   try {
@@ -267,6 +288,17 @@ test('mergeThreeBlobs 三态:干净出 buffer、冲突报 conflict、二进制�
   } finally {
     rmScratch(dir)
   }
+})
+
+test('CAS 失败的悬空提交必须本工具自己 tag 掉(否则把噪声留给下一个人)', () => {
+  const src = readFileSync(new URL('../union-converge.mjs', import.meta.url), 'utf8')
+  const at = src.indexOf('if (cas.status !== 0)')
+  assert.ok(at > 0, '找不到 CAS 失败分支')
+  const branch = src.slice(at, at + 1200)
+  assert.match(branch, /git\(\['tag', tagName, sha/, 'CAS 失败要就地按 §22 打 lost-commit tag')
+  assert.match(branch, /lost-commit\/wip-/, "tag 名必须走本仓既有命名族(lost-commit/wip-<sha>)")
+  // tag 失败不得掩盖原始故障:仍要 exit 1 并给出手工命令
+  assert.match(branch, /process\.exit\(1\)/, 'CAS 失败必须非零退出')
 })
 
 test('装车证明:收敛器冲突分支真的会调它,守护真的会调 --all-new 台账', () => {

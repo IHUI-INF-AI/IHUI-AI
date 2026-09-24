@@ -125,9 +125,9 @@
   flex-shrink: 0;
 }
 .favorites-check-box-checked {
-  color: var(--color-foreground);
-  background: var(--color-primary);
-  border-color: var(--color-primary);
+  color: var(--color-cta-foreground);
+  background: var(--color-cta);
+  border-color: var(--color-cta);
 }
 .favorites-batch-btn {
   padding: 8rpx 20rpx;
@@ -228,11 +228,11 @@
 .favorites-empty-btn {
   margin-top: 24rpx;
   padding: 16rpx 40rpx;
-  background: var(--color-primary);
+  background: var(--color-cta);
   border-radius: var(--radius-md);
 }
 .favorites-empty-btn-text {
-  color: var(--color-foreground);
+  color: var(--color-cta-foreground);
   font-size: 26rpx;
 }
 
