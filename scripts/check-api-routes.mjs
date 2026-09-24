@@ -16,16 +16,14 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import {
   existsSync,
   mkdirSync,
-  mkdtempSync,
   readdirSync,
   readFileSync,
-  rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
-import { tmpdir } from 'node:os'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const ROOT = process.cwd()
 const WEB_DIR = join(ROOT, 'apps/web')
@@ -678,7 +676,7 @@ const SELF_MATRIX_FIXTURE = [
 
 /** 建临时 monorepo 根(供 --self-test 端到端跑真实退出码) */
 function makeSelfTestRoot(files) {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-api-routes-self-'))
+  const dir = mkScratch('ihui-api-routes-self-')
   for (const [rel, content] of Object.entries(files)) {
     const full = join(dir, ...rel.split('/'))
     mkdirSync(dirname(full), { recursive: true })
@@ -772,7 +770,7 @@ function runSelfTest() {
       [r.status, /通过/.test(r.out)],
     )
   } finally {
-    rmSync(okRoot, { recursive: true, force: true })
+    rmScratch(okRoot)
   }
   // 8. 反向哨兵 A:后端确实不存在的探针路由必须仍报违规 exit 1(门没被改瞎)
   const probeRoot = selfTestRoot('/api/__probe_no_such_route__')
@@ -784,7 +782,7 @@ function runSelfTest() {
       [r.status, /__probe_no_such_route__/.test(r.out), /发现 1 处前端调用无后端路由/.test(r.out)],
     )
   } finally {
-    rmSync(probeRoot, { recursive: true, force: true })
+    rmScratch(probeRoot)
   }
   // 9. 反向哨兵 B:矩阵中 images:false 的厂商端点必须仍报违规(证明是"求交"而非"全展开")
   const gateRoot = selfTestRoot('/api/ai/deepseek/images')
@@ -796,7 +794,7 @@ function runSelfTest() {
       [r.status, /POST \/api\/ai\/deepseek\/images/.test(r.out)],
     )
   } finally {
-    rmSync(gateRoot, { recursive: true, force: true })
+    rmScratch(gateRoot)
   }
   return failures
 }
