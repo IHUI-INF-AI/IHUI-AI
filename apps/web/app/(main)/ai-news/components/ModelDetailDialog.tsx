@@ -191,7 +191,7 @@ export function ModelDetailDialog({ entry, open, onClose, searchQuery = '' }: Pr
                 {capabilityTags.map((tag) => (
                   <span
                     key={tag.key}
-                    className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+                    className="rounded bg-cta/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
                   >
                     {t(tag.label)}
                   </span>
@@ -216,7 +216,7 @@ export function ModelDetailDialog({ entry, open, onClose, searchQuery = '' }: Pr
               ))}
             </div>
             {entry.highlight ? (
-              <div className="mt-3 rounded-md bg-primary/5 px-3 py-2">
+              <div className="mt-3 rounded-md bg-cta/5 px-3 py-2">
                 <p className="text-[10px] font-medium text-muted-foreground">{t('highlight')}</p>
                 <p className="mt-0.5 text-xs leading-relaxed">{entry.highlight}</p>
               </div>
@@ -304,7 +304,7 @@ export function ModelDetailDialog({ entry, open, onClose, searchQuery = '' }: Pr
                 <button
                   type="button"
                   onClick={handleQuickImport}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-md bg-cta px-3 py-1.5 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90"
                 >
                   <Zap className="h-3 w-3" />
                   <span>{t('quickImport')}</span>

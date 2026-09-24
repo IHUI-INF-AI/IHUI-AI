@@ -95,7 +95,7 @@ export default function AdminSearchHotWordsPage() {
         />
         <button
           type="submit"
-          className="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          className="h-9 rounded-md bg-cta px-4 text-sm font-medium text-cta-foreground hover:bg-cta/90 disabled:opacity-50"
           disabled={addMut.isPending || !newWord.trim()}
         >
           {addMut.isPending ? t('adding') : t('add')}

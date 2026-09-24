@@ -251,7 +251,7 @@ client.Chat(ctx, "你好")`}</code>
       <section className="mt-16 rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-3 text-center">
         <h2 className="text-2xl font-bold tracking-tight">下一步</h2>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-          <a href="/docs/mcp" className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">MCP 工具集成</a>
+          <a href="/docs/mcp" className="rounded-lg bg-cta px-4 py-2 text-sm font-medium text-cta-foreground hover:bg-cta/90">MCP 工具集成</a>
           <a href="/docs/agent" className="rounded-lg border bg-card px-4 py-2 text-sm font-medium hover:bg-accent">Agent 开发</a>
           <a href="/docs/quickstart" className="rounded-lg border bg-card px-4 py-2 text-sm font-medium hover:bg-accent">返回快速开始</a>
         </div>
