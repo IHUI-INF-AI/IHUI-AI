@@ -71,15 +71,19 @@ function runScript(args = [], opts = {}) {
     cwd: opts.cwd || process.cwd(),
     encoding: 'utf8',
     stdio: ['pipe', 'pipe', 'pipe'],
+    // §5b 弹窗治理 + 守门 52/80:派生控制台程序必须 windowsHide,且不得无界挂起
+    windowsHide: true,
+    timeout: 60_000,
   })
 }
 
 // 初始化 git 仓库(--staged 测试需要)
 function initGitRepo(root) {
-  execSync('git init -b main', { cwd: root, stdio: 'pipe' })
-  execSync('git config user.email test@test.com', { cwd: root, stdio: 'pipe' })
-  execSync('git config user.name test', { cwd: root, stdio: 'pipe' })
-  execSync('git config commit.gpgsign false', { cwd: root, stdio: 'pipe' })
+  const opts = { cwd: root, stdio: 'pipe', windowsHide: true, timeout: 60_000 }
+  execSync('git init -b main', opts)
+  execSync('git config user.email test@test.com', opts)
+  execSync('git config user.name test', opts)
+  execSync('git config commit.gpgsign false', opts)
 }
 
 // 完整翻译的 fixture(5 语言 parity + 翻译完整 → exit 0)
@@ -412,6 +416,148 @@ describe('CLI 选项: --quiet / --output / --target / --staged', () => {
     } finally {
       fs.rmSync(root, { recursive: true, force: true })
     }
+  })
+})
+
+// ─── 2026-09-25:--target 端注册 + "静默回落到 web"根治 ──────────────────────
+// 阳性对照设计(没有它这些用例等于没测):夹具同时铺两端 ——
+//   被测端 = 翻译完全干净(exit 0),web = 故意让 ko 缺一个键(exit 1)。
+//   旧实现 `TARGET_CONFIG[TARGET] || TARGET_CONFIG.web` 一旦回落,结果必然 exit 1,
+//   于是"exit 0"才真的证明读到的是被测那一端;只测"exit 0 / 目录存在"无法把
+//   "读对了端"和"读的是恰好干净的 web"区分开。
+describe('--target 端注册(mobile-rn / cli / api)', () => {
+  const NEW_ENDS = ['mobile-rn', 'cli', 'api']
+
+  /** 造一个"被测端干净 + web 脏"的双端项目 */
+  function createTwoEndProject(cleanTarget) {
+    const root = createTempProject(cleanTarget)
+    writeAllLangs(root, cleanTarget, FULL_TRANSLATED.base, FULL_TRANSLATED.langs)
+    const dirtyWebLangs = JSON.parse(JSON.stringify(FULL_TRANSLATED.langs))
+    delete dirtyWebLangs.ko.common.save // web 故意留 1 处 missing
+    fs.mkdirSync(path.join(root, 'packages', 'i18n', 'messages', 'web'), { recursive: true })
+    writeAllLangs(root, 'web', FULL_TRANSLATED.base, dirtyWebLangs)
+    return root
+  }
+
+  for (const end of NEW_ENDS) {
+    test(`--target=${end} 读的是 packages/i18n/messages/${end}(错读 web 必红)`, () => {
+      const root = createTwoEndProject(end)
+      try {
+        const r = runScript([`--target=${end}`], { cwd: root })
+        assert.equal(
+          r.status,
+          0,
+          `--target=${end} 应 exit 0(该端夹具干净);若为 1 则说明回落到脏 web\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+        )
+        // 报告必须自证解析到的目录(不只是退出码)
+        assert.ok(
+          stripAnsi(r.stdout).includes(`packages/i18n/messages/${end}`),
+          `stdout 应点名 ${end} 的目录,实际:\n${stripAnsi(r.stdout)}`,
+        )
+        assert.ok(!stripAnsi(r.stdout).includes('packages/i18n/messages/web'))
+        const pending = readPendingJson(root)
+        assert.equal(pending.target, end, '清单应记录 target')
+        assert.equal(pending.messagesDir, `packages/i18n/messages/${end}`)
+      } finally {
+        fs.rmSync(root, { recursive: true, force: true })
+      }
+    })
+  }
+
+  test('不带 --target 仍默认 web:双端夹具下必须读到脏 web 并 exit 1(默认行为未变)', () => {
+    const root = createTwoEndProject('mobile-rn')
+    try {
+      const r = runScript([], { cwd: root })
+      assert.equal(r.status, 1, `默认应仍走 web(ko 缺键 → pending)\nstdout: ${r.stdout}`)
+      assert.ok(stripAnsi(r.stdout).includes('packages/i18n/messages/web'))
+      const pending = readPendingJson(root)
+      assert.equal(pending.target, 'web')
+      assert.ok(pending.pending.ko, 'web 端 ko 缺键应被检出')
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('--target 未知值一律判死(不再静默按 web 处理)', () => {
+  /** 某端语言包目录的字节指纹(路径+内容),用于证明"一个字节都没写" */
+  function dirFingerprint(root, target) {
+    const dir = path.join(root, 'packages', 'i18n', 'messages', target)
+    if (!fs.existsSync(dir)) return '<missing>'
+    return fs
+      .readdirSync(dir)
+      .sort()
+      .map((f) => `${f}::${fs.readFileSync(path.join(dir, f), 'utf8')}`)
+      .join('||')
+  }
+
+  const BAD_TARGETS = [
+    ['mobile_rn', '下划线代替连字符'],
+    ['Miniapp-Taro', '大小写不符'],
+    ['nonsense', '根本不存在的名'],
+    ['', '空值(--target=)'],
+  ]
+
+  for (const [bad, why] of BAD_TARGETS) {
+    test(`--target=${bad || '(空)'} (${why}) → exit 2 + 点名错值 + 列可用端 + 零写入`, () => {
+      const root = createTempProject('web')
+      try {
+        writeAllLangs(root, 'web', FULL_TRANSLATED.base, FULL_TRANSLATED.langs)
+        const webBefore = dirFingerprint(root, 'web')
+        const r = runScript([`--target=${bad}`], { cwd: root })
+        const out = stripAnsi(r.stdout) + stripAnsi(r.stderr)
+
+        assert.equal(r.status, 2, `应 exit 2(用法错误),实际 ${r.status}\n${out}`)
+        assert.match(out, /不是受支持的端/)
+        assert.ok(out.includes(JSON.stringify(bad)), `错误信息须原样点名 "${bad}"(空值显示为 ""):\n${out}`)
+        // 可用端清单:漏列任何一个都是把门又关小一格
+        for (const end of ['web', 'extension', 'miniapp-taro', 'shared', 'mobile-rn', 'cli', 'api']) {
+          assert.match(out, new RegExp(`\\b${end.replace(/[-]/g, '\\-')}\\b`), `清单应含 ${end}`)
+        }
+        // 零副作用:既不写清单,也不碰 web 语言包
+        assert.ok(
+          !fs.existsSync(path.join(root, '.ihui-agent', 'tmp', 'i18n-pending.json')),
+          '判死时不应产出 pending 清单',
+        )
+        assert.equal(dirFingerprint(root, 'web'), webBefore, 'web 语言包必须逐字节未变')
+      } finally {
+        fs.rmSync(root, { recursive: true, force: true })
+      }
+    })
+  }
+
+  test('已注册但目录不存在的端 → exit 2(不把"没有目录"当成"没有差异")', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-i18n-diff-'))
+    fs.mkdirSync(path.join(root, '.ihui-agent', 'tmp'), { recursive: true })
+    try {
+      const r = runScript(['--target=mobile-rn'], { cwd: root })
+      const out = stripAnsi(r.stdout) + stripAnsi(r.stderr)
+      assert.equal(r.status, 2, `实际 ${r.status}\n${out}`)
+      assert.match(out, /语言包目录不存在/)
+      assert.match(out, /packages\/i18n\/messages\/mobile-rn/)
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  test('回归锁:源码里不得再出现"未知 target 回落到 web"的那一表达式', () => {
+    // 这一条不跑子进程,直接钉源码 —— 判据表达式一旦被写回 `|| TARGET_CONFIG.web`,
+    // 上面所有用例都可能因为"夹具恰好两端都干净"而重新变绿,所以这条是最后的地板。
+    // 必须先剥注释:resolveTarget 的头注**逐字引用**了那串旧表达式来解释为什么禁它,
+    // 不剥的话这条锁会在**完全合规**的源码上恒红(判据看见了自己产出的形态)。
+    const src = fs.readFileSync(SCRIPT_PATH, 'utf8')
+    const code = src
+      .replace(/\/\*[\s\S]*?\*\//g, '') // 块注释(JSDoc)
+      .split('\n')
+      .filter((line) => !/^\s*\/\//.test(line)) // 整行注释
+      .join('\n')
+      .replace(/\/\/[^\n]*/g, '') // 行尾注释
+    assert.ok(
+      !/TARGET_CONFIG\s*\[\s*TARGET\s*\]\s*\|\|/.test(code),
+      'i18n-diff.mjs 不得再有 `TARGET_CONFIG[TARGET] || TARGET_CONFIG.web` 静默回落',
+    )
+    assert.match(code, /function resolveTarget\(/, '应经 resolveTarget 显式解析')
+    assert.match(code, /resolveTarget\(TARGET\s*,\s*ROOT\s*,\s*TARGET_IS_EXPLICIT/, '解析结果必须真被使用')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
