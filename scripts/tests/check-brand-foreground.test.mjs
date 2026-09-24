@@ -520,32 +520,51 @@ test('R7 真内容 A/B:HEAD 实档必命中,把前景换成正配后必归 0(证
     nBank >= 2,
     `把 ctaForeground 换回 surface.light 必须命中 ≥2 处(bankName / cardNumber),实得 ${nBank}`,
   )
-  // (2) TokenValueScreen:HEAD 现存债,必须逐条判出(该文件登记在棘轮基线里)
+  // (2) TokenValueScreen:本票已把它的 6 处改成正配 ⇒ 现状必须 0;
+  //     判别力改用**注入**取证(与 (1) 同一形态)—— 控制不能依赖"仓库里还留着这个 bug",
+  //     否则每清掉一处债就红一条测试,那等于用测试把缺陷锁在原地。
   const tv = read('packages/app/src/features/token-value/TokenValueScreen.tsx').split('\n')
-  const nTv = gate.findR7Violations(tv)
+  assert.equal(
+    gate.findR7Violations(tv).length,
+    0,
+    'TokenValueScreen 的 6 处已在 a5ef02c76d 改成正配,现状必须 0',
+  )
+  const regressedTv = tv.map((l) =>
+    /\bcolor:\s*tk\.brand\.ctaForeground\b/.test(l)
+      ? l.replace('tk.brand.ctaForeground', 'tk.surface.light')
+      : l,
+  )
+  const nTv = gate.findR7Violations(regressedTv)
   assert.ok(
     nTv.length >= 6,
-    `TokenValueScreen 在 HEAD 确有 ≥6 处嵌套错配,实得 ${nTv.length} ⇒ 判据失效`,
+    `把 ctaForeground 换回 surface.light 必须命中 ≥6 处(balanceLabel/balanceValue/metaLabel/metaValue/popularText/pkgPrice),实得 ${nTv.length} ⇒ 判据失效`,
   )
   assert.ok(
     nTv.every((v) => v.tier === 'brand.cta' && v.fgTok === 'surface.light'),
-    'TokenValueScreen 的存量必须全是 cta 底 × surface.light(出现别的组合说明矩阵被改宽)',
-  )
-  const fixedTv = tv.map((l) =>
-    /\bcolor:\s*tk\.surface\.light\b/.test(l)
-      ? l.replace('tk.surface.light', 'tk.brand.ctaForeground')
-      : l,
+    'TokenValueScreen 注入出的存量必须全是 cta 底 × surface.light(出现别的组合说明矩阵被改宽)',
   )
   assert.equal(
-    gate.findR7Violations(fixedTv).length,
+    gate.findR7Violations(tv.map((l) => l)).length,
     0,
-    '同一文件只换前景就应归 0 —— 证明红点真挂在前景档位上',
+    '同一文件只换前景就应归 0 —— 证明红点真挂在前景档位上,而不是挂在文件本身',
   )
-  // (3) 反向对照:内联在图标上的 color prop(R1/R4 结构上永远看不见的一型)
+  // (3) 反向对照:内联在图标上的 color prop(R1/R4 结构上永远看不见的一型)。
+  //     CircleIndexScreen 的 fab 也已改正 ⇒ 现状 0,注入 surface.card 后必须重新判出。
   const circle = read('apps/mobile-rn/src/screens/CircleIndexScreen.tsx').split('\n')
   assert.ok(
-    gate.findR7Violations(circle).some((v) => v.container === 'fab' && v.fgTok === 'surface.card'),
-    'CircleIndexScreen 的悬浮加号必须判出(<Plus color={tk.surface.card}/> 在 brand.cta 底里)',
+    !circle.some((l) => /<Plus[^>]*color=\{tk\.surface\.card\}/.test(l)),
+    'CircleIndexScreen 的 <Plus> 已改成正配,现状不得再残留 surface.card',
+  )
+  const regressedCircle = circle.map((l) =>
+    /<Plus[^>]*color=\{tk\.brand\.ctaForeground\}/.test(l)
+      ? l.replace('tk.brand.ctaForeground', 'tk.surface.card')
+      : l,
+  )
+  assert.ok(
+    gate
+      .findR7Violations(regressedCircle)
+      .some((v) => v.container === 'fab' && v.fgTok === 'surface.card'),
+    '把 <Plus> 换回 surface.card 后必须判出 fab 的内联图标错配(注入式判别力,不依赖存量)',
   )
   // (4) 建门第一版的假阳现场:ArticleDetailScreen 的 `<FlatList ListEmptyComponent=…>`
   //     当时把子元素的 style 并进了宿主 key 集,使 commentEmptyText 冒充 commentNickname
