@@ -20,6 +20,7 @@ const mianLabelPng = aizhsUrl('remote-images/mian_label.png')
 const settingIconPng = aizhsUrl('remote-images/setting_icon.png')
 const daixaodimingPng = aizhsUrl('remote-images/daixaodiming.png')
 import { rpx } from '@/utils/rpx'
+import { getTopBarMetrics } from '@/utils/system-info'
 
 /**
  * DrawerComponent 抽屉组件
@@ -132,7 +133,9 @@ export default function DrawerComponent(props: DrawerComponentProps) {
     maskClosable = true,
     children,
     side = 'bottom',
-    statusBarHeight = 20,
+    // 兜底值不再自带一份 20 —— 全端状态栏高度只有 utils/system-info.ts 一个出口
+    // (实测该 20 ≠ 真机 34dp,取值失败即与系统时钟叠字)
+    statusBarHeight = getTopBarMetrics().statusBarHeight,
     logoUrl,
     menuItems = DEFAULT_MENU_ITEMS(tt),
     labelItems = DEFAULT_LABEL_ITEMS(tt),
