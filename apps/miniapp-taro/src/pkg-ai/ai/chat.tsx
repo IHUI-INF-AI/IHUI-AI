@@ -527,6 +527,8 @@ export default function ChatPage() {
                     name: evt.toolName,
                     status: 'running',
                     serverSource: evt.serverSource,
+                    // D83:MCP server 名一并落卡,措辞层按 server×tool 查定制表
+                    serverName: evt.serverName ?? evt.serverId,
                     // 入参一并落卡:共享层 describeToolCall 靠它取"对象"
                     args: evt.args,
                     startedAt,
@@ -535,7 +537,14 @@ export default function ChatPage() {
               }))
               pushStreamActivity(
                 toolActivityText(
-                  { id: evt.toolCallId, name: evt.toolName, status: 'running', args: evt.args },
+                  {
+                    id: evt.toolCallId,
+                    name: evt.toolName,
+                    status: 'running',
+                    serverSource: evt.serverSource,
+                    serverName: evt.serverName ?? evt.serverId,
+                    args: evt.args,
+                  },
                   t,
                 ),
               )
@@ -568,6 +577,8 @@ export default function ChatPage() {
                     id: evt.toolCallId,
                     name: evt.toolName,
                     status,
+                    serverSource: evt.serverSource,
+                    serverName: evt.serverName ?? evt.serverId,
                     args: evt.args,
                     result: resultEvent?.result,
                   },
