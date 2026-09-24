@@ -168,7 +168,7 @@ export function probePort(port: number): Promise<boolean> {
 }
 
 /** 磁盘探针:workspacePath 所在盘可用空间 < minFreeMB = error */
-export async function probeDisk(
+async function probeDisk(
   workspacePath: string,
   minFreeMB = DEFAULT_MIN_FREE_MB,
 ): Promise<SelfHealIssue | null> {
