@@ -725,7 +725,7 @@ export function CdpBrowserView({
         data-testid="pick-element-toggle"
         className={`absolute right-2 top-9 z-20 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] shadow-sm transition-colors ${
           pickMode
-            ? 'border-primary/40 bg-primary text-primary-foreground'
+            ? 'border-primary/40 bg-cta text-cta-foreground'
             : 'border-border bg-background/90 text-muted-foreground hover:bg-accent hover:text-foreground'
         }`}
       >
@@ -773,7 +773,7 @@ export function CdpBrowserView({
               type="button"
               onClick={runJs}
               disabled={!jsCode.trim()}
-              className="mt-1 rounded-md bg-primary px-2 py-1 text-[10px] font-medium text-primary-foreground disabled:opacity-50"
+              className="mt-1 rounded-md bg-cta px-2 py-1 text-[10px] font-medium text-cta-foreground disabled:opacity-50"
             >
               {t('run')}
             </button>
