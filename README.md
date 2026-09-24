@@ -2822,6 +2822,19 @@ R2 用基线棘轮拦"浅色当容器底":`surface.light` 背景 / α≥0.5 的�
 两条规矩:① 改共享注册文件必须逐块核对 `git show <commit> -- <f> | grep '^[-+].*(id:|script:|label:)'`;
 ② **判据要能让机器自己发现撞号**,不要依赖人记得去查。
 
+**守门 `check-home-junctions.mjs`(blocking;编号同日在变动,以 runner 为准)**(2026-09-24 立) ——
+把 AGENTS.md §26 的"家目录工具态一律 junction 改道"从**人肉三条命令**变成机器看守。起因是用户追问
+"C 盘怎么还是被我们占用了":`AppData\Roaming\npm` 已长成 **2.05GB**、`AppData\Local\pnpm-cache` **758MB**,
+两处都是实体目录,而同期的 `~\.ihui` 与桌面端 appdata 早已是 junction ⇒ **改道机制本身有效,缺的是回潮哨兵**。
+判三条:存在却不是指针 = `REAL-DIR`(且必须量出体积,否则报告是"合计约 0 MB"的假小量级);
+指针目标不可达 = `DANGLING`(§26 记过 `robocopy rc=9` 会"内容已搬走却不建 junction",反向同理);
+登记表被过滤空 = `EMPTY-REGISTRY`(空表 = 恒绿的假门,与守门 78 同取向)。非 Windows 如实报"未判定",不计通过。
+**第三方 IDE 自管态(`.workbuddy`、`.qoder-cn`)刻意不登记**,并由镜像测试反向钉死 —— 挪 `.qoder-cn` 等于丢记忆。
+同日两处已按机制收口(逐文件字节校验 + 经 junction 回读一致才删源),C 盘可用 44G → 45.75G。
+取证:`--self-test` 6 例 + 镜像测试 5 例(`node --test scripts/tests/check-home-junctions.test.mjs`,
+含装车证明与"夹具必须活到断言之后" —— 本仓当天就是先踩了注册期清理导致整套 fixture 断言对着空气判定)。
+紧急跳过 `HUSKY_SKIP_HOME_JUNCTIONS=1`。
+
 ---
 
 ### 新增守门示例:第 79 项「提交内容含 Git 冲突标记」(2026-09-23)
