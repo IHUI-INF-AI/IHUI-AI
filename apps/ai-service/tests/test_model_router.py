@@ -290,3 +290,104 @@ class TestCatalogCapabilityMapping:
         assert cap.supports_vision is False
         assert router.get_model_info("gpt-5.6") is not None
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+
+class TestBudgetDegradation:
+    """D16 ③ 预算降级:超支必须换档且**如实标记**,绝不静默当正常结果。
+
+    两个坑都在这份夹具里,写清楚免得后人重踩:
+    1) 模型集显式注入,不用 DEFAULT_MODELS —— 定价表一改,断言不该跟着变运气。
+    2) 必须落在**多候选**档位上:`COMPLEXITY_REQUIREMENTS` 里 trivial/simple/moderate/complex
+       的 `max_price` 是 0.5/1.0/5.0/20.0,价格不同的模型会在**预算之前**就被价格上限筛掉,
+       于是"备选裁剪"根本测不到。`expert` 是 min_reasoning=9 / max_price=50,
+       配上 10M 的 context_length 才留得下 1M token 的三个候选。
+       (第一版用 1M token + 128k context,整批落进"无候选"分支:看着全绿,测的不是预算。)
+    """
+
+    TOK = 1_000_000  # est = input + 0.5*output ⇒ cheap=2.0, mid=6.0, rich=18.0
+
+    @staticmethod
+    def _router() -> ModelRouter:
+        # 推理/速度/能力全同 ⇒ 候选排序只由价格决定(cheap < mid < rich)
+        return ModelRouter([
+            ModelCapability("m_cheap", "Cheap", 10_000_000, 9, 50, 1.0, 2.0, True, True),
+            ModelCapability("m_mid", "Mid", 10_000_000, 9, 50, 3.0, 6.0, True, True),
+            ModelCapability("m_rich", "Rich", 10_000_000, 9, 50, 9.0, 18.0, True, True),
+        ])
+
+    def test_candidate_path_actually_taken(self):
+        """前置自检:后面每条断言的意义都取决于"真走在有候选的分支上"。"""
+        router = self._router()
+        d = router.route("你好", token_count=self.TOK)
+        assert "无满足要求的模型" not in d.reason
+        assert d.selected_model == "m_cheap"
+        assert d.estimated_cost == 2.0
+        assert d.alternatives == ["m_mid", "m_rich"]
+
+    def test_budget_none_equals_legacy_call(self):
+        """回归守卫:显式传 None 与不传该参数必须逐字段等值(新维度不得改旧行为)。"""
+        router = self._router()
+        old = router.route("你好", token_count=self.TOK)
+        new = router.route("你好", token_count=self.TOK, budget_usd=None)
+        assert old == new
+        assert new.budget_exceeded is False and new.budget_usd is None
+
+    def test_big_budget_keeps_ranking(self):
+        """预算宽裕 ⇒ 选择与备选必须与无预算一致:预算只往下截,不重排。"""
+        router = self._router()
+        plain = router.route("你好", token_count=self.TOK)
+        funded = router.route("你好", token_count=self.TOK, budget_usd=999.0)
+        assert (funded.selected_model, funded.alternatives) == (
+            plain.selected_model,
+            plain.alternatives,
+        )
+        assert funded.budget_exceeded is False
+
+    def test_budget_boundary_inclusive(self):
+        """预算恰好等于成本 → 算付得起(取 <=),不标超支。"""
+        router = self._router()
+        d = router.route("你好", token_count=self.TOK, budget_usd=2.0)
+        assert d.selected_model == "m_cheap" and d.budget_exceeded is False
+
+    def test_unaffordable_model_excluded_from_alternatives(self):
+        """备选也必须受预算约束 —— 递一个"点了就超支"的备选等于没降级。"""
+        router = self._router()
+        d = router.route("你好", token_count=self.TOK, budget_usd=7.0)
+        assert d.selected_model == "m_cheap"
+        assert d.budget_exceeded is False
+        assert d.alternatives == ["m_mid"]  # rich(18.0) 超预算,不得出现
+
+    def test_all_exceed_lands_cheapest_and_flags(self):
+        """全超预算 → 落最便宜一档,置 exceeded,且 reason 里必须看得见预算。"""
+        router = self._router()
+        d = router.route("你好", token_count=self.TOK, budget_usd=0.5)
+        assert d.selected_model == "m_cheap"
+        assert d.budget_exceeded is True and d.budget_usd == 0.5
+        assert "已超" in d.reason
+
+    def test_no_candidate_branch_reports_budget_too(self):
+        """无候选分支(上下文不够)同样不许静默:标志位与 reason 必须同形。"""
+        small = ModelRouter([
+            ModelCapability("m_only", "Only", 1000, 9, 50, 1.0, 2.0, True, True),
+        ])
+        d = small.route("你好", token_count=self.TOK, budget_usd=0.0001)
+        assert "无满足要求的模型" in d.reason
+        assert d.budget_exceeded is True
+        assert "预算" in d.reason and "已超" in d.reason
+
+    def test_pinned_model_not_swapped_but_flagged(self):
+        """用户点名模型 = 显式意图:超预算也不换模型,只如实标超支。"""
+        router = self._router()
+        d = router.route(
+            "你好", token_count=self.TOK, preferred_model="m_rich", budget_usd=1.0
+        )
+        assert d.selected_model == "m_rich"
+        assert d.estimated_cost == 18.0
+        assert d.budget_exceeded is True
+
+    def test_pinned_model_within_budget_not_flagged(self):
+        router = self._router()
+        d = router.route(
+            "你好", token_count=self.TOK, preferred_model="m_cheap", budget_usd=5.0
+        )
+        assert d.selected_model == "m_cheap" and d.budget_exceeded is False
