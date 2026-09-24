@@ -1637,6 +1637,7 @@ export function HomeScreen() {
           }}
           onNavigateCourses={() => rootNav?.navigate('Main', { screen: 'CourseMain' })}
           onNavigateLives={() => rootNav?.navigate('Main', { screen: 'LiveMain' })}
+          colorScheme={resolvedTheme}
         />
         {/* KnowledgePlanet 知识星球卡片列表(对齐 Uniapp 首页知识星球入口) */}
         {knowledgeItems.length > 0 ? (

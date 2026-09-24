@@ -29,6 +29,7 @@
  * 平台独占:仅 mobile-rn 端,不涉及其他端。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTheme } from '../context/ThemeContext'
 import { useAudioPlayer } from 'expo-audio'
 import * as DocumentPicker from 'expo-document-picker'
 import { File, Paths } from 'expo-file-system'
@@ -370,6 +371,7 @@ const FILE_TYPE_BADGES: readonly string[] = ['PDF', 'Word', 'Excel', 'TXT'] as c
 // ── ChatScreen 组件 ──
 
 export function ChatScreen() {
+  const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
   const route = useRoute<RouteProp<RootStackParamList, 'Chat'>>()
@@ -2220,6 +2222,7 @@ export function ChatScreen() {
           onInputClear={() => {}}
           onInputVoiceStart={() => {}}
           onInputVoiceEnd={() => {}}
+          colorScheme={resolvedTheme}
         />
         <BottomActionBar
           prompt={prompt}
