@@ -7368,6 +7368,61 @@
           "notFound": "找不到"
         }
       },
+      "modelLoad": {
+        "ariaLabel": "模型負載與排隊狀態",
+        "load": {
+          "low": "低負載可能排隊",
+          "medium": "中負載可能排隊",
+          "high": "高負載可能排隊"
+        },
+        "slowLane": "已進入慢速佇列·目前排位 {position}",
+        "fastPass": "已開啟速通免排",
+        "recovering": "模型可用，正在繼續請求",
+        "wait": {
+          "under1min": "預計等待 不足1分鐘",
+          "about1min": "預計等待 約1分鐘",
+          "aboutNmin": "預計等待 約{minutes}分鐘",
+          "over10min": "預計等待 超過10分鐘"
+        }
+      },
+      "cloudChatOps": {
+        "title": "雲端聊天",
+        "ariaLabel": "雲端聊天互通活動",
+        "empty": "目前沒有雲端聊天操作",
+        "waitingUpstream": "等待上游動作",
+        "op": {
+          "attachCloudChat": {
+            "label": "附加雲端聊天",
+            "active": "附加中",
+            "completed": "已附加",
+            "following": "等待附加"
+          },
+          "createCloudChat": {
+            "label": "建立雲端聊天",
+            "active": "建立中",
+            "completed": "已建立",
+            "following": "等待建立"
+          },
+          "listCloudChats": {
+            "label": "列出雲端聊天",
+            "active": "列出中",
+            "completed": "已列出",
+            "following": "等待列出"
+          },
+          "readCloudChatTurns": {
+            "label": "讀取雲端聊天輪次",
+            "active": "讀取中",
+            "completed": "已讀取",
+            "following": "等待讀取"
+          },
+          "sendToCloudChat": {
+            "label": "向雲端聊天傳送訊息",
+            "active": "傳送中",
+            "completed": "已傳送",
+            "following": "等待傳送"
+          }
+        }
+      },
       "prChecks": {
         "title": "CI 檢查",
         "summary": {
@@ -26871,6 +26926,74 @@
         "inProgress": "載入中",
         "completed": "已載入",
         "failed": "載入失敗"
+      }
+    }
+  },
+  "visualAnnotation": {
+    "pickElement": "點選元素",
+    "panelTitle": "樣式標註",
+    "contextTitle": "視覺標註",
+    "elementText": "元素文字",
+    "styleSnapshot": "樣式快照",
+    "annotationLabel": "批註",
+    "annotationPlaceholder": "描述希望修改或檢查的樣式…",
+    "addToConversation": "加入到對話",
+    "staleWarning": "標註已失效,元素已變化",
+    "close": "關閉",
+    "color": "顏色",
+    "backgroundColor": "背景色",
+    "border": "邊框",
+    "borderRadius": "圓角",
+    "fontSize": "字號",
+    "margin": "外邊距",
+    "padding": "內邊距"
+  },
+  "artifactTurn": {
+    "turn": "第 {turn} 輪",
+    "stepBack": "上一處產物",
+    "stepForward": "下一處產物",
+    "jumpToOrigin": "跳到產生它的那輪",
+    "kindDocument": "文件",
+    "kindPresentation": "簡報",
+    "kindSpreadsheet": "電子試算表",
+    "kindFile": "檔案"
+  },
+  "cloudChat": {
+    "header": {
+      "count": "{count, plural, one {# 個雲端聊天} other {# 個雲端聊天}}",
+      "target": "{name}"
+    },
+    "turns": "{turns, plural, one {# 輪} other {# 輪}}",
+    "action": {
+      "attach": {
+        "label": "附加雲端聊天",
+        "active": "附加中",
+        "completed": "已附加",
+        "following": "等待附加"
+      },
+      "create": {
+        "label": "建立雲端聊天",
+        "active": "建立中",
+        "completed": "已建立",
+        "following": "等待建立"
+      },
+      "list": {
+        "label": "列出雲端聊天",
+        "active": "列出中",
+        "completed": "已列出",
+        "following": "等待列出"
+      },
+      "readTurns": {
+        "label": "讀取雲端聊天輪次",
+        "active": "讀取輪次中",
+        "completed": "已讀取輪次",
+        "following": "等待讀取"
+      },
+      "sendMessage": {
+        "label": "向雲端聊天傳送訊息",
+        "active": "傳送中",
+        "completed": "已傳送",
+        "following": "等待傳送"
       }
     }
   }
