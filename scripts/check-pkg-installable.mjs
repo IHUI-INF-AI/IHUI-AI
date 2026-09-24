@@ -29,13 +29,15 @@
 // 输出顺序:解包成员清单(最多 40 条)→ 结论 → blocker 明细 → private 状态提示。
 
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, mkdirSync, rmSync, readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+// §26 临时夹具唯一落点(2026-09-25 迁):解包现场此前留在仓库树内 .ihui-agent/tmp/,
+// 而 scratch-dir 的硬约束是临时物既不写 Node 的 TEMP 变量(活进程 TEMP 可能钉在 C 盘)
+// 也不写仓库树 —— 锚定工作树同盘的 DevEnv/Temp/ihui-scratch,清理只删自己 mkScratch 出来的目录。
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-/** 临时解包现场一律留在仓库内(AGENTS.md §15 工作区卫生),不写 os.tmpdir()。 */
-const SCRATCH_ROOT = join(REPO_ROOT, '.ihui-agent', 'tmp', 'pkg-installable')
 
 const SECRET_PATTERNS = [
   /\.env(\.|$)/i,
@@ -171,8 +173,7 @@ async function main() {
     console.error(`❌ ${target} 下没有 package.json`)
     process.exit(2)
   }
-  mkdirSync(SCRATCH_ROOT, { recursive: true })
-  const workDir = mkdtempSync(join(SCRATCH_ROOT, 'run-'))
+  const workDir = mkScratch('pkg-installable-run-')
   try {
     console.log(`▶ npm pack → ${target}`)
     // --json:清单走 stdout,"npm notice" 人类可读行进 stderr,避免靠肉眼切最后一行。
@@ -230,7 +231,7 @@ async function main() {
     process.exit(blockers.length === 0 ? 0 : 1)
   } finally {
     if (keep) console.log(`(保留现场) ${workDir}`)
-    else rmSync(workDir, { recursive: true, force: true })
+    else rmScratch(workDir)
   }
 }
 
