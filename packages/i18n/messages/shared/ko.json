@@ -2272,11 +2272,6 @@
           "steer": "끼어들기 우선",
           "queue": "대기 우선"
         },
-        "denied": {
-          "reorder": "대기열 순서를 변경할 수 없습니다",
-          "undo": "대기 중인 메시지를 취소할 수 없습니다",
-          "interject": "현재 Runtime은 끼어들기를 지원하지 않으므로 메시지는 대기열에 남아 있습니다"
-        },
         "degraded": {
           "runtimeNoInterject": "현재 Runtime은 끼어들기를 지원하지 않으므로 메시지는 대기열에 남아 있습니다"
         }
