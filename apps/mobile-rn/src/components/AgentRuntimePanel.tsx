@@ -6,6 +6,9 @@ import { View, Text, Pressable, ScrollView } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 import { Check, X } from 'lucide-react-native'
 import { permissionDecisionWord, useAgentRuntime, toolDisplayKey } from '@ihui/shared'
+// D111:审批面板的档名与首屏交代行同源取词(permissionTierWordKeys → @ihui/types 唯一真源),
+// 认不出的档位落 unknown,绝不静默显示成 default。
+import { permissionTierWordKeys } from '@ihui/shared/chat'
 import { useI18n } from '../i18n'
 
 import { Input, Loading } from '@ihui/ui-native'
@@ -76,7 +79,7 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
             <Text className="text-xs text-gray-600">
               {t('agent.runtimePermissionTool')}: {permToolLabel} ·{' '}
               {t('agent.runtimePermissionLevel')}: {permission.dangerLevel ?? 'read'} ·{' '}
-              {t('agent.runtimePermissionMode')}: {permission.mode}
+              {t('agent.runtimePermissionMode')}: {t(permissionTierWordKeys(permission.mode).title)}
             </Text>
           </View>
         ) : null}

@@ -83,21 +83,9 @@ export class RateLimiter {
 // InputValidator - 输入校验
 // =============================================================================
 
-const SQL_KEYWORDS = [
-  'SELECT',
-  'INSERT',
-  'UPDATE',
-  'DELETE',
-  'DROP',
-  'UNION',
-  'OR',
-  'AND',
-  'WHERE',
-  'FROM',
-  'INTO',
-  'VALUES',
-  'SET',
-]
+// SQL 注入判据不在此处:子串式关键字表会把 `IHUI-CORE`(含 OR)、`brand`(含 AND)、
+// `Android`、`SET`/`FROM` 等普通词误判成注入。唯一判据在 plugins/sqli-guard.ts 的
+// detectSqlInjectionPattern(字符门 ∧ 词边界 + 结构签名)。
 
 const XSS_PATTERNS = [
   '<script',
@@ -121,15 +109,6 @@ export class InputValidator {
       sanitized = sanitized.replace(re, '')
     }
     return sanitized
-  }
-
-  /** 检测 SQL 注入（关键字 + 引号/分号组合）。 */
-  static checkSqlInjection(value: string): boolean {
-    if (typeof value !== 'string') return false
-    const upper = value.toUpperCase()
-    const hasQuote = /['";]/.test(value)
-    if (!hasQuote) return false
-    return SQL_KEYWORDS.some((kw) => upper.includes(kw))
   }
 
   /** 校验文件扩展名是否在允许列表中。 */

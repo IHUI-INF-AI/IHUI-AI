@@ -2798,6 +2798,30 @@ R2 用基线棘轮拦"浅色当容器底":`surface.light` 背景 / α≥0.5 的�
 
 ---
 
+**第 92 项 `check-c-drive-pollution.mjs`(warn-only)**(2026-09-23 立) —— 补的是**全链没有一道门看过文件系统**这个缺口。
+第 45 项 `check-c-drive-paths.mjs` 只扫 staged 源码里的字面量 `C:\temp\`,而 C 盘残骸恰恰是从
+`os.tmpdir()` / `$env:TEMP` 这类"源码里根本没写 C"的路径流出去的;`check-parent-pollution` 只扫项目父目录
+(`D:\`),`check-root-dir-clean` 只扫项目根。三道门全绿的同一台机器上,C 盘实攒了 **13.2GB** 的 `.next`
+构建备份(`build-next-prod.ps1` 的 `$BackupRoot` 曾写死 `C:\tmp`)和单日 **45 个** git 测试夹具。本门实地扫
+`C:\` 根 + `C:\tmp` + `C:\temp` + 活 TEMP,按名字白名单**只认本项目产物**;认不出的条目进"未识别清单",
+只登记、不定性、不清理(清理类任务的铁律:先验明身份)。自有特征里有一条
+**"盘根单字母目录"** —— `C:\c` 是 MSYS 把 `/c/...` 当相对路径用的错位指纹,实测 08-06 一次就这样在 C 盘
+套出 515MB(4 份 origin 浅克隆 + 一份错位的 npm 全局前缀)。另单独判一条 **TEMP 漂移** ——
+注册表 `HKCU\Environment\TEMP` 已于 2026-09-23 改指 `D:\DevEnv\Temp`,但环境块只对**新启动的进程**生效,
+活着的宿主仍持 `C:\Users\...\AppData\Local\Temp`,这就是"指针改完了、残骸照样天天长"的机制。
+定级 warn 而非 blocking:盘根多数条目不属本仓,拦提交只会逼人 `--no-verify` 连带废掉全部守门
+(与第 77/52 项同取向);本门**只读,永不删文件**,清理一律走 `scripts/c-drive-auto-maintain.ps1`
+(同日修其三段:原扫 `C:\temp` 属**扫错目录**、`ForceDelete` 对单文件必然静默失败、`-DryRun` 必须拦在
+`ForceDelete` 这个唯一删除出口上而不是某一段里)。取证:`--self-test` 11 例 + §22c 镜像测试 7 例。
+**编号一天撞三次 + 一次卸闸的实录**(比门本身更值钱):85(与 `check-test-paths` 撞)→ 90(与
+`check-sse-dispatch-parity` 撞)→ 91(与 `check-error-code-coverage` 撞)→ 终落 **92**。改 90 那次最严重:
+整文件提交 `guardian-runner.mjs` 时把别人刚装上的门**注册块直接覆盖**(提交 `5db08f26e`),撞号只是重名,
+覆盖却是替别人卸闸。三条规矩:① 查编号占用必须在提交前最后一刻重做;② 改共享注册文件必须逐块核对
+`git show <commit> -- <f> | grep '^[-+].*(id:|script:|label:)'`;③ **断言不硬写编号**,要从文件反查 ——
+本门镜像测试即按"反查本门 id + 全 runner 无重号 + 三道邻门注册块必须存在"写,第三次撞号就是它当场抓出来的。
+
+---
+
 ### 新增守门示例:第 79 项「提交内容含 Git 冲突标记」(2026-09-23)
 
 **第 79 项 `check-no-conflict-markers.mjs`(blocking)** —— 补的是一个**已经漏过一次**的缺口。
@@ -2859,6 +2883,14 @@ setext 标题下划线、表格分隔、ASCII 示意图里都是合法内容,只
 3. **"邮件通道没开"从隐形变响铃**。`apps/api/.env` 缺 `SMTP_ENABLED` 一行 ⇒ 默认 false ⇒ 所有国内域名(qq/163/126/…)的验证码/账单/退款等事务邮件路由到 `'stub'` 且旧代码只 `console.info` 一行、调用方不查 `result.sent`。现改为 `logger.warn` **点名缺哪条配置** + `EmailNotSentReason` 精确联合类型 + `diagnoseMailTransport()`(国内与海外双路皆死时启动期打一行全局 warn);`broadcast-email-service` 的 `sent` 也从"按 `allSettled` fulfilled 计"改为按 `result.sent` 真计(原先群发会报"全部送达"而实际 0 封)。**是否打开 `SMTP_ENABLED` 属生产对外行为变更,由用户拍板,本仓默认仍关。**
 
 另两处同期根治:**Alertmanager 邮件通道**——实测 Alertmanager **不展开**配置里的 `${VAR}`(写 `${X}` 直接 `not a valid duration`),所以"占位符 + 注释说需 env 注入"的旧配置文件永远发不出信;现改为 `alertmanager.yml.tmpl` + `scripts/render-alertmanager-config.mjs` **先渲染再挂载**,TLS 形态由端口推导、发信账号单占位符同时喂 from/username、密码优先走 `smtp_auth_password_file` 以做到零落盘,渲染产物含凭据故被 `.gitignore` 钉住且渲染器写盘前先 `git check-ignore` 自证。**`POST /v1/messages` 全族**——出站体与 ai-service 的 pydantic 模型三处不齐、且上游每个端点都套 `{code,message,data}` 壳而转发层按裸 JSON 读 ⇒ `messageId` 恒空、`HTTP 200 + code=500` 被当成功、`subscribe` 更是**静默建了一条没有回调地址的死订阅**(不 422);现全部显式映射 + 拆壳,`channel` 收紧为枚举(值域从 `.py` 源码解析做跨语言对账),并把原来挂在**生产从不存在的 `prefix:'/v1'`** 上的假绿用例改到真实挂载点。
+
+### 同日再收口:bridge 邮件腿 + Server酱假成功 + SQLi 子串误杀(2026-09-23 深夜,O29 续)
+
+- **基础设施告警现在有带样式的邮件出口**:`monitoring/alertbridge/alert-webhook-bridge.cjs` 原本**零邮件出口**(`execFileSync` 声明后从未使用 = 半途接线痕迹)。现与微信**并行扇出**,正文一律经 ops 唯一出口 `apps/api/scripts/notify-deploy-failure.ts`(即 `renderSystemAlertEmail`),零手抄版式;去重与微信共用同一个 `partitionAlerts()` 结论与 `SCT_DEDUP_MIN` 窗口(不造第二份状态),邮件另立日预算(默认 10/天,与微信 `SCT_DAILY_BUDGET=4` 互不侵占)。派发器改**异步 `spawn` + `windowsHide`**:第一版用 `spawnSync` 会把 tsx 冷启 + SMTP 握手几十秒钉在事件循环上 —— 与守门 80 那起 80 分钟挂起同型。`BRIDGE_MAIL_ENABLED=0` 只关邮件腿,不牵连微信(实测两腿互不影响)。
+- **Server酱"假成功"已修**:旧 `pushServerChan` 对"HTTP 2xx + 非 JSON / 缺 `code|errno|status`"也记 `[push] 已推送到微信`,而 Server酱拒绝错误 key 时回的正是这种形态 ⇒ **发不出去却记成功**,值班以为告警已达(生产日志实测出现过 `超过当天的发送次数限制[5]` 被旧判据放成成功)。新判据只认明确成功信号,非 JSON/HTML/空体/缺字段一律失败并留脱敏原因。
+- **全站 SQLi 子串误杀已修**:`InputValidator.checkSqlInjection` = "含 `' \" ;` ∧ 关键字**子串**",于是 `IHUI-CORE`(含 `OR`)、`brand`/`Android`(含 `AND`)、`SETTINGS`/`ASSET`(含 `SET`)这类正常词只要带分号就 400 —— 实测一封正常品牌邮件正文被拦,**信根本发不出去**。现关键字侧改为词边界 + 注入结构签名(12 条),字符门一字未放宽:同一批样例旧判误杀 **12/16** → 新判 **0/16**,20 条真载荷 **0 漏放**且**多拦 3 条**(时间盲注、存储过程)。旧死判据连同其关键字表已从 `security-service.ts` 删除,不留"一被调就重演误杀"的后门。非 AI 路径刻意**不**加 `--` 注释符特征:纯文本邮件的签名分隔符就是裸 `-- `(RFC 3676)。
+- **源-运行分裂收口**:`deploy/prod-bundle/alert-webhook-bridge.cjs` 手工副本已落后 11 天且藏真缺陷(去重命中时 `return { skipped: toDedupCount }` 抛 ReferenceError ⇒ 对 Alertmanager 回 500)。现改为**转发器**(`require` 入库源码,路径由 `__dirname` 推导)—— 复制只能修今天,转发器让"改源码忘同步"在结构上不存在。
+- 取证:bridge `--self-test` **49/49**(入库源码与转发器分别跑同一份代码各 49/49)、`apps/api/tests/sqli-guard.test.ts` **44 passed** 且邻接 `csrf / mail-routes / prompt-injection-guard` 同跑 **102 passed**、守门 81 全量 0 违规、守门 52/80 全量 0 违规、水印 verify 完整。
 
 ### 工作区存续自愈(`scripts/heal-worktree-tracked.mjs`,2026-09-23)
 
@@ -3042,15 +3074,15 @@ node apps/api/scripts/pg-backup.mjs
 
 ## CI 工作流(2026-07-26 新增)
 
-| Workflow                                                                 | 触发条件                                                          | 失败阻塞                |
-| ------------------------------------------------------------------------ | ----------------------------------------------------------------- | ----------------------- |
-| [`i18n-dead-key-audit.yml`](./.github/workflows/i18n-dead-key-audit.yml) | PR 改 i18n 字典 / web/src / miniapp-taro/src / cli/src / 扫描脚本 | 是(死 key > 0 → exit 1) |
-| [`ci.yml`](./.github/workflows/ci.yml)                                   | PR 推 main / develop                                              | 是                      |
-| [`build.yml`](./.github/workflows/build.yml)                             | tag 推送 / main 合并                                              | 是(构建产物)            |
-| [`e2e.yml`](./.github/workflows/e2e.yml)                                 | PR 标 `e2e` 标签                                                  | 是(Playwright)          |
-| [`knip.yml`](./.github/workflows/knip.yml)                               | PR 改源码                                                         | 是(未使用代码)          |
+| Workflow                                                                 | 触发条件                                                                                                    | 失败阻塞                                             |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| [`i18n-dead-key-audit.yml`](./.github/workflows/i18n-dead-key-audit.yml) | PR 改 i18n 字典 / 五端代码(web·miniapp-taro·mobile-rn·cli·extension)/ `packages/shared/src/chat` / 扫描脚本 | 是(死 key > 0 → exit 1;现跑 `--target all` 五端全扫) |
+| [`ci.yml`](./.github/workflows/ci.yml)                                   | PR 推 main / develop                                                                                        | 是                                                   |
+| [`build.yml`](./.github/workflows/build.yml)                             | tag 推送 / main 合并                                                                                        | 是(构建产物)                                         |
+| [`e2e.yml`](./.github/workflows/e2e.yml)                                 | PR 标 `e2e` 标签                                                                                            | 是(Playwright)                                       |
+| [`knip.yml`](./.github/workflows/knip.yml)                               | PR 改源码                                                                                                   | 是(未使用代码)                                       |
 
-**i18n-dead-key-audit 流程**:`scripts/scan-dead-i18n-keys.mjs --target web`(默认)→ 扫描 `apps/web/src + apps/web/app + apps/miniapp-taro/src + apps/cli/src + apps/mobile-rn/src` 找代码未引用的 zh-CN 声明 → 写报告到 `.ihui-agent/tmp/i18n-dead-keys-YYYY-MM-DD.md`(artifact)→ 死 key > 0 → exit 1 → PR 阻塞。
+**i18n-dead-key-audit 流程**:`scripts/scan-dead-i18n-keys.mjs --target all`(CI 与 `pnpm check:all` 均用此入口;裸跑默认仍是 `--target web`)→ 逐端扫描各自 `scanTargets`(web 端含 `apps/web/src + apps/web/app + apps/miniapp-taro/src + packages/app/src + apps/mobile-rn/src`;cli / extension 端各含 `packages/shared/src/chat`,因为等待语池等键是 shared 运行期拼出来的)→ 每端写 `.ihui-agent/tmp/i18n-dead-keys-YYYY-MM-DD-<端>.md`(artifact)→ 任一端死 key > 0 → exit 1 并逐端点名(`web=ok … cli=exit 1 …`;无 JS 扫描面的 desktop 会如实标"未计入",不静默算绿)→ PR 阻塞。
 
 ---
 
@@ -3065,9 +3097,9 @@ node apps/api/scripts/pg-backup.mjs
 5 语言 i18n 通过 `scripts/scan-dead-i18n-keys.mjs` 系列自动审计,死 key 比例从 43.1% 降至 0.0%(已清零)。
 
 - **基准语言**:`packages/i18n/messages/web/zh-CN.json`(10,174 leaf key,5 语言同步)
-- **多端字典目录**:`packages/i18n/messages/{web,extension,miniapp-taro,mobile-rn,shared}/` 5 端独立字典,各 5 语言文件
+- **多端字典目录**:`packages/i18n/messages/{web,shared,extension,cli,miniapp-taro,mobile-rn}/` 6 端独立字典,各 5 语言文件(desktop 是 Rust/Tauri 包装,无 JS 取词面,字典未建 ⇒ 扫描器如实标"未计入"而非算绿)
 - **扫描工具**:
-  - `scripts/scan-dead-i18n-keys.mjs --target {web|miniapp-taro|mobile-rn|extension}`(主入口,默认 `--target web` 跨端共享)
+  - `scripts/scan-dead-i18n-keys.mjs --target {all|web|cli|extension|miniapp-taro|mobile-rn|desktop}`(主入口;`all` 逐端判定并打印 `web=ok … cli=ok` 结论行,CI 与 `pnpm check:all` 均用 `--target all`;裸跑默认 `--target web`,其 scanTargets 跨端共享)
   - `scripts/scan-extension-dead-i18n-keys.mjs`(extension 端独立)
   - `scripts/scan-miniapp-taro-dead-i18n-keys.mjs`(miniapp-taro 端独立)
   - `scripts/scan-mobile-rn-dead-i18n-keys.mjs`(mobile-rn 端独立)
