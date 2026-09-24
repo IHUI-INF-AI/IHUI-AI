@@ -34,7 +34,31 @@
     "errorPromptFile": "--prompt-file 错误: {error}",
     "agentUsage": "用法: ihui agent <task>  或  ihui agent --prompt-file <path>",
     "agentsMdExists": "AGENTS.md 已存在。使用 --force 覆盖。",
-    "agentsMdCreated": "已创建: {path}"
+    "agentsMdCreated": "已创建: {path}",
+    "queue": {
+      "enqueued": "已排队 [{id}] (后续输入模式=queue，共 {n} 项待执行)",
+      "helpMove": "调整排队项顺序(运行中锁定)",
+      "helpEdit": "编辑排队项文本(元数据不变)",
+      "helpRun": "打断当前回合并执行队首",
+      "helpMode": "设置运行中输入的后续输入模式",
+      "usageMove": "用法: /queue move <起始序号> <目标序号>(顺序见 /queue list)",
+      "usageEdit": "用法: /queue edit <id> <新文本>",
+      "usageMode": "用法: /queue mode <steer|queue>",
+      "denied": {
+        "reorder": "无法调整排队顺序",
+        "undo": "无法撤回排队消息",
+        "interject": "当前 Runtime 不支持插话，消息将继续排队"
+      },
+      "reordered": "✓ 已重排({from} → {to})",
+      "edited": "✓ 已编辑 [{id}](元数据未变)",
+      "noopMove": "未执行: 序号越界或与原位相同",
+      "noopEdit": "未执行: 找不到该 id 或文本为空({id})",
+      "interrupting": "正在打断当前回合以执行队首 [{id}]",
+      "noRunning": "当前没有进行中的回合; 队首 [{id}] 将在下一次提示循环后执行",
+      "runEmpty": "队列为空, 无可执行项",
+      "modeSet": "✓ 后续输入模式 = {mode}",
+      "degradedNote": "(已降级: {reason})"
+    }
   },
   "waiting": {
     "agent": {
@@ -224,7 +248,7 @@
     "historyDesc": "查询会话导入历史(最近 50 条)",
     "conversationMeta": "· {count} 条消息 · 模型 {model} · 起始 {started}",
     "historyCappedSuffix": ",已达服务端 50 条上限"
-},
+  },
   "cliEntry": {
     "tagline": "IHUI AI Coding Agent — 对标 Claude Code / Codex",
     "modelIdDesc": "模型 ID",
@@ -337,7 +361,7 @@
     "auditColSuccess": "成功",
     "auditColFailure": "失败",
     "auditColRate": "成功率"
-},
+  },
   "cliWorkflows": {
     "contextBadJson": "--context 不是有效的 JSON: {message}",
     "noWorkflows": "(暂无工作流)",
@@ -388,5 +412,5 @@
     "instanceShowDesc": "查看实例详情(含 tasks)",
     "cancelDesc": "取消运行中实例",
     "unknownValue": "(未知)"
-}
+  }
 }

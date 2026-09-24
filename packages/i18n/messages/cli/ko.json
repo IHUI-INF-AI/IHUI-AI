@@ -34,7 +34,31 @@
     "errorPromptFile": "--prompt-file 오류: {error}",
     "agentUsage": "사용법: ihui agent <task>  또는  ihui agent --prompt-file <path>",
     "agentsMdExists": "AGENTS.md가 이미 존재합니다. --force로 덮어쓰세요.",
-    "agentsMdCreated": "생성 완료: {path}"
+    "agentsMdCreated": "생성 완료: {path}",
+    "queue": {
+      "enqueued": "대기열에 추가했습니다 [{id}] (후속 입력 모드=queue, 대기 {n}건)",
+      "helpMove": "대기 항목 순서 변경 (실행 중에는 잠김)",
+      "helpEdit": "대기 텍스트 편집 (메타데이터는 변경되지 않음)",
+      "helpRun": "현재 턴을 중단하고 대기열 맨 앞 항목 실행",
+      "helpMode": "실행 중 입력의 후속 입력 모드 설정",
+      "usageMove": "사용법: /queue move <시작 번호> <끝 번호> (순서는 /queue list로 확인)",
+      "usageEdit": "사용법: /queue edit <id> <새 텍스트>",
+      "usageMode": "사용법: /queue mode <steer|queue>",
+      "denied": {
+        "reorder": "대기열 순서를 변경할 수 없습니다",
+        "undo": "대기 중인 메시지를 취소할 수 없습니다",
+        "interject": "현재 Runtime은 끼어들기를 지원하지 않으므로 메시지는 대기열에 남아 있습니다"
+      },
+      "reordered": "✓ 순서를 변경했습니다 ({from} → {to})",
+      "edited": "✓ 편집했습니다 [{id}] (메타데이터 변경 없음)",
+      "noopMove": "실행하지 않음: 번호가 범위를 벗어나거나 현재 위치와 같습니다",
+      "noopEdit": "실행하지 않음: 해당 id를 찾을 수 없거나 텍스트가 비어 있습니다 ({id})",
+      "interrupting": "현재 턴을 중단하고 대기열 맨 앞 항목 [{id}]을(를) 실행합니다",
+      "noRunning": "실행 중인 턴이 없습니다. 맨 앞 항목 [{id}]은(는) 다음 입력 주기 후 실행됩니다",
+      "runEmpty": "대기열이 비어 있어 실행할 항목이 없습니다",
+      "modeSet": "✓ 후속 입력 모드 = {mode}",
+      "degradedNote": " (강등: {reason})"
+    }
   },
   "waiting": {
     "agent": {
@@ -224,7 +248,7 @@
     "historyDesc": "세션 가져오기 이력 조회(최근 50건)",
     "conversationMeta": "· 메시지 {count}개 · 모델 {model} · 시작 {started}",
     "historyCappedSuffix": ", 서버 상한 50건에 도달"
-},
+  },
   "cliEntry": {
     "tagline": "IHUI AI Coding Agent — Claude Code / Codex를 지향하는 코딩 에이전트",
     "modelIdDesc": "모델 ID",
@@ -337,7 +361,7 @@
     "auditColSuccess": "성공",
     "auditColFailure": "실패",
     "auditColRate": "성공률"
-},
+  },
   "cliWorkflows": {
     "contextBadJson": "--context가 유효한 JSON이 아닙니다: {message}",
     "noWorkflows": "(워크플로 없음)",
@@ -388,5 +412,5 @@
     "instanceShowDesc": "인스턴스 상세 보기(tasks 포함)",
     "cancelDesc": "실행 중인 인스턴스 취소",
     "unknownValue": "(알 수 없음)"
-}
+  }
 }
