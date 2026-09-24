@@ -60,6 +60,15 @@ jobs:
       - name: Install dependencies (frozen lockfile = dependency truth)
         run: pnpm install --frozen-lockfile
 
+      # Shared typecheck 的前置构建(2026-09-25 补,修"每次推送连红"):@ihui/shared 的
+      # token-store/render-model/use-agent-runtime/budget-note import '@ihui/api-client',
+      # 而该包 main/types/exports 全部指向 ./dist/*(产物不入库)—— CI 的 pnpm install
+      # 从不构建 workspace 包 ⇒ 缺这步必红 14× TS2307 + 连带 7× TS7006(类型推不出,非独立缺陷)。
+      # 同型先例既有正解在 openapi-check.yml:77:尾缀 `...` = 该包**及其 workspace 依赖**一并
+      # 拓扑构建(@ihui/types 同建);不带 `...` 的 `pnpm --filter` 不做拓扑构建,正是本族事故根因。
+      - name: Build api-client (topological, prerequisite of shared typecheck)
+        run: pnpm --filter "@ihui/api-client..." run build
+
       # 缺陷 1 的门:@ihui/shared 的 exports["."] 直指 src/index.ts,而 index.ts:19 再
       # `export * from './chat'`,apps/web 有 25 个文件 import 根 barrel(2026-09-24 实测计数)。
       # 为什么必须单独跑这一步:悬空 re-export 在 TS 侧是 TS2307,而 apps/web/next.config.ts:63
@@ -80,7 +89,9 @@ jobs:
         run: pnpm --filter @ihui/auth build
 
       - name: Build api-client package
-        run: pnpm --filter @ihui/api-client build
+        # 尾缀 `...` 连 workspace 依赖一起拓扑构建(同 openapi-check.yml:77 既有正解);
+        # 不带 `...` 时若上游包(如 @ihui/types)未来产物化入口切到 dist,本步会静默踩坑。
+        run: pnpm --filter "@ihui/api-client..." run build
 
       # WXT 生成 apps/extension/.wxt/tsconfig.json(extension 的 tsconfig 继承它)。
       # 缺此步 -> TS5083 读不到文件, 连带 200+ 个路径解析/自动导入错误(2026-09-10 实测)。
@@ -206,7 +217,9 @@ jobs:
         run: pnpm --filter @ihui/database build
 
       - name: Build api-client package
-        run: pnpm --filter @ihui/api-client build
+        # 尾缀 `...` 连 workspace 依赖一起拓扑构建(同 openapi-check.yml:77 既有正解);
+        # 不带 `...` 时若上游包(如 @ihui/types)未来产物化入口切到 dist,本步会静默踩坑。
+        run: pnpm --filter "@ihui/api-client..." run build
 
       # 2026-09-10 根因修复:pgvector 镜像只是把扩展文件放进镜像,每个 database 仍需
       # 显式 CREATE EXTENSION;缺这步 → 迁移到 vector 列必抛 type "vector" does not exist。
