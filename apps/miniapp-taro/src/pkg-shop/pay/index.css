@@ -172,10 +172,10 @@
 }
 .py-radio--on {
   border-color: var(--color-primary);
-  background: var(--color-primary);
+  background: var(--color-cta);
 }
 .py-radio-mark {
-  color: var(--color-primary-foreground);
+  color: var(--color-cta-foreground);
   font-size: 24rpx;
   font-weight: 700;
   line-height: 1;
