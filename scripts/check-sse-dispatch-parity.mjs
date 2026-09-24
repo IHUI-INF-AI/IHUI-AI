@@ -169,6 +169,30 @@ export function evaluateDispatchParity({ hit, callbacks, known, data }) {
  * @param {'head'|'index'} basis 与帧清单**同一修订**(head = HEAD 提交树,index = 暂存区)
  */
 export function collectHitMap(data, callbacks, basis = 'head') {
+  const hit = {}
+  for (const ep of Object.keys(data.endpoints ?? {})) hit[ep] = new Set()
+  for (const { name, ep } of grepFrameHits(data, callbacks, basis)) hit[ep].add(name)
+  return hit
+}
+
+/**
+ * 承接面归属:`--report` 用,把"某帧已覆盖"落到**具体文件**上。
+ * 起因(本会话登记在 PROJECT_PLAN 的盲区):本门只按端聚合命中,所以 mobile-rn 的
+ * `budget` 只在 N8n 助手屏注册过、主聊天屏仍一帧不接,矩阵上却与"全端已接"同形。
+ * 判据不变(不计红),只把归因摊开给人看。
+ */
+export function collectSurfaceMap(data, callbacks, basis = 'head') {
+  const surfaces = {}
+  for (const ep of Object.keys(data.endpoints ?? {})) surfaces[ep] = new Map()
+  for (const { file, name, ep } of grepFrameHits(data, callbacks, basis)) {
+    if (!surfaces[ep].has(file)) surfaces[ep].set(file, new Set())
+    surfaces[ep].get(file).add(name)
+  }
+  return surfaces
+}
+
+/** 共享同一次 grep 与同一套失败口径 —— 两张图不允许各自跑一遍再出现分歧 */
+function* grepFrameHits(data, callbacks, basis) {
   const alt = callbacks.join('|')
   const paths = Object.values(data.endpoints ?? {}).flat()
   // ⚠️ 修订位置不是可选风格:`git grep -o -E <pat> --cached` 会把 `--cached` 当**修订名**
@@ -191,22 +215,20 @@ export function collectHitMap(data, callbacks, basis = 'head') {
       )
     }
   }
-  const hit = {}
-  for (const ep of Object.keys(data.endpoints ?? {})) hit[ep] = new Set()
+  const dirsByEp = Object.entries(data.endpoints ?? {})
   for (const line of raw.split('\n')) {
     if (!line) continue
     const idx = line.lastIndexOf(':')
     if (idx === -1) continue
     const file = line.slice(0, idx).replace(/^HEAD:/u, '')
     const name = line.slice(idx + 1)
-    for (const [ep, dirs] of Object.entries(data.endpoints ?? {})) {
+    for (const [ep, dirs] of dirsByEp) {
       if (dirs.some((d) => file.startsWith(`${d}/`))) {
-        hit[ep].add(name)
+        yield { file, name, ep }
         break
       }
     }
   }
-  return hit
 }
 
 /**
@@ -331,6 +353,37 @@ function main() {
       const hits = hit[ep] ?? new Set()
       const miss = callbacks.filter((c) => !hits.has(c))
       console.log(`${ep.padEnd(14)} ${hits.size}/${callbacks.length}  缺: ${miss.join(', ') || '-'}`)
+    }
+    // 承接面归因:矩阵按端聚合,"该端已覆盖某帧"看不出**是哪块界面**接的 —— 主聊天屏一帧不接
+    // 也能靠某个次级屏把端凑成已覆盖。这里把每个端"哪个文件接了哪些帧"摊开(不计红,仅供核工单)。
+    let surfaces
+    try {
+      surfaces = collectSurfaceMap(data, callbacks, basis)
+    } catch (e) {
+      console.log(`⚠️  承接面归因未能取得:${e?.message ?? e}(矩阵结论不受影响,该项不判红)`)
+      surfaces = null
+    }
+    if (surfaces) {
+      console.log(
+        '\n=== 帧名出现位置归因(mention 级:该文件文本里出现过这些帧回调名。' +
+          '**不校验是否真挂进 dispatch**,故"面数"含类型/透传文件 —— 只用来定位"某帧全仓只有一处在接",不计红)===',
+      )
+      for (const [ep, files] of Object.entries(surfaces)) {
+        const rows = [...files.entries()].sort((a, b) => b[1].size - a[1].size)
+        console.log(`\n${ep}:命中文件 ${rows.length} 个`)
+        const solo = new Set()
+        for (const cb of callbacks) {
+          const n = rows.filter(([, s]) => s.has(cb)).length
+          if (n === 1) solo.add(cb)
+        }
+        for (const [file, set] of rows.slice(0, 6)) {
+          const only = [...set].filter((c) => solo.has(c))
+          console.log(
+            `  ${String(set.size).padStart(2)} 帧  ${file}${only.length ? `  ◇仅此面: ${only.join(', ')}` : ''}`,
+          )
+        }
+        if (rows.length > 6) console.log(`  …另 ${rows.length - 6} 个面未列`)
+      }
     }
     console.log('')
   }
