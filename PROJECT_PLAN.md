@@ -101,7 +101,78 @@
   但目录名属凭据类 —— 按"清理不得靠近 key/secret/cert"铁律一律不碰)、`C:\Youku Files`(1.3GB 用户数据)、
   `C:\persistent_data`、`C:\common_attachment`、`C:\appverifUI.dll`、`C:\vfcompat.dll`、
   `C:\tools\openssh-inst`(部署链路可能按绝对路径找 `ssh.exe`)。
+- [x] ✅(2026-09-24)**C 组刻意没动,待用户定性**:`C:\ai_zhs\cert\*.pem`(5 个,每个仅 10–20 字节,不可能是真 PEM,
+  但目录名属凭据类 —— 按"清理不得靠近 key/secret/cert"铁律一律不碰)、`C:\Youku Files`(1.3GB 用户数据)、
+  `C:\persistent_data`、`C:\common_attachment`、`C:\appverifUI.dll`、`C:\vfcompat.dll`、
+  `C:\tools\openssh-inst`(部署链路可能按绝对路径找 `ssh.exe`)。
   另:真 npm 前缀里有 `@mimo-ai\.cli-TpjiMkdA`(约 135MB 中断安装残留),属第三方工具目录,只报不动。
+  **本条已由用户拍板收口(「要彻底根治」),逐子项现状见下方第三阶段。** 其中
+  `C:\ai_zhs`、`C:\Youku Files` 本轮复核**盘根已不存在**(同日 A/B 组处置与 03:00 计划任务的结果),
+  清单在这两处已过期;但"`cert`/`密钥` 类目录一律不靠近"这条铁律**不得随条目关闭而撤**。
+
+### 第三阶段(2026-09-24):盘根写歪项 = 载体替换,不是再删一次
+
+用户问的是这六个路径"是什么、为什么占 C 盘";量级先说清:**六项合计 12.3 MB**,而 C 盘已用 151GB、
+`pagefile.sys` 单项 32GB ⇒ 它们从来不是占用来源,**"复发"才是问题**。故本阶段做的是成因层。
+
+- [x] ✅ **逐项定性(每项都有可复算证据,不靠猜)**
+  - `C:\common_attachment` = **剪映 JianyingPro** 写歪的草稿缓存。判据:盘根文件
+    `attachment_clipflow_cache.json` 的键形(`task_id`/`state`/`algorithm_type`/`node_infos`)与
+    `D:\电脑软件\JianyingPro Drafts\4月28日\common_attachment\attachment_async_tasks.json` 同族,
+    且 mtime(04-28 02:42)与该草稿目录名同日。
+  - `C:\persistent_data` = **微信输入法 WeType** 的用户词库状态。判据:同名文件
+    `user_dict_clean_up.bin` 在 `AppData\LocalLow\Tencent\WeType\ImeDir\persistent_data\` 有一份,
+    **哈希不同** ⇒ 不是拷贝,是同一程序以 `C:\` 为工作目录时各写各的副本。
+  - `C:\appverifUI.dll` + `C:\vfcompat.dll` = **Application Verifier 组件**(微软签名,
+    `vfcompat.dll` FileVersion `10.0.26100.7705` 与已装 "Windows SDK 10.0.26100.7705" 同版号),
+    同一时刻(2026-01-26 22:18)被安装器解包到盘根;System32 里是在用的**不同哈希/更大体积**版本
+    (166,248 / 89,200 vs 112,496 / 68,120)⇒ 盘根这对是孤儿重复件,全仓与计划任务零引用。
+  - `C:\tmp` = **我们自己的残骸**(`git-recovery*` 里是本仓文件的历史副本,即 8 月几次 git 抢救现场)
+    + 他 IDE 的 tasks 输出 + 一个 skill 包。守门此前因 `tmp`/`tools` 在 `FOREIGN_ROOT` 里而对这里
+    **完全失明** —— 5.9MB 本仓副本天天在扫却一条不报。
+  - `C:\tools\openssh-inst` = 装 OpenSSH Server 的安装包现场(`sshd.exe` 现已跑在
+    `C:\Program Files\OpenSSH`,msi 已无用)。
+- [x] ✅ **`scripts/seal-c-root-stray.mjs`(根治载体,幂等、可换机重跑)**:把这四个名字改成
+  **junction 改道**到 §15b 批准落点(`cache/c-root-stray/*`、`Temp/c-root-tmp`、`tools/c-root-tools`)。
+  为什么不是"删掉":第三方闭源、改不了它的代码,而它下次仍以 `CWD=C:\` 跑 ⇒ 删了必长回来。
+  改道后**程序按原路径读写完全不变**(不报错、不崩),内容落在 D,C 盘 footprint 恒 0。
+  与 §26 工具态改道同一机制。`--check` 零副作用 / `--dry-run` / `--apply` / `--self-test` 11 例
+  (含"真目录→改道→幂等→已封口须报绿"四段端到端与反向对照);**搬完必须逐文件对账才删源**,
+  对不过即拒绝删源保留原样。盘根现状:`dir /a /b C:\` 只剩系统项 + 4 个 `<JUNCTION>`。
+- [x] ✅ **一次性处置(全在改道后做,零独有内容判据先行)**:`git-recovery*` 的 20 个副本逐文件
+  `git hash-object` + `git cat-file -e` 验过 **19 个已在本仓对象库**(删之无损)直接删除;唯一例外
+  `llm_gateway.py`(103,593B,blob `48bbb704b` 对象库里没有)归档到
+  `D:\DevEnv\backups\archives\c-root-2026-09-24\git-recovery-20260817\` 并在该目录 README 写明依据。
+  两个孤儿 DLL 与 6.3MB 的 `OpenSSH-Win64.msi` 删除;`administrators_authorized_keys.bak`
+  (94B,内容是一把 `trae-deploy` **公钥**,非私钥)保留。他 IDE 的 `codebuddy/tasks` 与 skill 包其余
+  文件属他人运行态,**只随改道挪盘、不删**。C 盘实收 12.13MB → 目标侧现 0.05MB/12 文件。
+- [x] ✅ **顺带揪出一处凭据暴露(不在原问题里)**:`C:\tmp\agnes-ai-generation-skill\install-clean.ps1:4`
+  **明文写着一把真实 API key**。已核实该 key 与 HKCU `AGNES_API_KEY` 同值、且在 §5d 权威源
+  `D:\BaiduSyncdisk\密钥\模型\agnes apikey.txt`(内含 2 把)里 ⇒ 明文副本可删,已只删该文件、
+  保留 skill 其余内容。**建议轮换该 key**:它曾长期以明文躺在盘根临时脚本里(任何读得到该目录的
+  进程可见),现已不在 C 盘、不在仓库、不在聊天记录。
+- [x] ✅ **每日清理器 `c-drive-auto-maintain.ps1` 三处加固**:① 新增 `Test-ReparsePoint`,
+  `ForceDelete` 这条**唯一删除出口**对重解析点只 `[System.IO.Directory]::Delete($path,$false)` 断链,
+  绝不递归 —— 实测 PS7 的 `Get-ChildItem -Recurse` **会穿过 junction**(枚举到目标里的文件),
+  没有这道护栏,"按名字删 C:\tmp\ihui-*"会顺着链接清空 D 盘真实目标,§26 的改道机制会变成自毁机制;
+  ② 第 3 段对已改道的扫描位整体跳过;③ 新增 **[4/4] 封口体检**:每天 03:00 跑 `--check`,
+  发现封口被删/回潮就自动 `--apply` 重封并复检。顺手修了本段自己的三个缺陷:不存在路径在非
+  `ErrorActionPreference=Stop` 下会甩红字、`Join-Path` 单参写法必报缺 ChildPath、子进程输出按
+  GBK 解码成乱码且多行被并成一行(现设 `[Console]::OutputEncoding=UTF8` + 收进变量再按行切)。
+  实测演练:手工断开 `C:\persistent_data` → `--check` exit 1 → `--apply` 重封 → 复检 exit 0,
+  目标内容经原路径回读逐字节一致。
+- [x] ✅ **守门(C 盘污染实地扫描)认得封口**:从封口器 **import 清单**(不抄第二份名字),
+  判 `SEALED`/`BROKEN`/`ABSENT`/`FOREIGN` 四态;回潮(该名字又是真目录)计入本项目产物并给
+  `--strict` 判红面,**修复动作只有一个:重跑封口器**;`孤儿组件复现`从"未识别清单"升为定性判据;
+  扫描位遇 junction 一律不跟随并如实打印跳过项(否则把 D 盘目标算成 C 的债)。
+  取证:`--self-test` 12 → **19 例**、镜像测试 7 → **11 例**(新增"改道前判残骸 / 改道后判已封口且
+  量级必须为 0"的端到端对照、"重解析点只断链不递归删"的源码级装车证明);
+  封口器另有镜像测试 **7 例**(含两条装车证明:维护脚本必须真的调用 `--check`+`--apply`、
+  守门必须 import 而非自抄清单)。
+- [ ] **本阶段刻意没做的两件事**(留给拍板,不是遗漏):① `pagefile.sys` 32GB 才是 C 盘最大单项,
+  挪盘或限值属系统级改动;② 那 7 个仍走 `os.tmpdir()` 的 `--self-test`(见下方「遗留」)——
+  盘根已封口,它们再落 `C:\tmp` 也只会进 D 盘目标, urgency 下降,但 TEMP 漂移仍在报。
+
 
 ### 遗留(已量化,不在本次范围)
 

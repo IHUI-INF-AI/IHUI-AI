@@ -1369,6 +1369,20 @@ C 盘 120 GB 频繁告急,根因排查发现:
 因此**不需要也不允许**去改 `Path` 或逐个改码;改环境变量反而会造出"双根分裂"。
 校验方法:`rustup show home`、`reg query HKCU\Environment`、`(Get-Item ~\.cargo).Attributes -match ReparsePoint`。
 新增工具的缓存落点一律走 `D:\DevEnv\cache\userhome\<名称>` + junction,不得再在家目录留实体目录。
+**盘根"写歪项"一律封口改道,不许只删(2026-09-24 立)**:第三方程序(剪映、微信输入法、MSYS 侧工具、
+各类安装器)用**相对路径**写自己的状态,而进程工作目录恰好是 `C:\` ⇒ `common_attachment`、
+`persistent_data`、`tmp`、`tools` 直接长在盘根。**这类残骸删掉必然复发,因为成因改不了(闭源)**。
+唯一正解是把那个名字换成 junction 指向 §15b 落点 —— 程序按原路径读写不变,内容落到 D 盘。
+清单与执行的唯一入口是 `scripts/seal-c-root-stray.mjs`(`--check` 零副作用 / `--apply` 幂等,
+**换机或重装后需重跑一次**),守门与 `c-drive-auto-maintain.ps1` 第 4 段都 import 同一份清单,
+**禁止在别处再抄一份名字**。发现某新残骸也属这一型:加进 `SEALED_DIRS`(必须带 `owner` + `evidence`
+两项取证)而不是写进删除名单。
+**⚠️ junction 的头号危险是"被递归穿透"(同日实测)**:PowerShell 7 的 `Get-ChildItem -Recurse`
+**会穿过 junction** 枚举到目标里的文件,于是"按名字删 `C:\tmp\ihui-*`"会顺着链接清空 D 盘真实目标,
+把改道机制变成自毁机制。三条要求:① 任何递归删除/枚举前必须判 `ReparsePoint`,重解析点只能
+`[System.IO.Directory]::Delete($path, $false)` 断链;② 量体积的工具遇 junction **不得跟随**
+(否则把 D 盘的量报成 C 盘的债);③ Node 侧 `lstatSync(p).isSymbolicLink()` 对 junction 报 `true`,
+`rmSync(link)` 只断链不穿透(均已实测)。判据由 `seal-c-root-stray` 与 C 盘污染守门的镜像测试钉死。
 **⚠️ junction 只管"路径",管不了"身份"(2026-09-24 实测的第四类真因)**:同一个 `$env:TEMP` /
 `os.tmpdir()` 在**不同身份下指向不同目录** —— HKCU 把交互账户 TEMP 迁到 `D:\DevEnv\Temp` 之后,
 nssm 服务(IHUI-API / IHUI-DEPLOYLOOP 以 LocalSystem 运行)拿到的仍是 `C:\Windows\Temp`。

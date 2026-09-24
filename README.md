@@ -2879,7 +2879,21 @@ R2 用基线棘轮拦"浅色当容器底":`surface.light` 背景 / α≥0.5 的�
 定级 warn 而非 blocking:盘根多数条目不属本仓,拦提交只会逼人 `--no-verify` 连带废掉全部守门
 (与第 77/52 项同取向);本门**只读,永不删文件**,清理一律走 `scripts/c-drive-auto-maintain.ps1`
 (同日修其三段:原扫 `C:\temp` 属**扫错目录**、`ForceDelete` 对单文件必然静默失败、`-DryRun` 必须拦在
-`ForceDelete` 这个唯一删除出口上而不是某一段里)。取证:`--self-test` 12 例 + §22c 镜像测试 7 例。
+`ForceDelete` 这个唯一删除出口上而不是某一段里)。取证:`--self-test` 19 例 + §22c 镜像测试 11 例。
+
+**同日补:盘根"写歪项"封口改道 `scripts/seal-c-root-stray.mjs`(根治复发,而非再删一次)**。
+本门能看见 `C:\common_attachment`、`C:\persistent_data`、`C:\tmp`、`C:\tools` 这几项,但**删不掉它们
+所解决的问题**:它们是闭源第三方程序(剪映 / 微信输入法 / MSYS 侧工具 / 安装器)用相对路径写状态、
+而进程工作目录恰好是 `C:\` 的产物 —— 删了下次照长。正解是把名字换成 **junction** 指向 §15b 落点
+(`cache/c-root-stray/*`、`Temp/c-root-tmp`、`tools/c-root-tools`):程序按原路径读写完全不变,
+内容落在 D 盘,C 盘 footprint 恒为 0。清单是单一真相源,守门与本门第 4 段(每天 03:00 体检,
+封口被删就自动重封)都 **import 同一份**,不得在别处抄名字。本门据此判四态
+`SEALED`/`BROKEN`(回潮,计残骸且 `--strict` 判红)/`ABSENT`/`FOREIGN`。
+**头号危险不是没封住,而是被穿透**:实测 PowerShell 7 的 `Get-ChildItem -Recurse` 会穿过 junction
+枚举到目标里的文件 ⇒ "按名字删 `C:\tmp\ihui-*`"会顺着链接清空 D 盘真实目标。故 `ForceDelete`
+这条唯一删除出口对重解析点只 `[System.IO.Directory]::Delete($path,$false)` 断链,量体积遇 junction
+一律不跟随(否则把 D 盘的量报成 C 盘的债)。取证:封口器 `--self-test` 11 例 + 镜像测试 7 例
+(含两条装车证明:维护脚本必须真的调 `--check`+`--apply`;守门必须 import 而非自抄清单)。
 **编号一天撞四次 + 一次卸闸的实录**(比门本身更值钱):85(与 `check-test-paths` 撞)→ 90(与
 `check-sse-dispatch-parity` 撞)→ 91(与 `check-error-code-coverage` 撞)→ 92 **又**撞一次 ——
 最后一次不是没查:取 92 时它确实在 91,是别的会话随后把 `errorCode` 重排到 92、把重复号带进了
