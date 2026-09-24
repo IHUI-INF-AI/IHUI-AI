@@ -1002,7 +1002,7 @@ const MessageItem = React.memo(function MessageItem({
                         />
                         {/* 内联 content 型 artifact:HTML 走沙箱 iframe 预览,代码型走代码视图 */}
                         {effectiveArtifacts?.map((art, i) => (
-                          <ArtifactCanvas key={`${tc.id}-${i}`} artifact={art} />
+                          <ArtifactCanvas key={`${tc.id}-${i}`} artifact={art} turnMessageId={m.id} />
                         ))}
                       </React.Fragment>
                     )

@@ -7,6 +7,7 @@
 import * as React from 'react'
 import { Check, Copy } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { thinkingTitleView } from '@ihui/shared/chat/element-pack'
 import { Tooltip } from '@/components/feedback'
 import { StreamDetail, StreamRow } from '@/components/chat/stream/stream-ui'
 import { splitReasoningSections } from '@/lib/reasoning-sections'
@@ -57,6 +58,12 @@ interface ThinkingSectionProps {
   expanded?: boolean
   /** 受控模式下的 toggle 回调 */
   onToggle?: () => void
+  /**
+   * D64 ③(2026-09-24 立):本轮**引用数**。无思考内容却有引用时,标题走
+   * 「使用了 {count} 个引用」双态;不传(或 0/非法)则维持「有思考才渲染」的现状口径。
+   * 判定在 `@ihui/shared/chat/element-pack#thinkingTitleView`,端内不另写第二套。
+   */
+  refsCount?: number
 }
 
 /**
@@ -86,6 +93,7 @@ export const ThinkingSection = React.memo(function ThinkingSection({
   currentNode,
   isStreaming,
   isGrowing = false,
+  refsCount,
   expanded: controlledExpanded,
   onToggle,
 }: ThinkingSectionProps) {
@@ -151,12 +159,14 @@ export const ThinkingSection = React.memo(function ThinkingSection({
   const preRef = React.useRef<HTMLDivElement>(null)
 
   // 流式输出时自动展开
+  // D64 ③(H22 反超判据):**已经展开**(含用户手动展开 / localStorage 恢复的偏好)时
+  // 不接管 —— 否则流结束会把用户自己点开的内容收回去。只有"这次是自动展开的"才允许自动收起。
   React.useEffect(() => {
-    if (isStreaming && !isControlled) {
+    if (isStreaming && !isControlled && !expanded) {
       autoExpandedRef.current = true
       setInternalExpanded(true)
     }
-  }, [isStreaming, isControlled])
+  }, [isStreaming, isControlled, expanded])
 
   // 流式结束后自动收起(不写 localStorage,保留用户跨会话的持久化偏好)
   React.useEffect(() => {
@@ -189,8 +199,14 @@ export const ThinkingSection = React.memo(function ThinkingSection({
     return undefined
   }, [content])
 
-  const hasContent = content.length > 0 || currentNode !== null
-  if (!hasContent) return null
+  // D64 ③(2026-09-24):双态标题 —— 判定在共享层 thinkingTitleView,端内只渲染。
+  // 无思考内容但有引用 → 「使用了 {count} 个引用」;两者皆无 → 整段不渲染(与现状同口径)。
+  const hasThinking = content.length > 0 || currentNode !== null
+  const titleView = thinkingTitleView(hasThinking, refsCount)
+  if (!titleView) return null
+  const titleText = titleView.values
+    ? t(titleView.titleKey, titleView.values)
+    : t(titleView.titleKey)
 
   return (
     <div
@@ -200,12 +216,13 @@ export const ThinkingSection = React.memo(function ThinkingSection({
       // 2026-08-29:交错增长指示(供单测/e2e 断言)
       data-thinking-growing={isGrowing ? 'true' : 'false'}
       data-thinking-expanded={expanded ? 'true' : 'false'}
+      data-thinking-title-variant={titleView.variant}
     >
       {/* 2026-09-21:思考行并入消息流活动行基元 —— 与工具行/步骤行同一字号、同一状态图标、
           同一"标题 · 预览 ……… 耗时 ›"信息排布,不再自成一套 text-sm 头部 */}
       <StreamRow
         status={thinkingActive ? 'running' : 'success'}
-        title={t('thinkingTitle')}
+        title={titleText}
         subject={expanded ? undefined : preview}
         subjectKind="none"
         tags={currentNode ? [currentNode] : undefined}
@@ -227,12 +244,12 @@ export const ThinkingSection = React.memo(function ThinkingSection({
         onClick={handleToggle}
         expanded={expanded}
         sectionHeader
-        ariaLabel={t('thinkingTitle')}
+        ariaLabel={titleText}
         className={thinkingActive ? 'text-shimmer' : undefined}
         testId="thinking-toggle"
       />
       {/* v2: 展开态内容区(代码块样式);P3 #33:按节渲染 + 小标题 */}
-      {hasContent && expanded && (
+      {hasThinking && expanded && (
         <StreamDetail className="relative" testId="thinking-content-wrapper">
           {content && (
             <div
