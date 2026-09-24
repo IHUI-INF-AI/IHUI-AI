@@ -66,17 +66,62 @@ export function parseGateSummary(text) {
   return { batchReported, executed, total, earlyAbort, failed }
 }
 
+/** 一句提示:钩子常把汇总只写进日志文件,stdout 里根本没有 —— 那是本判据的第二输入源 */
+const SUMMARY_HEAD_RE = /🛡️\s*守门脚本批量检查汇总/g
+
+/**
+ * 从一整段日志(多轮追加)里取**最后一轮**的汇总文本。
+ *
+ * 为什么需要它:实测 2026-09-25 那次 --no-verify,`hookOutput` 里只有到 `[30a]` 为止的进度行,
+ * 真正的汇总块(134 项跑完 / 3 道红:30c 71 84)只落在 `.workbuddy/hook-logs/pre-commit.log`。
+ * 没有这一层,归因在真仓里的实际命中率是"永远未归因"。
+ *
+ * 只认最后一轮,并要求这一轮里**出现过本次声明的任一文件名** —— 否则可能拿着
+ * 上一轮(别人的提交)的清单给自己归因,那是凭空造一条"不是我"的证据。
+ * @param {string} logText 日志全文(调用方负责截尾,别把整份 33KB×N 喂进来)
+ * @param {string[]} mustMention 本次声明的文件清单
+ * @returns {{text:string|null, why:string}}
+ */
+export function pickLastSummaryRun(logText, mustMention) {
+  const clean = stripAnsi(logText)
+  const heads = [...clean.matchAll(SUMMARY_HEAD_RE)]
+  if (heads.length === 0) return { text: null, why: '日志里没有任何汇总块' }
+  const start = heads[heads.length - 1].index
+  const seg = clean.slice(start)
+  if (!/道\s*blocking\s*门失败|失败:\s*\d+/.test(seg))
+    return { text: null, why: '最后一轮汇总块不完整' }
+  // 回溯本轮开头:上一轮汇总之后到本轮汇总之前,应当出现过本次声明的文件
+  const prevStart = heads.length > 1 ? heads[heads.length - 2].index : 0
+  const window = clean.slice(prevStart, start)
+  if (!(mustMention ?? []).some((f) => window.includes(f))) {
+    return { text: null, why: '最后一轮汇总之前的清单未点名本次文件 ⇒ 可能是他人那一轮,不用于归因' }
+  }
+  return { text: seg, why: 'ok' }
+}
+
 /**
  * 归因主判据。
  * @param text        首次 commit 的 stdout+stderr(可含 ANSI)
+ * @param fallbackText 可选:同一轮的钩子日志尾部(stdout 未带汇总时的第二输入源)
  * @param stagedFiles 本次声明并暂存的文件清单(仓库根相对路径)
  * @param runGate     (script) => {status:number, output:string} —— 注入式复跑,便于自测
  * @returns kind ∈ 'mine'(点名本次文件 ⇒ 拒跳) | 'not-ours'(有证据表明红不在本次内容 ⇒ 可跳)
  *          | 'unattributed'(批未跑完 / 解析不到 / 复跑不可用 ⇒ 保守可跳,但如实说未归因)
  */
-export function classifyHookFailure({ text, stagedFiles, runGate }) {
-  const parsed = parseGateSummary(text)
-  const detail = []
+export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate }) {
+  let parsed = parseGateSummary(text)
+  let source = '钩子标准输出'
+  if (parsed.failed.length === 0 && fallbackText) {
+    const picked = pickLastSummaryRun(fallbackText, stagedFiles)
+    if (picked.text) {
+      const p2 = parseGateSummary(picked.text)
+      if (p2.failed.length > 0) {
+        parsed = p2
+        source = '同一轮钩子日志尾部(stdout 未带汇总)'
+      }
+    }
+  }
+  const detail = [parsed.failed.length > 0 ? `失败门清单取材:${source}` : '']
   if (!parsed.batchReported || parsed.failed.length === 0) {
     return {
       kind: 'unattributed',
@@ -316,6 +361,56 @@ export function selfTest(assert, runnerSource) {
   assert(a9.failed.length === 2, `A9 应解析出 2 道失败门,实得 ${a9.failed.length}`)
   // --- A10 措辞层:三种 kind 各说各的话,不得互相冒充 ---
   assert(/❌/.test(verdictLine(a2)), 'A10 mine 的措辞必须是失败口吻')
+
+  // --- B1 第二输入源:stdout 没有汇总(实测真仓就是这样),必须从同一轮日志尾部取到 ---
+  // 真实日志的顺序是「上一轮汇总 … 本轮 staged 清单 … 本轮汇总」,清单夹在两轮之间。
+  const ROUND_PREV = `🛡️ 守门脚本批量检查汇总
+  总检查数: 134(已执行 134)
+  失败: 1
+🚫 1 道 blocking 门失败 —— 本轮已跑完全部 134 项,未提前中止:
+   · [57] 上一轮别人的门
+     单独复现:node scripts/check-chat-element-coverage.mjs --staged
+`
+  const ROUND_MINE = `🛡️ 守门脚本批量检查汇总
+  总检查数: 134(已执行 134)
+  失败: 3
+🚫 3 道 blocking 门失败 —— 本轮已跑完全部 134 项,未提前中止:
+   · [30c] 陈旧副本守门
+     单独复现:node scripts/check-stale-copy.mjs --staged
+   · [71] 计划登记行防丢
+     单独复现:node scripts/check-plan-line-loss.mjs --staged
+   · [84] 反回退守门
+     单独复现:node scripts/check-stale-revert.mjs --staged
+`
+  const b1 = classifyHookFailure({
+    // stdout 停在半路(真仓实测形态):只有进度行,没有汇总
+    text: '[30a] 🛡️ Commit 丢失防护…\n(完整日志: .workbuddy/hook-logs/pre-commit.log)',
+    fallbackText: `${ROUND_PREV}\nstaged 文件清单:\n - scripts/foo.mjs\n - PROJECT_PLAN.md\n${ROUND_MINE}`,
+    stagedFiles: MY_FILES,
+    runGate: () => ({ status: 1, output: '别的文件 red' }),
+  })
+  assert(b1.kind === 'not-ours', `B1 应经日志尾部完成归因,实得 ${b1.kind}`)
+  assert(b1.failed.length === 3, `B1 应取到最后一轮的 3 道门,实得 ${b1.failed.length}`)
+  assert(/日志尾部/.test(b1.detail.join('\n')), 'B1 必须写明清单取材自日志尾部,不得伪装成 stdout')
+
+  // --- B2 不得拿"上一轮(别人)"的清单给自己归因 ---
+  const b2 = classifyHookFailure({
+    text: '没有汇总块',
+    // 本轮清单里完全没提本次声明的文件 ⇒ 只能算别人的那一轮
+    fallbackText: `${ROUND_MINE}\nstaged 文件清单:\n - apps/other/theirs.ts\n`,
+    stagedFiles: MY_FILES,
+    runGate: () => ({ status: 1, output: 'x' }),
+  })
+  assert(b2.kind === 'unattributed', `B2 清单未点名本次文件时必须拒绝使用该轮,实得 ${b2.kind}`)
+
+  // --- B3 同一轮里点名我 ⇒ 仍须 mine(第二输入源不得把责任洗掉) ---
+  const b3 = classifyHookFailure({
+    text: '',
+    fallbackText: `清单:\n - scripts/foo.mjs\n${ROUND_MINE}`,
+    stagedFiles: MY_FILES,
+    runGate: () => ({ status: 1, output: '  ✗ scripts/foo.mjs:3 历史版本回写' }),
+  })
+  assert(b3.kind === 'mine', `B3 通过日志归因后仍须能定责,实得 ${b3.kind}`)
   // 未归因必须自带"不许当成过门"的警示(整句含该词是合法的,故判前缀与警示词,不判子串)
   const unattr = verdictLine(a5)
   assert(/^\s*⚠️/.test(unattr), `A10 未归因必须以警示口吻开头,实得:${unattr}`)
@@ -328,6 +423,7 @@ export function selfTest(assert, runnerSource) {
 export const __test__ = {
   stripAnsi,
   parseGateSummary,
+  pickLastSummaryRun,
   classifyHookFailure,
   verdictLine,
   SUMMARY,
