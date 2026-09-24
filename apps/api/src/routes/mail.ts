@@ -6,6 +6,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { renderNoticeEmail } from '../services/email-templates.js'
 import { sendEmail } from '../services/email-service.js'
+import { checkAuthOrInternalService } from '../plugins/auth.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 
 // =============================================================================
@@ -13,6 +14,11 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
 // 业务逻辑参考 D 盘 MailController + MailServiceImpl
 // 复用现有 email-service.ts(sendEmail,SMTP 配置缺失时自动降级为 stub)
 // =============================================================================
+
+// 鉴权口径(2026-09-24 owner 拍板收口):两端点原样保持 Java 公开无鉴权行为,
+// 等于对外开放邮件中继 + 任意 HTML 注入面。现挂 checkAuthOrInternalService:
+// 人侧 JWT 优先、内部服务 X-Internal-Service-Token 兜底,匿名请求一律 401。
+// 仓内 grep 零调用方(对外仅 Java 旧系统兼容),加鉴权无已知破坏面。
 
 // 限流档位为何取 max 10/min/IP(2026-09-23):
 // - 公开无鉴权的邮件发送是滥用代价最高的面(SMTP 配额 + 发信域名信誉),必须比
@@ -47,50 +53,53 @@ const emailHtmlSchema = z.object({
 
 const mailRoutes: FastifyPluginAsync = async (server) => {
   // POST /send — 发送纯文本邮件(Java: POST /public-api/mail/send)
-  // 公开端点(Java 无鉴权),但写入操作建议登录;此处保持 Java 原行为,不强制鉴权
-  server.post('/send', { config: { rateLimit: MAIL_SEND_RATE_LIMIT } }, async (request, reply) => {
-    const parsed = emailSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const { to, cc, bcc, subject, text, from, fromName, replyTo } = parsed.data
-    // 拼接完整收件人(to + cc + bcc),email-service 单 to 字段处理
-    const fullTo = [to, cc, bcc].filter(Boolean).join(',')
-    // 品牌版式唯一真相源 renderNoticeEmail:其内部已 escapeHtml(勿二次转义),
-    // subject/text 语义与旧手搓版一致,仅把无样式 <br/> HTML 升级为机械风通报;
-    // 纯文本字段保留模板返回的 text,保证纯文本客户端可读
-    const mail = renderNoticeEmail({ tag: 'SYSTEM // NOTICE', title: subject, content: text })
-    const result = await sendEmail({
-      to: fullTo,
-      subject: mail.subject,
-      text: mail.text,
-      html: mail.html,
-    })
-    // 记录扩展字段(from/fromName/replyTo)到日志:email-service 当前忽略,后续可扩展
-    if (from || fromName || replyTo) {
-      request.log.info(
-        { from, fromName, replyTo, to: fullTo, subject },
-        'mail/send 扩展字段(当前未应用)',
+  server.post(
+    '/send',
+    { preHandler: checkAuthOrInternalService, config: { rateLimit: MAIL_SEND_RATE_LIMIT } },
+    async (request, reply) => {
+      const parsed = emailSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { to, cc, bcc, subject, text, from, fromName, replyTo } = parsed.data
+      // 拼接完整收件人(to + cc + bcc),email-service 单 to 字段处理
+      const fullTo = [to, cc, bcc].filter(Boolean).join(',')
+      // 品牌版式唯一真相源 renderNoticeEmail:其内部已 escapeHtml(勿二次转义),
+      // subject/text 语义与旧手搓版一致,仅把无样式 <br/> HTML 升级为机械风通报;
+      // 纯文本字段保留模板返回的 text,保证纯文本客户端可读
+      const mail = renderNoticeEmail({ tag: 'SYSTEM // NOTICE', title: subject, content: text })
+      const result = await sendEmail({
+        to: fullTo,
+        subject: mail.subject,
+        text: mail.text,
+        html: mail.html,
+      })
+      // 记录扩展字段(from/fromName/replyTo)到日志:email-service 当前忽略,后续可扩展
+      if (from || fromName || replyTo) {
+        request.log.info(
+          { from, fromName, replyTo, to: fullTo, subject },
+          'mail/send 扩展字段(当前未应用)',
+        )
+      }
+      if (!result.sent && !result.stub) {
+        return reply.status(500).send(error(500, result.error ?? '邮件发送失败'))
+      }
+      return reply.status(202).send(
+        success({
+          accepted: [to],
+          stub: result.stub,
+          message: result.stub ? '邮件发送降级为 stub(未配置 SMTP)' : '邮件已发送',
+        }),
       )
-    }
-    if (!result.sent && !result.stub) {
-      return reply.status(500).send(error(500, result.error ?? '邮件发送失败'))
-    }
-    return reply.status(202).send(
-      success({
-        accepted: [to],
-        stub: result.stub,
-        message: result.stub ? '邮件发送降级为 stub(未配置 SMTP)' : '邮件已发送',
-      }),
-    )
-  })
+    },
+  )
 
   // POST /send/html — 发送 HTML 格式邮件(Java: POST /public-api/mail/send/html)
   // 接受调用方自带 HTML 是本端点存在的理由(对外契约),但它因此成为品牌版式之外
   // 的有意保留的第二份真相 —— 显式 warn 记录,防止后来者误判为"漏接模板层"并回退
   server.post(
     '/send/html',
-    { config: { rateLimit: MAIL_SEND_RATE_LIMIT } },
+    { preHandler: checkAuthOrInternalService, config: { rateLimit: MAIL_SEND_RATE_LIMIT } },
     async (request, reply) => {
       const parsed = emailHtmlSchema.safeParse(request.body)
       if (!parsed.success) {
