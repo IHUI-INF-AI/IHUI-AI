@@ -256,6 +256,12 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 
 > **本句原先还写"本机未安装 nssm,故未采用 `--daemon` 常驻服务形态" —— 该前提已失真并于 2026-09-24 更正**:实测 `C:\Windows\System32\nssm.exe` 在位(331264 字节),且存在 NSSM 服务 **`IHUI-GIT-GUARD`**(`git-guardian.mjs --daemon`,进程自 2026-09-15 08:48:42 常驻),与上面那条每 2 分钟的计划任务**同时运行**。即"守护"当前是**双执行体并存**(常驻 daemon + 2 分钟 tick)。本票只如实登记、不动任何一侧:砍哪一侧属 `.git` 存续决策(§5b 的分层自愈依赖"每 2 分钟必有一次巡检"来兜底,而 daemon 侧是否等价覆盖尚未取证),且它**没有任何到人出口**(实测 `grep -niE "mail|smtp|resend|notify|ftqq|sct|pushplus|alert" scripts/git-guardian.mjs` 零命中),故不影响 §5e 通道口径。
 > 分层自愈:`指针 → 环境 → HEAD 语法 → 嵌套 ref → 本地备份 → 远端`;每步破坏性覆盖前先归档现场。实测自愈 **0.9s**(refs 自愈实测 **0.14s**)。
+>
+> **本节三条"机器事实"于 2026-09-24 在 `G:` 那份 checkout 上被逐条测反,照抄会误诊(与 §15b 的盘符补注同族)**:
+> ① **活 gitdir 就是工作区内的 `G:\IHUI-AI\.git`(实体目录 2.4GB,不是 28 字节指针)**,`refs-manifest.json` 在它里面;而 `G:\IHUI-AI-git-repo`(810MB)**没有 manifest**,是无人读取的残壳。守护自评 `node scripts/git-guardian.mjs --status` 对当前形态给 `pointerOk:true / gitdirOk:true`。⇒ §5b"必须外置 + 指针"与 §12d"禁止迁出工作区/改指针(**并行会话的恢复逻辑会把指针文件当损坏清除**,2026-09-10 立)"这两条在本机**互斥**;本票只如实登记、**不动任何一侧**——把 `.git` 迁出去是一次破坏性迁移(会连带移动 2.4GB 对象库并撞上清理层),不是"修复文档与现状不符"。
+> ② `git remote get-url origin` 实测 **`ssh://git@ssh.github.com:443/IHUI-INF-AI/IHUI-AI.git`**,且 `ls-remote` / `fetch` / 后台 `git-push-guard` 推送全通;上方"origin 实测为 HTTPS `github.com`,`ssh://git@ssh.github.com:443` 形态在本机从未成立"在这一台机上**不成立**。
+> ③ `git config --local http.proxy` 实测 **unset**;上方"本机已另配仓库级持久代理(因为钩子进程不继承 shell env)"在这一台机上**不成立**(ssh-over-443 通道不需要它)。
+> **口径(本条的真正约束):凡「盘符 / gitdir 形态 / 远端 URL / 代理」四类,每次使用前按当次实测取值**,不得把另一台机的现状当本机事实写进判据,也不得据此推断"通道坏了"。
 
 ### 嵌套 ref 存续(2026-09-12 立,与 `.git` 同源问题)
 
