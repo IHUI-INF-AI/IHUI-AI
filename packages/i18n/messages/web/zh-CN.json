@@ -7660,6 +7660,7 @@
       "thinkingElapsedTitle": "已思考 {time}",
       "thinkingStreaming": "思考中...",
       "thinkingTitle": "思考过程",
+      "thinkingRefsTitle": "使用了 {count} 个引用",
       "timelineClearFilters": "清空过滤",
       "timelineCountDone": "已完成",
       "timelineCountFailed": "失败",
@@ -8409,6 +8410,119 @@
           "emptyDraft": "草稿为空，请先输入内容再润色。"
         },
         "restartHint": "润色服务需重启后生效，草稿已保留。"
+      },
+      "queueOps": {
+        "ariaLabel": "排队消息操作条",
+        "reorderAria": "拖动调整排队顺序；聚焦后可使用上下方向键",
+        "undo": "撤回",
+        "edit": "编辑",
+        "editConfirm": "保存",
+        "editCancel": "取消",
+        "interruptAndRun": "打断并执行",
+        "mode": {
+          "label": "队列模式",
+          "steer": "插话优先",
+          "queue": "排队优先"
+        },
+        "denied": {
+          "reorder": "无法调整排队顺序",
+          "undo": "无法撤回排队消息",
+          "interject": "当前 Runtime 不支持插话，消息将继续排队"
+        },
+        "degraded": {
+          "runtimeNoInterject": "当前 Runtime 不支持插话，消息将继续排队"
+        }
+      },
+      "elementPack": {
+        "heatmap": {
+          "title": "积分消耗热力图",
+          "legendLabel": "图例",
+          "dayTitle": "{date} 的单日消耗",
+          "tab": {
+            "heatmap": "热力",
+            "sessions": "会话明细"
+          },
+          "legend": {
+            "zero": "无消耗",
+            "low": "低",
+            "mid": "中",
+            "high": "高"
+          },
+          "sessionsEmpty": "暂无会话明细"
+        },
+        "imagePreview": {
+          "counter": "第 {index} · {total} 张",
+          "saveSuccess": "图片已保存",
+          "saveFailed": "图片保存失败",
+          "copySuccess": "图片已复制",
+          "copyFailed": "图片复制失败",
+          "prev": "上一张",
+          "next": "下一张",
+          "zoomOut": "缩小",
+          "zoomIn": "放大",
+          "save": "保存图片",
+          "copy": "复制图片"
+        },
+        "backgroundTask": {
+          "state": {
+            "pending": "等待启动",
+            "running": "运行中",
+            "stopping": "正在停止",
+            "stopFailed": "停止失败",
+            "completed": "已完成",
+            "failed": "执行失败",
+            "cancelled": "已取消",
+            "timeout": "已超时"
+          },
+          "hint": {
+            "stopping": "停止请求已发送，等待任务收尾",
+            "stopFailed": "子任务仍在运行，请重试停止",
+            "timeout": "任务已超时，可重试"
+          },
+          "action": {
+            "none": "无可用操作",
+            "stop": "停止",
+            "retryStop": "重试停止",
+            "retry": "重试"
+          }
+        },
+        "feedbackSurvey": {
+          "question": "这次回复有没有帮你解决问题？",
+          "scale": {
+            "1": "很差",
+            "2": "较差",
+            "3": "一般",
+            "4": "较好",
+            "5": "很好"
+          },
+          "commentPlaceholder": "补充说明（可选）",
+          "submit": "提交",
+          "dismiss": "暂不评价",
+          "submitted": "感谢你的反馈",
+          "answer": {
+            "solved": "已解决",
+            "partial": "部分解决",
+            "notSolved": "未解决"
+          }
+        }
+      },
+      "multiPane": {
+        "ariaLabel": "多任务窗格",
+        "resizeAriaLabel": "拖动调整窗格大小",
+        "splitRight": "向右拆分",
+        "splitDown": "向下拆分",
+        "maximize": "最大化窗格",
+        "restore": "还原窗格",
+        "closePane": "关闭窗格",
+        "forkFailureAriaLabel": "会话副本打开失败",
+        "forkFailure": {
+          "conversationMissing": "原会话不存在，无法打开副本",
+          "capacityFull": "窗格数量已达上限，请先关闭其他窗格",
+          "unknown": "打开会话副本失败，请重试"
+        },
+        "retryFork": "重试",
+        "emptyPaneAriaLabel": "空窗格，可从侧栏拖入会话",
+        "emptyPlaceholder": "从侧栏拖入会话到此窗格"
       }
     },
     "permissionConfirm": {
@@ -8576,12 +8690,7 @@
       "targetPlaceholder": "如:重点高中、985大学"
     },
     "options": {
-      "classLevel": [
-        "优秀(班级前 10%)",
-        "良好(10-30%)",
-        "中等(30-70%)",
-        "一般(后 30%)"
-      ],
+      "classLevel": ["优秀(班级前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(后 30%)"],
       "difficulty": [
         "语文阅读理解",
         "英语听力口语",
@@ -8598,12 +8707,7 @@
         "考试焦虑",
         "家庭环境影响"
       ],
-      "school": [
-        "重点中学",
-        "普通中学",
-        "国际学校",
-        "私立学校"
-      ]
+      "school": ["重点中学", "普通中学", "国际学校", "私立学校"]
     },
     "result": {
       "failed": "AI 分析失败",
@@ -10151,6 +10255,36 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "voiceNote": {
+      "title": "语音笔记",
+      "phase": {
+        "ready": "准备就绪",
+        "recording": "正在录音",
+        "waitingTranscript": "等待转写",
+        "completed": "已完成",
+        "cancelled": "已取消",
+        "failed": "录音失败",
+        "error": "出错了",
+        "interrupted": "已中断"
+      },
+      "errors": {
+        "permission": "麦克风权限被拒绝,请在浏览器设置中允许后重试",
+        "noMicrophone": "未检测到麦克风设备",
+        "startFailed": "录音启动失败,请重试",
+        "saveFailed": "录音保存失败",
+        "recognitionFailed": "语音识别中断",
+        "emptyTranscript": "没有识别到内容",
+        "sttPending": "转写暂不可用,可稍后重试或仅保存音频"
+      },
+      "action": {
+        "start": "开始录音",
+        "stop": "停止录音",
+        "retry": "重试",
+        "saveAudioOnly": "仅保存音频",
+        "insertToInput": "插入对话",
+        "dismiss": "关闭"
+      }
+    },
     "connectorAuth": {
       "title": "连接到 {connectorName}",
       "connected": "已连接",
@@ -11332,232 +11466,126 @@
       "steerPrompt": {
         "label": "引导提示",
         "description": "向正在运行的回复中途插入引导，无需等待当前轮完成",
-        "keywords": [
-          "引导",
-          "插话",
-          "steer"
-        ]
+        "keywords": ["引导", "插话", "steer"]
       },
       "queuePrompt": {
         "label": "将提示加入队列",
         "description": "把当前输入加入 W27 预备消息队列，流式结束后自动依次发送",
-        "keywords": [
-          "队列",
-          "排队",
-          "queue"
-        ]
+        "keywords": ["队列", "排队", "queue"]
       },
       "agent": {
         "description": "管理并调度 AI 智能体",
-        "keywords": [
-          "智能体",
-          "调度",
-          "agent"
-        ],
+        "keywords": ["智能体", "调度", "agent"],
         "label": "AI 智能体"
       },
       "browser": {
         "description": "在工作区内浏览网页",
-        "keywords": [
-          "浏览器",
-          "网页",
-          "browser"
-        ],
+        "keywords": ["浏览器", "网页", "browser"],
         "label": "内置浏览器"
       },
       "capabilityMarket": {
         "description": "发现并安装能力包",
-        "keywords": [
-          "能力",
-          "市场",
-          "插件",
-          "market"
-        ],
+        "keywords": ["能力", "市场", "插件", "market"],
         "label": "能力市场"
       },
       "codeChanges": {
         "description": "查看工作区代码改动",
-        "keywords": [
-          "代码",
-          "变更",
-          "改动",
-          "diff"
-        ],
+        "keywords": ["代码", "变更", "改动", "diff"],
         "label": "代码变更"
       },
       "connectors": {
         "description": "管理外部服务连接",
-        "keywords": [
-          "连接",
-          "外部服务",
-          "connector"
-        ],
+        "keywords": ["连接", "外部服务", "connector"],
         "label": "连接器"
       },
       "document": {
         "description": "编辑工作区文档",
-        "keywords": [
-          "文档",
-          "编辑",
-          "doc"
-        ],
+        "keywords": ["文档", "编辑", "doc"],
         "label": "文档"
       },
       "editor": {
         "description": "打开代码编辑器",
-        "keywords": [
-          "编辑器",
-          "代码",
-          "code"
-        ],
+        "keywords": ["编辑器", "代码", "code"],
         "label": "编辑器"
       },
       "mcp": {
         "description": "管理 MCP 服务器与工具",
-        "keywords": [
-          "MCP",
-          "服务器",
-          "工具"
-        ],
+        "keywords": ["MCP", "服务器", "工具"],
         "label": "MCP 管理"
       },
       "mcpStore": {
         "description": "浏览与安装 MCP 服务",
-        "keywords": [
-          "MCP",
-          "广场",
-          "市场",
-          "store"
-        ],
+        "keywords": ["MCP", "广场", "市场", "store"],
         "label": "MCP 广场"
       },
       "modeAsk": {
         "description": "切换到纯问答模式,禁用工具",
-        "keywords": [
-          "问答",
-          "ask",
-          "模式"
-        ],
+        "keywords": ["问答", "ask", "模式"],
         "label": "问答模式"
       },
       "modeBuild": {
         "description": "让 AI 直接构建与修改",
-        "keywords": [
-          "构建",
-          "模式",
-          "build"
-        ],
+        "keywords": ["构建", "模式", "build"],
         "label": "构建模式"
       },
       "modePlan": {
         "description": "先制定计划再执行",
-        "keywords": [
-          "规划",
-          "计划",
-          "plan"
-        ],
+        "keywords": ["规划", "计划", "plan"],
         "label": "规划模式"
       },
       "modeReview": {
         "description": "审查与评审现有代码",
-        "keywords": [
-          "审查",
-          "评审",
-          "review"
-        ],
+        "keywords": ["审查", "评审", "review"],
         "label": "审查模式"
       },
       "modeSpec": {
         "description": "从规格生成实现",
-        "keywords": [
-          "规格",
-          "spec",
-          "模式"
-        ],
+        "keywords": ["规格", "spec", "模式"],
         "label": "规格模式"
       },
       "skill": {
         "description": "管理与调用 AI 技能",
-        "keywords": [
-          "技能",
-          "skill",
-          "能力"
-        ],
+        "keywords": ["技能", "skill", "能力"],
         "label": "技能"
       },
       "terminal": {
         "description": "打开集成终端",
-        "keywords": [
-          "终端",
-          "命令行",
-          "terminal"
-        ],
+        "keywords": ["终端", "命令行", "terminal"],
         "label": "终端"
       },
       "ai-world": {
         "description": "探索 AI 应用世界",
-        "keywords": [
-          "AI",
-          "世界",
-          "应用"
-        ],
+        "keywords": ["AI", "世界", "应用"],
         "label": "AI 世界"
       },
       "chat": {
         "description": "与 AI 助手开始对话",
-        "keywords": [
-          "对话",
-          "聊天",
-          "AI",
-          "chat"
-        ],
+        "keywords": ["对话", "聊天", "AI", "chat"],
         "label": "AI 对话"
       },
       "drama": {
         "description": "AI 生成的精彩短剧",
-        "keywords": [
-          "短剧",
-          "视频",
-          "AI",
-          "drama"
-        ],
+        "keywords": ["短剧", "视频", "AI", "drama"],
         "label": "AI 短剧"
       },
       "profile": {
         "description": "管理个人资料和设置",
-        "keywords": [
-          "个人",
-          "资料",
-          "设置"
-        ],
+        "keywords": ["个人", "资料", "设置"],
         "label": "个人中心"
       },
       "search": {
         "description": "全局内容搜索",
-        "keywords": [
-          "搜索",
-          "查找",
-          "search"
-        ],
+        "keywords": ["搜索", "查找", "search"],
         "label": "搜索"
       },
       "settings": {
         "description": "系统偏好与配置",
-        "keywords": [
-          "设置",
-          "偏好",
-          "配置"
-        ],
+        "keywords": ["设置", "偏好", "配置"],
         "label": "系统设置"
       },
       "skillsMarket": {
         "description": "浏览并安装自进化 Skill",
-        "keywords": [
-          "skill",
-          "技能",
-          "市场",
-          "market"
-        ],
+        "keywords": ["skill", "技能", "市场", "market"],
         "label": "Skill 市场"
       }
     },
@@ -13960,37 +13988,25 @@
       "quadrants": [
         {
           "description": "简单决策 + 简单执行,快速部署高频应用",
-          "examples": [
-            "知识问答",
-            "流程自动化"
-          ],
+          "examples": ["知识问答", "流程自动化"],
           "tag": "Q1",
           "title": "高效助手"
         },
         {
           "description": "复杂决策 + 简单执行,提供深度分析与建议",
-          "examples": [
-            "数据分析",
-            "决策支持"
-          ],
+          "examples": ["数据分析", "决策支持"],
           "tag": "Q2",
           "title": "智慧顾问"
         },
         {
           "description": "简单决策 + 复杂执行,处理跨系统复杂任务",
-          "examples": [
-            "会议安排",
-            "审批流程"
-          ],
+          "examples": ["会议安排", "审批流程"],
           "tag": "Q3",
           "title": "执行专家"
         },
         {
           "description": "复杂决策 + 复杂执行,自主规划与多智能体协作",
-          "examples": [
-            "营销自动化",
-            "多智能体协同"
-          ],
+          "examples": ["营销自动化", "多智能体协同"],
           "tag": "Q4",
           "title": "全能专家"
         }
@@ -14124,31 +14140,19 @@
       "items": [
         {
           "description": "线下课程、探索活动与互助社群,深度链接志同道合的决策者",
-          "features": [
-            "系统化课程",
-            "实践探索",
-            "社群互助"
-          ],
+          "features": ["系统化课程", "实践探索", "社群互助"],
           "tag": "MODULE 01",
           "title": "在地社群"
         },
         {
           "description": "便捷的在线交流平台,随时随地获取信息与支持",
-          "features": [
-            "交流平台",
-            "经验共享",
-            "资源对接"
-          ],
+          "features": ["交流平台", "经验共享", "资源对接"],
           "tag": "MODULE 02",
           "title": "线上社群"
         },
         {
           "description": "专业大模型与智能体服务,提供深度AI化咨询与支持",
-          "features": [
-            "专业大模型",
-            "智能体服务",
-            "咨询服务"
-          ],
+          "features": ["专业大模型", "智能体服务", "咨询服务"],
           "tag": "MODULE 03",
           "title": "AI专业服务"
         }
@@ -16962,15 +16966,7 @@
       "title": "Top 5 页面",
       "visitsHeader": "访问数"
     },
-    "weekdays": [
-      "周一",
-      "周二",
-      "周三",
-      "周四",
-      "周五",
-      "周六",
-      "周日"
-    ]
+    "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
   },
   "models": {
     "relay": {
@@ -17718,12 +17714,7 @@
         ]
       },
       "starter": {
-        "features": [
-          "1M tokens 额度",
-          "基础模型可用",
-          "5 个 API 令牌",
-          "社区支持"
-        ]
+        "features": ["1M tokens 额度", "基础模型可用", "5 个 API 令牌", "社区支持"]
       }
     },
     "productSchema": {
@@ -18960,24 +18951,12 @@
       "enterprise": {
         "contactSales": "联系销售",
         "cta": "联系销售",
-        "features": [
-          "不限积分",
-          "私有化部署",
-          "SSO/SAML 2.0",
-          "审计日志",
-          "专属技术支持"
-        ],
+        "features": ["不限积分", "私有化部署", "SSO/SAML 2.0", "审计日志", "专属技术支持"],
         "name": "企业版"
       },
       "free": {
         "cta": "立即开始",
-        "features": [
-          "每月 1000 积分",
-          "所有 AI 模型",
-          "所有 6 个客户端",
-          "API 访问",
-          "社区支持"
-        ],
+        "features": ["每月 1000 积分", "所有 AI 模型", "所有 6 个客户端", "API 访问", "社区支持"],
         "name": "免费版"
       },
       "pro": {
@@ -20370,13 +20349,7 @@
     "cards": {
       "consulting": {
         "desc": "架构咨询 / 技术选型 / 代码 review",
-        "features": [
-          "视频会议 / 远程桌面",
-          "2 小时起",
-          "故障排查",
-          "增值税发票",
-          "响应 SLA 24h"
-        ],
+        "features": ["视频会议 / 远程桌面", "2 小时起", "故障排查", "增值税发票", "响应 SLA 24h"],
         "price": "¥999",
         "title": "技术咨询",
         "unit": "/小时"

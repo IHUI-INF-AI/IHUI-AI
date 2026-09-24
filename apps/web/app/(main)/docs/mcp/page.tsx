@@ -234,7 +234,7 @@ await server.connect()`}</code>
       <section className="mt-16 rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-3 text-center">
         <h2 className="text-2xl font-bold tracking-tight">下一步</h2>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-          <a href="/docs/agent" className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Agent 开发</a>
+          <a href="/docs/agent" className="rounded-lg bg-cta px-4 py-2 text-sm font-medium text-cta-foreground hover:bg-cta/90">Agent 开发</a>
           <a href="/docs/workflow" className="rounded-lg border bg-card px-4 py-2 text-sm font-medium hover:bg-accent">工作流编排</a>
           <a href="/docs/api" className="rounded-lg border bg-card px-4 py-2 text-sm font-medium hover:bg-accent">API 参考</a>
         </div>

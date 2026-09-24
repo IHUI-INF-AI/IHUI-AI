@@ -198,6 +198,8 @@ iframe#webpack-dev-server-client-overlay {
   --color-popover-foreground: hsl(0 0% 3.9%);
   --color-primary: hsl(0 0% 0%);
   --color-primary-foreground: hsl(0 0% 100%);
+  --color-cta: #4a7a96;
+  --color-cta-foreground: #ffffff;
   --color-secondary: hsl(0 0% 96.1%);
   --color-secondary-foreground: hsl(0 0% 9%);
   --color-muted: hsl(0 0% 92%);

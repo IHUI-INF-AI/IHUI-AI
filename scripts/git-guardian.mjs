@@ -50,6 +50,12 @@ import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { judgeTaskForm, taskFormAcceptable } from './lib/schtasks-form.mjs'
 import {
+  HOME_HEAL_FIXER_TIMEOUT_MS,
+  HOME_HEAL_TTL_MS,
+  healLockDecision,
+  healLockText,
+} from './lib/home-heal-lock.mjs'
+import {
   resolveGitBin,
   gitVersion,
   resolveWorktree,
@@ -206,7 +212,8 @@ function healEnv() {
         const cur = execFileSync(bin, ['config', scope, '--get-all', 'safe.directory'], {
           encoding: 'utf8',
           stdio: ['pipe', 'pipe', 'pipe'],
-        windowsHide: true,        }).trim()
+          windowsHide: true,
+        }).trim()
         const list = cur.split(/\r?\n/).filter(Boolean)
         if (list.includes(p) || list.includes('*')) continue
         execFileSync(bin, ['config', scope, '--add', 'safe.directory', p], {
@@ -444,7 +451,8 @@ function healWorktreeTracked() {
 
   const { r, err } = run(['--json'])
   if (err) log('工作区存续自愈失败(不阻断其余守护): ' + err)
-  else if (r.restored) log(`✅ 工作区存续自愈:恢复 ${r.restored} 个被外部删除的跟踪文件(${brief(r)})`)
+  else if (r.restored)
+    log(`✅ 工作区存续自愈:恢复 ${r.restored} 个被外部删除的跟踪文件(${brief(r)})`)
   else if (r.held) log(`ℹ️ 工作区 ${r.held} 个跟踪文件缺失,但索引里已是删除(他人在制)⇒ 不代裁恢复`)
 
   // 第二层:幻影漂移对齐 + 落后索引刷新(2026-09-24 立,190730d3a67 交付,
@@ -478,6 +486,27 @@ function healWorktreeTracked() {
  *  —— 与盘根封口同一个道理(见 healRootSeal 上方 §26 说明)。
  *  两条节流:① 判定用门 96(它把体积遍历封在 8000 条内,便宜),修复器只在判红时才跑;
  *  ② 被进程占用而失败的项目记 30 分钟冷却,避免每轮都重抄一遍 108MB 再去撞 EBUSY。 */
+/**
+ * 家目录改道自愈(§26)。**2026-09-24 重做节流**,起因是实测到的死循环:
+ *   守护每 2 分钟一趟 ⇒ 每趟都调修复器 `--apply`;而修复器被给的超时是 **240 秒**,
+ *   待搬的最大一项是 `.trae-cn`(实测 371MB / 13973 个文件),robocopy 在 240 秒内搬不完
+ *   ⇒ 子进程被 SIGTERM 掐死。冷却文件 `.workbuddy/home-junctions-cooldown.json` 是修复器
+ *   **正常结束时才写**的,被杀就等于"没失败也没成功",于是下一轮从头再搬 ——
+ *   实测门 96 连续判红 11 分钟、日志里每 2 分钟一条"修复后仍判红",且当时**只有 1 项**
+ *   没治好(其余 10 项 16:41 那轮已改道成功),冷却表还是空的 `{}` ⇒ 不是 EBUSY。
+ *   而 C 盘上留下了一个半完成现场:`.trae-cn` 是实体目录、`.trae-cn.pre-junction-<08:41:30Z>`
+ *   却是指向 `G:\DevEnv\cache\userhome\.trae-cn`(15871 文件)的 junction —— 数据没丢,
+ *   但"源已改名 / 链接已建 / 结论没落"这种状态正是 §26 警告过的那一类。
+ *
+ * 三条改法:
+ *  ① **单实例锁**:一轮没跑完前,后来的 tick 直接跳过(2 分钟节奏 × 25 分钟工作量必然重叠,
+ *     而重叠就是上面那个半完成现场的制造者)。锁里带 pid + 起始时间,持锁进程已死或超 TTL 才抢。
+ *  ② **超时给到能搬完**(240s → 25min),并区分"被掐死"与"修复器自己报错"。
+ *  ③ **如实报因**:旧文案写"多为进程占用(EBUSY)",是猜的且方向不对(实测冷却表为空)。
+ *     改为统计修复器自己打的 action 标签,并显式区分 timed-out / copy-failed / EBUSY 类。
+ */
+const HOME_HEAL_LOCK = join(WORKTREE, '.workbuddy', 'home-junctions.heal.lock')
+
 function healHomeJunctions() {
   const dir = dirname(fileURLToPath(import.meta.url))
   const judge = join(dir, 'check-home-junctions.mjs')
@@ -492,28 +521,104 @@ function healHomeJunctions() {
         timeout,
         stdio: ['ignore', 'pipe', 'ignore'],
       })
-      return { code: 0, out: String(out || '') }
+      return { code: 0, out: String(out || ''), timedOut: false }
     } catch (e) {
-      return { code: typeof e.status === 'number' ? e.status : 2, out: String(e.stdout || '') }
+      const killed = Boolean((e && e.killed) || (e && e.signal === 'SIGTERM'))
+      return {
+        code: typeof e.status === 'number' ? e.status : 2,
+        out: String((e && e.stdout) || ''),
+        timedOut: killed,
+      }
     }
   }
   const first = call(judge, [], 120000)
-  if (first.code === 0) return
-  if (first.code !== 1) {
+  // 残留的 stash(改道中途被掐断留下的 `<原名>.pre-junction-<ts>`)不进门 96 的 blocking 退出码
+  // —— 那是机器态,不是提交者能改的东西,拿它判红等于逼人跳门。但它必须有人收:所以守护
+  // 单独问一次,体检绿而 stash 非空时照样叫修复器(修复器每轮无条件清,与"有没有项要搬"无关)。
+  const stash = call(judge, ['--check-stash'], 60000)
+  if (first.code === 0 && stash.code === 0) return
+  if (first.code !== 0 && first.code !== 1) {
     log(`家目录改道体检异常(忽略,不阻断其余守护):exit ${first.code}`)
     return
   }
-  // 冷却由修复器自己管(只有它知道哪项为什么失败:EBUSY / 仍在被写)。
-  const applied = call(fixer, ['--apply'], 240000)
-  if (applied.code === 2) {
-    log(`⚠️ 家目录改道修复器自身异常(exit 2)⇒ 不重试,需人工看 re-home-junctions 输出`)
+  if (first.code === 0 && stash.code === 1)
+    log('ℹ️ 家目录改道体检已绿,但盘上还有改道中断留下的旧名 ⇒ 叫修复器收口')
+
+  // ── ① 单实例锁 ──
+  // 用 `wx`(排他创建)而不是"先 existsSync 再写":后者两步之间两个 tick 都能判到"无锁",
+  // 于是同时开搬 —— 那正是本票要防的半完成现场。抢不到即读回判定。
+  try {
+    mkdirSync(dirname(HOME_HEAL_LOCK), { recursive: true })
+    try {
+      writeFileSync(HOME_HEAL_LOCK, healLockText(process.pid, Date.now()), {
+        encoding: 'utf8',
+        flag: 'wx',
+      })
+    } catch (e) {
+      if (!e || e.code !== 'EEXIST') throw e
+      const raw = readFileSync(HOME_HEAL_LOCK, 'utf8')
+      const decision = healLockDecision(raw, Date.now(), HOME_HEAL_TTL_MS)
+      if (decision === 'skip') {
+        const [pidS, startS] = raw.split('\n')
+        log(
+          `ℹ️ 家目录改道已有另一轮在修(pid ${pidS},起于 ${Math.max(0, Math.round((Date.now() - Number(startS)) / 60000))} 分钟前)⇒ 本轮跳过,不并发搬同一批目录`,
+        )
+        return
+      }
+      log(
+        `⚠️ 家目录改道锁判定为接管(持有者已死或超 ${Math.round(HOME_HEAL_TTL_MS / 60000)} 分钟)⇒ 本轮继续`,
+      )
+      writeFileSync(HOME_HEAL_LOCK, healLockText(process.pid, Date.now()), 'utf8')
+    }
+  } catch (e) {
+    // 拿不到锁不阻断其余守护,但也不能因此并发搬 —— 直接跳过本轮
+    log(`家目录改道锁不可用(跳过本轮,不阻断其余守护):${String(e && e.message).slice(0, 120)}`)
     return
   }
-  const moved = (applied.out.match(/\[moved\]/g) || []).length
-  if (moved) log(`✅ 家目录改道自愈:重新改道 ${moved} 项(§26)`)
-  const after = call(judge, [], 120000)
-  if (after.code !== 0)
-    log(`⚠️ 家目录改道修复后仍判红(exit ${after.code})⇒ 多为进程占用(EBUSY),30 分钟冷却后自动再试;长期不消需人工`)
+
+  try {
+    const applied = call(fixer, ['--apply'], HOME_HEAL_FIXER_TIMEOUT_MS)
+    if (applied.timedOut) {
+      log(
+        `⚠️ 家目录改道修复器跑满 ${Math.round(HOME_HEAL_FIXER_TIMEOUT_MS / 60000)} 分钟被掐断 ⇒ 现场可能停在"已复制未改名"的中间态;下一轮接管前请先看 re-home-junctions --check`,
+      )
+    } else if (applied.code === 2) {
+      log(`⚠️ 家目录改道修复器自身异常(exit 2)⇒ 不重试,需人工看 re-home-junctions 输出`)
+    }
+    const count = (tag) => (applied.out.match(new RegExp('\\[' + tag + '\\]', 'g')) || []).length
+    const moved = count('moved')
+    if (moved) log(`✅ 家目录改道自愈:重新改道 ${moved} 项(§26)`)
+    const after = call(judge, [], 120000)
+    if (after.code === 0) return
+    // ③ 报"实测到的原因",不再猜"多为进程占用"
+    const why = [
+      ['cooldown', '冷却中(上轮 EBUSY/校验失败)'],
+      ['copy-failed', 'robocopy 失败(源未动)'],
+      ['rename-failed', '源改名失败(通常是被占用)'],
+      ['verify-failed', '逐文件校验不一致(仍在被写)'],
+    ]
+      .map(([tag, text]) => (count(tag) ? `${count(tag)}×${text}` : ''))
+      .filter(Boolean)
+      .join(' / ')
+    const cool = (() => {
+      try {
+        return Object.keys(
+          JSON.parse(
+            readFileSync(join(WORKTREE, '.workbuddy', 'home-junctions-cooldown.json'), 'utf8'),
+          ),
+        ).length
+      } catch {
+        return -1
+      }
+    })()
+    log(
+      `⚠️ 家目录改道修复后仍判红(exit ${after.code})⇒ 实测原因:${why || '修复器未给出失败标签'};冷却项 ${cool < 0 ? '读不到' : cool} 个${applied.timedOut ? ';本轮被超时掐断' : ''}`,
+    )
+  } finally {
+    try {
+      rmSync(HOME_HEAL_LOCK, { force: true })
+    } catch {}
+  }
 }
 
 /** 守门 100 的"别人造好再推来"面(2026-09-24 立)。
@@ -549,6 +654,44 @@ function auditMergeAdditionLoss() {
   )
 }
 
+/** 本地恢复源的增量刷新层(§5b 里那条"唯一空白层")。
+ *  原设计挂在计划任务 `IHUI Git Backup Refresh`(每 15 分钟),但 2026-09-24 实测
+ *  `Get-ScheduledTask` 全量列表里**已经没有它**(与 §26 记的 `IHUI C-Drive AutoMaintain`
+ *  凭空消失同型)—— 恢复源因此又落后了 100+ 枚提交,而这正是"宿主再删一次 .git 就等价
+ *  回滚 100+ 枚"的那个风险本身。判据不能挂在一个会自己消失的东西上,故并入本守护的 tick:
+ *  先 `--check`(零副作用、便宜)早退,只有判后落后才跑增量刷新。 */
+function refreshRecoverySource() {
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'git-backup-refresh.mjs')
+  if (!existsSync(script)) return
+  const call = (args, timeout) => {
+    try {
+      const out = execFileSync(process.execPath, [script, ...args], {
+        cwd: WORKTREE,
+        encoding: 'utf8',
+        windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+        timeout,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      })
+      return { code: 0, out: String(out || '') }
+    } catch (e) {
+      return { code: typeof e.status === 'number' ? e.status : 2, out: String(e.stdout || '') }
+    }
+  }
+  const judge = call(['--check'], 180000)
+  if (judge.code === 0) return
+  if (judge.code !== 1) {
+    log(`恢复源体检异常(忽略,不阻断其余守护):exit ${judge.code}`)
+    return
+  }
+  const applied = call([], 15 * 60 * 1000) // 增量 fetch 大 gitdir 可到分钟级
+  if (applied.code === 0) {
+    const to = (applied.out.match(/→\s*([0-9a-f]{7,})/) || [])[1]
+    log(`✅ 本地恢复源已增量追平(§5b 空白层)${to ? ` → ${to}` : ''}`)
+    return
+  }
+  log(`⚠️ 本地恢复源刷新失败(exit ${applied.code})⇒ 下次 tick 自动重试;手动:node scripts/git-backup-refresh.mjs`)
+}
+
 function healRootSeal() {
   const script = join(dirname(fileURLToPath(import.meta.url)), 'seal-c-root-stray.mjs')
   if (!existsSync(script)) return
@@ -576,7 +719,8 @@ function healRootSeal() {
   const resealed = (applied.out.match(/\[(?:MISSING|REAL-DIR)→sealed\]/g) || []).length
   if (resealed) log(`✅ 盘根封口自愈:重封 ${resealed} 个被外部删除/回退的改道点`)
   const after = call(['--check'])
-  if (after.code !== 0) log(`⚠️ 盘根封口重封后体检仍非 0(exit ${after.code})⇒ 需人工看 seal-c-root-stray 输出`)
+  if (after.code !== 0)
+    log(`⚠️ 盘根封口重封后体检仍非 0(exit ${after.code})⇒ 需人工看 seal-c-root-stray 输出`)
 }
 
 /**
@@ -655,8 +799,10 @@ function ensureS4u() {
       windowsHide: true,
       timeout: 90000,
     })
-    if (/switched to S4U/.test(out)) log('✅ 计划任务已升级为 S4U(无人登录时也照常巡检;已验证弹窗结构上不可能)')
-    else if (/register failed|VERIFY FAILED|refusing/i.test(out)) log('S4U 升级未完成(不阻断守护): ' + out.replace(/\r?\n/g, ' | ').slice(0, 160))
+    if (/switched to S4U/.test(out))
+      log('✅ 计划任务已升级为 S4U(无人登录时也照常巡检;已验证弹窗结构上不可能)')
+    else if (/register failed|VERIFY FAILED|refusing/i.test(out))
+      log('S4U 升级未完成(不阻断守护): ' + out.replace(/\r?\n/g, ' | ').slice(0, 160))
   } catch (e) {
     log('S4U 升级调用失败(不阻断守护): ' + String((e && e.message) || e).slice(0, 160))
   }
@@ -852,14 +998,26 @@ function taskForm() {
   const flat = (buf) => String(buf || '').replace(/\0/g, '')
   let list = ''
   try {
-    list = flat(execFileSync('schtasks.exe', ['/Query', '/FO', 'CSV', '/NH'], { windowsHide: true, timeout: 30_000, maxBuffer: 1 << 24 }))
+    list = flat(
+      execFileSync('schtasks.exe', ['/Query', '/FO', 'CSV', '/NH'], {
+        windowsHide: true,
+        timeout: 30_000,
+        maxBuffer: 1 << 24,
+      }),
+    )
   } catch {
     return 'unknown' // schtasks 本身不可用 ⇒ 不下判断
   }
   if (!list.includes(TASK_NAME)) return 'missing'
   let xml = ''
   try {
-    xml = flat(execFileSync('schtasks.exe', ['/Query', '/TN', TASK_NAME, '/XML'], { windowsHide: true, timeout: 30_000, encoding: 'buffer' }))
+    xml = flat(
+      execFileSync('schtasks.exe', ['/Query', '/TN', TASK_NAME, '/XML'], {
+        windowsHide: true,
+        timeout: 30_000,
+        encoding: 'buffer',
+      }),
+    )
   } catch {
     return 'unknown'
   }
@@ -894,7 +1052,9 @@ function main() {
         timeout: 60_000,
       })
     } catch (e) {
-      log(`注册失败:git-guardian-hidden.vbs 预检未通过,勿注册坏包装器\n${e.stdout || ''}${e.stderr || e.message}`)
+      log(
+        `注册失败:git-guardian-hidden.vbs 预检未通过,勿注册坏包装器\n${e.stdout || ''}${e.stderr || e.message}`,
+      )
       return 1
     }
     if (pre && /error/i.test(pre)) {
@@ -933,7 +1093,9 @@ function main() {
   // 闪一扇可见黑窗。安装器是对的,但任务层没人兜底;常规巡检顺手核对,漂移即静默重注册。
   // --check(CI 口径)不产生副作用;预检派生的子巡检跳过,防递归。
   if (!CHECK_ONLY && !taskActionOk()) {
-    log(`⚠️ 计划任务形态漂移(实测形态=${taskForm()}:InteractiveToken 直跑 node.exe 会闪黑窗),自动重注册`)
+    log(
+      `⚠️ 计划任务形态漂移(实测形态=${taskForm()}:InteractiveToken 直跑 node.exe 会闪黑窗),自动重注册`,
+    )
     registerTask()
   }
 
@@ -952,6 +1114,8 @@ function main() {
     // 合并吞并对账:别人机器上造好推来的合并跑不到提交链那道门(commit-tree 旁路不跑钩子),
     // 由本层按增量台账判到一次(只判不修)。
     if (!CHECK_ONLY) auditMergeAdditionLoss()
+    // §5b 的"唯一空白层":恢复源刷新原本挂在计划任务上,而那个任务已实测消失 ⇒ 并入 tick。
+    if (!CHECK_ONLY) refreshRecoverySource()
     // 看门人也要有人看:凭据/停摆巡检靠 schtasks 每 6 小时自跑,任务被删/被停/node 路径
     // 失效时它**自己不会喊**(故障形态是"安静",正是今天两天冻结的同类)。本守护每 2 分钟
     // 一趟且自身分层自愈,由它盯心跳最省。--check 仍零副作用。

@@ -91,7 +91,7 @@ export function AgreementCheckbox({
           error
             ? 'border-destructive'
             : checked
-              ? 'border-transparent bg-primary text-primary-foreground'
+              ? 'border-transparent bg-cta text-cta-foreground'
               : 'border-input bg-background group-hover:border-foreground/60',
         )}
       >

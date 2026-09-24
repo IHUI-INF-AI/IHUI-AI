@@ -58,7 +58,7 @@ const SKIP_ENV = 'HUSKY_SKIP_BRAND_FOREGROUND'
 // 前缀 `tokens.`(apps/mobile-rn 端)与 `tk.`(packages/app 共享组件的别名)必须同时认,
 // 否则共享包整片不在判据视野内 —— 这正是 2026-09-23 补的盲区。
 const TKS = '(?:tokens|tk)'
-const R1_BG = new RegExp(`backgroundColor:\\s*${TKS}\\.brand\\.DEFAULT\\b`)
+const R1_BG = new RegExp(`backgroundColor:\\s*${TKS}\\.brand\\.(?:DEFAULT|cta)\\b`)
 const R1_BAD_FG = new RegExp(`color:\\s*${TKS}\\.(?:surface\\.light|text\\.primary)\\b`)
 const STYLE_OBJ_START = /^\s{2}[A-Za-z_$][\w$]*:\s*\{/
 /** R4 用:任意缩进的 `key: {` 起始行(共享包样式一律在 makeStyles 内 4 空格缩进) */
