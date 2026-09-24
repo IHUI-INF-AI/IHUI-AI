@@ -10,13 +10,13 @@
 
 import { execSync } from 'node:child_process';
 import * as fs from 'node:fs';
-import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const cliRoot = path.resolve(__dirname, '..');
-const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-settings-verify-'));
+const tmpHome = mkScratch('ihui-settings-verify-');
 
 console.log('--- settings.json 模板生成端到端验证 ---');
 console.log('1. 临时 HOME:', tmpHome);
@@ -96,7 +96,7 @@ cleanup();
 
 function cleanup() {
   try {
-    fs.rmSync(tmpHome, { recursive: true, force: true });
+    rmScratch(tmpHome);
     console.log('   (已清理临时目录)');
   } catch {
     // ignore
