@@ -47,7 +47,6 @@ import { VoiceInput } from '../components/VoiceInput'
 import { PrivacyPolicyModal } from '../components/PrivacyPolicyModal'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 // 对齐 Uniapp share/index.vue float-box:悬浮导航(赚米/客服/反馈),补齐 ShareScreen
-import { GlobalFloatBox } from '../components/GlobalFloatBox'
 import Drawer, {
   type DrawerConversationItem,
   type DrawerExtraMenu,
@@ -390,12 +389,8 @@ export function ShareScreen() {
         onHide={handleFloatBoxHide}
       />
 
-      {/* GlobalFloatBox — 悬浮导航(对齐 Uniapp share/index.vue float-box:赚米/客服/反馈) */}
-      <GlobalFloatBox
-        onPromote={() => navigation.navigate('Promote')}
-        onConsult={() => navigation.navigate('CustomerService')}
-        onFeedback={() => navigation.navigate('Settings')}
-      />
+      {/* 悬浮栏(赚米/客服/反馈)由 App.tsx 的 GlobalFloatBox 单点渲染;
+          此处曾另挂一份,两份同屏叠出双栏,且这份的「反馈」错跳 Settings。 */}
 
       {/* Drawer 侧滑抽屉(对齐 Uniapp share/index.vue 行 5 DrawerComponentall:
           主菜单导航/一人公司/领取资料/创建新对话/历史对话/设置/消息/回主页) */}
