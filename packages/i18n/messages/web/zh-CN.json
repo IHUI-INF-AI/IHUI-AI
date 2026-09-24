@@ -10255,6 +10255,36 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "voiceNote": {
+      "title": "语音笔记",
+      "phase": {
+        "ready": "准备就绪",
+        "recording": "正在录音",
+        "waitingTranscript": "等待转写",
+        "completed": "已完成",
+        "cancelled": "已取消",
+        "failed": "录音失败",
+        "error": "出错了",
+        "interrupted": "已中断"
+      },
+      "errors": {
+        "permission": "麦克风权限被拒绝,请在浏览器设置中允许后重试",
+        "noMicrophone": "未检测到麦克风设备",
+        "startFailed": "录音启动失败,请重试",
+        "saveFailed": "录音保存失败",
+        "recognitionFailed": "语音识别中断",
+        "emptyTranscript": "没有识别到内容",
+        "sttPending": "转写暂不可用,可稍后重试或仅保存音频"
+      },
+      "action": {
+        "start": "开始录音",
+        "stop": "停止录音",
+        "retry": "重试",
+        "saveAudioOnly": "仅保存音频",
+        "insertToInput": "插入对话",
+        "dismiss": "关闭"
+      }
+    },
     "connectorAuth": {
       "title": "连接到 {connectorName}",
       "connected": "已连接",
