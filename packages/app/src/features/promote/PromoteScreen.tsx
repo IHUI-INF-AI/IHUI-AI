@@ -115,7 +115,7 @@ export function PromoteScreen({
             </Text>
             <View style={styles.linkActions}>
               <TouchableOpacity style={[styles.linkBtn, styles.copyBtn]} onPress={onCopy}>
-                <Text style={styles.linkBtnText}>
+                <Text style={styles.copyBtnText}>
                   {copied ? t('promote.copySuccess') : t('promote.copyLink')}
                 </Text>
               </TouchableOpacity>
@@ -212,6 +212,7 @@ function createStyles(tk: AppThemeTokens) {
     copyBtn: { backgroundColor: tk.brand.cta },
     shareBtn: { backgroundColor: tk.surface.card },
     linkBtnText: { fontSize: 14, color: tk.surface.light },
+    copyBtnText: { fontSize: 14, color: tk.brand.ctaForeground },
     codeText: { marginTop: 10, fontSize: 11, color: tk.text.tertiary },
     sectionTitle: {
       paddingHorizontal: 10,
