@@ -5046,6 +5046,12 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - **四条断言必须同时为 0,而不只是"零丢失"**:A 丢行 0 / 新写丢行 0 / 新写行超量重复 0 / **A 行被复制 0**。最后一条是第二版才逼出来的:第一版双指针在"命中位置小于游标"时漏了推进,把 A 复制了 **1696 行**,而前三条断言**全绿** —— 只验"不丢"会完整放过"自我复制"这一半失败,这与本仓"零损失断言要并列不删∧不重复"是同一条规律。
 - **写盘两道闸**:① 写前重读工作区,与读取时的快照不一致就**放弃本次写盘**(并发期必然遇到,重跑即可);② 合并前的他人版本备份到 `.ihui-agent/tmp/plan-merge/theirs-before-merge-*.md`,可随时回退。
 - **不靠"我相信它对了",用四道门在临时索引上实证**:`GIT_INDEX_FILE=<临时索引>` + `read-tree HEAD` + `update-index --cacheinfo` 换入合并 blob,依次跑 —— 门 76 `✅ 反回退守门通过(判定 1 个文件,无历史版本回写)`(合并内容不等于任何祖先版本)、门 65 `OK —— 索引 vs HEAD 缺失 0/12146`、门 71 `✅ 无登记行丢失(暂存区)`、门 79 `✅ 未检出成对冲突标记`。**全程不碰共享索引**,他人暂存态一律不动,临时索引用完即删。
+- **G 盘从 99% 满(仅剩 1.7G)拉到 84%(剩 27G)**,做法与不做法都留证:
+  ① **删掉的只有一项且先证明它是纯缓存**:`apps/desktop/src-tauri/target` = **23G**(Rust 构建缓存)。四条前置实测后才动手:`git ls-files` 命中 **0** 个跟踪文件、目录已被 gitignore、`tasklist` 里 cargo/rustc/tauri/app.exe 进程 **0**、目录 mtime **09-19**(5 天未动)。代价只有"下次桌面端构建要从零跑",重建命令 `pnpm --filter @ihui/desktop build`(或 `cargo build`)。
+  ② **没删的都比"看着像垃圾"更值得留着**:`apps/web/.next` 8.9G —— `netstat` 显示 **:8801 有活动连接**,而本机就是生产机(§5b),删它等于动在跑的服务;`.ihui-agent/tmp/i18n` 8.1G —— 目录项 mtime 是**我测量的当刻**(09:31),有活会话在写。
+  ③ **G:\ 根上 5 个 `IHUI-AI-wt-*`(约 14G)是孤儿工作树但不能删**:`git worktree list` 只列主仓,且 `.git/worktrees` 整个不存在 ⇒ 指针全断,任何 git 命令在其中都跑不了;但**路径集合探针**证明它们含 HEAD 树里没有的源码(`wt-e2e` 的 `apps/web/app/(main)/ai-chat/page.tsx`、`wt-pricing` 的 `apps/ai-service/app/core/tencent_tc3_signature.py` 与 `services/{dispatch_helper,image_saver}.py`、`wt-keys` 的四份 `i18n-dead-keys-2026-09-1*.md`)⇒ 按 §7 三问,"不删"是唯一正确答案。下一步要收它们必须**逐文件比对后再定**,不得整批扫。
+  ④ **搬走的那一个(b58,533M)已核验,并暴露一条新工具陷阱**:`robocopy /E /MOVE` 到 §15b 批准的备份根 `D:\DevEnv\backups\archives\ihui-orphan-worktrees\`。两个坑:(a) **不带 `/XJ` 会跟随 pnpm 的 junction 把全局 store 实体化** —— 目的地从 533M 涨到 **3.6G**;(b) 深层 `node_modules\.pnpm\@scope+pkg…\node_modules@…` 触发 **错误 3(路径找不到)/MAX_PATH**,少量 node_modules 文件没搬走(源码级 `源剩余=0`、目的地 `9679` 个源码级文件、其中 136 个不在 HEAD 树的自有报告仍在)。 ⇒ 结论:**仓库形态的目录树不要用 robocopy 裸搬**,要 `/XJ` + `\\?\` 长路径前缀 + 搬后按路径集合回读。
+  ⑤ 未回收的敞口如实留着:四个孤儿工作树约 13.7G。判据已备好(`.ihui-agent/tmp/head-paths.txt` 是 `git ls-tree -r HEAD` 的 12160 行路径集,探针脚本模式在正文里),但**逐文件比对与归属判断没做完之前不碰**。
 - **残余(不写作收口)**:① 上一条敞口的处置权在持有那 171 行的会话,本票只能把判据与找回工具备好;② 台账外 2 枚"仅本地"tag(`packages/sdk/go/v0.1.0`、`restore/prealign`)不推 —— 两枚目标 commit 均已是 HEAD 祖先,零丢失风险,已在本票与台账双重登记;③ `sync-lost-commit-tags.mjs --check` 的全量逐枚可达性复扫在本轮被 4283 枚的打印量拖成后台任务,终数以两族集合逐名对账(更强判据)为准。
 
 ## O36 守门"接线层"根治 —— 补装三枚造好没装车的门、修一道假阳性、摘掉两处恒绿登记(2026-09-24 立并完成 ✅)
