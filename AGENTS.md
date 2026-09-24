@@ -511,6 +511,14 @@ pnpm dev                                       # 启动所有服务(web + api + 
 - 多会话/多 agent 在同一仓库并行工作时,**禁止**任何破坏性 git 操作:`git restore` / `git stash push` / `git clean -f` / `git reset --hard` / `Remove-Item` 删除其他 agent 创建的文件(包括"看着像垃圾"的 `commit_msg.txt` / 临时测试文件 / 调试日志)。
 - commit 阶段**只 add 本任务相关文件**:`git add <file1> <file2>`,**禁止** `git add .` / `git add -A` / `git add -u`。
 - **提交活文档前必须做"工作树 ⊇ HEAD"行级对账(2026-09-24 立,一夜三次自伤换来的)**:`README.md` / `AGENTS.md` / `PROJECT_PLAN.md` 这类多会话共写的文件,工作树副本**常年滞后于 HEAD**(实测分别少 57 / 48 / 54 行),而 `safe-commit` 的 Step ④ 是 `git commit -- <pathspec>` —— 按路径取**工作树**版本,于是"只 add 本任务文件"的规范提交照样把别人已入库的行整批写回旧态,`git status`、diff 行数、typecheck、守门 71 全都看不出来。动作:① 提交前 `node scripts/merge-live-doc.mjs --file <该文档>`(exit 1 = 存在真丢失);② 需归并时 `--apply`(它按锚点把 HEAD 缺失块插回工作树,并区分"被吃掉"与"被就地改写",后者不插回以免新老并存);③ 归并后必须报"仍判 lost = 0 且长行重复新增 = 0"。**但提交前的报告有时效边界**(2026-09-24 实测:`merge-live-doc` 报 0 丢失之后、`safe-commit` 落地之前,并发会话又推进了一轮 ⇒ 那次提交仍丢掉 2 条他人登记行)。所以顺序必须是四步:**报告 → 提交 → 立刻 `git show <新提交>^..<新提交>` 做行级对账 → 有丢失就地回补**(发现手段只能是提交后的 diff,`git status` 与提交前那次报告都看不见)。判据是**字符二元组** Jaccard ≥ 0.6 —— 前缀与按空格切词在中文里都会漏(工具自己栽过一次,README 里一度同时留下 `**第 93 项 X**` 与 `**守门 X**` 两行),已由 `--self-test` 8 例钉死。登记条目见 PLAN 的 O46④/O46⑩。
+  - **回补过的行还要在"每次收敛/合并之后"复验它仍在 HEAD(2026-09-24 实测该文件第 4 次被顶掉)**:
+    并发会话的 union 合并会把别人刚回补的行**再次吃掉** —— 实测
+    `packages/shared/src/chat/handoff-package.ts` 的 `i18n-content-exempt-file:` 声明:被 `cfe8f65e4`
+    抹掉 → `9e01f6aa9` 原样补回 → 几轮合并后 `git show HEAD:<该文件>` 又是 0 命中。"提交前对账 +
+    提交后 diff"两道都保不住它,因为吃掉它的不是回补那次提交。复验是一行的事:
+    `git show HEAD:<该文件> | grep -c '<该行稳定前缀>'` 应为非 0,为 0 即重新回补(工作树通常还留着,
+    `git diff HEAD -- <该文件>` 立刻可见)。守门 70 的声明式出口是**随行内联**的 —— 行一丢,该文件
+    49 处中文立刻判红:红点会等下一个碰它的人来吃,不会静默,但也只有那个人会以为是自己的错。
 - 正确流程:预检(`git status --porcelain`)→ 隔离 add 本任务文件 → 验证 staged 仅含本任务文件。
 - **任务完成必须自动 commit(2026-09-20 用户指令,强制)**:任务/批次完成且验证全绿后,agent **必须立即自动 commit**——不经询问、不等用户确认、禁止以"不擅自 commit"为由把已验证的工作留在未提交状态。push 仍按 §16/§20 执行(用户未要求时不主动 push)。commit 形态仍受本节约束(多 agent 并行必须 safe-commit.mjs;单 agent 直接 add 声明文件;禁止 `git add .` / `-A` / `-u`)。
 - pre-push / pre-commit hook 失败因**其他 agent 引入的代码问题**(schema drift / 其他模块 TS/lint 错误 / 其他 agent 未完成 migration 等,不在本任务范围):**直接用 `--no-verify` 跳过 hook** 完成自己的 commit + push;**禁止**修改其他 agent 代码"帮他们修" / `git reset --hard` / 把"等其他 agent 修复再 push"作为交付结论 / 用 AskUserQuestion 询问用户;自己 commit + push 前只需保证**本任务改动文件** typecheck + lint + build 全绿即可;`--no-verify` 合法场景**仅限**"hook 失败原因是其他 agent 代码",若失败原因是**本任务自己代码**必须修复后正常 commit。
@@ -1383,6 +1391,17 @@ C 盘 120 GB 频繁告急,根因排查发现:
 `[System.IO.Directory]::Delete($path, $false)` 断链;② 量体积的工具遇 junction **不得跟随**
 (否则把 D 盘的量报成 C 盘的债);③ Node 侧 `lstatSync(p).isSymbolicLink()` 对 junction 报 `true`,
 `rmSync(link)` 只断链不穿透(均已实测)。判据由 `seal-c-root-stray` 与 C 盘污染守门的镜像测试钉死。
+**改页面文件必须留"待重启生效"哨兵(2026-09-24 立)**:本机 C/D 两个 pagefile 都是**手设固定值**
+(C 32768MB / D 98304MB)而非系统管理。要缩 C 的占用,改的是
+`HKLM\...\Session Manager\Memory Management\PagingFiles`(用 `Set-CimInstance Win32_PageFileSetting`
+写入,回读该注册表值才算落盘)—— 但**内存管理器运行期锁住 pagefile.sys,磁盘上的旧大小只有重启才收缩**,
+而本机是生产机(20+ 个 IHUI-* 服务在跑),重启时机归用户。所以任何这类改动都必须同时留一条
+会自我清空的哨兵:比对「配置上限 vs WMI `Win32_PageFileUsage.AllocatedBaseSize`」,落差 >512MB 且 >25%
+就报「待重启生效」,缩到位后不再报。**量这个大小有三连坑,都不报错、只给假绿**:`fs.statSync` 对
+`pagefile.sys` 必报 `EINVAL`(打不开句柄);`cmd /c for %A in (...) do %~zA` 会被 Node 的加引号 +
+cmd 剥首尾引号的双层规则打掉;属性名写成 MSDN 文档的 `AllocBaseSize`(本机真名是
+**`AllocatedBaseSize`**)会被 PowerShell 静默渲染成空串。三条已由守门 `--self-test` 与镜像测试钉死,
+且"一条都没量到"必须打印**未判定**、绝不记为通过。
 **⚠️ junction 只管"路径",管不了"身份"(2026-09-24 实测的第四类真因)**:同一个 `$env:TEMP` /
 `os.tmpdir()` 在**不同身份下指向不同目录** —— HKCU 把交互账户 TEMP 迁到 `D:\DevEnv\Temp` 之后,
 nssm 服务(IHUI-API / IHUI-DEPLOYLOOP 以 LocalSystem 运行)拿到的仍是 `C:\Windows\Temp`。
