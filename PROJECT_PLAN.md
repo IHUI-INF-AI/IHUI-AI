@@ -55,7 +55,7 @@
   `ForceDelete` 唯一删除出口上** + 逐条 `[DEL]`/`[DRY]` 留痕。**过程自伤已如实登记**:第一版只把
   DryRun 写在第三段,预演时第一段(Chrome 缓存,本机路径不存在故空转)与第二段(Temp >3 天目录)
   被真删,释放约 29.8MB,均为陈旧临时目录,项目文件/备份/凭据(全在 D 盘)未受影响。
-- [x] ✅(2026-09-23) **止血③ 守门 92 `check-c-drive-pollution.mjs`**(warn-only,只读永不删):
+- [x] ✅(2026-09-23) **止血③ 守门 93 `check-c-drive-pollution.mjs`**(warn-only,只读永不删):
   实地扫 C 盘根 + `C:\tmp` + `C:\temp` + 活 TEMP,名字白名单只认本项目产物,认不出的进
   「未识别清单」只登记不清理;并判 **TEMP 漂移**。`--self-test` 8 例 + §22c 镜像测试 6 例。
   **编号撞了两次,第二次是本会话的交付事故**:先登记 85 与并行会话的 `check-test-paths` 同号 → 改 90;
@@ -63,7 +63,7 @@
   `safe-commit` 整文件提交 `guardian-runner.mjs`,而本会话这份带的是**旧基线** ⇒ diff 里
   `script: 'check-sse-dispatch-parity.mjs'` 被我的注册块顶掉,等于**把别人刚装上的门卸了**
   (`git show 5db08f26e -- scripts/guardian-runner.mjs` 可复核)。现已按 `ce261e1a8` 原文回插
-  守门 90、本门落到 **92**,并把「邻门注册块不得缺失」写进镜像测试断言。
+  守门 90、本门落到 **93**,并把「邻门注册块不得缺失」写进镜像测试断言。
   ⇒ 教训:高并发同日仓里,① 「查编号占用」必须在提交前最后一刻重做;② 改共享注册类文件
   (runner / package.json / CI)必须逐块核对增删,只看自己那段 diff 恰好看不见挤掉了谁。
 - [x] ✅(2026-09-23) **按用户批准范围清理**:68 项 → **0 项**,C 盘可用 **30G → 43G**。用户未批准的
@@ -93,26 +93,63 @@
   `token_impersonate.ps1` 名字含 key/token,但属该会话的 PS 引擎注册表/Windows 令牌语境,
   且本组是"移动可逆"而非删除 —— 未误碰任何真凭据目录。
 - [x] ✅ **守门 92 加一条自有产物特征:盘根单字母目录**(MSYS 错位指纹),`--self-test` 8 → 11 例。
-  仍**只报不删**,该形态是否清理由人定。
-- [x] ✅ **镜像测试改为反查 id,不硬写编号**。本门一天撞三次号(85→90→91→92),第三次正是被
-  另一会话同日装的 `check-error-code-coverage`(占 91)顶到;旧断言硬写编号,重排一次就失真。
-  新增"全 runner 不得有任何重号"+"三道邻门注册块必须存在"两条,已由它当场抓出第三次撞号。
-- [ ] **C 组刻意没动,待用户定性**:`C:\ai_zhs\cert\*.pem`(5 个,每个仅 10–20 字节,不可能是真 PEM,
-  但目录名属凭据类 —— 按"清理不得靠近 key/secret/cert"铁律一律不碰)、`C:\Youku Files`(1.3GB 用户数据)、
-  `C:\persistent_data`、`C:\common_attachment`、`C:\appverifUI.dll`、`C:\vfcompat.dll`、
-  `C:\tools\openssh-inst`(部署链路可能按绝对路径找 `ssh.exe`)。
-  另:真 npm 前缀里有 `@mimo-ai\.cli-TpjiMkdA`(约 135MB 中断安装残留),属第三方工具目录,只报不动。
+- [x] ✅ **守门 93 加一条自有产物特征:盘根单字母目录**(MSYS 把 `/c/...` 当相对路径的错位指纹),
+  `--self-test` 8 → 12 例。仍**只报不删**,该形态是否清理由人定。
+- [x] ✅ **镜像测试改为反查 id,不硬写编号**。本门一天撞四次号(85→90→91→92→93),且第 4 次证明
+  **"提交前查占用"本身不够**:我取 92 时 `check-error-code-coverage` 确实在 91,是别的会话随后把它重排到 92,
+  把重复号**带进了 origin/main**。旧断言硬写编号,重排一次就失真;现断言为"反查本门 id + 全 runner 任何 id
+  不得出现两次 + 三道邻门注册块必须存在",第 3、4 次撞号都是它当场红出来的。
+- [x] ✅(2026-09-24)**C 组里唯一属本仓的一项已定性并归档**:`C:\ai_zhs\cert` 的 6 个 `.pem` 实测
+  10–20 字节且首 27 字节无 `-----BEGIN` ⇒ 非 PEM 占位残迹(真件在 `D:\IHUI-AI\cert\`,451–1704 字节);
+  已**移动归档**(可逆)到 `D:\DevEnv\backups\archives\c-root-2026-09-24\ai_zhs-cert-stub`,未删除。
+  顺带核掉一个差点误报的"泄漏":真私钥**未被 git 跟踪**(`git ls-files cert/` = 0;`.gitignore` 336-340
+  覆盖 `cert/` `**/cert/` `certs/` `*.pem`),仓库虽是公开仓库但不含这些文件。
+  至此 C 盘自有产物 **0 项**,未识别条目从 72 降到 **5**,且这 5 项全不属本仓:`C:\Youku Files`(1.3GB
+  用户数据)、`C:\common_attachment`、`C:\persistent_data`、`C:\appverifUI.dll`、`C:\vfcompat.dll`。
+  另 `C:\tools\openssh-inst` 因部署链路可能按绝对路径找 `ssh.exe` 而**刻意保留**;真 npm 前缀里的
+  `@mimo-ai\.cli-TpjiMkdA`(约 135MB 中断安装残留)属第三方工具目录,只报不动。
 
-### 遗留(已量化,不在本次范围)
+### 第三阶段(2026-09-24 00:20–00:55,三路并行 subagent + CI 发版)
 
-- [ ] 计划任务 `IHUI-C-Drive-AutoMaintain` 仍未注册(注册 = 影响全机的删除动作,须用户授权);
-  §26 的「已注册」表述已就地改正。
-- [ ] 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()`(`check-workspace-dep-links` /
-  `check-git-read-timeout` / `git-backup-refresh` / `check-api-routes` / `check-credential-health` 等)。
-  实测它们**当前不产生残留**(清理逻辑带 `maxRetries`),且已由守门 92 覆盖可见性,故未一并改写 ——
-  避免在共享工作区对 7 个文件做无取证收益的批量动刀。下一个被守门 92 报出的前缀即改写触发条件。
+- [x] ✅ **桌面端本地打包不再恒红(提交待合,agent 路 A)**:实证用户那次"打包失败"的真实形态是
+  **包已经产出、红在签名步**(`A public key has been found, but no private key`,本机无 `~/.tauri` 私钥),
+  而且尾部钩子 `desktop-artifact-single.mjs` 无条件要求 `.sig`、原先无任何豁免开关 ⇒ 两道闸叠着让
+  本地路径永远红。现加显式 `DESKTOP_ALLOW_UNSIGNED=1`:豁免面用"假想补齐签名后再跑一遍真判据"界定
+  (`partitionViolations`),**只放行"缺签名"这一条**,缺当前安装包、旧包清理等判据照旧生效;
+  `desktop-build-saas` 同开关下走 `tauri build --config <绝对路径>`(相对路径实测 os error 3)。
+  取证:新测试 13/13 + 既有 `desktop-artifact-invariant` 11/11 + env 未设时输出与改版前**逐字同**。
+  ⚠️ 未签名包**不得进更新源/不得发版**,放行时强制吼三行。
+- [x] ✅ **剩余 7 个守门脚本的 `--self-test` 夹具全部迁到 `mkScratch`(agent 路 B)**:`check-workspace-dep-links`
+  (2)、`check-git-read-timeout`、`git-backup-refresh`、`check-api-routes`、`openapi-check`、
+  `clean-turbopack-cache`、`verify-cli-settings-init`。逐文件比对改前/改后自测结果一致,7 文件 `tmpdir()`
+  归零,eslint 0 error,水印 7/7 完好,C 盘零新增。
+  **两处如实上报**:① `clean-turbopack-cache` 的开关是 `--selftest`(无连字符),用 `--self-test` 探基线会被
+  `parseArgs` 静默忽略并 exit 0 ⇒ 造出假绿基线,已用正确开关重取(这属该脚本自身"传错 flag 仍恒绿"的反模式,
+  未在授权面内,只登记);② `verify-cli-settings-init` 改前改后**都 exit 1**,原因是 `cliRoot` 解析到仓库根
+  而非 `apps/cli`(既存缺陷),未顺手越界修。
+  **剩余面已量化**:`scripts/tests/` 尚有约 110 处 `os.tmpdir()` 调用点 —— 实测它们**不产生常驻残留**
+  (清理带 `finally`,且现在每日 3am 会按名字扫 `%LOCALAPPDATA%\Temp\ihui-*`),故不改判据、由守门 + 清扫兜住;
+  一旦守门报出新的前缀即改写触发条件。
+- [x] ✅ **每日维护任务的删除面收窄(提交 `790583c62`,agent 路 C)**:`%LOCALAPPDATA%\Temp` 那段原先对
+  "所有 mtime>3 天的目录"整片删、不看名字也不过受保护判据(9-23 那次 29.8MB 误删就是它),现默认只删本项目
+  四类名字,宽口径必须显式 `IHUI_TEMP_WIDE_SWEEP=1`;Chrome 段 6 条路径硬编码 `C:\Users\荣耀`(本机是
+  `Administrator`)天天空转且零痕迹 —— **故意不改指向真实用户**(那等于突然开始删在用浏览器缓存),改为
+  显式 `[WARN]`;`C:\Windows\Temp` 子段仍按 mtime(唯一剩下的非按名字删除面),但改走同一出口、逐条留痕、
+  过 `Test-Protected`。主 agent 独立复核:DryRun 全文 `[DEL]` 计数 = 0,diff 只动该一个文件。
+- [ ] **CI 发版 0.1.44 进行中**:标签 `desktop-v0.1.44` 已推(经 `git ls-remote` 回读),run #82
+  (`event=push`,`head_branch=desktop-v0.1.44`)运行中。发版前已核:0.1.43 资产完整(含
+  `AI_0.1.43_x64-setup.exe` + `.sig` + `latest.json`)⇒ CI 签名 secret 可用;`desktop-v0.1.44` 此前
+  无 release(404)⇒ 不撞车;`publish-updater-json` 带 `needs: build`,任一平台失败则更新 feed 不更新
+  ⇒ 不会污染线上自动更新。**待办**:回查三平台产物 + 更新 feed + `sync-downloads` 是否把包同步进
+  `apps/web/public/downloads/`。
+
+
+### 遗留(已量化)
+
 - [ ] 重启宿主/开机后 `%TEMP%` 才会真指 `D:\DevEnv\Temp`;在此之前任何未接 `scratch-dir` 的
-  `os.tmpdir()` 调用仍会落 C 盘(守门 92 会报 TEMP 漂移)。
+  `os.tmpdir()` 调用仍会落 C 盘(守门 93 会把这件事直接报成 **TEMP 漂移**,不是靠人记)。
+  `scripts/tests/` 约 110 处 `tmpdir()` 属这一类:实测不产生常驻残留,兜底是"守门可见 + 每日按名字清扫",
+  而不是在无取证收益的情况下批量动 82 个测试文件。
 
 ## P0 2026-09-23 全 8 端圆角单一源头收口(根治「手机上所有容器圆角与全局设定不一致」)
 
@@ -4700,8 +4737,7 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - [x] ✅(2026-09-24) RN 分类栏统一收口(承 2026-09-23 04:19 会话被取消的迁移,用户原话"所有的菜单栏分类栏没有设计好 统一 好看的符合项目统一的样式 点击后下拉窗的形式呈现 左右滑动"):地基 `packages/app/src/components/category/{CategoryInlineBar,CategoryDropdown}` 补包根导出(`@ihui/rn-app` 可直接 import,此前只到 `components/index.ts` 端内取不到)+ Dropdown 面板改 `ScrollView`(修"选项多于 8 条被 maxHeight+overflow:hidden 静默裁切")+ 圆角一律 `rnRadius` 档(对齐同日新立 §4 圆角单一源头)。**迁移面 16 处**:共享层 9 屏(square/plaza/order/team/ranking/recruitment/token-value/study-index/study-publish,其中 study-publish 的 API 动态赛道 = CategoryDropdown 装车点)+ 端内 7 屏(ProfileScreen / TokenValueScreen / TopicListScreen / StudyIndexScreen / MaterialList / AgentScreen 赛道弹层双行并删违规 `trackDivider` hairline 分割线 / FenLeiOverlay 赛道行+分类网格双条)。孤儿裁定:`StudyBar`、`SingleTypeBar` 已零调用点(删除需同步下调 `scripts/radius-single-source-baseline.json` 的 2 条基线,本轮未做)。**真机取证(v0.0.4 / code 5 release 包,Hermes 字节码 bundle grep 命中 `CategoryInlineBar` / `agent-track-bar` / `ctaFill`)**:① 点顶栏「分类」弹出的那块当时仍是迁移清单外的 `FenLeiOverlay`(已补迁);② **该轮「选中 chip 底色未落上」的结论是取证方法错误,不是产品缺陷**(2026-09-24 真机定档):那块 chip 当时位于一层 `tokens.overlay.modal = rgba(0,0,0,0.6)` 遮罩之下,像素被整体压到原值的 40% —— 实测底色 #414E56 恰等于 #a3c4d6 × 0.4(R/G/B 三通道同比例 0.40,是遮罩指纹而非取色错误),同行 idle 底 #262626×0.4=#0A0A0A、描边 #525252×0.4=#212121、次要文字 #A3A3A3×0.4=#414141 全部对上。撤掉遮罩后在无任何弹层的广场页复测:选中 chip = 纯 `ctaFill` 底 + `ctaText` 字,浅色档案实测 #000000/#FFFFFF、深色档案 #a3c4d6/#16262e,按主题正确翻转。**教训:像素直方图取证必须先排除遮罩** —— 三通道同比例缩放即「上方有一层半透明黑」的判据,此时任何「颜色没落上」的结论都不成立;③ idle chip 以 `surface.card` 作底、落在同为 `surface.card` 的面板上确实隐形(这一条是真的),已改 `surface.muted` + 描边 `border.medium`,真机复测 idle 与选中两态均清晰可辨。同轮真机走查另立三项新缺陷(与本条无关):登录态启动硬崩、AI 需求广场「深色顶栏/底栏 + 浅色正文」主题割裂、一枚红色 ✕ 浮层压在分类条上。
 - [x] ✅(2026-09-24) **RN 登录态启动硬崩根治(commit `4812fbb10`,真机 versionCode 7 复验)**:`RootNavigator.tsx` 的 `<UiControlBridgeLayer>` 被 `e09d86622`「事故后现场保全」快照按旧基线整文件回写,重新落进 `RootStack.Navigator` 的直接子节点位 —— React Navigation 只接受 Screen/Group/Fragment,登录态一进入即 JavascriptException + FATAL 退出。**HEAD 与 origin/main 双双含此缺陷**,即已发布的 0.0.5/code5、code6 在手机上登录后必崩(实测 `exp_appbootfail zh.ai.sq` / `JE_AppCustomException`,任务 `isExiting`、`mCurrentFocus` 退回 launcher)。正确挂载点 `1fdd73ed2` 早已建好(现 805 行),本次只是删掉复活的 2 行。取证:改前 `am start` 后焦点仍在桌面且无窗口;改后 `mCurrentFocus=zh.ai.sq/.MainActivity`、logcat 零 JS 异常。**顺带解锁一道从未跑过的取证用例**:`tests/agent-runtime-permission-decision.test.tsx` 自带 6 键 `react-native` 内联 stub,与 vitest.config 的 alias(`tests/__mocks__/react-native.ts`,含 Appearance)冲突,主题层在模块求值期取 `Appearance.getColorScheme()` 即整文件加载失败、收集 0 条用例 —— 一道 D55/G-66 取证用例静默空转。删内联 stub 后 4 条全跑全绿;mobile-rn 由 40 文件/391 例 + 1 空文件 变 41/395 全绿。
 - [ ]（进行中）**真机走查(2026-09-24,v0.0.5/code7)三项新发现的收口状态**:① **广场页「深色顶栏/底栏 + 浅色正文」主题割裂 —— 已修(commit 84583fdf6)**:根因不在端级组件,而是 PlazaScreen.tsx:464 与 RankingDetailScreen.tsx:171 把 colorScheme 写成字面量 light,而 packages/app/src/features/{plaza,ranking-detail} 内部是 getTokens(colorScheme) 且形参默认 'light' —— 调用方一钉死,整棵正文子树脱离主题。实测证据:同一屏 NavBar/TabBar 取到 #1a1a1a 而正文 #f5f5f5 / #ebebeb。范围按全端收口而非只修被报那一处:全仓 colorScheme 字面量除这两处为零;再按「212 个 theme-driven 共享组件 × 端内全部 JSX 渲染点」统计漏传 colorScheme 的调用点 = **0 处**,故不把 213 处默认值改必填(无实际受益且会与并发会话互踩 213 文件)。**遗留陷阱另计**:共享组件形参默认 'light' 本身是「忘传即静默脱主题」的地雷,待改为必填并全端接线。② **红色 ✕ 浮层压在分类条上 —— 判为本轮误报**:复测时该元素已消失,且 uiautomator 在其位置 (360,197) 取不到任何属于它的节点(该处唯一命中节点是 chip「已完成」[328,158][458,222]),即它无命中区、非布局层元素,判为错误弹层关闭按钮进出场动画的瞬时残影;留作「若复现再查」。③ **错误态「好的」确认钮黑底近黑字 —— 已修(commit 26cf923961,v0.0.5/code8 真机复测)**:原假设「底色与前景跨档案错配」**被实测否证** —— 两个值来自同一档案:浅档 brand.DEFAULT=#000000 作底 × text.primary=#0A0A0A 作字 = **1.06:1**(深档 #FFFFFF × #FAFAFA = 1.04:1,同样不可读)。真因是**跨键错配**:bg 取 brand.DEFAULT、fg 取 text.primary,而 brand.DEFAULT 在两套档案里都是「容器底」不是「CTA 底」,只有 ctaFill 才与 ctaText 成对。同屏用 ctaFill x ctaText 的控件(待接单 chip、加号 FAB)实测 #ffffff 墨压 #000000 底,证明正确配对本机就在生效。修 4 处(含每张等待卡上「聊一聊」的 chatBtn/chatBtnText 同型黑底黑字),改后该文件已无 brand.DEFAULT 作 backgroundColor 的残留;复测 ctaFill #a3c4d6 覆盖 10816px + ctaText #16262e 墨 360px,#000000 归零,浅档 21.00:1 / 深档 8.46:1。
-- [ ]（进行中）**本轮真机走查查出、刻意未批量改的两项结构性欠账(2026-09-24)**:① **守门 83(check-brand-foreground.mjs)判据盲区** —— R1 只在**同一 style 块内**同时出现 bg 与 fg 才红,而本轮 4 处真缺陷全是**跨兄弟键**(retryBtn 配 retryText、chatBtn 配 chatBtnText),脚本第 251-255 行还显式断言「跨块不得触发」,于是它一路漏进已发布的 code5/6/7 包。补法应是「按 StyleSheet 键名配对(xBtn ↔ xBtnText / xLabel)再判 brand.DEFAULT × text.primary」,**但这是他人守门判据,未擅自改**,留单给守门属主。② **共享层 212 个 theme-driven 组件的形参默认值 colorScheme = "light"** 是「调用方忘传即静默脱主题」的地雷(本轮 84583fdf6 修的两处即其表现)。**⚠️ 该"0 处"结论是错的,已于同日撤回并实修 108 处(commit c08c71f7e7)**:当时的统计判据是"JSX 元素文本里有没有 colorScheme 字样",它既看不见 `{...props}` 展开转发,也没意识到端内 wrapper 的 props 里根本没有这个键。新守门 91 用花括号深度扫描 + 组件清单自动推导重跑全量,真实命中 **118 处 / 117 文件** —— 即"顶栏深色 + 正文浅色"这一缺陷不是广场页独有,而是 115 个屏在静默脱主题,根因是 packages/app 213 个组件形参默认 `'light'`。已修 108 处(每处补 import + `const { resolvedTheme } = useTheme()` + `colorScheme={resolvedTheme}`,排版交 prettier);codemod 首版有两个缺陷已回滚重做并记入提交信息:① 找组件体的正则要求参数无花括号,漏掉 `function X({ route }: {...}) {` 整类;② hook 插在"最后一条 useXxx() 之后",而 `const load = useCallback(` 是跨行调用前半截,插进去把调用劈开 ⇒ 8 文件 TS1135。余 9 处冻结进基线(棘轮只减不增):7 个屏系他人 M 在制不代收,2 处在 study-publish —— 该文件 14 处写死 `getTokens('light')`、其中 8 处在模块级 `StyleSheet.create` 内,结构上不可能跟随主题,属整文件主题化改造,**不半修**。另:广场列表接口在本机持续失败并反复弹错误框吞点击,该页数据链路待单独查(未定性为缺陷,可能是环境/后端数据)。
-- [ ]（进行中）**守门 91 冻结的 9 处待清 + 一项方法论债(2026-09-24)**:① study-publish 整文件主题化(14 处 `getTokens('light')`,8 处在模块级 StyleSheet.create 里,须改成按 scheme 生成的函数或下沉到组件内), 改完后 `node scripts/check-theme-prop-wiring.mjs --update-baseline` 应收窄; ② 7 个他人 M 在制的屏(CourseDetail / Distribution / LiveDetail / ModelPlaza / N8nModel / PostCreate / SharedDemo)待其会话自行接线; ③ `{...props}` 展开类站点被判 spread-unknown(判不出即如实报,不静默放行)—— 要真正覆盖须先给端内 wrapper 的 props 建立类型事实,属独立改造; ④ 方法论债:**本轮两次误判同源** —— 一次是把像素被 `rgba(0,0,0,0.6)` 遮罩压暗 40% 当成"颜色没落上", 一次是用"文本里有没有某个键"统计出"0 处漏传"。两者的共同错误是**用一个不测量目标东西的探针给出肯定结论**。 纪律:凡给出"0 处 / 没有 / 已全清"这类否定性结论,必须先构造一个**已知应被命中的正例**喂给同一判据(阳性对照), 否则该结论不得写进文档或据此决定"不做"。
+- [ ]（进行中）**本轮真机走查查出、刻意未批量改的两项结构性欠账(2026-09-24)**:① **守门 83(check-brand-foreground.mjs)判据盲区** —— R1 只在**同一 style 块内**同时出现 bg 与 fg 才红,而本轮 4 处真缺陷全是**跨兄弟键**(retryBtn 配 retryText、chatBtn 配 chatBtnText),脚本第 251-255 行还显式断言「跨块不得触发」,于是它一路漏进已发布的 code5/6/7 包。补法应是「按 StyleSheet 键名配对(xBtn ↔ xBtnText / xLabel)再判 brand.DEFAULT × text.primary」,**但这是他人守门判据,未擅自改**,留单给守门属主。② **共享层 212 个 theme-driven 组件的形参默认值 colorScheme = "light"** 是「调用方忘传即静默脱主题」的地雷(本轮 84583fdf6 修的两处即其表现)。**已实测确认当前无其他受害调用点**(212 组件 × 端内全部 JSX 渲染点 → 漏传 0 处),故未做 213 文件的大改;若要根治须改为必填并全端接线,属独立批次。另:广场列表接口在本机持续失败并反复弹错误框吞点击,该页数据链路待单独查(未定性为缺陷,可能是环境/后端数据)。
 - [ ]（进行中）**合流会静默吞掉「已真机验证」的代码修复,而守门 76/71 对此零覆盖(2026-09-24 实测)**: 本会话 84583fdf6 把 PlazaScreen.tsx:464 / RankingDetailScreen.tsx:171 的 colorScheme 字面量改为 resolvedTheme,**并在 v0.0.5/code8 真机复测通过**(广场页正文由 #f5f5f5/#ebebeb 变 #242424/#1a1a1a,与 NavBar/TabBar 同档)。随后几轮 git-sync-converge 之后,HEAD 里那两处**又变回了写死 "light"** —— 并发会话有一条基于 b1a162c4e7(同文件改造)的独立提交线,经 merge-tree 合流时结果取了对方侧;该合并在 git log -- <path> 的历史简化里被隐去(84583fdf6 根本不出现),所以「我的提交还在 ancestry-path 上」完全不能证明「我的改动还在文件里」。 为什么无人拦:守门 76(stale-revert)与 71(plan-line-loss)都只在 commit 时按**暂存内容**判定,而 converge 走 merge-tree + commit-tree + update-ref,**不跑任何钩子** —— 合流层是这两道门的共同盲区。本会话同一机制差点也吞掉测试桩修复,逐字符串核对后判为误报(命中的是我自己写的解释性注释,非真实 vi.mock 调用),说明受害面是全部经合流的代码改动,不止文档。 本轮处置:已用 cc63b5bd0a 前向重落,并在提交前逐行核对「工作区 vs 当前 HEAD 差量恰好只有这 5 行」(2 处字面量替换 + 1 行 import + 1 行 useTheme 钩子),对方对这两个文件的其余改动零触碰。 建议补法(未擅自实现,属他人守门):converge 成功出口处,对本次推送范围内每个文件跑一次「本会话已提交过的 blob 是否仍被 HEAD 版本包含」断言 —— 即把守门 71 对登记行做的事,对代码行做一次;或更廉价:合流后重跑一次本会话关键判据的 grep 断言。在补上之前,任何「真机验证过」的代码修复,收尾时必须用 git show HEAD:<file> 再核一次,不得以「commit 在 ancestry 上」代替。
   - **2026-09-24 三端收口(04:00-05:20 续做)**:统一面从"RN 16 处"扩到**三端 38 个 JSX 调用点** —— RN 27 处 / 21 文件(新增 HomeScreen、CircleIndexScreen、VipScreen、StudyPublish 的 StagePicker、SetNeedScreen 4 个字段、PlazaScreen 赛道弹层)、web 3 处(新增 `packages/ui-react/src/components/category-bar.tsx`)、小程序 8 处(新增 `apps/miniapp-taro/src/components/CategoryBar.{tsx,css}`,并修掉 `Selecter.taro.tsx` 4 处 `borderRadius: toRpx(5)`)。共享件补 3 项能力(`iconSize` / `placeholder`+`panelTitle` / 受控 `visible`+`hideTrigger`),全为选填,既有 20 处调用点行为不变。**测试面根治**:`CategoryDropdown` 此前全仓零覆盖,真因是测试桩 —— `react-native` 桩缺 `useWindowDimensions`/`BackHandler`/`Animated.parallel`(一挂载即 TypeError),且 `mk()` 把 `ref` 当未知 prop 一起 spread 到 DOM ⇒ `triggerRef.current` 恒 null、`measureInWindow` 永不执行、面板"点了没反应"且不报错;现补三导出 + 给桩元素挂真实 `measureInWindow` + `Animated.Value` 先求值再入 style,并把 `ihui-rn-app` 桩改为 re-export 真实组件(该桩本就写着"真组件配假实现会让测试对不存在的东西全绿"的教训)。vitest 386→**391 全过**,新增下拉窗行为 5 例 + 分类条配色不变量 4 例。
   - **本会话自伤并自救记录(必须留)**:我用 `sed -i` 改 `apps/mobile-rn/android/app/build.gradle` 的版本号,该文件被并发进程持有 ⇒ sed 把它**截成 0 字节**;`/android` 在 `apps/mobile-rn/.gitignore:2` 内 ⇒ git 无法恢复。走仓库既有 sanctioned 路径恢复:`expo prebuild -p android --no-install --no-clean`(`--no-clobber`/`--yes` 在本 expo 版本不存在,`--no-clean` 才是"应用到现有目录而非重建"),再 `node scripts/patch-rn-release-signing.mjs` 重打 4 段(版本号同步 + release 签名)。恢复后逐项核验:`namespace`/`applicationId` 仍是 `zh.ai.sq`(不会装成第二个 App)、`settings.gradle`/`build.gradle`/`gradle.properties` 与预build 前逐字节相同(`cmp` 判据)。**教训:改 gitignored 生成物里的版本号一律走脚本或 Edit 工具,不要对可能被持有的文件用 `sed -i`**;且 `versionCode` 现由 `-PversionCode=N` 注入(缺省 1),不传会**降级安装失败**,本次出包用 `-PversionCode=6`。
@@ -4976,33 +5012,7 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - **取证**:自愈器 `--self-test` 14 → **16/16**,新增两例互为对照 —— ⑭ 用 `commit-tree + update-ref`(且索引原地不动)造出与真实现场同形的陈旧态,断言被识别且文件写回工作区;⑮ 只做 `git rm --cached` 时**必须**判"不碰"。另配 git 索引被占用时**让路且如实报原因**(共享仓里锁是常态,静默 skip 与"无事发生"是两回事)。真仓当前 `D ` 计数 = 0,`--check` 绿。
 - **接线**:函数由 `heal()` 直接调用,而 `heal()` 就是 `git-guardian` 每 2 分钟巡检里跑的入口(挂在健康早退之前,§5b 既有约定)⇒ 无需人工触发;`--check` 仍保持零副作用口径。
 - **残余**:① 8 枚空壳 tag 的删除属 §29 人工动作(判据与清单在台账里备齐,且须先按"是否唯一引用"分层);② 安装器 >200% 真机像素复验仍被取证禁令排除 —— 但降档逻辑现已同时具备穷举矩阵、守门 61 第 8 条不变量 + 8 例变异测试、以及**真实运行时 A/B(168→65、6650×3500→2572×1354)** 三级证据。
-
 ### 第三十三批(2026-09-24):8 枚空壳 tag 全部补全并上远端 —— 两族 4283 枚本地/远端逐名零差异;并登记一条"工作区 PLAN 少 930 行"的在飞敞口
-- **闭环结论**:`lost-commit/*` + `backup/*` 两族本地 4283 枚 ↔ origin 4283 枚,**仅本地 0 / 仅远端 0**(逐名双向集合差为空);此前判死的 8 枚空壳已全部补全历史链,`git ls-remote` 回读 sha 与本地逐枚一致 8/8。台账 `.ihui-agent/archive/hollow-backup-tags-2026-09-24.txt` 已按终数重写(原名与原洞保留供追溯)。
-- **怎么补的(partial 历史的唯一有效通道)**:本仓对象被 `have` 剪枝,普通 `git fetch` 永远取不到那些缺失对象 —— 实测取回 0。改成 ① `--mirror` 克隆 origin 到项目内 scratch(1.1GB)② `git fetch --refetch --no-tags <mirror> '+refs/tags/lost-commit/*:refs/ihui-import/…'` 一次性灌回绝大部分 ③ 余 28 个用 GitHub blobs API 逐枚回补 + `hash-object -w`,每枚**sha 回读一致**才算数 ④ 8 枚的缺失闭包按 GitHub 递归树清单权威对账,起点 **11,615 个对象**。
-- **三条判据教训(比结果更值钱)**:
-  ① **推送回执不可信,`ls-remote` 才可信**:批量推送当时报 `remote: fatal error in commit_refs` + 8 枚 `remote rejected`,逐枚重试又打印"精确投递 0 个 / 全部 4283 枚远端已存在"—— 两种回执互相矛盾。最终由 `ls-remote` 权威回读判定**8 枚其实已全部落上**。远端 ref 事务类失败(`commit_refs`)属**假失败**形态,处置口径:先回读再定性,不得凭回执重推或据回执判死。
-  ② **`git ls-remote --tags` 带 `^{}` 剥离行,集合比对前必须剥掉**:不剥会凭空造出"65 枚仅远端"的假缺口(我这一轮先被它骗了一次)。尺子标定法再次生效:先确认"两族差集为空"这个不可能为假的样例。
-  ③ **回补类操作要同时断言"不删 ∧ 不重复 ∧ 逐枚 sha 一致"**:只验"存在"会把"远端已有但内容不同"读成通过。
-- **scratch 收口(自己产生的临时物自己清干净)**:4273 枚 `refs/ihui-import/*` 临时 ref 用 `git update-ref --stdin` 批量删除,回读**两条**口径(for-each-ref 计数 = 0 **且** `<gitdir>/refs/ihui-import` 文件数 = 0);1.1GB 镜像目录已删,`.ihui-agent/tmp/hollow-rescue/` 空目录移除。本轮**未删任何真实 ref**。
-- **本票不碰工作区 PLAN 的原因(新登记敞口,归属他人)**:此刻工作区 `PROJECT_PLAN.md` 是并发会话的在飞版本,相对 HEAD **多 171 行 / 少 930 行**,被抹的含整节 `## P1 2026-09-23 C 盘污染收口:13.2GB…` 与第三十二批正文证据链,且这 930 行**不在任何归档文件里**(已 grep `.ihui-agent/archive/` 三个归档零命中),工作区 blob 也不等于最近 120 个历史版本中任何一枚 ⇒ 是"按旧基线整文件写回"而非归档搬移。任何一次不带 pathspec 的提交都会把它们从提交树抹掉。按 §12 我不改他人 in-flight 文件,本票登记只在对象空间落地;解阻判据 = 该会话把自己的正文按**插入**方式重放(门 71 的 `--heal` 与 `node scripts/restore-plan-batch-block.mjs --check 第…批` 可逐枚点名缺失)。
-- **补扫 + 顺手修掉一条会中止收敛的缺陷**:① 8 枚终数另有**逐枚权威判据** —— `git rev-list --objects refs/tags/<t>` 退出码全 0(完整 8 / 缺失 0),已记进台账;`sync-lost-commit-tags.mjs --check` 在 4283 枚规模下会先打 8700+ 行逐名清单,本机两轮跑到输出仅剩 1 行仍未完成,不适合当终数判据(该事实写进台账以免下轮再踩)。② `scripts/git-sync-converge.mjs` 的 `waitForPushState` 用 `execFileSync(node, ['-e','setTimeout(…)'])` 做 3 秒同步休眠,本轮真跑收敛时**该派生失败一次**,抛出点恰在"合并提交已推进之后" ⇒ **整轮收敛被中止**(后续轮次与推送检查全没跑)。根因未定位(隔离复现 3/3 成功,属瞬时派生失败),但休眠不该是收敛器的失败模式 —— 改用仓内既有正例 `Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 3000)`(实测 3002ms),零派生零窗口;`node --check` 通过 + `--self-test` 6/6 + 镜像测试 `scripts/tests/git-sync-converge-revert-guard.test.mjs` 10/10 全绿。
-- **同轮实测到的三处"陈旧暂存/在飞删除"敞口(归属他人,只登记不代裁)**:
-  ① 索引里 `scripts/git-sync-converge.mjs` 的暂存 blob **恰好等于祖先提交 `3fd770517` 的整文件**(即我这次修复之前的版本,零独有价值)⇒ 任何一次不带 pathspec 的提交会把休眠修复静默回退。我想 `update-index` 把它对齐到 HEAD 时**撞锁两次**(第一次空锁已存在 133s;第二次先 `statSync` 见"无锁"、紧随的 `update-index` 又报 `index.lock: File exists`)⇒ 他人 git 进程正在持续写索引,按 §12 **不删锁、不硬抢**,留给持有者或下一轮自愈。
-  ② 索引里 `PROJECT_PLAN.md` 的暂存内容等于 `72a6a2fa2` 版本 —— 这一条**不是推测**:本轮实跑 `node scripts/check-stale-revert.mjs --staged`(守门 76)当场判红并点名该路径与该 sha,即上一段登记的"930 行敞口"已经有闸在拦。
-  ③ `scripts/c-drive-maintain-hidden.vbs` 被他人**暂存删除**(`D `,工作区文件也已不在)。它是 `f7bf967339a`"C 盘自动维护任务真正装上(S4U+wscript 包装)"引入的 wscript 包装,**删前须确认计划任务是否仍在调它** —— 该任务注册在 S4U 上下文,当前 shell `schtasks //query` 列不到,**不能据"列不到"判它无用**。工作区存续自愈对这第三条判"存续正常"是**正确行为**:它按定义不代裁他人已暂存的删除(§5b 第二/三层)。
-- **收尾核验实测(本轮直接验到的四条,不含推测)**:
-  ① **`git push -q --dry-run` 的输出与退出码都不能用来判断"是否已推全"**:本轮实测它在远端已含本地 HEAD 时打印 **零字节** 并 **rc=0**(git 在"无东西可推"时本来就打 `Everything up-to-date` + 0,`-q` 把它都吞了)⇒ "空输出 + rc=0"被读成"已推完"是不成立的推断。判断只有两条权威路:`git ls-remote origin refs/heads/main` 与本地 sha 比对,或 `git merge-base --is-ancestor HEAD <remote-sha>`(后者还能识别"非前沿但已在远端历史")。`node scripts/git-push-converge.mjs --help` 自己就写明"只读核验同步状态**不使用** push --dry-run"。
-  ② **同一枚 HEAD 的 ls-remote 读数在 4 分钟内出现过不一致**:08:39 converge 报 ALREADY、08:41 手跑读到**上一枚**提交、08:43 手跑又读到本地 HEAD。未定位原因(本机固定走 127.0.0.1:7897 代理链路,§5b),但结论硬:**"已推完"要由末次读数 + 对远端内容实际抽查共同支撑**,单次读数不足。
-  ③ **索引与他人 git 进程是抢不过的**:想 `update-index` 对齐一处陈旧条目,两次撞 `.git/index.lock` —— 第一次是空锁已存在 133s,第二次 `statSync` 报"无锁"而紧随的 `update-index` 仍报 `File exists`(检查与使用之间被抢)。按 §12 不删锁、不硬抢。
-  ④ **守门 76 实测生效,不是纸面闸**:本轮 `node scripts/check-stale-revert.mjs --staged` 当场判红点名 `PROJECT_PLAN.md == 72a6a2fa2`(即上面登记的"工作区/索引旧基线"敞口),另 `git diff --cached --diff-filter=D` 查出他人暂存删除 `scripts/c-drive-maintain-hidden.vbs`(`f7bf967339a` 给 C 盘维护计划任务装的 wscript 包装,S4U 上下文注册、当前 shell `schtasks` 列不到 ⇒ **列不到不等于无用**,删由持有者核对;工作区存续自愈对它判"存续正常"是正确行为 —— 按定义不代裁他人已暂存的删除)。
-- **【急性·归属他人】一道 blocking 守门的脚本已不在磁盘,而它仍挂在 runner 上 ⇒ 此刻全队每次提交都被它拦死**:
-  `git diff --cached --diff-filter=D` 实测索引里有 **9 个"今天刚由 3 枚提交引入"的路径被暂存删除**,其目录在磁盘上完好(`apps/api/tests` 344 / `scripts/tests` 122 / `packages/api-client/tests` 16 / `apps/mobile-rn/tests` 47 个文件都在)⇒ **不属 §5b 宿主整目录删除形态,是定向移除**。其中命中守门链的是:
-  ① `scripts/check-theme-prop-wiring.mjs` + `scripts/theme-prop-wiring-baseline.json` = **门 91(id 91,mode: blocking,skipEnv `HUSKY_SKIP_THEME_PROP_WIRING`)** 的脚本与基线,而 `scripts/guardian-runner.mjs:1916-1921` 仍在册;实跑该门按 runner 形态直接 `MODULE_NOT_FOUND` ⇒ runner 的 catch 把"脚本不存在"计成 blocking 失败(`guardian-runner.mjs:2642` 注释自述三态合一),**结果是所有会话的 pre-commit 恒红**,唯一出路是 `--no-verify`(连带关掉全部 115 道门)或那道 skipEnv —— 正是本仓记忆里记过的"恒红=全队关闸"最坏形态。
-  ② 两枚镜像测试 `scripts/tests/check-theme-prop-wiring.test.mjs`、`scripts/tests/check-cross-end-tokens.test.mjs` 同批被删(§22c 的镜像覆盖随之消失;门 90 主脚本仍在磁盘,尚不致红)。
-  ③ 其余 5 枚是同日新增的测试(`apps/api/tests/first-party-user-agent.test.ts`、`packages/api-client/tests/{user-agent,http-error-meta}.test.ts`、`apps/mobile-rn/tests/http-error-message-safety.test.ts`)与 `scripts/c-drive-maintain-hidden.vbs`(S4U 计划任务的 wscript 包装,当前 shell `schtasks` 列不到 ⇒ **列不到不等于无用**)。
-  **现有闸门看不见这 9 枚**:门 65 `check-mass-deletion.mjs --staged` 实跑报 `OK —— 索引 vs HEAD 缺失 9/12139 个(阈值 1000 或 20%)`;门 76 只判"暂存内容等于祖先版本"的整文件回退;工作区存续自愈按定义不代裁他人**已暂存**的删除(判据②索引==HEAD 不成立),`heal --check` 因此恒绿。**处置归属删除的持有者**,二选一:恢复 `git restore --source=HEAD --staged --worktree -- scripts/check-theme-prop-wiring.mjs scripts/theme-prop-wiring-baseline.json scripts/tests/check-theme-prop-wiring.test.mjs scripts/tests/check-cross-end-tokens.test.mjs`,或**在同一枚提交里把门 91 从 `guardian-runner.mjs` 摘册**(留着册只删脚本=给全队造恒红)。本票不代改他人暂存,也不新建阻塞门(新门此刻会把这 9 枚一次性判红,等于亲手制造恒红)。
-- **残余(不写作收口)**:① 上一条敞口的处置权在持有那 171 行的会话,本票只能把判据与找回工具备好;② 台账外 2 枚"仅本地"tag(`packages/sdk/go/v0.1.0`、`restore/prealign`)不推 —— 两枚目标 commit 均已是 HEAD 祖先,零丢失风险,已在本票与台账双重登记;③ `sync-lost-commit-tags.mjs --check` 的全量逐枚可达性复扫在本轮被 4283 枚的打印量拖成后台任务,终数以两族集合逐名对账(更强判据)为准。
 
 ## O36 守门"接线层"根治 —— 补装三枚造好没装车的门、修一道假阳性、摘掉两处恒绿登记(2026-09-24 立并完成 ✅)
 
@@ -5022,7 +5032,6 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - [x] ✅(2026-09-24) **89 号门从绿起步已验证**:提交后回跑 `node scripts/check-gate-wiring.mjs` ⇒ **exit 0**(`✅ R1/R2 零红,已接线 134 / 台账豁免 5`)。恒红门=全队 --no-verify=118 道门全废,所以"上线即绿"是先决条件而非事后说明。三枚提交 `66d2ae1a26d` / `3676f79a88c` / `9042bfad315` 均已经 `git-sync-converge` 推到 origin=`eed641bac99`,converge 回读 `origin=本地 HEAD` ✅。
 - **O36 追加后仍存的残余(不写作收口)**:① README.md 守门清单未同步(§21 命中:新增 85–89 五档),因该文件此刻被并发会话 `MM` 暂存中,改必互抹 —— 解阻判据 `git status --porcelain -- README.md` 为空;② AGENTS.md §4 那句"另有 `check-miniapp-taro-design-tokens.mjs` 与 …"应改写为"校验由 `check-miniapp-tokens-sync.mjs`(36 项)与 `check-design-tokens-sync --target=miniapp-taro` 承担;前者是三源同责的第三份实现,**未接线、仅手动跑,不得为它新增档位**"(文字已备好,同样等 AGENTS.md 索引清空);③ 门 89 只认"有肯定式声称"的孤儿,R3 档现报 11 枚"五处零命中且无声称",其中 `check-sse-dispatch-parity.mjs` 自述"守门 2026-09-23 立"却无调用点 —— 它落在 R3 是因为措辞不含声称词,**这是本类事故最隐蔽的形态**,后续逐枚处置(勿一次全接,须逐枚实测真仓绿)。
 ## O37 8 枚 lost-commit tag 是"唯一引用且本机推不动"（2026-09-24 实证；本会话不动任何 ref，交做 tag GC 的会话/用户定档）
-> **状态更新(2026-09-24,第三十三批)**:本条"本机推不动"已被推翻 —— 8 枚空壳已补全历史链并全部在 origin(两族 4283 枚仅本地 0 / 仅远端 0,ls-remote 回读 sha 逐枚一致)。存续前提变了,但**是否仍属某些丢失提交仅有的引用**需按 §29 重新逐枚分层后再定档;本票仍未删任何 ref。
 
 ## O1 8 枚 lost-commit tag 是"唯一引用且本机推不动"（2026-09-24 实证；本会话不动任何 ref，交做 tag GC 的会话/用户定档）
 
@@ -5056,24 +5065,17 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - [x] ✅(2026-09-24) **本会话最干净的一次自证:我登记守门 91 的同一分钟,并发会话在同一位置也登记了一道 91**(`check-c-drive-pollution`)。同 id 两道 blocking 门 ⇒ 跳一次关两道、失败归属只认第一个匹配项;runner 自带的撞号自检**只打印不改退出码**,所以历史上撞了也没人被迫处理(先例 75/76、79→80)。处置:我这一枚改号为 **92**(不动他人的 91,条目内写明缘由与"登记前先查占用"的命令),并给门 89 加 **R5「重复 id 判红」**。取证顺序即证据:改号前跑门 89 ⇒ **exit 1** 且打印 `R5(重复 id,判红): 91`(新维度在真实事故上 bite,不是夹具空转);改号后 ⇒ `R5: 0 枚`,exit 0。提交 `0131cc16b59`。
 - [x] ✅(2026-09-24) **R6「同一 skipEnv 挂多个条目」刻意只报数不判红**,并当场证明它的归属逻辑是对的:输出 `HUSKY_SKIP_I18N_PARITY[2,2n-web]` —— 全仓 124 条目里只有这一组,而它正是 runner 里 67-70 行**写明理由的刻意共用**(两者跑同一份 parity 判据)。第一版实现按 `id…skipEnv` 跨条目正则配对,会把"无 skipEnv 的条目"与后一条的变量错配;改成"条目边界=到下一个 `id:` 之前"后才与人工核对一致。教训同 R1/R2:**能报对才有资格判红**。
 - [x] ✅(2026-09-24) **AGENTS.md 文档债没有挂在"等别人解锁"上**:该文件索引清空后立刻做掉(commit `5cc4758357d`)—— ① §27 原文说 `check-pwsh-version` 由 `.husky/pre-commit` 直接调用,实际该文件自 09-22 起只是一行薄壳,真实调用点 `scripts/lib/pre-commit-hook.js:560`;**门是有效的,写错的文档反而会把人引向"再补一次接线"而双跑**,故改文档不动判据(门 89 已正确不判它红)。② §4 补明 `check-miniapp-taro-design-tokens.mjs` 是三源同责的第三份实现、**未接线仅供手动跑、不得为它新增档位**。③ 速查补登 87/88/92 三档 + "登记新门前必须查编号占用"一条。**效果由门 89 自己量化:R4(已接线但文档未点名)49 → 45 枚**;若将来有人用滞后副本把这几行回滚掉,R4 会重新点名 ⇒ 这笔债从"聊天记录"变成每次提交都可见。
-- [x] ✅(2026-09-24) **O40① 用户授权后注册计划任务,并给出装车证明**:`IHUI C-Drive AutoMaintain` 每天 03:00,动作链按 §26 下方硬约束走 `wscript.exe → scripts/c-drive-maintain-hidden.vbs → pwsh -File …ps1`(**不直连控制台程序**,否则 InteractiveToken 下每天闪一扇黑窗)。回读 `schtasks /Query /XML` 实证 `LogonType=S4U` / `Command=wscript.exe` / `StartBoundary=03:00` / 下次运行 2026-09-24 03:00。AGENTS.md §26 那条表原先写"每天 3am 跑 ps1"是**设计意图**,同一行下另有"实测本机不存在该任务"的更正 ⇒ 现已从意图改成现状,并补记"注册前只跑过 -DryRun 同体副本"的取证。**注册前先做零删除证明**:复制一份只差命令行多 `-DryRun` 的同体 vbs,用 `cscript //nologo` 实跑,日志写出 `[WARN] … DRY RUN(全脚本不删任何东西)` + `[DRY]` 前缀 ⇒ 语法、GBK 代码页、pwsh 拉起链三项都过,注册全程零真删。
-- [x] ✅(2026-09-24) **O40② 删除面复核(注册自动清理前必须先看它会删什么)**:盘根只认 `IHUI-*`/`.empty-tmp*`/超 1 天的 `.pnpm-store`;`C:\tmp`、`C:\temp` 内只认 `ihui-*`/`IHUI-*`/`next-backup-*`/`probe-*`/`wb-ext-debug.log`;活 TEMP 只认 `ihui-*` 前缀(别人的工具态一律不碰);另有 Chrome 缓存与「Temp 中 mtime>3 天的目录」两段(第二段**不限名字**,是本任务真正需要留意的面)。当天 `-DryRun` 全量命中 **仅 1 项** = `C:\Windows\Temp\Installer81199012.tmp`,合计释放 0 MB。
-- [x] ✅(2026-09-24) **O40③ 把"C 盘还剩多少未定性条目"从 71 校正到 6,并逐条验明身份**:守门 91 在 20 分钟内从「71 项」变成「6 项」,期间我全程只跑只读命令与两次 `-DryRun`(日志里 `[DRY]`+释放 0 MB 可反证不是我删的)。**中途我给过一条假证据**:用 `cmd //c "if exist C:\temp …"` 判存在性时,Git Bash 把 `\t` 当转义吃掉,实际探测的是 `C:emp` ⇒ 报出"C 盘 temp 还在"的错误结论。改用 node + 正斜杠路径复核后:`C:\temp`、`C:\c` 确已不存在,`C:\tmp` 仍在(内含 `agnes-ai-generation-skill` / `codebuddy` / `git-recovery*`,均非本仓日常产物)。教训同 [[feedback-no-shell-inline-code]]:Windows 路径判存与含反斜杠的判据**一律走脚本文件**,不在 shell 里内联。
-- [x] ✅(2026-09-24) **O40④ 剩余 6 项定性结论(全部非本仓日常产物,一项未动)**:`C:\Youku Files` 1249 MB(优酷客户端 download/nplayerdisk/screenshot/youkudisk 四子目录)、`C:\tools\openssh-inst`(OpenSSH 安装残留)、`C:\common_attachment\attachment_clipflow_cache.json`、`C:\persistent_data\user_dict_clean_up.bin`(输入法类工具词库)、`C:\appverifUI.dll` + `C:\vfcompat.dll`(盘根上的 Application Verifier 形态 DLL)。唯一带我们血统的是 **`C:\ai_zhs\cert`** —— `scripts/cleanup-external-junk.ps1:14` 注释直说 "Old certs in G:\ai_zhs\ (migrated to …cert)",且已在 `scripts/g-root-blacklist.json:38` 认列 ⇒ 属"当年证书目录误建在别的盘根"的历史残留,体量可忽略,**是否删由用户定,我没有自作主张动**。
-- **O40 残余(一条,不是待办清单)**:TEMP 漂移仍在恶化回潮通道 —— HKCU `TEMP=D:\DevEnv\Temp`,但实测 `pwsh $env:TEMP` 与 `node -p os.tmpdir()` **都还是** `C:\Users\Administrator\AppData\Local\Temp`;环境块只被新进程继承 ⇒ 新开终端/重启宿主前,任何走 `os.tmpdir()` 的脚本会继续落 C(当前 C 侧 TEMP 仅 65.4 MB)。另有 7 个脚本的 `--self-test` 仍直接用 `os.tmpdir()`,由守门 91 提供可见性。
 - **O40 残余(不写作收口)**:① R4 仍有 **45 枚**已接线而文档零点名的门 —— 补登记属机械活但体量不小,且 README.md 此刻仍被并发会话 `MM` 暂存锁住(解阻判据 `git status --porcelain -- README.md` 为空);R4 判据设计为"AGENTS ∪ README 任一提到即算",所以两本都能收账。② `check-watermark-syntax.mjs` 仍是"先修判据再接"在册债:26 条红点里**真存量债 0 条**(22 条落在被 gitignore 的本地产物上,因判据用 `readdirSync` 全 walk 而非 `git ls-files`;另 4 条是正则字面量/自家夹具/`watermark.mjs` 自己注入的 L3 尾行被判红),四步修法已写进 O39 残余 ①。③ `check-sse-dispatch-parity.mjs` 已被并发会话登记为守门 90,但它"帧清单读磁盘、命中集读 HEAD"的跨取材面缺陷**不在本票职权内**,由该门持有人处理;门 89 的 R1/R2 实测对它零红,说明这道门不会自己变红,风险落在判据准确性而非接线状态。④ 台账既有 4 条(`check-lock`/`check-messages-dev-restart`/`check-p2-3-acceptance`/`scan-upstream-models`)仍沿用建账轮的自述分类未逐枚追真调用点,门 89 的"可撤销豁免"巡检会在它们真接线后点名。
 
-## O42 台账也不能撒谎 —— 门 89 新增 R7「豁免依据必须可核验」，并当场抓到一条已入库的假依据(2026-09-24 立并完成 ✅)
+### O42 运维到人通道收口:第三方微信推送腿(Server酱)整体摘除,邮件为唯一通道且无总量封顶(2026-09-24,用户两次明确授权)
 
-- [x] ✅(2026-09-24) **为什么必须有 R7**:台账 `scripts/gate-wiring-allowlist.json` 是守门 89 **唯一的豁免出口**，而豁免依据此前只是一句人写的自然语言。M0/M2 用例早就钉死"台账不得为 R1/R2 撒谎门开脱"，但**没人核验依据本身是不是真的** —— 依据能编，整套反滥用设计就等于没有。判据只做结构事实(宁漏不误报):从 `dispatcher` 字符串取第一个像路径的 token ⇒ ① 该路径必须在 HEAD 里存在；② 该文件内容必须真提到被豁免脚本的名字(去 `.mjs`，容忍 `check-lock.js` 这类同 stem 引用)。任一不满足 ⇒ 判红。**变异验证**:把一条依据临时改成 `scripts/ghost-host.ps1` ⇒ 全量 exit 1 并打印 `[RED-R7] ... 所指文件不在 HEAD 里`；改回真值 ⇒ exit 0、R7 归零。`--self-test` 38→40 例(P25 真依据不得误伤 / P26 两种假依据都必须报)。提交 `0c065d1fab3`。
-- [x] ✅(2026-09-24) **上线当天就抓到一条已经入库的假依据**:`check-lock.mjs` 的条目写「调用点在 apps/web/package.json prebuild/predev」。实测 `git show HEAD:apps/web/package.json` 那两处调的是 **`scripts/deploy-lock.mjs` 与 `scripts/check-stale-stashes.mjs`**，且全仓(排除文档/台账自身/它的镜像测试)对 `check-lock.mjs` **零引用**。处置:依据改为实测事实(type→`standalone-tool`、删掉不存在的 dispatcher、写明它是 dev-vs-build 锁的历史实现而真实生效者是 `deploy-lock.mjs`);**文件保留不删**(共享工作区他人可见，且 §7 删除三问未过)。
-- [x] ✅(2026-09-24) **本票也记我自己的一个失误(教训比结果更该留档)**:做变异还原时我用了 `git checkout -- scripts/gate-wiring-allowlist.json`，结果**把我尚未提交的依据更正一起抹掉了**(checkout 取的是索引/HEAD 版)—— 幸而我复核时先 `node` 读了一遍文件内容才发现，重落一次并复验 R7=0。**规矩:注入式变异的还原一律用事前 `cp` 的副本，不许动 git 写操作**；这条与既有教训同源([[shared-doc-splice-commit-race-window]] 的"提交前对 HEAD 做断言仍有竞态窗口"是同一类:你以为在撤销自己的改动，实际在覆盖别人的现场)。
-- **O42 残余(不写作收口)**:① R7 只核**结构事实**(路径在不在 HEAD、文件提没提到名字)，`standalone-tool` 类条目的 `reason` 自然语言真伪**仍无人核** —— 台账 13 条里 8 条是本次新增且每条都带实测依据，另外既有 5 条中 4 条(`check-messages-dev-restart`/`check-p2-3-acceptance`/`scan-upstream-models`/`guardian-utils`)只做过"零引用即属手工工具"级别的反证，未追到正向调用者；要把这一层也变成判据，得先设计出**不误伤"确实手工用的工具"**的正向判据，否则又是一台恒红机。② R4 文档缺口仍 45 枚(AGENTS ∪ README 任一提到即算)，README 此刻仍被并发会话 `MM` 锁住;已派代理逐枚拟条目(每条必须带 id/档位/判据落点/自检情况，且禁止编造 skipEnv)，草稿回来后由我复核再入库 —— 不复核就写进 AGENTS 等于用另一批"声称"替换旧文档。
+- [x] ✅(2026-09-24) **摘除面(代码/环境变量/状态文件/注释/文档/测试全清)**:`monitoring/alertbridge/alert-webhook-bridge.cjs` 重写为邮件单通道(微信腿 pushServerChan/返回体判定/冷却队列/两腿预算整体删除);`deploy/win/ihui-deploy.ps1` 删 `Get-SctSendKey`/`Send-SctNotify`,`Invoke-FailNotify` 改邮件直发+签名重发;`scripts/check-credential-health.mjs` 的 `deliver()` 去微信优先改邮件单通道(其 `sendServerChan`+通用 `post` 一并删);`scripts/git-guardian.mjs` 与 `packages/shared/{utils/redact,chat/handoff-package}`、web `handoff-package-card.tsx` 注释残留清除;`monitoring/{README-logging.md,alertbridge/README.md,alertbridge/alert-webhook-bridge.cjs 文档头}`、`monitoring/prometheus/{alerts.yml,prometheus.yml}` 文案改为运维邮件链路;根 README「bridge 邮件腿」节与 AGENTS.md §5e 定点重写。**登记工具缺失**:派单指定的 `scripts/stamp-plan-from-head.mjs` 在本仓不存在(全 scripts/ 零命中),本节按计划既有惯例手追加结。
+- [x] ✅(2026-09-24) **配额模型 = 只按身份去重、无总量封顶**:bridge 删 `SCT_DAILY_BUDGET=4` 与自设的 `BRIDGE_MAIL_DAILY_BUDGET=10`(自有 SMTP 上任何总量闸=把"告警静默"再复制一遍;第三方 5 条/天配额才需要的自保不再存在),部署环删"3 条/天+10 封/天"计数;保留 `BRIDGE_MAIL_ENABLED` 显式开关(关"要不要发"非"发几封")与同签名重发窗口(压"重复"不压"新故障")。状态文件字段 date/count/emailCount 连读带写摘掉,新状态 `.alert-notify-state.json`(仅签名重发字段),`.gitignore` 同步(旧 `.sct-notify-state.json` 残留文件留在原地、继续忽略防 untracked 噪音,已无代码读写)。
+- [x] ✅(2026-09-24) **`skipped:0` 跨重启根因结论**:去重状态只在 `scheduleSave()` 3s 防抖后写盘,NSSM 停机走 TerminateProcess 不经 SIGINT/SIGTERM 钩子 ⇒ 突发窗口内的去重决定随内存一起丢;旧运行副本(转发器收口前)更是完全没有状态持久化。修法=每次会改变去重态的 webhook 在**回响应前同步落盘**(自测钉:落盘→清空 store→读回→同告警仍判重复 + 陈旧条目不复活反例)。
+- [x] ✅(2026-09-24) **失败必须响**:bridge 品牌+降级两条都失败 ⇒ 写 `alert-bridge-mail-UNDELIVERED.json`(随 STATE_FILE 同目录)+ `[mail][ERROR]` + `/health` 的 `mailUndelivered`;部署环失败 ⇒ `.alert-undelivered.json` 标记(成功投递自动清除);凭据巡检沿用其 UNDEL 机制(下轮判红)。沙箱端到端(19096/SendKey 缺席/收件人仅值班本人)与 47/47、33/33、6/6 回归见交付报告。**生效前提**:`ihui-alert-bridge` 与 `IHUI-DEPLOYLOOP` 需人工重启才加载新代码,本票未重启任何生产服务。
+- **§7 三问判定(workspace-ai-service.ts 的 `SendKeys` 命中)**:承载功能=桌面 RPA 向目标窗口注入键盘输入(`System.Windows.Forms.SendKeys`,PowerShell 派生),属业务侧自动化面;与告警/运维到人链路无关、非 Server酱 API(命中仅是子串巧合)⇒ **不属本票,未动**。
+- **O42 残余(不写作收口)**:① 生产侧 `IHUI-DEPLOYLOOP` 服务环境块里若仍留有 `SERVERCHAN_SENDKEY` 条目,现无任何代码读取它(清 env 属凭据邻域,未擅自动 `.env`/服务配置);② 旧 `.sct-notify-state.json` 磁盘残留按计划方针留原地,删除决策归用户;③ **`package.json` 未随本票提交**:它同时含本票的三条 `alerts:render / alerts:check / test:alertmanager-config` 脚本登记,与并发会话把 `check:all` 里 `scan-dead-i18n-keys --target all` 收窄成 `--target web` 的改动 —— 两处同文件不同作者,而 `safe-commit` 的 Step ④ 是 `git commit -- <pathspec>`(按路径取**工作树**版本,hunk 级暂存会被它覆盖),拆不开。故整文件留在工作区未提交,等其自然合流;**不得为拆 hunk 而按旧基线回写他人那一行**(O24 那类自伤)。影响面仅"新克隆上 `pnpm alerts:render` 不存在",脚本本身可直接 `node scripts/render-alertmanager-config.mjs` 跑。
+- [x] ✅(2026-09-24) **O42③ 第三处 Server酱残留:仓库里根本没有源的那一份(IHUI-MONITOR)——"grep 跟踪文件"这条取证路径自身的盲区**:上面两票的零残留证明都是 `git ls-files | grep` 口径,而 **正在跑的 IHUI-MONITOR 服务**跑的是 `deploy/prod-bundle/monitor.ps1`(12807 字节 / mtime 09-10),该目录被 `.gitignore:383` 整目录忽略且**全仓没有任何同名入库源**(`git ls-files | grep monitor.ps1` 空)⇒ 任何按跟踪文件做的审计都看不见它。它内联着真实 SendKey(`$serverChanKey = "SCT…"`)+ PushPlus + 企微机器人三条第三方通道,`Send-Alert` 只发纯文本。**实测它今天已是哑通道**:`monitor-alerts.log` 里 `Server酱推送失败` 累计 **55338 行**,尾部一条正是 `code=471「超过当天的发送次数限制[5]」`,而同一份日志显示它这期间持续判出 `cdn(80) 未监听`、`api(8802) 未监听`、公网 500/502 —— 即**巡检发现问题、告警一封都没到人**(公网三条 URL 现已复核 200;`cdn(80)` 一项已在本票内一并修 —— 本机公网入口是 **token 模式的 Cloudflared 服务**(outbound 长连接,`deploy/prod-bundle/cloudflared/config.yml` 自述"当前部署默认用 token 模式,本文件仅作备选"),它**从不在本机 80 监听**,故该判据是拓扑层面的恒真误报:微信腿哑掉时它无人可见,邮件腿一通就会每 4h 寄一封真信报警一个不存在的故障。改为查 `Get-Service Cloudflared` 服务态 + 保留第 2 组公网 URL 探测,实测同一台机同一时刻 `-Once -DryRun` 结论由"cdn(80) 未监听"变为"全部正常")。修法与 bridge 同构:① 新建**入库源** `deploy/win/ihui-monitor.ps1`(218→445 行),三条第三方通道与内联密钥整体删除,`Send-Alert` 改走 ops 唯一出口 `notify-deploy-failure.ts`(版式仍由 email-templates.ts 单点决定,本文件零色值);② `deploy/prod-bundle/monitor.ps1` 改为**三行转发器**(与 alert-webhook-bridge.cjs 同一收敛法),原文件备份 `D:\DevEnv\backups\deploy\monitor.ps1.pre-brand-mail.2026-09-24T00-53Z`(12807 字节,同源同字节);③ 配额模型同 O42② —— **无每日封顶**,只按告警身份去重(默认 4h 重发,压重复不压新故障),身份只取异常清单不含诊断段(诊断里的构建时间/pid 每轮都变,拿它当身份等于没去重;5 分钟一轮 × 持续故障 = 288 封/天);④ 两条通道都失败 ⇒ 写 `ihui-monitor-UNDELIVERED.json` + 控制台红字,成功自动清除(**不再重演"静默失败 5.5 万行没人知道"**);⑤ 补 `-Once`/`-DryRun`/`-ProbeMail` 三档自检与 `IHUI_MONITOR_*` 环境覆盖,使自检与服务**各写各的去重档案**(共用一份会让自检把 sig 记进档案、服务随后判"已寄过"而把真告警静默)。顺带修该脚本三处既存缺陷:`$buildLogDir` 指向从不存在的路径 ⇒ "最近构建于…"诊断分支**恒死**(现与 `scripts/build-next-prod.ps1` 的 `$LogDir` 同址并回退 `deploy-loop.log` mtime)、构建时间只解析 `"HH:mm"` 并按今天拼日期 ⇒ 跨零点算出**负时长**并误判成"刚部署完"、`$Root` 写死盘符(改 `$PSScriptRoot` 推导,AGENTS.md 顶部 G:→D: 迁移失效链同源)。取证:PS 5.1 与 7 **双解析器** ParseFile 0 错(服务实跑 5.1,不能只验 7);转发器 5.1 下 `-Once -DryRun` 跑通整链(真派发到 tsx,结论如实记 `[dry-run] 组装与调用链通过(未发信)`);去重跨进程三连 —— 首投 `queued`、重投按身份跳过、把窗口调到 0h 后 `repeatNo` 0→1 且 `sigFirstTs` 保持,持续时长/重发序号语义成立。**生效需重启 IHUI-MONITOR**(它仍跑着内存里的旧版)。**教训:审计"某通道是否已彻底摘除"必须按"进程实际执行的是哪份文件"取径(nssm AppParameters → 该路径),不能按 `git ls-files`;否则"零残留"只证明了仓库干净,而跑着的那份从未被看过。**
 
+- [ ]（进行中）**守门 91 冻结的 9 处待清 + 一项方法论债(2026-09-24)**:① study-publish 整文件主题化(14 处 `getTokens('light')`,8 处在模块级 StyleSheet.create 里,须改成按 scheme 生成的函数或下沉到组件内), 改完后 `node scripts/check-theme-prop-wiring.mjs --update-baseline` 应收窄; ② 7 个他人 M 在制的屏(CourseDetail / Distribution / LiveDetail / ModelPlaza / N8nModel / PostCreate / SharedDemo)待其会话自行接线; ③ `{...props}` 展开类站点被判 spread-unknown(判不出即如实报,不静默放行)—— 要真正覆盖须先给端内 wrapper 的 props 建立类型事实,属独立改造; ④ 方法论债:**本轮两次误判同源** —— 一次是把像素被 `rgba(0,0,0,0.6)` 遮罩压暗 40% 当成"颜色没落上", 一次是用"文本里有没有某个键"统计出"0 处漏传"。两者的共同错误是**用一个不测量目标东西的探针给出肯定结论**。 纪律:凡给出"0 处 / 没有 / 已全清"这类否定性结论,必须先构造一个**已知应被命中的正例**喂给同一判据(阳性对照), 否则该结论不得写进文档或据此决定"不做"。
 ## O43 凭据健康巡检两处实测缺陷修复：import 即发告警（缺 §22d 守卫）+ 部署停摆项在非部署机恒红（2026-09-24 立并完成 ✅，单端工程治理：scripts）
-
-- [x] ✅(2026-09-24) **守卫缺失（提交 `c948e8189`）**:`scripts/check-credential-health.mjs` 顶层是一串无 `isDirectRun` 判定的 `if/else`,**任何 import 都会跑一次完整实检并真投递告警**。实证:我为验证纯函数跑 `node --input-type=module -e "import {judgeStall} …"`,输出里直接出现 `告警判定: sent=true 经 email 送达` —— 一次 import 烧掉一封邮件(配额 邮件 10 封/天、Server酱 5 条/天,且这类通道一乱叫就被静音)。修法按 §22d 加 `pathToFileURL` + `!isDirectRun` 前置分支;复跑 import 只剩我自己那一行(零网络零投递)。
-- [x] ✅(2026-09-24) **"部署停摆"在这台机是必然红**:构建标记 `apps/web/.next/IHUI_BUILD_SHA` **只由部署机**在部署成功后写(`deploy/win/ihui-deploy.ps1:512`),而本机 `Get-Service` 无 `IHUI-*`/`*DEPLOY*` 服务、计划任务里没有部署环、`deploy/win/deploy-loop.log` 不存在、也不存在 `D:\IHUI-AI` ⇒ 该项在此永久 fail 并把真告警挤掉。修法:`judgeStall` 新增 `deployHost`(取 `deploy-loop.log` 有无内容),非部署机且无标记无成功记录 ⇒ `unknown` 并写明"只在部署机评估";**有日志痕迹一律照旧判红**(护栏不吃真故障)。
-- [x] ✅(2026-09-24) **取证**:`--self-test` 36/36(新增 3 例:非部署机 unknown / 同输入但确是部署机仍 fail / 非部署机但有日志仍 fail);`--alert-dry` 全链跑通且 `sent=false` 命中 20h 去重;CLI 下"部署停摆"转 `[unknown]`,真故障从 3 项收敛到 **1 项**。
-- **仍需用户处置的唯一真故障**:`国内镜像活性(mirror-to-cn) —— gitee apikey.txt 取不到形状合法的 token,同目录存在 `_冲突文件_` 副本不可用`(网盘冲突产物)。本会话全程不读、不打印任何 key 值;修法是用户在凭据库里挑回正确的那份(或重写为裸 token)。另"告警投递通道"项已自愈(本轮 email 通道送达,Server酱 `HTTP 0 超时`)。
-- **顺带量到一个共享状态危险(不代裁)**:此刻**索引里**躺着他人暂存的 `PROJECT_PLAN.md`(`git diff --cached HEAD` = 5 增 / **68 删**),门 71 如实判红"15 条已入库登记行彻底消失"(例 `守门 92 加一条自有产物特征:盘根…`)——这道门此时**保护的是全队**,谁提交那份暂存都会写没别人的登记行;另有一处暂存删除 `scripts/c-drive-maintain-hidden.vbs`。本会话不 unstage 别人的索引态(那是在替别人决定意图),仅如实登记。
