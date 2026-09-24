@@ -1,12 +1,13 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
 
 import { Fragment, useMemo } from 'react'
 import type { ReactNode } from 'react'
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+
+import { rnRadius } from '@ihui/design-tokens'
 
 export interface BusinessCardProps {
   /** 头像 URL */
@@ -160,7 +161,7 @@ function createStyles(tk: AppThemeTokens) {
       width: 48,
       height: 48,
       borderRadius: rnRadius['2xl'],
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
       overflow: 'hidden',
@@ -188,7 +189,7 @@ function createStyles(tk: AppThemeTokens) {
     actionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     contactBtn: {
       alignSelf: 'flex-start',
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       borderRadius: rnRadius.xl,
       paddingHorizontal: 10,
       paddingVertical: 8,
