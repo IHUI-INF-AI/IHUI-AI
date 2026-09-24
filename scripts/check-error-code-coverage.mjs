@@ -24,20 +24,40 @@
 // 全量模式宁漏不误报:只扫 `packages/api-client/src` 与 `apps/ai-service/app` 的
 // **显式 errorCode 字面量位**,不做全仓模糊匹配。
 //
-// 本门**已注册进 guardian-runner.mjs(守门 91,blocking,skipEnv=HUSKY_SKIP_ERROR_CODE_COVERAGE)**,
-// 2026-09-24 由守门接线对账(门 89)从"造好没装车"名单里补装;改这句时请同步改 runner,
-// 否则门 89 会把本行判成 R1「声称已接线但五处零命中」而拦下提交。
-//   node scripts/check-error-code-coverage.mjs
+// 判定面(2026-09-24 起,与守门 70/77/83/98/101 同口径):默认判 **HEAD blob**,`--staged` 判索引
+// blob,`--worktree` 仅人工排查逃生舱 —— 同一轮只读一个面,两枚面旗同给直接判"无法判定"。
+// 立因(当天实测):共享工作树的 `packages/i18n/messages/web/zh-CN.json` 被并行会话回退成缺
+// `ai.pane.errorCatalog` 的旧基线(HEAD 与索引均有 104 键),而本门按磁盘读词包、缺失时抛裸
+// Error,顶层 `if (isDirectRun) main()` 无收口 ⇒ uncaught 异常以 exit 1 呈现,一次正常提交被判
+// blocking 失败。取材失败与"扫到违规"是两回事:现分别落 exit 2(无法判定,显式点名原因,
+// **绝不记为通过**)与 exit 1(判据失败)。
+//
+// 本门**已注册进 guardian-runner.mjs(blocking,skipEnv=HUSKY_SKIP_ERROR_CODE_COVERAGE;
+// 编号以 runner 现值为准,勿照抄文档)**,2026-09-24 由守门接线对账(门 89)从"造好没装车"
+// 名单里补装;改这句时请同步改 runner,否则门 89 会把本行判成 R1「声称已接线但五处零命中」。
+//   node scripts/check-error-code-coverage.mjs                 # 全量:判 HEAD blob
+//   node scripts/check-error-code-coverage.mjs --staged        # 判索引 blob(pre-commit)
+//   node scripts/check-error-code-coverage.mjs --worktree      # 磁盘逃生舱
 //   node scripts/check-error-code-coverage.mjs --self-test
 //   node scripts/check-error-code-coverage.mjs --list
 // 反演(真实磁盘注入未收录码,不改仓库任何文件):
 //   node scripts/check-error-code-coverage.mjs --scan-extra=<探针文件路径>
+// 退出码:0 判据通过 / 1 判据失败 / 2 无法判定(输入取不到或非法,显式说明,绝不记绿)
 
 import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { execFileSync } from 'node:child_process'
+import { resolveGitBin } from './lib/gitdir.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+/** 判定输入要从 git 的权威面取,故本门派生 git —— 绝对路径解析(服务账户无 PATH 时 'git' 会失败)。 */
+const GIT = resolveGitBin() ?? 'git'
+const GIT_TIMEOUT = 60000
+const CAT_BATCH_TIMEOUT = 120000
+const BLOB_HEADER_RE = /^([0-9a-f]{40}) blob (\d+)$/
+/** 三个判定面;同一轮所有取材(清单/内容/catalog/词包)必须读同一个面。 */
+const FACE_LABEL = { staged: '索引 blob', head: 'HEAD blob', worktree: '工作树(磁盘)' }
 
 /** 唯一真相源:catalog 表本身。 */
 const CATALOG_FILE = 'packages/shared/src/chat/error-catalog.ts'
@@ -102,37 +122,187 @@ const VALID_CATEGORIES = new Set([
 const UNKNOWN_CATEGORY = 'unknown'
 
 // ---------------------------------------------------------------------------
+// 判定面(取材层)
+// ---------------------------------------------------------------------------
+
+/** exit 2 专用异常:输入取不到 / 清单为空 = "本门没能判定",与"判定为违规"(exit 1)严格分开。 */
+export class UndeterminedError extends Error {}
+
+/** git 派生统一口径(§5b + 守门 52/80):绝对路径 + `-c safe.directory=*` + windowsHide + 数字 timeout。 */
+function gitExec(root, args, { input, timeout = GIT_TIMEOUT, maxBuffer = 64 << 20 } = {}) {
+  try {
+    return execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', '-C', root, ...args], {
+      cwd: root,
+      input,
+      windowsHide: true, // 漏此参数在钩子/守护派生下必弹控制台窗(§5b)
+      timeout,
+      maxBuffer,
+      stdio: input === undefined ? ['ignore', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe'],
+    })
+  } catch (e) {
+    const raw = e?.stderr ?? e?.stdout ?? e?.message ?? String(e)
+    const first = String(typeof raw === 'string' ? raw : Buffer.from(raw).toString('utf8')).trim().split(/\r?\n/)[0]
+    throw new UndeterminedError(`git ${args.join(' ')} 取材失败:${first}`)
+  }
+}
+
+/** 一次 `cat-file --batch` 读完一批对象 —— 641 个文件各起一次 git 派生会打满进程。
+ *  返回 Map<rev, text|null>;missing / 非 blob / unmerged 一律 null,由调用方判"取不到"。 */
+function catBatch(root, revs) {
+  const map = new Map()
+  if (revs.length === 0) return map
+  const out = gitExec(root, ['cat-file', '--batch'], {
+    input: Buffer.from(revs.join('\n') + '\n', 'utf8'),
+    timeout: CAT_BATCH_TIMEOUT,
+    maxBuffer: 256 << 20,
+  })
+  let pos = 0
+  for (const rev of revs) {
+    const nl = out.indexOf(0x0a, pos)
+    if (nl < 0) {
+      map.set(rev, null)
+      break
+    }
+    const header = out.subarray(pos, nl).toString('utf8')
+    pos = nl + 1
+    const m = BLOB_HEADER_RE.exec(header)
+    if (!m) {
+      map.set(rev, null) // "<rev> missing" / "fatal: ... unmerged"
+      continue
+    }
+    map.set(rev, out.subarray(pos, pos + Number(m[2])).toString('utf8'))
+    pos += Number(m[2]) + 1
+  }
+  return map
+}
+
+function requireNonEmpty(list, label) {
+  if (list.length === 0)
+    throw new UndeterminedError(
+      `${label} 在扫描面(${SCAN_ROOTS.map((s) => s.dir).join(' + ')})枚举到 0 个文件 —— 判据不扫空气,按无法判定处理`,
+    )
+  return list
+}
+
+/** git 面的仓库根校验:清单与内容都按仓库根解释路径,ROOT 若是子目录会产出
+ *  "自洽但基准错位"的假绿(守门 101 实测教训),故显式判死,不静默容忍。 */
+function assertRepoRoot(face, root, label) {
+  const top = gitExec(root, ['rev-parse', '--show-toplevel']).toString('utf8').trim()
+  const want = root.replace(/\\/g, '/')
+  const same = process.platform === 'win32' ? top.toLowerCase() === want.toLowerCase() : top === want
+  if (!same)
+    throw new UndeterminedError(`${label} 只能在 git 仓库根判定:ROOT 是 ${want},该目录 toplevel 是 ${top}`)
+  if (face === 'head') gitExec(root, ['rev-parse', '--verify', 'HEAD']) // HEAD 面必须有提交,绝不退化成"扫到 0 个文件所以绿"
+  if (face === 'staged' && gitExec(root, ['ls-files', '-u', '-z']).length > 0)
+    throw new UndeterminedError('索引存在未合并路径(merge/rebase 进行中),:<path> 取材有歧义 ⇒ 无法判定,先收敛 merge')
+}
+
+function makeGitReader(face, root) {
+  const label = FACE_LABEL[face]
+  assertRepoRoot(face, root, label)
+  const prefix = face === 'staged' ? ':' : 'HEAD:'
+  const contents = new Map()
+  function fetch(rels) {
+    const missing = [...new Set(rels)].filter((r) => !contents.has(r))
+    if (missing.length === 0) return
+    const map = catBatch(root, missing.map((r) => prefix + r))
+    for (const rel of missing) {
+      const text = map.get(prefix + rel)
+      if (text === null || text === undefined)
+        throw new UndeterminedError(`${label} 取不到 ${rel}(对象缺失 / 非 blob / 未合并)`)
+      contents.set(rel, text)
+    }
+  }
+  return {
+    label,
+    listScanFiles() {
+      const out = []
+      for (const { dir, exts, lang } of SCAN_ROOTS) {
+        const raw =
+          face === 'head'
+            ? gitExec(root, ['ls-tree', '-r', '--name-only', 'HEAD', '-z', '--', dir])
+            : gitExec(root, ['ls-files', '-z', '--', dir])
+        for (const rel of raw.toString('utf8').split('\0')) {
+          if (!rel || EXCLUDE_DIR.test(rel) || EXCLUDE_FILE.test(rel)) continue
+          if (!exts.some((x) => rel.endsWith(x))) continue
+          out.push({ relPath: rel, lang })
+        }
+      }
+      return requireNonEmpty(out, label)
+    },
+    fetch,
+    read(rel) {
+      fetch([rel])
+      return contents.get(rel)
+    },
+  }
+}
+
+function makeWorktreeReader(root) {
+  const label = FACE_LABEL.worktree
+  return {
+    label,
+    listScanFiles() {
+      const out = []
+      for (const { dir, exts, lang } of SCAN_ROOTS) {
+        const walk = (abs) => {
+          let entries
+          try {
+            entries = readdirSync(abs, { withFileTypes: true })
+          } catch {
+            return // 整棵目录缺失交给"0 文件即无法判定"兜底,不在这里静默当"扫过了"
+          }
+          for (const e of entries) {
+            const p = join(abs, e.name)
+            const rel = p.slice(root.length + 1).replace(/\\/g, '/')
+            if (e.isDirectory()) {
+              if (!EXCLUDE_DIR.test(rel)) walk(p)
+              continue
+            }
+            if (!exts.some((x) => rel.endsWith(x))) continue
+            if (EXCLUDE_DIR.test(rel) || EXCLUDE_FILE.test(rel)) continue
+            out.push({ relPath: rel, lang })
+          }
+        }
+        walk(join(root, dir))
+      }
+      return requireNonEmpty(out, label)
+    },
+    fetch() {},
+    read(rel) {
+      try {
+        return readFileSync(join(root, rel), 'utf8')
+      } catch (e) {
+        throw new UndeterminedError(`${label} 取不到 ${rel}:${e.message}`)
+      }
+    },
+  }
+}
+
+/** 单一取材入口。清单、内容、catalog、词包全走同一个 reader —— 混面即假绿。 */
+export function makeFaceReader(face = 'head', root = ROOT) {
+  if (face === 'worktree') return makeWorktreeReader(root)
+  if (face === 'head' || face === 'staged') return makeGitReader(face, root)
+  throw new UndeterminedError(`未知判定面 "${face}"(允许 head / staged / worktree)`)
+}
+
+// ---------------------------------------------------------------------------
 // 扫描器
 // ---------------------------------------------------------------------------
 
-/** 递归收集待扫文件(相对 ROOT 的 POSIX 路径)。 */
-export function collectFiles(root = ROOT, extraFiles = []) {
-  const out = []
-  for (const { dir, exts, lang } of SCAN_ROOTS) {
-    const walk = (abs) => {
-      let entries
-      try {
-        entries = readdirSync(abs, { withFileTypes: true })
-      } catch {
-        return
-      }
-      for (const e of entries) {
-        const p = join(abs, e.name)
-        const rel = p.slice(root.length + 1).replace(/\\/g, '/')
-        if (e.isDirectory()) {
-          if (EXCLUDE_DIR.test(rel)) continue
-          walk(p)
-          continue
-        }
-        if (!exts.some((x) => e.name.endsWith(x))) continue
-        if (EXCLUDE_DIR.test(rel) || EXCLUDE_FILE.test(rel)) continue
-        out.push({ relPath: rel, lang, src: readFileSync(p, 'utf8') })
-      }
-    }
-    walk(join(root, dir))
-  }
+/** 收集待扫文件:清单与内容同取自判定面;探针文件(--scan-extra)按磁盘读(它不属于任何判定面)。 */
+export function collectFiles(reader, extraFiles = [], root = ROOT) {
+  const listed = reader.listScanFiles()
+  reader.fetch(listed.map((f) => f.relPath))
+  const out = listed.map(({ relPath, lang }) => ({ relPath, lang, src: reader.read(relPath) }))
   for (const p of extraFiles) {
-    out.push({ relPath: p, lang: /\.(ts|tsx)$/.test(p) ? 'ts' : 'py', src: readFileSync(p, 'utf8') })
+    let src
+    try {
+      src = readFileSync(resolve(root, p), 'utf8')
+    } catch (e) {
+      throw new UndeterminedError(`反演探针 ${p} 取不到:${e.message}`)
+    }
+    out.push({ relPath: p, lang: /\.(ts|tsx)$/.test(p) ? 'ts' : 'py', src })
   }
   return out
 }
@@ -179,13 +349,23 @@ export function parseCatalog(src) {
   return { entries, classes }
 }
 
-/** 读 zh-CN 词包的 `ai.pane.errorCatalog` 子树。 */
-export function readCatalogMessages(raw) {
-  const parsed = JSON.parse(raw)
+/** 读 zh-CN 词包的 `ai.pane.errorCatalog` 子树。
+ *  缺键/非法 JSON **不再抛成崩溃**:2026-09-24 实测红因是共享工作树的 zh-CN.json 副本
+ *  滞后 HEAD(HEAD 有该键、磁盘副本没有),裸 Error 冒烟到顶层被外层当成"判据失败",
+ *  既诊断不出成因,也把人推向绕过钩子。现抛 `UndeterminedError`,由 main 以 exit 2
+ *  显式报"无法判定",绝不记为通过。 */
+export function readCatalogMessages(raw, label = MESSAGE_FILE) {
+  let parsed
+  try {
+    parsed = JSON.parse(raw)
+  } catch (e) {
+    throw new UndeterminedError(`${label} 不是合法 JSON:${e.message}`)
+  }
   const node = parsed?.ai?.pane?.errorCatalog
-  if (!node) throw new Error(`${MESSAGE_FILE} 缺少 ai.pane.errorCatalog`)
+  if (!node) throw new UndeterminedError(`${label} 取不到 ai.pane.errorCatalog —— 既不记通过,也不记违规`)
   return node
 }
+
 
 // ---------------------------------------------------------------------------
 // 三条规则
@@ -240,17 +420,19 @@ export function checkNoFallback(catalog, messages) {
 // CLI
 // ---------------------------------------------------------------------------
 
-export function runChecks({ root = ROOT, extraFiles = [] } = {}) {
-  const files = collectFiles(root, extraFiles)
+export function runChecks({ root = ROOT, face = 'head', extraFiles = [] } = {}) {
+  const reader = makeFaceReader(face, root)
+  const files = collectFiles(reader, extraFiles, root)
   const scanned = scanErrorCodes(files)
-  const catalog = parseCatalog(readFileSync(join(root, CATALOG_FILE), 'utf8'))
-  const messages = readCatalogMessages(readFileSync(join(root, MESSAGE_FILE), 'utf8'))
+  const catalog = parseCatalog(reader.read(CATALOG_FILE))
+  const messages = readCatalogMessages(reader.read(MESSAGE_FILE), `${reader.label} 的 ${MESSAGE_FILE}`)
   const problems = [
     ...checkCoverage(scanned, catalog),
     ...checkClasses(catalog),
     ...checkNoFallback(catalog, messages),
   ]
-  return { problems, scanned, catalog, files: files.length }
+  // 读的哪一面必须自己说出来:口径不写出来,下一次诊断又要从头猜。
+  return { problems, scanned, catalog, files: files.length, face: reader.label }
 }
 
 /** 注入违规自证:证明每条规则各自真的咬得住(不靠脚本自述)。 */
@@ -258,10 +440,9 @@ function selfTest() {
   const cases = []
   const t = (name, ok) => cases.push({ name, ok })
 
-  const catalogSrc = readFileSync(join(ROOT, CATALOG_FILE), 'utf8')
-  const base = parseCatalog(catalogSrc)
-  const msgSrc = readFileSync(join(ROOT, MESSAGE_FILE), 'utf8')
-  const msgs = readCatalogMessages(msgSrc)
+  const reader = makeFaceReader('head', ROOT)
+  const base = parseCatalog(reader.read(CATALOG_FILE))
+  const msgs = readCatalogMessages(reader.read(MESSAGE_FILE), `HEAD blob 的 ${MESSAGE_FILE}`)
 
   // —— 扫描器:咬得住的 ——
   t(
@@ -380,10 +561,33 @@ function selfTest() {
   )
   t('R3 现状零兜底', checkNoFallback(base, msgs).length === 0)
 
+  // —— 无法判定口径(exit 2 面):取材失败必须显式抛,绝不冒烟成判据红/绿 ——
+  let subtreeCase = false
+  try {
+    readCatalogMessages('{"ai":{"pane":{}}}', 'fixture')
+  } catch (e) {
+    subtreeCase = e instanceof UndeterminedError
+  }
+  t('无法判定口径:词包缺 ai.pane.errorCatalog 抛 UndeterminedError(2026-09-24 崩溃根因形态)', subtreeCase)
+  let jsonCase = false
+  try {
+    readCatalogMessages('{ not json', 'fixture')
+  } catch (e) {
+    jsonCase = e instanceof UndeterminedError
+  }
+  t('无法判定口径:词包非法 JSON 同样抛 UndeterminedError(JSON.parse 裸异常曾是崩溃通道)', jsonCase)
+  let faceCase = false
+  try {
+    makeFaceReader('nonsense', ROOT)
+  } catch (e) {
+    faceCase = e instanceof UndeterminedError
+  }
+  t('无法判定口径:未知判定面显式报错,不静默退回磁盘', faceCase)
+
   // —— 现状必须干净:否则本门一上手就红 ——
   const live = runChecks()
   if (live.problems.length > 0) for (const p of live.problems) console.error(`   · ${p}`)
-  t('当前工作区零违规', live.problems.length === 0)
+  t('当前 HEAD 零违规(本门默认判定面)', live.problems.length === 0)
   t('扫描面非空(判据没在扫空气)', live.scanned.length > 50)
   t('catalog 条目数 ≥ 扫描到的码数', live.catalog.entries.length >= live.scanned.length)
 
@@ -392,40 +596,61 @@ function selfTest() {
 }
 
 /** --list:打印扫描到的 errorCode 全集(给测试里的冻结清单做输入)。 */
-function listCodes() {
-  const { scanned, catalog } = runChecks()
-  console.log(`# 扫描面:packages/api-client/src + apps/ai-service/app`)
+function listCodes(face) {
+  const { scanned, catalog, face: label } = runChecks({ face })
+  console.log(`# 判定面:${label}(扫描面:packages/api-client/src + apps/ai-service/app)`)
   console.log(`# 产出的 errorCode:${scanned.length} 个 / catalog 条目:${catalog.entries.length} 条`)
   for (const hit of scanned) console.log(`${hit.code}\t${hit.relPath}:${hit.line}`)
   return 0
 }
 
-function main() {
-  const argv = process.argv.slice(2)
-  if (argv.includes('--self-test')) process.exit(selfTest())
-  if (argv.includes('--list')) process.exit(listCodes())
-
-  const extraFiles = []
-  for (const arg of argv) {
-    if (arg.startsWith('--scan-extra=')) extraFiles.push(arg.slice('--scan-extra='.length))
-  }
-
-  const { problems, scanned, catalog, files } = runChecks({ extraFiles })
-  if (problems.length === 0) {
-    console.log(
-      `✅ 错误码覆盖率通过:扫 ${files} 个文件,产出 ${scanned.length} 个 errorCode,` +
-        `catalog ${catalog.entries.length} 条全覆盖,八类齐全,零「未知错误」兜底`,
-    )
-    return
-  }
-  console.error(`❌ 错误码覆盖率发现 ${problems.length} 处问题:`)
-  for (const p of problems) console.error(`   · ${p}`)
-  console.error(`\n唯一真源:${CATALOG_FILE}`)
-  console.error('改法:在 ERROR_CODE_CATALOG 补一行,并同步 packages/i18n/messages/web/*.json 五语言词包')
-  process.exit(1)
+/** 面旗选择:两枚同给 = 同一轮读两个面,基准错位会产出自洽假绿(守门 101 实测教训)⇒ 判死。 */
+function pickFace(argv) {
+  const wants = argv.filter((a) => a === '--staged' || a === '--worktree')
+  if (wants.length > 1)
+    throw new UndeterminedError('--staged 与 --worktree 同时给出:两个判定面不得同轮混读')
+  if (wants[0] === '--staged') return 'staged'
+  if (wants[0] === '--worktree') return 'worktree'
+  return 'head'
 }
 
-/** 供 / 测试复用(被 import 时不执行 main(),见 isDirectRun 守卫)。 */
+function main() {
+  const argv = process.argv.slice(2)
+  try {
+    if (argv.includes('--self-test')) return selfTest()
+    if (argv.includes('--list')) return listCodes(pickFace(argv))
+
+    const extraFiles = []
+    for (const arg of argv) {
+      if (arg.startsWith('--scan-extra=')) extraFiles.push(arg.slice('--scan-extra='.length))
+    }
+
+    const { problems, scanned, catalog, files, face } = runChecks({ face: pickFace(argv), extraFiles })
+    if (problems.length === 0) {
+      console.log(
+        `✅ 错误码覆盖率通过(判定面:${face}):扫 ${files} 个文件,产出 ${scanned.length} 个 errorCode,` +
+          `catalog ${catalog.entries.length} 条全覆盖,八类齐全,零「未知错误」兜底`,
+      )
+      return 0
+    }
+    console.error(`❌ 错误码覆盖率发现 ${problems.length} 处问题(判定面:${face}):`)
+    for (const p of problems) console.error(`   · ${p}`)
+    console.error(`\n唯一真源:${CATALOG_FILE}`)
+    console.error('改法:在 ERROR_CODE_CATALOG 补一行,并同步 packages/i18n/messages/web/*.json 五语言词包')
+    return 1
+  } catch (e) {
+    if (e instanceof UndeterminedError) {
+      // exit 2 = "本门没能判定",与 1 = "判定为违规" 严格分开:前者要人去修取材/环境,
+      // 后者要改代码。混成一个退出码,下一次没人分得清该改哪一头。
+      console.error(`⚠️ 无法判定(exit 2,不记为通过):${e.message}`)
+      console.error('   单独复现:node scripts/check-error-code-coverage.mjs;绕过(不推荐):HUSKY_SKIP_ERROR_CODE_COVERAGE=1')
+      return 2
+    }
+    throw e
+  }
+}
+
+/** 供测试复用(被 import 时不执行 main(),见 isDirectRun 守卫)。 */
 export const __test__ = {
   collectFiles,
   extractCodes,
@@ -435,11 +660,22 @@ export const __test__ = {
   checkCoverage,
   checkClasses,
   checkNoFallback,
+  makeFaceReader,
   runChecks,
   CATALOG_FILE,
   MESSAGE_FILE,
+  UndeterminedError,
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
-if (isDirectRun) main()
+// 顶层无收口时,内部任何异常都以 uncaught 形态 exit 1 —— "门自己的故障"看起来像"判据失败"
+// (2026-09-24 实测就是它逼出一次绕过钩子)。未预期异常一律显式 exit 2,绝不冒烟成判据红。
+if (isDirectRun) {
+  try {
+    process.exit(main())
+  } catch (e) {
+    console.error(`⚠️ 无法判定(门自身异常,exit 2 不记为通过):${e?.message ?? e}`)
+    process.exit(2)
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
