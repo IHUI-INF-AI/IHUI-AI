@@ -4,7 +4,7 @@
 
 // @vitest-environment jsdom
 import { act, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import * as React from 'react'
 import { usePromptHistory } from '@/hooks/use-prompt-history'
 
@@ -12,7 +12,13 @@ import { usePromptHistory } from '@/hooks/use-prompt-history'
 // 复刻 MessageInput 的 onKeyDown 分支(↑/↓ 翻历史),以组件级粒度验收 D36 四项行为。
 // 真词包模式参考 apps/web/src/components/ai/progress-sections/__tests__/terminal-section-isolation.test.tsx。
 
-function Harness({ initialValue = '', attachments = '' }: { initialValue?: string; attachments?: string }) {
+function Harness({
+  initialValue = '',
+  attachments = '',
+}: {
+  initialValue?: string
+  attachments?: string
+}) {
   const [value, setValue] = React.useState(initialValue)
   const taRef = React.useRef<HTMLTextAreaElement>(null)
   const promptHistory = usePromptHistory({
