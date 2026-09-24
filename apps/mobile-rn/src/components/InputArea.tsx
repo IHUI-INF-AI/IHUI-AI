@@ -952,7 +952,7 @@ const styles = StyleSheet.create({
     // 主 CTA 实底走 brand.cta(明暗同值 #4A7A96,AGENTS §4);
     // 旧写法取 gray[900]=#171717 是端内自造的第三个色源 —— 它把"深色纯白刺眼"换成了
     // "浅色一大片黑"(用户实拍的那一处),两态各错一半,且不与 web/小程序同源。
-    backgroundColor: tokens.brand.cta,
+    backgroundColor: tokens.brand.cta, // r3-cta-exempt: 图标钮,前景在同一元素的 <Plus color={tokens.brand.ctaForeground}/>
   },
 
   voiceBtn: {
@@ -1080,7 +1080,7 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: rnRadius.xl,
     // 同 sendInShell:主 CTA 实底走 brand.cta,不得取端内自造的 gray[900]
-    backgroundColor: tokens.brand.cta,
+    backgroundColor: tokens.brand.cta, // r3-cta-exempt: 图标钮,前景在同一元素的 <Send color={tokens.brand.ctaForeground}/>
     marginLeft: 8,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1114,7 +1114,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 56 / 2, // radius-exempt: 折叠态 FAB 几何正圆(56dp 直径/2)
-    backgroundColor: tokens.brand.cta,
+    backgroundColor: tokens.brand.cta, // r3-cta-exempt: 悬浮加号,前景在同一元素的 <Plus color={tokens.brand.ctaForeground}/>
     alignItems: 'center',
     justifyContent: 'center',
     // shadow(iOS)
