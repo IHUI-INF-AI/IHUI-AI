@@ -184,6 +184,27 @@ test('两侧同改同一行区域 ⇒ 判失败并点名该文件,绝不悄悄�
   }
 })
 
+test('take-ours 是"声明式例外",不是选边后门:同一文件从需人工变成本侧 blob,且必须留名', () => {
+  const { dir, ours, theirs } = bothTouchedFixture()
+  try {
+    const def = U.plan(ours, theirs, dir)
+    assert.ok(def.needHuman.some((h) => h.path === 'clash.ts'), '默认必须交人工')
+
+    const forced = U.plan(ours, theirs, dir, new Set(['clash.ts']))
+    assert.equal(forced.needHuman.length, 0, '声明取本侧后不得再报需人工')
+    assert.deepEqual(forced.keptOurs, ['clash.ts'], '被声明的路径必须逐条点名(不得静默)')
+    assert.equal(U.show(forced.tree, 'clash.ts', dir), 'x1\nOURS\nx3', '该路径树内容必须等于本侧版本')
+    assert.equal(
+      U.blobOf(forced.tree, 'only-theirs.ts', dir),
+      U.blobOf(theirs, 'only-theirs.ts', dir),
+      '一条例外不得连带丢掉对侧其它独有新增 —— 落地闸其余断言必须照常全绿',
+    )
+    assert.deepEqual(forced.bad, [], `声明后整棵合并树仍须过零丢失自证:${forced.bad.slice(0, 2).join(' / ')}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
 test('仅对侧动过 ⇒ 与改前行为逐字一致(整文件取对侧 blob)', () => {
   const { dir, ours, theirs } = bothTouchedFixture()
   try {
