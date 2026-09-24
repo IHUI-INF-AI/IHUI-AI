@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * 跨端主题透线守门(blocking)—— packages/app 的主题驱动组件必须被**接线**。
@@ -349,12 +349,67 @@ export function maskNonTopLevel(attrs) {
  */
 const THEME_PROP_DECL = new RegExp(`(^|[^\\w$.\\-])${THEME_PROP}\\s*\\??=`, '')
 
-export function inspectThemeAttr(attrs) {
+/**
+ * 回溯 `{...X}` 展开的对象构造,判它到底有没有把主题传下去。
+ *
+ * 为什么必须有这一步(2026-09-24 真机侧查出):端内 wrapper 常见写法是
+ *   const props: XxxScreenProps = { t, onBack, colorScheme: 'light' }
+ *   return <SharedXxxScreen {...props} />
+ * 字面量藏在**对象构造里**而不是 JSX 属性上,只看 attrs 的判据对它完全失明 ——
+ * 实测 5 个屏就是这么把写死的 'light' 静默放过,守门只笼统报"判不出"。
+ *
+ * 解析不到对象构造(props 来自函数形参 / 跨文件)时**仍返回 null 交回 spread-unknown**,
+ * 不猜 —— 判不出就说判不出。
+ */
+export function resolveSpreadThemeValue(src, attrs) {
+  if (typeof src !== 'string' || !src) return null
+  const clean = stripComments(src)
+  for (const m of attrs.matchAll(/\{\s*\.\.\.\s*([A-Za-z_$][\w$]*)\s*\}/g)) {
+    const objName = m[1]
+    // 找该标识符在本文件内的对象字面量构造
+    const declRe = new RegExp(`(?:const|let|var)\\s+${objName}\\s*(?::[^=]+?)?\\s*=\\s*\\{`)
+    const dm = declRe.exec(clean)
+    if (!dm) continue
+    const openIdx = dm.index + dm[0].length - 1
+    const closeIdx = matchDelimited(clean, openIdx)
+    if (closeIdx === -1) continue
+    const body = clean.slice(openIdx + 1, closeIdx)
+    const tp = new RegExp(`(?:^|[,{\\s])${THEME_PROP}\\s*:`, 'm').exec(body)
+    if (!tp) continue
+    let p = tp.index + tp[0].length
+    while (p < body.length && /\s/.test(body[p])) p++
+    const q = body[p]
+    if (q === '"' || q === "'") {
+      const end = skipStringChars(body, p)
+      const value = end === -1 ? '' : body.slice(p + 1, end)
+      if (LITERAL_ARCHIVES.has(value)) {
+        return { kind: 'literal', detail: `{...${objName}} → ${THEME_PROP}: '${value}'(字面量写在对象构造里)` }
+      }
+      return { kind: 'ok', detail: null }
+    }
+    if (q === '{') {
+      const close = matchDelimited(body, p)
+      const inner = (close === -1 ? body.slice(p + 1) : body.slice(p + 1, close)).trim()
+      const lit = /^(?:'|"|`)(light|dark)(?:'|"|`)$/.exec(inner)
+      if (lit) {
+        return { kind: 'literal', detail: `{...${objName}} → ${THEME_PROP}: ${inner}(字面量写在对象构造里)` }
+      }
+    }
+    // 对象里传的是变量(resolvedTheme / theme / 上游透传)⇒ 视为已接线
+    return { kind: 'ok', detail: null }
+  }
+  return null
+}
+
+export function inspectThemeAttr(attrs, src) {
   const masked = maskNonTopLevel(attrs)
   const m = THEME_PROP_DECL.exec(masked)
   if (!m) {
     // 转发形态在掩码里会被抹平(它在 {} 内),故对**原文**判
     if (/\{\s*\.\.\./.test(attrs)) {
+      // 先尝试回溯对象构造;解析不到才承认判不出
+      const resolved = resolveSpreadThemeValue(src, attrs)
+      if (resolved) return resolved
       return { kind: 'spread-unknown', detail: '整标签走 {...} 转发,判不出 colorScheme' }
     }
     return { kind: 'missing', detail: `渲染 ${THEME_PROP} 驱动组件而未传该 prop` }
@@ -569,7 +624,7 @@ export function judgeFile(rel, src, sharedNames) {
   for (const site of findJsxElementSites(src)) {
     const r = resolveRenderedName(site, imports, localDecls, rel, sharedNames)
     if (r.why === 'shared' && sharedNames.has(r.shared)) {
-      const verdict = inspectThemeAttr(site.attrs)
+      const verdict = inspectThemeAttr(site.attrs, src)
       const { line, col } = lineCol(clean, site.index)
       const rec = {
         file: rel,
@@ -855,6 +910,45 @@ export function selfTest() {
   )
   // --- 判定 ---
   const verdictOf = (attrs) => inspectThemeAttr(attrs).kind
+  // --- spread 回溯对象构造(2026-09-24 补的盲区:字面量藏在对象里而非 JSX 属性上)---
+  const verdictWithSrc = (src, attrs) => inspectThemeAttr(attrs, src).kind
+  assert(
+    verdictWithSrc(
+      `export function X() {\n  const props = { t, colorScheme: 'light' }\n  return <S {...props} />\n}`,
+      ' {...props} ',
+    ) === 'literal',
+    'R-BLIND:对象构造里写死 colorScheme:\'light\' 必须判红(只看 attrs 时曾完全失明,实测 5 个屏漏网)',
+  )
+  assert(
+    verdictWithSrc(
+      `export function X() {\n  const props = { t, colorScheme: resolvedTheme }\n  return <S {...props} />\n}`,
+      ' {...props} ',
+    ) === 'ok',
+    '对象里传变量(resolvedTheme)= 已正确接线,不得再挂"判不出"待人工核',
+  )
+  assert(
+    verdictWithSrc(
+      `export function X() {\n  const props = { t, onBack }\n  return <S {...props} />\n}`,
+      ' {...props} ',
+    ) === 'spread-unknown',
+    '对象构造里确实没有该键 → 仍承认判不出,不猜成 missing 也不放行成 ok',
+  )
+  assert(
+    verdictWithSrc('export function X(props) {\n  return <S {...props} />\n}', ' {...props} ') ===
+      'spread-unknown',
+    'props 来自函数形参(本文件无对象字面量)→ 判不出,不假设上游传了什么',
+  )
+  assert(
+    verdictWithSrc(
+      `const props = {\n  t,\n  // colorScheme: 'light' 已注释\n  colorScheme: theme,\n}`,
+      ' {...props} ',
+    ) === 'ok',
+    '跨行对象 + 注释干扰:取真赋值,不被注释里的字面量误判',
+  )
+  assert(
+    verdictOf(' {...rest} ') === 'spread-unknown',
+    '不传 src 时行为不变(向后兼容既有 self-test 断言)',
+  )
   assert(verdictOf(' title="a" colorScheme={resolvedTheme} ') === 'ok', '透传真主题 = ok')
   assert(verdictOf(' colorScheme="light" ') === 'literal', '写死字符串字面量 = 红')
   assert(verdictOf('colorScheme={\'dark\'}') === 'literal', '花括号里的字面量同样 = 红')
@@ -955,6 +1049,7 @@ export const __test__ = {
   findJsxElementSites,
   maskNonTopLevel,
   inspectThemeAttr,
+  resolveSpreadThemeValue,
   parseImports,
   isSharedSpecifier,
   findLocalComponentDecls,
@@ -969,3 +1064,4 @@ export const __test__ = {
   FIXTURE_COMPONENTS,
   FIXTURE_CALLS,
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
