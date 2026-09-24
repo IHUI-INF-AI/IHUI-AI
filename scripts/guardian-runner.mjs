@@ -229,6 +229,9 @@ const checks = [
     script: 'check-tagsview-visual.mjs',
     args: [],
     mode: 'blocking',
+    // 2026-09-24 补齐:本门头注一直写着「紧急跳过 HUSKY_SKIP_TAGSVIEW_GUARD=1」,但 runner 从未声明该字段、
+    // 脚本自己也不读 ⇒ 那是**假逃生舱**(设了毫无效果,只会逼人改用 --no-verify 连带废掉全部门)。
+    // runner 的分发循环统一 honors skipEnv,故补这一行即让承诺成真;由守门 89 的 R8 常驻核验。
   },
   {
     id: '11d',
@@ -1014,6 +1017,9 @@ const checks = [
     script: 'check-inline-back-button.mjs',
     args: [],
     mode: 'blocking',
+    // 2026-09-24 补齐:本门头注一直写着「紧急跳过 HUSKY_SKIP_INLINE_BACK_GUARD=1」,但 runner 从未声明该字段、
+    // 脚本自己也不读 ⇒ 那是**假逃生舱**(设了毫无效果,只会逼人改用 --no-verify 连带废掉全部门)。
+    // runner 的分发循环统一 honors skipEnv,故补这一行即让承诺成真;由守门 89 的 R8 常驻核验。
     onFailHint: [
       '',
       '  💡 页面私接了 router.back()/history.back(),绕过顶栏统一返回键。',
@@ -1107,6 +1113,9 @@ const checks = [
     script: 'check-next-env-dist.mjs',
     args: [],
     mode: 'blocking',
+    // 2026-09-24 补齐:本门头注一直写着「紧急跳过 HUSKY_SKIP_NEXT_ENV_DIST=1」,但 runner 从未声明该字段、
+    // 脚本自己也不读 ⇒ 那是**假逃生舱**(设了毫无效果,只会逼人改用 --no-verify 连带废掉全部门)。
+    // runner 的分发循环统一 honors skipEnv,故补这一行即让承诺成真;由守门 89 的 R8 常驻核验。
     onFailHint: [
       '',
       '  💡 apps/web/next-env.d.ts 引用了 .next-* 变体(.next-staging/.next-static 等),',
@@ -1191,6 +1200,9 @@ const checks = [
     script: 'check-admin-gate-consistency.mjs',
     args: [],
     mode: 'blocking',
+    // 2026-09-24 补齐:本门头注一直写着「紧急跳过 HUSKY_SKIP_ADMIN_GATE_GUARD=1」,但 runner 从未声明该字段、
+    // 脚本自己也不读 ⇒ 那是**假逃生舱**(设了毫无效果,只会逼人改用 --no-verify 连带废掉全部门)。
+    // runner 的分发循环统一 honors skipEnv,故补这一行即让承诺成真;由守门 89 的 R8 常驻核验。
     onFailHint: [
       '',
       '  💡 apps/api 出现新的裸 `roleId >= 1` 式判定 / 本地重定义 requireAdmin / platform 数据类别误开放。',
@@ -1860,6 +1872,68 @@ const checks = [
     ].join('\n'),
   },
 
+  {
+    id: '93',
+    // 2026-09-24 改号(守门 89 的 R5「重复 id 判红」实测抓到):同一号被并发会话各登记了一次，
+    // 同 id 两道 blocking 门会串 skipEnv 与失败归属。按本仓"后来者改号"规矩挪到 93;
+    // 引用本门编号时一律以 scripts/guardian-runner.mjs 现值为准，别照抄文档/计划里的历史号。
+    label: '🎨 跨端色值同源对账(blocking,RN rn-tokens ↔ tokens.css 逐位同值 + 品牌档不得端内自立)',
+    script: 'check-cross-end-tokens.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CROSS_END_TOKENS',
+    // 不声明 stagedTriggers:R3 判的是"这次提交会带走的悬空引用",可能出现在任何端内文件
+    // (mobile-rn / packages/app / ui-native …),收窄触发面等于给漏网留口;
+    // 且实测开销仅 0.46s(--staged)/ 1.3s(全量),没有为之省时间的理由。
+    onFailHint: [
+      '',
+      '  💡 三条判据:',
+      '     R1 已声明映射逐位同值 —— rn-tokens.ts 的色值必须等于 tokens.css 对应 CSS 变量(亮/暗各自对账)。',
+      '     R2 品牌键覆盖 —— rn-tokens 的 brand 命名空间里每个键,必须被某条映射声明,或在 RN_ONLY_BRAND_KEYS',
+      '        写明"web 无对应变量"的理由(豁免项若已不存在同样算红,防清单腐烂)。',
+      '     R3 悬空引用 —— tokens.brand.<key> / tk.brand.<key> 必须命中已声明键集合(默认判 HEAD,--staged 判索引)。',
+      '',
+      '     品牌 CTA 的唯一写法:backgroundColor/borderColor = brand.DEFAULT,其上文字 = brand.foreground',
+      '     (等价 web 的 --color-primary + --color-primary-foreground);**不得再立 brand.ctaFill/ctaText 这类端内档',
+      '     —— 2026-09-24 已删,理由:浅色=web primary、深色=brand-accent 的混血档让同一语义三端三个值。**',
+      '     要调暗色主按钮对比度,改 tokens.css 的 .dark --color-primary 一处,三端一起动。',
+      '',
+      '     定位:node scripts/check-cross-end-tokens.mjs --list(看映射与依据)',
+      '     自检:node scripts/check-cross-end-tokens.mjs --self-test(8 例正反对照)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_CROSS_END_TOKENS=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+  // 主题接线对账(2026-09-24 立)。起因是真机实测:广场页顶栏/底栏 #1a1a1a 而正文
+  // #f5f5f5 —— 同一屏幕两套档案。根因在共享层:packages/app 里 213 个组件形参默认
+  // `colorScheme = 'light'` 并据此 getTokens(),调用方只要漏传或写字面量,整棵子树
+  // 就静默按该档案渲染,而端内 chrome 跟着真主题走。首轮实测命中 118 处 / 117 文件,
+  // 已修 108 处;余 9 处(他人 M 在制的 7 个屏 + study-publish 需整文件主题化改造)
+  // 冻结在 scripts/theme-prop-wiring-baseline.json,棘轮只减不增。
+  // 组件清单由源码自动推导、不维护手工名单 —— 手工清单正是上一版判据漏东西的原因。
+  {
+    id: '91',
+    label: '🌗 主题接线对账(blocking,theme-driven 共享组件必须拿到调用方解析出的主题)',
+    script: 'check-theme-prop-wiring.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_THEME_PROP_WIRING',
+    onFailHint: [
+      '',
+      '  💡 两类红:',
+      '     ① 漏传 colorScheme —— 共享组件形参默认值是 \'light\',漏传等于静默锁死浅色档案;',
+      '        正解 `<X colorScheme={resolvedTheme} />`,值须来自 useTheme()/主题 store。',
+      '     ② 写死字面量 "light"/"dark" —— 永远错,后果同①(真机实测即此形)。',
+      '     跨行元素要连属性一起看;`{...props}` 展开不算传值(实测 115 处即藏在这里)。',
+      '',
+      '     定位:node scripts/check-theme-prop-wiring.mjs --json',
+      '     自检:node scripts/check-theme-prop-wiring.mjs --self-test',
+      '     收紧基线(人工确认后):node scripts/check-theme-prop-wiring.mjs --update-baseline',
+      '     紧急跳过(不推荐):HUSKY_SKIP_THEME_PROP_WIRING=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- blocking (OpenAPI 契约) ---
   {
     id: '10',
@@ -2246,7 +2320,10 @@ const checks = [
     // 加了一道 91(check-c-drive-pollution)—— 同 id 两道 blocking 门会串 skipEnv 与失败归属,
     // 这是本仓第 N 次撞号(先例:75/76 各重复一次、79→80)。改号后由守门 89 的 R5 维度
     // (重复 id 判红)常驻看守,**登记新门前必须先查占用**:`git show HEAD:scripts/guardian-runner.mjs | grep -oE "id: '[0-9]+" | sort -u -V | tail -1`。
-    id: '92',
+    id: '94',
+    // 2026-09-24 改号(守门 89 的 R5「重复 id 判红」实测抓到):同一号被并发会话各登记了一次，
+    // 同 id 两道 blocking 门会串 skipEnv 与失败归属。按本仓"后来者改号"规矩挪到 94;
+    // 引用本门编号时一律以 scripts/guardian-runner.mjs 现值为准，别照抄文档/计划里的历史号。
     label: '🧭 errorCode 覆盖率对账(blocking,零"未知错误"兜底,补装)',
     script: 'check-error-code-coverage.mjs',
     args: [],
@@ -2271,6 +2348,29 @@ const checks = [
       '     单独复验:node scripts/check-error-code-coverage.mjs',
       '     自检:node scripts/check-error-code-coverage.mjs --self-test',
       '     紧急跳过(不推荐):HUSKY_SKIP_ERROR_CODE_COVERAGE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+  {
+    // 溯源水印"语法层"守门(与守门 47 覆盖层互补:47 判载荷能不能解码,本门判写法本身合不合法)。
+    // 2026-09-24 修完判据才敢接:旧判据按磁盘全 walk 且把字符串/正则字面量里的零宽当真命中,
+    // 真仓 26 条红点里**真存量债 0 条**(22 条落在被 gitignore 的本地产物、4 条自家假阳性)——
+    // 那种状态接线就是恒红门。修后真仓全量与 --staged 双口径 exit 0。
+    id: '95',
+    label: '🔏 水印载荷/横幅行语法对账(blocking,零宽必须被注释包裹)',
+    script: 'check-watermark-syntax.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_WATERMARK_SYNTAX',
+    onFailHint: [
+      '',
+      '  💡 不可见载荷(U+200B/200C/200D/2060 等 Cf 类)出现在**非注释位置**，或 XML 声明不在首行。',
+      '     修复(唯一正确姿势):node scripts/watermark.mjs clean <文件> && node scripts/watermark.mjs inject <文件>;',
+      '     **禁止**用 sed/批量文本改写"修平"零宽字符(§5c:这类操作会静默损坏载荷，历史上坏过 144 文件 218 处)。',
+      '     手工写内容里若要出现零宽，必须放在注释行内。',
+      '     单独复验:node scripts/check-watermark-syntax.mjs  (或 --staged)',
+      '     取证:npm --test scripts/tests/check-watermark-syntax.test.mjs(20 例)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_WATERMARK_SYNTAX=1 git commit ...',
       '',
     ].join('\n'),
   },
