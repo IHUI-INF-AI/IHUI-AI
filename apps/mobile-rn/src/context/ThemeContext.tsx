@@ -18,7 +18,7 @@ import { useCallback, useEffect, type ReactNode } from 'react'
 import { createThemeStore, type ThemeMode } from '@ihui/shared/stores'
 import { createAsyncStorageTransport } from '../stores/storage-adapter'
 import { commitRnTheme, reloadForTheme } from '../theme/active-tokens'
-import { syncNativeWindColorScheme } from '../theme/color-scheme-sync'
+import { syncNativeWindColorScheme, syncWindowColorScheme } from '../theme/color-scheme-sync'
 
 // 全局单例 store(自动持久化到 AsyncStorage,默认 key = 'ihui-theme',与 web/miniapp-taro/extension 一致)
 export const themeStore = createThemeStore({
@@ -70,6 +70,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     syncNativeWindColorScheme(resolved)
   }, [resolved])
+  /**
+   * 原生窗口按**偏好**落档(不是解析结果):偏好为 system 时交还系统,
+   * 否则键盘 / Alert 对话框 / 状态栏这些原生表面会跟系统走,和 App 内容反色。
+   */
+  useEffect(() => {
+    syncWindowColorScheme(themeMode)
+  }, [themeMode])
   useEffect(() => {
     if (themeMode !== 'system') return
     const sub = Appearance.addChangeListener(() => {
