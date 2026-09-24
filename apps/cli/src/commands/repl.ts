@@ -792,7 +792,7 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
       if (state.followUpMode === 'queue') {
         const qItem = state.promptQueue.enqueue(input);
         console.info(
-          chalk.dim(`  ↳ enqueued [${qItem.id}] (follow-up mode=queue, ${state.promptQueue.size()} pending)`),
+          chalk.dim(`  ↳ ${t('cli.queue.enqueued', { id: qItem.id, n: state.promptQueue.size() })}`),
         );
         rl.prompt();
         return;
@@ -1985,10 +1985,10 @@ function handleQueue(args: string[], state: ReplState): void {
     console.info(`│  ${chalk.bold('/queue rm <id>')}    取消指定 id 的 pending 项`);
     console.info(`│  ${chalk.bold('/queue clear')}      清空所有 pending 项`);
     // D38 队列交互子命令(判据 = @ihui/shared/chat/queue-interactions,许可门复用 D69)
-    console.info(`│  ${chalk.bold('/queue move <f> <t>')}  reorder pending items (locked while streaming)`);
-    console.info(`│  ${chalk.bold('/queue edit <id> <text>')}  edit pending text (metadata unchanged)`);
-    console.info(`│  ${chalk.bold('/queue run')}      interrupt current turn and run queue head`);
-    console.info(`│  ${chalk.bold('/queue mode <steer|queue>')}  follow-up mode for input while running`);
+    console.info(`│  ${chalk.bold('/queue move <f> <t>')}  ${t('cli.queue.helpMove')}`);
+    console.info(`│  ${chalk.bold('/queue edit <id> <text>')}  ${t('cli.queue.helpEdit')}`);
+    console.info(`│  ${chalk.bold('/queue run')}      ${t('cli.queue.helpRun')}`);
+    console.info(`│  ${chalk.bold('/queue mode <steer|queue>')}  ${t('cli.queue.helpMode')}`);
     console.info(chalk.cyan('╰─'));
     console.info('');
     return;
@@ -2016,7 +2016,7 @@ function handleQueue(args: string[], state: ReplState): void {
       streaming: state.agentRunning,
     });
     if (!undoVerdict.allowed) {
-      console.info(chalk.yellow(`denied: ${undoVerdict.deniedKey ?? 'undo'}`));
+      console.info(chalk.yellow(undoVerdict.deniedKey ? t(`cli.queue.${undoVerdict.deniedKey}`) : t('cli.queue.denied.undo')));
       return;
     }
     state.promptQueue.cancel(id);
@@ -2028,7 +2028,7 @@ function handleQueue(args: string[], state: ReplState): void {
     const from = Number(args[1]);
     const to = Number(args[2]);
     if (!Number.isInteger(from) || !Number.isInteger(to)) {
-      console.info(chalk.yellow('usage: /queue move <fromIndex> <toIndex> (see order: /queue list)'));
+      console.info(chalk.yellow(t('cli.queue.usageMove')));
       return;
     }
     const verdict = cliQueueInteractionAllowed('reorder', {
@@ -2036,13 +2036,13 @@ function handleQueue(args: string[], state: ReplState): void {
       streaming: state.agentRunning,
     });
     if (!verdict.allowed) {
-      console.info(chalk.yellow(`denied: ${verdict.deniedKey ?? 'reorder'}`));
+      console.info(chalk.yellow(verdict.deniedKey ? t(`cli.queue.${verdict.deniedKey}`) : t('cli.queue.denied.reorder')));
       return;
     }
     if (state.promptQueue.reorderPending(from, to)) {
-      console.info(chalk.green(`✓ reordered (${from} -> ${to})`));
+      console.info(chalk.green(t('cli.queue.reordered', { from, to })));
     } else {
-      console.info(chalk.yellow('no-op: index out of range or same position'));
+      console.info(chalk.yellow(t('cli.queue.noopMove')));
     }
     return;
   }
@@ -2050,7 +2050,7 @@ function handleQueue(args: string[], state: ReplState): void {
     const id = args[1] ?? '';
     const text = args.slice(2).join(' ').trim();
     if (!id || !text) {
-      console.info(chalk.yellow('usage: /queue edit <id> <new text>'));
+      console.info(chalk.yellow(t('cli.queue.usageEdit')));
       return;
     }
     const verdict = cliQueueInteractionAllowed('edit', {
@@ -2058,13 +2058,13 @@ function handleQueue(args: string[], state: ReplState): void {
       streaming: state.agentRunning,
     });
     if (!verdict.allowed) {
-      console.info(chalk.yellow(`denied: ${verdict.deniedKey ?? 'edit'}`));
+      console.info(chalk.yellow(verdict.deniedKey ? t(`cli.queue.${verdict.deniedKey}`) : t('cli.queue.denied.undo')));
       return;
     }
     if (state.promptQueue.editPendingText(id, text)) {
-      console.info(chalk.green(`✓ edited [${id}] (metadata unchanged)`));
+      console.info(chalk.green(t('cli.queue.edited', { id })));
     } else {
-      console.info(chalk.yellow(`no-op: id not found or empty text(${id})`));
+      console.info(chalk.yellow(t('cli.queue.noopEdit', { id })));
     }
     return;
   }
@@ -2078,7 +2078,7 @@ function handleQueue(args: string[], state: ReplState): void {
       head?.id ?? null,
     );
     if (!plan.allowed) {
-      console.info(chalk.yellow(`denied: ${plan.deniedKey ?? 'interject'}`));
+      console.info(chalk.yellow(plan.deniedKey ? t(`cli.queue.${plan.deniedKey}`) : t('cli.queue.denied.interject')));
       return;
     }
     if (plan.stopFirst && plan.thenRun) {
@@ -2086,27 +2086,26 @@ function handleQueue(args: string[], state: ReplState): void {
       state.aborted = true;
       state.queueInterruptOnce = true;
       state.abortController?.abort();
-      console.info(chalk.cyan(`interrupting current turn to run queued [${plan.thenRun}]`));
+      console.info(chalk.cyan(t('cli.queue.interrupting', { id: plan.thenRun })));
     } else if (plan.thenRun) {
-      console.info(
-        chalk.dim(`no running turn; head [${plan.thenRun}] executes after next prompt cycle`),
-      );
+      console.info(chalk.dim(t('cli.queue.noRunning', { id: plan.thenRun })));
     } else {
-      console.info(chalk.yellow('queue empty, nothing to run'));
+      console.info(chalk.yellow(t('cli.queue.runEmpty')));
     }
     return;
   }
   if (sub === 'mode') {
     const res = cliResolveFollowUpMode(args[1] ?? '');
     if (!res.ok) {
-      console.info(chalk.yellow('usage: /queue mode <steer|queue>'));
+      console.info(chalk.yellow(t('cli.queue.usageMode')));
       return;
     }
     state.followUpMode = res.resolution.mode;
+    // 降级句直取共享包既有键(cli 合并 shared,不另立第二份文案)
     const degradedNote = res.resolution.degradedKey
-      ? ` (degraded: ${res.resolution.degradedKey})`
+      ? t('cli.queue.degradedNote', { reason: t(`ai.pane.queueOps.${res.resolution.degradedKey}`) })
       : '';
-    console.info(chalk.green(`✓ follow-up mode = ${res.resolution.mode}${degradedNote}`));
+    console.info(chalk.green(t('cli.queue.modeSet', { mode: res.resolution.mode }) + degradedNote));
     return;
   }
   // 其他文本视为 prompt 入队
