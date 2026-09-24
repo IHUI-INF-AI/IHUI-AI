@@ -2742,5 +2742,8 @@
       }
     },
     "vividTail": ", almost there"
+  },
+  "notification": {
+    "pushBannerTitle": "New message"
   }
 }
