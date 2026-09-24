@@ -279,8 +279,15 @@ _SAFE_HOST_RE: Final = re.compile(r"^[A-Za-z0-9._:\-\[\]]+$")
 
 
 def _echo_host_with_port(headers: Mapping[str, str], validated_host: str) -> str:
-    """校验通过后再决定是否回显原始 Host(带端口);畸形值只回显主机部分。"""
-    raw = (headers.get("host") or "").strip()
+    """校验通过后再决定是否回显原始 Host(带端口);畸形值只回显主机部分。
+
+    取值与 `request_host_of` 同源(x-forwarded-host 优先,多级代理取首段),
+    否则反代场景下 host 头是 localhost:8803,会把 forwarded host 的修正抵消掉。
+    """
+    # 延迟 import:mcp_export 依赖官方 mcp SDK,不应成为卡片构建的导入前提(同 resolve 函数)
+    from .mcp_export import raw_forwarded_host
+
+    raw = raw_forwarded_host(headers)
     return raw if raw and _SAFE_HOST_RE.match(raw) else validated_host
 
 
