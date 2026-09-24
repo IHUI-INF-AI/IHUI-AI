@@ -72,7 +72,7 @@ export default function PaymentPage() {
               )}
             >
               {plan.highlighted && (
-                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-md bg-primary px-3 py-0.5 text-xs font-medium text-primary-foreground">
+                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-md bg-cta px-3 py-0.5 text-xs font-medium text-cta-foreground">
                   {t('popular')}
                 </span>
               )}
@@ -80,9 +80,7 @@ export default function PaymentPage() {
                 <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Icon className="h-5 w-5" />
                 </div>
-                <CardTitle className="text-lg">
-                  {t(PLAN_NAME_KEY[plan.id])}
-                </CardTitle>
+                <CardTitle className="text-lg">{t(PLAN_NAME_KEY[plan.id])}</CardTitle>
                 <div className="mt-2 flex items-baseline gap-1">
                   <span className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
                     {priceLabel}
