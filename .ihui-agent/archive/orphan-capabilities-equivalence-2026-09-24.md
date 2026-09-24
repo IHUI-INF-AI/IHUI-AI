@@ -38,3 +38,4 @@
 `apps/web/src/lib/ui-routes.generated.ts`(skills 组无任何 `param:true` 动态段)、`packages/ui-native/`、
 `apps/miniapp-taro/package.json`(无任何 markdown 依赖)。
 计划文档面 `grep P2-12|P2-13|P2-14 PROJECT_PLAN.md AGENTS.md README.md` **全零命中** → 这三族从来没有"计划上已判定不做"的豁免依据,唯一例外是 `deploy/scripts/ai-diagnose.mjs` 头注释自标 P2-13(CLI 一角已落地并被认领)。
+<!-- 2026-09-24: 本文件曾被一次并发旧基线回写从主线上带走(远端 tip 读到 0 行),同日按 ours 原地补注恢复。活文档/新增文件不在守门 71 的保护面内,判"交付已入库"必须**每次合并后回读远端 tip** -->
