@@ -2511,6 +2511,29 @@ const checks = [
     ].join('\n'),
   },
 
+  {
+    id: '100',
+    label: '🧬 合并新增文件存续性对账(blocking,合并不得吞掉任一父提交的独有新增)',
+    script: 'check-merge-addition-loss.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_MERGE_ADDITION_LOSS',
+    onFailHint: [
+      '',
+      '  💡 这一型不产生冲突、不进 diff 报告,只能靠对账(2026-09-24 实测一枚"按 union 归并"的合并',
+      '     吞掉 35 个路径 + 72 个文件回退成旧基线,而其提交信息写着"双方每一行均存活"):',
+      '     ① 补回:`git checkout <引入它的提交> -- <path>`,或改用真正的三路合并后重做该合并提交。',
+      '     ② 确要删:在合并**之后**单独 `git rm` 并写明理由(那时所有父提交都不含它,本判据放过)。',
+      '     口径:默认只判"未进入 origin/main 的合并"——已入库的历史事故不得把后来每次提交钉红',
+      '            (那只会逼人紧急跳过,连带废掉全部守门);回看历史用 --limit N 手工取证。',
+      '     单独复验:node scripts/check-merge-addition-loss.mjs --rev <合并提交 sha>',
+      '     自检:node scripts/check-merge-addition-loss.mjs --self-test(9 例,真临时仓)',
+      '     镜像测试:node --test scripts/tests/check-merge-addition-loss.test.mjs(含装车证明)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_MERGE_ADDITION_LOSS=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',

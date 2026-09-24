@@ -486,9 +486,9 @@ export function pagefilePending(paging, sizes) {
   return { readable: true, entries: paging.length, measured, pending, totalMB: Math.round(totalMB) }
 }
 
-function detectTempDrift() {
-  const proc = resolve(tmpdir())
-  const declared = readHkcuTemp()
+function detectTempDrift(options = {}) {
+  const proc = resolve(options.procTmp || tmpdir())
+  const declared = 'declaredTemp' in options ? options.declaredTemp : readHkcuTemp()
   if (!declared) return { status: 'unknown', proc, declared: null }
   if (resolve(declared) === proc) return { status: 'ok', proc, declared }
   return { status: 'drift', proc, declared }
@@ -497,7 +497,13 @@ function detectTempDrift() {
 export function scanC(options = {}) {
   const drive = options.drive || 'C:'
   const devEnv = options.devEnv || devEnvRoot()
-  const root = scanDriveRoot(drive, devEnv)
+  // 两个仅供测试/巡检的注入口(**默认行为完全不变**):
+  // `scanDriveRoot` 与 TEMP 枚举扫的是**这台机器此刻**的内容,而"两次扫描结果必须一致"这类
+  // 断言测的是本门只读、不改文件。全量镜像测试是**文件级并行**跑的(一个 `node --test` 批次里
+  // 多个文件同时跑),兄弟测试正在创建/删除 `ihui-*` 夹具 ⇒ 21s 的双扫描窗口内数量必然漂移
+  // (2026-09-24 全量首跑就是这么红的,且它在任何机器包括 CI 上都会间歇红 —— 与仓库内容无关)。
+  // 因此让调用方可以把扫描面钉到自己的隔离目录,而不是去削断言。
+  const root = options.skipDriveRoot ? { hits: [], unknown: [], sealed: [] } : scanDriveRoot(drive, devEnv)
   // 夹具落点一律要扫(落在哪盘都要报);"是不是又掉回 C 盘"由 temp 漂移单独结论回答
   // ⚠️ 这里必须列**所有身份的 TEMP**,不能只列 `tmpdir()`:同一个 `$env:TEMP` 在不同身份下
   // 指向不同目录 —— 守门跑在交互账户下拿到 `C:\Users\<me>\AppData\Local\Temp`,而
@@ -505,8 +511,8 @@ export function scanC(options = {}) {
   // 2026-09-24 实测:部署脚本每次构建泄漏 2 个 `ihui-next-build-*.log` 到服务侧 TEMP,
   // 攒了 **526 项 / 6.9MB、当天还在 +5**,而本门一直报"本项目产物 0 项" —— 因为它只扫自己
   // 那一侧的 TEMP。这类"守门与污染源不同身份"的盲区,比漏扫一个目录更危险:它给的是假绿灯。
-  const sysRoot = process.env.SystemRoot || process.env.windir || 'C:\\Windows'
-  const dirs = tempScanDirs(sysRoot, tmpdir())
+  const sysRoot = options.sysRoot || process.env.SystemRoot || process.env.windir || 'C:\\Windows'
+  const dirs = options.tempDirs || tempScanDirs(sysRoot, options.procTmp || tmpdir())
   const items = []
   const sealedScanSkipped = []
   // 内容归因一维的如实计数(绝不静默):candidates=按名字认不出、真去嗅探了的文件数
@@ -563,7 +569,7 @@ export function scanC(options = {}) {
     sealedScanSkipped,
     brokenSeal,
     contentAttribution,
-    temp: detectTempDrift(),
+    temp: detectTempDrift(options),
     totalMB: Math.round(bytesMB * 10) / 10,
   }
 }
