@@ -836,11 +836,16 @@ function selfTest() {
       rmScratch(base)
     }
   })
-  t('端到端取证:真 TEMP 里名字不带项目前缀、内容带仓库路径的探针必须被抓到,删掉后必须消失', () => {
-    const probe = join(tmpdir(), `probeattr-${Date.now().toString(36)}.cjs`)
+  t('端到端取证:扫描面上名字不带项目前缀、内容带仓库路径的探针必须被抓到,删掉后必须消失', () => {
+    // 探针落点从真实 TEMP 迁到 mkScratch(§26 临时夹具唯一落点,2026-09-25):写入面不再碰
+    // 可能钉在 C 盘的 $env:TEMP;扫描面经 scanC({tempDirs}) 注入这枚隔离目录 —— 被测对象
+    // (readdir → 名字分类 → 内容归因 → ours 统计)一字不变。真实 TEMP 仍在本门默认扫描面内,
+    // 那是"读",由上方 tempScanDirs 用例钉死(扫描面缩回去即红),不属于本次迁移范围。
+    const base = mkScratch('probeattr-e2e-')
+    const probe = join(base, `probeattr-${Date.now().toString(36)}.cjs`)
     writeFileSync(probe, `const root='${REPO}\\scripts'; // @ihui/probe\n`)
     try {
-      const a = scanC()
+      const a = scanC({ tempDirs: [base] })
       if (!a.contentAttribution.hitPaths.includes(probe))
         throw new Error(
           `探针未被内容归因抓到(候选 ${a.contentAttribution.candidates}/命中 ${a.contentAttribution.hits})⇒ 新维度空转`,
@@ -848,9 +853,9 @@ function selfTest() {
       if (!a.ours.some((h) => h.path === probe && /内容归因/.test(h.why)))
         throw new Error('内容归因命中未计入「本项目产物」统计口径(--strict 判红通路会漏掉它)')
     } finally {
-      rmSync(probe, { force: true })
+      rmScratch(base)
     }
-    const b = scanC()
+    const b = scanC({ tempDirs: [base] })
     if (b.ours.some((h) => h.path === probe)) throw new Error('现场未清理:探针删除后仍被计为产物')
   })
   t('内容归因结构在位:candidates/hits/skipped/readFailed 四计数必须始终存在(报告面靠它们拒绝静默)', () => {

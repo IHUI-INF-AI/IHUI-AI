@@ -49,7 +49,11 @@ test('__test__ 出口齐备(§22c 锚点:判据函数 + 扩面所系的正则本
   assert.equal(typeof gate.BASELINE_R5_KEY, 'string')
   assert.equal(gate.R5_BG_CLASS, 'bg-primary')
   assert.equal(gate.R5_FG_CLASS, 'text-primary-foreground')
-  assert.deepEqual(gate.R5_DIRS, ['apps/web', 'packages/ui-react'])
+  // 范围三端缺一不可:web / ui-react 是类名面原产地,miniapp-taro 于 2026-09-24 纳入
+  // (它同样写 Tailwind 类名,此前 37 处退役配对既不在迁移面也不在判据面)。
+  // 缩回范围不会让任何门变红,所以必须由本断言钉住。
+  assert.deepEqual(gate.R5_DIRS, ['apps/web', 'packages/ui-react', 'apps/miniapp-taro'])
+  assert.ok(gate.R5_DIRS.includes('apps/miniapp-taro'), 'R5 范围不得悄悄丢掉小程序端')
 })
 
 // ══ 缺陷 2 的五条必补夹具(成对:坏例子必红 + 好例子必绿)══
@@ -234,9 +238,19 @@ test('R5 预筛完备性:每一条应计行所在文件都必须在预筛结果�
     total += n
     if (n > 0) assert.ok(preSet.has(rel), `预筛丢了有应计行的文件:${rel} ⇒ 棘轮恒绿而债在长`)
   }
-  // 今天的真仓状态:有候选文件、零债(22 处已由并行会话在 4e0b24689a 迁完)。
+  // 债的上限**取基线自身**,不写死 0 —— 2026-09-24 把 miniapp 纳入范围后,HEAD 合法存量是
+  // 2 文件 / 3 处(已逐站判定的身份/排名片,§4 不覆盖装饰片)。写死 0 会逼后人改断言;
+  // 绑基线则"超出基线即红"的原意完整保留,而收紧基线仍须走 --update-baseline 的显式动作。
   assert.ok(pre.length > 0, '预筛候选为 0 ⇒ 范围正则或 grep 取材面已失效(HEAD 至少有 fg∩bg 文件)')
-  assert.equal(total, 0, `HEAD 现存 ${total} 条应计行 —— 债已回归:迁移到 bg-cta 或按流程收紧基线,勿改本断言糊过去`)
+  const baselineTotal = Object.values(
+    JSON.parse(readFileSync(join(REPO, 'scripts', 'brand-foreground-baseline.json'), 'utf8'))
+      .webClassPairCounts || {},
+  ).reduce((a, b) => a + b, 0)
+  assert.ok(
+    total <= baselineTotal,
+    `HEAD 现存 ${total} 条应计行 > 基线 ${baselineTotal} —— 债在长:迁移到 bg-cta / text-cta-foreground,` +
+      `或按流程 --update-baseline(须人工确认),勿改本断言糊过去`,
+  )
 })
 
 test('R5 基线键独立且不得与 R2/R3/R4 复用;失败文案必须点名 cta 正解', () => {

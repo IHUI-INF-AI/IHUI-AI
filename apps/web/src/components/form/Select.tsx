@@ -12,6 +12,13 @@ import { cn } from '@/lib/utils'
 // 2026-09-15 治理:定位/portal/关闭逻辑统一收敛到 PortalPanel(此前 absolute 就地渲染,
 // 会被 overflow-hidden 祖先裁剪;Escape/外点关闭与全项目其余浮层重复)。
 import { PortalPanel } from '@/components/feedback/portal-panel'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
+
+/**
+ * 层栈 id(见 @/lib/overlay-stack):下拉面板的门户外 Esc(PortalPanel 内部)
+ * 与 listbox 内的 Esc 共用同一身份,避免两个处理器各自入栈互相遮蔽。
+ */
+const SELECT_OVERLAY_ID = 'form-select'
 
 export interface Option {
   label: string
@@ -65,6 +72,14 @@ export function Select({
     const ro = new ResizeObserver(sync)
     ro.observe(el)
     return () => ro.disconnect()
+  }, [open])
+
+  // 层栈:面板打开期间注册为栈顶(与 PortalPanel 内部同一 id,pushOverlay 幂等),
+  // 两层 Esc 都只在栈顶时消费
+  React.useEffect(() => {
+    if (!open) return
+    pushOverlay(SELECT_OVERLAY_ID)
+    return () => popOverlay(SELECT_OVERLAY_ID)
   }, [open])
 
   const selected = React.useMemo(() => {
@@ -123,6 +138,7 @@ export function Select({
 
   const handleListKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
+      if (!isTopOverlay(SELECT_OVERLAY_ID)) return
       e.preventDefault()
       setOpen(false)
       triggerRef.current?.focus()
@@ -201,6 +217,7 @@ export function Select({
           align="start"
           gap={4}
           panelRef={listRef}
+          overlayId={SELECT_OVERLAY_ID}
           style={anchorWidth ? { width: anchorWidth } : undefined}
         >
           <div

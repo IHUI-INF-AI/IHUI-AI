@@ -97,6 +97,7 @@ import {
   uploadFileMultipart,
   type ConversationDetail,
   type LlmModel,
+  type TerminalDeltaEvent,
 } from '@ihui/api-client'
 import {
   FALLBACK_MODELS,
@@ -119,6 +120,7 @@ import { VoiceInput } from '../components/VoiceInput'
 import { ModelConfigDialog, type ModelConfig } from '../components/ModelConfigDialog'
 import ModelPickerList, { type ModelListItem } from '../components/ModelPickerList'
 import ImagePreviewModal from '../components/ImagePreviewModal'
+import { type ImageTransferKind, type ImageTransferResult } from '@ihui/shared/chat/element-pack'
 import Drawer, {
   type DrawerConversationItem,
   type DrawerExtraMenu,
@@ -452,8 +454,66 @@ function PlanStepList({
   )
 }
 
-/** 终端任务列表(W7):命令 + 状态徽标 + 耗时;点击折叠查看等宽输出 + 退出码 */
-function TerminalTaskList({ tasks }: { tasks: readonly TerminalTaskItem[] }): React.JSX.Element {
+/**
+ * D19 terminal_delta live 缓冲(2026-09-25 接,对齐 web store.terminalOutputs 口径)。
+ * 命令执行期间后端逐块下发 terminal_delta(stdout/stderr 增量),本屏按 terminalId 累加成
+ * live 缓冲;渲染端与整帧 terminal_end.output **取更长者**(terminalDisplayOutput)——
+ * 后端整帧 output 截 8000 字符,构建日志尾部只存在于 live 缓冲里。
+ * 刻意不写进消息正文(onDelta 的事),也不折进 task.output(applyTerminalEnd 会整体覆盖,
+ * 折进去反而被短整帧吃掉)。RN 内存敏感:单键超限保**尾部**,键数超限先逐出最旧,
+ * 两档上限与 web apps/web/src/stores/chat.ts(20000 字符/键、TERMINAL_OUTPUT_MAX_KEYS=20)同值。
+ */
+export const TERMINAL_LIVE_MAX_CHARS = 20000
+export const TERMINAL_LIVE_MAX_KEYS = 20
+
+/** 追加一帧某 terminalId 的增量(纯函数;超限保尾部)。 */
+export function foldTerminalDelta(
+  live: Record<string, string>,
+  terminalId: string,
+  text: string,
+): Record<string, string> {
+  const merged = live[terminalId] ?? ''
+  const combined = merged + text
+  const next: Record<string, string> = {
+    ...live,
+    [terminalId]:
+      combined.length > TERMINAL_LIVE_MAX_CHARS
+        ? combined.slice(-TERMINAL_LIVE_MAX_CHARS)
+        : combined,
+  }
+  const keys = Object.keys(next)
+  if (keys.length > TERMINAL_LIVE_MAX_KEYS) {
+    // terminalId 为 SSE 下发的非数字串,Object.keys 插入序 = 首现序,逐出最旧键
+    for (const stale of keys.slice(0, keys.length - TERMINAL_LIVE_MAX_KEYS)) delete next[stale]
+  }
+  return next
+}
+
+/** onTerminalDelta 回调的折叠步(导出供定向测试):空 terminalId / 空文本帧整帧丢弃,不触碰消息模型。 */
+export function applyTerminalDeltaToLive(
+  prev: Record<string, string>,
+  event: Pick<TerminalDeltaEvent, 'terminalId' | 'text'>,
+): Record<string, string> {
+  if (!event.terminalId || !event.text) return prev
+  return foldTerminalDelta(prev, event.terminalId, event.text)
+}
+
+/** 渲染取用口径(对齐 web terminal-section.tsx 的 effectiveOutput):live 更长用 live,否则用整帧 output。 */
+export function terminalDisplayOutput(
+  task: Pick<TerminalTaskItem, 'output'>,
+  live: string | undefined,
+): string | undefined {
+  return live && live.length > (task.output?.length ?? 0) ? live : task.output
+}
+
+/** 终端任务列表(W7 + D19 live 增量):命令 + 状态徽标 + 耗时;点击折叠查看等宽输出 + 退出码 */
+function TerminalTaskList({
+  tasks,
+  live,
+}: {
+  tasks: readonly TerminalTaskItem[]
+  live?: Record<string, string>
+}): React.JSX.Element {
   const { t } = useI18n()
   const [openIds, setOpenIds] = useState<Record<string, boolean>>({})
   return (
@@ -473,7 +533,10 @@ function TerminalTaskList({ tasks }: { tasks: readonly TerminalTaskItem[] }): Re
         const toneKind: BadgeKind =
           task.status === 'completed' ? 'done' : task.status === 'failed' ? 'failed' : 'active'
         const duration = formatDurationMs(task.durationMs)
-        const open = openIds[task.id] === true
+        // D19:live 缓冲与整帧 output 取更长者(web 同口径);运行中且有增量时默认展开成实时面板,
+        // 用户手动折叠(openIds 记 false)仍被尊重;无增量帧时行为与改造前完全一致。
+        const displayOutput = terminalDisplayOutput(task, live?.[task.id])
+        const open = openIds[task.id] ?? (task.status === 'running' && displayOutput !== undefined)
         return (
           <View key={task.id} style={bubbleStyles.card}>
             <Pressable
@@ -500,17 +563,17 @@ function TerminalTaskList({ tasks }: { tasks: readonly TerminalTaskItem[] }): Re
                     {t('aiAssistantN8n.terminalExitCode')}: {task.exitCode}
                   </Text>
                 ) : null}
-                {task.output ? (
+                {displayOutput ? (
                   <View style={task.exitCode !== undefined ? bubbleStyles.sectionGap : null}>
                     <Text style={bubbleStyles.sectionLabel}>
                       {t('aiAssistantN8n.terminalOutput')}
                     </Text>
-                    <Text style={bubbleStyles.monoText}>{task.output}</Text>
+                    <Text style={bubbleStyles.monoText}>{displayOutput}</Text>
                     {/* 后端只下发截断文本:不交代总长就等于让用户把截断当完整 */}
                     {task.truncated ? (
                       <Text style={bubbleStyles.sectionLabel}>
                         {t('aiAssistantN8n.terminalTruncated', {
-                          total: task.totalChars ?? task.output.length,
+                          total: task.totalChars ?? displayOutput.length,
                         })}
                       </Text>
                     ) : null}
@@ -532,6 +595,8 @@ interface MessageBubbleProps {
   onToast: (type: FloatBoxType, message: string) => void
   /** 失败轮重试:仅当该轮确实可重发时由父级传入;缺失即不渲染重试按钮 */
   onRetry?: () => void
+  /** D19 terminal_delta 的 live 缓冲(键 = terminalId);缺失即面板退化为改造前形态 */
+  terminalLive?: Record<string, string>
 }
 
 function MessageBubble({
@@ -539,6 +604,7 @@ function MessageBubble({
   onPreviewImage,
   onToast,
   onRetry,
+  terminalLive,
 }: MessageBubbleProps): React.JSX.Element {
   const { t } = useI18n()
   const isUser = message.role === 'user'
@@ -662,9 +728,9 @@ function MessageBubble({
           {answerVisible && message.planSteps && message.planSteps.length > 0 ? (
             <PlanStepList steps={message.planSteps} explanation={message.planExplanation} />
           ) : null}
-          {/* 终端任务可视化(W7:命令 + 等宽输出 + 退出码) */}
+          {/* 终端任务可视化(W7 + D19:命令 + 等宽输出 + 退出码;运行中 live 增量与整帧取更长者) */}
           {answerVisible && message.terminalTasks && message.terminalTasks.length > 0 ? (
-            <TerminalTaskList tasks={message.terminalTasks} />
+            <TerminalTaskList tasks={message.terminalTasks} live={terminalLive} />
           ) : null}
           {/* D34 本轮上下文注入交代(第 45 轮补齐该端,此前该帧在本端 0 命中) */}
           {answerVisible && message.injections && message.injections.length > 0 ? (
@@ -782,6 +848,10 @@ export default function AiAssistantN8nScreen() {
   const nextId = (): string => `n8n-${++idCounter.current}`
 
   const [messages, setMessages] = useState<N8nMessage[]>([])
+  // D19:terminal_delta 的 live 缓冲(键 = terminalId,值 = 累计增量,超限保尾部)。
+  // 只由 onTerminalDelta 写入、终端面板按"与整帧 output 取更长者"读取 ——
+  // 与消息正文(onDelta 通道)完全分离,不落 content。
+  const [terminalLive, setTerminalLive] = useState<Record<string, string>>({})
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
 
@@ -1006,6 +1076,30 @@ export default function AiAssistantN8nScreen() {
   }, [modelListItems, selectedModelId])
 
   const previewSource: ImageSourcePropType | null = previewImage ? { uri: previewImage } : null
+
+  // D64② 传输动作半格(宿主注入):保存相册 / 复制图片到剪贴板。
+  // 平台特有:落相册依赖 expo-media-library 权限、写图剪贴板依赖原生实现 ⇒ 动作归宿主;
+  // 成败**文案**判据在 element-pack(imageTransferView),本函数只如实回报成败,失败不静默吞。
+  const handlePreviewTransfer = async (kind: ImageTransferKind): Promise<ImageTransferResult> => {
+    const url = previewImage
+    if (!url) return 'failed'
+    try {
+      const ext = imageExtFromUrl(url)
+      const dest = new FileSystem.File(FileSystem.Paths.cache, `preview_${Date.now()}.${ext}`)
+      const local = await FileSystem.File.downloadFileAsync(url, dest, { idempotent: true })
+      if (kind === 'save') {
+        const perm = await MediaLibrary.requestPermissionsAsync()
+        if (!perm.granted) return 'failed'
+        await MediaLibrary.saveToLibraryAsync(local.uri)
+        return 'success'
+      }
+      const base64 = await local.base64()
+      Clipboard.setImage(`data:image/${ext === 'jpg' ? 'jpeg' : ext};base64,${base64}`)
+      return 'success'
+    } catch {
+      return 'failed'
+    }
+  }
 
   // 任务进度状态条数据源(对齐 web task-status-bar):plan_updated 权威快照写在
   // "那一条 assistant 消息"上,取最后一条带 planSteps 的 assistant 消息(倒序扫描)。
@@ -1306,6 +1400,12 @@ export default function AiAssistantN8nScreen() {
           })
           scrollToEnd()
         },
+        // D19 终端实时输出增量(2026-09-18 后端起发 terminal_delta,web 2026-09-24 接,本端补齐):
+        // 命令执行期间逐块下发 stdout/stderr,这里按 terminalId 累加进 live 缓冲供终端面板渲染。
+        // 刻意不动 setMessages —— 增量不是正文,也不折进 task.output(terminal_end 会整体覆盖)。
+        onTerminalDelta: (event) => {
+          setTerminalLive((prev) => applyTerminalDeltaToLive(prev, event))
+        },
         // 终端任务可视化(W7):terminal_end 更新终态/输出/退出码/耗时
         onTerminalEnd: (event) => {
           setMessages((prev) => {
@@ -1580,6 +1680,7 @@ export default function AiAssistantN8nScreen() {
       onPreviewImage={handlePreviewImage}
       onToast={showToast}
       onRetry={isErrorTurn(item) && resendTargetText(messages) !== null ? retryLastTurn : undefined}
+      terminalLive={terminalLive}
     />
   )
 
@@ -1780,6 +1881,7 @@ export default function AiAssistantN8nScreen() {
         visible={previewImage !== null}
         source={previewSource}
         onClose={() => setPreviewImage(null)}
+        onTransfer={handlePreviewTransfer}
       />
 
       {/* 模型配置弹层(对齐 Uniapp ModelConfigDialog:温度/top_p/maxTokens 等

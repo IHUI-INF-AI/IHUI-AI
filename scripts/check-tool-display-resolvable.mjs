@@ -67,7 +67,20 @@ export function extractDisplayKeys(tsText) {
   if (start === -1) throw new Error('找不到 TOOL_DISPLAY_KEYS')
   const end = tsText.indexOf('\n}', start)
   const block = tsText.slice(start, end === -1 ? tsText.length : end)
-  return [...new Set([...block.matchAll(/^\s*[a-z0-9_]+:\s*'([A-Za-z0-9_]+)'/gm)].map((m) => m[1]))].sort()
+  return [
+    ...new Set([...block.matchAll(/^\s*[a-z0-9_]+:\s*'([A-Za-z0-9_]+)'/gm)].map((m) => m[1])),
+  ].sort()
+}
+
+/**
+ * D83:从 MCP 三层措辞表源码里取已登记的 i18n 键(一律 `toolMcp` 前缀)。
+ * 该表是**动态 MCP server** 的措辞层,不落在 TOOL_DISPLAY_KEYS 的「码名→功能名」块里,
+ * 故单列一条取材:表里出现的每个键都必须与 display key 同样逐语言可解析。
+ */
+export function extractMcpActivityKeys(tsText) {
+  if (!tsText.includes('SERVER_TOOL_ACTIVITY_KEYS'))
+    throw new Error('找不到 SERVER_TOOL_ACTIVITY_KEYS(D83 词表结构变更?)')
+  return [...new Set([...tsText.matchAll(/'(toolMcp[A-Za-z0-9_]+)'/g)].map((m) => m[1]))].sort()
 }
 
 /**
@@ -102,6 +115,11 @@ async function main() {
   const tsText = readFileSync(resolve(ROOT, 'packages/shared/src/chat/tool-display.ts'), 'utf8')
   const displayKeys = extractDisplayKeys(tsText)
   if (displayKeys.length === 0) throw new Error('词表解析出 0 个 display key(源码格式变更?)')
+  // D83:MCP server×tool×上下文 三层措辞表的键同样必须逐语言可解析(表与词表必须同票)
+  const mcpSourcePath = 'packages/shared/src/chat/mcp-tool-activity.ts'
+  const mcpKeys = extractMcpActivityKeys(readFileSync(resolve(ROOT, mcpSourcePath), 'utf8'))
+  if (mcpKeys.length === 0) throw new Error('MCP 措辞表解析出 0 个键(源码格式变更?)')
+  const wordListKeys = [...new Set([...displayKeys, ...mcpKeys])].sort()
 
   const failures = []
   const sharedByLang = {}
@@ -118,10 +136,13 @@ async function main() {
 
   for (const lang of LANGS) {
     const sharedTask = sharedByLang[lang]?.taskStatus ?? {}
-    for (const key of displayKeys) {
+    for (const key of wordListKeys) {
       check(`shared/${lang}`, sharedTask, key)
       for (const dir of END_DIRS) {
-        const merged = mergeMessages(sharedByLang[lang], readJson(`packages/i18n/messages/${dir}/${lang}.json`))
+        const merged = mergeMessages(
+          sharedByLang[lang],
+          readJson(`packages/i18n/messages/${dir}/${lang}.json`),
+        )
         check(`${dir}/${lang}`, merged.taskStatus ?? {}, key)
       }
     }
@@ -130,21 +151,27 @@ async function main() {
   // 生成物:小程序离线包必须与词表同步(忘跑 pnpm gen:i18n 即红)
   const genPath = 'apps/miniapp-taro/src/i18n/generated/remote-locales.gen.ts'
   const remote =
-    remoteLocaleList(readFileSync(resolve(ROOT, 'apps/miniapp-taro/scripts/gen-i18n-compressed.mjs'), 'utf8')) ?? LANGS
+    remoteLocaleList(
+      readFileSync(resolve(ROOT, 'apps/miniapp-taro/scripts/gen-i18n-compressed.mjs'), 'utf8'),
+    ) ?? LANGS
   const bundle = decodeTaroBundle(readFileSync(resolve(ROOT, genPath), 'utf8'), remote)
   for (const lang of remote) {
     if (!bundle[lang]) {
       failures.push(`${genPath} 解不出 ${lang} 载荷(生成物过期或格式变更,需 pnpm gen:i18n)`)
       continue
     }
+    // 离线包只要求覆盖**已被该端消费的** display key;D83 的 MCP 三层表目前无人消费
+    // (apps 接线属后续票),故此处刻意不掺入 mcpKeys —— 掺了就是把"尚未接线的表"当成
+    // 本票的落点债,而落点债由守门 74 的 W5 notice 如实报数,不该由这道门硬拦。
     for (const key of displayKeys) check(`taro-gen/${lang}`, bundle[lang].taskStatus ?? {}, key)
   }
 
   const k = displayKeys.length
   const result = {
     displayKeys: k,
-    // shared 1 份 + 各端合并视图 + 小程序离线包(仅远程语言)
-    checked: k * LANGS.length * (1 + END_DIRS.length) + k * remote.length,
+    mcpActivityKeys: mcpKeys.length,
+    // shared 1 份 + 各端合并视图(两张表都核) + 小程序离线包(仅远程语言、仅已消费的 display key)
+    checked: wordListKeys.length * LANGS.length * (1 + END_DIRS.length) + k * remote.length,
     failures,
   }
   if (json) {
@@ -153,7 +180,7 @@ async function main() {
   }
   if (failures.length === 0) {
     console.log(
-      `[tool-display-resolvable] ✅ ${displayKeys.length} 个工具功能名在 ${LANGS.length} 语言 ×(shared + ${END_DIRS.length} 端 + taro 生成物)全部取到值,共比对 ${result.checked} 项`,
+      `[tool-display-resolvable] ✅ ${displayKeys.length} 个工具功能名 + ${mcpKeys.length} 个 MCP 措辞键(D83 三层表)在 ${LANGS.length} 语言 ×(shared + ${END_DIRS.length} 端 + taro 生成物)全部取到值,共比对 ${result.checked} 项`,
     )
     return 0
   }
