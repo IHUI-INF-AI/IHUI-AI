@@ -4,6 +4,11 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import {
   inferArea,
   parseCommitMessage,
@@ -721,5 +726,114 @@ test('multi 白名单: scope=multi + verify-*.mjs → R1 仍触发(白名单只�
   const result = detectPollution(staged, 'multi')
   assert.equal(result.block, true)
   assert.ok(result.rules.includes('R1'))
+})
+
+// ─── 合并提交豁免(2026-09-24 立)─────────────────────────────
+// 上面全部是纯函数级取证;这一组必须走**端到端进程**,因为豁免的输入是
+// `git rev-parse --git-path MERGE_HEAD` + 真实索引,不是任何可 import 的函数。
+// 立因:该门此前对合并没有任何出口,每一枚合并提交都被 R2 打死 ⇒ 只能 --no-verify
+// (连带废掉 132 项 pre-commit)。恒红门的唯一结局是没人再守门(§12e 同型)。
+
+const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
+const SCRIPT = join(REPO, 'scripts', 'check-commit-scope-consistency.mjs')
+const GIT = 'C:/Program Files/Git/cmd/git.exe'
+
+function gitInit(dir) {
+  const run = (...a) =>
+    execFileSync(GIT, ['-c', 'safe.directory=*', ...a], {
+      cwd: dir,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 60000,
+    }).trim()
+  run('init', '-q', '-b', 'main')
+  run('config', 'user.email', 't@t')
+  run('config', 'user.name', 't')
+  mkdirSync(join(dir, 'src'), { recursive: true })
+  writeFileSync(join(dir, 'src/base.ts'), 'export const base = 1\n')
+  run('add', '.')
+  run('commit', '-qm', 'chore: base')
+  return run
+}
+
+/** R2 的现场:暂存集同时含 packages/i18n/messages/* 与 apps/web/*,消息 scope 写 web */
+function scene(dir) {
+  const run = gitInit(dir)
+  mkdirSync(join(dir, 'packages/i18n/messages/web'), { recursive: true })
+  mkdirSync(join(dir, 'apps/web/src'), { recursive: true })
+  writeFileSync(join(dir, 'packages/i18n/messages/web/zh-CN.json'), '{}\n')
+  writeFileSync(join(dir, 'apps/web/src/x.ts'), 'export const x = 1\n')
+  run('add', '.')
+  const msg = join(dir, 'MSG')
+  writeFileSync(msg, 'feat(web): 示例提交\n')
+  return { run, msg }
+}
+
+function runGate(dir, msg) {
+  try {
+    const out = execFileSync(process.execPath, [SCRIPT, msg], {
+      cwd: dir,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 60000,
+    })
+    return { code: 0, out }
+  } catch (e) {
+    return { code: e.status ?? -1, out: `${e.stdout || ''}${e.stderr || ''}` }
+  }
+}
+
+test('R2 阳性对照:非合并提交里 i18n + scope=web 必须判红', () => {
+  const dir = mkScratch('scope-r2-')
+  try {
+    const { msg } = scene(dir)
+    const { code, out } = runGate(dir, msg)
+    assert.equal(code, 1, `应当 exit 1,实得 ${code}\n${out}`)
+    assert.match(out, /R2/, '必须点名命中的规则')
+    assert.doesNotMatch(out, /合并提交/, '非合并现场不得出现豁免文案')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('MERGE_HEAD 在位 ⇒ 同一现场豁免(且如实说明原因,不静默放行)', () => {
+  const dir = mkScratch('scope-merge-')
+  try {
+    const { run, msg } = scene(dir)
+    const marker = join(dir, run('rev-parse', '--git-dir'), 'MERGE_HEAD')
+    writeFileSync(marker, `${run('rev-parse', 'HEAD')}\n`)
+    assert.ok(existsSync(marker))
+    const { code, out } = runGate(dir, msg)
+    assert.equal(code, 0, `合并提交应当 exit 0,实得 ${code}\n${out}`)
+    assert.match(out, /合并提交/, '必须打印豁免原因')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('豁免只认 MERGE_HEAD:删掉该文件后同一现场立刻回到判红', () => {
+  const dir = mkScratch('scope-unmerge-')
+  try {
+    const { run, msg } = scene(dir)
+    const marker = join(dir, run('rev-parse', '--git-dir'), 'MERGE_HEAD')
+    writeFileSync(marker, `${run('rev-parse', 'HEAD')}\n`)
+    assert.equal(runGate(dir, msg).code, 0, '先证明豁免生效')
+    rmSync(marker)
+    assert.equal(runGate(dir, msg).code, 1, 'MERGE_HEAD 没了还豁免 ⇒ 判据已失效')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('装车:commit-msg 钩子真调用本脚本 + 豁免分支真在源码里被调用', () => {
+  const hook = readFileSync(join(REPO, '.husky', 'commit-msg'), 'utf8')
+  assert.match(hook, /check-commit-scope-consistency\.mjs/, '钩子里没有本脚本 ⇒ 判据存在但永不运行')
+  const src = readFileSync(SCRIPT, 'utf8')
+  assert.match(src, /process\.env\.HUSKY_SKIP_SCOPE_CHECK === '1'/, '紧急跳过 env 必须真被读取')
+  assert.match(src, /isMergeCommit\(\)/, '豁免必须被调用,不只是定义')
+  // 豁免不得放在模块顶层:测试文件 import 本模块取纯函数,顶层 exit(0) 会让整个
+  // 测试文件在"仓库正处于合并中"时静默零用例(判据失效表现为绿 —— 比红更糟)。
+  assert.doesNotMatch(src, /^if \(isMergeCommit\(\)\)/m, '豁免只允许在 main() 内判定')
+  assert.match(src, /^  if \(isMergeCommit\(\)\) \{$/m, 'main() 第一屏就判,判据不得排在读消息文件之后')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

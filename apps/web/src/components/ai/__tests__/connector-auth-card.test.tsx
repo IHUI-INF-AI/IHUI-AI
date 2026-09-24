@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -49,22 +49,18 @@ describe('D78 ConnectorAuthCard / 五态渲染(G-107)', () => {
   })
 
   it('连接中态:不渲染正向动作按钮(避免重复发起),状态标签可见', () => {
-    const { container } = render(
-      <ConnectorAuthCard connectorName="飞书" state="connecting" />,
-    )
+    const { container } = render(<ConnectorAuthCard connectorName="飞书" state="connecting" />)
     expect(container.querySelector('[data-action="connect"]')).toBeNull()
-    expect(
-      container.querySelector('[data-connector-auth-label="connecting"]')?.textContent,
-    ).toBe('connecting')
+    expect(container.querySelector('[data-connector-auth-label="connecting"]')?.textContent).toBe(
+      'connecting',
+    )
   })
 
   it('已连接态:渲染 connected 标签,无授权决策按钮', () => {
-    const { container } = render(
-      <ConnectorAuthCard connectorName="飞书" state="connected" />,
+    const { container } = render(<ConnectorAuthCard connectorName="飞书" state="connected" />)
+    expect(container.querySelector('[data-connector-auth-label="connected"]')?.textContent).toBe(
+      'connected',
     )
-    expect(
-      container.querySelector('[data-connector-auth-label="connected"]')?.textContent,
-    ).toBe('connected')
     expect(container.querySelector('[data-action="connect"]')).toBeNull()
     expect(container.querySelector('[data-action="reconnect"]')).toBeNull()
     expect(container.querySelector('[data-action="decline"]')).toBeNull()
@@ -82,12 +78,10 @@ describe('D78 ConnectorAuthCard / 五态渲染(G-107)', () => {
   })
 
   it('已拒绝态:渲染 declined 提示(含连接器名),无授权决策按钮', () => {
-    const { container } = render(
-      <ConnectorAuthCard connectorName="企业微信" state="declined" />,
+    const { container } = render(<ConnectorAuthCard connectorName="企业微信" state="declined" />)
+    expect(container.querySelector('[data-connector-auth-label="declined"]')?.textContent).toBe(
+      'declined({"connectorName":"企业微信"})',
     )
-    expect(
-      container.querySelector('[data-connector-auth-label="declined"]')?.textContent,
-    ).toBe('declined({"connectorName":"企业微信"})')
     expect(container.querySelector('[data-action="decline"]')).toBeNull()
   })
 })
@@ -98,7 +92,10 @@ describe('D78 ConnectorAuthCard / 负向出口与拒绝不阻断', () => {
       const { container, unmount } = render(
         <ConnectorAuthCard connectorName="飞书" state={state} onAction={vi.fn()} />,
       )
-      expect(container.querySelector('[data-connector-auth-decline-available="true"]'), state).not.toBeNull()
+      expect(
+        container.querySelector('[data-connector-auth-decline-available="true"]'),
+        state,
+      ).not.toBeNull()
       expect(container.querySelector('[data-action="decline"]'), state).not.toBeNull()
       unmount()
     }
@@ -130,14 +127,14 @@ describe('D78 ConnectorAuthCard / 负向出口与拒绝不阻断', () => {
         <p data-next-message="true">后续回答</p>
       </div>,
     )
-    expect(container.querySelector('[data-connector-auth-decline-available="false"]')).not.toBeNull()
+    expect(
+      container.querySelector('[data-connector-auth-decline-available="false"]'),
+    ).not.toBeNull()
     expect(container.querySelector('[data-next-message="true"]')).not.toBeNull()
   })
 
   it('不传 onAction ⇒ 决策按钮不渲染(纯展示形态不误导)', () => {
-    const { container } = render(
-      <ConnectorAuthCard connectorName="飞书" state="disconnected" />,
-    )
+    const { container } = render(<ConnectorAuthCard connectorName="飞书" state="disconnected" />)
     expect(container.querySelector('[data-action="connect"]')).toBeNull()
     expect(container.querySelector('[data-action="decline"]')).toBeNull()
     expect(container.querySelector('[data-action="moreInfo"]')).toBeNull()
@@ -203,4 +200,4 @@ describe('D78 词表覆盖(读真实词包,不 mock)', () => {
     expect(node.moreInfo).toBe('更多資訊')
   })
 })
-// [IHUI-AI-PROVENANCE]:
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

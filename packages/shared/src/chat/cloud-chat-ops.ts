@@ -66,9 +66,7 @@ const cellKeys = (op: CloudChatOp, phase: CloudChatOpPhase): CloudChatOpCellKeys
  * 动作 × 三态 → 15 格键名。**映射表穷尽**:`Record<CloudChatOp, Record<CloudChatOpPhase, …>>`
  * 缺任何一格直接编译失败(对标 agent-actions.ts 的 agentActionPhaseKey/agentActionMatrixKeys)。
  */
-const CELL_KEYS: Readonly<
-  Record<CloudChatOp, Record<CloudChatOpPhase, CloudChatOpCellKeys>>
-> = {
+const CELL_KEYS: Readonly<Record<CloudChatOp, Record<CloudChatOpPhase, CloudChatOpCellKeys>>> = {
   attachCloudChat: {
     active: cellKeys('attachCloudChat', 'active'),
     completed: cellKeys('attachCloudChat', 'completed'),
@@ -107,7 +105,9 @@ export function cloudChatOpLabelKey(op: CloudChatOp): string {
 
 /** 矩阵键列表(15 格,供守门/测试逐格断言覆盖率) */
 export function cloudChatOpMatrixKeys(): readonly string[] {
-  return CLOUD_CHAT_OPS.flatMap((op) => CLOUD_CHAT_OP_PHASES.map((phase) => cloudChatOpKeys(op, phase).labelKey))
+  return CLOUD_CHAT_OPS.flatMap((op) =>
+    CLOUD_CHAT_OP_PHASES.map((phase) => cloudChatOpKeys(op, phase).labelKey),
+  )
 }
 
 /** 卡片标题键 / 卡级 ariaLabel 键 / 空态键 */
