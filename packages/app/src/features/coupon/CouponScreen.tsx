@@ -154,7 +154,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
     },
-    tabActive: { backgroundColor: tk.brand.DEFAULT },
+    tabActive: { backgroundColor: tk.brand.cta },
     tabText: { fontSize: 14, color: tk.text.secondary },
     tabTextActive: { color: tk.surface.light },
     errorBar: {

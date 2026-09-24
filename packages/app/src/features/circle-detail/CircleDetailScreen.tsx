@@ -127,7 +127,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 10,
       paddingVertical: 8,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     backBtnText: { color: tk.surface.light, fontSize: 16 },
     backText: { fontSize: 16, color: tk.text.medium },
@@ -168,7 +168,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.xl,
       alignItems: 'center',
     },
-    actionBtnPrimary: { backgroundColor: tk.brand.DEFAULT },
+    actionBtnPrimary: { backgroundColor: tk.brand.cta },
     actionBtnPrimaryText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
     actionBtnSecondary: {
       borderWidth: 1,
