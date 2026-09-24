@@ -446,4 +446,91 @@ test('P4-6: tab pill 合法内容模型 + 关闭钮聚焦显形(2026-09-22 非�
   expect(closed.count).toBe(before.count - 1)
   expect(closed.active).toBe(switched.active)
 })
+
+/* ---------------------------------------------------------------------------
+ * D50② 工作面板 Tab 状态按会话分桶持久化(2026-09-25 扩,复用本文件的
+ * dev-only __workPanelStore 通道;build 下同样优雅跳过)
+ * ------------------------------------------------------------------------- */
+
+test('D50-1: 跨会话 Tab 分桶 — 切换隔离、切回恢复、无会话退回全局', async ({ page }) => {
+  const storeReady = await page.evaluate(
+    () => typeof (window as any).__workPanelStore !== 'undefined',
+  )
+  test.skip(!storeReady, 'window.__workPanelStore 未暴露(build 版),跳过')
+  const result = await page.evaluate(() => {
+    const store = (window as any).__workPanelStore
+    // 全局作用域开 1 个 tab
+    store.getState().setConversationScope(null)
+    store.getState().newTab('https://global.d50.example.com')
+    // 会话 A:2 个 tab,激活第一个
+    store.getState().setConversationScope('conv-a')
+    store.getState().newTab('https://a1.d50.example.com')
+    store.getState().newTab('https://a2.d50.example.com')
+    const a1Id = store.getState().tabs[0].id
+    store.getState().setActiveTab(a1Id)
+    // 切到会话 B:应为空视图(隔离)
+    store.getState().setConversationScope('conv-b')
+    const bTabs = store.getState().tabs.length
+    // 切回 A:tabs/激活/地址栏全部恢复
+    store.getState().setConversationScope('conv-a')
+    const restored = {
+      count: store.getState().tabs.length,
+      activeUrl: store.getState().tabs.find((t: any) => t.id === store.getState().activeTabId)?.url,
+      addressInput: store.getState().addressInput,
+    }
+    // 退回无会话:全局桶原样回来
+    store.getState().setConversationScope(null)
+    const globalBack = store.getState().tabs.map((t: any) => t.url)
+    return { bTabs, restored, globalBack }
+  })
+  expect(result.bTabs).toBe(0)
+  expect(result.restored.count).toBe(2)
+  expect(result.restored.activeUrl).toBe('https://a1.d50.example.com')
+  expect(result.restored.addressInput).toBe('https://a1.d50.example.com')
+  expect(result.globalBack).toEqual(['https://global.d50.example.com'])
+})
+
+test('D50-2: 分桶持久化 — 顶层仍全局形态,会话桶进 conversationTabs,刷新后恢复', async ({
+  page,
+}) => {
+  const storeReady = await page.evaluate(
+    () => typeof (window as any).__workPanelStore !== 'undefined',
+  )
+  test.skip(!storeReady, 'window.__workPanelStore 未暴露(build 版),跳过')
+  await page.evaluate(() => {
+    const store = (window as any).__workPanelStore
+    store.getState().setConversationScope('conv-persist')
+    store.getState().newTab('https://p1.d50.example.com')
+  })
+  await page.waitForTimeout(200) // persist 写入落盘
+  const disk = await page.evaluate(() => {
+    const raw = localStorage.getItem('ihui-work-panel')
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    return {
+      topLevelTabs: (parsed.state.tabs ?? []).map((t: any) => t.url),
+      bucket: parsed.state.conversationTabs?.['conv-persist'],
+    }
+  })
+  expect(disk).not.toBeNull()
+  // 向后兼容:顶层 tabs 仍是全局视图(此时全局无 tab),会话数据只进 conversationTabs
+  expect(disk!.topLevelTabs).toEqual([])
+  expect(disk!.bucket?.tabs?.[0]?.url).toBe('https://p1.d50.example.com')
+
+  // 刷新 → 桶从 localStorage 恢复(store 重建 + persist hydrate 后再装桶)
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await page
+    .waitForFunction(() => typeof window.__workPanelStore !== 'undefined', undefined, {
+      timeout: 15000,
+    })
+    .catch(() => null)
+  const afterReload = await page.evaluate(() => {
+    const store = (window as any).__workPanelStore
+    store.getState().setConversationScope('conv-persist')
+    const s = store.getState()
+    return { urls: s.tabs.map((t: any) => t.url), addressInput: s.addressInput }
+  })
+  expect(afterReload.urls).toEqual(['https://p1.d50.example.com'])
+  expect(afterReload.addressInput).toBe('https://p1.d50.example.com')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
