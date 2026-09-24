@@ -104,7 +104,6 @@ import CardWithList, { type CardWithListItem } from '../components/CardWithList'
 import { OfflineBanner } from '../components/OfflineBanner'
 import AiModelCard from '../components/AiModelCard'
 import { Toolbar } from '../components/Toolbar'
-import { GlobalFloatBox } from '../components/GlobalFloatBox'
 import { KnowledgePlanet, type KnowledgePlanetItem } from '../components/KnowledgePlanet'
 import PopularCourses, { type PopularCourse } from '../components/PopularCourses'
 import { FunctionBlockColumn, type FunctionBlock } from '../components/FunctionBlockColumn'
@@ -1831,12 +1830,8 @@ export function HomeScreen() {
           },
         ]}
       />
-      {/* GlobalFloatBox 全局浮窗按钮(对齐 Uniapp App.vue 全局浮窗) */}
-      <GlobalFloatBox
-        onPromote={() => rootNav?.navigate('Promote')}
-        onConsult={() => rootNav?.navigate('CustomerService')}
-        onFeedback={() => rootNav?.navigate('Settings')}
-      />
+      {/* 悬浮栏(赚米/客服/反馈)由 App.tsx 的 GlobalFloatBox 单点渲染;
+          此处曾另挂一份,两份同屏叠出双栏,且这份的「反馈」错跳 Settings。 */}
       {/* Drawer 侧滑抽屉(对齐 Uniapp DrawerComponent,由 NavBar 菜单按钮触发) */}
       <Drawer
         visible={drawerVisible}
