@@ -61,6 +61,12 @@ export const HOT = [
   'scripts/check-dangling-local-imports.mjs',
   //  守门 100 由 pre-commit 直调,一次审计要 ls-tree 多棵全量树 ⇒ 无界挂起会直接冻结提交链
   'scripts/check-merge-addition-loss.mjs',
+  //  守门 84 同为 pre-commit blocking 门,且**逐文件**跑 `git log` + 批量 cat-file:
+  //  共享 gitdir 一旦被外部锁住,它比任何一道门都更容易把提交拖成"看起来死掉了"。
+  'scripts/check-stale-revert.mjs',
+  //  守门 94 自本日起按索引/HEAD 取输入 ⇒ 会派生 git;它是 pre-commit blocking 门,
+  //  无界挂起同样会把提交拖成"看起来死掉了"。
+  'scripts/check-error-code-coverage.mjs',
   'scripts/backup-unreachable-commits.mjs',
   'scripts/check-port-registry.mjs',
   'scripts/lib/gitdir.mjs',
