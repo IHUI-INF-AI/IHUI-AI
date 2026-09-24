@@ -82,16 +82,16 @@ function renderIcon(iconStr: string, emojiClass: string, imgClass: string) {
 }
 
 const quickEntries = [
-  { icon: dingdanIcon, key: 'user.menu.orders', path: '/pkg-user/user/orders' },
-  { icon: icon('shoucang'), key: 'user.menu.favorites', path: '/pkg-user/favorites/index' },
-  { icon: gerenIcon, key: 'user.menu.following', path: '/pkg-user/following/index' },
+  { icon: dingdanIcon, key: 'order.list.title', path: '/pkg-user/user/orders' },
+  { icon: icon('shoucang'), key: 'favorites.title', path: '/pkg-user/favorites/index' },
+  { icon: gerenIcon, key: 'following.title', path: '/pkg-user/following/index' },
   { icon: gonggaoIcon, key: 'user.menu.subscriptions', path: '/pkg-user/subscriptions/index' },
 ]
 
 const menus = [
-  { icon: courseIconLocal, key: 'user.menu.courses', path: '/pkg-learn/course/list' },
-  { icon: aiIconLocal, key: 'user.menu.ai', path: '/pkg-ai/ai/chat' },
-  { icon: shezhiIcon, key: 'user.menu.settings', path: '/pkg-user/user/settings' },
+  { icon: courseIconLocal, key: 'nav.courses', path: '/pkg-learn/course/list' },
+  { icon: aiIconLocal, key: 'toolbar.ai', path: '/pkg-ai/ai/chat' },
+  { icon: shezhiIcon, key: 'settings.title', path: '/pkg-user/user/settings' },
   // P0 页面导航入口(复用 LineIcon 图标资产)
   {
     icon: 'calendar',
@@ -108,9 +108,9 @@ const menus = [
 // 会员权益项:对齐原项目 UserMembershipBenefits 3 项数据(原项目 index.vue:297-310)
 // i18n key 不存在时用中文 fallback(后续补 key 后自动切换)
 const membershipBenefits: ReadonlyArray<{ icon: string; key: string; fallback: string }> = [
-  { icon: aiIconLocal, key: 'user.benefits.aiAssistant', fallback: t('tail.21') },
-  { icon: courseIconLocal, key: 'user.benefits.freeCourses', fallback: t('tail.22') },
-  { icon: vipActIconLocal, key: 'user.benefits.knowledgeBase', fallback: t('tail.23') },
+  { icon: aiIconLocal, key: 'tail.21', fallback: t('tail.21') },
+  { icon: courseIconLocal, key: 'tail.22', fallback: t('tail.22') },
+  { icon: vipActIconLocal, key: 'tail.23', fallback: t('tail.23') },
 ]
 
 // 格式化音频时间（秒 → mm:ss）

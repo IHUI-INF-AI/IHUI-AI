@@ -31,11 +31,11 @@ export interface SkillsPopupProps {
 }
 
 const CATEGORIES: { key: SkillCategory; labelKey: string }[] = [
-  { key: 'all', labelKey: 'ai.skillsPopup.categoryAll' },
-  { key: 'text', labelKey: 'ai.skillsPopup.categoryText' },
-  { key: 'image', labelKey: 'ai.skillsPopup.categoryImage' },
-  { key: 'video', labelKey: 'ai.skillsPopup.categoryVideo' },
-  { key: 'audio', labelKey: 'ai.skillsPopup.categoryAudio' },
+  { key: 'all', labelKey: 'common.all' },
+  { key: 'text', labelKey: 'aigc.list.catText' },
+  { key: 'image', labelKey: 'aigc.list.catImage' },
+  { key: 'video', labelKey: 'aigc.list.catVideo' },
+  { key: 'audio', labelKey: 'aigc.list.catAudio' },
 ]
 
 export default function SkillsPopup({
