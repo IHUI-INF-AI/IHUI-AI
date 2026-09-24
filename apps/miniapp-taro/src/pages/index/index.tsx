@@ -44,6 +44,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react'
 import { isLoggedIn, getUserInfo, type UserInfo } from '@/utils/auth'
 import { getSystemInfoCompat } from '@/utils/system-info'
 import NavBar from '@/components/NavBar'
+import LineIcon from '@/components/LineIcon'
 import DrawerComponent, {
   type DrawerModelGroup,
   type DrawerUserInfo,
@@ -1339,6 +1340,12 @@ export default function Index() {
                   <Text style={{ fontSize: rpx(22), color: 'var(--color-primary-foreground)' }}>
                     {tt('home.more', '更多')}
                   </Text>
+                  <LineIcon
+                    name="chevron-right"
+                    size={22}
+                    color="var(--color-primary-foreground)"
+                    style={{ marginLeft: '4rpx' }}
+                  />
                 </View>
               </View>
               {state.conversationMessages.length === 0 && !state.isStreaming ? (
