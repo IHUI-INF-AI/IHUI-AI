@@ -964,6 +964,28 @@ C 盘可用 44G → **45.75G**。
 实测:9 项违规 → 8 项已改道并逐字节校验一致(含 `.cargo` 947MB/21760 文件);剩 `~\.codex` 被别的会话
 正在跑的 `codex-windows-sandbox-service` 占用 ⇒ 进冷却,该服务退出后 2 分钟内自动补回,**不杀别人的进程**。
 
+**第三层:悬空目标必须能重建,冷却不得拦住人工窗口(2026-09-24 同日补,前向更正上面最后一句)**
+上面"该服务退出后自动补回"是**错的**:`CodexSandboxService.OpenAI.Codex` 是 StartMode=Auto 的
+LocalSystem 服务(实测 PID 6196,exe 在 `WindowsApps\OpenAI.Codex_*` 里、**不在 `~\.codex` 内**),
+它**永不退出**,所以"等它释放"等于无限期恒红。处置是把窗口**造出来**而不是等:停服务 → `--apply` →
+`finally` 里无条件启回 → 复核(服务 `Running`、事件日志 15 分钟内无 codex 相关报错、`Get-Item -Force`
+的 `Attributes` 含 `ReparsePoint` 且 `Target` 指向 D 盘)。实测 **5732 个文件逐字节校验一致后改道**,
+门 96 从"违规 1 / C 盘 108.8MB"到 **违规 0 / exit 0**。动手前必须先确认**只有该服务自身**匹配 codex
+(无并发 CLI/IDE 会话),否则不 stop。
+
+补这一层时暴露了两个真缺陷,都由自检抓出(不是演练抓的 —— **演练只能证明"会红",判据才证明"不会修"**):
+
+1. **`repairOne` 的判序**:第一行是 `if (!existsSync(srcPath)) return 'absent'`,而**悬空 junction 的
+   `existsSync` 返回 `false`**(它跟随重解析点,目标已被删)。于是"源不存在、无需改道"把这一整型吞掉,
+   表现就是上面演练里"守护跑完什么都没补"。门 96 自己判的是 `!existsSync(p) && !isLink(p)`(两半都有),
+   修复器只抄了前半 ⇒ **同一个判据在两处必须同形**,否则一边判红、一边判无需修,合起来是恒红且永不自愈。
+   现判序改为先 `isLink`(lstat);并把"指针指向与登记表算出的目标不一致"单列 `link-moved` **判红交人工**,
+   不擅自改指向 —— 那等于替人决定数据落点。
+2. **冷却吞掉人工窗口**:第一次 `--apply --no-cooldown` 之前,上一轮 EBUSY 留下的 30 分钟冷却把服务
+   已停好的窗口判成了"跳过"。故加 `--apply --no-cooldown`:**绕过判定但保留既有条目**(守护侧仍需拦住
+   "每 2 分钟重抄 108MB 再撞同一个 EBUSY"),且本轮再失败时**不再续冷却**,否则下一个人工窗口照样被拦。
+   两处都由镜像测试用正则钉死(`scripts/tests/re-home-junctions.test.mjs`),因为它们是行为分支,不是注释。
+
 ### 历史案例
 
 `.ihui-agent/archive/AGENTS_history.md` 记录每次 reset 事故 + 已采取的 tag 备份措施。
