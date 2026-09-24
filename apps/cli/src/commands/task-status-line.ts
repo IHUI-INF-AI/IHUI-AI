@@ -39,6 +39,8 @@ import type { ToolCall } from '@ihui/types/chat';
 import {
   deriveTaskStatusBar,
   describeToolCall,
+  formatBudgetNote,
+  type BudgetNoteKeys,
   type TaskStatusBarViewModel,
   type TaskStatusKind,
   type ToolCallView,
@@ -499,38 +501,22 @@ export function retryNoteText(event: RetryScheduledEvent): string {
 /**
  * 额度分档告警(budget)的终端一行。网关 checkTokenBudget 在流首下发:
  * 80%≤用量<95% 为 warning、95%≤用量<100% 为 critical(≥100% 走 429 BUDGET_EXHAUSTED,
- * 不进本函数)。措辞出自 cli.budget* 词表(五语言),不把后端字段当界面文本。
+ * 不进本函数)。措辞出自 cli.budget* 词表(五语言)。
  *
- * 与 web 端 toast 的三点刻意差异(均为修正,非漂移):
- *  - **不写「万」**:web 把 85300 缩写成「8.5 万」,该单位在 en/ja/ko 里都不成立,
- *    这里用千分位原值(语言中立,且便于对账真实数字);
- *  - **没有 resetAt 就不说「明日 0 点重置」**:web 无条件播报重置时间,而该字段是可选的,
- *    缺省时终端不替后端编造承诺;
- *  - 各段以 ` · ` 连接(citationNoteText 既有写法),不把分隔符写进译文。
+ * 装配规则(哪些字段缺就不说、分隔符、token 计数用共享层 K/M 单位)在
+ * `@ihui/shared/chat` 的 `formatBudgetNote` —— 本端只给键名与取词函数,不复写规则(AGENTS §3)。
  */
-export function budgetNoteText(event: BudgetEvent): string {
-  const parts: string[] = [];
-  if (typeof event.usedTokens === 'number' && typeof event.limitTokens === 'number') {
-    parts.push(
-      t('cli.budgetUsedTokens', {
-        used: formatTokenCount(event.usedTokens),
-        limit: formatTokenCount(event.limitTokens),
-      }),
-    );
-  }
-  if (typeof event.percent === 'number') parts.push(`${event.percent}%`);
-  if (event.resetAt) parts.push(t('cli.budgetResetTomorrow'));
-  if (event.tier) parts.push(t('cli.budgetTier', { tier: event.tier }));
-  const title =
-    event.level === 'critical' ? t('cli.budgetCriticalTitle') : t('cli.budgetWarningTitle');
-  const detail = parts.join(' · ');
-  // 只剩档位名(其余字段全缺)时不拼出"标题："这种尾巴悬空的空交代
-  return detail ? t('cli.budgetNote', { title, detail }) : title;
-}
+const CLI_BUDGET_KEYS: BudgetNoteKeys = {
+  note: 'cli.budgetNote',
+  warningTitle: 'cli.budgetWarningTitle',
+  criticalTitle: 'cli.budgetCriticalTitle',
+  usedTokens: 'cli.budgetUsedTokens',
+  resetTomorrow: 'cli.budgetResetTomorrow',
+  tier: 'cli.budgetTier',
+};
 
-/** 千分位原值:固定 en-US 分组,只为可读性,不参与本地化(见 budgetNoteText 注释) */
-function formatTokenCount(n: number): string {
-  return Math.trunc(n).toLocaleString('en-US');
+export function budgetNoteText(event: BudgetEvent): string {
+  return formatBudgetNote(event, t, CLI_BUDGET_KEYS);
 }
 
 export function asPlanUpdateSink(
