@@ -26,6 +26,9 @@ import {
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { __test__ as R } from '../re-home-junctions.mjs'
+import { __test__ as GATE96 } from '../check-home-junctions.mjs'
+
+const { audit } = GATE96
 
 const CMD = 'C:\\Windows\\System32\\cmd.exe'
 
@@ -186,6 +189,41 @@ test('装车证明:守护每轮真的会触发修复器,且修复器真的会跳
   const fixer = readFileSync(new URL('../re-home-junctions.mjs', import.meta.url), 'utf8')
   assert.match(fixer, /cool\[it\.src\] > now/, 'main 必须先查冷却再决定是否重抄')
   assert.match(fixer, /action: 'cooldown'/, '被跳过的项必须如实报 cooldown,不得静默')
+  // 冷却不得吞掉人工窗口:跳过与"新添冷却"两处都必须被 !noCooldown 门住
+  assert.match(fixer, /apply && !noCooldown && cool\[it\.src\] > now/, '--no-cooldown 必须真能绕过冷却判定')
+  assert.match(fixer, /apply && !noCooldown && \(rows\.at\(-1\)\.action === 'rename-failed'/, '--no-cooldown 失败时不得再续冷却,否则下一个人工窗口照样被拦')
+})
+
+test('改道树被外部删掉(junction 悬空)⇒ 门 96 判红必须被自愈收口', () => {
+  const { root, src, dst } = fixture()
+  const fakeRegistry = [{ p: src, why: '夹具:模拟 §26 改道项' }]
+  try {
+    assert.equal(R.repairOne(src, dst).action, 'moved', '先造出"已改道"的正常态')
+    assert.equal(audit(fakeRegistry).violations.length, 0, '前置条件:改道完成时门必须是绿的')
+
+    rmSync(dst, { recursive: true, force: true }) // 模拟 D:\DevEnv\cache 被外部整体清掉
+    const red = audit(fakeRegistry).violations
+    assert.equal(red.length, 1, '悬空必须判红(否则本例是在验证"看不见问题")')
+    assert.equal(red[0].kind, 'DANGLING', `要验的是悬空这一型,实际:${red[0].kind}`)
+
+    const res = R.repairOne(src, dst)
+    assert.equal(res.action, 'target-recreated', `必须真的重建目标而非早退,实际:${res.action} / ${res.note}`)
+    assert.ok(res.ok, res.note)
+    assert.ok(existsSync(dst), '目标目录必须回到位')
+    assert.ok(lstatSync(src).isSymbolicLink(), '只许补目标,不得把用户的链接删掉')
+    assert.equal(audit(fakeRegistry).violations.length, 0, '修完门必须转绿 —— 红→修→绿 不闭合等于没有自愈')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('repairOne 的判序:isLink 必须在 existsSync(src) 之前(悬空 junction 的 existsSync 是 false)', () => {
+  const src = readFileSync(new URL('../re-home-junctions.mjs', import.meta.url), 'utf8')
+  const body = src.slice(src.indexOf('export function repairOne'), src.indexOf('const before = fingerprintTree'))
+  const iLink = body.indexOf('if (isLink(srcPath))')
+  const iExists = body.indexOf('if (!existsSync(srcPath))')
+  assert.ok(iLink >= 0, '必须先判 isLink')
+  assert.ok(iExists > iLink, `existsSync(absent) 早退必须排在 isLink 之后,实际 isLink@${iLink} exists@${iExists}`)
 })
 
 /**
