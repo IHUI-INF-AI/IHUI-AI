@@ -327,6 +327,10 @@
       "failed": "실패",
       "refunded": "환불 완료",
       "refunding": "환불 중"
+    },
+    "tab": {
+      "cancelled": "취소됨",
+      "refunded": "환불됨"
     }
   },
   "wallet": {
@@ -436,7 +440,12 @@
       "empty": "알림 설정 항목 없음",
       "moreTitle": "더 보기",
       "detail": "알림 상세",
-      "detailDesc": "과거 알림 메시지 보기"
+      "detailDesc": "과거 알림 메시지 보기",
+      "wxSubscribe": "위챗 납부 알림",
+      "subscribed": "알림 구독을 활성화했습니다",
+      "subscribeFailed": "구독이 활성화되지 않았습니다. 나중에 다시 시도하세요",
+      "myBills": "내 등록금 청구서",
+      "myBillsDesc": "납부 예정·납부 완료·미납 확인 및 온라인 납부"
     },
     "changePhone": "전화번호 변경",
     "changePassword": "비밀번호 변경",
@@ -590,6 +599,7 @@
       "copy": "복사",
       "digitalHuman": "디지털 휴먼 생성 →",
       "downloadFailed": "다운로드 실패",
+      "downloadSuccess": "앨범에 저장됨",
       "downloading": "다운로드 중",
       "edit": "편집",
       "errorCardTitle": "요청 오류",
@@ -753,7 +763,20 @@
       "share": "공유",
       "succeeded": "생성 완료",
       "taskSubmitted": "작업이 제출되었습니다, 기록에서 확인하세요",
-      "title": "동영상 생성"
+      "title": "동영상 생성",
+      "duration": "소요 시간",
+      "resolution": "해상도",
+      "fps": "프레임 레이트",
+      "vendors": {
+        "sora2": "Sora2",
+        "sora2Desc": "Sora2로 비디오 생성",
+        "kling": "Kling",
+        "klingDesc": "고품질 AI 비디오 생성",
+        "doubao": "Doubao",
+        "doubaoDesc": "Doubao 모델로 비디오 생성",
+        "dashscope": "DashScope",
+        "dashscopeDesc": "Alibaba Cloud DashScope로 비디오 생성"
+      }
     },
     "voice": {
       "chatFailed": "대화 실패, 재시도",
@@ -1171,7 +1194,12 @@
     "goDiscover": "탐색하러 가기",
     "searchPlaceholder": "즐겨찾기한 콘텐츠 검색",
     "selectFirst": "먼저 선택해 주세요",
-    "total": "즐겨찾기됨"
+    "total": "즐겨찾기됨",
+    "tabCourse": "강의",
+    "tabLive": "라이브",
+    "tabPost": "게시물",
+    "tabAigc": "AI 작품",
+    "tabNews": "뉴스"
   },
   "distribution": {
     "withdraw": {
@@ -1888,6 +1916,12 @@
       "loading": "로딩 중...",
       "noMore": "더 이상 없습니다",
       "retry": "클릭하여 재시도"
+    },
+    "tabs": {
+      "recommend": "추천",
+      "follow": "팔로우",
+      "latest": "최신",
+      "hot": "인기"
     }
   },
   "devEnter": {
@@ -1952,7 +1986,8 @@
       "submitting": "생성 중…",
       "submit": "에이전트 생성",
       "fileSizeExceeded": "파일은 10MB를 초과할 수 없습니다",
-      "n8nFilePlaceholder": "n8n 백업 JSON 파일을 클릭하여 업로드"
+      "n8nFilePlaceholder": "n8n 백업 JSON 파일을 클릭하여 업로드",
+      "typeJson": "JSON"
     },
     "modelEdit": {
       "title": "모델 편집",
@@ -2147,7 +2182,9 @@
       "detailStatus": "상태",
       "detailAuthor": "작성자",
       "viewDetail": "상세 보기",
-      "identityTitle": "신분 전환"
+      "identityTitle": "신분 전환",
+      "identityDemander": "수요자",
+      "identityDeveloper": "개발자"
     },
     "cover": {
       "entryTitle": "개발자 되기",
@@ -2167,7 +2204,8 @@
       "renew": "갱신",
       "continueOrder": "계속 주문 받기",
       "qaTitle": "자주 묻는 질문"
-    }
+    },
+    "p1": "마케팅"
   },
   "postCreate": {
     "title": "게시글 작성",
@@ -2578,7 +2616,8 @@
     "weeklyStudy": "이번 주 학습",
     "completedLessons": "완료 강의",
     "totalDuration": "누적 시간",
-    "streakDays": "연속 일수"
+    "streakDays": "연속 일수",
+    "record": "학습 기록"
   },
   "subscriptions": {
     "cancel": "구독 취소",
@@ -2827,7 +2866,10 @@
     "confirm3": "멤버십을 해지하시겠습니까? 해지 후 멤버십 혜택을 잃게 됩니다.",
     "success4": "해지 성공",
     "failed5": "해지 실패, 고객 서비스에 문의해 주세요",
-    "text6": "등급 소개 페이지 미구성"
+    "text6": "등급 소개 페이지 미구성",
+    "menu": {
+      "subscriptions": "내 구독"
+    }
   },
   "vipTrader": {
     "openTitle": "회원 가입",
@@ -4148,5 +4190,8 @@
       }
     },
     "vividTail": ", 금방 끝납니다"
+  },
+  "profile": {
+    "myCourses": "내 강의"
   }
 }
