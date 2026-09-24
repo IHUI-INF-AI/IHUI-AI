@@ -48,7 +48,6 @@
     "uploading": "上傳中…",
     "user": "使用者",
     "more": "更多",
-    "viewMore": "查看更多",
     "discountAmount": "優惠"
   },
   "login": {
@@ -827,8 +826,7 @@
       "tabFollowing": "關注",
       "history": "歷史對話",
       "selectCategory": "選擇分類",
-      "subtitle": "匯聚前瞻科技資訊",
-      "viewMore": "查看更多排行"
+      "subtitle": "匯聚前瞻科技資訊"
     },
     "creation": {
       "title": "AI 創作分享",
@@ -1861,7 +1859,6 @@
       "commentSent": "評論成功",
       "aigcTag": "AI 作品",
       "commentsTitle": "評論",
-      "viewMore": "檢視更多",
       "noComments": "暫無評論,快來搶沙發",
       "commentPlaceholder": "說點什麼…",
       "commentListSoon": "評論列表即將開放",
@@ -3870,7 +3867,6 @@
     "16": "以\"資料洪流\"為意象,生成一段關於數位時代創作的散文詩。",
     "17": "付費可看 ¥{m}",
     "18": "當機器開始思考,人類是否做好了準備?這是一個關於意識、自由與共存的故事。在矽基生命與碳基生命的交匯處,我們重新審視\"存在\"的意義。",
-    "19": "查看更多",
     "20": "確認選擇{count}",
     "21": "AI助手免費使用次數增加",
     "22": "部分課程免費學習",

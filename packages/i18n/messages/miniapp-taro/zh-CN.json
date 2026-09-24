@@ -48,7 +48,6 @@
     "uploading": "上传中…",
     "user": "用户",
     "more": "更多",
-    "viewMore": "查看更多",
     "discountAmount": "优惠"
   },
   "login": {
@@ -827,8 +826,7 @@
       "tabFollowing": "关注",
       "history": "历史对话",
       "selectCategory": "选择分类",
-      "subtitle": "汇聚前沿科技资讯",
-      "viewMore": "查看更多排行"
+      "subtitle": "汇聚前沿科技资讯"
     },
     "creation": {
       "title": "AI 创作分享",
@@ -1861,7 +1859,6 @@
       "commentSent": "评论成功",
       "aigcTag": "AI 作品",
       "commentsTitle": "评论",
-      "viewMore": "查看更多",
       "noComments": "暂无评论,快来抢沙发",
       "commentPlaceholder": "说点什么…",
       "commentListSoon": "评论列表即将开放",
@@ -3870,7 +3867,6 @@
     "16": "以\"数据洪流\"为意象,生成一段关于数字时代创作的散文诗。",
     "17": "付费可看 ¥{m}",
     "18": "当机器开始思考,人类是否做好了准备?这是一个关于意识、自由与共存的故事。在硅基生命与碳基生命的交汇处,我们重新审视\"存在\"的意义。",
-    "19": "查看更多",
     "20": "确认选择{count}",
     "21": "AI助手免费使用次数增加",
     "22": "部分课程免费学习",
