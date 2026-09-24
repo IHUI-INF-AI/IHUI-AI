@@ -7074,6 +7074,77 @@
       "rollbackConfirmConfirm": "復元"
     },
     "pane": {
+      "inputSources": {
+        "ariaLabel": "入力ソースとキュー",
+        "snapshot": {
+          "attachApp": "{appName} を添付",
+          "state": {
+            "disabled": "スマートスナップショットは無効",
+            "enabled": "スマートスナップショット有効",
+            "failed": "スマートスナップショット失敗"
+          },
+          "enable": "スマートスナップショットを有効化",
+          "firstRunGuideTitle": "初めてのスマートスナップショット",
+          "firstRunGuideBody": "現在のアプリのコンテキストを取得し、メッセージに自動的にアプリ情報を添付します",
+          "failedHint": "スナップショットを作成できませんでした。再試行するか、通常の添付ファイルで送信してください"
+        },
+        "route": {
+          "appSnapshot": "アプリスナップショット",
+          "remoteFile": "リモートファイル",
+          "remotePhoto": "リモート写真"
+        },
+        "command": {
+          "queuePrompt": "プロンプトをキューに追加",
+          "queuePromptDesc": "現在の返信の終了後、キュー内のプロンプトを順番に送信します",
+          "steerPrompt": "ガイドプロンプト",
+          "steerPromptDesc": "出力を中断せずに、実行中の返答へ途中から指示を挿入します"
+        },
+        "undo": {
+          "restoring": "キュー内のメッセージを復元しています",
+          "restored": "キュー内のメッセージを復元しました",
+          "restoredQueued": "待機中のメッセージを復元しました",
+          "failed": "復元に失敗しました。メッセージはキューに残っています"
+        },
+        "memoryRefs": {
+          "count": "{count} 件のメモリ参照",
+          "tooltip": "参照されたメモリ",
+          "empty": "メモリ参照はまだありません"
+        },
+        "goal": {
+          "achievedIn": "{totalTime} でゴールを達成しました"
+        }
+      },
+      "inputNotices": {
+        "ariaLabel": "圧縮とキューの通知",
+        "compaction": {
+          "block": {
+            "cause": {
+              "runningTurn": "現在の Turn が実行中です",
+              "insufficientCredits": "圧縮には少量のクレジットが消費されます",
+              "noTurnBoundary": "利用可能な Turn 境界がありません"
+            },
+            "consequence": {
+              "runningTurn": "圧縮は現在の Turn 完了後に実行され、実行中の Turn には割り込めません",
+              "insufficientCredits": "クレジット不足のため、今回の圧縮は実行されません。会話のコンテキストは変更されません",
+              "noTurnBoundary": "圧縮は現在実行できず、会話のコンテキストは変更されません"
+            }
+          }
+        },
+        "queue": {
+          "reasonTitle": "キューの理由",
+          "reason": {
+            "turnRunning": "応答を生成中のため、メッセージはこの Turn の終了後に送信されます",
+            "queueAhead": "前のメッセージがまだ処理中のため、順番に待機しています",
+            "runtimeNoInterject": "現在の Runtime は割り込みに対応していないため、メッセージはキューに残ります"
+          },
+          "denied": {
+            "reorder": "キューの順序を変更できません",
+            "undo": "キュー内のメッセージを取り消せません",
+            "interject": "現在の Runtime は割り込みに対応していないため、メッセージはキューに残ります"
+          },
+          "reorderAria": "ドラッグでキューの順序を変更。フォーカス中は上下方向キーも使用できます"
+        }
+      },
       "voiceSubtitles": {
         "muteAndShowSubtitles": "ミュートして字幕を表示",
         "subtitleTitle": "音声字幕",
@@ -9405,6 +9476,7 @@
     "adoptHint": "選択した候補の内容を現在の会話に書き込む"
   },
   "goalCard": {
+    "achievedInTime": "{totalTime} でゴールを達成しました",
     "empty": "会話ゴールが未設定です",
     "emptyHint": "入力欄に /goal <目標> と入力するか、AI に自動推進させます",
     "progress": "進捗",
@@ -9954,6 +10026,18 @@
     "expiryDate": "有効期限"
   },
   "chat": {
+    "connectorAuth": {
+      "title": "{connectorName} に接続",
+      "connected": "接続済み",
+      "reconnect": "{connectorName} を再接続",
+      "connect": "接続",
+      "connecting": "接続中…",
+      "moreInfo": "詳細情報",
+      "decline": "今はしない",
+      "declined": "{connectorName} への接続を拒否しました。この会話には影響しません"
+    },
+    "queueUndoRestoredQueued": "待機中のメッセージを復元しました",
+    "queueUndoRestored": "キュー内のメッセージを復元しました",
     "usageEstimated": "推定",
     "turnChanges": {
       "title": "このターンの変更",
@@ -11101,6 +11185,24 @@
       "view": "表示"
     },
     "commands": {
+      "steerPrompt": {
+        "description": "実行中の回答に現在の入力をガイドとして注入します",
+        "keywords": [
+          "ステア",
+          "ガイド",
+          "steer"
+        ],
+        "label": "プロンプトをステア"
+      },
+      "queuePrompt": {
+        "description": "実行中の回答の終了後、現在の入力を自動送信するためにキューに追加します",
+        "keywords": [
+          "キュー",
+          "待機",
+          "queue"
+        ],
+        "label": "プロンプトをキューに追加"
+      },
       "agent": {
         "description": "AI エージェントの管理とディスパッチ",
         "keywords": ["エージェント", "agent", "bot"],
