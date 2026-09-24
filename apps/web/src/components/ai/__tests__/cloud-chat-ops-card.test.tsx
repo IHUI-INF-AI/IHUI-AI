@@ -152,7 +152,9 @@ describe('D97 CloudChatOpsCard / 三态样式与 following 提示位', () => {
     ])
     const waiting = container.querySelector('[data-cloud-chat-waiting]')!
     expect(waiting.textContent).toBe('等待上游动作')
-    expect(container.querySelector('[data-testid="cco"]')!.getAttribute('data-cloud-chat-ops-waiting')).toBe('2')
+    expect(
+      container.querySelector('[data-testid="cco"]')!.getAttribute('data-cloud-chat-ops-waiting'),
+    ).toBe('2')
   })
 
   it('无 following → 不渲染提示位', () => {
@@ -198,7 +200,8 @@ describe('D97 词包覆盖(读真实词包,五语言)', () => {
   it('矩阵键列表逐格落在词包内(15 格,五语言)', () => {
     for (const locale of LOCALES) {
       const keys = new Set(flat(loadNs(locale)))
-      for (const key of cloudChatOpMatrixKeys()) expect(keys.has(key), `${locale} ${key}`).toBe(true)
+      for (const key of cloudChatOpMatrixKeys())
+        expect(keys.has(key), `${locale} ${key}`).toBe(true)
     }
   })
 
