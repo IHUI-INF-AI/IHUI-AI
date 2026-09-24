@@ -21,7 +21,9 @@ import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const { discover, buildChunks, parseTap, main } = rt
 
-const PASS_TAP = ['# Subtest: a', 'ok 1 - a', '# tests 3', '# pass 3', '# fail 0', '# skip 1'].join('\n')
+const PASS_TAP = ['# Subtest: a', 'ok 1 - a', '# tests 3', '# pass 3', '# fail 0', '# skip 1'].join(
+  '\n',
+)
 const RED_TAP = ['not ok 1 - 某门判据回归', '# tests 2', '# pass 1', '# fail 1'].join('\n')
 
 test('parseTap:正常汇总取到计数,并把 not ok 名字提出来', () => {
@@ -44,7 +46,10 @@ test('parseTap(反假绿核心):只有崩溃残迹、没有计数 ⇒ parsed:fal
 })
 
 test('buildChunks:任何 limit 下都不得丢文件(ENAMETOOLONG 型静默少跑的正面判据)', () => {
-  const files = Array.from({ length: 40 }, (_, i) => `scripts/tests/x${String(i).padStart(2, '0')}.test.mjs`)
+  const files = Array.from(
+    { length: 40 },
+    (_, i) => `scripts/tests/x${String(i).padStart(2, '0')}.test.mjs`,
+  )
   for (const limit of [6000, 200, 60]) {
     const chunks = buildChunks(files, limit)
     assert.deepEqual(chunks.flat(), files, `limit=${limit} 时丢/重排了文件`)
