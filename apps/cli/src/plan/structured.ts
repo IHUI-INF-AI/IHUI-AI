@@ -20,7 +20,7 @@ import { tryParseJson, isRecord, isJsonArray } from '../util/json.js';
 export type PlanStepStatus = 'pending' | 'in_progress' | 'completed';
 
 /** 计划步骤操作类型 */
-export type PlanStepAction = 'create' | 'edit' | 'delete' | 'read' | 'run' | 'verify';
+type PlanStepAction = 'create' | 'edit' | 'delete' | 'read' | 'run' | 'verify';
 
 export interface PlanStep {
   id: string;
