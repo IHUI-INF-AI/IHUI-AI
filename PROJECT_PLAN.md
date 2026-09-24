@@ -6735,3 +6735,82 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
   - **D50① / D77 / D68 / D58**:§24 新能力,待 owner 启动。
 - **一条台账卫生事实(只登记,不代改他人内容)**:`PROJECT_PLAN.md` 现存多组**同一登记行 2-5 份副本**(本批实测 D34×2、D37×2、D62×2、D66×2、D106×5、键名对齐批 ×3、O13b×3),源自并行 union 合并 —— 门 71 防"丢行"不防"重行"。去重会动别人登记的原文,须由台账持有者统一裁定。
 - **O58 残余(带证据,不是"待办")**:① **i18n 死键守门今天拦住了所有人**,而它的正解此刻不可执行:5 枚死键(`contextMenu.feedback`、`permission.mode.{full,auto,ask}`、`toast.feedbackRecorded`)逐条核过命名空间 ⇒ **全是真孤儿**(`useTranslations('toast')` 零消费端;`contextMenu` 那位实际走 `useTranslations('chat')`;`permission.mode.*` 只被 `apps/web/tests/message-list.test.tsx` 的 mock 引用,生产码早在 G-166 迁到 `permissionTier.mode.*`)。**我没有**把它们塞进 `scripts/i18n-contract-keys.json` —— 那份清单的硬约束就是"依据必须可核验",把真孤儿写成契约键等于造一台在故障现场报绿的尺子。不删的实测理由:5 份 locale 的工作树副本**各含 23/288 条 HEAD 没有的独有行**(且落后 HEAD 1550+ 行)⇒ 他人在途,按 §12 不得覆盖;正解是该会话落地后删 5 键 × 5 语言并跑 `pnpm i18n:parity`。② **`lost-commit/*` tag 的双备份仍在追赶**:本地 4699 / 远端 4318(差 381),`sync-lost-commit-tags --fetch` 已把"仅远端"的那枚 `backup/wip-o10-2026-09-24` 拉回;补推在途。这一层是 §29"删 tag 前必须先双备份"的前置条件,差额没清零之前**不得做任何 tag GC**。
+### 第四十二批(2026-09-24):把"落不下去的合并"当成一门学问做完 —— 一枚合并撞四次、每次换一个真因;含我自己覆盖他人 717 行测试的自伤
+
+- **生产侧终态(回读,不是推断)**:`apps/web/.next/IHUI_BUILD_SHA` == `git rev-parse HEAD` ==
+  `git ls-remote origin refs/heads/main`,健康门禁 `web=pass api=pass llm=pass`。本轮共切流三次
+  (`9f67f7d4a` / `fac8186e0` / 收敛合并 `540e211de94`),每次都重新量,不按"上一轮成功"外推。
+- **合并不落地的四个真因(逐条,顺序即时间顺序)**:
+  ① **commit-msg 的 scope 门 R2 把合并提交当污染** —— R2 判"暂存集含 `packages/i18n/messages/`
+  而 scope 不是 i18n",而合并提交的暂存集按定义是两条分支的并集,前提不成立;该门此前
+  **对合并没有任何出口**,等于每一枚合并提交都被逼成 `--no-verify`(连带废掉 132 项 pre-commit)。
+  修法不是跳门而是修门:`scripts/check-commit-scope-consistency.mjs` 补 `isMergeCommit()` 豁免,
+  放在 **`main()` 第一屏而非模块顶层** —— 测试文件要 import 本模块取纯函数,顶层 `exit(0)` 会让
+  整个测试文件在"仓库正处于合并中"时静默零用例(判据失效表现为绿,比红更糟),这条由
+  装车测试的两条正则钉死。取证:临时 git 仓端到端 4 例(非合并必判红 / MERGE_HEAD 在位必豁免
+  且打印原因 / 删标记立刻回到判红 / 接线),合上原有 80 例 = **84/84 exit 0**。
+  豁免生效后 `fac8186e0` 的实测回显是 `⏭ …(合并提交:… — 跳过本门)` 与 `⏭ …(2 文件, scope="gates", 通过)`
+  —— 前者放行合并、后者照常判定,两条都是证据。
+  ② **守门 26(项目父目录污染,blocking)判 `D:\DevEnv\Temp\pf.txt`** —— 按"删前先验身份":它与
+  `scripts/tests/check-no-visible-spawn.test.mjs` 的 72 行差异**全部**是 prettier 换行 + 多行 trailing
+  comma + 引号转体(去空白去逗号后 token 序列一致),零独有内容才删。副产一条债:该测试文件在
+  HEAD 里**不符合 prettier 口径**,谁碰它谁被整文件重排。
+  ③④ **索引里躺着"外来陈旧 blob"两处** —— `artifact-turn-badge.tsx`:两枚父提交与工作树同为
+  `f37da1b`,只有索引是 `e75ab0c`(少 D76 挂载接线 83 行)⇒ 那条内容**不可能来自本次合并**;
+  `AgentRuntimePanel.tsx`:ours=`6be273f` / theirs=工作树=`e707d73`,索引却是第三个祖先版 `0ae5f3a`
+  —— 守门 30c 判红是对的,合并结果本就应取 theirs,按工作树重新暂存后红点消失。
+  **关键盲区:守门 84 在 merge 上下文整轮豁免**,所以这一型在合并期完全无人看守;本轮改由
+  一次性判据补(`.ihui-agent/tmp/merge-archive-conflict/foreign-index-blobs.mjs`:两父一致而索引
+  不同 ⇒ 外来内容),结果 0 个。留待机制化:合并路径上"索引 ∉ {两父, 工作树}"应当有一道门。
+  ⑤ **唯一始终跳过的只有守门 29 push-sync**:合并提交未落地时必然 ahead,属先有鸡后有蛋;
+  落地后立刻交 `git-push-guard` / `git-sync-converge`,收敛两轮均 `✅ 推送收敛成功`。
+- **我自己的一次破坏(必须同批登记,否则判据永远只落在别人头上)**:
+  我给 ① 写镜像测试前,用 `ls scripts/tests/ | grep -i commit-scope` 做存在性检查得到"没有",
+  于是 `Write` **整文件覆盖**掉一个本已存在的 **717 行 / 80 例**镜像测试,换成我自己 114 行 4 例。
+  真相是那条 `ls | grep` 本身没匹配上 —— **判据失效,不是文件不存在**。已在"未提交"状态下复位:
+  先 `cp` 我的版本到 `.ihui-agent/tmp/handoff-20260924/` 并比 `git hash-object` 全等,再
+  `git checkout HEAD -- <该文件>`,确认 `wt==HEAD` 且原 80 例复跑绿,最后把 4 例**追加**到文件末尾。
+  新判据(取代我此前所有"存在性用 ls 判"的写法):**文件存在性一律 `git ls-files --error-unmatch`
+  或 `git cat-file -e HEAD:<path>`**,`ls | grep` 不得作为删除/覆盖任何既有文件的依据。
+- **`merge-live-doc.mjs` 的方向缺陷(它自己会造回退,登记事实不代改)**:本批对它管三份活文档之一的
+  `PROJECT_PLAN.md` 报 `真丢失=7 → --apply`,插回后它判"仍 lost=0"。但那 7 条 HEAD 行是
+  `- [x] ✅(2026-09-24) D34/D37/D76/P0 顶部安全区…`,而工作树副本是同一批的 **`- [ ]`(甚至带
+  `（进行中）`)旧态** —— 即**工作树才是更旧的一侧**。它的"被就地改写取代 ⇒ 不插回"规则默认工作树
+  更新,方向判反;若照它的产物提交,会把 7 条已完成登记**从 ✅ 回退成 `[ ]`**。
+  本轮处置:`cp` 备份产物并比 hash → `git checkout HEAD -- PROJECT_PLAN.md`(实测 `wt==HEAD`)→
+  只在本节末尾追加。可机制化的一条:✅/`[ ]` 与"复核"注记是**单调信号**,归并时应优先信它,
+  而不是信"谁在磁盘上"。
+- **盘上旧基线三处收口(都留了逐字节备份,没有一处直接消失)**:
+  ① 5 个 `packages/i18n/messages/web/*.json` 的磁盘副本各比 HEAD **少 115 行、增 0 行**
+  (numstat 三列全为 `0 115` ⇒ 无任何独有行,mtime 11:40)—— 已备份到
+  `.ihui-agent/tmp/handoff-20260924/stale-web-locales/*.pre-restore.json`(hash 逐条全等)后复位到 HEAD。
+  与同文件上方 O58 残余那条"5 份 locale 各含 23/288 条 HEAD 没有的独有行"**并不矛盾**:那是更早时刻的
+  测量,到本轮复位前磁盘副本已被换成更旧的严格子集 —— 两份结论都按各自时刻成立,记在这里防后来人
+  拿任一份去否定另一份。
+  ② `apps/mobile-rn/src/components/{SingleTypeBar,StudyBar}.tsx` 这两个 `??` 残骸:`f8b9a2407`
+  (已在 HEAD)已把它们**退役**,同批装上 `packages/ui-react/src/components/category-bar.tsx` +
+  RN `CategoryInlineBar`,并下调了圆角/品牌两份基线 —— 但退役提交只动版本树,**磁盘副本一直留着**,
+  而它们既不在 HEAD 也不在索引 ⇒ 守门 70/77/83/98 全部零覆盖,`git status` 只报未跟踪。
+  `StudyBar` 与退役前字节全等;`SingleTypeBar` 差 2 行,恰是并行交接单里那句"顺手机械修掉
+  `ctaFill/ctaText`"落到了一个已不在版本树里的文件上。按 §7 三问都有确定答案后**移出工作树**,
+  副本 + 取证说明放 `.ihui-agent/tmp/handoff-20260924/retired-rn-category-bars/`(含"如何恢复")。
+  ③ `apps/web/src/components/chat/__tests__/artifact-mount.test.tsx` 磁盘副本 254 行,而 HEAD 版 457 行
+  (HEAD 多 203 行、磁盘另有 100+ 行不同写法 ⇒ **双向都有差异,不能只看"少了几行"就判旧基线**)。
+  定性用的是**祖先指纹**:磁盘副本去掉载荷行后的 sha1 与该路径 40 代历史逐一比对,
+  **精确命中 `2866ff166`(09-24 16:53)那一代** ⇒ 它是旧基线留在盘上,不是在途工作。备份后复位到 HEAD,
+  并跑该文件自证:HEAD 版 `vitest run` **11/11 绿**。
+  顺带测出自愈层的一处盲区:`heal-worktree-tracked --align-drift` 对此报 **"可判定 0 个"** ——
+  它的判据面是"索引 vs HEAD"(此刻索引已等于 HEAD、`git status` 只剩 ` M`),
+  而它文档里承诺的"工作区内容==该路径某祖先版本 ⇒ 才动"这一型**根本没进入判定**;
+  同一条判据在合并期还被守门 84 的"merge 上下文整轮豁免"整体跳过。两条合起来 = 这一型残骸
+  在"合并 + 收敛"当口既不被自愈、也不被判红,只能靠人拿祖先指纹去认。
+- **未闭环(逐条给主体与解阻判据,不伪装收口)**:
+  ① **CI 仍是事后的**:pre-push 与部署环都不读 CI 结论,分支保护属账号侧动作,agent 无权设。
+  解阻判据:要么给部署环加"CI 对目标 sha 的结论为绿才切流",要么用户开分支保护。
+  ② **部署环按共享工作树构建**(`IHUI-DEPLOYLOOP` 的 `AppDirectory=D:\IHUI-AI`):在途文件仍会进产物。
+  解阻判据:构建改从提交树取源(`git archive` 到隔离目录),这是架构改动,需用户点头。
+  ③ **守门 93 看不见 `rnTokens` 基础档色值漂移**(它按 CSS 变量对账,RN 基础档不在映射表里)。
+  ④ **`scripts/generate-latest-json.mjs:137` 没接新的歧义检测器**,与同日立的清单不同源。
+  ⑤ **生产数据库备份跑在 `deploy/prod-bundle/pg-backup.ps1`,该目录被 `.gitignore:383` 整目录忽略、
+  没有入库源** —— §5e 说过的"运行副本盲区"在这一处仍然成立。
+  ⑥ `pnpm test:scripts` 接进提交链的门槛未达(第三十六批写死的两条:4 枚真债清零 + 干净检出连续两轮绿)。
