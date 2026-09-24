@@ -67,7 +67,9 @@ describe('D64 ⑤ 反馈问卷卡', () => {
     })
     fireEvent.click(document.querySelector('[data-feedback-action="submit"]') as HTMLButtonElement)
     expect(onSubmit).toHaveBeenCalledTimes(1)
-    expect(onSubmit.mock.calls[0][0]).toEqual({
+    const submitted = onSubmit.mock.calls[0]
+    if (!submitted) throw new Error('setup failed: 期望 onSubmit 被调用')
+    expect(submitted[0]).toEqual({
       messageId: 'm1',
       answer: 'partial',
       comment: '少了最后一步',
@@ -84,7 +86,9 @@ describe('D64 ⑤ 反馈问卷卡', () => {
     render(<FeedbackSurveyCard messageId="m2" context={ASKABLE} onSubmit={onSubmit} />)
     fireEvent.click(screen.getByRole('radio', { name: 'feedbackSurvey.answer.solved' }))
     fireEvent.click(document.querySelector('[data-feedback-action="dismiss"]') as HTMLButtonElement)
-    expect(onSubmit.mock.calls[0][0]).toEqual({
+    const dismissed = onSubmit.mock.calls[0]
+    if (!dismissed) throw new Error('setup failed: 期望 dismiss 也落一次提交')
+    expect(dismissed[0]).toEqual({
       messageId: 'm2',
       answer: null,
       comment: null,

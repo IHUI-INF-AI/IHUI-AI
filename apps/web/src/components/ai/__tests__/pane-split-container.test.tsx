@@ -15,6 +15,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 
 import {
   FORK_FAILURE_REASONS,
+  type ForkFailureReason,
   MIN_PANE_SIZE,
   PANE_MULTI_NAMESPACE,
   PANE_RESIZE_STEP,
@@ -149,13 +150,18 @@ describe('D73 拆分 / 叶数与份额', () => {
     const tree = currentSplit()
     expect(collectPaneLeaves(tree)).toHaveLength(3)
     // 兄弟 pane-b 原样保留(拆分只就地替换被点的那一叶)
-    expect(tree.children[1].id).toBe('pane-b')
+    const sibling = tree.children[1]
+    if (!sibling) throw new Error('setup failed: 期望存在兄弟窗格')
+    expect(sibling.id).toBe('pane-b')
     // 被点的那一格就地变成一个 down 拆分节点,原窗格仍在原位
     const inner = tree.children[0]
+    if (!inner) throw new Error('setup failed: 期望存在被点窗格')
     expect(inner.kind).toBe('split')
-    if (inner.kind !== 'split') return
+    if (inner.kind !== 'split') throw new Error('setup failed: 期望 split 节点')
     expect(inner.direction).toBe('down')
-    expect(collectPaneLeaves(inner).map((l) => l.id)[0]).toBe(ROOT_PANE_ID)
+    const firstLeaf = collectPaneLeaves(inner)[0]
+    if (!firstLeaf) throw new Error('setup failed: 期望 split 节点内有叶窗格')
+    expect(firstLeaf.id).toBe(ROOT_PANE_ID)
   })
 })
 
@@ -167,7 +173,11 @@ describe('D73 联动调整相邻窗格(拖分隔条 / 键盘微调)', () => {
     const tree = currentSplit()
     expect(tree.sizes[0]).toBeCloseTo(0.5 + PANE_RESIZE_STEP, 10)
     expect(tree.sizes[1]).toBeCloseTo(0.5 - PANE_RESIZE_STEP, 10)
-    expect(tree.sizes[0] + tree.sizes[1]).toBeCloseTo(1, 10)
+    const [leftShare, rightShare] = tree.sizes
+    if (leftShare === undefined || rightShare === undefined) {
+      throw new Error('setup failed: 期望两格份额')
+    }
+    expect(leftShare + rightShare).toBeCloseTo(1, 10)
   })
 
   it('异向键不生效(纵排窗格不接受横向键),不产生虚假调整', () => {
@@ -258,8 +268,9 @@ describe('D73 空窗格拖入(D22 通道)与 Fork 失败显式渲染', () => {
     render(<PaneSplitContainer onForkConversation={onForkConversation} />)
     dropOn('pane-b', '{"id":"conv-x"}', 'text/plain')
     await waitFor(() => expect(onForkConversation).not.toHaveBeenCalled())
-    expect(currentSplit().children[1].kind).toBe('leaf')
     const child = currentSplit().children[1]
+    if (!child) throw new Error('setup failed: 期望 pane-b 窗格存在')
+    expect(child.kind).toBe('leaf')
     expect(conversationOf(child)).toBe(null)
   })
 
@@ -276,6 +287,7 @@ describe('D73 空窗格拖入(D22 通道)与 Fork 失败显式渲染', () => {
     dropOn('pane-b', JSON.stringify({ id: 'conv-x', title: '任务 X' }))
     await waitFor(() => expect(onForkConversation).toHaveBeenCalledWith('conv-x', 'pane-b'))
     const child = currentSplit().children[1]
+    if (!child) throw new Error('setup failed: 期望 pane-b 窗格存在')
     expect(conversationOf(child)).toBe('conv-x')
     expect(leafEl('pane-b')?.getAttribute('data-pane-conversation')).toBe('conv-x')
     expect(renderPaneContent).toHaveBeenCalledWith('conv-x', 'pane-b')
@@ -298,12 +310,15 @@ describe('D73 空窗格拖入(D22 通道)与 Fork 失败显式渲染', () => {
     expect(document.querySelector('[data-action="retryFork"]')).not.toBeNull()
     // 失败不得把会话塞进窗格(不静默假装成功)
     const child = currentSplit().children[1]
+    if (!child) throw new Error('setup failed: 期望 pane-b 窗格存在')
     expect(conversationOf(child)).toBe(null)
   })
 
   it('重试入口:清除失败标记并让窗格重新可拖入(不是一次性死提示)', async () => {
     mountTwoPanes('right')
-    const onForkConversation = vi.fn(() => 'capacityFull' as const)
+    // 返回类型按被测 prop 的契约标注(ForkFailureReason | null,null = 成功),
+    // 否则 mock 会被推成字面量 'capacityFull' 而拒绝下面"重试即成功"的 mockReturnValue(null)
+    const onForkConversation = vi.fn((): ForkFailureReason | null => 'capacityFull')
     render(<PaneSplitContainer onForkConversation={onForkConversation} />)
     dropOn('pane-b', JSON.stringify({ id: 'conv-x' }))
     await waitFor(() => expect(document.querySelector('[data-action="retryFork"]')).not.toBeNull())
