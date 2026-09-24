@@ -26,6 +26,9 @@
  * 用法:
  *   node scripts/re-home-junctions.mjs              # 只报告(零副作用)
  *   node scripts/re-home-junctions.mjs --apply      # 执行改道(幂等,可反复跑)
+ *   node scripts/re-home-junctions.mjs --apply --no-cooldown
+ *       # 人工已把占用者停下来时用它:上一轮的 EBUSY 冷却不得吞掉这个唯一窗口,
+ *       #   且本轮仍失败时**不再续冷却**(否则下一次人工窗口照样被拦)。
  *   node scripts/re-home-junctions.mjs --self-test  # 逻辑自检(临时夹具,不碰真家目录)
  * 退出码:0 = 无 REAL-DIR 违规;1 = 仍有违规;2 = 脚本自身异常。
  */
@@ -37,6 +40,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  readlinkSync,
   renameSync,
   rmdirSync,
   rmSync,
@@ -144,17 +148,57 @@ export function diffFingerprint(a, b) {
  *  校验只增不删会让"目标里有源里没有的文件"永远对不上(实测 .cargo 四轮都是源 21760/副本 21773,
  *  差 13 个稳定不变,证明是残留而非活目录在写)。删目标不影响源,源在通过校验前一个字都不动。 */
 export function repairOne(srcPath, dstPath, { dry = false, resetDst = false } = {}) {
-  if (!existsSync(srcPath))
-    return { src: srcPath, action: 'absent', ok: true, note: '源不存在,无需改道' }
+  // **判序即判据**:必须先 isLink(lstat)再 existsSync。悬空 junction 的 existsSync 为 **false**
+  //   (它跟随重解析点,而目标已被外部删掉),按"源不存在"早退就把这一型判成无需修 ——
+  //   2026-09-24 演练实测:门 96 判的是 `!existsSync(p) && !isLink(p)`(两半都有),
+  //   修复器第一版只抄了前半,于是"门按 lstat 判红、修复器按 exists 判 absent",
+  //   两边各自都不算错,合起来却是"恒红 + 永不自愈"。同一判据在两处必须同形。
+  //   第一版我把成因说成 isLink 分支早退,那是个假根因:补完那个分支后自检仍红,才暴露拦在前面的是这一行。
   if (isLink(srcPath)) {
-    const ok = existsSync(dstPath)
+    if (existsSync(dstPath))
+      return { src: srcPath, action: 'link', ok: true, note: '已是指针且目标在位' }
+    // **悬空指针必须能修** —— 这是 §26 最可能的失败形态:改道树被外部清掉,链接留在原地。
+    //   只重建**空目录**并如实说明内容已失(数据在删除那一刻就没了,重建不掩盖、只是让
+    //   路径重新可用 —— 多数工具遇到自己的 home 目录不存在会直接崩)。
+    let pointed = null
+    try {
+      pointed = resolve(readlinkSync(srcPath))
+    } catch {
+      pointed = null
+    }
+    if (pointed && pointed !== resolve(dstPath))
+      return {
+        src: srcPath,
+        action: 'link-moved',
+        ok: false,
+        note: `指针指向别处(${pointed})而非登记表算出的 ${dstPath} ⇒ 不擅自改指向,交人工判断`,
+      }
+    if (dry)
+      return {
+        src: srcPath,
+        action: 'would-recreate-target',
+        ok: true,
+        note: `目标缺失,将重建空目录 ${dstPath}`,
+      }
+    try {
+      mkdirSync(dstPath, { recursive: true })
+    } catch (e) {
+      return {
+        src: srcPath,
+        action: 'recreate-failed',
+        ok: false,
+        note: `重建目标失败:${e.code || e.message}`,
+      }
+    }
     return {
       src: srcPath,
-      action: 'link',
-      ok,
-      note: ok ? '已是指针且目标在位' : `指针目标缺失(DANGLING):${dstPath}`,
+      action: 'target-recreated',
+      ok: true,
+      note: `⚠️ 目标曾被外部删除,已重建空目录 ${dstPath}(**内容已失**,工具会自行回填缓存;非缓存态需人工确认)`,
     }
   }
+  if (!existsSync(srcPath))
+    return { src: srcPath, action: 'absent', ok: true, note: '源不存在,无需改道' }
   if (!statSync(srcPath).isDirectory())
     return { src: srcPath, action: 'file', ok: true, note: '同名文件,非目录' }
 
@@ -461,6 +505,44 @@ function selfTest() {
       })(),
     )
 
+    // 悬空指针必须能修 —— 2026-09-24 故障演练抓出的空洞:第一版见到 isLink 就早退,
+    // 于是"改道树被外部删掉"这一**最可能**的失败形态下,守护跑完什么都不补、门 96 恒红。
+    const dkSrc = join(root, 'dangling-home')
+    const dkDst = join(root, 'dangling-target')
+    mkdirSync(dkDst, { recursive: true })
+    writeFileSync(join(dkDst, 'k.txt'), 'abc', 'utf8')
+    const mk = spawnSync(GIT_BASH, ['/c', 'mklink', '/J', dkSrc, dkDst], {
+      windowsHide: true,
+      encoding: 'utf8',
+    })
+    push('夹具 junction 建成', isLink(dkSrc), `rc=${mk.status} ${mk.stderr || mk.stdout || ''}`)
+    if (isLink(dkSrc)) {
+      rmSync(dkDst, { recursive: true, force: true }) // 只删目标(断的是链),源链接保留
+      const dryRow = repairOne(dkSrc, dkDst, { dry: true })
+      push(
+        '悬空 + dry ⇒ 只报告,不擅自建目录',
+        dryRow.action === 'would-recreate-target' && dryRow.ok && !existsSync(dkDst),
+        JSON.stringify(dryRow),
+      )
+      const row = repairOne(dkSrc, dkDst)
+      push(
+        '悬空 ⇒ 重建目标空目录并判 ok(绝不静默早退)',
+        row.action === 'target-recreated' && row.ok && existsSync(dkDst),
+        JSON.stringify(row),
+      )
+      push('重建必须是断链不穿透(源链接仍在)', isLink(dkSrc) && !existsSync(join(dkSrc, 'k.txt')))
+      push('重建后指纹为空目录而非"读不到"', fingerprintTree(dkSrc).size === 0)
+
+      // 指向别处的指针不得被"顺手改指向" —— 那等于替人工决定数据落点
+      const other = join(root, 'somewhere-else')
+      const rowMoved = repairOne(dkSrc, other)
+      push(
+        '指针指向与登记表算出的目标不一致 ⇒ 判红交人工,不改指向',
+        rowMoved.action === 'link-moved' && !rowMoved.ok && !existsSync(other),
+        JSON.stringify(rowMoved),
+      )
+    }
+
     // ── stash(改名现场)识别与清理:三型结论各不相同,否则"能自动收的"和"猜不得的"会混成一类 ──
     const sHome = join(root, 'home')
     const sDst = join(root, 'dstside')
@@ -580,13 +662,17 @@ async function main() {
   if (argv.includes('--self-test')) return selfTest()
   const apply = argv.includes('--apply')
   const resetDst = argv.includes('--reset-dst')
+  // 冷却表是为**守护的自动重试**设计的(每 2 分钟撞同一个 EBUSY 没有意义),但它不得拦住
+  // 人工创造的窗口。2026-09-24 实测:`.codex` 被 Codex 的 LocalSystem 服务终身占用,
+  // 人工把服务停下来跑 `--apply`,却被上一轮的冷却判成"跳过"—— 冷却把唯一可行的时机吞掉了。
+  const noCooldown = argv.includes('--no-cooldown')
   const items = plan()
   const coolFile = cooldownPath(ROOT)
   const cool = readCooldown(coolFile)
   const now = Date.now()
   const rows = []
   for (const it of items) {
-    if (apply && cool[it.src] > now) {
+    if (apply && !noCooldown && cool[it.src] > now) {
       rows.push({
         ...it,
         src: it.src,
@@ -597,7 +683,10 @@ async function main() {
       continue
     }
     rows.push({ ...it, ...repairOne(it.src, it.dst, { dry: !apply, resetDst }) })
-    if (apply && (rows.at(-1).action === 'rename-failed' || rows.at(-1).action === 'verify-failed'))
+    // --no-cooldown 时**不再新添**冷却条目(人工窗口失败要能立刻再试),但**保留既有条目**:
+    //   守护每 2 分钟一次的自动重试仍会被它拦住 —— 复制发生在改名之前,拦住的是"每轮重抄 100MB
+    //   然后撞同一个 EBUSY",那才是冷却存在的理由。
+    if (apply && !noCooldown && (rows.at(-1).action === 'rename-failed' || rows.at(-1).action === 'verify-failed'))
       cool[it.src] = now + COOLDOWN_MS
   }
   if (apply) {

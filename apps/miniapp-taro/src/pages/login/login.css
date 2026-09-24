@@ -27,7 +27,9 @@
   max-width: 460px;
   margin-left: auto;
   margin-right: auto;
-  padding: 0 30rpx;
+  /* login.config.ts 声明 navigationStyle:'custom' → 小程序不替本页垫状态栏,
+   * 与 register / forgot-password 同法用 safe-area 补顶距(垂直居中下仍保证内容上沿不压状态栏) */
+  padding: calc(env(safe-area-inset-top) + 8rpx) 30rpx 0;
   display: flex;
   flex-direction: column;
   justify-content: center;

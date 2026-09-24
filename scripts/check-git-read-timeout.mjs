@@ -51,12 +51,16 @@ export const HOT = [
   'scripts/git-refs-heal.mjs',
   'scripts/git-rebuild-local.mjs',
   'scripts/git-sync-converge.mjs',
+  //  union-converge 由收敛器与守护两条链派生,一次合并要 ls-tree 多棵全量树 ⇒ 必须封顶
+  'scripts/union-converge.mjs',
   'scripts/git-push-guard.mjs',
   'scripts/git-push-converge.mjs',
   'scripts/heal-worktree-tracked.mjs',
   'scripts/check-commit-loss-guard.mjs',
   //  守门 98 由 pre-commit 直调,git 挂住 = 提交像死掉了(§80 的原始成因形态)
   'scripts/check-dangling-local-imports.mjs',
+  //  守门 100 由 pre-commit 直调,一次审计要 ls-tree 多棵全量树 ⇒ 无界挂起会直接冻结提交链
+  'scripts/check-merge-addition-loss.mjs',
   'scripts/backup-unreachable-commits.mjs',
   'scripts/check-port-registry.mjs',
   'scripts/lib/gitdir.mjs',
