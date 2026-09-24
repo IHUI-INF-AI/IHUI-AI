@@ -344,8 +344,11 @@ if (violations.length > 0) {
     console.error(`  ${v.file}: ${v.count} 处 > 基线 ${v.allowed} 处(新增 ${v.count - v.allowed})`)
   }
   if (violations.length > 10) console.error(`  …另有 ${violations.length - 10} 个文件`)
-  console.error('  正解:界面文案走 t()/语言包(见 AGENTS.md §19);确属内容文案或已取词的误报,')
-  console.error('  先跑 node scripts/scan-hardcoded-zh.mjs 定位,再 node scripts/scan-hardcoded-zh.mjs --update-baseline 下调基线。')
+  console.error('  正解:界面文案走 t()/语言包(见 AGENTS.md §19)。')
+  console.error('  确属**内容文案**(对外 payload/示例数据,不是界面 chrome)时,用声明式出口而不是调基线:')
+  console.error('    在文件**头 40 行内**写 `// i18n-content-exempt-file: <不少于 12 字的理由>`,')
+  console.error('    该文件即不计红,且会在"内容文案豁免"段逐文件报出命中数与理由供人工复核。')
+  console.error('  只是清理后下调存量额度时,才跑 node scripts/scan-hardcoded-zh.mjs --update-baseline(禁止为过门调高)。')
 }
 if (STRICT && violations.length > 0) {
   console.error('\n[scan-hardcoded-zh] --exit 1:本次改动新增了硬编码中文,pre-commit 拒绝通过')
