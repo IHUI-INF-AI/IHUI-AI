@@ -78,7 +78,7 @@ interface UsageResponse {
     startDate: string
     endDate: string
     timezone: string
-    buckets: { date: string; count: number; points: number }[]
+    buckets: { date: string; count: number; points: number; sessions: number }[]
   }
 }
 
@@ -164,7 +164,11 @@ describe('credits-usage routes(按日积分消耗聚合,只读)', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-09-02T00:30:00Z'))
     // pg 驱动聚合列可能回传字符串,buildBuckets 必须归一为 number
-    dbQueue.items = [[{ date: '2026-08-31', count: '2', points: '30' }]]
+    // 第 2 组队列 = 当日新建会话数(chat_conversations 分桶)
+    dbQueue.items = [
+      [{ date: '2026-08-31', count: '2', points: '30' }],
+      [{ date: '2026-08-31', sessions: '3' }],
+    ]
     const res = await server.inject({
       method: 'GET',
       url: '/api/credits/usage/daily?days=4',
@@ -176,10 +180,29 @@ describe('credits-usage routes(按日积分消耗聚合,只读)', () => {
     expect(body.data?.startDate).toBe('2026-08-30')
     expect(body.data?.endDate).toBe('2026-09-02')
     expect(body.data?.buckets).toEqual([
-      { date: '2026-08-30', count: 0, points: 0 },
-      { date: '2026-08-31', count: 2, points: 30 },
-      { date: '2026-09-01', count: 0, points: 0 },
-      { date: '2026-09-02', count: 0, points: 0 },
+      { date: '2026-08-30', count: 0, points: 0, sessions: 0 },
+      { date: '2026-08-31', count: 2, points: 30, sessions: 3 },
+      { date: '2026-09-01', count: 0, points: 0, sessions: 0 },
+      { date: '2026-09-02', count: 0, points: 0, sessions: 0 },
+    ])
+  })
+
+  it('会话序列缺日补零且与消耗互不换算:当日有消耗无会话 → sessions=0(不得拿 points 顶替)', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-02T00:30:00Z'))
+    dbQueue.items = [
+      [{ date: '2026-09-02', count: '5', points: '77' }],
+      [], // 会话表当日无行
+    ]
+    const res = await server.inject({
+      method: 'GET',
+      url: '/api/credits/usage/daily?days=2',
+      headers: { authorization: 'Bearer test' },
+    })
+    const body = res.json() as UsageResponse
+    expect(body.data?.buckets).toEqual([
+      { date: '2026-09-01', count: 0, points: 0, sessions: 0 },
+      { date: '2026-09-02', count: 5, points: 77, sessions: 0 },
     ])
   })
 
@@ -196,6 +219,12 @@ describe('credits-usage routes(按日积分消耗聚合,只读)', () => {
     const literals = flattenSqlChunks(groupByArg, []).join('')
     expect(literals).toContain(`AT TIME ZONE 'UTC'`)
     expect(literals).toContain('YYYY-MM-DD')
+    // 会话序列必须与消耗序列同一时区口径,否则两张视图的日期键会错一天
+    const convGroupByArg = captured.groupByArgs[1]?.[0]
+    expect(convGroupByArg).toBeDefined()
+    const convLiterals = flattenSqlChunks(convGroupByArg, []).join('')
+    expect(convLiterals).toContain(`AT TIME ZONE 'UTC'`)
+    expect(convLiterals).toContain('YYYY-MM-DD')
   })
 
   it('utcDateKey 日期边界:23:59:59.999Z 属当日,00:00:00Z 属次日', () => {
@@ -203,7 +232,7 @@ describe('credits-usage routes(按日积分消耗聚合,只读)', () => {
     expect(utcDateKey(new Date('2026-09-01T00:00:00.000Z'))).toBe('2026-09-01')
   })
 
-  it('buildBuckets:乱序原始行归正、区间外日期丢弃、同日多行累加', () => {
+  it('buildBuckets:乱序原始行归正、区间外日期丢弃、同日多行累加、会话表缺省补零', () => {
     const buckets = buildBuckets(
       [
         { date: '2026-03-02', count: 1, points: 5 },
@@ -216,9 +245,25 @@ describe('credits-usage routes(按日积分消耗聚合,只读)', () => {
       '2026-03-03',
     )
     expect(buckets).toEqual([
-      { date: '2026-03-01', count: 5, points: 17 },
-      { date: '2026-03-02', count: 1, points: 5 },
-      { date: '2026-03-03', count: 0, points: 0 },
+      { date: '2026-03-01', count: 5, points: 17, sessions: 0 },
+      { date: '2026-03-02', count: 1, points: 5, sessions: 0 },
+      { date: '2026-03-03', count: 0, points: 0, sessions: 0 },
+    ])
+  })
+
+  it('buildBuckets 传入会话映射:命中的日期填 sessions,未命中仍为 0', () => {
+    const buckets = buildBuckets(
+      [{ date: '2026-03-01', count: 2, points: 10 }],
+      '2026-03-01',
+      '2026-03-02',
+      new Map([
+        ['2026-03-02', 4],
+        ['2026-01-01', 99], // 区间外键 → 不参与
+      ]),
+    )
+    expect(buckets).toEqual([
+      { date: '2026-03-01', count: 2, points: 10, sessions: 0 },
+      { date: '2026-03-02', count: 0, points: 0, sessions: 4 },
     ])
   })
 })
