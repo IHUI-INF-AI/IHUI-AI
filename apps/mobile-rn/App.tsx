@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { AppRegistry, LogBox, Platform, Text, TextInput, View } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useFonts } from 'expo-font'
-import { SafeAreaProvider } from 'react-native-safe-area-context'
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native'
 import { StatusBar } from 'expo-status-bar'
 import { AuthProvider } from './src/context/AuthContext'
@@ -74,11 +74,21 @@ function ThemedNavigation() {
 function AppInner() {
   const { isOnline } = useNetwork()
   return (
-    <>
+    /**
+     * 顶部安全区在**这一处单点**注入:RN 0.86 + Expo 强制 edge-to-edge,而全端 180 个共享屏
+     * 自绘的"返回"页头没有一个处理 inset,页头与系统时钟/电量叠字(真机实测页头 y0=24..78)。
+     * 逐屏补是 180 处改动,这里包一层是一次性收口。因此原先自带顶距的几处必须同时摘掉,否则双份:
+     * components/NavBar、screens/PostCreateScreen、screens/WebViewScreen、
+     * packages/app 的 search/SearchScreen;DevErrorToast 是 absolute 子元素,相对本容器
+     * padding 盒定位,故其 top 也同步去掉状态栏高度。
+     * 不经过这里的:Drawer / SideMenu / BottomPops / HandPlatePops / PrivacyPolicyModal ——
+     * 它们走 RN <Modal>,渲染在本树之外的原生窗口,各自的 insets.top 必须保留。
+     */
+    <SafeAreaView edges={['top']} style={{ flex: 1 }}>
       <OfflineBanner isOnline={isOnline} />
       <ThemedNavigation />
       <DevErrorToast />
-    </>
+    </SafeAreaView>
   )
 }
 
