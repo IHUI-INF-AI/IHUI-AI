@@ -42,12 +42,12 @@ const PAGE_SIZE = 20
 const BAR_LIST = (tt: TtFn): Array<{ value: BarType; key: string; fb: string }> => [
   {
     value: 'w',
-    key: 'token.balance.bar7d',
+    key: 'devEnter.modelEdit.limitedDuration7Day',
     fb: tt('devEnter.modelEdit.limitedDuration7Day', '7天'),
   },
-  { value: 'm', key: 'token.balance.bar1m', fb: tt('tokenBalance.d1', '一个月') },
-  { value: 'y', key: 'token.balance.bar1y', fb: tt('tokenBalance.d2', '近一年') },
-  { value: 'a', key: 'token.balance.barAll', fb: tt('common.all', '全部') },
+  { value: 'm', key: 'tokenBalance.d1', fb: tt('tokenBalance.d1', '一个月') },
+  { value: 'y', key: 'tokenBalance.d2', fb: tt('tokenBalance.d2', '近一年') },
+  { value: 'a', key: 'common.all', fb: tt('common.all', '全部') },
 ]
 
 function getUuid(): string {
