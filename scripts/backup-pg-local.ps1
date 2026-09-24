@@ -20,7 +20,7 @@ $ErrorActionPreference = 'Stop'
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $BackupDir = 'D:\DevEnv\backups\pg'
-$PgDump = 'D:\ihui-pg\16\bin\pg_dump.exe'
+$PgDump = 'D:\DevEnv\runtimes\pgsql\bin\pg_dump.exe'
 $Retain = 7
 
 New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null

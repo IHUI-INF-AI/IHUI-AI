@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url'
 
 import {
   buildUpdaterPlatforms,
+  findPlatformAmbiguity,
   inferPlatformForPackage,
   isUpdaterUrlAllowed,
 } from '../lib/tauri-updater-platforms.mjs'
@@ -247,3 +248,48 @@ test('装车:入库快照形状完整(四键、签名非空、与 lib 重算结�
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/* ── findPlatformAmbiguity:把"靠采集顺序静默决定"的争抢显式化(2026-09-24) ──
+ * 现场成因:Gitee desktop-v0.1.44 同时挂着 CI 的 AI_…exe 与本机发版通道的 智汇AI_…exe,
+ * 两者同为 kind=exe、同版本匹配、签名不同 ⇒ buildUpdaterPlatforms 只"保留首个"且不留痕迹。 */
+test('歧义:同平台同优先级而签名不同 → 报出保留/弃用两条(正反例成对)', () => {
+  const entries = [
+    { name: 'AI_0.1.44_x64-setup.exe', url: `${GITEE}/AI_0.1.44_x64-setup.exe`, signature: 'SIG-CI' },
+    {
+      name: '智汇AI_0.1.44_x64-setup.exe',
+      url: `${GITEE}/智汇AI_0.1.44_x64-setup.exe`,
+      signature: 'SIG-LOCAL',
+    },
+  ]
+  const amb = findPlatformAmbiguity(entries, { version: '0.1.44' })
+  assert.equal(amb.length, 1, '两枚同优先级 exe 必须报一处歧义')
+  assert.equal(amb[0].platform, 'windows-x86_64')
+  assert.equal(amb[0].kept, 'AI_0.1.44_x64-setup.exe')
+  assert.equal(amb[0].dropped, '智汇AI_0.1.44_x64-setup.exe')
+  // 反向对照:同一份产物被重复挂载(签名相同)不算歧义,不吼
+  const same = findPlatformAmbiguity(
+    entries.map((e, i) => (i === 1 ? { ...e, signature: 'SIG-CI' } : e)),
+    { version: '0.1.44' },
+  )
+  assert.deepEqual(same, [], '签名相同的重复条目不得报歧义')
+})
+
+test('歧义:确有优先级差或版本差不算歧义(那是择优,不是并列)', () => {
+  const ok = [
+    { name: 'AI_0.1.44_amd64.AppImage', url: `${GH}/AI_0.1.44_amd64.AppImage`, signature: 'S-AI' },
+    { name: 'AI_0.1.44_amd64.deb', url: `${GH}/AI_0.1.44_amd64.deb`, signature: 'S-DEB' },
+    { name: 'AI_0.1.43_x64-setup.exe', url: `${GH}/AI_0.1.43_x64-setup.exe`, signature: 'S-OLD' },
+    { name: 'AI_0.1.44_x64-setup.exe', url: `${GH}/AI_0.1.44_x64-setup.exe`, signature: 'S-NEW' },
+  ]
+  assert.deepEqual(findPlatformAmbiguity(ok, { version: '0.1.44' }), [], 'AppImage>deb、版本匹配优先都应静默择优')
+  // 空签名条目既不进键也不制造歧义噪音
+  const withEmpty = [...ok, { name: '智汇AI_0.1.44_x64-setup.exe', url: `${GH}/智汇AI_0.1.44_x64-setup.exe`, signature: '' }]
+  assert.deepEqual(findPlatformAmbiguity(withEmpty, { version: '0.1.44' }), [])
+})
+
+test('装车:快照生成链确实调用歧义探测器(探测函数被摘掉即红)', () => {
+  const resolver = read('scripts/resolve-desktop-download.mjs')
+  assert.match(resolver, /import\s*\{[^}]*findPlatformAmbiguity[^}]*\}\s*from\s*'\.\/lib\/tauri-updater-platforms\.mjs'/s)
+  assert.match(resolver, /findPlatformAmbiguity\(/)
+  assert.match(resolver, /平台键歧义/)
+})
