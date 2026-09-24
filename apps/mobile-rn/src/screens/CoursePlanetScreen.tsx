@@ -32,6 +32,7 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import CourseCarousel, { type CourseCarouselItem } from '../components/CourseCarousel'
@@ -106,8 +107,9 @@ export function CoursePlanetScreen() {
       } else {
         setError('加载失败，请下拉刷新重试')
       }
-    } catch {
-      setError('加载失败，请下拉刷新重试')
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      setError(detail.trim() ? toUserFriendlyMessage(e) : '加载失败，请下拉刷新重试')
     } finally {
       setLoading(false)
       setRefreshing(false)

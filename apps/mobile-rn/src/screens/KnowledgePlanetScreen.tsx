@@ -11,12 +11,14 @@
  *   components/common/Loading(对齐原项目 common/Loading 全屏 loading-mask 语义)。
  */
 import { useCallback, useEffect, useState } from 'react'
+import { useTheme } from '../context/ThemeContext'
 import { StyleSheet, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
 import { KnowledgePlanetScreen as SharedKnowledgePlanetScreen } from '@ihui/rn-app'
 import { fetchApi } from '@ihui/api-client'
+import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import Loading from '../components/common/Loading'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -35,6 +37,7 @@ function toTimestamp(time: string | number | undefined): number {
 }
 
 export function KnowledgePlanetScreen() {
+  const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
   const [items, setItems] = useState<
@@ -57,7 +60,7 @@ export function KnowledgePlanetScreen() {
         }[]
         total: number
       }>(API_PATH)
-      if (!res.success) throw new Error()
+      if (!res.success) throw new Error(res.error)
       const rawList = res.data?.list ?? []
       setItems(
         rawList.map((raw) => ({
@@ -68,8 +71,9 @@ export function KnowledgePlanetScreen() {
           createdAt: toTimestamp(raw.createdAt),
         })),
       )
-    } catch {
-      setError('加载失败，请下拉刷新重试')
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      setError(detail.trim() ? toUserFriendlyMessage(e) : '加载失败，请下拉刷新重试')
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -103,6 +107,7 @@ export function KnowledgePlanetScreen() {
         onRefresh={onRefresh}
         onItemClick={onItemClick}
         onBack={() => navigation.goBack()}
+        colorScheme={resolvedTheme}
       />
       {/* 加载遮罩(对齐原项目 common/Loading 全屏 loading-mask 语义) */}
       {loading ? <Loading text={t('common.loading')} fullscreen /> : null}

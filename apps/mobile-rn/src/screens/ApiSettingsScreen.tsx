@@ -8,6 +8,7 @@
  * 平台逻辑(load/save/reset/test)留 wrapper,UI 交 SharedApiSettingsScreen。
  */
 import { useCallback, useEffect, useState } from 'react'
+import { useTheme } from '../context/ThemeContext'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
@@ -29,6 +30,7 @@ import {
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
 export function ApiSettingsScreen() {
+  const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const navigation = useNavigation<Nav>()
   const [config, setConfig] = useState<ApiSettingsConfig>({
@@ -122,6 +124,7 @@ export function ApiSettingsScreen() {
       onReset={reset}
       onTest={test}
       onBack={() => navigation.goBack()}
+      colorScheme={resolvedTheme}
     />
   )
 }

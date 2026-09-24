@@ -5,7 +5,7 @@
     "web": 27,
     "extension": 16,
     "miniapp-taro": 21,
-    "mobile-rn": 17,
+    "mobile-rn": 18,
     "cli": 12
   },
   "endpoints": {
@@ -47,7 +47,7 @@
     },
     "miniapp-taro": {
       "onAgentDelta": "no-agent-delta-ui",
-      "onBudget": "no-budget-ui",
+      "onBudget": "装配器与词表已在 @ihui/shared/chat 备好(cli / mobile-rn 已消费),本端缺的是 `src/api/index.ts` 的 dispatch case —— 该文件当前被并行会话的 D49①(rateChatMessage / sendToolApprovalResponse)改动占住,补 case 会把他人未提交工作代收进本票(§12 红线),故显式登记而非静默。解阻判据:该文件工作树与 HEAD 一致后接 `case 'budget'` + chat.tsx 注册 + 6 键 ×5 语言入 `ai.stream.*`。",
       "onDelta": "该端聊天渲染按 tokens 概览驱动,未逐 delta 消费;seed 现状,若后续接入逐字流请删除本项并上调 baseline。",
       "onMemoryUpdates": "no-memory-update-ui",
       "onQuestion": "no-question-ui",
@@ -55,7 +55,6 @@
     },
     "mobile-rn": {
       "onAgentDelta": "no-agent-delta-ui",
-      "onBudget": "no-budget-ui",
       "onMemoryUpdates": "no-memory-update-ui",
       "onReconnect": "no-reconnect-ui",
       "onSubagentEnd": "no-subagent-ui",
