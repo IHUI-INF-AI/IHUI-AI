@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 
-export interface UseSidebarReturn {
+interface UseSidebarReturn {
   collapsed: boolean
   mobileOpen: boolean
   activeId: string | null
