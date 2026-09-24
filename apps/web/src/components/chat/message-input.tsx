@@ -185,7 +185,6 @@ export function PromptPolishNotice({ state, onRetry }: PromptPolishNoticeProps) 
 // DANGEROUS_PATTERN_KEY 已提取到 useMessageSend hook(2026-07-30)。
 // mimeToLabel / useMentionFiles / useAiSkills 已提取到 use-lazy-resource-hooks(2026-07-30)。
 
-
 interface MessageInputProps {
   /** onSend 返回 true=已提交可清空输入框,false=未发送需保留输入内容(如未登录/创建会话失败) */
   onSend: (content: string) => Promise<boolean> | boolean
@@ -1344,7 +1343,7 @@ export function MessageInput({
                         className={cn(
                           'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
                           canSend
-                            ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                            ? 'bg-cta text-cta-foreground hover:bg-cta/90'
                             : 'cursor-not-allowed bg-muted text-muted-foreground/50',
                         )}
                         aria-label={sendLabel ?? t('send')}
