@@ -18,7 +18,7 @@
 
 import { callRealLlm, type LlmMessage } from '../crew-llm-adapter.js'
 
-export type PromptType = 'text' | 'image' | 'code' | 'summary' | 'translation' | 'default'
+type PromptType = 'text' | 'image' | 'code' | 'summary' | 'translation' | 'default'
 
 export interface OptimizeOptions {
   type?: PromptType
