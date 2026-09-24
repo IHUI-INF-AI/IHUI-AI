@@ -401,7 +401,7 @@ export function HandPlatePops({
                   accessibilityLabel={purchase.payText ?? '立即支付'}
                 >
                   {purchase.loading ? (
-                    <ActivityIndicator size="small" color={tokens.brand.foreground} />
+                    <ActivityIndicator size="small" color={tokens.brand.ctaForeground} />
                   ) : (
                     <Text style={styles.purchasePayBtnText}>
                       {purchase.payText ?? `立即支付 ¥${formatYuan(purchase.price)}`}
@@ -625,7 +625,7 @@ const styles = StyleSheet.create({
   purchasePayBtn: {
     height: 44,
     borderRadius: rnRadius.lg,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
@@ -637,7 +637,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 20,
     fontWeight: '600',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
   } as TextStyle,
 })
 

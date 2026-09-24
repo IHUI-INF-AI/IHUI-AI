@@ -266,7 +266,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    formPrimaryBtn: { backgroundColor: tk.brand.DEFAULT, height: 50 },
+    formPrimaryBtn: { backgroundColor: tk.brand.cta, height: 50 },
     formPrimaryBtnText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
     formOutlineBtn: {
       borderWidth: 1,
