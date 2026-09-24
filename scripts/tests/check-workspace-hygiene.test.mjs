@@ -5,18 +5,58 @@
 import { test, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, writeFileSync, rmSync } from 'node:fs'
-import { join } from 'node:path'
+import { mkdirSync, writeFileSync, rmSync, readdirSync, statSync, existsSync } from 'node:fs'
+import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const SCRIPT_PATH = join(__dirname, '..', 'check-workspace-hygiene.mjs')
 const PROJECT_ROOT = join(__dirname, '..', '..')
-// 源脚本 ROOT 由 import.meta.url 推导,始终扫描 g:\IHUI-AI\
-// .ihui-agent/tmp/ 被 scanDir(ROOT→.ihui-agent→tmp) 递归扫描且已 gitignore,
-// 是唯一可被脚本检测到的 fixture 落点(不污染 git)
-const FIXTURE_PARENT = join(PROJECT_ROOT, '.ihui-agent', 'tmp')
+
+/**
+ * 夹具落点 = 仓库树**外**的 scratch,经 `--root` 显式喂给被测脚本(2026-09-25 换的落点)。
+ *
+ * 此前它只能落在被扫描的真仓树里(源脚本 ROOT 由自身位置推导、不认 cwd,见守门 70 同型教训),
+ * 代价实测两条:① 一次 SIGKILL(宿主清树/超时)就把带 `$env:TEMP\…` 字面量的夹具永久留在盘上,
+ * 之后每次全量审计都报一条"项目数据写到系统 temp"的**假违规**,而违规者早已不存在
+ * (2026-09-25 盘上还挂着 19:23 那一轮的残留);② 并行会话正在跑的那一轮,会把本文件的
+ * "基线干净 / 豁免应 exit 0"两条断言踩红 —— 因为它的夹具也在同一棵扫描树里。
+ * 换落点对两条都是根治,而不是再加一层容错。
+ */
+const FIXTURE_ROOT = mkScratch('hygiene-')
+// 旧版本(可能仍跑在别的会话进程里)往这里落夹具,只清陈年的,别踩年轻那一份
+const LEGACY_FIXTURE_PARENT = join(PROJECT_ROOT, '.ihui-agent', 'tmp')
+const STALE_FIXTURE_MS = 30 * 60 * 1000
+
+function listLegacyFixtures() {
+  try {
+    return readdirSync(LEGACY_FIXTURE_PARENT).filter((n) => n.startsWith('hygiene-test-'))
+  } catch {
+    return []
+  }
+}
+
+/** 开局自愈:清掉"上一轮没走完就死掉"的残留夹具(年龄闸是必需的,不是可选)。 */
+function sweepStaleLegacyFixtures() {
+  const cutoff = Date.now() - STALE_FIXTURE_MS
+  let swept = 0
+  for (const name of listLegacyFixtures()) {
+    const full = join(LEGACY_FIXTURE_PARENT, name)
+    try {
+      if (statSync(full).mtimeMs > cutoff) continue
+      rmSync(full, { recursive: true, force: true })
+      swept += 1
+    } catch {
+      // 目录正被占用等情形:下一轮再清,绝不自愈把测试自身弄红
+    }
+  }
+  return swept
+}
+
+const sweptAtStart = sweepStaleLegacyFixtures()
+if (sweptAtStart > 0) console.log(`  [自愈] 清掉旧落点残留夹具 ${sweptAtStart} 个`)
 
 // ─── 拼接违规字符串(拆分写,避免本测试文件被守门脚本自检命中) ───
 // 源脚本同时扫描本测试文件;若同行出现 "C:\temp\ihui-ext" 等连续模式会自伤。
@@ -28,7 +68,7 @@ let counter = 0
 
 function makeFixture(label) {
   counter += 1
-  const dir = join(FIXTURE_PARENT, `hygiene-test-${counter}-${label}-${Date.now()}`)
+  const dir = join(FIXTURE_ROOT, `hygiene-test-${counter}-${label}-${Date.now()}`)
   mkdirSync(dir, { recursive: true })
   createdDirs.push(dir)
   return dir
@@ -43,7 +83,7 @@ function cleanup(dir) {
 }
 
 // 运行脚本并去除 ANSI 颜色码,便于正则断言
-function runScript(args = []) {
+function runRaw(args = []) {
   const r = spawnSync('node', [SCRIPT_PATH, ...args], {
     encoding: 'utf8',
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -53,29 +93,50 @@ function runScript(args = []) {
   return r
 }
 
+/**
+ * 夹具用例的默认入口:一律只扫 scratch 那一棵 ROOT。
+ * 刻意把 `--root` 收在这一处而非每个用例里 —— 漏写一次的后果是"该用例回退成全仓扫描"
+ * (单用例 ~90s、且把别人在飞的夹具算进判定),而不是编译不过,故不给它留可漏的空间。
+ */
+function runScript(args = []) {
+  return runRaw(['--root', FIXTURE_ROOT, ...args])
+}
+
+/** 全仓口径:只有"真仓基线必须干净"这三条用,一条 = 一次整仓扫描(~90s)。 */
+function runOnRepo(args = []) {
+  return runRaw(args)
+}
+
 // 兜底清理:即使某测试 try/finally 未执行,after 钩子也会清掉所有 fixture
 after(() => {
   for (const dir of createdDirs) {
     rmSync(dir, { recursive: true, force: true })
   }
+  rmScratch(FIXTURE_ROOT)
+})
+
+test('落点:夹具 ROOT 必须在仓库树外(否则残留又会落进被扫描面)', () => {
+  assert.ok(existsSync(FIXTURE_ROOT), `scratch 未创建: ${FIXTURE_ROOT}`)
+  const rel = relative(PROJECT_ROOT, FIXTURE_ROOT)
+  assert.ok(rel.startsWith('..'), `夹具落点逃不出仓库树(rel=${rel})⇒ 残留会永久挂在扫描面里`)
 })
 
 // ─── 1. CLI 行为 / 基线(项目当前状态干净) ─────────────────
 
 test('CLI: 默认模式(基线干净)→ exit 0 + stdout 含 "无违规"', () => {
-  const r = runScript()
+  const r = runOnRepo()
   assert.equal(r.status, 0, `基线应 exit 0\nstdout: ${r.out}\nstderr: ${r.err}`)
   assert.match(r.out, /无违规/)
 })
 
 test('CLI: --warn 模式(基线干净)→ exit 0 + stdout 含 "无违规"', () => {
-  const r = runScript(['--warn'])
+  const r = runOnRepo(['--warn'])
   assert.equal(r.status, 0, `--warn 基线应 exit 0\nstdout: ${r.out}`)
   assert.match(r.out, /无违规/)
 })
 
 test('CLI: --staged 模式(无 staged 脚本)→ exit 0 + "跳过"/"无违规" 提示', () => {
-  const r = runScript(['--staged'])
+  const r = runOnRepo(['--staged'])
   // 测试环境通常无 staged 脚本文件;若有 staged 且无违规也 exit 0
   assert.equal(r.status, 0, `--staged 应 exit 0\nstdout: ${r.out}\nstderr: ${r.err}`)
   assert.match(r.out, /跳过|无违规/)
