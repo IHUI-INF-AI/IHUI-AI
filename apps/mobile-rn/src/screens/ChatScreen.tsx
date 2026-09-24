@@ -29,6 +29,7 @@
  * 平台独占:仅 mobile-rn 端,不涉及其他端。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTheme } from '../context/ThemeContext'
 import { useAudioPlayer } from 'expo-audio'
 import * as DocumentPicker from 'expo-document-picker'
 import { File, Paths } from 'expo-file-system'
@@ -110,7 +111,7 @@ import {
   type MyCreationItem,
   type MyCreationType,
 } from '@ihui/api-client'
-import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS } from '@ihui/shared'
+import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS, toUserFriendlyMessage } from '@ihui/shared'
 import type { ChatMessage } from '@ihui/shared'
 import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
 import type { ModelConfigType } from '@ihui/ui-native'
@@ -370,6 +371,7 @@ const FILE_TYPE_BADGES: readonly string[] = ['PDF', 'Word', 'Excel', 'TXT'] as c
 // ── ChatScreen 组件 ──
 
 export function ChatScreen() {
+  const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
   const route = useRoute<RouteProp<RootStackParamList, 'Chat'>>()
@@ -1327,8 +1329,9 @@ export function ChatScreen() {
       } else {
         showToast('info', res.error ?? '已领取过首次分享奖励')
       }
-    } catch {
-      showToast('error', '领取失败,请稍后重试')
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      showToast('error', detail.trim() ? toUserFriendlyMessage(e) : '领取失败,请稍后重试')
     }
   }
 
@@ -2219,6 +2222,7 @@ export function ChatScreen() {
           onInputClear={() => {}}
           onInputVoiceStart={() => {}}
           onInputVoiceEnd={() => {}}
+          colorScheme={resolvedTheme}
         />
         <BottomActionBar
           prompt={prompt}
@@ -3306,11 +3310,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(48),
     paddingVertical: rpx(20),
     borderRadius: rnRadius.md,
-    backgroundColor: tokens.brand.ctaFill,
+    backgroundColor: tokens.brand.DEFAULT,
   },
   shareBtnText: {
     fontSize: 14,
-    color: tokens.brand.ctaText,
+    color: tokens.brand.foreground,
     fontWeight: '500',
   },
   shareBtnSecondary: {
@@ -3456,7 +3460,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
   },
   fangdaSendBtn: {
-    backgroundColor: tokens.brand.ctaFill,
+    backgroundColor: tokens.brand.DEFAULT,
     borderRadius: rnRadius.lg,
     paddingVertical: rpx(24),
     alignItems: 'center',
@@ -3464,7 +3468,7 @@ const styles = StyleSheet.create({
   fangdaSendBtnText: {
     fontSize: 16,
     fontWeight: '600',
-    color: tokens.brand.ctaText,
+    color: tokens.brand.foreground,
   },
   // ── P1.1 转语音 Modal ──
   ttsLoadingWrap: {

@@ -517,7 +517,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: BUTTON_HEIGHT,
     borderRadius: BUTTON_RADIUS,
-    backgroundColor: tokens.brand.ctaFill,
+    backgroundColor: tokens.brand.DEFAULT,
     borderWidth: 1,
     borderColor: tokens.border.light,
     alignItems: 'center',
@@ -542,7 +542,7 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: BUTTON_FONT_SIZE,
     lineHeight: BUTTON_FONT_SIZE + 2,
-    color: tokens.brand.ctaText,
+    color: tokens.brand.foreground,
     fontWeight: '600',
   } as TextStyle,
   secondaryButtonText: {

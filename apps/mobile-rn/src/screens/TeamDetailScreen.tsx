@@ -14,6 +14,7 @@ import { Alert, Linking, StyleSheet, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getTeamMemberDetail, type TeamMemberDetail } from '@ihui/api-client'
+import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import { TeamDetailScreen, type TeamDetailScreenProps } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -46,8 +47,9 @@ export default function TeamDetailScreenWrapper() {
         return
       }
       setMember(res.data)
-    } catch {
-      setError('加载失败,请重试')
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      setError(detail.trim() ? toUserFriendlyMessage(e) : '加载失败,请重试')
       setMember(null)
     } finally {
       setLoading(false)
