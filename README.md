@@ -5122,6 +5122,7 @@ A: Yes. ~14839+ tests / 719 test files / 67 e2e spec / 4393 API 路由 / 542 数
 于 2026-09-24 补上,详见 AGENTS 守门速查第 83 项;紧急跳过
 
 | | Credits 用量可见性 | `GET /api/credits/usage/daily`(登录态 + Zod,days≤365,UTC 分桶缺日补零,纯只读零写入)驱动热力图卡;**单日消耗**与**当日新建会话数**是两条独立序列(积分流水的 reference_id 存 HTTP 请求 id 而非会话 id),不可互相换算 |
+| | 会话级分叉(跨端宿主) | 分叉三层**早已入库**(W17 2026-09-14):端点 `POST /api/chat/conversations/:id/branch` + 客户端 `branchConversation()` + DB 事务 `branchConversationFrom`(新会话 metadata 记 `forkedFromMessageId`/`forkedFromMessageCount`/`forkedAt`,供分支树溯源)。**宿主覆盖**：web 消息级 `use-chat/send-message.ts`;extension sidepanel 2026-09-25 接(`ChatPage.tsx` assistant 气泡下方「从此处分支」;该端原为**无会话纯流式**,故先懒建会话 + 逐条落库才谈得上分叉,落库失败走非阻断 notice 不打断既有聊天)。rn / cli / miniapp-taro 宿主陆续接。 |
 | | 小元素包(D64) | 图片预览翻页 / 第 N·M 张 / 缩放档位进退 / 保存与复制**成败都说话**;思考卡双态标题(有思考→"思考过程",无思考有引用→"使用了 N 个引用");后台子任务八态含 `stopFailed` 显式文案 + 重试停止;回复反馈问卷卡(三选 + 可跳过 + 免打扰)。**宿主覆盖(2026-09-25)**:web 全五项;rn ②预览+传输 / ③思考卡 / ④子任务八态;miniapp ②(逻辑+渲染,复制降级为复制地址)/ ③;extension ④;cli 平台独占豁免。①热力图 web 专有,⑤反馈落库待后端载荷 |
 | | 多任务窗格(D73) | 窗格树唯一真相源 `@ihui/shared/chat/multi-pane`:向右/向下拆分、最大化还原、**相邻窗格联动调宽**(最小份额钳制)、空窗格复用 D22 `application/x-ihui-conversation` 通道拖入、Fork 失败三态显式文案 |
 | | 跨端词表落点纪律 | `ai.pane.*` 79 叶 × 5 语言由 `messages/web/` **迁入** `messages/shared/` —— web 合并 shared+web,而 miniapp / rn / cli / extension **只合并 shared + 各自端包**,键留在 web 包即四端裸键回显(由 `check-word-table-resolvable` W3/W4 逐键逐语言逐端钉住) |
