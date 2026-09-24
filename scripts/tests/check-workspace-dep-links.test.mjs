@@ -321,11 +321,22 @@ test('落点证明(深扫,2026-09-24):deep 开关默认 false、只由 strict �
     '深扫结果未与浅扫分列输出(合成一个数会让反空扫护栏失去意义)',
   )
   assert.match(src, /_tmp_\/i/, '安装中临时键的跳过判据不在位(把中间态判成债务=逼人跳门)')
-  // 提交链(--staged)拿不到 deep:audit 的 deep 只来自 strict 形参,runner 不下发 --strict
+  // 提交链(--staged)拿不到 deep:audit 的 deep 只来自 strict 形参,runner 不下发 --strict。
+  // **判据必须钉在 args 这一个结构位上**:注册块的 onFailHint 里写着「加 --strict 连 ②深扫 ③
+  // 一并判红」是给人看的复现指引,拿整块文本搜会把合规的注册块判红(2026-09-24 全量镜像测试
+  // 实测红的就是这个 —— 同族病灶见守门 80 的"夹具里的 git 字符串")。
   const runner = readFileSync(join(REPO, 'scripts', 'guardian-runner.mjs'), 'utf8')
   const block = runner.match(/id:\s*'78',[\s\S]{0,2500}?\n {2}\},/)
   assert.ok(block, '守门 78 注册块消失')
-  assert.doesNotMatch(block[0], /--strict/, '提交链注册块不得下发 --strict(深扫严禁进 pre-commit)')
+  const argsField = block[0].match(/^\s*args:\s*\[([\s\S]*?)\]/m)
+  assert.ok(
+    argsField,
+    '守门 78 注册块里没有 args 字段 —— 判据定位失败必须显式报错,不得当成"未下发"蒙混为绿',
+  )
+  assert.ok(
+    !argsField[1].includes('--strict'),
+    `提交链注册块下发了 --strict(深扫严禁进 pre-commit):args=[${argsField[1].trim()}]`,
+  )
 })
 
 test('自检入口可用(--self-test 退出码 0)', () => {

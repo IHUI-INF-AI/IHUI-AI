@@ -717,19 +717,178 @@
       "sourceTask": "D106",
       "events": ["steer"],
       "anchors": [
-        {"file": "apps/ai-service/app/routers/llm.py", "mustMatch": "steer_applied.append"},
-        {"file": "apps/api/src/routes/ai-callback.ts", "mustMatch": "persistedSteerAppliedSchema"},
-        {"file": "packages/api-client/src/client.ts", "mustMatch": "onSteer"},
-        {"file": "apps/web/src/stores/chat.ts", "mustMatch": "appendSteerNotice"},
-        {"file": "apps/web/src/hooks/use-chat/history-message.ts", "mustMatch": "readSteerAppliedFromMetadata"},
-        {"file": "apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx", "mustMatch": "onSteer"},
-        {"file": "apps/extension/entrypoints/sidepanel/components/MessageContent.tsx", "mustMatch": "steer-notice"},
-        {"file": "apps/miniapp-taro/src/api/index.ts", "mustMatch": "onSteer"},
-        {"file": "apps/miniapp-taro/src/pkg-ai/ai/cards/ai-cards.tsx", "mustMatch": "SteerNoticeCard"},
-        {"file": "apps/mobile-rn/src/utils/chat-render-model.ts", "mustMatch": "appendSteerFrames"},
-        {"file": "apps/mobile-rn/src/components/ChatDisclosure.tsx", "mustMatch": "SteerNoticeList"},
-        {"file": "apps/cli/src/commands/task-status-line.ts", "mustMatch": "steerNoteText"},
-        {"file": "apps/cli/src/commands/repl.ts", "mustMatch": "onSteer"}
+        {
+          "file": "apps/ai-service/app/routers/llm.py",
+          "mustMatch": "steer_applied.append"
+        },
+        {
+          "file": "apps/api/src/routes/ai-callback.ts",
+          "mustMatch": "persistedSteerAppliedSchema"
+        },
+        {
+          "file": "packages/api-client/src/client.ts",
+          "mustMatch": "onSteer"
+        },
+        {
+          "file": "apps/web/src/stores/chat.ts",
+          "mustMatch": "appendSteerNotice"
+        },
+        {
+          "file": "apps/web/src/hooks/use-chat/history-message.ts",
+          "mustMatch": "readSteerAppliedFromMetadata"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx",
+          "mustMatch": "onSteer"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/components/MessageContent.tsx",
+          "mustMatch": "steer-notice"
+        },
+        {
+          "file": "apps/miniapp-taro/src/api/index.ts",
+          "mustMatch": "onSteer"
+        },
+        {
+          "file": "apps/miniapp-taro/src/pkg-ai/ai/cards/ai-cards.tsx",
+          "mustMatch": "SteerNoticeCard"
+        },
+        {
+          "file": "apps/mobile-rn/src/utils/chat-render-model.ts",
+          "mustMatch": "appendSteerFrames"
+        },
+        {
+          "file": "apps/mobile-rn/src/components/ChatDisclosure.tsx",
+          "mustMatch": "SteerNoticeList"
+        },
+        {
+          "file": "apps/cli/src/commands/task-status-line.ts",
+          "mustMatch": "steerNoteText"
+        },
+        {
+          "file": "apps/cli/src/commands/repl.ts",
+          "mustMatch": "onSteer"
+        }
+      ]
+    },
+    {
+      "id": "queue-item-interactions",
+      "title": "(D38)队列项完整交互五动词:重排 / 撤回 / 编辑 / 打断并执行 / 模式 steer↔queue;许可判定复用 D69 queueInteractionPerms,被拒动作显式渲染原因不静默禁用;web 交互条(宿主挂载待 D36 草稿改造收尾)+ cli /queue move|edit|run|mode 已可用",
+      "sourceTask": "D38",
+      "events": [],
+      "anchors": [
+        {
+          "file": "apps/web/src/components/chat/queue-interaction-bar.tsx",
+          "mustMatch": "QueueInteractionBar"
+        },
+        {
+          "file": "packages/shared/src/chat/queue-interactions.ts",
+          "mustMatch": "interactionAllowed"
+        },
+        {
+          "file": "apps/cli/src/commands/queue-ops.ts",
+          "mustMatch": "cliQueueInteractionAllowed"
+        },
+        {
+          "file": "apps/web/src/stores/chat.ts",
+          "mustMatch": "requeue"
+        }
+      ]
+    },
+    {
+      "id": "credits-daily-heatmap",
+      "title": "(D64①)Credits 按日热力图:GET /api/credits/usage/daily(登录态 + Zod days≤365,UTC 分桶缺日补零)驱动;两条独立序列 = 单日消耗 与 当日新建会话数(积分流水 reference_id 存的是 HTTP 请求 id,不可与会话互换算);无数据整卡返回 null",
+      "sourceTask": "D64",
+      "events": [],
+      "anchors": [
+        {
+          "file": "apps/web/src/components/billing/credits-heatmap-card.tsx",
+          "mustMatch": "CreditsHeatmapCard"
+        },
+        {
+          "file": "apps/api/src/routes/credits-usage.ts",
+          "mustMatch": "usage/daily"
+        },
+        {
+          "file": "apps/api/src/services/credits-usage-service.ts",
+          "mustMatch": "getDailyCreditsUsage"
+        },
+        {
+          "file": "apps/web/app/(main)/settings/billing/page.tsx",
+          "mustMatch": "CreditsHeatmapCard"
+        }
+      ]
+    },
+    {
+      "id": "image-preview-gallery-controls",
+      "title": "(D64②)图片预览翻页 / 第 N·M 张 / 缩放档位进退 / 保存与复制成败都说话;判据唯一真相源 element-pack,三端(web FilePreview、miniapp lib、RN Modal)只做渲染不另建判定",
+      "sourceTask": "D64",
+      "events": [],
+      "anchors": [
+        {
+          "file": "apps/web/src/components/media/FilePreview.tsx",
+          "mustMatch": "imageCounterView"
+        },
+        {
+          "file": "packages/shared/src/chat/element-pack.ts",
+          "mustMatch": "zoomStep"
+        },
+        {
+          "file": "apps/miniapp-taro/src/lib/image-preview-pack.ts",
+          "mustMatch": "taroChatImageCounterText"
+        },
+        {
+          "file": "apps/mobile-rn/src/components/ImagePreviewModal.tsx",
+          "mustMatch": "ImagePreviewModal"
+        }
+      ]
+    },
+    {
+      "id": "thinking-card-dual-title",
+      "title": "(D64③)思考卡双态标题:有思考→「思考过程」/ 无思考有引用→「使用了 N 个引用」;同批修掉 H22 反超(自动展开仅在尚未展开时接管,用户手动展开不被流结束收起)。web 宿主第二态待 owner 定交互档(见 PLAN D64 进度条)",
+      "sourceTask": "D64",
+      "events": [],
+      "anchors": [
+        {
+          "file": "apps/web/src/components/ai/progress-sections/thinking-section.tsx",
+          "mustMatch": "thinkingTitleView"
+        }
+      ]
+    },
+    {
+      "id": "reply-feedback-survey",
+      "title": "(D64⑤)回复反馈问卷卡(三选 + 补充说明 + 可跳过 + 免打扰判定);**尚未接宿主** —— 落库面需先扩 /api/chat/messages/feedback(现表只有 rating 列),属并行会话 chat 迁移在途件",
+      "sourceTask": "D64",
+      "events": [],
+      "anchors": [
+        {
+          "file": "apps/web/src/components/chat/feedback-survey-card.tsx",
+          "mustMatch": "FeedbackSurveyCard"
+        },
+        {
+          "file": "packages/shared/src/chat/element-pack.ts",
+          "mustMatch": "surveyAnswerKey"
+        }
+      ]
+    },
+    {
+      "id": "multi-pane-workspace",
+      "title": "(D73)多任务窗格:向右/向下拆分、最大化还原、相邻窗格联动调宽(MIN_PANE_SIZE 钳制)、空窗格复用 D22 application/x-ihui-conversation 通道拖入、Fork 失败三态显式文案;**尚未接宿主**(ai-side-panel 被 D43 在途占用)",
+      "sourceTask": "D73",
+      "events": [],
+      "anchors": [
+        {
+          "file": "apps/web/src/components/ai/pane-split-container.tsx",
+          "mustMatch": "PaneSplitContainer"
+        },
+        {
+          "file": "packages/shared/src/chat/multi-pane.ts",
+          "mustMatch": "resizePanes"
+        },
+        {
+          "file": "apps/web/src/stores/pane-split.ts",
+          "mustMatch": "usePaneSplitStore"
+        }
       ]
     }
   ],
