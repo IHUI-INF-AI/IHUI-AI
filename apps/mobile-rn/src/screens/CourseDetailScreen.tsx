@@ -1,8 +1,8 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
-import { useTheme } from '../context/ThemeContext'
 import { useEffect, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
@@ -24,13 +24,10 @@ import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
-import { rnRadius } from '@ihui/design-tokens'
-
 type Route = RouteProp<RootStackParamList, 'CourseDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'CourseDetail'>
 
 export function CourseDetailScreen() {
-  const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const route = useRoute<Route>()
   const navigation = useNavigation<NavigationProp>()
@@ -115,7 +112,6 @@ export function CourseDetailScreen() {
         onEnroll={onEnroll}
         onPlayLesson={onPlay}
         onBack={() => navigation.goBack()}
-        colorScheme={resolvedTheme}
       />
       {/* 目录/评论/讲师入口(孤儿路由修复:CourseCatalog/CourseComment 注册无入口,课程详情补挂;P0 讲师列表接线) */}
       <View style={styles.entryRow}>
