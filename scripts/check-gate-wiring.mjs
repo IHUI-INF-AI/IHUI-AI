@@ -40,8 +40,15 @@
  *   R3 只报数 :脚本存在、五处零命中、且没有任何**肯定式**「已接线」声称 → 仅计数(本仓大量
  *              脚本是 CLI 工具或被分发器派生,判红会满天假红)
  *   弱接线    :仅点 5 命中 → 不算红,单独计数如实报出
+ *   R4 blocking:**反向**差集 —— 已在五处权威点登记的门,AGENTS.md/README.md 通篇没点名
+ *              (文档看不见的门会被重复造或被绕过)。2026-09-24 由"仅报数"升档,前置 =
+ *              真仓缺口 48→0 已清零;比对宽松到"出现去后缀同名即算点名",只会漏报不会误拦。
+ *   R5 blocking:同一 id 在 guardian-runner 里登记多道门 ⇒ 串 skipEnv 与失败归属(同日实测撞号)。
+ *   R6 只报数 :同一 skipEnv 挂两个以上条目(本仓 id 2/2n-web 是刻意共用,故不判红)。
+ *   R7 blocking:台账 type=dispatcher 的"依据"文件不存在、或文件里没提被豁免脚本 =
+ *              假依据(实测抓到 check-lock.mjs 一条编造的 dispatcher 说明)。
  *   ⚠ 收紧判据只能**更准**,不得为消红整体关掉 R1/R2;每一次收紧必须配「这种提法不得判红」
- *     的负向用例**与**「那种提法必须判红」的阳性用例(双向),见 --self-test P15-P20 与 M7。
+ *     的负向用例**与**「那种提法必须判红」的阳性用例(双向),见 --self-test P15-P20 与 M7、M8。
  *
  * 取材铁律:一律按 **HEAD 提交内容**判,不读工作区(本机是多会话共享工作区,工作区文件
  *   可能滞后/脏,读它会产出相反结论)。子进程一律 execFileSync(<git 绝对路径>,
@@ -515,8 +522,9 @@ export function validateDispatcherClaims(entries, readAtHead) {
  * `check-staged-files-count` / `check-portal-fixed` / `check-agent-engine-parity`;本仓又新增 85–89 五档)。
  * 这与 R1/R2 是同一枚硬币的两面:R1/R2 拦"声称了却没接线",R4 拦"接线了却没声称"。
  *
- * ⚠️ **只报数,绝不参与退出码**:今天真仓有数十枚缺口,判红=上线即恒红=各会话 --no-verify
- * 连带废掉全部守门(本仓优先级最高的反面教训)。升级 blocking 的前置 = 缺口清零。
+ * ⚠️ **2026-09-24 起参与退出码**(升档前置 = 缺口清零,实测真仓 48→0 后才动)。失误方向刻意
+ * **宽松**:文档任一处出现去后缀的脚本名即算点名,所以只会漏报、不会误拦 —— 不会因为一次
+ * 命名漂移就把整条守门链变成"上线即恒红=各会话 --no-verify"(本仓优先级最高的反面教训)。
  * 比对用**去后缀的脚本名**(文档里 `scripts/foo.mjs` 与裸 `foo` 两种写法都出现过)。
  */
 export function findUndocumentedGates(wiredScripts, docText) {
@@ -748,7 +756,7 @@ async function main(argv = process.argv.slice(2)) {
       })),
     )
   }
-  // R4 反向差集(只报数):已接线但文档通篇没点名 ⇒ 文档看不见的门会被重复造或被绕过。
+  // R4 反向差集:已接线但文档通篇没点名 ⇒ 文档看不见的门会被重复造或被绕过。
   const readDoc = (p) => {
     try {
       return git(['show', `HEAD:${p}`], root)
@@ -761,6 +769,18 @@ async function main(argv = process.argv.slice(2)) {
     [...by('wired'), ...by('wired-weak')].map((r) => r.script),
     docText,
   )
+  // R4 自 2026-09-24 起**参与退出码**(此前只报数)。升档的两个前置都已实证成立:
+  // ① 真仓缺口已归零(48→0,AGENTS.md 速查同批补登 46 条);② 判据失误方向是**宽松**的 ——
+  // 文档里出现去后缀同名即算点名,所以只会漏报、不会误拦,不会变成"上线即恒红=各会话 --no-verify"。
+  // 双向证明钉在自检 M8a/M8b(唯一变量=文档点没点名)。
+  // 放在 json 分支之前,保证两种口径下 reds 内容一致(否则 CI 用 --json 会看不见 R4)。
+  for (const n of undocumented) {
+    reds.push({
+      script: n,
+      status: 'red-r4',
+      reason: '已接线但 AGENTS.md/README.md 通篇未点名(文档看不见的门会被重复造或绕过)',
+    })
+  }
 
   if (opts.json) {
     console.log(
@@ -805,10 +825,8 @@ async function main(argv = process.argv.slice(2)) {
         ` | 台账豁免 ${by('exempt').length} | 本门自身豁免 ${by('self-exempt').length}`,
     )
     console.log(`   R3(五处零命中且无任何已接线声称,仅报数): ${by('unwired-unclaimed').length} 枚`)
-    // R4 只报数,不影响退出码(缺口数十枚,判红=上线即恒红=全队 --no-verify)
     console.log(
-      `   R4(已接线但 AGENTS.md/README.md 通篇未点名,仅报数): ${undocumented.length} 枚` +
-        (undocumented.length ? ' —— 文档看不见的门会被重复造或被绕过;清零后可升 blocking' : ''),
+      `   R4(已接线但 AGENTS.md/README.md 通篇未点名,判红): ${undocumented.length ? `${undocumented.length} 枚` : '0 枚'}`,
     )
     console.log(`   R5(重复 id,判红): ${dupIds.length ? dupIds.join(' / ') : '0 枚'}`)
     console.log(
@@ -849,20 +867,25 @@ async function main(argv = process.argv.slice(2)) {
 
   if (reds.length > 0) {
     if (!opts.json) {
-      console.error(`\n❌ 接线撒谎 R1/R2 共 ${reds.length} 枚 —— 「造好没装车」本体,禁止为消红塞台账:`)
-      for (const r of reds) console.error(`   [${r.status.toUpperCase()}] scripts/${r.script} —— ${r.reason}`)
+      console.error(`\n❌ 接线层结构性缺陷共 ${reds.length} 枚(R1/R2 撒谎 · R4 文档隐形 · R5 撞号 · R7 假依据)—— 禁止为消红塞台账:`)
+      for (const r of reds) console.error(`   [${r.status.toUpperCase()}] ${r.script.startsWith('(') ? r.script : `scripts/${r.script}`} —— ${r.reason}`)
       for (const r of reds) {
         if (r.status === 'red-r2') {
           const clauses = findAgentsClaims(agentsClauses, r.script)
           for (const c of clauses) console.error(`        AGENTS.md: ${c}`)
         }
       }
-      console.error('   修复:在 scripts/guardian-runner.mjs 注册(或 .husky/、package.json 接线),')
-      console.error('         或改正脚本头部/AGENTS.md 里那句撒谎的表述。紧急跳过 HUSKY_SKIP_GATE_WIRING=1')
+      console.error('   修复:R1/R2 → 在 scripts/guardian-runner.mjs 注册(或 .husky/、package.json 接线),')
+      console.error('         或改正脚本头部/AGENTS.md 里那句撒谎的表述;')
+      console.error('         R4 → 在 AGENTS.md「守门脚本速查」或 README 补一行点名(写清判据/自检/跳过变量);')
+      console.error('         R5 → 后来者改用空闲编号。紧急跳过 HUSKY_SKIP_GATE_WIRING=1')
     }
     return 1
   }
-  if (!opts.json) console.log(`✅ R1/R2 零红(已接线 ${by('wired').length} / 台账豁免 ${by('exempt').length})`)
+  if (!opts.json)
+    console.log(
+      `✅ R1/R2/R4 零红(已接线 ${by('wired').length} / 台账豁免 ${by('exempt').length} / 文档未点名 0)`,
+    )
   return 0
 }
 
@@ -895,6 +918,19 @@ function makeFixtureRepo(baseDir, extra = {}) {
     'scripts/check-lying-r2.mjs': '#!/usr/bin/env node\n/**\n * 头部什么都没声称\n */\n',
     'AGENTS.md':
       '# 假 AGENTS\n\n## 某规则\n\n- 守门:`scripts/check-lying-r2.mjs`(blocking,2026-09-24 立并接入)\n\n' +
+        '## 守门脚本速查(R4 要求"已接线的门必须在文档点名"，夹具因此要写全)\n\n' +
+        '- 已接线:`scripts/check-wired.mjs`(blocking)\n' +
+        '- 已接线:`scripts/check-joined.mjs`(blocking)\n' +
+        '- 已接线:`scripts/check-prepush.mjs`(blocking)\n' +
+        '- 已接线:`scripts/check-pkg.mjs`(blocking)\n' +
+        '- 已接线:`scripts/check-ci-only.mjs`(仅 CI)\n' +
+        '- 已接线:`scripts/check-cert.mjs`(仅 CI)\n' +
+        '- 已接线:`scripts/scan-web-dead-i18n-keys.mjs`(仅 CI)\n' +
+        '- 已接线:`scripts/scan-desktop-dead-i18n-keys.mjs`(仅 CI)\n' +
+        // 变异夹具(repo2/repo4/repo7)会把下面两枚转为"已接线",R4 判红后它们必须在基线里点名,
+        // 否则 M1/M3/M6 会把 R4 红误读成"接线仍未被识别"。
+        '- 已接线:`scripts/check-lying-r1.mjs`(blocking)\n' +
+        '- 已接线:`scripts/check-pwsh-form.mjs`(blocking)\n\n' +
         '## 无关条款\n\n- 这里只讲别的,scripts/some-doc.mjs 不参与对账。\n',
     ...(extra.files || {}),
   }
@@ -1052,7 +1088,7 @@ function runSelfTest() {
     ).length === 0,
   )
   assert(
-    'P22 R4 正向:接线了但两份文档通篇没点名的门必须进名单(且只报数不改退出码)',
+    'P22 R4 正向:接线了但两份文档通篇没点名的门必须进名单(名单由 M8 端到端证明参与退出码)',
     findUndocumentedGates(['check-silent.mjs', 'check-named.mjs'], '只有 `scripts/check-named.mjs` 被写到。').join(
       ',',
     ) === 'check-silent.mjs',
@@ -1231,6 +1267,48 @@ function runSelfTest() {
         redsM7.includes('check-dup-c.mjs') &&
         redsM7.includes('check-lying-r1.mjs') &&
         redsM7.includes('check-lying-r2.mjs'),
+    )
+
+    // 变异 8:R4 升 blocking 的**双向端到端**证明 —— 唯一变量是"文档点没点名"。
+    // 该夹具里所有门都已真接线(两枚撒谎门也补进了 runner),所以基线零红;
+    // 只把 AGENTS.md 里 check-joined 那一行删掉 ⇒ 必须单独因 R4 变红(exit 1),
+    // 补回那一行并入库 ⇒ 必须回到 exit 0。缺一半都不算证明(只证"会红"不证"红是因为它")。
+    const m8Doc = (withJoined) =>
+      '# 假 AGENTS\n\n## 某规则\n\n- 守门:`scripts/check-lying-r2.mjs`(blocking,2026-09-24 立并接入)\n\n' +
+      '## 守门脚本速查\n\n' +
+      '- 已接线:`scripts/check-wired.mjs`(blocking)\n' +
+      (withJoined ? '- 已接线:`scripts/check-joined.mjs`(blocking)\n' : '') +
+      '- 已接线:`scripts/check-prepush.mjs`(blocking)\n' +
+      '- 已接线:`scripts/check-pkg.mjs`(blocking)\n' +
+      '- 已接线:`scripts/check-lying-r1.mjs`(blocking)\n' +
+      '- 已接线:`scripts/check-ci-only.mjs`(仅 CI)\n' +
+      '- 已接线:`scripts/check-cert.mjs`(仅 CI)\n' +
+      '- 已接线:`scripts/scan-web-dead-i18n-keys.mjs`(仅 CI)\n' +
+      '- 已接线:`scripts/scan-desktop-dead-i18n-keys.mjs`(仅 CI)\n\n'
+    const repoM8 = makeFixtureRepo(base, {
+      files: {
+        'scripts/guardian-runner.mjs':
+          "#!/usr/bin/env node\nconst GATES = [\n  { id: 1, script: 'check-wired.mjs' },\n  { id: 2, script: 'check-lying-r1.mjs' },\n  { id: 3, script: 'check-lying-r2.mjs' },\n]\n",
+        'AGENTS.md': m8Doc(false),
+      },
+    })
+    const rM8a = runGateCli([`--root=${repoM8}`, '--json'])
+    const jM8a = JSON.parse(rM8a.out.slice(rM8a.out.indexOf('{')))
+    const r4a = (jM8a.reds || []).filter((x) => x.status === 'red-r4')
+    assert(
+      `M8a 已接线但文档未点名 → 单独因 R4 变红(实得 code=${rM8a.code} reds=${jM8a.reds.map((x) => x.script).join('|')})`,
+      rM8a.code === 1 && r4a.length === 1 && r4a[0].script === 'check-joined.mjs' && jM8a.reds.length === 1,
+    )
+    writeFileSync(join(repoM8, 'AGENTS.md'), m8Doc(true), 'utf8')
+    git(['add', '-A'], repoM8, { quiet: true })
+    git(['-c', 'user.name=t', '-c', 'user.email=t@e', 'commit', '-q', '--no-verify', '-m', 'doc-m8'], repoM8, {
+      quiet: true,
+    })
+    const rM8b = runGateCli([`--root=${repoM8}`, '--json'])
+    const jM8b = JSON.parse(rM8b.out.slice(rM8b.out.indexOf('{')))
+    assert(
+      `M8b 补上文档点名(同 HEAD 侧)后必须回到 exit 0(实得 ${rM8b.code})`,
+      rM8b.code === 0 && jM8b.reds.length === 0,
     )
   } catch (e) {
     assert(`EX 端到端异常: ${e && e.message}`, false)

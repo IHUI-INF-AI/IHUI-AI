@@ -7074,6 +7074,70 @@
       "rollbackConfirmConfirm": "복원"
     },
     "pane": {
+      "voiceSubtitles": {
+        "muteAndShowSubtitles": "음소거 및 자막 표시",
+        "subtitleTitle": "음성 자막",
+        "micError": {
+          "noPermission": "마이크 권한이 없습니다. 브라우저나 시스템 설정에서 마이크 접근을 허용해 주세요",
+          "noDevice": "마이크 장치가 감지되지 않습니다. 연결 후 다시 시도해 주세요",
+          "occupied": "마이크가 다른 앱에서 사용 중입니다. 종료 후 다시 시도해 주세요",
+          "startFailed": "마이크 시작에 실패했습니다. 다시 시도해 주세요"
+        },
+        "micErrorAria": {
+          "noPermission": "마이크 권한 없음, 먼저 설정에서 허용 필요",
+          "noDevice": "마이크 장치 없음, 먼저 연결 필요",
+          "occupied": "마이크가 다른 앱에서 사용 중, 먼저 해제 필요",
+          "startFailed": "마이크 시작 실패, 재시도 가능"
+        },
+        "conflict": "회의록 녹음이 진행 중이어서 음성 재생을 일시 중지했습니다. 녹음과 재생은 동시에 실행할 수 없습니다",
+        "view": {
+          "discussionSummary": "토론 요약",
+          "taskFlow": "작업 흐름"
+        },
+        "viewAriaLabel": "토론 요약과 작업 흐름 보기 전환",
+        "ariaLabel": "음성 자막 및 마이크 상태"
+      },
+      "annotationAnchors": {
+        "label": {
+          "pdf": "PDF {page}페이지",
+          "docx": "문서 {page}페이지",
+          "pptx": "슬라이드 {slide} · {element}",
+          "pptxSlide": "슬라이드 {slide}",
+          "pptxComment": "주석 {element}",
+          "xlsx": "{sheet} · {range}",
+          "xlsxSheet": "{sheet}",
+          "xlsxSelected": "{range} 선택됨"
+        },
+        "taskInputPlaceholder": "Agent가 수정하거나 확인할 내용을 입력",
+        "addToTask": "작업에 추가",
+        "cancel": "취소",
+        "delete": "삭제",
+        "relabel": "다시 주석 달기",
+        "ariaLabel": "문서 주석 앵커"
+      },
+      "quotaOwnership": {
+        "title": {
+          "personalDaily": "개인 오늘 할당량",
+          "freeModelDaily": "무료 모델 오늘 할당량",
+          "teamAdmin": "팀 · 관리자 필요",
+          "billingGroupCredits": "과금 그룹 · Credits 한도"
+        },
+        "action": {
+          "viewUsage": "사용량 내역 보기",
+          "switchFreeModel": "무료 모델로 전환",
+          "upgradeOrAdmin": "업그레이드 또는 관리자에게 문의"
+        },
+        "discount": {
+          "active": "한산 시간대 할인 진행 중",
+          "upcoming": "{{time}} 후 한산 시간대 할인 시작"
+        },
+        "duration": {
+          "hour": "시간",
+          "minute": "분"
+        },
+        "degradeHint": "무료 플랜을 계속 사용할 수 있습니다. 무료 모델로 전환하여 계속할 수 있으며 충전이 필요하지 않습니다",
+        "ariaLabel": "할당량 유형 및 조치 안내"
+      },
       "moveToWorktree": {
         "title": "대화를 작업 트리로 이관",
         "subtitle": "새 작업 트리에서 브랜치 <branch>{branchName}</branch>를 체크아웃하여 병렬 작업을 계속하세요.",
