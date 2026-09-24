@@ -150,6 +150,7 @@
   color: var(--color-muted-foreground);
 }
 .cc-topic-more {
+  gap: 4rpx;
   color: var(--color-muted-foreground);
 }
 .cc-topic-scroll {
