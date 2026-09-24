@@ -22,17 +22,8 @@ import { SearchInput } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { FoldableSection } from './foldable-section'
-import {
-  describeToolActivityByStatus,
-  describeToolCategoryActivity,
-  toolActivitySearchQuery,
-} from '@ihui/shared/chat'
-import {
-  ActivityCodeBlock,
-  ActivityDuration,
-  ActivitySearchQuery,
-  ActivityCanceledLabel,
-} from '../tool-activity-line'
+import { describeToolActivityByStatus } from '@ihui/shared/chat'
+import { formatDuration } from './foldable-section'
 import { CopyButton } from './copy-button'
 import type { AgentToolCall, PlanStep } from '@/hooks/use-agent-progress'
 
