@@ -429,6 +429,107 @@ export function findStaleExemptions(entries, gateSet) {
   return out
 }
 
+/**
+ * 纯函数(R5,判红):runner 里出现**两次以上的同一 id**。
+ * 成因是结构性的:并发会话都在数组同一位置各加一道门,不查占用必撞号(本仓先例 75/76、79→80,
+ * 2026-09-24 实测又撞一次 91 —— 由本维度在撞号当天拦下并改号为 92)。同 id 的两道 blocking 门
+ * 会串 skipEnv 与失败归属:跳一次关两道,汇总里也只认第一个匹配项。
+ */
+export function findDuplicateIds(runnerText) {
+  const ids = [...String(runnerText || '').matchAll(/\bid:\s*'([^']+)'/g)].map((m) => m[1])
+  const seen = new Set()
+  const dup = new Set()
+  for (const id of ids) {
+    if (seen.has(id)) dup.add(id)
+    else seen.add(id)
+  }
+  return [...dup].sort()
+}
+
+/**
+ * 纯函数(R6,只报数):同一 skipEnv 挂在两个以上条目上。
+ * **不判红**:本仓有一处是**刻意**共用(id 2 与 2n-web 同用 HUSKY_SKIP_I18N_PARITY,runner 里
+ * 67-70 行写明理由 —— 两者跑的是同一份 parity 判据)。粒度问题该由门的持有人裁,不是"撒谎"。
+ */
+export function findSharedSkipEnvs(runnerText) {
+  const src = String(runnerText || '')
+  const starts = [...src.matchAll(/\n\s*id:\s*'([^']+)'/g)]
+  const map = new Map()
+  starts.forEach((m, i) => {
+    // 条目边界 = 到下一个 id: 之前。不这样切会把"无 skipEnv 的条目"与后一条的 skipEnv 错配。
+    const body = src.slice(m.index, i + 1 < starts.length ? starts[i + 1].index : src.length)
+    const env = (body.match(/\bskipEnv:\s*'([^']+)'/) || [])[1]
+    if (!env) return
+    const list = map.get(env) || []
+    list.push(m[1])
+    map.set(env, list)
+  })
+  return [...map.entries()]
+    .filter(([, ids]) => new Set(ids).size > 1)
+    .map(([env, ids]) => ({ env, ids: [...new Set(ids)] }))
+}
+
+/**
+ * 纯函数(R7,判红):台账里 `dispatcher` 类型条目的**依据必须可核验**。
+ *
+ * 为什么要判红:台账是本门唯一的豁免出口,而"豁免依据"是一句人写的自然语言。依据一旦可以是编的,
+ * 整套"台账不得为撒谎门开脱"(M0/M2)的设计就塌了 —— 实测抓到一条:
+ * `check-lock.mjs` 写"调用点在 apps/web/package.json prebuild/predev",而该处实际调的是
+ * `deploy-lock.mjs` 与 `check-stale-stashes.mjs`,全仓除台账自身外**零引用**该脚本。
+ *
+ * 核验口径(宁漏不误报,只做结构事实):从 dispatcher 字符串里取**第一个像路径的 token**
+ * (含 `/` 或带扩展名),① 该路径必须在 HEAD 里存在;② 该文件内容必须真的提到被豁免脚本的名字
+ * (去 `.mjs` 后缀,容忍 `check-lock.js` 这类同 stem 引用)。任一条不满足 ⇒ 判红并说明差在哪。
+ *
+ * @param entries 台账条目
+ * @param readAtHead (relPath) => string | null  (null = HEAD 里没有该路径)
+ */
+export function validateDispatcherClaims(entries, readAtHead) {
+  const problems = []
+  for (const e of entries || []) {
+    if (!e || typeof e.script !== 'string') continue
+    if (e.type !== 'dispatcher' && !e.dispatcher) continue
+    const d = String(e.dispatcher || '')
+    const token = d.split(/[\s,;]+/).find((t) => t.includes('/') || /\.[a-z]{1,6}$/i.test(t))
+    if (!token) {
+      problems.push({ script: e.script, dispatcher: d, why: 'dispatcher 字段里没有一个像路径的 token,无法核验' })
+      continue
+    }
+    const content = readAtHead(token)
+    if (content === null) {
+      problems.push({ script: e.script, dispatcher: d, why: `所指文件不在 HEAD 里:${token}` })
+      continue
+    }
+    const stem = e.script.replace(/\.mjs$/, '')
+    if (!content.includes(stem)) {
+      problems.push({ script: e.script, dispatcher: d, why: `${token} 里根本没提到 "${stem}" —— 依据与事实不符` })
+    }
+  }
+  return problems
+}
+
+/**
+ * 纯函数:反向差集(R4)—— 已在权威点登记的门,但 AGENTS.md / README.md 通篇**没点过它的名**。
+ *
+ * 为什么需要:文档看不到的门,下一个人只会重复造或干脆绕过(实测三例在 hook.js 生效却零见于速查:
+ * `check-staged-files-count` / `check-portal-fixed` / `check-agent-engine-parity`;本仓又新增 85–89 五档)。
+ * 这与 R1/R2 是同一枚硬币的两面:R1/R2 拦"声称了却没接线",R4 拦"接线了却没声称"。
+ *
+ * ⚠️ **只报数,绝不参与退出码**:今天真仓有数十枚缺口,判红=上线即恒红=各会话 --no-verify
+ * 连带废掉全部守门(本仓优先级最高的反面教训)。升级 blocking 的前置 = 缺口清零。
+ * 比对用**去后缀的脚本名**(文档里 `scripts/foo.mjs` 与裸 `foo` 两种写法都出现过)。
+ */
+export function findUndocumentedGates(wiredScripts, docText) {
+  const doc = String(docText || '')
+  const out = []
+  for (const s of wiredScripts || []) {
+    if (typeof s !== 'string' || !s) continue
+    const stem = s.replace(/\.mjs$/, '')
+    if (!doc.includes(stem)) out.push(s)
+  }
+  return out
+}
+
 /** 纯函数:台账格式校验(缺 reason 视为不合规,须报出而非静默放过) */
 export function validateAllowlist(raw) {
   const problems = []
@@ -562,6 +663,14 @@ async function main(argv = process.argv.slice(2)) {
     allowProblems = ['缺 scripts/gate-wiring-allowlist.json(按空台账继续)']
   }
   const allowByName = new Map(allowEntries.map((e) => [e.script, e]))
+  // R7:台账的 dispatcher 依据必须可核验(台账是唯一豁免出口,依据能编 = 反滥用设计塌了)
+  const dispatcherProblems = validateDispatcherClaims(allowEntries, (rel) => {
+    try {
+      return git(['show', `HEAD:${rel}`], root)
+    } catch {
+      return null
+    }
+  })
 
   // 5) R1 头部声称:只对本轮「未接线」候选读 blob(省 spawn 次数)
   const agentsText = git(['show', 'HEAD:AGENTS.md'], root)
@@ -611,6 +720,47 @@ async function main(argv = process.argv.slice(2)) {
   const reds = [...by('red-r1'), ...by('red-r2')]
   const revocable = findRevocableExemptions(allowEntries, new Set(by('wired').map((r) => r.script)))
   const staleExempt = findStaleExemptions(allowEntries, new Set(gateNames))
+  // R5 重复 id(判红)/ R6 共用 skipEnv(只报数):都是"接线层的结构性自撞",不是内容判据。
+  let runnerText = ''
+  try {
+    runnerText = git(['show', 'HEAD:scripts/guardian-runner.mjs'], root)
+  } catch (e) {
+    console.error(`❌ 读不到 HEAD:scripts/guardian-runner.mjs ⇒ R5/R6 无法判定(拒绝当作已通过):${e.message}`)
+    return 2
+  }
+  const dupIds = findDuplicateIds(runnerText)
+  const sharedEnvs = findSharedSkipEnvs(runnerText)
+  if (dispatcherProblems.length) {
+    reds.push(
+      ...dispatcherProblems.map((p) => ({
+        script: p.script,
+        status: 'red-r7',
+        reason: `台账依据不可核验:${p.why}(dispatcher="${p.dispatcher}")`,
+      })),
+    )
+  }
+  if (dupIds.length) {
+    reds.push(
+      ...dupIds.map((id) => ({
+        script: `(runner id '${id}')`,
+        status: 'red-r5',
+        reason: '同一 id 在 guardian-runner 里登记了多道门 ⇒ 串 skipEnv 与失败归属;后来者必须改号',
+      })),
+    )
+  }
+  // R4 反向差集(只报数):已接线但文档通篇没点名 ⇒ 文档看不见的门会被重复造或被绕过。
+  const readDoc = (p) => {
+    try {
+      return git(['show', `HEAD:${p}`], root)
+    } catch {
+      return ''
+    }
+  }
+  const docText = readDoc('AGENTS.md') + '\n' + readDoc('README.md')
+  const undocumented = findUndocumentedGates(
+    [...by('wired'), ...by('wired-weak')].map((r) => r.script),
+    docText,
+  )
 
   if (opts.json) {
     console.log(
@@ -626,8 +776,16 @@ async function main(argv = process.argv.slice(2)) {
             redR2: by('red-r2').length,
             unwiredUnclaimed: by('unwired-unclaimed').length,
             selfExempt: by('self-exempt').length,
+            undocumentedR4: undocumented.length,
+            duplicateIds: dupIds.length,
+            sharedSkipEnvs: sharedEnvs.length,
+            dispatcherProblems: dispatcherProblems.length,
           },
+          dispatcherProblems,
+          duplicateIds: dupIds,
+          sharedSkipEnvs: sharedEnvs,
           reds,
+          undocumented: undocumented,
           unwiredUnclaimed: by('unwired-unclaimed').map((r) => r.script),
           wired: by('wired').map((r) => ({ script: r.script, where: r.strongPoints })),
           wiredWeak: by('wired-weak').map((r) => ({ script: r.script, where: r.weakPoints })),
@@ -647,6 +805,22 @@ async function main(argv = process.argv.slice(2)) {
         ` | 台账豁免 ${by('exempt').length} | 本门自身豁免 ${by('self-exempt').length}`,
     )
     console.log(`   R3(五处零命中且无任何已接线声称,仅报数): ${by('unwired-unclaimed').length} 枚`)
+    // R4 只报数,不影响退出码(缺口数十枚,判红=上线即恒红=全队 --no-verify)
+    console.log(
+      `   R4(已接线但 AGENTS.md/README.md 通篇未点名,仅报数): ${undocumented.length} 枚` +
+        (undocumented.length ? ' —— 文档看不见的门会被重复造或被绕过;清零后可升 blocking' : ''),
+    )
+    console.log(`   R5(重复 id,判红): ${dupIds.length ? dupIds.join(' / ') : '0 枚'}`)
+    console.log(
+      `   R7(台账 dispatcher 依据不可核验,判红): ${dispatcherProblems.length ? `${dispatcherProblems.length} 条` : '0 条'}`,
+    )
+    for (const p of dispatcherProblems) console.log(`     ✗ ${p.script} —— ${p.why}`)
+    console.log(
+      `   R6(同一 skipEnv 挂多个条目,只报数): ${sharedEnvs.length ? sharedEnvs.map((s) => `${s.env}[${s.ids.join(',')}]`).join(' ') : '0 组'}`,
+    )
+    if (undocumented.length) {
+      console.log('     ' + undocumented.slice(0, 14).join(' ') + (undocumented.length > 14 ? ` …等 ${undocumented.length} 枚` : ''))
+    }
     if (by('unwired-unclaimed').length) {
       console.log(
         '     ' +
@@ -868,6 +1042,58 @@ function runSelfTest() {
       'check-a.mjs',
     ).length === 1 &&
       findAgentsClaims(['- 别的说明。另见 `scripts/check-d.mjs`,该门 blocking。'], 'check-d.mjs').length === 1,
+  )
+
+  assert(
+    'P21 R4 负向:文档点过名的已接线门不得进"未覆盖"名单(含裸名与 scripts/ 前缀两种写法)',
+    findUndocumentedGates(
+      ['check-named.mjs', 'check-also-named.mjs'],
+      '本仓守门:`scripts/check-named.mjs`(blocking)。另见 check-also-named.mjs 的说明。',
+    ).length === 0,
+  )
+  assert(
+    'P22 R4 正向:接线了但两份文档通篇没点名的门必须进名单(且只报数不改退出码)',
+    findUndocumentedGates(['check-silent.mjs', 'check-named.mjs'], '只有 `scripts/check-named.mjs` 被写到。').join(
+      ',',
+    ) === 'check-silent.mjs',
+  )
+
+  assert(
+    'P23 R5 重复 id 必判红(2026-09-24 实测撞号:两会话同日各加一道 91)',
+    findDuplicateIds(
+      [{ id: '91', s: 'a' }, { id: '91', s: 'b' }, { id: '92', s: 'c' }]
+        .map((x) => `\n  {\n    id: '${x.id}',\n    script: '${x.s}.mjs',`)
+        .join('\n'),
+    ).join(',') === '91',
+  )
+  assert(
+    'P24 R5 负向 + R6 语义:编号唯一不得报红;共用 skipEnv 只计数不判红',
+    findDuplicateIds("\n  {\n    id: '91',\n    script: 'a.mjs',\n  },\n  {\n    id: '92',\n    script: 'b.mjs',\n  },").length === 0 &&
+      // 两处共用同一 skipEnv ⇒ R6 报 1 组,但 R5 仍为 0(本仓 id 2 / 2n-web 是**刻意**共用,runner 里写明理由)
+      findSharedSkipEnvs(
+        "\n  {\n    id: '2',\n    script: 'a.mjs',\n    skipEnv: 'HUSKY_SKIP_X',\n  },\n  {\n    id: '2n-web',\n    script: 'a.mjs',\n    skipEnv: 'HUSKY_SKIP_X',\n  },",
+      ).length === 1 &&
+        findDuplicateIds(
+          "\n  {\n    id: '2',\n    skipEnv: 'HUSKY_SKIP_X',\n  },\n  {\n    id: '2n-web',\n    skipEnv: 'HUSKY_SKIP_X',\n  },",
+        ).length === 0,
+  )
+
+  assert(
+    'P25 R7 负向:依据可核验的 dispatcher 不得报问题(文件存在且真提到被豁免脚本)',
+    validateDispatcherClaims(
+      [{ script: 'check-tool.mjs', type: 'dispatcher', dispatcher: 'scripts/host.ps1 prebuild', reason: 'x x x x x x x x' }],
+      (rel) => (rel === 'scripts/host.ps1' ? "node scripts/check-tool.mjs --check\n" : null),
+    ).length === 0,
+  )
+  assert(
+    'P26 R7 正向:文件不存在 / 文件里没提该脚本 两种假依据都必须报(实测抓到 check-lock 那条)',
+    validateDispatcherClaims(
+      [
+        { script: 'check-a.mjs', type: 'dispatcher', dispatcher: 'scripts/ghost.ps1', reason: 'y y y y y y y y' },
+        { script: 'check-b.mjs', type: 'dispatcher', dispatcher: 'apps/web/package.json prebuild', reason: 'z z z z z z z z' },
+      ],
+      (rel) => (rel === 'apps/web/package.json' ? 'node ../../scripts/deploy-lock.mjs acquire\n' : null),
+    ).length === 2,
   )
 
   // 端到端层(独立临时假仓库 + 显式 --root 注入:自测只改 cwd 会静默扫真仓)
