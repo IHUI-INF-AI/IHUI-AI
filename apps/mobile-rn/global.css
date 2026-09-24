@@ -53,6 +53,20 @@
   --color-info: hsl(199 89% 48%);
   --color-info-foreground: hsl(0 0% 98%);
 
+  /* Tailwind v3 alpha 通道三元组(同步自 tokens.css;NativeWind 是 v3,算 `/透明度` 时要
+   * 能把颜色解析成通道,而 var(--color-*) 解析不出来 ⇒ `bg-primary/10` 这类写法在本端
+   * 静默产出零条规则。插件把 alpha 写成 rgba(var(--color-X-rgb), a),通道值就是下面这几行。
+   * 清单由 packages/design-tokens/src/tailwind-alpha-plugin.js 的 ALPHA_USAGE 按实际用量推导,
+   * 三元组必须等于同名 --color-X 的 RGB 分解(守门 check-cross-end-tokens R6 现算逐位对账)。
+   * destructive 明暗同值 ⇒ .dark 里刻意不重复,靠级联回退。 */
+  --color-foreground-rgb: 10, 10, 10;
+  --color-primary-rgb: 0, 0, 0;
+  --color-primary-foreground-rgb: 255, 255, 255;
+  --color-muted-rgb: 235, 235, 235;
+  --color-destructive-rgb: 255, 51, 51;
+  --color-success-rgb: 33, 196, 93;
+  --color-warning-rgb: 245, 159, 10;
+
   /* RN 扩展语义色(2026-07-28 立,消除 screen 文件 hex 硬编码)
    * 值源自 packages/design-tokens/src/rn-tokens.ts(rnLightTokens)。
    * 用 --rn-* 前缀避免被 check-rn-global-css-sync.mjs 拦截(该脚本只校验 --color-*)。
@@ -100,6 +114,15 @@
   --color-warning-foreground: hsl(0 0% 98%);
   --color-info: hsl(199 80% 55%);
   --color-info-foreground: hsl(0 0% 98%);
+
+  /* alpha 通道三元组的暗色分解(与上方 :root 的 *-rgb 成对;值 = 本块同名 --color-X 的通道。
+   * destructive 明暗同值,此处不重复,靠级联回退到 :root 那一份) */
+  --color-foreground-rgb: 250, 250, 250;
+  --color-primary-rgb: 255, 255, 255;
+  --color-primary-foreground-rgb: 0, 0, 0;
+  --color-muted-rgb: 38, 38, 38;
+  --color-success-rgb: 45, 210, 105;
+  --color-warning-rgb: 238, 166, 43;
 
   /* RN 扩展语义色暗色覆盖(值源自 rnDarkTokens) */
   --rn-accent: #a3c4d6;
