@@ -1,7 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
 
 // 跨端共享 UI:不含平台 API。文件选择 / multipart 上传由调用端(RN)以 props 注入。
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -15,6 +14,8 @@ import {
 } from 'react-native'
 import { AlertTriangle, CheckCircle2, FileUp, History, ListChecks } from 'lucide-react-native'
 import { getTokens, type AppThemeMode, type AppThemeTokens } from '../../theme/tokens'
+
+import { rnRadius } from '@ihui/design-tokens'
 
 /**
  * 外部会话导入共享屏(D28 多端同步,2026-09-21 立)
@@ -264,9 +265,9 @@ export function ConversationImportScreen({
         disabled={picking || committing}
       >
         {picking ? (
-          <ActivityIndicator size="small" color={tk.surface.light} />
+          <ActivityIndicator size="small" color={tk.brand.ctaForeground} />
         ) : (
-          <FileUp size={16} color={tk.surface.light} />
+          <FileUp size={16} color={tk.brand.ctaForeground} />
         )}
         <Text style={styles.pickButtonText}>
           {picking ? t('conversationImport.parsing') : t('conversationImport.pickFile')}
@@ -343,7 +344,7 @@ export function ConversationImportScreen({
             onPress={() => void commit()}
             disabled={selected.size === 0 || committing}
           >
-            <ListChecks size={16} color={tk.surface.light} />
+            <ListChecks size={16} color={tk.brand.ctaForeground} />
             <Text style={styles.commitButtonText}>
               {committing
                 ? t('conversationImport.committing', { done: progress.done, total: progress.total })
@@ -444,9 +445,9 @@ function createStyles(tk: AppThemeTokens) {
       gap: 6,
       height: 40,
       borderRadius: rnRadius.lg,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
-    pickButtonText: { fontSize: 13, fontWeight: '600', color: tk.surface.light },
+    pickButtonText: { fontSize: 13, fontWeight: '600', color: tk.brand.ctaForeground },
     linkText: { fontSize: 12, color: tk.brand.dark },
     rowCard: {
       padding: 10,
@@ -466,10 +467,10 @@ function createStyles(tk: AppThemeTokens) {
       gap: 6,
       height: 36,
       borderRadius: rnRadius.lg,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     commitButtonDisabled: { backgroundColor: tk.border.medium },
-    commitButtonText: { fontSize: 13, fontWeight: '600', color: tk.surface.light },
+    commitButtonText: { fontSize: 13, fontWeight: '600', color: tk.brand.ctaForeground },
     warningBox: {
       flexDirection: 'row',
       alignItems: 'flex-start',
