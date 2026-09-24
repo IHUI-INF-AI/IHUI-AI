@@ -345,7 +345,7 @@ tail -20 .workbuddy/git-guardian.log        # 自愈审计流水(健康时不写
 
 ## 5d. 模型密钥引导与 `.env` 回填(强制,2026-09-12 立)
 
-**密钥不入仓、不入聊天记录。** 本机模型密钥的唯一权威来源是百度网盘同步目录 `D:/BaiduSyncdisk/密钥/模型/`(每厂商一个 txt,内容为裸 token)。目录可用环境变量 `IHUI_MODEL_KEY_DIR` 或 `--key-dir` 覆盖。
+**密钥不入仓、不入聊天记录。** 本机模型密钥的唯一权威来源是百度网盘同步目录 `BaiduSyncdisk/密钥/模型/`(每厂商一个 txt,内容为裸 token)。**盘符不得写死**:本机实测真实库在 **`F:/BaiduSyncdisk/密钥/模型/`**,而 `D:/BaiduSyncdisk` 根本不存在 —— 旧版本节与两处脚本都按 `D:` 写,结果是"读不到文件"被下游门禁报成"凭据失效"(2026-09-24 镜像活性假故障的根因)。解析统一走 `scripts/lib/key-dir.mjs`(`resolveKeyDir('模型')` / `resolveKeyDir('git仓库')`,按 F→D→E→G→C 取第一个存在者);目录仍可用环境变量 `IHUI_MODEL_KEY_DIR` / `IHUI_MODEL_KEY_DIR_GIT` / `IHUI_SECRETS_ROOT` 或 `--key-dir` 覆盖。
 
 - 回填流程:先 `node scripts/env-backfill-model-keys.mjs --verify` 巡检(不写盘),确认无误后 `--verify --apply` 写盘。
 - 硬性约束:只写 `.env` 中**值为空**的键;已有值一律跳过、**绝不覆盖**;apply 前自动备份到 `.ihui-agent/env-backup/`(已被 `.gitignore` 忽略)。
@@ -666,7 +666,7 @@ pnpm dev                                       # 启动所有服务(web + api + 
    **改这类路径必须同批改 `resolveBackupDir`**:它曾只认写死的 `D:/IHUI-AI.git-backup-20260912`,
    目录一迁走就解析到不存在路径,表现为 `git-guardian --status` 的 `backupOk:false` —— 本地恢复源
    静默失效且无告警(与同日生产部署冻结同属"凭据/路径过期只以下游门禁失败形态出现")。
-2. `D:\BaiduSyncdisk\密钥\` —— 模型密钥唯一权威源(§5d),不入仓、不入聊天记录。
+2. `F:\BaiduSyncdisk\密钥\`(盘符按 §5d 由 `scripts/lib/key-dir.mjs` 探测,不得写死)——模型密钥唯一权威源(§5d),不入仓、不入聊天记录。
 3. 第三方 IDE/agent 自管家目录的**运行态**(`~/.workbuddy\binaries\PortableGit` 是
    `scripts/lib/gitdir.mjs:36-37` 解析 git 二进制的首选;`.qoder-cn` 承载本项目记忆与工作区状态)。
    这类不属"我们的产物",只登记、不搬动。
