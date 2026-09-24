@@ -14,6 +14,8 @@ import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { Tooltip } from '@/components/feedback'
 import { PortalPanel } from '@/components/feedback/portal-panel'
 import { useCanvasStore, type CanvasVersion } from '@/stores/canvas-store'
+import { useChatStore } from '@/stores/chat'
+import { ArtifactTurnNav, useArtifactTurnNav } from '@/components/media/artifact-turn-badge'
 
 /** 层栈 id(见 @/lib/overlay-stack):canvas overlay 是全屏 z-modal,Esc 只在栈顶时被消费 */
 const CANVAS_OVERLAY_ID = 'canvas-overlay'
@@ -113,6 +115,15 @@ export function CanvasOverlay() {
   const [tab, setTab] = React.useState<CanvasTab>('preview')
   const [draft, setDraft] = React.useState(content)
 
+  // D76 挂载:面板头部产物 turn 导航(从 chat store 消息流派生,零新契约);
+  // open 时重置到首个产物 turn,onChange 联动双向跳转(滚消息 + 定位产物卡)
+  const messages = useChatStore((s) => s.messages)
+  const turnNav = useArtifactTurnNav(messages)
+  React.useEffect(() => {
+    if (open) turnNav.reset()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
   // 外部内容更新(AI 修改 / 版本回退)→ 同步编辑草稿
   React.useEffect(() => {
     setDraft(content)
@@ -155,6 +166,13 @@ export function CanvasOverlay() {
           <span className="max-w-[200px] truncate text-xs font-medium">
             {title || t('artifactPreview')}
           </span>
+          {turnNav.count > 0 && (
+            <ArtifactTurnNav
+              count={turnNav.count}
+              activeIndex={turnNav.activeIndex}
+              onChangeIndex={turnNav.onChangeIndex}
+            />
+          )}
         </div>
         <div className="flex items-center gap-1">
           <button

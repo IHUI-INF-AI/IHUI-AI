@@ -299,6 +299,35 @@ test('落点证明:shim 完整性的严格判红必须挂在**提交链之外**�
   )
 })
 
+test('落点证明(深扫,2026-09-24):deep 开关默认 false、只由 strict 驱动,且浅/深计数分列输出', () => {
+  // 第二维扩面到 .pnpm 传递闭包后,最难的不是判据而是**档位落点**:深扫严禁进 pre-commit
+  // 提交链(并发 install 半复制态会一次闪出成百上千条红 ⇒ 恒红门 = 全队 --no-verify =
+  // 其余守门作废),又必须真被 --strict 驱动(否则就是"写了一个没人调的函数",§22c 教训)。
+  // 运行期方向证明在 --self-test(run() 默认档绿 / strict 档红);本用例钉源码结构。
+  const src = readFileSync(join(REPO, 'scripts', 'check-workspace-dep-links.mjs'), 'utf8')
+  assert.match(
+    src,
+    /export function findGuttedLinks\(rootDir, pkgDirs, \{ deep = false \} = \{\}\)/,
+    '深扫开关必须显式默认 false(不带参数 = 与改前逐字等值)',
+  )
+  assert.match(
+    src,
+    /findGuttedLinks\(root, targets, \{ deep: strict \}\)/,
+    'audit 未把 strict 接到 deep ⇒ 深扫造好没装车',
+  )
+  assert.match(
+    src,
+    /浅扫 \$\{linksScanned\} 条 \/ 深扫 \$\{deepScanned\} 条/,
+    '深扫结果未与浅扫分列输出(合成一个数会让反空扫护栏失去意义)',
+  )
+  assert.match(src, /_tmp_\/i/, '安装中临时键的跳过判据不在位(把中间态判成债务=逼人跳门)')
+  // 提交链(--staged)拿不到 deep:audit 的 deep 只来自 strict 形参,runner 不下发 --strict
+  const runner = readFileSync(join(REPO, 'scripts', 'guardian-runner.mjs'), 'utf8')
+  const block = runner.match(/id:\s*'78',[\s\S]{0,2500}?\n {2}\},/)
+  assert.ok(block, '守门 78 注册块消失')
+  assert.doesNotMatch(block[0], /--strict/, '提交链注册块不得下发 --strict(深扫严禁进 pre-commit)')
+})
+
 test('自检入口可用(--self-test 退出码 0)', () => {
   const out = execFileSync(
     process.execPath,
