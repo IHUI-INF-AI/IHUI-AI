@@ -715,6 +715,7 @@ export function AgentScreen() {
           {viewMode === 'shared' ? (
             <SharedAgentScreen
               t={t}
+              colorScheme={resolvedTheme}
               items={filteredItems}
               loading={loading}
               refreshing={refreshing}
