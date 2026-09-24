@@ -6509,3 +6509,5 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
   复验 `git cat-file -e FETCH_HEAD:scripts/check-statusbar-single-source.mjs` 已成功 ⇒ 本条从"缺陷"转"已落地"。
   连带把我自己在 `apps/mobile-rn/App.tsx` 里写的那句"`SearchScreen` 仍留 `paddingTop: 48`"改回"四处已摘"
   —— 上游那版当时列它为"已摘"与代码不符我才改的,现在两者一致了,注释不该留住一时的中间态。
+
+  **本票落地**:① 批量摘除 83 处 `paddingTop: 48`(codemod 只删声明不动其它行;摘前逐条确认所属样式键为 `header` 52 / `container` 28 / `title`·`content`·`headerRow` 各 1,全在页顶语境);② 删共享 NavBar 的 `statusBarHeight` 形参与 `viewStyles.container` 的 `paddingTop`(深路径亦零消费者);③ 新立**守门 97 `check-statusbar-single-source.mjs`**(blocking,id 在 runner 中恰好一次)—— S1 单点在位(防"装好被摘线")/ S2 第二取值口(`StatusBar.currentHeight` 或 `statusBarHeight`,注释与块注释内不计)/ S3 页头·根容器 `paddingTop: 24..60` 字面量**零容忍**;口径同守门 77/83(全量判 HEAD blob、`--staged` 判索引);`--self-test` 20 例含独立临时仓端到端(净仓绿 → 写死 48 必红 → 第二取值口必红 → **摘掉单点必红** → 带原因豁免放过),镜像测试 7 例含装车证明与"AGENTS/README 必须点名"。
