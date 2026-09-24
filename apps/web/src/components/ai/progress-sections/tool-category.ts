@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE).
-// [IHUI-AI-PROVENANCE]: D58 工具类目聚合层 (2026-09-23 · G-71/G-72)
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * D58 工具类目聚合层(2026-09-23 立,G-71/G-72)。
@@ -63,13 +63,43 @@ export interface CategoryDef {
 /** 18 个具名类目(逐字对齐 D58 原文;order 单调) */
 export const CATEGORY_TABLE: readonly CategoryDef[] = [
   { key: 'file_read', labelKey: 'catFileRead', order: 1, countable: true, expandStrategy: 'auto' },
-  { key: 'file_write', labelKey: 'catFileWrite', order: 2, countable: true, expandStrategy: 'auto' },
-  { key: 'file_modify', labelKey: 'catFileModify', order: 3, countable: true, expandStrategy: 'auto' },
-  { key: 'file_delete', labelKey: 'catFileDelete', order: 4, countable: true, expandStrategy: 'auto' },
-  { key: 'file_search', labelKey: 'catFileSearch', order: 5, countable: true, expandStrategy: 'auto' },
+  {
+    key: 'file_write',
+    labelKey: 'catFileWrite',
+    order: 2,
+    countable: true,
+    expandStrategy: 'auto',
+  },
+  {
+    key: 'file_modify',
+    labelKey: 'catFileModify',
+    order: 3,
+    countable: true,
+    expandStrategy: 'auto',
+  },
+  {
+    key: 'file_delete',
+    labelKey: 'catFileDelete',
+    order: 4,
+    countable: true,
+    expandStrategy: 'auto',
+  },
+  {
+    key: 'file_search',
+    labelKey: 'catFileSearch',
+    order: 5,
+    countable: true,
+    expandStrategy: 'auto',
+  },
   { key: 'command', labelKey: 'catCommand', order: 6, countable: true, expandStrategy: 'auto' },
   { key: 'preview', labelKey: 'catPreview', order: 7, countable: true, expandStrategy: 'auto' },
-  { key: 'web_search', labelKey: 'catWebSearch', order: 8, countable: true, expandStrategy: 'auto' },
+  {
+    key: 'web_search',
+    labelKey: 'catWebSearch',
+    order: 8,
+    countable: true,
+    expandStrategy: 'auto',
+  },
   { key: 'mcp', labelKey: 'catMcp', order: 9, countable: true, expandStrategy: 'auto' },
   { key: 'skill', labelKey: 'catSkill', order: 10, countable: true, expandStrategy: 'auto' },
   {
@@ -101,8 +131,9 @@ export const CATEGORY_TABLE: readonly CategoryDef[] = [
 ] as const
 
 /** 类目键 → 定义 的 O(1) 查询表 */
-export const CATEGORY_TABLE_BY_KEY: Readonly<Record<CategoryKey, CategoryDef>> =
-  Object.fromEntries(CATEGORY_TABLE.map((d) => [d.key, d])) as Record<CategoryKey, CategoryDef>
+export const CATEGORY_TABLE_BY_KEY: Readonly<Record<CategoryKey, CategoryDef>> = Object.fromEntries(
+  CATEGORY_TABLE.map((d) => [d.key, d]),
+) as Record<CategoryKey, CategoryDef>
 
 // ─── 工具名 → 类目映射 ─────────────────────────────────────────────
 // 已知工具名精确命中;MCP 类按命名约定识别;其余(插件/MCP 动态名)一律 other。
@@ -277,9 +308,7 @@ export function aggregateCategoryRuns(ordered: ToolNameCount[]): CategoryRun[] {
  * 无顺序信息 → 每个类目合并为单一 run(不臆造连续关系)。
  * 纯函数,可单测。
  */
-export function summarizeCategoriesByTool(
-  toolsByCategory: Record<string, number>,
-): CategoryRun[] {
+export function summarizeCategoriesByTool(toolsByCategory: Record<string, number>): CategoryRun[] {
   const byCat = new Map<CategoryKey, ToolNameCount[]>()
   for (const [toolName, count] of Object.entries(toolsByCategory)) {
     const cat = resolveToolCategory(toolName)
@@ -297,3 +326,4 @@ export function summarizeCategoriesByTool(
   }
   return sortRuns(runs)
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
