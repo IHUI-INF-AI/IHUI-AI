@@ -164,6 +164,21 @@ test('装车证明:guardian-runner 已注册守门 78 且为 blocking', () => {
   assert.match(block[0], /skipEnv:\s*'HUSKY_SKIP_WORKSPACE_DEP_LINKS'/)
 })
 
+test('落点证明:shim 完整性的严格判红必须挂在**提交链之外**的入口(否则并发 install 期=恒红门)', () => {
+  // 2026-09-24 取证:完整 install 后实测 missingBins=0(25 包 / 717 链接)⇒ 该维度在稳态下确实成立;
+  // 但并发 install 期间它会闪出上百条(实测 0↔113)。所以判红只能落在 check:all / CI,
+  // 提交链只报数 —— 本用例钉住"严格入口真在链上",防止将来只剩一个没人跑的 flag。
+  const pkg = JSON.parse(readFileSync(join(REPO, 'package.json'), 'utf8'))
+  assert.match(pkg.scripts['check:dep-links:strict'], /check-workspace-dep-links\.mjs\s+--strict/)
+  assert.ok(
+    pkg.scripts['check:all'].includes('check:dep-links:strict'),
+    'check:all 必须串上严格版,否则"判红"这一档永远没人执行',
+  )
+  const gate = readFileSync(join(REPO, 'scripts', 'check-workspace-dep-links.mjs'), 'utf8')
+  assert.ok(/const strict = argv\.includes\('--strict'\)/.test(gate), "脚本没接 --strict ⇒ package.json 那个 flag 是空开关")
+  assert.ok(/const redBins = strict \? missingBins\.length : 0/.test(gate), 'strict 未真正参与退出码判定')
+})
+
 test('自检入口可用(--self-test 退出码 0)', () => {
   const out = execFileSync(
     process.execPath,
