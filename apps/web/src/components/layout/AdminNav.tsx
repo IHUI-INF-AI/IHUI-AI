@@ -265,6 +265,7 @@ interface AdminNavItem {
     | 'adminSkillStats'
     | 'adminSkillVersions'
     | 'adminSkillBatch'
+    | 'deployDiagnosis'
   icon: React.ComponentType<{ className?: string }>
   dynamicLabel?: string
 }
@@ -342,6 +343,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/configs', labelKey: 'configs', icon: SlidersHorizontal },
   { href: '/admin/home-schema', labelKey: 'dashboard', icon: LayoutGrid, dynamicLabel: '首页布局' },
   { href: '/admin/integrations', labelKey: 'integrations', icon: Plug },
+  { href: '/admin/deploy-diagnosis', labelKey: 'deployDiagnosis', icon: Gauge },
   { href: '/admin/logs', labelKey: 'logs', icon: ScrollText },
   { href: '/admin/events', labelKey: 'events', icon: Activity },
   // API 平台管理
@@ -895,6 +897,7 @@ const NAV_LABEL_KEY: Record<AdminNavItem['labelKey'], string> = {
   help: 'nav.help',
   configs: 'nav.configs',
   integrations: 'nav.integrations',
+  deployDiagnosis: 'nav.adminDeployDiagnosis',
   logs: 'nav.logs',
   events: 'nav.events',
   exam: 'nav.exam',
