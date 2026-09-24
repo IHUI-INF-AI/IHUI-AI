@@ -25,23 +25,26 @@ Prometheus(127.0.0.1:8815)
   **只按身份的去重（默认 4h/同告警）**。**没有每日预算、没有冷却丢弃**——
   第三方推送时代需要预算，是因为额度是**第三方配额**（不自保就撞墙）；SMTP 是我们自己的，
   自设总量上限等于把"告警静默"再复制一遍。现在寄几封完全由"有多少不同身份的告警在响"决定。
-- Alertmanager 自带的 `email_configs` **不要启用**：它用 Go text/template 渲染，不可能带本仓
-  「智汇通报」版式，挂上去等于新开一条绕过品牌层的运维邮件流（2026-09-23 实测后已回滚，
-  结论见 PROJECT_PLAN ⑨）。运维邮件的唯一出口就是上面那条派发器。
+- Alertmanager 自带的原生邮件通道**已从模板删除且不可再加回**（2026-09-24 收口）：它用 Go
+  text/template 渲染，不可能带本仓「智汇通报」版式，挂上去等于新开一条绕过品牌层的运维邮件流
+  （2026-09-23 实测后曾回滚，但当时只靠"没人去跑渲染器"兜底）。现在
+  `scripts/render-alertmanager-config.mjs` 的 `assertBridgeOnlySurface` 对渲染产物做结构自校验：
+  出现邮件面 / IM 中转 receiver / 出口不落 9096 webhook，`pnpm alerts:check` 即红。
+  运维邮件的唯一出口就是上面那条派发器。
 
 ## 邮件通道（唯一到人通道）
 
-| 项       | 口径                                                                                                                             |
-| -------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| 出口     | 只调 `apps/api/scripts/notify-deploy-failure.ts`（`--severity` / `--title` / `--source ihui-alertbridge` / `--message-file`）      |
-| 版式     | `apps/api/src/services/email-templates.ts` 的 `renderSystemAlertEmail` 单点决定；本目录**不得**出现 SMTP/Resend 传输层或色值        |
-| 收件人   | 不传 `--to` ⇒ 由派发器回读 `apps/api/.env` 的 `ALERT_EMAIL_TO`（不在端内复制第二份收件人真相）                                    |
-| 默认状态 | **开**。收件人就是值班运维本人，邮件没有第三方总量配额，关掉等于回到"告警静默"                                                     |
-| 关闭     | `BRIDGE_MAIL_ENABLED=0`（亦认 `false` / `off` / `no`）——关的是"要不要发"，不是"发几封"                                            |
-| 去重     | 按告警身份（`alertname`+`instance`）在 `BRIDGE_DEDUP_MIN` 窗口（默认 240=4h）内只寄一封；状态在回响应前**同步落盘**，跨重启延续    |
-| 封顶     | **无**。不同身份的告警一律照寄；旧实现（第三方推送时代）的每日预算/冷却队列已随该腿一并摘除                                        |
+| 项       | 口径                                                                                                                                                                                             |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 出口     | 只调 `apps/api/scripts/notify-deploy-failure.ts`（`--severity` / `--title` / `--source ihui-alertbridge` / `--message-file`）                                                                    |
+| 版式     | `apps/api/src/services/email-templates.ts` 的 `renderSystemAlertEmail` 单点决定；本目录**不得**出现 SMTP/Resend 传输层或色值                                                                     |
+| 收件人   | 不传 `--to` ⇒ 由派发器回读 `apps/api/.env` 的 `ALERT_EMAIL_TO`（不在端内复制第二份收件人真相）                                                                                                   |
+| 默认状态 | **开**。收件人就是值班运维本人，邮件没有第三方总量配额，关掉等于回到"告警静默"                                                                                                                   |
+| 关闭     | `BRIDGE_MAIL_ENABLED=0`（亦认 `false` / `off` / `no`）——关的是"要不要发"，不是"发几封"                                                                                                           |
+| 去重     | 按告警身份（`alertname`+`instance`）在 `BRIDGE_DEDUP_MIN` 窗口（默认 240=4h）内只寄一封；状态在回响应前**同步落盘**，跨重启延续                                                                  |
+| 封顶     | **无**。不同身份的告警一律照寄；旧实现（第三方推送时代）的每日预算/冷却队列已随该腿一并摘除                                                                                                      |
 | 失败留痕 | 品牌模板失败先 `--plain` 降级；两条都失败 ⇒ 写 `alert-bridge-mail-UNDELIVERED.json`（与 `STATE_FILE` 同目录）+ `[mail][ERROR]` 日志，`/health` 报 `mailUndelivered=true`；下一次成功投递自动清除 |
-| 隔离     | 邮件派发用异步 `spawn`（同步会把 tsx 冷启 + SMTP 握手几十秒钉死事件循环 → Alertmanager 推送超时、后续告警堆积）                     |
+| 隔离     | 邮件派发用异步 `spawn`（同步会把 tsx 冷启 + SMTP 握手几十秒钉死事件循环 → Alertmanager 推送超时、后续告警堆积）                                                                                  |
 
 ### 命令行旗标（不带旗标时行为与既有服务一致）
 
@@ -63,7 +66,7 @@ node monitoring/alertbridge/alert-webhook-bridge.cjs --help
 | ihui-grafana      | grafana-server.exe            | 8816 | grafana/nssm               |
 | ihui-alertmanager | alertmanager.exe (0.34.0)     | 9093 | svc-alertmanager-nssm*.log |
 | ihui-alert-bridge | node alert-webhook-bridge.cjs | 9096 | svc-alert-bridge-nssm*.log |
-| IHUI-MONITOR      | pwsh monitor.ps1(转发壳)    | —    | svc-* / monitor-alerts.log |
+| IHUI-MONITOR      | pwsh monitor.ps1(转发壳)      | —    | svc-* / monitor-alerts.log |
 
 ### 源-运行分裂收口（2026-09-24）
 
@@ -136,4 +139,5 @@ nssm set ihui-alert-bridge AppEnvironmentExtra "BRIDGE_PORT=9096"
   其凭据文件按策略不删（删凭据不是本仓动作），只是不再被任何代码读取。
 - Alertmanager 配置运行副本在 `D:\DevEnv\monitor\alertmanager\alertmanager.yml`，
   与 Prometheus 配置的 `alertmanagers: [localhost:9093]` 对齐。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
