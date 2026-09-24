@@ -83,49 +83,29 @@ function Release-DeployLock {
 function Log   { param([string]$m) Write-Host "[$(Get-Date -Format 'HH:mm:ss zzz')] $m" }
 function Ok    { param([string]$m) Log "OK    $m" }
 
-# ── Server酱微信告警(2026-09-18 接入,AGENTS.md §5e):部署失败自动推送到微信。
-#    配额自保:免费版 5 条/天,自动告警每日上限 3 条(保留 2 条给人工);
-#    SendKey 优先环境变量,NSSM 服务上下文未继承时回读 HKCU 注册表;
-#    通知任何失败只记日志,绝不影响部署/回滚流程本身。
-#    邮件兜底(2026-09-18 加 / 2026-09-23 收口为品牌通道):Server酱发送失败或超额时,自动改发
-#    邮件到 502319984@qq.com,每日上限 10 封。发信不再由 PowerShell 自己拼传输层(旧 Send-MailMessage
-#    缺 -BodyAsHtml、Resend payload 缺 html 字段,只能发纯文本),统一调
+# ── 运维告警邮件(AGENTS.md §5e;2026-09-24 起为唯一到人通道)──────────────────────
+#    部署失败自动寄品牌运维邮件。此前并行的第三方推送腿(免费额度 5 条/天的推送网关)已
+#    整体摘除。"当日计数"配额自保的成因是那份额度是**第三方配额**(撞顶即静默丢);SMTP 是
+#    我们自己的,自设总量上限等于把"告警静默"再复制一遍 —— 现只按失败签名去重/重发,无总量封顶。
+#    邮件是唯一到人通道(2026-09-23 收口为品牌通道;2026-09-24 摘除第三方推送腿)。发信不由 PowerShell
+#    自拼传输层(旧 Send-MailMessage 缺 -BodyAsHtml、Resend payload 缺 html 字段,只能发纯文本),统一调
 #    apps/api\scripts\notify-deploy-failure.ts --strict:版式由 email-templates.ts 单点决定,
-#    SMTP_*/RESEND_API_KEY 由该脚本自行回读 apps/api\.env;品牌通道失败再用同一条传输层的
-#    --plain 降级发纯文本(正文首行标 [降级纯文本]),两条都失败才算未送达。
-#    状态唯一写入点:Invoke-FailNotify(当日计数 date/count/emailCount 落盘)。
-$SctStateFile = "$Root\deploy\win\.sct-notify-state.json"
-# 迁移失败告警去重状态(2026-09-21 加):同一签名 12h 内只推一次,避免每轮循环刷爆 3 条/天配额
+#    SMTP_*/RESEND_API_KEY 由该脚本自行回读 apps\api\.env;品牌通道失败再用同一条通道的
+#    --plain 降级发纯文本(正文首行标 [降级纯文本]),两条都失败才算未送达 —— 没有第二条通道
+#    可依,未送达必须留痕(.alert-undelivered.json + ALERT 日志行)。通知任何失败只记日志与标记,
+#    绝不影响部署/回滚流程本身。
+#    状态唯一写入点:Invoke-FailNotify(签名重发字段 sig/sigTs/sigFirstTs/repeatNo 落盘)。
+$AlertNotifyStateFile = "$Root\deploy\win\.alert-notify-state.json"
+$AlertUndelFile = "$Root\deploy\win\.alert-undelivered.json"
+# 迁移失败告警去重状态(2026-09-21 加):同一签名 12h 内只推一次。
+# 理由已换(2026-09-24 Server酱摘除):原先是"别刷爆第三方 3 条/天配额",现在配额不存在了,
+# 保留窗口只为压"同一条故障重复刷屏" —— 它**不是总量封顶**,新签名一律立即另发。
 $MigAlertStateFile = "$Root\deploy\win\.migrate-alert-state.json"
 # 失败告警重发周期(小时,2026-09-23 改)。旧策略是同签名固定静音窗口,而轮询外壳每 ~68s 重放
 # 同一失败 ⇒ 首发之后整天彻底静默(实测一次持续两天的故障只被通知过 1 次)。告警的判据应当是
 # 「故障还在发生」而不是「上次发过了」,故改为到点周期性重发;失败签名变化一律立即发。
 $FailAlertRepeatHours = 4
 $NotifyEmailTo = '502319984@qq.com'
-function Get-SctSendKey {
-    if ($env:SERVERCHAN_SENDKEY) { return $env:SERVERCHAN_SENDKEY }
-    try {
-        $v = (Get-ItemProperty -Path 'HKCU:\Environment' -Name 'SERVERCHAN_SENDKEY' -ErrorAction Stop).SERVERCHAN_SENDKEY
-        if ($v) { return $v }
-    } catch {}
-    return $null
-}
-function Send-SctNotify {
-    # 纯发送,不碰计数。返回 $true=已送达;$false=失败/未配置。
-    param([string]$title,[string]$desp,[string]$short = '')
-    try {
-        $key = Get-SctSendKey
-        if (-not $key) { Log "SCT   跳过微信告警:SERVERCHAN_SENDKEY 未配置"; return $false }
-        $body = @{ title = $title; desp = $desp }
-        if ($short) { $body.short = $short }
-        Invoke-RestMethod -Uri "https://sctapi.ftqq.com/$key.send" -Method Post -Body $body -TimeoutSec 8 -ErrorAction Stop | Out-Null
-        Log "SCT   微信告警已推送"
-        return $true
-    } catch {
-        Log "SCT   微信告警发送失败: $($_.Exception.Message)"
-        return $false
-    }
-}
 # ── 品牌邮件通道(2026-09-23 收口)─────────────────────────────────────────────
 # 为什么 PowerShell 侧一行发信代码都不留:旧实现自己拼传输层 —— SMTP 分支 Send-MailMessage
 # 没有 -BodyAsHtml、Resend 分支 payload 只有 text 没有 html,结果无论哪条路用户收到的永远是
@@ -225,16 +205,14 @@ function Send-EmailNotify {
 }
 function Invoke-FailNotify {
     param([string]$m)
-    $today = Get-Date -Format 'yyyy-MM-dd'
-    $sctCount = 0; $emailCount = 0
     $state = $null
     try {
-        $state = Get-Content $SctStateFile -Raw -ErrorAction Stop | ConvertFrom-Json
-        if ($state.date -eq $today) { $sctCount = [int]$state.count; $emailCount = [int]$state.emailCount }
+        $state = Get-Content $AlertNotifyStateFile -Raw -ErrorAction Stop | ConvertFrom-Json
     } catch { $state = $null }
     # 同签名到点重发、换签名立即发(周期见 $FailAlertRepeatHours)。旧实现把"上次发过了"当成
     # "不用再发",持续故障第二次起彻底无人知晓;这里只未到重发周期才静音,并把持续时长与
     # 重发序号写进正文,让运维一眼看出"这个故障还没修好"而不是以为已处置。
+    # 这是**按身份去重**,不是总量封顶 —— 无"每日 N 封"计数闸(成因见文件头 §5e 注释块)。
     $sig = ($m -replace '\s+', ' ').Trim()
     $repeatNote = ''
     $sigFirstTs = $null
@@ -245,7 +223,7 @@ function Invoke-FailNotify {
         if ($prevTs) {
             $ageH = ((Get-Date) - $prevTs).TotalHours
             if ($ageH -ge 0 -and $ageH -lt $FailAlertRepeatHours) {
-                Log "SCT   同签名失败告警 $([Math]::Round($ageH,1))h 前已推过(未到 ${FailAlertRepeatHours}h 重发周期),本轮跳过"
+                Log "ALERT 同签名失败告警 $([Math]::Round($ageH,1))h 前已寄过(未到 ${FailAlertRepeatHours}h 重发周期),本轮跳过"
                 return
             }
             try { if ($state.sigFirstTs) { $sigFirstTs = [datetime]$state.sigFirstTs } } catch { $sigFirstTs = $null }
@@ -257,31 +235,26 @@ function Invoke-FailNotify {
     }
     if (-not $sigFirstTs) { $sigFirstTs = Get-Date }
     $nowTxt = Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz'
-    $sent = $false
-    if ($sctCount -ge 3) {
-        Log "SCT   跳过微信告警:已达当日自动告警上限(3/天),保留额度给人工推送"
+    # 唯一到人通道:到点即寄,失败=告警从未被人看见,必须留下 UNDELIVERED 标记(参照
+    # scripts/check-credential-health.mjs 的 UNDEL 机制),下一次成功投递自动清除。
+    $mailOk = $false
+    try {
+        $mailOk = Send-EmailNotify -subject "【生产环境】部署失败" `
+            -text "IHUI-AI 生产部署失败(运维邮件告警)`n`n原因: $m$repeatNote`n时间: $nowTxt`n处置: 已自动回滚或保持当前在线版本`n排查: 服务 IHUI-DEPLOYLOOP / NSSM 日志,或 ssh 后执行 deploy\win\ihui-deploy.ps1 -diagnose"
+    } catch { $mailOk = $false }
+    if ($mailOk) {
+        try { Remove-Item -LiteralPath $AlertUndelFile -Force -ErrorAction SilentlyContinue } catch {}
     } else {
         try {
-            $sent = Send-SctNotify -title "【生产环境】部署失败" -short $m `
-                -desp "**IHUI-AI 生产部署失败**`n`n- 原因: $m$repeatNote`n- 时间: $nowTxt`n- 处置: 已自动回滚或保持当前在线版本`n- 排查: 服务 IHUI-DEPLOYLOOP / NSSM 日志,或 ssh 后执行 deploy\win\ihui-deploy.ps1 -diagnose"
-        } catch { $sent = $false }
-        if ($sent) { $sctCount++ }
-    }
-    if (-not $sent) {
-        if ($emailCount -ge 10) {
-            Log "MAIL  跳过邮件兜底:已达当日上限(10 封)"
-        } else {
-            $mailOk = $false
-            try {
-                $mailOk = Send-EmailNotify -subject "【生产环境】部署失败" `
-                    -text "IHUI-AI 生产部署失败(微信通道未送达,邮件兜底)`n`n原因: $m$repeatNote`n时间: $nowTxt`n处置: 已自动回滚或保持当前在线版本`n排查: 服务 IHUI-DEPLOYLOOP / NSSM 日志,或 ssh 后执行 deploy\win\ihui-deploy.ps1 -diagnose"
-            } catch { $mailOk = $false }
-            if ($mailOk) { $emailCount++ }
+            @{ ts = (Get-Date).ToString('o'); sig = $sig; why = '品牌模板与 --plain 降级两条邮件通道均未送达(细节见部署日志 MAIL 行)' } | ConvertTo-Json |
+                Set-Content -Path $AlertUndelFile -NoNewline
+            Log "ALERT 邮件未送达,已写标记 $AlertUndelFile(下一次成功投递自动清除)"
+        } catch {
+            Log "ALERT CRITICAL 邮件未送达且标记也写不出去 —— 告警面双盲,须人工核查本条失败: $m"
         }
     }
     try {
-        Set-Content -Path $SctStateFile -Value (@{
-            date = $today; count = $sctCount; emailCount = $emailCount
+        Set-Content -Path $AlertNotifyStateFile -Value (@{
             sig = $sig; sigTs = (Get-Date).ToString('o')
             sigFirstTs = $sigFirstTs.ToString('o'); repeatNo = $repeatNo
         } | ConvertTo-Json) -NoNewline
@@ -600,6 +573,14 @@ function Build-Web {
             }
             foreach ($l in (Get-Content $bldErr -Tail 8 -ErrorAction SilentlyContinue)) { Log "[build-err] $l" }
             foreach ($l in (Get-Content $bldOut -Tail 12 -ErrorAction SilentlyContinue)) { Log "[build-out] $l" }
+            # 用完即删。这两个文件是 Start-Process 的重定向落点,服务身份(IHUI-DEPLOYLOOP 跑在
+            # LocalSystem 下)的 `$env:TEMP` = `C:\Windows\Temp` —— HKCU 把 TEMP 迁到 D 盘对它无效,
+            # 所以每次构建 try 都在 **C 盘系统临时目录**留 2 个文件且此前无人清:2026-09-24 实测
+            # 攒到 528 项 / 6.9MB,且当天还在 +5(部署环每 30 分钟一轮)。内容已 Tail 进
+            # deploy-loop.log,留着没有取证价值。删除失败不得影响构建判定 ⇒ 整段吞异常。
+            try {
+                Remove-Item -LiteralPath $bldOut, $bldErr -Force -ErrorAction SilentlyContinue
+            } catch {}
             $ok = ($exitCode -eq 0) -and (Test-Path "$WebDir\.next-$DistDir\BUILD_ID")
             if ($ok) { Ok "next build 完成 -> .next-$DistDir"; return }
             Log "第 $try 次失败(exit=$exitCode),清缓存重试"
@@ -860,7 +841,7 @@ if ($rollbackOnly) { try { Do-Rollback; exit 0 } finally { Release-DeployLock } 
 # 2026-09-21 加固(实测教训):上面那句"失败会有监控兜底"是假的 —— 迁移自 09-19 起连续 exit 1,
 # 循环每轮只留一行 WARN 就继续发布,两天无人发现,8 个迁移全被 drizzle 的单事务一起回滚。
 # 现在:① 每轮把"journal 条数 vs 库里已记录条数"的差额打进日志(可 grep MIG);
-#      ② 失败时按签名去重推送(12h 内同一签名只推一次,不刷爆 3 条/天配额);
+#      ② 失败时按签名去重推送(12h 内同一签名只推一次;压重复不压新故障,无每日总量封顶);
 #      ③ 本轮标 degraded,收尾再显式提示一次。仍**不改退出码**(NSSM/包装器语义未知,不冒险)。
 function Get-PsqlExe {
     foreach ($c in @('D:\DevEnv\runtimes\pgsql\bin\psql.exe')) { if (Test-Path $c) { return $c } }

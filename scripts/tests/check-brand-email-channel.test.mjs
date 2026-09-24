@@ -22,11 +22,13 @@ import { __test__ as gate } from '../check-brand-email-channel.mjs'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
 
-test('__test__ 出口齐备(§22c 锚点:PS 语句抽取器 / html 判据 / 豁免识别缺一不可)', () => {
+test('__test__ 出口齐备(§22c 锚点:PS 语句抽取器 / html 判据 / 版式手抄判据 / 豁免识别缺一不可)', () => {
   for (const fn of [
     'extractSendMailStatements',
     'findResendEndpointHits',
     'sendContextHasHtmlField',
+    'findLayoutCopyHits',
+    'isBrandExitScript',
     'isExemptAt',
     'judgeText',
     'applyBaseline',
@@ -34,6 +36,7 @@ test('__test__ 出口齐备(§22c 锚点:PS 语句抽取器 / html 判据 / 豁�
   ]) {
     assert.equal(typeof gate[fn], 'function', `缺少导出 ${fn}`)
   }
+  assert.equal(typeof gate.BRAND_EXIT_REL, 'string', 'carve 路径必须可被测试钉死,不得只在实现里硬写')
 })
 
 test('R1 正反成对:Send-MailMessage 缺 -BodyAsHtml 判红,补上判绿;续行合并正确', () => {
@@ -113,14 +116,114 @@ test('范围与自豁免:deploy/scripts(+workflows yml)在范围;scripts/tests�
   assert.equal(r.stats.selfExempt, 1, '自豁免必须如实计数,不静默')
 })
 
-test('真仓不变量:全量审计判绿(一切存量红均已冻结在基线,新增通道必红)', () => {
+test('扩面对账(2026-09-24):monitoring/** 与 .cjs/.mts、apps/api/scripts/** 真进面;证据式不扩的面仍在面外', () => {
+  // 进面:infra 告警邮件正文的实际出口 + 它恰好是 .cjs(旧口径"目录不在 + 扩展名不在"双重不可见)
+  assert.ok(gate.isScannedPath('monitoring/alertbridge/alert-webhook-bridge.cjs'))
+  assert.ok(gate.isScannedPath('monitoring/x.cjs'))
+  assert.ok(gate.isScannedPath('scripts/x.cjs'), '.cjs 必须整体纳入,不能只进某个目录')
+  assert.ok(gate.isScannedPath('apps/api/scripts/send-weekly.mts'))
+  // 面外(实测过的假阳来源,写死防"顺手扩")
+  assert.ok(!gate.isScannedPath('packages/api-client/src/endpoints/mail.ts'), 'api-client 的 sendMail 是 POST 自家后端,判它红=造假阳')
+  assert.ok(!gate.isScannedPath('apps/api/src/routes/system.ts'), '管理员 SMTP 试测端点不在 ops 面内')
+  assert.ok(!gate.isScannedPath('deploy/scripts/backup-db.sh'), '27 个 .sh/.py 零发信 token,无证据不扩')
+  assert.ok(!gate.isScannedPath('monitoring/alertbridge/README.md'))
+})
+
+test('发信动作认派生名:bridge 自己的腿函数叫 sendMailLeg(旧 sendMail\\b 判不到)', () => {
+  const v = gate.judgeText('monitoring/alertbridge/z.cjs', 'async function sendMailLeg(to) {}\nmodule.exports = sendMailLeg')
+    .violations
+  assert.ok(v.some((x) => x.rule === 'R3'), 'sendMailLeg 必须计为发信动作,否则扩了面也恒报 0')
+})
+
+test('R3b 自拼 HTML 正文/手抄品牌版式:正例判红,四类反例判绿(三段与门缺一不可)', () => {
+  const r3 = (rel, t) => gate.judgeText(rel, t).violations.filter((v) => v.rule === 'R3')
+  // 正例:接了品牌出口,却自带一份机械风版式 —— R3a 放过的那一型,只有 R3b 看得见
+  const HOT = [
+    "import { spawnSync } from 'node:child_process'",
+    "const subject = '智汇通报'",
+    'const head = \'<table role="presentation" width="600" bgcolor="#0A0A0C">\'',
+    '  + \'<td style="font-family:Consolas,monospace;letter-spacing:3px;color:#B4FF00;">IHUI</td></table>\'',
+    "spawnSync('node', ['apps/api/scripts/notify-deploy-failure.ts', '--message', head])",
+  ].join('\n')
+  assert.equal(r3('monitoring/alertbridge/x.cjs', HOT).length, 1, '自带版式必须判红,即使它调了唯一出口')
+  // 反例 1:同样 HTML,但无邮件语境(页面/报告生成)
+  assert.equal(
+    r3(
+      'scripts/gen-report.mjs',
+      [
+        'const page = \'<table width="600" bgcolor="#0A0A0C">\'',
+        '  + \'<td style="font-family:Consolas,monospace;letter-spacing:3px;color:#B4FF00;">IHUI</td></table>\'',
+        "writeFileSync('report.html', page)",
+      ].join('\n'),
+    ).length,
+    0,
+    '无邮件语境的 HTML 生成不得判(否则三条守门脚本的夹具全成假阳)',
+  )
+  // 反例 2:标记与样式指纹相距 > 窗口
+  assert.equal(
+    r3(
+      'scripts/far.mjs',
+      [
+        "const subject = 'x'",
+        "const t = '<table>'",
+        ...Array.from({ length: 16 }, (_, k) => `const v${k} = ${k}`),
+        "const css = 'letter-spacing:3px'",
+      ].join('\n'),
+    ).length,
+    0,
+    '距离超限即非同一段版式 —— 窗口判据必须真在生效',
+  )
+  // 反例 3:只有样式指纹(守门脚本正则夹具形态)
+  assert.equal(
+    r3('scripts/check-radius.mjs', "const subject = 'x'\nconst css = 'border-radius:6px;font-family:Consolas'").length,
+    0,
+    '无邮件版式标记不判',
+  )
+  // 反例 4:整段版式在注释里
+  assert.equal(r3('scripts/doc.mjs', `// ${HOT.split('\n')[3]}\nconst subject = 'x'`).length, 0, '注释行不计(宁漏不误报)')
+  // findLayoutCopyHits 直接可验(§22c:不得在测试里复制判据实现)
+  const hits = gate.findLayoutCopyHits(HOT.split('\n'), 'js')
+  assert.equal(hits.length, 1)
+  assert.equal(hits[0].line, 3, '命中行必须是版式标记起始行,供人一眼定位')
+})
+
+test('品牌出口 carve 精准到单一路径:出口不判 R2/R3 且如实计数,同目录邻居照判', () => {
+  const MTS = ["const url = 'https://api.resend.com/emails'", "await fetch(url, { body: JSON.stringify({ text }) })"].join('\n')
+  assert.equal(gate.BRAND_EXIT_REL, 'apps/api/scripts/notify-deploy-failure.ts', 'carve 路径钉死:它是本门推荐的唯一出口')
+  const exitHit = gate.judgeText(gate.BRAND_EXIT_REL, MTS)
+  assert.equal(exitHit.violations.length, 0, '出口自身就是品牌层,判它"绕过品牌层"是语义倒置')
+  assert.equal(exitHit.stats.brandExitSkipped, 1, '跳过必须留痕,不得静默')
+  const out = gate.judgeText('apps/api/scripts/notify-deploy-failureX.ts', MTS)
+  assert.ok(out.violations.some((v) => v.rule === 'R2'), '路径改一个字即判红 —— carve 不是一整目录')
+  assert.ok(gate.isBrandExitScript('apps\\api\\scripts\\notify-deploy-failure.ts'), '反斜杠路径须归一')
+})
+
+test('装车证明(2026-09-24 补齐):runner 里 81 的 stagedTriggers 必须含 monitoring/ 与 apps/api/scripts/', () => {
+  // 判据扫到了这两个面,触发清单却没跟上 = 只改 bridge 的提交在 pre-commit 根本不唤起本门。
+  // 这类"半装车"是守门 70/76 的同型事故,故用镜像测试钉死,而不是留在源码注释里等人看。
+  const runner = readFileSync(join(REPO, 'scripts', 'guardian-runner.mjs'), 'utf8')
+  const block = /id:\s*'81'[\s\S]{0,1400}/.exec(runner)?.[0] ?? ''
+  assert.ok(block, 'runner 里必须能找到 id 81 条目')
+  assert.match(
+    block,
+    /stagedTriggers:\s*\[[^\]]*'monitoring\/'[^\]]*'apps\/api\/scripts\/'[^\]]*\]/,
+    '只扫面不触发 = 半装车;扩面必须与触发清单同步',
+  )
+})
+
+test('真仓不变量:全量审计判绿,且扩面真的在生效(不是又一道看不见东西的判据)', () => {
   assert.ok(
     existsSync(join(REPO, 'scripts', 'brand-email-channel-baseline.json')),
     '基线文件必须存在 —— 缺失时本门按空基线判定,存量红会全体复现',
   )
+  const base = JSON.parse(readFileSync(join(REPO, 'scripts', 'brand-email-channel-baseline.json'), 'utf8'))
+  assert.deepEqual(Object.keys(base.counts || {}), [], '基线必须为空:非空即有新通道绕版式(表内自述:改接品牌层,不得回写本表)')
   const res = gate.audit(REPO)
   assert.equal(res.code, 0, `检出未基线化违规:${JSON.stringify(res.violations)}`)
   assert.ok(res.stats.judged > 0, '一个在范围文件都没判定 = 判据空转,必须红')
+  // 扩面前 375,扩面后 427(+monitoring 1 / +apps-api-scripts 51)。留 420 余量给后续新增脚本。
+  assert.ok(res.stats.judged >= 420, `判定文件数 ${res.stats.judged} < 420 ⇒ 扩面被写回/失效`)
+  assert.equal(res.stats.brandExitSkipped, 1, '品牌出口未被判定 ⇒ apps/api/scripts/** 没进面(扩面回归)')
 })
 
 test('装车证明:guardian-runner 已注册守门 81 且为 blocking(编号必须出现恰好一次)', () => {
@@ -142,5 +245,7 @@ test('自检入口可用(--self-test 退出码 0)', () => {
   )
   assert.match(out, /self-test 全部通过\(\d+ 例/)
   assert.doesNotMatch(out, /❌ \d+ /, '自检存在失败用例')
+  const n = Number((out.match(/self-test 全部通过\((\d+) 例/) || [])[1] || 0)
+  assert.ok(n >= 46, `自检例数 ${n} < 46 ⇒ 扩面/判据用例被写回(2026-09-24 起 30 → 46)`)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
