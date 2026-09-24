@@ -5055,7 +5055,10 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
   终判：`wt-pricing` 真独有 **0**、`wt-fix` 真独有 **0**、`wt-e2e` **4**、`wt-keys` **18**。**处置**：22 个真独有文件按原相对路径搬进 §15b 批准的备份根 `D:\DevEnv\backups\archives\ihui-orphan-worktrees\<名>-unique\`，**逐文件 sha 回读一致 22/22**；3 个 `.env` **不搬值**，改按仓库既有约定快照进 gitignored 的 `.ihui-agent/env-backup/`(`orphan-wt-keys--apps-api-.env.<ts>.bak` 等 3 枚，sha 双端一致)，另留一份**只含键名**的清单 —— 实测主仓 `apps/api/.env` 缺 `LINUXDO_CLIENT_ID/CLIENT_SECRET/REDIRECT_URI` 三把键，而全仓对 `LINUXDO` 的代码引用为 **0** ⇒ 属死配置，仍留快照不赌。四目录随后删除。
 - **一次差点放走删除动作的"假证明"**：上一轮我打印的"b58 源码级 源剩余=0"是**假的** —— 遍历函数用了 `walk('/g/IHUI-AI-wt-b58')`，Windows 上的 node 把它解析成 `G:\g\...` → ENOENT → 被我自己的 `try { readdirSync } catch { return acc }` **吞成空数组**。改用双端 `git hash-object --stdin-paths` 比对后当场暴露：目的地实缺 **561** 个源码级文件(`packages/sdk/dotnet/**` 等)。修法：`tar -C 源 -T 清单 | tar -C 归档 -xf -` 补齐，再 561/561 sha 逐行一致才删源目录。**规则已入记忆**：判据脚本里"读取失败"与"读到 0 条"不得共用同一返回值；任何以 0 为结论的断言，先问"根路径不存在时这段代码会输出什么"。
 - 同类第二例(同一脚本、同轮抓到)：`SKIP=/…|\\.next|\\target/` 在正则里要求**真反斜杠**，而我拼的路径分隔符是 `/` ⇒ `.next`/`target` 全没跳过，"真独有"从 86 虚报到 **17215**(几乎让我判定"这些目录全是构建产物，不用比")。判据里凡是"过滤后计数"，都要配一条**已知应被过滤掉的样例**作反例。
-- **磁盘结果**：G 盘从本轮开始时的 **1.7G 空闲(99%)→ 38G 空闲(78%)**（登记此刻的实测值）；回收构成 = 23G Rust 构建缓存 + `wt-e2e`/`wt-keys`/`wt-pricing` 三枚孤儿树 + `wt-fix`(3.5G / 27 万文件，此刻正用 `robocopy /MIR` 清空 —— MSYS `rm -rf` 在此量级慢到必须后台、`cmd //c rd` 又被 MSYS 把 `//c` 原样传参只回显提示符，两条路都不通)。
+- **【第三十三批 续三 · 磁盘终数】G 盘 1.7G 空闲(99% 满)→ 37G 空闲(78%)**:回收构成 = 23G Rust 构建缓存
+  + 4 枚孤儿工作树**全部删净**(`wt-e2e` / `wt-keys` / `wt-pricing` / `wt-fix`;最后一枚 3.5G / 27 万文件用
+  `robocopy /MIR` 清空 —— MSYS `rm -rf` 慢到必须挂后台、`cmd //c rd` 又被 MSYS 把 `//c` 原样传参只回显提示符,
+  两条路在此量级都不通)。上一条"磁盘结果"里"此刻正在清空"的措辞由本条取代,`ls -d G:\IHUI-AI-wt-*` 现为空。
 - **没做的两件事及理由**：① 归档里 b58 那份被 junction 实体化的 `node_modules`(约 3G)不再回收 —— D 盘 155G 空闲，磁盘压力只在 G 盘，为卫生去做一次大范围递归删除属于新增风险；② `.ihui-agent/tmp` 仍有 20G 属并发会话在用的隔离副本(最大 `tmp/i18n` 8.1G，目录项 mtime 是我测量当刻) ⇒ 不碰。
 - **【第三十三批 续二 · 门 71 的真实盲区：无编号族的正文子 bullet 不受保护】**这条登记其实**落过一次**
   (commit `e60893ac502`，至今仍是远端 tip 的祖先 —— `git merge-base --is-ancestor` 实测 ✅)，但并发会话
