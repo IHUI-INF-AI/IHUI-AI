@@ -534,20 +534,51 @@ describe('契约键声明:跨端词包契约键 / 被测试钉住的形状键', 
     assert.deepEqual(bogus, ['miniapp-ten'])
   })
 
-  test('装车证明:真仓 scripts/i18n-contract-keys.json 形状合法且已登记 mobile-rn 的契约键', () => {
+  /** 在**真仓**跑一次 CLI(cwd 即扫描器 ROOT);--dry-run 不写报告 */
+  function runCliOnRealRepo(args) {
+    const r = spawnSync(process.execPath, [SCRIPT_PATH, ...args], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      timeout: 60000,
+    })
+    return `${r.stdout || ''}${r.stderr || ''}`
+  }
+
+  test('装车证明:真仓 scripts/i18n-contract-keys.json 形状合法且无未知端', () => {
     const file = loadContractFile(REPO_ROOT)
     assert.ok(file.exists, '契约声明文件必须入库(缺文件 = 该端重新恒红)')
     const knownTargets = ['web', 'miniapp-taro', 'mobile-rn', 'cli', 'extension', 'desktop']
     assert.deepEqual(unknownContractTargets(file.raw, knownTargets), [])
-    const { entries, issues } = contractEntriesFor(file.raw, 'mobile-rn')
-    assert.deepEqual(issues, [], `声明形状不合法:${JSON.stringify(issues)}`)
-    const decl = entries.get('permissionTier.label')
-    assert.ok(decl, 'permissionTier.label 必须以契约键身份登记,而不是靠缩窄扫描面绕过')
-    assert.ok(decl.evidence.length >= 3, '依据须含共享层契约声明 + 钉住它的测试 + 另一端真实消费方')
-    assert.ok(
-      decl.evidence.some((e) => e.file === 'apps/mobile-rn/tests/permission-tier-pack.test.ts'),
-      '必须点名把它钉死的本端测试',
-    )
+    for (const target of ['web', 'miniapp-taro', 'mobile-rn', 'cli', 'extension']) {
+      const { issues } = contractEntriesFor(file.raw, target)
+      assert.deepEqual(issues, [], `${target} 声明形状不合法:${JSON.stringify(issues)}`)
+    }
+  })
+
+  /**
+   * 这条取代了旧断言"清单里必须登记 permissionTier.label"。
+   *
+   * 那条把一枚**条目**当常量钉死,而清单的语义恰恰是"条目会过期"(硬约束四:键一旦被本端
+   * 静态引用,豁免就成了无人复核的假保护)。2026-09-24 真出现这种情况 —— `ChatDisclosure.tsx`
+   * 已直接 `t('permissionTier.label')`,扫描器判 DECLARATION_UNNEEDED、`--target all --exit 1`
+   * 对全队恒红,而旧测试正要求把那条红着的豁免留在清单里。钉条目必然与判据对撞,
+   * 所以改钉不变量:**凡真仓登记着的声明,必须被真仓扫描器认作成立**。
+   * 清单为空时本条自然成立(不假装覆盖),三种失效码由上方单测 + 端到端用例分别钉住。
+   */
+  test('装车证明:真仓登记的每条契约声明都必须被真仓扫描器认作成立', () => {
+    const file = loadContractFile(REPO_ROOT)
+    const FAILURE_CODES = ['DECLARATION_UNNEEDED', 'EVIDENCE_UNVERIFIED', 'KEY_NOT_IN_PACK']
+    let 有登记的面 = 0
+    for (const target of ['web', 'miniapp-taro', 'mobile-rn', 'cli', 'extension']) {
+      const { entries } = contractEntriesFor(file.raw, target)
+      if (entries.size === 0) continue
+      有登记的面 += 1
+      const out = runCliOnRealRepo(['--target', target, '--dry-run', '--exit', '1'])
+      for (const code of FAILURE_CODES) {
+        assert.ok(!out.includes(code), `${target} 登记了 ${entries.size} 条契约声明,扫描器仍判 ${code}:\n${out}`)
+      }
+    }
+    console.log(`   契约声明装车:有登记的端 ${有登记的面} 个(为 0 时本条只校验"清单不自红")`)
   })
 
   // ── 端到端:真 HEAD 读取器 ────────────────────────────────────────────────
