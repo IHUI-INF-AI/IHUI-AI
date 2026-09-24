@@ -22,10 +22,14 @@
  * 而 2026-09-24 的全机门禁停摆正是这一型:`node_modules/typescript`、`node_modules/eslint`
  * 指向 `.pnpm` 里的空目录,`.bin` 只剩 16 项(无 eslint/tsc/vitest/next)⇒ lint-staged 第一步
  * `✖ eslint --fix` 并阻止提交 ⇒ **每次提交都被迫 --no-verify,约 110 道守门对全队同时失效**,
- * 而 git status / typecheck / 其余守门报告全都看不出来。
+ * 而 git status / typecheck / 其余守门报告全都看不出来。该维度默认只浅扫(根 + 各包
+ * `node_modules/` 的直接链接);`--strict` 档额外深扫 `node_modules/.pnpm/<key>/node_modules/`
+ * 下的传递链接(含 @scope 两层形态,判据逐字相同,浅/深计数分列)—— 深扫严禁进提交链,
+ * 理由见 findGuttedLinks 头注。
  *
  * 用法:
- *   node scripts/check-workspace-dep-links.mjs            # 全量审计
+ *   node scripts/check-workspace-dep-links.mjs            # 全量审计(链接完整性只浅扫,不深扫)
+ *   node scripts/check-workspace-dep-links.mjs --strict   # 严格档:深扫 .pnpm 传递闭包 + shim 完整性判红(仅 check:all / CI,严禁接进提交链)
  *   node scripts/check-workspace-dep-links.mjs --staged   # 仅审计 package.json 被暂存的包
  *   node scripts/check-workspace-dep-links.mjs --self-test
  *   node scripts/check-workspace-dep-links.mjs --root=<dir>  # 指定仓库根(自测夹具必须显式注入)
@@ -158,14 +162,29 @@ export function findMissingLinks(rootDir, pkgDirs) {
  * 要求目标里有**可 parse 的 package.json**。刻意**不**比 name —— pnpm 的别名安装
  * (`foo@npm:bar`)会在链接名下指向另一个 name 的包,比 name 必产假阳。
  * 两类红点如实分列:`悬空`(目标不存在)/ `掏空`(目标在但无有效清单)。
+ *
+ * 深扫扩展(2026-09-24 补,`{ deep: true }`):把上面**逐字相同**的判据延伸到
+ * `node_modules/.pnpm/<key>/node_modules/*` 的传递符号链接(含 `@scope/*` 两层形态)。
+ * 真仓实测:深扫面 10,015 条链接、破损 0、全量约 1.1s —— 成本可接受,今天真仓零红。
+ * **落点纪律:深扫只允许挂在 --strict 档(check:all / CI),严禁进入 pre-commit 提交链。**
+ * 理由(本仓优先级最高的反面教训):并发 `pnpm install` 正在往 .pnpm 里半复制时,这一维会
+ * 一次闪出成百上千条红(浅扫实测也会 0↔113 跳,但浅扫只有 717 条;深扫是 10,015 条量级),
+ * 而 78 在提交链上是 blocking ⇒ 恒红门 = 各会话 --no-verify = 其余全部守门作废。
+ * 安装中临时键(`_tmp_` / `__tmp__` 形态的 .pnpm 目录)是 pnpm 正在写的中间态,必须跳过并
+ * 如实计数 —— 把中间态判成债务就是逼人跳门。浅扫/深扫的扫描面**分列**报告,不得合成一个数,
+ * 否则"扫到 0 条判红"的反空扫护栏失去意义。
  */
-export function findGuttedLinks(rootDir, pkgDirs) {
+export function findGuttedLinks(rootDir, pkgDirs, { deep = false } = {}) {
   const nmDirs = [join(rootDir, 'node_modules'), ...pkgDirs.map((d) => join(d, 'node_modules'))]
   const gutted = []
   const missingBins = []
+  // 浅扫/深扫计数**分列**返回(见上方落点纪律):合成一个数会让反空扫护栏失去意义
   let scanned = 0
-  const check = (abs, rel, owner, nmDir, name) => {
-    scanned += 1
+  let deepScanned = 0
+  let tmpKeysSkipped = 0
+  const check = (abs, rel, owner, nmDir, name, isDeep = false) => {
+    if (isDeep) deepScanned += 1
+    else scanned += 1
     if (!existsSync(abs)) {
       gutted.push({ kind: '悬空', link: rel, owner })
       return
@@ -230,7 +249,7 @@ export function findGuttedLinks(rootDir, pkgDirs) {
     declaredCache.set(owner, set)
     return set
   }
-  const scan = (nm, owner) => {
+  const scan = (nm, owner, isDeep = false) => {
     let ents
     try {
       ents = readdirSync(nm, { withFileTypes: true })
@@ -241,7 +260,7 @@ export function findGuttedLinks(rootDir, pkgDirs) {
       if (e.name.startsWith('.')) continue // .bin / .pnpm / .modules.yaml 不是"被解析的依赖"
       const abs = join(nm, e.name)
       if (e.isSymbolicLink()) {
-        check(abs, toPosix(relative(rootDir, abs)), owner, nm, e.name)
+        check(abs, toPosix(relative(rootDir, abs)), owner, nm, e.name, isDeep)
       } else if (e.isDirectory() && e.name.startsWith('@')) {
         let sub
         try {
@@ -257,13 +276,37 @@ export function findGuttedLinks(rootDir, pkgDirs) {
             owner,
             nm,
             `${e.name}/${s.name}`,
+            isDeep,
           )
         }
       }
     }
   }
   for (const nm of nmDirs) scan(nm, toPosix(relative(rootDir, dirname(nm))) || '.')
-  return { gutted, missingBins, scanned }
+  if (deep) {
+    // 深扫面:node_modules/.pnpm/<key>/node_modules/* 的传递符号链接(含 @scope 两层形态)。
+    // 判据与浅扫逐字相同(scan/check 复用)。owner 记为 `node_modules/.pnpm/<key>`,
+    // 该目录下没有 package.json ⇒ declaredFor 为空集 ⇒ 第三维(bin shim)天然不参与深扫 ——
+    // .pnpm 内部是传递依赖,按 pnpm 语义本就没有顶层 shim,把它的缺 shim 计进来必假阳。
+    const storeDir = join(rootDir, 'node_modules', '.pnpm')
+    let keys
+    try {
+      keys = readdirSync(storeDir, { withFileTypes: true })
+    } catch {
+      keys = [] // 没有 .pnpm 存储(非 pnpm 布局/未安装):深扫面为 0,如实报数,不报错
+    }
+    for (const k of keys) {
+      if (!k.isDirectory()) continue // lock.yaml / 文件形态
+      // `_tmp_` 同时覆盖 `__tmp__`(子串关系):pnpm 安装中的临时键是正在写入的中间态,
+      // 判它红 = 逼人 --no-verify;跳过,但计数如实进 tmpKeysSkipped,不静默。
+      if (/_tmp_/i.test(k.name)) {
+        tmpKeysSkipped += 1
+        continue
+      }
+      scan(join(storeDir, k.name, 'node_modules'), `node_modules/.pnpm/${toPosix(k.name)}`, true)
+    }
+  }
+  return { gutted, missingBins, scanned, deepScanned, tmpKeysSkipped }
 }
 
 /**
@@ -458,7 +501,16 @@ export function audit({ staged = false, root = REPO, strict = false } = {}) {
     return { missing: [], scanned: targets.length, skipped: true }
   }
   const t0 = Date.now()
-  const { gutted, missingBins = [], scanned: linksScanned } = findGuttedLinks(root, targets)
+  // 深扫(.pnpm 传递闭包)只随 --strict 走 —— 落点纪律见 findGuttedLinks 头注:
+  // 并发 install 半复制态会闪出成百上千条红,而本门在提交链上是 blocking,
+  // 恒红门 = 各会话 --no-verify = 其余全部守门作废。--staged / 默认档行为逐字不变。
+  const {
+    gutted,
+    missingBins = [],
+    scanned: linksScanned,
+    deepScanned = 0,
+    tmpKeysSkipped = 0,
+  } = findGuttedLinks(root, targets, { deep: strict })
   // 第四维(判红):pre-commit 第一步必然 spawn 的命令能不能解析到
   let hookCmds = []
   try {
@@ -477,7 +529,10 @@ export function audit({ staged = false, root = REPO, strict = false } = {}) {
   }
   console.log(
     `workspace 依赖链接对账:${scope} / 判定 ${targets.length} 个包` +
-      ` | 链接完整性:扫 ${linksScanned} 条,破损 ${gutted.length} 条,钩子命令 ${hookCmds.length} 条(解析不到 ${hookBad.length} 条、入口缺失 ${shimBad.length} 条、判不出 ${shimUnresolved} 条)` +
+      (strict
+        ? ` | 链接完整性:浅扫 ${linksScanned} 条 / 深扫 ${deepScanned} 条(合计 ${linksScanned + deepScanned} 条;.pnpm 安装中临时键跳过 ${tmpKeysSkipped} 个),破损 ${gutted.length} 条,`
+        : ` | 链接完整性:扫 ${linksScanned} 条,破损 ${gutted.length} 条,`) +
+      `钩子命令 ${hookCmds.length} 条(解析不到 ${hookBad.length} 条、入口缺失 ${shimBad.length} 条、判不出 ${shimUnresolved} 条)` +
       `(${Date.now() - t0}ms)`,
   )
   if (missingBins.length) {
@@ -520,6 +575,8 @@ export function audit({ staged = false, root = REPO, strict = false } = {}) {
     shimBad,
     shimUnresolved,
     linksScanned,
+    deepScanned,
+    tmpKeysSkipped,
     skipped: false,
   }
 }
@@ -562,8 +619,9 @@ function run(argv) {
   // --root 供自测夹具显式注入(教训:自测只改 cwd 会静默扫真仓,产出"看起来全绿"的空转结果)
   const rootArg = argv.find((a) => a.startsWith('--root='))
   const root = rootArg ? rootArg.slice('--root='.length) : REPO
-  // --strict:把"声明了 bin 但该处无 shim"也计入退出码(给 check:all / CI 用)。
-  // 提交链默认不加 —— 并发 install 期间这条会闪出上百项(实测 0↔113),
+  // --strict:把"声明了 bin 但该处无 shim"计入退出码,并**开启第二维深扫**(.pnpm 传递闭包)。
+  // 两者同理,故共用一档:都只在不在提交链上的严格入口(check:all / CI)执行 ——
+  // 并发 install 期间这些维度会闪出上百~上千项(实测浅扫也会 0↔113),
   // 而在提交链上拦人 = 各会话 --no-verify = 其余约 110 道守门同时被跳过。
   const strict = argv.includes('--strict')
   const {
@@ -575,6 +633,8 @@ function run(argv) {
     shimBad = [],
     shimUnresolved = 0,
     linksScanned = 0,
+    deepScanned = 0,
+    tmpKeysSkipped = 0,
     skipped,
   } = audit({
     staged: argv.includes('--staged'),
@@ -583,8 +643,9 @@ function run(argv) {
   })
   const redBins = strict ? missingBins.length : 0
   if (skipped) return 0
-  // 反假绿:一条链接都没扫到 = 判据没跑到东西,绝不记绿(与"扫不到包必须红"同族)
-  if (linksScanned === 0) {
+  // 反假绿:一条链接都没扫到 = 判据没跑到东西,绝不记绿(与"扫不到包必须红"同族)。
+  // 默认档 deepScanned 恒为 0,故本判据与改前逐字等值;strict 档浅/深任一有链接即算扫到。
+  if (linksScanned + deepScanned === 0) {
     console.error('❌ 扫到 0 条 node_modules 链接 —— 判据无从成立,不允许报绿(先确认依赖已安装)')
     return 1
   }
@@ -596,7 +657,11 @@ function run(argv) {
     shimBad.length === 0
   ) {
     console.log(
-      `✅ ${scanned} 个包声明的 workspace 依赖均已链接,${linksScanned} 条链接目标内容完好,钩子命令全部可解析且入口在位` +
+      `✅ ${scanned} 个包声明的 workspace 依赖均已链接,` +
+        (strict
+          ? `浅扫 ${linksScanned} 条 / 深扫 ${deepScanned} 条(.pnpm 临时键跳过 ${tmpKeysSkipped} 个)链接目标内容完好,`
+          : `${linksScanned} 条链接目标内容完好,`) +
+        `钩子命令全部可解析且入口在位` +
         (shimUnresolved ? `(另有 ${shimUnresolved} 条 shim 模板解析不出目标,不判红)` : '') +
         (strict
           ? `,直接依赖声明的 bin 均有 shim`
@@ -618,6 +683,12 @@ function run(argv) {
     )
     for (const x of gutted.slice(0, 25)) console.error(`   [${x.kind}] ${x.link}  ← ${x.owner}`)
     if (gutted.length > 25) console.error(`   … 另有 ${gutted.length - 25} 条`)
+    if (strict) {
+      const deepHits = gutted.filter((x) => x.link.includes('/.pnpm/')).length
+      console.error(
+        `   （口径:浅扫面 ${linksScanned} 条 / 深扫面 ${deepScanned} 条分列;红点中深扫面 ${deepHits} 条、浅扫面 ${gutted.length - deepHits} 条）`,
+      )
+    }
     console.error('   ⚠️ 若此刻有并发 `pnpm install` 在跑,这类红会在装完后自行消失(半复制态)。')
     console.error(
       '      正确反应是**等一等再复跑本门**,不是 --no-verify(那会连带跳过其余全部守门)。',
@@ -1077,6 +1148,195 @@ function selfTest() {
             '@ECHO off\n',
           )
           assert(run([`--root=${h}`, '--strict']) === 0, '补 shim 后 strict 仍红 = 判据不成立')
+        } finally {
+          rmScratch(h)
+        }
+      },
+    )
+    /**
+     * 深扫(第二维扩面到 .pnpm 传递闭包,2026-09-24)的三段取证。为什么必须显式做:
+     * "写了一个没人调的函数"是本仓吃过的亏(§22c),而深扫的落点纪律(**只允许挂 --strict、
+     * 严禁进提交链**)决定了它一旦接错档,后果就是并发 install 期一次闪出成百上千条红,
+     * 把全队逼进 --no-verify。故除单元层双向对照外,必须有 run() 层的接线方向证明。
+     */
+    t(
+      '深扫双向:.pnpm 传递链接掏空/悬空浅扫必须绿、deep:true 必红且点名;_tmp_ 临时键跳过并计数',
+      () => {
+        const h = mkScratch('ihui-deep-scan-')
+        try {
+          mkdirSync(join(h, 'packages', 'aa'), { recursive: true })
+          writeFileSync(join(h, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n")
+          writeFileSync(join(h, 'package.json'), JSON.stringify({ name: 'deep-root' }))
+          writeFileSync(
+            join(h, 'packages', 'aa', 'package.json'),
+            JSON.stringify({ name: '@ihui/aa' }),
+          )
+          const dirs = expandPatterns(h, ['packages/*'])
+          assert(dirs.length === 1, '夹具未展开出包,后面全是空转')
+          const store = join(h, 'node_modules', '.pnpm')
+          const good = join(store, 'good@1.0.0', 'node_modules', 'good')
+          mkdirSync(good, { recursive: true })
+          writeFileSync(join(good, 'package.json'), JSON.stringify({ name: 'good' }))
+          const hollow = join(store, 'hollow@1.0.0', 'node_modules', 'hollow')
+          mkdirSync(hollow, { recursive: true }) // 空目录 = 掏空形态
+          mkdirSync(join(h, 'node_modules'), { recursive: true })
+          const link = (target, abs) => {
+            try {
+              symlinkSync(target, abs, 'dir')
+              return true
+            } catch {
+              return false
+            }
+          }
+          // 浅扫面:一条完好链接(防"空扫必红"抢戏;也证明深扫渗不进浅扫计数)
+          assert(
+            link(good, join(h, 'node_modules', 'good')),
+            '本机无法创建符号链接,深扫未被真正验证',
+          )
+          // 深扫面:.pnpm/good@1.0.0/node_modules/ 下的传递链接 —— 一好、一掏空、一悬空,再加 scoped 两层形态
+          const gnm = join(store, 'good@1.0.0', 'node_modules')
+          assert(link(good, join(gnm, 'other-good')), '符号链接创建失败(深扫)')
+          link(hollow, join(gnm, 'bad-hollow'))
+          link(join(store, 'ghost@1.0.0', 'node_modules', 'ghost'), join(gnm, 'bad-dangling'))
+          mkdirSync(join(gnm, '@sc'), { recursive: true })
+          link(hollow, join(gnm, '@sc', 'bad-hollow'))
+          // 安装中临时键:里面放一条"必红"链接,判据必须整目录跳过(反向对照:中间态≠债务)
+          const tmpKey = '_tmp_good@1.0.0_tmp_1234'
+          mkdirSync(join(store, tmpKey, 'node_modules'), { recursive: true })
+          link(hollow, join(store, tmpKey, 'node_modules', 'in-tmp'))
+          // (a) 默认(浅扫)不得被深扫面污染
+          const shallow = findGuttedLinks(h, dirs)
+          assert(
+            shallow.gutted.length === 0 && shallow.scanned === 1 && shallow.deepScanned === 0,
+            `浅扫被深扫面污染或计数未分列: ${JSON.stringify(shallow)}`,
+          )
+          // (b) deep:true 判红且点名,浅/深计数分列,临时键跳过并计数
+          const r = findGuttedLinks(h, dirs, { deep: true })
+          assert(
+            r.deepScanned === 4,
+            `深扫应扫到 4 条传递链接(good/hollow/dangling/@sc), got ${r.deepScanned}`,
+          )
+          assert(r.scanned === 1, '浅扫计数必须与深评分列,不得合成一个数(反空扫护栏依赖它)')
+          assert(r.tmpKeysSkipped === 1, `_tmp_ 临时键必须跳过并如实计数, got ${r.tmpKeysSkipped}`)
+          const names = r.gutted.map((x) => x.link).sort()
+          assert(
+            JSON.stringify(names) ===
+              JSON.stringify([
+                'node_modules/.pnpm/good@1.0.0/node_modules/@sc/bad-hollow',
+                'node_modules/.pnpm/good@1.0.0/node_modules/bad-dangling',
+                'node_modules/.pnpm/good@1.0.0/node_modules/bad-hollow',
+              ]),
+            `深扫红点清单不对: ${names.join(' | ')}`,
+          )
+          assert(
+            !names.some((n) => n.includes('_tmp_')),
+            '安装中中间态被判成债务 = 逼人 --no-verify',
+          )
+          assert(
+            r.gutted.every((x) => x.kind === '掏空' || x.kind === '悬空'),
+            '深扫红点必须沿用维度二同一套 kind 分类',
+          )
+          assert(
+            r.gutted.every((x) => x.owner.startsWith('node_modules/.pnpm/')),
+            `深扫红点归属必须点名 .pnpm/<key>, got ${JSON.stringify(r.gutted.map((x) => x.owner))}`,
+          )
+        } finally {
+          rmScratch(h)
+        }
+      },
+    )
+    t(
+      '深扫接线方向:同一夹具 run() 默认档必绿、--strict 必红(证明深扫真挂在 strict 而非没人调)',
+      () => {
+        const h = mkScratch('ihui-deep-e2e-')
+        try {
+          mkdirSync(join(h, 'packages', 'aa'), { recursive: true })
+          writeFileSync(join(h, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n")
+          writeFileSync(join(h, 'package.json'), JSON.stringify({ name: 'deep-e2e-root' }))
+          writeFileSync(
+            join(h, 'packages', 'aa', 'package.json'),
+            JSON.stringify({ name: '@ihui/aa' }),
+          )
+          const gnm = join(h, 'node_modules', '.pnpm', 'good@1.0.0', 'node_modules')
+          mkdirSync(join(gnm, 'good'), { recursive: true })
+          writeFileSync(
+            join(gnm, 'good', 'package.json'),
+            JSON.stringify({ name: 'good', version: '1.0.0' }),
+          )
+          mkdirSync(join(gnm, 'hollow'), { recursive: true }) // store 内的空包体
+          mkdirSync(join(h, 'node_modules'), { recursive: true })
+          try {
+            symlinkSync(join(gnm, 'good'), join(h, 'node_modules', 'good'), 'dir')
+            symlinkSync(join(gnm, 'hollow'), join(gnm, 'broken-dep'), 'dir')
+          } catch {
+            assert(false, '本机无法创建符号链接,深扫接线方向未被真正验证')
+          }
+          assert(
+            run([`--root=${h}`]) === 0,
+            '默认档不得因 .pnpm 深扫破损拦人(深扫进提交链 = 恒红机,严禁)',
+          )
+          assert(
+            run([`--root=${h}`, '--strict']) === 1,
+            '--strict 必须把深扫破损判红(否则深扫是造好没装车,§22c 教训)',
+          )
+        } finally {
+          rmScratch(h)
+        }
+      },
+    )
+    t(
+      '深扫行为不变:破损只在浅扫层时,默认档与 --strict 的红点集合逐字相同(差异只允许来自深扫新增)',
+      () => {
+        const h = mkScratch('ihui-deep-nodiff-')
+        try {
+          mkdirSync(join(h, 'packages', 'aa'), { recursive: true })
+          writeFileSync(join(h, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n")
+          writeFileSync(join(h, 'package.json'), JSON.stringify({ name: 'nodiff-root' }))
+          writeFileSync(
+            join(h, 'packages', 'aa', 'package.json'),
+            JSON.stringify({ name: '@ihui/aa' }),
+          )
+          const gnm = join(h, 'node_modules', '.pnpm', 'good@1.0.0', 'node_modules')
+          mkdirSync(join(gnm, 'good'), { recursive: true })
+          writeFileSync(join(gnm, 'good', 'package.json'), JSON.stringify({ name: 'good' }))
+          mkdirSync(join(h, 'node_modules'), { recursive: true })
+          try {
+            // 深扫面完好的一条(证明深扫真在跑,只是不产出红点)
+            symlinkSync(join(gnm, 'good'), join(gnm, 'dep'), 'dir')
+            symlinkSync(join(gnm, 'good'), join(h, 'node_modules', 'good'), 'dir')
+            // 破损只在浅扫层:根链接指向被掏空的 store 目录
+            const hollow = join(
+              h,
+              'node_modules',
+              '.pnpm',
+              'hollow@1.0.0',
+              'node_modules',
+              'hollow',
+            )
+            mkdirSync(hollow, { recursive: true })
+            symlinkSync(hollow, join(h, 'node_modules', 'hollow'), 'dir')
+          } catch {
+            assert(false, '本机无法创建符号链接,行为不变对账未被真正验证')
+          }
+          const a1 = audit({ root: h })
+          const a2 = audit({ root: h, strict: true })
+          assert(
+            a1.gutted.length === 1 && a2.gutted.length === 1,
+            `浅扫破损两档必须等量, got ${a1.gutted.length}/${a2.gutted.length}`,
+          )
+          assert(
+            a1.gutted[0].link === a2.gutted[0].link,
+            `两档红点集合不一致(差异只允许来自深扫新增): ${a1.gutted[0].link} vs ${a2.gutted[0].link}`,
+          )
+          assert(a1.deepScanned === 0, '默认档不得有深扫计数(深扫渗进默认档 = 落点纪律破了)')
+          assert(
+            a2.deepScanned === 1 && a2.tmpKeysSkipped === 0,
+            `strict 档深扫应扫到 1 条完好传递链接, got ${a2.deepScanned}/${a2.tmpKeysSkipped}`,
+          )
+          assert(
+            run([`--root=${h}`]) === 1 && run([`--root=${h}`, '--strict']) === 1,
+            '浅扫破损在两档都必须红(不得因档位在退出码上有差异)',
+          )
         } finally {
           rmScratch(h)
         }
