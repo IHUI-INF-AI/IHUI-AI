@@ -1284,11 +1284,18 @@ C 盘 120 GB 频繁告急,根因排查发现:
 
 ### 自动维护计划任务
 
-| 任务名                      | 触发     | 脚本                                | 功能                                  |
-| --------------------------- | -------- | ----------------------------------- | ------------------------------------- |
-| `IHUI-C-Drive-AutoMaintain` | 每天 3am | `scripts/c-drive-auto-maintain.ps1` | 清理 Chrome/Temp 缓存 + 报告 C 盘状态 |
+| 任务名                      | 触发     | 实际执行体                                                                                 | 功能                                  |
+| --------------------------- | -------- | ------------------------------------------------------------------------------------------ | ------------------------------------- |
+| `IHUI-C-Drive-AutoMaintain` | 每天 3am | `wscript.exe scripts/c-drive-maintain-hidden.vbs` → `pwsh -File c-drive-auto-maintain.ps1` | 清理 Chrome/Temp 缓存 + 报告 C 盘状态 |
 
-**⚠️ 2026-09-23 实测:该任务在本机并不存在**(`schtasks /query /tn "IHUI-C-Drive-AutoMaintain"` → 「系统找不到指定的文件」,且 `D:\DevEnv\logs\c-drive-maintain.log` 从未生成)。上表是**设计意图**而非现状,曾据此以为"每天在清"⇒ 实际零执行,这是 C 盘能攒下 13.2GB `.next` 构建备份的直接原因之一。注册属影响全机的动作,须用户明确授权后再注册。
+**⚠️ 2026-09-23 曾实测:该任务在本机并不存在**(`schtasks /query` → 「系统找不到指定的文件」,且 `D:\DevEnv\logs\c-drive-maintain.log` 从未生成)。当时的表是**设计意图**而非现状,曾据此以为"每天在清"⇒ 实际零执行,这是 C 盘能攒下 13.2GB `.next` 构建备份的直接原因之一。
+
+**同日 23:59 经用户授权后已真正注册**(状态=现状,不再是设计意图):
+
+- **动作链按本节下方「计划任务禁止直接执行控制台程序」硬约束走**:`wscript.exe` → 纯 ASCII 的 `scripts/c-drive-maintain-hidden.vbs` → `pwsh -NoProfile -ExecutionPolicy Bypass -File …ps1`。注册前用 `cscript //nologo` 实跑过一份**只带 `-DryRun` 的同体副本**做语法+拉起链证明(实测写出 `[WARN] … DRY RUN(全脚本不删任何东西)`),因此注册过程零删除。
+- **登录类型已升 S4U**(与凭据巡检同一套 `scripts/task-set-s4u.vbs`),否则 3am 无人登录时不会跑。回读 `schtasks /Query /XML` 实证:`LogonType=S4U`、`Command=wscript.exe`、`StartBoundary=03:00`、下次运行 `2026-09-24 03:00`。
+- **它的删除面是"按名字"的,不是"按目录整片"**:盘根只认 `IHUI-*`/`.empty-tmp*`/`.pnpm-store`;`C:\tmp`\`C:\temp`内只删`ihui-_`/`IHUI-_`/`next-backup-_`/`probe-_`/`wb-ext-debug.log`;另有 Chrome 缓存与「Temp 中 mtime>3 天的目录」两段。**注册前当天 `-DryRun` 全量命中仅 1 项**(`C:\Windows\Temp\Installer*.tmp`),合计释放 0 MB。
+- **仍未闭环的一条**:TEMP 漂移 —— HKCU `TEMP` 已指 `D:\DevEnv\Temp`,但活着的宿主/终端进程仍持 `C:\Users\Administrator\AppData\Local\Temp`(实测 `node -p os.tmpdir()` 即旧值),所以走 `os.tmpdir()` 的脚本会继续落 C 盘;新开终端/重启宿主后自愈。判据与污染可见性由守门 **91** `check-c-drive-pollution.mjs`(只读、永不删)承担。
 
 **同日修 `c-drive-auto-maintain.ps1` 的三处失效**(全部实测取证):
 
@@ -1323,11 +1330,12 @@ C 盘 120 GB 频繁告急,根因排查发现:
 ### 守门(已实现,guardian-runner 第 45 项)
 
 - `scripts/check-c-drive-paths.mjs`(guardian-runner 第 45 项,warn-only,2026-08-13 立):扫描 staged 文件中硬编码的 C 盘写入路径(`C:\temp\` / `C:\Users\*\AppData\Local\Temp\` 等,排除 `os.tmpdir()` / `$env:TEMP` / 注释 / 文档)。
-- **`scripts/check-c-drive-pollution.mjs`(guardian-runner 第 91 项,warn-only,2026-09-23 立)—— 补上第 45 项看不见的那一半**。成因:第 45 项只扫**源码字面量**,而 C 盘残骸恰恰是从 `os.tmpdir()` / `$env:TEMP` 这类"源码里没写 C"的路径流出去的;`check-parent-pollution`(只扫项目父目录 `D:\`)和 `check-root-dir-clean`(只扫项目根)同样不看 C 盘文件系统 —— 全链 90+ 道门没有一道实地扫过 C,于是 13.2GB `.next` 备份和单日 45 个 git 夹具可以在全量审计恒绿的情况下一直堆在 C 盘。本门实地扫 `C:\` 根 + `C:\tmp` + `C:\temp` + 活 TEMP,按名字白名单只认**本项目产物**(他人条目进"未识别清单",只登记不定性、不清理);并单独判 **TEMP 漂移**(注册表 `HKCU\Environment\TEMP` 已指 `D:\DevEnv\Temp` 而活进程仍持 `C:\Users\...\AppData\Local\Temp`)—— 这就是"改了指针但残骸天天还在长"的机制,新建终端/重启宿主后自愈。
+- **`scripts/check-c-drive-pollution.mjs`(guardian-runner 第 92 项,warn-only,2026-09-23 立)—— 补上第 45 项看不见的那一半**。成因:第 45 项只扫**源码字面量**,而 C 盘残骸恰恰是从 `os.tmpdir()` / `$env:TEMP` 这类"源码里没写 C"的路径流出去的;`check-parent-pollution`(只扫项目父目录 `D:\`)和 `check-root-dir-clean`(只扫项目根)同样不看 C 盘文件系统 —— 全链 90+ 道门没有一道实地扫过 C,于是 13.2GB `.next` 备份和单日 45 个 git 夹具可以在全量审计恒绿的情况下一直堆在 C 盘。本门实地扫 `C:\` 根 + `C:\tmp` + `C:\temp` + 活 TEMP,按名字白名单只认**本项目产物**(他人条目进"未识别清单",只登记不定性、不清理);并单独判 **TEMP 漂移**(注册表 `HKCU\Environment\TEMP` 已指 `D:\DevEnv\Temp` 而活进程仍持 `C:\Users\...\AppData\Local\Temp`)—— 这就是"改了指针但残骸天天还在长"的机制,新建终端/重启宿主后自愈。
   - **定级 warn 而非 blocking**:盘根多数条目不属本仓,拦提交只会逼人 `--no-verify`,连带废掉其余守门(与守门 77/52 同取向)。`--strict` 供 CI/巡检改判红。
   - 本门**只读,永不删文件**;清理动作一律走 `c-drive-auto-maintain.ps1`(带 `-DryRun` 与逐条留痕)。
-  - 取证:`--self-test` 8 例 + §22c 镜像测试 `node --test scripts/tests/check-c-drive-pollution.test.mjs`(6 例,含"他人工具态不得被判为我们的"、"TEMP 漂移判据"与**"本门编号在 runner 中必须出现恰好一次 + 邻门注册块不得缺失"**)。
-  - **编号事故实录(本门自己撞了两次,教训比门本身更值钱)**:先登记 85 与并行会话的 `check-test-paths` 同号 → 改 90;而 90 已被 `ce261e1a8` 的 `check-sse-dispatch-parity` 占用,又撞一次。**更严重的是第二次**:改号时按整文件提交 `guardian-runner.mjs`(提交 `5db08f26e`),用本会话那份带旧基线的文件把别人那道门的注册块**直接覆盖掉**(diff 表现为 `script: 'check-sse-dispatch-parity.mjs'` 被替换),已按 `ce261e1a8` 原文回插并把本门改到 **91**。⇒ 在同一天的高并发仓里,**"查编号占用"必须在提交前最后一刻再做一遍**,且改共享注册文件时**必须 `git show <commit> -- <file>` 逐块核对增删**,只看自己的 diff 会恰好看不见挤掉了谁。紧急跳过 `HUSKY_SKIP_C_DRIVE_POLLUTION=1`。
+  - 取证:`--self-test` 11 例 + §22c 镜像测试 `node --test scripts/tests/check-c-drive-pollution.test.mjs`(7 例,含"他人工具态不得被判为我们的"、"TEMP 漂移判据"与**"本门编号在 runner 中必须唯一(反查 id,不硬写编号)+ 邻门注册块不得缺失)"**)。
+  - **自有产物特征含一条"盘根单字母目录"**:`C:\c` 这类是 MSYS/Git-Bash 把 `/c/...` 当**相对路径**用的错位指纹。实测 2026-08-06 一次就这样在 C 盘里套出 515MB(4 份 origin 浅克隆 + 一份错位的 npm 全局前缀),`git status` 与其余守门全都不知道。只认目录、同名文件不判(宁漏不误报);本门仍**只报不删**,该形态是否清理由人定。
+  - **编号事故实录(一天撞三次,教训比门本身更值钱)**:85(与 `check-test-paths` 撞)→ 90(与 `ce261e1a8` 的 `check-sse-dispatch-parity` 撞)→ 91(与另一会话同日装的 `check-error-code-coverage` 撞)→ 终落 **92**。其中改 90 那次最严重:按整文件提交 `guardian-runner.mjs`(提交 `5db08f26e`),用本会话那份带旧基线的文件把别人刚装上的门**注册块直接覆盖掉**(diff 里就是一行 `script:` 被替换)—— 撞号只是重名,覆盖却是替别人卸闸。已按原文回插,并把断言写成"邻门注册块必须存在"。⇒ 三条硬规矩:① **"查编号占用"必须在提交前最后一刻重做**,派单时查过不算数;② 改共享注册类文件(runner / package.json / CI)必须 `git show <commit> -- <f> | grep '^[-+].*(id:|script:|label:)'` 逐块核对,只看自己那段 diff 恰好看不见挤掉了谁;③ **断言别硬写编号**,要从文件反查 —— 硬写 92 下次重排就又红(或更糟:悄悄通过)。紧急跳过 `HUSKY_SKIP_C_DRIVE_POLLUTION=1`。
 - **临时夹具唯一落点:`scripts/lib/scratch-dir.mjs`(`mkScratch` / `rmScratch`,2026-09-23 立)**。两条选址硬约束都由实测踩坑固化:① 不得用 `os.tmpdir()`(活进程 TEMP 可能仍钉在 C 盘);② 不得落在仓库树内 —— git 夹具要模拟"非 git 目录",放在 `.ihui-agent/tmp/` 里时 `git rev-parse --show-toplevel` 会向上逃逸到真仓库,使该用例恒红(已用 HEAD 副本 A/B 实证,是当初先试后撤的方案)。现锚定**工作树同盘的 `DevEnv/Temp/ihui-scratch`**(§15b 批准的临时物落点),与 `gitArchiveDir()` 同一套盘符推导;`IHUI_SCRATCH_DIR` 为换机/CI 逃生舱,指向仓库内时按硬约束直接拒建而非静默产出会逃逸的夹具。回归:`node --test scripts/tests/scratch-dir.test.mjs`(4 例)。
 - **行为(与 guardian-runner.mjs 实际一致)**:本脚本违规时 exit 1(供统计),guardian-runner 以 warn 模式捕获后计为"警告"、**不阻塞 commit**;仅 blocking 项失败才 exit 1 阻塞 commit。
 - 紧急跳过(应急,默认不推荐):`HUSKY_SKIP_C_DRIVE_PATHS=1 git commit ...`

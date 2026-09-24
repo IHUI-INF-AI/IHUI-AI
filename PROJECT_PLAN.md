@@ -55,7 +55,7 @@
   `ForceDelete` 唯一删除出口上** + 逐条 `[DEL]`/`[DRY]` 留痕。**过程自伤已如实登记**:第一版只把
   DryRun 写在第三段,预演时第一段(Chrome 缓存,本机路径不存在故空转)与第二段(Temp >3 天目录)
   被真删,释放约 29.8MB,均为陈旧临时目录,项目文件/备份/凭据(全在 D 盘)未受影响。
-- [x] ✅(2026-09-23) **止血③ 守门 91 `check-c-drive-pollution.mjs`**(warn-only,只读永不删):
+- [x] ✅(2026-09-23) **止血③ 守门 92 `check-c-drive-pollution.mjs`**(warn-only,只读永不删):
   实地扫 C 盘根 + `C:\tmp` + `C:\temp` + 活 TEMP,名字白名单只认本项目产物,认不出的进
   「未识别清单」只登记不清理;并判 **TEMP 漂移**。`--self-test` 8 例 + §22c 镜像测试 6 例。
   **编号撞了两次,第二次是本会话的交付事故**:先登记 85 与并行会话的 `check-test-paths` 同号 → 改 90;
@@ -63,7 +63,7 @@
   `safe-commit` 整文件提交 `guardian-runner.mjs`,而本会话这份带的是**旧基线** ⇒ diff 里
   `script: 'check-sse-dispatch-parity.mjs'` 被我的注册块顶掉,等于**把别人刚装上的门卸了**
   (`git show 5db08f26e -- scripts/guardian-runner.mjs` 可复核)。现已按 `ce261e1a8` 原文回插
-  守门 90、本门落到 **91**,并把「邻门注册块不得缺失」写进镜像测试断言。
+  守门 90、本门落到 **92**,并把「邻门注册块不得缺失」写进镜像测试断言。
   ⇒ 教训:高并发同日仓里,① 「查编号占用」必须在提交前最后一刻重做;② 改共享注册类文件
   (runner / package.json / CI)必须逐块核对增删,只看自己那段 diff 恰好看不见挤掉了谁。
 - [x] ✅(2026-09-23) **按用户批准范围清理**:68 项 → **0 项**,C 盘可用 **30G → 43G**。用户未批准的
@@ -71,16 +71,48 @@
   `psexec_*`/`use_ti_*` 提权调试现场、`PSTools`/`PowerRun`/`tools`(合计未识别盘根条目 72 项)
   **一律未动**,只在守门输出里登记待用户定性。
 
+### 第二阶段(2026-09-24):那 72 项逐类定性并处置
+
+用户追问「这些该怎么处理，有用的吗」，逐条取证后按 A/B/C 三组处置：
+
+- [x] ✅ **A 组 = 纯冗余,已删(`C:\c` 整目录 515MB)**。`C:\c` 是 2026-08-06 某会话把 `/c/tmp/...`
+  当**相对路径**用、在 C 盘里套出来的 MSYS 错位目录。删前逐条证零独有内容:
+  ① 全仓 `scripts/ deploy/ docs/ .github/ apps/ packages/` 对 `C:\c` **零引用**,计划任务零指向;
+  ② `ihui-clone2` 的 tip `f37d63c` **及其 3703 条完整历史已在本仓对象集**(本仓非浅克隆、7513 提交);
+  ③ `ihui-clone`(125MB)无任何 ref、HEAD 已损坏 = 中断克隆的残骸;
+  ④ `ihui-fresh{,2}` 的 `1283e51` 本仓对象集里**确实没有** ⇒ 先打成
+  `D:\DevEnv\backups\git\c-root-clone-ihui-fresh-2026-09-24.bundle`(`git bundle verify` 通过)再删,
+  且其改动内容在本仓有 4 条同义提交(`dd9c17717` 等,代码行就在 `build-next-prod.ps1` 的 `robocopy /MT:16`);
+  ⑤ 那 136MB 的 `C:\c\Users\Administrator\AppData\Roaming\npm\node_modules\@mimo-ai\mimocode-windows-x64`
+  是 npm 装到错位前缀的副本 —— 真前缀里 `@mimo-ai/cli`(271MB)完好,且副本**没有 bin 垫片、从未在 PATH 生效**。
+  删后 C 盘 43G → **44G**。
+- [x] ✅ **B 组 = 归档不删,移到 `D:\DevEnv\backups\archives\c-root-2026-09-24\`**(§15b 唯一备份目录)。
+  内含 6/8 那批 61 个"移除 PowerShell 5.1 / 取 SYSTEM 权限"调试文件(`manifest.txt` 留清单)、
+  `PSTools`(Sysinternals,含 Eula)、`PowerRun`(空)、`Log Files`(空)、`temp\edge-profile`。
+  目录内写了 `README.md` 说明每子的来源与判定依据。**注意**:`recreate_engine_key.ps1`、
+  `token_impersonate.ps1` 名字含 key/token,但属该会话的 PS 引擎注册表/Windows 令牌语境,
+  且本组是"移动可逆"而非删除 —— 未误碰任何真凭据目录。
+- [x] ✅ **守门 92 加一条自有产物特征:盘根单字母目录**(MSYS 错位指纹),`--self-test` 8 → 11 例。
+  仍**只报不删**,该形态是否清理由人定。
+- [x] ✅ **镜像测试改为反查 id,不硬写编号**。本门一天撞三次号(85→90→91→92),第三次正是被
+  另一会话同日装的 `check-error-code-coverage`(占 91)顶到;旧断言硬写编号,重排一次就失真。
+  新增"全 runner 不得有任何重号"+"三道邻门注册块必须存在"两条,已由它当场抓出第三次撞号。
+- [ ] **C 组刻意没动,待用户定性**:`C:\ai_zhs\cert\*.pem`(5 个,每个仅 10–20 字节,不可能是真 PEM,
+  但目录名属凭据类 —— 按"清理不得靠近 key/secret/cert"铁律一律不碰)、`C:\Youku Files`(1.3GB 用户数据)、
+  `C:\persistent_data`、`C:\common_attachment`、`C:\appverifUI.dll`、`C:\vfcompat.dll`、
+  `C:\tools\openssh-inst`(部署链路可能按绝对路径找 `ssh.exe`)。
+  另:真 npm 前缀里有 `@mimo-ai\.cli-TpjiMkdA`(约 135MB 中断安装残留),属第三方工具目录,只报不动。
+
 ### 遗留(已量化,不在本次范围)
 
 - [ ] 计划任务 `IHUI-C-Drive-AutoMaintain` 仍未注册(注册 = 影响全机的删除动作,须用户授权);
   §26 的「已注册」表述已就地改正。
 - [ ] 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()`(`check-workspace-dep-links` /
   `check-git-read-timeout` / `git-backup-refresh` / `check-api-routes` / `check-credential-health` 等)。
-  实测它们**当前不产生残留**(清理逻辑带 `maxRetries`),且已由守门 91 覆盖可见性,故未一并改写 ——
-  避免在共享工作区对 7 个文件做无取证收益的批量动刀。下一个被守门 91 报出的前缀即改写触发条件。
+  实测它们**当前不产生残留**(清理逻辑带 `maxRetries`),且已由守门 92 覆盖可见性,故未一并改写 ——
+  避免在共享工作区对 7 个文件做无取证收益的批量动刀。下一个被守门 92 报出的前缀即改写触发条件。
 - [ ] 重启宿主/开机后 `%TEMP%` 才会真指 `D:\DevEnv\Temp`;在此之前任何未接 `scratch-dir` 的
-  `os.tmpdir()` 调用仍会落 C 盘(守门 91 会报 TEMP 漂移)。
+  `os.tmpdir()` 调用仍会落 C 盘(守门 92 会报 TEMP 漂移)。
 
 ## P0 2026-09-23 全 8 端圆角单一源头收口(根治「手机上所有容器圆角与全局设定不一致」)
 
@@ -4979,3 +5011,10 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 
 - **同期门情复核（更新 O29 列表，避免按旧数派单）**：门 **52** `check-no-visible-spawn` 已由并发会话接 `maskInert`（字符串/模板正文不再当派生点）→ 全量实测 `扫描 8088 文件,生产代码 0 违规` ✅；门 **77** 圆角单一源头现 exit 0 ✅；门 **83** `check-brand-foreground` 仍红（其提示的正解是 `brand.ctaFill`/`ctaText`，属 RN 深色族持有者）⚠；门 **7** `check-dedupe` 仍红，要求 `pnpm dedupe` 后提交 lockfile —— 在 5+ 会话并发写工作区的窗口里重排共享依赖树没有干净回归信号，**本会话不执行**，留给依赖负责人在静默窗口做 ⚠。
 - [x] ✅(2026-09-23) **⑩O29 续:bridge 邮件腿真接线 + Server酱假成功 + 全站 SQLi 子串误杀(用户要求彻底收口)**:① `monitoring/alertbridge` 原为**纯微信单通道、零邮件出口**(入库源码 330→794 行,`execFileSync` 声明后从未使用即半途接线痕迹),现与微信并行扇出,**正文经 ops 唯一出口 `notify-deploy-failure.ts`**(零手抄色值,grep 自证 `nodemailer|createTransport|#RRGGBB|<table|font-family` 全 0),去重与微信共用同一 `partitionAlerts()` 结论与 `SCT_DEDUP_MIN` 窗口、邮件独立日预算 10/天,`BRIDGE_MAIL_ENABLED=0` 只关邮件腿;派发器由 `spawnSync` 改**异步 `spawn`+`windowsHide`**(第一版实测把 tsx 冷启+SMTP 握手几十秒钉在事件循环上,与守门 80 的 80 分钟挂起同型)。自检 **49/49**(入库源码与 prod-bundle 转发器各跑一遍同一份码)。② 修 `pushServerChan` **假成功**:旧判据对"2xx + 非 JSON/缺 `code|errno|status`"记成功,而 Server酱拒错误 key 正是这形态 ⇒ 发不出去却记"已推送到微信"(生产日志实测 `超过当天的发送次数限制[5]` 被放成成功);新增 4 条反例钉死。③ 修 **SQLi 子串误杀**:判据原为"含 `' \" ;` ∧ 关键字**子串**",`;` + `IHUI-CORE`(内含 `OR`)即 400,**正常品牌邮件正文根本发不出去**;关键字侧改词边界 + 12 条注入结构签名(字符门一字未放宽),实测同一批样例误杀 **12/16 → 0/16**、真载荷 **20 条 0 漏放并多拦 3 条**(时间盲注/存储过程);零调用方的死判据 `InputValidator.checkSqlInjection` 连同 `SQL_KEYWORDS` 表已从 `security-service.ts` 删除。④ `deploy/prod-bundle`(gitignore,不进 review ⇒ 正是它落后 11 天的机理)由手工副本改为**转发器**,并查实旧副本含 `return { skipped: toDedupCount }` 未定义变量 ⇒ 去重命中必抛 ReferenceError、对 Alertmanager 回 500;已重启 `ihui-alert-bridge`,线上 `/health` 新增 `mailEnabled:true` 为加载证据,连投同一告警两次均 200(不再 500)。**如实记录一处未证清**:线上重启后连投两次都返回 `skipped:0`,而沙箱同操作返回 `skipped:1` ⇒ 疑 `STATE_FILE` 去重态未跨重启延续,该格待补。
+## O40 C 盘自动维护任务真正装上 + 盘根 71 项待定性复核(2026-09-24 立并完成 ✅,单端工程治理:scripts + AGENTS §26)
+
+- [x] ✅(2026-09-24) **O40① 用户授权后注册计划任务,并给出装车证明**:`IHUI C-Drive AutoMaintain` 每天 03:00,动作链按 §26 下方硬约束走 `wscript.exe → scripts/c-drive-maintain-hidden.vbs → pwsh -File …ps1`(**不直连控制台程序**,否则 InteractiveToken 下每天闪一扇黑窗)。回读 `schtasks /Query /XML` 实证 `LogonType=S4U` / `Command=wscript.exe` / `StartBoundary=03:00` / 下次运行 2026-09-24 03:00。AGENTS.md §26 那条表原先写"每天 3am 跑 ps1"是**设计意图**,同一行下另有"实测本机不存在该任务"的更正 ⇒ 现已从意图改成现状,并补记"注册前只跑过 -DryRun 同体副本"的取证。**注册前先做零删除证明**:复制一份只差命令行多 `-DryRun` 的同体 vbs,用 `cscript //nologo` 实跑,日志写出 `[WARN] … DRY RUN(全脚本不删任何东西)` + `[DRY]` 前缀 ⇒ 语法、GBK 代码页、pwsh 拉起链三项都过,注册全程零真删。
+- [x] ✅(2026-09-24) **O40② 删除面复核(注册自动清理前必须先看它会删什么)**:盘根只认 `IHUI-*`/`.empty-tmp*`/超 1 天的 `.pnpm-store`;`C:\tmp`、`C:\temp` 内只认 `ihui-*`/`IHUI-*`/`next-backup-*`/`probe-*`/`wb-ext-debug.log`;活 TEMP 只认 `ihui-*` 前缀(别人的工具态一律不碰);另有 Chrome 缓存与「Temp 中 mtime>3 天的目录」两段(第二段**不限名字**,是本任务真正需要留意的面)。当天 `-DryRun` 全量命中 **仅 1 项** = `C:\Windows\Temp\Installer81199012.tmp`,合计释放 0 MB。
+- [x] ✅(2026-09-24) **O40③ 把"C 盘还剩多少未定性条目"从 71 校正到 6,并逐条验明身份**:守门 91 在 20 分钟内从「71 项」变成「6 项」,期间我全程只跑只读命令与两次 `-DryRun`(日志里 `[DRY]`+释放 0 MB 可反证不是我删的)。**中途我给过一条假证据**:用 `cmd //c "if exist C:\temp …"` 判存在性时,Git Bash 把 `\t` 当转义吃掉,实际探测的是 `C:emp` ⇒ 报出"C 盘 temp 还在"的错误结论。改用 node + 正斜杠路径复核后:`C:\temp`、`C:\c` 确已不存在,`C:\tmp` 仍在(内含 `agnes-ai-generation-skill` / `codebuddy` / `git-recovery*`,均非本仓日常产物)。教训同 [[feedback-no-shell-inline-code]]:Windows 路径判存与含反斜杠的判据**一律走脚本文件**,不在 shell 里内联。
+- [x] ✅(2026-09-24) **O40④ 剩余 6 项定性结论(全部非本仓日常产物,一项未动)**:`C:\Youku Files` 1249 MB(优酷客户端 download/nplayerdisk/screenshot/youkudisk 四子目录)、`C:\tools\openssh-inst`(OpenSSH 安装残留)、`C:\common_attachment\attachment_clipflow_cache.json`、`C:\persistent_data\user_dict_clean_up.bin`(输入法类工具词库)、`C:\appverifUI.dll` + `C:\vfcompat.dll`(盘根上的 Application Verifier 形态 DLL)。唯一带我们血统的是 **`C:\ai_zhs\cert`** —— `scripts/cleanup-external-junk.ps1:14` 注释直说 "Old certs in G:\ai_zhs\ (migrated to …cert)",且已在 `scripts/g-root-blacklist.json:38` 认列 ⇒ 属"当年证书目录误建在别的盘根"的历史残留,体量可忽略,**是否删由用户定,我没有自作主张动**。
+- **O40 残余(一条,不是待办清单)**:TEMP 漂移仍在恶化回潮通道 —— HKCU `TEMP=D:\DevEnv\Temp`,但实测 `pwsh $env:TEMP` 与 `node -p os.tmpdir()` **都还是** `C:\Users\Administrator\AppData\Local\Temp`;环境块只被新进程继承 ⇒ 新开终端/重启宿主前,任何走 `os.tmpdir()` 的脚本会继续落 C(当前 C 侧 TEMP 仅 65.4 MB)。另有 7 个脚本的 `--self-test` 仍直接用 `os.tmpdir()`,由守门 91 提供可见性。
