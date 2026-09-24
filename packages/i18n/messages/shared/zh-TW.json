@@ -2272,11 +2272,6 @@
           "steer": "插話優先",
           "queue": "排隊優先"
         },
-        "denied": {
-          "reorder": "無法調整排隊順序",
-          "undo": "無法撤回排隊訊息",
-          "interject": "目前 Runtime 不支援插話，訊息將繼續排隊"
-        },
         "degraded": {
           "runtimeNoInterject": "目前 Runtime 不支援插話，訊息將繼續排隊"
         }
