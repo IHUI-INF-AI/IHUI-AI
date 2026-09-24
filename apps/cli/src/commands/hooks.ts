@@ -6,9 +6,17 @@
  * ihui hooks 子命令 — Hook 管理命令(Wave 3 W3-4 升级)。
  *
  * 子命令:
- *   ihui hooks list              — 列出全部 hooks(手动配置 + 自动发现)
+ *   ihui hooks list              — 列出全部 hooks(手动配置 + 自动发现)+ 已信任目录
  *   ihui hooks enable <name>     — 启用自动发现的 hook
  *   ihui hooks disable <name>    — 禁用自动发现的 hook
+ *   ihui hooks trust [path]      — 信任一个目录,让它自带的 project 钩子可执行
+ *   ihui hooks untrust <path>    — 取消信任
+ *
+ * 为什么必须有 trust / untrust:项目钩子派发前过目录信任门
+ * (`src/hooks/index.ts` 的 `hookTrustSkipReason` → `trust.ts` 的 `gateHook`),
+ * 而 default-deny 之下用户唯一的出路本来是手写 `~/.ihui/trusted-folders` ——
+ * 那不是一个可用出口。门与出口必须同时存在,否则这道门只会把人推向
+ * `IHUI_TRUST_WORKSPACE=1`(它信任的是整个工作区,粒度比单个目录粗)。
  *
  * 与 hooks-auto 子命令的关系:
  *   - hooks list/enable/disable:轻量管理(基于 hooks.json + discovery.ts 状态)
@@ -18,6 +26,8 @@
  */
 import type { Command } from 'commander';
 import chalk from 'chalk';
+import { resolve } from 'node:path';
+import { existsSync } from 'node:fs';
 import { loadHooks, getHooksPath } from '../hooks/index.js';
 import {
   listDiscoveredHooks,
@@ -26,6 +36,14 @@ import {
   getHooksDirs,
   type DiscoveredHook,
 } from '../hooks/discovery.js';
+import {
+  trustFolder,
+  untrustFolder,
+  isFolderTrusted,
+  listTrustedFolders,
+  normalizeFolderPath,
+} from '../hooks/trust.js';
+import { t } from '../i18n/index.js';
 
 /** 类型显示颜色映射 */
 const TYPE_COLORS: Record<DiscoveredHook['type'], (s: string) => string> = {
@@ -100,6 +118,27 @@ export function registerHooksCommand(program: Command): void {
           console.info(chalk.dim(`    ${h.filePath}`));
         }
       }
+
+      // === 3. 已信任的目录(trust gate 的白名单)===
+      // 门是 default-deny 的,所以"当前目录在不在名单里"必须能在 list 里看到,
+      // 否则用户只能靠"钩子怎么没跑"反推。比较口径与门内 isFolderTrusted 同源。
+      const trusted = listTrustedFolders();
+      const cwd = resolve(process.cwd());
+      const cwdKey = normalizeFolderPath(cwd);
+      console.info(chalk.cyan(`\n${t('cli.hooks.trustedHeader')}`));
+      if (trusted.length === 0) {
+        console.info(chalk.dim(t('cli.hooks.trustedNone')));
+      } else {
+        for (const folder of trusted) {
+          const isCurrent = normalizeFolderPath(folder) === cwdKey;
+          console.info(
+            `  ${isCurrent ? chalk.green('●') : ' '} ${folder}${isCurrent ? chalk.dim(t('cli.hooks.currentDirMark')) : ''}`,
+          );
+        }
+      }
+      if (!isFolderTrusted(cwd)) {
+        console.info(chalk.dim(t('cli.hooks.currentDirUntrusted', { path: cwd })));
+      }
       console.info('');
     });
 
@@ -129,6 +168,41 @@ export function registerHooksCommand(program: Command): void {
         console.info(chalk.red(`✗ 未找到 hook: ${name}`));
         console.info(chalk.dim('  使用 `ihui hooks list` 查看可用 hooks'));
       }
+    });
+
+  // ihui hooks trust [path] — 信任一个目录(让它的 project 钩子可派发)
+  hooksCmd
+    .command('trust [path]')
+    .description(t('cli.hooks.trustDesc'))
+    .action((rawPath?: string) => {
+      const target = resolve(rawPath ?? process.cwd());
+      if (!existsSync(target)) {
+        console.info(chalk.red(t('cli.hooks.trustErrNotDir', { path: target })));
+        return;
+      }
+      if (isFolderTrusted(target)) {
+        console.info(chalk.dim(t('cli.hooks.trustAlready', { path: target })));
+        return;
+      }
+      if (!trustFolder(target)) {
+        console.info(chalk.red(t('cli.hooks.trustWriteFailed', { path: target })));
+        return;
+      }
+      console.info(chalk.green(t('cli.hooks.trustOk', { path: target })));
+      console.info(chalk.yellow(t('cli.hooks.trustWarning')));
+    });
+
+  // ihui hooks untrust <path> — 取消信任
+  hooksCmd
+    .command('untrust <path>')
+    .description(t('cli.hooks.untrustDesc'))
+    .action((rawPath: string) => {
+      const target = resolve(rawPath);
+      if (!untrustFolder(target)) {
+        console.info(chalk.dim(t('cli.hooks.untrustNotListed', { path: target })));
+        return;
+      }
+      console.info(chalk.green(t('cli.hooks.untrustOk', { path: target })));
     });
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

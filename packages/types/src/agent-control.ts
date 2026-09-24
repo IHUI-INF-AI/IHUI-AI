@@ -440,6 +440,23 @@ export type AgentActionErrorCode =
   | 'DESTRUCTIVE_BLOCKED'
   /** 2026-09-20 web UI 桥接:导航目标不在站内路由白名单内 */
   | 'ROUTE_NOT_ALLOWED'
+  /**
+   * 2026-09-25 页内语义快照(活句柄)一侧的结构化错误码。
+   * 必须与 `@ihui/dom-actions` 的 `PageActionErrorCode` 保持一致 —— 扩展端
+   * `lib/agent-control.ts` 把它们原样赋给本枚举,少一条就是 `TS2322`(编译期即护栏,
+   * 不需要另建对账清单)。不复用 SELECTOR_NOT_FOUND 的理由见 contract:那条码把
+   * "选择器没匹配"和"活引用失效"混成一码,模型无从判断该重拍快照还是换坐标。
+   */
+  | 'HANDLE_MALFORMED'
+  | 'HANDLE_SCOPE_MISMATCH'
+  | 'HANDLE_STALE'
+  | 'HANDLE_NOT_RENDERED'
+  | 'TARGET_NOT_EDITABLE'
+  | 'TARGET_NOT_SELECTABLE'
+  | 'PAGE_API_UNAVAILABLE'
+  | 'COORD_OUT_OF_BOUNDS'
+  | 'NO_ELEMENT_AT_POINT'
+  | 'PARAM_INVALID'
 
 /** 执行结果回传 envelope */
 export interface AgentActionResponse {
