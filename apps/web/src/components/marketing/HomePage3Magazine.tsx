@@ -298,7 +298,7 @@ export function HomePage3Magazine() {
   // 2026-07-20 改(自适应 v4,根因):根容器改 flex flex-1 flex-col,让它在 page4
   // wrapper (flex-1 min-h-0) 内撑开 = 视口 - footer 自然高度。
   // - 中间 Card / grid 区域继承 flex-1,占满 magazine 容器剩余空间;
-  // - "查看更多" 链接用 mt-auto 贴底,跟 footer 顶边无缝衔接;
+  // - 「更多」链接(共享 ViewMoreLink)用 mt-auto 贴底,跟 footer 顶边无缝衔接;
   // - 之前缺 flex-1,根容器高度 = 内容自然高度 (~140px),container 撑到
   //   ~500px,导致 Card 下方 ~360px 大空白 (用户反馈"大量空余空间" 根因)。
   // 2026-08-12 改(根治 section 嵌套违规):根容器从 <section> 改为 <div>。

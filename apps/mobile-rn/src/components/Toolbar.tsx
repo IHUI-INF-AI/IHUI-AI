@@ -90,7 +90,7 @@ export interface ToolbarProps {
   style?: StyleProp<ViewStyle>
   /** 点击顶部服务项(原 trafficApplicationServiceClick → $emit('id-service')) */
   onServicePress?: (service: ToolbarService) => void
-  /** 点击「查看更多」(原 handleToolbarTitleClick → AI工具箱) */
+  /** 点击「更多」(原 handleToolbarTitleClick → AI工具箱) */
   onMorePress?: () => void
   /** 点击营销 banner(原 marketingClick → AI智能营销) */
   onBannerPress?: () => void

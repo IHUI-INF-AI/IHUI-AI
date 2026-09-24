@@ -9,7 +9,7 @@ import LineIcon from '@/components/LineIcon'
 
 /**
  * 通用"标题 + 更多"区块头部组件。
- * 对齐原项目 components/MoreTitles/index.vue:左侧标题(可选副标题)+ 右侧「更多 ›」。
+ * 对齐原项目 components/MoreTitles/index.vue:左侧标题(可选副标题)+ 右侧「更多 + chevron-right 矢量」。
  *
  * 箭头必须是矢量(LineIcon chevron-right),不得用 `>` / `›` 字符:字符箭头与标签字号
  * 不同时必上下错位,且与 RN 侧 MoreLink、web 侧 ViewMore 不同形。
