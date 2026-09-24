@@ -1,0 +1,98 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+name: scripts mirror tests (nightly soak)
+
+# =============================================================================
+# scripts/tests 全量镜像测试的**第一个**自动入口(2026-09-24 立)
+#
+# 为什么需要它:`scripts/tests/` 有 130+ 份镜像测试,而此前 CI 只点名 6 份、也没有任何
+# 入口能一次跑完(AGENTS/README 里每道门都写着"取证:node --test …",却没人组织过考试)。
+# 全量首跑当场抓到 9 枚红,其中 4 枚是任何环境都红的真债(它们红在 origin/main 上,
+# 而相关判据早已改进、测试还停在旧政策)。工具与修复见 scripts/run-script-tests.mjs。
+#
+# 为什么是 windows-latest:这批门里有相当一部分**判的就是这台 Windows 生产机**
+# (C 盘污染/封口 junction、HKCU TEMP 漂移、.bin shim、页面文件量取)。既有 workflow 用
+# ubuntu-latest 是因为它们跑的是纯逻辑测试;而 `check-c-drive-pollution.test.mjs` 会建
+# junction、读注册表 —— 在 Linux 上必然红,那将是一道与任何改动都无关的常红门。
+# 实测:132 份测试里只有 2 份引用 process.platform ⇒ 无法靠"跳过"兜住,只能选对 OS。
+#
+# 为什么先 continue-on-error(通报而非阻断):本机之外从未在"干净的 Windows 检出 +
+# 装好依赖"的环境里跑过全量。拿一条未验证的门去阻断全队提交,后果就是各会话合法
+# `--no-verify`、连带废掉全部守门 —— 今天已经真实发生过一次(依赖树被啃空 ⇒
+# lint-staged 崩在第 1 步 ⇒ 115 道门集体旁路)。**转 blocking 的条件写在下面 TODO 里,
+# 满足前不得改。**
+# =============================================================================
+on:
+  schedule:
+    # 每天 18:20 UTC(北京时间 02:20)—— 避开 build/deploy 高峰的 runner 争用
+    - cron: '20 18 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  mirror-tests:
+    name: node --test scripts/tests (full)
+    runs-on: windows-latest
+    timeout-minutes: 120
+    # TODO(转 blocking 的前置,二者缺一都不许删这行):
+    #   ① 连续 ≥2 夜在 main 的定时跑 exit 0;
+    #   ② 下列三枚"他人未提交状态"红已确认不是存量债 —— apps/web/src/config/
+    #      desktop-feed.generated.ts 的工作树副本缺 HEAD(982e253789a,03:11) 已入库的
+    #      updaterPlatforms 块,该文件 09:00:57 被某在制任务重写;tauri-updater-platforms
+    #      的三枚断言正是钉这个回退的(干净检出 14/14 绿)。
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        # 顺序硬约束:pnpm/action-setup 必须在 setup-node 的 `cache: pnpm` 之前,否则
+        # setup-node 找不到 pnpm 直接失败(本仓守门 48 就是为这件事立的)。
+        # 不装依赖则 `check-workspace-dep-links.test.mjs` 的"真仓不变量"必红 —— 它判的
+        # 就是 node_modules 里的链接是否齐全(实测:`git archive` 式无依赖快照上稳定红)。
+        run: pnpm install --frozen-lockfile
+
+      - name: Run all mirror tests
+        # 工具任何一片解析不到 pass/fail 计数就按失败计,不会把"runner 崩了"洗成绿
+        run: node scripts/run-script-tests.mjs
+
+      - name: 发现清单(诊断用,不参与判定)
+        if: always()
+        run: node scripts/run-script-tests.mjs --list
+
+      - name: Job summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## scripts/tests 全量镜像测试"
+            echo ""
+            echo "- runner: \`windows-latest\`(这批门里有一批判的就是 Windows 机器状态)"
+            echo "- 本 job 目前**非阻断**(\`continue-on-error: true\`),转 blocking 的前置见本文件头注。"
+          } >> "$GITHUB_STEP_SUMMARY"
+        # 必须装依赖:`check-workspace-dep-links` 等门的判据要看 node_modules 实链,
+        # `git archive` 式无依赖快照上它必红(实测)。
+        run: pnpm install --frozen-lockfile
+
+      - name: Run all mirror tests
+        # --json 让汇总可被后续步骤机器读取;失败由 runner 自身 exit 1 表达
+        run: node scripts/run-script-tests.mjs --json
+
+      - name: List discovered tests (诊断用,不参与判定)
+        if: always()
+        run: node scripts/run-script-tests.mjs --list
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
