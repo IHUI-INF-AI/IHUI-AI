@@ -213,7 +213,10 @@ export function useFocusArtifactScroll<T extends HTMLElement>(
       el.scrollIntoView({ behavior: 'smooth', block: 'center' })
       // 高亮:临时 outline,600ms 后还原(与 MessageList flashHighlight 同节奏)
       const prev = el.style.outline
-      el.style.outline = '2px solid hsl(var(--primary))'
+      // 原写法 `hsl(var(--primary))` 双重失效:`--primary` 全仓零定义,且 Tailwind v4 下
+      // `hsl(var(--*))` 会序列化成 `hsl(hsl(...))` 被整条丢弃 ⇒ 这个跳转高亮**从来没出现过**
+      // (typecheck/构建都不红,只在真机上静默失效)。取仓库既有正解:直接引 CSS 变量本体。
+      el.style.outline = '2px solid var(--color-primary)'
       window.setTimeout(() => {
         el.style.outline = prev
       }, 600)
