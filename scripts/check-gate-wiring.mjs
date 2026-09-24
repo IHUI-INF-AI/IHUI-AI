@@ -470,6 +470,45 @@ export function findSharedSkipEnvs(runnerText) {
 }
 
 /**
+ * 纯函数(R7,判红):台账里 `dispatcher` 类型条目的**依据必须可核验**。
+ *
+ * 为什么要判红:台账是本门唯一的豁免出口,而"豁免依据"是一句人写的自然语言。依据一旦可以是编的,
+ * 整套"台账不得为撒谎门开脱"(M0/M2)的设计就塌了 —— 实测抓到一条:
+ * `check-lock.mjs` 写"调用点在 apps/web/package.json prebuild/predev",而该处实际调的是
+ * `deploy-lock.mjs` 与 `check-stale-stashes.mjs`,全仓除台账自身外**零引用**该脚本。
+ *
+ * 核验口径(宁漏不误报,只做结构事实):从 dispatcher 字符串里取**第一个像路径的 token**
+ * (含 `/` 或带扩展名),① 该路径必须在 HEAD 里存在;② 该文件内容必须真的提到被豁免脚本的名字
+ * (去 `.mjs` 后缀,容忍 `check-lock.js` 这类同 stem 引用)。任一条不满足 ⇒ 判红并说明差在哪。
+ *
+ * @param entries 台账条目
+ * @param readAtHead (relPath) => string | null  (null = HEAD 里没有该路径)
+ */
+export function validateDispatcherClaims(entries, readAtHead) {
+  const problems = []
+  for (const e of entries || []) {
+    if (!e || typeof e.script !== 'string') continue
+    if (e.type !== 'dispatcher' && !e.dispatcher) continue
+    const d = String(e.dispatcher || '')
+    const token = d.split(/[\s,;]+/).find((t) => t.includes('/') || /\.[a-z]{1,6}$/i.test(t))
+    if (!token) {
+      problems.push({ script: e.script, dispatcher: d, why: 'dispatcher 字段里没有一个像路径的 token,无法核验' })
+      continue
+    }
+    const content = readAtHead(token)
+    if (content === null) {
+      problems.push({ script: e.script, dispatcher: d, why: `所指文件不在 HEAD 里:${token}` })
+      continue
+    }
+    const stem = e.script.replace(/\.mjs$/, '')
+    if (!content.includes(stem)) {
+      problems.push({ script: e.script, dispatcher: d, why: `${token} 里根本没提到 "${stem}" —— 依据与事实不符` })
+    }
+  }
+  return problems
+}
+
+/**
  * 纯函数:反向差集(R4)—— 已在权威点登记的门,但 AGENTS.md / README.md 通篇**没点过它的名**。
  *
  * 为什么需要:文档看不到的门,下一个人只会重复造或干脆绕过(实测三例在 hook.js 生效却零见于速查:
@@ -624,6 +663,14 @@ async function main(argv = process.argv.slice(2)) {
     allowProblems = ['缺 scripts/gate-wiring-allowlist.json(按空台账继续)']
   }
   const allowByName = new Map(allowEntries.map((e) => [e.script, e]))
+  // R7:台账的 dispatcher 依据必须可核验(台账是唯一豁免出口,依据能编 = 反滥用设计塌了)
+  const dispatcherProblems = validateDispatcherClaims(allowEntries, (rel) => {
+    try {
+      return git(['show', `HEAD:${rel}`], root)
+    } catch {
+      return null
+    }
+  })
 
   // 5) R1 头部声称:只对本轮「未接线」候选读 blob(省 spawn 次数)
   const agentsText = git(['show', 'HEAD:AGENTS.md'], root)
@@ -683,6 +730,15 @@ async function main(argv = process.argv.slice(2)) {
   }
   const dupIds = findDuplicateIds(runnerText)
   const sharedEnvs = findSharedSkipEnvs(runnerText)
+  if (dispatcherProblems.length) {
+    reds.push(
+      ...dispatcherProblems.map((p) => ({
+        script: p.script,
+        status: 'red-r7',
+        reason: `台账依据不可核验:${p.why}(dispatcher="${p.dispatcher}")`,
+      })),
+    )
+  }
   if (dupIds.length) {
     reds.push(
       ...dupIds.map((id) => ({
@@ -723,7 +779,9 @@ async function main(argv = process.argv.slice(2)) {
             undocumentedR4: undocumented.length,
             duplicateIds: dupIds.length,
             sharedSkipEnvs: sharedEnvs.length,
+            dispatcherProblems: dispatcherProblems.length,
           },
+          dispatcherProblems,
           duplicateIds: dupIds,
           sharedSkipEnvs: sharedEnvs,
           reds,
@@ -753,6 +811,10 @@ async function main(argv = process.argv.slice(2)) {
         (undocumented.length ? ' —— 文档看不见的门会被重复造或被绕过;清零后可升 blocking' : ''),
     )
     console.log(`   R5(重复 id,判红): ${dupIds.length ? dupIds.join(' / ') : '0 枚'}`)
+    console.log(
+      `   R7(台账 dispatcher 依据不可核验,判红): ${dispatcherProblems.length ? `${dispatcherProblems.length} 条` : '0 条'}`,
+    )
+    for (const p of dispatcherProblems) console.log(`     ✗ ${p.script} —— ${p.why}`)
     console.log(
       `   R6(同一 skipEnv 挂多个条目,只报数): ${sharedEnvs.length ? sharedEnvs.map((s) => `${s.env}[${s.ids.join(',')}]`).join(' ') : '0 组'}`,
     )
@@ -1014,6 +1076,24 @@ function runSelfTest() {
         findDuplicateIds(
           "\n  {\n    id: '2',\n    skipEnv: 'HUSKY_SKIP_X',\n  },\n  {\n    id: '2n-web',\n    skipEnv: 'HUSKY_SKIP_X',\n  },",
         ).length === 0,
+  )
+
+  assert(
+    'P25 R7 负向:依据可核验的 dispatcher 不得报问题(文件存在且真提到被豁免脚本)',
+    validateDispatcherClaims(
+      [{ script: 'check-tool.mjs', type: 'dispatcher', dispatcher: 'scripts/host.ps1 prebuild', reason: 'x x x x x x x x' }],
+      (rel) => (rel === 'scripts/host.ps1' ? "node scripts/check-tool.mjs --check\n" : null),
+    ).length === 0,
+  )
+  assert(
+    'P26 R7 正向:文件不存在 / 文件里没提该脚本 两种假依据都必须报(实测抓到 check-lock 那条)',
+    validateDispatcherClaims(
+      [
+        { script: 'check-a.mjs', type: 'dispatcher', dispatcher: 'scripts/ghost.ps1', reason: 'y y y y y y y y' },
+        { script: 'check-b.mjs', type: 'dispatcher', dispatcher: 'apps/web/package.json prebuild', reason: 'z z z z z z z z' },
+      ],
+      (rel) => (rel === 'apps/web/package.json' ? 'node ../../scripts/deploy-lock.mjs acquire\n' : null),
+    ).length === 2,
   )
 
   // 端到端层(独立临时假仓库 + 显式 --root 注入:自测只改 cwd 会静默扫真仓)
