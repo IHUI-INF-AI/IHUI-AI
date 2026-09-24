@@ -386,6 +386,14 @@ const MessageItem = React.memo(function MessageItem({
     !!m.reasoning &&
     reasoningBaselineRef.current !== null &&
     m.reasoning.length > reasoningBaselineRef.current
+  // D64③ 双态(G-75):无思考却有引用时,引用条**收进思考卡**(标题即计数),
+  // 而不是在卡下方再列一份 —— 引用集合仍只有 `m.citations` 一处真相源。
+  const citationsCount = m.citations?.length ?? 0
+  // 卡片是否该以"引用态"出现(无思考但有引用)
+  const refsThinkingCardEligible = !m.reasoning && citationsCount > 0
+  // 引用条**展开后**才收进思考卡(标题即计数);折叠态留在卡外 ——
+  // 否则不点卡片就完全看不到来源，等于把信息藏进默认收起的容器里。
+  const refsRenderedInsideThinkingCard = refsThinkingCardEligible && reasoningExpanded
 
   const handleCopy = React.useCallback(
     async (e: React.MouseEvent | React.KeyboardEvent) => {
@@ -818,15 +826,22 @@ const MessageItem = React.memo(function MessageItem({
                 (compaction 命名帧 → onCompaction → store setMessageCompaction 写入),
                 置于消息内容区顶部(思考区之前),提示"上方历史已压缩为摘要"。 */}
             {m.compaction && <CompressionDivider compaction={m.compaction} />}
-            {m.reasoning && (
+            {(m.reasoning || refsThinkingCardEligible) && (
               <ThinkingSection
-                content={m.reasoning}
+                content={m.reasoning ?? ''}
                 currentNode={null}
                 // 2026-08-29:isStreaming 收紧为"思考进行中" — 正文开始输出后思考区
                 // 立即进入已完成态(停掉"思考中..."loader / 闪烁光标 / 耗时 tick)
                 isStreaming={streamingThis && !m.content}
                 // 2026-08-29:正文流式期间 reasoning 交错到达 → 增长指示(脉冲光标)
                 isGrowing={reasoningGrowing}
+                // D64③:标题双态判定在共享层(有思考→"思考过程" / 无思考有引用→"使用了 N 个引用")
+                refsCount={citationsCount}
+                refsSlot={
+                  refsRenderedInsideThinkingCard ? (
+                    <CitationBar citations={m.citations ?? []} />
+                  ) : undefined
+                }
                 expanded={reasoningExpanded}
                 onToggle={toggleReasoning}
               />
@@ -1002,7 +1017,11 @@ const MessageItem = React.memo(function MessageItem({
                         />
                         {/* 内联 content 型 artifact:HTML 走沙箱 iframe 预览,代码型走代码视图 */}
                         {effectiveArtifacts?.map((art, i) => (
-                          <ArtifactCanvas key={`${tc.id}-${i}`} artifact={art} turnMessageId={m.id} />
+                          <ArtifactCanvas
+                            key={`${tc.id}-${i}`}
+                            artifact={art}
+                            turnMessageId={m.id}
+                          />
                         ))}
                       </React.Fragment>
                     )
@@ -1045,8 +1064,11 @@ const MessageItem = React.memo(function MessageItem({
                 collapseLines={codeCollapseLines}
               />
             </ReplyAnnotationLayer>
-            {/* #11 Citations 全链路(2026-09-13 立):引用溯源条 inline 到消息正文下方 */}
-            {m.citations && m.citations.length > 0 && <CitationBar citations={m.citations} />}
+            {/* #11 Citations 全链路(2026-09-13 立):引用溯源条 inline 到消息正文下方。
+                D64③ 起:无思考时该条已收进思考卡(同一集合只呈现一次),故此处让位。 */}
+            {!refsRenderedInsideThinkingCard && m.citations && m.citations.length > 0 && (
+              <CitationBar citations={m.citations} />
+            )}
             {/* D34 上下文注入交代(2026-09-22 立) + D37 聚合装配查看器(2026-09-24 立):
                 聚合条默认收起(计数徽章,与 D21 fold-policy 联动),点击展开逐条 kind
                 本地化交代 + fullText 可展开,收编原 InjectionBar 的散列单条渲染 */}
