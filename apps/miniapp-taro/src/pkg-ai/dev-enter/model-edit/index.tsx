@@ -370,7 +370,7 @@ export default function ModelEdit() {
             {/* 提交审核 — RN btn:mt28→56rpx、h50→100rpx、r12→24rpx、brand.DEFAULT 底 */}
             {/* RN btnText 用 surface.light(#FFFFFF 恒白),暗色下白底白字不可读 → 修正为 text-primary-foreground(暗色自动反转) */}
             <View
-              className={`mt-[56rpx] h-[100rpx] rounded-xl bg-primary text-[32rpx] font-semibold text-primary-foreground flex items-center justify-center box-border ${submitting ? 'opacity-60' : ''}`}
+              className={`mt-[56rpx] h-[100rpx] rounded-xl bg-cta text-[32rpx] font-semibold text-cta-foreground flex items-center justify-center box-border ${submitting ? 'opacity-60' : ''}`}
               onClick={onSubmit}
               hoverClass="opacity-60"
             >

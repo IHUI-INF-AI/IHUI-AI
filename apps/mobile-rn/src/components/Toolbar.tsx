@@ -7,7 +7,7 @@
  *
  * 对齐历史项目 Toolbar/index.vue 的完整首页内容结构(1:1 复刻),语义为「首页内容大块」而非按钮阵列:
  *  1. 3 服务项(流量运营陪跑 / 一站式设备应用 / AI其他技术服务)
- *  2. 栏目标题「独家开发 AI Agent应用」+「查看更多」
+ *  2. 栏目标题「独家开发 AI Agent应用」+「更多」
  *  3. 营销 banner(带浮动动画 + 独家一键生成运营内容)
  *  4. 6 工具格(AI图片/视频/文案/剪辑/直播/数字人)
  *  5. 定制服务区块
@@ -33,7 +33,8 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native'
-import { tokens } from '../theme/active-tokens'
+import { tokens, currentRnTheme } from '../theme/active-tokens'
+import { MoreLink } from '@ihui/rn-app'
 import {
   Bot,
   Film,
@@ -89,7 +90,7 @@ export interface ToolbarProps {
   style?: StyleProp<ViewStyle>
   /** 点击顶部服务项(原 trafficApplicationServiceClick → $emit('id-service')) */
   onServicePress?: (service: ToolbarService) => void
-  /** 点击「查看更多」(原 handleToolbarTitleClick → AI工具箱) */
+  /** 点击「更多」(原 handleToolbarTitleClick → AI工具箱) */
   onMorePress?: () => void
   /** 点击营销 banner(原 marketingClick → AI智能营销) */
   onBannerPress?: () => void
@@ -217,21 +218,16 @@ export function Toolbar({
         ))}
       </View>
 
-      {/* 2. 栏目标题 + 查看更多 */}
-      <Pressable
-        onPress={onMorePress}
-        accessibilityRole="button"
-        accessibilityLabel="查看更多 AI Agent 应用"
-        style={({ pressed }) => [styles.sectionTitleRow, pressed ? styles.pressed : null]}
-      >
+      {/* 2. 栏目标题 + 更多(入口委托 MoreLink,与其余区段头同规格) */}
+      <View style={styles.sectionTitleRow}>
         <Text style={styles.sectionTitle}>独家开发 AI Agent应用</Text>
-        <View style={styles.moreWrap}>
-          <Text style={styles.moreText}>查看更多</Text>
-          <Text style={styles.moreArrow} allowFontScaling={false}>
-            ›
-          </Text>
-        </View>
-      </Pressable>
+        <MoreLink
+          label="更多"
+          onPress={onMorePress}
+          accessibilityLabel="查看更多 AI Agent 应用"
+          colorScheme={currentRnTheme()}
+        />
+      </View>
 
       {/* 3. 营销 banner(带浮动动画) */}
       <Pressable
@@ -387,20 +383,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: tokens.text.primary,
-  },
-  moreWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  moreText: {
-    fontSize: 14,
-    color: tokens.text.secondary,
-  },
-  moreArrow: {
-    fontSize: 18,
-    lineHeight: 18,
-    color: tokens.text.secondary,
-    marginLeft: 2,
   },
 
   // ── 3. 营销 banner ──

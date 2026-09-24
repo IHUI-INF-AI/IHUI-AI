@@ -779,7 +779,7 @@ export default function InputArea({
         {mode === 'text' ? (
           // active:bg-primary 在 weapp 端为死样式(:active 伪类对 View 不生效),改用 hoverClass 按压反馈
           <View
-            className={`ml-2 px-4 h-9 leading-9 rounded-lg text-sm flex-shrink-0 ${canSend ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}
+            className={`ml-2 px-4 h-9 leading-9 rounded-lg text-sm flex-shrink-0 ${canSend ? 'bg-cta text-cta-foreground' : 'bg-muted text-muted-foreground'}`}
             onClick={handleSend}
             hoverClass="opacity-60"
           >

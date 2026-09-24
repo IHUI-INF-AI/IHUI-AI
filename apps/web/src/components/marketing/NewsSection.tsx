@@ -9,9 +9,10 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronRight, FileText, Loader2 } from 'lucide-react'
+import { FileText, Loader2 } from 'lucide-react'
 import { Card } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
+import { ViewMoreLink } from '@/components/common/view-more-link'
 
 interface NewsItem {
   id: string
@@ -28,6 +29,7 @@ function unwrap<T>(r: { success: boolean; data?: T; error?: string }): T {
 
 export function NewsSection() {
   const t = useTranslations('marketing.news')
+  const tc = useTranslations('common')
   const { data: items = [], isLoading } = useQuery<NewsItem[]>({
     queryKey: ['marketing', 'news'],
     queryFn: async () => {
@@ -45,13 +47,7 @@ export function NewsSection() {
           <FileText className="h-5 w-5 text-primary" />
           <h2 className="text-xl font-bold tracking-tight">{t('title')}</h2>
         </div>
-        <Link
-          href="/news"
-          className="flex items-center gap-0.5 text-xs text-muted-foreground transition-colors hover:text-primary"
-        >
-          {t('viewMore')}
-          <ChevronRight className="h-3 w-3" />
-        </Link>
+        <ViewMoreLink label={tc('more')} href="/news" />
       </div>
       {isLoading ? (
         <div className="flex h-40 items-center justify-center text-muted-foreground">
