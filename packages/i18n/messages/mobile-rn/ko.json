@@ -2742,5 +2742,8 @@
       }
     },
     "vividTail": ", 금방 끝납니다"
+  },
+  "notification": {
+    "pushBannerTitle": "새 메시지"
   }
 }
