@@ -66,6 +66,8 @@ export const rnTokens = {
      *  不得用 surface.light 代替(它在两态都是 #FFFFFF → 白底白字)。 */
     foreground: '#FFFFFF',
     dark: '#34D399',
+    cta: '#4A7A96',
+    ctaForeground: '#FFFFFF',
   },
   surface: {
     light: '#FFFFFF',
@@ -152,7 +154,17 @@ export type RnThemeMode = 'light' | 'dark'
 
 /** 动态主题 token 集。相比 base tokens 增加 surface.bg(主背景),其余字段对齐。 */
 export type RnThemeTokens = {
-  brand: { DEFAULT: string; foreground: string; dark: string }
+  brand: {
+    DEFAULT: string
+    foreground: string
+    dark: string
+    /* CTA 实底档(2026-09-24):**明暗同值**,刻意不随主题反转。
+     * brand.DEFAULT 在浅色=纯黑、深色=纯白,大色块在两个主题里都是与页面相反的那一极;
+     * 而 --color-primary 在 web 端兼任墨色不能动 ⇒ 单独一档给"品牌实底 + 其上文字"。
+     * 对应 tokens.css @theme --color-cta / --color-cta-foreground(守门 93 已登记映射)。 */
+    cta: string
+    ctaForeground: string
+  }
   surface: { bg: string; light: string; muted: string; card: string; dark: string; inputBg: string }
   text: { primary: string; secondary: string; tertiary: string; medium: string }
   border: { light: string; medium: string }
@@ -201,6 +213,8 @@ export const rnLightTokens: RnThemeTokens = {
     DEFAULT: '#000000',
     foreground: '#FFFFFF',
     dark: '#34D399',
+    cta: '#4A7A96',
+    ctaForeground: '#FFFFFF',
   },
   surface: {
     bg: '#F5F5F5',
@@ -275,6 +289,8 @@ export const rnDarkTokens: RnThemeTokens = {
     DEFAULT: '#FFFFFF',
     foreground: '#000000',
     dark: '#34D399',
+    cta: '#4A7A96',
+    ctaForeground: '#FFFFFF',
   },
   surface: {
     bg: '#242424',

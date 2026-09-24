@@ -181,7 +181,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       height: 50,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -191,7 +191,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 16,
       paddingVertical: 8,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
     },
     btnText: { color: tk.surface.light, fontSize: 16 },
   })

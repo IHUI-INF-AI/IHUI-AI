@@ -186,7 +186,7 @@ function createStyles(tk: AppThemeTokens) {
       margin: 10,
       padding: 16,
       borderRadius: rnRadius['2xl'],
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       gap: 8,
     },
     balanceLabel: {
@@ -302,7 +302,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: 12,
       height: 50,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -343,7 +343,7 @@ function createStyles(tk: AppThemeTokens) {
     modalClose: {
       height: 44,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
     },

@@ -50,7 +50,7 @@ const viewStyles = {
     paddingRight: toRpx(10),
     height: toRpx(44),
     borderRadius: toRpx(12),
-    backgroundColor: tk.brand.DEFAULT,
+    backgroundColor: tk.brand.cta,
   }),
   header: (): CSSProperties => ({
     display: 'flex',

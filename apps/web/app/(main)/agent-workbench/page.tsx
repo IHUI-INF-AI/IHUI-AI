@@ -178,7 +178,7 @@ export default function AgentWorkbenchPage() {
                 className={cn(
                   'flex items-center gap-1 rounded-sm px-2.5 py-1 text-xs transition-colors',
                   viewMode === 'management'
-                    ? 'bg-primary text-primary-foreground'
+                    ? 'bg-cta text-cta-foreground'
                     : 'text-muted-foreground hover:text-foreground',
                 )}
               >
@@ -190,7 +190,7 @@ export default function AgentWorkbenchPage() {
                 className={cn(
                   'flex items-center gap-1 rounded-sm px-2.5 py-1 text-xs transition-colors',
                   viewMode === 'runtime'
-                    ? 'bg-primary text-primary-foreground'
+                    ? 'bg-cta text-cta-foreground'
                     : 'text-muted-foreground hover:text-foreground',
                 )}
               >

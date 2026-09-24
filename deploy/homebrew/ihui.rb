@@ -26,8 +26,12 @@
 class Ihui < Formula
   desc "IHUI AI Coding Agent CLI — 对标 Claude Code / Codex"
   homepage "https://github.com/IHUI-INF-AI/IHUI-AI"
-  url "https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/cli-v1.0.0/ihui-src-1.0.0.tar.gz"
-  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+  # ⚠️ sha256 待发布后回填(不得提前猜)。回填只需一条命令(GitHub release 资产自带 digest 字段):
+  #   gh api repos/IHUI-INF-AI/IHUI-AI/releases/latest --jq '.assets[] | select(.name == "ihui-src-1.0.0.tar.gz") | .digest'
+  # 返回形如 "sha256:ab12…" → 把冒号后 64 位十六进制原样填入下行引号内即可。
+  # 前提:release 里必须真有名为 ihui-src-1.0.0.tar.gz 的资产(生产者见文件头注释 2)/3,资产不存在的判定仍是 404/空结果)。
+  url "https://github.com/IHUI-INF-AI/IHUI-AI/releases/latest/download/ihui-src-1.0.0.tar.gz"
+  sha256 "0000000000000000000000000000000000000000000000000000000000000000" # TODO(release): 回填 gh api digest,见上方命令
   version "1.0.0"
   license "MIT"
 

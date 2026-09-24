@@ -120,7 +120,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
     <div className={cn('flex h-full flex-col bg-background', className)}>
       <TooltipProvider>
         <header className="flex h-12 shrink-0 items-center gap-2 px-3">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-cta text-cta-foreground">
             <Bot className="h-4 w-4" />
           </div>
           <span className="text-sm font-semibold">{t('title')}</span>
@@ -270,7 +270,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
                 type="button"
                 onClick={handleSend}
                 disabled={!input.trim()}
-                className="inline-flex h-9 items-center gap-1 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
+                className="inline-flex h-9 items-center gap-1 rounded-md bg-cta px-3 text-xs font-medium text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-40"
               >
                 <Play className="h-3.5 w-3.5" />
                 {t('execute')}

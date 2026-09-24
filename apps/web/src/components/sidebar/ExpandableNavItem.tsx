@@ -146,7 +146,7 @@ const ExpandableNavItem = React.memo(function ExpandableNavItem({
     cn(
       NAV_CHILD_CLASS,
       active
-        ? 'bg-primary text-primary-foreground'
+        ? 'bg-cta text-cta-foreground'
         : 'text-foreground/70 hover:bg-sidebar-item-hover-bg hover:text-accent-foreground',
     )
 
