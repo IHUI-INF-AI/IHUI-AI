@@ -64,6 +64,12 @@ interface ThinkingSectionProps {
    * 判定在 `@ihui/shared/chat/element-pack#thinkingTitleView`,端内不另写第二套。
    */
   refsCount?: number
+  /**
+   * 「使用了 N 个引用」态的展开体:**由调用方注入**(同 D72 WorktreeCard 的"不取数"纪律)。
+   * 思考卡自己不认识引用数据,也不复制一份列表 —— 调用方把既有 `CitationBar` 传进来,
+   * 引用集合仍只有消息级 `m.citations` 一个真相源。无思考却有引用时,标题即该 slot 的计数。
+   */
+  refsSlot?: React.ReactNode
 }
 
 /**
@@ -94,6 +100,7 @@ export const ThinkingSection = React.memo(function ThinkingSection({
   isStreaming,
   isGrowing = false,
   refsCount,
+  refsSlot,
   expanded: controlledExpanded,
   onToggle,
 }: ThinkingSectionProps) {
@@ -304,6 +311,11 @@ export const ThinkingSection = React.memo(function ThinkingSection({
           )}
         </StreamDetail>
       )}
+      {/* D64③ 第二态:无思考内容但有引用 —— 展开体是调用方注入的引用 slot
+          (卡片不认识引用数据,也不复制列表;标题上的计数与 slot 同一集合) */}
+      {!hasThinking && expanded && refsSlot ? (
+        <StreamDetail testId="thinking-refs-wrapper">{refsSlot}</StreamDetail>
+      ) : null}
     </div>
   )
 })
