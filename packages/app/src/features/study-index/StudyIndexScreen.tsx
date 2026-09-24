@@ -247,6 +247,7 @@ export function StudyIndexScreen({
         <CategoryInlineBar
           items={trackCategoryItems}
           selectedId={activeCategory}
+          colorScheme={colorScheme}
           onSelect={onCategoryChange}
           contentPaddingHorizontal={0}
         />

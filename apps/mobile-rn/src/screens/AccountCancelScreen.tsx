@@ -3,12 +3,14 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useCallback, useEffect, useState } from 'react'
+import { useTheme } from '../context/ThemeContext'
 import { Alert } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
 import { AccountCancelScreen as SharedAccountCancelScreen } from '@ihui/rn-app'
 import { deleteAccount, sendSmsCode } from '@ihui/api-client'
+import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import { useAuth } from '../context/AuthContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -17,6 +19,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 const CONFIRM_SENTENCE = '确认注销'
 
 export default function AccountCancelScreen() {
+  const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const { user, logout } = useAuth()
   const navigation = useNavigation<NavigationProp>()
@@ -97,8 +100,9 @@ export default function AccountCancelScreen() {
           },
         },
       ])
-    } catch {
-      Alert.alert('提示', '提交失败，请稍后重试')
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      Alert.alert('提示', detail.trim() ? toUserFriendlyMessage(e) : '提交失败，请稍后重试')
     } finally {
       setSubmitting(false)
     }
@@ -121,6 +125,7 @@ export default function AccountCancelScreen() {
       onSubmit={onSubmit}
       onCloseModal={() => setShowConfirmModal(false)}
       onBack={() => navigation.goBack()}
+      colorScheme={resolvedTheme}
     />
   )
 }
