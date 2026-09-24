@@ -56,10 +56,11 @@ export function MessageErrorCard({
   noResponseTimeout,
   freeTierAvailable,
   quotaError,
-  onAddPoints,
-  onUpgradePlan,
+  // onAddPoints / onUpgradePlan / onViewUsage 三枚动作在 `MessageErrorCardProps` 里仍是对外的
+  // 契约面(调用方照传),但当前渲染分支只剩 onSwitchTier 一条出口 —— 参数解构里先不列它们,
+  // 否则 `noUnusedLocals` 把整包 web typecheck 钉红。三枚动作是否要重新上屏属产品决策,
+  // 已在计划登记,不得靠保留死参数假装"已接线"。
   onSwitchTier,
-  onViewUsage,
   onReLogin,
 }: MessageErrorCardProps) {
   // 帧缺失:retryInfo 为 null/undefined → remaining 无意义,view 为 null,倒计时块不渲染
