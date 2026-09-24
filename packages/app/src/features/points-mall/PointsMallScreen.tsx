@@ -179,7 +179,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
       paddingVertical: 6,
       borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },
     redeemBtnDisabled: { backgroundColor: tk.border.light },

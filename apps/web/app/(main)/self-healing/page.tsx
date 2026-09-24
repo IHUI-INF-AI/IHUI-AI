@@ -106,7 +106,7 @@ export default function SelfHealingPage() {
           <button
             onClick={() => void run()}
             disabled={loading || !task.trim() || !targetPath.trim()}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
+            className="inline-flex items-center gap-2 rounded-lg bg-cta px-4 py-2 text-sm font-medium text-cta-foreground transition hover:opacity-90 disabled:opacity-40"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
             {loading ? t('running') : t('run')}
@@ -170,7 +170,7 @@ export default function SelfHealingPage() {
                 {outcome.run_history.map((rec: SelfHealingAttemptRecord) => (
                   <li key={rec.attempt} className="rounded-lg border p-3">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
+                      <span className="rounded bg-cta/10 px-1.5 py-0.5 text-xs font-medium text-primary">
                         #{rec.attempt}
                       </span>
                       <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-600">

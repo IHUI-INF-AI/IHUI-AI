@@ -223,8 +223,8 @@
   /* 对齐 RN primaryBtn:高 50dp→100rpx / 圆角 12dp→24rpx / brand 黑底白字 */
   height: 100rpx;
   line-height: 100rpx;
-  background: var(--color-primary);
-  color: var(--color-primary-foreground);
+  background: var(--color-cta);
+  color: var(--color-cta-foreground);
   border-radius: var(--radius-xl);
   font-size: 32rpx;
   font-weight: 600;

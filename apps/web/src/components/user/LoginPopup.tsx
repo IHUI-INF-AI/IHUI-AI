@@ -83,7 +83,7 @@ export default function LoginPopup({
             <button
               type="button"
               onClick={() => onLogin?.('phone')}
-              className="w-full rounded-md bg-primary px-4 py-2.5 text-sm text-primary-foreground hover:bg-primary/90"
+              className="w-full rounded-md bg-cta px-4 py-2.5 text-sm text-cta-foreground hover:bg-cta/90"
             >
               手机号登录
             </button>
