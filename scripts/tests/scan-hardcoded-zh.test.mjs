@@ -371,5 +371,49 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
     }
   })
 
+  // ─── 16. 内容文案豁免声明:必须"有理由 + 在文件头 + 可见报数"三件事同时成立 ───
+  // 2026-09-24 立:门 70 的结论把"确属内容文案"写成一种真实情形,却只给了
+  // "调高基线"这一条被 AGENTS 明令禁止的出口 ⇒ 这类文件只能恒红或逼人来一句 --no-verify。
+  // 三道约束一一钉死:无理由不生效、躲在第 40 行之后不生效、生效必须逐文件报出命中数。
+  test('内容文案豁免:声明式出口只在有理由且位于文件头时生效,且必须可见报数', () => {
+    const REASON = '通知与工单通道没有 i18n 运行时,本文件文本即对外 payload'
+    const body = (header) => [header, 'export const HANDOFF = {', "  title: '失败诊断交接单',", "  copy: '复制交接单',", '}'].join('\n')
+
+    // ① 正向:声明 + 长理由 → 不计命中,且如实报"有文件被豁免"与逐文件命中数
+    const r1root = createTempProject()
+    try {
+      writeFile(r1root, 'apps/web/app/page.tsx', body(`// i18n-content-exempt-file: ${REASON}`))
+      const r = runScript([], { cwd: r1root })
+      assert.match(r.stdout, /硬编码中文行数:\s*0/, '声明生效时不得计入待办命中')
+      assert.match(r.stdout, /内容文案豁免/, '必须可见地报出"有文件被豁免",不得静默')
+      assert.match(r.stdout, /page\.tsx \(2 处\)/, '必须逐文件给出被放行的命中数')
+    } finally {
+      rmSync(r1root, { recursive: true, force: true })
+    }
+
+    // ② 反例:空标记 → 不生效(防"写一行注释就白免")
+    const r2root = createTempProject()
+    try {
+      writeFile(r2root, 'apps/web/app/page.tsx', body('// i18n-content-exempt-file:'))
+      const r = runScript([], { cwd: r2root })
+      assert.match(r.stdout, /硬编码中文行数:\s*2/, '无理由的标记不得生效')
+      assert.doesNotMatch(r.stdout, /内容文案豁免/, '未生效时不得报成已豁免')
+    } finally {
+      rmSync(r2root, { recursive: true, force: true })
+    }
+
+    // ③ 反例:声明躲到命中行旁边(第 40 行之后) → 不生效
+    const r3root = createTempProject()
+    try {
+      const pad = Array.from({ length: 45 }, (_, i) => `const pad${i} = ${i}`).join('\n')
+      writeFile(r3root, 'apps/web/app/page.tsx', `${pad}\n// i18n-content-exempt-file: ${REASON}\nexport const tail = '复制交接单'\n`)
+      const r = runScript([], { cwd: r3root })
+      assert.match(r.stdout, /硬编码中文行数:\s*1/, '声明必须在文件头;躲在尾部不得生效')
+      assert.doesNotMatch(r.stdout, /内容文案豁免/, '同上:未生效就不该出现豁免段')
+    } finally {
+      rmSync(r3root, { recursive: true, force: true })
+    }
+  })
+
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
