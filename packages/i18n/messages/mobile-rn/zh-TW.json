@@ -410,6 +410,7 @@
     "budgetUsedTokens": "已用 {used} / {limit} tokens",
     "budgetResetTomorrow": "明日 0 點重置",
     "budgetTier": "{tier} 檔",
+    "more": "更多",
     "viewMore": "查看更多",
     "close": "關閉",
     "delete": "刪除",
