@@ -54,6 +54,13 @@ function root(): HTMLElement {
   return document.querySelector('[data-image-preview-total]') as HTMLElement
 }
 
+/** 画廊夹具按索引取用:先验形再用(noUncheckedIndexedAccess 下裸索引是 undefined) */
+function galleryAt(index: number): (typeof GALLERY)[number] {
+  const item = GALLERY[index]
+  if (!item) throw new Error(`setup failed: 画廊没有第 ${index + 1} 张`)
+  return item
+}
+
 describe('D64 ② 图片预览器装车', () => {
   beforeEach(() => cleanup())
   afterEach(() => {
@@ -77,7 +84,7 @@ describe('D64 ② 图片预览器装车', () => {
   })
 
   it('多图:翻页循环由 pageImage(wrap) 决定 —— 末张下一张回首张,首张上一张回末张', () => {
-    render(<FilePreview url={GALLERY[0].url} type="image" gallery={GALLERY} />)
+    render(<FilePreview url={galleryAt(0).url} type="image" gallery={GALLERY} />)
     fireEvent.click(screen.getByRole('button', { name: 'imagePreview.next' }))
     expect(root().getAttribute('data-image-preview-index')).toBe('1')
     expect(document.querySelector('[data-image-counter]')?.textContent).toBe(
@@ -93,7 +100,7 @@ describe('D64 ② 图片预览器装车', () => {
   })
 
   it('缩放档位:1 → in 得 1.25;连 out 到底钳在 0.5 不再降(端点不循环)', () => {
-    render(<FilePreview url={GALLERY[0].url} type="image" gallery={GALLERY} />)
+    render(<FilePreview url={galleryAt(0).url} type="image" gallery={GALLERY} />)
     expect(document.querySelector('[data-image-zoom-label]')?.textContent).toBe('100%')
     fireEvent.click(screen.getByRole('button', { name: 'imagePreview.zoomIn' }))
     expect(document.querySelector('[data-image-zoom-label]')?.textContent).toBe('125%')
@@ -122,7 +129,7 @@ describe('D64 ② 图片预览器装车', () => {
       configurable: true,
     })
 
-    render(<FilePreview url={GALLERY[0].url} type="image" gallery={GALLERY} />)
+    render(<FilePreview url={galleryAt(0).url} type="image" gallery={GALLERY} />)
     fireEvent.click(screen.getByRole('button', { name: 'imagePreview.copy' }))
     await waitFor(() => {
       expect(
@@ -154,7 +161,7 @@ describe('D64 ② 图片预览器装车', () => {
       if (this instanceof HTMLAnchorElement) clicks.push(this.getAttribute('download') ?? '')
       // 不委托实现:jsdom 的锚点 click 会触发 "not implemented" 噪音
     }
-    render(<FilePreview url={GALLERY[1].url} type="image" gallery={GALLERY} galleryIndex={1} />)
+    render(<FilePreview url={galleryAt(1).url} type="image" gallery={GALLERY} galleryIndex={1} />)
     fireEvent.click(screen.getByRole('button', { name: 'imagePreview.save' }))
     expect(clicks).toEqual(['b.png'])
     expect(
