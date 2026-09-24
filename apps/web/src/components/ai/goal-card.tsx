@@ -38,6 +38,21 @@ const STATUS_KEY: Record<GoalStatus, string> = {
   done: 'statusDone',
 }
 
+/**
+ * D89 ③(2026-09-24):goal 成就耗时条格式化。
+ * 数据面:`useGoalStore` 的 `createdAt`(setGoal 时落定)与 `updatedAt`
+ * (setStatus('done') 时刷新,见 stores/goal.ts)——`updatedAt - createdAt`
+ * 即"达成目标耗时",无需新契约字段。单位串语言中立(h/m/s)。
+ */
+function formatGoalDuration(ms: number): string {
+  const sec = Math.max(0, Math.floor(ms / 1000))
+  const min = Math.floor(sec / 60)
+  const h = Math.floor(min / 60)
+  if (h > 0) return `${h}h ${min % 60}m`
+  if (min > 0) return `${min}m ${sec % 60}s`
+  return `${sec}s`
+}
+
 export function GoalCard() {
   const t = useTranslations('goalCard')
   const goal = useGoalStore((s) => s.goal)
@@ -97,6 +112,21 @@ export function GoalCard() {
           {t(STATUS_KEY[goal.status])}
         </span>
       </div>
+
+      {/* D89 ③:done 态成就耗时条(数据面=createdAt/updatedAt 差值) */}
+      {goal.status === 'done' && (
+        <div
+          data-testid="goal-achieved-time"
+          className="flex items-center gap-1.5 rounded-md bg-primary/5 px-2 py-1 text-xs text-primary"
+        >
+          <CheckCircle2 className="h-3 w-3 shrink-0" />
+          <span>
+            {t('achievedInTime', {
+              totalTime: formatGoalDuration(goal.updatedAt - goal.createdAt),
+            })}
+          </span>
+        </div>
+      )}
 
       {/* 进度条 + ±10 */}
       <div className="space-y-1.5" data-testid="goal-progress">
