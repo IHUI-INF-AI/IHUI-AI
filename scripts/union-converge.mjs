@@ -32,6 +32,9 @@
  *   node scripts/union-converge.mjs                  # 只报告(零副作用)
  *   node scripts/union-converge.mjs --apply          # 落地合并(幂等)
  *   node scripts/union-converge.mjs --theirs <sha>   # 指定目标(默认 origin/<当前分支>)
+ *   node scripts/union-converge.mjs --take-ours <path> [--take-ours <path>]...
+ *       # 两侧同改且**能证明对侧那一版在本树必红**时,声明该路径取本侧。
+ *       #   必须逐条附取证(跑过对侧版的结果),且会出现在输出与合并提交信息里。
  *   node scripts/union-converge.mjs --self-test      # 真临时仓取证(含"选边必判失败"反向对照)
  * 退出码:0 = 无需合并或已落地且复核干净;1 = 判据不过/两侧同改冲突需人工/CAS 失败;2 = 脚本自身异常。
  */
@@ -241,7 +244,7 @@ export function unionLines(oursText, theirsText) {
  *  而且把夹具写进仓库树内还会让 git 的 toplevel 向上逃逸。
  *  返回 needHuman(冲突/二进制/取不到 mode ⇒ 交人工)与 violations(两侧同改的丢行断言),
  *  两者都在本函数里算:归并结果的内容此刻已在手上,不必再派生一次 git 去重读。 */
-export function buildUnion(base, ours, theirs, cwd = ROOT) {
+export function buildUnion(base, ours, theirs, cwd = ROOT, takeOurs = new Set()) {
   const scratch = mkScratch('union-idx')
   const idx = join(scratch, 'index')
   try {
@@ -272,6 +275,7 @@ export function buildUnion(base, ours, theirs, cwd = ROOT) {
     const mergedClean = []
     const skippedDeletes = []
     const needHuman = []
+    const keptOurs = []
     const violations = []
     const touchedOurs = new Set(diffNames(base, ours, cwd))
     for (const p of diffNames(base, theirs, cwd)) {
@@ -290,6 +294,16 @@ export function buildUnion(base, ours, theirs, cwd = ROOT) {
         continue
       }
       // 两侧都动过:旧写法在这里"整文件取对侧",即静默丢掉本侧改动 —— 必须走真三方
+      //
+      // 但"真三方"只会在两侧改动互相重叠时报冲突,而**报冲突不等于必须交人工**:
+      // 若本树的内容已经让对侧那一版判据必红(实测:对侧留着"brand 里不得再有 CTA 档"
+      // 的回归锁,而 design-tokens 只有本侧改过、合并树必然含 brand.cta ⇒ 那条锁 100% 失败),
+      // 那么"取本侧"不是选边,而是被内容强制的唯一解。此判断不能悄悄做 —— 必须由操作者
+      // 显式声明 --take-ours <path>,并写进合并提交信息与输出,留下可追责的取证入口。
+      if (takeOurs.has(p)) {
+        keptOurs.push(p)
+        continue
+      }
       const mode = modeOf(ours, p, cwd)
       if (mode !== '100644' && mode !== '100755') {
         needHuman.push({
@@ -334,6 +348,7 @@ export function buildUnion(base, ours, theirs, cwd = ROOT) {
       mergedClean,
       skippedDeletes,
       needHuman,
+      keptOurs,
       violations,
     }
   } finally {
@@ -388,9 +403,9 @@ function isAncestor(a, b, cwd) {
   )
 }
 
-export function plan(ours, theirs, cwd = ROOT) {
+export function plan(ours, theirs, cwd = ROOT, takeOurs = new Set()) {
   const base = git(['merge-base', ours, theirs], cwd)
-  const built = buildUnion(base, ours, theirs, cwd)
+  const built = buildUnion(base, ours, theirs, cwd, takeOurs)
   // needHuman 同时进 bad:任何只看 bad 的调用方(含 git-sync-converge 之外的使用者)都不可能
   //   把一枚含冲突文件的树落地。冲突详情仍单独留清单,报告要点名到"是哪个文件"。
   const blocked = built.needHuman.map((h) => `${h.path} 需人工判(${h.kind}):${h.detail}`)
@@ -577,12 +592,16 @@ async function main() {
   if (argv.includes('--self-test')) return selfTest()
   const apply = argv.includes('--apply')
   const ti = argv.indexOf('--theirs')
+  // --take-ours <path>(可重复):仅在"两侧同改且能证明对侧那一版在本树必红"时使用。
+  //   它不隐藏任何事:输出会逐条列出,合并提交信息里也带同一份清单(见 msg 拼装处)。
+  const takeOurs = new Set()
+  for (let i = 0; i < argv.length; i++) if (argv[i] === '--take-ours' && argv[i + 1]) takeOurs.add(argv[++i])
   const t = resolveTargets(ti >= 0 ? argv[ti + 1] : '')
   if (t.skip) {
     console.log(`[union-converge] ${t.skip} ⇒ 无需合并`)
     process.exit(0)
   }
-  const p = plan(t.head, t.theirs)
+  const p = plan(t.head, t.theirs, ROOT, takeOurs)
   console.log(
     `[union-converge] ${apply ? 'APPLY' : 'CHECK ONLY'} base=${p.base.slice(0, 11)} ours=${t.head.slice(0, 11)} theirs=${t.theirs.slice(0, 11)} / 取对侧 ${p.tookTheirs.length} 路径 / 两侧同改三方归并 ${p.mergedClean.length} / 需人工 ${p.needHuman.length} / 对侧删除不传播 ${p.skippedDeletes.length} / 活文档行 union`,
   )
