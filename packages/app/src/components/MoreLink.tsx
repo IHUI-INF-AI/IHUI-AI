@@ -42,7 +42,7 @@ const MAX_FONT_MULTIPLIER = 1.4
  * 于是用户在系统里调大字号后,文字变大、箭头不动 —— 换掉字形载体并不消除这一半病因,
  * 固定 12dp 的 SVG 同样会跑偏,所以倍率必须同时喂给 `maxFontSizeMultiplier` 与图标尺寸。
  */
-function useFontMultiplier(): number {
+export function useFontMultiplier(): number {
   const raw = PixelRatio.getFontScale()
   if (!Number.isFinite(raw) || raw <= 0) return 1
   return Math.min(Math.max(raw, 1), MAX_FONT_MULTIPLIER)

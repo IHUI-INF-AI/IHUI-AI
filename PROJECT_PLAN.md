@@ -2677,7 +2677,7 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
 - [x] ✅(2026-09-23) **D72 Worktree 生命周期对话流卡(G-99)**:我方 §12d 早已把 worktree 用作并行会话隔离,**但用户侧完全不可见**。补:创建中/已创建/初始化失败/**超时(带"请检查仓库状态")**/`此任务的 Worktree 已被清理以释放磁盘空间。`/恢复中/已恢复/无法恢复 八态卡,并给出磁盘回收与恢复入口。**验收**:八态用例 + 与 §12d worktree 收编流程(`cherry-pick`→`worktree remove`→`prune`)状态一致 + 不违反单写者原则 __收口(2026-09-23):worktree-lifecycle(八态唯一真相源/穷尽 switch 零 default/§12d 收编三阶段映射/单写者守卫)+ worktree-card(不取数,onAction 注入)+ ai.pane.worktree 17 键×5 语言;shared 31 + web 17 全绿;剩余=web 侧无 worktree 数据面,事件构造待另票__
 - [x] ✅(2026-09-23)  **D72 Worktree 生命周期对话流卡(G-99)**:我方 §12d 早已把 worktree 用作并行会话隔离,**但用户侧完全不可见**。补:创建中/已创建/初始化失败/**超时(带"请检查仓库状态")**/`此任务的 Worktree 已被清理以释放磁盘空间。`/恢复中/已恢复/无法恢复 八态卡,并给出磁盘回收与恢复入口。**验收**:八态用例 + 与 §12d worktree 收编流程(`cherry-pick`→`worktree remove`→`prune`)状态一致 + 不违反单写者原则 __收口(2026-09-23):worktree-lifecycle(八态唯一真相源/穷尽 switch 零 default/§12d 收编三阶段映射/单写者守卫)+ worktree-card(不取数,onAction 注入)+ ai.pane.worktree 17 键×5 语言;shared 31 + web 17 全绿;剩余=web 侧无 worktree 数据面,事件构造待另票__
 - [ ]（进行中）**D73 多任务窗格(G-100)**:向右/向下拆分、最大化还原、**联动调整相邻窗格**、空窗格"从侧栏拖入一个任务"、Fork 失败提示。落点在既有 `ai-side-panel` + `work-panel` 之上做分屏容器,**禁止**新建第二套会话承载体系(与 D52/D68 协同)。**验收**:拆分/拖入/Fork 失败三用例 + 拖拽复用 D22 已建的 `application/x-ihui-conversation` 通道
-  - **D73 进度(2026-09-24,判定层+布局件+用例已入库,宿主挂载未闭环)**:窗格树唯一真相源 `packages/shared/src/chat/multi-pane.ts`(35 例) + 布局件 `apps/web/src/components/ai/pane-split-container.tsx` + `apps/web/src/stores/pane-split.ts`(组件 21 例,含 D22 通道类型串断言与 Fork 失败按判定层键渲染) + 词包 `ai.pane.multiPane` 14 键 × 5 语言。建票时抓到四处静默缺陷并当场修:①分隔条 `totalPx` 写死为 `1` ⇒ 拖 1px 等于 100%,改 `getBoundingClientRect()` 实测且量不到不换算;②窗格 id 来自模块自增计数器 ⇒ 服务端/客户端必不同 = hydration mismatch,改 `ROOT_PANE_ID` 注入式建树并钉死"静态渲染两次逐字相同";③关掉"正在最大化"的窗格会留悬空 `maximizedPaneId`,新增 `closePaneInLayout`;④最后一格仍渲染关闭钮(死控件)。**未闭环主体与解阻判据**:`apps/web/src/components/ai/ai-side-panel.tsx` 有并行会话 D43 VoiceNote 的未提交改动(其 `<VoiceNote />` 恰在待搬迁的 113 行业务体内),按 §12b 不重写他人主体逻辑,挂载 hunk 已写到 `.ihui-agent/tmp/d73-mount/README.md` 待该文件收尾后实施;该 hunk 属结构级重构,按 §17 落地时须浏览器四态自验。另登记两条数据面边界(非本票欠做):`useChatStore.conversationId` 仍是全局单例 ⇒ 第二格只能承载标记;仓内无会话级 fork 路由 ⇒ "真复制一份会话"属 §24 需 owner 确认的新增能力。
+  - **D73 进度(2026-09-24,判定层+布局件+用例已入库,宿主挂载未闭环)**:窗格树唯一真相源 `packages/shared/src/chat/multi-pane.ts`(35 例) + 布局件 `apps/web/src/components/ai/pane-split-container.tsx` + `apps/web/src/stores/pane-split.ts`(组件 21 例,含 D22 通道类型串断言与 Fork 失败按判定层键渲染) + 词包 `ai.pane.multiPane` 14 键 × 5 语言。建票时抓到四处静默缺陷并当场修:①分隔条 `totalPx` 写死为 `1` ⇒ 拖 1px 等于 100%,改 `getBoundingClientRect()` 实测且量不到不换算;②窗格 id 来自模块自增计数器 ⇒ 服务端/客户端必不同 = hydration mismatch,改 `ROOT_PANE_ID` 注入式建树并钉死"静态渲染两次逐字相同";③关掉"正在最大化"的窗格会留悬空 `maximizedPaneId`,新增 `closePaneInLayout`;④最后一格仍渲染关闭钮(死控件)。**未闭环主体与解阻判据**:`apps/web/src/components/ai/ai-side-panel.tsx` 有并行会话 D43 VoiceNote 的未提交改动(其 `<VoiceNote />` 恰在待搬迁的 113 行业务体内),按 §12b 不重写他人主体逻辑,挂载 hunk 已写到 `.ihui-agent/tmp/d73-mount/README.md` 待该文件收尾后实施;该 hunk 属结构级重构,按 §17 落地时须浏览器四态自验。另登记两条数据面边界(非本票欠做):`useChatStore.conversationId` 仍是全局单例 ⇒ 第二格只能承载标记;~~仓内无会话级 fork 路由 ⇒ "真复制一份会话"属 §24 需 owner 确认的新增能力~~ **这句是错的,已就地更正(2026-09-25 00:3x 实测)** —— 会话级分叉的三层早已入库:端点 `apps/api/src/routes/chat.ts:843` `POST /conversations/:id/branch`、客户端 `packages/api-client/src/endpoints/chat.ts:247` `branchConversation()`、DB 事务 `apps/api/src/db/chat-queries.ts:844` `branchConversationFrom`(W17 2026-09-14 起就把 `forkedFromMessageId`/`forkedFromMessageCount`/`forkedAt` 写进 metadata 供分支树溯源),web 消费点 `apps/web/src/hooks/use-chat/send-message.ts:1360`。**后果不轻**:我据此错误前提向 owner 发起的 §24 提问里,"会话级 Fork"这一项**并非新增能力**,owner 实际批准的是一个已存在的功能;教训入账:**登记"仓内无 X"之前必须正向 grep X 的实现面(端点/客户端/DB 三层各查一次),不能只 grep 一个动词拼写**(`fork` 在 `routes/chat.ts` 零命中而 `branch` 才是本仓词汇 —— 否定式断言只查一种拼写就下结论,是本项目反复出现的那类自伤)。
   - **D64①⑤ + D73 Fork 的 §24 授权已到手(2026-09-24 18:2x,owner 三项全放行)**:**①按日积分消耗聚合**、**⑤反馈结构化落库**、**D73 会话级 Fork**(真复制一份会话)三项新增对外能力经 owner 显式批准开工。**执行序受并行占用约束,不是遗漏**:⑤ 的 `/messages/feedback` handler 位于 `apps/api/src/routes/chat.ts`,其表结构位于 `packages/database/src/schema/chat.ts` + `drizzle/meta/_journal.json` + 一枚未提交的 `20260924100000_chat_history_projection.sql` —— 这四处此刻**全部被并行会话的 chat-history-projection 迁移占用**,按 §12b/§12d 不得抢同一文件,故 ⑤ 与其迁移必须等该迁移入库后再动(解阻判据:`git status --porcelain` 对这四个路径为空且 `packages/database/drizzle/` 内该 .sql 已被跟踪);① 走**新建** `apps/api/src/routes/credits-usage.ts` + service,不触 schema / journal,可与上述在途并行,已先行开工。**本条只登记授权与排程,不代表任何一项已实现。**
 - [x] ✅(2026-09-23 定档不开工) **D74 Workspace Actions 一键动作(G-101)**:工作区级可配置一键命令(名称+命令+13 类图标枚举、数量上限、空值校验、保存/删除/运行失败四组反馈、`这个 Action 已不存在，请关闭后重试。` 陈旧态)。复用 automations 与 slash 命令基建,**不得**另起一套动作存储。**验收**:CRUD + 上限 + 陈旧态用例 + 五语言词表
   - **D74 自证定档(第 70 轮)**:automations 基建实测为 `userAutomations` 表 + agent-automation-scheduler(定时/事件触发的**用户级 agent 自动化**),其触发模型是 cron/事件,不是"手动一键";且为用户级无 workspace 维度。复用该基建承载 Workspace Actions 需先拍板两件设计:① 存储扩展(`scope=user|workspace` + workspaceId 列,或兄弟表——台账明令不得另起存储,故必须扩列,涉既有执行语义回归);② 一键动作的执行模型(工作区级命令以什么身份/在哪跑,与 automations 的 agent 会话执行是否同通道)。两件定论前实施 = 在错误抽象上叠 UI。
@@ -7225,6 +7225,12 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
   **没有任何逃生 env** ⇒ 在该状态下**任何**提交都会被门 15 硬拦。本批 3 枚提交因此用 `--no-verify`，
   并把与我改动相关的门按权威入口逐道补跑留退出码：`check-sse-dispatch-parity` 0 / `check-gate-wiring` 0
   (R4 未点名 0) / `check-watermark-coverage --no-fix` 0 / `check-no-visible-spawn` 0。
+  > ⚠️ **本条"任何提交都会被门 15 硬拦"已于 2026-09-25 实测推翻,勿再据此跳门**:`node scripts/check-api-migration-completeness.mjs`
+  > 全量 **exit 0**(29 通过 / 0 警告 / 0 错误),那 5 个端点探测位于 `[8/8]`,而它在 `errors` 汇总**之后**执行、
+  > 只打印不判红(源码 `:586` 无条件 `process.exit(0)`),且 `[1/6]` 审计报告存在性在 `--staged` 下当本次提交不含
+  > `PROJECT_PLAN.md` 时整段跳过。即"服务没起 ⇒ 门 15 拦提交"这条因果在本机**不成立**,而它已被两批引用为
+  > `--no-verify` 的理由(见本节与本节末段)—— 拿一条不存在的拦阻当跳门依据,等于白废约 110 道守门。
+  > 今后要跳门前必须自己跑一次该门取退出码,不得转引本行。
   ② **`safe-commit.mjs` 在 HEAD 高频推进下会把新增文件的暂存丢掉**：钩子单轮约 2-4 分钟，其间别人的
   Step① `git reset HEAD` 一冲，本方 `git commit -- <pathspec>` 就报 `pathspec did not match`，而它的重试
   只重跑 commit **不重跑 add** ⇒ 连撞两次(均未误提交任何内容)。可用旁路：`GIT_INDEX_FILE` 临时索引 +
@@ -7263,3 +7269,53 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
   同样只能 `--no-verify` 并自行补跑相关门。真盘上 `auth.json`/`ihui-chat` 何时转成密文，取决于
   **线上 bundle 部署 + 桌面端下次启动**；`pnpm check:desktop-cache-plaintext` 每次跑都会点名，
   在转绿之前它不会静默。
+  > ⚠️ 上面"守门 15 没有任何逃生 env ⇒ 只能 `--no-verify`"这半句同样已被 2026-09-25 实测推翻(门 15 全量 exit 0),
+  > 完整取证与"跳门前必须自跑一次该门取退出码"的要求见本节上方对 ① 的并注;保留原文只为不丢行(§12)。
+
+## O60 守门 91 的取材口径改判 HEAD/索引 blob —— 它按磁盘判，产出的正是最坏的那一类错（2026-09-25 立并完成 ✅）
+
+- [x] ✅(2026-09-25)**门 91 `check-theme-prop-wiring.mjs` 是全链最后一道按磁盘内容判定的主题/样式门**：
+  `readSrc()` 走 `readFileSync`，全量与 `--staged` 两个面都读工作树，而 70/77/83/94/98/101 早已统一为
+  「全量判 HEAD blob、`--staged` 判索引 blob、`--worktree` 仅逃生舱」。本票把它对齐。
+
+  **为什么要再动一次**:共享工作树常年滞后 HEAD、且混着并行会话的半编辑态,按磁盘判会在两种相反的错误之间来回跳。
+  开工当场就撞上一例:`node scripts/check-theme-prop-wiring.mjs` 报 `ChatScreen.tsx:2279 漏传 colorScheme`,
+  而 `git show HEAD:` 同一渲染点**有** `colorScheme={resolvedTheme}` —— 红的是别人未提交的那 88 行改动,
+  不是任何一次提交的内容。按旧口径,这个红会落到**下一个碰该文件的人**头上。
+
+  **改后口径**:`makeFaceReader(face, root)` 单一取材出口;`head` 面 `git ls-tree -r HEAD` + `cat-file --batch`,
+  `staged` 面 `git ls-files` + `git diff --cached` + 同一批 `cat-file`。**枚举与内容必须同面同轮**
+  (混面会产出自洽但基准错位的绿,守门 101 同一条理由);git 面**必须先 prefetch 再 read**,
+  未预取即抛 `Undetermined` —— 真仓 ~490 个渲染点文件若逐文件派生 git 就是近 500 次进程创建(§5b fork 风暴同型)。
+  取不到输入 ⇒ **exit 2「无法判定」**,既不冒红也不记绿;`--staged --worktree` 同给 ⇒ 判死(两面互斥,选哪边都让另一边成假绿);
+  全量面枚举到 0 个 .tsx ⇒ 判死(空清单 = 恒绿);`--root` 是给测试的显式注入位(§22d:只改 cwd 会被判据忽略,
+  "扫夹具"静默变成"扫真仓"),而 `--update-baseline` 对非默认根一律拒写(拿夹具覆盖真账)。
+
+  **取证**:
+  - `--self-test` 新增 F0–F4 六条端到端对照,在 `mkScratch` 临时 git 仓里造"索引≠磁盘"的真实现场:
+    **F1** 索引带违规而盘上已改好 ⇒ staged 必判红(旧口径此处判 0 = 假绿,违规照样进 HEAD);
+    **F2** 索引合规(且与 HEAD 不同,保证暂存集非空、"绿"不来自空扫)而盘上有他人半编辑 ⇒ staged 必判绿
+    (旧口径此处判 1 = 假红逼跳门);**F3** head 面与 staged 面在同一现场给出**不同**结论 ⇒ 证明两面各自独立取材,
+    不是其中一面偷偷回落磁盘;**F4** 未 prefetch 就 read / 未知面 ⇒ 必须抛。
+  - **变异自证 3/3 全红在目标用例**(不是"随便红一下"):M1 让 staged 走磁盘分支 ⇒ 红在 F1;
+    M2 让未预取静默返回 null ⇒ 红在 F4;M3 去掉未知面判死 ⇒ 红在 F4 未知面条。
+    取证脚本 `.ihui-agent/tmp/gate91-mutation-proof.mjs`(临时件,不入库)。
+  - 真仓三面实测:**head 489 文件 / 214 组件 / 违规 0 ⇒ exit 0**(开工时同一命令按磁盘判是 exit 1)、
+    **worktree 489 文件 / 违规 1**(即上面那条他人未编辑态)、`--staged` 暂存集为空 ⇒ 如实"跳过"、
+    `--staged --worktree` ⇒ exit 2。`--json` 加 `face`/`faceLabel` 两字段,且横幅在 `--json` 下不打
+    (否则 `JSON.parse(stdout)` 被自己打断 —— 这条是我加横幅时自己引入的,已修并复测)。
+  - 配套:镜像测试 `scripts/tests/check-theme-prop-wiring.test.mjs` 6/6、eslint 0 error、prettier 已跑、
+    `watermark.mjs verify` 10466/10466 完好、`check-no-visible-spawn` 生产 0 违规、`check-git-read-timeout` 判红 0 处。
+  - **扫描面对账**:head 与 worktree 两面同为 489 文件 —— 本票不是靠缩小扫描面变绿的。
+
+- **交他人处置(不是本票文件,按 §12 不代改)**:`apps/mobile-rn/src/screens/ChatScreen.tsx` 当前工作树里
+  `<SharedChatScreen>` 的 `colorScheme={resolvedTheme}` **被摘掉了**(HEAD:2237 有、工作树:2279 无),
+  后果正是本门立项时记录的那一型:该屏整棵子树静默锁死浅色档案,而 app chrome 跟真主题走 ⇒ 同一屏两套档案。
+  持有该文件未提交改动的会话,一旦 stage 就会被门 91 判红(这次红是**真红**,判的是他的索引内容)。
+  若那处摘除属有意重构,须换 `theme-wiring-exempt: <原因>` 行内标记说明,不得静默。
+
+- **本票未做的一件事(如实登记,不扩面)**:仓库现在有三份各自实现的 `makeFaceReader`
+  (`check-error-code-coverage.mjs` / `check-lock-manifest-consistency.mjs` / 本门)。第三份是照着第二份的
+  形态写的而非抽公共库 —— 抽库要连改动过那两门的镜像测试,与本票"对齐一门"的范围不同,且那两门眼下正被
+  并行会话高频改。登记为后续可合并项,**不得**据此认为"重复实现三份"是终态。
+
