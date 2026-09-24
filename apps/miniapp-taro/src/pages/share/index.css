@@ -101,14 +101,17 @@
   color: var(--color-muted-foreground);
 }
 .share-rank-more {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
   padding: 20rpx 28rpx;
   border-top: 1rpx solid var(--color-border);
   text-align: center;
 }
 .share-rank-more-text {
   font-size: 24rpx;
-  color: var(--color-primary);
-  opacity: 0.8;
+  color: var(--color-muted-foreground);
 }
 
 /* ===== Tabs(对标原 TitleSwitch;视觉对齐 RN SquareScreen SingleTypeBar 分类胶囊:
