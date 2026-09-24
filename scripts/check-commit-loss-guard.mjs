@@ -32,7 +32,7 @@
  * 检查逻辑:
  *   1. git reflog --all --date=iso 最近 50 步
  *      → 含 'reset: moving to HEAD~' 或 'reset: moving to HEAD@{' → 告警
- *   2. git fsck --unreachable --no-reflogs
+ *   2. git fsck --connectivity-only --unreachable --no-reflogs
  *      → 含 'unreachable commit' 行 → 列出悬空 commit hash
  *   3. git tag -l "lost-commit/*" "backup/*"
  *      → 列出已 tag 备份的丢失 commit / 备份快照
@@ -271,7 +271,14 @@ function extractOriginalHashFromStash(subject) {
 
 function listUnreachableHashes() {
   // --no-reflogs: 不遍历 reflog(只检查悬空 commit 对象)
-  const out = run('git fsck --unreachable --no-reflogs 2>&1', { allowFail: true })
+  // --connectivity-only: 只走对象图连通性,不校验 tree/blob 内容 —— 本函数的判据
+  // 只看 `unreachable commit` 行,内容校验对它是纯开销。2026-09-24 本机实测(共享工作区,
+  // 4251 枚 lost-commit tag + partial 对象):完整模式 130,217ms / conn 模式 3,059ms,
+  // 而 unreachable commit=8/8、tree=775/775、blob=607/607、行类型集合(broken/to/unreachable/
+  // missing)**逐条相同** ⇒ 快 42.6 倍且判据零损失。
+  // 为什么值得为此改一行:完整 fsck 的 130 秒窗口横跨并发会话的 reset/tag 手术,
+  // 期间读到的正是一份**移动中的现场**;窗口越短,pre-commit 被并发态误判成红的概率越低。
+  const out = run('git fsck --connectivity-only --unreachable --no-reflogs 2>&1', { allowFail: true })
   if (!out) return []
   return out
     .split('\n')
@@ -481,7 +488,7 @@ function main() {
     }
     console.log(`\n  ${C.yellow}💡 reset 可能导致 commit 丢失(参见 AGENTS.md §22)。${C.reset}`)
     console.log(`     验证步骤:`)
-    console.log(`       1. ${C.cyan}git fsck --unreachable --no-reflogs${C.reset} 看悬空 commit`)
+    console.log(`       1. ${C.cyan}git fsck --connectivity-only --unreachable --no-reflogs${C.reset} 看悬空 commit(本机实测 3s;不带 --connectivity-only 的全量校验实测 130s,判据集合相同)`)
     console.log(`       2. ${C.cyan}git show <commit-hash>${C.reset} 确认内容`)
     console.log(
       `       3. 若需保留:${C.cyan}git tag lost-commit/<name> <hash> -m "lost via reset"${C.reset}`,
