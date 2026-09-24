@@ -68,11 +68,11 @@ export function ActivityBar() {
                 )}
               >
                 {isActive && (
-                  <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-sm bg-primary" />
+                  <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-sm bg-cta" />
                 )}
                 <item.icon className="h-5 w-5" />
                 {showBadge && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-sm bg-primary px-1 text-[9px] font-semibold leading-none text-primary-foreground">
+                  <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-sm bg-cta px-1 text-[9px] font-semibold leading-none text-cta-foreground">
                     {badgeCount > 99 ? '99+' : badgeCount}
                   </span>
                 )}
