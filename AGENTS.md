@@ -82,6 +82,13 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 
 - compact 紧凑、elegant 优雅。hover 用 subtle 颜色变化,**不要蓝色发光边框**。复用 `packages/ui-react` 的 Card/Button/Input/Dialog。每个页面 < 250 行。时间用 `Intl.DateTimeFormat`,头像用 initials。状态徽章:draft 灰 / published 绿。积分正数绿色,负数红色。
 
+### 品牌 CTA / 主按钮色同源(强制,2026-09-24 收口)
+
+- **唯一写法**:主按钮、选中胶囊、悬浮加号这类"品牌实底 + 其上文字",RN/共享包写 `brand.DEFAULT`(底)+ `brand.foreground`(文字)成对;CSS/类名侧用 `--color-primary` + `--color-primary-foreground`(小程序 `CategoryBar`/FAB 同值)。这两档在两主题下逐位同值(亮 `#000/#fff`、暗 `#fff/#000`),对账由守门 90 负责。
+- **禁止端内自立 CTA 档**:`brand.ctaFill` / `ctaText` 这类"浅色等于 web、深色另取一档"的混血键已全部删除,**不得再加回**。要调暗色主按钮的观感(例如觉得纯白刺眼),改 `tokens.css` 的 `.dark --color-primary` **一处**,web / 小程序 / RN 同时动;不得在某一端单独覆盖 —— 那正是"手机上改了 web 没改"的成因。
+- 真要新增品牌档:先在 `tokens.css` 落一个 CSS 变量,再到守门 90 的映射表登记依据;确属 RN 专属(如 `brand.dark` 品牌绿)才能进 `RN_ONLY_BRAND_KEYS` 并写明理由 —— 豁免项若已不存在同样算红(防清单腐烂)。
+- 悬空引用由 R3 直接拦(编译不一定红,运行时是 `undefined` 颜色)。并行会话的暂存区里若还残留 `tokens.brand.ctaFill/ctaText`,改法只有一行:`ctaFill` → `DEFAULT`、`ctaText` → `foreground`。
+
 ### 圆角单一源头(强制,2026-09-23 全端收口)
 
 - **唯一真相源**:`packages/design-tokens/src/radius.js` 的 `RADIUS_STEPS` = `xs 2 / sm 4 / md 6 / lg 8 / xl 12 / 2xl 16`(px;`DEFAULT`=8 对齐 web `--radius: 0.5rem`)。改档位只改这一处。`tailwind-preset.js` 必须写 `borderRadius: RADIUS_REM`,`tokens.css` / `app.css` 的 `--radius-*` 必须与之逐档同值。
@@ -1263,6 +1270,7 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 - **自写 popover data-state 守门**(无 id,check:all + `pnpm check:popover-trigger-data-state`): `scripts/check-popover-trigger-data-state.mjs`(warn/手动,--staged 才 blocking) —— 含 `createPortal(` 且不 import Radix 的文件必须手挂 `data-state` 属性(`classifyFile:111`),全量模式 WARN exit 0,`--staged` 新增违规 exit 1(`:209`);真跑(全量)rc=0(0s);无 --self-test;紧急跳过 `HUSKY_SKIP_POPOVER_DATA_STATE=1`(脚本自读 :47)。
 - **web 死 i18n key 审计别名 wrapper**(无 id,wiring 仅 template 层引用): `scripts/scan-web-dead-i18n-keys.mjs`(手动别名) —— 自身零判据:转发全部参数到 `scan-dead-i18n-keys.mjs --target=web` 并透传退出码(`:11-15` spawnSync,status 透传),实际判据/报告在统一入口(check:all 走 `--target all --exit 1`,CI 审计 workflow 跑其镜像测试);真跑 rc=0(3s,经委托链);无 --self-test,但镜像测试 node --test 真跑 rc=0(7 例)(其本体);无应急通道;⚠️门 89 判其接线为 template 弱接线,登记时勿当作独立闸。
 - **跨端主题透线对账**(91): `scripts/check-theme-prop-wiring.mjs`(blocking) —— packages/app 的主题驱动组件(形参解构含 `colorScheme` 且一律带 `= 'light'` 默认值)必须在每个 JSX 渲染点被**真的传参**:默认值就是"静默失效开关"，写死或漏传都不报错、typecheck 也不红。拦两类真事故形态 —— L1 调用方写死 `colorScheme="light"`(实测导航栏深色而页面体浅色，同一屏两套档案)、L2 漏传(当前 0 处，本门把它钉死在 0；刻意不把 213 处形参改成必填:无收益且会与并行会话在 213 个文件上对撞)。组件集**不靠手工清单**(清单过期正是上一道门漏判的原因)，改为扫 `packages/app/src` 导出组件名 + **import 解析**(含 alias / 默认导入 / 命名空间成员)，只有解析到 `@ihui/rn-app` 或包内相对路径才算共享主题组件 —— 端内同名自绘版(NavBar/TabBar/Carousel/UserInfoCard)因此不会误判；`{...spread}` 转发的渲染点单列「不确定」如实报数(不静默放过、也不误判为红)。实测真仓 `--staged` exit 0；应急跳过 `HUSKY_SKIP_THEME_PROP_WIRING=1`。
+
 ### 守门手动触发 / 紧急跳过抽查
 
 - **手动触发全量守门**:`node scripts/guardian-runner.mjs --staged`(pre-commit 模式,传给所有脚本);不带 `--staged` 为全量扫描。
