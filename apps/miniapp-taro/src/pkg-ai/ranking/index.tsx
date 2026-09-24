@@ -25,11 +25,11 @@ interface ListResponse {
 type FileType = 0 | 1 | 2 | 3 | 4
 
 const FILE_TABS = (tt: TtFn): { key: FileType; labelKey: string; fallback: string }[] => [
-  { key: 0, labelKey: 'ranking.tabAll', fallback: tt('common.all', '全部') },
-  { key: 1, labelKey: 'ranking.tabText', fallback: tt('aigc.list.catText', '文本') },
-  { key: 2, labelKey: 'ranking.tabAudio', fallback: tt('aigc.list.catAudio', '音频') },
-  { key: 3, labelKey: 'ranking.tabImage', fallback: tt('aigc.list.catImage', '图片') },
-  { key: 4, labelKey: 'ranking.tabVideo', fallback: tt('aigc.list.catVideo', '视频') },
+  { key: 0, labelKey: 'common.all', fallback: tt('common.all', '全部') },
+  { key: 1, labelKey: 'aigc.list.catText', fallback: tt('aigc.list.catText', '文本') },
+  { key: 2, labelKey: 'aigc.list.catAudio', fallback: tt('aigc.list.catAudio', '音频') },
+  { key: 3, labelKey: 'aigc.list.catImage', fallback: tt('aigc.list.catImage', '图片') },
+  { key: 4, labelKey: 'aigc.list.catVideo', fallback: tt('aigc.list.catVideo', '视频') },
 ]
 
 const PAGE_SIZE = 10

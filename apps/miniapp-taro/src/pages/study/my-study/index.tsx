@@ -17,17 +17,17 @@ type TabKey = 'inProgress' | 'completed' | 'favorited'
 const TABS = (tt: TtFn): Array<{ key: TabKey; labelKey: string; fallback: string }> => [
   {
     key: 'inProgress',
-    labelKey: 'study.myStudy.tabs.inProgress',
+    labelKey: 'plaza.index.tabOngoing',
     fallback: tt('plaza.index.tabOngoing', '进行中'),
   },
   {
     key: 'completed',
-    labelKey: 'study.myStudy.tabs.completed',
+    labelKey: 'plaza.index.tabDone',
     fallback: tt('plaza.index.tabDone', '已完成'),
   },
   {
     key: 'favorited',
-    labelKey: 'study.myStudy.tabs.favorited',
+    labelKey: 'ai.agentDetail.favorited',
     fallback: tt('ai.agentDetail.favorited', '已收藏'),
   },
 ]
