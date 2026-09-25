@@ -144,8 +144,12 @@ test('真实取材抽查:HEAD 面能读到大 blob(>1MB 的那个语言包),证�
 // 所以这里不"顺手全改",而是**钉住不许再长**:数量只减不增,降了不更新基线也算提示。
 // 与守门 70/77 的棘轮同一取向 —— 存量债记账,新增债拦停。
 
-/** 基线由本票当次实测写入(扫 scripts/ 生产文件 315 个);调高它必须先在此说明理由。 */
-const BARE_GIT_BASELINE = 80
+/**
+ * 基线 = 当次实测真值(扫 scripts/ 生产文件)。调高它必须先在此说明理由。
+ * ⚠️ 这个数会随收口下降;下降时测试只提示不拦停,请在同一票里把基线一并下调。
+ * 历史:09-25 首量 80 → 修尺子(补 shell 串式与 spawnSync 两型)后真值 82 → 本批 8 道门收口后重定。
+ */
+const BARE_GIT_BASELINE = 82
 const SELF_BATCH_BASELINE = 9
 
 function productionScripts(root) {
@@ -165,9 +169,15 @@ function productionScripts(root) {
   return out
 }
 
-const bareGitCountOf = (text) =>
-  (text.match(/execFileSync\(\s*['"]git['"]/g) || []).length +
-  (text.match(/execSync\(\s*['"]git[\s'"]/g) || []).length
+/**
+ * 裸 git 派生的计数尺子。⚠️ 必须同时覆盖两个维度,少一个都会让棘轮"看起来在收口、实际没量到":
+ *  · 入口:`execFileSync` / `execSync` / `spawnSync` / `spawn` 四种(`git-push-guard` 用的就是 spawnSync);
+ *  · 形态:数组式 `execFileSync('git', […])` **和** shell 串式 `execSync('git status --porcelain')`
+ *    —— 后者 `git` 后面跟的是空格而不是引号,只匹配 `['"]git['"]` 会把它整类漏掉(实测本仓有大量这种写法)。
+ * 判据要覆盖自己想拦的那一种形态,否则分母骗人。
+ */
+const BARE_GIT_RE = /(execFileSync|execSync|spawnSync|spawn)\(\s*['"]git(?:\.exe)?(?=['"\s])/g
+const bareGitCountOf = (text) => (text.match(BARE_GIT_RE) || []).length
 
 function filesWith(root, predicate) {
   const hits = []
@@ -185,13 +195,34 @@ function filesWith(root, predicate) {
 
 test('棘尺本身不恒真:两个计数函数都能真抓到注入的样本', () => {
   assert.equal(bareGitCountOf("execFileSync('git', ['status'])"), 1)
+  // shell 串式:`git` 后面跟的是空格,只匹配 `['"]git['"]` 会整类漏掉(本仓大量存在)
+  assert.equal(
+    bareGitCountOf("execSync('git status --porcelain', { cwd })"),
+    1,
+    'shell 串式裸 git 必须被量到',
+  )
+  // 漏了这一型,`git-push-guard` 就会从分母里隐身 —— 四种派生入口都要认
+  assert.equal(
+    bareGitCountOf("spawnSync('git', ['cat-file'], { cwd })"),
+    1,
+    'spawnSync 裸 git 必须被量到',
+  )
+  assert.equal(bareGitCountOf('spawn(process.execPath, [s])'), 0, 'node 自身派生不得误报')
+  assert.equal(bareGitCountOf("execSync('gitk --everything')"), 0, '同前缀的别的程序不得误报')
   assert.equal(
     bareGitCountOf("execFileSync(GIT_BIN, ['status'])"),
     0,
     '走常量/走层的正确写法不得误报',
   )
+  assert.equal(
+    bareGitCountOf("execFileSync('git', ['a'])\nspawnSync('git', ['b'])"),
+    2,
+    '同文件多处分别计',
+  )
   const hasBatch = (s) => /cat-file.{0,4}--batch/.test(s)
   assert.equal(hasBatch("x = execFileSync(G, ['cat-file', '--batch'])"), true)
+  // `--batch-check` 同族(同样一次问一批对象的存在性/sha,同样有 stdio/maxBuffer 陷阱),必须计入
+  assert.equal(hasBatch("spawnSync('git', ['cat-file', '--batch-check'])"), true)
   assert.equal(hasBatch('const a = 1'), false)
 })
 
