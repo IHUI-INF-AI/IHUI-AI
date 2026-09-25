@@ -94,6 +94,14 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   browser_close_tab: 'toolBrowserCloseTab',
   browser_selfcheck: 'toolBrowserSelfcheck',
   browser_selfcheck_screenshot: 'toolBrowserSelfcheckScreenshot',
+  // 页面语义快照句柄族(ai-service 声明、浏览器扩展执行;与上面选择器族并列但不同族)
+  browser_page_snapshot: 'toolBrowserPageSnapshot',
+  browser_page_click: 'toolBrowserPageClick',
+  browser_page_type: 'toolBrowserPageType',
+  browser_page_select: 'toolBrowserPageSelect',
+  browser_page_hover: 'toolBrowserPageHover',
+  browser_page_press_key: 'toolBrowserPagePressKey',
+  browser_page_pick_at_point: 'toolBrowserPagePickAtPoint',
   // 电脑操控族(computer_*)
   computer_screenshot_screen: 'toolComputerScreenshotScreen',
   computer_mouse_click: 'toolComputerMouseClick',

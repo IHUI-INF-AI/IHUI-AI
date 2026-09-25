@@ -1,6 +1,6 @@
 {
   "version": "0.0.0",
-  "generatedAt": "2026-09-21T02:08:18.900Z",
+  "generatedAt": "2026-09-25T01:06:05.177Z",
   "dataClasses": [
     "compute",
     "scoped-read",
@@ -1175,7 +1175,9 @@
       "idempotencyRequired": false,
       "description": "浏览器自动化(可触达外部站点与真实账号)",
       "routes": [
-        "POST /api/browser/*"
+        "POST /api/browser/*",
+        "POST /api/agent-control/execute",
+        "GET /api/agent-control/status"
       ],
       "host": "ai-service",
       "tools": [
@@ -1194,7 +1196,14 @@
         "browser_selfcheck_screenshot",
         "browser_switch_tab",
         "browser_type_text",
-        "browser_wait_for_element"
+        "browser_wait_for_element",
+        "browser_page_snapshot",
+        "browser_page_click",
+        "browser_page_type",
+        "browser_page_select",
+        "browser_page_hover",
+        "browser_page_press_key",
+        "browser_page_pick_at_point"
       ],
       "rate": {
         "rpm": 30,
@@ -1584,6 +1593,13 @@
     "browser_switch_tab": "browser:operate",
     "browser_type_text": "browser:operate",
     "browser_wait_for_element": "browser:operate",
+    "browser_page_snapshot": "browser:operate",
+    "browser_page_click": "browser:operate",
+    "browser_page_type": "browser:operate",
+    "browser_page_select": "browser:operate",
+    "browser_page_hover": "browser:operate",
+    "browser_page_press_key": "browser:operate",
+    "browser_page_pick_at_point": "browser:operate",
     "computer_screenshot_screen": "computer:operate",
     "computer_mouse_move": "computer:operate",
     "computer_mouse_click": "computer:operate",

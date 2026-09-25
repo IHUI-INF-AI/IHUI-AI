@@ -41,6 +41,7 @@ import {
   statfsSync,
 } from 'node:fs'
 import { resolve } from 'node:path'
+import { catBatchCheck } from './lib/face-reader.mjs'
 
 const C = {
   red: '\x1b[31m',
@@ -261,19 +262,10 @@ const checkDanglingRefs = () => {
   let missing = new Set()
   if (shas.length) {
     try {
-      const out = spawnSync('git', ['-c', 'safe.directory=*', 'cat-file', '--batch-check'], {
-        input: shas.join('\n') + '\n',
-        encoding: 'utf8',
-        windowsHide: true,
-        maxBuffer: 64 * 1024 * 1024,
-        timeout: 300_000,
-      }).stdout
-      missing = new Set(
-        String(out)
-          .split(/\r?\n/)
-          .filter((l) => /\bmissing\b/.test(l))
-          .map((l) => l.split(' ')[0]),
-      )
+      // 收口到共用层:绝对路径 git + 显式 stdio + maxBuffer 三处陷阱不再各写一遍。
+      // 语义保持:任何取材失败 ⇒ 整段跳过(宁漏不误伤推送),与原 catch 分支一致。
+      const r = catBatchCheck(process.cwd(), shas)
+      missing = r.missing
     } catch {
       return { skipped: true }
     }

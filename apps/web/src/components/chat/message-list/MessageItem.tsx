@@ -41,6 +41,7 @@ import {
   VIEW_FAILURE_NAMESPACE,
   VIEW_FAILURE_ERROR_CODE_KEY,
 } from '@ihui/shared/utils/view-failure-taxonomy'
+import { FALLBACK_REASON_QUOTA_EQUIVALENT } from '@ihui/api-client'
 import { ArtifactCanvas, type Artifact } from '@/components/chat/artifact-canvas'
 import { ThinkingSection } from '@/components/ai/progress-sections/thinking-section'
 import { ToolCallSummaryCard } from '@/components/ai/progress-sections/tool-call-summary-card'
@@ -1064,6 +1065,24 @@ const MessageItem = React.memo(function MessageItem({
                 collapseLines={codeCollapseLines}
               />
             </ReplyAnnotationLayer>
+            {/* D33 消息级降级交代行:顶部 FallbackBanner 是瞬态,历史态由水合把 metadata.fallback
+                挂到消息上(见 stores/chat.ts 的 fallback 字段注释),词与横幅同源(chat ns 既有两键)。 */}
+            {!isUser && m.fallback && (
+              <p
+                data-testid={`message-fallback-${m.id}`}
+                className="px-3 pb-1 text-xs text-muted-foreground"
+              >
+                {m.fallback.reason === FALLBACK_REASON_QUOTA_EQUIVALENT
+                  ? t('fallbackNoticeQuota', {
+                      primary: m.fallback.primaryModel,
+                      backup: m.fallback.backupModel,
+                    })
+                  : t('fallbackNotice', {
+                      primary: m.fallback.primaryModel,
+                      backup: m.fallback.backupModel,
+                    })}
+              </p>
+            )}
             {/* #11 Citations 全链路(2026-09-13 立):引用溯源条 inline 到消息正文下方。
                 D64③ 起:无思考时该条已收进思考卡(同一集合只呈现一次),故此处让位。 */}
             {!refsRenderedInsideThinkingCard && m.citations && m.citations.length > 0 && (
