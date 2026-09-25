@@ -18,6 +18,7 @@ import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type { AppOrderStatus, OrderItem, OrderScreenProps, OrderTab } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 订单/Tab/Props 类型 re-export(单一来源 @ihui/types) */
 export type { AppOrderStatus, OrderItem, OrderScreenProps, OrderTab }
@@ -99,9 +100,7 @@ export function OrderScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('order.title')}</Text>
       </View>
 
@@ -222,7 +221,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 12,
       gap: 12,
     },
-    backText: { fontSize: 16, color: tk.text.medium },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     searchInput: {
       marginHorizontal: 10,

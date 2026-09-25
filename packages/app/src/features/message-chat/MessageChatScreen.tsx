@@ -16,6 +16,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 私聊消息(平台注入,字段对齐 mobile-rn MessageChatScreen ChatMsg) */
 export interface MessageChatMessage {
@@ -88,6 +89,7 @@ export function MessageChatScreen({
     return (
       <View style={styles.center}>
         <Text style={styles.error}>{error}</Text>
+        {/* back-label-exempt: 错误态/空态卡片内的按钮文案,或翻页/弹窗关闭动作 —— 此处「返回」是按钮文字而非页头箭头,换裸箭头反而不表意 until 2027-09-25 */}
         <TouchableOpacity style={styles.btn} onPress={onBack}>
           <Text style={styles.btnText}>{t('common.back')}</Text>
         </TouchableOpacity>
@@ -98,9 +100,7 @@ export function MessageChatScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.back}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title} numberOfLines={1}>
           {title}
         </Text>
@@ -161,7 +161,6 @@ function createStyles(tk: AppThemeTokens) {
     muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     error: { fontSize: 14, color: tk.error.text, marginBottom: 8, textAlign: 'center' },
     header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
-    back: { fontSize: 16, color: tk.text.secondary },
     title: { flex: 1, fontSize: 20, fontWeight: '600', color: tk.text.primary },
     list: { flex: 1 },
     empty: { paddingVertical: 40, alignItems: 'center' },
