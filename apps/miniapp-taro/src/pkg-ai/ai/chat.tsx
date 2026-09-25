@@ -49,6 +49,7 @@ import TaskStatusBar from './task-status-bar'
 import {
   appendCitations,
   appendSteerNotice,
+  appendTerminalDelta,
   backfillSteerNoticesFromMetadata,
   toSteerNotice,
   type AICardsData,
@@ -628,6 +629,17 @@ export default function ChatPage() {
               }))
               pushStreamActivity(t('ai.stream.terminal', { status: evt.command }))
             },
+            // D19(本票):terminal_delta 实时增量 —— 共享 parser(D19-A1)早已产出该帧,
+            // 端内 dispatch 此前无分支 = 静默丢帧,这是本票补的接线。累加到 running 任务的
+            // output(上限与 web 同值 20000 字符,超限保尾部);start 帧缺失时按帧内 command
+            // 自建任务(载荷自带 terminalId+command,帧自洽)。
+            onTerminalDelta: (evt) => {
+              if (!evt.terminalId || !evt.text) return
+              upsertCard((c) => ({
+                ...c,
+                terminalTasks: appendTerminalDelta(c.terminalTasks, evt),
+              }))
+            },
             onTerminalEnd: (evt) => {
               upsertCard((c) => ({
                 ...c,
@@ -636,7 +648,9 @@ export default function ChatPage() {
                     ? {
                         ...x,
                         status: evt.status,
-                        output: evt.output,
+                        // terminal_end 的 output 是权威快照整体替换;但 D19 起 running 期
+                        // 已有实时累加的 output,终帧缺 output 时不得清空它(否则等于丢增量)。
+                        output: evt.output ?? x.output,
                         // 截断交代必须一起承接:小程序没有 live 输出缓冲,只能靠这两个字段
                         truncated: evt.truncated ?? x.truncated,
                         totalChars: evt.totalChars ?? x.totalChars,

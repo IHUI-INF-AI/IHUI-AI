@@ -786,6 +786,9 @@ def create_app() -> FastAPI:
     # DAG Worker Pool(2026-07-22 立,多 agent 并行执行 — 限并发 N worker + 优先级队列 + 持久化)
     from app.api.dag import router as dag_router
     app.include_router(dag_router, prefix="/api/dag", tags=["dag"])
+    # D31 设计稿转码(2026-09-26 立,Figma 节点树→React/Tailwind 代码,令牌缺失 fail-closed)
+    from app.api.figma import router as figma_router
+    app.include_router(figma_router, prefix="/api", tags=["figma"])
     # P3 Wave 11:Rules 引擎(文件存储 .ihui-agent/rules/*.md + 热加载 + 4 种匹配)
     app.include_router(rules.router, prefix="/api", tags=["rules"])
     # P3 Wave 11:Hook 服务(事件总线 + JSONLogic 条件 + 4 执行器)
