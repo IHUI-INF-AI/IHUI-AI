@@ -98,6 +98,10 @@ import {
   startAutomationsScheduler,
   stopAutomationsScheduler,
 } from './services/automations/index.js'
+import {
+  startRepairCycleScheduler,
+  stopRepairCycleScheduler,
+} from './services/automation-repair-service.js'
 // P0 第二批次(2026-07-31 立):响应缓存初始化(RELAY_CACHE_ENABLED=true 时启用)
 import { initRelayResponseCache } from './services/relay-response-cache.js'
 import searchAspectPlugin from './plugins/search-aspect.js'
@@ -306,8 +310,12 @@ export async function buildServer(): Promise<FastifyInstance> {
   // 未开启 = 完全不启动(零定时器、零网络)。onClose 钩子负责优雅关停。
   server.addHook('onClose', async () => {
     stopAutomationsScheduler()
+    stopRepairCycleScheduler()
   })
   startAutomationsScheduler()
+  // D30 第二段(2026-09-26):修复认领环 + 状态机 + App 通道回帖。同一 env 门控;
+  // Redis 不可达时认领整族 fail-closed(设计行为,不降级为无锁放行)。
+  startRepairCycleScheduler(() => server.redis)
 
   return server
 }
