@@ -30,7 +30,26 @@ export async function searchMarketSkills(
 ): Promise<MarketListResponse> {
   const r = await fetchMarketSkills({ q, tag, page, pageSize })
   if (!r.success) throw new Error(r.error)
-  return r.data
+  // 后端契约键是 `items`(packages/shared/src/skills/market.ts 的 SkillMarketListResponse);
+  // 此前本函数把响应当 `list` 解包 ⇒ admin 市场列表恒空。id 以 name 为键:市场条目没有
+  // 数据库 id,install/unlist/ownership 一律按 name 寻址(见 types.ts 注释)。
+  const data = r.data
+  return {
+    items: (data.items ?? []).map((entry) => ({
+      id: entry.name,
+      name: entry.name,
+      description: entry.description,
+      version: entry.version,
+      tags: entry.tags,
+      author: entry.author,
+      rating: entry.rating,
+      installCount: entry.installCount,
+      createdAt: entry.createdAt,
+    })),
+    total: data.total,
+    page: data.page,
+    pageSize: data.pageSize,
+  }
 }
 
 export const EMPTY_FORM: SkillForm = {
