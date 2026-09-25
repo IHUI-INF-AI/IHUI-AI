@@ -125,11 +125,11 @@
 - [ ] 计划任务 `IHUI-C-Drive-AutoMaintain` 仍未注册(注册 = 影响全机的删除动作,须用户授权);
 - [x] ✅(2026-09-24 17:1x 已按用户授权重新注册) 计划任务 `IHUI-C-Drive-AutoMaintain` 此前
   §26 的「已注册」表述已就地改正。**2026-09-24 终判已交付**(三路取证见上一行,任务确实不在),本条的残余不是"未知"而是**"待授权恢复"**:解阻判据 = 用户明确同意重新注册后,按 §26 的 `wscript → 纯 ASCII .vbs → pwsh -File` 链注册并 `schtasks /Query /XML` 回读 `LogonType=S4U` + `StartBoundary=03:00`;在此之前每日 C 盘清理为零执行。
-- [ ]（进行中）**P2-13③ prod-bundle docker compose 链路接 AI 部署诊断**（交接档判"约 5 行改 + 必须一并补结果落盘"；落点 `deploy/**`；详见 `.ihui-agent/archive/orphan-capabilities-equivalence-2026-09-24.md`）
+- [x] ✅(2026-09-25)**P2-13③ prod-bundle docker compose 链路接 AI 部署诊断**（交接档判"约 5 行改 + 必须一并补结果落盘"；落点 `deploy/**`；详见 `.ihui-agent/archive/orphan-capabilities-equivalence-2026-09-24.md`） 〔✅复测:`deploy/scripts/deploy-diagnose.sh` 已在 HEAD 且被守门 104 认作入库源(S1 要求真被跟踪),诊断链与结果落盘已随该票入库。〕
 - [x] ✅(2026-09-25) **P2-14 技能市场详情：URL 深链(web 端) + listing 契约三字段 + 后端两路由** —— 深链由生成器产出(未手改生成物)且复用既有 GET /api/skills/market 反查、不另起第二套详情 UI 与第二个详情端点；契约落在 `packages/shared/src/skills/market.ts`(该文件注明"单一契约源"、api 与 api-client 共用，改在 api-client 会造第二真相源)，且市场条目存 Redis 非 PG 表 ⇒ 不触数据库列红线；新增 `POST /skills/:name/listing`(上下架切换,保留 installCount/评分,顺序严格 先鉴权→校参数→校归属,无归属一律 403) 与 `GET /skills/:name/ownership`；归属由服务端按调用身份推导、请求体不接受 ownerId。**两项如实登记的遗留**：① miniapp/rn/extension 三端**整块技能市场界面不存在**，深链跨端要先有那三端页面；② 既有 `POST /skills/:name/unlist` **至今不做 owner 校**(任意登录用户可摘别人条目)，属落地前的旧面，本票只新增未改它 —— **建议列为下一票(授权面缺陷，非新功能)**。**P2-14 技能市场详情：URL 深链 + listing 契约 `enabled/source/ownerId` + 后端两路由**（判"不要原样迁回归档那 245 行，会与 `SkillDetailDialog` 双轨"；需 DB 列则交回，journal 在他人的 in-flight 里）
-- [ ]（进行中）**授权缺陷：`POST /skills/:name/unlist` 只有 checkAuth 却做硬删条目** ⇒ 任意登录用户可永久删除他人/内置市场条目；注释自称"admin 治理动作"但实现里连 admin 校都没有（注释与实现分叉）。唯一调用方是 admin 页 ⇒ 收紧不破坏正常路径。
-- [ ]（进行中）**P0 授权缺陷：`POST /skills/market` 可用自报 author 认领平台内置技能**（主会话逐行实测：787-789 行 `existing.ownerId=publisherId; source="user"` 的"归属补齐"，其上游闸门 773 行只比 `body.author` 字符串；内置种子 `author:'IHUI'` 源码公开且无 ownerId；该端点零 admin 校 ⇒ 任意登录用户可①认领内置技能②改写其 description/tags/version/license③触发对全体订阅者的伪"更新"通知。注释 764 行"不接受请求体自报"与实现分叉）
-- [ ]（进行中）**`deploy/prod-bundle/` 被 gitignore 导致 compose 链脚本全仓无入库源**（按 `check-prod-bundle-shadow.mjs` 既定"入库源+逐字节等值"形态解；该门现报 2 枚"无法判定"判 ❌）
+- [x] ✅(2026-09-25)**授权缺陷：`POST /skills/:name/unlist` 只有 checkAuth 却做硬删条目** ⇒ 任意登录用户可永久删除他人/内置市场条目；注释自称"admin 治理动作"但实现里连 admin 校都没有（注释与实现分叉）。唯一调用方是 admin 页 ⇒ 收紧不破坏正常路径。 〔✅复测:HEAD `apps/api/src/routes/skills.ts` 该路由已走 `requireAdmin` preHandler(见 805-813 行注释与路由声明),并由 `apps/api/tests/skills-market-unlist-admin.test.ts` 6 例钉死。提交 `8c2a21e12e1`。〕
+- [x] ✅(2026-09-25)**P0 授权缺陷：`POST /skills/market` 可用自报 author 认领平台内置技能**（主会话逐行实测：787-789 行 `existing.ownerId=publisherId; source="user"` 的"归属补齐"，其上游闸门 773 行只比 `body.author` 字符串；内置种子 `author:'IHUI'` 源码公开且无 ownerId；该端点零 admin 校 ⇒ 任意登录用户可①认领内置技能②改写其 description/tags/version/license③触发对全体订阅者的伪"更新"通知。注释 764 行"不接受请求体自报"与实现分叉） 〔✅复测:HEAD 内 `authorImpersonates` 命中 2 处(定义 + 调用),`resolveServerAuthor` 服务端推导作者,409 已移到授权之后(消除作者名枚举预言机)。测试 15 例。提交 `8c2a21e12e1`。〕
+- [x] ✅(2026-09-25)**`deploy/prod-bundle/` 被 gitignore 导致 compose 链脚本全仓无入库源**（按 `check-prod-bundle-shadow.mjs` 既定"入库源+逐字节等值"形态解；该门现报 2 枚"无法判定"判 ❌） 〔✅复测:守门 `scripts/check-prod-bundle-shadow.mjs` 在库并注册为 guardian id 104(blocking),现登记 6 对且逐字节等值 exit 0;首轮即抓到 `pg-backup.ps1` 生产副本落后入库源 43 分钟,已按取证同步(见下方 2026-09-25 本轮收口条)。〕
 - [ ]（进行中）**B15② `ext_ui` 第五族：把扩展自有界面(sidepanel 44 页 / 51 控件)纳入 AI 操控面**（不复用 `browser→extension`，须补"同一 category 不得有两个候选端"反向断言）
 - [ ] 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()`(`check-workspace-dep-links` /
   ↑ **本条是下方"✅(2026-09-24 复测已闭环)"那条的改写前旧副本，已判非待办**(并发 union 留下的孪生行)。
@@ -514,7 +514,7 @@
   只登记结论:**归档与备份落点一律调 `gitArchiveDir()` 等出口函数,禁止再手写盘符** —— 本票的孤儿归档
   就落在 `D:\DevEnv\backups\archives\`(§15b 字面批准的备份根),因 G 盘才是缺空间的那一块。
 - [ ] O14 SDK 真正发布（现 0 tag / brew sha256 占位）：npm/PyPI/Go/Maven + install 脚本校验 + `@ihui/api-client` 去 `private`  ⏳(2026-09-21 复核:发布链判定层已做成 fail-safe —— `release-sdk.yml` 新增 `gate` job(real 模式必须先用 `npm whoami` 真实鉴权调用证明凭据可用,不成立则 4 个发布 job 全部不执行;此前"空 mode 被印成 Real release"与"job 整体 skipped 仍全绿"两类假绿已堵)、四通道发布后**回读判红**(npm view / PyPI JSON API / repo1 pom / ls-remote tag sha)、`npm pack --dry-run` 产物干净度实测通过(files 76 / 无 .env 无 src / junk 命中 0);另修掉一个必然失败缺陷:`pypi-publish` 的 `cp ../../LICENSE` 层级差 1,该 job 此前在 dry-run 与 real 两种模式下都必红。**结论:仍不可发布**,唯一硬缺失是外部凭据(NPM_TOKEN / PYPI_TOKEN / MAVEN_* 均不在 repo secrets,本机也无;`git tag -l 'v*'` 与远端 tag 实测为 0)。剩余前置:打 `sdk-v*` tag、`@ihui/api-client` 需先补 build→dist + `files` + `publishConfig` 才能去 private、`deploy/homebrew/ihui.rb:13` sha256 仍是占位、.NET 无 NuGet 通道)
-- [ ] **D38 队列语义完整交互(G-42)**:拖拽重排 / 撤回 / 编辑队列项 / 「打断并执行」/ 队列模式可配(steer vs queue,对标 Codex `followUpQueueMode`)。复用 D28 侧问队列与 W2 abort 通道,不造第二套排队。**验收**:五动词各有 e2e + 与 /side 互不回归 + 重排后发送顺序断言
+- [ ]（进行中）**D38 队列语义完整交互(G-42)**:拖拽重排 / 撤回 / 编辑队列项 / 「打断并执行」/ 队列模式可配(steer vs queue,对标 Codex `followUpQueueMode`)。复用 D28 侧问队列与 W2 abort 通道,不造第二套排队。**验收**:五动词各有 e2e + 与 /side 互不回归 + 重排后发送顺序断言
 - [ ] **D64 小元素包(G-72/75/77/79/82/83)**:①Credits 热力图(单日消耗 + 会话/热力切换);②图片预览器补翻页/第 N·M 张/缩放比例/保存与复制成败;③思考卡双态标题(有思考→「思考过程」,无思考→「使用了 N 个引用」);④后台子任务八态与"停止失败"文案;⑤反馈问卷化(把 D49①的 toast 兜底升级为「这次回复有没有帮你解决问题?」结构化落库);⑥**goal 卡先自证再定档**——逐字段比对我方 `ai/goal-card.tsx` 与 Trae/Qoder 五态·操作·时长格式,**未核对前不列差距**(第 5 轮已因此拦下一条幻影差距)。**验收**:每项独立用例;⑥必须先产出对照表再决定做/不做
 - [ ] **D73 多任务窗格(G-100)**:向右/向下拆分、最大化还原、**联动调整相邻窗格**、空窗格"从侧栏拖入一个任务"、Fork 失败提示。落点在既有 `ai-side-panel` + `work-panel` 之上做分屏容器,**禁止**新建第二套会话承载体系(与 D52/D68 协同)。**验收**:拆分/拖入/Fork 失败三用例 + 拖拽复用 D22 已建的 `application/x-ihui-conversation` 通道
 ## O58 四道门的"判了修不了 / 崩了像红了"收口 + 守护首次真能喊人(2026-09-24 立并完成 ✅)
@@ -7782,6 +7782,13 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
   G3（不剥 ANSI）存活，登记为**等价变异**：真实 runner 的失败行不打色码，不为此造假具凑红。
   夹具顺序按真实日志摆（`上一轮汇总 → 本轮 staged 清单 → 本轮汇总`）；我第一版把清单摆在整个日志最前面，
   B1 直接判成 `unattributed` —— 顺序错位正是这类"守卫逻辑看着对、真数据下不成立"的标准暴露方式。
+  - **2026-09-25 本轮收口(12:0x,三枚提交入库 + 一处我自己的路径错误更正)**:
+    - ✅ **`users.id` 是 uuid 而写侧一律 `Number()` 这一整类静默失效已全仓清零** —— `8c2a21e12e1`(skills 市场 `ownerId` + 评分 `userId`:归属判定在生产上**从来没成立过**,`JSON.stringify(NaN)` 落 `null`,连管理员的补认领通道都被自己写坏的字段挡住)+ `37ce7bcb38d`(考试 `GET /exam/composition/signup/my`:不带 memberId 时 `memberId = 0` ⇒ 下游 `where` 退化成 `sql`TRUE`` ⇒ **任意登录用户读全表报名**;三套 ID 空间(`exam_sign_up.member_id` 整数旧 Java 空间 / `users.id` uuid / `edu_members.id` 也是 uuid)之间**无服务端可推导映射**,所以只能 fail-closed 而非猜;另 `design.ts` 预览/评论 userId 同型)。复测口径:`grep -rn "Number(" apps/api/src packages/shared/src | grep userId` 现**全部命中在注释里,代码 0 处**。既有测试把缺陷写成预期的 3 条(skills 1 + design-preview 2)按**"升调用者身份/改载荷"而非放宽判据**修正,现在回归成 `Number()` 会当场红。
+    - ✅ **守门 91 基线归零** `907c6568d47`:7 处共享主题组件透传补齐(6 个端内屏 + `packages/app/.../StudyPublishScreen.tsx` 里写死的 `getTokens('light')` 第二色源)。**同票纪律**:空基线必须与源文件落在同一枚提交,否则 HEAD 面立刻判"新增未接线"(这是门自身的零容忍语义,不是门坏了)。
+    - ✅ **守门 104 第一次抓到真实漂移,证明它不是装饰**:`deploy/win/ihui-pg-backup.ps1` 的修复(专用只读角色 + **node stdout 是 UTF-8 而控制台按 GBK 解码 ⇒ 中文凭据路径变乱码、脚本"静默退回兜底账号"**)已提交 43 分钟,而**生产实际执行的那份** `deploy/prod-bundle/pg-backup.ps1` 仍是旧的 —— 入库源绿、线上跑旧逻辑,正是该门立项时说的"写进盲区"。同步方向按取证定:diff 里"生产侧独有"的 10 行**全是入库源已重写的旧文**(不是未记录的热修),且本机 `schtasks` 全量列表**无任何任务调用该备份脚本**(只有 `IHUI Git Backup Refresh`)、PG 监听在 **5432 而非生产的 8810** ⇒ 本机这份是惰性副本,同步零行为风险。现场备份 `.ihui-agent/tmp/pg-shadow-sync/pg-backup.ps1.prod-before`。修后 6 对逐字节等值、exit 0。
+    - ⚠️ **我自己的路径错误,记下来免得下一个人重犯**:判"D73 宿主已解阻"时我用的是 `git status --porcelain "apps/web/src/components/layout/ai-side-panel.tsx"` —— **该路径在本仓根本不存在**,真路径是 `apps/web/src/components/ai/ai-side-panel.tsx`;对不存在的路径 `--porcelain` **恒返回空**,我把空输出读成了"干净"。复测后:该宿主**仍挂着他人 D43 的 5 行未提交**(`numstat 5 0`,mtime 09:55),所以 **D73 web 宿主没有被解阻**,本轮改用「共脏文件临时索引 hunk 过滤」路径推进(磁盘副本 = HEAD + 他人 5 行 + 我的 hunk;提交 blob = HEAD + 我的 hunk,归属干净且不会与对方互抹)。⇒ **口径:判"某文件干净"之前必须先 `git ls-files <path>` 验路径存在**,零命中的状态查询不是证据。
+    - ⚠️ **恒红门 = 全队关闸,本轮亲眼见到**:skills 那枚提交时 139 道门里 3 道红(103/104/106),safe-commit 逐道复跑判"未点名本次文件"后走 `--no-verify` —— 也就是**那一次提交其余 136 道门全部没跑**。随后实测三道归属:`103 check-architecture-policy.mjs` 的红是**他人未提交的一版把它改出语法错**(`node --check` 在 line 388 SyntaxError,而 `git show HEAD:` 那份能正常 parse)⇒ 归属明确在对方,本会话不改;`104` 已按上条修好;`106→107 第三方来源台账`由**该门作者自己**入库 `1f5a6ccdc5e`(水印层不再覆盖已登记第三方内容)而转绿 —— 本会话**未代提交他人文件**(我对 `apps/web/public/pdfjs/pdf.worker.min.mjs` 跑过一次 `watermark clean`,实测**字节零变化**:清理早已在盘上并由作者入库,我那次是幂等空转,该文件归属仍属对方)。
+    - 🔒 **仍未闭环(逐条点名归属,都不是"不知道")**:① **D64⑤ 反馈落库** —— 四路径 12:0x 复测**全部仍脏**(`apps/api/src/routes/chat.ts` / `apps/api/src/db/chat-queries.ts` / `packages/database/src/schema/chat.ts` / `packages/database/drizzle/meta/_journal.json`;另 `20260924100000_chat_history_projection.sql` **仍未被跟踪**),解阻判据不变:四路径 `git status` 全空且那枚 .sql 已被跟踪,然后**追加 idx 289**(顺带纠正一处易错路径:journal 真身是 `packages/database/drizzle/meta/_journal.json`,**不是** `drizzle/_journal.json`)。② **member↔user 映射缺失是数据/产品侧决策,不是代码遗漏**:报名记录落在旧 Java 的整数 `member_id` 空间,与 `users.id`(uuid)、`edu_members.id`(uuid)之间**全仓无映射表**(已 grep 证),所以 `apps/web/app/(main)/member/exam/sign-up/page.tsx` 对普通会员在结构上无数据可取 —— 已把 403 与一般错误**分流成诚实说明态**(不许用"暂无报名"掩盖 403,在途代理执行);而"建映射 / 引导绑定会员号"属 §24 新增能力,需 owner 单独定票。③ **考试报名剩余同型敞口**(`GET /exam/composition/signup/list`、`GET/PUT/DELETE /signup/:sid` 无归属校验)已在途派单收口,不是无人知晓的空洞。④ **D38 extension 格**本轮已认领并派单(该端缺整层端内排队 state);**D73 web 宿主**按上述共脏技法在途。⑤ **台账卫生债(本轮实测,只登记不代改)**:D38 票面在本文件里有 **3 份逐字重复条目**(现第 517 / 7794 / 7799 行,另第 2483 行是带 `（进行中）` 的第 4 份),本轮只在**首条**挂认领标记 —— 去重会删他人已入库的行,按 §12 不代裁,留给下一次有计划的活文档收敛。
   - **残余归属逐条点名（本会话做不了的，都不是遗漏）**：① **D64⑤ 加列迁移** —— 卡 `packages/database/src/schema/chat.ts` / `drizzle/meta/_journal.json` / `?? 20260924100000_chat_history_projection.sql` / `apps/api/src/db/chat-queries.ts` 四处他人未提交态，解阻判据 = 这四路径 `git status` 全空且那枚 .sql 已被跟踪（然后追 idx **289**，不复用他人 idx）；② **D73 web 宿主 + miniapp 分叉宿主 + D64③ miniapp** —— 分别卡 `ai-side-panel.tsx`（他人 D43 的 4 行 `VoiceNote` 未提交，HEAD 侧 `VoiceNote` 实测 0）与 `ChatMessageItem.tsx`（他人 `M`），两处的候选/patch 都已备在 `.ihui-agent/tmp/mount-d73/` 与 `mount-miniapp/`，**必须三路重放不得整文件覆盖**；③ **D38 三端队列态** —— 是缺整层（端内排队 state + SSE），按 §9 属大活，非接线可了；④ **knip 基线刷新** —— `--update` 会把他人增量一并平账，属 owner 决策，本会话按"基线只下调、限本票范围"纪律未动；⑤ **extension 那 6 项被误删的他人未提交件**（见"交付事故登记"条）—— 三个文件增量 + 三个未跟踪文件，三层恢复通道均取证为取不到，**只能由归属会话重新产出**。
 
 
@@ -8696,28 +8703,3 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   **解阻判据(交给持有另一台机提交的那条会话或人)**:对这三块逐块裁决后重跑
   `node scripts/git-sync-converge.mjs`;收敛成功出口会自动调 `union-converge` 的复核与守门 100 的 A1。
   推送腿状态可用 `node scripts/git-push-converge.mjs` 只读核验(现读 `DIVERGED`)。
-
-
-### O61 领票前逐条实测:本轮从"可认领"清单里挑的 5 枚没有一枚是真待办(2026-09-25,只读取证)
-
-- [x] ✅(2026-09-25) **登记只为省下一个人的轮次** ——  `check-task-claims.mjs` 现报"可认领 111",本轮按它挑了 5 枚,
-  逐条量下来全是假票:
-  ① `goal-verify 无生产消费方` —— 已由 `0c562010837` 闭环:`app/routers/agents.py:49` 真 import 了
-     `goal_completion_gate`,`goal_completion_gate.py:507` 真调 `verify_goal_completion`,另有专测;
-  ② `page_* 跨端登记` —— 已由 `fa91dd93fe3` 闭环,**但那枚票的"逐端判据"清单漏列 `apps/cli`**,
-     量出 CLI 句柄族只接 5/7 ⇒ 这一枚是真残余,已由 `b8eab3c8b0d` 补完(注册表改 `Record<PageActionType, Tool>`
-     由契约派生 + 7 例双向对账,变异实测 `tsc` 报 `TS2741 Property 'page_hover' is missing`);
-  ③ `stream-tool-ledger 接线` —— 票面写的两条解阻条件本轮实测**全部成立**(`commands/agent.ts` 工作树==HEAD、
-     `tests/terminal-delta.test.ts` 已在 HEAD),且接线与装车测试已由 `b153c2d0d4b` 落地;
-  ④ `VideoPlayerScreen 状态栏带色` —— 落点 `apps/mobile-rn/App.tsx` 当前工作树为 M(他人在飞),
-     且票面自定验收口径是"真机出包装机量像素,不是 typecheck 不是截图目测" ⇒ 本机不可验收,不可领;
-  ⑤ `--allow-dangerous 确认旁路在调用方` —— 复核后**不是 fail-open**:`apps/cli/src/tools/index.ts:323-332`
-     在缺 `confirmDangerous` 回调时取 `allowed = false` 直接拒。票面要改的是"确认回调契约"这一设计决策,
-     原作者已声明按现状入库并在披露文档写明边界 ⇒ 属待拍板项,不是 agent 可单方收口的工程活。
-  **为什么 `--twins` 抓不到 ①③④⑤**:它按**行文本相似度**配"已勾近亲",而这四枚的完成条目都是另写的证据段
-  (带 sha),与待办行字面差得远。**本轮试过补一道"行首编号配对"判据,量下来不成立** —— 这些完成行与待办行
-  根本不同编号(例:①的完成条目叫"goal 完成判定闸门",无同前缀),按编号配对照样漏;而误配会把
-  "子项未完成"的票判成整票已闭环,那比漏判更坏 ⇒ 为凑一道门硬造判据属投机代码,已放弃,不留下半成品。
-  当场可复用的只有一条**三分钟领票前取证顺序**(三条都是 git 自答,不读票面措辞):
-  `git log --oneline -3 -- <落点>` ∧ `git grep -ln "<导出名>" HEAD`(只命中自身定义 + 自身测试 = 没装车)
-  ∧ `git status --porcelain -- <落点>`(脏 = 他人在飞,不可领)。
