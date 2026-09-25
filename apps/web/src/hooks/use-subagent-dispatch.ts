@@ -25,6 +25,7 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchApi } from '@/lib/api'
 import { usePageVisibility } from '@/hooks/use-page-visibility'
+import { useAuthStore } from '@/stores/auth'
 import { useSubagentDispatchStore } from '@/stores/subagent-dispatch'
 import type { SubagentDispatch, DispatchInput, SwarmTopologyV2 } from '@ihui/shared/subagents'
 
@@ -52,40 +53,47 @@ async function fetchSwarmTopology(): Promise<SwarmTopologyV2> {
 }
 
 /** 回到前台立即刷新一次,不等下一个轮询周期 */
-function useRefetchOnVisible(refetch: () => void, visible: boolean): void {
+function useRefetchOnVisible(refetch: () => void, visible: boolean, active: boolean): void {
   const firstRef = React.useRef(true)
   React.useEffect(() => {
     if (firstRef.current) {
       firstRef.current = false
       return
     }
-    if (visible) refetch()
-  }, [visible, refetch])
+    // refetch() 会绕过 enabled,所以未登录时必须在这里也不发请求
+    if (visible && active) refetch()
+  }, [visible, active, refetch])
 }
 
 /** 活跃派单列表(页面可见 5s 轮询 / 隐藏 30s,失败静默降级) */
 export function useActiveDispatches() {
   const visible = usePageVisibility()
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const query = useQuery({
     queryKey: activeDispatchesKey,
     queryFn: fetchActiveDispatches,
+    // 未登录不轮询:这两个接口是用户维度的,游客拿到的是 401;而 fetchApi 把失败降级成空数组
+    // ⇒ React Query 认为"成功",于是 5s 一轮无限打到今天(实测单个首页标签页 230+ 次请求)。
+    enabled: isAuthenticated,
     refetchInterval: visible ? POLL_INTERVAL_MS : POLL_INTERVAL_HIDDEN_MS,
     refetchOnWindowFocus: true,
   })
-  useRefetchOnVisible(query.refetch, visible)
+  useRefetchOnVisible(query.refetch, visible, isAuthenticated)
   return query
 }
 
 /** Swarm 拓扑(页面可见 5s 轮询 / 隐藏 30s,失败静默降级) */
 export function useSwarmTopology() {
   const visible = usePageVisibility()
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const query = useQuery({
     queryKey: swarmTopologyKey,
     queryFn: fetchSwarmTopology,
+    enabled: isAuthenticated,
     refetchInterval: visible ? POLL_INTERVAL_MS : POLL_INTERVAL_HIDDEN_MS,
     refetchOnWindowFocus: true,
   })
-  useRefetchOnVisible(query.refetch, visible)
+  useRefetchOnVisible(query.refetch, visible, isAuthenticated)
   return query
 }
 
