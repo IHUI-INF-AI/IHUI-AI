@@ -2017,6 +2017,13 @@
       "when": 1790215200000,
       "tag": "20260924100000_chat_history_projection",
       "breakpoints": true
+    },
+    {
+      "idx": 289,
+      "version": "7",
+      "when": 1790301600000,
+      "tag": "20260925100000_exam_sign_up_owner_uuid",
+      "breakpoints": true
     }
   ]
 }
