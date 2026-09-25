@@ -349,13 +349,13 @@ export default function AgentPage() {
                 hoverClass="opacity-80"
               >
                 <Text
-                  className={`text-[26rpx] ${active ? 'text-[var(--color-surface-light)] font-semibold' : 'text-[var(--color-muted-foreground)]'}`}
+                  className={`text-[length:26rpx] ${active ? 'text-[var(--color-surface-light)] font-semibold' : 'text-[var(--color-muted-foreground)]'}`}
                 >
                   {tb.label}
                 </Text>
                 {badge > 0 && (
                   <Text
-                    className={`ml-[12rpx] text-[20rpx] px-[12rpx] py-[2rpx] rounded-full ${active ? 'bg-[var(--color-white-20)] text-[var(--color-surface-light)]' : 'bg-[var(--color-black-6)] text-[var(--color-muted-foreground)]'}`}
+                    className={`ml-[12rpx] text-[length:20rpx] px-[12rpx] py-[2rpx] rounded-full ${active ? 'bg-[var(--color-white-20)] text-[var(--color-surface-light)]' : 'bg-[var(--color-black-6)] text-[var(--color-muted-foreground)]'}`}
                   >
                     {badge}
                   </Text>
@@ -379,7 +379,7 @@ export default function AgentPage() {
                       hoverClass="opacity-60"
                     >
                       <Text
-                        className={`text-[26rpx] ${active ? 'text-[var(--color-surface-light)] font-semibold' : 'text-[var(--color-muted-foreground)]'}`}
+                        className={`text-[length:26rpx] ${active ? 'text-[var(--color-surface-light)] font-semibold' : 'text-[var(--color-muted-foreground)]'}`}
                       >
                         {cat.label}
                       </Text>
@@ -390,7 +390,7 @@ export default function AgentPage() {
             </ScrollView>
             {/* 排序选项 */}
             <View className="flex items-center px-3 pt-2 pb-1">
-              <Text className="text-[22rpx] text-muted-foreground mr-2">
+              <Text className="text-[length:22rpx] text-muted-foreground mr-2">
                 {t('ai.agentList.sortBy')}
               </Text>
               {sortOptions.map((opt) => {
@@ -398,7 +398,7 @@ export default function AgentPage() {
                 return (
                   <View
                     key={opt.key}
-                    className={`mr-3 text-[22rpx] ${active ? 'text-[var(--color-primary)] font-medium' : 'text-muted-foreground'}`}
+                    className={`mr-3 text-[length:22rpx] ${active ? 'text-[var(--color-primary)] font-medium' : 'text-muted-foreground'}`}
                     onClick={() => setSortKey(opt.key)}
                     hoverClass="opacity-60"
                   >
@@ -415,10 +415,10 @@ export default function AgentPage() {
       {hotBanner.length > 0 && (
         <View className="px-3 pt-3">
           <View className="flex items-center justify-between mb-2">
-            <Text className="text-[28rpx] text-foreground font-semibold">
+            <Text className="text-[length:28rpx] text-foreground font-semibold">
               {t('ai.agentList.hotRecommend')}
             </Text>
-            <Text className="text-[22rpx] text-muted-foreground">{t('ai.agentList.hot')}</Text>
+            <Text className="text-[length:22rpx] text-muted-foreground">{t('ai.agentList.hot')}</Text>
           </View>
           <ScrollView scrollX enhanced showScrollbar={false} className="whitespace-nowrap">
             {hotBanner.map((agent, idx) => (
@@ -436,15 +436,15 @@ export default function AgentPage() {
                     src={agent.avatar || '/static/default-agent.png'}
                     mode="aspectFill"
                   />
-                  <View className="absolute top-0 left-0 px-[6rpx] py-[1rpx] rounded bg-[var(--color-gold)] text-[var(--color-surface-light)] text-[20rpx]">
+                  <View className="absolute top-0 left-0 px-[6rpx] py-[1rpx] rounded bg-[var(--color-gold)] text-[var(--color-surface-light)] text-[length:20rpx]">
                     <Text>NO.{idx + 1}</Text>
                   </View>
                 </View>
-                <Text className="block text-[26rpx] text-foreground font-medium mt-2 truncate w-full text-center">
+                <Text className="block text-[length:26rpx] text-foreground font-medium mt-2 truncate w-full text-center">
                   {agent.name}
                 </Text>
                 {agent.uses !== undefined && (
-                  <Text className="block text-[22rpx] text-[var(--color-primary)] mt-1">
+                  <Text className="block text-[length:22rpx] text-[var(--color-primary)] mt-1">
                     {t('ai.agentList.useCount', { n: agent.uses })}
                   </Text>
                 )}
@@ -490,25 +490,25 @@ export default function AgentPage() {
                   />
                   <View className="flex-1 ml-[24rpx] min-w-0">
                     <View className="flex flex-row items-center">
-                      <Text className="flex-1 text-[32rpx] text-foreground font-semibold truncate">
+                      <Text className="flex-1 text-[length:32rpx] text-foreground font-semibold truncate">
                         {agent.name}
                       </Text>
                       {agent.isVipExclusive && (
                         <View className="ml-[12rpx] px-[12rpx] py-[8rpx] rounded-sm bg-[var(--color-warning-amber)]">
-                          <Text className="text-[20rpx] text-[var(--color-surface-light)] font-semibold">
+                          <Text className="text-[length:20rpx] text-[var(--color-surface-light)] font-semibold">
                             VIP
                           </Text>
                         </View>
                       )}
                     </View>
                     {agent.desc && (
-                      <Text className="line-clamp-2 mt-[16rpx] text-[28rpx] leading-[36rpx] text-muted-foreground">
+                      <Text className="line-clamp-2 mt-[16rpx] text-[length:28rpx] leading-[36rpx] text-muted-foreground">
                         {agent.desc}
                       </Text>
                     )}
                     <View className="flex flex-row items-center mt-[16rpx]">
                       {agent.category && agent.category !== 'other' && (
-                        <Text className="text-[20rpx] px-[8rpx] py-[2rpx] mr-[12rpx] rounded-sm bg-[var(--color-black-6)] text-[var(--color-muted-foreground)]">
+                        <Text className="text-[length:20rpx] px-[8rpx] py-[2rpx] mr-[12rpx] rounded-sm bg-[var(--color-black-6)] text-[var(--color-muted-foreground)]">
                           {t(CATEGORY_KEY[agent.category] ?? 'ai.agentList.categories.other')}
                         </Text>
                       )}
@@ -520,13 +520,13 @@ export default function AgentPage() {
                             color="var(--color-text-tertiary)"
                             className="mr-[6rpx]"
                           />
-                          <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+                          <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
                             {rating.toFixed(1)}
                           </Text>
                         </View>
                       )}
                       {agent.uses !== undefined && (
-                        <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+                        <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
                           {t('ai.agentList.useCount', { n: agent.uses })}
                         </Text>
                       )}
@@ -548,7 +548,7 @@ export default function AgentPage() {
         onClick={onCreateAgent}
         hoverClass="opacity-60"
       >
-        <Text className="text-[24rpx]">+ {t('ai.agentList.createAgent')}</Text>
+        <Text className="text-[length:24rpx]">+ {t('ai.agentList.createAgent')}</Text>
       </View>
 
       <View className="fixed bottom-0 left-0 right-0 bg-card shadow-[0_-1px_2px_var(--color-black-4)]">

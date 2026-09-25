@@ -34,7 +34,7 @@ export default function MessageTabs({ tabs, active, onChange }: MessageTabsProps
               hoverClass="opacity-60"
             >
               <Text
-                className={`text-[28rpx] ${
+                className={`text-[length:28rpx] ${
                   isActive ? 'text-primary-foreground font-semibold' : 'text-muted-foreground'
                 }`}
               >
@@ -42,7 +42,7 @@ export default function MessageTabs({ tabs, active, onChange }: MessageTabsProps
               </Text>
               {showUnread && (
                 <View className="ml-[8rpx] min-w-[32rpx] h-[32rpx] px-[6rpx] rounded-full bg-destructive flex items-center justify-center">
-                  <Text className="text-[20rpx] text-destructive-foreground font-bold">
+                  <Text className="text-[length:20rpx] text-destructive-foreground font-bold">
                     {tab.unread! > 99 ? '99+' : tab.unread}
                   </Text>
                 </View>

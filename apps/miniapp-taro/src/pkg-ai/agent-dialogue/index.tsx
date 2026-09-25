@@ -535,7 +535,7 @@ export default function AgentDialogue() {
       const url = msg.mediaUrl || msg.content
       return (
         <View className="flex flex-col gap-[8rpx] p-[20rpx] px-[24rpx]">
-          <View className={`flex items-center gap-[8rpx] text-[26rpx] ${mediaTextColor}`}>
+          <View className={`flex items-center gap-[8rpx] text-[length:26rpx] ${mediaTextColor}`}>
             <LineIcon
               name="headphones"
               size={26}
@@ -547,7 +547,7 @@ export default function AgentDialogue() {
             />
             <Text>{tt('agentDialogue.audioMessage', '音频消息')}</Text>
           </View>
-          <Text className="text-[24rpx] text-accent" onClick={() => openAudio(url)}>
+          <Text className="text-[length:24rpx] text-accent" onClick={() => openAudio(url)}>
             {tt('agentDialogue.clickPlay', '点击播放')}
           </Text>
         </View>
@@ -557,7 +557,7 @@ export default function AgentDialogue() {
       const url = msg.mediaUrl || msg.content
       return (
         <View className="flex flex-col gap-[8rpx] p-[20rpx] px-[24rpx]">
-          <View className={`flex items-center gap-[8rpx] text-[26rpx] ${mediaTextColor}`}>
+          <View className={`flex items-center gap-[8rpx] text-[length:26rpx] ${mediaTextColor}`}>
             <LineIcon
               name="paperclip"
               size={26}
@@ -569,14 +569,14 @@ export default function AgentDialogue() {
             />
             <Text>{tt('agentDialogue.fileMessage', '文件消息')}</Text>
           </View>
-          <Text className="text-[24rpx] text-accent" onClick={() => openFile(url)}>
+          <Text className="text-[length:24rpx] text-accent" onClick={() => openFile(url)}>
             {tt('agentDialogue.clickView', '点击查看')}
           </Text>
         </View>
       )
     }
     return (
-      <Text className="text-[32rpx] leading-[1.5] break-words whitespace-pre-wrap">
+      <Text className="text-[length:32rpx] leading-[1.5] break-words whitespace-pre-wrap">
         {msg.content}
       </Text>
     )
@@ -595,7 +595,7 @@ export default function AgentDialogue() {
         <View className="flex flex-col gap-[16rpx] p-[20rpx]">
           {chatList.length === 0 && !loading ? (
             <View className="flex justify-center items-center py-[80rpx]">
-              <Text className="text-[28rpx] text-muted-foreground text-center">
+              <Text className="text-[length:28rpx] text-muted-foreground text-center">
                 {tt('agentDialogue.messageEmpty', '发送消息开始对话')}
               </Text>
             </View>
@@ -612,7 +612,7 @@ export default function AgentDialogue() {
                   >
                     {renderBubble(msg)}
                     {msg.read ? (
-                      <Text className="block text-[20rpx] text-muted-foreground mt-[8rpx] text-right">
+                      <Text className="block text-[length:20rpx] text-muted-foreground mt-[8rpx] text-right">
                         {tt('agentDialogue.read', '已读')}
                       </Text>
                     ) : null}
@@ -642,7 +642,7 @@ export default function AgentDialogue() {
                 </>
               ) : (
                 <View className="py-[12rpx]">
-                  <Text className="text-[24rpx] text-muted-foreground">{msg.content}</Text>
+                  <Text className="text-[length:24rpx] text-muted-foreground">{msg.content}</Text>
                 </View>
               )}
             </View>
@@ -651,7 +651,7 @@ export default function AgentDialogue() {
       </ScrollView>
       <View className="fixed bottom-0 left-0 right-0 flex items-center gap-[16rpx] pt-[16rpx] px-[20rpx] pb-[calc(env(safe-area-inset-bottom)+16rpx)] bg-card z-[100]">
         <Input
-          className="flex-1 h-[100rpx] px-[24rpx] text-[32rpx] text-foreground bg-[var(--color-muted)] border border-[var(--color-border)] rounded-xl"
+          className="flex-1 h-[100rpx] px-[24rpx] text-[length:32rpx] text-foreground bg-[var(--color-muted)] border border-[var(--color-border)] rounded-xl"
           placeholderStyle="color: var(--color-text-tertiary)"
           value={inputContent}
           placeholder={tt('agentDialogue.inputPlaceholder', '输入消息…')}
@@ -665,7 +665,7 @@ export default function AgentDialogue() {
           onClick={sendMessage}
           hoverClass="opacity-60"
         >
-          <Text className="text-[32rpx] font-semibold text-primary-foreground">
+          <Text className="text-[length:32rpx] font-semibold text-primary-foreground">
             {t('chat.send')}
           </Text>
         </View>

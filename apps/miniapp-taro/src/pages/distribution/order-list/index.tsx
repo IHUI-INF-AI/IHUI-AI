@@ -169,7 +169,7 @@ export default function DistributionOrderList() {
               hoverClass="opacity-60"
             >
               <Text
-                className={`text-[28rpx] ${activeTab === tab.value ? 'text-[var(--color-primary-foreground)] font-semibold' : 'text-muted-foreground'}`}
+                className={`text-[length:28rpx] ${activeTab === tab.value ? 'text-[var(--color-primary-foreground)] font-semibold' : 'text-muted-foreground'}`}
               >
                 {tt(tab.labelKey, tab.fallback)}
               </Text>
@@ -180,7 +180,7 @@ export default function DistributionOrderList() {
 
       {/* 总数行 — 小程序特有统计行,按 RN 文字层级着色 */}
       <View className="mx-[20rpx] mb-[16rpx]">
-        <Text className="text-[28rpx] text-muted-foreground">
+        <Text className="text-[length:28rpx] text-muted-foreground">
           {tt('distribution.orderList.totalCount', '共')} {list.length}{' '}
           {tt('distribution.orderList.orders', '笔')},
           {tt('distribution.orderList.commissionTotal', '佣金总额')}:¥{totalCommission}
@@ -204,25 +204,25 @@ export default function DistributionOrderList() {
                 hoverClass="opacity-60"
               >
                 <View className="flex flex-row justify-between items-center gap-[16rpx]">
-                  <Text className="flex-1 text-[28rpx] text-foreground truncate">
+                  <Text className="flex-1 text-[length:28rpx] text-foreground truncate">
                     {tt('distribution.orderList.orderNo', '订单号')}:{o.orderNo || '-'}
                   </Text>
                   <Text
-                    className={`flex-shrink-0 px-[16rpx] py-[4rpx] rounded-xl text-[22rpx] ${statusInfo.cls}`}
+                    className={`flex-shrink-0 px-[16rpx] py-[4rpx] rounded-xl text-[length:22rpx] ${statusInfo.cls}`}
                   >
                     {statusInfo.key ? tt(statusInfo.key, statusInfo.fb) : statusInfo.fb}
                   </Text>
                 </View>
-                <Text className="text-[32rpx] font-semibold text-foreground">{o.product}</Text>
+                <Text className="text-[length:32rpx] font-semibold text-foreground">{o.product}</Text>
                 <View className="flex flex-row justify-between items-center">
-                  <Text className="text-[28rpx] text-[var(--color-text-tertiary)]">
+                  <Text className="text-[length:28rpx] text-[var(--color-text-tertiary)]">
                     {o.time || '-'}
                   </Text>
                   <View className="flex flex-row items-center gap-[8rpx]">
-                    <Text className="text-[22rpx] text-muted-foreground">
+                    <Text className="text-[length:22rpx] text-muted-foreground">
                       {tt('distribution.orderList.commission', '佣金')}
                     </Text>
-                    <Text className="text-[32rpx] font-semibold text-[var(--color-danger)]">
+                    <Text className="text-[length:32rpx] font-semibold text-[var(--color-danger)]">
                       ¥{o.commission}
                     </Text>
                   </View>
@@ -235,7 +235,7 @@ export default function DistributionOrderList() {
 
       {list.length === 0 && !loading && !error && (
         <View className="py-[96rpx] text-center">
-          <Text className="text-[32rpx] text-muted-foreground">
+          <Text className="text-[length:32rpx] text-muted-foreground">
             {t('distribution.orderList.empty')}
           </Text>
         </View>
@@ -243,7 +243,7 @@ export default function DistributionOrderList() {
 
       {error && !loading && (
         <View className="flex flex-col items-center py-[48rpx] gap-[24rpx]">
-          <Text className="text-[28rpx] text-muted-foreground text-center">
+          <Text className="text-[length:28rpx] text-muted-foreground text-center">
             {tt('distribution.orderList.error', '加载失败')}
           </Text>
           <View
@@ -251,7 +251,7 @@ export default function DistributionOrderList() {
             onClick={() => load(true)}
             hoverClass="opacity-60"
           >
-            <Text className="text-[28rpx] font-medium text-[var(--color-primary-foreground)]">
+            <Text className="text-[length:28rpx] font-medium text-[var(--color-primary-foreground)]">
               {tt('distribution.orderList.retry', '点击重试')}
             </Text>
           </View>
@@ -259,13 +259,13 @@ export default function DistributionOrderList() {
       )}
 
       {loading && (
-        <Text className="block text-center text-[28rpx] text-[var(--color-text-tertiary)] py-[24rpx]">
+        <Text className="block text-center text-[length:28rpx] text-[var(--color-text-tertiary)] py-[24rpx]">
           {t('distribution.orderList.loading')}
         </Text>
       )}
 
       {!loading && !hasMore && list.length > 0 && (
-        <Text className="block text-center text-[28rpx] text-[var(--color-text-tertiary)] py-[24rpx]">
+        <Text className="block text-center text-[length:28rpx] text-[var(--color-text-tertiary)] py-[24rpx]">
           {tt('distribution.orderList.noMore', '没有更多了')}
         </Text>
       )}

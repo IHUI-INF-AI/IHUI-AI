@@ -168,10 +168,10 @@ export default function Bill() {
         {/* 顶部:订阅催费提醒 */}
         <View className="mx-[20rpx] mt-[20rpx] flex items-center justify-between rounded-xl bg-primary px-[28rpx] py-[24rpx]">
           <View className="flex-1 pr-[16rpx]">
-            <Text className="text-[30rpx] font-semibold text-[var(--color-surface-light)]">
+            <Text className="text-[length:30rpx] font-semibold text-[var(--color-surface-light)]">
               微信催费提醒
             </Text>
-            <Text className="mt-[6rpx] block text-[22rpx] text-[var(--color-surface-light)] opacity-80">
+            <Text className="mt-[6rpx] block text-[length:22rpx] text-[var(--color-surface-light)] opacity-80">
               订阅后欠费催缴将推送到微信
             </Text>
           </View>
@@ -180,13 +180,13 @@ export default function Bill() {
             hoverClass="opacity-60"
             onClick={() => void onSubscribe()}
           >
-            <Text className="text-[26rpx] font-medium text-primary">订阅</Text>
+            <Text className="text-[length:26rpx] font-medium text-primary">订阅</Text>
           </View>
         </View>
 
         {/* 学费账单(报名维度) */}
         <View className="mx-[20rpx] mt-[24rpx]">
-          <Text className="text-[28rpx] font-semibold text-foreground">学费账单</Text>
+          <Text className="text-[length:28rpx] font-semibold text-foreground">学费账单</Text>
         </View>
         {data.enrollments.length > 0 ? (
           <View className="mt-[16rpx] px-[20rpx]">
@@ -198,30 +198,30 @@ export default function Bill() {
                   className="mb-[20rpx] rounded-xl border border-[var(--color-border)] bg-card p-[24rpx]"
                 >
                   <View className="flex items-center justify-between gap-[16rpx]">
-                    <Text className="flex-1 truncate text-[32rpx] font-semibold text-foreground">
+                    <Text className="flex-1 truncate text-[length:32rpx] font-semibold text-foreground">
                       {item.className}
                     </Text>
                     <View className="shrink-0 rounded-sm bg-[var(--color-muted)] px-[12rpx] py-[4rpx]">
-                      <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+                      <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
                         {ENROLL_STATUS_TEXT[item.status] ?? item.status}
                       </Text>
                     </View>
                   </View>
                   <View className="mt-[12rpx] flex items-center gap-[16rpx]">
-                    <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+                    <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
                       {item.termName}
                     </Text>
-                    <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+                    <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
                       {BUSINESS_LINE_TEXT[item.businessLine] ?? item.businessLine}
                     </Text>
                   </View>
                   <View className="mt-[16rpx] flex items-center justify-between">
-                    <Text className="text-[24rpx] text-muted-foreground">
+                    <Text className="text-[length:24rpx] text-muted-foreground">
                       应缴 ¥{item.totalFee.toLocaleString()} · 已缴 ¥
                       {item.paidAmount.toLocaleString()}
                     </Text>
                     <Text
-                      className={`text-[30rpx] font-bold ${
+                      className={`text-[length:30rpx] font-bold ${
                         due > 0
                           ? 'text-[var(--color-danger)]'
                           : 'text-[var(--color-success-deep-text)]'
@@ -238,7 +238,7 @@ export default function Bill() {
                       hoverClass="opacity-60"
                       onClick={() => void onPay(item)}
                     >
-                      <Text className="text-[28rpx] font-semibold text-[var(--color-surface-light)]">
+                      <Text className="text-[length:28rpx] font-semibold text-[var(--color-surface-light)]">
                         {payingId === item.id ? '支付中…' : `在线缴纳 ¥${due.toLocaleString()}`}
                       </Text>
                     </View>
@@ -248,7 +248,7 @@ export default function Bill() {
             })}
           </View>
         ) : (
-          <View className="py-[48rpx] text-center text-[26rpx] text-muted-foreground">
+          <View className="py-[48rpx] text-center text-[length:26rpx] text-muted-foreground">
             <Text>{loading ? '加载中…' : '暂无报名账单'}</Text>
           </View>
         )}
@@ -256,7 +256,7 @@ export default function Bill() {
         {/* 缴费记录 */}
         {data.payments.length > 0 ? (
           <View className="mx-[20rpx] mt-[32rpx]">
-            <Text className="text-[28rpx] font-semibold text-foreground">缴费记录</Text>
+            <Text className="text-[length:28rpx] font-semibold text-foreground">缴费记录</Text>
             <View className="mt-[16rpx] rounded-xl border border-[var(--color-border)] bg-card px-[24rpx]">
               {data.payments.map((p, idx) => (
                 <View
@@ -266,16 +266,16 @@ export default function Bill() {
                   }`}
                 >
                   <View className="flex-1">
-                    <Text className="block text-[26rpx] text-foreground">
+                    <Text className="block text-[length:26rpx] text-foreground">
                       {PAY_METHOD_TEXT[p.paymentMethod] ?? p.paymentMethod}
                       {p.status === 'refunded' ? '(已退费)' : ''}
                     </Text>
-                    <Text className="mt-[4rpx] block text-[22rpx] text-[var(--color-text-tertiary)]">
+                    <Text className="mt-[4rpx] block text-[length:22rpx] text-[var(--color-text-tertiary)]">
                       {p.paymentDate}
                       {p.receiptNo ? ` · 单号 ${p.receiptNo}` : ''}
                     </Text>
                   </View>
-                  <Text className="text-[30rpx] font-bold text-foreground">
+                  <Text className="text-[length:30rpx] font-bold text-foreground">
                     ¥{p.amount.toLocaleString()}
                   </Text>
                 </View>
@@ -287,7 +287,7 @@ export default function Bill() {
         {/* 底部说明 */}
         <View className="mt-[32rpx] px-[40rpx] text-center">
           <Button
-            className="h-[72rpx] rounded-[36rpx] text-[26rpx] leading-[72rpx]" // radius-exempt: 胶囊按钮(高 72rpx,半径=高度一半)
+            className="h-[72rpx] rounded-[36rpx] text-[length:26rpx] leading-[72rpx]" // radius-exempt: 胶囊按钮(高 72rpx,半径=高度一半)
             plain
             onClick={() => void onSubscribe()}
           >

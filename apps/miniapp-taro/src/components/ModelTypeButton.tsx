@@ -70,7 +70,7 @@ export default function ModelTypeButton({
         color={active ? 'var(--color-primary)' : 'var(--color-muted-foreground)'}
         className="mb-1"
       />
-      <Text className={`text-[22rpx] ${active ? 'text-primary' : 'text-foreground'}`}>{label}</Text>
+      <Text className={`text-[length:22rpx] ${active ? 'text-primary' : 'text-foreground'}`}>{label}</Text>
     </View>
   )
 }
