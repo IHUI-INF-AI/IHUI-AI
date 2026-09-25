@@ -230,14 +230,16 @@ function CategoryPicker({
   selectedId,
   onSelect,
   loading,
+  colorScheme,
 }: {
   title: string
   options: readonly StudyCategory[]
   selectedId: string
   onSelect: (id: string) => void
   loading: boolean
+  colorScheme: 'light' | 'dark'
 }) {
-  const tk = getTokens('light')
+  const tk = getTokens(colorScheme)
   return (
     <View style={fieldStyles.wrap}>
       <Text style={fieldStyles.label}>{title}</Text>
@@ -250,13 +252,22 @@ function CategoryPicker({
           items={options.map((o) => ({ id: o.id, label: o.name }))}
           selectedId={selectedId}
           onSelect={onSelect}
+          colorScheme={colorScheme}
         />
       )}
     </View>
   )
 }
 
-function StagePicker({ selected, onSelect }: { selected: number; onSelect: (id: number) => void }) {
+function StagePicker({
+  selected,
+  onSelect,
+  colorScheme,
+}: {
+  selected: number
+  onSelect: (id: number) => void
+  colorScheme: 'light' | 'dark'
+}) {
   return (
     <View style={fieldStyles.wrap}>
       <Text style={fieldStyles.label}>课程阶段</Text>
@@ -264,6 +275,7 @@ function StagePicker({ selected, onSelect }: { selected: number; onSelect: (id: 
         items={STAGES.map((s) => ({ id: String(s.id), label: s.name }))}
         selectedId={String(selected)}
         onSelect={(id) => onSelect(Number(id))}
+        colorScheme={colorScheme}
       />
     </View>
   )
@@ -304,6 +316,7 @@ function GroupForm({
   coverUri,
   categories,
   loadingCategories,
+  colorScheme,
   submitting,
   onTitleChange,
   onContentChange,
@@ -320,6 +333,7 @@ function GroupForm({
   coverUri: string
   categories: readonly StudyCategory[]
   loadingCategories: boolean
+  colorScheme: 'light' | 'dark'
   submitting: boolean
   onTitleChange: (v: string) => void
   onContentChange: (v: string) => void
@@ -350,8 +364,9 @@ function GroupForm({
         selectedId={category}
         onSelect={onCategoryChange}
         loading={loadingCategories}
+        colorScheme={colorScheme}
       />
-      <StagePicker selected={stage} onSelect={onStageChange} />
+      <StagePicker selected={stage} onSelect={onStageChange} colorScheme={colorScheme} />
       <SubmitButton label="发布" onPress={onSubmit} loading={submitting} />
     </ScrollView>
   )
@@ -501,6 +516,7 @@ export function StudyPublishScreen({
           coverUri={groupCoverUri}
           categories={groupCategories}
           loadingCategories={groupLoadingCategories}
+          colorScheme={colorScheme}
           submitting={submitting}
           onTitleChange={onGroupTitleChange}
           onContentChange={onGroupContentChange}

@@ -16,6 +16,7 @@ import {
 } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
+import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -39,6 +40,7 @@ const MOCK_CATEGORIES: readonly CourseCategory[] = [
  */
 export default function StudyPublishScreen() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
   const [mode, setMode] = useState<PublishMode>('group')
 
@@ -249,7 +251,7 @@ export default function StudyPublishScreen() {
         title={mode === 'video' ? '发布视频' : '发布课程合集'}
         onBack={() => navigation.goBack()}
       />
-      <SharedStudyPublishScreen {...sharedProps} />
+      <SharedStudyPublishScreen {...sharedProps} colorScheme={resolvedTheme} />
     </View>
   )
 }
