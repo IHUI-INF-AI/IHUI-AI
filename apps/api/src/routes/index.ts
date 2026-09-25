@@ -331,6 +331,8 @@ import { knowledgeCardRoutes } from './knowledge-card.js'
 // D29 团队记忆面(2026-09-25 接):路由/服务/api-client 端点/web 页四件早在库,
 // 唯独这里没注册 ⇒ /api/team-memory 生产 404。注册面判据见 tests/team-memory-routes-registered.test.ts。
 import { teamMemoryRoutes } from './team-memory.js'
+// D29 团队级知识引擎(G-35,2026-09-26 立):空间/成员/条目/修订审计四表 + 12 条显式路径
+import { knowledgeTeamRoutes } from './knowledge-team.js'
 import automationsRoutes from './automations.js'
 import patrolRoutes from './patrol.js'
 import githubAppRoutes from './github-app.js'
@@ -1299,6 +1301,10 @@ export function registerRoutes(server: FastifyInstance) {
   // 缺这一行时,apps/web/app/(main)/team-memory/page.tsx 的每次调用都是 404,而 typecheck/lint/单测全绿
   // —— 该路由的既有测试自己 `app.register(teamMemoryRoutes)` 挂载,所以"测试绿"从不覆盖"注册过"。
   server.register(teamMemoryRoutes, { prefix: '/api/team-memory' })
+
+  // D29 团队级知识引擎(2026-09-26 立,G-35):12 条显式路径 + 零公开面。
+  // 同上一条的教训:路由自身测试会 app.register 挂载,注册缺失时"测试全绿而生产 404"。
+  server.register(knowledgeTeamRoutes, { prefix: '/api/knowledge-team' })
 
   // 用户侧 Agent 定时自动化(对标 WorkBuddy automations,2026-09-07 立)
   server.register(automationsRoutes, { prefix: '/api/automations' })
