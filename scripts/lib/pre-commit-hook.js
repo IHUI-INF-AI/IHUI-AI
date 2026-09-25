@@ -425,10 +425,7 @@ try {
   // 不会被本步看到(它判的是 HEAD 里的旧值),这一格是"门在跑、判的不是被提交的内容"那一型。
   if (involvesRnTokens) {
     if (
-      !run(
-        '🔍 条件 RN global.css 同步守门...',
-        'node scripts/check-rn-global-css-sync.mjs --staged',
-      )
+      !run('🔍 RN global.css 同步守门...', 'node scripts/check-rn-global-css-sync.mjs --staged')
     ) {
       console.error(
         '❌ RN global.css 与 tokens.css 变量值不一致,提交已阻止(请同步变量值后再 commit)',
