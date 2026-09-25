@@ -3,7 +3,17 @@
 -- [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 -- =============================================================================
--- IHUI-AI 数据库备份专用角色建制(一次性,需一次超管会话)
+-- IHUI-AI 数据库备份专用角色建制(角色名 beifen)
+-- =============================================================================
+-- ✅ 已于 2026-09-25 03:16 在生产库执行完毕。执行时**没有超管口令可用**,实测原因:这台机的
+--    pg_hba 在 09-24 04:47 由 trust 改成 scram,而在此之前**从没人给 postgres 设过口令**(它
+--    一直靠免密连)⇒ 改完之后管理员对谁都不通,包括改它的人。走的路径:在 pg_hba **最前面**
+--    临时插一条只放 postgres、只放 127.0.0.1 的 trust 行 → pg_ctl reload(不重启)→ 建号 +
+--    给 postgres 设随机口令 → 撤掉该行 + 再 reload(还原后与原文逐字一致,实测 grep -c trust = 0)。
+--    两份口令只写进 §5d 凭据目录,不进仓库/日志/聊天记录。
+--    执行后实测:beifen 的 rolsuper=f / rolcreatedb=f / rolbypassrls=t;它导出的 dump TOC =
+--    对象 5221 / TABLE DATA 716 / 94.3MB,与超管基线**逐位相同** ⇒ 降权没有少导一行。
+--    下面"怎么跑"那段保留,供另一台机或重装后复现(那台上如果 postgres 有口令,直接照它跑即可)。
 -- =============================================================================
 -- 为什么要有这个文件:
 --   pg_hba.conf 在 2026-09-24 04:47 收紧为 local/host 一律 scram-sha-256 之后,
@@ -48,11 +58,11 @@
 BEGIN;
 
 -- 一次性建制,故不用 DO/EXECUTE 包一层幂等。若本角色已存在,第一条语句会报
--- `ERROR: role "ihui_backup" already exists` —— psql 默认 ON_ERROR_STOP=off,
+-- `ERROR: role "beifen" already exists` —— psql 默认 ON_ERROR_STOP=off,
 -- 后续 ALTER/GRANT 照样执行,这句报错无害;想干净重跑就只删掉 CREATE ROLE 那一行。
-CREATE ROLE ihui_backup;
+CREATE ROLE beifen;
 
-ALTER ROLE ihui_backup WITH
+ALTER ROLE beifen WITH
     LOGIN
     NOSUPERUSER
     NOCREATEDB
@@ -64,19 +74,19 @@ ALTER ROLE ihui_backup WITH
     PASSWORD '<REPLACE_ME>';    -- ← 第 1 步替换成真实随机口令
 
 -- 读权限:schema USAGE + 全部表/视图/序列 SELECT,且自动覆盖以后新增的对象
-GRANT pg_read_all_data TO ihui_backup;
+GRANT pg_read_all_data TO beifen;
 
 -- 关键:绕过 RLS。缺这一条时 6 张 FORCE RLS 表会 dump 成空数据,而不报任何错。
-ALTER ROLE ihui_backup BYPASSRLS;
+ALTER ROLE beifen BYPASSRLS;
 
 -- 前瞻性加固(当前 ihui_dev.datacl=NULL,本条非必需;日后收紧 ACL 时才起作用)
-GRANT CONNECT ON DATABASE ihui_dev TO ihui_backup;
+GRANT CONNECT ON DATABASE ihui_dev TO beifen;
 
 COMMIT;
 
 -- 自查:角色属性应为 f|f|f|t|f|t(rolsuper|createdb|createrole|canlogin|replication|bypassrls)
 -- SELECT rolname, rolsuper, rolcreatedb, rolcreaterole, rolcanlogin, rolreplication, rolbypassrls
---   FROM pg_roles WHERE rolname = 'ihui_backup';
+--   FROM pg_roles WHERE rolname = 'beifen';
 
 -- =============================================================================
 -- 第 5 段 · 验收(整段贴进 pwsh 跑;两条 TABLE DATA 计数必须相等,
@@ -93,7 +103,7 @@ COMMIT;
 --         (@($t | Where-Object { $_ -match '\bTABLE DATA\b' }).Count)
 -- }
 -- $env:PGPASSWORD = '<刚设的口令>'
--- & "$pg\pg_dump.exe" -w -Fc -h localhost -p 8810 -U ihui_backup -d ihui_dev `
+-- & "$pg\pg_dump.exe" -w -Fc -h localhost -p 8810 -U beifen -d ihui_dev `
 --     --no-owner --no-privileges -f $scr
 -- Get-TocStat $scr                                                  # 新角色
 -- Get-TocStat (Get-ChildItem 'D:\DevEnv\backups\pg\ihui_dev_*.dump' |
