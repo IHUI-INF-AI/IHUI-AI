@@ -49,11 +49,13 @@ test('§22c 阶段 B/C:源文件必须 export __test__ 且测试必须真 import
   ]) {
     assert.ok(src.includes(`${key},`) || src.includes(`${key}:`), `__test__ 缺导出键 ${key}`)
   }
+  // 阶段 C:本测试必须真取用源导出的 __test__。刻意不写"测试文件里不得出现某函数名"
+  // 那种自指引断言 —— 它会在**本文件自身源码**里命中而恒红(第一版就红在这里)。
+  const self = readFileSync(import.meta.filename, 'utf8')
   assert.ok(
-    !/function hasThirdPartyNotice/.test(
-      readFileSync(import.meta.filename, 'utf8').replace(/^\/\*[\s\S]*?\*\//, ''),
-    ),
-    '测试文件不得复制源判据实现',
+    /from\s*['"]\.\.\/provenance-ledger\.mjs['"]/.test(self) ||
+      (/provenance-ledger\.mjs/.test(self) && /__test__/.test(self)),
+    '测试文件未取用源脚本的 __test__(§22c 阶段 C 锚点缺失)',
   )
 })
 
