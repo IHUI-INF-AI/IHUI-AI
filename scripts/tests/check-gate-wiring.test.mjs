@@ -10,6 +10,7 @@
  * 夹具全部现造字符串,不依赖真仓内容(教训:「棘轮自测夹具别写死存量路径」),
  * 端到端正反对账在源脚本的 `--self-test` 里用独立临时仓库完成。
  */
+import { execFileSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -370,5 +371,45 @@ test('T15 文档面取材的退化防线:源脚本读 AGENTS.md/README.md 必须
   // 旧「仅 HEAD」直读不得在文档面残留(HEAD:AGENTS.md / HEAD:README.md 字面量都不应再出现)
   assert.doesNotMatch(self, /HEAD:AGENTS\.md/, 'R2/R4 仍在 HEAD-only 直读 AGENTS.md(时序陷阱未修)')
   assert.doesNotMatch(self, /HEAD:README\.md/, 'R4 仍在 HEAD-only 直读 README.md(时序陷阱未修)')
+})
+
+/**
+ * R8 的两条跨文件锁 —— 都**只能**在镜像层做,因为它们判的是"本门与别的文件之间的前提关系",
+ * 而本门的 --self-test 只用夹具文本(P28-P34 已把判据本身钉死,这里不重复)。
+ *
+ * 面口径说明(避免被误读成"镜像测试也判 HEAD"):本文件读**磁盘**,因为它是开发者侧回归;
+ * 提交链上那道门判 HEAD / --staged 判索引。两者互补,不互相替代。
+ */
+test('T16 R8 的前提锁:runner 调度循环必须**没有**把归一层包进 try(否则"抛错=中止整批"这个红理由失效)', () => {
+  const root = fileURLToPath(new URL('../..', import.meta.url))
+  const runner = readFileSync(join(root, 'scripts/guardian-runner.mjs'), 'utf8')
+  const at = runner.indexOf('for (const check of effectiveChecks)')
+  assert.ok(at > 0, 'runner 的调度循环锚点找不到 —— 结构变了,本测试与 R8 都要跟着改')
+  const call = runner.indexOf('stagedPathsTouch(check.stagedTriggers)', at)
+  assert.ok(call > 0, 'runner 不再走 stagedPathsTouch(check.stagedTriggers) 这一形态 ⇒ R8 的红理由需重估')
+  assert.ok(
+    !runner.slice(at, call).includes('try {'),
+    '归一调用已被 try 包住 ⇒ 一次非法注册不再中止整批 ⇒ R8 必须从"判红"降为"报数",不得继续按旧理由拦人',
+  )
+  // 同一条前提的第二个失效面:红条件委托的是**运行时那份** lib,若 runner 换掉 import 源就失效
+  assert.match(
+    runner,
+    /from '\.\/lib\/guardian-triggers\.mjs'/,
+    'runner 必须仍从 lib 取归一实现 —— 换成第二份实现时,R8 委托的契约就不再是运行时那份',
+  )
+})
+
+test('T17 真仓注册表 R8 必 0 枚 bad(升档前置:不得留下一枚恒红)', () => {
+  const root = fileURLToPath(new URL('../..', import.meta.url))
+  const r = G.findMalformedTriggers(readFileSync(join(root, 'scripts/guardian-runner.mjs'), 'utf8'))
+  assert.deepEqual(
+    r.bad,
+    [],
+    `注册表里有 ${r.bad.length} 枚会让整批门中止的形态:${r.bad.map((b) => `${b.id}=${b.value}`).join(' / ')}`,
+  )
+  // 三类"不拦但如实报数"的分桶必须都在输出里 —— 缺一项就等于把某类形态静默成"看起来全绿"
+  for (const k of ['rescued', 'dead', 'undetermined']) {
+    assert.ok(Array.isArray(r[k]), `${k} 必须是数组(结论行要如实报数,不能缺项)`)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
