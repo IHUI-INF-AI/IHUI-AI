@@ -77,10 +77,10 @@ function AppInner() {
     /**
      * 顶部安全区在**这一处单点**注入:RN 0.86 + Expo 强制 edge-to-edge,而全端 180 个共享屏
      * 自绘的"返回"页头没有一个处理 inset,页头与系统时钟/电量叠字(真机实测页头 y0=24..78)。
-     * 逐屏补是 180 处改动,这里包一层是一次性收口。因此原先自带顶距的四处必须同时摘掉,否则双份:
+     * 逐屏补是 180 处改动,这里包一层是一次性收口。因此原先自带顶距的几处必须同时摘掉,否则双份:
      * components/NavBar、screens/PostCreateScreen、screens/WebViewScreen、
-     * packages/app 的 search/SearchScreen(其 `paddingTop: 48` 已摘);DevErrorToast 是 absolute 子元素,
-     * 相对本容器 padding 盒定位,故其 top 也同步去掉状态栏高度。
+     * packages/app 的 search/SearchScreen;DevErrorToast 是 absolute 子元素,相对本容器
+     * padding 盒定位,故其 top 也同步去掉状态栏高度。
      * 不经过这里的:Drawer / SideMenu / BottomPops / HandPlatePops / PrivacyPolicyModal ——
      * 它们走 RN <Modal>,渲染在本树之外的原生窗口,各自的 insets.top 必须保留。
      */
@@ -141,7 +141,6 @@ function AppContent() {
   // AsyncStorage 未记录已同意 → 强制展示(小米平台要求:不可绕过,同意后才能继续使用);
   // 同意后持久化记录(对齐历史 onPrivacyAccepted setStorageSync('privacyPolicyShown', true))。
   const [privacyVisible, setPrivacyVisible] = useState(false)
-
   useEffect(() => {
     void (async () => {
       try {
@@ -159,13 +158,37 @@ function AppContent() {
     setPrivacyVisible(false)
   }, [])
 
+  // ===== O57(2026-09-24):根背景按聚焦路由取 =====
+  // 全屏沉浸屏(VideoPlayer)的底色铺不进状态栏带 —— 那条带由本组件根 View 的
+  // backgroundColor 绘制,屏幕内容在屏幕顶边被裁剪(真机量得带内 y=8..60 浅灰),
+  // 端内任何写法都够不到。修法在单点:聚焦路由为 VideoPlayer 时取 tokens.gray.black
+  // (与共享层 packages/app video-player 容器同源同值,不新增第二个色源),其余仍 surface.bg。
+  // SafeAreaView edges=['top'] 单点注入不变(守门 97):这里只换底色,不碰顶距。
+  const [focusedRoute, setFocusedRoute] = useState<string | null>(null)
+  useEffect(() => {
+    const sync = (): void => {
+      setFocusedRoute(
+        navigationRef.isReady() ? (navigationRef.getCurrentRoute()?.name ?? null) : null,
+      )
+    }
+    sync()
+    const unsubReady = navigationRef.addListener('ready', sync)
+    const unsubState = navigationRef.addListener('state', sync)
+    return () => {
+      unsubReady()
+      unsubState()
+    }
+  }, [])
+  const rootBackground = focusedRoute === 'VideoPlayer' ? tokens.gray.black : tokens.surface.bg
+
   return (
     // backgroundColor 兜底:悬浮 TabBar 留边/根节点透明的屏(ProfileScreen 等 Fragment 根)
     // 会露出原生窗口黑底(#000000 splash)。主 tab 页均为静态浅色 token 渲染,
-    // 故取浅色 surface.bg 与页面底色一致;暗色主题全量落地时再随主题切换。
+    // 故取浅色 surface.bg 与页面底色一致;沉浸屏(VideoPlayer)例外见上方 O57 注释;
+    // 暗色主题全量落地时再随主题切换。
     <View
       className={resolvedTheme === 'dark' ? 'dark' : ''}
-      style={{ flex: 1, backgroundColor: tokens.surface.bg }}
+      style={{ flex: 1, backgroundColor: rootBackground }}
     >
       <SafeAreaProvider>
         <I18nProvider>
