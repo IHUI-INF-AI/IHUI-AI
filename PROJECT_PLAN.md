@@ -218,12 +218,9 @@
 - [x] ✅(2026-09-25) **A26「branded nominal id」用真尺子量完 ⇒ 否证，不采纳**：
   粗量 `sessionId|turnId|toolCallId|messageId|conversationId|runId` 标注为裸 `string` 的位点是 **458 处 / 134 文件**，
   但那个数**不构成风险** —— id 传错的真实暴露面是"**同一个签名里并存 ≥2 枚同形 id**"，按这一形态实测是 **34 处 / 13 文件**
-  （集中在 `apps/web/src/hooks/use-apply-diff.ts` ×6、`apps/web/src/lib/annotations.ts` ×4、`packages/api-client/src/endpoints/chat.ts` ×4、
-  `apps/api/src/db/chat-queries.ts` ×3 等）。⇒ 为一个 34 处的暴露面给 134 个文件铺 branded 类型 + 建一道门，
-  收益/成本比不成立，**且本仓没有一次"id 传错"的真实故障成例**（找不到 = 不立守卫，按既有口径「先证坏状态可达再立守卫」）。
-  **这条测量本身还有一次自我纠错**：我第一次量出 0 处，是因为把探针写在 `node -e "..."` 里被 bash 转义把正则的 `\b` 吃掉了 ——
-  加**阳性对照**（一批已知答案的样本，含一条必须为 0 的反例）重跑才得出现值 34。
-  探针现存 `.ihui-agent/tmp/measure-a26.mjs`，**它的第一条断言就是"尺子失效则拒绝输出仓内读数"**。
+- [x] ✅(2026-09-25) **A26「branded nominal id」量完 ⇒ 不采纳**（同体两行的旧副本，现行文本见下方那条带"附真暴露面读数"的登记，勿照本条派单）：
+  ⚠️ 本条与下一条是**同一件事的两行**（我把两段草稿都插进了同一个块）。保留只为不丢行(§12)，
+  实质内容（458 处/134 文件的粗量、34 处/13 文件的真暴露面、阳性对照与"尺子失效则拒绝输出读数"）以下一条为准。
 - [ ] **A36 剩下的两步（有前置，不得跳）**：② 拿影子数据把描述修对 —— 依赖至少一次真实运行统计
   （`shadow` 档跑出来的 `byTool/errorCount/undeterminedRequired`），本机 CLI 今天没有长时间会话 ⇒ 属"等数据"不是"等决定"；
   ③ 才允许 `enforce` 默认开 + 把 `{字段路径, 期望, 实得}` 逐条回灌模型 —— 现状是 `formatValidationErrors`
@@ -234,6 +231,11 @@
   粗量 `sessionId|turnId|toolCallId|messageId|conversationId|runId` 标成裸 `string` 的位点是 **458 处 / 134 文件**，
   但那个数**不构成风险** —— id 传错要发生，形态得是"**同一个签名里并存 ≥2 枚同形 id**"，按这一形态实测 **34 处 / 13 文件**
   （集中在 `apps/web/src/hooks/use-apply-diff.ts` ×6、`apps/web/src/lib/annotations.ts` ×4、`packages/api-client/src/endpoints/chat.ts` ×4、
+  `apps/api/src/db/chat-queries.ts` ×3 等）。⇒ 为一个 34 处的暴露面给 134 个文件铺 branded 类型 + 建一道门，
+  收益/成本比不成立，**且本仓没有一次"id 传错"的真实故障成例**（找不到 = 不立守卫，按既有口径「先证坏状态可达再立守卫」）。
+  **这条测量本身还有一次自我纠错**：我第一次量出 0 处，是因为把探针写在 `node -e "..."` 里被 bash 转义把正则的 `\b` 吃掉了 ——
+  加**阳性对照**（一批已知答案的样本，含一条必须为 0 的反例）重跑才得出现值 34。
+  探针现存 `.ihui-agent/tmp/measure-a26.mjs`，**它的第一条断言就是"尺子失效则拒绝输出仓内读数"**。
   `apps/api/src/db/chat-queries.ts` ×3 等）。⇒ 为一个 34 处的暴露面把 branded 类型铺进 134 个文件再配一道门，
   收益/成本不成立；且**本仓找不出一次真实的 id 传错故障成例** ⇒ 按既有口径「先证坏状态可达再立守卫」不立项，
   留作"若哪天出现 id 串台，这 13 个文件就是第一现场"的索引。
@@ -251,6 +253,28 @@
   （不校验就重试等于放弃只提交自己声明的文件这条根约束 —— 窗口期里别人可能刚 staged 东西），
   不一致即明写拒绝在窗口期把别人的东西一起提交并退出。锁在
   `scripts/tests/safe-commit-gate-attribution.test.mjs` 的 A12（源码形态断言，**端到端证明就是本次落地**：修完这枚提交带着 4 个新文件过了跳门重试）。
+
+### 第十波（2026-09-25 15:3x–16:0x：门 116 出站事实 + 影子校验落地后的三处如实登记）
+
+- [x] ✅(2026-09-25) **A34 出站事实随返回值走 → 门 116 上线**（`packages/types/src/egress-facts.ts` 闭集形状 +
+  `apps/api/src/utils/proxy-dispatcher.ts` 的 `collectEgressFacts`/`proxiedFetch` + `_shared.ts` 两条分支都挂事实）。
+  **我原本的前提被代理修正后仍成立但形状不同**：本仓**已有半套等价物**（`proxy-dispatcher` 会决策走不走代理），
+  缺的正是"把决策结果作为返回值带回来"那一半 —— 所以这票不是从零建机制，是**补上回读那一半**；
+  同时 `isProxiedUrl` 改成 `collectEgressFacts().proxied` 的投影 ⇒ 决策与事实同一份判据（逐条等值由 13 例钉住）。
+  厂商域名不硬编码：从 `VENDORS.baseUrl` + `DEFAULT_PROXY_DOMAINS` 两张真表推导出 100 个，推不出即 exit 2。
+- [x] ✅(2026-09-25) **两条"本票没做"写在门牌的提示里，不留成沉默的绿灯**：
+  ① **错误分流**（"被策略拦"与"网络错"两个码）**没做** —— 实测本仓 TS 侧没有任何出口会在传输前拒发请求
+  （`proxiedFetch` 唯一的 `throw` 在其调用链上结构不可达），造两个码就是一台永远不响的门；
+  ② `NO_PROXY` 只作为**事实**读回、**没有让它生效**（改路由会波及全部厂商调用，属另一张票），
+  但 `proxied=true ∧ noProxyMatched=true` 这对组合作为可诊断指纹已有配对用例。
+  ③ 代理分支未做端到端实跑（本机需活代理），改以"决策为真时 global fetch 被调 0 次"间接证明换了传输 —— 这是**间接**证据，别读成端到端。
+- [ ] **本线的结构性残余（不是遗漏，是需要新授权/新窗口的账）**：
+  ① 门 111 的 TRD 只到"碰过必须补"，104 枚工具的契约声明实际进度仍是 0 —— 第二阶段（补 `--flip-audit` 点名的 16 枚、
+  再谈缺省即不可信）没动；② A36 第②③步（用影子数据修 `parameters` 描述 → 默认 enforce + 逐条回灌模型）等真实运行统计；
+  ③ 门 113 的 16 处存量（`memory.ts` 的必填 `user_id` + 句柄类 11 处）；④ 门 112 的 api 端 `/chat/stream` 溢出面分母；
+  ⑤ 门 116 的两条未做（错误分流 / NO_PROXY 生效）；⑥ 上游 `core/src/runtime`、`tool/handlers`、`packages/ui` 约 64,000 行
+  **仍是未读**（七轮合计只读到 46 个文件 ≈ 1.15%）—— 第七轮的结论是按"出一次本仓故障 → 定点读对应文件"继续，
+  不再按轮次通读；"抄完了"这个说法在任何一轮都不成立。
 
 ## O61 safe-commit 的"钩子失败归因"从抄来的结论改成量出来的结论（2026-09-25 立并完成 ✅）
 
@@ -9541,9 +9565,6 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   `scripts/check-glyph-arrow-icon.mjs`);② 小程序端那一票仍需在它自己的会话里重新落地,
   本票未代做(避免与在飞会话撞同一批文件);③ web 端 `packages/i18n` 的 `common.back` 键
   在四端仍各有一份定义,词包合并另计。
-
-### 第五十波·TEMP 夹具回收出口落地 + 一处 junction 虚高量算的自纠(2026-09-25 当日)
-
 - [x] ✅(2026-09-25) **新建 `scripts/scrub-temp-fixtures.mjs` —— 本项目测试夹具在 TEMP 里此前没有任何回收出口**(提交 `19d7d791fc7`,2 文件 +408 行):
   - **立项依据(四处逐一实测,不是"看起来缺")**:活进程 `os.tmpdir()` = `D:\caches\Temp`,其中本项目前缀条目 **444 个 / 5,842 文件 / 1.60GB**,最旧 mtime 停在 2026-08-26。回收面全链无人管:`check-c-drive-pollution`(门 92)头注自陈"本门只读,不删除任何文件"且只扫 C 盘;`c-drive-auto-maintain.ps1` 的删除面按设计钉在 C 盘(它是计划任务,扩面=改全机行为,§26 要求用户授权);`clean-garbage.mjs` 完全不碰 TEMP(`grep tmpdir|TEMP|ihui-` 零命中);`scripts/lib/scratch-dir.mjs` 只有 `mkScratch`/`rmScratch` —— **新写的测试有出口,历史遗留与"忘了 rm"那批没有**。即"落点规约存在、回收费不存在",与本仓最高频的「造好没装车」同族。
   - **三条护栏各配一条"绝不该被删"的诱饵负向对照**(`node --test scripts/tests/scrub-temp-fixtures.test.mjs` **9/9 通过**):① **绝不跟随重解析点** —— 枚举/递归一律 `lstatSync`,T4 真用 `cmd /c mklink /J` 造出 junction 再删宿主夹具,断言外部 canary 文件删除后**字节不变**;建不出 junction 时判"未判定"并打印,不许退化成通过(§26 记过的那型自毁事故:递归删除穿过 junction 清空 D 盘真实目标)。② **名字围栏按起始前缀白名单** `ihui-/IHUI-/next-backup-/probe-`,T8 用 `my-ihui-workdir`/`ihui2-cache`/`xIHUI-tool` 三条近似名反向钉住"含前缀 ≠ 我们的"。③ **账龄闸默认 7 天**,T9 变异对照(阈值改 0 ⇒ 当日夹具进候选)证明那条闸有牙。④ 扫描时才发现的第二类真危险:夹具**内层**藏着 `secrets`/`密钥` 目录 ⇒ **整条不许删并点名路径**(实抓 `D:\caches\Temp\ihui-sbx-test-DkOGXA\secrets`),T3 钉住;不做"递归时顺手跳过它"的半删。⑤ 取不到目录一律 `无法判定` exit 2,不冒绿也不冒红(T7);`--apply` 才删,默认零副作用(T5)。
@@ -9551,3 +9572,6 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   - **定级为"残留出口"而不是"磁盘 relief 杠杆"(如实收窄,免得下一个人按 13GB 的想象派单)**:按 7 天账龄只能回收 **0.00GB**(54 条 / 140 文件),>1 天 **0.18GB**,>0 天才是 1.60GB —— 大头都是最近 7 天内并行会话跑测试产生的。要收那部分只有两条路:降阈值(会删到在跑的夹具),或让测试自己 `rmScratch` —— 后者落在 `scripts/tests/*.test.mjs` 那 **83 个仍直接用 `os.tmpdir()`** 的他人测试面上,而门 92 那条登记写死了扩面触发条件("TEMP 漂移 **或** C 盘列出本项目产物前缀"),本票实测两条**都不成立**(`TEMP 一致:进程 D:\caches\Temp`;C 盘我们产物 0 条)⇒ **不动那个面**,与本票开头的登记结论一致。
   - **刻意不接计划任务**:每日自动删除影响全机,§26 明确须用户授权。入口是手跑 `node scripts/scrub-temp-fixtures.mjs [--older-than N] [--apply]`。它也不是守门(不以 `check|scan|guard` 开头,门 89 结构上看不见),所以不变量由自己那把尺子钉 —— 上面那 9 例镜像测试即装配证明。
 - **留下的账(归属明确,不是遗漏)**:① **TEMP 三根并存,已逐个 `lstatSync` + `readdirSync` 实量**(全部是**实体目录、`isSymbolicLink()` 均 false**,即不是 junction 改道后的同名视图):`D:\caches\Temp` = 活进程 `os.tmpdir()`,83 个仍用 `os.tmpdir()` 的 `scripts/tests/*.test.mjs` 往这里倒(本项目前缀 444 条 / 5,842 文件 / 1.60GB);`G:\DevEnv\Temp\ihui-scratch` = `scripts/lib/scratch-dir.mjs` 按工作树所在盘推导的唯一落点(§15b 批准项,**在收**);`D:\DevEnv\Temp` = §26/§15b 台账点名的那一个。**三份互不相通 ⇒ "唯一落点"这句在本机不成立**,而 §26 还写着"本机不存在 `D:\caches`(死路径)"——已被实测推翻。归属:统一 TEMP(改注册表 env 或把 junction 补上)决定全机工具往哪儿写,属用户授权项,本票**未擅自改文档、未动注册表、未建 junction**。② 是否把 `--apply` 挂进某个定时点,同属用户授权项,本票未做。
+
+### 第五十波·TEMP 夹具回收出口落地 + 一处 junction 虚高量算的自纠(2026-09-25 当日)
+
