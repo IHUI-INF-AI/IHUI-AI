@@ -38,11 +38,6 @@
   padding: 24rpx 20rpx;
 }
 
-.fp-back {
-  font-size: 32rpx;
-  color: var(--color-text-medium);
-}
-
 .fp-title {
   font-size: 40rpx;
   font-weight: 700;

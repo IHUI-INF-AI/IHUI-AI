@@ -17,6 +17,7 @@ import PhoneAreaCodePicker from '@/components/PhoneAreaCodePicker'
 import PasswordVisibilityToggle from '@/components/PasswordVisibilityToggle'
 import AuthButton from '@/components/AuthButton'
 import ThemeRoot from '@/components/ThemeRoot'
+import BackChevron from '@/components/BackChevron'
 import './index.css'
 
 /** 把共享 hook 返回的通用错误 key(auth.*)映射到本页 register.* 文案(仅本页面用) */
@@ -113,9 +114,7 @@ export default function RegisterIndex() {
       <View className="container1">
         {/* 顶部:返回 + 标题(对齐 RN SharedRegisterScreen header) */}
         <View className="reg-header">
-          <Text className="reg-back" onClick={toLogin}>
-            {tt('common.back', '返回')}
-          </Text>
+          <BackChevron onTap={toLogin} />
           <Text className="reg-title">{tt('register.title', '注册')}</Text>
         </View>
 
