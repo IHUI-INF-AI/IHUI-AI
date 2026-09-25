@@ -16,13 +16,19 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { auditFile, parseExports, parseImports } from '../check-dangling-local-imports.mjs'
+import {
+  auditFile,
+  parseExports,
+  parseImports,
+  templateInteriorLines,
+} from '../check-dangling-local-imports.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const GUARD = join(ROOT, 'scripts/check-dangling-local-imports.mjs')
 
-test('源模块导出三个可单测的纯函数(§22c 前置条件)', () => {
-  for (const fn of [parseImports, parseExports, auditFile]) assert.equal(typeof fn, 'function')
+test('源模块导出四个可单测的纯函数(§22c 前置条件)', () => {
+  for (const fn of [parseImports, parseExports, auditFile, templateInteriorLines])
+    assert.equal(typeof fn, 'function')
 })
 
 test('D1 正反成对:导入不存在的名字必拦,存在必放行', () => {
@@ -76,5 +82,42 @@ test('真仓 HEAD 零容忍:悬空必须为 0(存量已于 2026-09-24 清零,任
   assert.match(out, /内容口径:HEAD 内容/)
   assert.match(out, /新增 0 文件/)
   assert.match(out, /悬空 0 处/)
+})
+
+/**
+ * 直接锁"反引号只由词法状态决定"这条判据。
+ *
+ * 为什么光有上面那条端到端零容忍不够:全树扫到 1 处假红要靠人跑去复现,而这两型字面量
+ * 在仓库里就 6 行(门 119 的 5 行字符字面量 + 门 91:403 的 1 行正则)—— 谁把扫描器退回
+ * "数一行反引号奇偶",本测试立即点名,而不是等下一个无关提交被钉红。
+ * G-177 的起因正是这个:奇偶法把 check-theme-prop-wiring.mjs 后 500 多行整体反档,
+ * 于是夹具模板里拼出来的 `import … from '../components/Carousel'` 被判成真导入 → D2 恒红。
+ */
+test('反引号在字符字面量/正则字面量里都不得翻转模板状态(真仓 G-177 的两型)', () => {
+  // 型 ①:反引号作为字符常量参与语法扫描(真门 119 就是这个写法,5 行)
+  const CHAR_LIKE = ['const q = "`"', "import { Ghost } from './b'", 'export const Ghost = 1'].join('\n')
+  // 型 ②:反引号在正则字面量里(真门 91:403 就是这个写法)
+  const RE_LIKE = ['const re = /^(?:\'|"|`)(light|dark)(?:\'|"|`)$/', "import { Ghost } from './b'"].join('\n')
+  for (const [name, text] of [
+    ['字符字面量', CHAR_LIKE],
+    ['正则字面量', RE_LIKE],
+  ]) {
+    const inside = templateInteriorLines(text)
+    assert.equal(inside.length, text.split('\n').length, '逐行标记必须与行数等长(短一节 = 有行没被扫到)')
+    assert.equal(
+      inside.slice(1).some(Boolean),
+      false,
+      `${name}里的反引号被当成了模板定界符(奇偶法必错在这一型)`,
+    )
+    assert.equal(auditFile('p/i.ts', (p) => (p === 'p/i.ts' ? text : 'export const Ghost = 1'), () => true).length, 0, `${name}型不得产出假红`)
+  }
+  // 反向对照:真模板体内的行仍须判"在模板内" —— 否则本判据是恒 false 的空壳
+  // (端到端那条零容忍恰好会因此变绿,所以这条必须单独钉)
+  const REAL_TPL = ['const a = `', "import { Ghost } from './b'", 'x`'].join('\n')
+  assert.deepEqual(
+    templateInteriorLines(REAL_TPL),
+    [false, true, true],
+    '模板起始行不在内、纯内容行在内、闭合行仍算在内(闭合符本身才把它关上)',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -472,7 +472,7 @@ function printHuman(r) {
 }
 
 function parseArgs(argv) {
-  const out = { target: null, artifact: null, json: false, selfTest: false }
+  const out = { target: null, artifact: null, json: false, selfTest: false, staged: false }
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i]
     if (a === '--target') out.target = argv[++i] ?? ''
@@ -481,6 +481,12 @@ function parseArgs(argv) {
     else if (a.startsWith('--artifact=')) out.artifact = a.slice('--artifact='.length)
     else if (a === '--json') out.json = true
     else if (a === '--self-test') out.selfTest = true
+    // 提交链会向每道门自动下发 --staged。本门量的是**磁盘上的构建产物**,与工作树/索引无关,
+    // 没有"按暂存收窄"这回事 ⇒ 接受并忽略(口径恒全量),照守门 78 的同款处理。
+    // 不接会怎样:抛 UnknownTargetError → exit 2,而它 mode=warn ⇒ 每次提交都计一条"警告",
+    // 且这条警告的真实含义是"这道门从没跑起来过",不是"产物有情况"——把不可执行伪装成检测结果,
+    // 比恒红更坏(恒红至少逼人去看)。实测登记见 PROJECT_PLAN G-176。
+    else if (a === '--staged') out.staged = true
     else throw new UnknownTargetError(`未知参数:${a}`)
   }
   return out

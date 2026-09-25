@@ -2872,7 +2872,9 @@ const checks = [
     id: '110',
     label: '📦 产物预算对账(warn,交付出去的产物第一次有上限表:主包口径 / 悬空 sourceMappingURL 引用)',
     script: 'check-artifact-budget.mjs',
-    args: [],
+    // 必须带 --target:本门刻意「未知/缺 target 即 exit 2、不回落默认档」,空 args 会让它在提交链里
+    // 永远跑不起来(实测 G-176)。miniapp 是唯一已校准上限的档;其余档在 CI 里逐档 --target 问责。
+    args: ['--target', 'miniapp'],
     mode: 'warn',
     skipEnv: 'HUSKY_SKIP_ARTIFACT_BUDGET',
     onFailHint: [
