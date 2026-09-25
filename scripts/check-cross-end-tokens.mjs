@@ -606,6 +606,21 @@ export const ALPHA_TOKENS_REL = 'packages/design-tokens/src/styles/tokens.css'
  *  两端 tailwind.config 都 require 同一份 preset ⇒ 同一个插件)。web / extension 是 v4,原生支持 alpha,
  *  扫它们会把"本来就能用的类名"判成缺登记 = 假红。 */
 export const ALPHA_SCAN_FACES = ['apps/miniapp-taro/src', 'apps/mobile-rn/src', 'packages/app/src']
+/**
+ * 其中 `apps/miniapp-taro` 实际跑的是 **Tailwind v4**,不是端内 `package.json` 声明的 v3.4.17
+ * (2026-09-25 实测,三条证据见 PROJECT_PLAN O62附⑤:产物 base 层带 v4 指纹;
+ * `weapp-tailwindcss@5.2.9` 引用的入口是 `@tailwindcss/postcss`,而 v4 的 main 导出会报错
+ * 拒绝被当 postcss 插件用)。而 v4 **原生**产出项目自定义色的 `/alpha` —— 带真 `@theme` 复测
+ * 7/7 命中,含 `bg-cta/20` 与任意值 `bg-muted/[0.12]`,声明体是 `color-mix(in srgb, …)`。
+ * ⇒ "必须登记进 ALPHA_USAGE"对 miniapp 是**假要求**:登记了它也不读插件(插件挂在 v3 preset 上,
+ * 而该 preset 在 miniapp 真实构建里根本没被加载),不登记 v4 也照样能出。
+ * 所以 R6 的"必须登记 / 清单腐烂"两判只对**真 v3 消费端**(mobile-rn + packages/app)生效;
+ * miniapp 的 alpha 用量仍**照数报出**,只是不判红 —— 它属于那条尚未接线的"utilities 到端"问题。
+ */
+export const ALPHA_V4_FACES = ['apps/miniapp-taro/src']
+export const isV4Face = (rel) => ALPHA_V4_FACES.some((p) => rel === p || rel.startsWith(p + '/') || rel.startsWith(p + '\\'))
+/** 真 v3 消费端 = 全部扫描面减去 v4 面。登记表与"必须登记"判据都只认这一份。 */
+export const ALPHA_V3_SCAN_FACES = ALPHA_SCAN_FACES.filter((p) => !ALPHA_V4_FACES.includes(p))
 export const ALPHA_SCAN_EXT = /\.(tsx|ts|css|scss)$/
 /** 行内豁免:必须带原因,且只对**本行或紧邻上一行**生效(逐行,不得一行标记救全文件)。 */
 export const ALPHA_EXEMPT_RE = /alpha-plugin-exempt:\s*\S/
@@ -990,29 +1005,29 @@ export function checkAlphaChannelVars({ usage, colors, cssLight, cssDark, plugin
 
 /** 按判定面收集 R6 语料:清单与内容同面;`--staged` 用索引 blob 覆盖 HEAD,删除的路径从语料中移除。
  *  同时带回 HEAD 原文(`head`)—— 腐烂判据要按"本次提交是否新增"算棘轮,必须有两个面的用量集。 */
-export function collectAlphaCorpus({ face }) {
+export function collectAlphaCorpus({ face, faces = ALPHA_SCAN_FACES }) {
   const FACE_SHORT = { head: 'HEAD', staged: '索引', worktree: '工作树' }
-  const listed = gitExec(['ls-tree', '-r', '--name-only', 'HEAD', '-z', '--', ...ALPHA_SCAN_FACES])
+  const listed = gitExec(['ls-tree', '-r', '--name-only', 'HEAD', '-z', '--', ...faces])
     .split('\0')
     .filter((p) => p && ALPHA_SCAN_EXT.test(p))
   const paths = new Set(listed)
   let extra = []
   if (face === 'staged') {
     // 暂存变更集(不是"整个索引"):这次提交真会带走的那些路径
-    extra = gitExec(['diff', '--name-only', '--cached', '--', ...ALPHA_SCAN_FACES])
+    extra = gitExec(['diff', '--name-only', '--cached', '--', ...faces])
       .split('\n')
       .filter((p) => p && ALPHA_SCAN_EXT.test(p))
   } else if (face === 'worktree') {
     // 逃生舱:按跟踪文件清单(`git ls-files` = 索引面),内容一律从磁盘读 ——
     // 未跟踪文件不在射程内(否则又把别人的草稿扫进来,正是本门要避免的那一型)
-    extra = gitExec(['ls-files', '-z', '--', ...ALPHA_SCAN_FACES])
+    extra = gitExec(['ls-files', '-z', '--', ...faces])
       .split('\0')
       .filter((p) => p && ALPHA_SCAN_EXT.test(p))
   }
   for (const p of extra) paths.add(p)
   if (paths.size === 0)
     throw new UndeterminedError(
-      `${FACE_SHORT[face]} 面在扫描面(${ALPHA_SCAN_FACES.join(' + ')})枚举到 0 个文件 —— 判据不扫空气`,
+      `${FACE_SHORT[face]} 面在扫描面(${faces.join(' + ')})枚举到 0 个文件 —— 判据不扫空气`,
     )
   const all = [...paths]
   const headMap = readBlobs(all.map((p) => `HEAD:${p}`))
@@ -1080,6 +1095,9 @@ export const __test__ = {
   ALPHA_PRESET_REL,
   ALPHA_TOKENS_REL,
   ALPHA_SCAN_FACES,
+  ALPHA_V4_FACES,
+  ALPHA_V3_SCAN_FACES,
+  isV4Face,
   ALPHA_SCAN_EXT,
   ALPHA_EXEMPT_RE,
   parseLiteralObject,
@@ -1320,14 +1338,15 @@ export async function runR6({ face, quiet }) {
   const baseRot = sHead
     ? new Set(
         checkAlphaUsage({
-          usages: sHead.tokens,
+          usages: sHead.tokens.filter((x) => !isV4Face(x.rel)),
           usage: reg.usage,
           colors: reg.colors,
           plugin,
         }).rot.map((x) => x.key),
       )
     : null
-  const usages = sEff.tokens
+  const usages = sEff.tokens.filter((x) => !isV4Face(x.rel))
+  const v4Only = sEff.tokens.length - usages.length
   const undetermined = sEff.undetermined
   const r = checkAlphaUsage({ usages, usage: reg.usage, colors: reg.colors, plugin, baselineRot: baseRot })
   const chans = checkAlphaChannelVars({
@@ -1342,7 +1361,9 @@ export async function runR6({ face, quiet }) {
     failures.push({
       tag: `R6 未登记的 alpha 用量 ${x.key}`,
       detail: `${x.rel}:${x.line + 1} —— v3 端写得出这个类名但**根本不产出 CSS**(typecheck/lint/build 全不红)。` +
-        `补一行到 ${ALPHA_PLUGIN_REL} 的 ALPHA_USAGE:${x.tier}: { …, ${x.kind}: [..., '${x.mod}'] }`,
+        `修复出口:` + `node scripts/sync-alpha-usage.mjs` + `(表由用量导出,勿手改 ALPHA_USAGE;` +
+        `它会在 ${ALPHA_PLUGIN_REL} 里原位写入 ${x.tier}: { …, ${x.kind}: [..., '${x.mod}'] })。` +
+        `仅当该形态确属不该登记时,才用行内 alpha-plugin-exempt: <原因>。`,
     })
   for (const x of r.unsupportedKind)
     failures.push({
@@ -1377,7 +1398,7 @@ export async function runR6({ face, quiet }) {
         `  ⚠️ NOTICE ${x.chan} 在 tokens.css 的 .dark 未声明 ⇒ 暗档 alpha 沿 cascade 用亮档值(可见但偏色),不判红、待人工定档`,
       )
     console.log(
-      `  · R6:${corpus.length} 个文件里抽到 ${usages.length} 处 alpha 类名(preset 档 ${r.checked} / 默认色板 ${r.nonPreset} / 已豁免 ${r.exempted}),` +
+      `  · R6:${corpus.length} 个文件里抽到 ${r.checked} 处需登记的 v3 端 alpha 类名(preset 档 ${r.checked} / 默认色板 ${r.nonPreset} / 已豁免 ${r.exempted};另有 v4 端 ${v4Only} 处不判),` +
         `登记 ${Object.values(reg.usage).reduce((a, b) => a + Object.values(b).reduce((x, y) => x + y.length, 0), 0)} 形态,` +
         `判不出形态 ${undetermined} 处(不判红),腐烂 新增 ${r.rot.length} / HEAD 存量 ${r.rotInherited} 不计,` +
         `口径 ${FACE_TXT[face]}`,
