@@ -2,6 +2,8 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { frameSystemReminder } from './utils/prompt-boundary.js';
+
 /**
  * P1-2 Reminders 系统提醒自动注入。
  *
@@ -42,6 +44,9 @@ const ITERATION_PROGRESS_INTERVAL = 5;
 /**
  * 生成系统提醒。返回应追加到当前轮 resultParts 的 reminder 字符串数组。
  * 副作用:会把已注入的 reminder 类型加入 ctx.injected(避免下一轮重复注入)。
+ *
+ * 产出必须经 `frameSystemReminder`(唯一出口):裸 `[系统提醒]` 前缀是纯文本,
+ * 工具输出里出现同样字样时模型无从分辨是谁在说话,所以提醒必须是**带 kind 的结构块**。
  */
 export function generateReminders(ctx: ReminderContext): string[] {
   const reminders: string[] = [];
@@ -55,7 +60,10 @@ export function generateReminders(ctx: ReminderContext): string[] {
   ) {
     const pct = Math.round((totalTokens / ctx.contextLimit) * 100);
     reminders.push(
-      `[系统提醒] 上下文窗口已用 ${pct}%(tokens ${totalTokens}/${ctx.contextLimit})。建议尽快收尾,或用 /compact 手动压缩。达 88% 将自动压缩。`,
+      frameSystemReminder(
+        'context_budget',
+        `上下文窗口已用 ${pct}%(tokens ${totalTokens}/${ctx.contextLimit})。建议尽快收尾,或用 /compact 手动压缩。达 88% 将自动压缩。`,
+      ),
     );
     ctx.injected.add('context_budget');
   }
@@ -68,10 +76,13 @@ export function generateReminders(ctx: ReminderContext): string[] {
   ) {
     const remaining = ctx.maxIterations - ctx.iterations;
     reminders.push(
-      `[系统提醒] 已完成 ${ctx.iterations}/${ctx.maxIterations} 轮迭代(剩余 ${remaining} 轮)。请评估当前进度,若接近目标请加快收尾,若卡住请考虑换方案。`,
+      frameSystemReminder(
+        'iteration_progress',
+        `已完成 ${ctx.iterations}/${ctx.maxIterations} 轮迭代(剩余 ${remaining} 轮)。请评估当前进度,若接近目标请加快收尾,若卡住请考虑换方案。`,
+      ),
     );
   }
 
-  return reminders;
+  return reminders.filter((line) => line !== '');
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
