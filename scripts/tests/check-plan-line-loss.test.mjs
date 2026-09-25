@@ -9,7 +9,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -21,7 +21,9 @@ import * as PLAN_LOSS_SRC from '../check-plan-line-loss.mjs'
 const G = PLAN_LOSS_SRC.__test__ ?? PLAN_LOSS_SRC
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const SCRIPT = join(HERE, '..', 'check-plan-line-loss.mjs')
+/** 仓库根(测试文件在 `<root>/scripts/tests/` 下 ⇒ 上溯两级;闭包里的路径一律以仓库根为基准) */
+const REPO = join(HERE, '..', '..')
+const SCRIPT_REL = 'scripts/check-plan-line-loss.mjs'
 const GIT = 'git'
 const git = (dir, ...args) =>
   execFileSync(GIT, ['-c', 'safe.directory=*', ...args], {
@@ -31,6 +33,36 @@ const git = (dir, ...args) =>
     windowsHide: true,
     timeout: 60000,
   })
+
+/**
+ * 端到端夹具的装车面:复制**整条相对 import 闭包**,不是只复制入口那一个文件。
+ *
+ * 起因(实测,不是假想):守门 71 的内容面在 2026-09-25 迁到 `./lib/face-reader.mjs` 之后,
+ * 旧的 `copyFileSync(SCRIPT, …)` 只搬入口,于是夹具里 `ERR_MODULE_NOT_FOUND`,
+ * **14 例端到端用例当场红 5 例而无人发现** —— 提交链不跑 `node --test`,而 `import` 判据符号的
+ * 那 9 例纯函数用例照样绿,绿灯就把红的范围遮住了。判据搬家一次,夹具就得跟着搬一次。
+ */
+function localImportSpecs(src) {
+  return [...src.matchAll(/(?:^|\n)\s*import[^'"]*from\s*['"](\.\.?\/[^'"]+)['"]/g)].map((m) => m[1])
+}
+
+function copyGateClosure(dir) {
+  const queue = [SCRIPT_REL]
+  const copied = new Set()
+  while (queue.length) {
+    const rel = queue.shift()
+    if (copied.has(rel)) continue
+    copied.add(rel)
+    const text = readFileSync(join(REPO, rel), 'utf8')
+    const dst = join(dir, rel)
+    mkdirSync(dirname(dst), { recursive: true })
+    writeFileSync(dst, text, 'utf8')
+    for (const spec of localImportSpecs(text)) {
+      queue.push(join(dirname(rel), spec).split(/[\\/]+/).join('/'))
+    }
+  }
+  return [...copied]
+}
 
 // 真仓 HEAD 里那条**实际被抹掉**的标题原文,连同同节两条同编号 bullet —— 事故形态照原样搬。
 const HEADING =
@@ -49,15 +81,15 @@ const STALE = V1.split('\n')
 
 function tempPlanRepo(planText) {
   const dir = mkScratch('ihui-gate71-')
-  mkdirSync(join(dir, 'scripts'), { recursive: true })
-  // 守门脚本按自身位置推导 ROOT,故必须把**当前工作区这一版**复制进临时仓才算真装车
-  copyFileSync(SCRIPT, join(dir, 'scripts', 'check-plan-line-loss.mjs'))
+  // 守门脚本按自身位置推导 ROOT,故必须把**当前工作区这一版**(连同它的相对 import 闭包)
+  // 复制进临时仓才算真装车 —— 只搬入口会让夹具 ERR_MODULE_NOT_FOUND(见 copyGateClosure 头注)。
+  const files = copyGateClosure(dir)
   git(dir, 'init', '-b', 'main')
   git(dir, 'config', 'user.email', 't@t.local')
   git(dir, 'config', 'user.name', 't')
   git(dir, 'config', 'commit.gpgsign', 'false')
   writeFileSync(join(dir, 'PROJECT_PLAN.md'), planText, 'utf8')
-  git(dir, 'add', 'PROJECT_PLAN.md', 'scripts/check-plan-line-loss.mjs')
+  git(dir, 'add', 'PROJECT_PLAN.md', ...files)
   git(dir, 'commit', '-m', 'init plan')
   return dir
 }
@@ -92,6 +124,27 @@ test('§22c 装车证明:guardian-runner 里本门仍注册为 blocking 且由 P
   assert.match(block, /mode:\s*'blocking'/)
   assert.match(block, /stagedTriggers:\s*\[\s*'PROJECT_PLAN\.md'\s*\]/)
   assert.match(block, /skipEnv:\s*'HUSKY_SKIP_PLAN_LINE_LOSS'/)
+})
+
+test('端到端夹具的装车面:闭包必须覆盖相对 import,复制后的每个文件都真在夹具里', () => {
+  // 这一例是「夹具自己会不会再次静默崩」的锁:此前 5 例端到端红掉就是因为只搬了入口。
+  const dir = mkScratch('ihui-gate71-closure-')
+  try {
+    const entry = readFileSync(join(REPO, SCRIPT_REL), 'utf8')
+    const closure = copyGateClosure(dir)
+    assert.ok(closure.includes(SCRIPT_REL), '闭包必须含入口自身')
+    for (const spec of localImportSpecs(entry)) {
+      const rel = join(dirname(SCRIPT_REL), spec).split(/[\\/]+/).join('/')
+      assert.ok(closure.includes(rel), `入口相对导入 ${spec} 未进闭包 ⇒ 端到端用例必 ERR_MODULE_NOT_FOUND`)
+      assert.ok(existsSync(join(dir, rel)), `${rel} 在闭包名单里却没被复制`)
+    }
+    assert.ok(
+      closure.some((p) => p.endsWith('lib/face-reader.mjs')),
+      `闭包实得 ${closure.join(' , ')} —— 内容面已走取材层,闭包不含它即说明判据又搬家了`,
+    )
+  } finally {
+    rmScratch(dir)
+  }
 })
 
 test('判据:同节仍有同编号 bullet 时,删标题必须判红(旧判据在此处 0 报 = 事故盲区)', () => {
@@ -169,6 +222,61 @@ test('端到端(反向对照):补回标题 → 守门 exit 0', () => {
   }
 })
 
+test('端到端(G-183 归档豁免的 A/B):同一份归档正文,只有「已入库」那一版能放行', () => {
+  const archiveRel = '.ihui-agent/archive/PROJECT_PLAN_2026-09-25.md'
+  const archiveBody = ['# 归档(2026-09-25)', '', HEADING, ''].join('\n')
+  const a = tempPlanRepo(V1) // 归档副本只躺在盘上,从未进索引
+  const b = tempPlanRepo(V1) // 同一份内容,多一次 git add
+  try {
+    for (const dir of [a, b]) {
+      const dst = join(dir, archiveRel)
+      mkdirSync(dirname(dst), { recursive: true })
+      writeFileSync(dst, archiveBody, 'utf8')
+      writeFileSync(join(dir, 'PROJECT_PLAN.md'), STALE, 'utf8')
+      git(dir, 'add', 'PROJECT_PLAN.md')
+    }
+    git(b, 'add', archiveRel)
+    const red = runGate(a, ['--staged'])
+    assert.equal(
+      red.status,
+      1,
+      `本机自写的未入库副本竟放行了删行 ⇒ 归档凭据仍是「机器-local 巧合」\nstdout:${red.stdout}`,
+    )
+    assert.match(red.stderr, /条目标题 O42/)
+    const green = runGate(b, ['--staged'])
+    assert.equal(
+      green.status,
+      0,
+      `已入库的归档副本必须被认作正当移除,否则 §1 归档流程被本闸判死:\n${green.stderr}`,
+    )
+  } finally {
+    rmScratch(a)
+    rmScratch(b)
+  }
+})
+
+test('反向回归锁:归档豁免不得退回「按磁盘判」,且必须绑当次判定面', () => {
+  const src = readFileSync(join(REPO, SCRIPT_REL), 'utf8')
+  // 旧形态一旦回来,未入库的本机副本就又能授权删别人的登记行(G-183 ③ 的洞)。
+  // 只看函数体:头注里那句「旧实现是 readdirSync(ARCHIVE_DIR)」是对缺陷的说明,不是判据现场。
+  const fn = src.slice(
+    src.indexOf('export function archivedCopy'),
+    src.indexOf('export function archiveExemptFor'),
+  )
+  assert.ok(fn.length > 100, '没切到 archivedCopy 函数体 ⇒ 本锁变成空判据')
+  assert.doesNotMatch(fn, /readdirSync\(/, 'archivedCopy 退回读磁盘目录 ⇒ 归档凭据不再要求「已入库」')
+  assert.doesNotMatch(fn, /readFileSync\(/, 'archivedCopy 退回按磁盘读内容 ⇒ 面里的 blob 不再是依据')
+  assert.doesNotMatch(src, /^\s*const ARCHIVE_DIR\s*=/m, '磁盘归档目录常量已无消费者,不得加回')
+  for (const verb of ["'ls-tree'", "'ls-files'"])
+    assert.ok(src.includes(verb), `面清单判据缺 ${verb}(全量走 HEAD 树、--staged 走索引)`)
+  const rc = src.slice(src.indexOf('export function runCheck'), src.indexOf('export function runCheck') + 600)
+  assert.match(
+    rc,
+    /dropArchivedLost\([\s\S]{0,200}?archiveExemptFor\(isStaged\)/,
+    'runCheck 必须把当次判定面喂给归档豁免 —— 用默认面等于 --staged 时偷偷按 HEAD 判',
+  )
+})
+
 test('端到端(不误伤):只改写标题文案的提交 → exit 0', () => {
   const dir = tempPlanRepo(V1)
   try {
@@ -196,6 +304,10 @@ test('端到端(--heal 能力边界):只回插标题行,并如实声明层级需
     const out = `${r.stdout}\n${r.stderr}`
     assert.match(out, /标题级丢失需人工归并/)
     assert.match(out, /O42/)
+    // 出处必须是**真 sha**:它同时是 `historyMarkers` 的 sha 字段被填上的阳性证明 ——
+    // 该字段曾在校验不到的位置被写坏成未定义标识符,而 --heal 每次都抛 ReferenceError。
+    assert.match(out, /回捞自 [0-9a-f]{9}/, `回捞出处没打出来 ⇒ sha 字段又空了:\n${out}`)
+    assert.doesNotMatch(out, /回捞自 未知来源/, 'sha 字段丢失会退化成「未知来源」,不得静默')
     const healed = readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8')
     assert.ok(healed.includes(HEADING), '标题行必须被回插')
     // 能力边界的实证:回插只补回那一行,整节正文并没有被"重建"
@@ -250,7 +362,8 @@ test('接线自检:脚本被复制进临时夹具仓(五处落点全不存在)�
   try {
     const dst = join(dir, 'scripts')
     mkdirSync(dst, { recursive: true })
-    copyFileSync(join(process.cwd(), 'scripts/check-plan-line-loss.mjs'), join(dst, 'check-plan-line-loss.mjs'))
+    // 同样搬整条闭包(见 copyGateClosure):这一例要真跑出 exit 0 才算"夹具不适用",而不是"夹具崩了"
+    copyGateClosure(dir)
     // 本门要求跑在 git 仓里(它读 HEAD),所以夹具也得 init 一个仓并放入一份最小 PLAN
     const gi = (a) =>
       spawnSync('git', a, { cwd: dir, encoding: 'utf8', windowsHide: true, stdio: 'pipe' })
