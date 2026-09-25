@@ -105,4 +105,48 @@ export function createDangerGate(opts: DangerGateOptions): DangerGate {
     return decide('denied', tool, args, 'no-prompt')
   }
 }
+
+// ==================== 工具层披露:危险放行路径可追溯(2026-09-25 L7905 收口)====================
+
+/**
+ * 危险放行路径的进程内披露计数(**只记账,不参与任何判定**)。
+ *
+ * 背景:本闸门把策略收口到唯一出口,但工具层(`executeToolCall`)看到的仍只是
+ * `confirmDangerous` 返回的布尔 —— 「这次放行走的是会话级 `--allow-dangerous`
+ * 还是回调自批」此前不可追溯(本文件头部注释记录的同族问题在工具层的另一半)。
+ * 现由 `ToolContext.allowDangerous`(影子披露字段)把会话级 flag 是否在位随 ctx
+ * 下发,`executeToolCall` 在 dangerous 工具**获准后**调 `noteDangerousApproval` 记账:
+ * 无 console 输出、不改返回值、不改确认语义(未提供回调依旧拒绝,fail-closed 不变)。
+ *
+ * 覆盖面边界(如实登记):仅 `executeToolCall` 的 dangerous 闸一层。
+ * builtins/terminal 在 handler 内的二次确认(纵深防御)与 `runToolLoop` 的
+ * permission-mode ask 分支不在本计数内。
+ */
+export interface DangerousApprovalCounts {
+  /** 放行时会话级旁路在位(`ctx.allowDangerous === true`)的次数 */
+  sessionFlagApproved: number
+  /** 旁路未在位、由 confirmDangerous 自身批准的次数(真人批准 / 调用方策略) */
+  callbackApproved: number
+}
+
+const dangerousApprovalByTool = new Map<string, DangerousApprovalCounts>()
+
+export function noteDangerousApproval(sessionFlagActive: boolean, toolName: string): void {
+  const bucket = dangerousApprovalByTool.get(toolName) ?? { sessionFlagApproved: 0, callbackApproved: 0 }
+  if (sessionFlagActive) bucket.sessionFlagApproved += 1
+  else bucket.callbackApproved += 1
+  dangerousApprovalByTool.set(toolName, bucket)
+}
+
+/** 按工具名排序的快照(深拷贝,调用方改动不会污染计数器;供排查 / 测试 / 报表) */
+export function snapshotDangerousApprovals(): Array<{ tool: string } & DangerousApprovalCounts> {
+  return [...dangerousApprovalByTool.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([tool, counts]) => ({ tool, ...counts }))
+}
+
+/** 测试 / 巡检用:清零 */
+export function resetDangerousApprovals(): void {
+  dangerousApprovalByTool.clear()
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -179,11 +179,11 @@ export default function TopicListPage() {
                       </View>
                     )}
                     <View className="flex-1 ml-[24rpx] min-w-0">
-                      <Text className="block text-[length:30rpx] text-foreground font-semibold overflow-hidden text-ellipsis whitespace-nowrap">
+                      <Text className="block text-[length:30rpx] text-foreground font-semibold overflow-hidden ihui-ellipsis whitespace-nowrap">
                         #{item.name}
                       </Text>
                       {item.description ? (
-                        <Text className="block text-[length:24rpx] text-[var(--color-text-tertiary)] mt-[8rpx] overflow-hidden text-ellipsis whitespace-nowrap">
+                        <Text className="block text-[length:24rpx] text-[var(--color-text-tertiary)] mt-[8rpx] overflow-hidden ihui-ellipsis whitespace-nowrap">
                           {item.description}
                         </Text>
                       ) : null}

@@ -64,7 +64,7 @@
 .nm-list-item:active {
   opacity: 0.8;
 }
-/* RN cardName: 16dp=32rpx,600,text.primary,单行截断(截断用全局 text-ellipsis) */
+/* RN cardName: 16dp=32rpx,600,text.primary,单行截断(截断用全局 ihui-ellipsis) */
 .nm-list-name {
   display: block;
   font-size: 32rpx;
