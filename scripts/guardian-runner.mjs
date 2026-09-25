@@ -3277,6 +3277,28 @@ const checks = [
     ]
   },
 
+  {
+    id: '125',
+    label: '🧭 派生面登记表自洽对账(blocking,TOKEN_SYNC_TARGETS 每行的触发文件/写回出口/复核门三方必须在位)',
+    script: 'check-token-sync-registry.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_TOKEN_SYNC_REGISTRY',
+    stagedTriggers: ['scripts/'],
+    onFailHint: [
+      '',
+      '  💡 `scripts/lib/pre-commit-hook.js` 的 TOKEN_SYNC_TARGETS 是"改源头 ⇒ 自动写回各端副本"的唯一登记表,',
+      '     每行三段:① 触发文件 ② 写回命令 ③ 复核门。**这三段过去没有任何一道门对账**,所以四种腐烂都能静默发生:',
+      '     触发文件改名 ⇒ 那一行永不触发(副本从此不再自动跟随);写回脚本被删/改名 ⇒ 提交链跑到那步才崩;',
+      '     复核门被摘线或改成 warn ⇒ 副本照样写回却再没人判它对不对;新加一行忘了配门 ⇒ 新派生面零覆盖。',
+      '     最后一种最贵:表里挂着一行没人配门的行,比根本没有这行更糟 —— 它会替人做出"已经收口了"的判断。',
+      '     判据只读表本身(不抄第二份清单);取材面同 77/83/93/103(全量判 HEAD、--staged 判索引、取不到 exit 2)。',
+      '     修复口径:改表与配门,不得为消红放宽本门判据或把行删掉(删行 = 关掉那端的自动同步)。',
+      '     单独复验:node scripts/check-token-sync-registry.mjs(自检 25 例,镜像 11 例)',
+      '',
+    ]
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
