@@ -14989,13 +14989,15 @@
     "fieldNotifyChannel": "通知渠道",
     "fieldNotifyMessage": "消息模板",
     "notifyMessageHint": "支持 {{event}} {{tool}} {{args}} 变量",
+    "notifyWebhookUrlHint": "webhook 渠道会向该地址 POST 通知消息(与 webhook 动作共用同一发送器)",
     "notifyMessagePlaceholder": "{{event}} 已触发",
     "fieldLogMessage": "日志消息模板",
     "logMessageHint": "支持 {{event}} {{tool}} {{args}} 变量,写入 logs/hooks.log",
     "channel": {
       "toast": "Toast(轻提示)",
       "notification": "系统通知",
-      "email": "邮件"
+      "email": "邮件",
+      "webhook": "Webhook"
     },
     "logsAria": "Hook 日志",
     "logsTitle": "Hook 执行日志",
