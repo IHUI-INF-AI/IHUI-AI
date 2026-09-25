@@ -87,6 +87,39 @@ export function gitRaw(args, root, opts = {}) {
   }
 }
 
+/**
+ * 一次 `cat-file --batch-check` 问一批对象的存在性(只回 sha/type/size,不回内容)。
+ * 与 `catBatch` 同族的陷阱,所以在同一处收口:rev 清单靠 `stdio[0]='pipe'` 喂进去、
+ * maxBuffer 给足、windowsHide、数字 timeout。
+ * @returns {{missing:Set<string>, total:number}} 读不到的行一律不计 missing(宁漏不误伤推送)
+ */
+export function catBatchCheck(root, oids) {
+  const list = [...new Set(oids)].filter((s) => /^[0-9a-f]{7,40}$/i.test(s))
+  if (list.length === 0) return { missing: new Set(), total: 0 }
+  let out
+  try {
+    out = execFileSync(GIT, ['-c', 'safe.directory=*', '-C', root, 'cat-file', '--batch-check'], {
+      input: Buffer.from(list.join('\n') + '\n', 'utf8'),
+      encoding: 'utf8',
+      windowsHide: true,
+      maxBuffer: GIT_MAX_BUFFER,
+      timeout: BATCH_TIMEOUT,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+  } catch (e) {
+    throw new Undetermined(
+      `git cat-file --batch-check 失败(${list.length} 个对象): ${gitErrText(e)}`,
+    )
+  }
+  const missing = new Set()
+  for (const line of String(out).split(/\r?\n/)) {
+    if (!/\bmissing\b/.test(line)) continue
+    const head = line.split(' ')[0]
+    if (head) missing.add(head)
+  }
+  return { missing, total: list.length }
+}
+
 export function gitErrText(e) {
   const raw = e?.stderr ?? e?.stdout ?? e?.message ?? String(e)
   const text = String(typeof raw === 'string' ? raw : Buffer.from(raw).toString('utf8')).trim()
