@@ -109,3 +109,17 @@ AGENT_DECISION_CHAIN_REASONING_CHARS = int(
         str(AGENT_DECISION_CHAIN_REASONING_CHARS_DEFAULT),
     )
 )
+
+# ==================== 杀手锏常量段 6:goal 独立校验的收口阈值 ====================
+# 原散点:app/services/goal_completion_gate.py
+# 背景:AGENTS.md §8 第 4 步写着"连续 3 轮 no 无进展 → blocked",第 6 步红线写着
+# "单目标最大自动迭代 20 轮",但仓库里从未有过承担这个计数的代码 —— 于是"校验不通过"
+# 与"目标收口"之间没有确定关系,goal 可以无限重跑并以"未判定"状态冒充进行中。
+# 这里沉淀的是**判定口径**,不是实现细节,改动即改变 goal 生命周期,故入唯一真源。
+# 属 ai-service 服务端生命周期常量(TS 端不自行计数,只透传服务端给的 goal_status),
+# 因此刻意不进 KILLER_CONSTANTS parity 集 —— 在 TS 侧再抄一份数字反而会造出两个真相。
+GOAL_VERIFICATION_MAX_CONSECUTIVE_FAILURES = 3
+# 送给独立校验轮的"执行轨迹摘要"字符上限。摘要只含**工具调用与结果**(可观察副作用),
+# 不含执行模型的自述正文(那是 executor_claim,§8 禁止作为判定输入)。超限即截断并标
+# truncated,让 judge 依 JUDGE_SYSTEM_PROMPT 第 3 条自行判 unmet,而不是静默丢证据。
+GOAL_RUN_DIGEST_MAX_CHARS = 6000
