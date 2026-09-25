@@ -480,6 +480,25 @@
     "copied": "コピーしました"
   },
   "ai": {
+    "contextUsage": {
+      "title": "コンテキスト使用状況",
+      "used": "使用量",
+      "max": "最大容量",
+      "segSystem": "システムプロンプト",
+      "segToolSchema": "ツール定義",
+      "segSkill": "スキル本文",
+      "segRoleUser": "ユーザーメッセージ",
+      "segRoleAssistant": "アシスタントの応答",
+      "segRoleToolCall": "ツール呼び出し引数",
+      "segRoleToolResult": "ツール結果",
+      "segSystemPrompt": "システムプロンプト（全文）",
+      "unnamedItem": "名前未設定の項目",
+      "resultSuffix": "結果",
+      "unobservedServerOnly": "この部分はサーバー側で組み立てられるため、クライアント側では正確な使用量を取得できません",
+      "unobservedNotSupplied": "このターンでは該当するシステム区間が配信されませんでした",
+      "detailsTruncated": "ほか {count} 件は折りたたまれています",
+      "residualLabel": "未分類のオーバーヘッド"
+    },
     "title": "AIアシスタント",
     "welcomeTitle": "こんにちは、IHUI AIアシスタントです",
     "welcomeDesc": "何かお手伝いしましょうか?",
