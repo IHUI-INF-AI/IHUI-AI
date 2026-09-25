@@ -21,6 +21,23 @@ export interface SkillMarketEntry {
   ratingCount: number
   createdAt: string
   updatedAt: string
+  /**
+   * listing 级上下架开关(P2-14 补齐,2026-09-25)。
+   * 缺省即 true —— 既有种子数据与历史写入点都没有这个字段,按"未下架"解释,
+   * 只有显式 false 才从市场列表隐身(下架不删条目,与 installCount/rating 一同保留)。
+   */
+  enabled?: boolean
+  /**
+   * 条目来源:builtin 平台内置 / user 用户上架 / hub 内部自进化同步写入。
+   * 由服务端按调用身份推导(带 X-Internal-Secret 的走 hub,登录用户走 user),
+   * 不接受客户端自报,否则等于把归属权交给请求体。
+   */
+  source?: 'builtin' | 'user' | 'hub'
+  /**
+   * 上架者的用户 ID,owner 判定的唯一依据(服务端按 request.userId 比对此列)。
+   * 内置种子与内部同步条目没有归属者 ⇒ 留空,任何人都不算 owner。
+   */
+  ownerId?: number
 }
 
 export interface SkillRating {
