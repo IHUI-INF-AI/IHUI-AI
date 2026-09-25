@@ -3081,6 +3081,103 @@ const checks = [
     ].join('\n'),
   },
 
+  // 定级 warn 而非 blocking:HEAD 实测未对齐存量 2 个文件(memory.py + routers/rules.py),
+  //   而"怎么对齐"(客户端传的必须等于令牌主体 → 403,还是只信令牌、忽略客户端值)取决于
+  //   v1 对外 API 能不能代表他人访问记忆 —— 那是产品口径,不由门替人决定。两种选型都会让
+  //   本门归零,所以在选型落地前它就是"存量报数、新增判红"的棘轮;当场 blocking = 与任何一次
+  //   提交都无关的恒红门,唯一结局是逼人 --no-verify 并连带废掉全部守门(§12e 同型)。
+  //   升 blocking 的前置条件 = 未对齐存量归零。
+  {
+    id: '117',
+    label: '🔐 记忆端点属主绑定对账(warn,收 user_id 的端点必须与令牌主体对齐;未对齐存量只报数)',
+    script: 'check-memory-owner-binding.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_MEMORY_OWNER_BINDING',
+    stagedTriggers: ['apps/ai-service/app/', 'apps/api/src/routes/'],
+    onFailHint: [
+      '',
+      '  💡 本门钉的是**"认证不等于授权"那一层**:匿名进不来(不在 PUBLIC_PATHS)不代表安全,',
+      '     任何已登录用户填别人的 UUID 就能读/改/删别人的记忆 —— 判洞要问的是"有没有把请求里的',
+      '     id 与令牌里的 id 比对",而不是"有没有全局中间件"。',
+      '     两条语法锚点必须同时认:user_id 的 Query(...) 声明 与 Pydantic 的 Field(...) 声明 ——',
+      '     只认 Query 会让整类 POST 端点隐身;对齐出口只写在注释里不算(自称已拆实际没拆那一型)。',
+      '     修法(两种都会让本门归零,选型看 v1 对外语义):(a) 端点加 principal: str =',
+      '     Depends(require_request_user_id) 后只用 principal,忽略客户端值;(b) 保留入参做兼容',
+      '     校验,不等即 403。仓里现成出口 = app/core/jwt_auth.py 的 require_request_user_id',
+      '     (带 DEV_ANONYMOUS_PRINCIPAL 开发降级,以免 ASGI in-process 的既有测试整片 401)。',
+      '     单独复验:node scripts/check-memory-owner-binding.mjs(报清单与透传面)',
+      '     问责档:node scripts/check-memory-owner-binding.mjs --strict(未对齐即 exit 1)',
+      '     自检:node scripts/check-memory-owner-binding.mjs --self-test(17 例,正反成对)',
+      '     镜像测试:node --test scripts/tests/check-memory-owner-binding.test.mjs(14 例,含',
+      '     "本门未注册时不得被判定为已装车"的方向性对照)',
+      '     紧急跳过:HUSKY_SKIP_MEMORY_OWNER_BINDING=1 git commit ...(本门 warn,通常不需要)',
+      '',
+    ].join('\n'),
+  },
+
+  {
+    id: '118',
+    label: '🧬 门脚本取材面纪律对账(blocking,本次改动动过的门必须经统一取材层;全量档只报数)',
+    script: 'check-gate-face-discipline.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_GATE_FACE_DISCIPLINE',
+    stagedTriggers: 'scripts/',
+    onFailHint: [
+      '',
+      '  💡 本仓 159 道门里只有 24 道走 scripts/lib/face-reader.mjs,散写 git/按磁盘判的 74 道',
+      '     在"共享工作树滞后 HEAD"时会恒红与假绿来回跳,并把错数写回棘轮基线(守门 83 的 R3',
+      '     被整文件回退三次即此型)。本门只咬**本次改动动过的门**,全量档只报数 ——',
+      '     一次性把 74 道判红就是逼全队 --no-verify、连带废掉全部守门。',
+      '     出路:改用 selectFace/readFace(或 catBatch)取内容;若这道门判的不是仓库内容',
+      '     (纯计算/外部输入/机器态),去掉仓库锚点即可。',
+      '     单独复验:node scripts/check-gate-face-discipline.mjs --staged',
+      '     自检:node scripts/check-gate-face-discipline.mjs --self-test(16 例,含两层遮噪方向的反向锁)',
+      '     镜像测试:node --test scripts/tests/check-gate-face-discipline.test.mjs',
+      '',
+    ]
+  },
+
+  {
+    id: '119',
+    label: '🛰️ 子代理权限继承对账(blocking,派生点必须下传 permissionMode/permissions)',
+    script: 'check-subagent-permission-inherited.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_SUBAGENT_PERMISSION_INHERITED',
+    stagedTriggers: 'apps/cli/src/',
+    onFailHint: [
+      '',
+      '  💡 判三条:P1 派生面出现字面量 bypassPermissions 作默认档(零容忍,不吃豁免)/',
+      '     P2 构造调用未下传 permissionMode+permissions(棘轮锚点=该文件 HEAD 自身计数,存量 7 处只报数)/',
+      '     P3 读到了权限键却没喂进派生(半个继承)。真缺陷不是"默认绕过",而是**整个不下传**:',
+      '     子代理落兜底档后,父会话 --disallowed-tools 的显式 deny 在子代理里查不到。',
+      '     单独复验:node scripts/check-subagent-permission-inherited.mjs',
+      '     自检:--self-test(39 例) 镜像:node --test scripts/tests/check-subagent-permission-inherited.test.mjs(12 例)',
+      '',
+    ]
+  },
+
+  {
+    id: '120',
+    label: '✅ 名单类判据正向证明对账(blocking,登记名单必须被自己的成员命中过)',
+    script: 'check-list-predicate-has-positive-proof.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_LIST_POSITIVE_PROOF',
+    onFailHint: [
+      '',
+      '  💡 本仓的门大量是"名单驱动"(拦名单里的标识符/放过白名单里的成员)。第八批三份独立取证',
+      '     收敛到同一形态缺陷:**名单有、从不命中** —— 反向证明(拦到坏值才红)全绿,而真实/构造',
+      '     输入一次都没穿过名单,门对那个形态全盲。本门要求每条登记名单在其自测/镜像测试里',
+      '     至少有一条断言的输入取自名单本身;判不出 ⇒ 记"未判定"并如实点名,不记通过。',
+      '     单独复验:node scripts/check-list-predicate-has-positive-proof.mjs',
+      '     自检:--self-test(15 条) 镜像:node --test scripts/tests/check-list-predicate-has-positive-proof.test.mjs(6 例)',
+      '',
+    ]
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
