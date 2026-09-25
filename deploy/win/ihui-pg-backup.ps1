@@ -54,25 +54,38 @@ if (-not $dbPort) { $dbPort = "8810" }
 # 实测依据:应用角色 ihui 带 BYPASSRLS,它的 dump 与超管 dump 的 TOC 同为 TABLE DATA 716 条
 # ⇒ 用它导出不缺行;它同时也是 API 服务在用的账号,所以 ③ **不新增任何凭据副本**,
 # 只是复用磁盘上已有的一份。代价是备份权限偏大(该角色可写),故每轮都在日志里显式警告。
-# 想升到终态:跑 deploy\win\ihui-pg-backup-role.sql 建 ihui_backup(只读+BYPASSRLS),
+# 想升到终态:跑 deploy\win\ihui-pg-backup-role.sql 建 beifen(只读+BYPASSRLS),
 # 把口令写成一行裸文本放进 ② 的路径 —— 这一步由持有超管口令的人自己做,不要把口令交给会话/日志。
 $dbUser = $env:IHUI_DB_BACKUP_USER
 $dbPw = $env:IHUI_DB_BACKUP_PASSWORD
 if (-not $dbPw) {
     $credFile = $null
-    # node 在本地系统账户下不一定在 PATH 里(本机真实 node 在 D:\DevEnv\runtimes\node)。
-    # 探测不到就安静跳过 ②,直接走 ③ —— 取路径的工具不该变成备份失败的原因。
-    if (Get-Command node.exe -ErrorAction SilentlyContinue) {
-        try {
-            $probe = & node.exe (Join-Path $ProjectRoot 'scripts\secret-path.mjs') 'db-backup' 'ihui-backup.txt' 2>&1
-            if ($LASTEXITCODE -eq 0 -and $probe) { $credFile = ($probe | Select-Object -First 1).Trim() }
-        } catch {
-            Write-Host "[WARN] 凭据路径探测异常(跳过专用角色档): $($_.Exception.Message)" -ForegroundColor Yellow
+    # ⚠ 实测坑(2026-09-25,修完角色后仍然退回应用账号才发现的):node 的 stdout 是 UTF-8,
+    # 而控制台默认按 GBK 码页解码 ⇒ 带中文的路径(密钥/db-backup/…)会变成乱码字符串,
+    # Test-Path 判"不存在" ⇒ 静默退回兜底账号,表面上看像"口令文件没建"。
+    # 早上量过"中文当 argv 传出去逐字节无损",那是**入参方向**;出参方向要显式设码页才算数。
+    $prevOutEnc = [Console]::OutputEncoding
+    try {
+        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+        if (Get-Command node.exe -ErrorAction SilentlyContinue) {
+            try {
+                $probe = & node.exe (Join-Path $ProjectRoot 'scripts\secret-path.mjs') 'db-backup' 'ihui-backup.txt' 2>&1
+                if ($LASTEXITCODE -eq 0 -and $probe) { $credFile = ($probe | Select-Object -First 1).Trim() }
+            } catch {
+                Write-Host "[WARN] 凭据路径探测异常(跳过专用角色档): $($_.Exception.Message)" -ForegroundColor Yellow
+            }
         }
+    } finally {
+        [Console]::OutputEncoding = $prevOutEnc
+    }
+    if ($credFile -and -not (Test-Path -LiteralPath $credFile)) {
+        # 拿到了路径却读不到,和"没有口令文件"是两回事 —— 不分开会让人以为文件没建
+        Write-Host "[WARN] 探测到凭据路径但读不到文件(路径解码或权限问题): $credFile" -ForegroundColor Yellow
+        $credFile = $null
     }
     if ($credFile -and (Test-Path -LiteralPath $credFile)) {
         $dbPw = (Get-Content -LiteralPath $credFile -TotalCount 1).Trim()
-        if (-not $dbUser) { $dbUser = 'ihui_backup' }
+        if (-not $dbUser) { $dbUser = 'beifen' }
         if (-not $dbPw) {
             Write-Host "[ERROR] 凭据文件为空: $credFile" -ForegroundColor Red
             exit 1
