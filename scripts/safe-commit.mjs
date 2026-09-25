@@ -484,6 +484,44 @@ if (hookFailed && commitResult.status !== 0) {
     )
     process.exit(1)
   }
+  // **重试前必须重新暂存**(2026-09-25 实测缺陷根治):首次 `git commit` 失败时 lint-staged 会
+  // 回滚它自己动过的暂存区 —— 本票**新加的文件**因此从索引里掉回未跟踪,而 `git commit -- <pathspec>`
+  // 对"git 不认识的路径"直接 `error: pathspec ... did not match any file(s) known to git` 退出。
+  // 后果不是"重试失败"而是**这一整类提交落不了地**:凡是"带新文件 + 归因判定允许跳门"的提交
+  // 都会在这里死掉(本次实测:10 个文件里 4 个新文件全被判 unknown,exit 1,零提交)。
+  // 所以:重跑 Step 2 的 add,并**再跑一次 Step 3 的精确性校验** —— 不校验就重试等于放弃
+  // "只提交自己声明的文件"这条根约束(窗口期里别人可能刚 staged 了东西)。
+  log('info', '跳门重试前重新暂存本票文件(首次失败时 lint-staged 已回滚新增文件的索引态)')
+  const reAdd = gitStep(['add', '-A', '--', ...expectedFiles], 'git add (retry)')
+  if (reAdd.status !== 0) {
+    log('err', `重新暂存失败: ${reAdd.stderr}`)
+    process.exit(1)
+  }
+  {
+    const reRaw = run('git diff --cached --name-only --no-renames', { allowFail: true })
+    const reStaged = new Set((reRaw ? reRaw.split('\n') : []).filter(Boolean).map(normalize))
+    const reUnexpected = [...reStaged].filter((f) => !expectedNorm.has(f))
+    const reMissing = [...expectedNorm].filter((f) => !reStaged.has(f))
+    // **只拒"缺失",不拒"多余"** —— 第一版这里对多余也 exit 1,实测判得过严且把自己卡死:
+    // `git commit -- <pathspec>` 按定义只提交声明过的那几个路径,别人在窗口期 staged 的文件
+    // **结构上进不了本枚提交**;而缺失才是真危险(缺了就等于那一类"提交没发生")。
+    if (reMissing.length) {
+      log(
+        'err',
+        `重新暂存后本票文件仍缺 ${reMissing.length} 个(${reMissing.join(',')}) —— 说明 add 被并发窗口或锁挡住了,` +
+          '此时提交会少交内容,拒绝继续;请人工核对索引后重跑',
+      )
+      process.exit(1)
+    }
+    if (reUnexpected.length) {
+      log(
+        'info',
+        `索引里另有 ${reUnexpected.length} 个非本票文件(${reUnexpected.slice(0, 5).join(',')}…) —— ` +
+          '不随本枚提交走:commit 带 pathspec,只交上面声明的清单,故不中止(第一版在此中止反而自锁:' +
+          '并发会话随时可能 staged 东西,而它本来也进不来)',
+      )
+    }
+  }
   const r = spawnSync('git', commitArgs(true), {
     encoding: 'utf8',
     cwd: repoRoot,
