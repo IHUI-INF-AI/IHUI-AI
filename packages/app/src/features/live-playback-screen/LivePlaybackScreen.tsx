@@ -17,6 +17,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { LivePlaybackScreenItem, LivePlaybackScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 直播回放共享屏 — props 注入式跨端组件(纯 UI,API/Modal 状态由 wrapper 注入) */
 export type { LivePlaybackScreenItem, LivePlaybackScreenProps }
@@ -59,9 +60,7 @@ export function LivePlaybackScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('livePlayback.title')}</Text>
         <Text style={styles.subtitle}>{t('livePlayback.subtitle')}</Text>
         {userName ? <Text style={styles.userText}>{userName}</Text> : null}
@@ -136,6 +135,7 @@ export function LivePlaybackScreen({
                 </Text>
               ) : null}
             </View>
+            {/* back-label-exempt: 错误态/空态卡片内的按钮文案,或翻页/弹窗关闭动作 —— 此处「返回」是按钮文字而非页头箭头,换裸箭头反而不表意 until 2027-09-25 */}
             <TouchableOpacity style={styles.closeBtn} onPress={onClosePlayer}>
               <Text style={styles.closeBtnText}>{t('common.back')}</Text>
             </TouchableOpacity>
@@ -167,7 +167,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     retryText: { color: tk.surface.light, fontSize: 16 },
     header: { paddingHorizontal: 10, paddingBottom: 8 },
-    backText: { fontSize: 16, color: tk.text.secondary },
     title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     userText: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },

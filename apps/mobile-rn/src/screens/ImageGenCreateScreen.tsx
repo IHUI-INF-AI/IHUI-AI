@@ -15,6 +15,7 @@ import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { BackChevron } from '@ihui/rn-app'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -104,12 +105,7 @@ export function ImageGenCreateScreen() {
   return (
     <View className={`flex-1 ${dark ? 'bg-neutral-900' : 'bg-white'}`}>
       <View className="flex-row items-center justify-between px-4 pb-2 pt-3">
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text className="text-sm text-gray-500">{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={() => navigation.goBack()} label={t('common.back')} colorScheme={resolvedTheme} />
         <Text className="text-base font-medium">{t('imageGen.createTitle')}</Text>
         <View className="w-8" />
       </View>
