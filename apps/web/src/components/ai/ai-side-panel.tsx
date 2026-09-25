@@ -10,7 +10,7 @@
 import * as React from 'react'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { Minus, PictureInPicture2, ChevronUp, SquareTerminal } from 'lucide-react'
+import { Minus, PictureInPicture2, ChevronUp, SquareTerminal, Columns2 } from 'lucide-react'
 import { CloseButton, IconButton } from '@ihui/ui-react'
 import { rnRadius } from '@ihui/design-tokens'
 
@@ -61,6 +61,15 @@ import { SrStreamAnnouncer } from '@/components/chat/sr-stream-announcer'
 import { VoiceStreamSpeaker } from '@/components/chat/voice-stream-speaker'
 // P3 #43(2026-09-16 立):成本预检/对比条
 import { CostEstimateBar } from '@/components/ai/cost-estimate-bar'
+
+// D73 多任务窗格(G-100,2026-09-24):布局壳 + 窗格 store + 判定层类型/纯函数
+import { PaneSplitContainer } from '@/components/ai/pane-split-container'
+import { usePaneSplitStore } from '@/stores/pane-split'
+import {
+  ROOT_PANE_ID,
+  type ForkFailureReason,
+  collectPaneLeaves,
+} from '@ihui/shared/chat/multi-pane'
 
 /** 全局 AI docked 侧边面板(对齐旧架构 .ai-side-panel 设计)。
  * - 默认 display:none,由 useAiPanelStore.open 控制
@@ -1077,6 +1086,160 @@ export function AISidePanel() {
     )
   }
 
+
+  // ─── D73 多任务窗格宿主侧(G-100,方案见 .ihui-agent/tmp/d73-mount/README.md) ───
+  /** 窗格承载上限(布局层容量决策留在宿主:超过即 capacityFull,由容器给"重试"入口) */
+  const D73_MAX_PANES = 4
+
+  // 窗格命名空间文案(shared/i18n 已入库 12 键,与容器同一 ns,零新增语言包改动)
+  const tp = useTranslations('ai.pane.multiPane')
+  const d73PaneTree = usePaneSplitStore((s) => s.tree)
+  const d73Expanded = collectPaneLeaves(d73PaneTree).length > 1
+  const d73SplitPane = usePaneSplitStore((s) => s.splitPane)
+  const d73DropConversation = usePaneSplitStore((s) => s.dropConversation)
+
+  /**
+   * 边界 1(诚实降级):useChatStore.conversationId 是**全局单例** ⇒ 主体只有唯一一份,
+   * 固定渲染在**根窗格**(data-pane-conversation 登记为当前会话或 'global-current' 占位,
+   * 仅承载登记,不作为文案展示);其余窗格只如实显示"承载标记"(窗格 id + 会话 id),
+   * 用户切换全局当前会话即在该窗格查看 —— 不伪造第二消息流(禁止新建第二套会话承载)。
+   * 边界 2:仓内无会话级 fork/复制路由(落点 apps/api/src/routes/chat.ts 被占用,属 §24),
+   * 故本票 Fork = "该窗格承载既有会话"的标记,非服务端复制。
+   */
+  const d73ConversationBody = (_paneConversationId: string | null, inPane: boolean) => (
+    <div className={cn('flex min-h-0 w-full flex-col overflow-hidden', inPane ? 'h-full' : 'flex-1')}>
+            {/* 消息区(v6.3:加 relative 让 popover 可定位到本容器右上角) */}
+            <div className="relative min-h-0 flex-1">
+              <MessageList
+                messages={messages}
+                isStreaming={isStreaming}
+                isLoading={loadingHistory}
+                emptyTitle={t('empty')}
+                emptyHint={t('emptyHint')}
+                assistantLabel={t('assistant')}
+                loadingLabel={t('loading')}
+                hasMoreHistory={hasMoreHistory}
+                loadingMoreHistory={loadingMoreHistory}
+                onLoadMoreHistory={handleLoadMoreHistory}
+                // W5 死链修复(2026-09-18):Inline Diff 卡的 Accept/Reject/批量/hunk 级回调
+                // 此前在面板处断链(props 恒 undefined → 按钮不渲染),此处接通 useApplyDiff 通道
+                onApplyDiff={applyDiff}
+                onRejectDiff={rejectDiff}
+                onApplyAllDiffs={applyAllDiffs}
+                onRejectAllDiffs={rejectAllDiffs}
+                onApplyPartialDiff={applyDiffSelection}
+                onTemplateSelect={(content) => {
+                  useChatStore.setState({ draftInput: content })
+                }}
+                // Phase 18.2: 传递 subAgentActivities 到 MessageList,
+                // 对话流 inline 渲染在最后一条 AI 消息下方(而非 AI 面板底部)
+                subAgentActivities={subAgentActivities}
+                // Phase 18.4: step budget(从 store 派生,目前用固定 60 上限)
+                stepBudget={
+                  subAgentActivities.length > 0
+                    ? {
+                        used: subAgentActivities.reduce(
+                          (sum, a) => sum + a.completedSteps.length,
+                          0,
+                        ),
+                        total: 60,
+                      }
+                    : undefined
+                }
+              />
+              {/* Agent 任务进度 popover(v14:absolute 锚定到本容器右上角,不再 fixed 到视口)
+                由 store.open 联动显隐,trigger 在 MessageInput 上方居中切换 store
+                双重保险(2026-07-31):父组件 AISidePanel 也检查 isLoginOpen,
+                登录弹窗打开时不渲染 pane,避免 z-popover(2001) 浮在 z-modal(2000) 遮罩之上 */}
+              {!isLoginOpen && <AgentTaskProgressPane />}
+              {/* 2026-08-17 环境信息 popover(同消息区右上角锚定,与 agent progress pane 互斥) */}
+              <EnvironmentInfoPopover />
+            </div>
+
+            {/* Sub-agent 活动流:已移至 MessageList 中 inline 渲染(Phase 18.2,AI 工作台 风格)
+            历史:此区域之前独立在 AI 面板底部,但 AI 工作台 的 subagent 卡片是 inline 在对话流中。
+            为保持视觉一致性,所有 subagent 卡片现在统一在最后一条 AI 消息下方展示。 */}
+
+            {/* W10 工具面板(2026-09-13 立):tab 化挂载 15 个孤儿组件(plan/tasks/progress/agents/
+              background/swarm/orchestration/trace/checkpoints/tokens/spec/runtime),位于消息区与
+              压缩状态栏之间,默认折叠 */}
+            <AiSidePanelTools />
+
+            {/* 压缩状态栏(2026-08-16 立):在输入框上方显示压缩进度和结果 */}
+            <CompactionStatusBar />
+
+            {/* P3 #43 成本协商 v1(2026-09-16 立):发送前成本预检估算 + 流后实际对比 */}
+            <CostEstimateBar />
+
+            {/* 输入区 */}
+            <MessageInput
+              onSend={sendMessage}
+              onStop={stop}
+              isStreaming={isStreaming}
+              // 2026-07-28 升级:placeholder 切换依据从 planMode 改为 ChatMode
+              // - ChatMode.plan → placeholderPlan(只读分析提示)
+              // - 其他(build/review/spec)→ placeholder(默认)
+              placeholder={currentMode === 'plan' ? t('placeholderPlan') : t('placeholder')}
+              sendLabel={t('send')}
+              stopLabel={t('stop')}
+              model={currentModel}
+              onModelChange={setModel}
+              modelLabel={t('model')}
+            />
+
+            {/* AI 主动提问弹窗:挂起对话,等用户回答后续流 */}
+            <QuestionDialog
+              question={pendingQuestion}
+              onSubmit={sendAnswer}
+              onSkip={skipQuestion}
+            />
+            {/* 工作区权限确认弹窗(2026-07-25 立,深度对标 Codex):
+            用户绑定新工作区但 perm=null 时,WorkspaceSelector 写入 pendingPermissionSetup,
+            这里弹 Dialog 让用户主动选择权限模式(完全访问/请求批准/替我审批),
+            用户在弹窗中保存后:回写 activeWorkspace.mode + 清空 pendingPermissionSetup。 */}
+            {pendingPermissionSetup && (
+              <WorkspacePermissionDialog
+                open={!!pendingPermissionSetup}
+                onOpenChange={(open) => {
+                  if (!open) setPendingPermissionSetup(null)
+                }}
+                workspacePath={pendingPermissionSetup.path}
+                workspaceName={pendingPermissionSetup.name}
+                techStack={pendingPermissionSetup.techStack}
+                onSaved={(perm) => {
+                  // 弹窗保存成功:回写 store.activeWorkspace.mode(已绑定 workspace 的 mode)
+                  if (activeWorkspace && activeWorkspace.path === perm.workspacePath) {
+                    setActiveWorkspace({ ...activeWorkspace, mode: perm.mode })
+                  }
+                  setPendingPermissionSetup(null)
+                }}
+              />
+            )}
+
+            {/* 底部 PowerShell 终端停靠面板(2026-08-17 立,open=false 时渲染 null) */}
+            <AiTerminalDock />
+    </div>
+  )
+
+  /** 侧栏会话拖入空窗格 = 该窗格承载此会话(标记)。null=成功;reason=失败(容器渲染 forkFailureView) */
+  const d73ForkIntoPane = (
+    conversationId: string,
+    _paneId: string,
+    knownConversations?: ReadonlySet<string>,
+  ): ForkFailureReason | null => {
+    if (knownConversations && !knownConversations.has(conversationId)) return 'conversationMissing'
+    if (collectPaneLeaves(usePaneSplitStore.getState().tree).length >= D73_MAX_PANES)
+      return 'capacityFull'
+    return null
+  }
+
+  /** header 拆分入口:先把根窗格登记为承载当前会话(否则根格判空只显拖入占位),再向右拆 */
+  const d73HandleSplit = () => {
+    d73DropConversation(ROOT_PANE_ID, storeConversationId ?? 'global-current')
+    d73SplitPane(ROOT_PANE_ID, 'right', null)
+  }
+
+
   return (
     <TooltipProvider>
       <>
@@ -1292,121 +1455,44 @@ export function AISidePanel() {
                   <PanelRightRounded left={workAreaCollapsed} />
                 </IconButton>
               </Tooltip>
+              {!d73Expanded && (
+                <Tooltip content={tp('splitRight')}>
+                  <IconButton onClick={d73HandleSplit} aria-label={tp('splitRight')}>
+                    <Columns2 />
+                  </IconButton>
+                </Tooltip>
+              )}
               <Tooltip content={tcommon('close')}>
                 <CloseButton aria-label={tcommon('close')} onClick={closePanel} />
               </Tooltip>
             </header>
 
-            {/* 消息区(v6.3:加 relative 让 popover 可定位到本容器右上角) */}
-            <div className="relative min-h-0 flex-1">
-              <MessageList
-                messages={messages}
-                isStreaming={isStreaming}
-                isLoading={loadingHistory}
-                emptyTitle={t('empty')}
-                emptyHint={t('emptyHint')}
-                assistantLabel={t('assistant')}
-                loadingLabel={t('loading')}
-                hasMoreHistory={hasMoreHistory}
-                loadingMoreHistory={loadingMoreHistory}
-                onLoadMoreHistory={handleLoadMoreHistory}
-                // W5 死链修复(2026-09-18):Inline Diff 卡的 Accept/Reject/批量/hunk 级回调
-                // 此前在面板处断链(props 恒 undefined → 按钮不渲染),此处接通 useApplyDiff 通道
-                onApplyDiff={applyDiff}
-                onRejectDiff={rejectDiff}
-                onApplyAllDiffs={applyAllDiffs}
-                onRejectAllDiffs={rejectAllDiffs}
-                onApplyPartialDiff={applyDiffSelection}
-                onTemplateSelect={(content) => {
-                  useChatStore.setState({ draftInput: content })
-                }}
-                // Phase 18.2: 传递 subAgentActivities 到 MessageList,
-                // 对话流 inline 渲染在最后一条 AI 消息下方(而非 AI 面板底部)
-                subAgentActivities={subAgentActivities}
-                // Phase 18.4: step budget(从 store 派生,目前用固定 60 上限)
-                stepBudget={
-                  subAgentActivities.length > 0
-                    ? {
-                        used: subAgentActivities.reduce(
-                          (sum, a) => sum + a.completedSteps.length,
-                          0,
-                        ),
-                        total: 60,
-                      }
-                    : undefined
-                }
-              />
-              {/* Agent 任务进度 popover(v14:absolute 锚定到本容器右上角,不再 fixed 到视口)
-                由 store.open 联动显隐,trigger 在 MessageInput 上方居中切换 store
-                双重保险(2026-07-31):父组件 AISidePanel 也检查 isLoginOpen,
-                登录弹窗打开时不渲染 pane,避免 z-popover(2001) 浮在 z-modal(2000) 遮罩之上 */}
-              {!isLoginOpen && <AgentTaskProgressPane />}
-              {/* 2026-08-17 环境信息 popover(同消息区右上角锚定,与 agent progress pane 互斥) */}
-              <EnvironmentInfoPopover />
-            </div>
-
-            {/* Sub-agent 活动流:已移至 MessageList 中 inline 渲染(Phase 18.2,AI 工作台 风格)
-            历史:此区域之前独立在 AI 面板底部,但 AI 工作台 的 subagent 卡片是 inline 在对话流中。
-            为保持视觉一致性,所有 subagent 卡片现在统一在最后一条 AI 消息下方展示。 */}
-
-            {/* W10 工具面板(2026-09-13 立):tab 化挂载 15 个孤儿组件(plan/tasks/progress/agents/
-              background/swarm/orchestration/trace/checkpoints/tokens/spec/runtime),位于消息区与
-              压缩状态栏之间,默认折叠 */}
-            <AiSidePanelTools />
-
-            {/* 压缩状态栏(2026-08-16 立):在输入框上方显示压缩进度和结果 */}
-            <CompactionStatusBar />
-
-            {/* P3 #43 成本协商 v1(2026-09-16 立):发送前成本预检估算 + 流后实际对比 */}
-            <CostEstimateBar />
-
-            {/* 输入区 */}
-            <MessageInput
-              onSend={sendMessage}
-              onStop={stop}
-              isStreaming={isStreaming}
-              // 2026-07-28 升级:placeholder 切换依据从 planMode 改为 ChatMode
-              // - ChatMode.plan → placeholderPlan(只读分析提示)
-              // - 其他(build/review/spec)→ placeholder(默认)
-              placeholder={currentMode === 'plan' ? t('placeholderPlan') : t('placeholder')}
-              sendLabel={t('send')}
-              stopLabel={t('stop')}
-              model={currentModel}
-              onModelChange={setModel}
-              modelLabel={t('model')}
-            />
-
-            {/* AI 主动提问弹窗:挂起对话,等用户回答后续流 */}
-            <QuestionDialog
-              question={pendingQuestion}
-              onSubmit={sendAnswer}
-              onSkip={skipQuestion}
-            />
-            {/* 工作区权限确认弹窗(2026-07-25 立,深度对标 Codex):
-            用户绑定新工作区但 perm=null 时,WorkspaceSelector 写入 pendingPermissionSetup,
-            这里弹 Dialog 让用户主动选择权限模式(完全访问/请求批准/替我审批),
-            用户在弹窗中保存后:回写 activeWorkspace.mode + 清空 pendingPermissionSetup。 */}
-            {pendingPermissionSetup && (
-              <WorkspacePermissionDialog
-                open={!!pendingPermissionSetup}
-                onOpenChange={(open) => {
-                  if (!open) setPendingPermissionSetup(null)
-                }}
-                workspacePath={pendingPermissionSetup.path}
-                workspaceName={pendingPermissionSetup.name}
-                techStack={pendingPermissionSetup.techStack}
-                onSaved={(perm) => {
-                  // 弹窗保存成功:回写 store.activeWorkspace.mode(已绑定 workspace 的 mode)
-                  if (activeWorkspace && activeWorkspace.path === perm.workspacePath) {
-                    setActiveWorkspace({ ...activeWorkspace, mode: perm.mode })
+            {/* D73 多任务窗格(G-100):未拆分时主体直挂(与挂载前逐字同构,观感零变化);
+                拆分后由容器画窗格树,主体唯一、固定在根窗格,其余窗格为承载标记(边界 1)。 */}
+            {d73Expanded ? (
+              <div className="relative flex min-h-0 flex-1 flex-col" data-d73-host="">
+                <PaneSplitContainer
+                  renderPaneContent={(paneConversationId, paneId) =>
+                    paneId === ROOT_PANE_ID ? (
+                      d73ConversationBody(storeConversationId, true)
+                    ) : (
+                      <div
+                        className="flex h-full flex-col items-center justify-center gap-1 px-3"
+                        data-pane-marker={paneId}
+                      >
+                        <span className="text-xs text-muted-foreground">{paneId}</span>
+                        <span className="text-[10px] text-muted-foreground tabular-nums">
+                          {paneConversationId}
+                        </span>
+                      </div>
+                    )
                   }
-                  setPendingPermissionSetup(null)
-                }}
-              />
+                  onForkConversation={d73ForkIntoPane}
+                />
+              </div>
+            ) : (
+              d73ConversationBody(storeConversationId, false)
             )}
-
-            {/* 底部 PowerShell 终端停靠面板(2026-08-17 立,open=false 时渲染 null) */}
-            <AiTerminalDock />
           </aside>
           {/* 右侧拖拽手柄:外层 8px 命中区 right-[-4px] 居中跨越 aside 右边缘(左右各 4px),
         内层 0.5px 线 left-[calc(50%-0.25px)] -translate-x-1/2 居中在命中区中心,与 aside 右边缘重合。
