@@ -316,26 +316,154 @@ export function exemptedLines(text) {
   return ok
 }
 
-/** 单文件判据:违规 / 已豁免 / 取不到(致命) / 动态形态(报数) / 类型标注(报数) 各归各堆。 */
+/**
+ * 声明式**句柄**标记(不是豁免,不需要到期日)。
+ *
+ * 为什么需要它:同一个键名在两处含义完全不同 —— `userId` 是**路由身份**(填错=越权),
+ * 而 `debug.ts` / `terminal.ts` 里的 `sessionId` 是**宿主自己铸造的进程内句柄**
+ * (`randomUUID()` 造出来、只在本进程 Map 里查得到、查不到就拒绝)。把后者也计进违规,
+ * 结果是基线里永远挂着 11 处"看着像债、其实不是债"的数字,真正的 5 处
+ * (memory 的 user_id)反而被埋在里面 —— 基线的作用就没了。
+ *
+ * 但这个出口必须**不可伪造**:标记只是提出主张,本门自己核三条见证,任一不成立即判红,
+ * 并区分两种失败:
+ *   H1 见证不成立 —— 声称是句柄,却拿不出"本地铸造 + 进程内登记表 + 查不到即拒绝"的证据;
+ *   H2 清单腐烂 —— 登记还在,但那个键在本文件里已经不是违规了(改名/删参数都会造成)。
+ * 两条都是红,因为一个"能凭空宣称句柄"的标记等于把本门关掉。
+ *
+ * 刻意不用 `-exempt` 这个词:那是守门 108 的豁免族命名,豁免要带到期日 ——
+ * 而"这个 id 是宿主铸造的"是**结构事实**,不是会过期的债务。
+ */
+export const HANDLE_MARK_TEXT = 'routing-handle' + ':'
+const HANDLE_KEY_RE = /\bkey\s*=\s*([A-Za-z0-9_$]+)/
+const HANDLE_MINT_RE = /\bminted-by\s*=\s*([A-Za-z0-9_$]+)/
+const HANDLE_REGISTRY_RE = /\bregistry\s*=\s*([A-Za-z0-9_$]+)/
+/** 查不到即拒绝的措辞族(宁窄:必须是本行/后 6 行内的显式出口) */
+const HANDLE_REJECT_RE =
+  /(不存在|无效|已退出|not[ _]found|unknown|未找到|return\s*\{[^}]*success:\s*false|throw\b|errorType|if\s*\(\s*!\w+\s*\)\s*return\s+(null|undefined))/i
+
+/** 抽出本文件里所有句柄声明(语法不合规的声明不静默丢,由 handleRot 之外的调用方计错)。 */
+export function handleDeclarations(text) {
+  const out = []
+  const lines = text.split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    const at = lines[i].indexOf(HANDLE_MARK_TEXT)
+    if (at < 0) continue
+    const rest = lines[i].slice(at + HANDLE_MARK_TEXT.length)
+    const key = HANDLE_KEY_RE.exec(rest)
+    const mint = HANDLE_MINT_RE.exec(rest)
+    const registry = HANDLE_REGISTRY_RE.exec(rest)
+    // 原因 = 三个字段之后的自由文本;缺原因按缺字段同样处置(不得静默放过)
+    const tail = rest
+      .replace(HANDLE_KEY_RE, '')
+      .replace(HANDLE_MINT_RE, '')
+      .replace(HANDLE_REGISTRY_RE, '')
+      .replace(/\*\/\s*$/, '')
+      .trim()
+    out.push({
+      line: i + 1,
+      key: key ? key[1] : null,
+      mint: mint ? mint[1] : null,
+      registry: registry ? registry[1] : null,
+      reason: tail.length >= 4 ? tail : '',
+    })
+  }
+  return out
+}
+
+/**
+ * 三条见证(mint / registry / reject)。返回 null = 全部成立;否则返回不成立的原因清单。
+ * 全部在**已遮噪**的文本上判(注释与字符串里的同名标识符不算见证 —— 反向也要防:
+ * 见证行本身写成注释就等于没写)。
+ */
+export function handleWitnessFailure(maskedLines, decl) {
+  const bad = []
+  if (!decl.key) bad.push('缺 key=')
+  if (!decl.mint) bad.push('缺 minted-by=')
+  if (!decl.registry) bad.push('缺 registry=')
+  if (!decl.reason) bad.push('缺原因说明')
+  if (bad.length) return bad
+  const { key, mint, registry } = decl
+  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const mintDef = new RegExp(`(function\\s+${esc(mint)}\\s*\\(|(const|let)\\s+${esc(mint)}\\s*[:=])`)
+  const mintImported = new RegExp(`import\\s*\\{[^}]*\\b${esc(mint)}\\b[^}]*\\}`).test(maskedLines.join('\n'))
+  // 调用点必须**不是定义行**:否则 `function genId(): string {` 自身就含 `genId(`，
+  // 会让"从未被调用"这一条永远测不出来(自检 HG3 第一次就是这么过的假绿)。
+  const mintCallRe = new RegExp(`\\b${esc(mint)}\\s*\\(`)
+  const mintCall = maskedLines.some((l) => mintCallRe.test(l) && !mintDef.test(l))
+  if (!mintDef.test(maskedLines.join('\n')) && !mintImported)
+    bad.push(`minted-by=${mint} 在本文件里既没定义也没 import(无从判断它是谁铸造的)`)
+  else if (!mintCall) bad.push(`minted-by=${mint} 有定义/导入却从未在本文件被调用(登记表里的 id 不是它铸造的)`)
+  const regDecl = new RegExp(`(const|let)\\s+${esc(registry)}\\s*=\\s*new\\s+(Map|Set)\\b`).test(maskedLines.join('\n'))
+  if (!regDecl) bad.push(`registry=${registry} 不是本文件里的 new Map/Set(进程内登记表不成立)`)
+  else {
+    const getAt = maskedLines.findIndex((l) => new RegExp(`${esc(registry)}\\s*\\.\\s*(get|has)\\s*\\(`).test(l))
+    if (getAt < 0) bad.push(`${registry} 上找不到 .get()/.has() 查询`)
+    else {
+      const window = maskedLines.slice(getAt, getAt + 7).join('\n')
+      if (!HANDLE_REJECT_RE.test(window))
+        bad.push(`${registry}.get() 之后 6 行内没有"查不到即拒绝"的出口(未知 id 会直接落效果)`)
+    }
+  }
+  return bad.length ? bad : null
+}
+
+/** 单文件判据:违规 / 已豁免 / 句柄见证成立 / 句柄判红 / 取不到(致命) / 动态形态(报数) / 类型标注(报数)。 */
 export function scanFile(rel, text, keySet) {
   const violations = []
   const exempted = []
   const dynamic = []
   const typeAnnotations = []
-  if (typeof text !== 'string') return { violations, exempted, dynamic, typeAnnotations, unreadable: [`${rel}: 内容取不到`] }
+  const handles = []
+  const handleRot = []
+  if (typeof text !== 'string')
+    return { violations, exempted, dynamic, typeAnnotations, handles, handleRot, unreadable: [`${rel}: 内容取不到`] }
   const masked = maskNoise(text)
+  const maskedLines = masked.split('\n')
   const { found, dynamic: dyn, typeAnnotations: ta } = collectSchemaKeys(masked)
   dynamic.push(...dyn.map((d) => `${rel} · ${d}`))
   typeAnnotations.push(...ta.map((t) => `${rel} · ${t}`))
   const okLines = exemptedLines(text)
+  const decls = handleDeclarations(text)
+  const declByKey = new Map()
+  const witness = new Map()
+  for (const d of decls) {
+    if (!d.key) {
+      handleRot.push({ file: rel, line: d.line, why: '句柄标记缺 key=(无法与任何参数配对,等于一张空头条款)' })
+      continue
+    }
+    const norm = normalizeKey(d.key)
+    declByKey.set(norm, d)
+    const fail = handleWitnessFailure(maskedLines, d)
+    if (fail) witness.set(norm, { ok: false, why: fail.join(';'), line: d.line })
+    else witness.set(norm, { ok: true, line: d.line })
+  }
+  const witnessed = new Set()
   for (const f of found) {
-    if (!keySet.has(normalizeKey(f.key))) continue
+    const norm = normalizeKey(f.key)
+    if (!keySet.has(norm)) continue
     const line = lineOf(text, f.index)
     const entry = { file: rel, key: f.key, line, holder: f.holder }
-    if (okLines.has(line)) exempted.push(entry)
-    else violations.push(entry)
+    if (okLines.has(line)) {
+      exempted.push(entry)
+      continue
+    }
+    const w = witness.get(norm)
+    if (w && w.ok) {
+      witnessed.add(norm)
+      handles.push({ ...entry, minted: declByKey.get(norm).mint, registry: declByKey.get(norm).registry })
+      continue
+    }
+    if (w && !w.ok) handleRot.push({ file: rel, line, key: f.key, why: `自称进程内句柄但见证不成立: ${w.why}` })
+    violations.push(entry)
   }
-  return { violations, exempted, dynamic, typeAnnotations, unreadable: [] }
+  // H2 清单腐烂:登记了某个键,但该键在本文件里已不再是违规(参数改名/删掉了)
+  for (const [norm, d] of declByKey) {
+    const w = witness.get(norm)
+    if (w?.ok && !witnessed.has(norm))
+      handleRot.push({ file: rel, line: d.line, key: d.key, why: `登记的句柄声明 key=${d.key} 在本文件已无对应的 schema 违规(清单腐烂,须删或改名)` })
+  }
+  return { violations, exempted, dynamic, typeAnnotations, handles, handleRot, unreadable: [] }
 }
 
 /**
@@ -383,7 +511,7 @@ export function loadBaseline(root) {
  * 棘轮 + 退出码聚合(纯函数,自检与镜像测试都靠**构造输入**证明它有牙)。
  * 优先级:无法判定(2)> 判红(1)> 通过(0)。基线缺项 = 额度 0(零容忍)。
  */
-export function decide({ violations, baseline = {}, undetermined = [], scannedFiles = 0, projection = null, face = 'head', fellBack = false, exempted = [], dynamic = [], typeAnnotations = [] }) {
+export function decide({ violations, baseline = {}, undetermined = [], scannedFiles = 0, projection = null, face = 'head', fellBack = false, exempted = [], dynamic = [], typeAnnotations = [], handleRot = [], handles = [] }) {
   const counts = new Map()
   for (const v of violations) {
     const k = `${v.file}\u0000${normalizeKey(v.key)}`
@@ -396,8 +524,11 @@ export function decide({ violations, baseline = {}, undetermined = [], scannedFi
     const cap = typeof allowed === 'number' ? allowed : 0
     if (n > cap) red.push({ file, normKey, n, cap, lines: violations.filter((v) => `${v.file}\u0000${normalizeKey(v.key)}` === k).map((v) => v.line) })
   }
+  // 句柄声明的两种失败(自称句柄但见证不成立 / 登记了却已无对应违规)与违规并列判红。
+  // 刻意**不吃基线额度**:那不是"存量违规",而是"这个出口本身被用坏了"，给额度等于留一台可伪造的门。
+  for (const h of handleRot) red.push({ file: h.file, normKey: h.key ?? '(缺 key=)', n: 1, lines: [h.line], why: h.why })
   const exit = undetermined.length ? 2 : red.length ? 1 : 0
-  return { exit, red, undetermined, exempted, dynamic, typeAnnotations, scannedFiles, face, fellBack: !!fellBack, projection, counts: Object.fromEntries([...counts].map(([k, v]) => [k.replace('\u0000', '::'), v])) }
+  return { exit, red, undetermined, exempted, handles, handleRot, dynamic, typeAnnotations, scannedFiles, face, fellBack: !!fellBack, projection, counts: Object.fromEntries([...counts].map(([k, v]) => [k.replace('\u0000', '::'), v])) }
 }
 
 export function inScanRoot(p) {
@@ -492,6 +623,8 @@ export function analyze(root, face) {
   const undetermined = []
   const dynamic = []
   const typeAnnotations = []
+  const handles = []
+  const handleRot = []
   for (const p of tools) {
     const r = scanFile(p, texts.get(p), keySet)
     violations.push(...r.violations)
@@ -499,10 +632,12 @@ export function analyze(root, face) {
     undetermined.push(...r.unreadable)
     dynamic.push(...r.dynamic)
     typeAnnotations.push(...r.typeAnnotations)
+    handles.push(...r.handles)
+    handleRot.push(...r.handleRot)
   }
   for (const p of tools) if (typeof texts.get(p) !== 'string') undetermined.push(`${p}: ${effFace} 面取不到内容`)
   if (projection.verdict !== 'name-preserving') undetermined.push(`投影出口侧未判到:${projection.why}`)
-  const res = decide({ violations, baseline: loadBaseline(root).counts, undetermined, scannedFiles: tools.length, projection, face: effFace, fellBack, exempted, dynamic, typeAnnotations })
+  const res = decide({ violations, baseline: loadBaseline(root).counts, undetermined, scannedFiles: tools.length, projection, face: effFace, fellBack, exempted, dynamic, typeAnnotations, handleRot, handles })
   return { ...res, keys, notices: rulerNotices, dynamic, typeAnnotations }
 }
 
@@ -557,12 +692,19 @@ export function main(argv) {
   }
 
   if (out.red.length) {
-    console.error(`❌ 检出 ${out.red.length} 项「路由身份键进了模型可见 schema」(面=${FACE_NAME[out.face]},扫描 ${out.scannedFiles} 文件):`)
-    for (const r of out.red) console.error(`   ${r.file}  键 ${r.key ?? r.normKey} × ${r.n}${r.cap ? `(基线 ${r.cap})` : '(零容忍)'}  行 ${r.lines.join(',')}`)
+    console.error(`❌ 检出 ${out.red.length} 项「路由身份键进了模型可见 schema / 句柄声明不成立」(面=${FACE_NAME[out.face]},扫描 ${out.scannedFiles} 文件):`)
+    for (const r of out.red)
+      console.error(`   ${r.file}  键 ${r.key ?? r.normKey} × ${r.n}(零容忍)  行 ${r.lines.join(',')}${r.why ? `  —— ${r.why}` : ''}`)
     console.error(
       '   出路:该参数从 parameters/properties 里删掉,由宿主在 closure / ctx 绑定;'
-        + '确属正当再写行内标记(族名 routing-identity-exempt,须带一句话原因与 until YYYY-MM-DD 到期日)',
+        + '确属正当再写行内标记(族名 routing-identity-exempt,须带一句话原因与 until YYYY-MM-DD 到期日);'
+        + '若它其实是**宿主自己铸造的进程内句柄**,改写 routing-handle 标记(须带 key=/minted-by=/registry=/原因),'
+        + '本门会去核"本地铸造 + 进程内登记表 + 查不到即拒绝"三条见证,核不过照样红。',
     )
+  }
+  if (out.handles?.length) {
+    console.log(`ℹ️  进程内句柄(已核三条见证,不计违规)${out.handles.length} 处:`)
+    for (const h of out.handles) console.log(`   · ${h.file}:${h.line} ${h.key}(mint=${h.minted} registry=${h.registry})`)
   }
   if (out.exempted.length) {
     console.log(`ℹ️  已带原因豁免 ${out.exempted.length} 处(不判红,逐条列出以防清单腐烂):`)
@@ -673,7 +815,43 @@ function selfTest() {
     return [r.violations.length, c.dynamic.length + c.typeAnnotations.length]
   })(), [0, 2])
 
-  console.log(fail ? `\n❌ 自检 ${fail}/${ran} 例失败` : `\n全部 ${ran} 例通过(成对正反例 + 判据失效反向对照 + 投影出口三态 + 棘轮四向 + 标识符回溯)`)
+  // ⑩ 句柄声明(routing-handle)—— 每条见证不成立都必须红,且不吃基线额度
+  const HG_OK = [
+    'const sessions = new Map<string, number>();',
+    'function genId(): string { return "x"; }',
+    'const T = { parameters: { sessionId: { type: "string" } } };',
+    '// routing-handle: key=sessionId minted-by=genId registry=sessions 进程内句柄',
+    'function pick(s: string) { const c = sessions.get(s); if (!c) return null; return c; }',
+    'const id = genId(); sessions.set(id, 1);',
+    '',
+  ].join('\n')
+  const hg = (src) => scanFile('apps/cli/src/tools/g.ts', src, set)
+  eq('HG1 三条见证齐备 ⇒ 不判违规、计入句柄', [hg(HG_OK).violations.length, hg(HG_OK).handles.length, hg(HG_OK).handleRot.length], [0, 1, 0])
+  eq('HG2 registry 不是 new Map/Set ⇒ 句柄主张不成立(违规 + 点名)', (() => {
+    const r = hg(HG_OK.replace('new Map<string, number>()', '{ x: 1 }'))
+    return [r.violations.length, r.handleRot.length, r.handleRot[0].why.includes('registry=sessions')]
+  })(), [1, 1, true])
+  eq('HG3 minted-by 定义了却从未调用 ⇒ 判红(表里的 id 不是它铸造的)', (() => {
+    const r = hg(HG_OK.replace('const id = genId();', 'const id = "from-model";'))
+    return [r.violations.length, r.handleRot.length]
+  })(), [1, 1])
+  eq('HG4 "查不到即拒绝"的出口被摘掉 ⇒ 判红(未知 id 会直接落效果)', (() => {
+    const r = hg(HG_OK.replace('if (!c) return null;', 'if (!c) c = 0;'))
+    return [r.violations.length, r.handleRot.length]
+  })(), [1, 1])
+  eq('HG5 见证写成注释 ⇒ 等于没有(遮噪后不可见)', (() => {
+    const r = hg(HG_OK.replace('function pick(s: string) { const c = sessions.get(s); if (!c) return null; return c; }', '// function pick(s) { const c = sessions.get(s); if (!c) return null; return c; }'))
+    return [r.violations.length, r.handleRot.length]
+  })(), [1, 1])
+  eq('HG6 清单腐烂:登记了 key 但该键已不是 schema 违规 ⇒ 点名', (() => {
+    const r = hg(HG_OK.replace('{ sessionId: { type: "string" } }', '{ other: { type: "string" } }'))
+    return [r.handleRot.length, r.handleRot[0].why.includes('清单腐烂')]
+  })(), [1, true])
+  eq('HG7 标记缺 key= ⇒ 判红(等于一张空头条款)', hg(HG_OK.replace('key=sessionId ', '')).handleRot.length, 1)
+  eq('HG8 handleRot 进 decide ⇒ exit 1,基线额度救不了它', decide({ violations: [], baseline: { 'apps/cli/src/tools/g.ts': { sessionid: 9 } }, handleRot: [{ file: 'apps/cli/src/tools/g.ts', line: 3, key: 'sessionId', why: 'x' }] }).exit, 1)
+  eq('HG9 违规与句柄都为零 ⇒ 绿(句柄面不得自成恒红源)', decide({ violations: [], handleRot: [], handles: [{ file: 'g.ts', key: 'sessionId', line: 3 }] }).exit, 0)
+
+  console.log(fail ? `\n❌ 自检 ${fail}/${ran} 例失败` : `\n全部 ${ran} 例通过(成对正反例 + 判据失效反向对照 + 投影出口三态 + 棘轮四向 + 标识符回溯 + 句柄三条见证)`)
   process.exit(fail ? 1 : 0)
 }
 

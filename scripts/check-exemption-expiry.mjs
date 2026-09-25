@@ -197,7 +197,44 @@ function isPast(iso, today) {
 // ------------------------------------------------------------ 判定(纯函数)
 
 /** 核心判据:输入"某一面的全部条目 + 基线 + 今天",输出红 / 软账 / 计数三分离。 */
-export function analyze({ entries, suppressionsByFile, baseline, today }) {
+/**
+ * (文件,族) → 账键的**唯一**算法。analyze / writeBaseline / HEAD 锚点三处都要算它,
+ * 各写一份字符串拼接必漂移(本仓最高频的那类失效)。
+ */
+export function undatedKey(e) {
+  return `${e.file}::${e.family}`
+}
+
+/** 一组账条目 → 每 (文件,族) 的无日期计数。E1 的观测面与 HEAD 锚点面共用它。 */
+export function undatedCountsOf(entries) {
+  const out = {}
+  for (const e of entries) {
+    if (e.expiry) continue
+    const k = undatedKey(e)
+    out[k] = (out[k] || 0) + 1
+  }
+  return out
+}
+
+/**
+ * E1 的锚点到底取哪一份计数 —— 抽成纯函数,好让三种情形都能被单测钉住
+ * (证明锚点/取材面这类行为不能依赖仓库瞬时状态,见守门 103 的同款教训)。
+ *
+ *  - **面 = head(全量审计)**:"本次"就是 HEAD 自己,锚点必须等于观测值 ⇒ E1 在该档结构上
+ *    不响。不是放水:E1 的语义是"相对前一状态新加了不带到期日的豁免",全量档里没有"前一状态"
+ *    可比;把它硬套基线存量,得到的就是一道与任何在飞改动无关、且因基线只下调而抬不动的恒红
+ *    —— 那正是 G-174 的成因。存量账在该档由 grandfatherUntil + S1「可下调」报数管,E2(已过期)
+ *    与 E3(基线自身过期)照旧判红,牙齿没少。
+ *  - **面 = index(提交链)**:锚点取 HEAD 的现测值 ∪ 基线(analyze 内取大)。
+ *  - **HEAD 取不到**:返回 null ⇒ analyze 退回"只看基线",调用方必须把这次退化喊出来。
+ */
+export function resolveAnchor({ face, entries, headEntries }) {
+  if (face === 'head') return undatedCountsOf(entries)
+  if (!headEntries) return null
+  return undatedCountsOf(headEntries)
+}
+
+export function analyze({ entries, suppressionsByFile, baseline, today, headCounts }) {
   const grandfather = String(baseline?.grandfatherUntil || '')
   const grandfatherOpen = grandfather !== '' && !isPast(grandfather, today)
   const baseCounts = baseline?.undatedCounts || {}
@@ -214,15 +251,19 @@ export function analyze({ entries, suppressionsByFile, baseline, today }) {
 
   // ② 无日期:存量按棘轮只报数,超出基线的部分判红。键集取**并集** —— 只遍历观测键会让
   // "某文件的豁免被清到 0"这一最该喊的情况隐身(自检 R01 就是这么红过一次)。
-  const obsUndated = {}
-  for (const e of entries) {
-    if (e.expiry) continue
-    const k = `${e.file}::${e.family}`
-    obsUndated[k] = (obsUndated[k] || 0) + 1
-  }
+  const obsUndated = undatedCountsOf(entries)
+  const anchorSource = headCounts ? 'HEAD 现测' : '基线存量'
   for (const k of new Set([...Object.keys(obsUndated), ...Object.keys(baseCounts)])) {
     const n = obsUndated[k] || 0
-    const allowed = Number(baseCounts[k] ?? 0)
+    // 锚点取「基线存量」与「HEAD 现测」的**较大者**。为什么不直接取代基线:
+    //  - 基线按自身口径只会下调(M02 是那道反作弊锁:不得为过门调高额度)。于是一旦某个
+    //    (文件,族) 的真实数被历史低估,只读基线就产出一条**没有任何合法出口**的恒红 ——
+    //    G-174 实测:基线 7 / HEAD·索引·工作树三面都是 8,而 --update-baseline 抬不上去。
+    //    恒红门的结局只有 --no-verify,连带废掉全部守门。
+    //  - 取大只把额度抬到"HEAD 里那一枚一枚真实存在的豁免",超出 HEAD 的增量照样红,所以
+    //    "新增必须带到期日"一点都不松:A02 与 A03 一对正反例把它钉死(A01 的绿必须来自锚点,
+    //    不能来自判据失效)。
+    const allowed = Math.max(Number(baseCounts[k] ?? 0), Number(headCounts?.[k] ?? 0))
     const [file, family] = k.split('::')
     if (n > allowed) {
       const extra = n - allowed
@@ -232,13 +273,13 @@ export function analyze({ entries, suppressionsByFile, baseline, today }) {
         file,
         family,
         msg:
-          `新增豁免不带到期日:${family}@${file} 本次 ${n} 处、基线存量 ${allowed} 处,` +
+          `新增豁免不带到期日:${family}@${file} 本次 ${n} 处、锚点(${anchorSource}) ${allowed} 处,` +
           `多出的 ${extra} 处必须写 \`<族>: <原因> until YYYY-MM-DD\`(建议存活期 ${life} 天)`,
       })
-    } else if (allowed > n) {
+    } else if (Number(baseCounts[k] ?? 0) > n) {
       soft.push({
         code: 'S1',
-        msg: `可下调:${k} 基线 ${allowed} → 现测 ${n}(跑 --update-baseline)`,
+        msg: `可下调:${k} 基线 ${baseCounts[k]} → 现测 ${n}(跑 --update-baseline)`,
       })
     }
   }
@@ -420,9 +461,9 @@ const F_FUTURE = '// brand-new-gate-exempt: 某道新门刚加的族'
 const F_ESLINT =
   '/* eslint-disable no-console */\n// eslint-disable-next-line @x/y\n// @ts-ignore\n'
 
-function detail(entries, undated, gf, today, sup) {
+function detail(entries, undated, gf, today, sup, headCounts) {
   const baseline = { grandfatherUntil: gf ?? '2099-01-01', undatedCounts: undated || {} }
-  return analyze({ entries, suppressionsByFile: sup || {}, baseline, today: today ?? TODAY })
+  return analyze({ entries, suppressionsByFile: sup || {}, baseline, today: today ?? TODAY, headCounts })
 }
 
 const redOf = (r) => (r.red.length > 0 ? r.red[0].code : '')
@@ -500,6 +541,40 @@ function selfTest() {
   const down = detail([], { 'z::radius-exempt': 5 })
   ok('R01 存量减少 ⇒ 绿 + 提示可下调', down.red.length === 0 && down.soft.length === 1)
   ok('R02 从 0 起的新豁免 ⇒ 红', redOf(detail([E()], { [KEY]: 0 })) === 'E1')
+  // A01–A03:HEAD 现测锚点(G-174 的出口)。三条要一起读 —— A03 是 A01 的反证:同一组输入
+  // 不给锚点必须红,否则 A01 的绿可能只是判据没跑起来。
+  ok(
+    'A01 基线被历史低估而 HEAD 里有这个数 ⇒ 不判红(否则是一条抬不动的恒红)',
+    redOf(detail([E()], { [KEY]: 0 }, undefined, undefined, undefined, { [KEY]: 1 })) === '',
+  )
+  ok(
+    'A02 比 HEAD 锚点多出一枚 ⇒ 仍判红(锚点不是放行口)',
+    redOf(detail([E(), E()], { [KEY]: 0 }, undefined, undefined, undefined, { [KEY]: 1 })) === 'E1',
+  )
+  ok('A03 反证:同输入不给锚点 ⇒ 必须红', redOf(detail([E()], { [KEY]: 0 })) === 'E1')
+  ok(
+    'A04 S1 文案报的是基线值,不是取大后的锚点(否则"可下调"会喊出 HEAD 的数)',
+    detail([], { [KEY]: 5 }, undefined, undefined, undefined, { [KEY]: 9 }).soft[0]?.msg.includes(
+      '基线 5 → 现测 0',
+    ) === true,
+  )
+  // N 组:锚点取哪一份(resolveAnchor)。N01 是 G-174 的直接出口,所以它的反证也要在案:
+  // N02 证明索引面**不是**自我锚定(多一枚仍会红),否则 N01 的绿等于整门失效。
+  const E1K = (n) => Array.from({ length: n }, (_, i) => ({ ...E(), line: i + 1 }))
+  ok(
+    'N01 全量档(面=head)锚点=自身观测 ⇒ E1 不响(恒红出口)',
+    redOf(detail(E1K(3), { [KEY]: 1 }, undefined, undefined, undefined, resolveAnchor({ face: 'head', entries: E1K(3) }))) ===
+      '',
+  )
+  ok(
+    'N02 索引面锚点取 HEAD ⇒ 比 HEAD 多一枚仍判红(不是自我锚定)',
+    JSON.stringify(resolveAnchor({ face: 'index', entries: E1K(3), headEntries: E1K(1) })) ===
+      JSON.stringify({ [KEY]: 1 }),
+  )
+  ok(
+    'N03 HEAD 取不到 ⇒ 返回 null(退回基线,且调用方必须喊出来)',
+    resolveAnchor({ face: 'index', entries: E1K(3), headEntries: null }) === null,
+  )
   // 第二类账:lint 抑制面只报数
   const sup = scanFile('g.ts', F_ESLINT).suppressions
   ok(
@@ -677,12 +752,7 @@ function collect(root, face) {
 }
 
 function writeBaseline(root, baseline, entries, today, face) {
-  const observed = { undatedCounts: {}, updatedAt: today }
-  for (const e of entries) {
-    if (e.expiry) continue
-    const k = `${e.file}::${e.family}`
-    observed.undatedCounts[k] = (observed.undatedCounts[k] || 0) + 1
-  }
+  const observed = { undatedCounts: undatedCountsOf(entries), updatedAt: today }
   const { next, lowered, added } = mergeBaseline(baseline, observed)
   const abs = path.join(root, BASELINE_REL)
   mkdirSync(path.dirname(abs), { recursive: true })
@@ -706,6 +776,14 @@ function report(res, opts) {
   console.log(
     `豁免到期账(面=${t.face}):标记 ${t.entries} 处 / ${t.files} 文件 / ${t.families} 族;` +
       `带到期日 ${t.dated}、无日期 ${t.undated}(基线存量 ${t.stockUndated})、已过期 ${t.expired}`,
+  )
+  console.log(
+    `  E1 锚点口径:` +
+      (t.anchor === 'head-self'
+        ? '全量档 —— "本次"即 HEAD 自身,E1 不响(存量由 grandfatherUntil / S1 报数管,E2/E3 照旧判红)'
+        : t.anchor === 'head-measured'
+          ? '提交链档 —— 取 HEAD 现测 ∪ 基线存量,两者取大'
+          : `⚠ ${t.anchor}`),
   )
   console.log(
     `  挂靠方式:${pairs(t.byAttach)};缺原因 ${t.reasonless} 处(各门自身判据负责,本门只计不判红)`,
@@ -732,13 +810,31 @@ function cliRun(opts) {
   const baseline = loadBaselineOrSeed(root, update)
   const got = collect(root, face)
   const today = isoToday()
+  // E1 的锚点:面不是 HEAD 时,现读一份 HEAD 的同族计数当锚点(G-174)。
+  // 全量档(面=head)不取 —— 自己比自己必然相等,E1 在那里结构上不该响;它本来就是"本次提交
+  // 相对上一次"的棘轮,不是存量账(存量由 grandfatherUntil / S1 报数管)。
+  let headEntries = null
+  if (face !== 'head') {
+    try {
+      headEntries = collect(root, 'head').entries
+    } catch (e) {
+      console.log(
+        `  ⚠️ HEAD 锚点取不到(${e.message.slice(0, 70)})⇒ E1 退回"只看基线存量"口径,` +
+          '此时若基线被历史低估,可能产出一条抬不动的恒红(见 PROJECT_PLAN G-174)',
+      )
+    }
+  }
+  const headCounts = resolveAnchor({ face, entries: got.entries, headEntries })
   const res = analyze({
     entries: got.entries,
     suppressionsByFile: got.suppressionsByFile,
     baseline,
     today,
+    headCounts,
   })
   res.totals.face = face
+  res.totals.anchor =
+    headCounts === null ? 'baseline-only(锚点取不到)' : face === 'head' ? 'head-self' : 'head-measured'
   res.totals.unreadable = got.unreadable
   res.totals.scannedFiles = got.scannedFiles
   if (update) {
@@ -792,6 +888,9 @@ export const __test__ = {
   scanFile,
   analyze,
   mergeBaseline,
+  resolveAnchor,
+  undatedCountsOf,
+  undatedKey,
   loadBaseline,
   MARKER_RE,
   PREFILTER_RE,

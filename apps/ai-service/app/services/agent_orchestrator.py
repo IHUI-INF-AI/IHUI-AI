@@ -30,6 +30,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+from ..core.executor_switch import guard_loop_v2_pilot
 from ..core.llm_gateway import llm_gateway
 from .mcp_server import mcp_server
 from .memory import memory_store
@@ -1460,6 +1461,10 @@ class AgentOrchestrator:
                 - {"phase": "tool_result", "tool": name, "ok": bool, "iteration": N} — 工具返回
                 - {"phase": "output_ready", "output_preview": str} — 最终输出就绪
         """
+        # D6① 收敛开关接线点(默认 legacy,直接返回,行为与改前逐字节等价;
+        # 显式设 ORCHESTRATION_CONVERGENCE_EXECUTOR=loop_v2 时 fail-fast 抛
+        # LoopV2ConvergencePilotError,不静默回退 —— 见 core/executor_switch.py)
+        guard_loop_v2_pilot("agent_orchestrator._run_agent", session_id=session_id)
         start = time.monotonic()
         # 等价替代弃用的 datetime.utcnow()（naive UTC 语义不变，2026-09-19 技术债清理）
         sid = session_id or f"agent-{agent.name}-{int(datetime.now(UTC).replace(tzinfo=None).timestamp())}"
