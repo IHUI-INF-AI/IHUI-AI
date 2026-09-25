@@ -21,8 +21,22 @@
 //     把锚点写成 0 会让本仓整片报红 ⇒ 逼人 `--no-verify` ⇒ 全部守门作废。
 //   - 取不到输入 ⇒ **exit 2「无法判定」**,既不冒红也不记绿。
 //
-// 手动:node scripts/check-tool-contract-declared.mjs [--staged|--worktree|--self-test|--flip-audit|--verbose]
+// **TRD(Touch Requires Declaration)判据(2026-09-25 换锚点)**:上面那句棘轮在 `--staged`
+// 档的锚点是"该文件 HEAD 自身违规数",实测后果是**任何人改任何一个存量工具文件,改完仍然
+// "无契约",永远不红**(全量档读数:注册工具 104 / 无契约 104 / 棘轮余量 0;生产面
+// `grep -rn "contract: {" apps/cli/src --include=*.ts | grep -v test` = **0 命中**)。
+// 这台门原本只能拦"新写文件不带契约",而那恰好是最少发生的一种情况 —— 锚点选得太宽。
+// 现 TRD 判据:**本次暂存触及某工具文件 ⇒ 该文件里每个注册进工具面的工具都必须有契约声明**,
+// 不再享受"该文件 HEAD 存量违规数"这个锚点。全量档**逐字保持现状**(存量 104 仍只报数)。
+//   - 直接上线 = "谁碰 builtins.ts 谁被拦"(那文件存量工具最多)⇒ 恒红门等于没有门
+//     (§12e / 守门 77/83/108 反复记过),故带**有期限的宽限**:见 GRANDFATHER_UNTIL。
+//   - 宽限内:只报数不判红;到期日之后转真拦。当前档位与剩余天数**每次运行都打在输出里**。
+//
+// 手动:node scripts/check-tool-contract-declared.mjs
+//   [--staged|--worktree|--self-test|--flip-audit|--verbose|--real-smoke]
+//   [--touch-requires-declaration | --no-touch-requires-declaration] [--today YYYY-MM-DD]
 //   --flip-audit  第二阶段输入:按"未声明即不可信"的新缺省会被拦的工具数与清单(只报不改退出码)
+//   --today       仅供取证构造"宽限内 / 已过期"两档,不依赖系统时钟;非 ISO 日期 ⇒ exit 2
 
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -48,6 +62,19 @@ const FILE_EXT = '.ts'
 /** 契约必须齐的三组(本阶段只落这三类语义;超时/取消/追踪本轮不装,不得在此要求)。 */
 const CONTRACT_GROUPS = ['shape', 'permission', 'resultBudget']
 const REQUIRED_IN_GROUP = { permission: ['effectScope'], shape: ['input', 'visibleToProvider'] }
+
+/**
+ * TRD 宽限截止日 = **立票日 2026-09-25 + 14 天**(两周,给"碰存量工具前先补契约"留出窗口)。
+ *
+ * 依据:本判据默认开,而生产面 `contract: {` 实测 **0 命中**(注册工具 104 / 无契约 104)。
+ * 当场判红会让每一次触碰 `apps/cli/src/tools/**` 的提交必被拦 ⇒ 各会话合法 `--no-verify`
+ * ⇒ 约 130 道守门对全队同时失效(§12e 那型,本仓记过至少三次)。到期**只判红、绝不自动延长**:
+ * 改这个日期消红等于把红推给下一个人,与守门 108 的 E3"过期未销账自己变红"同口径。
+ */
+const GRANDFATHER_UNTIL = '2026-10-09'
+const TRD_FLAG = '--touch-requires-declaration'
+const TRD_OFF_FLAG = '--no-touch-requires-declaration'
+const DAY_MS = 86400000
 
 // ==================== 源码切分:遮掉注释与字符串 ====================
 
@@ -338,6 +365,75 @@ export function exceedsAnchor(current, anchor) {
   return current > anchor
 }
 
+// ==================== TRD:触碰即须声明(2026-09-25 换锚点) ====================
+
+/** 默认**开** —— 关掉的那台门等于没有门;只有显式 `--no-touch-requires-declaration` 才关。 */
+export function trdEnabled(argv) {
+  const a = argv || []
+  if (a.includes(TRD_OFF_FLAG)) return false
+  return true
+}
+
+function isoDay(value) {
+  const s = String(value || '')
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return ''
+  return Number.isNaN(Date.parse(`${s}T00:00:00Z`)) ? '' : s
+}
+
+/** 系统当日(仅供默认档使用;取证一律走 `--today` 注入,不得依赖它)。 */
+function isoToday() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+/**
+ * 宽限状态(纯函数,`today` 可注入 ⇒ 取证能同时构造"宽限内"与"已过期"两档)。
+ *
+ * 到期日**当天不算过期**(与守门 108 R03 一致);日期解不出来 ⇒ `known:false` +
+ * `enforce:true` —— 半个日期比没有日期更危险,它看起来像被管过,所以宁可判红也不静默放行。
+ */
+export function trdState({ today, until = GRANDFATHER_UNTIL } = {}) {
+  const t = isoDay(today)
+  const u = isoDay(until)
+  if (!t || !u) return { known: false, enforce: true, daysLeft: null, today: t, until: u }
+  const daysLeft = Math.round(
+    (Date.parse(`${u}T00:00:00Z`) - Date.parse(`${t}T00:00:00Z`)) / DAY_MS,
+  )
+  return { known: true, enforce: daysLeft < 0, daysLeft, today: t, until: u }
+}
+
+/**
+ * TRD 判据本体(纯函数):输入"本次被暂存触及的每个工具文件 + 其违规清单 + 宽限状态"。
+ *
+ * 与棘轮的区别就是本票的全部要点:棘轮问"比该文件 HEAD 更糟吗",TRD 问"**碰了却没补齐吗**"。
+ * 只在 `face === 'staged'` 生效 —— 全量档保持逐字不变,否则今天起没人能提交。
+ */
+export function trdAssess({ files, face, enabled = true, state } = {}) {
+  const out = { applied: false, enforced: false, reds: [], notices: [], violations: 0, files: 0 }
+  if (!enabled || face !== 'staged') return out
+  out.applied = true
+  out.enforced = Boolean(state && state.enforce)
+  for (const f of files || []) {
+    const n = (f.violations || []).length
+    if (n === 0) continue
+    out.files += 1
+    out.violations += n
+    ;(out.enforced ? out.reds : out.notices).push(f)
+
+  }
+  return out
+}
+
+/**
+ * 「枚举到 0 个注册工具 ⇒ 判死」的判据(纯函数,便于取证不依赖真仓状态)。
+ *
+ * 只在暂存档生效:抽取器在"这次确实碰了工具面文件"却一枚工具都没抽到时,唯一诚实的结论是
+ * **判据失明**,不得记为通过(全量档维持既有"枚举 0 个 .ts 文件才判死"的口径不变)。
+ */
+export function enumerationBlind({ face, enabled = true, judgedCount = 0, totalTools = 0 } = {}) {
+  if (!enabled || face !== 'staged') return false
+  return judgedCount > 0 && totalTools === 0
+}
+
 // ==================== 取材 ====================
 
 function listTrackedFiles(root, face) {
@@ -405,6 +501,14 @@ function main(argv) {
   const has = (flag) => argv.includes(flag)
   const verbose = has('--verbose')
   const flipAudit = has('--flip-audit')
+  const trdOn = trdEnabled(argv)
+  const todayFlagIdx = argv.indexOf('--today')
+  const todayFlag = todayFlagIdx >= 0 ? argv[todayFlagIdx + 1] : ''
+  if (todayFlagIdx >= 0 && !isoDay(todayFlag)) {
+    console.error(`❌ 无法判定:--today 需要一个 ISO 日期(YYYY-MM-DD),收到「${todayFlag || '(空)'}」`)
+    return 2
+  }
+  const state = trdState({ today: todayFlag || isoToday() })
   const faceSel = selectFace({ staged: has('--staged'), worktree: has('--worktree') })
   if (faceSel.error) {
     console.error(`❌ ${faceSel.error}`)
@@ -459,6 +563,7 @@ function main(argv) {
   let totalViolations = 0
   let headroom = 0
   const reds = []
+  const perFile = []
   const flip = []
   let undeterminedFiles = 0
 
@@ -475,6 +580,7 @@ function main(argv) {
     totalTools += tools.length
     totalNoContract += tools.filter((t) => !t.hasContract).length
     totalViolations += violations.length
+    perFile.push({ rel, toolCount: tools.length, violations })
 
     const headText = anchorTexts.get(rel)
     const anchor =
@@ -496,11 +602,48 @@ function main(argv) {
     return 2
   }
 
-  if (reds.length > 0) {
-    console.error(`❌ 工具契约声明面违规(超出该文件 HEAD 自身基线):`)
-    for (const r of reds) {
-      console.error(`  ${r.rel}: ${r.current} 处(HEAD 锚点 ${r.anchor})`)
-      for (const v of r.violations) console.error(`    - L${v.line} ${v.toolName}: ${v.kind}`)
+  // TRD:暂存触及的工具文件里**每一枚**注册工具都必须带契约声明(不吃 HEAD 存量锚点)。
+  const trd = trdAssess({ files: perFile, face, enabled: trdOn, state })
+  if (enumerationBlind({ face, enabled: trdOn, judgedCount: judged.length, totalTools })) {
+
+    console.error(
+      `❌ 无法判定:暂存触及 ${judged.length} 个 ${SCAN_DIRS.join('/ 或 ')} 下的文件,` +
+        `却枚举到 0 个注册工具 —— 抽取器在这一面上失明,不得记为通过。`,
+    )
+    return 2
+  }
+  const dayWord = state.daysLeft === null ? '?' : Math.abs(state.daysLeft)
+  const trdMode = !trdOn
+    ? '关(显式 --no-touch-requires-declaration;关掉后本判据不存在)'
+    : face !== 'staged'
+      ? `开但**只作用于 --staged 档**(当前 ${FACE_LABEL[face]}:棘轮锚点不变,存量只报数)`
+      : state.enforce
+        ? `开 · **已过期 ⇒ 真拦**(宽限截止 ${state.until || '(不可解析)'},已过 ${dayWord} 天)`
+        : `开 · **宽限期内 ⇒ 只报数不判红**(宽限截止 ${state.until},剩 ${dayWord} 天,今天 ${state.today})`
+  console.log(`TRD(触碰即须声明)当前档位:${trdMode}`)
+  if (trd.files > 0) {
+    const verb = trd.enforced ? '❌ 判红' : '⚠️ 报数(宽限内不判红)'
+    console.log(
+      `${verb}:本次暂存触及 ${trd.files} 个工具文件、共 ${trd.violations} 处无契约/契约不全 —— ` +
+        `按 TRD 这些**必须**补齐,不再享受"该文件 HEAD 存量违规数"锚点`,
+    )
+    for (const f of [...trd.reds, ...trd.notices]) {
+      for (const v of f.violations) console.log(`  - ${f.rel}:L${v.line} ${v.toolName}: ${v.kind}`)
+    }
+  }
+
+  if (reds.length > 0 || (trd.enforced && trd.reds.length > 0)) {
+    if (reds.length > 0) {
+      console.error(`❌ 工具契约声明面违规(超出该文件 HEAD 自身基线):`)
+      for (const r of reds) {
+        console.error(`  ${r.rel}: ${r.current} 处(HEAD 锚点 ${r.anchor})`)
+        for (const v of r.violations) console.error(`    - L${v.line} ${v.toolName}: ${v.kind}`)
+      }
+    }
+    if (trd.enforced && trd.reds.length > 0) {
+      console.error(
+        `❌ TRD(触碰即须声明)判红:宽限期 ${state.until} 已过,被暂存触及的文件必须全员带契约`,
+      )
     }
     console.error(`  修法:给该工具字面量补 contract = { shape, permission, resultBudget }`)
     console.error(
@@ -513,7 +656,10 @@ function main(argv) {
   }
 
   console.log(
-    `✅ 无新增绕档:本次判定的 ${judged.length} 个文件均未超出各自 HEAD 锚点(存量违规合计 ${totalViolations} 处,由各文件自身锚点承担;判定面 ${FACE_LABEL[face]};${FACE_NOTE[face]})`,
+    `✅ 无新增绕档:本次判定的 ${judged.length} 个文件均未超出各自 HEAD 锚点(存量违规合计 ${totalViolations} 处,由各文件自身锚点承担;判定面 ${FACE_LABEL[face]};${FACE_NOTE[face]})` +
+      (face === 'staged' && trd.applied
+        ? `;TRD ${trd.enforced ? '已生效' : '宽限内只报数'}:触及文件内无契约合计 ${trd.violations} 处`
+        : ''),
   )
   if (flipAudit) {
     console.log(`--flip-audit(第二阶段输入)按"未声明即不可信"会被拦的工具:${flip.length} 个`)
@@ -605,6 +751,92 @@ function selfTest() {
     extractToolLiterals('').length === 0 && violationsOf([]).length === 0,
   )
 
+  // ---------- TRD(触碰即须声明)—— 2026-09-25 换锚点,取证必须两档日期都可构造 ----------
+  const GF = '2026-10-09'
+  const bareSrcViolations = violationsOf(extractToolLiterals(bare))
+  const fullSrcViolations = violationsOf(extractToolLiterals(full))
+  ok(
+    'ST12 TRD 默认开 / 显式 --no-touch-requires-declaration 才关',
+    trdEnabled([]) === true &&
+      trdEnabled([TRD_FLAG]) === true &&
+      trdEnabled([TRD_OFF_FLAG]) === false,
+  )
+  ok(
+    'ST13 宽限期三态:期内不判红 / 到期当天仍不判红 / 次日判红(today 注入,不看系统时钟)',
+    trdState({ today: '2026-09-25', until: GF }).enforce === false &&
+      trdState({ today: GF, until: GF }).enforce === false &&
+      trdState({ today: '2026-10-10', until: GF }).enforce === true,
+  )
+  ok(
+    'ST13b 日期不可解析 ⇒ known:false 且 enforce:true(半个租约比没有租约更危险,不得静默放行)',
+    trdState({ today: 'not-a-date', until: GF }).enforce === true &&
+      trdState({ today: '2026-09-25', until: GF }).known === true,
+  )
+  // ① 暂存触及且全部工具已声明 ⇒ 绿(既无红也无报数)
+  const allDeclared = trdAssess({
+    files: [{ rel: 'apps/cli/src/tools/a.ts', toolCount: 1, violations: fullSrcViolations }],
+    face: 'staged',
+    state: trdState({ today: '2026-10-10', until: GF }),
+  })
+  ok('ST14 ① 触及文件全员已声明 ⇒ TRD 零红零报数', allDeclared.reds.length === 0 && allDeclared.notices.length === 0)
+  // ② 暂存触及且一枚未声明:宽限期内只报数、过期后判红 —— 两档日期各构造一次
+  const touchOne = [
+    { rel: 'apps/cli/src/tools/builtins.ts', toolCount: 1, violations: bareSrcViolations },
+  ]
+  const grace = trdAssess({
+    files: touchOne,
+    face: 'staged',
+    state: trdState({ today: '2026-09-25', until: GF }),
+  })
+  const expired = trdAssess({
+    files: touchOne,
+    face: 'staged',
+    state: trdState({ today: '2026-10-10', until: GF }),
+  })
+  ok(
+    'ST15 ②a 宽限期内:同一输入只报数不判红(violations 仍如实计数)',
+    grace.reds.length === 0 && grace.notices.length === 1 && grace.violations === 1,
+  )
+  ok(
+    'ST16 ②b 过期后:同一输入转真拦(判红并点名文件)',
+    expired.reds.length === 1 && expired.notices.length === 0 && expired.enforced === true,
+  )
+  // ③ 全量档行为逐字不变:同一批存量输入在 head 面根本不适用 TRD
+  const headFace = trdAssess({
+    files: touchOne,
+    face: 'head',
+    state: trdState({ today: '2026-10-10', until: GF }),
+  })
+  ok(
+    'ST17 ③ 全量档(head 面)TRD 整条不适用 ⇒ 存量 104 处不会被本判据搞红',
+    headFace.applied === false && headFace.reds.length === 0 && headFace.notices.length === 0,
+  )
+  const trdOff = trdAssess({
+    files: touchOne,
+    face: 'staged',
+    enabled: trdEnabled([TRD_OFF_FLAG]),
+    state: trdState({ today: '2026-10-10', until: GF }),
+  })
+  ok('ST17b 显式关档 ⇒ 连报数都不计(输出行必须明写"关")', trdOff.applied === false)
+  // 换锚点的实质:同一文件 HEAD 已欠 2 处、暂存仍 2 处 —— 旧棘轮判绿,TRD 判红
+  ok(
+    'ST18 锚点对照:旧棘轮(2 vs HEAD 2)放绿,TRD(碰了就必须补)计 2 处 ⇒ 换的确实是锚点',
+    exceedsAnchor(2, 2) === false &&
+      trdAssess({
+        files: [{ rel: 'x.ts', toolCount: 2, violations: bareSrcViolations.concat(bareSrcViolations) }],
+        face: 'staged',
+        state: trdState({ today: '2026-10-10', until: GF }),
+      }).violations === 2,
+  )
+  // ④ 枚举到 0 个注册 ⇒ 判死,不得记绿
+  ok(
+    'ST19 ④ 暂存触及 N 个文件而枚举到 0 枚注册 ⇒ 判死;head 面/关档/有工具三种情形均不判死',
+    enumerationBlind({ face: 'staged', judgedCount: 3, totalTools: 0 }) === true &&
+      enumerationBlind({ face: 'staged', judgedCount: 3, totalTools: 4 }) === false &&
+      enumerationBlind({ face: 'head', judgedCount: 54, totalTools: 0 }) === false &&
+      enumerationBlind({ face: 'staged', enabled: false, judgedCount: 3, totalTools: 0 }) === false,
+  )
+
   let pass = 0
   let fail = 0
   for (const [verdict, name] of results) {
@@ -665,7 +897,15 @@ export const __test__ = {
   violationsOf,
   flipAuditOf,
   exceedsAnchor,
+  trdEnabled,
+  trdState,
+  trdAssess,
+  enumerationBlind,
+  isoDay,
   CONTRACT_GROUPS,
   SCAN_DIRS,
+  GRANDFATHER_UNTIL,
+  TRD_FLAG,
+  TRD_OFF_FLAG,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
