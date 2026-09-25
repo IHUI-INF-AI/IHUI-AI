@@ -8,9 +8,10 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
@@ -79,6 +80,48 @@ test('IHUI_SCRATCH_DIR 可覆盖落点(换机/CI 无 D:\\DevEnv 时的逃生舱)
     else process.env.IHUI_SCRATCH_DIR = prev
     const left = existsSync(override) ? readdirSync(override) : []
     assert.deepEqual(left, [], `覆盖目录留下了残留: ${left.join(', ')}`)
+  }
+})
+
+/* ── 退出钩子:让"忘了写 finally"在结构上不可能留下残留(2026-09-25 实测一天漏 3 个夹具) ── */
+
+const LIB_URL = pathToFileURL(resolve(HERE, '..', 'lib', 'scratch-dir.mjs')).href
+
+/** 在**子进程**里跑一段用夹具的代码 —— 钩子挂在 `process.on('exit')`,父进程测不出来。 */
+function runChild(body) {
+  return spawnSync(
+    process.execPath,
+    ['--input-type=module', '-e', `import { mkScratch, rmScratch } from ${JSON.stringify(LIB_URL)};\n${body}`],
+    { encoding: 'utf8', windowsHide: true, timeout: 120_000, stdio: ['ignore', 'pipe', 'pipe'] },
+  )
+}
+
+test('断言抛在 rmScratch 之前 ⇒ 进程退出时夹具必须被带走(阳性对照)', () => {
+  // 只判**这一次子进程建出来的那一个路径** —— 按"目录名前缀在 scratch 根里计数"的写法
+  // 会被上一次运行留下的残留判成假红(实测就是这样红过一次:判据依赖历史,而不是依赖被测行为)。
+  const r = runChild(`
+process.stdout.write(mkScratch('leak-probe-'));
+throw new Error('模拟断言失败(旧写法在这里就永久漏一个目录)');
+`)
+  assert.notEqual(r.status, 0, '子进程本该失败,否则这条测不到抛路径')
+  assert.match(r.stderr, /模拟断言失败/)
+  const childDir = r.stdout.trim()
+  assert.ok(/^leak-probe-/.test(childDir.split(/[\\/]/).pop() ?? ''), `子进程没把夹具路径打出来:${childDir}`)
+  assert.equal(existsSync(childDir), false, `退出钩子没生效,夹具仍在:${childDir}`)
+})
+
+test('退出钩子只回收本进程建的夹具,不得扫掉同目录里别人留下的东西(反向对照)', () => {
+  const stranger = mkScratch('stranger-') // 本测试进程建的,但**不**显式删 —— 子进程退出时必须还在
+  try {
+    assert.ok(existsSync(stranger), '夹具没建出来,反向对照无从谈起')
+    const r = runChild(`
+process.stdout.write(mkScratch('child-own-'));
+`)
+    assert.equal(r.status, 0, r.stderr)
+    assert.equal(existsSync(r.stdout.trim()), false, '子进程自己的夹具没被回收(钩子正向半边失效)')
+    assert.ok(existsSync(stranger), '钩子越界删了别的进程/别的时刻留下的夹具 ⇒ 那是替人做删除决定')
+  } finally {
+    rmScratch(stranger)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

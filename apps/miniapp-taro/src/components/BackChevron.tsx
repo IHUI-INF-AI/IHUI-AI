@@ -2,79 +2,70 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 临时夹具唯一落点。两条选址硬约束见 scratchRoot() 注释,均由实测踩坑固化而来。
-
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
-import { dirname, join, resolve, sep } from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-const HERE = dirname(fileURLToPath(import.meta.url))
-const REPO_ROOT = resolve(HERE, '..', '..')
+import type { CSSProperties } from 'react'
+import { View, type ITouchEvent } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
+import { useTt } from '@/i18n'
+import { rpx } from '@/utils/rpx'
 
 /**
- * 为什么不沿用 os.tmpdir():活进程的 %TEMP% 可能仍钉在 C 盘(HKCU 已于 2026-09-23
- * 改指 D:\DevEnv\Temp,但环境块只对重启后的新进程生效),实测 C 盘 Temp 单日因此
- * 长出 45 个 git 夹具目录。
+ * 页头返回键的唯一实现(小程序端)。
  *
- * 为什么不落在仓库内(.ihui-agent/tmp/):夹具需要模拟"非 git 目录",放在仓库树内时
- * `git rev-parse --show-toplevel` 会向上逃逸到真仓库,使该用例恒红(已 A/B 实证)。
+ * 对齐 web 端 apps/web/src/components/layout/GlobalTopBar.tsx 的 TopBarBackButton:
+ * 返回 affordance 只用矢量箭头(ChevronLeft / chevron-left)+ 无障碍名称,
+ * 不得把「返回」两个字或 ‹ 字符当图标渲染 —— 后者与正文没有共用度量,
+ * 且每页各写一份就长成"手机上和 web 不一样"(AGENTS.md §4 图标统一)。
  *
- * 结论:与 scripts/lib/gitdir.mjs 的 gitArchiveDir() 同族推导 —— 工作树所在盘的
- * DevEnv/Temp(§15b 批准的临时物落点),不写死盘符。
+ * 平台特有:依赖 @tarojs/components 与 rpx 换算,不进 packages/ 共享层。
  */
-function scratchRoot() {
-  const override = process.env.IHUI_SCRATCH_DIR
-  if (override) return normalize(override)
-  const driveRoot = resolve(REPO_ROOT, '..', '..')
-  return normalize(join(driveRoot, 'DevEnv', 'Temp', 'ihui-scratch'))
-}
 
-function normalize(p) {
-  return p.replace(/[\\/]+$/, '')
-}
-
-function isInsideRepo(dir) {
-  const rel = dirname(resolve(dir))
-  return rel === REPO_ROOT || rel.startsWith(REPO_ROOT + sep)
-}
-
-const live = new Set()
-
-export function mkScratch(prefix) {
-  const root = scratchRoot()
-  if (isInsideRepo(root)) {
-    throw new Error(`scratch 落点不得在仓库树内: ${root}`)
-  }
-  mkdirSync(root, { recursive: true })
-  const dir = mkdtempSync(join(root, prefix))
-  live.add(dir)
-  return dir
-}
-
-// git 对象是只读文件,Windows 上首删常撞 EPERM,故带重试。
-export function rmScratch(dir) {
-  rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
-  live.delete(dir)
-}
-
+/** 图标墨迹边长(rpx),取端内既定档 pkg-about/about/index.tsx 的同值 */
+const ICON_SIZE = 40
 /**
- * 进程退出前回收**本进程创建且未被显式删除**的夹具。
- *
- * 为什么放在共用层而不是要求各调用方写 try/finally:实测 `scripts/` 里 30 处 mkScratch 调用点
- * 中,把 `rmScratch` 写在断言之后的比比皆是 —— 一条断言失败就把夹具永久留在 Temp
- * (2026-09-25 一天漏 3 个,合计约 750KB,来自 `check-cross-end-tokens` 的端到端用例)。
- * 靠"人人都记得写 finally"是散文约束,已经被证明会漏;这里让它结构上不可能漏。
- *
- * 边界(为什么不会误删别人的东西):注册表只含**本进程本次运行** mkScratch 出来的路径,
- * 显式 rmScratch 过即出表;SIGKILL / 断电不在此列(那种残留由 §26 的每日 Temp 体检兜)。
+ * 按钮方块 72rpx = 36px,与 web 端顶栏返回键同档
+ * (GlobalTopBar 的 TOPBAR_BTN_W9 + h-9 = 36×36 正方形)。方块即命中区,
+ * 不用负 margin 造第二种几何 —— 那会让每个页面的返回键宽度各不相同。
  */
-process.on('exit', () => {
-  for (const dir of [...live]) {
-    try {
-      rmScratch(dir)
-    } catch {
-      // 退出路径上不得因清理失败而改写结论 —— 判据的红要留在断言里,不是留在这里
-    }
-  }
-})
+const BOX_SIZE = 72
+
+export interface BackChevronProps {
+  /** 返回动作;各页语义不同(navigateBack / switchTab / 回登录页),由调用方持有 */
+  onTap?: (event: ITouchEvent) => void
+  /** 仅用于定位(如导航栏里的 absolute + left/top),不得用来改字号或方块尺寸 */
+  className?: string
+  /**
+   * 图标色。**页面头部一律留空**取默认档;仅导航栏 chrome 需跟随调用方自定义
+   * textColor 时传(NavBar 的 bgColor/textColor 是端内既定入参)。
+   */
+  color?: string
+  style?: CSSProperties
+}
+
+export default function BackChevron({
+  onTap,
+  className,
+  color = 'var(--color-foreground)',
+  style,
+}: BackChevronProps) {
+  const tt = useTt()
+  return (
+    <View
+      className={className}
+      ariaRole="button"
+      ariaLabel={tt('common.back', '返回')}
+      onClick={onTap}
+      hoverClass="opacity-60"
+      style={{
+        width: rpx(BOX_SIZE),
+        height: rpx(BOX_SIZE),
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        ...style,
+      }}
+    >
+      <LineIcon name="chevron-left" size={ICON_SIZE} color={color} />
+    </View>
+  )
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

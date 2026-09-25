@@ -21,13 +21,17 @@
  * 也没有本门必需的 HEAD/索引 blob 取材口径。把一条正在跑的 blocking 门连它的口径一起重写,
  * 爆炸半径远大于新增一个文件 —— 故新建本门,11h 逐字不动。
  *
- * 判据(三条,一律**宁漏不误报**):
- *  S0   单一实现在位 —— 上述三个共享组件必须仍在、仍引用矢量图标、仍被别处 import。
+ * 判据(四条,一律**宁漏不误报**):
+ *  S0   单一实现在位 —— 上述共享组件必须仍在、仍引用矢量图标、仍被别处 import。
  *       防"装好被摘线":机制不在而本门仍报绿,等于没有(守门 70/76/81 同型)。
- *  GA1  文本字形当 chevron —— 一个 JSX 元素的**唯一**子内容恰好是 `›` `»` `→` `》`(或裸 `>`),
+ *       现登记 4 个:三端「更多」箭头 + 小程序端页头返回键 `BackChevron`。
+ *  GA1  文本字形当 chevron —— 一个 JSX 元素的**唯一**子内容恰好是 `›` `»` `→` `》` `‹` `←`(或裸 `>`),
  *       或表达式子内容 `{'›'}` / `{">"}`,**且**语境可证明是 affordance:本元素属性里有
  *       onClick/onPress/onTap/onLongPress 或 role/accessibilityRole="button",或其任一祖先元素
  *       (含 Link/Pressable/TouchableOpacity/Button 这类组件名)带上述标记。
+ *       ⚠️ 左向 `‹`/`←` 是 2026-09-25 补的:本门立项时只纳右向「更多」箭头,于是小程序
+ *       `NavBar.tsx` 与 7 个页面头把 `‹` 当返回图标**长期零判据**。一条门只管自己立项那一型,
+ *       就是"判据只拦得住别人、拦不住隔壁那一型"的现成例子。
  *       不判:注释、模板字符串里拼的 HTML(串内 `<span>›</span>`)、非整格的正文含字
  *       (`查看更多 ›`)、面包屑分隔符(祖先无 handler 即放过)、比较运算符、泛型尖括号、
  *       JSX 属性语法(`&gt;` 形态刻意不纳,宁可漏)。
@@ -36,8 +40,18 @@
  *       兄弟键);CSS 侧同文件按 `.show-more-text` × `.show-more-arrow` 的词干配对判。
  *       两侧都写了字号且**单位相同**时箭头更大才判红;单位不同 ⇒ 不判但如实计数。
  *       切词按词元等值比对,所以 `removeText` 不会被当成 `more`(历史误伤最常见的一类)。
+ *  GA4  文字「返回」当返回箭头(2026-09-25 立,起因:用户实拍"小程序端所有返回按钮是返回
+ *       两个字")—— JSX 元素的**唯一**子内容是「返回」类文案,且该元素处在可证 affordance 语境
+ *       (判据与 GA1 共用同一遍 `walkAffordanceChildren`,两条对"可证"的定义必须同形):
+ *       i18n 调用 `{t('common.back')}` / `{tt('common.back','返回')}`(键名末段须为 `back` 或
+ *       `back<数字>`)或字面量 `返回`。
+ *       **刻意不纳**带宾语的标签(`backHome` 返回首页 / `backLogin` 返回登录 / `prevMonth`):
+ *       那些是按钮文案,换成裸箭头反而不表意 —— 拦的是"箭头位放文字",不是"不许出现返回二字"。
+ *       web 端 0 处存量(它的返回键本就是 lucide `<ChevronLeft />`),本判据把另三端对齐过去。
  *
- * 泄压阀:行内 `glyph-arrow-exempt: <一句话原因>` —— **逐行生效且必须带原因**(守门 97 M2 同口径)。
+ * 泄压阀:行内 `glyph-arrow-exempt: <一句话原因>`(GA1/GA2)与
+ * `back-label-exempt: <一句话原因>`(GA4,可写在命中行或其紧邻上行)——
+ * 两条**独立通道**,都得带原因,裸标记不生效。分开是为了不给 GA1 开第二条豁免口。
  *
  * 内容口径(本门生命线):缺省判 **HEAD blob**,`--staged` 判**索引 blob**,
  * 棘轮锚点恒为**该文件 HEAD 版本自身的违规数**。共享工作树常年滞后 HEAD,按磁盘算会在恒红/假绿
@@ -82,7 +96,8 @@ const SRC_RE = /\.(tsx?|css|scss|less)$/
 const SELF_EXEMPT_RE = /check-glyph-arrow-icon\.[\w.]*mjs$/
 
 /**
- * S0:三端「更多」入口的矢量出口(与 AGENTS.md §4「区段头『更多』入口单一源头」逐字对齐)。
+ * S0:三端「更多」入口的矢量出口(与 AGENTS.md §4「区段头『更多』入口单一源头」逐字对齐)
+ * 加 2026-09-25 的小程序端返回键矢量出口(对齐 web 端 GlobalTopBar 的 TopBarBackButton)。
  * symbol = 消费方 import 里会出现的锚点名(用于判"造好了有没有装车"),**不得**按文件名猜 ——
  * `icons.ts` 的锚点是 `LineIcon`,按 basename 取会得出 `icons` 这种满屏假接线的名字。
  */
@@ -105,11 +120,18 @@ const MECHANISMS = [
     icon: /['"]chevron-right['"]/,
     note: '小程序:LineIcon 的 chevron-right 素材(区块头由 SectionHeader 组装),零新素材',
   },
+  {
+    file: 'apps/miniapp-taro/src/components/BackChevron.tsx',
+    symbol: 'BackChevron',
+    icon: /['"]chevron-left['"]/,
+    note: '小程序:页头返回键唯一实现(与 web 端 ChevronLeft 同向同档),素材复用 LineIcon chevron-left',
+  },
 ]
 
-/** GA1:整格文本箭头 */
-const BARE_GLYPH_RE = /^[›»→》>]$/
-const BRACED_GLYPH_RE = /^\{\s*(['"`])([›»→》>])\1\s*\}$/
+/** GA1:整格文本箭头(含左向 `‹`/`←` —— 2026-09-25 随小程序端返回键收口一起纳进来:
+ *  该门立项时只管右向「更多」箭头,于是 `NavBar.tsx` 与 7 个页面头把 `‹` 当返回图标长期无人拦) */
+const BARE_GLYPH_RE = /^[›»→》‹←>]$/
+const BRACED_GLYPH_RE = /^\{\s*(['"`])([›»→》‹←>])\1\s*\}$/
 /** affordance 证据:事件/角色属性 */
 const HANDLER_ATTR_RE =
   /\bon(?:Click|Press|LongPress|PressIn|PressOut|Tap)\b|\b(?:role|accessibilityRole)\s*=\s*['"]button['"]/
@@ -117,16 +139,38 @@ const HANDLER_ATTR_RE =
 const AFFORDANCE_TAG_RE =
   /^(?:Link|Pressable|TouchableOpacity|TouchableHighlight|TouchableWithoutFeedback|Touchable|Button|MoreLink|ViewMoreLink)$/
 
-const EXEMPT_LINE_RE = /glyph-arrow-exempt:\s*\S/
+const EXEMPT_LINE_RE = /glyph-arrow-exempt:\s*(\S.*)/
+/** GA4 专用人工出口:与 glyph-arrow 分开收集,免得给 GA1 开第二条豁免通道 */
+const BACK_EXEMPT_LINE_RE = /back-label-exempt:\s*(\S.*)/
+// 什么不算"原因":注释收尾符与标点(星号、斜杠、花括号、中英标点)一律剥掉后,必须还剩
+// 词字符(含中文)。否则"裸标记 + 注释闭合符"会被读成带了原因 ⇒ 裸标记照样整行免检。
+// 本门头版就是这样:它只 replace 掉 `-exempt:` 尾巴,把标记名 itself 留在了"原因"里,
+// 于是任何以 `exempt:` 收尾的行都算有原因 —— 由 GA4 的自检用例反手抓出。
+const NOT_A_REASON_RE = /[\s*/})\]>$#.,;:、，。；：!\-]+/g
 const MAX_ANCESTORS = 8
 
 /**
- * 一次 `git grep` 预筛。模式串是**判据所需字面量的严格超集**:
- * GA1 只需那四个字形 + `>`(且必须是整格子内容,所以字形必在文件里)/ GA2 只需 fontSize|font-size
- * (命名配对在筛后的内容里做)。S0 机制文件永远实读,不受预筛影响。
+ * GA4:整格子内容是「返回」类文案,却摆在返回箭头的位置上。
+ *  - i18n 表达式 `{t('common.back')}` / `{tt('common.back','返回')}` / `{t('forgot.back')}` /
+ *    `{tt('adaptersSelectertaro.back4','← 返回')}` ⇒ 键名末段须是 `back` 或 `back<数字>`。
+ *    **刻意不纳** `backHome`(返回首页)/ `backLogin`(返回登录)/ `prevMonth`:它们的值不是
+ *    单个「返回」,是带宾语的按钮标签,换成裸箭头反而不表意。
+ *  - 字面量 `<Text>返回</Text>` 同判(不走 i18n 的写法更该拦)。
+ */
+const BACK_LABEL_EXPR_RE = /^\{\s*(?:[\w$]+\.)?(?:tt?|i18nT)\s*\(\s*['"][^'"]*\bback\d*['"]/
+const BACK_TEXT_LITERAL_RE = /^[「『]?返回[」』]?$/
+
+/**
+ * 一次 `git grep` 预筛。模式串是**判据所需字面量的超集(差一处,已如实登记)**:
+ * GA1 需那六个字形(‹/← 为 2026-09-25 新增)+ 带引号的 `{'>'}` / `{">"}` 形态;
+ * GA2 只需 fontSize|font-size(命名配对在筛后的内容里做);GA4 只需「返回」二字
+ * (i18n 表达式与字面量两种形态都必含它)。S0 机制文件永远实读,不受预筛影响。
+ * ⚠️ **残盲登记**:GA1 的**裸文本子节点** `>Text></` 形态(整格只有一个 `>`、不带引号)
+ * 无法进预筛 —— `>` 在任意 TSX 里都是标签结束符,加进模式串等于取消预筛。
+ * 该形态现网 0 处;若哪天要纳进来,得换成"两遍扫"(先扫结构再判字形),不得静默留着。
  * 筛不动(异常)退回全量,绝不退成"少扫文件 = 少违规"。
  */
-const PREFILTER = '›|»|→|》|fontSize|font-size'
+const PREFILTER = '›|»|→|》|‹|←|返回|fontSize|font-size|\'>\'|">"'
 
 const git = (args, cwd = ROOT) => gitRaw(args, cwd, { timeout: GIT_TIMEOUT })
 
@@ -289,12 +333,18 @@ function lineOf(text, idx) {
   return line
 }
 
-/** 逐行生效、必须带原因;裸 `glyph-arrow-exempt:` 不生效 */
-function collectExemptLines(raw) {
+/**
+ * 逐行生效、必须带原因;裸标记不生效。marker 不同 ⇒ 两条独立豁免通道(GA1 / GA4)。
+ * 原因取自 `re` 的**捕获组**(整条标记名连同冒号一起被消费掉),再剥注释闭合符/标点,
+ * 剩下必须含词字符 —— 缺这一步,"裸标记 + 注释收尾"会被当成带了原因(见 NOT_A_REASON_RE 注)。
+ */
+function collectExemptLines(raw, re = EXEMPT_LINE_RE) {
   const lines = new Set()
   raw.split('\n').forEach((l, idx) => {
-    const m = l.match(EXEMPT_LINE_RE)
-    if (m && m[0].replace('glyph-arrow-exempt:', '').trim().length > 0) lines.add(idx + 1)
+    const m = l.match(re)
+    if (!m) return
+    const reason = (m[1] ?? '').replace(NOT_A_REASON_RE, '')
+    if (/[\w一-鿿]/.test(reason)) lines.add(idx + 1)
   })
   return lines
 }
@@ -377,6 +427,7 @@ export function parseTagAt(text, i, strMask) {
         kind: closing ? 'close' : /\/\s*$/.test(attrs) ? 'self' : 'open',
         name,
         attrs,
+        start: i,
         end: k + 1,
       }
     } else if (c === '<') return null
@@ -385,46 +436,82 @@ export function parseTagAt(text, i, strMask) {
   return null
 }
 
-/** 该开标签之后是否"唯一子内容就是一个箭头字形",且紧随其后的闭合标签同名 */
-function loneGlyphChild(text, strMask, tag) {
+/**
+ * 该开标签之后是否"唯一子内容就是一小段文本",且紧随其后的闭合标签同名。
+ * 返回 { raw(未 trim 原文), tr(trim 后), pos(raw 首个非空白字符的偏移) } 或 null。
+ * GA1 与 GA4 共用这一层 —— 两条判据对"整格子内容"的定义必须逐字同形,
+ * 各自抄一遍必然在"多远算不整格"(nextLt - j > 40)这类边界上漂移。
+ */
+function loneChildText(text, strMask, tag) {
   let j = tag.end
   while (j < text.length && /\s/.test(text[j])) j++
   const nextLt = text.indexOf('<', j)
-  if (nextLt < 0 || nextLt - j > 40) return null
+  /**
+   * 上界 80:GA1 的子内容是单字形,40 足够;但 GA4 认的是 `{tt('adaptersSelectertaro.back4','← 返回')}`
+   * 这类**长表达式**(实测 42 字符),沿用 40 会让本门对自己新加的判据失明 ——
+   * 与"门让你这么写就看不见怎么写"同型。放宽只影响"多长算不整格",
+   * GA1 侧不会因此多判(字形判据仍要求整格匹配 BARE/BRACED_RE)。
+   */
+  if (nextLt < 0 || nextLt - j > 80) return null
   const raw = text.slice(j, nextLt)
   const tr = raw.trim()
   if (!tr) return null
   const pos = j + (raw.length - raw.trimStart().length)
-  let glyph = null
-  let form = null
-  if (BARE_GLYPH_RE.test(tr)) {
-    if (strMask[pos]) return null // 串内的 `›` 不是 JSX 文本子节点
-    glyph = tr
-    form = 'text-child'
-  } else if (BRACED_GLYPH_RE.test(tr)) {
-    glyph = BRACED_GLYPH_RE.exec(tr)[2]
-    form = 'braced-string-child'
-  } else return null
   const tail = text.slice(nextLt, nextLt + tag.name.length + 10)
   if (!new RegExp(`^</\\s*${tag.name.replace(/\./g, '\\.')}\\s*>`).test(tail)) return null
-  return { glyph, form, pos }
+  return { tr, pos, line: lineOf(text, pos) }
 }
 
-function affordanceReason(tag, ancestors) {
-  if (HANDLER_ATTR_RE.test(tag.attrs)) return '本元素自身带 onClick/onPress/role=button'
-  for (const a of ancestors) {
-    if (AFFORDANCE_TAG_RE.test(a.name)) return `祖先 <${a.name}> 本身就是可点容器`
-    if (HANDLER_ATTR_RE.test(a.attrs)) return `祖先 <${a.name}> 带 onClick/onPress/role=button`
+/** 该子内容是否为"串外"的 JSX 文本节点(串内的 `›` 是 HTML 字符串,不是子节点) */
+function isOutsideString(strMask, pos) {
+  return !strMask[pos]
+}
+
+/** 该子内容是否为「返回」类文案(GA4 判据);返回命中的形态名或 null */
+export function classifyBackLabel(tr, strMask, pos) {
+  if (BACK_TEXT_LITERAL_RE.test(tr)) return isOutsideString(strMask, pos) ? 'text-literal' : null
+  if (!tr.startsWith('{') || !tr.endsWith('}')) return null
+  return BACK_LABEL_EXPR_RE.test(tr) ? 'i18n-call' : null
+}
+
+/** 该整格子内容是否为箭头字形(GA1 分类器);返回 { glyph, form } 或 null */
+export function classifyGlyph(tr, strMask, pos) {
+  if (BARE_GLYPH_RE.test(tr)) {
+    // 串内的 `›` 不是 JSX 文本子节点(模板字符串里拼的 HTML)
+    return isOutsideString(strMask, pos) ? { glyph: tr, form: 'text-child' } : null
+  }
+  if (BRACED_GLYPH_RE.test(tr)) {
+    return { glyph: BRACED_GLYPH_RE.exec(tr)[2], form: 'braced-string-child' }
   }
   return null
 }
 
 /**
- * 整格文本箭头 + 可证明的 affordance 语境。
- * 单次前向遍历:栈给祖先,开标签给"唯一子内容"判定,闭合标签按名回退栈。
+ * 返回 `{ reason, anchor }`:anchor 是**提供可点证据的那个元素**(本元素或某层祖先)。
+ * 人写豁免注释时标的是"这个可点块",而命中行往往落在块内部最里层的文字节点上
+ * (实测四处 `back-label-exempt` 全部写在 `<View onTap=…>` 上一行,而命中行在其下 2~10 行)——
+ * 只认命中行或其紧邻上行,会让人按直觉写、门按行号不认,于是恒红 ⇒ 逼人 --no-verify。
  */
-export function findGlyphIconChildren(text, strMask) {
-  const hits = []
+function affordanceEvidence(tag, ancestors) {
+  if (HANDLER_ATTR_RE.test(tag.attrs))
+    return { reason: '本元素自身带 onClick/onPress/role=button', anchor: tag }
+  for (const a of ancestors) {
+    if (AFFORDANCE_TAG_RE.test(a.name))
+      return { reason: `祖先 <${a.name}> 本身就是可点容器`, anchor: a }
+    if (HANDLER_ATTR_RE.test(a.attrs))
+      return { reason: `祖先 <${a.name}> 带 onClick/onPress/role=button`, anchor: a }
+  }
+  return null
+}
+
+/**
+ * 单次前向遍历,产出每个"唯一子内容成格、且语境可证是 affordance"的开标签:
+ * `{ tag, via, tr, pos }`。栈给祖先,开标签给整格子内容判定,闭合标签按名回退栈。
+ * GA1 与 GA4 **共用这一遍**(两条判据对"可证 affordance"的定义必须同形,各走一遍
+ * 会在栈深/祖先窗口上漂移),分类各自在上层做。
+ */
+export function walkAffordanceChildren(text, strMask) {
+  const out = []
   const stack = []
   let i = 0
   const n = text.length
@@ -449,14 +536,43 @@ export function findGlyphIconChildren(text, strMask) {
       continue
     }
     if (t.kind === 'open') {
-      const lone = loneGlyphChild(text, strMask, t)
+      const lone = loneChildText(text, strMask, t)
       if (lone) {
-        const via = affordanceReason(t, stack.slice(-MAX_ANCESTORS))
-        if (via) hits.push({ ...lone, tag: t.name, via })
+        const ev = affordanceEvidence(t, stack.slice(-MAX_ANCESTORS))
+        if (ev) out.push({ tag: t, via: ev.reason, anchorLine: lineOf(text, ev.anchor.start), ...lone })
       }
       stack.push(t)
     }
     i = t.end
+  }
+  return out
+}
+
+/** GA1:整格子内容恰为一个箭头字形 */
+export function findGlyphIconChildren(text, strMask) {
+  const hits = []
+  for (const c of walkAffordanceChildren(text, strMask)) {
+    const g = classifyGlyph(c.tr, strMask, c.pos)
+    if (g) hits.push({ ...g, pos: c.pos, line: c.line, tag: c.tag.name, via: c.via })
+  }
+  return hits
+}
+
+/** GA4:整格子内容恰为「返回」类文案(字面量或 i18n 调用) */
+export function findBackLabelChildren(text, strMask) {
+  const hits = []
+  for (const c of walkAffordanceChildren(text, strMask)) {
+    const form = classifyBackLabel(c.tr, strMask, c.pos)
+    if (form)
+      hits.push({
+        form,
+        pos: c.pos,
+        line: c.line,
+        anchorLine: c.anchorLine,
+        tag: c.tag.name,
+        via: c.via,
+        text: c.tr,
+      })
   }
   return hits
 }
@@ -613,21 +729,43 @@ export function findOpticalMismatch(entries) {
 // ── 单文件审计(返回结构化条目,不做字符串反解析) ───────────────────────────────────────
 export function auditFile(rel, text) {
   const findings = []
-  const notes = { exempt: 0, undetermined: [] }
+  const notes = { exempt: 0, backExempt: 0, undetermined: [] }
   const exempt = collectExemptLines(text)
+  const backExempt = collectExemptLines(text, BACK_EXEMPT_LINE_RE)
   if (TSX_RE.test(rel)) {
     const { code, strMask } = stripCommentsKeepStrings(text)
     for (const h of findGlyphIconChildren(code, strMask)) {
-      const line = lineOf(code, h.pos)
-      if (exempt.has(line)) {
+      if (exempt.has(h.line)) {
         notes.exempt++
         continue
       }
       findings.push({
         rule: 'GA1',
         file: rel,
-        line,
-        msg: `文本字形「${h.glyph}」当 chevron 图标(<${h.tag}> 的唯一子内容,${h.via})—— 须改用矢量图标:共享 MoreLink / lucide chevron-right / Taro LineIcon`,
+        line: h.line,
+        msg: `文本字形「${h.glyph}」当 chevron 图标(<${h.tag}> 的唯一子内容,${h.via})—— 须改用矢量图标:共享 MoreLink / lucide chevron-right|chevron-left / Taro LineIcon / 小程序 BackChevron`,
+      })
+    }
+    for (const h of findBackLabelChildren(code, strMask)) {
+      // 人工出口认三个位置:命中行、供可点证据那个元素的**起始行**、及其紧邻上行。
+      // "只认命中行或其紧邻上行"的初版实测让四处豁免**全部落空** —— 人标的是那个可点块,
+      // 命中却在块内最里层的文字行上(相差 2~10 行);按初版口径这四处会恒红,
+      // 而恒红门的唯一结局是逼人 --no-verify、连带废掉全部守门。
+      // 与 GA1 刻意不同(GA1 仍只认同行):GA1 若按块放行,一个标记就能救整棵子树,
+      // 那条"一行救不了别处"的反向锁就没了 —— 两条通道的宽严各自被自检钉住,不悄悄对齐。
+      if (
+        backExempt.has(h.line) ||
+        backExempt.has(h.anchorLine) ||
+        backExempt.has(h.anchorLine - 1)
+      ) {
+        notes.backExempt++
+        continue
+      }
+      findings.push({
+        rule: 'GA4',
+        file: rel,
+        line: h.line,
+        msg: `${h.form === 'i18n-call' ? 'i18n「返回」文案' : `字面量「${h.text}」`}摆在返回箭头位(<${h.tag}> 的唯一子内容,${h.via})—— 返回 affordance 须用矢量箭头(web/RN:ChevronLeft;小程序:<BackChevron />);确属"按钮标签"而非页头返回键,在**可点元素起始行或其紧邻上行**写 \`back-label-exempt: <原因>\``,
       })
     }
   }
@@ -655,7 +793,7 @@ export function auditFile(rel, text) {
 
 // ── 扫描(纯函数:自检直接喂内存 reader,不做任何 git 写) ──────────────────────────────
 export function scan(readFile, files, opts = {}) {
-  const v = { s0: [], ga1: [], ga2: [] }
+  const v = { s0: [], ga1: [], ga2: [], ga4: [] }
   const notes = {
     totalFiles: files.length,
     scanned: 0,
@@ -663,6 +801,7 @@ export function scan(readFile, files, opts = {}) {
     skipped: 0,
     unreadable: [],
     exempt: 0,
+    backExempt: 0,
     undetermined: [],
     wiringSkipped: !opts.checkWiring,
   }
@@ -684,8 +823,9 @@ export function scan(readFile, files, opts = {}) {
     notes.scanned++
     const { findings, notes: fn } = auditFile(rel, text)
     notes.exempt += fn.exempt
+    notes.backExempt += fn.backExempt
     for (const u of fn.undetermined) notes.undetermined.push(`${rel}: ${u}`)
-    for (const f of findings) v[f.rule === 'GA1' ? 'ga1' : 'ga2'].push(f)
+    for (const f of findings) v[f.rule.toLowerCase()].push(f)
   }
   // S0 与屏文件走同一个取材面 —— 否则 --root/工作树通道下发的是 worktree,
   // 而 S1 偷读 HEAD,结论会自相矛盾。机制文件自身不算"消费者"(它们互相含名字,会假接线)。
@@ -770,10 +910,10 @@ export function scanRepo(root, face, explicitFiles, opts = {}) {
   }
 }
 
-/** 每个文件的违规条数(GA1+GA2),用于棘轮锚点 */
+/** 每个文件的违规条数(GA1+GA2+GA4),用于棘轮锚点 */
 function countsByFile(result) {
   const per = new Map()
-  for (const arr of [result.violations.ga1, result.violations.ga2])
+  for (const arr of [result.violations.ga1, result.violations.ga2, result.violations.ga4])
     for (const f of arr) per.set(f.file, (per.get(f.file) || 0) + 1)
   return per
 }
@@ -800,16 +940,19 @@ function report(res, meta) {
   const { violations: v, notes } = res
   const filesGA1 = new Set(v.ga1.map((f) => f.file)).size
   const filesGA2 = new Set(v.ga2.map((f) => f.file)).size
-  const total = v.s0.length + v.ga1.length + v.ga2.length
+  const filesGA4 = new Set(v.ga4.map((f) => f.file)).size
+  const total = v.s0.length + v.ga1.length + v.ga2.length + v.ga4.length
   const lines = [
-    `文本箭头图标对账(GA)|面=${meta.faceLabel}`,
+    `文本箭头/文字返回对账(GA)|面=${meta.faceLabel}`,
     `  实读 ${notes.scanned} 个源文件(预筛后候选 ${notes.totalFiles},受管面共 ${meta.surface};S0 机制文件 ${MECHANISMS.length} 个恒实读)${meta.anchorLabel ? ` | ${meta.anchorLabel}` : ''}`,
     `  S0   共享矢量实现在位 ${v.s0.length ? '❌ ' + v.s0.length : '✅ 0'}`,
     `  GA1  文本字形当 chevron ${v.ga1.length ? `${meta.verdictLabel} ${v.ga1.length} 处 / ${filesGA1} 文件` : '✅ 0'}`,
     `  GA2  箭头字号 > 标签字号 ${v.ga2.length ? `${meta.verdictLabel} ${v.ga2.length} 处 / ${filesGA2} 文件` : '✅ 0'}`,
+    `  GA4  文字「返回」当返回箭头 ${v.ga4.length ? `${meta.verdictLabel} ${v.ga4.length} 处 / ${filesGA4} 文件` : '✅ 0'}`,
     `  自豁免(门自身与其测试必含被判据字面量):${notes.selfExempt} 个文件${notes.skipped ? `;非受管扩展名跳过 ${notes.skipped} 个` : ''}`,
   ]
   if (notes.exempt) lines.push(`  行内豁免 glyph-arrow-exempt 放过:${notes.exempt} 处`)
+  if (notes.backExempt) lines.push(`  行内豁免 back-label-exempt 放过:${notes.backExempt} 处`)
   if (notes.undetermined.length)
     lines.push(`  GA2 单位不一致、判不出:${notes.undetermined.length} 对(不判红,如实计数)`)
   if (notes.wiringSkipped)
@@ -817,6 +960,7 @@ function report(res, meta) {
   for (const x of fmt(v.s0)) lines.push(`  ✗ ${x}`)
   for (const x of fmt(v.ga1)) lines.push(`  ✗ ${x}`)
   for (const x of fmt(v.ga2)) lines.push(`  ✗ ${x}`)
+  for (const x of fmt(v.ga4)) lines.push(`  ✗ ${x}`)
   return { lines, total }
 }
 
@@ -834,11 +978,15 @@ check-glyph-arrow-icon.mjs — 文本箭头当图标 / 「箭头比标签还大�
   node scripts/check-glyph-arrow-icon.mjs --root <dir>    指定仓根(测试/多仓自验用)
 
 判据:
-  - S0   三端共享「更多」实现在位、仍引用矢量图标、仍被 import
-  - GA1  JSX 元素的唯一子内容恰为 › » → 》 或 {'>'} 这类字形,且语境可证是 affordance
+  - S0   共享矢量实现在位、仍引用矢量图标、仍被 import(三端「更多」+ 小程序返回键 BackChevron)
+  - GA1  JSX 元素的唯一子内容恰为 › » → 》 ‹ ← 或 {'>'} 这类字形,且语境可证是 affordance
   - GA2  同一文件里 more/viewAll 标签与同词干 *Arrow* 键都写了字号,且箭头更大(单位须一致)
+  - GA4  JSX 元素的唯一子内容是「返回」类文案(t('common.back') / 字面量),且语境可证是 affordance
+         ⇒ 即"把返回两个字当返回箭头用";带宾语的按钮标签(backHome/backLogin/prevMonth)刻意不纳
 
-豁免:行内 \`glyph-arrow-exempt: <一句话原因>\`(逐行生效,裸标记不生效)
+豁免:行内 \`glyph-arrow-exempt: <一句话原因>\`(GA1/GA2)
+      行内 \`back-label-exempt: <一句话原因>\`(GA4,写在命中行或其紧邻上行皆可)
+      两者是独立通道、均逐行生效,裸标记不生效
 退出码:0=通过/无新增 1=有违规 2=无法判定(git 失败 / 取材面取不到 / 扫描面为空)
 紧急跳过:HUSKY_SKIP_GLYPH_ARROW_ICON=1 git commit ...
 `)
@@ -983,13 +1131,19 @@ function main(argv) {
       `   单独复现:node scripts/check-glyph-arrow-icon.mjs --files ${fresh.map((p) => p.rel).join(' ')}`,
     )
     console.log(
-      `   改法:箭头一律走共享 MoreLink / ViewMoreLink / LineIcon(chevron-right),文本字形不得再写;`,
+      `   改法:箭头一律走共享实现 —— 「更多」系 MoreLink / ViewMoreLink / LineIcon(chevron-right),`,
     )
-    console.log(`         确属例外写 \`glyph-arrow-exempt: <一句话原因>\``)
+    console.log(
+      `         页头返回键 web/RN 用 ChevronLeft、小程序用 <BackChevron />;文本字形与文字标签都不得再写;`,
+    )
+    console.log(
+      `         确属按钮标签写 \`back-label-exempt: <原因>\`,其他例外写 \`glyph-arrow-exempt: <原因>\``,
+    )
     console.log(`   紧急跳过:${SELF_SKIP}=1 git commit ...`)
     return 1
   }
-  if (total === 0) console.log('✅ 无文本箭头字形、无字号倒挂、共享矢量实现在位')
+  if (total === 0)
+    console.log('✅ 无文本箭头字形、无文字返回键、无字号倒挂、共享矢量实现在位')
   else
     console.log(
       `\n✅ 提交链口径无新增(GA1/GA2 为 HEAD 存量,按文件棘轮容忍 ${tolerated} 处;清理办法是把命中行的箭头换成矢量)`,
@@ -1005,6 +1159,8 @@ const MECH_SNIPPETS = {
     "import Link from 'next/link'\nimport { ChevronRight } from 'lucide-react'\nexport function ViewMoreLink({ label }) {\n  return <Link href='/a'><span>{label}</span><ChevronRight className='h-3 w-3' /></Link>\n}\n",
   'apps/miniapp-taro/src/components/LineIcon/icons.ts':
     "export const ICONS = {\n  'chevron-right': '<svg><path d=\"m9 18 6-6-6-6\" /></svg>',\n}\n",
+  'apps/miniapp-taro/src/components/BackChevron.tsx':
+    "import LineIcon from '@/components/LineIcon'\nexport default function BackChevron({ onTap }) {\n  return <View onClick={onTap}><LineIcon name=\"chevron-left\" size={40} /></View>\n}\n",
 }
 
 function selfTest() {
@@ -1016,17 +1172,19 @@ function selfTest() {
     return {
       ga1: violations.ga1,
       ga2: violations.ga2,
+      ga4: violations.ga4,
       s0: violations.s0,
       notes,
       n1: violations.ga1.length,
       n2: violations.ga2.length,
+      n4: violations.ga4.length,
       n0: violations.s0.length,
     }
   }
   const only = (files) =>
     run({
       'packages/app/consumer.tsx':
-        "import { MoreLink } from '@ihui/rn-app'\nimport { ViewMoreLink } from '@/components/common/view-more-link'\nimport SectionHeader from '@/components/SectionHeader'\nimport LineIcon from '@/components/LineIcon'\nexport const K = [MoreLink, ViewMoreLink, SectionHeader, LineIcon]\n",
+        "import { MoreLink } from '@ihui/rn-app'\nimport { ViewMoreLink } from '@/components/common/view-more-link'\nimport SectionHeader from '@/components/SectionHeader'\nimport LineIcon from '@/components/LineIcon'\nimport BackChevron from '@/components/BackChevron'\nexport const K = [MoreLink, ViewMoreLink, SectionHeader, LineIcon, BackChevron]\n",
       ...MECH_SNIPPETS,
       ...files,
     })
@@ -1122,6 +1280,153 @@ function selfTest() {
         'export const X = ({ go }) => <View onClick={go}><Text>›</Text> // glyph-arrow-exempt: 原因\n<Text>»</Text></View>\n',
     }).n1 === 1,
   )
+
+  // GA1:左向字形(2026-09-25 纳进来才是有牙的,不补这条就等于把新字符集写成散文)
+  t(
+    'GA1 阳性对照:onClick 容器里的整格 ‹ 看得见(小程序 NavBar 返回键立项时的形态)',
+    only({
+      'apps/miniapp-taro/src/x.tsx':
+        "export const X = ({ go }) => <View onClick={go}><Text style={{ fontSize: '22px' }}>{'‹'}</Text></View>\n",
+    }).n1 === 1,
+  )
+  t(
+    'GA1 阳性对照:← 与 ‹ 同形认',
+    only({
+      'apps/miniapp-taro/src/x2.tsx':
+        'export const X = ({ go }) => <Text onPress={go}>←</Text>\n',
+    }).n1 === 1,
+  )
+  t(
+    'GA1 反向:左向字形但整链无可点证据 ⇒ 放过(与右向同口径)',
+    only({ 'apps/miniapp-taro/src/x3.tsx': 'export const X = () => <Text>‹</Text>\n' }).n1 === 0,
+  )
+  t(
+    '预筛串必须覆盖判据字面量(否则筛后的子集让门对自己失明)',
+    ['›', '»', '→', '》', '‹', '←', '返回'].every((lit) => PREFILTER.includes(lit)),
+  )
+
+  // GA4:文字「返回」摆在箭头位
+  const BACK_HEADER =
+    "export const P = ({ goBack }) => (\n  <View style={viewStyles.header()}>\n    <View style={viewStyles.backBtn()} onTap={goBack} hoverClass=\"opacity-60\">\n      <Text style={textStyles.back()}>{tt('common.back', '返回')}</Text>\n    </View>\n    <Text style={textStyles.title()}>{'平台活动'}</Text>\n  </View>\n)\n"
+  t(
+    'GA4 阳性对照:真实页头多行排版(文字在 Text 里、onTap 在祖先 View 上)看得见',
+    only({ 'apps/miniapp-taro/src/p1.tsx': BACK_HEADER }).n4 === 1,
+  )
+  t(
+    'GA4 阳性对照:祖先 View 带 onTap、子 Text 放文案 ⇒ 经祖先证据命中',
+    only({
+      'apps/miniapp-taro/src/p2.tsx':
+        "export const P = ({ goBack }) => <View onTap={goBack}><Text style={textStyles.back()}>{tt('common.back', '返回')}</Text></View>\n",
+    }).n4 === 1,
+  )
+  t(
+    'GA4 阳性对照:{t("common.back")}(单参 i18n 调用)命中',
+    only({
+      'apps/miniapp-taro/src/p3.tsx':
+        "export const P = ({ go }) => <Text onClick={go}>{t('common.back')}</Text>\n",
+    }).n4 === 1,
+  )
+  t(
+    'GA4 阳性对照:字面量 返回(不走 i18n 更要拦)',
+    only({
+      'apps/miniapp-taro/src/p4.tsx': "export const P = ({ go }) => <Text onPress={go}>返回</Text>\n",
+    }).n4 === 1,
+  )
+  t(
+    'GA4 阳性对照:back4 这类带序号的键同形认',
+    only({
+      'apps/miniapp-taro/src/p5.tsx':
+        "export const P = ({ go }) => <Text onClick={go}>{tt('adaptersSelectertaro.back4', '← 返回')}</Text>\n",
+    }).n4 === 1,
+  )
+  t(
+    'GA4 反向:带宾语的按钮标签不纳(backHome 返回首页 / backLogin 返回登录)—— 换成裸箭头反而不表意',
+    only({
+      'apps/miniapp-taro/src/n1.tsx':
+        "export const P = ({ go }) => <View onClick={go}><Text>{t('pay.backHome')}</Text><Text>{t('forgot.backLogin')}</Text></View>\n",
+    }).n4 === 0,
+  )
+  t(
+    'GA4 反向:翻页器 prevMonth 文案不纳',
+    only({
+      'apps/miniapp-taro/src/n2.tsx':
+        "export const P = ({ go }) => <Text onClick={go}>{tt('live.calendar.prevMonth', '‹')}</Text>\n",
+    }).n4 === 0 &&
+      only({
+        'apps/miniapp-taro/src/n2.tsx':
+          "export const P = ({ go }) => <Text onClick={go}>{tt('live.calendar.prevMonth', '‹')}</Text>\n",
+      }).n1 === 0,
+  )
+  t(
+    'GA4 反向:非整格的正文含字(返回首页查看订单)不判',
+    only({
+      'apps/miniapp-taro/src/n3.tsx':
+        "export const P = ({ go }) => <Text onClick={go}>返回上一页继续查看</Text>\n",
+    }).n4 === 0,
+  )
+  t(
+    'GA4 反向:整链无可点证据(纯文案出现「返回」)⇒ 放过',
+    only({ 'apps/miniapp-taro/src/n4.tsx': "export const P = () => <Text>返回</Text>\n" }).n4 === 0,
+  )
+  t(
+    'GA4 反向:i18n 资源文件里的 返回 文案不算渲染位(非 .tsx 不判)',
+    only({ 'packages/i18n/messages/miniapp-taro/zh-CN.json': '{"common":{"back":"返回"}}\n' })
+      .n4 === 0,
+  )
+  t(
+    'GA4 换成 <BackChevron /> 后不判(GA4 阳性对照的对照组)',
+    only({
+      'apps/miniapp-taro/src/fixed.tsx':
+        "import BackChevron from '@/components/BackChevron'\nexport const P = ({ goBack }) => <View style={viewStyles.header()}><BackChevron onTap={goBack} /><Text>{'平台活动'}</Text></View>\n",
+    }).n4 === 0,
+  )
+  t(
+    'GA4 豁免:同行带原因 ⇒ 放过,且裸标记不生效',
+    only({
+      'apps/miniapp-taro/src/e1.tsx':
+        "export const P = ({ go }) => <Text onClick={go}>返回</Text> {/* back-label-exempt: 错误态卡片按钮,文字即标签 */}\n",
+    }).n4 === 0 &&
+      only({
+        'apps/miniapp-taro/src/e2.tsx':
+          "export const P = ({ go }) => <Text onClick={go}>返回</Text> {/* back-label-exempt: */}\n",
+      }).n4 === 1,
+  )
+  t(
+    'GA4 豁免:标在**可点元素起始行上一行**也生效(四处真实站点的排版,初版按命中行判 ⇒ 全落空)',
+    only({
+      'apps/miniapp-taro/src/e6.tsx':
+        "export const P = ({ go }) => (\n  <View>\n    {/* back-label-exempt: 错误态卡片按钮,文字即标签 */}\n    <View style={btn()} onTap={go} hoverClass=\"opacity-60\">\n      <Text style={btnText()}>{tt('common.back', '返回')}</Text>\n    </View>\n  </View>\n)\n",
+    }).n4 === 0,
+  )
+  t(
+    'GA4 豁免:标在可点块内**更远**的文字行旁不生效(块级放行要有边界,否则整文件免检)',
+    only({
+      'apps/miniapp-taro/src/e7.tsx':
+        "export const P = ({ go }) => (\n  <View>\n    <View style={btn()} onTap={go}>\n      <Text>占位</Text>\n      {/* back-label-exempt: 原因 */}\n      <Text>{tt('common.back', '返回')}</Text>\n    </View>\n  </View>\n)\n",
+    }).n4 === 1,
+  )
+  t(
+    'GA4 豁免:一行救不了别处(标记只覆盖命中行与其紧邻上行,整文件免检就是洞)',
+    only({
+      'apps/miniapp-taro/src/e4.tsx':
+        "export const P = ({ go }) => (\n  <View onClick={go}>\n    <Text>返回</Text>{/* back-label-exempt: 原因 */}\n    <Text>占位</Text>\n    <Text onClick={go}>返回</Text>\n  </View>\n)\n",
+    }).n4 === 1,
+  )
+  t(
+    '两条豁免通道互不串门:glyph-arrow-exempt 救不了 GA4(否则给 GA1 开了第二道口)',
+    only({
+      'apps/miniapp-taro/src/e5.tsx':
+        "export const P = ({ go }) => <Text onClick={go}>返回</Text> {/* glyph-arrow-exempt: 原因 */}\n",
+    }).n4 === 1,
+  )
+  t(
+    'GA4 与 GA1 共用同一遍遍历:一个元素只会算一条(‹ 不重复计成文字返回)',
+    only({
+      'apps/miniapp-taro/src/dup.tsx':
+        "export const P = ({ go }) => <Text onClick={go}>{'‹'}</Text>\n",
+    }).n1 === 1,
+  )
+
 
   // GA2:阳性对照与反向对
   const cssRun = (css) => only({ 'apps/miniapp-taro/src/pages/p.css': css })
@@ -1274,11 +1579,11 @@ function selfTest() {
     'packages/app/c.tsx': 'export const K = 1\n',
   })
   t(
-    '自豁免:门自身与其测试被跳过、不判红,且如实报数 2 个(其余 4 个仍实读)',
+    '自豁免:门自身与其测试被跳过、不判红,且如实报数 2 个(其余仍实读)',
     selfRun.n1 === 0 &&
       selfRun.n2 === 0 &&
       selfRun.notes.selfExempt === 2 &&
-      selfRun.notes.scanned === 4,
+      selfRun.notes.scanned === 5,
     `selfExempt=${selfRun.notes.selfExempt} scanned=${selfRun.notes.scanned}`,
   )
   const gapRun = run({ 'packages/app/clean.tsx': 'export const K = 1\n' })
@@ -1341,6 +1646,10 @@ export const __test__ = {
   splitFresh,
   countsByFile,
   findGlyphIconChildren,
+  findBackLabelChildren,
+  walkAffordanceChildren,
+  classifyGlyph,
+  classifyBackLabel,
   parseTagAt,
   collectFontSizes,
   findOpticalMismatch,
@@ -1357,6 +1666,9 @@ export const __test__ = {
   lineOf,
   BARE_GLYPH_RE,
   BRACED_GLYPH_RE,
+  BACK_LABEL_EXPR_RE,
+  BACK_TEXT_LITERAL_RE,
+  BACK_EXEMPT_LINE_RE,
   HANDLER_ATTR_RE,
   AFFORDANCE_TAG_RE,
   PREFILTER,

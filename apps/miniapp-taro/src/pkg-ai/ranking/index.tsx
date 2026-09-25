@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useI18n, type TtFn } from '@/i18n'
+import BackChevron from '@/components/BackChevron'
 import SearchBar from '@/components/SearchBar'
 import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
@@ -145,11 +146,9 @@ export default function RankingIndex() {
 
   return (
     <View className="min-h-screen bg-background pb-[48rpx]">
-      {/* header 对齐 RN RankingScreen header(back 32rpx / 标题 48rpx/700,页底色无卡片底) */}
+      {/* header 对齐 RN RankingScreen header(返回键统一走 BackChevron 矢量图标 / 标题 48rpx/700,页底色无卡片底) */}
       <View className="flex flex-col px-[20rpx] pt-[24rpx] pb-[16rpx]">
-        <View className="self-start mb-[16rpx]" onClick={goBack} hoverClass="opacity-60">
-          <Text className="text-[length:32rpx] text-muted-foreground">{tt('common.back', '返回')}</Text>
-        </View>
+        <BackChevron className="self-start mb-[16rpx]" onTap={goBack} />
         <Text className="text-[length:48rpx] font-bold text-foreground">
           {tt('ranking.listTitle', 'AI榜单')}
         </Text>
