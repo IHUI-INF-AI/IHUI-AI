@@ -11,7 +11,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -312,4 +312,195 @@ test('反空绿:真仓跑出来的 R4 推导面必须仍是几十条量级(面�
   const m = /R4 基础档按名推导 (\d+) 条同值/.exec(out)
   assert.ok(m, `结论行必须报出 R4 推导面计数,实得:${out.slice(-160)}`)
   assert.ok(Number(m[1]) > 50, `推导面从 ${m[1]} 条塌到 50 以下 = 解析断了,不得记为通过`)
+})
+
+/* ── R6:v3 端 /alpha 用量 ↔ tailwind-alpha-plugin 登记表(2026-09-25 扩面) ──
+ * 立因:AGENTS §4 写着"新增颜色档必须同时进这个插件",但全仓**无一道门 import 过该插件** ——
+ * 散文规则零判据。漏登记的后果是 v3 端静默零产出(typecheck/lint/build 全绿),与本门要防的
+ * "跨端不同步"同族,所以判据落在本门而不是另起一号(同日撞号已发生四次)。
+ * 这里只允许 import 源符号(§22c):测试里复写一份产出规则 = 两份真相 = 假绿。 */
+const {
+  checkAlphaUsage,
+  extractAlphaUsages,
+  maskComments,
+  flattenColorTiers,
+  loadAlphaPlugin,
+  parseLiteralObject,
+  extractObjectBody,
+  readAlphaRegistry,
+  ALPHA_EXEMPT_RE,
+} = __test__
+
+const alphaPlugin = await loadAlphaPlugin()
+const FX_COLORS = {
+  primary: { DEFAULT: 'var(--color-primary)', foreground: 'var(--color-primary-foreground)' },
+  card: 'var(--color-card)',
+  muted: { DEFAULT: 'var(--color-muted)' },
+}
+const fxTiers = flattenColorTiers(FX_COLORS)
+const r6run = (code, usage, baselineRot = null) => {
+  const { tokens } = extractAlphaUsages(maskComments(code, false), {
+    tiers: fxTiers,
+    original: code,
+  })
+  return checkAlphaUsage({ usages: tokens, usage, colors: FX_COLORS, plugin: alphaPlugin, baselineRot })
+}
+const t1 = (mod, kind = 'bg') => ({ [kind]: [mod] })
+
+test('R6 判据有牙(成对):缺登记必红 / 补上必绿 / 无人用必红 / 判不出只报数', async () => {
+  // ① 本票的原始场景:新档写了类名却没进表 —— v3 静默零产出,只有这道门能看见
+  const miss = r6run('className="bg-card/50"', { primary: t1('10') })
+  assert.equal(miss.missing.length, 1, '未登记的用量必须判红')
+  assert.equal(miss.missing[0].key, 'bg-card/50', '必须点名是哪个形态')
+  // ② 补一行 → 同一份源码立刻转绿
+  assert.equal(r6run('className="bg-card/50"', { card: t1('50'), primary: t1('10') }).missing.length, 0)
+  // ③ 反向:表里登了、三端源码没人写 = 清单腐烂(每条登记都等于往小程序主包塞一条死规则)
+  const rot = r6run('className="bg-primary/10"', { primary: t1('10'), muted: t1('40') })
+  assert.deepEqual(rot.rot.map((x) => x.key), ['bg-muted/40'], '腐烂必须逐条点名')
+  // ④ 判不出的形态(动态拼接)只报数,绝不判红 —— 误报会逼人 --no-verify,连带废掉全部守门
+  const dyn = extractAlphaUsages(maskComments('const c = `bg-${tier}/${op}`', false), {
+    tiers: fxTiers,
+    original: 'const c = `bg-${tier}/${op}`',
+  })
+  assert.equal(dyn.undetermined.length, 1)
+  assert.equal(dyn.tokens.length, 0)
+  // ⑤ 注释里的举例不得算用量(否则本门的文档自己在逼人补登记)
+  assert.equal(
+    extractAlphaUsages(maskComments('// 例:bg-card/90 需登记', false), {
+      tiers: fxTiers,
+      original: '// 例:bg-card/90 需登记',
+    }).tokens.length,
+    0,
+  )
+  // ⑥ 默认色板(white/black)v3 原生支持,不该要求登记
+  assert.equal(r6run('className="bg-white/50"', {}).missing.length, 0)
+})
+
+test('R6 棘轮:存量腐烂不得拦住无关提交,本次新造的腐烂照红(否则恒红门只会逼人绕过钩子)', () => {
+  const code = 'className="bg-card/50"'
+  const table = { card: t1('50'), primary: t1('10') }
+  const suppressed = r6run(code, table, new Set(['bg-primary/10']))
+  assert.equal(suppressed.rot.length, 0, 'HEAD 已有的腐烂不得再拦本次提交')
+  assert.equal(suppressed.rotInherited, 1, '存量必须如实计数,不得静默')
+  const fresh = r6run(code, table, new Set(['bg-other/99']))
+  assert.equal(fresh.rot.length, 1, '基线里没有的腐烂 = 本次新造,必须红')
+  assert.equal(r6run(code, table).rot.length, 1, '无基线(全量审计)时存量照红')
+})
+
+test('R6 行内豁免必须带原因且逐行生效', () => {
+  assert.match('alpha-plugin-exempt: 媒体上的浮层', ALPHA_EXEMPT_RE)
+  assert.doesNotMatch('alpha-plugin-exempt:', ALPHA_EXEMPT_RE, '不带原因的标记必须无效')
+  // 标记只救本行与紧邻上一行:第二条用量距标记两行,必须照判红
+  const code =
+    'className="bg-card/50" // alpha-plugin-exempt: 浮层专用\nconst pad = 1\nconst pad2 = 2\nconst p = "bg-card/60"'
+  const r = r6run(code, {})
+  assert.equal(r.exempted, 1, '标记只救本行')
+  assert.deepEqual(r.missing.map((x) => x.key), ['bg-card/60'], '下一行的用量必须照判红')
+})
+
+test('R6 单一实现:产出规则必须来自插件本体,本门不得复写第二份', () => {
+  const src = readFileSync(SCRIPT, 'utf8')
+  assert.match(src, /plugin\.buildAlphaUtilities\(/, '必须调用插件的产出函数')
+  assert.match(src, /plugin\.escapeSelectorClass\(/, '选择器转义也必须复用插件实现')
+  assert.ok(
+    !/^\s*(export\s+)?const ALPHA_USAGE\s*=/m.test(src),
+    '本门不得再声明一份 ALPHA_USAGE —— 第二份清单必然过期',
+  )
+  assert.ok(
+    !/function buildAlphaUtilities/.test(src),
+    '本门不得内联一份 buildAlphaUtilities 的等价实现(§22c 反镜像漂移)',
+  )
+})
+
+test('R6 必须真被主流程调用(判据存在但无人调用 = 没有判据,守门 70/81 同型)', () => {
+  const src = readFileSync(SCRIPT, 'utf8')
+  const cliAt = src.indexOf('async function cli(')
+  assert.ok(cliAt > 0, 'cli 主流程必须可定位')
+  assert.match(src.slice(cliAt), /await runR6\(\{ face: stagedMode/, 'cli 必须按判定面调用 runR6')
+})
+
+test('R6 取材口径端到端:未提交的改动不得钉红无关提交,暂存后必须红(临时仓,绝不碰共享索引)', async () => {
+  const { mkScratch, rmScratch } = await import('../lib/scratch-dir.mjs')
+  const dir = mkScratch('cross-end-r6')
+  const git = (args) =>
+    execFileSync('git', ['-c', 'safe.directory=*', ...args], {
+      cwd: dir,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120_000,
+    })
+  const put = (rel, content) => {
+    const abs = join(dir, rel)
+    mkdirSync(dirname(abs), { recursive: true })
+    writeFileSync(abs, content)
+  }
+  // 用真文件搭一个小仓:R1–R5 读磁盘、R6 读判定面,所以两边都得在位
+  for (const rel of [
+    'packages/design-tokens/src/tailwind-alpha-plugin.js',
+    'packages/design-tokens/src/tailwind-preset.js',
+    'packages/design-tokens/src/radius.js',
+    'packages/design-tokens/src/styles/tokens.css',
+    'packages/design-tokens/src/rn-tokens.ts',
+    'scripts/check-cross-end-tokens.mjs',
+  ]) {
+    let content = readFileSync(join(ROOT, rel), 'utf8')
+    if (rel.endsWith('tailwind-alpha-plugin.js'))
+      // 夹具只带一个源文件 ⇒ 必须配一张同样小的表,否则"腐烂"是夹具造的,不是判据抓的
+      content = content.replace(
+        /export const ALPHA_USAGE = \{[\s\S]*?\n\}/,
+        "export const ALPHA_USAGE = {\n  primary: { bg: ['10'] },\n}",
+      )
+    put(rel, content)
+  }
+  const srcRel = 'apps/miniapp-taro/src/box.tsx'
+  put(srcRel, 'export const A = () => <View className="bg-primary/10" />\n')
+  git(['init', '-q'])
+  git(['config', 'user.email', 'gate@test.local'])
+  git(['config', 'user.name', 'gate'])
+  git(['add', '-A'])
+  git(['commit', '-q', '-m', 'fixture'])
+  const run = (args) => {
+    try {
+      const out = execFileSync(process.execPath, [join(dir, 'scripts/check-cross-end-tokens.mjs'), ...args], {
+        cwd: dir,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 180_000,
+      })
+      return { code: 0, out }
+    } catch (e) {
+      return { code: e.status, out: String(e.stdout || '') + String(e.stderr || '') }
+    }
+  }
+  const first = run([])
+  assert.equal(first.code, 0, `夹具首跑必须全绿,实得:\n${first.out}`)
+  // 别人(或本人)只改工作树、没暂存 ⇒ HEAD 面不得因此判红
+  put(srcRel, readFileSync(join(dir, srcRel), 'utf8') + 'export const B = () => <View className="bg-card/50" />\n')
+  assert.equal(run([]).code, 0, '未提交的改动不得钉红 —— 按磁盘读就会在这里假红')
+  // 一旦暂存(= 这枚提交真的带走它)⇒ 必须红并点名
+  git(['add', srcRel])
+  const staged = run(['--staged'])
+  assert.equal(staged.code, 1, '暂存了未登记用量必须红')
+  assert.match(staged.out, /R6 未登记的 alpha 用量 bg-card\/50/, '必须点名形态')
+  assert.match(staged.out, /box\.tsx/, '必须点名文件')
+  rmScratch(dir)
+})
+
+test('R6 解析器与真登记表:解析结果必须能驱动真产出函数', async () => {
+  const reg = readAlphaRegistry('head')
+  assert.ok(Object.keys(reg.usage).length >= 5, 'HEAD 面必须解析得到登记表(解析断 = 整门失明)')
+  const built = alphaPlugin.buildAlphaUtilities(reg.usage, reg.colors)
+  assert.equal(built.unresolvable.length, 0, '表里每一档都必须能从 preset 解析出 CSS 变量')
+  assert.equal(built.unknownKinds.length, 0, '表里每个前缀都必须在能力表内')
+  assert.ok(
+    Object.keys(built.utilities).length >= 15,
+    `产出条数量级不对(${Object.keys(built.utilities).length}),疑似解析到半张表`,
+  )
+  assert.ok(built.utilities[alphaPlugin.escapeSelectorClass('bg-primary/10')], 'bg-primary/10 必须真产出')
+  // 写成非常量形态的登记表必须大声失败,绝不能被静默当成"没有用量"
+  assert.throws(() => parseLiteralObject('a: compute()'), __test__.UndeterminedError)
+  assert.throws(
+    () => extractObjectBody('colors: { a: "x" } colors: { b: "y" }', /\bcolors\s*:\s*\{/),
+    __test__.UndeterminedError,
+  )
 })
