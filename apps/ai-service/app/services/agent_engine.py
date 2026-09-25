@@ -102,6 +102,7 @@ from app.core.thread_originator import (
 from app.core.installation_id import INSTALLATION_ID_FILENAME
 from app.core.permission_mode import normalize_permission_mode
 from app.core.permission_mode import permission_mode_error
+from app.core.queue_items import build_queue_items
 from app.core.turn_metadata import (
     CodexResponsesMetadata,
     CodexResponsesRequestKind,
@@ -3469,6 +3470,11 @@ class AgentEngine:
             "lastResult": thread.last_result,
             # 2026-09-18 第三批:队列/目标/预算可观测
             "queued": len(thread.queue),
+            # D33①(2026-09-26 立):排队消息的结构化数据面,与落库形状同源
+            # (app/core/queue_items.py 是唯一真相源)。空队列给 [] 而非缺键 ——
+            # 读取侧要能区分"确实没有排队消息"与"这版后端没有这个字段"。
+            # queued 保留全量计数:queueItems 是体积护栏内的队首窗口,两者不互相替代。
+            "queueItems": build_queue_items(thread.queue),
             "goal": thread.goal,
             "tokenBudget": thread.token_budget,
             "sessionTokensUsed": thread.session_tokens_used,

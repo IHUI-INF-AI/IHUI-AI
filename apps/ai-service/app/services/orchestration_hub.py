@@ -37,6 +37,9 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# D6① 收敛开关(纯判定、零依赖,顶层 import 安全;默认 legacy = 现状行为)
+from ..core.executor_switch import guard_loop_v2_pilot  # noqa: E402
+
 # ====================== Redis 客户端(惰性导入,降级 None) ======================
 
 try:
@@ -578,6 +581,10 @@ class JointDecisionEngine:
 
         失败返回 {"success": False, "error": ...},不抛异常。
         """
+        # D6① 收敛开关接线点:playbook 的 subagent 派发是本中枢与"执行器"唯一
+        # 相交处。默认档直接返回(行为与改前逐字节等价);loop_v2 档 fail-fast。
+        if pillar == "subagent":
+            guard_loop_v2_pilot("orchestration_hub._call_pillar_action[subagent]")
         api_path = _PILLAR_API_PATHS.get(pillar)
         if not api_path:
             return {
