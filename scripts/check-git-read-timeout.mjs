@@ -74,6 +74,11 @@ export const HOT = [
   //  且③轴逐文件跑 `git log`(复用门 84)——共享 gitdir 被外部锁住时它会和 84/98/100 一样
   //  把调用方拖成"看起来死掉了"。它自己就是"开工前 30 秒"的那道闸,挂起等于没人再跑闸。
   'scripts/check-baseline-freshness.mjs',
+  //  守门 49 的 B10「journal 登记表空闲性」自 2026-09-25 起派生 4 次只读 git(status / ls-files /
+  //  rev-parse)。它跑在 `pnpm check:all` 与 CI(ci.yml)两条链上;不加封顶则"本门均已封顶"的结论
+  //  对它空转 —— 而它判的正是"有没有人在飞改这张登记表",共享 gitdir 被写锁住时它最可能挂住,
+  //  挂住的表现就是巡检与 CI 双双静默不结论(比判红更坏:没人知道它没跑)。
+  'scripts/check-migration-bookkeeping.mjs',
   'scripts/backup-unreachable-commits.mjs',
   'scripts/check-port-registry.mjs',
   'scripts/lib/gitdir.mjs',
