@@ -9194,7 +9194,7 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   ②粒度不同(`capability-catalog` 是对外登记面,不是运行时动词表;`_ADMIN_ONLY_TOOLS` 是权限矩阵);
   ③**刻意真子集**(`BACKGROUND_ACTIONS` 按 `isBackgroundAction` 路由、`PAGE_READONLY_ACTIONS`「结构上不触碰页面」、
   `control_autonomy.py:45-51`「`browser_page_*` 刻意不进这张表…那不是自主性,那是越权」)—— 双向对账会误红。
-- [ ] **存量漂移一条(另票,本票未代改)**:`packages/types/src/hooks.ts` 的 `HookNotifyChannel`(3 值)与
+- [x] ✅(2026-09-25 已收口:定性走生产者/消费者双证据,对账扩到四面并配带到期日的欠条,见 O80)**存量漂移一条(另票,本票未代改)**:`packages/types/src/hooks.ts` 的 `HookNotifyChannel`(3 值)与
   `apps/api/src/routes/hooks.ts:97` zod `channel`(4 值)**实差一条 `webhook`**,且两侧无任何机械对账
   (`test_hooks.py:154`、`test_hook_engine.py:122` 只做成员包含断言,从不读 TS)。
   解阻判据:先定"channel 该不该有 webhook 这一档"这个产品口径 —— 收紧 zod 还是补 TS 契约,方向不同后果不同,
@@ -9764,3 +9764,12 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   | 52 `check-no-visible-spawn` | "**判据自身坏了** —— 8 处命中全落在 `check-git-read-timeout.mjs` 的反引号夹具内,需补夹具豁免" | `node scripts/check-no-visible-spawn.mjs` ⇒ 全量 **8535 文件 0 违规**,rc=0。修法确实落地了,且不是加豁免而是**加判据层**:`maskInert`(:257)把字符串/模板/注释里的形态一律视为非派生点,注释 :81-86 点名"守门 80 因同一缺陷把夹具当真调用判红"的前例,自检两条夹具正反例(:318/:319)钉住 |
 - [x] ✅(2026-09-25)**台账"架构策略表 0 个模块 `managed:true`,渐进收口第一块尚未选定"一条已被现实越过**:`grep -c "managed: true" config/architecture-policy.yaml` 现测 **26**。这里的关键不是数字对不上,而是**这条登记本身的形态不对** —— 守门 103 在自己条目里就写过"收口进度不写进文档:某模块是否 `managed:true` 一律按当次实测取(`--staged` 输出行即现值),理由与该门刚修的那类缺陷同源:登记过期数字会替人做出'已经收口'的判断"。所以本条**改判成机制项**(渐进收口机制已启用并在推进),复跑入口固定为 `node scripts/check-architecture-policy.mjs`,台账不再持有这个数。
 - **可推广的一句(本票真正的产出)**:凡登记形如"**某门现在红着 N 处** / **某表有 M 个纳管模块** / **某端还有 K 处未接**"的条目,**必须同句写出复测命令**;否则它在两小时内就会变成一条派错人的债,而下一个会话要花一整轮去发现"红的是那条登记,不是仓库"。判据侧同理 —— 一支尺子若把仓库瞬时状态当恒定前提,交付当轮即失效(本仓已记过一次,现按"纯函数 + 构造面 + 变异"三件取证)。
+## O80 Hook 通知渠道三面漂移收口:定性靠生产者/消费者双证据,对账改成四面 + 一张带到期日的欠条(2026-09-25 完成 ✅)
+
+- **票源**:台账 09-25 登记的"存量漂移一条"——`packages/types` 的 `HookNotifyChannel`(3 值)与 `apps/api/src/routes/hooks.ts:97` 的 zod `channel`(4 值,多一档 `webhook`),两侧**无任何机械对账**(Python 侧 `test_hooks.py:154`、`test_hook_engine.py:122` 只做成员包含断言,从不读 TS)。票面附一条硬约束:**不得为了让对账绿而任选一侧改** —— 收紧 zod 会让存量数据与调用方吃 400,加宽 TS 则等于承认"这一档是真能力"。
+- [x] ✅(2026-09-25)**定性靠双面证据,不靠读印象**:`apps/ai-service/app/services/hook_engine.py` 的 `_run_notify` 实测逐分支 —— `:982 channel in ("toast","notification")` / `:986 == "email"` / **`:992 == "webhook"`(复用 webhook 发送器)** / `:1006 未知通知渠道` 兜底;api 侧 `:101` 注释自证该档 2026-07-22 就随 HMAC 签名密钥一起立("webhook + notify webhook 渠道")。⇒ **`webhook` 是执行侧真实在跑的能力,过期的是 TS 契约**。落库面经核**不存在** channel 枚举/CHECK 约束(hook 配置整包 JSON 存 Redis),对账里保留一条"约束一旦出现即自动纳管"的条件面,不虚构一个面凑数。
+- [x] ✅(2026-09-25)**唯一收口动作 = 加宽 `packages/types/src/hooks.ts:62` 为 4 值**(只改这一处)。`@ihui/types` 与 `@ihui/api` 两个 `pnpm --filter … typecheck` 均 rc=0 —— 加宽不产生任何编译面冲击,这本身就是"旧契约是漏登记而非有意限制"的反证。
+- [x] ✅(2026-09-25)**对账尺子 `scripts/tests/check-hook-channel-parity.test.mjs`**(10 例全绿,`pnpm test:scripts` 的收集器按 `scripts/tests/*.test.mjs` 全量发现 ⇒ 无需注册即已进入该入口):四面(TS 契约 / api zod / Python 执行体 / web 下拉)各写一个**解析器**,差集判据双向出 finding;反向对照用**构造输入**——只往 zod 加第 5 值 `sms` 必红且点名其余三面、只从 Python 删 `webhook` 必红、四面全等构造必绿(证明非恒真式)。
+- [x] ✅(2026-09-25)**一处自我纠正(我第一版交的东西是假的)**:代理交付的三面版对账**看不见第四面** —— web 端下拉(`apps/web/src/components/hooks/hooks-manager.tsx:99-106`)仍只列 3 档,而三面全等的绿灯会让人以为"渠道已经同源了"。现把该面纳入对账,并把"web 还缺 `webhook`"做成一张**带到期日的欠条**(`WEB_PENDING`,`until: 2026-10-02`),欠条本身受两条锁约束:**腐烂**(该面其实已补上而欠条还挂着 ⇒ 红)与**到期**(过 `until` 仍缺 ⇒ 红)—— 出路只有"补上并删条"或"改判方向并更新表",不允许无限期挂着。判据走 `judgePending()` **权威入口**,不在测试里另抄一份逻辑;`reconcileFaces()` 同样导出为唯一入口。
+- [x] ✅(2026-09-25)**顺带纠一处代理报告里的实体捏造**:报告写"待办在 `apps/web/stores/hooks.ts`",该路径**不存在**(`git status` 直接报 `could not open directory 'apps/web/stores/'`)。真面是 `apps/web/src/components/hooks/hooks-manager.tsx`(干净、可改)。教训:报告点名的文件路径必须自己 `status`/`ls-tree` 验一遍再登记,否则下一条票会从第一步就跑错。
+- **仍未闭环的一点(归属与解阻判据都明确,不是遗漏)**:web 下拉补 `webhook` 档要配 `channel.webhook` 五语键(§19 流水线)并按 §17 做界面自验,属 web 面票,不在本票顺手做。欠条到期日 `2026-10-02` 就是它的强制出口 —— 到期若仍未补,`node --test scripts/tests/check-hook-channel-parity.test.mjs` 会红并说出"补上该面,或改判方向并更新本表",**不靠任何人记得**。另:`_run_notify` 的 webhook 分支在 `test_hook_engine.py::TestRunNotify` 零用例(本票只做静态对账,未代补 Python 用例,归该面持有者)。
