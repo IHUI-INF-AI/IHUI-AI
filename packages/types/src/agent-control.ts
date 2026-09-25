@@ -484,6 +484,29 @@ export type AgentActionErrorCode =
   | 'NO_ELEMENT_AT_POINT'
   | 'PARAM_INVALID'
 
+// ================== 投递定址信封(2026-09-26 立)==================
+
+/**
+ * 服务端在 /execute 派发时写进 WS 投递载荷的目标身份。
+ *
+ * 成因:投递通道 `pushNotification(userId, …)` 按**用户**广播(api 的 WS 会话模型只有
+ * userId→连接集合,没有按实例定址的通道),同 category 出现第二个宿主后,
+ * "未定址广播 + 先回者定终"会让 A 端的结果顶掉 B 端的执行结论。
+ *
+ * 三层收口中本信封是第一层:载荷带"这条给谁"(endpoint 种类 + instanceId),
+ * 非目标端据此**不得执行**;`token` 为服务端每次派发随机签发、只随这条投递下发,
+ * 回执时**原样回显**即证明应答者确实在该用户的 WS 面上收到过这次派发。
+ * 期望身份由服务端记录、客户端只回显 —— 不存在第二份身份计算逻辑。
+ */
+export interface AgentActionAssignment {
+  /** 服务端 CATEGORY_ENDPOINT 择出的目标端种类 */
+  endpoint: AgentControlCapability['endpoint']
+  /** 服务端择出的目标端实例 ID(_endpoints 表键) */
+  instanceId: string
+  /** 服务端一次性签发、仅随本条投递下发的回执令牌 */
+  token: string
+}
+
 /** 执行结果回传 envelope */
 export interface AgentActionResponse {
   requestId: string
@@ -515,6 +538,16 @@ export interface AgentActionResponse {
   durationMs: number
   /** 执行端 */
   executedBy: 'extension' | 'desktop' | 'web' | 'rn' | 'miniapp' | 'unknown'
+  /**
+   * 回执身份回显(2026-09-26 定址投递票):期望身份由服务端派发时记录,客户端只回显。
+   * `assignmentToken` 原样回显收到的 `assignment.token`(证明应答者确实收到过这条投递);
+   * `instanceId` 是应答者**自身**实例 id(它本就自知身份,不属"计算期望身份")。
+   * 缺省 = 存量客户端(升级前形态),服务端按旧语义接受并计入"无身份回执"数,不静默。
+   */
+  responded?: {
+    instanceId: string
+    assignmentToken: string
+  }
 }
 
 // ================== Extension/Desktop/Web → API 通道(能力声明)==================
