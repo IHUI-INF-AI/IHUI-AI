@@ -41,8 +41,9 @@ interface SignUpsData {
 
 const PAGE_SIZE = 10
 
-/** 后端 fail-closed 判据(判据源 apps/api/src/routes/exam.ts 报名域注释)对本账号返回的状态码;
- *  错误对象带上它,UI 才能把"无权读取"与"其它失败"分流 */
+/** 后端判据(判据源 apps/api/src/routes/exam.ts 报名域注释)对本账号可能返回的拒绝状态码;
+ *  2026-09-25 C 方案后会员按 user_id 归属放行(正常路径拿本人数据),403 态保留为防御分支
+ *  (如 /signup/list 管理查询面)。错误对象带上它,UI 才能把"无权读取"与"其它失败"分流 */
 const FORBIDDEN_STATUS = 403
 type ForbiddenAwareError = Error & { status?: number }
 
@@ -102,8 +103,9 @@ export default function MemberExamSignUpPage() {
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const queryError = error as ForbiddenAwareError | null
-  // 普通会员拿到的是 403 而非空列表:服务端无法把登录身份换算成报名表沿用的历史会员编号,
-  // 这张表对本账号结构性不可读 —— 必须说出来,不得用"暂无报名记录"把一次授权拒绝洗成"你没有数据"。
+  // 403 防御分支:2026-09-25 C 方案后会员按 user_id 归属放行,正常路径拿本人报名;
+  // 此态仅在授权拒绝(如管理查询面被会员触达)时出现,必须说出来,
+  // 不得用"暂无报名记录"把一次授权拒绝洗成"你没有数据"。
   const denied = queryError?.status === FORBIDDEN_STATUS
   const dateFmt = new Intl.DateTimeFormat(locale, {
     year: 'numeric',
