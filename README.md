@@ -1847,6 +1847,7 @@ IHUI-AI/
 | `ihui settings init/path`  | ~/.ihui/settings.json 统一配置                                        |
 | `ihui acp`                 | 启动 ACP Server(Zed/VSCode/Cursor 编辑器嵌入)                         |
 | `ihui audit query/stats`   | 审计日志查询/统计                                                     |
+| `ihui audit tool-args`     | 把历史工具调用离线重放过入参校验器,输出偏差台账(只报字段路径/类别/类型标签,绝不落入参值) |
 
 **36 工具**(`apps/cli/src/tools/`):ask-user / builtins / clipboard / codegraph / fetch-url / file-edit / git / hub/adapter / mcp-oauth / run-tests / subagent / todo-write / web-search
 
