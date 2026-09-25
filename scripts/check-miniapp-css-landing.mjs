@@ -19,6 +19,26 @@
  * 三条判据:
  *   C1 落地覆盖率 = |源码用到 ∩ utility 参考层 ∩ dist 里真有规则| / |源码用到 ∩ utility 参考层|。
  *      低于 --min-coverage(默认 100%)即判红,并给若干缺失样例。
+ *      **命中判据按 weapp 转写名比对**(2026-09-25 收紧):weapp-tailwindcss 产出 wxss 时把类名
+ *      里的标点按固定表转写(`top-1/2` → `.top-1_f2`,表见 weappMangleClassName),旧判据只拿
+ *      源文件里的原始类名去比,于是**所有含标点的档(arbitrary value、分数、任意属性)整片被误判
+ *      "没落地"** —— 实测同一份 dist 上 `.bg-muted`/`.top-1_f2` 声明体都在,而覆盖率报 34.5%、
+ *      505 条缺项绝大多数是这把尺的噪声。收紧后:命中 = 原名直中 或 转写后中,**两态分开计数**
+ *      (只报合计会把"表漏了一条"藏起来);缺项里含**表外标点**(`! * % # @ > ~` 等未实证转写)的
+ *      单独归 unmangledPunctMisses **只报数、绝不并入 hit** 并把字符列出来 —— 判不出是"真没落地"
+ *      还是"表漏一条",把字符交给下一次实测,而不是继续把它们算成"没落地"或猜进表。
+ *      缺项样例/归族只统计"确定缺"(definite):上一轮正是靠"缺项恰好成族(项目色档整族)"
+ *      定位到真缺陷,这个信号不能再被噪声埋掉。
+ *      **命中形态必须等于产出形态**(2026-09-25 补形状盲区,§4 守门 77 B6 同一条规矩):
+ *      "落地"只认**裸类规则**(isBareUtilitySelector —— 防手写复合规则冒充 utility,那次把
+ *      92.49% 虚报成 99.89%)。但 v4 有一族 utility **从来就不产出裸类规则**(真产物实测
+ *      `.space-x-2>view+view,…`),space-x-2/space-x-3/space-y-2 因此被整族误判"没落地"。
+ *      修法不是放松,而是让**参考层自己的产出形状**决定产物该长成什么样:v4 参考层额外算出
+ *      "裸类产出子集"(bareNames,复用同一把 isBareUtilitySelector,不写第二份判据);
+ *      对"参考层就只有复合形态"的名字,产物侧改问"有没有一条规则的选择器以 `.<名字>` 开头
+ *      (**首族**)",单独记第三态 hitCompoundKinds(三态分开计数,与两态同理:合计会藏漏判)。
+ *      `.card-list .space-x-2{}` 这类**后代手写提及仍判缺** —— 那是原 bug 的锁,不许为绿而松;
+ *      `.space-x-2.own{}`(多类紧随)与 `.space-x-20`(前缀名)同样不吃第三态。
  *      **参考层的引擎由产物决定**(见下「引擎同源」):拿 v3 的可选集去量 v4 的产物,
  *      报出来的"还剩 N 条没落地"不是缺陷计数,是一把量错东西的尺子的读数。
  *   C2 同名双义 = 源码用到的 utility 名同时被端内自有 CSS 定义为同名类。逐条列出并分类,
@@ -119,6 +139,76 @@ function unescapeClassName(s) {
 /** 注释里的假规则不得参与判定(建门时同类假阳记过多次) */
 function stripComments(text) {
   return text.replace(/\/\*[\s\S]*?\*\//g, '')
+}
+
+/* ─────────── weapp-tailwindcss 类名转写:源名 → 产物名的唯一正向表 ─────────── */
+
+/**
+ * 标点 → 转写。**转写方向 = 构建方向**,一对一、无歧义;不得反向解产物名(会把端内本来就含
+ * `_b`/`_d` 的自有类名误改)。条目取证(2026-09-25,真 weapp 构建 dist 逐条对账):
+ *   `[ → _b  ] → _B  / → _f  : → _c  ( → _p  ) → _P  , → _m  . → _d`
+ *   实测样本:`-top-[8rpx]`→`.-top-_b8rpx_B`、`top-1/2`→`.top-1_f2`、
+ *   `bg-[var(--color-black-50)]`→`.bg-_bvar_p--color-black-50_P_B`、
+ *   `bg-[rgba(0,0,0,0.4)]`→`.bg-_brgba_p0_m0_m0_m0_d4_P_B`(证明 arbitrary value **内部**的
+ *   `(`/`,`/`.`/`)` 与外层走同一张表)、`dark:text-foreground`→`.dark_ctext-foreground`
+ *   (证明变体前缀的 `:` 同样转写)。
+ *   `+ → _u` 在立票时标"未观测";本轮在同一次构建产物里观测到了 ——
+ *   `pb-[calc(20rpx+env(safe-area-inset-bottom,0))]`→
+ *   `.pb-_bcalc_p20rpx_uenv_psafe-area-inset-bottom_m0_P_P_B`,九条现全部有真产物依据。
+ * `! * % # @ > ~` 等**不在表内**:未在真产物里实测到转写形态(本 dist 里连 `\!` 形态的落地都
+ * 是零),给它们猜一条转写就是把猜测装进判据 —— 猜错的方向是"把真没落地的判成落地"。
+ * 这些字符参与的缺项由 unmappedPunctIn 归入"表外标点桶",把字符如实报出来留给下一次实测。
+ * ⚠ 不得把 mangle(mangle(x)) 当不动点用:现表替换只引入 [A-Za-z0-9_] 所以二次应用恰好不变,
+ *   但那是这张表现值的巧合,判据不依赖它(将来若加入输出含标点的条目,该假设立刻失效)。
+ */
+export const WEAPP_CLASS_MANGLE_TABLE = new Map([
+  ['[', '_b'],
+  [']', '_B'],
+  ['/', '_f'],
+  [':', '_c'],
+  ['(', '_p'],
+  [')', '_P'],
+  [',', '_m'],
+  ['.', '_d'],
+  ['+', '_u'],
+  // `!`(important 前缀)→ `_e`。**本轮在同一次真产物里逐字取到三条证**:
+  // `._ebg-muted{background-color:var(--color-muted)!important}`、`._ebg-cta{…}`、`._ebg-primary{…}`。
+  // 立票时按 `\!`(CSS 反斜杠转义)去找 ⇒ 零命中,于是这一族 11 条被留在"表外标点"桶里判不出
+  // "真没落地 vs 表还缺一条"。教训同 P53:**取证要按构建方真实产出的形态查,不是按 CSS 规范里"应该"的形态查**。
+  ['!', '_e'],
+])
+
+/** ASCII 标点全集(用于识别"表外标点");字母/数字/-/_ 不在其内,不是标点。 */
+const ASCII_PUNCT = /[!-/:-@[-`{-~]/
+
+export function weappMangleClassName(name) {
+  let out = ''
+  for (const ch of String(name)) out += WEAPP_CLASS_MANGLE_TABLE.get(ch) || ch
+  return out
+}
+
+/** 该名字里出现、且不在转写表内的 ASCII 标点(去重)。空数组 = 该名字可被表完整转写。
+ *  `-` 与 `_` 不算:它们构建前后原样(真产物里 `--color-black-50`、`_b` 段都带连字符),
+ *  把连字符当"表外标点"会让每个普通类名都误进桶 —— 写第一版时 P53 当场抓到这个。 */
+export function unmappedPunctIn(name) {
+  const out = []
+  for (const ch of String(name)) {
+    if (/[A-Za-z0-9\-_]/.test(ch) || !ASCII_PUNCT.test(ch) || WEAPP_CLASS_MANGLE_TABLE.has(ch)) continue
+    if (!out.includes(ch)) out.push(ch)
+  }
+  return out
+}
+
+/**
+ * 缺项归族:变体前缀(最后一个 `:` 之后)→ 剥负号 → 取首个连字符段。
+ * `hover:bg-muted`→bg、`-top-[8rpx]`→top、`text-cta-foreground`→text、`flex`→flex。
+ * 族是"整族缺失"那类真信号(立项定位靠的就是项目色档整族)的人读单位。
+ */
+export function missFamily(name) {
+  const s = String(name)
+  const base = s.slice(s.lastIndexOf(':') + 1).replace(/^-+/, '')
+  const seg = base.split('-')[0]
+  return seg || '∅'
 }
 
 /* ───────────────────────── 源码侧:用量与自有类 ───────────────────────── */
@@ -262,6 +352,45 @@ export function harvestLandedSelectors(cssText) {
   return names
 }
 
+/**
+ * 复合选择器的"首族类名"(2026-09-25 补 C1 的形状盲区)。
+ *
+ * 为什么需要它:v4 有一族 utility **从不产出裸类规则** —— `space-x-2` 在真产物里实测是
+ * `.space-x-2>view+view,.space-x-2>view+text,…`(压缩成一行)。裸类判据把它们整族判成
+ * "没落地",而它们**确实落地了**。方向不是放松裸类判据(那会回到"手写复合规则冒充
+ * utility"的原 bug),而是**由参考层自己的产出形状决定产物该长成什么样**:
+ * 参考层就只有复合形态的名字(见 buildUtilityReferenceV4 的 bareNames 分流),产物侧
+ * 要求某条选择器**以 `.<名字>` 开头**(首族)才算命中,单列第三态计数。
+ * 刻意不接受的形态:
+ *  - `.card-list .space-x-2{}`(后代手写)—— 名字不是首族 ⇒ 这正是原 bug 的冒充形态;
+ *  - `.space-x-2.own{}`(第二个类紧随)—— 与 BARE 判据排除 `.w-full.rounded-b-*` 同一条理由;
+ *  - `.space-x-20>view` 不得救 `space-x-2` —— 正则取**最大类名串**,名字必须整串相等。
+ * 裸类分支不进这里(由 harvestLandedSelectors 负责)—— 三态各记各的,合计会把漏判藏起来。
+ */
+const COMPOUND_LEAD_RE = /^\.-?(?![0-9])(?:\\.|[A-Za-z0-9_-])+/
+export function leadingClassNameOfSelectorPart(part) {
+  const s = String(part).trim()
+  const m = s.match(COMPOUND_LEAD_RE)
+  if (!m) return null
+  if (s[m[0].length] === '.') return null // 紧随的是第二个类 ⇒ 多类复合,不是 utility 的复合产出形态
+  return unescapeClassName(m[0].slice(1))
+}
+
+export function harvestCompoundLeadNames(cssText) {
+  const names = new Set()
+  const { nodes } = ruleNodes(cssText)
+  for (const node of nodes) {
+    if (!node.isSelectorRule) continue
+    if (!declarationsOf(node).length) continue
+    for (const part of node.selector.split(',')) {
+      if (isBareUtilitySelector(part)) continue
+      const lead = leadingClassNameOfSelectorPart(part)
+      if (lead) names.add(lead)
+    }
+  }
+  return names
+}
+
 /* ───────── 产物形态判别:这是不是"一次 weapp 构建的 dist" ───────── */
 
 function walkFiles(dir, out = []) {
@@ -319,15 +448,55 @@ export function classifyDist(distDir) {
   return { kind: 'weapp', reason: '', wxssCount, wxmlCount }
 }
 
-/** dist 下全部 wxss 的落地选择器并集(恒判磁盘:HEAD/索引里没有产物)。 */
+/** dist 下全部 wxss 的落地选择器并集(恒判磁盘:HEAD/索引里没有产物)。
+ *  landed = 裸类形态;compoundLeads = 复合选择器的首族类名(2026-09-25 补第三态的产物侧输入)。 */
 export function collectLandedFromDist(distDir) {
   const landed = new Set()
+  const compoundLeads = new Set()
   const wxss = walkFiles(distDir).filter((p) => p.endsWith('.wxss'))
   if (wxss.length === 0) throw new Undetermined(`遍历 ${distDir} 一个 .wxss 也没读到,无法判定`)
   for (const p of wxss) {
-    for (const n of harvestLandedSelectors(readFileSync(p, 'utf8'))) landed.add(n)
+    const text = readFileSync(p, 'utf8')
+    for (const n of harvestLandedSelectors(text)) landed.add(n)
+    for (const n of harvestCompoundLeadNames(text)) compoundLeads.add(n)
   }
-  return { landed, wxssFiles: wxss.length }
+  return { landed, compoundLeads, wxssFiles: wxss.length }
+}
+
+/**
+ * 产物**运行时**那一侧的类名语料(js / wxml / wxs 里出现过的 class token)。
+ *
+ * 为什么必须有这一维(2026-09-25 深夜实测逼出来的):
+ * weapp-tailwindcss 把 wxss 选择器里的标点转写(`z-[1001]` → `.z-_b1001_B`),但本端这次真构建里
+ * **JS 侧的 className 字面量仍是 `z-[1001]`**(实测 `dist/pages/**.js` 逐字可见),
+ * 而渲染出来的 DOM class 实测是 `sticky top-0 left-0 right-0 z-  1001 flex flex-col`
+ * —— 方括号被当空白吃掉,token 被拆成 `z-` 与 `1001`。
+ * ⇒ "wxss 里有 `.z-_b1001_B` 这条规则"**不等于**"这个 utility 到端可用":没有任何元素会挂上那个名字。
+ * 只比 CSS 会把 485 个**死规则**计成落地,把 34.5% 刷成 97.4% —— 那正是本仓反复记的
+ * "判据只覆盖产出形态的一半"的反面案例:**规则产出了,名字接不上**。
+ *
+ * 这一函数不判对错,只把"运行时到底挂了什么名字"量出来给判据用;
+ * 一旦 weapp 的 JS/WXML 改名侧被接通(运行时也变成 `_b…_B`),`renamed` 自然翻成可达,判据不用改。
+ */
+export function collectRuntimeClassTokens(distDir) {
+  const tokens = new Set()
+  const files = walkFiles(distDir).filter((p) => /\.(js|wxml|wxs)$/.test(p))
+  if (files.length === 0) throw new Undetermined(`遍历 ${distDir} 一个 js/wxml/wxs 也没读到,运行时类名面判不出`)
+  let unreadable = 0
+  for (const p of files) {
+    let text
+    try {
+      text = readFileSync(p, 'utf8')
+    } catch {
+      unreadable++
+      continue
+    }
+    // 两种落点:wxml 的 class="…" 属性,以及 js bundle 里 className:"…" / 模板串里的整段 class
+    for (const m of text.matchAll(/(?:class|className)\s*[=:]\s*["'`]([^"'`\n]{1,600})["'`]/g))
+      for (const t of m[1].split(/[\s,]+/)) if (t) tokens.add(t)
+  }
+  if (tokens.size === 0) throw new Undetermined(`扫了 ${files.length} 个运行时文件,一个 class token 也没抽到 —— 抽取失效,不得当"没有名字可用"`)
+  return { tokens, files: files.length, unreadable }
 }
 
 /**
@@ -562,7 +731,7 @@ function resolvePkgDir(anchorDir, name) {
         cur = parent
       }
       return { pkgDir: null, pkg: null, reason: `主入口向上没找到 name=${name} 的 package.json(先:${first})` }
-    } catch (e2) {
+    } catch {
       return { pkgDir: null, pkg: null, reason: first }
     }
   }
@@ -730,6 +899,10 @@ export async function buildUtilityReferenceV4({ root, appDir, candidates }) {
   const utilitiesBytes = total - Buffer.byteLength(themeOnly, 'utf8')
   return {
     names: new Set(decls.keys()),
+    // 参考层里"以裸类规则产出"的子集(2026-09-25):names 减去这一集 = 只有复合形态的名字
+    // (space-x / space-y / divide-x / divide-y 一族)。C1 的第三态由这个形状决定,而不是靠类名前缀猜哪族是复合的。
+    // 复用 harvestLandedSelectors(同一把 isBareUtilitySelector 判据),不写第二份形状规则。
+    bareNames: harvestLandedSelectors(css),
     decls,
     bytes: utilitiesBytes > 0 ? utilitiesBytes : total,
     bytesIsNetUtilities: utilitiesBytes > 0,
@@ -803,6 +976,8 @@ export async function buildUtilityReference(appDir) {
   }
   return {
     names: new Set(decls.keys()),
+    // 与 v4 档同形:裸类产出子集(人工对比档也走同一分流,不留第二套语义)
+    bareNames: harvestLandedSelectors(css),
     decls,
     bytes: Buffer.byteLength(css, 'utf8'),
     tailwindVersion: version,
@@ -872,20 +1047,78 @@ export function findBlindSpots(usedAndOwnClassed, referenceNames) {
  * 下观察它,镜像测试就证明不了它"该红时红、该绿时绿"(§22c:形状判据只能用纯函数 + 构造面证明)。
  * 分母只算 `源码用到 ∩ 参考层` —— 参考层外的名字(端内自有语义类)结构上不可能产出,
  * 纳进分母等于把覆盖率永远压低,造出一把恒红的尺子。
+ *
+ * 命中判据(2026-09-25 收紧,见文件头 C1 条目):产物里的类名被 weapp-tailwindcss 按
+ * WEAPP_CLASS_MANGLE_TABLE 转写过,只比原名会把所有含标点的档误判成没落地。现命中 =
+ * `landed.has(n) || landed.has(weappMangleClassName(n))`,且**两态分开计数**
+ * (hitOriginalKinds / hitMangledKinds):合计会把"表漏一条"藏起来,分两态才看得见来源。
+ * 缺项里含表外标点的归 unmangledPunctMisses(只报数、不并入 hit、列出待验字符);
+ * 样例与归族只统计 definite misses —— 保住"整族缺失"那个真信号的可读性。
+ *
+ * 第三态(2026-09-25 补形状盲区):v4 有一族 utility(space-x / space-y / divide-x / divide-y)
+ * **从不产出裸类规则**,
+ * 只以复合选择器出现(真产物实测 `.space-x-2>view+view,…`)。裸类判据把它们整族误判"没落地"。
+ * 修法不是放松,而是**由参考层自己的产出形状决定产物该长成什么样**:调用方多喂两个集合 ——
+ * `referenceBareNames`(参考层里以裸类规则产出的子集)与 `compoundLeadNames`(dist 里复合
+ * 选择器的首族类名)。对"参考层就只有复合形态"的名字,产物侧要求**首族**命中(单列
+ * hitCompoundKinds);`.card-list .space-x-2{}` 这类后代手写提及仍判缺 —— 那是原 bug 的锁。
+ * 两个新参缺一即不开启第三态,行为与三参旧调用逐字一致。
  */
-export function computeCoverage(usedTokenNames, referenceNames, landedNames) {
+export function computeCoverage(
+  usedTokenNames,
+  referenceNames,
+  landedNames,
+  referenceBareNames = null,
+  compoundLeadNames = null,
+  runtimeTokens = null,
+) {
   const demanded = [...new Set([...usedTokenNames].filter((n) => referenceNames.has(n)))]
-  const hit = demanded.filter((n) => landedNames.has(n))
-  const miss = demanded.filter((n) => !landedNames.has(n))
+  const hitOriginal = demanded.filter((n) => landedNames.has(n))
+  const mangledOnly = demanded.filter((n) => !landedNames.has(n) && landedNames.has(weappMangleClassName(n)))
+  // 转写名进了 CSS,还得运行时真挂得上才算数(runtimeTokens 为 null = 没量这一维,退回旧口径)
+  const hitRenamed = runtimeTokens instanceof Set ? mangledOnly.filter((n) => runtimeTokens.has(weappMangleClassName(n))) : mangledOnly
+  const deadRule = runtimeTokens instanceof Set ? mangledOnly.filter((n) => !runtimeTokens.has(weappMangleClassName(n))) : []
+  const notBareHit = demanded.filter((n) => !hitOriginal.includes(n) && !mangledOnly.includes(n))
+  const compoundMode = referenceBareNames instanceof Set && compoundLeadNames instanceof Set
+  const hitCompound = compoundMode
+    ? notBareHit.filter(
+        (n) => !referenceBareNames.has(n) && (compoundLeadNames.has(n) || compoundLeadNames.has(weappMangleClassName(n))),
+      )
+    : []
+  const hitCompoundSet = new Set(hitCompound)
+  const miss = notBareHit.filter((n) => !hitCompoundSet.has(n))
+  const unmangled = miss.filter((n) => unmappedPunctIn(n).length > 0)
+  const definite = miss.filter((n) => unmappedPunctIn(n).length === 0)
+  const unmangledPunctChars = [...new Set(unmangled.flatMap((n) => unmappedPunctIn(n)))].sort()
+  const fam = new Map()
+  for (const n of definite) fam.set(missFamily(n), (fam.get(missFamily(n)) || 0) + 1)
+  const missFamilies = [...fam.entries()]
+    .map(([family, count]) => ({ family, count }))
+    .sort((a, b) => b.count - a.count || a.family.localeCompare(b.family))
   return {
     demandedKinds: demanded.length,
-    hitKinds: hit.length,
+    // 死规则**不进** hitKinds/pct —— 它产出了 CSS 却没有任何元素会挂上那个名字,对用户等于没生效。
+    hitKinds: hitOriginal.length + hitRenamed.length + hitCompound.length,
+    hitOriginalKinds: hitOriginal.length,
+    hitMangledKinds: hitRenamed.length,
+    hitCompoundKinds: hitCompound.length,
+    deadRuleKinds: deadRule.length,
+    deadRuleSamples: deadRule.sort().slice(0, MISSING_SAMPLES),
+    // 运行时类名语料是否量到过:没量到 ⇒ dead 维恒为 0,报告必须写明这一格是"未判定"而不是"没有死规则"
+    runtimeFaceJudged: runtimeTokens instanceof Set,
     missKinds: miss.length,
-    pct: demanded.length === 0 ? 1 : hit.length / demanded.length,
+    definiteMissKinds: definite.length,
+    unmangledPunctMisses: unmangled.length,
+    unmangledPunctChars,
+    pct: demanded.length === 0 ? 1 : (hitOriginal.length + hitRenamed.length + hitCompound.length) / demanded.length,
     missOccurrences: 0,
     referenceKinds: referenceNames.size,
     landedRuleKinds: landedNames.size,
-    missingSamples: miss.sort().slice(0, MISSING_SAMPLES),
+    // miss 的**名字全集**随结果返回:runCheck 的 missOccurrences 直接吃它,不再原地重写第二份谓词
+    // (谓词两处各写一遍必然漂移 —— 本票出第三态后旧的双写连"miss 定义"本身都不同形了)。
+    missNames: miss,
+    missingSamples: definite.sort().slice(0, MISSING_SAMPLES),
+    missFamilies,
   }
 }
 
@@ -982,9 +1215,12 @@ export async function runCheck(opts) {
   const distDir = join(appDir, opts.distDirname || 'dist')
   const shape = classifyDist(distDir)
   let landed = null
+  let compoundLeads = null
   if (shape.kind === 'weapp') {
     try {
-      landed = collectLandedFromDist(distDir).landed
+      const got = collectLandedFromDist(distDir)
+      landed = got.landed
+      compoundLeads = got.compoundLeads
     } catch (e) {
       if (!(e instanceof Undetermined)) throw e
       undetermined.push(`产物内容判不出:${e.message}`)
@@ -1086,11 +1322,34 @@ export async function runCheck(opts) {
   let coverage = null
   let missingSamples = []
   if (reference && landed) {
-    coverage = computeCoverage(usedTokens.keys(), reference.names, landed)
-    const miss = [...usedTokens.keys()].filter((n) => reference.names.has(n) && !landed.has(n))
-    coverage.missOccurrences = miss.reduce((a, n) => a + (usedTokens.get(n) || 0), 0)
+    // 第四/五参把"该按哪种产出形态验收"交给参考层自己的形状:
+    // 裸产出档要求裸类规则;复合产出档(space-x / space-y / divide-x / divide-y 一族)只要求**首族**复合规则。
+    // 第六参把**运行时**类名语料喂进来:weapp 只改了 CSS 侧的名字时,那条规则谁也挂不上 ⇒ 计死规则,不计命中。
+    // 运行时语料取不到 ⇒ 传 null ⇒ 这一维**未判定**,报告必须喊出来,不得静默当"没有死规则"。
+    let runtimeTokens = null
+    try {
+      const r = collectRuntimeClassTokens(distDir)
+      runtimeTokens = r.tokens
+      if (r.unreadable) notices.push(`运行时类名面有 ${r.unreadable}/${r.files} 个文件读不到(计入"少扫",不静默)`)
+    } catch (e) {
+      if (!(e instanceof Undetermined)) throw e
+      undetermined.push(`C4 运行时类名面判不出:${e.message} ⇒ 本轮"死规则"一维计未判定,不得当成 0`)
+    }
+    coverage = computeCoverage(
+      usedTokens.keys(),
+      reference.names,
+      landed,
+      reference.bareNames,
+      compoundLeads,
+      runtimeTokens,
+    )
+    // missOccurrences 与 computeCoverage 的 miss 集**共用同一份判据**(2026-09-25 收口):
+    // 旧写法在这里原地重写第二份谓词,注释自己也警告"两处各写一遍必然漂移" ——
+    // 第三态一出来它就真的漂了(复合首族命中的名字会被这行重新算成 miss)。现直接吃 missNames。
+    coverage.missOccurrences = coverage.missNames.reduce((a, n) => a + (usedTokens.get(n) || 0), 0)
     missingSamples = coverage.missingSamples
     delete coverage.missingSamples
+    delete coverage.missNames
   }
 
   /* ---- C2 同名双义 ---- */
@@ -1197,12 +1456,26 @@ function report(r, asJson) {
     const c = r.coverage
     console.log(
       `C1 覆盖 ${c.hitKinds}/${c.demandedKinds} 类(${(c.pct * 100).toFixed(2)}%)` +
+        ` —— 原名直中 ${c.hitOriginalKinds} + weapp 转写后中 ${c.hitMangledKinds} + 复合首族 ${c.hitCompoundKinds}(三态分开计数,合计会把漏判藏起来)` +
+        (c.runtimeFaceJudged
+          ? ` + C4 死规则 ${c.deadRuleKinds} 类(CSS 里有转写规则、运行时类名里却没有那个名字 ⇒ **谁也挂不上**,不计进命中;样例 ${c.deadRuleSamples.join(' ')})`
+          : ' + C4 死规则:**未判定**(运行时类名语料没量到,不得把这格当成 0)') +
         ` —— utility 参考层共 ${c.referenceKinds} 个可选,产物规则名共 ${c.landedRuleKinds} 个` +
         (r.c1Judged ? '' : ' 〔对比档:参考层与产物不同引擎或与源码不同面,本行只是读数,不计红〕'),
     )
     if (c.missKinds) {
       console.log(`   缺失 ${c.missKinds} 类 / ${c.missOccurrences} 处用法`)
-      console.log(`   缺失样例(≤${MISSING_SAMPLES}):${r.missingSamples.join(', ')}`)
+      if (c.unmangledPunctMisses) {
+        console.log(
+          `   其中 ${c.unmangledPunctMisses} 类含转写表外标点(待验字符:${c.unmangledPunctChars.join(' ')})` +
+            ` ⇒ 只报数、不计红:判不出是"真没落地"还是"表缺一条转写",不得为消红去猜加表条目`,
+        )
+      }
+      if (c.definiteMissKinds) {
+        const top = c.missFamilies.slice(0, 5).map((f) => `${f.family}(${f.count})`).join(' ')
+        console.log(`   确定缺失 ${c.definiteMissKinds} 类按族分布(共 ${c.missFamilies.length} 族,top5):${top}`)
+      }
+      if (r.missingSamples.length) console.log(`   缺失样例(≤${MISSING_SAMPLES},只取确定缺失):${r.missingSamples.join(', ')}`)
     }
   } else {
     console.log('C1 覆盖:未判定(见下方「无法判定」)—— 拿不到同引擎的参考层就**不出覆盖率数字**')
@@ -1221,7 +1494,7 @@ function report(r, asJson) {
       `C3 主包 ${b.mainBytes} B / 上限 ${b.limitBytes} B ⇒ 余量 ${b.headroomBytes} B` +
         `(按 app.json 的 ${b.subpackageRootCount} 个分包根剔除)`,
     )
-    if (r.referenceBytes != null) {
+    if (typeof r.referenceBytes === 'number') {
       console.log(
         `   utilities 参考层体积 = ${r.referenceBytes} B —— 链已开(2026-09-25 起,起效载体是 app.css 的 @source),` +
           `上方主包/余量是**含 utilities 落地量的实测现值**;旧的"若开启…装不装得下"假设算术不再成立(那组前置数实测方向是反的)。` +
@@ -1299,6 +1572,105 @@ export function selfTest() {
       [true, false, false],
     )
     eq('P16 空目录 collect 必抛 Undetermined', throwsUndetermined(() => collectLandedFromDist(join(base, 'nope'))), true)
+
+    /* ---- P16b–P16k:v4「只产出复合选择器」那一族的第三态(2026-09-25 形状盲区) ----
+       真产物实测 `.space-x-2>view+view,.space-x-2>view+text,…` —— 源名 space-x-2 确实落地,
+       但**永远不会有** `.-space-x-2{}` 这条裸类规则。裸类判据独占命中口径时它整族隐身。
+       方向不是放松:由参考层自己的产出形状决定产物该长成什么样(bareNames 分流),
+       而且只认**首族** —— 「提到就算」正是本门立项要防的那一格,反向锁必须同笔写。 */
+    const compoundOnly = new Set() // 参考层裸类子集为空 = 该名字在参考层就只有复合形态
+    eq(
+      'P16b 阳性:复合首族规则 ⇒ 记第三态,不进 miss',
+      (() => {
+        const leads = harvestCompoundLeadNames('.space-x-2>view+view,.space-x-2>view+text{margin-right:8rpx}')
+        const c = computeCoverage(['space-x-2'], new Set(['space-x-2']), new Set(), compoundOnly, leads)
+        return [c.hitCompoundKinds, c.hitKinds, c.missKinds, c.definiteMissKinds, c.pct]
+      })(),
+      [1, 1, 0, 0, 1],
+    )
+    eq(
+      'P16c 反向锁(本票重点):后代手写提及**不算**首族,space-x-2 仍判缺',
+      (() => {
+        const leads = harvestCompoundLeadNames('.card-list .space-x-2{margin:0}\n.text-muted{color:red}')
+        const c = computeCoverage(['space-x-2'], new Set(['space-x-2']), new Set(), compoundOnly, leads)
+        return [leads.has('space-x-2'), c.hitCompoundKinds, c.missKinds, c.definiteMissKinds, c.pct]
+      })(),
+      [false, 0, 1, 1, 0],
+    )
+    eq(
+      'P16d 端到端(真走 collectLandedFromDist):只有后代手写 + 一个无关裸类 ⇒ 仍判缺',
+      (() => {
+        const d = join(base, 'compound-descendant')
+        mkdirSync(join(d, 'pages'), { recursive: true })
+        writeFileSync(join(d, 'pages', 'i.wxml'), '<view/>')
+        writeFileSync(join(d, 'app.wxss'), '.card-list .space-x-2{margin:0}\n.text-muted{color:red}')
+        const got = collectLandedFromDist(d)
+        const c = computeCoverage(['space-x-2'], new Set(['space-x-2']), got.landed, compoundOnly, got.compoundLeads)
+        return [got.landed.has('space-x-2'), got.landed.has('text-muted'), got.compoundLeads.has('space-x-2'), c.hitKinds, c.definiteMissKinds]
+      })(),
+      [false, true, false, 0, 1],
+    )
+    eq(
+      'P16e 端到端阳性:同一份 dist 补上首族复合规则 ⇒ 三态翻成命中',
+      (() => {
+        const d = join(base, 'compound-leading')
+        mkdirSync(join(d, 'pages'), { recursive: true })
+        writeFileSync(join(d, 'pages', 'i.wxml'), '<view/>')
+        writeFileSync(join(d, 'app.wxss'), '.card-list .space-x-2{margin:0}\n.space-x-2>view+view{margin-right:8rpx}')
+        const got = collectLandedFromDist(d)
+        const c = computeCoverage(['space-x-2'], new Set(['space-x-2']), got.landed, compoundOnly, got.compoundLeads)
+        return [got.compoundLeads.has('space-x-2'), c.hitCompoundKinds, c.definiteMissKinds]
+      })(),
+      [true, 1, 0],
+    )
+    eq(
+      'P16f 裸类命中优先:已有裸规则的名字不得被记进第三态(三态必须互斥)',
+      (() => {
+        const leads = harvestCompoundLeadNames('.flex>view+view{a:b}')
+        const c = computeCoverage(['flex'], new Set(['flex']), new Set(['flex']), compoundOnly, leads)
+        return [c.hitOriginalKinds, c.hitCompoundKinds, c.missKinds]
+      })(),
+      [1, 0, 0],
+    )
+    eq(
+      'P16g 参考层是裸形态的名字**不吃**第三态(否则复合手写规则又能冒充 utility 落地)',
+      (() => {
+        const leads = harvestCompoundLeadNames('.border-border>view+view{border-color:red}')
+        const c = computeCoverage(['border-border'], new Set(['border-border']), new Set(), new Set(['border-border']), leads)
+        return [c.hitCompoundKinds, c.missKinds]
+      })(),
+      [0, 1],
+    )
+    eq(
+      'P16h 前缀边界:.space-x-20 的首族不得冒充 space-x-2(名字必须整段相等)',
+      harvestCompoundLeadNames('.space-x-20>view+view{a:b}').has('space-x-2'),
+      false,
+    )
+    eq(
+      'P16i 双类形态 .space-x-2.own 不算首族(第二个类紧随 = 手写复合,不是 utility 产出形态)',
+      harvestCompoundLeadNames('.space-x-2.own-hand{a:b}').has('space-x-2'),
+      false,
+    )
+    eq(
+      'P16j 无规则体的复合选择器不算命中(裸类那侧的"空壳不算"语义在第三态同样成立)',
+      harvestCompoundLeadNames('.space-y-2>view+view').has('space-y-2'),
+      false,
+    )
+    eq(
+      'P16k 两态口径不变:未喂裸类子集时第三态整体不开启(旧三参调用行为逐字如前)',
+      (() => {
+        const leads = harvestCompoundLeadNames('.space-x-2>view+view{a:b}')
+        const off = computeCoverage(['space-x-2'], new Set(['space-x-2']), new Set(), null, leads)
+        const on = computeCoverage(['space-x-2'], new Set(['space-x-2']), new Set(), compoundOnly, leads)
+        return [off.hitCompoundKinds, off.missKinds, on.hitCompoundKinds]
+      })(),
+      [0, 1, 1],
+    )
+    eq(
+      'P16l 归族不得被第三态带跑:真缺项仍按前缀成族(space 族这次只剩真缺的那一条)',
+      computeCoverage(['space-x-2', 'space-y-9'], new Set(['space-x-2', 'space-y-9']), new Set(), compoundOnly, harvestCompoundLeadNames('.space-x-2>view+view{a:b}')).missFamilies,
+      [{ family: 'space', count: 1 }],
+    )
   } finally {
     rmTempDir(base)
   }
@@ -1483,6 +1855,144 @@ export function selfTest() {
     ['build', false, false],
   )
 
+  /* ---- P47–P55:weapp 类名转写比对(2026-09-25 C1 收紧)----
+     正例样本**逐字取自一次真 weapp 构建产物**(不是照抄立票时的猜测);
+     反向对照钉住"加转写表"不得变成"让门更容易点头"。
+     另注:不得把 mangle(mangle(x)) 当不动点用 —— 判据里没有第二遍应用,也就无需假设它幂等。 */
+  eq(
+    'P47 转写表与真产物逐字一致(含 arbitrary value 内部标点与变体前缀)',
+    [
+      weappMangleClassName('-top-[8rpx]'),
+      weappMangleClassName('top-1/2'),
+      weappMangleClassName('bg-[var(--color-black-50)]'),
+      weappMangleClassName('bg-[rgba(0,0,0,0.4)]'),
+      weappMangleClassName('dark:text-foreground'),
+      weappMangleClassName('pb-[calc(20rpx+env(safe-area-inset-bottom,0))]'),
+      weappMangleClassName('flex'),
+    ],
+    [
+      '-top-_b8rpx_B',
+      'top-1_f2',
+      'bg-_bvar_p--color-black-50_P_B',
+      'bg-_brgba_p0_m0_m0_m0_d4_P_B',
+      'dark_ctext-foreground',
+      'pb-_bcalc_p20rpx_uenv_psafe-area-inset-bottom_m0_P_P_B',
+      'flex',
+    ],
+  )
+  eq(
+    'P48 表外标点不得猜转写(% @ # * ~ 原样保留)',
+    [weappMangleClassName('w-[50%]'), weappMangleClassName('a@b#c'), weappMangleClassName('d*e~f')],
+    ['w-_b50%_B', 'a@b#c', 'd*e~f'],
+  )
+  eq(
+    // `!` 不在本例里:它已于本轮拿到真产物三条证(`._ebg-muted{…!important}`),是**表内条目**。
+    // 把它留在这里 = 把已取证的事实当成猜测;真正的锁是"表内每一条都得有真产物样本"(镜像测试 §2b)。
+    'P48b 已取证的 ! 必须进表(反向锁:退回"不猜"会让 11 条 important 档永远判不出归属)',
+    weappMangleClassName('!bg-muted'),
+    '_ebg-muted',
+  )
+  eq(
+    'P49 两态分开计数:原名直中与转写后中各记各的(合计当数会把"表漏一条"藏起来)',
+    (() => {
+      const c = computeCoverage(['flex', '-top-[8rpx]'], new Set(['flex', '-top-[8rpx]']), new Set(['flex', '-top-_b8rpx_B']))
+      return [c.hitOriginalKinds, c.hitMangledKinds, c.hitKinds, c.missKinds, c.pct]
+    })(),
+    [1, 1, 2, 0, 1],
+  )
+  eq(
+    'P50 反向对照:产物里没有的名字收紧后仍判缺(加转写表 ≠ 放水)',
+    computeCoverage(['bg-does-not-exist-tier'], new Set(['bg-does-not-exist-tier']), new Set(['bg-_bvar_p--x_P_B', 'flex'])).missKinds,
+    1,
+  )
+  eq(
+    'P51 表外标点桶:只报数、不并入 hit、字符点名,且不进确定缺失的样例',
+    (() => {
+      const c = computeCoverage(['w-[50%]'], new Set(['w-[50%]']), new Set(['w-full']))
+      return [c.hitKinds, c.missKinds, c.unmangledPunctMisses, c.unmangledPunctChars, c.definiteMissKinds, c.missingSamples.length]
+    })(),
+    [0, 1, 1, ['%'], 0, 0],
+  )
+  eq(
+    'P52 反向:同一含表外标点的名字若原名直中,不得落进表外标点桶',
+    (() => {
+      const c = computeCoverage(['w-[50%]'], new Set(['w-[50%]']), new Set(['w-[50%]']))
+      return [c.hitOriginalKinds, c.unmangledPunctMisses]
+    })(),
+    [1, 0],
+  )
+  eq(
+    'P53 归族:确定缺失按前缀成族、按数降序("整族缺失"那个真信号必须可读)',
+    computeCoverage(['bg-b', 'bg-a', 'text-c'], new Set(['bg-b', 'bg-a', 'text-c']), new Set()).missFamilies,
+    [
+      { family: 'bg', count: 2 },
+      { family: 'text', count: 1 },
+    ],
+  )
+  eq('P54 族取法:剥变体前缀、忽略负号、无连字符即整名', [missFamily('hover:bg-muted'), missFamily('-top-[8rpx]'), missFamily('flex'), missFamily('text-cta-foreground')], ['bg', 'top', 'flex', 'text'])
+  eq(
+    'P55 无标点名字不受转写表影响(原名直中态不因收紧而改变)',
+    (() => {
+      const c = computeCoverage(['flex'], new Set(['flex']), new Set(['flex']))
+      return [c.hitOriginalKinds, c.hitMangledKinds]
+    })(),
+    [1, 0],
+  )
+  /* ---- C4:转写名进了 CSS,还得运行时挂得上(2026-09-25 深夜实测逼出的一维) ---- */
+  eq(
+    'P56 阳性:CSS 只有转写名、运行时也挂转写名 ⇒ 计入命中,不计死规则',
+    (() => {
+      const c = computeCoverage(
+        ['z-[1001]'],
+        new Set(['z-[1001]']),
+        new Set(['z-_b1001_B']),
+        null,
+        null,
+        new Set(['z-_b1001_B', 'flex']),
+      )
+      return [c.hitMangledKinds, c.deadRuleKinds, c.hitKinds]
+    })(),
+    [1, 0, 1],
+  )
+  eq(
+    'P57 反向(本票核心一格):CSS 只有转写名、运行时仍挂源名 ⇒ 判**死规则**,绝不进命中',
+    (() => {
+      const c = computeCoverage(
+        ['z-[1001]'],
+        new Set(['z-[1001]']),
+        new Set(['z-_b1001_B']),
+        null,
+        null,
+        new Set(['z-[1001]', 'flex']),
+      )
+      return [c.hitMangledKinds, c.deadRuleKinds, c.hitKinds, c.pct, c.missKinds]
+    })(),
+    [0, 1, 0, 0, 0],
+  )
+  eq(
+    'P58 没量运行时面 ⇒ 这一格必须"未判定",不得静默当 0(宁报未判定,不报健康)',
+    (() => {
+      const c = computeCoverage(['z-[1001]'], new Set(['z-[1001]']), new Set(['z-_b1001_B']))
+      return [c.runtimeFaceJudged, c.deadRuleKinds, c.hitMangledKinds]
+    })(),
+    [false, 0, 1],
+  )
+  eq(
+    'P59 死规则既不混进 miss、也不从报告里消失:自成第 4 桶并带样例',
+    (() => {
+      const c = computeCoverage(
+        ['z-[1001]', 'w-[100rpx]'],
+        new Set(['z-[1001]', 'w-[100rpx]']),
+        new Set(['z-_b1001_B', 'w-_b100rpx_B']),
+        null,
+        null,
+        new Set(['z-[1001]', 'w-[100rpx]']),
+      )
+      return [c.missKinds, c.deadRuleKinds, c.deadRuleSamples.length]
+    })(),
+    [0, 2, 2],
+  )
+
   let failed = 0
   for (const x of results) {
     console.log(`${x.ok ? '✅' : '❌'} ${x.label}${x.ok ? '' : ` got=${JSON.stringify(x.got)} want=${JSON.stringify(x.want)}`}`)
@@ -1590,11 +2100,17 @@ export const __test__ = {
   harvestClassNameTokens,
   harvestClassDeclarations,
   harvestLandedSelectors,
+  harvestCompoundLeadNames,
   isBareUtilitySelector,
   unescapeClassName,
+  weappMangleClassName,
+  unmappedPunctIn,
+  missFamily,
+  WEAPP_CLASS_MANGLE_TABLE,
   classifyDist,
   detectProductTailwindMajor,
   collectLandedFromDist,
+  collectRuntimeClassTokens,
   measureMainPackage,
   classifyDualMeaning,
   findBlindSpots,
