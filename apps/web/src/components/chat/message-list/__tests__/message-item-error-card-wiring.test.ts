@@ -36,6 +36,15 @@ describe('D92 错误卡接线:必须走统一分类表', () => {
     expect(cardSrc).toMatch(/:\s*t\('errorCardTitle'\)/)
   })
 
+  it('D94 尾票:交接单的 ctx 必须吃分类表的错误码与消息时间(少了就退化成只有错误原文)', () => {
+    // 渲染位本身由 message-item-handoff-wiring.test.tsx 用真渲染证明;
+    // 这里只钉"喂进去的是分类表给的码 + 这条消息的时间",而不是写死样例。
+    expect(cardSrc).toMatch(/localSignals:\s*\{\s*errorCode:\s*errorCodeText \?\? undefined\s*\}/)
+    expect(cardSrc).toMatch(/occurredAt:\s*Number\.isFinite\(m\.createdAt\)/)
+    // 反例钉死:不得用常量 ctx 或空对象占位(那会让卡片永远显示"未提供")
+    expect(cardSrc).not.toMatch(/<HandoffPackageCard\s+ctx=\{\{\s*\}/)
+  })
+
   it('错误码行使用表自带的 errorCodeLabel 键与 ICU 参数', () => {
     expect(cardSrc).toMatch(/VIEW_FAILURE_ERROR_CODE_KEY/)
     expect(cardSrc).toMatch(/errorCodeLabel|\{ errorCode: errorCodeText \}/)

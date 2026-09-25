@@ -34,6 +34,8 @@ import { MarkdownStream } from '@/components/ai/markdown-stream'
 // D87(2026-09-23 立):AI 回复文本批注双向锚点(圈选回复选区 → 持久锚点 + 失效态 + 再编辑/删除)
 import { ReplyAnnotationLayer } from '@/components/ai/reply-annotation'
 import { ToolCallCard, deriveDiffInfo } from '@/components/ai/tool-call-card'
+// D94 尾票(2026-09-25 接线):失败位产出可对外提交的脱敏交接单
+import { HandoffPackageCard } from '@/components/ai/handoff-package-card'
 import { StreamGroup } from '@/components/chat/stream/stream-ui'
 import { describeToolCall, humanizeToolText } from '@ihui/shared/chat'
 import {
@@ -789,6 +791,20 @@ const MessageItem = React.memo(function MessageItem({
                 </p>
               </>
             )}
+            {/* D94 尾票(2026-09-25 接线):失败位除"标题 + 错误码 + 建议动作"外,
+                产出一份**可直接对外提交的脱敏交接单**(诊断方法／已试修复／证据／界面位置四段)。
+                ctx 三项全部取自本条消息的真实字段:错误原文、分类表给出的错误码、消息创建时间;
+                缺哪项就留缺 —— 共享层对缺证据写"未提供",不臆造(见 handoff-package.ts:182-201)。 */}
+            <HandoffPackageCard
+              ctx={{
+                errorMessage: m.content.replace(/^⚠\s*/, ''),
+                localSignals: { errorCode: errorCodeText ?? undefined },
+                occurredAt: Number.isFinite(m.createdAt)
+                  ? new Date(m.createdAt).toISOString()
+                  : undefined,
+              }}
+              data-testid={`message-handoff-${m.id}`}
+            />
             <div className="px-3 pb-2 pt-0.5">
               <button
                 type="button"
