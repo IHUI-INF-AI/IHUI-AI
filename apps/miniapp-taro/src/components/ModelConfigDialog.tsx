@@ -535,11 +535,11 @@ export default function ModelConfigDialog({
                       }}
                       hoverClass="opacity-60"
                     >
-                      <Text className="text-destructive-foreground text-[16rpx]">×</Text>
+                      <Text className="text-destructive-foreground text-[length:16rpx]">×</Text>
                     </View>
                   )}
                 </View>
-                <Text className="text-[24rpx] text-muted-foreground mt-1">
+                <Text className="text-[length:24rpx] text-muted-foreground mt-1">
                   {it.name || it.label}
                 </Text>
               </View>

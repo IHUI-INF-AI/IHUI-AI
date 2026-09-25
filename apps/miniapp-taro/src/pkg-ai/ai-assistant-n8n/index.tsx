@@ -85,7 +85,7 @@ export default function AiAssistantN8n() {
     <View className="min-h-screen bg-background">
       {/* 对齐 RN header:px 10dp=20rpx / py 12dp=24rpx / 标题 20dp=40rpx w600 / 透出 root 背景 */}
       <View className="flex flex-row items-center px-[20rpx] py-[24rpx] bg-background">
-        <Text className="text-[40rpx] font-semibold text-foreground">
+        <Text className="text-[length:40rpx] font-semibold text-foreground">
           {t('aiAssistantN8n.title')}
         </Text>
       </View>
@@ -93,7 +93,7 @@ export default function AiAssistantN8n() {
       <View className="p-[20rpx]">
         {loading ? (
           <View className="flex flex-col items-center py-[96rpx]">
-            <Text className="text-center text-[28rpx] text-[var(--color-text-tertiary)]">
+            <Text className="text-center text-[length:28rpx] text-[var(--color-text-tertiary)]">
               {t('common.loading')}
             </Text>
           </View>
@@ -101,11 +101,11 @@ export default function AiAssistantN8n() {
           <View className="mt-[16rpx] px-[24rpx] py-[16rpx] rounded-xl bg-[var(--color-danger-light)]">
             {/* 对齐 RN errorBar:px12 py8 dp / 12dp=24rpx 圆角 / danger.light 底 / 14dp=28rpx destructive 文字 + brand 重试 */}
             <View className="flex flex-row items-center justify-between">
-              <Text className="flex-1 text-[28rpx] text-destructive">
+              <Text className="flex-1 text-[length:28rpx] text-destructive">
                 {tt('aiAssistantN8n.loadFailed', '加载失败')}
               </Text>
               <Text
-                className="ml-[16rpx] text-[28rpx] font-semibold text-[var(--color-brand)]"
+                className="ml-[16rpx] text-[length:28rpx] font-semibold text-[var(--color-brand)]"
                 onClick={loadData}
               >
                 {t('common.retry')}
@@ -131,25 +131,25 @@ export default function AiAssistantN8n() {
                         <View
                           className={`w-[16rpx] h-[16rpx] rounded-sm mr-[16rpx] flex-shrink-0 ${statusInfo.dot}`}
                         />
-                        <Text className="text-[32rpx] font-semibold text-foreground flex-1 min-w-0 truncate">
+                        <Text className="text-[length:32rpx] font-semibold text-foreground flex-1 min-w-0 truncate">
                           {name}
                         </Text>
                       </View>
                       {/* 对齐 RN badge:11dp=22rpx w600 / px 8dp=16rpx py 3dp=6rpx / 12dp=24rpx 圆角 */}
                       <Text
-                        className={`py-[6rpx] px-[16rpx] rounded-xl text-[22rpx] font-semibold flex-shrink-0 ml-[16rpx] ${statusInfo.cls}`}
+                        className={`py-[6rpx] px-[16rpx] rounded-xl text-[length:22rpx] font-semibold flex-shrink-0 ml-[16rpx] ${statusInfo.cls}`}
                       >
                         {statusInfo.label}
                       </Text>
                     </View>
                     {desc ? (
-                      <Text className="block mt-[16rpx] text-[28rpx] text-muted-foreground line-clamp-2">
+                      <Text className="block mt-[16rpx] text-[length:28rpx] text-muted-foreground line-clamp-2">
                         {desc}
                       </Text>
                     ) : null}
                     {/* 对齐 RN cardUrl:mt 8dp=16rpx / 11dp=22rpx / brand 色 */}
                     <View className="mt-[16rpx]">
-                      <Text className="text-[22rpx] text-[var(--color-brand)]">
+                      <Text className="text-[length:22rpx] text-[var(--color-brand)]">
                         {tt('aiAssistantN8n.openWorkflow', '打开工作流')} →
                       </Text>
                     </View>
@@ -160,7 +160,7 @@ export default function AiAssistantN8n() {
           </View>
         ) : (
           <View className="flex flex-col items-center py-[96rpx]">
-            <Text className="text-center text-[28rpx] text-[var(--color-text-tertiary)]">
+            <Text className="text-center text-[length:28rpx] text-[var(--color-text-tertiary)]">
               {t('aiAssistantN8n.empty')}
             </Text>
           </View>
