@@ -109,7 +109,9 @@ describe('Design Preview API', () => {
       expect(body.data.preview).toMatchObject({
         name: '登录页',
         html: '<div>hello</div>',
-        userId: 1,
+        // userId 是 uuid 原文(mock 里为 '1'),不得强转数字:
+        // 旧期望 `1` 恰好被 Number('1') 满足,把"生产恒 NaN ⇒ 落盘 null"藏在了测试里。
+        userId: '1',
       })
       expect(body.data.preview.id).toBeTruthy()
       expect(body.data.preview.createdAt).toBeTruthy()
@@ -181,7 +183,7 @@ describe('Design Preview API', () => {
         previewId: 'preview-abc',
         content: '按钮颜色太亮',
         elementId: 'cta',
-        userId: 1,
+        userId: '1',
       })
       expect(body.data.id).toBeTruthy()
       expect(body.data.createdAt).toBeTruthy()
