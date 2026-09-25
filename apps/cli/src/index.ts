@@ -31,7 +31,7 @@ import {
   resolveOutboundCredential,
 } from './config/credentials.js';
 import { startREPL } from './commands/repl.js';
-import { runAgent, stopReasonToExitCode, parseOutputFormat } from './commands/agent.js';
+import { runAgent, stopReasonToExitCode, parseOutputFormat, setupAgentTools } from './commands/agent.js';
 import { loadSkills, findSkill } from './skills/index.js';
 import {
   loadSession,
@@ -82,6 +82,8 @@ import { queryAuditLog } from './audit.js';
 import { t, setLocale } from './i18n/index.js';
 import type { Locale } from './i18n/index.js';
 import { parseToolList, type PermissionRules } from './tools/permissions.js';
+import { getTool } from './tools/index.js';
+import { replayArgumentDeviations } from './tools/argument-validation-replay.js';
 import { notifyUpdates } from './updater.js';
 import { installCrashHandler } from './crash-handler.js';
 import { needsFirstRunSetup, runFirstRunSetup } from './commands/first-run.js';
@@ -957,6 +959,56 @@ auditCmd
       );
     }
     console.info('');
+  });
+
+// A36 第①步取证出口:把历史工具调用离线重放过入参校验器,打出偏差台账(绝不落入参值)
+auditCmd
+  .command('tool-args')
+  .description(t('cliEntry.auditToolArgsDesc'))
+  .option('-s, --since <time>', t('cliEntry.auditSinceDesc'))
+  .option('--json', t('cliEntry.auditJsonDesc'))
+  .option('--limit <n>', t('cliEntry.auditToolArgsLimitDesc'), '100000')
+  .action(async (options: { since?: string; json?: boolean; limit?: string }) => {
+    const limit = parseInt(options.limit ?? '100000', 10);
+    const queried = queryAuditLog({ since: options.since, limit: Number.isFinite(limit) && limit > 0 ? limit : 100_000 });
+    // 注册表与真实会话**同一入口**:setupAgentTools 先 clearTools 再按家族注册。
+    // 自己拼一份"看着像"的子集,量到的偏差就是夹具不是事实 —— 漏掉的家族(如 write_file/edit_file
+    // 来自 createFileEditTools 工厂)会整片算成 unknownTool,而它们是历史调用的大头。
+    // 刻意不开 enableMcp / subagentParent:MCP 远端工具没有本地 parameters 可校验,
+    // 它们会落进 unknownTool 并如实报数(覆盖率读数在下面)。
+    await setupAgentTools({ workspacePath: process.cwd(), silent: true });
+    const { totals, rows, toolsCovered } = replayArgumentDeviations(queried.entries, getTool);
+
+    if (options.json) {
+      console.info(JSON.stringify({ totals, rows, toolsCovered }, null, 2));
+      return;
+    }
+    if (totals.matched === 0) {
+      console.info(chalk.dim(t('cliEntry.auditEmpty')));
+      return;
+    }
+    console.info(
+      chalk.cyan(
+        t('cliEntry.auditToolArgsHeader', {
+          records: totals.records,
+          matched: totals.matched,
+          unknown: totals.unknownTool,
+          invalid: totals.invalid,
+          rows: totals.rows,
+        }),
+      ),
+    );
+    if (rows.length === 0) {
+      console.info(chalk.green(t('cliEntry.auditToolArgsNone', { matched: totals.matched })));
+      return;
+    }
+    for (const r of rows) {
+      console.info(
+        `  ${String(r.count).padStart(5)}×  ${r.tool}.${r.field}  ${r.reason}  expected=${r.expected}  got=${r.actualKind}`,
+      );
+    }
+    console.info('');
+    console.info(chalk.dim(t('cliEntry.auditToolArgsFooter', { coerced: totals.coercionOnly, threw: totals.validatorThrew })));
   });
 
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
