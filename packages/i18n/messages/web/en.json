@@ -5809,6 +5809,31 @@
       "summary": "Summary",
       "rawNote": "Raw model output below, not reformatted",
       "empty": "Fill in the inputs on the left, then choose Run diagnosis"
+    },
+    "githubApp": {
+      "title": "GitHub App Management",
+      "subtitle": "View GitHub App installations and webhook configuration status; installation events are synced automatically via webhook",
+      "configSection": "Configuration Status",
+      "webhookSecret": "Webhook Secret",
+      "appCredentials": "App Credentials",
+      "configured": "Configured",
+      "notConfigured": "Not Configured",
+      "secretHint": "Verifies the HMAC signature of GitHub webhook deliveries; the receiving endpoint stays closed while unconfigured",
+      "credsHint": "App ID and private key used to mint installation tokens for GitHub API calls",
+      "installationsTitle": "Installations",
+      "empty": "No installations yet. Install the App on GitHub and it will appear here automatically",
+      "colInstallation": "Installation ID",
+      "colAccount": "Account",
+      "colType": "Type",
+      "colStatus": "Status",
+      "colInstaller": "Actor ID",
+      "colCreatedAt": "Created At",
+      "colUpdatedAt": "Updated At",
+      "statusActive": "Active",
+      "statusRemoved": "Uninstalled",
+      "refresh": "Refresh",
+      "loadFailed": "Failed to load",
+      "installerHint": "GitHub-side actor id (not a platform user)"
     }
   },
   "connectors": {
@@ -7130,6 +7155,40 @@
       "rollbackConfirmConfirm": "Restore"
     },
     "pane": {
+      "elementPack": {
+        "feedbackSurvey": {
+          "question": "Did this reply help solve your problem?",
+          "answer": {
+            "solved": "Solved",
+            "partial": "Partially",
+            "notSolved": "Not solved"
+          },
+          "commentPlaceholder": "Additional details (optional)",
+          "submit": "Submit",
+          "dismiss": "Skip",
+          "submitted": "Received — thanks for your feedback"
+        }
+      },
+      "hookSummary": {
+        "ariaLabel": "Hook run summary",
+        "state": {
+          "running": "Hooks running",
+          "ok": "Hooks healthy",
+          "failed": "Hook errors",
+          "blocked": "Hooks blocked an operation"
+        },
+        "runs": "· Ran {n} times",
+        "failedCount": "{n} failed",
+        "blockedCount": "Blocked {n}",
+        "sourceLabel": "Sources",
+        "source": {
+          "admin": "Administrator",
+          "user": "User",
+          "project": "Project",
+          "plugin": "Plugin",
+          "session": "Session"
+        }
+      },
       "businessForms": {
         "ariaLabel": "Business form card",
         "aria": {
@@ -8838,13 +8897,27 @@
       "unarchived": "Unarchived",
       "pinned": "Pinned",
       "unpinned": "Unpinned",
-      "pinFailed": "Pin operation failed"
+      "pinFailed": "Pin operation failed",
+      "orgSaved": {
+        "orgSaved": "Conversation organization saved"
+      }
     },
     "today": "Today",
     "openWorkPanel": "Open Work Panel",
     "closeWorkPanel": "Close Work Panel",
     "toggleWorkPanel": "Toggle Work Panel",
-    "user": "User"
+    "user": "User",
+    "org": {
+      "title": "Organize conversation",
+      "folderLabel": "Folder",
+      "folderPlaceholder": "Enter or pick a folder",
+      "tagsLabel": "Tags",
+      "tagPlaceholder": "Add a tag and press Enter",
+      "removeTagAria": "Remove tag {tag}",
+      "filterLabel": "Filter by folder",
+      "filterAll": "All",
+      "folderNone": "Unfiled"
+    }
   },
   "aiCost": {
     "budgetAlerts": "Budget Alerts",
@@ -10478,7 +10551,8 @@
       "roleUser": "User",
       "roleAssistant": "Assistant",
       "exportCard": "Share as image card",
-      "shareCardUser": "User"
+      "shareCardUser": "User",
+      "exportPdf": "Export PDF"
     },
     "fallbackNotice": "Switched to backup model {backup} (primary model {primary} temporarily unavailable)",
     "fallbackNoticeQuota": "This answer was written by {backup}. The provider account behind {primary} ran out of quota, so the platform routed to an equivalent model in the same family.",
@@ -11432,14 +11506,14 @@
     },
     "commands": {
       "steerPrompt": {
+        "label": "Steer prompt",
         "description": "Inject the current input as guidance into the running answer",
-        "keywords": ["steer", "guide", "redirect"],
-        "label": "Steer prompt"
+        "keywords": ["steer", "guide", "redirect"]
       },
       "queuePrompt": {
+        "label": "Queue prompt",
         "description": "Queue the current input; it sends automatically after the current answer finishes",
-        "keywords": ["queue", "pending", "send later"],
-        "label": "Queue prompt"
+        "keywords": ["queue", "pending", "send later"]
       },
       "agent": {
         "description": "Manage and dispatch AI agents",
@@ -16850,6 +16924,10 @@
       "pending": "Pending",
       "unknown": "Unknown"
     },
+    "submitBtn": "Submit answers",
+    "submitConfirm": "Submit your answers? This will mark the signup as completed.",
+    "submitFailed": "Submission failed",
+    "submitSuccess": "Answers submitted",
     "title": "My Exam Sign-ups",
     "total": "Total {n} records"
   },
@@ -18178,6 +18256,7 @@
     "advancedAiTools": "Advanced AI Tools",
     "mediaTasks": "Media Tasks",
     "webTools": "Web Tools",
+    "figmaImport": "Design to Code",
     "voices": "Voice Library",
     "agentGovernance": "Agent Token Governance",
     "agentWorkbench": "Agent Workbench",
@@ -18449,7 +18528,8 @@
     "faq": "FAQ",
     "home": "Home",
     "settings": "Settings",
-    "adminDeployDiagnosis": "Deployment Diagnosis"
+    "adminDeployDiagnosis": "Deployment Diagnosis",
+    "githubApp": "GitHub App"
   },
   "news": {
     "allCategories": "All Categories",
@@ -25129,6 +25209,23 @@
     "deleteConfirm": "Delete this voice? It can no longer be used for cloned TTS.",
     "refresh": "Refresh",
     "notFound": "Voice not found"
+  },
+  "figmaImportPage": {
+    "title": "Design to Code",
+    "subtitle": "Paste a Figma fileKey + node ID to generate runnable frontend component code (React+Tailwind / Taro).",
+    "targetReact": "React + Tailwind",
+    "targetTaro": "Taro Mini Program",
+    "fileKeyPlaceholder": "Figma fileKey (e.g. a1b2c3...)",
+    "nodeIdPlaceholder": "Node ID (e.g. 1:2 — copy link after selecting a frame)",
+    "run": "Generate Code",
+    "running": "Generating...",
+    "tokenHint": "Requires FIGMA_API_TOKEN on the server; falls back to a deterministic HTML skeleton if LLM generation fails.",
+    "errorRequired": "Please provide both fileKey and node ID",
+    "resultTitle": "Generated Result",
+    "copy": "Copy Code",
+    "copied": "Copied",
+    "degradedNotice": "LLM generation failed; degraded to a deterministic HTML skeleton (still usable, never blank).",
+    "metaNodes": "{nodes} nodes · {texts} texts · {images} image refs"
   },
   "webToolsPage": {
     "title": "Web Tools",
