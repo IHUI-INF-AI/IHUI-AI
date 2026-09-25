@@ -1,4 +1,43 @@
 {
+  "ecosystem": {
+    "title": "生态",
+    "description": "原先并列的多个能力市场入口收敛为一页:技能、MCP、能力、连接器市场与专家包组合,都在这里直达。",
+    "marketsSection": "能力市场",
+    "bundlesSection": "专家包",
+    "bundlesHint": "按专家工作流组合多个市场的能力,点击标签直达对应页面",
+    "cards": {
+      "aiSkills": {
+        "title": "AI 技能",
+        "desc": "为智能体挂载 AI 技能,扩展对话与任务能力"
+      },
+      "mcpStore": {
+        "title": "MCP 商店",
+        "desc": "浏览内置 MCP Server 目录,一键注册接入"
+      },
+      "capabilityMarket": {
+        "title": "能力市场",
+        "desc": "启用平台自研 MCP 能力(工具/资源/提示词)"
+      },
+      "skillsMarket": {
+        "title": "Skill 市场",
+        "desc": "自进化技能市场:安装、评分与订阅"
+      },
+      "connectors": {
+        "title": "中文连接器",
+        "desc": "接入语雀、飞书、企微、钉钉等中文文档源"
+      }
+    },
+    "bundles": {
+      "contentCreator": {
+        "title": "内容创作专家包",
+        "desc": "写作与发布工作流的组合入口:AI 技能、Skill 市场与中文连接器"
+      },
+      "developerExtension": {
+        "title": "开发者扩展包",
+        "desc": "工具扩展工作流的组合入口:MCP 商店注册与平台能力启用"
+      }
+    }
+  },
   "aiWs": {
     "videoDone": "视频生成完成",
     "videoFailed": "视频生成失败,请重试",
@@ -18036,6 +18075,7 @@
     "none": "无"
   },
   "nav": {
+    "ecosystemHub": "生态市场",
     "adminRelayInsights": "运营洞察",
     "adminRelayEnterprise": "企业合规",
     "adminRelayPlugins": "插件系统",
@@ -25121,6 +25161,14 @@
     "subscribed": "已订阅 {name} 的更新",
     "unsubscribed": "已取消订阅 {name}",
     "close": "关闭",
+    "unlist": "下架",
+    "relist": "上架",
+    "unlistSuccess": "{name} 已下架",
+    "relistSuccess": "{name} 已重新上架",
+    "unlisted": "已下架",
+    "notFoundTitle": "未找到该 Skill",
+    "notFoundHint": "“{name}” 不存在，或已被上架者从市场下架。",
+    "backToMarket": "返回 Skill 市场",
     "ratingsTitle": "用户评分",
     "rateTitle": "为这个 Skill 评分",
     "yourScore": "你的评分",

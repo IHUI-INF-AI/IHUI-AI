@@ -74,10 +74,35 @@ const C = {
 const SKIP_ENV = 'HUSKY_SKIP_TAG_SYNC'
 const skip = process.env[SKIP_ENV] === '1'
 const args = new Set(process.argv.slice(2))
+// 未知参数必须响:旧实现是 `isCheck = !has('--fetch') && !has('--auto-push')`,
+// 于是任何拼错/缩写的开关(例如按文档"tag:sync:push"直觉写的 --push)都会**静默落到默认 --check**,
+// 打印一句校验抬头就退出 0 —— 调用者读到的是"跑完了",实际一个 tag 都没推。
+// 2026-09-25 实测踩中过一次(backup/wip-* 存档 tag 靠 --push 没上远端,显式 push 才落地)。
+const KNOWN_FLAGS = new Set([
+  '--help',
+  '-h',
+  '--check',
+  '--fetch',
+  '--auto-push',
+  '--push',
+  '--dry-run',
+  '--force',
+  '--json',
+])
+const unknownFlags = [...args].filter((a) => !KNOWN_FLAGS.has(a))
+if (unknownFlags.length > 0) {
+  console.error(
+    `❌ 未知参数:${unknownFlags.join(' ')}\n` +
+      `   本脚本只认 --check / --fetch / --auto-push(推送)/ --dry-run / --force / --json。\n` +
+      `   不接受缩写或同义词,是为了让拼错**当场失败**,而不是掉进默认分支假装执行。`,
+  )
+  process.exit(2)
+}
 const isHelp = args.has('--help') || args.has('-h')
-const isCheck = args.has('--check') || (!args.has('--fetch') && !args.has('--auto-push'))
 const isFetch = args.has('--fetch')
-const isAutoPush = args.has('--auto-push')
+// --push 是 --auto-push 的显式别名(文档里既写 `tag:sync:push` 又写 `--auto-push`,两种叫法都得能用)
+const isAutoPush = args.has('--auto-push') || args.has('--push')
+const isCheck = args.has('--check') || (!isFetch && !isAutoPush)
 const isDryRun = args.has('--dry-run')
 const isForce = args.has('--force')
 const isJson = args.has('--json')

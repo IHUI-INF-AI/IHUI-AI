@@ -57,6 +57,12 @@
  *   取不到(该面没这个路径 / 是二进制 / git 调用失败)⇒ 显式 exit 2 并点名路径,
  *   **绝不允许"取不到就跳过该包然后报绿"**。
  *   对账范围恒为全量:某包破损与"本次改了什么"无关,按暂存子集收窄会放过整类。
+ *   取材实现所在(2026-09-25 收口):绝对路径 git、`-c safe.directory=*`、一次
+ *   `cat-file --batch` 读完一批(不得逐文件派生 git)、batch 的 stdio[0] 必须是 'pipe'(设成
+ *   'ignore' 会让 git 读到空输入,于是每个 rev 都"取不到" —— 本门第一次真仓自验就是被这一条
+ *   咬出的假 exit 2)、junction 下的仓库根比较、64MB maxBuffer —— 全部由
+ *   `scripts/lib/face-reader.mjs` 单点持有。本门只留自己需要的**形状适配**(`has` / `listDir`:
+ *   94 要文件清单、101 要包清单,层刻意不统一对外形状)。再抄一份实现等于再抄一份风险。
  *   --json     机器可读输出(judgedFace 如实标面)
  *   --root <d> 显式指定仓库根(测试通道;缺省由脚本自身位置推导)。注意配 --worktree
  *              才按磁盘判 —— 磁盘夹具目录通常不是 git 仓,判 HEAD/索引会如实 exit 2。
@@ -64,88 +70,39 @@
  *
  * 退出码:0 通过 / 1 业务违规 / 2 无法判定或脚本自身异常
  */
-import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { resolveGitBin } from './lib/gitdir.mjs'
+// 判定面取材的唯一实现(2026-09-25 收口)。本门此前自带一份 git 派生 + cat-file batch,而五处
+// 易错点(裸 'git'、batch 的 stdio[0]='ignore'、逐文件派生、junction 下的仓库根比较、maxBuffer)
+// 重复一份就是重复一份风险 —— 现在只从这里取。
+import {
+  FACES,
+  FACE_LABEL,
+  FACE_NOTE,
+  Undetermined,
+  catBatch,
+  gitBinary,
+  gitRaw,
+  readWorktreeFile,
+  sameDir,
+} from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const DEP_SECTIONS = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies']
+/** 夹具仓派生的超时(真仓取材的超时与 maxBuffer 由共用层自己兜) */
 const GIT_TIMEOUT = 60000
-const CAT_BATCH_TIMEOUT = 120000
-const HASH_RE = /^([0-9a-f]{40}) blob (\d+)$/
-
-/** 三个判定面。所有取材必须走 makeFaceReader,不得在别处 readFileSync。 */
-const FACES = ['staged', 'head', 'worktree']
-const FACE_LABEL = {
-  staged: '索引 blob(git show :<path>)',
-  head: 'HEAD blob(git show HEAD:<path>)',
-  worktree: '工作树(磁盘)',
-}
-const FACE_NOTE = {
-  staged: '盘上随后改对不算修好:提交进去的仍是索引这一份',
-  head: '不判滞后的共享工作树(与守门 70/77/83/98 同口径)',
-  worktree: '人工排查逃生舱:盘上内容可能属于并行会话的半编辑态,不得作为提交门禁',
-}
-
-class Undetermined extends Error {}
-
-/** git 派生统一口径(§5b + 守门 80):绝对路径 git + `-c safe.directory=*` + windowsHide + 数字 timeout */
-function gitArgs(root, args) {
-  return ['-c', 'safe.directory=*', '-C', root, ...args]
-}
-
-function gitErrText(e) {
-  const raw = e?.stderr ?? e?.stdout ?? e?.message ?? String(e)
-  return String(typeof raw === 'string' ? raw : Buffer.from(raw).toString('utf8')).trim().split(/\r?\n/)[0]
-}
-
-/** 一次 `cat-file --batch` 读完一批对象(避免 N 次派生打满进程)。
- *  返回 Map<rev, text|null>;missing / unmerged / 非 blob 一律 null,由调用方判"取不到"。 */
-function catBatch(root, revs) {
-  const map = new Map()
-  if (revs.length === 0) return map
-  let out
-  try {
-    out = execFileSync(GIT_BIN, gitArgs(root, ['cat-file', '--batch']), {
-      cwd: root,
-      input: Buffer.from(revs.join('\n') + '\n', 'utf8'),
-      windowsHide: true,
-      maxBuffer: 64 << 20,
-      timeout: CAT_BATCH_TIMEOUT,
-      // stdio[0] 必须是 pipe —— `input` 靠它喂 rev 清单;设成 'ignore' 会让 git 读到空输入,
-      // 于是每个 rev 都"取不到"(本门第一次真仓自验就是被这一条咬出的假 exit 2)
-      stdio: ['pipe', 'pipe', 'pipe'],
-    })
-  } catch (e) {
-    throw new Undetermined(`git cat-file --batch 失败,${root} 的判定面无法取材: ${gitErrText(e)}`)
-  }
-  let pos = 0
-  for (const rev of revs) {
-    const nl = out.indexOf(0x0a, pos)
-    if (nl < 0) {
-      map.set(rev, null)
-      break
-    }
-    const header = out.subarray(pos, nl).toString('utf8')
-    pos = nl + 1
-    const m = HASH_RE.exec(header)
-    if (!m) {
-      map.set(rev, null) // "<rev>:<path> missing" / "fatal: ... is unmerged"
-      continue
-    }
-    map.set(rev, out.subarray(pos, pos + Number(m[2])).toString('utf8'))
-    pos += Number(m[2]) + 1
-  }
-  return map
-}
 
 /**
  * 单一取内容出口。`readFace(rel)` 是三态里**同一个面**的内容;`has`/`listDir` 让包清单的
  * 存在性与目录枚举也取自同一面(否则 glob 枚举读盘、内容读 git = 混面)。
  * git 调用一律惰性:失败抛 Undetermined ⇒ runCheck 收成 undetermined ⇒ exit 2,绝不记绿。
+ *
+ * 2026-09-25 起这一层只剩**本门特有的形状适配** —— 派生本体(绝对路径 git + safe.directory +
+ * windowsHide + timeout + maxBuffer、`cat-file --batch`、穿 junction 的仓库根比较、磁盘面读取)
+ * 全在 `scripts/lib/face-reader.mjs`;`has` / `listDir` 这两件套共用层刻意不提供(94 要文件
+ * 清单、101 要包清单),所以由本门用它给的原语拼出来。
  */
 export function makeFaceReader(face, root) {
   if (!FACES.includes(face)) throw new Undetermined(`未知判定面 "${face}"(允许: ${FACES.join(' / ')})`)
@@ -170,14 +127,13 @@ export function makeFaceReader(face, root) {
       },
       readFace(rel) {
         if (cache.has(rel)) return cache.get(rel)
-        let text
-        try {
-          // 不套"失败即当作不存在":编码/权限错误必须原样点名,否则一个环境问题伪装成业务结论
-          text = readFileSync(join(root, rel), 'utf8')
-        } catch (e) {
-          throw new Undetermined(`${label} 取不到 ${rel}: ${e.message}`)
+        // 层的 readWorktreeFile 只在"读失败"时抛(编码/权限错误原样点名,不伪装成业务结论),
+        // 文案与本门旧版逐字同;"不存在"与"含 NUL 的二进制"合并成 null —— 两种都必须在**这里**
+        // 抛掉,不得让调用方当成"没有这个包"跳过后报绿。
+        const text = readWorktreeFile(root, rel)
+        if (text === null) {
+          throw new Undetermined(`${label} 取不到 ${rel}(不存在、是目录或含 NUL 的二进制),无法比对`)
         }
-        if (text.includes('\u0000')) throw new Undetermined(`${label} 的 ${rel} 是二进制,无法比对`)
         cache.set(rel, text)
         return text
       },
@@ -193,22 +149,32 @@ export function makeFaceReader(face, root) {
     // 那正好产出门最不该产出的东西:看起来自洽、实则混面的绿。故显式判死,不做静默容忍。
     let top
     try {
-      top = gitExec(root, ['rev-parse', '--show-toplevel']).trim()
+      top = gitRaw(['rev-parse', '--show-toplevel'], root).trim()
     } catch (e) {
       throw new Undetermined(`${e.message} —— ${label} 只在 git 仓库根可用,人工排查磁盘状态请用 --worktree`)
     }
     const want = root.replace(/\\/g, '/')
-    const same = process.platform === 'win32' ? top.toLowerCase() === want.toLowerCase() : top === want
-    if (!same) {
+    // 层的 sameDir 先各自 realpath 再比:§26 的 junction 改道让同一目录有两个字面写法,
+    // 只比字面路径会把正常仓判成"基准错位"。
+    if (!sameDir(top, root)) {
       throw new Undetermined(`${label} 只能在 git 仓库根判定:--root 给的是 ${want},而该目录的 toplevel 是 ${top}`)
     }
     // 索引面不需要提交存在(`git add` 过、尚未 commit 的中间态正是要判的对象);
     // HEAD 面则必须显式失败,绝不退化成"扫到 0 个包所以绿"。
-    if (face === 'head') gitExec(root, ['rev-parse', '--verify', 'HEAD'])
+    // 这里不加 `--quiet`:git 那句 "fatal: Needed a single revision" 早先会直接写在本门
+    // stderr 上(本门的输出即结论)。根因是派生层没接管 stdio —— 已在
+    // `lib/face-reader.mjs` 的 gitRaw 里以显式 stdio 修掉,故门的绕行一并撤除。
+    if (face === 'head') {
+      try {
+        gitRaw(['rev-parse', '--verify', 'HEAD'], root)
+      } catch {
+        throw new Undetermined(`git rev-parse --verify HEAD 在 ${root} 取不到:该面没有可用提交`)
+      }
+    }
     const raw =
       face === 'staged'
-        ? gitExec(root, ['ls-files', '--full-name', '-z'])
-        : gitExec(root, ['ls-tree', '-r', '--name-only', 'HEAD', '-z'])
+        ? gitRaw(['ls-files', '--full-name', '-z'], root)
+        : gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '-z'], root)
     tracked = new Set(raw.split('\0').filter(Boolean))
     if (tracked.size === 0) throw new Undetermined(`${label} 在 ${root} 下列出 0 个路径,无法判定`)
     return tracked
@@ -250,24 +216,9 @@ export function makeFaceReader(face, root) {
   }
 }
 
-function gitExec(root, args) {
-  try {
-    return execFileSync(GIT_BIN, gitArgs(root, args), {
-      encoding: 'utf8',
-      cwd: root,
-      windowsHide: true,
-      maxBuffer: 32 << 20,
-      timeout: GIT_TIMEOUT,
-      // 必须显式 pipe:execFileSync 默认把子进程 stderr **转发到父进程**,git 的
-      // "fatal: Needed a single revision" 会混进本门的输出里,让人以为门自己坏了
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-  } catch (e) {
-    throw new Undetermined(`git ${args.join(' ')} 在 ${root} 失败: ${gitErrText(e)}`)
-  }
-}
-
-const GIT_BIN = resolveGitBin() || 'git'
+/** 共用层解析出的 git 绝对路径(§5b:GUI 宿主 / 服务账户的 PATH 与交互终端不通)。
+ *  本门不再自己派生 git,这个名字保留给镜像测试与人工核验取用。 */
+const GIT_BIN = gitBinary()
 
 function unquoteScalar(raw) {
   let s = String(raw).trim()
@@ -729,32 +680,21 @@ function w(path, content) {
 }
 
 /**
- * 测试/自检通道:在**临时夹具仓**里跑 git(统一带上免依赖环境的配置)。
+ * 测试/自检通道:在**临时夹具仓**里跑 git —— 派生本体仍是共用层的那一处(`gitRaw` 自带绝对路径
+ * git + `safe.directory` + windowsHide + 数字 timeout,并把 `-C <dir>` 拼在这些 args 之前)。
  * 只在 mkScratch 目录里调用,绝不碰真仓;`core.autocrlf=false` 保证索引/HEAD blob 与写入字节
  * 逐字相同(否则换行归一会让"同一面"的比对失去意义)。
  */
+const FIXTURE_GIT_CONFIG = Object.entries({
+  'init.defaultBranch': 'main',
+  'user.name': 'gate-fixture',
+  'user.email': 'gate-fixture@invalid',
+  'commit.gpgsign': 'false',
+  'core.autocrlf': 'false',
+}).flatMap(([key, value]) => ['-c', `${key}=${value}`])
+
 export function gitInFixture(dir, args) {
-  return execFileSync(
-    GIT_BIN,
-    [
-      '-c',
-      'safe.directory=*',
-      '-c',
-      'init.defaultBranch=main',
-      '-c',
-      'user.name=gate-fixture',
-      '-c',
-      'user.email=gate-fixture@invalid',
-      '-c',
-      'commit.gpgsign=false',
-      '-c',
-      'core.autocrlf=false',
-      '-C',
-      dir,
-      ...args,
-    ],
-    { encoding: 'utf8', windowsHide: true, timeout: GIT_TIMEOUT, stdio: ['ignore', 'pipe', 'pipe'] },
-  )
+  return gitRaw([...FIXTURE_GIT_CONFIG, ...args], dir, { timeout: GIT_TIMEOUT })
 }
 
 /** 测试/自检通道:把磁盘夹具变成一个真 git 仓(init + add,可选 commit) */

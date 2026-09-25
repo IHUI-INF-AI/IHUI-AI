@@ -531,13 +531,31 @@ function readFace(rev, paths) {
 }
 const treePaths = (rev) => (rev === '' ? git(['ls-files', '-z']).split('\0').filter(Boolean) : git(['ls-tree', '-r', '--name-only', rev, '-z']).split('\0').filter(Boolean))
 
-/** 策略表自身的取材:HEAD → 索引 → 工作树,取第一个读得到的。
- *  为什么表可以退到工作树而**被判内容**不行:表是本门的输入,不是被审的对象;
- *  新落表的那一枚提交之前,若坚持只认 HEAD 就会 exit 2 把整条提交链打死(= 恒红机器)。
- *  退到工作树必须**大声说明**,由镜像测试钉住"三档顺序不得改动"。 */
+/** 策略表自身的取材:按 `policyFaceOrder(isStaged)` 给定的顺序,取第一个读得到的。
+ *  三档降级(而非 exit 2)的理由仍然成立:新落表的那一枚提交之前,若坚持只认 HEAD
+ *  就会在"表还没入库"时把整条提交链打死(= 恒红机器)。
+ *  但"表只是输入、不是被审对象"这半句**不成立**(2026-09-25 实测推翻,见
+ *  `policyFaceOrder` 的注释):改表恰好是某些提交的唯一内容,故 `--staged` 档必须
+ *  索引优先 —— 否则本门对"把 managed 翻错/把 requires 写歪"这类改动全程盲视。
+ *  退到工作树仍须**大声说明**,镜像测试钉的是"每个面各自的档位顺序不得回退"。 */
 export function pickPolicySource(cands) {
   for (const [label, text] of cands) if (typeof text === 'string' && text.trim()) return { label, text }
   return null
+}
+
+/**
+ * 策略表的取材面顺序 —— 与源码内容同向:全量档判 HEAD,`--staged` 档判**索引**。
+ *
+ * 单独抽成函数是为了让镜像测试能钉住**行为**而不是注释。它曾经两种情况都 HEAD 优先,
+ * 后果不是"少读一份表"而是**改表的那枚提交完全脱离本门审查**:2026-09-25 实测往索引版
+ * `apps/cli.requires` 注入一条 `apps/api`(端应用 `exported:false`,T1 必判红),
+ * 全量与 `--staged` 双双 exit 0,且 `--staged` 的输出照旧打印旧表的那一行
+ * (`managed:true packages/api-client`)。而本文件头"改这张表的规矩 2"恰恰要求
+ * "翻 managed:true 之前先试跑" —— 提交链上是唯一无验的一环。
+ * 判据存在而永不调用 = 没有。
+ */
+export function policyFaceOrder(isStaged) {
+  return isStaged ? ['索引', 'HEAD', '工作树'] : ['HEAD', '索引', '工作树']
 }
 
 function main(argv) {
@@ -550,16 +568,18 @@ function main(argv) {
   let policyText
   let policyFace = 'HEAD'
   try {
-    const cands = [
-      ['HEAD', readFace('HEAD', [POLICY_REL]).get(POLICY_REL)],
-      ['索引', readFace('', [POLICY_REL]).get(POLICY_REL)],
-    ]
+    let worktreeText = null
     try {
-      cands.push(['工作树', readFileSync(pResolve(ROOT, POLICY_REL), 'utf8')])
+      worktreeText = readFileSync(pResolve(ROOT, POLICY_REL), 'utf8')
     } catch {
-      cands.push(['工作树', null])
+      /* 工作树取不到就留 null,由 pickPolicySource 继续降级 */
     }
-    const picked = pickPolicySource(cands)
+    const texts = {
+      索引: readFace('', [POLICY_REL]).get(POLICY_REL),
+      HEAD: readFace('HEAD', [POLICY_REL]).get(POLICY_REL),
+      工作树: worktreeText,
+    }
+    const picked = pickPolicySource(policyFaceOrder(isStaged).map((label) => [label, texts[label]]))
     if (!picked) {
       console.error(`❌ 无法判定:HEAD / 索引 / 工作树三处都取不到 ${POLICY_REL}`)
       return 2
@@ -881,5 +901,5 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { parseYaml, loadPolicy, analyze, auditPolicy, extractSpecs, globToRe, mkMatcher, matchEntrypoint, relFrom, pickPolicySource, registrationOf, unusedExceptions, RULES, ALWAYS_RED, POLICY_REL }
+export const __test__ = { parseYaml, loadPolicy, analyze, auditPolicy, extractSpecs, globToRe, mkMatcher, matchEntrypoint, relFrom, pickPolicySource, policyFaceOrder, registrationOf, unusedExceptions, RULES, ALWAYS_RED, POLICY_REL }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

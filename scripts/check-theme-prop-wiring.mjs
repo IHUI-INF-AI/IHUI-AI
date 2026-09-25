@@ -49,8 +49,7 @@
  * 判定面与守门 70/77/83/94/98/101 同口径:共享工作树常年滞后 HEAD、且混着并行会话的
  * 半编辑态,按磁盘判会在"假红逼跳门"和"假绿放违规进 HEAD"之间来回跳。
  */
-import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
@@ -65,37 +64,21 @@ const BASELINE_PATH = path.join(__dirname, 'theme-prop-wiring-baseline.json')
  * 本门此前全量与 --staged 都读磁盘 —— 共享工作树常年滞后 HEAD、且混着并行会话的半编辑态,
  * 于是同一份提交内容会在"恒红"和"假绿"之间来回跳。假绿那一半更致命:索引里带着违规、
  * 盘上别人又顺手改好了 ⇒ 门报绿,违规照样进 HEAD。
+ *
+ * 取材原语一律来自 `./lib/face-reader.mjs`(绝对路径 git、batch 取材、穿 junction 的仓库根校验),
+ * 本门只保留"怎么列 .tsx、怎么判定"这部分门内知识。
  */
-const FACES = ['staged', 'head', 'worktree']
-const FACE_LABEL = {
-  staged: '索引 blob(git show :<path>)',
-  head: 'HEAD blob(git show HEAD:<path>)',
-  worktree: '工作树(磁盘)',
-}
-/** 判据取不到输入时抛它 —— 折成 exit 2「无法判定」,绝不冒烟成判据红、更绝不记绿 */
-class Undetermined extends Error {}
-
-function gitErrText(e) {
-  const raw = e?.stderr ?? e?.stdout ?? e?.message ?? String(e)
-  return String(typeof raw === 'string' ? raw : Buffer.from(raw).toString('utf8'))
-    .trim()
-    .split(/\r?\n/)[0]
-}
-
-/** 同一个目录吗 —— 先各自 realpath 穿过 junction / 符号链接,再按平台大小写敏感性比 */
-function sameDir(a, b) {
-  const norm = (p) => {
-    let real = p
-    try {
-      real = realpathSync(p)
-    } catch {
-      /* 目标不存在时退回原路径,让后续判据去点名它 */
-    }
-    const resolved = path.resolve(real)
-    return process.platform === 'win32' ? resolved.toLowerCase() : resolved
-  }
-  return norm(a) === norm(b)
-}
+import {
+  FACES,
+  FACE_LABEL,
+  Undetermined,
+  catBatch,
+  assertRepoRoot,
+  gitRaw,
+  readWorktreeFile,
+  sameDir,
+  selectFace,
+} from './lib/face-reader.mjs'
 
 /** 组件真相源:只有这里的导出组件算「主题驱动组件」 */
 const COMPONENT_DIR = 'packages/app/src'
@@ -538,38 +521,15 @@ function defaultExportNameOf(spec, sharedNames) {
 }
 
 /**
- * git 派生统一口径(§5b + 守门 80):绝对路径由 ROOT 起、`-c safe.directory=*`、
- * windowsHide、数字 timeout。缺 timeout 的 git 只读调用是本仓守门 80 专门拦的那一类无界挂起。
+ * 列出「某个面」里的 .tsx。三个面各问各的 git,不再 glob 读盘。
+ * git 派生一律走 `./lib/face-reader.mjs` 的 `gitRaw`(绝对路径 git + safe.directory +
+ * quotepath=false 兼容中文路径 + windowsHide + 数字 timeout ⇒ 同时满足守门 52 与 80)。
  */
-function gitRaw(args, opts = {}) {
-  return execFileSync('git', ['-c', 'safe.directory=*', '-C', opts.root ?? ROOT, ...args], {
-    cwd: opts.root ?? ROOT,
-    encoding: 'utf8',
-    windowsHide: true,
-    timeout: opts.timeout ?? 60000,
-    maxBuffer: opts.maxBuffer ?? 1 << 26,
-  })
-}
-
-/** 抛错即"判定面取不到",由调用方折成 exit 2「无法判定」—— 绝不静默成空清单(空清单=全绿) */
-function gitOrDie(args, what, opts) {
-  try {
-    return gitRaw(args, opts)
-  } catch (e) {
-    throw new Undetermined(`${what} 失败: ${gitErrText(e)}`)
-  }
-}
-
-/** 列出「某个面」里的 .tsx。三个面各问各的 git,不再 glob 读盘。 */
 function listTsxOnFace(face, dirs, root) {
   const out =
     face === 'head'
-      ? gitOrDie(['ls-tree', '-r', '--name-only', 'HEAD', '--', ...dirs], 'git ls-tree HEAD', {
-          root,
-        })
-      : face === 'staged'
-        ? gitOrDie(['ls-files', '--', ...dirs], 'git ls-files(索引)', { root })
-        : gitOrDie(['ls-files', ...dirs], 'git ls-files(工作树)', { root })
+      ? gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '--', ...dirs], root)
+      : gitRaw(['ls-files', '--', ...dirs], root)
   const list = out
     .split('\n')
     .map((f) => f.replace(/\\/g, '/'))
@@ -578,13 +538,7 @@ function listTsxOnFace(face, dirs, root) {
 }
 
 function stagedTsxIn(dirs, root) {
-  const out = gitOrDie(
-    ['diff', '--cached', '--name-only', '--diff-filter=ACMRT'],
-    'git diff --cached',
-    {
-      root,
-    },
-  )
+  const out = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMRT'], root)
     .split('\n')
     .map((f) => f.replace(/\\/g, '/'))
     .filter((f) => f.endsWith('.tsx') && dirs.some((d) => f.startsWith(`${d}/`)))
@@ -595,9 +549,9 @@ function stagedTsxIn(dirs, root) {
  * 单一取内容出口:枚举与内容必须来自**同一个面**、同一轮。
  * 混面(盘上枚举 + git 取内容,或反过来)会产出自洽但基准错位的结论 —— 与守门 101 同一条理由。
  *
- * ⚠️ git 面**必须**先 `prefetch(rels)` 再 `read(rel)`:一次 `cat-file --batch` 读完一批。
- * 逐文件派生 git 在真仓是 ~1500 次进程创建(§5b 的 fork 风暴同型),故 read 遇到
- * 未预取的路径一律判"无法判定",不偷偷补一次派生把退化掩盖成正常。
+ * ⚠️ git 面**必须**先 `prefetch(rels)` 再 `read(rel)`:一次 `cat-file --batch` 读完一批
+ * (逐文件派生 git 在真仓是 ~1500 次进程创建,§5b fork 风暴同型)。`read` 遇到未预取的路径
+ * 一律抛"无法判定",不偷偷补一次派生把退化掩盖成正常。
  */
 export function makeFaceReader(face, root = ROOT) {
   if (!FACES.includes(face)) {
@@ -610,35 +564,15 @@ export function makeFaceReader(face, root = ROOT) {
       label,
       list: (dirs) => listTsxOnFace('worktree', dirs, root),
       prefetch() {},
-      read(rel) {
-        const abs = path.join(root, rel)
-        if (!existsSync(abs)) return null
-        // 不套"读失败即当作不存在":编码/权限错误必须原样点名,否则一个环境问题伪装成业务结论
-        let text
-        try {
-          text = readFileSync(abs, 'utf8')
-        } catch (e) {
-          throw new Undetermined(`${label} 取不到 ${rel}: ${e.message}`)
-        }
-        return text.includes('\u0000') ? null : text
-      },
+      // 磁盘面:不存在 → null(跳过);读失败 → 原样抛,不让环境问题伪装成业务结论
+      read: (rel) => readWorktreeFile(root, rel),
     }
   }
 
   const prefix = face === 'staged' ? ':' : 'HEAD:'
-  // 面的相对基准必须是仓库根:ROOT 若是仓库子目录,ls-tree 的路径与 join(root,rel) 就错位,
-  // 那正好产出门最不该产出的东西 —— 看起来自洽的绿。故显式判死,不静默容忍。
-  // 但比较前先各自穿过 junction:scratch-dir / DevEnv 改道(§26)会让同一目录有两个写法,
-  // 只比字面路径会把正常仓判成"基准错位"。
-  let top
-  try {
-    top = gitRaw(['rev-parse', '--show-toplevel'], { root }).trim()
-  } catch (e) {
-    throw new Undetermined(`${label} 无法解析仓库根: ${gitErrText(e)}`)
-  }
-  if (top && !sameDir(top, root)) {
-    throw new Undetermined(`${label} 的 ROOT(${root})不是仓库根(${top}),两基准会错位`)
-  }
+  // 仓库根校验(穿 junction)由共用层做:root 若是仓库子目录,ls-tree 与 join(root,rel) 基准错位,
+  // 那正好产出门最不该产出的东西 —— 看起来自洽的绿。判死,不静默容忍。
+  assertRepoRoot(root, label)
   const cache = new Map()
   return {
     face,
@@ -647,38 +581,15 @@ export function makeFaceReader(face, root = ROOT) {
     prefetch(rels) {
       const todo = [...new Set(rels)].filter((r) => !cache.has(r))
       if (todo.length === 0) return
-      let out
-      try {
-        out = execFileSync('git', ['-c', 'safe.directory=*', '-C', root, 'cat-file', '--batch'], {
-          cwd: root,
-          input: Buffer.from(todo.map((r) => `${prefix}${r}`).join('\n') + '\n', 'utf8'),
-          windowsHide: true,
-          maxBuffer: 1 << 28,
-          timeout: 120000,
-          // stdio[0] 必须是 pipe —— input 靠它喂 rev 清单;设成 'ignore' 会让 git 读到空输入,
-          // 于是每个 rev 都"取不到"(守门 101 真仓自验时被这一条咬出假 exit 2)
-          stdio: ['pipe', 'pipe', 'pipe'],
-        })
-      } catch (e) {
-        throw new Undetermined(`${label} 批量取材失败(${todo.length} 个路径): ${gitErrText(e)}`)
-      }
-      let pos = 0
+      const map = catBatch(
+        root,
+        todo.map((r) => `${prefix}${r}`),
+      )
       for (const rel of todo) {
-        const nl = out.indexOf(0x0a, pos)
-        if (nl < 0) {
-          cache.set(rel, null)
-          continue
-        }
-        const header = out.subarray(pos, nl).toString('utf8')
-        pos = nl + 1
-        const m = /^([0-9a-f]{40}) blob (\d+)$/.exec(header)
-        if (!m) {
-          cache.set(rel, null) // "<rev>:<path> missing" / unmerged / 非 blob
-          continue
-        }
-        const size = Number(m[2])
-        cache.set(rel, out.subarray(pos, pos + size).toString('utf8'))
-        pos += size + 1
+        // undefined = batch 输出没覆盖到这个 rev(取数链路断了);与 null(明确 missing)都记 null,
+        // 但由 scanRenderSites 的 filesScanned 计数如实暴露少扫,不静默当成"扫过了"
+        const text = map.get(`${prefix}${rel}`)
+        cache.set(rel, text === undefined ? null : text)
       }
     },
     read(rel) {
@@ -831,14 +742,14 @@ function run(options) {
     console.error('❌ --update-baseline 不得与 --staged 同用(基线须按全量口径收紧)')
     return 1
   }
-  // 两个面旗同给 = 判据自相矛盾(到底按提交内容还是按盘?),判死而不是任选一边
-  if (options.staged && options.worktree) {
-    console.error('❌ --staged 与 --worktree 不得同用(两个判定面互斥,取哪一面都会让另一面成为假绿)')
+  // 面选择与"两个面旗同给"的互斥判定由共用层统一(三门同口径,免得某道门悄悄少一个面)
+  const picked = selectFace({ staged: options.staged, worktree: options.worktree })
+  if (picked.error) {
+    console.error(`❌ ${picked.error}:取哪一面都会让另一面成为假绿`)
     return 2
   }
-  const face = options.staged ? 'staged' : options.worktree ? 'worktree' : 'head'
   try {
-    return runOnFace(options, face, options.root ?? ROOT)
+    return runOnFace(options, picked.face, options.root ?? ROOT)
   } catch (e) {
     if (e instanceof Undetermined) {
       // 取材失败不是"没有违规"。显式无法判定 + 非零退出,绝不冒绿(守门 94/101 同口径)
@@ -1210,17 +1121,7 @@ function faceSelfTest(ok) {
   }
   const COMPONENT = 'packages/app/src/NavBar.tsx'
   const SITE = 'apps/mobile-rn/src/screens/Home.tsx'
-  const git = (...args) =>
-    execFileSync(
-      'git',
-      ['-c', 'safe.directory=*', '-c', 'user.email=t@t', '-c', 'user.name=t', ...args],
-      {
-        cwd: dir,
-        encoding: 'utf8',
-        windowsHide: true,
-        timeout: 60000,
-      },
-    )
+  const git = (...args) => gitRaw(['-c', 'user.email=t@t', '-c', 'user.name=t', ...args], dir)
   const siteSrc = (variant) => {
     const attrs = {
       goodHead: ' t={x} colorScheme={theme}',
