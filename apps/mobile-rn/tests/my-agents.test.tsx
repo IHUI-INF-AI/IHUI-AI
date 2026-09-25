@@ -7,34 +7,10 @@ import { render, fireEvent } from '@testing-library/react'
 import { type ReactNode } from 'react'
 import { I18nProvider } from '../src/i18n'
 
-vi.mock('react-native', async () => {
-  const { createElement: h } = await import('react')
-  const mk = (name: string) =>
-    function MockComp(props: {
-      children?: ReactNode
-      style?: unknown
-      onPress?: () => void
-      [k: string]: unknown
-    }) {
-      const { style, onPress, ...rest } = props
-      const mergedStyle = Array.isArray(style)
-        ? Object.assign({}, ...(style.filter(Boolean) as Record<string, unknown>[]))
-        : style
-      return h(name, { ...rest, onClick: onPress, style: mergedStyle }, props.children)
-    }
-  return {
-    // 主题单例(src/theme/active-tokens.ts)在模块求值时调 Appearance.getColorScheme(),
-    // 缺这个导出会让整个测试文件加载失败 ⇒ 该文件的断言一条都不会跑。
-    Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
-    DevSettings: { reload: () => {} },
-    View: mk('div'),
-    Text: mk('span'),
-    TouchableOpacity: mk('button'),
-    Image: mk('img'),
-    ScrollView: mk('div'),
-    StyleSheet: { create: (s: Record<string, unknown>) => s },
-  }
-})
+// 不再自带 vi.mock('react-native') 工厂:它遮蔽 vitest.config.ts 的 alias 替身
+// tests/__mocks__/react-native.ts,替身补了 PixelRatio 而内联副本没有 ⇒ MoreLink 一渲染即抛。
+// 共享替身是本工厂的严格超集(同款 mk 组件/onPress→onClick/样式合并/Appearance/DevSettings/
+// StyleSheet,另含 PixelRatio/Platform/FlatList/Pressable 等),断言语义不变。
 
 import MyAgents, { type MyAgentItem } from '../src/components/MyAgents'
 
