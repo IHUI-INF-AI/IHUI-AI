@@ -12,7 +12,7 @@ import { SkillTable } from './SkillTable'
 import { SkillFormDialog, SkillDeleteDialog } from './SkillDialog'
 import { SkillFilter } from './SkillFilter'
 import { SkillMarketDialog } from './SkillMarketDialog'
-import { api, fetchSkills, EMPTY_FORM, skillToForm } from './helpers'
+import { fetchSkills, postSkill, removeSkill, EMPTY_FORM, skillToForm } from './helpers'
 import type { Skill, SkillForm } from './types'
 import { BackButton } from '@/components/common'
 
@@ -32,7 +32,7 @@ export default function AdminSkillsPage() {
 
   const saveMut = useMutation({
     mutationFn: (input: SkillForm) => {
-      const body: Record<string, unknown> = {
+      const body = {
         name: input.name.trim(),
         description: input.description.trim() || undefined,
         version: input.version.trim() || undefined,
@@ -43,7 +43,7 @@ export default function AdminSkillsPage() {
               .filter(Boolean)
           : undefined,
       }
-      return api('/api/skills', { method: 'POST', body: JSON.stringify(body) })
+      return postSkill(body)
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'skills'] })
@@ -52,7 +52,8 @@ export default function AdminSkillsPage() {
   })
 
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`/api/skills/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    // encodeURIComponent 已收口到 api-client 的 deleteSkill 出口,此处不再重复编码
+    mutationFn: (id: string) => removeSkill(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'skills'] })
       setDelId(null)
