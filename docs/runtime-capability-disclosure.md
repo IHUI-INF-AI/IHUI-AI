@@ -394,9 +394,19 @@ Blink 引擎已验证"，不主张 WebView2 已验证。派发形态是页内合
 与扩展宿主同形，不是 OS 级真实输入（那是 §4.4 的 `computer_*`）。
 
 **WebView2 数据目录与加密落点**：数据目录是
-`%LOCALAPPDATA%\com.ihui.desktop\EBWebView`（代码内两处清理逻辑
-`src/lib.rs:1426-1435` prod 体积清理、`:1613-1620` dev 每次启动清空）；本机该目录已由
+`%LOCALAPPDATA%\com.ihui.desktop\EBWebView`；本机该目录已由
 改道机制指到 `G:\DevEnv\cache\userhome\appdata-local-com.ihui.desktop`（巡检脚本量到的真身）。
+**两处清理逻辑已于 2026-09-25 收窄为"只删缓存"**（`src/lib.rs` 的 `clear_webview_caches()`，
+设置项 `clear_webview_cache` 命令与 dev 启动分支共用同一份白名单）：旧写法是
+`remove_dir_all(EBWebView 根)`，而那棵树里同时住着 `Default/Local Storage`（登录态 + 已加密的
+本机会话）、`Session Storage`、`IndexedDB`、`Network`（Cookie）——用户在设置页点一次"清理缓存"、
+或任何人在本机跑一次 `tauri dev`（`cfg(dev)` 经回读 `tauri-build` 输出确认**确实参与编译**，
+不是伪 cfg），就等于把登录与本机数据整棵清空。缓存类白名单只列"重新访问站点即自动重建"的目录，
+数据类名字单列一张拒绝表，两表有任何一段重合即整条剔除；根目录末段不是 `EBWebView` 时**拒绝执行**
+（拼错路径的后果必须是"什么也没清"，不是"抹掉一棵树"）。判据：Rust 侧 4 例单测（含"数据必须活着"
+与"被拒时一个子项都不许少"）+ `scripts/tests/desktop-webview-data-loss.test.mjs` 4 例（含把旧写法
+喂回去证明尺子有牙）。
+
 落盘加密的单一真相源是 `apps/web/src/lib/local-vault.ts`（信封字段 `ihuiVaultV1` →
 `{alg,kid,iv,ct}`），巡检守门 `scripts/check-desktop-cache-plaintext.mjs`（只读、warn-only，
 不进提交链——它判的是机器状态，提交者结构上满足不了）。
