@@ -40,6 +40,8 @@
     "check:baseline-freshness": "node scripts/check-baseline-freshness.mjs --preflight",
     "check:tool-contract": "node scripts/check-tool-contract-declared.mjs",
     "module:context": "node scripts/module-context.mjs",
+    "check:routing-identity": "node scripts/check-tool-arg-routing-identity.mjs",
+    "check:compaction-denominator": "node scripts/check-compaction-denominator.mjs",
     "check:artifact-budget": "node scripts/check-artifact-budget.mjs --target miniapp",
     "check:capabilities": "node scripts/check-capability-catalog.mjs",
     "check:capabilities:staged": "node scripts/check-capability-catalog.mjs --staged",
