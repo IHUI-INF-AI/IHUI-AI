@@ -104,7 +104,7 @@ export default function LearnDevelop() {
       {/* 对齐 RN LearnDevelopScreen:容器底 surface.bg;头部无卡片底(与 RN header 一致直接置于页面底色上),标题 20dp→40rpx/600 */}
       <View className="min-h-screen bg-background">
         <View className="px-[20rpx] py-[24rpx]">
-          <Text className="text-[40rpx] font-semibold text-foreground">
+          <Text className="text-[length:40rpx] font-semibold text-foreground">
             {t('learnDevelop.title')}
           </Text>
         </View>
@@ -112,7 +112,7 @@ export default function LearnDevelop() {
         <View className="px-[20rpx] pt-[24rpx] pb-[48rpx]">
           {/* 学习路径(RN 无对应区,保留业务;卡片对齐 RN entryCard 语言:圆角 12dp→24rpx + 边框 border.light + padding 14dp→28rpx) */}
           <View className="first:mt-0 mt-[24rpx] mb-[16rpx]">
-            <Text className="text-[32rpx] font-semibold text-foreground">
+            <Text className="text-[length:32rpx] font-semibold text-foreground">
               {tt('learnDevelop.pathTitle', '学习路径')}
             </Text>
           </View>
@@ -125,14 +125,14 @@ export default function LearnDevelop() {
                 {isImagePath(path.icon) ? (
                   <Image src={path.icon} className="w-[48rpx] h-[48rpx]" mode="aspectFit" />
                 ) : (
-                  <Text className="text-[48rpx]">{path.icon}</Text>
+                  <Text className="text-[length:48rpx]">{path.icon}</Text>
                 )}
               </View>
               <View className="flex-1 flex flex-col">
-                <Text className="text-[30rpx] font-semibold text-foreground">
+                <Text className="text-[length:30rpx] font-semibold text-foreground">
                   {tt(path.nameKey, path.name)}
                 </Text>
-                <Text className="text-[24rpx] text-muted-foreground mt-[8rpx]">
+                <Text className="text-[length:24rpx] text-muted-foreground mt-[8rpx]">
                   {path.courses} {tt('learnDevelop.coursesUnit', '门课')} ·{' '}
                   {tt('learnDevelop.progress', '进度')} {path.progress}%
                 </Text>
@@ -149,7 +149,7 @@ export default function LearnDevelop() {
 
           {/* 推荐课程(RN 无对应区,保留业务;课程行卡对齐 RN CourseCarousel list 变体卡片:圆角 24rpx + 边框,thumb 100×80dp→200×160rpx 直角,价格 12dp→24rpx/600,免费 success/付费 text.primary) */}
           <View className="first:mt-0 mt-[24rpx] mb-[16rpx]">
-            <Text className="text-[32rpx] font-semibold text-foreground">
+            <Text className="text-[length:32rpx] font-semibold text-foreground">
               {tt('learnDevelop.recommend', '推荐课程')}
             </Text>
           </View>
@@ -163,7 +163,7 @@ export default function LearnDevelop() {
                 {tt('learnDevelop.loadFailed', '加载失败')}
               </Text>
               <Text
-                className="inline-block mt-[24rpx] py-[16rpx] px-[48rpx] bg-cta text-cta-foreground text-center rounded-md text-[28rpx]"
+                className="inline-block mt-[24rpx] py-[16rpx] px-[48rpx] bg-cta text-cta-foreground text-center rounded-md text-[length:28rpx]"
                 onClick={loadData}
               >
                 {t('common.retry')}
@@ -189,17 +189,17 @@ export default function LearnDevelop() {
                   </View>
                 )}
                 <View className="flex-1 px-[24rpx] py-[16rpx] flex flex-col justify-between min-h-[160rpx]">
-                  <Text className="text-[28rpx] text-foreground font-semibold leading-[1.4] line-clamp-2 overflow-hidden">
+                  <Text className="text-[length:28rpx] text-foreground font-semibold leading-[1.4] line-clamp-2 overflow-hidden">
                     {item.title}
                   </Text>
                   {item.teacher ? (
-                    <Text className="text-[24rpx] text-muted-foreground mt-[8rpx]">
+                    <Text className="text-[length:24rpx] text-muted-foreground mt-[8rpx]">
                       {tt('learnDevelop.teacher', '讲师')}: {item.teacher}
                     </Text>
                   ) : null}
                   {item.price !== null && item.price !== undefined ? (
                     <Text
-                      className={`text-[24rpx] font-semibold ${item.price === 0 ? 'text-success' : 'text-foreground'}`}
+                      className={`text-[length:24rpx] font-semibold ${item.price === 0 ? 'text-success' : 'text-foreground'}`}
                     >
                       {item.price === 0
                         ? tt('learnDevelop.free', '免费')
@@ -227,11 +227,11 @@ export default function LearnDevelop() {
                 className="w-[40rpx] h-[40rpx] mr-[16rpx]"
                 mode="aspectFit"
               />
-              <Text className="text-[28rpx] text-foreground font-semibold">
+              <Text className="text-[length:28rpx] text-foreground font-semibold">
                 {tt('learnDevelop.rankEntry', '学习排行榜')}
               </Text>
             </View>
-            <Text className="text-[36rpx] text-muted-foreground">›</Text>
+            <Text className="text-[length:36rpx] text-muted-foreground">›</Text>
           </View>
         </View>
       </View>

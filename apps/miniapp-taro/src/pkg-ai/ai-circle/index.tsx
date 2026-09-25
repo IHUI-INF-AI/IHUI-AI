@@ -82,12 +82,12 @@ export default function AiCircle() {
   return (
     <View className="min-h-screen bg-background pb-[160rpx]">
       <View className="p-[24rpx] bg-card border-b border-[var(--color-border)]">
-        <Text className="text-[36rpx] font-semibold text-foreground">{t('aiCircle.title')}</Text>
+        <Text className="text-[length:36rpx] font-semibold text-foreground">{t('aiCircle.title')}</Text>
       </View>
       <View className="p-[24rpx]">
         {loading ? (
           <View className="flex flex-col items-center justify-center py-[120rpx] gap-[16rpx]">
-            <Text className="text-center text-[26rpx] text-[var(--color-text-tertiary)]">
+            <Text className="text-center text-[length:26rpx] text-[var(--color-text-tertiary)]">
               {t('common.loading')}
             </Text>
           </View>
@@ -97,10 +97,10 @@ export default function AiCircle() {
             onClick={() => loadData(true)}
             hoverClass="opacity-60"
           >
-            <Text className="text-center text-[26rpx] text-[var(--color-danger)]">
+            <Text className="text-center text-[length:26rpx] text-[var(--color-danger)]">
               {tt('aiCircle.loadFailed', '加载失败')}
             </Text>
-            <Text className="text-[26rpx] text-foreground">{t('common.retry')}</Text>
+            <Text className="text-[length:26rpx] text-foreground">{t('common.retry')}</Text>
           </View>
         ) : list.length ? (
           <View className="flex flex-col gap-[16rpx]">
@@ -128,22 +128,22 @@ export default function AiCircle() {
                         src={avatar}
                         mode="aspectFill"
                       />
-                      <Text className="flex-1 min-w-0 text-[26rpx] font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
+                      <Text className="flex-1 min-w-0 text-[length:26rpx] font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
                         {author}
                       </Text>
                       {createTime ? (
-                        <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+                        <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
                           {createTime}
                         </Text>
                       ) : null}
                     </View>
                     {title ? (
-                      <Text className="block text-[30rpx] font-semibold text-foreground overflow-hidden text-ellipsis line-clamp-2">
+                      <Text className="block text-[length:30rpx] font-semibold text-foreground overflow-hidden text-ellipsis line-clamp-2">
                         {title}
                       </Text>
                     ) : null}
                     {content ? (
-                      <Text className="block text-[26rpx] leading-[38rpx] text-muted-foreground line-clamp-3">
+                      <Text className="block text-[length:26rpx] leading-[38rpx] text-muted-foreground line-clamp-3">
                         {content}
                       </Text>
                     ) : null}
@@ -162,7 +162,7 @@ export default function AiCircle() {
                     <View className="flex items-center gap-[32rpx]">
                       <View className="flex items-center gap-[8rpx]">
                         <LineIcon name="heart" size={26} color="var(--color-text-tertiary)" />
-                        <Text className="text-[24rpx] text-[var(--color-text-tertiary)]">
+                        <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
                           {likes}
                         </Text>
                       </View>
@@ -172,7 +172,7 @@ export default function AiCircle() {
                           size={26}
                           color="var(--color-text-tertiary)"
                         />
-                        <Text className="text-[24rpx] text-[var(--color-text-tertiary)]">
+                        <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
                           {comments}
                         </Text>
                       </View>
@@ -183,13 +183,13 @@ export default function AiCircle() {
             })}
             {loadingMore ? (
               <View className="py-[24rpx] text-center">
-                <Text className="text-[26rpx] text-[var(--color-text-tertiary)]">
+                <Text className="text-[length:26rpx] text-[var(--color-text-tertiary)]">
                   {t('common.loading')}
                 </Text>
               </View>
             ) : !hasMore ? (
               <View className="py-[24rpx] text-center">
-                <Text className="text-[26rpx] text-[var(--color-text-tertiary)]">
+                <Text className="text-[length:26rpx] text-[var(--color-text-tertiary)]">
                   {tt('aiCircle.noMore', '没有更多了')}
                 </Text>
               </View>
@@ -197,7 +197,7 @@ export default function AiCircle() {
           </View>
         ) : (
           <View className="flex flex-col items-center justify-center py-[120rpx] gap-[16rpx]">
-            <Text className="text-center text-[26rpx] text-[var(--color-text-tertiary)]">
+            <Text className="text-center text-[length:26rpx] text-[var(--color-text-tertiary)]">
               {t('aiCircle.empty')}
             </Text>
             <View
@@ -205,7 +205,7 @@ export default function AiCircle() {
               onClick={onPublish}
               hoverClass="opacity-60"
             >
-              <Text className="text-[26rpx] font-semibold text-[var(--color-card)]">
+              <Text className="text-[length:26rpx] font-semibold text-[var(--color-card)]">
                 {t('aiCircle.post')}
               </Text>
             </View>
@@ -217,7 +217,7 @@ export default function AiCircle() {
         onClick={onPublish}
         hoverClass="opacity-60"
       >
-        <Text className="text-[26rpx] text-[var(--color-card)] leading-[26rpx]">
+        <Text className="text-[length:26rpx] text-[var(--color-card)] leading-[26rpx]">
           {t('aiCircle.post')}
         </Text>
       </View>

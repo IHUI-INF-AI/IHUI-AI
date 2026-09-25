@@ -213,10 +213,10 @@ export default function VoicePage() {
   return (
     <ThemeRoot className="flex flex-col h-screen bg-background">
       <View className="flex items-center justify-between pt-[120rpx] px-[32rpx] pb-[24rpx] bg-card">
-        <Text className="text-[34rpx] font-semibold text-foreground">
+        <Text className="text-[length:34rpx] font-semibold text-foreground">
           {tt('ai.voice.title', 'AI 语音对话')}
         </Text>
-        <Text className="text-[26rpx] text-muted-foreground" onClick={onClear}>
+        <Text className="text-[length:26rpx] text-muted-foreground" onClick={onClear}>
           {tt('ai.voice.clearChat', '清空对话')}
         </Text>
       </View>
@@ -241,7 +241,7 @@ export default function VoicePage() {
                     size={32}
                     color="var(--color-muted-foreground)"
                   />
-                  <Text className="text-[24rpx] text-foreground">
+                  <Text className="text-[length:24rpx] text-foreground">
                     {fmtDuration(m.duration || 0)}
                   </Text>
                   <View className="flex items-center gap-[4rpx] h-[40rpx]">
@@ -256,7 +256,7 @@ export default function VoicePage() {
                 </View>
               ) : (
                 <Text
-                  className={`text-[30rpx] leading-[40rpx] ${m.role === 'user' ? 'text-[var(--color-surface-light)]' : 'text-foreground'}`}
+                  className={`text-[length:30rpx] leading-[40rpx] ${m.role === 'user' ? 'text-[var(--color-surface-light)]' : 'text-foreground'}`}
                 >
                   {m.content}
                 </Text>
@@ -268,15 +268,15 @@ export default function VoicePage() {
           <View className="flex mb-[20rpx] items-start">
             <View className="max-w-[78%] mx-[20rpx] py-[20rpx] px-[28rpx] rounded-2xl bg-card">
               <View className="flex gap-[8rpx] items-center">
-                <Text className="text-[40rpx] text-muted-foreground animate-pulse">·</Text>
+                <Text className="text-[length:40rpx] text-muted-foreground animate-pulse">·</Text>
                 <Text
-                  className="text-[40rpx] text-muted-foreground animate-pulse"
+                  className="text-[length:40rpx] text-muted-foreground animate-pulse"
                   style={{ animationDelay: '0.2s' }}
                 >
                   ·
                 </Text>
                 <Text
-                  className="text-[40rpx] text-muted-foreground animate-pulse"
+                  className="text-[length:40rpx] text-muted-foreground animate-pulse"
                   style={{ animationDelay: '0.4s' }}
                 >
                   ·
@@ -289,13 +289,13 @@ export default function VoicePage() {
 
       <View className="py-[16rpx] px-[32rpx] bg-card">
         <View className="flex items-center gap-[12rpx] mb-[12rpx] last:mb-0">
-          <Text className="text-[24rpx] text-muted-foreground w-[64rpx]">
+          <Text className="text-[length:24rpx] text-muted-foreground w-[64rpx]">
             {tt('ai.voice.speed', '语速')}
           </Text>
           {SPEEDS.map((s) => (
             <Text
               key={s}
-              className={`py-[12rpx] px-[20rpx] rounded-lg text-[24rpx] ${speed === s ? 'bg-[var(--color-surface-light)] border-[2rpx] border-primary text-primary font-medium' : 'bg-card text-muted-foreground'}`}
+              className={`py-[12rpx] px-[20rpx] rounded-lg text-[length:24rpx] ${speed === s ? 'bg-[var(--color-surface-light)] border-[length:2rpx] border-primary text-primary font-medium' : 'bg-card text-muted-foreground'}`}
               onClick={() => setSpeed(s)}
             >
               {tt(SPEED_KEY[s] ?? 'aiVoice.q1', speedLabel[s])}
@@ -303,13 +303,13 @@ export default function VoicePage() {
           ))}
         </View>
         <View className="flex items-center gap-[12rpx] mb-[12rpx] last:mb-0">
-          <Text className="text-[24rpx] text-muted-foreground w-[64rpx]">
+          <Text className="text-[length:24rpx] text-muted-foreground w-[64rpx]">
             {tt('ai.voice.timbre', '音色')}
           </Text>
           {TIMBRES.map((tb) => (
             <Text
               key={tb}
-              className={`py-[12rpx] px-[20rpx] rounded-lg text-[24rpx] ${timbre === tb ? 'bg-[var(--color-surface-light)] border-[2rpx] border-primary text-primary font-medium' : 'bg-card text-muted-foreground'}`}
+              className={`py-[12rpx] px-[20rpx] rounded-lg text-[length:24rpx] ${timbre === tb ? 'bg-[var(--color-surface-light)] border-[length:2rpx] border-primary text-primary font-medium' : 'bg-card text-muted-foreground'}`}
               onClick={() => setTimbre(tb)}
             >
               {tt(TIMBRE_KEY[tb] ?? 'aiVoice.q4', timbreLabel[tb])}
@@ -337,7 +337,7 @@ export default function VoicePage() {
             </View>
           ) : null}
           <Text
-            className={`text-[28rpx] ${recording ? 'text-[var(--color-danger-foreground)]' : 'text-foreground'}`}
+            className={`text-[length:28rpx] ${recording ? 'text-[var(--color-danger-foreground)]' : 'text-foreground'}`}
           >
             {recording
               ? `${tt('ai.voice.releaseToSend', '松开发送')} · ${fmtDuration(displayDuration)}`
