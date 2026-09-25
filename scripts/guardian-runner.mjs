@@ -35,6 +35,7 @@ import { execSync, execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createHash } from 'node:crypto'
+import { normalizeTriggers, triggersTouch } from './lib/guardian-triggers.mjs'
 
 // === 颜色 ===
 const C = {
@@ -3123,7 +3124,7 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_GATE_FACE_DISCIPLINE',
-    stagedTriggers: 'scripts/',
+    stagedTriggers: ['scripts/'],
     onFailHint: [
       '',
       '  💡 本仓 159 道门里只有 24 道走 scripts/lib/face-reader.mjs,散写 git/按磁盘判的 74 道',
@@ -3146,7 +3147,7 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_SUBAGENT_PERMISSION_INHERITED',
-    stagedTriggers: 'apps/cli/src/',
+    stagedTriggers: ['apps/cli/src/'],
     onFailHint: [
       '',
       '  💡 判三条:P1 派生面出现字面量 bypassPermissions 作默认档(零容忍,不吃豁免)/',
@@ -3185,7 +3186,7 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_DECLARED_POLICY_CONSUMER',
-    stagedTriggers: 'apps/,packages/',
+    stagedTriggers: ['apps/', 'packages/'],
     onFailHint: [
       '',
       '  💡 本仓最高频失效型"造好没装车":声明了保留期/预算契约/清理函数,却没有任何生产面',
@@ -3433,12 +3434,9 @@ function stagedFilesOrNull() {
 }
 
 function stagedPathsTouch(prefixes) {
-  const files = stagedFilesOrNull()
-  if (files === null) return true
-  return files.some((f) => {
-    const norm = f.replace(/\\/g, '/')
-    return prefixes.some((p) => norm.startsWith(p))
-  })
+  // 归一交给 lib/guardian-triggers.mjs:裸字符串注册(HEAD 实测 3 道)曾在此处
+  // TypeError 崩掉整条守门链;空清单则抛错,不允许"永不运行"的隐形失踪。
+  return triggersTouch(stagedFilesOrNull(), prefixes)
 }
 
 for (const check of effectiveChecks) {
@@ -3456,7 +3454,7 @@ for (const check of effectiveChecks) {
   if (check.stagedTriggers && passStaged && !stagedPathsTouch(check.stagedTriggers)) {
     skipped++
     console.log(
-      `⏭  [${check.id}] ${check.label}(暂存区未触及:${check.stagedTriggers.join(' / ')},跳过)`,
+      `⏭  [${check.id}] ${check.label}(暂存区未触及:${normalizeTriggers(check.stagedTriggers).join(' / ')},跳过)`,
     )
     continue
   }
