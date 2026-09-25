@@ -13,6 +13,12 @@
  *
  * category 与执行端一一对应(见 CATEGORY_ENDPOINT):
  *  - browser  → extension(外部网页 DOM 操作 + 截图)
+ *               2026-09-25 补:该 category 下并列两族动词 —— 选择器族(`BrowserControlActionType`)
+ *               与句柄族(`BrowserPageControlActionType`,页内语义快照的活引用)。两族走同一条
+ *               `agent.action` 通道、由端内 `isDomAction` 一并认下,但能力申报分两栏
+ *               (`browserActions` / `browserPageActions`),因为错误码与定位方式不同形。
+ *               只有 extension 申报句柄族:web 靠自家注册表七动词、RN/小程序无 DOM、
+ *               desktop 只执行 computer 族,四端都没有 `@ihui/dom-actions` 的调用点。
  *  - computer → desktop(操作系统级鼠标键盘/剪贴板)
  *  - ext_ui   → extension(2026-09-21 立,扩展自有界面 sidepanel/popup:与 web 同七动词,
  *               靠同源 DOM 定位;与 browser 同 endpoint 但不同 category,互不抢指令)
@@ -171,6 +177,11 @@ const capabilitySchema = z.object({
   endpoint: z.enum(['extension', 'desktop', 'web', 'rn', 'miniapp']),
   instanceId: z.string().min(1).max(100),
   browserActions: z.array(z.string()).max(100).optional(),
+  // 句柄族(页内语义快照)动词单独一栏:与 browserActions 分列的原因见
+  // packages/types/src/agent-control.ts 的 BrowserPageControlActionType 注释。
+  // 上限与 uiActions/extUiActions 同档(20):当前 7 条,留余量给下一次扩动词,
+  // 否则端上多报一条就是整条 capability 上报 400(静默失去该端全部能力)。
+  browserPageActions: z.array(z.string()).max(20).optional(),
   computerActions: z.array(z.string()).max(100).optional(),
   uiActions: z.array(z.string()).max(20).optional(),
   appUiActions: z.array(z.string()).max(10).optional(),
@@ -369,6 +380,7 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
         version: ep.capability.version,
         lastSeen: new Date(ep.lastSeen).toISOString(),
         browserActions: ep.capability.browserActions?.length ?? 0,
+        browserPageActions: ep.capability.browserPageActions?.length ?? 0,
         computerActions: ep.capability.computerActions?.length ?? 0,
         uiActions: ep.capability.uiActions?.length ?? 0,
         appUiActions: ep.capability.appUiActions?.length ?? 0,
@@ -390,10 +402,16 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
  * ① 每个用例前复位状态,② 直接断言 category → endpoint 命中结果
  * (走 HTTP 只能观测 pushNotification 的 userId,分不清同一用户的多个端)。
  * 只暴露状态引用与纯查询函数,不额外开放写接口。
+ *
+ * `categoryEndpoint`(2026-09-25 加):把择端表本身也交出去,供用例做**反向断言**
+ * (钉"同一 category 只有一个候选端")。此前只能断言命中结果,而那是对 1:1 的
+ * **正向**取证 —— 表若被改成 `Record<category, endpoint[]>`,命中结果照样落在正确
+ * 的那一端,测试全绿,而语义已破。判据必须能看见表自己的形状。
  */
 export const __test__ = {
   endpoints: _endpoints,
   pending: _pending,
   findEndpointByCategory,
+  categoryEndpoint: CATEGORY_ENDPOINT,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
