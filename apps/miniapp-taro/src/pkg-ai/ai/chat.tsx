@@ -43,6 +43,7 @@ import {
 import { useUserStore } from '@/stores/user'
 import { AI_AGENT_TIP_SHOWN_KEY } from '@/constants/storage'
 import ChatMessageItem from './ChatMessageItem'
+import ContextUsageStrip from './context-usage-strip'
 import { resolvePermissionTierText } from './permission-tier-text'
 import TaskStatusBar from './task-status-bar'
 import {
@@ -1083,6 +1084,14 @@ export default function ChatPage() {
             {tierText.label}: {tierText.title} · {tierText.desc}
           </Text>
         </View>
+      ) : null}
+
+      {/* 上下文占用归因条(消费共享引擎,tailPreview 语义与 web 端一致) */}
+      {messages.length ? (
+        <ContextUsageStrip
+          messages={messages}
+          maxTokens={currentModel ? getModelContextCapacity(currentModel) : 0}
+        />
       ) : null}
 
       <ScrollView className="msg-list" scrollY scrollTop={scrollTop} scrollWithAnimation>
