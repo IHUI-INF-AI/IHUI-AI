@@ -184,6 +184,7 @@ function AgentDetail({ id }: { id: string }) {
   return (
     <div className="p-3 md:p-4 flex flex-col gap-2.5">
       <div className="flex items-center justify-between pb-2 border-b border-border">
+        {/* back-label-exempt: 箭头位已是矢量 ChevronLeft,此处文字是按钮标签(非页头箭头替身) until 2026-12-31 */}
         <Button
           type="button"
           variant="ghost"
