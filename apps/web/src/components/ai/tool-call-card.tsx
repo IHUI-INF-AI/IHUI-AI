@@ -6,7 +6,16 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Loader2, Check, ExternalLink, Copy, BarChart3, FilePlus2, FileDiff, FileX2 } from 'lucide-react'
+import {
+  Loader2,
+  Check,
+  ExternalLink,
+  Copy,
+  BarChart3,
+  FilePlus2,
+  FileDiff,
+  FileX2,
+} from 'lucide-react'
 import { getArtifactToken } from '@ihui/api-client'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -17,9 +26,16 @@ import {
   describeToolActivityByStatus,
   describeToolCall,
   describeMcpToolActivity,
+  FILE_WRITE_TOOLS,
   toolActivityState,
   toolDisplayKey,
 } from '@ihui/shared/chat'
+import {
+  ActivityCanceledLabel,
+  ActivityCodeBlock,
+  ActivityConnectorGroupLabel,
+  ActivitySourcesButton,
+} from './tool-activity-line'
 import {
   StreamDetail,
   StreamLabel,
@@ -228,7 +244,9 @@ function extractCitations(result: unknown): string[] {
     }
   }
 
-  return Array.from(new Set(out)).slice(0, MAX_CITATIONS)
+  // 上限此前硬切在这里(截断即丢,D81 第④项点名的那一型):
+  // 现在返回全量去重结果,折叠由 CitationsBlock 用「来源」按钮负责展开,完整内容可达。
+  return Array.from(new Set(out))
 }
 
 /** 提取图表 Artifact 路径(generate_chart 等返回本地 .html 产物)。
@@ -278,14 +296,22 @@ const CITATION_URL_RE = /https?:\/\/[^\s<>"')\]]+/
 /** 引用溯源标签组:展示 knowledge_lookup 等返回的图谱实体/关系来源 */
 function CitationsBlock({ citations }: { citations: string[] }) {
   const t = useTranslations('ai.toolCall')
+  // D81 第⑤项 sourcesButton:超过折叠上限时用「来源 (N)」按钮把余量展开,
+  // 而不是像此前那样在 extractCitations 里直接丢掉(截断即丢)。
+  const [showAll, setShowAll] = React.useState(false)
+  const hasMore = citations.length > MAX_CITATIONS
+  const shown = hasMore && !showAll ? citations.slice(0, MAX_CITATIONS) : citations
   if (citations.length === 0) return null
   return (
     <div>
-      <p className="mb-0.5 text-[10px] font-medium text-muted-foreground/70">
-        {t('citationsTitle')}
-      </p>
+      <div className="mb-0.5 flex items-center gap-1">
+        <p className="text-[10px] font-medium text-muted-foreground/70">{t('citationsTitle')}</p>
+        {hasMore && (
+          <ActivitySourcesButton count={citations.length} onClick={() => setShowAll(true)} />
+        )}
+      </div>
       <div className="flex flex-wrap gap-1">
-        {citations.map((c) => {
+        {shown.map((c) => {
           const url = c.match(CITATION_URL_RE)?.[0]
           const chipCls =
             'rounded-sm border border-amber-500/25 bg-amber-500/10 px-1.5 py-0.5 text-[10px] leading-4 text-amber-700 dark:text-amber-400'
@@ -897,6 +923,9 @@ export const ToolCallCard = React.memo(function ToolCallCard({
   // status 变为 success/error 后停止,由后端算出的 durationMs(duration prop)接管显示。
   const liveElapsed = useLiveElapsed(status === 'running', duration ?? null)
   const streamStatus = STREAM_STATUS[status]
+  // D81 第⑤项:连接器来源名称(仅 mcp / plugin 两类有来源),空串表示本条不属任何连接器分组
+  const connectorName =
+    serverSource === 'mcp' || serverSource === 'plugin' ? (serverName ?? serverId ?? '') : ''
 
   // 一行话的素材:功能名 + 对象 + 结果度量(单一真相源在 @ihui/shared/chat,各端同一口径)
   const view = React.useMemo(
@@ -1041,6 +1070,21 @@ export const ToolCallCard = React.memo(function ToolCallCard({
         ariaLabel={rowAriaLabel}
         testId={`tool-call-row-${toolCallId ?? toolName}`}
       />
+      {/* D81 第⑥项 + 第⑤项:活动条下方常驻一行(不随展开消失)。
+          - 取消态:行内的「已撤回」徽章只交代状态,这里补上"被取消的是哪一个动作",
+            保证被取消的调用在流里留下可辨识条目而非静默消失;
+          - 连接器读写方向:方向判定取共享层 FILE_WRITE_TOOLS 白名单,不在端内另立第二套判据。 */}
+      {status === 'cancelled' || connectorName !== '' ? (
+        <div className="flex flex-wrap items-center gap-1.5 pl-1">
+          {status === 'cancelled' ? <ActivityCanceledLabel name={rowTitle} /> : null}
+          {connectorName !== '' ? (
+            <ActivityConnectorGroupLabel
+              connector={connectorName}
+              direction={FILE_WRITE_TOOLS.has(toolName) ? 'write' : 'read'}
+            />
+          ) : null}
+        </div>
+      ) : null}
       {expanded && (
         <StreamDetail className="animate-in fade-in-0 slide-in-from-top-1 duration-150">
           {/* G-68 回退预判三态徽章:diff 卡顶部一行交代回退影响面 */}
@@ -1150,8 +1194,9 @@ export const ToolCallCard = React.memo(function ToolCallCard({
                     {result !== undefined && (
                       <div>
                         <StreamLabel>{tStatus('resultLabel')}</StreamLabel>
-                        <StreamCode
-                          text={
+                        {/* D81 第④项:长输出以「展开全部 / 收起」显式收口,完整内容可达 */}
+                        <ActivityCodeBlock
+                          content={
                             typeof result === 'string' ? result : JSON.stringify(result, null, 2)
                           }
                           testId="tool-call-result"
