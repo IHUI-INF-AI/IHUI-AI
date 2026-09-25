@@ -269,8 +269,8 @@
   border-radius: var(--radius-md);
   border: none;
   padding: 0;
-  background: var(--color-primary);
-  color: var(--color-background);
+  background: var(--color-cta);
+  color: var(--color-cta-foreground);
   font-weight: 600;
 }
 .dist-qrpop-btn::after {
@@ -336,8 +336,8 @@
   height: 88rpx;
   line-height: 88rpx;
   text-align: center;
-  background: var(--color-primary);
-  color: var(--color-background);
+  background: var(--color-cta);
+  color: var(--color-cta-foreground);
   font-size: 30rpx;
   font-weight: 600;
   border-radius: var(--radius-md);

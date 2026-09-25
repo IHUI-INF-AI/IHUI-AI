@@ -40,7 +40,9 @@
  *      拔掉,比丢一条进度行更严重,故标题族的判活面收窄到"候选里仍有一行**标题**以该编号开头"。
  *      取舍见 `headingIdSet` 与 `selfTest` 里"只删标题、正文还留着"那一条。
  *   3. 允许两种正当情形:
- *      a) 该登记行原文可在 `.ihui-agent/archive/PROJECT_PLAN_*.md` 里找到(§1 归档流程);
+ *      a) 该登记行原文可在 `.ihui-agent/archive/PROJECT_PLAN_*.md` 里找到(§1 归档流程),
+ *         且那份副本**在本面里存在**(全量 = HEAD 树、`--staged` = 索引)—— 只躺在本机磁盘上、
+ *         从未进任何提交的归档文件不构成删行凭据(2026-09-25 G-183 补,详见 `archivedCopy` 头注);
  *      b) 本次提交同时改动了基线里没有该行的位置(即该行本就不是 HEAD 内容) —— 由
  *         "只从 HEAD 取基线"天然保证。
  *
@@ -52,16 +54,15 @@
  * 紧急跳过:HUSKY_SKIP_PLAN_LINE_LOSS=1 git commit ...(会把丢失写进历史,先确认为何丢)
  */
 import { execFileSync, spawn } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { catBatch } from './lib/face-reader.mjs'
+import { catBatch, gitRaw } from './lib/face-reader.mjs'
 
 const GIT_TIMEOUT = 60000
 const GIT = process.env.IHUI_GIT_BIN || 'git'
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PLAN = 'PROJECT_PLAN.md'
-const ARCHIVE_DIR = path.join(ROOT, '.ihui-agent', 'archive')
 const MIN_LEN = 40
 
 const git = (args, cwd = ROOT) =>
@@ -263,15 +264,78 @@ export function lostMarkers(baselineSrc, candidateSrc) {
   return out
 }
 
-/** 归档目录里能否找到原文(§1 归档 = 正当删除) */
-export function archivedCopy(marker) {
-  if (!existsSync(ARCHIVE_DIR)) return null
-  for (const f of readdirSync(ARCHIVE_DIR)) {
-    if (!/^PROJECT_PLAN_.*\.md$/.test(f)) continue
-    const src = readFileSync(path.join(ARCHIVE_DIR, f), 'utf8')
-    if (src.includes(marker)) return f
+/** 归档豁免的目录(相对仓库根);清单与内容**同面**取,见 archivedCopy。 */
+const ARCHIVE_REL = '.ihui-agent/archive'
+const ARCHIVE_FILE_RE = /^PROJECT_PLAN_.*\.md$/
+
+/** 某一面里真实存在的归档副本路径(= 已入库的那些)。`staged` 读索引,其余读 HEAD 树。 */
+function faceArchiveFiles(face) {
+  const args =
+    face === 'staged'
+      ? ['ls-files', '-z', '--', ARCHIVE_REL]
+      : ['ls-tree', '-r', '--name-only', '-z', 'HEAD', '--', ARCHIVE_REL]
+  return gitRaw(args, ROOT, { timeout: GIT_TIMEOUT })
+    .split('\0')
+    .filter(Boolean)
+    .filter((p) => ARCHIVE_FILE_RE.test(p.split('/').pop()))
+}
+
+/**
+ * 按面缓存「路径 → 该面 blob 内容」,整进程各面至多一次批量派生。
+ * 逐 marker 各开一次 git 是本仓守门 80 立过的 fork 风暴形态,所以一次读满一批。
+ */
+const ARCHIVE_BLOB_CACHE = new Map()
+function faceArchiveBlobs(face) {
+  if (ARCHIVE_BLOB_CACHE.has(face)) return ARCHIVE_BLOB_CACHE.get(face)
+  const files = faceArchiveFiles(face)
+  const rev = face === 'staged' ? ':' : 'HEAD:'
+  const specs = files.map((p) => `${rev}${p}`)
+  const got = specs.length ? catBatch(ROOT, specs, { timeout: GIT_TIMEOUT }) : new Map()
+  const map = new Map()
+  for (let i = 0; i < files.length; i++) {
+    const v = got.get(specs[i])
+    // 面里有名字却读不到 blob(unmerged / 刚被删)⇒ 不计入凭据,也不抛:
+    // 少一条豁免只会多要一次定向说明,而拿不准时放行才是本闸最怕的那一型。
+    if (typeof v === 'string') map.set(files[i], v)
+  }
+  ARCHIVE_BLOB_CACHE.set(face, map)
+  return map
+}
+
+/**
+ * 归档目录里能否找到原文(§1 归档 = 正当删除)。
+ *
+ * **只认已入库的锚点**(2026-09-25 补,G-183 ③):旧实现是 `readdirSync(ARCHIVE_DIR)` +
+ * `readFileSync`,于是本机写一份**从未进任何提交**的 `archive/PROJECT_PLAN_*.md`,就能为
+ * 「把别人已入库的登记行从计划文档里删掉」出具归档凭据 —— 而那份原文在另一台检出上不存在,
+ * 删掉的行也无从找回。§1 那句「archive 里找得到 ⇒ 不算丢」的前提是「归档过」属于**仓库事实**,
+ * 不是本机巧合(与 G-173「可审计锚点必须受版本控制」同一条纪律)。
+ * 现清单与内容同面:`--staged` 判索引、全量判 HEAD 树;该面里没有的路径不构成凭据。
+ *
+ * `list` / `read` 可注入,使三条组合(未入库⇒不放行 / 已入库⇒放行 / 面里有名字但 blob 取不到
+ * ⇒ 不放行)能在不往真仓 archive 目录写文件的前提下取证(那正是要防的取证姿势)。
+ */
+export function archivedCopy(marker, opts = {}) {
+  const face = opts.face ?? 'head'
+  const blobs = opts.list ? null : faceArchiveBlobs(face)
+  const files = opts.list ? opts.list() : [...blobs.keys()]
+  const read = opts.read ?? ((p) => blobs.get(p) ?? null)
+  for (const p of files) {
+    if (!ARCHIVE_FILE_RE.test(p.split('/').pop())) continue
+    const src = read(p)
+    if (typeof src === 'string' && src.includes(marker)) return p
   }
   return null
+}
+
+/**
+ * 按当次判定面选出归档豁免函数:`--staged` 判索引、全量判 HEAD。
+ * 与「内容面」同面是刻意的 —— 豁免所依据的归档副本必须是这次提交真的带得走(或已入库)的那份,
+ * 而不是盘上随后被谁改过的那份。
+ */
+export function archiveExemptFor(isStaged) {
+  const face = isStaged ? 'staged' : 'head'
+  return (marker) => archivedCopy(marker, { face })
 }
 
 /**
@@ -332,7 +396,7 @@ export function runCheck(isStaged) {
   const baseline = readSpec(`HEAD:${PLAN}`)
   const candidate = candidateContent(isStaged)
   if (candidate === null) return { ok: true, lost: [] }
-  const lost = dropArchivedLost(lostMarkers(baseline, candidate))
+  const lost = dropArchivedLost(lostMarkers(baseline, candidate), archiveExemptFor(isStaged))
   return { ok: lost.length === 0, lost, prose: proseLossReport(baseline, candidate) }
 }
 
@@ -361,16 +425,20 @@ export function historyMarkers(depth = 60) {
     historic = new Map()
   }
   for (let i = 0; i < shas.length; i++) {
+    const sha = shas[i]
     const src = historic.get(specs[i])
     if (typeof src !== 'string') continue
     const rows = src.split(/\r?\n/)
-    rows.forEach((line, i) => {
+    // 内层索引刻意命名 k:批量读迁移时外层丢掉了 `const sha`,而 forEach 的 `i` 又把外层计数器
+    // 遮住 ⇒ `sha` 未定义 ⇒ `--heal` 每次抛 ReferenceError。post-commit 写着 || true,于是整条
+    // 自愈层静默失效(本节下方那段"自愈提交自上线起从未成功过"的同型)。
+    rows.forEach((line, k) => {
       const reg = registrationOf(line)
       if (!reg) return
       const { marker } = reg
       if (seen.has(marker)) return
       let prev = null
-      for (let j = i - 1; j >= 0; j--) {
+      for (let j = k - 1; j >= 0; j--) {
         if (rows[j].trim()) {
           prev = rows[j]
           break
@@ -383,13 +451,13 @@ export function historyMarkers(depth = 60) {
 }
 
 /** 历史登记行里在 targetSrc 中缺席的那些(归档过的正当移除自动排除) */
-export function missingFrom(seen, targetSrc) {
+export function missingFrom(seen, targetSrc, archived = archivedCopy) {
   const missing = []
   const ids = headIdSet(targetSrc)
   const headingIds = headingIdSet(targetSrc)
   for (const [marker, v] of seen) {
     if (stillRegistered({ marker, id: v.id, shape: v.shape }, targetSrc, ids, headingIds)) continue
-    if (archivedCopy(marker) || (v.id && archivedCopy(v.id))) continue
+    if (archived(marker) || (v.id && archived(v.id))) continue
     missing.push(v)
   }
   return missing
@@ -981,6 +1049,24 @@ function selfTest() {
       again.appended === 0
     )
   })
+  t('归档豁免只认**已入库**的归档副本:四条组合各自成立(G-183 ③)', () => {
+    const marker = 'G-998 归档锚点入库可判定性测试条目'
+    const name = 'PROJECT_PLAN_2099-01-01_auto-archive.md'
+    const body = `# 归档\n\n- [x] ✅(2099-01-01) ${marker}:正文内容\n`
+    // ① 面里有这个名字、blob 里有原文 ⇒ 放行(正当归档)
+    const onFace = archivedCopy(marker, { list: () => [name], read: () => body })
+    // ② 盘上有同名副本但**面里没有**(未 `git add`,或整目录被忽略)⇒ 不构成凭据。
+    //    这一条就是本次修的洞:旧实现 readdirSync(磁盘),本机写一份就能授权删别人的登记行。
+    const untracked = archivedCopy(marker, { list: () => [], read: () => body })
+    // ③ 面里列出了路径、blob 却取不到(unmerged / 已删)⇒ 同样不放行,且不得抛
+    const brokenBlob = archivedCopy(marker, { list: () => [name], read: () => null })
+    // ④ 清单里混着别的文件名(归档目录同时放审计件)⇒ 仍只认 PROJECT_PLAN_*.md,不误读
+    const otherNames = archivedCopy(marker, {
+      list: () => ['hollow-backup-tags-2026-09-24.txt', name],
+      read: (p) => (p === name ? body : marker),
+    })
+    return onFace === name && untracked === null && brokenBlob === null && otherNames === name
+  })
   t('归档目录豁免路径可达(不抛异常即算通)', () => {
     const v = archivedCopy('一个绝对不存在的标记 XYZ')
     return v === null || typeof v === 'string'
@@ -1071,6 +1157,17 @@ function selfTest() {
  * 回捞 + (可选)前向恢复提交。
  * 返回退出码:0 = 无需恢复或已恢复成功;1 = 恢复失败(不动历史,交人工)。
  */
+/**
+ * 回捞行的**出处**(该登记行最后出现在哪一枚提交里)。
+ * 打印它有两个作用:① 人工核验时不必再跑一遍 `git log -S`;② `historyMarkers` 的 `sha` 字段
+ * 由此变成**有消费者**的字段 —— 上一版它只在构造点被引用,批量读迁移时构造点写成未定义标识符,
+ * `--heal` 从此每次抛 ReferenceError,而 post-commit 的 `|| true` 把它吞成静默失效。
+ * 取不到就如实打印「未知来源」,不把「字段没了」伪装成「这行没有出处」。
+ */
+function src7(entry) {
+  return entry.sha ? String(entry.sha).slice(0, 9) : '未知来源'
+}
+
 function heal(commit) {
   // 自愈层只**告警**不拒跑:摘线时它恰恰是唯一还能把行捞回来的东西,拒绝执行等于见死不救
   guardWiring(false)
@@ -1110,14 +1207,14 @@ function heal(commit) {
     console.warn(
       `⚠️  [plan-line-loss] 工作区缺 ${diskMissing.length} 条登记行 → 回插 ${inserted} 条(邻居在)+ ${appended} 条(追加):`,
     )
-    for (const m of diskMissing) console.warn(`     · ${m.marker}`)
+    for (const m of diskMissing) console.warn(`     · ${m.marker}(回捞自 ${src7(m)})`)
     if (healed.out !== disk) writeFileSync(path.join(ROOT, PLAN), healed.out, 'utf8')
   }
   if (headMissing.length) {
     console.warn(
       `⚠️  [plan-line-loss] HEAD 缺 ${headMissing.length} 条登记行(被旁路提交合掉,工作区可能仍留着):`,
     )
-    for (const m of headMissing) console.warn(`     · ${m.marker}`)
+    for (const m of headMissing) console.warn(`     · ${m.marker}(HEAD 侧,回捞自 ${src7(m)})`)
   }
   /**
    * 标题级丢失的**能力边界必须如实说明**:healContent 只逐行回捞,把 `## O42 …` 这一行插回
@@ -1280,7 +1377,8 @@ if (isDirectRun) {
       '\n  💡 这几乎总是"按内存里的旧计划文档整文件提交"造成的覆盖,不是有意删除:\n' +
         '     1) 从原始提交逐字取回:`git log --all -S "<标记>" -- PROJECT_PLAN.md` 找到引入它\n' +
         '        的提交,`git show <sha>:PROJECT_PLAN.md` 取整行,插回原锚点后再提交;\n' +
-        '     2) 确属归档 → 原文必须出现在 .ihui-agent/archive/PROJECT_PLAN_*.md 里(本闸自动放行);\n' +
+        '     2) 确属归档 → 原文必须出现在**已入库**的 .ihui-agent/archive/PROJECT_PLAN_*.md 里(本闸按\n' +
+        '        被审面核对,本机写一份未提交的副本不算凭据;§1 归档流程 + G-183);\n' +
         '     3) 提交计划文档前一律现取 HEAD 版本再插自己的行,别相信自己内存里的那份;\n' +
         '     4) 给**已入库的条目标题改编号**(如 O42 → O45)与本闸要防的"旧基线覆盖"在内容上\n' +
         '        不可区分,同样判红:旧标题必须留在原处(或按 §1 归档),新编号另起一节。\n' +
@@ -1308,6 +1406,8 @@ export const __test__ = {
   stillRegistered,
   lostMarkers,
   dropArchivedLost,
+  archivedCopy,
+  archiveExemptFor,
   headingLosses,
   missingFrom,
   healContent,

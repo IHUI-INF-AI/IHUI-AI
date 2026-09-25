@@ -191,16 +191,18 @@
 
 /* VipPriceSelector 选中态已在组件内用 brand-accent token(border/bg/text),
    原浅色父级覆盖(border-yellow-400/bg-yellow-50/text-yellow-700)已删除 */
-.vip-page .border-border {
+/* 类名刻意不叫 bg-card / border-border / text-foreground / text-muted-foreground:
+   那四个是 Tailwind 档名,同名会让本页在色档 utility 到端后被换色。声明体保持逐字不变。 */
+.vip-page .vip-border {
   border-color: var(--vip-border);
 }
-.vip-page .bg-card {
+.vip-page .vip-surface {
   background: var(--color-card);
 }
-.vip-page .text-foreground {
+.vip-page .vip-text {
   color: var(--vip-text);
 }
-.vip-page .text-muted-foreground {
+.vip-page .vip-text-muted {
   color: var(--vip-text-muted);
 }
 

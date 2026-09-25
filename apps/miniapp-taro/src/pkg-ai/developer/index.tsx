@@ -343,7 +343,7 @@ export default function DeveloperIndex() {
                   mode="aspectFill"
                 />
                 <View className="flex-1 ml-[18rpx] min-w-0">
-                  <Text className="block text-[length:32rpx] text-[var(--color-agent-name)] overflow-hidden text-ellipsis whitespace-nowrap">
+                  <Text className="block text-[length:32rpx] text-[var(--color-agent-name)] overflow-hidden ihui-ellipsis whitespace-nowrap">
                     {agent.agent_name || tt('developer.index.unnamedAgent', '未命名智能体')}
                   </Text>
                   {agent.prologue ? (
