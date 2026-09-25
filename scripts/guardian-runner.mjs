@@ -1106,7 +1106,7 @@ const checks = [
   //   跳过方法(应急): HUSKY_SKIP_MIGRATION_BOOKKEEPING=1 git commit ...
   {
     id: '49',
-    label: '🧾 迁移记账守门(journal ↔ .sql 一一对应 / when 单调唯一)',
+    label: '🧾 迁移记账守门(journal ↔ .sql 一一对应 / when 单调唯一 / B10 登记表空闲性 warn)',
     script: 'check-migration-bookkeeping.mjs',
     args: [],
     mode: 'blocking',
@@ -1310,7 +1310,7 @@ const checks = [
 
   {
     id: '57',
-    label: '🧩 对话流元素覆盖守门(blocking,D51/H13:锚点漂移·契约事件两端不齐·清单条目倒退)',
+    label: '🧩 对话流元素覆盖守门(blocking,D51/H13:①锚点漂移 ②契约事件两端不齐 ③清单条目倒退 ④锚点存续性倒退 ⑤注释式摘线)',
     script: 'check-chat-element-coverage.mjs',
     args: [],
     mode: 'blocking',
