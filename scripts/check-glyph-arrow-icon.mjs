@@ -186,6 +186,11 @@ const AFFORDANCE_TAG_RE =
 const EXEMPT_LINE_RE = /glyph-arrow-exempt:\s*(\S.*)/
 /** GA4 专用人工出口:与 glyph-arrow 分开收集,免得给 GA1 开第二条豁免通道 */
 const BACK_EXEMPT_LINE_RE = /back-label-exempt:\s*(\S.*)/
+/** 盲区探针用的"附近有可点证据"宽松判据:比 GA1/GA4 的祖先遍历更宽(含 onChange / <a> / <Button>),
+ *  因为探针的目的正是抓"栈遍历因形态没走通"的那些格子 —— 与判据同宽就永远抓不到。 */
+const AFFORD_NEARBY_RE =
+  /on(?:Press|Click|Tap|Change|Select)|role\s*=\s*["']button|<(?:Button|Link|Pressable|TouchableOpacity|Touchable\w*|Picker|a|button)\b/i
+
 // 什么不算"原因":注释收尾符与标点(星号、斜杠、花括号、中英标点)一律剥掉后,必须还剩
 // 词字符(含中文)。否则"裸标记 + 注释闭合符"会被读成带了原因 ⇒ 裸标记照样整行免检。
 // 本门头版就是这样:它只 replace 掉 `-exempt:` 尾巴,把标记名 itself 留在了"原因"里,
@@ -487,7 +492,7 @@ export function parseTagAt(text, i, strMask) {
         start: i,
         end: k + 1,
       }
-    } else if (c === '<') return null
+    } else if (c === '<' && depth === 0) return null
     k++
   }
   return null
@@ -825,7 +830,8 @@ export function findOpticalMismatch(entries) {
 // ── 单文件审计(返回结构化条目,不做字符串反解析) ───────────────────────────────────────
 export function auditFile(rel, text) {
   const findings = []
-  const notes = { exempt: 0, backExempt: 0, undetermined: [] }
+  const notes = { exempt: 0, backExempt: 0, undetermined: [], backBlind: [] }
+  const sawBack = new Set()
   const exempt = collectExemptLines(text)
   const backExempt = collectExemptLines(text, BACK_EXEMPT_LINE_RE)
   if (TSX_RE.test(rel)) {
@@ -843,6 +849,7 @@ export function auditFile(rel, text) {
       })
     }
     for (const h of findBackLabelChildren(code, strMask)) {
+      sawBack.add(h.line)
       // 人工出口认三个位置:命中行、供可点证据那个元素的**起始行**、及其紧邻上行。
       // "只认命中行或其紧邻上行"的初版实测让四处豁免**全部落空** —— 人标的是那个可点块,
       // 命中却在块内最里层的文字行上(相差 2~10 行);按初版口径这四处会恒红,
@@ -866,6 +873,7 @@ export function auditFile(rel, text) {
     }
     // GA5 B 型:同一行"独立字形 + 返回类调用"分居两个子节点 —— 整格判据对多子元素的元素根本不入选,三条全盲
     for (const g of findGlyphPlusCallLines(text)) {
+      sawBack.add(g.line)
       if (backExempt.has(g.line) || exempt.has(g.line)) {
         notes.backExempt++
         continue
@@ -877,6 +885,42 @@ export function auditFile(rel, text) {
         msg: `字形「${g.glyph}」与「返回」文案同一行并写(分居两个子节点)—— GA1/GA4 都只判整格唯一子内容,这一型三条都不纳;要么只用矢量图标,要么只用文案标签`,
       })
     }
+  }
+  // ── 盲区探针(2026-09-26 立)───────────────────────────────────────────────────────────
+  // GA4/GA5 走 JSX 栈遍历,而遍历会被表达式里的 `<=`(标签提前闭合)、`onChange` 型交互、
+  // 大写键名(`fullscreenBack`)、祖先不在事件表等形态**静默跳过** —— 症状是"门报 0,而这一格真的在那"。
+  // 这里用一条刻意宽松的**渲染位**正则(只认 `>` 之后紧跟返回类调用;`label=`/`aria` 属性位不算)
+  // 数一遍,凡是它命中、而遍历一个都没咨询过的行,就是判据失明嫌疑:**点名报数,不静默成 0**。
+  // 刻意不判红(它同时会抓到合法的内容文案,判红即恒红门),但每次全量都喊出来,漏不掉了。
+  if (TSX_RE.test(rel)) {
+    const loose = /\{\s*(?:[\w$]+\.)?(?:tt?|i18nT)\s*\(\s*['"][^'"]*\bback\d*['"]/g
+    const codeOnly = stripCommentsKeepStrings(text).code
+    const lines = codeOnly.split('\n')
+    lines.forEach((ln, idx) => {
+      const line = idx + 1
+      if (!ln.includes('{')) return
+      const m = new RegExp(loose.source, 'g')
+      let mm2
+      while ((mm2 = m.exec(ln))) {
+        const before = ln.slice(0, mm2.index)
+        const isRenderPos = /[>]\s*$/.test(before) || before.trim() === ''
+        const isProp = /=\s*$/.test(before) && !/[>]\s*$/.test(before)
+        if (!isRenderPos || isProp || sawBack.has(line)) continue
+        // 只有"这个表达式就是该元素的唯一子内容"时才算盲区 —— 多子元素(图标 + 文案的带标签按钮)
+        // 是 GA4 设计上不纳的形态,把它报成盲区只会造噪音。
+        const prevIdx = line - 2
+        const prev = prevIdx >= 0 ? lines[prevIdx].trim() : ''
+        let ni = line
+        while (ni < lines.length && !lines[ni].trim()) ni++
+        const next = ni < lines.length ? lines[ni].trim() : ''
+        // 前一行必须是**开标签**的收尾(排除 `/>` 自闭合与 `=>` 箭头),后一行是闭合标签 ⇒ 该表达式是唯一子内容
+        const opensTag = />$/.test(prev) && !/\/>$/.test(prev) && !/=>$/.test(prev)
+        const soleChild = opensTag && /^<\//.test(next)
+        if (!soleChild) continue
+        const back = lines.slice(Math.max(0, line - 13), line - 1).join('\n')
+        if (AFFORD_NEARBY_RE.test(back)) notes.backBlind.push({ file: rel, line })
+      }
+    })
   }
   const mm = findOpticalMismatch(collectFontSizes(stripCommentsAndStrings(text)))
   for (const v of mm.violations) {
@@ -994,6 +1038,7 @@ export function scan(readFile, files, opts = {}) {
     backExempt: 0,
     undetermined: [],
     chromeUndetermined: [],
+    backBlind: [],
     wiringSkipped: !opts.checkWiring,
   }
   for (const rel of files) {
@@ -1015,6 +1060,7 @@ export function scan(readFile, files, opts = {}) {
     const { findings, notes: fn } = auditFile(rel, text)
     notes.exempt += fn.exempt
     notes.backExempt += fn.backExempt
+    for (const b of fn.backBlind) notes.backBlind.push(b)
     for (const u of fn.undetermined) notes.undetermined.push(`${rel}: ${u}`)
     for (const f of findings) v[f.rule.toLowerCase()].push(f)
   }
@@ -1168,6 +1214,13 @@ function report(res, meta) {
   if (notes.backExempt) lines.push(`  行内豁免 back-label-exempt 放过:${notes.backExempt} 处`)
   if (notes.undetermined.length)
     lines.push(`  GA2 单位不一致、判不出:${notes.undetermined.length} 对(不判红,如实计数)`)
+  if (notes.backBlind.length)
+    lines.push(
+      `  ⚠️ GA4/GA5 遍历盲区:${notes.backBlind.length} 处渲染位「返回」被宽松正则看到、而栈遍历一个都没咨询过(= 本门对这些格子**没有判据覆盖**,不是"通过"):`,
+    )
+    for (const b of notes.backBlind.slice(0, 12))
+      lines.push(`      · ${b.file}:${b.line}`)
+    if (notes.backBlind.length > 12) lines.push(`      …另有 ${notes.backBlind.length - 12} 处`)
   if (notes.chromeUndetermined.length)
     lines.push(
       `  ⚠️ GA6 导航栏形态未判定:${notes.chromeUndetermined.length} 个页面(页面 config 与 app.config 都取不到 ⇒ 这一型本轮没看守,不是通过):${notes.chromeUndetermined.map((h) => h.file).slice(0, 6).join(', ')}`,
@@ -1408,6 +1461,7 @@ function selfTest() {
       n5: violations.ga5.length,
       n6: violations.ga6.length,
       ncu: notes.chromeUndetermined.length,
+      blind: notes.backBlind.length,
       n0: violations.s0.length,
     }
   }
@@ -1428,6 +1482,27 @@ function selfTest() {
   )
   // 扩展名对账:同一条内容换扩展名,结论必须不变。全仓 .jsx 存量实测为 0,所以"不扩"今天不出事 ——
   // 但"今天没有受害者"从来不是"判据覆盖了"的证据(本门立项就是因为左向 ‹ 不在字符集里)。
+  t(
+    '属性表达式里的 `<=` 不得让标签解析提前放弃(parseTagAt 的 `<` 只在深度 0 才拒)',
+    // 同一条内容,只把 style 数组里的 `<=` 换成 `===` ⇒ 结论必须一致;
+    // 旧实现(`c === "<"` 无条件 return null)会让带 `<=` 那一支整个文件的遍历静默失配。
+    only({
+      'packages/app/src/features/probe/A.tsx':
+        'export const P = ({ page, go }) => (\n  <Pressable onPress={go}>\n    <Text style={[a, page <= 1 && b]}>\n      {t(\'common.back\')}\n    </Text>\n  </Pressable>\n)\n',
+    }).n4 +
+      only({
+        'packages/app/src/features/probe/A.tsx':
+          'export const P = ({ page, go }) => (\n  <Pressable onPress={go}>\n    <Text style={[a, page === 1 && b]}>\n      {t(\'common.back\')}\n    </Text>\n  </Pressable>\n)\n',
+      }).n4 ===
+      2,
+  )
+  t(
+    '盲区探针不得虚报:walker 正常咨询到的整格 ⇒ backBlind 必须为 0(虚报会让真盲区没人看)',
+    only({
+      'packages/app/src/features/probe/B.tsx':
+        'export const P = ({ go }) => (\n  <Pressable onPress={go}>\n    <Text>\n      {t(\'common.back\')}\n    </Text>\n  </Pressable>\n)\n',
+    }).blind === 0,
+  )
   t(
     '扩展名对账:同一违规在 .jsx 上必须与 .tsx 同判(TSX_RE/SRC_RE 若退回只认 .tsx,本条即红)',
     only({ 'packages/app/x.jsx': CONTROL_TSX }).n1 === 1 &&

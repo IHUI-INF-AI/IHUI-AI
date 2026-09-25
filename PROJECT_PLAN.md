@@ -10477,3 +10477,48 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 - **三条被实测推翻的代理主张(登记为取证纪律,不是追责)**:① "deploy-lock 坏 JSON 会直接删锁" —— 对 `acquire` 不成立(它死等 600s 并把"会自动抢占"写进超时文案,那句是谎),**但对 `release` 成立**(两个 `meta &&` 守卫短路后落到 `removeLock`,一次 release 就能删掉别人正在用的锁)——同一条断言的两个半边结论相反,只测一半就会把修好的那半当成已修;② "我方 api 是宽生存异常策略" —— `apps/api/src/index.ts:278` 实为 `process.exit(1)`,比上游更严;③ "重放缓冲可能是死代码" —— 我据 import 面初判 `getEventsAfter` 无消费者,实测经 `sse-state-store.ts`/`sse-stream-registry.ts` 两跳委托在用,**判"未接线"必须数调用面而不是数实现文件名的直接 import**。
 - **未闭环与归属(每条带解阻判据,勿当已完成)**:① hub 的 `POST /orchestration/events/emit` 对外 `code` 位仍为 0(degraded 只在 `get_status`/dashboard 可见),收这一格要动 `app/routers/orchestration.py`,属下一票;② 6 条 pillar 端点"补实现 vs 删声明"仍待定性 —— 补=新能力(须先定产品边界),删=§7 删除安全(须先证有等价实现),二者都不该由吸收线顺手做;③ `packages/shared` 里 `ssrf-guard.ts` 的 `node:dns` 依赖**源码处置**未做(纯度门判据先立、当前不可达所以天然 0 红),正解是把 DNS 解析改成平台 adapter 注入;④ checkpoint 归位的"响应 meta 报归位几行+原因"未做(载体 `routers/agents.py`/`agent_loop_v2.py` 在票面禁改清单内,约 10 行);⑤ `apps/ai-service/tests/test_agent_checkpoint.py` **收集期就失败**(`tool_input_scanner.py:32` 从 `app.services.sandbox` 取不存在的 `_DANGEROUS_PATTERNS`)⇒ 那 15+ 条核心用例零执行信号,归沙箱线持有人,门 114 现测为 warn;⑥ deploy-lock 的 ownerToken 收口需同时改 `build-next-prod.ps1` 与 `apps/web/package.json`,未授权未做;⑦ A9E-4(`isDirectRun` 朴素比较经 junction 必 false ⇒ main 静默不跑)已实测机制真实(夹具 A/B:link 路径 `naive:false`、real 路径 `true`),但本仓当前无任何钩子路径穿重解析点,判"不可达"故不动那 101 处,只立规矩:**新增 CLI 型脚本一律 realpath 两侧再比**;⑧ 上一批遗留真债:散写取材面的门现测 `face 30 / loose 72 / halfWired 1`(门 118 现读),迁移仍按"谁碰那道门谁收口"的棘轮推进,不批量代改。
 - [x] ✅(2026-09-25) **G-192 递归那一格做完了,并且把看守扩到了归档层自身(A3)**:G-191 留的尾巴是"`2026-09-12` 那份元归档里嵌着 218 条更早的占位"。实测这些占位共点名 **13 个**文件,分三类处置:① **4 个真存在过** —— 它们躺在 `.trae-cn/archive/` 下,`b129e09482` 那次搬到 `.ihui-agent/archive/` 时漏带;按 `git cat-file blob 39f8feb19^:.trae-cn/archive/<名>` **原字节**落盘,判据两把:注入水印**之前** `git hash-object` 必须与出处 blob **同 SHA**(4ebaf61b1 / 30354a449 / 5c0181d20 / 6460f2499 全部同值,证明一个字节没动),注入水印**之后**正文必须仍逐行全等 —— 合计 **2,210 行 / 170,608 B**。② **8 个从未作为文件存在过**:`git log --all -- <任意前缀>/<名>` 对 8 个名字**全部 0 命中**(含 `.trae-cn/` 那一族),即占位被写过、文件没被写过 ⇒ 结构上找不回,进台账只报数,不伪造。③ 1 个(07-26)G-191 已入库。**为什么必须有第二把尺子**:找回脚本自己写的是"剥水印→逐行全等",它剥窄或剥宽都会让自己的断言跟着错(§22c 那条"镜像测试只复读实现就是复读机"的同一型),所以独立复核换成一条完全异形的判据 —— **"blob 的每一行必须在落地文件里同序、连续、逐字出现"**,水印横幅与尾部不可见行天然落在窗口之外,不需要任何识别逻辑;4/4 通过。过程中真抓到一次不等(`_v4` 行数相同却差一行),定位是**出处带 UTF-8 BOM 而 `watermark.mjs inject` 重写时会去掉** —— 这不是内容问题(字节同值由尺子①在注入前已证),所以容差只开在 BOM 这一处,并写进文件里的出处注释,不让它读成"逐字节永远同值"。④ **判据面同步扩了一格**:守门 13c 新增 **A3** —— 归档件**内部**的占位同样点名,过去 A2 只扫计划文档,元归档那一层无人看守(这 218 条就是证据)。A3 与 A2 共用同一套三段规矩(缺 ⇒ 红 / 已登记 ⇒ 只报数 / 已入库仍挂台账 ⇒ 判清单腐烂),标签不串门,同一名字被 A2 与 A3 同时点到只计一次;取材面与被审面**同一个**(索引或 HEAD),单份 blob 取不到 ⇒ 跳过并在结论行喊"那一层未判定"。取证:自检 12→**17** 条(新增 A3 五例,含"标签必须是 A3"与"腐烂与缺失不能互相吞"两条集合论对照)+ 镜像测试 18→**20** 例(A3 端到端 + 反向对照"点名已入库的对象不该红",后者防的是把整层一律判红那种恒红门)。台账 4→12 项(**全部只报数**,所以升 A3 不产生新恒红面),`--staged` 现测 exit 0。
+
+### 第五十波·续末③ —— 三路并行审计推翻了我上一轮的两句结论;把"散文式后续"换成机器可见的欠账清单(2026-09-26)
+
+- [x] ✅(2026-09-26) **先销自己的错**(上一格"续末②"里我写的两个数都是错的,现按实测更正):
+  - "49 处文字返回按钮逐条带豁免" ⇒ 现读 **47 处**(45 处标记在合法落点 + 2 处见下"判据失明")。多出的 2 条是
+    `packages/app/components/BackChevron.tsx:37`(JSDoc 里**逐字引用**了那段 JSX)与
+    `apps/miniapp-taro/components/BackChevron.tsx:55`(`ariaLabel=` 驼峰属性不被 `aria-`/`label=` 滤网命中)。
+  - "`‹` 字符在 HEAD 还剩 10 处" ⇒ 现读 **2 行**(`apps/miniapp-taro/components/BackChevron.tsx:16` 注释、
+    `pkg-learn/live/calendar.tsx:162`);第 3 处只在**被污染的工作树** `apps/mobile-rn/components/NavBar.tsx:99`,未入库。
+  - 教训同 §26/§5b:**否定结论必须带阳性对照**,而"我数出来的数"若只抽查 3 条就写成全量结论,它就是散文不是读数。
+- [x] ✅(2026-09-26) **门 102 补两处真缺陷 + 一把"自报失明"的探针**:
+  - **解析缺陷**:`parseTagAt` 原来 `c === '<'` 无条件 `return null`,于是 `<Text style={[a, page <= 1 && b]}>`
+    这种**属性表达式里带比较符**的开标签会被整体放弃 —— 不只是那一格判不到,该处之后**整个文件的遍历栈失配**。
+    现改为只在深度 0 才拒(`else if (c === '<' && depth === 0)`)。取证:自检新增一条锁,把修复退回旧写法 ⇒
+    **84/85 且红的正是这一条**;`packages/app/features/course-tab/CourseTabScreen.tsx` 的 `backExempt` 由 0 翻成 1
+    (此前它是"标记写了但门根本没咨询过这一格")。
+  - **盲区探针 `backBlind`**(本门第一次能喊出"我可能没看见"):用一条刻意宽松的**渲染位**正则数「返回」类调用,
+    凡是它命中、而栈遍历一个都没咨询过、且该行确为元素唯一子内容、且上方 12 行内有可点证据 ⇒ **点名报数,不静默成 GA4=0**。
+    口径演进值得留:第一版虚报 49 处(`[^'"]*[bB]ack` 把 `setting.feedback` 也算进去了 —— 少个 `\b`),
+    第二版 32 处(把"图标 + 文案"的多子元素带标签按钮当盲区,而那是 GA4 设计上不纳的形态),
+    收紧"前一行必须是开标签收尾(排除 `/>` 与 `=>)"后 ⇒ **现读 1 处**:
+    `packages/app/src/features/course-screen/CourseScreen.tsx:113`(跨行自闭合标签 `/>` 让遍历栈错乱,
+    实测截到 130 行能识别、加上 131 行的 `/>` 反而识别不到)。**这一处仍是已知盲区**,修它要动 walker 的
+    自闭合处理,不是一行判据;探针的意义是它从"静默"变成"点名"。
+- [ ] **机器可见的欠账清单(三路并行审计的产出;每条都带 file:line 与"为什么现在没人看守")**:
+  - **A. 第二/三份自绘返回键(6 + 3 处,跨两端)** —— 形态合法(矢量 ChevronLeft + 方块),但每文件一套几何与色档,
+    而 S0 只登记 `packages/app/components/BackChevron.tsx` 与小程序同名件,**对未登记件零覆盖**:
+    `packages/app/components/NavBar.tsx:134`(`color={tk.brand.DEFAULT}` —— 与 BackChevron 的 `text.medium` 不同档)、
+    `chat-room/ChatRoomScreen.tsx:322`、`lecturer-detail:291`、`lecturer-list:197`、`publish:311`、`self-media:318`;
+    `apps/mobile-rn/components/NavBar.tsx:119`(且 `accessibilityLabel="返回"` 是**硬编码中文**,不走 i18n)、
+    `apps/mobile-rn/screens/AboutScreen.tsx:61`。前 6 个文件工作树干净、已派单收编;后 2 个被并发会话持有。
+  - **B. web 端 16 处 `router.back()/history.back()` 落在 `apps/web/app/**`,而守门 46 的 `TARGET_DIR` 写死 `apps/web/src`**
+    ⇒ 该门对 web 真实页头返回键**当前拦零**(实测 `✅ 通过(1259 个文件,0 处私接)`)。9 个文件:
+    `admin/theme/create`、`admin/unauthorized`、`asks/[id]`、`circles/[id]`、`download/[platform]`、
+    `learn/buyconfirm`、`orders/[id]`、`login/PageClient`、`not-found.tsx`。扩面必须同时给**按文件 HEAD 棘轮**
+    (否则 16 处当场判红 = 恒红门 = 逼人绕钩子),故单列一票做,不顺手改。
+  - **C. GA1/GA5 的 9 处形态盲区**(逐条以最小变异实测,非推断):`Picker onChange` 不在事件/标签表
+    (`pkg-learn/study/publish/index.tsx:116/132`);`tt(key,'‹')` 把字形当**兜底实参**,GA1 两型正则不解析调用实参
+    (`pkg-learn/live/calendar.tsx:162/171`);文案+尾随字形(`CircleDetailScreen:114`、`FeedbackScreen:101`、
+    `circle/create:306`、`docs/manual/_manual-nav:26`);GA5 的 `\bback\d*` 只认小写,漏 `fullscreenBack`
+    (`pkg-ai/ai-chat-detail/index.tsx:402`);原生 `<a href>` 不在标签白名单(`docs/manual/page.tsx:170`)。
+    **为什么不当场扩判据**:每扩一条就立刻产出对应红点,而其中 4 条要先改源码;在无棘轮的前提下当场扩面
+    = 造一台恒红门(§12e 同型)。顺序:先按 A/B 收源码,再逐条扩判据,每条扩面同笔带自检正反例。
+  - **D. `glyph-arrow-exempt` 全仓 HEAD 0 处使用**(通道在、无人用)——不是缺陷,但说明 GA1/GA2 的合法例外
+    实际都走了 `back-label-exempt`;若哪天有人给 GA1 加豁免,先看这条通道为什么空着。
