@@ -64,6 +64,9 @@ import { BestOfCompare } from '@/components/ai/best-of-compare'
 import { plainTextForClipboard } from '@/components/ai/progress-sections/message-context-menu'
 import { MessageFileChips } from '@/components/chat/message-list/file-chips'
 import { TurnChangesCard } from '@/components/chat/message-list/turn-changes-card'
+// D64 ⑤(2026-09-26 挂载):反馈问卷卡 —— 2026-09-24 立卡后一直零消费点,本票接线
+import { FeedbackSurveyCard } from '@/components/chat/feedback-survey-card'
+import type { FeedbackSurveyPayload } from '@ihui/shared/chat/element-pack'
 // P3 #39(2026-09-16 立):执行轨迹回放(toolCalls 时序重演)
 import { TraceReplay } from '@/components/ai/trace-replay'
 import { useChatStore } from '@/stores/chat'
@@ -101,6 +104,14 @@ const FILE_MODIFY_TOOLS = new Set([
   'create_file',
   'delete_file',
 ])
+
+// D64 ⑤:点踩触发的问卷是用户显式动作,免打扰三反例(已答/已问过/失败轮次)恒不成立;
+// 失败消息在渲染位另行拦截(m.error 不挂卡),不在此造第二套判定。
+const SURVEY_ASKABLE_CONTEXT = {
+  alreadyAnswered: false,
+  alreadyAskedInSession: false,
+  turnFailed: false,
+} as const
 
 interface MessageItemProps {
   message: ChatMessage
@@ -195,6 +206,17 @@ const MessageItem = React.memo(function MessageItem({
   const steerNotices = useChatStore(
     React.useCallback((s) => s.steerNoticesByMessageId[m.id] ?? null, [m.id]),
   )
+  // D64 ⑤(2026-09-26 接线):右键点踩(use-message-list-context-menu)派发的展开事件。
+  // 票已在点踩瞬间落库(D49① 语义不变),问卷只是点踩的结构化细化,故只监听不重放。
+  const [surveyOpen, setSurveyOpen] = React.useState(false)
+  React.useEffect(() => {
+    const onOpen = (e: Event) => {
+      const detail = (e as CustomEvent<{ messageId: string }>).detail
+      if (detail?.messageId === m.id) setSurveyOpen(true)
+    }
+    window.addEventListener('ihui:feedback-survey-open', onOpen)
+    return () => window.removeEventListener('ihui:feedback-survey-open', onOpen)
+  }, [m.id])
   // D60(2026-09-23 渲染位):persist 失败保存的草稿(store 层早已落,此前无组件消费)。
   // 叶子选择器订阅 string|null,值比较天然防无关变更重渲染;仅失败卡消费,
   // 文案经 resolvePersistTexts 与 toast 同源(TRANSITIONAL 英文口径,零新键)。
@@ -650,6 +672,33 @@ const MessageItem = React.memo(function MessageItem({
       toast.info(retryLabel)
     },
     [m.id, t],
+  )
+
+  // D64 ⑤(2026-09-26 接线):问卷提交 → 扩展载荷落库(fetchApi 直连:
+  // api-client 的 rateChatMessage 签名仅两参,packages/api-client 本票不可动)。
+  // 三选答复折算票型:'solved' = 用户实际被解决 ⇒ upsert 改票 like(误点纠正);
+  // 'partial'/'notSolved' 维持点踩原票;comment 非空才携带。端点另收 reason(五类原因),
+  // 问卷卡为「三选」结构不产 reason —— 该字段留给 API 调用方与后续 UI 迭代。
+  const handleSurveySubmit = React.useCallback(
+    async (payload: FeedbackSurveyPayload) => {
+      const rating: 'like' | 'dislike' = payload.answer === 'solved' ? 'like' : 'dislike'
+      try {
+        const res = await fetchApi<{ rated: boolean }>('/api/chat/messages/feedback', {
+          method: 'POST',
+          body: JSON.stringify({
+            messageId: payload.messageId,
+            rating,
+            ...(payload.comment ? { comment: payload.comment } : {}),
+          }),
+        })
+        if (!res.success) throw new Error(res.error || '反馈提交失败')
+      } catch (err) {
+        toast.error(t('toast.feedbackFailed'), {
+          description: err instanceof Error ? err.message : String(err),
+        })
+      }
+    },
+    [t],
   )
 
   // Phase 19(2026-07-28 立):反向联动 — hover 消息时同步高亮 plan step,
@@ -1411,6 +1460,18 @@ const MessageItem = React.memo(function MessageItem({
         >
           <UsageBreakdown usage={m.meta?.usage} model={m.model} />
         </div>
+      )}
+
+      {/* D64 ⑤(2026-09-26 挂载):反馈问卷卡 —— 点踩后展开,挂在消息反馈位(操作区之下)。
+          仅 assistant 非失败消息;判定层 shouldShowSurvey 兜底,本处不重复实现免打扰。 */}
+      {!isUser && !m.error && surveyOpen && (
+        <FeedbackSurveyCard
+          messageId={m.id}
+          context={SURVEY_ASKABLE_CONTEXT}
+          onSubmit={(p) => void handleSurveySubmit(p)}
+          className="mt-1 w-full"
+          data-testid={`feedback-survey-${m.id}`}
+        />
       )}
 
       {/* D22(2026-09-19 立):圈选 AI 回复入上下文 — 选中本消息文本后在尾部浮现
