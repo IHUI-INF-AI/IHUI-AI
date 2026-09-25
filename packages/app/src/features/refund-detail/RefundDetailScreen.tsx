@@ -42,7 +42,7 @@ export function RefundDetailScreen({
     return (
       <View style={styles.center}>
         <Text style={styles.error}>{error || t('refundDetail.empty')}</Text>
-        {/* back-label-exempt: 错误态/空态卡片内的按钮文案,或翻页/弹窗关闭动作 —— 此处「返回」是按钮文字而非页头箭头,换裸箭头反而不表意 */}
+        {/* back-label-exempt: 错误态/空态卡片内的按钮文案,或翻页/弹窗关闭动作 —— 此处「返回」是按钮文字而非页头箭头,换裸箭头反而不表意 until 2027-09-25 */}
         <TouchableOpacity
           style={styles.backBtn}
           onPress={onBack}
