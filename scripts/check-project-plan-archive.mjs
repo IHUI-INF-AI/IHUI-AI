@@ -35,7 +35,11 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 
-/** ROOT 由脚本自身位置推导(§15);旧写法 `process.cwd()` 让门在任意目录下换基准。 */
+/**
+ * ROOT 由脚本自身位置推导(§15);旧写法 `process.cwd()` 让门在任意目录下换基准。
+ * ⚠️ 因此镜像测试**不能**靠 `cwd` 把门指到临时夹具(守门 70 同型:13 例里 11 例在扫真仓)。
+ * 夹具用 `--root <dir>` 这条显式测试通道(生产一律不带,语义不变)。
+ */
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const FILE = 'PROJECT_PLAN.md'
 const ARCHIVE_DIR = '.ihui-agent/archive'
@@ -107,10 +111,15 @@ export function planPair(root, face) {
   return { oldContent, newContent, note }
 }
 
-function main(face) {
-  if (!existsSync(path.join(ROOT, FILE)) && face === 'worktree') {
+/**
+ * 返回退出码,而不是在函数体内 `process.exit()`:管道(spawnSync / 钩子)下 stdout/stderr 是
+ * **异步**写,exit 会把还没 flush 的消息截掉 —— 实测本门的红在镜像测试里输出**整块为空**。
+ * 一道"不知道自己拦了什么"的 blocking 门比没有门更危险。
+ */
+function main(face, root = ROOT) {
+  if (!existsSync(path.join(root, FILE)) && face === 'worktree') {
     console.log(`${C.dim}⏭  PROJECT_PLAN.md 不存在,跳过归档守门${C.reset}`)
-    process.exit(0)
+    return 0
   }
 
   let oldContent = ''
@@ -118,7 +127,7 @@ function main(face) {
   let note = ''
 
   // 「上一版 / 本版」一律经取材层取,两面对同一轮不混读磁盘(见 planPair 的口径说明)。
-  const pair = planPair(ROOT, face)
+  const pair = planPair(root, face)
   oldContent = pair.oldContent
   newContent = pair.newContent
   note = pair.note
@@ -126,12 +135,12 @@ function main(face) {
   // 整面取不到(非 git 环境 / git 不可用)⇒ **无法判定**,既不冒红也不记绿(与守门 94/101 同口径)。
   if (oldContent === null && newContent === null) {
     console.error(`❌ 无法判定:${note || '两个面都取不到 PROJECT_PLAN.md'}`)
-    process.exit(2)
+    return 2
   }
   // 本版取不到 ⇒ 本次没有可审的内容(未跟踪该文件 / 非 git 环境),如实跳过而非冒绿。
   if (newContent === null) {
     console.log(`${C.dim}⏭  PROJECT_PLAN.md 本版取不到,跳过归档守门:${note || '未判定'}${C.reset}`)
-    process.exit(0)
+    return 0
   }
 
   /**
@@ -140,18 +149,18 @@ function main(face) {
    * 免得盘上随后改对就算合规(旧写法用 `git diff` 文本,工作树一脏就跟着变)。
    */
   const del = deletionVerdict(oldContent, newContent)
-  const anchors = anchorVerdict(readAnchorInputs(ROOT, face))
+  const anchors = anchorVerdict(readAnchorInputs(root, face))
 
-  if (del.deletedHeadings.length === 0 && anchors.red.length === 0) {
+  if (del.compliant && anchors.red.length === 0) {
     console.log(
       `${C.green}✅ PROJECT_PLAN.md 归档守门通过${C.reset} ${C.dim}(无已完成任务条目被删除;归档锚点齐备${anchors.baseline.length ? `;另有 ${anchors.baseline.length} 项已登记的缺失存量只报数` : ''})${C.reset}`,
     )
     for (const b of anchors.baseline)
       console.log(`${C.dim}   报数(已登记缺失):${b}${C.reset}`)
-    process.exit(0)
+    return 0
   }
 
-  if (del.deletedHeadings.length > 0 && !del.addedPlaceholders) {
+  if (!del.compliant) {
     // 阻塞:有已完成任务条目被删除,但无归档占位注释
     console.error(
       `${C.red}❌ PROJECT_PLAN.md 归档守门失败${C.reset} ${C.bold}— 检测到已完成任务条目被直接删除${C.reset}`,
@@ -205,8 +214,7 @@ function main(face) {
     console.error('')
   }
 
-  if (del.deletedHeadings.length === 0 && anchors.red.length === 0) process.exit(0)
-  process.exit(1)
+  return del.compliant && anchors.red.length === 0 ? 0 : 1
 }
 
 /**
@@ -231,14 +239,18 @@ function placeholderLines(content) {
 /**
  * 已登记的"归档锚点缺失"存量。每修好一项就必须从这里删一行 —— 留着会被判"清单腐烂"红,
  * 反过来删了却还没修也会红(见 anchorVerdict 两侧的对照)。它不是豁免清单,是待偿台账。
+ *
+ * 2026-09-25 G-191:原 8 项中 4 项已按**逐字证据**从计划文档历史版本找回并入库
+ * (判据 = 该正文逐字存在于所引提交的父版本;每条保留 `recovered from <sha>` 出处注释),
+ * 故按本台账自己的规矩删那 4 行(文件已回到审面却仍挂着 = 清单腐烂红)。
+ * 另 2 条(`2026-07-26` 组内 L3774/L3778)确认**找不回**:它们的占位是在 `3a5b737bf8` 里凭空
+ * 新增的纯 `+` 行,按裸标题 `git log -S` 证明条目从未存在过 ⇒ 从别处"补"就是编造,不当干。
+ * 剩余 4 项继续只报数;其中 `2026-09-12` 那份重建里含一个 486 行元归档块,内部又嵌 218 条
+ * 更早的占位 ⇒ 递归找回是下一格,没做完不得把这一项读成"已彻底清账"。
  */
 export const LOST_ANCHOR_LEDGER = [
   'PROJECT_PLAN_2026-07-20_pre-permission-runtime.md',
   'PROJECT_PLAN_2026-07-20_publish-task-archive.md',
-  'PROJECT_PLAN_2026-07-26_auto-archive.md',
-  'PROJECT_PLAN_2026-08-03_auto-archive.md',
-  'PROJECT_PLAN_2026-08-15_auto-archive.md',
-  'PROJECT_PLAN_2026-09-12_archive.md',
   'PROJECT_PLAN_2026-09-23_bulk-archive.md',
   'PROJECT_PLAN_archive_2026-08-20.md',
 ]
@@ -257,9 +269,13 @@ export function anchorVerdict({ diskAnchors, faceFiles, planText, ledger = LOST_
   const red = []
   const baseline = []
   const onFace = new Set(faceFiles)
+  const diskOnly = new Set()
   for (const f of diskAnchors) {
     if (!ANCHOR_RE.test(f)) continue
-    if (!onFace.has(f)) red.push(`A1 归档锚点只在本机、未进版本控制:.ihui-agent/archive/${f}`)
+    if (!onFace.has(f)) {
+      red.push(`A1 归档锚点只在本机、未进版本控制:.ihui-agent/archive/${f}`)
+      diskOnly.add(f)
+    }
   }
   const named = new Set(
     [...String(planText || '').matchAll(/\.ihui-agent[\\/]archive[\\/]([A-Za-z0-9._\-]+\.md)/g)].map((m) => m[1]),
@@ -269,6 +285,7 @@ export function anchorVerdict({ diskAnchors, faceFiles, planText, ledger = LOST_
       if (ledger.includes(f)) red.push(`A2 台账腐烂:${f} 已回到审面,仍挂在 LOST_ANCHOR_LEDGER 里`)
       continue
     }
+    if (diskOnly.has(f)) continue // 同一个文件已被 A1 点名 ⇒ 不重复计(A1 是更强的那句:内容在盘上、只是没入库)
     if (ledger.includes(f)) {
       baseline.push(`A2 占位点名的归档文件不在审面:${f}(已登记存量,只报数)`)
       continue
@@ -381,6 +398,27 @@ export function selfTest() {
     })
     return r.red.length === 0 && r.baseline.length === 0
   })
+  t('A1 与 A2 不得把同一个文件数成两处落空(盘上未入库又被占位点名)', () => {
+    const f = 'PROJECT_PLAN_2099-01-02_auto-archive.md'
+    const r = anchorVerdict({
+      diskAnchors: [f],
+      faceFiles: [],
+      planText: `<!-- 已归档(2099-01-02):A,完整内容在 .ihui-agent/archive/${f} -->`,
+      ledger: [],
+    })
+    return r.red.length === 1 && r.red[0].startsWith('A1')
+  })
+  t('A0 合规判据由 length 决定,不是由数组真值决定(空数组是**真值**)', () => {
+    const v = deletionVerdict('### X(已完成 ✅)\n', '# plan\n')
+    return (
+      v.deletedHeadings.length === 1 &&
+      v.addedPlaceholders.length === 0 &&
+      v.compliant === false &&
+      // 陷阱本体:`!v.addedPlaceholders` 恒为 false ⇒ 判"不合规"却一个字都不打印。
+      // main() 曾就是这么写的,镜像测试端到端才暴露(见本文件尾部的说明)。
+      Boolean(v.addedPlaceholders) === true
+    )
+  })
   t('CRLF 与 LF 的同一条标题不得被读成"删除"(旧写法在此整批误报)', () => {
     const h = '### X(已完成 ✅ 2026-07-01)'
     return deletionVerdict(`${h}\r\n`, `${h}\n`).deletedHeadings.length === 0
@@ -397,13 +435,34 @@ const isDirectRun =
 
 if (isDirectRun) {
   const argv = process.argv.slice(2)
-  if (argv.includes('--self-test')) process.exit(selfTest())
-  const { face, error } = selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree'), def: 'head' })
-  if (error) {
-    console.error(`❌ 无法判定: ${error}`)
-    process.exit(2)
+  // 一律 process.exitCode 而非 process.exit() —— 见 main() 上方关于管道 flush 的说明。
+  if (argv.includes('--self-test')) {
+    process.exitCode = selfTest()
+  } else {
+    /**
+     * `--root <dir>` = 显式**测试/人工夹具**通道(守门 70 同型:脚本按自身位置定 ROOT 之后,
+     * `cwd` 就不再能把门指到别处;靠 cwd 的旧镜像测试因此全数在扫真仓而不自知)。
+     * 生产调用一律不带本旗,语义与不带时逐字相同。目录缺失 ⇒ exit 2,不冒红也不冒绿。
+     */
+    const ri = argv.indexOf('--root')
+    const argRoot = ri === -1 ? null : argv[ri + 1]
+    if (ri !== -1 && (!argRoot || argRoot.startsWith('--') || !existsSync(argRoot))) {
+      console.error(`❌ 无法判定:--root 需要一个存在的目录(实得 ${JSON.stringify(argRoot ?? null)})`)
+      process.exitCode = 2
+    } else {
+      const { face, error } = selectFace({
+        staged: argv.includes('--staged'),
+        worktree: argv.includes('--worktree'),
+        def: 'head',
+      })
+      if (error) {
+        console.error(`❌ 无法判定: ${error}`)
+        process.exitCode = 2
+      } else {
+        process.exitCode = main(face, argRoot ? path.resolve(argRoot) : ROOT)
+      }
+    }
   }
-  main(face)
 }
 
 /** §22c:镜像测试一律 import,不得复制判据 */
