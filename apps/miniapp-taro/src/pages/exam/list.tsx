@@ -72,28 +72,28 @@ export default function ExamList() {
         onClick={() => goDetail(e.id)}
       >
         <View className="flex justify-between items-start gap-[16rpx]">
-          <Text className="flex-1 text-[36rpx] font-bold text-foreground text-ellipsis-2">
+          <Text className="flex-1 text-[length:36rpx] font-bold text-foreground text-ellipsis-2">
             {e.title}
           </Text>
           {e.categoryName && (
             <View className="px-[16rpx] py-[8rpx] rounded-lg bg-[var(--color-muted)] shrink-0">
-              <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+              <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
                 {e.categoryName}
               </Text>
             </View>
           )}
         </View>
         <View className="flex flex-wrap gap-x-[24rpx] gap-y-[8rpx] mt-[16rpx]">
-          <Text className="text-[28rpx] text-muted-foreground">
+          <Text className="text-[length:28rpx] text-muted-foreground">
             {t('exam.questions', { n: e.questionCount })}
           </Text>
-          <Text className="text-[28rpx] text-muted-foreground">
+          <Text className="text-[length:28rpx] text-muted-foreground">
             {t('exam.minutes', { n: e.duration })}
           </Text>
-          <Text className="text-[28rpx] text-muted-foreground">
+          <Text className="text-[length:28rpx] text-muted-foreground">
             {t('exam.passScore', { n: e.passScore })}
           </Text>
-          <Text className="text-[28rpx] text-muted-foreground">
+          <Text className="text-[length:28rpx] text-muted-foreground">
             {t('exam.totalScore', { n: e.totalScore })}
           </Text>
         </View>
@@ -112,7 +112,7 @@ export default function ExamList() {
           onClick={() => goResult(r.id)}
         >
           <View className="flex justify-between items-start gap-[16rpx]">
-            <Text className="flex-1 text-[36rpx] font-bold text-foreground text-ellipsis-2">
+            <Text className="flex-1 text-[length:36rpx] font-bold text-foreground text-ellipsis-2">
               {paper?.title ?? t('exam.removedPaper')}
             </Text>
             <View
@@ -121,7 +121,7 @@ export default function ExamList() {
               }`}
             >
               <Text
-                className={`text-[22rpx] ${
+                className={`text-[length:22rpx] ${
                   r.isPassed
                     ? 'text-[var(--color-success-deep-text)]'
                     : 'text-[var(--color-danger)]'
@@ -132,16 +132,16 @@ export default function ExamList() {
             </View>
           </View>
           <View className="flex flex-wrap gap-x-[24rpx] gap-y-[8rpx] mt-[16rpx]">
-            <Text className="text-[28rpx] text-muted-foreground">
+            <Text className="text-[length:28rpx] text-muted-foreground">
               {t('exam.score', { n: r.score })}
             </Text>
             {paper && (
-              <Text className="text-[28rpx] text-muted-foreground">
+              <Text className="text-[length:28rpx] text-muted-foreground">
                 {t('exam.totalScore', { n: paper.totalScore })}
               </Text>
             )}
             {r.submittedAt && (
-              <Text className="text-[28rpx] text-muted-foreground">
+              <Text className="text-[length:28rpx] text-muted-foreground">
                 {formatDateOnly(r.submittedAt)}
               </Text>
             )}
@@ -165,9 +165,9 @@ export default function ExamList() {
         {/* header 对齐 RN ExamScreen header(px20rpx / pt24rpx 平台适配原生导航栏 / pb16rpx) */}
         <View className="flex flex-col px-[20rpx] pt-[24rpx] pb-[16rpx]">
           <View className="self-start" hoverClass="opacity-60" onClick={goBack}>
-            <Text className="text-[32rpx] text-muted-foreground">{t('common.back')}</Text>
+            <Text className="text-[length:32rpx] text-muted-foreground">{t('common.back')}</Text>
           </View>
-          <Text className="mt-[16rpx] text-[44rpx] font-semibold text-foreground">
+          <Text className="mt-[16rpx] text-[length:44rpx] font-semibold text-foreground">
             {t('exam.title')}
           </Text>
         </View>
@@ -184,7 +184,7 @@ export default function ExamList() {
               onClick={() => setTab(item.key)}
             >
               <Text
-                className={`text-[28rpx] ${
+                className={`text-[length:28rpx] ${
                   tab === item.key ? 'text-primary-foreground' : 'text-muted-foreground'
                 }`}
               >
@@ -205,12 +205,12 @@ export default function ExamList() {
         {/* 空态/加载态对齐 RN emptyText(28rpx text-tertiary 居中) */}
         {!loading && curList.length === 0 && (
           <View className="flex justify-center py-[80rpx]">
-            <Text className="text-[28rpx] text-[var(--color-text-tertiary)]">{t(emptyKey)}</Text>
+            <Text className="text-[length:28rpx] text-[var(--color-text-tertiary)]">{t(emptyKey)}</Text>
           </View>
         )}
         {loading && curList.length === 0 && (
           <View className="flex justify-center py-[80rpx]">
-            <Text className="text-[28rpx] text-[var(--color-text-tertiary)]">
+            <Text className="text-[length:28rpx] text-[var(--color-text-tertiary)]">
               {t('common.loading')}
             </Text>
           </View>

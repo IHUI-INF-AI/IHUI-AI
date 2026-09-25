@@ -79,12 +79,12 @@ export default function Password() {
       <View className="min-h-screen bg-background">
         <View className="flex flex-col gap-[24rpx] p-[28rpx]">
           <View className="flex flex-col gap-[12rpx]">
-            <Text className="text-[32rpx] text-muted-foreground">
+            <Text className="text-[length:32rpx] text-muted-foreground">
               {tt('user.password.oldPassword', '原密码')}
             </Text>
             <View className="relative flex h-[100rpx] items-center rounded-xl bg-muted px-[24rpx]">
               <Input
-                className="box-border h-full w-full bg-transparent pr-[120rpx] text-[32rpx] text-foreground"
+                className="box-border h-full w-full bg-transparent pr-[120rpx] text-[length:32rpx] text-foreground"
                 password={!showOld}
                 maxlength={20}
                 placeholder={tt('user.password.oldPlaceholder', '请输入原密码')}
@@ -92,7 +92,7 @@ export default function Password() {
                 onInput={(e) => setOldPwd(e.detail.value)}
               />
               <Text
-                className="absolute right-[24rpx] text-[28rpx] text-muted-foreground"
+                className="absolute right-[24rpx] text-[length:28rpx] text-muted-foreground"
                 onClick={() => setShowOld((v) => !v)}
               >
                 {showOld ? tt('user.password.hide', '隐藏') : tt('user.password.show', '显示')}
@@ -100,12 +100,12 @@ export default function Password() {
             </View>
           </View>
           <View className="flex flex-col gap-[12rpx]">
-            <Text className="text-[32rpx] text-muted-foreground">
+            <Text className="text-[length:32rpx] text-muted-foreground">
               {tt('user.password.newPassword', '新密码')}
             </Text>
             <View className="relative flex h-[100rpx] items-center rounded-xl bg-muted px-[24rpx]">
               <Input
-                className="box-border h-full w-full bg-transparent pr-[120rpx] text-[32rpx] text-foreground"
+                className="box-border h-full w-full bg-transparent pr-[120rpx] text-[length:32rpx] text-foreground"
                 password={!showNew}
                 maxlength={20}
                 placeholder={tt('user.password.newPlaceholder', '请输入新密码')}
@@ -113,25 +113,25 @@ export default function Password() {
                 onInput={(e) => setNewPwd(e.detail.value)}
               />
               <Text
-                className="absolute right-[24rpx] text-[28rpx] text-muted-foreground"
+                className="absolute right-[24rpx] text-[length:28rpx] text-muted-foreground"
                 onClick={() => setShowNew((v) => !v)}
               >
                 {showNew ? tt('user.password.hide', '隐藏') : tt('user.password.show', '显示')}
               </Text>
             </View>
             {newPwd !== '' && !newPwdValid && (
-              <Text className="mt-[12rpx] text-[22rpx] text-destructive">
+              <Text className="mt-[12rpx] text-[length:22rpx] text-destructive">
                 {tt('user.password.tooShort', '密码长度 6-20 位')}
               </Text>
             )}
           </View>
           <View className="flex flex-col gap-[12rpx]">
-            <Text className="text-[32rpx] text-muted-foreground">
+            <Text className="text-[length:32rpx] text-muted-foreground">
               {tt('user.password.confirmPassword', '确认密码')}
             </Text>
             <View className="relative flex h-[100rpx] items-center rounded-xl bg-muted px-[24rpx]">
               <Input
-                className="box-border h-full w-full bg-transparent pr-[120rpx] text-[32rpx] text-foreground"
+                className="box-border h-full w-full bg-transparent pr-[120rpx] text-[length:32rpx] text-foreground"
                 password={!showConfirm}
                 maxlength={20}
                 placeholder={tt('user.password.confirmPlaceholder', '请再次输入新密码')}
@@ -139,20 +139,20 @@ export default function Password() {
                 onInput={(e) => setConfirmPwd(e.detail.value)}
               />
               <Text
-                className="absolute right-[24rpx] text-[28rpx] text-muted-foreground"
+                className="absolute right-[24rpx] text-[length:28rpx] text-muted-foreground"
                 onClick={() => setShowConfirm((v) => !v)}
               >
                 {showConfirm ? tt('user.password.hide', '隐藏') : tt('user.password.show', '显示')}
               </Text>
             </View>
             {confirmPwd !== '' && !confirmMatch && (
-              <Text className="mt-[12rpx] text-[22rpx] text-destructive">
+              <Text className="mt-[12rpx] text-[length:22rpx] text-destructive">
                 {tt('user.password.mismatch', '两次输入的密码不一致')}
               </Text>
             )}
           </View>
 
-          <Text className="text-right text-[28rpx] text-primary" onClick={gotoForgot}>
+          <Text className="text-right text-[length:28rpx] text-primary" onClick={gotoForgot}>
             {tt('user.password.forgotOld', '忘记原密码?通过手机验证修改')}
           </Text>
 
@@ -163,7 +163,7 @@ export default function Password() {
             hoverClass="opacity-70"
             onClick={onSubmit}
           >
-            <Text className="text-[32rpx] font-semibold text-[var(--color-surface-light)]">
+            <Text className="text-[length:32rpx] font-semibold text-[var(--color-surface-light)]">
               {submitting
                 ? tt('user.password.submitting', '修改中…')
                 : tt('user.password.submit', '修改密码')}

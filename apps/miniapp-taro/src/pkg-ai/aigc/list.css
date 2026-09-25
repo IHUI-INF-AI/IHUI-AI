@@ -164,8 +164,11 @@
   font-size: 28rpx;
 }
 
-/* ===== 文本卡片(RN textCard:flex2 padding 14 radius 12 border)===== */
-.text-card {
+/* ===== 文本卡片(RN textCard:flex2 padding 14 radius 12 border)=====
+   类名带 aigc- 前缀,与本文件 .aigc-list-page 同一命名习惯:
+   `text-card` 会被 Tailwind 认成 `text-<色>` 工具类(端内构建里确实同时存在
+   一条 `.text-card { color: var(--color-card) }`),同名双义,故不得用裸名。 */
+.aigc-text-card {
   width: 100%;
   padding: 28rpx;
   border-radius: var(--radius-xl);

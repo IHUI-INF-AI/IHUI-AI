@@ -109,14 +109,14 @@ export default function Feedback() {
       <View className="min-h-screen bg-background">
         <View className="p-[28rpx]">
           <View className="rounded-xl border border-[var(--color-border)] bg-card p-[28rpx]">
-            <Text className="block text-[28rpx] text-muted-foreground">
+            <Text className="block text-[length:28rpx] text-muted-foreground">
               {tt('feedback.type', '类型')}
             </Text>
             <View className="mt-[16rpx] flex flex-wrap gap-[16rpx]">
               {types.map((item) => (
                 <View
                   key={item.key}
-                  className={`px-[24rpx] py-[12rpx] rounded-xl text-[28rpx] ${
+                  className={`px-[24rpx] py-[12rpx] rounded-xl text-[length:28rpx] ${
                     activeType === item.key
                       ? 'bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)]'
                       : 'bg-muted text-muted-foreground'
@@ -129,29 +129,29 @@ export default function Feedback() {
               ))}
             </View>
 
-            <Text className="mt-[16rpx] block text-[28rpx] text-muted-foreground">
+            <Text className="mt-[16rpx] block text-[length:28rpx] text-muted-foreground">
               {tt('feedback.content', '内容')}
             </Text>
             <Textarea
-              className="mt-[16rpx] box-border w-full min-h-[188rpx] rounded-xl bg-muted p-[24rpx] text-[28rpx] text-foreground"
+              className="mt-[16rpx] box-border w-full min-h-[188rpx] rounded-xl bg-muted p-[24rpx] text-[length:28rpx] text-foreground"
               placeholder={tt('feedback.contentPlaceholder', '请输入反馈详情')}
               value={content}
               onInput={(e) => setContent(e.detail.value)}
               maxlength={MAX_CONTENT}
             />
 
-            <Text className="mt-[16rpx] block text-[28rpx] text-muted-foreground">
+            <Text className="mt-[16rpx] block text-[length:28rpx] text-muted-foreground">
               {tt('feedback.contact', '联系方式')}
             </Text>
             <Input
-              className="mt-[16rpx] box-border h-[100rpx] w-full rounded-xl bg-muted px-[24rpx] text-[28rpx] text-foreground"
+              className="mt-[16rpx] box-border h-[100rpx] w-full rounded-xl bg-muted px-[24rpx] text-[length:28rpx] text-foreground"
               type="text"
               placeholder={tt('feedback.contactPlaceholder', '请输入联系方式(选填)')}
               value={contact}
               onInput={(e) => setContact(e.detail.value)}
             />
 
-            <Text className="mt-[16rpx] block text-[28rpx] text-muted-foreground">
+            <Text className="mt-[16rpx] block text-[length:28rpx] text-muted-foreground">
               {tt('feedback.images', `图片(最多${MAX_IMAGES}张)`)}
             </Text>
             <View className="mt-[16rpx] flex flex-wrap gap-[16rpx]">
@@ -171,7 +171,7 @@ export default function Feedback() {
                       onRemoveImage(idx)
                     }}
                   >
-                    <Text className="text-[28rpx] leading-none text-[var(--color-surface-light)]">
+                    <Text className="text-[length:28rpx] leading-none text-[var(--color-surface-light)]">
                       ×
                     </Text>
                   </View>
@@ -183,20 +183,20 @@ export default function Feedback() {
                   hoverClass="opacity-60"
                   onClick={onPickImages}
                 >
-                  <Text className="text-[48rpx] leading-none text-[var(--color-text-tertiary)]">
+                  <Text className="text-[length:48rpx] leading-none text-[var(--color-text-tertiary)]">
                     {uploading ? '...' : '+'}
                   </Text>
                 </View>
               )}
             </View>
             {uploading && (
-              <Text className="mt-[16rpx] block text-[24rpx] text-muted-foreground">
+              <Text className="mt-[16rpx] block text-[length:24rpx] text-muted-foreground">
                 {tt('feedback.uploading', '上传中')}
               </Text>
             )}
 
             <Button
-              className={`mt-[24rpx] flex h-[100rpx] items-center justify-center rounded-xl bg-[var(--color-brand-accent)] text-[28rpx] font-semibold text-[var(--color-brand-accent-foreground)] ${
+              className={`mt-[24rpx] flex h-[100rpx] items-center justify-center rounded-xl bg-[var(--color-brand-accent)] text-[length:28rpx] font-semibold text-[var(--color-brand-accent-foreground)] ${
                 content.trim() ? '' : 'opacity-60'
               }`}
               disabled={!content.trim()}

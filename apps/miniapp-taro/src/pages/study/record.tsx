@@ -23,11 +23,11 @@ interface StudyInfo {
 
 const PAGE_SIZE = 20
 
-const STATUS_BASE = 'text-[20rpx] font-semibold py-[8rpx] px-[16rpx] rounded-sm'
+const STATUS_BASE = 'text-[length:20rpx] font-semibold py-[8rpx] px-[16rpx] rounded-sm'
 const TAB_BASE =
-  'flex-1 flex items-center justify-center h-[96rpx] text-[28rpx] rounded-xl text-muted-foreground'
+  'flex-1 flex items-center justify-center h-[96rpx] text-[length:28rpx] rounded-xl text-muted-foreground'
 const TAB_ACTIVE = 'bg-cta text-cta-foreground font-semibold'
-const STATE_TEXT = 'block text-center text-[28rpx] text-muted-foreground py-[96rpx]'
+const STATE_TEXT = 'block text-center text-[length:28rpx] text-muted-foreground py-[96rpx]'
 
 /** 学习记录派生状态:基于 progress 推断 */
 const deriveStatus = (progress: number): FilterTab => {
@@ -179,14 +179,14 @@ export default function StudyRecord() {
         {stats.map((s) => (
           <View key={s.key} className="flex-1 flex flex-col items-center">
             <View className="flex items-baseline justify-center">
-              <Text className="text-[40rpx] font-bold text-foreground leading-[1.2]">{s.num}</Text>
+              <Text className="text-[length:40rpx] font-bold text-foreground leading-[1.2]">{s.num}</Text>
               {s.unit && (
-                <Text className="text-[22rpx] text-muted-foreground ml-[4rpx] font-normal">
+                <Text className="text-[length:22rpx] text-muted-foreground ml-[4rpx] font-normal">
                   {s.unit}
                 </Text>
               )}
             </View>
-            <Text className="mt-[16rpx] text-[22rpx] text-muted-foreground text-center">
+            <Text className="mt-[16rpx] text-[length:22rpx] text-muted-foreground text-center">
               {s.label}
             </Text>
           </View>
@@ -226,12 +226,12 @@ export default function StudyRecord() {
                       mode="aspectFill"
                     />
                   ) : (
-                    <View className="w-[160rpx] h-[120rpx] rounded-lg bg-muted flex-shrink-0 flex items-center justify-center text-[22rpx] text-muted-foreground">
+                    <View className="w-[160rpx] h-[120rpx] rounded-lg bg-muted flex-shrink-0 flex items-center justify-center text-[length:22rpx] text-muted-foreground">
                       <Text>{tt('study.recordPage.coverFallback', '课程')}</Text>
                     </View>
                   )}
                   <View className="flex-1 min-w-0 ml-[20rpx] flex flex-col">
-                    <Text className="text-[32rpx] font-bold text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
+                    <Text className="text-[length:32rpx] font-bold text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
                       {r.courseTitle}
                     </Text>
                     <View className="mt-[12rpx]">
@@ -243,13 +243,13 @@ export default function StudyRecord() {
                       </View>
                     </View>
                     <View className="mt-[10rpx] flex items-center justify-between">
-                      <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+                      <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
                         {tt('study.recordPage.lastTime', '上次学习')}: {r.time}
                       </Text>
                       <Text className={statusClass(st)}>{statusLabel(st)}</Text>
                     </View>
                     <View className="mt-[12rpx] self-end py-[16rpx] px-[32rpx] bg-primary rounded-xl">
-                      <Text className="text-[28rpx] font-semibold text-primary-foreground leading-[1.4]">
+                      <Text className="text-[length:28rpx] font-semibold text-primary-foreground leading-[1.4]">
                         {tt('study.recordPage.continue', '继续学习')}
                       </Text>
                     </View>
@@ -271,10 +271,10 @@ export default function StudyRecord() {
           hoverClass="opacity-60"
           onClick={() => load(true)}
         >
-          <Text className="text-[28rpx] text-[var(--color-danger)]">
+          <Text className="text-[length:28rpx] text-[var(--color-danger)]">
             {tt('common.failed', '加载失败')}
           </Text>
-          <Text className="text-[28rpx] text-success mt-[16rpx]">
+          <Text className="text-[length:28rpx] text-success mt-[16rpx]">
             {tt('common.retry', '点击重试')}
           </Text>
         </View>

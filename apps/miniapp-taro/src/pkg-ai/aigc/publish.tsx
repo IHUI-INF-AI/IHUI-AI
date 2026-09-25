@@ -160,12 +160,12 @@ export default function AigcPublish() {
     <ThemeRoot className="min-h-screen bg-[var(--color-card)] flex flex-col">
       <ScrollView scrollY className="flex-1 box-border px-[20rpx] pt-[16rpx] pb-[32rpx]">
         {/* 对齐 RN title(22dp → 44rpx semibold) */}
-        <Text className="block mt-[16rpx] text-[44rpx] font-semibold text-foreground">
+        <Text className="block mt-[16rpx] text-[length:44rpx] font-semibold text-foreground">
           {t('aigc.publish.title')}
         </Text>
 
         {/* 对齐 RN label(marginTop 14 → 28rpx,14dp → 28rpx,text.secondary,marginBottom 6 → 12rpx) */}
-        <Text className="block mt-[28rpx] mb-[12rpx] text-[28rpx] text-muted-foreground">
+        <Text className="block mt-[28rpx] mb-[12rpx] text-[length:28rpx] text-muted-foreground">
           {t('aigc.publish.workLabel')}
         </Text>
         {/* 对齐 RN fileGrid(gap 10 → 20rpx) */}
@@ -182,7 +182,7 @@ export default function AigcPublish() {
                 onClick={() => removeFile(i)}
                 hoverClass="opacity-60"
               >
-                <Text className="text-[var(--color-surface-light)] text-[28rpx] font-bold leading-none">
+                <Text className="text-[var(--color-surface-light)] text-[length:28rpx] font-bold leading-none">
                   ×
                 </Text>
               </View>
@@ -191,14 +191,14 @@ export default function AigcPublish() {
           {fileList.length < MAX_FILES ? (
             /* 对齐 RN fileAdd(76dp → 152rpx,dashed border.light,bg muted) */
             <View
-              className="w-[152rpx] h-[152rpx] bg-[var(--color-muted)] border-[2rpx] border-dashed border-[var(--color-border)] rounded-xl flex flex-col items-center justify-center"
+              className="w-[152rpx] h-[152rpx] bg-[var(--color-muted)] border-[length:2rpx] border-dashed border-[var(--color-border)] rounded-xl flex flex-col items-center justify-center"
               onClick={chooseImage}
               hoverClass="opacity-60"
             >
-              <Text className="text-[48rpx] text-[var(--color-text-tertiary)] leading-[52rpx]">
+              <Text className="text-[length:48rpx] text-[var(--color-text-tertiary)] leading-[52rpx]">
                 +
               </Text>
-              <Text className="text-[22rpx] text-[var(--color-text-tertiary)] mt-[16rpx]">
+              <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)] mt-[16rpx]">
                 {t('aigc.publish.addImage')}
               </Text>
             </View>
@@ -206,11 +206,11 @@ export default function AigcPublish() {
         </View>
 
         {/* 标题:对齐 RN input(px 12 → 24rpx,py 10 → 20rpx,radius 24rpx,bg muted,16dp → 32rpx) */}
-        <Text className="block mt-[28rpx] mb-[12rpx] text-[28rpx] text-muted-foreground">
+        <Text className="block mt-[28rpx] mb-[12rpx] text-[length:28rpx] text-muted-foreground">
           {t('aigc.publish.titleLabel')}
         </Text>
         <Input
-          className="w-full h-[84rpx] bg-[var(--color-muted)] rounded-xl border-[2rpx] border-[var(--color-border)] px-[24rpx] text-[32rpx] text-foreground box-border"
+          className="w-full h-[84rpx] bg-[var(--color-muted)] rounded-xl border-[length:2rpx] border-[var(--color-border)] px-[24rpx] text-[length:32rpx] text-foreground box-border"
           maxlength={50}
           placeholder={t('aigc.publish.titlePlaceholder')}
           value={title}
@@ -218,22 +218,22 @@ export default function AigcPublish() {
         />
 
         {/* 简介:对齐 RN textarea(minHeight 88 → 176rpx) */}
-        <Text className="block mt-[28rpx] mb-[12rpx] text-[28rpx] text-muted-foreground">
+        <Text className="block mt-[28rpx] mb-[12rpx] text-[length:28rpx] text-muted-foreground">
           {t('aigc.publish.descLabel')}
         </Text>
         <Textarea
-          className="w-full min-h-[176rpx] bg-[var(--color-muted)] rounded-xl border-[2rpx] border-[var(--color-border)] px-[24rpx] py-[20rpx] text-[32rpx] text-foreground box-border"
+          className="w-full min-h-[176rpx] bg-[var(--color-muted)] rounded-xl border-[length:2rpx] border-[var(--color-border)] px-[24rpx] py-[20rpx] text-[length:32rpx] text-foreground box-border"
           placeholder={t('aigc.publish.descPlaceholder')}
           value={desc}
           onInput={(e) => setDesc(e.detail.value)}
         />
 
         {/* 提示词 */}
-        <Text className="block mt-[28rpx] mb-[12rpx] text-[28rpx] text-muted-foreground">
+        <Text className="block mt-[28rpx] mb-[12rpx] text-[length:28rpx] text-muted-foreground">
           {t('aigc.publish.promptLabel')}
         </Text>
         <Textarea
-          className="w-full min-h-[176rpx] bg-[var(--color-muted)] rounded-xl border-[2rpx] border-[var(--color-border)] px-[24rpx] py-[20rpx] text-[32rpx] text-foreground box-border"
+          className="w-full min-h-[176rpx] bg-[var(--color-muted)] rounded-xl border-[length:2rpx] border-[var(--color-border)] px-[24rpx] py-[20rpx] text-[length:32rpx] text-foreground box-border"
           placeholder={t('aigc.publish.promptPlaceholder')}
           value={prompt}
           onInput={(e) => setPrompt(e.detail.value)}
@@ -241,7 +241,7 @@ export default function AigcPublish() {
 
         {/* 对齐 RN submitBtn(marginTop 24 → 48rpx,py 14 → 28rpx,radius 24rpx;禁用态 bg text.tertiary) */}
         <Button
-          className={`w-full text-[32rpx] font-semibold rounded-xl mt-[48rpx] ${
+          className={`w-full text-[length:32rpx] font-semibold rounded-xl mt-[48rpx] ${
             submitting || uploading
               ? 'bg-[var(--color-text-tertiary)] text-[var(--color-surface-light)]'
               : 'bg-primary text-[var(--color-primary-foreground)]'

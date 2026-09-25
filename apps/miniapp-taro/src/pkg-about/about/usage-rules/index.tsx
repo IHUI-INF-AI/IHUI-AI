@@ -412,7 +412,7 @@ export default function UsageRules() {
             {introParagraphs.map((p, i) => (
               <Text
                 key={i}
-                className="block text-[28rpx] text-muted-foreground leading-[44rpx] text-justify mb-[20rpx] last:mb-0"
+                className="block text-[length:28rpx] text-muted-foreground leading-[44rpx] text-justify mb-[20rpx] last:mb-0"
               >
                 {p}
               </Text>
@@ -421,17 +421,17 @@ export default function UsageRules() {
 
           {sections.map((section, sIdx) => (
             <View key={sIdx} className="bg-card rounded-xl border border-border p-[28rpx]">
-              <Text className="block text-[36rpx] font-semibold text-foreground leading-[44rpx] mb-[24rpx]">
+              <Text className="block text-[length:36rpx] font-semibold text-foreground leading-[44rpx] mb-[24rpx]">
                 {section.title}
               </Text>
               {section.blocks.map((block, bIdx) => (
                 <View key={bIdx}>
                   {block.subtitle ? (
-                    <Text className="block text-[32rpx] font-semibold text-foreground mb-[16rpx]">
+                    <Text className="block text-[length:32rpx] font-semibold text-foreground mb-[16rpx]">
                       {block.subtitle}
                     </Text>
                   ) : null}
-                  <Text className="block text-[28rpx] text-muted-foreground leading-[44rpx] text-justify mb-[20rpx]">
+                  <Text className="block text-[length:28rpx] text-muted-foreground leading-[44rpx] text-justify mb-[20rpx]">
                     {block.text}
                   </Text>
                 </View>
@@ -441,7 +441,7 @@ export default function UsageRules() {
                   {FOOTER_ITEMS.map((item, fIdx) => (
                     <Text
                       key={fIdx}
-                      className="block text-[28rpx] text-[var(--color-text-tertiary)] leading-[40rpx]"
+                      className="block text-[length:28rpx] text-[var(--color-text-tertiary)] leading-[40rpx]"
                     >
                       {item}
                     </Text>

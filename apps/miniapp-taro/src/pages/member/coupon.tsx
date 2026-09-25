@@ -124,7 +124,7 @@ export default function CouponPage() {
               hoverClass="opacity-60"
             >
               <Text
-                className={`text-[28rpx] ${status === tb.key ? 'text-primary-foreground font-semibold' : 'text-muted-foreground'}`}
+                className={`text-[length:28rpx] ${status === tb.key ? 'text-primary-foreground font-semibold' : 'text-muted-foreground'}`}
               >
                 {tt(tb.i18nKey, tb.fallback)}
               </Text>
@@ -132,16 +132,16 @@ export default function CouponPage() {
           ))}
         </View>
         {loading ? (
-          <View className="flex flex-col items-center py-[64rpx] text-muted-foreground text-[28rpx]">
+          <View className="flex flex-col items-center py-[64rpx] text-muted-foreground text-[length:28rpx]">
             <Text>{t('common.loading')}</Text>
           </View>
         ) : error ? (
-          <View className="flex flex-col items-center py-[64rpx] text-[28rpx]">
+          <View className="flex flex-col items-center py-[64rpx] text-[length:28rpx]">
             <Text className="text-[var(--color-danger)]">
               {tt('member.coupon.loadFailed', '加载失败')}
             </Text>
             <Text
-              className="mt-[16rpx] px-[32rpx] py-[8rpx] text-[28rpx] text-[var(--color-success)]"
+              className="mt-[16rpx] px-[32rpx] py-[8rpx] text-[length:28rpx] text-[var(--color-success)]"
               onClick={() => load()}
             >
               {t('common.retry')}
@@ -156,29 +156,29 @@ export default function CouponPage() {
               >
                 <View className="w-[192rpx] bg-[var(--color-success-light)] flex flex-col items-center justify-center py-[32rpx]">
                   <View className="flex items-baseline">
-                    <Text className="text-[44rpx] font-bold text-[var(--color-success)]">
+                    <Text className="text-[length:44rpx] font-bold text-[var(--color-success)]">
                       {c.amount}
                     </Text>
-                    <Text className="text-[22rpx] ml-[8rpx] text-muted-foreground">
+                    <Text className="text-[length:22rpx] ml-[8rpx] text-muted-foreground">
                       {tt('member.coupon.unit', '元')}
                     </Text>
                   </View>
-                  <Text className="block mt-[16rpx] text-[22rpx] text-muted-foreground text-center">
+                  <Text className="block mt-[16rpx] text-[length:22rpx] text-muted-foreground text-center">
                     {tt('member.coupon.thresholdText', '满{threshold}可用', {
                       threshold: c.threshold,
                     })}
                   </Text>
                 </View>
                 <View className="flex-1 p-[24rpx] flex flex-col justify-between">
-                  <Text className="block text-[32rpx] text-foreground font-semibold">
+                  <Text className="block text-[length:32rpx] text-foreground font-semibold">
                     {c.title}
                   </Text>
-                  <Text className="block mt-[16rpx] text-[22rpx] text-[var(--color-text-tertiary)]">
+                  <Text className="block mt-[16rpx] text-[length:22rpx] text-[var(--color-text-tertiary)]">
                     {tt('member.coupon.expireText', '有效期至 {time}', { time: c.expireTime })}
                   </Text>
                   {c.status === 'unused' ? (
                     <Button
-                      className="self-start mt-[16rpx] text-[22rpx] text-cta-foreground bg-cta rounded-lg px-[16rpx] leading-[44rpx]"
+                      className="self-start mt-[16rpx] text-[length:22rpx] text-cta-foreground bg-cta rounded-lg px-[16rpx] leading-[44rpx]"
                       onClick={useCoupon}
                     >
                       {tt('member.coupon.use', '立即使用')}
@@ -187,7 +187,7 @@ export default function CouponPage() {
                     <View
                       className={`self-start mt-[16rpx] px-[16rpx] py-[4rpx] rounded-lg ${c.status === 'used' ? 'bg-[var(--color-text-tertiary)]' : 'bg-[var(--color-danger)]'}`}
                     >
-                      <Text className="text-[22rpx] text-[var(--color-surface-light)]">
+                      <Text className="text-[length:22rpx] text-[var(--color-surface-light)]">
                         {tt(
                           COUPON_STATUS_KEY[c.status] ?? 'member.coupon.expired',
                           c.status === 'used'
@@ -201,18 +201,18 @@ export default function CouponPage() {
               </View>
             ))}
             {hasMoreRef.current ? (
-              <View className="text-center py-[24rpx] text-[22rpx] text-[var(--color-text-tertiary)]">
+              <View className="text-center py-[24rpx] text-[length:22rpx] text-[var(--color-text-tertiary)]">
                 <Text>{tt('member.coupon.loadMore', '上拉加载更多')}</Text>
               </View>
             ) : null}
           </View>
         ) : (
-          <View className="text-center py-[64rpx] text-[28rpx] text-[var(--color-text-tertiary)]">
+          <View className="text-center py-[64rpx] text-[length:28rpx] text-[var(--color-text-tertiary)]">
             <Text>{tt('member.coupon.empty', '暂无优惠券')}</Text>
           </View>
         )}
         <Button
-          className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] bg-cta text-cta-foreground rounded-xl text-[28rpx] h-[88rpx] leading-[88rpx]"
+          className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] bg-cta text-cta-foreground rounded-xl text-[length:28rpx] h-[88rpx] leading-[88rpx]"
           onClick={goList}
         >
           {tt('member.coupon.couponCenter', '领券中心')}
