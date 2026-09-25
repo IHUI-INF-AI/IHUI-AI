@@ -21,6 +21,7 @@ import type {
 } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 主播端共享屏 — props 注入式跨端组件(纯 UI,推流/SRS API 由 wrapper 注入) */
 export type { LiveHostProduct, LiveHostStatus, LiveHostStreamData, LiveHostScreenProps }
@@ -85,9 +86,7 @@ export function LiveHostScreen({
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.back}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('liveHost.title')}</Text>
         <View style={[styles.badge, { backgroundColor: badgeColor }]}>
           <Text style={styles.badgeText}>{t(statusBadgeLabelKey(status))}</Text>
@@ -215,7 +214,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 10,
       paddingBottom: 8,
     },
-    back: { fontSize: 16, color: tk.text.secondary },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: rnRadius.xl },
     badgeText: { fontSize: 11, color: tk.surface.light },

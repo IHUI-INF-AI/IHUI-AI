@@ -18,6 +18,7 @@ import { Heart, MessageCircle } from 'lucide-react-native'
 import type { PostDetailScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /**
  * 动态详情共享屏 — props 注入式跨端组件
@@ -56,6 +57,7 @@ export function PostDetailScreen({
     return (
       <View style={styles.center}>
         <Text style={styles.error}>{error || t('postDetail.loadFailed')}</Text>
+        {/* back-label-exempt: 错误态/空态卡片内的按钮文案,或翻页/弹窗关闭动作 —— 此处「返回」是按钮文字而非页头箭头,换裸箭头反而不表意 until 2027-09-25 */}
         <TouchableOpacity
           style={styles.backBtn}
           onPress={onBack}
@@ -69,9 +71,7 @@ export function PostDetailScreen({
 
   return (
     <ScrollView style={styles.container}>
-      <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <Text style={styles.back}>{t('common.back')}</Text>
-      </TouchableOpacity>
+      <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
       <Text style={styles.title}>{item.title}</Text>
       <View style={styles.metaRow}>
         <Text style={styles.author}>{item.author}</Text>
