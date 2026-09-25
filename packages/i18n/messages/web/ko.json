@@ -23363,12 +23363,6 @@
     "figmaView": "Figma 보기",
     "settingsView": "설정 보기"
   },
-  "topBar": {
-    "editor": "편집기",
-    "close": "닫기",
-    "plus": "새로 만들기",
-    "skillsMarket": "스킬 마켓"
-  },
   "statusBar": {
     "toggleTheme": "테마 전환"
   },

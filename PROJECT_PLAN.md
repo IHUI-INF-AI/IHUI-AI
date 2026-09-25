@@ -8532,3 +8532,108 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   ⑤ `AGENTS.md §4` 补了那条「端内 CSS/色值副本一律是派生态」规范(原位写回 + 取源只能一份实现 + 新增跨端档位的正确顺序),纯追加、不改动任何既有行(门 89 的 R4 文档面按 HEAD∪索引判,所以**未提交的点名等于没点名** —— 本会话踩过一次,已用一行实名补掉)。
 - **✅ 8 处图片引用断链已修(2026-09-25,守门 105 全量面实测 R1 8→0)**:取证结论推翻了我最初的假设 —— 这 8 条路径**在任何提交里都不存在**(`git log --all -- <路径>` 对 8 条全部返回 0 commits),不是"删除图片时漏改引用",而是**迁移期的字面量残留**:位图当年住在已整体消失的 `client/miniapp/src/static/images/`(首枚提交 `092528c4f6`「架构迁移至 TypeScript Monorepo」),迁到 monorepo 时把字节放进 `src/assets/remote/images/`、把 CDN 键登记进 `constants/remote-icons.ts`,但这 4 个文件仍写着旧字符串。修法按"改指既存资产",**不新建占位图**(§4 明令禁止占位/自造图):6 条改走 `icon('qzdy20250816161419a289'|'szdy…'|'sqb…'|'qqb…'|'erweima'|'defaultMingpian2')` —— 注意选的是 `defaultMingpian2` 而**不是** `REMOTE_ICONS.mingpian`(后者指向 `sys-mini/default/mingpian.jpg`,不同目录不同格式,不是同一资产,后人不得"顺手简化"成它);2 条是**纯路径 typo**(`triangle-alert.svg` 少 `icons/` 段、`default-avatar.png` 少一层目录),两个目标文件实测在 HEAD(315 B / 301 B),后者另有 12 处已在用同一字符串。副带收益:`triangle-alert.svg` 原本既是 R1 又是 R2 孤儿(完全没人引用),修完孤儿 9→8。**结构性事实**:`assets/remote/images/` 是 CDN 上传镜像而不是被引用路径(全仓 `git grep` 只命中一条注释)—— 若把 JSX 直接写成该路径,就会复制出同一类 bug。**未证明**(如实登记):① 构建产物无缺资源告警 —— 部署锁被他人持有(`mode=dev pid=18804 alive=false`,已 3 天,过期但不是我建的,按 §12 不强删),故 `build:weapp` 跳过未跑;② 那 6 个 CDN URL 实际可服务 —— 只证到"键存在 ⇒ `icon()` 返回非空串"(键不存在会返回 `''`,与本次同一失效族,所以 6 条逐个查过 `remote-icons.ts:168/352-355/430`),取图需网络且源站在本地 `cdn-server.js` 后面,未执行。剩余 8 处 `assets/tabbar/{agent,ai,share,square}{,-active}.png` 的 R2 孤儿属**删除决策**(§7 三问),门 105 每次都会点名它们,不由本票代裁。
 - **✅ 未闭环③(extension/ui-react 色值副本进对账)已落地并接成守门 106(2026-09-25)**:两处副本走**两条不同的路**,依据是使用位证据而不是"能派生就派生"。① `apps/extension/entrypoints/content/content-toolbar.tsx` 的 13 个内联 `--color-*` → **派生**:6 档可派生(其中 4 档真的被对齐,`--color-card` `#161616` → `hsl(0 0% 10%)` 等;2 档本就等值故保留原字节)、2 档源头确无(`--color-accent-strong`/`--color-info-muted`)、5 档**登记为语义分歧**并逐条给依据 —— 例如 `--color-muted` 唯一使用位是 `border-color:`(借背景档当描边档,派生会把 hover 描边压到卡片之上仅 12% L)、`--color-secondary-foreground` 唯一使用位是文字色而源头暗档它与 `--color-foreground` **逐位相同**(派生会把两级文字压成一级)、`--color-warning` 是叠在第三方正文上的荧光笔需 45% alpha 而源头是不透明琥珀(依据不足 ⇒ 登记为未决视觉判断,不静默改色)。profile 取 `.dark`(注入层永不随宿主反转)。② `packages/ui-react/src/styles/auth-shell.css` 的 5 条影子重定义 → **登记而非派生**:它是文件头 M-70 明写的有意覆盖(亮档 `.login-scope` 把 accent/muted 顶成纯白,好让白卡片上的 `hover:bg-accent` 浮出来;暗档抬到 22% 换 8% L 落差),派生等于删掉登录按钮的 hover 反馈;其中 `--color-accent-foreground` 带机器可验的 `deriveFrom: '--color-foreground'`(它的依据就写"与 --color-foreground 一致"),源头一动即红。顺带记录该文件"默认 17%"注释与 tokens.css 实际 24% 不符。③ 判据三条(D1 逐位等值 / D2 不等值必须登记且带依据 / **D3 双向腐烂**:登了却没了、登记的分歧其实已相等、值被改而登记未跟 ⇒ 全红),取源只走 `design-token-blocks.mjs`、原位写回只走 `sync-rn-global-css.mjs` 的 `mergeBlockBody`、等值判定复用门 93 的 `colorsAgree` —— **零新增色值正则**。取证:`--self-test` 36 条(跑两次输出 `cmp` 相同)、镜像测试 11/11(T4 拿 HEAD 那份已知过时的副本判红 = 有牙,T5 拿派生态判绿 = 不恒红,T9 反向锁"没顺手改门 93",T11 锁模板串内注释不得出现反引号 —— 那条曾经只被 `tsc` 抓到而所有测试全绿);接线后 `check-gate-wiring.mjs` exit 0(R4 未点名 0 枚),`guardian-runner` 现值 137 项。
+
+### O60h 第三波:9 路并行取证与清理的双态行收口、清单更正,以及量出来的 12 条新敞口(2026-09-25 完成 ✅)
+
+- [x] ✅(2026-09-25) **双态行按判据转指针,做了 12 行,并如实记下"哪些没碰、为什么"**。
+  尺子不是新造的:判据直接 import `scripts/lib/live-doc-similarity.mjs`(剥状态前缀后字符二元组 Jaccard ≥0.6
+  或逐字包含 —— 与活文档对账门同一把尺)。逐 ID 命中数:
+  D39 1 / D48 1 / D80 1 / D90 2 / D91 2 / D106 2 / D107 1 / D110 1 / O20f 1 = **12 行**;
+  **刻意不碰的**:`D16`(未勾行与 ✅ 孪生不同题,且一行仅 37 个非空白字符,短行判孪生必错)、
+  `WP-1`(同前)、`O13b`/`D18`/`D19`(混判:同编号里既有"保留未勾"又有裸副本,按前缀批量翻会把不同子项当孪生)、
+  `D111`(**粘连行**:未勾的 D111 与别人已勾的 D64⑥ 被 union 并成同一行,接缝在第 1109 字符,
+  整行替换会吞掉 D64⑥ ⇒ 必须先插回换行再改写)、`O25`(双态在 `###` 标题层,任何只匹配 `^- \[[ x]\]` 的批处理看不见它)。
+  写盘前置断言:每条被改行必须是"原文 + 后缀"(零删零重排);写后用
+  `node scripts/merge-live-doc.mjs --file PROJECT_PLAN.md` 复判真丢失 0。
+- [x] ✅(2026-09-25) **我自己那张"未开工清单"又更正两处**(承 O60g):`D50②` 与 `WP-1` 均已入库;
+  新增一处假阳性:`D6` 被算进"30 枚双态票",但 HEAD 上**没有任何以 D6 为主语的 ✅ 行**(L2487/L2535/L2783/L2784
+  只是交叉引用提到它)⇒ 前缀法找孪生会把交叉引用当孪生。**结论:找孪生必须匹配"以该编号为主语的行",不能匹配"含该编号"。**
+- [x] ✅(2026-09-25) **修掉一处真实生产 404(D29 半边,`未登记编号的既有缺陷`)**:`apps/api/src/routes/team-memory.ts`
+  与其服务层、api-client 端点、web 页面 `app/(main)/team-memory/page.tsx` 全在库,唯独 `registerRoutes` 少一行注册
+  ⇒ `/api/team-memory` 生产 404;而"该路由自己的测试"在 `routes/__tests__/team-memory.test.ts:168` 自行
+  `app.register(teamMemoryRoutes)` 挂载 ⇒ 测试恒绿。已补注册 + 新增 `apps/api/tests/team-memory-routes-registered.test.ts`
+  3 例(注册在位 / prefix 逐字等于客户端基座 / prefix+路由内字面量合成后覆盖"集合根 + 参数段"),
+  **变异自证:注释掉注册行 ⇒ 3 例全红**(不是恒真),还原后 19 passed。
+- [x] ✅(2026-09-25) **D81 尾票收口(`b867cb959`)**:三个重复实现删、一个分组函数如实登记"接线点不在本票面"。
+  裁决依据不是注释而是**渲染探针**:新增 `d81-redundancy-probe.test.tsx` 在不改一行宿主代码的前提下量到
+  活动条已显示耗时(2.4s / 1m15s)与查询词(逐字落在 `[data-stream-subject]` 位)⇒ 接上即同屏重复。
+  分组头(`groupToolActivitiesByConnector`)的宿主形态在 `MessageItem.tsx:914` 的 `m.toolCalls?.map()`,
+  现路径是每张卡各打一次方向标签(逐行注解非分组)⇒ **不喂单元素数组造"已装车"**,接线另票。
+- [x] ✅(2026-09-25) **i18n 孤儿键第二批回收(7 枚 × 5 语 = 35 条叶子,`0 插入 / 55 删除` 纯删行,键序零动)**:
+  ① `shared taskStatus.workedForDuration` / `taskStatus.searchWithQuery` —— 唯一取用者是上一票我自己写的**反向断言**
+  (`expect(text).not.toContain(msg('searchWithQuery')…)`)⇒ 把该断言改成字面量 `"查询:{query}"` +
+  **五语"该键必须不存在"** 的防回潮断言(否则测试反过来依赖一个应当不存在的键,删键即崩);
+  ② **顶层 `topBar` 影子命名空间**:`web topBar.{editor,close,plus,skillsMarket}` + `shared topBar.capabilityMarket`。
+  它的"看着活着"是**取词作用域**造成的:`GlobalTopBar.tsx:441` 写的是 `t('topBar.plus')`,但该文件的 `t` 是
+  `useTranslations('ide')`(`:198`)⇒ 实际解析 `ide.topBar.plus`(该块 10 枚键齐在);`ide-top-bar.tsx:57` 同理。
+  全仓 `useTranslations('topBar')` / `'topBar' +` / 模板拼接 **命中 0** ⇒ 顶层 `topBar` 整块无任何读者。
+  这正是权威死键扫描器报绿的机制(它按**命名空间前缀**记活,`taskStatus`/`web` 里有别的活键,整片即恒活),
+  所以证死只能靠"取词点 + 作用域"逐枚核 —— 本票即按此法。
+  验证:`check-i18n-keys` 全量与 `--staged` 均 exit 0(五语 parity 未动)、`i18n-diff` 报"无 pending"、
+  `check-tool-display-resolvable` exit 0(98 功能名 + 29 措辞键 × 5 语 × 7 面全可解析)、
+  `check-word-table-resolvable` exit 0、`check-miniapp-generated` exit 0、`check-watermark-coverage` exit 0、
+  探针 6/6 passed、离线包已按规则重跑 `pnpm --filter @ihui/miniapp-taro gen:i18n`(437,603 字节,自注入水印)。
+  刻意**没有**顺手删的两处:`web/src/components/layout/__tests__/top-bar-labels.test.ts` 与
+  `apps/miniapp-taro/src/utils/top-bar-labels.ts` 里的 `topBar.*` 字面量属**另一套端内标签表**,不是词包取词点。
+- [x] ✅(2026-09-25) **回收 D17 顶栏改动留下的 5 枚零引用键(五语对称,`0 5` × 5 份,无键序重排)**,
+  四类假阴性逐条排掉:动态拼接被 `PlusMenuAction.key` 联合类型 + `PLUS_MENU_GROUPS` 双向限死;
+  `ECOSYSTEM_MARKETS` 里的同名 leaf 实际取词走 `ecosystem.cards.*`(每语言 5 枚复验存活);
+  键只在 web 侧 ⇒ 离线包结构上不受影响;32 个未跟踪他人文件零引用。
+  **本票复核补强**:那 5 枚的市场入口在 `GlobalTopBar.tsx:140-144` 的 `ECOSYSTEM_MARKETS`(键型 `EcosystemMarketKey`),
+  其取词点是 `ecosystem.cards.<key>` 而非 `ide.topBar.<key>`(`:130` 注释与 `ecosystem-hub.tsx:14` 同一组),
+  两处 `t(\`topBar.${…}\`)` 动态拼接(`:322`/`:671`)只遍历 `PLUS_MENU_GROUPS`(7 枚,全部在 `ide.topBar` 里)⇒ 删除无回显风险。
+
+#### O60h-1 量出来的敞口(逐条给归属;本会话不当场扩面)
+
+1. **守门 8(`check-api-routes`)有一个结构性盲区**:它只扫 `apps/*` 里的字面量调用,而 §3 明令"端内不得直接 fetch,必须走
+   `@ihui/api-client`"⇒ **经 api-client 的调用整类不受它对账**。这就是 team-memory 404 能长期存活的成因
+   (实测:门 8 全量 exit 0,输出里连 "team-memory" 这个词都不出现)。修法要防"一接就恒红":
+   按端点文件的**面基座**判"是否等于某个注册 prefix",不要按 258 条逐路径字面量硬比(会把 scoped prefix 全判成缺失)。
+   归属:该门持有人。**本会话未动它**(它是 warn/blocking 混合语义且正被并行改造,当场扩面只会造新红)。
+2. **权威死键扫描器对"命名空间活着、里面某枚键死了"永远不报**:`scripts/_i18n-scan-helpers.mjs:417` 的
+   `isInUsedNamespace` + `:713` 的 `!staticRefs && !isInUsedNamespace` 按**前缀**记活,HEAD 有 48 个文件
+   用 `useTranslations('ide')` ⇒ `ide.*` 整片恒活。**它的绿灯不构成"没有死键"的证据**,证死只能靠取词点 + 作用域枚举
+   (本会话即按此法证死 5 + 7 枚)。归属:扫描器持有人。
+3. `scan-dead-i18n-keys --target miniapp-taro --exit 1` 本轮复测**仍 exit 1**(死键 1 枚 = `ai.chatMessageItem.downloadSuccess`;
+   三条同名 `downloadSuccess` 引用分别属于 `user.audio.*` / `ai.image.*` / `ai.video.*`,与它不同路径)
+   ⇒ `check:all` 在本会话动手**之前**就是红的。归属:该端持有人。
+4. **`check-rn-global-css-sync` 的镜像测试在 HEAD 上 14 条红,而门本身 rc=0**(187 档逐位同值)。
+   本轮复测把归因钉死了:失败清一色是**文案语言**断言 —— 测试期望 `/mismatch/`、`"in sync"`、`"Checking"`、`"<missing>"`,
+   而门现在打的是中文("值漂移 / 受管档逐位同值 / Checking … (取材面:磁盘)"),`fail 14` 的每条
+   `expected: /mismatch/` 都是这一型。⇒ 不是夹具、不是取材面、也不是端内 CSS 漂移,是**并行会话把门的输出中文化后没同步镜像测试**。
+   修法二选一:测试改断中文短语(或断退出码 + 结构化 `--json`),或门保留一份机器可判的稳定标识行。
+   归属:该门持有人(即做中文化的那条会话)。**判机器态的门按提交者无法满足 ⇒ 不得升 blocking**(§12e 同型)。
+5. **`tauri-updater-platforms` 3 条红**:工作树那份 `apps/web/src/config/desktop-feed.generated.ts` 被重生成掉了
+   `updaterPlatforms`(HEAD 2 处 / 工作树 0 处)⇒ 谁提交这份谁判红。归属:桌面发布线持有人。
+6. **D55 的决策徽章是"帧到了、端上无处挂"**:服务端 `agent_loop_v2.py:1036-1058` 已发 decision/reason,
+   但 web `use-agent-progress.ts:49` 的 `PlanStep` 没有该字段;对话流内 `decision` 命中 web 0 / miniapp 0 / rn 0,
+   取词只在 AgentRuntimePanel 与工作台 pane ⇒ 票面"对话流内"这一格确实没做。归属:D55。
+7. **D62 / D67 的端覆盖只到 web**(§9 与 H18):D62 命中 web 54 / shared 45,extension 0、mobile-rn 0、cli 0、miniapp 0,
+   而 H19 明示 extension 不豁免、mobile-rn 未登记豁免;D67 的 `ai.pane.quotaOwnership` 只存在于 web 侧语言包,四端 0。
+   两端各有自建麦克风栈(rn `VoiceInput.tsx` + `use-voice-recorder.ts`;extension `VoiceInput.tsx:119` 不分类)。归属:D62 / D67。
+8. **D69 `InputNoticeBanner` 零生产 importer**,且 `noTurnBoundary / insufficientCredits / runningTurn`
+   在 ai-service、api、types 三侧零命中 ⇒ 有壳无数据;端覆盖仅 web(cli 只吃排队族,恰是唯一被豁免的那族)。归属:D69。
+9. **HEAD 里存在第二套不分类的麦克风文案栈**:`apps/web/src/components/ai/voice-input.tsx`(零 importer、`:295` 仍是旧笼统文案),
+   正是 shared 判定层头注明令禁止的形态;删除牵动守门 99(暂存删除存续性),需单票做。归属:该文件持有人或 D62 尾票。
+10. **`AGENT_EXECUTOR` 三方不一致(真实可用性缺陷)**:`apps/ai-service/.env.example:324` 写 `langgraph`,
+    而 `routers/agents.py:1161` 对该取值直接回 `EXECUTOR_DISABLED`,兜底已在 `:1153` 删除;
+    同文件 `:399-401` 的 docstring 与 `docs/AI_SERVICE.md:660` 仍写"langgraph 是默认档 / v1 兜底存在"
+    ⇒ 照示例配置部署会让 agent 任务全量失败。三方对账(示例 / 代码 / 文档)单开一票。归属:ai-service。
+11. **顶层 `topBar` 之外还剩同类影子风险**:凡"端内 `useTranslations(ns)` + 相对键"的写法,词包里同名的
+    **顶层**块都会看起来有人读。要根治得在扫描器里做"取词点作用域 ∘ 键相对性"的对账(即第 2 条的另一面)。归属:扫描器持有人。
+
+#### O60h-2 六路裁决给"下一轮派单"的权威结论(可直接照抄,不含已排除的在飞项)
+
+- **仍欠且可派单**:D48②(端豁免补登 H19)、D107①(阶段标签立判据)、O13b②(ADMIN_ROLE_ID 收口)、
+  O13②(rls-context 落应用池)、D30①②(CI 信源接入 + pr-creator)、D64⑥残(goal 卡两小件)、D13①(装配面板跳转)、
+  D33①(queueItems 数据面)、D6(收敛决策第一步)、D80①、D29①②③(条件件:待 `_journal.json` 干净)、
+  **D50② 之外的 D31 免凭据切片**(只做"导入 Figma 导出 JSON → 生成前端代码"的离线解析层,凭据只挡"取稿 + 视觉回归"两条腿;
+  另:`skills.ts:159` 的 `figma-to-code` 静态 mock 属"宣称不存在的能力",应删除或转真实现)。
+- **不得派单(并行会话在飞)**:D20 / D14 / D73 / D77 / D111 / D36 / D38 / D58 / D69 / D41 / D91 / D64⑤ / D17③ 等 15 项,
+  逐条脏路径见 `docs/plan-audit-2026-09-25/backlog.md`(已随本批转正,不再只在 tmp 里)。
+- **判据过期 5 条**(报告前提被推翻,派单前须以本段为准):D58 类目 18 档、D83 措辞层已由 `mcp-tool-activity.ts` 取代、
+  "D19 mobile-rn 已接"在当前 HEAD 复测为零命中、O13① 的 ENABLE 已入迁移 0066、守门 57 台账 JSON 的 "status" 判据串与真实字段形态不符。
+- **一句话纪律**:报告与台账里的"已做/仍欠"都是**带保质期的读数**——续派前一律用
+  `git show HEAD:<file> | grep -c`、`git grep ... HEAD`、`merge-base --is-ancestor` 三类尺重跑;
+  引用上一轮读数就等于把过期结论当现状(本会话在同一天里错了三次,其中一次是把"镜像测试红"归因成了夹具问题,
+  复测才发现是中文化文案没同步测试)。
