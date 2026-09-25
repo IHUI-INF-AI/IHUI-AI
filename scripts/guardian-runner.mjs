@@ -3214,6 +3214,45 @@ const checks = [
     ]
   },
 
+  {
+    id: '122',
+    label: '💾 文件写盘安全对账(blocking,工具写文件必须走原子写出口;裸写盘棘轮)',
+    script: 'check-file-write-safety.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_FILE_WRITE_SAFETY',
+    stagedTriggers: 'apps/cli/src/tools/',
+    onFailHint: [
+      '',
+      '  💡 工具层写文件必须经 scripts/lib 的原子写出口(同目录临时文件 + rename + Windows',
+      '  EPERM/ENOENT 重试 + 不跟随重解析点 + 读后写 stale 校验)。裸 writeFileSync 的风险:',
+      '  多会话共享工作区里两个写者交错会静默覆盖;§26 记过递归操作穿透 junction 清空真实目标。',
+      '  存量走棘轮(锚点=该文件 HEAD 自身计数);新增即红。',
+      '  单独复验:node scripts/check-file-write-safety.mjs',
+      '  自检:--self-test(24 例) 镜像:node --test scripts/tests/check-file-write-safety.test.mjs(13 例)',
+      '',
+    ]
+  },
+
+  {
+    id: '123',
+    label: '⏱️ 工具执行预算对账(blocking,工具级超时/取消机制在位且被调用;缺常量/缺通道即红)',
+    script: 'check-tool-exec-budget.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_TOOL_EXEC_BUDGET',
+    stagedTriggers: 'apps/cli/src/tools/',
+    onFailHint: [
+      '',
+      '  💡 钉"工具执行无界"三源:ToolContext 无 signal(取消无通道)/执行点无超时/exec 无 maxBuffer。',
+      '     S1 系判机制在位(常量三件套/解析出口/Math.min 封顶/linkAbortSignal/executeWithinExecBudget 装车);',
+      '     S2 判注入点(未传 signal 的 ctx 构造点名);判定面=取材面(HEAD/索引),不判滞后的共享工作树。',
+      '     单独复验:node scripts/check-tool-exec-budget.mjs',
+      '     自检:--self-test(26 例) 镜像:node --test scripts/tests/check-tool-exec-budget.test.mjs(9 例)',
+      '',
+    ]
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
