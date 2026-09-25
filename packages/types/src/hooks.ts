@@ -58,8 +58,12 @@ export const HOOK_TRIGGER_EVENTS: readonly HookTriggerEvent[] = [
 /** Hook 动作类型 */
 export type HookActionType = 'webhook' | 'script' | 'log' | 'notify'
 
-/** 通知渠道(notify 动作子类型) */
-export type HookNotifyChannel = 'toast' | 'notification' | 'email'
+/** 通知渠道(notify 动作子类型)。
+ *  与 apps/api/src/routes/hooks.ts 的 z.enum、apps/ai-service hook_engine._run_notify
+ *  的分支集合逐项同值,由 scripts/tests/check-hook-channel-parity.test.mjs 对账。
+ *  webhook(notify 渠道,2026-07-22 立,api 注释"HMAC-SHA256 签名密钥(webhook + notify
+ *  webhook 渠道)"即此档):执行侧复用 webhook 发送器,本类型早期漏登记故已补齐。 */
+export type HookNotifyChannel = 'toast' | 'notification' | 'email' | 'webhook'
 
 /** Hook 动作配置(各类型字段互斥,根据 type 取对应字段) */
 export interface HookActionConfig {
