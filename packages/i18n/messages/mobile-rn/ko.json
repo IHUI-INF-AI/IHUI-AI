@@ -202,6 +202,25 @@
     "runtimeSend": "전송"
   },
   "chat": {
+    "contextUsage": {
+      "title": "컨텍스트 사용 현황",
+      "used": "사용량",
+      "max": "최대 용량",
+      "segSystem": "시스템 프롬프트",
+      "segToolSchema": "도구 정의",
+      "segSkill": "스킬 본문",
+      "segRoleUser": "사용자 메시지",
+      "segRoleAssistant": "어시스턴트 응답",
+      "segRoleToolCall": "도구 호출 인자",
+      "segRoleToolResult": "도구 결과",
+      "segSystemPrompt": "시스템 프롬프트 (전체)",
+      "unnamedItem": "이름 없는 항목",
+      "resultSuffix": "결과",
+      "unobservedServerOnly": "이 부분은 서버에서 조립되어 이 클라이언트에서 정확한 사용량을 알 수 없습니다",
+      "unobservedNotSupplied": "이번 라운드에 해당 시스템 구간이 전송되지 않았습니다",
+      "detailsTruncated": "외 {count}개 항목은 접혀 있습니다",
+      "residualLabel": "미분류 오버헤드"
+    },
     "voice": "음성",
     "title": "IHUI AI",
     "modelLabel": "모델",
