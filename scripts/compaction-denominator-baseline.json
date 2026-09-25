@@ -1,0 +1,13 @@
+{
+  "_readme": "每文件「token 数 ÷ contextLimit/contextWindow 且分母未经 effectiveContextWindow」的存量,只减不增。清理后跑 --update-baseline 下调额度,禁止为过门而调高。",
+  "counts": {
+    "apps/api/src/routes/ai-chat-stream.ts": 2,
+    "apps/cli/src/commands/agent.ts": 1,
+    "apps/cli/src/compaction-v2.ts": 4,
+    "apps/cli/src/context.ts": 1,
+    "apps/cli/src/reminders.ts": 1,
+    "packages/context-compaction/src/index.ts": 1,
+    "packages/context-compaction/src/reclaim.ts": 1,
+    "packages/context-compaction/src/validity-guards.ts": 1
+  }
+}
