@@ -9,14 +9,21 @@
  *   ihui hooks list              — 列出全部 hooks(手动配置 + 自动发现)+ 已信任目录
  *   ihui hooks enable <name>     — 启用自动发现的 hook
  *   ihui hooks disable <name>    — 禁用自动发现的 hook
- *   ihui hooks trust [path]      — 信任一个目录,让它自带的 project 钩子可执行
+ *   ihui hooks trust [path]      — 信任一个目录**当时那份**钩子内容,让它自带的 project 钩子可执行
  *   ihui hooks untrust <path>    — 取消信任
  *
- * 为什么必须有 trust / untrust:项目钩子派发前过目录信任门
+ * 为什么必须有 trust / untrust:项目钩子派发前过信任门
  * (`src/hooks/index.ts` 的 `hookTrustSkipReason` → `trust.ts` 的 `gateHook`),
  * 而 default-deny 之下用户唯一的出路本来是手写 `~/.ihui/trusted-folders` ——
  * 那不是一个可用出口。门与出口必须同时存在,否则这道门只会把人推向
  * `IHUI_TRUST_WORKSPACE=1`(它信任的是整个工作区,粒度比单个目录粗)。
+ *
+ * 为什么 trust 要带内容摘要(A20):只记"这个目录批过"时,批准一次就永久有效 ——
+ * 之后往它的 hooks.json 里塞任何命令都不再问一次。所以 `ihui hooks trust` 落的是
+ * "目录 + 当时那份内容的摘要",`hooks list` 也据此报出"内容是否已变"。
+ * 门里那句"请重新执行 ihui hooks trust"必须是**真能解掉**的状态:目录已在名单里而
+ * 内容变了时,这一句会把记录刷新成当前内容,而不是回一句"已在名单里"什么都不做
+ * (那是第二条死出口,与上一轮的"文案指向不存在的子命令"同型)。
  *
  * 与 hooks-auto 子命令的关系:
  *   - hooks list/enable/disable:轻量管理(基于 hooks.json + discovery.ts 状态)
@@ -28,7 +35,7 @@ import type { Command } from 'commander';
 import chalk from 'chalk';
 import { resolve } from 'node:path';
 import { existsSync } from 'node:fs';
-import { loadHooks, getHooksPath } from '../hooks/index.js';
+import { loadHooks, getHooksPath, computeHookContentDigests } from '../hooks/index.js';
 import {
   listDiscoveredHooks,
   enableHook,
@@ -42,6 +49,7 @@ import {
   isFolderTrusted,
   listTrustedFolders,
   normalizeFolderPath,
+  gateHook,
 } from '../hooks/trust.js';
 import { t } from '../i18n/index.js';
 
@@ -54,6 +62,41 @@ const TYPE_COLORS: Record<DiscoveredHook['type'], (s: string) => string> = {
   on_error: chalk.red,
   unknown: chalk.gray,
 };
+
+/**
+ * 「这条信任对应哪份内容 / 内容是否已变」—— 展示侧不另立判据,逐条走 gateHook。
+ * 与派发时同一把尺子:列表里说"一致"的条目,派发时一定放行;说不一致的,派发时一定拦。
+ * (两处各写一遍比对逻辑 = 一份"列表看着没事、跑起来被拦"的分叉,正是本仓反复登记的那一类。)
+ */
+function describeTrustedFolderContent(folder: string): { summary: string; details: string[] } {
+  const digests = computeHookContentDigests(folder);
+  const names = Object.keys(digests.declarations);
+  if (names.length === 0) {
+    return { summary: '当前无项目钩子声明可比对(新增声明后需重新取信)', details: [] };
+  }
+  const details: string[] = [];
+  let same = 0;
+  for (const name of names) {
+    const g = gateHook(
+      {
+        name,
+        bundleDigest: digests.bundleDigest,
+        hookName: name,
+        declarationDigest: digests.declarations[name],
+      },
+      folder,
+    );
+    if (g.allowed) same += 1;
+    else details.push(`      ✗ ${name}:${g.detail ?? '内容未确认'}`);
+  }
+  return {
+    summary:
+      details.length === 0
+        ? `${names.length} 条声明与批准时那份一致 · 束摘要 ${digests.bundleDigest.slice(-12)}`
+        : `${same}/${names.length} 条一致 · 束摘要 ${digests.bundleDigest.slice(-12)}`,
+    details,
+  };
+}
 
 export function registerHooksCommand(program: Command): void {
   const hooksCmd = program.command('hooks').description('查看已配置的 tool hooks');
@@ -134,6 +177,10 @@ export function registerHooksCommand(program: Command): void {
           console.info(
             `  ${isCurrent ? chalk.green('●') : ' '} ${folder}${isCurrent ? chalk.dim(t('cli.hooks.currentDirMark')) : ''}`,
           );
+          // A20:名单只说"批过这个目录"是不够的,还得说得出"批的是哪份、现在还是不是那份"
+          const content = describeTrustedFolderContent(folder);
+          console.info(chalk.dim(`    ${content.summary}`));
+          for (const line of content.details) console.info(chalk.yellow(line));
         }
       }
       if (!isFolderTrusted(cwd)) {
@@ -180,15 +227,31 @@ export function registerHooksCommand(program: Command): void {
         console.info(chalk.red(t('cli.hooks.trustErrNotDir', { path: target })));
         return;
       }
-      if (isFolderTrusted(target)) {
+      // 批准的是「这个目录 + 它此刻这份内容」。摘要算法只有一处实现:
+      // index.ts 的 computeHookContentDigests —— 派发门判定时调的是同一个函数,
+      // 两侧各写一遍必然漂移(那会以假 stale 的形态出现,或更糟:以假放行出现)。
+      const digests = computeHookContentDigests(target);
+      // 只比束摘要(hookName 不传):判"这个目录现在这份配置,是不是当初批的那份"
+      const probe = gateHook({ name: '<directory>', bundleDigest: digests.bundleDigest }, target);
+      if (isFolderTrusted(target) && probe.allowed) {
         console.info(chalk.dim(t('cli.hooks.trustAlready', { path: target })));
         return;
       }
-      if (!trustFolder(target)) {
+      if (!trustFolder(target, digests)) {
         console.info(chalk.red(t('cli.hooks.trustWriteFailed', { path: target })));
         return;
       }
       console.info(chalk.green(t('cli.hooks.trustOk', { path: target })));
+      // 把"批准的是哪一份"打在屏幕上:内容再变就会被门拦下,而这里那串短值是当时唯一
+      // 留存的凭据(完整摘要在 ~/.ihui/trusted-folders 里)。
+      console.info(
+        chalk.dim(
+          `  已登记内容摘要 ${digests.bundleDigest.slice(-12)} · ${Object.keys(digests.declarations).length} 条钩子声明`,
+        ),
+      );
+      if (!probe.allowed && isFolderTrusted(target)) {
+        console.info(chalk.yellow('  （该目录原先已在名单里,已把批准刷新为当前这份内容）'));
+      }
       console.info(chalk.yellow(t('cli.hooks.trustWarning')));
     });
 

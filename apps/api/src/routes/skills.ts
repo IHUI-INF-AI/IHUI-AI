@@ -285,7 +285,7 @@ function mayWriteMarketEntry(input: {
   target: Pick<SkillMarketEntry, 'ownerId'>
   isInternal: boolean
   isAdmin: boolean
-  callerId: number | undefined
+  callerId: string | undefined
 }): boolean {
   if (input.isInternal) return true
   if (input.isAdmin) return true
@@ -316,7 +316,7 @@ function isBuiltinProtectedAuthor(author: string): boolean {
  */
 function authorImpersonates(input: {
   author: string
-  callerId: number | undefined
+  callerId: string | undefined
   entries: readonly Pick<SkillMarketEntry, 'author' | 'ownerId'>[]
   selfReported: boolean
 }): boolean {
@@ -390,7 +390,20 @@ async function readMarket(
       await redis.set(key, JSON.stringify(MARKET_SEED))
       return cloneMarketEntries(MARKET_SEED)
     }
-    return JSON.parse(raw) as SkillMarketEntry[]
+    /**
+     * NaN 脏数据的读侧归一化(2026-09-25 补,同票):归属字段曾写成 `Number(userId)`,
+     * 而 users.id 是 uuid ⇒ 落盘的是 `JSON.stringify(NaN)` = **`null`**,不是 `undefined`。
+     * 契约上"无主"只有一种形态(`ownerId` 缺键),所以在这里把 `null` 归一成缺键。
+     * 三条后果都靠这一句成立:
+     *  - 归属比较不受影响(`null` 与 `undefined` 都不等于任何 uuid,一律判无主);
+     *  - 出参 wire 形态单一(不会再有 `"ownerId":null` 混着键缺失两种形状);
+     *  - **管理员的补认领通道重新可达** —— POST /skills/market 的补齐分支判的是
+     *    `existing.ownerId === undefined`,不归一化则 NaN 时代的条目连管理员都修不动
+     *    (实测:admin 发同 name 同 author 的更新 ⇒ 200 但 ownerId 仍是 null)。
+     * 不新增 DB 列、不动 schema / journal:纯读侧归一,写侧下一次落盘自然带上正确 uuid。
+     */
+    const parsed = JSON.parse(raw) as Array<SkillMarketEntry & { ownerId?: string | null }>
+    return parsed.map((e) => (e.ownerId === null ? { ...e, ownerId: undefined } : e))
   } catch {
     // 兜底两条路径同型:marketFallback 里缓存的数组同样不得随返回值交出本体;
     // `?? MARKET_SEED` 若不拷贝,就是"redis 抖动一次 ⇒ 种子被首个写请求永久改写"。
@@ -729,7 +742,7 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
     // listing 级下架(P2-14):显式 enabled === false 的条目对所有人隐身,只有 owner 自己
     // 仍能在列表里看见它 —— 否则他下架完就没有入口再把它上架回去。
     // 缺省字段按"在架"解释,兼容本字段落地前写入的历史条目。
-    const viewerId = Number(request.userId!)
+    const viewerId = request.userId!
     entries = entries.filter((e) => e.enabled !== false || e.ownerId === viewerId)
     if (q) {
       const lower = q.toLowerCase()
@@ -846,7 +859,7 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
 
     // owner 判定一律服务端按 userId 校:内置/内部同步条目没有 ownerId ⇒ 无人是 owner。
     // 不得只靠前端隐藏按钮 —— 那等于把别人的上架状态交给任意登录用户。
-    if (entry.ownerId === undefined || entry.ownerId !== Number(userId)) {
+    if (entry.ownerId === undefined || entry.ownerId !== userId) {
       return reply.status(403).send(error(403, '只有上架者本人可以切换该 Skill 的上下架状态'))
     }
 
@@ -880,7 +893,7 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(
       success({
         name: entry.name,
-        isOwner: ownerId !== undefined && ownerId === Number(userId),
+        isOwner: ownerId !== undefined && ownerId === userId,
         ownerId: ownerId ?? null,
         enabled: entry.enabled !== false,
         source: entry.source ?? null,
@@ -900,7 +913,7 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
 
     // ── 2. 调用者档位:一律由服务端推导,不接受请求体自报 ─────────────────────────
     // 内部自进化同步 ⇒ source=hub 且无归属用户;登录用户上架 ⇒ source=user + ownerId。
-    const publisherId = isInternal ? undefined : Number(request.userId!)
+    const publisherId = isInternal ? undefined : request.userId!
     // admin 档只认人用 JWT(includeInternalChannel:false),与 requireAdmin 同档:
     // "持有内部密钥 + 把 X-User-Id 填成某管理员"不构成 admin 提权。
     const isAdmin = !isInternal && isSystemAdmin(request, { includeInternalChannel: false })
@@ -1010,9 +1023,7 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
     // 不进条目。推导不出来(昵称与用户名都空 / 用户库不可用)才退回自报值,而那一条
     // 已经过上面的冒充闸。第二道 isBuiltinProtectedAuthor 是补"自己的昵称就叫 IHUI"
     // 这一型:推导成功不代表身份成立,内置作者名在任何来源下都不允许出现在 user 条目上。
-    const derivedAuthor = isInternal
-      ? undefined
-      : await resolveServerAuthor(String(request.userId!))
+    const derivedAuthor = isInternal ? undefined : await resolveServerAuthor(request.userId!)
     const entryAuthor = derivedAuthor ?? body.author
     if (!isInternal && isBuiltinProtectedAuthor(entryAuthor)) {
       return reply
@@ -1068,7 +1079,7 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
     const ratings = await readRatings(server.redis, ratingKey)
     const rating: SkillRating = {
       id: randomUUID(),
-      userId: Number(userId),
+      userId,
       userName: `user-${userId}`,
       skillName,
       score,
