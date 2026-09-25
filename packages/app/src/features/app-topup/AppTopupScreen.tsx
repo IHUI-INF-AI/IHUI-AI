@@ -17,6 +17,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AppTopupScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** AppTopupScreen props re-export(单一来源 @ihui/types) */
 export type { AppTopupScreenProps }
@@ -67,9 +68,7 @@ export function AppTopupScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>充值</Text>
       </View>
       <ScrollView
@@ -179,7 +178,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: 12,
       gap: 12,
     },
-    backText: { fontSize: 16, color: tk.text.medium },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     scroll: { flex: 1 },
     balanceCard: {

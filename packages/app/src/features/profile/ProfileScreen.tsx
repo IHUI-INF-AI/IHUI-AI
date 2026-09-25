@@ -10,6 +10,7 @@ import { ChevronRight } from 'lucide-react-native'
 import { useFontMultiplier } from '../../components/MoreLink'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /**
  * ProfileScreen — 跨端共享「个人资料」页。
@@ -48,9 +49,7 @@ export function ProfileScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('profile.title')}</Text>
       </View>
 
@@ -145,7 +144,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 12,
       gap: 12,
     },
-    backText: { fontSize: 16, color: tk.text.medium },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     errorBar: {
       marginHorizontal: 16,

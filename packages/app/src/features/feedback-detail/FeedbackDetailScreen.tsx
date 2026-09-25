@@ -7,6 +7,7 @@ import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { FeedbackDetailItem, FeedbackDetailScreenProps } from '../../types'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 反馈详情/Props 类型 re-export(单一来源 @ihui/types) */
 export type { FeedbackDetailItem, FeedbackDetailScreenProps }
@@ -41,6 +42,7 @@ export function FeedbackDetailScreen({
     return (
       <View style={styles.center}>
         <Text style={styles.error}>{error || t('feedbackDetail.empty')}</Text>
+        {/* back-label-exempt: 错误态/空态卡片内的按钮文案,或翻页/弹窗关闭动作 —— 此处「返回」是按钮文字而非页头箭头,换裸箭头反而不表意 */}
         <TouchableOpacity
           style={styles.backBtn}
           onPress={onBack}
@@ -55,9 +57,7 @@ export function FeedbackDetailScreen({
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.back}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('feedbackDetail.title')}</Text>
       </View>
       <View style={styles.body}>

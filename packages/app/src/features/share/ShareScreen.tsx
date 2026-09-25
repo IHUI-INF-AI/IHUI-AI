@@ -8,6 +8,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ShareScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 分享共享屏 — props 注入式跨端组件(平台侧 onShare 注入原生 Share API) */
 export type { ShareScreenProps }
@@ -42,9 +43,7 @@ export function ShareScreen({
         renderHeader()
       ) : (
         <>
-          <TouchableOpacity onPress={onBack}>
-            <Text style={styles.back}>{t('common.back')}</Text>
-          </TouchableOpacity>
+          <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
           <Text style={styles.title}>{t('share.title')}</Text>
           <Text style={styles.targetTitle}>{targetTitle}</Text>
         </>
@@ -105,7 +104,6 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
     content: { flexGrow: 1 },
-    back: { fontSize: 16, color: tk.text.secondary },
     title: {
       marginTop: 8,
       fontSize: 22,

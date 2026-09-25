@@ -20,6 +20,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ArticleListItem, ArticleListScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 文章列表/Props 类型 re-export(单一来源 @ihui/types) */
 export type { ArticleListItem, ArticleListScreenProps }
@@ -107,9 +108,7 @@ export function ArticleListScreen({
     <View style={styles.container}>
       {/* header 始终渲染 — 保持页面框架可见(修复 P1 全灰屏连导航消失) */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('articleList.title')}</Text>
       </View>
 
@@ -197,7 +196,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 12,
       gap: 12,
     },
-    backText: { fontSize: 16, color: tk.text.primary },
     title: { flex: 1, fontSize: 20, fontWeight: '700', color: tk.text.primary },
     listBody: { padding: 10 },
     separator: { height: 12 },
