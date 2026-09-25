@@ -24,6 +24,15 @@ vi.mock('next-intl', () => {
   return { useTranslations: () => translate }
 })
 
+// 基线红修复:ToolCallCard 详情区(line 293 `<Tooltip content={url}>`)在无 Provider 时
+// 抛 "Tooltip must be used within TooltipProvider"。按本仓既有惯例(同组件的
+// tool-call-card-activity.test.tsx:43、context-usage-attribution.test.tsx:67)在测试侧
+// mock 掉 feedback 的 Tooltip 为透传 children,不改生产代码、不放宽任何断言。
+vi.mock('@/components/feedback', () => ({
+  Tooltip: ({ children }: { children: React.ReactNode }) => children,
+  TooltipProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}))
+
 import {
   RollbackPreviewBadge,
   ToolCallCard,
