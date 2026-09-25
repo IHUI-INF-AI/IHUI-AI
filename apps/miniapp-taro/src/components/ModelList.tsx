@@ -428,7 +428,7 @@ export default function ModelList({
           <View
             key={model.id}
             className={`flex items-center py-2.5 px-3 mb-2 rounded-lg transition-colors ${
-              selected ? 'bg-muted' : 'bg-card hover:bg-muted'
+              selected ? 'bg-muted' : 'bg-card'
             }`}
             onClick={() => onSelect?.(model)}
             hoverClass="opacity-60"
@@ -484,7 +484,7 @@ export default function ModelList({
                   <View
                     key={model.id}
                     className={`flex items-center py-2.5 px-3 mb-2 rounded-lg transition-colors ${
-                      selected ? 'bg-muted' : 'bg-card hover:bg-muted'
+                      selected ? 'bg-muted' : 'bg-card'
                     }`}
                     onClick={() => onSelect?.(model)}
                     hoverClass="opacity-60"
