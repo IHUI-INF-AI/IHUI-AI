@@ -111,7 +111,9 @@ export function stagedPaths(repoRoot) {
   return { modified: all.filter((p) => !deleted.has(p)), deleted: [...deleted] }
 }
 
-function worktreeDirtyPaths(repoRoot) {
+/** 工作树 vs HEAD 的漂移路径清单。导出是为了让守门「开工前基线新鲜度自检(三轴)」的③轴
+ *  复用同一形状,而不是在别处再抄一份 `git diff --name-only HEAD`(两处算同一件事必须共用一份实现)。 */
+export function worktreeDirtyPaths(repoRoot) {
   return git(['-C', repoRoot, 'diff', '--name-only', 'HEAD', '--no-renames'], {
     stdio: ['ignore', 'pipe', 'ignore'],
   })
