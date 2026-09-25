@@ -232,6 +232,8 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 
 - Drizzle ORM 0.38 + postgres-js。用 Zod 校验请求参数。复用 `packages/auth` 的 authenticate 函数;admin 路由用 preHandler 统一校验(roleId >= 1)。幂等操作用 `onConflictDoNothing`。slug 从 name 自动生成。API 响应统一 `{ code, message, data }` 格式。
 
+- **发给 provider 的 function parameters 必须由校验面单向投影**(2026-09-25 立,A13):统一出口是 `@ihui/types` 的 `projectToolInputSchema` / `toolsToProviderSchema` (`packages/types/src/schema-projection.ts`),**禁止端内手搓 `parameters` 对象或自拼第二份 JSON Schema** —— "运行时怎么校验"与"模型被告知怎么填"必须是同一份描述的两个投影,否则两边各自漂移而 typecheck 全绿。等价性由 158/158 个真工具对象的同瞬间 A/B 证明(线字节 + 属性名集合 + required 集合三项全等)。
+
 ### 鉴权面公开化必须显式列举(强制,2026-09-23 立)
 
 - **禁止**用兜底正则把 `/api/<前缀>/[^/]+` 这类"参数路由"形态当作公开面 —— 它会连同**静态子路由**一起放行。实测 `agents.ts` 的 `^/api/agents/[^/]+$` 让 `/agents/health` 游客可访问,而 `/agents/need-tasks` 的 handler 依赖 `request.userId`,游客走到它不是 401 而是 **500**:fail-open 直接崩在鉴权层后面,比 401 更难发现。
@@ -1409,7 +1411,8 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 - **豁免到期账**(guardian id **108**,blocking,紧急跳过 `HUSKY_SKIP_EXEMPTION_EXPIRY=1`):`scripts/check-exemption-expiry.mjs` 钉"豁免只有出生、没有死亡"。实测全仓 12 类行内豁免 / 252 处 / 107 文件,**带真到期日 0 处**。E1 新增不带到期日 ⇒ 红;E2 已过期仍生效 ⇒ 红;E3 lint 抑制面(`eslint-disable` / `@ts-ignore`)只报数。**三重防恒红**:存量进 `scripts/exemption-expiry-baseline.json` 只报数、E1 锚点 = 该文件该族在 **HEAD 自身的存量数**(棘轮)、`grandfatherUntil` 前不追存量 —— 与改动无关的 blocking 红只会逼人 `--no-verify` 连带废掉全部守门。到期**只判红只点名,绝不自动摘除任何人的豁免**。副产品:第 12 族 `r3-cta-exempt` 3 处是从来没生效过的悬空豁免(守门 83 只认 `r5-cta-exempt`),归属该门持有者。
 - **任务认领租约对账**(guardian id **109**,blocking,`stagedTriggers=PROJECT_PLAN.md`,紧急跳过 `HUSKY_SKIP_TASK_CLAIM_LEASE=1`):`scripts/check-task-claims.mjs --check-gate` 把 §1 的认领标记升级成带归属与寿命的锁(见 §1 第二条)。CL1 年龄超阈值(默认 72h)/ CL2 有 `@日期` 无 `/持有者` / CL3 同一行既"进行中"又 `[x]`。**向后兼容第一**:存量裸 `（进行中）` 与"翻勾未摘牌"行一律只计数不判红,否则上线当天即恒红门。门**绝不自动摘除任何人的认领**(§16 越权)。
 - **产物预算对账**(guardian id **110**,**warn**,紧急跳过 `HUSKY_SKIP_ARTIFACT_BUDGET=1`):`scripts/check-artifact-budget.mjs` 是全仓第一次去量**交付出去的产物**而非源码(AGENTS 末段自己写过"同源门全部只核源码,没有一道看产物")。为什么 warn:产物在不在本机是**机器状态**,提交者结构上满足不了 ⇒ blocking 就是恒红门;问责放 CI(build 之后必有产物),镜像测试钉"一旦接提交链就必须同时有 CI 调用点"。缺产物不判红也不静默绿:exit 0 + 逐条"未判定:<原因>"。主包口径由构造面正反例钉死(同样字节放分包目录 ⇒ 绿,放主包 ⇒ 红)。
-- 三件同批事实:以上四道门都按 §12 的"活文档与注册表单写者"由主会话统一接线(`guardian-runner.mjs` / `package.json` / 本节 / README 守门章节同枚提交),各实现票按任务书**没有**碰过这些共享注册文件 —— 并行改注册表必然互相覆盖注册块(门 93 记过同型事故)。
+- **工具契约声明对账**(guardian id **111**,blocking,`stagedTriggers=apps/cli/src/tools/`,紧急跳过 `HUSKY_SKIP_TOOL_CONTRACT_DECLARED=1`):`scripts/check-tool-contract-declared.mjs` 守 A13 第一阶段立下的规矩 —— 一次可被模型调用的能力必须在实现旁边有**契约声明**(副作用范围 / 权限 / 结果预算),因为下游三个面(发给 provider 的 function parameters、运行时入参校验、批准与预算判定)现在都从**同一份描述**投影 (`packages/types/src/{tool-contract,schema-projection}.ts`)。没有声明不是"少一条元数据",而是那一格退回"三个面各写各的" —— 本仓 8 道"声明↔实现对账"同族门存在的理由就是它。**存量 104 个走棘轮**(锚点 = 该文件 HEAD 自身违规数,老文件不会被别人欠的债钉红)。**缺省语义本门故意不管**:翻成"缺省即不可信"是第二阶段,前置是先把 `--flip-audit` 点名的 16 个"连 dangerLevel 都没写"的工具逐个补档(`list_dir`/`grep`/`glob`/`run_command` 等 14 个 builtins/terminal/memory 族 + `mcp-runtime.ts` 两个),否则用户侧表现是"昨天能跑今天全要批准" —— 那不是收紧安全,是制造事故。
+- 三件同批事实:以上五道门都按 §12 的"活文档与注册表单写者"由主会话统一接线(`guardian-runner.mjs` / `package.json` / 本节 / README 守门章节同枚提交),各实现票按任务书**没有**碰过这些共享注册文件 —— 并行改注册表必然互相覆盖注册块(门 93 记过同型事故)。
 
 ### 守门手动触发 / 紧急跳过抽查
 
