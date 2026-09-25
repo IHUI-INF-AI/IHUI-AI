@@ -32,6 +32,10 @@
  *   P6 自著声明清单(embedded.json 顶层 ownLicenseDeclarations)必须属实:路径存在,
  *      且文件名只能是 LICENSE/NOTICE/COPYING 一族 —— 防它被当成万能豁免表藏源码
  *   P7 覆盖账与 pnpm-workspace.yaml 双向对账:登记的说谎 → 红;yaml 换了来源而没登记 → 红
+ *   P8 归属反噬:凡登记条目 roots 命中的真实文件,内容里**不得**出现我方水印横幅签名串或
+ *      零宽载荷 ⇒ 判红(那等于把 Mozilla/Cargo 分发的作品声明成本仓所有)。与 P1–P7 方向相反:
+ *      P2 防"拿了没登记",P8 防"登记了却盖了我们的章"。水印层(scripts/watermark.mjs)自
+ *      2026-09-25 起按同一份 roots 把这些文件移出分母,P8 就是接住它们的那一层。
  *
  * 取材口径(与守门 70/77/83/98/101/103 同取向):
  *   全量判 **HEAD blob**,`--staged` 判**索引 blob**,`--worktree` 仅人工排查逃生舱。
@@ -59,19 +63,28 @@ import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'no
 import { dirname, join, posix, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+// P8 与水印排除面共用同一个「roots → 真实文件」展开实现:两侧必须问同一件事,
+// 否则"被免除横幅的文件"与"被审计归属反噬的文件"会不是同一批 —— 那正是空档。
+import {
+  LEDGER_DIR as THIRD_PARTY_LEDGER_DIR,
+  LEDGER_FILES as THIRD_PARTY_LEDGER_FILES,
+  expandRootsToFiles,
+} from './lib/third-party-roots.mjs'
+
 const SELF = fileURLToPath(import.meta.url)
 const DEFAULT_ROOT = resolve(dirname(SELF), '..')
 const GIT = 'git'
 const GIT_TIMEOUT_MS = 30000
 
-/** 台账目录(相对仓库根)与四本账。规格 §6 的落点。 */
-const LEDGER_DIR = 'config/third-party-provenance'
-const LEDGER_FILES = [
-  { file: 'embedded.json', kind: 'embedded' },
-  { file: 'copied.json', kind: 'copied' },
-  { file: 'overrides.json', kind: 'override' },
-  { file: 'mechanisms.json', kind: 'mechanism' },
-]
+/**
+ * 台账目录与四本账 —— 由 scripts/lib/third-party-roots.mjs 单点持有,本文件不再自持一份:
+ * 水印排除面(watermark.mjs / check-watermark-coverage.mjs)与台账判据读的必须是**同一张表**,
+ * 否则"排除了但没审计"或"审计了但仍在打横幅"两种空档都会出现(P8 与排除面共用
+ * `expandRootsToFiles` 正是为此)。值与改动前逐字相同,故 `__test__.LEDGER_*` 的既有消费方不受影响。
+ */
+const LEDGER_DIR = THIRD_PARTY_LEDGER_DIR
+const LEDGER_FILES = THIRD_PARTY_LEDGER_FILES
+
 const MECHANISM_KIND = 'mechanism'
 const TEXTS_PER_ENTRY_REQUIRED_KINDS = ['embedded', 'copied', 'override']
 
@@ -98,6 +111,44 @@ const OWN_TOKENS = [
   '[ihui-ai-provenance]',
   '智汇ai',
 ]
+/**
+ * P8 用的「我方归属主张」形态。三条通道任一命中即算:
+ *   (a) 横幅的**结构串** —— `provenance-watermarked` / `[ihui-ai-provenance]` 只可能出自我方
+ *       水印工具;品牌名 / 域名 / 人名单独出现**不算**(第三方正文合法提及本仓,不等于
+ *       "我们主张拥有这个文件"),所以本条刻意不直接套 use 整个 OWN_TOKENS;
+ *   (b) 可见版权行的规范式 `© <年份> IHUI AI (智汇AI)` —— 归属主张本体,连"裸两行头、
+ *       载荷已被剥掉"的残迹态也认得;**只在行首锚定时算**(见 OWN_COPYRIGHT_RE 处的假阳记录),
+ *       否则我们自己清单里的 author / copyright 字段会被当成往别人文件上盖了章;
+ *   (c) 零宽载荷的哨兵包络(U+2060 包一串 Cf 字符)—— L3 尾行没有可见文本,只有这个。
+ * (a) 的两项必须是 OWN_TOKENS 的成员,由 --self-test 的 11d 钉死:两处各写一份字面量而无人
+ * 对账,正是本仓最高频的失守形态;漂移时自检变红,而不是让 P8 悄悄看不见某一种横幅。
+ */
+const OWN_BANNER_STRUCT_TOKENS = ['provenance-watermarked', '[ihui-ai-provenance]']
+/**
+ * 可见版权行必须**行首锚定**成横幅形状(剥掉注释前缀后以 `© <年份> IHUI AI (智汇AI)` 开头)。
+ * 不锚定的第一版把 `apps/web/package.json` 的
+ *   "copyright": "© 2026 IHUI AI (智汇AI) · 李春川 · All rights reserved."
+ * 判成了「归属反噬」并当场红 —— 那是**我们自己清单里的作者字段**,不是往别人文件上打的章。
+ * 这条存量红是 P8 自己产出的假阳,不是被判据挖出来的真事故,故修判据而不是加豁免。
+ * 锚定形状与 scripts/watermark.mjs 的 isBannerLine 同取向(剥前缀 + 行首匹配),
+ * 覆盖行注释(`// © …`)、块注释正文(`  © …`)与 HTML 注释正文三种版式。
+ */
+const OWN_COPYRIGHT_RE = /^\s*(?:(?:\/\/|--|#|\*|\/\*|<!--)\s*)?©\s*\d{4}\s+IHUI\s+AI\s*\(智汇AI\)/m
+const ZW_PAYLOAD_RE = /\u2060[\u200b\u200c\u200d]{4,}\u2060/
+
+/** 一个文件里是否存在「我方归属主张」的任一形态(P8)。二进制内容按无归属主张处理。 */
+function carriesOurAttribution(buf) {
+  if (!buf || buf.includes(0)) return null
+  const text = buf.toString('utf8')
+  const low = text.toLowerCase()
+  const struct = OWN_BANNER_STRUCT_TOKENS.find((t) => low.includes(t))
+  if (struct) return `横幅结构串 "${struct}"`
+  const cr = OWN_COPYRIGHT_RE.exec(text)
+  if (cr) return `可见版权行 "${cr[0].slice(0, 40)}"`
+  if (ZW_PAYLOAD_RE.test(text)) return '零宽溯源载荷'
+  return null
+}
+
 /** git grep 的 ASCII 候选模式(只筛候选,归属判定仍由 NOTICE_LINE_RE 逐行做)。 */
 const GREP_PATTERNS = [
   'Copyright (\\(c\\) )?.{0,4}[0-9]{4}',
@@ -406,6 +457,8 @@ function runCheck(root, face) {
   const pending = []
   const entryCount = {}
   const allRoots = []
+  /** root → 归属条目标签(P8 点名"谁登记的这块第三方内容被我们盖了章")。 */
+  const rootOwners = new Map()
 
   const ledgers = {}
   let ownDeclarations = []
@@ -447,6 +500,7 @@ function runCheck(root, face) {
       continue
     }
     allRoots.push(...e.roots)
+    for (const r of e.roots) if (!rootOwners.has(r)) rootOwners.set(r, `${kind}:${e.id}`)
   }
 
   // ---- L0 + P1 + P3 + P4(逐条) ----
@@ -526,6 +580,58 @@ function runCheck(root, face) {
       violations.push(`P2 拿了没登记:带第三方归属声明的跟踪文件无台账条目 → ${rel}`)
   }
 
+  // ---- P8 归属反噬:已登记的第三方内容上不得出现我方水印 ----
+  /**
+   * 展开用 `expandRootsToFiles`(与水印层的排除面同一个纯函数,同一张 roots 表)——
+   * 这是本条判据成立的前提:水印层自 2026-09-25 起把这些文件**移出分母**,若本条按另一种
+   * 口径展开,就会出现"免除横幅却无人审计归属"或"审计了却在打横幅"的空档/重叠。
+   * 内容按**当次判定面**取(reader.readBlob),不读磁盘 —— 与 P1/P3 同一把尺子。
+   *
+   * 立因(2026-09-25 实测):`apps/web/public/pdfjs/pdf.worker.min.mjs` 第 1–3 行是我们的
+   * 归属横幅,而它在台账里登记为 `copied:pdfjs-worker-6.x`(Mozilla PDF.js,Apache-2.0)。
+   * P1–P7 全部只问"来源有没有登记",没有一条问"登记过的东西上盖了谁的章" ——
+   * 于是"合规登记"与"错误的归属主张"同时为真且无人报警。
+   */
+  const thirdPartyFiles = [...expandRootsToFiles(allRoots, reader.list())].sort()
+  /** 反查某个文件由哪条台账条目登记(root 可以是目录,故逐级向上找最长前缀)。 */
+  function ownerOf(rel) {
+    const segs = rel.split('/')
+    for (let i = segs.length; i > 0; i--) {
+      const label = rootOwners.get(segs.slice(0, i).join('/'))
+      if (label) return label
+    }
+    return '(未记名条目)'
+  }
+  let p8Inspected = 0
+  let p8Hits = 0
+  for (const rel of thirdPartyFiles) {
+    let buf
+    try {
+      buf = reader.readBlob(rel)
+    } catch (e) {
+      // 取不到内容不得当作"没有横幅"放过(那是把判据失效洗成绿),但也不冒红:
+      // 与全链口径一致 —— 抛无法判定,由 CLI 收敛到 exit 2。
+      if (e instanceof Undetermined) throw e
+      violations.push(`P8 判据取不到已登记第三方文件的内容 ${rel}:${String(e.message ?? e)}`)
+      continue
+    }
+    p8Inspected++
+    const claim = carriesOurAttribution(buf)
+    if (!claim) continue
+    p8Hits++
+    violations.push(
+      `P8 归属反噬:已登记的第三方内容上出现我方水印(${claim}) ⇒ 我们把第三方内容声明成了自己的` +
+        ` → ${rel}(台账条目 ${ownerOf(rel)})。` +
+        `修法:node scripts/watermark.mjs clean ${rel}(勿手删零宽字符)`,
+    )
+  }
+  if (thirdPartyFiles.length === 0) {
+    notices.push(
+      'P8 未展开到任何已登记第三方文件(roots 为空或全部不在面上)—— 报数不判红,' +
+        '但别把它读成"已核过零个文件"',
+    )
+  }
+
   // ---- P6 自著声明清单必须属实 ----
   for (const rel of ownDeclarations) {
     if (typeof rel !== 'string' || !rel) {
@@ -589,6 +695,9 @@ function runCheck(root, face) {
     entryCount,
     candidateDirs,
     candidateFiles,
+    p8Inspected,
+    p8Hits,
+    thirdPartyFiles,
     textLedgerKinds: TEXTS_PER_ENTRY_REQUIRED_KINDS,
   }
 }
@@ -644,6 +753,11 @@ function report(result, face) {
   )
   lines.push(
     `  P2 候选面:vendored 目录 ${result.candidateDirs.length} 个,带第三方归属声明的跟踪文件 ${result.candidateFiles.length} 个`,
+  )
+  // P8 的核对面必须打印:只报"无违规"而不报"核了几个文件",会让人把"零个文件被核"读成"都干净"。
+  lines.push(
+    `  P8 归属反噬:已登记第三方文件 ${result.thirdPartyFiles?.length ?? 0} 个(roots 展开),` +
+      `实核 ${result.p8Inspected ?? 0} 个,发现我方归属主张 ${result.p8Hits ?? 0} 处`,
   )
   for (const d of result.candidateDirs) lines.push(`    目录:${d}/`)
   for (const f of result.candidateFiles) lines.push(`    文件:${f}`)
@@ -1062,6 +1176,97 @@ async function selfTest() {
       String(stagedErr),
     )
     ok(headErr === null, '10b 同一时刻工作树被别人半编辑不得影响 HEAD 面结论(面隔离)')
+
+    // ---- 11 P8 归属反噬 ----
+    // 立因:水印层曾把归属横幅打进已登记的第三方文件(Mozilla PDF.js),而 P1–P7 全部
+    // 只问"来源有没有登记",没有一条问"登记过的东西上盖了谁的章"。
+    writeLedgers({ embedded: [fixtureEntry('tp', ['vendor/demo'], { text: lic })] })
+    commit()
+    const r11a = runCheck(dir, 'head')
+    ok(
+      !r11a.violations.some((v) => v.startsWith('P8')),
+      '11a 已登记的第三方文件不带我方横幅 ⇒ P8 判绿(反向对照)',
+      r11a.violations.filter((v) => v.startsWith('P8')).join(' | '),
+    )
+    ok(
+      r11a.p8Inspected >= 2 && r11a.thirdPartyFiles.includes('vendor/demo/src/lib.rs'),
+      '11b P8 确实按 roots 展开并核到了文件(缺了这条,11a 只是"零个文件"的假绿)',
+      JSON.stringify({ n: r11a.p8Inspected, files: r11a.thirdPartyFiles }),
+    )
+    // 阳性对照:往登记的第三方文件上打我方规范横幅 ⇒ 判红并点名
+    w(
+      'vendor/demo/src/lib.rs',
+      '// Copyright 2024 Fixture Authors\n// SPDX-License-Identifier: MIT\n' +
+        '// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top\n' +
+        '// Provenance-watermarked. 未授权商用可被溯源追责\nfn main() {}\n',
+    )
+    commit()
+    const r11c = runCheck(dir, 'head')
+    ok(
+      r11c.violations.some(
+        (v) => v.startsWith('P8 归属反噬') && v.includes('vendor/demo/src/lib.rs'),
+      ),
+      '11c 已登记的第三方文件上出现我方横幅 ⇒ 判红并点名该文件',
+      r11c.violations.filter((v) => v.startsWith('P8')).join(' | '),
+    )
+    ok(r11c.p8Hits === 1, '11c2 命中数如实报出(报告面与违规面不得分叉)', String(r11c.p8Hits))
+    // 只剩零宽载荷(可见横幅被人手删)也必须判红 —— 否则"删掉两行头"就绕过了本条
+    w('vendor/demo/src/icon.rs', 'pub fn icon() {}\n// \u2060\u200b\u200c\u200b\u200d\u2060\n')
+    commit()
+    ok(
+      runCheck(dir, 'head').violations.some(
+        (v) => v.startsWith('P8') && v.includes('零宽') && v.includes('vendor/demo/src/icon.rs'),
+      ),
+      '11d 剥掉可见横幅、只留零宽载荷 ⇒ 仍判红(判据不可被"删两行"绕过)',
+    )
+    // 范围对照:未登记的本仓自研文件带满横幅也不该被 P8 点名(P8 不是"全仓禁横幅")
+    w(
+      'apps/demo/src/index.js',
+      '// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top\n// Provenance-watermarked. x\nexport const a = 1\n',
+    )
+    commit()
+    const r11e = runCheck(dir, 'head')
+    ok(
+      !r11e.violations.some((v) => v.startsWith('P8') && v.includes('apps/demo')),
+      '11e 未登记路径上的自研文件带横幅 ⇒ P8 不越界问责(它只管 roots 命中的文件)',
+      r11e.violations.filter((v) => v.startsWith('P8')).join(' | '),
+    )
+    // 判据的字面量表不得与 P2 那份漂移:两处各写一份而无人对账是本仓最高频失守形态
+    ok(
+      OWN_BANNER_STRUCT_TOKENS.every((t) => OWN_TOKENS.includes(t)),
+      '11f P8 的结构串必须是 OWN_TOKENS 的成员(否则两处字面量各写一份,漂移即静默失明)',
+      JSON.stringify({ p8: OWN_BANNER_STRUCT_TOKENS, p2: OWN_TOKENS }),
+    )
+    // 11g 假阳钉死:被登记为 override 落点的**自研清单**里带 author / copyright 字段
+    // (真仓 apps/web/package.json 的形状)不得算归属反噬 —— 归属主张的形态是**行首的横幅注释**,
+    // 不是值里的品牌串。缺了这条,P8 会在它自己写坏的地方恒红,逼人 --no-verify。
+    w(
+      'vendor/demo/manifest.json',
+      JSON.stringify(
+        {
+          author: '李春川 (Li Chunchuan) <IHUI AI (智汇AI)>',
+          copyright: '© 2026 IHUI AI (智汇AI) · 李春川 · All rights reserved.',
+        },
+        null,
+        2,
+      ) + '\n',
+    )
+    commit()
+    const r11g = runCheck(dir, 'head')
+    ok(
+      !r11g.violations.some((v) => v.startsWith('P8') && v.includes('manifest.json')),
+      '11g 自研清单里的 copyright **值** ⇒ P8 不得判红(行首锚定才叫横幅)',
+      r11g.violations.filter((v) => v.startsWith('P8')).join(' | '),
+    )
+    // 11h 同一条判据的阳性臂:同样的品牌串换成行首注释形态 ⇒ 必须立刻红
+    w('vendor/demo/manifest.json', '// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川\n{"a":1}\n')
+    commit()
+    const r11h = runCheck(dir, 'head')
+    ok(
+      r11h.violations.some((v) => v.startsWith('P8') && v.includes('manifest.json')),
+      '11h 同一文件的行首版权注释 ⇒ 判红(证明 11g 的绿来自锚定判据,不是这条路径没被扫)',
+      r11h.violations.filter((v) => v.startsWith('P8')).join(' | '),
+    )
   } finally {
     rmScratch(dir)
   }
@@ -1154,6 +1359,7 @@ export const __test__ = {
   checkOverrideLedger,
   hasThirdPartyNotice,
   isOwnLine,
+  carriesOurAttribution,
   coveredByRoots,
   requireFields,
   sha256,
@@ -1164,6 +1370,9 @@ export const __test__ = {
   VENDOR_DIR_RE,
   NOTICE_HEADER_WINDOW_LINES,
   OWN_TOKENS,
+  OWN_BANNER_STRUCT_TOKENS,
+  OWN_COPYRIGHT_RE,
+  ZW_PAYLOAD_RE,
   FACES,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
