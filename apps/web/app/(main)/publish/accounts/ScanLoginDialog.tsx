@@ -371,6 +371,7 @@ export function ScanLoginDialog({
           )}
           {phase === 'manual-import' && (
             <>
+              {/* back-label-exempt: 扫码对话框的"上一步"按钮,文字即标签,非页头返回键 until 2026-12-31 */}
               <Button
                 variant="outline"
                 onClick={() => {
