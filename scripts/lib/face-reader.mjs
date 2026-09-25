@@ -69,6 +69,11 @@ export function gitBinary() {
  * 而错误文本本来已在 `e.stderr` 内、由 gitErrText 收进 Undetermined 消息,不需要它再漏一遍。
  */
 export function gitRaw(args, root, opts = {}) {
+  // stdio[0] 分两态:不带 input 时 'ignore'(继承会挂),带 input 时**必须** 'pipe' ——
+  // 这正是 `cat-file --batch` / `hash-object --stdin-paths` 那一族的老陷阱:stdio[0] 设成
+  // 'ignore' 时喂进去的清单被丢弃,而 git 不报错,只是"每个对象都取不到"。
+  // 两态都写死,不给调用方留"顺手删掉 stdio"的空间。
+  const stdio = opts.input === undefined ? ['ignore', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe']
   try {
     return execFileSync(
       GIT,
@@ -79,7 +84,8 @@ export function gitRaw(args, root, opts = {}) {
         windowsHide: true,
         timeout: opts.timeout ?? GIT_TIMEOUT,
         maxBuffer: opts.maxBuffer ?? GIT_MAX_BUFFER,
-        stdio: ['ignore', 'pipe', 'pipe'],
+        stdio,
+        ...(opts.input === undefined ? {} : { input: opts.input }),
       },
     )
   } catch (e) {
@@ -120,6 +126,51 @@ export function catBatchCheck(root, oids) {
   return { missing, total: list.length }
 }
 
+/**
+ * 一次 `cat-file --batch-check` 把一批**任意对象规格**解成 oid(不是内容)。
+ * 与 `catBatchCheck` 的分工:那个只答"哪些不存在"(给推送前的存活预检用),本出口答
+ * "`<rev>:<path>` / `<oid>^{tree}` 各是什么 oid"(比较 blob sha 的判据要用,如守门 84)。
+ * 所以本出口**不做** hex-only 过滤 —— 那会把 `<oid>^{tree}` 这类合法规格整型丢掉。
+ *
+ * 输出与输入**按行对齐**,所以直接按索引回填;`missing` 与空行都归 null(交调用方判"取不到")。
+ * @returns {Map<string, string|null>}
+ */
+export function catBatchOids(root, specs, opts = {}) {
+  const map = new Map()
+  const list = [...specs]
+  if (list.length === 0) return map
+  let out
+  try {
+    out = execFileSync(GIT, ['-c', 'safe.directory=*', '-C', root, 'cat-file', '--batch-check'], {
+      cwd: root,
+      input: Buffer.from(list.join('\n') + '\n', 'utf8'),
+      encoding: 'utf8',
+      windowsHide: true,
+      maxBuffer: opts.maxBuffer ?? GIT_MAX_BUFFER,
+      timeout: opts.timeout ?? BATCH_TIMEOUT,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+  } catch (e) {
+    throw new Undetermined(
+      `git cat-file --batch-check 失败(${list.length} 个规格),${root} 的判定面无法取材: ${gitErrText(e)}`,
+    )
+  }
+  const lines = String(out).split('\n')
+  list.forEach((spec, i) => {
+    const line = (lines[i] || '').trim()
+    // `--batch-check` 对**不存在**的规格回的是 `<原规格> missing`(整行只写 missing 的是裸 oid 形态),
+    // 所以两种都要归 null。只判 `=== 'missing'` 会把规格原文当成 oid 返回 —— 那是一个
+    // "看起来有值、永远不相等"的第三种状态,守门 84 的旧实现正好一直处在这一状态(它比较的是
+    // sha,取到规格串与取到 null 结果相同,故实测无行为差;新出口按正确的判序写)。
+    if (!line || line === 'missing' || /\smissing$/.test(line)) {
+      map.set(spec, null)
+      return
+    }
+    map.set(spec, line.split(' ')[0])
+  })
+  return map
+}
+
 export function gitErrText(e) {
   const raw = e?.stderr ?? e?.stdout ?? e?.message ?? String(e)
   const text = String(typeof raw === 'string' ? raw : Buffer.from(raw).toString('utf8')).trim()
@@ -129,8 +180,13 @@ export function gitErrText(e) {
 /**
  * 一次 `cat-file --batch` 读完一批对象。返回 `Map<rev, text|null>`;
  * missing / unmerged / 非 blob 一律 null,由调用方判"取不到"(本层不代替业务结论)。
+ *
+ * `opts.maxBuffer` 是给"整仓 HEAD blob 一次读完"那类门留的口子:默认 64MB 够绝大多数,
+ * 但门 98/103 一次要读 8000+ 源文件 ≈ 85-89MB。缺口不设口子时,超限的表现是
+ * **整批改写成"每个 rev 都取不到"** —— 那会被下游读成"没有违规",是一道假绿。
+ * 所以超限必须抛(下面的 Undetermined),不能静默降级。
  */
-export function catBatch(root, revs) {
+export function catBatch(root, revs, opts = {}) {
   const map = new Map()
   if (revs.length === 0) return map
   let out
@@ -139,8 +195,8 @@ export function catBatch(root, revs) {
       cwd: root,
       input: Buffer.from(revs.join('\n') + '\n', 'utf8'),
       windowsHide: true,
-      maxBuffer: GIT_MAX_BUFFER,
-      timeout: BATCH_TIMEOUT,
+      maxBuffer: opts.maxBuffer ?? GIT_MAX_BUFFER,
+      timeout: opts.timeout ?? BATCH_TIMEOUT,
       stdio: ['pipe', 'pipe', 'pipe'],
     })
   } catch (e) {
