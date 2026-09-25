@@ -64,14 +64,31 @@
 #     该声明必须由持有 apps/cli 清单的那一路随代码同票入库,不得由本门代提。
 #     这条不是为消红登记的:依赖本来就在那儿。
 #     2026-09-25 全 23 模块复测试跑(取代下方 09-24 那组数字):**20 块判红 0**,有账的是
-#     `packages/i18n` 2 条、`repo-tooling` 1 条、`apps/cli` 3 条(本票已还)⇒ 剩余待整改 2 块。
-#     下一块要先还的账(两处,均已量化到行,解法见本节下方 09-24 试跑取证的更正值):
-#       ① 翻 `packages/i18n` —— 须把 `tests/waiting-keys-in-end-packages.test.ts` 移到
-#          `packages/shared/tests/chat/`(改 2 处路径)。**换 import 路径消不掉 D2**,理由见上。
-#       ② 翻 `repo-tooling` —— 须处置 `scripts/tests/export-openapi-stub-key.test.mjs:22`;
-#          它只用到 `export-openapi.ts` 里一个零依赖纯函数(`normalizeStubKey`),而该测试**已有**
-#          三条"读源码文本"的装车断言 ⇒ 最小改法是去掉 import、从文本里抠出该函数再执行
-#          (保护力不降,反而多一条"抠不到即红")。**不得**把 apps/api 写进 requires(T1 当场判红)。
+#     `apps/cli` 3 条(本票还)+ `packages/i18n` 2 条 + `repo-tooling` 1 条。后两条也在同日还清:
+# - packages/i18n —— 第三块 managed:true(2026-09-25)。
+#     还账动作:把 `packages/i18n/tests/waiting-keys-in-end-packages.test.ts` 用 **`git mv`** 移到
+#     `packages/shared/tests/chat/`(同包 ⇒ 零跨模块边;它读各端词包走 readFileSync,不构成 import 边),
+#     只改 2 处:L27 import 由 `../../shared/src/chat/waiting-pool` 改 `../../src/chat/waiting-pool`、
+#     L29 的 REPO_ROOT 由 `../../..` 改 `../../../..`。**没有**采纳上一票写的"改走公开入口"那条
+#     错解法(D2 只比 rank,换路径照样红 —— 已在本文件"规矩 2"下方就地推翻)。
+#     取证:`--staged --managed-trial packages/i18n` ⇒ 判红 0;新位置实测被 vitest 收集并跑
+#     **12/12 绿**(packages/shared 整包 55 文件 1267 例全绿,i18n 剩 5 文件 108 例全绿)。
+# - repo-tooling —— 第四块 managed:true(2026-09-25)。
+#     还账动作:`scripts/tests/export-openapi-stub-key.test.mjs` 去掉对 `apps/api/scripts/export-openapi.ts`
+#     的 import,改为**从源码文本抠出 `normalizeStubKey` 再在 vm 空上下文里真执行**;并新增
+#     "抠不到即红"一条(改名/删除/复制成两份三种形态各自 assert.throws,含"改不动则不算证明"的
+#     对照)⇒ 保护力不降反升:原来靠 `__test__` 出口,现在钉的是"被测文本就是被注入钩子的那一份"。
+#     **没有**把 apps/api 写进 requires(T1 当场判红,已实测)。**不得**改用 `arch-exempt` 糊过去。
+#     取证:`--staged --managed-trial repo-tooling` ⇒ 判红 0;该测试 8/8 绿。
+#     ⇒ 两块还清后,**HEAD 全量面按本次工作树内容复算 = 违规 0 处 / 判红 0 处**(复算口径:
+#     取 HEAD 全量面 8391 文件,只把本次三处路径按工作树态改判,喂门自己 export 的 analyze() ——
+#     因为全量档只读 HEAD,而高并发下手工 add 的中间态会被别的会话的 safe-commit `git reset`
+#     清走,实测本轮就被清掉一次 ⇒ 提交前预验一律按工作树内容,不依赖索引)。
+#     ⚠️ 一条**操作顺序**教训(与 §5b 工作区存续自愈直接相关):先 `mv` 后 `git add` 会命中
+#     `heal-worktree-tracked` 的三条恢复判据(工作区缺 ∧ 索引==HEAD ∧ HEAD 中存在)⇒ 守护把
+#     这次合法移动当成"外部删除事故"**原地恢复**,留下新旧两份并存。正确姿势只有一种:
+#     **`git mv` 一步原子完成**(索引同轮记 rename),或先改索引再动工作树。日志实证见
+#     `.workbuddy/git-guardian.log` 的「✅ 工作区存续自愈:恢复 1 个被外部删除的跟踪文件」。
 #     ⚠️ 09-24 那句"全仓 24 个模块逐一试跑均 0 处,现存 3 条软账"**已过期**,保留只为留痕:
 #     次日实测是 6 条(多出 apps/cli 那 3 条)。这正是本表要防的形态 —— 抄旧取证数字派单会漏账。
 #
@@ -332,7 +349,7 @@ modules:
     package: '@ihui/i18n'
     layer: 'platform'
     exported: true
-    managed: false
+    managed: true
     roots:
       - 'packages/i18n'
     requires: []
@@ -608,7 +625,7 @@ modules:
     package: '-'
     layer: 'tooling'
     exported: false
-    managed: false
+    managed: true
     roots:
       - 'scripts'
       - 'deploy'
