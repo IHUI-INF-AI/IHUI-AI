@@ -70,7 +70,7 @@ page {
    起效的是下面那行 @source:它把端内源码显式喂给生成器,命名档才进候选集。
    (上面的 @tailwind utilities 换成 @import 'tailwindcss/utilities.css' 是**空转**——该文件内容
     逐字就是 `@tailwind utilities;`,21 字节;保留只为与 v4 的入口写法对齐。)
-   ⚠️ 仍未解决:项目色档(bg-*/text-*/border-*)整族还是 0 落地,因为 v4 只把 @theme 里的
+   ⚠️ 仍未解决:项目色档(bg-∕text-∕border-∕ 三族)整族还是 0 落地,因为 v4 只把 @theme 里的
     --color-* 认作主题档,而本文件把色值落在普通 :root/.dark 上。见 PROJECT_PLAN O62附⑧补。 */
 @import 'tailwindcss/utilities.css';
 @source "./**/*.{ts,tsx}";
@@ -504,7 +504,7 @@ iframe#webpack-dev-server-client-overlay {
 /* ===== 通用工具类 ===== */
 
 /* 文本溢出省略 */
-.text-ellipsis {
+.ihui-ellipsis {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
