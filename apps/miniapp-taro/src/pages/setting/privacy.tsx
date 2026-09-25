@@ -147,7 +147,7 @@ export default function PrivacySettingPage() {
             {PERMISSIONS.map((item, idx) => (
               <View
                 key={item.key}
-                className={`flex items-center justify-between py-[20rpx]${idx > 0 ? ' border-t-[1rpx] border-solid border-[color:var(--color-border)]' : ''}`}
+                className={`flex items-center justify-between py-[20rpx]${idx > 0 ? ' border-t-[length:1rpx] border-solid border-[color:var(--color-border)]' : ''}`}
               >
                 <View className="mr-[16rpx] min-w-0 flex-1">
                   {/* label 对齐 RN: 14dp→28rpx + text.medium 语义映射 muted-foreground */}
@@ -192,7 +192,7 @@ export default function PrivacySettingPage() {
             {switchItems.map((item, idx) => (
               <View
                 key={item.key}
-                className={`flex items-center justify-between py-[20rpx]${idx > 0 ? ' border-t-[1rpx] border-solid border-[color:var(--color-border)]' : ''}`}
+                className={`flex items-center justify-between py-[20rpx]${idx > 0 ? ' border-t-[length:1rpx] border-solid border-[color:var(--color-border)]' : ''}`}
               >
                 <View className="mr-[16rpx] min-w-0 flex-1">
                   <Text className="text-[length:28rpx] text-muted-foreground">{item.label}</Text>
