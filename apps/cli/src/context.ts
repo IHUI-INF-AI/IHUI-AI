@@ -23,6 +23,10 @@ export {
   summarizeMessage,
   buildStructuredSummary,
   compressContext,
+  // P2:压缩决策原因的闭集类型(端内一律经本文件取词,不各自深读共享包)
+  type CompactionDecisionReason,
+  COMPACTION_DECISION_REASONS,
+  isCompactionDecisionReason,
   type ChatMessage,
   type CompressionResult,
   type CompressionOptions,

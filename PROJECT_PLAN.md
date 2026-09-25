@@ -9225,3 +9225,148 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   这条已记在 [[feedback-resolve-paths-dont-guess]],本次是复发,**凡跨命令用相对路径前先 `pwd`**。
   同批更正:web 全量 typecheck 还有 21 处红(`progress-sections/tool-category*` 19 处 + `PriceChart.tsx` 2 处),
   归属 09-24 的他人提交;之所以一直没暴露,是推送门按"本次改动范围"降级 ⇒ 与本票无关,不代改。
+
+
+
+
+
+
+### 第七波（2026-09-25 13:2x–14:4x：门 103 自我阻断缺陷 + 第七轮取证 + 压缩分母收口）
+
+- [x] ✅(2026-09-25) **门 103 有一处"惩罚修复"的缺陷（由我自己的删除型提交被它拦下而暴露）**：`--staged` 档在"暂存集里没有源文件"时回退 HEAD 全量（这条本身是对的，防"审 0 个文件记绿"），
+  但回退时**不排除本次提交正删除的路径** ⇒ 删掉违规文件的那枚提交永远落不了地：暂存集无源文件 → 回退 HEAD → HEAD 里那个文件还在 → 判红 → 新的归因闸把它判成
+  "本任务自己的红"并**拒绝 `--no-verify`**。本门要拦的是"**提交后**仓库仍违规"，而删除恰恰是修复动作，对着修复前的快照问责等于惩罚修复。
+  修法：回退档按 `HEAD 源文件 ∖ 本次 D 清单` 取材，且**剔除清单必须打印**（静默排除 = 判据失效）。
+  **第一版把剔除算在索引面上**，而 `D` 形态的路径根本不在索引源文件清单里 ⇒ 真实场景永远打印"剔除了 0 个"，等于换个姿势静默 —— 现由 `planStagedScope`
+  一次算出 `keep` + `droppedDeleted`（单一真相源，拆两处算必漂移）。取证：`--self-test` 75→**79** 例、镜像 **16/16** 未受影响、
+  真实现场 `--staged` 由 rc=1 转 **rc=0** 且结论行点名"已剔除本次提交删除的 1 个源文件(…waiting-keys-in-end-packages.test.ts)"。
+- [x] ✅(2026-09-25) **A27 判"本仓缺第二个谓词"是取证不足（结案为不适用）**：规格按上游命名习惯 `grep worldTouching` 得 0 便判缺口；
+  实测本仓 `packages/types/src/tool-contract.ts:216 mayWriteWorkspace` 与 `:229 touchesExternalWorld` **两个谓词早已成对**，
+  后者正是"排除法只排协议两档"的同一条设计，消费点在 `apps/cli/src/tools/index.ts`。⇒ 取证纪律回写规格：**判"没有 X"必须按语义穷举，不得按上游的标识符拼写去找**。
+- [x] ✅(2026-09-25) **U-4「AGENTS 的 158/158 vs 门 111 的 104/104」结案，并把那句不可复核的"已证明"换成可重跑判据**：
+  158 出自提交 `dd5142f2255` 的一次性 A/B 脚本，**脚本没入库、口径也不同** —— 它按 `文件#name` 计数，把 re-export 的同一工具**重复计了 56 次** ⇒ 158 ≠ 104 从来不是同一把尺子。
+  更糟的是那条 A/B **今天再跑仍报 158/158，而它是恒真式**：它比的"旧侧" `toolsToProviderSchema` 在 `dd5142f2255` 之后自己就改成调投影器了，等于拿新实现和它自己比
+  ⇒ "已证明"当时成立、事后失效，而账面什么都看不出来（这正是"结论必须能被重跑"的理由）。
+  现已入库 `apps/cli/tests/a13-projection-equivalence.test.ts` + `tests/fixtures/toJsonProperty.legacy.ts`（旧侧取 `git show dd5142f2255^` 的**历史源码逐字快照**，头注禁止演进）：
+  ①门数到的工具集合与运行时枚举到的**逐名相等**（102 == 102，另 2 个 non-literal 名只存在于门侧口径）；②逐工具 A/B 三项全等 ⇒ **102/102 等价**；
+  ③两条变异对照：测试内注入"少投一个字段"⇒ 红并点名键；带外把 fixture 旧侧 `prop.enum` 改坏 ⇒ `1 failed | 3 passed` 并点名 9 个工具，随后逐字还原复跑 4/4；
+  ④"枚举到 0 个工具 ⇒ 判据失明不得算通过"的反向对照。AGENTS 那条已就地改写为指向本测试，**不再留会漂移的数字**。
+  **本测试自带一条已知局限（勿当 bug 报）**：运行时侧只能读磁盘（工作树），门侧判 HEAD ⇒ 他人在飞新增的真工具会让用例①以"仅运行时有"点名，
+  红可能来自别人未提交的文件（与守门 77/83 反复记过的同一型）。另 `apps/cli/tsconfig.json` 是 `include: ["src/**"]` + `exclude: ["tests"]`
+  ⇒ 本仓"新建 .ts 后重跑目标包 tsc"这条既有纪律**对测试文件零覆盖**，真覆盖要走 §22b 的 staged-typecheck。
+- [x] ✅(2026-09-25) **A30 压缩分母收口 + 守门 112 上线（含一次镜像测试抓到判据假阳性）**：`packages/context-compaction` 新增唯一出口 `effectiveContextWindow`、
+  预留封顶 `MAX_OUTPUT_RESERVE_TOKENS=8192`；`apps/cli/src/compaction-v2.ts` 的 4 处除法与 targetTokens 全部走同一份分母，回退两条路
+  （构造参数 `outputReserveEnabled:false` / 环境变量 `IHUI_COMPACTION_OUTPUT_RESERVE=0`）。**行为变化如实登记**：分母只会更小 ⇒ **压缩更早触发**，
+  这是用户可感知的变化，不能写成"等价重构"。A31 部分：`COMPACTION_DECISION_REASONS` 闭集 + `isCompactionDecisionReason`，`reductionGuard` 纳进 `guard-rejected`，
+  熔断**复用既有 `RefillBreaker`**（不另起计数器）。
+  **本票留下的账（不得读成收口）**：分母没做到全链路 —— `apps/cli/src/commands/agent.ts:1021` 的 70% 预压缩带、V1 路径
+  `packages/context-compaction/src/index.ts:554`、以及 **`apps/api/src/routes/ai-chat-stream.ts:649/921` 的溢出面**三处仍是旧分母，
+  已如实冻进 `scripts/compaction-denominator-baseline.json`（8 文件/12 处，只减不增）。
+  镜像测试由主会话补交并**当场抓出判据一处真缺陷**：`markHidden` 原本只剥注释不剥字符串 ⇒ 报错文案里的
+  `"tokens / contextLimit"` 会被当成代码判红（门会在自己的说明里红）。已补剥单/双引号内容、**刻意不剥模板串**
+  （`${tokens / contextLimit}` 是真代码，一并剥掉就是把判据剥钝），配 V9b/V9c/V9d 三条成对自检 ⇒ `--self-test` 15→**18 条**、镜像 **10/10**、全量 rc=0。
+- [x] ✅(2026-09-25) **守门 113「路由身份键不得进模型可见 schema」立项（键清单唯一源 = `ROUTING_IDENTITY_KEYS`，与类型层共用一份）**，
+  以及**一条我自己写错的定性（已复验改档）**：它实测报 4 组 / 16 处，我第一版把它写成"P0 真越权：模型填别人 UUID 就能读别人的记忆"，
+  并且拿 `apps/api/src/routes/ai-memory.ts:100` 当"服务端已兜住"的依据 —— **那个文件根本不存在**（真路径是 `apps/api/src/routes/memory.ts`），
+  等于我用一条没打开过的引用去否定自己的结论。逐行复验后的事实是：`memory.ts:118/145/176` 一律
+  `const userId = request.userId!`（身份从**令牌**取），且 `:211` 注释明写"与 /api/llm/* 同源；metadata.userId 不可信"
+  ⇒ 模型传的 `user_id` **服务端根本不认**，今天不存在跨用户读取，**不是漏洞**。
+  真缺陷是另一件同样该修的事：`apps/cli/src/tools/memory.ts:150/221/263` 把 `user_id` 标成 **`required`** ⇒ 模型既无从知道合法 UUID，
+  就只能编一个、或撞 `缺少 user_id 参数` 的错误分支 —— 那是**模型不可能满足的必填参数**（功能面 bug，不是安全洞）。
+  另外 `debug.ts` ×7 / `terminal.ts` ×4 的 `sessionId` 是 `terminal_open`/`debug_launch` **返回的句柄**，与 `messageId` 同类属"内容引用"；
+  `memory.ts` 的 `session_id` 则**真被服务端采用**（`buildKey(userId, scope, sessionId, …)`），但它只在本人命名空间内定桶。
+  ⇒ 三条处置：① `memory.ts` 摘掉 `user_id` 必填并停止发送（服务端本就不认）；② 句柄类 11 处在 `ROUTING_IDENTITY_KEYS` 的注释里
+  **正式登记排除理由**，**不得用行内豁免遮掉**（那等于把判据改成"没人违规"）；③ `session_id` 若留在表内则须改由宿主 ctx 绑定。
+  **接线口径**：16 处已冻进 `scripts/tool-arg-routing-identity-baseline.json`（每文件每键、只减不增）⇒ 全量档实测 exit 0、新增即拦；
+  基线只是"新增即拦"的支点，**不是债务已清偿** —— ①②③ 不清完，本门的绿灯只算"没变得更坏"。
+  取证：`--self-test` **23 例**、§22c 镜像 **7 例**（含"排掉的键若进表即红"的反向钉死、"清单源被摘线必须 exit 2"），
+  投影出口侧判成 `name-preserving`（静态验 `properties[name]` 的键名逐字取自 `Object.entries(parameters)`，解析不出即计未判定并 exit 2 —— 不是"未判到"）。
+  **本轮我自己的一条教训**：看到 `user_id` 命中就升级成 P0，等于**把别人的防线当成不存在**；而为了否定它又搬出一条没打开过的文件路径，
+  是同一个毛病的第二面 —— **越权结论与"已被兜住"结论都必须查到服务端那一行才算数**（与「可达性要按通道逐落点数」「判交付不实前先验尺子与环境」同族）。
+- [ ] **我本轮犯过两次的"检查时机"错误（记下来防它再变成诬告）**：两张并行票的存在性检查，我在代理**尚未落盘时**就跑了，`test -f` 全 MISSING，
+  我于是写下"报告是编造的、票作废重做"。实际两张票随后都真交付了（`check-tool-arg-routing-identity.mjs` 自检 23/23 + 镜像 7/7、
+  `a13-projection-equivalence.test.ts` 4/4，均由主会话自己重跑确认），而我把同一个判断**在同一张票上犯了两次**（先判"镜像测试没交"，落盘后 7 例全在）。
+  ⇒ 规范：**"文件不存在"只有在"该会话已结束"之后才是证据**；未完成状态下它只表示"还没写到"。
+  复核做早了会把正常交付判成造假 —— 这条与「判交付不实前先验尺子与环境」同族，但多了一面：**尺子没错、时机错，同样造出假阴性**。
+- [x] ✅(2026-09-25) **新门 113 的豁免形态与守门 108 不咬合，被 108 当场拦下（这正是那套豁免账该干的活）**：
+  113 的标记原本只要求"带原因"，而 108 要求**每条豁免都带 `until YYYY-MM-DD` 到期日** ⇒ 我的门一边在产出"永不过期的豁免"，
+  一边把这种豁免写进帮助文本与自检夹具 ⇒ 108 判红 6+1 处、把提交链卡住。修法不是给 108 开后门，而是**把 113 的豁免改成必须带到期日**
+  （不带就判不出来，等于没有豁免），并把语法示例与夹具里的"族名 + 冒号"字面量改为经 `EXEMPT_MARK_TEXT` 拼接
+  （108 的 `MARKER_RE` 按"族名紧邻冒号"识别，**帮助文本里的示例会被它当成生效豁免** —— 同族先例 `scripts/module-context.mjs`，
+  这条已经第二次撞到，见 [[verify-new-predicate-greps-all-uses-of-the-identifier]]）。
+  新增反例 P3b「带原因但**不带** until ⇒ 仍判红且不计豁免」⇒ 113 自检 23→**24 例**、镜像 **7/7**、全量 rc=0，
+  108 `--staged` 由 rc=1 转 **rc=0**；顺带给门 112 的镜像测试夹具补上同样的到期日（它也被 108 记了一处）。
+- [x] ✅(2026-09-25) **门 111 换锚点：从"新文件才拦"改成"触碰即须声明"(TRD)** —— 旧锚点是"该文件 HEAD 自身违规数"，
+  后果不是太严而是**太宽**：碰一个存量工具文件改完仍然"无契约"，永远不红，于是 A13 那个唯一出口建好之后生产面
+  **104 枚工具一枚都没挂上**（实测 `grep -rn "contract: {" apps/cli/src --include=*.ts | grep -v test` = 0 命中，唯一命中在
+  `packages/types/tests/` 的夹具里）。TRD 只在 `--staged` 生效：本次暂存触及某工具文件 ⇒ 该文件里每枚注册工具都必须有契约；
+  **全量档判据与结论行逐字未变**（存量 104 仍只报数），否则今天起没人能提交。带两周宽限
+  `GRANDFATHER_UNTIL=2026-10-09`（立票日 +14 天，依据写在常量注释里，**禁止改日期消红**），期内只报数、到期转真拦，
+  且**当前档位与剩余天数必须打在输出行**（否则"这一轮到底拦不拦"只有读代码的人才知道）。`--today` 做成可注入参数
+  ⇒ "过期前/过期后"两种日期都能构造出来证明，不依赖系统时钟；另补"暂存触及工具文件而枚举到 0 枚注册 ⇒ exit 2 判死"。
+  取证：自检 11→**21 条**、镜像 9→**17 例**、全量档复跑读数与派单前**逐位相同**（证明没把存量搞红）；
+  变异自证（把 `enforced ? red : notice` 改坏 ⇒ 永不判红）自检与镜像各 exit **1**、改回 0/0。
+### 第八波（2026-09-25 14:5x–15:2x：三条定点取证结案 + 抓到"入参校验器建好没装车"）
+- [x] ✅(2026-09-25) **A29「批准的字节 ≠ 执行的字节」在本仓不成立（结案为不适用，附赋值链证据）**：
+  代理式风险形态是"批准弹窗展示一条命令、执行时另一处代码做了展开/规范化 ⇒ 用户批的和跑的不是同一件事"。
+  实测本仓三处取的是**同一个引用**：`apps/cli/src/tools/index.ts:324` 把 `call.arguments` 交给
+  `ctx.confirmDangerous(tool, call.arguments)` 弹窗（`apps/cli/src/tools/danger-gate.ts:96` →
+  `apps/cli/src/commands/agent.ts:1930-1933` 的 prompt 体只做 `JSON.stringify(args)`，**只读不改**），
+  同一表达式再原样进 `executeWithRetry(tool, call.arguments, ctx)` → `tool.execute(args, ctx)`。
+  ⇒ 没有 `resolveInput` 这一格不是缺陷，是**本仓根本没有"校验后替换入参"的环节**（见下一条）。**不得再按上游有 `resolveInput` 就立"补一个 resolveInput"的票。**
+- [x] ✅(2026-09-25) **A35「构造期冻结模型/provider 表」在本仓不成立（结案为不适用）**：
+  子代理只带一个字符串 id 下去（`apps/cli/src/tools/subagent.ts:251/270/374`，跨进程形态
+  `subagents/worker-entry.ts:156/197`），provider 每次现读（`apps/cli/src/commands/agent.ts:1147` 调
+  `apps/cli/src/provider/local.ts:55 resolveProvider(settings)`，无 memo 无 freeze），模型清单也是现读函数
+  （`commands/models.ts:234`、`provider/local.ts:272`）。
+  **唯一被构造期快照的是"工具注册表"**，且它在每次 spawn 时 `subagent.ts:381 savedTools = listTools()` →
+  `:450-452 finally { clearTools(); registerTools(savedTools) }` 成对还原 ⇒ 形态正确，不是债。
+- [ ] **★ 抓到本仓一处"造好没装车"：`apps/cli/src/tools/argument-validator.ts` 在生产面零调用方 ⇒ CLI 工具入参根本不校验**
+  （这是 A36 那条票的真身，也是 A13 那句"运行时怎么校验与模型被告知怎么填是同一份描述的两个投影"**目前只有后半句成立**）：
+  - 证据（主会话自跑）：`grep -rn "validateToolArguments|formatValidationErrors" --include=*.ts apps/cli/src packages/*/src`
+    ⇒ **只有该文件自身的定义行**（`:68` 定义、`:351` 定义、`:22/:345` 注释），零个 import 与零个调用点；
+    全仓 `grep -rn "argument-validator" apps packages | grep -v .test.` 也只在三处**注释**里被提及
+    （`tools/index.ts:549`、`packages/types/src/schema-projection.ts:9`、`tool-contract.ts:78`）。
+  - 后果不是"少一道校验"这么轻：`required` 目前只被用来**生成提示文案**（`tools/index.ts:187` 拼 `(必填)`）
+    与投给 provider 的 schema，没有任何一处按它拒绝或纠正入参 ⇒ 模型少传/传错类型时，
+    错误由**各工具 handler 自己**兜（`String(args.x ?? '')` 这类），同一类错误在 104 枚工具里有 104 种表现。
+  - **为什么不当场接线**：`parameters` 描述从来没有被执行过 ⇒ 它的准确度**从未被检验**。直接把校验打开，
+    表现可能是"昨天能跑今天全被拒"（正是门 111/113 反复写的那类恒红事故的运行时版本）。
+  - 正确顺序（三步，缺一不可，第一步是这票的唯一交付）：
+    ① **影子模式**：在 `executeToolCall` 里调用校验器但**只记账不拦截**，统计真实会话里"会被拒"的调用数、按工具名分布，
+    开关 `IHUI_TOOL_ARG_VALIDATION=shadow|off|enforce`，**默认 off**；
+    ② 拿影子数据把确实描述错的 `parameters` 修对（或按 `--touch-requires-declaration` 那条 TRD 一并收口），
+    判据是"enforce 打开后被拒率 = 0 或只落在真该拒的用例上"；
+    ③ 才允许 `enforce` 默认开，并把失败结构改成 **`{字段路径, 期望, 实得}` 逐条回灌给模型**
+    （现 `ValidationError` 有 `field`/`expected`/`actual`，`field` 已是 `items[0]` / `a.b` 形态但根节点写字面量 `(root)`、
+    且 `actual` 多数只是类型名（`describeType()`），只有枚举分支给字面值）——
+    **`formatValidationErrors` 今天在生产里没人调**，所以"回灌"这一步是零现状、要新建出口。
+  - 归属与解阻判据：本条属**吸收线自己挖出的本仓缺陷**，不依赖任何上游代码；
+    第①步单独一票（小，只加一个调用点 + 计数器 + 开关），做完才允许讨论第②③步。
+    立守卫前先证坏状态可达（既有口径），这条的可达性证据就是"零调用方"本身。
+- [x] ✅(2026-09-25) **一条取证纪律的回写（本轮第三次撞到同一型）**：上面 A29/A35 两条我最初都按"上游有 ⇒ 我们缺"写进任务书，
+  两路都判为**不成立**。机制是：**上游那份机制解决的故障，本仓可能根本没有产生它的环节**（A29 要有"校验后替换入参"才会有"批准的字节 ≠ 执行的字节"；
+  A35 要有构造期快照才会有 stale registry）。⇒ 今后"值得吸收"的判定必须附一条**本仓故障成因是否存在**的证据，
+  只附"上游有 X + 我们 grep 不到 X"的一律降级为未决。
+- [x] ✅(2026-09-25) 钩子 trust 的**残余面**:webhook 形态钩子仍不过门(本批按 command 收口); 〔✅复测:两种形态已过**同一道**门 —— `apps/cli/src/hooks/index.ts` 头注"两种形态过"命中 1 处,`hookTrustSkipReason` → `gateHook` 对 webhook/command 共用一次判定,kind 由声明自身推出;配套专测 `apps/cli/tests/hooks-trust-gate.test.ts` + `hooks-trust-content.test.ts` 均在库。同行第二句也已落地:`commands/hooks.ts` 真有 `untrust <path>` 子命令(命中 9 处)。〕
+- [ ] **本行是并发 union 归并留下的裸副本**(原条目已于 2026-09-25 复测并翻勾,现行判定见 O73 条①(两形态已过同一道门,`hooks-trust-gate`/`hooks-trust-content` 在库)),勿照本行派单:钩子 trust 的**残余面**:webhook 形态钩子仍不过门(本批按 command 收口);
+- [x] ✅(2026-09-25) `reclaim` 改写信封内容的边界:本批只在 CLI 侧由"重建提醒"兜回产物指针; 〔✅复测:判据与消费者都在 —— 常量与 `isEnvelopeContent` 上移 `packages/context-compaction/src/markers.ts`(命中 5 处),`reclaim.ts` 命中 5 处且分别落在"整条跳过"与"段级跳过"两个出口,不是"只有常量没有用法"。〕
+- [ ] **本行是并发 union 归并留下的裸副本**(原条目已于 2026-09-25 复测并翻勾,现行判定见 O73 条①(判据与两处消费者都在 `packages/context-compaction`)),勿照本行派单:`reclaim` 改写信封内容的边界:本批只在 CLI 侧由"重建提醒"兜回产物指针,
+- [x] ✅(2026-09-25) WP-1 新 API 尚未接入 `builtins.ts`/`terminal.ts` 执行链(接一行即可恢复 YOLO 观感); 〔✅复测:`gateCommandExecution` 在 `apps/cli/src/tools/builtins.ts` 命中 3 处、`apps/cli/src/tools/terminal.ts` 命中 4 处。⚠️ 派单陷阱:原票写的 `apps/cli/src/terminal.ts` **不存在**,真身在 `tools/` 下 —— 照票面路径 `git show` 必 fatal,而"查不到"极易被下一个人读成"没接入"。〕
+- [ ] **本行是并发 union 归并留下的裸副本**(原条目已于 2026-09-25 复测并翻勾,现行判定见 O73 条①(`tools/builtins.ts` 3 处 / `tools/terminal.ts` 4 处 —— ⚠️ 本行原文的 `apps/cli/src/terminal.ts` 路径不存在,照它 `git show` 必 fatal)),勿照本行派单:WP-1 新 API 尚未接入 `builtins.ts`/`terminal.ts` 执行链(接一行即可恢复 YOLO 观感,
+- [x] ✅(2026-09-25) `config/architecture-policy.yaml` 目前 0 个模块 `managed:true` —— 渐进收口的第一块翻正面尚未选定; 〔✅复测:该数字是**立项状态不是现值** —— `git show HEAD:config/architecture-policy.yaml | grep -c '^    managed: true'` 实得 **23**,`node scripts/check-architecture-policy.mjs` exit 0。真正的剩余量在别处:该门输出点名的"E2 契约工件未齐备 16 块"(默认只报数,`--strict` 才问责)。〕
+- [ ] **本行是并发 union 归并留下的裸副本**(原条目已于 2026-09-25 复测并翻勾,现行判定见 O73 条①(实得 23;现值一律跑 `node scripts/check-architecture-policy.mjs` 读,勿照本行数字派单)),勿照本行派单:`config/architecture-policy.yaml` 目前 0 个模块 `managed:true` —— 渐进收口的第一块翻正面尚未选定。
+- [x] ✅(2026-09-25) **`stream-tool-ledger` 未入库**:模块与单测已绿(`apps/cli/src/stream-tool-ledger.ts`); 〔✅复测:`git cat-file -e HEAD:apps/cli/src/stream-tool-ledger.ts` 成立;`git show HEAD:apps/cli/src/commands/agent.ts` 命中 3 行,含真 import 与 `new StreamToolLedger` ⇒ 生产者与消费者同枚提交入库,本票已闭环。〕
+- [ ] **本行是并发 union 归并留下的裸副本**(原条目已于 2026-09-25 复测并翻勾,现行判定见 O73 条①(HEAD 有模块,`commands/agent.ts` 有真 import 与 `new`)),勿照本行派单:**`stream-tool-ledger` 未入库**:模块与单测已绿(`apps/cli/src/stream-tool-ledger.ts`),
+- [x] ✅(2026-09-25) `/api/agent/goal-verify` **无生产消费方**(端点已注册、测试已断言路由存在,但 goal 运行循环还没调它); 〔✅复测:**票面实质已闭环** —— 独立校验轮真被运行循环调用:`apps/ai-service/app/services/goal_completion_gate.py` 内 `await verify_goal_completion(...)`,而 `app/routers/agents.py` import 该 gate;web 侧结论随 done 帧下发。剩下的只是字面事实"这个 HTTP 端点自身无调用方"(全仓除路由注册与测试断言外 0 命中),而**端点存废属对外能力取舍**,不由 agent 单方删(§7 三问 + §24)。已就地写清两读法,勿再按原文派"接消费者"的活。〕
+- [ ] **本行是并发 union 归并留下的裸副本**(原条目已于 2026-09-25 复测并翻勾,现行判定见 O73 条①(独立校验轮已被运行循环调用;端点自身无调用方属对外能力取舍,不由 agent 单方删)),勿照本行派单:`/api/agent/goal-verify` **无生产消费方**(端点已注册、测试已断言路由存在,但 goal 运行循环
+- [x] ✅(2026-09-25) page_* 动词的**跨端登记**未做:web / miniapp-taro / RN / desktop / api 侧 `agent_action` 枚举与 capability 目录尚未收; 〔✅复测(逐端点数,不按"命中 0"直接定性):枚举单源 `packages/types/src/agent-control.ts` 收 **7** 条 `page_*`,`capability-catalog.ts` + 产物 `generated/capabilities.json` + scope 映射各 **7** 条,`apps/cli` 7/7 全在,extension 经 `PageActionType` 消费;miniapp-taro / mobile-rn / desktop 命中 0 —— 已换第二种正向搜法复核(`PageActionType` / `pick_at_point` / `page_control`),三端**结构上没有 page 控制面**,属平台域外而非漏登记。唯一真残余:`apps/api` 侧只有测试面引用、无生产侧登记(已另记,不随本条翻勾)。〕
+- [ ] **本行是并发 union 归并留下的裸副本**(原条目已于 2026-09-25 复测并翻勾,现行判定见 O73 条①(types 7 / 目录 7 / cli 7-7 / extension 经 `PageActionType`;RN·小程序·桌面结构上没有 page 控制面,属平台域外)),勿照本行派单:page_* 动词的**跨端登记**未做:web / miniapp-taro / RN / desktop / api 侧 `agent_action` 枚举与
+- [x] ✅(2026-09-25,提交 `29210a4f2e0`) **`confirmDangerous` 的五处就地短路收口成工具层单一策略**。旧状态不是"重复五行",是三条结构性缺陷:同一件事五份规则(实测三种分叉行为 —— agent 无提问通道直接拒、ACP 弹编辑器、agent-core 与 subagent 把 flag 表达式直接当返回值)、工具层只收到一个布尔因而**看不见这次放行走的是哪条路**(没有审计面)、第六个调用方忘了这回事时 typecheck 不红。新出口 `apps/cli/src/tools/danger-gate.ts` 的 `createDangerGate({allowDangerous, prompt, silent, onDecision})` 把三条路显式化:`flag` / `approved` / `denied`,**默认 fail-closed**(prompt 抛错或返回空一律记 denied,绝不退化成放行)。迁移四处:`acp/server.ts:313`、`server/agent-core.ts:103`、`commands/repl.ts:2271`(唯一真正的"人工批准"通路,原中文提示经 `onDecision` 逐字保留)、`tools/subagent.ts:367`。
+  **`commands/agent.ts` 本轮未迁** —— 它正被并发会话在飞编辑(`decideCompaction` 一带 6+/1-),动它=混提他人未提交工作(提交前用 `git diff | grep -c danger` 实测为 0 确认不是我改的)。所以本票如实是**五处收口四处**,不是"收口完成";剩那一处待其在飞改动落地后另票。
+  防回潮判据钉的是**不变量不是清单**:`tests/danger-gate-wiring.test.ts` 同时抓两种形态 —— `if(…allowDangerous…) return true` 与**不带 if 的裸直返** `async () => x.allowDangerous === true`(后一型正是 agent-core 与 subagent 的写法;只写前一种的尺子对它俩全盲 —— 守门 77 B6"门让你怎么写、门就看不见怎么写"同一课,并写了"只覆盖形态①必然漏形态②"的自证);锚点取 **HEAD blob** 逐文件比 `worktree ≤ HEAD`,即**只拦加回来、不拦存量**,不当恒红尺子;已迁文件必须真 import 并调用工厂(装了没接线=没有)。现值 `agent.ts` 1 处、`config-cmd.ts` 1 处(settings getter,两侧对称计数不洗账),其余归零。
+  取证(未采信代理自报,主代理逐项复跑):cli `tsc --noEmit` exit 0、cli 全量 vitest **139 files / 2797 tests 全通过**、新增 20 例 + 既有 `command-policy-wiring` 31 例全绿、eslint 七文件 0 error、`watermark verify` / `check-no-visible-spawn` exit 0。批量链在临时索引上按这 7 个路径跑完 143 项:通过 117 / 警告 3 / 失败 2,两道红([51] 能力目录产物、[104] prod-bundle 生产副本漂移 170 行)点名的路径**全不在本次 7 个文件里**。
+- [x] ✅(2026-09-25) **就地更正上一枚提交信息里的一处失实**:`29210a4f2e0` 的正文写着"批量链日志未打出汇总段 ⇒ 不能当 143 项跑完"。**该说法是错的** —— 汇总段一直在,是我那条 `grep "总检查数\|通过:"` 的模式没对上实际文案(`"  通过: 117"`)。**教训:找不到结论行先怀疑尺子,再怀疑世界**(本仓同一课已记过多次:量到 0 先问量法)。实际数字如上:143 项 / 117 通过 / 2 失败,失败均不点名本次文件。历史提交不改写(§22 禁止 amend 已落地提交),故在此留一条可追溯更正。
+- [x] ✅(2026-09-25) **台账幻影债七条复测并翻勾**(派单前实测,免得下一个人按旧副本白烧轮次;每条的证据都写成可复跑命令,判据见提交信息):钩子 trust 的 webhook 残余面(两形态已过同一道门)、`reclaim` 信封边界(判据与两处消费者都在)、WP-1 执行链接入(`builtins.ts` 3 / `tools/terminal.ts` 4 —— ⚠️ 原票写的 `apps/cli/src/terminal.ts` **路径不存在**,照它 `git show` 必 fatal 并被读成"没接入")、`architecture-policy.yaml` "0 个 managed:true"(实得 **23**,那是立项状态)、`stream-tool-ledger 未入库`(HEAD 有模块且 `agent.ts` 有真 import + `new`)、`goal-verify 无生产消费方`(**票面实质已闭环**:独立校验轮真被运行循环调用 `verify_goal_completion`;字面残余只是"该 HTTP 端点自身无调用方",而端点存废属对外能力取舍,不由 agent 单方删)、`page_* 跨端登记`(逐端点数:types 7 / 目录 7 / cli 7/7 / extension 经 `PageActionType` 消费;RN / 小程序 / 桌面命中 0 且已换第二种正向搜法复核 ⇒ 三端结构上没有 page 控制面,属平台域外而非漏登记)。
+- [ ] **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN / miniapp 未消费 tailPreview` —— 两端 1742 个跟踪文件里命中 0,唯一消费者是 web;难点不是接一行,而是两端如何取到 `context-attribution` 这份共享引擎(实测两端对它**零引用**,共享引擎在移动端没有装载路径)。② `apps/api` 侧 `page_*` 只有测试面引用、无生产侧登记(一格小账)。
+## O73 危险操作确认旁路收口到工具层(五处收四处)+ 台账幻影债复测七条(2026-09-25)

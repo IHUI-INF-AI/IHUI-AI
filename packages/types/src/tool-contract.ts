@@ -100,10 +100,63 @@ export interface ToolShapeDescriptor {
 /** 投影后交给 provider 的 JSON Schema 节点(开放键位,provider 侧扩展字段原样透传)。 */
 export type ProviderJsonSchema = Readonly<Record<string, unknown>>
 
+/**
+ * **路由身份键清单(唯一一份;守门与类型层共用,禁止在别处抄第二份)**。
+ *
+ * 规范(注释级,2026-09-25 立;机器判据 = `scripts/check-tool-arg-routing-identity.mjs`):
+ * **路由身份一律由宿主在 closure / ctx 里绑定,绝不得出现在 `shape.input` 或任何会进入
+ * 模型可见 schema 的参数集合里。** 一旦这类键进了 schema,模型就能自己填一个**别人的**值,
+ * 把结果投给别的会话 / 别的宿主实例 —— 那是越权,不是参数校验问题(同族先例见
+ * `docs/runtime-capability-disclosure.md` 与 agent-control 链路"投递定址按实例绑定、模型不得覆盖")。
+ *
+ * 判据的归一化口径住在守门内(小写 + 去 `_`/`-`,故 `sessionId` 与 `session_id` 同视),
+ * 这里只出**清单**,以免两份实现各处漂移。
+ *
+ * 为什么正是这 16 个:它们每一个都回答"**这次调用归谁 / 落到哪条会话 / 落到哪个实例**",
+ * 即"投递定址"本身:
+ * - `sessionId` / `agentId` / `instanceId` — 会话、Agent 定义、宿主实例三级定址;
+ * - `userId` — 归属主体(填别人的 = 直接跨账号);
+ * - `conversationId` / `chatId` — 对话容器(结果会被写进哪一个对话);
+ * - `runId` / `turnId` — 运行与轮次(把产出续到别人那一轮上)。
+ *
+ * **刻意排除的键(它们是"内容引用"而不是"路由身份",纳进来会误拦正当用法)**:
+ * - `messageId` / `message_id` — 模型引用它要回复/引用哪条消息,是任务内容的一部分;
+ * - `toolCallId` / `tool_call_id` — 协议关联位(把结果对回某次调用),宿主本就按它回填;
+ * - `taskId` / `subagentId` / `fileId` / `path` 等 — 业务对象句柄,权限由 effectScope + 批准面管,
+ *   不构成"投给别的会话/别的实例"的定址能力。
+ * 要往这张表加键,先问一句:**填错它会不会把结果送到别人那里?** 会 → 加;不会 → 属于内容引用,不得加。
+ */
+export const ROUTING_IDENTITY_KEYS = [
+  'sessionId',
+  'session_id',
+  'agentId',
+  'agent_id',
+  'instanceId',
+  'instance_id',
+  'userId',
+  'user_id',
+  'conversationId',
+  'conversation_id',
+  'chatId',
+  'chat_id',
+  'runId',
+  'run_id',
+  'turnId',
+  'turn_id',
+] as const
+
+export type RoutingIdentityKey = (typeof ROUTING_IDENTITY_KEYS)[number]
+
 export interface ToolShapeContract {
   /** 可见性位:false ⇒ 不进下发清单(内部编排专用工具,模型不该看到) */
   visibleToProvider: boolean
-  /** 入参形状:校验面与模型面同源的那一份 */
+  /**
+   * 入参形状:校验面与模型面同源的那一份。
+   *
+   * ⚠️ 注释级规范(判据在守门,不在本类型):`input.properties` / `parameters` 的键集
+   * **只准放业务入参**。路由身份(见上方 `ROUTING_IDENTITY_KEYS`)由宿主在 closure / ctx 绑定,
+   * 一旦进到这里就变成"模型可填",等于把投递定址交给模型 —— 越权而非校验问题。
+   */
   input: ToolShapeDescriptor
   /** 出参形状:本仓现状多数工具未声明,故可选;声明了就同时用于出参校验 */
   output?: ToolShapeDescriptor
