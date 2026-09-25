@@ -177,9 +177,13 @@ test('gitRaw 必须把 git 的退出码带到异常上(区分"git 说没有"与"
   // `git grep` 无命中是**正常结论** rc=1,调用方(守门 93 的 R3)要据此放过。若层只留一句
   // 文本消息,调用方就只能去 parse 自己的异常字符串 —— 那是把结论建立在文本上。
   const root = join(here, '..', '..')
+  // needle **必须在运行时拼出来**:第一版把字面量写死,而本文件自己就被这次 commit 写进 HEAD ⇒
+  // `git grep` 命中自己、rc=0,这条用例当场变成"永远不抛"的假绿尺子(同门 93 的 checkCrashShape
+  // 那条"被禁字面量不得写进被量的文件"是一课)。
+  const needle = 'zznope-' + process.pid + '-' + Math.random().toString(36).slice(2)
   let e1 = null
   try {
-    gitRaw(['grep', '-l', 'IHUI-NO-SUCH-TOKEN-ZZ-20260925', 'HEAD', '--', 'scripts'], root)
+    gitRaw(['grep', '-l', needle, 'HEAD', '--', 'scripts'], root)
   } catch (e) {
     e1 = e
   }
@@ -329,6 +333,8 @@ test('parseBatch:非 blob 的头(tree / commit)归 null,且不得把内容当下
  *    (`gitShow` → 层 `gitRaw`,try/catch 折 null 的语义一字不动)⇒ 现值 82。
  *    这一涨一收正是这条棘轮存在的理由:收口成一层之后,新增一处裸派生从"没人看得见"变成"红一道门"。
  *    另:本批迁的 6 道门用的都是型 B(常量),所以 A 不因那一批下降 —— 这恰好证明"只盯 A 的尺子会以为收口没效果"。
+ *    **最后一跳(同日 `b3816c62e7`)**:守门 93 收进取材层,4 处裸 `execFileSync('git')` 归零 ⇒
+ *    A 82 → **81**。这一跳与"新增违规"方向相反,所以按当次实测把基线写下来,不留旧数字。
  *  · 型 B:本票首量 10 → 加"必须被当过派生首参"的第二道锚后 9 → 8 → **10**。
  *    涨的两处是并行会话为守门 107(第三方来源台账)新入库的两个模块
  *    `scripts/lib/third-party-roots.mjs` 与 `scripts/provenance-ledger.mjs`
@@ -337,7 +343,9 @@ test('parseBatch:非 blob 的头(tree / commit)归 null,且不得把内容当下
  *    另一条线的镜像测试),也不把数字压回去装没看见;一行修法与归属记在台账 O63·续。
  *    第二道锚(必须被当过派生首参)保留 —— `lib/gitdir.mjs` 那处 'git' 是目录名、不是二进制,
  *    第一版尺子被它骗过。不含本层自己那处**刻意**的最后一档兜底。
- *  · 型 C:首量 9 → 6 道门收口后 3 → **1**(只剩 `check-cross-end-tokens.mjs`,守门 93,不在派单面)。
+ *  · 型 C:首量 9 → 6 道门收口后 3 → 1 → **0**(最后一处是 `check-cross-end-tokens.mjs`,守门 93,
+ *    于 `b3816c62e7` 收进取材层)。**基线自此为 0 = 零容忍**:再出现一处自拼 batch 就是新增,
+ *    不再有"存量"可解释 —— 这条尺子的价值正在这里,它有牙由"棘尺本身不恒真"那条用例钉住。
  *    ⚠️ 中途两次"涨到 2/3"量的都是**我自己尺子的假阳**,不是新债:旧正则
  *    `/cat-file.{0,4}--batch/` 把 JSDoc 里的字样(`import-graph.mjs:164` "一次 cat-file --batch")
  *    与 usage 字符串里的散文(`git-push-guard.mjs:289` "一次 git cat-file --batch-check 找 missing")
@@ -348,9 +356,9 @@ test('parseBatch:非 blob 的头(tree / commit)归 null,且不得把内容当下
  *    **还没提交**的文件记成我的存量债(当场实测过:`third-party-roots.mjs` 当时是 `??` 未跟踪态),
  *    而一台恒红的尺子只会逼人跳门。口径与本仓所有内容型守门(70/77/83/98/101/103)一致。
  */
-const BARE_GIT_BASELINE = 82
+const BARE_GIT_BASELINE = 81
 const PATH_BOUND_GIT_BASELINE = 10
-const SELF_BATCH_BASELINE = 1
+const SELF_BATCH_BASELINE = 0
 
 /**
  * 枚举与取材一律走 **HEAD**,不读工作树。
