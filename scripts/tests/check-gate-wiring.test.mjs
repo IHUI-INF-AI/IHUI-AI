@@ -10,7 +10,6 @@
  * 夹具全部现造字符串,不依赖真仓内容(教训:「棘轮自测夹具别写死存量路径」),
  * 端到端正反对账在源脚本的 `--self-test` 里用独立临时仓库完成。
  */
-import { execFileSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
