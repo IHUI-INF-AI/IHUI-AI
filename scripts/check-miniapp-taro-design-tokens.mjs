@@ -21,6 +21,25 @@
  *   2. app.css .dark 块变量值 vs tokens.css .dark(暗色,子集检查)
  *   3. app.config.ts 硬编码色值(warn-only,原生导航栏/tabBar 无法用 CSS var)
  *
+ * ⚠️ 处置结论(2026-09-25 逐行审计):**判为冗余 —— 未接线,本文件当前无任何调度器执行,勿再接线。**
+ *   1. 校验 1 与 `check-design-tokens-sync.mjs --target=miniapp-taro` **逐行同体**:同一
+ *      `DESIGN_TOKEN_VAR_RE`(两文件该常量逐字相等,已比对)、同一 `extractAllBlocks` /
+ *      `mergeFirstVars` / `mergeAllVars`、同一"只校验副本已有键"的 diff 循环;两者实跑同为 228 个变量、
+ *      同为 exit 0。后者的执行者是 `scripts/run-8end-consistency-cert.mjs:47`
+ *      (id `design-tokens-sync-miniapp`,`warnOnly: false`)⇒ 这条判据并没有失守,只是执行者不是本文件。
+ *   2. 与已接线的 runner 第 36 项 `check-miniapp-tokens-sync.mjs` **不是**同体,覆盖面差实测如下:
+ *        id 36 = 仅 `--color-*` × **全部 3 个** `:root` 块 + `.dark` = 175 个键
+ *        本门  = 7 类 token × **仅首块** = 133 个键
+ *      本门独有 18 个键全是非 color(7 个 `--radius*` + 11 个 `--chart-*`):前者在提交链已由守门 77
+ *      判据 A 判(`check-radius-single-source.mjs:355-361` 拿 radius.js 对 app.css 的 `--radius-*`),
+ *      后者只在 CI 侧判;id 36 独有 60 个键是端内扩展块(`--color-white-N` 26 / `--color-black-N` 24 /
+ *      miniapp-green·rank·payment 10),本门看不见。故"不接线"不等于零残余,残余即那 11 个 `--chart-*`。
+ *   3. 校验 3(app.config.ts 硬编码色值)warn-only、不改退出码,且与
+ *      `check-miniapp-taro-style-parity.mjs` RULE-1/4 重叠 ⇒ 不构成独立判据。
+ *   4. 文件保留仅为历史参照(§7:删除属人工确认)。结论与
+ *      `scripts/gate-wiring-allowlist.json` 中本文件的 reason 同向,但该 reason 里"213 变量同结论"
+ *      的数字不准,以本注实测的 175 / 133 为准。
+ *
  * 用法:
  *   node scripts/check-miniapp-taro-design-tokens.mjs           # 全量校验
  *   node scripts/check-miniapp-taro-design-tokens.mjs --quiet    # 仅输出错误
