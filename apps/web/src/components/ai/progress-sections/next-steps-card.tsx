@@ -5,14 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import {
-  CirclePlay,
-  FlaskConical,
-  GitCommitHorizontal,
-  ListChecks,
-  Sparkles,
-  X,
-} from 'lucide-react'
+import { ChevronRight, CirclePlay, FlaskConical, GitCommitHorizontal, ListChecks, Sparkles, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useChatStore } from '@/stores/chat'
 import type { PlanStep } from '@/hooks/use-agent-progress'
@@ -201,7 +194,7 @@ function NextStepsCardBase({
           >
             <s.icon className="h-3 w-3 shrink-0 text-primary" aria-hidden />
             <span className="flex-1 truncate">{s.label}</span>
-            <span className="shrink-0 text-[10px] text-muted-foreground/60">›</span>
+            <ChevronRight className="h-2.5 w-2.5 shrink-0 text-muted-foreground/60" aria-hidden />
           </button>
         ))}
       </div>
