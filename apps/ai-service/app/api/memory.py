@@ -15,19 +15,46 @@
 - GET    /api/memory/procedural 辅助:查询 procedural memory
 
 响应统一 {code, message, data} 格式(code=0 成功,500 失败)。
+
+端点级属主校验(2026-09-25 P0 水平越权收口):本文件此前把 user_id 当**请求参数**收,
+从不与全局 JWT 中间件注入的主体(request.state.user_id)比对 —— 任何已登录用户填别人的
+UUID 就能读/改/删别人的记忆(认证 ≠ 授权)。现每个带 user_id 的端点都经
+`require_request_user_id`(`app/core/jwt_auth.py`,与 O19 agents 面同一份实现,不新造
+第二套身份判定)解析令牌主体并强制对齐:
+- 主体缺失 → 401(生产态;中间件/白名单配错也漏不出去);
+- 主体与请求 user_id 不一致 → 403;
+- 仅当本进程根本没启用 JWT 校验(auth_globally_enforced() 为假)时依赖回落
+  DEV_ANONYMOUS_PRINCIPAL,此时才放行请求参数(开发单机无租户可保护,非放宽)。
+`/memory/working` 无 user_id 参数(仅 session_id 句柄),不在本票对齐面内。
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from ..core.jwt_auth import DEV_ANONYMOUS_PRINCIPAL, require_request_user_id
 from ..services.dream_service import dream_service
 from ..services.memory_service import memory_service
 
 router = APIRouter()
+
+
+def _assert_owner(principal: str, user_id: str) -> None:
+    """请求里的 user_id 必须等于令牌主体;开发降级身份除外(见模块 docstring)。
+
+    必须在各端点 try 块**之前**调用 —— HTTPException 若被 `except Exception`
+    吞掉会变成 {"code":500},403 结论就丢了。
+    """
+    if principal == DEV_ANONYMOUS_PRINCIPAL:
+        return
+    if user_id != principal:
+        raise HTTPException(
+            status_code=403,
+            detail="user_id 与令牌主体不一致(禁止读写他人记忆)",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -74,8 +101,12 @@ class ProceduralSaveRequest(BaseModel):
 
 
 @router.post("/memory/save")
-async def save_memory(req: MemorySaveRequest) -> dict[str, Any]:
+async def save_memory(
+    req: MemorySaveRequest,
+    principal: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """保存记忆到指定层。"""
+    _assert_owner(principal, req.user_id)
     try:
         result = await memory_service.save(
             user_id=req.user_id,
@@ -98,8 +129,10 @@ async def recall_memory(
     user_id: str = Query(..., description="用户 ID(UUID)"),
     query: str = Query(..., description="语义检索查询文本"),
     top_k: int = Query(5, ge=1, le=50, description="返回 top-k 条"),
+    principal: str = Depends(require_request_user_id),
 ) -> dict[str, Any]:
     """语义检索 semantic_memory(cosine similarity)。"""
+    _assert_owner(principal, user_id)
     try:
         results = await memory_service.recall(user_id, query, top_k=top_k)
         return {"code": 0, "message": "ok", "data": results}
@@ -108,8 +141,12 @@ async def recall_memory(
 
 
 @router.post("/memory/dream")
-async def dream(req: DreamRequest) -> dict[str, Any]:
+async def dream(
+    req: DreamRequest,
+    principal: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """触发梦境固化(consolidate:episodic → semantic + procedural)。"""
+    _assert_owner(principal, req.user_id)
     try:
         result = await dream_service.consolidate(req.user_id)
         return {"code": 0, "message": "ok", "data": result}
@@ -120,8 +157,10 @@ async def dream(req: DreamRequest) -> dict[str, Any]:
 @router.get("/memory/topics")
 async def dream_topics(
     user_id: str = Query(..., description="用户 ID(UUID)"),
+    principal: str = Depends(require_request_user_id),
 ) -> dict[str, Any]:
     """查询最近梦境主题(LLM 总结最近 10 条 semantic_memory)。"""
+    _assert_owner(principal, user_id)
     try:
         result = await dream_service.dream_topic(user_id)
         return {"code": 0, "message": "ok", "data": result}
@@ -133,8 +172,10 @@ async def dream_topics(
 async def forget_memory(
     user_id: str = Query(..., description="用户 ID(UUID)"),
     threshold: float = Query(0.1, ge=0.0, le=1.0, description="遗忘阈值"),
+    principal: str = Depends(require_request_user_id),
 ) -> dict[str, Any]:
     """触发遗忘曲线衰减(episodic importance < threshold 删除)。"""
+    _assert_owner(principal, user_id)
     try:
         result = await dream_service.forget(user_id, threshold=threshold)
         return {"code": 0, "message": "ok", "data": result}
@@ -162,8 +203,10 @@ async def list_episodic(
     user_id: str = Query(..., description="用户 ID(UUID)"),
     session_id: str | None = Query(None, description="会话 ID(可选过滤)"),
     limit: int = Query(100, ge=1, le=500, description="返回条数上限"),
+    principal: str = Depends(require_request_user_id),
 ) -> dict[str, Any]:
     """查询 episodic memory(历史会话片段)。"""
+    _assert_owner(principal, user_id)
     items = await memory_service.list_episodic(
         user_id, session_id=session_id, limit=limit
     )
@@ -174,19 +217,25 @@ async def list_episodic(
 async def list_procedural(
     user_id: str = Query(..., description="用户 ID(UUID)"),
     limit: int = Query(100, ge=1, le=500, description="返回条数上限"),
+    principal: str = Depends(require_request_user_id),
 ) -> dict[str, Any]:
     """查询 procedural memory(技能/工具用法模式)。"""
+    _assert_owner(principal, user_id)
     items = await memory_service.list_procedural(user_id, limit=limit)
     return {"code": 0, "message": "ok", "data": items}
 
 
 @router.post("/memory/procedural")
-async def save_procedural(req: ProceduralSaveRequest) -> dict[str, Any]:
+async def save_procedural(
+    req: ProceduralSaveRequest,
+    principal: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """L1-4(2026-07-25 立):保存工具用法模式(供 cli doom_loop 反思沉淀 / 工具调用结果记录)。
 
     失败模式(success=False)用于让 agent 未来规避相同陷阱;
     成功模式(success=True)用于让 agent 重复有效工具组合。
     """
+    _assert_owner(principal, req.user_id)
     try:
         result = await memory_service.add_procedural(
             user_id=req.user_id,
