@@ -7,16 +7,20 @@
 /**
  * check-miniapp-tokens-sync.mjs — 守门 36(blocking):
  * `apps/miniapp-taro/src/app.css` 的受管 CSS 变量必须与
- * `packages/design-tokens/src/styles/tokens.css` **逐位同值且不得缺档**。
+ * `packages/design-tokens/src/styles/tokens.css` **逐位同值且不得缺档**,三对面:
+ * `:root`(亮档副本)、`.dark`(暗档副本)、`@theme`(v4 颜色档注册区,见下面第 3 条)。
  *
- * 为什么小程序端要有一份副本:Taro 4 + Tailwind v3 不认 v4 的 `@theme` 语法,无法 `@import tokens.css`。
+ * 为什么小程序端要有一份副本:Taro 4 的端内入口不 `@import tokens.css`(跨包 @import 在 Taro 编译时
+ * 不被内联,产物里残留相对路径,微信 IDE 以 dist 为根解析失败),所以变量值必须落在本文件的 `:root/.dark`。
+ * 而**注册**是另一回事:v4 引擎只把 `@theme` 里的 `--color-*` 认作颜色档 ⇒ 副本同步了也不代表
+ * utility 会长出来,这正是下面第 3 条存在的全部理由。
  * 写回的一侧是 `scripts/sync-miniapp-tokens.mjs`(2026-09-25 由端内 `apps/miniapp-taro/scripts/sync-design-tokens.mjs`
  * 搬来 —— 搬的原因见该文件头注:守门与本生成器必须共用一份取源,而取源住在工具层);
  * 本门只判、只报差异,不改文件。
  * 提交链里两者是同一枚提交的两步 —— `scripts/lib/pre-commit-hook.js` 的 `TOKEN_SYNC_TARGETS`
  * 会先跑生成器再让本门复核,所以按规矩改源头不会被本门拦。
  *
- * 2026-09-25 的两处收紧(都由实测逼出,与 `scripts/check-rn-global-css-sync.mjs` 同形):
+ * 2026-09-25 的三处收紧(都由实测逼出,与 `scripts/check-rn-global-css-sync.mjs` 同形):
  * 1. **取值改与生成器共用一份实现**:旧版本门自己写了 `extractAllBlocks` / `stripComments` /
  *    `extractColorVars` 三件套,而生成器另写一套按行解析的 —— 同一判据两处不同形正是本仓反复记录的
  *    成因(AGENTS §4)。现「源头有哪些档归本端管」直接 import 生成器的 `deriveMiniappManaged`,
@@ -25,6 +29,16 @@
  *    「源头有、副本缺」。实测同型的 RN 那道门对「缺 124 档」一路报绿;小程序端一旦有人在受管块里
  *    少写/删掉一档,旧门就是瞎的。现缺档即红 —— 生成器会自动补入,所以这条不会恒红,
  *    它拦的是「没人跑生成器」与「有人手删了受管行」这两种形态。
+ * 3. **第三对面:`@theme` 注册区**(2026-09-25 追加,同样按「无缺档 + 逐位同值 + 反向」判):
+ *    前两维都只对 `:root` / `.dark` 副本负责,而 v4 引擎**只把 `@theme` 里的 `--color-*` 认作颜色档**
+ *    —— 实测真构建产物里命名布局档(`.flex`/`.p-3`)有规则、项目色档(`.bg-muted`/`.text-foreground`)
+ *    **整族 0 条**,而 `:root` 副本当时是完全同步的。也就是说:前两维全绿而到端样式是缺的,
+ *    这道门缺了第三对面就等于在给一个不工作的形态背书。判据三条:
+ *    ① `@theme` 区必须与 `deriveThemeRegistryDecls`(= `deriveMiniappManaged(light)` 剔 `-rgb`)
+ *       **无缺档且逐位同值**;② 反向 —— `@theme` 里出现 `-rgb` 三元组即红(v4 把任何 `--color-*`
+ *       都当一个颜色档,于是长出 `.bg-muted-rgb` 这种脏档;那批归 `:root` 的 alpha 区管);
+ *    ③ 取不到区/源头沿用本文件既有的「无法判定」语义,不新增退出码。
+ *    档位集合与 `-rgb` 剔除都走生成器导出的那**一份**实现,门不自己筛(§4「取源只能有一份实现」)。
  *
  * 取材面(2026-09-25 收口,同守门 93/77/83/91/103 口径):默认判 **HEAD blob**,`--staged` 判
  * **索引 blob**(这次提交会带走的那一份 —— 盘上随后改对不算修好),`--worktree` 只作人工逃生舱,
@@ -38,7 +52,7 @@
  *   node scripts/check-miniapp-tokens-sync.mjs --worktree  人工排查(盘上内容,提交链不走这档)
  *   node scripts/check-miniapp-tokens-sync.mjs --quiet     只出错才说话
  *   node scripts/check-miniapp-tokens-sync.mjs --self-test 判据自检(纯内存夹具,不碰真仓)
- * 退出码:0 = 一致;1 = 值漂移 / 缺档;2 = 无法判定(含两个面旗同给)
+ * 退出码:0 = 一致;1 = 值漂移 / 缺档 / `@theme` 脏档;2 = 无法判定(含两个面旗同给)
  */
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, join } from 'node:path'
@@ -48,6 +62,8 @@ import { Undetermined, catBatch, readWorktreeFile, selectFace } from './lib/face
 import { collectVars } from './lib/design-token-blocks.mjs'
 import {
   deriveMiniappManaged,
+  deriveThemeRegistryDecls,
+  isAlphaRgbTriple,
   TOKENS_SOURCE_REL,
   APP_CSS_REL,
 } from './sync-miniapp-tokens.mjs'
@@ -106,19 +122,31 @@ export function readFaceInputs(repoRoot, face) {
 }
 
 /**
- * 纯判据:源头受管档在副本里必须**存在**且**等值**。
- * @returns {{mismatches:Array,missing:Array,extras:number}} extras = 端内自有档,只报数不判红
+ * 纯判据:源头受管档在副本里必须**存在**且**等值**,三对面各判一次。
+ *
+ * 为什么 `@theme` 是**独立的一面**而不是 `:root` 那面的重复:`:root/.dark` 交的是运行期取值,
+ * `@theme` 交的是"这一档在 v4 眼里到底存不存在"。前者可以逐位同值而后者整族缺失,
+ * 而缺失的表现是**页面样式没生效且不报错**(实测:命名布局档有规则、项目色档 0 条)。
+ *
+ * @returns {{mismatches:Array,missing:Array,extras:number,rgbInTheme:Array}}
+ *   extras = 端内自有档(以及注册区里非注册集的档),只报数不判红;
+ *   rgbInTheme = 出现在 `@theme` 里的 alpha 三元组 —— **判红**(脏档,理由见文件头第 3 条)。
  */
 export function compare({ tokensCss, appCss }) {
   const want = {
     ':root': deriveMiniappManaged(tokensCss, 'light'),
     '.dark': deriveMiniappManaged(tokensCss, 'dark'),
+    '@theme': deriveThemeRegistryDecls(tokensCss),
   }
-  const have = { ':root': collectVars(appCss, [':root']), '.dark': collectVars(appCss, ['.dark']) }
+  const have = {
+    ':root': collectVars(appCss, [':root']),
+    '.dark': collectVars(appCss, ['.dark']),
+    '@theme': collectVars(appCss, ['@theme']),
+  }
   const mismatches = []
   const missing = []
   let extras = 0
-  for (const block of [':root', '.dark']) {
+  for (const block of [':root', '.dark', '@theme']) {
     for (const d of want[block]) {
       const got = have[block].get(d.name)
       if (got === undefined) missing.push({ block, name: d.name, want: d.value })
@@ -128,7 +156,10 @@ export function compare({ tokensCss, appCss }) {
     const managedNames = new Set(want[block].map((d) => d.name))
     extras += [...have[block].keys()].filter((n) => !managedNames.has(n)).length
   }
-  return { mismatches, missing, extras }
+  // 反向判据:`-rgb` 进了 @theme。谓词走生成器导出的那一份 —— 门自己再写一遍 endsWith('-rgb')
+  // 就是第二份真相,而两边不同形的代价固定是"一边判红、一边说不是我写的"(本文件头注第 1 条)。
+  const rgbInTheme = [...have['@theme'].keys()].filter((n) => isAlphaRgbTriple(n))
+  return { mismatches, missing, extras, rgbInTheme }
 }
 
 /** 自检:全部纯内存夹具,成对正反 —— 只证"会红"不证"不该红时不红"的判据等于没有。 */
@@ -145,6 +176,7 @@ function selfTest() {
 }
 :root {
   --color-late-root: #111111;
+  --color-primary-rgb: 0, 0, 0;
   --color-gradient-card: linear-gradient(
     112deg,
     rgba(1, 2, 3, 0.7) 0%
@@ -155,16 +187,26 @@ function selfTest() {
 }
 .dark { --color-late-dark: #222222; }`
 
-  const full = `:root {
-  /* ===== 语义色 ===== */
-  --color-bg: white;
-  --color-primary: black;
-  --color-late-root: #111111;
-}
-.dark {
-  --color-bg: black;
-  --color-late-dark: #222222;
-}`
+  /**
+   * 造 app.css 副本夹具:三区(语义 :root / .dark / @theme 注册)一次拼齐。
+   * 之所以做成函数而不是一串模板字面量 —— A 组每条都要单独改注册区那一面,
+   * 手改字符串会让"改的是哪一面"这件事重新变成读源码猜(而夹具猜错=用例什么都没测)。
+   */
+  const mkApp = ({ root, dark, theme } = {}) => {
+    const r = root ?? ['--color-bg: white;', '--color-primary: black;', '--color-late-root: #111111;', '--color-primary-rgb: 0, 0, 0;']
+    const k = dark ?? ['--color-bg: black;', '--color-late-dark: #222222;']
+    // `theme: null` = 整个注册区不存在(首次落地前 / 被摘线的形态);缺省 = 与源头同形的派生态
+    const t = theme === null ? null : (theme ?? ['--color-bg: white;', '--color-primary: black;', '--color-late-root: #111111;'])
+    const block = (sel, lines, note) =>
+      `${sel} {\n${note ? `  ${note}\n` : ''}${lines.map((l) => `  ${l}`).join('\n')}\n}\n`
+    return (
+      block(':root', r, '/* ===== 语义色 ===== */') +
+      block('.dark', k) +
+      // 那条说明注释刻意写着 --color-*-rgb:它必须被剥掉才算 A7(两侧都剥注释)
+      (t === null ? '' : block('@theme', t, '/* 说明:--color-*-rgb 三元组不得进来,这不是声明 */'))
+    )
+  }
+  const full = mkApp()
   const base = compare({ tokensCss: tokens, appCss: full })
   ok('M1 反向对照:副本齐全时必须判绿(否则本例是无牙断言)', base.missing.length === 0 && base.mismatches.length === 0, JSON.stringify(base))
   ok('M2 后续 :root/.dark 块必须进判定面(旧版首个非贪婪块看不见)', base.extras === 0)
@@ -194,7 +236,15 @@ function selfTest() {
 
   // 取不到输入:空 app.css
   const r6 = compare({ tokensCss: tokens, appCss: '/* 一个受管档都没有 */' })
-  ok('M8 副本整块为空必须报满缺档而非"无档可判"(空扫不记绿)', r6.missing.length === 5, `实得 ${r6.missing.length}`)
+  const wantTotal =
+    deriveMiniappManaged(tokens, 'light').length +
+    deriveMiniappManaged(tokens, 'dark').length +
+    deriveThemeRegistryDecls(tokens).length
+  ok(
+    'M8 副本整块为空必须报满三对面缺档而非"无档可判"(空扫不记绿)',
+    r6.missing.length === wantTotal,
+    `实得 ${r6.missing.length}/${wantTotal}`
+  )
 
   // 取材面四态(2026-09-25 收口):这一组就是"默认档已从磁盘换成 HEAD"的机器证明 ——
   // 结论行会被人改,函数不会;只靠跑一次真仓看末行的取证等于没取证。
@@ -202,6 +252,79 @@ function selfTest() {
   ok('M10 --staged ⇒ 索引面', faceFromArgv(['--staged']).face === 'staged', JSON.stringify(faceFromArgv(['--staged'])))
   ok('M11 --worktree ⇒ 人工逃生舱面', faceFromArgv(['--worktree']).face === 'worktree', JSON.stringify(faceFromArgv(['--worktree'])))
   ok('M12 两个面旗同给 ⇒ 判死(取哪一面都会让另一面成为假绿)', !!faceFromArgv(['--staged', '--worktree']).error, JSON.stringify(faceFromArgv(['--staged', '--worktree'])))
+
+  // ── A 组:`@theme` 注册区(第三对面)。必须成对 ——
+  // 只证"缺档会红"而不证"派生态不红",本门就成了一台恒红门,唯一结局是逼人 --no-verify
+  // 连带废掉全部守门(§12e 同型);反过来只证"不红",注册区整族缺失就又一次无人喊,
+  // 而那正是本面立项的起因:前两维全绿、到端 CSS 为零。
+  const themeWant = deriveThemeRegistryDecls(tokens)
+  const themeBase = compare({ tokensCss: tokens, appCss: full })
+  ok(
+    'A1 派生态必须绿(反恒红):注册区与源头同形时不得报任何红',
+    themeBase.missing.length === 0 && themeBase.mismatches.length === 0 && themeBase.rgbInTheme.length === 0,
+    JSON.stringify(themeBase)
+  )
+  ok(
+    'A1b 夹具的注册面真的有档可判(否则 A1 是空转)',
+    themeWant.length === 3 && (full.match(/@theme/g) || []).length === 1,
+    `themeWant=${themeWant.length}`
+  )
+  // A2 缺一条注册档(:root/.dark 齐全,只有 @theme 少)—— 本仓铁律:只比副本已有键的门等于没有
+  const a2 = compare({ tokensCss: tokens, appCss: mkApp({ theme: ['--color-bg: white;', '--color-primary: black;'] }) })
+  ok(
+    'A2 注册区少一档必须判缺且点名 @theme 面(阳性:副本另两维齐全也不放过)',
+    a2.missing.length === 1 && a2.missing[0].block === '@theme' && a2.missing[0].name === '--color-late-root',
+    JSON.stringify(a2)
+  )
+  // A3(任务书要求的 (e) 阳性对照):把注册区里某档改掉 ⇒ 判红且点名该档
+  const a3 = compare({
+    tokensCss: tokens,
+    appCss: mkApp({ theme: ['--color-bg: white;', '--color-primary: black;', '--color-late-root: #999999;'] }),
+  })
+  ok(
+    'A3 注册区某档被改值 ⇒ 必红且点名该档与两侧读数',
+    a3.mismatches.length === 1 &&
+      a3.mismatches[0].block === '@theme' &&
+      a3.mismatches[0].name === '--color-late-root' &&
+      a3.mismatches[0].app === '#999999' &&
+      a3.mismatches[0].tok === '#111111',
+    JSON.stringify(a3.mismatches)
+  )
+  // A4 反向判据:-rgb 进注册区 = 脏档(v4 会为此长出 .bg-muted-rgb);它同时不该被算成缺档
+  const a4 = compare({
+    tokensCss: tokens,
+    appCss: mkApp({ theme: ['--color-bg: white;', '--color-primary: black;', '--color-late-root: #111111;', '--color-late-root-rgb: 1, 2, 3;'] }),
+  })
+  ok(
+    'A4 @theme 里出现 -rgb 三元组 ⇒ 必红且点名(而 missing/mismatch 不受它影响)',
+    a4.rgbInTheme.length === 1 &&
+      a4.rgbInTheme[0] === '--color-late-root-rgb' &&
+      a4.missing.length === 0 &&
+      a4.mismatches.length === 0,
+    JSON.stringify(a4)
+  )
+  // A5 整区不存在(首次落地前 / 被摘线)⇒ 报满注册档,不得因"副本没有这一区"洗成绿
+  const a5 = compare({ tokensCss: tokens, appCss: mkApp({ theme: null }) })
+  ok(
+    'A5 注册区整块不存在 ⇒ 必报满该区缺档而非"无档可判",且另两维不受牵连',
+    a5.missing.length === themeWant.length &&
+      a5.missing.every((m) => m.block === '@theme') &&
+      a5.mismatches.length === 0,
+    JSON.stringify(a5.missing)
+  )
+  // A6 两侧同表:-rgb 属 :root 受管族(门判它缺)而不属注册集(门不得要求它在 @theme 里)
+  ok(
+    'A6 -rgb 档在 :root 面受管、在 @theme 面被剔出(同一份谓词,两面条结论)',
+    deriveMiniappManaged(tokens, 'light').some((d) => d.name === '--color-primary-rgb') &&
+      !themeWant.some((d) => d.name === '--color-primary-rgb') &&
+      !a2.missing.some((m) => m.name === '--color-primary-rgb')
+  )
+  // A7 生成器写进注册区的那条说明注释(正文里就写着 --color-*-rgb)不得被读成声明
+  ok(
+    'A7 注册区内的说明注释(写着 --color-*-rgb)不得被当声明:不产脏档计数也不产 extras',
+    themeBase.rgbInTheme.length === 0 && themeBase.extras === 0,
+    JSON.stringify(themeBase)
+  )
 
   for (const r of results) console.log(r)
   const failed = results.filter((r) => r.startsWith('❌')).length
@@ -235,19 +358,24 @@ function main() {
   const tokensCss = inputs[TOKENS_SOURCE_REL]
   const appCss = inputs[APP_CSS_REL]
 
-  const { mismatches, missing, extras } = compare({ tokensCss, appCss })
+  const { mismatches, missing, extras, rgbInTheme } = compare({ tokensCss, appCss })
   const managed =
-    deriveMiniappManaged(tokensCss, 'light').length + deriveMiniappManaged(tokensCss, 'dark').length
+    deriveMiniappManaged(tokensCss, 'light').length +
+    deriveMiniappManaged(tokensCss, 'dark').length +
+    deriveThemeRegistryDecls(tokensCss).length
   if (managed === 0) {
     console.error(
       `[check-miniapp-tokens-sync] 源头受管档为 0(${FACE_TXT[face]})⇒ 无法判定(不记为通过)`
     )
     process.exit(2)
   }
-  if (mismatches.length === 0 && missing.length === 0) {
+  // 两个数都要报:受管档总数 + 真的逐位同值的条数。只报前者的话,"副本整块为空"与
+  // "副本完全同步"在结论行上长得一样(都是 All N),而前者是这台门最该喊的那一刻。
+  const verified = managed - missing.length - mismatches.length
+  if (mismatches.length === 0 && missing.length === 0 && rgbInTheme.length === 0) {
     if (!quiet)
       console.log(
-        `[check-miniapp-tokens-sync] All ${managed} 个受管档逐位同值且无缺档(另有 ${extras} 个端内自有档,只报数不判红)(取材面:${FACE_TXT[face]})`
+        `[check-miniapp-tokens-sync] All ${managed} 个受管档逐位同值且无缺档(逐位同值 ${verified}/${managed};另有 ${extras} 个端内自有档,只报数不判红)(取材面:${FACE_TXT[face]})`
       )
     process.exit(0)
   }
@@ -255,11 +383,17 @@ function main() {
     console.error(`  ${m.block} ${m.name}: miniapp-taro='${m.app}' vs tokens='${m.tok}' —— 值漂移`)
   for (const m of missing)
     console.error(`  ${m.block} ${m.name}: 副本里没有(源头值 '${m.want}')—— 缺档`)
-  console.error(
-    `[check-miniapp-tokens-sync] Found ${mismatches.length} 处值漂移 / ${missing.length} 处缺档(取材面:${FACE_TXT[face]})`
-  )
+  for (const n of rgbInTheme)
+    console.error(
+      `  @theme ${n}: --color-*-rgb 三元组不得进 @theme(v4 把任何 --color-* 都当一个颜色档,进了就长出 .bg-*-rgb 脏档)—— 脏档`
+    )
   console.error(
     '  修复:pnpm --filter @ihui/miniapp-taro sync-tokens(原位写回,幂等,不动端内自有档与注释)'
+  )
+  // 结论行必须落在**末行**:镜像测试按末行断言"这句话是关于哪个取材面的"。
+  // 把修复提示放在它下面,末行就没有面了 —— 那等于报告里读不出结论的口径(2026-09-25 实测踩过)。
+  console.error(
+    `[check-miniapp-tokens-sync] Found ${mismatches.length} 处值漂移 / ${missing.length} 处缺档 / ${rgbInTheme.length} 条 @theme 脏档(逐位同值 ${verified}/${managed};取材面:${FACE_TXT[face]})`
   )
   process.exit(1)
 }
