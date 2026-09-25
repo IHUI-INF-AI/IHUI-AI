@@ -3,19 +3,24 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 工具输出预算表 —— "哪个工具最多允许往上下文里回灌多少字符"的唯一声明处。
+ * 工具输出预算 —— "哪个工具最多允许往上下文里回灌多少字符"。
  *
  * 存在理由:一次 `git diff` 或一条命令输出可能有几百 KB,整段进上下文会
  * ① 立刻吃掉大半窗口、② 让压缩器为"一段早就没用的原始输出"反复花摘要调用。
  * 预算超限的结果**不得整段进上下文**,改由 result-envelope 落盘 + 回灌信封。
  *
- * 为什么是一张表而不是给每个 Tool 加字段:
- *   - `src/tools/index.ts` 的 `Tool` 接口是多会话共享文件,加工具字段会牵动
- *     全部工具模块与 hub 适配层;本表把"预算"这件事收在结果回灌边界上,
- *     工具侧要声明就调 `declareToolOutputBudget()`(注册期调用,无耦合)。
- *   - 默认档必须存在:未知工具(MCP / 插件)同样可能吐出巨型结果,
- *     "没登记 = 不限"等于没有这道约束。
+ * 取源顺序(2026-09-26 接上契约面,见 `projectContractResultBudget`):
+ *   工具**声明了** `contract.resultBudget` → 由契约投影(**声明面**在这里);
+ *   未声明 → 本表的登记值;表里也没有 → 默认档。
+ *   同一个键两处都有值时以声明为准,否则"写在工具旁边的预算"永远比不过远处一张表,
+ *   那是本仓反复登记过的第二真相形态。
+ *   (本节此前写的"为什么是一张表而不是给每个 Tool 加字段"已随 `ToolContractMount` 落地
+ *    而失效:挂载位现在是契约的一部分,新工具由守门 `check-tool-contract-declared.mjs`
+ *    要求声明 `resultBudget` 组,所以契约侧才是长期形态,本表退为**存量默认档**。)
+ * 默认档必须存在:未知工具(MCP / 插件)同样可能吐出巨型结果,"没登记 = 不限"等于没有这道约束。
  */
+
+import type { ToolResultBudgetContract } from '@ihui/types';
 
 /** 单个工具的输出预算 */
 export interface ToolOutputBudget {
@@ -23,6 +28,27 @@ export interface ToolOutputBudget {
   maxChars: number;
   /** 信封里保留的预览字符数(前 K 字符) */
   previewChars: number;
+}
+
+/**
+ * 契约按 **UTF-8 字节** 声明,而信封这一侧全程按 **字符** 计量(预览切字符、超限比长度、
+ * `redactSecrets` 也是字符级)。这条换算是两边唯一的量纲桥,所以钉成具名常量而不是一处 `* 0.25`。
+ *
+ * 取 3 是保守档:CJK 在 UTF-8 下正好 3 字节/字,而本仓工具输出是中文正文与代码混排。
+ * 除数取小了会把预算放宽(3 字节字符会换算出偏大的字符上限 ⇒ 灌进上下文的内容超出契约),
+ * 取大了只会更早信封化。**方向上宁可少灌,不可打满窗口。**
+ */
+export const CONTRACT_BYTES_PER_CHAR = 3;
+
+/** 预算最终从哪儿来 —— 如实标出来,免得"契约没生效"表现为静默走默认档。 */
+export type BudgetSource = 'override' | 'contract' | 'table' | 'default';
+
+export interface ProjectedContractBudget {
+  budget: ToolOutputBudget;
+  /** 契约声明的处置档(信封据此分支) */
+  policy: ToolResultBudgetContract['policy'];
+  /** 契约声明了、但运行时**没有**实现的部分 —— 逐条点名,绝不静默忽略 */
+  unimplemented: string[];
 }
 
 /**
@@ -56,11 +82,107 @@ export function resolveToolOutputBudget(toolName: string): ToolOutputBudget {
   return BUDGETS.get(toolName) ?? DEFAULT_TOOL_OUTPUT_BUDGET;
 }
 
+/** 该工具在登记表里有没有条目 —— 预算来源标注('table' vs 'default')靠它区分,不靠比默认档等值 */
+export function hasDeclaredToolBudget(toolName: string): boolean {
+  return BUDGETS.has(toolName);
+}
+
 /** 预算表快照(诊断 / 测试用,按工具名排序) */
 export function listToolOutputBudgets(): Array<{ toolName: string; budget: ToolOutputBudget }> {
   return [...BUDGETS.entries()]
     .sort((a, b) => (a[0] < b[0] ? -1 : 1))
     .map(([toolName, budget]) => ({ toolName, budget: { ...budget } }));
+}
+
+// ==================== 契约投影(H5:ToolResultBudgetContract 的唯一消费出口)====================
+
+/**
+ * 把工具声明的 `resultBudget` 投影成信封用的预算。
+ *
+ * 只投影运行时真能兑现的字段:
+ *   `policy: 'inline'`   → 不限(不信封化)。这是契约明确表达的"整段进上下文"的意愿。
+ *   `policy: 'truncate'` → 超限只留预览、不落盘(见 `envelopeToolResult` 的 truncate 分支)。
+ *   `policy: 'artifact'` → 超限落盘 + 回灌"路径 + 预览"信封(既有默认形态)。
+ *   `providerVisibleLimitBytes` → `maxChars`;`preview.bytes` → `previewChars`(按上面量纲常量)。
+ *
+ * 判不出来的形态一律**沿用默认档 + 记一条缺口**,不猜、不静默。
+ * `inlineLimitBytes`(内联展示阈值)归 UI 侧,不在这条回灌路径上,刻意不投影。
+ */
+export function projectContractResultBudget(
+  rb: ToolResultBudgetContract | null | undefined,
+): ProjectedContractBudget | null {
+  if (!rb || typeof rb !== 'object') return null;
+  const unimplemented: string[] = [];
+  if (rb.preview && rb.preview.from === 'tail') {
+    // 信封的预览通道只有头部切片:回"尾部预览"就是替契约做了它没要求的取舍。
+    unimplemented.push('preview.from=tail');
+  }
+  if (rb.artifactRetention) unimplemented.push(`artifactRetention=${rb.artifactRetention}`);
+
+  const policy = rb.policy;
+  if (policy === 'inline') {
+    return {
+      budget: { maxChars: Number.POSITIVE_INFINITY, previewChars: 0 },
+      policy,
+      unimplemented,
+    };
+  }
+  if (policy !== 'truncate' && policy !== 'artifact') {
+    // 不认识的处置档:不替它决定"当 truncate 还是当 artifact"—— 那两种后果相反。
+    return {
+      budget: { ...DEFAULT_TOOL_OUTPUT_BUDGET },
+      policy: 'artifact',
+      unimplemented: [...unimplemented, `policy=${String(policy)}`],
+    };
+  }
+  const limitBytes = rb.providerVisibleLimitBytes;
+  if (typeof limitBytes !== 'number' || !Number.isFinite(limitBytes) || limitBytes < 0) {
+    return {
+      budget: { ...DEFAULT_TOOL_OUTPUT_BUDGET },
+      policy,
+      unimplemented: [...unimplemented, 'providerVisibleLimitBytes'],
+    };
+  }
+  const previewBytes = rb.preview?.bytes;
+  const previewChars =
+    typeof previewBytes === 'number' && Number.isFinite(previewBytes) && previewBytes >= 0
+      ? Math.max(0, Math.min(MAX_PREVIEW_CHARS, Math.floor(previewBytes / CONTRACT_BYTES_PER_CHAR)))
+      : DEFAULT_TOOL_OUTPUT_BUDGET.previewChars;
+  return {
+    budget: { maxChars: Math.floor(limitBytes / CONTRACT_BYTES_PER_CHAR), previewChars },
+    policy,
+    unimplemented,
+  };
+}
+
+// ==================== 未实现项台账 ====================
+
+const contractBudgetGaps = new Map<string, string[]>();
+const announcedGaps = new Set<string>();
+
+/** 记一次"契约声明了运行时没有的字段"。每个 工具+缺口 组合只喊一行,但账始终在。 */
+export function noteContractBudgetGap(toolName: string, gaps: string[]): void {
+  if (gaps.length === 0) return;
+  const key = toolName || '<anonymous>';
+  const merged = new Set([...(contractBudgetGaps.get(key) ?? []), ...gaps]);
+  contractBudgetGaps.set(key, [...merged].sort());
+  for (const g of gaps) {
+    const uk = `${key}::${g}`;
+    if (announcedGaps.has(uk)) continue;
+    announcedGaps.add(uk);
+    console.warn(`[IHUI CLI] 工具 ${key} 的 resultBudget 声明了运行时未实现的 ${g},该项按未声明处理(每组合只报一次)`);
+  }
+}
+
+export function listContractBudgetGaps(): Array<{ tool: string; gaps: string[] }> {
+  return [...contractBudgetGaps.entries()]
+    .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+    .map(([tool, gaps]) => ({ tool, gaps: [...gaps] }));
+}
+
+export function resetContractBudgetGaps(): void {
+  contractBudgetGaps.clear();
+  announcedGaps.clear();
 }
 
 // ==================== 内置登记 ====================
