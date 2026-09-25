@@ -94,8 +94,7 @@ function buildMarkdown(
 }
 
 /** 序列化为 JSON:结构与后端消息字段对齐(id/role/content/createdAt/model) */
-function buildJson(title: string, messages: ExportMessage[]): string {
-  return JSON.stringify(
+function buildJson(title: string, messages: ExportMessage[]): string {  return JSON.stringify(
     {
       title,
       exportedAt: new Date().toISOString(),
@@ -341,5 +340,59 @@ export async function copyConversationShareLink(
   const shareUrl = `${window.location.origin}/chat/share/${r.data.token}`
   await navigator.clipboard.writeText(shareUrl)
   return shareUrl
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+/** D20(G-11):打印通道导出 PDF —— 隐藏 iframe 装载打印版 HTML,调起系统打印(用户选"另存为 PDF") */
+export async function printConversationPdf(
+  id: string,
+  title: string,
+  roleLabel: ExportRoleLabel,
+): Promise<boolean> {
+  const messages = await fetchConversationMessages(id)
+  const printable = messages.filter(isExportableMessage)
+  if (printable.length === 0) return false
+  const body = printable
+    .map(
+      (m) =>
+        `<section class="msg"><h2>${escapeHtml(
+          roleLabel[m.role as ExportRole] ?? m.role,
+        )}</h2><pre>${escapeHtml(m.content.trimEnd())}</pre></section>`,
+    )
+    .join('\n')
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(
+    title,
+  )}</title><style>body{font-family:system-ui,sans-serif;margin:32px;color:#111}h1{font-size:20px}.msg{margin:0 0 24px}.msg h2{font-size:12px;color:#666;margin:0 0 6px}pre{white-space:pre-wrap;word-break:break-word;font-family:inherit;margin:0;font-size:13px;line-height:1.6}@media print{body{margin:12mm}}</style></head><body><h1>${escapeHtml(
+    title,
+  )}</h1>${body}</body></html>`
+
+  const iframe = document.createElement('iframe')
+  iframe.style.position = 'fixed'
+  iframe.style.right = '0'
+  iframe.style.bottom = '0'
+  iframe.style.width = '0'
+  iframe.style.height = '0'
+  iframe.style.border = '0'
+  document.body.appendChild(iframe)
+  const win = iframe.contentWindow
+  if (!win) {
+    iframe.remove()
+    return false
+  }
+  win.document.open()
+  win.document.write(html)
+  win.document.close()
+  await new Promise((r) => setTimeout(r, 50))
+  win.focus()
+  win.print()
+  setTimeout(() => iframe.remove(), 1000)
+  return true
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
