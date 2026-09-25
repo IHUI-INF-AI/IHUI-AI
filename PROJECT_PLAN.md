@@ -9053,3 +9053,36 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 - [x] ✅(2026-09-25) **93 的临时仓夹具改走 `copyScriptWithClosure`**:收口后少拷一跳 `scripts/lib/face-reader.mjs` 就是 `ERR_MODULE_NOT_FOUND` —— 改完**先实测红在这一条**(报的是"夹具首跑必须全绿"),再按闭包修好,没有把"门自己瞎了"当成"世界坏了"。夹具清单自此不再手抄。
 - [x] ✅(2026-09-25) **三条棘轮按新 HEAD 实测后下调**:型 A 裸 git 派生的生产文件 **82 → 81**、型 C 自拼 batch 的门 **1 → 0**(自此**零容忍**,再冒一处即红;它有牙由"棘尺本身不恒真"那条用例钉住)、型 B 常量绑裸 git **10 未动**(93 用的是字面量而非常量,这一型本来就看不见它 —— 三条尺子各自的盲区都写在 `face-reader.test.mjs` 头注里)。复测入口 `node --test scripts/tests/face-reader.test.mjs`,末行现读 `✅ 自拼 batch 取材已清零`。
 - [ ] **本线仍未闭环的一件(归属明确,不是遗漏)**:守门 93 的 **R1/R2/R4/R5 那半边仍按磁盘读** 两份 token 源文件,而同文件 R3 段头(`scripts/check-cross-end-tokens.mjs:1367`)自己写着"扫**仓库内容**,不扫共享工作树的未提交缓冲区"⇒ 同一道门两种取材面,AGENTS「口径同 77/83/98:全量判 HEAD blob」对它**只对了一半**。静态证据(本机不得为取证去改共享 token 文件,故不给动态复现):`grep -n "readFileSync(RN_TOKENS_PATH\|readFileSync(TOKENS_CSS_PATH" scripts/check-cross-end-tokens.mjs` 命中 1297/1298/1563 三处主流程读取。**当前不构成红点**(实测两文件工作树==HEAD),按"未引爆不动他人面"登记;解阻判据:任一 `pnpm check:all` 轮里这道门因这两份文件报出与本次提交内容无关的差异,即当场按 R3/R6 同形收口(HEAD / 索引 + `--worktree` 逃生舱)。
+
+### O62 动作契约"双写无对账"这一族的系统性审计(2026-09-25 完成两枚,余两项按判据按住)
+
+- [x] ✅(2026-09-25,`59f192009db` + `f7e529fb63e`) **补上 Python↔TS 动作字面量的对账,并把尺子从一种形态扩到两种**。
+  起点是 `ui_action_bridge.py:354` 那句"与 packages/types 的 AppUiActionType 一一对应"**只有散文**
+  (同型复制在 page 族早由 `test_page_control_bridge.py::test_verb_list_matches_shared_contract` 逐字看守)。
+  第一枚补该条对账后,第二枚发现**我自己的尺子只认得 `= 'a' | 'b'` 单行形态**,而同文件的
+  `UiControlActionType`(:279)写成"等号后换行 + 每成员前一行 JSDoc + 成员行以 `|` 开头",
+  对它直接判"断链"—— 一把只守得住自己顺手写的那种形态的尺子,等于其余形态没人守。
+  改为逐行解析(只取以 `|` 开头的行、注释与空行跳过、撞下一个 `export type` 即停),
+  覆盖扩到 2 族。前缀一律从 `ub._TOOL_PREFIX` 取,测试内不抄第二份字符串。
+  **取证三件**:①改尺子后原有那条**仍绿**(扩面不是把旧的弄瞎);②第 2 条内建反自咬证明 ——
+  它的 JSDoc 里合法写着 `'wallet'`、`'agent 规则'`,若尺子误收注释里的引号串,集合当场就不等 ⇒ 它绿着即已自证;
+  ③变异 `describe`→`describe_probe` 得 **`1 failed, 1 passed`**,红的正是被牵动那条并点名漂移项,
+  另一条不受遮蔽地保持绿。还原后生产文件 `git diff` 为空、该测试 **29 passed**。
+- [x] ✅(2026-09-25) **同族全量审计的结论(两路代理 + 本人逐条复核,不是抽样)**:A/B/C/D/E 五族的 verb 集合
+  **当前零漂移**,所以本票两枚都是防回潮而不是消红。三类**刻意不纳进双向对账**,判据已写进测试注释:
+  ①纯别名(`TaroUiActionType`/`ExtUiActionType` 无成员,按成员解析必假红);
+  ②粒度不同(`capability-catalog` 是对外登记面,不是运行时动词表;`_ADMIN_ONLY_TOOLS` 是权限矩阵);
+  ③**刻意真子集**(`BACKGROUND_ACTIONS` 按 `isBackgroundAction` 路由、`PAGE_READONLY_ACTIONS`「结构上不触碰页面」、
+  `control_autonomy.py:45-51`「`browser_page_*` 刻意不进这张表…那不是自主性,那是越权」)—— 双向对账会误红。
+- [ ] **存量漂移一条(另票,本票未代改)**:`packages/types/src/hooks.ts` 的 `HookNotifyChannel`(3 值)与
+  `apps/api/src/routes/hooks.ts:97` zod `channel`(4 值)**实差一条 `webhook`**,且两侧无任何机械对账
+  (`test_hooks.py:154`、`test_hook_engine.py:122` 只做成员包含断言,从不读 TS)。
+  解阻判据:先定"channel 该不该有 webhook 这一档"这个产品口径 —— 收紧 zod 还是补 TS 契约,方向不同后果不同,
+  **不得为了让对账绿而任选一侧**。
+- [ ] **`BROWSER_ACTIONS` 手抄清单不照 page 族那样派生(经取证否决,非疏漏)**:
+  `apps/extension/lib/agent-control-bridge.ts:50` 是 12 条手抄数组,契约加第 13 条 TS 不报(数组无需穷举)。
+  page 族能一行派生(`:91 [...PAGE_ACTIONS]`)是因为 `packages/dom-actions` 里存在 `PAGE_ACTIONS` **数组真相源**;
+  browser 族只有 union、没有数组 ⇒ 照抄派生就得先造一份数组(= 新增第四把手抄),或先把
+  `BrowserControlActionType` 拆成 `Dom | Background` 两个子 union 让两张分区表各自穷举(跨包类型重构,
+  牵动 `isDomAction` 路由、`DOM_ACTIONS` 并入 page 族的现状、扩展分流与门 103 的 public_entrypoints)。
+  本票实测该清单与契约**当前同集**,无存量缺陷 ⇒ 属设计票,不在这一轮顺手做掉。
