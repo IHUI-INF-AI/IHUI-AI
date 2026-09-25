@@ -18,7 +18,13 @@ export interface DesignElement {
 
 export interface DesignPreview {
   id: string
-  userId: number
+  /**
+   * 归属人 = `users.id` 的 **UUID 字符串**(与 @ihui/auth 的 JWTPayload.userId 同型)。
+   *
+   * P0 同型修复(2026-09-25):此前声明为 `number`,而写入方 `Number(uuid)` 恒得 NaN,
+   * 序列化后字段永久为 null。范式见 apps/api/src/routes/tasks.ts:270。不得改回 number。
+   */
+  userId: string
   name: string
   html: string
   createdAt: string
@@ -29,7 +35,8 @@ export interface DesignComment {
   id: string
   previewId: string
   elementId: string
-  userId: number
+  /** 同上:归属人 UUID 字符串,不得改回 number(apps/api/src/routes/tasks.ts:270 同型范式)。 */
+  userId: string
   userName: string
   content: string
   createdAt: string

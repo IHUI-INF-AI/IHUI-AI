@@ -32,6 +32,8 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
+import { createExclusionPredicate, LedgerUnavailable } from './lib/third-party-roots.mjs'
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const REPO_ROOT = join(ROOT)
 const NO_FIX = process.argv.includes('--no-fix')
@@ -44,8 +46,32 @@ if (process.env.HUSKY_SKIP_WATERMARK_GUARD === '1') {
   process.exit(0)
 }
 
+/**
+ * 第三方排除面与 watermark.mjs 走**同一个出口**(scripts/lib/third-party-roots.mjs)。
+ * 本门自己不再拼一份 roots 清单 —— 两处算同一件事各写一份,正是本仓最高频的失守形态。
+ * 之所以两处都要判:本门的自愈循环(`inject` + 双横幅巡检)与 list-uncovered 是两条独立路径,
+ * 只收窄其一,另一条照样会把横幅打进已登记的第三方内容。
+ */
+let exclusion
+try {
+  exclusion = createExclusionPredicate(REPO_ROOT)
+} catch (e) {
+  const why = e instanceof LedgerUnavailable ? e.message : String(e?.message ?? e)
+  console.error('[watermark-coverage] ❌ 第三方排除面无法判定:' + why.split('\n')[0])
+  console.error('  算不出"哪些是已登记第三方内容"时**拒绝**自愈 —— 自愈的动作是往文件里写归属横幅,')
+  console.error(
+    '  把横幅写进 Apache-2.0/MIT 许可原文比"少一个横幅"严重得多。请先修台账或 git 可用性。',
+  )
+  process.exit(1)
+}
+
 const run = (cmd, args) =>
-  execFileSync(cmd, args, { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, windowsHide: true })
+  execFileSync(cmd, args, {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    windowsHide: true,
+  })
 
 /** watermark.mjs list-uncovered → 载荷损坏 + 残迹 + 未覆盖(相对仓库根, / 分隔) */
 function listUncovered() {
@@ -81,7 +107,27 @@ function reportGap(missing, reason) {
 
 const tracked = trackedFiles()
 const uncovered = listUncovered()
-const missing = uncovered.filter((f) => tracked.has(f))
+// 双保险:排除面已由 watermark.mjs 的 scanCoverage 用同一个谓词移出分母,这里再筛一次 ——
+// 若哪天有人只改了一侧,本门要么把横幅打进第三方内容(自愈侧),要么恒红(判定侧)。
+// 被这里筛掉的即为"两侧谓词不一致"的证据,必须喊出来,不得静默(静默 = 下一次只有一侧在防)。
+const missing = uncovered.filter((f) => tracked.has(f) && !exclusion.isExcluded(f))
+const drift = uncovered.filter((f) => tracked.has(f) && exclusion.isExcluded(f))
+if (drift.length > 0) {
+  console.warn(
+    `[watermark-coverage] ⚠️ 排除面两侧不一致:${drift.length} 个已登记第三方文件被 list-uncovered 报成缺口(watermark.mjs 未走同一谓词?),已跳过不注入。示例: ${drift.slice(0, 5).join(', ')}`,
+  )
+}
+console.log(
+  `[watermark-coverage] 台账登记的第三方排除面:roots ${exclusion.roots.length} 条 → 真实文件 ${exclusion.paths.size} 个(不计入水印分母,改由 provenance-ledger P8 审计)`,
+)
+if (exclusion.notes.length) {
+  for (const n of exclusion.notes) console.warn(`[watermark-coverage] NOTE 排除面: ${n}`)
+}
+if (exclusion.unresolvedRoots.length) {
+  console.warn(
+    `[watermark-coverage] NOTE 台账登记了而当前清单里没有的 root ${exclusion.unresolvedRoots.length} 条(归 provenance-ledger P1 问责): ${exclusion.unresolvedRoots.join(', ')}`,
+  )
+}
 
 // ---------- 双横幅(重复版权头)巡检:warn-only,不计入退出码 ----------
 // 2026-09-22 实测:injectFile 旧版只在"见到载荷标记"时才清洗 ⇒ 已有裸横幅(无载荷)的文件
@@ -92,6 +138,10 @@ let dupBanner = 0
 const dupSamples = []
 for (const f of tracked) {
   if (!/\.(ts|tsx|js|mjs|cjs|css)$/.test(f)) continue
+  // 已登记第三方内容不参与"双横幅"巡检:本项统计的是**我方文件重复打了几个头**,
+  // 而"第三方文件上出现了我方横幅"是另一件事,由 provenance-ledger P8 独立判红。
+  // 两个判据不重叠,也不留空档 —— 这里少算的那一类正是 P8 的全部射程。
+  if (exclusion.isExcluded(f)) continue
   let text
   try {
     text = readFileSync(join(REPO_ROOT, f), 'utf8')
@@ -142,7 +192,7 @@ for (const f of missing) {
 }
 
 // 回读校验: 注入后必须彻底达标(不信任"命令返回 0"这一层)
-const stillMissing = listUncovered().filter((f) => tracked.has(f))
+const stillMissing = listUncovered().filter((f) => tracked.has(f) && !exclusion.isExcluded(f))
 if (stillMissing.length > 0) {
   reportGap(stillMissing, '(自愈后仍不达标)')
   console.error('')
@@ -153,7 +203,11 @@ if (stillMissing.length > 0) {
 
 // 同步暂存区: 否则提交的仍是"未加水印"的旧 index blob(注入只改了工作区)
 try {
-  execFileSync('git', ['add', '--', ...missing], { cwd: REPO_ROOT, stdio: 'pipe', windowsHide: true })
+  execFileSync('git', ['add', '--', ...missing], {
+    cwd: REPO_ROOT,
+    stdio: 'pipe',
+    windowsHide: true,
+  })
 } catch (e) {
   console.error('[watermark-coverage] ⚠️ git add 同步暂存区失败:', String(e.message || e))
   console.error('     注入已写入工作区, 请手动 `git add` 后重试提交。')

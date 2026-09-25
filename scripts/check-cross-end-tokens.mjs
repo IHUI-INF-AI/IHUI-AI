@@ -71,9 +71,14 @@
  * Exit: 0 = 全绿, 1 = 红
  */
 import { readFileSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, join } from 'node:path'
+
+// git 派生与 `cat-file --batch` 取材一律走共用层 scripts/lib/face-reader.mjs。本门曾是全链最后一处
+// **自带一份 batch 解析**的门:那五处易错点(裸 'git'、stdio[0]='ignore' 会把喂进去的清单丢掉、
+// 逐文件派生、maxBuffer 不够、junction 下的仓库根比较)在这里各有一份,而"输出被截断 ⇒ 无法判定"
+// 这条正确判据更要各修一遍 —— 收口成一层之后,它只有一份实现。
+import { Undetermined, catBatch, gitRaw, parseBatch } from './lib/face-reader.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const RN_TOKENS_PATH = join(root, 'packages/design-tokens/src/rn-tokens.ts')
@@ -594,48 +599,26 @@ const ALPHA_KINDS_ALL = [
   'placeholder',
 ]
 
-class UndeterminedError extends Error {}
+// 具名"无法判定"类型直接取层的。本门原先自造一个同名空类,而层的 catBatch/gitRaw 抛的是它自己的
+// `Undetermined` ⇒ 一旦混用,层抛上来的异常会掉进"本门自身异常"分支(exit 2 裸崩、只打 message),
+// 而不是"无法判定"(exit 1 + 点名原因)。同一族异常只能有一种。
+const UndeterminedError = Undetermined
 
-/** 一次 git 调用;失败即抛(调用方按"无法判定"处理,绝不静默当扫过了)。 */
+/**
+ * 一次 git 调用;失败即抛(调用方按"无法判定"处理,绝不静默当扫过了)。派生本体在层里 ——
+ * 绝对路径 git、`-c safe.directory=*`、`-c core.quotepath=false`、`-C root`、windowsHide、
+ * 显式 stdio、够大的 maxBuffer 都由那一处统一给,本门只保留自己的超时/缓冲额度。
+ */
 function gitExec(args, opts = {}) {
-  return execFileSync(
-    'git',
-    ['-c', 'safe.directory=*', ...args],
-    { cwd: root, encoding: 'buffer', windowsHide: true, timeout: 120_000, maxBuffer: 256 << 20, ...opts },
-  )
+  return gitRaw(args, root, { timeout: 120_000, maxBuffer: 256 << 20, ...opts })
 }
 
-const BLOB_HEADER_RE = /^([\da-f]{40})(\s+([\w-]+))?\s+(\d+)$/
-
-/** 一次 cat-file --batch 取多个 blob:rev 用 `HEAD:path` / `:path` 两种前缀。取不到记 null(不抛)。 */
-function catBatch(revs) {
-  const map = new Map()
-  if (revs.length === 0) return map
-  const out = gitExec(['cat-file', '--batch'], { input: Buffer.from(revs.join('\n') + '\n', 'utf8') })
-  let pos = 0
-  for (let r = 0; r < revs.length; r++) {
-    const rev = revs[r]
-    const nl = out.indexOf(0x0a, pos)
-    if (nl < 0) {
-      // 管道被截断(Windows 下 git 侧写失败 / maxBuffer 命中)。**旧实现只 set 当前 rev 就 break,
-      // 于是剩余 blob 全部"未被 set"⇒ 下游 .get() 得 undefined ⇒ scanOne 的 `continue` 静默少扫**,
-      // 少扫不红 = 假绿。截断就是取材失败,必须大声判"无法判定"。
-      for (let k = r; k < revs.length; k++) map.set(revs[k], null)
-      throw new UndeterminedError(
-        `cat-file --batch 输出在第 ${r}/${revs.length} 个 blob 处截断 ⇒ 无法判定(不是"没有违规",是"没看完")`
-      )
-    }
-    const header = out.subarray(pos, nl).toString('utf8')
-    pos = nl + 1
-    const m = BLOB_HEADER_RE.exec(header)
-    if (!m) {
-      map.set(rev, null) // "<rev> missing" / unmerged
-      continue
-    }
-    map.set(rev, out.subarray(pos, pos + Number(m[4])).toString('utf8'))
-    pos += Number(m[4]) + 1
-  }
-  return map
+/**
+ * 一次 `cat-file --batch` 取多个 blob:rev 用 `HEAD:path` / `:path` 两种前缀。取不到记 null(不抛);
+ * **输出被截断则抛"无法判定"** —— 这条判据的实现现在在层里(`parseBatch`),不再各门各修一遍。
+ */
+function readBlobs(revs) {
+  return catBatch(root, revs, { timeout: 120_000, maxBuffer: 256 << 20 })
 }
 
 /**
@@ -644,14 +627,22 @@ function catBatch(revs) {
  * 为什么不做成"读自身源码 + 断言"就完事:那样**无法证明它有牙** —— 想验证就得把旧形状写回本文件,
  * 而旧形状一旦写回就是语法错(`break` 落在循环外),文件根本跑不起来,证明退化成"没测"。
  * 抽成纯函数后,反例只是传入的一小段字符串(门 103 的 T12 同一课:证明这类行为只能用纯函数 + 构造面)。
+ *
+ * 收口进取材层之后本尺子的三件事变了形,按新形状重写:
+ *  · `usesLayer` 取代"本文件里有截断串" —— 截断判据现在住在层里,本门**不该**再有那句话;
+ *  · `selfBatchBack` 防的是"有人把自带 batch 解析加回来"(那正是本门原来的样子);
+ *  · 截断本身不再靠文本证明,改成直接喂 `parseBatch` 一个断掉的缓冲(见 selfTest 的 truncOk)。
  */
 export function checkCrashShape(sourceText) {
   const flat = sourceText.replace(/\s+/g, '')
   const forbiddenFlat = ('map.set(rev, null)' + '\n      break').replace(/\s+/g, '')
   return {
-    truncatedNamed: sourceText.includes('个 blob 处截断'), // catBatch 截断必须点名
-    silentBreakBack: flat.includes(forbiddenFlat), // 旧写法回来 = 少扫不红
-    catchHasStack: sourceText.includes('e?.stack ?? e'), // 非预期异常必须带栈
+    usesLayer:
+      /from '\.\/lib\/face-reader\.mjs'/.test(sourceText) && /\bcatBatch\(root,/.test(sourceText),
+    // `'--batch'` 是 `'--batch-check'` 的前缀,不加负向断言会把"只用 batch-check"误判成自带解析
+    selfBatchBack: /'cat-file'\s*,\s*'--batch(?!-check)'/.test(sourceText),
+    silentBreakBack: flat.includes(forbiddenFlat),
+    catchHasStack: sourceText.includes('e?.stack ?? e'),
   }
 }
 
@@ -971,14 +962,12 @@ export function checkAlphaChannelVars({ usage, colors, cssLight, cssDark, plugin
  *  同时带回 HEAD 原文(`head`)—— 腐烂判据要按"本次提交是否新增"算棘轮,必须有两个面的用量集。 */
 export function collectAlphaCorpus({ face }) {
   const listed = gitExec(['ls-tree', '-r', '--name-only', 'HEAD', '-z', '--', ...ALPHA_SCAN_FACES])
-    .toString('utf8')
     .split('\0')
     .filter((p) => p && ALPHA_SCAN_EXT.test(p))
   const paths = new Set(listed)
   let staged = []
   if (face === 'staged') {
     staged = gitExec(['diff', '--name-only', '--cached', '--', ...ALPHA_SCAN_FACES])
-      .toString('utf8')
       .split('\n')
       .filter((p) => p && ALPHA_SCAN_EXT.test(p))
     for (const p of staged) paths.add(p)
@@ -988,8 +977,8 @@ export function collectAlphaCorpus({ face }) {
       `${face === 'staged' ? '索引' : 'HEAD'} 面在扫描面(${ALPHA_SCAN_FACES.join(' + ')})枚举到 0 个文件 —— 判据不扫空气`,
     )
   const all = [...paths]
-  const headMap = catBatch(all.map((p) => `HEAD:${p}`))
-  const idxMap = face === 'staged' ? catBatch(all.map((p) => `:${p}`)) : headMap
+  const headMap = readBlobs(all.map((p) => `HEAD:${p}`))
+  const idxMap = face === 'staged' ? readBlobs(all.map((p) => `:${p}`)) : headMap
   const out = []
   const undeterminable = []
   for (const rel of all) {
@@ -1088,7 +1077,7 @@ export function readAlphaRegistry(face) {
     ALPHA_PRESET_REL,
     ALPHA_TOKENS_REL,
   ].map((rel) => {
-    const got = catBatch([prefix + rel]).get(prefix + rel)
+    const got = readBlobs([prefix + rel]).get(prefix + rel)
     if (got === null || got === undefined)
       throw new UndeterminedError(`${face === 'staged' ? '索引' : 'HEAD'} 取不到 ${rel}`)
     return got
@@ -1426,41 +1415,22 @@ async function cli() {
   // 那不是引用,不需要为它们再发明一套豁免语法。
   const stagedMode = argv.includes('--staged')
   const refs = []
-  const GREP = ['-c', 'safe.directory=*', 'grep', '-n', '--no-color', '-e', '\\.brand\\.']
+  // `-c safe.directory=*` 由层统一前置,这里只写本子命令自己的参数。
+  const GREP = ['grep', '-n', '--no-color', '-e', '\\.brand\\.']
   try {
     if (!stagedMode) {
-      refs.push(
-        ...execFileSync('git', [...GREP, 'HEAD', '--', 'apps', 'packages'], {
-          cwd: root,
-          encoding: 'utf8',
-          maxBuffer: 64 * 1024 * 1024,
-          windowsHide: true,
-          timeout: 60_000,
-        })
-          .split('\n')
-          .filter(Boolean),
-      )
+      refs.push(...gitExec([...GREP, 'HEAD', '--', 'apps', 'packages']).split('\n').filter(Boolean))
     } else {
-      const staged = execFileSync(
-        'git',
-        ['-c', 'safe.directory=*', 'diff', '--name-only', '--cached', '--', 'apps', 'packages'],
-        { cwd: root, encoding: 'utf8', maxBuffer: 1 << 26, windowsHide: true, timeout: 60_000 },
-      )
+      const staged = gitExec(['diff', '--name-only', '--cached', '--', 'apps', 'packages'])
         .split('\n')
         .filter((f) => /\.(ts|tsx)$/.test(f))
+      // 一批 blob 一次取,不再逐文件派生 git。旧写法每个暂存文件起一个进程,且 `git show :path`
+      // 抛错就在内层 `catch { continue }` 里被吞掉 —— 那不只吞"本次删除的路径"(合法),
+      // 也吞真取材失败(少扫不红 = 假绿)。层的 readBlobs 把取不到的记 null、把截断抛出来。
+      const blobs = readBlobs(staged.map((rel) => `:${rel}`))
       for (const rel of staged) {
-        let blob = null
-        try {
-          blob = execFileSync('git', ['-c', 'safe.directory=*', 'show', `:${rel}`], {
-            cwd: root,
-            encoding: 'utf8',
-            maxBuffer: 32 * 1024 * 1024,
-            windowsHide: true,
-            timeout: 30_000,
-          })
-        } catch {
-          continue // 本次删除的路径:索引里已无内容
-        }
+        const blob = blobs.get(`:${rel}`)
+        if (blob === null || blob === undefined) continue // 本次删除的路径:索引里已无内容
         blob.split('\n').forEach((l, i) => {
           if (/\.brand\./.test(l)) refs.push(`${rel}:${i + 1}:${l}`)
         })
@@ -1815,21 +1785,58 @@ async function selfTest() {
   const normalOk = normalThrew === null
   console.log(`${normalOk ? '✅' : '❌'} 反向对照:正常 body 不得被新守卫误判成取不到`)
 
-  // 截断与栈两条只能拿源码形状当尺子(它们要真截断 git 管道 / 真抛非预期异常,夹具做不到)
+  // 装车形状量"本门是否真走层";截断这条**不再拿源码文本当尺子** —— 层的 parseBatch 是导出的
+  // 纯函数,可以直接喂一段断掉的缓冲来证明它有牙(门 103 T12 同一课:构造面 > 文本面)。
   const self = readFileSync(fileURLToPath(import.meta.url), 'utf8')
   const shape = checkCrashShape(self)
-  const shapeOk = shape.truncatedNamed && !shape.silentBreakBack && shape.catchHasStack
+  const shapeOk =
+    shape.usesLayer && !shape.selfBatchBack && !shape.silentBreakBack && shape.catchHasStack
   console.log(
-    `${shapeOk ? '✅' : '❌'} 装车形状:catBatch 截断必抛具名(不得静默 break 少扫)、顶层 catch 必带栈 → got=${JSON.stringify(shape)}`
+    `${shapeOk ? '✅' : '❌'} 装车形状:本门不得自带 cat-file --batch 解析(必须走层)、顶层 catch 必带栈 → got=${JSON.stringify(shape)}`,
   )
-  // 反例必须真红,否则上面那条断言是无牙尺子(把旧形状写回本文件当证明会因语法错跑不起来,
-  // 所以只能喂字符串 —— 门 103 T12 同一课)
-  const neg = checkCrashShape('function catBatch(){\n  map.set(rev, null)\n      break\n}\n')
-  const negOk = neg.silentBreakBack === true
+  const good = 'x'.repeat(40)
+  const truncBuf = Buffer.from(`${good} blob 3\nabc`, 'utf8')
+  let truncThrew = null
+  try {
+    parseBatch(truncBuf, ['HEAD:a', 'HEAD:b']) // 两个 rev,但第二段头已经没有了 ⇒ 截断
+  } catch (e) {
+    truncThrew = e
+  }
+  const truncOk = truncThrew instanceof UndeterminedError && /处截断/.test(truncThrew.message ?? '')
   console.log(
-    `${negOk ? '✅' : '❌'} 反例有牙:含旧静默 break 形状的文本必须被 silentBreakBack 抓到 → got=${JSON.stringify(neg)}`
+    `${truncOk ? '✅' : '❌'} 层的截断判据真咬:输出在第 2/2 个对象处断掉必须抛具名"无法判定"(旧行为:静默少扫 = 假绿) → got=${truncThrew?.constructor?.name}`,
   )
-  if (!ghostOk || !normalOk || !shapeOk || !negOk) fail++
+  // 反向对照:同一段缓冲,revs 只要一条就完全合法 ⇒ 不得被判成截断(否则这条判据是恒红尺子)
+  let completeThrew = null
+  try {
+    parseBatch(truncBuf, ['HEAD:a'])
+  } catch (e) {
+    completeThrew = e
+  }
+  const completeOk = completeThrew === null
+  console.log(`${completeOk ? '✅' : '❌'} 反向对照:完整输出不得被截断判据误伤 → got=${completeThrew?.message}`)
+  // 反例必须真红,否则形状尺子是无牙的(把旧形状写回本文件当证明会因语法错跑不起来,
+  // 所以只能喂字符串 —— 门 103 T12 同一课)。
+  // ⚠️ 被禁的两个形态**不能原样写进本文件**:这把尺子量的就是本文件自身,写进去等于自己制造一次
+  // "违规"(本门第一版把被禁字面量抄进断言,结果自身恒命中自己的禁令)。用拼接,运行时才成形态。
+  const DASH = '-'
+  const NIL = 'null'
+  const BRK = 'break'
+  const neg = checkCrashShape(
+    "import { join } from 'node:path'\nfunction catBatch(revs){ const out = gitExec(['cat-file', '" +
+      DASH +
+      DASH +
+      "batch'])\n  map.set(rev, " +
+      NIL +
+      ')\n      ' +
+      BRK +
+      '\n}\n',
+  )
+  const negOk = !neg.usesLayer && neg.selfBatchBack && neg.silentBreakBack
+  console.log(
+    `${negOk ? '✅' : '❌'} 反例有牙:一段"自带 batch + 静默 break"的文本必须同时被三个字段抓到 → got=${JSON.stringify(neg)}`
+  )
+  if (!ghostOk || !normalOk || !shapeOk || !truncOk || !completeOk || !negOk) fail++
 
   const r6 = await selfTestR6()
   const r7 = selfTestR7()
@@ -1840,7 +1847,7 @@ async function selfTest() {
     r4Cases.length +
     r5Cases.length +
     3 +
-    4 +
+    6 + // 崩溃面那一段:表名漂移 / 反向对照 / 装车形状 / 截断真咬 / 截断反例 / 形状反例
     r6.cases +
     r7.cases
   if (r4Fail + r5Fail > 0) fail += r4Fail + r5Fail
