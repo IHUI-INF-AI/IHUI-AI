@@ -856,7 +856,7 @@ export default function UserIndex() {
                 onClick={openSharePopup}
               >
                 <LineIcon
-                  className="text-[32rpx] text-primary"
+                  className="text-[length:32rpx] text-primary"
                   name="share-2"
                   size={32}
                   color="var(--color-muted-foreground)"
@@ -866,15 +866,15 @@ export default function UserIndex() {
           ) : (
             <View className="flex items-center" hoverClass="opacity-60" onClick={goLogin}>
               <Image
-                className="w-[120rpx] h-[120rpx] rounded-md border-[4rpx] border-solid border-primary"
+                className="w-[120rpx] h-[120rpx] rounded-md border-[length:4rpx] border-solid border-primary"
                 src={defaultAvatar}
                 mode="aspectFill"
               />
               <View className="ml-[24rpx]">
-                <Text className="block text-foreground text-[36rpx] font-semibold">
+                <Text className="block text-foreground text-[length:36rpx] font-semibold">
                   {t('user.tapLogin')}
                 </Text>
-                <Text className="block mt-[8rpx] text-foreground text-[24rpx] opacity-85">
+                <Text className="block mt-[8rpx] text-foreground text-[length:24rpx] opacity-85">
                   {t('user.loginHint')}
                 </Text>
               </View>
@@ -1013,8 +1013,8 @@ export default function UserIndex() {
                 <View className="flex flex-wrap px-[8rpx] pb-[16rpx] bg-card border border-border rounded-lg">
                   {membershipBenefits.map((b) => (
                     <View key={b.key} className="w-1/3 flex flex-col items-center py-[16rpx]">
-                      {renderIcon(b.icon, 'text-[44rpx]', 'w-[44rpx] h-[44rpx]')}
-                      <Text className="mt-[8rpx] text-[24rpx] text-foreground text-center">
+                      {renderIcon(b.icon, 'text-[length:44rpx]', 'w-[44rpx] h-[44rpx]')}
+                      <Text className="mt-[8rpx] text-[length:24rpx] text-foreground text-center">
                         {tf(b.key, b.fallback)}
                       </Text>
                     </View>
@@ -1066,10 +1066,10 @@ export default function UserIndex() {
                       className="bg-card rounded-lg p-[28rpx] border border-border user-content-text"
                     >
                       <View className="flex-row items-center justify-between mb-[12rpx]">
-                        <Text className="text-[32rpx] font-semibold text-foreground">
+                        <Text className="text-[length:32rpx] font-semibold text-foreground">
                           {item.title}
                         </Text>
-                        <Text className="text-[24rpx] text-muted-foreground">{item.time}</Text>
+                        <Text className="text-[length:24rpx] text-muted-foreground">{item.time}</Text>
                       </View>
                       {renderMarkdown(item.content)}
                     </View>
@@ -1099,10 +1099,10 @@ export default function UserIndex() {
                       className="bg-card rounded-lg p-[28rpx] border border-border user-content-image"
                     >
                       <View className="flex-row items-center justify-between mb-[12rpx]">
-                        <Text className="text-[32rpx] font-semibold text-foreground">
+                        <Text className="text-[length:32rpx] font-semibold text-foreground">
                           {item.title}
                         </Text>
-                        <Text className="text-[24rpx] text-muted-foreground">{item.time}</Text>
+                        <Text className="text-[length:24rpx] text-muted-foreground">{item.time}</Text>
                       </View>
                       {/* 纵向单列大图(对齐 RN imageColumn gap rpx(16) + imageColumnImg 高 200dp)*/}
                       <View className="flex flex-col" style={{ gap: rpx(16) }}>
@@ -1143,10 +1143,10 @@ export default function UserIndex() {
                       className="bg-card rounded-lg overflow-hidden border border-border user-content-video"
                     >
                       <View className="flex-row items-center justify-between p-[24rpx] pb-[12rpx]">
-                        <Text className="text-[32rpx] font-semibold text-foreground">
+                        <Text className="text-[length:32rpx] font-semibold text-foreground">
                           {item.title}
                         </Text>
-                        <Text className="text-[24rpx] text-muted-foreground">{item.time}</Text>
+                        <Text className="text-[length:24rpx] text-muted-foreground">{item.time}</Text>
                       </View>
                       <View
                         className="relative mx-[24rpx] mb-[24rpx] rounded-lg overflow-hidden bg-muted"
@@ -1200,10 +1200,10 @@ export default function UserIndex() {
                       className="bg-card rounded-lg p-[28rpx] border border-border user-content-audio"
                     >
                       <View className="flex-row items-center justify-between mb-[12rpx]">
-                        <Text className="text-[32rpx] font-semibold text-foreground">
+                        <Text className="text-[length:32rpx] font-semibold text-foreground">
                           {item.title}
                         </Text>
-                        <Text className="text-[24rpx] text-muted-foreground">{item.time}</Text>
+                        <Text className="text-[length:24rpx] text-muted-foreground">{item.time}</Text>
                       </View>
                       <View className="flex-row items-center gap-[12rpx]">
                         {/* 播放/暂停按钮(对齐 RN audioPlayBtn 36dp→72rpx 圆角 16rpx) */}
@@ -1235,7 +1235,7 @@ export default function UserIndex() {
                         </View>
                         {/* 当前时间(对齐 RN audioTime fontSize 12dp) */}
                         <Text
-                          className="text-[24rpx] text-muted-foreground"
+                          className="text-[length:24rpx] text-muted-foreground"
                           style={{ flexShrink: 0, width: rpx(80), textAlign: 'right' }}
                         >
                           {formatAudioTime(audioCurrentTime[index] || 0)}
@@ -1267,8 +1267,8 @@ export default function UserIndex() {
                 hoverClass="opacity-60"
                 onClick={() => goPage(entry.path)}
               >
-                {renderIcon(entry.icon, 'text-[44rpx]', 'w-[44rpx] h-[44rpx]')}
-                <Text className="mt-[6rpx] text-[24rpx] text-foreground">{t(entry.key)}</Text>
+                {renderIcon(entry.icon, 'text-[length:44rpx]', 'w-[44rpx] h-[44rpx]')}
+                <Text className="mt-[6rpx] text-[length:24rpx] text-foreground">{t(entry.key)}</Text>
               </View>
             ))}
           </View>
@@ -1285,9 +1285,9 @@ export default function UserIndex() {
               hoverClass="opacity-60"
               onClick={() => goPage(item.path)}
             >
-              {renderIcon(item.icon, 'text-[40rpx]', 'w-[40rpx] h-[40rpx]')}
-              <Text className="flex-1 ml-[20rpx] text-[30rpx] text-foreground">{t(item.key)}</Text>
-              <Text className="text-[26rpx] text-[var(--color-brand-accent-deep)]">{'>'}</Text>
+              {renderIcon(item.icon, 'text-[length:40rpx]', 'w-[40rpx] h-[40rpx]')}
+              <Text className="flex-1 ml-[20rpx] text-[length:30rpx] text-foreground">{t(item.key)}</Text>
+              <Text className="text-[length:26rpx] text-[var(--color-brand-accent-deep)]">{'>'}</Text>
             </View>
           ))}
         </View>
@@ -1295,7 +1295,7 @@ export default function UserIndex() {
         {/* 退出登录 */}
         {isLogin ? (
           <View
-            className="mx-[20rpx] my-[48rpx] h-[96rpx] leading-[96rpx] text-center border border-primary text-primary rounded-lg text-[30rpx]"
+            className="mx-[20rpx] my-[48rpx] h-[96rpx] leading-[96rpx] text-center border border-primary text-primary rounded-lg text-[length:30rpx]"
             hoverClass="opacity-60"
             onClick={handleLogout}
           >
@@ -1377,7 +1377,7 @@ export default function UserIndex() {
                 </Text>
               </View>
               {/* 分享提示 */}
-              <Text className="block text-center text-[28rpx] text-foreground font-semibold mb-[20rpx]">
+              <Text className="block text-center text-[length:28rpx] text-foreground font-semibold mb-[20rpx]">
                 {tf('user.share.shareTo', '分享给好友')}
               </Text>
               {/* 分享按钮 */}

@@ -119,7 +119,7 @@ export default function AboutIndexPage() {
           <View className="p-[16rpx] -m-[16rpx]" onClick={goBack} hoverClass="opacity-60">
             <LineIcon name="chevron-left" size={40} color="var(--color-foreground)" />
           </View>
-          <Text className="text-[40rpx] font-bold text-foreground">关于我们</Text>
+          <Text className="text-[length:40rpx] font-bold text-foreground">关于我们</Text>
         </View>
 
         {info.name ? (
@@ -129,17 +129,17 @@ export default function AboutIndexPage() {
               src={info.logo || '/pkg-about/assets/images/logo.png'}
               mode="aspectFit"
             />
-            <Text className="block text-[32rpx] text-foreground font-semibold mt-[24rpx]">
+            <Text className="block text-[length:32rpx] text-foreground font-semibold mt-[24rpx]">
               {info.name}
             </Text>
-            <Text className="block text-[24rpx] text-muted-foreground mt-[8rpx]">
+            <Text className="block text-[length:24rpx] text-muted-foreground mt-[8rpx]">
               {t('about.version', { version: info.version })}
             </Text>
           </View>
         ) : null}
 
         <View className="m-[24rpx] p-[32rpx] bg-card rounded-lg">
-          <Text className="text-[26rpx] text-muted-foreground leading-[1.8]">
+          <Text className="text-[length:26rpx] text-muted-foreground leading-[1.8]">
             {info.intro || tt('about.introFallback', '智汇 AI 致力于打造一站式 AI 服务平台')}
           </Text>
         </View>
@@ -153,7 +153,7 @@ export default function AboutIndexPage() {
               onClick={() => navigate(m.url)}
               hoverClass="opacity-60"
             >
-              <Text className="text-[30rpx] text-foreground flex-1">{m.label}</Text>
+              <Text className="text-[length:30rpx] text-foreground flex-1">{m.label}</Text>
               {/* 对齐 RN ChevronRight:rpx(24)/text.tertiary/strokeWidth 2 */}
               <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
@@ -161,7 +161,7 @@ export default function AboutIndexPage() {
         </View>
 
         <View className="text-center pt-[40rpx] px-[24rpx] pb-[20rpx]">
-          <Text className="text-[22rpx] text-muted-foreground">
+          <Text className="text-[length:22rpx] text-muted-foreground">
             {tt('about.copyright', '© 2026 智汇 AI. 保留所有权利')}
           </Text>
         </View>
