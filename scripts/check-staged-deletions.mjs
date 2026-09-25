@@ -43,18 +43,18 @@
  * 应急跳过:HUSKY_SKIP_STAGED_DELETIONS=1 git commit ...
  * 退出码:0 通过 / 1 违规 / 2 脚本自身异常(异常绝不静默放行)
  */
-import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { resolveGitBin } from './lib/gitdir.mjs'
+// git 派生与 `cat-file --batch` 取材一律走共用层 scripts/lib/face-reader.mjs(绝对路径 git、
+// safe.directory、quotepath、显式 stdio、批量读)。本门不再自带 `gitOut()` / 那份 batch 解析器。
+import { Undetermined, catBatch, gitRaw } from './lib/face-reader.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SELF_SKIP = 'HUSKY_SKIP_STAGED_DELETIONS'
 const ALLOWLIST_REL = 'scripts/staged-deletions-allowlist.json'
-const GIT = resolveGitBin() || 'git'
+/** 与层的默认上限同值(60s),显式写出来是为了让 grep 的"零命中 vs 超时"判据能拿到同一个数 */
 const GIT_TIMEOUT = 60000
-const BATCH_TIMEOUT = 180000
 const GREP_BATCH = 60
 /** 全局候选文件数超过该上限 → 改按单个名字分别取候选(精确度优先于一次派生) */
 const GLOBAL_CAND_LIMIT = 1500
@@ -75,8 +75,8 @@ const REF_EXCLUDE =
 const ACCOUNTING = /(^|\/)[^/]*(baseline|allowlist|report)[^/]*\.json$/i
 /** 生成物:重新生成即恢复,不作为存续性证据 */
 const GENERATED = /(\.gen|\.generated)\.[cm]?[jt]sx?$/i
-const HASH_RE = /^([0-9a-f]{40}) blob (\d+)$/
-const KNOWN_EXT = /\.(ts|tsx|js|jsx|mjs|cjs|json|css|scss|less|html|vue|svelte|svg|png|jpe?g|gif|webp|md)$/i
+const KNOWN_EXT =
+  /\.(ts|tsx|js|jsx|mjs|cjs|json|css|scss|less|html|vue|svelte|svg|png|jpe?g|gif|webp|md)$/i
 
 // ── 纯函数:路径解析(不依赖 ROOT / git,测试可直接调用) ────────────────────────────
 export function stemOf(p) {
@@ -138,7 +138,8 @@ export function extractStrings(text, file) {
     if (tab < 0) continue
     const no = Number(line.slice(0, tab))
     const body = line.slice(tab + 1)
-    for (const m of body.matchAll(/(['"`])((?:\\.|(?!\1)[^\n\\]){0,300})\1/g)) out.push({ no, s: m[2] })
+    for (const m of body.matchAll(/(['"`])((?:\\.|(?!\1)[^\n\\]){0,300})\1/g))
+      out.push({ no, s: m[2] })
   }
   return out
 }
@@ -240,14 +241,21 @@ export function parseAllowlist(raw, sourceName) {
   try {
     obj = JSON.parse(String(raw).replace(/^\uFEFF/, '')) // BOM(Windows 编辑器常见)不得让整份清单失效
   } catch (e) {
-    return { entries: [], parseError: `${sourceName} JSON 解析失败(${e?.message || e}),本次按空清单执行(不因此放行任何一条)`, missing: false }
+    return {
+      entries: [],
+      parseError: `${sourceName} JSON 解析失败(${e?.message || e}),本次按空清单执行(不因此放行任何一条)`,
+      missing: false,
+    }
   }
   const list = Array.isArray(obj) ? obj : Array.isArray(obj?.paths) ? obj.paths : []
   const entries = []
   for (const it of list) {
     if (typeof it === 'string' && it.trim()) entries.push({ pattern: normEntry(it), reason: '' })
     else if (it && typeof it.path === 'string' && it.path.trim())
-      entries.push({ pattern: normEntry(it.path), reason: String(it.reason || '(清单未写 reason)') })
+      entries.push({
+        pattern: normEntry(it.path),
+        reason: String(it.reason || '(清单未写 reason)'),
+      })
   }
   return { entries, parseError: null, missing: false }
 }
@@ -260,7 +268,10 @@ export function parseAllowlist(raw, sourceName) {
  * allow          : parseAllowlist().entries
  * pendingRemoval : --all 模式下"自己也待删"的路径集合(引用方一起消失 ⇒ 放过)
  */
-export function auditDeletions(deleted, { livePaths, readFile, getCandidates, allow = [], pendingRemoval = new Set() }) {
+export function auditDeletions(
+  deleted,
+  { livePaths, readFile, getCandidates, allow = [], pendingRemoval = new Set() },
+) {
   const liveSet = new Set(livePaths)
   const key = (p) => `${stemOf(p)}\u0000${p.includes('.') ? p.split('.').pop() : ''}`
   // 同名同后缀索引一次建好:旧写法每个待删路径线性扫全索引,D 一大就是 O(D×L)
@@ -303,7 +314,14 @@ export function auditDeletions(deleted, { livePaths, readFile, getCandidates, al
       rec.note = `候选引用方 ${raw.length} 个,超过 ${MAX_CANDIDATES} 上限,不判红`
       return { rec, candidates: null }
     }
-    const candidates = raw.filter((f) => REF_EXT.test(f) && !REF_EXCLUDE.test(f) && !ACCOUNTING.test(f) && !GENERATED.test(f) && liveSet.has(f))
+    const candidates = raw.filter(
+      (f) =>
+        REF_EXT.test(f) &&
+        !REF_EXCLUDE.test(f) &&
+        !ACCOUNTING.test(f) &&
+        !GENERATED.test(f) &&
+        liveSet.has(f),
+    )
     rec.ignoredReferrers = raw.length - candidates.length
     return { rec, candidates }
   })
@@ -321,7 +339,9 @@ export function auditDeletions(deleted, { livePaths, readFile, getCandidates, al
     const hits = (hitMap.get(rec.path) || []).filter((h) => !pendingRemoval.has(h.file))
     if (!hits.length) {
       rec.verdict = 'no-reference'
-      rec.note = rec.ignoredReferrers ? `另有 ${rec.ignoredReferrers} 处命中落在夹具/产物/记账文件,不计` : ''
+      rec.note = rec.ignoredReferrers
+        ? `另有 ${rec.ignoredReferrers} 处命中落在夹具/产物/记账文件,不计`
+        : ''
       continue
     }
     rec.verdict = 'red'
@@ -330,7 +350,7 @@ export function auditDeletions(deleted, { livePaths, readFile, getCandidates, al
   return prelim.map((x) => x.rec)
 }
 
-// ── CLI:git 取材(全程只读) ───────────────────────────────────────────────────────
+// ── CLI:git 取材(全程只读,派生本体在 scripts/lib/face-reader.mjs) ──────────────────
 function chunk(arr, n) {
   const out = []
   for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n))
@@ -342,24 +362,26 @@ function nul(s) {
     .map((x) => x.replace(/^\//, ''))
     .filter((x) => x.length > 0)
 }
-function gitOut(root, args, timeout = GIT_TIMEOUT) {
-  return execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', '-C', root, ...args], {
-    cwd: root,
-    encoding: 'utf8',
-    windowsHide: true,
-    maxBuffer: 512 << 20,
-    timeout,
-  })
-}
-/** `git grep --cached -l -F`:exit 1 = 无命中(正常);其它非零 = 异常上抛(绝不静默当"没有引用") */
+/**
+ * `git grep --cached` 用 **exit 1** 表达"零命中"(合法的空候选集),其余非零才是真失败。
+ * 共用层的 `gitRaw` 把所有非零一律折成 Undetermined 且**不暴露 exit code**,所以这里只能按
+ * 可观测的两条特征把"零命中"与"真失败"分开(层的缺失原语:status-aware 的 git 调用):
+ *   ① git 没留下任何 stderr 诊断(真失败必有 `fatal:`/`error:` 一类首行);
+ *   ② 远未触及超时(超时被 SIGTERM 时同样没有诊断,靠这一条排除)。
+ * 两条同时成立才认零命中;否则原样上抛 —— **绝不把"取数失败"静默成"没有引用"**(那等于把红洗成绿)。
+ * 常量 ZERO_HIT_MARK 由镜像测试与层的 `gitErrText({stderr:''})` 逐字对账,层若改措辞测试即红。
+ */
+const ZERO_HIT_MARK = '(git 无输出)'
 function grepFiles(root, stems) {
   const args = ['grep', '--cached', '-I', '-z', '-l', '-F']
   for (const s of stems) args.push('-e', s)
+  const t0 = Date.now()
   try {
-    return nul(gitOut(root, args))
+    return nul(gitRaw(args, root, { timeout: GIT_TIMEOUT }))
   } catch (e) {
-    if (e && e.status === 1) return []
-    throw new Error(`git grep --cached 失败:${e?.stderr || e?.message || e}`)
+    const msg = e instanceof Error ? e.message : String(e)
+    if (msg.includes(ZERO_HIT_MARK) && Date.now() - t0 < GIT_TIMEOUT - 10000) return []
+    throw new Error(`git grep --cached 失败:${msg}`)
   }
 }
 /**
@@ -373,61 +395,49 @@ function makeCandidateProvider(root, stems) {
   for (const b of batches) for (const f of grepFiles(root, b)) global.add(f)
   const list = [...global]
   if (list.length <= GLOBAL_CAND_LIMIT) {
-    return { getCandidates: () => list, mode: `全局候选 ${list.length} 文件 / ${batches.length} 次 grep` }
+    return {
+      getCandidates: () => list,
+      mode: `全局候选 ${list.length} 文件 / ${batches.length} 次 grep`,
+    }
   }
   const perStem = new Map()
   for (const s of uniq) perStem.set(s, grepFiles(root, [s]))
-  return { getCandidates: (s) => perStem.get(s) || [], mode: `全局候选 ${list.length} 超限 → 按名字分别取候选` }
+  return {
+    getCandidates: (s) => perStem.get(s) || [],
+    mode: `全局候选 ${list.length} 超限 → 按名字分别取候选`,
+  }
 }
-/** 一次 cat-file --batch 读完一批索引 blob(`:path`),避免 N 次派生 */
+/**
+ * 一次 cat-file --batch 读完一批索引 blob(`:path`),避免 N 次派生。
+ * 取材本体在层的 `catBatch`(stdio[0]='pipe'、maxBuffer、timeout 都在那一处);这里只把
+ * 层的 "Map<rev, text>" 换成本门判据要的 "Map<path, text|null>"(取不到 = null,不抛)。
+ */
 function readIndexBlobs(root, paths) {
   const map = new Map()
   if (!paths.length) return map
-  const input = paths.map((p) => `:${p}`).join('\n') + '\n'
-  let out
-  try {
-    out = execFileSync(GIT, ['-c', 'safe.directory=*', '-C', root, 'cat-file', '--batch'], {
-      cwd: root,
-      windowsHide: true,
-      maxBuffer: 512 << 20,
-      timeout: BATCH_TIMEOUT,
-      input: Buffer.from(input, 'utf8'),
-    })
-  } catch (e) {
-    throw new Error(`git cat-file --batch 失败:${e?.stderr?.toString?.() || e?.message || e}`)
-  }
-  let pos = 0
-  for (const p of paths) {
-    const nl = out.indexOf(0x0a, pos)
-    if (nl < 0) {
-      map.set(p, null)
-      continue
-    }
-    const header = out.subarray(pos, nl).toString('utf8')
-    pos = nl + 1
-    const m = HASH_RE.exec(header)
-    if (!m) {
-      map.set(p, null) // ":<path> missing" —— 不在索引里
-      continue
-    }
-    map.set(p, out.subarray(pos, pos + Number(m[2])).toString('utf8'))
-    pos += Number(m[2]) + 1
-  }
+  const got = catBatch(
+    root,
+    paths.map((p) => `:${p}`),
+  )
+  for (const p of paths) map.set(p, got.get(`:${p}`) ?? null)
   return map
 }
 /** 删除面:--staged 只看索引 vs HEAD;--all 追加"工作区相对 HEAD 已消失但未暂存"的那一批 */
 function collectDeletions(root, mode) {
   let staged = []
   try {
-    staged = nul(gitOut(root, ['diff', '--cached', '--diff-filter=D', '--name-only', '-z']))
+    staged = nul(gitRaw(['diff', '--cached', '--diff-filter=D', '--name-only', '-z'], root))
   } catch (e) {
-    const msg = String(e?.stderr || e?.message || e)
-    if (/unknown revision|bad revision|does not have any commits/i.test(msg)) return { staged: [], unstaged: [], noHead: true }
+    const msg = e instanceof Undetermined ? e.message : String(e?.stderr || e?.message || e)
+    if (/unknown revision|bad revision|does not have any commits/i.test(msg))
+      return { staged: [], unstaged: [], noHead: true }
     throw new Error(`读取暂存删除失败:${msg}`)
   }
   let unstaged = []
   if (mode === 'all') {
-    unstaged = nul(gitOut(root, ['diff', 'HEAD', '--diff-filter=D', '--name-only', '-z'])).filter((p) => !staged.includes(p))
+    unstaged = nul(gitRaw(['diff', 'HEAD', '--diff-filter=D', '--name-only', '-z'], root)).filter(
+      (p) => !staged.includes(p),
+    )
   }
   return { staged, unstaged, noHead: false }
 }
@@ -449,19 +459,33 @@ async function main() {
   const allowRaw = existsSync(allowFile) ? readFileSync(allowFile, 'utf8') : null
   const allow = parseAllowlist(allowRaw, ALLOWLIST_REL)
   const deleted = mode === 'all' ? [...staged, ...unstaged] : staged
-  const base = { mode, root, staged: staged.length, unstaged: unstaged.length, noHead, allowlistLoaded: allowRaw !== null }
+  const base = {
+    mode,
+    root,
+    staged: staged.length,
+    unstaged: unstaged.length,
+    noHead,
+    allowlistLoaded: allowRaw !== null,
+  }
   if (noHead || !deleted.length) {
-    const msg = noHead ? '仓库尚无提交,无存续性可判定' : `无${mode === 'all' ? '待删' : '暂存删除'},判据未触发`
+    const msg = noHead
+      ? '仓库尚无提交,无存续性可判定'
+      : `无${mode === 'all' ? '待删' : '暂存删除'},判据未触发`
     if (asJson) console.log(JSON.stringify({ ...base, verdict: 'pass', note: msg, results: [] }))
     else {
-      console.log(`[staged-deletions] ✅ ${msg}(口径=${mode === 'all' ? '暂存删除 + 工作区待删' : '索引 blob'})`)
+      console.log(
+        `[staged-deletions] ✅ ${msg}(口径=${mode === 'all' ? '暂存删除 + 工作区待删' : '索引 blob'})`,
+      )
       if (allow.parseError) console.log(`⚠️ ${allow.parseError}`)
     }
     return
   }
-  const livePaths = nul(gitOut(root, ['ls-files', '-z']))
+  const livePaths = nul(gitRaw(['ls-files', '-z'], root))
   const liveSet = new Set(livePaths)
-  const provider = makeCandidateProvider(root, deleted.map((p) => stemOf(p)))
+  const provider = makeCandidateProvider(
+    root,
+    deleted.map((p) => stemOf(p)),
+  )
   const probe = new Set()
   for (const p of deleted) {
     for (const f of provider.getCandidates(stemOf(p))) if (liveSet.has(f)) probe.add(f)
@@ -477,7 +501,16 @@ async function main() {
   const red = results.filter((r) => r.verdict === 'red')
   const counted = results.filter((r) => r.verdict !== 'red' && r.verdict !== 'clean')
   if (asJson) {
-    console.log(JSON.stringify({ ...base, grep: provider.mode, deleted: deleted.length, red: red.length, counted: counted.length, results }))
+    console.log(
+      JSON.stringify({
+        ...base,
+        grep: provider.mode,
+        deleted: deleted.length,
+        red: red.length,
+        counted: counted.length,
+        results,
+      }),
+    )
     if (red.length) process.exit(1)
     return
   }
@@ -488,21 +521,32 @@ async function main() {
   if (allow.parseError) console.log(`⚠️ ${allow.parseError}`)
   if (!red.length) {
     console.log('✅ 无"仍被仓库引用且索引里无替代路径"的删除')
-    for (const r of counted) console.log(`   · [${r.verdict}] ${r.path}${r.note ? ` — ${r.note}` : ''}`)
+    for (const r of counted)
+      console.log(`   · [${r.verdict}] ${r.path}${r.note ? ` — ${r.note}` : ''}`)
     return
   }
   console.log(`❌ ${red.length} 个文件被暂存删除,但仓库仍在引用它(且索引里没有替代路径):`)
   for (const r of red) {
     console.log(`   ${r.path}`)
-    for (const h of r.hits.slice(0, 6)) console.log(`      引用方 ${h.file}:${h.line} [${h.form}] ${h.spec}`)
+    for (const h of r.hits.slice(0, 6))
+      console.log(`      引用方 ${h.file}:${h.line} [${h.form}] ${h.spec}`)
     if (r.hits.length > 6) console.log(`      …另有 ${r.hits.length - 6} 处引用`)
   }
-  for (const r of counted) console.log(`   (不计红,仅报数)[${r.verdict}] ${r.path}${r.note ? ` — ${r.note}` : ''}`)
+  for (const r of counted)
+    console.log(`   (不计红,仅报数)[${r.verdict}] ${r.path}${r.note ? ` — ${r.note}` : ''}`)
   console.log('   先分清成因,再决定动作(本门只读,不会替你恢复任何东西):')
-  console.log('     ① 宿主清理层成批删的? 逐路径找回内容即可:`git checkout HEAD -- <path>`(**禁止**全局 reset --hard)')
-  console.log('     ② 确属有意删除? 把引用方一并改掉(barrel / import),或登记进 ' + ALLOWLIST_REL + '(必须写 reason)')
+  console.log(
+    '     ① 宿主清理层成批删的? 逐路径找回内容即可:`git checkout HEAD -- <path>`(**禁止**全局 reset --hard)',
+  )
+  console.log(
+    '     ② 确属有意删除? 把引用方一并改掉(barrel / import),或登记进 ' +
+      ALLOWLIST_REL +
+      '(必须写 reason)',
+  )
   console.log('     ③ 单独复验:node scripts/check-staged-deletions.mjs')
-  console.log(`   紧急跳过:${SELF_SKIP}=1 git commit ...(等价把已入库的功能与测试从版本树里删掉,慎用)`)
+  console.log(
+    `   紧急跳过:${SELF_SKIP}=1 git commit ...(等价把已入库的功能与测试从版本树里删掉,慎用)`,
+  )
   process.exit(1)
 }
 
@@ -518,29 +562,213 @@ function selfTest() {
     })[0]
   }
   const cases = [
-    { name: '① barrel 仍 export 被删模块 ⇒ 必判红(真实事故形态)', files: { 'p/chat/index.ts': "export * from './input-notices'\n", 'p/chat/input-notices.ts': 'export const a = 1' }, del: ['p/chat/input-notices.ts'], want: 'red' },
-    { name: '② 引用方(barrel)自己也一起删 ⇒ 放过(与①成对)', files: { 'p/chat/index.ts': "export * from './input-notices'\n", 'p/chat/input-notices.ts': 'export const a = 1' }, del: ['p/chat/input-notices.ts', 'p/chat/index.ts'], want: 'no-reference' },
-    { name: '③ 相对 import 指向被删文件 ⇒ 红', files: { 'a/i.ts': "import { f } from '../lib/gone-helper'\n", 'lib/gone-helper.ts': 'export const f = 1' }, del: ['lib/gone-helper.ts'], want: 'red' },
-    { name: '④ require() 形式同样算引用 ⇒ 红', files: { 'a/i.cjs': "const x = require('../lib/gone-cjs')\n", 'lib/gone-cjs.js': 'module.exports = {}' }, del: ['lib/gone-cjs.js'], want: 'red' },
-    { name: '⑤ 整路径字面量(别的守门清单)⇒ 红', files: { 'a/i.mjs': "export const HOT = ['lib/gone-list.mjs']\n", 'lib/gone-list.mjs': 'export const x = 1' }, del: ['lib/gone-list.mjs'], want: 'red' },
-    { name: '⑥ 别名路径 @/ + 父目录名对上 ⇒ 红', files: { 'w/x/i.ts': "import { N } from '@/components/chat/gone-banner'\n", 'components/chat/gone-banner.tsx': 'export const N = 1' }, del: ['components/chat/gone-banner.tsx'], want: 'red' },
-    { name: '⑦ 同名文件已在别的目录存续(= 已迁移)⇒ 不判红', files: { 'a/i.ts': "import { f } from './gone-moved'\n", 'b/gone-moved.ts': 'export const f = 1', 'a/gone-moved.ts': 'export const f = 1' }, del: ['a/gone-moved.ts'], want: 'alternative-path' },
-    { name: '⑧ 唯一引用方落在夹具/产物目录 ⇒ 不判红', files: { 'src/gone-fixture.ts': 'export const f = 1', 'dist/bundle.js': "require('../src/gone-fixture')", 'testdata/gone-fixture.helper.ts': "from '../src/gone-fixture'" }, del: ['src/gone-fixture.ts'], want: 'no-reference' },
-    { name: '⑨ 唯一引用方在 baseline 记账 JSON ⇒ 不判红', files: { 'x/gone-tool.mjs': 'export const a = 1', 'scripts/gone-baseline.json': '{"x/gone-tool.mjs":3}' }, del: ['x/gone-tool.mjs'], want: 'no-reference' },
-    { name: '⑩ 只有 .md 提到 ⇒ 文档叙述不算依赖', files: { 'docs/gone-doc.md': 'see src/util/gone-utils.ts and gone-utils', 'src/util/gone-utils.ts': 'export const a = 1' }, del: ['src/util/gone-utils.ts'], want: 'no-reference' },
-    { name: '⑪ 注释里的示例 import ⇒ 不判(防假红第一道)', files: { 'a/i.ts': "// import { f } from './gone-commented'\nexport const k = 1\n", 'a/gone-commented.ts': 'export const f = 1' }, del: ['a/gone-commented.ts'], want: 'no-reference' },
-    { name: '⑫ 相对说明符另有同名现存目标(歧义)⇒ 放过', files: { 'a/i.ts': "import { f } from './gone-ambig'\n", 'a/gone-ambig/index.ts': 'export const f = 1', 'a/gone-ambig.ts': 'export const f = 1' }, del: ['a/gone-ambig.ts'], want: 'no-reference' },
-    { name: '⑬ 外部包同名(react/jsx-runtime 型)⇒ 父目录对不上,不判', files: { 'a/i.ts': "import { r } from 'react/jsx-runtime'\n", 'src/theme/jsx-runtime.ts': 'export const r = 1' }, del: ['src/theme/jsx-runtime.ts'], want: 'no-reference' },
-    { name: '⑭ 名字过短 ⇒ 判据不可用,如实报 undetermined(不静默)', files: { 'a/i.ts': "import { f } from './qq'\n", 'a/qq.ts': 'export const f = 1' }, del: ['a/qq.ts'], want: 'undetermined' },
-    { name: '⑮ 候选面过大 ⇒ undetermined 而非判红', files: { 'a/i.ts': "import { f } from './gone-wide'\n", 'a/gone-wide.ts': 'export const f = 1' }, del: ['a/gone-wide.ts'], want: 'undetermined', wide: true },
-    { name: '⑯ 豁免清单精确命中 ⇒ 只报数', files: { 'a/i.ts': "import { f } from './gone-exempt'\n", 'a/gone-exempt.ts': 'export const f = 1' }, del: ['a/gone-exempt.ts'], want: 'allowlisted', allow: [{ pattern: 'a/gone-exempt.ts', reason: '测试豁免' }] },
-    { name: '⑰ 豁免清单目录前缀 a/** ⇒ 只报数', files: { 'a/i.ts': "import { f } from './gone-exempt2'\n", 'a/gone-exempt2.ts': 'export const f = 1' }, del: ['a/gone-exempt2.ts'], want: 'allowlisted', allow: [{ pattern: 'a/**', reason: '整目录有意删除' }] },
-    { name: '⑱ 无任何引用 ⇒ no-reference', files: { 'z/gone-solo.ts': 'export const a = 1', 'q/other.ts': 'export const b = 1' }, del: ['z/gone-solo.ts'], want: 'no-reference' },
-    { name: '⑲ JSON 配置(tsconfig include)引用也算依赖 ⇒ 红', files: { 'tsconfig.x.json': '{"include":["./src/gone-mod.ts"]}', 'src/gone-mod.ts': 'export const a = 1' }, del: ['src/gone-mod.ts'], want: 'red' },
-    { name: '⑳ 生成物里的引用不算存续性证据', files: { 'src/a/i.gen.ts': "export * from './gone-gen'", 'src/a/gone-gen.ts': 'export const a = 1' }, del: ['src/a/gone-gen.ts'], want: 'no-reference' },
-    { name: '㉑ 动态 import() 形式也算引用 ⇒ 红', files: { 'a/i.ts': "const m = await import('./gone-dyn')\n", 'a/gone-dyn.ts': 'export const f = 1' }, del: ['a/gone-dyn.ts'], want: 'red' },
-    { name: '㉒ TS 的 ./x.js 写法指向被删的 x.ts ⇒ 红', files: { 'a/i.ts': "import { f } from './gone-jsform.js'\n", 'a/gone-jsform.ts': 'export const f = 1' }, del: ['a/gone-jsform.ts'], want: 'red' },
-    { name: '㉓ 测试夹具目录(__tests__ 是真测试,不是夹具)⇒ 仍算引用方 ⇒ 红', files: { 'a/__tests__/gone-real.test.ts': "import { f } from '../gone-real'\n", 'a/gone-real.ts': 'export const f = 1' }, del: ['a/gone-real.ts'], want: 'red' },
+    {
+      name: '① barrel 仍 export 被删模块 ⇒ 必判红(真实事故形态)',
+      files: {
+        'p/chat/index.ts': "export * from './input-notices'\n",
+        'p/chat/input-notices.ts': 'export const a = 1',
+      },
+      del: ['p/chat/input-notices.ts'],
+      want: 'red',
+    },
+    {
+      name: '② 引用方(barrel)自己也一起删 ⇒ 放过(与①成对)',
+      files: {
+        'p/chat/index.ts': "export * from './input-notices'\n",
+        'p/chat/input-notices.ts': 'export const a = 1',
+      },
+      del: ['p/chat/input-notices.ts', 'p/chat/index.ts'],
+      want: 'no-reference',
+    },
+    {
+      name: '③ 相对 import 指向被删文件 ⇒ 红',
+      files: {
+        'a/i.ts': "import { f } from '../lib/gone-helper'\n",
+        'lib/gone-helper.ts': 'export const f = 1',
+      },
+      del: ['lib/gone-helper.ts'],
+      want: 'red',
+    },
+    {
+      name: '④ require() 形式同样算引用 ⇒ 红',
+      files: {
+        'a/i.cjs': "const x = require('../lib/gone-cjs')\n",
+        'lib/gone-cjs.js': 'module.exports = {}',
+      },
+      del: ['lib/gone-cjs.js'],
+      want: 'red',
+    },
+    {
+      name: '⑤ 整路径字面量(别的守门清单)⇒ 红',
+      files: {
+        'a/i.mjs': "export const HOT = ['lib/gone-list.mjs']\n",
+        'lib/gone-list.mjs': 'export const x = 1',
+      },
+      del: ['lib/gone-list.mjs'],
+      want: 'red',
+    },
+    {
+      name: '⑥ 别名路径 @/ + 父目录名对上 ⇒ 红',
+      files: {
+        'w/x/i.ts': "import { N } from '@/components/chat/gone-banner'\n",
+        'components/chat/gone-banner.tsx': 'export const N = 1',
+      },
+      del: ['components/chat/gone-banner.tsx'],
+      want: 'red',
+    },
+    {
+      name: '⑦ 同名文件已在别的目录存续(= 已迁移)⇒ 不判红',
+      files: {
+        'a/i.ts': "import { f } from './gone-moved'\n",
+        'b/gone-moved.ts': 'export const f = 1',
+        'a/gone-moved.ts': 'export const f = 1',
+      },
+      del: ['a/gone-moved.ts'],
+      want: 'alternative-path',
+    },
+    {
+      name: '⑧ 唯一引用方落在夹具/产物目录 ⇒ 不判红',
+      files: {
+        'src/gone-fixture.ts': 'export const f = 1',
+        'dist/bundle.js': "require('../src/gone-fixture')",
+        'testdata/gone-fixture.helper.ts': "from '../src/gone-fixture'",
+      },
+      del: ['src/gone-fixture.ts'],
+      want: 'no-reference',
+    },
+    {
+      name: '⑨ 唯一引用方在 baseline 记账 JSON ⇒ 不判红',
+      files: {
+        'x/gone-tool.mjs': 'export const a = 1',
+        'scripts/gone-baseline.json': '{"x/gone-tool.mjs":3}',
+      },
+      del: ['x/gone-tool.mjs'],
+      want: 'no-reference',
+    },
+    {
+      name: '⑩ 只有 .md 提到 ⇒ 文档叙述不算依赖',
+      files: {
+        'docs/gone-doc.md': 'see src/util/gone-utils.ts and gone-utils',
+        'src/util/gone-utils.ts': 'export const a = 1',
+      },
+      del: ['src/util/gone-utils.ts'],
+      want: 'no-reference',
+    },
+    {
+      name: '⑪ 注释里的示例 import ⇒ 不判(防假红第一道)',
+      files: {
+        'a/i.ts': "// import { f } from './gone-commented'\nexport const k = 1\n",
+        'a/gone-commented.ts': 'export const f = 1',
+      },
+      del: ['a/gone-commented.ts'],
+      want: 'no-reference',
+    },
+    {
+      name: '⑫ 相对说明符另有同名现存目标(歧义)⇒ 放过',
+      files: {
+        'a/i.ts': "import { f } from './gone-ambig'\n",
+        'a/gone-ambig/index.ts': 'export const f = 1',
+        'a/gone-ambig.ts': 'export const f = 1',
+      },
+      del: ['a/gone-ambig.ts'],
+      want: 'no-reference',
+    },
+    {
+      name: '⑬ 外部包同名(react/jsx-runtime 型)⇒ 父目录对不上,不判',
+      files: {
+        'a/i.ts': "import { r } from 'react/jsx-runtime'\n",
+        'src/theme/jsx-runtime.ts': 'export const r = 1',
+      },
+      del: ['src/theme/jsx-runtime.ts'],
+      want: 'no-reference',
+    },
+    {
+      name: '⑭ 名字过短 ⇒ 判据不可用,如实报 undetermined(不静默)',
+      files: { 'a/i.ts': "import { f } from './qq'\n", 'a/qq.ts': 'export const f = 1' },
+      del: ['a/qq.ts'],
+      want: 'undetermined',
+    },
+    {
+      name: '⑮ 候选面过大 ⇒ undetermined 而非判红',
+      files: {
+        'a/i.ts': "import { f } from './gone-wide'\n",
+        'a/gone-wide.ts': 'export const f = 1',
+      },
+      del: ['a/gone-wide.ts'],
+      want: 'undetermined',
+      wide: true,
+    },
+    {
+      name: '⑯ 豁免清单精确命中 ⇒ 只报数',
+      files: {
+        'a/i.ts': "import { f } from './gone-exempt'\n",
+        'a/gone-exempt.ts': 'export const f = 1',
+      },
+      del: ['a/gone-exempt.ts'],
+      want: 'allowlisted',
+      allow: [{ pattern: 'a/gone-exempt.ts', reason: '测试豁免' }],
+    },
+    {
+      name: '⑰ 豁免清单目录前缀 a/** ⇒ 只报数',
+      files: {
+        'a/i.ts': "import { f } from './gone-exempt2'\n",
+        'a/gone-exempt2.ts': 'export const f = 1',
+      },
+      del: ['a/gone-exempt2.ts'],
+      want: 'allowlisted',
+      allow: [{ pattern: 'a/**', reason: '整目录有意删除' }],
+    },
+    {
+      name: '⑱ 无任何引用 ⇒ no-reference',
+      files: { 'z/gone-solo.ts': 'export const a = 1', 'q/other.ts': 'export const b = 1' },
+      del: ['z/gone-solo.ts'],
+      want: 'no-reference',
+    },
+    {
+      name: '⑲ JSON 配置(tsconfig include)引用也算依赖 ⇒ 红',
+      files: {
+        'tsconfig.x.json': '{"include":["./src/gone-mod.ts"]}',
+        'src/gone-mod.ts': 'export const a = 1',
+      },
+      del: ['src/gone-mod.ts'],
+      want: 'red',
+    },
+    {
+      name: '⑳ 生成物里的引用不算存续性证据',
+      files: {
+        'src/a/i.gen.ts': "export * from './gone-gen'",
+        'src/a/gone-gen.ts': 'export const a = 1',
+      },
+      del: ['src/a/gone-gen.ts'],
+      want: 'no-reference',
+    },
+    {
+      name: '㉑ 动态 import() 形式也算引用 ⇒ 红',
+      files: {
+        'a/i.ts': "const m = await import('./gone-dyn')\n",
+        'a/gone-dyn.ts': 'export const f = 1',
+      },
+      del: ['a/gone-dyn.ts'],
+      want: 'red',
+    },
+    {
+      name: '㉒ TS 的 ./x.js 写法指向被删的 x.ts ⇒ 红',
+      files: {
+        'a/i.ts': "import { f } from './gone-jsform.js'\n",
+        'a/gone-jsform.ts': 'export const f = 1',
+      },
+      del: ['a/gone-jsform.ts'],
+      want: 'red',
+    },
+    {
+      name: '㉓ 测试夹具目录(__tests__ 是真测试,不是夹具)⇒ 仍算引用方 ⇒ 红',
+      files: {
+        'a/__tests__/gone-real.test.ts': "import { f } from '../gone-real'\n",
+        'a/gone-real.ts': 'export const f = 1',
+      },
+      del: ['a/gone-real.ts'],
+      want: 'red',
+    },
   ]
   let fail = 0
   for (const c of cases) {
@@ -550,7 +778,8 @@ function selfTest() {
       r = auditDeletions(c.del, {
         livePaths: live,
         readFile: (p) => (p in c.files ? c.files[p] : null),
-        getCandidates: () => Array.from({ length: MAX_CANDIDATES + 1 }, (_, i) => `bulk/gone-wide${i}.ts`),
+        getCandidates: () =>
+          Array.from({ length: MAX_CANDIDATES + 1 }, (_, i) => `bulk/gone-wide${i}.ts`),
         allow: [],
       })[0]
     } else r = run(c.files, c.del, c.allow)
@@ -563,18 +792,35 @@ function selfTest() {
     ['joinRel 处理 ..', joinRel('a/b', '../c/d.ts') === 'a/c/d.ts'],
     ['joinRel 逃出仓库根返回 null', joinRel('a', '../../x') === null],
     ['moduleCandidates 认 TS 的 .js 写法', moduleCandidates('a/x.js').includes('a/x.ts')],
-    ['classifySpecifier 拒收 URL', classifySpecifier('https://x/gone-a.ts', 'a.ts', 'gone-a.ts', new Set()) === null],
-    ['classifySpecifier 拒收裸包名', classifySpecifier('gone-a', 'a.ts', 'x/gone-a.ts', new Set()) === null],
-    ['matchAllowlist 认目录前缀', !!matchAllowlist('p/q/r.ts', [{ pattern: 'p/q/**', reason: '' }])],
-    ['parseAllowlist 缺文件不报错也不放行', parseAllowlist(null, 'x').entries.length === 0 && !parseAllowlist(null, 'x').parseError],
+    [
+      'classifySpecifier 拒收 URL',
+      classifySpecifier('https://x/gone-a.ts', 'a.ts', 'gone-a.ts', new Set()) === null,
+    ],
+    [
+      'classifySpecifier 拒收裸包名',
+      classifySpecifier('gone-a', 'a.ts', 'x/gone-a.ts', new Set()) === null,
+    ],
+    [
+      'matchAllowlist 认目录前缀',
+      !!matchAllowlist('p/q/r.ts', [{ pattern: 'p/q/**', reason: '' }]),
+    ],
+    [
+      'parseAllowlist 缺文件不报错也不放行',
+      parseAllowlist(null, 'x').entries.length === 0 && !parseAllowlist(null, 'x').parseError,
+    ],
     ['parseAllowlist 坏 JSON 必须显式报错', !!parseAllowlist('{oops', 'x').parseError],
-    ['codeLines 剥整行 // 与 * 注释', !/ghost-module/.test(codeLines("// from './ghost-module'\n * x\nexport const a = 1", 'a.ts'))],
+    [
+      'codeLines 剥整行 // 与 * 注释',
+      !/ghost-module/.test(codeLines("// from './ghost-module'\n * x\nexport const a = 1", 'a.ts')),
+    ],
   ]
   for (const [name, ok] of unit) {
     if (!ok) fail++
     console.log(`${ok ? '✅' : '❌'} ${name}`)
   }
-  console.log(fail ? `❌ 自检失败 ${fail} 项` : `✅ 全部 ${cases.length + unit.length} 项通过(正反成对)`)
+  console.log(
+    fail ? `❌ 自检失败 ${fail} 项` : `✅ 全部 ${cases.length + unit.length} 项通过(正反成对)`,
+  )
   process.exit(fail ? 1 : 0)
 }
 
@@ -601,5 +847,7 @@ export const __test__ = {
   grepFiles,
   readIndexBlobs,
   collectDeletions,
+  /** 层把"git 没留诊断"折成这个串;镜像测试拿它与层的 `gitErrText({stderr:''})` 逐字对账 */
+  ZERO_HIT_MARK,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
