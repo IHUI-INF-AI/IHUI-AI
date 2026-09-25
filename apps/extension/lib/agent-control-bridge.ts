@@ -27,6 +27,13 @@ import type {
   BrowserPageControlActionType,
   ExtUiActionType,
 } from '@ihui/types'
+import {
+  createAssignmentTokenLedger,
+  isAgentActionAssignedToInstance,
+  unassignedAgentActionLogMessage,
+  withRespondedIdentity,
+  type AgentActionSelfIdentity,
+} from '@ihui/shared/utils/agent-action-addressing'
 import { PAGE_ACTIONS } from '@ihui/dom-actions'
 import { getToken } from './token'
 import { getBridgeBaseUrl } from './config'
@@ -90,21 +97,16 @@ function getBridgeInstanceId(): string {
   return `ext-${chrome.runtime.id}`
 }
 
-/** requestId → 本次派发的 assignment.token;回执时原样回显(期望身份由服务端记录,客户端只回显) */
-const _assignmentByRequestId = new Map<string, string>()
-function rememberAssignment(requestId: string, token: string): void {
-  _assignmentByRequestId.set(requestId, token)
-  if (_assignmentByRequestId.size > _PROCESSED_IDS_MAX) {
-    const oldest = _assignmentByRequestId.keys().next().value
-    if (oldest !== undefined) _assignmentByRequestId.delete(oldest)
-  }
-}
+/**
+ * 定址判定与回执 token 台账(2026-09-26 共享层收口):判定本身住在
+ * `@ihui/shared/utils/agent-action-addressing`,本文件只注入自身身份 —— 五桥各写一份会让
+ * "某一端忘记比 instanceId"这类分叉无从发现。台账容量用共享层默认值(100,与下方
+ * _PROCESSED_IDS_MAX 同值;后者声明在本行之后,直接引用会撞 const TDZ)。
+ */
+const _assignmentTokens = createAssignmentTokenLedger()
 
-/** 取出并消费本请求的回显 token(无 = 旧服务端形态,回执不带身份) */
-function takeAssignmentToken(requestId: string): string | undefined {
-  const token = _assignmentByRequestId.get(requestId)
-  _assignmentByRequestId.delete(requestId)
-  return token
+function selfIdentity(): AgentActionSelfIdentity {
+  return { endpoint: 'extension', instanceId: getBridgeInstanceId() }
 }
 
 /**
@@ -113,8 +115,7 @@ function takeAssignmentToken(requestId: string): string | undefined {
  * 导出供单测直接驱动判据本身。
  */
 export function shouldExecuteAssignment(assignment: AgentActionAssignment | undefined): boolean {
-  if (!assignment) return true
-  return assignment.endpoint === 'extension' && assignment.instanceId === getBridgeInstanceId()
+  return isAgentActionAssignedToInstance(assignment, selfIdentity())
 }
 
 /** requestId 去重集,防止 WS 重连后重复推送相同 lastMessage 导致同一 DOM 操作执行两次(与 desktop hook 一致) */
@@ -173,14 +174,10 @@ async function reportCapability(): Promise<void> {
 async function reportResult(response: AgentActionResponse): Promise<void> {
   if (!getToken()) return
   // 回执身份回显(2026-09-26):只回显服务端派发过的 token + 自报本实例,不算第二份期望身份
-  const token = takeAssignmentToken(response.requestId)
-  const payload: AgentActionResponse = token
-    ? {
-        ...response,
-        responded: { instanceId: getBridgeInstanceId(), assignmentToken: token },
-      }
-    : response
-  const ok = await postJson('/result', payload)
+  const ok = await postJson(
+    '/result',
+    withRespondedIdentity(response, _assignmentTokens, selfIdentity()),
+  )
   if (!ok) {
     console.warn('[IHUI AI] agent-control bridge: result report failed')
   }
@@ -230,10 +227,8 @@ function onRuntimeMessage(msg: unknown): void {
   // 定址过滤(2026-09-26):非指派端不得执行;如实记日志,不得静默 return
   if (!shouldExecuteAssignment(assignment)) {
     console.warn(
-      '[IHUI AI] agent-control bridge: 指令非指派给本实例,忽略',
-      `requestId=${req.requestId}`,
-      `assigned=${String(assignment?.instanceId)}`,
-      `self=${getBridgeInstanceId()}`,
+      '[IHUI AI] agent-control bridge:',
+      unassignedAgentActionLogMessage(req.requestId, assignment, selfIdentity()),
     )
     return
   }
@@ -248,7 +243,7 @@ function onRuntimeMessage(msg: unknown): void {
       _processedIds.add(id)
     }
   }
-  if (assignment) rememberAssignment(req.requestId, assignment.token)
+  if (assignment) _assignmentTokens.remember(req.requestId, assignment.token)
   void dispatchAgentActionRequest(req)
     .then(reportResult)
     .catch((err) => {
