@@ -184,6 +184,67 @@ export function getCircuitBreaker(): CircuitBreaker | null {
   return circuitBreaker
 }
 
+/**
+ * 401 且确实拿不到有效凭据时,交给端内处理器的上下文(2026-09-25 立)。
+ *
+ * 刻意只带"路由这一层能确定的事实",不带任何平台对象:
+ * - url:归一化后的请求 URL(已拼 baseUrl 与 query),端内要按端点白名单过滤时有依据
+ * - method:大写 HTTP 方法。**弹窗策略属平台/产品决策**,所以这里把方法透出去,
+ *   由各端自己决定"GET 的 401 不弹、非 GET 才弹"(web 端既有语义),共享层不写死。
+ */
+export interface UnauthorizedContext {
+  url: string
+  method: string
+}
+
+/** 端内注册的 401 处理器。返回值被忽略;抛错由 {@link notifyUnauthorized} 兜住。 */
+export type UnauthorizedHandler = (ctx: UnauthorizedContext) => void
+
+let unauthorizedHandler: UnauthorizedHandler | null = null
+
+/**
+ * 注入 401 处理器(传 null 取消注入)。
+ *
+ * 为什么需要它(2026-09-25):"非 GET 请求遇 401 自动弹登录框"这件事此前**只存在于**
+ * `apps/web/src/lib/api.ts` 的包装层。端内一旦改走本包的端点函数(直接调 fetchApi),
+ * 就绕过了那层包装 —— 对那些没有 onError 分支的 mutation 来说,反馈从"能弹窗"变成
+ * "点了没反应"。把决策点上收到本包,端内注册一次即可,迁移才可能做到不改行为。
+ *
+ * 形状沿用本包既有的可注册单例约定(setTokenProvider / setDeviceFingerprintProvider /
+ * setCircuitBreaker):一个模块级变量 + setXxx + getXxx,不另造事件总线。
+ */
+export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): void {
+  unauthorizedHandler = handler
+}
+
+/** 读取当前注入的 401 处理器(测试与诊断用) */
+export function getUnauthorizedHandler(): UnauthorizedHandler | null {
+  return unauthorizedHandler
+}
+
+/**
+ * 在「收到 401 且续期后仍未拿到有效 token」这一出口通知端内(2026-09-25 立)。
+ *
+ * 三条不变量,对应本票的三条要求:
+ * 1. **未注册即零副作用** —— 第一行就 return,不产生任何对象/微任务/日志,
+ *    保证"没注册钩子时行为与改动前逐字节一致"(有 fetch-api-baseline.test.ts 的逐字对账钉死)。
+ * 2. **绝不在"续期成功"路径上被调用** —— 调用点在 `refreshAccessTokenOnce()` 返回 falsy
+ *    的分支里;续期拿到 token 后走重试,不进本函数(误弹会打断 bootstrap 静默刷新)。
+ *    认证端点(isAuthEndpoint)的 401 是它自己的最终结果,同理不通知。
+ * 3. **处理器抛错不得影响 fetchApi 的返回,但也不得静默吞** —— try/catch 包住后
+ *    走本包既有的 console 约定(该包没有独立 logger,唯一先例是 streamChat 的
+ *    `console.info('[SSE-DEBUG] …')`,故这里用 `console.error('[api-client] …')`)。
+ */
+function notifyUnauthorized(url: string, method: string | undefined): void {
+  const handler = unauthorizedHandler
+  if (!handler) return
+  try {
+    handler({ url, method: (method ?? 'GET').toUpperCase() })
+  } catch (err) {
+    console.error('[api-client] 401 处理器抛错(不影响本次请求返回)', err)
+  }
+}
+
 /** 读取当前 token(供需要原生 fetch 的场景使用,如 SSE 流式) */
 export function getToken(): string | null {
   return tokenProvider.getToken()
@@ -534,6 +595,8 @@ export async function fetchApi<T>(
               authRetried = true
               continue
             }
+            // 401 且续期没拿到 token(未注入续期实现 / 续期失败)→ 通知端内(2026-09-25)
+            notifyUnauthorized(normalizedUrl, restOptions.method)
           }
           return result as ApiResult<T>
         } catch (err) {
@@ -572,6 +635,9 @@ export async function fetchApi<T>(
           result = await circuitBreaker.execute(async () => {
             return await fetchOnce<T>(normalizedUrl, optionsWithTimeout, headers)
           })
+        } else {
+          // 401 且续期没拿到 token → 通知端内(与上方无熔断分支同一出口,2026-09-25)
+          notifyUnauthorized(normalizedUrl, restOptions.method)
         }
       }
       return result as ApiResult<T>
