@@ -54,6 +54,7 @@ import { TEST_TOOLS } from '../tools/run-tests.js';
 import { DIAGNOSTIC_TOOLS } from '../tools/diagnostics.js';
 import { CODEGRAPH_TOOLS, enableCodegraphIncremental, persistCodegraphCache } from '../tools/codegraph.js';
 import { createSubagentTool } from '../tools/subagent.js';
+import { createDangerGate } from '../tools/danger-gate.js';
 import { CLIPBOARD_TOOLS } from '../tools/clipboard.js';
 import { checkPermission, type PermissionRules, type PermissionMode } from '../tools/permissions.js';
 import { createMarkdownRenderer } from './markdown-renderer.js';
@@ -212,6 +213,12 @@ export interface SetupAgentToolsOptions {
   silent?: boolean;
   /** 危险操作确认回调。REPL 用 inquirer,Agent 用 --allow-dangerous,ACP 默认拒绝。 */
   confirmDangerous?: (tool: Tool, args: Record<string, unknown>) => Promise<boolean>;
+  /**
+   * 会话级危险旁路(--allow-dangerous)。影子披露字段:随 ctx 下发给工具层做日志/披露追溯
+   * (见 ToolContext.allowDangerous 与 danger-gate 的 noteDangerousApproval),
+   * 不参与确认决策 —— 放行语义仍完全由 confirmDangerous 决定。
+   */
+  allowDangerous?: boolean;
   /** 强制 LLM 先输出 plan 块再执行工具 */
   planFirst?: boolean;
   /** 子 agent 父配置(提供则注册 dispatch_subagent 工具) */
@@ -374,6 +381,7 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   const ctx: ToolContext = {
     workspacePath: opts.workspacePath,
     confirmDangerous: opts.confirmDangerous,
+    allowDangerous: opts.allowDangerous,
     sandbox: settings.sandbox ? {
       commandAllowlist: resolvedSandbox.commandAllowlist,
       blockedEnvVars: resolvedSandbox.blockedEnvVars,
@@ -1927,14 +1935,22 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     },
     permissions: opts.permissions,
     permissionMode: opts.permissionMode,
-    confirmDangerous: async (tool, args) => {
-      if (opts.allowDangerous) {
-        if (!silent) console.info(chalk.yellow(`  ⚠ 自动允许危险操作: ${tool.name} ${JSON.stringify(args).slice(0, 100)}`));
-        return true;
-      }
-      if (!silent) console.error(chalk.red(`  ✗ 危险操作被拒绝(需 --allow-dangerous): ${tool.name}`));
-      return false;
-    },
+    // 会话级旁路事实随 ctx 下发,工具层披露可追溯(L7905 收口);放行策略走唯一出口
+    allowDangerous: opts.allowDangerous,
+    // 策略收口到唯一出口(danger-gate):flag 开即放行、无人可问即 denied(fail-closed)。
+    // 原有提示文案逐字保留在调用方(onDecision),行为与迁移前逐路径等价。
+    confirmDangerous: createDangerGate({
+      allowDangerous: opts.allowDangerous === true,
+      silent: true,
+      onDecision: ({ route, tool, args }) => {
+        if (silent) return;
+        if (route === 'flag') {
+          console.info(chalk.yellow(`  ⚠ 自动允许危险操作: ${tool.name} ${JSON.stringify(args).slice(0, 100)}`));
+        } else if (route === 'denied') {
+          console.error(chalk.red(`  ✗ 危险操作被拒绝(需 --allow-dangerous): ${tool.name}`));
+        }
+      },
+    }),
   });
 
   // P1-6 Codegraph 增量索引:按 feature flag 启用(默认关闭,启用后加载缓存 + 全量索引一次)
