@@ -140,4 +140,26 @@ export async function aiServiceSystemFetch(
     headers,
   })
 }
+
+/**
+ * /v1 网关用户主体版(2026-09-25 v1 租户隔离收口):与 aiServiceSystemFetch 同构,
+ * 但注入调用方签发的用户 JWT(sub = apiKey.userId,由 routes/v1-shared.ts 的
+ * mintInternalJwt 签发后传入 —— 放参数而非本模块内签,避免 utils→routes 反向依赖)。
+ *
+ * 供 ai-service 已按 require_request_user_id 收属主的面(memory 族)使用:
+ * system-worker 会被 ai-service 当作普通 principal ⇒ 所有 v1 API-key 租户
+ * 共享同一个 system-worker 桶(v1 租户互见)。
+ */
+export async function aiServiceUserFetch(
+  path: string,
+  init: RequestInit,
+  token: string,
+): Promise<Response> {
+  const headers = new Headers(init.headers ?? {})
+  headers.set('Authorization', `Bearer ${token}`)
+  return fetch(`${config.AI_SERVICE_URL}${path}`, {
+    ...init,
+    headers,
+  })
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
