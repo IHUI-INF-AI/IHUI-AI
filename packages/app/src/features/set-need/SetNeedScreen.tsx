@@ -6,7 +6,6 @@ import { useMemo } from 'react'
 import {
   View,
   Text,
-  TouchableOpacity,
   TextInput,
   Image,
   ScrollView,
@@ -20,6 +19,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { CategoryDropdown } from '../../components/category/CategoryDropdown'
 import type { CategoryItem } from '../../components/category/types'
 import type { TFunction } from '../../types'
+import { BackChevron } from '../../components/BackChevron'
 
 import { rnRadius } from '@ihui/design-tokens'
 
@@ -80,6 +80,7 @@ const PICKERS = {
 } as const
 
 export function SetNeedScreen({
+  t,
   form,
   submitting,
   onFieldChange,
@@ -97,9 +98,7 @@ export function SetNeedScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>返回</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>设置需求</Text>
       </View>
       <ScrollView
@@ -278,7 +277,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: 12,
       gap: 12,
     },
-    backText: { fontSize: 16, color: tk.text.medium } as TextStyle,
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary } as TextStyle,
     scrollContent: { paddingHorizontal: 10, paddingVertical: 12, gap: 8 } as ViewStyle,
     fieldGroup: { gap: 8 } as ViewStyle,

@@ -15,7 +15,6 @@ import { useAppTheme } from '@/lib/theme'
 import { fetchApi } from '@ihui/api-client'
 import type { CheckInInfo } from '@ihui/types'
 import ThemeRoot from '@/components/ThemeRoot'
-import BackChevron from '@/components/BackChevron'
 
 /** 已签到日历格白色对勾图标(RN 端为 lucide Check,stroke 白色) */
 const CHECK_ICON = 'check-white'
@@ -234,12 +233,6 @@ export default function CheckIn() {
     }
   }
 
-  const goBack = () => {
-    Taro.navigateBack({ delta: 1 }).catch(() => {
-      Taro.switchTab({ url: '/pages/index/index' })
-    })
-  }
-
   if (loading) {
     return (
       <ThemeRoot>
@@ -278,7 +271,6 @@ export default function CheckIn() {
           onRefresherRefresh={() => void load(true)}
         >
           <View style={viewStyles.header()}>
-            <BackChevron onTap={goBack} style={{ marginBottom: toRpx(8) }} />
             <Text style={textStyles.title(tk)}>{tt('checkIn.title', '每日签到')}</Text>
             <Text style={textStyles.subtitle(tk)}>{tt('checkIn.subtitle', '连续签到领积分')}</Text>
           </View>
