@@ -37,7 +37,8 @@
  *   --staged 由 guardian-runner 在 pre-commit 模式下自动下发(改判暂存区,见下)
  *
  * **取材基准:提交树,绝不按磁盘读。** 命中侧走 `git grep HEAD`(手动 / CI)或
- * `git grep --cached`(pre-commit),帧清单同口径取 `git show HEAD:...` / `git show :...`。
+ * `git grep --cached`(pre-commit),帧清单同口径经 `scripts/lib/face-reader.mjs` 的 `catBatch`
+ * 取 `HEAD:<path>` / `:<path>` 的 blob 正文(2026-09-26 迁,原先是自己派生 `git show`)。
  * 两侧必须**同一修订**:若帧清单改读工作树的 `client.ts`,并发会话刚加进去、尚未提交的
  * `onNewFrame` 会让**五端同时**判"静默丢弃" —— 红点与本票改动毫无关系,却只逼人
  * `--no-verify`(连带废掉其余全部守门,与守门 57/77 今日同一取向)。读不到即按
@@ -55,6 +56,11 @@ import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { resolveGitBin } from './lib/gitdir.mjs'
+// 判定面取材的唯一出口(2026-09-26 迁):帧清单那份 blob 正文改由共用层读 ——
+// git 绝对路径 / stdio[0]='pipe' / 一次 batch 读完 / maxBuffer 给足,这四件事各门自己写必错。
+// 命中侧仍是一次 `git grep <rev>`:那是"在指定修订上检索"的原语,不把 blob 正文读进 JS,
+// 且修订参数与帧清单同面(head / --cached),不存在"表读磁盘 + 内容读 HEAD"的错面。
+import { catBatch } from './lib/face-reader.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const API_CLIENT_PATH = ['packages', 'api-client', 'src', 'client.ts'].join('/')
@@ -232,24 +238,36 @@ function* grepFrameHits(data, callbacks, basis) {
 }
 
 /**
- * 帧清单的取材源:**提交树**(不是工作树)。
- * basis='head' → `git show HEAD:<path>`;basis='index' → `git show :<path>`(暂存区)。
+ * 帧清单的取材源:**提交面**(不是工作树磁盘)。
+ * basis='head' → HEAD blob;basis='index' → 索引 blob(暂存区)。
+ * 经 `scripts/lib/face-reader.mjs` 的 `catBatch` 取正文(2026-09-26 迁,原先是自己派生 `git show`)。
  * 返回 { source, error } —— error 非空即判据失效,调用方必须 exit 2 而非回退工作树。
+ *
+ * @param batch 注入点:自检用它**构造**「同一条路径在索引面与 HEAD 面内容不同」的现场,
+ *   不真改仓库、不依赖并发会话此刻往索引里放了什么。
  */
-export function readFrameSource(basis = 'head') {
+export function readFrameSource(basis = 'head', batch = null) {
   const spec = `${basis === 'index' ? '' : 'HEAD'}:${API_CLIENT_PATH}`
+  let got
   try {
-    return { source: git(['show', spec]), error: null }
+    // 显式调用层的读取入口 `catBatch(...)` —— 把它写成默认参数值**不算**调用
+    // (守门 118 的判据是"真用了层的读取入口取过内容",半接线正是它这一档要抓的形态)。
+    got = batch ? batch(ROOT, [spec], { maxBuffer: 1 << 29, timeout: 120000 }) : catBatch(ROOT, [spec], { maxBuffer: 1 << 29, timeout: 120000 })
   } catch (e) {
     const reason = String(e?.stderr ?? e?.message ?? e).split('\n')[0]
-    return {
-      source: '',
-      error:
-        `读不到 ${basis === 'index' ? '暂存区' : 'HEAD'} 版 ${API_CLIENT_PATH}(${reason})。` +
-        `工作树侧${existsSync(API_CLIENT_FILE) ? '存在该文件' : '也不存在该文件'}` +
-        ' —— 不回退工作树取帧清单(会把并发会话未提交的新帧算成五端"静默丢弃")',
-    }
+    return { source: '', error: describeUnreadable(basis, reason) }
   }
+  const text = got.get(spec)
+  if (typeof text !== 'string') return { source: '', error: describeUnreadable(basis, '该面没有此对象(missing / unmerged / 非 blob)') }
+  return { source: text, error: null }
+}
+
+function describeUnreadable(basis, reason) {
+  return (
+    `读不到 ${basis === 'index' ? '暂存区' : 'HEAD'} 版 ${API_CLIENT_PATH}(${reason})。` +
+    `工作树侧${existsSync(API_CLIENT_FILE) ? '存在该文件' : '也不存在该文件'}` +
+    ' —— 不回退工作树取帧清单(会把并发会话未提交的新帧算成五端"静默丢弃")'
+  )
 }
 
 function readData() {
@@ -308,6 +326,27 @@ function selfTest() {
 
   const unknownTool = run({ data: { ...data, toolCallbacks: ['onGhost'] } })
   cases.push(['反演:toolCallbacks 里有 client.ts 不存在的名字必须判红', unknownTool.ok === false])
+
+  /**
+   * 取材面迁移的两条构造面证明(2026-09-26)+ 一条"取不到即判据失效"。
+   * 注入假 batch 而不是跑真仓:索引/HEAD 此刻由并发会话决定,拿它当夹具就是一台时红时绿的尺子;
+   * 而"同一批路径两面内容不同"是唯一能区分两面的情形 —— 若 readFrameSource 忽略 basis,
+   * 下面前两条必有一条翻红,所以它们不是恒真式。
+   */
+  const fakeBatch = (root, specs) =>
+    new Map(specs.map((s) => [s, s.startsWith('HEAD:') ? 'HEAD-SIDE-SOURCE' : 'INDEX-SIDE-SOURCE']))
+  cases.push([
+    '正例:--staged(index 面)必须跟**索引 blob** 走(规格不带 HEAD: 前缀)',
+    readFrameSource('index', fakeBatch).source === 'INDEX-SIDE-SOURCE',
+  ])
+  cases.push([
+    '反演(同输入不同面):head 面必须取 **HEAD blob**,与上一条给出不同结论 ⇒ 判据认面',
+    readFrameSource('head', fakeBatch).source === 'HEAD-SIDE-SOURCE',
+  ])
+  cases.push([
+    '反演:该面取不到正文 ⇒ error 非空(exit 2),绝不静默回退工作树',
+    readFrameSource('head', () => new Map()).error !== null,
+  ])
 
   let failed = 0
   for (const [name, pass] of cases) {
