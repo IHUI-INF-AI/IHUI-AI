@@ -85,6 +85,103 @@
   --rn-success-light: #ecfdf5;
   --rn-success-lighter: #d1fae5;
   --rn-line: #d4d4d4;
+
+  /* 以下 71 档为 tokens.css 中存在而本文件尚缺,由 sync-rn-global-css.mjs 自动补入(勿手改) */
+  --color-cta: #4a7a96;
+  --color-cta-foreground: #ffffff;
+  --color-tag-inactive-bg: hsl(0 0% 88%);
+  --color-pinned-tag-bg: hsl(0 0% 88%);
+  --color-streamed-container-bg: hsl(0 0% 92%);
+  --color-streamed-container-bg-hover: hsl(0 0% 88%);
+  --color-float-indicator-bg: hsl(0 0% 100%);
+  --color-link: #4a7a96;
+  --color-link-bg: rgba(143, 184, 204, 0.15);
+  --color-wechat-green: #4cd964;
+  --color-chat-bubble-user: #95ec69;
+  --color-brand: #000000;
+  --color-notification-bg: #fff8e1;
+  --color-notification-text: #7c5e1e;
+  --color-gold: #d4af6a;
+  --color-gold-muted: rgba(212, 175, 106, 0.12);
+  --color-alipay-blue: #1677ff;
+  --color-success-tag-bg: #e8f5e9;
+  --color-scrim: rgba(0, 0, 0, 0.6);
+  --color-scrim-foreground: rgba(255, 255, 255, 0.85);
+  --color-danger: #dc2626;
+  --color-danger-foreground: #ffffff;
+  --color-success-tint: rgba(22, 163, 74, 0.08);
+  --color-success-tint-strong: rgba(22, 163, 74, 0.25);
+  --color-warning-tint: rgba(245, 158, 11, 0.1);
+  --color-warning-tint-strong: rgba(245, 158, 11, 0.25);
+  --color-danger-tint: rgba(220, 38, 38, 0.08);
+  --color-danger-tint-strong: rgba(220, 38, 38, 0.25);
+  --color-info-tint: rgba(14, 165, 233, 0.08);
+  --color-info-tint-strong: rgba(14, 165, 233, 0.25);
+  --color-pink-tint: rgba(236, 72, 153, 0.3);
+  --color-gold-tint: rgba(255, 215, 0, 0.3);
+  --color-warm-bg: #fff4e6;
+  --color-text-tertiary: #a3a3a3;
+  --color-text-medium: #404040;
+  --color-border-medium: #d4d4d4;
+  --color-surface-dark: #262626;
+  --color-success-deep-text: #065f46;
+  --color-success-light: #ecfdf5;
+  --color-warning-amber-light: #fef3c7;
+  --color-warning-amber-text: #92400e;
+  --color-warning-light: #fffbeb;
+  --color-danger-light: #fee2e2;
+  --color-danger-bright: #f87171;
+  --color-success-deep: #16a34a;
+  --color-success-lighter: #d1fae5;
+  --color-black: #000000;
+  --color-screen-canvas: #171717;
+  --color-surface-light: #ffffff;
+  --color-warning-amber: #f59e0b;
+  --color-track-active-bg: rgba(248, 249, 252, 0.65);
+  --color-model-type-text: #1888ee;
+  --color-model-type-text-bg: #e8f4fd;
+  --color-model-type-image: #c41e7a;
+  --color-model-type-image-bg: #fde8f5;
+  --color-model-type-av: #2e7d32;
+  --color-model-type-av-bg: #e8f5e9;
+  --color-agent-name: #517bff;
+  --color-miniapp-green: linear-gradient(135deg, #07c160, #06ad56);
+  --color-miniapp-green-dark: #06ad56;
+  --color-miniapp-green-darker: #059a4c;
+  --color-miniapp-green-darkest: #048040;
+  --color-miniapp-green-foreground: #ffffff;
+  --color-payment-purple-start: #667eea;
+  --color-payment-purple-end: #764ba2;
+  --color-gradient-purple-yellow: linear-gradient(
+    112deg,
+    rgba(205, 208, 255, 0.7) 0%,
+    rgba(253, 255, 225, 0.7) 100%
+  );
+  --color-gradient-purple-deep: linear-gradient(
+    269deg,
+    rgba(217, 219, 254, 0.8) 219%,
+    rgba(144, 125, 255, 0.8) 219%
+  );
+  --color-gradient-white-blue: linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 1) 1%,
+    rgba(77, 180, 232, 1) 77%
+  );
+  --color-gradient-card-left: linear-gradient(
+    116deg,
+    rgba(217, 219, 255, 0.8) 3%,
+    rgba(253, 255, 220, 0.8) 104%
+  );
+  --color-gradient-card-right: linear-gradient(
+    116deg,
+    rgba(0, 0, 0, 0.8) 3%,
+    rgba(0, 109, 11, 0.8) 104%
+  );
+  --color-gradient-group: linear-gradient(
+    106deg,
+    rgba(228, 229, 255, 0.25) 4%,
+    rgba(254, 255, 236, 0.25) 104%
+  );
 }
 
 .dark {
@@ -139,6 +236,61 @@
   --rn-success-light: #052e16;
   --rn-success-lighter: #064e3b;
   --rn-line: #525252;
+
+  /* 以下 53 档为 tokens.css 中存在而本文件尚缺,由 sync-rn-global-css.mjs 自动补入(勿手改) */
+  --color-tag-inactive-bg: hsl(0 0% 24%);
+  --color-pinned-tag-bg: hsl(0 0% 24%);
+  --color-streamed-container-bg: hsl(0 0% 18%);
+  --color-streamed-container-bg-hover: hsl(0 0% 22%);
+  --color-float-indicator-bg: hsl(0 0% 11%);
+  --color-link: #a3c4d6;
+  --color-link-bg: rgba(163, 196, 214, 0.14);
+  --color-wechat-green: #4cd964;
+  --color-chat-bubble-user: #4cd964;
+  --color-brand: #ffffff;
+  --color-notification-bg: rgba(245, 158, 11, 0.15);
+  --color-notification-text: hsl(38 85% 70%);
+  --color-gold: #e6c986;
+  --color-gold-muted: rgba(230, 201, 134, 0.14);
+  --color-success-tag-bg: rgba(22, 163, 74, 0.16);
+  --color-danger: #ef4444;
+  --color-danger-foreground: #ffffff;
+  --color-success-tint: rgba(74, 222, 128, 0.14);
+  --color-success-tint-strong: rgba(74, 222, 128, 0.3);
+  --color-warning-tint: rgba(250, 204, 21, 0.14);
+  --color-warning-tint-strong: rgba(250, 204, 21, 0.3);
+  --color-danger-tint: rgba(248, 113, 113, 0.14);
+  --color-danger-tint-strong: rgba(248, 113, 113, 0.3);
+  --color-info-tint: rgba(96, 165, 250, 0.14);
+  --color-info-tint-strong: rgba(96, 165, 250, 0.3);
+  --color-pink-tint: rgba(244, 114, 182, 0.34);
+  --color-gold-tint: rgba(230, 201, 134, 0.3);
+  --color-warm-bg: rgba(250, 204, 21, 0.14);
+  --color-text-tertiary: #737373;
+  --color-text-medium: #d4d4d4;
+  --color-border-medium: #525252;
+  --color-surface-dark: #171717;
+  --color-success-deep-text: #86efac;
+  --color-success-deep: #16a34a;
+  --color-success-lighter: #064e3b;
+  --color-black: #000000;
+  --color-success-light: #052e16;
+  --color-warning-amber-light: #78350f;
+  --color-warning-amber-text: #fbbf24;
+  --color-warning-light: #451a03;
+  --color-danger-light: #7f1d1d;
+  --color-danger-bright: #ef4444;
+  --color-surface-light: #ffffff;
+  --color-warning-amber: #fbbf24;
+  --color-track-active-bg: rgba(248, 249, 252, 0.65);
+  --color-model-type-text: #1888ee;
+  --color-model-type-text-bg: #e8f4fd;
+  --color-model-type-image: #c41e7a;
+  --color-model-type-image-bg: #fde8f5;
+  --color-model-type-av: #2e7d32;
+  --color-model-type-av-bg: #e8f5e9;
+  --color-agent-name: #517bff;
+  --color-screen-canvas: #171717;
 }
 
 /* 全局统一字体:对齐历史 Uniapp 项目 AlimamaFangYuanTi(2026-08-13 立,H19)
