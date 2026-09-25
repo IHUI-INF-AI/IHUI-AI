@@ -129,6 +129,37 @@ const persistedSteerAppliedSchema = z.array(
   }),
 )
 
+// queueItems(D33① 下半段,2026-09-26 接):"排队中的消息"当轮快照。
+// 形状唯一真相源 = apps/ai-service/app/core/queue_items.py(QUEUE_ITEM_FIELDS = id / text /
+// createdAt 三键,createdAt 为 epoch 毫秒,与 apps/web/src/stores/chat.ts 的 SideQueueItem 同形)。
+// 与 toolCalls / steerApplied 的 looseObject **刻意相反**用 strictObject:队列项装的是用户原文,
+// 未知字段透传进去就等于把上游附件正文/凭据灌进 chat_messages.metadata(§5「显式列举」)。
+const persistedQueueItemSchema = z.strictObject({
+  id: z.string().min(1),
+  text: z.string(),
+  createdAt: z.number().int().nonnegative(),
+})
+
+type PersistedQueueItem = z.infer<typeof persistedQueueItemSchema>
+
+// 体积护栏两档(取值与 Python 侧 MAX_QUEUE_ITEMS / TEXT_SUMMARY_LIMIT 同档;截断标注与
+// llm.py `_truncate_persist_value` 同形 `...[truncated N chars]`,读回侧只认一种退化形态)。
+// 超限一律**截断而非判红**:一条超长的排队项不得把整轮回调拒掉(拒回调 = 助手消息不落库),
+// 而队首恰是"下一个要跑的那批" ⇒ 保队首、丢队尾。
+const QUEUE_ITEMS_MAX = 8
+const QUEUE_ITEM_TEXT_MAX_CHARS = 2000
+
+function capQueueItems(items: readonly PersistedQueueItem[]): PersistedQueueItem[] {
+  return items.slice(0, QUEUE_ITEMS_MAX).map((item) =>
+    item.text.length <= QUEUE_ITEM_TEXT_MAX_CHARS
+      ? item
+      : {
+          ...item,
+          text: `${item.text.slice(0, QUEUE_ITEM_TEXT_MAX_CHARS)}...[truncated ${item.text.length - QUEUE_ITEM_TEXT_MAX_CHARS} chars]`,
+        },
+  )
+}
+
 // D33(2026-09-23 立):单条 metadata 序列化体积护栏。
 // 任一结构化值(JSON)超过 64KB 即降级为标注文本 { truncated: true, originalBytes },
 // 不丢字段(键保留)、不整条丢弃 —— 超大 citations/toolCalls/usageDetail 等仍能落库,
@@ -173,6 +204,9 @@ const callbackSchema = z.object({
   memoryUpdates: persistedMemoryUpdatesSchema.optional(),
   // D33 剩余类(2026-09-24 立):中途引导注入记录通道(本轮无引导时不携带)
   steerApplied: persistedSteerAppliedSchema.optional(),
+  // D33①(2026-09-26 接):排队消息快照通道。与其余八通道不同,**空数组也合法**
+  // (ai-service 侧 attach_queue_items 无条件写键),故只 optional、不设 .min(1)。
+  queueItems: z.array(persistedQueueItemSchema).optional(),
   metadata: z
     .looseObject({
       conversationId: z.string().optional(),
@@ -236,6 +270,7 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
         fallback,
         memoryUpdates,
         steerApplied,
+        queueItems,
         metadata,
       } = parsed.data
       const conversationId = metadata?.conversationId
@@ -328,6 +363,12 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
               ...(memoryUpdates && memoryUpdates.length > 0 ? { memoryUpdates } : {}),
               // D33 剩余类(2026-09-24 立):中途引导注入记录(空数组不写 key)
               ...(steerApplied && steerApplied.length > 0 ? { steerApplied } : {}),
+              // D33①(2026-09-26 接):排队消息快照。判据是 `!== undefined` 而不是 `length > 0`,
+              // 与上面八通道**刻意相反**且不可"顺手对齐":空数组 = "这轮确实没有排队消息",缺键 =
+              // "这版后端没有这个字段",读回侧要靠这一区分决定"抹掉上轮残留"还是"沿用未知"。
+              // worker 侧是浅合并({ ...prevMeta, ...metadata })—— 只有真写出 [] 才能把上一轮
+              // 落库的非空队列覆盖掉;不写 key 则残留会一直显示到该会话被新格式覆盖为止。
+              ...(queueItems !== undefined ? { queueItems: capQueueItems(queueItems) } : {}),
               // G-165:权限档同理"无记录即不写 key",前端据此区分"未盖章"与"default 档"。
               // 消费方 apps/web/src/hooks/use-chat/history-message.ts 读 meta.permissionMode
               // 渲染档位徽章 —— 章不入 payload 则该链路恒空(G-165 名存实亡)。
