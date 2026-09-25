@@ -436,11 +436,34 @@ export function verifyUnion(ours, theirs, tree, cwd = ROOT, base = null) {
     }
   }
   for (const p of LIVE_DOCS) {
-    const a = counter(show(ours, p, cwd))
-    const b = counter(show(theirs, p, cwd))
+    const a = show(ours, p, cwd)
+    const b = show(theirs, p, cwd)
+    if (a === null || b === null) {
+      bad.push(`${p} 落地后取不到(本侧或对侧任一面读不出 = 无法自证,不记通过)`)
+      continue
+    }
+    const bt = base ? show(base, p, cwd) : null
+    // 断言必须用**同一个期望表**(liveDocExpectedCounts),不得各写一份:
+    // 上一版这里仍是旧的 max(本侧,对侧),于是三方化之后每一枚"本侧改写过别人的行"的合并
+    // 都被落地闸判成"丢了 12 行"而拒绝落地 —— 判据与实现不同形时,工具会把自己锁死。
+    const want = liveDocExpectedCounts(a, b, bt)
     const m = counter(show(tree, p, cwd))
-    for (const [l, n] of [...a, ...b])
+    for (const [l, n] of want)
       if ((m.get(l) || 0) < n) bad.push(`${p} 未存活行:${l.slice(0, 50)}`)
+    // 反向对照:本侧改写/删除过的行,合并树里的**重数**不得高于期望表 ——
+    // 不能判">0 即复活":活文档里同一行常有真实多份(台账登记行就是如此,实测 D38 有 4 份),
+    // 判存在会把"保住的那 3 份"误报成复活。第一版就被真仓咬出这一条。
+    if (bt !== null) {
+      const cb = counter(bt)
+      const ca = counter(a)
+      for (const [l, n] of cb) {
+        if ((ca.get(l) || 0) >= n) continue // 本侧留着它 ⇒ 不是改写/删除
+        if ((m.get(l) || 0) > (want.get(l) || 0))
+          bad.push(
+            `${p} 旧行被复活(本侧已改写/删除):重数 ${m.get(l)} > 期望 ${want.get(l) || 0} —— ${l.slice(0, 50)}`,
+          )
+      }
+    }
   }
   bad.moved = moved
   return bad
@@ -745,6 +768,15 @@ function selfTest() {
     ok(
       '防复活必须是**有基底的三方判据**:只给两侧文本时旧行为不变(证明收紧靠的是 base 而不是削判据)',
       counter(unionLines('a\n', 'a\nb\n')).get('b') === 1,
+    )
+    // 多重行的口径(真仓第一天就把我这条反向对照判成假阳:台账同一行本来就有 4 份)
+    ok(
+      '活文档:同一行有多份时按重数算,本侧删掉一份 ≠ "旧行被复活"',
+      liveDocExpectedCounts('x\n', 'x\nx\n', 'x\nx\n').get('x') === 1,
+    )
+    ok(
+      '活文档:多份行且对侧又加了一份 ⇒ 期望重数 = 本侧 + 对侧净增,不重复计',
+      liveDocExpectedCounts('x\n', 'x\nx\nx\n', 'x\nx\n').get('x') === 2,
     )
     // 端到端:走真临时仓的 plan(),而不是只测纯函数 —— 纯函数过而调用点忘传 base 是本类缺陷最常见的残法。
     // ⚠️ 两侧必须是**真分叉**(同一基底的两个兄弟提交)。第一版这里写成"提交对侧 → 在同一线上
