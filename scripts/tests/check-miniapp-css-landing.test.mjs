@@ -120,8 +120,11 @@ test('转写函数:样本逐字取自 2026-09-25 真 weapp 构建产物(非立�
   assert.equal(G.weappMangleClassName('dark:text-foreground'), 'dark_ctext-foreground')
   assert.equal(G.weappMangleClassName('pb-[calc(20rpx+env(safe-area-inset-bottom,0))]'), 'pb-_bcalc_p20rpx_uenv_psafe-area-inset-bottom_m0_P_P_B')
   // 表外标点原样保留 —— 未实测的转写不得写进表(猜错的方向是"把真没落地的判成落地")
-  assert.equal(G.weappMangleClassName('!bg-cta'), '!bg-cta')
-  assert.deepEqual(G.unmappedPunctIn('!bg-cta'), ['!'])
+  // `!` 已从"待验"升为"表内":真产物里有三条逐字证 `._ebg-muted{…!important}`、`._ebg-cta{…}`、
+  // `._ebg-primary{…}`(同一次 weapp 构建)。立票时按 CSS 规范的 `\!` 形态去找 ⇒ 零命中,
+  // 把已取证的映射当成了猜测。**取证要按构建方真实产出的形态查。**
+  assert.equal(G.weappMangleClassName('!bg-cta'), '_ebg-cta')
+  assert.deepEqual(G.unmappedPunctIn('!bg-cta'), [], '! 已进表,不得再被说成含表外标点')
   assert.deepEqual(G.unmappedPunctIn('w-[50%]'), ['%'], '连字符/字母不算标点;只剩 % 待验')
   assert.deepEqual(G.unmappedPunctIn('bg-muted'), [], '反向对照:普通名字不得被说成"含表外标点"')
 })
@@ -189,9 +192,11 @@ test('装车证明:转写判据真挂在 computeCoverage / runCheck / report 上
   assert.match(src, /待验字符:\$\{c\.unmangledPunctChars\.join\(' '\)\}/, '表外字符没在报告里点名 ⇒ 下一次实测不知道表还缺哪几条')
   assert.match(src, /按族分布\(共 \$\{c\.missFamilies\.length\} 族,top5\)/, '缺项归族没进报告 ⇒ 样例仍是扁平截断,"成族"信号不可读')
   // 负锁:未实测的标点不得被"顺手补进"转写表。只认**映射条目形态** `['X', '_y']` ——
-  // 第一版写成 /\['!'/ 把 self-test 里"unmangledPunctChars 期望值 = ['!']"这条正当夹具也判了红,
+  // 第一版写成 /\['!'/ 把 self-test 里"unmangledPunctChars 期望值"这条正当夹具也判了红,
   // 那正是本仓反复记的"门看不见自己产出的形态";判据失效方向错了会挡死合法收紧。
-  assert.doesNotMatch(src, /\['[!*%#@>~]'\s*,\s*'_/, '未实测标点(! * % # @ > ~)被猜进了转写表条目')
+  // `!` 已于本轮从未实测名单里移出(真产物三条逐字证),移出**不等于**取消这把锁:
+  // 剩下六条仍然一格都不许猜。
+  assert.doesNotMatch(src, /\['[*%#@>~]'\s*,\s*'_/, '未实测标点(* % # @ > ~)被猜进了转写表条目')
 })
 
 /* ─────────────── 3. 同名双义三档分类,各一正一反 ─────────────── */
@@ -568,7 +573,18 @@ test('§22c:__test__ 必须导出判据函数本体(不得让测试复制第二�
     assert.equal(typeof G[k], 'function', `__test__ 缺少 ${k}`)
   }
   // 转写表必须是**导出的那一份**(测试与门共用一张表;在测试里另抄一份 = §22c 禁止的镜像漂移)
-  assert.ok(G.WEAPP_CLASS_MANGLE_TABLE instanceof Map && G.WEAPP_CLASS_MANGLE_TABLE.size === 9, '转写表不在位或条数变了(9 条为现值;增删条目必须带真产物取证)')
+  // 转写表不得"数一个数钉在这"—— 条数是结果不是判据(本仓反复记:写死的现值一过期就替人做判断)。
+  // 真正的不变量是:**表里每一个键,都必须出现在本文件某条 weappMangleClassName('<样本>') 的输入里**,
+  // 而那个样本是逐字取自真产物的。增一条却拿不出样本 ⇒ 这里当场红。
+  assert.ok(G.WEAPP_CLASS_MANGLE_TABLE instanceof Map, '转写表不在位')
+  {
+    const self = readFileSync(new URL(import.meta.url), 'utf8')
+    const evidenced = new Set()
+    for (const m of self.matchAll(/weappMangleClassName\('([^']*)'\)/g)) for (const ch of m[1]) evidenced.add(ch)
+    const unsourced = [...G.WEAPP_CLASS_MANGLE_TABLE.keys()].filter((k) => !evidenced.has(k))
+    assert.deepEqual(unsourced, [], `转写表里这些键没有任何逐字样本作证:${unsourced.join(' ')} —— 补条目必须同笔补真产物样本`)
+    assert.ok(G.WEAPP_CLASS_MANGLE_TABLE.size >= 9, '转写表缩水到不足 9 条(真产物实测有这么多;删条目要说明理由)')
+  }
 })
 
 test('--self-test 必须全绿(判据自身的成对正反例)', () => {
