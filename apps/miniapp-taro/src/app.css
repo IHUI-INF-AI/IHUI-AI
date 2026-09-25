@@ -65,7 +65,15 @@ page {
 /* ===== 共享基础样式结束(自动生成,勿手动编辑)===== */
 @tailwind base;
 @tailwind components;
-@tailwind utilities;
+/* weapp 构建下命名档 utility(flex/items-center/w-full/p-3…)此前一条不产,而同一份 app.css 走 h5
+   构建时全都有 ⇒ 缺口在 weapp-tailwindcss 那条 weapp 专用链上,不在 Tailwind 本身。
+   起效的是下面那行 @source:它把端内源码显式喂给生成器,命名档才进候选集。
+   (上面的 @tailwind utilities 换成 @import 'tailwindcss/utilities.css' 是**空转**——该文件内容
+    逐字就是 `@tailwind utilities;`,21 字节;保留只为与 v4 的入口写法对齐。)
+   ⚠️ 仍未解决:项目色档(bg-*/text-*/border-*)整族还是 0 落地,因为 v4 只把 @theme 里的
+    --color-* 认作主题档,而本文件把色值落在普通 :root/.dark 上。见 PROJECT_PLAN O62附⑧补。 */
+@import 'tailwindcss/utilities.css';
+@source "./**/*.{ts,tsx}";
 
 /* ===== 阿里妈妈方圆体 VF — 统一项目字体 (对齐原项目) =====
    @font-face 通过 JS 动态注入 (app.tsx),避免 webpack CSS url() 解析错误 */
