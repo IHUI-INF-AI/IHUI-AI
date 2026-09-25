@@ -44,6 +44,11 @@ export const chatConversations = pgTable(
     // 2026-08-17 修复:drizzle-orm 0.45.2(patch 版)的 PgColumnBuilder 无 nullable/notNull 方法
     // (varchar 默认 nullable),用 .nullable() 会 TypeError 阻断 api 启动。仅用 .unique()。
     shareToken: varchar('share_token', { length: 32 }).unique(),
+    // D35(2026-09-24 立):长会话历史投影状态(对标 Codex thread_history_projection_state)。
+    // null = 尚未投影过;形态 { nextRolloutByteOffset, nextRolloutOrdinal, lastRolledAt }:
+    // nextRolloutByteOffset 为增量回放的字节断点(流式续读),nextRolloutOrdinal 为
+    // turn 级语义断点。投影器写入与消费在后续段落接线,本段先立列。
+    historyProjectionState: jsonb('history_projection_state'),
   },
   (t) => ({
     // 2026-09-06 P0:会话列表按 (user_id + last_message_at DESC) 排序+分页,缺索引全表扫描
@@ -68,10 +73,16 @@ export const chatMessages = pgTable(
     metadata: jsonb('metadata').default({}),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     reasoning: text('reasoning'),
+    // D35(2026-09-24 立):turn 序号 —— user 消息开启新轮(取会话内 max+1),
+    // assistant/system 沿用当前轮。null = 存量未回填(第二段处理),
+    // turn 分片查询对 NULL 行不可见,不影响既有消息级 keyset 分页。
+    turnOrdinal: integer('turn_ordinal'),
   },
   (t) => ({
     // 2026-09-06 P0:按会话取消息/计数为热路径,缺 conversation_id 索引全表扫描
     convIdx: index('ix_chat_messages_conversation').on(t.conversationId),
+    // D35:turn 分片拉取热路径(对标 Codex idx_thread_items_by_turn_updated_page)
+    turnIdx: index('idx_chat_messages_by_turn').on(t.conversationId, t.turnOrdinal),
   }),
 )
 
