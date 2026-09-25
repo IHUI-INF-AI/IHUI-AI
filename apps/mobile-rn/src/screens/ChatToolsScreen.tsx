@@ -29,6 +29,7 @@ import { generateSsoCode } from '@ihui/api-client'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
+import { BackChevron } from '@ihui/rn-app'
 import { useAuthStore } from '../stores/auth-store'
 import { WEB_BASE_URL } from '../lib/webview-portal-config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -161,9 +162,7 @@ export function ChatToolsScreen() {
   return (
     <View className={`flex-1 ${dark ? 'bg-neutral-900' : 'bg-white'}`}>
       <View className="flex-row items-center justify-between border-b border-gray-200 px-4 pb-2 pt-3 dark:border-neutral-700">
-        <TouchableOpacity onPress={handleBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text className="text-sm text-gray-500">{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={handleBack} label={t('common.back')} colorScheme={resolvedTheme} />
         <Text className="max-w-[60%] truncate text-base font-medium">{t('webChat.title')}</Text>
         <View className="w-10" />
       </View>

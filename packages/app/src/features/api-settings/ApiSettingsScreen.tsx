@@ -8,6 +8,7 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet } from 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ApiSettingsConfig, ApiSettingsScreenProps, ApiSettingsTestState } from '../../types'
 import { Eye, EyeOff, Check, X } from 'lucide-react-native'
+import { BackChevron } from '../../components/BackChevron'
 
 /** API 设置共享屏 — props 注入式跨端组件 */
 export type { ApiSettingsConfig, ApiSettingsScreenProps, ApiSettingsTestState }
@@ -45,9 +46,7 @@ export function ApiSettingsScreen({
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.back}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('apiSettings.title')}</Text>
       </View>
 
@@ -186,7 +185,6 @@ function createStyles(tk: AppThemeTokens) {
       gap: 12,
       marginBottom: 16,
     },
-    back: { fontSize: 16, color: tk.text.medium },
     title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     card: {
       backgroundColor: tk.surface.light,

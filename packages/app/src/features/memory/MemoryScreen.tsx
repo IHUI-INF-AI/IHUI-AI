@@ -20,6 +20,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** MemoryScreen props(注入式:wrapper 保留 fetchApi/Alert/导航/登录态) */
 export interface MemoryScreenProps {
@@ -211,9 +212,7 @@ export function MemoryScreen({
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.headerTitle}>{t('memory.title')}</Text>
         <TouchableOpacity onPress={onOpenCreate} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Text style={styles.createText}>{t('memory.create')}</Text>
@@ -407,10 +406,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 16, // px-4
       paddingTop: 12, // pt-3
       paddingBottom: 8, // pb-2
-    },
-    backText: {
-      fontSize: 14,
-      color: tk.text.secondary,
     },
     headerTitle: {
       fontSize: 16,
