@@ -78,6 +78,12 @@ const PUBLIC_PREFIXES = [
   '/api/tbox/events',
   // IM 网关 webhook 入站(2026-07-31 立,IM 平台调用,用 webhookSecret HMAC 验签,无 CSRF token)
   '/api/im-gateway/webhook/',
+  // D30① 无人值守信源(2026-09-25 用户批准挂载):GitHub Actions 机器调用,凭
+  // GITHUB_WEBHOOK_SECRET 的 HMAC-SHA256 自证,与浏览器 cookie 会话无关 ⇒ CSRF 在此无防护对象。
+  // **刻意写精确整路径而不是 /api/webhooks/ 前缀** —— 前缀会把同族未来路由一起放过
+  // (O19 事故原文:参数化前缀连带放开静态子路由,游客打到依赖 request.userId 的 handler 直接 500)。
+  // 缺 secret 时该路由回 503、签名错回 401,不存在"豁免即放行"。
+  '/api/webhooks/github',
   // 崩溃上报(2026-08-12 立,匿名可上报,崩溃时未必持有 token;
   // 风险低:仅写 crash_reports 表一条记录,无敏感操作;全局限流防滥用)
   '/api/crash-reports',
