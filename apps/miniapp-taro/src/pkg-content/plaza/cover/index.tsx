@@ -275,7 +275,7 @@ export default function PlazaCover() {
                 <Text className="w-[152rpx] shrink-0 text-[length:28rpx] text-muted-foreground">
                   {tt('plaza.cover.account', '账号')}
                 </Text>
-                <Text className="flex-1 min-w-0 text-[length:28rpx] text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
+                <Text className="flex-1 min-w-0 text-[length:28rpx] text-foreground overflow-hidden ihui-ellipsis whitespace-nowrap">
                   {devInfo.signNickname || '-'}
                 </Text>
                 <Text
@@ -289,7 +289,7 @@ export default function PlazaCover() {
                 <Text className="w-[152rpx] shrink-0 text-[length:28rpx] text-muted-foreground">
                   {tt('plaza.cover.password', '密码')}
                 </Text>
-                <Text className="flex-1 min-w-0 text-[length:28rpx] text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
+                <Text className="flex-1 min-w-0 text-[length:28rpx] text-foreground overflow-hidden ihui-ellipsis whitespace-nowrap">
                   {devInfo.signPassword || '-'}
                 </Text>
                 <Text
@@ -303,7 +303,7 @@ export default function PlazaCover() {
                 <Text className="w-[152rpx] shrink-0 text-[length:28rpx] text-muted-foreground">
                   {tt('plaza.cover.url', '网址')}
                 </Text>
-                <Text className="flex-1 min-w-0 text-[length:28rpx] text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
+                <Text className="flex-1 min-w-0 text-[length:28rpx] text-foreground overflow-hidden ihui-ellipsis whitespace-nowrap">
                   {devInfo.address || '-'}
                 </Text>
                 <Text
@@ -318,7 +318,7 @@ export default function PlazaCover() {
                 <Text className="w-[152rpx] shrink-0 text-[length:28rpx] text-[var(--color-danger-bright)]">
                   {tt('plaza.cover.expire', '到期')}
                 </Text>
-                <Text className="flex-1 min-w-0 text-[length:28rpx] text-[var(--color-danger-bright)] overflow-hidden text-ellipsis whitespace-nowrap">
+                <Text className="flex-1 min-w-0 text-[length:28rpx] text-[var(--color-danger-bright)] overflow-hidden ihui-ellipsis whitespace-nowrap">
                   {expiresAtStr}
                 </Text>
                 <Text

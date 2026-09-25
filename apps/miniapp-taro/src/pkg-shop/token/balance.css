@@ -31,14 +31,14 @@
   margin: 20rpx;
   /* 对齐 RN padding 14 / borderRadius 12 (dp→rpx 1:2) */
   padding: 28rpx;
-  background: var(--color-primary);
+  background: var(--color-cta);
   border-radius: var(--radius-xl);
 }
 .balance-label {
   display: block;
-  /* 对齐 RN balanceLabel fontSize 14 (dp→rpx 1:2);暗色用 primary-foreground 保证对比度 */
+  /* 对齐 RN balanceLabel fontSize 14 (dp→rpx 1:2);cta 底配 cta-foreground 字(成对) */
   font-size: 28rpx;
-  color: var(--color-primary-foreground);
+  color: var(--color-cta-foreground);
 }
 .balance-value {
   display: block;
@@ -46,7 +46,7 @@
   margin-top: 16rpx;
   font-size: 64rpx;
   font-weight: 700;
-  color: var(--color-primary-foreground);
+  color: var(--color-cta-foreground);
 }
 
 /* ===== 功能按钮组(智能体消耗 / 大模型消耗,对齐 RN tabRow 形态) ===== */
@@ -75,13 +75,13 @@
   color: var(--color-muted-foreground);
 }
 .func-btn.active {
-  /* 对齐 RN tabItemActive brand 底;暗色文字用 primary-foreground 保证对比度 */
-  background: var(--color-primary);
+  /* 对齐 RN tabItemActive brand 底;cta 实底配 cta-foreground 字(成对) */
+  background: var(--color-cta);
 }
 .func-btn.active Text {
   font-size: 28rpx;
   font-weight: 600;
-  color: var(--color-primary-foreground);
+  color: var(--color-cta-foreground);
 }
 
 /* ===== 时间区间 Tab(对齐 RN wrapper StudyBar: 分段容器 + 等宽 Tab) ===== */
