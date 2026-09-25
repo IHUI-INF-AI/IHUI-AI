@@ -21,7 +21,10 @@
 ### 归档机制
 
 - 已完成任务条目(`### XXX(已完成 ✅ ...)` 标题)**禁止直接删除**,必须两步走:① 把完整任务条目(标题 + 正文)移动到 `.ihui-agent/archive/PROJECT_PLAN_YYYY-MM-DD.md`;② 在 `PROJECT_PLAN.md` 原位置留 HTML 注释占位:`<!-- 已归档(YYYY-MM-DD):XXX 任务,完整内容在 .ihui-agent/archive/PROJECT_PLAN_*.md -->`。
-- **自动归档**:`scripts/archive-completed-tasks.mjs` 扫描完成 ≥7 天的条目,post-commit 钩子自动 `--auto-commit`,归档 commit 设 `IHUI_ARCHIVE_COMMIT=1` 防递归。
+- **自动归档**:`scripts/archive-completed-tasks.mjs` 扫描完成 ≥7 天的条目,post-commit 钩子自动 `--auto-commit`。归档 commit 设 `IHUI_ARCHIVE_COMMIT=1` 防递归。
+  - **标题形态三处必须同形**(2026-09-25 G-182 实证):本节写的 `### XXX(已完成 ✅ ...)`、守门 13c 的提取式、归档器 `parseCompletedTasks()` 的匹配式,**任一处漂了另外两处不会响**。归档器曾按 `/^### \[x\]/` 找标题,而文件里 `^### [x]` 命中 0 次 ⇒ 连续 11 天每次跑都扫到 0 条、post-commit 静默无操作。现判据:含 `✅` 即算已完成条目,日期取标题里第一个 `YYYY-MM-DD`(真实形态日期常在 ✅ 之前);**无 `✅` 的小节标题(如 `### 已完成清单`)不算条目** ⇒ 归档器的搬运集必须是 13c 保护集的**真子集**,否则一边搬一边护就是互咬。
+  - **大批量阀门只挡自动档**:`--auto-commit` 下一次 >25 条或 >256 KB 即拒绝并打印实测数字(退出码 0 —— 自动档少做一件事不是错误,不得把钩子链弄红),需人工 `--allow-mass` 放行。依据实测稳态一次 7 条 / 15,168 B / 全文 0.61%;超量只可能是格式又漂或积压一次放开(参照 §5c 水印门"单次缺口 >200 拒绝自动回写"同一条设计)。
+  - **归档 commit 必须带 pathspec**(2026-09-25 与上面同批修):旧实现第二步是 `execSync('git commit --no-verify -m "…"')` —— **不带路径** = 把当下共享索引里的东西全提交,而并发会话随时在索引里挂着 staged 内容,于是那枚"归档 commit"会把别人的在途改动打包带走(§12 污染型;它跑在 post-commit 里,没人盯着)。**它一直没炸,只因为匹配式漂了、这段代码从没真跑到过 ⇒ "让工具能用"和"修它的提交面"必须是同一条提交,否则修好匹配式的那一刻就是引爆那一刻。**现形:`execFileSync(GIT_BIN, […, 'commit', '--no-verify', '-m', msg, '--', <计划文档>, <归档文件>])`。A/B 实证:旧版在"计划文档 + 一个被 `git rm --cached` staged 的他人文件"场景下产出的 commit **确实含别人的文件**;新版只含声明的两路径(测试第 20 例钉成回归)。
 - **手动触发**:`pnpm archive` / `--all`(全部)/ `--days 3`(自定义)/ `--dry-run`(预览);跳过用 `HUSKY_SKIP_ARCHIVE=1 git commit`。
 - **守门**:`scripts/check-project-plan-archive.mjs` + pre-commit 第 13c 项。历史案例见 `.ihui-agent/archive/AGENTS_history.md`。
 
@@ -1117,6 +1120,7 @@ assert(
 - ❌ 禁止删除 `check-staged-typecheck-mirror-sync.mjs` 中的任何一项锚点检测(削弱守门强度)
 - ✅ 修改源函数后必须 `pnpm test scripts/tests/check-staged-typecheck.test.mjs` + 跑 mirror-sync 守门脚本双验证
 - ✅ 新增工具脚本若需要被测试直接 import,必须遵循"源文件 export `__test__` + 测试 import + 守门脚本三阶段检测"模板
+- ✅ **判据的对象是某个真实文件的"形态"(标题式 / 路径式 / 字段名 / 分隔符)时,镜像测试至少一条用例的输入必须逐字取自那个真实文件**(或从 HEAD 现读一条),不得全部用自造夹具。实测于 2026-09-25 G-182:`archive-completed-tasks.mjs` 的匹配式与 `PROJECT_PLAN.md` 的真实标题形态漂了 11 天,而它的 15 个镜像测试**全绿** —— 因为夹具复刻的是实现的形状;更糟的是其中一条测试还把「必须以 `### [x]` 开头」当成规格去断言,**测试从防线变成了缺陷的掩体**。⇒ **镜像测试若只复读实现,它就只是复读机。**
 
 ---
 
