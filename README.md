@@ -2305,7 +2305,7 @@ IHUI-AI/
 | 全量验证   | turbo         | 22 tasks                     | `pnpm turbo typecheck lint test`  |
 
 **测试策略**:Fastify inject 模式(不监听端口)+ Mock 数据库层 + 覆盖 auth / billing / content / success-paths / business-logic / edge-cases。
-**到端产物也要有人看(2026-09-25)**:`pnpm check:miniapp-css-landing` 核的是“源码用到的 Tailwind utility,在小程序 dist 的 wxss 里是否真出了规则” —— 此前 36/37/93/parity/radius 五道跨端门**全部只核源码,没有一道看产物**,所以出现过五道全绿而到端 utilities 为空的状况。该门无产物时判 exit 2「未判定」,既不记绿也不冒红,因此刻意不接进提交链(它判的是构建结果,提交者机器上未必存在);小程序派生产物是否落后于源,由守门 105(warn 档)与 `dev-weapp` 的冷启刷新负责。
+**到端产物也要有人看(2026-09-25)**:`check-miniapp-css-landing.mjs`(入口 `pnpm check:miniapp-css-landing`) 核的是“源码用到的 Tailwind utility,在小程序 dist 的 wxss 里是否真出了规则” —— 此前 36/37/93/parity/radius 五道跨端门**全部只核源码,没有一道看产物**,所以出现过五道全绿而到端 utilities 为空的状况。该门无产物时判 exit 2「未判定」,既不记绿也不冒红,因此刻意不接进提交链(它判的是构建结果,提交者机器上未必存在);小程序派生产物是否落后于源,由 `check-miniapp-generated.mjs`(守门 105,warn 档)+ `dev-weapp` 的冷启刷新负责。
 
 **跨端设计真值的自动同步(2026-09-25)**:`packages/design-tokens/src/styles/tokens.css` 是唯一色值源头,`apps/miniapp-taro/src/app.css` 与 `apps/mobile-rn/global.css` 是它的**派生副本**(Taro 与 NativeWind 只吃 Tailwind v3 语法,无法直接 `@import` 源头)。两端副本都由 `scripts/lib/pre-commit-hook.js` 的 `TOKEN_SYNC_TARGETS` 表在提交时自动重生成并加入暂存 —— 改源头一处即可,不需要谁记得跑命令。派生与对账**共用同一份取源实现** `scripts/lib/design-token-blocks.mjs`(生成器和守门各抄一遍取值逻辑必然不同形,后果见 PROJECT_PLAN 第五十批的实测);RN 侧写回是**原位写回**:同名 `--color-*` 行换值、源头新增档补到块尾,而端内自有档(如 `.dark` 里那批 `--rn-*`)与解释性注释逐字不动,值已等价时连字节都不改,因此幂等。
 
