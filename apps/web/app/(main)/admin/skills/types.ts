@@ -9,7 +9,13 @@ export interface Skill {
   version?: string | null
   tags?: string[] | null
   metadata?: Record<string, unknown> | null
-  isPublic: boolean
+  /**
+   * 后端 `GET /api/skills` 的存储形态(`apps/api/src/routes/skills.ts` 的 `SkillRecord`)
+   * **不产出**这个字段,全目录也没有任何读取点(仅本声明)。此前写成必填是视图模型的一桩
+   * 虚构:它让 `fetchSkills` 无法直接返回 api-client 出口的类型,只能靠端内 `api<T>()` 泛型
+   * 兜过去。改可选即与真实响应一致,且不改任何运行时值(原本就是 undefined)。
+   */
+  isPublic?: boolean
   createdAt: string
   updatedAt?: string | null
 }
