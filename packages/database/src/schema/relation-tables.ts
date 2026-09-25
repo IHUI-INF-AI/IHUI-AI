@@ -21,7 +21,9 @@ import {
   jsonb,
   index,
   unique,
+  uuid,
 } from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 // ===========================================================================
 // 1. Exam 考试关系表（等价自 exam_ext_models.py）
@@ -63,6 +65,11 @@ export const examSignUp = pgTable(
     id: serial('id').primaryKey(),
     memberId: integer('member_id').notNull(),
     examId: integer('exam_id').notNull(),
+    // 归属列(2026-09-25,C 方案):users.id 的 uuid,服务端按 request.userId 写入。
+    // 可空是设计前提 —— 历史行没有可信映射可回填(按手机号/姓名回填 = 制造假归属,禁止)。
+    // NULL 行归属未知 ≠ 归属成立,授权判据只认 eq(userId, request.userId),
+    // 永远不得写成 `IS NULL OR =` 一并放行;存量 NULL 行只走管理员显式 memberId 路径。
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
     status: varchar('status', { length: 50 }).notNull(),
     completedTime: timestamp('completed_time', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -72,6 +79,7 @@ export const examSignUp = pgTable(
     memberIdx: index('idx_esu_member').on(t.memberId),
     examIdx: index('idx_esu_exam').on(t.examId),
     statusIdx: index('idx_esu_status').on(t.status),
+    userIdx: index('idx_esu_user').on(t.userId),
   }),
 )
 
