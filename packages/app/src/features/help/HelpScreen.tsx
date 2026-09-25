@@ -7,6 +7,7 @@ import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { HelpListItem, HelpScreenProps } from '../../types'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 帮助列表共享屏 — props 注入式跨端组件 */
 export type { HelpListItem, HelpScreenProps }
@@ -29,9 +30,7 @@ export function HelpScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('help.title')}</Text>
       </View>
 
@@ -84,7 +83,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 12,
       gap: 12,
     },
-    backText: { fontSize: 16, color: tk.text.medium },
     title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     errorBar: { paddingHorizontal: 10, paddingVertical: 8 },
     errorText: { fontSize: 14, color: tk.danger.DEFAULT },

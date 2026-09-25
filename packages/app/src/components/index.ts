@@ -8,6 +8,9 @@ export type { SectionHeaderProps } from './SectionHeader'
 export { MoreLink } from './MoreLink'
 export type { MoreLinkProps } from './MoreLink'
 
+export { BackChevron } from './BackChevron'
+export type { BackChevronProps } from './BackChevron'
+
 export { ColorfulLoader } from './ColorfulLoader'
 export type { ColorfulLoaderProps } from './ColorfulLoader'
 
