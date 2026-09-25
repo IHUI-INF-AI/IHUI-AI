@@ -10269,3 +10269,37 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   **从"今天确实没样式"变成"有样式"**,而 `app-origin.wxss` 里那 486 条手写 arbitrary-value 补偿规则
   是为其中一部分顶上的 —— 接通后是否重复、以谁为准,只能逐页看渲染。
   这不是"再改一行配置"的半径,所以我停在这里把数和门都交出来,而不是按下按钮。
+### 第八批·续:三条待拍板项已由用户 2026-09-25 授权("我同意 去做吧"),口径钉死如下
+
+- **D-1 自家服务的回环放行 = 按"配置来源"判,不按主机名判**(解在飞的 8 处出站票卡点)。
+  根因:守卫按 CIDR 拒回环是对的,但 CLI 的 `memory.ts`(默认 `http://localhost:8803`)与 MCP 本地 server
+  **结构上就必须打回环** —— 一律放行等于给模型开的洞,一律拒等于把自家功能打死。
+  钉死口径:**允许放行的只有"用户在 settings/env 里写死的端点"这一类来源**,由调用方显式声明
+  `trust: 'host-config'` 且把该 URL 与配置值做**逐字比对**(不是"是 localhost 就放")。
+  模型可控参数里出现的 URL 一律走默认档(fail-closed)。实现出口仍是
+  `packages/shared/src/utils/ssrf-guard.ts` 单源,**禁止端内自拼第二份判据**。
+- **D-2 DNS 重绑定 TOCTOU 要钉连接,但只在已接守卫的出站面上做**,不做全局 monkey-patch。
+  理由:改全局 dispatcher 会波及 web/api/desktop 全部 fetch,而本仓没有任何一道门看得到产物级行为;
+  先给"已经过守卫的调用点"配上 `connector` 把连接钉到已解析 IP,窗口内 DNS 记录被改就不可能生效。
+  交付必须含一条**A/B 证明**:同一 host 在解析后篡改记录(用 hosts 替身或 mock resolver),钉住的连接必须仍连原 IP。
+- **D-3 子代理 `bypassPermissions` 只认"显式参数 + 可指认原因",且必须继承后再收紧**。
+  落地形状(代理已给出,主会话认可):`SubagentParentOptions` / `SetupAgentToolsOptions.subagentParent`
+  各加 `permissionMode?` / `permissions?`,派生前经 `resolveInheritedPermission(parent)` 取
+  "父档 ∧ persona 要求档"的**更严一侧**;拒绝时回 `{path, expected, got}`;
+  逃生舱 `IHUI_SUBAGENT_BYPASS_PERMISSION_INHERITANCE=1` 未设即 fail-closed。
+  落地后守门 119 的 P2 存量 7 处自动归零,**不得为消红去改 119 的判据**。
+- 三条共同的验收底线:每票都要有变异对照(把修复改回去必红)、不得造恒红门、
+  行为变更要量化既有测试的红点清单交主会话,不得自己削守卫或调基线额度。
+### 第八批·交接:三件待执行(主会话上下文耗尽,不得当作已完成)
+
+- **H-1 A36 第②步:用影子数据修 `parameters` 描述**。现状(实测):`apps/cli/src/tools/argument-validator.ts` 的校验器已装车但**默认 off**,`shadow` 档只记账不改行为(守门 115 钉住"默认必须是 off")。
+  执行序不得颠倒:①以 `IHUI_TOOL_ARG_VALIDATION=shadow` 跑真实会话累计偏差样本;②按 `{字段路径,期望,实得}` 逐条修 `parameters` 描述/枚举;③**只有②收敛后**才讨论默认 enforce。
+  禁止动作:为过门把默认档改 enforce(那些描述从未被执行过、准确度未知,直接拒绝=运行时版恒红事故)。
+- **H-2 `fetch_url` 之外 8 处出站点接守卫**。已实测在案:`mcp-runtime.ts`(4 处直接 + 1 处经 `serverFetch` 间接)、`web-search.ts`、`github-pr.ts`、`mcp-oauth.ts`、`memory.ts`(2 helper)、`memory/index.ts`。
+  放行口径已在 D-1 钉死(只放"用户 settings/env 写死的端点",逐字比对配置值;模型可控 URL 一律 fail-closed)。
+  每处必须带真链路证据(裸请求命中计数=1 → 接入后目标端口命中数=0),**禁止桩掉守卫让测试变绿**。
+- **H-3 74 道散写门的取材层迁移**。**本轮已被并发会话推进过头**(其 `1a4e3a9ad6a` 收了门 36/124 并顺带修了门 118 那条比 runner 更严的断言),而本会话派的迁移票至今未交回 —— 所以**剩余差集未知,必须先重测**:跑 `node scripts/check-gate-face-discipline.mjs` 读末行现值(立项 24 走层 / 74 散写 / 32 判不了;本会话末次实测已到 32 走层)。
+  迁移纪律:同瞬间 A/B(比对旧基线测的是仓库速度)、判仓库内容者才迁、判机器态者不迁、每道门加"索引面与磁盘面不同⇒跟索引走"的构造面证明。
+- **H-4 待用户明确改不改(非拍板不可动)**:非交互默认档 `yolo`(`apps/cli/src/index.ts:1687-1707` 一带)。改它会直接改变无人值守作业的行为;量化材料与翻转后果已由 119 票交回,决策权在人。
+- **H-5 `ToolResultBudgetContract` 零消费者**:唯一合理消费点在 `apps/cli/src/tools/index.ts` 的 executor 边界(该文件本轮刚被超时票改过),先接线再谈判据;摘除会砸坏守门 111 的 CONTRACT_GROUPS(§7 有承接功能不得删)。
+- 本会话已入库并推到 origin 的部分(不是本交接项):门 113 基线清零、门 118-123 六道新门接线+登记+手跑入口、共享 SSRF 守卫 + `fetch_url` 接入与夹具翻转、子代理权限继承(P2 7→0)、工具执行预算(S1e 取消链)、`pruneOldSessions` 接线、原子写与读后写校验、注册表回补工具(当场补回被抹的门 124/125)。
