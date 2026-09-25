@@ -1116,6 +1116,78 @@ export function readAlphaRegistry(face) {
 }
 
 /** R6 全流程:取面 → 抽用量 → 对账。返回 failures 数组 + 计数,供 cli 与自检共用。 */
+/**
+ * R7:v3 端「裸 rpx 长度」被解析成颜色属性。
+ * 实测(v3.4.19 + 端内 preset,隔离夹具):`text-[28rpx]` → `color: 28rpx`、
+ * `border-[2rpx]` → `border-color: 2rpx`;而 `text-[13px]` / `border-[2px]` 本就正确落
+ * font-size / border-width。**决定对错的是单位不是前缀** —— 只有 rpx 这一族坏,
+ * 因为 v3 的类型推断认得 px/rem/em、不认 rpx。故本判据只拦 rpx,不得扩到 px。
+ */
+export function extractBareRpxLengths(masked, original) {
+  const hits = []
+  let undetermined = 0
+  const re = /\b(text|border)-\[(\d+(?:\.\d+)?)rpx\]/g
+  for (const m of masked.matchAll(re)) {
+    const at = m.index
+    const col = masked.slice(0, at).split('\n').pop().length
+    const line = masked.split('\n')[masked.slice(0, at).split('\n').length - 1]
+    const ln = masked.slice(0, at).split('\n').length
+    hits.push({ fam: m[1], value: `${m[2]}rpx`, key: `${m[1]}-[${m[2]}rpx]`, ln, col, line: line.trim().slice(0, 120) })
+  }
+  // 括号里带插值的任意值(如 `text-[${size}rpx]`)结构上判不出单位,只报数不判红。
+  // 刻意只认"方括号内部含 ${"这一形态 —— 早先用"全文任意插值"计数会报出上千处,
+  // 那个数字与判据无关,只会让报告里的"判不出"看起来像一批待办。
+  const dyn = original.match(/\b(?:text|border)-\[[^\]]*\$\{[^\]]*\]/g) || []
+  undetermined += dyn.length
+  return { hits, undetermined }
+}
+
+export async function runR7({ face, quiet }) {
+  const corpus = collectAlphaCorpus({ face })
+  const scanOne = (getKey) => {
+    const list = []
+    let und = 0
+    for (const { rel, head, eff } of corpus) {
+      const isCss = /\.(css|scss)$/.test(rel)
+      const src = getKey === 'eff' ? eff : head
+      if (src === undefined) continue
+      const { hits, undetermined } = extractBareRpxLengths(maskComments(src, isCss), src)
+      und += undetermined
+      for (const h of hits) list.push({ ...h, rel })
+    }
+    return { hits: list, undetermined: und }
+  }
+  const sEff = scanOne('eff')
+  const sHead = face === 'staged' ? scanOne('head') : null
+  const headKeys = sHead ? new Set(sHead.hits.map((h) => `${h.rel} ${h.key}`)) : null
+
+  const fresh = headKeys ? sEff.hits.filter((h) => !headKeys.has(`${h.rel} ${h.key}`)) : sEff.hits
+
+  const failures = []
+  for (const h of fresh.slice(0, 12))
+    failures.push({
+      tag: `R7 裸 rpx 长度 ${h.key}`,
+      detail: `${h.rel}:${h.ln} —— v3 不认 rpx 单位,会把它解析成**颜色属性**` +
+        `(\`${h.key}\` → ${h.fam === 'text' ? 'color' : 'border-color'}: ${h.value}),整条声明无效。` +
+        `改法:加显式类型前缀 \`${h.fam}-[length:${h.value}]\`。`,
+    })
+  if (fresh.length > 12) failures.push({ tag: 'R7 裸 rpx 长度', detail: `…另有 ${fresh.length - 12} 处` })
+
+  const counts = {
+    files: corpus.length,
+    checked: sEff.hits.length,
+    fresh: fresh.length,
+    undetermined: sEff.undetermined,
+  }
+  if (!quiet)
+    console.log(
+      `  · R7:${counts.files} 文件里抽到 ${counts.checked} 处裸 rpx 长度` +
+        `(本次新引入 ${counts.fresh}${face === 'staged' ? ',HEAD 存量不计=棘轮' : ''}),` +
+        `判不出形态 ${counts.undetermined} 处(不判红),口径 ${face}`,
+    )
+  return { failures, counts }
+}
+
 export async function runR6({ face, quiet }) {
   const reg = readAlphaRegistry(face)
   const plugin = await loadAlphaPlugin()
@@ -1385,13 +1457,18 @@ async function cli() {
   const r6 = await runR6({ face: stagedMode ? 'staged' : 'head', quiet })
   failures.push(...r6.failures)
 
+  // ── R7:v3 端裸 rpx 长度被解析成颜色属性(AGENTS §4 那条 rpx 规则的唯一判据) ──
+  const r7 = await runR7({ face: stagedMode ? 'staged' : 'head', quiet })
+  failures.push(...r7.failures)
+
   if (failures.length === 0) {
     if (!quiet)
       console.log(
         `[check-cross-end-tokens] ✅ ${checked} 条映射逐位同值 + R4 基础档按名推导 ${base.checked} 条同值` +
           `(已登记分歧 ${Object.keys(BASE_CONFLICTS).length} 条) + R5 端内两表 ${intra.length === 0 ? '同值' : '分叉'} + ` +
           `品牌键全部已声明(${[...allowedKeys].join('/')}) + 无悬空 brand 引用 + ` +
-          `R6 alpha 用量 ${r6.counts.checked} 处全部已登记且真产出(${r6.counts.files} 文件,口径 ${stagedMode ? '索引⊕HEAD' : 'HEAD'})`,
+          `R6 alpha 用量 ${r6.counts.checked} 处全部已登记且真产出(${r6.counts.files} 文件,口径 ${stagedMode ? '索引⊕HEAD' : 'HEAD'}) + ` +
+          `R7 裸 rpx 长度 ${r7.counts.checked} 处(已全部改为 [length:] 形态)`,
       )
     process.exit(0)
   }
@@ -1719,6 +1796,7 @@ async function selfTest() {
   if (!ghostOk || !normalOk || !shapeOk || !negOk) fail++
 
   const r6 = await selfTestR6()
+  const r7 = selfTestR7()
   const totalCases =
     cases.length +
     refCases.length +
@@ -1727,14 +1805,63 @@ async function selfTest() {
     r5Cases.length +
     3 +
     4 +
-    r6.cases
+    r6.cases +
+    r7.cases
   if (r4Fail + r5Fail > 0) fail += r4Fail + r5Fail
-  fail += r6.fail
+  fail += r6.fail + r7.fail
   console.log(fail ? `❌ self-test 失败 ${fail} 例` : `✅ self-test 全通过(${totalCases} 例)`)
   return fail ? 1 : 0
 }
 
 // ─── R6 自检:成对正反例(表里缺项必红 / 在用必绿 / 无人用必红 / 动态只报数) ───
+/**
+ * R7 自检。形状判据只能用**纯函数 + 构造面**证明(把样本写进真仓文件做变异,
+ * 会让断言自指且随时被别人的提交改掉),故这里全部走 extractBareRpxLengths 纯函数;
+ * 真仓那一侧只留一条"改完应为 0"的不变量,并由上面第 1/3/9 例作阳性对照 ——
+ * 没有那三例,"0 处"就只是探针没响。
+ */
+function selfTestR7() {
+  let fail = 0
+  const cases = []
+  const t = (name, src, want, isCss = false) => {
+    const { hits } = extractBareRpxLengths(maskComments(src, isCss), src)
+    const got = hits.map((h) => h.key).sort()
+    const ok = JSON.stringify(got) === JSON.stringify([...want].sort())
+    cases.push(name)
+    if (!ok) {
+      fail++
+      console.log(`❌ R7 ${name}: 期望 [${want.join(', ')}] 实得 [${got.join(', ')}]`)
+    }
+  }
+
+  // 阳性对照:这三例若探针不响,后面那条"真仓 0 处"毫无意义
+  t('裸 rpx text 必命中', 'className="text-[28rpx]"', ['text-[28rpx]'])
+  t('裸 rpx border 必命中', 'className="border-[2rpx]"', ['border-[2rpx]'])
+  t('小数 rpx 必命中', 'style="text-[1.5rpx]"', ['text-[1.5rpx]'])
+  // 单位决定对错:px/rem/em 在 v3 下本就落对属性,绝不该报
+  t('px 不命中', 'className="text-[13px]"', [])
+  t('border px 不命中', 'className="border-[2px]"', [])
+  t('rem 不命中', 'className="text-[1.25rem]"', [])
+  // 修复形态与颜色形态不得被误伤
+  t('已带 length: 不命中', 'className="text-[length:28rpx]"', [])
+  t('已带 color: 不命中', 'className="text-[color:var(--x)]"', [])
+  t('var 颜色不命中', 'className="text-[var(--color-card)]"', [])
+  // 注释里的样本不算用量(上一轮 bg-muted/40 就是被注释喂出来的假阳)
+  t('JS 注释不命中', '// className="text-[28rpx]"\nconst a = 1', [])
+  t('CSS 注释不命中', '/* text-[28rpx] */\n.x{color:red}', [], true)
+  // 行号要能定位到真实行,否则报错文案不可用
+  {
+    const src = 'const a = 1\nconst b = 2\nclassName="text-[30rpx]"'
+    const { hits } = extractBareRpxLengths(maskComments(src), src)
+    cases.push('行号定位')
+    if (hits.length !== 1 || hits[0].ln !== 3) {
+      fail++
+      console.log(`❌ R7 行号定位: 期望第 3 行,实得 ${hits[0] ? hits[0].ln : '无命中'}`)
+    }
+  }
+  return { fail, cases: cases.length }
+}
+
 async function selfTestR6() {
   const plugin = await loadAlphaPlugin()
   const fxColors = {

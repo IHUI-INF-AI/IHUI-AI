@@ -97,7 +97,7 @@ export default function TeacherList() {
                   />
                 ) : (
                   <View className="w-[120rpx] h-[120rpx] rounded-full bg-muted flex-shrink-0 flex items-center justify-center">
-                    <Text className="text-[44rpx] font-semibold text-muted-foreground">
+                    <Text className="text-[length:44rpx] font-semibold text-muted-foreground">
                       {item.name.slice(0, 1)}
                     </Text>
                   </View>
@@ -109,14 +109,14 @@ export default function TeacherList() {
                     </Text>
                     {item.title && (
                       <View className="flex-shrink min-w-0 bg-[var(--color-muted)] px-1.5 py-0.5 rounded">
-                        <Text className="text-[22rpx] text-muted-foreground line-clamp-1">
+                        <Text className="text-[length:22rpx] text-muted-foreground line-clamp-1">
                           {item.title}
                         </Text>
                       </View>
                     )}
                   </View>
                   {item.intro ? (
-                    <Text className="block text-[26rpx] leading-[36rpx] text-muted-foreground mt-1 line-clamp-2">
+                    <Text className="block text-[length:26rpx] leading-[36rpx] text-muted-foreground mt-1 line-clamp-2">
                       {item.intro}
                     </Text>
                   ) : null}

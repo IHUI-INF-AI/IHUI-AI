@@ -82,7 +82,7 @@ export default function RecruitmentIndexPage() {
     return (
       <ThemeRoot>
         <View className="min-h-[100vh] bg-background pb-[140rpx]">
-          <View className="text-center text-muted-foreground py-[120rpx] text-[28rpx]">
+          <View className="text-center text-muted-foreground py-[120rpx] text-[length:28rpx]">
             <Text>{t('common.loading')}</Text>
           </View>
         </View>
@@ -94,7 +94,7 @@ export default function RecruitmentIndexPage() {
     return (
       <ThemeRoot>
         <View className="min-h-[100vh] bg-background pb-[140rpx]">
-          <View className="text-center text-muted-foreground py-[120rpx] text-[28rpx]">
+          <View className="text-center text-muted-foreground py-[120rpx] text-[length:28rpx]">
             <Text>{t('recruitment.empty')}</Text>
           </View>
         </View>
@@ -116,17 +116,17 @@ export default function RecruitmentIndexPage() {
             />
           ) : null}
           <View className="relative z-[1] px-[30rpx] py-[80rpx] flex flex-col items-center">
-            <Text className="text-[32rpx] font-bold text-[var(--color-surface-light)] text-center">
+            <Text className="text-[length:32rpx] font-bold text-[var(--color-surface-light)] text-center">
               {info.title || t('recruitment.defaultTitle')}
             </Text>
-            <Text className="mt-[16rpx] text-[26rpx] text-[var(--color-scrim-foreground)] text-center">
+            <Text className="mt-[16rpx] text-[length:26rpx] text-[var(--color-scrim-foreground)] text-center">
               {t('recruitment.subtitle')}
             </Text>
           </View>
         </View>
 
         <View className="mx-[20rpx] p-[24rpx] bg-card rounded-2xl">
-          <Text className="text-[32rpx] font-semibold text-foreground block mb-[20rpx]">
+          <Text className="text-[length:32rpx] font-semibold text-foreground block mb-[20rpx]">
             {t('recruitment.requirements')}
           </Text>
           <View className="flex flex-col">
@@ -134,8 +134,8 @@ export default function RecruitmentIndexPage() {
               <View key={item.id} className="flex items-start py-[16rpx]">
                 <View className="w-[12rpx] h-[12rpx] [border-radius:6rpx] bg-primary mt-[12rpx] mr-[16rpx] shrink-0" />
                 <View className="flex-1 flex flex-col">
-                  <Text className="text-[28rpx] font-medium text-foreground">{item.title}</Text>
-                  <Text className="mt-[8rpx] text-[24rpx] text-muted-foreground leading-[1.5]">
+                  <Text className="text-[length:28rpx] font-medium text-foreground">{item.title}</Text>
+                  <Text className="mt-[8rpx] text-[length:24rpx] text-muted-foreground leading-[1.5]">
                     {item.desc}
                   </Text>
                 </View>
@@ -145,7 +145,7 @@ export default function RecruitmentIndexPage() {
         </View>
 
         <View className="mx-[20rpx] p-[24rpx] bg-card rounded-2xl">
-          <Text className="text-[32rpx] font-semibold text-foreground block mb-[20rpx]">
+          <Text className="text-[length:32rpx] font-semibold text-foreground block mb-[20rpx]">
             {t('recruitment.privileges')}
           </Text>
           <View className="flex flex-wrap">
@@ -158,10 +158,10 @@ export default function RecruitmentIndexPage() {
                     <LineIcon name="star-fill" size={32} color="var(--color-warning)" />
                   </View>
                 )}
-                <Text className="mt-[12rpx] text-[26rpx] text-foreground text-center">
+                <Text className="mt-[12rpx] text-[length:26rpx] text-foreground text-center">
                   {item.title}
                 </Text>
-                <Text className="mt-[6rpx] text-[22rpx] text-muted-foreground text-center">
+                <Text className="mt-[6rpx] text-[length:22rpx] text-muted-foreground text-center">
                   {item.desc}
                 </Text>
               </View>
@@ -170,25 +170,25 @@ export default function RecruitmentIndexPage() {
         </View>
 
         <View className="mx-[20rpx] p-[24rpx] bg-card rounded-2xl">
-          <Text className="text-[32rpx] font-semibold text-foreground block mb-[20rpx]">
+          <Text className="text-[length:32rpx] font-semibold text-foreground block mb-[20rpx]">
             {t('recruitment.incomeEstimate')}
           </Text>
           <View className="flex flex-col">
             {info.incomeEstimates.map((item, idx) => (
               <View key={item.level} className={`py-[20rpx]${idx > 0 ? ' mt-[16rpx]' : ''}`}>
-                <Text className="text-[28rpx] font-semibold text-primary">{item.level}</Text>
+                <Text className="text-[length:28rpx] font-semibold text-primary">{item.level}</Text>
                 <View className="mt-[12rpx] flex flex-col">
                   <View className="flex justify-between items-center py-[8rpx]">
-                    <Text className="text-[26rpx] text-muted-foreground">
+                    <Text className="text-[length:26rpx] text-muted-foreground">
                       {t('recruitment.monthlyIncome')}
                     </Text>
-                    <Text className="text-[28rpx] font-semibold text-warning">{item.monthly}</Text>
+                    <Text className="text-[length:28rpx] font-semibold text-warning">{item.monthly}</Text>
                   </View>
                   <View className="flex justify-between items-center py-[8rpx]">
-                    <Text className="text-[26rpx] text-muted-foreground">
+                    <Text className="text-[length:26rpx] text-muted-foreground">
                       {t('recruitment.yearlyIncome')}
                     </Text>
-                    <Text className="text-[28rpx] font-semibold text-warning">{item.yearly}</Text>
+                    <Text className="text-[length:28rpx] font-semibold text-warning">{item.yearly}</Text>
                   </View>
                 </View>
               </View>
@@ -200,7 +200,7 @@ export default function RecruitmentIndexPage() {
             bg danger.bright, 文字 17dp=34rpx bold color surface.light */}
         <View className="fixed bottom-0 left-0 w-full px-[30rpx] py-[20rpx] box-border bg-card [box-shadow:0_-2rpx_12rpx_var(--color-black-6)] flex justify-center">
           <View
-            className={`w-[250rpx] h-[84rpx] bg-[var(--color-danger-bright)] text-[var(--color-surface-light)] text-[34rpx] font-bold rounded-lg flex items-center justify-center${submitting ? ' opacity-60' : ''}`}
+            className={`w-[250rpx] h-[84rpx] bg-[var(--color-danger-bright)] text-[var(--color-surface-light)] text-[length:34rpx] font-bold rounded-lg flex items-center justify-center${submitting ? ' opacity-60' : ''}`}
             onClick={onApply}
             hoverClass="opacity-60"
           >
