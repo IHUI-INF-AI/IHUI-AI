@@ -8579,3 +8579,20 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   - **文档同步**:AGENTS §4 那句"该脚本是端内脚本,根 `scripts/` 下没有同名文件,`node scripts/sync-design-tokens.mjs` 会报模块找不到"就地更正为新路径并**保留旧结论为历史**(那条断言曾经是真实的,删掉会让下一个人以为文档在说谎);README 守门表里两行 36 条目同批改指(该表存在两行**重复**的 36 条目,是并发生活文档的现场,不属本票范围、未合并);`apps/miniapp-taro/tailwind.config.ts` 与 `scripts/check-design-tokens-sync.mjs` 的头注各一处旧路径同笔更正。**生成物内的横幅字符串与 `[sync-design-tokens]` 日志前缀刻意没改** —— 那三处横幅已写进已入库的 `app.css` / `style.ts`,改模板等于为一行注释重写跨端受管文件;要收这笔账应与下一次真的改写受管块同笔入账(理由记在生成器头注)。
   - **本票留下的可复用结论**:"改判据方向 vs 挪代码位置"这两类出路,判据要能自己说清**为什么这一型只能挪位置**。门 103 拦下的这 5 条红没有一条是"谁写错了",全部是**摆位与既有分层声明不相容** —— 这类红的正确出路是把代码搬进它能合法依赖的那一层,而不是给表加一条例外(例外一旦落地,后续所有同型穿透都不再有人看见)。
 - **门 103 拦下我自己引入的反向依赖,按方向修正而非改表(2026-09-25)**:让端内生成器 import `scripts/lib/design-token-blocks.mjs` 触发 D1/D2 —— 全仓 `repo-tooling → apps/*` 有 12 条合法边,反向只有我新开的这一条,而策略表注释明写"不得为消红改 requires"。正解是把取源实现**下沉到 `packages/design-tokens/src/token-blocks.js`**(两个方向都变向下依赖),`scripts/lib/design-token-blocks.mjs` 退化为向下再导出的兼容层(既有 importer 一行不改)。落地时又连踩两次真实解析问题并都已修:根工具层解析不到 workspace 包名(根 `node_modules` 未链该包)⇒ 根与端都改用相对路径向下指;镜像测试的演练仓没有 `node_modules`,包名解析必失败 ⇒ 夹具补拷 `token-blocks.js`,并把"夹具跑不通绝不能被读成判据通过"写进注释。复验:门 103 exit 0(D1/D2 消失、无深导入红)、门 36 三面 exit 0、门 93 两档 0、三份镜像测试共 44 例全绿。
+
+### O62 附⑤:miniapp 实际跑的是 Tailwind **v4** —— 本票两处结论据此重钉(2026-09-25)
+
+- [x] ✅(2026-09-25) **承重事实:小程序构建里的 Tailwind 是 v4.3.3,不是端内 package.json 声明的 v3.4.17。** 三条独立证据:① 产物 base 层带 v4 指纹 —— `border:0 solid` 合并写法、`--tw-gradient-position`、`--tw-blur/brightness/contrast`,且**没有** v3 独有的 `--tw-bg-opacity` 族;② `weapp-tailwindcss@5.2.9` 的 dist 里引用的是 **`@tailwindcss/postcss`** 与 `@tailwindcss/vite`(不是 `tailwindcss` 本身),而 `@tailwindcss+postcss@4.3.3` 确在依赖图内;③ `tailwindcss@4.3.3` 的 main 导出**拒绝被当 PostCSS 插件用**(报错原文要求改装 `@tailwindcss/postcss`),所以能挂进 postcss 链的只可能是 v4 那个入口。
+  **我上一轮否掉过这条,且否错了**:当时我用 `createRequire(weapp-tw realpath).resolve('tailwindcss/package.json')` 得到 `MODULE_NOT_FOUND`,就判定"v4 说法不成立"。**探针查的是错的包名** —— 真实依赖是 `@tailwindcss/postcss`,不是 `tailwindcss`。⇒ 形状同第②次自伤:一个查错标识符的探针,产出了一个自信的假阴性。
+- [x] ✅(2026-09-25) **但本票那 1,341 处 `[length:]` 改写与 R7 判据**不因此作废 —— 因为 **v3 与 v4 在这个 bug 上行为完全一致**。用 `@tailwindcss/postcss@4.3.3` + 真实源码扫出的 2,362 个 class token 直接实测逐字展开:
+  `.text-[28rpx] → color: 28rpx`(坏)· `.border-[2rpx] → border-color: 2rpx`(坏)· `.border-t-[1rpx] → border-top-color: 1rpx`(坏)· `.ring-[6rpx] → --tw-ring-color: 6rpx`(坏)· `.outline-[2rpx] → outline-color: 2rpx`(坏)· `.text-[13px] → font-size: 13px`(本就对)· `.text-[length:28rpx] → font-size: 28rpx`(修复形态有效)
+  ⇒ **"决定对错的是单位不是前缀"这个结论在真正跑的那个版本上成立**,改写的依据从"错版本的巧合正确"升级为"对版本实测正确"。
+- [x] ✅(2026-09-25) **体积阻塞项重钉:方向对、数字要换。** 三个数各自留证:
+  · 主包(两次独立干净构建逐字节复现)= **2,058,651 B**,上限 2,097,152 B ⇒ **余量 38,501 B**
+  · utilities 到端的净增(v4 + 真实源码 2,362 token ⇒ 769 条 utility 规则,minify 后)= **38,183 B**
+  · ⇒ **开完只剩 318 B**
+  对照另两个数:本票附③的 42,392 B 是 **v3 CLI 代理**,偏高约 11%;上一轮报的"+19,846 B、还剩 18.6 KB 余量"是**离群值**(其产物随 worktree 删除、不可复核,且其构建的 content 扫描面很可能不完整)⇒ **不予采信**。
+  ⇒ 结论回到附③的方向但换成可辩护的数:**utilities 到端会把主包顶到距 2 MiB 上限约 0.3 KB 处**,任何后续新增都必然破限。这不是"不能开",是"开之前必须先腾量"。
+- **腾量候选(已量字节,均不在本票动)**:① 孤儿 tabbar 图标 `community`/`square` ×2 态 = **26,522 B**(仅被不产出的 `custom-tab-bar` 引用;须同步 `gen:tabbar-icons` 防判据回潮);② `static/images/record_back.png` **36,542 B** 可下沉/复制进 `pkg-ai`+`pages/study` 两分包;③ `app-origin.wxss` 内**手写 arbitrary-value 补偿规则 486 条 / 24,069 B** —— 这一条最特殊:它是"utilities 不产出"期间**为补偿而手写的**,一旦到端就与 utilities 同源重复,**删它既是腾量也是去重**;④ 最大杠杆在 `common.js` 1,109,611 B(内含约 424 KB base64 i18n 离线包)按语言拆分懒载 —— 架构级,不是一票。
+- **本票留下的、判据面需要一次跟进的地方(如实登记,不含结论)**:R6 把 `apps/miniapp-taro/src` 当 **v3 消费端**扫,前提是"miniapp 的 /alpha 靠这个插件"。上面已证 miniapp 实跑 v4,而 **v4 对 `/alpha` 的支持路径与 v3 插件不同**(v4 走 `color-mix`)。我试图实测"v4 在加载项目 theme 后是否原生产出 `bg-primary/10`",**探针在 `@theme` 未注入的情况下两侧都产出 0 条 ⇒ 判不出,不作结论**。这条跟进的正确做法是带着 `packages/design-tokens` 的真 theme 复跑一次;若 v4 原生支持成立,则 R6 对 miniapp 那一侧的"必须登记进 ALPHA_USAGE"会是**假要求**(它会把 v4 本可原生工作的写法判红)。插件对 **mobile-rn(NativeWind v3)** 的必要性不受影响。
+- **另:上一轮子代理报的"alpha 插件被 v4 校验器拒收导致构建失败"不予采信** —— 它自己留的构建日志里报错是 `mini-css-extract-plugin: Conflicting order`(webpack CSS chunk 排序),与插件无关,且**没有一个日志文件提到 "alpha"**。该说法无日志支持。
