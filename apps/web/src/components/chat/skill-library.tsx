@@ -7,21 +7,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import {
-  Bot,
-  Code,
-  ExternalLink,
-  FileText,
-  Globe,
-  Loader2,
-  Newspaper,
-  Pencil,
-  Plus,
-  Sparkles,
-  Trash2,
-  Wand2,
-  X,
-} from 'lucide-react'
+import { ArrowRight, Bot, Code, ExternalLink, FileText, Globe, Loader2, Newspaper, Pencil, Plus, Sparkles, Trash2, Wand2, X } from 'lucide-react'
 import { CloseButton, SearchInput } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
@@ -373,7 +359,7 @@ export function SkillLibrary({ onSelect, onClose, onSendToChat }: SkillLibraryPr
             className="ml-0.5 inline-flex items-center gap-0.5 rounded-sm px-1 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
           >
             {t('viewAll')}
-            <span aria-hidden>→</span>
+            <ArrowRight className="h-3 w-3" aria-hidden />
           </Link>
         </div>
         {isAuthenticated && (
