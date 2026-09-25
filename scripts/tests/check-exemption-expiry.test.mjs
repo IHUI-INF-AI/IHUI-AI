@@ -338,4 +338,40 @@ test('T20 自豁免不得吃掉别的文件里的过期豁免(临时仓双向对
     rmScratch(dir)
   }
 })
+
+test('T21 工具面(scripts/**)只影响记账面,且两侧都有牙 —— 纯函数 + 构造面', () => {
+  const re = gate.TOOL_FACE_RE
+  assert.ok(re instanceof RegExp, '__test__ 必须导出 TOOL_FACE_RE')
+  assert.ok(re.source.startsWith('^'), '工具面必须锚定路径行首:写成 /scripts\\// 会把别的面吞掉')
+  const LINE = '// radius-exempt: 头像要纯圆'
+  const EXPIRED_LINE = '// radius-exempt: 头像要纯圆 until 2020-01-01'
+  const tool = gate.scanFile('scripts/check-some-gate.mjs', LINE).entries
+  const app = gate.scanFile('apps/web/src/x.ts', LINE).entries
+  assert.equal(tool.length, 1)
+  assert.equal(tool[0].toolFace, true)
+  assert.equal(app[0].toolFace, false, 'apps/ 一侧不得被吞(吞了 = 本门对全部业务代码失明)')
+  // 无日期账:工具面不进账,记账面照进 —— 观测侧与 HEAD 锚点侧共用 undatedCountsOf,对称
+  assert.deepEqual(gate.undatedCountsOf(tool), {})
+  assert.deepEqual(gate.undatedCountsOf(app), { 'apps/web/src/x.ts::radius-exempt': 1 })
+  const base = { grandfatherUntil: '2099-01-01', undatedCounts: {} }
+  const run = (entries) =>
+    gate.analyze({ entries, suppressionsByFile: {}, baseline: base, today: TODAY, headCounts: {} })
+  assert.equal(run(tool).red.length, 0, '工具面新增无日期豁免不得判红(否则新门无法登记)')
+  assert.equal(run(app).red[0]?.code, 'E1', '记账面同一行文字必须照红(与上一格成对)')
+  assert.equal(run(gate.scanFile('scripts/g.mjs', EXPIRED_LINE).entries).red.length, 0)
+  assert.equal(run(gate.scanFile('apps/a.ts', EXPIRED_LINE).entries).red[0]?.code, 'E2')
+  assert.equal(run(tool).totals.toolFace, 1, '工具面条数必须如实报出,不得静默并账')
+  assert.equal(run(tool).totals.undated, 0)
+})
+
+test('T22 基线里不得再有工具面键(存量债必须是真豁免,prose 不是)', () => {
+  const b = gate.loadBaseline(REPO)
+  const keys = Object.keys(b.undatedCounts || {})
+  const tool = keys.filter((k) => gate.TOOL_FACE_RE.test(k.split('::')[0]))
+  assert.deepEqual(
+    tool,
+    [],
+    `基线含 ${tool.length} 个工具面键(跑 --update-baseline 下调):${tool.slice(0, 5).join(', ')}`,
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

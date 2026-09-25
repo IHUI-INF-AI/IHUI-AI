@@ -19,6 +19,12 @@
 //   E3 基线自身带到期日 grandfatherUntil → 过期仍有无日期存量时整门判红。这一条让"过期未
 //      销账**自己**变红",否则 E1 的棘轮就成了新的永久出口。
 //
+// 记账面只覆盖**被豁免的那一侧**:HEAD 面实测 372 条标记里有 125 条(34%)落在 `scripts/**`,
+// 那一面上的标记是"门在描述自己的出口"(正则定义 / 头注 / 自检夹具),不是一次正在生效的豁免。
+// 把它们入账的后果是 E1 在**任何新增一道带豁免出口的门**的那枚提交上必红(锚点 = 该文件 HEAD
+// 自身的 0,而门必须写出标记形状才能工作 ⇒ 没有合法出口),且 E3 的宽限期永远销不完。
+// 详见 TOOL_FACE_RE 注释与 G01–G03b 成对用例。
+//
 // 第二类账(规格 §7,只报数不判红):lint 抑制面 eslint-disable / @ts-ignore 计数。实测
 // 312 处 / 260 文件(md 除外),一次判红必然逼人绕钩子;它进同一本账走"只减不增"的可见性
 // 棘轮但**不计红**。规格明写"不得独立新建第二道同类门"。
@@ -75,6 +81,14 @@ const FAMILY_LIFETIME_DAYS = {
   'r5-cta-exempt': 60,
   'r3-cta-exempt': 60,
   'r7-nest-exempt': 60,
+  /**
+   * 守门 93 R8(手抄色值对账)的合法例外通道:某处确实要写死一个"源头已有"的色值时,
+   * 必须写 `handcopy-token-exempt: <原因>`。取 **60 天**,与同门的 `r5-cta-exempt` /
+   * `r7-nest-exempt` 同档 —— 它和那两条是同一类东西:**待偿的迁移债**(改调用点要跨包回归,
+   * 所以比 `glyph-arrow-exempt` 的 30 天长),而不是 `back-label-exempt` 那种"结构性定性"
+   * (那种取 365,短到期只会逼人删标记、删了又被原判据红,两道门互咬)。
+   */
+  'handcopy-token-exempt': 60,
   'rust-state-exempt': 60,
   'i18n-content-exempt-file': 180,
   /**
@@ -110,6 +124,19 @@ const PREFILTER_RE = '-exempt|ihui-allow-important|eslint-disable|@ts-(ignore|no
  * **只按文件身份豁免这两份**,不是"scripts/ 下都不算"。
  */
 const SELF_EXEMPT_RE = /^scripts[/\\](?:tests[/\\])?check-exemption-expiry(?:\.test)?\.mjs$/
+/**
+ * 「工具面」= 规则本身与它的镜像测试(`scripts/**`)。这一面上的标记字面量是**说明书、判据正则、
+ * 自检夹具**,不是一次正在豁免代码的声明 —— HEAD 面实测 372 条里有 **125 条(34%)** 落在这一面
+ * (门 103 的 7 条 arch-exempt、门 81 的 8 条 brand-mail、门 93 镜像测试里 4 条喂 R8 判据的字符串
+ * 夹具……逐条读明都是"门在描述自己"),把它们记进债务账的后果有两个:E1 会在**任何新增一道带豁免
+ * 出口的门**的那枚提交上判红(锚点是该文件 HEAD 自身的 0,而门必须写出标记形状才工作 ⇒ 没有合法
+ * 出口,只能绕钩子),E3 会让宽限期永远销不完( prose 不是待偿债务)。
+ *
+ * 与 `SELF_EXEMPT` 的分工:那条是"本门不得把**自己的夹具**判成已过期"(文件身份,两处),本条是
+ * "账只记**被豁免的那一侧**"(面,按路径形状)。两者方向不同且都不越界:本条**不**豁免 apps/ 与
+ * packages/ 里的任何一条,所以 G02/G03 成对用例钉的是"同一行文字换个路径就必须入账"。
+ */
+const TOOL_FACE_RE = /^scripts\//
 const SUPPRESS_KINDS = {
   'eslint-disable': /\beslint-disable(?:-next-line|-line|-unrestricted)?\b/g,
   'ts-ignore': /@ts-(?:ignore|nocheck)\b/g,
@@ -147,6 +174,7 @@ export function scanFile(rel, text) {
   const entries = []
   const suppressions = {}
   if (typeof text !== 'string' || text === '') return { entries, suppressions }
+  const toolFace = TOOL_FACE_RE.test(String(rel).replace(/\\/g, '/'))
   const seenFileScoped = new Set()
   for (const [i, line] of String(text).split(/\r?\n/).entries()) {
     if (!line) continue
@@ -176,6 +204,7 @@ export function scanFile(rel, text) {
         expiry,
         hasReason: reason.length > 0,
         fileScoped,
+        toolFace,
         lifetimeDays: FAMILY_LIFETIME_DAYS[family] ?? DEFAULT_LIFETIME_DAYS,
         registered: Object.prototype.hasOwnProperty.call(FAMILY_LIFETIME_DAYS, family),
       })
@@ -213,11 +242,13 @@ export function undatedKey(e) {
   return `${e.file}::${e.family}`
 }
 
-/** 一组账条目 → 每 (文件,族) 的无日期计数。E1 的观测面与 HEAD 锚点面共用它。 */
+/** 一组账条目 → 每 (文件,族) 的无日期计数。E1 的观测面与 HEAD 锚点面共用它。
+ *  工具面(`scripts/**`,见 TOOL_FACE_RE)不入账 —— 观测侧与锚点侧走同一个函数,所以这一条
+ *  改动对 E1 是**对称**的:不会出现在"锚点按新口径算、观测按旧口径算"的错位假红。 */
 export function undatedCountsOf(entries) {
   const out = {}
   for (const e of entries) {
-    if (e.expiry) continue
+    if (e.expiry || e.toolFace) continue
     const k = undatedKey(e)
     out[k] = (out[k] || 0) + 1
   }
@@ -250,8 +281,9 @@ export function analyze({ entries, suppressionsByFile, baseline, today, headCoun
   const soft = []
   const lifeOf = (f) => FAMILY_LIFETIME_DAYS[f] ?? DEFAULT_LIFETIME_DAYS
 
-  // ① 已过期:E2 **无条件红**,基线救不了它("临时豁免=借来的时间"与"永久出口"的分界)
-  const expired = entries.filter((e) => e.expiry && isPast(e.expiry, today))
+  // ① 已过期:E2 **无条件红**,基线救不了它("临时豁免=借来的时间"与"永久出口"的分界)。
+  //    工具面不判(G03b 与 G03a 成对:同一行带过期日期的文字,换到 apps/ 就必须红)。
+  const expired = entries.filter((e) => e.expiry && !e.toolFace && isPast(e.expiry, today))
   for (const e of expired) {
     const msg = `豁免已到期仍在生效:${e.family}@${e.file}:${e.line} 的到期日 ${e.expiry} < ${today}`
     red.push({ code: 'E2', file: e.file, line: e.line, family: e.family, msg })
@@ -328,11 +360,12 @@ export function analyze({ entries, suppressionsByFile, baseline, today, headCoun
     soft,
     totals: {
       entries: entries.length,
+      toolFace: entries.filter((e) => e.toolFace).length,
       files: new Set(entries.map((e) => e.file)).size,
       families: new Set(entries.map((e) => e.family)).size,
       dated: entries.filter((e) => e.expiry).length,
       expired: expired.length,
-      undated: entries.filter((e) => !e.expiry).length,
+      undated: entries.filter((e) => !e.expiry && !e.toolFace).length,
       stockUndated,
       reasonless: entries.filter((e) => !e.hasReason).length,
       byFamily: countBy((e) => e.family),
@@ -424,6 +457,15 @@ export function mergeBaseline(old, observed) {
   const next = { ...old, undatedCounts: { ...(old.undatedCounts || {}) } }
   const lowered = []
   const added = []
+  // 工具面键一律不得留在账里:prose 不是待偿债务,留着 E3 的宽限期永远销不完。
+  // 写在合并层而不是"手工清一次",是因为旧基线可能被一次回退带回来 —— 那时下一次
+  // --update-baseline 会自行收干净(自愈),不需要有人记得。
+  const purged = []
+  for (const k of Object.keys(next.undatedCounts)) {
+    if (!TOOL_FACE_RE.test(String(k).split('::')[0] || '')) continue
+    purged.push(`${k}=${next.undatedCounts[k]}`)
+    delete next.undatedCounts[k]
+  }
   for (const [k, v] of Object.entries(observed.undatedCounts)) {
     const cur = next.undatedCounts[k]
     if (cur === undefined) {
@@ -437,7 +479,7 @@ export function mergeBaseline(old, observed) {
   if (observed.grandfatherUntil && !next.grandfatherUntil)
     next.grandfatherUntil = observed.grandfatherUntil
   if (observed.updatedAt) next.updatedAt = observed.updatedAt
-  return { next, lowered, added }
+  return { next, lowered, added, purged }
 }
 
 // ------------------------------------------------------------ 自检(构造面 + 一次真仓)
@@ -549,6 +591,36 @@ function selfTest() {
   const down = detail([], { 'z::radius-exempt': 5 })
   ok('R01 存量减少 ⇒ 绿 + 提示可下调', down.red.length === 0 && down.soft.length === 1)
   ok('R02 从 0 起的新豁免 ⇒ 红', redOf(detail([E()], { [KEY]: 0 })) === 'E1')
+  // G01–G08 记账面 vs 工具面(scripts/**)。**六条成对**:每一格"不红"都必须由对面那一格"红"
+  // 反向钉住 —— 否则"不红"完全可能只是判据失效(本仓最高频的那型假绿)。
+  const G_TXT = '// radius-exempt: 头像要纯圆'
+  const G_KEY_TOOL = 'scripts/check-demo.mjs::radius-exempt'
+  const G_KEY_APP = 'apps/demo/src/a.ts::radius-exempt'
+  const gTool = es(G_TXT, 'scripts/check-demo.mjs')
+  const gApp = es(G_TXT, 'apps/demo/src/a.ts')
+  ok(
+    'G01 同一段文字在 scripts/ 面 ⇒ 打 toolFace 且不进无日期账',
+    gTool.length === 1 && gTool[0].toolFace === true && undatedCountsOf(gTool)[G_KEY_TOOL] === undefined,
+  )
+  ok(
+    'G02 同一段文字在 apps/ 面 ⇒ 照常入账(与 G01 成对)',
+    gApp.length === 1 && gApp[0].toolFace === false && undatedCountsOf(gApp)[G_KEY_APP] === 1,
+  )
+  ok('G03 工具面新增无日期豁免 ⇒ E1 不响(新门能被登记的那道锁)', redOf(detail(gTool)) === '')
+  ok('G04 记账面新增同一段无日期豁免 ⇒ E1 红(与 G03 成对)', redOf(detail(gApp)) === 'E1')
+  const xpTool = es(`${G_TXT} until 2020-01-01`, 'scripts/check-demo.mjs')
+  const xpApp = es(`${G_TXT} until 2020-01-01`, 'apps/demo/src/a.ts')
+  ok('G05 工具面带已过期日期 ⇒ 不判 E2', redOf(detail(xpTool)) === '')
+  ok('G06 记账面带同一过期日期 ⇒ E2 无条件红(与 G05 成对)', redOf(detail(xpApp)) === 'E2')
+  ok(
+    'G07 totals.toolFace 如实报数,不静默并账',
+    detail(xpTool).totals.toolFace === 1 && detail(xpTool).totals.undated === 0,
+  )
+  ok(
+    'G08 判据正则字面量里的标记同属工具面(门 93 R8 那一型)',
+    es("export const RE = /handcopy-token-exempt:\\s*\\S/", 'scripts/check-cross-end-tokens.mjs')[0]
+      .toolFace === true,
+  )
   // A01–A03:HEAD 现测锚点(G-174 的出口)。三条要一起读 —— A03 是 A01 的反证:同一组输入
   // 不给锚点必须红,否则 A01 的绿可能只是判据没跑起来。
   ok(
@@ -617,6 +689,16 @@ function selfTest() {
     'M02 绝不上调额度(为过门调高额度被结构性堵住)',
     mergeBaseline({ undatedCounts: { upMe: 1 } }, { undatedCounts: { upMe: 99 } }).next
       .undatedCounts.upMe === 1,
+  )
+  const mp = mergeBaseline(
+    { undatedCounts: { 'scripts/check-a.mjs::arch-exempt': 7, 'apps/x.ts::radius-exempt': 3 } },
+    { undatedCounts: {} },
+  )
+  ok(
+    'M03 工具面键不得留在账里(且只清它,别的面一条不动)',
+    mp.next.undatedCounts['scripts/check-a.mjs::arch-exempt'] === undefined &&
+      mp.next.undatedCounts['apps/x.ts::radius-exempt'] === 3 &&
+      mp.purged.length === 1,
   )
   const e2e = endToEndCase()
   ok('X01 临时仓 HEAD 面:已过期豁免判红并点名', e2e.headRed)
@@ -761,13 +843,14 @@ function collect(root, face) {
 
 function writeBaseline(root, baseline, entries, today, face) {
   const observed = { undatedCounts: undatedCountsOf(entries), updatedAt: today }
-  const { next, lowered, added } = mergeBaseline(baseline, observed)
+  const { next, lowered, added, purged } = mergeBaseline(baseline, observed)
   const abs = path.join(root, BASELINE_REL)
   mkdirSync(path.dirname(abs), { recursive: true })
   writeFileSync(abs, `${JSON.stringify(next, null, 2)}\n`, 'utf8')
   const keys = Object.keys(next.undatedCounts).length
   console.log(
-    `基线已合并(只下调+并集):下调 ${lowered.length} 键 / 新增 ${added.length} 键 / 现共 ${keys} 键,面=${face}`,
+    `基线已合并(只下调+并集):下调 ${lowered.length} 键 / 新增 ${added.length} 键 / ` +
+      `清出工具面 ${purged.length} 键(prose 不是债务)/ 现共 ${keys} 键,面=${face}`,
   )
 }
 
@@ -784,6 +867,10 @@ function report(res, opts) {
   console.log(
     `豁免到期账(面=${t.face}):标记 ${t.entries} 处 / ${t.files} 文件 / ${t.families} 族;` +
       `带到期日 ${t.dated}、无日期 ${t.undated}(基线存量 ${t.stockUndated})、已过期 ${t.expired}`,
+  )
+  console.log(
+    `  工具面(scripts/** 的说明书 / 判据正则 / 自检夹具)${t.toolFace} 处 —— 只报数,不入账也不判红` +
+      `(E1 锚点与观测同用 undatedCountsOf,两侧对称,不会因本条产出假红)`,
   )
   console.log(
     `  E1 锚点口径:` +
@@ -903,6 +990,7 @@ export const __test__ = {
   MARKER_RE,
   PREFILTER_RE,
   SELF_EXEMPT_RE,
+  TOOL_FACE_RE,
   FAMILY_LIFETIME_DAYS,
   DEFAULT_LIFETIME_DAYS,
   BASELINE_REL,

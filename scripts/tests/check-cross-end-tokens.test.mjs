@@ -657,3 +657,171 @@ test('resolveTsPath 拿到不存在的表 ⇒ 具名 UndeterminedError 且点名
   // 反向对照:正常 body 不得被新守卫误伤
   assert.doesNotThrow(() => resolveTsPath('vip: { gold: "#FFD700" };', ['vip', 'gold']))
 })
+
+// ───────────────────────── R8:手抄色值回潮 ↔ RN 派生面(2026-09-25)─────────────────────────
+const m0 = await import('../check-cross-end-tokens.mjs')
+/**
+ * 这一族判据守的是「生成器已经把色值送到端上了,组件里又写回一份字面量」。
+ * 形状与 R6/R7 同一套:先用**构造面**证明判据有牙(正反成对),再要一条真仓不变量,
+ * 最后要"装车证明"(判据存在但 cli 不调用 = 没有判据,守门 70/76/81 同型)。
+ */
+const R8_IDX = new Map([
+  ['#c41e7a', { rnPath: 'rnTokens.modelType.image', cssVar: '--color-model-type-image' }],
+  ['#1888ee', { rnPath: 'rnTokens.modelType.text', cssVar: '--color-model-type-text' }],
+  ['#517bff', { rnPath: 'rnTokens.agentName.DEFAULT', cssVar: '--color-agent-name' }],
+])
+const r8hits = (code) =>
+  m0.__test__.extractHandCopiedColors(m0.__test__.maskComments(code, false), code, R8_IDX)
+
+test('R8 正向对照:组件里写回同值 hex 必须命中,且大小写同视(首版只认小写 ⇒ 整型隐身)', () => {
+  const upper = 'const s = { color: \'#C41E7A\' }'
+  const lower = 'const s = { color: \'#c41e7a\' }'
+  for (const [name, code] of [
+    ['大写', upper],
+    ['小写', lower],
+  ]) {
+    const { hits } = r8hits(code)
+    assert.equal(hits.length, 1, `${name}形态必须被抓到:${code}`)
+    assert.equal(hits[0].hex, '#c41e7a', '归一后按同值对账,不得因写法不同漏判')
+    assert.equal(hits[0].via.cssVar, '--color-model-type-image', '报错要能点名源变量')
+  }
+  // 不在派生面上的自造色不属本判据(那是 R2/R4 的地盘)—— 反向对照,防"见 hex 就红"
+  assert.equal(r8hits("const s = { color: '#123456' }").hits.length, 0)
+})
+
+test('R8 注释里的色值不得当用量(否则会拿散文逼人造豁免)', () => {
+  assert.equal(r8hits('// 历史 #C41E7A → 已改走 token').hits.length, 0)
+  assert.equal(r8hits('/* 原来是 #517bff */\nconst a = 1').hits.length, 0)
+  // 反向对照:同一行"注释 + 真字面量"时,代码那一枚仍须被抓到(注释不得顺手救掉代码),
+  // 而注释里那一枚不得被算成第二处用量(否则报错文案会点名一个不存在的违规)
+  {
+    const h = r8hits("color: '#517bff', // 对齐历史 #1888ee").hits
+    assert.equal(h.length, 1, '只许命中代码里那一枚')
+    assert.equal(h[0].hex, '#517bff', '命中的必须是代码字面量,不是注释样本')
+  }
+})
+
+test('R8 行内豁免必须带原因,且只救本行或紧邻上一行(逐行,不救全文件)', () => {
+  const withReason = "color: '#517bff', // handcopy-token-exempt: 遮罩上刻意固定"
+  assert.equal(r8hits(withReason).hits[0].exempt, true)
+  assert.equal(r8hits("color: '#517bff', // handcopy-token-exempt:").hits[0].exempt, false)
+  assert.equal(
+    r8hits("color: '#517bff', // handcopy-token-exempt:   ").hits[0].exempt,
+    false,
+    '只写空格不算原因',
+  )
+  const far = [
+    "color: '#517bff', // 这一行没有标记",
+    'const pad1 = 1',
+    'const pad2 = 2',
+    "const ok = 'x' // handcopy-token-exempt: 远处的标记",
+  ].join('\n')
+  const h = r8hits(far).hits
+  assert.equal(h.length, 1)
+  assert.equal(h[0].exempt, false, '隔行的豁免不得生效(一行标记救整文件 = 没有判据)')
+})
+
+test('R8 棘轮:HEAD 存量不得钉红无关提交,本次新引入的那一枚照红(否则恒红门逼人 --no-verify)', () => {
+  const mk = (rel, hex, exempt = false) => ({ rel, key: hex, hex, exempt, ln: 1, line: '', via: {} })
+  const eff = [mk('a.tsx', '#c41e7a'), mk('b.tsx', '#1888ee'), mk('c.tsx', '#517bff', true)]
+  const headKeys = new Set(['a.tsx #c41e7a']) // a 是存量,b 是本次新写,c 已带原因豁免
+  const { fresh, inherited } = m0.__test__.pickFreshHandCopies(eff, headKeys)
+  assert.deepEqual(fresh.map((f) => f.rel), ['b.tsx'], '只有"本次新引入且未豁免"的才判红')
+  assert.equal(inherited, 1, '存量必须如实计数,不得静默消失')
+  // 全量档没有"上一枚提交"可言 ⇒ 一律照判(与 R7 同一取向)
+  assert.equal(m0.__test__.pickFreshHandCopies(eff, null).fresh.length, 2)
+})
+
+test('R8 纯黑/纯白刻意不入禁用集(仓内合同允许把 #FFFFFF 当常量写),但其余中性值照判', () => {
+  const { indexDerivedColors } = m0.__test__
+  const idx = indexDerivedColors({
+    leavesByConst: {
+      rnTokens: [
+        { path: 'surface.light', value: '#FFFFFF' },
+        { path: 'brand.DEFAULT', value: '#000' },
+        { path: 'modelType.image', value: '#C41E7A' },
+        { path: 'danger.bright', value: '#EEEEEE' },
+      ],
+    },
+    cssLight: {
+      '--color-surface-light': '#ffffff',
+      '--color-model-type-image': '#c41e7a',
+      '--color-danger-bright': '#f87171',
+    },
+    cssDark: {},
+  })
+  assert.equal(idx.has('#ffffff'), false, '纯白不得进禁用集')
+  assert.equal(idx.has('#000000'), false, '纯黑不得进禁用集(#000 归一后同)')
+  assert.equal(idx.has('#c41e7a'), true, '其余同值档照判 —— 豁免面不得扩大到全部')
+  // 源与副本不同值的那一档不得被收录(本门不替 R4 的漂移/登记分歧背书"组件也该抄这个值")
+  assert.equal(idx.has('#eeeeee'), false, '与源不同值的档(正被 R4 判红/已登记分歧)不得被本门收录')
+})
+
+test('R8 装车证明:cli 必须真的调用 runR8 并按判定面调用', () => {
+  const src = readFileSync(SCRIPT, 'utf8')
+  const body = src.slice(src.indexOf('async function cli('))
+  const call = /await runR8\(\{[^)]*\}/m.exec(body)
+  assert.ok(call, 'cli 必须调用 runR8(判据在而无人调 = 没有判据)')
+  assert.match(call[0], /\bface\b\s*[,=:]/, '必须把判定面传给 runR8')
+  assert.doesNotMatch(call[0], /face:\s['"]/, '面不得写死字面量')
+  assert.match(src, /HAND_COPY_SCAN_FACES = \[/, '扫描面必须显式登记(apps/mobile-rn 由另一道门管)')
+})
+
+test('R8 真仓不变量:HEAD 面零判红、禁用值集非空、被本票派生的档确实在集合里', async () => {
+  const r = await m0.__test__.runR8({ face: 'head', quiet: true })
+  assert.ok(r.counts.files > 200, `扫描面不得为空,实得 ${r.counts.files} 文件`)
+  assert.ok(r.counts.values > 20, `禁用值集应有几十条,实得 ${r.counts.values}`)
+  assert.equal(r.failures.length, 0, `HEAD 面必须绿:${r.failures.map((f) => f.tag).join(' / ')}`)
+  // 本票派生进来的档:工作树面上 modelType/agentName 的同值字面量必须已经为零
+  const w = await m0.__test__.runR8({ face: 'worktree', quiet: true })
+  // 永久不变量(不是"哪个面更新"):被本票派生进来的档必须就在**被审判的面**的禁用集里。
+  // 旧断言比的是 worktree.values > head.values —— 提交一入库两面等值,门没坏而断言先红,
+  // 这条红会在下一次碰它的人手里变成"又一个与本次改动无关的门"。
+  for (const want of [
+    'rnTokens.modelType.image',
+    'rnTokens.modelType.textBg',
+    'rnTokens.agentName.DEFAULT',
+  ])
+    assert.ok(
+      r.counts.tiers.includes(want),
+      `HEAD 面的禁用集缺档 ${want}(现 ${r.counts.tiers.length} 档)`,
+    )
+  assert.ok(w.counts.values >= r.counts.values, '工作树面不得比 HEAD 面小(派生面被摘 = 门隐身)')
+  for (const rel of ['packages/app/src/features/model-plaza/ModelPlazaScreen.tsx']) {
+    const hit = w.failures.find((f) => f.tag.includes(rel))
+    assert.equal(hit, undefined, `${rel} 仍被判为手抄:${hit && hit.detail}`)
+  }
+  // 阳性对照:把组件改回手抄形态,同一把尺子必须立刻命中(证明上一条不是恒绿)
+  const fixed = readFileSync(join(ROOT, 'packages/app/src/features/model-plaza/ModelPlazaScreen.tsx'), 'utf8')
+  const regressed = fixed.replace('color: tk.modelType.image,', "color: '#C41E7A',")
+  assert.notEqual(regressed, fixed, '变异夹具必须真的改到')
+  const idx = new Map([['#c41e7a', { rnPath: 'rnTokens.modelType.image', cssVar: '--color-model-type-image' }]])
+  const hits = m0.__test__.extractHandCopiedColors(
+    m0.__test__.maskComments(regressed, false),
+    regressed,
+    idx,
+  ).hits
+  assert.equal(hits.length, 1, '改回字面量后必须立刻被抓到')
+})
+
+test('R8 空面不得让整个门 exit 2,但必须自报"未生效";非空面才是正常判定(辅助判据的取材边界)', async () => {
+  const empty = m0.collectAlphaCorpus({
+    face: 'head',
+    faces: ['packages/definitely-not-a-real-package'],
+    allowEmpty: true,
+  })
+  assert.deepEqual(empty, [], 'allowEmpty 档:空面返回空清单,不抛')
+  // 反向对照:R6/R7 那条主判据的面仍必须"空面即无法判定",不得被这次放宽顺带洗掉
+  assert.throws(
+    () =>
+      m0.collectAlphaCorpus({
+        face: 'head',
+        faces: ['packages/definitely-not-a-real-package'],
+      }),
+    (e) => e instanceof m0.__test__.UndeterminedError && /0 个文件/.test(e.message),
+    '不带 allowEmpty 时必须仍判"无法判定"',
+  )
+  const r = await m0.__test__.runR8({ face: 'head', quiet: true })
+  assert.equal(r.counts.emptyFace, false, '真仓的 packages/app/src 必须在位(空面=面被人摘了)')
+  assert.ok(r.counts.files > 0)
+})

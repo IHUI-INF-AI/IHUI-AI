@@ -107,13 +107,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.pf-arrow {
-  font-size: 40rpx;
-  line-height: 1;
-  color: var(--color-text-tertiary);
-  flex-shrink: 0;
-}
-
 /* ===== 头像行(RN 头像 48dp → 96rpx 圆形 + 半透明编辑提示) ===== */
 .pf-item-avatar {
   padding: 24rpx;
