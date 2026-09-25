@@ -9,7 +9,14 @@ import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { ClipboardList, Loader2, ChevronLeft, ChevronRight, CalendarClock } from 'lucide-react'
+import {
+  ClipboardList,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  CalendarClock,
+  Lock,
+} from 'lucide-react'
 
 import { getMySignUps, cancelSignUp } from '@ihui/api-client'
 import { Button } from '@ihui/ui-react'
@@ -33,6 +40,11 @@ interface SignUpsData {
 }
 
 const PAGE_SIZE = 10
+
+/** 后端 fail-closed 判据(判据源 apps/api/src/routes/exam.ts 报名域注释)对本账号返回的状态码;
+ *  错误对象带上它,UI 才能把"无权读取"与"其它失败"分流 */
+const FORBIDDEN_STATUS = 403
+type ForbiddenAwareError = Error & { status?: number }
 
 const EXAM_STATUS_KEYS: Record<'pending' | 'attended' | 'canceled', string> = {
   pending: 'status.pending',
@@ -60,9 +72,17 @@ export default function MemberExamSignUpPage() {
     queryKey: ['member', 'exam', 'signups', page],
     queryFn: async () => {
       const r = await getMySignUps({ page, pageSize: PAGE_SIZE })
-      if (!r.success) throw new Error(r.error)
+      if (!r.success) {
+        // 状态码必须带出来:403 是"本路由对普通会员结构性不可用",与其它失败混在一起就藏掉了结论
+        const e = new Error(r.error) as ForbiddenAwareError
+        e.status = r.status
+        throw e
+      }
       return r.data as SignUpsData
     },
+    // 403 是永久结论而非抖动,重试只会把同一个拒绝打四遍
+    retry: (failureCount, err) =>
+      (err as ForbiddenAwareError).status === FORBIDDEN_STATUS ? false : failureCount < 3,
   })
 
   const cancelMut = useMutation({
@@ -81,6 +101,10 @@ export default function MemberExamSignUpPage() {
   const rows = data?.list ?? []
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const queryError = error as ForbiddenAwareError | null
+  // 普通会员拿到的是 403 而非空列表:服务端无法把登录身份换算成报名表沿用的历史会员编号,
+  // 这张表对本账号结构性不可读 —— 必须说出来,不得用"暂无报名记录"把一次授权拒绝洗成"你没有数据"。
+  const denied = queryError?.status === FORBIDDEN_STATUS
   const dateFmt = new Intl.DateTimeFormat(locale, {
     year: 'numeric',
     month: '2-digit',
@@ -113,12 +137,18 @@ export default function MemberExamSignUpPage() {
         <p className="mt-0.5 text-sm text-muted-foreground">{t('description')}</p>
       </div>
 
-      {error && <Alert variant="danger" description={(error as Error).message} />}
+      {queryError && !denied && <Alert variant="danger" description={queryError.message} />}
 
       {isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           {t('loading')}
+        </div>
+      ) : denied ? (
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
+          <Lock className="h-8 w-8 text-muted-foreground opacity-40" />
+          <p className="text-sm font-medium">{t('adminOnly.title')}</p>
+          <p className="text-sm text-muted-foreground">{t('adminOnly.description')}</p>
         </div>
       ) : rows.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
