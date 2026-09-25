@@ -26,7 +26,7 @@ import { join } from 'node:path'
 import { __test__ as src } from '../git-sync-converge.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
-const { resolveRemoteHead } = src
+const { resolveRemoteHead, alignFailureNote } = src
 const SHA = /^[0-9a-f]{40}$/
 
 /** 按命令前缀应答的假 git(只用来构造"ls-remote 通/不通、FETCH_HEAD 有没有"这几态) */
@@ -144,5 +144,35 @@ test('装车证明:收敛器不再用 `rev-parse origin/<branch>` 做决策(三�
     /const freshR = resolveRemoteHead\(branch/.test(s),
     '合并前的"输入新鲜度复核"必须走唯一取法 —— 残值在这一处最伤(会合掉别人刚推的东西)',
   )
+  // 收尾用的子进程也必须封顶:并行会话持有 index.lock 时对齐器会等/失败,无界等待会把
+  // "收敛成功后的收尾"变成整条链的挂起点(守门 80 立的正是这一族)
+  assert.match(
+    s.slice(
+      s.indexOf('function alignWorktreeAfterHeadMove'),
+      s.indexOf('function alignWorktreeAfterHeadMove') + 1400,
+    ),
+    /timeout:\s*90_000/,
+    'alignWorktreeAfterHeadMove 的子进程必须有 timeout',
+  )
+})
+
+test('对齐器失败必须报"为什么",不是只剩一行 Command failed', () => {
+  // 真实现场:并发会话占着 index.lock ⇒ 子进程 rc=1 + stderr 带 "Unable to create ... index.lock"。
+  // 旧写法只打 e.message("Command failed: <argv>"),等于让下一个人重新猜"是被锁还是真坏了"。
+  const locked = alignFailureNote({
+    status: 1,
+    stderr:
+      "fatal: Unable to create 'G:/x/.git/index.lock': File exists.\nAnother git process...\n",
+  })
+  assert.match(locked, /rc=1/, '必须带退出码')
+  assert.match(locked, /index\.lock/, '必须带子进程给的真因')
+  assert.ok(!/^Command failed/.test(locked), '不得把 argv 那行当结论')
+  // 反向对照:没有 stderr 时也要给出原因(rc 未知 + message),不得返回空串
+  const bare = alignFailureNote({ message: 'ENOENT: node not found' })
+  assert.match(bare, /ENOENT/)
+  const empty = alignFailureNote(undefined)
+  assert.ok(empty.trim().length > 0, '连异常都没有时也必须留下一句可诊断的话')
+  // 超时是独立一态(与"被锁"处置动作不同),必须标出来
+  assert.match(alignFailureNote({ timedOut: true, stderr: '' }), /超时/)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
