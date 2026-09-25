@@ -197,17 +197,23 @@
   `AGENTS.md §8` 早就要求但**从未实现**的"禁止模型自评 yes"。
 - [x] ✅(2026-09-25) 钩子 trust 的**残余面**:webhook 形态钩子仍不过门(本批按 command 收口); 〔✅复测:两种形态已过**同一道**门 —— `apps/cli/src/hooks/index.ts` 头注"两种形态过"命中 1 处,`hookTrustSkipReason` → `gateHook` 对 webhook/command 共用一次判定,kind 由声明自身推出;配套专测 `apps/cli/tests/hooks-trust-gate.test.ts` + `hooks-trust-content.test.ts` 均在库。同行第二句也已落地:`commands/hooks.ts` 真有 `untrust <path>` 子命令(命中 9 处)。〕
 - [ ] **本行是并发 union 归并留下的裸副本**(原条目已于 2026-09-25 复测并翻勾,现行判定见 O73 条①(两形态已过同一道门,`hooks-trust-gate`/`hooks-trust-content` 在库)),勿照本行派单:钩子 trust 的**残余面**:webhook 形态钩子仍不过门(本批按 command 收口);
+- [ ] 钩子 trust 的**残余面**:webhook 形态钩子仍不过门(本批按 command 收口);
   且缺 `ihui hooks trust <path>` 子命令(旧错误文案指向该不存在的命令,已改为指向真实出口),CLI 化信任需另票。
 - [x] ✅(2026-09-25) `reclaim` 改写信封内容的边界:本批只在 CLI 侧由"重建提醒"兜回产物指针; 〔✅复测:判据与消费者都在 —— 常量与 `isEnvelopeContent` 上移 `packages/context-compaction/src/markers.ts`(命中 5 处),`reclaim.ts` 命中 5 处且分别落在"整条跳过"与"段级跳过"两个出口,不是"只有常量没有用法"。〕
 - [ ] **本行是并发 union 归并留下的裸副本**(原条目已于 2026-09-25 复测并翻勾,现行判定见 O73 条①(判据与两处消费者都在 `packages/context-compaction`)),勿照本行派单:`reclaim` 改写信封内容的边界:本批只在 CLI 侧由"重建提醒"兜回产物指针,
+- [ ] `reclaim` 改写信封内容的边界:本批只在 CLI 侧由"重建提醒"兜回产物指针,
   彻底解法需在 `reclaim.ts` 加 `isEnvelopeContent` 跳过 —— 属改他人在飞文件,未做。
 - [x] ✅(2026-09-25) WP-1 新 API 尚未接入 `builtins.ts`/`terminal.ts` 执行链(接一行即可恢复 YOLO 观感); 〔✅复测:`gateCommandExecution` 在 `apps/cli/src/tools/builtins.ts` 命中 3 处、`apps/cli/src/tools/terminal.ts` 命中 4 处。⚠️ 派单陷阱:原票写的 `apps/cli/src/terminal.ts` **不存在**,真身在 `tools/` 下 —— 照票面路径 `git show` 必 fatal,而"查不到"极易被下一个人读成"没接入"。〕
 - [ ] **本行是并发 union 归并留下的裸副本**(原条目已于 2026-09-25 复测并翻勾,现行判定见 O73 条①(`tools/builtins.ts` 3 处 / `tools/terminal.ts` 4 处 —— ⚠️ 本行原文的 `apps/cli/src/terminal.ts` 路径不存在,照它 `git show` 必 fatal)),勿照本行派单:WP-1 新 API 尚未接入 `builtins.ts`/`terminal.ts` 执行链(接一行即可恢复 YOLO 观感,
+- [ ] WP-1 新 API 尚未接入 `builtins.ts`/`terminal.ts` 执行链(接一行即可恢复 YOLO 观感,
   但需同步改他人 `terminal.test.ts` 的 `vi.mock`,本批未动)。
 - [x] ✅(2026-09-25) `config/architecture-policy.yaml` 目前 0 个模块 `managed:true` —— 渐进收口的第一块翻正面尚未选定; 〔✅复测:该数字是**立项状态不是现值** —— `git show HEAD:config/architecture-policy.yaml | grep -c '^    managed: true'` 实得 **23**,`node scripts/check-architecture-policy.mjs` exit 0。真正的剩余量在别处:该门输出点名的"E2 契约工件未齐备 16 块"(默认只报数,`--strict` 才问责)。〕
-
-
 - [ ] **本行是并发 union 归并留下的裸副本**(原条目已于 2026-09-25 复测并翻勾,现行判定见 O73 条①(实得 23;现值一律跑 `node scripts/check-architecture-policy.mjs` 读,勿照本行数字派单)),勿照本行派单:`config/architecture-policy.yaml` 目前 0 个模块 `managed:true` —— 渐进收口的第一块翻正面尚未选定。
+
+
+
+
+- [ ] `config/architecture-policy.yaml` 目前 0 个模块 `managed:true` —— 渐进收口的第一块翻正面尚未选定。
 
 
 ### 未闭环(不写作收口)
@@ -7949,15 +7955,18 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 ### 第二波未闭环(不写作收口,各自给解阻判据)
 - [x] ✅(2026-09-25) **`stream-tool-ledger` 未入库**:模块与单测已绿(`apps/cli/src/stream-tool-ledger.ts`); 〔✅复测:`git cat-file -e HEAD:apps/cli/src/stream-tool-ledger.ts` 成立;`git show HEAD:apps/cli/src/commands/agent.ts` 命中 3 行,含真 import 与 `new StreamToolLedger` ⇒ 生产者与消费者同枚提交入库,本票已闭环。〕
 - [ ] **本行是并发 union 归并留下的裸副本**(原条目已于 2026-09-25 复测并翻勾,现行判定见 O73 条①(HEAD 有模块,`commands/agent.ts` 有真 import 与 `new`)),勿照本行派单:**`stream-tool-ledger` 未入库**:模块与单测已绿(`apps/cli/src/stream-tool-ledger.ts`),
+- [ ] **`stream-tool-ledger` 未入库**:模块与单测已绿(`apps/cli/src/stream-tool-ledger.ts`),
   但唯一接线点 `apps/cli/src/commands/agent.ts` **同时含他人未提交的 D19 terminal_delta 工作**,
   整文件提交即混提(§12 红线)。解阻判据:待该文件他人改动落地后,单独提一枚"账本接线"票。
 - [x] ✅(2026-09-25) `/api/agent/goal-verify` **无生产消费方**(端点已注册、测试已断言路由存在,但 goal 运行循环还没调它); 〔✅复测:**票面实质已闭环** —— 独立校验轮真被运行循环调用:`apps/ai-service/app/services/goal_completion_gate.py` 内 `await verify_goal_completion(...)`,而 `app/routers/agents.py` import 该 gate;web 侧结论随 done 帧下发。剩下的只是字面事实"这个 HTTP 端点自身无调用方"(全仓除路由注册与测试断言外 0 命中),而**端点存废属对外能力取舍**,不由 agent 单方删(§7 三问 + §24)。已就地写清两读法,勿再按原文派"接消费者"的活。〕
 - [ ] **本行是并发 union 归并留下的裸副本**(原条目已于 2026-09-25 复测并翻勾,现行判定见 O73 条①(独立校验轮已被运行循环调用;端点自身无调用方属对外能力取舍,不由 agent 单方删)),勿照本行派单:`/api/agent/goal-verify` **无生产消费方**(端点已注册、测试已断言路由存在,但 goal 运行循环
+- [ ] `/api/agent/goal-verify` **无生产消费方**(端点已注册、测试已断言路由存在,但 goal 运行循环
   还没调它)—— 属"生产者已备、消费面未接",另票接 CLI/服务端 goal 循环调用点。
 - [ ] `--allow-dangerous` 确认旁路仍在调用方(`commands/agent.ts:1757`、`server/agent-core.ts:101`),
   工具层结构上看不见;收口需改确认回调契约,本批按现状入库并在披露文档写明边界。
 - [x] ✅(2026-09-25) page_* 动词的**跨端登记**未做:web / miniapp-taro / RN / desktop / api 侧 `agent_action` 枚举与 capability 目录尚未收; 〔✅复测(逐端点数,不按"命中 0"直接定性):枚举单源 `packages/types/src/agent-control.ts` 收 **7** 条 `page_*`,`capability-catalog.ts` + 产物 `generated/capabilities.json` + scope 映射各 **7** 条,`apps/cli` 7/7 全在,extension 经 `PageActionType` 消费;miniapp-taro / mobile-rn / desktop 命中 0 —— 已换第二种正向搜法复核(`PageActionType` / `pick_at_point` / `page_control`),三端**结构上没有 page 控制面**,属平台域外而非漏登记。唯一真残余:`apps/api` 侧只有测试面引用、无生产侧登记(已另记,不随本条翻勾)。〕
 - [ ] **本行是并发 union 归并留下的裸副本**(原条目已于 2026-09-25 复测并翻勾,现行判定见 O73 条①(types 7 / 目录 7 / cli 7-7 / extension 经 `PageActionType`;RN·小程序·桌面结构上没有 page 控制面,属平台域外)),勿照本行派单:page_* 动词的**跨端登记**未做:web / miniapp-taro / RN / desktop / api 侧 `agent_action` 枚举与
+- [ ] page_* 动词的**跨端登记**未做:web / miniapp-taro / RN / desktop / api 侧 `agent_action` 枚举与
   capability 目录(`scripts/check-capability-catalog.mjs` 覆盖面)尚未收;扩展真机加载 MV3、
   真实多帧页面坐标累加均未取证。
 - [ ] RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 zh-TW/en/ja/ko 四语归因译文待人复核。
@@ -9363,12 +9372,14 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 
 ## O73 危险操作确认旁路收口到工具层(五处收四处)+ 台账幻影债复测七条(2026-09-25)
 - **✅ 顺手收掉本票取证过程中自己制造的一处泄漏(2026-09-25,`scripts/lib/scratch-dir.mjs`)**:上面那两次"干净 HEAD 隔离检出"用到 `mkScratch`,而共用层此前**要求调用方自己写 finally** —— 实测 `scripts/tests/check-cross-end-tokens.test.mjs:426` 就把 `rmScratch` 写在断言之后,该用例今天失败过 3 次,于是 `DevEnv/Temp/ihui-scratch` 里留下 3 个约 750KB 的孤儿夹具。"人人都记得 try/finally"是散文约束,已被证明会漏 ⇒ 改为 `mkScratch` 注册 + `process.on('exit')` 统一回收(**只回收本进程本次建的**,显式 `rmScratch` 即出表;SIGKILL/断电不在内,那类残留由 §26 每日 Temp 体检兜)。取证:`scripts/tests/scratch-dir.test.mjs` 4 例 → **6 例连跑两次全绿**,含成对双向对照 —— 阳性:子进程 `mkScratch` 后抛错,路径必须消失;反向:同目录里别的进程留下的夹具**不得**被扫掉(按前缀 glob 清理的实现会在这一条红)。变异证明:把钩子摘掉 ⇒ 恰好这 2 条红并点名残留路径。写这批测试时自己也踩了一次:第一版按"scratch 根里有几个 `leak-probe-` 前缀目录"计数,于是**上一次运行留下的残留**会让本次判假红 —— 判据依赖历史而不是依赖被测行为,已改为只断言"这一次子进程打出来的那个路径"消失。
-- [ ] 钩子 trust 的**残余面**:webhook 形态钩子仍不过门(本批按 command 收口);
-- [ ] `reclaim` 改写信封内容的边界:本批只在 CLI 侧由"重建提醒"兜回产物指针,
-- [ ] WP-1 新 API 尚未接入 `builtins.ts`/`terminal.ts` 执行链(接一行即可恢复 YOLO 观感,
-- [ ] `config/architecture-policy.yaml` 目前 0 个模块 `managed:true` —— 渐进收口的第一块翻正面尚未选定。
-- [ ] **`stream-tool-ledger` 未入库**:模块与单测已绿(`apps/cli/src/stream-tool-ledger.ts`),
-- [ ] `/api/agent/goal-verify` **无生产消费方**(端点已注册、测试已断言路由存在,但 goal 运行循环
-- [ ] page_* 动词的**跨端登记**未做:web / miniapp-taro / RN / desktop / api 侧 `agent_action` 枚举与
-- **未做与为什么(不留"看起来已完成"的假象)**:① 同一型在另三端仍在 —— **分端存量一律按当次实测取**(`node scripts/check-glyph-arrow-icon.mjs --json` 的 `violations.ga4` 按 `file` 前缀计数),本票立项当次读数为 **packages/app 229 处 / mobile-rn 3 处,共 177 文件**。此处刻意不沿用本票正文早先那对 grep 级数字("223 处 / 168 文件"):门只数**整格子内容 + 可证 affordance** 的那些,与裸 grep 命中不同口径,两个数混用会让下一个人按错的清单派单 —— 与本仓"收口进度不写进文档、数字按当次实测取"是同一条规矩。② 端上真机渲染未验(微信开发者工具不在本会话能力内),本票只到"源码级 + 类型级 + 守门级"。
-- [ ] P1 **返回键同一型跨端清账(本票的直接续作)**:① `packages/app/src/features/**` 与两个共享 `NavBar` / `PayResultScreen` 的 ‹;② `apps/mobile-rn/src/screens/**` 及其端内 `NavBar`(RN 侧写法是 `lucide-react-native ChevronLeft`,端内 `apps/mobile-rn/src/screens/AboutScreen.tsx` 已有现成范例);③ `apps/extension` 那处「字符箭头 + 文字」双写(属 102 的 GA1 族而非 GA4)。做法与本票同:先复用该端既有矢量出口,再按文件收编,顺带删各自失效的样式工厂。**存量数字一律按上面那条命令现取,勿照任何文档里的历史数派单。** GA4 棘轮已把这些位置钉成"不得再加",但棘轮不会自动变小 —— 存量清零前,GA4 在这三端始终只是"没恶化",不是"已合规"。
+
+## O74 按转正后的派单表接两枚(2026-09-25):密钥文件结构性排除 + 阶段标签层立防回潮判据
+- **为什么按表不按票面行**:`PROJECT_PLAN.md` 里 166 条"未认领"实测有 **61 条是已闭环 `[x]` 行的孪生旧副本**(`node scripts/check-task-claims.mjs --twins`),照票面派单即白烧轮次(同日 D83 就是例子:票面未勾,而 `mcp-tool-activity.ts` 已于当日 `cb0a20deeec` 落地)。故改取 `docs/plan-audit-2026-09-25/wave3-backlog.md`「可直接派单」表的第 1、3 行,且**每行取票后按当次 HEAD 复测**——该表自陈是带保质期的读数。
+- [x] ✅(2026-09-25) **D48② `ihui-vault.json` 进 `.gitignore`**(表第 1 行):保险库文件名唯一源是 `apps/web/src/lib/local-vault.ts:33` 的 `VAULT_STORE_FILE`,此前只有 `check-desktop-cache-plaintext.mjs` 判据 3 的 `git ls-files` **事后断言**——那是"进了仓再发现",不是一条也不会被 `git add .` 收进来的结构保证。**动作**:`.gitignore` 凭据段加 `ihui-vault.json`(不含斜杠 ⇒ 任意层级生效)。**取证**:`git check-ignore -v` 逐条命中(根 / `apps/web/` 下 / 与既有 `deploy/prod-bundle/` 目录规则互不遮蔽);`node scripts/check-desktop-cache-plaintext.mjs --self-test` **10/10 不破**,其"落点字符串单源"仍只认 `local-vault.ts`(该门的 `SOURCE_EXT` 不含 `.gitignore`,不会把新增行误判成第二处源码);表内验收式 `git show HEAD:.gitignore | grep -c ihui-vault` 由 0 → ≥1 **在本票提交后才成立**,提交前不得引用。
+- [x] ✅(2026-09-25) **D107① 阶段标签层立机器判据**(表第 3 行):开工实测 `git grep -n "阶段标签" HEAD -- scripts` = **0**,判据确实不存在。**但票面前半被推翻**——这一层**没有"某端看不到阶段标签"的静默缺口**:五端各有进度条宿主(web `apps/web/src/components/chat/message-input.tsx:900`、taro `.../pkg-ai/ai/chat.tsx:1308`、rn `apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx:1886`、extension `.../sidepanel/pages/ChatPage.tsx:768`、cli `apps/cli/src/commands/repl.ts:615`),视图推导一律经单一真相源 `deriveTaskStatusBar`(`packages/shared/src/chat/task-status.ts:227`),阶段文案走 `taskStatus` 命名空间(五语言各有该键)。**所以本票落点是防回潮判据,不是补功能**:守门 57 台账新增 `stage-label-five-ends` —— 12 枚锚点覆盖「共享推导源 + 词表源 + 五端各自的渲染器与挂载点」,并按该门既有 `checkEvents` 形态声明四个带阶段的帧(`plan_updated`/`subagent_progress`/`terminal_start`/`terminal_end`,两端契约均已在册)。**任一端宿主被摘线/改名 ⇒ 判据①当场点名**。
+  - **基线抬法**:锚点总数 155 → 167、`perElement["stage-label-five-ends"] = 12`;`entryCountBaseline` **刻意不动**(它 = G-编号数 + 元素数,抬它等于把本票绑到别人改计划行的波动上)。
+  - **判据有牙证明(变异对照)**:① 把本条目一枚 `mustMatch` 改成不存在标识 ⇒ 门 `exit 1` 点名 `stage-label-five-ends :: packages/shared/.../task-status.ts 内找不到…`;② 把本条目事件名改成两端契约都没有的 ⇒ `exit 1` 报 `event-contract-drift :: …: ai-service=无 shared=无`。两次变异后逐字节还原(`sha256` 复等)⇒ 绿灯不是"没人写所以没人判"。
+  - **权威入口读数**:`node scripts/check-chat-element-coverage.mjs` 全量 **exit 0**(清单 133 条 = G-ID 93 + 已实现 40、锚点 167)、`--staged` exit 0、`--self-test` 全过、镜像 `node --test scripts/tests/check-chat-element-coverage.test.mjs` **32/32**。
+  - **入库路径如实登记(不是"我提交的那枚")**:本条目写完后曾与并发会话的"守门 57 补票"同处暂存区(索引 vs HEAD:脚本 +464/−15、JSON +125/0),按 §12/§12b **不代对方提交**;对方于 14:47 落 `3fec18c1f71`(标题只写"补两条判据 —— 锚点存续性 + 剥注释后再匹配"),**我的 12 枚锚点随该枚提交一起进了 HEAD**,其提交信息未点名本票 ⇒ 追溯路径就是本节。认定命令:`git show HEAD:scripts/data/chat-flow-elements.json | grep -c stage-label-five-ends`(**现值 2** = 条目 + perElement 额度各一处)。
+  - **同批量到、与该表相反的事实(现已解)**:取票时 HEAD 上的门 57 **还没有判据④/⑤**(`git show HEAD:scripts/check-chat-element-coverage.mjs | grep -c anchor-baseline-missing` 当时 = 0),而那两条正是并发会话在飞的补票 ⇒ 派单表"触达文件(干净)"这一列对这两枚文件当时已过期。补票现随 `3fec18c1f71` 落地,本条只留作"表是带保质期读数"的实例。
+- **路上量到、刻意不顺手修的缺陷(归属 miniapp-taro 交代帧持有人)**:`apps/miniapp-taro/src/pkg-ai/ai/chat.tsx:593` 把后端英文 `evt.phase` 原样插进界面(词包 `packages/i18n/messages/miniapp-taro/zh-CN.json` 的 `子任务:{phase}`),上屏形态是「子任务:tool_call」——违反 D106 已写死的纪律③"禁止把后端原文当界面文本"。修法要把 phase 枚举收进取词键(五语言),属他端文案批。**并记一条本票判据的已知盲区**:`stage-label-five-ends` 钉的是"宿主在不在",不钉"枚举是否本地化",所以这条敞口对本门是绿的——别把本门绿灯读成"阶段文案已全部本地化"。
