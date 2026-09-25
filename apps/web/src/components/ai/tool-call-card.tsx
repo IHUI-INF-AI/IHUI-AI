@@ -46,6 +46,7 @@ import {
   type StreamStatus,
 } from '@/components/chat/stream/stream-ui'
 import { InlineDiffCard } from './inline-diff-card'
+import { FilePreview, type ImagePreviewItem } from '@/components/media'
 import type { InlineDiffInfo } from './types'
 import type { DiffApplyStatus } from '@/stores/chat'
 
@@ -84,6 +85,17 @@ interface ToolCallCardProps {
   errorType?: string
   /** image_generation 工具返回的图片 URL(优先于 result 渲染) */
   imageUrl?: string
+  /**
+   * D64 ②(2026-09-25 补挂):同消息内的全部图片画廊,由宿主注入(本卡不自行收集附件,
+   * 避免第二套聚合)。长度 > 1 且当前图确在画廊内 ⇒ ImageResultBlock 升级为 FilePreview
+   * (翻页 /「第 N·M 张」/ 缩放档位 / 保存与复制成败,判据全走 element-pack);
+   * 不传、单图或当前图不在画廊内 ⇒ 渲染与改前逐字一致。
+   */
+  gallery?: readonly ImagePreviewItem[]
+  /** 本工具调用的图片在 gallery 内的下标(0 基;不传由渲染件按 URL 定位) */
+  galleryIndex?: number
+  /** 翻页受控回报(宿主记账用;FilePreview 是受控组件,不回报则点了不动) */
+  onGalleryIndexChange?: (index: number) => void
   /** music_generation 工具返回的音频 URL(优先于 result 渲染,渲染 <audio> 播放器) */
   audioUrl?: string
   /** video_generation 工具返回的视频 URL(优先于 result 渲染,渲染 <video> 播放器) */
@@ -540,39 +552,71 @@ function extractUrl(
 }
 
 /** image_generation 工具结果渲染:图片预览 + 提示词 + 新窗口打开链接 */
-function ImageResultBlock({ imageUrl, prompt }: { imageUrl: string; prompt?: string }) {
+function ImageResultBlock({
+  imageUrl,
+  prompt,
+  gallery,
+  galleryIndex,
+  onGalleryIndexChange,
+}: {
+  imageUrl: string
+  prompt?: string
+  gallery?: readonly ImagePreviewItem[]
+  galleryIndex?: number
+  onGalleryIndexChange?: (index: number) => void
+}) {
   const t = useTranslations('ai.toolCall')
   const [loaded, setLoaded] = React.useState(false)
   const [errored, setErrored] = React.useState(false)
+
+  // D64 ②:画廊只在「多图 ∧ 当前图确在画廊内」时启用 —— 轮询取件的图片可能不在
+  // 宿主画廊里(宿主只收集 tc.image_url),那时退回单图模式,绝不显示成别张图。
+  const activeGallery = React.useMemo<readonly ImagePreviewItem[] | undefined>(() => {
+    if (!gallery || gallery.length <= 1) return undefined
+    return gallery.some((g) => g.url === imageUrl) ? gallery : undefined
+  }, [gallery, imageUrl])
+  const activeGalleryIndex = activeGallery
+    ? (galleryIndex ?? activeGallery.findIndex((g) => g.url === imageUrl))
+    : undefined
 
   return (
     <div className="space-y-2">
       {prompt && <p className="mb-1 font-medium text-muted-foreground">{t('prompt')}</p>}
       {prompt && <p className="text-xs italic text-muted-foreground">{prompt}</p>}
-      <div className="relative overflow-hidden rounded-md border border-border bg-muted/30">
-        {!loaded && !errored && (
-          <div className="flex h-48 items-center justify-center">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          </div>
-        )}
-        {errored && (
-          <div className="flex h-48 items-center justify-center text-xs text-red-500">
-            {t('imageLoadFailed')}
-          </div>
-        )}
-        {/* eslint-disable-next-line @next/next/no-img-element -- next/image 不适用动态远程图片,降级用 img */}
-        <img
-          src={imageUrl}
-          alt={prompt || t('imageAltDefault')}
-          className={cn(
-            'w-full object-contain transition-opacity',
-            loaded ? 'opacity-100' : 'opacity-0',
-            errored && 'hidden',
-          )}
-          onLoad={() => setLoaded(true)}
-          onError={() => setErrored(true)}
+      {activeGallery ? (
+        <FilePreview
+          url={imageUrl}
+          type="image"
+          gallery={activeGallery}
+          galleryIndex={activeGalleryIndex}
+          onGalleryIndexChange={onGalleryIndexChange}
         />
-      </div>
+      ) : (
+        <div className="relative overflow-hidden rounded-md border border-border bg-muted/30">
+          {!loaded && !errored && (
+            <div className="flex h-48 items-center justify-center">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          )}
+          {errored && (
+            <div className="flex h-48 items-center justify-center text-xs text-red-500">
+              {t('imageLoadFailed')}
+            </div>
+          )}
+          {/* eslint-disable-next-line @next/next/no-img-element -- next/image 不适用动态远程图片,降级用 img */}
+          <img
+            src={imageUrl}
+            alt={prompt || t('imageAltDefault')}
+            className={cn(
+              'w-full object-contain transition-opacity',
+              loaded ? 'opacity-100' : 'opacity-0',
+              errored && 'hidden',
+            )}
+            onLoad={() => setLoaded(true)}
+            onError={() => setErrored(true)}
+          />
+        </div>
+      )}
       <a
         href={imageUrl}
         target="_blank"
@@ -897,6 +941,9 @@ export const ToolCallCard = React.memo(function ToolCallCard({
   retryCount,
   errorType,
   imageUrl,
+  gallery,
+  galleryIndex,
+  onGalleryIndexChange,
   audioUrl,
   videoUrl,
   taskId,
@@ -1109,6 +1156,9 @@ export const ToolCallCard = React.memo(function ToolCallCard({
             <ImageResultBlock
               imageUrl={imageUrl}
               prompt={pickStr(args, ['prompt', 'description'])}
+              gallery={gallery}
+              galleryIndex={galleryIndex}
+              onGalleryIndexChange={onGalleryIndexChange}
             />
           )}
           {/* music_generation:渲染音频播放器(优先于 result) */}
@@ -1145,6 +1195,9 @@ export const ToolCallCard = React.memo(function ToolCallCard({
               <ImageResultBlock
                 imageUrl={polledImageUrl}
                 prompt={pickStr(args, ['prompt', 'description'])}
+                gallery={gallery}
+                galleryIndex={galleryIndex}
+                onGalleryIndexChange={onGalleryIndexChange}
               />
             ) : (
               <PendingTaskBlock
