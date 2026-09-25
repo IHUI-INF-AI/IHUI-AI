@@ -17,6 +17,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 支付结果三态(对齐 miniapp PayStatus) */
 export type PayResultStatus = 'pending' | 'paid' | 'failed'
@@ -83,15 +84,7 @@ export function PayResultScreen({
       {/* 顶部导航行(对齐 RN NavBar:返回 + 居中标题) */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
-          <Pressable
-            style={styles.backBtn}
-            onPress={onBack}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="back"
-          >
-            <Text style={styles.backArrow}>{'‹'}</Text>
-          </Pressable>
+          <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
           <Text style={styles.headerTitle} numberOfLines={1}>
             {t('payResult.title')}
           </Text>
@@ -170,17 +163,6 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       height: 44,
-    },
-    backBtn: {
-      width: 32,
-      height: 32,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    backArrow: {
-      fontSize: 24,
-      lineHeight: 26,
-      color: tk.text.primary,
     },
     headerTitle: {
       flex: 1,
