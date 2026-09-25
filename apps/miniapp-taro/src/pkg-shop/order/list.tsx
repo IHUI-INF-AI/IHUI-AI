@@ -10,6 +10,7 @@ import { formatDateByTemplate } from '@ihui/shared'
 import { getOrderList, type Order } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import SearchBar from '@/components/SearchBar'
+import BackChevron from '@/components/BackChevron'
 
 type OrderItem = Order & {
   outTradeNo?: string
@@ -219,13 +220,7 @@ export default function OrderList() {
     <View className="min-h-screen bg-background">
       {/* 头部(对齐 RN header:paddingH 20rpx / paddingV 24rpx / gap 24rpx / 返回 32rpx text.medium / 标题 40rpx 600) */}
       <View className="flex items-center gap-[24rpx] bg-card px-[20rpx] py-[24rpx]">
-        <View
-          className="w-[80rpx] text-[length:32rpx] text-[var(--color-text-medium)]"
-          hoverClass="opacity-60"
-          onClick={goBack}
-        >
-          <Text>‹</Text>
-        </View>
+        <BackChevron onTap={goBack} />
         <Text className="flex-1 text-center text-[length:40rpx] text-foreground font-semibold">
           {tt('order.list.title', '我的订单')}
         </Text>
@@ -322,7 +317,9 @@ export default function OrderList() {
                             ? `${tt('order.list.refundTime', '退款时间')}：${refundTimeText}`
                             : ''}
                         </Text>
-                        <Text className="text-[length:36rpx] text-foreground font-bold">¥{o.amount}</Text>
+                        <Text className="text-[length:36rpx] text-foreground font-bold">
+                          ¥{o.amount}
+                        </Text>
                       </View>
                       {o.description ? (
                         <Text className="block text-[length:24rpx] text-muted-foreground mt-[12rpx] line-clamp-2">
