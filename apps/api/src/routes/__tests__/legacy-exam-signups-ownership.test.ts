@@ -7,11 +7,15 @@
 //  本表 user_id 本身就是 uuid、与 request.userId 同 ID 空间,归属**可证**,
 //  所以这里是"按 uuid 归属放行",不是 exam.ts 那 7 处的 fail-close 到管理员档。)
 //
-// 四条敞口与本文件的对应关系(逐条一个变异对照,见下方 it 标题里的「变异口」):
+// 敞口与本文件的对应关系(逐条一个变异对照,见下方 it 标题里的「变异口」;①-④ 为上一票,⑤ 为本票):
 //   ① GET  /exam/signups       归属缺省时退化成 sql`TRUE` ⇒ 整表可读
 //   ② GET  /exam/signups/:id   只 authenticate、无归属校验 ⇒ 按 id 枚举他人详情
 //   ③ POST /exam/signups       userId 由请求体自报 ⇒ 可伪造/污染任意用户
 //   ④ GET  /exam/signups/check userId 由查询参数自报 ⇒ 存在性预言机(可枚举)
+//   ⑤ GET  /exam/favorites  同文件第五条同型敞口(2026-09-25 补,见用例 ⑥ 组):自报 userId
+//      被拼进原生 SQL 的 `WHERE f.user_id = ${userId}` ⇒ 任意登录用户可读他人收藏;
+//      该面另有一层不同:它是本文件唯一走 `db.execute(裸 SQL)` 的路由,收口时一并改回
+//      Drizzle 表达式,让归属列对判据(和本文件其余四条同一套 mock)可见。
 //
 // 本文件刻意**不** mock plugins/auth.js:鉴权判据(JWT 验签 + roleId 提取)必须真跑,
 // 否则"越权拿不到东西"这句结论就是被 mock 掉的授权判据自己给的 —— 那种绿等于没测。
@@ -200,6 +204,13 @@ const H = vi.hoisted(() => {
   interface Chain {
     then: (resolve: (value: unknown[]) => unknown) => Promise<unknown>
     from: () => Chain
+    /**
+     * 2026-09-25 为 `GET /exam/favorites` 追加(其余四路由不调它,既有十例行为逐字不变):
+     * 该面从裸 SQL 改回 Drizzle 表达式后走 `select().from(userFavorites).innerJoin(...).where(...)`,
+     * 链上缺这一环就会 TypeError ⇒ 500,而 500 会被误读成"授权拦住了"。
+     * join 条件刻意**不进** where 判据:被 mock 掉的只有存在性,归属过滤仍由 `where()` 忠实执行。
+     */
+    innerJoin: () => Chain
     where: (cond: unknown) => Chain
     orderBy: () => Chain
     limit: () => Chain
@@ -212,6 +223,7 @@ const H = vi.hoisted(() => {
     const self: Chain = {
       then: (r) => Promise.resolve(resolve()).then(r),
       from: () => self,
+      innerJoin: () => self,
       where: (c) => {
         state.cond = c
         state.whereSeen += 1
@@ -464,6 +476,93 @@ describe('legacy-exam /exam/signups* 归属校验(四条同型敞口收口回归
     expect((detail.json() as { userId: string }).userId).toBe(H.CALLER)
     expect(check.statusCode).toBe(200)
     expect((check.json() as { signed: boolean }).signed).toBe(true)
+  })
+
+  // ---------- ⑥ GET /exam/favorites:同文件第五条同型敞口(2026-09-25 收口) ----------
+  //
+  // 修复前形态:`const { userId } = userIdQuery.parse(request.query)` 之后把**自报**的 userId
+  // 拼进原生 SQL `WHERE f.user_id = ${userId}`(值经 drizzle 绑定 ⇒ 不是注入,而是越权读)。
+  // 本面裸 SQL 已改回 Drizzle 表达式,mock 的 where 执行器因此**看得见**归属列 ——
+  // 归属值取错(取自 query)与被 mock 静默放行是两种不同故障,这里靠前者判、不靠后者蒙。
+  // 夹具如实登记:被 mock 的行仍是 signup 形态(带 userId 字段),收藏面真库返的是 exam_papers
+  // 行、并无 user_id 列 —— 所以这里断言的是"**绑定进去的归属是谁**",不是"表里有什么列"。
+  it('⑥ 收藏:带他人 userId ⇒ 403 + 零记录,且**未发出任何查询**(授权先于查库)', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/legacy/exam/favorites?userId=${H.OTHER}`,
+      headers: memberHeaders,
+    })
+    // 变异口①:把归属来源换回 query 自报(摘掉 requireSelfScope)⇒ 这里 200 + 他人两行 ⇒ 红
+    // 变异口②:把授权判定挪到查库之后 ⇒ statusCode 仍可能 403 但 whereSeen=1 ⇒ 第二条断言红
+    expect(res.statusCode).toBe(403)
+    expect(H.state.whereSeen).toBe(0)
+    expect(ownerIdsIn(res.json())).toEqual([])
+    expect(JSON.stringify(res.json())).not.toContain(H.OTHER)
+  })
+
+  it('⑥b 收藏:不带 userId 也可用,且归属约束确实落在 user_id 列上并绑成 JWT 身份', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/legacy/exam/favorites',
+      headers: memberHeaders,
+    })
+    expect(res.statusCode).toBe(200)
+    expect(H.state.whereSeen).toBe(1)
+    // 变异口①的第二半:老实现 userId 是 query **必填**,不带参数会 400 ⇒ 第一条断言红
+    // 退化兜底:若哪天 where 里再没有归属列(无界读整表),mock 会返回全部四行 ⇒ 第二条红
+    expect(ownerIdsIn(res.json())).toEqual([H.CALLER, H.CALLER])
+    const rendered = H.state.frags[H.state.frags.length - 1] ?? ''
+    expect(rendered).toContain('col:user_id')
+  })
+
+  it('⑥c 收藏:非 uuid 形态的他人 userId ⇒ 仍是 403 而不是 400(授权也先于参数校验)', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/legacy/exam/favorites?userId=1%27%20or%20%271%27%3D%271',
+      headers: memberHeaders,
+    })
+    // 400 说明请求先过了 zod/查库那一步 ⇒ 授权不再先于动作;401 说明鉴权被摘;
+    // 任何一种都让本条红。取值被当成不透明串处理,不构成注入面。
+    expect(res.statusCode).toBe(403)
+    expect(H.state.whereSeen).toBe(0)
+  })
+
+  it('⑥d 收藏:管理员也不得无界读(不带 ⇒ 只有管理员自己的,带他人 ⇒ 403)', async () => {
+    const anon = await app.inject({
+      method: 'GET',
+      url: '/api/legacy/exam/favorites',
+      headers: adminHeaders,
+    })
+    expect(anon.statusCode).toBe(200)
+    // ADMIN 在夹具里没有任何行 ⇒ 给的就是空,而不是"整张收藏表"
+    expect(ownerIdsIn(anon.json())).toEqual([])
+    const cross = await app.inject({
+      method: 'GET',
+      url: `/api/legacy/exam/favorites?userId=${H.OTHER}`,
+      headers: adminHeaders,
+    })
+    expect(cross.statusCode).toBe(403)
+    expect(ownerIdsIn(cross.json())).toEqual([])
+  })
+
+  // ---------- 反向对照(⑥ 的另一半):合法本人访问必须仍 200 ----------
+  it('⑥e 反向对照:本人(不带 / 带自己的 userId)读收藏都 200 且拿到自己的两行,不是恒 403', async () => {
+    const bare = await app.inject({
+      method: 'GET',
+      url: '/api/legacy/exam/favorites',
+      headers: memberHeaders,
+    })
+    const explicit = await app.inject({
+      method: 'GET',
+      url: `/api/legacy/exam/favorites?userId=${H.CALLER}`,
+      headers: memberHeaders,
+    })
+    expect(bare.statusCode).toBe(200)
+    expect(explicit.statusCode).toBe(200)
+    expect(ownerIdsIn(bare.json())).toEqual([H.CALLER, H.CALLER])
+    expect(ownerIdsIn(explicit.json())).toEqual([H.CALLER, H.CALLER])
+    // 两种写法必须给出同一份数据:说明 userId 只是**一致性校验**,不是第二个归属入口
+    expect(explicit.json()).toEqual(bare.json())
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
