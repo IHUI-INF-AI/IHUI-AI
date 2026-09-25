@@ -16,7 +16,7 @@ import assert from 'node:assert/strict'
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 // Windows 上 import() 不接受反斜杠绝对路径,必须走 file:// URL(否则整文件在收集期失败,
 // 表现为"1 test failed / 0 run"—— 那正是本仓记过的"收集期失败静默削掉整批用例"那一型)
-const { classify, decide, usesLayerRead, GATE_GLOB } = await import(pathToFileURL(resolve(ROOT, 'scripts/check-gate-face-discipline.mjs')).href)
+const { classify, decide, usesLayerRead, gitContentReads, GATE_GLOB } = await import(pathToFileURL(resolve(ROOT, 'scripts/check-gate-face-discipline.mjs')).href)
 
 const g = (a) => execFileSync('git', ['-c', 'safe.directory=*', ...a], { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 28, windowsHide: true })
 
@@ -130,6 +130,24 @@ test('T11 反向回归:classify 不得再把"仅 import"当第一刀放行', () 
   assert.doesNotMatch(src, /if\s*\(\s*FACE_IMPORT_RE\.test\(code\)\s*\)\s*return\s*\{\s*kind:\s*'face'/)
   assert.ok(src.includes('usesLayerRead(code)'), '合规判定必须先问"真调用过层的读取入口吗"')
   assert.equal(typeof usesLayerRead, 'function', 'usesLayerRead 必须导出(镜像不得复制一份实现)')
+})
+
+// ─── T12/T13 「读内容」与「枚举」必须分开(2026-09-26,主会话)───
+// 立因:上一版把 ls-tree / cat-file -e / grep -l 也算进"散写读内容",于是只做存在性与路径清单的
+// check-merge-addition-loss(一处 blob 都没读)被判半接线。**假阳比漏报更贵** —— 它会指使人去
+// "修"一个没坏的东西,还把判据自己的口径说歪成"数字很多"。这两条把两侧都钉住。
+test('T12 存在性/路径清单不算读内容,blob 与借 transport 自读算(成对)', () => {
+  assert.equal(gitContentReads("const git=(a)=>execFileSync(GIT_BIN,a)\ngit(['cat-file','-e',x])\ngit(['ls-tree','-r','--name-only',t,'-z'])\ngit(['rev-list',r])\n"), false, '枚举调用被当成读内容 ⇒ 判据会在健康门上产假阳')
+  assert.equal(gitContentReads("execFileSync(GIT_BIN, ['cat-file','blob',oid])\n"), true, '真散写 blob 不得被放过')
+  assert.equal(gitContentReads("gitRaw(['show', spec], root)\n"), true, '借层的 transport 自己读内容必须能认出')
+})
+
+test('T13 仓库锚点必须落在路径函数实参里(把 ROOT 当默认实参不算)', () => {
+  // 旧写法带 |`\bROOT\s*,` 一支,把 `function f(cwd = ROOT)` 读成"以仓库根拼路径"。
+  // 该夹具按现口径落 unknown(读文件但认不出锚点)—— 这是**已知空档**,不是"没问题":
+  // 判据分不清"读被审内容"与"读运行态台账",就不该假装分得清并据此判红。
+  assert.equal(classify('scripts/check-t13.mjs', "const ROOT = resolve(__dirname, '..')\nexport function audit(limit = 400, cwd = ROOT, p = markerPath(cwd)) { return p }\nreadFileSync(p, 'utf8')\n").kind, 'unknown')
+  assert.equal(classify('scripts/check-t13b.mjs', "readFileSync(join(ROOT, REL), 'utf8')\n").kind, 'loose-fs')
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
