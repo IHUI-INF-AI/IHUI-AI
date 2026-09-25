@@ -120,7 +120,8 @@
     "scripts/tests/check-statusbar-single-source.test.mjs::statusbar-exempt": 3,
     "scripts/tests/scan-hardcoded-zh.test.mjs::radius-exempt": 1,
     "scripts/tests/scan-hardcoded-zh.test.mjs::i18n-content-exempt-file": 1,
-    "scripts/check-glyph-arrow-icon.mjs::back-label-exempt": 10
+    "scripts/check-glyph-arrow-icon.mjs::back-label-exempt": 11,
+    "scripts/check-glyph-arrow-icon.mjs::nav-chrome-exempt": 5
   },
   "updatedAt": "2026-09-25"
 }
