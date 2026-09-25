@@ -86,7 +86,10 @@ Write-Host ""
 # 2026-08-09 根治并发部署:在任何 .next 操作(备份/清理)之前获取部署锁。
 # 多个 Agent/自动化任务并行触发构建时,后到者等待超时后直接退出,避免互相破坏产物。
 Write-Host "[0/6] 获取部署锁 (deploy-lock)" -ForegroundColor Yellow
-& $Node22 "$ProjectRoot\scripts\deploy-lock.mjs" acquire --mode build --timeout 600000 --stale 600000 2>&1 | Tee-Object -FilePath $BuildLog
+# --owner-pid $PID:锁的主人必须登记成**本脚本自己**这个进程,而不是 deploy-lock.mjs 那次 CLI 调用
+# —— CLI 打印"锁已获取"就退出了,拿它的 pid 判活等于没有判据:要么恒"已退出"(别人的构建被抢),
+# 要么 pid 被系统复用给别的过程(2026-09-25 实测被 nssm.exe 复用 ⇒ 部署环冻结 11h50m)。
+& $Node22 "$ProjectRoot\scripts\deploy-lock.mjs" acquire --mode build --timeout 600000 --stale 600000 --owner-pid $PID 2>&1 | Tee-Object -FilePath $BuildLog
 $lockExit = $LASTEXITCODE
 if ($lockExit -ne 0) {
     Write-Host ""
