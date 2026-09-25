@@ -3,8 +3,14 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { fetchApi } from '@/lib/api'
+import { fetchMarketSkills } from '@ihui/api-client'
 import type { Skill, SkillForm, MarketListResponse } from './types'
 
+// 注意:本 helper 走 web 端 fetchApi 包装(apps/web/src/lib/api.ts),它在**非 GET** 收到 401
+// 时会自动弹登录框;@ihui/api-client 的共享 fetchApi 没有这一步(无 onUnauthorized 钩子可注册),
+// 且本文件两个调用方 page.tsx 的 saveMut/delMut 都没有 onError 分支 —— 弹窗是它们唯一的
+// 401 反馈。故下面两处 mutation 型调用**刻意不收口**到 api-client 端点(AGENTS §3 的例外,
+// 理由量化于票面),不得为"清直连数字"而迁移。GET 型的市场列表已迁,见 fetchMarketSkills。
 export async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
   if (!r.success) throw new Error(r.error)
@@ -22,13 +28,9 @@ export async function searchMarketSkills(
   page: number,
   pageSize: number,
 ): Promise<MarketListResponse> {
-  const params = new URLSearchParams()
-  if (q) params.set('q', q)
-  if (tag) params.set('tag', tag)
-  params.set('page', String(page))
-  params.set('pageSize', String(pageSize))
-  const data = await api<MarketListResponse>(`/api/skills/market?${params.toString()}`)
-  return data
+  const r = await fetchMarketSkills({ q, tag, page, pageSize })
+  if (!r.success) throw new Error(r.error)
+  return r.data
 }
 
 export const EMPTY_FORM: SkillForm = {
