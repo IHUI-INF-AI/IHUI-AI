@@ -1414,6 +1414,82 @@ function taskActionOk() {
   return taskFormAcceptable(taskForm())
 }
 
+/**
+ * 开工前基线新鲜度的**只报数**账(机制规格 MECHANISM-SPEC-2 §2 的守护侧挂点)。
+ *
+ * 三条刻意:
+ *  ① **只 log 数字,不 notifyGuardRed、不改任何退出码、不改自愈语义。** ③轴(共享工作树相对 HEAD
+ *     的漂移)量的是并行会话的未提交状态,**提交者结构上无法满足**;把它接进任何判定面就等于
+ *     让每一次提交恒红 ⇒ 逼人 --no-verify ⇒ 全部守门作废(§12e/§4 反复登记的那一型)。
+ *  ② 祖先比对是**逐文件 `git log`**(实测 56 个漂移路径约 8s),而本守护每 2 分钟一趟 ⇒ 不节流
+ *     就是一台自造 fork 风暴的机器(§5b 的 24.6 万 cmd/2min 同型)。故 30 分钟才跑一次全账,
+ *     间隔内走 `--skip-drift-analysis` 的便宜账(漂移面计数照报,旧基线子集不比对)。
+ *  ③ 挂点在**健康轮次的早退之前**、且带 `!CHECK_ONLY`(写节流戳是副作用)。本仓已两次踩过
+ *     "挂错位置 = 永不执行"(工作区自愈层、盘根封口层各一次)。
+ */
+function reportBaselineFreshness() {
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-baseline-freshness.mjs')
+  if (!existsSync(script)) return
+  const stampFile = join(dirname(LOG), 'baseline-freshness-stamp')
+  const THROTTLE_MS = 30 * 60 * 1000
+  let lastRun = 0
+  try {
+    lastRun = Number(readFileSync(stampFile, 'utf8').trim()) || 0
+  } catch {
+    lastRun = 0
+  }
+  const full = Date.now() - lastRun > THROTTLE_MS
+  const args = ['--json', '--no-fetch']
+  if (!full) args.push('--skip-drift-analysis')
+  let parsed = null
+  try {
+    const out = execFileSync(process.execPath, [script, ...args], {
+      cwd: WORKTREE,
+      encoding: 'utf8',
+      windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+      timeout: 240000, // 守门 80:热路径派生一律带上限
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+    parsed = JSON.parse(String(out || ''))
+  } catch {
+    // 判据自己跑不动 ≠ 基线过期;也 ≠ 可以静默。留一行,免得"账没了"和"账绿了"长得一样。
+    log('⚠️ 基线新鲜度账不可用:未判定,不影响自愈与退出码')
+    return
+  }
+  if (full) {
+    try {
+      mkdirSync(dirname(stampFile), { recursive: true })
+      writeFileSync(stampFile, String(Date.now()))
+    } catch {
+      /* 节流戳写失败只意味着下次多跑一遍全账,不影响判定 */
+    }
+  }
+  const a = parsed.axes || {}
+  const d = a.drift || {}
+  const up = a.upstream || {}
+  const mn = a.main || {}
+  // 只在"有东西可看"时写行:全绿且零漂移的日子保持安静(健康时不写行是本日志的既有约定)。
+  const parts = [
+    `①${up.status ?? '?'}${typeof up.behind === 'number' ? `(落后 ${up.behind})` : ''}`,
+    `②${mn.status ?? '?'}${typeof mn.behind === 'number' ? `(落后 ${mn.behind}/独有 ${mn.own})` : ''}`,
+    `③漂移面 ${d.total ?? '?'} 个路径(源码类 ${d.sourceClass ?? '?'})`,
+  ]
+  if (full)
+    parts.push(
+      `旧基线 ${d.stale ?? '?'} 个${
+        d.oldest ? `(最旧 ${d.oldest.commit}${typeof d.oldest.span === 'number' ? ` 落后 ${d.oldest.span} 次` : ''})` : ''
+      }`,
+    )
+  const noteworthy =
+    (d.total ?? 0) > 0 ||
+    up.status === 'red' ||
+    mn.status === 'red' ||
+    (d.stale ?? 0) > 0 ||
+    up.status === 'undetermined' ||
+    mn.status === 'undetermined'
+  if (noteworthy) log(`ℹ️ 基线新鲜度(只报数,不进提交链)${full ? '全账' : '便宜账'}:${parts.join(';')}`)
+}
+
 function main() {
   // 通知层人工核验入口(先于 INSTALL):只"真发一次/只问通道齐备",不参与自愈。
   // --notify-test 绕过当轮去重(force),否则"想核验的人"会被上一条同因告警的窗口挡住,
@@ -1521,6 +1597,8 @@ function main() {
     // 合并吞并对账:别人机器上造好推来的合并跑不到提交链那道门(commit-tree 旁路不跑钩子),
     // 由本层按增量台账判到一次(只判不修)。
     if (!CHECK_ONLY) auditMergeAdditionLoss()
+    // 开工前基线新鲜度:只报数的一层(③轴绝不进提交链,故这里既不判红也不喊人)。
+    if (!CHECK_ONLY) reportBaselineFreshness()
     // §5b 的"唯一空白层":恢复源刷新原本挂在计划任务上,而那个任务已实测消失 ⇒ 并入 tick。
     if (!CHECK_ONLY) refreshRecoverySource()
     // 看门人也要有人看:凭据/停摆巡检靠 schtasks 每 6 小时自跑,任务被删/被停/node 路径
