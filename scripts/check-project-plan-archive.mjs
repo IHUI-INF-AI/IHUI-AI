@@ -149,11 +149,16 @@ function main(face, root = ROOT) {
    * 免得盘上随后改对就算合规(旧写法用 `git diff` 文本,工作树一脏就跟着变)。
    */
   const del = deletionVerdict(oldContent, newContent)
-  const anchors = anchorVerdict(readAnchorInputs(root, face))
+  const inputs = readAnchorInputs(root, face)
+  const anchors = anchorVerdict(inputs)
+  // A3 取不到正文的归档件 ⇒ 如实报数,绝不静默当成"那一层没问题"(判据失明不是通过)。
+  const undet = inputs.archiveUndetermined
+    ? `;A3 另有 ${inputs.archiveUndetermined} 份归档件正文取不到,那一层未判定`
+    : ''
 
   if (del.compliant && anchors.red.length === 0) {
     console.log(
-      `${C.green}✅ PROJECT_PLAN.md 归档守门通过${C.reset} ${C.dim}(无已完成任务条目被删除;归档锚点齐备${anchors.baseline.length ? `;另有 ${anchors.baseline.length} 项已登记的缺失存量只报数` : ''})${C.reset}`,
+      `${C.green}✅ PROJECT_PLAN.md 归档守门通过${C.reset} ${C.dim}(无已完成任务条目被删除;归档锚点齐备${anchors.baseline.length ? `;另有 ${anchors.baseline.length} 项已登记的缺失存量只报数` : ''}${undet})${C.reset}`,
     )
     for (const b of anchors.baseline)
       console.log(`${C.dim}   报数(已登记缺失):${b}${C.reset}`)
@@ -245,27 +250,47 @@ function placeholderLines(content) {
  * 故按本台账自己的规矩删那 4 行(文件已回到审面却仍挂着 = 清单腐烂红)。
  * 另 2 条(`2026-07-26` 组内 L3774/L3778)确认**找不回**:它们的占位是在 `3a5b737bf8` 里凭空
  * 新增的纯 `+` 行,按裸标题 `git log -S` 证明条目从未存在过 ⇒ 从别处"补"就是编造,不当干。
- * 剩余 4 项继续只报数;其中 `2026-09-12` 那份重建里含一个 486 行元归档块,内部又嵌 218 条
- * 更早的占位 ⇒ 递归找回是下一格,没做完不得把这一项读成"已彻底清账"。
+ *
+ * 2026-09-25 G-192:下面 `NEVER_EXISTED` 那 8 项是 **A3**(归档件内部点名)上线时一次性登记的存量。
+ * 取证方式与第一批不同 —— 不是"内容找不回",而是**该路径从未作为文件存在过**:
+ * `git log --all -- <各种前缀>/<name>` 对 8 个名字全部 0 命中(含 `.trae-cn/archive/` 这一族)。
+ * 同一批里 4 个真存在过的(`2026-07-22_archive` / `2026-07-23_archive{,_v3,_v4}`)已按 blob 逐字节
+ * 取回入库,所以这 8 项是"占位被写过、文件没被写过"的那一类,**结构上找不回**,只能如实报数。
  */
+const NEVER_EXISTED = [
+  'PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md',
+  'PROJECT_PLAN_2026-07-22_sdk-multi-language.md',
+  'PROJECT_PLAN_2026-07-23_archive_v2.md',
+  'PROJECT_PLAN_2026-07-23_archive_v5.md',
+  'PROJECT_PLAN_2026-07-23_archive_v6.md',
+  'PROJECT_PLAN_2026-07-23_archive_v7.md',
+  'PROJECT_PLAN_2026-07-24_audit-chain-cleanup.md',
+  'PROJECT_PLAN_2026-08-19_auto-archive.md',
+]
+
 export const LOST_ANCHOR_LEDGER = [
   'PROJECT_PLAN_2026-07-20_pre-permission-runtime.md',
   'PROJECT_PLAN_2026-07-20_publish-task-archive.md',
   'PROJECT_PLAN_2026-09-23_bulk-archive.md',
   'PROJECT_PLAN_archive_2026-08-20.md',
+  ...NEVER_EXISTED,
 ]
 
 /**
- * A1/A2 的判定(纯函数,输入全部来自被审面):
+ * A1/A2/A3 的判定(纯函数,输入全部来自被审面):
  *  **A1** 盘上有 `PROJECT_PLAN_*.md` 而审面里没有 ⇒ 红。这正是 G-184 关掉的洞的另一半:
  *       归档内容只存在于本机一块磁盘时,既撑不起"完整内容在 archive"的承诺,也随时会随磁盘没。
- *  **A2** 占位注释点名的具体文件不在审面里 ⇒ 红;若该名字在 `LOST_ANCHOR_LEDGER` 里则只报数。
+ *  **A2** 计划文档里的占位点名的具体文件不在审面里 ⇒ 红;若该名字在 `LOST_ANCHOR_LEDGER` 里则只报数。
  *       写成通配(`PROJECT_PLAN_*.md`)的占位不参与 A2 —— 它没有点名,判不了。
- * ⚠️ A2 的归属判据必须看 **faceFiles(该目录在审面上的全部文件)**而不是只看 `PROJECT_PLAN_*`:
+ *  **A3**(G-192 新增)**归档件自己内部**的占位同样点名(元归档:归档文件里再写"完整内容在
+ *       archive/<另一个文件>")。只看计划文档的 A2 对这一层是盲的 —— 实测 `2026-09-12` 那份
+ *       元归档里嵌着 218 条占位,其中 12 个点名对象从未入库。判据、豁免与腐烂规矩与 A2 同形,
+ *       只是**同一个文件不重复计债**(已被 A1/A2 点名的,这里跳过)。
+ * ⚠️ A2/A3 的归属判据必须看 **faceFiles(该目录在审面上的全部文件)**而不是只看 `PROJECT_PLAN_*`:
  *    归档目录里也放非该形状的锚点件(实测 `orphan-capabilities-equivalence-2026-09-24.md` 已跟踪),
  *    拿形状过滤后的清单去判点名 ⇒ 把"已入库"读成"落空",本门第一次自跑就是这么红给自己看的。
  */
-export function anchorVerdict({ diskAnchors, faceFiles, planText, ledger = LOST_ANCHOR_LEDGER }) {
+export function anchorVerdict({ diskAnchors, faceFiles, planText, archiveText = '', ledger = LOST_ANCHOR_LEDGER }) {
   const red = []
   const baseline = []
   const onFace = new Set(faceFiles)
@@ -277,25 +302,34 @@ export function anchorVerdict({ diskAnchors, faceFiles, planText, ledger = LOST_
       diskOnly.add(f)
     }
   }
-  const named = new Set(
-    [...String(planText || '').matchAll(/\.ihui-agent[\\/]archive[\\/]([A-Za-z0-9._\-]+\.md)/g)].map((m) => m[1]),
-  )
-  for (const f of [...named].sort()) {
-    if (onFace.has(f)) {
-      if (ledger.includes(f)) red.push(`A2 台账腐烂:${f} 已回到审面,仍挂在 LOST_ANCHOR_LEDGER 里`)
-      continue
+  const named = (text) =>
+    new Set(
+      [...String(text || '').matchAll(/\.ihui-agent[\\/]archive[\\/]([A-Za-z0-9._\-]+\.md)/g)].map((m) => m[1]),
+    )
+  const fromPlan = named(planText)
+  const seen = new Set(diskOnly)
+  const scan = (set, tag, hint) => {
+    for (const f of [...set].sort()) {
+      if (seen.has(f)) continue
+      seen.add(f)
+      if (onFace.has(f)) {
+        if (ledger.includes(f)) red.push(`${tag} 台账腐烂:${f} 已回到审面,仍挂在 LOST_ANCHOR_LEDGER 里`)
+        continue
+      }
+      if (ledger.includes(f)) {
+        baseline.push(`${tag} 占位点名的归档文件不在审面:${f}(已登记存量,只报数)`)
+        continue
+      }
+      red.push(`${tag} 占位点名的归档文件不在审面:${f} —— ${hint}`)
     }
-    if (diskOnly.has(f)) continue // 同一个文件已被 A1 点名 ⇒ 不重复计(A1 是更强的那句:内容在盘上、只是没入库)
-    if (ledger.includes(f)) {
-      baseline.push(`A2 占位点名的归档文件不在审面:${f}(已登记存量,只报数)`)
-      continue
-    }
-    red.push(`A2 占位点名的归档文件不在审面:${f} —— 补回文件或改写占位,不得只删台账行`)
   }
+  scan(fromPlan, 'A2', '补回文件或改写占位,不得只删台账行')
+  // A3 只扫 A2 没见过的名字:归档件正文里点名的对象
+  scan(named(archiveText), 'A3', '归档件内部的占位点名了不存在的锚点(元归档层),补回或改写占位')
   return { red, baseline }
 }
 
-/** 从被审面读三件套:盘上文件名、审面上的文件名(全集,不按形状筛)、计划文档正文。 */
+/** 从被审面读四件套:盘上文件名、审面上的文件名(全集)、计划文档正文、归档件正文合流(A3 用)。 */
 function readAnchorInputs(root, face) {
   const args =
     face === 'staged'
@@ -311,16 +345,36 @@ function readAnchorInputs(root, face) {
     .split('\0')
     .filter(Boolean)
     .map((p) => p.split('/').pop())
+  const facePaths = faceRaw.split('\0').filter(Boolean)
   const planSpec = face === 'staged' ? `:${FILE}` : `HEAD:${FILE}`
   let planText = catBatch(root, [planSpec], { timeout: 60000 }).get(planSpec) ?? ''
   if (face === 'worktree') planText = readWorktreeFile(root, FILE) ?? planText
+  // A3 的取材面**必须与被审面同一个**:归档清单来自索引/HEAD,正文也就从同一个面取。
+  // 单个 blob 取不到 ⇒ 跳过并如实计数,不因此判红(面与内容分叉时,宁可少判一层)。
+  let archiveText = ''
+  let archiveUndetermined = 0
+  const anchorPaths = facePaths.filter((p) => ANCHOR_RE.test(p.split('/').pop()))
+  if (anchorPaths.length) {
+    const specs = anchorPaths.map((p) => (face === 'staged' ? `:${p}` : `HEAD:${p}`))
+    let blobs
+    try {
+      blobs = catBatch(root, specs, { timeout: 60000 })
+    } catch {
+      blobs = new Map()
+    }
+    for (const spec of specs) {
+      const src = blobs.get(spec)
+      if (typeof src === 'string') archiveText += src
+      else archiveUndetermined++
+    }
+  }
   let diskAnchors = []
   try {
     diskAnchors = existsSync(path.join(root, ARCHIVE_DIR)) ? readdirSync(path.join(root, ARCHIVE_DIR)) : []
   } catch {
     diskAnchors = []
   }
-  return { diskAnchors, faceFiles, planText }
+  return { diskAnchors, faceFiles, planText, archiveText, archiveUndetermined }
 }
 
 /** 取证自检:三条判据各有正反例,且**不碰真仓磁盘**(盘上清单是机器态,只能构造)。 */
@@ -407,6 +461,69 @@ export function selfTest() {
       ledger: [],
     })
     return r.red.length === 1 && r.red[0].startsWith('A1')
+  })
+  t('A3 归档件内部的占位点名不存在的锚点 ⇒ 红(A2 只看计划文档,这一层原本无人看守)', () => {
+    const f = 'PROJECT_PLAN_2099-03-01_archive.md'
+    const r = anchorVerdict({
+      diskAnchors: [],
+      faceFiles: ['PROJECT_PLAN_2099-02-99_archive.md'],
+      planText: '# 计划文档里没有这句指针',
+      archiveText: `<!-- 已归档:Z,完整内容在 .ihui-agent/archive/${f} -->`,
+      ledger: [],
+    })
+    return r.red.length === 1 && r.red[0].startsWith('A3') && r.red[0].includes(f)
+  })
+  t('A3 名字已在台账 ⇒ 只报数;已入库 ⇒ 绿(与 A2 同一条三段规矩)', () => {
+    const f = 'PROJECT_PLAN_2099-03-02_archive.md'
+    const miss = anchorVerdict({
+      diskAnchors: [],
+      faceFiles: [],
+      planText: '',
+      archiveText: `.ihui-agent/archive/${f}`,
+      ledger: [f],
+    })
+    const present = anchorVerdict({
+      diskAnchors: [f],
+      faceFiles: [f],
+      planText: '',
+      archiveText: `.ihui-agent/archive/${f}`,
+      ledger: [],
+    })
+    return miss.red.length === 0 && miss.baseline.length === 1 && present.red.length === 0 && present.baseline.length === 0
+  })
+  t('A3 已入库却仍挂台账 ⇒ 判清单腐烂,且标签必须是 A3(归因不能串到 A2 头上)', () => {
+    const f = 'PROJECT_PLAN_2099-03-03_archive.md'
+    const r = anchorVerdict({
+      diskAnchors: [f],
+      faceFiles: [f],
+      planText: '',
+      archiveText: `.ihui-agent/archive/${f}`,
+      ledger: [f],
+    })
+    return r.red.length === 1 && r.red[0].startsWith('A3 台账腐烂')
+  })
+  t('A2 与 A3 点到同一个名字 ⇒ 只计一次(A2 先,不重复背债)', () => {
+    const f = 'PROJECT_PLAN_2099-03-04_archive.md'
+    const r = anchorVerdict({
+      diskAnchors: [],
+      faceFiles: [],
+      planText: `.ihui-agent/archive/${f}`,
+      archiveText: `.ihui-agent/archive/${f}`,
+      ledger: [],
+    })
+    return r.red.length === 1 && r.red[0].startsWith('A2')
+  })
+  t('A3 台账腐烂与缺失必须能同时成立在不同名字上(集合不互相吞)', () => {
+    const gone = 'PROJECT_PLAN_2099-03-05_archive.md'
+    const rot = 'PROJECT_PLAN_2099-03-06_archive.md'
+    const r = anchorVerdict({
+      diskAnchors: [rot],
+      faceFiles: [rot],
+      planText: '',
+      archiveText: `.ihui-agent/archive/${gone} .ihui-agent/archive/${rot}`,
+      ledger: [gone, rot],
+    })
+    return r.red.length === 1 && r.red[0].includes(rot) && r.baseline.length === 1 && r.baseline[0].includes(gone)
   })
   t('A0 合规判据由 length 决定,不是由数组真值决定(空数组是**真值**)', () => {
     const v = deletionVerdict('### X(已完成 ✅)\n', '# plan\n')

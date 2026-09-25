@@ -333,6 +333,39 @@ test('归档占位: 无"已归档"关键字的 HTML 注释 → 不识别(仍 exi
   }
 })
 
+test('A3 端到端:归档件内部的占位指向不存在的锚点 → exit 1 并点名 A3', () => {
+  const dir = createTempGitRepo()
+  try {
+    commitPlan(dir, '# plan\n\n### 任务A\n内容\n')
+    // 元归档层:归档文件正文里再写"完整内容在 archive/<另一个文件>",而那个文件从来没有过。
+    // A2 只扫计划文档 ⇒ 这一层过去无人看守(G-192 实测 218 条嵌在 2026-09-12 那份里)。
+    // 必须 commit:worktree 档的审面是 HEAD,只 add 不 commit 会先撞上 A1。
+    commitAnchor(
+      dir,
+      'PROJECT_PLAN_2026-07-22_meta.md',
+      '# 元归档\n\n引用 .ihui-agent/archive/PROJECT_PLAN_2099-12-31_never.md 但那份从未写过\n',
+    )
+    const r = runScript(dir)
+    assert.equal(r.status, 1, `归档件点名不存在的锚点应 exit 1\nstdout: ${r.out}\nstderr: ${r.err}`)
+    assert.match(r.err, /A3 占位点名的归档文件不在审面:PROJECT_PLAN_2099-12-31_never\.md/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('A3 反向对照:同一份归档件点名**已在审面**的锚点 → exit 0(不是把整层一律判红)', () => {
+  const dir = createTempGitRepo()
+  try {
+    commitPlan(dir, '# plan\n\n### 任务A\n内容\n')
+    commitAnchor(dir, 'PROJECT_PLAN_2026-07-22_target.md', '### 任务B(已完成 ✅)\nB\n')
+    commitAnchor(dir, 'PROJECT_PLAN_2026-07-22_meta.md', '引用 .ihui-agent/archive/PROJECT_PLAN_2026-07-22_target.md\n')
+    const r = runScript(dir)
+    assert.equal(r.status, 0, `被点名对象已入库 ⇒ 不该红\nstdout: ${r.out}\nstderr: ${r.err}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
 // ─── 10. 夹具装载本身(防"13 例全绿其实在扫真仓") ──────────
 //
 // 9bd6748ba 把 ROOT 改成按脚本自身位置推导之后,本文件 13 例里有 11 例**静默变成在审真仓**:
