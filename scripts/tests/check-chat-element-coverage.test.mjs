@@ -141,7 +141,9 @@ test('④e 总数倒退(条目键对不上时的兜底)必红 + 错位基线键�
 // ─── 判据⑤ 剥注释后再匹配(2026-09-25 补) ───────────────────────────────
 
 test('⑤a 阳性对照(真语料):宿主只在 // 注释里留该词 ⇒ 剥注释后必红', () => {
-  // 真实缺陷:task-status-bar.tsx 第 152 行的 describeToolActivity 只活在一句说明注释里
+  // 真实缺陷:task-status-bar.tsx 第 152 行的 describeToolActivity 只活在一句说明注释里。
+  // 该串自 2026-09-25 起已不再是台账锚点(锚点改指代码面的 describeMcpToolActivity),但**宿主那句注释仍在**,
+  // 所以本例是一条自足的真语料阳性对照,不依赖 commentOnlyAnchorBaseline 里还挂着登记。
   const r = checkAnchors(
     [{ id: 'any-id-not-in-baseline', anchors: [{ file: 'apps/web/src/components/ai/task-status-bar.tsx', mustMatch: 'describeToolActivity' }] }],
     undefined,
@@ -169,10 +171,25 @@ test('⑤b 同一处已登记为存量 ⇒ 只报数不判红(恒红门 = 逼人
   assert.equal(stale.notices.filter((n) => n.kind === 'anchor-commented-out-cleared').length, 1)
 })
 
-test('⑤c 存量清单必须覆盖台账里登记的每一项(防"登记了却没接上")', () => {
+test('⑤c 存量清单必须与台账自洽(空=已清偿必须为真;非空必须逐项接得上)', () => {
   const data = LEDGER
   const entries = data.commentOnlyAnchorBaseline?.entries ?? []
-  assert.ok(entries.length > 0, '台账必须带 commentOnlyAnchorBaseline.entries')
+  assert.ok(Array.isArray(entries), '台账必须带 commentOnlyAnchorBaseline.entries 数组')
+  // 2026-09-25:三处存量已按「重指向代码面真实标识」清偿,清单现为空数组。
+  // 因此原来的 entries.length > 0 不得再要(要它就是在逼人已删的登记回来),换成一条**两个方向都牙**的对账:
+  //   · 清单为空却仍有注释式摘线锚点 ⇒ violations 里的 anchor-commented-out 必红("用删登记来清账"当场失败)
+  //   · 清单里有项已不再命中(登记错位或已清偿未移除)⇒ cleared 计数必显形,不得静默
+  const r = checkAnchors(data.implemented, undefined, { commentOnlyBaseline: entries })
+  assert.deepEqual(
+    r.violations.filter((v) => v.kind === 'anchor-commented-out'),
+    [],
+    '台账里仍有锚点只活在注释里 ⇒ 要么补登记(只报数)、要么把 mustMatch 改指代码面标识(不得删宿主注释)',
+  )
+  assert.deepEqual(
+    r.notices.filter((n) => n.kind === 'anchor-commented-out-cleared').map((n) => n.detail),
+    [],
+    '存量清单有项与任何锚点对不上 ⇒ 已清偿须同 PR 移除登记,拼错则是基线失效(会让另一处恒红)',
+  )
   const implementedById = new Map(data.implemented.map((e) => [e.id, e]))
   for (const e of entries) {
     const el = implementedById.get(e.id)
