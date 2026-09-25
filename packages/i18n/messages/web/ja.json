@@ -5809,6 +5809,31 @@
       "summary": "概要",
       "rawNote": "以下はモデルの生出力で、整形していません",
       "empty": "左の入力後に「診断を開始」を押すとレポートが表示されます"
+    },
+    "githubApp": {
+      "title": "GitHub App 管理",
+      "subtitle": "GitHub App のインストール台帳と webhook 設定状態を確認。インストールイベントは webhook 経由で自動同期されます",
+      "configSection": "設定状態",
+      "webhookSecret": "Webhook シークレット",
+      "appCredentials": "App 認証情報",
+      "configured": "設定済み",
+      "notConfigured": "未設定",
+      "secretHint": "GitHub webhook 配信の HMAC 署名を検証します。未設定の場合は受付が閉じたままです",
+      "credsHint": "installation token を発行して GitHub API を呼び出すための App ID と秘密鍵",
+      "installationsTitle": "インストール一覧",
+      "empty": "インストール記録はまだありません。GitHub で本 App をインストールすると自動的に表示されます",
+      "colInstallation": "インストール ID",
+      "colAccount": "アカウント",
+      "colType": "種別",
+      "colStatus": "状態",
+      "colInstaller": "操作者 ID",
+      "colCreatedAt": "作成日時",
+      "colUpdatedAt": "更新日時",
+      "statusActive": "有効",
+      "statusRemoved": "アンインストール済み",
+      "refresh": "更新",
+      "loadFailed": "読み込みに失敗しました",
+      "installerHint": "GitHub 側の操作者 id(プラットフォームユーザーではありません)"
     }
   },
   "connectors": {
@@ -7130,6 +7155,20 @@
       "rollbackConfirmConfirm": "復元"
     },
     "pane": {
+      "elementPack": {
+        "feedbackSurvey": {
+          "question": "この回答は問題の解決に役立ちましたか？",
+          "answer": {
+            "solved": "解決した",
+            "partial": "部分的に解決",
+            "notSolved": "解決していない"
+          },
+          "commentPlaceholder": "詳細（任意）",
+          "submit": "送信",
+          "dismiss": "スキップ",
+          "submitted": "受け付けました。ご協力ありがとうございます"
+        }
+      },
       "hookSummary": {
         "ariaLabel": "フック実行サマリー",
         "state": {
@@ -8651,12 +8690,7 @@
       "targetPlaceholder": "例:名門高校、985大学"
     },
     "options": {
-      "classLevel": [
-        "優秀(クラス上位 10%)",
-        "良好(10-30%)",
-        "普通(30-70%)",
-        "やや劣る(下位 30%)"
-      ],
+      "classLevel": ["優秀(クラス上位 10%)", "良好(10-30%)", "普通(30-70%)", "やや劣る(下位 30%)"],
       "difficulty": [
         "国語読解",
         "英語ヒアリング・スピーキング",
@@ -8673,12 +8707,7 @@
         "試験不安",
         "家庭環境の影響"
       ],
-      "school": [
-        "重点中学校",
-        "普通中学校",
-        "インターナショナルスクール",
-        "私立学校"
-      ]
+      "school": ["重点中学校", "普通中学校", "インターナショナルスクール", "私立学校"]
     },
     "result": {
       "failed": "AI 分析に失敗しました",
@@ -11469,232 +11498,126 @@
       "steerPrompt": {
         "label": "プロンプトをステア",
         "description": "実行中の回答に現在の入力をガイドとして注入します",
-        "keywords": [
-          "ステア",
-          "ガイド",
-          "steer"
-        ]
+        "keywords": ["ステア", "ガイド", "steer"]
       },
       "queuePrompt": {
         "label": "プロンプトをキューに追加",
         "description": "実行中の回答の終了後、現在の入力を自動送信するためにキューに追加します",
-        "keywords": [
-          "キュー",
-          "待機",
-          "queue"
-        ]
+        "keywords": ["キュー", "待機", "queue"]
       },
       "agent": {
         "description": "AI エージェントの管理とディスパッチ",
-        "keywords": [
-          "エージェント",
-          "agent",
-          "bot"
-        ],
+        "keywords": ["エージェント", "agent", "bot"],
         "label": "AI エージェント"
       },
       "browser": {
         "description": "ワークスペース内でウェブを閲覧",
-        "keywords": [
-          "ブラウザ",
-          "ウェブ",
-          "browser"
-        ],
+        "keywords": ["ブラウザ", "ウェブ", "browser"],
         "label": "組み込みブラウザ"
       },
       "capabilityMarket": {
         "description": "ケイパビリティパックの発見とインストール",
-        "keywords": [
-          "ケイパビリティ",
-          "マーケット",
-          "market",
-          "プラグイン"
-        ],
+        "keywords": ["ケイパビリティ", "マーケット", "market", "プラグイン"],
         "label": "ケイパビリティマーケット"
       },
       "codeChanges": {
         "description": "ワークスペースのコード変更を確認",
-        "keywords": [
-          "コード",
-          "変更",
-          "diff",
-          "修正"
-        ],
+        "keywords": ["コード", "変更", "diff", "修正"],
         "label": "コード変更"
       },
       "connectors": {
         "description": "外部サービス接続を管理",
-        "keywords": [
-          "コネクタ",
-          "接続",
-          "connector"
-        ],
+        "keywords": ["コネクタ", "接続", "connector"],
         "label": "コネクタ"
       },
       "document": {
         "description": "ワークスペースのドキュメントを編集",
-        "keywords": [
-          "ドキュメント",
-          "編集",
-          "doc"
-        ],
+        "keywords": ["ドキュメント", "編集", "doc"],
         "label": "ドキュメント"
       },
       "editor": {
         "description": "コードエディタを開く",
-        "keywords": [
-          "エディタ",
-          "コード",
-          "editor"
-        ],
+        "keywords": ["エディタ", "コード", "editor"],
         "label": "エディタ"
       },
       "mcp": {
         "description": "MCP サーバーとツールを管理",
-        "keywords": [
-          "MCP",
-          "サーバー",
-          "ツール"
-        ],
+        "keywords": ["MCP", "サーバー", "ツール"],
         "label": "MCP 管理"
       },
       "mcpStore": {
         "description": "MCP サービスの閲覧とインストール",
-        "keywords": [
-          "MCP",
-          "ストア",
-          "store",
-          "インストール"
-        ],
+        "keywords": ["MCP", "ストア", "store", "インストール"],
         "label": "MCP ストア"
       },
       "modeAsk": {
         "description": "質問モードへ切替(ツール無効)",
-        "keywords": [
-          "質問",
-          "ask",
-          "モード"
-        ],
+        "keywords": ["質問", "ask", "モード"],
         "label": "質問モード"
       },
       "modeBuild": {
         "description": "AI に直接構築・修正させる",
-        "keywords": [
-          "ビルド",
-          "モード",
-          "build"
-        ],
+        "keywords": ["ビルド", "モード", "build"],
         "label": "ビルドモード"
       },
       "modePlan": {
         "description": "計画を立ててから実行",
-        "keywords": [
-          "計画",
-          "モード",
-          "plan"
-        ],
+        "keywords": ["計画", "モード", "plan"],
         "label": "計画モード"
       },
       "modeReview": {
         "description": "既存コードをレビュー",
-        "keywords": [
-          "レビュー",
-          "モード",
-          "review"
-        ],
+        "keywords": ["レビュー", "モード", "review"],
         "label": "レビューモード"
       },
       "modeSpec": {
         "description": "仕様から実装を生成",
-        "keywords": [
-          "仕様",
-          "モード",
-          "spec"
-        ],
+        "keywords": ["仕様", "モード", "spec"],
         "label": "仕様モード"
       },
       "skill": {
         "description": "AI スキルの管理と呼び出し",
-        "keywords": [
-          "スキル",
-          "skill",
-          "機能"
-        ],
+        "keywords": ["スキル", "skill", "機能"],
         "label": "スキル"
       },
       "terminal": {
         "description": "統合ターミナルを開く",
-        "keywords": [
-          "ターミナル",
-          "端末",
-          "terminal"
-        ],
+        "keywords": ["ターミナル", "端末", "terminal"],
         "label": "ターミナル"
       },
       "ai-world": {
         "description": "AI アプリの世界を探索",
-        "keywords": [
-          "AI",
-          "ワールド",
-          "アプリ"
-        ],
+        "keywords": ["AI", "ワールド", "アプリ"],
         "label": "AI ワールド"
       },
       "chat": {
         "description": "AI アシスタントと会話",
-        "keywords": [
-          "チャット",
-          "会話",
-          "AI",
-          "chat"
-        ],
+        "keywords": ["チャット", "会話", "AI", "chat"],
         "label": "AI チャット"
       },
       "drama": {
         "description": "AI 生成ショートドラマ",
-        "keywords": [
-          "ドラマ",
-          "ビデオ",
-          "AI",
-          "drama"
-        ],
+        "keywords": ["ドラマ", "ビデオ", "AI", "drama"],
         "label": "AI ドラマ"
       },
       "profile": {
         "description": "プロフィールと設定を管理",
-        "keywords": [
-          "プロフィール",
-          "ユーザー",
-          "設定"
-        ],
+        "keywords": ["プロフィール", "ユーザー", "設定"],
         "label": "プロフィール"
       },
       "search": {
         "description": "グローバルコンテンツ検索",
-        "keywords": [
-          "検索",
-          "search",
-          "search"
-        ],
+        "keywords": ["検索", "search", "search"],
         "label": "検索"
       },
       "settings": {
         "description": "システム環境設定と構成",
-        "keywords": [
-          "設定",
-          "環境設定",
-          "構成"
-        ],
+        "keywords": ["設定", "環境設定", "構成"],
         "label": "設定"
       },
       "skillsMarket": {
         "description": "自己進化スキルの閲覧と導入",
-        "keywords": [
-          "skill",
-          "スキル",
-          "マーケット",
-          "market"
-        ],
+        "keywords": ["skill", "スキル", "マーケット", "market"],
         "label": "Skill マーケット"
       }
     },
@@ -14098,37 +14021,25 @@
       "quadrants": [
         {
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": [
-            "ナレッジQ&A",
-            "プロセス自動化"
-          ],
+          "examples": ["ナレッジQ&A", "プロセス自動化"],
           "tag": "Q1",
           "title": "効率的アシスタント"
         },
         {
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": [
-            "データ分析",
-            "意思決定サポート"
-          ],
+          "examples": ["データ分析", "意思決定サポート"],
           "tag": "Q2",
           "title": "スマートアドバイザー"
         },
         {
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": [
-            "会議調整",
-            "承認プロセス"
-          ],
+          "examples": ["会議調整", "承認プロセス"],
           "tag": "Q3",
           "title": "実行エキスパート"
         },
         {
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": [
-            "マーケティング自動化",
-            "マルチエージェント連携"
-          ],
+          "examples": ["マーケティング自動化", "マルチエージェント連携"],
           "tag": "Q4",
           "title": "オールラウンドエキスパート"
         }
@@ -14262,31 +14173,19 @@
       "items": [
         {
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": [
-            "体系化コース",
-            "実践探求",
-            "コミュニティ相互支援"
-          ],
+          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"],
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ"
         },
         {
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": [
-            "交流プラットフォーム",
-            "経験共有",
-            "リソースマッチング"
-          ],
+          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"],
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ"
         },
         {
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": [
-            "プロの大規模モデル",
-            "エージェントサービス",
-            "コンサルティングサービス"
-          ],
+          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"],
           "tag": "MODULE 03",
           "title": "AI専門サービス"
         }
@@ -17127,15 +17026,7 @@
       "title": "トップ5ページ",
       "visitsHeader": "アクセス数"
     },
-    "weekdays": [
-      "月",
-      "火",
-      "水",
-      "木",
-      "金",
-      "土",
-      "日"
-    ]
+    "weekdays": ["月", "火", "水", "木", "金", "土", "日"]
   },
   "models": {
     "relay": {
@@ -18626,7 +18517,8 @@
     "faq": "よくある質問",
     "home": "ホーム",
     "settings": "設定",
-    "adminDeployDiagnosis": "デプロイ診断"
+    "adminDeployDiagnosis": "デプロイ診断",
+    "githubApp": "GitHub App"
   },
   "news": {
     "allCategories": "All categories",
