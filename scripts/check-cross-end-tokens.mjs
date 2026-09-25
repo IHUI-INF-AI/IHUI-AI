@@ -207,6 +207,16 @@ function extractTsObjectBody(src, constName) {
 
 /** 在对象体内按嵌套键路径解析叶子字符串字面量(如 ['vip','gold'] → '#FFD700')。 */
 function resolveTsPath(body, path) {
+  // 表名漂移(rnBodies 里没有这一张表)时 body 是 undefined。旧实现在此**裸抛**
+  // `Cannot read properties of undefined (reading 'length')` —— 经顶层 catch 变成匿名 exit 2,
+  // 谁都看不出是"映射表指了张不存在的表"。判据取不到输入必须点名原因,而不是抛栈。
+  if (typeof body !== 'string')
+    throw new UndeterminedError(
+      `映射表指向的常量表取不到(body=${String(body)};path=${String(path)}):` +
+        ' rn-tokens.ts 里是否有名为 ' +
+        String(path && path[0]) +
+        ' 的表?要么补表要么改映射,不得让它表现为崩溃。'
+    )
   let text = body
   for (let idx = 0; idx < path.length; idx++) {
     const key = path[idx]
@@ -603,11 +613,17 @@ function catBatch(revs) {
   if (revs.length === 0) return map
   const out = gitExec(['cat-file', '--batch'], { input: Buffer.from(revs.join('\n') + '\n', 'utf8') })
   let pos = 0
-  for (const rev of revs) {
+  for (let r = 0; r < revs.length; r++) {
+    const rev = revs[r]
     const nl = out.indexOf(0x0a, pos)
     if (nl < 0) {
-      map.set(rev, null)
-      break
+      // 管道被截断(Windows 下 git 侧写失败 / maxBuffer 命中)。**旧实现只 set 当前 rev 就 break,
+      // 于是剩余 blob 全部"未被 set"⇒ 下游 .get() 得 undefined ⇒ scanOne 的 `continue` 静默少扫**,
+      // 少扫不红 = 假绿。截断就是取材失败,必须大声判"无法判定"。
+      for (let k = r; k < revs.length; k++) map.set(revs[k], null)
+      throw new UndeterminedError(
+        `cat-file --batch 输出在第 ${r}/${revs.length} 个 blob 处截断 ⇒ 无法判定(不是"没有违规",是"没看完")`
+      )
     }
     const header = out.subarray(pos, nl).toString('utf8')
     pos = nl + 1
@@ -620,6 +636,23 @@ function catBatch(revs) {
     pos += Number(m[4]) + 1
   }
   return map
+}
+
+/**
+ * 崩溃面形状判据(纯函数 ⇒ 可喂正反例)。
+ *
+ * 为什么不做成"读自身源码 + 断言"就完事:那样**无法证明它有牙** —— 想验证就得把旧形状写回本文件,
+ * 而旧形状一旦写回就是语法错(`break` 落在循环外),文件根本跑不起来,证明退化成"没测"。
+ * 抽成纯函数后,反例只是传入的一小段字符串(门 103 的 T12 同一课:证明这类行为只能用纯函数 + 构造面)。
+ */
+export function checkCrashShape(sourceText) {
+  const flat = sourceText.replace(/\s+/g, '')
+  const forbiddenFlat = ('map.set(rev, null)' + '\n      break').replace(/\s+/g, '')
+  return {
+    truncatedNamed: sourceText.includes('个 blob 处截断'), // catBatch 截断必须点名
+    silentBreakBack: flat.includes(forbiddenFlat), // 旧写法回来 = 少扫不红
+    catchHasStack: sourceText.includes('e?.stack ?? e'), // 非预期异常必须带栈
+  }
 }
 
 /** 真取插件模块本体(判据用它的 buildAlphaUtilities,严禁在测试或本门里抄一份等价实现)。 */
@@ -997,6 +1030,7 @@ export const __test__ = {
   danglingBrandRefs,
   normalizeColor,
   resolveTsPath,
+  checkCrashShape,
   colorsAgree,
   stripCssComments,
   stripTsComments,
@@ -1030,7 +1064,11 @@ export const __test__ = {
 if (isDirectRun)
   main().catch((e) => {
     // 脚本自身异常(含"无法判定")= exit 2:不冒判据红,更绝不记绿
-    console.error(`❌ ${e?.message ?? e}`)
+    // 「无法判定」是预期结论,一句话足够;但**任何其他异常**都必须带栈落地 —— 本门此前偶发
+    // `Cannot read properties of undefined (reading 'length')` 且只打 message,三轮复跑就再也
+    // 复现不出来(全量模式一次崩、三次正常)。匿名 exit 2 = 不可诊断 = 下一任只能重新猜。
+    if (e instanceof UndeterminedError) console.error(`❌ 无法判定:${e?.message ?? e}`)
+    else console.error(`❌ 本门自身异常(非"无法判定"路径):\n${e?.stack ?? e}`)
     process.exit(2)
   })
 
@@ -1640,6 +1678,46 @@ async function selfTest() {
   for (const i of realIntra.slice(0, 5))
     console.log(`     · 端内分叉 ${i.path} base=${i.base} vs light=${i.light}`)
 
+  // ── 崩溃面自证(2026-09-25 补):本门全量模式曾偶发匿名 `TypeError … reading 'length'` + exit 2,
+  // 只打 message 不打栈 ⇒ 复跑三轮再也复现不出来。两条断言把"崩"换成"具名无法判定"。
+  let ghostThrew = null
+  try {
+    resolveTsPath(undefined, ['rnGhostTokens', 'x'])
+  } catch (e) {
+    ghostThrew = e
+  }
+  const ghostOk =
+    ghostThrew instanceof UndeterminedError &&
+    /取不到/.test(ghostThrew.message) &&
+    /rnGhostTokens/.test(ghostThrew.message)
+  console.log(
+    `${ghostOk ? '✅' : '❌'} 表名漂移必须抛具名"无法判定"并点名是哪张表(旧行为:裸 TypeError,不可诊断)`
+  )
+  let normalThrew = null
+  try {
+    resolveTsPath('--color-x: #fff;', ['x'])
+  } catch (e) {
+    normalThrew = e
+  }
+  const normalOk = normalThrew === null
+  console.log(`${normalOk ? '✅' : '❌'} 反向对照:正常 body 不得被新守卫误判成取不到`)
+
+  // 截断与栈两条只能拿源码形状当尺子(它们要真截断 git 管道 / 真抛非预期异常,夹具做不到)
+  const self = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+  const shape = checkCrashShape(self)
+  const shapeOk = shape.truncatedNamed && !shape.silentBreakBack && shape.catchHasStack
+  console.log(
+    `${shapeOk ? '✅' : '❌'} 装车形状:catBatch 截断必抛具名(不得静默 break 少扫)、顶层 catch 必带栈 → got=${JSON.stringify(shape)}`
+  )
+  // 反例必须真红,否则上面那条断言是无牙尺子(把旧形状写回本文件当证明会因语法错跑不起来,
+  // 所以只能喂字符串 —— 门 103 T12 同一课)
+  const neg = checkCrashShape('function catBatch(){\n  map.set(rev, null)\n      break\n}\n')
+  const negOk = neg.silentBreakBack === true
+  console.log(
+    `${negOk ? '✅' : '❌'} 反例有牙:含旧静默 break 形状的文本必须被 silentBreakBack 抓到 → got=${JSON.stringify(neg)}`
+  )
+  if (!ghostOk || !normalOk || !shapeOk || !negOk) fail++
+
   const r6 = await selfTestR6()
   const totalCases =
     cases.length +
@@ -1648,6 +1726,7 @@ async function selfTest() {
     r4Cases.length +
     r5Cases.length +
     3 +
+    4 +
     r6.cases
   if (r4Fail + r5Fail > 0) fail += r4Fail + r5Fail
   fail += r6.fail
