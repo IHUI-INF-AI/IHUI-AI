@@ -11,7 +11,7 @@
  * 每条正向判定配一条反向对照,重点是两类"看起来有、其实没有"的失效型:
  *   - 只认 Query 形态 ⇒ 所有 POST(Pydantic Field)整片隐身;
  *   - 对齐出口只写在注释里 ⇒ 自称已拆、实际没拆。
- * 另含两条**装车证明**(本仓最高频故障是"造好没接线"):runner 注册块必须在位且定级 warn,
+ * 另含两条**装车证明**(本仓最高频故障是"造好没接线"):runner 注册块必须在位且定级已升 blocking,
  * 以及 `--strict` 升档必须真能判红(否则"存量清零后升 blocking"永远升不上去)。
  */
 import { test } from 'node:test'
@@ -153,16 +153,19 @@ test('M12 报告必须同时给出"已对齐/未对齐"两个数与透传清单(
   assert.match(r, /透传/)
 })
 
-test('M13 装车证明:runner 里真有本门条目,且定级是 warn(存量未清零时 blocking = 恒红门)', () => {
+test('M13 装车证明:runner 里真有本门条目,且定级已升 blocking(前置=存量归零)', () => {
   const runner = readFileSync(join(ROOT, 'scripts/guardian-runner.mjs'), 'utf8')
   const i = runner.indexOf("script: 'check-memory-owner-binding.mjs'")
   assert.ok(i > 0, '本门未接进守门链 = 造好没装车')
   const block = runner.slice(Math.max(0, i - 800), i + 900)
-  assert.match(block, /mode:\s*'warn'/, '定级必须是 warn —— 未对齐存量 >0 时 blocking 就是恒红门(§12e)')
+  // 升档的正当性只有"HEAD 面未对齐 = 0"这一条能给;若它回潮,本断言就是提醒先去清偿,
+  // 而不是把定级降回 warn(降档 = 把已经收口的敞口重新打开)。
+  assert.match(block, /mode:\s*'blocking'/, '存量归零后必须保持 blocking —— 退回 warn 等于放开新增敞口')
+  assert.match(block, /args:\s*\[['"]--strict['"]\]/, "runner 必须带 --strict,否则脚本默认档不判红('接了 blocking 却是绿的'")
   assert.match(block, /skipEnv:\s*'HUSKY_SKIP_MEMORY_OWNER_BINDING'/, '应急出口命名必须与门一致')
   assert.match(block, /stagedTriggers:[^]*?apps\/ai-service/, '触发面必须覆盖被审的 ai-service 路由目录')
-  // 方向性对照:未注册时上面这条必须拿不到 —— 否则本条装车证明是恒真的
-  assert.ok(!/mode:\s*'blocking'/.test(runner.slice(i - 60, i + 60)), '本门就近不得写成 blocking')
+  // 方向性对照:未注册/未升档时上面两条必须拿不到 —— 否则本条装车证明是恒真的
+  assert.ok(!/mode:\s*'warn'/.test(runner.slice(i - 400, i + 60)), '本门就近不得再写 warn')
 })
 
 test('M14 根 package.json 有手动入口(问责出口必须存在)', () => {
