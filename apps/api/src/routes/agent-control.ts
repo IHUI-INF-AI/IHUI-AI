@@ -26,6 +26,15 @@
  *               命令面板调用。目标靠前端的 web_ui_describe 返回的 actionId 定位,而非任意
  *               CSS 选择器或系统级输入,因此无需 OS 权限也不触及第三方站点)
  *
+ * 投递定址与回执身份(2026-09-26 立,让"同 category 第二宿主"有资格上线的前置安全件):
+ *  WS 会话模型只有 userId→连接集合,pushNotification 结构上按用户广播(本票不得为此改
+ *  ws-notifications)。三层收口:① 载荷自带 assignment{endpoint,instanceId,token}(服务端
+ *  派发时写);② 非目标端自行忽略并记可诊断日志(**客户端自律** —— extension/desktop 桥已装,
+ *  web/rn/miniapp 桥未在本票文件清单内,升级前其 category 通道仍是"先回者定终");
+ *  ③ /result 带 responded 的回执由服务端对账(token + 被指派实例),不匹配不 resolve、
+ *  计入 droppedResults(**服务端强制**,能拦"诚实但错配"的回执;同用户内恶意伪造身份声明
+ *  需按实例凭证绑定 HTTP 回执通道,属后续票,本票在报告第 6 条如实划界)。
+ *
  * 端点:
  *  - POST   /capability   上报端能力(extension/desktop/web 启动时调用)
  *  - POST   /execute      执行控制指令(ai-service 调用)
@@ -35,8 +44,13 @@
 
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { timingSafeEqual } from 'node:crypto'
-import type { AgentActionRequest, AgentActionResponse, AgentControlCapability } from '@ihui/types'
+import { randomUUID, timingSafeEqual } from 'node:crypto'
+import type {
+  AgentActionAssignment,
+  AgentActionRequest,
+  AgentActionResponse,
+  AgentControlCapability,
+} from '@ihui/types'
 import { authenticate, checkAuth, checkAuthOrInternalService } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { toUserFriendlyMessage } from '@ihui/shared'
@@ -72,10 +86,30 @@ export interface PendingRequest {
   reject: (err: Error) => void
   timer: NodeJS.Timeout
   startedAt: number
+  /**
+   * 派发时写入的期望身份(2026-09-26 定址投递票)。回执身份校验的唯一基准:
+   * 客户端只回显,不在两端各算一份。
+   */
+  assignment: AgentActionAssignment
 }
 
 /** requestId → PendingRequest */
 const _pending = new Map<string, PendingRequest>()
+
+/**
+ * 被丢弃/无身份回执的计数(必须可见,不得静默):
+ * - tokenMismatch:回显的 assignment token 与本次派发不符(没收到过这条投递的外包/串单)
+ * - instanceMismatch:token 对但应答者自报实例 ≠ 被指派实例(同用户另一端试图顶结果)
+ * - unattributed:存量客户端不带 `responded` —— 按旧语义放行,但计数如实登记,
+ *   这条数字归零之前,"回执身份"只覆盖已升级的端(报告第 6 条的"纸面/强制"分界)。
+ */
+const _droppedResults = { tokenMismatch: 0, instanceMismatch: 0, unattributed: 0 }
+
+/** token 定长比较(随机 UUID 等长;不等长直接 false,避免 timingSafeEqual 抛错) */
+function tokenEquals(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  return timingSafeEqual(Buffer.from(a, 'utf-8'), Buffer.from(b, 'utf-8'))
+}
 
 /** 清理超过 5 分钟未上报的端 */
 const ENDPOINT_TTL_MS = 5 * 60 * 1000
@@ -212,6 +246,13 @@ const resultSchema = z.object({
   data: z.record(z.string(), z.unknown()).optional(),
   durationMs: z.number(),
   executedBy: z.enum(['extension', 'desktop', 'web', 'rn', 'miniapp', 'unknown']),
+  // 回执身份回显(2026-09-26 定址投递票):缺省 = 存量客户端,按旧语义接受并计 unattributed。
+  responded: z
+    .object({
+      instanceId: z.string().min(1).max(100),
+      assignmentToken: z.string().min(1).max(64),
+    })
+    .optional(),
 })
 
 // ---------------------------------------------------------------------------
@@ -283,10 +324,19 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success(response))
     }
 
-    // 通过 WebSocket 推送给端
+    // 通过 WebSocket 推送给端。
+    // 定址投递(2026-09-26):WS 会话模型只有 userId→连接集合,pushNotification 结构上
+    // 只能按用户广播,改不了(不得为此动 ws-notifications)。故载荷自带 assignment 目标身份:
+    // 非目标端据此自行忽略(客户端自律),_pending 记下期望身份供 /result 对账(服务端强制)。
+    const assignment: AgentActionAssignment = {
+      endpoint: ep.capability.endpoint,
+      instanceId: ep.capability.instanceId,
+      token: randomUUID(),
+    }
     const payload = {
       type: 'agent.action',
       request: req,
+      assignment,
     }
     try {
       server.pushNotification(ep.userId, payload)
@@ -324,6 +374,7 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
         reject,
         timer,
         startedAt: Date.now(),
+        assignment,
       })
     })
 
@@ -351,6 +402,35 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
     if (!pending) {
       // 已经超时或已被处理,静默丢弃
       return reply.send(success({ accepted: false, reason: 'request not found or timed out' }))
+    }
+
+    // 回执身份对账(2026-09-26 定址投递票)——服务端强制的那一层:
+    // 带 `responded` 的回执必须"令牌来自本次派发 + 自报实例 = 被指派实例"才 resolve;
+    // 不匹配不 resolve、不删 pending(真被指派者稍后仍可回,慢到的真结果不再被丢弃)。
+    // 不带 `responded` = 存量客户端:旧语义放行,但 droppedResults.unattributed 如实计数。
+    if (res.responded) {
+      if (!tokenEquals(res.responded.assignmentToken, pending.assignment.token)) {
+        _droppedResults.tokenMismatch++
+        return reply.send(
+          success({
+            accepted: false,
+            reasonCode: 'ASSIGNMENT_TOKEN_MISMATCH',
+            reason: '回执令牌与本次派发不符(应答者未收到该投递)',
+          }),
+        )
+      }
+      if (res.responded.instanceId !== pending.assignment.instanceId) {
+        _droppedResults.instanceMismatch++
+        return reply.send(
+          success({
+            accepted: false,
+            reasonCode: 'RESPONDER_INSTANCE_MISMATCH',
+            reason: '应答实例与被指派实例不符(未指派端不得顶掉指派端的执行结论)',
+          }),
+        )
+      }
+    } else {
+      _droppedResults.unattributed++
     }
 
     clearTimeout(pending.timer)
@@ -392,6 +472,8 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
       success({
         endpoints,
         pendingRequests: _pending.size,
+        // 被丢弃/无身份回执数必须"能被看见"(2026-09-26):归零前身份保障只覆盖已升级的端
+        droppedResults: { ..._droppedResults },
       }),
     )
   })
@@ -413,5 +495,7 @@ export const __test__ = {
   pending: _pending,
   findEndpointByCategory,
   categoryEndpoint: CATEGORY_ENDPOINT,
+  /** 回执丢弃/无身份计数(用例断言"被拒数"必须可见) */
+  droppedResults: _droppedResults,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
