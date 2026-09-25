@@ -14989,13 +14989,15 @@
     "fieldNotifyChannel": "通知チャネル",
     "fieldNotifyMessage": "メッセージテンプレート",
     "notifyMessageHint": "{{event}} {{tool}} {{args}} 変数を使用できます",
+    "notifyWebhookUrlHint": "webhook チャネルはこの URL に通知を POST します(webhook アクションと同じ送信器)",
     "notifyMessagePlaceholder": "{{event}} が発火しました",
     "fieldLogMessage": "ログメッセージのテンプレート",
     "logMessageHint": "{{event}} {{tool}} {{args}} 変数を使用できます。logs/hooks.log に書き込みます",
     "channel": {
       "toast": "Toast(軽量通知)",
       "notification": "システム通知",
-      "email": "メール"
+      "email": "メール",
+      "webhook": "ウェブフック"
     },
     "logsAria": "Hook ログ",
     "logsTitle": "Hook 実行ログ",
