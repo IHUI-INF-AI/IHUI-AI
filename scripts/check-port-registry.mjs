@@ -130,6 +130,12 @@ function isExemptPath(filePath) {
   return EXEMPT_PATH_PATTERNS.some((pattern) => pattern.test(filePath))
 }
 
+/** 因"端口位置其实是正则字符类"而被跳过的引用数(判不了 ⇒ 如实报数,不静默丢掉)。 */
+let regexishSkipped = 0
+export function regexishSkippedCount() {
+  return regexishSkipped
+}
+
 /** 从文件内容中提取 localhost:PORT 引用 */
 function extractPortRefs(content) {
   const refs = []
@@ -137,6 +143,15 @@ function extractPortRefs(content) {
   const regex = /(?:localhost|127\.0\.0\.1):(\d{2,5})\b/g
   let match
   while ((match = regex.exec(content)) !== null) {
+    // 紧跟捕获组的字符若是 `[` / `{`,那"端口"不是端口,而是**别的门里的正则字符类/量词**:
+    // 实测假阳 `/localhost:880[23]|127\.0\.0\.1:880[23]/` —— `\b` 把 `880` 收进捕获组,
+    // 真实意图是 8802/8803,于是本门把他人判据的模式串报成"非 88xx 端口 880"。
+    // 判据扫到判据自己的文本,是本仓反复出现过的一型(守门 108 的 alpha 夹具、79 的标记字面量)。
+    const next = content[match.index + match[0].length]
+    if (next === '[' || next === '{') {
+      regexishSkipped += 1
+      continue
+    }
     refs.push({
       port: parseInt(match[1], 10),
       fullMatch: match[0],
@@ -243,15 +258,20 @@ function main() {
   }
 
   // 输出结果
+  const skippedNote =
+    regexishSkipped > 0
+      ? `\n   另:形如 "localhost:880[23]" 的正则字符类引用 ${regexishSkipped} 处已跳过` +
+        '(那不是端口;报数而不静默,免得判据哪天真的看不见端口)'
+      : ''
   if (warnings.length === 0) {
     if (scannedCount > 0) {
-      console.log(`✅ 端口注册表守门:扫描 ${scannedCount} 个文件,无违规端口`)
+      console.log(`✅ 端口注册表守门:扫描 ${scannedCount} 个文件,无违规端口${skippedNote}`)
     }
     process.exit(0)
   }
 
   console.log('⚠️  端口注册表守门提醒(warn-only,不阻塞 commit)')
-  console.log(`   扫描 ${scannedCount} 个文件,发现 ${warnings.length} 处端口引用需确认:`)
+  console.log(`   扫描 ${scannedCount} 个文件,发现 ${warnings.length} 处端口引用需确认:${skippedNote}`)
   console.log()
 
   for (const w of warnings) {

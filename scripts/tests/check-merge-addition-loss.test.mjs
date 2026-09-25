@@ -154,4 +154,32 @@ test('装车证明:runner 真注册了这道门,且编号恰好一次、被 HOT 
     assert.ok(t.includes(SCRIPT), `${doc} 必须点名本门,否则守门 89 R4 判红`)
   }
 })
+
+// ── G-175:区间左端的选择必须是纯函数 + 构造面(pendingMerges 要联网,本身不可单测) ──
+test('chooseRange 三分支:残值不可解析 ⇒ null(交回有界+台账,绝不拿它当区间左端)', () => {
+  assert.equal(G.chooseRange({ remote: '', exists: false }), 'HEAD')
+  assert.equal(G.chooseRange({ remote: 'a'.repeat(40), exists: true }), 'a'.repeat(40) + '..HEAD')
+  assert.equal(G.chooseRange({ remote: 'b'.repeat(40), exists: false }), null)
+})
+
+test('commitExists:真 HEAD ⇒ true;随机 40 位 sha ⇒ false(多机残值就这形状);空串 ⇒ false', () => {
+  const head = execFileSync(GIT, ['-c', 'safe.directory=*', 'rev-parse', 'HEAD'], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 60000,
+  }).trim()
+  assert.equal(G.commitExists(head), true)
+  assert.equal(G.commitExists('dead'.repeat(10)), false)
+  assert.equal(G.commitExists(''), false, '空串必须 false,否则 chooseRange 走错分支')
+})
+
+test('反向锁:remote 三元式不得回来(回来 = 不可解析残值再次让 rev-list fatal)', () => {
+  const src = readFileSync(new URL('../check-merge-addition-loss.mjs', import.meta.url), 'utf8')
+  assert.doesNotMatch(
+    src,
+    /const range = remote [?] /,
+    '选区间绕回三元式 ⇒ 门以 exit 2 冒充 blocking 违规,且没人能修',
+  )
+  assert.match(src, /const range = chooseRange[(]/, '选区间的决策必须走纯函数,不然不可证')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

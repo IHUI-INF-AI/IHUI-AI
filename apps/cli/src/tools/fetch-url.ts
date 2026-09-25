@@ -15,10 +15,13 @@
  */
 
 import type { Tool, ToolResult } from './index.js';
+import { assertSafeFetchUrl, formatSsrfRejection } from '@ihui/shared/utils/ssrf-guard';
 import { runPreToolCall, runPostToolCall } from '../hooks/index.js';
 
 const MAX_OUTPUT_CHARS = 10_000;
 const FETCH_TIMEOUT_MS = 15_000;
+/** 重定向跳数上限。不设上限时"每一跳都复校验"这条防线会被一条自指的 Location 拖成死循环。 */
+const MAX_REDIRECT_HOPS = 5;
 
 function htmlToText(html: string): string {
   let text = html;
@@ -67,11 +70,34 @@ export const fetch_url: Tool = {
     const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
     try {
-      const res = await fetch(url, {
-        signal: controller.signal,
-        redirect: 'follow',
-        headers: { 'User-Agent': 'IHUI-CLI-Agent/1.0' },
-      });
+      // 逐跳手动跟随:每一跳都重新过一次 SSRF 守卫。
+      // 用 `redirect:'follow'` 时,公网站点的一条 302 就能把我们带进内网,
+      // 而那次请求已经在"校验通过"的庇护下发出去了。
+      let target = url;
+      let hops = 0;
+      let res: Response;
+      for (;;) {
+        const verdict = await assertSafeFetchUrl(target);
+        if (!verdict.safe) {
+          runPostToolCall('fetch_url', { error: verdict.code ?? 'ssrf-denied' });
+          return { success: false, output: '', error: formatSsrfRejection(verdict), errorType: 'ssrf_denied' };
+        }
+        res = await fetch(target, {
+          signal: controller.signal,
+          redirect: 'manual',
+          headers: { 'User-Agent': 'IHUI-CLI-Agent/1.0' },
+        });
+        if (res.status < 300 || res.status >= 400) break;
+        const loc = res.headers.get('location');
+        if (!loc) break;
+        if (++hops > MAX_REDIRECT_HOPS) {
+          runPostToolCall('fetch_url', { error: 'redirect-limit' });
+          return { success: false, output: '', error: `重定向超过 ${MAX_REDIRECT_HOPS} 跳,已中止`, errorType: 'redirect_limit' };
+        }
+        // 相对 Location 也要按当前跳解析后再裁决,不得拿原始字符串猜
+        target = new URL(loc, target).toString();
+        await res.body?.cancel().catch(() => {});
+      }
       const contentType = res.headers.get('content-type') ?? '';
       const finalUrl = res.url;
       const status = res.status;
