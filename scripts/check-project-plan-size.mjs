@@ -19,7 +19,9 @@
  *   exit 0 = 始终通过(warn-only,不阻塞 commit)
  */
 import { statSync, existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { execFileSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
 
 const ROOT = process.cwd()
 const FILE = join(ROOT, 'PROJECT_PLAN.md')
@@ -32,6 +34,42 @@ const C = {
   cyan: '\x1b[36m',
   dim: '\x1b[2m',
   reset: '\x1b[0m',
+}
+
+/**
+ * 问归档器本身"现在有什么可归档"—— 只读:`--dry-run` 不写盘、不提交。
+ * 路径由**本脚本自身位置**推(§15:不得依赖 cwd、不得硬编码盘符);派生一律带 `windowsHide`
+ * (§5b/守门 52:无控制台宿主下派生 node 必弹窗)与 `timeout`(守门 80:热路径 git/node 调用不得无界)。
+ * @returns {{ok:boolean, args?:string, line?:string, why?:string}}
+ */
+function archiverVerdict() {
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'archive-completed-tasks.mjs')
+  if (!existsSync(script)) return { ok: false, why: '归档器脚本不在位,无法核实' }
+  const args = ['--all', '--dry-run']
+  try {
+    const out = execFileSync(process.execPath, [script, ...args], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 60_000,
+      maxBuffer: 32 << 20,
+    })
+    const line = String(out || '')
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .pop()
+    if (!line) return { ok: false, why: '归档器零输出 —— 拿不到结论,不计为已核实' }
+    return { ok: true, args: args.join(' '), line }
+  } catch (e) {
+    // 归档器非零退出时它自己的输出通常仍可读,那种场合仍算"实测到了";彻底跑不起来才判未判定。
+    const text = String(e?.stdout || e?.message || '')
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .pop()
+    return { ok: false, why: text ? `归档器异常但回了「${text.slice(0, 90)}」` : '归档器跑不起来' }
+  }
 }
 
 if (!existsSync(FILE)) {
@@ -47,7 +85,28 @@ if (stats.size > WARN_BYTES) {
   console.warn(`${C.yellow}⚠️  PROJECT_PLAN.md 体积偏大(warn-only,不阻塞)${C.reset}`)
   console.warn(`   当前: ${C.yellow}${sizeKB} KB${C.reset}`)
   console.warn(`   软参考: ${C.cyan}${warnKB} KB${C.reset}`)
-  console.warn(`   建议: 把已完成(✅)历史条目归档到 ${C.cyan}.ihui-agent/archive/${C.reset} 以保持 AI 可读性`)
+  // 出路必须**实测**,不许印一句"跑那个命令"。2026-09-25 抓到本门正给着一条跑不通的出路:
+  // 它原文建议"把已完成(✅)历史条目归档到 .ihui-agent/archive/",而当场跑
+  // `node scripts/archive-completed-tasks.mjs --all --dry-run` 报的是
+  // 「无可归档的已完成任务条目 (共 0 个已完成,阈值 all)」—— 归档器按 §1 只搬
+  // `### XXX(已完成 ✅ …)` **标题条目**,而本文件今天的体积主要来自
+  // `- [x] ✅ … **G-xxx/O-xx**` 这类**登记 bullet**(§1 禁止删、守门 71 防丢),不在它射程内。
+  // ⇒ 现在去问归档器本身,把它那一行原样打出来;问不到就明写"未判定",绝不印未经我验证的建议。
+  // (同型先例:守门 check-c-drive-pollution 曾提示一个根 package.json 里根本不存在的脚本名。)
+  const v = archiverVerdict()
+  if (v.ok) {
+    console.warn(`   归档器实测(${v.args}):${C.cyan}${v.line}${C.reset}`)
+    console.warn(
+      `   机制说明:归档器只移动「### 标题(已完成 ✅)」条目;本文件的增长来自登记 bullet ——` +
+        ` §1 规定不得删、守门 71 防丢,所以"再归档"不是本警告的出路。`,
+    )
+    console.warn(
+      `   真正的影响面:体积影响的是 AI 单次读取的上下文预算(2026-07-19 曾因此停响应),` +
+        ` 需要瘦身只能按季度把**旧登记段整体**移入 .ihui-agent/archive/ 并在原位置留占位注释 —— 那是人工决定,不是一条命令。`,
+    )
+  } else {
+    console.warn(`   归档器实测:未判定(${v.why})—— 不给你一条我没能验证过的出路`)
+  }
   // 2026-08-19 立:warn-only 违规显式 exit 1,让 guardian-runner 计入 warned 计数
   // (原本 exit 0 会让违规被 guardian-runner 静默吞掉,统计不可信)
   process.exit(1)
