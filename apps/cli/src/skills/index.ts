@@ -38,6 +38,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { buildSkillPromptSection } from '../utils/prompt-boundary.js';
 import * as os from 'node:os';
 import type { SkillFrontmatter, SkillPrerequisites, SkillSource } from '@ihui/types';
 
@@ -437,15 +438,13 @@ export function loadSkills(opts: LoadSkillsOptions): Skill[] {
 
 /**
  * 把 skills 合并为 system prompt 注入段。
- * 每个 skill 用 ## 标题 + body 格式化。
+ *
+ * 委托给 `buildSkillPromptSection`(提示词边界唯一出口):技能正文来自第三方目录,
+ * 原样拼接等于把"别人的文本"放进指令位而不设预算;清洗、单条/总量预算、
+ * 以及"被省略必须留下可读计数"都在那一处实现,本函数不再自带第二份逻辑。
  */
 export function formatSkillsForPrompt(skills: Skill[]): string {
-  if (skills.length === 0) return '';
-  const parts: string[] = [`## Skills(${skills.length} 个)`];
-  for (const s of skills) {
-    parts.push(`### /skill ${s.name}\n${s.body}`);
-  }
-  return parts.join('\n\n');
+  return buildSkillPromptSection(skills.map((s) => ({ name: s.name, body: s.body }))).text;
 }
 
 /**
