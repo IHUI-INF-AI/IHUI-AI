@@ -358,7 +358,7 @@ export default function Login() {
           <View className="login-error-alert">
             <Image
               className="login-error-icon"
-              src="/static/images/triangle-alert.svg"
+              src="/static/images/icons/triangle-alert.svg"
               mode="aspectFit"
             />
             <Text className="login-error-text">{inlineError}</Text>
