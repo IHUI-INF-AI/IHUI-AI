@@ -43,7 +43,7 @@ const textColors = (container: HTMLElement): string[] =>
     .filter((v) => v !== '')
 
 describe('CategoryInlineBar 选中态配色真的落到元素上', () => {
-  it('深色档:选中 chip 有 brand.DEFAULT 底 + brand.foreground 字,二者成对出现', () => {
+  it('深色档:选中 chip 有 brand.cta 底 + brand.ctaForeground 字,二者成对出现', () => {
     const tk = getTokens('dark')
     const { container } = render(
       <CategoryInlineBar
@@ -53,14 +53,20 @@ describe('CategoryInlineBar 选中态配色真的落到元素上', () => {
         colorScheme="dark"
       />,
     )
-    const fill = rgbOf(tk.brand.DEFAULT)
-    const text = rgbOf(tk.brand.foreground)
+    // 档位 = AGENTS §4 的 2026-09-24 定稿:主 CTA 唯一写法是 brand.cta(底)+ brand.ctaForeground(字)。
+    // 本文件此前断言的是旧档 brand.DEFAULT/foreground —— 组件已迁走而测试没跟着改,于是
+    // "按规矩写"的组件在这里恒红(而守门 83 的 R1/R3/R5 认 cta 配对合法,两边都不红的那一型)。
+    const fill = rgbOf(tk.brand.cta)
+    const text = rgbOf(tk.brand.ctaForeground)
 
     expect(bgColors(container)).toContain(fill)
     expect(textColors(container)).toContain(text)
     // 反向对照:选中态底色绝不能等于弹层/页面容器底色,否则就是真机那次"深字压深底"
     expect(fill).not.toBe(rgbOf(tk.surface.card))
     expect(fill).not.toBe(rgbOf(tk.surface.bg))
+    // 前景同样不得掉回容器档(白底白字/深底深字两种形态都在这里被拦住)
+    expect(text).not.toBe(rgbOf(tk.surface.card))
+    expect(text).not.toBe(rgbOf(tk.surface.bg))
   })
 
   it('深色档:未选中 chip 底色与容器不同档(否则整条没有可点性)', () => {
@@ -78,7 +84,7 @@ describe('CategoryInlineBar 选中态配色真的落到元素上', () => {
     expect(idle).not.toBe(rgbOf(tk.surface.card))
   })
 
-  it('浅色档同样成对,且不随主题翻成纯白底纯白字', () => {
+  it('浅色档同样成对,且 cta 档明暗同值(不随主题翻成纯白底纯白字)', () => {
     const tk = getTokens('light')
     const { container } = render(
       <CategoryInlineBar
@@ -88,8 +94,15 @@ describe('CategoryInlineBar 选中态配色真的落到元素上', () => {
         colorScheme="light"
       />,
     )
-    expect(bgColors(container)).toContain(rgbOf(tk.brand.DEFAULT))
-    expect(textColors(container)).toContain(rgbOf(tk.brand.foreground))
+    expect(bgColors(container)).toContain(rgbOf(tk.brand.cta))
+    expect(textColors(container)).toContain(rgbOf(tk.brand.ctaForeground))
+    // "不随主题反转"是 cta 档的定义(§4:明暗同值 #4A7A96 / #FFFFFF),旧档 brand.DEFAULT 恰恰
+    // 会反转(亮=纯黑/暗=纯白)。把它写成判据:谁给某一侧单独改色,这里当场红 ——
+    // 否则"浅色一大片黑 / 深色一大片白"那笔账会被重新记回主 CTA。
+    const dark = getTokens('dark')
+    expect(rgbOf(dark.brand.cta)).toBe(rgbOf(tk.brand.cta))
+    expect(rgbOf(dark.brand.ctaForeground)).toBe(rgbOf(tk.brand.ctaForeground))
+    expect(rgbOf(tk.brand.cta)).not.toBe(rgbOf(tk.surface.bg))
   })
 
   it('空 items 不渲染任何节点(占位归调用方)', () => {
