@@ -475,6 +475,15 @@ async def lifespan(app: FastAPI) -> Any:
         logger.info("[ui_bridge] 启动注册 RN/小程序 UI 桥接工具: %d 个", _n_app)
     except Exception as e:
         logger.warning("[ui_bridge] 启动注册失败(忽略): %s", e)
+    # 页面语义快照句柄族(2026-09-25 立):同一个 agent-control 通道,执行体在浏览器扩展里。
+    # 单独一个 try:这一族注册失败不能把上面两族已注册的应用内 UI 工具一起带下去。
+    try:
+        from app.services.page_control_bridge import register_page_control_tools
+
+        _n_page = register_page_control_tools()
+        logger.info("[page_control] 启动注册页面句柄族工具: %d 个", _n_page)
+    except Exception as e:
+        logger.warning("[page_control] 启动注册失败(忽略): %s", e)
 
     # 截图服务(Playwright)按需启动,不在 lifespan 启动时初始化(避免 Chromium 占用)
     # 首次截图请求时懒加载,退出时 shutdown() 清理

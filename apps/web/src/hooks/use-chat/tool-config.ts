@@ -9,6 +9,31 @@ import { createAppControlToolSelector } from '@ihui/shared/utils/app-control-int
  *  传入 streamChat → api /ai/chat/stream → ai-service /api/llm/complete/stream
  *  ai-service 收到后从 mcp_server 加载完整 schema,走 tool loop(complete→tool_calls→execute→astream)
  *  2026-07-27 补齐 12 核心 MCP 工具(read_file/search_codebase/file_search 等),共 34 个 */
+/**
+ * 页面语义快照句柄族(2026-09-25 立,用户授权把该能力开放为对外产品能力)。
+ *
+ * 与 browser_*(选择器形态)同 category='browser'、同执行端(浏览器扩展 content script),
+ * 但定位方式不同:这一族只认 `browser_page_snapshot` 交回的**页内活句柄** `el:<scope8>:<serial36>`,
+ * 每轮重新解析 CSS 的那条路在改版页面上会点错位。服务端注册面 =
+ * `apps/ai-service/app/services/page_control_bridge.py`,两族动词由
+ * `tests/test_page_control_bridge.py` 与共享包契约 `PAGE_ACTIONS` 逐字对账。
+ *
+ * 为什么只挂在 AGENT_TOOLS(而不是同时塞进 13 个浏览器插件清单):这一族读的是用户此刻正在
+ * 浏览的**任意站点**,授权口径因此比"选了某个浏览器插件"更严 —— 需要 ①Agent 工具面被显式
+ * 携带 ②该用户在线的扩展端申报了 browserPageActions(服务端闸
+ * `control_autonomy.filter_unauthorized_page_tools`,查不到即摘,fail-closed)。
+ * 双条件里第 ① 条就是这张清单;第 ② 条在服务端兜,客户端不复制判定。
+ */
+export const BROWSER_PAGE_CONTROL_TOOLS = [
+  'browser_page_snapshot',
+  'browser_page_click',
+  'browser_page_type',
+  'browser_page_select',
+  'browser_page_hover',
+  'browser_page_press_key',
+  'browser_page_pick_at_point',
+] as const
+
 export const AGENT_TOOLS = [
   // ===== 核心 MCP 工具(2026-07-27 补齐,对标 AI 工作台 + Codex 工具集)=====
   // 之前只传 browser/computer 工具,LLM 看不到 read_file/search_codebase 等核心工具 schema,
@@ -41,6 +66,11 @@ export const AGENT_TOOLS = [
   'browser_select_option',
   'browser_switch_tab',
   'browser_close_tab',
+  // 7 page-handle tools(2026-09-25 立,浏览器扩展执行的页面语义快照句柄族;与上面 12 个
+  // browser_* 同 category、同执行端,但只认快照交回的活句柄而非 CSS 选择器。清单单一来源 =
+  // BROWSER_PAGE_CONTROL_TOOLS,这里展开它而不是再抄一遍:两处名单必然漂移,漂移的结果是
+  // 服务端注册了而客户端不带 ⇒ 模型永远看不见(静默),没有报错会提醒。)
+  ...BROWSER_PAGE_CONTROL_TOOLS,
   // 10 computer tools
   'computer_screenshot_screen',
   'computer_mouse_move',
