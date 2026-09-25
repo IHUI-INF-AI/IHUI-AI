@@ -34,9 +34,10 @@
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Undetermined, assertRepoRoot, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
-// 遮噪实现复用既有那一份(本仓纪律:两处算同一件事必须共用一份实现)。
-// 它导出缺失 ⇒ 本门判"无法判定",绝不静默把注释里的标识符当成调用。
-import { markHidden } from './check-compaction-denominator.mjs'
+// 遮噪**不复用** `check-compaction-denominator.mjs` 的 `markHidden`:那一档连字符串一起抹,
+// 而本门要区分"模块说明符 / git 动词是字符串"(必须保留)与"readFileSync 是调用"(必须抹字符串)。
+// 两处判的不是同一件事 —— 下面 maskComments / blankStrings 各管一层。曾经 import 着却没用,
+// eslint 的 no-unused-vars 把每一个碰这个文件的人挡在提交链外(HEAD 里躺了几轮没人发现)。
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 /** ROOT 由脚本自身位置推导(§15,不得写死盘符) */
@@ -231,7 +232,8 @@ export function classify(rel, src) {
   return { kind: 'no-content', why: '不读仓库内容' }
 }
 
-const RED_KINDS = new Set(['loose-git', 'loose-fs'])
+/** 判红集只有一处定义 —— decide 与"哪些形态算违规"都从它读,不在别处再抄 kind 名单。 */
+const RED_KINDS = new Set(['loose-git', 'loose-fs', 'half-wired'])
 
 /** 聚合(纯函数,自检/镜像靠构造输入证明它有牙)。 */
 export function decide({ verdicts, mode }) {
@@ -239,13 +241,10 @@ export function decide({ verdicts, mode }) {
   const counts = { face: 0, loose: 0, halfWired: 0, unknown: 0, noContent: 0, unreadable: 0, self: 0 }
   for (const v of verdicts) {
     if (v.kind === 'face') counts.face++
-    // 半接线既进 loose 总量(它确实是散写的一种),也单列计数:报告里必须能看出"新档抓到几道",
-    // 否则这次收紧等于没做 —— 一个只报 total 的新档,和红字里没人看的第三种形态是同一件事。
-    else if (v.kind === 'half-wired') {
-      counts.halfWired++
-      counts.loose++
-      if (mode === 'staged') red.push(v)
-    } else if (v.kind === 'loose-git' || v.kind === 'loose-fs') {
+    // 半接线既计入 loose 总量(它就是散写的一种),也单列计数:报告里必须能看出这次收紧抓到了几道,
+    // 否则新档等于不存在 —— 只报 total 的聚合会把"收紧"退化成"多一种没人看的形态"。
+    else if (RED_KINDS.has(v.kind)) {
+      if (v.kind === 'half-wired') counts.halfWired++
       counts.loose++
       if (mode === 'staged') red.push(v)
     } else if (v.kind === 'unknown') counts.unknown++
