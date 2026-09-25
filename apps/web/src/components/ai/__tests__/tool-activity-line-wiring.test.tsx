@@ -193,5 +193,27 @@ describe('ToolCallCard 渲染 D81 ②~⑥ 活动条目原语(装车证明)', () 
     expect(host).toMatch(/from '\.\/tool-activity-line'/)
     expect(host).toMatch(/ActivityCodeBlock|ActivityCanceledLabel|ActivityConnectorGroupLabel/)
   })
+
+  it('②③ 已判定为冗余并删除:原语面与宿主面都不得回升(回归锁)', () => {
+    // 判据来源不是"我觉得重复",而是 d81-redundancy-probe.test.tsx 在同一条渲染链上
+    // 量到了耗时文本与查询词 —— 现役已显示的信息不允许再起第二套呈现。
+    const primitives = readFileSync(join(here, '..', 'tool-activity-line.tsx'), 'utf8')
+    const host = readFileSync(join(here, '..', 'tool-call-card.tsx'), 'utf8')
+    // 判据只看代码面:本文件头注会逐字引用被删原语的写法作说明,
+    // 不剥注释就会把"解释为什么删"判成"又写回来了"(首跑即由此误红一次)。
+    const stripComments = (s: string): string =>
+      s.replace(/^\s*\/\/.*$/gmu, '').replace(/^\s*\*.*$/gmu, '')
+    const primitivesCode = stripComments(primitives)
+    const hostCode = stripComments(host)
+    for (const src of [primitivesCode, hostCode]) {
+      expect(src).not.toMatch(/ActivityDuration/u)
+      expect(src).not.toMatch(/ActivitySearchQuery/u)
+    }
+    // 活动条上的耗时只有格式化器 formatDuration 一个真相,组件内不得再算一遍
+    expect(primitivesCode).not.toMatch(/\/\s*1000\)\.toFixed/u)
+    // 方向档位一律取共享层 ConnectorDirection,端内不得自写字面量联合
+    expect(primitives).toMatch(/direction:\s*ConnectorDirection/u)
+    expect(primitivesCode).not.toMatch(/direction:\s*'read'\s*\|\s*'write'/u)
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
