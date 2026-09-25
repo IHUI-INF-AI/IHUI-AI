@@ -4,11 +4,11 @@
     "description": "原先並列的多個能力市場入口收斂為一頁:技能、MCP、能力、連接器市場與專家包組合,都在這裡直達。",
     "marketsSection": "能力市場",
     "bundlesSection": "專家包",
-    "bundlesHint": "按專家工作流組合多個市場的能⼒,點擊標籤直達對應頁面",
+    "bundlesHint": "按專家工作流組合多個市場的能å,點擊標籤直達對應頁面",
     "cards": {
       "aiSkills": {
         "title": "AI 技能",
-        "desc": "為智能體掛載 AI 技能,擴展對話與任務能⼒"
+        "desc": "為智能體掛載 AI 技能,擴展對話與任務能å"
       },
       "mcpStore": {
         "title": "MCP 商店",
@@ -16,7 +16,7 @@
       },
       "capabilityMarket": {
         "title": "能力市場",
-        "desc": "啟用平台自研 MCP 能力(工具/資源/提示詞)"
+        "desc": "啟用平臺自研 MCP 能力(工具/資源/提示詞)"
       },
       "skillsMarket": {
         "title": "Skill 市場",
@@ -34,7 +34,7 @@
       },
       "developerExtension": {
         "title": "開發者擴展包",
-        "desc": "工具擴展工作流的組合入口:MCP 商店註冊與平台能⼒啟用"
+        "desc": "工具擴展工作流的組合入口:MCP 商店註冊與平臺能å啟用"
       }
     }
   },
