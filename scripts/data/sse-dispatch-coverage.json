@@ -3,10 +3,10 @@
   "toolCallbacks": ["onAbort"],
   "baseline": {
     "web": 27,
-    "extension": 16,
+    "extension": 17,
     "miniapp-taro": 21,
     "mobile-rn": 19,
-    "cli": 13
+    "cli": 14
   },
   "endpoints": {
     "web": ["apps/web/src", "apps/web/app"],
@@ -22,7 +22,7 @@
     "no-memory-update-ui": "该端无记忆更新(memoryUpdates)展示位。",
     "no-reconnect-ui": "该端无断线重连提示位(web 侧 onReconnect 用于重连接管提示)。",
     "no-agent-delta-ui": "该端无 agent 运行时增量流展示位(onAgentDelta 为 web 的 agent 运行时面板专用)。",
-    "no-terminal-delta-ui": "该端终端渲染走整帧 onTerminalStart/onTerminalEnd,不做增量 delta;台账 D19 已把 terminal_delta 记为两移动端的真缺口,补齐前此处显式声明(而非静默)。",
+    "no-terminal-delta-ui": "该端终端渲染走整帧 onTerminalStart/onTerminalEnd,不做增量 delta(2026-09-25 D19 已把 extension 与 cli 接上,现仅 miniapp-taro 属本组;接增量需先有卡片/滚动宿主,台账 D19 剩余项)。",
     "no-tool-delegate-ui": "该端无工具委派卡片展示位。",
     "no-tool-summary-ui": "该端无工具摘要卡(tool-call-summary 族)展示位。",
     "no-terminal-stream-ui": "该端无终端流展示位(整段也没有终端面板)。",
@@ -43,7 +43,6 @@
       "onSubagentEnd": "no-subagent-ui",
       "onSubagentProgress": "no-subagent-ui",
       "onSubagentSpawn": "no-subagent-ui",
-      "onTerminalDelta": "no-terminal-delta-ui",
       "onToolDelegate": "no-tool-delegate-ui",
       "onFormRequest": "D77 业务表单帧:api-client 已暴露 onFormRequest(HEAD 实测),但 ① 生产者侧(Python sse_contract.py / llm.py 发 form_request)未入库,② web 宿主(contract.ts + send-message.ts + stores/business-forms.ts + business-form-section.tsx)在途且与并行会话的脏文件同面,③ 其余四端无表单渲染位。⇒ 五端一律显式登记而非静默丢弃。解阻判据:sse_contract.py 与 llm.py 工作树==HEAD 后,同一票内落地「Python 发帧 + TS 契约 + web 宿主 + 本项从 missing 删除 + baseline 上调」,四端按 H18 端覆盖矩阵补渲染位。"
     },
@@ -77,7 +76,6 @@
       "onSubagentEnd": "no-subagent-ui",
       "onSubagentProgress": "no-subagent-ui",
       "onSubagentSpawn": "no-subagent-ui",
-      "onTerminalDelta": "no-terminal-delta-ui",
       "onTerminalEnd": "no-terminal-stream-ui",
       "onTerminalStart": "no-terminal-stream-ui",
       "onToolDelegate": "no-tool-delegate-ui",
