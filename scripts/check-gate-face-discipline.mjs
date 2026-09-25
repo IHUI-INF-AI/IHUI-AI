@@ -96,9 +96,43 @@ export function usesLayerRead(code) {
  * 否则注释、字符串夹具、以及把动词拼进变量的间接调用都会被当成散写(误伤)。
  */
 const GIT_SPAWN_RE = /(?:execFileSync|execSync|spawnSync|spawn)\s*\(\s*(?:GIT_BIN|gitPath|gitBinary\s*\(\s*\)|['"]git['"])/
-const GIT_CONTENT_ARG_RE = /['"](?:cat-file|show|ls-tree|grep)['"]|--batch(?:-check)?/
+// 层的 transport 被拿来自己读内容(`gitRaw(['show', …])`)同样是散写 —— 管子共用不等于面共用。
+const GIT_RAW_RE = /\bgitRaw\s*\(/
+/**
+ * **"读内容"与"枚举"必须分开**,否则判据会把自己立项的口径说歪:本门守的是"判内容取哪个面",
+ * 而 `cat-file -e`(存在性)、`ls-tree --name-only`(路径清单)、`rev-list` / `merge-base` / `rev-parse`
+ * (提交图)都**不产生 blob 正文**。把它们算成"散写读内容"有两个后果:① 给一道只是枚举文件清单的
+ * 门发违规(误伤 ⇒ 逼人绕钩子);② 更要紧的是让"读内容"这个词在报告里失去含义 —— 数字看着多,
+ * 其实一格真缺陷都没有。2026-09-26 实测:`check-merge-addition-loss.mjs` 被上一版算成半接线,
+ * 它全部 git 调用是 `cat-file -e` / `ls-tree --name-only` / `rev-list`,**没有一处读 blob**。
+ */
+const GIT_ENUM_ONLY_CALL_RE =
+  /'cat-file'\s*,\s*'-e'|'ls-tree'[^)]*?--name-only|'grep'[^)]*?-l|'rev-list'|'rev-parse'|'merge-base'|'symbolic-ref'|'name-rev'/g
+const GIT_BLOB_ARG_RE = /['"]cat-file['"]|['"]show['"]|--batch(?!-check)|'cat-file-prompt'/
+/** 纯函数:遮噪后的源码里有没有"取 blob 正文"的 git 用法(枚举类调用先剔除)。 */
+export function gitContentReads(maskedCode) {
+  return GIT_BLOB_ARG_RE.test(maskedCode.replace(GIT_ENUM_ONLY_CALL_RE, ' '))
+}
+/**
+ * 仓库锚点**只认大写 `ROOT`**,这是刻意为之而不是判据漏风(2026-09-26 试过再放宽,数据否决):
+ * 把 `join(root, …)` / `join(repoRoot, …)` 也算锚点后,`loose` 从 74 涨到 93,而新增里两格是**假阳** ——
+ * `check-merge-addition-loss.mjs` 读的是 `.workbuddy/…-audited.json`(被 gitignore 的运行台账,
+ * 结构上没有"面"可言),`check-prod-bundle-shadow.mjs` 读的更是**按设计只存在于部署机**的忽略副本
+ * (它的退出码为此专门分了三态)。把"读状态文件"判成"按磁盘判仓库内容",就是把一条好判据做成恒红门。
+ * 代价如实登记:小写模块根 + 读盘的门会落进 `unknown`(全量档 16 道),而 `unknown` 不判红 ——
+ * 这是**已知判据空档**,不是"没有违规"。补它需要能区分"读被审内容"与"读运行态",那要求判据
+ * 认识 gitignore 语义(见 `check-prod-bundle-shadow` 的 S2 判据),不是一行正则的事。
+ */
 const FS_LOOSE_RE = /readFileSync\s*\(/
-const REPO_ANCHOR_RE = /(?:join|resolve|normalize)\s*\(\s*ROOT\b|\bROOT\s*,/
+/**
+ * 仓库锚点 = **ROOT 出现在路径拼装调用里**。旧写法还带一条 `|\bROOT\s*,`,它会把
+ * `function audit(limit = 400, cwd = ROOT, p = …)` 这种"把仓库根当默认实参传下去"的形状
+ * 当成锚点,于是 `check-merge-addition-loss.mjs` 被判成半接线 —— 而它 git 侧只做
+ * `cat-file -e`(存在性)与 `ls-tree --name-only`(路径清单),**一处 blob 都没读**。
+ * 判据的口径写歪一格,报告里就多一格假缺陷,而且假阳比漏报更贵:它会让人去"修"没坏的东西。
+ * 代价如实登记:锚在路径函数上的写法(join(pathmod, ROOT) 之后自己拼)会落到 `unknown`。
+ */
+const REPO_ANCHOR_RE = /(?:join|resolve|normalize|dirname|isAbsolute)\s*\([^)]{0,40}\bROOT\b/
 
 /**
  * 只遮注释、**保留字符串字面量**的那一层遮噪。
@@ -200,8 +234,11 @@ export function blankStrings(text) {
 
 /**
  * 单文件定性。返回 `{ kind, why }`:
- *  - `face`        走统一取材层 ⇒ 合规
- *  - `loose-git`   散写 git 内容读取 ⇒ 判红
+ *  - `face`        调用过取材层的读取入口取内容 ⇒ 合规
+ *  - `half-wired`  **引了这层却没用它读内容**,内容由自派生 git 或磁盘 readFileSync 取 ⇒ 判红
+ *                  (2026-09-26 补:旧版把"import 了 face-reader"直接当合规,而实证门 36/124 就是这样
+ *                   一边 import 一边默认读磁盘 —— 一门自称守取材面纪律,对半接线全盲)
+ *  - `loose-git`   散写 git 取 **blob 正文** ⇒ 判红(存在性/路径清单类调用不算,见 GIT_ENUM_ONLY_CALL_RE)
  *  - `loose-fs`    散写"从仓库锚点读文件" ⇒ 判红
  *  - `no-content`  根本不读仓库内容 ⇒ 不适用(不计违规也不计数)
  *  - `unknown`     读文件但找不到仓库锚点 ⇒ 只报数(临时夹具这一型结构上判不了)
@@ -213,7 +250,7 @@ export function classify(rel, src) {
   // 判序先认"真调用过层的读取入口",再判"引了层却没用它读内容"(半接线),最后才是原来两档散写。
   // 顺序反了就会把 half-wired 吞进 face —— 那正是旧版行为:FACE_IMPORT_RE 一刀命中即放行。
   const usesLayer = usesLayerRead(code)
-  const selfServesGit = GIT_SPAWN_RE.test(code) && GIT_CONTENT_ARG_RE.test(code)
+  const selfServesGit = (GIT_SPAWN_RE.test(code) || GIT_RAW_RE.test(code)) && gitContentReads(code)
   const noStrings = blankStrings(code)
   const looseFs = FS_LOOSE_RE.test(noStrings) && REPO_ANCHOR_RE.test(noStrings)
   if (usesLayer) return { kind: 'face', why: '调用取材层的读取入口(catBatch / readWorktreeFile)取内容' }
@@ -225,7 +262,10 @@ export function classify(rel, src) {
         '(半接线 —— 这层看起来在用,判定面其实没换)',
     }
   if (selfServesGit)
-    return { kind: 'loose-git', why: '自己派生 git 读内容(cat-file / show / ls-tree / grep / --batch)而未经取材层' }
+    return {
+      kind: 'loose-git',
+      why: '自己派生 git **取 blob 正文**(cat-file / show / --batch)而未经取材层',
+    }
   if (looseFs)
     return { kind: 'loose-fs', why: 'readFileSync + 仓库锚点(join/resolve(ROOT)) ⇒ 按磁盘判' }
   if (FS_LOOSE_RE.test(noStrings)) return { kind: 'unknown', why: '读文件但找不到仓库锚点(可能是临时夹具)' }
@@ -364,7 +404,59 @@ function selfTest() {
   const FIXTURE = "import { readFileSync } from 'node:fs'\nreadFileSync(join(dir, 'x.json'), 'utf8')\n"
   const PURE = 'export function f(x) { return x + 1 }\n'
   eq('F1 经取材层 ⇒ face', classify('scripts/check-a.mjs', OK).kind, 'face')
-  // F6–F9:收紧"import 层 ≠ 走层"的成对证明。四条要一起读 —— F6/F7 的红必须由 F1/F8 的绿
+  // G1–G6:2026-09-26 两处收紧的反向锁。"读内容"与"枚举"不分,报告里的数字就失去含义;
+  // 锚点只认大写 ROOT,最常见的小写模块根写法就会掉进不判红的 unknown ⇒ 免检票。
+  eq(
+    'G1 借层的 transport 自己读 blob(gitRaw([show,…]))⇒ half-wired',
+    classify(
+      'scripts/check-g1.mjs',
+      "import { gitRaw } from './lib/face-reader.mjs'\nfunction gs(spec){ return gitRaw(['show', spec], root) }\nconst a = gs(`HEAD:${REL}`)\n",
+    ).kind,
+    'half-wired',
+  )
+  eq(
+    'G2 只做存在性检查(cat-file -e)不算读内容 ⇒ no-content(不得误伤)',
+    classify(
+      'scripts/check-g2.mjs',
+      "const git=(a)=>execFileSync(GIT_BIN,a)\ngit(['cat-file','-e',`${sha}^{commit}`])\n",
+    ).kind,
+    'no-content',
+  )
+  eq(
+    'G3 只列路径清单(ls-tree --name-only / rev-list / merge-base)不算读内容 ⇒ no-content',
+    classify(
+      'scripts/check-g3.mjs',
+      "const git=(a)=>execFileSync(GIT_BIN,a)\ngit(['ls-tree','-r','--name-only',oid,'-z'])\ngit(['rev-list',ref])\ngit(['merge-base','--all',...p])\n",
+    ).kind,
+    'no-content',
+  )
+  eq(
+    'G4 散写 cat-file blob ⇒ 仍 loose-git(收紧不得顺手放过真散写)',
+    classify('scripts/check-g4.mjs', "execFileSync(GIT_BIN, ['cat-file', 'blob', oid])\n").kind,
+    'loose-git',
+  )
+  // G5a/G5b 把"为什么不再放宽锚点"变成机器记录:一次放宽把 74 涨到 93,其中两格是假阳 ——
+  // `check-merge-addition-loss.mjs` 读 gitignore 的运行台账、`check-prod-bundle-shadow.mjs` 读按设计
+  // 只存在于部署机的忽略副本。判据认不出"读被审内容 vs 读运行态",就不该假装认得。
+  // G5a/G5b 把「为什么不再放宽锚点」变成机器记录:一次把 join(root,…) 也算锚点,loose 从 74 涨到 93,
+  // 其中两格是假阳 —— check-merge-addition-loss 读 gitignore 的运行台账、check-prod-bundle-shadow 读按设计
+  // 只存在于部署机的忽略副本。判据认不出"读被审内容 vs 读运行态",就不该假装认得(§12e 同型:恒红门的结局是跳门)。
+  eq(
+    'G5a 大写 ROOT + 读盘 ⇒ loose-fs(既有口径,本票不动)',
+    classify(
+      'scripts/check-g5a.mjs',
+      "const ROOT = resolve(__dirname, '..')\nreadFileSync(join(ROOT, REL), 'utf8')\n",
+    ).kind,
+    'loose-fs',
+  )
+  eq(
+    'G5b 小写 root + 读盘 ⇒ unknown(已知空档:不误判红,也不假装看见)',
+    classify(
+      'scripts/check-g5b.mjs',
+      "const root = resolve(__dirname, '..')\nreadFileSync(join(root, REL), 'utf8')\n",
+    ).kind,
+    'unknown',
+  )  // F6–F9:收紧"import 层 ≠ 走层"的成对证明。四条要一起读 —— F6/F7 的红必须由 F1/F8 的绿
   // 反向钉住,否则"不红"可能只是判据失效;而 F8 防的是新判据把合法写法误伤(命名空间导入)。
   eq('F6 引了层却自己 git show 读内容 ⇒ half-wired(半接线)', classify('scripts/check-f6.mjs', HALF).kind, 'half-wired')
   eq('F7 引了层却按磁盘 readFileSync 读 ⇒ half-wired', classify('scripts/check-f7.mjs', HALF_FS).kind, 'half-wired')

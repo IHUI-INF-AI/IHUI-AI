@@ -125,8 +125,11 @@ const SCAN_DIRS = [
   'packages/ui-native/src',
   'packages/shared/src',
 ]
-const TSX_RE = /\.tsx$/
-const SRC_RE = /\.(tsx?|css|scss|less)$/
+// `.jsx` 必须与 `.tsx` 同视(2026-09-26 补):实测全仓 `.jsx` 存量为 **0**,所以"不扩"今天不会漏任何东西 ——
+// 但把结论建立在"恰好没有这种文件"上,等于让"全端已覆盖"这句话随时可能被一枚新文件悄悄作废(本仓最高频
+// 失效型就是"看起来有、其实没牙")。扩它零风险(无受害者),换来判据对自己产出的形态恒有牙。
+const TSX_RE = /\.(tsx|jsx)$/
+const SRC_RE = /\.(tsx?|jsx|css|scss|less)$/
 /** 本门自身与其测试必含被判据字面量 ⇒ 按路径前缀跳过并如实计数 */
 const SELF_EXEMPT_RE = /check-glyph-arrow-icon\.[\w.]*mjs$/
 
@@ -1422,6 +1425,17 @@ function selfTest() {
   t(
     'GA1 阳性对照:onClick 容器里的整格 › 看得见',
     only({ 'packages/app/x.tsx': CONTROL_TSX }).n1 === 1,
+  )
+  // 扩展名对账:同一条内容换扩展名,结论必须不变。全仓 .jsx 存量实测为 0,所以"不扩"今天不出事 ——
+  // 但"今天没有受害者"从来不是"判据覆盖了"的证据(本门立项就是因为左向 ‹ 不在字符集里)。
+  t(
+    '扩展名对账:同一违规在 .jsx 上必须与 .tsx 同判(TSX_RE/SRC_RE 若退回只认 .tsx,本条即红)',
+    only({ 'packages/app/x.jsx': CONTROL_TSX }).n1 === 1 &&
+      only({ 'packages/app/x.tsx': CONTROL_TSX }).n1 === 1 &&
+      only({
+        'packages/app/b.jsx':
+          'export function More({ go }) {\n  return <TouchableOpacity onPress={go}><Text>更多</Text><Text>{">"}</Text></TouchableOpacity>\n}\n',
+      }).n1 === 1,
   )
   const CONTROL_INNER =
     'export function More({ go }) {\n  return <Text onPress={go}>查看更多 <Text>›</Text></Text>\n}\n'
