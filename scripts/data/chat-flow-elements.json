@@ -796,6 +796,26 @@
         {
           "file": "apps/web/src/components/chat/message-input.tsx",
           "mustMatch": "QueueInteractionBar"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/components/QueueBar.tsx",
+          "mustMatch": "export default function QueueBar"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx",
+          "mustMatch": "import QueueBar from '../components/QueueBar'"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx",
+          "mustMatch": "<QueueBar"
+        },
+        {
+          "file": "apps/extension/lib/ext-queue-ops.ts",
+          "mustMatch": "export function extQueueInteractionAllowed"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/components/QueueBar.tsx",
+          "mustMatch": "extQueueInteractionAllowed"
         }
       ]
     },
