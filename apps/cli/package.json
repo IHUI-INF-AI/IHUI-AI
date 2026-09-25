@@ -40,6 +40,7 @@
     "@ihui/context-compaction": "workspace:*",
     "@ihui/i18n": "workspace:*",
     "@ihui/design-tokens": "workspace:*",
+    "@ihui/dom-actions": "workspace:*",
     "@ihui/shared": "workspace:*",
     "@ihui/types": "workspace:*",
     "chalk": "^6.0.0",

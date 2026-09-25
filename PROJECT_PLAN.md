@@ -8035,3 +8035,15 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   2. **运行副本陈旧**(`deploy/prod-bundle/{deploy.sh,health-check.sh}` 与入库源差 97 / 71 行 ⇒ S3 漂移 exit 1)。取证后才动:① 两侧 CR 计数 = 各自行数 ⇒ 差异**不是**行尾噪声;② `<` 侧独有段落是 P2-13 部署诊断采集(`ihui_diag_*` 一族 + 缺库时的空函数摘线保护),本机那份停在 09-10 ⇒ 本机是旧的;③ 全仓 grep 无任何服务/compose 执行这两个 `.sh`(只有文档与归档在提它们,归档那份明写本机的是"主仓同名文件的旧版")⇒ 对齐是**升级一份本机无人执行的陈旧产物**,不是改生产行为。真改生产行为的对齐动作(比如 `ihui-monitor.ps1`)不适用此判据,那类必须先查 `nssm get AppParameters`。
 - **留给持有人的一条判断(我没有替它改)**:对侧新增的镜像测试 **T3「真仓 audit 全等值,undetermined 必须为 0」** 现在**依赖本机部署态**。本机已复原 ⇒ 5/5 绿;但一份**干净 checkout 或第三台机**跑 `pnpm test:scripts` 会红在 T3。两种读法都成立:①它正是"你还没部署 prod-bundle 就别提交"的响铃(与 §5e"生产执行的是被忽略的那一份"同口径)——那就保留;②它把"代码判据"和"某台机的部署事实"焊在一起——那该改成自建夹具或 `skip` 当运行副本缺席。**我不动别人的测试**(§12 越权线),只把这条留在台账里请作者定夺;若选 ①,建议把红时的提示语写成"先跑 `cp deploy/scripts/prod-bundle/* deploy/prod-bundle/`"这类出路,否则下一个人只会把它当误报绕开。
 - **一句话教训**:影子门的登记表每扩一对,**所有机器的 `deploy/prod-bundle/` 都进入判据面**,而这个目录按设计不入版本树 ⇒ 登记表变化必须以"每台机都已复原运行副本"为完工条件之一,否则就是"在 A 机提交、B 机恒红"。这条与 §5b"凡盘符/引擎/远端形态按当次实测取值"同族。
+
+### 第四十九批·续四(2026-09-25):守门 7 让我去跑 `pnpm dedupe`,而真因是**一枚漏写的依赖声明** —— 照门说的做会把坏状态锁死
+- **入口**:全链跑完后本机只剩两道 blocking 红([7] dedupe / [90] SSE)。[90] 到当前 HEAD 复测**已经绿了**(对侧 `1c5e53cd3` 落了"onFormRequest 五端显式登记理由")—— 我又差点凭一次旧读数去修一件已被修好的事;**开工前在当次 HEAD 重测**这条纪律今天第二次救我。
+- **[7] 报的修法与真因方向相反**。门说:`apps/cli └── - @ihui/dom-actions`,`Run pnpm dedupe to apply`。但按顺序查下来:
+  1. `apps/cli/package.json` **从未在任何提交里声明过** `@ihui/dom-actions`(`git log -S '@ihui/dom-actions' -- apps/cli/package.json` 空 ⇒ 不是并发旧基线回写吃掉的,是 `f2121db10` 加 import 时就没加声明);
+  2. 而 `apps/cli/src/tools/browser-page.ts:33` **确实** `import ... from '@ihui/dom-actions'`;
+  3. `apps/cli/node_modules/@ihui/dom-actions` 链接**不存在**,`createRequire` 探 = `MODULE_NOT_FOUND`;
+  4. **决定性一条**:`pnpm --filter @ihui/cli typecheck` 当场 `TS2307: Cannot find module`(连带一枚 `TS7006` 都是它的下游)⇒ **main 上这个端此刻根本构建不过**,不是碎片化卫生问题。
+  ⇒ 锁里那条 `importers.apps.cli['@ihui/dom-actions']` 是**正当记账的提前记录**,`pnpm dedupe` 要删的正是它 —— 删完 package.json 仍无声明、链接仍缺、TS2307 照红,只是再没人能从锁上看出来这里欠了一条声明。**门给的是"让报错消失"的动作,不是"让系统变对"的动作,这一型我上一票才写过(豁免当修法),这次是它的镜像:回滚当清理。**
+- **做的事**:`apps/cli/package.json` 补 `"@ihui/dom-actions": "workspace:*"`(与 `apps/extension` 同形态)→ 按 §12e 跑**全量 `pnpm install`**(不带 `--filter`;3.9s,锁零改动 ⇒ 声明与锁本来就只差这一行)。跑前按 §12d 取证:无 next/turbo 进程、`.deploy.lock` 持有者 pid 已死(只读 `check` 报 locked 属预期,acquire 有 10min 兜底 ⇒ 不改别人的锁文件)。
+- **验收按 §12e 的实测口径,不看回显**:链接在位;`node_modules/.bin/eslint --version` = v10.8.1、`tsc --version` = 5.9.3 都出版本号;`lint-staged/bin/lint-staged.js` 在位;门 78 rc=0(25 包声明全链接、718 条链接内容完好);门 101 rc=0(specifier 全一致);`pnpm --filter @ihui/cli typecheck` **rc=0**(改前 rc=1);门 7 全量 **rc=0**。
+- **给后面人的判据(值得抄进 §3 共享层那节)**:凡是**新 import 一个 workspace 包**,同一次改动里必须落三样 —— `package.json` 声明、`pnpm install`(全量)、`--filter <该端> typecheck` 真跑一次。只加 import 不加声明,`tsc` 在**别的端**可能因 tsconfig paths 而看起来没事,而 TS2307/Module not found 会在下一个干净 checkout 或 CI 构建里才炸 —— 与守门 72/78 同族"本地全绿、出事在别人机器"。
