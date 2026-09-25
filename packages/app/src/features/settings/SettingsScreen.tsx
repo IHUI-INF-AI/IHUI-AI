@@ -6,6 +6,7 @@ import { rnRadius } from '@ihui/design-tokens'
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { View, Text, Switch, TextInput, TouchableOpacity, Modal, StyleSheet, ScrollView } from 'react-native'
+import { ChevronRight } from 'lucide-react-native'
 import type { SettingsScreenProps, SharedNotificationToggles } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
@@ -110,7 +111,7 @@ export function SettingsScreen({
               <Text style={styles.nickname}>{user.nickname || t('profile.nickname')}</Text>
               <Text style={styles.subText}>{t('profile.editProfile')}</Text>
             </View>
-            <Text style={styles.arrow}>›</Text>
+            <ChevronRight size={20} color={tk.text.tertiary} />
           </TouchableOpacity>
         ) : null}
 
@@ -154,7 +155,7 @@ export function SettingsScreen({
         <Section title={t('settings.account')} styles={styles}>
           <TouchableOpacity style={styles.plainRow} onPress={openPwdModal}>
             <Text style={styles.rowLabel}>{t('settings.changePassword')}</Text>
-            <Text style={styles.arrow}>›</Text>
+            <ChevronRight size={20} color={tk.text.tertiary} />
           </TouchableOpacity>
           {menuItems.map((item) => (
             <TouchableOpacity
@@ -163,7 +164,7 @@ export function SettingsScreen({
               onPress={() => onMenuPress(item.key)}
             >
               <Text style={styles.rowLabel}>{item.label}</Text>
-              <Text style={styles.arrow}>›</Text>
+              <ChevronRight size={20} color={tk.text.tertiary} />
             </TouchableOpacity>
           ))}
         </Section>
@@ -301,8 +302,6 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
   const divider = tk.border.light
   // cell 标签文字:浅色 text.medium(对齐 uniapp item-label),深色沿用 text.primary
   const rowLabelColor = colorScheme === 'dark' ? tk.text.primary : tk.text.medium
-  // 箭头:浅色 text.tertiary(对齐 uniapp arrow-icon),深色沿用 text.tertiary
-  const arrowColor = tk.text.tertiary
   // 分组标题:浅色 text.secondary(对齐 uniapp section-title),深色沿用 text.secondary
   const sectionTitleColor = tk.text.secondary
   return StyleSheet.create({
@@ -337,7 +336,6 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     userMeta: { flex: 1, gap: 2 },
     nickname: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
     subText: { fontSize: 14, color: tk.text.secondary },
-    arrow: { fontSize: 20, color: arrowColor },
     section: { gap: 8 },
     sectionTitle: { fontSize: 14, color: sectionTitleColor },
     sectionCard: {
