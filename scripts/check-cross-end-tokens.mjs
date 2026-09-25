@@ -63,7 +63,11 @@
  * `scripts/tests/tailwind-alpha-plugin.test.mjs` 的「用量对账」看护,该文件**在 HEAD 与磁盘上都不存在**
  * (实测 `git cat-file -e HEAD:...` 报 does not exist),所以那句自述是空头支票,R6 是它的兑现。
  * 单一真相 = **源码里的真实用量**,不新增第二份手工清单:登记表既被当期望集,也被反向核防腐烂。
- * R6 的取材口径与 R3 相同(全量判 HEAD blob、`--staged` 判索引 blob),并且**表与用量必须同面**——
+ * 全部门判据同一种取材口径(2026-09-25 起):缺省判 **HEAD blob**,`--staged` 判**索引 blob**,
+ * `--worktree` 只作人工逃生舱(扫跟踪文件的工作树内容,提交链永不调它),两面旗同给直接判死。
+ * R6 的"表与用量必须同面"是这条口径最早的一处落地;此前 R1/R2/R4/R5(两份 token 源的比对)
+ * 恒按 `readFileSync` 读磁盘,于是同一轮里"色值同不同源"看磁盘、"这些色值有没有被各端引用"看仓库 ——
+ * 一次未提交的 token 改动能让前半段红、后半段绿,而 AGENTS 给本门写的口径只对了一半。
  * 表读磁盘、用量读 HEAD 会在并行会话刚补行的瞬间产出假红,反之(表读磁盘 + 用量读索引)则产出假绿:
  * 作者只暂存了源码那半边就能带着没有 CSS 的类名过关。故 `ALPHA_USAGE` / preset colors / tokens.css
  * 三份输入一律按判定面取 blob(与同日"诊断只能取同一个面"的教训一致)。
@@ -78,16 +82,42 @@ import { dirname, join } from 'node:path'
 // **自带一份 batch 解析**的门:那五处易错点(裸 'git'、stdio[0]='ignore' 会把喂进去的清单丢掉、
 // 逐文件派生、maxBuffer 不够、junction 下的仓库根比较)在这里各有一份,而"输出被截断 ⇒ 无法判定"
 // 这条正确判据更要各修一遍 —— 收口成一层之后,它只有一份实现。
-import { Undetermined, catBatch, gitRaw, parseBatch } from './lib/face-reader.mjs'
+import {
+  Undetermined,
+  catBatch,
+  gitRaw,
+  parseBatch,
+  readWorktreeFile,
+  selectFace,
+} from './lib/face-reader.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const RN_TOKENS_PATH = join(root, 'packages/design-tokens/src/rn-tokens.ts')
-const TOKENS_CSS_PATH = join(root, 'packages/design-tokens/src/styles/tokens.css')
+// **相对路径**(取材层按 `<rev>:<rel>` 取 blob);磁盘读只在 `--worktree` 档发生,见 readFaceText
+const RN_TOKENS_REL = 'packages/design-tokens/src/rn-tokens.ts'
+const TOKENS_CSS_REL = 'packages/design-tokens/src/styles/tokens.css'
 
 const argv = process.argv.slice(2)
 const quiet = argv.includes('--quiet') || argv.includes('-q')
 const listOnly = argv.includes('--list')
 const SELF_TEST = argv.includes('--self-test')
+// 判定面在**这里**定一次:此前本门 R1/R2/R4/R5 读磁盘、R3/R6/R7 读 HEAD/索引,
+// 同一次运行里"两份色值表同不同源"看磁盘、"这些色值有没有被各端引用"看仓库 ——
+// 一边可能红一边可能绿,而结论取决于谁先看。一面一判,不留两把尺子。
+const FACE_SEL = selectFace({
+  staged: argv.includes('--staged'),
+  worktree: argv.includes('--worktree'),
+})
+if (FACE_SEL.error) {
+  console.error(`❌ ${FACE_SEL.error}`)
+  process.exit(2)
+}
+const face = FACE_SEL.face
+/** 结论行要把"这一轮的结论是关于哪个面"说清 —— 换面就是换结论对象,不能让同一句话两种口径都用。 */
+const FACE_TXT = {
+  head: 'HEAD(全量审计,存量腐烂照红)',
+  staged: '索引⊕HEAD(存量腐烂按棘轮放过)',
+  worktree: '工作树(仅人工逃生舱,存量按棘轮放过;提交链永不走这档)',
+}
 
 // ─── 映射表(每条含取值依据,rn 路径 = [常量名, ...嵌套键]) ───
 const MAPPINGS = [
@@ -961,41 +991,56 @@ export function checkAlphaChannelVars({ usage, colors, cssLight, cssDark, plugin
 /** 按判定面收集 R6 语料:清单与内容同面;`--staged` 用索引 blob 覆盖 HEAD,删除的路径从语料中移除。
  *  同时带回 HEAD 原文(`head`)—— 腐烂判据要按"本次提交是否新增"算棘轮,必须有两个面的用量集。 */
 export function collectAlphaCorpus({ face }) {
+  const FACE_SHORT = { head: 'HEAD', staged: '索引', worktree: '工作树' }
   const listed = gitExec(['ls-tree', '-r', '--name-only', 'HEAD', '-z', '--', ...ALPHA_SCAN_FACES])
     .split('\0')
     .filter((p) => p && ALPHA_SCAN_EXT.test(p))
   const paths = new Set(listed)
-  let staged = []
+  let extra = []
   if (face === 'staged') {
-    staged = gitExec(['diff', '--name-only', '--cached', '--', ...ALPHA_SCAN_FACES])
+    // 暂存变更集(不是"整个索引"):这次提交真会带走的那些路径
+    extra = gitExec(['diff', '--name-only', '--cached', '--', ...ALPHA_SCAN_FACES])
       .split('\n')
       .filter((p) => p && ALPHA_SCAN_EXT.test(p))
-    for (const p of staged) paths.add(p)
+  } else if (face === 'worktree') {
+    // 逃生舱:按跟踪文件清单(`git ls-files` = 索引面),内容一律从磁盘读 ——
+    // 未跟踪文件不在射程内(否则又把别人的草稿扫进来,正是本门要避免的那一型)
+    extra = gitExec(['ls-files', '-z', '--', ...ALPHA_SCAN_FACES])
+      .split('\0')
+      .filter((p) => p && ALPHA_SCAN_EXT.test(p))
   }
+  for (const p of extra) paths.add(p)
   if (paths.size === 0)
     throw new UndeterminedError(
-      `${face === 'staged' ? '索引' : 'HEAD'} 面在扫描面(${ALPHA_SCAN_FACES.join(' + ')})枚举到 0 个文件 —— 判据不扫空气`,
+      `${FACE_SHORT[face]} 面在扫描面(${ALPHA_SCAN_FACES.join(' + ')})枚举到 0 个文件 —— 判据不扫空气`,
     )
   const all = [...paths]
   const headMap = readBlobs(all.map((p) => `HEAD:${p}`))
   const idxMap = face === 'staged' ? readBlobs(all.map((p) => `:${p}`)) : headMap
+  // 本面的取内容出口 —— 三档只有这一处差异,故只写一次
+  const readEff = (rel) =>
+    face === 'head'
+      ? headMap.get(`HEAD:${rel}`)
+      : face === 'staged'
+        ? idxMap.get(`:${rel}`)
+        : readWorktreeFile(root, rel)
   const out = []
   const undeterminable = []
   for (const rel of all) {
     const head = headMap.get(`HEAD:${rel}`)
     if (head === null || head === undefined) {
-      // 只在索引里存在(本次新增的文件):HEAD 没有它,自然也没有 HEAD 侧用量
-      if (face !== 'staged') undeterminable.push(rel)
-      out.push({ rel, head: '', eff: idxMap.get(`:${rel}`) ?? '' })
+      // 只在本面存在(本次新增的文件):HEAD 没有它,自然也没有 HEAD 侧用量
+      if (face === 'head') undeterminable.push(rel)
+      out.push({ rel, head: '', eff: readEff(rel) ?? '' })
       continue
     }
-    if (face !== 'staged') {
+    if (face === 'head') {
       out.push({ rel, head, eff: head })
       continue
     }
-    const idx = idxMap.get(`:${rel}`)
-    if (idx === null || idx === undefined) continue // 本次提交删除该文件:索引面即"不存在"
-    out.push({ rel, head, eff: idx })
+    const eff = readEff(rel)
+    if (eff === null || eff === undefined) continue // 本面已无此文件(本次删除)
+    out.push({ rel, head, eff })
   }
   if (undeterminable.length > 0)
     throw new UndeterminedError(
@@ -1066,22 +1111,54 @@ async function main() {
 }
 
 /** 按判定面读出 R6 的三份输入:登记表 / preset colors / tokens.css 变量表。三者必须同面。 */
-export function readAlphaRegistry(face) {
-  const prefix = face === 'staged' ? ':' : 'HEAD:'
-  // 索引里有未合并路径(merge/rebase 进行中)时 `:<path>` 是有歧义的 stage 号,读出来既不是索引
-  // 也不是工作树 ⇒ 一律判"无法判定",绝不猜一个 stage 用(与守门 94/101 同一口径)。
+/** 索引里有未合并路径(merge/rebase 进行中)时 `:<path>` 是有歧义的 stage 号,读出来既不是索引
+ *  也不是工作树 ⇒ 一律判"无法判定",绝不猜一个 stage 用(与守门 94/101 同一口径)。 */
+export function assertUnmergedClean(face) {
   if (face === 'staged' && gitExec(['ls-files', '-u', '-z']).length > 0)
-    throw new UndeterminedError('索引存在未合并路径(merge/rebase 进行中),索引面取材有歧义 ⇒ 无法判定,先收敛 merge')
-  const [pluginTxt, presetTxt, tokensTxt] = [
-    ALPHA_PLUGIN_REL,
-    ALPHA_PRESET_REL,
-    ALPHA_TOKENS_REL,
-  ].map((rel) => {
-    const got = readBlobs([prefix + rel]).get(prefix + rel)
+    throw new UndeterminedError(
+      '索引存在未合并路径(merge/rebase 进行中),索引面取材有歧义 ⇒ 无法判定,先收敛 merge',
+    )
+}
+
+/**
+ * 按判定面取一批文件的**文本** —— 本门所有取材都走这一个出口。
+ *
+ * 为什么强调"一个出口":这道门此前 R1/R2/R4/R5 直接 `readFileSync` 磁盘,而 R3/R6/R7 判 HEAD/索引,
+ * 于是同一枚提交里"两份色值表是否同源"看的是磁盘、"这些色值有没有被各端引用"看的是仓库 ——
+ * 一次本地未提交的 token 改动能让前半段报红而后半段报绿,结论取决于谁先看。AGENTS 给它写的
+ * 口径是"全量判 HEAD blob、--staged 判索引",本门此前只对了一半。
+ */
+export function readFaceText(face, rels) {
+  if (face === 'worktree') {
+    return rels.map((rel) => {
+      const t = readWorktreeFile(root, rel)
+      if (t === null || t === undefined) throw new UndeterminedError(`工作树(逃生舱)取不到 ${rel}`)
+      return t
+    })
+  }
+  assertUnmergedClean(face)
+  const prefix = face === 'staged' ? ':' : 'HEAD:'
+  const map = readBlobs(rels.map((rel) => prefix + rel))
+  return rels.map((rel) => {
+    const got = map.get(prefix + rel)
     if (got === null || got === undefined)
       throw new UndeterminedError(`${face === 'staged' ? '索引' : 'HEAD'} 取不到 ${rel}`)
     return got
   })
+}
+
+/** R1/R2/R4/R5 的两份输入:RN 色值表 + web tokens.css。返回**未剥注释**原文,由调用方按判据需要剥。 */
+export function readTokenSources(face) {
+  const [rn, css] = readFaceText(face, [RN_TOKENS_REL, TOKENS_CSS_REL])
+  return { rn, css }
+}
+
+export function readAlphaRegistry(face) {
+  const [pluginTxt, presetTxt, tokensTxt] = readFaceText(face, [
+    ALPHA_PLUGIN_REL,
+    ALPHA_PRESET_REL,
+    ALPHA_TOKENS_REL,
+  ])
   const usage = parseLiteralObject(
     extractObjectBody(
       // 锚点带 `^` 就必须带 m flag:写 `/^…/` 而漏 m 时 `^` 只认串首,整张表变成"取不到"
@@ -1177,7 +1254,8 @@ export async function runR7({ face, quiet }) {
     return { hits: list, undetermined: und }
   }
   const sEff = scanOne('eff')
-  const sHead = face === 'staged' ? scanOne('head') : null
+  // 非默认档都要 HEAD 侧基线:棘轮比的是"本次新引入",工作树档同理(磁盘 vs HEAD)
+  const sHead = face === 'head' ? null : scanOne('head')
   const headKeys = sHead ? new Set(sHead.hits.map((h) => `${h.rel} ${h.key}`)) : null
 
   const fresh = headKeys ? sEff.hits.filter((h) => !headKeys.has(`${h.rel} ${h.key}`)) : sEff.hits
@@ -1206,7 +1284,7 @@ export async function runR7({ face, quiet }) {
   if (!quiet)
     console.log(
       `  · R7:${counts.files} 文件里抽到 ${counts.checked} 处裸 rpx 长度` +
-        `(本次新引入 ${counts.fresh}${face === 'staged' ? ',HEAD 存量不计=棘轮' : ''}),` +
+        `(本次新引入 ${counts.fresh}${face === 'head' ? '' : ',HEAD 存量不计=棘轮'}),` +
         `判不出形态 ${counts.undetermined} 处(不判红),口径 ${face}`,
     )
   return { failures, counts }
@@ -1237,7 +1315,8 @@ export async function runR6({ face, quiet }) {
   const sEff = scanOne('eff')
   // HEAD 侧的腐烂是"存量债":staged 面只拦本次提交新造出来的那些(棘轮,同守门 77/83/98 的取向)。
   // 全量面没有"上一枚提交"可言,故 baseline 为 null = 全部照红。
-  const sHead = face === 'staged' ? scanOne('head') : null
+  // 非默认档都要 HEAD 侧基线:棘轮比的是"本次新引入",工作树档同理(磁盘 vs HEAD)
+  const sHead = face === 'head' ? null : scanOne('head')
   const baseRot = sHead
     ? new Set(
         checkAlphaUsage({
@@ -1301,7 +1380,7 @@ export async function runR6({ face, quiet }) {
       `  · R6:${corpus.length} 个文件里抽到 ${usages.length} 处 alpha 类名(preset 档 ${r.checked} / 默认色板 ${r.nonPreset} / 已豁免 ${r.exempted}),` +
         `登记 ${Object.values(reg.usage).reduce((a, b) => a + Object.values(b).reduce((x, y) => x + y.length, 0), 0)} 形态,` +
         `判不出形态 ${undetermined} 处(不判红),腐烂 新增 ${r.rot.length} / HEAD 存量 ${r.rotInherited} 不计,` +
-        `口径 ${face === 'staged' ? '索引⊕HEAD(存量腐烂按棘轮放过)' : 'HEAD(全量审计,存量腐烂照红)'}`,
+        `口径 ${FACE_TXT[face]}`,
     )
   }
   return { failures, counts: { files: corpus.length, tokens: usages.length, ...r, undetermined } }
@@ -1318,8 +1397,9 @@ async function cli() {
 
   if (!quiet) console.log('[check-cross-end-tokens] Checking rn-tokens.ts vs tokens.css...')
 
-  const rnSrc = stripTsComments(readFileSync(RN_TOKENS_PATH, 'utf8'))
-  const cssSrc = stripCssComments(readFileSync(TOKENS_CSS_PATH, 'utf8'))
+  const src0 = readTokenSources(face)
+  const rnSrc = stripTsComments(src0.rn)
+  const cssSrc = stripCssComments(src0.css)
 
   const rnBodies = {}
   for (const name of ['rnTokens', 'rnLightTokens', 'rnDarkTokens']) {
@@ -1407,19 +1487,24 @@ async function cli() {
         `两张表同路径不同值 = 落后那份才是实际渲染出来的;对齐方向取 web tokens.css 的现值`,
     })
 
-  // R3 扫**仓库内容**,不扫共享工作树的未提交缓冲区(并行会话的半截草稿不该钉红别人的提交):
-  //   缺省 = HEAD;--staged = 只判"索引 ≠ HEAD"的路径的索引 blob(= 这次提交会带走的内容)。
+  // R3 扫**仓库内容**,缺省不扫共享工作树的未提交缓冲区(并行会话的半截草稿不该钉红别人的提交):
+  //   缺省 = HEAD;--staged = 只判"索引 ≠ HEAD"的路径的索引 blob(= 这次提交会带走的内容);
+  //   --worktree = 人工逃生舱,扫跟踪文件的工作树内容(改完 token 想看效果时用,提交链永不走这档)。
   //   注意 `git grep --cached` 扫的是**整个索引**(所有跟踪文件),不是暂存变更集 —— 首跑直接用它
   //   把八竿子不着的历史内容判出 81 处,故必须自己取"暂存变更集"再逐个读索引 blob。
   // 只扫 apps/ + packages/ 的 ts/tsx:scripts/ 下的守门脚本与文档会在注释里提到已退役的档名(ctaFill 即此),
   // 那不是引用,不需要为它们再发明一套豁免语法。
-  const stagedMode = argv.includes('--staged')
   const refs = []
   // `-c safe.directory=*` 由层统一前置,这里只写本子命令自己的参数。
   const GREP = ['grep', '-n', '--no-color', '-e', '\\.brand\\.']
   try {
-    if (!stagedMode) {
-      refs.push(...gitExec([...GREP, 'HEAD', '--', 'apps', 'packages']).split('\n').filter(Boolean))
+    if (face !== 'staged') {
+      // HEAD 档带 rev;工作树档不带 rev(git 即按跟踪文件的工作树内容搜)
+      refs.push(
+        ...gitExec([...GREP, ...(face === 'head' ? ['HEAD'] : []), '--', 'apps', 'packages'])
+          .split('\n')
+          .filter(Boolean),
+      )
     } else {
       const staged = gitExec(['diff', '--name-only', '--cached', '--', 'apps', 'packages'])
         .split('\n')
@@ -1459,11 +1544,11 @@ async function cli() {
     failures.push({ tag: 'R3 悬空 brand 引用', detail: `…另有 ${dangling.length - 12} 处` })
 
   // ── R6:v3 端 /alpha 用量 ↔ tailwind-alpha-plugin 登记表(AGENTS §4 那条散文规则的唯一判据) ──
-  const r6 = await runR6({ face: stagedMode ? 'staged' : 'head', quiet })
+  const r6 = await runR6({ face, quiet })
   failures.push(...r6.failures)
 
   // ── R7:v3 端裸 rpx 长度被解析成颜色属性(AGENTS §4 那条 rpx 规则的唯一判据) ──
-  const r7 = await runR7({ face: stagedMode ? 'staged' : 'head', quiet })
+  const r7 = await runR7({ face, quiet })
   failures.push(...r7.failures)
 
   if (failures.length === 0) {
@@ -1472,7 +1557,7 @@ async function cli() {
         `[check-cross-end-tokens] ✅ ${checked} 条映射逐位同值 + R4 基础档按名推导 ${base.checked} 条同值` +
           `(已登记分歧 ${Object.keys(BASE_CONFLICTS).length} 条) + R5 端内两表 ${intra.length === 0 ? '同值' : '分叉'} + ` +
           `品牌键全部已声明(${[...allowedKeys].join('/')}) + 无悬空 brand 引用 + ` +
-          `R6 alpha 用量 ${r6.counts.checked} 处全部已登记且真产出(${r6.counts.files} 文件,口径 ${stagedMode ? '索引⊕HEAD' : 'HEAD'}) + ` +
+          `R6 alpha 用量 ${r6.counts.checked} 处全部已登记且真产出(${r6.counts.files} 文件,口径 ${FACE_TXT[face]}) + ` +
           `R7 裸 rpx 长度 ${r7.counts.checked} 处(已全部改为 [length:] 形态)`,
       )
     process.exit(0)
@@ -1566,7 +1651,7 @@ async function selfTest() {
   // 豁免清单必须"写了就真存在":真仓里跑一次 stale
   const real = checkBrandKeys({
     bodies: {
-      rnLightTokens: extractTsObjectBody(readFileSync(RN_TOKENS_PATH, 'utf8'), 'rnLightTokens'),
+      rnLightTokens: extractTsObjectBody(readTokenSources('head').rn, 'rnLightTokens'),
     },
     declared,
     allowlist: RN_ONLY_BRAND_KEYS,
@@ -1731,10 +1816,13 @@ async function selfTest() {
   console.log(`${tsLeafOk ? '✅' : '❌'} TS 文档块里的赋值说明不得被当叶子取值(只应收到 cta 一条)`)
   // 真仓不变量:R4 除登记项外零漂移、登记表无腐烂、R5 零分叉 —— 钉的是"必须为 0",不是钉某条清单
   const realLeaves = {}
-  const realRn = stripTsComments(readFileSync(RN_TOKENS_PATH, 'utf8'))
+  // 真仓不变量一律按**默认面(HEAD)**取证:自检证明的是"判据对已入库内容成立",
+  // 跟着 --worktree 走会让自检结论随本机磁盘变化,那就不是自检而是复查工作区。
+  const srcReal = readTokenSources('head')
+  const realRn = stripTsComments(srcReal.rn)
   for (const n of ['rnTokens', 'rnLightTokens', 'rnDarkTokens'])
     realLeaves[n] = objectLeaves(extractTsObjectBody(realRn, n) || '', [])
-  const realCssSrc = stripCssComments(readFileSync(TOKENS_CSS_PATH, 'utf8'))
+  const realCssSrc = stripCssComments(srcReal.css)
   const rl = mergeCssVars(realCssSrc, ['@theme', ':root'])
   const rd = { ...rl, ...mergeCssVars(realCssSrc, ['.dark']) }
   const realBase = checkBasePalette({
