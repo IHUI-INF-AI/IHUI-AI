@@ -6,8 +6,8 @@ import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from 'fastif
 import { authenticate } from '../plugins/auth.js'
 import { z } from 'zod'
 import { db } from '../db/index.js'
-import { sql, eq, and, desc } from 'drizzle-orm'
-import { examPapers, examWrongQuestion, examSignups } from '@ihui/database'
+import { sql, eq, and, desc, getTableColumns } from 'drizzle-orm'
+import { examPapers, examWrongQuestion, examSignups, userFavorites } from '@ihui/database'
 import { error } from '../utils/response.js'
 
 /**
@@ -19,7 +19,10 @@ import { error } from '../utils/response.js'
  */
 export const legacyExamRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   const idParam = z.object({ id: z.string() })
-  const userIdQuery = z.object({ userId: z.string() })
+  // 注:此处曾有一把 `userIdQuery = z.object({ userId: z.string() })`,唯一用处是给
+  // `GET /exam/favorites` 收**自报**的 userId 当归属凭据(第五条同型敞口,2026-09-25 收口)。
+  // 现在该面与下面 `requireSelfScope` 同形 —— 归属只从 JWT 取,故删掉这把 schema,
+  // 不留"第二个归属入口"的标识符(名字还在、没人用它当凭据,正是本仓记过的腐烂形态)。
 
   // ========== D1: 考试报名 sign-up CRUD (5端点) ==========
   //
@@ -56,7 +59,7 @@ export const legacyExamRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
   ): SignupScope {
     const callerId = request.userId!
     if (selfReportedUserId !== undefined && selfReportedUserId !== callerId) {
-      return { ok: false, code: 403, message: '无权访问他人报名记录:归属只能由登录身份决定' }
+      return { ok: false, code: 403, message: '无权访问他人数据:归属只能由登录身份决定' }
     }
     return { ok: true, userId: callerId }
   }
@@ -190,13 +193,36 @@ export const legacyExamRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
     return { list }
   })
 
-  fastify.get('/exam/favorites', { preHandler: authenticate }, async (request) => {
-    const { userId } = userIdQuery.parse(request.query)
-    // user_favorites 使用 resource_type / resource_id
-    const rows = await db.execute(
-      sql`SELECT e.* FROM exam_papers e JOIN user_favorites f ON f.resource_id::text = e.id::text WHERE f.user_id = ${userId} AND f.resource_type = 'exam'`,
-    )
-    return { list: rows as Record<string, unknown>[] }
+  // 收藏列表
+  fastify.get('/exam/favorites', { preHandler: authenticate }, async (request, reply) => {
+    // 修复前:`userId` 由查询参数**自报**并被拼进原生 SQL 的 `WHERE f.user_id = ${userId}`。
+    // 值经 drizzle 参数绑定 ⇒ 不构成注入,但**任意登录用户可读到他人收藏清单**成立,
+    // 与本文件上方刚收口的四条同因(第五条同型敞口)。收口形态照同一条判据,不另立第二套:
+    //   ① 身份只从 JWT 取(`request.userId`),自报他人 userId ⇒ 403(不是静默改写);
+    //   ② 授权判定排在**任何查库与参数校验之前**,不发查询 ⇒ 403 不携带存在性信息;
+    //   ③ `user_favorites.user_id` 是 `uuid` 且外键指向 `users.id`
+    //      (packages/database/src/schema/social.ts:38-41)⇒ 与 `request.userId` 同一
+    //      ID 空间,归属在服务端**可证**,故按 uuid 放行,不照 exam.ts 那 7 处 fail-close
+    //      到管理员档(本面同样零调用方,新增"管理员无界读收藏"属新能力,不开)。
+    // 兼容性:老客户端继续传自己的 userId 照常可用 —— 该字段只作**一致性校验**
+    // (传了就必须是自己,形状仍由 zod 兜),其值不再被当作归属来源;不传也照常可用。
+    const scope = requireSelfScope(request, rawQueryUserId(request.query))
+    if (!scope.ok) return reply.status(scope.code).send(error(scope.code, scope.message))
+    z.object({ userId: z.uuid().optional() }).parse(request.query)
+    // 原生 SQL 已改回 Drizzle 表达式 ⇒ 归属值的 `${}` 拼装面归零(唯一来源是 JWT 身份)。
+    // 保留的唯一 sql 片段是 `::text`:`user_favorites.resource_id` 是 varchar(128) 而
+    // `exam_papers.id` 是 uuid,PG 没有 `varchar = uuid` 运算符(直接 eq 会 42883),
+    // 与修复前那段 SQL 的同形写法一致,**不承载任何请求可控的值**。
+    // 副作用如实登记:返回字段由裸 SQL 的 snake_case 变为查询构建器的 camelCase,
+    // 与本文件其余四个列表路由同形,也与唯一(未接通)消费方 miniapp 的 `Exam` 接口
+    // (apps/miniapp-taro/src/api/index.ts:835-849 声明的是 paperType/totalScore/createdAt)
+    // 一致 —— 修复前的裸 SQL 反倒是这一个面上的例外。
+    const rows = await db
+      .select(getTableColumns(examPapers))
+      .from(userFavorites)
+      .innerJoin(examPapers, eq(userFavorites.resourceId, sql`${examPapers.id}::text`))
+      .where(and(eq(userFavorites.userId, scope.userId), eq(userFavorites.resourceType, 'exam')))
+    return { list: rows }
   })
 
   // ========== D16: 错题删除 ==========
