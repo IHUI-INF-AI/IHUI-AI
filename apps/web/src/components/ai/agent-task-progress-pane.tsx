@@ -1566,7 +1566,7 @@ export function AgentTaskProgressPane() {
           >
             <AlertCircle className="h-3 w-3 shrink-0" aria-hidden />
             <span className="flex-1 truncate">{t('failureBanner', { n: failureCount })}</span>
-            <span className="shrink-0 text-[10px] text-destructive/80">›</span>
+            <ChevronRight className="h-2.5 w-2.5 shrink-0 text-destructive/80" aria-hidden />
           </button>
         )}
 
