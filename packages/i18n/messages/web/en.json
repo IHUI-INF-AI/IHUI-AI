@@ -1,4 +1,43 @@
 {
+  "ecosystem": {
+    "title": "Ecosystem",
+    "description": "Several market entries that used to sit side by side now converge on one page: skills, MCP, capabilities, connectors and expert bundles, all reachable from here.",
+    "marketsSection": "Capability Markets",
+    "bundlesSection": "Expert Bundles",
+    "bundlesHint": "Capabilities from several markets grouped by expert workflow; tap a tag to go straight to its page",
+    "cards": {
+      "aiSkills": {
+        "title": "AI Skills",
+        "desc": "Attach AI skills to agents to extend conversations and tasks"
+      },
+      "mcpStore": {
+        "title": "MCP Store",
+        "desc": "Browse built-in MCP servers and register them in one click"
+      },
+      "capabilityMarket": {
+        "title": "Capability Market",
+        "desc": "Enable first-party MCP capabilities (tools, resources, prompts)"
+      },
+      "skillsMarket": {
+        "title": "Skill Market",
+        "desc": "Self-evolving skills: install, rate and subscribe"
+      },
+      "connectors": {
+        "title": "CN Connectors",
+        "desc": "Connect Yuque, Feishu, WeCom and DingTalk document sources"
+      }
+    },
+    "bundles": {
+      "contentCreator": {
+        "title": "Content Creator Bundle",
+        "desc": "A combined entry for the writing and publishing workflow: AI skills, skill market and CN connectors"
+      },
+      "developerExtension": {
+        "title": "Developer Extension Bundle",
+        "desc": "A combined entry for the tooling workflow: MCP store registration and platform capabilities"
+      }
+    }
+  },
   "aiWs": {
     "videoDone": "Video generation complete",
     "videoFailed": "Video generation failed, please try again",
@@ -5753,7 +5792,24 @@
     "relayOverview": "Relay Overview",
     "themeEdit": "Theme Edit",
     "unauthorized": "Unauthorized",
-    "userMargin": "User Margin"
+    "userMargin": "User Margin",
+    "deployDiagnosis": {
+      "title": "Deployment Diagnosis",
+      "subtitle": "Paste deployment results, health checks or log snippets and let the AI return the root cause with runnable fix commands",
+      "pasteNote": "Provide at least one field — empty fields are not sent to the model",
+      "run": "Run diagnosis",
+      "running": "Diagnosing…",
+      "reportTitle": "Diagnosis report",
+      "model": "Model",
+      "duration": "Duration",
+      "rootCause": "Root cause",
+      "impact": "Impact",
+      "fixCommands": "Fix commands",
+      "copy": "Copy",
+      "summary": "Summary",
+      "rawNote": "Raw model output below, not reformatted",
+      "empty": "Fill in the inputs on the left, then choose Run diagnosis"
+    }
   },
   "connectors": {
     "title": "Chinese Connectors",
@@ -10373,7 +10429,26 @@
       "referenceTitle": "Context references",
       "noReferences": "No references yet",
       "uploading": "Uploading attachment",
-      "uploadFailed": "Attachment upload failed"
+      "uploadFailed": "Attachment upload failed",
+      "cacheHit": "Cache hit {ratio} ({read} read back)",
+      "cacheOccupancyNote": "Cached tokens still occupy {occupied} of the window; only the re-prefill is skipped",
+      "cacheUnavailable": "This usage frame carried no cache counters, so the hit rate cannot be judged",
+      "detailsTruncated": "{count} more items not shown",
+      "residualNote": "Another {tokens} is protocol framing and serialization overhead, not counted above",
+      "resultSuffix": "result",
+      "segRoleAssistant": "Assistant replies",
+      "segRoleToolCall": "Tool call arguments",
+      "segRoleToolResult": "Tool results",
+      "segRoleUser": "User messages",
+      "segSkill": "Skill bodies",
+      "segSystem": "System prompt",
+      "segSystemPrompt": "System prompt (whole)",
+      "segToolSchema": "Tool definitions",
+      "topContributor": "Largest share: {name} {share}",
+      "unnamedItem": "Unnamed item",
+      "unobservedNotSupplied": "No system segment was supplied for this turn",
+      "unobservedServerOnly": "Assembled on the server, so exact usage is not observable from this client",
+      "ringBasis": "Of the context window, {percent}% used ({used} / {max})"
     },
     "copied": "Copied",
     "copy": "Copy",
@@ -18015,6 +18090,7 @@
     "none": "None"
   },
   "nav": {
+    "ecosystemHub": "Ecosystem Market",
     "adminRelayInsights": "Insights",
     "adminRelayEnterprise": "Enterprise Compliance",
     "adminRelayPlugins": "Plugins",
@@ -18349,7 +18425,8 @@
     "courses": "Courses",
     "faq": "FAQ",
     "home": "Home",
-    "settings": "Settings"
+    "settings": "Settings",
+    "adminDeployDiagnosis": "Deployment Diagnosis"
   },
   "news": {
     "allCategories": "All Categories",
@@ -25117,6 +25194,14 @@
     "subscribed": "Subscribed to {name} updates",
     "unsubscribed": "Unsubscribed from {name}",
     "close": "Close",
+    "unlist": "Unlist",
+    "relist": "Relist",
+    "unlistSuccess": "{name} was unlisted",
+    "relistSuccess": "{name} is back on the market",
+    "unlisted": "Unlisted",
+    "notFoundTitle": "Skill not found",
+    "notFoundHint": "“{name}” does not exist, or its publisher has unlisted it from the market.",
+    "backToMarket": "Back to Skill Market",
     "ratingsTitle": "User ratings",
     "rateTitle": "Rate this skill",
     "yourScore": "Your score",
