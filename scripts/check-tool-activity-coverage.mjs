@@ -3,6 +3,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+/* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 // 工具活动行双时态措辞覆盖守门(PROJECT_PLAN.md D81①/D83/H28)
 //
 // 措辞两档,判据三类等取向不同:
@@ -18,18 +19,42 @@
 //     至于措辞是手写的还是套框架的不重要 —— 所以它比②覆盖面大,且不会因②增长而放松。
 //
 // 用法:
+//   node scripts/check-tool-activity-coverage.mjs                    全量(HEAD blob)
+//   node scripts/check-tool-activity-coverage.mjs --staged           索引面(提交链)
+//   node scripts/check-tool-activity-coverage.mjs --worktree         人工排查(盘上内容,不作结论)
 //   node scripts/check-tool-activity-coverage.mjs [--json] [--self-test] [--scaffold]
 //     --scaffold 打印尚未配置**惯用档**的功能名清单,供逐批补齐
+//
+// 取材面(2026-09-26 收口,与守门 36/124/93/56/rn-global-css-sync 同口径):默认判 **HEAD blob**,
+// `--staged` 判**索引 blob**(这次提交会带走的那一份 —— 盘上随后改对不算修好),`--worktree` 只作
+// 人工逃生舱,两个面旗同给 = 自相矛盾 ⇒ 判死;判定的那一面取不到 ⇒ **exit 2「无法判定」**,既不冒红
+// 也不记绿,且**不回落**到另一个面(回落就是把"没判"写成"判过了")。
+// 输入共 7 个,全部是仓库内容:词表 tool-display.ts、5 个 shared 语言包、以及 floor 基线
+// `scripts/data/tool-activity-coverage.json`。基线必须与语料**同面同轮**取 —— 表读磁盘 + 语料读 HEAD
+// 会在并行会话刚改过表的那一瞬间产出假红/假绿(守门 93 R6 的同一条教训)。
+// 无机器态输入:本门不读仓库外的任何文件(也没有 .workbuddy/ 台账),因此不存在第二把判定尺。
+// 实测(2026-09-26,同一份判据):按磁盘判 exit 1(`ja` 一组「中性功能名缺失」),而 `git archive HEAD`
+// 干净检出判 exit 0 —— 那批红来自并行会话的半编辑语料,与任何一次提交都无关;恒红门的唯一结局是逼人
+// `--no-verify`,连带废掉全部守门(§12e 同型)。
+// 与旧磁盘版的唯一语义差:旧版 `readTaskStatus` 对**不存在的语言包**返回 `{}`(照常参与判定,报出
+// 缺值),新版同形(该面上没有 ⇒ `{}`),但把这类路径**计数并写进结论行**(`缺语言包 N 个`),
+// 不再让"少扫一整批语言包"表现成安静。词表与 floor 取不到 ⇒ 无法判定(旧版是 ENOENT 崩在顶层,
+// 退出码非 0 但无诊断;现在是 exit 2 + 点名)。
 
-import { existsSync, readFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+// 取材只走这一层:绝对路径 git、safe.directory、quotepath、windowsHide、maxBuffer、
+// "输出被截断 ⇒ 无法判定" —— 这五处易错点各门自己写一遍就会各漏一遍(AGENTS §4/守门 118)。
+import { Undetermined, catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const TOOL_DISPLAY_FILE = join(ROOT, 'packages', 'shared', 'src', 'chat', 'tool-display.ts')
-const SHARED_DIR = join(ROOT, 'packages', 'i18n', 'messages', 'shared')
-const FLOOR_FILE = join(ROOT, 'scripts', 'data', 'tool-activity-coverage.json')
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+const TOOL_DISPLAY_REL = 'packages/shared/src/chat/tool-display.ts'
+const SHARED_DIR_REL = 'packages/i18n/messages/shared'
+const FLOOR_REL = 'scripts/data/tool-activity-coverage.json'
 const LOCALES = ['zh-CN', 'zh-TW', 'en', 'ja', 'ko']
+/** 词表与 floor 是"没有它就无从判定";语言包缺失是语料事实,按旧版语义参与判定并计数。 */
+const REQUIRED_RELS = [TOOL_DISPLAY_REL, FLOOR_REL]
+const LOCALE_RELS = LOCALES.map((l) => `${SHARED_DIR_REL}/${l}.json`)
 const REQUIRED_BRANCHES = ['running', 'completed']
 const ACTIVITY_SUFFIX = 'Activity'
 const GENERIC_KEY = 'toolGenericActivity'
@@ -71,7 +96,10 @@ export function fillBranch(text, args) {
 export function extractDisplayKeys(source) {
   const start = source.indexOf('TOOL_DISPLAY_KEYS')
   if (start === -1) return []
-  const block = source.slice(start, source.indexOf('\n}', start) === -1 ? undefined : source.indexOf('\n}', start) + 2)
+  const block = source.slice(
+    start,
+    source.indexOf('\n}', start) === -1 ? undefined : source.indexOf('\n}', start) + 2,
+  )
   const re = /:\s*(["'])((?:tool|action)[A-Za-z0-9_]*)\1/gu
   const names = new Set()
   let m
@@ -79,11 +107,55 @@ export function extractDisplayKeys(source) {
   return [...names].sort()
 }
 
-export function readTaskStatus(locale) {
-  const file = join(SHARED_DIR, `${locale}.json`)
-  if (!existsSync(file)) return {}
-  const pack = JSON.parse(readFileSync(file, 'utf8'))
-  return pack.taskStatus ?? {}
+/** 纯函数:argv → 判定面(默认 **head**)。导出是为了"默认不再是磁盘"这一格能被构造面证明。 */
+export function faceFromArgv(argv) {
+  return selectFace({
+    staged: argv.includes('--staged'),
+    worktree: argv.includes('--worktree'),
+    def: 'head',
+  })
+}
+
+const FACE_TXT = {
+  head: 'HEAD blob(全量审计)',
+  staged: '索引 blob(本次提交会带走的那一份)',
+  worktree: '工作树(人工逃生舱,提交链不走这档)',
+}
+
+/** 本门全部判定输入(7 个仓库路径,清单与内容同面同轮一次读完) */
+export function inputRels() {
+  return [...REQUIRED_RELS, ...LOCALE_RELS]
+}
+
+/**
+ * 按判定面读输入,一次 `cat-file --batch` 同面同轮读完。
+ * 必需项(词表 / floor)取不到 ⇒ 抛 `Undetermined`(调用方折成 exit 2),**不回落**另一个面;
+ * 语言包在该面上不存在 ⇒ 返回 null,由 `runChecks` 按旧版语义折成 `{}` 并计入 `missingLocales`。
+ * root/face 都是入参:镜像测试因此能在临时 git 仓里造"索引≠磁盘"的现场,不依赖真仓瞬时状态。
+ */
+export function readFaceInputs(repoRoot, face) {
+  const rels = inputRels()
+  const map = new Map()
+  if (face === 'worktree') {
+    for (const rel of rels) map.set(rel, readWorktreeFile(repoRoot, rel))
+  } else {
+    const prefix = face === 'staged' ? ':' : 'HEAD:'
+    const specs = rels.map((rel) => prefix + rel)
+    const got = catBatch(repoRoot, specs, { maxBuffer: 1 << 28 })
+    for (let i = 0; i < rels.length; i++) map.set(rels[i], got.get(specs[i]) ?? null)
+  }
+  const lack = REQUIRED_RELS.filter((r) => map.get(r) === null || map.get(r) === undefined)
+  if (lack.length)
+    throw new Undetermined(
+      `${FACE_TXT[face] ?? face} 取不到必需输入 ${lack.join(' , ')} ⇒ 无法判定(不记为通过)`,
+    )
+  return map
+}
+
+/** 从语言包 JSON 文本取 taskStatus;null(该面上没有此包)与旧版 existsSync=false 同形返回 {} */
+export function parseTaskStatus(text) {
+  if (text === null || text === undefined) return {}
+  return JSON.parse(text).taskStatus ?? {}
 }
 
 /** 键形校验:返回该 locale 下的违规清单 */
@@ -145,7 +217,11 @@ export function validateGenericValue(perLocale) {
         continue
       }
       if (!body.includes(NAME_ARG)) {
-        bad.push({ key: GENERIC_KEY, locale, reason: `${branch}{} 分支未嵌 ${NAME_ARG}(工具身份会丢)` })
+        bad.push({
+          key: GENERIC_KEY,
+          locale,
+          reason: `${branch}{} 分支未嵌 ${NAME_ARG}(工具身份会丢)`,
+        })
       }
     }
     if (cases.running === cases.completed) {
@@ -208,16 +284,28 @@ export function validateTwoState(displayNames, perLocale) {
   return bad
 }
 
-export function runChecks() {
-  const displayNames = extractDisplayKeys(readFileSync(TOOL_DISPLAY_FILE, 'utf8'))
-  const perLocale = Object.fromEntries(LOCALES.map((l) => [l, readTaskStatus(l)]))
+/**
+ * 纯判据:输入 = 一次同面取材得到的 `Map<rel, text|null>`。
+ * 默认参数 `readFaceInputs(ROOT,'head')` 只为自检/被 import 的场景保留 —— CLI 一定显式喂当次的面,
+ * 因为"面"必须由那一次调用决定,不能让函数自己偷偷再去读一次(读两次就可能读到不同的面)。
+ */
+export function runChecks(inputs = readFaceInputs(ROOT, 'head')) {
+  const displayNames = extractDisplayKeys(inputs.get(TOOL_DISPLAY_REL))
+  const perLocale = Object.fromEntries(
+    LOCALES.map((l) => [l, parseTaskStatus(inputs.get(`${SHARED_DIR_REL}/${l}.json`))]),
+  )
+  // 该面上没有这个语言包 ⇒ 与旧版 existsSync=false 同形折成 {},但必须点名(见头注)。
+  const missingLocales = LOCALES.filter((l) => {
+    const t = inputs.get(`${SHARED_DIR_REL}/${l}.json`)
+    return t === null || t === undefined
+  })
   const covered = countCovered(displayNames, perLocale)
   const shapeViolations = [
     ...validateActivityValues(displayNames, perLocale),
     ...validateGenericValue(perLocale),
     ...validateTwoState(displayNames, perLocale),
   ]
-  const floor = JSON.parse(readFileSync(FLOOR_FILE, 'utf8')).floor
+  const floor = JSON.parse(inputs.get(FLOOR_REL)).floor
   const regressions =
     covered.length < floor
       ? [
@@ -235,11 +323,12 @@ export function runChecks() {
     coveredNames: covered,
     floor,
     uncovered,
+    missingLocales,
     violations: [...shapeViolations, ...regressions],
   }
 }
 
-function selfTest() {
+function selfTest(faceInputs, argsFace) {
   const mk = (over = {}) => {
     const base = {}
     for (const l of LOCALES) base[l] = {}
@@ -247,13 +336,46 @@ function selfTest() {
     return base
   }
   const okValue = '{state, select, running {正在做} completed {已做} other {做}}'
-  const okGeneric = '{state, select, running {正在执行：{name}} completed {已完成：{name}} other {执行：{name}}}'
+  const okGeneric =
+    '{state, select, running {正在执行：{name}} completed {已完成：{name}} other {执行：{name}}}'
   const cases = [
-    ['正例:五语言齐 + 三分支全', ['toolA'], { ...mk(), ...Object.fromEntries(LOCALES.map((l) => [l, { toolAActivity: okValue }])) }, 0],
-    ['某语言缺 completed 分支', ['toolA'], Object.fromEntries(LOCALES.map((l) => [l, { toolAActivity: l === 'en' ? '{state, select, running {R} other {O}}' : okValue }])), 1],
-    ['五语言不齐', ['toolA'], { ...Object.fromEntries(LOCALES.map((l) => [l, {}])), 'ko': { toolAActivity: okValue } }, 1],
-    ['非 select 值', ['toolA'], Object.fromEntries(LOCALES.map((l) => [l, { toolAActivity: '正在做' }])), 5],
-    ['缺 other 兜底', ['toolA'], Object.fromEntries(LOCALES.map((l) => [l, { toolAActivity: '{state, select, running {R} completed {C}' }])), 5],
+    [
+      '正例:五语言齐 + 三分支全',
+      ['toolA'],
+      { ...mk(), ...Object.fromEntries(LOCALES.map((l) => [l, { toolAActivity: okValue }])) },
+      0,
+    ],
+    [
+      '某语言缺 completed 分支',
+      ['toolA'],
+      Object.fromEntries(
+        LOCALES.map((l) => [
+          l,
+          { toolAActivity: l === 'en' ? '{state, select, running {R} other {O}}' : okValue },
+        ]),
+      ),
+      1,
+    ],
+    [
+      '五语言不齐',
+      ['toolA'],
+      { ...Object.fromEntries(LOCALES.map((l) => [l, {}])), ko: { toolAActivity: okValue } },
+      1,
+    ],
+    [
+      '非 select 值',
+      ['toolA'],
+      Object.fromEntries(LOCALES.map((l) => [l, { toolAActivity: '正在做' }])),
+      5,
+    ],
+    [
+      '缺 other 兜底',
+      ['toolA'],
+      Object.fromEntries(
+        LOCALES.map((l) => [l, { toolAActivity: '{state, select, running {R} completed {C}' }]),
+      ),
+      5,
+    ],
     ['未配置(不算形错)', ['toolA'], mk(), 0],
   ]
   let bad = 0
@@ -266,13 +388,47 @@ function selfTest() {
 
   // —— 通用档自身 + 两态可判定:正反成对,只测"该拦"会让判据过宽也一直全绿 ——
   const withGeneric = (extra = {}) =>
-    Object.fromEntries(LOCALES.map((l) => [l, { toolApiCall: 'API 调用', toolGenericActivity: okGeneric, ...extra }]))
+    Object.fromEntries(
+      LOCALES.map((l) => [
+        l,
+        { toolApiCall: 'API 调用', toolGenericActivity: okGeneric, ...extra },
+      ]),
+    )
   const shapeCases = [
     ['通用档正例(含 {name} 双态)', { ...withGeneric() }, 0],
     ['通用档某语言整体缺失', { ...withGeneric(), ko: { toolApiCall: 'API 调用' } }, 1],
-    ['通用档 running 漏 {name}', { ...withGeneric(), en: { toolApiCall: 'API call', toolGenericActivity: '{state, select, running {Running} completed {Completed: {name}} other {Run: {name}}}' } }, 1],
-    ['通用档两态文本相同', { ...withGeneric(), ja: { toolApiCall: 'API 呼び出し', toolGenericActivity: '{state, select, running {実行：{name}} completed {実行：{name}} other {実行：{name}}}' } }, 1],
-    ['通用档不是 select 值', { ...withGeneric(), ko: { toolApiCall: 'API 호출', toolGenericActivity: '正在执行：{name}' } }, 1],
+    [
+      '通用档 running 漏 {name}',
+      {
+        ...withGeneric(),
+        en: {
+          toolApiCall: 'API call',
+          toolGenericActivity:
+            '{state, select, running {Running} completed {Completed: {name}} other {Run: {name}}}',
+        },
+      },
+      1,
+    ],
+    [
+      '通用档两态文本相同',
+      {
+        ...withGeneric(),
+        ja: {
+          toolApiCall: 'API 呼び出し',
+          toolGenericActivity:
+            '{state, select, running {実行：{name}} completed {実行：{name}} other {実行：{name}}}',
+        },
+      },
+      1,
+    ],
+    [
+      '通用档不是 select 值',
+      {
+        ...withGeneric(),
+        ko: { toolApiCall: 'API 호출', toolGenericActivity: '正在执行：{name}' },
+      },
+      1,
+    ],
   ]
   for (const [label, perLocale, expectedGeneric] of shapeCases) {
     const got = validateGenericValue(perLocale).length
@@ -282,10 +438,36 @@ function selfTest() {
   }
   const twoCases = [
     ['长尾工具由通用档兜住 → 放过', ['toolApiCall'], withGeneric(), 0],
-    ['惯用档两态相同 → 拦', ['toolApiCall'], withGeneric({ toolApiCallActivity: '{state, select, running {调用接口} completed {调用接口} other {调用接口}}' }), 5],
-    ['惯用档残留未消化占位 → 拦', ['toolApiCall'], withGeneric({ toolApiCallActivity: '{state, select, running {正在 {count} 次} completed {已 {count} 次} other {做}}' }), 5],
-    ['中性功能名缺失 → 拦(两态无处可退)', ['toolApiCall'], Object.fromEntries(LOCALES.map((l) => [l, { toolGenericActivity: okGeneric }])), 5],
-    ['未登记措辞但有通用档 → 只算 toolApiCall 一名,不炸', ['toolApiCall', 'toolUnknown'], withGeneric({ toolUnknown: '未知工具' }), 0],
+    [
+      '惯用档两态相同 → 拦',
+      ['toolApiCall'],
+      withGeneric({
+        toolApiCallActivity:
+          '{state, select, running {调用接口} completed {调用接口} other {调用接口}}',
+      }),
+      5,
+    ],
+    [
+      '惯用档残留未消化占位 → 拦',
+      ['toolApiCall'],
+      withGeneric({
+        toolApiCallActivity:
+          '{state, select, running {正在 {count} 次} completed {已 {count} 次} other {做}}',
+      }),
+      5,
+    ],
+    [
+      '中性功能名缺失 → 拦(两态无处可退)',
+      ['toolApiCall'],
+      Object.fromEntries(LOCALES.map((l) => [l, { toolGenericActivity: okGeneric }])),
+      5,
+    ],
+    [
+      '未登记措辞但有通用档 → 只算 toolApiCall 一名,不炸',
+      ['toolApiCall', 'toolUnknown'],
+      withGeneric({ toolUnknown: '未知工具' }),
+      0,
+    ],
   ]
   for (const [label, names, perLocale, expected] of twoCases) {
     const got = validateTwoState(names, perLocale).length
@@ -296,33 +478,99 @@ function selfTest() {
   const nested = parseSelectBranches(okGeneric)
   const parseOk = nested?.running === '正在执行：{name}' && nested?.other === '执行：{name}'
   if (!parseOk) bad++
-  console.log(`${parseOk ? '✓' : '✗'} 分支抽取支持体内嵌套 {name} → ${JSON.stringify(nested?.running)}`)
+  console.log(
+    `${parseOk ? '✓' : '✗'} 分支抽取支持体内嵌套 {name} → ${JSON.stringify(nested?.running)}`,
+  )
 
-  const names = extractDisplayKeys(readFileSync(TOOL_DISPLAY_FILE, 'utf8'))
+  // 现存语料 + 真实抽取一律按**当次判定面**读(main 已把面传进来);自检因此与 CLI 同口径,
+  // 不会"判据按 HEAD 而自检按磁盘"—— 那会把并行会话的半编辑态当成"本门自己坏了"。
+  const inputs = faceInputs
+  const names = extractDisplayKeys(inputs.get(TOOL_DISPLAY_REL))
   const extractOk = names.length > 50 && names.every((n) => /^[a-z]/.test(n))
   if (!extractOk) bad++
   console.log(`${extractOk ? '✓' : '✗'} 功能名抽取 → ${names.length} 个(期望 >50)`)
-  const realOk = runChecks().violations.length === 0
+  const real = runChecks(inputs)
+  const realOk = real.violations.length === 0
   if (!realOk) bad++
-  console.log(`${realOk ? '✓' : '✗'} 现存语料 0 命中(有命中说明判据误伤或语料真缺,须先修再入库)`)
+  if (!realOk)
+    for (const v of real.violations.slice(0, 10))
+      console.log(`    · ${v.key} [${v.locale}] ${v.reason}`)
+  console.log(
+    `${realOk ? '✓' : '✗'} 现存语料 0 命中(有命中说明判据误伤或语料真缺,须先修再入库;取材面:${FACE_TXT[argsFace] ?? argsFace})`,
+  )
   console.log(bad === 0 ? '✅ self-test 全过' : `❌ self-test 失败 ${bad} 例`)
   return bad === 0 ? 0 : 1
 }
 
 function main(argv) {
-  if (argv.includes('--self-test')) return selfTest()
+  const sel = faceFromArgv(argv)
+  if (argv.includes('--self-test')) {
+    if (sel.error) {
+      console.error(`❌ [tool-activity-coverage] 无法判定:${sel.error}`)
+      return 2
+    }
+    let selfInputs
+    try {
+      selfInputs = readFaceInputs(ROOT, sel.face)
+    } catch (e) {
+      const known = e instanceof Undetermined
+      console.error(
+        `[tool-activity-coverage] 取不到输入(${FACE_TXT[sel.face]})⇒ 无法判定(不记为通过):${
+          known ? e.message : (e?.stack ?? e)
+        }`,
+      )
+      return 2
+    }
+    return selfTest(selfInputs, sel.face)
+  }
   if (process.env[SKIP_ENV] === '1') {
-    console.warn(`⚠️  [tool-activity-coverage] 已用 ${SKIP_ENV}=1 跳过(紧急通道,须在 PROJECT_PLAN.md 说明)`)
+    console.warn(
+      `⚠️  [tool-activity-coverage] 已用 ${SKIP_ENV}=1 跳过(紧急通道,须在 PROJECT_PLAN.md 说明)`,
+    )
     return 0
   }
-  const res = runChecks()
+  if (sel.error) {
+    console.error(`❌ [tool-activity-coverage] 无法判定:${sel.error}`)
+    return 2
+  }
+  const face = sel.face
+  let res
+  try {
+    res = runChecks(readFaceInputs(ROOT, face))
+  } catch (e) {
+    // 「无法判定」是预期结论,一句话足够;**其他异常**必须带栈落地 —— 匿名 exit 2 = 不可诊断
+    // (守门 36/93 同型教训:一个编码/权限错误不得伪装成"该文件不存在"的业务结论)。
+    const known = e instanceof Undetermined
+    console.error(
+      `[tool-activity-coverage] 取不到输入(${FACE_TXT[face]})⇒ 无法判定(不记为通过):${
+        known ? e.message : (e?.stack ?? e)
+      }`,
+    )
+    return 2
+  }
+  const faceTag = `取材面:${FACE_TXT[face]}`
+  const gapTag = res.missingLocales.length ? ` · 缺语言包 ${res.missingLocales.length} 个` : ''
   if (argv.includes('--scaffold')) {
-    console.log(`未配惯用档的功能名 ${res.uncovered.length}/${res.total}(这些已由通用档 toolGenericActivity 兜住两态):`)
+    console.log(
+      `未配惯用档的功能名 ${res.uncovered.length}/${res.total}(这些已由通用档 toolGenericActivity 兜住两态;${faceTag}${gapTag}):`,
+    )
     console.log(res.uncovered.join('\n'))
     return 0
   }
   if (argv.includes('--json')) {
-    console.log(JSON.stringify({ ...res, coveredNames: res.coveredNames, violations: res.violations }, null, 2))
+    console.log(
+      JSON.stringify(
+        {
+          face,
+          faceLabel: FACE_TXT[face],
+          ...res,
+          coveredNames: res.coveredNames,
+          violations: res.violations,
+        },
+        null,
+        2,
+      ),
+    )
   }
   if (res.violations.length > 0) {
     console.error(
@@ -334,10 +582,12 @@ function main(argv) {
     console.error(
       `\n  💡 三类判据:①惯用档键形五语言齐 ②惯用档数量不倒退 ③**全部**功能名两态可区分(通用档兜底)。\n     逐批补惯用档清单:node scripts/check-tool-activity-coverage.mjs --scaffold\n     自检:node scripts/check-tool-activity-coverage.mjs --self-test\n     紧急跳过(不推荐):${SKIP_ENV}=1 git commit ...`,
     )
+    // 结论行必须落在**末行**:报告里要能读出这句话是关于哪个取材面的(守门 36 同型)。
+    console.error(`[tool-activity-coverage] Found ${res.violations.length} 处(${faceTag}${gapTag})`)
     return 1
   }
   console.log(
-    `✅ [tool-activity-coverage] 惯用档 ${res.covered}/${res.total}(基线 ${res.floor},待补 ${res.uncovered.length})·通用档在位·全 ${res.total} 功能名 × 5 语言两态可区分`,
+    `✅ [tool-activity-coverage] 惯用档 ${res.covered}/${res.total}(基线 ${res.floor},待补 ${res.uncovered.length})·通用档在位·全 ${res.total} 功能名 × 5 语言两态可区分(${faceTag}${gapTag})`,
   )
   return 0
 }
@@ -351,6 +601,18 @@ export const __test__ = {
   fillBranch,
   countCovered,
   runChecks,
+  // 判定面(2026-09-26 收口):测试按构造面证明"默认判 HEAD / --staged 判索引 / 取不到不回落",
+  // 不得在测试里再抄一份面选择逻辑(§22c)。
+  faceFromArgv,
+  readFaceInputs,
+  parseTaskStatus,
+  inputRels,
+  FACE_TXT,
+  TOOL_DISPLAY_REL,
+  FLOOR_REL,
+  SHARED_DIR_REL,
+  REQUIRED_RELS,
+  LOCALE_RELS,
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
