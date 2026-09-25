@@ -4,6 +4,13 @@
 
 'use client'
 
+// 链名: chain: continuous —— 本文件是桌面端「实时链」的唯一桥接端
+// (Rust `window.emit("desktop-*")` → listen → window.dispatchEvent(new CustomEvent(...)))。
+// 这条链刻意不带任何 id 与队列:页面尚未挂载监听时事件即丢失,这是投递面的事实而非缺陷,
+// 也因此"补发/去重"这类机制不得搬进来(搬进来只会把投递失败伪装成已处理)。
+// 断线后可恢复的那条链是 chain: replayable(见 use-agent-control.ts 的 agent.action 指令面),
+// 两条链分属不同通道、各由 scripts/check-desktop-event-wiring.mjs 的规则 A–D(接线)与规则 E(分层)看守。
+
 import * as React from 'react'
 import {
   isTauri,
