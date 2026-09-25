@@ -7896,7 +7896,7 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 
 - [x] ✅(2026-09-25) **D17 生态统一入口入库**:并行会话把 web 语言包提交干净后阻塞解除,按 O60b 写死的解阻判据走完 —— 外科式插入 `ecosystem` 29 键 + `nav.ecosystemHub` × 5 语(parse→插块→再 parse,**丢 0 键**、五语键集复算一致),新增 8 例测试(5 例逐语言读真实词包断言"存在、非空、不回显键名",1 例文件面装车证明页面真挂载 + nav 入口在位);`check-i18n-keys` 由红转 **17775 键 · 5 语言 parity OK**,五个相关门 exit 0,web typecheck 本批文件命中 0。
 - [x] ✅(2026-09-25) **同一台"双态行制造机"的第二条成因**:`merge-live-doc` 的容器短路只比"整行逐字包含",而本仓翻勾**必然改行首状态**(`- [ ]（进行中）` → `- [x] ✅(日期)`)—— 状态前缀不剥,HEAD 那行永远不可能"原样"存在于新行里,容器通道对**整类翻勾动作**失效。本轮实测代价:安全提交被自家守卫拦下(`真丢失=1`),跑 `--apply` 后果然把刚翻勾的那行按旧文插回,一条目两行。修法只有一处:`scripts/lib/live-doc-similarity.mjs` 新增 `STATE_PREFIX`/`stripState`,容器判定同时试"整行"与"剥状态后"两种形态。取证成对:**⑪** 翻勾型必须判 superseded 且 `lines=0` 不插回,并内置变异断言 `!squash(new).includes(squash(old))`(证明是 `stripState` 在承重,不是相似度阈值);**⑫** 反向对照 —— 剥了状态前缀也不许把"正文根本不存活"的行洗成存活,仍判 lost。自检 **12/12**;真仓复测 `真丢失=0`,无需再 `--apply`。
-- [x] ✅(2026-09-25) **D19 复测后仍按住(不是忘记)**:`git ls-tree HEAD | grep -c stream-tool-ledger` 实测仍为 **0** —— WP-8 那个模块至今未入库,而 `apps/cli/src/commands/agent.ts` 里它的 132 行与 D19 的 `onTerminalDelta` 接线叠在同一份 diff 上;台账基线也仍等代码。判据不变:**代码与台账必须同票**,单提任何一半都会让守门 90 在 HEAD 反向恒红。D19 的复验入口已随本轮入库:`docs/plan-audit-2026-09-25/tools/d19-sim-parity.mjs`。
+- [x] ✅(2026-09-25) **D19 复测后仍按住(不是忘记)**:`git ls-tree HEAD | grep -c stream-tool-ledger` 实测仍为 **0** —— WP-8 那个模块至今未入库,而 `apps/cli/src/commands/agent.ts` 里它的 132 行与 D19 的 `onTerminalDelta` 接线叠在同一份 diff 上;台账基线也仍等代码。判据不变:**代码与台账必须同票**,单提任何一半都会让守门 90 在 HEAD 反向恒红。D19 的复验入口已随本轮入库:`docs/plan-audit-2026-09-25/tools/d19-sim-parity.mjs`。 **→ 已解锁并入库(2026-09-25 10:1x,O60f)**:WP-8 的 `stream-tool-ledger.ts` 随后进了 HEAD,`agent.ts` 的工作树 diff 由 132+/3− 缩到 62+/2−,把加法行按主题过滤后只剩 terminal_delta 一族 ⇒ 剩余面全属 D19,按上面那条判据的原话落地("代码与台账同票")提交 `c1a6f4d4593`。本行原文不删,留作"按住"判据的一次实物证据。
 - [x] ✅(2026-09-25) **`i18n-apply.mjs` 把 `--help` 当无参直接写盘**已如实登记成守卫票(四份语言包被陈旧载荷重排 176–214 行,已按 `git show HEAD:<path>` 逐字节还原、零损失),并要求守卫的验收判据是"`--help` 跑完 `git status --porcelain -- packages/i18n` 必须为空"+ 钉成镜像测试 —— 不把"记得别乱跑"当防线。
 - [ ] `config/architecture-policy.yaml` 目前 0 个模块 `managed:true` —— 渐进收口的第一块翻正面尚未选定。
 - [ ]（进行中） **D17(生态统一入口)页面已写完但缺语言包,按住**:`apps/web/app/(main)/ecosystem/page.tsx` + `components/ecosystem/ecosystem-hub.tsx` + `sidebar/nav-data.ts` 2 行入口,五语 typecheck 本批 0 错、门 57/死链门 ✅。**按住理由**:21 键 × 5 语必须落进 `packages/i18n/messages/web/*.json`,而这五份文件正被并行会话 WP-8 改(各 22+/8−,`segSystem`/`topContributor` 等),整文件提交会把他人未提交的键一起写进 HEAD —— 而那些键在 HEAD 无引用,会立刻变成死键(CI `check:all` 的 `--exit 1` 口径)。**解阻判据**:待 web 语言包 `git status` 干净,按 `i18n-d17/` 载荷 parse→插入(不做整篇重排)→ `node scripts/i18n-apply.mjs`/`check-i18n-keys.mjs` 验五语对称 → 与页面、nav-data **同一枚**提交。裸提交页面而不带键 = 界面直出 `ecosystem.title` 键名,禁止。
@@ -8168,7 +8168,15 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 - **落地的 6 道**(`git show HEAD:<f>` 版 vs 迁移版,**同一瞬间**跑,stdout/stderr/exit 逐字比):
   `check-dangling-local-imports`(98) · `check-staged-deletions`(99) · `check-commit-loss-guard`(30a) · `check-glyph-arrow-icon`(102) · `check-word-table-resolvable`(74) · `heal-worktree-tracked`(§5b 自愈层)。
   12 组 A/B(全量 / `--self-test` / `--check` / `--check --json`)全部逐字等价;8 套镜像测试全绿(98 5/5 · 99 13/13 · 30a 26/26 · 102 13/13 · 74 36/36 · drift-align 4/4 · face-reader 13/13 · 架构门 13/13)。
-- **按住的 2 道**:`check-architecture-policy`(103)、`check-stale-revert`(84)。不是遗漏,是**层缺原语** —— 84 要的是"一次派生拿一批对象的 **oid**"(它的判据就是比较 blob sha),而层只给了 `catBatch`(回**内容**、按 utf8 解码 ⇒ 二进制不保真)和 `catBatchCheck`(只回 missing 集合、且过滤掉 `<oid>^{tree}` 形态);103 要一次读 8000+ 源文件 ≈ 85MB,而层的 `catBatch` 把 `maxBuffer` 钉死 64MB。**换上去会改变判据语义,那就不是等价重构** —— 所以按住,并把缺口写清楚(见下条)。**解阻判据**:层补出 `catBatchOids(root, specs)` 与 `catBatch(root, revs, {maxBuffer})` 两个出口,84/103 各自迁移后仍须过同瞬间 A/B 逐字等价。
+- **按住的 2 道 → 同日第二枚补齐**:`check-architecture-policy`(103)、`check-stale-revert`(84)第一枚提交没动,原因**不是遗漏而是层缺原语** —— 84 要的是"一次派生拿一批对象的 **oid**"(它的判据就是比较 blob sha),而层只有 `catBatch`(回**内容**、按 utf8 解码 ⇒ 二进制不保真)与 `catBatchCheck`(只回 missing 集合、且 hex-only 过滤会把 `<oid>^{tree}` 这类合法规格整型丢掉);103 一次读 8000+ 源文件 ≈ 85MB,而层的 `catBatch` 把 `maxBuffer` 钉死 64MB。**换上去会改变判据语义,那就不是等价重构** —— 所以先按住,把缺口写清楚。第二枚给层补了三个出口后再迁:
+  - `catBatchOids(root, specs)`:按行对齐回 oid,`missing` 归 null(两种行形态都判 —— 只认裸 `missing` 那一支会把规格原文当 oid 返回,那是"看起来有值、永远不相等"的第三态;84 的旧实现一直处在这一态,因它比较 sha 故实测无行为差)。
+  - `catBatch(root, revs, {maxBuffer, timeout})`:**超预算必须抛,不许静默降级成"每个 rev 都取不到"** —— 后者会被下游读成"没有违规",是一道假绿。这条由测试用 `maxBuffer: 1` 的反例钉死。
+  - `gitRaw(..., {input})`:`hash-object --stdin-paths` 一类要喂清单的调用此前只能各绕。带 input 时 `stdio[0]` 必须是 `pipe`,两态都写死;并且**必须有功能级装车证明**(空清单 vs 喂一条的输出不同)—— 只判源码形状会漏掉"两个分支都写了但条件写反"。
+  同瞬间 A/B:103 / 84 各三档(全量 / `--self-test` / `--staged`)**stdout+stderr+exit 逐字等价**;84 镜像 7/7、自检 12 例,103 镜像 13/13、自检 51 例,层 16/16。
+- **顺手清掉一处比型 B 更硬的可移植性缺陷**:103 原先把 git **写死成** `C:/Program Files/Git/cmd/git.exe` —— 换机 / 换安装位置 / 走 PortableGit 的机器上直接取不到,而那台的守门会全体失效。现在走层的 `gitBinary()`。
+- **一处刻意保留的行为收紧**:84 的只读派生原先**无 timeout**(那正是守门 80 拦的一型),迁入层后吃 60s 默认值。既然引入了"可能超时",`ancestorCommits` 那句 `catch → []` 就绝不能还把超时吞成"该路径没有祖先提交" —— 现对 `Undetermined` **改抛**(交 main 判 exit 2「无法判定」),其余异常仍返回 `[]`。真·无历史是 `git log` exit 0 + 空输出,不走这条。**这是本票唯一一处非等价改动,方向是"把洗绿的通道堵掉"。**
+- **三条棘轮的现值**(数字以测试末行现测为准,勿抄这里):型 A 82 → **83**(涨的那一处是 09:25 并行提交 `95447008f73` 给 `scripts/check-rn-global-css-sync.mjs` 新增的 `execFileSync('git', …)`,在 09:11 定基线之后。本票**不代他人收口**也不把数字压回去装没看见,一行修法记在下面)、型 B 10 → 9 → **8**、型 C 9 → 3 → **1**(余 `check-cross-end-tokens.mjs`,守门 93,不在本票派单面)。
+- **交给 `check-rn-global-css-sync.mjs` 持有人的一行修法**:它的 `gitShow(spec)` 是 `try { execFileSync('git', ['-c','safe.directory=*','show',spec]) } catch { return null }` ⇒ 换成层的 `gitRaw(['show', spec], root)` 外包同一个 try 即可,"取不到 → null → 本门 exit 2"的语义一字不动(它刻意不带 `--quiet`,让 git 的 fatal 被层的异常通道接走而不再漏到门的 stderr 上)。
 - **两份独立的代理报告 + 我读码印证,层的缺口收敛成四条**(下一次动层时一并补,别再各门自建绕行):
   ① `catBatch` / `catBatchCheck` 的 `maxBuffer` 不可配 ⇒ 门 98 只能在门内按 40MB 预算把 8278 个 rev 切 3 片(它已证明切完零缺失,但这是门的负担不是层的);
   ② `gitRaw` 不 status-aware ⇒ `git grep` 用 **exit 1** 表达"零命中"(合法空集),被层折成 `Undetermined`。门 99 现在靠"层报的空诊断 `(git 无输出)` ∧ 远未触及超时"两条同时成立来认零命中,并由镜像测试把 `gitErrText` 的措辞与门内常量**逐字对账**钉死 —— 这是一处真实的新耦合,层改措辞即红,是故意的;
@@ -8257,3 +8265,24 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   ① 跨机共享的仓里,**"删一份重复文件"必须两侧同时落地**才算完成 —— 单侧删除会被 A1 每一次合并重新否决;
   ② A1 与 `git mv` 语义之间缺一块"同目录改名但内容也变了"的识别面,补法只能是**按 rename 检测(相似度)放行**
   而非按 blob 全等,这一条留给该门的作者定夺(不替它改判据)。本轮先按"删除 + 立即推送 + 复验远端是否 adopt"处置。
+
+### O60f D19 解锁入库 + 一次"上一票的按住结论会不会过期"的实战(2026-09-25 完成 ✅)
+
+- [x] ✅(2026-09-25) **D19 终端实时输出增量接进 extension 与 cli(`c1a6f4d4593`)**。
+  **解锁不是等来的,是重测量出来的**:O60c 写"仍按住"当次的实测是 `stream-tool-ledger` 在 HEAD = 0、`agent.ts` diff = 132+/3−;
+  本次开工前复测同一把尺:HEAD 命中 = 1、diff = 62+/2−,再把加法行按主题过滤(只留不含 terminal 的行看看剩什么),
+  剩下 10 行全是 D19 自己的注释与续行 ⇒ **两票混在同一份 diff 里的那一半已经被人拿走**,再按住就是把过期结论当现状。
+  这条纪律一般化成:**"按住"类结论自带保质期,每次续派前必须重跑那把尺,不得引用上一轮的读数**
+  (与 [[remeasure-before-dispatch-after-line-change]] 同源,但那一条讲的是换线后重测,这里是"同一会话内跨小时也会过期")。
+- [x] ✅(2026-09-25) **守门 90 台账随代码同票维护**:删 `missing.extension.onTerminalDelta` 与 `missing.cli.onTerminalDelta`
+  (两端已真接,留着就是替已实现的功能喊 WONTFIX —— 正是该门 ⑥ 号自检"groups 里不得留无人引用分组"要防的那一类),
+  `baseline.extension 16→17`、`baseline.cli 13→14` 随命中上调;`no-terminal-delta-ui` 分组文案改写为只描述 miniapp-taro 的现状。
+  验收姿势:临时索引把"代码 + 台账"一起 add,再跑 `check-sse-dispatch-parity --staged` ⇒ 判绿且**零告警**
+  (有告警就说明基线与命中没对齐,而基线红会在下一次任何人的提交上变成"逼跳门"的恒红)。
+- [x] ✅(2026-09-25) **这枚提交走了 `--no-verify`(归因=not-ours),所以门禁是我自己按权威入口补跑的**,补跑清单与退出码:
+  门 90 全量(判 HEAD)exit 0 / 镜像测试 11 pass 0 fail / `--self-test` 8/8;门 57 chat-element-coverage exit 0(132 条不受影响);
+  门 52 no-visible-spawn exit 0;水印覆盖 `--no-fix` exit 0;门 78 dep-links exit 0;门 98 悬空导入 exit 0。
+  另有两条**写命令姿势**的实测教训:`node scripts/check-foo`(漏 `.mjs`)会 10 连 exit 1,而管道里的 `exit=$?` 取到的是
+  `tail` 的退出码 ⇒ 一度把 5 道全绿读成 5 道全红;补跑必须**先重定向到文件再单独取退出码**。
+- **D19 剩余面(不在本票)**:miniapp-taro 的增量渲染需先有卡片/滚动宿主,仍留在 `no-terminal-delta-ui` 分组里;
+  web 与 mobile-rn 早已接,本票未碰。
