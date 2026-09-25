@@ -67,13 +67,24 @@ test('§22c phase C:本测试必须从源脚本 import __test__(不得复制判�
   )
 })
 
-test('扫描面必须是任务书点名的四端 + 单一入口路径不得写死盘符', () => {
+test('扫描面必须覆盖每一个会渲染界面的端 + 单一入口路径不得写死盘符', () => {
+  // 2026-09-26 扩面:这里曾**逐字钉死"任务书点名的四端"**,于是 apps/extension / desktop / cli /
+  // mobile-cap / ui-react / ui-native / shared 共 376 个源文件在门外,而门外当时就有一处真违规
+  // (AgentPage 的 i18n「返回」摆箭头位)。锁把面写死成"立项那几端",本身就是洞的一部分 ——
+  // 判据的覆盖面应当由"哪些端会渲染界面"决定,而不是由某张任务书决定。
   assert.deepEqual(gate.SCAN_DIRS, [
     'apps/mobile-rn',
     'packages/app',
     'apps/miniapp-taro',
     'apps/web/app',
     'apps/web/src',
+    'apps/extension',
+    'apps/desktop',
+    'apps/cli/src',
+    'apps/mobile-cap',
+    'packages/ui-react/src',
+    'packages/ui-native/src',
+    'packages/shared/src',
   ])
   for (const d of gate.SCAN_DIRS) assert.ok(existsSync(join(ROOT, d)), `扫描面目录不存在:${d}`)
   const src = readFileSync(join(ROOT, 'scripts', SCRIPT), 'utf8')
@@ -319,6 +330,32 @@ test('S0 机制清单必须就是 AGENTS.md 点名的那些唯一实现,且每�
   for (const m of gate.MECHANISMS) {
     const tail = m.file.split('/').slice(-2).join('/')
     assert.ok(agents.includes(tail), `AGENTS.md 未点名 ${tail} —— 本门在替一份不在文档里的实现背书`)
+  }
+})
+
+test('守门面必须覆盖**每一个会渲染界面的端**(2026-09-26 扩面:5 个 UI 端曾在门外)', () => {
+  // 门只扫 5 条目录时,apps/extension / desktop / cli / mobile-cap / ui-react / ui-native / shared
+  // 共 376 个源文件在门外 —— 而门外当时就有一处真违规(AgentPage 的 i18n「返回」摆箭头位),
+  // 它不是"漏改",是结构上看不见:pre-commit 永远不会为它喊红。
+  const dirs = gate.SCAN_DIRS.join('\n')
+  for (const need of [
+    'apps/miniapp-taro',
+    'apps/web',
+    'apps/mobile-rn',
+    'packages/app',
+    'apps/extension',
+    'apps/desktop',
+    'apps/cli',
+    'apps/mobile-cap',
+    'packages/ui-react',
+    'packages/ui-native',
+    'packages/shared',
+  ]) {
+    assert.ok(dirs.includes(need), `扫描面缺 ${need} —— 该端上的返回 affordance 无人看守`)
+  }
+  // 每一条扫描目录都必须真实存在(目录被改名而表没跟上 = 门对着空气扫,守门 103 的 T1 同型)
+  for (const d of gate.SCAN_DIRS) {
+    assert.ok(existsSync(join(ROOT, d)), `SCAN_DIRS 里的 ${d} 不存在 ⇒ 该条静默零覆盖`)
   }
 })
 
