@@ -42,7 +42,7 @@ import {
   getReplayEvents,
   takeoverStream,
 } from '../utils/sse-stream-registry.js'
-import { isStreamActive } from '../utils/sse-replay-buffer.js'
+import { getReplayWindowStatus, isStreamActive } from '../utils/sse-replay-buffer.js'
 
 // P3-1 SSE 流式对话实时指标(admin 调试用,不直接进 Prometheus;Prometheus 抓取由 business-metrics.ts 负责)
 const sseMetrics = {
@@ -299,31 +299,51 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     if (replayKey && typeof lastEventIdHeader === 'string' && lastEventIdHeader !== '') {
       const lastSeq = Number.parseInt(lastEventIdHeader, 10)
       if (Number.isFinite(lastSeq) && lastSeq >= 0) {
-        const liveSession = findSession(replayKey)
-        if (liveSession && !liveSession.finished) {
-          // 接管:重放缺失段(id > Last-Event-ID)后原转发循环继续向本连接实时写
-          const missed = takeoverStream(liveSession, lastSeq, raw)
-          for (const e of missed) raw.write(`id: ${e.id}\n${e.rawLine}\n\n`)
-          // 新连接断开同样走宽限 detach(重复断线/重连安全)
-          request.raw.on('close', () => detachOnClose(liveSession))
+        // 第九轮(2026-09-26 立):发尾巴之前先问"窗口够不够"。
+        // 缓冲每流上限 2000 行,超出即 FIFO 裁头;客户端的 lastSeq 落在被裁掉的区间时,
+        // 缓冲只剩后半截 —— 照发出去就是"消息少了若干条、界面却看着连续",而 SSE 侧
+        // 没有任何字段能表达这个洞(协议不动,见票面约束)。所以这一态并进既有的
+        // "缓冲过期:正常路径重新生成"降级出口:宁可重跑一次,不发不可辨的半截。
+        const window = getReplayWindowStatus(replayKey, lastSeq)
+        if (window.complete) {
+          const liveSession = findSession(replayKey)
+          if (liveSession && !liveSession.finished) {
+            // 接管:重放缺失段(id > Last-Event-ID)后原转发循环继续向本连接实时写
+            const missed = takeoverStream(liveSession, lastSeq, raw)
+            for (const e of missed) raw.write(`id: ${e.id}\n${e.rawLine}\n\n`)
+            // 新连接断开同样走宽限 detach(重复断线/重连安全)
+            request.raw.on('close', () => detachOnClose(liveSession))
+            request.log.warn(
+              { replayKey, lastSeq, replayed: missed.length },
+              '[SSEReplay] stream takeover',
+            )
+            return
+          }
+          if (isStreamActive(replayKey)) {
+            // 原流已中止/完成但缓冲仍在 60s 保留窗口:重放缺失段后结束
+            const missed = getReplayEvents(replayKey, lastSeq)
+            for (const e of missed) raw.write(`id: ${e.id}\n${e.rawLine}\n\n`)
+            request.log.warn(
+              { replayKey, lastSeq, replayed: missed.length },
+              '[SSEReplay] replay-only (upstream gone)',
+            )
+            raw.end()
+            return
+          }
+        } else {
+          // 有洞 / 窗口已过期:降级为全量重新生成(丢弃必须点名,不许静默)
           request.log.warn(
-            { replayKey, lastSeq, replayed: missed.length },
-            '[SSEReplay] stream takeover',
+            {
+              replayKey,
+              lastSeq,
+              lowestBufferedId: window.lowestId,
+              droppedCount: window.droppedCount,
+              reason: window.known ? 'replay-window-hole' : 'replay-window-expired',
+            },
+            '[SSEReplay] 重放窗口不足以覆盖 Last-Event-ID,放弃部分重放 → 重新生成',
           )
-          return
         }
-        if (isStreamActive(replayKey)) {
-          // 原流已中止/完成但缓冲仍在 60s 保留窗口:重放缺失段后结束
-          const missed = getReplayEvents(replayKey, lastSeq)
-          for (const e of missed) raw.write(`id: ${e.id}\n${e.rawLine}\n\n`)
-          request.log.warn(
-            { replayKey, lastSeq, replayed: missed.length },
-            '[SSEReplay] replay-only (upstream gone)',
-          )
-          raw.end()
-          return
-        }
-        // 缓冲过期:正常路径重新生成(降级,与改造前行为一致)
+        // 缓冲过期 / 窗口有洞:落到下方正常路径重新生成(降级,与改造前行为一致)
       }
     }
 
