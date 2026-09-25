@@ -3123,7 +3123,7 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_GATE_FACE_DISCIPLINE',
-    stagedTriggers: 'scripts/',
+    stagedTriggers: ['scripts/'],
     onFailHint: [
       '',
       '  💡 本仓 159 道门里只有 24 道走 scripts/lib/face-reader.mjs,散写 git/按磁盘判的 74 道',
@@ -3146,7 +3146,7 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_SUBAGENT_PERMISSION_INHERITED',
-    stagedTriggers: 'apps/cli/src/',
+    stagedTriggers: ['apps/cli/src/'],
     onFailHint: [
       '',
       '  💡 判三条:P1 派生面出现字面量 bypassPermissions 作默认档(零容忍,不吃豁免)/',
@@ -3185,7 +3185,7 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_DECLARED_POLICY_CONSUMER',
-    stagedTriggers: 'apps/,packages/',
+    stagedTriggers: ['apps/', 'packages/'],
     onFailHint: [
       '',
       '  💡 本仓最高频失效型"造好没装车":声明了保留期/预算契约/清理函数,却没有任何生产面',
@@ -3195,6 +3195,29 @@ const checks = [
       '     单独复验:node scripts/check-declared-policy-has-consumer.mjs',
       '     自检:--self-test(22 例,含真未接线/已接线双夹具 + 禁闭包/禁外部消费双变异)',
       '     镜像:node --test scripts/tests/check-declared-policy-has-consumer.test.mjs(8 例,含装车前置证明)',
+      '',
+    ]
+  },
+
+  {
+    id: '122',
+    label: '🎨 [miniapp-taro] 原生 chrome 派生对账(blocking,theme.json + THEME_CHROME 必须是 tokens.css 派生态;无登记/无生成器时代结束)',
+    script: 'check-miniapp-chrome.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_MINIAPP_CHROME',
+    onFailHint: [
+      '',
+      '  💡 微信原生 chrome 只认字面 hex,所以 theme.json(app.config.ts @变量 的编译期源)与',
+      '     lib/theme.ts 的 THEME_CHROME(运行期 setNavigationBarColor/setTabBarStyle)是"派生副本",',
+      '     立项前两份手抄且全链零覆盖(grep -rl theme.json scripts/*.mjs = 0)。四类红:',
+      '     drifted(跑生成器写回)/ thirdValue(登记字段被改第三值,写回按登记值)/',
+      '     rot(登记值与 nearToken 源头重新同值 ⇒ 显式删登记挪回派生)/ unregistered(新色键或被摘登记)。',
+      '     派生与登记的分流依据都在 scripts/sync-miniapp-chrome.mjs 两张表内(dark navBg/windowBg 的',
+      '     #262626 是 commit d2d80c1b23 记录在案的刻意分歧,不是漂移 —— 不得为过门改成 #242424)。',
+      '     漂移类修复:node scripts/sync-miniapp-chrome.mjs(原位写回,幂等)后重新 git add 两份副本',
+      '     单独复验:node scripts/check-miniapp-chrome.mjs --self-test(3 例)',
+      '     镜像:node --test scripts/tests/check-miniapp-chrome.test.mjs',
       '',
     ]
   },
@@ -3432,12 +3455,35 @@ function stagedFilesOrNull() {
   return stagedFilesCache
 }
 
+/**
+ * `stagedTriggers` 的**形状归一化 + 失败方向**:
+ * 2026-09-25 实测本函数在 HEAD 上就能崩 —— 三道门(118 / subagent-permission-inherited /
+ * declared-policy-has-consumer)把它写成**字符串**(`stagedTriggers: 'scripts/'`),而这里按
+ * 数组用(`prefixes.some`)⇒ `TypeError: prefixes.some is not a function` 直接把整个 runner 打死
+ * ⇒ pre-commit 拿不到任何守门汇总 ⇒ 每个会话都被 safe-commit 的"归因未计算"兜底成 `--no-verify`
+ * ⇒ **全仓 159 道门对全队同时失效**,而 `git status`、typecheck、提交成功本身全都看不出来。
+ * 这是 §12e(一道红门废掉全部守门)的**更严重变体**:红门至少还会喊,崩了只剩一句"提前退出"。
+ * 两条口径:① 字符串按逗号切成数组(旧声明不改语义,只改形状);② 形状完全不认(数字/对象…)
+ * 一律**判"要跑"**而不是抛 —— 判错方向的代价是一轮多余的门,而抛的代价是全部门作废。
+ */
+function normalizeTriggers(prefixes) {
+  if (Array.isArray(prefixes)) return prefixes.filter((p) => typeof p === 'string' && p)
+  if (typeof prefixes === 'string')
+    return prefixes
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+  return null
+}
+
 function stagedPathsTouch(prefixes) {
+  const list = normalizeTriggers(prefixes)
+  if (list === null || list.length === 0) return true // 认不出形状 ⇒ 宁跑不跳
   const files = stagedFilesOrNull()
   if (files === null) return true
   return files.some((f) => {
     const norm = f.replace(/\\/g, '/')
-    return prefixes.some((p) => norm.startsWith(p))
+    return list.some((p) => norm.startsWith(p))
   })
 }
 
@@ -3455,9 +3501,10 @@ for (const check of effectiveChecks) {
   // 与 skipEnv 同计入"跳过",并打印触发清单,避免"静默没跑"。
   if (check.stagedTriggers && passStaged && !stagedPathsTouch(check.stagedTriggers)) {
     skipped++
-    console.log(
-      `⏭  [${check.id}] ${check.label}(暂存区未触及:${check.stagedTriggers.join(' / ')},跳过)`,
-    )
+    // 打印侧同样不得假设它是数组:同一处崩溃在 HEAD 里已经发生过一次(判据侧修了、
+    // 这一行还是 .join ⇒ 跳过路径照样炸)。走同一个归一化出口。
+    const trig = normalizeTriggers(check.stagedTriggers) || ['(形状不认 ⇒ 恒跑)']
+    console.log(`⏭  [${check.id}] ${check.label}(暂存区未触及:${trig.join(' / ')},跳过)`)
     continue
   }
   const cmdArgs = [...check.args]
