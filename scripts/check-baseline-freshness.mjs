@@ -50,8 +50,10 @@
  *   node scripts/check-baseline-freshness.mjs --max-behind 5 --max-stale 0 --no-fetch
  * 缺省阈值依据(2026-09-26 本机实测,门 103 的写法惯例:数字必须带出处):
  *   ①②0 —— "落后且不领先"就是纯过期,没有任何值得放过的中间带;
- *   ③  0 —— 实测当日漂移面 58 个路径(源码类 55)而**等于祖先版本的为 0 个**,
- *          即"旧基线开工"是零存量事件,可以按零容忍判,不会造出恒红。
+ *   ③  0 —— 零容忍能成立**不是因为旧基线常常为 0**(立项时读到 0,同日一次并发 union 合并后就
+ *          变成 111;这类数字一律按当次实测取,不得当恒定前提),而是因为**③轴不进提交链**:
+ *          红只在显式 --preflight 里出现,给的是"你正在 111 个路径的旧基线上开工"这条情报,
+ *          而不是"谁都不许提交"。缺省档(--check / --staged)永远只报数 ⇒ 无人被恒红逼着绕钩子。
  */
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
