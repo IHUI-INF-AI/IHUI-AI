@@ -2648,7 +2648,7 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
   `page_select` 走页内 `act()`——选项匹配规则在 `@ihui/dom-actions` 只有一份，端内再拼一套就是分叉的开始。
   验收：CLI `tsc` exit 0、**全量 134 个测试文件通过**；门 98 / 51 / 55(86/86) / 56(4202 项) 全绿；
   门 103 `--staged`（提交链实际面对的档）exit 0。README 两处同体段落一并更正（原文"执行体在扩展 content script"不完整）。
-- [ ] **他人账，本票未代改（登记事实与解阻判据）**：门 103 **全量**档 exit 1 报 2 处，红在
+- [x] ✅(2026-09-25) **他人账，本票未代改（登记事实与解阻判据）**：门 103 **全量**档 exit 1 报 2 处，红在 〔2026-09-25 翻勾:旧路径测试文件已删,实测 node scripts/check-architecture-policy.mjs exit 0〕
   `packages/i18n/tests/waiting-keys-in-end-packages.test.ts:19` 的 D1/D2 —— 该文件已于本日迁到
   `packages/shared/tests/chat/`（迁后 i18n 旧路径由 `729551ef938` 删除），现**两份并存且都在 HEAD**。
   归属非本票（本票只动 `apps/cli` + README + PLAN，三者与 i18n 无 import 关系），且 `--staged` 档 exit 0 不拦提交链。
