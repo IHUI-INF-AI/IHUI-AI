@@ -4,15 +4,21 @@
 
 // 归属校验回归:GET / POST / PUT / DELETE /exam/composition/signup*
 // + POST /exam/composition/signup/:sid/submit
-// (2026-09-25 数据泄露级 P0 修复的取证 + 同型剩余面收口的取证)
+// (2026-09-25 数据泄露级 P0 修复的取证 + 同型剩余面收口的取证;
+//  同日 C 方案落地后,除 /signup/list(管理查询面)外的 6 处闸门从 fail-close 到管理员档
+//  换成**按 user_id 归属放行** —— 本文件用例期望值已按新判据改写:
+//    会员档:本人归属行可读写;/my 只回 user_id=request.userId 的行;
+//            NULL 归属历史行(建列前存量)一律 404(归属未知 ≠ 归属成立);
+//            越权访问(他人 sid)一律 404,绝不披露存在性。)
 //
 // 本文件刻意**不** mock @ihui/auth,也**不** mock plugins/auth.js:鉴权判据(JWT 验签 +
 // roleId 提取 + isSystemAdmin 管理员档位)必须真跑,否则"越权拿不到东西"这句结论就是被
 // mock 掉的授权判据自己给的 —— 那种绿等于没测。被 mock 的只有数据库层(本仓测试禁止连
 // 生产 PG),以及 authenticate 内部那次按主键的用户状态查询(属 DB 访问,不是授权判据)。
 //
-// 关键设计:db mock 会**忠实执行** where 条件 —— 条件里不含 member_id 约束(即修复前的
-// sql`TRUE`)就返回全表。因此把 exam.ts 的兜底改回原样,用例 1/2/3 必然变红。
+// 关键设计:db mock 会**忠实执行** where 条件(id / member_id / user_id / exam_id / status
+// 逐列 AND 过滤;NULL user_id 行在 eq 条件下天然不命中,与真库 NULL 语义一致)。
+// 因此把 exam.ts 的归属条件摘掉,越权用例必然变红。
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 import { signAccessToken } from '@ihui/auth'
@@ -25,13 +31,11 @@ vi.hoisted(() => {
 // 2026-08-06 起 authenticate 会查一次用户状态;1 = 正常。
 vi.mock('../../db/usercenter-queries.js', () => ({ getUserStatus: vi.fn().mockResolvedValue(1) }))
 
-interface SqlFragment {
-  sql: string
-  params: unknown[]
-}
 interface SignupRow {
   id: number
   memberId: number
+  /** 归属列(2026-09-25 C 方案落地):users.id 的 uuid;null = 建列前的历史行(归属未知)。 */
+  userId: string | null
   examId: number
   status: string
   completedTime: Date | null
@@ -42,11 +46,16 @@ interface SignupRow {
 // mock 工厂在 import 求值期就被调用,所以它要用的夹具/判据/链式实现必须一起 hoisted,
 // 不能留在测试模块体里(那时还没执行)。
 const H = vi.hoisted(() => {
-  /** 两个不同 edu 会员各自的报名记录:member 7 两条 / member 9 两条。 */
+  /** 归属夹具四种形态各占一行:
+   *    id=1 member7  userId=CALLER  ⇒ 调用者本人归属行(会员档应可见/可写)
+   *    id=2 member7  userId=null    ⇒ 历史 NULL 归属行(会员档必须不可见 —— 归属未知≠归属成立)
+   *    id=3 member9  userId=OTHER   ⇒ 他人归属行(会员档必须不可见;刻意≠ADMIN_UUID,防档位串色)
+   *    id=4 member9  userId=null    ⇒ 他人 NULL 归属历史行(同样只走管理员路径) */
   const ROWS: SignupRow[] = [
     {
       id: 1,
       memberId: 7,
+      userId: 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa',
       examId: 101,
       status: 'signed',
       completedTime: null,
@@ -56,6 +65,7 @@ const H = vi.hoisted(() => {
     {
       id: 2,
       memberId: 7,
+      userId: null,
       examId: 102,
       status: 'signed',
       completedTime: null,
@@ -65,6 +75,7 @@ const H = vi.hoisted(() => {
     {
       id: 3,
       memberId: 9,
+      userId: 'cccccccc-3333-4333-8333-cccccccccccc',
       examId: 101,
       status: 'signed',
       completedTime: null,
@@ -74,6 +85,7 @@ const H = vi.hoisted(() => {
     {
       id: 4,
       memberId: 9,
+      userId: null,
       examId: 103,
       status: 'pending',
       completedTime: null,
@@ -100,65 +112,145 @@ const H = vi.hoisted(() => {
   }
 
   /**
-   * 把 drizzle 0.38 的 SQL 条件渲染成 { sql, params }。
-   * ⚠️ 0.38 的 `SQL` **没有** `toSQL()`,且 `queryChunks` 的元素不是裸字符串/列,而是
-   * `StringChunk{value:<obj>}` / `PgInteger{name:'member_id',table:<obj>}` /
-   * `Param{brand,value:<number>,encoder:<obj>}`(实测 5 段:chunk,列,chunk,参数,chunk)。
-   * 注意 `StringChunk.value` 在本构建里不是字符串、`encoder` 不是函数 ——
-   * 找 toSQL 或按字符串比对都会得到空渲染,
-   * 于是 mock 静默返回全表 —— 判据看似在过滤其实一直没滤(本文件前两版都这么错,
-   * 由用例 4 的 total=4 抓到)。认不出来的形态一律**不计入过滤**,宁可退回全表让断言红。
+   * 把 drizzle 0.38 的 SQL 条件**忠实**求值成行谓词(与 legacy-exam-signups-ownership.test.ts
+   * 同源的 token 结构,并升级为表达式树:or / and / isNull 全部可判)。
+   * ⚠️ 0.38 的 `SQL` **没有** `toSQL()`;`queryChunks` 的元素是 `StringChunk{value:<string[]>}`
+   * (实测 value 是**数组**,连接词就是 value[0] === ' or ' / ' and ',叶子文本是 ' = ' /
+   * ' is null')/ `PgColumn{name,table}` / `Param{brand,value,encoder}`。
+   * 按字符串拼接比对会得到空渲染 ⇒ mock 静默返回全表(判据看似在过滤其实一直没滤,
+   * 本文件前几版都这么错)。
+   * **OR 语义必须可判**(2026-09-25 变异取证踩坑):`isNull(user_id) OR user_id = ?` 是
+   * 被禁形态,若 mock 只认 eq 配对就会把它当纯 eq 过滤 ⇒ 变异②假绿。现在 or=任一命中、
+   * and=全部命中、is null=空值命中;混连接/认不出的形态 ⇒ 谓词为 null ⇒ 退回全表
+   * 让断言当场红(判据失效必须表现为红,绝不静默放行)。
    */
-  function renderChunk(ch: unknown, acc: { text: string; params: unknown[] }): void {
-    if (typeof ch === 'string') {
-      acc.text += ch
-      return
-    }
+  type Token =
+    | { kind: 'col'; name: string }
+    | { kind: 'param'; value: unknown }
+    | { kind: 'text'; text: string }
+
+  function chunkText(ch: unknown): string | null {
+    if (ch === null || typeof ch !== 'object') return null
+    const v = (ch as Record<string, unknown>).value
+    if (Array.isArray(v) && v.length === 1 && typeof v[0] === 'string') return v[0]
+    return null
+  }
+
+  function flatten(ch: unknown, acc: Token[]): void {
     if (ch === null || typeof ch !== 'object') return
     const o = ch as Record<string, unknown>
     if (Array.isArray(o.queryChunks)) {
-      renderChunks(o.queryChunks, acc)
+      for (const inner of o.queryChunks) flatten(inner, acc)
+      return
+    }
+    const text = chunkText(ch)
+    if (text !== null) {
+      acc.push({ kind: 'text', text })
       return
     }
     if ('value' in o && typeof o.encoder === 'object') {
-      acc.params.push(o.value) // Param{brand,value,encoder}:绑定值(memberId = 7)
-      acc.text += '?'
-      return
-    }
-    if (typeof o.value === 'string') {
-      acc.text += o.value
+      acc.push({ kind: 'param', value: o.value }) // Param{brand,value,encoder}
       return
     }
     if (typeof o.name === 'string' && typeof o.table === 'object') {
-      acc.text += o.name // 列引用 → 物理列名(member_id / exam_id / …)
+      acc.push({ kind: 'col', name: o.name }) // 列引用 → 物理列名
     }
   }
 
-  function renderChunks(chunks: unknown, acc: { text: string; params: unknown[] }): void {
-    if (!Array.isArray(chunks)) return
-    for (const ch of chunks) renderChunk(ch, acc)
+  type RowPredicate = (r: SignupRow) => boolean
+
+  /** 物理列名 → 夹具行字段(camelCase);未知列 ⇒ undefined(等值比较恒假,与真库列不存在报错同向)。 */
+  function colValue(r: SignupRow, col: string): unknown {
+    switch (col) {
+      case 'id':
+        return r.id
+      case 'member_id':
+        return r.memberId
+      case 'user_id':
+        return r.userId
+      case 'exam_id':
+        return r.examId
+      case 'status':
+        return r.status
+      default:
+        return undefined
+    }
   }
 
-  function toSqlFragment(cond: unknown): SqlFragment | null {
+  /** 单个操作数(eq / isNull)→ 谓词;认不出 ⇒ null。 */
+  function leafPredicate(tokens: Token[]): RowPredicate | null {
+    let col: string | null = null
+    let param: unknown
+    let hasParam = false
+    let isNullText = false
+    for (const t of tokens) {
+      if (t.kind === 'col') col = t.name
+      else if (t.kind === 'param') {
+        param = t.value
+        hasParam = true
+      } else if (t.text === ' is null') isNullText = true
+      // ' = ' / '' / '(' / ')' 等文本不改变语义
+    }
+    if (isNullText && col !== null) {
+      const c = col
+      return (r) => colValue(r, c) === null
+    }
+    if (hasParam && col !== null) {
+      const c = col
+      const v = param
+      return (r) => colValue(r, c) === v
+    }
+    return null
+  }
+
+  /** SQL 条件 → 行谓词;or=任一命中,and=全部命中,混连接/空条件认不出 ⇒ null。 */
+  function predicateOf(cond: unknown): RowPredicate | null {
     if (cond === null || typeof cond !== 'object') return null
     const chunks = (cond as Record<string, unknown>).queryChunks
     if (!Array.isArray(chunks)) return null
-    const acc = { text: '', params: [] as unknown[] }
-    renderChunks(chunks, acc)
-    return { sql: acc.text, params: acc.params }
+    const tokens: Token[] = []
+    for (const ch of chunks) flatten(ch, tokens)
+    state.frags.push(
+      tokens
+        .map((t) =>
+          t.kind === 'col' ? `col:${t.name}` : t.kind === 'param' ? '?' : `'${t.text}'`,
+        )
+        .join(' '),
+    )
+    // 按连接词切操作数(叶子内部不含 ' or ' / ' and ' 文本,切分安全)
+    const segments: Token[][] = [[]]
+    const joiners: string[] = []
+    for (const t of tokens) {
+      if (t.kind === 'text' && (t.text === ' or ' || t.text === ' and ')) {
+        joiners.push(t.text)
+        segments.push([])
+        continue
+      }
+      segments[segments.length - 1]!.push(t)
+    }
+    const predicates = segments.map((s) => leafPredicate(s))
+    if (joiners.length === 0) {
+      const p = predicates[0]
+      // 空条件(sql`TRUE` 的还原形态)⇒ 判不出 ⇒ null ⇒ 全表(让越权用例红)
+      return p ?? null
+    }
+    if (joiners.some((j) => j !== joiners[0])) return null // 混连接,不猜
+    if (predicates.some((p) => p === null)) return null
+    if (joiners[0] === ' or ') {
+      return (r) => predicates.some((p) => p!(r))
+    }
+    return (r) => predicates.every((p) => p!(r))
   }
 
   /**
-   * 忠实执行 where:含 member_id 等值约束则按该值过滤,否则**返回全表**。
-   * 后者正是修复前 sql`TRUE` 的行为,使越权用例能真的拿到他人数据。
+   * 忠实执行 where:or=任一命中 / and=全部命中 / user_id 对 null 行天然不命中
+   * (与真库 NULL 语义一致 —— 这正是"NULL 归属行不放行"判据的物证通道);
+   * 谓词认不出 ⇒ 返回全表(判据失效必须红)。
    */
   function applyWhere(): SignupRow[] {
-    const frag = toSqlFragment(state.cond)
-    state.frags.push(frag ? `${frag.sql} :: ${JSON.stringify(frag.params)}` : String(state.cond))
-    if (!frag || !/member_id/.test(frag.sql)) return ROWS
-    const wanted = frag.params.find((p): p is number => typeof p === 'number')
-    if (wanted === undefined) return ROWS
-    return ROWS.filter((r) => r.memberId === wanted)
+    const pred = predicateOf(state.cond)
+    if (!pred) return ROWS
+    return ROWS.filter(pred)
   }
 
   interface Chain {
@@ -227,15 +319,19 @@ vi.mock('../../db/index.js', () => ({
     ),
     update: vi.fn(() => {
       H.state.updateCalls += 1
-      // 与真库 .returning() 对齐:把本轮 set 的补丁贴到某一行上返回,便于断言"管理员档可写"
+      // 与真库 .returning() 对齐:忠实执行 where(归属 AND 条件 ⇒ 非本人行 0 命中 ⇒ 路由 404),
+      // 再把本轮 set 的补丁贴到命中行上返回,便于断言"本人/管理员档可写"。
       return H.makeChain(() => {
+        const rows = H.applyWhere()
+        if (rows.length === 0) return []
         const patch = H.state.updated[H.state.updated.length - 1] ?? {}
-        return [{ ...H.ROWS[0], ...patch }]
+        return [{ ...rows[0], ...patch }]
       })
     }),
     delete: vi.fn(() => {
       H.state.deleteCalls += 1
-      return H.makeChain(() => [])
+      // 忠实执行 where:非本人行 0 命中 ⇒ 路由按影响行数判 404(2026-09-25 C 方案补的校验)
+      return H.makeChain(() => H.applyWhere().map((r) => ({ ...r })))
     }),
   },
 }))
@@ -245,6 +341,7 @@ import { examRoutes } from '../exam.js'
 /** users.id 的真实形态:uuid 字符串(不是 '1' 这种数字串 —— 那会掩盖 NaN 缺陷)。 */
 const CALLER_UUID = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa'
 const ADMIN_UUID = 'bbbbbbbb-2222-4222-9222-bbbbbbbbbbbb'
+const OTHER_UUID = 'cccccccc-3333-4333-8333-cccccccccccc'
 const OTHER_MEMBER_ID = 9
 
 async function bearer(userId: string, roleId: number): Promise<Record<string, string>> {
@@ -295,37 +392,47 @@ describe('/exam/composition/signup 归属校验(P0 数据泄露回归)', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('0b) 探针:uuid 形态 token 能过鉴权 ⇒ 后续 403 是授权判定而非鉴权失败', async () => {
-    // 管理员带 memberId 能拿到 200(见用例 4),而这里确认普通用户的 uuid token 不会被误判成 401
-    const res = await app.inject({
-      method: 'GET',
-      url: '/api/exam/composition/signup/my?memberId=7',
-      headers: memberHeaders,
-    })
-    expect(res.statusCode).not.toBe(401)
-  })
-
-  it('1) 普通用户 + uuid 身份 + 不带 memberId ⇒ 一条记录都拿不到', async () => {
+  it('0b) 探针:uuid 形态 token 能过鉴权 ⇒ 会员档走归属路径而非鉴权失败', async () => {
+    // 管理员带 memberId 能拿到 200(见用例 4);普通用户的 uuid token 不会被误判成 401,
+    // 且按归属放行后拿到的是 200(不是前序 fail-close 票的 403)。
     const res = await app.inject({
       method: 'GET',
       url: '/api/exam/composition/signup/my',
       headers: memberHeaders,
     })
-    // 比"返回 403"更强:响应体里不含任何报名记录(修复前此处是全表 4 条,含 member 9 的)
-    expect(recordsIn(res.json())).toEqual([])
-    expect(res.statusCode).toBe(403)
-    expect(H.state.whereSeen).toBe(0) // 授权在查库之前拦下,根本没发出无约束查询
+    expect(res.statusCode).toBe(200)
   })
 
-  it('2) 普通用户显式请求他人 memberId=9 ⇒ 同样拿不到他人记录', async () => {
+  it('1) 普通用户 /my 按归属放行:只回本人归属行,NULL 历史行与他人行一条都不出', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/exam/composition/signup/my',
+      headers: memberHeaders,
+    })
+    expect(res.statusCode).toBe(200)
+    const list = recordsIn(res.json())
+    // 夹具四行里只有 id=1 的 userId=CALLER;id=2 是 NULL 归属历史行(member 7 名下也不放行),
+    // id=3/4 是他人的 —— 一条都不得出现。
+    expect(list.map((r) => r.id)).toEqual(['1'])
+    const body = res.json() as { data: { total: number } }
+    expect(body.data.total, `where 取证: ${JSON.stringify(H.state.frags)}`).toBe(1)
+    expect(H.state.whereSeen).toBe(2) // 列表查询 + count 查询都带了 user_id 归属约束
+    expect(H.state.frags.some((f) => f.includes('col:user_id'))).toBe(true)
+    // 归属约束的绑定值就是调用者自己的 uuid(不是自报参数、不是 member_id)
+    expect(H.state.cond).toBeDefined()
+  })
+
+  it('2) 普通用户显式请求他人 memberId=9 ⇒ 参数不构成归属:仍只回本人那条', async () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/exam/composition/signup/my?memberId=${OTHER_MEMBER_ID}`,
       headers: memberHeaders,
     })
-    expect(recordsIn(res.json())).toEqual([])
-    expect(res.statusCode).toBe(403)
-    expect(H.state.whereSeen).toBe(0)
+    expect(res.statusCode).toBe(200)
+    const list = recordsIn(res.json())
+    expect(list.map((r) => r.id)).toEqual(['1'])
+    // 扁平行的 userId 字段承载遗留 member_id;member 9 的任何一条都不得出现
+    expect(list.every((r) => r.userId !== String(OTHER_MEMBER_ID))).toBe(true)
   })
 
   it('3) 管理员不带 memberId ⇒ 400,绝不退化成全表', async () => {
@@ -354,29 +461,67 @@ describe('/exam/composition/signup 归属校验(P0 数据泄露回归)', () => {
     expect(H.state.whereSeen).toBe(2) // 列表查询 + count 查询都带了 member_id 约束
   })
 
-  it('5) POST:普通用户不得代他人写 member_id(一行都不落库)', async () => {
+  it('5) POST:普通用户自报 memberId=9 ⇒ 不构成归属,写入的归属是服务端推导的本人在册', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/exam/composition/signup',
       headers: memberHeaders,
       payload: { eid: 101, memberId: OTHER_MEMBER_ID },
     })
-    expect(res.statusCode).toBe(403)
-    expect(H.state.inserted).toHaveLength(0)
+    // C 方案:会员自助放开,但自报 memberId 被忽略(不得写成 9 —— 那是代他人报名);
+    // 归属 = request.userId(服务端推导),memberId = 0(无遗留会员关联的显式哨兵)。
+    expect(res.statusCode).toBe(201)
+    expect(H.state.inserted).toHaveLength(1)
+    expect(H.state.inserted[0]).toMatchObject({
+      memberId: 0,
+      examId: 101,
+      userId: CALLER_UUID,
+    })
+    expect(H.state.inserted[0]?.memberId).not.toBe(OTHER_MEMBER_ID)
   })
 
-  it('6) POST 自助报名(saveSignUp 的 { eid } 载荷形态)⇒ 403,不再静默写到 member_id=0', async () => {
+  it('5b) POST:普通用户自报 userId=他人 uuid ⇒ 不构成归属,写入仍是服务端推导的本人在册', async () => {
+    // 变异③锚点:把 insert 的 userId 换成采信请求体自报,本用例必红(写入会变成 OTHER_UUID)
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/exam/composition/signup',
+      headers: memberHeaders,
+      payload: { eid: 101, userId: OTHER_UUID },
+    })
+    expect(res.statusCode).toBe(201)
+    expect(H.state.inserted[0]).toMatchObject({ userId: CALLER_UUID })
+    expect(H.state.inserted[0]?.userId).not.toBe(OTHER_UUID)
+  })
+
+  it('6) POST 自助报名(saveSignUp 的 { eid } 载荷形态)⇒ 201,userId 由服务端写入', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/exam/composition/signup',
       headers: memberHeaders,
       payload: { eid: 101 },
     })
-    expect(res.statusCode).toBe(403)
-    expect(H.state.inserted).toHaveLength(0)
+    expect(res.statusCode).toBe(201)
+    expect(H.state.inserted[0]).toMatchObject({
+      memberId: 0,
+      examId: 101,
+      userId: CALLER_UUID,
+      status: 'pending',
+    })
+    expect((res.json() as { data: { status: string } }).data.status).toBe('pending')
   })
 
-  it('7) 管理员显式 memberId ⇒ 201,且写入归属就是该值', async () => {
+  it('6b) POST:普通用户自报 status=completed ⇒ 不采信,服务端钉成 pending', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/exam/composition/signup',
+      headers: memberHeaders,
+      payload: { eid: 101, status: 'completed' },
+    })
+    expect(res.statusCode).toBe(201)
+    expect(H.state.inserted[0]).toMatchObject({ status: 'pending', userId: CALLER_UUID })
+  })
+
+  it('7) 管理员显式 memberId ⇒ 201,写该遗留编号且**不写归属列**(管理员≠归属人)', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/exam/composition/signup',
@@ -385,6 +530,8 @@ describe('/exam/composition/signup 归属校验(P0 数据泄露回归)', () => {
     })
     expect(res.statusCode).toBe(201)
     expect(H.state.inserted[0]).toMatchObject({ memberId: 7, examId: 101 })
+    // 管理员代建不知道目标用户 uuid,写管理员自己的 id = 制造假归属 ⇒ user_id 必须缺席
+    expect(H.state.inserted[0]?.userId).toBeUndefined()
     expect((res.json() as { data: { userId: string } }).data.userId).toBe('7')
   })
 
@@ -400,9 +547,11 @@ describe('/exam/composition/signup 归属校验(P0 数据泄露回归)', () => {
   })
 
   // ===========================================================================
-  // 同型剩余面收口的取证(2026-09-25 追加):/signup/list、GET/PUT/DELETE /signup/:sid
-  // 三条判据都是 fail-closed 到管理员档 —— 依据是"uuid→member_id 无映射可校验归属",
-  // 见 exam.ts 报名域顶部的实测结论。每条都配**正向对照**,否则"整条路由恒 403"
+  // /signup/list(管理查询面,保持管理员档)+ GET/PUT/DELETE /signup/:sid(按归属放行)。
+  // list 是"按 member_id 查任意会员"的管理端点,归属语义不适用,故维持:
+  //   非管理员 403 / 管理员必须显式 memberId。
+  // :sid 三条在 C 方案(2026-09-25)后按归属放行:非管理员 where = id ∧ user_id,
+  // 不命中(含 NULL 归属历史行)⇒ 404。每条都配**正向对照**,否则"整条路由恒 404"
   // 也会被读成"收口成功"。
   // ===========================================================================
 
@@ -468,19 +617,44 @@ describe('/exam/composition/signup 归属校验(P0 数据泄露回归)', () => {
     expect(H.state.frags.some((f) => /member_id/.test(f))).toBe(true)
   })
 
-  it('14) GET /:sid:普通会员按 sid 枚举 ⇒ 403 且拿不到任何详情', async () => {
+  it('14) GET /:sid:普通会员读**本人归属行**(sid=1)⇒ 200,where 必含 id ∧ user_id', async () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/exam/composition/signup/1',
       headers: memberHeaders,
     })
-    // 比状态码更强:响应体里根本没有 signup 对象(修复前此处是 member 7 的整行)
-    expect(signupIn(res.json())).toBeNull()
-    expect(res.statusCode).toBe(403)
-    expect(H.state.whereSeen).toBe(0)
+    expect(res.statusCode).toBe(200)
+    expect(signupIn(res.json())?.id).toBe(1)
+    expect(H.state.whereSeen).toBe(1)
+    // 关键取证:where 同时含 id 与 user_id(AND 而非择一)—— 摘掉归属条件,14b/14c 必红
+    expect(
+      H.state.frags.some((f) => f.includes('col:id') && f.includes('col:user_id')),
+      `where 取证: ${JSON.stringify(H.state.frags)}`,
+    ).toBe(true)
   })
 
-  it('15) GET /:sid 正向对照:管理员 ⇒ 200 读到详情(证明收口不是恒 403)', async () => {
+  it('14b) GET /:sid:普通会员按他人 sid=3 ⇒ 404,拿不到任何详情', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/exam/composition/signup/3',
+      headers: memberHeaders,
+    })
+    expect(signupIn(res.json())).toBeNull()
+    expect(res.statusCode).toBe(404)
+  })
+
+  it('14c) GET /:sid:普通会员读 **NULL 归属历史行**(sid=2,memberId 恰为 7)⇒ 404', async () => {
+    // 归属未知 ≠ 归属成立:即使该行的遗留 member_id 与任何自报参数吻合,无 user_id 就不放行
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/exam/composition/signup/2',
+      headers: memberHeaders,
+    })
+    expect(signupIn(res.json())).toBeNull()
+    expect(res.statusCode).toBe(404)
+  })
+
+  it('15) GET /:sid 正向对照:管理员 ⇒ 200 读到详情(管理员档不受归属条件限制)', async () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/exam/composition/signup/1',
@@ -489,19 +663,33 @@ describe('/exam/composition/signup 归属校验(P0 数据泄露回归)', () => {
     expect(res.statusCode).toBe(200)
     expect(signupIn(res.json())).not.toBeNull()
     expect(H.state.whereSeen).toBe(1)
+    expect(H.state.frags.some((f) => f.includes('col:id'))).toBe(true)
   })
 
-  it('16) PUT /:sid:普通会员 ⇒ 403,且一次 UPDATE 都没发出', async () => {
+  it('16) PUT /:sid:普通会员改**本人归属行**(sid=1)⇒ 200 且真写进去', async () => {
     const res = await app.inject({
       method: 'PUT',
       url: '/api/exam/composition/signup/1',
       headers: memberHeaders,
       payload: { status: 'attended' },
     })
-    expect(res.statusCode).toBe(403)
-    expect(H.state.updateCalls).toBe(0)
-    expect(H.state.updated).toHaveLength(0)
-    expect(H.state.whereSeen).toBe(0)
+    expect(res.statusCode).toBe(200)
+    expect(H.state.updateCalls).toBe(1)
+    expect(H.state.updated[0]).toMatchObject({ status: 'attended' })
+    expect(H.state.frags.some((f) => f.includes('col:id') && f.includes('col:user_id'))).toBe(true)
+  })
+
+  it('16b) PUT /:sid:普通会员按他人 sid=3 ⇒ 404,补丁一行都落不了', async () => {
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/exam/composition/signup/3',
+      headers: memberHeaders,
+      payload: { status: 'attended' },
+    })
+    expect(res.statusCode).toBe(404)
+    // UPDATE 确实发出了,但 where 含归属条件 ⇒ 0 行命中(mock 忠实过滤,他人行未被改)
+    expect(H.state.updateCalls).toBe(1)
+    expect(signupIn(res.json())).toBeNull()
   })
 
   it('17) PUT /:sid 正向对照:管理员 ⇒ 真写进去一次', async () => {
@@ -517,16 +705,35 @@ describe('/exam/composition/signup 归属校验(P0 数据泄露回归)', () => {
     expect(signupIn(res.json())?.status).toBe('attended')
   })
 
-  it('18) DELETE /:sid:普通会员 ⇒ 403,且一次 DELETE 都没发出', async () => {
+  it('18) DELETE /:sid:普通会员删**本人归属行**(sid=1)⇒ 200', async () => {
     const res = await app.inject({
       method: 'DELETE',
       url: '/api/exam/composition/signup/1',
       headers: memberHeaders,
     })
-    expect(res.statusCode).toBe(403)
-    expect(H.state.deleteCalls).toBe(0)
-    expect(H.state.whereSeen).toBe(0)
+    expect(res.statusCode).toBe(200)
+    expect(H.state.deleteCalls).toBe(1)
+    expect((res.json() as { data?: { ok?: boolean } }).data?.ok).toBe(true)
+  })
+
+  it('18b) DELETE /:sid:普通会员按他人 sid=3 ⇒ 404(影响行数=0,不再是静默 ok)', async () => {
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/api/exam/composition/signup/3',
+      headers: memberHeaders,
+    })
+    expect(res.statusCode).toBe(404)
+    expect(H.state.deleteCalls).toBe(1)
     expect((res.json() as { data?: { ok?: boolean } }).data?.ok).toBeUndefined()
+  })
+
+  it('18c) DELETE /:sid:普通会员删 NULL 归属历史行(sid=2)⇒ 404', async () => {
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/api/exam/composition/signup/2',
+      headers: memberHeaders,
+    })
+    expect(res.statusCode).toBe(404)
   })
 
   it('19) DELETE /:sid 正向对照:管理员 ⇒ 200 且 delete 真被调用一次', async () => {
@@ -540,11 +747,14 @@ describe('/exam/composition/signup 归属校验(P0 数据泄露回归)', () => {
   })
 
   // ===========================================================================
-  // POST /signup/:sid/submit 收口的取证(2026-09-25 追加)。这一格原本是报名域**唯一还开着**
-  // 的同型面:handler 只有 checkAuth + sidParam.parse,where(eq(examSignUp.id, Number(sid)))
-  // 不含任何归属条件 ⇒ 任意登录用户可按 sid 把他人报名标为 completed。
-  // 四条用例与上面 GET/PUT/DELETE 三条完全同形,并且**必须含正向对照**(用例 22)——
-  // 否则"整条路由恒 403"也会被读成"收口成功",而那等于把功能删了而不是收了口。
+  // POST /signup/:sid/submit。收口史(两段):
+  //   ① 2026-09-25 P0:原 handler 只有 checkAuth + sidParam.parse,where(eq(id, sid))
+  //      不含任何归属条件 ⇒ 任意登录用户可按 sid 把他人报名标为 completed(越权篡改),
+  //      当时按"无映射"结论 fail-close 到管理员档。
+  //   ② 同日 C 方案(本票):user_id 归属列落地,闸门换成 id ∧ user_id 的 AND 条件 ——
+  //      会员可提交**本人**报名(sid=1 ⇒ 200),他人行/NULL 归属历史行 ⇒ 404。
+  // 必须含正向对照(用例 21b/22)—— 否则"整条路由恒 404"也会被读成"收口成功",
+  // 而那等于把功能删了而不是收了口。
   // ===========================================================================
 
   it('20) submit:未登录 ⇒ 401(鉴权在授权之前,顺序不得颠倒)', async () => {
@@ -557,22 +767,47 @@ describe('/exam/composition/signup 归属校验(P0 数据泄露回归)', () => {
     expect(H.state.whereSeen).toBe(0)
   })
 
-  it('21) submit:普通会员(合法 JWT、非 admin)按他人 sid ⇒ 403 且一次 UPDATE 都没发出', async () => {
-    // sid=3 属于 member 9,而调用者是 uuid 身份的普通会员 —— 收口前这里会把该行改成 completed
+  it('21) submit:普通会员按他人 sid=3 ⇒ 404,一行都改不成(前序敞口的物证,新判据下复验)', async () => {
+    // sid=3 属于 OTHER 用户 —— C 方案前这里会把该行改成 completed(越权篡改);
+    // 现在归属 AND 条件进 where ⇒ 0 行命中 ⇒ 404,响应体不含 signup。
     const res = await app.inject({
       method: 'POST',
       url: '/api/exam/composition/signup/3/submit',
       headers: memberHeaders,
     })
-    expect(res.statusCode).toBe(403)
-    expect(H.state.updateCalls).toBe(0)
-    expect(H.state.updated).toHaveLength(0)
-    // 比"没有写入"更强:授权判据在**发出任何查询之前**就返回了
-    expect(H.state.whereSeen).toBe(0)
+    expect(res.statusCode).toBe(404)
+    expect((res.json() as { data?: { signup?: unknown } }).data?.signup).toBeUndefined()
+    // UPDATE 发出了,但 where 必须同时含 id 与 user_id —— 摘掉归属条件本用例必红
+    expect(H.state.updateCalls).toBe(1)
+    expect(
+      H.state.frags.some((f) => f.includes('col:id') && f.includes('col:user_id')),
+      `where 取证: ${JSON.stringify(H.state.frags)}`,
+    ).toBe(true)
+  })
+
+  it('21b) submit:普通会员提交**本人归属行**(sid=1)⇒ 200 真把 status 写成 completed', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/exam/composition/signup/1/submit',
+      headers: memberHeaders,
+    })
+    expect(res.statusCode).toBe(200)
+    expect(H.state.updateCalls).toBe(1)
+    expect(H.state.updated[0]).toMatchObject({ status: 'completed' })
+    expect(signupIn(res.json())?.status).toBe('completed')
+  })
+
+  it('21c) submit:普通会员提交 NULL 归属历史行(sid=2)⇒ 404(归属未知不放行)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/exam/composition/signup/2/submit',
+      headers: memberHeaders,
+    })
+    expect(res.statusCode).toBe(404)
     expect((res.json() as { data?: { signup?: unknown } }).data?.signup).toBeUndefined()
   })
 
-  it('22) submit 正向对照:管理员 ⇒ 200 且真把 status 写成 completed(证明收口不是恒 403)', async () => {
+  it('22) submit 正向对照:管理员 ⇒ 200 且真把 status 写成 completed(证明收口不是恒 404)', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/exam/composition/signup/3/submit',
@@ -584,19 +819,20 @@ describe('/exam/composition/signup 归属校验(P0 数据泄露回归)', () => {
     expect(signupIn(res.json())?.status).toBe('completed')
   })
 
-  it('23) submit:请求体自报 memberId / userId / roleId 不构成档位(档位只由 JWT roleId 决定)', async () => {
-    // 与本仓 skills-submissions-security.test.ts:240 同形:把管理员的 uuid 与 memberId 填进
-    // body、连 roleId 都自报成 1,也不能换到管理员档 —— isSystemAdmin 只读 request.jwtPayload.roleId。
+  it('23) submit:请求体自报 userId / memberId / roleId 不构成归属(自报≠本人)', async () => {
+    // 自报他人 uuid 去提交**他人**的 sid=3:归属判据只认 JWT 里的 request.userId,
+    // 请求体里塞什么都不换档、不换归属。变异③:把服务端取值改成采信 body.userId,本用例必红。
     const res = await app.inject({
       method: 'POST',
-      url: '/api/exam/composition/signup/1/submit',
+      url: '/api/exam/composition/signup/3/submit',
       headers: memberHeaders,
-      payload: { memberId: 7, userId: ADMIN_UUID, roleId: 1, isAdmin: true },
+      payload: { memberId: 9, userId: OTHER_UUID, roleId: 1, isAdmin: true },
     })
-    expect(res.statusCode).toBe(403)
-    expect(H.state.updateCalls).toBe(0)
-    expect(H.state.updated).toHaveLength(0)
-    expect(H.state.whereSeen).toBe(0)
+    expect(res.statusCode).toBe(404)
+    expect((res.json() as { data?: { signup?: unknown } }).data?.signup).toBeUndefined()
+    expect(H.state.updateCalls).toBe(1)
+    // 归属绑定值仍是调用者 uuid(不是自报的 OTHER_UUID)
+    expect(H.state.frags.some((f) => f.includes('col:user_id'))).toBe(true)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
