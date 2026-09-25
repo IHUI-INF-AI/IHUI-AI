@@ -9,6 +9,10 @@
     {
       "event": "thinking",
       "why": "api-client 只把 thinking 帧的 content 投给 onReasoning(web/extension 有推理展示区),而 sse-parse 侧的 miniapp-taro 没有推理内容区。另有一类只带 message 的阶段帧(「正在思考…」「正在规划执行步骤…」「正在总结执行结果…」,见 apps/ai-service/app/services/langgraph_service.py)在**两端都没人消费**,属于生产了却没人看的字段,已单独立项(不靠本登记项掩盖)。"
+    },
+    {
+      "event": "form_request",
+      "why": "D77 对话流业务表单帧(G-106,2026-09-25 立)。消费面实测**只有 web**:apps/web/src/hooks/use-chat/send-message.ts:910 的 onFormRequest 写入 stores/business-forms.ts,渲染宿主为 components/ai/business-form-section.tsx(33 submitFormResponse→buildFormResponseEvent→postFormResponse 上行)← components/chat/message-list/MessageList.tsx:414 挂载位。miniapp-taro/mobile-rn/packages/app/extension/cli 五面对 form_request 的 git grep 实测 0 命中(无 BusinessFormCard 渲染位),sse-parse.ts 亦未解析——接线计划见 PROJECT_PLAN.md D77 段及其「业务表单按住」条目(解阻判据:ai-service 生产者与四端渲染位另计批)。如实登记另一半事实:**ai-service 生产者当前未落**(apps/ai-service 与 apps/api 源码面 git grep 0 命中,见 docs/plan-audit-2026-09-25/code-d77.md §0/§5,Python 契约 sse_contract.py 由同族门管,不在本登记项范围),本项声明的是「api-client 已解析、现仅 web 消费」,非「永久仅 web」——其余端接入渲染位时应在 sse-parse.ts 补解析本帧并删本登记、上调 parseCoverageBaseline(门 63 的 stale 判据会督促这一步)。"
     }
   ]
 }
