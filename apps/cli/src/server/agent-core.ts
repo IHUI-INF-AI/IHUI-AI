@@ -27,6 +27,7 @@ import {
   type Session,
 } from '../commands/session.js';
 import type { PermissionMode } from '../tools/permissions.js';
+import { createDangerGate } from '../tools/danger-gate.js';
 
 export interface AgentCoreOptions {
   workspacePath: string;
@@ -98,7 +99,11 @@ export class AgentCore {
         apiKey: this.opts.apiKey,
         allowDangerous: this.opts.allowDangerous,
       },
-      confirmDangerous: async () => this.opts.allowDangerous === true,
+      // 策略收口到唯一出口:本端无人可问 ⇒ 无 prompt,flag 未开即 denied(fail-closed,与旧行为逐路径等价)
+      confirmDangerous: createDangerGate({
+        allowDangerous: this.opts.allowDangerous,
+        silent: true,
+      }),
     });
     this.sharedSystemPrompt = result.systemPrompt;
     this.sharedCtx = result.ctx;
