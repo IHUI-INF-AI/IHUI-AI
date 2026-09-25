@@ -35,16 +35,25 @@ vi.mock('@/lib/api', () => ({
 
 import { useActiveDispatches, useSwarmTopology } from '../use-subagent-dispatch'
 
-function Probe({ which }: { which: 'active' | 'topology' }) {
-  if (which === 'active') useActiveDispatches()
-  else useSwarmTopology()
+// 两个 hook 各用独立探针组件:同一组件里 if/else 调 hook 违反 react-hooks/rules-of-hooks
+// (eslint 在 lint-staged 阶段直接拦下,提交链因此提前中断——别学这种写法)。
+function ActiveProbe() {
+  useActiveDispatches()
+  return React.createElement('div', { 'data-testid': 'probe' })
+}
+function TopologyProbe() {
+  useSwarmTopology()
   return React.createElement('div', { 'data-testid': 'probe' })
 }
 
 function mount(which: 'active' | 'topology') {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })
   return render(
-    React.createElement(QueryClientProvider, { client: qc }, React.createElement(Probe, { which })),
+    React.createElement(
+      QueryClientProvider,
+      { client: qc },
+      React.createElement(which === 'active' ? ActiveProbe : TopologyProbe),
+    ),
   )
 }
 
