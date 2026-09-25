@@ -132,6 +132,9 @@ describe('Skills Market API', () => {
     // 鉴权放行 + userId=1
     mockCheckAuth.mockImplementation((req: { userId?: string }) => {
       req.userId = '1'
+      // 本文件测冲突/通知/更新语义，不是授权面；市场写入现需 admin 或 owner，
+      // 故调用者档位必须是管理员(否则一律 403 —— 那正是 P0 修复要堵的路径)。
+      req.jwtPayload = { roleId: 1 }
       return Promise.resolve(true)
     })
     // 预热:触发 readMarket 自动落种,捕获干净种子 JSON 供 beforeEach 还原
@@ -153,6 +156,9 @@ describe('Skills Market API', () => {
     mockCheckAuth.mockReset()
     mockCheckAuth.mockImplementation((req: { userId?: string }) => {
       req.userId = '1'
+      // 本文件测冲突/通知/更新语义，不是授权面；市场写入现需 admin 或 owner，
+      // 故调用者档位必须是管理员(否则一律 403 —— 那正是 P0 修复要堵的路径)。
+      req.jwtPayload = { roleId: 1 }
       return Promise.resolve(true)
     })
   })
