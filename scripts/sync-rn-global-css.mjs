@@ -3,116 +3,218 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * sync-rn-global-css.mjs — 从 packages/design-tokens/src/styles/tokens.css 自动同步 token 到 mobile-rn/global.css。
+ * sync-rn-global-css.mjs — 把 packages/design-tokens/src/styles/tokens.css 的设计真值**原位写回**
+ * apps/mobile-rn/global.css 的 `:root` / `.dark` 块。
  *
- * 根因:NativeWind 4.x 仅支持 Tailwind v3,不兼容 v4 的 @theme 语法,无法直接 @import tokens.css。
- * 本脚本从 tokens.css 的 @theme 块和 .dark 块提取 --color-* 语义色变量,
- * 生成 mobile-rn/global.css 中的 :root 和 .dark 块,实现"一处修改,全端生效"。
+ * 为什么必须存在(不是可有可无的便利脚本):NativeWind 4.x 只吃 Tailwind v3 语法,无法直接
+ * `@import tokens.css`,所以 mobile-rn 必须持有一份 CSS 变量副本。副本漂移 = 视觉 bug。
  *
- * 与 scripts/check-rn-global-css-sync.mjs 的关系:
- * - check 脚本只检测漂移(不修复),本脚本既能检测(--check)又能修复(默认写回)。
- * - 两者独立运行:check 输出详细差异(调试友好),sync 输出简洁提示(CI 友好)。职责分离,不互相委托。
+ * 2026-09-25 的两处实测结论决定了本文件的写法:
+ * 1. **取值口径必须与守门 `check-rn-global-css-sync.mjs` 一致**,故两边共用
+ *    `scripts/lib/design-token-blocks.mjs`。本脚本旧版用 `/@theme\s*\{([\s\S]*?)\}/` 只取**首个**
+ *    非贪婪块,漏掉 tokens.css 第 326/341/407… 行的后续 `:root` 块 —— 里面正是
+ *    `--color-*-rgb` 三元组(alpha 通道,守门 93 R6 要求每档必备)。实测:把它接上提交链跑一次,
+ *    这 3 行被"同步"删除。
+ * 2. **不得整块替换**。`.dark` 块里有 13 个 `--rn-*` 端内自有档(其注释写明"用 --rn-* 前缀避免被
+ *    只校验 --color-* 的那道门拦"),整块替换一次就把它们连同 6 段解释性注释一起抹掉。
+ *    这就是"RN 侧自动同步长期只拦红、不回写"的真实原因 —— 不是漏接,是旧写法接上必炸。
+ *    现改为**原位写回**:同名行换值、源里新增档补到块尾、其余一个字符不动。
  *
  * 用法:
- *   node scripts/sync-rn-global-css.mjs          # 同步并写回 global.css
- *   node scripts/sync-rn-global-css.mjs --check   # 仅校验,不写回(用于 CI/pre-commit)
- *   node scripts/sync-rn-global-css.mjs --help    # 帮助
+ *   node scripts/sync-rn-global-css.mjs            原位写回 global.css(幂等)
+ *   node scripts/sync-rn-global-css.mjs --check    只校验不写盘(漂移则 exit 1)
+ *   node scripts/sync-rn-global-css.mjs --quiet    抑制常规输出
+ *   node scripts/sync-rn-global-css.mjs --self-test 判据自检(不碰真仓文件)
+ *   node scripts/sync-rn-global-css.mjs --help     帮助
  *
- * 退出码:
- *   0 — 同步成功 / 校验通过
- *   1 — 校验失败(token 漂移) / 文件读写错误
- *
- * 参考模板:apps/miniapp-taro/scripts/sync-design-tokens.mjs
+ * 退出码:0 = 成功/一致;1 = 漂移或读写失败;2 = 无法判定(取不到源、脚本自身异常)
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { collectVars, maskComments } from './lib/design-token-blocks.mjs'
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-const ROOT = resolve(__dirname, '..') // scripts/ -> 仓库根目录
-
-const TOKENS_SOURCE = resolve(ROOT, 'packages/design-tokens/src/styles/tokens.css')
-const GLOBAL_CSS_TARGET = resolve(ROOT, 'apps/mobile-rn/global.css')
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+export const TOKENS_SOURCE_REL = 'packages/design-tokens/src/styles/tokens.css'
+export const GLOBAL_CSS_REL = 'apps/mobile-rn/global.css'
+const TOKENS_SOURCE = resolve(ROOT, TOKENS_SOURCE_REL)
+const GLOBAL_CSS_TARGET = resolve(ROOT, GLOBAL_CSS_REL)
 
 const args = process.argv.slice(2)
 const isCheck = args.includes('--check')
 const isHelp = args.includes('--help')
+const isQuiet = args.includes('--quiet')
+const isSelfTest = args.includes('--self-test')
 
 if (isHelp) {
-  console.info(`sync-rn-global-css.mjs — 同步 design-tokens 到 mobile-rn/global.css
+  console.info(
+    `sync-rn-global-css.mjs — tokens.css → mobile-rn/global.css 原位写回
 
-用法:
-  node scripts/sync-rn-global-css.mjs          同步并写回 global.css
-  node scripts/sync-rn-global-css.mjs --check   仅校验,不写回
-  node scripts/sync-rn-global-css.mjs --help    帮助
-
-源: ${TOKENS_SOURCE.replace(ROOT, '.')}
-目标: ${GLOBAL_CSS_TARGET.replace(ROOT, '.')}
-`)
+  node scripts/sync-rn-global-css.mjs            写回(幂等)
+  node scripts/sync-rn-global-css.mjs --check    只校验
+  node scripts/sync-rn-global-css.mjs --self-test 判据自检
+源: ${TOKENS_SOURCE_REL}
+目标: ${GLOBAL_CSS_REL}`
+  )
   process.exit(0)
 }
 
 /**
- * 从 tokens.css 提取 @theme 块内的变量声明。
- * @theme 块格式:@theme { ... --color-xxx: hsl(...); ... }
- * 返回:["--color-xxx: hsl(...);", ...]
+ * mobile-rn(NativeWind v3)只需要同步语义色,以下各档**故意不搬**:
+ * - 非颜色变量(--font-* / --animate-* / --breakpoint-* / --radius-* / --z-* / --text-vcenter-offset …)
+ * - `--color-sidebar` `--color-shell-panel`(web 侧边栏独有,RN 无侧边栏)
+ * - `--color-brand-*`(品牌色阶,RN 侧走 rnTokens.brand 而非 CSS 变量)
+ * - `--color-vip-*` `--color-rank-*` `--color-white-*` `--color-black-*`(RN 未使用的色板)
  */
-function extractThemeBlock(content) {
-  const themeMatch = content.match(/@theme\s*\{([\s\S]*?)\}/)
-  if (!themeMatch) return []
-  return themeMatch[1]
-    .split('\n')
-    .map((l) => l.trim())
-    .filter((l) => l.startsWith('--') && l.includes(':'))
+export const RN_SKIP_PREFIXES = [
+  '--color-sidebar',
+  '--color-shell-panel',
+  '--color-brand-',
+  '--color-vip-',
+  '--color-rank-',
+  '--color-white-',
+  '--color-black-',
+]
+
+export function isManagedForRn(name) {
+  return name.startsWith('--color-') && !RN_SKIP_PREFIXES.some((p) => name.startsWith(p))
 }
 
 /**
- * 从 tokens.css 提取 .dark 块内的变量声明。
- * 返回:["--color-xxx: hsl(...);", ...]
+ * 从 tokens.css 取 mobile-rn 该同步的声明。
+ * @param {'light'|'dark'} kind  light = `@theme` + **全部** `:root` 块合并;dark = **全部** `.dark` 块
  */
-function extractDarkBlock(content) {
-  const darkMatch = content.match(/\.dark\s*\{([\s\S]*?)\}/)
-  if (!darkMatch) return []
-  return darkMatch[1]
-    .split('\n')
-    .map((l) => l.trim())
-    .filter((l) => l.startsWith('--') && l.includes(':'))
+export function deriveRnDecls(tokensCss, kind) {
+  const selectors = kind === 'dark' ? ['.dark'] : ['@theme', ':root']
+  return [...collectVars(tokensCss, selectors).values()].filter((d) => isManagedForRn(d.name))
 }
 
 /**
- * 把变量声明数组格式化为 CSS 块(带 2 空格缩进)。
- */
-function formatBlock(lines, indent = '  ') {
-  return lines.map((l) => `${indent}${l}`).join('\n')
-}
-
-/**
- * 提取 mobile-rn 需要的 --color-* 语义色变量。
+ * 原位写回:同名 `--color-*` 行就地换值;源里存在而本块缺的档追加到块尾;
+ * 注释、空行、非受管声明(如 `--rn-*`)一律留在原位。
  *
- * mobile-rn NativeWind v3 只需要语义色(--color-),不同步:
- * - 非颜色变量(--font, --animate, --breakpoint, --text-vcenter-offset, --z, --global-box-shadow, --shadow-premium, --radius 等)
- * - --color-sidebar, --color-shell-panel(web 侧边栏独有,RN 无侧边栏)
- * - --color-brand(品牌色阶,RN 用 rnTokens.brand 而非 CSS 变量)
- * - --color-vip, --color-rank(业务色阶,RN 未使用)
- * - --color-white, --color-black(透明度色板,RN 未使用)
+ * 注释状态机是必需的:块注释里会出现 `--color-x: 说明` 这种散文行(本仓 2026-09-25 已因
+ * "把注释当数据"翻车两次 —— R6 的 bg-muted/40 假用量、以及本条),不剥就会当成声明去替换。
  */
-function filterTokens(lines) {
-  const skipPrefixes = [
-    '--color-sidebar',
-    '--color-shell-panel',
-    '--color-brand-',
-    '--color-vip-',
-    '--color-rank-',
-    '--color-white-',
-    '--color-black-',
-  ]
-  return lines.filter((l) => {
-    const name = l.split(':')[0].trim()
-    // 只同步 --color-* 语义色(自动排除 --font-*/--radius/--animate-*/--breakpoint-*/--z-*/--text-vcenter-offset 等非颜色变量)
-    if (!name.startsWith('--color-')) return false
-    return !skipPrefixes.some((p) => name.startsWith(p))
-  })
+export function mergeBlockBody(blockBody, decls) {
+  const byName = new Map(decls.map((d) => [d.name, d.value]))
+  const seen = new Set()
+  const masked = maskComments(blockBody)
+  const re = /--color-[\w-]+\s*:\s*[^;]+;/g
+  let out = ''
+  let last = 0
+  for (const m of masked.matchAll(re)) {
+    const nm = m[0].match(/(--color-[\w-]+)\s*:\s*([\s\S]*);$/)
+    const name = nm[1]
+    const value = nm[2].replace(/\s+/g, ' ').trim()
+    out += blockBody.slice(last, m.index)
+    const want = byName.get(name)
+    if (want === undefined) {
+      // 本脚本无权处置的档(端内自立的 --color-* 档):原样留下,不删也不判红
+      out += blockBody.slice(m.index, m.index + m[0].length)
+    } else {
+      seen.add(name)
+      out +=
+        value === want
+          ? blockBody.slice(m.index, m.index + m[0].length) // 已等价 ⇒ 保留原字节(含跨行排版)
+          : `${name}: ${want};` // 缩进由前面 slice 原样带过,这里不得再补
+    }
+    last = m.index + m[0].length
+  }
+  out += blockBody.slice(last)
+
+  const added = decls.filter((d) => !seen.has(d.name))
+  if (added.length) {
+    const trimmed = out.replace(/\s+$/, '')
+    out = `${trimmed}\n\n  /* 以下 ${added.length} 档为 tokens.css 中存在而本文件尚缺,由 sync-rn-global-css.mjs 自动补入(勿手改) */\n${added
+      .map((d) => `  ${d.name}: ${d.value};`)
+      .join('\n')}\n`
+  }
+  return out
+}
+
+/** 替换 css 里某个顶层块(块内不得再嵌套大括号);找不到即抛,绝不静默跳过。 */
+export function replaceBlock(css, selector, decls) {
+  const esc = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const re = new RegExp(`(${esc}\\s*\\{)([^{}]*)(\\})`)
+  const m = re.exec(css)
+  if (!m) throw new Error(`目标 CSS 中未找到 ${selector} 块`)
+  return (
+    css.slice(0, m.index) +
+    m[1] +
+    mergeBlockBody(m[2], decls) +
+    m[3] +
+    css.slice(m.index + m[0].length)
+  )
+}
+
+/**
+ * 判据自检:全部用内存夹具,不碰真仓文件。
+ * 每条都是**成对**的 —— 只证"会改"不证"不乱改"的判据等于没有(漏剥注释、抹掉端内档这两条
+ * 阳性对照正是本票修掉的两个缺陷)。
+ */
+function selfTest() {
+  const results = []
+  const ok = (name, cond, extra = '') =>
+    results.push(`${cond ? '✅' : '❌'} ${name}${extra ? ` → ${extra}` : ''}`)
+  const tokens = `@theme {
+  /* 说明里也写着 --color-fake: 这是散文不是声明; */
+  --color-bg: white;
+  --color-primary-rgb: 0, 0, 0;
+  --color-brand-accent: #4A7A96;
+}
+:root {
+  --color-late-rgb: 1, 2, 3;
+}
+.dark {
+  --color-bg: black;
+}`
+  const light = deriveRnDecls(tokens, 'light')
+  ok('D1 后续 :root 块必须被并进来(旧版漏 → 实测删掉 alpha 三元组)', light.some((d) => d.name === '--color-late-rgb'))
+  ok('D2 同族 alpha 三元组必须在(守门 93 R6 要求每档必备)', light.some((d) => d.name === '--color-primary-rgb'))
+  ok('D3 brand 档按端内策略不搬', !light.some((d) => d.name.startsWith('--color-brand-')))
+  const css = `:root {
+  /* 语义色(手抄说明) */
+  --color-bg: WRONG;
+  /* RN 扩展语义色
+   * 值源自 rnTokens。用 --rn-* 前缀避免被只校验 --color-* 的那道门拦。 */
+  --rn-accent: #123456;
+  --color-comment-bait: untouched;
+}`
+  const merged = replaceBlock(css, ':root', light)
+  ok('P1 同名行就地换值', /--color-bg: white;/.test(merged) && !/--color-bg: WRONG/.test(merged))
+  ok('P2 端内 --rn-* 档逐字保留(整块替换的必炸点)', merged.includes('--rn-accent: #123456;'))
+  ok('P3 解释性注释留在原位', merged.includes('用 --rn-* 前缀避免被只校验'))
+  ok('P4 注释里的 --color-x: 散文不得当声明改写(阳性对照)', merged.includes('--color-comment-bait: untouched;'))
+  ok('P5 源里缺的档补到块尾且点名来源', /自动补入/.test(merged) && /--color-late-rgb: 1, 2, 3;/.test(merged))
+  const again = replaceBlock(merged, ':root', light)
+  ok('P6 幂等:第二次必须与第一次逐字节相同', again === merged)
+  const multi = `:root {
+  --color-bg: white;
+  --color-gradient-purple-yellow: linear-gradient(
+    112deg,
+    rgba(205, 208, 255, 0.7) 0%
+  );
+}`
+  const multiTokens = `@theme { --color-bg: white; }
+:root { --color-gradient-purple-yellow: linear-gradient(112deg, rgba(205, 208, 255, 0.7) 0%); }`
+  const multiDecls = deriveRnDecls(multiTokens, 'light')
+  const multiMerged = replaceBlock(multi, ':root', multiDecls)
+  ok(
+    'P8 跨行声明不得被判成"本文件尚缺"再补一遍(实测:6 个渐变档导致幂等破功、块越写越长)',
+    !/自动补入/.test(multiMerged) && replaceBlock(multiMerged, ':root', multiDecls) === multiMerged
+  )
+  let threw = false
+  try {
+    replaceBlock('.nada { --x: 1; }', ':root', light)
+  } catch {
+    threw = true
+  }
+  ok('P7 目标块不存在必须抛(不得静默当成无需同步)', threw)
+  for (const r of results) console.log(r)
+  const failed = results.filter((r) => r.startsWith('❌')).length
+  console.log(failed ? `self-test 失败 ${failed} 条` : `✅ self-test 全通过(${results.length} 条)`)
+  process.exit(failed ? 1 : 0)
 }
 
 function main() {
@@ -128,63 +230,63 @@ function main() {
   const tokensContent = readFileSync(TOKENS_SOURCE, 'utf8')
   const globalCssContent = readFileSync(GLOBAL_CSS_TARGET, 'utf8')
 
-  const themeLines = filterTokens(extractThemeBlock(tokensContent))
-  const darkLines = filterTokens(extractDarkBlock(tokensContent))
-
-  if (themeLines.length === 0) {
-    console.error('[sync-rn-global-css] 未从 @theme 块提取到任何 --color-* 变量,请检查 tokens.css 格式')
-    process.exit(1)
-  }
-  if (darkLines.length === 0) {
-    console.error('[sync-rn-global-css] 未从 .dark 块提取到任何 --color-* 变量,请检查 tokens.css 格式')
-    process.exit(1)
+  const lightDecls = deriveRnDecls(tokensContent, 'light')
+  const darkDecls = deriveRnDecls(tokensContent, 'dark')
+  if (lightDecls.length === 0 || darkDecls.length === 0) {
+    console.error(
+      `[sync-rn-global-css] 从 tokens.css 取到 :root ${lightDecls.length} 档 / .dark ${darkDecls.length} 档 ⇒ 无法判定`
+    )
+    process.exit(2)
   }
 
-  // 生成新的 :root 和 .dark 块(保留 NativeWind 特有的 @tailwind 指令和头部注释,只替换 :root/.dark 块)
-  const newRootBlock = `:root {
-  /* 语义色(自动同步自 tokens.css @theme 块,勿手动编辑) */
-${formatBlock(themeLines, '  ')}
-}`
-
-  const newDarkBlock = `.dark {
-  /* 暗色模式(自动同步自 tokens.css .dark 块,勿手动编辑) */
-${formatBlock(darkLines, '  ')}
-}`
-
-  // 替换 global.css 中的 :root { ... } 和 .dark { ... } 块
-  // :root/.dark 块内只有 CSS 变量声明(无嵌套大括号),用 [^{}]* 匹配块内内容
-  const rootRegex = /:root\s*\{[^{}]*\}/
-  const darkRegex = /\.dark\s*\{[^{}]*\}/
-
-  let newGlobalCss = globalCssContent
-  if (!rootRegex.test(newGlobalCss)) {
-    console.error('[sync-rn-global-css] global.css 中未找到 :root 块')
-    process.exit(1)
-  }
-  if (!darkRegex.test(newGlobalCss)) {
-    console.error('[sync-rn-global-css] global.css 中未找到 .dark 块')
+  let next = globalCssContent
+  try {
+    next = replaceBlock(replaceBlock(globalCssContent, ':root', lightDecls), '.dark', darkDecls)
+  } catch (e) {
+    console.error(`[sync-rn-global-css] ${e.message}`)
     process.exit(1)
   }
 
-  // 注意:test 会更新 lastIndex,用新字符串替换需重新匹配
-  newGlobalCss = newGlobalCss.replace(rootRegex, newRootBlock)
-  newGlobalCss = newGlobalCss.replace(darkRegex, newDarkBlock)
+  if (next === globalCssContent) {
+    if (!isQuiet)
+      console.info(
+        `[sync-rn-global-css] ✅ global.css 与 tokens.css 一致(${lightDecls.length} 个 :root 档 + ${darkDecls.length} 个 .dark 档)`
+      )
+    process.exit(0)
+  }
 
   if (isCheck) {
-    // 校验模式:对比内容是否一致
-    if (newGlobalCss === globalCssContent) {
-      console.info(`[sync-rn-global-css] ✅ global.css 与 tokens.css 同步,无漂移(${themeLines.length} 个 :root 变量 + ${darkLines.length} 个 .dark 变量)`)
-      process.exit(0)
-    } else {
-      console.error('[sync-rn-global-css] ❌ global.css 与 tokens.css 不同步,请运行: node scripts/sync-rn-global-css.mjs')
-      process.exit(1)
-    }
+    console.error(
+      '[sync-rn-global-css] ❌ global.css 与 tokens.css 不同步,请运行: node scripts/sync-rn-global-css.mjs'
+    )
+    process.exit(1)
   }
 
-  // 写回模式
-  writeFileSync(GLOBAL_CSS_TARGET, newGlobalCss, 'utf8')
-  console.info(`[sync-rn-global-css] ✅ 已同步 ${themeLines.length} 个 :root 变量 + ${darkLines.length} 个 .dark 变量到 global.css`)
+  writeFileSync(GLOBAL_CSS_TARGET, next, 'utf8')
+  console.info(
+    `[sync-rn-global-css] ✅ 已原位写回 global.css(${lightDecls.length} 个 :root 档 + ${darkDecls.length} 个 .dark 档)`
+  )
 }
 
-main()
+// §22d:CLI 直接执行才跑主流程;被测试 import 时不得有写盘副作用。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) {
+  try {
+    if (isSelfTest) selfTest()
+    else main()
+  } catch (error) {
+    console.error('[sync-rn-global-css] 执行失败:', error?.message ?? error)
+    process.exit(2)
+  }
+}
+
+export const __test__ = {
+  deriveRnDecls,
+  isManagedForRn,
+  mergeBlockBody,
+  replaceBlock,
+  RN_SKIP_PREFIXES,
+  TOKENS_SOURCE_REL,
+  GLOBAL_CSS_REL,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
