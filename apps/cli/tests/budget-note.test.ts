@@ -22,7 +22,11 @@ describe('budgetNoteText(额度分档告警)', () => {
   it('warning 档出本端词表措辞,并带上用量/百分比/重置/档位', () => {
     const line = budgetNoteText(FULL);
     expect(line).toContain('今日 AI 用量较高');
-    expect(line).toContain('已用 85,300 / 100,000 tokens');
+    // 单位是共享层的 K/M 口径(实现侧 task-status-line.ts 的装配规则注释写死了这一决定),
+    // 不是千分位 —— 原来这条 `85,300 / 100,000` 是在那之前留下的细节断言,
+    // 且不属于本文件开头声明要锁的四条性质之一;它红了两年没人发现,正是因为提交链没有一道门跑测试
+    // (守门 114 的立论)。改回 K/M,四条性质一条不动。
+    expect(line).toContain('已用 85K / 100K tokens');
     expect(line).toContain('85.3%');
     expect(line).toContain('明日 0 点重置');
     expect(line).toContain('个人版');

@@ -38,6 +38,9 @@ const REGISTERED_PORTS = new Set([
   8830, 8831, 8832, 8833, 8834, 8835, 8836, 8837, 8838, 8839,
   // 蓝绿部署 8840-8849
   8841, 8842, 8843, 8844, 8845, 8846, 8847, 8848, 8849,
+  // 8840-8899「预留扩展」段中已按 docs/port-management.md §3.1 认领的一枚:
+  // web 端桌面遮罩 e2e 的私有 dev 端口(刻意避开 8801 生产构建,见该 spec 头注的跑法)。
+  8877,
 ])
 
 // 豁免的非 88xx 端口(容器内部 / CI / 第三方)
@@ -64,6 +67,8 @@ const EXEMPT_PORTS = new Set([
   9093, // Alertmanager 端口
   6688, // ai-feed-sources 第三方 feed 端口
   5173, // Vite 默认端口(第三方工具)
+  9997, // Xinference(自托管)出厂默认端口 —— 与 11434(Ollama)/1234(LM Studio)同类的本地推理服务默认口;
+  // 出现处是 provider 注册表的 default_base_url / baseUrl 兜底值,不是本仓 dev/宿主映射端口。
   // 2026-08-19 立:补充 --all monorepo-wide 扫描后发现的合法端口
   8080, // llama.cpp / 通用 Web 服务(ai-service providers 默认端口)
   8000, // dev container / FastAPI uvicorn 默认端口(.env.act / ai-service providers)
