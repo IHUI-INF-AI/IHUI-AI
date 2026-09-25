@@ -23351,12 +23351,6 @@
     "figmaView": "Figma 视图",
     "settingsView": "设置视图"
   },
-  "topBar": {
-    "editor": "编辑器",
-    "close": "关闭",
-    "plus": "新建",
-    "skillsMarket": "Skill 市场"
-  },
   "statusBar": {
     "toggleTheme": "切换主题"
   },

@@ -23384,12 +23384,6 @@
     "figmaView": "Figma view",
     "settingsView": "Settings view"
   },
-  "topBar": {
-    "editor": "Editor",
-    "close": "Close",
-    "plus": "New",
-    "skillsMarket": "Skill Market"
-  },
   "statusBar": {
     "toggleTheme": "Toggle theme"
   },
