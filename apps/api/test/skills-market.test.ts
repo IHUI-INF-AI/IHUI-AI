@@ -317,6 +317,11 @@ describe('Skills Market API', () => {
         ratingCount: 0,
         createdAt: expect.any(String),
         updatedAt: expect.any(String),
+        // P2-14(2026-09-25)起的 listing 契约字段:归属由服务端按调用身份推导,
+        // 该 mock 的 checkAuth 注入的是 userId=1。
+        enabled: true,
+        source: 'user',
+        ownerId: 1,
       })
 
       // 验证可被市场搜索到
