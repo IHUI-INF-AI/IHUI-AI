@@ -406,8 +406,14 @@ test('裸 git 派生的生产文件数只减不增(存量记在基线,新增拦�
   assert.ok(
     hits.length <= BARE_GIT_BASELINE,
     `裸 git 派生的生产文件从基线 ${BARE_GIT_BASELINE} 涨到 ${hits.length} —— ` +
-      '新增者请改用 scripts/lib/face-reader.mjs 的 gitRaw(绝对路径 git + quotepath + timeout)。' +
-      `本次新增候选:${hits.slice(0, 8).join(', ')}`,
+      '新增者请改用 scripts/lib/face-reader.mjs 的 gitRaw(绝对路径 git + quotepath + timeout)。\n' +
+      // ⚠️ 措辞即判据:曾经这里写"本次新增候选:<前 8 个>",但前 8 个是**按路径序的存量**,
+      // 与"新增"无关 —— 本棘轮刻意不持有静态清单(清单会腐烂),所以它报不出是谁新增的。
+      // 2026-09-25 那次 82→83 就是这样被误读了十几分钟。现在直接把求差命令写进提示。
+      `下面列出的是按路径序的前 8 个存量文件,**不是**新增清单:\n  ${hits.slice(0, 8).join('\n  ')}\n` +
+      '要定位新增者,拿"定基线那枚提交"与本枚结果求差:\n' +
+      "  git grep -lE \"(execFileSync|execSync|spawnSync|spawn)\\((['\\\"])git\" <该提交> -- scripts/ | grep -v /tests/\n" +
+      '  (注意:本判据扫的是**工作树**,并行会话未提交的改动也会进分母 —— 先确认它是否已入库再定性)',
   )
   if (hits.length < BARE_GIT_BASELINE) {
     console.log(
