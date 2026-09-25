@@ -93,7 +93,7 @@ export default function LiveDetail() {
         {/* 对齐 RN header:标题(22dp → 44rpx semibold)+ 徽章行(gap 8 → 16rpx)
             注:RN header paddingTop 48 为补偿 RN 端 NavBar,小程序原生导航栏已占位,不再重复 */}
         <View className="px-[20rpx] pt-[16rpx] pb-[16rpx]">
-          <Text className="mt-[16rpx] text-[44rpx] font-semibold text-foreground">
+          <Text className="mt-[16rpx] text-[length:44rpx] font-semibold text-foreground">
             {live.title}
           </Text>
           <View className="flex flex-wrap gap-[16rpx] mt-[16rpx]">
@@ -106,20 +106,20 @@ export default function LiveDetail() {
                     : 'bg-[var(--color-text-tertiary)]'
               }`}
             >
-              <Text className="text-[22rpx] text-[var(--color-primary-foreground)]">
+              <Text className="text-[length:22rpx] text-[var(--color-primary-foreground)]">
                 {tt(statusCfg.key, statusCfg.fb)}
               </Text>
             </View>
             {live.anchor && (
               <View className="px-[16rpx] py-[4rpx] rounded-xl bg-[var(--color-card)]">
-                <Text className="text-[22rpx] text-muted-foreground">
+                <Text className="text-[length:22rpx] text-muted-foreground">
                   {t('live.detail.anchor', { name: live.anchor })}
                 </Text>
               </View>
             )}
             {live.watchCount !== undefined ? (
               <View className="px-[16rpx] py-[4rpx] rounded-xl bg-[var(--color-card)]">
-                <Text className="text-[22rpx] text-muted-foreground">
+                <Text className="text-[length:22rpx] text-muted-foreground">
                   {t('live.viewers', { n: live.watchCount })}
                 </Text>
               </View>
@@ -146,25 +146,25 @@ export default function LiveDetail() {
               <LineIcon name="play" size={56} color="var(--color-surface-light)" />
               {live.status === 'living' && (
                 <View className="mt-[24rpx] px-[20rpx] py-[20rpx] rounded-xl bg-primary flex items-center justify-center">
-                  <Text className="text-[32rpx] font-semibold text-[var(--color-primary-foreground)]">
+                  <Text className="text-[length:32rpx] font-semibold text-[var(--color-primary-foreground)]">
                     {t('live.detail.enter')}
                   </Text>
                 </View>
               )}
               {live.status === 'ended' && (
                 <View className="mt-[24rpx] flex flex-col items-center">
-                  <Text className="text-[28rpx] text-[var(--color-surface-light)]">
+                  <Text className="text-[length:28rpx] text-[var(--color-surface-light)]">
                     {t('live.detail.ended')}
                   </Text>
                 </View>
               )}
               {live.status === 'upcoming' && (
                 <View className="mt-[24rpx] flex flex-col items-center">
-                  <Text className="text-[28rpx] text-[var(--color-surface-light)]">
+                  <Text className="text-[length:28rpx] text-[var(--color-surface-light)]">
                     {t('live.detail.notStarted')}
                   </Text>
                   {live.startTime && (
-                    <Text className="mt-[16rpx] text-[24rpx] text-[var(--color-surface-light)] opacity-80">
+                    <Text className="mt-[16rpx] text-[length:24rpx] text-[var(--color-surface-light)] opacity-80">
                       {live.startTime}
                     </Text>
                   )}
@@ -179,10 +179,10 @@ export default function LiveDetail() {
           {subscribed ? (
             <View className="p-[24rpx] rounded-xl bg-[var(--color-success-lighter)]">
               <View className="flex items-center">
-                <Text className="text-[28rpx] leading-none text-[var(--color-success-deep-text)]">
+                <Text className="text-[length:28rpx] leading-none text-[var(--color-success-deep-text)]">
                   ✓
                 </Text>
-                <Text className="ml-[8rpx] text-[28rpx] text-[var(--color-success-deep-text)]">
+                <Text className="ml-[8rpx] text-[length:28rpx] text-[var(--color-success-deep-text)]">
                   {t('live.subscribe.subscribed')}
                 </Text>
               </View>
@@ -193,7 +193,7 @@ export default function LiveDetail() {
               onClick={handleSubscribe}
               hoverClass="opacity-60"
             >
-              <Text className="text-[32rpx] font-semibold text-[var(--color-primary-foreground)]">
+              <Text className="text-[length:32rpx] font-semibold text-[var(--color-primary-foreground)]">
                 {t('live.subscribe.subscribe')}
               </Text>
             </View>

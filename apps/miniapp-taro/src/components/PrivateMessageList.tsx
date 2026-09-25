@@ -61,7 +61,7 @@ export default function PrivateMessageList({ list, onClick }: PrivateMessageList
               <Text className="text-sm font-medium text-foreground truncate flex-1">
                 {item.userName}
               </Text>
-              <Text className="text-[20rpx] text-muted-foreground ml-2">{item.lastTime}</Text>
+              <Text className="text-[length:20rpx] text-muted-foreground ml-2">{item.lastTime}</Text>
             </View>
             <View className="flex items-center mt-0.5">
               <Text className="text-xs text-muted-foreground truncate flex-1">
@@ -69,7 +69,7 @@ export default function PrivateMessageList({ list, onClick }: PrivateMessageList
               </Text>
               {item.unread > 0 && (
                 <View className="ml-2 min-w-[36rpx] h-[36rpx] px-1 rounded-md bg-destructive flex items-center justify-center">
-                  <Text className="text-[20rpx] text-destructive-foreground">
+                  <Text className="text-[length:20rpx] text-destructive-foreground">
                     {item.unread > 99 ? '99+' : item.unread}
                   </Text>
                 </View>
