@@ -9470,3 +9470,76 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 - [ ] **G-173 门 107 把"可审计锚点"写进了 gitignored 目录 ⇒ 这道 blocking 门对每一次提交恒红(归属 A6 台账票,本会话只取证不动它)**:实测 `node scripts/provenance-ledger.mjs` 全量 exit 1,唯一违规是 `P5 mechanism:A6-provenance-ledger 的规格文件不在工作树:.ihui-agent/tmp/zcode-absorb/MECHANISM-SPEC-2.md`。三重事实使它**必然恒红**而不是一次偶发:① `git check-ignore -v` 实读回 **`.gitignore:149` 忽略的是整个 `.ihui-agent/`** —— 锚点从来不受版本控制,任何一次干净检出/另一台机上它都不存在;② 该目录现已**根本不存在**(`ls` No such file),且不在任何 git 面里 ⇒ 内容无从找回,不是"补一下就绿";③ 判据 `scripts/provenance-ledger.mjs:676` 是裸 `existsSync(join(root, e.specFile))`,**没有 null 出口、没有豁免通道**,且 `--staged` 仍按工作树判 ⇒ 每一枚提交都撞它。**后果不是"一条红",是 §12e 那一型的复现**:pre-commit 145 项里它一项红 ⇒ 每个会话被迫 `--no-verify`(本会话即按归因 `not-ours` 走的这条路,留痕 `.workbuddy/safe-commit-attestation.jsonl`),而一次绕过等于其余 144 道门对该提交全部作废。**修法两条,缺一不可,且都属 A6 持有者职权**:① 把 `specFile` 改指到**受版本控制**的位置(本仓既有正例:`.ihui-agent/archive/*` 与 `docs/*`;内容由该票上下文重写,不得由他人代编造);② 给 P5 加一条结构性判据 —— `specFile` 若命中 `git check-ignore` 即**建账时就红**,否则同一事故会再次静默武装。**本票刻意不动**:`config/third-party-provenance/mechanisms.json` 与门 107 本体都不在本票改动面上(§12"禁止修改其他 agent 代码帮他们修"),且"借鉴证据应该是什么"是语义决定,替别人定等于编造。
 <!-- ⚠️ 上一行是 G-173 的**登记原文**(当时判为"只取证不动它"),已于 2026-09-25 当日由下一行就地改判为"已修"。保留原文只为不丢行(AGENTS §12),勿照它执行。 -->
 - [x] ✅(2026-09-25) **G-173 门 107 把"可审计锚点"写进了 gitignored 目录 ⇒ 这道 blocking 门对每一次提交恒红(登记时归属 A6 台账票、本会话只取证不动它;当日用户把剩余事项全部交下来后已就地修完 —— 原句保留是为过守门 71 的前缀判据,不是遗留待办)**:实测 `node scripts/provenance-ledger.mjs` 全量 exit 1,唯一违规是 `P5 mechanism:A6-provenance-ledger 的规格文件不在工作树:.ihui-agent/tmp/zcode-absorb/MECHANISM-SPEC-2.md`。三重事实使它**必然恒红**而不是一次偶发:① `git check-ignore -v` 实读回 **`.gitignore:149` 忽略的是整个 `.ihui-agent/`** —— 锚点从来不受版本控制,任何一次干净检出/另一台机上它都不存在;② 该目录现已**根本不存在**,且不在任何 git 面里 ⇒ 内容无从找回,不是"补一下就绿";③ 旧判据是裸 `existsSync(join(root, e.specFile))`。后果不是"一条红",是 §12e 那一型的复现:pre-commit 145 项里它一项红 ⇒ 每个会话被迫 `--no-verify`(本会话两枚提交即按归因 `not-ours` 落地,留痕 `.workbuddy/safe-commit-attestation.jsonl`),一次绕过等于其余 144 道门对该提交作废。**真正的根因不是笔误,是一处自相矛盾的设计**:台账自己的 `$schemaNote` 明写"specFile 允许是 gitignore 的临时规格,因此按工作树存在性判,不参与 face 对账",而同一格同时是 blocking 存在性判据 —— "允许临时"与"必须存在"结构互斥,且本仓 post-commit 的 `--auto-clean` 自己就会清掉 tmp,所以作者机常绿、别处恒红是这套写法的**必然产物**而非事故。**改法(两处同批,缺一即复发)**:① P5 的 specFile 改按**被审判的面**判(`reader.has`/`hasDir`,与 landsOn 同形),锚点必须受版本控制;② `$schemaNote` 那句自相矛盾的设计说明就地重写,把"锚点必须随检出存在"写成台账自己的约束。**判据失效的方向**只能是"多要一次耐久登记",不能是"多放一次恒红"。取证:自检 38/38 且**连跑两次同果**(该门曾出现 `--self-test` 第二次起恒 exit 2 的前科),新增 `8e` 两条成对用例正是 G-173 那一型 —— 锚点在工作树上**存在**但未受版本控制 ⇒ 必红,而旧 `existsSync` 写法在这里报绿,所以这条同时是新判据"有牙"的证明。③ 数据侧:`specFile` 重指到受版本控制的 `AGENTS.md` 守门 107 条目,并新增 `specNote` 如实声明"上游研究笔记未幸存、内容无从找回,**不得把本字段读成原文仍在**"——我没有伪造一份冒充原文的规格,这是本票唯一能诚实做的边界。④ 提交后镜像测试"真仓 HEAD 必须判绿"由红转绿(它判 HEAD,提交前必红是应有读数,不是判据坏)。
+
+
+
+
+
+
+
+
+### 第九波（2026-09-25 15:0x–15:4x：影子校验装车 + 门 115 + A26 用真尺子量完并否证）
+- [x] ✅(2026-09-25) **A36 第①步落地：入参校验器接上"影子模式"，并立守护门 115**
+  （`apps/cli/src/tools/argument-validation-telemetry.ts` + `apps/cli/src/tools/index.ts` 一行调用 +
+  `scripts/check-tool-arg-validation-wired.mjs`）。**为什么只做到影子**：那条校验器今天生产面零调用方，
+  意味着它那套 `parameters` 描述**从来没有被执行过、准确度未知**；直接打开拒绝 = "昨天能跑今天全被拒"，
+  是运行时版的恒红事故（与 §12e 那台"削掉依赖树导致全队跳门"同型）。开关 `IHUI_TOOL_ARG_VALIDATION`，
+  **默认 `off`**，`shadow` 只记账，`enforce` **本票刻意不实现**（只 +1 计数并每进程 warn 一行）。
+  调用点刻意放在**批准弹窗之前**，且 `call.arguments` 的引用链路一字未动 ⇒ 上一票实测出的"批准=执行同一份字节"语义不变。
+- [x] ✅(2026-09-25) **本票推翻了我任务书里四处前提**（逐条已按实测改档，这类反驳要当高价值信号接住）：
+  ① 签名是反的 —— 真实导出是 `validateToolArguments(args, schema: ToolSchema)`，不是我写的 `(tool.parameters, tool.required ?? [], args)`，
+  且 `Tool` 是扁平形状（`parameters`/`required` 在顶层），必须先拼成嵌套 `ToolSchema`；
+  ② "描述缺 required"不是"无法判定"而是**必抛**（`for (const req of schema.parameters.required)` 在非数组上直接 TypeError）
+  ⇒ 归一成 `[]` 再调、另记 `undeterminedRequired`，否则影子会把崩溃带进执行链（影子绝不该引入新失败）；
+  ③ 遥测的隐私面比我写的更实：`ValidationError.actual` 在 `enum_mismatch` 分支装的**就是用户传进来的原值**，
+  `expected` 装整张枚举表 ⇒ 两者一律不落账，只留 field 名与 reason；
+  ④ 覆盖面有一处结构性缺口：`hubEnabled && hubResolver` 分支在 `getTool` 之前就 return，拿不到 Tool 对象 ⇒
+  hub 模式下影子不生效（本票不扩面，已在代码注释与门 115 提示里如实登记）。
+- [x] ✅(2026-09-25) **门 115 装车对账（guardian id 115，blocking，`stagedTriggers=apps/cli/src/tools/` + `packages/types/src/`）**：
+  只判两条 —— `validateToolArguments(` 必须有**非测试**调用方（注释里的提及不算：全仓三处 `argument-validator` 出现位置**全是注释**，
+  正是"看起来有、其实没装车"那一型），以及模式开关在位 + 默认 off + `shadow` 档存在。
+  取证：`--self-test` **14 条**（含 A1/A2 成对"有调用方⇒绿 / 摘掉⇒红"、A4 注释与串内提及不计、A6 默认 enforce 必红、
+  A10/A10b 索引面与 HEAD 面各判各的且不互洗）、镜像 **5/5**（含"未注册时如实报待接线、注册后必须 blocking+skipEnv+编号唯一"的装车前置）、
+  影子单测 **10/10**（钉住"off 零调用 / shadow 返回值与 off 逐字相同且 execute 收到同一对象引用 / 校验器抛异常不影响执行 /
+  snapshot 序列化后查不到那条 SECRET 串"）。`cd apps/cli && npx vitest run` tools 相关回归 **18 文件 253 例全绿**、`tsc --noEmit` rc=0。
+- [x] ✅(2026-09-25) **A26「branded nominal id」用真尺子量完 ⇒ 否证，不采纳**：
+  粗量 `sessionId|turnId|toolCallId|messageId|conversationId|runId` 标注为裸 `string` 的位点是 **458 处 / 134 文件**，
+  但那个数**不构成风险** —— id 传错的真实暴露面是"**同一个签名里并存 ≥2 枚同形 id**"，按这一形态实测是 **34 处 / 13 文件**
+  （集中在 `apps/web/src/hooks/use-apply-diff.ts` ×6、`apps/web/src/lib/annotations.ts` ×4、`packages/api-client/src/endpoints/chat.ts` ×4、
+  `apps/api/src/db/chat-queries.ts` ×3 等）。⇒ 为一个 34 处的暴露面给 134 个文件铺 branded 类型 + 建一道门，
+  收益/成本比不成立，**且本仓没有一次"id 传错"的真实故障成例**（找不到 = 不立守卫，按既有口径「先证坏状态可达再立守卫」）。
+  **这条测量本身还有一次自我纠错**：我第一次量出 0 处，是因为把探针写在 `node -e "..."` 里被 bash 转义把正则的 `\b` 吃掉了 ——
+  加**阳性对照**（一批已知答案的样本，含一条必须为 0 的反例）重跑才得出现值 34。
+  探针现存 `.ihui-agent/tmp/measure-a26.mjs`，**它的第一条断言就是"尺子失效则拒绝输出仓内读数"**。
+- [ ] **A36 剩下的两步（有前置，不得跳）**：② 拿影子数据把描述修对 —— 依赖至少一次真实运行统计
+  （`shadow` 档跑出来的 `byTool/errorCount/undeterminedRequired`），本机 CLI 今天没有长时间会话 ⇒ 属"等数据"不是"等决定"；
+  ③ 才允许 `enforce` 默认开 + 把 `{字段路径, 期望, 实得}` 逐条回灌模型 —— 现状是 `formatValidationErrors`
+  生产零调用、`field` 根节点写字面量 `(root)` 而非 JSONPath、`actual` 多数只是类型名，**回灌出口要从零建**。
+  两步都不允许在①的数据回来之前动工；谁先动③谁就是在拿没被检验过的描述去拒用户的调用。
+- [x] ✅(2026-09-25) **A26「branded nominal id」量完 ⇒ 不采纳（附真暴露面读数，不是我先前那个 0）**：
+  粗量 `sessionId|turnId|toolCallId|messageId|conversationId|runId` 标成裸 `string` 的位点是 **458 处 / 134 文件**，
+  但那个数**不构成风险** —— id 传错要发生，形态得是"**同一个签名里并存 ≥2 枚同形 id**"，按这一形态实测 **34 处 / 13 文件**
+  （集中在 `apps/web/src/hooks/use-apply-diff.ts` ×6、`apps/web/src/lib/annotations.ts` ×4、`packages/api-client/src/endpoints/chat.ts` ×4、
+  `apps/api/src/db/chat-queries.ts` ×3 等）。⇒ 为一个 34 处的暴露面把 branded 类型铺进 134 个文件再配一道门，
+  收益/成本不成立；且**本仓找不出一次真实的 id 传错故障成例** ⇒ 按既有口径「先证坏状态可达再立守卫」不立项，
+  留作"若哪天出现 id 串台，这 13 个文件就是第一现场"的索引。
+  **顺带一条测量自纠（比结论更该留）**：我第一次量到的是 **0 处**，原因是探针写在 `node -e "..."` 里、
+  被 bash 的转义规则吃掉了正则里的 `` ⇒ 尺子失效而读数看着合理。加**阳性对照**（一批已知答案的样本，含一条必须为 0 的反例）
+  重跑才得出现值。探针与对照现存 `.ihui-agent/tmp/measure-a26.mjs`：**它的第一条断言就是"尺子失效则拒绝输出仓内读数"**，
+  这条已经回写进本仓的取证纪律。
+- [x] ✅(2026-09-25) **safe-commit 的跳门重试带新文件永远落不了地（本票实测撞开并修好）**：
+  归因判成 `not-ours` 之后它直接 `git commit --no-verify -- <声明文件>`，但**首次失败的 pre-commit 里 lint-staged 会回滚它动过的暂存区** ⇒
+  Step 2 加进去的**新文件**在重试那一刻已退回未跟踪，而 `git commit -- <pathspec>` 对 git 不认识的路径直接
+  `error: pathspec ... did not match any file(s) known to git` 退出 —— 实测 10 个声明文件里 4 个新文件全被判 unknown，
+  **提交零落地，而归因本身判对了**。也就是说：这条应急通道对带新文件的提交根本不存在，
+  而本仓一天的产出里几乎每枚提交都带新门/新测试文件。修法：重试前重跑 Step 2 的 add **并重跑 Step 3 的暂存集精确校验**
+  （不校验就重试等于放弃只提交自己声明的文件这条根约束 —— 窗口期里别人可能刚 staged 东西），
+  不一致即明写拒绝在窗口期把别人的东西一起提交并退出。锁在
+  `scripts/tests/safe-commit-gate-attribution.test.mjs` 的 A12（源码形态断言，**端到端证明就是本次落地**：修完这枚提交带着 4 个新文件过了跳门重试）。
+- **✅ 共用层缺陷 + 素材卫生收口(2026-09-25,同一票内完成)**:上面那次"以删除为主的提交"顺带把 `scripts/lib/face-reader.mjs` 的一处真缺陷顶了出来,两件事都是本轮实测逼出的:
+  - **门 99 对任何"以删除为主的提交"失明成「无法判定」**:症状是 `❌ git cat-file --batch 失败…(git 无输出)` —— 现场像 git 坏了。逐层量到真因:16 个暂存删除里混着 `agent` / `ai` / `share` / `square` 这类**通用词干**,`git grep --cached -F` 一次给出 **11,182 个候选引用方**,整批 blob 一次读完超过默认 64MB → `execFileSync` 抛 `ENOBUFS` 且 **stderr 为空** → 层把 `gitErrText({stderr:''})` 折成 `(git 无输出)`,即**把自己的病因说成"git 什么都没写"**(与 §5d "读不到文件被下游报成凭据失效"同族)。同一条批量把 maxBuffer 给到 256MB 就 11,182 条全读成功,证明缺口在层而不在输入。
+  - **改法是装箱不是抬阈值**:`catBatch` 先 `--batch-check` 问一遍大小(每条约几十字节输出),再按 `min(16MB, 调用方 maxBuffer)` **按字节装箱**、条数只当第二上限;每块给子进程的 maxBuffer = `max(调用方给的, 本块字节 + 1MB)`,所以 ① 单条巨型 blob 仍能读出(不会被默认值判成"取不到"),② 一批几千个大文件不再让整门无法判定。`spawnCauseText` 把 `ENOBUFS` 与 `ETIMEDOUT` 分成两支(Node 的缓冲区溢出报 `ENOBUFS` 且**顺手带 SIGTERM**,旧写法会把溢出误标成超时,人就跑去加 timeout 参数)。修后门 99 在同一条索引上给出真实结论:`待判 16 / 判红 2 / 仅一条证据 14`,21.6s。
+  - **取证**:`scripts/tests/face-reader.test.mjs` **20 → 25 例**,新增 5 例全部走**纯函数 + 构造面**(`packByBytes` 不丢不重 / 单条超预算自成一块 / 非法尺寸参数必拒而非返回空;`spawnCauseText` 三支;`parseBatchCheckSizes` 的 missing 与 tree 归 null;一条**行为等值**证分块不改语义:`chunkSize:1` 与整块一块逐 key 同序同值)。变异证明两处:让 `packByBytes` 静默丢弃巨无霸 ⇒ 3 条新用例同时红;把 `ENOBUFS` 支摘掉 ⇒ `spawnCauseText` 用例红。既有那条"每个 `cat-file --batch*` 调用点必须吃到 GIT_MAX_BUFFER"的装车判据按新契约改写(**性质不变:常量仍是 floor**,并刻意往回扩 900 字符查 `budget` 定义,防止"模块里随便某处有个 Math.max"蒙过)。
+  - **素材卫生:8 个陈旧 tabbar 图标已删**(`agent/ai/share/square` + `-active`,合计 15,022 B)。§7 三问逐条答:① 承载功能 = 2026-08-28 之前那轮 tabBar 图标;② 等价实现 = **有** —— 现役 `tab-{community,agent,square,user,share}.png` 全套由 `src/app.config.ts:221-257` 原生 tabBar 声明并消费,而 `gen-tabbar-icons.mjs:56` 只产出 `tab-<name>` 形态 ⇒ 删掉的 8 个不会被重新生成;③ 零引用有阳性对照:`git grep -lE "tabbar/(ai|agent|share|square)(-active)?\.png"` 在 HEAD 面 **0 命中**,而同一条尺子对 `tab-agent.png` 命中 app.config.ts(证明 0 不是判据失效)。门 105 索引面随之从 8 处孤儿降到 0。
+  - **⚠️ 同批查明的一个反向事实,必须留在这里防误删**:`src/custom-tab-bar/index.tsx` 及其引用的 `home/community/course/live/user` 那 10 个 PNG **不是孤儿** —— `app.config.ts:221` 现在是 `custom: false`,原因就写在它上面那行注释(Taro 4 + Vite 不输出 custom-tab-bar,GitHub #17978/#18415),并明写"后续改 webpack5 编译器后可恢复 custom: true"。所以它是**有意停放的在途实现**,不是死代码:谁把它按"无人引用"删掉,就等于替那个还没发生的编译器切换做决定。门 105 把它算作"被引用"因此是正确的,本轮**刻意没有**为压低孤儿数去动它。
+  - **本轮另两处红已由他人现场解释(不由本票代修)**:① 门 99 那 2 条红是别人正在删 `scripts/check-compaction-denominator.mjs` / `check-tool-arg-routing-identity.mjs` 及其镜像测试、而 `guardian-runner.mjs:2948/2980` 仍引用它们 —— 引用方与被删方同笔改完才成立,归持有该删除的一方;② `face-reader` 另有 2 例红指向 `scripts/check-theme-prop-wiring.mjs`(门 91)工作树副本去掉了共用层 import 并自拼 `execFileSync(GIT, …)`,已实测 **HEAD 版有 import(1)/无裸派生(0)**,即红纯来自他人未提交的回退,其自身提交会被这两例拦下。
