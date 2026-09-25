@@ -1,0 +1,52 @@
+{
+  "$schemaNote": [
+    "第三方来源台账 ③「被 override 换掉的依赖」—— 名义上装的是 A 包,实际解析到 B 包,许可与来源都随 B 变,",
+    "这类替换在 pnpm-lock / node_modules 里能看出来,但在『我们的依赖声明』面上是隐形的,故单立一本账。",
+    "P7 对账判据:每条必须能在 declaredIn 指向的文件里按 overrideKey 原样找到;找不到 = 台账说谎 = 判红(防清单腐烂)。",
+    "本仓 pnpm-workspace.yaml 的 overrides 共 84 行,其中绝大多数只是**版本范围收敛**(同包不同版本),不属于本账;",
+    "本账只收**换包/换来源**(npm: 别名、git、file、link)那一类 —— 判据见 scripts/provenance-ledger.mjs 头注。"
+  ],
+  "schemaVersion": 1,
+  "updatedOn": "2026-09-25",
+  "source": {
+    "overridesFile": "pnpm-workspace.yaml",
+    "rule": "取 `npm:` / `git+` / `file:` / `link:` / `workspace:` 之外再接管的来源改写;实测命中 1 条。"
+  },
+  "entries": [
+    {
+      "id": "xlsx-via-e965-fork",
+      "kind": "override",
+      "name": "xlsx",
+      "overrideKey": "xlsx",
+      "declaredIn": "pnpm-workspace.yaml",
+      "declaredLine": 211,
+      "declaredValue": "npm:@e965/xlsx@^0.20.3",
+      "license": {
+        "spdx": "MIT",
+        "texts": [
+          {
+            "form": "externalOnly",
+            "fetchUrl": "https://www.npmjs.com/package/@e965/xlsx?activeTab=readme",
+            "note": "许可原文随 npm tarball 分发,未单独入库;确切 tarball URL 以 pnpm-lock.yaml 的 resolved 字段为准(本条不复述,避免第二真相)。"
+          }
+        ]
+      },
+      "roots": ["apps/web/package.json"],
+      "rootsNote": "roots 登记的是消费方清单(声明面),不登记 node_modules。",
+      "modification": "third-party-fork",
+      "modificationNote": "本仓不改该包源码,只做来源替换。",
+      "attributionBoundary": "override 生效后,包名 `xlsx` 在产物里解析到 @e965/xlsx,原 npm `xlsx`(SheetJS 官方发行)不再进入依赖树,其许可随之不再适用;本条登记的许可主体是实际装进来的那个包(以 pnpm-lock.yaml 的 resolved 为准)。",
+      "obligations": "仍需审计:① @e965/xlsx 的 LICENSE 与上游 SheetJS 的归属链是否在对外发布物里一并声明;② 该 override 与 pnpm-lock 的一致性由守门「清单↔锁 specifier 对账」(runner 现值)负责,本门不重复判,只保证**来源被登记**。",
+      "purpose": "把包名 xlsx 的来源整体接管到社区分发包,使 apps/web 的 Excel 导入导出能拿到仍在 npm registry 上分发的版本(npm 上的官方 xlsx 已停在很旧的版本号,新只在独立 CDN 发行 —— 该背景属说明,不作已核实依据)。",
+      "upstream": {
+        "project": "@e965/xlsx",
+        "repository": null,
+        "repositoryNote": "本仓内无可验证依据指向该包的官方上游仓库(仓内既无 lock 的 resolved URL 之外的元数据,实现角色也未联网核实),故留 null 而非抄一个可能错的 URL。核实入口:`npm view @e965/xlsx repository.url`。替换动机(社区为绕开 SheetJS 变更发行渠道而做的同名替代包)属背景说明,**未经本仓证据支撑,不得当作已核实事实引用**。",
+        "acquisition": "npm registry(由 pnpm-workspace.yaml 的 override 接管 `xlsx` 这个包名)",
+        "version": "0.20.x(^0.20.3 范围)",
+        "gitRevision": null,
+        "gitRevisionNote": "override 记的是 semver 范围而非固定 commit/tag,故 gitRevision 显式 null:本条主张『解析到 @e965/xlsx 的 ^0.20.3 范围内某版』,不主张等于上游某个 revision。真正的字节锚点在 pnpm-lock.yaml 的 resolved 字段,不在本台账重复登记(避免第二真相)。"
+      }
+    }
+  ]
+}
