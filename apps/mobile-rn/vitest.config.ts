@@ -32,6 +32,15 @@ export default defineConfig({
       // 让**整个测试文件加载不进来**(报 "Test Files N failed",但一条断言都没跑)。
       // src/theme/active-tokens.ts 与 5 个 screen 引它 ⇒ 替身必须存在。
       'expo-file-system': resolve(__dirname, 'tests/__mocks__/expo-file-system.ts'),
+      // react-native-restart 与本端其它原生包同一死法,但它是 2026-09-24 才加进 active-tokens.ts
+      // 的依赖而**没同步本文件** ⇒ 既无 alias 也不在 inline:被外部化后由 Node 解析,其内部
+      // require('react-native') 绕过 alias 命中真实 RN 的 Flow 源码 →
+      // `SyntaxError: Unexpected token 'typeof'`,**收集期即失败**。因为 active-tokens 被屏/组件/
+      // ThemeContext 顶层 import,破裂面是 14 个套件 / 131 条 it() 一条都没跑(theme-active-tokens
+      // 那 3 条测的就是 active-tokens 本身,却唯一被这一条依赖挡在外面)。
+      // 收口必须在配置层:上一轮只给 tests/terminal-delta-live.test.ts 加局部 vi.mock,于是每个
+      // 新触到 active-tokens 的套件再破一次 —— 逐套件补丁正是本条要根治的反模式。
+      'react-native-restart': resolve(__dirname, 'tests/__mocks__/react-native-restart.ts'),
       '@ihui/api-client': resolve(__dirname, 'tests/__mocks__/ihui-api-client.ts'),
       // Sub-path aliases must come BEFORE their parent/base alias (longest match first)
       '@ihui/shared/auth/sso-core': resolve(
