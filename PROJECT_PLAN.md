@@ -75,13 +75,13 @@
 - [ ]（进行中）**WP-7 浏览器语义快照与可复用元素句柄**(规格已写,未开工)。
 - [ ]（进行中）**WP-8 上下文占用归因 + 流式工具账本 + 目标完成独立校验轮**。后者是补
   `AGENTS.md §8` 早就要求但**从未实现**的"禁止模型自评 yes"。
-- [ ] 钩子 trust 的**残余面**:webhook 形态钩子仍不过门(本批按 command 收口);
+- [ ] **[O76 判:已完成残余,勿照本行派单]** 钩子 trust 的残余面:webhook 形态钩子仍不过门(本批按 command 收口); 〔本会话复测:两种形态已过**同一道门** —— `hookTrustSkipReason` 对 command/webhook 共用一次 gateHook 判定(`apps/cli/src/hooks/index.ts`),`ihui hooks trust` 子命令亦已在库(见 L7652 段判定);真正剩的只是"untrust 侧扩面",另票〕
   且缺 `ihui hooks trust <path>` 子命令(旧错误文案指向该不存在的命令,已改为指向真实出口),CLI 化信任需另票。
 - [ ] `reclaim` 改写信封内容的边界:本批只在 CLI 侧由"重建提醒"兜回产物指针,
   彻底解法需在 `reclaim.ts` 加 `isEnvelopeContent` 跳过 —— 属改他人在飞文件,未做。
-- [ ] WP-1 新 API 尚未接入 `builtins.ts`/`terminal.ts` 执行链(接一行即可恢复 YOLO 观感,
+- [ ] **[O76 判:已完成,勿照本行派单]** WP-1 新 API 尚未接入 `builtins.ts`/`terminal.ts` 执行链(接一行即可恢复 YOLO 观感, 〔本会话逐行复核:`builtins.ts:445` 与 `terminal.ts:231` 均已在 HEAD 调 `gateCommandExecution`;判定快照落后见 L7653-7655 方法论〕
   但需同步改他人 `terminal.test.ts` 的 `vi.mock`,本批未动)。
-- [ ] `config/architecture-policy.yaml` 目前 0 个模块 `managed:true` —— 渐进收口的第一块翻正面尚未选定。
+- [ ] **[O76 判:读数过期,勿照本行派单]** `config/architecture-policy.yaml` 目前 0 个模块 `managed:true` —— 渐进收口的第一块翻正面尚未选定。 〔现值按当次实测:同日已批量翻正多数块(见 L2441-2446 收口登记与 AGENTS 门 103 条"现值一律按当次实测取")〕
 
 
 ### 未闭环(不写作收口)
