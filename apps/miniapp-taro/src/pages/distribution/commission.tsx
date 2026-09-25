@@ -74,10 +74,10 @@ export default function DistributionCommission() {
     <ThemeRoot className="min-h-screen bg-background">
       {/* 对齐 RN IncomeScreen summaryCard:白卡 + 次级标签 + 大号数值 */}
       <View className="mx-[20rpx] mt-[20rpx] bg-card rounded-xl p-[28rpx]">
-        <Text className="text-[28rpx] text-muted-foreground">
+        <Text className="text-[length:28rpx] text-muted-foreground">
           {t('distribution.commission.total')}
         </Text>
-        <Text className="block text-[40rpx] text-foreground font-bold mt-[16rpx]">
+        <Text className="block text-[length:40rpx] text-foreground font-bold mt-[16rpx]">
           ¥{totalCommission}
         </Text>
       </View>
@@ -88,14 +88,14 @@ export default function DistributionCommission() {
               key={r.id}
               className="bg-card border border-border rounded-xl p-[24rpx] mb-[16rpx]"
             >
-              <Text className="block text-[32rpx] font-semibold text-foreground">{r.type}</Text>
-              <Text className="block text-[22rpx] text-[var(--color-text-tertiary)] mt-[12rpx]">
+              <Text className="block text-[length:32rpx] font-semibold text-foreground">{r.type}</Text>
+              <Text className="block text-[length:22rpx] text-[var(--color-text-tertiary)] mt-[12rpx]">
                 {r.time}
                 {r.nickname ? ` · ${r.nickname}` : ''}
               </Text>
               <View className="flex justify-end mt-[16rpx]">
                 <Text
-                  className={`text-[32rpx] font-bold ${r.amount > 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]'}`}
+                  className={`text-[length:32rpx] font-bold ${r.amount > 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]'}`}
                 >
                   {r.amount > 0 ? '+' : ''}¥{r.amount}
                 </Text>
@@ -105,12 +105,12 @@ export default function DistributionCommission() {
         </View>
       )}
       {list.length === 0 && !loading && (
-        <View className="text-center py-[120rpx] text-[28rpx] text-[var(--color-text-tertiary)]">
+        <View className="text-center py-[120rpx] text-[length:28rpx] text-[var(--color-text-tertiary)]">
           <Text>{t('distribution.commission.empty')}</Text>
         </View>
       )}
       {loading && (
-        <View className="text-center py-[40rpx] text-[28rpx] text-[var(--color-text-tertiary)]">
+        <View className="text-center py-[40rpx] text-[length:28rpx] text-[var(--color-text-tertiary)]">
           <Text>{t('distribution.commission.loading')}</Text>
         </View>
       )}

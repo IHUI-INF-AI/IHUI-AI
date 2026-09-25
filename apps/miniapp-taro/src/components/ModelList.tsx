@@ -131,7 +131,7 @@ export default function ModelList({
     if (!models.length) {
       return (
         <View className="flex items-center justify-center" style={{ padding: '40rpx 0' }}>
-          <Text className="text-[24rpx] text-muted-foreground">
+          <Text className="text-[length:24rpx] text-muted-foreground">
             {tt('model.empty', '暂无模型')}
           </Text>
         </View>

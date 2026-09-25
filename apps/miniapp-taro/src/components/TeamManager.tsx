@@ -67,7 +67,7 @@ export default function TeamManager({
                     {member.name}
                   </Text>
                   {member.level && (
-                    <Text className="ml-2 text-[20rpx] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                    <Text className="ml-2 text-[length:20rpx] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
                       L{member.level}
                     </Text>
                   )}
