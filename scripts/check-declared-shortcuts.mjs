@@ -33,10 +33,17 @@
 // 残余漏判方向:① 的 event 名若以常量/模板拼接而非引号字面量出现则读不到;② 只看声明所在文件,
 // 跨文件包装派发时读不到;③ 只比词元,同义词('新建'vs'create')判不出。三者都只放过真缺陷。
 
-import { readFileSync, readdirSync, statSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
+import { mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { resolve, relative, join, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+
+// 判定面取材一律走共用层(2026-09-26 迁,守门 118 的 loose 档收口)。
+// 本门此前把 `apps/web` 的候选清单与正文都按磁盘读:共享工作树常年滞后 HEAD(实测扫描面里有
+// 41 个脏文件 + 13 个未跟踪文件),同一份 HEAD 代码于是会在"恒红"与"假绿"之间来回跳。
+// 现口径同 70/77/83/98/101/113:**全量判 HEAD blob、`--staged` 判索引 blob、`--worktree` 只作人工
+// 逃生舱**;两面旗同给 ⇒ exit 2;该面取不到输入 ⇒ exit 2「无法判定」;枚举到 0 个候选 ⇒ 判死。
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { Undetermined, assertRepoRoot, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 
 const SELF = fileURLToPath(import.meta.url)
 const ROOT = resolve(dirname(SELF), '..')
@@ -434,19 +441,20 @@ function* walk(dir) {
   }
 }
 
-function git(args) {
-  return execFileSync('git', ['-c', 'safe.directory=*', ...args], {
-    cwd: ROOT,
-    encoding: 'utf8',
-    windowsHide: true,
-    stdio: ['ignore', 'pipe', 'ignore'],
-  })
-}
+const GIT_TIMEOUT = 120000
+/** 结论行点名的判定面标注(口径必须在输出里如实报出,同门 113) */
+const FACE_TAG = { head: 'HEAD blob', staged: '索引 blob', worktree: '工作树(逃生舱)' }
+/** 与 `walk()` 的收文件条件逐字同形 —— 三面必须用同一个筛选,否则"清单"本身就掺了别的口径 */
+const SOURCE_FILE = (name) => /\.(ts|tsx)$/.test(name) && !/\.(test|spec)\.(ts|tsx)$/.test(name) && !/\.gen\.ts$/.test(name)
 
+/**
+ * 暂存清单(只用于枚举路径,不读正文)。失败仍返回空集 —— 与改法前逐字等值:
+ * `--staged` 拿到空集时声明侧只剩注册表,而全量侧另有"枚举到 0 个候选 ⇒ 判死"的护栏。
+ */
 function stagedFiles() {
   try {
     return new Set(
-      git(['diff', '--cached', '--name-only', '--diff-filter=ACMR'])
+      gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMR'], ROOT, { timeout: GIT_TIMEOUT })
         .split('\n')
         .map((s) => s.trim().replace(/\\/g, '/'))
         .filter(Boolean),
@@ -456,32 +464,74 @@ function stagedFiles() {
   }
 }
 
-function scanSources(opts = {}) {
+/**
+ * 该面的候选文件清单(posix 相对路径)。
+ * **清单与内容必须同面同轮** —— 用磁盘 glob 列清单、用 git 读内容,会造出一把自洽但基准错位的尺子。
+ */
+export function listSources(root = ROOT, face = 'worktree') {
+  const inScope = (p) => SCAN_ROOTS.some((r) => p === r || p.startsWith(r + '/'))
+  if (face === 'worktree') {
+    const out = []
+    for (const r of SCAN_ROOTS) for (const f of walk(resolve(root, r))) out.push(relative(root, f).replace(/\\/g, '/'))
+    return out
+  }
+  const args =
+    face === 'head' ? ['ls-tree', '-r', '--name-only', 'HEAD', '-z'] : ['ls-files', '-z']
+  const listed = gitRaw(args, root, { timeout: GIT_TIMEOUT })
+    .split('\0')
+    .filter(Boolean)
+    .filter((p) => inScope(p) && SOURCE_FILE(p.split('/').pop()) && !p.split('/').some((s) => SKIP_DIRS.has(s)))
+  // 顺序按 SCAN_ROOTS 分组、组内按路径排序 —— git 的扁平路径序与原来的"逐根深度优先遍历"不同形,
+  // 而 `reconcile` 对同一 chord 的多个候选处理器取**先出现者**,列表顺序会决定 `via` 指向谁。
+  // 判据本身与顺序无关(集合一样),但输出逐字稳定性属交付门槛,故在此显式规定枚举序。
+  return SCAN_ROOTS.flatMap((r) => listed.filter((p) => p === r || p.startsWith(r + '/')).sort())
+}
+
+/** 一次 `cat-file --batch` 预取整面;未预取的路径一律判"取不到",不在这里偷偷补一次派生。 */
+export function readFace(root, face, paths) {
+  const map = new Map()
+  if (!paths.length) return map
+  if (face === 'worktree') {
+    for (const p of paths) map.set(p, readWorktreeFile(root, p))
+    return map
+  }
+  const rev = face === 'staged' ? '' : 'HEAD'
+  const specs = paths.map((p) => `${rev}:${p}`)
+  const got = catBatch(root, specs, { maxBuffer: 1 << 29, timeout: GIT_TIMEOUT })
+  for (let i = 0; i < paths.length; i++) map.set(paths[i], got.get(specs[i]) ?? null)
+  return map
+}
+
+export function scanSources(opts = {}) {
+  const root = opts.root ?? ROOT
+  const face = opts.face ?? 'worktree'
   const declarations = []
   const handlers = []
   const fileTexts = new Map()
+  const unread = []
   let allText = ''
-  for (const root of SCAN_ROOTS) {
-    for (const file of walk(resolve(ROOT, root))) {
-      let text
-      try {
-        text = readFileSync(file, 'utf8')
-      } catch {
-        continue
-      }
-      allText += text
-      const rel = relative(ROOT, file).replace(/\\/g, '/')
-      handlers.push(...parseHandlers(file, text))
-      const isRegistry = /use-global-shortcuts\.ts$/.test(rel)
-      // --staged 下注册表条目仍须全量:它是"键位被谁接走"的真相源,漏读会让 mislabelled 恒绿
-      if (!opts.staged || opts.staged.has(rel) || isRegistry) {
-        const decls = collectDeclarations(file, text)
-        if (decls.length > 0) fileTexts.set(rel, text)
-        declarations.push(...decls)
-      }
+  const files = listSources(root, face)
+  if (files.length === 0)
+    throw new Undetermined(`${FACE_TAG[face]} 面在 ${SCAN_ROOTS.join(' / ')} 下枚举到 0 个源文件 —— 判据失效不得表现为"扫 0 记绿"`)
+  const texts = readFace(root, face, files)
+  for (const rel of files) {
+    const text = texts.get(rel)
+    if (typeof text !== 'string') {
+      unread.push(rel)
+      continue
+    }
+    const file = join(root, rel)
+    allText += text
+    handlers.push(...parseHandlers(file, text))
+    const isRegistry = /use-global-shortcuts\.ts$/.test(rel)
+    // --staged 下注册表条目仍须全量:它是"键位被谁接走"的真相源,漏读会让 mislabelled 恒绿
+    if (!opts.staged || opts.staged.has(rel) || isRegistry) {
+      const decls = collectDeclarations(file, text)
+      if (decls.length > 0) fileTexts.set(rel, text)
+      declarations.push(...decls)
     }
   }
-  return { declarations, handlers, allText, fileTexts }
+  return { declarations, handlers, allText, fileTexts, unread, fileCount: files.length }
 }
 
 // ---------------------------------------------------------------------------
@@ -491,8 +541,28 @@ function scanSources(opts = {}) {
 async function main() {
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) return runSelfTest()
-  const staged = argv.includes('--staged') ? stagedFiles() : null
-  const { declarations, handlers, allText, fileTexts } = scanSources({ staged })
+  // 三面各取所面(同 70/77/83/98/101/113):缺省判 HEAD blob,--staged 判索引 blob,
+  // --worktree 只作人工逃生舱;两个面旗同给 ⇒ 判死(取哪一面都会让另一面成为假绿)。
+  const { face, error } = selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree'), def: 'head' })
+  if (error) {
+    console.error(`❌ 无法判定: ${error}`)
+    return 2
+  }
+  let scanned
+  try {
+    assertRepoRoot(ROOT, '本门')
+    scanned = scanSources({ staged: face === 'staged' ? stagedFiles() : null, face })
+  } catch (e) {
+    const msg = e instanceof Undetermined ? e.message : e?.message ?? String(e)
+    console.error(`❌ 无法判定(exit 2): ${msg}`)
+    if (!(e instanceof Undetermined)) console.error(e?.stack ?? '')
+    return 2
+  }
+  const { declarations, handlers, allText, fileTexts, unread } = scanned
+  if (unread.length) {
+    console.error(`❌ 无法判定(exit 2):${FACE_TAG[face]} 面有 ${unread.length} 个候选取不到内容 —— 少扫不是"没有缺陷":${unread.slice(0, 6).join(', ')}${unread.length > 6 ? ' …' : ''}`)
+    return 2
+  }
   const probeArg = argv.find((a) => a.startsWith('--probe'))
   if (probeArg) {
     const val = probeArg.includes('=') ? probeArg.split('=')[1] : argv[argv.indexOf(probeArg) + 1]
@@ -504,7 +574,7 @@ async function main() {
     declarations.push({ ...c, kind: 'probe', file: '--probe' })
   }
   const result = reconcile(declarations, handlers, allText, fileTexts)
-  report(result, { json: argv.includes('--json'), staged: Boolean(staged), probed: Boolean(probeArg) })
+  report(result, { json: argv.includes('--json'), staged: face === 'staged', probed: Boolean(probeArg), face })
   return result.unbound.length + result.mislabelled.length > 0 ? 1 : 0
 }
 
@@ -532,7 +602,7 @@ function report(r, o) {
     )
     return
   }
-  console.log(`\n=== 快捷键对账${o.staged ? '(声明侧 = 暂存区)' : '(声明侧 = 全量)'},绑定侧全量扫描 ===`)
+  console.log(`\n=== 快捷键对账${o.staged ? '(声明侧 = 暂存区)' : '(声明侧 = 全量)'} · 判定面 ${FACE_TAG[o.face] ?? o.face},绑定侧全量扫描 ===`)
   console.log(`\n【已绑已声明】${r.bound.length} 项`)
   for (const d of r.bound) console.log(`  ✓ ${row(d)}  → ${d.mode} @ ${d.via.file}:${d.via.line}`)
   console.log(`\n【声明未绑 — 缺陷】${r.unbound.length} 项`)
@@ -604,6 +674,49 @@ function runSelfTest() {
   check('归一化:未知修饰键返回 null', normalizeChord('Ctrl+Hyper+P') === null)
   const decl = collectDeclarations('/abs/apps/web/src/components/x/y.tsx', `const A = [{ shortcut: 'Ctrl+B' }]\n<Tooltip shortcut="Ctrl+," />\n<div><kbd>Ctrl+Alt+Z</kbd></div>\n// Ctrl+K 注释不算`)
   check('声明侧:shortcut 字段/属性 + kbd 命中,注释不命中', decl.length === 3 && !decl.some((x) => x.canonical === 'mod+k'))
+
+  // ---- 判定面构造证明(2026-09-26 迁移配套,真造临时 git 仓)----------------------
+  // 同一个 `apps/web/src/pane.tsx`:**HEAD** 里没有 chord,**索引**里新增了一条
+  // `shortcut: 'Ctrl+Shift+Z'`(临时仓里没有该键位的处理器)。四条断言方向各异,
+  // 缺任何一条,上面的"跟面走"就可能是恒真式或磁盘巧合。
+  const faceRoot = mkScratch('ihui-shortcuts-face-')
+  try {
+    const rel = 'apps/web/src/pane.tsx'
+    mkdirSync(join(faceRoot, 'apps/web/src'), { recursive: true })
+    writeFileSync(join(faceRoot, rel), 'export const P = () => null\n', 'utf8')
+    gitRaw(['init', '-q'], faceRoot, { timeout: GIT_TIMEOUT })
+    gitRaw(['add', '-A'], faceRoot, { timeout: GIT_TIMEOUT })
+    gitRaw(['-c', 'user.name=gate', '-c', 'user.email=gate@local', 'commit', '-q', '-m', 'base'], faceRoot, { timeout: GIT_TIMEOUT })
+    writeFileSync(join(faceRoot, rel), "export const P = () => null\nconst items = [{ shortcut: 'Ctrl+Shift+Z', label: 'x' }]\n", 'utf8')
+    gitRaw(['add', '--', rel], faceRoot, { timeout: GIT_TIMEOUT })
+
+    const stagedScan = scanSources({ root: faceRoot, face: 'staged', staged: new Set([rel]) })
+    const r1 = reconcile(stagedScan.declarations, stagedScan.handlers, stagedScan.allText, stagedScan.fileTexts)
+    check('构造面①:索引内容与 HEAD 不同 ⇒ --staged 档必须跟索引走(那条 chord 被算成"声明未绑")', r1.unbound.length === 1 && r1.unbound[0].canonical === 'mod+shift+z')
+
+    const headScan = scanSources({ root: faceRoot, face: 'head' })
+    const r2 = reconcile(headScan.declarations, headScan.handlers, headScan.allText, headScan.fileTexts)
+    check('构造面②:同一输入在 HEAD 档给出 HEAD 的结论(该面里没有这条声明 —— 反向对照,证明①不是恒真)', r2.unbound.length === 0 && headScan.declarations.length === 0 && stagedScan.declarations.length === 1)
+    check('构造面③:清单与内容同面 —— 两面的候选都是 1 个文件,而声明侧文件集只来自被审的那一面', headScan.fileCount === 1 && stagedScan.fileCount === 1 && [...stagedScan.fileTexts.keys()].join() === rel)
+    check('构造面④:该面取不到内容不得静默跳过(unread 必须为空,否则就是少扫)', stagedScan.unread.length === 0 && headScan.unread.length === 0)
+
+    const emptyRoot = mkScratch('ihui-shortcuts-empty-')
+    try {
+      gitRaw(['init', '-q'], emptyRoot, { timeout: GIT_TIMEOUT })
+      gitRaw(['-c', 'user.name=gate', '-c', 'user.email=gate@local', 'commit', '-q', '--allow-empty', '-m', 'base'], emptyRoot, { timeout: GIT_TIMEOUT })
+      let thrown = null
+      try {
+        scanSources({ root: emptyRoot, face: 'head' })
+      } catch (e) {
+        thrown = e
+      }
+      check('构造面⑤:该面枚举到 0 个候选 ⇒ 抛 Undetermined(判死),绝不记成"扫 0 = 通过"', thrown instanceof Undetermined)
+    } finally {
+      rmScratch(emptyRoot)
+    }
+  } finally {
+    rmScratch(faceRoot)
+  }
 
   let fail = 0
   for (const [name, cond] of cases) {
