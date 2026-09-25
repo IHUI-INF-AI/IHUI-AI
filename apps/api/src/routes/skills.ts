@@ -19,6 +19,7 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
+import { sql } from 'drizzle-orm'
 import type { SkillSource, SkillFrontmatter } from '@ihui/types'
 import type {
   SkillMarketEntry,
@@ -30,6 +31,7 @@ import type {
   SkillNotification,
 } from '@ihui/shared/skills/market'
 import { checkAuth } from '../plugins/auth.js'
+import { db } from '../db/index.js'
 import { requireAdmin, isSystemAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { config } from '../config/index.js'
@@ -256,6 +258,13 @@ function readRawNameForAuthorization(body: unknown): string | undefined {
   return typeof candidate === 'string' ? candidate : undefined
 }
 
+/** 同上,但取 author:作者冒充闸只需要"这次新建声明了谁的名字",不必先过 Zod。 */
+function readRawAuthorForAuthorization(body: unknown): string | undefined {
+  if (typeof body !== 'object' || body === null) return undefined
+  const candidate = (body as { author?: unknown }).author
+  return typeof candidate === 'string' ? candidate : undefined
+}
+
 /**
  * 市场条目的写授权判据(纯函数;三条身份 × 四种条目形态由
  * apps/api/tests/skills-market-publish-ownership.test.ts 逐档列全)。
@@ -281,6 +290,80 @@ function mayWriteMarketEntry(input: {
   if (input.isInternal) return true
   if (input.isAdmin) return true
   return input.callerId !== undefined && input.target.ownerId === input.callerId
+}
+
+/**
+ * 内置种子里登记的作者名 = 平台身份。清单由 MARKET_SEED_RAW 自己推导,**不另抄一份**
+ * (手抄的作者名单会腐烂,是本仓 §4 已经记过的那一类缺陷)。当前实测 4 个不同值。
+ */
+const BUILTIN_PROTECTED_AUTHORS: ReadonlySet<string> = new Set(
+  MARKET_SEED_RAW.map((seed) => seed.author),
+)
+
+function isBuiltinProtectedAuthor(author: string): boolean {
+  return BUILTIN_PROTECTED_AUTHORS.has(author)
+}
+
+/**
+ * 作者名是否构成"身份冒充"(**只用于新建路径**;更新路径由 mayWriteMarketEntry 的
+ * ownerId 管,它不看 author 字符串)。两种来源分开判,因为同名不等于认领:
+ *  - selfReported=true(请求体自报):填内置作者名('IHUI' 等,源码公开可猜)⇒ 给自己
+ *    后缀一个"官方发布"的身份;填**他人已归属条目**在用的作者名 ⇒ 把别人的身份占成新条目。
+ *  - selfReported=false(服务端从调用者自己的 users 行推导):只有内置作者名才算冒充 ——
+ *    两人昵称相同是重名而非认领,拦它等于按昵称先到先得地封号。
+ * ownerId 为空的条目(builtin / hub / 契约落地前的 legacy)不参与"他人已有"比对:没有人
+ * 是它的 owner,拿它的作者名去判"他人"会误伤任何同名者。
+ */
+function authorImpersonates(input: {
+  author: string
+  callerId: number | undefined
+  entries: readonly Pick<SkillMarketEntry, 'author' | 'ownerId'>[]
+  selfReported: boolean
+}): boolean {
+  if (isBuiltinProtectedAuthor(input.author)) return true
+  if (!input.selfReported) return false
+  return input.entries.some(
+    (e) => e.author === input.author && e.ownerId !== undefined && e.ownerId !== input.callerId,
+  )
+}
+
+/** drizzle + postgres-js 的 db.execute 有两种返回形态(行数组 / { rows }),统一剥成行数组 */
+function extractRows(raw: unknown): ReadonlyArray<Record<string, unknown>> {
+  if (Array.isArray(raw)) return raw as ReadonlyArray<Record<string, unknown>>
+  if (raw && typeof raw === 'object') {
+    const inner = (raw as { rows?: unknown }).rows
+    if (Array.isArray(inner)) return inner as ReadonlyArray<Record<string, unknown>>
+  }
+  return []
+}
+
+/**
+ * 服务端推导调用者的作者显示名 —— 唯一可证依据是他自己的 users 行(nickname 优先,
+ * 退回 username),两者都空则返回 undefined。**本函数不接触请求体**,所以它的返回值
+ * 永不等于自报值;取不到名时由调用方走"冒充闸 + 自报兜底",内置作者名仍进不了条目。
+ *
+ * 刻意用 `db.execute(sql``)` 而不是 `db.select()`:本路由的回归测试把 db mock 成
+ * `{ db: { execute: vi.fn() } }`,select() 形态会在装配期就炸;execute() 取不到行时
+ * 返回 undefined 由调用方走冒充闸,判据不会退化成"采信自报"。
+ */
+async function resolveServerAuthor(userId: string): Promise<string | undefined> {
+  try {
+    const raw = await db.execute(
+      sql`SELECT nickname, username FROM users WHERE id = ${userId} LIMIT 1`,
+    )
+    const row = extractRows(raw)[0]
+    if (!row) return undefined
+    for (const key of ['nickname', 'username'] as const) {
+      const value = row[key]
+      const text = typeof value === 'string' ? value.trim() : ''
+      // author 列上限 64(publishSchema 同档),超了就截,不让它把整条上架打成 500
+      if (text.length > 0) return text.slice(0, 64)
+    }
+    return undefined
+  } catch {
+    // 用户库不可用:不阻断上架(归属仍由 ownerId 钉住),但绝不因此绕过作者冒充闸
+    return undefined
+  }
 }
 
 /**
@@ -843,6 +926,32 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
         .send(error(403, '只有该 Skill 的上架者本人或管理员可以更新这个市场条目'))
     }
 
+    // 新建分支的作者冒充闸(2026-09-25 收口 create 面)。同名条目不存在 ⇒ 这次是新建,
+    // 而新建此前允许任何人把 author 填成内置作者名('IHUI' 等,MARKET_SEED_RAW 里公开可猜),
+    // 等于给自己后缀一个"官方发布"的身份。放在**写动作之前**、与上面同一档(原始值、
+    // 先于 Zod),拒答时一条 redis 写都没有。内部自进化通道不判(它写的就是 hub 条目本身)。
+    if (!preTarget && !isInternal && rawName !== undefined) {
+      const rawAuthor = readRawAuthorForAuthorization(request.body)
+      if (
+        rawAuthor !== undefined &&
+        authorImpersonates({
+          author: rawAuthor,
+          callerId: publisherId,
+          entries,
+          selfReported: true,
+        })
+      ) {
+        return reply
+          .status(403)
+          .send(
+            error(
+              403,
+              '作者名由服务端按调用者身份推导，不得填写平台内置作者名或他人已在用的作者名',
+            ),
+          )
+      }
+    }
+
     // ── 4. 校参数 ─────────────────────────────────────────────────────────────────
     const parsed = publishSchema.safeParse(request.body)
     if (!parsed.success) {
@@ -896,11 +1005,25 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
     }
 
     const now = new Date().toISOString()
+    // 条目的作者身份:内部自进化通道仍写 hub 传来的作者名(它同步的就是 hub 条目本身);
+    // 经 JWT 上架(普通用户与管理员同档)⇒ 一律取服务端推导的显示名,自报的 body.author
+    // 不进条目。推导不出来(昵称与用户名都空 / 用户库不可用)才退回自报值,而那一条
+    // 已经过上面的冒充闸。第二道 isBuiltinProtectedAuthor 是补"自己的昵称就叫 IHUI"
+    // 这一型:推导成功不代表身份成立,内置作者名在任何来源下都不允许出现在 user 条目上。
+    const derivedAuthor = isInternal
+      ? undefined
+      : await resolveServerAuthor(String(request.userId!))
+    const entryAuthor = derivedAuthor ?? body.author
+    if (!isInternal && isBuiltinProtectedAuthor(entryAuthor)) {
+      return reply
+        .status(403)
+        .send(error(403, '作者名与平台内置作者重名，请先修改个人资料中的昵称再上架'))
+    }
     const entry: SkillMarketEntry = {
       name: body.name,
       description: body.description,
       tags: body.tags,
-      author: body.author,
+      author: entryAuthor,
       version: body.version,
       license: body.license,
       installCount: 0,
