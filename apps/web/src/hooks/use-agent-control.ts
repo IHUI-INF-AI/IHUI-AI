@@ -27,6 +27,13 @@
 import * as React from 'react'
 
 import { createNotificationClient } from '@ihui/api-client'
+import {
+  createAssignmentTokenLedger,
+  isAgentActionAssignedToInstance,
+  unassignedAgentActionLogMessage,
+  withRespondedIdentity,
+  type AgentActionSelfIdentity,
+} from '@ihui/shared/utils/agent-action-addressing'
 import type {
   AgentActionAssignment,
   AgentActionRequest,
@@ -95,32 +102,30 @@ function getInstanceId(): string {
 }
 
 /**
- * 定址投递(2026-09-26,镜像 extension agent-control-bridge 的姊妹实现):
+ * 定址投递(2026-09-26,共享层收口):判定本身住在
+ * `@ihui/shared/utils/agent-action-addressing`(五桥一份实现),本文件只注入自身身份。
  * api 的 WS 推送按用户广播,assignment 由服务端派发时写入载荷 —— 非指派端不得执行,
  * 且如实记日志(不静默 return);回执原样回显 token + 自报本实例,身份对账在服务端做。
  */
-const _assignmentByRequestId = new Map<string, string>()
+const assignmentTokens = createAssignmentTokenLedger(PROCESSED_IDS_MAX)
+
+function selfIdentity(): AgentActionSelfIdentity {
+  return { endpoint: 'desktop', instanceId: getInstanceId() }
+}
 
 /** requestId → assignment.token(仅缓存服务端下发值,不在端内计算期望身份) */
 function recordAssignment(requestId: string, assignment: AgentActionAssignment): void {
-  _assignmentByRequestId.set(requestId, assignment.token)
-  if (_assignmentByRequestId.size > PROCESSED_IDS_MAX) {
-    const oldest = _assignmentByRequestId.keys().next().value
-    if (oldest !== undefined) _assignmentByRequestId.delete(oldest)
-  }
+  assignmentTokens.remember(requestId, assignment.token)
 }
 
 /** 取出并消费本请求的回显 token(无 = 旧服务端形态,回执不带身份) */
 function takeAssignmentToken(requestId: string): string | undefined {
-  const token = _assignmentByRequestId.get(requestId)
-  _assignmentByRequestId.delete(requestId)
-  return token
+  return assignmentTokens.take(requestId)
 }
 
-/** 本条指令是否指派给本实例:无 assignment(旧服务端)按原语义执行;有则须实例一致 */
+/** 本条指令是否指派给本实例:无 assignment(旧服务端)按原语义执行;有则须端种类 + 实例一致 */
 function isAssignedToThisInstance(assignment: AgentActionAssignment | undefined): boolean {
-  if (!assignment) return true
-  return assignment.endpoint === 'desktop' && assignment.instanceId === getInstanceId()
+  return isAgentActionAssignedToInstance(assignment, selfIdentity())
 }
 
 // ===== Capability reporting =====
@@ -153,13 +158,7 @@ async function reportCapability(): Promise<void> {
 // ===== Result reporting =====
 
 async function reportResult(response: AgentActionResponse): Promise<void> {
-  const token = takeAssignmentToken(response.requestId)
-  const payload: AgentActionResponse = token
-    ? {
-        ...response,
-        responded: { instanceId: getInstanceId(), assignmentToken: token },
-      }
-    : response
+  const payload = withRespondedIdentity(response, assignmentTokens, selfIdentity())
   try {
     const res = await fetchApi<{ accepted: boolean }>('/api/agent-control/result', {
       method: 'POST',
@@ -328,10 +327,8 @@ function handleWsMessage(msg: WSNotification): void {
   // 定址过滤(2026-09-26):非指派端不得执行;如实记日志,不得静默 return
   if (!isAssignedToThisInstance(assignment)) {
     console.warn(
-      '[desktop] agent-control: 指令非指派给本实例,忽略',
-      `requestId=${req.requestId}`,
-      `assigned=${String(assignment?.instanceId)}`,
-      `self=${getInstanceId()}`,
+      '[desktop] agent-control:',
+      unassignedAgentActionLogMessage(req.requestId, assignment, selfIdentity()),
     )
     return
   }
