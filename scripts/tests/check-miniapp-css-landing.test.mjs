@@ -19,6 +19,9 @@
  *       - 声明 commit 而 runner 里没有它 ⇒ 门被摘线(造好没装车,本仓最高频那一型)。
  *     当前真值是 manual —— 因为它判构建产物,提交者结构上未必满足,接成 blocking 只会逼人
  *     --no-verify 并连带废掉全部守门(§12e)。
+ *  4. **转写比对收紧必须"有牙也不放水"** (§2b,2026-09-25):阳性对照与反向对照都在**同一次
+ *     运行的同一份 landed** 上做 A/B(旧判据必命中不足 / 收紧后已知事实集全中 / 凭空名字仍判缺),
+ *     真 dist 不在位时显式 skip 并说原因 —— 自跳过要喊出来,不得静默计为通过。
  */
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
@@ -92,6 +95,103 @@ test('任意值/感叹号前缀的转义类名必须被认出来', () => {
 test('裸类名(无规则体)不得算落地,注释里的假规则不得算定义', () => {
   assert.deepEqual([...G.harvestLandedSelectors('.parent .child')], [])
   assert.deepEqual([...G.harvestClassDeclarations('/* .fake{color:red} */ .real{color:red}').keys()], ['real'])
+})
+
+/* ─────────────── 2b. weapp 类名转写比对(2026-09-25 C1 收紧) ─────────────── */
+/**
+ * 缺陷本体:weapp-tailwindcss 产出 wxss 时把类名里的标点按固定表转写
+ * (`[ → _b ] → _B / → _f : → _c ( → _p ) → _P , → _m . → _d + → _u`),
+ * 旧 C1 拿源文件里的**原始类名**比产物里 harvest 到的名字 ⇒ 所有含标点的档整片被判"没落地"
+ * (实测 505 条缺项里绝大多数是这把尺的噪声,而 `.bg-muted`/`.top-1_f2` 声明体真实在产物里)。
+ * 本组证明三件事:
+ *  ① **阳性对照(真 dist 对账)**:已知落地事实集在旧判据(只比原名)下明显命中不足、
+ *    收紧后(原名 ∪ 转写名)全部命中 —— A/B 在同一次运行、同一份 landed 上做,不靠"改前跑一次"。
+ *  ② **反向对照(不得放水)**:产物里没有的名字,收紧后仍必判缺。加转写表只允许
+ *    把"其实落了地的"认回来,不得让"真没落地的"更容易点头。
+ *  ③ **表外标点不猜**:未在真产物实测到转写的 `! * % # @ > ~` 一律不进表,
+ *    它们参与的缺项进 unmangledPunctMisses 只报数,绝不并入 hit。
+ */
+
+test('转写函数:样本逐字取自 2026-09-25 真 weapp 构建产物(非立票猜测)', () => {
+  assert.equal(G.weappMangleClassName('-top-[8rpx]'), '-top-_b8rpx_B')
+  assert.equal(G.weappMangleClassName('top-1/2'), 'top-1_f2')
+  assert.equal(G.weappMangleClassName('bg-[var(--color-black-50)]'), 'bg-_bvar_p--color-black-50_P_B')
+  assert.equal(G.weappMangleClassName('bg-[rgba(0,0,0,0.4)]'), 'bg-_brgba_p0_m0_m0_m0_d4_P_B')
+  assert.equal(G.weappMangleClassName('dark:text-foreground'), 'dark_ctext-foreground')
+  assert.equal(G.weappMangleClassName('pb-[calc(20rpx+env(safe-area-inset-bottom,0))]'), 'pb-_bcalc_p20rpx_uenv_psafe-area-inset-bottom_m0_P_P_B')
+  // 表外标点原样保留 —— 未实测的转写不得写进表(猜错的方向是"把真没落地的判成落地")
+  assert.equal(G.weappMangleClassName('!bg-cta'), '!bg-cta')
+  assert.deepEqual(G.unmappedPunctIn('!bg-cta'), ['!'])
+  assert.deepEqual(G.unmappedPunctIn('w-[50%]'), ['%'], '连字符/字母不算标点;只剩 % 待验')
+  assert.deepEqual(G.unmappedPunctIn('bg-muted'), [], '反向对照:普通名字不得被说成"含表外标点"')
+})
+
+test('阳性对照(真 dist):旧判据命中不足、收紧后已知落地事实集全部命中', (t) => {
+  const dist = join(ROOT, 'apps', 'miniapp-taro', 'dist')
+  const shape = G.classifyDist(dist)
+  if (shape.kind !== 'weapp') {
+    t.skip(`本机当前无可信 weapp 产物(${shape.reason || shape.kind})⇒ 本对照自跳过并明说,不冒绿`)
+    return
+  }
+  let landed
+  try {
+    landed = G.collectLandedFromDist(dist).landed
+  } catch (e) {
+    t.skip(`产物读取失败(构建可能正在进行):${e.message}`)
+    return
+  }
+  const KNOWN_LANDED = [
+    '-top-[8rpx]',
+    'top-1/2',
+    'bg-[var(--color-black-50)]',
+    'dark:text-foreground',
+    'bg-[rgba(0,0,0,0.4)]',
+    'pb-[calc(20rpx+env(safe-area-inset-bottom,0))]',
+  ]
+  // A 臂 = 旧判据(只比原名);B 臂 = 收紧后(原名 ∪ 转写名)。同一份 landed,只差判据。
+  const oldHits = KNOWN_LANDED.filter((n) => landed.has(n))
+  const newHits = KNOWN_LANDED.filter((n) => landed.has(n) || landed.has(G.weappMangleClassName(n)))
+  assert.ok(oldHits.length < KNOWN_LANDED.length, `旧判据竟把 ${oldHits.length}/${KNOWN_LANDED.length} 都判了命中 ⇒ 产物形态变了,本对照失去判别力,需人工复核`)
+  assert.equal(newHits.length, KNOWN_LANDED.length, `收紧后仍有已知落地事实未命中:${KNOWN_LANDED.filter((n) => !newHits.includes(n)).join(', ')}`)
+  // 走门自己的算术:这些命中必须全部记在"转写后中"这一态上(表确实参与判定,不是直白的恒真)
+  const c = G.computeCoverage(KNOWN_LANDED, new Set(KNOWN_LANDED), landed)
+  assert.ok(c.hitMangledKinds > 0, 'hitMangledKinds=0 ⇒ 转写判据没参与真实产物,整组对照是摆设')
+  assert.equal(c.hitKinds + c.missKinds, c.demandedKinds)
+  assert.equal(c.missKinds, 0, `转写后仍缺:${(c.missFamilies || []).map((f) => f.family).join(', ')}`)
+})
+
+test('反向对照(真 dist):凭空造的名字收紧后仍必须判缺(否则=让门更容易点头)', (t) => {
+  const dist = join(ROOT, 'apps', 'miniapp-taro', 'dist')
+  if (G.classifyDist(dist).kind !== 'weapp') {
+    t.skip('本机当前无可信 weapp 产物 ⇒ 自跳过')
+    return
+  }
+  let landed
+  try {
+    landed = G.collectLandedFromDist(dist).landed
+  } catch (e) {
+    t.skip(`产物读取失败:${e.message}`)
+    return
+  }
+  const FAKE = 'bg-does-not-exist-tier'
+  assert.ok(!landed.has(FAKE) && !landed.has(G.weappMangleClassName(FAKE)), '凭空名字竟在产物里 ⇒ 产物不干净,本对照失去判别力')
+  const c = G.computeCoverage([FAKE], new Set([FAKE]), landed)
+  assert.deepEqual([c.hitKinds, c.missKinds, c.unmangledPunctMisses, c.definiteMissKinds], [0, 1, 0, 1])
+  assert.deepEqual(c.missFamilies, [{ family: 'bg', count: 1 }], '真缺项仍须成族可读,归族不得被转写表带跑')
+})
+
+test('装车证明:转写判据真挂在 computeCoverage / runCheck / report 上(定义了没接 = 没有)', () => {
+  const src = readFileSync(GATE, 'utf8')
+  assert.match(src, /landedNames\.has\(weappMangleClassName\(n\)\)/, 'computeCoverage 没有真比转写名')
+  assert.match(src, /!landed\.has\(n\) && !landed\.has\(weappMangleClassName\(n\)\)/, 'runCheck 的 missOccurrences 没吃同一谓词 ⇒ 两处数字不同源(§"两处算同一件事必漂移")')
+  assert.match(src, /miss\.filter\(\(n\) => unmappedPunctIn\(n\)\.length > 0\)/, '表外标点桶定义了却没挂上')
+  assert.match(src, /原名直中 \$\{c\.hitOriginalKinds\} \+ weapp 转写后中 \$\{c\.hitMangledKinds\}/, '两态计数算出来了却没进报告(只报合计会把"表漏一条"藏起来)')
+  assert.match(src, /待验字符:\$\{c\.unmangledPunctChars\.join\(' '\)\}/, '表外字符没在报告里点名 ⇒ 下一次实测不知道表还缺哪几条')
+  assert.match(src, /按族分布\(共 \$\{c\.missFamilies\.length\} 族,top5\)/, '缺项归族没进报告 ⇒ 样例仍是扁平截断,"成族"信号不可读')
+  // 负锁:未实测的标点不得被"顺手补进"转写表。只认**映射条目形态** `['X', '_y']` ——
+  // 第一版写成 /\['!'/ 把 self-test 里"unmangledPunctChars 期望值 = ['!']"这条正当夹具也判了红,
+  // 那正是本仓反复记的"门看不见自己产出的形态";判据失效方向错了会挡死合法收紧。
+  assert.doesNotMatch(src, /\['[!*%#@>~]'\s*,\s*'_/, '未实测标点(! * % # @ > ~)被猜进了转写表条目')
 })
 
 /* ─────────────── 3. 同名双义三档分类,各一正一反 ─────────────── */
@@ -454,6 +554,9 @@ test('§22c:__test__ 必须导出判据函数本体(不得让测试复制第二�
     'findBlindSpots',
     'namespacePrefix',
     'computeCoverage',
+    'weappMangleClassName',
+    'unmappedPunctIn',
+    'missFamily',
     'buildUtilityReference',
     'buildUtilityReferenceV4',
     'pickReferenceEngine',
@@ -464,6 +567,8 @@ test('§22c:__test__ 必须导出判据函数本体(不得让测试复制第二�
   ]) {
     assert.equal(typeof G[k], 'function', `__test__ 缺少 ${k}`)
   }
+  // 转写表必须是**导出的那一份**(测试与门共用一张表;在测试里另抄一份 = §22c 禁止的镜像漂移)
+  assert.ok(G.WEAPP_CLASS_MANGLE_TABLE instanceof Map && G.WEAPP_CLASS_MANGLE_TABLE.size === 9, '转写表不在位或条数变了(9 条为现值;增删条目必须带真产物取证)')
 })
 
 test('--self-test 必须全绿(判据自身的成对正反例)', () => {
