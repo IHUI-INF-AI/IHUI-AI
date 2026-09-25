@@ -13,7 +13,8 @@
  *
  * 语义色 + 圆角映射已抽取到 @ihui/design-tokens/tailwind-preset 共享 preset,
  * 与 mobile-rn 端共用,消除重复定义 + 统一 borderRadius.sm = 0.25rem。
- * CSS 变量值通过 `node scripts/sync-design-tokens.mjs` 自动同步到 src/app.css。
+ * CSS 变量值通过 `pnpm --filter @ihui/miniapp-taro sync-tokens`(= `node scripts/sync-miniapp-tokens.mjs`)
+ * 自动同步到 src/app.css。
  */
 import type { Config } from 'tailwindcss'
 import sharedPreset from '@ihui/design-tokens/tailwind-preset'
