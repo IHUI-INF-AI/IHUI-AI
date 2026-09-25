@@ -6,10 +6,28 @@
 // 根因:Node v24 child_process 的 windowsHide 默认 false;无控制台父进程(GUI agent 宿主 /
 // detached worker / 计划任务)派生 git、cmd、pnpm 等控制台程序时,Windows 必新分配可见控制台
 // → 用户桌面闪黑窗。本守门把"必须显式写 windowsHide"变成机制,而不是靠人记。
-import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
-import { extname, resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
+//
+// 取材口径(2026-09-26 迁到 scripts/lib/face-reader.mjs,与 70/77/83/98/101/113 同形):
+//   缺省(全量)判 **HEAD blob**;`--staged` 判**索引 blob**;`--worktree` 只是人工排查逃生舱;
+//   两面旗同给 ⇒ exit 2;判据取不到输入 ⇒ exit 2「无法判定」(既不冒红也绝不记绿)。
+//   覆盖面的一条刻意例外:HEAD 里不存在的路径(未跟踪但未忽略的文件、别人刚 git add 的新文件)
+//   在全量档改取工作树 —— 那是该路径唯一的存续面,去掉它等于把本门立项要防的那一型
+//   ("新建还没 add 的脚本完全不在视野内")重新放回去。
+// 手动:
+//   node scripts/check-no-visible-spawn.mjs [--staged|--worktree]   # 判定面见上
+//   node scripts/check-no-visible-spawn.mjs --self-test             # 判据自检(零副作用,注入假 batch)
+import { existsSync } from 'node:fs'
+import { dirname, extname, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+// 判定面取材的唯一出口(2026-09-26 迁):git 绝对路径 / stdio[0]=pipe / 一次 batch 读一批 /
+// maxBuffer 给足,这五件事各门自己写必错 —— 见 scripts/lib/face-reader.mjs 头注。
+import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+
+/** ROOT 由脚本自身位置推导(§15,不得写死盘符);此前依赖 process.cwd(),换 cwd 即静默扫不到文件。 */
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const GIT_TIMEOUT = 120000
+/** 结论行必须说清判的是哪一面(否则下一个人无从知道"这一轮的数是从哪个修订算出来的")。 */
+const FACE_LABEL_SHORT = { staged: '索引 blob', head: 'HEAD blob', worktree: '工作树磁盘·逃生舱' }
 
 // 保守白名单:只有能**肯定**是控制台程序的首参才判违规 —— 宁漏报不误报,避免阻塞他人提交。
 // 2026-09-24 补齐三类此前盲区(均为 Windows 控制台子系统程序,漏 windowsHide 同样弹窗):
@@ -276,21 +294,70 @@ export function scanSource(src, file) {
   return violations
 }
 
-function gitLines(args) {
-  return execFileSync('git', ['-c', 'safe.directory=*', ...args], {
-    encoding: 'utf8',
-    maxBuffer: 256 * 1024 * 1024,
-    windowsHide: true,
-  })
+function gitLines(args, root = ROOT) {
+  return gitRaw(args, root, { timeout: GIT_TIMEOUT })
     .split('\n')
     .map((s) => s.trim())
     .filter(Boolean)
 }
 
+/**
+ * 判定面取材(2026-09-26 迁到共用层)。此前是**逐文件 `readFileSync(resolve(f))`** —— 按磁盘判,
+ * 而共享工作树常年滞后 HEAD(§12d 的 commit-tree/merge-tree 旁路只推进 HEAD 与索引、从不 checkout),
+ * 于是同一份 HEAD 代码在"恒红"与"假绿"之间来回跳;`--staged` 档读磁盘更是"盘上随后改对不算修好"。
+ * 现在:一次 `cat-file --batch` 读完整批 blob 正文(逐文件派生 git = fork 风暴,§5b 同型)。
+ *
+ * @param batch 注入点 —— 自检用它**构造**「同一批路径在索引面与 HEAD 面内容不同」的现场,
+ *   不必真改仓库(任务口径:不得用真仓做判据取证)。
+ * @returns {Map<string,string>} rel → 文本
+ */
+export function readFaceContent(root, face, rels, batch = null) {
+  const out = new Map()
+  if (rels.length === 0) return out
+  if (face === 'worktree') {
+    for (const p of rels) {
+      const t = readWorktreeFile(root, p)
+      if (typeof t !== 'string') throw new Undetermined(`${p}: 工作树面取不到内容`)
+      out.set(p, t)
+    }
+    return out
+  }
+  const rev = face === 'staged' ? '' : 'HEAD'
+  const specs = rels.map((p) => `${rev}:${p}`)
+  const opts = { maxBuffer: 1 << 29, timeout: GIT_TIMEOUT }
+  // 显式写出 `catBatch(...)`:守门 118 只认"真的调用了层的读取入口",
+  // 把 catBatch 当形参传进来再调 `batch(...)` 会被判成 half-wired(引了层却没用它读)。
+  const got = batch ? batch(root, specs, opts) : catBatch(root, specs, opts)
+  for (let i = 0; i < rels.length; i++) {
+    const t = got.get(specs[i])
+    if (typeof t === 'string') {
+      out.set(rels[i], t)
+      continue
+    }
+    if (face === 'staged')
+      throw new Undetermined(`${rels[i]}: 索引 blob 取不到 —— 暂存面无法判定(不回退磁盘、不静默跳过)`)
+    // 全量档两类"HEAD 结构上不可能有"的路径:① 别人刚 `git add` 的新文件(在索引、不在 HEAD);
+    // ② 未跟踪且未被 .gitignore 忽略的文件(本门刻意纳入视野,见 listCandidates 注释)。
+    // 它们只能取工作树 —— 那不是"回退磁盘判",而是该路径唯一的存续面。
+    const wt = readWorktreeFile(root, rels[i])
+    if (typeof wt !== 'string')
+      throw new Undetermined(`${rels[i]}: HEAD 与工作树两侧都取不到内容 —— 无法判定`)
+    out.set(rels[i], wt)
+  }
+  return out
+}
+
 /** 文件是否进入扫描范围(扩展名 / 跳过目录 / 声明文件 / 真实存在)。
- *  导出给镜像测试复用,避免测试里再抄一份判据常量(§22c 镜像漂移)。 */
+ *  导出给镜像测试复用,避免测试里再抄一份判据常量(§22c 镜像漂移)。
+ *  存在性按 ROOT 判:此前 `resolve(f)` 依 cwd,而本门曾要求"必须在仓库根跑",
+ *  换 cwd 就静默扫不到文件而恒绿 —— 与 ROOT 由脚本自身位置推导是同一条修。 */
 export function passesFilter(f) {
-  return SOURCE_EXT.has(extname(f).toLowerCase()) && !SKIP_DIR.test(f) && !f.endsWith('.d.ts') && existsSync(resolve(f))
+  return (
+    SOURCE_EXT.has(extname(f).toLowerCase()) &&
+    !SKIP_DIR.test(f) &&
+    !f.endsWith('.d.ts') &&
+    existsSync(resolve(ROOT, f))
+  )
 }
 
 /** 待扫文件清单。
@@ -363,22 +430,96 @@ function selfTest() {
     if (!ok) bad++
     console.log(`${ok ? '✅' : '❌'} ${c.name} (期望 ${c.want} 实得 ${got})`)
   }
-  console.log(bad === 0 ? `\nself-test 全通过(${cases.length} 例)` : `\nself-test 失败 ${bad}/${cases.length} 例`)
+  /**
+   * 取材面迁移的两条构造面证明(2026-09-26)+ 一条规格对照。
+   *
+   * 为什么必须**注入假 batch**而不是跑真仓:真仓的索引与 HEAD 此刻由并发会话决定,拿它当夹具
+   * 就是一台"今天红、明天绿"的尺子;而构造面能稳定造出「同一条路径在索引面脏、在 HEAD 面干净」
+   * 这个唯一能区分两面的情形。第三条防的是①②其实读了同一面(那它们就成了恒真式)。
+   */
+  const dirty = `spawnSync('git', ['status'])`
+  const clean = `spawnSync('git', ['status'], { windowsHide: true })`
+  const seenSpecs = []
+  const fakeBatch = (root, specs) => {
+    seenSpecs.push(...specs)
+    return new Map(specs.map((s) => [s, s.startsWith('HEAD:') ? clean : dirty]))
+  }
+  const rels = ['probe.mjs']
+  const faceCases = [
+    {
+      name: '取材面①:--staged 档必须跟**索引 blob** 走(索引脏、HEAD 干净 ⇒ 判 1 处)',
+      pass:
+        scanSource(readFaceContent('.', 'staged', rels, fakeBatch).get('probe.mjs'), 'probe.mjs').length === 1,
+    },
+    {
+      name: '取材面②(反向对照):同一条路径在 HEAD 档必须取 **HEAD blob**(干净 ⇒ 判 0 处)',
+      pass:
+        scanSource(readFaceContent('.', 'head', rels, fakeBatch).get('probe.mjs'), 'probe.mjs').length === 0,
+    },
+    {
+      name: '取材面③:两面喂给 git 的规格必须不同(`:p` vs `HEAD:p`)—— 否则①②是同一次读',
+      pass: seenSpecs.includes(':probe.mjs') && seenSpecs.includes('HEAD:probe.mjs'),
+    },
+    {
+      name: '取材面④:全量档 HEAD 没有该路径(未跟踪/刚 add)⇒ 取工作树而不是判 0(覆盖面不得缩)',
+      pass: (() => {
+        // 用一个**确定在仓库里**的相对路径,才能构造"HEAD 取不到而磁盘有"这一型
+        const known = 'scripts/check-no-visible-spawn.mjs'
+        const m = readFaceContent(ROOT, 'head', [known], () => new Map([[`HEAD:${known}`, null]]))
+        return typeof m.get(known) === 'string'
+      })(),
+    },
+    {
+      name: '取材面⑤:--staged 取不到索引 blob ⇒ 抛 Undetermined(不得静默跳过、不得回退磁盘)',
+      pass: (() => {
+        try {
+          readFaceContent('.', 'staged', rels, () => new Map([[':probe.mjs', null]]))
+          return false
+        } catch (e) {
+          return e instanceof Undetermined
+        }
+      })(),
+    },
+  ]
+  for (const c of faceCases) {
+    if (!c.pass) bad++
+    console.log(`${c.pass ? '✅' : '❌'} ${c.name}`)
+  }
+  const total = cases.length + faceCases.length
+  console.log(bad === 0 ? `\nself-test 全通过(${total} 例)` : `\nself-test 失败 ${bad}/${total} 例`)
   return bad === 0
 }
 
 async function main() {
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) process.exit(selfTest() ? 0 : 1)
-  const staged = argv.includes('--staged')
-  const files = listCandidates(staged)
+  const { face, error } = selectFace({
+    staged: argv.includes('--staged'),
+    worktree: argv.includes('--worktree'),
+    def: 'head',
+  })
+  if (error) {
+    console.error(`❌ [check-no-visible-spawn] 无法判定(exit 2): ${error}`)
+    process.exit(2)
+  }
+  const mode = `${face === 'staged' ? '--staged' : face === 'worktree' ? '--worktree' : '全量'}(判定面:${FACE_LABEL_SHORT[face]})`
+  let files
+  let texts
+  try {
+    files = listCandidates(face === 'staged')
+    texts = readFaceContent(ROOT, face, files)
+  } catch (e) {
+    const msg = e instanceof Undetermined ? e.message : e?.message ?? String(e)
+    console.error(`❌ [check-no-visible-spawn] 无法判定(exit 2): ${msg}`)
+    if (!(e instanceof Undetermined)) console.error(e?.stack ?? '')
+    process.exit(2)
+  }
   const prod = []
   const test = []
   for (const f of files) {
-    const found = scanSource(readFileSync(resolve(f), 'utf8'), f)
+    const found = scanSource(texts.get(f), f)
     if (found.length) (TEST_PATH.test(f) ? test : prod).push(...found)
   }
-  const mode = staged ? '--staged' : '全量'
   if (prod.length) {
     console.log(`❌ [check-no-visible-spawn ${mode}] 生产代码 ${prod.length} 处「派生控制台程序但漏 windowsHide」:`)
     for (const v of prod.slice(0, 40)) console.log(`   ${v.file}:${v.line}  ${v.snippet}`)
@@ -401,6 +542,7 @@ export const __test__ = {
   firstArg,
   isConsoleTarget,
   listCandidates,
+  readFaceContent,
   CONSOLE_LITERALS,
   stripSelfTestRegions,
   SELFTEST_BEGIN,
