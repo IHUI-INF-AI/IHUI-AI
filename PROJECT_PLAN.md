@@ -75,13 +75,13 @@
 - [ ]（进行中）**WP-7 浏览器语义快照与可复用元素句柄**(规格已写,未开工)。
 - [ ]（进行中）**WP-8 上下文占用归因 + 流式工具账本 + 目标完成独立校验轮**。后者是补
   `AGENTS.md §8` 早就要求但**从未实现**的"禁止模型自评 yes"。
-- [ ] 钩子 trust 的**残余面**:webhook 形态钩子仍不过门(本批按 command 收口);
+- [ ] **[O76 判:已完成残余,勿照本行派单]** 钩子 trust 的残余面:webhook 形态钩子仍不过门(本批按 command 收口); 〔本会话复测:两种形态已过**同一道门** —— `hookTrustSkipReason` 对 command/webhook 共用一次 gateHook 判定(`apps/cli/src/hooks/index.ts`),`ihui hooks trust` 子命令亦已在库(见 L7652 段判定);真正剩的只是"untrust 侧扩面",另票〕
   且缺 `ihui hooks trust <path>` 子命令(旧错误文案指向该不存在的命令,已改为指向真实出口),CLI 化信任需另票。
 - [ ] `reclaim` 改写信封内容的边界:本批只在 CLI 侧由"重建提醒"兜回产物指针,
   彻底解法需在 `reclaim.ts` 加 `isEnvelopeContent` 跳过 —— 属改他人在飞文件,未做。
-- [ ] WP-1 新 API 尚未接入 `builtins.ts`/`terminal.ts` 执行链(接一行即可恢复 YOLO 观感,
+- [ ] **[O76 判:已完成,勿照本行派单]** WP-1 新 API 尚未接入 `builtins.ts`/`terminal.ts` 执行链(接一行即可恢复 YOLO 观感, 〔本会话逐行复核:`builtins.ts:445` 与 `terminal.ts:231` 均已在 HEAD 调 `gateCommandExecution`;判定快照落后见 L7653-7655 方法论〕
   但需同步改他人 `terminal.test.ts` 的 `vi.mock`,本批未动)。
-- [ ] `config/architecture-policy.yaml` 目前 0 个模块 `managed:true` —— 渐进收口的第一块翻正面尚未选定。
+- [ ] **[O76 判:读数过期,勿照本行派单]** `config/architecture-policy.yaml` 目前 0 个模块 `managed:true` —— 渐进收口的第一块翻正面尚未选定。 〔现值按当次实测:同日已批量翻正多数块(见 L2441-2446 收口登记与 AGENTS 门 103 条"现值一律按当次实测取")〕
 
 
 ### 未闭环(不写作收口)
@@ -2561,7 +2561,7 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
 - [ ] D15 GitHub App(webhook 自动 PR review+@机器人触发)(G-20)
 - [ ] D15 GitHub App(webhook 自动 PR review+@机器人触发)(G-20)。**后端最小闭环已落(2026-09-24,本票)**:9 个新文件 `apps/api/src/routes/github-app.ts` + `src/services/github-app/{signature,jwt,pr-review,comment-trigger,events}.ts` + `tests/github-app-{signature,webhook,jwt}.test.ts`(63 用例),已挂 `server.register(githubAppRoutes,{prefix:'/api/github-app'})`(**必须带 prefix**:插件作用域装了保留原始字节的 JSON parser,挂根实例会把全站 JSON 解析改成字符串)。签名 fail-closed(缺 `X-Hub-Signature-256`/不匹配→401,secret 未配→503 而非放行;先比长度再 `timingSafeEqual`)、鉴权面显式列举(测试断言未签名得 4xx **不是 500**)、零网络(transport 注入)。**剩余(故本条不勾)**:① GitHub App 安装/授权回跳与"哪个用户绑哪个 installation"映射表(现 `installationId` 直取事件体);② web/desktop 配置界面;③ 仅接 `ping`/`pull_request`/`issue_comment`;④ 幂等是内存 LRU(重启后最坏重处理一次),落库需新表 `github_app_deliveries`(属 database 领地未动);⑤ 公网可达需 nginx 两份配置同步放行;⑥ README 同步属对外能力清单变化,因该文档此刻被并行会话争用而未做,归下一轮。
 - [ ] D16 多模型智能路由(任务类型分类器+成本感知选模+预算降级)(G-21)
-- [ ] D16 多模型智能路由(任务类型分类器+成本感知选模+预算降级)(G-21) **对账进度(2026-09-24,HEAD 取证)**:ai-service model_router.py(TaskComplexity/assess_complexity/_estimate_cost)+ tests/test_model_router.py 已在 HEAD;"预算降级"链路未重证,保持未勾。
+- [x] ✅(2026-09-25 复测翻勾) D16 多模型智能路由(任务类型分类器+成本感知选模+预算降级)(G-21) —— 上一行的"预算降级链路未重证"是**过期读数**,按当次 HEAD 重证:①路由层 `model_router.route(budget_usd=)` 的降级语义有 8+ 条 budget_exceeded 断言(tests/test_model_router.py:333-393);②接线层 `llm_gateway._apply_cost_aware_routing` 把 budget_usd 一路送进 route,tests/test_model_router_wiring.py 三档实测(无预算选贵 / 紧预算真降档 / 全超落最便宜)且带非恒真锁 `assert no_budget[0] != tight[0], "预算没有改变所选模型 ⇒ 降级链路是假的"`;③真实目录安全取证(test_real_catalog_path_consumed_and_safe)+ 默认接线开(应急回退 env `LLM_MODEL_ROUTER_WIRING_ENABLED`,预算入口 `LLM_AUTO_ROUTE_BUDGET_USD`)。本会话复跑:两测试文件 40 passed rc=0。票面三件(分类器/成本选模/预算降级)至此全有生产消费点与非恒真测试,翻勾;L2563 的裸副本行保留不动(孪生清理归门 71/twins 持有者)。
 - [x] ✅(2026-09-24) D16 多模型智能路由(任务类型分类器+成本感知选模+预算降级)(G-21)—— 本行是 union 归并留下的旧副本,三点口径的实测判定与预算降级取证见紧邻的下一条,勿照本行再派单。
 - [x] ✅(2026-09-24) **D16 多模型智能路由(任务类型分类器+成本感知选模+预算降级)(G-21)** —— 本条长期挂 `- [ ]` 是**幽灵待办**：前两点实测早已在库(`apps/ai-service/app/services/model_router.py` 417 行,`TaskComplexity` 五档分类 + `_estimate_cost` 成本感知 + 已接 `core/llm_gateway.py`),缺的只有第三点。**本票补完"预算降级"这一维**：`route(..., budget_usd=)` 在**已按质量/成本排序**的候选里取第一个付得起的(预算只往下截,绝不把更差模型提上来)；全超预算则落最便宜档并置 `budget_exceeded=True`；无候选兜底分支同样把预算状态写进 `reason`(标志位与文案同形,不许"看起来正常")；`preferred_model` 是显式意图 ⇒ **不换模型只标超支**；`budget_usd=None` 与不传该参数逐字段等值(旧行为零改动)。测试 21 → **30 条**，验收：`pytest tests/test_model_router.py` 30 passed、`mypy app/services/model_router.py` Success、水印 verify 完好。**两条值得留下的取证教训**：① 第一版测试用 `token_count=1_000_000` + 128k context,被 `context_length` 整批筛空而落进"无候选"分支 —— **5 条断言错有错着地绿了**,现在把"真走在候选分支上"写成一条显式前置自检；② `COMPLEXITY_REQUIREMENTS` 的 `max_price`(trivial/simple/moderate/complex = 0.5/1.0/5.0/20.0)会**先于预算**筛掉价差模型,所以"备选裁剪"这条判据只能在 `expert` 档(min_reasoning 9 / max_price 50)上被测到 —— 夹具据此造模,不用 DEFAULT_MODELS(定价表一改断言就变运气)。
 
