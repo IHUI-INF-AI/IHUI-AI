@@ -21,10 +21,11 @@
  * 也没有本门必需的 HEAD/索引 blob 取材口径。把一条正在跑的 blocking 门连它的口径一起重写,
  * 爆炸半径远大于新增一个文件 —— 故新建本门,11h 逐字不动。
  *
- * 判据(四条,一律**宁漏不误报**):
+ * 判据(六条,一律**宁漏不误报**):
  *  S0   单一实现在位 —— 上述共享组件必须仍在、仍引用矢量图标、仍被别处 import。
  *       防"装好被摘线":机制不在而本门仍报绿,等于没有(守门 70/76/81 同型)。
- *       现登记 4 个:三端「更多」箭头 + 小程序端页头返回键 `BackChevron`。
+ *       现登记 5 个:三端「更多」箭头 + 页头返回键的两份同名实现(小程序端内 `BackChevron`
+ *       与 RN/共享屏层 `packages/app/.../BackChevron`)。只登记其中一份时,另一份被摘线无人喊红。
  *  GA1  文本字形当 chevron —— 一个 JSX 元素的**唯一**子内容恰好是 `›` `»` `→` `》` `‹` `←`(或裸 `>`),
  *       或表达式子内容 `{'›'}` / `{">"}`,**且**语境可证明是 affordance:本元素属性里有
  *       onClick/onPress/onTap/onLongPress 或 role/accessibilityRole="button",或其任一祖先元素
@@ -48,10 +49,26 @@
  *       **刻意不纳**带宾语的标签(`backHome` 返回首页 / `backLogin` 返回登录 / `prevMonth`):
  *       那些是按钮文案,换成裸箭头反而不表意 —— 拦的是"箭头位放文字",不是"不许出现返回二字"。
  *       web 端 0 处存量(它的返回键本就是 lucide `<ChevronLeft />`),本判据把另三端对齐过去。
+ *  GA5  「返回」与字形**混写**(2026-09-25 立)。GA1 只判"整格唯一子内容是字形"、GA4 只判
+ *       "整格是返回文案",于是 `← 返回` / `‹ 返回` 这一型两条都不纳 —— 它恰好是**改了图标但把
+ *       文案留在原地**的产物(实测两处真站点:`packages/app/src/components/Selecter.tsx:415`、
+ *       `apps/mobile-rn/src/components/ModelConfigDialog.tsx:288`)。GA5 由 `classifyBackLabel`
+ *       在整格分类时认它,与 GA4 共用同一遍遍历 ⇒ 一个元素只会算一条。
+ *       另一型 `← {t('common.back')}`(字形与调用**分居两个子节点**)连"整格"都不成立,GA1/GA4
+ *       结构上看不见 ⇒ 由 `findGlyphPlusCallLines` 逐行配(详见下方 GA5 注释;删掉它自检会翻绿)。
+ *  GA6  页内返回键不得与微信**原生导航栏**同屏(2026-09-25 立,起因:把文字返回键收成矢量箭头后,
+ *       模拟器截图里同一屏出现**两个**返回箭头 —— 原生栏自绘一个、页内 `<BackChevron/>` 一个)。
+ *       web 的模型是"chrome 拥有唯一返回键"(GlobalTopBar 的 TopBarBackButton,页面不再自渲染),
+ *       所以原生栏在的页不该再有页内返回键。判据读 Taro 的编译前真值:页面 `x.config.ts`,
+ *       页内未写 `navigationStyle` 则继承 `app.config.ts` 的全局 window(两处都取不到 ⇒ **未判定**,
+ *       既不记绿也不冒红)。渲染 `<NavBar/>` 的页一并纳入 —— 它按胶囊按钮算状态栏高度,本就是为
+ *       custom 页写的,挂原生栏等于双层 chrome(实测 `pages/community`、`pages/distribution` 正是配置错页)。
  *
  * 泄压阀:行内 `glyph-arrow-exempt: <一句话原因>`(GA1/GA2)与
- * `back-label-exempt: <一句话原因>`(GA4,可写在命中行或其紧邻上行)——
+ * `back-label-exempt: <一句话原因>`(GA4/GA5,可写在命中行、可点元素起始行或其紧邻上行)——
  * 两条**独立通道**,都得带原因,裸标记不生效。分开是为了不给 GA1 开第二条豁免口。
+ * GA6 用文件级 `nav-chrome-exempt: <原因>`:它的"错"是页面配置与页面渲染的**组合**,
+ * 不落在某一行上,逐行豁免对本判据没有意义。
  *
  * 内容口径(本门生命线):缺省判 **HEAD blob**,`--staged` 判**索引 blob**,
  * 棘轮锚点恒为**该文件 HEAD 版本自身的违规数**。共享工作树常年滞后 HEAD,按磁盘算会在恒红/假绿
@@ -126,6 +143,12 @@ const MECHANISMS = [
     icon: /['"]chevron-left['"]/,
     note: '小程序:页头返回键唯一实现(与 web 端 ChevronLeft 同向同档),素材复用 LineIcon chevron-left',
   },
+  {
+    file: 'packages/app/src/components/BackChevron.tsx',
+    symbol: 'BackChevron',
+    icon: /\bChevronLeft\b/,
+    note: 'RN + 跨端共享屏层:lucide-react-native ChevronLeft(与小程序那份同名不同实现,两边都要被 S0 看着 —— 只登记端内那一份时,共享层被摘线无人喊红)',
+  },
 ]
 
 /** GA1:整格文本箭头(含左向 `‹`/`←` —— 2026-09-25 随小程序端返回键收口一起纳进来:
@@ -164,13 +187,19 @@ const BACK_TEXT_LITERAL_RE = /^[「『]?返回[」』]?$/
  * 一次 `git grep` 预筛。模式串是**判据所需字面量的超集(差一处,已如实登记)**:
  * GA1 需那六个字形(‹/← 为 2026-09-25 新增)+ 带引号的 `{'>'}` / `{">"}` 形态;
  * GA2 只需 fontSize|font-size(命名配对在筛后的内容里做);GA4 只需「返回」二字
- * (i18n 表达式与字面量两种形态都必含它)。S0 机制文件永远实读,不受预筛影响。
+ * (i18n 表达式与字面量两种形态都必含它);GA5 另需 `«`(BACK_GLYPH_PREFIX_RE 的字形族比 GA1
+ * 多这一档,预筛必须是**超集**,少一档就是"筛掉了自己判据要抓的东西");
+ * GA6 是**跨文件**判据,候选里没有字形可筛 —— 它按 `BackChevron` / `NavBar` 的 import 与页面
+ * config 的 `navigationStyle` 识别,所以这三个标识符**必须**进模式串,否则"只有页内返回键、
+ * 没有任何字形"的干净页会被预筛吞掉,本门就在自己立项的那一型上失明。
+ * S0 机制文件永远实读,不受预筛影响。
  * ⚠️ **残盲登记**:GA1 的**裸文本子节点** `>Text></` 形态(整格只有一个 `>`、不带引号)
  * 无法进预筛 —— `>` 在任意 TSX 里都是标签结束符,加进模式串等于取消预筛。
  * 该形态现网 0 处;若哪天要纳进来,得换成"两遍扫"(先扫结构再判字形),不得静默留着。
  * 筛不动(异常)退回全量,绝不退成"少扫文件 = 少违规"。
  */
-const PREFILTER = '›|»|→|》|‹|←|返回|fontSize|font-size|\'>\'|">"'
+const PREFILTER =
+  '›|»|→|》|‹|←|«|返回|fontSize|font-size|\'>\'|">"|BackChevron|NavBar|navigationStyle'
 
 const git = (args, cwd = ROOT) => gitRaw(args, cwd, { timeout: GIT_TIMEOUT })
 
@@ -467,12 +496,51 @@ function isOutsideString(strMask, pos) {
   return !strMask[pos]
 }
 
+/**
+ * GA5:字形与返回文案的**混写**。GA1 只判"整格唯一子内容是字形"、GA4 只判"整格唯一子内容是
+ * 返回类文案",两型混排都不纳:
+ *   A 型 整格 `← 返回` / `‹ 返回`(实测两处真站点:`packages/app/src/components/Selecter.tsx:415`、
+ *        `apps/mobile-rn/src/components/ModelConfigDialog.tsx:288`)⇒ 由 `classifyBackLabel` 在
+ *        整格分类里认,与 GA4 共用同一遍遍历,一个元素只算一条;
+ *   B 型 同一行"独立字形 + 返回类 i18n 调用"分居**两个子节点**(`<Text onClick>← {t('common.back')}</Text>`)
+ *        ⇒ `walkAffordanceChildren` 走 `loneChildText`,**多子元素的元素根本不入选**,于是这一型
+ *        今天 GA1/GA4/GA5-A 三条**全部零命中**(自检里那条断言就是它的存在性证明:去掉下面这个
+ *        逐行判据,该断言从红翻绿)。刻意按**同行**配对:跨行窗口会把"上一行的矢量箭头 + 下一行
+ *        无关文案"算成一对,那是造假红。
+ */
+const BACK_GLYPH_PREFIX_RE = /^[‹←«‹]\s*返回$/
+const BACK_CALL_ON_LINE_RE = /\{\s*(?:[\w$]+\.)?(?:tt?|i18nT)\s*\(\s*['"][^'"]*\bback\d*['"]/
+const LONE_BACK_GLYPH_RE = /(^|[>\s{])\s*([‹←«])\s*(?=[\s<{]|$)/
+
 /** 该子内容是否为「返回」类文案(GA4 判据);返回命中的形态名或 null */
 export function classifyBackLabel(tr, strMask, pos) {
   if (BACK_TEXT_LITERAL_RE.test(tr)) return isOutsideString(strMask, pos) ? 'text-literal' : null
+  if (BACK_GLYPH_PREFIX_RE.test(tr)) return isOutsideString(strMask, pos) ? 'glyph-plus-text' : null
   if (!tr.startsWith('{') || !tr.endsWith('}')) return null
   return BACK_LABEL_EXPR_RE.test(tr) ? 'i18n-call' : null
 }
+
+/** GA5 B 型:逐行找"同一行既有独立返回字形、又有返回类 i18n 调用"(两型分居两个子节点时整格判据全盲) */
+export function findGlyphPlusCallLines(text) {
+  const { code, strMask } = stripCommentsKeepStrings(text)
+  const hits = []
+  const lines = code.split('\n')
+  let start = 0
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (BACK_CALL_ON_LINE_RE.test(line)) {
+      const g = LONE_BACK_GLYPH_RE.exec(line)
+      if (g) {
+        const at = line.indexOf(g[2], g.index)
+        if (at >= 0 && !strMask[start + at]) hits.push({ line: i + 1, glyph: g[2] })
+      }
+    }
+    start += line.length + 1
+  }
+  return hits
+}
+
+/** GA5 A 型的分类出口:整格「← 返回」归 GA5,整格「返回」归 GA4(两条共用同一遍遍历,不重复计) */
 
 /** 该整格子内容是否为箭头字形(GA1 分类器);返回 { glyph, form } 或 null */
 export function classifyGlyph(tr, strMask, pos) {
@@ -762,10 +830,23 @@ export function auditFile(rel, text) {
         continue
       }
       findings.push({
-        rule: 'GA4',
+        rule: h.form === 'glyph-plus-text' ? 'GA5' : 'GA4',
         file: rel,
         line: h.line,
-        msg: `${h.form === 'i18n-call' ? 'i18n「返回」文案' : `字面量「${h.text}」`}摆在返回箭头位(<${h.tag}> 的唯一子内容,${h.via})—— 返回 affordance 须用矢量箭头(web/RN:ChevronLeft;小程序:<BackChevron />);确属"按钮标签"而非页头返回键,在**可点元素起始行或其紧邻上行**写 \`back-label-exempt: <原因>\``,
+        msg: `${h.form === 'i18n-call' ? 'i18n「返回」文案' : h.form === 'glyph-plus-text' ? `字形+文案「${h.text}」` : `字面量「${h.text}」`}摆在返回箭头位(<${h.tag}> 的唯一子内容,${h.via})—— 返回 affordance 须用矢量箭头(web/RN:ChevronLeft;小程序:<BackChevron />);确属"按钮标签"而非页头返回键,在**可点元素起始行或其紧邻上行**写 \`back-label-exempt: <原因>\``,
+      })
+    }
+    // GA5 B 型:同一行"独立字形 + 返回类调用"分居两个子节点 —— 整格判据对多子元素的元素根本不入选,三条全盲
+    for (const g of findGlyphPlusCallLines(text)) {
+      if (backExempt.has(g.line) || exempt.has(g.line)) {
+        notes.backExempt++
+        continue
+      }
+      findings.push({
+        rule: 'GA5',
+        file: rel,
+        line: g.line,
+        msg: `字形「${g.glyph}」与「返回」文案同一行并写(分居两个子节点)—— GA1/GA4 都只判整格唯一子内容,这一型三条都不纳;要么只用矢量图标,要么只用文案标签`,
       })
     }
   }
@@ -791,9 +872,90 @@ export function auditFile(rel, text) {
   return { findings, notes }
 }
 
+/**
+ * GA6:页内返回键不得与微信原生导航栏同屏(2026-09-25 立)。
+ * 起因:把文字返回键收成矢量箭头后,模拟器截图里发现同一屏有**两个**返回箭头 —— 原生导航栏自绘
+ * 一个、页内 `<BackChevron/>` 一个。web 的模型是"chrome 拥有唯一返回键"(GlobalTopBar 的
+ * TopBarBackButton,页面不再自渲染),所以原生栏在的页不该再有页内返回键。
+ * 判据取**编译前的真值**:Taro 约定页面 config 与页面文件同名(`x.tsx` ↔ `x.config.ts`),
+ * 页面没写 `navigationStyle` 时继承 `app.config.ts` 的全局 window;两处都取不到 ⇒ 判"无法判定"
+ * 并点名,不冒红也不记绿(把"没读到"当成"没有"会产出反向结论 —— 那正是本门初版把
+ * "config 不存在" 判成 native 的同时又记 undetermined 的自相矛盾,已按继承链重写)。
+ * 渲染 `NavBar` 的页一并纳入 —— 它内部按胶囊按钮算状态栏高度,本就是为 custom 页写的,
+ * 挂原生栏等于双层 chrome(实测 community / distribution 两页正是配置错页)。
+ * 行内出口 `nav-chrome-exempt: <原因>`(整文件生效:这里的"错"是页面级配置与页面级渲染的
+ * 组合,不在某一行上,逐行豁免对本判据没有意义)。
+ */
+const CUSTOM_NAV_RE = /navigationStyle\s*:\s*['"]custom['"]/
+const NAV_CHROME_EXEMPT_RE = /nav-chrome-exempt:\s*\S/
+const GLOBAL_APP_CONFIG = 'apps/miniapp-taro/src/app.config.ts'
+
+/** 可选文件:ENOENT 是正当状态(页面没有自己的 config),其它异常必须照抛 —— 见守门 97 那条"编码错误伪装成取不到" */
+function readOptional(read, rel) {
+  try {
+    return read(rel)
+  } catch (e) {
+    if (e?.code === 'ENOENT') return null
+    throw e
+  }
+}
+
+/** 该页导航栏形态:'custom' | 'native' | null(判不出)。null 只在两处来源都取不到时出现。 */
+export function navStyleOf(read, pageRel) {
+  const own = readOptional(read, pageRel.replace(/\.tsx$/, '.config.ts'))
+  if (own !== null && CUSTOM_NAV_RE.test(own)) return 'custom'
+  const global = readOptional(read, GLOBAL_APP_CONFIG)
+  if (global === null) return null
+  return CUSTOM_NAV_RE.test(global) ? 'custom' : 'native'
+}
+
+export function findChromeDuplicates(readFile, files) {
+  const out = []
+  for (const rel of files) {
+    if (!rel.startsWith('apps/miniapp-taro/src/') || !rel.endsWith('.tsx')) continue
+    if (rel.includes('/components/')) continue
+    const src = readFile(rel)
+    if (src === null) continue
+    const usesKey = /from '@\/components\/BackChevron'/.test(src) || /<NavBar\b/.test(src)
+    if (!usesKey) continue
+    if (NAV_CHROME_EXEMPT_RE.test(src)) continue
+    const cfgPath = rel.replace(/\.tsx$/, '.config.ts')
+    const style = navStyleOf(readFile, rel)
+    if (style === null) {
+      out.push({
+        file: rel,
+        line: 1,
+        undetermined: true,
+        msg: `渲染页内返回键,但 ${cfgPath} 与 ${GLOBAL_APP_CONFIG} 在所选取材面都取不到 ⇒ 无法判定导航栏形态(不记绿,也不冒红)`,
+      })
+      continue
+    }
+    if (style === 'native') {
+      const viaNavBar = /<NavBar\b/.test(src)
+      out.push({
+        file: rel,
+        line: 1,
+        msg: `该页是原生导航栏(${cfgPath} 未写、${GLOBAL_APP_CONFIG} 也没有 navigationStyle:'custom'),却又渲染${viaNavBar ? ' <NavBar/>(它内部 showBack 默认 true 会再画一个返回键,并按胶囊按钮给状态栏留位 ⇒ 双层 chrome + 正文被再推一档)' : '页内 <BackChevron/>'} ⇒ 同屏两个返回箭头。${viaNavBar ? "改法只有把该页设 navigationStyle:'custom'(NavBar 本就是为 custom 页写的)" : '改法:该页设 navigationStyle:\'custom\',或删掉页内 <BackChevron/>(标题行留着)'} —— 只把 showBack 设 false 会留下空的固定标题条,那是半修`,
+      })
+    }
+  }
+  return out
+}
+
+/** GA6 要读页面 config —— 必须补进取材批次,否则 reader 只认清单内路径,会把"没读"当成"没有" */
+export function withPageConfigs(files) {
+  const extra = []
+  for (const f of files) {
+    if (!f.startsWith('apps/miniapp-taro/src/') || !f.endsWith('.tsx') || f.includes('/components/')) continue
+    const cfg = f.replace(/\.tsx$/, '.config.ts')
+    if (!files.includes(cfg)) extra.push(cfg)
+  }
+  return [...files, ...extra]
+}
+
 // ── 扫描(纯函数:自检直接喂内存 reader,不做任何 git 写) ──────────────────────────────
 export function scan(readFile, files, opts = {}) {
-  const v = { s0: [], ga1: [], ga2: [], ga4: [] }
+  const v = { s0: [], ga1: [], ga2: [], ga4: [], ga5: [], ga6: [] }
   const notes = {
     totalFiles: files.length,
     scanned: 0,
@@ -803,6 +965,7 @@ export function scan(readFile, files, opts = {}) {
     exempt: 0,
     backExempt: 0,
     undetermined: [],
+    chromeUndetermined: [],
     wiringSkipped: !opts.checkWiring,
   }
   for (const rel of files) {
@@ -826,6 +989,12 @@ export function scan(readFile, files, opts = {}) {
     notes.backExempt += fn.backExempt
     for (const u of fn.undetermined) notes.undetermined.push(`${rel}: ${u}`)
     for (const f of findings) v[f.rule.toLowerCase()].push(f)
+  }
+  // GA6 是**跨文件**判据(页面 × 页面 config),必须在整轮逐文件循环之后跑,
+  // 且与屏文件走同一个 readFile —— 换面就换一个结论(守门 77/83 的"两面同轮"纪律)。
+  for (const h of findChromeDuplicates(readFile, files)) {
+    if (h.undetermined) notes.chromeUndetermined.push(h)
+    else v.ga6.push(h)
   }
   // S0 与屏文件走同一个取材面 —— 否则 --root/工作树通道下发的是 worktree,
   // 而 S1 偷读 HEAD,结论会自相矛盾。机制文件自身不算"消费者"(它们互相含名字,会假接线)。
@@ -903,17 +1072,29 @@ export function scanRepo(root, face, explicitFiles, opts = {}) {
     for (const m of MECHANISMS)
       if (!files.includes(m.file) && all.includes(m.file)) files.push(m.file)
   }
-  const reader = makeReader(root, face, [...new Set([...files, ...MECHANISMS.map((m) => m.file)])])
+  const reader = makeReader(root, face, [
+    ...new Set([
+      ...withPageConfigs(files),
+      ...MECHANISMS.map((m) => m.file),
+      GLOBAL_APP_CONFIG,
+    ]),
+  ])
   return {
     result: scan(reader, files, { checkWiring: !!opts.wiring, wiring: opts.wiring }),
     surface: all.length,
   }
 }
 
-/** 每个文件的违规条数(GA1+GA2+GA4),用于棘轮锚点 */
+/** 每个文件的违规条数(GA1+GA2+GA4+GA5+GA6),用于棘轮锚点 */
 function countsByFile(result) {
   const per = new Map()
-  for (const arr of [result.violations.ga1, result.violations.ga2, result.violations.ga4])
+  for (const arr of [
+    result.violations.ga1,
+    result.violations.ga2,
+    result.violations.ga4,
+    result.violations.ga5,
+    result.violations.ga6,
+  ])
     for (const f of arr) per.set(f.file, (per.get(f.file) || 0) + 1)
   return per
 }
@@ -941,7 +1122,9 @@ function report(res, meta) {
   const filesGA1 = new Set(v.ga1.map((f) => f.file)).size
   const filesGA2 = new Set(v.ga2.map((f) => f.file)).size
   const filesGA4 = new Set(v.ga4.map((f) => f.file)).size
-  const total = v.s0.length + v.ga1.length + v.ga2.length + v.ga4.length
+  const filesGA5 = new Set(v.ga5.map((f) => f.file)).size
+  const filesGA6 = new Set(v.ga6.map((f) => f.file)).size
+  const total = v.s0.length + v.ga1.length + v.ga2.length + v.ga4.length + v.ga5.length + v.ga6.length
   const lines = [
     `文本箭头/文字返回对账(GA)|面=${meta.faceLabel}`,
     `  实读 ${notes.scanned} 个源文件(预筛后候选 ${notes.totalFiles},受管面共 ${meta.surface};S0 机制文件 ${MECHANISMS.length} 个恒实读)${meta.anchorLabel ? ` | ${meta.anchorLabel}` : ''}`,
@@ -949,18 +1132,26 @@ function report(res, meta) {
     `  GA1  文本字形当 chevron ${v.ga1.length ? `${meta.verdictLabel} ${v.ga1.length} 处 / ${filesGA1} 文件` : '✅ 0'}`,
     `  GA2  箭头字号 > 标签字号 ${v.ga2.length ? `${meta.verdictLabel} ${v.ga2.length} 处 / ${filesGA2} 文件` : '✅ 0'}`,
     `  GA4  文字「返回」当返回箭头 ${v.ga4.length ? `${meta.verdictLabel} ${v.ga4.length} 处 / ${filesGA4} 文件` : '✅ 0'}`,
+    `  GA5  字形+「返回」混合写法 ${v.ga5.length ? `${meta.verdictLabel} ${v.ga5.length} 处 / ${filesGA5} 文件` : '✅ 0'}`,
+    `  GA6  页内返回键与原生导航栏同屏 ${v.ga6.length ? `${meta.verdictLabel} ${v.ga6.length} 处 / ${filesGA6} 文件` : '✅ 0'}`,
     `  自豁免(门自身与其测试必含被判据字面量):${notes.selfExempt} 个文件${notes.skipped ? `;非受管扩展名跳过 ${notes.skipped} 个` : ''}`,
   ]
   if (notes.exempt) lines.push(`  行内豁免 glyph-arrow-exempt 放过:${notes.exempt} 处`)
   if (notes.backExempt) lines.push(`  行内豁免 back-label-exempt 放过:${notes.backExempt} 处`)
   if (notes.undetermined.length)
     lines.push(`  GA2 单位不一致、判不出:${notes.undetermined.length} 对(不判红,如实计数)`)
+  if (notes.chromeUndetermined.length)
+    lines.push(
+      `  ⚠️ GA6 导航栏形态未判定:${notes.chromeUndetermined.length} 个页面(页面 config 与 app.config 都取不到 ⇒ 这一型本轮没看守,不是通过):${notes.chromeUndetermined.map((h) => h.file).slice(0, 6).join(', ')}`,
+    )
   if (notes.wiringSkipped)
     lines.push('  S0 的"是否被 import"一侧:本轮按文件自验,未判定(不静默当作通过)')
   for (const x of fmt(v.s0)) lines.push(`  ✗ ${x}`)
   for (const x of fmt(v.ga1)) lines.push(`  ✗ ${x}`)
   for (const x of fmt(v.ga2)) lines.push(`  ✗ ${x}`)
   for (const x of fmt(v.ga4)) lines.push(`  ✗ ${x}`)
+  for (const x of fmt(v.ga5)) lines.push(`  ✗ ${x}`)
+  for (const x of fmt(v.ga6)) lines.push(`  ✗ ${x}`)
   return { lines, total }
 }
 
@@ -978,15 +1169,19 @@ check-glyph-arrow-icon.mjs — 文本箭头当图标 / 「箭头比标签还大�
   node scripts/check-glyph-arrow-icon.mjs --root <dir>    指定仓根(测试/多仓自验用)
 
 判据:
-  - S0   共享矢量实现在位、仍引用矢量图标、仍被 import(三端「更多」+ 小程序返回键 BackChevron)
+  - S0   共享矢量实现在位、仍引用矢量图标、仍被 import(三端「更多」+ web/RN/小程序三处返回键实现)
   - GA1  JSX 元素的唯一子内容恰为 › » → 》 ‹ ← 或 {'>'} 这类字形,且语境可证是 affordance
   - GA2  同一文件里 more/viewAll 标签与同词干 *Arrow* 键都写了字号,且箭头更大(单位须一致)
   - GA4  JSX 元素的唯一子内容是「返回」类文案(t('common.back') / 字面量),且语境可证是 affordance
          ⇒ 即"把返回两个字当返回箭头用";带宾语的按钮标签(backHome/backLogin/prevMonth)刻意不纳
+  - GA5  「返回」与字形**混写成整格**(\`← 返回\` / \`‹ 返回\`)—— GA1 只看整格字形、GA4 只看整格文案,这一型两条都不纳
+  - GA6  小程序页面渲染页内返回键(BackChevron / NavBar)却是**原生导航栏** ⇒ 同屏两个返回箭头
+         (判 Taro 页面 config,页内没写则继承 app.config.ts;两处都取不到 ⇒ 未判定,不记绿)
 
 豁免:行内 \`glyph-arrow-exempt: <一句话原因>\`(GA1/GA2)
-      行内 \`back-label-exempt: <一句话原因>\`(GA4,写在命中行或其紧邻上行皆可)
-      两者是独立通道、均逐行生效,裸标记不生效
+      行内 \`back-label-exempt: <一句话原因>\`(GA4/GA5,写在命中行、可点元素起始行或其紧邻上行)
+      文件级 \`nav-chrome-exempt: <一句话原因>\`(GA6,页面级配置与渲染的组合不在某一行上)
+      前两者是逐行通道、裸标记不生效;裸 nav-chrome-exempt 不带原因同样不生效
 退出码:0=通过/无新增 1=有违规 2=无法判定(git 失败 / 取材面取不到 / 扫描面为空)
 紧急跳过:HUSKY_SKIP_GLYPH_ARROW_ICON=1 git commit ...
 `)
@@ -1161,6 +1356,8 @@ const MECH_SNIPPETS = {
     "export const ICONS = {\n  'chevron-right': '<svg><path d=\"m9 18 6-6-6-6\" /></svg>',\n}\n",
   'apps/miniapp-taro/src/components/BackChevron.tsx':
     "import LineIcon from '@/components/LineIcon'\nexport default function BackChevron({ onTap }) {\n  return <View onClick={onTap}><LineIcon name=\"chevron-left\" size={40} /></View>\n}\n",
+  'packages/app/src/components/BackChevron.tsx':
+    "import { Pressable } from 'react-native'\nimport { ChevronLeft } from 'lucide-react-native'\nexport function BackChevron({ onPress }) {\n  return <Pressable onPress={onPress}><ChevronLeft size={18} /></Pressable>\n}\n",
 }
 
 function selfTest() {
@@ -1173,11 +1370,16 @@ function selfTest() {
       ga1: violations.ga1,
       ga2: violations.ga2,
       ga4: violations.ga4,
+      ga5: violations.ga5,
+      ga6: violations.ga6,
       s0: violations.s0,
       notes,
       n1: violations.ga1.length,
       n2: violations.ga2.length,
       n4: violations.ga4.length,
+      n5: violations.ga5.length,
+      n6: violations.ga6.length,
+      ncu: notes.chromeUndetermined.length,
       n0: violations.s0.length,
     }
   }
@@ -1427,6 +1629,147 @@ function selfTest() {
     }).n1 === 1,
   )
 
+  // GA5:字形与「返回」混写 —— GA1 只看整格字形、GA4 只看整格文案,这一型两条都不纳
+  const g5a = only({
+    'apps/miniapp-taro/src/mix-a.tsx':
+      "export const P = ({ go }) => <Text onClick={go}>← 返回</Text>\n",
+  })
+  t(
+    'GA5-A 阳性对照:整格「← 返回」必红,且只记一条(不得同时算成 GA1 字形或 GA4 文案)',
+    g5a.n5 === 1 && g5a.n1 === 0 && g5a.n4 === 0,
+    `n5=${g5a.n5} n1=${g5a.n1} n4=${g5a.n4}`,
+  )
+  t(
+    'GA5-A 反向:字形 + **带宾语**的标签(← 首页)不纳 —— 与 GA4 的 backHome 例外同一取向',
+    only({
+      'apps/miniapp-taro/src/mix-a-ok.tsx':
+        "export const P = ({ go }) => <Text onClick={go}>← 首页</Text>\n",
+    }).n5 === 0,
+  )
+  const g5b = only({
+    'apps/miniapp-taro/src/mix-b.tsx':
+      "export const P = ({ go }) => <Text onClick={go}>← {t('common.back')}</Text>\n",
+  })
+  t(
+    'GA5-B 阳性对照:字形与返回调用**分居同一元素的两个子节点** ⇒ 元素不是"唯一子内容",GA1/GA4 两条整格判据结构上看不见(本断言去掉了 B 型判据就会翻绿)',
+    g5b.n5 === 1 && g5b.n4 === 0 && g5b.n1 === 0,
+    `n5=${g5b.n5} n4=${g5b.n4} n1=${g5b.n1}`,
+  )
+  t(
+    'GA5-B 反向:返回调用独占整格(同行无独立字形)⇒ 归 GA4,GA5-B 不重复计',
+    (() => {
+      const r = only({
+        'apps/miniapp-taro/src/mix-b2.tsx':
+          "export const P = ({ go }) => <Text onClick={go}>{t('common.back')}</Text>\n",
+      })
+      return r.n4 === 1 && r.n5 === 0
+    })(),
+  )
+  t(
+    'GA5-B 反向:字形在**字符串里**(模板串拼的 HTML)⇒ 不是 JSX 独立字形,不得配对(strMask 那一层要真起作用)',
+    only({
+      'apps/miniapp-taro/src/mix-b3.tsx':
+        'export const P = ({ go }) => <Text onClick={go}>"← "{t(\'common.back\')}</Text>\n',
+    }).n5 === 0,
+  )
+  t(
+    '预筛必须是判据字面量的超集:GA5 的 « 与 GA6 的三个标识符少一个,门就在自己立项的那一型上失明',
+    ['«', 'BackChevron', 'NavBar', 'navigationStyle'].every((lit) => PREFILTER.includes(lit)),
+  )
+  t(
+    'GA5 豁免:back-label-exempt 带原因 ⇒ 放过(A 型与 GA4 共用同一条人工出口)',
+    only({
+      'apps/miniapp-taro/src/mix-ex.tsx':
+        "export const P = ({ go }) => <Text onClick={go}>← 返回{/* back-label-exempt: 原因 */}</Text>\n",
+    }).n5 === 0,
+  )
+
+  // GA6:页内返回键 × 原生导航栏 = 同屏两个箭头
+  const PAGE = 'apps/miniapp-taro/src/pages/g6/index.tsx'
+  const PCFG = 'apps/miniapp-taro/src/pages/g6/index.config.ts'
+  const PAGE_SRC =
+    "import BackChevron from '@/components/BackChevron'\nexport default function P() {\n  return <View><BackChevron /></View>\n}\n"
+  const NATIVE_CFG = "export default definePageConfig({\n navigationBarTitleText: '标题',\n})\n"
+  const CUSTOM_CFG =
+    "export default definePageConfig({\n  navigationStyle: 'custom',\n})\n"
+  const APP_CFG = "export default defineAppConfig({\n  window: {navigationBarTitleText: 'I'},\n})\n"
+  t(
+    'GA6 阳性对照:页内渲染 <BackChevron/> 而页面 config 是原生栏 ⇒ 判红(web 模型是 chrome 拥有唯一返回键)',
+    only({ [PAGE]: PAGE_SRC, [PCFG]: NATIVE_CFG, 'apps/miniapp-taro/src/app.config.ts': APP_CFG })
+      .n6 === 1,
+  )
+  t(
+    'GA6 反向:页面 config 写了 navigationStyle:custom ⇒ 0(原生栏不在场)',
+    only({ [PAGE]: PAGE_SRC, [PCFG]: CUSTOM_CFG, 'apps/miniapp-taro/src/app.config.ts': APP_CFG })
+      .n6 === 0,
+  )
+  t(
+    'GA6 继承链:页面**没有**自己的 config 时按 app.config 的全局 window 判(只查同名文件会把"继承 custom"误判成原生栏)',
+    only({ [PAGE]: PAGE_SRC, 'apps/miniapp-taro/src/app.config.ts': CUSTOM_CFG }).n6 === 0,
+  )
+  t(
+    'GA6 未判定:两处 config 都取不到 ⇒ **不记绿也不冒红**,但必须计入 chromeUndetermined 点名(静默成 0 就是洞)',
+    (() => {
+      const r = only({ [PAGE]: PAGE_SRC })
+      return r.n6 === 0 && r.ncu === 1
+    })(),
+  )
+  t(
+    'GA6 覆盖 <NavBar/> 型:它按胶囊算状态栏高度、本就是 custom 页写的,挂原生栏等于双层 chrome',
+    only({
+      [PAGE]: "import NavBar from '@/components/NavBar'\nexport default function P() {\n  return <NavBar />\n}\n",
+      [PCFG]: NATIVE_CFG,
+      'apps/miniapp-taro/src/app.config.ts': APP_CFG,
+    }).n6 === 1,
+  )
+  t(
+    'GA6 不越界:components/ 目录本身(机制文件与共享屏级适配器)不在射程内 —— 它不是"页面"',
+    only({
+      'apps/miniapp-taro/src/components/Whatever.tsx': PAGE_SRC,
+      'apps/miniapp-taro/src/app.config.ts': APP_CFG,
+    }).n6 === 0,
+  )
+  t(
+    'GA6 豁免:文件级 nav-chrome-exempt **必须带原因**,裸标记不生效(与另两条通道同形)',
+    only({
+      [PAGE]:
+        "// nav-chrome-exempt: 该页由 webview 套壳,自管返回\n" + PAGE_SRC,
+      [PCFG]: NATIVE_CFG,
+      'apps/miniapp-taro/src/app.config.ts': APP_CFG,
+    }).n6 === 0 &&
+      only({
+        [PAGE]: '// nav-chrome-exempt\n' + PAGE_SRC,
+        [PCFG]: NATIVE_CFG,
+        'apps/miniapp-taro/src/app.config.ts': APP_CFG,
+      }).n6 === 1,
+  )
+
+  // GA6 的取材批次:config 路径必须补进 reader,否则"没读"会被当成"没有"
+  t(
+    'withPageConfigs:只补小程序页面 config,组件/非页面/已有条目不重复补',
+    // 语义是"追加缺失的 config 路径",不是"过滤列表" —— 断言必须按真语义写,否则这是一条
+    // 会教下一个人把 withPageConfigs 改成过滤器的假自检。
+    JSON.stringify(
+      withPageConfigs([
+        PAGE,
+        PCFG,
+        'apps/miniapp-taro/src/components/NavBar.tsx',
+        'apps/web/app/page.tsx',
+        'apps/miniapp-taro/src/pages/g7/index.tsx',
+      ]),
+    ) ===
+      JSON.stringify([
+        PAGE,
+        PCFG,
+        'apps/miniapp-taro/src/components/NavBar.tsx',
+        'apps/web/app/page.tsx',
+        'apps/miniapp-taro/src/pages/g7/index.tsx',
+        'apps/miniapp-taro/src/pages/g7/index.config.ts',
+      ]) &&
+      // 已列出的 config 不得被重复追加(reader 路径集去重靠 Set,但顺序变了会改输出行数)
+      withPageConfigs([PAGE, PCFG]).length === 2,
+  )
+
 
   // GA2:阳性对照与反向对
   const cssRun = (css) => only({ 'apps/miniapp-taro/src/pages/p.css': css })
@@ -1583,7 +1926,9 @@ function selfTest() {
     selfRun.n1 === 0 &&
       selfRun.n2 === 0 &&
       selfRun.notes.selfExempt === 2 &&
-      selfRun.notes.scanned === 5,
+      // 期望值从 MECH_SNIPPETS 派生,不抄常数:机制清单从 4 个长到 5 个时,写死的 5 会让这条
+      // 自检变成"计数变了 ⇒ 判据坏了"的假红 —— 而它测的是自豁免,与机制个数无关。
+      selfRun.notes.scanned === Object.keys(MECH_SNIPPETS).length + 1,
     `selfExempt=${selfRun.notes.selfExempt} scanned=${selfRun.notes.scanned}`,
   )
   const gapRun = run({ 'packages/app/clean.tsx': 'export const K = 1\n' })
@@ -1647,6 +1992,9 @@ export const __test__ = {
   countsByFile,
   findGlyphIconChildren,
   findBackLabelChildren,
+  findChromeDuplicates,
+  withPageConfigs,
+  navStyleOf,
   walkAffordanceChildren,
   classifyGlyph,
   classifyBackLabel,
@@ -1669,6 +2017,10 @@ export const __test__ = {
   BACK_LABEL_EXPR_RE,
   BACK_TEXT_LITERAL_RE,
   BACK_EXEMPT_LINE_RE,
+  BACK_GLYPH_PREFIX_RE,
+  CUSTOM_NAV_RE,
+  NAV_CHROME_EXEMPT_RE,
+  GLOBAL_APP_CONFIG,
   HANDLER_ATTR_RE,
   AFFORDANCE_TAG_RE,
   PREFILTER,

@@ -14,6 +14,7 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { Newspaper } from 'lucide-react-native'
 import type { TFunction } from '../../types'
+import { BackChevron } from '../../components/BackChevron'
 
 import { rnRadius } from '@ihui/design-tokens'
 
@@ -30,6 +31,7 @@ export interface KnowledgePlanetScreenProps {
 }
 
 export function KnowledgePlanetScreen({
+  t,
   items,
   loading,
   error,
@@ -49,9 +51,7 @@ export function KnowledgePlanetScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>返回</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>知识星球</Text>
       </View>
       {loading ? (
@@ -121,7 +121,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: 12,
       gap: 12,
     },
-    backText: { fontSize: 16, color: tk.text.medium } as TextStyle,
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary } as TextStyle,
     flex: { flex: 1 } as ViewStyle,
     centerWrap: {

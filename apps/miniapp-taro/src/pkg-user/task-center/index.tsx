@@ -14,7 +14,6 @@ import { useAppTheme } from '@/lib/theme'
 import { fetchApi } from '@ihui/api-client'
 import type { TaskCenterItem, TaskCenterTab } from '@ihui/types'
 import ThemeRoot from '@/components/ThemeRoot'
-import BackChevron from '@/components/BackChevron'
 
 const TABS: TaskCenterTab[] = ['daily', 'weekly', 'newbie']
 
@@ -278,12 +277,6 @@ export default function TaskCenter() {
     }
   }
 
-  const goBack = () => {
-    Taro.navigateBack({ delta: 1 }).catch(() => {
-      Taro.switchTab({ url: '/pages/index/index' })
-    })
-  }
-
   const tabLabel = (tab: TaskCenterTab): string => {
     const entry = TAB_KEYS[tab]
     return tt(entry[0], entry[1])
@@ -315,7 +308,6 @@ export default function TaskCenter() {
           onRefresherRefresh={() => void load(activeTab, true)}
         >
           <View style={viewStyles.header()}>
-            <BackChevron onTap={goBack} />
             <Text style={textStyles.title(tk)}>{tt('taskCenter.title', '任务中心')}</Text>
             <Text style={textStyles.subtitle(tk)}>
               {tt('taskCenter.subtitle', '做任务,拿奖励')}
