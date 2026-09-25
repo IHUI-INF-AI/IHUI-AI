@@ -34,4 +34,41 @@ export function disableSkill(name: string) {
     method: 'POST',
   })
 }
+
+/**
+ * listing 级上下架(P2-14 补齐,2026-09-25)。
+ *
+ * 与上面的 enable/disable 正交,别混:
+ *  - enable/disable = **用户级运行态开关**(我装了的这个 skill 我要不要跑);
+ *  - listing        = **条目级在架状态**(这条 skill 在不在商店货架上,owner 才能动)。
+ * 对应后端 apps/api/src/routes/skills.ts:
+ *  - POST /api/skills/:name/listing    → 上下架切换(服务端按 userId 校 owner)
+ *  - GET  /api/skills/:name/ownership  → owner 判定 + 当前在架状态
+ */
+export interface SkillListingState {
+  name: string
+  enabled: boolean
+}
+
+/** owner 判定响应(ownerId 为空表示平台内置/内部同步条目,无人是 owner) */
+export interface SkillOwnership {
+  name: string
+  isOwner: boolean
+  ownerId: number | null
+  enabled: boolean
+  source: 'builtin' | 'user' | 'hub' | null
+}
+
+/** 切换某个市场条目的上下架(仅上架者本人可成功,否则后端 403) */
+export function setSkillListing(name: string, enabled: boolean) {
+  return fetchApi<SkillListingState>(`/api/skills/${encodeURIComponent(name)}/listing`, {
+    method: 'POST',
+    body: JSON.stringify({ enabled } satisfies { enabled: boolean }),
+  })
+}
+
+/** 查询当前用户是否为该市场条目的上架者,以及条目当前在架状态 */
+export function fetchSkillOwnership(name: string) {
+  return fetchApi<SkillOwnership>(`/api/skills/${encodeURIComponent(name)}/ownership`)
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
