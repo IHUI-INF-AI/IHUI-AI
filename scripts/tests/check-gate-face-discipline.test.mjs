@@ -45,7 +45,9 @@ test('T4 本门编号在 runner 里恰好一次,且 blocking + skipEnv + stagedT
   assert.match(blk, /script: 'check-gate-face-discipline\.mjs'/)
   assert.match(blk, /mode: 'blocking'/)
   assert.match(blk, /skipEnv: 'HUSKY_SKIP_GATE_FACE_DISCIPLINE'/)
-  assert.match(blk, /stagedTriggers: 'scripts\/'/)
+  // 两种合法写法都要认:标量 'scripts/' 与数组 ['scripts/'](runner 现值是数组)。
+  // 只认标量 = 断言比 runner 严,别人把写法改成数组就把本门自己的镜像测试钉红,而接线其实完好。
+  assert.match(blk, /stagedTriggers:\s*(?:'scripts\/'|\[[^\]]*'scripts\/)/)
 })
 
 test('T5 全 runner 任何 id 不得出现两次(撞号由机器发现,不靠人记得去查)', () => {

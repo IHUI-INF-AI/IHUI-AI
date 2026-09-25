@@ -1475,6 +1475,10 @@ export async function runR8({ face, quiet }) {
     inherited,
     exempted,
     values: valueIndex.size,
+    // 派生进来的档名清单(供取证与镜像测试用)。不返回它的话,"本票那几档到底有没有进禁用集"
+    // 这一格只能靠"工作树面比 HEAD 面大"来判 —— 那是**会随提交翻转**的断言:提交一入库两面等值,
+    // 断言当场变红,而判据什么都没坏。改成"被审判的面上确实含这些档"这种永久不变量。
+    tiers: [...new Set([...valueIndex.values()].map((v) => v.rnPath))].sort(),
     emptyFace,
   }
   if (!quiet)
