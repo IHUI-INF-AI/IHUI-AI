@@ -20,8 +20,9 @@ import {
   SearchInput,
 } from '@ihui/ui-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { installSkill, unlistSkill } from '@ihui/api-client'
 
-import { searchMarketSkills, api } from './helpers'
+import { searchMarketSkills } from './helpers'
 import type { MarketSkill } from './types'
 
 interface Props {
@@ -53,8 +54,11 @@ export function SkillMarketDialog({ open, onClose }: Props) {
   })
 
   const installMut = useMutation({
-    mutationFn: (name: string) =>
-      api(`/api/skills/${encodeURIComponent(name)}/install`, { method: 'POST' }),
+    mutationFn: async (name: string) => {
+      const r = await installSkill(name)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'skills', 'market'] })
       qc.invalidateQueries({ queryKey: ['admin', 'skills'] })
@@ -62,8 +66,11 @@ export function SkillMarketDialog({ open, onClose }: Props) {
   })
 
   const unlistMut = useMutation({
-    mutationFn: (name: string) =>
-      api(`/api/skills/${encodeURIComponent(name)}/unlist`, { method: 'POST' }),
+    mutationFn: async (name: string) => {
+      const r = await unlistSkill(name)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'skills', 'market'] })
     },
