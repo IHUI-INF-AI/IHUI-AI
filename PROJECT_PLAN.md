@@ -196,18 +196,18 @@
 - [ ]（进行中）**WP-8 上下文占用归因 + 流式工具账本 + 目标完成独立校验轮**。后者是补
   `AGENTS.md §8` 早就要求但**从未实现**的"禁止模型自评 yes"。
 - [x] ✅(2026-09-25) 钩子 trust 的**残余面**:webhook 形态钩子仍不过门(本批按 command 收口); 〔✅复测:两种形态已过**同一道**门 —— `apps/cli/src/hooks/index.ts` 头注"两种形态过"命中 1 处,`hookTrustSkipReason` → `gateHook` 对 webhook/command 共用一次判定,kind 由声明自身推出;配套专测 `apps/cli/tests/hooks-trust-gate.test.ts` + `hooks-trust-content.test.ts` 均在库。同行第二句也已落地:`commands/hooks.ts` 真有 `untrust <path>` 子命令(命中 9 处)。〕
-- [ ] 钩子 trust 的**残余面**:webhook 形态钩子仍不过门(本批按 command 收口);
+- [ ] **本行是并发 union 归并留下的裸副本**(原条目已于 2026-09-25 复测并翻勾,现行判定见 O73 条①(两形态已过同一道门,`hooks-trust-gate`/`hooks-trust-content` 在库)),勿照本行派单:钩子 trust 的**残余面**:webhook 形态钩子仍不过门(本批按 command 收口);
   且缺 `ihui hooks trust <path>` 子命令(旧错误文案指向该不存在的命令,已改为指向真实出口),CLI 化信任需另票。
 - [x] ✅(2026-09-25) `reclaim` 改写信封内容的边界:本批只在 CLI 侧由"重建提醒"兜回产物指针; 〔✅复测:判据与消费者都在 —— 常量与 `isEnvelopeContent` 上移 `packages/context-compaction/src/markers.ts`(命中 5 处),`reclaim.ts` 命中 5 处且分别落在"整条跳过"与"段级跳过"两个出口,不是"只有常量没有用法"。〕
-- [ ] `reclaim` 改写信封内容的边界:本批只在 CLI 侧由"重建提醒"兜回产物指针,
+- [ ] **本行是并发 union 归并留下的裸副本**(原条目已于 2026-09-25 复测并翻勾,现行判定见 O73 条①(判据与两处消费者都在 `packages/context-compaction`)),勿照本行派单:`reclaim` 改写信封内容的边界:本批只在 CLI 侧由"重建提醒"兜回产物指针,
   彻底解法需在 `reclaim.ts` 加 `isEnvelopeContent` 跳过 —— 属改他人在飞文件,未做。
 - [x] ✅(2026-09-25) WP-1 新 API 尚未接入 `builtins.ts`/`terminal.ts` 执行链(接一行即可恢复 YOLO 观感); 〔✅复测:`gateCommandExecution` 在 `apps/cli/src/tools/builtins.ts` 命中 3 处、`apps/cli/src/tools/terminal.ts` 命中 4 处。⚠️ 派单陷阱:原票写的 `apps/cli/src/terminal.ts` **不存在**,真身在 `tools/` 下 —— 照票面路径 `git show` 必 fatal,而"查不到"极易被下一个人读成"没接入"。〕
-- [ ] WP-1 新 API 尚未接入 `builtins.ts`/`terminal.ts` 执行链(接一行即可恢复 YOLO 观感,
+- [ ] **本行是并发 union 归并留下的裸副本**(原条目已于 2026-09-25 复测并翻勾,现行判定见 O73 条①(`tools/builtins.ts` 3 处 / `tools/terminal.ts` 4 处 —— ⚠️ 本行原文的 `apps/cli/src/terminal.ts` 路径不存在,照它 `git show` 必 fatal)),勿照本行派单:WP-1 新 API 尚未接入 `builtins.ts`/`terminal.ts` 执行链(接一行即可恢复 YOLO 观感,
   但需同步改他人 `terminal.test.ts` 的 `vi.mock`,本批未动)。
 - [x] ✅(2026-09-25) `config/architecture-policy.yaml` 目前 0 个模块 `managed:true` —— 渐进收口的第一块翻正面尚未选定; 〔✅复测:该数字是**立项状态不是现值** —— `git show HEAD:config/architecture-policy.yaml | grep -c '^    managed: true'` 实得 **23**,`node scripts/check-architecture-policy.mjs` exit 0。真正的剩余量在别处:该门输出点名的"E2 契约工件未齐备 16 块"(默认只报数,`--strict` 才问责)。〕
 
 
-- [ ] `config/architecture-policy.yaml` 目前 0 个模块 `managed:true` —— 渐进收口的第一块翻正面尚未选定。
+- [ ] **本行是并发 union 归并留下的裸副本**(原条目已于 2026-09-25 复测并翻勾,现行判定见 O73 条①(实得 23;现值一律跑 `node scripts/check-architecture-policy.mjs` 读,勿照本行数字派单)),勿照本行派单:`config/architecture-policy.yaml` 目前 0 个模块 `managed:true` —— 渐进收口的第一块翻正面尚未选定。
 
 
 ### 未闭环(不写作收口)
@@ -7948,16 +7948,16 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   `packages/api-client` 改 `managed: true`(实测门 103 仍全量 exit 0 —— 该包契约本就干净)。
 ### 第二波未闭环(不写作收口,各自给解阻判据)
 - [x] ✅(2026-09-25) **`stream-tool-ledger` 未入库**:模块与单测已绿(`apps/cli/src/stream-tool-ledger.ts`); 〔✅复测:`git cat-file -e HEAD:apps/cli/src/stream-tool-ledger.ts` 成立;`git show HEAD:apps/cli/src/commands/agent.ts` 命中 3 行,含真 import 与 `new StreamToolLedger` ⇒ 生产者与消费者同枚提交入库,本票已闭环。〕
-- [ ] **`stream-tool-ledger` 未入库**:模块与单测已绿(`apps/cli/src/stream-tool-ledger.ts`),
+- [ ] **本行是并发 union 归并留下的裸副本**(原条目已于 2026-09-25 复测并翻勾,现行判定见 O73 条①(HEAD 有模块,`commands/agent.ts` 有真 import 与 `new`)),勿照本行派单:**`stream-tool-ledger` 未入库**:模块与单测已绿(`apps/cli/src/stream-tool-ledger.ts`),
   但唯一接线点 `apps/cli/src/commands/agent.ts` **同时含他人未提交的 D19 terminal_delta 工作**,
   整文件提交即混提(§12 红线)。解阻判据:待该文件他人改动落地后,单独提一枚"账本接线"票。
 - [x] ✅(2026-09-25) `/api/agent/goal-verify` **无生产消费方**(端点已注册、测试已断言路由存在,但 goal 运行循环还没调它); 〔✅复测:**票面实质已闭环** —— 独立校验轮真被运行循环调用:`apps/ai-service/app/services/goal_completion_gate.py` 内 `await verify_goal_completion(...)`,而 `app/routers/agents.py` import 该 gate;web 侧结论随 done 帧下发。剩下的只是字面事实"这个 HTTP 端点自身无调用方"(全仓除路由注册与测试断言外 0 命中),而**端点存废属对外能力取舍**,不由 agent 单方删(§7 三问 + §24)。已就地写清两读法,勿再按原文派"接消费者"的活。〕
-- [ ] `/api/agent/goal-verify` **无生产消费方**(端点已注册、测试已断言路由存在,但 goal 运行循环
+- [ ] **本行是并发 union 归并留下的裸副本**(原条目已于 2026-09-25 复测并翻勾,现行判定见 O73 条①(独立校验轮已被运行循环调用;端点自身无调用方属对外能力取舍,不由 agent 单方删)),勿照本行派单:`/api/agent/goal-verify` **无生产消费方**(端点已注册、测试已断言路由存在,但 goal 运行循环
   还没调它)—— 属"生产者已备、消费面未接",另票接 CLI/服务端 goal 循环调用点。
 - [ ] `--allow-dangerous` 确认旁路仍在调用方(`commands/agent.ts:1757`、`server/agent-core.ts:101`),
   工具层结构上看不见;收口需改确认回调契约,本批按现状入库并在披露文档写明边界。
 - [x] ✅(2026-09-25) page_* 动词的**跨端登记**未做:web / miniapp-taro / RN / desktop / api 侧 `agent_action` 枚举与 capability 目录尚未收; 〔✅复测(逐端点数,不按"命中 0"直接定性):枚举单源 `packages/types/src/agent-control.ts` 收 **7** 条 `page_*`,`capability-catalog.ts` + 产物 `generated/capabilities.json` + scope 映射各 **7** 条,`apps/cli` 7/7 全在,extension 经 `PageActionType` 消费;miniapp-taro / mobile-rn / desktop 命中 0 —— 已换第二种正向搜法复核(`PageActionType` / `pick_at_point` / `page_control`),三端**结构上没有 page 控制面**,属平台域外而非漏登记。唯一真残余:`apps/api` 侧只有测试面引用、无生产侧登记(已另记,不随本条翻勾)。〕
-- [ ] page_* 动词的**跨端登记**未做:web / miniapp-taro / RN / desktop / api 侧 `agent_action` 枚举与
+- [ ] **本行是并发 union 归并留下的裸副本**(原条目已于 2026-09-25 复测并翻勾,现行判定见 O73 条①(types 7 / 目录 7 / cli 7-7 / extension 经 `PageActionType`;RN·小程序·桌面结构上没有 page 控制面,属平台域外)),勿照本行派单:page_* 动词的**跨端登记**未做:web / miniapp-taro / RN / desktop / api 侧 `agent_action` 枚举与
   capability 目录(`scripts/check-capability-catalog.mjs` 覆盖面)尚未收;扩展真机加载 MV3、
   真实多帧页面坐标累加均未取证。
 - [ ] RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 zh-TW/en/ja/ko 四语归因译文待人复核。
