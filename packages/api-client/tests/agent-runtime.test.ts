@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   executeAgentRuntime,
   executeAgentRuntimeStream,
+  executeAgentStream,
   listAgentRuntimeSessions,
   getAgentRuntimeSession,
   resumeAgentRuntimeSession,
@@ -13,6 +14,7 @@ import {
   cancelAgentRuntime,
   checkAgentRuntimePermission,
 } from '../src/endpoints/agent-runtime.js'
+import type { AgentStreamEvent, GoalVerification } from '../src/endpoints/agent-runtime.js'
 
 function jsonResponse(data: unknown, status = 200): Response {
   return {
@@ -253,6 +255,92 @@ describe('agent-runtime endpoints — /api/agent-runtime/*', () => {
     expect(url).toContain('toolName=Read')
     expect(url).toContain('mode=default')
     expect(url).toContain('dangerLevel=read')
+  })
+})
+
+/**
+ * AGENTS.md §8 第 3 步调用点的客户端一侧(2026-09-25 立)。
+ * ai-service 在 done 帧上带 `verification` / `goal_status`,并在独立校验未判达成时
+ * 把 success 收 false。本端点刻意不做任何"缺字段即通过"的兜底 —— 这里钉住两件事:
+ * ① 执行前声明的硬性指标必须原样出现在请求体里(被客户端丢掉就等于没有校验);
+ * ② done 帧的校验结论必须原样交到 onDone 手上(不得只进日志)。
+ */
+describe('executeAgentStream — goal 模式独立校验契约', () => {
+  const originalFetch = globalThis.fetch
+  let fetchMock: ReturnType<typeof vi.fn>
+
+  beforeEach(() => {
+    fetchMock = vi.fn()
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+  })
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+    vi.restoreAllMocks()
+  })
+
+  it('请求体透传 hard_criteria,键名与服务端 snake_case 契约一致', async () => {
+    fetchMock.mockResolvedValue(sseResponse([{ event: 'done', data: { type: 'done' } }]))
+    await executeAgentStream(
+      {
+        goal: '把 typecheck 修到退出码 0',
+        hard_criteria: [
+          { id: 'tsc', statement: 'pnpm typecheck 退出码为 0', probe_command: 'pnpm typecheck' },
+        ],
+      },
+      {},
+    )
+    const opts = fetchMock.mock.calls[0]![1] as RequestInit
+    const body = JSON.parse(String(opts.body)) as Record<string, unknown>
+    expect(body.hard_criteria).toEqual([
+      { id: 'tsc', statement: 'pnpm typecheck 退出码为 0', probe_command: 'pnpm typecheck' },
+    ])
+  })
+
+  it('done 帧的 verification 原样给到 onDone(undetermined 不得被读成通过)', async () => {
+    const verification: GoalVerification = {
+      status: 'undetermined',
+      goal_status: 'undetermined',
+      treat_as_complete: false,
+      criteria: [
+        {
+          criterion_id: 'tsc',
+          statement: 'pnpm typecheck 退出码为 0',
+          verdict: 'unknown',
+          basis: 'missing-evidence',
+          reason: '本轮没有跑过声明的验证命令',
+          evidence_ids: [],
+          contradicted: false,
+        },
+      ],
+      independent_request_made: false,
+      judge_model: null,
+      unavailable_reason: '没有为该指标采集到可用证据',
+      independence_warnings: [],
+      consecutive_failures: 1,
+      max_consecutive_failures: 3,
+    }
+    const onDone = vi.fn()
+    fetchMock.mockResolvedValue(
+      sseResponse([
+        {
+          event: 'done',
+          data: {
+            type: 'done',
+            success: false,
+            stop_reason: 'verification_undetermined',
+            verification,
+            goal_status: 'undetermined',
+          },
+        },
+      ]),
+    )
+    await executeAgentStream({ goal: 'g', hard_criteria: [] }, { onDone })
+    expect(onDone).toHaveBeenCalledTimes(1)
+    const frame = onDone.mock.calls[0]![0] as AgentStreamEvent
+    expect(frame.success).toBe(false)
+    expect(frame.stop_reason).toBe('verification_undetermined')
+    expect(frame.verification?.treat_as_complete).toBe(false)
+    expect(frame.verification?.criteria[0]?.verdict).toBe('unknown')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
