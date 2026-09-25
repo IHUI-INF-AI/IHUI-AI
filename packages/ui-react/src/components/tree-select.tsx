@@ -6,6 +6,7 @@
 
 import * as React from 'react'
 import { Check, ChevronDown, ChevronRight } from 'lucide-react'
+import { isTopOverlay, popOverlay, pushOverlay } from '../lib/overlay-stack'
 import { cn } from '../lib/utils'
 import { SearchInput } from './search-input'
 
@@ -107,6 +108,8 @@ const TreeSelect = React.forwardRef<HTMLButtonElement, TreeSelectProps>(
     const [search, setSearch] = React.useState('')
     const [expanded, setExpanded] = React.useState<Set<string>>(new Set())
     const containerRef = React.useRef<HTMLDivElement>(null)
+    // Esc 层栈(2026-09-26 立):下拉 open 期间注册为浮层,Esc 只在栈顶时消费。
+    const escStackId = React.useId()
 
     const tree = React.useMemo(() => buildTree(data), [data])
 
@@ -126,21 +129,27 @@ const TreeSelect = React.forwardRef<HTMLButtonElement, TreeSelectProps>(
         setSearch('')
         return
       }
+      pushOverlay(escStackId)
       const onDown = (e: MouseEvent) => {
         if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
           setOpen(false)
         }
       }
       const onKey = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') setOpen(false)
+        if (e.key === 'Escape') {
+          // 层栈守卫:非栈顶(上面还压着别的浮层)时不消费 Esc
+          if (!isTopOverlay(escStackId)) return
+          setOpen(false)
+        }
       }
       document.addEventListener('mousedown', onDown)
       document.addEventListener('keydown', onKey)
       return () => {
         document.removeEventListener('mousedown', onDown)
         document.removeEventListener('keydown', onKey)
+        popOverlay(escStackId)
       }
-    }, [open])
+    }, [open, escStackId])
 
     const selectedPath = React.useMemo(() => (value ? findPath(tree, value) : null), [value, tree])
 
