@@ -5,6 +5,7 @@
 import { useTt, t } from '@/i18n'
 import { View, Text, ScrollView } from '@tarojs/components'
 import EmptyState from './EmptyState'
+import LineIcon from '@/components/LineIcon'
 
 export interface WithdrawalRecord {
   id: string
@@ -93,7 +94,7 @@ export default function WithdrawalRecords({
                     </Text>
                   )}
                 </View>
-                <Text className="text-xs text-muted-foreground">›</Text>
+                <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
               </View>
             )
           })

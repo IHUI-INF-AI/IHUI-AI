@@ -16,6 +16,7 @@ import {
   type CompactionArchiveItem,
   type CompactionArchiveMessage,
 } from '@ihui/api-client'
+import { ChevronLeft } from 'lucide-react'
 
 /** 自动压缩上下文状态栏(2026-08-16 立):
  *  - 在 AI 对话框底部、输入框上方显示
@@ -240,7 +241,7 @@ function ArchiveViewerDialog({
             aria-label={t('archiveTitle')}
             className="text-xs text-muted-foreground transition-colors hover:text-foreground"
           >
-            ←
+            <ChevronLeft className="h-3.5 w-3.5" />
           </button>
           {detailLoading ? (
             <p className="py-6 text-center text-sm text-muted-foreground">{t('archiveLoading')}</p>

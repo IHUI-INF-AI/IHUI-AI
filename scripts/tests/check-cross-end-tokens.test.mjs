@@ -774,7 +774,19 @@ test('R8 真仓不变量:HEAD 面零判红、禁用值集非空、被本票派�
   assert.equal(r.failures.length, 0, `HEAD 面必须绿:${r.failures.map((f) => f.tag).join(' / ')}`)
   // 本票派生进来的档:工作树面上 modelType/agentName 的同值字面量必须已经为零
   const w = await m0.__test__.runR8({ face: 'worktree', quiet: true })
-  assert.ok(w.counts.values > r.counts.values, '工作树的派生面比 HEAD 多了 modelType/agentName ⇒ 禁用集必须跟着长大')
+  // 永久不变量(不是"哪个面更新"):被本票派生进来的档必须就在**被审判的面**的禁用集里。
+  // 旧断言比的是 worktree.values > head.values —— 提交一入库两面等值,门没坏而断言先红,
+  // 这条红会在下一次碰它的人手里变成"又一个与本次改动无关的门"。
+  for (const want of [
+    'rnTokens.modelType.image',
+    'rnTokens.modelType.textBg',
+    'rnTokens.agentName.DEFAULT',
+  ])
+    assert.ok(
+      r.counts.tiers.includes(want),
+      `HEAD 面的禁用集缺档 ${want}(现 ${r.counts.tiers.length} 档)`,
+    )
+  assert.ok(w.counts.values >= r.counts.values, '工作树面不得比 HEAD 面小(派生面被摘 = 门隐身)')
   for (const rel of ['packages/app/src/features/model-plaza/ModelPlazaScreen.tsx']) {
     const hit = w.failures.find((f) => f.tag.includes(rel))
     assert.equal(hit, undefined, `${rel} 仍被判为手抄:${hit && hit.detail}`)

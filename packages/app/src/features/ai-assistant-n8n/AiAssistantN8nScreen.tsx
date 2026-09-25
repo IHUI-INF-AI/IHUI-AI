@@ -29,7 +29,7 @@ import {
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
-import { Settings } from 'lucide-react-native'
+import { ChevronRight, Settings } from 'lucide-react-native'
 
 import { rnRadius } from '@ihui/design-tokens'
 
@@ -201,7 +201,7 @@ export function AiAssistantN8nScreen({
           <Settings size={14} color={tk.text.secondary} />
           <Text style={styles.modelConfigBtnLabel}>{t('agent.config')}</Text>
         </Pressable>
-        <Text style={styles.modelBarArrow}>{'›'}</Text>
+        <ChevronRight size={20} color={tk.text.tertiary} style={styles.modelBarArrow} />
       </Pressable>
 
       {/* 输入区 */}
@@ -360,7 +360,6 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     } as TextStyle,
     modelBarArrow: {
-      fontSize: 20,
       color: tk.text.tertiary,
       marginLeft: 8,
     } as TextStyle,

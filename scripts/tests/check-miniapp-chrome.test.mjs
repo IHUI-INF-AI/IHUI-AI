@@ -11,13 +11,14 @@
 //   · 判据方向 —— 登记表被静默摘除必须红(反向锁),取不到输入必须"未判定"而不是绿。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
+import { gitBinary } from '../lib/face-reader.mjs'
 import { __test__ as gate } from '../check-miniapp-chrome.mjs'
 import { __test__ as gen } from '../sync-miniapp-chrome.mjs'
 
@@ -49,6 +50,15 @@ function buildScratch({ tokensCss = TOKENS, themeJson = THEME_JSON, themeTs = TH
   writeFileSync(join(dir, 'apps', 'miniapp-taro', 'src', 'theme.json'), themeJson)
   writeFileSync(join(srcDir, 'theme.ts'), themeTs)
   return dir
+}
+
+/** 临时仓里的 git:绝对路径 + safe.directory + windowsHide(与本仓所有 git 调用同形)。 */
+function gitAt(dir, args) {
+  return execFileSync(gitBinary(), ['-c', 'safe.directory=*', '-C', dir, ...args], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 60000,
+  })
 }
 
 function runCli(dir, script, args = []) {
@@ -127,8 +137,10 @@ test('T4 写回后重跑生成器 ⇒ exit 0 且两份副本 0 字节变化', ()
     assert.equal(again.code, 0, again.out)
     assert.deepEqual([...readFileSync(join(dir, 'apps', 'miniapp-taro', 'src', 'theme.json'))], [...j1])
     assert.deepEqual([...readFileSync(join(dir, 'apps', 'miniapp-taro', 'src', 'lib', 'theme.ts'))], [...t1])
-    const chk = runCli(dir, 'check-miniapp-chrome.mjs', ['--check'])
-    assert.equal(chk.code, 0, `写回后守门仍判漂移:${chk.out}`)
+    // T4 验的是"生成器把盘写对没有" ⇒ 判**工作树**面。默认档判 HEAD,而夹具里没有一枚提交,
+    // 拿 HEAD 去验磁盘写回等于验一件没发生的事(改面后这条若不显式指定,表现是 exit 2「无法判定」)。
+    const chk = runCli(dir, 'check-miniapp-chrome.mjs', ['--worktree'])
+    assert.equal(chk.code, 0, `写回后守门(工作树面)仍判漂移:${chk.out}`)
   } finally {
     rmScratch(dir)
   }
@@ -142,7 +154,9 @@ test('T5 手改两份副本各一处 ⇒ 门 exit 1 且逐一点名文件与字�
   assert.notEqual(badTs, THEME_TS)
   const dir = buildScratch({ themeJson: badJson, themeTs: badTs })
   try {
-    const r = runCli(dir, 'check-miniapp-chrome.mjs')
+    // 同 T4:这两处"手改"只落在磁盘上,所以判工作树面才有意义(HEAD 面看不见它 ⇒ exit 0,
+    // 那将是"门放过一条真实漂移")。索引/HEAD 两面的方向性由 T14 的临时 git 仓成对证明。
+    const r = runCli(dir, 'check-miniapp-chrome.mjs', ['--worktree'])
     assert.equal(r.code, 1, r.out)
     assert.match(r.out, /drifted .*theme\.json light\.tabSelectedColor/, r.out)
     assert.match(r.out, /drifted .*theme\.ts light\.windowBg/, r.out)
@@ -196,7 +210,7 @@ test('T8 副本文件缺失 ⇒ 门 exit 2 且喊「无法判定」', () => {
 })
 
 // ─── T9 反恒红:真仓此刻三面全绿 ───
-test('T9 真仓默认(磁盘)/ --staged(索引)/ 生成器 --check 三面均 exit 0', () => {
+test('T9 真仓默认(HEAD blob)/ --staged(索引 blob)/ 生成器 --check 三面均 exit 0', () => {
   const faces = [
     ['check-miniapp-chrome.mjs', []],
     ['check-miniapp-chrome.mjs', ['--staged']],
@@ -246,3 +260,61 @@ test('T13 本路径是测试,不是被误写进来的门本体', () => {
   assert.notEqual(self, gateSrc, '门被误写进测试路径(整文件错位)')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// ─── T14 面纪律四面成对(临时 git 仓):默认判 HEAD、--staged 判索引、--worktree 才判磁盘 ───
+test('T14 同一夹具三面各读各的:HEAD 绿 / 索引红 / 工作树红 / 两面旗判死', () => {
+  const dir = buildScratch()
+  try {
+    gitAt(dir, ['init', '-q'])
+    gitAt(dir, ['config', 'user.email', 't@t.invalid'])
+    gitAt(dir, ['config', 'user.name', 't'])
+    gitAt(dir, ['config', 'core.autocrlf', 'false'])
+    gitAt(dir, ['add', '-A'])
+    gitAt(dir, ['commit', '-q', '-m', 'base'])
+    // 把 light.navBgColor 改成第三个值(既非源头也非登记值)⇒ drifted。
+    // 选这档而不是 bgColor/tabBgColor:纯函数预跑实测只有它被 checkChrome 判红(那两个是低对比中性档,
+    // 由源头另有安排)—— 夹具改不动判据的用例等于没有用例,所以先用 gen.checkChrome 量过再写。
+    const jsonRel = join(dir, 'apps', 'miniapp-taro', 'src', 'theme.json')
+    const base = readFileSync(jsonRel, 'utf8')
+    const drifted = base.replace('"navBgColor": "#ffffff"', '"navBgColor": "#eeeeee"')
+    if (drifted === base) throw new Error('夹具没改到(源串变了,T14 的判据也就失效了)')
+    writeFileSync(jsonRel, drifted, 'utf8')
+
+    const head = runCli(dir, 'check-miniapp-chrome.mjs', [])
+    const wt = runCli(dir, 'check-miniapp-chrome.mjs', ['--worktree'])
+    assert.equal(head.code, 0, `默认档必须判 HEAD(盘上未提交的漂移不得进账):${head.out}`)
+    assert.equal(wt.code, 1, `--worktree 必须看得见同一条漂移(否则上面那个绿只是判据失明):${wt.out}`)
+    assert.match(wt.out, /theme\.json/, '红必须点名副本文件')
+
+    gitAt(dir, ['add', '-A'])
+    const staged = runCli(dir, 'check-miniapp-chrome.mjs', ['--staged'])
+    const head2 = runCli(dir, 'check-miniapp-chrome.mjs', [])
+    assert.equal(staged.code, 1, `索引面已带上漂移 ⇒ --staged 必红:${staged.out}`)
+    assert.equal(head2.code, 0, 'HEAD 仍未带上 ⇒ 默认档照绿(三面各读各的)')
+
+    const both = runCli(dir, 'check-miniapp-chrome.mjs', ['--staged', '--worktree'])
+    assert.equal(both.code, 2, `两个面旗互斥必须判死:${both.out}`)
+    assert.match(both.out, /不得同用/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── T15 默认档是"构造面"能证明的纯函数,不是等人看结论行 ───
+test('T15 faceFromArgv 默认必须是 head,且四态齐全(结论行会被人改,函数不会)', () => {
+  assert.equal(gate.faceFromArgv([]).face, 'head', '默认档回到磁盘 = 本门又在判滞后工作树')
+  assert.equal(gate.faceFromArgv(['--staged']).face, 'staged')
+  assert.equal(gate.faceFromArgv(['--worktree']).face, 'worktree')
+  const both = gate.faceFromArgv(['--staged', '--worktree'])
+  assert.equal(both.face, null)
+  assert.match(String(both.error), /互斥/)
+  assert.ok(gate.FACE_TXT.head && gate.FACE_TXT.staged && gate.FACE_TXT.worktree, '三面文案都得在位')
+})
+
+// ─── T16 形状锁:取材层不得被换回"读磁盘 + 取不到就回落 HEAD" ───
+test('T16 门本体不得再出现 readFileSync(join(root…) 或跨面回落(散写回潮由机器发现)', () => {
+  const src = readFileSync(join(SCRIPTS_DIR, 'check-miniapp-chrome.mjs'), 'utf8')
+  assert.doesNotMatch(src, /readFileSync\(join\(root/, '默认面又被写成读磁盘了')
+  assert.doesNotMatch(src, /===\s*null\s*\?\s*gitShow\(.HEAD:/, '取不到就回落另一个面 = 把"没判"写成"判过了"')
+  assert.match(src, /from '\.\/lib\/face-reader\.mjs'/, '取材必须走共用层')
+})

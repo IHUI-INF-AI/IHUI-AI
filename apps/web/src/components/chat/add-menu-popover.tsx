@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { FileText, Mic, Plus, Scissors, Sparkles, Loader2, Package, Telescope } from 'lucide-react'
+import { ArrowRight, FileText, Loader2, Mic, Package, Plus, Scissors, Sparkles, Telescope } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -298,7 +298,7 @@ export function AddMenuPopover(props: {
                 >
                   <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <span className="min-w-0 flex-1 truncate">{t('promptTemplate')}</span>
-                  <span className="ml-auto text-[10px] text-muted-foreground/60">→</span>
+                  <ArrowRight className="ml-auto h-2.5 w-2.5 shrink-0 text-muted-foreground/60" aria-hidden />
                 </button>
                 <button
                   type="button"
@@ -332,7 +332,7 @@ export function AddMenuPopover(props: {
                 >
                   <Sparkles className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <span className="min-w-0 flex-1 truncate">{t('skillLibrary.title')}</span>
-                  <span className="ml-auto text-[10px] text-muted-foreground/60">→</span>
+                  <ArrowRight className="ml-auto h-2.5 w-2.5 shrink-0 text-muted-foreground/60" aria-hidden />
                 </button>
                 <button
                   type="button"
