@@ -66,7 +66,8 @@ function CountBadge({
 
 /**
  * 横滑分类条(形态 A):左右滑动,单选,选中自动滚入视野。
- * 视觉:高 32 / radius-md(6) / 完整描边 / 选中 brand.DEFAULT+brand.foreground 成对,无 pill/渐变/蓝光。
+ * 视觉:高 32 / radius-md(6) / 完整描边 / 选中实底走 brand.cta + 文字 brand.ctaForeground 成对
+ * (描边仍取 brand.DEFAULT —— §4 定稿后 DEFAULT 保留"描边与文字色"原义,只有主实底换档),无 pill/渐变/蓝光。
  */
 export function CategoryInlineBar({
   items,

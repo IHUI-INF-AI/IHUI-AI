@@ -67,6 +67,16 @@ const mk = (tag: string) =>
   }
 
 export const Platform = { OS: 'web' as const }
+
+// 共享替身必须覆盖真身用到的 RN API:MoreLink 经 PixelRatio 换算 hairline/字号,替身缺这个出口时
+// 表现是"渲染即抛 No PixelRatio export",而它影响的不止一枚测试(端内 6 个文件从 @ihui/rn-app 引
+// MoreLink)。按真实 RN API 面补全,而不是在各套件里各自 vi.mock。
+export const PixelRatio = {
+  get: () => 1,
+  getFontScale: () => 1,
+  getPixelSizeForLayoutSize: (size: number) => size,
+  roundToNearestPixel: (size: number) => size,
+}
 /**
  * src/theme/active-tokens.ts 在**模块求值时**调 Appearance.getColorScheme(),
  * 并在 release 下靠 DevSettings 之外的路径落盘。stub 缺这两个导出时,

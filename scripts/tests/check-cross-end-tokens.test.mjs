@@ -414,16 +414,34 @@ test('R6 单一实现:产出规则必须来自插件本体,本门不得复写第
   )
 })
 
-test('R6 必须真被主流程调用(判据存在但无人调用 = 没有判据,守门 70/81 同型)', () => {
+test('R6/R7 必须真被主流程调用、且按判定面调用(判据存在但无人调用 = 没有判据,守门 70/81 同型)', () => {
   const src = readFileSync(SCRIPT, 'utf8')
   const cliAt = src.indexOf('async function cli(')
   assert.ok(cliAt > 0, 'cli 主流程必须可定位')
-  assert.match(src.slice(cliAt), /await runR6\(\{ face: stagedMode/, 'cli 必须按判定面调用 runR6')
+  const body = src.slice(cliAt)
+  for (const fn of ['runR6', 'runR7']) {
+    const call = new RegExp(`await ${fn}\\(\\{[^)]*\\}`, 'm').exec(body)
+    assert.ok(call, `cli 必须调用 ${fn}`)
+    // 传面,但**不得写死**成字面量 —— 写死就等于"门永远只看一个面",换档旗标成了装饰
+    assert.match(call[0], /\bface\b\s*[,=:]/, `${fn} 必须把判定面传进去`)
+    assert.doesNotMatch(call[0], /face:\s*['"]/, `${fn} 的面不得写死字面量(须来自 selectFace)`)
+  }
+  // 面只有一个来源:CLI 里若有第二处 `argv.includes('--staged')` 就会造出两把尺子
+  assert.equal(
+    (src.match(/argv\.includes\('--staged'\)/g) || []).length,
+    1,
+    `--staged 只应在 selectFace 处解析一次,实得 ${(src.match(/argv\.includes\('--staged'\)/g) || []).length} 处`,
+  )
 })
 
-test('R6 取材口径端到端:未提交的改动不得钉红无关提交,暂存后必须红(临时仓,绝不碰共享索引)', async () => {
+/**
+ * 搭一个最小真仓:两份 token 源 + alpha 插件/预设 + 一个 v3 端源文件 + 被测脚本(按 import 闭包拷)。
+ * 两个端到端用例共用一份夹具搭建逻辑(取材面、清理、run 包装),各自只写自己的断言。
+ * ⚠️ 全程在 `mkScratch` 的临时仓里跑,**绝不碰共享索引/共享工作树**。
+ */
+async function buildRepo(tag) {
   const { mkScratch, rmScratch } = await import('../lib/scratch-dir.mjs')
-  const dir = mkScratch('cross-end-r6')
+  const dir = mkScratch(tag)
   const git = (args) =>
     execFileSync('git', ['-c', 'safe.directory=*', ...args], {
       cwd: dir,
@@ -436,7 +454,7 @@ test('R6 取材口径端到端:未提交的改动不得钉红无关提交,暂存
     mkdirSync(dirname(abs), { recursive: true })
     writeFileSync(abs, content)
   }
-  // 用真文件搭一个小仓:R1–R5 读磁盘、R6 读判定面,所以两边都得在位
+  // R1–R5 与 R6/R7 现在**同一判定面**(2026-09-25 收口前 R1–R5 读磁盘),所以两边输入都得在位
   for (const rel of [
     'packages/design-tokens/src/tailwind-alpha-plugin.js',
     'packages/design-tokens/src/tailwind-preset.js',
@@ -480,6 +498,11 @@ test('R6 取材口径端到端:未提交的改动不得钉红无关提交,暂存
       return { code: e.status, out: String(e.stdout || '') + String(e.stderr || '') }
     }
   }
+  return { dir, rmScratch, git, put, run, srcRel }
+}
+
+test('R6 取材口径端到端:未提交的改动不得钉红无关提交,暂存后必须红(临时仓,绝不碰共享索引)', async () => {
+  const { dir, rmScratch, git, put, run, srcRel } = await buildRepo('cross-end-r6')
   const first = run([])
   assert.equal(first.code, 0, `夹具首跑必须全绿,实得:\n${first.out}`)
   // 别人(或本人)只改工作树、没暂存 ⇒ HEAD 面不得因此判红
@@ -491,6 +514,46 @@ test('R6 取材口径端到端:未提交的改动不得钉红无关提交,暂存
   assert.equal(staged.code, 1, '暂存了未登记用量必须红')
   assert.match(staged.out, /R6 未登记的 alpha 用量 bg-card\/50/, '必须点名形态')
   assert.match(staged.out, /box\.tsx/, '必须点名文件')
+  rmScratch(dir)
+})
+
+/**
+ * 第二条取材面端到端:**换面必须换结论**。
+ * 钉的是 R1/R2/R4/R5 那半边 —— 它们此前恒按 `readFileSync` 读磁盘,于是"改色值没提交"
+ * 会让这道门红,而红与本次提交无关(§12e 那型);反过来"提交了错值而磁盘已修好"它又装绿。
+ * 四步分别证明:① 只在磁盘漂移 ⇒ HEAD/索引面不得红;② --worktree 必须立刻看见磁盘(证明
+ * 这个逃生舱不是 HEAD 的别名);③ 暂存后索引面必须红并点名;④ 提交后默认面必须红(结论随面推进)。
+ * 外加反向对照 ⑤:磁盘还原 ⇒ worktree 必回绿(证明 worktree 档不是恒红尺子)。
+ */
+test('取材面端到端:两份 token 源的比对必须随判定面走(旧行为恒按磁盘,一半判据看错对象)', async () => {
+  const { dir, rmScratch, git, put, run } = await buildRepo('cross-end-face')
+  const RN_REL = 'packages/design-tokens/src/rn-tokens.ts'
+  const baseSha = git(['rev-parse', 'HEAD']).trim()
+  const rnRelPath = join(dir, RN_REL)
+  const drifted = readFileSync(rnRelPath, 'utf8').replace("gold: '#FFD700'", "gold: '#123456'")
+  assert.notEqual(drifted, readFileSync(rnRelPath, 'utf8'), '夹具必须真改到那个色值(改不动=用例空转)')
+
+  assert.equal(run([]).code, 0, '基线:干净仓必须绿')
+  put(RN_REL, drifted) // 只改磁盘,不 add 不 commit
+  assert.equal(run([]).code, 0, '① HEAD 面不得被未提交的磁盘漂移钉红(收口前正是这里假红)')
+  assert.equal(run(['--staged']).code, 0, '①b 索引面同理:未暂存的改动不属于本次提交')
+
+  const wt = run(['--worktree'])
+  assert.equal(wt.code, 1, '② --worktree 必须立刻看见磁盘漂移(否则它是 HEAD 的别名,逃生舱是假的)')
+  assert.match(wt.out, /vip\.gold|gold/, '②b 逃生舱必须点名到那条映射')
+
+  git(['add', RN_REL])
+  const st = run(['--staged'])
+  assert.equal(st.code, 1, '③ 暂存后索引面必须红')
+  assert.match(st.out, /vip\.gold/, '③b 必须点名 vip.gold 那条映射')
+
+  git(['commit', '-q', '-m', 'drift'])
+  assert.equal(run([]).code, 1, '④ 提交后默认面必须红 —— 结论随面推进,不是随磁盘')
+  assert.equal(run(['--worktree']).code, 1, '④b 三面此时一致(磁盘==索引==HEAD)')
+
+  git(['checkout', '-q', baseSha, '--', RN_REL]) // 磁盘回到未漂移的那版,而 HEAD 仍是漂移版
+  assert.equal(run(['--worktree']).code, 0, '⑤ 磁盘还原后 worktree 档必须回绿(反恒红)')
+  assert.equal(run([]).code, 1, '⑤b 同一时刻 HEAD 面仍须红 —— 两个面各自成立,不得互为别名')
   rmScratch(dir)
 })
 

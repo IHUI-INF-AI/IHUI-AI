@@ -9181,3 +9181,21 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   `BrowserControlActionType` 拆成 `Dom | Background` 两个子 union 让两张分区表各自穷举(跨包类型重构,
   牵动 `isDomAction` 路由、`DOM_ACTIONS` 并入 page 族的现状、扩展分流与门 103 的 public_entrypoints)。
   本票实测该清单与契约**当前同集**,无存量缺陷 ⇒ 属设计票,不在这一轮顺手做掉。
+
+
+
+
+
+
+
+
+
+
+
+- [ ]（进行中）**D38 队列语义完整交互(G-42)**:拖拽重排 / 撤回 / 编辑队列项 / 「打断并执行」/ 队列模式可配(steer vs queue,对标 Codex `followUpQueueMode`)。复用 D28 侧问队列与 W2 abort 通道,不造第二套排队。**验收**:五动词各有 e2e + 与 /side 互不回归 + 重排后发送顺序断言
+  - **对上一枚 mobile-rn 收集失败收口票的如实更正与残余点名**（2026-09-25 14:1x，主会话自纠）：
+    - 已成立且可回读的部分：收集期失败套件 **14 → 0**，头条用例总数 **352 → 489**（那 131 条 it 声明展开成 137 枚，第一次真正被执行）；`react-native-restart` 的 alias 在配置层一次收口；`terminal-delta-live` 的局部 vi.mock 已删并证冗余；`category-bar-style` 两条断言随 §4 的 CTA 改档迁移（保留"底色不得等于 surface.card / 页面背景"的反向对照，另加"cta 明暗同值"判据）；`CategoryInlineBar.tsx:69` 陈旧注释按实测代码改正（实底 `brand.cta` / 文字 `brand.ctaForeground` / **描边仍是 `brand.DEFAULT`**）。
+    - **我在那枚提交信息里把两件事写成"已按正解收口"，实测并未收口**，此处纠正而非留错：`tests/my-agents.test.tsx` 的 2 条仍然红，真因是**该文件自己声明的 `vi.mock('react-native', () => ({...}))` 工厂遮蔽了 vitest.config 的 alias 替身**（报错原文：`[vitest] No "PixelRatio" export is defined on the "react-native" mock`）。我在 `tests/__mocks__/ihui-rn-app.ts` 补 `MoreLink` 再导出、在 `tests/__mocks__/react-native.ts` 按真实 API 面补 `PixelRatio`（get / getFontScale / getPixelSizeForLayoutSize / roundToNearestPixel），**方向是对的、也确实解掉了 undefined 组件那一层**，但对"套件自带工厂"这条路不起作用 —— 而往那个工厂里再抄一份 PixelRatio 正是本票要根治的"逐套件打补丁"反模式，所以**不当场那样修**。
+    - 正确解法（留下一票，判据明确）：把 `my-agents.test.tsx` 的内联 react-native 工厂**删掉、改由共享替身供给**（共享替身已含全部所需出口），或删除该套件内联工厂中与 `tests/__mocks__/react-native.ts` 重复的部分。解阻判据：`cd apps/mobile-rn && pnpm vitest run tests/my-agents.test.tsx` 三条全绿，且**头条 52 个套件、489 条用例零失败**；修完必须复跑全量确认没有别的套件依赖同一条内联工厂。
+    - 结构性失明一并入账（本票新量到的两条，都不是运气）：① **134 道门里没有任何一道跑 vitest**，`check-staged-typecheck` 走 tsc，结构上看不见 transform / 解析期失败 ⇒ CI 会红（`vitest run` 收集失败即 exit 1，`ci.yml:147` 无 continue-on-error）但**提交链不拦**，本机因此可以长期"看着绿"而覆盖被静默削掉；② 守门 83 的 `SCAN_DIRS` 只含 `apps/mobile-rn/src` 与 `packages/app/src`，**`apps/mobile-rn/tests/**` 不在射程**，所以"改档票自己全绿、它的配套回归测试长红"是**两边都不报**的那一类（同教训见守门 77 B6 的括号形态盲区：判据必须覆盖门自己产出的形态）。
+    - 待决（不擅自建门）：是否新增一道「受影响端 vitest 收集失败套件数 == 0」的判据。按 §12e 与 §4 的反复教训，它**只能是 warn 级 + 独立巡检入口**、blocking 留给 CI —— 产不出可执行修复动作的恒红门只会逼人 `--no-verify`，连带废掉全部守门。
