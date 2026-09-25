@@ -50,6 +50,19 @@ export type { SubagentPersona, CapabilityMode, IsolationMode };
 const MAX_SUBAGENT_DEPTH = 3;
 const SUBAGENT_MAX_ITERATIONS = 10;
 
+/**
+ * `dispatch_subagent` 的墙钟预算档。
+ *
+ * 为什么不直接用默认档(30 分钟)、也不用"不可打断"豁免:
+ * 子代理内跑的是**整条 agent loop**(最多 10 轮 × 每轮 1 次采样 + N 枚工具调用),
+ * 而 loop 里的每一枚工具调用已经各自被 `executeWithinExecBudget` 收口了 —— 外层再套一个
+ * 30 分钟,就会把"10 个正常慢调用叠起来"的合法子代理判成超时(把现有能跑通的功能改红);
+ * 但完全不给上限又等于放行本票要消灭的那个形态:provider 挂起时 `runToolLoop` 里的采样
+ * 拿不到取消信号(外层父信号目前尚未接进 `setupAgentTools`,见 tools/index.ts 的 ctx.signal 注释)。
+ * 所以取封顶档 60 分钟:显著高于"10 轮 × 单枚工具默认档"的合理规模,同时保证一定结算。
+ */
+const SUBAGENT_EXEC_BUDGET_MS = 60 * 60_000;
+
 let subagentDepth = 0;
 
 export interface PersonaConfig {
@@ -187,6 +200,8 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
     name: 'dispatch_subagent',
     description: '派生子 agent 执行独立子任务(有独立 context,适合并行/隔离任务)。嵌套深度不超过 3 层。参数:task(任务描述,应清晰、独立、可验证),persona(角色预设:researcher/coder/reviewer/planner/general,自动配置工具白名单和 system prompt,默认 general),tools(额外工具白名单,与 persona 叠加过滤,可选),maxIterations(最大迭代数,可选,默认按 persona 或 10)。扩展参数:isolation(none/worktree,启用 git worktree 隔离工作区),resumeFrom(subagent id,从持久化状态恢复 transcript 继续),capabilityMode(read-only/read-write/execute/all,覆盖 persona 工具白名单),keepWorktree(成功后是否保留 worktree,默认 false)。',
     dangerLevel: 'read',
+    // 见 SUBAGENT_EXEC_BUDGET_MS 的推导:整条子 loop 一档,取封顶值而不是默认值
+    execBudget: { ms: SUBAGENT_EXEC_BUDGET_MS },
     parameters: {
       task: { type: 'string', description: '子任务描述(应清晰、独立、可验证)' },
       persona: {
@@ -223,7 +238,7 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
       },
     },
     required: ['task'],
-    async execute(args): Promise<ToolResult> {
+    async execute(args, outerCtx): Promise<ToolResult> {
       const task = args.task as string;
       if (!task) return { success: false, output: '', error: '缺少 task 参数' };
 
@@ -410,6 +425,10 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
             messages,
             ctx,
             maxIterations: effectiveMaxIterations,
+            // 取消下发:外层预算/父取消经 `executeWithinExecBudget` 合成的 signal 从这里进子 loop,
+            // `runToolLoop` 把它同时喂给采样调用 ⇒ provider 挂起时这一枚子 loop 不再无限等。
+            // 传 undefined 时与改前逐字等价(runToolLoop 的 signal 本来就是可选形参)。
+            signal: outerCtx.signal,
           });
 
           const text = result.assistantText.trim();
