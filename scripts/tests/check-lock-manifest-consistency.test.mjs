@@ -560,11 +560,28 @@ test('T20 单一取材出口:三处判据取材全走同一个 readFace,面外�
   const batch = layer.slice(catBatchAt, layer.indexOf('\nexport ', catBatchAt + 10))
   assert.match(batch, /stdio:\s*\[\s*'pipe',\s*'pipe',\s*'pipe'\s*\]/)
   assert.match(batch, /input:\s*Buffer\.from\(/, 'rev 清单必须由 input 喂进去')
-  assert.match(
-    batch,
-    /maxBuffer:\s*(?:opts\.maxBuffer\s*\?\?\s*)?GIT_MAX_BUFFER/,
-    'batch 的 maxBuffer 默认必须是给足的那个常量(真仓有 >1MB 单文件,且批量面可达 85MB)',
+  // 2026-09-25 层的合法演进:批次改为**按字节装箱**,读点写的是 `maxBuffer: budget`,
+  // 而 budget = `Math.max(maxBuffer, 本块字节 + 1MB)`、`maxBuffer = opts.maxBuffer ?? GIT_MAX_BUFFER`
+  // ⇒ 常量仍是 floor。与 `scripts/tests/face-reader.test.mjs` 同一条性质(两处各写一遍判据
+  // 本来就是这层反复记过的病,这里只把针脚同步到新形状,不新发明一套要求)。
+  const directRoute = /maxBuffer:\s*(?:opts\.maxBuffer\s*\?\?\s*)?GIT_MAX_BUFFER/.test(batch)
+  const budgetRoute = /maxBuffer:\s*budget\b/.test(batch)
+  assert.ok(
+    directRoute || budgetRoute,
+    'batch 的 maxBuffer 默认必须以那个常量作 floor(直写常量,或经 Math.max 抬升后传给子进程)',
   )
+  if (budgetRoute) {
+    assert.match(
+      batch,
+      /const maxBuffer = opts\.maxBuffer \?\? GIT_MAX_BUFFER/,
+      'budget 路线必须以常量作默认 floor(换成别的默认值就等于把缓冲区退回 1MB)',
+    )
+    assert.match(
+      batch,
+      /const budget = Math\.max\(maxBuffer,/,
+      '每块预算必须 Math.max 抬升,而不是把常量往下压',
+    )
+  }
   // 反向对照:把默认值改掉(哪怕仍写 opts.maxBuffer ??)也必须被本条咬住
   assert.ok(
     !/maxBuffer:\s*(?:opts\.maxBuffer\s*\?\?\s*)?(?:1 << 20|1024)\b/.test(batch),
