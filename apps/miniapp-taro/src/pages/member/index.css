@@ -339,11 +339,6 @@
   margin-top: 0;
   border-top: 2rpx solid var(--color-border);
 }
-.member-arrow {
-  color: var(--color-muted-foreground);
-  font-size: 32rpx;
-}
-
 /* ===== 联系客服 ===== */
 .member-contact {
   margin: 0 20rpx;

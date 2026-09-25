@@ -9,6 +9,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { clearCache } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
 
 const KEEP_KEYS = ['ihui_token', 'ihui_refresh_token', 'ihui_user_info', 'lang', 'theme']
 const IMAGE_KEYS = ['ihui_image_history', 'ihui_image_favorites']
@@ -139,7 +140,9 @@ export default function CachePage() {
         <View className="mx-[20rpx] flex flex-col gap-[2rpx] overflow-hidden rounded-lg bg-[color:var(--color-border)]">
           <View className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted">
             {/* rowLabel 对齐 RN: 16dp→32rpx + text.medium 语义映射 muted-foreground */}
-            <Text className="text-[length:32rpx] text-muted-foreground">{t('setting.cache.current')}</Text>
+            <Text className="text-[length:32rpx] text-muted-foreground">
+              {t('setting.cache.current')}
+            </Text>
             <Text className="text-[length:32rpx] text-foreground">{size}</Text>
           </View>
         </View>
@@ -169,7 +172,7 @@ export default function CachePage() {
               {t('setting.cache.clearImage')}
             </Text>
             {/* arrow 对齐 RN: 20dp→40rpx + text.tertiary */}
-            <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+            <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
           </View>
           <View
             className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
@@ -179,7 +182,7 @@ export default function CachePage() {
             <Text className="text-[length:32rpx] text-muted-foreground">
               {t('setting.cache.clearFile')}
             </Text>
-            <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+            <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
           </View>
         </View>
 

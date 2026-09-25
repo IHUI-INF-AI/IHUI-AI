@@ -9,6 +9,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getProfile, logout, type UserInfo } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
 
 const VERSION = '1.0.0'
 const NOTIFICATION_KEY = 'messageNotificationEnabled'
@@ -133,7 +134,7 @@ export default function Settings() {
               <Text className="mx-[16rpx] max-w-[320rpx] overflow-hidden text-ellipsis whitespace-nowrap text-[length:28rpx] text-muted-foreground">
                 {maskedPhone}
               </Text>
-              <Text className="text-[length:40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
               className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
@@ -143,7 +144,7 @@ export default function Settings() {
               <Text className="flex-1 text-[length:32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.changePassword', '修改密码')}
               </Text>
-              <Text className="text-[length:40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
               className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
@@ -153,7 +154,7 @@ export default function Settings() {
               <Text className="flex-1 text-[length:32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.realNameAuth', '实名认证')}
               </Text>
-              <Text className="text-[length:40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
               className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
@@ -163,7 +164,7 @@ export default function Settings() {
               <Text className="flex-1 text-[length:32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.emailBinding', '邮箱绑定')}
               </Text>
-              <Text className="text-[length:40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
               className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
@@ -173,7 +174,7 @@ export default function Settings() {
               <Text className="flex-1 text-[length:32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.accountCancel', '账号注销')}
               </Text>
-              <Text className="text-[length:40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
           </View>
         </View>
@@ -203,7 +204,7 @@ export default function Settings() {
               <Text className="flex-1 text-[length:32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.languageSetting', '语言设置')}
               </Text>
-              <Text className="text-[length:40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
               className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
@@ -213,7 +214,7 @@ export default function Settings() {
               <Text className="flex-1 text-[length:32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.themeSetting', '主题设置')}
               </Text>
-              <Text className="text-[length:40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
               className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
@@ -223,7 +224,7 @@ export default function Settings() {
               <Text className="flex-1 text-[length:32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.clearCache', '清除缓存')}
               </Text>
-              <Text className="text-[length:40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
           </View>
         </View>
@@ -242,7 +243,7 @@ export default function Settings() {
               <Text className="flex-1 text-[length:32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.feedback', '意见反馈')}
               </Text>
-              <Text className="text-[length:40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
               className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
@@ -252,7 +253,7 @@ export default function Settings() {
               <Text className="flex-1 text-[length:32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.aboutUs', '关于我们')}
               </Text>
-              <Text className="text-[length:40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
               className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
@@ -262,7 +263,7 @@ export default function Settings() {
               <Text className="flex-1 text-[length:32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('announcement.title', '平台公告')}
               </Text>
-              <Text className="text-[length:40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
               className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
@@ -272,7 +273,7 @@ export default function Settings() {
               <Text className="flex-1 text-[length:32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('activity.title', '平台活动')}
               </Text>
-              <Text className="text-[length:40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
               className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
@@ -282,7 +283,7 @@ export default function Settings() {
               <Text className="flex-1 text-[length:32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('aiSkill.title', 'AI 技能')}
               </Text>
-              <Text className="text-[length:40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
           </View>
         </View>
@@ -301,7 +302,7 @@ export default function Settings() {
               <Text className="flex-1 text-[length:32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.privacyPolicy', '隐私政策')}
               </Text>
-              <Text className="text-[length:40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
               className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
@@ -311,7 +312,7 @@ export default function Settings() {
               <Text className="flex-1 text-[length:32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.userAgreement', '用户协议')}
               </Text>
-              <Text className="text-[length:40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
           </View>
         </View>
@@ -330,7 +331,7 @@ export default function Settings() {
               <Text className="flex-1 text-[length:32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.appPermission', '应用权限')}
               </Text>
-              <Text className="text-[length:40rpx] leading-none text-[var(--color-text-tertiary)]">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]">
               <Text className="flex-1 text-[length:32rpx] text-[var(--color-text-medium)] dark:text-foreground">
