@@ -50,12 +50,12 @@ interface Opt {
 
 // RN chip:px14/h36/r12 → 28/72/24 rpx;文字 14dp→28rpx、text.medium;高度含边框故加 box-border
 const OPT_BASE =
-  'h-[72rpx] px-[28rpx] rounded-xl border border-border bg-background text-[28rpx] text-[var(--color-text-medium)] flex items-center justify-center box-border'
+  'h-[72rpx] px-[28rpx] rounded-xl border border-border bg-background text-[length:28rpx] text-[var(--color-text-medium)] flex items-center justify-center box-border'
 // RN chipActive:border brand.DEFAULT + bg surface.muted;chipTextActive:text.primary + 600
 const OPT_ACTIVE = 'border-primary bg-muted text-foreground font-semibold'
 // RN 端种类标签与选项 chip 完全同款(chip/chipText 无区分),统一为 OPT 样式
 const TAG_BASE =
-  'h-[72rpx] px-[28rpx] rounded-xl border border-border bg-background text-[28rpx] text-[var(--color-text-medium)] flex items-center justify-center box-border'
+  'h-[72rpx] px-[28rpx] rounded-xl border border-border bg-background text-[length:28rpx] text-[var(--color-text-medium)] flex items-center justify-center box-border'
 const TAG_ACTIVE = 'border-primary bg-muted text-foreground font-semibold'
 
 export default function ModelEdit() {
@@ -221,11 +221,11 @@ export default function ModelEdit() {
         {/* RN header:row/center/justify-between + px10/py12,无独立背景(透出 surface.bg) */}
         <View className="flex items-center justify-between px-[20rpx] py-[24rpx]">
           {/* RN backText:16dp→32rpx、text.secondary */}
-          <Text className="text-[32rpx] text-muted-foreground" onClick={() => Taro.navigateBack()}>
+          <Text className="text-[length:32rpx] text-muted-foreground" onClick={() => Taro.navigateBack()}>
             {t('common.back')}
           </Text>
           {/* RN headerTitle:20dp→40rpx、600、text.primary */}
-          <Text className="text-[40rpx] font-semibold text-foreground">
+          <Text className="text-[length:40rpx] font-semibold text-foreground">
             {tt('devEnter.modelEdit.title', '编辑模型')}
           </Text>
           {/* RN headerSpacer:w40→80rpx,标题视觉居中 */}
@@ -245,18 +245,18 @@ export default function ModelEdit() {
                 />
               ) : (
                 /* RN avatar:w48/h48/r24(圆形)+ surface.muted;AGENTS §4 头像豁免,保留圆形 rounded-full */
-                <View className="w-[96rpx] h-[96rpx] rounded-full bg-muted flex items-center justify-center flex-shrink-0 mr-[24rpx] text-[40rpx] font-semibold text-foreground">
+                <View className="w-[96rpx] h-[96rpx] rounded-full bg-muted flex items-center justify-center flex-shrink-0 mr-[24rpx] text-[length:40rpx] font-semibold text-foreground">
                   <Text>{(agentInfo.name || '?').slice(0, 1)}</Text>
                 </View>
               )}
               <View className="flex-1 overflow-hidden">
                 {/* RN baseName:16dp→32rpx、600、text.primary;numberOfLines(1)→truncate */}
-                <Text className="block text-[32rpx] font-semibold text-foreground truncate">
+                <Text className="block text-[length:32rpx] font-semibold text-foreground truncate">
                   {agentInfo.name || tt('devEnter.modelEdit.model', '模型')}
                 </Text>
                 {agentInfo.prologue ? (
                   /* RN baseSub:mt8→16rpx、14dp→28rpx、text.secondary;numberOfLines(2) */
-                  <Text className="block text-[28rpx] text-muted-foreground mt-[16rpx] overflow-hidden line-clamp-2">
+                  <Text className="block text-[length:28rpx] text-muted-foreground mt-[16rpx] overflow-hidden line-clamp-2">
                     {agentInfo.prologue}
                   </Text>
                 ) : null}
@@ -264,13 +264,13 @@ export default function ModelEdit() {
             </View>
 
             {loading ? (
-              <Text className="block text-[24rpx] text-muted-foreground text-center py-[16rpx]">
+              <Text className="block text-[length:24rpx] text-muted-foreground text-center py-[16rpx]">
                 {t('common.loading')}
               </Text>
             ) : null}
 
             {/* 1. 种类多选 — RN label:14dp→28rpx、600、text.medium、mt16/mb8 */}
-            <Text className="block text-[28rpx] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
+            <Text className="block text-[length:28rpx] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
               {tt('devEnter.modelEdit.categoryLabel', '种类（多选）')}
             </Text>
             <View className="flex flex-wrap gap-[20rpx]">
@@ -287,7 +287,7 @@ export default function ModelEdit() {
             </View>
 
             {/* 2. 部门 — RN 端为 chip 行;小程序保留 Picker 交互,触发器对齐选中态 chip(chipActive)视觉 */}
-            <Text className="block text-[28rpx] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
+            <Text className="block text-[length:28rpx] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
               {tt('devEnter.modelEdit.departmentLabel', '部门')}
             </Text>
             <Picker
@@ -296,14 +296,14 @@ export default function ModelEdit() {
               value={deptIndex}
               onChange={(e) => setDeptIndex(Number(e.detail.value))}
             >
-              <View className="flex items-center justify-between h-[72rpx] px-[28rpx] rounded-xl border border-primary bg-muted text-[28rpx] font-semibold text-foreground box-border">
+              <View className="flex items-center justify-between h-[72rpx] px-[28rpx] rounded-xl border border-primary bg-muted text-[length:28rpx] font-semibold text-foreground box-border">
                 <Text>{DEPARTMENTS[deptIndex]}</Text>
                 <LineIcon name="chevron-down" size={24} color="var(--color-muted-foreground)" />
               </View>
             </Picker>
 
             {/* 3. 售卖方式 */}
-            <Text className="block text-[28rpx] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
+            <Text className="block text-[length:28rpx] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
               {tt('devEnter.modelEdit.saleTypeLabel', '售卖方式')}
             </Text>
             {renderOpts(saleTypeOpts, saleType, (v) => setSaleType(v as SaleType))}
@@ -311,22 +311,22 @@ export default function ModelEdit() {
             {/* 4. 收费周期 + 价格 (付费/限时免费时显示) — 对齐 RN paidCard:mt12/p12/r12 + surface.muted,无边框;时限/折扣同移卡内(RN 同构) */}
             {saleType !== 'free' ? (
               <View className="mt-[24rpx] p-[24rpx] rounded-xl bg-muted">
-                <Text className="block text-[28rpx] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
+                <Text className="block text-[length:28rpx] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
                   {tt('devEnter.modelEdit.chargePeriodLabel', '收费周期')}
                 </Text>
                 {renderOpts(periodOpts, chargePeriod, (v) => setChargePeriod(v as ChargePeriod))}
                 {saleType === 'paid' ? (
                   <>
-                    <Text className="block text-[28rpx] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
+                    <Text className="block text-[length:28rpx] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
                       {tt('devEnter.modelEdit.priceLabel', '价格')}
                     </Text>
                     {/* RN priceRow:row/center + border.border.light + r12 + px12 + surface.bg(白底浮出 muted 卡) */}
                     <View className="flex items-center border border-border rounded-xl px-[24rpx] bg-background">
                       {/* RN priceUnit:18dp→36rpx、600、brand.DEFAULT、mr8→16rpx */}
-                      <Text className="text-[36rpx] font-semibold text-primary mr-[16rpx]">¥</Text>
+                      <Text className="text-[length:36rpx] font-semibold text-primary mr-[16rpx]">¥</Text>
                       {/* RN priceInput:flex1/py14/16dp;placeholder 用 text.tertiary */}
                       <Input
-                        className="flex-1 h-[96rpx] text-[32rpx] text-foreground"
+                        className="flex-1 h-[96rpx] text-[length:32rpx] text-foreground"
                         type="digit"
                         value={price}
                         placeholder={tt('devEnter.modelEdit.pricePlaceholder', '请输入价格')}
@@ -340,7 +340,7 @@ export default function ModelEdit() {
                 {/* 5. 限时免费时限 (限时免费时显示) */}
                 {saleType === 'limited' ? (
                   <>
-                    <Text className="block text-[28rpx] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
+                    <Text className="block text-[length:28rpx] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
                       {tt('devEnter.modelEdit.limitedDurationLabel', '限时免费时限')}
                     </Text>
                     {renderOpts(durationOpts, limitedDuration, (v) =>
@@ -352,7 +352,7 @@ export default function ModelEdit() {
                 {/* 7. 折扣参与 (外层块已保证 saleType !== 'free',此处无条件渲染) */}
                 {
                   <>
-                    <Text className="block text-[28rpx] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
+                    <Text className="block text-[length:28rpx] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
                       {tt('devEnter.modelEdit.discountLabel', '折扣参与')}
                     </Text>
                     {renderOpts(discountOpts, discount, (v) => setDiscount(v as Discount))}
@@ -362,7 +362,7 @@ export default function ModelEdit() {
             ) : null}
 
             {/* 6. 面向群体 */}
-            <Text className="block text-[28rpx] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
+            <Text className="block text-[length:28rpx] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
               {tt('devEnter.modelEdit.targetGroupLabel', '面向群体')}
             </Text>
             {renderOpts(groupOpts, targetGroup, (v) => setTargetGroup(v as TargetGroup))}
@@ -370,7 +370,7 @@ export default function ModelEdit() {
             {/* 提交审核 — RN btn:mt28→56rpx、h50→100rpx、r12→24rpx、brand.DEFAULT 底 */}
             {/* RN btnText 用 surface.light(#FFFFFF 恒白),暗色下白底白字不可读 → 修正为 text-primary-foreground(暗色自动反转) */}
             <View
-              className={`mt-[56rpx] h-[100rpx] rounded-xl bg-cta text-[32rpx] font-semibold text-cta-foreground flex items-center justify-center box-border ${submitting ? 'opacity-60' : ''}`}
+              className={`mt-[56rpx] h-[100rpx] rounded-xl bg-cta text-[length:32rpx] font-semibold text-cta-foreground flex items-center justify-center box-border ${submitting ? 'opacity-60' : ''}`}
               onClick={onSubmit}
               hoverClass="opacity-60"
             >

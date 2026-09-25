@@ -282,11 +282,11 @@ export default function CourseDetail() {
         {/* 底部购买条:价格/按钮字号字重对齐 RN actionRow(price 20dp w700 + enroll btn radius12/16dp 字) */}
         <View className="fixed left-0 right-0 bottom-0 h-[100rpx] bg-card flex items-center px-4 shadow-[0_-2rpx_12rpx_var(--color-black-6)]">
           <View className="flex-1 flex flex-row items-baseline">
-            <Text className="text-[28rpx] text-primary font-bold">¥</Text>
-            <Text className="text-[40rpx] text-primary font-bold">{course.price ?? 0}</Text>
+            <Text className="text-[length:28rpx] text-primary font-bold">¥</Text>
+            <Text className="text-[length:40rpx] text-primary font-bold">{course.price ?? 0}</Text>
           </View>
           <View
-            className="px-[20rpx] h-[80rpx] leading-[80rpx] bg-cta text-cta-foreground rounded-xl text-[32rpx] font-semibold"
+            className="px-[20rpx] h-[80rpx] leading-[80rpx] bg-cta text-cta-foreground rounded-xl text-[length:32rpx] font-semibold"
             hoverClass="opacity-60"
             onClick={handleBuy}
           >

@@ -68,7 +68,7 @@ export default function ModelRecord() {
   return (
     <ThemeRoot>
       <View className="min-h-screen bg-muted px-[24rpx] pt-[24rpx] pb-[48rpx]">
-        <Text className="block text-[30rpx] text-foreground font-semibold mb-[24rpx]">
+        <Text className="block text-[length:30rpx] text-foreground font-semibold mb-[24rpx]">
           {tt('about.modelRecord.tableTitle', '大模型备案信息')}
         </Text>
 
@@ -78,10 +78,10 @@ export default function ModelRecord() {
               key={item.label}
               className={`flex items-start py-[28rpx] px-[28rpx]${idx === 0 ? '' : ' mt-[16rpx]'}`}
             >
-              <Text className="text-[28rpx] text-muted-foreground flex-shrink-0 w-[160rpx]">
+              <Text className="text-[length:28rpx] text-muted-foreground flex-shrink-0 w-[160rpx]">
                 {item.label}
               </Text>
-              <Text className="flex-1 text-[28rpx] text-foreground break-all">{item.value}</Text>
+              <Text className="flex-1 text-[length:28rpx] text-foreground break-all">{item.value}</Text>
             </View>
           ))}
         </View>
@@ -101,7 +101,7 @@ export default function ModelRecord() {
           )}
           {validImages.length === 0 ? (
             <View className="flex items-center justify-center h-[300rpx]">
-              <Text className="text-[26rpx] text-muted-foreground">
+              <Text className="text-[length:26rpx] text-muted-foreground">
                 {tt('about.modelRecord.imageUnavailable', '备案图片暂未上传')}
               </Text>
             </View>
@@ -109,16 +109,16 @@ export default function ModelRecord() {
         </View>
 
         <View className="bg-card rounded-xl overflow-hidden p-[28rpx] mb-[24rpx]">
-          <Text className="block text-[28rpx] text-foreground font-medium mb-[16rpx]">
+          <Text className="block text-[length:28rpx] text-foreground font-medium mb-[16rpx]">
             {tt('about.modelRecord.noticeTitle', '模型信息公示')}
           </Text>
-          <Text className="text-[28rpx] text-muted-foreground leading-[44rpx]">
+          <Text className="text-[length:28rpx] text-muted-foreground leading-[44rpx]">
             {tt('about.modelRecord.noticeText', '本应用使用人工智能技术,以下为所用模型信息')}
           </Text>
         </View>
 
         <View className="text-center pt-[16rpx]">
-          <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+          <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
             {tt('about.modelRecord.footer', '模型信息仅供参考')}
           </Text>
         </View>

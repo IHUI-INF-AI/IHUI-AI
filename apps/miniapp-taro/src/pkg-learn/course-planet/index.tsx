@@ -181,7 +181,7 @@ export default function CoursePlanet() {
         <View className="min-h-screen bg-[var(--color-brand-accent-light)]">
           {/* 对齐 RN NavBar:bg surface.card / 高 44dp→88rpx / 底边框 border.light */}
           <View className="h-[88rpx] flex items-center px-[24rpx] bg-card border-b border-border">
-            <Text className="text-[36rpx] font-semibold text-foreground">
+            <Text className="text-[length:36rpx] font-semibold text-foreground">
               {t('coursePlanet.title')}
             </Text>
           </View>
@@ -200,17 +200,17 @@ export default function CoursePlanet() {
       <ThemeRoot>
         <View className="min-h-screen bg-[var(--color-brand-accent-light)]">
           <View className="h-[88rpx] flex items-center px-[24rpx] bg-card border-b border-border">
-            <Text className="text-[36rpx] font-semibold text-foreground">
+            <Text className="text-[length:36rpx] font-semibold text-foreground">
               {t('coursePlanet.title')}
             </Text>
           </View>
           <View className="p-[20rpx]">
             {/* 对齐 RN errorText:12dp→24rpx / danger.DEFAULT / 居中 / paddingY rpx(16) */}
-            <Text className="block text-center text-[24rpx] text-[var(--color-danger)] py-[16rpx]">
+            <Text className="block text-center text-[length:24rpx] text-[var(--color-danger)] py-[16rpx]">
               {tt('coursePlanet.loadFailed', '加载失败')}
             </Text>
             <Text
-              className="inline-block mt-[24rpx] px-[48rpx] py-[16rpx] bg-cta text-cta-foreground text-center rounded-md text-[28rpx]"
+              className="inline-block mt-[24rpx] px-[48rpx] py-[16rpx] bg-cta text-cta-foreground text-center rounded-md text-[length:28rpx]"
               onClick={loadData}
             >
               {t('common.retry')}
@@ -227,7 +227,7 @@ export default function CoursePlanet() {
       <View className="min-h-screen bg-[var(--color-brand-accent-light)]">
         {/* 对齐 RN NavBar:bg surface.card / 高 44dp→88rpx / 底边框 border.light */}
         <View className="h-[88rpx] flex items-center px-[24rpx] bg-card border-b border-border">
-          <Text className="text-[36rpx] font-semibold text-foreground">
+          <Text className="text-[length:36rpx] font-semibold text-foreground">
             {t('coursePlanet.title')}
           </Text>
         </View>
@@ -285,18 +285,18 @@ export default function CoursePlanet() {
                 )}
                 {/* 对齐 RN infoWrap:paddingH 12dp→24rpx / paddingV 8dp→16rpx / justify-between */}
                 <View className="flex-1 px-[24rpx] py-[16rpx] flex flex-col justify-between min-h-[160rpx]">
-                  <Text className="text-[28rpx] text-foreground font-semibold leading-[1.4] line-clamp-2">
+                  <Text className="text-[length:28rpx] text-foreground font-semibold leading-[1.4] line-clamp-2">
                     {item.title}
                   </Text>
                   {item.teacher ? (
-                    <Text className="text-[24rpx] text-muted-foreground mt-[8rpx]">
+                    <Text className="text-[length:24rpx] text-muted-foreground mt-[8rpx]">
                       {tt('coursePlanet.teacher', '讲师')}: {item.teacher}
                     </Text>
                   ) : null}
                   <View className="flex items-center justify-between mt-[8rpx]">
                     {item.price !== null && item.price !== undefined ? (
                       <Text
-                        className={`text-[24rpx] font-semibold ${item.price === 0 ? 'text-success' : 'text-foreground'}`}
+                        className={`text-[length:24rpx] font-semibold ${item.price === 0 ? 'text-success' : 'text-foreground'}`}
                       >
                         {item.price === 0
                           ? tt('coursePlanet.free', '免费')
@@ -304,7 +304,7 @@ export default function CoursePlanet() {
                       </Text>
                     ) : null}
                     {item.students !== null && item.students !== undefined ? (
-                      <Text className="text-[24rpx] text-muted-foreground">
+                      <Text className="text-[length:24rpx] text-muted-foreground">
                         {item.students} {tt('coursePlanet.studentsUnit', '人学习')}
                       </Text>
                     ) : null}
@@ -326,12 +326,12 @@ export default function CoursePlanet() {
             </View>
           )}
           {hasMore && displayList.length > 0 ? (
-            <Text className="block text-center text-muted-foreground text-[24rpx] py-[24rpx]">
+            <Text className="block text-center text-muted-foreground text-[length:24rpx] py-[24rpx]">
               {tt('coursePlanet.loadingMore', '加载中…')}
             </Text>
           ) : null}
           {!hasMore && displayList.length > 0 ? (
-            <Text className="block text-center text-muted-foreground text-[24rpx] py-[24rpx]">
+            <Text className="block text-center text-muted-foreground text-[length:24rpx] py-[24rpx]">
               {t('common.noMore')}
             </Text>
           ) : null}

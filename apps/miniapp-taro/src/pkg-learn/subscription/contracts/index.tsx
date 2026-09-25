@@ -96,7 +96,7 @@ export default function SubscriptionContractsPage() {
     <ThemeRoot>
       <View className="min-h-screen bg-background">
         <View className="px-[20rpx] pt-[24rpx] pb-[8rpx]">
-          <Text className="text-[40rpx] text-foreground font-semibold">
+          <Text className="text-[length:40rpx] text-foreground font-semibold">
             {tt('subscription.contractsTitle', '自动续费管理')}
           </Text>
         </View>
@@ -105,34 +105,34 @@ export default function SubscriptionContractsPage() {
             {list.map((c) => (
               <View
                 key={c.id}
-                className="bg-background border-[2rpx] border-border rounded-xl p-[24rpx] mb-[24rpx]"
+                className="bg-background border-[length:2rpx] border-border rounded-xl p-[24rpx] mb-[24rpx]"
               >
                 <View className="flex justify-between items-center">
-                  <Text className="text-[32rpx] text-foreground font-semibold">
+                  <Text className="text-[length:32rpx] text-foreground font-semibold">
                     {c.planId
                       ? `${tt('subscription.planLabel', '套餐')} ${c.planId}`
                       : tt('subscription.autoRenew', '自动续费')}
                   </Text>
                   <Text
-                    className={`text-[24rpx] px-[16rpx] py-[4rpx] rounded-lg ${STATUS_STYLE[c.status]}`}
+                    className={`text-[length:24rpx] px-[16rpx] py-[4rpx] rounded-lg ${STATUS_STYLE[c.status]}`}
                   >
                     {getStatusText(c.status)}
                   </Text>
                 </View>
                 <View className="mt-[20rpx]">
                   <View className="flex justify-between py-[8rpx]">
-                    <Text className="text-[28rpx] text-muted-foreground">
+                    <Text className="text-[length:28rpx] text-muted-foreground">
                       {tt('subscription.nextCharge', '下次扣款')}
                     </Text>
-                    <Text className="text-[28rpx] text-foreground">
+                    <Text className="text-[length:28rpx] text-foreground">
                       {formatDateByTemplate(c.nextChargeTime, 'YYYY-MM-DD HH:mm') || '-'}
                     </Text>
                   </View>
                   <View className="flex justify-between py-[8rpx]">
-                    <Text className="text-[28rpx] text-muted-foreground">
+                    <Text className="text-[length:28rpx] text-muted-foreground">
                       {tt('subscription.lastCharge', '上次扣款')}
                     </Text>
-                    <Text className="text-[28rpx] text-foreground">
+                    <Text className="text-[length:28rpx] text-foreground">
                       {c.lastChargeTime
                         ? `${formatDateByTemplate(c.lastChargeTime, 'YYYY-MM-DD HH:mm')} ${
                             c.lastChargeStatus ? getLastChargeText(c.lastChargeStatus) : ''
@@ -141,10 +141,10 @@ export default function SubscriptionContractsPage() {
                     </Text>
                   </View>
                   <View className="flex justify-between py-[8rpx]">
-                    <Text className="text-[28rpx] text-muted-foreground">
+                    <Text className="text-[length:28rpx] text-muted-foreground">
                       {tt('subscription.signTime', '签约时间')}
                     </Text>
-                    <Text className="text-[28rpx] text-foreground">
+                    <Text className="text-[length:28rpx] text-foreground">
                       {formatDateByTemplate(c.signedAt || c.createdAt, 'YYYY-MM-DD HH:mm') || '-'}
                     </Text>
                   </View>
@@ -152,7 +152,7 @@ export default function SubscriptionContractsPage() {
                 {c.status === 'active' && (
                   <View className="mt-[24rpx] text-right">
                     <Text
-                      className="inline-block text-[28rpx] font-semibold text-[var(--color-text-medium)] bg-background px-[24rpx] py-[12rpx] border-[2rpx] border-border rounded-xl"
+                      className="inline-block text-[length:28rpx] font-semibold text-[var(--color-text-medium)] bg-background px-[24rpx] py-[12rpx] border-[length:2rpx] border-border rounded-xl"
                       onClick={() => onCancel(c)}
                     >
                       {tt('subscription.cancelBtn', '解约')}
@@ -165,14 +165,14 @@ export default function SubscriptionContractsPage() {
         )}
         {list.length === 0 && !loading && (
           <View className="text-center py-[96rpx] text-muted-foreground">
-            <Text className="text-[28rpx]">
+            <Text className="text-[length:28rpx]">
               {tt('subscription.contractsEmpty', '暂无自动续费签约')}
             </Text>
           </View>
         )}
         {loading && (
           <View className="text-center py-[96rpx] text-muted-foreground">
-            <Text className="text-[28rpx]">{tt('subscription.loadingText', '加载中...')}</Text>
+            <Text className="text-[length:28rpx]">{tt('subscription.loadingText', '加载中...')}</Text>
           </View>
         )}
       </View>

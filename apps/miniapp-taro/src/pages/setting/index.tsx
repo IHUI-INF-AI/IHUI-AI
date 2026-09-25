@@ -73,11 +73,11 @@ export default function SettingIndexPage() {
             />
             <View className="min-w-0 flex-1">
               {/* 昵称对齐 RN nickname: 16dp→32rpx semibold + text.primary */}
-              <Text className="block text-[32rpx] text-foreground font-semibold">
+              <Text className="block text-[length:32rpx] text-foreground font-semibold">
                 {user.nickname}
               </Text>
               {/* 副行对齐 RN subText: 14dp→28rpx + text.secondary;间距对齐 userMeta gap 2dp→4rpx */}
-              <Text className="mt-[4rpx] block text-[28rpx] text-muted-foreground">
+              <Text className="mt-[4rpx] block text-[length:28rpx] text-muted-foreground">
                 {user.phone || tt('setting.unboundPhone', '未绑定')}
               </Text>
             </View>
@@ -87,7 +87,7 @@ export default function SettingIndexPage() {
         {/* 分组对齐 RN Section: 分组间距 body gap 16dp→32rpx;标题 14dp→28rpx(text.secondary) + 距卡片 gap 8dp→16rpx;
             左右随 body paddingHorizontal 10dp→20rpx */}
         <View className="mx-[20rpx] mt-[32rpx]">
-          <Text className="mb-[16rpx] block text-[28rpx] text-muted-foreground">
+          <Text className="mb-[16rpx] block text-[length:28rpx] text-muted-foreground">
             {tt('setting.account', '账号与安全')}
           </Text>
           {/* sectionCard 对齐 RN: 圆角 8dp→16rpx + divider(border.light)背景 + 行间 hairline(2rpx)分隔 */}
@@ -98,37 +98,37 @@ export default function SettingIndexPage() {
               hoverClass="opacity-60"
             >
               {/* rowLabel 对齐 RN: 16dp→32rpx + text.medium 语义映射 muted-foreground */}
-              <Text className="text-[32rpx] text-muted-foreground">
+              <Text className="text-[length:32rpx] text-muted-foreground">
                 {tt('setting.profile', '个人资料')}
               </Text>
               {/* arrow 对齐 RN: 20dp→40rpx + text.tertiary */}
-              <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+              <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
             </View>
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
               onClick={() => navigate('/pkg-user/account-cancel/index/index')}
               hoverClass="opacity-60"
             >
-              <Text className="text-[32rpx] text-muted-foreground">
+              <Text className="text-[length:32rpx] text-muted-foreground">
                 {tt('setting.accountCancel', '账号注销')}
               </Text>
-              <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+              <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
             </View>
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
               onClick={() => navigate('/pages/setting/notification')}
               hoverClass="opacity-60"
             >
-              <Text className="text-[32rpx] text-muted-foreground">
+              <Text className="text-[length:32rpx] text-muted-foreground">
                 {tt('setting.notificationSetting', '通知设置')}
               </Text>
-              <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+              <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
             </View>
           </View>
         </View>
 
         <View className="mx-[20rpx] mt-[32rpx]">
-          <Text className="mb-[16rpx] block text-[28rpx] text-muted-foreground">
+          <Text className="mb-[16rpx] block text-[length:28rpx] text-muted-foreground">
             {tt('setting.general', '通用')}
           </Text>
           <View className="flex flex-col gap-[2rpx] overflow-hidden rounded-lg bg-[color:var(--color-border)]">
@@ -137,36 +137,36 @@ export default function SettingIndexPage() {
               onClick={() => navigate('/pages/setting/cache')}
               hoverClass="opacity-60"
             >
-              <Text className="text-[32rpx] text-muted-foreground">
+              <Text className="text-[length:32rpx] text-muted-foreground">
                 {tt('setting.clearCache', '清除缓存')}
               </Text>
-              <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+              <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
             </View>
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
               onClick={() => navigate('/pages/setting/language')}
               hoverClass="opacity-60"
             >
-              <Text className="text-[32rpx] text-muted-foreground">
+              <Text className="text-[length:32rpx] text-muted-foreground">
                 {tt('setting.languageSetting', '语言设置')}
               </Text>
-              <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+              <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
             </View>
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
               onClick={() => navigate('/pages/setting/theme')}
               hoverClass="opacity-60"
             >
-              <Text className="text-[32rpx] text-muted-foreground">
+              <Text className="text-[length:32rpx] text-muted-foreground">
                 {tt('setting.themeSetting', '主题设置')}
               </Text>
-              <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+              <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
             </View>
           </View>
         </View>
 
         <View className="mx-[20rpx] mt-[32rpx]">
-          <Text className="mb-[16rpx] block text-[28rpx] text-muted-foreground">
+          <Text className="mb-[16rpx] block text-[length:28rpx] text-muted-foreground">
             {tt('setting.other', '其他')}
           </Text>
           <View className="flex flex-col gap-[2rpx] overflow-hidden rounded-lg bg-[color:var(--color-border)]">
@@ -175,30 +175,30 @@ export default function SettingIndexPage() {
               onClick={() => navigate('/pkg-user/user/feedback')}
               hoverClass="opacity-60"
             >
-              <Text className="text-[32rpx] text-muted-foreground">
+              <Text className="text-[length:32rpx] text-muted-foreground">
                 {tt('setting.feedback', '意见反馈')}
               </Text>
-              <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+              <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
             </View>
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
               onClick={() => navigate('/pages/setting/privacy')}
               hoverClass="opacity-60"
             >
-              <Text className="text-[32rpx] text-muted-foreground">
+              <Text className="text-[length:32rpx] text-muted-foreground">
                 {tt('setting.privacyPermission', '隐私与权限')}
               </Text>
-              <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+              <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
             </View>
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
               onClick={() => navigate('/pkg-about/about/index')}
               hoverClass="opacity-60"
             >
-              <Text className="text-[32rpx] text-muted-foreground">
+              <Text className="text-[length:32rpx] text-muted-foreground">
                 {tt('setting.aboutUs', '关于我们')}
               </Text>
-              <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+              <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
             </View>
           </View>
         </View>
@@ -207,7 +207,7 @@ export default function SettingIndexPage() {
             文字 16dp→32rpx semibold + danger(对齐 RN danger.DEFAULT,亮暗随 --color-danger);
             上边距 logoutBtn marginTop 8dp + body gap 16dp = 24dp→48rpx */}
         <Button
-          className="mx-[20rpx] mt-[48rpx] flex h-[100rpx] items-center justify-center rounded-lg bg-card text-[32rpx] font-semibold dark:bg-muted"
+          className="mx-[20rpx] mt-[48rpx] flex h-[100rpx] items-center justify-center rounded-lg bg-card text-[length:32rpx] font-semibold dark:bg-muted"
           style={{ color: 'var(--color-danger)' }}
           onClick={onLogout}
         >
@@ -215,7 +215,7 @@ export default function SettingIndexPage() {
         </Button>
 
         {/* versionText 对齐 RN: 独立居中行 + 12dp→24rpx + text.tertiary + marginTop 4dp→8rpx */}
-        <Text className="mt-[8rpx] block text-center text-[24rpx] text-[color:var(--color-text-tertiary)]">
+        <Text className="mt-[8rpx] block text-center text-[length:24rpx] text-[color:var(--color-text-tertiary)]">
           {tt('setting.version', '版本')} {VERSION}
         </Text>
       </View>

@@ -463,7 +463,7 @@ export default function AigcList() {
           <View className="list-layout">
             {/* 文本卡片(对齐 RN textCard):card-header(标题+时间) + prompt(提示词) + 正文 */}
             {grouped.text.map((item) => (
-              <View key={String(item.id)} className="text-card">
+              <View key={String(item.id)} className="aigc-text-card">
                 <View className="card-header">
                   <Text className="card-title">
                     {item.title || tt('aigc.list.untitled', '文本内容')}

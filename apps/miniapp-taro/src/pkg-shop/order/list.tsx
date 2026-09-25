@@ -220,17 +220,17 @@ export default function OrderList() {
       {/* 头部(对齐 RN header:paddingH 20rpx / paddingV 24rpx / gap 24rpx / 返回 32rpx text.medium / 标题 40rpx 600) */}
       <View className="flex items-center gap-[24rpx] bg-card px-[20rpx] py-[24rpx]">
         <View
-          className="w-[80rpx] text-[32rpx] text-[var(--color-text-medium)]"
+          className="w-[80rpx] text-[length:32rpx] text-[var(--color-text-medium)]"
           hoverClass="opacity-60"
           onClick={goBack}
         >
           <Text>‹</Text>
         </View>
-        <Text className="flex-1 text-center text-[40rpx] text-foreground font-semibold">
+        <Text className="flex-1 text-center text-[length:40rpx] text-foreground font-semibold">
           {tt('order.list.title', '我的订单')}
         </Text>
         <View
-          className="w-[80rpx] text-right text-[26rpx] text-primary"
+          className="w-[80rpx] text-right text-[length:26rpx] text-primary"
           hoverClass="opacity-60"
           onClick={toggleSearch}
         >
@@ -246,7 +246,7 @@ export default function OrderList() {
         {TABS.map((tab) => (
           <Text
             key={tab.value}
-            className={`px-[28rpx] py-[12rpx] rounded-xl text-[28rpx] ${
+            className={`px-[28rpx] py-[12rpx] rounded-xl text-[length:28rpx] ${
               status === tab.value
                 ? 'bg-cta text-cta-foreground font-semibold'
                 : 'bg-card text-muted-foreground'
@@ -281,7 +281,7 @@ export default function OrderList() {
                 {/* 订单卡(对齐 RN card:padding 24rpx / 圆角 24rpx / 2rpx 描边 / 白底 / mb 24rpx;
                     内部对齐 cardBodyRow:商品图 260rpx + 右侧 info[cardHead → metaRow → amountRow]) */}
                 <View
-                  className="bg-card rounded-xl border-[2rpx] border-border p-[24rpx] mb-[24rpx]"
+                  className="bg-card rounded-xl border-[length:2rpx] border-border p-[24rpx] mb-[24rpx]"
                   hoverClass="opacity-60"
                   onClick={() => goDetail(o.id)}
                 >
@@ -297,35 +297,35 @@ export default function OrderList() {
                     <View className="flex-1 min-w-0">
                       <View className="flex justify-between items-center gap-[16rpx]">
                         <Text
-                          className="flex-1 text-[32rpx] text-foreground font-semibold"
+                          className="flex-1 text-[length:32rpx] text-foreground font-semibold"
                           numberOfLines={1}
                         >
                           {productName}
                         </Text>
                         <Text
-                          className={`px-[12rpx] py-[4rpx] rounded-sm text-[22rpx] font-medium ${info.badge}`}
+                          className={`px-[12rpx] py-[4rpx] rounded-sm text-[length:22rpx] font-medium ${info.badge}`}
                         >
                           {info.textKey ? t(info.textKey) : o.status}
                         </Text>
                       </View>
                       <View className="flex justify-between mt-[16rpx]">
-                        <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+                        <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
                           {tt('order.list.orderNo', '订单号')}：{orderNoText}
                         </Text>
-                        <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+                        <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
                           {createTimeText}
                         </Text>
                       </View>
                       <View className="flex justify-between items-end mt-[16rpx]">
-                        <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+                        <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
                           {refundTimeText
                             ? `${tt('order.list.refundTime', '退款时间')}：${refundTimeText}`
                             : ''}
                         </Text>
-                        <Text className="text-[36rpx] text-foreground font-bold">¥{o.amount}</Text>
+                        <Text className="text-[length:36rpx] text-foreground font-bold">¥{o.amount}</Text>
                       </View>
                       {o.description ? (
-                        <Text className="block text-[24rpx] text-muted-foreground mt-[12rpx] line-clamp-2">
+                        <Text className="block text-[length:24rpx] text-muted-foreground mt-[12rpx] line-clamp-2">
                           {o.description}
                         </Text>
                       ) : null}
@@ -335,7 +335,7 @@ export default function OrderList() {
                     <View className="flex justify-end mt-[20rpx]">
                       {o.status === 'pending' && (
                         <Text
-                          className="inline-block text-[24rpx] text-cta-foreground bg-cta px-[32rpx] py-[10rpx] rounded-md"
+                          className="inline-block text-[length:24rpx] text-cta-foreground bg-cta px-[32rpx] py-[10rpx] rounded-md"
                           onClick={(e) => {
                             e.stopPropagation()
                             goPay(o)
@@ -346,7 +346,7 @@ export default function OrderList() {
                       )}
                       {o.status === 'paid' && (
                         <Text
-                          className="inline-block text-[24rpx] text-primary px-[32rpx] py-[10rpx] border-[2rpx] border-primary rounded-md"
+                          className="inline-block text-[length:24rpx] text-primary px-[32rpx] py-[10rpx] border-[length:2rpx] border-primary rounded-md"
                           onClick={(e) => {
                             e.stopPropagation()
                             goRefund(o)
@@ -365,7 +365,7 @@ export default function OrderList() {
       )}
       {filtered.length === 0 && !loading && (
         <View className="flex flex-col items-center py-[96rpx] text-muted-foreground">
-          <Text className="text-[28rpx]">
+          <Text className="text-[length:28rpx]">
             {keyword
               ? tt('order.list.notFound', '未找到相关订单')
               : tt('order.list.empty', '暂无订单')}
@@ -374,7 +374,7 @@ export default function OrderList() {
       )}
       {loading && (
         <View className="flex flex-col items-center py-[96rpx] text-muted-foreground">
-          <Text className="text-[28rpx]">{tt('common.loading', '加载中...')}</Text>
+          <Text className="text-[length:28rpx]">{tt('common.loading', '加载中...')}</Text>
         </View>
       )}
     </View>

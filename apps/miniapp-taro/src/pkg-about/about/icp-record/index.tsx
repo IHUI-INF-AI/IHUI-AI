@@ -56,13 +56,13 @@ export default function IcpRecord() {
     <ThemeRoot>
       <View className="min-h-screen bg-background px-[28rpx] pt-[28rpx] pb-[64rpx]">
         <View className="bg-card rounded-xl border border-border p-[28rpx] mb-[24rpx]">
-          <Text className="block text-[28rpx] text-[var(--color-text-tertiary)] mb-[16rpx]">
+          <Text className="block text-[length:28rpx] text-[var(--color-text-tertiary)] mb-[16rpx]">
             {tt('about.icpRecord.icpLabel', 'ICP备案/许可证号')}
           </Text>
-          <Text className="block text-[36rpx] text-foreground font-medium" onClick={copyIcpNo}>
+          <Text className="block text-[length:36rpx] text-foreground font-medium" onClick={copyIcpNo}>
             {ICP_NO}
           </Text>
-          <Text className="block text-[22rpx] text-[var(--color-text-tertiary)] mt-[16rpx]">
+          <Text className="block text-[length:22rpx] text-[var(--color-text-tertiary)] mt-[16rpx]">
             {tt('about.icpRecord.copyHint', '点击编号可复制')}
           </Text>
         </View>
@@ -70,8 +70,8 @@ export default function IcpRecord() {
         <View className="bg-card rounded-xl border border-border px-[28rpx] mb-[24rpx]">
           {info.map((item) => (
             <View key={item.label} className="flex justify-between items-center py-[28rpx]">
-              <Text className="text-[28rpx] text-muted-foreground shrink-0">{item.label}</Text>
-              <Text className="text-[28rpx] text-foreground text-right ml-[24rpx] max-w-[60%] break-all">
+              <Text className="text-[length:28rpx] text-muted-foreground shrink-0">{item.label}</Text>
+              <Text className="text-[length:28rpx] text-foreground text-right ml-[24rpx] max-w-[60%] break-all">
                 {item.value}
               </Text>
             </View>
@@ -80,7 +80,7 @@ export default function IcpRecord() {
 
         <View className="pt-[8rpx] pb-[8rpx]">
           <Button
-            className="w-full h-[100rpx] leading-[100rpx] bg-primary text-[var(--color-primary-foreground)] rounded-xl text-[32rpx] font-semibold m-0 after:border-0"
+            className="w-full h-[100rpx] leading-[100rpx] bg-primary text-[var(--color-primary-foreground)] rounded-xl text-[length:32rpx] font-semibold m-0 after:border-0"
             onClick={onQuery}
           >
             {tt('about.icpRecord.query', '前往工信部查询')}
@@ -88,7 +88,7 @@ export default function IcpRecord() {
         </View>
 
         <View className="py-[24rpx] px-[8rpx]">
-          <Text className="text-[22rpx] text-[var(--color-text-tertiary)] leading-[40rpx]">
+          <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)] leading-[40rpx]">
             {tt('about.icpRecord.footer', '以上信息来自工信部备案查询系统')}
           </Text>
         </View>

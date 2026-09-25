@@ -59,7 +59,7 @@ export default function LearningStreak({
             }`}
           >
             <Text
-              className={`text-[20rpx] ${day.signed ? 'text-warning' : 'text-muted-foreground'}`}
+              className={`text-[length:20rpx] ${day.signed ? 'text-warning' : 'text-muted-foreground'}`}
             >
               {day.date}
             </Text>

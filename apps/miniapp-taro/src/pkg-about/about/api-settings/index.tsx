@@ -143,49 +143,49 @@ export default function ApiSettings() {
             onClick={() => copy(BASE_URL)}
             hoverClass="opacity-60"
           >
-            <Text className="text-[28rpx] text-muted-foreground">
+            <Text className="text-[length:28rpx] text-muted-foreground">
               {tt('about.apiSettings.apiUrl', 'API 地址')}
             </Text>
-            <Text className="text-[28rpx] text-foreground max-w-[60%] text-right break-all">
+            <Text className="text-[length:28rpx] text-foreground max-w-[60%] text-right break-all">
               {BASE_URL}
             </Text>
           </View>
           <View className="flex justify-between items-center py-[16rpx]">
-            <Text className="text-[28rpx] text-muted-foreground">
+            <Text className="text-[length:28rpx] text-muted-foreground">
               {tt('about.apiSettings.apiVersion', 'API 版本')}
             </Text>
-            <Text className="text-[28rpx] text-foreground max-w-[60%] text-right break-all">
+            <Text className="text-[length:28rpx] text-foreground max-w-[60%] text-right break-all">
               {config.version}
             </Text>
           </View>
           <View className="flex justify-between items-center py-[16rpx]">
-            <Text className="text-[28rpx] text-muted-foreground">
+            <Text className="text-[length:28rpx] text-muted-foreground">
               {tt('about.apiSettings.environment', '运行环境')}
             </Text>
-            <Text className="text-[28rpx] text-foreground max-w-[60%] text-right break-all">
+            <Text className="text-[length:28rpx] text-foreground max-w-[60%] text-right break-all">
               {config.environment}
             </Text>
           </View>
           <View className="flex justify-between items-center py-[16rpx]">
-            <Text className="text-[28rpx] text-muted-foreground">
+            <Text className="text-[length:28rpx] text-muted-foreground">
               {tt('about.apiSettings.timeout', '请求超时')}
             </Text>
-            <Text className="text-[28rpx] text-foreground max-w-[60%] text-right break-all">
+            <Text className="text-[length:28rpx] text-foreground max-w-[60%] text-right break-all">
               {config.timeout}
             </Text>
           </View>
         </View>
 
         <View className="bg-card rounded-xl border border-border p-[28rpx] mb-[24rpx] overflow-hidden">
-          <Text className="block text-[32rpx] font-semibold text-foreground mb-[24rpx]">
+          <Text className="block text-[length:32rpx] font-semibold text-foreground mb-[24rpx]">
             {tt('about.apiSettings.cozeTitle', 'Coze API 配置')}
           </Text>
-          <Text className="block text-[28rpx] text-muted-foreground mt-[16rpx] mb-[16rpx]">
+          <Text className="block text-[length:28rpx] text-muted-foreground mt-[16rpx] mb-[16rpx]">
             {tt('about.apiSettings.apiToken', 'API 令牌(Token)')}
           </Text>
           <View className="flex items-center gap-[16rpx]">
             <Input
-              className="flex-1 h-[100rpx] px-[24rpx] box-border bg-muted border-[2rpx] border-border rounded-xl text-[28rpx] text-foreground"
+              className="flex-1 h-[100rpx] px-[24rpx] box-border bg-muted border-[length:2rpx] border-border rounded-xl text-[length:28rpx] text-foreground"
               type="text"
               password={!showToken}
               value={apiToken}
@@ -193,7 +193,7 @@ export default function ApiSettings() {
               onInput={(e) => setApiToken(e.detail.value)}
             />
             <View
-              className="h-[100rpx] px-[24rpx] box-border bg-muted border-[2rpx] border-border rounded-xl flex items-center justify-center"
+              className="h-[100rpx] px-[24rpx] box-border bg-muted border-[length:2rpx] border-border rounded-xl flex items-center justify-center"
               onClick={toggleToken}
               hoverClass="opacity-60"
             >
@@ -204,30 +204,30 @@ export default function ApiSettings() {
               />
             </View>
           </View>
-          <Text className="block text-[28rpx] text-muted-foreground mt-[16rpx] mb-[16rpx]">
+          <Text className="block text-[length:28rpx] text-muted-foreground mt-[16rpx] mb-[16rpx]">
             {tt('about.apiSettings.workflowId', '工作流 ID(Workflow ID)')}
           </Text>
           <Input
-            className="w-full h-[100rpx] px-[24rpx] box-border bg-muted border-[2rpx] border-border rounded-xl text-[28rpx] text-foreground"
+            className="w-full h-[100rpx] px-[24rpx] box-border bg-muted border-[length:2rpx] border-border rounded-xl text-[length:28rpx] text-foreground"
             type="text"
             value={workflowId}
             placeholder={tt('about.apiSettings.workflowPlaceholder', '请输入工作流 ID')}
             onInput={(e) => setWorkflowId(e.detail.value)}
           />
-          <Text className="block text-[22rpx] text-[var(--color-text-tertiary)] mt-[24rpx]">
+          <Text className="block text-[length:22rpx] text-[var(--color-text-tertiary)] mt-[24rpx]">
             {tt('about.apiSettings.tokenHint', '提示:您可以从 Coze 平台获取 API 令牌和工作流 ID')}
           </Text>
         </View>
 
         <View className="flex gap-[24rpx] mb-[24rpx]">
           <Button
-            className="flex-1 text-[32rpx] font-semibold h-[100rpx] leading-[100rpx] rounded-xl m-0 p-0 after:border-0 bg-primary text-[var(--color-primary-foreground)]"
+            className="flex-1 text-[length:32rpx] font-semibold h-[100rpx] leading-[100rpx] rounded-xl m-0 p-0 after:border-0 bg-primary text-[var(--color-primary-foreground)]"
             onClick={save}
           >
             {tt('about.apiSettings.saveBtn', '保存设置')}
           </Button>
           <Button
-            className="flex-1 text-[32rpx] font-semibold h-[100rpx] leading-[100rpx] rounded-xl m-0 p-0 after:border-0 bg-background border-[2rpx] border-border text-[var(--color-text-medium)]"
+            className="flex-1 text-[length:32rpx] font-semibold h-[100rpx] leading-[100rpx] rounded-xl m-0 p-0 after:border-0 bg-background border-[length:2rpx] border-border text-[var(--color-text-medium)]"
             onClick={reset}
           >
             {tt('about.apiSettings.resetBtn', '重置默认')}
@@ -235,15 +235,15 @@ export default function ApiSettings() {
         </View>
 
         <View className="bg-card rounded-xl border border-border p-[28rpx] overflow-hidden">
-          <Text className="block text-[32rpx] font-semibold text-foreground mb-[24rpx]">
+          <Text className="block text-[length:32rpx] font-semibold text-foreground mb-[24rpx]">
             {tt('about.apiSettings.diagnoseTitle', '网络诊断')}
           </Text>
           <View className="flex items-center justify-between">
-            <Text className="text-[28rpx] text-[var(--color-text-medium)]">
+            <Text className="text-[length:28rpx] text-[var(--color-text-medium)]">
               {tt('about.apiSettings.diagnose', 'API 连通性测试')}
             </Text>
             <Button
-              className="text-[28rpx] font-semibold h-[64rpx] leading-[64rpx] px-[20rpx] py-0 bg-foreground text-background rounded-xl m-0 after:border-0 disabled:opacity-60"
+              className="text-[length:28rpx] font-semibold h-[64rpx] leading-[64rpx] px-[20rpx] py-0 bg-foreground text-background rounded-xl m-0 after:border-0 disabled:opacity-60"
               disabled={testing === 'testing'}
               onClick={testConnection}
             >
@@ -253,19 +253,19 @@ export default function ApiSettings() {
             </Button>
           </View>
           {testing === 'success' ? (
-            <Text className="block mt-[16rpx] text-[28rpx] text-success">
+            <Text className="block mt-[16rpx] text-[length:28rpx] text-success">
               {tt('about.apiSettings.testSuccess', '连接成功')}
             </Text>
           ) : null}
           {testing === 'failed' ? (
-            <Text className="block mt-[16rpx] text-[28rpx] text-destructive">
+            <Text className="block mt-[16rpx] text-[length:28rpx] text-destructive">
               {tt('about.apiSettings.testFailed', '连接失败,请检查配置')}
             </Text>
           ) : null}
         </View>
 
         <View className="text-center pt-[16rpx]">
-          <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+          <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
             {tt('about.apiSettings.footer', '以上为当前 API 配置信息')}
           </Text>
         </View>

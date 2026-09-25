@@ -70,7 +70,7 @@ export default function AskDetailPage() {
       <View className="min-h-screen bg-background px-[20rpx] pt-[24rpx] pb-[180rpx]">
         {data.title ? (
           <View>
-            <Text className="block text-[44rpx] text-foreground font-semibold leading-[1.4]">
+            <Text className="block text-[length:44rpx] text-foreground font-semibold leading-[1.4]">
               {data.title}
             </Text>
             <View className="flex items-center justify-between mt-[12rpx] mb-[24rpx]">
@@ -80,15 +80,15 @@ export default function AskDetailPage() {
                   src={data.avatar || '/static/default-avatar.png'}
                   mode="aspectFill"
                 />
-                <Text className="ml-[16rpx] text-[28rpx] text-muted-foreground font-medium">
+                <Text className="ml-[16rpx] text-[length:28rpx] text-muted-foreground font-medium">
                   {data.author}
                 </Text>
               </View>
-              <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+              <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
                 {data.createTime}
               </Text>
             </View>
-            <View className="text-[32rpx] text-[var(--color-text-medium)] leading-[44rpx]">
+            <View className="text-[length:32rpx] text-[var(--color-text-medium)] leading-[44rpx]">
               {data.content}
             </View>
           </View>
@@ -96,13 +96,13 @@ export default function AskDetailPage() {
 
         {answers.length ? (
           <View className="mt-[32rpx]">
-            <View className="text-[36rpx] text-foreground font-semibold mb-[16rpx]">
+            <View className="text-[length:36rpx] text-foreground font-semibold mb-[16rpx]">
               {t('ask.detail.answerCount', { n: answers.length })}
             </View>
             {answers.map((a, i) => (
               <View
                 key={i}
-                className="bg-card border-[2rpx] border-border rounded-xl p-[28rpx] mb-[24rpx]"
+                className="bg-card border-[length:2rpx] border-border rounded-xl p-[28rpx] mb-[24rpx]"
               >
                 <View className="flex items-center">
                   <Image
@@ -110,14 +110,14 @@ export default function AskDetailPage() {
                     src={a.avatar || '/static/default-avatar.png'}
                     mode="aspectFill"
                   />
-                  <Text className="ml-[16rpx] text-[28rpx] text-muted-foreground font-medium">
+                  <Text className="ml-[16rpx] text-[length:28rpx] text-muted-foreground font-medium">
                     {a.author}
                   </Text>
-                  <Text className="ml-auto text-[22rpx] text-[var(--color-text-tertiary)]">
+                  <Text className="ml-auto text-[length:22rpx] text-[var(--color-text-tertiary)]">
                     {a.time}
                   </Text>
                 </View>
-                <View className="mt-[12rpx] text-[28rpx] text-[var(--color-text-medium)] leading-[1.6]">
+                <View className="mt-[12rpx] text-[length:28rpx] text-[var(--color-text-medium)] leading-[1.6]">
                   {a.content}
                 </View>
               </View>
@@ -130,13 +130,13 @@ export default function AskDetailPage() {
           style={{ paddingBottom: 'calc(16rpx + env(safe-area-inset-bottom))' }}
         >
           <Input
-            className="flex-1 h-[72rpx] px-[24rpx] bg-muted border-[2rpx] border-border rounded-xl text-[28rpx] text-foreground"
+            className="flex-1 h-[72rpx] px-[24rpx] bg-muted border-[length:2rpx] border-border rounded-xl text-[length:28rpx] text-foreground"
             value={answer}
             placeholder={t('ask.detail.placeholder')}
             onInput={(e) => setAnswer(e.detail.value)}
           />
           <Button
-            className={`ml-[16rpx] rounded-xl text-[24rpx] ${answer ? 'bg-[var(--color-brand)] text-primary-foreground' : 'bg-[var(--color-text-tertiary)] text-card'}`}
+            className={`ml-[16rpx] rounded-xl text-[length:24rpx] ${answer ? 'bg-[var(--color-brand)] text-primary-foreground' : 'bg-[var(--color-text-tertiary)] text-[color:var(--color-card)]'}`}
             size="mini"
             onClick={onAnswer}
             disabled={!answer}

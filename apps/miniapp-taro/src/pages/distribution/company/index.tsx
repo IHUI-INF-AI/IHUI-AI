@@ -73,10 +73,10 @@ export default function CompanyPage() {
     <ThemeRoot className="min-h-screen bg-background pb-[64rpx]">
       {/* 对齐 RN TeamScreen header:title 24dp→48rpx bold + 副标题 14dp→28rpx secondary */}
       <View className="px-[20rpx] pt-[20rpx] pb-[24rpx]">
-        <Text className="block text-[48rpx] font-bold text-foreground">
+        <Text className="block text-[length:48rpx] font-bold text-foreground">
           {t('distribution.company.title')}
         </Text>
-        <Text className="block text-[28rpx] text-muted-foreground mt-[16rpx]">
+        <Text className="block text-[length:28rpx] text-muted-foreground mt-[16rpx]">
           {t('distribution.company.level', { n: info.level })}
         </Text>
       </View>
@@ -85,26 +85,26 @@ export default function CompanyPage() {
       <View className="mx-[20rpx] rounded-xl p-[28rpx] bg-[var(--color-success-light)]">
         <View className="flex flex-row justify-between">
           <View className="flex-1 flex flex-col items-center">
-            <Text className="text-[40rpx] font-bold text-[var(--color-success)]">
+            <Text className="text-[length:40rpx] font-bold text-[var(--color-success)]">
               ¥{info.totalCommission}
             </Text>
-            <Text className="text-[20rpx] text-[var(--color-success-deep-text)] mt-[16rpx] text-center">
+            <Text className="text-[length:20rpx] text-[var(--color-success-deep-text)] mt-[16rpx] text-center">
               {t('distribution.company.totalEarnings')}
             </Text>
           </View>
           <View className="flex-1 flex flex-col items-center">
-            <Text className="text-[40rpx] font-bold text-[var(--color-success)]">
+            <Text className="text-[length:40rpx] font-bold text-[var(--color-success)]">
               ¥{info.available}
             </Text>
-            <Text className="text-[20rpx] text-[var(--color-success-deep-text)] mt-[16rpx] text-center">
+            <Text className="text-[length:20rpx] text-[var(--color-success-deep-text)] mt-[16rpx] text-center">
               {t('distribution.company.available')}
             </Text>
           </View>
           <View className="flex-1 flex flex-col items-center">
-            <Text className="text-[40rpx] font-bold text-[var(--color-success)]">
+            <Text className="text-[length:40rpx] font-bold text-[var(--color-success)]">
               {info.teamCount}
             </Text>
-            <Text className="text-[20rpx] text-[var(--color-success-deep-text)] mt-[16rpx] text-center">
+            <Text className="text-[length:20rpx] text-[var(--color-success-deep-text)] mt-[16rpx] text-center">
               {t('distribution.company.teamMembers')}
             </Text>
           </View>
@@ -114,10 +114,10 @@ export default function CompanyPage() {
       {/* 对齐 RN TeamScreen listBody:padding 14dp→28rpx + 卡片间 8dp→16rpx */}
       <View className="px-[20rpx] pt-[32rpx]">
         <View className="flex flex-row items-center justify-between mb-[16rpx]">
-          <Text className="text-[28rpx] font-medium text-foreground">
+          <Text className="text-[length:28rpx] font-medium text-foreground">
             {t('distribution.company.teamMembers')}
           </Text>
-          <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+          <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
             {t('distribution.company.memberCount', { n: members.length })}
           </Text>
         </View>
@@ -138,7 +138,7 @@ export default function CompanyPage() {
           </View>
         ) : members.length === 0 ? (
           <View className="py-[64rpx] text-center">
-            <Text className="text-[28rpx] text-[var(--color-text-tertiary)]">
+            <Text className="text-[length:28rpx] text-[var(--color-text-tertiary)]">
               {t('distribution.company.empty')}
             </Text>
           </View>
@@ -159,20 +159,20 @@ export default function CompanyPage() {
                   />
                 ) : (
                   <View className="w-[88rpx] h-[88rpx] rounded-full bg-[var(--color-muted)] items-center justify-center flex-shrink-0">
-                    <Text className="text-[36rpx] font-semibold text-muted-foreground">
+                    <Text className="text-[length:36rpx] font-semibold text-muted-foreground">
                       {m.nickname.charAt(0)}
                     </Text>
                   </View>
                 )}
                 <View className="flex-1 ml-[20rpx] mr-[16rpx] min-w-0">
-                  <Text className="block text-[32rpx] font-semibold text-foreground truncate">
+                  <Text className="block text-[length:32rpx] font-semibold text-foreground truncate">
                     {m.nickname}
                   </Text>
-                  <Text className="block text-[22rpx] text-[var(--color-text-tertiary)] mt-[16rpx] truncate">
+                  <Text className="block text-[length:22rpx] text-[var(--color-text-tertiary)] mt-[16rpx] truncate">
                     {t('distribution.company.joinTime', { time: m.joinTime })}
                   </Text>
                 </View>
-                <Text className="px-[12rpx] py-[2rpx] rounded-lg bg-card text-[20rpx] text-muted-foreground flex-shrink-0">
+                <Text className="px-[12rpx] py-[2rpx] rounded-lg bg-card text-[length:20rpx] text-muted-foreground flex-shrink-0">
                   V{m.level}
                 </Text>
               </View>
@@ -190,7 +190,7 @@ export default function CompanyPage() {
             hoverClass="opacity-60"
           >
             <LineIcon name="users" size={40} color="var(--color-muted-foreground)" />
-            <Text className="text-[24rpx] text-foreground">
+            <Text className="text-[length:24rpx] text-foreground">
               {t('distribution.company.menuTeam')}
             </Text>
           </View>
@@ -200,7 +200,7 @@ export default function CompanyPage() {
             hoverClass="opacity-60"
           >
             <LineIcon name="wallet" size={40} color="var(--color-muted-foreground)" />
-            <Text className="text-[24rpx] text-foreground">
+            <Text className="text-[length:24rpx] text-foreground">
               {t('distribution.company.menuCommission')}
             </Text>
           </View>
@@ -210,7 +210,7 @@ export default function CompanyPage() {
             hoverClass="opacity-60"
           >
             <LineIcon name="wallet" size={40} color="var(--color-muted-foreground)" />
-            <Text className="text-[24rpx] text-foreground">
+            <Text className="text-[length:24rpx] text-foreground">
               {t('distribution.company.menuWithdraw')}
             </Text>
           </View>

@@ -214,7 +214,7 @@ export default function DeveloperIndex() {
     status === tabId || (status === 4 && tabId === 0) || (status === 5 && tabId === 0)
 
   const agentStatusClass = (s: number) => {
-    const base = 'text-[24rpx] px-[16rpx] py-[4rpx] rounded-xs'
+    const base = 'text-[length:24rpx] px-[16rpx] py-[4rpx] rounded-xs'
     const styles: Record<number, string> = {
       0: 'text-muted-foreground bg-muted/[0.12]',
       1: 'text-warning bg-warning/[0.12]',
@@ -231,7 +231,7 @@ export default function DeveloperIndex() {
       <View className="min-h-screen bg-background flex flex-col">
         {/* RN NavBar: 高 44dp=88rpx,bg surface.card,底部描边,标题居中 18dp=36rpx semibold */}
         <View className="h-[88rpx] flex items-center justify-center bg-card border-b border-[var(--color-border)]">
-          <Text className="text-[36rpx] font-semibold text-foreground">
+          <Text className="text-[length:36rpx] font-semibold text-foreground">
             {tt('developer.index.myAgents', '我的智能体')}
           </Text>
         </View>
@@ -242,14 +242,14 @@ export default function DeveloperIndex() {
           hoverClass="opacity-60"
         >
           <View className="flex-1">
-            <Text className="block text-[32rpx] font-semibold text-primary-foreground">
+            <Text className="block text-[length:32rpx] font-semibold text-primary-foreground">
               {t('developer.index.subscribeTitle')}
             </Text>
-            <Text className="block text-[24rpx] text-primary-foreground/90 mt-[8rpx]">
+            <Text className="block text-[length:24rpx] text-primary-foreground/90 mt-[8rpx]">
               {t('developer.index.subscribeDesc')}
             </Text>
           </View>
-          <Text className="text-[40rpx] text-primary-foreground opacity-80">›</Text>
+          <Text className="text-[length:40rpx] text-primary-foreground opacity-80">›</Text>
         </View>
 
         {/* RN headTabBar: px 20rpx py 16rpx gap 16rpx;tab px 24rpx py 10rpx radius 8dp=16rpx
@@ -265,8 +265,8 @@ export default function DeveloperIndex() {
               <Text
                 className={
                   mainTabActive(tab.id)
-                    ? 'text-[28rpx] text-primary-foreground font-semibold'
-                    : 'text-[28rpx] text-muted-foreground'
+                    ? 'text-[length:28rpx] text-primary-foreground font-semibold'
+                    : 'text-[length:28rpx] text-muted-foreground'
                 }
               >
                 {tt(tab.key, tab.name)}
@@ -290,7 +290,7 @@ export default function DeveloperIndex() {
             onClick={onSearchConfirm}
             hoverClass="opacity-60"
           >
-            <Text className="text-[28rpx] font-semibold text-primary-foreground">搜索</Text>
+            <Text className="text-[length:28rpx] font-semibold text-primary-foreground">搜索</Text>
           </View>
         </View>
 
@@ -308,8 +308,8 @@ export default function DeveloperIndex() {
                 <Text
                   className={
                     status === tab.id
-                      ? 'text-[26rpx] text-primary font-semibold'
-                      : 'text-[26rpx] text-muted-foreground'
+                      ? 'text-[length:26rpx] text-primary font-semibold'
+                      : 'text-[length:26rpx] text-muted-foreground'
                   }
                 >
                   {tt(tab.key, tab.name)}
@@ -326,7 +326,7 @@ export default function DeveloperIndex() {
           onScrollToLower={onScrollToLower}
         >
           {loading && list.length === 0 ? (
-            <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">
+            <Text className="block text-center text-muted-foreground text-[length:28rpx] py-[60rpx]">
               {t('common.loading')}
             </Text>
           ) : list.length ? (
@@ -342,15 +342,15 @@ export default function DeveloperIndex() {
                   mode="aspectFill"
                 />
                 <View className="flex-1 ml-[18rpx] min-w-0">
-                  <Text className="block text-[32rpx] text-[var(--color-agent-name)] overflow-hidden text-ellipsis whitespace-nowrap">
+                  <Text className="block text-[length:32rpx] text-[var(--color-agent-name)] overflow-hidden text-ellipsis whitespace-nowrap">
                     {agent.agent_name || tt('developer.index.unnamedAgent', '未命名智能体')}
                   </Text>
                   {agent.prologue ? (
-                    <Text className="block text-[24rpx] text-[var(--color-text-medium)] leading-[36rpx] mt-[8rpx] [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden">
+                    <Text className="block text-[length:24rpx] text-[var(--color-text-medium)] leading-[36rpx] mt-[8rpx] [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden">
                       {agent.prologue}
                     </Text>
                   ) : null}
-                  <Text className="text-[24rpx] text-[var(--color-text-medium)]">
+                  <Text className="text-[length:24rpx] text-[var(--color-text-medium)]">
                     {tt('developer.index.typeLabel', '类型')}：{getTypeText(agent)}
                   </Text>
                 </View>
@@ -361,7 +361,7 @@ export default function DeveloperIndex() {
                   <View className="flex items-center gap-[16rpx]">
                     {/* RN setBtn: px 16rpx py 6rpx radius 6dp=12rpx bg brand(→primary) 白字 12dp=24rpx */}
                     <Text
-                      className="text-[24rpx] px-[16rpx] py-[6rpx] rounded-md text-cta-foreground bg-cta font-medium"
+                      className="text-[length:24rpx] px-[16rpx] py-[6rpx] rounded-md text-cta-foreground bg-cta font-medium"
                       onClick={() => onEdit(agent)}
                     >
                       {status === 2
@@ -370,7 +370,7 @@ export default function DeveloperIndex() {
                     </Text>
                     {/* RN offlineBtn: 14dp=28rpx brandAccent(→brand-accent) 下划线文字钮 */}
                     <Text
-                      className="text-[28rpx] text-[var(--color-brand-accent-deep)] font-medium underline"
+                      className="text-[length:28rpx] text-[var(--color-brand-accent-deep)] font-medium underline"
                       onClick={() => onDelete(agent)}
                     >
                       {tt('developer.index.deleteBtn', '删除')}
@@ -380,12 +380,12 @@ export default function DeveloperIndex() {
               </View>
             ))
           ) : (
-            <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">
+            <Text className="block text-center text-muted-foreground text-[length:28rpx] py-[60rpx]">
               {t('developer.index.empty')}
             </Text>
           )}
           {list.length > 0 && !hasMore ? (
-            <Text className="block text-center text-[24rpx] text-[var(--color-text-tertiary)] py-[16rpx]">
+            <Text className="block text-center text-[length:24rpx] text-[var(--color-text-tertiary)] py-[16rpx]">
               {tt('developer.index.noMore', '没有更多了')}
             </Text>
           ) : null}

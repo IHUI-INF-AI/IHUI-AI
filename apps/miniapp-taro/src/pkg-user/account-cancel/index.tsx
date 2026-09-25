@@ -249,11 +249,11 @@ export default function AccountCancel() {
     <ThemeRoot>
       <View className="min-h-screen bg-background">
         <View className="px-[20rpx] pt-[24rpx] pb-[24rpx]">
-          <Text className="text-[40rpx] font-bold text-foreground">{t('accountCancel.title')}</Text>
+          <Text className="text-[length:40rpx] font-bold text-foreground">{t('accountCancel.title')}</Text>
         </View>
         <View className="p-[28rpx] pb-[64rpx]">
           {loading ? (
-            <Text className="text-center text-muted-foreground py-[96rpx] text-[28rpx]">
+            <Text className="text-center text-muted-foreground py-[96rpx] text-[length:28rpx]">
               {t('common.loading')}
             </Text>
           ) : info ? (
@@ -306,13 +306,13 @@ export default function AccountCancel() {
                 hoverClass="opacity-60"
                 onClick={onSubmit}
               >
-                <Text className="text-[36rpx] font-semibold text-[var(--color-danger-foreground)]">
+                <Text className="text-[length:36rpx] font-semibold text-[var(--color-danger-foreground)]">
                   {submitText}
                 </Text>
               </View>
             </View>
           ) : (
-            <Text className="text-center text-muted-foreground py-[96rpx] text-[28rpx]">
+            <Text className="text-center text-muted-foreground py-[96rpx] text-[length:28rpx]">
               {t('accountCancel.noInfo')}
             </Text>
           )}
