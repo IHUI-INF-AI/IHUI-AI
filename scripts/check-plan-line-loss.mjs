@@ -55,7 +55,9 @@ import { execFileSync, spawn } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { catBatch } from './lib/face-reader.mjs'
 
+const GIT_TIMEOUT = 60000
 const GIT = process.env.IHUI_GIT_BIN || 'git'
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PLAN = 'PROJECT_PLAN.md'
@@ -289,20 +291,45 @@ export function headingLosses(lost) {
   return lost.filter((x) => x.shape === 'heading')
 }
 
-function candidateContent(isStaged) {
-  if (isStaged) {
-    // 暂存区里没有该文件(本次不改计划文档)→ 无需比对
-    try {
-      return git(['show', `:${PLAN}`])
-    } catch {
-      return null
-    }
+/**
+ * 内容面统一走取材层的 `cat-file --batch`(2026-09-25 迁移)。
+ * 规格里 `<rev>:` 前缀决定面:`:PLAN` = 索引、`HEAD:PLAN` = 提交树、`<sha>:PLAN` = 历史版本;
+ * **冒号不可省** —— 省了就是拿裸路径问 cat-file,每个版本都"不存在",于是本闸的
+ * "从历史回捞"会静默变成"无登记行可回捞"(= 判据对整类丢失失明)。
+ */
+function readSpec(spec) {
+  const v = catBatch(ROOT, [spec], { timeout: GIT_TIMEOUT }).get(spec)
+  if (typeof v !== 'string') throw new Error(`取材面 ${spec} 取不到内容`)
+  return v
+}
+
+function readSpecOrNull(spec) {
+  try {
+    return readSpec(spec)
+  } catch {
+    return null
   }
-  return readFileSync(path.join(ROOT, PLAN), 'utf8')
+}
+
+/**
+ * 纯选择(自检据此**构造**"索引面 ≠ 磁盘面"的现场,不依赖真仓瞬时状态):
+ * staged 模式必须取索引 blob —— 那才是这次提交真正带走的一份;缺省取工作区文本(本门既有口径)。
+ */
+export function pickPlanContent({ isStaged, readIndex, readDisk }) {
+  return isStaged ? readIndex(PLAN) : readDisk(PLAN)
+}
+
+function candidateContent(isStaged) {
+  return pickPlanContent({
+    isStaged,
+    // 暂存区里没有该文件(本次不改计划文档)→ 返回 null,调用方据此无需比对
+    readIndex: () => readSpecOrNull(`:${PLAN}`),
+    readDisk: () => readFileSync(path.join(ROOT, PLAN), 'utf8'),
+  })
 }
 
 export function runCheck(isStaged) {
-  const baseline = git(['show', `HEAD:${PLAN}`])
+  const baseline = readSpec(`HEAD:${PLAN}`)
   const candidate = candidateContent(isStaged)
   if (candidate === null) return { ok: true, lost: [] }
   const lost = dropArchivedLost(lostMarkers(baseline, candidate))
@@ -325,13 +352,17 @@ export function historyMarkers(depth = 60) {
     .split(/\r?\n/)
     .filter(Boolean)
   const seen = new Map()
-  for (const sha of shas) {
-    let src
-    try {
-      src = git(['show', `${sha}:${PLAN}`])
-    } catch {
-      continue
-    }
+  // 一次批量读满 60 个历史版本(迁移前是逐 sha 各开一次 `git show`,60 次派生)
+  const specs = shas.map((sha) => `${sha}:${PLAN}`)
+  let historic
+  try {
+    historic = catBatch(ROOT, specs, { timeout: GIT_TIMEOUT })
+  } catch {
+    historic = new Map()
+  }
+  for (let i = 0; i < shas.length; i++) {
+    const src = historic.get(specs[i])
+    if (typeof src !== 'string') continue
     const rows = src.split(/\r?\n/)
     rows.forEach((line, i) => {
       const reg = registrationOf(line)
