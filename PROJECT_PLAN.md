@@ -8569,3 +8569,31 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 - **同批第四次同型自伤,记下来**:验证"应用账号未受影响"时我又把中文写进 `psql -c` 的参数里,被 GBK
   码页打掉成 `invalid byte sequence` —— 报错来自我的探针,不是被测对象。今天已四次(0xb0 一次、0xce 0xde
   一次、0xba 一次、0xd3 0xc3 一次)。**规则:向 psql / node 传参一律只用 ASCII,要说什么就写在注释里。**
+
+### 第四十九批·续十(2026-09-25 04:15):"备份是否自动运行"= 自动跑是真的,但**自动那一轮没走我接好的低权账号**
+- **先纠台账里一个会误导人的说法**:备份**不是** Windows 任务计划程序。`schtasks /query /fo CSV` 全量 374 行里
+  没有任何备份任务;真正的载体是 nssm 服务 **`IHUI-PG-BACKUP`**(LocalSystem,常驻),它跑
+  `deploy\prod-bundle\pg-backup-scheduler.ps1` —— **启动即备份一次,之后每天 03:00 一轮**(源码 :38-49)。
+- **自动运行的实证**:`D:\DevEnv\logs\pg-backup-scheduler.log` 尾部 `[2026-09-25 03:00:01]` 那份
+  `ihui_dev_20260925_030001.dump` 94.31 MB、public 表 715、网盘同步完成、下次 `2026-09-26 03:00`。今天
+  03:18 / 03:19 / 03:54 那三份是我手动跑的(调度器日志里没有对应行),别把它们的数量当"自动"。
+- **抓到的真缺陷**:同一条 03:00 的日志先打了 `[WARN] 用 .env 的应用账号『ihui』跑备份(过渡档,非终态)` ⇒
+  意味着我 03:1x 才接好的 `beifen` **在自动轮次里根本没生效**。根因不在角色也不在口令文件,而在
+  `Get-Command node.exe`:服务身份读的是**机器级 PATH**,而那里那串 node 目录 `D:\nodejs\` 是**死路径**
+  (实测目录不存在),node 真身 `D:\DevEnv\runtimes\node\node.exe` 只在**用户级 PATH** ⇒ 探测被
+  `if (Get-Command …)` 静默跳过 ⇒ 一路回落到 `.env`。**我手动跑通是站在我自己的终端里跑通的**
+  (与 [[feedback-verify-with-the-consumers-oracle]] 同型:尺子必须是消费者自己那份)。
+- **修法没有新发明**:仓库对同一个坑早有成型处置 —— `deploy/win/ihui-deploy.ps1:120-131` 与
+  `ihui-monitor.ps1:108-114` 的 `Resolve-NodeExe`,注释明写"NSSM 服务上下文(LocalSystem)的 PATH 常常没有
+  node"。本脚本上一票**只抄了 `Get-Command` 那半截**,现补绝对路径候选 `D:\DevEnv\runtimes\node\node.exe` /
+  `C:\Program Files\nodejs\node.exe`,并把"一个都找不到"从静默跳过改成**喊出来**(否则又是一次静默降级)。
+- **取证(剥掉服务身份看不到的那一半环境,跑的是它真正执行的那份副本)**:`$env:Path` 去掉含 `node`/`DevEnv`
+  的条目后 `Get-Command node.exe` 命中 `False`,而 `deploy\prod-bundle\pg-backup.ps1` 输出行为
+  `[1/3] 备份中: ihui_dev@localhost:8810(角色 beifen)` ⇒ 兜底生效,94.33 MB / public 表 715 / 网盘同步 OK。
+  另两条链路各自核过,不靠推断:凭据目录 ACL 有 `NT AUTHORITY\SYSTEM | FullControl`;"LocalSystem 能执行那个
+  绝对路径 node"有既成事实 —— 部署环(同为 LocalSystem)今天 01:53 经同一个 `Resolve-NodeExe` 成功寄出品牌邮件。
+  两侧字节等值由守门 104 复核(`✅ pg-backup.ps1 == ihui-pg-backup.ps1,14,954 字节`)。
+- **不写成已闭环的那一环**:以上证明的是"这条命令在该身份下会对",服务自己下一次 tick 是否真落 `beifen`,
+  只有让它 tick 一次才算数(今晚 03:00 自动到点,或重启 `IHUI-PG-BACKUP` —— 它启动即备份)。已把选择交给人。
+- 顺手改掉脚本文档头两处失真(它们正是我刚才判断"任务不在"的误导来源):"建议每天 03:00 由**任务计划程序**
+  触发"→ 写成 nssm 服务 + 调度器实态;产物名 `.sql.gz` → 实际是 `pg_dump -Fc` 的 `.dump`。
