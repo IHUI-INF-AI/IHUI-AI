@@ -20,10 +20,16 @@ import {
   FileText,
   FileCode,
   FileJson,
+  FileDown,
   Camera,
   Image as ImageIcon,
   Link2,
   LogIn,
+  ListFilter,
+  FolderOpen,
+  Tags,
+  Pin,
+  PinOff,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
@@ -33,8 +39,18 @@ import {
   unarchiveConversation,
   exportConversation,
   compressConversation,
+  setConversationPinned,
 } from '@ihui/api-client'
+import { filterByFolder, getOrgMeta, listFolderNames, sortPinnedFirst } from '@ihui/shared'
 import { useChatStore } from '@/stores/chat'
+import {
+  useConversationOrgMap,
+  useConversationOrgStore,
+} from '@/stores/conversation-org'
+import {
+  ConversationOrgDialog,
+  type ConversationOrgSubmitValue,
+} from '@/components/chat/conversation-org-dialog'
 import {
   ConversationAttentionBadges,
   type ConversationAttentionById,
@@ -48,6 +64,7 @@ import {
   downloadConversationSnapshot,
   downloadConversationShareCard,
   copyConversationShareLink,
+  printConversationPdf,
   type ExportRoleLabel,
 } from '@/components/chat/conversation-export'
 import { useAiPanelStore } from '@/stores/ai-panel'
@@ -78,6 +95,8 @@ interface ConversationItem {
   lastMessageAt: string
   messageCount: number
   archivedAt?: string | null
+  /** 2026-08-30 立:会话置顶标记(后端已排序置顶优先;侧栏展示 + 菜单切换) */
+  pinned?: boolean
   /** D53 会话注意力态(G-64):该行未读更新数(>0 显示未读徽章);后端暂无字段时由 attentionById 覆盖 */
   unreadCount?: number
   /** D53:该行显式等待态(备用通道,主链路走 attentionById + pendingQuestion 联动) */
@@ -165,6 +184,16 @@ export function SidebarChatHistory({
   const renameInputRef = React.useRef<HTMLInputElement>(null)
   const isNavigatingRef = React.useRef(false)
 
+  // D20 会话组织(G-11):文件夹/标签客户端元数据 store(v1,localStorage 按 userId 分桶)
+  const userId = useAuthStore((s) => s.user?.id ?? null)
+  const orgMap = useConversationOrgMap(userId)
+  const setOrgFolder = useConversationOrgStore((s) => s.setFolder)
+  const setOrgTags = useConversationOrgStore((s) => s.setTags)
+  const orgFolders = React.useMemo(() => listFolderNames(orgMap), [orgMap])
+  /** 文件夹筛选:undefined=全部,null=未分组,字符串=指定文件夹 */
+  const [folderFilter, setFolderFilter] = React.useState<string | null | undefined>(undefined)
+  const [pendingOrgItem, setPendingOrgItem] = React.useState<ConversationItem | null>(null)
+
   React.useEffect(() => {
     if (pendingRenameId) {
       const id = requestAnimationFrame(() => {
@@ -234,6 +263,16 @@ export function SidebarChatHistory({
     },
   })
 
+  // D20 置顶/取消置顶(G-11;后端 2026-08-30 已支持 pinned 排序,侧栏补齐入口)
+  const pinMutation = useMutation({
+    mutationFn: ({ id, pinned }: { id: string; pinned: boolean }) =>
+      setConversationPinned(id, pinned),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
+    },
+    onError: () => error(tc('toast.pinFailed')),
+  })
+
   const exportMutation = useMutation({
     mutationFn: ({ id, format }: { id: string; format: 'txt' | 'md' }) =>
       exportConversation(id, format),
@@ -297,8 +336,12 @@ export function SidebarChatHistory({
 
   // items: flatten 所有已加载页的 conversations(infinite scroll 累积);
   // total: 后端真实总数(首页返回,所有页一致)
-  const items = data?.pages.flatMap((p) => p.conversations) ?? []
+  const rawItems = data?.pages.flatMap((p) => p.conversations) ?? []
   const total = data?.pages[0]?.total ?? 0
+  // D20(G-11):先按文件夹筛选(undefined=不过滤),再置顶优先(稳定排序),
+  // 最后沿用按时间分组 —— 置顶项在各组内仍居前,与后端排序一致
+  const items = sortPinnedFirst(filterByFolder(rawItems, orgMap, folderFilter))
+  const filteredOut = rawItems.length > 0 && items.length === 0
 
   const handleSelect = (item: ConversationItem) => {
     if (currentConversationId === item.id) {
@@ -366,6 +409,27 @@ export function SidebarChatHistory({
       },
       onError: () => error(tc('toast.archiveFailed')),
     })
+  }
+
+  // D20 置顶切换(G-11):成功文案区分 pinned/unpinned
+  const handlePinToggle = (item: ConversationItem) => {
+    setBusyId(item.id)
+    pinMutation.mutate(
+      { id: item.id, pinned: !item.pinned },
+      {
+        onSettled: () => setBusyId(null),
+        onSuccess: () => success(item.pinned ? tc('toast.unpinned') : tc('toast.pinned')),
+      },
+    )
+  }
+
+  // D20 文件夹/标签提交(G-11):写客户端元数据 store(v1),关对话框 + toast
+  const handleOrgSubmit = (next: ConversationOrgSubmitValue) => {
+    if (!pendingOrgItem || !userId) return
+    setOrgFolder(userId, pendingOrgItem.id, next.folder)
+    setOrgTags(userId, pendingOrgItem.id, next.tags)
+    setPendingOrgItem(null)
+    success(tc('toast.orgSaved'))
   }
 
   const handleExport = (item: ConversationItem, format: 'txt' | 'md') => {
@@ -448,8 +512,18 @@ export function SidebarChatHistory({
     )
   }
 
+  // D20(G-11):导出 PDF —— 打印通道(隐藏 iframe 调起系统打印,用户选"另存为 PDF")
+  const handleExportPdf = (item: ConversationItem) => {
+    runExportAction(item.id, te('exportStarted'), () =>
+      printConversationPdf(item.id, item.title, exportRoleLabel),
+    )
+  }
+
   const renderItem = (item: ConversationItem) => {
     const active = item.id === currentConversationId
+    // D20 会话组织(G-11):行内展示所属文件夹与标签(最多 2 枚,余量计 +N)
+    const orgMeta = getOrgMeta(orgMap, item.id)
+    const orgTags = orgMeta.tags ?? []
     // D53:每行注意力态独立派生,pendingQuestion 只联动当前会话行
     const unreadRaw = attentionById?.[item.id]?.unread ?? item.unreadCount ?? 0
     const unread = Number.isFinite(unreadRaw) && unreadRaw > 0 ? Math.floor(unreadRaw) : 0
@@ -494,7 +568,31 @@ export function SidebarChatHistory({
               className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 bg-primary"
             />
           )}
-          <span className="relative block truncate text-[12px] font-medium">{item.title}</span>
+          <span className="relative flex min-w-0 items-center gap-1">
+            <span className="min-w-0 flex-1 truncate text-[12px] font-medium">{item.title}</span>
+            {item.pinned && (
+              <Pin className="h-3 w-3 shrink-0 fill-current text-primary" aria-hidden />
+            )}
+            {orgMeta.folder && (
+              <span className="inline-flex min-w-0 max-w-[72px] shrink-0 items-center gap-0.5 rounded-sm bg-muted px-1 text-[9px] leading-4 text-muted-foreground">
+                <FolderOpen className="h-2.5 w-2.5 shrink-0" />
+                <span className="min-w-0 truncate">{orgMeta.folder}</span>
+              </span>
+            )}
+            {orgTags.slice(0, 2).map((tag) => (
+              <span
+                key={tag}
+                className="inline-flex min-w-0 max-w-[64px] shrink-0 items-center rounded-sm bg-primary/10 px-1 text-[9px] leading-4 text-primary"
+              >
+                <span className="min-w-0 truncate">{tag}</span>
+              </span>
+            ))}
+            {orgTags.length > 2 && (
+              <span className="shrink-0 whitespace-nowrap text-[9px] leading-4 tabular-nums text-muted-foreground">
+                +{orgTags.length - 2}
+              </span>
+            )}
+          </span>
           <span className="relative mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
             <span className="min-w-0 truncate">{item.model}</span>
             {item.lastMessageAt && (
@@ -539,6 +637,39 @@ export function SidebarChatHistory({
               <Pencil className="mr-2 h-3.5 w-3.5" />
               <span>{tc('actions.rename')}</span>
             </DropdownMenuItem>
+            {/* D20(G-11):置顶/取消置顶 —— 与会话历史页同款语义,复用既有 toast 键 */}
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                handlePinToggle(item)
+              }}
+              disabled={busyId === item.id}
+              data-testid="conversation-pin-action"
+            >
+              {item.pinned ? (
+                <>
+                  <PinOff className="mr-2 h-3.5 w-3.5" />
+                  <span>{tc('actions.unpin')}</span>
+                </>
+              ) : (
+                <>
+                  <Pin className="mr-2 h-3.5 w-3.5" />
+                  <span>{tc('actions.pin')}</span>
+                </>
+              )}
+            </DropdownMenuItem>
+            {/* D20(G-11):文件夹/标签编辑(客户端元数据 v1) */}
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                setPendingOrgItem(item)
+              }}
+              disabled={busyId === item.id || !userId}
+              data-testid="conversation-org-action"
+            >
+              <Tags className="mr-2 h-3.5 w-3.5" />
+              <span>{tc('org.title')}</span>
+            </DropdownMenuItem>
             <DropdownMenuItem
               onClick={(e) => {
                 e.stopPropagation()
@@ -577,6 +708,18 @@ export function SidebarChatHistory({
             >
               <FileText className="mr-2 h-3.5 w-3.5" />
               <span>{tc('actions.exportTxt')}</span>
+            </DropdownMenuItem>
+            {/* D20(G-11):导出 PDF(打印通道,用户侧"另存为 PDF") */}
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                handleExportPdf(item)
+              }}
+              disabled={busyId === item.id}
+              data-testid="conversation-export-pdf"
+            >
+              <FileDown className="mr-2 h-3.5 w-3.5" />
+              <span>{te('exportPdf')}</span>
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={(e) => {
@@ -665,11 +808,47 @@ export function SidebarChatHistory({
       >
         <div className="flex items-center justify-between px-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
           <span className="min-w-0 truncate">{tc('history')}</span>
-          {total > 0 && (
-            <span className="ml-1 shrink-0 rounded-sm bg-muted px-2 py-1 text-[10px] font-medium whitespace-nowrap tabular-nums leading-none text-muted-foreground">
-              {total}
-            </span>
-          )}
+          <span className="ml-1 flex shrink-0 items-center gap-1">
+            {total > 0 && (
+              <span className="rounded-sm bg-muted px-2 py-1 text-[10px] font-medium whitespace-nowrap tabular-nums leading-none text-muted-foreground">
+                {total}
+              </span>
+            )}
+            {/* D20(G-11):文件夹筛选器(仅在已建文件夹时出现,undefined=不过滤) */}
+            {orgFolders.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label={tc('org.filterLabel')}
+                    data-testid="conversation-folder-filter"
+                    className={cn(
+                      'flex h-5 w-5 items-center justify-center rounded-sm transition-colors hover:bg-accent',
+                      folderFilter !== undefined && 'bg-primary/10 text-primary',
+                    )}
+                  >
+                    <ListFilter className="h-3 w-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => setFolderFilter(undefined)}
+                    data-testid="conversation-folder-filter-all"
+                  >
+                    <span>{tc('org.filterAll')}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setFolderFilter(null)}>
+                    <span className="min-w-0 truncate">{tc('org.folderNone')}</span>
+                  </DropdownMenuItem>
+                  {orgFolders.map((f) => (
+                    <DropdownMenuItem key={f} onClick={() => setFolderFilter(f)}>
+                      <span className="min-w-0 truncate">{f}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </span>
         </div>
 
         {isLoading ? (
@@ -683,6 +862,11 @@ export function SidebarChatHistory({
           <div className="flex flex-col items-center gap-1.5 px-2 py-4 text-center">
             <MessageCirclePlus className="h-5 w-5 text-muted-foreground/50" />
             <span className="text-xs text-muted-foreground">{tc('noHistory')}</span>
+          </div>
+        ) : filteredOut ? (
+          // D20(G-11):文件夹筛选后为空(会话存在但都不在该文件夹)
+          <div className="px-2 py-4 text-center text-xs text-muted-foreground">
+            {t('noResults')}
           </div>
         ) : (
           <div className="flex flex-col">
@@ -770,6 +954,18 @@ export function SidebarChatHistory({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* D20(G-11):文件夹/标签编辑对话框(受控组件,读写客户端元数据 store) */}
+      <ConversationOrgDialog
+        open={pendingOrgItem !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingOrgItem(null)
+        }}
+        conversationTitle={pendingOrgItem?.title ?? ''}
+        meta={pendingOrgItem ? getOrgMeta(orgMap, pendingOrgItem.id) : {}}
+        folders={orgFolders}
+        onSubmit={handleOrgSubmit}
+      />
     </>
   )
 }
