@@ -65,7 +65,11 @@ page {
 /* ===== 共享基础样式结束(自动生成,勿手动编辑)===== */
 @tailwind base;
 @tailwind components;
-@tailwind utilities;
+/* weapp 构建下 `@tailwind utilities` 只产出 arbitrary-value 那一半,命名档(flex/items-center/w-full/text-sm…)
+   一条不落(同一份 app.css 的 h5 构建却全有 ⇒ 缺口在 weapp-tailwindcss 那条链上,不在 Tailwind)。
+   换成 v4 的 utilities 入口 + 显式 @source 后命名档才产出;层叠序仍是 Tailwind 自身的规范序。 */
+@import 'tailwindcss/utilities.css';
+@source "./**/*.{ts,tsx}";
 
 /* ===== 阿里妈妈方圆体 VF — 统一项目字体 (对齐原项目) =====
    @font-face 通过 JS 动态注入 (app.tsx),避免 webpack CSS url() 解析错误 */

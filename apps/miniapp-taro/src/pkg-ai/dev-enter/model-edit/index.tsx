@@ -9,7 +9,6 @@ import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
-import BackChevron from '@/components/BackChevron'
 import ThemeRoot from '@/components/ThemeRoot'
 
 const CATEGORIES = [
@@ -221,8 +220,7 @@ export default function ModelEdit() {
       <View className="min-h-screen bg-background flex flex-col">
         {/* RN header:row/center/justify-between + px10/py12,无独立背景(透出 surface.bg) */}
         <View className="flex items-center justify-between px-[20rpx] py-[24rpx]">
-          {/* 返回键统一走 BackChevron(矢量 chevron-left + aria 名称),与 web 端顶栏同档 */}
-          <BackChevron onTap={() => Taro.navigateBack()} />
+          {/* 返回键由微信原生导航栏承担,页内不再自渲染 */}
           {/* RN headerTitle:20dp→40rpx、600、text.primary */}
           <Text className="text-[length:40rpx] font-semibold text-foreground">
             {tt('devEnter.modelEdit.title', '编辑模型')}
