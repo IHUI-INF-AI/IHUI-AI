@@ -2733,16 +2733,23 @@ const checks = [
 
   {
     id: '105',
-    // warn 而非 blocking,是有意的:立项实测全量面就红 —— 8 处 R1「源码引用而面上无档」
-    // (qzdy/szdy/sqb/qqb/default-avatar/erweima/… 这批图片在「图片全外置 CDN」那轮被清走,引用还留着),
-    // 9 处孤儿默认只报数。把它挂成 blocking 等于让每一次提交都红 ⇒ 逼人 --no-verify ⇒ 全部守门作废,
-    // 这是本仓记过最多次的反面教训。**升 blocking 的前置条件**:R1 存量清零,或给它加 HEAD 自身违规数
-    // 作锚点的棘轮基线(照守门 70/77/83 的口径),两者都没做之前不得升档。
+    // 定级史(升档已完成 —— 别把它再读成"永久 warn"):
+    //  · 立项时 warn 是**有意**的:全量面当时就红 —— 8 处 G1/R1「源里有而产物面上查无」(qzdy/szdy/sqb/
+    //    qqb/default-avatar/erweima/… 这批图在「图片全外置 CDN」那轮被清走而引用还留着)+ 9 处孤儿默认只
+    //    报数。挂 blocking 等于每一次提交都红 ⇒ 逼人 --no-verify ⇒ 全部守门作废(本仓记过最多次的反面
+    //    教训)。当时写下的前置条件:**G1/R1 存量清零**(或改成以"该文件 HEAD 自身违规数"为锚点的棘轮)。
+    //  · 2026-09-25 前置实测达成 ⇒ 升 blocking:全量面 `未发现漏生成`、exit 0;R2 孤儿与 G3 图标按设计
+    //    **不是** blocking 判据(默认只报数,--strict 才判红),所以升档不新增任何恒红面。
+    //  · 升档的直接起因是本会话自己踩的坑:改了 i18n 键名却没重生成离线包,门判出 4 处 B2 —— 但因为它只是
+    //    warn,提交链没有拦住,于是静默上线了一版"小程序取不到这个词"的产物。**warn 的代价不是"少一道闸",
+    //    而是"门判对了也没人被打断"**。
+    //  · 修法单命令、不需要人工裁:pnpm --filter @ihui/miniapp-taro gen:i18n(应急跳过
+    //    HUSKY_SKIP_MINIAPP_GENERATED=1)。取不到判据输入仍是 exit 2「无法判定」,不冒红也不记绿。
     label:
-      '🧩 小程序派生产物对账(warn;图标三件与离线语言包是否落后于源、孤儿/死资源、动态路径只报数)',
+      '🧩 小程序派生产物对账(blocking;离线语言包/图标/位图是否落后于源;孤儿与动态路径只报数不判红)',
     script: 'check-miniapp-generated.mjs',
     args: [],
-    mode: 'warn',
+    mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_MINIAPP_GENERATED',
     onFailHint: [
       '',
