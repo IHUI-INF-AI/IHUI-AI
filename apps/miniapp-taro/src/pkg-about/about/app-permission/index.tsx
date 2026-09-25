@@ -99,7 +99,7 @@ export default function AppPermission() {
   const statusClass = useCallback(
     (scope: string): string => {
       const s = statusMap[scope]
-      const base = 'text-[22rpx] py-[2rpx] px-[12rpx] rounded-xs ml-auto'
+      const base = 'text-[length:22rpx] py-[2rpx] px-[12rpx] rounded-xs ml-auto'
       if (s === 'granted') return `${base} text-success bg-success/10`
       if (s === 'denied') return `${base} text-destructive bg-destructive/10`
       return `${base} text-muted-foreground bg-background`
@@ -112,7 +112,7 @@ export default function AppPermission() {
   return (
     <ThemeRoot>
       <View className="min-h-screen bg-background px-[28rpx] pt-[28rpx] pb-[64rpx] flex flex-col gap-[24rpx]">
-        <Text className="block text-[28rpx] text-muted-foreground leading-[44rpx] px-[8rpx] py-[8rpx]">
+        <Text className="block text-[length:28rpx] text-muted-foreground leading-[44rpx] px-[8rpx] py-[8rpx]">
           {t('about.appPermission.intro')}
         </Text>
 
@@ -121,24 +121,24 @@ export default function AppPermission() {
             <View className="flex items-start">
               <View className="flex-1 mr-[16rpx]">
                 <View className="flex items-center flex-wrap gap-[12rpx]">
-                  <Text className="text-[32rpx] font-semibold text-foreground">{p.name}</Text>
+                  <Text className="text-[length:32rpx] font-semibold text-foreground">{p.name}</Text>
                   {p.required ? (
-                    <Text className="text-[20rpx] text-destructive-foreground bg-destructive py-[2rpx] px-[12rpx] rounded-xs">
+                    <Text className="text-[length:20rpx] text-destructive-foreground bg-destructive py-[2rpx] px-[12rpx] rounded-xs">
                       {t('about.appPermission.required')}
                     </Text>
                   ) : (
-                    <Text className="text-[20rpx] text-muted-foreground bg-muted py-[2rpx] px-[12rpx] rounded-xs">
+                    <Text className="text-[length:20rpx] text-muted-foreground bg-muted py-[2rpx] px-[12rpx] rounded-xs">
                       {t('about.appPermission.optional')}
                     </Text>
                   )}
                   <Text className={statusClass(p.scope)}>{statusText(p.scope)}</Text>
                 </View>
-                <Text className="block text-[28rpx] text-muted-foreground leading-[44rpx] mt-[16rpx]">
+                <Text className="block text-[length:28rpx] text-muted-foreground leading-[44rpx] mt-[16rpx]">
                   {p.desc}
                 </Text>
               </View>
               <Button
-                className="flex-shrink-0 text-[24rpx] bg-primary text-[var(--color-primary-foreground)] rounded-lg px-[20rpx] leading-[56rpx] m-0 after:border-0"
+                className="flex-shrink-0 text-[length:24rpx] bg-primary text-[var(--color-primary-foreground)] rounded-lg px-[20rpx] leading-[56rpx] m-0 after:border-0"
                 size="mini"
                 onClick={onOpenSetting}
               >
@@ -153,13 +153,13 @@ export default function AppPermission() {
           onClick={onOpenSetting}
           hoverClass="opacity-60"
         >
-          <Text className="text-[32rpx] font-semibold text-foreground">
+          <Text className="text-[length:32rpx] font-semibold text-foreground">
             {tt('about.appPermission.openAllSetting', '打开系统设置')}
           </Text>
-          <Text className="text-[var(--color-text-medium)] text-[32rpx]">›</Text>
+          <Text className="text-[var(--color-text-medium)] text-[length:32rpx]">›</Text>
         </View>
 
-        <Text className="block text-center text-[22rpx] text-muted-foreground pt-[8rpx]">
+        <Text className="block text-center text-[length:22rpx] text-muted-foreground pt-[8rpx]">
           {t('about.appPermission.footer')}
         </Text>
       </View>

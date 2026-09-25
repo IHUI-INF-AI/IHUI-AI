@@ -129,7 +129,7 @@ export default function ShareCreationPage() {
       <ScrollView scrollY className="h-screen">
         {/* 会话信息头(小程序端业务展示,保留;卡片规格:底 --color-card、描边 --color-border、
             radius 12dp → 24rpx、padding 12dp → 24rpx,对齐 SquareScreen card 卡片语言) */}
-        <View className="mx-[16rpx] mt-[16rpx] bg-card rounded-xl border-[2rpx] border-border p-[24rpx]">
+        <View className="mx-[16rpx] mt-[16rpx] bg-card rounded-xl border-[length:2rpx] border-border p-[24rpx]">
           <View className="flex items-center mb-[24rpx]">
             {content.modelIcon ? (
               <Image
@@ -139,15 +139,15 @@ export default function ShareCreationPage() {
               />
             ) : null}
             <View className="flex-1 min-w-0">
-              <Text className="block text-[32rpx] font-semibold text-foreground truncate">
+              <Text className="block text-[length:32rpx] font-semibold text-foreground truncate">
                 {content.modelName || t('share.creation.modelDefault')}
               </Text>
-              <Text className="block text-[24rpx] text-[var(--color-text-tertiary)]">
+              <Text className="block text-[length:24rpx] text-[var(--color-text-tertiary)]">
                 {fmtTime(content.createdAt)}
               </Text>
             </View>
             {content.tokenCost ? (
-              <Text className="text-[24rpx] text-[var(--color-text-tertiary)]">
+              <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
                 {t('share.creation.tokenCost', { n: content.tokenCost })}
               </Text>
             ) : null}
@@ -161,7 +161,7 @@ export default function ShareCreationPage() {
                   mode="aspectFill"
                 />
               ) : null}
-              <Text className="text-[24rpx] text-[var(--color-text-tertiary)]">
+              <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
                 {content.userName}
               </Text>
             </View>
@@ -170,7 +170,7 @@ export default function ShareCreationPage() {
               padding rpx(28)/rpx(20),fontSize 15dp → 30rpx/lineHeight 40rpx) */}
           <View className="flex justify-end">
             <View className="max-w-[78%] bg-primary rounded-2xl px-[28rpx] py-[20rpx]">
-              <Text className="text-[30rpx] leading-[40rpx] text-[var(--color-primary-foreground)]">
+              <Text className="text-[length:30rpx] leading-[40rpx] text-[var(--color-primary-foreground)]">
                 {content.question}
               </Text>
             </View>
@@ -180,24 +180,24 @@ export default function ShareCreationPage() {
         {/* AI 回答 = AI 内容卡片:对齐 RN 卡片规范(底 --color-card、描边 --color-border、
             radius 24rpx、padding 28/24rpx;底色对齐 ChatScreen msgBubbleAi surface.card) */}
         <View className="mx-[16rpx] mt-[20rpx] flex">
-          <View className="flex-1 bg-card rounded-xl border-[2rpx] border-border px-[28rpx] py-[24rpx]">
+          <View className="flex-1 bg-card rounded-xl border-[length:2rpx] border-border px-[28rpx] py-[24rpx]">
             {/* 思考过程:对齐 ChatScreen thinkingBlock(bg surface.muted,radius 8dp → 16rpx) */}
             {answer.thinking ? (
               <View className="mb-[12rpx] rounded-lg bg-[var(--color-muted)] overflow-hidden">
                 <View className="px-[20rpx] py-[16rpx]">
-                  <Text className="text-[24rpx] font-semibold text-muted-foreground">
+                  <Text className="text-[length:24rpx] font-semibold text-muted-foreground">
                     {t('share.creation.thinkingProcess')}
                   </Text>
                 </View>
                 {/* 对齐 thinkingContent(12dp → 24rpx,lineHeight 17 → 34rpx) */}
-                <Text className="block px-[20rpx] pb-[20rpx] text-[24rpx] leading-[34rpx] text-muted-foreground whitespace-pre-wrap">
+                <Text className="block px-[20rpx] pb-[20rpx] text-[length:24rpx] leading-[34rpx] text-muted-foreground whitespace-pre-wrap">
                   {answer.thinking}
                 </Text>
               </View>
             ) : null}
             {/* 正文:对齐 msgTextAi(15dp → 30rpx,lineHeight 20 → 40rpx) */}
             {answer.text ? (
-              <Text className="block text-[30rpx] leading-[40rpx] text-foreground whitespace-pre-wrap">
+              <Text className="block text-[length:30rpx] leading-[40rpx] text-foreground whitespace-pre-wrap">
                 {answer.text}
               </Text>
             ) : null}
@@ -234,10 +234,10 @@ export default function ShareCreationPage() {
             ) : null}
             {answer.audio?.url ? (
               <View className="mt-[16rpx] px-[20rpx] py-[16rpx] bg-[var(--color-muted)] rounded-lg flex items-center">
-                <Text className="text-[24rpx] text-foreground flex-1">
+                <Text className="text-[length:24rpx] text-foreground flex-1">
                   {t('share.creation.voiceAnswer')}
                 </Text>
-                <Text className="text-[24rpx] text-[var(--color-text-tertiary)]">
+                <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
                   {answer.audio.duration ? `${answer.audio.duration}s` : ''}
                 </Text>
               </View>
@@ -253,7 +253,7 @@ export default function ShareCreationPage() {
                         mode="widthFix"
                       />
                     ) : (
-                      <Text className="block text-[30rpx] leading-[40rpx] text-foreground whitespace-pre-wrap">
+                      <Text className="block text-[length:30rpx] leading-[40rpx] text-foreground whitespace-pre-wrap">
                         {item.content}
                       </Text>
                     )}
@@ -266,13 +266,13 @@ export default function ShareCreationPage() {
 
         <View className="mx-[16rpx] mt-[24rpx] mb-[48rpx] flex gap-[16rpx]">
           <Button
-            className="flex-1 text-[28rpx] rounded-xl !bg-primary !text-[var(--color-primary-foreground)]"
+            className="flex-1 text-[length:28rpx] rounded-xl !bg-primary !text-[var(--color-primary-foreground)]"
             onClick={onRegenerate}
           >
             {t('share.creation.regenerate')}
           </Button>
           <Button
-            className="flex-1 text-[28rpx] rounded-xl !bg-muted !text-foreground"
+            className="flex-1 text-[length:28rpx] rounded-xl !bg-muted !text-foreground"
             onClick={onShareFriend}
           >
             {t('share.creation.shareFriend')}
