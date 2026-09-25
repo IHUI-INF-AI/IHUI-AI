@@ -309,4 +309,130 @@ describe('validateToolArguments - 边界', () => {
     expect(r.valid).toBe(false)
   })
 })
+
+// ==================== coercedFields 的语义:内容变了才算转换 ====================
+
+describe('validateToolArguments - coercedFields 不得把"重建但逐字未变"算成转换', () => {
+  const schema: ToolSchema = {
+    name: 'todos',
+    description: '',
+    parameters: {
+      type: 'object',
+      properties: {
+        // 带 items 约束的数组:checkArray 必然返回**新数组**(它逐项重建)
+        items: {
+          type: 'array',
+          description: '',
+          items: { type: 'object', description: '', properties: { t: { type: 'string', description: '' } }, required: ['t'] },
+        },
+        // 元素声明为 number 的数组:传字符串时**内容确实变了**,必须记成转换
+        nums: { type: 'array', description: '', items: { type: 'number', description: '' } },
+        obj: { type: 'object', description: '', properties: { n: { type: 'number', description: '' } }, required: ['n'] },
+        num: { type: 'number', description: '' },
+      },
+      required: [],
+    },
+  }
+
+  it('数组逐项都合法 → coercedFields 为空', () => {
+    const r = validateToolArguments({ items: [{ t: 'a' }, { t: 'b' }] }, schema)
+    expect(r.valid).toBe(true)
+    expect(r.coercedFields).toEqual([])
+  })
+
+  it('对象各字段都合法 → coercedFields 为空', () => {
+    const r = validateToolArguments({ obj: { n: 3 } }, schema)
+    expect(r.valid).toBe(true)
+    expect(r.coercedFields).toEqual([])
+  })
+
+  it('装车前提:数组容器**确实是新引用** —— 旧写法按引用比较正是把逐字未变的值误记成转换', () => {
+    const items = [{ t: 'a' }]
+    const r = validateToolArguments({ items, obj: { n: 1 } }, schema)
+    // checkArray 带 items 约束时必然重建数组 ⇒ 新引用(旧实现据此把每一次数组入参都记成转换)
+    expect(r.coerced.items).not.toBe(items)
+    // 内容未变 ⇒ 一律不算转换
+    expect(r.coercedFields).toEqual([])
+  })
+
+  it('真发生转换仍必须记录:标量 "42" → 42、数组元素 "1" → 1', () => {
+    const scalar = validateToolArguments({ num: '42' }, schema)
+    expect(scalar.coercedFields).toEqual(['num'])
+    const arr = validateToolArguments({ nums: ['1', '2'] }, schema)
+    expect(arr.coercedFields).toEqual(['nums'])
+    expect(arr.coerced.nums).toEqual([1, 2])
+  })
+
+  it('空数组 / 数值 0 这类" falsy 但合法"的输入不得被记成转换', () => {
+    const r = validateToolArguments({ items: [], obj: { n: 0 } }, schema)
+    expect(r.coercedFields).toEqual([])
+  })
+})
+
+// ==================== 可选字段上的显式 null = 缺席 ====================
+
+describe('validateToolArguments - 可选字段的 null 与缺席同义', () => {
+  const schema: ToolSchema = {
+    name: 'todos',
+    description: '',
+    parameters: {
+      type: 'object',
+      properties: {
+        todos: {
+          type: 'array',
+          description: '',
+          items: {
+            type: 'object',
+            description: '',
+            properties: {
+              content: { type: 'string', description: '' },
+              summary: { type: 'string', description: '完成后的简短总结(可选)' },
+            },
+            required: ['content'],
+          },
+        },
+        note: { type: 'string', description: '可选备注' },
+      },
+      required: ['todos'],
+    },
+  }
+
+  it('嵌套对象里的可选属性传 null → 合法(这条就是 851 条历史调用里唯一的偏差形态)', () => {
+    const r = validateToolArguments({ todos: [{ content: 'a', summary: null }] }, schema)
+    expect(r.errors.map((e) => `${e.field}:${e.reason}`)).toEqual([])
+    expect(r.valid).toBe(true)
+  })
+
+  it('顶层可选属性传 null → 合法', () => {
+    const r = validateToolArguments({ todos: [], note: null }, schema)
+    expect(r.valid).toBe(true)
+  })
+
+  it('反向对照:required 属性传 null 照旧违规,豁免不得把必填也洗掉', () => {
+    const r = validateToolArguments({ todos: [{ content: null }] }, schema)
+    expect(r.valid).toBe(false)
+    expect(r.errors.some((e) => e.field === 'todos[0].content')).toBe(true)
+  })
+
+  it('反向对照:豁免只作用于"具名属性",数组元素传 null 仍是类型违规', () => {
+    const list: ToolSchema = {
+      name: 'l',
+      description: '',
+      parameters: {
+        type: 'object',
+        properties: { paths: { type: 'array', description: '', items: { type: 'string', description: '' } } },
+        required: [],
+      },
+    }
+    const r = validateToolArguments({ paths: ['a', null, 'c'] }, list)
+    expect(r.valid).toBe(false)
+    expect(r.errors.some((e) => e.reason === 'type_mismatch')).toBe(true)
+  })
+
+  it('反向对照:required 字段整个缺席仍必须报缺失(不得被 null 豁免逻辑顺带放过)', () => {
+    const r = validateToolArguments({ note: 'x' }, schema)
+    expect(r.valid).toBe(false)
+    expect(r.errors.some((e) => e.field === 'todos' && e.reason === 'missing_required')).toBe(true)
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
