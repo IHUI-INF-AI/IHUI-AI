@@ -2010,6 +2010,13 @@
       "when": 1790137658554,
       "tag": "20260923120000_chat_message_feedbacks",
       "breakpoints": true
+    },
+    {
+      "idx": 288,
+      "version": "7",
+      "when": 1790215200000,
+      "tag": "20260924100000_chat_history_projection",
+      "breakpoints": true
     }
   ]
 }
