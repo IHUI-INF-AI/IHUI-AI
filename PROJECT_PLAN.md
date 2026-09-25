@@ -8175,3 +8175,21 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 - **型 C 棘轮 9 → 3**(余 103 / 93 / 84 三道,即上面按住的两道加一道未派单的 `check-cross-end-tokens`)。
 - **一处未动、如实登记**:`scripts/tests/check-theme-prop-wiring.test.mjs` 工作树相对 HEAD 只差**末尾 L3 零宽载荷行**(水印自愈产物,可见内容逐字节不变)。不属于本票逻辑改动,未代收 —— 谁提交它谁受水印门管,这是它的正确归属。
 - **并行代理交付里被我发现并核过的三处**(不采信自报):代理 C 报告称改了 `git-guardian-drift-align.test.mjs`,而我 09:17 的 `git status` 里**没有**这一项 → 复核为"报告时它已完成、我的读数是更早一次的",现在该文件确在 modified 列表内(闭包按 import 递归推导,不再手抄依赖清单)。代理 A 声称"三门逐字对齐",我用自己的 A/B 复跑 12 组独立确认。代理 B 声称的 2 项迁移**未落地**(arch-policy / stale-revert face-reader 引用数实测 0),按未交付处理,缺口自己读码重新定性为层缺原语而非代理偷懒。
+### 第四十九批·续五(2026-09-25):`git mv` 的还账动作被"复活"第二次 —— 这次不是自愈,是一枚提交把它写回了 HEAD
+- **现象**:`node scripts/check-architecture-policy.mjs` 全量判红 2 处(D1+D2,同一枚文件)
+  `packages/i18n/tests/waiting-keys-in-end-packages.test.ts:19`。而**这条账本来已经还掉了**:
+  `81cade291`(09:15)已把它移到 `packages/shared/tests/chat/`(移动理由写在文件头:换 import 写法消不掉 D2,
+  D2 只比 rank 数值;而它读各端词包用的是 `readFileSync`,不构成 import 边 ⇒ 放同包内零跨模块边)。
+- **实为两份并存**:HEAD 里旧路径 blob=`0e2312dce`、新路径 blob=`1173e9a01`,内容不同但**用例数同为 7**,
+  差异只有 import 相对深度与那段"为什么必须移动"的注释 ⇒ 新行是旧行的后继(§7 三问先过再删)。
+  部署环日志给出时序:`01:28:55` 记 `rename packages/{i18n/tests => shared/tests/chat}/…`,
+  而 `01:34:40` 又记 `create mode 100644 packages/i18n/tests/waiting-keys-in-…` ⇒ **旧路径是被一次提交重新写进 HEAD 的**。
+- **与 08:43 那篇「操作顺序教训」的关系**:那一篇归因给 §5b 存续自愈把合法移动当成外部删除恢复,并给出唯一正解
+  `git mv` 一步原子完成。**这次不是自愈**(自愈的三条判据要求"索引 blob == HEAD blob",而 `git rm` 的暂存删除
+  按定义不满足 ⇒ 自愈对已暂存的删除只报数不代裁,实测 `--check` 不动手)。这次的成因在自愈之外:**有人(或某轮的
+  整文件回写)把自愈恢复出来的那份又提交了**。所以那条"必须 `git mv`"的规矩仍然成立,但它**不充分** ——
+  移动之后还要**复验旧路径已不在 HEAD**,否则恢复动作会连同一次提交把复活固化下来。
+  复验命令就一行:`git cat-file -e HEAD:<旧路径> && echo 仍在 ⇒ 未还账`。
+- **本票动作**:`git rm` 旧路径(暂存删除 ⇒ 自愈窗口内不会反悔),补删后 `check-architecture-policy.mjs` 全量
+  由 rc=1(判红 2)转 **rc=0**;`pnpm test:scripts` 侧新路径那份用例照跑(移动未改判据)。
+- **✅ 本批未闭环④(守门 93 崩溃面)已收口(2026-09-25)**:① `resolveTsPath` 拿到不存在的常量表时改为抛**具名 `UndeterminedError` 并点名是哪张表**(旧行为:裸 `TypeError … reading 'length'` → 顶层只打 message → 匿名 exit 2,复跑三轮再也复现不出来);② `catBatch` 的 EOF-break 分支不再"set 当前 + break"就完事 —— 剩余 blob 全部标 null 并抛具名「cat-file --batch 输出在第 r/N 个 blob 处截断 ⇒ 无法判定(不是"没有违规",是"没看完")」,堵掉下游 `scanOne` 静默少扫这一族假绿;③ 顶层 catch 分流:`UndeterminedError` 打一句「无法判定」,其他异常**打栈**。取证:两档口径复跑 `--staged` exit 0 / 全量 exit 0;`--self-test` 43 ⇒ **48 例**全通过,其中新加的四条都是成对的(表名漂移必抛具名 / 正常 body 不得误伤 / 形状判据 / 反例有牙);镜像测试 21 ⇒ **23 例**。**过程里踩到两次"尺子照自己"**:第一版把被禁字面量原样写进断言 ⇒ 本文件自身恒命中该串;第二版想把旧形状写回文件做变异证明 ⇒ `break` 落在循环外直接语法错、根本跑不起来。两次都指向同一条(与门 103 的 T12 同课):**这类"文本形状"判据只能抽成纯函数,用喂进去的正反字符串证明**。
