@@ -673,9 +673,14 @@ function runCheck(root, face) {
       if (!reader.has(p) && !reader.hasDir(p))
         violations.push(`P5 机制账登记的落点不存在:${file} landsOn → ${p}(${face} 面)`)
     }
-    if (!existsSync(join(root, e.specFile))) {
+    // 锚点必须**随检出一起存在**,所以按被审判的面判,不按工作树判。
+    // 旧写法是 `existsSync(join(root, e.specFile))`,于是"把锚点写进 gitignored 目录"这种账
+    // 在作者机器上常绿、在任何别的检出上恒红(blocking)—— 而该目录会被本仓自己的
+    // post-commit `--auto-clean` 清掉,结果是**每一次提交都被逼 --no-verify**(实测 G-173)。
+    // 判据失效的方向必须是"多要一次耐久登记",绝不能是"多放一次恒红"。
+    if (!reader.has(e.specFile) && !reader.hasDir(e.specFile)) {
       violations.push(
-        `P5 ${file} 的规格文件不在工作树:${e.specFile}(机制账的可审计锚点,缺了就等于「声称借鉴但无从核对」)`,
+        `P5 ${file} 的规格锚点不在${face === 'head' ? ' HEAD' : face === 'index' ? '索引' : '工作树'}里:${e.specFile}(机制账的可审计锚点必须受版本控制 —— 落空有两解:没提交,或落在 gitignored 目录;两种都等于「声称借鉴但无从核对」)`,
       )
     }
   }
@@ -1100,8 +1105,38 @@ async function selfTest() {
       r8.violations.join(' | '),
     )
     ok(
-      !r8.violations.some((v) => v.includes('规格文件不在工作树')),
-      '8b 规格文件在工作树 ⇒ 该项不判红',
+      !r8.violations.some((v) => v.includes('规格锚点')),
+      '8b 锚点已提交进被审面 ⇒ 该项不判红',
+    )
+    // 8e 就是 G-173 那一型:锚点**在工作树上存在**,但落在 gitignored 目录 ⇒ 从未进任何检出。
+    // 旧判据(existsSync)在这里必然报绿,所以这条用例同时是"新判据有牙"的证明。
+    w('.gitignore', 'tmp-note/\n')
+    w('tmp-note/EPHEMERAL.md', '# 只在作者机器上存在的临时笔记\n')
+    commit() // 注意:被忽略的文件 add 不进去,故它只存在于工作树
+    writeLedgers({
+      embedded: [],
+      mechanisms: [
+        {
+          id: 'm-ephemeral',
+          mechanism: '夹具机制',
+          upstreamProject: 'fixture',
+          specFile: 'tmp-note/EPHEMERAL.md',
+          absorbedOn: '2026-01-02',
+          landsOn: ['vendor/demo/src/lib.rs'],
+          cleanRoom: '夹具声明',
+        },
+      ],
+    })
+    commit()
+    const r8e = runCheck(dir, 'head')
+    ok(
+      existsSync(join(dir, 'tmp-note/EPHEMERAL.md')),
+      '8e 夹具前提坏了:锚点在工作树上本应存在(否则这条证不了事)',
+    )
+    ok(
+      r8e.violations.some((v) => v.startsWith('P5') && v.includes('规格锚点不在')),
+      '8e 锚点盘上存在但未受版本控制 ⇒ 必须判红(旧 existsSync 写法在这里是假绿)',
+      r8e.violations.join(' | '),
     )
     writeLedgers({
       embedded: [],
