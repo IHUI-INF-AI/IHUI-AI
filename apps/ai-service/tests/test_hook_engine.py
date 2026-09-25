@@ -740,6 +740,67 @@ class TestRunNotify:
         assert "未知" in err
 
     @pytest.mark.asyncio
+    async def test_webhook_channel_full_config(self, engine):
+        """webhook 渠道:复用 _run_webhook 且透传 url/method/headers/body/secret。"""
+        run_webhook = AsyncMock(return_value=("ok-200", None))
+        with patch.object(engine, "_run_webhook", run_webhook):
+            result, err = await engine._run_notify(
+                {
+                    "channel": "webhook",
+                    "url": "http://hook.example/cb",
+                    "method": "PUT",
+                    "headers": {"X-Custom": "1"},
+                    "body": "payload-text",
+                    "secret": "sec-123",
+                    "message": "模板消息 {{event}}",
+                },
+                "error",
+                {"event": "error"},
+            )
+        assert err is None
+        assert result == "notify(webhook): ok-200"
+        # 断言调用参数:webhook_config 各字段按 :992 分支真实读取
+        cfg, event, ctx = run_webhook.call_args[0]
+        assert cfg == {
+            "url": "http://hook.example/cb",
+            "method": "PUT",
+            "headers": {"X-Custom": "1"},
+            "body": "payload-text",
+            "secret": "sec-123",
+        }
+        assert event == "error"
+        assert ctx == {"event": "error"}
+
+    @pytest.mark.asyncio
+    async def test_webhook_channel_defaults_and_error(self, engine):
+        """webhook 渠道:method 默认 POST、body 回落到渲染后的 message;失败错误透传。"""
+        run_webhook = AsyncMock(return_value=(None, "connect timeout"))
+        with patch.object(engine, "_run_webhook", run_webhook):
+            result, err = await engine._run_notify(
+                {"channel": "webhook", "url": "http://hook.example/cb"},
+                "error",
+                {},
+            )
+        cfg, _, _ = run_webhook.call_args[0]
+        assert cfg["method"] == "POST"  # 未配置时默认 POST
+        assert cfg["headers"] is None
+        assert cfg["secret"] is None
+        assert cfg["body"] == "Hook 触发: error"  # 未配置 body 时回落 message
+        # 失败路径:err 包装为 notify(webhook) 失败
+        assert result is None
+        assert err == "notify(webhook) 失败: connect timeout"
+
+    @pytest.mark.asyncio
+    async def test_sms_unknown_channel(self, engine):
+        """未知渠道(如 sms)落入 :1006 兜底错误路径。"""
+        result, err = await engine._run_notify(
+            {"channel": "sms", "message": "hi"}, "error", {})
+        assert result is None
+        assert err is not None
+        assert "未知" in err
+        assert "sms" in err
+
+    @pytest.mark.asyncio
     async def test_email_channel_import_error(self, engine):
         """email 渠道:email_service 不存在时降级(视为成功)。"""
         with patch("builtins.__import__", side_effect=ImportError):

@@ -96,9 +96,15 @@ const BUDGET = {
     ab2Judged: false,
     buildHint: 'pnpm --filter @ihui/web build:static',
     uncalibratedReason:
-      '现测 962,226,170 B / 5453 文件(营销站全量静态资产,含图片与 vendor 库),' +
-      '无平台侧硬上限可依据 ⇒ 立红线属替人做决策。本档只报数,校准需先定' +
-      '"哪些目录算交付面"并清掉 vendor 里的 2 处悬空 map 引用。',
+      '2026-09-25 实测:盘上这份 out/ 的**最新 mtime 是 2026-09-14 15:48**(即一次 11 天前的构建),' +
+      '量得 383,750,723 B / 7,487 文件 —— 间隔 20s 连测两次逐字节同值,且 du --apparent-size 报' +
+      ' 374,757 KB(同一量级,两个独立口径)。而本条目**旧文本登记的"现测 962,226,170 B / 5,453 文件"' +
+      '是另一次构建的读数**:字节大 2.5 倍、文件数反而少 2,034 个 ⇒ 同一个 `out/` 目录并不代表同一件' +
+      '交付物(构建配置/导出范围不同)。在这种前提下拿任何一次的字节当红线,都会在另一种构建上' +
+      '假红 —— 而恒红门的唯一结局是逼人 --no-verify(§12e 同型)。**要立红线,缺的是一个"哪次构建算' +
+      '交付面"的前提 + 一个入库的基线载体,不是挑一个数。**' +
+      '旧文本另写的"需先清掉 vendor 里的 2 处悬空 map 引用"已不构成障碍:现测 AB2 = **0 处**' +
+      '(扫 1,667 个 .js/.cjs/.mjs/.css,外链 0 / 跳过 0)。',
   },
   extension: {
     label: '浏览器扩展产物',
@@ -109,7 +115,9 @@ const BUDGET = {
     ab2Judged: false,
     buildHint: 'pnpm --filter @ihui/extension build',
     uncalibratedReason:
-      '现测 4,168,785 B;Chrome 商店 128 MB 是**受理**上限而非尺寸判据,' +
+      '2026-09-25 实测 4,223,190 B / 16 文件(旧登记写的是 4,168,785 B,差 1.3% —— "现测"这种词必须带' +
+      '日期,否则下一个人会拿它当今天的数,本仓已为同类过期数字记过多次);' +
+      'Chrome 商店 128 MB 是**受理**上限而非尺寸判据,' +
       '与该量级差 30 倍 ⇒ 按它判红等于不判。待有真实交付约束再校准。',
   },
 }
@@ -472,7 +480,7 @@ function printHuman(r) {
 }
 
 function parseArgs(argv) {
-  const out = { target: null, artifact: null, json: false, selfTest: false }
+  const out = { target: null, artifact: null, json: false, selfTest: false, staged: false }
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i]
     if (a === '--target') out.target = argv[++i] ?? ''
@@ -481,6 +489,12 @@ function parseArgs(argv) {
     else if (a.startsWith('--artifact=')) out.artifact = a.slice('--artifact='.length)
     else if (a === '--json') out.json = true
     else if (a === '--self-test') out.selfTest = true
+    // 提交链会向每道门自动下发 --staged。本门量的是**磁盘上的构建产物**,与工作树/索引无关,
+    // 没有"按暂存收窄"这回事 ⇒ 接受并忽略(口径恒全量),照守门 78 的同款处理。
+    // 不接会怎样:抛 UnknownTargetError → exit 2,而它 mode=warn ⇒ 每次提交都计一条"警告",
+    // 且这条警告的真实含义是"这道门从没跑起来过",不是"产物有情况"——把不可执行伪装成检测结果,
+    // 比恒红更坏(恒红至少逼人去看)。实测登记见 PROJECT_PLAN G-176。
+    else if (a === '--staged') out.staged = true
     else throw new UnknownTargetError(`未知参数:${a}`)
   }
   return out
