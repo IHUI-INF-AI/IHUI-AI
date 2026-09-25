@@ -108,7 +108,7 @@ export default function NotificationPage() {
               list.map((item, idx) => (
                 <View
                   key={item.key}
-                  className={`flex items-center justify-between py-[20rpx]${idx > 0 ? ' border-t-[1rpx] border-solid border-[color:var(--color-border)]' : ''}`}
+                  className={`flex items-center justify-between py-[20rpx]${idx > 0 ? ' border-t-[length:1rpx] border-solid border-[color:var(--color-border)]' : ''}`}
                 >
                   <View className="mr-[16rpx] flex-1">
                     {/* label 对齐 RN: 14dp→28rpx + text.medium 语义映射 muted-foreground */}
@@ -152,7 +152,7 @@ export default function NotificationPage() {
               <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
             </View>
             <View
-              className="flex items-center justify-between border-t-[1rpx] border-solid border-[color:var(--color-border)] py-[20rpx]"
+              className="flex items-center justify-between border-t-[length:1rpx] border-solid border-[color:var(--color-border)] py-[20rpx]"
               onClick={() => Taro.navigateTo({ url: '/pkg-user/bill/index' })}
               hoverClass="opacity-60"
             >
@@ -168,7 +168,7 @@ export default function NotificationPage() {
               <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
             </View>
             <View
-              className="flex items-center justify-between border-t-[1rpx] border-solid border-[color:var(--color-border)] py-[20rpx]"
+              className="flex items-center justify-between border-t-[length:1rpx] border-solid border-[color:var(--color-border)] py-[20rpx]"
               onClick={onDetail}
               hoverClass="opacity-60"
             >
