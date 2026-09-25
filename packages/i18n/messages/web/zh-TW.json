@@ -7130,6 +7130,26 @@
       "rollbackConfirmConfirm": "確認恢復"
     },
     "pane": {
+      "hookSummary": {
+        "ariaLabel": "鉤子執行摘要",
+        "state": {
+          "running": "鉤子執行中",
+          "ok": "鉤子執行正常",
+          "failed": "鉤子執行出錯",
+          "blocked": "鉤子已阻止操作"
+        },
+        "runs": "· 執行了 {n} 次",
+        "failedCount": "失敗 {n} 次",
+        "blockedCount": "攔截 {n} 次",
+        "sourceLabel": "來源",
+        "source": {
+          "admin": "管理員",
+          "user": "使用者",
+          "project": "專案",
+          "plugin": "外掛",
+          "session": "工作階段"
+        }
+      },
       "businessForms": {
         "ariaLabel": "業務表單卡",
         "aria": {
@@ -16840,6 +16860,10 @@
       "pending": "待考",
       "unknown": "未知"
     },
+    "submitBtn": "提交答卷",
+    "submitConfirm": "確定提交答卷嗎?提交後將標記為已完成。",
+    "submitFailed": "提交失敗",
+    "submitSuccess": "答卷已提交",
     "title": "我的考試報名",
     "total": "共 {n} 條"
   },
