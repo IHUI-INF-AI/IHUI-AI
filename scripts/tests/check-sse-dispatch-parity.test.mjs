@@ -158,12 +158,19 @@ test('⑤ 取材基准是提交树,不是工作树(pre-commit 须切暂存区,�
   )
 })
 
-test('⑤b 暂存区口径实跑:budget 一族的端内接线进临时索引后门必须判绿(代码与台账同票)', () => {
-  // 清单 = 本族"端内注册层"改动的全集。**少列一个端不会让本例假绿** —— 临时索引里
-  // 该端仍是 HEAD 的旧命中数,低于台账 baseline 即判红,失效方式是响的。
+test('⑤b 暂存区口径实跑:budget 一族的端内接线 + 台账一起进临时索引必须判绿(代码与台账同票)', () => {
+  // 清单 = 本族"端内注册层"改动的全集。**少列一个端不会让本例假绿** —— 该端按 HEAD 的
+  // 旧命中数进入临时索引,低于台账 baseline 即判红,失效方式是响的。
   // 再有端接入 budget 时把它加进来(以及 --staged 的 baseline 同票上调)。
+  //
+  // 取材基准一律 **HEAD blob**,不是工作树(2026-09-25 实测改的):原写法 `git add -- <码文件>`
+  // 把并行会话的在途编辑一起收进临时索引 —— 当天 `apps/cli/src/commands/agent.ts` 正被别人的
+  // 终端流票改着(工作树已注册 terminalDelta,而 HEAD 没有),于是本例替他人红了一次,
+  // 而"missing 声明了其实已注册的帧"这条红与本票要证的同票不变量毫无关系。台账本身仍取
+  // 工作树,因为那正是"待提交的那一半"。
+  const LEDGER_PATH = 'scripts/data/sse-dispatch-coverage.json'
   const TICKET_FILES = [
-    'scripts/data/sse-dispatch-coverage.json',
+    LEDGER_PATH,
     'packages/shared/src/chat/budget-note.ts',
     'packages/shared/src/chat/index.ts',
     'apps/cli/src/commands/task-status-line.ts',
@@ -176,7 +183,15 @@ test('⑤b 暂存区口径实跑:budget 一族的端内接线进临时索引后�
   copyFileSync(resolveGitIndex(), tmpIndex)
   const env = { ...process.env, GIT_INDEX_FILE: tmpIndex }
   try {
-    for (const p of TICKET_FILES) gitRun(['add', '--', p], env)
+    for (const p of TICKET_FILES) {
+      if (p === LEDGER_PATH) {
+        gitRun(['add', '--', p], env)
+        continue
+      }
+      const blob = gitRun(['rev-parse', `HEAD:${p}`], env).trim()
+      assert.ok(/^[0-9a-f]{40}$/.test(blob), `HEAD:${p} 解析不出 blob,本例夹具失效`)
+      gitRun(['update-index', '--add', '--cacheinfo', `100644,${blob},${p}`], env)
+    }
     const out = execFileSync(
       process.execPath,
       [join(REPO, 'scripts', 'check-sse-dispatch-parity.mjs'), '--staged'],

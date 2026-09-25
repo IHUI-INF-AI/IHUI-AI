@@ -800,6 +800,18 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     // 下 ⇒ 实际 `/api/browser/sessions*`(POST /sessions、/sessions/{id}/navigate 等)。
     // 注意:apps/api 契约里另有 `/api/browser/probe|screenshot`(服务端渲染截图面),
     // 与本 scope 的 browser_* 工具面无关,不得混用。
+    //
+    // 2026-09-25 判定:句柄族 `browser_page_*` / 页内 `page_*` 动词**不进本目录**。
+    // 本目录是「对外机器凭据可调面」的单一事实源 —— 条目必须同时给出真实端点与暴露它的
+    // 工具名。而 page_* 两族动词没有任何服务端 HTTP/MCP 入口:
+    //   · ai-service 全仓 `grep browser_page|page_snapshot app/**/*.py` 零命中
+    //     (`_TOOLS` 与 mcp_server 都没有该族 ⇒ `POST /api/browser/*` 收到也只会 4xx);
+    //   · 真正的执行体只有两处 —— apps/cli 自有 CDP 会话(`src/tools/browser-page.ts`,
+    //     本地进程内注册,不经 api 的鉴权面)与 extension content script(经
+    //     `POST /api/agent-control/execute`,该路由是内部服务凭据通道、本身不在本目录)。
+    // 在此登记一条没有落点的工具名,等于对开发者控制台宣称一个不存在的可调用能力
+    // (D 判据只反查 routes,不查 tools ⇒ 这种谎本门抓不到,只能靠这条判定说明)。
+    // 若将来把它做成 MCP 工具或 /v1 端点,须同票登记工具名并重跑 `pnpm capabilities:export`。
     host: 'ai-service',
     routes: ['POST /api/browser/*'],
     tools: [
