@@ -129,7 +129,9 @@ export function SharedDemoScreen() {
       ) : !user ? (
         <Text style={styles.statusText}>加载失败</Text>
       ) : null}
-      {tab === 'about' && <AboutScreen t={t} onBack={() => setTab('profile')} />}
+      {tab === 'about' && (
+        <AboutScreen t={t} onBack={() => setTab('profile')} colorScheme={resolvedTheme} />
+      )}
       {tab === 'profile' && (
         <ProfileScreen
           t={t}

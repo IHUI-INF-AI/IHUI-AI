@@ -18,6 +18,7 @@ import {
 import { tokens } from '../theme/active-tokens'
 import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
 import { useI18n } from '../i18n'
+import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 import { Bot, Film, Palette, type LucideIcon } from 'lucide-react-native'
@@ -101,6 +102,7 @@ function buildModelGroups(models: ModelPlazaItem[]): ModelListGroup[] {
 
 export default function ModelPlazaScreen() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
   const [viewMode, setViewMode] = useState<ViewMode>('shared')
   const [models, setModels] = useState<ModelPlazaItem[]>([])
@@ -174,6 +176,7 @@ export default function ModelPlazaScreen() {
         {viewMode === 'shared' ? (
           <SharedModelPlazaScreen
             t={t}
+            colorScheme={resolvedTheme}
             items={models}
             providers={providers}
             providerId={providerId}
