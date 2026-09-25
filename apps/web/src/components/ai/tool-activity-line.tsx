@@ -2,13 +2,25 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 活动条目 · D81 ②~⑥ 的可复用呈现原语(工具活动条上的子组件)。
+// 活动条目 · D81 ④⑤⑥ 的可复用呈现原语(工具活动条上的子组件)。
 // 取词统一走 taskStatus 命名空间(双时态词表与 ⑤ 连接器分组标签同源),
 // 组件内零硬编码文案。无障碍口径:可折叠元素带 aria-expanded、button 默认键盘可达(H27)。
+//
+// ②(活动级耗时条)/ ③(搜索查询词)原语已于 2026-09-25 删除,**不是**"还没接",而是
+// 渲染取证判定的冗余(`__tests__/d81-redundancy-probe.test.tsx` 用真 ToolCallCard 量到):
+//  - 耗时:StreamRow 的 `elapsedMs` ← `useLiveElapsed(...)` 已把后端权威 durationMs 打成
+//    `2.4s` / `1m15s` 落在行上,格式化器是 `progress-sections/foldable-section.tsx` 的
+//    `formatDuration`(含分档)。② 自带一份 `(ms/1000).toFixed(1)+'s'` 的**第二套时长格式化器**,
+//    超过 1 分钟即与现役分叉 —— 留着等于在同一行里养两个真相。
+//  - 查询词:共享层 `describeToolCall` 的 subject 已把 args.query 逐字带上行(file_search /
+//    search_codebase 两枚都量到)。③ 的差集只剩"查询:"前缀,而其 `title={query}` 违反 §4
+//    (禁用原生 title 提示)。
+// 要给这两处加措辞,改法是在 StreamRow 上立一档,不得把原语加回来。
 'use client'
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
+import type { ConnectorDirection } from '@ihui/shared/chat'
 import { cn } from '@/lib/utils'
 
 /** 长输出代码块:默认折叠,点击"展开全部/收起"后完整内容可达(D81 第④项,正面解 G-69/D33 截断即丢) */
@@ -48,47 +60,6 @@ export function ActivityCodeBlock({
         </button>
       )}
     </div>
-  )
-}
-
-/** 活动级耗时条(D81 第②项 workedForDuration,与 D1 消息级耗时正交) */
-export function ActivityDuration({
-  durationMs,
-  testId = 'activity-duration',
-}: {
-  durationMs: number
-  testId?: string
-}): React.JSX.Element {
-  const t = useTranslations('taskStatus')
-  const seconds = durationMs >= 1000 ? `${(durationMs / 1000).toFixed(1)}s` : `${durationMs}ms`
-  return (
-    <span
-      data-testid={testId}
-      className="shrink-0 text-[11px] tabular-nums text-muted-foreground/70"
-    >
-      {t('workedForDuration', { duration: seconds })}
-    </span>
-  )
-}
-
-/** 搜索查询词直接显示在活动条上(D81 第③项 searchWithQuery) */
-export function ActivitySearchQuery({
-  query,
-  testId = 'activity-search-query',
-}: {
-  query: string
-  testId?: string
-}): React.JSX.Element | null {
-  const t = useTranslations('taskStatus')
-  if (!query) return null
-  return (
-    <span
-      data-testid={testId}
-      className="flex-1 truncate font-mono text-[11px] text-muted-foreground/80"
-      title={query}
-    >
-      {t('searchWithQuery', { query })}
-    </span>
   )
 }
 
@@ -142,7 +113,11 @@ export function ActivityConnectorGroupLabel({
   testId = 'activity-connector-group',
 }: {
   connector: string
-  direction: 'read' | 'write'
+  /**
+   * 方向档位一律取共享层 `ConnectorDirection`,不得在端内另写 `'read' | 'write'` 字面量联合 ——
+   * 那正是 `groupToolActivitiesByConnector` 分组键的另一半,端内自立即两份真相。
+   */
+  direction: ConnectorDirection
   testId?: string
 }): React.JSX.Element {
   const t = useTranslations('taskStatus')
