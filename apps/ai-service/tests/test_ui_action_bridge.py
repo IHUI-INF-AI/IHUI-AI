@@ -477,24 +477,62 @@ def test_unregister_prefix_removes_tools() -> None:
 # "与 packages/types 的 AppUiActionType 一一对应")。page 族的同型复制早就被
 # `test_page_control_bridge.py::test_verb_list_matches_shared_contract` 机器看守,
 # 而这一族的"一一对应"至今**只有散文** —— 散文约束在本仓已被反复实测会腐烂,故补同一条对账。
+def _spec_names(tools: list[Any]) -> tuple[str, ...]:
+    """把服务端注册面的工具名削掉 `web_ui_` 前缀,还原成动作名。
+
+    前缀只从 `ub._TOOL_PREFIX` 取,不在测试里再抄一遍字符串 —— 两处算同一个 key
+    必须共用一份实现,否则改了生产侧前缀而测试仍按旧字面量通过。
+    """
+    return tuple(t.name.removeprefix(ub._TOOL_PREFIX) for t, _ in tools)
+
+
 _ACTION_CONTRACTS: tuple[tuple[str, str, tuple[str, ...], str], ...] = (
     ("packages/types/src/agent-control.ts", "AppUiActionType", ub._APP_ACTIONS, "服务端 _APP_ACTIONS"),
+    (
+        "packages/types/src/agent-control.ts",
+        "UiControlActionType",
+        _spec_names(ub._ui_tools()),
+        "服务端 _ui_tools() 注册面(去 web_ui_ 前缀)",
+    ),
 )
 
 
 def _contract_actions(repo_root: Path, rel: str, type_name: str) -> set[str]:
-    """从 TS 联合类型字面量取动作集合(不做 AST:此处形态稳定且被本用例锁死)。
+    """逐行解析 TS 联合类型的成员集合。
 
-    解析不到成员一律判失败而不是跳过 —— 把 `AppUiActionType` 改写成纯别名
-    (`= WebUiActionType`)同样是断链:那样这份字面量就不再受任何对账约束。
+    为什么不用一条正则扫到底(第一版就是这样的):同一个文件里 `AppUiActionType` 写成
+    `= 'a' | 'b'` 单行,而 `UiControlActionType` 写成"等号后换行 + 每个成员前带一行 JSDoc +
+    成员行以 `|` 开头"。单条正则**只认得前一种形态**,于是它对后一种直接判"断链"——
+    一门只守得住自己顺手写的那种形态,等于其余形态没人守。
+
+    逐行法同时解决另一个更危险的坑:成员的 JSDoc 里合法地写着 `'wallet'`、`'agent 规则'`
+    这类带引号的东西。只从**以 `|` 开头的行**取值,注释行(以 `*` 或 `/` 开头)天然进不来,
+    尺子就不会量到自己的解释注释。
     """
-    text = (repo_root / rel).read_text(encoding="utf-8")
-    block = re.search(rf"export type {type_name}\s*=\s*((?:'[^']+'\s*\|?\s*)+)", text)
-    assert block, (
-        f"{rel} 里取不到 `export type {type_name} = 'a' | 'b' ...` 字面量"
-        "(改名、改成别名或换形态都算断链,须同步更新本对账)"
+    lines = (repo_root / rel).read_text(encoding="utf-8").splitlines()
+    try:
+        start = next(i for i, ln in enumerate(lines) if re.match(rf"^export type {type_name}\b", ln))
+    except StopIteration:
+        raise AssertionError(f"{rel} 里找不到 `export type {type_name}`(改名即断链,视为失败)") from None
+
+    out: set[str] = set()
+    for ln in lines[start : start + 60]:
+        head = ln.strip()
+        if head.startswith("export type") and not head.startswith(f"export type {type_name}"):
+            break  # 撞上下一个类型定义,本族的字面量到此为止
+        if head.startswith(("/**", "*", "*/")) or not head:
+            continue  # 注释与空行:里面的引号串一律不算成员
+        if head == f"export type {type_name} =":
+            continue
+        tail = head[len(f"export type {type_name} =") :] if head.startswith(f"export type {type_name} =") else head
+        if not tail.startswith(("|", "'")):
+            break  # 既非成员也非注释 → 这一族已经结束(纯别名 `= OtherType` 走这条路)
+        out.update(re.findall(r"'([a-z_]+)'", tail))
+    assert out, (
+        f"{rel} 里 `export type {type_name}` 解析出空成员集 —— 改成纯别名、换成非字符串成员或整体挪走"
+        "都算断链,须同步更新本对账(不允许靠放宽判据蒙过去)"
     )
-    return set(re.findall(r"'([a-z_]+)'", block.group(1)))
+    return out
 
 
 @pytest.mark.parametrize(("rel", "type_name", "py_side", "label"), _ACTION_CONTRACTS)
