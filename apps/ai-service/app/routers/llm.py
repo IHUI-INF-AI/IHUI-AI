@@ -2453,12 +2453,21 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             # ask 模式下保持 None ⇒ 与原语义逐字一致(纯问答永不进 tool loop)。
             agent_tools: list[str] | None = None
             if chat_mode != "ask":
-                from ..services.control_autonomy import augment_agent_tools
+                from ..services.control_autonomy import (
+                    augment_agent_tools,
+                    filter_unauthorized_page_tools,
+                )
 
                 agent_tools = await augment_agent_tools(
                     req.agent_tools,
                     _last_user_text(messages),
                     _resolve_owner_uuid(request),
+                )
+                # 页面句柄族闸(2026-09-25 立):客户端可以带着 browser_page_* 来,但该用户此刻
+                # 没有"申报了 browserPageActions 的扩展端"在线就摘掉 —— 服务端自主注入那四族
+                # 应用内 UI 不覆盖这一族(它读的是任意站点,必须显式授权 + 端申报双条件)。
+                agent_tools = await filter_unauthorized_page_tools(
+                    agent_tools, _resolve_owner_uuid(request)
                 )
             if agent_tools:
                 from ..services.mcp_server import mcp_server as _mcp

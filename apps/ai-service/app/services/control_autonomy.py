@@ -42,10 +42,20 @@ _ENDPOINT_PREFIX: dict[str, str] = {
 # 三族都是七动词:RN / 小程序没有 DOM,click/fill 由端内控件注册表承接 ——
 # 组件没交出写入通道时端上如实回 UNSUPPORTED_ACTION,而不是这里预先发一个必然失败的工具
 # (2026-09-21 补齐:此前只给四动词,导致端上注册好的输入框永远到不了模型手上)。
+#
+# ⚠️ 页面句柄族 `browser_page_*`(2026-09-25 开放)**刻意不进这张表**。这张表的语义是
+# "该端在线 ⇒ 整族自动注入",适用于**应用内** UI(操作的是我们自己的页面)。而 page_* 读的是
+# 用户正在浏览的任意站点,与本族的姊妹族 browser_*(选择器形态)一样必须由客户端显式携带工具名
+# 才算授权;服务端只做反向收紧(端没申报这一族就把名字摘掉,见 filter_unauthorized_page_tools)。
+# 把它"顺手"接进这里的后果是:任何一句带"点击/填写"措辞的普通问答,都可能把用户当前页的正文
+# 交给模型 —— 那不是自主性,那是越权。
 _FAMILY_ACTIONS: dict[str, frozenset[str]] = {
     prefix: frozenset({"describe", "read", "navigate", "click", "fill", "submit", "invoke"})
     for prefix in ("web_ui_", "mobile_ui_", "taro_ui_", "ext_ui_")
 }
+
+# 页面句柄族前缀(唯一执行体 = 浏览器扩展;工具名本体在 page_control_bridge.py)。
+_PAGE_FAMILY_PREFIX = "browser_page_"
 
 _API_ENTRY_TOOLS: tuple[str, ...] = ("api_endpoints_search", "api_endpoint_call")
 
@@ -110,8 +120,8 @@ _CLIENT_API_KEYWORDS: tuple[str, ...] = (
 _STATUS_TTL_S = 15.0
 _STATUS_TIMEOUT_S = 1.5
 
-# (user_id) → (过期时间戳, 在线前缀集合)。负结果同样缓存:没端在线是常态。
-_online_cache: dict[str, tuple[float, frozenset[str]]] = {}
+# (user_id) → (过期时间戳, 该用户在线端的原始申报清单)。负结果同样缓存:没端在线是常态。
+_online_cache: dict[str, tuple[float, list[dict[str, Any]]]] = {}
 
 
 def _mode() -> str:
@@ -164,14 +174,20 @@ def _intent(text: str) -> tuple[frozenset[str] | None, bool]:
     return frozenset(), want_api
 
 
-async def _online_prefixes(user_id: str) -> frozenset[str]:
-    """该用户此刻在线的端 → 工具前缀集合(带 TTL 缓存;查不到就返回空)。"""
+async def _online_endpoints(user_id: str) -> list[dict[str, Any]]:
+    """该用户此刻在线端的**原始申报清单**(带 15s 缓存;查不到返回空列表 = 没有端在线)。
+
+    返回 api `GET /api/agent-control/status` 里的 endpoints 数组本体,而不是预处理后的前缀集:
+    同一份数据要回答两个问题 —— "哪些端在线"(前缀集)与"这个端申报了哪一族的哪些动作"
+    (动作计数)。只留前缀集就把第二个问题所需的事实丢掉了,而页面句柄族的授权判定正好靠它。
+    任何异常一律降级为空列表:这一层的失败形态必须是"少给工具",绝不能是"打断聊天"。
+    """
     now = time.monotonic()
     cached = _online_cache.get(user_id)
     if cached and cached[0] > now:
         return cached[1]
 
-    prefixes: frozenset[str] = frozenset()
+    endpoints: list[dict[str, Any]] = []
     try:
         import httpx
 
@@ -190,18 +206,75 @@ async def _online_prefixes(user_id: str) -> frozenset[str]:
                 resp.raise_for_status()
                 body: dict[str, Any] = resp.json()
             data = body.get("data") or {}
-            endpoints = data.get("endpoints") or []
-            found = {
-                _ENDPOINT_PREFIX[str(ep.get("endpoint") or "")]
-                for ep in endpoints
-                if isinstance(ep, dict) and ep.get("endpoint") in _ENDPOINT_PREFIX
-            }
-            prefixes = frozenset(p for p in found if p)
+            endpoints = [ep for ep in (data.get("endpoints") or []) if isinstance(ep, dict)]
     except Exception as exc:  # noqa: BLE001 - 附加步骤不得打断聊天,查不到就按"无端在线"处理
         logger.warning("[control_autonomy] 在线端查询失败(降级为不注入 UI 工具): %s", exc)
 
-    _online_cache[user_id] = (now + _STATUS_TTL_S, prefixes)
-    return prefixes
+    _online_cache[user_id] = (now + _STATUS_TTL_S, endpoints)
+    return endpoints
+
+
+def _prefixes_of(endpoints: list[dict[str, Any]]) -> frozenset[str]:
+    """原始申报清单 → 应用内 UI 工具前缀集合(与 `_ENDPOINT_PREFIX` 表同源)。"""
+    found = {
+        _ENDPOINT_PREFIX[str(ep.get("endpoint") or "")]
+        for ep in endpoints
+        if isinstance(ep, dict) and ep.get("endpoint") in _ENDPOINT_PREFIX
+    }
+    return frozenset(p for p in found if p)
+
+
+async def _online_prefixes(user_id: str) -> frozenset[str]:
+    """该用户此刻在线的端 → 工具前缀集合(查不到就返回空)。"""
+    return _prefixes_of(await _online_endpoints(user_id))
+
+
+def _page_family_declared(endpoints: list[dict[str, Any]]) -> bool:
+    """是否有 extension 端**申报了页面句柄族**(browserPageActions 计数 > 0)。
+
+    判据取计数而不是动词名:`/status` 只回各族动作的数量(见
+    `apps/api/src/routes/agent-control.ts` 的 `browserPageActions?.length ?? 0`)。
+    申报面目前恒为整族七动词(扩展由 `PAGE_ACTIONS` 派生上报,见
+    `apps/extension/lib/agent-control-bridge.ts`),所以"族级"粒度与"动词级"粒度今天等价。
+    这个取舍如实记在这里:若将来出现只申报部分动词的端,需要 /status 改回动词名清单再收紧。
+    """
+    return any(
+        ep.get("endpoint") == "extension" and int(ep.get("browserPageActions") or 0) > 0
+        for ep in endpoints
+    )
+
+
+async def filter_unauthorized_page_tools(
+    tools: list[str] | None,
+    user_id: str | None,
+) -> list[str] | None:
+    """端没申报页面句柄族时,把 `browser_page_*` 从模型可见工具面摘掉(fail-closed)。
+
+    这是这一族的**唯一**服务端闸。客户端可以带着这几个名字来(web 的 Agent 模式/浏览器插件
+    清单),但只要该用户此刻没有"申报了 browserPageActions 的扩展端"在线,工具就不给 ——
+    给了只会换来 `TARGET_NOT_CONNECTED`,更糟的是让模型以为自己能读用户的页面。
+
+    三条设计约束:
+    1. **零成本早退**:清单里没有 page_* 就原样返回,不发起任何查询(绝大多数请求走这条)。
+    2. **查不到即摘**:没有身份 / api 不可达 / 超时 / 无端在线,全部按"未授权"处理。
+       这一族的失败形态必须是"少一个工具",不能是"多一次泄面"。
+    3. 只摘 page 族,**不动**其它工具 —— 浏览器选择器族 `browser_*` 的授权由客户端清单自己管,
+       本闸不替它做决定(它没有申报面可读)。
+    """
+    if not tools or not any(str(t).startswith(_PAGE_FAMILY_PREFIX) for t in tools):
+        return tools
+    if not user_id:
+        logger.warning("[control_autonomy] 缺用户身份,摘除页面句柄族工具(不给未授权的面)")
+        return [t for t in tools if not str(t).startswith(_PAGE_FAMILY_PREFIX)] or None
+    if _page_family_declared(await _online_endpoints(user_id)):
+        return tools
+    logger.info(
+        "[control_autonomy] 用户 %s 无申报页面句柄族的在线端 ⇒ 摘除 %s",
+        str(user_id)[:8],
+        [t for t in tools if str(t).startswith(_PAGE_FAMILY_PREFIX)],
+    )
+    return [t for t in tools if not str(t).startswith(_PAGE_FAMILY_PREFIX)] or None
+
 
 
 async def augment_agent_tools(
