@@ -16,7 +16,7 @@ import assert from 'node:assert/strict'
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 // Windows 上 import() 不接受反斜杠绝对路径,必须走 file:// URL(否则整文件在收集期失败,
 // 表现为"1 test failed / 0 run"—— 那正是本仓记过的"收集期失败静默削掉整批用例"那一型)
-const { classify, decide, GATE_GLOB } = await import(pathToFileURL(resolve(ROOT, 'scripts/check-gate-face-discipline.mjs')).href)
+const { classify, decide, usesLayerRead, GATE_GLOB } = await import(pathToFileURL(resolve(ROOT, 'scripts/check-gate-face-discipline.mjs')).href)
 
 const g = (a) => execFileSync('git', ['-c', 'safe.directory=*', ...a], { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 28, windowsHide: true })
 
@@ -26,7 +26,12 @@ test('T1 散写 git 的门必判红(正向证明:名单不是死表)', () => {
 })
 
 test('T2 经取材层的门必判绿(反向对照,否则本门自己就是恒红源)', () => {
-  const r = classify('scripts/check-y.mjs', "import { catBatch } from './lib/face-reader.mjs'\n")
+  // 夹具必须**真调用**层的读取入口 —— 收紧之后"只 import 不调用"就是不合格,
+  // 这条反向对照若还写成只 import,它会替旧行为背书(测试变成缺陷的掩体)。
+  const r = classify(
+    'scripts/check-y.mjs',
+    "import { catBatch } from './lib/face-reader.mjs'\nconst t = catBatch(ROOT, ['HEAD:a.ts'])\n",
+  )
   assert.equal(r.kind, 'face')
 })
 
@@ -78,4 +83,53 @@ test('T8 真仓 HEAD 面本门必须 exit 0(全量档只报数;红了就说明�
   assert.equal(r, 0)
   assert.ok(g(['--version']).length > 0)
 })
+// ─── T9/T10/T11 收紧"import 层 ≠ 走层"的三条锁(2026-09-26,主会话)───
+// 立因:旧 classify 第一刀是 FACE_IMPORT_RE 命中即判 face ⇒ "引了这层"被当成"走了这层"。
+// 实证是主会话自己踩的:门 36 与门 124 都 import 了 face-reader(只用 gitRaw),却都**默认按磁盘判**;
+// 把它们改成 catBatch 判 HEAD 之后,门 118 的分类读数一字未变 —— 一道自称守取材面纪律的门,
+// 对"半接线"这一族完全失明。收紧没有这三条锁,下次被人一句"顺手改回 import 即合规"就能悄悄关掉。
+test('T9 半接线必判红:引了层却自己 git show / 按磁盘读内容', () => {
+  const HALF_GIT =
+    "import { gitBinary, gitErrText, selectFace } from './lib/face-reader.mjs'\n" +
+    "execFileSync(gitBinary(), ['show', 'HEAD:a.ts'])\n"
+  const HALF_FS =
+    "import { selectFace } from './lib/face-reader.mjs'\nimport { readFileSync } from 'node:fs'\nreadFileSync(join(ROOT, 'a.ts'), 'utf8')\n"
+  assert.equal(classify('scripts/check-half1.mjs', HALF_GIT).kind, 'half-wired')
+  assert.equal(classify('scripts/check-half2.mjs', HALF_FS).kind, 'half-wired')
+  const d = decide({
+    verdicts: [
+      { file: 'scripts/check-half1.mjs', kind: 'half-wired', why: 'x' },
+      { file: 'scripts/check-half2.mjs', kind: 'half-wired', why: 'x' },
+    ],
+    mode: 'staged',
+  })
+  assert.equal(d.exit, 1, 'half-wired 必须进判红集 —— 只报数的新档等于没做这次收紧')
+  assert.equal(d.counts.halfWired, 2, '必须单列计数,不能只混进 loose 总数')
+})
+
+test('T10 别名与命名空间导入的读取入口必须被认作 face(收紧不得产假阳)', () => {
+  const ALIAS =
+    "import {\n  catBatch as readBlobs,\n} from '../lib/face-reader.mjs'\nconst t = readBlobs(ROOT, ['HEAD:a.ts'])\n"
+  const NS =
+    "import * as face from './lib/face-reader.mjs'\nconst t = face.catBatch(ROOT, ['HEAD:a.ts'])\n"
+  assert.equal(classify('scripts/check-alias.mjs', ALIAS).kind, 'face')
+  assert.equal(classify('scripts/check-ns.mjs', NS).kind, 'face')
+  // 反向:别名导入了却没调用 ⇒ 不算走了层(引了名字 ≠ 用了它)
+  assert.equal(
+    classify('scripts/check-alias-unused.mjs', "import { catBatch as rb } from './lib/face-reader.mjs'\nconsole.log(1)\n").kind,
+    'no-content',
+  )
+  // 只用层的非读取导出(selectFace / gitErrText 这类)不构成"读取凭证"
+  assert.equal(usesLayerRead("import { selectFace } from './lib/face-reader.mjs'\nconst f = selectFace({})\n"), false)
+})
+
+test('T11 反向回归:classify 不得再把"仅 import"当第一刀放行', () => {
+  const src = readFileSync(resolve(ROOT, 'scripts/check-gate-face-discipline.mjs'), 'utf8')
+  // 旧形态(if (FACE_IMPORT_RE.test(code)) return { kind: 'face' … })一旦被改回去,本条立刻红。
+  // 形状判据必须锚代码形状而不是注释,否则改个措辞就把它洗成恒绿 —— 见 §22c 的复读机教训。
+  assert.doesNotMatch(src, /if\s*\(\s*FACE_IMPORT_RE\.test\(code\)\s*\)\s*return\s*\{\s*kind:\s*'face'/)
+  assert.ok(src.includes('usesLayerRead(code)'), '合规判定必须先问"真调用过层的读取入口吗"')
+  assert.equal(typeof usesLayerRead, 'function', 'usesLayerRead 必须导出(镜像不得复制一份实现)')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

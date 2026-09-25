@@ -48,8 +48,47 @@ export const GATE_GLOB = /^scripts\/(check|scan|guard)[^/]*\.mjs$/
 const SELF_EXEMPT = ['scripts/check-gate-face-discipline.mjs', 'scripts/lib/face-reader.mjs']
 const GIT_TIMEOUT = 120000
 
-/** 走统一取材层的证据:导入 face-reader(注释里的名字不算,故在遮噪后判) */
+/** 只是"引了这层"的证据 —— **不再单独构成合规**(判序见 classify) */
 const FACE_IMPORT_RE = /from\s*['"][^'"]*lib\/face-reader\.mjs['"]/
+/**
+ * 走统一取材层的**真**证据:调用这层的读取入口取过内容。只认这两个,是因为 face-reader 的其余导出
+ * **不产生内容**:`selectFace` 只选面、`gitBinary` 只给二进制路径、`gitErrText`/`assertRepoRoot` 是错误与
+ * 前置检查、`catBatchOids`/`catBatchSizes`/`catBatchCheck` 拿的是 oid/尺寸而不是正文。把门面函数当成
+ * 读取凭证,等于给"引了层却自己 git show 读内容"那种形态发通行证 —— 实测 HEAD 面有 6 道门 import 了
+ * 层而不走层读内容。命名空间形态(`face.catBatch(`)同视,否则新判据会对合法写法产假阳。
+ */
+const LAYER_READ_RE =
+  /(?:^|[^.\w$])(?:catBatch|readWorktreeFile)\s*\(|[A-Za-z_$][\w$.]*\.(?:catBatch|readWorktreeFile)\s*\(/
+/**
+ * 层的读取入口。**必须解析 import 子句里的局部名** —— 只认字面 `catBatch(` 会把合法写法误伤:
+ * `import { catBatch as readBlobs }` 之后调 `readBlobs(` 同样是走层(别名与多行导入是 ESM 常见形态,
+ * 而"判据看不见门自己允许的写法"本仓记过多次:77 B6 只认点号、门 74 只认对象词表)。
+ */
+const LAYER_READ_ENTRIES = ['catBatch', 'readWorktreeFile']
+const LAYER_CLAUSE_RE = /import\s*\{([^}]*)\}\s*from\s*['"][^'"]*lib\/face-reader\.mjs['"]/gs
+const LAYER_NS_RE = /import\s*\*\s*as\s*([A-Za-z_$][\w$]*)\s*from\s*['"][^'"]*lib\/face-reader\.mjs['"]/g
+
+/** 这道文件是否**真的**用层的读取入口取过内容(含别名 / 命名空间形态)。纯函数,构造面可证。 */
+export function usesLayerRead(code) {
+  if (LAYER_READ_RE.test(code)) return true
+  const names = new Set()
+  for (const m of code.matchAll(LAYER_CLAUSE_RE)) {
+    for (const raw of m[1].split(',')) {
+      const spec = raw.trim()
+      if (!spec) continue
+      const parts = spec.split(/\s+as\s+/)
+      const imported = parts[0].trim()
+      const local = (parts[1] || parts[0]).trim()
+      if (LAYER_READ_ENTRIES.includes(imported)) names.add(local)
+    }
+  }
+  for (const n of names) if (new RegExp(`(?:^|[^.\\w$])${n}\\s*\\(`).test(code)) return true
+  for (const ns of code.matchAll(LAYER_NS_RE)) {
+    for (const e of LAYER_READ_ENTRIES)
+      if (new RegExp(`${ns[1]}\\.${e}\\s*\\(`).test(code)) return true
+  }
+  return false
+}
 /**
  * 散写 git 内容读取的**结构**特征:以 git 为可执行程序派生,且参数里带内容类动词。
  * 刻意要求"同一处调用里两者都在"(`GIT_SPAWN_RE` 与内容动词在同一段 120 字符窗口内),
@@ -170,11 +209,23 @@ export function classify(rel, src) {
   if (typeof src !== 'string') return { kind: 'unreadable', why: '内容取不到' }
   if (SELF_EXEMPT.includes(rel)) return { kind: 'self', why: '本门/取材层自身' }
   const code = maskComments(src)
-  if (FACE_IMPORT_RE.test(code)) return { kind: 'face', why: '已导入 lib/face-reader.mjs' }
-  if (GIT_SPAWN_RE.test(code) && GIT_CONTENT_ARG_RE.test(code))
-    return { kind: 'loose-git', why: '自己派生 git 读内容(cat-file / show / ls-tree / grep / --batch)而未经取材层' }
+  // 判序先认"真调用过层的读取入口",再判"引了层却没用它读内容"(半接线),最后才是原来两档散写。
+  // 顺序反了就会把 half-wired 吞进 face —— 那正是旧版行为:FACE_IMPORT_RE 一刀命中即放行。
+  const usesLayer = usesLayerRead(code)
+  const selfServesGit = GIT_SPAWN_RE.test(code) && GIT_CONTENT_ARG_RE.test(code)
   const noStrings = blankStrings(code)
-  if (FS_LOOSE_RE.test(noStrings) && REPO_ANCHOR_RE.test(noStrings))
+  const looseFs = FS_LOOSE_RE.test(noStrings) && REPO_ANCHOR_RE.test(noStrings)
+  if (usesLayer) return { kind: 'face', why: '调用取材层的读取入口(catBatch / readWorktreeFile)取内容' }
+  if (FACE_IMPORT_RE.test(code) && (selfServesGit || looseFs))
+    return {
+      kind: 'half-wired',
+      why:
+        '引了 lib/face-reader.mjs 却**没有**用它读内容:内容仍由自己派生 git 或按磁盘 readFileSync 取' +
+        '(半接线 —— 这层看起来在用,判定面其实没换)',
+    }
+  if (selfServesGit)
+    return { kind: 'loose-git', why: '自己派生 git 读内容(cat-file / show / ls-tree / grep / --batch)而未经取材层' }
+  if (looseFs)
     return { kind: 'loose-fs', why: 'readFileSync + 仓库锚点(join/resolve(ROOT)) ⇒ 按磁盘判' }
   if (FS_LOOSE_RE.test(noStrings)) return { kind: 'unknown', why: '读文件但找不到仓库锚点(可能是临时夹具)' }
   return { kind: 'no-content', why: '不读仓库内容' }
@@ -185,10 +236,16 @@ const RED_KINDS = new Set(['loose-git', 'loose-fs'])
 /** 聚合(纯函数,自检/镜像靠构造输入证明它有牙)。 */
 export function decide({ verdicts, mode }) {
   const red = []
-  const counts = { face: 0, loose: 0, unknown: 0, noContent: 0, unreadable: 0, self: 0 }
+  const counts = { face: 0, loose: 0, halfWired: 0, unknown: 0, noContent: 0, unreadable: 0, self: 0 }
   for (const v of verdicts) {
     if (v.kind === 'face') counts.face++
-    else if (v.kind === 'loose-git' || v.kind === 'loose-fs') {
+    // 半接线既进 loose 总量(它确实是散写的一种),也单列计数:报告里必须能看出"新档抓到几道",
+    // 否则这次收紧等于没做 —— 一个只报 total 的新档,和红字里没人看的第三种形态是同一件事。
+    else if (v.kind === 'half-wired') {
+      counts.halfWired++
+      counts.loose++
+      if (mode === 'staged') red.push(v)
+    } else if (v.kind === 'loose-git' || v.kind === 'loose-fs') {
       counts.loose++
       if (mode === 'staged') red.push(v)
     } else if (v.kind === 'unknown') counts.unknown++
@@ -294,12 +351,37 @@ function selfTest() {
       console.log(`  ❌ ${label}\n      got  ${g}\n      want ${w}`)
     } else console.log(`  ✅ ${label}`)
   }
-  const OK = "import { readFace } from './lib/face-reader.mjs'\nconst t = readFace(ROOT, 'head', ['a.ts'])\n"
+  const OK = "import { catBatch } from './lib/face-reader.mjs'\nconst t = catBatch(ROOT, ['HEAD:a.ts'])\n"
+  const NS = "import * as face from './lib/face-reader.mjs'\nconst t = face.catBatch(ROOT, ['HEAD:a.ts'])\n"
+  const HALF =
+    "import { gitBinary, gitErrText, selectFace } from './lib/face-reader.mjs'\n" +
+    "execFileSync(gitBinary(), ['show', 'HEAD:a.ts'])\n"
+  const HALF_FS =
+    "import { selectFace } from './lib/face-reader.mjs'\nimport { readFileSync } from 'node:fs'\nreadFileSync(join(ROOT, 'a.ts'), 'utf8')\n"
+  const HELPER_ONLY =
+    "import { assertRepoRoot, gitErrText } from './lib/face-reader.mjs'\nconsole.log('不读仓库内容')\n"
   const GIT = "import { execFileSync } from 'node:child_process'\nexecFileSync('git', ['cat-file', 'blob', h])\n"
   const FS = "import { readFileSync } from 'node:fs'\nreadFileSync(join(ROOT, 'package.json'), 'utf8')\n"
   const FIXTURE = "import { readFileSync } from 'node:fs'\nreadFileSync(join(dir, 'x.json'), 'utf8')\n"
   const PURE = 'export function f(x) { return x + 1 }\n'
   eq('F1 经取材层 ⇒ face', classify('scripts/check-a.mjs', OK).kind, 'face')
+  // F6–F9:收紧"import 层 ≠ 走层"的成对证明。四条要一起读 —— F6/F7 的红必须由 F1/F8 的绿
+  // 反向钉住,否则"不红"可能只是判据失效;而 F8 防的是新判据把合法写法误伤(命名空间导入)。
+  eq('F6 引了层却自己 git show 读内容 ⇒ half-wired(半接线)', classify('scripts/check-f6.mjs', HALF).kind, 'half-wired')
+  eq('F7 引了层却按磁盘 readFileSync 读 ⇒ half-wired', classify('scripts/check-f7.mjs', HALF_FS).kind, 'half-wired')
+  eq('F8 命名空间导入 face.catBatch( ⇒ 仍算 face(新判据不得产假阳)', classify('scripts/check-f8.mjs', NS).kind, 'face')
+  eq(
+    'F9 只用层的非读取导出且不读内容 ⇒ no-content(不把门面函数当读取凭证,也不判红)',
+    classify('scripts/check-f9.mjs', HELPER_ONLY).kind,
+    'no-content',
+  )
+  // F10:half-wired 必须真的进判红集(staged 档),且单列计数 —— 只报总数等于没做这次收紧
+  {
+    const hw = decide({ verdicts: [{ file: 'scripts/check-f6.mjs', kind: 'half-wired', why: 'x' }], mode: 'staged' })
+    eq('F10a half-wired 在 staged 档判红', hw.exit, 1)
+    eq('F10b half-wired 计入 counts.halfWired', hw.counts.halfWired, 1)
+    eq('F10c 全量档只报数不判红(存量一次性判红 = 恒红门)', decide({ verdicts: [{ file: 'a', kind: 'half-wired', why: 'x' }], mode: 'full' }).exit, 0)
+  }
   eq('F2 散写 git 内容 ⇒ loose-git', classify('scripts/check-b.mjs', GIT).kind, 'loose-git')
   eq('F3 磁盘 + 仓库锚点 ⇒ loose-fs', classify('scripts/check-c.mjs', FS).kind, 'loose-fs')
   eq('F4 只读夹具(无仓库锚点)⇒ unknown,不判红', classify('scripts/check-d.mjs', FIXTURE).kind, 'unknown')
@@ -317,7 +399,19 @@ function selfTest() {
   // 遮噪两层各自的方向(第一版就是因为混用一层而 F1/F2 双双假绿)
   eq('F14 注释里写 face-reader 路径不算合规(伪合规必须被拒)', classify('scripts/check-g.mjs', "// 建议改成 from './lib/face-reader.mjs'\n" + FS).kind, 'loose-fs')
   eq('F15 模板串里的 readFileSync 不算调用(遮噪后不可见)', classify('scripts/check-h.mjs', 'const doc = `readFileSync(join(ROOT, x))`\nexport const y = 1\n').kind, 'no-content')
-  eq('F16 真导入(带 as 别名/多行)仍认合规', classify('scripts/check-i.mjs', "import {\n  readFace as rf,\n} from '../lib/face-reader.mjs'\n").kind, 'face')
+  eq(
+    'F16 别名导入读取入口并真调用(as + 多行)⇒ face',
+    classify(
+      'scripts/check-i.mjs',
+      "import {\n  catBatch as readBlobs,\n} from '../lib/face-reader.mjs'\nconst t = readBlobs(ROOT, ['HEAD:a.ts'])\n",
+    ).kind,
+    'face',
+  )
+  eq(
+    'F16b 别名导入却从不调用 ⇒ 不算 face(收紧的边界:引了名字不等于用了它)',
+    classify('scripts/check-i2.mjs', "import {\n  catBatch as readBlobs,\n} from '../lib/face-reader.mjs'\nconsole.log(1)\n").kind,
+    'no-content',
+  )
   console.log(fail ? `\n❌ 自检 ${fail}/${ran} 例失败` : `\n全部 ${ran} 例通过(四形态分类 + 遮噪反向 + 两档方向对照 + 三态退出码)`)
   process.exit(fail ? 1 : 0)
 }
@@ -329,5 +423,14 @@ if (isDirectRun) {
   else process.exit(main(process.argv.slice(2)))
 }
 
-export const __test__ = { classify, decide, GATE_GLOB, SELF_EXEMPT, analyze, listGates, SELF_SKIP }
+export const __test__ = {
+  classify,
+  decide,
+  usesLayerRead,
+  GATE_GLOB,
+  SELF_EXEMPT,
+  analyze,
+  listGates,
+  SELF_SKIP,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
