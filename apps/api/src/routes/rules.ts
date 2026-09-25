@@ -104,9 +104,9 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ── 超越创新 schemas(2026-07-23)──
-  const ruleAutoGenerateSchema = z.object({
-    userId: z.string().min(1),
-  })
+  // auto-generate 不再收 userId:身份只认令牌主体(见下方 handler),
+  // 而 web 端本来就发 `{}` —— 旧的 `z.object({ userId: z.string().min(1) })`
+  // 让这条链在 api 层就 400,从未出进程。
 
   const ruleResolveConflictsSchema = z.object({
     conflicts: z
@@ -242,12 +242,12 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
   server.post('/rules/auto-generate', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    const parsed = ruleAutoGenerateSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
     try {
-      const data = await rulesService.autoGenerateRules(parsed.data.userId)
+      // 身份取令牌主体,不取请求体;并把调用方令牌透传给 ai-service(它的中间件要验)。
+      const data = await rulesService.autoGenerateRules(
+        request.userId,
+        request.headers.authorization,
+      )
       return reply.send(success(data))
     } catch (e) {
       return reply.status(502).send(error(502, (e as Error).message))

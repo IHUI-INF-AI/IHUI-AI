@@ -16,7 +16,6 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.routers.rules import (
-    AutoGenerateBody,
     LearnFeedbackBody,
     PredictEffectBody,
     ResolveConflictsBody,
@@ -178,7 +177,7 @@ def test_rule_create_body_validation():
 
 
 async def test_auto_generate_success(engine):
-    resp = await auto_generate_rules(AutoGenerateBody(user_id="u1"))
+    resp = await auto_generate_rules("u1")
     assert resp["code"] == 0
     assert resp["data"][0]["id"] == "draft-u1"
 
@@ -188,7 +187,7 @@ async def test_auto_generate_error(engine, monkeypatch):
         raise RuntimeError("llm down")
 
     monkeypatch.setattr(engine, "auto_generate_rules", boom)
-    resp = await auto_generate_rules(AutoGenerateBody(user_id="u1"))
+    resp = await auto_generate_rules("u1")
     assert resp["code"] == 500
     assert "llm down" in resp["message"]
     assert resp["data"] is None
