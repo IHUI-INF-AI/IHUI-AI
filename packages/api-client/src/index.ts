@@ -276,6 +276,8 @@ export * from './endpoints/repo-wiki'
 // Knowledge Card 端点(仓库级任务经验卡,2026-09-10 新增,2-1 项目知识引擎)
 export * from './endpoints/knowledge-card'
 export * from './endpoints/team-memory'
+// D29 团队级知识引擎端点(G-35,2026-09-26 立,空间/成员/条目/审计 12 条路径)
+export * from './endpoints/team-knowledge'
 
 // 用户侧 Agent 定时自动化端点(2026-09-07 新增)
 export * from './endpoints/automations'

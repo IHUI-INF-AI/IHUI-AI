@@ -105,6 +105,12 @@ PILLAR_EVENTS: dict[str, str] = {
 }
 
 # 支柱 API 路径映射(执行 action 时 HTTP 调用)
+# ⚠️ 诚实性登记(第九轮 B1):这 6 条路径在 apps/api 侧**一条都不存在**(全仓
+# `apps/api/src/**/*.ts` 里 `orchestrate` 只命中 `/hooks/auto-orchestrate`,那是
+# 另一条路由、另一个前缀)。所以任何 pillar 联动的**真实**结果必然是 404。
+# 本票**不删声明、不建端点**,只把"调用不存在的端点却对外声称联动成功"这一型
+# 失效改成可判定的失败:见下方 PillarCallStatus 封闭状态集与 execute_decision 的
+# degraded 判序。
 _PILLAR_API_PATHS: dict[str, str] = {
     "rules": "/api/rules/orchestrate",
     "hook": "/api/hooks/orchestrate",
@@ -113,6 +119,112 @@ _PILLAR_API_PATHS: dict[str, str] = {
     "subagent": "/api/subagents/orchestrate",
     "terminal": "/api/terminal/orchestrate",
 }
+
+
+# ====================== pillar 调用的封闭状态集(诚实性判据的唯一词表) ======================
+#
+# 为什么要一个封闭集:改前 `_call_pillar_action` 只回 `{"success": bool, "error": str}`,
+# 404 与"连不上"与"根本没法调"在上报面上长得一模一样,而 404 走的是
+# `success = resp.status_code < 400` 这条**看起来正确**的表达式 —— 它确实把 404 判成
+# False,但聚合层 `partially_failed` 只进统计、不进返回值形状,上层(routers/emit、
+# dashboard、web 面板)读到的仍然是"事件已发射"。状态必须**随返回值上抛**才算数。
+
+
+class PillarCallStatus:
+    """单条 pillar 调用结果的**封闭**状态集合。
+
+    禁止在此集合之外产生状态字符串;`PILLAR_CALL_STATUSES` 是唯一词表,
+    任何判据遇到不认识的字符串一律归入 UNREPORTED(= 非 ok),绝不归入 OK。
+    """
+
+    OK = "ok"                                  # 2xx/3xx,调用真的成功
+    HTTP_404 = "http_404"                      # 端点不存在(本仓 6 条声明的现状)
+    HTTP_5XX = "http_5xx"                      # 对端服务内部错
+    HTTP_4XX_OTHER = "http_4xx_other"          # 403/422 等其余 4xx
+    TRANSPORT_ERROR = "transport_error"        # 连接失败 / 超时 / httpx 不可用
+    NOT_CONFIGURED = "not_configured"          # 结构性不可调用:该支柱没有声明路径
+    UNREPORTED = "unreported"                  # 结果没带状态或状态不认识 ⇒ 按非 ok 处理
+
+
+PILLAR_CALL_STATUSES: frozenset[str] = frozenset(
+    {
+        PillarCallStatus.OK,
+        PillarCallStatus.HTTP_404,
+        PillarCallStatus.HTTP_5XX,
+        PillarCallStatus.HTTP_4XX_OTHER,
+        PillarCallStatus.TRANSPORT_ERROR,
+        PillarCallStatus.NOT_CONFIGURED,
+        PillarCallStatus.UNREPORTED,
+    }
+)
+
+# api_service_url 的来源也是封闭集(不得自由字符串):
+#   settings = 配置里真的写了地址
+#   fallback = 配置为空,代码自己拼了 http://localhost:8802
+# 兜底档本身不是错误,但它**必须被点名**,否则"没配 api_service_url"会被下游
+# 读成"联动成功打到了后端"。
+BASE_URL_SOURCE_SETTINGS = "settings"
+BASE_URL_SOURCE_FALLBACK = "fallback"
+BASE_URL_SOURCES: frozenset[str] = frozenset({BASE_URL_SOURCE_SETTINGS, BASE_URL_SOURCE_FALLBACK})
+
+
+def classify_http_status_code(status_code: int) -> str:
+    """把 HTTP 状态码归入封闭集。
+
+    判序:`<400` 才算 ok(与改前的 success 表达式逐字等价,不改语义);
+    404 单列(它是"端点根本不存在"的那一种,必须能和一般 4xx 区分开);
+    5xx 单列;其余 4xx 与任何意外取值归 HTTP_4XX_OTHER / HTTP_5XX。
+    """
+    if status_code < 400:
+        return PillarCallStatus.OK
+    if status_code == 404:
+        return PillarCallStatus.HTTP_404
+    if 500 <= status_code <= 599:
+        return PillarCallStatus.HTTP_5XX
+    return PillarCallStatus.HTTP_4XX_OTHER
+
+
+def pillar_call_status_of(result: dict[str, Any]) -> str:
+    """从一条调用结果 dict 推导封闭状态(旧形态的安全投影)。
+
+    改前的结果没有 `status` 键(测试里大量 mock 也只写 success/error),所以这里:
+    1) 有 status 且在封闭集内 ⇒ 原样取用;
+    2) 有 status 但取值不认识 ⇒ UNREPORTED(**绝不**当成 ok,也不猜);
+    3) 没有 status ⇒ success 为真则 ok,否则 UNREPORTED(按非 ok 处理)。
+    """
+    raw = result.get("status")
+    if isinstance(raw, str) and raw in PILLAR_CALL_STATUSES:
+        return raw
+    if raw is not None:
+        return PillarCallStatus.UNREPORTED
+    return PillarCallStatus.OK if result.get("success") is True else PillarCallStatus.UNREPORTED
+
+
+def is_pillar_call_ok(result: dict[str, Any]) -> bool:
+    """唯一判据:一条结果算不算成功 = 它的封闭状态是不是 OK。
+
+    刻意**不**读 `success` 布尔位:那个位是历史契约(测试与外部消费者还在看它),
+    而聚合结论一律以封闭状态为准 —— 两处算同一件事必然漂移,所以只有这里读一次。
+    """
+    return pillar_call_status_of(result) == PillarCallStatus.OK
+
+
+def _resolve_api_base_url() -> tuple[str, str]:
+    """解析 pillar 调用的基础地址,并**如实报告它是哪来的**。
+
+    返回 (base_url, source):
+      - settings.api_service_url 有值 ⇒ (该值, BASE_URL_SOURCE_SETTINGS)
+      - 配置缺失 / 为空 ⇒ ("http://localhost:8802", BASE_URL_SOURCE_FALLBACK)
+
+    兜底地址本身保留(它是本仓既有的部署默认,改它不属本票范围),但它不再是隐形的:
+    source 会随每条结果上抛,聚合层据此置 base_url_configured=False。
+    """
+    base_url = ""
+    if _settings is not None:
+        base_url = str(getattr(_settings, "api_service_url", "") or "")
+    if base_url:
+        return base_url, BASE_URL_SOURCE_SETTINGS
+    return "http://localhost:8802", BASE_URL_SOURCE_FALLBACK
 
 
 # ====================== 预置联动策略模板 ======================
@@ -285,6 +397,13 @@ class OrchestrationDecision:
     created_at: str = ""
     executed_at: str = ""
     duration_ms: int = 0
+    # ---- 诚实性字段(第九轮 B1):非 ok 必须上抛到聚合结论的形状里,不得只写日志 ----
+    # degraded=True 表示"这次联动没有完全成功";non_ok_pillars 逐条点名是哪几条、
+    # 各自的封闭状态是什么。判序见 execute_decision 的文档字符串。
+    degraded: bool = False
+    non_ok_pillars: list[dict[str, str]] = field(default_factory=list)
+    # api_service_url 是否真的配置过(False = 本次打的是代码兜底的 localhost:8802)
+    base_url_configured: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         """序列化为 dict。"""
@@ -298,6 +417,9 @@ class OrchestrationDecision:
             "created_at": self.created_at,
             "executed_at": self.executed_at,
             "duration_ms": self.duration_ms,
+            "degraded": self.degraded,
+            "non_ok_pillars": list(self.non_ok_pillars),
+            "base_url_configured": self.base_url_configured,
         }
 
 
@@ -579,7 +701,15 @@ class JointDecisionEngine:
     ) -> dict[str, Any]:
         """通过 HTTP 调用支柱 API 执行 action(解耦,不直接 import)。
 
-        失败返回 {"success": False, "error": ...},不抛异常。
+        不抛异常,但**每条结果都带封闭状态** `status`(见 PillarCallStatus),
+        并随返回值上抛给 execute_decision —— 只写日志不算上报。
+
+        判序(与实现一致,不得调换):
+          1) 该支柱没有声明路径 ⇒ NOT_CONFIGURED(结构性不可调用,不发请求);
+          2) 请求发出后按 HTTP 状态码归类:2xx/3xx ⇒ OK,404 ⇒ HTTP_404,
+             5xx ⇒ HTTP_5XX,其余 4xx ⇒ HTTP_4XX_OTHER;
+          3) 连接失败 / 超时 / httpx 不可用 ⇒ TRANSPORT_ERROR。
+        任何一档都**不得**被写成"端点不存在就当作成功/跳过"—— 那正是本票要消灭的形态。
         """
         # D6① 收敛开关接线点:playbook 的 subagent 派发是本中枢与"执行器"唯一
         # 相交处。默认档直接返回(行为与改前逐字节等价);loop_v2 档 fail-fast。
@@ -589,17 +719,16 @@ class JointDecisionEngine:
         if not api_path:
             return {
                 "success": False,
+                "status": PillarCallStatus.NOT_CONFIGURED,
                 "error": f"未知支柱: {pillar}",
                 "pillar": pillar,
                 "action": action,
+                "url": "",
+                "base_url_source": _resolve_api_base_url()[1],
             }
 
-        # 基础 URL:优先 settings.api_service_url,降级 localhost
-        base_url = ""
-        if _settings is not None:
-            base_url = str(getattr(_settings, "api_service_url", "") or "")
-        if not base_url:
-            base_url = "http://localhost:8802"
+        # 基础 URL:优先 settings.api_service_url,降级 localhost(降级必须被点名)
+        base_url, base_url_source = _resolve_api_base_url()
 
         url = f"{base_url.rstrip('/')}{api_path}"
         body = {
@@ -613,14 +742,19 @@ class JointDecisionEngine:
 
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.post(url, json=body)
+            status = classify_http_status_code(int(resp.status_code))
             return {
-                "success": resp.status_code < 400,
+                # success 位保留(历史契约),但聚合结论一律以 status 为准
+                "success": status == PillarCallStatus.OK,
+                "status": status,
                 "status_code": resp.status_code,
                 "pillar": pillar,
                 "action": action,
+                "url": url,
+                "base_url_source": base_url_source,
                 "response": resp.text[:500] if resp.text else "",
             }
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001 — 不抛异常,但必须归入封闭状态 TRANSPORT_ERROR
             logger.warning(
                 "[orchestration_hub] 调用支柱 %s action=%s 失败: %s",
                 pillar,
@@ -629,19 +763,33 @@ class JointDecisionEngine:
             )
             return {
                 "success": False,
+                "status": PillarCallStatus.TRANSPORT_ERROR,
                 "error": str(e),
                 "pillar": pillar,
                 "action": action,
+                "url": url,
+                "base_url_source": base_url_source,
             }
 
     async def execute_decision(self, decision: OrchestrationDecision) -> dict[str, Any]:
         """执行决策(调用各支柱的 action),每个 action try/catch 独立。
 
-        失败不影响其他:全部失败 → failed,部分失败 → partially_failed,
-        全部成功 → completed,无 action → skipped。
+        状态机(与改前逐字兼容的部分:全部成功 → completed,全部失败 → failed,
+        混合 → partially_failed,无 action → skipped)。
+
+        诚实性判序(第九轮 B1,**新增部分**,任何一条被弱化都算回归):
+          1) 逐条把结果折成封闭状态(pillar_call_status_of),只有状态 == OK 才算成功;
+          2) 收集所有非 OK 的 (pillar, action, status) 到 decision.non_ok_pillars;
+          3) non_ok_pillars 非空 ⇒ decision.degraded = True(**必须**同时置真,
+             不得只 logger 一条就算完 —— 日志不是返回值,上层判不到);
+          4) completed 只在 non_ok_pillars 为空时给出,所以"部分联动没成功"永远
+             不可能被读成"完全成功";
+          5) base_url_configured:只要有一条结果用的是代码兜底地址,整体就记 False。
         """
         if decision.status == "skipped" or not decision.actions:
             decision.status = "skipped"
+            decision.degraded = False
+            decision.non_ok_pillars = []
             await self._record_decision(decision)
             return decision.to_dict()
 
@@ -651,6 +799,8 @@ class JointDecisionEngine:
 
         results: list[dict[str, Any]] = []
         success_count = 0
+        non_ok: list[dict[str, str]] = []
+        base_url_fallback_seen = False
         for action_spec in decision.actions:
             pillar = action_spec.get("pillar", "")
             action = action_spec.get("action", "")
@@ -660,18 +810,33 @@ class JointDecisionEngine:
                     pillar, action, params, decision.trigger_event
                 )
             except Exception as e:  # noqa: BLE001 — 兜底,确保单 action 失败不中断
+                # 连结果都拿不到时也要给出封闭状态,不得留空(留空会被读成"没发生")
                 result = {
                     "success": False,
+                    "status": PillarCallStatus.UNREPORTED,
                     "error": str(e),
                     "pillar": pillar,
                     "action": action,
                 }
             results.append(result)
-            if result.get("success"):
+            # 判据出口只有一个:is_pillar_call_ok(它本身是 pillar_call_status_of 的投影)
+            if is_pillar_call_ok(result):
                 success_count += 1
+            else:
+                non_ok.append(
+                    {
+                        "pillar": str(result.get("pillar", pillar)),
+                        "action": str(result.get("action", action)),
+                        "status": pillar_call_status_of(result),
+                    }
+                )
+            if result.get("base_url_source") == BASE_URL_SOURCE_FALLBACK:
+                base_url_fallback_seen = True
 
         decision.results = results
         decision.duration_ms = int(time.time() * 1000 - start_ms)
+        decision.non_ok_pillars = non_ok
+        decision.base_url_configured = not base_url_fallback_seen
 
         if success_count == len(decision.actions):
             decision.status = "completed"
@@ -679,6 +844,19 @@ class JointDecisionEngine:
             decision.status = "failed"
         else:
             decision.status = "partially_failed"
+
+        # 判据:非 OK 计数 > 0 ⇔ degraded。这里刻意用 non_ok 而不是 status 反推,
+        # 保证 completed 与 degraded 不可能同时为真。
+        decision.degraded = bool(non_ok)
+        if decision.degraded:
+            # 日志只是附带的可观测性,**不是**判据载体;去掉下面两行不影响 degraded。
+            logger.warning(
+                "[orchestration_hub] 决策 %s 联动降级(%d/%d 条非 ok):%s",
+                decision.decision_id,
+                len(non_ok),
+                len(decision.actions),
+                "; ".join(f"{i['pillar']}/{i['action']}={i['status']}" for i in non_ok),
+            )
 
         await self._record_decision(decision)
         return decision.to_dict()
@@ -794,6 +972,9 @@ class OrchestrationHub:
         self._playbook_states: dict[str, bool] = dict.fromkeys(ORCHESTRATION_PLAYBOOKS, True)
         self._running: bool = False
         self._consumer_task: asyncio.Task[None] | None = None
+        # 每次自动编排的结论形状(诚实性上抛的最后一环:_process_event 原本把
+        # execute_decision 的返回值整个丢掉,所以 degraded 只能停在决策对象里)。
+        self._orchestration_outcomes: deque[dict[str, Any]] = deque(maxlen=_MEMORY_DECISION_MAXLEN)
 
     async def start(self) -> None:
         """启动事件消费者(后台 asyncio task,消费 Redis stream)。"""
@@ -854,12 +1035,33 @@ class OrchestrationHub:
                 await asyncio.sleep(5)
 
     async def _process_event(self, event: PillarEvent) -> None:
-        """处理单个事件:evaluate → execute_decision(自动编排)。"""
+        """处理单个事件:evaluate → execute_decision(自动编排)。
+
+        execute_decision 的结论**不得被丢掉**:这里把它的形状(degraded /
+        non_ok_pillars / base_url_configured)记进 _orchestration_outcomes,
+        由 get_status 对外可见。跳过决策(skipped)不记录 —— 它不是失败。
+        """
         try:
             decision = await self.decision_engine.evaluate(event)
             if decision.status == "skipped":
                 return
-            await self.decision_engine.execute_decision(decision)
+            outcome = await self.decision_engine.execute_decision(decision)
+            # execute_decision 在测试里可能被替换成非 dict(mock),形态不对就不记,
+            # 但绝不因此把结论"洗"成成功。
+            if isinstance(outcome, dict):
+                self._orchestration_outcomes.append(
+                    {
+                        "decision_id": str(outcome.get("decision_id", "")),
+                        "event_type": event.event_type,
+                        "playbook_id": str(outcome.get("playbook_id", "")),
+                        "status": str(outcome.get("status", "")),
+                        "degraded": bool(outcome.get("degraded", False)),
+                        "non_ok_pillars": list(outcome.get("non_ok_pillars", []) or []),
+                        "base_url_configured": bool(
+                            outcome.get("base_url_configured", True)
+                        ),
+                    }
+                )
         except Exception as e:  # noqa: BLE001
             logger.warning(
                 "[orchestration_hub] 事件处理失败(event=%s): %s",
@@ -894,13 +1096,33 @@ class OrchestrationHub:
         return event_id
 
     async def get_status(self) -> dict[str, Any]:
-        """中枢状态(running/事件数/决策数/各 playbook 启用状态)。"""
+        """中枢状态(running/事件数/决策数/各 playbook 启用状态)。
+
+        诚实性字段(第九轮 B1,additive,不改动既有键):
+          - orchestration_attempts:自动编排真正执行过的次数(不含 skipped)
+          - orchestration_degraded:其中结论为 degraded 的次数
+          - pillar_routes_declared / pillar_routes_resolved_note:声明了 6 条 pillar
+            端点这一事实的**自述** —— 本模块不探测对端,故如实写"未探测",
+            免得下游把 6 这个数字读成"6 条路由都在"。
+          - last_orchestration:最近一次编排结论的形状
+        """
+        attempts = len(self._orchestration_outcomes)
+        degraded = sum(1 for o in self._orchestration_outcomes if o["degraded"])
         return {
             "running": self._running,
             "event_count": len(self.event_bus._memory_events),
             "decision_count": len(self.decision_engine._memory_decisions),
             "playbook_states": dict(self.decision_engine._playbook_states),
             "redis_mode": self.event_bus._use_redis,
+            "orchestration_attempts": attempts,
+            "orchestration_degraded": degraded,
+            "pillar_routes_declared": len(_PILLAR_API_PATHS),
+            "pillar_routes_probe": "not_probed",
+            "pillar_routes_note": (
+                "本模块只声明 pillar 端点路径、不探测对端是否存在;"
+                "判定成功与否一律看每次调用的封闭状态(PillarCallStatus)。"
+            ),
+            "last_orchestration": self._orchestration_outcomes[-1] if attempts else None,
         }
 
     async def get_event_feed(
