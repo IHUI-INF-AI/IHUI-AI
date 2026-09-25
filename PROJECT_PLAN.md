@@ -8696,3 +8696,28 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   **解阻判据(交给持有另一台机提交的那条会话或人)**:对这三块逐块裁决后重跑
   `node scripts/git-sync-converge.mjs`;收敛成功出口会自动调 `union-converge` 的复核与守门 100 的 A1。
   推送腿状态可用 `node scripts/git-push-converge.mjs` 只读核验(现读 `DIVERGED`)。
+
+
+### O61 领票前逐条实测:本轮从"可认领"清单里挑的 5 枚没有一枚是真待办(2026-09-25,只读取证)
+
+- [x] ✅(2026-09-25) **登记只为省下一个人的轮次** ——  `check-task-claims.mjs` 现报"可认领 111",本轮按它挑了 5 枚,
+  逐条量下来全是假票:
+  ① `goal-verify 无生产消费方` —— 已由 `0c562010837` 闭环:`app/routers/agents.py:49` 真 import 了
+     `goal_completion_gate`,`goal_completion_gate.py:507` 真调 `verify_goal_completion`,另有专测;
+  ② `page_* 跨端登记` —— 已由 `fa91dd93fe3` 闭环,**但那枚票的"逐端判据"清单漏列 `apps/cli`**,
+     量出 CLI 句柄族只接 5/7 ⇒ 这一枚是真残余,已由 `b8eab3c8b0d` 补完(注册表改 `Record<PageActionType, Tool>`
+     由契约派生 + 7 例双向对账,变异实测 `tsc` 报 `TS2741 Property 'page_hover' is missing`);
+  ③ `stream-tool-ledger 接线` —— 票面写的两条解阻条件本轮实测**全部成立**(`commands/agent.ts` 工作树==HEAD、
+     `tests/terminal-delta.test.ts` 已在 HEAD),且接线与装车测试已由 `b153c2d0d4b` 落地;
+  ④ `VideoPlayerScreen 状态栏带色` —— 落点 `apps/mobile-rn/App.tsx` 当前工作树为 M(他人在飞),
+     且票面自定验收口径是"真机出包装机量像素,不是 typecheck 不是截图目测" ⇒ 本机不可验收,不可领;
+  ⑤ `--allow-dangerous 确认旁路在调用方` —— 复核后**不是 fail-open**:`apps/cli/src/tools/index.ts:323-332`
+     在缺 `confirmDangerous` 回调时取 `allowed = false` 直接拒。票面要改的是"确认回调契约"这一设计决策,
+     原作者已声明按现状入库并在披露文档写明边界 ⇒ 属待拍板项,不是 agent 可单方收口的工程活。
+  **为什么 `--twins` 抓不到 ①③④⑤**:它按**行文本相似度**配"已勾近亲",而这四枚的完成条目都是另写的证据段
+  (带 sha),与待办行字面差得远。**本轮试过补一道"行首编号配对"判据,量下来不成立** —— 这些完成行与待办行
+  根本不同编号(例:①的完成条目叫"goal 完成判定闸门",无同前缀),按编号配对照样漏;而误配会把
+  "子项未完成"的票判成整票已闭环,那比漏判更坏 ⇒ 为凑一道门硬造判据属投机代码,已放弃,不留下半成品。
+  当场可复用的只有一条**三分钟领票前取证顺序**(三条都是 git 自答,不读票面措辞):
+  `git log --oneline -3 -- <落点>` ∧ `git grep -ln "<导出名>" HEAD`(只命中自身定义 + 自身测试 = 没装车)
+  ∧ `git status --porcelain -- <落点>`(脏 = 他人在飞,不可领)。
