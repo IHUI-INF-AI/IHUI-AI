@@ -242,6 +242,7 @@ function BackBar() {
   const t = useTranslations('admin.saas.metrics')
   return (
     <div>
+      {/* back-label-exempt: 箭头位已是矢量 ArrowLeft,文字是标签 until 2026-12-31 */}
       <Button variant="ghost" size="sm" asChild className="-ml-2">
         <Link href="/admin/saas">
           <ArrowLeft className="h-4 w-4" />
