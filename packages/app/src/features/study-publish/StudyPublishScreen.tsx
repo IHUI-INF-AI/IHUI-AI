@@ -3,7 +3,16 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native'
 import { getTokens, tokens as baseTokens, type AppThemeTokens } from '../../theme/tokens'
 import { CategoryDropdown } from '../../components/category/CategoryDropdown'
 import type { TFunction } from '../../types'
@@ -76,13 +85,16 @@ function LabeledInput({
   value,
   onChangeText,
   placeholder,
+  colorScheme,
 }: {
   label: string
   value: string
   onChangeText: (v: string) => void
   placeholder: string
+  colorScheme: 'light' | 'dark'
 }) {
-  const tk = getTokens('light')
+  const tk = getTokens(colorScheme)
+  const fieldStyles = useMemo(() => createFieldStyles(tk), [tk])
   return (
     <View style={fieldStyles.wrap}>
       <Text style={fieldStyles.label}>{label}</Text>
@@ -102,13 +114,16 @@ function LabeledTextarea({
   value,
   onChangeText,
   placeholder,
+  colorScheme,
 }: {
   label: string
   value: string
   onChangeText: (v: string) => void
   placeholder: string
+  colorScheme: 'light' | 'dark'
 }) {
-  const tk = getTokens('light')
+  const tk = getTokens(colorScheme)
+  const fieldStyles = useMemo(() => createFieldStyles(tk), [tk])
   return (
     <View style={fieldStyles.wrap}>
       <Text style={fieldStyles.label}>{label}</Text>
@@ -130,12 +145,17 @@ function CoverPicker({
   uri,
   onPick,
   onClear,
+  colorScheme,
 }: {
   label: string
   uri: string
   onPick: () => void
   onClear: () => void
+  colorScheme: 'light' | 'dark'
 }) {
+  const tk = getTokens(colorScheme)
+  const fieldStyles = useMemo(() => createFieldStyles(tk), [tk])
+  const coverStyles = useMemo(() => createCoverStyles(tk), [tk])
   if (uri) {
     return (
       <View style={fieldStyles.wrap}>
@@ -175,11 +195,16 @@ function VideoPicker({
   uri,
   onPick,
   onClear,
+  colorScheme,
 }: {
   uri: string
   onPick: () => void
   onClear: () => void
+  colorScheme: 'light' | 'dark'
 }) {
+  const tk = getTokens(colorScheme)
+  const fieldStyles = useMemo(() => createFieldStyles(tk), [tk])
+  const coverStyles = useMemo(() => createCoverStyles(tk), [tk])
   if (uri) {
     return (
       <View style={fieldStyles.wrap}>
@@ -231,6 +256,8 @@ function CategoryPicker({
   colorScheme: 'light' | 'dark'
 }) {
   const tk = getTokens(colorScheme)
+  const fieldStyles = useMemo(() => createFieldStyles(tk), [tk])
+  const chipStyles = useMemo(() => createChipStyles(tk), [tk])
   return (
     <View style={fieldStyles.wrap}>
       <Text style={fieldStyles.label}>{title}</Text>
@@ -259,6 +286,8 @@ function StagePicker({
   onSelect: (id: number) => void
   colorScheme: 'light' | 'dark'
 }) {
+  const tk = getTokens(colorScheme)
+  const fieldStyles = useMemo(() => createFieldStyles(tk), [tk])
   return (
     <View style={fieldStyles.wrap}>
       <Text style={fieldStyles.label}>课程阶段</Text>
@@ -276,24 +305,27 @@ function SubmitButton({
   label,
   onPress,
   loading,
+  colorScheme,
 }: {
   label: string
   onPress: () => void
   loading: boolean
+  colorScheme: 'light' | 'dark'
 }) {
-  const tk = getTokens('light')
+  const tk = getTokens(colorScheme)
+  const submitStyles = useMemo(() => createSubmitStyles(tk), [tk])
   return (
     <Pressable
-      style={({ pressed }) => [submitStyles.btn, pressed ? submitStyles.pressed : null]}
+      style={({ pressed }) => [submitStyles.submitBtn, pressed ? submitStyles.pressed : null]}
       onPress={onPress}
       disabled={loading}
       accessibilityRole="button"
       accessibilityLabel={label}
     >
       {loading ? (
-        <ActivityIndicator color={tk.surface.light} />
+        <ActivityIndicator color={tk.brand.foreground} />
       ) : (
-        <Text style={submitStyles.text}>{label}</Text>
+        <Text style={submitStyles.submitText}>{label}</Text>
       )}
     </Pressable>
   )
@@ -336,18 +368,26 @@ function GroupForm({
 }) {
   return (
     <ScrollView style={formStyles.scroll} contentContainerStyle={formStyles.content}>
-      <CoverPicker label="封面" uri={coverUri} onPick={onCoverPick} onClear={onCoverClear} />
+      <CoverPicker
+        label="封面"
+        uri={coverUri}
+        onPick={onCoverPick}
+        onClear={onCoverClear}
+        colorScheme={colorScheme}
+      />
       <LabeledInput
         label="合集标题"
         value={title}
         onChangeText={onTitleChange}
         placeholder="请输入合集标题"
+        colorScheme={colorScheme}
       />
       <LabeledTextarea
         label="合集描述"
         value={content}
         onChangeText={onContentChange}
         placeholder="请输入合集描述"
+        colorScheme={colorScheme}
       />
       <CategoryPicker
         title="选择合集赛道"
@@ -358,7 +398,12 @@ function GroupForm({
         colorScheme={colorScheme}
       />
       <StagePicker selected={stage} onSelect={onStageChange} colorScheme={colorScheme} />
-      <SubmitButton label="发布" onPress={onSubmit} loading={submitting} />
+      <SubmitButton
+        label="发布"
+        onPress={onSubmit}
+        loading={submitting}
+        colorScheme={colorScheme}
+      />
     </ScrollView>
   )
 }
@@ -370,6 +415,7 @@ function VideoForm({
   remark,
   coverUri,
   videoUri,
+  colorScheme,
   submitting,
   onTitleChange,
   onContentChange,
@@ -387,6 +433,7 @@ function VideoForm({
   remark: string
   coverUri: string
   videoUri: string
+  colorScheme: 'light' | 'dark'
   submitting: boolean
   onTitleChange: (v: string) => void
   onContentChange: (v: string) => void
@@ -400,33 +447,53 @@ function VideoForm({
 }) {
   return (
     <ScrollView style={formStyles.scroll} contentContainerStyle={formStyles.content}>
-      <CoverPicker label="封面" uri={coverUri} onPick={onCoverPick} onClear={onCoverClear} />
-      <VideoPicker uri={videoUri} onPick={onVideoPick} onClear={onVideoClear} />
+      <CoverPicker
+        label="封面"
+        uri={coverUri}
+        onPick={onCoverPick}
+        onClear={onCoverClear}
+        colorScheme={colorScheme}
+      />
+      <VideoPicker
+        uri={videoUri}
+        onPick={onVideoPick}
+        onClear={onVideoClear}
+        colorScheme={colorScheme}
+      />
       <LabeledInput
         label="课程标题"
         value={title}
         onChangeText={onTitleChange}
         placeholder="请输入课程标题"
+        colorScheme={colorScheme}
       />
       <LabeledTextarea
         label="课程描述"
         value={content}
         onChangeText={onContentChange}
         placeholder="请输入课程描述"
+        colorScheme={colorScheme}
       />
       <LabeledInput
         label="关联AI应用"
         value={agent}
         onChangeText={onAgentChange}
         placeholder="搜索智能体"
+        colorScheme={colorScheme}
       />
       <LabeledTextarea
         label="置顶评论"
         value={remark}
         onChangeText={onRemarkChange}
         placeholder="请输入置顶评论"
+        colorScheme={colorScheme}
       />
-      <SubmitButton label="发布" onPress={onSubmit} loading={submitting} />
+      <SubmitButton
+        label="发布"
+        onPress={onSubmit}
+        loading={submitting}
+        colorScheme={colorScheme}
+      />
     </ScrollView>
   )
 }
@@ -523,6 +590,7 @@ export function StudyPublishScreen({
           remark={videoRemark}
           coverUri={videoCoverUri}
           videoUri={videoUri}
+          colorScheme={colorScheme}
           submitting={submitting}
           onTitleChange={onVideoTitleChange}
           onContentChange={onVideoContentChange}
@@ -575,79 +643,90 @@ const formStyles = StyleSheet.create({
   content: { padding: 14, gap: 14, paddingBottom: 32 },
 })
 
-const fieldStyles = StyleSheet.create({
-  wrap: { gap: 6 },
-  label: { fontSize: 14, fontWeight: '500', color: getTokens('light').text.primary },
-  input: {
-    borderWidth: 1,
-    borderColor: getTokens('light').border.light,
-    borderRadius: rnRadius.xl,
-    height: 50,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    color: getTokens('light').text.primary,
-    backgroundColor: getTokens('light').surface.muted,
-  },
-  textarea: {
-    minHeight: 80,
-  },
-})
+// 以下四个 StyleSheet 均含主题色,不能模块级锁浅色:按当前 colorScheme 的 tokens 动态创建(组件内 useMemo)。
+function createFieldStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    wrap: { gap: 6 },
+    label: { fontSize: 14, fontWeight: '500', color: tk.text.primary },
+    input: {
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      borderRadius: rnRadius.xl,
+      height: 50,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 16,
+      color: tk.text.primary,
+      backgroundColor: tk.surface.muted,
+    },
+    textarea: {
+      minHeight: 80,
+    },
+  })
+}
 
-const coverStyles = StyleSheet.create({
-  box: {
-    height: 120,
-    borderRadius: rnRadius.xl,
-    borderWidth: 1,
-    borderColor: getTokens('light').border.light,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: getTokens('light').surface.light,
-  },
-  previewWrap: {
-    position: 'relative',
-    borderRadius: rnRadius.xl,
-    overflow: 'hidden',
-  },
-  preview: {
-    width: '100%',
-    height: 120,
-    borderRadius: rnRadius.xl,
-  },
-  clearBtn: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 24,
-    height: 24,
-    borderRadius: rnRadius.xl,
-    backgroundColor: baseTokens.overlay.modal,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  clearText: { fontSize: 18, color: getTokens('light').surface.light, lineHeight: 18 },
-  icon: { fontSize: 28, color: getTokens('light').text.tertiary },
-  hint: { fontSize: 14, color: getTokens('light').text.tertiary },
-  pressed: { opacity: 0.85 },
-})
+function createCoverStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    box: {
+      height: 120,
+      borderRadius: rnRadius.xl,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      borderStyle: 'dashed',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      backgroundColor: tk.surface.card,
+    },
+    previewWrap: {
+      position: 'relative',
+      borderRadius: rnRadius.xl,
+      overflow: 'hidden',
+    },
+    preview: {
+      width: '100%',
+      height: 120,
+      borderRadius: rnRadius.xl,
+    },
+    clearBtn: {
+      position: 'absolute',
+      top: 4,
+      right: 4,
+      width: 24,
+      height: 24,
+      borderRadius: rnRadius.xl,
+      backgroundColor: tk.overlay.modal,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    // 蒙层恒为深色半透明,其上的关闭符两主题都用白色(base=不随主题翻转的浅色档,同 SearchInput 先例)
+    clearText: { fontSize: 18, color: baseTokens.surface.light, lineHeight: 18 },
+    icon: { fontSize: 28, color: tk.text.tertiary },
+    hint: { fontSize: 14, color: tk.text.tertiary },
+    pressed: { opacity: 0.85 },
+  })
+}
 
-const chipStyles = StyleSheet.create({
-  loading: { paddingVertical: 8 },
-  empty: { fontSize: 14, color: getTokens('light').text.tertiary, paddingVertical: 4 },
-})
+function createChipStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    loading: { paddingVertical: 8 },
+    empty: { fontSize: 14, color: tk.text.tertiary, paddingVertical: 4 },
+  })
+}
 
-const submitStyles = StyleSheet.create({
-  btn: {
-    height: 50,
-    borderRadius: rnRadius['2xl'],
-    backgroundColor: getTokens('light').brand.DEFAULT,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-  text: { fontSize: 16, fontWeight: '600', color: getTokens('light').surface.light },
-  pressed: { opacity: 0.85 },
-})
+function createSubmitStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    submitBtn: {
+      height: 50,
+      borderRadius: rnRadius['2xl'],
+      backgroundColor: tk.brand.DEFAULT,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 8,
+    },
+    // 品牌实底之上的前景必须用配对档 brand.foreground(深色下 brand.DEFAULT 翻白,surface.light 会变成深灰)
+    submitText: { fontSize: 16, fontWeight: '600', color: tk.brand.foreground },
+    pressed: { opacity: 0.85 },
+  })
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
