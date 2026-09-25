@@ -301,4 +301,34 @@ test('非 git 环境 --all 模式: git ls-files 失败 → 显式告警并回退
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+// ============================================================
+// 检查 N:收窄判据"有牙"—— 字符类不算端口,但真端口照旧要报
+// ============================================================
+
+test('正则字符类 localhost:880[23] 不得被报成端口 880(实测假阳),且必须报数', () => {
+  const dir = createTempGitRepo()
+  try {
+    // 这就是本仓另一道门里的真实形态:判据模式串里写了 8802/8803 两种结尾
+    stageFile(dir, 'scripts/other-gate.mjs', "const RE = /localhost:880[23]|127\\.0\\.0\\.1:880[23]/\n")
+    const r = runScript(dir, ['--all'])
+    assert.doesNotMatch(r.stdout, /非 88xx 端口 880/, `字符类被当成端口 ⇒ 假阳复发\nstdout: ${r.stdout}`)
+    assert.match(r.stdout, /正则字符类引用 1 处已跳过/, `跳过了却不报数 = 静默丢判据面\nstdout: ${r.stdout}`)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('反向对照:真端口 localhost:8877 仍必须被报出来(证明上一条的绿不是判据失明)', () => {
+  const dir = createTempGitRepo()
+  try {
+    stageFile(dir, 'apps/web/e2e/x.spec.ts', `const base = 'http://localhost:8877/foo'\n`)
+    const r = runScript(dir, ['--all'])
+    assertWarn(r)
+    assert.match(r.stdout, /8877/, `真端口被一起吞掉了\nstdout: ${r.stdout}`)
+    assert.doesNotMatch(r.stdout, /已跳过/, `本夹具里没有字符类,不该出现跳过计数\nstdout: ${r.stdout}`)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
