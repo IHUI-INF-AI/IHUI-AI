@@ -131,7 +131,7 @@ export default function Settings() {
               <Text className="flex-1 text-[length:32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.changePhone', '更换手机号')}
               </Text>
-              <Text className="mx-[16rpx] max-w-[320rpx] overflow-hidden text-ellipsis whitespace-nowrap text-[length:28rpx] text-muted-foreground">
+              <Text className="mx-[16rpx] max-w-[320rpx] overflow-hidden ihui-ellipsis whitespace-nowrap text-[length:28rpx] text-muted-foreground">
                 {maskedPhone}
               </Text>
               <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
@@ -337,7 +337,7 @@ export default function Settings() {
               <Text className="flex-1 text-[length:32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.version', '当前版本号')}
               </Text>
-              <Text className="mx-[16rpx] max-w-[320rpx] overflow-hidden text-ellipsis whitespace-nowrap text-[length:24rpx] text-[var(--color-text-tertiary)]">
+              <Text className="mx-[16rpx] max-w-[320rpx] overflow-hidden ihui-ellipsis whitespace-nowrap text-[length:24rpx] text-[var(--color-text-tertiary)]">
                 {VERSION}
               </Text>
             </View>

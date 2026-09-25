@@ -6,7 +6,7 @@
 
 # 守门规则详解(Gatekeepers)
 
-> IHUI-AI pre-commit / commit-msg / post-commit / pre-push 四阶段守门体系全解:各守门脚本的工作原理、失败排查与跳过策略。**门数与编号一律现读** —— `node scripts/guardian-runner.mjs --help` 的末行即权威现值(本文档刻意不钉数字:2026-09-21 那版写的是 29 项,2026-09-25 实测 runner 已 155 项,钉住必然腐烂,与本仓 §4 圆角门、§26 门编号漂移同型)。守门脚本速查表见 [AGENTS.md 守门脚本速查](../AGENTS.md),本文档聚焦每个脚本的检测逻辑与实操,不重复速查表。
+> IHUI-AI pre-commit / commit-msg / post-commit / pre-push 四阶段守门体系全解:各守门脚本的工作原理、失败排查与跳过策略。**门数与编号一律现读** —— `node scripts/guardian-runner.mjs --help` 的末行即权威现值(本文档刻意不钉数字 —— 连"今天有多少项"都不写:2026-09-21 那版写 29 项,当天晚些时候现读已是别的数,任何读数落地即开始腐烂,与本仓 §4 圆角门、§26 门编号漂移同型)。守门脚本速查表见 [AGENTS.md 守门脚本速查](../AGENTS.md),本文档聚焦每个脚本的检测逻辑与实操,不重复速查表。
 
 ---
 
