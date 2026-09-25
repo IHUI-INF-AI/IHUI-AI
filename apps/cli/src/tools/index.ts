@@ -22,6 +22,7 @@
 import { redactSecrets } from '../redact.js';
 import { checkFolderTrust, type FolderTrustMap } from '../sandbox/index.js';
 import { checkPermission, type PermissionRules } from './permissions.js';
+import { shadowValidateToolArguments } from './argument-validation-telemetry.js';
 import { BROWSER_TOOLS } from './browser.js';
 import { BROWSER_PAGE_TOOLS } from './browser-page.js';
 import {
@@ -303,6 +304,11 @@ export async function executeToolCall(
   if (!tool) {
     return { success: false, output: '', error: `未知工具: ${call.name}`, errorType: 'not_found' };
   }
+  // A31 第①步「影子校验」(默认 off ⇒ 这一行等价于不存在):跑校验、只进遥测计数器,
+  // 不改 call.arguments、不改返回值、不拦调用。刻意放在**批准弹窗之前** —— 弹窗与
+  // "批准 = 执行"的同一引用传递链路(上一票实测出的语义)在此完全不受影响。
+  // 已知覆盖面缺口:hubEnabled 分支在 getTool 之前就 return 了,那里拿不到 Tool 对象,本票不扩面。
+  shadowValidateToolArguments(tool, call.arguments);
   // P0-7 Permission rules:白名单/黑名单拦截(在 rate limit 之前,避免被限流工具仍消耗配额)
   if (ctx.permissions) {
     const perm = checkPermission(call.name, ctx.permissions);
