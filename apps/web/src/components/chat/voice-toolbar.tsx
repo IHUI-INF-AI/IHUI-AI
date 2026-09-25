@@ -33,6 +33,62 @@ import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { VoiceInput, type VoiceInputHandle } from './voice-input'
 import { readHandsFree, VOICE_HANDSFREE_KEY } from './voice-stream-speaker'
+// D62(G-76,2026-09-25 装车):字幕条渲染位的真实宿主。此前 VoiceSubtitleBar 只有
+// 自身测试消费、生产零渲染 ⇒ "播报时字幕可见 / 静音并显示字幕" 语义为空。
+// 本组件把两个既有栈的状态映射进纯展示组件:
+//   · summaryRecording ← VoiceInputHandle.recording(下方 RAF 轮询已有链路);
+//   · micError        ← VoiceInputHandle.micError(voice-input 内 classifyMicError 归一);
+//   · speaking/muted  ← useVoicePlayback() 对播报音频的只读观测(不改 VoiceStreamSpeaker);
+//   · subtitle        ← chat store 最后一条 assistant 内容(与 Speaker 同一取数形状)。
+import { VoiceSubtitleBar } from '@/components/ai/voice-subtitle-bar'
+import { useChatStore } from '@/stores/chat'
+import type { MicErrorKind, SummaryView } from '@ihui/shared/chat/voice-subtitles'
+
+/**
+ * 播报(TTS)播放态的宿主侧只读观测。
+ *
+ * 不新建第二套播放栈、也不改 voice-stream-speaker.tsx(本票文件清单外):
+ * HTMLMediaElement 的 play/playing/pause/ended/error 虽不冒泡,但**捕获阶段必经
+ * window**,故在 window 上以 capture=true 监听即可拿到"当前有音频在播"的真值;
+ * muted 取在播元素全体 muted(=「静音并显示字幕」态的实机来源)。
+ */
+function useVoicePlayback(): { speaking: boolean; muted: boolean } {
+  const [state, setState] = React.useState<{ speaking: boolean; muted: boolean }>({
+    speaking: false,
+    muted: false,
+  })
+  React.useEffect(() => {
+    const live = new Set<HTMLAudioElement>()
+    const sync = () => {
+      setState((prev) => {
+        const speaking = live.size > 0
+        const muted = speaking && Array.from(live).every((el) => el.muted)
+        return prev.speaking === speaking && prev.muted === muted ? prev : { speaking, muted }
+      })
+    }
+    const onStart = (e: Event) => {
+      if (e.target instanceof HTMLAudioElement) {
+        live.add(e.target)
+        sync()
+      }
+    }
+    const onStop = (e: Event) => {
+      if (e.target instanceof HTMLAudioElement) {
+        live.delete(e.target)
+        sync()
+      }
+    }
+    const startEvents = ['play', 'playing'] as const
+    const stopEvents = ['pause', 'ended', 'emptied', 'error'] as const
+    for (const ev of startEvents) window.addEventListener(ev, onStart, true)
+    for (const ev of stopEvents) window.addEventListener(ev, onStop, true)
+    return () => {
+      for (const ev of startEvents) window.removeEventListener(ev, onStart, true)
+      for (const ev of stopEvents) window.removeEventListener(ev, onStop, true)
+    }
+  }, [])
+  return state
+}
 
 const VOICE_PLAYBACK_KEY = 'ihui_voice_playback'
 const VOICE_PLAYBACK_EVENT = 'ihui-voice-playback-changed'
@@ -87,20 +143,39 @@ export function VoiceToolbar({ onTranscript, disabled }: VoiceToolbarProps) {
   const t = useTranslations('chat')
   const voiceRef = React.useRef<VoiceInputHandle | null>(null)
   const [recording, setRecording] = React.useState(false)
+  const [micError, setMicError] = React.useState<MicErrorKind | null>(null)
   const [playback, setPlayback] = React.useState(false)
   const [handsFree, setHandsFree] = React.useState(false)
   const [menuOpen, setMenuOpen] = React.useState(false)
+  const [summaryView, setSummaryView] = React.useState<SummaryView>('discussionSummary')
+
+  // D62:播报态(字幕可见性来源)与字幕正文(与 VoiceStreamSpeaker 同一取数形状)
+  const { speaking, muted } = useVoicePlayback()
+  const subtitleText = useChatStore((s) => {
+    const msgs = s.messages
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      const msg = msgs[i]
+      if (msg && msg.role === 'assistant') return msg.content ?? ''
+    }
+    return ''
+  })
 
   // 拉取 VoiceInput 内部 recording 状态:handleRef 镜像最新值,
   // 这里用 RAF 轮询同步到本地 state,避免在 render 中读 ref(React 18 strict mode 会告警)
   React.useEffect(() => {
     let raf = 0
     let last = false
+    let lastMicError: MicErrorKind | null = null
     const tick = () => {
       const handle = voiceRef.current
       if (handle && handle.recording !== last) {
         last = handle.recording
         setRecording(last)
+      }
+      // D62:classifyMicError 归一后的四类错误同样经 handle 轮询上桥到字幕条
+      if (handle && handle.micError !== lastMicError) {
+        lastMicError = handle.micError
+        setMicError(lastMicError)
       }
       raf = requestAnimationFrame(tick)
     }
@@ -320,6 +395,17 @@ export function VoiceToolbar({ onTranscript, disabled }: VoiceToolbarProps) {
       </DropdownMenu.Portal>
       {/* 内部 VoiceInput:hidden 只跑识别逻辑,不渲染按钮;通过 ref 桥接 recording/pending/toggle */}
       <VoiceInput ref={voiceRef} onTranscript={onTranscript} disabled={disabled} hidden />
+      {/* D62 装车点:字幕条在生产渲染树内 —— 播报中可见(静音仍可见)、四类麦克风
+          错误逐类呈现、录音纪要 × 播报双激活时呈现互斥提示(判定全在共享层)。 */}
+      <VoiceSubtitleBar
+        speaking={speaking}
+        muted={muted}
+        subtitle={subtitleText || undefined}
+        micError={micError}
+        summaryRecording={recording}
+        view={summaryView}
+        onViewChange={setSummaryView}
+      />
     </DropdownMenu.Root>
   )
 }
