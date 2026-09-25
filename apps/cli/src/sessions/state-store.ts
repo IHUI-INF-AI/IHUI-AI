@@ -20,6 +20,12 @@ import type { SessionState, SessionSummary } from './types.js';
 
 const STATE_DIR_ENV = 'IHUI_SESSION_STATE_DIR';
 const DEFAULT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+/** 写前裁剪的最小间隔:长会话高频 saveSession 不至于每写都全目录扫描删除 */
+const PRUNE_MIN_INTERVAL_MS = 60 * 1000;
+/** 显式关闭保留裁剪的环境开关(测试隔离/人工排障用;默认不禁用) */
+const PRUNE_DISABLED_ENV = 'IHUI_SESSION_PRUNE_DISABLED';
+/** 下一次允许裁剪的时间点(模块级节流,同进程内生效) */
+let nextPruneAtMs = 0;
 
 export function getSessionStateDir(): string {
   if (process.env[STATE_DIR_ENV]) return process.env[STATE_DIR_ENV]!;
@@ -38,7 +44,31 @@ export function newSessionId(): string {
   return randomUUID();
 }
 
+/**
+ * 写前保留裁剪(2026-09-26 接线)。
+ *
+ * 在修什么:`DEFAULT_MAX_AGE_MS`(7 天保留策略)与 `pruneOldSessions()` 此前是全仓
+ * 零非测试调用方的"已声明、从未执行"策略(实测,见第八批 8F 取证 A8F-6)。
+ * 修法取 (a) 挂真实生命周期点:saveSession 是本模块唯一的写入口(REPL/acp/server
+ * 三条路径最终都经它),在其前触发一次按节流的裁剪 ⇒ 策略随每次存档被动执行,
+ * 不需要新增常驻定时器(那会成为下一个"可能没人跑的 timer"型缺陷)。
+ * 清理失败不得把一次成功的保存变成失败:保留策略是尽力而为的后台动作,
+ * 方向恒为"宁可不删,绝不错删/绝不误伤存储"。
+ */
+function pruneOnWrite(): void {
+  if (process.env[PRUNE_DISABLED_ENV] === '1') return;
+  const now = Date.now();
+  if (now < nextPruneAtMs) return;
+  nextPruneAtMs = now + PRUNE_MIN_INTERVAL_MS;
+  try {
+    pruneOldSessions();
+  } catch {
+    // 见上:裁剪异常不冒泡进保存路径(只放弃本轮裁剪)
+  }
+}
+
 export function saveSession(state: SessionState): void {
+  pruneOnWrite();
   ensureStateDir();
   const p = getSessionStatePath(state.id);
   fs.writeFileSync(p, JSON.stringify(state, null, 2), 'utf-8');
