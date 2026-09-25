@@ -109,15 +109,48 @@ test('T7 自检必须全绿(成对正反例是判据的唯一证人)', () => {
   assert.doesNotMatch(r.out, /❌/, '自检里出现 ❌ 就说明某条判据已经和实现脱节')
 })
 
-test('T8 判据真有牙:同一份代码在 managed:true 下判红、managed:false 下只报数', () => {
+test('T8 判据真有牙:同一份代码只在 managed 取向上不同 ⇒ 一侧判红、一侧只报数', () => {
   const code = new Map([['packages/i18n/tests/a.test.ts', "import { waiting } from '../../shared/src/chat/waiting-pool'\nexport const a = waiting"]])
-  const trialAll = gate.loadPolicy(gate.parseYaml(policyText().replace(/^    managed: false$/gm, '    managed: true'), 'trial'))
+  const flip = (re) => gate.loadPolicy(gate.parseYaml(policyText().replace(re[0], re[1]), 'trial'))
+  const trialAll = flip([/^    managed: false$/gm, '    managed: true'])
   const on = gate.analyze(trialAll, code)
   assert.ok(on.violations.length >= 1, '把 i18n 的穿透导入喂给判据却一条都没报 ⇒ 判据没接上')
   assert.ok(on.red.length >= 1, 'managed:true 的模块违规必须进判红清单')
-  const off = gate.analyze(gate.loadPolicy(gate.parseYaml(policyText(), 'off')), code)
-  assert.equal(off.red.length, 0, '同一份代码在 managed:false 下必须只报数不判红(渐进收口的定义)')
+  /**
+   * off 侧必须**自己构造**"该块为 false",不得拿真表现状当默认前提。
+   * 上一版写的就是 `loadPolicy(parseYaml(policyText()))` 并注释成"managed:false",
+   * 于是它把"packages/i18n 此刻还没收口"这个**瞬时仓库状态**当成了判据前提 ——
+   * 2026-09-25 该块翻成 managed:true 的同一轮,本条立刻红(2 !== 0)。
+   * 这是 T12 那条教训(判据的生命周期不得短于它所守的提交)在同一文件里的第二次复现,
+   * 说明要修的是**写法习惯**:证明"只有 X 不同时结论不同",就得自己造出 X=false 那一侧。
+   */
+  const HOLD = 'packages/i18n'
+  const onlyI18nOff = gate.loadPolicy(
+    gate.parseYaml(
+      policyText().replace(/(- id: 'packages\/i18n'(?:.|\n)*?\n    managed: )true/, '$1false'),
+      'off-constructed',
+    ),
+  )
+  assert.ok(
+    [...onlyI18nOff.modules.values()].find((m) => m.id === HOLD) &&
+      onlyI18nOff.modules.get(HOLD).managed === false,
+    `构造失败:${HOLD} 没被置成 false ⇒ 下面的断言会退化成"测真表现状"`,
+  )
+  const off = gate.analyze(onlyI18nOff, code)
+  assert.equal(off.red.length, 0, `同一份代码在 ${HOLD} 刻意置 managed:false 下必须只报数不判红(渐进收口的定义)`)
   assert.ok(off.violations.length >= 1, '只报数不等于不报:存量必须可见')
+  // 成对自证一:真表与"全翻正"表的差,必须恰好等于真表里 managed:false 的那些块(即"按住的块"清单)
+  const realP = gate.loadPolicy(gate.parseYaml(policyText(), 'real'))
+  const heldOut = [...realP.modules.values()].filter((m) => !m.managed).map((m) => m.id).sort()
+  const diff = [...trialAll.modules.values()].filter((m) => m.managed !== realP.modules.get(m.id).managed).map((m) => m.id).sort()
+  assert.deepEqual(diff, heldOut, `全翻正表与真表的 managed 差应恰为"真表按住的块",实得 diff=${diff.join(',') || '(无)'} held=${heldOut.join(',') || '(无)'}`)
+  // 成对自证二:构造面(off)与真表必须**恰好差 HOLD 一处**,否则"只差一个变量"的前提就没了
+  const diffOff = [...onlyI18nOff.modules.values()].filter((m) => m.managed !== realP.modules.get(m.id).managed)
+  assert.deepEqual(
+    diffOff.map((m) => m.id),
+    [HOLD],
+    `构造面与真表必须恰好差 ${HOLD} 一处,实得 ${diffOff.map((m) => m.id).join(',') || '(无差 ⇒ 构造没生效,off 侧会退化成测真表现状)'}`,
+  )
 })
 
 test('T11 渐进收口不得退回 0:真表里 managed:true ≥ 1(钉不变量,不钉具体条目)', () => {
