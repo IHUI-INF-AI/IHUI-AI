@@ -294,7 +294,7 @@ test('TS 面同样能抓到单面加值(三面判据同形,不是只偏袒某一
 // 那份 3 值手抄联合让 `pnpm --filter @ihui/web typecheck` 在 main 上红了(TS2322,
 // 载入 channel=webhook 的既有 hook 即触发)。修法是引用契约本体;这道锁防的是
 // 有人"顺手"再写回一份手抄联合 —— 类型漂移的病根是第二份真相,不是差一个值。
-// (下拉要不要暴露 webhook 选项不归本面管:那是 WEB_PENDING 欠条的格。)
+// (本面 2026-09-25 已收口:下拉/表单/回填/builder 均承认 webhook 档,见第五十三波。)
 test('web store 草稿类型必须引用契约本体,不得手抄联合(第五面)', () => {
   const store = readFileSync(join(REPO_ROOT, 'apps', 'web', 'src', 'stores', 'hooks.ts'), 'utf8')
   assert.match(
@@ -305,6 +305,30 @@ test('web store 草稿类型必须引用契约本体,不得手抄联合(第五�
   assert.ok(
     !/notifyChannel:\s*'[^']*'\s*\|/.test(store),
     'stores/hooks.ts 不得再出现手抄的 channel 联合类型',
+  )
+})
+
+// 第六面(2026-09-25,第五十三波续):欠条还清后,web 表单必须给 notify(webhook) 一个
+// 可用的 URL 入口 —— 否则"下拉承认 4 档"只是把用户送进一条运行时必失败的配置。
+// 两侧各钉一条:表单按 channel 条件渲染 URL 字段;builder 在 webhook 渠道时把
+// url/method/headers 写进 config(执行侧 _run_notify 的 webhook 分支读的就是这几个键)。
+test('notify(webhook) 的表单与 builder 双侧接线(第六面)', () => {
+  const ui = readFileSync(WEB_FILE, 'utf8')
+  assert.ok(
+    /notifyChannel === 'webhook'[\s\S]{0,2000}Field label="URL"/.test(ui),
+    'hooks-manager 的 notify 分支在 webhook 渠道下未渲染 URL 字段(欠条主出口要求补上,不是只加选项)',
+  )
+  const store = readFileSync(join(REPO_ROOT, 'apps', 'web', 'src', 'stores', 'hooks.ts'), 'utf8')
+  const m = store.match(/if \(type === 'notify'\) \{[\s\S]*?\n  \}/)
+  assert.ok(m, 'store 的 notify builder 分支解析不到')
+  const branch = m[0]
+  assert.ok(
+    /draft\.notifyChannel === 'webhook'/.test(branch),
+    'builder 未按 notifyChannel 分流 webhook 渠道',
+  )
+  assert.ok(
+    /url:\s*draft\.webhookUrl/.test(branch) && /method:\s*draft\.webhookMethod/.test(branch),
+    "builder 未把 url/method 写进 config —— 执行侧 _run_notify 的 webhook 分支从 config.get('url') 取值,缺了就是静默失败",
   )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
