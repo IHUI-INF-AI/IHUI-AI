@@ -8,7 +8,11 @@
 import { createHmac, createHash } from 'node:crypto'
 import type { FastifyRequest, FastifyReply, FastifyPluginAsync } from 'fastify'
 import { error } from '../../utils/response.js'
-import { isProxiedUrl, proxiedFetch } from '../../utils/proxy-dispatcher.js'
+import {
+  attachEgressFacts,
+  collectEgressFacts,
+  proxiedFetch,
+} from '../../utils/proxy-dispatcher.js'
 import { z } from 'zod'
 import { generateTrackingId } from '../../utils/crypto-random.js'
 
@@ -291,6 +295,18 @@ export const jimengBody = z.object({
 
 export { checkAuth as requireAuth } from '../../plugins/auth.js'
 
+/**
+ * 厂商出站的**唯一包装函数**(2026-09-26 起兼作"出口事实"的挂载点)。
+ *
+ * 返回签名刻意仍是裸 `Promise<Response>`(20+ 个调用方一字未动),但响应对象上多挂了一个
+ * **不可枚举**的 `egress` 字段 —— 用 `readEgressFacts(res)` 取。为什么挂在响应上而不是打日志:
+ * AGENTS §5b 那三条"网络时通时不通 / 钩子不继承 env / 服务身份 safe.directory 不相通"的排查,
+ * 最后都只能靠人肉 `env | grep proxy` 现读,因为**没有任何一次调用把"我这趟实际用了哪份配置"
+ * 作为返回值带回来**。类型形状见 `@ihui/types` 的 `egress-facts.ts`(全仓唯一形状,不得端内再造)。
+ *
+ * 行为不变量:本函数不新增失败模式、不改错误分支 —— 两个 return 分支的**路由判定与改造前逐字等值**
+ * (`isProxiedUrl` 现在是 `collectEgressFacts().proxied` 的投影),挂载只是 defineProperty。
+ */
 export async function fetchWithTimeout(
   url: string,
   options: RequestInit = {},
@@ -298,9 +314,11 @@ export async function fetchWithTimeout(
 ): Promise<Response> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
+  // 一趟只算一次事实,决策与事实同源
+  const egress = collectEgressFacts(url)
   try {
     // 命中代理白名单的被墙域名(OpenAI/Gemini/Groq 等)走 HTTP 代理,其余直连
-    if (isProxiedUrl(url)) {
+    if (egress.proxied) {
       const headersRec: Record<string, string> = {}
       if (options.headers) Object.assign(headersRec, options.headers as Record<string, string>)
       const bodyStr =
@@ -309,14 +327,16 @@ export async function fetchWithTimeout(
           : typeof options.body === 'string'
             ? options.body
             : String(options.body)
-      return await proxiedFetch(url, {
+      const proxied = await proxiedFetch(url, {
         method: options.method,
         headers: headersRec,
         body: bodyStr,
         signal: controller.signal,
       })
+      return attachEgressFacts(proxied, egress)
     }
-    return await fetch(url, { ...options, signal: controller.signal })
+    const direct = await fetch(url, { ...options, signal: controller.signal })
+    return attachEgressFacts(direct, egress)
   } finally {
     clearTimeout(timer)
   }
