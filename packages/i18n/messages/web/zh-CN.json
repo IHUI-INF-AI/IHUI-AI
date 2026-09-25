@@ -15351,18 +15351,13 @@
     "topBar": {
       "agent": "智能体",
       "browser": "内置浏览器",
-      "capabilityMarket": "能力市场",
       "close": "关闭",
       "codeChanges": "代码变更",
-      "connectors": "中文连接器",
       "document": "文档",
       "editor": "编辑器",
       "mcp": "MCP",
-      "mcpStore": "MCP 商店",
       "plus": "添加视图",
       "settings": "设置",
-      "skill": "技能",
-      "skillsMarket": "Skill 市场",
       "terminal": "终端"
     },
     "viewSwitcher": {
