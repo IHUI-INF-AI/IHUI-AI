@@ -320,7 +320,7 @@ export default function VipBenefitsPopup({
       <View className="fixed inset-0 z-[2000] flex items-end" onClick={onClose}>
         <View className="absolute inset-0 bg-[var(--color-black-50)]" />
         <View
-          className="relative bg-card rounded-t-2xl w-full"
+          className="relative vip-surface rounded-t-2xl w-full"
           onClick={(e) => e.stopPropagation()}
           hoverClass="opacity-60"
         >
@@ -328,7 +328,7 @@ export default function VipBenefitsPopup({
             <Text className="text-base font-medium text-warning">
               {tt('vip.benefitsTitle', '会员权益')}
             </Text>
-            <Text className="text-sm text-muted-foreground" onClick={onClose}>
+            <Text className="text-sm vip-text-muted" onClick={onClose}>
               {tt('common.close', '关闭')}
             </Text>
           </View>
@@ -340,9 +340,9 @@ export default function VipBenefitsPopup({
                     <Image src={pigeonaImg} mode="aspectFit" className="w-4 h-4" />
                   </View>
                   <View className="flex-1">
-                    <Text className="block text-sm font-medium text-foreground">{b.title}</Text>
+                    <Text className="block text-sm font-medium vip-text">{b.title}</Text>
                     {b.desc && (
-                      <Text className="block text-xs text-muted-foreground mt-0.5">{b.desc}</Text>
+                      <Text className="block text-xs vip-text-muted mt-0.5">{b.desc}</Text>
                     )}
                   </View>
                 </View>
