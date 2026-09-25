@@ -16,6 +16,7 @@ import {
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AiGroupItem, AiGroupScreenProps, AiGroupTab } from '../../types'
+import { BackChevron } from '../../components/BackChevron'
 
 import { rnRadius } from '@ihui/design-tokens'
 
@@ -71,9 +72,7 @@ export function AiGroupScreen({
     return (
       <View style={styles.container}>
         <View style={styles.detailHead}>
-          <TouchableOpacity onPress={onBackToList} hitSlop={8}>
-            <Text style={styles.backText}>{t('aiGroup.back')}</Text>
-          </TouchableOpacity>
+          <BackChevron onPress={onBackToList} label={t('common.back')} colorScheme={colorScheme} />
           <Text style={styles.detailTitle} numberOfLines={1}>
             {selectedItem.name}
           </Text>
@@ -329,10 +328,10 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       paddingHorizontal: 10,
       paddingVertical: 12,
+      gap: 12,
       borderBottomColor: tk.border.light,
       borderBottomWidth: 1,
     },
-    backText: { fontSize: 16, color: tk.text.primary, marginRight: 12 },
     detailTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: tk.text.primary },
     detailBody: { flex: 1 },
     detailDesc: { fontSize: 14, color: tk.gray[600], lineHeight: 20 },
