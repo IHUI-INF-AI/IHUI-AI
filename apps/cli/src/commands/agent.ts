@@ -1000,6 +1000,9 @@ export async function decideCompaction(
   },
 ): Promise<CompressionResult> {
   const v2Config = settings.compactionV2;
+  // P2:走到最后的 V1 兜底有两种语义 —— "V2 没开"与"V2 抛了",闭集 reason 必须分清,
+  // 否则消费面读到 disabled 会以为没人尝试过摘要。
+  let v2AttemptFailed = false;
   if (v2Config?.enabled === true) {
     try {
       const sessionId = opts.sessionId ?? 'cli-default';
@@ -1051,14 +1054,16 @@ export async function decideCompaction(
       }
       return result;
     } catch (err) {
+      v2AttemptFailed = true;
       console.warn(chalk.yellow(`  ⚠️ compaction-v2 failed, fallback to v1: ${err instanceof Error ? err.message : String(err)}`));
     }
   }
-  return compressContextIfNeeded(messages, {
+  const v1Result = compressContextIfNeeded(messages, {
     contextLimit: opts.contextLimit,
     // /compact 手动压缩:伪造阈值 0.87 使 ceil(t/0.87)*0.87 的 floor 恰为 t,必然触发
     ...(opts.triggerRatioOverride !== null && opts.triggerRatioOverride !== undefined ? { triggerRatio: opts.triggerRatioOverride } : {}),
   });
+  return { ...v1Result, reason: v2AttemptFailed ? 'sampler-failed' : 'disabled' };
 }
 
 /** 从压缩结果中提取摘要消息正文(去掉 '[上下文摘要 — 之前 N 条已压缩]' 标记行),供缓存回写 */
