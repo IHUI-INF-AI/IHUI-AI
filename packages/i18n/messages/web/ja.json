@@ -8651,7 +8651,12 @@
       "targetPlaceholder": "例:名門高校、985大学"
     },
     "options": {
-      "classLevel": ["優秀(クラス上位 10%)", "良好(10-30%)", "普通(30-70%)", "やや劣る(下位 30%)"],
+      "classLevel": [
+        "優秀(クラス上位 10%)",
+        "良好(10-30%)",
+        "普通(30-70%)",
+        "やや劣る(下位 30%)"
+      ],
       "difficulty": [
         "国語読解",
         "英語ヒアリング・スピーキング",
@@ -8668,7 +8673,12 @@
         "試験不安",
         "家庭環境の影響"
       ],
-      "school": ["重点中学校", "普通中学校", "インターナショナルスクール", "私立学校"]
+      "school": [
+        "重点中学校",
+        "普通中学校",
+        "インターナショナルスクール",
+        "私立学校"
+      ]
     },
     "result": {
       "failed": "AI 分析に失敗しました",
@@ -8848,13 +8858,27 @@
       "unarchived": "アーカイブ解除済み",
       "pinned": "ピン留めしました",
       "unpinned": "ピン留めを解除しました",
-      "pinFailed": "ピン留め操作に失敗しました"
+      "pinFailed": "ピン留め操作に失敗しました",
+      "orgSaved": {
+        "orgSaved": "会話の整理を保存しました"
+      }
     },
     "today": "今日",
     "openWorkPanel": "ワークパネルを開く",
     "closeWorkPanel": "ワークパネルを閉じる",
     "toggleWorkPanel": "ワークパネルを切り替える",
-    "user": "ユーザー"
+    "user": "ユーザー",
+    "org": {
+      "title": "整理會話",
+      "folderLabel": "資料夾",
+      "folderPlaceholder": "輸入或選擇資料夾",
+      "tagsLabel": "標籤",
+      "tagPlaceholder": "新增標籤後按 Enter",
+      "removeTagAria": "移除標籤 {tag}",
+      "filterLabel": "依資料夾篩選",
+      "filterAll": "全部",
+      "folderNone": "未分類"
+    }
   },
   "aiCost": {
     "budgetAlerts": "予算アラート",
@@ -10488,7 +10512,8 @@
       "roleUser": "ユーザー",
       "roleAssistant": "アシスタント",
       "exportCard": "画像カードを共有",
-      "shareCardUser": "ユーザー"
+      "shareCardUser": "ユーザー",
+      "exportPdf": "匯出 PDF"
     },
     "fallbackNotice": "バックアップモデル {backup} に切り替えました(元モデル {primary} は一時的に利用不可)",
     "fallbackNoticeQuota": "今回の回答は {backup} が生成しました（{primary} を提供する事業者のアカウント利用枠が上限に達したため、同一系列の利用可能なモデルに自動で切り替えました）。",
@@ -11444,126 +11469,232 @@
       "steerPrompt": {
         "label": "プロンプトをステア",
         "description": "実行中の回答に現在の入力をガイドとして注入します",
-        "keywords": ["ステア", "ガイド", "steer"]
+        "keywords": [
+          "ステア",
+          "ガイド",
+          "steer"
+        ]
       },
       "queuePrompt": {
         "label": "プロンプトをキューに追加",
         "description": "実行中の回答の終了後、現在の入力を自動送信するためにキューに追加します",
-        "keywords": ["キュー", "待機", "queue"]
+        "keywords": [
+          "キュー",
+          "待機",
+          "queue"
+        ]
       },
       "agent": {
         "description": "AI エージェントの管理とディスパッチ",
-        "keywords": ["エージェント", "agent", "bot"],
+        "keywords": [
+          "エージェント",
+          "agent",
+          "bot"
+        ],
         "label": "AI エージェント"
       },
       "browser": {
         "description": "ワークスペース内でウェブを閲覧",
-        "keywords": ["ブラウザ", "ウェブ", "browser"],
+        "keywords": [
+          "ブラウザ",
+          "ウェブ",
+          "browser"
+        ],
         "label": "組み込みブラウザ"
       },
       "capabilityMarket": {
         "description": "ケイパビリティパックの発見とインストール",
-        "keywords": ["ケイパビリティ", "マーケット", "market", "プラグイン"],
+        "keywords": [
+          "ケイパビリティ",
+          "マーケット",
+          "market",
+          "プラグイン"
+        ],
         "label": "ケイパビリティマーケット"
       },
       "codeChanges": {
         "description": "ワークスペースのコード変更を確認",
-        "keywords": ["コード", "変更", "diff", "修正"],
+        "keywords": [
+          "コード",
+          "変更",
+          "diff",
+          "修正"
+        ],
         "label": "コード変更"
       },
       "connectors": {
         "description": "外部サービス接続を管理",
-        "keywords": ["コネクタ", "接続", "connector"],
+        "keywords": [
+          "コネクタ",
+          "接続",
+          "connector"
+        ],
         "label": "コネクタ"
       },
       "document": {
         "description": "ワークスペースのドキュメントを編集",
-        "keywords": ["ドキュメント", "編集", "doc"],
+        "keywords": [
+          "ドキュメント",
+          "編集",
+          "doc"
+        ],
         "label": "ドキュメント"
       },
       "editor": {
         "description": "コードエディタを開く",
-        "keywords": ["エディタ", "コード", "editor"],
+        "keywords": [
+          "エディタ",
+          "コード",
+          "editor"
+        ],
         "label": "エディタ"
       },
       "mcp": {
         "description": "MCP サーバーとツールを管理",
-        "keywords": ["MCP", "サーバー", "ツール"],
+        "keywords": [
+          "MCP",
+          "サーバー",
+          "ツール"
+        ],
         "label": "MCP 管理"
       },
       "mcpStore": {
         "description": "MCP サービスの閲覧とインストール",
-        "keywords": ["MCP", "ストア", "store", "インストール"],
+        "keywords": [
+          "MCP",
+          "ストア",
+          "store",
+          "インストール"
+        ],
         "label": "MCP ストア"
       },
       "modeAsk": {
         "description": "質問モードへ切替(ツール無効)",
-        "keywords": ["質問", "ask", "モード"],
+        "keywords": [
+          "質問",
+          "ask",
+          "モード"
+        ],
         "label": "質問モード"
       },
       "modeBuild": {
         "description": "AI に直接構築・修正させる",
-        "keywords": ["ビルド", "モード", "build"],
+        "keywords": [
+          "ビルド",
+          "モード",
+          "build"
+        ],
         "label": "ビルドモード"
       },
       "modePlan": {
         "description": "計画を立ててから実行",
-        "keywords": ["計画", "モード", "plan"],
+        "keywords": [
+          "計画",
+          "モード",
+          "plan"
+        ],
         "label": "計画モード"
       },
       "modeReview": {
         "description": "既存コードをレビュー",
-        "keywords": ["レビュー", "モード", "review"],
+        "keywords": [
+          "レビュー",
+          "モード",
+          "review"
+        ],
         "label": "レビューモード"
       },
       "modeSpec": {
         "description": "仕様から実装を生成",
-        "keywords": ["仕様", "モード", "spec"],
+        "keywords": [
+          "仕様",
+          "モード",
+          "spec"
+        ],
         "label": "仕様モード"
       },
       "skill": {
         "description": "AI スキルの管理と呼び出し",
-        "keywords": ["スキル", "skill", "機能"],
+        "keywords": [
+          "スキル",
+          "skill",
+          "機能"
+        ],
         "label": "スキル"
       },
       "terminal": {
         "description": "統合ターミナルを開く",
-        "keywords": ["ターミナル", "端末", "terminal"],
+        "keywords": [
+          "ターミナル",
+          "端末",
+          "terminal"
+        ],
         "label": "ターミナル"
       },
       "ai-world": {
         "description": "AI アプリの世界を探索",
-        "keywords": ["AI", "ワールド", "アプリ"],
+        "keywords": [
+          "AI",
+          "ワールド",
+          "アプリ"
+        ],
         "label": "AI ワールド"
       },
       "chat": {
         "description": "AI アシスタントと会話",
-        "keywords": ["チャット", "会話", "AI", "chat"],
+        "keywords": [
+          "チャット",
+          "会話",
+          "AI",
+          "chat"
+        ],
         "label": "AI チャット"
       },
       "drama": {
         "description": "AI 生成ショートドラマ",
-        "keywords": ["ドラマ", "ビデオ", "AI", "drama"],
+        "keywords": [
+          "ドラマ",
+          "ビデオ",
+          "AI",
+          "drama"
+        ],
         "label": "AI ドラマ"
       },
       "profile": {
         "description": "プロフィールと設定を管理",
-        "keywords": ["プロフィール", "ユーザー", "設定"],
+        "keywords": [
+          "プロフィール",
+          "ユーザー",
+          "設定"
+        ],
         "label": "プロフィール"
       },
       "search": {
         "description": "グローバルコンテンツ検索",
-        "keywords": ["検索", "search", "search"],
+        "keywords": [
+          "検索",
+          "search",
+          "search"
+        ],
         "label": "検索"
       },
       "settings": {
         "description": "システム環境設定と構成",
-        "keywords": ["設定", "環境設定", "構成"],
+        "keywords": [
+          "設定",
+          "環境設定",
+          "構成"
+        ],
         "label": "設定"
       },
       "skillsMarket": {
         "description": "自己進化スキルの閲覧と導入",
-        "keywords": ["skill", "スキル", "マーケット", "market"],
+        "keywords": [
+          "skill",
+          "スキル",
+          "マーケット",
+          "market"
+        ],
         "label": "Skill マーケット"
       }
     },
@@ -13967,25 +14098,37 @@
       "quadrants": [
         {
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": ["ナレッジQ&A", "プロセス自動化"],
+          "examples": [
+            "ナレッジQ&A",
+            "プロセス自動化"
+          ],
           "tag": "Q1",
           "title": "効率的アシスタント"
         },
         {
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": ["データ分析", "意思決定サポート"],
+          "examples": [
+            "データ分析",
+            "意思決定サポート"
+          ],
           "tag": "Q2",
           "title": "スマートアドバイザー"
         },
         {
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": ["会議調整", "承認プロセス"],
+          "examples": [
+            "会議調整",
+            "承認プロセス"
+          ],
           "tag": "Q3",
           "title": "実行エキスパート"
         },
         {
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": ["マーケティング自動化", "マルチエージェント連携"],
+          "examples": [
+            "マーケティング自動化",
+            "マルチエージェント連携"
+          ],
           "tag": "Q4",
           "title": "オールラウンドエキスパート"
         }
@@ -14119,19 +14262,31 @@
       "items": [
         {
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"],
+          "features": [
+            "体系化コース",
+            "実践探求",
+            "コミュニティ相互支援"
+          ],
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ"
         },
         {
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"],
+          "features": [
+            "交流プラットフォーム",
+            "経験共有",
+            "リソースマッチング"
+          ],
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ"
         },
         {
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"],
+          "features": [
+            "プロの大規模モデル",
+            "エージェントサービス",
+            "コンサルティングサービス"
+          ],
           "tag": "MODULE 03",
           "title": "AI専門サービス"
         }
@@ -16972,7 +17127,15 @@
       "title": "トップ5ページ",
       "visitsHeader": "アクセス数"
     },
-    "weekdays": ["月", "火", "水", "木", "金", "土", "日"]
+    "weekdays": [
+      "月",
+      "火",
+      "水",
+      "木",
+      "金",
+      "土",
+      "日"
+    ]
   },
   "models": {
     "relay": {
