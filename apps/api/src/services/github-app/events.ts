@@ -97,6 +97,23 @@ export const pingEventSchema = z.object({
   hook_id: z.number().int().optional(),
 })
 
+/**
+ * `installation` 事件体(D15①:安装映射落库的数据源)。
+ * 本 App 只消费 created / deleted / new_permission_accepted 三个 action,其余忽略;
+ * installation.id 是本表的唯一业务键,account/target_type 是展示字段。
+ */
+export const installationEventSchema = z.object({
+  action: z.string(),
+  installation: z.object({
+    id: z.number().int().positive(),
+    account: z.object({ login: z.string(), type: z.string().optional() }).optional(),
+    target_type: z.string().optional(),
+  }),
+  requester: actorSchema.optional(),
+  sender: actorSchema.optional(),
+})
+export type InstallationEventPayload = z.infer<typeof installationEventSchema>
+
 // ---------------------------------------------------------------------------
 // 显式列举的处理面(AGENTS §5 红线:禁止用参数正则兜底公开面)
 // ---------------------------------------------------------------------------
@@ -105,12 +122,25 @@ export const pingEventSchema = z.object({
 export const HANDLED_GITHUB_EVENTS = ['ping', 'pull_request', 'issue_comment'] as const
 export type HandledGithubEvent = (typeof HANDLED_GITHUB_EVENTS)[number]
 
+/**
+ * 仅落库消费的事件名(D15①):不进 HANDLED_GITHUB_EVENTS(那里被 /health
+ * 契约测试钉死),单独列举 —— installation 事件只驱动 github_app_installations 表。
+ */
+export const PERSISTED_GITHUB_EVENTS = ['installation'] as const
+export type PersistedGithubEvent = (typeof PERSISTED_GITHUB_EVENTS)[number]
+
+/** parseWebhook 能辨认的全部事件名(处理面 ∪ 落库面) */
+export const KNOWN_GITHUB_EVENTS: readonly (HandledGithubEvent | PersistedGithubEvent)[] = [
+  ...HANDLED_GITHUB_EVENTS,
+  ...PERSISTED_GITHUB_EVENTS,
+]
+
 /** 触发自动 review 的 pull_request action —— 白名单 */
 export const PR_REVIEW_ACTIONS = ['opened', 'synchronize', 'reopened', 'ready_for_review'] as const
 export type PrReviewAction = (typeof PR_REVIEW_ACTIONS)[number]
 
-function isHandledEvent(name: string): name is HandledGithubEvent {
-  return (HANDLED_GITHUB_EVENTS as readonly string[]).includes(name)
+function isKnownEvent(name: string): name is HandledGithubEvent | PersistedGithubEvent {
+  return (KNOWN_GITHUB_EVENTS as readonly string[]).includes(name)
 }
 
 export function isPrReviewAction(action: string): action is PrReviewAction {
@@ -133,7 +163,7 @@ export function splitRepoFullName(fullName: string): { owner: string; repo: stri
 
 /** 与事件种类无关的信封字段,所有下游处理器都要用 */
 export interface WebhookEnvelope {
-  event: HandledGithubEvent
+  event: HandledGithubEvent | PersistedGithubEvent
   action: string
   /** X-GitHub-Delivery(GitHub 为每次投递生成的 UUID,重投时不变 => 幂等键) */
   deliveryId: string
@@ -147,6 +177,7 @@ export type ParsedWebhook =
   | { kind: 'ping'; envelope: WebhookEnvelope }
   | { kind: 'pull_request'; envelope: WebhookEnvelope; payload: PullRequestEventPayload }
   | { kind: 'issue_comment'; envelope: WebhookEnvelope; payload: IssueCommentEventPayload }
+  | { kind: 'installation'; envelope: WebhookEnvelope; payload: InstallationEventPayload }
 
 /** 事件名不在白名单 / 缺事件头 —— 合法投递,只是不处理,按 200 返回 */
 export type WebhookIgnoreReason = 'missing_event_header' | 'unsupported_event'
@@ -177,7 +208,7 @@ export function parseWebhook(input: {
 }): WebhookParseResult {
   const eventRaw = headerToString(input.eventHeader).trim()
   if (!eventRaw) return { status: 'ignored', reason: 'missing_event_header', event: '' }
-  if (!isHandledEvent(eventRaw))
+  if (!isKnownEvent(eventRaw))
     return { status: 'ignored', reason: 'unsupported_event', event: eventRaw }
 
   const deliveryId = headerToString(input.deliveryHeader).trim()
@@ -198,6 +229,29 @@ export function parseWebhook(input: {
           repoFullName: '',
           installationId: null,
         },
+      },
+    }
+  }
+
+  if (eventRaw === 'installation') {
+    const parsed = installationEventSchema.safeParse(input.payload)
+    if (!parsed.success) {
+      return { status: 'invalid', message: 'installation 事件体不符合 schema' }
+    }
+    const body = parsed.data
+    return {
+      status: 'ok',
+      data: {
+        kind: 'installation',
+        envelope: {
+          event: 'installation',
+          action: body.action,
+          deliveryId,
+          repoFullName: '',
+          // installation 事件的主体就是安装实例本身,这里必然有值
+          installationId: body.installation.id,
+        },
+        payload: body,
       },
     }
   }
@@ -267,14 +321,14 @@ const DEFAULT_MAX_ENTRIES = 2000
 const DEFAULT_TTL_MS = 6 * 60 * 60 * 1000
 
 /**
- * 内存 LRU + TTL 去重器。
+ * 内存 LRU + TTL 去重器(D15② 起为一级缓存)。
  *
- * 取舍(为什么不是 onConflictDoNothing 落库):
- * - 落库需要新增表 + 迁移,而迁移属另一会话领地(本票禁止改 packages/database);
- * - 去重只需覆盖 GitHub 的重投窗口(分钟级),内存表足够,重启后最坏是"重投被再处理一次",
- *   而 review/comment 处理器本身按 (repo, pr, commit) 幂等,不会因此重复刷屏;
- * - 多实例部署时内存去重不共享 —— 这是已知边界,升级路径是换成同一张 DB 表或 Redis SETNX,
- *   接线点只有本函数一个。
+ * 两级幂等设计:
+ * - 一级:本内存表,吃下 GitHub 分钟级重投窗口,零 IO;
+ * - 二级:github_app_deliveries 表(services/github-app/store.ts),覆盖 API 重启
+ *   后的跨进程重投 —— 路由在一级未命中时查表,处理成功后落 processed。
+ * - 多实例部署时内存一级不共享,二级表是共享事实源 —— 升级路径是 Redis SETNX,
+ *   接线点只有路由里的幂等段一处。
  */
 export function createDeliveryDeduper(opts: DeliveryDeduperOptions = {}): DeliveryDeduper {
   const maxEntries = opts.maxEntries ?? DEFAULT_MAX_ENTRIES
