@@ -2919,6 +2919,110 @@ const checks = [
     ].join('\n'),
   },
 
+  {
+    id: '112',
+    label: '📐 压缩分母对账(blocking,阈值分母必须经 effectiveContextWindow;存量 8 文件/12 处进棘轮)',
+    script: 'check-compaction-denominator.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_COMPACTION_DENOMINATOR',
+    onFailHint: [
+      '',
+      '  💡 本门钉的是 A30 那条实测缺口:provider 的 context window 是 **input 与 output 共享**的同一个窗口,',
+      '     所以"什么时候该压缩"的分母必须**先扣掉本轮要留给输出的预留**,否则阈值算的是"占满整个共享窗口',
+      '     的 88%",而同一窗口里模型还要生成回复 —— 故障形态是**越接近上限越容易炸,而现象写成"压缩判过了',
+      '     还是 400/context overflow",极难归因到分母**。立门前实测 `grep -rniE "outputReserve|',
+      '     effectiveContextWindow" apps/cli/src packages/context-compaction/src` = 0 命中(先确认没有',
+      '     等价实现,再确认没有这个名字,两步都要跑)。',
+      '     唯一出口:`packages/context-compaction` 的 `effectiveContextWindow({contextWindow, maxOutputTokens,',
+      '     buffer, enabled})`,预留封顶 `MAX_OUTPUT_RESERVE_TOKENS`;凡"token 数 ÷ contextLimit/contextWindow"',
+      '     而该分母未经此出口 ⇒ 红。**不得新建子路径导出** —— 架构契约表没登记 `packages/context-compaction`',
+      '     的子入口,深导入会被守门 103 判 D3 红(本仓踩过)。',
+      '     行为后果如实登记:分母只会变小 ⇒ **压缩更早触发**,用户可感知;回退有两条路(构造参数',
+      '     `outputReserveEnabled:false` 或环境变量 `IHUI_COMPACTION_OUTPUT_RESERVE=0`)。',
+      '     存量 8 文件/12 处已冻进 `scripts/compaction-denominator-baseline.json`(只减不增棘轮),',
+      '     其中 **api 端 `/chat/stream` 的溢出面尚未收口** —— 那是本票如实留下的账,不是"已修完"。',
+      '     单独复验:node scripts/check-compaction-denominator.mjs',
+      '     自检:node scripts/check-compaction-denominator.mjs --self-test(15 条,含成对正反例与',
+      '     "枚举到 0 个文件必须判无法判定、不得记绿"的反向对照)',
+      '     镜像测试:node --test scripts/tests/check-compaction-denominator.test.mjs',
+      '',
+    ].join('\n'),
+  },
+
+  {
+    id: '113',
+    label: '🪪 路由身份键对账(blocking,路由身份不得进模型可见 schema;键清单唯一源在 @ihui/types)',
+    script: 'check-tool-arg-routing-identity.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_TOOL_ARG_ROUTING_IDENTITY',
+    stagedTriggers: ['apps/cli/src/tools/'],
+    onFailHint: [
+      '',
+      '  💡 本门钉的是一条结构约束:**路由身份(sessionId / userId / instanceId / conversationId …)',
+      '     一律由宿主在 closure / ctx 里绑定,绝不得出现在模型可见的参数集合里。** 一旦进了 schema,',
+      '     模型就能自己填一个**别人的**值,把结果投给别的会话 / 别的宿主实例 —— 那是越权,不是参数校验问题',
+      '     (同族先例:O8「只开放功能不开放数据」、O19 端点级属主鉴权、agent-control 的"投递定址不得被覆盖")。',
+      '     键清单的**唯一源**是 packages/types/src/tool-contract.ts 的 ROUTING_IDENTITY_KEYS(门与类型层共用一份,',
+      '     禁止在别处抄第二份;该常量被摘线本门即 exit 2 并点名)。刻意只收"填错会把结果送到别人那里"的键,',
+      '     messageId / toolCallId / taskId / fileId 属**内容引用**,纳进来会误拦正当用法(镜像测试反向钉死)。',
+      '     存量 16 处已冻进 scripts/tool-arg-routing-identity-baseline.json(每文件每键、只减不增):',
+      '     其中 memory.ts 的 user_id×4 / session_id×1 是**待清偿的债**(服务端本就从令牌取 userId,该必填项',
+      '     模型无从满足),debug.ts ×7 / terminal.ts ×4 是 terminal_open / debug_launch 返回的**工具自句柄**,',
+      '     若要长期保留必须在 ROUTING_IDENTITY_KEYS 的注释里**正式登记排除理由**,不得用行内豁免遮掉',
+      '     (遮掉等于把判据改成"没人违规")。',
+      '     豁免写法:行内标记(族名 routing-identity-exempt)后接一句话原因与 until YYYY-MM-DD 到期日;',
+      '     **不带到期日的标记本门直接不认**(与守门 108 同一条口径,免得本门成为永久豁免的生产者)。',
+      '     单独复验:node scripts/check-tool-arg-routing-identity.mjs',
+      '     自检:node scripts/check-tool-arg-routing-identity.mjs --self-test(23 例,含成对正反例 +',
+      '     "枚举到 0 个注册不得记绿"与"清单源被摘线必须 exit 2"两条反向对照)',
+      '     镜像测试:node --test scripts/tests/check-tool-arg-routing-identity.test.mjs(7 例)',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 114 (2026-09-25 新增,测试「收集阶段」存续性对账,warn 级) ---
+  // 立因(实测到的结构性失明,不是假想):`cd apps/mobile-rn && pnpm vitest run tests/` 曾长期报
+  //   `Test Files 15 failed | 37 passed`,其中 14 个是**收集阶段就失败**(transform / import 解析报错),
+  //   内含 131 条 it 声明(展开 137 枚用例)**一条都没跑** —— 端内约 1/3 覆盖被静默削掉。
+  //   而全链 130+ 道门里**没有任何一道跑 vitest**:check-staged-typecheck 走 tsc,结构上看不见
+  //   transform / 解析期失败;CI 会红(vitest 收集失败即 exit 1),但提交链不拦 ⇒ 本机可以永远"看着绿"。
+  // 定级 warn 而非 blocking:本门判的是"端能不能收集到用例",一次完全无关的提交(改文档、改另一端)
+  //   也可能撞上它。与改动无关的恒红门只会逼人 --no-verify,一次绕过 = 约 134 道门对该提交全部作废
+  //   (§12e / §4 反复记过的教训)。问责通道 = `pnpm check:test-collection`(CI / 巡检直跑)。
+  // stagedTriggers 取 apps/mobile-rn/ + packages/:能打断这份收集的只有 RN 端自身与它吃的共享包;
+  //   不放 'apps/' —— 那会让每次 web/api 提交都白跑 20s vitest,而结论与本次改动无关。
+  {
+    id: '114',
+    label: '🧪 测试收集存续性对账(warn,收集失败套件必须为 0;断言失败不混计)',
+    script: 'check-test-collection-runs.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_TEST_COLLECTION',
+    stagedTriggers: ['apps/mobile-rn/', 'packages/'],
+    onFailHint: [
+      '',
+      '  💡 本门钉的是**最容易被当成"测试在跑"的那一类静默失败**:套件在收集阶段就炸(transform /',
+      '     import 解析 / vi.mock 缺导出),vitest 只报"Test Files N failed",而**那些文件里的每一条',
+      '     it 声明都没有执行过**。判据只认 "Failed Suites" 区块与 `FAIL <file> [ <file> ]` 的套件级',
+      '     形态 —— 文件级计数两种故障都会红,拿它当判据就是把"收集失败"和"断言失败"混计。',
+      '     三条不可动摇的口径:① 零测试文件(空扫)判红,绝不当绿;② 断言失败只报数不计红;③ 取不到',
+      '     结论(vitest 入口不可解析 / 超时 / 无汇总行 / 该端 test 入口不是 vitest)一律"未判定"并',
+      '     写明原因 —— 未判定 **不等于** 达标。',
+      '     只接 JS 系:pytest 的收集期故障是另一套版式(`ERROR tests/x.py` + `no tests ran`),照抄判据',
+      '     必然空转;非 vitest 入口的端会被如实记成"未判定",不冒绿。',
+      '     单独复验:node scripts/check-test-collection-runs.mjs(默认只跑 apps/mobile-rn)',
+      '     扩端:node scripts/check-test-collection-runs.mjs --end apps/web --strict',
+      '     自检:node scripts/check-test-collection-runs.mjs --self-test(17 例,临时目录造',
+      '     "收集失败 / 全绿 / 空扫 / 断言失败 / 入口不可解析 / 超时 / 无汇总行"七态,正反成对)',
+      '     镜像测试:node --test scripts/tests/check-test-collection-runs.test.mjs(含装车证明 +',
+      '     "未注册时 runner 清单里查不到本门、注册后必须被判定"的方向性对照)',
+      '     紧急跳过:HUSKY_SKIP_TEST_COLLECTION=1 git commit ...(本门 warn,通常不需要)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
