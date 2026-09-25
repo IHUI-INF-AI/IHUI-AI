@@ -145,6 +145,26 @@ export function resolveRemoteHead(branch, { fetchedNow = false, run = git } = {}
   }
 }
 
+/**
+ * 把"子进程失败了"变成"子进程为什么失败"。
+ *
+ * `execFileSync` 抛出的 `e.message` 只有 `Command failed: <argv>` —— 真正的起因在 `e.stderr` 里。
+ * 本仓为这一类"只剩一行栈/message"的不可诊断状态付过很多次代价(守门 93 的匿名 exit 2、
+ * 门 94 的取材失败被吞成判据红……),所以收尾动作的告警**必须带原因与退出码**:
+ * 并行会话持有 index.lock 时,对齐器失败是**常态**而不是异常,把它写成"Command failed"
+ * 等于让下一个人重新去猜"到底是被锁还是真坏了"。
+ */
+export function alignFailureNote(e) {
+  const code = typeof e?.status === 'number' ? `rc=${e.status}` : 'rc=未知'
+  const cause =
+    String((e && (e.stderr || e.stdout)) || '')
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)[0] || String((e && e.message) || e || '未知原因').split('\n')[0]
+  const timedOut = e && e.timedOut ? '(超时)' : ''
+  return `${code}${timedOut} ${cause}`.slice(0, 200)
+}
+
 /** a 是否为 b 的祖先(merge-base --is-ancestor 靠 exit code 判定) */
 function isAncestor(a, b) {
   try {
@@ -503,7 +523,15 @@ function main() {
       const out = execFileSync(
         process.execPath,
         ['scripts/heal-worktree-tracked.mjs', '--align-drift', '--json'],
-        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, cwd: repoRoot },
+        {
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'pipe'],
+          windowsHide: true,
+          cwd: repoRoot,
+          // 子进程必须封顶:对齐器内部要写索引,并行会话持有 index.lock 时它会等/失败;
+          // 无界等待等于把"收敛成功后的收尾"变成整条链的挂起点(守门 80 就是为这一族立的)。
+          timeout: 90_000,
+        },
       )
         .trim()
         .split('\n')
@@ -513,10 +541,7 @@ function main() {
         log(C.dim, `  🧹 工作区幻影漂移已对齐 ${r.aligned} 个文件(HEAD 前进未 checkout 的后遗症)`)
       }
     } catch (e) {
-      log(
-        C.yellow,
-        '  工作区漂移对齐未完成(不影响收敛结论): ' + String((e && e.message) || e).slice(0, 140),
-      )
+      log(C.yellow, '  工作区漂移对齐未完成(不影响收敛结论): ' + alignFailureNote(e))
     }
   }
 
@@ -764,6 +789,7 @@ export const __test__ = {
   collectTreeEntries,
   assertNoSilentRevert,
   resolveRemoteHead,
+  alignFailureNote,
   selfTest,
 }
 

@@ -9544,3 +9544,37 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   - **素材卫生:8 个陈旧 tabbar 图标已删**(`agent/ai/share/square` + `-active`,合计 15,022 B)。§7 三问逐条答:① 承载功能 = 2026-08-28 之前那轮 tabBar 图标;② 等价实现 = **有** —— 现役 `tab-{community,agent,square,user,share}.png` 全套由 `src/app.config.ts:221-257` 原生 tabBar 声明并消费,而 `gen-tabbar-icons.mjs:56` 只产出 `tab-<name>` 形态 ⇒ 删掉的 8 个不会被重新生成;③ 零引用有阳性对照:`git grep -lE "tabbar/(ai|agent|share|square)(-active)?\.png"` 在 HEAD 面 **0 命中**,而同一条尺子对 `tab-agent.png` 命中 app.config.ts(证明 0 不是判据失效)。门 105 索引面随之从 8 处孤儿降到 0。
   - **⚠️ 同批查明的一个反向事实,必须留在这里防误删**:`src/custom-tab-bar/index.tsx` 及其引用的 `home/community/course/live/user` 那 10 个 PNG **不是孤儿** —— `app.config.ts:221` 现在是 `custom: false`,原因就写在它上面那行注释(Taro 4 + Vite 不输出 custom-tab-bar,GitHub #17978/#18415),并明写"后续改 webpack5 编译器后可恢复 custom: true"。所以它是**有意停放的在途实现**,不是死代码:谁把它按"无人引用"删掉,就等于替那个还没发生的编译器切换做决定。门 105 把它算作"被引用"因此是正确的,本轮**刻意没有**为压低孤儿数去动它。
   - **本轮另两处红已由他人现场解释(不由本票代修)**:① 门 99 那 2 条红是别人正在删 `scripts/check-compaction-denominator.mjs` / `check-tool-arg-routing-identity.mjs` 及其镜像测试、而 `guardian-runner.mjs:2948/2980` 仍引用它们 —— 引用方与被删方同笔改完才成立,归持有该删除的一方;② `face-reader` 另有 2 例红指向 `scripts/check-theme-prop-wiring.mjs`(门 91)工作树副本去掉了共用层 import 并自拼 `execFileSync(GIT, …)`,已实测 **HEAD 版有 import(1)/无裸派生(0)**,即红纯来自他人未提交的回退,其自身提交会被这两例拦下。
+
+
+
+- [x] ✅(2026-09-25) **A26「branded nominal id」量完 ⇒ 不采纳**（同体两行的旧副本，现行文本见下方那条带"附真暴露面读数"的登记，勿照本条派单）：
+  ⚠️ 本条与下一条是**同一件事的两行**（我把两段草稿都插进了同一个块）。保留只为不丢行(§12)，
+  实质内容（458 处/134 文件的粗量、34 处/13 文件的真暴露面、阳性对照与"尺子失效则拒绝输出读数"）以下一条为准。
+### 第十波（2026-09-25 15:3x–16:0x：门 116 出站事实 + 影子校验落地后的三处如实登记）
+- [x] ✅(2026-09-25) **A34 出站事实随返回值走 → 门 116 上线**（`packages/types/src/egress-facts.ts` 闭集形状 +
+  `apps/api/src/utils/proxy-dispatcher.ts` 的 `collectEgressFacts`/`proxiedFetch` + `_shared.ts` 两条分支都挂事实）。
+  **我原本的前提被代理修正后仍成立但形状不同**：本仓**已有半套等价物**（`proxy-dispatcher` 会决策走不走代理），
+  缺的正是"把决策结果作为返回值带回来"那一半 —— 所以这票不是从零建机制，是**补上回读那一半**；
+  同时 `isProxiedUrl` 改成 `collectEgressFacts().proxied` 的投影 ⇒ 决策与事实同一份判据（逐条等值由 13 例钉住）。
+  厂商域名不硬编码：从 `VENDORS.baseUrl` + `DEFAULT_PROXY_DOMAINS` 两张真表推导出 100 个，推不出即 exit 2。
+- [x] ✅(2026-09-25) **两条"本票没做"写在门牌的提示里，不留成沉默的绿灯**：
+  ① **错误分流**（"被策略拦"与"网络错"两个码）**没做** —— 实测本仓 TS 侧没有任何出口会在传输前拒发请求
+  （`proxiedFetch` 唯一的 `throw` 在其调用链上结构不可达），造两个码就是一台永远不响的门；
+  ② `NO_PROXY` 只作为**事实**读回、**没有让它生效**（改路由会波及全部厂商调用，属另一张票），
+  但 `proxied=true ∧ noProxyMatched=true` 这对组合作为可诊断指纹已有配对用例。
+  ③ 代理分支未做端到端实跑（本机需活代理），改以"决策为真时 global fetch 被调 0 次"间接证明换了传输 —— 这是**间接**证据，别读成端到端。
+- [ ] **本线的结构性残余（不是遗漏，是需要新授权/新窗口的账）**：
+  ① 门 111 的 TRD 只到"碰过必须补"，104 枚工具的契约声明实际进度仍是 0 —— 第二阶段（补 `--flip-audit` 点名的 16 枚、
+  再谈缺省即不可信）没动；② A36 第②③步（用影子数据修 `parameters` 描述 → 默认 enforce + 逐条回灌模型）等真实运行统计；
+  ③ 门 113 的 16 处存量（`memory.ts` 的必填 `user_id` + 句柄类 11 处）；④ 门 112 的 api 端 `/chat/stream` 溢出面分母；
+  ⑤ 门 116 的两条未做（错误分流 / NO_PROXY 生效）；⑥ 上游 `core/src/runtime`、`tool/handlers`、`packages/ui` 约 64,000 行
+  **仍是未读**（七轮合计只读到 46 个文件 ≈ 1.15%）—— 第七轮的结论是按"出一次本仓故障 → 定点读对应文件"继续，
+  不再按轮次通读；"抄完了"这个说法在任何一轮都不成立。
+- [x] ✅(2026-09-25) **新建 `scripts/scrub-temp-fixtures.mjs` —— 本项目测试夹具在 TEMP 里此前没有任何回收出口**(提交 `19d7d791fc7`,2 文件 +408 行):
+  - **立项依据(四处逐一实测,不是"看起来缺")**:活进程 `os.tmpdir()` = `D:\caches\Temp`,其中本项目前缀条目 **444 个 / 5,842 文件 / 1.60GB**,最旧 mtime 停在 2026-08-26。回收面全链无人管:`check-c-drive-pollution`(门 92)头注自陈"本门只读,不删除任何文件"且只扫 C 盘;`c-drive-auto-maintain.ps1` 的删除面按设计钉在 C 盘(它是计划任务,扩面=改全机行为,§26 要求用户授权);`clean-garbage.mjs` 完全不碰 TEMP(`grep tmpdir|TEMP|ihui-` 零命中);`scripts/lib/scratch-dir.mjs` 只有 `mkScratch`/`rmScratch` —— **新写的测试有出口,历史遗留与"忘了 rm"那批没有**。即"落点规约存在、回收费不存在",与本仓最高频的「造好没装车」同族。
+  - **三条护栏各配一条"绝不该被删"的诱饵负向对照**(`node --test scripts/tests/scrub-temp-fixtures.test.mjs` **9/9 通过**):① **绝不跟随重解析点** —— 枚举/递归一律 `lstatSync`,T4 真用 `cmd /c mklink /J` 造出 junction 再删宿主夹具,断言外部 canary 文件删除后**字节不变**;建不出 junction 时判"未判定"并打印,不许退化成通过(§26 记过的那型自毁事故:递归删除穿过 junction 清空 D 盘真实目标)。② **名字围栏按起始前缀白名单** `ihui-/IHUI-/next-backup-/probe-`,T8 用 `my-ihui-workdir`/`ihui2-cache`/`xIHUI-tool` 三条近似名反向钉住"含前缀 ≠ 我们的"。③ **账龄闸默认 7 天**,T9 变异对照(阈值改 0 ⇒ 当日夹具进候选)证明那条闸有牙。④ 扫描时才发现的第二类真危险:夹具**内层**藏着 `secrets`/`密钥` 目录 ⇒ **整条不许删并点名路径**(实抓 `D:\caches\Temp\ihui-sbx-test-DkOGXA\secrets`),T3 钉住;不做"递归时顺手跳过它"的半删。⑤ 取不到目录一律 `无法判定` exit 2,不冒绿也不冒红(T7);`--apply` 才删,默认零副作用(T5)。
+  - **本票自己踩到并当场推翻的一个数(比结论更值得留)**:第一版量算用 `statSync` **跟随了夹具内部的 junction**,得出"13GB / 27,551 文件"——虚高约 8 倍。这正是 §26 那句"**量体积的工具遇 junction 不得跟随**(否则把 D 盘的量报成 C 盘的债)"的另一半:那条不只约束删除,也约束**测量**。换成 `lstat` 口径后真实规模是 444 条 / 1.60GB。
+  - **定级为"残留出口"而不是"磁盘 relief 杠杆"(如实收窄,免得下一个人按 13GB 的想象派单)**:按 7 天账龄只能回收 **0.00GB**(54 条 / 140 文件),>1 天 **0.18GB**,>0 天才是 1.60GB —— 大头都是最近 7 天内并行会话跑测试产生的。要收那部分只有两条路:降阈值(会删到在跑的夹具),或让测试自己 `rmScratch` —— 后者落在 `scripts/tests/*.test.mjs` 那 **83 个仍直接用 `os.tmpdir()`** 的他人测试面上,而门 92 那条登记写死了扩面触发条件("TEMP 漂移 **或** C 盘列出本项目产物前缀"),本票实测两条**都不成立**(`TEMP 一致:进程 D:\caches\Temp`;C 盘我们产物 0 条)⇒ **不动那个面**,与本票开头的登记结论一致。
+  - **刻意不接计划任务**:每日自动删除影响全机,§26 明确须用户授权。入口是手跑 `node scripts/scrub-temp-fixtures.mjs [--older-than N] [--apply]`。它也不是守门(不以 `check|scan|guard` 开头,门 89 结构上看不见),所以不变量由自己那把尺子钉 —— 上面那 9 例镜像测试即装配证明。
+- **留下的账(归属明确,不是遗漏)**:① **TEMP 三根并存,已逐个 `lstatSync` + `readdirSync` 实量**(全部是**实体目录、`isSymbolicLink()` 均 false**,即不是 junction 改道后的同名视图):`D:\caches\Temp` = 活进程 `os.tmpdir()`,83 个仍用 `os.tmpdir()` 的 `scripts/tests/*.test.mjs` 往这里倒(本项目前缀 444 条 / 5,842 文件 / 1.60GB);`G:\DevEnv\Temp\ihui-scratch` = `scripts/lib/scratch-dir.mjs` 按工作树所在盘推导的唯一落点(§15b 批准项,**在收**);`D:\DevEnv\Temp` = §26/§15b 台账点名的那一个。**三份互不相通 ⇒ "唯一落点"这句在本机不成立**,而 §26 还写着"本机不存在 `D:\caches`(死路径)"——已被实测推翻。归属:统一 TEMP(改注册表 env 或把 junction 补上)决定全机工具往哪儿写,属用户授权项,本票**未擅自改文档、未动注册表、未建 junction**。② 是否把 `--apply` 挂进某个定时点,同属用户授权项,本票未做。
+### 第五十波·TEMP 夹具回收出口落地 + 一处 junction 虚高量算的自纠(2026-09-25 当日)
