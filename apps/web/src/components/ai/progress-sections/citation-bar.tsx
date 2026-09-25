@@ -10,6 +10,7 @@ import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { useWorkPanelStore } from '@/stores/work-panel'
+import { isExternalHttpUrl, scrollToSource } from '@/components/ai/scroll-to-source'
 import { FoldableSection } from './foldable-section'
 import type { CitationEntry } from '@ihui/types/ai'
 
@@ -17,32 +18,11 @@ interface CitationBarProps {
   citations: CitationEntry[]
 }
 
-/** W13(2026-09-13 立):引用深链分类。
- *  - '#x' 页内锚点 → 平滑滚动 + 高亮闪烁
- *  - 'http(s)://' 外链 → 新窗口(target=_blank + rel)
- *  - 其余(应用内路由/相对路径) → WorkPanel 打开(与 markdown-link 同路) */
-function isExternalUrl(url: string): boolean {
-  return /^https?:\/\//i.test(url)
-}
-
-/** 页内锚点滚动 + 临时高亮(inline style,避免引入全局 CSS)。
- *  元素不存在时静默返回(锚点目标可能随渲染时序未挂载)。 */
-function scrollAndHighlight(id: string): void {
-  let el: HTMLElement | null = null
-  try {
-    el = document.getElementById(decodeURIComponent(id))
-  } catch {
-    el = document.getElementById(id)
-  }
-  if (!el) return
-  el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  const prev = el.style.boxShadow
-  el.style.transition = 'box-shadow 0.6s ease'
-  el.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.45)'
-  window.setTimeout(() => {
-    el!.style.boxShadow = prev
-  }, 1400)
-}
+// W13(2026-09-13 立)的引用深链分类,判据与页内跳转实现已于 D13①(2026-09-26 立)
+// 提成单源 @/components/ai/scroll-to-source(三分类口径见该文件):
+//   '#x' 页内锚点 → scrollToSource(滚动 + 临时高亮)
+//   'http(s)://' 外链 → isExternalHttpUrl 为真时交给浏览器开新窗口
+//   其余(应用内路由/相对路径)→ WorkPanel 打开(与 markdown-link 同路)
 
 /** source 类别 → 徽章配色(与 KnowledgeHit.source 对齐;D27 扩 wiki/memory/skill/mcp 四类交付溯源色) */
 const SOURCE_CLS: Record<string, string> = {
@@ -74,10 +54,10 @@ export const CitationBar = React.memo(function CitationBar({ citations }: Citati
   const handleCitationClick = (e: React.MouseEvent<HTMLAnchorElement>, url: string): void => {
     if (url.startsWith('#')) {
       e.preventDefault()
-      scrollAndHighlight(url.slice(1))
+      scrollToSource(url.slice(1))
       return
     }
-    if (!isExternalUrl(url)) {
+    if (!isExternalHttpUrl(url)) {
       e.preventDefault()
       openWorkPanel({ url, source: 'ai-tool' })
     }
@@ -112,8 +92,8 @@ export const CitationBar = React.memo(function CitationBar({ citations }: Citati
             <Tooltip key={`${c.source}-${c.label}-${i}`} content={url}>
               <a
                 href={url}
-                target={isExternalUrl(url) ? '_blank' : undefined}
-                rel={isExternalUrl(url) ? 'noopener noreferrer' : undefined}
+                target={isExternalHttpUrl(url) ? '_blank' : undefined}
+                rel={isExternalHttpUrl(url) ? 'noopener noreferrer' : undefined}
                 onClick={(e) => handleCitationClick(e, url)}
                 className={cn(baseCls, 'cursor-pointer')}
                 data-testid={`citation-item-${i}`}
