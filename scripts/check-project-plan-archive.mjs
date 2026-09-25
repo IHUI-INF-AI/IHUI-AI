@@ -33,7 +33,7 @@
 import { existsSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 
 /** ROOT 由脚本自身位置推导(§15);旧写法 `process.cwd()` 让门在任意目录下换基准。 */
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
