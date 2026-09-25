@@ -17,6 +17,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AiAssistantScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** AI 助手共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AiAssistantScreenProps }
@@ -46,9 +47,7 @@ export function AiAssistantScreen({
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity onPress={onBack} style={styles.backBtn}>
-        <Text style={styles.back}>{t('common.back')}</Text>
-      </TouchableOpacity>
+      <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} style={styles.backBtn} />
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{t('aiAssistant.title')}</Text>
         <Text style={styles.headerSub}>{t('aiAssistant.subtitle')}</Text>
@@ -156,7 +155,6 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
     backBtn: { paddingHorizontal: 10, paddingTop: 12 },
-    back: { fontSize: 16, color: tk.text.secondary },
     header: { paddingHorizontal: 10, paddingTop: 4, paddingBottom: 8 },
     headerTitle: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
     headerSub: { marginTop: 8, fontSize: 14, color: tk.text.secondary },

@@ -7,6 +7,7 @@ import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CertificateItem, CertificateScreenProps, CertificateStatus } from '../../types'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 证书状态/列表项/Props 类型 re-export(单一来源 @ihui/types) */
 export type { CertificateItem, CertificateScreenProps, CertificateStatus }
@@ -60,9 +61,7 @@ export function CertificateScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('certificate.title')}</Text>
       </View>
 
@@ -127,7 +126,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 12,
       gap: 12,
     },
-    backText: { fontSize: 16, color: tk.text.medium },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
     center: { alignItems: 'center', paddingVertical: 48 },

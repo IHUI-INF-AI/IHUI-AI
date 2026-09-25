@@ -20,6 +20,7 @@ import { BookOpen } from 'lucide-react-native'
 import type { MoreCourseScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** MoreCourseScreen props re-export(单一来源 @ihui/types) */
 export type { MoreCourseScreenProps }
@@ -83,9 +84,7 @@ export function MoreCourseScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>更多课程</Text>
         {total > 0 ? <Text style={styles.countText}>{`共${total}门`}</Text> : null}
       </View>
@@ -145,7 +144,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: 12,
       gap: 12,
     },
-    backText: { fontSize: 16, color: tk.text.medium } as TextStyle,
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary } as TextStyle,
     countText: { fontSize: 14, color: tk.text.tertiary, marginLeft: 'auto' } as TextStyle,
     listContent: { paddingHorizontal: 10, paddingVertical: 12, gap: 12 } as ViewStyle,

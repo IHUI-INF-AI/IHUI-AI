@@ -24,6 +24,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { tokens } from '../theme/active-tokens'
+import { ChevronLeft } from 'lucide-react-native'
 import type { AppIcon } from '@ihui/types'
 
 export interface NavBarAction {
@@ -115,7 +116,7 @@ export function NavBar({
               accessibilityRole="button"
               accessibilityLabel="返回"
             >
-              <Text style={styles.backArrow}>{'‹'}</Text>
+              <ChevronLeft size={24} color={tokens.text.primary} />
             </TouchableOpacity>
           ) : null}
           {leftActions?.map((action, index) => (
@@ -212,12 +213,6 @@ const styles = StyleSheet.create({
     height: 32,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  backArrow: {
-    fontSize: 24,
-    color: tokens.text.primary,
-    lineHeight: 26,
-    includeFontPadding: false,
   },
   center: {
     flex: 1,

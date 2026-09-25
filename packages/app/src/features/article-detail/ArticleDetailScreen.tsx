@@ -9,6 +9,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ArticleDetailItem, ArticleDetailScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 文章详情/Props 类型 re-export(单一来源 @ihui/types) */
 export type { ArticleDetailItem, ArticleDetailScreenProps }
@@ -41,6 +42,7 @@ export function ArticleDetailScreen({
     return (
       <View style={styles.center}>
         <Text style={styles.error}>{error || t('articleDetail.loadFailed')}</Text>
+        {/* back-label-exempt: 错误态/空态卡片内的按钮文案,或翻页/弹窗关闭动作 —— 此处「返回」是按钮文字而非页头箭头,换裸箭头反而不表意 until 2027-09-25 */}
         <TouchableOpacity style={styles.btn} onPress={onBack}>
           <Text style={styles.btnText}>{t('common.back')}</Text>
         </TouchableOpacity>
@@ -49,9 +51,7 @@ export function ArticleDetailScreen({
 
   return (
     <ScrollView style={styles.container}>
-      <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <Text style={styles.back}>{t('common.back')}</Text>
-      </TouchableOpacity>
+      <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
       <Text style={styles.title}>{item.title}</Text>
       <View style={styles.metaRow}>
         <Text style={styles.author}>{item.author}</Text>
@@ -94,7 +94,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     error: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
-    back: { fontSize: 16, color: tk.text.secondary },
     title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     metaRow: {
       flexDirection: 'row',

@@ -4,9 +4,10 @@
 import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
+import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CourseAnnexItem, CourseAnnexScreenProps } from '../../types'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 课程附件共享屏 — props 注入式跨端组件 */
 export type { CourseAnnexItem, CourseAnnexScreenProps }
@@ -33,9 +34,7 @@ export function CourseAnnexScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.back}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('courseAnnex.title')}</Text>
       </View>
 
@@ -86,7 +85,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 12,
       gap: 12,
     },
-    back: { fontSize: 16, color: tk.text.medium },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     error: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
     center: { alignItems: 'center', paddingVertical: 48 },

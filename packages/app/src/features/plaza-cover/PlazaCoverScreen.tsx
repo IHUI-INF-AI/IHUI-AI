@@ -18,6 +18,7 @@ import type { AppIcon } from '@ihui/types'
 import { Banknote, Globe, Shield, Target, Zap } from 'lucide-react-native'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** Props 类型 re-export(单一来源 @ihui/types) */
 export type { PlazaCoverScreenProps }
@@ -48,9 +49,7 @@ export function PlazaCoverScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.headerTitle}>AI 需求广场</Text>
       </View>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -101,7 +100,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 12,
       gap: 12,
     } as ViewStyle,
-    backText: { fontSize: 16, color: tk.text.medium } as TextStyle,
     headerTitle: { fontSize: 20, fontWeight: '600', color: tk.text.primary } as TextStyle,
     scrollContent: { paddingHorizontal: 20, paddingBottom: 32, gap: 20 } as ViewStyle,
     hero: { alignItems: 'center', paddingVertical: 32, gap: 12 } as ViewStyle,

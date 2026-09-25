@@ -15,6 +15,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CircleDetailItem, CircleDetailScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 圈子详情/Props 类型 re-export(单一来源 @ihui/types) */
 export type { CircleDetailItem, CircleDetailScreenProps }
@@ -53,6 +54,7 @@ export function CircleDetailScreen({
     return (
       <View style={styles.center}>
         <Text style={styles.error}>{error || t('circleDetail.loadFailed')}</Text>
+        {/* back-label-exempt: 错误态/空态卡片内的按钮文案,或翻页/弹窗关闭动作 —— 此处「返回」是按钮文字而非页头箭头,换裸箭头反而不表意 until 2027-09-25 */}
         <TouchableOpacity style={styles.backBtn} onPress={onBack}>
           <Text style={styles.backBtnText}>{t('common.back')}</Text>
         </TouchableOpacity>
@@ -62,9 +64,7 @@ export function CircleDetailScreen({
 
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <Text style={styles.backText}>{t('common.back')}</Text>
-      </TouchableOpacity>
+      <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
       <Text style={styles.title}>{item.name}</Text>
       <View style={styles.statsRow}>
         <View style={styles.statBadge}>
@@ -130,7 +130,6 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     backBtnText: { color: tk.surface.light, fontSize: 16 },
-    backText: { fontSize: 16, color: tk.text.medium },
     title: {
       marginTop: 8,
       fontSize: 22,
