@@ -500,6 +500,7 @@ modules:
     requires:
       - 'packages/design-tokens'
       - 'packages/types'
+      - 'packages/shared'
     public_entrypoints:
       - '.'
 
