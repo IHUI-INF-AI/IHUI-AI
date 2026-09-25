@@ -108,15 +108,11 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
           }}
           hoverClass="opacity-60"
         >
-          <Text
-            style={{
-              fontSize: '36rpx',
-              color: 'var(--color-foreground)',
-              fontWeight: 'bold',
-            }}
-          >
-            {isOpen ? '‹' : '›'}
-          </Text>
+          {isOpen ? (
+            <LineIcon name="chevron-left" size={36} color="var(--color-foreground)" />
+          ) : (
+            <LineIcon name="chevron-right" size={36} color="var(--color-foreground)" />
+          )}
         </View>
 
         {/* 悬浮内容 — 对齐原项目 float-content */}
