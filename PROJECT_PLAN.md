@@ -10029,3 +10029,38 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 - **仍未闭环(如实登记,不是"已修完")**:① 色档 `@theme` 登记 —— 前置改名在途;② `+`→`_u` 的 weapp 改名规则仍未在任何真实产物里遇到含 `+` 的选择器,保持"判不出";③ 一次构建出现 `postcss-calc: infinity * 1rpx` 警告(机制推定为 v4 给 `rounded-full` 出 `calc(infinity * 1px)` 被 px→rpx 改写打坏),**当前源码与当前 dist 都复现不出来**,按未归因登记,不写成结论。
 - [x] ✅(2026-09-25 深夜) **AGENTS.md §4 那两条 ⚠️ 已就地补"现值为准"更正(旧行逐字保留,§12 不丢行)**:① "「/alpha」判据目前到不了小程序产物"——前半(687 utility / 0 产出 / 余量 42,401 vs utilities 42,392 / `text-card` 会白底白字)全部被本票附⑧成反向:链由 `edb225c909` 经 **app.css 的 `@source`** 打开,命名档已到端、主包净**省** 61,654 B,`text-card` 双义已随改名消除;**只在"项目色档整族仍 0 落地"这一格继续成立**(v4 只认 `@theme`,副本色值在普通 `:root/.dark`)⇒ "R6 绿灯 ≠ 到端生效"不变。② "实跑 v4.3.3"结论仍成立但**当时的依据是错的**:miniapp importer 的 weapp-tw peer 链的是 `tailwindcss@3.4.19`,而 `@tailwindcss/postcss@4.3.3` 属 **apps/web importer**;v4 真身是 weapp-tailwindcss 的 vendored 引擎(dist 导出 `loadTailwindV4DesignSystem`)⇒ 判引擎只认**产物指纹 + 包内 vendored 路径**,不得按"谁的 package.json 出现过某个包名"推论。危险方向写清楚:AGENTS 是全 agent 的执行依据,一条过期红字会让人**主动回滚别人已上线的修复**。
 - [x] ✅(2026-09-25 深夜) **`docs/GATEKEEPERS.md` 的写死门数与门编号失真已改为"现读"口径**:该文 4 处钉死"29 个守门脚本 / pre-commit 25 项 / 跳过全部 29 项 / 速查表 23 项",都是 2026-09-21 的读数,而 `node scripts/guardian-runner.mjs --help` 现值 **155 项**(blocking 132 / warn 22 / info 1)。同时按 runner 现值逐条审计其"### 第 N 项 `<script>`"小节标题:首版探针把 script→id 做成**单值映射**,于是把"一脚本挂多 id"(i18n 的 2b/2c/2d、侧栏的 24a/24b)误报成 3 条漂移 —— 换成 membership 判据后真实漂移 **1 条**(`第 24 项` 应为 `24a`,另一条 `第 24 项(端口)` 应为 `24b`),已改;**现核 29 条小节标题 0 漂移**。留一条通用口径:**判据失效的表现永远比"仓库有缺陷"更常见,拿到"3 处不对"先怀疑尺子**(本仓门 80/93/103 各记过一次同型)。
+- [x] ✅(2026-09-25 深夜,提交 `1a4e3a9ad`) **门 36 与门 124 的取材面收口:默认判磁盘 → 判 HEAD blob**(`--staged` 判索引、`--worktree` 只作人工/验生成器写回、两面旗同给 exit 2、取不到**不回落**另一个面)。起因有两层:① 门 118 的结构棘轮把门 36 钉住(碰它就必须收口);② **我上一枚提交把"门 124 与 36 同口径"写进了 AGENTS,而两句都不成立** —— 两道门当时都还默认读磁盘,是子代理逐行现读反手指出的,已认。跨面混读的后果本仓记过最多次:共享工作树滞后 HEAD ⇒ 同一份 HEAD 代码在恒红与假绿之间来回跳,并把错数写回棘轮基线(门 83 的 R3 一天被整文件回退三次即此型)。配套三件:门 124 的夹具 T4/T5 显式改跑**工作树面**(它们验的是"生成器把盘写对没有",那件事只发生在磁盘上,换面后跑默认档会 exit 2 —— 那是断言错,不是判据错);T14 用临时 git 仓把"HEAD 绿 / 索引红 / 工作树红并点名 / 两面旗判死"四面成对钉住;漂移夹具原先用 bgColor/tabBgColor,纯函数预跑证明那两档改了**不判红**,遂换成确实可判的 navBgColor —— **夹具改不动判据的用例等于没有用例**。同批修掉门 118 自己那条比 runner 更严的镜像断言(只认 `stagedTriggers:` 标量写法而 runner 用数组 ⇒ 在 HEAD 上即红,与任何人无关)。**一处做不到如实登记**:票面要求"改完门 118 的读数应从散写转为经取材层",实测读数**一字未变**(31/74/32)—— 它按"是否 import 取材层"分类,而两道门改前就 import 了 `gitRaw` ⇒ 真实变化在门内(散写的逐文件 `git show` 归零)。**门 118 对"半接线"全盲**是相邻缺陷,登记未修:把"引了取材层的库"认作"走了取材层"。
+- [x] ✅(2026-09-25 深夜) **新增守门「派生面登记表自洽对账」= `scripts/check-token-sync-registry.mjs`(编号以 runner 现值为准,登记时取 125;blocking;紧急跳过 `HUSKY_SKIP_TOKEN_SYNC_REGISTRY`)**:`TOKEN_SYNC_TARGETS`(`scripts/lib/pre-commit-hook.js`)是"改 `tokens.css` ⇒ 各端副本自动写回"的唯一登记表,每行三段语义(**触发文件 / 写回命令 / 复核门**)过去**没有任何一道门对账** ⇒ 四种静默腐烂:触发文件改名 = 那一行**永不触发**(那一端的同步悄悄停掉,而没有任何地方会红);写回脚本被删/改名 = 直到提交链跑到那一步才崩;复核门被摘线或降级成 warn = 副本照样写回却**再没人判它对不对**;新加一行忘了配门 = 新派生面零覆盖。最后一种最贵:**表里挂着一行没人配门的行,比根本没有这行更糟** —— 它会替人做出"已经收口了"的判断,而本轮全部工作(把跨端设计真相收成单一源头派生)存在的理由就是不让任何人靠记忆和文档去信一件事。四条判据 R1 行结构 / R2 触发文件在被审面上存在 / R3 写回出口可解析(`node <path>` 按面存在;`pnpm --filter <pkg> <script>` 必须真在那包 `scripts` 里)/ R4 复核者在五处权威点在场上(runner `script:` ∪ pre-commit-hook ∪ .husky ∪ 根 package.json ∪ workflows+cert),且**注册进 runner 就必须是 blocking**(warn = 写回照跑、判定不拦 = 没有门)。判据只读表本身,不抄第二份清单;表形状解析不出或枚举到 0 行 ⇒ **exit 2「无法判定」,绝不因空扫记绿**。同批给 6 行各补 `check:` 字段,并把四段(表 / 生成器 / 门 / runner 注册)落在**同一笔**提交里 —— 这正是本门能当场问出"缺哪一段"的前提;新增一端派生副本的正确顺序由此变成机器可验的三步。**登记的相邻缺陷(未修,不代裁)**:表行 5 的生成者与复核者是同一个文件(`sync-extension-tokens.mjs` 身兼两职,靠 `--check` 子命令分流)⇒ 合法但那行的"复核者在场"依赖它自查。取证:表 worktree 面 6 行全绿、`--self-test` 25 例(每类红配"补上即绿"反向对照 + 面纪律四态用临时 git 仓)、镜像 11/11(含形状锁)、门 89 exit 0、runner 现值 156 项且 id 唯一、水印残迹 0。
+
+
+### 第五十波·续三 —— GA1 存量 70 处字符箭头清零(2026-09-25 夜,第三轮)
+
+- [x] ✅(2026-09-25) **守门 102 GA1 在 HEAD 面的 70 处 / 31 文件行尾字符箭头全部换成矢量**
+  - **为什么这轮才做**:这 70 处从 2026-09-24 立项起就被按文件 HEAD 棘轮"只报数不拦",
+    登记语是"免得恒红逼人绕过钩子"。判据取向没变、也不该变;变的是**存量现在清零了**,
+    所以"70 处"这个读数必须就地更新,否则下一个读文档的人会以为还有 70 处合法存量。
+  - **分布与改法**(色一律沿用该元素原有 token,不新增色值):
+    小程序 53 处 / 19 文件 → `<LineIcon name="chevron-right" size={24} …/>`
+    (24rpx = §4 的小程序光学档;原写法多是 40rpx,即"箭头比标签大"那一型);
+    web 8 处 / 5 文件 → lucide-react `ChevronLeft/ChevronRight/ArrowRight`(跟随原字号);
+    共享屏层 9 处 / 7 文件 → lucide-react-native `ChevronRight`,**尺寸沿用原 fontSize**
+    (这一型不是"箭头过大",只换载体不顺手改观感)。
+  - **随之删掉的无使用者样式**:`member-arrow` `pf-arrow` `vs-share-arrow` `cd-aigc-arrow`
+    `card-entry-arrow` `ask-create-picker-arrow`、`itemArrow` 定义、`modelBarArrow` 的 `fontSize`;
+    仍被别处引用的 `py-coupon-arrow` / `income-stat-value` **保留**(不替别人做清理)。
+  - **提交面**:miniapp 批 `b72021ef1a`(25 文件 +81/−89)、web+共享层批 `5f639343c0`(7 文件 +16/−37)。
+    剩 8 处分布在 **5 个被并发会话持有的脏文件**里(pay/index.tsx、SettingsScreen、
+    mobile-rn ModelConfigDialog、mobile-rn AiAssistantN8nScreen、agent-task-progress-pane)——
+    已按 §12 改到工作树(eslint/tsc/门 102 --files 三面实测干净)但**不整文件提交**,由 owner 带走。
+  - **两条实测教训(已写进 AGENTS §4 同一条)**:
+    ① 补 import 用 `/^import /` 找"最后一行"是错的 —— 多行 import 的**首行**也匹配,
+      于是新 import 被插进别人 import 的中间,当场写坏文件(eslint `Parsing error: Identifier expected`);
+      改按"以 `from …` 收尾的完整 import 行"定位,并回查上一批 19 个文件确认零同类插错。
+    ② 样式工厂(`makeStyles`)里的局部色变量不能搬到组件 JSX 作用域 —— `arrowColor` 在工厂内定义,
+      JSX 在组件内,搬过去即 lint unused + 运行时 undefined;改用组件作用域的 `tk.text.tertiary`。
+- **本轮量到但归属他人的两条,如实登记不代修**:
+  ① 小程序 `pnpm build` 一度 exit 1(`weapp-tw-css-generation-loader` 报 `CssSyntaxError: Missing opening (`,
+    点名 community/index.css 与 vip/success.css);我改过的 `vip/success.css` 对 HEAD **零 diff**,
+    `community/index.css` 的改动不是我做的(删的是 `.community-s-t-b .w-full.rounded-b-\\[30rpx\\]` 一条),
+    且全部受管样式文件括号逐文件平衡 ⇒ 判为并发会话**边写边被读**的瞬时态,复跑构建中,不当成结论。
+  ② `SettingsScreen.tsx:99` 有 1 处 GA4 文字返回键(工作树面,该文件属并发会话),棘轮未越线,归其 owner。
