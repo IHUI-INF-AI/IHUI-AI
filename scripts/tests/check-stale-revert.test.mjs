@@ -10,11 +10,16 @@
  * 因为它们被写回旧版时**不会**表现为"少了一个功能",而是让一批守门静默失效。
  * 立因是 2026-09-24 同日两次实测:`guardian-runner.mjs` 的工作树副本落后 HEAD 61 行
  * (别人刚落地的守门 78 五维升级),任何人一次 `git add` 就替全队摘门,而当时全链无人报。
+ *
+ * 2026-09-25 第二轮加的是**合并场域的四对照 + 一把反向回归锁**:本门原先对
+ * merge/cherry-pick/revert 上下文整轮豁免,而"两父在某路径上一致"时合并根本不会产出
+ * 外来内容 —— 那句豁免正好是第四十二批登记的盲区。收窄成 R1m 后,必须由测试钉住
+ * ①该红的红、②正当解冲突的绿、③`exempt ? [] : analyze(` 这种整轮放行写法不许回来。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as G } from '../check-stale-revert.mjs'
@@ -116,5 +121,89 @@ test('未超限时语义与改前一致:普通文件的回写照样判红', () =
   } finally {
     rmScratch(dir)
   }
+})
+
+/**
+ * 合并上下文夹具:main 上 docs/x.md = v2,另造一枚 theirs 分支 = theirs-9,
+ * 然后把 **v1(祖先版本)** 放回暂存区 —— 这就是"合并期把旧基线写进索引"的现场。
+ * 返回 {dir, run, writeHead, ours, theirs}。
+ */
+function mergeFixture() {
+  const { dir, run } = repo()
+  const write = (rel, text) => (put(dir, rel, text), run('add', '-A'))
+  write('docs/x.md', 'v1\n')
+  run('commit', '-qm', 'v1')
+  write('docs/x.md', 'v2\n')
+  run('commit', '-qm', 'v2')
+  run('checkout', '-qb', 'theirs')
+  write('docs/x.md', 'theirs-9\n')
+  run('commit', '-qm', 'theirs')
+  const theirs = run('rev-parse', 'HEAD')
+  run('checkout', '-q', 'main')
+  const ours = run('rev-parse', 'HEAD')
+  write('docs/x.md', 'v1\n') // 旧基线回写进索引
+  const gitDir = join(dir, run('rev-parse', '--git-dir'))
+  return {
+    dir,
+    run,
+    ours,
+    theirs,
+    inMerge: (sha) => writeFileSync(join(gitDir, 'MERGE_HEAD'), `${sha}\n`, 'utf8'),
+    outOfMerge: () => rmSync(join(gitDir, 'MERGE_HEAD'), { force: true }),
+  }
+}
+
+test('合并上下文不得再整轮豁免:两父一致而索引等于历史版本 ⇒ 判红并点名', () => {
+  const f = mergeFixture()
+  try {
+    assert.ok(G.mergeHeadSha(f.dir) === null, '未写 MERGE_HEAD 时不该有 mergeHead')
+    f.inMerge(f.ours) // theirs 就是 ours ⇒ 该路径两父逐字节一致
+    assert.equal(G.inRevertContext(f.dir), true)
+    const r = G.audit(f.dir, { staged: true })
+    assert.equal(r.code, 1, '旧口径在这里整轮放行,正是第四十二批登记的盲区;收窄后必须判红')
+    assert.ok(
+      r.lines.some((l) => l.includes('docs/x.md')),
+      `应点名被回写的路径,实际:${r.lines.join(' | ').slice(0, 200)}`,
+    )
+  } finally {
+    f.outOfMerge()
+    rmScratch(f.dir)
+  }
+})
+
+test('反向对照(两型都必须放过):两父本就不同 / 两父一致但索引是新写内容', () => {
+  const a = mergeFixture()
+  try {
+    a.inMerge(a.theirs) // docs/x.md: ours=v2 而 theirs=theirs-9 ⇒ 合并有权产出任一
+    assert.equal(G.audit(a.dir, { staged: true }).code, 0, '两父不同 ⇒ 不可能是外来旧基线')
+  } finally {
+    a.outOfMerge()
+    rmScratch(a.dir)
+  }
+  const b = mergeFixture()
+  try {
+    b.inMerge(b.ours)
+    put(b.dir, 'docs/x.md', 'hand-resolved-fresh\n') // 人工解冲突写进的新内容
+    b.run('add', '--', 'docs/x.md')
+    assert.equal(
+      G.audit(b.dir, { staged: true }).code,
+      0,
+      '新内容不等于任何历史版本 ⇒ 正当解冲突,绝不可拦',
+    )
+  } finally {
+    b.outOfMerge()
+    rmScratch(b.dir)
+  }
+})
+
+test('回归锁:整轮豁免的那句写法不得回来(收窄是判据,不是临时关闭)', () => {
+  const src = readFileSync(new URL('../check-stale-revert.mjs', import.meta.url), 'utf8')
+  assert.doesNotMatch(
+    src,
+    /exempt\s*\?\s*\[\]\s*:\s*analyze\(/,
+    '又变回"merge/cherry-pick/revert 整轮跳过 R1"了 ⇒ 合并期的外来旧基线将无人看守',
+  )
+  assert.match(src, /analyzeMerge\(/, 'audit 必须真的调用 R1m,否则函数成了摆设')
+  assert.equal(typeof G.analyzeMerge, 'function')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
