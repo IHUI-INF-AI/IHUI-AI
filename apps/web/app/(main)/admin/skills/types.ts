@@ -2,8 +2,20 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+/**
+ * 「我的技能库」视图模型(`GET /api/skills` 的行)。
+ *
+ * **身份就是 `name`,没有 `id`。** 后端 `apps/api/src/routes/skills.ts` 的存储形态
+ * `SkillRecord` 从不产出 id 字段:Redis key 是 `skills:<userId>`、field 是 `name`,
+ * 读写删全部按 `:name` 寻址(`GET/DELETE /skills/:name`)。此前这里声明了一个必填
+ * `id: string`,于是:
+ *  - `SkillTable` 的 `<tr key={skill.id}>` 每行 React key 恒为 `undefined`(重复 key);
+ *  - 删除按钮 `onDelete(skill.id)` 实际打到 `DELETE /api/skills/undefined` ⇒ 恒 404,
+ *    **删除功能对用户是坏的**。
+ * 与市场条目同一处置径(见本文件 `MarketSkill.id` 的注释:市场侧由 helpers 显式
+ * `id = entry.name` 映射):这里**删掉那个从不产出的字段**,而不是给它编一个假 id。
+ */
 export interface Skill {
-  id: string
   name: string
   description?: string | null
   version?: string | null

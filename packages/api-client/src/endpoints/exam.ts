@@ -121,16 +121,52 @@ export async function getExamChapters(examId: string): Promise<ApiResult<ExamCha
   return fetchApi<ExamChapter[]>(`/exam/papers/${encodeURIComponent(examId)}/chapters`)
 }
 
+// ----- 报名域契约:`:sid` 路径参数 ≠ examId(不得混用)-----
+//
+// 后端 GET / PUT / DELETE `/exam/composition/signup/:sid` 三条路由的 where 条件全部是
+// `eq(examSignUp.id, Number(sid))`(apps/api/src/routes/exam.ts:1358 / 1448 / 1465,
+// 参数模式 `sidParam` 见 :466),而 `exam_sign_up.id` 是 serial **行主键**
+// (packages/database/src/schema/relation-tables.ts:60)。
+// 把 examId 塞进这一格,即便权限档位放开,作用到的也是**另一场考试或别人的报名行**
+// —— 这是数据正确性缺陷,与"能不能操作"无关。
+// 取 signupId 的正规途径:GET /signup/my 与 POST /signup 的扁平返回里 `id` 字段
+// (exam.ts:1322-1328 / :1413-1419 两处 map 的都是 `String(s.id)`)。
+// POST /exam/composition/signup 是唯一按 examId 走**请求体**的一条(exam.ts:1367-1384),
+// 语义不同由后端决定,不是端内随手选的。
+
+/** 扁平返回形状(GET /signup/my 的 list 项、POST /signup 的响应)。 */
 export interface ExamSignUp {
+  /** 报名行主键(exam_sign_up.id)。**撤报名 / 查详情传这一格**,不要传 examId。 */
   id: string
+  /** 考试 id(exam_sign_up.exam_id)→ 只作为 POST /signup 的 body 键。 */
   examId: string
+  /** 报名表沿用的历史会员编号(exam_sign_up.member_id),与 users.id(uuid)不同空间。 */
   userId: string
   status: string
   signedAt: string
 }
 
-export async function getSignUp(examId: string): Promise<ApiResult<ExamSignUp | null>> {
-  return fetchApi<ExamSignUp | null>(`/exam/composition/signup/${encodeURIComponent(examId)}`)
+/**
+ * GET /exam/composition/signup/:sid 的返回形状 —— 与上面的扁平 `ExamSignUp` **不是同一份**:
+ * 详情路由把 drizzle 整行原样交出(`success({ signup: result[0] })`,exam.ts:1361),
+ * 所以列名按表原名、integer/serial 是 number、时间戳由 Fastify 序列化成 ISO 串。
+ */
+export interface ExamSignUpRecord {
+  id: number
+  memberId: number
+  examId: number
+  status: string
+  completedTime: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export async function getSignUp(
+  signupId: string,
+): Promise<ApiResult<{ signup: ExamSignUpRecord }>> {
+  return fetchApi<{ signup: ExamSignUpRecord }>(
+    `/exam/composition/signup/${encodeURIComponent(signupId)}`,
+  )
 }
 
 export async function saveSignUp(examId: string): Promise<ApiResult<ExamSignUp>> {
@@ -140,8 +176,8 @@ export async function saveSignUp(examId: string): Promise<ApiResult<ExamSignUp>>
   })
 }
 
-export async function cancelSignUp(examId: string): Promise<ApiResult<void>> {
-  return fetchApi<void>(`/exam/composition/signup/${encodeURIComponent(examId)}`, {
+export async function cancelSignUp(signupId: string): Promise<ApiResult<void>> {
+  return fetchApi<void>(`/exam/composition/signup/${encodeURIComponent(signupId)}`, {
     method: 'DELETE',
   })
 }

@@ -601,5 +601,17 @@
       }
     },
     "vividTail": ", almost there"
+  },
+  "ai": {
+    "pane": {
+      "inputNotices": {
+        "queue": {
+          "denied": {
+            "reorder": "Cannot reorder queued messages",
+            "undo": "Cannot unsend the queued message"
+          }
+        }
+      }
+    }
   }
 }

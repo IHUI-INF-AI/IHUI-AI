@@ -18,6 +18,7 @@
  */
 import {
   PAGE_API_GLOBAL_KEY,
+  PAGE_ACTIONS,
   buildPageApiInstallExpression,
   buildPageApiOptions,
   buildSnapshotResult,
@@ -28,6 +29,8 @@ import {
   snapshotOutcomeOf,
   type IhuiPageApiInstall,
   type PageActionErrorCode,
+  type PageActionRaw,
+  type PageActionType,
   type PageSnapshotBudget,
   type PageSnapshotRaw,
 } from '@ihui/dom-actions'
@@ -168,8 +171,8 @@ function budgetOf(args: Record<string, unknown>): Partial<Record<keyof PageSnaps
   }
 }
 
-/** 句柄解析 + 真实鼠标点击：CLI 这一侧的动作一律走浏览器级输入事件。 */
-async function clickAtHandle(
+/** 句柄解析 + 滚动后取矩形中心 —— click / hover 共用的前半段。 */
+async function resolveHandleCentre(
   session: CdpSession,
   handle: string,
 ): Promise<{ ok: true; x: number; y: number } | { ok: false; errorCode: PageActionErrorCode; message: string }> {
@@ -188,8 +191,31 @@ async function clickAtHandle(
   if (!Number.isFinite(x) || !Number.isFinite(y)) {
     return { ok: false, errorCode: 'HANDLE_NOT_RENDERED', message: 'no rect centre after scroll' }
   }
+  return { ok: true, x, y }
+}
+
+/** 句柄解析 + 真实鼠标点击：CLI 这一侧的动作一律走浏览器级输入事件。 */
+async function clickAtHandle(
+  session: CdpSession,
+  handle: string,
+): Promise<{ ok: true; x: number; y: number } | { ok: false; errorCode: PageActionErrorCode; message: string }> {
+  const centre = await resolveHandleCentre(session, handle)
+  if (!centre.ok) return centre
+  const { x, y } = centre
   await session.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', buttons: 1, clickCount: 1 })
   await session.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', buttons: 0, clickCount: 1 })
+  return { ok: true, x, y }
+}
+
+/** 句柄解析 + 浏览器级鼠标悬停（与 click 同一输入通道，不是页内伪造的 mouseover）。 */
+async function hoverAtHandle(
+  session: CdpSession,
+  handle: string,
+): Promise<{ ok: true; x: number; y: number } | { ok: false; errorCode: PageActionErrorCode; message: string }> {
+  const centre = await resolveHandleCentre(session, handle)
+  if (!centre.ok) return centre
+  const { x, y } = centre
+  await session.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, buttons: 0 })
   return { ok: true, x, y }
 }
 
@@ -313,6 +339,68 @@ const browserPageType: Tool = {
   },
 }
 
+const browserPageSelect: Tool = {
+  name: 'browser_page_select',
+  description:
+    'Choose an option of a <select> by its handle. `value` accepts either the option’s visible text or its value attribute. Non-select targets return TARGET_NOT_SELECTABLE and an unmatched option returns EXECUTION_FAILED — both with dispatched:false, so correcting the argument and retrying is safe.',
+  parameters: {
+    handle: { type: 'string', description: 'Target handle (must be a <select>)' },
+    value: { type: 'string', description: 'Option visible text or option value attribute' },
+  },
+  required: ['handle', 'value'],
+  dangerLevel: 'write',
+  async execute(args) {
+    const handle = typeof args.handle === 'string' ? args.handle : ''
+    const value = typeof args.value === 'string' ? args.value : ''
+    if (!handle) return fail('PARAM_INVALID', 'handle is required')
+    try {
+      const { session } = await getBrowserSession()
+      await ensurePageApi(session)
+      // 选项匹配规则只在 @ihui/dom-actions 的页内 act() 里存着一份。端内再拼一套
+      // (哪怕只是"先 click 展开再点 option")就会造出"扩展选得上、CLI 说没这个选项"的分叉。
+      const raw = await callPageApi<PageActionRaw>(session, 'act', ['page_select', handle, { value }, COLLECT_CEILING])
+      if (isPageCallFailure(raw)) return fail('EXECUTION_FAILED', raw.message ?? 'page api act failed')
+      const outcome = outcomeOf(raw)
+      if (!outcome.ok) {
+        return fail(outcome.errorCode ?? 'EXECUTION_FAILED', outcome.error ?? 'select failed', { handle, value })
+      }
+      return ok(`selected ${value} on ${handle} · sideEffect=${outcome.sideEffect} · ${outcome.sideEffectReason}`, {
+        dispatched: outcome.dispatched,
+        sideEffect: outcome.sideEffect,
+        sideEffectReason: outcome.sideEffectReason,
+        ...(raw.detail ? { detail: raw.detail } : {}),
+      })
+    } catch (err) {
+      return fail('CDP_FAILED', err instanceof Error ? err.message : String(err))
+    }
+  },
+}
+
+const browserPageHover: Tool = {
+  name: 'browser_page_hover',
+  description:
+    'Hover the element behind a handle — dispatches a browser-level mouseMoved at the element’s rect centre (after scrolling it into view), so tooltips and hover menus that listen for real pointer events fire. Collapsed or zero-size elements return HANDLE_NOT_RENDERED with dispatched:false.',
+  parameters: { handle: { type: 'string', description: 'Target handle' } },
+  required: ['handle'],
+  dangerLevel: 'write',
+  async execute(args) {
+    const handle = typeof args.handle === 'string' ? args.handle : ''
+    if (!handle) return fail('PARAM_INVALID', 'handle is required')
+    try {
+      const { session } = await getBrowserSession()
+      await ensurePageApi(session)
+      const hovered = await hoverAtHandle(session, handle)
+      if (!hovered.ok) {
+        return fail(hovered.errorCode, hovered.message, { handle, retryable: hovered.errorCode !== 'HANDLE_SCOPE_MISMATCH' })
+      }
+      const out = actionOutput(`hovered ${handle}`, true, { x: hovered.x, y: hovered.y })
+      return ok(out.text, out.data)
+    } catch (err) {
+      return fail('CDP_FAILED', err instanceof Error ? err.message : String(err))
+    }
+  },
+}
+
 const browserPagePressKey: Tool = {
   name: 'browser_page_press_key',
   description:
@@ -389,14 +477,24 @@ const browserPagePickAtPoint: Tool = {
   },
 }
 
-/** 句柄族工具集（由 browser.ts 并入 BROWSER_TOOLS 注册面）。 */
-export const BROWSER_PAGE_TOOLS: Tool[] = [
-  browserPageSnapshot,
-  browserPageClick,
-  browserPageType,
-  browserPagePressKey,
-  browserPagePickAtPoint,
-]
+/**
+ * 契约动词 → 本端执行体。**刻意用 `Record<PageActionType, Tool>` 而不是数组清单**：
+ * 上面那份五元素的清单曾长期少接 `page_select` / `page_hover`,而 tsc、既有测试、
+ * 守门链三方都不红 —— 清单式注册的失效形态永远是"安静"。改成按契约键全量映射后,
+ * 契约新增一个动词而本端没实现,编译期就红(缺键),不会再拖到运行时。
+ */
+const PAGE_ACTION_TOOLS: Record<PageActionType, Tool> = {
+  page_snapshot: browserPageSnapshot,
+  page_click: browserPageClick,
+  page_type: browserPageType,
+  page_select: browserPageSelect,
+  page_hover: browserPageHover,
+  page_press_key: browserPagePressKey,
+  page_pick_at_point: browserPagePickAtPoint,
+}
+
+/** 句柄族工具集（由 browser.ts 并入 BROWSER_TOOLS 注册面）；顺序恒随契约 PAGE_ACTIONS。 */
+export const BROWSER_PAGE_TOOLS: Tool[] = PAGE_ACTIONS.map((action) => PAGE_ACTION_TOOLS[action])
 
 /** 供测试与后续端复用：安装入口与预算钳制都在共享包，这里只做再导出。 */
 export const __pageSnapshotInternals__ = { ensurePageApi, installIhuiPageApi, clampPageSnapshotBudget }
