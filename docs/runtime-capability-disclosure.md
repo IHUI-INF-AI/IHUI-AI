@@ -328,6 +328,91 @@ DESTRUCTIVE_BLOCKED / PERMISSION_DENIED，本侧原样回传"*。
 - `web_search` 把**查询关键词原文**发给 DuckDuckGo 的 HTML 接口
   （`apps/cli/src/tools/web-search.ts:24`，设计说明 `:10`），免费无 key、不缓存（`:18`）。
 
+### 4.6 桌面宿主（Tauri + WebView2）：能读写什么、`page_*` 是否开启、数据落在哪
+
+> 本节全部为 2026-09-25 在本机实测/逐行核对，未取证的部分直接写「未验证」。
+
+**宿主形态：桌面端的"页面"只有我们自己的站点。**
+
+- 主窗口固定加载 `https://aizhs.top/agents`（`apps/desktop/src-tauri/tauri.conf.json:18`），
+  IPC 权限只授给这两个域名（`apps/desktop/src-tauri/capabilities/default.json:6-8`）。
+- 断网时 Rust 用 `webview.eval` 把页面导航到内置离线页
+  （`apps/desktop/src-tauri/src/auto_refresh.rs:256`、`:293`）。
+- ⇒ 桌面里可被"读取/操作"的文档恒为自家页面，不存在"用户正在浏览的任意站点"这一目标面。
+  任意站点那条路属于扩展宿主（§4.3）。
+
+**读写面（三条，按权限来源）**
+
+1. 操作系统级输入与剪贴板：见 §4.4（`enigo` + `arboard` + `screenshots`，含屏幕截图）。
+2. 文件读写被限定在 `$APPDATA/**` 的**文本**文件
+   （`capabilities/default.json:29-37` 的 `fs:allow-read-text-file` / `fs:allow-write-text-file`）；
+   实际写入物为 `auth.json` / `tray-settings.json` / `window-state.json`（见下面的巡检清单）。
+3. 外部程序：`shell:allow-open` 只允许 `https://*` 与 `http://*`
+   （`capabilities/default.json:39-44`），`file:`/自定义协议被排除在外。
+
+**命令在哪个账号/宿主执行**：桌面主进程（Rust）内、**启动该桌面应用的那个登录账号**下；
+不经服务端，也不落到我们的服务器。业务状态**不**存在 Rust 侧——实测
+`apps/desktop/src-tauri/src` 里进程级状态声明只有 1 处
+`static WINDOW_STATE_LAST_SAVE`（`src/lib.rs:1209`，窗口几何保存的节流时间戳）。
+这条现在是机器判据：`scripts/check-desktop-event-wiring.mjs` 规则 F 规定 Rust 的进程级状态
+一旦持有 `task|session|conversation|chat|message|turn|prompt|thread|goal|agent|todo`
+这类业务名词即拦下提交（零容忍、不设清单豁免，唯一出口是行内 `rust-state-exempt: <原因>`）。
+
+**`page_*`（页面语义快照句柄族）在桌面：未开启。** 三条实测判据：
+
+1. 服务端反向闸只认扩展端申报：`apps/ai-service/app/services/control_autonomy.py:233-243`
+   的 `_page_family_declared` 判定式是 `ep.get("endpoint") == "extension"`，
+   桌面申报 `browserPageActions` 打不开模型可见面。
+2. 择端表把这一族的 `category` 只路由到扩展端：本族走的 category 是 `browser`
+   （`apps/ai-service/app/services/page_control_bridge.py:63`、`:217`），而
+   `apps/api/src/routes/agent-control.ts:94-105` 的 `CATEGORY_ENDPOINT` 是"一 category 一端"的穷举表，
+   `browser: 'extension'`、`computer: 'desktop'`。把 `desktop` 塞进 `browser` 会连带把
+   12 个选择器形态的 `browser_*` 也投给桌面，而桌面执行不了它们。
+3. 投递按 **userId 而非 instanceId**（`agent-control.ts:292` `pushNotification(ep.userId, …)`），
+   且结果**先回者定终**（`agent-control.ts:350-358` 取到 pending 即 resolve 并删除）。
+   同一用户若同时挂着扩展与桌面，两者都会收到同一条 `browser` 族指令并各自执行，
+   谁先返回谁的答案被采信——桌面那份"自家页面快照"就可能顶掉用户浏览器标签页的真实结果。
+
+⇒ 因此桌面端**故意不申报**这一族：`apps/web/src/hooks/use-agent-control.ts:98-107` 的
+`buildCapability()` 里没有 `browserPageActions` 字段。这条不是口头约定，
+`scripts/tests/desktop-page-host.test.mjs` 把它钉成双向不变量
+（"申报 ⟺ 接线三条件成立"：只挂壳会红，只把闸放开却没人接也会红）。
+要让桌面真正成为第三个执行宿主，前置动作是新增一条独立 category + 让闸按端类型白名单放行 +
+桌面消费端复用 `@ihui/dom-actions` 的 `runPageAction` 与 `buildPageApiInstallExpression()`
+（不得端内自拼表达式/句柄格式/错误码），属未决项，不是已完成项。
+
+**注入与派发本身可行（实测）**：共享包的唯一装配入口产出的自足表达式，在真实 Blink 引擎
+（本机 Edge 145 headless，与 WebView2 同内核家族）里跑通——
+`install=ok / schema=1 / rows=3 / roles=button,combobox,textbox`，
+`page_click` 触达页面自身注册的 listener（`click.reached-handler=true`），
+`page_type` 写入值 `注入文本 42`、`page_select` 置为 `ops`、`page_press_key` 返回 ok，
+失效句柄给出 `HANDLE_SCOPE_MISMATCH`、伪造句柄给出 `HANDLE_MALFORMED`。
+同一次实测还量到注入源码需要的打包器辅助符是 `["__name"]`
+（⇒ 端内把 `(fnSource)(opts)` 手拼进 eval 必然 `ReferenceError`，这是必须走装配入口的实证）。
+**边界**：未在真机 WebView2 窗口内跑过端到端（需 cargo 构建 GUI 壳），此处只主张"同内核家族的
+Blink 引擎已验证"，不主张 WebView2 已验证。派发形态是页内合成事件（`isTrusted:false`），
+与扩展宿主同形，不是 OS 级真实输入（那是 §4.4 的 `computer_*`）。
+
+**WebView2 数据目录与加密落点**：数据目录是
+`%LOCALAPPDATA%\com.ihui.desktop\EBWebView`（代码内两处清理逻辑
+`src/lib.rs:1426-1435` prod 体积清理、`:1613-1620` dev 每次启动清空）；本机该目录已由
+改道机制指到 `G:\DevEnv\cache\userhome\appdata-local-com.ihui.desktop`（巡检脚本量到的真身）。
+落盘加密的单一真相源是 `apps/web/src/lib/local-vault.ts`（信封字段 `ihuiVaultV1` →
+`{alg,kid,iv,ct}`），巡检守门 `scripts/check-desktop-cache-plaintext.mjs`（只读、warn-only，
+不进提交链——它判的是机器状态，提交者结构上满足不了）。
+**2026-09-25 本机实测读数为 `violations`，不是"干净"**：实扫 9 个文件，其中
+`EBWebView\Default\Local Storage\leveldb\000003.log`（9967B）里有 2 条
+`ihui-chat` 的**明文 persist** 记录（`ihui-chat:plain`），并有 11 处 CJK 以 UTF-16 字节形态命中；
+同清单里 roaming 的 `auth.json`/`tray-settings.json`/`window-state.json` 无 CJK 命中。
+⇒ 结论要如实讲：**桌面本地聊天正文当前是明文落盘**，已入库的加密实现没有覆盖到这个键。
+本轮没有动它（属另一条待办，且修它需要存量数据的迁移语义，不是加一行代码）。
+
+**两条桌面链路的定名（同日起为机器判据）**：`chain: continuous` = Rust `.emit` →
+`use-desktop.ts` listen → `CustomEvent`（无 id 无队列，页面未挂载监听即丢）；
+`chain: replayable` = api `agent.action` 经 WS 送达的指令面（至少一次，故端内按 requestId 幂等去重，
+`use-agent-control.ts` 与 `apps/extension/lib/agent-control-bridge.ts` 各一份）。
+两条链分属不同通道，因此只补"不得混用/不得摘标记"的防回退断言（同一守门的规则 E）。
+
 ---
 
 ## 5. 会自动执行的东西（无人值守面）
@@ -613,12 +698,17 @@ Ollama `http://localhost:11434`、LM Studio `http://localhost:1234`、llama.cpp
 6. **miniapp-taro / mobile-rn 端的全部出站域名**：未逐端枚举（§6.2 只覆盖 extension
    与 desktop 的声明式权限）。
 7. **`hook_engine.py`（服务端）与 `apps/cli/src/hooks/` 的事件是否同集**：未做集合对账。
-8. **桌面端 Tauri capabilities/权限清单的完整内容**：只读了 `tauri.conf.json` 的
-   updater 与 deep-link 段（§6.2）。
+8. **桌面端 `admin` 窗口的实际加载面与权限差异**：`capabilities/default.json` 已逐条读过
+   （§4.6 列了窗口/IPC/文件/shell 三类），但 `admin` 窗口是 lazy create，本文未取证它
+   实际加载哪个 URL、是否与 main 拿到同一套 remote 授权。
 9. **检查点/消息在数据库层的加密与 RLS 实配**：仓内有 `packages/database/src/rls.ts`，
    本档未验证其对会话内容表的实际覆盖。
 10. **`IHUI-PG-Backup` 之外的数据库备份节奏**：本机该任务不存在（§5.3）；
     生产实例是否另设，未验证。
+11. **注入表达式在真机 WebView2 窗口内的端到端**：§4.6 只证到"同内核家族的 Blink
+    （本机 Edge 145 headless）里安装/派发/错误码全部按契约工作"，
+    **未**在 `apps/desktop` 构建出的 GUI 壳内跑过一次（需 cargo 构建并起窗口）。
+    桌面 `page_*` 的接线三条件（§4.6）另属未决项，不是已验证的"能跑"。
 
 ---
 
@@ -632,6 +722,7 @@ Ollama `http://localhost:11434`、LM Studio `http://localhost:1234`、llama.cpp
 | --- | --- | --- |
 | 2026-09-25 | 首次建立 | 按本仓代码逐条取证成文。取证快照日期 2026-09-24 ~ 09-25，机器实测项见 §4.1 与 §5.3 |
 | 2026-09-25 | 两处事实缺陷已修 | 钩子 trust gate 接线（§5.1）与 `readonly` 沙箱档的"禁止一切命令"改为 `null` 三态（§2.1）；对应登记行已就地更新为"当前语义 + 如何信任一个目录" |
+| 2026-09-25 | 桌面宿主一节成文 | 新增 §4.6（桌面读写面 / 执行身份 / `page_*` 未开启的三条实测判据 / Blink 注入派发实测 / WebView2 数据落点与当日巡检读数），并把 §8 第 8 条收窄为"admin 窗口未取证"、新增第 11 条"真机 WebView2 端到端未跑" |
 
 **本轮取证中被本文否证的既有说法**（写下来以免下一个人再信一遍）：
 
