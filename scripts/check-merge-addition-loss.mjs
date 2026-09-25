@@ -22,31 +22,41 @@
  *
  * 用法:
  *   node scripts/check-merge-addition-loss.mjs                 # 提交链口径:未进入 origin/main 的合并
+ *   node scripts/check-merge-addition-loss.mjs --staged        # runner 统一下发的档(如实记录,判据读同一份提交图)
  *   node scripts/check-merge-addition-loss.mjs --rev <sha>     # 只审计一枚(供钩子精确点名)
  *   node scripts/check-merge-addition-loss.mjs --all-new       # 增量台账:别人推来的合并也会被判一次
  *   node scripts/check-merge-addition-loss.mjs --limit 40      # 手工回看最近 40 枚(取证用,会连历史事故一起报)
  *   node scripts/check-merge-addition-loss.mjs --self-test     # 真临时仓端到端取证
- * 退出码:0 = 无吞并;1 = 有;2 = 脚本自身异常(git 解析失败绝不静默放行)。
+ * 退出码:0 = 无吞并;1 = 有;2 = **无法判定**(git 取数失败 / 两面旗同用 / 脚本自身异常 —— 取数失败绝不静默放行,也绝不冒"无吞并"的绿)。
+ *
+ * 取材(2026-09-26 迁入共用层):所有 git 派生经 `scripts/lib/face-reader.mjs` 的 `gitRaw`,
+ * 台账经该层的磁盘面读取入口 `readWorktreeFile`。本门**不读 blob 正文**(判据对象是 commit / tree
+ * 对象,层的 `catBatch` 头解析只认 blob),所以它没有"索引面 vs HEAD 面"可切 —— 这一点由 `--self-test`
+ * 第 ②③ 组构造面证明,而不是靠注释声称。
  */
-import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { basename, dirname, join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { resolveRemoteHead } from './lib/face-reader.mjs'
+import { Undetermined, assertRepoRoot, gitRaw, readWorktreeFile, resolveRemoteHead, selectFace } from './lib/face-reader.mjs'
 
-const GIT = 'C:/Program Files/Git/cmd/git.exe'
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const DEFAULT_LIMIT = 12
+/** 沿用迁移前的显式上界:一次审计要 ls-tree 多棵全量树,层的默认 60s/64MB 会把大树读成"取不到" */
+const GIT_TIMEOUT = 120000
+const GIT_MAX_BUFFER = 256 * 1048576
 
-const git = (args, cwd = ROOT) =>
-  execFileSync(GIT, ['-c', 'safe.directory=*', ...args], {
-    cwd,
-    encoding: 'utf8',
-    windowsHide: true,
-    timeout: 120000,
-    maxBuffer: 256 * 1048576,
-  })
+/**
+ * 派生一律走取材层的 `gitRaw` —— 绝对 git 路径 / `safe.directory` / quotepath / windowsHide /
+ * timeout / maxBuffer / **显式 stdio** 这六件事在层里只有一份实现(此前本门自己 `execFileSync`
+ * 派生并硬编码 `C:/Program Files/Git/cmd/git.exe`,即门 118 判的"半接线":引了层却没用层取数)。
+ *
+ * ⚠️ 为什么这里**不可能**出现 `catBatch(`:本门读的全是 **commit / tree 对象**(路径集与父子关系),
+ * 而层的 `catBatch` 走 `parseBatch`,其头解析正则 `/^([0-9a-f]{40}) blob (\d+)$/` 只认 blob,
+ * tree / commit 一律回 `null`。所以"正文面"在本门结构上不存在 —— 唯一真按路径读正文的那一处是
+ * 运行态台账(见 `readMarker`),它走层的磁盘面读取入口 `readWorktreeFile`。
+ */
+const git = (args, cwd = ROOT) => gitRaw(args, cwd, { timeout: GIT_TIMEOUT, maxBuffer: GIT_MAX_BUFFER })
 
 /** 某提交树下的路径集合。
  *  缓存键**必须先剥到 tree oid**:按符号名('HEAD')缓存会让"ref 移动之后"读到移动前的树 ——
@@ -163,9 +173,22 @@ export function pendingMerges(cwd = ROOT) {
 export function markerPath(root) {
   return join(root, '.workbuddy', 'merge-addition-loss-audited.json')
 }
+/**
+ * 台账取磁盘面 —— 但取法只有层的一份实现(`readWorktreeFile`)，不再自己 `readFileSync`。
+ *
+ * 为什么这一处**必须**跟磁盘、不能跟 HEAD/索引：`.workbuddy/` 被 `.gitignore` 忽略
+ * （实测 `git check-ignore -v` 命中 `.gitignore:364`），它结构上永不出现在任何检出面里，
+ * 而它的价值恰恰是"上一轮写过、这一轮就别重判"。改成读 HEAD 会让台账永远为空 ⇒ 每轮把
+ * 已入库的历史事故重判一遍 ⇒ 一台恒红门（只会逼人 `--no-verify`，连带废掉全部守门）。
+ * 三面内容不一致时取哪一面由**语义**决定，不得照抄"索引优先"的模板。
+ *
+ * 读不到 / 解不开 ⇒ 退回空表（= 本轮全部重判，保守方向）；巡检链上抛错等于整轮不判。
+ */
 export function readMarker(p) {
   try {
-    const j = JSON.parse(readFileSync(p, 'utf8'))
+    const text = readWorktreeFile(dirname(p), basename(p))
+    if (text === null) return {}
+    const j = JSON.parse(text)
     return j && typeof j === 'object' ? j : {}
   } catch {
     return {}
@@ -277,6 +300,29 @@ function selfTest() {
     const secondRound = auditUnseen(400, dir, marker)
     ok('台账已记过的合并不得每轮重复判红', secondRound.every((r) => r.lost.length === 0) && secondRound.length === 0, JSON.stringify(secondRound.map((r) => [r.rev.slice(0, 8), r.lost.length])))
     ok('坏台账文件退回空表而非抛(巡检链上抛错等于整轮不判)', JSON.stringify(readMarker(join(dir, 'nope.json'))) === '{}')
+
+    // ── 取材面纪律构造面证明(2026-09-26 迁入 lib/face-reader.mjs 时补，三条一起读) ──
+    // ① 两面旗同给 = 自相矛盾 ⇒ 判死，绝不挑一面做出"看起来判过了"的绿。
+    const both = faceFromArgv(['--staged', '--worktree'])
+    ok('两面旗同给 ⇒ 判死(不得挑一面的绿)', both.face === null && Boolean(both.error), JSON.stringify(both))
+    // ② `--staged` 必须被如实认下(迁移前它整枚被静默忽略，账面读起来像"已按档判")。
+    ok('单面旗如实取档 ⇒ --staged 不再被静默忽略(无旗仍默认 head)', faceFromArgv(['--staged']).face === 'staged' && faceFromArgv([]).face === 'head' && faceFromArgv(['--staged']).error === null)
+    // ③ 台账的三面分歧现场：磁盘 / 索引 / HEAD 内容**各不相同** ⇒ 判据必须跟磁盘(运行态)。
+    //    方向与"索引优先"的模板**相反**，这是有意的：`.workbuddy/` 被 .gitignore 忽略，
+    //    台账结构上不在任何检出面里，而它的价值就是"上一轮写过、这一轮别重判"。
+    //    反向对照同时钉住"哪天有人把它改成按 HEAD/索引取，本条立刻红"。
+    writeFileSync(join(dir, 'marker3.json'), '{"face":"head-side"}\n', 'utf8')
+    run('add', 'marker3.json')
+    run('commit', '-qm', 'ledger 入库一版')
+    writeFileSync(join(dir, 'marker3.json'), '{"face":"index-side"}\n', 'utf8')
+    run('add', 'marker3.json')
+    writeFileSync(join(dir, 'marker3.json'), '{"face":"disk-live"}\n', 'utf8')
+    const three = readMarker(join(dir, 'marker3.json'))
+    ok(
+      '台账三面内容各异 ⇒ 必须跟磁盘面(运行态)，不得跟 HEAD/索引',
+      three.face === 'disk-live',
+      `实得 ${JSON.stringify(three)}(head/index 那份被取用即红)`,
+    )
   } finally {
     treeCache.clear()
     rmSync(dir, { recursive: true, force: true })
@@ -285,9 +331,27 @@ function selfTest() {
   process.exit(fails.length ? 1 : 0)
 }
 
+/**
+ * 判定面旗标的选择 —— 纯函数，构造面可证（`main` 要跑真 git，不可单测）。
+ *
+ * 如实登记：本门的判据面对象是**提交图**（commit / tree 对象），它与"取哪一档"无关 ——
+ * 三档拿到的都是同一份 `rev-list` 历史。这里接 `selectFace` 只办两件必要的事：
+ *  ① `--staged` 不再被**静默忽略**（此前 runner 下发它等于什么都没发生，而账面读起来像"已按档判"）；
+ *  ② 两面旗同给 = 自相矛盾 ⇒ 判死 exit 2，绝不挑一面的绿（口径与 113/118 同形）。
+ */
+export function faceFromArgv(argv) {
+  return selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree'), def: 'head' })
+}
+
 async function main() {
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) return selfTest()
+  const { face, error } = faceFromArgv(argv)
+  if (error) {
+    console.error(`❌ 无法判定: ${error}`)
+    process.exit(2)
+  }
+  assertRepoRoot(ROOT, '本门')
   const revIdx = argv.indexOf('--rev')
   const limitIdx = argv.indexOf('--limit')
   const rows =
@@ -302,7 +366,9 @@ async function main() {
     revIdx >= 0 ? `单枚 ${argv[revIdx + 1]}` : limitIdx >= 0 ? `回看 ${argv[limitIdx + 1]} 枚` : argv.includes('--all-new') ? '增量台账新判' : '未入 origin/main 的合并'
   const bad = rows.filter((r) => r.lost.length)
   const nLost = bad.reduce((s, r) => s + r.lost.length, 0)
-  console.log(`[merge-addition-loss] 口径=${scope} / 审计合并 ${rows.length} 枚 / 吞并 ${bad.length} 枚 / 丢失新增路径 ${nLost}`)
+  console.log(
+    `[merge-addition-loss] 口径=${scope} / 面=${face}(判据读提交图) / 审计合并 ${rows.length} 枚 / 吞并 ${bad.length} 枚 / 丢失新增路径 ${nLost}`,
+  )
   for (const r of bad)
     for (const l of r.lost)
       console.log(`  ❌ ${l.path}  —— 由 ${l.addedBy.slice(0, 11)} 引入,合并提交 ${r.rev.slice(0, 11)} 的树里没有`)
@@ -317,10 +383,13 @@ async function main() {
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {
   main().catch((e) => {
-    console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
+    // git 取数失败一律是**无法判定**（exit 2），不得冒烟成"没有吞并"（exit 0）的假绿。
+    const msg = e instanceof Undetermined ? e.message : (e?.message ?? e)
+    console.error(`❌ 无法判定(exit 2): ${msg}`)
+    if (!(e instanceof Undetermined)) console.error(e?.stack ?? '')
     process.exit(2)
   })
 }
 
-export const __test__ = { treePaths, parentsOf, basesOf, auditOne, auditRecent, pendingMerges, auditUnseen, readMarker, markerPath, chooseRange, commitExists }
+export const __test__ = { treePaths, parentsOf, basesOf, auditOne, auditRecent, pendingMerges, auditUnseen, readMarker, markerPath, chooseRange, commitExists, faceFromArgv }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
