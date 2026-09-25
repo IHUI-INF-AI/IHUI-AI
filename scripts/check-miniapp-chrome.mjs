@@ -24,20 +24,28 @@
  * 无法判定(源头缺档 / 结构不认识 / 取不到文件)⇒ **exit 2**,既不冒红也不记绿。
  * 非色枚举字段(navTxtStyle / tabBorderStyle / tabBorder)只计数,不属本门。
  *
- * 取材面(与守门 36 同口径):默认判**磁盘**,`--staged` 判**索引 blob**(这次提交会带走的那一份;
- * 盘上随后改对不算修好)。任一面取不到 ⇒ exit 2。
+ * 取材面(与守门 36/77/83/93/98/103 同口径):默认判 **HEAD blob**,`--staged` 判**索引 blob**(这次
+ * 提交会带走的那一份;盘上随后改对不算修好),`--worktree` 只是人工逃生舱,两面旗同给 ⇒ exit 2。
+ * 任一面取不到 ⇒ exit 2,且**不回落**到另一个面。
+ * 2026-09-25 换档的理由不是洁癖:共享工作树常年滞后 HEAD,按磁盘判的门会在"恒红 / 假绿"之间来回跳,
+ * 并把错数写回棘轮基线(门 83 的 R3 登记一天内被整文件回退三次即此型)。
  *
  * 用法:
- *   node scripts/check-miniapp-chrome.mjs            全量(磁盘)
- *   node scripts/check-miniapp-chrome.mjs --staged   索引面
+ *   node scripts/check-miniapp-chrome.mjs            全量(HEAD blob)
+ *   node scripts/check-miniapp-chrome.mjs --staged   索引面(提交链)
+ *   node scripts/check-miniapp-chrome.mjs --worktree 磁盘面(人工/验生成器写回)
  *   node scripts/check-miniapp-chrome.mjs --quiet    只出错才说话
  *   node scripts/check-miniapp-chrome.mjs --self-test 判红→退出码映射的自检(纯内存,不碰真仓)
  * 退出码:0 = 一致;1 = drifted/thirdValue/rot/unregistered;2 = 无法判定
  */
-import { readFileSync } from 'node:fs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, join } from 'node:path'
-import { gitRaw } from './lib/face-reader.mjs'
+import {
+  Undetermined,
+  catBatch,
+  readWorktreeFile,
+  selectFace,
+} from './lib/face-reader.mjs'
 import {
   checkChrome,
   classifyFailures,
@@ -49,27 +57,57 @@ import {
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const args = process.argv.slice(2)
 const quiet = args.includes('--quiet')
-const staged = args.includes('--staged')
 
-function gitShow(spec) {
-  try {
-    return gitRaw(['show', spec], root, { maxBuffer: 1 << 28 })
-  } catch {
-    return null
-  }
+/**
+ * 纯函数:argv → 判定面(默认 **head**)。导出是为了"默认不再是磁盘"这一格能被构造面证明,
+ * 而不是等人跑一次真仓看结论行(结论行会被人改,函数不会)。口径与守门 36/77/83/93/98/103 同:
+ * 全量判 HEAD blob、`--staged` 判索引 blob、`--worktree` 仅人工逃生舱、两面旗同给判死。
+ * 改这条的起因:本门立项时写的是"默认判磁盘",而共享工作树常年滞后 HEAD ⇒ 同一份 HEAD 代码
+ * 会在恒红与假绿之间来回跳(门 83 的 R3 登记一天内被整文件回退三次即此型)。
+ */
+export function faceFromArgv(argv) {
+  return selectFace({
+    staged: argv.includes('--staged'),
+    worktree: argv.includes('--worktree'),
+    def: 'head',
+  })
 }
 
-/** 判哪个面就按哪个面取**全部三份**:源与两份副本混面会产出与真实提交相反的结论。 */
-function readFace(rel) {
-  if (!staged) {
-    try {
-      return readFileSync(join(root, rel), 'utf8')
-    } catch {
-      return null
+const FACE_SEL = faceFromArgv(args)
+const FACE_TXT = {
+  head: 'HEAD blob(全量审计)',
+  staged: '索引 blob(本次提交会带走的那一份)',
+  worktree: '工作树(人工逃生舱,提交链不走这档)',
+}
+
+/**
+ * 按判定面取**全部三份**(源 + 两份副本),一次 `cat-file --batch` 同面同轮读完。
+ * 混面会在并发会话的瞬间产出与真实提交相反的结论;取不到一律抛 `Undetermined`
+ * (调用方折成 exit 2),**不回落**到另一个面 —— 回落就是把"没判"写成"判过了"。
+ * root/face 都是入参:镜像测试因此能在临时 git 仓里造"索引≠磁盘"的现场。
+ */
+export function readFaceInputs(repoRoot, face) {
+  const rels = [TOKENS_SOURCE_REL, THEME_JSON_REL, THEME_TS_REL]
+  if (face === 'worktree') {
+    const out = {}
+    for (const rel of rels) {
+      const t = readWorktreeFile(repoRoot, rel)
+      if (t === null || t === undefined) throw new Undetermined(`工作树(逃生舱)取不到 ${rel}`)
+      out[rel] = t
     }
+    return out
   }
-  const idx = gitShow(`:${rel}`)
-  return idx === null ? gitShow(`HEAD:${rel}`) : idx
+  const prefix = face === 'staged' ? ':' : 'HEAD:'
+  const specs = rels.map((rel) => prefix + rel)
+  const got = catBatch(repoRoot, specs, { maxBuffer: 1 << 28 })
+  const out = {}
+  for (let i = 0; i < rels.length; i++) {
+    const t = got.get(specs[i])
+    if (t === null || t === undefined)
+      throw new Undetermined(`${face === 'staged' ? '索引' : 'HEAD'} 取不到 ${rels[i]}`)
+    out[rels[i]] = t
+  }
+  return out
 }
 
 /** 纯映射: failures → { red, undetermined } —— 与生成器 blocking 分流同形,自检钉的就是它。 */
@@ -102,20 +140,22 @@ function selfTest() {
 
 function main() {
   if (args.includes('--self-test')) return selfTest()
-  const tokensCss = readFace(TOKENS_SOURCE_REL)
-  const themeJson = readFace(THEME_JSON_REL)
-  const themeTs = readFace(THEME_TS_REL)
-  const missing = [
-    [TOKENS_SOURCE_REL, tokensCss],
-    [THEME_JSON_REL, themeJson],
-    [THEME_TS_REL, themeTs],
-  ].filter(([, t]) => t === null)
-  if (missing.length) {
-    console.error(
-      `[check-miniapp-chrome] 取不到 ${missing.map(([r]) => r).join(' / ')} ⇒ 无法判定(不记为通过)`
-    )
+  if (FACE_SEL.error) {
+    console.error(`[check-miniapp-chrome] ❌ 无法判定:${FACE_SEL.error}`)
     process.exit(2)
   }
+  const face = FACE_SEL.face
+  let inputs
+  try {
+    inputs = readFaceInputs(root, face)
+  } catch (e) {
+    const why = e instanceof Undetermined ? e.message : `取材失败:${e.message}`
+    console.error(`[check-miniapp-chrome] 无法判定(面=${face})—— ${why} ⇒ 不记为通过`)
+    process.exit(2)
+  }
+  const tokensCss = inputs[TOKENS_SOURCE_REL]
+  const themeJson = inputs[THEME_JSON_REL]
+  const themeTs = inputs[THEME_TS_REL]
   let verdict
   try {
     verdict = checkChrome({ tokensCss, themeJson, themeTs })
@@ -133,7 +173,7 @@ function main() {
   if (red.length === 0) {
     if (!quiet)
       console.log(
-        `[check-miniapp-chrome] ✅ 两份 chrome 副本与 tokens.css 同形(派生 ${verdict.counts.derived} / 登记 ${verdict.counts.registered};另有 ${verdict.counts.nonColor} 个非色字段不属本门)`
+        `[check-miniapp-chrome] ✅ 两份 chrome 副本与 tokens.css 同形(派生 ${verdict.counts.derived} / 登记 ${verdict.counts.registered};另有 ${verdict.counts.nonColor} 个非色字段不属本门;取材面:${FACE_TXT[face]})`
       )
     process.exit(0)
   }
@@ -144,7 +184,9 @@ function main() {
         (f.registered ? `(登记值 ${f.registered}${f.nearToken ? `,nearToken ${f.nearToken}` : ''})` : '') +
         (f.why ? ` —— ${f.why}` : '')
     )
-  console.error(`[check-miniapp-chrome] Found ${red.length} 处红(取材面:${staged ? '索引' : '磁盘'})`)
+  console.error(
+    `[check-miniapp-chrome] Found ${red.length} 处红(取材面:${FACE_TXT[face]})`,
+  )
   console.error('  漂移类修复:node scripts/sync-miniapp-chrome.mjs(原位写回,幂等;thirdValue 会写回登记值)')
   console.error('  rot/unregistered:归表必须显式 —— 见 scripts/sync-miniapp-chrome.mjs 的两张表与依据。')
   process.exit(1)
@@ -154,5 +196,5 @@ function main() {
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) main()
 
-export const __test__ = { verdictOf, readFace }
+export const __test__ = { verdictOf, readFaceInputs, faceFromArgv, FACE_TXT }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -37,6 +37,9 @@ import {
   findMessagesCursor,
   encodeMessageCursor,
   decodeMessageCursor,
+  findHistoryTurnPage,
+  encodeHistoryCursor,
+  decodeHistoryCursor,
   findMessagesForShare,
   saveCompressedContext,
   setConversationShareToken,
@@ -174,6 +177,14 @@ const messageListSchema = z.object({
   // 带 cursor 或显式 direction 时走 findMessagesCursor;否则走旧 findMessages(向后兼容)。
   cursor: z.string().min(1).max(512).optional(),
   direction: z.enum(['initial', 'older']).optional(),
+})
+
+// D35(2026-09-24):turn 分片拉取参数 —— limit 是「每页 turn 数」而非消息数;
+// cursor 为 base64url JSON {turnOrdinal},direction newest/older/newer 语义见 findHistoryTurnPage。
+const historyListSchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  cursor: z.string().min(1).max(512).optional(),
+  direction: z.enum(['newest', 'older', 'newer']).optional(),
 })
 
 // POST /compact 请求体(2026-09-02 立):最简契约,仅 conversationId,无 messageRange 等可选参数
@@ -711,6 +722,94 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
           total,
           hasMore,
           nextCursor,
+        }),
+      )
+    },
+  )
+
+  // GET /conversations/:id/history - D35 turn 分片拉取(2026-09-24,增量回放数据面)
+  // 每页 = N 个 turn(一轮 user→assistant 交互);cursor 为 base64url JSON {turnOrdinal}。
+  // direction: newest=首屏取最新 N turn;older=断点之前(上翻,追加后旧 cursor 仍有效);
+  // newer=断点之后(增量续读)。projectionState 透传会话的投影状态(可空=尚未投影)。
+  server.get(
+    '/conversations/:id/history',
+    {
+      schema: {
+        summary: '会话历史 turn 分片',
+        description: '按 turn 分片拉取会话历史(D35 分页投影/增量回放,时间正序)',
+        tags: ['chat'],
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: { type: 'string', format: 'uuid', description: '对话 ID' },
+          },
+        },
+        querystring: {
+          type: 'object',
+          properties: {
+            limit: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 100,
+              description: '每页 turn 数(非消息数)',
+              default: 20,
+            },
+            cursor: {
+              type: 'string',
+              description: '回放断点(base64url JSON {turnOrdinal})',
+            },
+            direction: {
+              type: 'string',
+              enum: ['newest', 'older', 'newer'],
+              description: 'newest=取最新 N turn;older=断点之前;newer=断点之后(增量续读)',
+            },
+          },
+        },
+        response: buildResponseSchema(400, 401, 403, 404),
+      },
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const userId = request.userId
+
+      const { id } = idParam.parse(request.params)
+      const owned = await ensureOwnedConversation(id, userId, reply)
+      if (!owned.conversation) return
+
+      const parsed = historyListSchema.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { limit, cursor, direction } = parsed.data
+
+      let cursorTurnOrdinal: number | null = null
+      if (cursor !== undefined) {
+        const decoded = decodeHistoryCursor(cursor)
+        if (!decoded) {
+          return reply.status(400).send(error(400, '游标格式非法'))
+        }
+        cursorTurnOrdinal = decoded.turnOrdinal
+      }
+
+      const result = await findHistoryTurnPage(id, {
+        limit,
+        cursorTurnOrdinal,
+        direction: direction ?? 'newest',
+      })
+
+      return reply.send(
+        success({
+          turns: result.turns.map((t) => ({
+            turnOrdinal: t.turnOrdinal,
+            messages: t.messages.map(serializeMessage),
+          })),
+          limit,
+          hasMore: result.hasMore,
+          nextCursor: result.nextCursor ? encodeHistoryCursor(result.nextCursor) : null,
+          // 投影状态透传(可空=尚未投影);投影器写入在后续段落接线
+          projectionState: owned.conversation.historyProjectionState ?? null,
         }),
       )
     },

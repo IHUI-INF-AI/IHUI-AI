@@ -228,6 +228,42 @@ test('真仓跑一次:退出码只能是 0/1/2,且弃权时必须说"未判定"'
   if (r.code === 2) assert.match(r.out, /未判定|无法判定/, 'exit 2 却没写"未判定" ⇒ 把工具失效冒充成了业务结论')
   if (r.code === 1) assert.match(r.out, /判红/)
   if (r.code === 0) assert.doesNotMatch(r.out, /判红/)
+  // 同面改造后的对外契约(2026-09-25):报告只报**一把判定面**,且不再出现两条自我否定。
+  // 旧形态"源码 = head,产物 = 磁盘"配合一条"参考层取材=worktree … 两把不同面"的 notice,
+  // 等于门自己承认基准错位还照样给结论 —— 那把尺要钉死不得回来。
+  assert.match(r.out, /取材面:单一判定面 = (head|staged|worktree)/, '默认档必须只报一把判定面(源码 ↔ 参考层同面)')
+  assert.doesNotMatch(r.out, /两把不同面|不得据以决策/, '作废的自我否定措辞不得回到任何一次运行输出里')
+})
+
+/* ─────────────── 6b. 同面/异面判据:同一份构造输入,只换面,结论必须换 ─────────────── */
+/**
+ * 形状判据只能用纯函数 + 构造面证明("prove-shape-rulers"):这里**不依赖真仓 dist 的运气** ——
+ * 输入只是 (face, engine, explicit) 三元组,P1 与 P2 用同一引擎档只差一个面,
+ * 一拒一判才算证明"面"真的参与了判据,而不是恒绿/恒红的摆设。
+ */
+test('异面必拒 / 同面必判:v3 参考层 × head 面 ⇒ 判"无法判定";× worktree ⇒ 正常出结论(只差一个面)', () => {
+  const away = G.planReferenceFace({ face: 'head', engine: 'v3', explicit: false })
+  assert.equal(away.action, 'abstain', 'v3 生成器只能读磁盘,配 head 源码面必须拒绝出判定数(旧写法只挂 notice 照常判红)')
+  assert.equal(away.judged, false)
+  assert.equal(away.sameFace, false)
+  assert.match(away.reason, /异面/)
+  const same = G.planReferenceFace({ face: 'worktree', engine: 'v3', explicit: false })
+  assert.deepEqual([same.action, same.sameFace, same.judged], ['build', true, true], '反向对照:全磁盘面(worktree)下 v3 生成器就是同面,不得连这个也拒 ⇒ 那 P1 就成了恒拒的摆设')
+  // v4 候选由被审面喂入 ⇒ 任何源码面都同面
+  assert.deepEqual(G.planReferenceFace({ face: 'staged', engine: 'v4' }), { sameFace: true, judged: true, action: 'build', reason: '' })
+})
+
+test('人工对比档:异面照样出**读数**但结构上判不了红(judged=false)', () => {
+  const r = G.planReferenceFace({ face: 'head', engine: 'v3', explicit: true })
+  assert.deepEqual([r.action, r.sameFace, r.judged], ['build', false, false])
+})
+
+test('装车证明:runCheck 必须真消费 planReferenceFace,abstain 折进「无法判定」;旧的两面 notice 不得回来', () => {
+  const src = readFileSync(GATE, 'utf8')
+  assert.match(src, /planReferenceFace\(\{ face, engine: picked\.engine, explicit: picked\.explicit \}\)/, '同面判据定义了却没被 runCheck 调用 = 没有(§70/76/81 同型)')
+  assert.match(src, /facePlan\.action === 'abstain'[\s\S]{0,120}undetermined\.push/, 'abstain 没有折进 undetermined ⇒ 会表现为"没数但绿"')
+  assert.match(src, /c1Judged = !!coverage && !engineMismatch && referenceJudged/, 'C1 判红没吃同面闸 ⇒ 异面读数照样能判红')
+  assert.doesNotMatch(src, /参考层取材 = \$\{referenceFace\},源码面 = \$\{face\} —— 两把不同面/, '"两把不同面还照样出结论"那条 notice 形态不得复原')
 })
 
 /* ─────────────── 7. 本门不得被静默摘线(装车形状对账) ─────────────── */
@@ -280,8 +316,121 @@ test('引擎不一致时必须把"不得据以决策"打在输出里(判据存�
   // 装车证明①:必须真调用,且把结果放进返回对象(只定义不调用 = 没有这道判据)
   assert.match(src, /productEngine = detectProductTailwindMajor\(/, '没真正调用产物引擎判据')
   assert.match(src, /productEngine,\s*\n\s*engineMismatch,/, '算出来了却没放进返回对象 ⇒ 报告拿不到')
-  // 装车证明②:C3 那行"(装得下)"必须挂引擎失配提示,否则人会照它开链
-  assert.match(src, /engineMismatch \? ' 〔⚠️ 此数按错引擎的参考层算,不得据以决策〕'/, '"(装得下)"未挂引擎失配提示')
+  // 装车证明②(2026-09-25 换形):C3 那句"若开启 utilities…装不装得下"的**假设算术**已随链开落地作废
+  // (主包/余量现在是含 utilities 落地量的实测现值),所以"引擎失配必须喊出来"落在两处,都要钉住:
+  //  ① 引擎不一致的 ⚠️ 段必须明说"不构成依据";② C1 在非判红档必须标"只是读数,不计红"。
+  assert.match(src, /都不构成"该不该开链"的依据/, '引擎不一致却没在输出里说"不构成依据" ⇒ 人照样会拿这个数决策')
+  assert.match(src, /r\.c1Judged \? '' : ' 〔对比档/, 'C1 在参考层不同引擎/不同面时必须自标"只是读数,不计红"')
+  // 注意这里**不能**判"源码里不许出现 (装得下) 这几个字" —— 上面那句引擎失配的注释里
+  // 正当引用了它(正是为了说明为什么作废)。要拦的是**产出那句结论的表达式**本身。
+  assert.ok(!src.includes("slack >= 0 ? '(装得下)'"), '作废的"若开启…装不装得下"假设算术不得回来(链已开,那组前置数实测方向是反的)')
+})
+
+/* ─────────────── 8b. 参考层必须与产物**同引擎**(换档的全部理由) ─────────────── */
+
+/**
+ * 三条一起看才算证明:
+ *  ① **阳性对照**:v4 参考层真的把引擎换成了 v4 —— 用的是"两把尺子结论不同的那个名字"
+ *    (`invisible`:v4 参考层认、端内 v3 参考层不认)。只断言"版本字符串是 4.x"是不够的:
+ *    字符串可以写死,清单不会。
+ *  ② **读数确实变了**:同一批候选在 v3/v4 两把尺下分母不同 —— 否则"换引擎"是句空话。
+ *  ③ **反向对照**:换一个不存在的类名必须**不**在参考层里 —— 否则参考层是"全都算"的假尺,
+ *    覆盖率会恒等于 100%。
+ */
+test('参考层真换成 v4:两把尺子结论不同的名字 + 分母读数确实变了 + 不存在的类名不得被认作候选', async () => {
+  const appDir = join(ROOT, 'apps', 'miniapp-taro')
+  const candidates = ['px-4', 'text-sm', 'flex', 'bg-muted', 'invisible', 'not-a-class-xyz']
+  const v4 = await G.buildUtilityReferenceV4({ root: ROOT, appDir, candidates })
+  const v3 = await G.buildUtilityReference(appDir)
+  assert.equal(v4.engine, 'v4')
+  assert.match(v4.tailwindVersion, /^4\./, `v4 档拿到的却是 ${v4.tailwindVersion}`)
+  assert.ok(v4.names.has('px-4') && v4.names.has('text-sm'), 'theme 没喂进去时 v4 只出 arbitrary 那一半 —— px-4/text-sm 缺失即输入不一致')
+  // ① 阳性对照(先钉夹具前提:v3 那侧确实没有,否则这条断言是恒真)
+  assert.equal(v3.names.has('invisible'), false, '夹具前提变了:v3 参考层如今含 invisible,本对照失去判别力,换一个两把尺不同的名字')
+  assert.equal(v4.names.has('invisible'), true, '换成 v4 后参考层必须真的变了')
+  // ② 分母读数确实变了
+  const c4 = G.computeCoverage(candidates, v4.names, new Set())
+  const c3 = G.computeCoverage(candidates, v3.names, new Set())
+  assert.notEqual(c4.demandedKinds, c3.demandedKinds, `v3/v4 两把尺的分母一样(${c3.demandedKinds})⇒ "换引擎"没落到读数上`)
+  // ③ 反向对照:不存在的类名不得进参考层
+  assert.equal(v4.names.has('not-a-class-xyz'), false, '参考层把不存在的类名也认作候选 ⇒ 是一把"全都算"的假尺')
+})
+
+test('auto 档必须先看产物引擎再决定参考层(顺序反了就是先射箭再画靶)', () => {
+  const src = readFileSync(GATE, 'utf8')
+  const engineAt = src.indexOf('productEngine = detectProductTailwindMajor(')
+  // 找**调用点**而不是函数定义(定义行 `export function pickReferenceEngine({ productMajor…` 也含这个名字)
+  const pickAt = src.indexOf('pickReferenceEngine({ productMajor: productEngine')
+  assert.ok(engineAt > 0 && pickAt > engineAt, 'pickReferenceEngine 必须在产物引擎判完之后调用')
+  // C1 判红必须过 c1Judged 这道闸(人工对比档不得判红)
+  assert.match(src, /!undetermined\.length && c1Judged && coverage\.pct < minCoverage/, 'C1 判红没走 c1Judged ⇒ 错引擎的参考层照样能判红')
+  assert.match(src, /参考层引擎无法确定/, '同引擎做不到时必须登记「无法判定」而不是继续出数')
+})
+
+/**
+ * 反向对照①:**产物引擎判不出 ⇒ exit 2,且一个覆盖率都不给。**
+ * 这是换档要防的那一型 —— 一把量不出引擎的尺子报出 "还剩 N 条没落地",
+ * 看起来是结论,实际是噪声;而它最坏的形态是"看起来很有把握"。
+ */
+test('产物引擎判不出 ⇒ exit 2 且不得输出任何 C1 覆盖率数字', () => {
+  const base = mkTmp('eng-unknown')
+  try {
+    const app = mkFakeApp(base)
+    const dist = join(app, 'dist')
+    mkdirSync(join(dist, 'pages'), { recursive: true })
+    writeFileSync(join(dist, 'app.json'), JSON.stringify({ pages: ['pages/i'] }))
+    writeFileSync(join(dist, 'pages', 'i.wxml'), '<view/>')
+    // v4 独有与 v3 独有指纹**同时**在 ⇒ detectProductTailwindMajor 判 'unknown'
+    writeFileSync(
+      join(dist, 'app.wxss'),
+      'page{--tw-leading:;--tw-gradient-position:initial;--tw-bg-opacity:1;--tw-text-opacity:1}',
+    )
+    writeFileSync(join(dist, 'app2.wxss'), '.flex{display:flex}')
+    const r = runGate(['--root', base, '--worktree'])
+    assert.equal(r.code, 2, `期望 exit 2(弃权),实得 ${r.code}\n${r.out}`)
+    assert.match(r.out, /无法判定/)
+    assert.doesNotMatch(r.out, /C1 覆盖 \d+\/\d+/, '引擎判不出却照样报了覆盖率')
+    // 必须点名"是因为引擎判不出才弃权"—— 只看"未判定"三个字会把别的故障(取不到源码清单等)
+    // 也算成这条判据通过,那这条反向对照就没有牙了。
+    assert.match(r.out, /参考层引擎无法确定/, '没有点名弃权原因是"引擎对不上" ⇒ 无法区分是不是本判据在起作用')
+    assert.match(r.out, /major = unknown/, '必须把判不出的那个指纹结论说出来(unknown 而不是猜一个方向)')
+  } finally {
+    rmTmp(base)
+  }
+})
+
+/**
+ * 反向对照②:**判得出引擎是 v4,但同引擎那套工具链拿不到 ⇒ 同样弃权,且绝不回落到 v3。**
+ * 夹具里那个假端没有 `tailwind.config.ts`,也没有可解析的 node_modules。
+ */
+test('v4 工具链不可得 ⇒ exit 2,不得悄悄回落到 v3 出一份数', () => {
+  const base = mkTmp('v4-unreachable')
+  try {
+    const app = mkFakeApp(base)
+    const dist = join(app, 'dist')
+    mkdirSync(join(dist, 'pages'), { recursive: true })
+    writeFileSync(join(dist, 'app.json'), JSON.stringify({ pages: ['pages/i'] }))
+    writeFileSync(join(dist, 'app.wxss'), 'page{--tw-leading:;--tw-tracking:;--tw-gradient-position:initial}')
+    writeFileSync(join(dist, 'pages', 'i.wxml'), '<view/>')
+    writeFileSync(join(dist, 'pages', 'i.wxss'), '.flex{display:flex}')
+    const r = runGate(['--root', base, '--worktree', '--json'])
+    assert.equal(r.code, 2, `期望 exit 2,实得 ${r.code}\n${r.out}`)
+    const j = JSON.parse(r.out.slice(r.out.indexOf('{')))
+    assert.equal(j.coverage, null, '拿不到同引擎工具链却仍产出了 coverage 对象')
+    assert.equal(j.referenceEngine, null, 'referenceEngine 不为空说明它回落到了别的引擎')
+    assert.match(r.out, /参考层判不出\(v4 档\)|参考层引擎无法确定/, '未判定原因必须点名是 v4 档拿不到')
+  } finally {
+    rmTmp(base)
+  }
+})
+
+test('嵌套规则不得从两侧隐身(v4 把 @supports 嵌在类规则自己身上,扁平解析会整条漏掉)', () => {
+  // 阳性:参考层侧漏收会让分母变小(覆盖率虚高),产物侧漏收会把已落地的判成没落地
+  assert.ok(G.harvestLandedSelectors('.bg-primary\\/10{background-color:var(--c);@supports (color:color-mix(in lab,r 50%,b)){background-color:color-mix(in oklab,var(--c)10%,var(--b))}}').has('bg-primary/10'))
+  const src = readFileSync(GATE, 'utf8')
+  assert.ok(!src.includes('/([^{}]+)\\{([^{}]*)\\}/g'), '旧的扁平规则正则不得回来(它会把 v4 嵌套规则整条漏掉)')
+  assert.match(src, /function ruleNodes\(/, '花括号树解析器必须在位')
+  assert.match(src, /function declarationsOf\(/, '自身+后代的声明收集必须在位(空壳规则不得算落地)')
 })
 
 /* ─────────────── 8. §22c / §22d 结构锚点 ─────────────── */
@@ -306,6 +455,11 @@ test('§22c:__test__ 必须导出判据函数本体(不得让测试复制第二�
     'namespacePrefix',
     'computeCoverage',
     'buildUtilityReference',
+    'buildUtilityReferenceV4',
+    'pickReferenceEngine',
+    'planReferenceFace',
+    'resolveTailwindInstall',
+    'resolveV4Loaders',
     'runCheck',
   ]) {
     assert.equal(typeof G[k], 'function', `__test__ 缺少 ${k}`)
