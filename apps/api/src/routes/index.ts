@@ -334,6 +334,9 @@ import { teamMemoryRoutes } from './team-memory.js'
 import automationsRoutes from './automations.js'
 import patrolRoutes from './patrol.js'
 import githubAppRoutes from './github-app.js'
+// D30① 无人值守修复闭环的信源入口(2026-09-25 用户批准挂载)。
+// 该 router 自带 HMAC 校验,不依赖 cookie 会话 ⇒ 无需 CSRF token(豁免见 plugins/csrf.ts 的同一条精确路径)。
+import githubWebhookRoutes from './github-webhook.js'
 import { createAgentRunRoutes } from './agent-runs.js'
 import { createKvFromRedis } from '../services/run-idempotency.js'
 
@@ -1307,6 +1310,10 @@ export function registerRoutes(server: FastifyInstance) {
   // 必须带 prefix 注册 —— 该插件作用域内装了保留原始字节的 JSON body parser(签名校验要用),
   // 挂到根实例会把全站 JSON 解析改成返回字符串。
   server.register(githubAppRoutes, { prefix: '/api/github-app' })
+  // D30① 信源入口:CI 失败/守门失败投递到 POST /api/webhooks/github(路由内部 HMAC 验签 +
+  // delivery 幂等 + IntakeStormGuard 窗口去重)。路径**显式固定**,不走参数段/通配(见注册测试的
+  // 零参数段断言)—— O19 那次就是"一条参数化前缀把整个 router 连带静态子路由一起放开"。
+  server.register(githubWebhookRoutes, { prefix: '/api/webhooks' })
 
   // O10 对外 run 语义:幂等 run 创建 + 外部 run 句柄 + 游标分页(G-14/O10,2026-09-24 立)
   // 同带 prefix:插件内装了 preHandler 鉴权钩子,挂根实例会全站强制登录。
