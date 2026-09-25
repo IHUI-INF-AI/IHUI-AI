@@ -12,6 +12,7 @@ import { fetchApi } from '@ihui/api-client'
 import type { ActivityItem } from '@ihui/types'
 import { useTt } from '@/i18n'
 import ThemeRoot from '@/components/ThemeRoot'
+import BackChevron from '@/components/BackChevron'
 
 /** Taro rpx 单位换算(1px = 2rpx,750 设计稿基准) */
 const toRpx = (px: number): string => `${px * 2}rpx`
@@ -113,10 +114,6 @@ const viewStyles = {
 }
 
 const textStyles = {
-  back: (): CSSProperties => ({
-    fontSize: toRpx(16),
-    color: 'var(--color-text-medium)',
-  }),
   title: (): CSSProperties => ({
     flex: 1,
     fontSize: toRpx(20),
@@ -198,9 +195,7 @@ export default function ActivityList() {
     <ThemeRoot>
       <View style={viewStyles.container()}>
         <View style={viewStyles.header()}>
-          <View onTap={goBack} hoverClass="opacity-60">
-            <Text style={textStyles.back()}>{tt('common.back', '返回')}</Text>
-          </View>
+          <BackChevron onTap={goBack} />
           <Text style={textStyles.title()}>{tt('activity.title', '平台活动')}</Text>
         </View>
 
