@@ -7130,6 +7130,26 @@
       "rollbackConfirmConfirm": "Restore"
     },
     "pane": {
+      "hookSummary": {
+        "ariaLabel": "Hook run summary",
+        "state": {
+          "running": "Hooks running",
+          "ok": "Hooks healthy",
+          "failed": "Hook errors",
+          "blocked": "Hooks blocked an operation"
+        },
+        "runs": "· Ran {n} times",
+        "failedCount": "{n} failed",
+        "blockedCount": "Blocked {n}",
+        "sourceLabel": "Sources",
+        "source": {
+          "admin": "Administrator",
+          "user": "User",
+          "project": "Project",
+          "plugin": "Plugin",
+          "session": "Session"
+        }
+      },
       "businessForms": {
         "ariaLabel": "Business form card",
         "aria": {
@@ -11432,14 +11452,14 @@
     },
     "commands": {
       "steerPrompt": {
+        "label": "Steer prompt",
         "description": "Inject the current input as guidance into the running answer",
-        "keywords": ["steer", "guide", "redirect"],
-        "label": "Steer prompt"
+        "keywords": ["steer", "guide", "redirect"]
       },
       "queuePrompt": {
+        "label": "Queue prompt",
         "description": "Queue the current input; it sends automatically after the current answer finishes",
-        "keywords": ["queue", "pending", "send later"],
-        "label": "Queue prompt"
+        "keywords": ["queue", "pending", "send later"]
       },
       "agent": {
         "description": "Manage and dispatch AI agents",
@@ -16850,6 +16870,10 @@
       "pending": "Pending",
       "unknown": "Unknown"
     },
+    "submitBtn": "Submit answers",
+    "submitConfirm": "Submit your answers? This will mark the signup as completed.",
+    "submitFailed": "Submission failed",
+    "submitSuccess": "Answers submitted",
     "title": "My Exam Sign-ups",
     "total": "Total {n} records"
   },
