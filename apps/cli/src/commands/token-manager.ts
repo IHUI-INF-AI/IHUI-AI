@@ -25,14 +25,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { getSettingsPath, loadSettings, type Settings } from './settings.js';
 import { tryParseJson, isRecord } from '../util/json.js';
-import { classifyCredential, isMachineCredential } from '../config/credentials.js';
-
-interface JwtPayload {
-  exp?: number;
-  iat?: number;
-  sub?: string;
-  [key: string]: unknown;
-}
+import { classifyCredential, isMachineCredential, decodeJwtClaims } from '../config/credentials.js';
 
 interface RefreshResponse {
   accessToken: string;
@@ -43,19 +36,9 @@ interface RefreshResponse {
 
 /** 解析 JWT payload(不验证签名,仅用于读取 exp)。失败返回 null。 */
 function decodeJwtExp(token: string): number | null {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    // Node.js 不支持 atob,用 Buffer.from base64 解码
-    // JWT base64url 需补齐 padding
-    let b64 = parts[1]!.replace(/-/g, '+').replace(/_/g, '/');
-    while (b64.length % 4) b64 += '=';
-    const json = Buffer.from(b64, 'base64').toString('utf-8');
-    const payload = JSON.parse(json) as JwtPayload;
-    return typeof payload.exp === 'number' ? payload.exp : null;
-  } catch {
-    return null;
-  }
+  // 解码实现全 CLI 只有一份(§"两处算同一件事必须共用一份实现");本函数只负责取 exp
+  const payload = decodeJwtClaims(token);
+  return typeof payload?.exp === 'number' ? payload.exp : null;
 }
 
 /** 提前 30s 视为过期(避免请求中途过期)。 */
