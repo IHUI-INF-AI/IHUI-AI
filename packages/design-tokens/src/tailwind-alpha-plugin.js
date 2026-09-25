@@ -35,9 +35,11 @@
  * × 3 前缀 × 7 档全铺开,就是 462 条死规则)。所以这张表的大小**等于**样式表增大的大小,
  * 而小程序主包有 2MB 硬预算 ⇒ 只能逐条登记真实写过的形态。
  * 代价也要如实说清:新写一个没登记过的形态(如 `bg-info/10`)仍然**静默不产出**,
- * 与改动前的症状一模一样。拦住它的不是本插件,而是
- * scripts/tests/tailwind-alpha-plugin.test.mjs 的「用量对账」判据 —— 它扫三端源码,
- * 发现未登记的 alpha 形态即红并点名补一行。改这张表之前先记住:门在,别绕过它。
+ * 与改动前的症状一模一样。拦住它的是守门 `scripts/check-cross-end-tokens.mjs` 的 **R6** 判据
+ * (2026-09-25 落地)—— 它扫 v3 三个消费端源码里真实写过的 alpha 类名,未登记即红并点名补哪一行;
+ * 反向也判:登了却没人用的行(等于往小程序主包塞死规则)同样红。改这张表之前先记住:门在,别绕过它。
+ * (本头注此前声称由 `scripts/tests/tailwind-alpha-plugin.test.mjs` 看护 —— 该文件在 HEAD 与磁盘上
+ *  都不存在,即一句没有兑现的承诺;R6 是它的实际出口。)
  *
  * 【已知边界(如实登记,不假装覆盖)】
  *  - 渐变(from/via/to)、ring、divide、placeholder、shadow 等前缀**未支持**:实测三端在
@@ -69,18 +71,24 @@ export const ALPHA_UTILITY_KINDS = {
  * 用量登记表:档位 → 前缀 → 已写过的透明度修饰符。
  * 数据来源 2026-09-25 实测(扫描面 apps/miniapp-taro/src + apps/mobile-rn/src + packages/app/src):
  *   bg-primary/10 37 · bg-warning/10 5 · border-primary/30 3 · bg-destructive/10 3
- *   border-primary/20 2 · border-primary/40 2 · bg-muted/40 2 · bg-foreground/80 1
+ *   border-primary/20 2 · border-primary/40 2 · bg-foreground/80 1
  *   bg-foreground/30 1 · bg-warning/20 1 · bg-success/10 1 · bg-destructive/5 1
  *   border-destructive/40 1 · text-primary-foreground/90 1
  *   任意值 /[*] 5 处:bg-muted/[0.12] 2 · bg-destructive/[0.12] 1 · bg-success/[0.12] 1
  *              · bg-warning/[0.12] 1
- * 共 18 个去重形态。`[0.12]` 一支只有这一个数值,如实登记而不是一族。
+ * 共 17 个去重形态。`[0.12]` 一支只有这一个数值,如实登记而不是一族。
+ *
+ * 【2026-09-25 由守门 R6 揪出并删除的一行】原表登记过 `bg-muted/40`(数据行写作"bg-muted/40 2")。
+ * 那 2 处命中全在**注释里**(packages/app 的 SearchInput.tsx / LoginScreen.tsx 各一处,内容是
+ * "(web 基准:… bg-muted/40 …)"这类对照说明)—— 当初的用量统计没剥注释,于是把散文当成了用量,
+ * 往主包里留下一条永远不会被用到的规则。真正写 `bg-muted/40` 的代码在 apps/web 与 apps/extension,
+ * 而它们是 Tailwind v4、原生支持 alpha、根本不经过本插件。R6 的"登了却没人用 = 腐烂"判据正是为此而设。
  */
 export const ALPHA_USAGE = {
   primary: { bg: ['10'], border: ['20', '30', '40'] },
   'primary-foreground': { text: ['90'] },
   foreground: { bg: ['30', '80'] },
-  muted: { bg: ['40', '[0.12]'] },
+  muted: { bg: ['[0.12]'] },
   destructive: { bg: ['5', '10', '[0.12]'], border: ['40'] },
   success: { bg: ['10', '[0.12]'] },
   warning: { bg: ['10', '20', '[0.12]'] },
