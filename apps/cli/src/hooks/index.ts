@@ -38,6 +38,9 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+// 规范化器唯一实现(见下方摘要口径处的说明)
+import { canonicalizeArgs } from '../stream-tool-ledger.js';
 import { tryParseJson, isRecord } from '../util/json.js';
 import { gateHook } from './trust.js';
 
@@ -251,15 +254,146 @@ function stampConfigSource(
   return stamped;
 }
 
-function readHooksConfigFile(p: string): HooksConfig | null {
+/** 一份磁盘配置 + 它解析出来的**原树**(束摘要必须喂原树,不能喂合并/加工后的派生态) */
+interface HooksSourceBundle {
+  configFile: string;
+  config: HooksConfig;
+  raw: Record<string, unknown>;
+}
+
+function readHooksConfigBundle(p: string): HooksSourceBundle | null {
   if (!fs.existsSync(p)) return null;
   try {
     const parsed = tryParseJson(fs.readFileSync(p, 'utf-8'));
     // 损坏文件返回 null,由调用方继续下一源(与旧行为一致)
-    return isRecord(parsed) ? (parsed as unknown as HooksConfig) : null;
+    if (!isRecord(parsed)) return null;
+    return { configFile: p, config: parsed as unknown as HooksConfig, raw: parsed };
   } catch {
     return null;
   }
+}
+
+function readHooksConfigFile(p: string): HooksConfig | null {
+  return readHooksConfigBundle(p)?.config ?? null;
+}
+
+/** 剥掉派发侧盖上的派生字段,只留磁盘上那份声明(信任记录与门内比对必须用同一个口径) */
+function stripDispatchStamps(entry: HookEntry): Record<string, unknown> {
+  const all = entry as unknown as Record<string, unknown>;
+  const { source: _s, sourceFolder: _f, ...raw } = all;
+  void _s;
+  void _f;
+  return raw;
+}
+
+/**
+ * 内容摘要的两个口径(A20)。放在配置层而不是信任层,有两个理由:
+ *   ① 摘要取的是"配置长什么样",这本来就是 loadHooksConfig 的知识;trust.ts 只认
+ *      不透明字符串(它连 HooksConfig 的类型都不该引,否则信任层要反过来懂配置格式)。
+ *   ② 实测过的工程约束:`tests/hooks-trust-command.test.ts` 用 vi.mock 整模块替换
+ *      trust.js(只给出它认识的那几个导出)。摘要函数住在 trust.js 时,任何走
+ *      commands/hooks.ts → index.ts → trust.js 的调用都会撞上 "No export is defined on
+ *      the mock" —— 既有测试一字未改就红。住在配置层则与被替换的模块无关。
+ *
+ * 规范化器只认一份实现(AGENTS「两处算同一 key 必须共用一份实现」):
+ * `apps/cli/src/stream-tool-ledger.ts` 的 canonicalizeArgs(递归按 key 排序),
+ * 消除"同一对象两种 JSON 串"造成的指纹分裂 —— 也就是"改了键序/缩进就误判过期"那一类。
+ */
+
+/** 摘要前缀带形态版本 + 算法名:改了"取哪些字段/怎么编码"必须 +1,否则新旧两套字节共用同一份登记表 */
+const DIGEST_PREFIX = `v1-sha256-`
+
+/** 单条声明摘要的聚合前缀:与整束摘要分域,使两者**不可能**产出同一个值(不靠注释提醒) */
+const DECL_DIGEST_PREFIX = 'ihui-hook-decl-v1'
+
+function sha256(text: string): string {
+  return createHash('sha256').update(text, 'utf8').digest('hex');
+}
+
+/**
+ * 「束」摘要 —— 覆盖的是**面**,不是取值:有哪几份来源文件、每个事件下有哪些钩子名字、
+ * 以及事件数组之外的根级字段。单条钩子把命令改掉不该让整个目录掉信任(见
+ * computeHookContentDigests 的两级说明),但"凭空多出一条钩子"必须让整批重确认 ——
+ * 用户当初批准的是那份清单,清单变长不在授权范围内。
+ */
+export function digestOfHooksBundle(surface: unknown): string {
+  return DIGEST_PREFIX + sha256(canonicalizeArgs(surface ?? {}));
+}
+
+/**
+ * 单条钩子声明的摘要 —— 覆盖这条声明的**全部取值**。
+ * `kind` 前缀让 command 形态与 webhook 形态不在同一命名空间比较:把一条 command 原地
+ * 换成 webhook(或反之)是最需要重新确认的一次改动,而两者共用字段可能一字未动。
+ * kind 由声明自身推出(webhook 有值即 webhook),不依赖任何外部登记。
+ */
+export function digestOfHookDeclaration(entry: unknown): string {
+  const rec = (entry ?? {}) as Record<string, unknown>;
+  const kind = typeof rec.webhook === 'string' && rec.webhook.length > 0 ? 'webhook' : 'command';
+  const material = `${DECL_DIGEST_PREFIX}\u0000${kind}\u0000${canonicalizeArgs(entry ?? {})}`;
+  return DIGEST_PREFIX + sha256(material);
+}
+
+/**
+ * 算出「该目录下会派发的钩子」的内容摘要(束 + 逐条)。
+ * `ihui hooks trust` 批准时与派发门判定时**都必须**走这一个函数 —— 两处各算一遍
+ * (一侧喂磁盘原树、一侧喂合并结果)必然不同形,表现为永不收敛的 stale。
+ *
+ * 两级各管一类(缺任一级都会退化):
+ *   - 束摘要管"清单与根级面":来源文件增删 / 某事件下多出一个钩子名字 / 根级字段变化
+ *     → 整批掉信任,因为用户批的是那份清单。
+ *   - 单条摘要管"这一条的取值":改一条命令 / URL / 匹配器 / 超时
+ *     → **只有那一条**掉信任,其余照跑。只有束级时改一条会把全部钩子打回重批,
+ *     用户被骚扰到无脑点"是",信任就退化成噪音。
+ *
+ * 单条摘要的登记表键 = 钩子 `name`,与既有的 `~/.ihui/disabled-hooks`(也按名字逐条管)
+ * 同一身份口径:"这个目录里叫 X 的那条钩子"就是用户批准时看到的东西。代价如实登记:
+ * 两个事件下各有一条同名钩子时,摘要表只留**先读到的**那条 —— 不会因此漏判,
+ * 因为两条同名钩子的"面"(事件 × 名字身份)本来就不同,增删任一条都会先动束摘要。
+ *
+ * 只统计**工作区那一层**的配置文件(<dir>/.{ihui,claude,cursor}/hooks.json),
+ * 不并入用户主目录的配置 —— 家目录配置派发时本就不查门(source==='user' 短路),
+ * 把它并进摘要会让"改一条用户自己的全局钩子"把每个项目的信任一起打回重批。
+ */
+export function computeHookContentDigests(
+  cwd: string = process.cwd(),
+): { bundleDigest: string; declarations: Record<string, string> } {
+  const paths: string[] = [];
+  if (process.env.IHUI_HOOKS_CONFIG) paths.push(process.env.IHUI_HOOKS_CONFIG);
+  else for (const d of CONFIG_SOURCE_DIRS) paths.push(path.join(cwd, d, 'hooks.json'));
+  const sources: string[] = [];
+  const surface: string[] = [];
+  const roots: Array<Record<string, unknown>> = [];
+  const declarations: Record<string, string> = {};
+  for (const p of paths) {
+    const bundle = readHooksConfigBundle(p);
+    if (!bundle) continue;
+    // 来源名取相对 cwd 的那一段(<.ihui|...>/hooks.json)或绝对路径本身(单源模式)——
+    // 不含盘符前缀,所以"仓库搬家"不会因为路径字符串变化而额外掉信任(搬家本来就要重批目录)。
+    const rel = path.relative(cwd, p);
+    sources.push(rel && !rel.startsWith('..') && !path.isAbsolute(rel) ? rel.split(path.sep).join('/') : p);
+    // 事件数组之外的键(若有人往根上塞了 version/timeout 之类)整体计入束摘要
+    const root: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(bundle.raw)) {
+      if (!(HOOK_EVENT_KEYS as string[]).includes(k)) root[k] = v;
+    }
+    roots.push(root);
+    for (const event of HOOK_EVENT_KEYS) {
+      for (const entry of bundle.config[event] ?? []) {
+        surface.push(`${event}:${entry.name}`);
+        if (declarations[entry.name] === undefined) {
+          declarations[entry.name] = digestOfHookDeclaration(stripDispatchStamps(entry));
+        }
+      }
+    }
+  }
+  // 数组顺序 = 优先级顺序(高→低),与 loadHooksConfig 的读取方向一致 ⇒ 同一份磁盘内容
+  // 在任何一次调用里算出的束摘要都相同(不存在"键序 / 读序"造成的假 stale)。
+  const bundleDigest = digestOfHooksBundle({
+    sources,
+    surface: surface.slice().sort(),
+    roots,
+  });
+  return { bundleDigest, declarations };
 }
 
 export function getHooksPath(): string {
@@ -404,25 +538,44 @@ function warnOnce(line: string): void {
 }
 
 /**
- * 派发前的目录信任判定 —— 只挂在 runHookEntry 这一个执行收口点上。
+ * 派发前的信任判定 —— 只挂在 runHookEntry 这一个执行收口点上。
  *
  * 为什么必须有:配置可以从**工作区**里加载(`loadHooksConfig` 读 `<cwd>/.{ihui,claude,cursor}/
  * hooks.json`),而 command 形态是 `spawnSync(cmd, { shell: true, env: {...process.env} })` ——
  * 没有这道门时,clone 一个陌生仓库并在里面跑 CLI,仓库自带的命令就会带着全部 API key 执行。
- * trust.ts 里这道门早就写好了,只是从来没有被调用。
+ * trust.ts 里这道门早就写好了,只是从来没有被调用(第一轮修的正是这一格)。
+ *
+ * 第二轮补的是**另一半**:门只问"这个目录在不在清单里",所以一旦某个目录被信任过,
+ * 之后往它的 hooks.json 里塞任何命令都不再问一次。这里因此把"现在这份内容"的两个摘要
+ * (整束 + 本条声明)一起交给门,由它对着批准时登记的摘要比 —— 见 trust.ts 的第 4 道判据。
+ * 摘要在这里现算而不是在 loadHooksConfig 里盖戳:同一份 loadHooksConfig 的输出对象会被
+ * deepMergeHooks 逐条 `{...e}` 复制,给每个字段配一份"必须原样穿过合并"的派生值等于多一条
+ * 会漂移的路径;而磁盘原树是稳定的单一真相。
  *
  * @returns 跳过原因文案;null = 允许执行
  */
-export function hookTrustSkipReason(entry: HookEntry): string | null {
+export function hookTrustSkipReason(entry: HookEntry, trustFileText?: string): string | null {
   // 用户主目录里的配置:行为与接线前完全一致(不查门)
   if (entry.source === 'user') return null;
   // 未盖章的条目按 project 处理 —— "来源不明"不构成免检通道。
   // 判定用来源目录而不是 process.cwd():IHUI_HOOKS_CONFIG 可以把配置指到任意目录。
   const folder = entry.sourceFolder ?? process.cwd();
-  const gate = gateHook({ name: entry.name }, folder);
+  const { bundleDigest, declarations } = computeHookContentDigests(folder);
+  const gate = gateHook(
+    {
+      name: entry.name,
+      bundleDigest,
+      // 本条声明不在磁盘束里(程序内自造的钩子)时不传单条摘要 → 门只比束摘要。
+      hookName: declarations[entry.name] === undefined ? undefined : entry.name,
+      declarationDigest: declarations[entry.name],
+    },
+    folder,
+    trustFileText,
+  );
   if (gate.allowed) return null;
   // IHUI_TRUST_WORKSPACE=1 = 非交互场景(CI / 脚本 / 无 TTY)的显式出口。
-  // 只免"目录信任",不免 disabled-hooks:后者是用户逐条关掉的开关,
+  // **只免"目录信任"**:免到内容这一层就等于本票没修(一个环境变量把"新塞进来的命令"
+  // 也一起放行)。也不免 disabled-hooks:后者是用户逐条关掉的开关,
   // 一个环境变量不该把它复活。
   if (gate.reason === 'folder-not-trusted' && process.env.IHUI_TRUST_WORKSPACE === '1') {
     if (!workspaceTrustWarned) {

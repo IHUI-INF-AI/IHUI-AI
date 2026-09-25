@@ -55,6 +55,12 @@ import { verifyAccessToken } from '@ihui/auth'
 import type { SkillMarketEntry } from '@ihui/shared/skills/market'
 
 const MARKET_KEY = 'skills-market:global'
+/**
+ * 真机形状的身份:users.id 是 uuid(packages/database/src/schema/users.ts),
+ * 用数字串等于允许写入侧继续 Number() 强转 —— 那正是"归属永久失效"的藏身处。
+ */
+const CALLER_ID = '7f0f3f2a-1c4b-4a8e-9d21-0a3b5c7e9f01'
+const OTHER_OWNER_ID = 'b21c9d47-55ae-4f30-8c72-1e6e0d2a4f02'
 const AUTH_HEADERS = { authorization: 'Bearer mock-access-token' }
 
 /** 只实现市场相关端点用到的 KV,其余路由不参与本回归 */
@@ -98,17 +104,23 @@ function entry(over: Partial<SkillMarketEntry> & { name: string }): SkillMarketE
  * 他人归属 / 他人归属且已下架 / 无归属 legacy / 内置(source=builtin) / 自己的。
  */
 const SEED: SkillMarketEntry[] = [
-  entry({ name: 'theirs', ownerId: 202, author: 'someone-else', source: 'user', enabled: true }),
+  entry({
+    name: 'theirs',
+    ownerId: OTHER_OWNER_ID,
+    author: 'someone-else',
+    source: 'user',
+    enabled: true,
+  }),
   entry({
     name: 'theirs-hidden',
-    ownerId: 202,
+    ownerId: OTHER_OWNER_ID,
     author: 'someone-else',
     source: 'user',
     enabled: false,
   }),
   entry({ name: 'legacy' }),
   entry({ name: 'builtin-thing', source: 'builtin', enabled: true }),
-  entry({ name: 'mine', ownerId: 101, author: 'tester', source: 'user', enabled: true }),
+  entry({ name: 'mine', ownerId: CALLER_ID, author: 'tester', source: 'user', enabled: true }),
 ]
 
 let server: FastifyInstance
@@ -127,9 +139,9 @@ function marketNames(raw: string): string[] {
 async function unlistAs(roleId: number | null, name: string) {
   if (roleId !== null) {
     vi.mocked(verifyAccessToken).mockResolvedValue({
-      userId: '101',
+      userId: CALLER_ID,
       phone: '13800000000',
-      familyId: 'f-101',
+      familyId: `f-${CALLER_ID}`,
       roleId,
     })
   }

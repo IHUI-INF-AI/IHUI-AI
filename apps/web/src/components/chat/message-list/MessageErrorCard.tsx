@@ -50,6 +50,18 @@ export interface MessageErrorCardProps {
    * 映射不到即 null ⇒ 分型卡不渲染),端内不得自建第二套归属判定。
    */
   errorCode?: string | null
+  /**
+   * 卡片标题(2026-09-25 加):宿主按 D92 统一分类表算出的标题时传入;
+   * 不传 ⇒ 回落 `t('errorCardTitle')` 笼统标题。**回落态不得由本组件包装成确定性结论**,
+   * 所以判"分类到没分类到"的权力留在宿主(它才拿得到 `resolveViewFailure` 的 isFallback)。
+   */
+  titleText?: string
+  /**
+   * 夹在"错误正文"与"倒计时/草稿/动作族"之间的宿主侧行(2026-09-25 加):
+   * D92 的错误码行 + 建议动作、D94 的脱敏交接单都从这里进 —— 本组件不认识它们的键,
+   * 也不另起一张表(判据留在有判据的地方)。
+   */
+  children?: React.ReactNode
   onAddPoints?: () => void
   onUpgradePlan?: () => void
   onSwitchTier?: () => void
@@ -68,6 +80,8 @@ export function MessageErrorCard({
   freeTierAvailable,
   quotaError,
   errorCode,
+  titleText,
+  children,
   // onAddPoints / onReLogin 两枚动作在 `MessageErrorCardProps` 里仍是对外的
   // 契约面(调用方照传),但当前渲染分支没有它们的出口 —— 参数解构里先不列它们,
   // 否则 `noUnusedLocals` 把整包 web typecheck 钉红。两枚动作是否要重新上屏属产品决策,
@@ -125,12 +139,14 @@ export function MessageErrorCard({
     >
       <div className="flex items-center gap-2 border-b border-destructive/20 bg-destructive/10 px-3 py-2 text-destructive">
         <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
-        <span className="text-xs font-medium">{t('errorCardTitle')}</span>
+        <span className="text-xs font-medium">{titleText ?? t('errorCardTitle')}</span>
       </div>
 
       <p className="whitespace-pre-wrap break-words px-3 py-2 text-sm text-destructive/90">
         {content.replace(/^⚠\s*/, '')}
       </p>
+
+      {children}
 
       {showRetryBlock && (
         <div

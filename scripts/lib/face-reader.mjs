@@ -89,7 +89,12 @@ export function gitRaw(args, root, opts = {}) {
       },
     )
   } catch (e) {
-    throw new Undetermined(`git ${args[0]} 失败: ${gitErrText(e)}`)
+    const err = new Undetermined(`git ${args[0]} 失败: ${gitErrText(e)}`)
+    // **退出码必须带上来**:`git grep` 无命中、`git diff --quiet` 无差异这类是 git 的正常非零结论,
+    // 调用方要能区分"git 说没有"与"git 没跑成"。只给一句错误文本会逼调用方去 parse 自己的异常消息
+    // (把结论建立在字符串上),而 e.status 是 Node 直接给的机器事实。
+    if (typeof e?.status === 'number') err.status = e.status
+    throw err
   }
 }
 
@@ -186,28 +191,29 @@ export function gitErrText(e) {
  * **整批改写成"每个 rev 都取不到"** —— 那会被下游读成"没有违规",是一道假绿。
  * 所以超限必须抛(下面的 Undetermined),不能静默降级。
  */
-export function catBatch(root, revs, opts = {}) {
+/**
+ * `cat-file --batch` 的头解析(纯函数,与派生分开,这样"截断"那条分支能被构造出来测)。
+ * 抽出来之前它埋在 `catBatch` 里,而截断需要"git 少写字节但不报错"这种真实管道事故才能触发 ——
+ * 于是这条分支从来没有被证明过有牙。判据分支不可构造 = 判据未被验证。
+ * @returns {Map<string,string|null>}
+ */
+export function parseBatch(out, revs) {
   const map = new Map()
-  if (revs.length === 0) return map
-  let out
-  try {
-    out = execFileSync(GIT, ['-c', 'safe.directory=*', '-C', root, 'cat-file', '--batch'], {
-      cwd: root,
-      input: Buffer.from(revs.join('\n') + '\n', 'utf8'),
-      windowsHide: true,
-      maxBuffer: opts.maxBuffer ?? GIT_MAX_BUFFER,
-      timeout: opts.timeout ?? BATCH_TIMEOUT,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    })
-  } catch (e) {
-    throw new Undetermined(`git cat-file --batch 失败,${root} 的判定面无法取材: ${gitErrText(e)}`)
-  }
   let pos = 0
-  for (const rev of revs) {
+  for (let i = 0; i < revs.length; i++) {
+    const rev = revs[i]
     const nl = out.indexOf(0x0a, pos)
     if (nl < 0) {
-      map.set(rev, null)
-      break
+      // **输出被截断 ≠ 对象不存在**。git 对每一条输入都会写一条头,所以在读完 revs 之前
+      // 拿不到下一行,只可能是管道断了(maxBuffer 命中 / Windows 侧写失败)。
+      // 旧写法 `set(rev,null) + break` 有两个后果:① 当前这条被当成"取不到";② **后面的 rev 根本没进 Map**,
+      // 于是调用方 `.get()` 拿到 `undefined`,凡是"取不到就 continue"的判据都从此**静默少扫** ——
+      // 少扫不红,是一道假绿。守门 93 早就在自己那份实现里修过这件事(注释还在),
+      // 而收口成一层之后,这个正确行为必须由层统一提供,否则每道门各修一遍、各漏一遍。
+      for (let k = i; k < revs.length; k++) map.set(revs[k], null)
+      throw new Undetermined(
+        `cat-file --batch 输出在第 ${i}/${revs.length} 个对象处截断 ⇒ 无法判定(不是"没有违规",是"没看完")`,
+      )
     }
     const header = out.subarray(pos, nl).toString('utf8')
     pos = nl + 1
@@ -221,6 +227,24 @@ export function catBatch(root, revs, opts = {}) {
     pos += size + 1
   }
   return map
+}
+
+export function catBatch(root, revs, opts = {}) {
+  if (revs.length === 0) return new Map()
+  let out
+  try {
+    out = execFileSync(GIT, ['-c', 'safe.directory=*', '-C', root, 'cat-file', '--batch'], {
+      cwd: root,
+      input: Buffer.from(revs.join('\n') + '\n', 'utf8'),
+      windowsHide: true,
+      maxBuffer: opts.maxBuffer ?? GIT_MAX_BUFFER,
+      timeout: opts.timeout ?? BATCH_TIMEOUT,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+  } catch (e) {
+    throw new Undetermined(`git cat-file --batch 失败,${root} 的判定面无法取材: ${gitErrText(e)}`)
+  }
+  return parseBatch(out, revs)
 }
 
 /**

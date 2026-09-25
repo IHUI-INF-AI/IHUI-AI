@@ -5,10 +5,11 @@
 # =============================================================================
 # IHUI-AI PostgreSQL 定时备份脚本(Windows)
 # =============================================================================
-# 备份:pg_dump 全库 → D:\DevEnv\backups\pg\ihui_dev_YYYYMMDD_HHMMSS.sql.gz
+# 备份:pg_dump -Fc 全库 → D:\DevEnv\backups\pg\ihui_dev_YYYYMMDD_HHMMSS.dump(并复制到网盘同步目录)
 # 清理:仅保留最近 7 天备份
 # 用法(手动): powershell -ExecutionPolicy Bypass -File deploy\prod-bundle\pg-backup.ps1
-# 计划:建议每天 03:00 由任务计划程序触发(见 README 说明)
+# 调度:由 nssm 服务 IHUI-PG-BACKUP 常驻跑同级 pg-backup-scheduler.ps1 —— **不是** Windows 任务计划程序
+#       (实测 schtasks 全量列表里没有备份任务);调度器启动即备份一次,之后每天 03:00 一轮。
 # =============================================================================
 
 $ErrorActionPreference = "Stop"
@@ -20,6 +21,20 @@ $backupDir = "D:\DevEnv\backups\pg"
 $retentionDays = 7
 # 云备份同步(2026-08-05 加):复制到百度网盘同步盘 = 异地容灾(同步盘自动云同步)
 $cloudDir = "D:\BaiduSyncdisk\IHUI-PG-BACKUP"
+
+function Resolve-NodeExe {
+    # 本脚本由 nssm 服务 IHUI-PG-BACKUP 以 LocalSystem 身份跑,而**机器级 PATH 里那串 node 目录是死的**
+    # (实测 HKLM\...\Environment\Path 含 `D:\nodejs\`,而该目录不存在;node 真身在用户级 PATH 的
+    # `D:\DevEnv\runtimes\node\node.exe`,服务身份读不到 ⇒ 只靠 Get-Command 会在自动轮次里静默落空,
+    # 表现为"手动跑用专用角色、服务跑退回应用账号")。候选与 ihui-deploy.ps1:120 / ihui-monitor.ps1:108
+    # 同源 —— 那两处也是为同一个坑写了绝对路径兜底。全落空返回 $null,由调用方如实喊出来。
+    $cmd = Get-Command node.exe -ErrorAction SilentlyContinue
+    if ($cmd -and (Test-Path -LiteralPath $cmd.Source)) { return $cmd.Source }
+    foreach ($p in @('D:\DevEnv\runtimes\node\node.exe', 'C:\Program Files\nodejs\node.exe')) {
+        if (Test-Path -LiteralPath $p) { return $p }
+    }
+    return $null
+}
 
 # 读取数据库配置。`.env` 由 .gitignore 忽略、不入仓也不进聊天记录;本脚本本来就为拿库名/端口读它,
 # 现在顺带取应用账号(仅作为下方"过渡档"凭据来源,不复制口令到任何新文件)。
@@ -67,13 +82,16 @@ if (-not $dbPw) {
     $prevOutEnc = [Console]::OutputEncoding
     try {
         [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-        if (Get-Command node.exe -ErrorAction SilentlyContinue) {
+        $nodeExe = Resolve-NodeExe
+        if ($nodeExe) {
             try {
-                $probe = & node.exe (Join-Path $ProjectRoot 'scripts\secret-path.mjs') 'db-backup' 'ihui-backup.txt' 2>&1
+                $probe = & $nodeExe (Join-Path $ProjectRoot 'scripts\secret-path.mjs') 'db-backup' 'ihui-backup.txt' 2>&1
                 if ($LASTEXITCODE -eq 0 -and $probe) { $credFile = ($probe | Select-Object -First 1).Trim() }
             } catch {
                 Write-Host "[WARN] 凭据路径探测异常(跳过专用角色档): $($_.Exception.Message)" -ForegroundColor Yellow
             }
+        } else {
+            Write-Host "[WARN] 找不到 node.exe(PATH 与绝对路径兜底均落空),无法取专用角色凭据" -ForegroundColor Yellow
         }
     } finally {
         [Console]::OutputEncoding = $prevOutEnc

@@ -53,17 +53,19 @@ vi.mock('@/components/feedback', () => ({
 import { ToolCallCard } from '../tool-call-card'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const taskStatusPack = (
+/**
+ * 五语 shared 词包按需读取。刻意**不**再提供"取某键文案"的 helper:
+ * `taskStatus.workedForDuration` / `taskStatus.searchWithQuery` 自 D81 尾票起全仓零消费点
+ * (唯一取用者是本探针,而它做的是反向断言),已随本轮从五语删除 —— 反向断言改用字面量,
+ * 免得测试反过来依赖一个"应当不存在"的键。
+ */
+const sharedPack = (loc: string) =>
   JSON.parse(
-    readFileSync(join(here, '../../../../../../packages/i18n/messages/shared/zh-CN.json'), 'utf8'),
+    readFileSync(
+      join(here, '../../../../../../packages/i18n/messages/shared', `${loc}.json`),
+      'utf8',
+    ),
   ) as { taskStatus: Record<string, string> }
-).taskStatus
-
-function msg(key: string): string {
-  const value = taskStatusPack[key]
-  if (typeof value !== 'string' || value === '') throw new Error(`zh-CN 语言包缺键 ${key}`)
-  return value
-}
 
 /** 取某一行的可见文本(整行 textContent,不是"元素存不存在") */
 function rowText(container: HTMLElement, id: string): string {
@@ -156,7 +158,7 @@ describe('D81 ③ 现役活动条自行显示查询词(无需 ActivitySearchQuer
     expect(subjectText(container, 'p-noq')).toBe('')
   })
 
-  it('口径对账:③ 的措辞键若被现役路径使用,本探针须一并量到(实测:没有 ⇒ ③ 仅剩文案差)', () => {
+  it('口径对账:③ 的措辞键已从五语删除,现役行只出裸查询词(反向对照防"前缀文案"回潮)', () => {
     const query = 'hello-ihui'
     const { container } = render(
       <ToolCallCard
@@ -167,10 +169,15 @@ describe('D81 ③ 现役活动条自行显示查询词(无需 ActivitySearchQuer
       />,
     )
     const text = rowText(container, 'p-key')
-    // searchWithQuery = "查询:{query}"。现役只出裸查询词,不出"查询:"前缀 ⇒
-    // ②③ 与现役的差异**只在措辞**,信息(耗时数值 / 查询词本身)已在行上。
+    // 旧措辞键 searchWithQuery = "查询:{query}"。现役只出裸查询词 ⇒ ②③ 与现役的差异**只在措辞**,
+    // 信息(耗时数值 / 查询词本身)已在行上;该键与 workedForDuration 同批因零消费点被删。
     expect(text).toContain(query)
-    expect(text).not.toContain(msg('searchWithQuery').replace('{query}', query))
+    expect(text).not.toContain(`查询:${query}`)
+    for (const loc of ['en', 'ja', 'ko', 'zh-CN', 'zh-TW']) {
+      const pack = sharedPack(loc)
+      expect(pack.taskStatus.searchWithQuery ?? null).toBeNull()
+      expect(pack.taskStatus.workedForDuration ?? null).toBeNull()
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

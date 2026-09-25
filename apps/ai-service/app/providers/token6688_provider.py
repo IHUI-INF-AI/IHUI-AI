@@ -56,6 +56,7 @@ from typing import Any, cast
 import httpx
 
 from ..core.llm_gateway import get_http_client
+from ..core.retry_after import hint_from_error, resolve_retry_delay_s
 from .base_provider import ProviderError
 from .openai_provider import OpenAIProvider
 
@@ -156,8 +157,14 @@ class Token6688Provider(OpenAIProvider):
             retriable = status == 429 or status >= 500
             if not retriable or _retried:
                 raise self._enrich_error(e) from e
-            # 退避:Retry-After 头取不到时按 429→5s / 5xx→3s
-            delay = 5.0 if status == 429 else 3.0
+            # 退避:服务端 Retry-After / 响应体 retry_after 优先(app/core/retry_after.py
+            # 唯一裁决层);取不到指示时回落本厂经验值 429→5s / 5xx→3s。
+            # 三层里第 1 层(x-should-retry: false)命中 → resolve 返回 None,不重试。
+            _hint = hint_from_error(e)
+            _fallback = 5.0 if status == 429 else 3.0
+            delay = resolve_retry_delay_s(_hint, _fallback)
+            if delay is None:
+                raise self._enrich_error(e) from e
             logger.warning("Token6688 %s 于 %s,%ss 后重试 1 次", status, url, delay)
             await asyncio.sleep(delay)
             return await self._request(method, url, headers=headers, json=json, _retried=True)

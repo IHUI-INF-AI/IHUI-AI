@@ -47,7 +47,7 @@ export function SkillFormDialog({
   React.useEffect(() => {
     setForm(defaultValuesProp)
     setNameErr(null)
-  }, [editing?.id, open, defaultValuesProp])
+  }, [editing?.name, open, defaultValuesProp])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

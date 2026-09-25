@@ -171,8 +171,6 @@
     "searchActivity": "{state, select, running {正在检索} completed {已检索} other {检索}}",
     "thinkingActivity": "{state, select, running {正在分析} completed {已分析} other {分析}}",
     "customActivity": "{state, select, running {正在执行} completed {已执行} other {执行}}",
-    "workedForDuration": "用时 {duration}",
-    "searchWithQuery": "查询：{query}",
     "showAllLines": "展开全部",
     "hideLines": "收起",
     "sourcesButton": "来源",
@@ -2065,9 +2063,6 @@
     "enableSuccess": "{name} 已启用",
     "disableSuccess": "{name} 已停用",
     "notFound": "能力不存在"
-  },
-  "topBar": {
-    "capabilityMarket": "能力市场"
   },
   "stepDecision": {
     "decision": {

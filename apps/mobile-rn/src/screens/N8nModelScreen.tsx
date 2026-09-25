@@ -32,6 +32,7 @@ import { Zap, PauseCircle } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
 import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
 import { useI18n } from '../i18n'
+import { useTheme } from '../context/ThemeContext'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
@@ -82,6 +83,7 @@ function buildModelGroup(items: N8nWorkflow[]): ModelListGroup[] {
 
 export default function N8nModelScreen() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
   const [viewMode, setViewMode] = useState<ViewMode>('shared')
   const [tab, setTab] = useState<N8nModelTab>('all')
@@ -240,6 +242,7 @@ export default function N8nModelScreen() {
         {viewMode === 'shared' ? (
           <SharedN8nModelScreen
             t={t}
+            colorScheme={resolvedTheme}
             items={items}
             tab={tab}
             keyword={keyword}

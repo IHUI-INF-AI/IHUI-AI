@@ -26,7 +26,7 @@ import * as path from 'node:path'
 import * as os from 'node:os'
 import type { Settings } from '../commands/settings.js'
 import { DEFAULT_SETTINGS } from './defaults.js'
-import { deepMergeAll } from './merge.js'
+import { collectLayerContributions, deepMergeAll, type ConfigSourceEntry } from './merge.js'
 import { parseEnvOverrides } from './env.js'
 import { parseCliOverrides } from './cli.js'
 
@@ -82,22 +82,38 @@ export function clearSessionConfig(): void {
 }
 
 /**
- * 按 6 层优先级合并配置:defaults > global > project > session > env > cli。
- * 任一层加载失败不阻塞,降级到默认。
- *
- * session 层来源优先级:opts.sessionOverrides > setSessionConfig 注入的模块级状态。
+ * 配置层名,数组顺序 = 优先级升序(与 loadConfig 的合并顺序一致)。
+ * 出处探针与合并共用这一份定义,不留第二套层序。
  */
-export function loadConfig(opts: LoadConfigOptions = {}): Settings {
+export const CONFIG_LAYERS = ['defaults', 'global', 'project', 'session', 'env', 'cli'] as const
+export type ConfigLayerName = (typeof CONFIG_LAYERS)[number]
+
+/** 单层解析结果:层名 + 该层值 + 该层对应的磁盘文件(仅磁盘层有) */
+interface ResolvedLayer {
+  layer: ConfigLayerName
+  value: Partial<Settings>
+  originFile?: string
+}
+
+/**
+ * 构建 6 层输入(优先级升序)。loadConfig 与 sourcesFor 共用这一份,保证
+ * "出处查询"与实际合并读的是同一批源、同一优先级 —— 不存在第二套判定。
+ * 任一层加载失败不阻塞,降级到默认(与 loadConfig 原语义一致)。
+ */
+function resolveLayers(opts: LoadConfigOptions): ResolvedLayer[] {
   const cwd = opts.cwd ?? process.cwd()
   const env = opts.env ?? process.env
   const cliArgs = opts.cliArgs ?? {}
 
+  const globalPath = getGlobalSettingsPath()
+  const projectPath = getProjectSettingsPath(cwd)
+
   // Layer 1: defaults(内置默认值,最低优先级)
   const defaults = DEFAULT_SETTINGS
   // Layer 2: global(~/.ihui/settings.json)
-  const globalConfig = loadSettingsFile(getGlobalSettingsPath())
+  const globalConfig = loadSettingsFile(globalPath)
   // Layer 3: project(<cwd>/.ihui/settings.json)
-  const projectConfig = loadSettingsFile(getProjectSettingsPath(cwd))
+  const projectConfig = loadSettingsFile(projectPath)
   // Layer 4: session(运行时临时配置;opts 优先,其次模块级状态)
   const session = opts.sessionOverrides ?? sessionConfig ?? {}
   // Layer 5: env(IHUI_ 前缀环境变量)
@@ -105,13 +121,35 @@ export function loadConfig(opts: LoadConfigOptions = {}): Settings {
   // Layer 6: cli(命令行参数,最高优先级)
   const cliOverrides = parseCliOverrides(cliArgs)
 
-  return deepMergeAll(
-    defaults,
-    globalConfig,
-    projectConfig,
-    session,
-    envOverrides,
-    cliOverrides,
-  ) as Settings
+  return [
+    { layer: 'defaults', value: defaults },
+    { layer: 'global', value: globalConfig, originFile: globalPath },
+    { layer: 'project', value: projectConfig, originFile: projectPath },
+    { layer: 'session', value: session },
+    { layer: 'env', value: envOverrides },
+    { layer: 'cli', value: cliOverrides },
+  ]
+}
+
+/**
+ * 按 6 层优先级合并配置:defaults > global > project > session > env > cli。
+ * 任一层加载失败不阻塞,降级到默认。
+ *
+ * session 层来源优先级:opts.sessionOverrides > setSessionConfig 注入的模块级状态。
+ */
+export function loadConfig(opts: LoadConfigOptions = {}): Settings {
+  const layers = resolveLayers(opts)
+  return deepMergeAll(...layers.map((l) => l.value)) as Settings
+}
+
+/**
+ * 只读探针(A19):回答"这个键的值是哪一层给的、从哪个文件读的、在它之前哪些层被跳过"。
+ * - 与 loadConfig 共用同一份层构建(resolveLayers),不改任何现有读取路径与优先级;
+ * - key 为点分路径(如 'apiUrl' / 'sampler.temperature');
+ * - 返回数组按优先级**降序**(最高层在前),长度 = 实际贡献该键的层数;
+ * - 来自磁盘的层(global/project)条目必带非空 originFile,非磁盘层不带。
+ */
+export function sourcesFor(key: string, opts: LoadConfigOptions = {}): ConfigSourceEntry[] {
+  return collectLayerContributions<Settings>(resolveLayers(opts)).get(key) ?? []
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
