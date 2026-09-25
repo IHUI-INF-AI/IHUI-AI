@@ -196,6 +196,12 @@ export interface ChatMessage extends Omit<BaseChatMessage, 'createdAt' | 'toolCa
    *  MessageItem 按既有 chat.fallbackNotice / fallbackNoticeQuota 词渲染消息级交代行。
    *  缺失 = 本轮未降级或老消息 —— 不渲染。 */
   fallback?: FallbackEvent
+  /** D33(G-39,2026-09-26 立):该回答生成时刻**仍排队中**的侧问快照(队首窗口,≤8 条)。
+   *  live:sideQueueByConversation 本地桶;历史:metadata.queueItems 经水合挂到消息。
+   *  复用 SideQueueItem 形状(id/text/createdAt 毫秒)——与 Python 侧 QueueItemPayload
+   *  逐字段同形同单位。缺失/空 = 本轮无排队或老消息,不造空态。
+   *  会话级桶灌回(消费 api 侧"空数组=确实没有"语义)属后续挂载格,本字段只做消息级回放。 */
+  queueItems?: SideQueueItem[]
 }
 
 /** 自动压缩上下文状态(2026-08-16 立)
