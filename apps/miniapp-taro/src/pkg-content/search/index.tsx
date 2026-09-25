@@ -19,6 +19,7 @@ import type { SearchScreenItem } from '@ihui/types'
 import { rnRadius } from '@ihui/design-tokens'
 import ThemeRoot from '@/components/ThemeRoot'
 import SearchBar from '@/components/SearchBar'
+import BackChevron from '@/components/BackChevron'
 
 /** 搜索类型 → 小程序详情页路由(note 暂无对应详情页,点击不跳转) */
 const TYPE_ROUTES: Partial<Record<SearchScreenItem['type'], string>> = {
@@ -127,11 +128,6 @@ const viewStyles: Record<string, CSSProperties> = {
 }
 
 const textStyles: Record<string, CSSProperties> = {
-  // RN back:fontSize 16 + text.secondary
-  back: {
-    fontSize: '32rpx',
-    color: 'var(--color-muted-foreground)',
-  },
   // RN title:flex 1 + fontSize 22 + 600
   title: {
     flex: 1,
@@ -229,9 +225,7 @@ export default function Search() {
     <ThemeRoot>
       <View style={viewStyles.container}>
         <View style={viewStyles.header}>
-          <Text style={textStyles.back} onClick={goBack}>
-            {tt('common.back', '返回')}
-          </Text>
+          <BackChevron onTap={goBack} />
           <Text style={textStyles.title}>{tt('search.title', '搜索')}</Text>
         </View>
 
