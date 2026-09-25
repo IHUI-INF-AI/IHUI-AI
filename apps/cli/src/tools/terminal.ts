@@ -129,6 +129,7 @@ const MAX_SESSIONS = 10;
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 分钟
 const MAX_OUTPUT_BUFFER = 1024 * 1024; // 1MB
 
+// routing-handle: key=sessionId minted-by=genId registry=sessions 句柄而非路由身份:值由本进程 genId() 铸造(时间戳+crypto 随机),只经 sessions 查表,查不到即返回"会话不存在"
 const sessions = new Map<string, TerminalSession>();
 
 function genId(): string {
