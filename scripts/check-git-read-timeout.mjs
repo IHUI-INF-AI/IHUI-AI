@@ -35,9 +35,16 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+// 判定面取材一律走共用层(2026-09-26 迁,守门 118 的 loose 档收口)。
+// 本门此前用 `existsSync(join(REPO,rel))` + `readFileSync` 按磁盘判:共享工作树常年滞后 HEAD,
+// 同一份 HEAD 代码会在"恒红"与"假绿"之间来回跳(口径同 70/77/83/98/101/113)。
+import { Undetermined, assertRepoRoot, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = dirname(HERE)
+const GIT_TIMEOUT = 120000
+/** 结论行点名的判定面标注(与门 113/77 同形态:口径必须在输出里如实报出) */
+const FACE_TAG = { head: 'HEAD blob', staged: '索引 blob', worktree: '工作树(逃生舱)' }
 
 /** 钩子/守护链可达文件(单一清单;新增热文件在此登记) */
 export const HOT = [
@@ -264,12 +271,48 @@ export function scanSource(raw) {
   return { misses, writes, skipped, wrappers, skippedByNoVerb }
 }
 
-export function auditHot(root) {
+/**
+ * 在位清单:候选源恒为 `HOT` 静态登记表(本门的口径就是"登记过的热文件必须封顶"),
+ * 但**"该文件在这一面存在与否"按被审面判** —— 否则 HEAD 里没有的文件会被算进"热文件 N 个"，
+ * 而它的内容无论如何也取不到，把一个数字掺了两个面的东西(与"glob 读盘 + 内容读 git"同型)。
+ */
+export function listPresent(root, face) {
+  if (face === 'head') {
+    const has = new Set(gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '-z'], root, { timeout: GIT_TIMEOUT }).split('\0').filter(Boolean))
+    return HOT.filter((rel) => has.has(rel))
+  }
+  if (face === 'staged') {
+    const has = new Set(gitRaw(['ls-files', '-z'], root, { timeout: GIT_TIMEOUT }).split('\0').filter(Boolean))
+    return HOT.filter((rel) => has.has(rel))
+  }
+  return HOT.filter((rel) => existsSync(join(root, rel)))
+}
+
+/** 一次 `cat-file --batch` 预取整面;`read()` 对未预取路径不给内容(不偷偷补一次派生)。 */
+export function readFace(root, face, paths) {
+  const map = new Map()
+  if (!paths.length) return map
+  if (face === 'worktree') {
+    for (const p of paths) map.set(p, readWorktreeFile(root, p))
+    return map
+  }
+  const rev = face === 'staged' ? '' : 'HEAD'
+  const specs = paths.map((p) => `${rev}:${p}`)
+  const got = catBatch(root, specs, { maxBuffer: 1 << 29, timeout: GIT_TIMEOUT })
+  for (let i = 0; i < paths.length; i++) map.set(paths[i], got.get(specs[i]) ?? null)
+  return map
+}
+
+/**
+ * @param texts 预取好的「rel → 正文」映射;不传即按**工作树面**取(自检夹具就是这一档 ——
+ *   临时目录不是 git 仓，任何 git 面判据对它都不成立)。
+ */
+export function auditHot(root, texts = null) {
   const out = []
   for (const rel of HOT) {
-    const p = join(root, rel)
-    if (!existsSync(p)) continue
-    const r = scanSource(readFileSync(p, 'utf8'))
+    const raw = texts ? texts.get(rel) : readWorktreeFile(root, rel)
+    if (typeof raw !== 'string') continue
+    const r = scanSource(raw)
     if (r.misses.length) out.push({ rel, ...r })
   }
   return out
@@ -283,6 +326,7 @@ function selfTest() {
   // 样例字面量当成真派生点(52 的豁免哨兵只覆盖它自己那道门,这是有意的 ⇒ 改夹具而非改判据)。
   // 写出去的文本与原来逐字节相同 ⇒ 本门自检语义零变化。
   const SF = 'execFileSync'
+  let faceRepo = null
   try {
     const hot = join(root, 'scripts')
     mkdirSync(hot, { recursive: true })
@@ -361,6 +405,52 @@ function selfTest() {
       if (HOT.length < 10) throw new Error(`HOT 只有 ${HOT.length} 项`)
     })
 
+    // ---- 判定面构造证明(2026-09-26 迁移配套)------------------------------------
+    // 真造一个临时 git 仓:同一批 HOT 路径全部提交为"已封顶"的版本,然后把其中一个的
+    // **索引**版本改成"缺 timeout"而**不动 HEAD**。两条断言方向相反,合起来才证明
+    // "跟面走"不是一句注释:①staged 必须看见索引里的那处缺 timeout;②head 必须看不见它。
+    // ⚠️ 现场必须建在**用例循环之前**、销毁在**循环之后**(外层的 finally)——
+    //    上一版把 setup+`t()` 注册写在同一个块里并当场 rmScratch,三个用例真正执行时目录已没了,
+    //    spawnSync 报的是 `git.exe ENOENT`(Node 的 cwd 缺失与二进制缺失共用同一句话),
+    //    一个夹具生命周期 bug 伪装成"这台机的 git 坏了"。
+    faceRepo = mkScratch('ihui-git-timeout-face-')
+    {
+      const dirtyRel = 'scripts/guardian-runner.mjs'
+      const clean = `const a = 0\n`
+      const dirty = `const a = ${SF}('git', ['ls-files'], { encoding: 'utf8', windowsHide: true })\n`
+      for (const rel of HOT) {
+        const abs = join(faceRepo, rel)
+        mkdirSync(dirname(abs), { recursive: true })
+        writeFileSync(abs, clean, 'utf8')
+      }
+      gitRaw(['init', '-q'], faceRepo, { timeout: GIT_TIMEOUT })
+      gitRaw(['add', '-A'], faceRepo, { timeout: GIT_TIMEOUT })
+      gitRaw(['-c', 'user.name=gate', '-c', 'user.email=gate@local', 'commit', '-q', '-m', 'base'], faceRepo, { timeout: GIT_TIMEOUT })
+      writeFileSync(join(faceRepo, dirtyRel), dirty, 'utf8')
+      gitRaw(['add', '--', dirtyRel], faceRepo, { timeout: GIT_TIMEOUT })
+
+      t(`索引内容与 HEAD 不同 ⇒ --staged 档必须跟索引走(盘上/索引里的那一份才是被提交的)`, () => {
+        const out = evaluate(faceRepo, 'staged')
+        if (out.collapse) throw new Error(`临时仓被判"判据面塌陷"(present=${out.present.length})—— 夹具没造起来`)
+        if (out.misses !== 1) throw new Error(`staged 档应看见索引里那 1 处缺 timeout,实得 ${out.misses}`)
+        if (!out.bad.some((b) => b.rel === dirtyRel)) throw new Error(`判红的不是索引里被改的那个文件:${JSON.stringify(out.bad.map((b) => b.rel))}`)
+      })
+      t(`同一输入在 HEAD 档给出 HEAD 的结论(反向对照:上一条不是恒真式)`, () => {
+        const out = evaluate(faceRepo, 'head')
+        if (out.misses !== 0) throw new Error(`HEAD 那一版是已封顶的,不该判红,实得 ${out.misses}:${JSON.stringify(out.bad)}`)
+        if (out.present.length !== HOT.length) throw new Error(`HEAD 面在位清单 ${out.present.length} ≠ HOT ${HOT.length} —— 清单与内容必须同面`)
+      })
+      t(`在位清单必须与内容同面(暂存删除只让索引面少一个,HEAD 面照旧)`, () => {
+        gitRaw(['rm', '--cached', '-q', '--', dirtyRel], faceRepo, { timeout: GIT_TIMEOUT })
+        const staged = listPresent(faceRepo, 'staged')
+        const head = listPresent(faceRepo, 'head')
+        const disk = listPresent(faceRepo, 'worktree')
+        if (staged.includes(dirtyRel)) throw new Error('索引里已删除,仍被算进 staged 面 ⇒ 清单掺了磁盘/HEAD')
+        if (!head.includes(dirtyRel)) throw new Error('HEAD 里仍在,却从 head 面清单里掉了')
+        if (!disk.includes(dirtyRel)) throw new Error('磁盘上仍在,worktree 面应当看得见它')
+      })
+    }
+
     let failed = 0
     for (const c of cases) {
       try {
@@ -375,28 +465,60 @@ function selfTest() {
     return failed === 0 ? 0 : 1
   } finally {
     rmScratch(root)
+    if (faceRepo) rmScratch(faceRepo)
   }
 }
 
-function run(argv) {
-  if (argv.includes('--self-test')) return selfTest()
-  const present = HOT.filter((rel) => existsSync(join(REPO, rel)))
-  if (present.length < 10) {
-    console.error(`❌ HOT 清单里只有 ${present.length}/${HOT.length} 个文件存在 —— 判据面已塌陷,不报绿灯`)
-    return 1
-  }
-  const bad = auditHot(REPO)
+/**
+ * 一次判定:清单与内容**同面同轮**(先按面列在位、再一次 batch 预取该面正文)。
+ * 取不到内容 ⇒ 记进 `unread`，由调用方折成 exit 2「无法判定」—— 少扫一个热文件不是"没有违规"。
+ */
+export function evaluate(root, face) {
+  const present = listPresent(root, face)
+  if (present.length < 10) return { present, collapse: true, unread: [], bad: [], writes: 0, skipped: 0, noVerb: 0, misses: 0 }
+  const texts = readFace(root, face, present)
+  const unread = present.filter((rel) => typeof texts.get(rel) !== 'string')
+  const bad = auditHot(root, texts)
   let writes = 0
   let skipped = 0
   let noVerb = 0
   for (const rel of present) {
-    const r = scanSource(readFileSync(join(REPO, rel), 'utf8'))
+    const raw = texts.get(rel)
+    if (typeof raw !== 'string') continue
+    const r = scanSource(raw)
     writes += r.writes.length
     skipped += r.skipped.length
     noVerb += r.skippedByNoVerb
   }
-  const misses = bad.reduce((s, b) => s + b.misses.length, 0)
-  console.log(`git 只读派生调用 timeout 对账:热文件 ${present.length} 个 / 判红 ${misses} 处 / 写动词不判 ${writes} 处 / 包装器不判 ${skipped} 处 / 动词非字面量不判 ${noVerb} 处`)
+  return { present, collapse: false, unread, bad, writes, skipped, noVerb, misses: bad.reduce((s, b) => s + b.misses.length, 0) }
+}
+
+function run(argv) {
+  if (argv.includes('--self-test')) return selfTest()
+  const { face, error } = selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree'), def: 'head' })
+  if (error) {
+    console.error(`❌ 无法判定: ${error}`)
+    return 2
+  }
+  assertRepoRoot(REPO, '本门')
+  let out
+  try {
+    out = evaluate(REPO, face)
+  } catch (e) {
+    console.error(`❌ 无法判定(exit 2): ${e instanceof Undetermined ? e.message : e?.message ?? String(e)}`)
+    if (!(e instanceof Undetermined)) console.error(e?.stack ?? '')
+    return 2
+  }
+  if (out.collapse) {
+    console.error(`❌ HOT 清单里只有 ${out.present.length}/${HOT.length} 个文件存在 —— 判据面已塌陷,不报绿灯`)
+    return 1
+  }
+  if (out.unread.length) {
+    console.error(`❌ 无法判定(exit 2):${FACE_TAG[face]} 面有 ${out.unread.length} 个热文件取不到内容 —— 少扫不等于没有违规:${out.unread.join(', ')}`)
+    return 2
+  }
+  const { present, bad, writes, skipped, noVerb, misses } = out
+  console.log(`git 只读派生调用 timeout 对账(判定面:${FACE_TAG[face]}):热文件 ${present.length} 个 / 判红 ${misses} 处 / 写动词不判 ${writes} 处 / 包装器不判 ${skipped} 处 / 动词非字面量不判 ${noVerb} 处`)
   if (misses === 0) {
     console.log('✅ 热路径只读 git 调用均已封顶')
     return 0
@@ -434,4 +556,15 @@ if (isDirectRun) {
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-export const __test__ = { HOT, READ_ONLY, scanSource, auditHot, callSpan, markHidden, pickVerb }
+export const __test__ = {
+  HOT,
+  READ_ONLY,
+  scanSource,
+  auditHot,
+  callSpan,
+  markHidden,
+  pickVerb,
+  listPresent,
+  readFace,
+  evaluate,
+}
