@@ -120,7 +120,7 @@ export default function OrderDetail() {
       {/* 底部操作栏对齐 RN BottomActionBar:固定底部 / bg-card / 顶部 2rpx 描边 /
           gap 24rpx / 按钮 h88rpx 圆角 16rpx,主按钮 bg-primary 白字 30rpx/500,次按钮 2rpx 描边 */}
       <View
-        className="fixed bottom-0 left-0 right-0 z-10 flex items-center gap-[24rpx] border-t-[2rpx] border-border bg-card px-[24rpx] pt-[8rpx]"
+        className="fixed bottom-0 left-0 right-0 z-10 flex items-center gap-[24rpx] border-t-[length:2rpx] border-border bg-card px-[24rpx] pt-[8rpx]"
         style={{ paddingBottom: 'calc(8rpx + env(safe-area-inset-bottom))' }}
       >
         {order.status === 'pending' && (
