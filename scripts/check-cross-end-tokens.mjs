@@ -2222,15 +2222,25 @@ async function selfTestR6() {
     console.log(`❌ R6 真登记表取不到(无法判定,不算通过):${e.message}`)
     return { fail: fail + 1, cases: r6Cases.length + 5 }
   }
-  const parsedOk =
-    plugin.alphaTiers(reg.usage).length > 0 &&
-    Object.values(reg.usage).every((byKind) =>
-      Object.values(byKind).every((mods) => Array.isArray(mods) && mods.every((m) => typeof m === 'string')),
-    ) &&
-    JSON.stringify(reg.usage['primary'].bg) === JSON.stringify(['10'])
-  if (!parsedOk) fail++
+  // 真表只验**形状**(每档每前缀都是字符串数组),不验大小、更不点名"必须有 primary/bg/10" ——
+  // 那张表由 sync-alpha-usage.mjs 从用量导出,当天没人写 /alpha 它就是 {}(2026-09-25 即是)。
+  // "解析得对不对"这件事改由下面的构造字面量证明,与仓库用量无关。
+  const parsedOk = Object.values(reg.usage).every((byKind) =>
+    Object.values(byKind).every((mods) => Array.isArray(mods) && mods.every((m) => typeof m === 'string')),
+  )
+  const probeParsed = parseLiteralObject(
+    extractObjectBody(
+      "export const ALPHA_USAGE = {\n  primary: { bg: ['10'], border: ['20'] },\n  muted: { bg: ['[0.12]'] },\n}",
+      /^export const ALPHA_USAGE\s*=\s*\{/m,
+    ),
+  )
+  const probeOk =
+    plugin.alphaTiers(probeParsed).length === 2 &&
+    JSON.stringify(probeParsed.primary.bg) === JSON.stringify(['10']) &&
+    JSON.stringify(probeParsed.muted.bg) === JSON.stringify(['[0.12]'])
+  if (!parsedOk || !probeOk) fail++
   console.log(
-    `${parsedOk ? '✅' : '❌'} R6 解析器读真登记表:${plugin.alphaTiers(reg.usage).length} 档 / ${plugin.alphaTiers(reg.usage).reduce((a, k) => a + Object.values(reg.usage[k]).reduce((x, y) => x + y.length, 0), 0)} 形态,flattenColorTiers 得 ${flattenColorTiers(reg.colors).size} 档(preset 无 -DEFAULT 泄漏:${![...flattenColorTiers(reg.colors)].some((x) => x.endsWith('-DEFAULT'))})`,
+    `${parsedOk && probeOk ? '✅' : '❌'} R6 解析器:真表形状 OK=${parsedOk}(现 ${plugin.alphaTiers(reg.usage).length} 档,合法地可为 0)/ 构造字面量解析 OK=${probeOk}(2 档 3 形态)· flattenColorTiers 得 ${flattenColorTiers(reg.colors).size} 档(preset 无 -DEFAULT 泄漏:${![...flattenColorTiers(reg.colors)].some((x) => x.endsWith('-DEFAULT'))})`,
   )
   let threw = 0
   try {
@@ -2279,7 +2289,11 @@ async function selfTestR6() {
     return { fail: fail + 1, cases: r6Cases.length + 5 }
   }
   const hard = r6Real.failures.filter((f) => !f.tag.startsWith('R6 清单腐烂'))
-  const realOk = hard.length === 0 && r6Real.counts.checked > 40 && r6Real.counts.files > 800
+  // ⚠️ 这里**不得**钉"用量条数 > N"。登记表大小是**移动量** —— 它等于此刻有多少人写了 /alpha,
+  // 合法地可以是 0(2026-09-25 把面收到真 v3 两端后就是 0)。把它当健康期望,下次归零就会
+  // 红在一件正确的事上。防"整门失明"由上面 r6Cases 里的构造面阳性对照负责:那几例证明
+  // 判据喂给它东西时它一定响;本条只要求"扫得动、扫完无硬红、文件面不为空"。
+  const realOk = hard.length === 0 && r6Real.counts.files > 800
   if (!realOk) fail++
   console.log(
     `${realOk ? '✅' : '❌'} R6 真仓不变量:${r6Real.counts.files} 文件 / preset 档用量 ${r6Real.counts.checked} 处,` +
