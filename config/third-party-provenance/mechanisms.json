@@ -6,8 +6,10 @@
     "guardian 现值以 runner 为准)的 ALLOWED_FILES 是封闭白名单,只列了 README*/LICENSE/SECURITY/CONTRIBUTING/",
     "CODE_OF_CONDUCT/AGENTS/PROJECT_PLAN,新增根目录 NOTICE-UPSTREAM-MECHANISMS.md 会当场判红;",
     "而规格 §6 的另外两个落点 config/third-party-provenance/*.json 是白名单内的 config 目录 —— 故同目录安置(以实测为准)。",
-    "P5 判据:landsOn 每个路径必须存在于**被审判的同一取材面**(登记了但实物没了 = 判红);specFile 允许是 gitignore 的临时规格,",
-    "因此它按工作树存在性判,不参与 face 对账 —— 这是本门唯一读工作树的地方,且只读存在性、不读内容。"
+    "P5 判据(2026-09-25 改):landsOn 与 specFile **都**按被审判的面判 —— 锚点必须受版本控制。",
+    "旧写法把 specFile 交给工作树存在性判,并写明'允许是 gitignore 的临时规格',这与'blocking 判存在'结构互斥:",
+    "gitignored 路径不进任何检出,而本仓 post-commit 的 --auto-clean 自己就会清掉它 ⇒ 作者机常绿、别处恒红,",
+    "实测该形状就是 G-173(每次提交都被逼 --no-verify,连带全部守门作废)。判据失效的方向只能是'多要一次耐久登记'。"
   ],
   "schemaVersion": 1,
   "updatedOn": "2026-09-25",
@@ -22,8 +24,9 @@
       "mechanism": "把进过仓的外部内容按『嵌入 / 复制 / 覆盖』分三本账登记,许可原文按内容哈希自证(读盘不联网),并配一道机器判据:每个 roots 必须真实存在、盘上任何 vendored 目录或带第三方版权头的文件必须有对应条目、revision 不可考必须显式 null 加说明。",
       "upstreamProject": "ZCode",
       "upstreamArea": "其 THIRD-PARTY-NOTICES / copied-components / embedded-components 一类的来源登记面(规格 §6 的实测描述)",
-      "specFile": ".ihui-agent/tmp/zcode-absorb/MECHANISM-SPEC-2.md",
-      "specSection": "§6 来源台账(候选点 A6)",
+      "specFile": "AGENTS.md",
+      "specSection": "守门脚本速查 › 「第三方来源台账对账」(guardian id 107)—— 本机制在本仓的现行规格表述",
+      "specNote": "原锚点指向 .ihui-agent/tmp/zcode-absorb/MECHANISM-SPEC-2.md,而 .gitignore:149 忽略整个 .ihui-agent/ ⇒ 那份研究笔记从来不随任何检出存在,本机现已清空且不在任何 git 面上,**内容无从找回**。因此本字段现指向受版本控制的 AGENTS.md 对应条目,只承载'机制已被本仓规格化'这一层;上游界面的实际观察依据保留在下面 upstreamArea 与 deviationsFromSpec 的文字描述里,**不得把本字段读成'上游原文仍在'** —— 若要恢复对原文的引用,必须重新取得笔记并提交进仓。",
       "absorbedOn": "2026-09-25",
       "landsOn": [
         "scripts/provenance-ledger.mjs",
