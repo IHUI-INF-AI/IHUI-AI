@@ -14,9 +14,12 @@
 //
 // ⚠️ 「真仓不得红」一律走 `--worktree`(磁盘面)或纯判据夹具:共享工作树常年并行,
 // 拿 HEAD 面断言会把别人**未提交**的 tokens.css 改动冒充成本仓债务(上一版就是这么错的)。
+// 但**判定面本身**(默认 HEAD / `--staged` 索引 / `--worktree` 逃生舱)靠真仓断言是证不出来的:
+// 三面在真仓上恰好同结论是常态(内容本就一路被生成器同步),在那上面写"读的是哪一面"的断言就是恒绿。
+// 所以 T15/T16 在临时 git 仓里造"三面互不相同"的现场,成对判方向。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
+import { spawnSync, execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync, copyFileSync, existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -24,6 +27,7 @@ import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
 import { collectVars } from '../lib/design-token-blocks.mjs'
+import { gitBinary, Undetermined } from '../lib/face-reader.mjs'
 import { __test__ as gate } from '../check-miniapp-tokens-sync.mjs'
 import { __test__ as gen } from '../sync-miniapp-tokens.mjs'
 
@@ -80,7 +84,32 @@ function runGateCli(dir, args = []) {
   return { code: r.status, out: `${r.stdout ?? ''}${r.stderr ?? ''}` }
 }
 
-function buildGateFixture({ appCss, tokensCss }) {
+/** 演练仓里跑一次 git(绝对路径来自取材层,不赌 PATH;autocrlf 关掉 —— 否则索引 blob 与盘上字节不等,夹具会假红)。 */
+function gitAt(dir, args) {
+  return execFileSync(
+    gitBinary(),
+    [
+      '-c', 'safe.directory=*',
+      '-c', 'core.quotepath=false',
+      '-c', 'core.autocrlf=false',
+      '-c', 'user.name=gate-fixture',
+      '-c', 'user.email=gate-fixture@invalid',
+      '-C', dir,
+      ...args,
+    ],
+    { encoding: 'utf8', windowsHide: true, timeout: 120000, stdio: ['ignore', 'pipe', 'pipe'] }
+  )
+}
+
+const APP_REL = 'apps/miniapp-taro/src/app.css'
+
+/**
+ * 建演练仓。**默认建成一个真 git 仓并提交夹具内容** —— 守门 36 的默认判定面是 HEAD blob,
+ * 不建提交的话每条夹具用例都会以"取不到"红,而那与判据无关(是夹具失效)。
+ * `git:false` = 完全不建仓(证明"取不到 ⇒ 无法判定"而不是回落到磁盘冒绿);
+ * `commit:false` = 有仓但没有 HEAD(同一份磁盘内容,判死与判绿只差在这个面上)。
+ */
+function buildGateFixture({ appCss, tokensCss, git = true, commit = true }) {
   const dir = mkScratch('miniapp-tokens-sync')
   copyScriptWithClosure(SCRIPTS_DIR, 'check-miniapp-tokens-sync.mjs', join(dir, 'scripts'), [
     'lib/design-token-blocks.mjs',
@@ -94,8 +123,30 @@ function buildGateFixture({ appCss, tokensCss }) {
   const tokDir = join(dir, 'packages', 'design-tokens', 'src', 'styles')
   mkdirSync(tokDir, { recursive: true })
   writeFileSync(join(tokDir, 'tokens.css'), tokensCss)
+  if (!git) return dir
+  gitAt(dir, ['init', '-q', '-b', 'main'])
+  if (!commit) return dir
+  gitAt(dir, ['add', '-A'])
+  gitAt(dir, ['commit', '-q', '-m', 'fixture'])
   return dir
 }
+
+/**
+ * 造「HEAD / 索引 / 工作树 三份内容互不相同」的现场。
+ * 判定面这类行为**只能用构造面证明**:真仓此刻三面同值,拿它取证等于什么都没测。
+ * 顺序刻意是「提交 head → 暂存 index → 再改盘上 worktree」,于是 index 与 worktree 也不等。
+ */
+function buildFaceFixture({ tokensCss, appCssHead, appCssIndex, appCssWorktree }) {
+  const dir = buildGateFixture({ tokensCss, appCss: appCssHead })
+  const index = appCssIndex ?? appCssHead
+  const worktree = appCssWorktree ?? index
+  const appAbs = join(dir, APP_REL)
+  writeFileSync(appAbs, index, 'utf8')
+  gitAt(dir, ['add', '--', APP_REL])
+  writeFileSync(appAbs, worktree, 'utf8')
+  return dir
+}
+
 
 /** 把生成器连同它的输入拷进演练仓(它的 REPO_ROOT 由自身位置推导,必须整棵树)。 */
 function buildGeneratorScratch({ appCss, styleTs = '', extraDeps = true }) {
@@ -339,33 +390,49 @@ test('T9d 值漂移 ⇒ exit 1 且两侧值都印出来', () => {
   }
 })
 
-test('T9e 取不到输入 / 受管集为空 ⇒ exit 2「无法判定」,绝不记绿', () => {
-  const noCopy = buildGateFixture({
-    tokensCss: '@theme {\n  --color-primary: #fff;\n}\n',
-    appCss: null,
-  })
-  const noManaged = buildGateFixture({
-    tokensCss: '@theme {\n  --spacing-1: 4px;\n}\n',
-    appCss: ':root {\n  --spacing-1: 4px;\n}\n',
-  })
-  const stagedNoGit = buildGateFixture({
+test('T9e 取不到输入 / 受管集为空 / 两个面旗同给 ⇒ exit 2「无法判定」,绝不记绿', () => {
+  const SYNCED = {
     tokensCss: '@theme {\n  --color-primary: #fff;\n}\n',
     appCss: ':root {\n  --color-primary: #fff;\n}\n',
-  })
+  }
+  const dirs = {
+    // 副本整份不在(HEAD 里就没有这个路径)
+    noCopy: buildGateFixture({ tokensCss: SYNCED.tokensCss, appCss: null }),
+    // 受管集为空:不是"没有可判的档 ⇒ 通过",而是判据没吃到输入
+    noManaged: buildGateFixture({
+      tokensCss: '@theme {\n  --spacing-1: 4px;\n}\n',
+      appCss: ':root {\n  --spacing-1: 4px;\n}\n',
+    }),
+    // 非 git 目录 + 盘上内容**完全正确** ⇒ 默认档也不得回落磁盘冒绿(这正是收口前的行为)
+    noGit: buildGateFixture({ ...SYNCED, git: false }),
+    // 有仓无提交 ⇒ HEAD 面取不到
+    noHead: buildGateFixture({ ...SYNCED, commit: false }),
+  }
   try {
-    const a = runGateCli(noCopy)
-    assert.equal(a.code, 2, a.out)
-    assert.match(a.out, /无法判定/, a.out)
-    const b = runGateCli(noManaged)
-    assert.equal(b.code, 2, b.out)
-    assert.match(b.out, /无法判定/, b.out)
-    // --staged 在非 git 的演练仓里取不到索引 ⇒ 只能判"无法判定",不得退回磁盘冒绿
-    const c = runGateCli(stagedNoGit, ['--staged'])
-    assert.equal(c.code, 2, c.out)
+    const cases = [
+      ['副本缺失(默认档)', runGateCli(dirs.noCopy, [])],
+      ['受管集为空', runGateCli(dirs.noManaged, [])],
+      ['--staged 但无 git', runGateCli(dirs.noGit, ['--staged'])],
+      ['默认档但无 git(盘上是好的)', runGateCli(dirs.noGit, [])],
+      ['默认档但有仓无提交', runGateCli(dirs.noHead, [])],
+      ['--worktree 但盘上没副本', runGateCli(dirs.noCopy, ['--worktree'])],
+      ['两个面旗同给', runGateCli(dirs.noManaged, ['--staged', '--worktree'])],
+    ]
+    for (const [name, r] of cases) {
+      assert.equal(r.code, 2, `${name} ⇒ 期望 exit 2,实得 ${r.code}:${r.out}`)
+      assert.match(r.out, /无法判定/, `${name} 必须喊"无法判定"而不是静默绿:${r.out}`)
+    }
+    // 反向对照:同一份内容建成有提交的仓就必须 exit 0 —— 否则上面七条红是"夹具跑不通",不是判据有牙
+    const ok = buildGateFixture(SYNCED)
+    try {
+      const clean = runGateCli(ok, [])
+      assert.equal(clean.code, 0, clean.out)
+      assert.match(clean.out, /取材面:HEAD blob/, clean.out)
+    } finally {
+      rmScratch(ok)
+    }
   } finally {
-    rmScratch(noCopy)
-    rmScratch(noManaged)
-    rmScratch(stagedNoGit)
+    for (const d of Object.values(dirs)) rmScratch(d)
   }
 })
 
@@ -395,8 +462,13 @@ test('T9f --quiet 同步时不出声,不一致时仍喊', () => {
   }
 })
 
-// ─── T10 真仓 CLI 三面:磁盘 / 显式 --worktree / 索引,都不许红 ───
-test('T10 真仓 CLI:默认与 --worktree 与 --staged 三面均 exit 0', () => {
+// ─── T10 真仓 CLI 三面:默认(HEAD)/ --worktree / --staged,都不许红且各报自己的面 ───
+test('T10 真仓 CLI:默认与 --worktree 与 --staged 三面均 exit 0 且结论行明写取材面', () => {
+  const EXPECT = {
+    '': /取材面:HEAD blob/,
+    '--worktree': /取材面:工作树/,
+    '--staged': /取材面:索引 blob/,
+  }
   for (const flag of [[], ['--worktree'], ['--staged']]) {
     const r = spawnSync(
       process.execPath,
@@ -406,6 +478,132 @@ test('T10 真仓 CLI:默认与 --worktree 与 --staged 三面均 exit 0', () => 
     const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
     assert.equal(r.status, 0, `${flag.join(' ') || '(默认)'} ⇒ exit ${r.status}\n${out}`)
     assert.match(out, /个受管档逐位同值且无缺档/, out)
+    // 判的是**末行**而不是整段输出:结论行没有面,下一个人就无从知道这句话关于哪个面
+    const last = out.trim().split(/\r?\n/).pop()
+    assert.match(last, EXPECT[flag.join(' ')], `末行未明写取材面:${last}`)
+  }
+})
+
+// ─── T15 判定面收口的正向证明:索引 ≠ 磁盘时,--staged 必须读索引 ───
+// 为什么必须在临时 git 仓里造:真仓三面在稳态下同结论(副本由生成器一路同步),
+// 拿它取证等于什么都没测 —— 只有构造出"某一面单独漂了"才能区分三个面。
+test('T15 索引内容与磁盘内容不同时 ⇒ --staged 判索引(盘上随后改对不算修好)', () => {
+  // head 与 worktree 都是同步的,只有**索引**里躺着一次漂移(别人 git add 了又在工作树里改回去)
+  const dir = buildFaceFixture({
+    tokensCss: '@theme {\n  --color-primary: #fff;\n}\n',
+    appCssHead: ':root {\n  --color-primary: #fff;\n}\n',
+    appCssIndex: ':root {\n  --color-primary: #000;\n}\n',
+    appCssWorktree: ':root {\n  --color-primary: #fff;\n}\n',
+  })
+  try {
+    assert.equal(
+      readFileSync(join(dir, APP_REL), 'utf8'),
+      ':root {\n  --color-primary: #fff;\n}\n',
+      '夹具失效:工作树没回到同步态,那"读索引≠读磁盘"就没被区分开'
+    )
+    const staged = runGateCli(dir, ['--staged'])
+    assert.equal(staged.code, 1, `索引里是漂移,--staged 却判绿 ⇒ 它读的不是索引:\n${staged.out}`)
+    assert.match(staged.out, /值漂移/, staged.out)
+    assert.match(staged.out, /取材面:索引 blob/, staged.out)
+    // 同一夹具的三个面各自给出自己的结论 —— 只有一面红,才是"按面取材"而不是"按最宽的一面取材"
+    const head = runGateCli(dir, [])
+    assert.equal(head.code, 0, `HEAD 是同步的,默认档必须绿:\n${head.out}`)
+    const wt = runGateCli(dir, ['--worktree'])
+    assert.equal(wt.code, 0, `工作树是同步的,逃生舱必须绿:\n${wt.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── T16 反向对照:同一类夹具下**默认档必须读 HEAD,而不是索引** ───
+// 少了这一条,T15 只证明了"staged 面变了",没证明"默认面不是索引" —— 两半都钉住才叫换锚。
+test('T16 HEAD 里是漂移而索引/磁盘已修好 ⇒ 默认档仍判红(不得被索引或盘上的后手洗绿)', () => {
+  const dir = buildFaceFixture({
+    tokensCss: '@theme {\n  --color-primary: #fff;\n}\n',
+    appCssHead: ':root {\n  --color-primary: #000;\n}\n',
+    appCssIndex: ':root {\n  --color-primary: #fff;\n}\n',
+    appCssWorktree: ':root {\n  --color-primary: #fff;\n}\n',
+  })
+  try {
+    const head = runGateCli(dir, [])
+    assert.equal(head.code, 1, `HEAD 里就是漂移,默认档却绿 ⇒ 它读的不是 HEAD:\n${head.out}`)
+    assert.match(head.out, /值漂移/, head.out)
+    assert.match(head.out, /取材面:HEAD blob/, head.out)
+    const staged = runGateCli(dir, ['--staged'])
+    assert.equal(staged.code, 0, `索引已修好,--staged 该绿(否则提交链会拦一次已经改对的提交):\n${staged.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── T17 换锚的反向锁:磁盘读不得再回到门本体,取材必须经 face-reader ───
+// 行为由 T15/T16/T9e 证明;这一条钉的是**形状**,防的是并行会话把旧写法整文件回退回来
+// (本仓实测:判据被旧基线写回时,行为用例往往仍绿 —— 因为夹具恰好也读磁盘)。
+test('T17 门本体不得再出现磁盘取材,且必须经统一取材层选面', () => {
+  const src = readFileSync(join(SCRIPTS_DIR, 'check-miniapp-tokens-sync.mjs'), 'utf8')
+  assert.equal(/readFileSync\s*\(/.test(src), false, '门本体又出现了 readFileSync ⇒ 默认按磁盘判')
+  assert.match(src, /from '\.\/lib\/face-reader\.mjs'/, '选面与取材必须走 scripts/lib/face-reader.mjs')
+  assert.match(src, /def:\s*'head'/, "默认面必须显式写 'head'(旧值是磁盘,漏写就是回到旧口径)")
+  assert.match(src, /--worktree/, '逃生舱档必须在(它同时是 T9e/T15 的取证入口)')
+  // 出口必须真的在(镜像测试 import 它们;悄悄删掉会让上面所有断言变成空调用)
+  assert.equal(typeof gate.compare, 'function')
+  assert.equal(typeof gate.faceFromArgv, 'function')
+  assert.equal(typeof gate.readFaceInputs, 'function')
+  // 纯函数四态:构造面即可证明,不派生 git、不碰真仓
+  assert.equal(gate.faceFromArgv([]).face, 'head')
+  assert.equal(gate.faceFromArgv(['--staged']).face, 'staged')
+  assert.equal(gate.faceFromArgv(['--worktree']).face, 'worktree')
+  assert.ok(gate.faceFromArgv(['--staged', '--worktree']).error, '两个面旗同给必须返回 error')
+})
+
+// ─── T18 取材出口本身有牙:readFaceInputs 按 face 取,取不到抛错而不是返回 null ───
+// 为什么单独一条:T15/T16 走 CLI,红了看不出是判据还是取材;这一条直接喂纯出口,三面各给各的值。
+test('T18 readFaceInputs:三面各取各自内容;取不到 ⇒ 抛错而不是返回 null', () => {
+  const dir = buildFaceFixture({
+    tokensCss: '@theme {\n  --color-primary: #fff;\n}\n',
+    appCssHead: ':root {\n  --color-primary: #111;\n}\n',
+    appCssIndex: ':root {\n  --color-primary: #222;\n}\n',
+    appCssWorktree: ':root {\n  --color-primary: #333;\n}\n',
+  })
+  try {
+    assert.match(gate.readFaceInputs(dir, 'head')[APP_REL], /#111/)
+    assert.match(gate.readFaceInputs(dir, 'staged')[APP_REL], /#222/)
+    assert.match(gate.readFaceInputs(dir, 'worktree')[APP_REL], /#333/)
+    // 键集合稳定:main() 按这两个常量取值,换了键就是"取不到 ⇒ exit 2"的隐形来源
+    assert.deepEqual(
+      Object.keys(gate.readFaceInputs(dir, 'head')).sort(),
+      [gen.APP_CSS_REL, gen.TOKENS_SOURCE_REL].sort()
+    )
+  } finally {
+    rmScratch(dir)
+  }
+  // 取不到必须**抛 `Undetermined`**(调用方折成 exit 2);返回 null 会被下游读成"这份输入是空的"。
+  // 断异常类型而不是文案子串:文案会改,类型是门与取材层之间唯一的契约。
+  const noGit = buildGateFixture({
+    tokensCss: '@theme {\n  --color-primary: #fff;\n}\n',
+    appCss: ':root {\n  --color-primary: #fff;\n}\n',
+    git: false,
+  })
+  try {
+    assert.throws(() => gate.readFaceInputs(noGit, 'head'), Undetermined)
+    assert.throws(() => gate.readFaceInputs(noGit, 'staged'), Undetermined)
+    // 反向对照:同一份夹具的 worktree 面**必须能读到** —— 否则上面两条红是"夹具坏了",
+    // 而不是"git 面取不到"。逃生舱不依赖 git,这正是它作为人工排查出口的意义。
+    assert.match(gate.readFaceInputs(noGit, 'worktree')[APP_REL], /#fff/)
+  } finally {
+    rmScratch(noGit)
+  }
+  // 盘上/HEAD 里根本没有副本 ⇒ 三面一律抛(不得返回 null 让下游算成"空文件、无档可判")
+  const noCopy = buildGateFixture({
+    tokensCss: '@theme {\n  --color-primary: #fff;\n}\n',
+    appCss: null,
+  })
+  try {
+    assert.throws(() => gate.readFaceInputs(noCopy, 'head'), Undetermined)
+    assert.throws(() => gate.readFaceInputs(noCopy, 'staged'), Undetermined)
+    assert.throws(() => gate.readFaceInputs(noCopy, 'worktree'), Undetermined)
+  } finally {
+    rmScratch(noCopy)
   }
 })
 

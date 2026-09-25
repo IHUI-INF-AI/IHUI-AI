@@ -12,6 +12,7 @@ import {
   type ListRenderItem,
   type ViewStyle,
 } from 'react-native'
+import { ChevronRight } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
@@ -66,7 +67,7 @@ export function CategoryDetailScreen({
           </Text>
         ) : null}
       </View>
-      <Text style={styles.itemArrow}>{'›'}</Text>
+      <ChevronRight size={20} color={tk.text.tertiary} />
     </TouchableOpacity>
   )
 
@@ -173,7 +174,6 @@ function createStyles(tk: AppThemeTokens) {
     itemBody: { flex: 1, minWidth: 0 },
     itemName: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
     itemDesc: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
-    itemArrow: { fontSize: 20, color: tk.text.tertiary },
     centerWrap: {
       flex: 1,
       alignItems: 'center',
