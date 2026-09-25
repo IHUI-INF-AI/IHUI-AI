@@ -23417,7 +23417,6 @@
     "author": "作者"
   },
   "aigcPublish": {
-    "back": "返回",
     "title": "發布 AIGC 作品",
     "subtitle": "將你的 AI 創作分享到內容廣場",
     "labelType": "作品類型",
@@ -23922,7 +23921,6 @@
     "startChat": "開始對話"
   },
   "aiGroup": {
-    "back": "返回",
     "metaActive": "最近活躍 {time}",
     "metaMessages": "{count} 條訊息",
     "detailMembers": "{count} 位成員",
@@ -24344,7 +24342,6 @@
   },
   "aigcCover": {
     "loading": "載入中…",
-    "back": "返回",
     "title": "封面設定",
     "subtitle": "為「{title}」生成封面",
     "empty": "暫無封面,請先生成",
