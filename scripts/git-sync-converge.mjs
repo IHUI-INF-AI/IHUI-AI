@@ -41,6 +41,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { resolveRemoteHead } from './lib/face-reader.mjs'
 
 const C = {
   green: '\x1b[32m',
@@ -87,61 +88,6 @@ function git(args, { allowFail = false, timeout = 60_000, maxBuffer = 64 << 20 }
   } catch (e) {
     if (allowFail) return null
     throw e
-  }
-}
-
-/**
- * 「远端在哪」的唯一取法 —— 本收敛器的每一个决策(已收敛 / 已被包含 / 分叉 / 输入新鲜度)
- * 都建立在这一个值上,所以它**不能**来自一个会被清掉的本地指针。
- *
- * 为什么不用 `rev-parse origin/<branch>`:本机宿主清理层会删掉 depth≥2 的 remote-tracking ref
- * (AGENTS §5b 实测),而 `packed-refs` 里的旧值照样会被 `rev-parse` 读回来 —— 那一刻"远端在哪"
- * 是**上一次同步时**的答案。拿它判断有两种错向,且都不报错:残值恰好等于本地 ⇒ 报"已收敛"而根本不推
- * (提交从此堆在本地);残值落后 ⇒ 报"分叉"并去合一个早已不存在的分叉。
- * 另外这里曾出现过第三种现场:`fetch` 抛异常而 `git()` 不吞 ⇒ **整轮崩溃只剩一个 node 栈**,
- * 收敛器一停摆,各会话就在 main 上越堆越深 —— 所以取不到值必须是**分类过的"无法判定"**,不是异常。
- *
- * 三档依次退让,并如实报用的是哪一档:
- *  ① `ls-remote` 直问服务器 —— 唯一"当次真值",与 §20"推没推完只认回读"用的是同一把尺子
- *  ② 本轮 fetch 成功 ⇒ `FETCH_HEAD`
- *  ③ 只剩跟踪 ref(可能是 packed-refs 残值)⇒ **不参与落槌**,只作为观察信息随"无法判定"一起报出
- *
- * `run` 可注入:自检与镜像测试要能**构造**这三态(测网络通断不叫取证,叫赌运气)。
- */
-export function resolveRemoteHead(branch, { fetchedNow = false, run = git } = {}) {
-  const SHA = /^[0-9a-f]{40,64}$/
-  const clean = (v) => String(v ?? '').trim()
-  let netReason = null
-  try {
-    const out = clean(run(['ls-remote', 'origin', `refs/heads/${branch}`]))
-    const first = out.split('\t')[0]
-    if (SHA.test(first)) return { sha: first, source: 'ls-remote(当次服务器真值)' }
-    netReason = first
-      ? `ls-remote 输出解不出 sha:${first.slice(0, 40)}`
-      : 'ls-remote 无该分支输出(远端可能没有此分支)'
-  } catch (e) {
-    netReason = `ls-remote 不可达:${String((e && e.message) || e).slice(0, 70)}`
-  }
-  if (fetchedNow) {
-    try {
-      const fh = clean(run(['rev-parse', 'FETCH_HEAD']))
-      if (SHA.test(fh)) return { sha: fh, source: 'FETCH_HEAD(本轮 fetch)' }
-    } catch {
-      /* FETCH_HEAD 不存在 ⇒ 继续降级 */
-    }
-  }
-  let stale = null
-  try {
-    const t = clean(run(['rev-parse', `refs/remotes/origin/${branch}`]))
-    if (SHA.test(t)) stale = t
-  } catch {
-    /* ref 已被清理(§5b 正常态),不是错误 */
-  }
-  return {
-    sha: null,
-    source: null,
-    stale,
-    reason: `${netReason}${stale ? `;仅有跟踪 ref 残值 ${stale.slice(0, 11)} —— 不足以判定收敛,不拿它落槌` : ';跟踪 ref 也取不到'}`,
   }
 }
 
@@ -560,7 +506,7 @@ function main() {
           .slice(0, 110)}`,
       )
     }
-    const rHead = resolveRemoteHead(branch, { fetchedNow })
+    const rHead = resolveRemoteHead(branch, { root: repoRoot, fetchedNow })
     if (!rHead.sha) {
       log(
         C.red,
@@ -608,7 +554,7 @@ function main() {
       const freshLocal = git(['rev-parse', 'HEAD'])
       // 新鲜度复核**更**要用当次服务器值:合并输入只要有一侧是残值,合出来的就是
       // "对过期输入做的正确合并" —— 它会安静地把别人刚推的东西当成不存在。
-      const freshR = resolveRemoteHead(branch, { fetchedNow: false })
+      const freshR = resolveRemoteHead(branch, { root: repoRoot, fetchedNow: false })
       if (!freshR.sha) {
         log(C.yellow, `  合并前复核远端失败(${freshR.reason.slice(0, 90)})⇒ 不合并不推送,转下一轮`)
         continue
@@ -747,7 +693,7 @@ function main() {
     }
 
     // 推完的核验只认服务器回读(§20:推没推完不认 dry-run、不认本地 ref)
-    const nowR = resolveRemoteHead(branch, { fetchedNow: false })
+    const nowR = resolveRemoteHead(branch, { root: repoRoot, fetchedNow: false })
     const nowRemote = nowR.sha
     if (!nowRemote) {
       log(C.yellow, `  推送后回读远端失败(${nowR.reason.slice(0, 90)})⇒ 转下一轮重推,不报成功`)
