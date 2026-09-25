@@ -29,7 +29,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { loadConfig } from '../config/index.js';
-import { decodeJwtClaims, resolveOutboundCredential } from '../config/credentials.js';
+import { buildApiAuthHeaders, decodeJwtClaims, resolveOutboundCredential, type ResolvedCredential } from '../config/credentials.js';
 import { registerTools, type Tool, type ToolResult } from './index.js';
 
 const MEMORY_TIMEOUT_MS = 15_000;
@@ -41,9 +41,12 @@ const MEMORY_TIMEOUT_MS = 15_000;
 const HOST_SESSION_ID = randomUUID();
 
 /** 记忆属主:只能从本地登录凭据派生。null = 未登录或凭据不含用户主体。 */
+function memoryCredential(): ResolvedCredential | null {
+  return resolveOutboundCredential({ settings: loadConfig() });
+}
+
 function resolveMemoryOwner(): string | null {
-  const settings = loadConfig();
-  const cred = resolveOutboundCredential({ settings });
+  const cred = memoryCredential();
   if (!cred) return null;
   // 机器凭据(ihui_ 前缀)没有"人"的主体;拿它的 token 当 sub 会造出一个假属主,
   // 表现是"记忆写进一个谁都不认识的 UUID"并且静默成功。
@@ -74,6 +77,14 @@ function getBaseUrl(): string {
   return config.apiUrl || 'http://localhost:8803';
 }
 
+/** 出站到 ai-service 的鉴权头(复用 `buildApiAuthHeaders`,不得另拼一份 Authorization) */
+function memoryHeaders(): Record<string, string> {
+  return {
+    Accept: 'application/json',
+    ...buildApiAuthHeaders(resolveOutboundCredential({ settings: loadConfig() })),
+  };
+}
+
 /** 调用 ai-service /api/memory/* 端点(GET) */
 async function memoryGet<T>(
   path: string,
@@ -89,7 +100,7 @@ async function memoryGet<T>(
   try {
     const res = await fetch(url.toString(), {
       signal: controller.signal,
-      headers: { Accept: 'application/json' },
+      headers: memoryHeaders(),
     });
     if (!res.ok) {
       throw new Error(`HTTP ${res.status} ${res.statusText}`);
@@ -123,7 +134,7 @@ async function memorySend<T>(
       method,
       signal: controller.signal,
       headers: {
-        Accept: 'application/json',
+        ...memoryHeaders(),
         ...(body ? { 'Content-Type': 'application/json' } : {}),
       },
     };
