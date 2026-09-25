@@ -8898,15 +8898,15 @@
     "toggleWorkPanel": "작업 패널 전환",
     "user": "사용자",
     "org": {
-      "title": "会話を整理",
-      "folderLabel": "フォルダ",
-      "folderPlaceholder": "フォルダを入力または選択",
-      "tagsLabel": "タグ",
-      "tagPlaceholder": "タグを追加して Enter",
-      "removeTagAria": "タグ {tag} を削除",
-      "filterLabel": "フォルダで絞り込み",
-      "filterAll": "すべて",
-      "folderNone": "未分類"
+      "title": "대화 정리",
+      "folderLabel": "폴더",
+      "folderPlaceholder": "폴더를 입력하거나 선택",
+      "tagsLabel": "태그",
+      "tagPlaceholder": "태그를 추가하고 Enter 누르기",
+      "removeTagAria": "태그 {tag} 제거",
+      "filterLabel": "폴더로 필터링",
+      "filterAll": "전체",
+      "folderNone": "미분류"
     }
   },
   "aiCost": {
