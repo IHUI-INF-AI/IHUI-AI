@@ -89,7 +89,12 @@ export function gitRaw(args, root, opts = {}) {
       },
     )
   } catch (e) {
-    throw new Undetermined(`git ${args[0]} 失败: ${gitErrText(e)}`)
+    const err = new Undetermined(`git ${args[0]} 失败: ${gitErrText(e)}`)
+    // **退出码必须带上来**:`git grep` 无命中、`git diff --quiet` 无差异这类是 git 的正常非零结论,
+    // 调用方要能区分"git 说没有"与"git 没跑成"。只给一句错误文本会逼调用方去 parse 自己的异常消息
+    // (把结论建立在字符串上),而 e.status 是 Node 直接给的机器事实。
+    if (typeof e?.status === 'number') err.status = e.status
+    throw err
   }
 }
 
