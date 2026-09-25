@@ -70,8 +70,9 @@ page {
    起效的是下面那行 @source:它把端内源码显式喂给生成器,命名档才进候选集。
    (上面的 @tailwind utilities 换成 @import 'tailwindcss/utilities.css' 是**空转**——该文件内容
     逐字就是 `@tailwind utilities;`,21 字节;保留只为与 v4 的入口写法对齐。)
-   ⚠️ 仍未解决:项目色档(bg-∕text-∕border-∕ 三族)整族还是 0 落地,因为 v4 只把 @theme 里的
-    --color-* 认作主题档,而本文件把色值落在普通 :root/.dark 上。见 PROJECT_PLAN O62附⑧补。 */
+   项目色档(bg-/text-/border- 三族)此前同样整族 0 落地,根因是 v4 只把 @theme 里的 --color-*
+   认作主题档,而色值原本只落在普通 :root/.dark 上;现由下面那个 @theme 注册区补上(派生态,
+   改档请改 tokens.css 后跑 sync,不得手写)。见 PROJECT_PLAN O62 附⑧补/附⑨。 */
 @import 'tailwindcss/utilities.css';
 @source "./**/*.{ts,tsx}";
 /* ===== v4 色档注册(自动同步自 tokens.css,勿手动编辑;变更后运行 sync-design-tokens.mjs)===== */

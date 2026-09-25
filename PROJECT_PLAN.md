@@ -10068,3 +10068,48 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
     `community/index.css` 的改动不是我做的(删的是 `.community-s-t-b .w-full.rounded-b-\\[30rpx\\]` 一条),
     且全部受管样式文件括号逐文件平衡 ⇒ 判为并发会话**边写边被读**的瞬时态,复跑构建中,不当成结论。
   ② `SettingsScreen.tsx:99` 有 1 处 GA4 文字返回键(工作树面,该文件属并发会话),棘轮未越线,归其 owner。
+
+### O62 附⑨:色档 @theme 已真落地(产物级),并把守门 C1 的 34.5% 量成 96.0% —— 那 505 条缺项里 474 条是比对噪声(2026-09-25 深夜)
+
+- [x] ✅(2026-09-25)`e702dc941d` **前置改名清零(32 文件,零视觉变更)**:端内手写的 `.vip-page .bg-card/.text-foreground/
+  .text-muted-foreground/.border-border` 与 `.text-ellipsis` 一律改成 `vip-surface / vip-text / vip-text-muted / vip-border /
+  ihui-ellipsis`,把 Tailwind 档名让回 utility 自己;另删 `community/index.css` 一条死规则。
+  自验:新档各恰好 1 处定义且 ≥2 处使用、手写 Tailwind 同名规则残留 0、`vip-page` 作用域内旧档名 0,
+  门 36/93/102/style-parity/design-tokens/105 六道 exit 0。
+- [x] ✅(2026-09-25)`f17b5fbdda` **`@theme` 作为派生态入库**:生成器新增第 6 个受管区(档位 = `deriveMiniappManaged(light)`
+  剔 `-rgb`,168 档),守门 36 扩成 `:root`/`.dark`/`@theme` 三面对账(无缺档 + 逐位同值 + 反向拦 `-rgb` 脏档),
+  `app.css` 首次整块插入。落地前后各实测一次:HEAD 面由 `168 处缺档` 红转 `436/436` 绿。
+  **为什么用普通 `@theme` 而不是 `@theme inline` / `reference`**:2×3 隔离实验(`.ihui-agent/tmp/tw-landing/theme-isolate.mjs`,
+  真 tailwindcss@4.3.3 引擎)实测 `inline` 把亮档值**烘进每条 utility**(`background-color:hsl(0 0% 92%)`)⇒ 深色档整族失效,
+  `reference` 给每条规则加一份亮档 fallback(更贵);只有普通形态产出 `background-color:var(--color-muted)` 这种**留活口**的形态。
+  同一实验的另一半结论:`config=off / theme=off` 那一格精确复现了真产物症状(flex 产、色档整族不产)
+  ⇒ **端内 `tailwind.config.ts` 与 design-tokens preset 从未进过 weapp 那条链**,`@theme` 是当下唯一的杠杆。
+- [x] ✅(2026-09-25)**产物级验证(真 `taro build --type weapp`,exit 0,154 个 wxss)**:`.bg-muted` `.bg-card` `.bg-cta`
+  `.bg-primary` `.text-foreground` `.text-cta-foreground` `.border-border` 全部以 **Tailwind 声明体**形态产出
+  (`background-color:var(--color-muted)`)。⚠️ 判"落地"必须看声明体形态而不是类名在不在:同一份 dist 里
+  `.bg-card{background:var(--color-card)}`、`.text-foreground{color:var(--vip-text)}` 是**端内手写**规则,
+  第一版我就是靠"名字查到就算"把它误记成已落地。主包 1,983,648 B / 上限 2,097,152 B ⇒ **余量 113,504 B**(没有变差)。
+- [x] ✅(2026-09-25)`161e41dc19` **修守门 C1 自己的判据缺陷**:weapp-tailwindcss 会把类名里的标点按固定表转写
+  (`[→_b ]→_B /→_f :→_c (→_p )→_P ,→_m .→_d +→_u`,9 条全部在这一次真产物里逐字取过证),
+  而 C1 拿**源名**直比**产物名** ⇒ 所有含标点档一律误判缺。改判据为正向转写后再比、
+  且**两态分开计数**(原名直中 / 转写后中,合计会把"表漏一条"藏起来)。
+  同一份 dist 改前改后:`demanded 771 / hit 266 / miss 505 / 34.5%` → `hit 740(266+474)/ miss 31 / 96.0%`
+  ⇒ **505 条缺项里 474 条是我的比对噪声**。剩下的:9 条确定缺(`space-x-2/3`、`space-y-2`、`container`、`hover:bg-muted`
+  + 4 条 `text-[length:*rpx]`)+ 22 条含表外标点(`!` `%`)只报数不并入命中。
+  **这条教训与"只比副本已有键的门等于没有"同族**:判落地的门如果拿错形态去比,症状不是"差一点",
+  而是把**真信号淹在噪声里** —— 上一轮正是靠"缺项恰好成族"才定位到色档缺陷,噪声 94% 时这个信号就看不见了。
+- **深色档回盖风险:静态判死,渲染级未取证(两件事分开写)**。产物里 `--color-muted` 出现 3 次:
+  `:host,page,.tw-root,wx-root-portal-content`(2371,亮)/ `.dark`(56818,暗)/ 同一串重写选择器(63548,亮,来自 `@theme`)
+  ⇒ 有一条亮的排在 `.dark` **之后**,特异度又同为 0,1,0,**危害成立的条件是"某元素同时匹配两侧"**。
+  实测该条件在本端不可达:① `apps/miniapp-taro/src` 全量 grep(排除 .css)对 `tw-root|wx-root-portal-content`
+  **命中 0 个文件** —— 这两个名字只活在 wxss 选择器里,从不被挂到元素上;② `.dark` 只由 `ThemeRoot` 挂在
+  `<View class="theme-root dark …">`,是 `page` 的后代,与 `:host`/`page` 不是同一元素 ⇒ 取值走**继承**而非源序。
+  ⚠️ **但我没有拿到渲染级确认**:`callWxMethod('setStorageSync','theme','dark')` 回读确实是 `'dark'`,冷启动重开
+  IDE 后 `.theme-root` 的 class 里仍无 `dark`、computed color 仍 `rgb(10,10,10)` ⇒ 是**偏好没被端读到**、
+  探针失效,既不得据此说"深色坏了",也不得把"没抛错"当成"已验"。
+  同批另记一条工具面事实:automator 的 `page` 对象**没有 `evaluate`**(只有 `mp.evaluate`),
+  且 `element.style('backgroundColor')` 在这份产物上返回 `null` 而 `.style('color')` 有值 ⇒ 读不到不等于没生效。
+- **仍未闭环(如实登记)**:① 9 条确定缺项未逐条定性,其中 `space-x-*` 整族更像 v4 的 `:where()` 复合选择器
+  不落成裸类(新可见信号,本票只报数不裁);② `!` 与 `%` 的真实转写形态零证据,22 条缺项此刻判不出
+  "真没落地 vs 表还缺一条";③ 深色档只有静态判据;④ `check-architecture-policy` 头注里
+  `guardian-runner.mjs` id 36 那句"Taro 4 + Tailwind v3 不兼容 v4 @theme 语法"已被本票推翻,归 runner 属主。
