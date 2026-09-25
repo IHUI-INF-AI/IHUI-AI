@@ -15,14 +15,19 @@ import type { AgentToolCall, AgentChange, TerminalTask, PlanStep } from '@/hooks
 import { AgentInputArea } from './AgentInputArea'
 import { AgentProgressArea } from './AgentProgressArea'
 import { AgentResultFooter } from './AgentResultFooter'
+import { AgentVerificationSection } from './AgentVerificationSection'
+import type { GoalVerificationView } from './model'
 import {
   CHANGE_TOOL_NAMES,
+  buildHardCriteria,
   deriveDiffInfoFromArgs,
   isPlanStepStatus,
   isTerminalStatus,
   parsePlanData,
   parseTerminalData,
   parseToolData,
+  resolveGoalVerificationView,
+  resultToneFromGoalKind,
 } from './model'
 
 /**
