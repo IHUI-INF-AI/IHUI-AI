@@ -58,12 +58,18 @@ function writeMessages(root, target, lang, obj) {
 
 function readMessages(root, target, lang) {
   return JSON.parse(
-    fs.readFileSync(path.join(root, 'packages', 'i18n', 'messages', target, `${lang}.json`), 'utf8'),
+    fs.readFileSync(
+      path.join(root, 'packages', 'i18n', 'messages', target, `${lang}.json`),
+      'utf8',
+    ),
   )
 }
 
 function readMessagesRaw(root, target, lang) {
-  return fs.readFileSync(path.join(root, 'packages', 'i18n', 'messages', target, `${lang}.json`), 'utf8')
+  return fs.readFileSync(
+    path.join(root, 'packages', 'i18n', 'messages', target, `${lang}.json`),
+    'utf8',
+  )
 }
 
 function writeTranslations(root, obj) {
@@ -185,7 +191,11 @@ describe('核心应用规则 — 翻译值写入 + 计数 + 写回格式', () =>
         },
       })
       const r = runScript([], { cwd: root })
-      assert.equal(r.status, 0, `基础应用应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
+      assert.equal(
+        r.status,
+        0,
+        `基础应用应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+      )
       assert.match(stripAnsi(r.stdout), /应用: 4 处/)
       assert.equal(readMessages(root, 'web', 'en').save, 'Save')
       assert.equal(readMessages(root, 'web', 'ja').save, '保存')
@@ -244,7 +254,11 @@ describe('核心应用规则 — 翻译值写入 + 计数 + 写回格式', () =>
       const r = runScript([], { cwd: root })
       assert.equal(r.status, 0)
       const out = stripAnsi(r.stdout)
-      assert.match(out, /应用: 3 处,跳过: 3 语言,错误: 0/, `新契约: 非字符串值计入 applied\nstdout: ${out}`)
+      assert.match(
+        out,
+        /应用: 3 处,跳过: 3 语言,错误: 0/,
+        `新契约: 非字符串值计入 applied\nstdout: ${out}`,
+      )
       // number 与 array 均落到文件里(不是"跳过")
       const en = readMessages(root, 'web', 'en')
       assert.equal(en.count, 42, 'number 值应被应用')
@@ -276,7 +290,11 @@ describe('核心应用规则 — 翻译值写入 + 计数 + 写回格式', () =>
       const r = runScript([], { cwd: root })
       // 现契约:errors 计数并打印告警,但退出码仍由 parity 决定(此处 parity 无缺键 → exit 0)
       assert.equal(r.status, 0, `错误不阻断退出码(仅 parity 阻断)\nstdout: ${r.stdout}`)
-      assert.match(stripAnsi(r.stdout), /应用: 0 处,跳过: 2 语言,错误: 2/, `stdout:\n${stripAnsi(r.stdout)}`)
+      assert.match(
+        stripAnsi(r.stdout),
+        /应用: 0 处,跳过: 2 语言,错误: 2/,
+        `stdout:\n${stripAnsi(r.stdout)}`,
+      )
       const err = stripAnsi(r.stderr)
       assert.match(err, /\[en\] save: 翻译值为/, `null 值应点名\nstderr: ${err}`)
       assert.match(err, /ja\.json 不存在/, `缺语言文件应点名\nstderr: ${err}`)
@@ -424,11 +442,15 @@ describe('--input 自定义路径 + --target 切换目录', () => {
       const customPath = path.join(root, 'custom-translations.json')
       fs.writeFileSync(
         customPath,
-        JSON.stringify({
-          translatedAt: '2026-07-24T00:00:00Z',
-          translatedBy: 'correct',
-          translations: { en: { save: 'Save' } },
-        }, null, 2),
+        JSON.stringify(
+          {
+            translatedAt: '2026-07-24T00:00:00Z',
+            translatedBy: 'correct',
+            translations: { en: { save: 'Save' } },
+          },
+          null,
+          2,
+        ),
         'utf8',
       )
       const r = runScript(['--input', customPath], { cwd: root })
@@ -454,7 +476,11 @@ describe('--input 自定义路径 + --target 切换目录', () => {
         translations: { en: { save: 'Save' } },
       })
       const r = runScript(['--target=extension'], { cwd: root })
-      assert.equal(r.status, 0, `--target=extension 应 exit 0,实际 ${r.status}\nstderr: ${r.stderr}`)
+      assert.equal(
+        r.status,
+        0,
+        `--target=extension 应 exit 0,实际 ${r.status}\nstderr: ${r.stderr}`,
+      )
       assert.equal(readMessages(root, 'extension', 'en').save, 'Save')
     } finally {
       fs.rmSync(root, { recursive: true, force: true })
@@ -577,8 +603,20 @@ describe('未知 / 拼错的 --target 一律判死(旧行为:静默按 web 处�
         assert.equal(r.status, 2, `应 exit 2(用法错误),实际 ${r.status}\n${out}`)
         assert.match(out, /不是受支持的端/)
         assert.ok(out.includes(JSON.stringify(bad)), `须原样点名 "${bad}":\n${out}`)
-        for (const end of ['web', 'extension', 'miniapp-taro', 'shared', 'mobile-rn', 'cli', 'api']) {
-          assert.match(out, new RegExp(`\\b${end.replace(/-/g, '\\-')}\\b`), `可用端清单应含 ${end}`)
+        for (const end of [
+          'web',
+          'extension',
+          'miniapp-taro',
+          'shared',
+          'mobile-rn',
+          'cli',
+          'api',
+        ]) {
+          assert.match(
+            out,
+            new RegExp(`\\b${end.replace(/-/g, '\\-')}\\b`),
+            `可用端清单应含 ${end}`,
+          )
         }
         // 关键反证:旧实现在这里会把 "Hijacked" 写进 web
         assert.equal(dirFingerprint(root, 'web'), webBefore, '判死前不得发生任何写入')
@@ -701,3 +739,129 @@ describe('写前对账:输入声明的端必须与 --target 一致(防"拿错文
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+describe('参数守卫 — `--help` 与未识别参数一律不得降级成"无参=写盘"', () => {
+  // 四语齐备的载荷:让夹具在正常路径下能通过"应用后自动 parity 校验";
+  // 否则退出码不是 0,"盘上零变化"的断言会因为别的原因成立 —— 那是假通过。
+  const FULL = {
+    en: { greet: 'Hello' },
+    ja: { greet: 'こんにちは' },
+    ko: { greet: '안녕' },
+    'zh-TW': { greet: '你好' },
+  }
+  // 事故本体(2026-09-25):`node scripts/i18n-apply.mjs --help` 被当无参直接进写盘模式,
+  // 拿一份盘上遗留的旧批次重排改写了 web 四份语言包(各 176-214 行新增 / 35-39 删除)。
+  // 下面这组用例的每一条都同时断言"退出码"与"目录指纹不变"——只看退出码会放过
+  // "打印了用法但顺手写了盘"这种最坏的形态。
+  const CASES = [
+    { name: '--help', args: ['--help'], want: 0 },
+    { name: '-h', args: ['-h'], want: 0 },
+    { name: '未知参数 --frobnicate', args: ['--frobnicate'], want: 2 },
+    { name: '拼错的 --targett=web', args: ['--targett=web'], want: 2 },
+    { name: '裸位置参数(被无声忽略过)', args: ['i18n-translations.json'], want: 2 },
+    { name: '把 --input 的值丢了也不许当默认路径写', args: ['--target=web', '--input'], want: 2 },
+  ]
+
+  for (const c of CASES) {
+    test(`${c.name} → exit ${c.want} 且盘上零变化`, () => {
+      const root = createTempProject('web')
+      try {
+        writeFullFixture(root, {
+          base: { greet: '你好' },
+          langs: { en: {}, ja: {}, ko: {}, 'zh-TW': {} },
+          translations: FULL,
+        })
+        const before = dirFingerprint(root, 'web')
+        const r = runScript(c.args, { cwd: root })
+        assert.equal(r.status, c.want, `stdout: ${r.stdout}\nstderr: ${r.stderr}`)
+        if (c.want === 0) assert.match(stripAnsi(r.stdout), /用法/)
+        else assert.match(stripAnsi(r.stderr), /未识别的参数/)
+        assert.equal(dirFingerprint(root, 'web'), before, '守卫失效:语言包被动过')
+      } finally {
+        fs.rmSync(root, { recursive: true, force: true })
+      }
+    })
+  }
+
+  // 变异自证:同一份夹具**不带任何参数**必须真的写盘。
+  // 缺了这条,上面的"零变化"断言可能只是因为夹具本身跑不起来而恒真。
+  test('变异对照:同夹具下无参调用确实会写盘(证明守卫挡掉的是真实破坏面)', () => {
+    const root = createTempProject('web')
+    try {
+      writeFullFixture(root, {
+        base: { greet: '你好' },
+        langs: { en: {}, ja: {}, ko: {}, 'zh-TW': {} },
+        translations: FULL,
+      })
+      const before = dirFingerprint(root, 'web')
+      const r = runScript([], { cwd: root })
+      assert.equal(r.status, 0, `stdout: ${r.stdout}\nstderr: ${r.stderr}`)
+      assert.notEqual(
+        dirFingerprint(root, 'web'),
+        before,
+        '无参调用没写盘 → 上面的零变化断言是空的',
+      )
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  test('--deny-overwrite:会改写已翻译键时拒写且零变化;默认模式只点名不拦', () => {
+    const mk = () => {
+      const root = createTempProject('web')
+      // en 里 greet 已是人译的 'Hello'(≠ 源值 '你好'),载荷要把它改成 'Hi'
+      writeMessages(root, 'web', BASE_LANG, { greet: '你好' })
+      for (const lang of TARGET_LANGS) writeMessages(root, 'web', lang, { greet: 'Hello' })
+      writeTranslations(root, { translations: { en: { greet: 'Hi' } } })
+      return root
+    }
+    const def = mk()
+    try {
+      const r = runScript([], { cwd: def })
+      assert.equal(r.status, 0, `默认应放行: ${r.stderr}`)
+      assert.match(stripAnsi(r.stderr), /已翻译.*键|会改写/)
+      assert.match(
+        fs.readFileSync(path.join(def, 'packages/i18n/messages/web/en.json'), 'utf8'),
+        /Hi/,
+      )
+    } finally {
+      fs.rmSync(def, { recursive: true, force: true })
+    }
+    const strict = mk()
+    try {
+      const before = dirFingerprint(strict, 'web')
+      const r = runScript(['--deny-overwrite'], { cwd: strict })
+      assert.equal(r.status, 2, `stdout: ${r.stdout}\nstderr: ${r.stderr}`)
+      assert.match(stripAnsi(r.stderr), /--deny-overwrite 生效/)
+      assert.equal(dirFingerprint(strict, 'web'), before, '拒写路径下盘必须零变化')
+    } finally {
+      fs.rmSync(strict, { recursive: true, force: true })
+    }
+  })
+
+  test('纯新增(流水线正常动作)不得被回退判据误报', () => {
+    const root = createTempProject('web')
+    try {
+      writeFullFixture(root, {
+        base: { greet: '你好', farewell: '再见' },
+        langs: {
+          en: { greet: '你好' },
+          ja: { greet: '你好' },
+          ko: { greet: '你好' },
+          'zh-TW': { greet: '你好' },
+        },
+        // greet 现值 == 源值 ⇒ 未翻译占位;farewell 是新键。两者都属正常批次。
+        translations: {
+          en: { greet: 'Hello', farewell: 'Goodbye' },
+          ja: { greet: 'こんにちは', farewell: 'さようなら' },
+          ko: { greet: '안녕', farewell: '잘가' },
+          'zh-TW': { greet: '你好', farewell: '再見' },
+        },
+      })
+      const r = runScript(['--deny-overwrite'], { cwd: root })
+      assert.equal(r.status, 0, `占位重译被误拦: ${r.stderr}`)
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+})
