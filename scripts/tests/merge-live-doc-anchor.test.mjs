@@ -139,4 +139,82 @@ test('C 对照组自证:两行确实"不像",否则 A 臂测的是别的东西',
   )
   assert.ok(!NEW_LINE.includes(OLD_LINE), '夹具失效:旧行逐字存活 ⇒ A 臂走的是容器短路而非锚点')
 })
+
+/**
+ * E 表格行(2026-09-25 加):README 的守门速查表同样是「一行一件事」的登记面。
+ * 立因是我改 `| 13c |` 那一行时工具判"真丢失=1"并让我跑 `--apply` —— 照做就是把旧的
+ * 补齐空格那一行原样插回,同一编号留下两行。表格行的稳定身份是前两格(编号 + 脚本名),
+ * 锚点规则必须认它;但**整行被删**时仍要判 lost(B 臂的表格版)。
+ */
+const TBL_OLD = '| 13c | check-project-plan-archive.mjs | **已完成任务条目防误删**                    |'
+const TBL_NEW =
+  '| 13c | check-project-plan-archive.mjs | **防误删 + 归档锚点存续性 A0/A1/A2/A3,blocking,自测 17 条 + 镜像 20 例,无应急跳过通道** |'
+
+function seedTableRepo() {
+  const dir = mkScratch('merge-live-doc-tbl-')
+  const g = (...a) =>
+    execFileSync(GIT, ['-c', 'safe.directory=*', ...a], { cwd: dir, encoding: 'utf8', windowsHide: true, timeout: 120000 })
+  execFileSync(GIT, ['-c', 'safe.directory=*', 'init', '-q', '--initial-branch=main'], { cwd: dir })
+  g('config', 'user.email', 't@t')
+  g('config', 'user.name', 't')
+  mkdirSync(join(dir, 'scripts', 'lib'), { recursive: true })
+  copyFileSync(join(REPO, 'scripts/merge-live-doc.mjs'), join(dir, 'scripts/merge-live-doc.mjs'))
+  copyFileSync(
+    join(REPO, 'scripts/lib/live-doc-similarity.mjs'),
+    join(dir, 'scripts/lib/live-doc-similarity.mjs'),
+  )
+  const readme = (body) => writeFileSync(join(dir, 'README.md'), body, 'utf8')
+  readme(`| 编号 | 脚本 | 说明 |\n| --- | --- | --- |\n${TBL_OLD}\n`)
+  g('add', '-A')
+  g('commit', '-qm', 'seed table')
+  const run = () => {
+    try {
+      return execFileSync(
+        process.execPath,
+        [join(dir, 'scripts/merge-live-doc.mjs'), '--file', 'README.md'],
+        { cwd: dir, encoding: 'utf8', windowsHide: true, timeout: 120000 },
+      )
+    } catch (e) {
+      return String(e.stdout || '')
+    }
+  }
+  const counts = (out) => ({
+    lost: Number(/真丢失\(需插回\)= (\d+)/.exec(out)?.[1] ?? -1),
+    superseded: Number(/被就地改写取代\(不插回\)= (\d+)/.exec(out)?.[1] ?? -1),
+  })
+  return { dir, readme, run, counts }
+}
+
+test('E 表格行就地改写 ⇒ 真丢失=0(不认表格锚点就会逼人 --apply 造出同号两行)', () => {
+  const { dir, readme, run, counts } = seedTableRepo()
+  try {
+    readme(`| 编号 | 脚本 | 说明 |\n| --- | --- | --- |\n${TBL_NEW}\n`)
+    const out = run()
+    const c = counts(out)
+    assert.equal(c.lost, 0, `表格行改写被误判成丢失 ⇒ 报告:\n${out}`)
+    assert.equal(c.superseded, 1, '应恰有一行判成"被就地改写取代"')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('E-b 反向对照:表格整行被删 ⇒ 真丢失仍=1(锚点不得替删行洗地)', () => {
+  const { dir, readme, run, counts } = seedTableRepo()
+  try {
+    readme('| 编号 | 脚本 | 说明 |\n| --- | --- | --- |\n')
+    const c = counts(run())
+    assert.equal(c.lost, 1, `删行必须报丢失,实得 lost=${c.lost}`)
+    assert.equal(c.superseded, 0, '无同键新行时不该判成改写')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('E-c 夹具自证:两条表行确实"不像"且表头/分隔行不冒充数据行', () => {
+  assert.ok(
+    jaccard(tokenize(TBL_OLD), tokenize(TBL_NEW)) < SIM_THRESHOLD,
+    '夹具失效:两行已足够相似,E 臂不再证明表格锚点在起作用',
+  )
+  assert.ok(!TBL_NEW.includes(TBL_OLD), '夹具失效:旧行逐字存活 ⇒ 走的是容器短路')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

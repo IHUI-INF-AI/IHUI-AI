@@ -79,6 +79,12 @@ export function anchorKey(line) {
   if (m) return `B#${m[1].trim()}`
   m = /^#{2,4}\s+(.{2,140}?)(?=[(（:：—-]|$)/.exec(s)
   if (m) return `H#${m[1].trim()}`
+  // 表格行:守门速查表就是「一行一件事」,行身份 = 前两格(编号 + 脚本文件名)。
+  // 没有这一条,改写 README 里某道门的描述会被判成"真丢失"⇒ --apply 把旧的补齐空格那一行
+  // 原样插回 ⇒ 同一个编号留下两行(本节上面那段讲的正是这个形态)。
+  // 只认「第二格是个 ASCII 标识符形状」的行 ⇒ 分隔行 `| --- |` 与中文表头天然不匹配。
+  m = /^\|\s*([^|]{1,40}?)\s*\|\s*([^|]{1,60}?)\s*\|/.exec(s)
+  if (m && /^[\w.@\-]{2,60}$/.test(m[2].trim()) && /\w/.test(m[2].trim())) return `T#${m[1].trim()}|${m[2].trim()}`
   return null
 }
 
@@ -379,6 +385,28 @@ function selfTest() {
     const wt = '- [ ] 一条仍在推进的登记行,工作树里它只少了末尾一小段注记'
     const v = classifyMissing(['anchor', head, 'tail'], ['anchor', wt, 'tail'])
     assert(v.get(trim(head)) !== 'stale', `HEAD 侧未翻勾时不得判 stale,实判 ${v.get(trim(head))}`)
+    return true
+  })
+  ck('⑱ README 守门表行被就地改写 ⇒ 判 superseded(没有表格锚点时它会伪装成"真丢失")', () => {
+    const oldRow = '| 13c | check-project-plan-archive.mjs | **旧的一句话描述**                    |'
+    const newRow =
+      '| 13c | check-project-plan-archive.mjs | **新描述:防误删 + 归档锚点存续性(A0/A1/A2/A3,blocking),内容长到与旧行完全不像** |'
+    const v = classifyMissing(['h', oldRow, 't'], ['h', newRow, 't'])
+    assert(v.get(trim(oldRow)) === 'superseded', `表行改写应判 superseded,实判 ${v.get(trim(oldRow))}`)
+    const merged = mergeByAnchors(['h', oldRow, 't'], ['h', newRow, 't'], v)
+    assert(merged.lines === 0, `--apply 不得把旧表行插回(那会让同一编号留下两行),实插 ${merged.lines}`)
+    return true
+  })
+  ck('⑱b 反向对照:整行表格登记被删(工作树无同键行)⇒ 仍判 lost,锚点规则不许洗绿', () => {
+    const gone = '| 77 | check-radius-single-source.mjs | **圆角单一源头,三判据 A/B/C,blocking** |'
+    const decoy = '| 78 | check-workspace-dep-links.mjs | **依赖链接五维对账,与本例无关的长行** |'
+    const v = classifyMissing(['h', gone, 't'], ['h', decoy, 't'])
+    assert(v.get(trim(gone)) === 'lost', `删行必须仍判 lost,实判 ${v.get(trim(gone))}`)
+    return true
+  })
+  ck('⑱c 分隔行与中文表头不得被当成有身份的数据行(否则整表锚点互撞)', () => {
+    assert(anchorKey('| --- | --- | --- |') === null, '分隔行不该有锚点')
+    assert(anchorKey('| 编号 | 脚本 | 说明 |') === null, '中文表头不该有锚点')
     return true
   })
   ck('⑪ 翻勾改的是行首状态前缀:剥掉状态后正文仍逐字存活 ⇒ 判 superseded 不插回', () => {
