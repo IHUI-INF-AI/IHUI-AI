@@ -39,6 +39,7 @@
     "apps/mobile-rn/src/components/DevErrorToast.tsx::radius-exempt": 1,
     "apps/mobile-rn/src/components/HandPlatePops.tsx::radius-exempt": 2,
     "apps/mobile-rn/src/components/InputArea.tsx::radius-exempt": 2,
+    "apps/mobile-rn/src/components/InputArea.tsx::r3-cta-exempt": 3,
     "apps/mobile-rn/src/components/IntroducePopup.tsx::radius-exempt": 2,
     "apps/mobile-rn/src/components/LoginPopUp.tsx::radius-exempt": 4,
     "apps/mobile-rn/src/components/ModelList.tsx::radius-exempt": 1,
@@ -100,7 +101,7 @@
     "scripts/check-brand-foreground.mjs::brand-mail-exempt": 1,
     "scripts/check-cross-end-tokens.mjs::alpha-plugin-exempt": 7,
     "scripts/check-desktop-event-wiring.mjs::rust-state-exempt": 5,
-    "scripts/check-glyph-arrow-icon.mjs::glyph-arrow-exempt": 10,
+    "scripts/check-glyph-arrow-icon.mjs::glyph-arrow-exempt": 9,
     "scripts/check-no-important.mjs::ihui-allow-important": 2,
     "scripts/check-radius-single-source.mjs::radius-exempt": 4,
     "scripts/check-statusbar-single-source.mjs::statusbar-exempt": 11,
@@ -118,7 +119,8 @@
     "scripts/tests/check-glyph-arrow-icon.test.mjs::glyph-arrow-exempt": 2,
     "scripts/tests/check-statusbar-single-source.test.mjs::statusbar-exempt": 3,
     "scripts/tests/scan-hardcoded-zh.test.mjs::radius-exempt": 1,
-    "scripts/tests/scan-hardcoded-zh.test.mjs::i18n-content-exempt-file": 1
+    "scripts/tests/scan-hardcoded-zh.test.mjs::i18n-content-exempt-file": 1,
+    "scripts/check-glyph-arrow-icon.mjs::back-label-exempt": 10
   },
   "updatedAt": "2026-09-25"
 }

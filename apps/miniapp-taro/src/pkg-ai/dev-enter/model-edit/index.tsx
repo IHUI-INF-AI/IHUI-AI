@@ -9,6 +9,7 @@ import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
+import BackChevron from '@/components/BackChevron'
 import ThemeRoot from '@/components/ThemeRoot'
 
 const CATEGORIES = [
@@ -220,10 +221,8 @@ export default function ModelEdit() {
       <View className="min-h-screen bg-background flex flex-col">
         {/* RN header:row/center/justify-between + px10/py12,无独立背景(透出 surface.bg) */}
         <View className="flex items-center justify-between px-[20rpx] py-[24rpx]">
-          {/* RN backText:16dp→32rpx、text.secondary */}
-          <Text className="text-[length:32rpx] text-muted-foreground" onClick={() => Taro.navigateBack()}>
-            {t('common.back')}
-          </Text>
+          {/* 返回键统一走 BackChevron(矢量 chevron-left + aria 名称),与 web 端顶栏同档 */}
+          <BackChevron onTap={() => Taro.navigateBack()} />
           {/* RN headerTitle:20dp→40rpx、600、text.primary */}
           <Text className="text-[length:40rpx] font-semibold text-foreground">
             {tt('devEnter.modelEdit.title', '编辑模型')}
@@ -323,7 +322,9 @@ export default function ModelEdit() {
                     {/* RN priceRow:row/center + border.border.light + r12 + px12 + surface.bg(白底浮出 muted 卡) */}
                     <View className="flex items-center border border-border rounded-xl px-[24rpx] bg-background">
                       {/* RN priceUnit:18dp→36rpx、600、brand.DEFAULT、mr8→16rpx */}
-                      <Text className="text-[length:36rpx] font-semibold text-primary mr-[16rpx]">¥</Text>
+                      <Text className="text-[length:36rpx] font-semibold text-primary mr-[16rpx]">
+                        ¥
+                      </Text>
                       {/* RN priceInput:flex1/py14/16dp;placeholder 用 text.tertiary */}
                       <Input
                         className="flex-1 h-[96rpx] text-[length:32rpx] text-foreground"
