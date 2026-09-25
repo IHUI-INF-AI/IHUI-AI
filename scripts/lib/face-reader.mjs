@@ -448,4 +448,58 @@ export function readWorktreeFile(root, rel) {
   }
   return text.includes('\u0000') ? null : text
 }
+
+/**
+ * 「远端分支现在在哪」的唯一取法 —— 凡是拿远端位置做**决策**(已收敛 / 已被包含 / 分叉 /
+ * 合并输入新鲜度 / 推送后回读)的地方都必须用它,不要再各写一份。
+ *
+ * 为什么不能 `rev-parse origin/<branch>`:AGENTS §5b 实测,本机宿主清理层会删掉 depth≥2 的
+ * remote-tracking 引用(松散文件被删后 `packed-refs` 里的**旧值**照样被读回来),那一刻它是
+ * "上一次同步时"的答案。用它落槌有两种都不报错的错向:残值==本地 ⇒ 报"已收敛"而根本不推
+ * (提交堆在本地还被当成完成);残值落后 ⇒ 去合一个早已不存在的分叉。git-push-guard 与
+ * check-push-sync 在 2026-09-12 就因这两类真实事故改成 ls-remote 优先,本出口把那一次的口径
+ * 收进来给全仓共用。
+ *
+ * 三档依次退让,并如实报用的是哪一档:
+ *  ① `ls-remote` 直问服务器(唯一当次真值)
+ *  ② 本轮 fetch 成功 ⇒ `FETCH_HEAD`
+ *  ③ 只剩跟踪 ref(可能残值)⇒ **不参与落槌**,只随"无法判定"报出供诊断
+ *
+ * @param run 可注入的 git 执行器(镜像测试要**构造**三态;测网络通断不叫取证,叫赌运气)
+ * @returns {{sha:string|null,source:string|null,stale?:string,reason?:string}}
+ */
+export function resolveRemoteHead(branch, { root, fetchedNow = false, run } = {}) {
+  const exec = run || ((args) => gitRaw(args, root, { timeout: 45_000 }))
+  const SHA = /^[0-9a-f]{40,64}$/
+  const clean = (v) => String(v ?? '').trim()
+  let netReason = null
+  try {
+    const first = clean(exec(['ls-remote', 'origin', `refs/heads/${branch}`])).split('\t')[0]
+    if (SHA.test(first)) return { sha: first, source: 'ls-remote(当次服务器真值)' }
+    netReason = first
+      ? `ls-remote 输出解不出 sha:${first.slice(0, 40)}`
+      : 'ls-remote 无该分支输出(远端可能没有此分支)'
+  } catch (e) {
+    netReason = `ls-remote 不可达:${String((e && e.message) || e).slice(0, 70)}`
+  }
+  if (fetchedNow) {
+    try {
+      const fh = clean(exec(['rev-parse', 'FETCH_HEAD']))
+      if (SHA.test(fh)) return { sha: fh, source: 'FETCH_HEAD(本轮 fetch)' }
+    } catch {
+      /* FETCH_HEAD 不存在 ⇒ 继续降级 */
+    }
+  }
+  let stale = null
+  try {
+    const t = clean(exec(['rev-parse', `refs/remotes/origin/${branch}`]))
+    if (SHA.test(t)) stale = t
+  } catch {
+    /* ref 已被清理(§5b 正常态),不是错误 */
+  }
+  const tail = stale
+    ? `;仅有跟踪 ref 残值 ${stale.slice(0, 11)} —— 不足以判定收敛,不拿它落槌`
+    : ';跟踪 ref 也取不到'
+  return { sha: null, source: null, stale, reason: `${netReason}${tail}` }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

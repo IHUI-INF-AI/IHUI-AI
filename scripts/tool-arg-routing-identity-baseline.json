@@ -1,15 +1,4 @@
 {
-  "comment": "守门 check-tool-arg-routing-identity 的基线:每文件每键计数,只减不增。键名口径 = normalizeKey(小写 + 去下划线/连字符)。清单唯一源 = packages/types/src/tool-contract.ts 的 ROUTING_IDENTITY_KEYS。",
-  "counts": {
-    "apps/cli/src/tools/debug.ts": {
-      "sessionid": 7
-    },
-    "apps/cli/src/tools/memory.ts": {
-      "userid": 4,
-      "sessionid": 1
-    },
-    "apps/cli/src/tools/terminal.ts": {
-      "sessionid": 4
-    }
-  }
+  "comment": "守门 check-tool-arg-routing-identity 的基线:每文件每键计数,只减不增。键名口径 = normalizeKey(小写 + 去下划线/连字符)。清单唯一源 = packages/types/src/tool-contract.ts 的 ROUTING_IDENTITY_KEYS。2026-09-25 清偿为空:memory.ts 的 5 处 user_id/session_id 改由宿主登录态(JWT sub)与进程内会话号绑定;debug.ts/terminal.ts 的 11 处 sessionId 经 routing-handle 三条见证(本地铸造 + 进程内登记表 + 查不到即拒绝)判为句柄,不再计违规,也不留基线额度。现须保持为空 = 零容忍。",
+  "counts": {}
 }
