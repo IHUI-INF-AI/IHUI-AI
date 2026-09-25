@@ -20,7 +20,7 @@ import { agentsMdExists, writeAgentsMd } from './template.js';
 import { cmdRead, cmdLs, cmdGrep, cmdGlob, cmdBash } from './file-ops.js';
 import { CheckpointManager } from '../checkpoints/index.js';
 import { PlanMachine } from '../plan/index.js';
-import { setupAgentTools, runToolLoop, decideCompaction, type ToolContext, type InterjectionBlock } from './agent.js';
+import { setupAgentTools, runToolLoop, decideCompaction, createTerminalDeltaSink, type ToolContext, type InterjectionBlock } from './agent.js';
 import { InterjectionBuffer } from '../interjection.js';
 import { renderSlashHelp, suggestSlashCommands, slashCompleter } from './slash-registry.js';
 // P0 CLI 友好度优化(2026-07-31):4 个新命令模块
@@ -2391,6 +2391,10 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
       // 只是让用户在终端里也知道"今天快用完了"。此前该端 0 命中 —— 换 key 退避与注入都能看见,
       // 唯独额度看不见,而 CLI 用户恰恰是最容易撞上日限额的一类。
       onBudget: (event) => state.statusLine.noteLine(budgetNoteText(event)),
+      // D19(2026-09-25 接):terminal_delta 实时输出增量 —— 后端命令执行期间逐块下发
+      // stdout/stderr,本端把**已完整成行**的输出打进 noteLine 家族同一出口(半行缓冲在
+      // sink 内部拼接,不把正文打碎);空帧丢弃。CLI 此前对该帧 0 命中 = 静默丢帧。
+      onTerminalDelta: createTerminalDeltaSink((line) => state.statusLine.noteLine(line)),
       planFirst: state.opts.planFirst,
       planApproved: state.planApproved,
       planMachine: state.planMachine,

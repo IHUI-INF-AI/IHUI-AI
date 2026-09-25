@@ -18,6 +18,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { __test__ as gate } from '../check-architecture-policy.mjs'
+import { gitRaw } from '../lib/face-reader.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
@@ -227,5 +228,159 @@ test('T10 解析器坏了必须大声失败,不得静默少读模块', () => {
   assert.throws(() => gate.parseYaml(policyText().replace('\n    roots:\n', '\n\t  roots:\n'), 'p'), /Tab|缩进/)
   assert.throws(() => gate.parseYaml(policyText().replace("      - 'packages/types'\n", "      - 'packages/types\n"), 'p'), /引号/)
   assert.throws(() => gate.loadPolicy(gate.parseYaml(policyText().replace(/^modules:$/m, 'modulesX:'), 'p')), /modules/)
+})
+
+// ── 缺陷 3(2026-09-25 补):逐块降回 managed:false 必须被机器发现 ──────────────────────
+//
+// 表头原文写的是"T11 只钉『≥1 块』不变量,所以这道回退**没有机器守卫**"。独立复核量到三种形态:
+//   · 回退 23 块中任一块 ⇒ 全链无任何测试变红(敞口是真实的,不是猜的);
+//   · 回退 `packages/i18n` ⇒ T8 会变红,但那是因为 T8 自己的构造正则从 `- id: 'packages/i18n'`
+//     起锚、非贪婪爬到**下一块**的 `managed: true`,是巧合不是守卫(换一块就看不见);
+//   · 全表清零 ⇒ T11 红(这条才是真守卫,但只覆盖"清零"一型)。
+// 下面 T13 把"逐块降回"做成判据,且刻意**不钉死某一块必须为 true**:
+// 合法回退(降回 false 的同时在 MANAGED_FALSE_LEDGER 登记理由)不红,未登记的降回一定红 ——
+// 这正是 T11 当初"不钉具体条目"想保住的东西,二者不冲突。
+
+/**
+ * 「允许处于 managed:false 的块 → 理由」显式清单(唯一一份,可读、可核、可 diff)。
+ * 理由不是装饰:登记一条豁免必须说清"为什么按住",否则清单就成了消红入口。
+ */
+const MANAGED_FALSE_LEDGER = {
+  'packages/types':
+    '带 EX-C2-1 存量债(packages/types/src/app.ts HEAD 实测 5258 行 > 契约上限 2000);表内 reason 原文:"按业务域拆成多入口前,不得把该模块翻 managed:true" ⇒ 拆完之前按住是**制度**,不是遗漏',
+}
+
+/** 表里 managed:false 的块(升序)。判据只此一份实现,不在第二个测试里重抄(§22c)。 */
+function heldBackIds(text) {
+  return [...gate.loadPolicy(gate.parseYaml(text, 'held')).modules.values()].filter((m) => !m.managed).map((m) => m.id).sort()
+}
+
+/** 把**某一个块**的 managed 翻成指定值;块内定位,禁止跨块命中(T8 那一型巧合正是跨块命中造的)。 */
+function flipManaged(text, id, to) {
+  const start = text.indexOf(`  - id: '${id}'\n`)
+  if (start < 0) throw new Error(`策略表里没有块 ${id}`)
+  const next = text.indexOf('\n  - id: ', start + 1)
+  const end = next < 0 ? text.length : next
+  const block = text.slice(start, end)
+  const re = /^ {4}managed: (?:true|false)$/m
+  if (!re.test(block)) throw new Error(`块 ${id} 内没有 managed 行 ⇒ 翻转夹具没作用到被测面`)
+  const flipped = text.slice(0, start) + block.replace(re, `    managed: ${to}`) + text.slice(end)
+  return flipped === text ? null : flipped
+}
+
+/** 判据本体:表里按住集合 vs 已登记理由清单,三类问题双向都必须是空。 */
+function ledgerProblems(held, ledger) {
+  return {
+    unregistered: held.filter((id) => !(id in ledger)),
+    stale: Object.keys(ledger).filter((id) => !held.includes(id)).sort(),
+    noReason: Object.entries(ledger)
+      .filter(([, r]) => typeof r !== 'string' || r.trim().length < 12)
+      .map(([id]) => id)
+      .sort(),
+  }
+}
+
+test('T13 逐块降回 managed:false 必须被机器发现(补表头那句"没有机器守卫")', () => {
+  const real = policyText()
+  const P = gate.loadPolicy(gate.parseYaml(real, 'real'))
+  const ids = [...P.modules.keys()]
+  const held = heldBackIds(real)
+  const managedIds = ids.filter((id) => P.modules.get(id).managed)
+
+  // A 正断言(真表):未登记的降回 / 过期登记 / 无理由登记,三类都不得存在
+  const p = ledgerProblems(held, MANAGED_FALSE_LEDGER)
+  assert.deepEqual(p.unregistered, [], `有块被降回 false 却没人登记理由:${p.unregistered.join(',')} —— 回退消红正是表头禁止的那件事`)
+  assert.deepEqual(p.stale, [], `登记清单里的块已不在按住集(清单腐烂):${p.stale.join(',')}`)
+  assert.deepEqual(p.noReason, [], `每条豁免必须带 ≥12 字的理由:${p.noReason.join(',') || '(无)'}`)
+  // B 夹具自证:清单里每个 id 必须真在表里存在(否则本条在守一个不存在之物)
+  for (const id of Object.keys(MANAGED_FALSE_LEDGER)) assert.ok(P.modules.has(id), `豁免清单指向未登记的块 ${id}`)
+  assert.ok(managedIds.length >= 1, '真表一个 managed:true 都没有 ⇒ T11 也会红,本条无从变异')
+
+  // C 变异自证(逐块):**每一块**降回 false 而不登记,都必须被同一把尺子抓住
+  const caught = []
+  for (const id of managedIds) {
+    const flipped = flipManaged(real, id, 'false')
+    assert.ok(flipped, `翻转夹具对 ${id} 没生效 ⇒ 变异根本没作用到被测面`)
+    const got = heldBackIds(flipped)
+    assert.deepEqual(got, [...held, id].sort(), `翻转 ${id} 后按住集合不是"原集合+它" ⇒ 夹具跨块命中了(T8 那一型巧合)`)
+    const probs = ledgerProblems(got, MANAGED_FALSE_LEDGER)
+    assert.deepEqual(probs.unregistered, [id], `降回 ${id} 却没登记理由,判据必须点名它,实得 ${JSON.stringify(probs.unregistered)}`)
+    caught.push(id)
+  }
+  assert.equal(caught.length, managedIds.length, '逐块变异没跑满 ⇒ 本条只测了第一块,其余块仍是敞口')
+
+  // D 反向对照:合法回退(降回 + 同时登记理由)必须**不红** —— 不得把守卫做成"钉死某一块"
+  const demo = managedIds[0]
+  const legit = flipManaged(real, demo, 'false')
+  const ledger2 = { ...MANAGED_FALSE_LEDGER, [demo]: '自检夹具:模拟"已登记理由的合法回退",理由须 ≥12 字才生效' }
+  const p2 = ledgerProblems(heldBackIds(legit), ledger2)
+  assert.deepEqual([p2.unregistered, p2.stale, p2.noReason], [[], [], []], `合法回退不该红,实得 ${JSON.stringify(p2)}`)
+
+  // E 尺子自证:翻转只动一块(证明 C 的"逐块"不是靠整表重排蒙过去的)
+  const once = heldBackIds(flipManaged(real, demo, 'false'))
+  assert.equal(once.length, held.length + 1, '按住集合只该多一块')
+  assert.equal(heldBackIds(real).length, held.length, '翻转不得改变真表读数')
+
+  // F 与 T11 的分工:T11 只覆盖"清零",本条必须比它宽 —— 清零时两条都要红
+  const zero = real.replace(/^ {4}managed: true$/gm, '    managed: false')
+  assert.equal([...gate.loadPolicy(gate.parseYaml(zero, 'zero')).modules.values()].filter((m) => m.managed).length, 0, '清零变异没生效')
+  assert.ok(ledgerProblems(heldBackIds(zero), MANAGED_FALSE_LEDGER).unregistered.length > 0, '全表清零时本条也必须抓得住')
+})
+
+test('T14 空暂存必须回退全量(缺陷 1):"扫描 0 文件却记绿"这一型不得存在', () => {
+  // 判据本体用**纯函数 + 构造面**:仓库此刻有没有人暂存源文件是瞬时状态,
+  // 拿它当前提会重演 T8 / T12 的教训(判据生命周期短于它所守的那枚提交)。
+  const srcAll = ['apps/web/src/a.ts', 'packages/shared/src/b.ts']
+  const narrow = gate.planStagedScope(srcAll, new Set(['packages/shared/src/b.ts']))
+  assert.equal(narrow.mode, 'staged')
+  assert.deepEqual(narrow.paths, ['packages/shared/src/b.ts'], '暂存面有源文件时必须只咬暂存集(窄口径不得被顺手放大)')
+  const empty = gate.planStagedScope(srcAll, new Set())
+  assert.equal(empty.mode, 'full', '暂存集为空 ⇒ 必须回退全量;判成 staged 就是"审 0 个文件却记绿"(守门 70 同型)')
+  assert.equal(empty.paths.length, 0, '回退态不得把空集当结果交出去,否则 main 照跑 analyze')
+  const onlyDocs = gate.planStagedScope(srcAll, new Set(['README.md']))
+  assert.equal(onlyDocs.mode, 'full', '暂存的全是非源文件 ⇒ 同样算空,同样回退')
+  // 变异自证:旧实现等价于"永远按暂存集收窄",同一把尺子必须量到它扫 0 个
+  const legacy = (all, staged) => all.filter((p) => staged.has(p))
+  assert.equal(legacy(srcAll, new Set()).length, 0, '夹具失效:旧形态都没产出 0 文件,上面那条断言就是恒真')
+  // CLI 面:两种档都不得出现"扫描 0 文件"
+  for (const args of [[], ['--staged']]) {
+    const r = runCLI(args)
+    assert.equal(r.code, 0, `档[${args.join(' ') || '全量'}] exit ${r.code}\n${r.out.slice(-600)}`)
+    assert.doesNotMatch(r.out, /扫描 0 文件/, `档[${args.join(' ') || '全量'}] 扫到 0 文件却打 ✅ ⇒ 依赖面(D1/D2/D3/D4/C2/C3)没审任何东西`)
+  }
+  // 若当次实测确实走了回退,口径行必须如实说明(不得静默换面)
+  const s = runCLI(['--staged'])
+  if (/暂存集为空/.test(s.out)) {
+    assert.match(s.out, /回退全量/, '回退必须写在取材口径行里,不能只换个数字')
+    assert.match(s.out, /守门 70 同型/, '回退理由必须可见,否则下一个人会以为是 bug')
+  }
+})
+
+test('T15 取材面提示语必须按 oid 实测(缺陷 2):"读了索引"不得被报成"表没入库"', () => {
+  // 纯函数面:四种形态成对
+  assert.equal(gate.policyFaceNotice('HEAD', { HEAD: 'a', 索引: 'b' }), null, '全量档取 HEAD 不该有任何提示')
+  assert.equal(gate.policyFaceNotice('索引', { HEAD: 'a', 索引: 'a' }), null, '索引==HEAD 还喊"尚未入库",就是 2026-09-25 的误报形态')
+  assert.equal(gate.policyFaceNotice('索引', { HEAD: 'a', 索引: 'b' })?.level, 'info', '真不等才提示;--staged 读索引是正常行为 ⇒ 只许 info,不得升成警告')
+  assert.equal(gate.policyFaceNotice('索引', { HEAD: null, 索引: 'b' })?.level, 'warn', '只有 HEAD 真的没有这张表才配 warn')
+  assert.equal(gate.policyFaceNotice('工作树', { HEAD: null, 索引: null })?.level, 'warn', '退到工作树必须大声说')
+  // 变异自证:旧写法"只要不是 HEAD 就喊未入库",在"索引==HEAD"这一格必然产出话
+  const legacy = (label) => (label !== 'HEAD' ? { level: 'warn', msg: `${gate.POLICY_REL} 尚未入库` } : null)
+  assert.ok(legacy('索引')?.msg.includes('尚未入库'), '夹具失效:旧写法都不产话,上面的"安静"断言就是恒真')
+  assert.ok(gate.policyFaceNotice('索引', { HEAD: 'a', 索引: 'a' }) === null && legacy('索引') !== null, '新判据必须恰好在旧写法开口的那一格保持安静')
+  // CLI 面:按当次实测 oid 分档 —— "尚未入库"只允许出现在 HEAD 真无此表时
+  const oid = (spec) => {
+    try {
+      return gitRaw(['rev-parse', '--verify', '-q', spec], REPO, { timeout: 60000 }).trim() || null
+    } catch {
+      return null
+    }
+  }
+  const head = oid(`HEAD:${gate.POLICY_REL}`)
+  const index = oid(`:${gate.POLICY_REL}`)
+  assert.ok(head || index, '夹具自证:两个面都取不到 oid ⇒ git 问法失效,下面的条件断言会恒真')
+  const out = runCLI(['--staged']).out
+  if (head && index && head === index) assert.doesNotMatch(out, /策略表取自|尚未入库/, `实测索引==HEAD(${head.slice(0, 8)})仍被提示 ⇒ 就是那条误报`)
+  else if (head) assert.doesNotMatch(out, /尚未入库/, '表已入库(HEAD 有它),不得再说"尚未入库"')
+  else assert.match(out, /尚未入库/, 'HEAD 真没有这张表时必须喊出来')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
