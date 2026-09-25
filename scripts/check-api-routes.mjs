@@ -593,34 +593,7 @@ function normalizePath(prefix, localPath) {
   return `${cleanPrefix}/${cleanLocal}`
 }
 
-/** 比对两个路径是否匹配（支持 :param 通配 + Fastify * catch-all） */
-function pathMatches(frontendPath, backendPath) {
-  // 都去掉尾部斜杠
-  const f = frontendPath.replace(/\/$/, '')
-  const b = backendPath.replace(/\/$/, '')
-  const fParts = f.split('/')
-  const bParts = b.split('/')
-  // Fastify 通配符 * 匹配 1+ 剩余段（catch-all,如 /documents/* 匹配 /documents/a/b/c）
-  const starIdx = bParts.indexOf('*')
-  if (starIdx !== -1) {
-    // * 之前的部分必须逐段匹配（:param 通配任意值）
-    if (fParts.length < starIdx + 1) return false
-    for (let i = 0; i < starIdx; i++) {
-      if (bParts[i].startsWith(':')) continue
-      if (fParts[i].startsWith(':')) continue // 前端 :param 通配
-      if (fParts[i] !== bParts[i]) return false
-    }
-    return true
-  }
-  // 标准匹配：段数一致 + :param 通配任意值
-  if (fParts.length !== bParts.length) return false
-  for (let i = 0; i < fParts.length; i++) {
-    if (bParts[i].startsWith(':')) continue // 后端 :param 匹配任意
-    if (fParts[i].startsWith(':')) continue // 前端 :param 通配
-    if (fParts[i] !== bParts[i]) return false
-  }
-  return true
-}
+// (2026-09-25 原 pathMatches 单函数已拆入比对段的 matchSegs / matchStar 两分支,判据逐行不变)
 
 // 2026-08-31 改动:staged-scope 支持。改动原因:本脚本原先全量扫描工作区 apps/web 下所有
 // 前端文件提取 API 调用点再比对后端路由,多会话并行开发时工作区充满其他会话的未完成文件,
@@ -882,6 +855,61 @@ for (const file of frontendFiles) {
 console.log(`${C.dim}[API 路由比对] 前端 API 调用: ${allCalls.length} 处${C.reset}`)
 
 // 比对
+// 2026-09-25 性能修复(判据语义零改动):原实现对每个 unique call 线性遍历整个 backendPathSet
+// (实测 753,708 条 = 5109 路由 × 160 组合前缀去重后),1,584 个 unique call ≈ 12 亿次
+// split+pathMatches,全量单跑 >200 秒不出结论(链内因 staged 范围收窄才跑得完)。
+// 现按 pathMatches 的两条分支把集合预切成三张索引,matched 结果逐条同判据:
+//   exactKeys   — 「method + 去尾斜杠后全等」精确命中(等值字符串 pathMatches 恒为真的快速通道);
+//   segBuckets  — 不含 '*' 段的条目按 段数→method 分桶(非通配分支要求段数相等);
+//   starEntries — 含 '*' 段的条目(catch-all),量小,按原通配分支逐条判。
+// ANY(动态 method)调用遍历该段数下所有 method 桶 + 全部 star 条目,与原「任意 method 匹配即算」一致。
+// 刻意复刻原 `bp.split(' ')` 解构语义:后端条目字符串若含第二个空格,path 部分同样被截断。
+const exactKeys = new Set()
+const segBuckets = new Map() // segCount -> Map(method -> parts[])
+const starEntries = [] // { method, parts }
+for (const bp of backendPathSet) {
+  const [bm, bp2] = bp.split(' ')
+  const b = bp2.replace(/\/$/, '')
+  const parts = b.split('/')
+  if (parts.indexOf('*') !== -1) {
+    starEntries.push({ method: bm, parts })
+    continue
+  }
+  exactKeys.add(`${bm} ${b}`)
+  let byMethod = segBuckets.get(parts.length)
+  if (!byMethod) {
+    byMethod = new Map()
+    segBuckets.set(parts.length, byMethod)
+  }
+  let arr = byMethod.get(bm)
+  if (!arr) {
+    arr = []
+    byMethod.set(bm, arr)
+  }
+  arr.push(parts)
+}
+/** 原 pathMatches 非通配分支逐行搬移(段数校验保留,防分桶外误用) */
+function matchSegs(fParts, bParts) {
+  if (fParts.length !== bParts.length) return false
+  for (let i = 0; i < fParts.length; i++) {
+    if (bParts[i].startsWith(':')) continue // 后端 :param 匹配任意
+    if (fParts[i].startsWith(':')) continue // 前端 :param 通配
+    if (fParts[i] !== bParts[i]) return false
+  }
+  return true
+}
+/** 原 pathMatches '*' catch-all 分支逐行搬移 */
+function matchStar(fParts, bParts) {
+  const starIdx = bParts.indexOf('*')
+  if (starIdx === -1) return false
+  if (fParts.length < starIdx + 1) return false
+  for (let i = 0; i < starIdx; i++) {
+    if (bParts[i].startsWith(':')) continue
+    if (fParts[i].startsWith(':')) continue // 前端 :param 通配
+    if (fParts[i] !== bParts[i]) return false
+  }
+  return true
+}
 const missing = []
 const seen = new Set()
 for (const call of allCalls) {
@@ -889,14 +917,36 @@ for (const call of allCalls) {
   if (seen.has(key)) continue
   seen.add(key)
   // 检查是否在后端注册
-  let found = false
-  for (const bp of backendPathSet) {
-    const [bm, bp2] = bp.split(' ')
-    // ANY = method 为动态三元等无法确定，任意 method 匹配即算注册
-    const methodOk = call.method === 'ANY' || bm === call.method
-    if (methodOk && pathMatches(call.path, bp2)) {
-      found = true
-      break
+  const f = call.path.replace(/\/$/, '')
+  const fParts = f.split('/')
+  // ANY 的 method 字面量不会进 exactKeys(后端条目 method 无 ANY),精确通道对 ANY 天然不命中
+  let found = exactKeys.has(`${call.method} ${f}`)
+  if (!found) {
+    const byMethodMap = segBuckets.get(fParts.length)
+    if (byMethodMap) {
+      const buckets =
+        call.method === 'ANY'
+          ? [...byMethodMap.values()]
+          : [byMethodMap.get(call.method)].filter(Boolean)
+      for (const arr of buckets) {
+        for (const bParts of arr) {
+          if (matchSegs(fParts, bParts)) {
+            found = true
+            break
+          }
+        }
+        if (found) break
+      }
+    }
+  }
+  if (!found) {
+    for (const e of starEntries) {
+      // ANY = method 为动态三元等无法确定，任意 method 匹配即算注册
+      const methodOk = call.method === 'ANY' || e.method === call.method
+      if (methodOk && matchStar(fParts, e.parts)) {
+        found = true
+        break
+      }
     }
   }
   if (!found) {
