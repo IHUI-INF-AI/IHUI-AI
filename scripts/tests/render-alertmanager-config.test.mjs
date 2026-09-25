@@ -100,7 +100,10 @@ test('F1b 正例①变体:global 里加回 smtp_* 段 ⇒ 同一道判据判红'
 })
 
 test('F3 正例③:route 的 webhook 不落 9096 ⇒ 判红(换端口与换 host 都要认)', () => {
-  for (const other of ['http://127.0.0.1:9999/alert', 'http://bridge.internal:9096/alert']) {
+  // 两个变体各证一边:换端口(同 host)/ 换 host(同端口)。
+  // 端口用**已注册**的 8802 而不是随手编的 9999 —— 端口注册表守门扫的是
+  // `localhost:PORT`/`127.0.0.1:PORT`,编一个未注册端口等于在测试里伪造一次宿主端口占用。
+  for (const other of ['http://127.0.0.1:8802/alert', 'http://bridge.internal:9096/alert']) {
     const bad = tmplText.replaceAll(R.BRIDGE_URL, other)
     assert.throws(() => R.assertBridgeOnlySurface(bad), new RegExp(`不指向 bridge|旁路`), `url=${other} 应判红`)
   }
