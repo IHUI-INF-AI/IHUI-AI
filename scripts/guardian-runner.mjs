@@ -3053,6 +3053,34 @@ const checks = [
     ].join('\n'),
   },
 
+  {
+    id: '116',
+    label: '🌐 出站事实对账(blocking,厂商出站必须走带回 egress 的包装出口;绕档进棘轮基线)',
+    script: 'check-egress-facts.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_EGRESS_FACTS',
+    onFailHint: [
+      '',
+      '  💡 本门钉的是 A34:一趟请求**实际**走没走代理、配置从哪来、有没有命中 NO_PROXY、',
+      '     用没用自定义 CA —— 这些必须是**响应上的返回值**,不是日志行。AGENTS §5b 连着记过',
+      '     "git 网络时通时不通 / 钩子进程不继承 shell env / 服务身份与交互账户的 safe.directory',
+      '     互不相通",每一次都靠人肉 `git config --local` 现读,因为没有一次调用把事实带回来。',
+      '     唯一包装出口:`apps/api/src/utils/proxy-dispatcher.ts` 的 `proxiedFetch`(响应上带',
+      '     不可枚举的 egress 字段,用 `readEgressFacts(res)` 取);厂商域名清单**不硬编码**,',
+      '     由 `VENDORS.baseUrl` + `DEFAULT_PROXY_DOMAINS` 两张仓库内真表推导(推导失败 ⇒ exit 2,不记绿)。',
+      '     判一条:对外发往第三方/厂商域名的请求出口未走包装 ⇒ 红;存量进 `scripts/egress-facts-baseline.json`',
+      '     每文件棘轮(只减不增)。覆盖面如实登记:`apps/api/src` + `apps/cli/src/provider`,',
+      '     `packages/api-client` 打的是自家后端**不在面内**;Python 侧(ai-service)同类出口只登记未纳面。',
+      '     未做的那半同样如实登记:**错误分流**("被策略拦" vs "网络错"两个码)本票没做 ——',
+      '     本仓 TS 侧当前没有任何出口会在传输前拒发请求,造两个码就是一台永远不响的门。',
+      '     单独复验:node scripts/check-egress-facts.mjs',
+      '     自检:node scripts/check-egress-facts.mjs --self-test(28 条,含成对正反例 + 空枚举/空表必判死)',
+      '     镜像测试:node --test scripts/tests/check-egress-facts.test.mjs(5 例,含真表真挂的装车证明)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
