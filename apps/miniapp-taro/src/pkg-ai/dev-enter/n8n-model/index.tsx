@@ -447,7 +447,7 @@ export default function N8nModel() {
                   onClick={() => onItemClick(item.id as string)}
                   hoverClass="opacity-60"
                 >
-                  <Text className="nm-list-name text-ellipsis">
+                  <Text className="nm-list-name ihui-ellipsis">
                     {(item.name as string) ||
                       (item.title as string) ||
                       t('devEnter.n8nModel.defaultName')}
