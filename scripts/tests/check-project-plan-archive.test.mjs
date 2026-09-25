@@ -5,18 +5,30 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const SCRIPT_PATH = join(__dirname, '..', 'check-project-plan-archive.mjs')
 
+/**
+ * 临时夹具落点 = `scripts/lib/scratch-dir.mjs`(§26 唯一落点),**不用 `os.tmpdir()`**
+ * —— 活进程的 TEMP 在本机可能仍钉在 C 盘,而本仓的临时夹具已经在 C 盘堆过 45 个/天。
+ *
+ * ⚠️ 取材面纪律(本文件曾整批失效的地方):门脚本自 9bd6748ba 起 **ROOT 由脚本自身位置推导**,
+ * 所以 `spawnSync(..., { cwd: 夹具 })` 不再把门指到夹具 —— 13 例里 11 例其实在**扫真仓**,
+ * 而真仓的审面(HEAD/索引)根本没有夹具那些文件 ⇒ 结论与夹具无关(守门 70 同型教训:
+ * "测试靠 cwd 定位夹具而脚本按定义忽略 cwd",14 例全绿也是假绿)。
+ * 夹具一律经 **`--root <夹具>`** 显式通道进入;`--worktree` 是这些用例的真实语义
+ * (它们构造的是"已提交基线 + 未提交工作树编辑"这一对,而缺省档判的是 HEAD^ → HEAD)。
+ */
 // 创建临时 git repo(check-project-plan-archive.mjs 调用 git show/diff,需 git 环境)
 function createTempGitRepo() {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-plan-archive-'))
+  const dir = mkScratch('ihui-plan-archive-')
   const opt = { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
   spawnSync('git', ['init', '-q'], opt)
   spawnSync('git', ['config', 'user.email', 'test@ihui.local'], opt)
@@ -33,13 +45,23 @@ function commitPlan(repoDir, content, msg = 'init plan') {
   spawnSync('git', ['commit', '-q', '-m', msg], opt)
 }
 
+// 把归档锚点文件**提交进仓库**(A2 的"点名对象必须在审面里"只认已入库的那一份)
+function commitAnchor(repoDir, name, content = '# 归档正文\n') {
+  mkdirSync(join(repoDir, '.ihui-agent', 'archive'), { recursive: true })
+  writeFileSync(join(repoDir, '.ihui-agent', 'archive', name), content)
+  const opt = { cwd: repoDir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
+  spawnSync('git', ['add', '.'], opt)
+  spawnSync('git', ['commit', '-q', '-m', `archive anchor ${name}`], opt)
+}
+
 // 修改 working tree(不 stage)
 function writeWorkingTree(repoDir, content) {
   writeFileSync(join(repoDir, 'PROJECT_PLAN.md'), content)
 }
 
 // 运行脚本并去除 ANSI 颜色码
-function runScript(cwd, args = []) {
+function runScript(cwd, extraArgs = []) {
+  const args = ['--root', cwd, '--worktree', ...extraArgs]
   const r = spawnSync('node', [SCRIPT_PATH, ...args], {
     cwd,
     encoding: 'utf8',
@@ -62,7 +84,7 @@ test('CLI: --help 不崩溃(脚本未实现 --help,按默认模式运行)', () =
     )
     assert.ok(!r.stderr.includes('Error:'), `--help 不应产生 Error`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -75,19 +97,19 @@ test('PROJECT_PLAN.md 不存在 → exit 0 + 跳过消息', () => {
     assert.equal(r.status, 0, `文件不存在应 exit 0\nstdout: ${r.out}`)
     assert.match(r.out, /跳过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
-test('PROJECT_PLAN.md 未修改(working tree == HEAD)→ exit 0 + 跳过', () => {
+test('PROJECT_PLAN.md 未修改(工作树 == HEAD)→ 无删除 ⇒ exit 0 通过', () => {
   const dir = createTempGitRepo()
   try {
     commitPlan(dir, '# plan\n\n### 任务A\n内容\n')
     const r = runScript(dir)
-    assert.equal(r.status, 0, `未修改应 exit 0\nstdout: ${r.out}`)
-    assert.match(r.out, /未修改|跳过/)
+    assert.equal(r.status, 0, `未修改应 exit 0\nstdout: ${r.out}\nstderr: ${r.err}`)
+    assert.match(r.out, /归档守门通过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -103,7 +125,7 @@ test('无已完成任务(只有未完成任务)→ exit 0 通过', () => {
     assert.equal(r.status, 0, `无已完成任务应 exit 0\nstdout: ${r.out}\nstderr: ${r.err}`)
     assert.match(r.out, /归档守门通过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -121,7 +143,7 @@ test('已完成任务被删除且无归档占位 → exit 1 阻塞', () => {
     assert.match(r.err, /归档守门失败/)
     assert.match(r.err, /任务A/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -136,7 +158,7 @@ test('已完成任务(已完成 标记,无 ✅)被删除 → exit 1 阻塞', () 
     assert.equal(r.status, 1, `含"已完成"标记应被识别\nstdout: ${r.out}\nstderr: ${r.err}`)
     assert.match(r.err, /任务B/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -147,16 +169,55 @@ test('已完成任务被删除 + 有归档占位注释 → exit 0 通过(合规�
   try {
     const baseline = '# plan\n\n### 任务A(已完成 ✅ 2026-07-19)\n旧内容\n'
     commitPlan(dir, baseline)
+    // A2 之后,占位点名的归档文件**必须在审面里** —— 夹具要连锚点一起造,否则这道合规用例
+    // 会红在"A2 落空"上,而不是红在它想证明的 A0 上。
+    commitAnchor(dir, 'PROJECT_PLAN_2026-07-27.md', '### 任务A(已完成 ✅ 2026-07-19)\n旧内容\n')
     // 删除任务A + 添加归档占位
     writeWorkingTree(
       dir,
       '# plan\n\n<!-- 已归档(2026-07-27):任务A 任务,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-27.md -->\n',
     )
     const r = runScript(dir)
-    assert.equal(r.status, 0, `有归档占位应 exit 0\nstdout: ${r.out}\nstderr: ${r.err}`)
-    assert.match(r.out, /归档占位注释|合规移动/)
+    assert.equal(r.status, 0, `有归档占位且锚点在审面 ⇒ exit 0\nstdout: ${r.out}\nstderr: ${r.err}`)
+    assert.match(r.out, /归档守门通过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
+  }
+})
+
+test('占位点名一个从未入库的归档文件 → exit 1(A2:§1 的承诺落空)', () => {
+  const dir = createTempGitRepo()
+  try {
+    const baseline = '# plan\n\n### 任务A(已完成 ✅ 2026-07-19)\n旧内容\n'
+    commitPlan(dir, baseline)
+    writeWorkingTree(
+      dir,
+      '# plan\n\n<!-- 已归档(2026-07-27):任务A 任务,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-27.md -->\n',
+    )
+    const r = runScript(dir)
+    assert.equal(r.status, 1, `占位点名不存在的锚点应 exit 1\nstdout: ${r.out}\nstderr: ${r.err}`)
+    assert.match(r.err, /A2 占位点名的归档文件不在审面/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('盘上有归档件而未 git add → exit 1(A1:本机副本不构成锚点)', () => {
+  const dir = createTempGitRepo()
+  try {
+    const baseline = '# plan\n\n### 任务A(已完成 ✅ 2026-07-19)\n旧内容\n'
+    commitPlan(dir, baseline)
+    mkdirSync(join(dir, '.ihui-agent', 'archive'), { recursive: true })
+    writeFileSync(join(dir, '.ihui-agent', 'archive', 'PROJECT_PLAN_2026-07-27.md'), '### 任务A\n')
+    writeWorkingTree(
+      dir,
+      '# plan\n\n<!-- 已归档(2026-07-27):任务A,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-07-27.md -->\n',
+    )
+    const r = runScript(dir)
+    assert.equal(r.status, 1, `未入库的本机副本应 exit 1\nstdout: ${r.out}\nstderr: ${r.err}`)
+    assert.match(r.err, /A1 归档锚点只在本机、未进版本控制/)
+  } finally {
+    rmScratch(dir)
   }
 })
 
@@ -176,7 +237,7 @@ test('添加新已完成任务(无删除)→ exit 0 通过', () => {
     assert.equal(r.status, 0, `仅添加不删除应 exit 0\nstdout: ${r.out}\nstderr: ${r.err}`)
     assert.match(r.out, /归档守门通过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -194,7 +255,7 @@ test('标题识别: ### 前缀 + (已完成 ✅ 2026-07-19) 格式 → 正确提
     assert.equal(r.status, 1)
     assert.match(r.err, /P0 任务A/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -210,7 +271,7 @@ test('标题识别: 无 ### 前缀的"已完成"行 → 不被识别为任务条
     assert.equal(r.status, 0, `非标题行不应被识别\nstdout: ${r.out}\nstderr: ${r.err}`)
     assert.match(r.out, /归档守门通过/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -233,7 +294,7 @@ test('批量: 多个已完成任务被删除 → exit 1 + 列出所有被删标�
     const errSection = r.err.split('被删除的已完成任务条目')[1] || ''
     assert.ok(!/任务C/.test(errSection), '任务C 未被删除,不应出现在错误列表')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -252,7 +313,7 @@ test('归档占位: <!-- 已归档 --> 格式 → 识别为合规(允许删除)'
     const r = runScript(dir)
     assert.equal(r.status, 0, `占位注释应被识别\nstdout: ${r.out}\nstderr: ${r.err}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -268,7 +329,42 @@ test('归档占位: 无"已归档"关键字的 HTML 注释 → 不识别(仍 exi
     const r = runScript(dir)
     assert.equal(r.status, 1, `普通注释不应被识别为归档占位\nstdout: ${r.out}\nstderr: ${r.err}`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
+})
+
+// ─── 10. 夹具装载本身(防"13 例全绿其实在扫真仓") ──────────
+//
+// 9bd6748ba 把 ROOT 改成按脚本自身位置推导之后,本文件 13 例里有 11 例**静默变成在审真仓**:
+// `cwd` 不再能定位夹具,而真仓的审面里没有夹具那些标题 ⇒ 断言的是别人的仓库状态。
+// 这正是守门 70 记过的那一型(14 例镜像测试 13/14 恒红,原因不是判据错而是调用方式失效)。
+// 所以这里用两条**源码级**反向锁钉住,而不是只加一条会一起漂绿的断言。
+
+test('夹具必须经 --root 显式进入(不得再依赖 cwd 定位夹具)', async () => {
+  const src = await readFile(new URL(import.meta.url), 'utf8')
+  const m = src.match(/function runScript[\s\S]*?\n\}/)
+  assert.ok(m, '找不到 runScript —— 夹具通道被改名/重构时必须让这条锁红,提醒同步')
+  assert.match(m[0], /'--root'/, "runScript 不再传 --root ⇒ 全部用例回到'按 cwd 定位'的假绿形态")
+  assert.ok(
+    !/spawnSync\('node',\s*\[SCRIPT_PATH,\s*\.\.\.args\]/.test(src) || /'--root', cwd/.test(src),
+    'spawn 调用点没有把 --root 传给门',
+  )
+})
+
+test('临时夹具落点是 scratch-dir(§26),不得回到 os.tmpdir()', async () => {
+  const src = await readFile(new URL(import.meta.url), 'utf8')
+  assert.ok(!/from\s*'node:os'/.test(src), "又 import 了 node:os —— 活进程 TEMP 可能钉在 C 盘(§26)")
+  assert.ok(!/mkdtempSync\(/.test(src), '又用裸 mkdtempSync 造夹具,绕过 scratch-dir 的落点约束')
+  assert.match(src, /from\s*'\.\.\/lib\/scratch-dir\.mjs'/, '夹具未走 scripts/lib/scratch-dir.mjs')
+})
+
+test('阻塞判据不得回到 `!del.addedPlaceholders`(空数组是真值 ⇒ 拦了却不说话)', async () => {
+  const src = await readFile(new URL('../check-project-plan-archive.mjs', import.meta.url), 'utf8')
+  assert.ok(
+    !/!\s*del\.addedPlaceholders\b/.test(src),
+    'main() 又用数组真值判合规:删了已完成条目时门会 exit 1 **且零输出**,' +
+      '调用方只看到"提交被阻止"看不到原因(9bd6748ba 落地后由本文件的端到端用例抓到)',
+  )
+  assert.match(src, /if \(!del\.compliant\) \{/, 'A0 阻塞分支必须走 deletionVerdict 的 compliant')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
