@@ -52,6 +52,10 @@ export type AgentScreenProps = {
 }
 
 export { SettingsScreen } from '../../../../packages/app/src/features/settings/SettingsScreen'
+// 共享替身必须镜像真实导出面:真身 packages/app/src/index.ts:241 导出 MoreLink,而本替身此前不导出
+// ⇒ 任何渲染到它的测试拿到 undefined(1572ed50aa8 把区段头统一到共享 MoreLink 后,my-agents 两条
+// 用例红了 15 天才被看见,因为那个套件此前连收集都失败)。补的是替身,不是逐套件 vi.mock。
+export { MoreLink } from '../../../../packages/app/src/components/MoreLink'
 export { OrderScreen } from '../../../../packages/app/src/features/order/OrderScreen'
 export { PaymentScreen } from '../../../../packages/app/src/features/payment/PaymentScreen'
 export { WalletScreen } from '../../../../packages/app/src/features/wallet/WalletScreen'
