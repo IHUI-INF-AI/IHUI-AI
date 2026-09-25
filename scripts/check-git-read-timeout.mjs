@@ -67,6 +67,13 @@ export const HOT = [
   //  守门 94 自本日起按索引/HEAD 取输入 ⇒ 会派生 git;它是 pre-commit blocking 门,
   //  无界挂起同样会把提交拖成"看起来死掉了"。
   'scripts/check-error-code-coverage.mjs',
+  //  架构契约门同为 pre-commit blocking 门,且一次全量要对 8000+ 个源文件做 ls-tree + cat-file
+  //  --batch —— 共享 gitdir 被外部锁住时,它和 98/100/84 一样会把提交拖成"看起来死掉了"。
+  'scripts/check-architecture-policy.mjs',
+  //  「开工前基线新鲜度自检(三轴)」由 git-guardian 的巡检账与 `--preflight` 两条链派生,
+  //  且③轴逐文件跑 `git log`(复用门 84)——共享 gitdir 被外部锁住时它会和 84/98/100 一样
+  //  把调用方拖成"看起来死掉了"。它自己就是"开工前 30 秒"的那道闸,挂起等于没人再跑闸。
+  'scripts/check-baseline-freshness.mjs',
   'scripts/backup-unreachable-commits.mjs',
   'scripts/check-port-registry.mjs',
   'scripts/lib/gitdir.mjs',
