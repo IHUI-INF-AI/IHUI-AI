@@ -997,6 +997,8 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /messages/feedback - 消息点赞/点踩落库(D49①,2026-09-23):此前右键反馈仅 toast
+  // D64⑤(2026-09-26):问卷化扩展 —— reason(五类原因)/comment(≤500)可选字段;
+  // 旧载荷(仅 messageId+rating)完全兼容,未传扩展字段时行为不变。
   server.post('/messages/feedback', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
@@ -1006,13 +1008,21 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       .object({
         messageId: z.string().uuid(),
         rating: z.enum(['like', 'dislike']),
+        // D64⑤ 可选扩展载荷:旧客户端不传 ⇒ 完全兼容
+        reason: z.enum(['inaccurate', 'incomplete', 'offTopic', 'style', 'other']).optional(),
+        comment: z.string().max(500).optional(),
       })
       .safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
-    const result = await rateChatMessage(userId, parsed.data.messageId, parsed.data.rating)
+    // 问卷载荷:comment trim 后为空视同未填,不落脏数据;两者皆空 = 纯评分(D49① 原语义)
+    const comment = parsed.data.comment?.trim() || undefined
+    const survey =
+      parsed.data.reason || comment ? { reason: parsed.data.reason, comment } : undefined
+
+    const result = await rateChatMessage(userId, parsed.data.messageId, parsed.data.rating, survey)
     if (!result.ok) {
       // 不区分"不存在"与"无权":对外一致 404,不泄露他人消息 id 有效性
       return reply.status(404).send(error(404, '消息不存在或无权操作'))
