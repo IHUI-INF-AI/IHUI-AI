@@ -374,7 +374,7 @@ export default function MemberIndexPage() {
             hoverClass="opacity-60"
           >
             <Text>{tt('member.index.benefits', '会员权益')}</Text>
-            <Text className="member-arrow">›</Text>
+            <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
           </View>
           <View
             className="member-menu-item"
@@ -382,7 +382,7 @@ export default function MemberIndexPage() {
             hoverClass="opacity-60"
           >
             <Text>{tt('member.index.integralDetail', '积分明细')}</Text>
-            <Text className="member-arrow">›</Text>
+            <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
           </View>
           <View
             className="member-menu-item"
@@ -390,7 +390,7 @@ export default function MemberIndexPage() {
             hoverClass="opacity-60"
           >
             <Text>{tt('member.index.myCoupons', '我的优惠券')}</Text>
-            <Text className="member-arrow">›</Text>
+            <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
           </View>
           <View
             className="member-menu-item"
@@ -398,7 +398,7 @@ export default function MemberIndexPage() {
             hoverClass="opacity-60"
           >
             <Text>{tt('member.index.couponCenter', '领券中心')}</Text>
-            <Text className="member-arrow">›</Text>
+            <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
           </View>
           <View
             className="member-menu-item"
@@ -406,11 +406,11 @@ export default function MemberIndexPage() {
             hoverClass="opacity-60"
           >
             <Text>{tt('member.index.vip', 'VIP 会员')}</Text>
-            <Text className="member-arrow">›</Text>
+            <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
           </View>
           <View className="member-menu-item" onClick={goToShare} hoverClass="opacity-60">
             <Text>{tt('member.index.share', '分享赚佣金')}</Text>
-            <Text className="member-arrow">›</Text>
+            <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
           </View>
         </View>
 

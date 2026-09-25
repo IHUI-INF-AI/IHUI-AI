@@ -9,6 +9,7 @@ import { useState, useCallback } from 'react'
 import type { Agent } from '@ihui/api-client'
 import { getAgentList } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
 
 type AgentItem = Pick<Agent, 'id' | 'name'> & {
   description?: string
@@ -101,7 +102,9 @@ export default function CategoryDetailPage() {
           </View>
         ) : list.length === 0 ? (
           <View className="flex items-center justify-center py-[56rpx]">
-            <Text className="text-[length:32rpx] text-muted-foreground">{t('categoryDetail.empty')}</Text>
+            <Text className="text-[length:32rpx] text-muted-foreground">
+              {t('categoryDetail.empty')}
+            </Text>
           </View>
         ) : (
           <View className="px-[20rpx] pb-[48rpx]">
@@ -151,7 +154,7 @@ export default function CategoryDetailPage() {
                   </Text>
                 )}
                 {/* RN itemArrow '›': fontSize 20dp=40rpx, color text.tertiary */}
-                <Text className="text-[length:40rpx] text-[var(--color-text-tertiary)]">›</Text>
+                <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
               </View>
             ))}
           </View>
