@@ -524,23 +524,23 @@ export default function PrivacyPage() {
       <ScrollView className="h-screen bg-background" scrollY>
         <View className="px-[28rpx] pt-[28rpx] pb-[64rpx]">
           <View className="bg-card rounded-xl border border-border p-[28rpx] mb-[24rpx]">
-            <Text className="block text-[32rpx] font-semibold text-foreground mb-[16rpx]">
+            <Text className="block text-[length:32rpx] font-semibold text-foreground mb-[16rpx]">
               {tt('about.privacy.mainTitle', '隐私政策')}
             </Text>
-            <Text className="block text-[22rpx] text-[var(--color-text-tertiary)] mb-[8rpx]">
+            <Text className="block text-[length:22rpx] text-[var(--color-text-tertiary)] mb-[8rpx]">
               {tt('about.privacy.updateDate', '更新日期: 2025年06月21日')}
             </Text>
-            <Text className="block text-[22rpx] text-[var(--color-text-tertiary)]">
+            <Text className="block text-[length:22rpx] text-[var(--color-text-tertiary)]">
               {tt('about.privacy.effectiveDate', '生效日期: 2025年06月21日')}
             </Text>
             {overviewParagraphs.map((p, idx) => (
               <View key={idx} className="mt-[16rpx]">
                 {p.title ? (
-                  <Text className="block text-[28rpx] font-semibold text-foreground mb-[8rpx]">
+                  <Text className="block text-[length:28rpx] font-semibold text-foreground mb-[8rpx]">
                     {p.title}
                   </Text>
                 ) : null}
-                <Text className="block text-[28rpx] text-[var(--color-text-medium)] leading-[36rpx] text-justify">
+                <Text className="block text-[length:28rpx] text-[var(--color-text-medium)] leading-[36rpx] text-justify">
                   {p.text}
                 </Text>
               </View>
@@ -552,17 +552,17 @@ export default function PrivacyPage() {
               key={sIdx}
               className="bg-card rounded-xl border border-border p-[28rpx] mb-[24rpx]"
             >
-              <Text className="block text-[32rpx] font-semibold text-foreground mb-[8rpx]">
+              <Text className="block text-[length:32rpx] font-semibold text-foreground mb-[8rpx]">
                 {section.subtitle}
               </Text>
               {section.paragraphs.map((p, pIdx) => (
                 <View key={pIdx} className="mt-[16rpx]">
                   {p.title ? (
-                    <Text className="block text-[28rpx] font-semibold text-foreground mb-[8rpx]">
+                    <Text className="block text-[length:28rpx] font-semibold text-foreground mb-[8rpx]">
                       {p.title}
                     </Text>
                   ) : null}
-                  <Text className="block text-[28rpx] text-[var(--color-text-medium)] leading-[36rpx] text-justify">
+                  <Text className="block text-[length:28rpx] text-[var(--color-text-medium)] leading-[36rpx] text-justify">
                     {p.text}
                   </Text>
                 </View>

@@ -150,9 +150,22 @@ test('T8 装车证明:提交链必须对两个目标各跑一次生成器,且只
   assert.match(hook, /apps\/miniapp-taro\/src\/app\.css/, '表里必须有小程序 app.css')
   assert.match(hook, /apps\/mobile-rn\/global\.css/, '表里必须有 RN global.css')
   assert.match(hook, /scripts\/sync-rn-global-css\.mjs/, 'RN 目标必须指向生成器')
-  assert.match(hook, /for \(const t of TOKEN_SYNC_TARGETS\)/, '必须逐目标循环')
+  assert.match(hook, /for \(const t of matched\)/, '必须逐目标循环(目标按触发面筛过)')
+  assert.match(
+    hook,
+    /TOKEN_SYNC_TARGETS\.filter\(\(t\) => triggersOn\[t\.trigger\]\)/,
+    '每个目标必须自带触发面(token 派生看 tokens.css,用量派生看 v3 源码)'
+  )
+  assert.match(hook, /packages\/design-tokens\/src\/rn-tokens\.ts/, '表里必须有 rn-tokens 派生面')
+  assert.match(
+    hook,
+    /packages\/design-tokens\/src\/tailwind-alpha-plugin\.js/,
+    '表里必须有 ALPHA_USAGE 用量表'
+  )
+  assert.match(hook, /failMode === 'warn'/, '用量表那条必须允许 warn 级拒绝(他人未提交差异不得变成阻塞)')
   // "只有一份落地实现"的尺子必须是**调用式**而非词频:注释、日志、报错文案里都合法地出现 "git add" 字样,
   // 拿词频当尺子会在健康仓库上恒红(本测试第一版就是这样,5 次命中全是注释与提示语)。
+  assert.ok(hook.includes('.map((f) => f.replace('), 'staged 清单必须先归一分隔符再比')
   const stagingCalls = hook.match(/execSync\(`git add \$\{t\.file\}`/g) || []
   assert.equal(
     stagingCalls.length,
@@ -164,7 +177,7 @@ test('T8 装车证明:提交链必须对两个目标各跑一次生成器,且只
     /git add apps\/(miniapp-taro|mobile-rn)/,
     '不得再为某一端写死第二份 git add 路径(那正是复制粘贴的开始)'
   )
-  assert.match(hook, /f\.replace\(\/\\\\\/g, '\/'\) === TOKENS_CSS_REL/, 'staged 路径必须归一分隔符(旧写法手写两条字面量,加一端就漏一端)')
+  assert.ok(hook.includes('triggersOn[t.trigger]'), '目标必须按各自触发面筛选')
 })
 
 test('T9 紧急出口仍在:跳过开关不得被顺手删掉', () => {

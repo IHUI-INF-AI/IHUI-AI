@@ -119,13 +119,37 @@ const TOKEN_SYNC_TARGETS = [
     label: 'miniapp-taro app.css',
     file: 'apps/miniapp-taro/src/app.css',
     cmd: 'pnpm --filter @ihui/miniapp-taro sync-tokens',
+    trigger: 'tokens',
+    failMode: 'block',
   },
   {
     label: 'mobile-rn global.css',
     file: 'apps/mobile-rn/global.css',
     cmd: 'node scripts/sync-rn-global-css.mjs --quiet',
+    trigger: 'tokens',
+    failMode: 'block',
+  },
+  {
+    // rn-tokens.ts 的色值派生面(2026-09-25):改 tokens.css 一处,RN 侧手抄 HEX 表自动跟上。
+    label: 'rn-tokens.ts 派生面',
+    file: 'packages/design-tokens/src/rn-tokens.ts',
+    cmd: 'node scripts/sync-rn-tokens.mjs --quiet',
+    trigger: 'tokens',
+    failMode: 'block',
+  },
+  {
+    // ALPHA_USAGE 由三端真实用量导出(2026-09-25):登记 surface 不再靠人记。
+    // 触发面是**端源码**而不是 tokens.css,所以 trigger 用 v3-src;按索引面扫,才与本次提交带走的内容同形。
+    // failMode=warn:生成器在"表体之外另有未提交差异"时按设计拒绝写回(那是 §12 防吞他人行的闸门,
+    // 不是故障)。此时不得把别人的现场变成阻塞;正确性由守门 93 的 R6 继续兜。
+    label: 'ALPHA_USAGE 用量表',
+    file: 'packages/design-tokens/src/tailwind-alpha-plugin.js',
+    cmd: 'node scripts/sync-alpha-usage.mjs --quiet --face staged',
+    trigger: 'v3-src',
+    failMode: 'warn',
   },
 ]
+const V3_USAGE_DIRS = ['apps/miniapp-taro/src/', 'apps/mobile-rn/src/', 'packages/app/src/']
 
 if (process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
   try {
@@ -134,21 +158,36 @@ if (process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
       cwd: process.cwd(),
       windowsHide: true,
     })
-    // git 在 Windows 下可能给出反斜杠路径,两种分隔符都要认(旧实现手写两条字面量比较,加一端就漏一端)
-    const involvesTokensCss = stagedForTokens
+    const stagedList = stagedForTokens
       .split('\n')
       .filter(Boolean)
-      .some((f) => f.replace(/\\/g, '/') === TOKENS_CSS_REL)
-    if (!involvesTokensCss) {
+      .map((f) => f.replace(/\\/g, '/'))
+    // 每个目标自带触发面:token 派生看 tokens.css,用量派生看 v3 三端源码。
+    // git 在 Windows 下可能给反斜杠路径,统一成正斜杠再比(旧实现手写两条字面量比较,加一端就漏一端)
+    const triggersOn = {
+      tokens: stagedList.includes(TOKENS_CSS_REL),
+      'v3-src': stagedList.some((f) => V3_USAGE_DIRS.some((d) => f.startsWith(d))),
+    }
+    const matched = TOKEN_SYNC_TARGETS.filter((t) => triggersOn[t.trigger])
+    if (matched.length === 0) {
       console.log(
-        `⏭  design-tokens → 各端 CSS 副本自动同步(无 ${TOKENS_CSS_REL} staged 改动, 跳过)`,
+        `⏭  design-tokens / 用量 派生自动同步(无 ${TOKENS_CSS_REL} 与 v3 端源码的 staged 改动, 跳过)`,
       )
     } else {
-      for (const t of TOKEN_SYNC_TARGETS) {
-        console.log(`🎨 检测到 tokens.css staged,自动同步 ${t.label}`)
+      for (const t of matched) {
+        console.log(`🎨 派生自动同步:${t.label}(触发面 ${t.trigger})`)
         try {
           execSync(t.cmd, { stdio: 'inherit', cwd: process.cwd(), windowsHide: true })
         } catch {
+          if (t.failMode === 'warn') {
+            // 生成器在"产物文件表体之外另有未提交差异"时按设计拒绝写回(那是 §12 防吞他人行的闸门,
+            // 不是故障)。这种拒绝不得变成阻塞,否则别人的现场会钉红每一次提交;正确性由守门 93 R6 兜。
+            console.warn(
+              `⚠️  ${t.label} 本次未自动写回(${t.cmd} 拒绝或失败)。正确性仍由守门 93 的 R6 兜底;` +
+                `需要自动登记时,先收敛该文件的未提交差异,再手动跑一次该命令。`,
+            )
+            continue
+          }
           console.error(`❌ ${t.cmd} 失败,提交已阻止`)
           console.error(
             `   请手动排查 ${t.label} 的生成器错误,或紧急跳过:HUSKY_SKIP_TOKENS_SYNC=1 git commit ...`,

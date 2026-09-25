@@ -111,7 +111,7 @@ export default function ThemePage() {
             行对齐 plainRow:minHeight 60dp→120rpx / py 14dp→28rpx / px 12dp→24rpx,
             卡面亮色 surface.light→--color-card、暗色 surface.muted→--color-muted(dark:bg-muted) */}
         <View className="mx-[20rpx] mt-[32rpx]">
-          <Text className="mb-[16rpx] block text-[28rpx] text-muted-foreground">
+          <Text className="mb-[16rpx] block text-[length:28rpx] text-muted-foreground">
             {tt('settings.theme', '主题')}
           </Text>
           <View className="flex flex-col gap-[2rpx] overflow-hidden rounded-lg bg-[color:var(--color-border)]">
@@ -139,11 +139,11 @@ export default function ThemePage() {
                   />
                   <View className="ml-[16rpx] min-w-0 flex-1">
                     {/* rowLabel 对齐 RN: 16dp→32rpx + text.medium 语义映射 muted-foreground */}
-                    <Text className="text-[32rpx] text-muted-foreground">
+                    <Text className="text-[length:32rpx] text-muted-foreground">
                       {tt(th.labelKey, th.label)}
                     </Text>
                     {/* 副行(说明)为小程序端补充信息:24rpx + text.tertiary + userMeta gap 2dp→4rpx */}
-                    <Text className="mt-[4rpx] block text-[24rpx] leading-[1.5] text-[color:var(--color-text-tertiary)]">
+                    <Text className="mt-[4rpx] block text-[length:24rpx] leading-[1.5] text-[color:var(--color-text-tertiary)]">
                       {tt(th.descKey, th.desc)}
                     </Text>
                   </View>
@@ -151,7 +151,7 @@ export default function ThemePage() {
                 {/* 选中态对齐 RN SelectRow checkMark: 16dp→32rpx bold + brandAccent→--color-brand-accent;
                     选中项由 ✓ 呈现,不再渲染 RN 没有的 Radio/RadioGroup 展示件 */}
                 {current === th.value ? (
-                  <Text className="ml-[16rpx] shrink-0 text-[32rpx] font-bold text-[color:var(--color-brand-accent-deep)]">
+                  <Text className="ml-[16rpx] shrink-0 text-[length:32rpx] font-bold text-[color:var(--color-brand-accent-deep)]">
                     ✓
                   </Text>
                 ) : null}
@@ -162,13 +162,13 @@ export default function ThemePage() {
 
         {/* 主题说明对齐 RN versionText: 12dp→24rpx + text.tertiary + 居中;marginTop 4dp→8rpx */}
         <View className="mx-[20rpx] mt-[32rpx]">
-          <Text className="block text-center text-[24rpx] leading-[1.6] text-[color:var(--color-text-tertiary)]">
+          <Text className="block text-center text-[length:24rpx] leading-[1.6] text-[color:var(--color-text-tertiary)]">
             {tt('setting.theme.hintTitle', '主题说明')}
           </Text>
-          <Text className="mt-[8rpx] block text-center text-[24rpx] leading-[1.6] text-[color:var(--color-text-tertiary)]">
+          <Text className="mt-[8rpx] block text-center text-[length:24rpx] leading-[1.6] text-[color:var(--color-text-tertiary)]">
             {tt('setting.theme.switchHint', '切换主题后将立即保存并应用到全局界面')}
           </Text>
-          <Text className="mt-[8rpx] block text-center text-[24rpx] leading-[1.6] text-[color:var(--color-text-tertiary)]">
+          <Text className="mt-[8rpx] block text-center text-[length:24rpx] leading-[1.6] text-[color:var(--color-text-tertiary)]">
             {tt('setting.theme.autoHint', '「跟随系统」将随设备深浅色设置自动变化')}
           </Text>
         </View>

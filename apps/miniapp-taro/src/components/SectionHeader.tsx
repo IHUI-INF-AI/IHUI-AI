@@ -39,16 +39,16 @@ export default function SectionHeader({
   return (
     <View className={`flex items-center justify-between ${className}`}>
       <View className="flex items-center min-w-0 flex-1">
-        <Text className="text-[28rpx] font-bold text-foreground truncate">{title}</Text>
+        <Text className="text-[length:28rpx] font-bold text-foreground truncate">{title}</Text>
         {subtitle && (
-          <Text className="ml-2 text-[24rpx] text-muted-foreground truncate">{subtitle}</Text>
+          <Text className="ml-2 text-[length:24rpx] text-muted-foreground truncate">{subtitle}</Text>
         )}
       </View>
       <View className="flex items-center flex-shrink-0">
         {extra}
         {showMore && (
           <View className="flex items-center ml-2" onClick={onMore} hoverClass="opacity-60">
-            <Text className="text-[24rpx] text-muted-foreground">{moreLabel}</Text>
+            <Text className="text-[length:24rpx] text-muted-foreground">{moreLabel}</Text>
             <LineIcon
               name="chevron-right"
               size={24}

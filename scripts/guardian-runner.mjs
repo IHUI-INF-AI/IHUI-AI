@@ -2722,6 +2722,35 @@ const checks = [
     ].join('\n'),
   },
 
+  {
+    id: '105',
+    // warn 而非 blocking,是有意的:立项实测全量面就红 —— 8 处 R1「源码引用而面上无档」
+    // (qzdy/szdy/sqb/qqb/default-avatar/erweima/… 这批图片在「图片全外置 CDN」那轮被清走,引用还留着),
+    // 9 处孤儿默认只报数。把它挂成 blocking 等于让每一次提交都红 ⇒ 逼人 --no-verify ⇒ 全部守门作废,
+    // 这是本仓记过最多次的反面教训。**升 blocking 的前置条件**:R1 存量清零,或给它加 HEAD 自身违规数
+    // 作锚点的棘轮基线(照守门 70/77/83 的口径),两者都没做之前不得升档。
+    label:
+      '🧩 小程序派生产物对账(warn;图标三件与离线语言包是否落后于源、孤儿/死资源、动态路径只报数)',
+    script: 'check-miniapp-generated.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_MINIAPP_GENERATED',
+    onFailHint: [
+      '',
+      '  💡 判据四组:',
+      '     R1 漏生成/引用断链 —— 源码引用的产物文件面上查无 ⇒ 报出引用方;',
+      '     R2 孤儿/死资源 —— 产物目录里没有任何静态引用(默认只报数,--strict 判红;删文件属 §7 须人工确认);',
+      '     G3 图标词表与 svg 目录的对账(图标源已外置,77/78 键无同名 svg 是**既有事实**,本条永不判红);',
+      '     动态拼接的资源路径一律计入「判不了但如实数」,绝不静默当零违规。',
+      '',
+      '     重新生成:node apps/miniapp-taro/scripts/gen-line-icons.mjs / gen-tabbar-icons.mjs',
+      '                node scripts/gen-taro-lucide-icons.mjs <name>;离线语言包 pnpm --filter @ihui/miniapp-taro gen:i18n',
+      '     自检:node scripts/check-miniapp-generated.mjs --self-test(11 例含成对正反)',
+      '     定位:node scripts/check-miniapp-generated.mjs --group tabbar|icons|i18n|assets 单组排查',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',

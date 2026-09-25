@@ -234,12 +234,12 @@ export default function VideoPage() {
               hoverClass="opacity-60"
             >
               <Text
-                className={`block text-[24rpx] ${vendor === v.key ? 'text-[var(--color-brand-accent-foreground)]' : 'text-muted-foreground'}`}
+                className={`block text-[length:24rpx] ${vendor === v.key ? 'text-[var(--color-brand-accent-foreground)]' : 'text-muted-foreground'}`}
               >
                 {t(v.nameKey)}
               </Text>
               {!v.available ? (
-                <Text className="block text-[20rpx] opacity-70 text-muted-foreground">
+                <Text className="block text-[length:20rpx] opacity-70 text-muted-foreground">
                   {t('ai.video.notAvailable')}
                 </Text>
               ) : null}
@@ -248,11 +248,11 @@ export default function VideoPage() {
         </View>
 
         <View className="mx-[24rpx] mt-[16rpx] bg-card rounded-lg border border-border p-[24rpx]">
-          <Text className="block text-[24rpx] text-muted-foreground mb-[16rpx]">
+          <Text className="block text-[length:24rpx] text-muted-foreground mb-[16rpx]">
             {t(currentVendor.descKey)}
           </Text>
           <Textarea
-            className="w-full min-h-[192rpx] p-[24rpx] text-[24rpx] bg-transparent border border-border rounded-md box-border"
+            className="w-full min-h-[192rpx] p-[24rpx] text-[length:24rpx] bg-transparent border border-border rounded-md box-border"
             placeholder={t('ai.video.promptPlaceholder')}
             maxlength={500}
             value={prompt}
@@ -261,14 +261,14 @@ export default function VideoPage() {
           <View className="flex gap-[16rpx] mt-[24rpx]">
             {PARAMS.map((p) => (
               <View key={p.key} className="flex-1">
-                <Text className="block text-[20rpx] text-muted-foreground mb-[8rpx]">
+                <Text className="block text-[length:20rpx] text-muted-foreground mb-[8rpx]">
                   {t(p.labelKey)}
                 </Text>
                 <View className="flex gap-[8rpx]">
                   {p.options.map((opt) => (
                     <Text
                       key={opt}
-                      className={`flex-1 py-[12rpx] text-center text-[20rpx] rounded-md ${
+                      className={`flex-1 py-[12rpx] text-center text-[length:20rpx] rounded-md ${
                         params[p.key] === opt
                           ? 'bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)]'
                           : 'bg-secondary text-muted-foreground'
@@ -283,7 +283,7 @@ export default function VideoPage() {
             ))}
           </View>
           <Button
-            className="mt-[24rpx] w-full h-[88rpx] leading-[88rpx] rounded-md text-[24rpx] font-medium bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)] disabled:opacity-60"
+            className="mt-[24rpx] w-full h-[88rpx] leading-[88rpx] rounded-md text-[length:24rpx] font-medium bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)] disabled:opacity-60"
             disabled={!prompt || status === 'pending' || status === 'running'}
             onClick={onGenerate}
           >
@@ -293,26 +293,26 @@ export default function VideoPage() {
 
         {status !== 'idle' && status !== 'failed' ? (
           <View className="mx-[24rpx] mt-[16rpx] bg-card rounded-lg border border-border p-[24rpx]">
-            <Text className="block text-[28rpx] font-medium text-foreground mb-[16rpx]">
+            <Text className="block text-[length:28rpx] font-medium text-foreground mb-[16rpx]">
               {statusText}
             </Text>
             {resultUrl ? (
               <VideoPlayer src={resultUrl} />
             ) : (
               <View className="h-[420rpx] flex items-center justify-center bg-[var(--color-black-90)] rounded-md">
-                <Text className="text-[24rpx] text-[var(--color-text-tertiary)]">{statusText}</Text>
+                <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">{statusText}</Text>
               </View>
             )}
             {resultUrl ? (
               <View className="flex gap-[16rpx] mt-[24rpx]">
                 <Button
-                  className="flex-1 h-[80rpx] leading-[80rpx] text-[24rpx] rounded-md border border-border bg-transparent text-muted-foreground"
+                  className="flex-1 h-[80rpx] leading-[80rpx] text-[length:24rpx] rounded-md border border-border bg-transparent text-muted-foreground"
                   onClick={onDownload}
                 >
                   {t('ai.video.download')}
                 </Button>
                 <Button
-                  className="flex-1 h-[80rpx] leading-[80rpx] text-[24rpx] rounded-md border border-border bg-transparent text-muted-foreground"
+                  className="flex-1 h-[80rpx] leading-[80rpx] text-[length:24rpx] rounded-md border border-border bg-transparent text-muted-foreground"
                   onClick={onShare}
                   openType="share"
                 >
@@ -330,7 +330,7 @@ export default function VideoPage() {
         ) : null}
 
         <View className="mx-[24rpx] mt-[24rpx] mb-[48rpx] bg-card rounded-lg border border-border p-[24rpx]">
-          <Text className="block text-[28rpx] font-medium text-foreground mb-[16rpx]">
+          <Text className="block text-[length:28rpx] font-medium text-foreground mb-[16rpx]">
             {t('ai.video.history')}
           </Text>
           {history.length ? (
@@ -342,8 +342,8 @@ export default function VideoPage() {
                   onClick={() => replayHistory(h)}
                   hoverClass="opacity-60"
                 >
-                  <Text className="flex-1 text-[24rpx] text-foreground truncate">{h.prompt}</Text>
-                  <Text className="text-[20rpx] text-[var(--color-text-tertiary)] ml-[16rpx]">
+                  <Text className="flex-1 text-[length:24rpx] text-foreground truncate">{h.prompt}</Text>
+                  <Text className="text-[length:20rpx] text-[var(--color-text-tertiary)] ml-[16rpx]">
                     {t(VENDORS.find((v) => v.key === h.vendor)?.nameKey ?? '')} ·{' '}
                     {fmtTime(h.createdAt)}
                   </Text>
