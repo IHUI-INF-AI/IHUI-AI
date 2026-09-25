@@ -135,7 +135,11 @@ test('A12 跳门重试前必须重新暂存(否则"含新文件 + 归因允许�
   const retryAt = safeCommitSource.indexOf('commitArgs(true)')
   assert.ok(retryAt > 0, '源码里找不到跳门重试调用(改过结构就得同步改本断言)')
   const window = safeCommitSource.slice(Math.max(0, retryAt - 1800), retryAt)
-  assert.match(window, /git add \(retry\)/, '重试前必须重跑 Step 2 的 add —— 缺了就等于没有应急路径')
+  // 本断言在 HEAD 上就是红的(实测:未改任何文件时跑本文件,该例 fail 于 `/git add \(retry\)/`
+  // 不匹配该窗口)。红因是 `221078310`(跳门兜底按"在场/删除"三态分流)把重暂存的日志标签改成了
+  // `git add (retry: 在场文件)` / `(retry: 删除态)` —— **行为还在、断言先红**,属测试侧陈旧而非功能缺陷。
+  // 现放宽到前缀:本断言要钉的是"重试前重跑了 Step 2 的 add",不是那条日志的措辞。
+  assert.match(window, /git add \(retry/, '重试前必须重跑 Step 2 的 add —— 缺了就等于没有应急路径')
   assert.match(
     window,
     /git diff --cached --name-only --no-renames/,
