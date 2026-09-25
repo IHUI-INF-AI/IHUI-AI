@@ -8794,6 +8794,11 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   - **门 99(暂存删除存续性)两次实测之间自行消解**:第一次读到「待判 36 / 判红 6」(extension `QueueBar.tsx` / `ext-queue-ops.ts` 等被暂存删除而引用方仍在),紧接着复测 `--staged` 已 `exit 0`「无暂存删除」,同一时刻索引里仍有 38 项他人暂存 ⇒ 那是**别人正在落地的移动/重组**,不是丢功能。本票全程未碰该索引。
   - **miniapp `typecheck` 唯一那条 `AgentInstanceState`**:HEAD 的 `packages/types/src/agent-runtime.ts` 有该导出(计数 2)而**工作树副本为 0**,消费方 `packages/shared/src/chat/agent-actions.ts` 磁盘与索引均干净 ⇒ HEAD 自洽、红由他人半编辑态产生;守门 16 的 `check-typecheck.mjs` 按「本次改动范围」降级正是为这一型设计的。本票自己的改动面(end `package.json` 一行 + `tailwind.config.ts` 注释)不产 TS 错误。
   - **方法登记**:判"报红是否算进本仓债务",唯一可靠手段是**同一判据在干净 HEAD 上再跑一次**并比对两次读数;只看共享工作树的读数会把别人的在途现场成本仓的账(AGENTS §4 守门 77 换锚那条与门 103「内容判 HEAD blob」都是同一教训)。本票由此得出一条反向待办**不属于**任何人的义务:三道 i18n 门会在持有该批次的一方提交时被自己的门拦住,那是它们的正常归宿。
+- **✅ 第五十批·补漏(2026-09-25 17:3x):审查 agent 在全端扫出 3 处"仍手抄且零门覆盖"的色值面,已按同一套派生架构收口**。立项前逐条亲验(不采信转述):字面量与 tokens.css 逐位同值、生成器与门都够不着它们。
+  - **① 共享 RN 屏的手抄 model-type + agentName**:`packages/app/src/features/model-plaza/ModelPlazaScreen.tsx` 的 6 个 model-type 色与 `apps/mobile-rn/src/screens/DevEnterScreen.tsx:488` 的 `#517BFF` 改成从 tokens 取(`tk.modelType.*` / `tokens.agentName.DEFAULT`);源头是 `tokens.css:266-273`,而**小程序同页早就在写 `var(--color-model-type-*)`**(`apps/miniapp-taro/src/pkg-ai/model-plaza/index.css:171-180`)⇒ 这一处正是"手机上改了 web 没改"本体。派生侧**不新增任何登记表**:`sync-rn-tokens` 的命名规则 `<ns>.<key>` → `--color-<kebab(ns)>-<kebab(key)>`(带 `DEFAULT` 折叠)本就覆盖 `modelType.textBg` / `agentName.DEFAULT`,R4 面自动从 78 条涨到 99 条,门 93 的 MAPPINGS 不动(动它就是第二份真相)。一处实测纠正:`agentName` 不能当标量叶子 —— `mobile-rn/src/theme/active-tokens.ts` 按命名空间遍历克隆/覆写,裸字符串会被拆成逐字符对象,故写成 `{ DEFAULT }` 并在注释记原因。**新增 R8 手抄判据**(禁抄集合从 RN 表 ↔ tokens.css **推导**,不看注释、大小写不敏感、HEAD 面棘轮、`handcopy-token-exempt: <原因>` 逐行豁免);立项时 HEAD 命中 0,在临时仓里验过牙:把 `#C41E7A` 抄回去 ⇒ exit 1 并点名 token。这条判据自己也被变异测出过一次假绿 —— 首版正则只认小写十六进制,大写手抄**完全隐形**,已修并留对照。同时清掉 `rn-style-parity-baseline.json` 里 `#517bff` 的过期条目(基线里留着一条已不存在的手抄 = 清单腐烂)。
+  - **② 小程序原生 chrome 两份副本**:`apps/miniapp-taro/src/theme.json`(微信 darkmode 配置)与 `src/lib/theme.ts` 的 `THEME_CHROME`(运行期 `setNavigationBarColor`/`setTabBarStyle`)此前 `grep -rl theme.json scripts/*.mjs` **零命中** ⇒ 无生成器、无守门。现由 `scripts/sync-miniapp-chrome.mjs` 原位派生 18 个字段并挂进 `TOKEN_SYNC_TARGETS`(trigger `tokens`,`failMode: block`),由守门 **122 `check-miniapp-chrome.mjs`** 复核(与生成器共用同一个 `checkChrome`,不写第二份判据)。
+  - **②里最该留下的一笔:一处"看似漂移"其实是决策**。dark `navBg`/`windowBg` 的 `#262626` 并不等于源头 `.dark --color-background`(`hsl(0 0% 14%)` = `#242424`)—— commit `d2d80c1b23`(2026-09-06)明文「对齐 rn gray.800」把 `#242424` 改成 `#262626`。**把它"同步"回 #242424 等于回滚一枚已上线的视觉决策**,故登记进 `CHROME_DECLARED_DIVERGENCE` 并配 `nearToken` 机判:源头一旦重新同值即报"登记表腐烂"红。⇒ 通用规矩(值得复用):**派生前先 `git log` 找这值有没有人做过决定**;没查就把别人的决策当漂移修,是本仓最贵的一类"自动化事故"。
+  - **可观测证明**:派生器连跑两次对 `apps/miniapp-taro/src` 零字节变化(今天两侧本就同值,大小写按原字节保留如 `#A3A3A3`,首跑不产伪 diff);复验命令与结果:门 122 全量/索引 = 0、门 93 = 0、门 36 = 0、门 89 接线 = 0、门 103 = 0,`check-mobile-rn-style-parity` = 0,`sync-rn-tokens --check` = 0(自测 35 条),镜像测试 13/13 + 9/9 + 32/32,`pnpm --filter @ihui/design-tokens typecheck` = 0、`@ihui/rn-app` = 0,水印 verify = 0。**两票子代理均未提交任何东西**,改动由主控逐条复验后入库;子代理顺手带出的 `apps/mobile-rn/src/screens/ModelPlazaScreen.tsx` 两行 `brand.DEFAULT→brand.cta`(属另一路在途的 CTA 迁移)被**排除**出本枚提交 —— 报告与现场不一致时以现场为准,别人的在途改动不搭车。
 - **✅ 顺手收掉本票取证过程中自己制造的一处泄漏(2026-09-25,`scripts/lib/scratch-dir.mjs`)**:上面那两次"干净 HEAD 隔离检出"用到 `mkScratch`,而共用层此前**要求调用方自己写 finally** —— 实测 `scripts/tests/check-cross-end-tokens.test.mjs:426` 就把 `rmScratch` 写在断言之后,该用例今天失败过 3 次,于是 `DevEnv/Temp/ihui-scratch` 里留下 3 个约 750KB 的孤儿夹具。"人人都记得 try/finally"是散文约束,已被证明会漏 ⇒ 改为 `mkScratch` 注册 + `process.on('exit')` 统一回收(**只回收本进程本次建的**,显式 `rmScratch` 即出表;SIGKILL/断电不在内,那类残留由 §26 每日 Temp 体检兜)。取证:`scripts/tests/scratch-dir.test.mjs` 4 例 → **6 例连跑两次全绿**,含成对双向对照 —— 阳性:子进程 `mkScratch` 后抛错,路径必须消失;反向:同目录里别的进程留下的夹具**不得**被扫掉(按前缀 glob 清理的实现会在这一条红)。变异证明:把钩子摘掉 ⇒ 恰好这 2 条红并点名残留路径。写这批测试时自己也踩了一次:第一版按"scratch 根里有几个 `leak-probe-` 前缀目录"计数,于是**上一次运行留下的残留**会让本次判假红 —— 判据依赖历史而不是依赖被测行为,已改为只断言"这一次子进程打出来的那个路径"消失。
 - **门 103 拦下我自己引入的反向依赖,按方向修正而非改表(2026-09-25)**:让端内生成器 import `scripts/lib/design-token-blocks.mjs` 触发 D1/D2 —— 全仓 `repo-tooling → apps/*` 有 12 条合法边,反向只有我新开的这一条,而策略表注释明写"不得为消红改 requires"。正解是把取源实现**下沉到 `packages/design-tokens/src/token-blocks.js`**(两个方向都变向下依赖),`scripts/lib/design-token-blocks.mjs` 退化为向下再导出的兼容层(既有 importer 一行不改)。落地时又连踩两次真实解析问题并都已修:根工具层解析不到 workspace 包名(根 `node_modules` 未链该包)⇒ 根与端都改用相对路径向下指;镜像测试的演练仓没有 `node_modules`,包名解析必失败 ⇒ 夹具补拷 `token-blocks.js`,并把"夹具跑不通绝不能被读成判据通过"写进注释。复验:门 103 exit 0(D1/D2 消失、无深导入红)、门 36 三面 exit 0、门 93 两档 0、三份镜像测试共 44 例全绿。
 
@@ -9798,3 +9803,65 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 
 
 
+
+
+### 第五十波·续 —— 返回键第二轮收口:GA5/GA6 立判据 + 双箭头 + 混写形态(2026-09-25 深夜)
+
+- [x] ✅(2026-09-25) **守门 102 从"四类判据"扩到"六类",并修掉它对自己产出形态的两处盲视**
+  - **为什么还要第二轮**:上一轮把「返回」文字与 `‹` 字符换成矢量 `<BackChevron/>` 之后,微信开发者工具截图里
+    同一屏出现**两个返回箭头** —— 原生导航栏自绘一个、页内一个。即**换了载体没管 chrome 归属**;
+    另有两页(`pages/community`、`pages/distribution`)在原生栏之下渲染 `<NavBar/>`,得到双层 chrome + 正文被固定条再推一档。
+  - **S0 机制清单 4 → 5**:补 `packages/app/src/components/BackChevron.tsx`(RN/共享屏层那份)。
+    此前只登记小程序端内那一份 ⇒ 共享层被摘线或无人 import 时**无人喊红**,而它撑着 RN 与桌面端。
+    镜像测试改为按**路径集合**对账(条数断言说不出"少了谁")。
+  - **GA5(新)**「返回」与字形**混写**:整格 `← 返回`(实测 `packages/app/src/components/Selecter.tsx:415`、
+    `apps/mobile-rn/src/components/ModelConfigDialog.tsx:282`),以及字形与返回调用**分居同一元素两个子节点**
+    (`<Text onClick>← {t('common.back')}</Text>`)—— 后者是 `walkAffordanceChildren` 走 `loneChildText` 的结构性后果:
+    **多子元素的元素根本不入选**,于是 GA1/GA4/GA5-A 三条对它全盲。该分支由自检里"去掉判据即翻绿"的断言钉住。
+  - **GA6(新,跨文件判据)** 页内返回键(`BackChevron` / `<NavBar/>`)× **原生导航栏**同屏 ⇒ 判红。
+    读 Taro 编译前真值:页面 `x.config.ts`,页内未写 `navigationStyle` 则**继承 `app.config.ts` 的全局 window**;
+    两处都取不到 ⇒ 进 `chromeUndetermined` 点名(不记绿也不冒红)。人工出口是**文件级** `nav-chrome-exempt: <原因>`
+    —— 它的"错"是页面配置 × 页面渲染的组合,不落在某一行上,逐行豁免无意义。
+  - **判据消息里点名"半修"**:上一轮有会话把 `showBack` 设成 `false` 来消红 —— 箭头没了,那条 `fixed`
+    空/重复标题条还在,正文位移与双标题照旧。GA6 因此**不看 `showBack` 取值**,消息直接写"只把 showBack 设 false 是半修"。
+  - **预筛超集对账补三档**:`«`(GA5 字形族比 GA1 多这一档)与 `BackChevron`/`NavBar`/`navigationStyle`
+    (GA6 是跨文件判据,候选里没有字形可筛 —— 少这三个标识符,"只有页内返回键、没有任何字形"的干净页会被预筛吞掉,
+    门就在**自己立项那一型**上失明)。
+  - 取证:`--self-test` **66 → 81 例**(GA5 两型正反、GA6 三态含继承链与"未判定"、预筛超集对账);
+    镜像测试 **14 → 16 例**,新增两条锁:**"GA5/GA6 必须真挂在 `scan()` 上"**(守门 70/76/81 同型:
+    函数在、自检过,但 `scan()` 没调它 = 提交链上一路绿灯)与"GA6 不得按磁盘读 config"(必须与屏文件同面)。
+
+- [x] ✅(2026-09-25) **端上收口(4 路并行 + 主会话补刀),全部停在未提交由主会话统一入账**
+  - **删页内返回键**(该页是原生栏,chrome 拥有唯一返回键):24 个页面(小程序端),连带删掉只服务它们的
+    `goBack`/`onBack` 与 7 条死 CSS 规则。**被别处调用的 handler 一律保留**(错误态卡片按钮、面板内视图切换)。
+  - **改 `navigationStyle: 'custom'`**(页内自绘 `<NavBar/>`,它按胶囊算状态栏、本就是 custom 页写的):
+    9 页 + `pages/community` + `pages/distribution`;其中 `pkg-user/message/index.config.ts` **原本不存在**,按同目录范例新建并注入水印。
+  - **删死豁免**:`pkg-user/message` 上一轮为消红加过 `nav-chrome-exempt` + `back-label-exempt` 两条,
+    改 custom 后原生栏不在场 ⇒ 两条都成"清单腐烂",删。删后守门复跑 GA4 ✅ 0(未复红 ⇒ 那确属 chrome 问题而非文字返回键)。
+  - **修自己造出的回归**:message 主页的 `<NavBar showBack={false}>` 是 HEAD 既有(当时原生栏提供箭头),
+    本页转 custom 后**整屏再无返回 affordance** ⇒ 用户被困。删掉 `showBack={false}` 交回默认 true;
+    产物级证据 `dist/pkg-user/message/index.js` 现为 `showBack:!0`,渲染级证据:该页量到 1 个
+    `chevron-left`、size 20×20px、offset (8.72, 34.72) —— 与对照组 `pkg-content/topic/list` **逐位相同**。
+  - **恢复被删过头的一处功能**:`pkg-ai/developer/income.tsx` 原页内键同时是"提现明细 → 收入概览"的
+    **面板内视图回退**唯一入口(原生栏只退整页,退不了局部 state)。批量删除时被一起带走 ⇒ 重建
+    `backToIncome` 并在明细视图内放文字回退钮 + `back-label-exempt: … until 2026-12-31`。
+  - **GA5 两处真站点**:`ModelConfigDialog.tsx` 删 `←` 改矢量 `ChevronLeft size=12` + `t('common.back')` + 带原因豁免;
+    `Selecter.tsx` 实测该文件 i18n 与矢量图标通道**双缺**(grep `useTranslation|const tt|lucide|<svg` 零命中,
+    消费方只有 barrel)⇒ 按"不为消红塞新依赖"处置:删 `←` 留文字 + 豁免注明通道缺失原因。
+  - **RN/共享层 GA4 存量 8 处**清零:全部换 `<BackChevron onPress label colorScheme/>`(照抄已收口屏的写法),
+    8 个 `backText` 样式键随无使用者删除;`colorScheme` 一律取各屏已有 prop,未新写死、未新建色源
+    (`check-theme-prop-wiring` exit 0)。
+  - 遗留(已量化,须改语言包故不在本票授权面):`aiGroup.back` / `aigcCover.back` / `aigcPublish.back`
+    三键现全仓零引用 —— 清理属 i18n 死键票,不得为消红留孤儿键。
+
+- **验证(全部实跑,读数即现值)**:守门 102 全量面 exit 0,HEAD 存量 GA1 70/31、GA4 8/8、GA5 2/2、GA6 31/31
+  (工作树面 GA4/GA5/GA6 分别 0/0/0 ⇒ 提交后即落);`--staged` 面 exit 0;门 108 登记 `nav-chrome-exempt` 族
+  (365 天,与 `back-label-exempt` 同一理由:结构性定性而非待偿债务)+ 门自身文档提及数并入存量账
+  (`back-label-exempt` 10→11、`nav-chrome-exempt` 0→5),`--self-test` 43/43、worktree 面 exit 0;
+  eslint 改动文件 0 error 0 warning。
+- **渲染级复扫(微信开发者工具 + automator,25 页,当场量)**:**文字当箭头 = 无**;
+  **原生栏页仍有页内键 = 无**;custom 页页内箭头 = 1(12 页量到 20×20px 矢量箭头);
+  原生栏页页内箭头 = 0(10 页)。两条**如实登记的不可判**:① `pages/register` 与 `pages/login` 在本会话里
+  整页零文本(未改过的 login 同样空白)⇒ 属启动关键页在本自动化会话下的渲染条件,判"未验证"而非"缺失";
+  ② 截图里页头文字互相叠压,在**本票未碰过**的对照组 `pkg-content/search` 上同样出现 ⇒
+  是已登记的 O62附②(该端 Tailwind utilities 在真实构建里 0 产出)所致,**不得**把布局观感算进本票的验收面。
