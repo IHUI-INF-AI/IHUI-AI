@@ -25,7 +25,7 @@ export default function MessageActions({
   return (
     <View className="relative">
       <View
-        className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-muted"
+        className="w-7 h-7 flex items-center justify-center rounded-md "
         onClick={() => setExpanded(!expanded)}
         hoverClass="opacity-60"
       >
@@ -35,7 +35,7 @@ export default function MessageActions({
       {expanded && (
         <View className="absolute right-0 top-9 z-10 bg-card rounded-lg shadow-lg py-1 min-w-[240rpx]">
           <View
-            className="flex items-center px-3 py-2 hover:bg-muted"
+            className="flex items-center px-3 py-2 "
             onClick={() => {
               onMarkRead?.()
               setExpanded(false)
@@ -45,7 +45,7 @@ export default function MessageActions({
             <Text className="text-sm text-foreground">{tt('message.markRead', '标记已读')}</Text>
           </View>
           <View
-            className="flex items-center px-3 py-2 hover:bg-muted"
+            className="flex items-center px-3 py-2 "
             onClick={() => {
               onPin?.()
               setExpanded(false)
@@ -57,7 +57,7 @@ export default function MessageActions({
             </Text>
           </View>
           <View
-            className="flex items-center px-3 py-2 hover:bg-muted"
+            className="flex items-center px-3 py-2 "
             onClick={() => {
               onDelete?.()
               setExpanded(false)
