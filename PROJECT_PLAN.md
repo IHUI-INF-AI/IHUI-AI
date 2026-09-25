@@ -7743,6 +7743,96 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
 
 
 
+### 第六波（2026-09-25 11:3x–13:0x：三/四/五/六轮取证的落地 + 五道新门接线收尾）
+
+- [x] ✅(2026-09-25) **第三/四/五/六轮取证 + 五道新门接线收口**（吸收线纵深，逐票给证；细节在各枚提交信息里，此处只记"边界与不做什么"）：
+  - **接线**：guardian id **107** 来源台账、**108** 豁免到期、**109** 任务认领租约、**110** 产物预算（**warn** + CI build 步骤，
+    产物在不在本机是机器态，进链判红即恒红门）、**111** 工具契约声明。编号一律**从 HEAD 取底 + 程序化插入 +
+    复验 `git diff HEAD` 为 N/0**，并让脚本自证"传入号 == 当前最大号 + 1"—— 我第一版直接按工作树写 106/107/108，
+    而并发会话已在同一位置加了**他们的 106**（extension 注入层色值同源），照工作树整文件提交就会把那 19 行注册块写回旧态。
+  - **吸收来的实测结论（新）**：A13 工具契约第一阶段（投影器等价 **158/158**、cli 2744/2744 全绿、`--flip-audit` 量出
+    翻缺省会新拦 16 个工具 ⇒ **第二阶段的前置**）；A19 配置出处探针（`secret-path` stdout 逐字节不变的 A/B 证明 +
+    `--explain` 全走 stderr，**此票如实是散文约束、未立门**：判"是否回答了出处"结构上判不了，立了只会逼人写空调用）；
+    A20 钩子信任从"绑目录"升级到"绑内容摘要"（第一轮修的 trust 门未接线是那件事的一半，这票补另一半）；
+    台账 **P8 归属反噬** —— 我们自己的零宽水印曾把 `© … 版权所有者` 打到 Mozilla 的 PDF.js worker 第 1 行，
+    排除源改为唯一读台账 roots（不再靠 `SKIP_DIRS` 里那条 `'vendor'` 的巧合）。
+  - **本轮否证/不适用的（不得回头当待办重做）**：上游 `event-reducer`/`stream-recovery`/`retention` 一族**结构性不适用**
+    （本仓无事件投影层、4 个内存缓冲全带硬上限 ⇒ 按轮次裁剪的坏状态不可达）；`packages/ui` 的跨端一致性机制**不适用**
+    （它靠"一个 CSS 入口被 4 端 import"，我们三套渲染栈且已有 tokens 单源 + 派生 + 对账门）；
+    `DESIGN.md` 规范单源**我们更强**（上游 UI 机器判据 0 道、无 stylelint、无视觉回归）；
+    lint 级 `max-lines: 400` **只吸收"豁免面收口"那一半**（本仓 844 个 `.ts/.tsx` 超 400 行，照搬即恒红门）。
+    **这串"不适用"的成因互不相同，不得合并成一句"没有缺口"；且其中三处的数字本轮被第七轮推翻**（推翻的是**我上一批自己写下的锚点**，不是上游的结论 —— 如实改档）：
+    ① `packages/ui` 那条"220 个测试文件"是**错的**：第七轮实测上游 `apps/zcode-cli/packages/ui` 为 **1,555 个跟踪文件、
+    `grep -cE '\.(test|spec)\.'` = 1**（宽松"文件名含 test|spec"= 4）。⇒ 结论方向反转：不是"上游有测试承载、我们缺测试"，
+    而是**上游 UI 面 1,494 个源文件零测试承载**。教训固化：**报测试计数必须同时给正则**，"扩展名是 `.test.`"与"文件名含 test"是两种口径。
+    ② `DESIGN.md` 是**按文件后缀筛**（"UI 判据"这件事在本仓住在 161 道 `scripts/check-*.mjs` 里，不在 `.md`/`.stylelintrc`/`.spec.ts` 里）；
+    上游那 537 行 `DESIGN.md` 里**确有**可机判规则（`:13` 禁 `text-[13px]`、`:190-200` `text-ui-*` 七档由 `--ui-font-size` 派生、
+    `:212` 「`rem`-based geometry must not scale with the interface font」），但对仓判据面仍是 **0 道**（`grep -ci stylelint` = 0、
+    `playwright.config|.spec.ts` = 0、`git ls-files scripts` 64 个里只有 1 个 `check-*`）⇒ "我们更强"这句成立，
+    但**成立的是尺子面**；`:212` 那条"字体缩放与几何缩放必须分离"是**本仓没有的真缺口**，登记为候选 C-1（不进 A 表，因未在本仓 grep 验证）。
+    ③ `max-lines` 是**拿 lint 级阈值当"待补落点"** —— 但我上一批写的"本仓 `.editorconfig` 只设 `max_line_length`"**也是错的**：
+    实测 `.editorconfig` 只有 8 行（`root`/`indent_style`/`indent_size`/`end_of_line`/`charset`/`trim_trailing_whitespace`/
+    `insert_final_newline` + `[*.md]` 一条），**没有 `max_line_length`**；行长上限真正的落点是 `.prettierrc:5 "printWidth": 100`。
+    结论不变（"行数上限"这一维本仓由门 11e 的 800 行 + 门 103 的 C1 6,000 行承载，不需要 lint 级 400 行档），但**锚点必须换成上面这两个真路径**。
+    ④ `event-reducer`/`stream-recovery`/`retention` 才是**结构缺失**：无事件投影层这句成立；但**"4 个内存缓冲全带硬上限"这句被推翻** ——
+    我登记的四条锚点里 `apps/ai-service/app/services/llm_cache.py`、`agent_message_buffer.py`、`packages/context-compaction/src/eviction.ts`
+    **三个路径根本不存在**，`packages/shared/src/chat/stream-tool-ledger.ts` 路径也错（真身在 `apps/cli/src/`）。
+    本轮逐条重测后的**真**上限清单：`compaction_metrics.py:97-102`（`MAX_EVENTS=1000`/`MAX_RUN_OUTCOMES=1000`/`MAX_RECALL_RECORDS=2000` + `deque(maxlen=)`）、
+    `orchestration_hub.py:314/355/495`（三处 `deque(maxlen=_MEMORY_EVENT_MAXLEN/_STREAM_MAXLEN/_MEMORY_DECISION_MAXLEN)`）、
+    `context_engine.py:129-132`（OrderedDict + max_size 的 LRU，注释即"P0 修复:防止无界增长"）、`memory_service.py:212 WORKING_LRU_LIMIT = 50`、
+    `agent_deliverables.py:41-43`、`compaction_quality.py:521`、`llm_budget_governor.py:200/206`。
+    **但 `apps/cli/src/stream-tool-ledger.ts` 的 `list` 无上限**（第 224 行裸 `this.list.push(entry)`，全文件无 `MAX`/`LIMIT` 常量）
+    ⇒ "坏状态不可达"这句**对本仓不再全域成立**：账本无界增长是一条**可达**的坏状态，A21/A31 那族的可达性判据需按此重开（不再算"已否证"）。
+    **本轮方法论收获（比结论更该留）**：`wc -l <不存在的文件>` 静默返回 0、`git ls-files <写错的目录>` 静默返回空 ——
+    两者都不报错，于是"扫到 0"被当成了"这块能力不存在"。规范：**任何 0 读数必须再做一次 `git ls-files | grep <末段>` 交叉验证**
+    才能写成结论；登记进文档的锚点必须是被 `Read`/`grep -n` 真打开过的那一行，不能来自记忆。
+    **两处"不是不适用，而是我们已有、只是形态不同"（不得再当缺口立项）**：`packages/ui` 的 **CSS-in-JS 运行时主题** ⇒ 本仓有等价机制
+    但不走 CSS-in-JS（tokens 单源 + 同步派生 + 对账门 36/37/93），吸收过来的正确结果是**新增一条禁止条款**：不得引入
+    styled-components/emotion 之类做主题，那会在 tokens 之外造出**第四套色源**；`DESIGN.md` 规范单源同理不立"补文档"票 —— 我们的等价物是门，不是文档。
+  - **一轮方法论纠错（这条最值钱）**：第六轮系统复核前几轮的体积声称，发现第四轮把"**410 文件**"写进任务书而实测是
+    **1 个文件 410 行**；同理"约 3100 文件未读到体"被素材虚增（renderer 1162 文件里 1146 个是 `.svg`，源文件仅 13 个）。
+    ⇒ **前五轮所有"这块太大只能抽样"的定级都该重算**，本轮已重算并据此**作废**了两条旧结论
+    （`interfaces` "纯接口 ⇒ 我们等价" 与 `tools` "不存在第二份形状"）。
+  - **累计边界（回答"还有没有可抄的点"）**：六轮合计约 **29 个上游文件读到实现体 ≈ 源文件 0.73%**；
+    `core/src/runtime` 预算族、`contracts` 其余、`packages/ui` 主体**仍只能算枚举过**；
+    N7（telemetry）/N8（commands）是**未决不是否证**；A22 的可达性本轮**未证成**（已给反证，不得当"已验证缺陷"去修）。
+    ⇒ 现在**不能**说"没有可抄的点"，只能说"每轮的净产出仍 > 0，且盲区已缩小一个量级"。
+  - **一张票撞轮次上限的处置**：§4（契约工件 + `module-context` 阅读包）154 次调用中断，留下"判据写完、证明没跟上"
+    （门自身 self-test 75/75 绿，镜像 13/16、`module-context` 7/8 红）。这种状态落 main 会把门 103 的镜像测试钉红，
+    留在工作树又有被他人一次 `git add -A` 带上去的风险 ⇒ 处置 = 对象空间存档 + tag 上远端
+    （`6da4f61c57a` / `backup/wip-spec4-module-context-2026-09-25`）+ 工作树复位 + 副本留 `.ihui-agent/tmp/spec4-wip/`，
+    再派**明确限制 45 次调用**的续做票。**续做票已交回并落地 `d21ff94eb9f`**（主会话自己复跑：门 103 镜像 **16/16**、
+    `module-context` **8/8**、`--self-test` **75/75**）。**教训**：给子代理的上限要写在任务书里并要求"接近上限先收尾"，
+    而主会话交回前必须自己跑一遍它的测试 —— 这次是主会话先量到 4 例红才发现它没交回完整状态。
+- [x] ✅(2026-09-25) **本波文档接线补齐**（上一版补丁脚本自身有缺陷 ⇒ 三处一处都没落地）：
+  `wire-wave6b.mjs` 用**双引号包长中文串**、串内又嵌了未转义的 `"`，`node --check` 之前没人跑过 ⇒ 当场
+  `SyntaxError: missing ) after argument list`，而它已经**先写了 package.json 之外的两处判断**、崩在第 2 步，
+  结果是"看起来跑了、实际零改动"。修正版 `.ihui-agent/tmp/wire-wave6b-v2.mjs` 换三条规矩：
+  ① **行号定位 + 前缀断言**，改法只有"行尾追加"与"整行前插入"两种，**绝不做跨行字符串替换** ——
+  `AGENTS.md` 里"架构契约对账(103)"这一条被同日 union 留了 **7 份副本**（实测第 1342/1889/1895/1904/1907/1908 行…），
+  按内容替换要么命中多份报错、要么改错一份；现行条目按**最长那一条**认（副本都比它短），改完再断言尾部 skipEnv 仍在；
+  ② 任一断言不过 ⇒ **整批不落盘**（不留半套接线）；③ `package.json` 用**行插入**而非 `JSON.stringify` 重排
+  （重排会把别人的键序与格式整体改动，那不是本票范围），落盘后再 `JSON.parse` 读回新键 + AGENTS 三处探针复验。
+  落地：`pnpm module:context` 入口、AGENTS 门 103 条目补 **E1/E2** 与 `module-context.mjs` 点名（守门 89 R4 要字面点名）、
+  AGENTS §5d 补 A19「候选序解析器必须同时提供出处出口」条款 —— 并**如实写明这条没有门**。
+- [x] ✅(2026-09-25) **门 103 的存量红第二次兑现（同一型事故，间隔不到一天）**：`packages/i18n` 已 `managed:true`，
+  而一枚并发 merge 把**已 `git mv` 走**的 `packages/i18n/tests/waiting-keys-in-end-packages.test.ts` 旧路径副本**带回 HEAD**，
+  新路径 `packages/shared/tests/chat/` 同时在场 ⇒ 全量档当场判红 2 处（D1 未声明依赖 + D2 rank 20 反向依赖 rank 30），
+  而 blocking 门恒红的结局是逼人 `--no-verify` 连带废掉全部守门（§12e 同型）。
+  处置 = 按策略表自己在 09-25 早晨写下的规矩 **`git rm` 旧副本**（先动索引再动磁盘），门 99 以 `[alternative-path]`
+  认定"同名文件已在新位置"⇒ 正当迁移放行。**两副本 diff 逐字核对过**：只有既登记的两处（L27 import 相对层数、
+  L29 `REPO_ROOT` 上溯层数），旧侧不含任何独有内容 ⇒ 删除不丢东西。
+  ⇒ 这条不是新缺陷而是一次**回灌**：`config/architecture-policy.yaml` 里已经写着"搬动已跟踪文件后，只要跨过一次
+  「对侧仍持旧路径」的合流窗口，复活是默认结果"，所以**翻正的块每次合流后必须复跑全量**，不能只信上一次的红=0。
+  **删的时候才暴露出本门第二处缺陷：纯删除型修复永远落不了地**（`planStagedScope` 的"暂存集为空 ⇒ 回退 HEAD 全量"分支
+  不排除本次提交正删除的路径 —— 删掉违规文件的那枚提交，暂存集里没有源文件 ⇒ 回退 HEAD ⇒ HEAD 里那个文件还在 ⇒ 判红 ⇒
+  被自己的归因闸判成"本任务自己的红"而拒绝 `--no-verify`）。本门要拦的是"**提交后**仓库仍违规"，而删除恰恰是修复动作，
+  对着修复前的快照问责等于惩罚修复。修法：回退档按 `HEAD 源文件 ∖ 本次 D 清单` 取材，且**剔除清单必须打印**
+  （静默排除 = 判据失效）—— 第一版把剔除算在**索引面**上，而 D 形态的路径根本不在索引源文件清单里，
+  于是真实场景永远打印"剔除了 0 个"，等于换了个姿势静默；现由 `planStagedScope` 一次算出 `keep` + `droppedDeleted`（单一真相源，
+  拆两处算必漂移）。取证：`--self-test` 由 75 → **79 例**（新增两条成对 + 两条边界：无删除时不得凭空剔除）、镜像 **16/16** 未受影响、
+  真实现场 `--staged` 由 rc=1 转 rc=0 且结论行点名"已剔除本次提交删除的 1 个源文件(…waiting-keys-in-end-packages.test.ts)"。
+
 ## O61 safe-commit 的"钩子失败归因"从抄来的结论改成量出来的结论（2026-09-25 立并完成 ✅）
 
 - [x] ✅(2026-09-25)**`safe-commit.mjs` 在首次 commit 失败后打印「按用户规则"hook 失败因其他 agent 代码 → --no-verify 重试"」，但它从未计算过归因** —— 那句是抄来的结论，不是量出来的。
