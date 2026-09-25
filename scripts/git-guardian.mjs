@@ -1468,16 +1468,18 @@ function reportBaselineFreshness() {
   const d = a.drift || {}
   const up = a.upstream || {}
   const mn = a.main || {}
+  // 只在"有东西可看"时写行:全绿且零漂移的日子保持安静(健康时不写行是本日志的既有约定)。
   const parts = [
-    `①${up.status ?? '?'}${up.behind != null ? `(落后 ${up.behind})` : ''}`,
-    `②${mn.status ?? '?'}${mn.behind != null ? `(落后 ${mn.behind}/独有 ${mn.own})` : ''}`,
+    `①${up.status ?? '?'}${typeof up.behind === 'number' ? `(落后 ${up.behind})` : ''}`,
+    `②${mn.status ?? '?'}${typeof mn.behind === 'number' ? `(落后 ${mn.behind}/独有 ${mn.own})` : ''}`,
     `③漂移面 ${d.total ?? '?'} 个路径(源码类 ${d.sourceClass ?? '?'})`,
   ]
   if (full)
     parts.push(
-      `旧基线 ${d.stale ?? '?'} 个${d.oldest ? `(最旧 ${d.oldest.commit}${d.oldest.span ? ` 落后 ${d.oldest.span} 次` : ''})` : ''}`,
+      `旧基线 ${d.stale ?? '?'} 个${
+        d.oldest ? `(最旧 ${d.oldest.commit}${typeof d.oldest.span === 'number' ? ` 落后 ${d.oldest.span} 次` : ''})` : ''
+      }`,
     )
-  // 只在"有东西可看"时写行:全绿且零漂移的日子保持安静(健康时不写行是本日志的既有约定)。
   const noteworthy =
     (d.total ?? 0) > 0 ||
     up.status === 'red' ||
