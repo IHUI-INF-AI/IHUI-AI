@@ -59,7 +59,12 @@
  *     的负向用例**与**「那种提法必须判红」的阳性用例(双向),见 --self-test P15-P20 与 M7、M8。
  *
  * 取材铁律:一律按 **HEAD 提交内容**判,不读工作区(本机是多会话共享工作区,工作区文件
- *   可能滞后/脏,读它会产出相反结论)。子进程一律 execFileSync(<git 绝对路径>,
+ *   可能滞后/脏,读它会产出相反结论)。**2026-09-26 取材收口(门 118)**:所有 **blob 正文**
+ *   改经 `scripts/lib/face-reader.mjs` 的 `catBatch` **一次批量预取**(层兜住 git 绝对路径 /
+ *   batch 的 stdio[0]=pipe / fork 风暴 / junction 穿根 / maxBuffer 五件各门自己写必错的事);
+ *   只做**路径枚举/存在性/内容检索**的调用(`ls-tree --name-only` / `git grep`)不读整篇 blob、
+ *   层无对应出口,**留原样** —— 把它们硬算成"读内容"再重写会把判据换掉(本仓登记过的假阳型)。
+ *   子进程一律 execFileSync(<git 绝对路径>,
  *   ['-c','safe.directory=*','-C',root,…],{ windowsHide:true, timeout, maxBuffer })。
  *   取文件内容**不 .trim()**(尾行曾被吃掉,使一道自愈闸静默失效一整天);只有取 sha 才 trim。
  *   **例外(2026-09-24,文档面 R2/R4)**:AGENTS.md / README.md 按 **HEAD ∪ 索引(staged)**判。
@@ -102,10 +107,18 @@ const DEFAULT_ROOT = resolve(__dirname, '..')
 /** 本门自身豁免:创建当期 HEAD 里还没有它(鸡生蛋),接线由登记方补齐 */
 const SELF_EXEMPT_SCRIPT = 'check-gate-wiring.mjs'
 
+/**
+ * 文档面参与判定的两份权威文档。预取规格按它生成;docReader.read(...) 的调用点是
+ * 字面量(镜像测试 T15 的装车锁)—— 两处若漂移(新增第三份文档忘了进这里),
+ * 后果是 blobOf 对未预取规格**当场抛** ⇒ exit 2 大声失败,不会静默错判。
+ */
+const DOC_FILES = ['AGENTS.md', 'README.md']
+
 // R8 的红条件**不自己发明**:直接取 runner 归一层(lib/guardian-triggers.mjs)的契约 ——
 // 那道 lib 自 2026-09-25 起负责判定"什么形态会让整批门中止",本门若另写一套形状规则,
 // 两边必然漂移(而漂移的方向永远是某道门对合法注册恒红 ⇒ 逼人 --no-verify ⇒ 全部守门作废)。
 import { normalizeTriggers } from './lib/guardian-triggers.mjs'
+import { catBatch, Undetermined } from './lib/face-reader.mjs'
 
 // ─── git 二进制解析(§5b:不得依赖环境) ───────────────────────────────────
 let GIT_BIN = 'git'
@@ -184,25 +197,20 @@ export function combineDocSources({ headText, indexText }) {
 }
 
 /**
- * 按路径读取权威文档:HEAD 与索引各取一次,交给 combineDocSources 归并;
+ * 按路径读取权威文档:HEAD 与索引各取一份,交给 combineDocSources 归并;
  * modes() 返回每份文档实际使用的口径(结论行如实报出用哪个,绝不静默)。
+ *
+ * 2026-09-26 取材收口:两侧内容改由**同一批** catBatch 预取的 map 提供(blobOf),
+ * 归并判据(HEAD∪索引/退回链/口径如实报出)**一字未动** —— 并集语义是本门的核心防线,
+ * 换的只是"内容从哪条管子来",不是"哪些面参与判定"。
  */
-function makeDocReader(root) {
+function makeDocReader(blobOf) {
   const used = []
   const seen = new Set()
   const read = (rel) => {
-    let headText = null
-    let indexText = null
-    try {
-      headText = git(['show', `HEAD:${rel}`], root)
-    } catch {
-      /* HEAD 里没有(新文档/首枚提交前的夹具):退回并由 mode 如实报出 */
-    }
-    try {
-      indexText = git(['show', `:${rel}`], root)
-    } catch {
-      /* 索引里没有(未跟踪),或处于未合并冲突态(:<path> 歧义):退回 HEAD */
-    }
+    // 规格已随主批预取;取不到(null)= 该面没有这份文档,由 combineDocSources 按退回链处置
+    const headText = blobOf(`HEAD:${rel}`)
+    const indexText = blobOf(`:${rel}`)
     const r = combineDocSources({ headText, indexText })
     if (!seen.has(rel)) {
       seen.add(rel)
@@ -713,13 +721,26 @@ export function findSharedSkipEnvs(runnerText) {
  * @param entries 台账条目
  * @param readAtHead (relPath) => string | null  (null = HEAD 里没有该路径)
  */
+/**
+ * 纯函数:从 dispatcher 字段里挑「像路径的 token」(唯一一份实现)。
+ * 主流程建预取规格与 validateDispatcherClaims 判据**共用**这一支 —— 两处各写一遍
+ * 必然漂移,而漂移的形态是"validate 问一个没预取的规格"(当场炸)或"预取了一堆没人问的"。
+ */
+export function dispatcherToken(d) {
+  return (
+    String(d || '')
+      .split(/[\s,;]+/)
+      .find((t) => t.includes('/') || /\.[a-z]{1,6}$/i.test(t)) || null
+  )
+}
+
 export function validateDispatcherClaims(entries, readAtHead) {
   const problems = []
   for (const e of entries || []) {
     if (!e || typeof e.script !== 'string') continue
     if (e.type !== 'dispatcher' && !e.dispatcher) continue
     const d = String(e.dispatcher || '')
-    const token = d.split(/[\s,;]+/).find((t) => t.includes('/') || /\.[a-z]{1,6}$/i.test(t))
+    const token = dispatcherToken(d)
     if (!token) {
       problems.push({
         script: e.script,
@@ -851,7 +872,70 @@ async function main(argv = process.argv.slice(2)) {
     }
   }
 
-  // 2) 点 1-4 与点 5 各跑一次 git grep(-F 全字面,一次覆盖全部 154 枚)
+  // 2) 台账(原步骤 4 整块前移;唯一理由是 dispatcher 依据文件必须进**同一批**预取 —— 判据未动)
+  let allowEntries = []
+  let allowProblems = []
+  const allowPath = join(root, 'scripts', 'gate-wiring-allowlist.json')
+  if (existsSync(allowPath)) {
+    try {
+      const v = validateAllowlist(JSON.parse(readFileSync(allowPath, 'utf8')))
+      allowEntries = v.entries
+      allowProblems = v.problems
+    } catch (e) {
+      allowProblems = [`台账 JSON 解析失败: ${e.message}`]
+    }
+  } else {
+    allowProblems = ['缺 scripts/gate-wiring-allowlist.json(按空台账继续)']
+  }
+  const allowByName = new Map(allowEntries.map((e) => [e.script, e]))
+
+  // 3) 判定面 blob **一次批量预取**(2026-09-26 取材收口,门 118)
+  //    旧形态是本文件六处自派生 git 读正文(doc 两面×2 份文档 / 强接线语料 / 台账依据 /
+  //    R1 候选头 / R5·R8 的 runner),真仓一轮 ≈ 170 次进程创建,且每处自己抄一份
+  //    绝对路径/stdio/timeout —— 抄漏哪件都是"一个环境问题伪装成业务结论"(face-reader 头注)。
+  //    规格集在**读之前**一次规划完;此后一律先 prefetch 再 read,未预取的规格直接抛
+  //    (Undetermined ⇒ 调用栈顶 exit 2),绝不偷偷补一次派生把退化掩盖成正常。
+  //    刻意不预取的两类:ls-tree/grep 只做枚举与内容检索(层无对应出口,不读整篇 blob);
+  //    gate 候选的 **索引版** 不读 —— R1/R5/R7 的口径就是 HEAD,只有文档面与 R8 需要索引侧。
+  const blobSpecs = new Set()
+  for (const doc of DOC_FILES) {
+    blobSpecs.add(`HEAD:${doc}`)
+    blobSpecs.add(`:${doc}`)
+  }
+  const RUNNER_REL = 'scripts/guardian-runner.mjs'
+  blobSpecs.add(`HEAD:${RUNNER_REL}`)
+  blobSpecs.add(`:${RUNNER_REL}`)
+  for (const n of gateNames) blobSpecs.add(`HEAD:scripts/${n}`)
+  const isCorpusFile = (f) =>
+    f.endsWith('.mjs') || f.endsWith('.js') || f === 'package.json' || f.startsWith('.husky/')
+  for (const pt of pointPathsWithFiles) {
+    if (pt.tier !== 'strong') continue
+    for (const f of pt.files) if (isCorpusFile(f)) blobSpecs.add(`HEAD:${f}`)
+  }
+  for (const e of allowEntries) {
+    if (!e || typeof e.script !== 'string') continue
+    if (e.type !== 'dispatcher' && !e.dispatcher) continue
+    const tok = dispatcherToken(e.dispatcher)
+    if (tok) blobSpecs.add(`HEAD:${tok}`)
+  }
+  let blobs
+  try {
+    blobs = catBatch(root, [...blobSpecs])
+  } catch (e) {
+    console.error(
+      `❌ 无法判定:判定面 blob 一次批量预取失败(${String(e?.message || e).split('\n')[0].slice(0, 160)})—— 判据未能执行,既不记红也不记绿`,
+    )
+    return 2
+  }
+  const blobOf = (spec) => {
+    if (!blobs.has(spec))
+      throw new Undetermined(`未预取的规格:${spec}(先 prefetch 再 read,禁止补一次派生)`)
+    return blobs.get(spec)
+  }
+
+  // 4) 点 1-4 与点 5 各跑一次 git grep(-F 全字面,一次覆盖全部 154 枚)
+  //    留在层外是**如实决策**:`git grep` 是内容检索器不是 blob 读取器 —— 它有自己的
+  //    -I 二进制过滤/rev:path:line 输出语义,用预取 blob + 手搓匹配重写等于换判据。
   const hitsByPoint = new Map()
   for (const pt of pointPathsWithFiles) {
     hitsByPoint.set(pt.id, new Set())
@@ -868,23 +952,16 @@ async function main(argv = process.argv.slice(2)) {
     }
   }
 
-  // 3) 模板形态(${target} 拼接 / path.join 派生)补判 —— 只补强接线点里未命中的
+  // 5) 模板形态(${target} 拼接 / path.join 派生)补判 —— 只补强接线点里未命中的
+  //    语料取自步骤 3 的同批预取(isCorpusFile 与预取共用一支,两处不可能漂移)。
   const strongCorpus = []
   for (const pt of pointPathsWithFiles) {
     if (pt.tier !== 'strong') continue
     for (const f of pt.files) {
-      if (
-        f.endsWith('.mjs') ||
-        f.endsWith('.js') ||
-        f === 'package.json' ||
-        f.startsWith('.husky/')
-      ) {
-        try {
-          strongCorpus.push(git(['show', `HEAD:${f}`], root))
-        } catch {
-          /* 取不到即如实不加入 */
-        }
-      }
+      if (!isCorpusFile(f)) continue
+      const t = blobOf(`HEAD:${f}`)
+      if (typeof t === 'string') strongCorpus.push(t)
+      /* 取不到(null)即如实不加入 —— 与旧 catch 分支同义 */
     }
   }
   const templateMatchers = buildTemplateMatchers(strongCorpus.join('\n'))
@@ -895,34 +972,15 @@ async function main(argv = process.argv.slice(2)) {
     if (src) templateHit.set(n, src)
   }
 
-  // 4) 台账
-  let allowEntries = []
-  let allowProblems = []
-  const allowPath = join(root, 'scripts', 'gate-wiring-allowlist.json')
-  if (existsSync(allowPath)) {
-    try {
-      const v = validateAllowlist(JSON.parse(readFileSync(allowPath, 'utf8')))
-      allowEntries = v.entries
-      allowProblems = v.problems
-    } catch (e) {
-      allowProblems = [`台账 JSON 解析失败: ${e.message}`]
-    }
-  } else {
-    allowProblems = ['缺 scripts/gate-wiring-allowlist.json(按空台账继续)']
-  }
-  const allowByName = new Map(allowEntries.map((e) => [e.script, e]))
+  // 台账读取与 allowByName 已前移到步骤 2(见上);这里只留 R7 判据本身。
   // R7:台账的 dispatcher 依据必须可核验(台账是唯一豁免出口,依据能编 = 反滥用设计塌了)
-  const dispatcherProblems = validateDispatcherClaims(allowEntries, (rel) => {
-    try {
-      return git(['show', `HEAD:${rel}`], root)
-    } catch {
-      return null
-    }
-  })
+  //    依据文件取自同批预取;规格与 validateDispatcherClaims 共用 dispatcherToken,不会问空。
+  const dispatcherProblems = validateDispatcherClaims(allowEntries, (rel) => blobOf(`HEAD:${rel}`))
 
-  // 5) R1 头部声称:只对本轮「未接线」候选读 blob(省 spawn 次数)
-  //    文档面(R2/R4)自 2026-09-24 起按 HEAD∪索引判 —— 理由与边界见文件头「取材铁律」例外条款。
-  const docReader = makeDocReader(root)
+  // 6) R1 头部声称:候选头 blob 与文档面两侧都取自步骤 3 的同批预取
+  //    文档面(R2/R4)自 2026-09-24 起按 HEAD∪索引判 —— 理由与边界见文件头「取材铁律」例外条款;
+  //    2026-09-26 只换了"内容从哪条管子来",并集判据(combineDocSources)一字未动。
+  const docReader = makeDocReader(blobOf)
   const agentsText = docReader.read('AGENTS.md')
   const agentsClauses = splitAgentClauses(agentsText)
   const candidates = gateNames.filter(
@@ -931,11 +989,11 @@ async function main(argv = process.argv.slice(2)) {
   const headerClaimsByName = new Map()
   for (const n of candidates) {
     if (n === SELF_EXEMPT_SCRIPT) continue
-    let blob = ''
-    try {
-      blob = git(['show', `HEAD:scripts/${n}`], root)
-    } catch (e) {
-      console.error(`❌ git show HEAD:scripts/${n} 失败: ${e.message}`)
+    const blob = blobOf(`HEAD:scripts/${n}`)
+    if (blob === null) {
+      console.error(
+        `❌ 无法判定:取不到 scripts/${n} 的 HEAD blob(批量预取结果里没有 ⇒ 枚举与内容不同面,拒绝当作"无声称"继续判)`,
+      )
       return 2
     }
     headerClaimsByName.set(n, extractHeaderClaims(extractHeaderRegion(blob)))
@@ -978,15 +1036,14 @@ async function main(argv = process.argv.slice(2)) {
   const revocable = findRevocableExemptions(allowEntries, new Set(by('wired').map((r) => r.script)))
   const staleExempt = findStaleExemptions(allowEntries, new Set(gateNames))
   // R5 重复 id(判红)/ R6 共用 skipEnv(只报数):都是"接线层的结构性自撞",不是内容判据。
-  let runnerText = ''
-  try {
-    runnerText = git(['show', 'HEAD:scripts/guardian-runner.mjs'], root)
-  } catch (e) {
+  const runnerHead = blobOf(`HEAD:${RUNNER_REL}`)
+  if (runnerHead === null) {
     console.error(
-      `❌ 读不到 HEAD:scripts/guardian-runner.mjs ⇒ R5/R6 无法判定(拒绝当作已通过):${e.message}`,
+      `❌ 读不到 HEAD:scripts/guardian-runner.mjs ⇒ R5/R6 无法判定(拒绝当作已通过):blob 预取结果里没有这份(HEAD 无该文件,或枚举与内容不同面)`,
     )
     return 2
   }
+  const runnerText = runnerHead
   const dupIds = findDuplicateIds(runnerText)
   const sharedEnvs = findSharedSkipEnvs(runnerText)
   if (dispatcherProblems.length) {
@@ -1017,13 +1074,13 @@ async function main(argv = process.argv.slice(2)) {
   let r8Text = runnerText
   let r8Face = 'HEAD'
   if (opts.staged) {
-    try {
-      r8Text = git(['show', ':scripts/guardian-runner.mjs'], root)
+    // 索引版与 HEAD 版同批预取(`:path` 规格);null = 索引里没有(未暂存/未跟踪)⇒ 退回 HEAD 面
+    const idxRunner = blobOf(`:${RUNNER_REL}`)
+    if (idxRunner === null) {
+      console.log('   ⚠️ R8 取不到索引版 guardian-runner(索引 blob 不存在)⇒ 退回 HEAD 面')
+    } else {
+      r8Text = idxRunner
       r8Face = '索引'
-    } catch (e) {
-      console.log(
-        `   ⚠️ R8 取不到索引版 guardian-runner(${e.message.split('\n')[0].slice(0, 80)})⇒ 退回 HEAD 面`,
-      )
     }
   }
   const r8 = findMalformedTriggers(r8Text)
@@ -1925,6 +1982,50 @@ function runSelfTest() {
       `M10b 撒谎点名行只在索引 → R2 必须同样判红(并集双向生效;实得 reds=${jM10b.reds.join('|')})`,
       jM10b.reds.includes('check-lying-r2.mjs:red-r2'),
     )
+
+    // ── 2026-09-26 取材收口(门 118)的构造面证明 ──
+    // R8 是本门唯一「--staged 档优先读**索引**」的读取点,拿它证明批量预取兑现了面口径:
+    //   F1 索引内容 ≠ HEAD ⇒ --staged 档必须跟索引走(修复版进索引后坏形态不再判红);
+    //   F2 反向对照 —— 同一输入在 HEAD 档必须给出 HEAD 的结论(缺了它,"跟索引走"可能只是恒真式);
+    //   F3 只改磁盘不 add ⇒ --staged 仍按索引里的坏版判红(两面都不见工作区,防"顺手读磁盘"退化);
+    //   F4 形状锁:层读取入口必须在位,旧的逐文件派生读正文不得复活。
+    //  条目形态:`id:` 必须**独立成行**才会被 findMalformedTriggers 的 `/\n\s*id:'…'/` 认到
+    //  (与 P28–P29 的 reg() 同形;第一版写成 `{ id: 'ff1', script: … }` 一行式,F2 直接 0 红 ——
+    //   那正是"判据看不见夹具"型假绿,写在这里免得下一个人重踩)。
+    const badR8Runner =
+      "#!/usr/bin/env node\nconst GATES = [\n  { id: 1, script: 'check-wired.mjs' },\n  {\n    id: 'ff1',\n    script: 'check-lying-r1.mjs',\n    stagedTriggers: [],\n  },\n]\n"
+    const goodR8Runner =
+      "#!/usr/bin/env node\nconst GATES = [\n  { id: 1, script: 'check-wired.mjs' },\n  {\n    id: 'ff1',\n    script: 'check-lying-r1.mjs',\n  },\n]\n"
+    const repoR8f = makeFixtureRepo(base, {
+      files: { 'scripts/guardian-runner.mjs': badR8Runner },
+    })
+    const r8Count = (args) => {
+      const r = runGateCli(args)
+      const j = JSON.parse(r.out.slice(r.out.indexOf('{')))
+      return (j.reds || []).filter((x) => x.status === 'red-r8').length
+    }
+    const fHead = r8Count([`--root=${repoR8f}`, '--json'])
+    assert(
+      `F2 取材反向对照:坏 stagedTriggers 已在 HEAD ⇒ HEAD 档必须给 HEAD 的结论(red-r8 应为 1,实得 ${fHead})`,
+      fHead === 1,
+    )
+    writeFileSync(join(repoR8f, 'scripts', 'guardian-runner.mjs'), goodR8Runner, 'utf8')
+    const fDiskOnly = r8Count([`--root=${repoR8f}`, '--staged', '--json'])
+    assert(
+      `F3 只改工作区(未 add)⇒ --staged 仍按索引里的坏版判红(取材没退化读磁盘;red-r8 应为 1,实得 ${fDiskOnly})`,
+      fDiskOnly === 1,
+    )
+    git(['add', 'scripts/guardian-runner.mjs'], repoR8f, { quiet: true })
+    const fStaged = r8Count([`--root=${repoR8f}`, '--staged', '--json'])
+    assert(
+      `F1 取材:索引内容 ≠ HEAD ⇒ --staged 档的 R8 必须跟索引走(修复版进索引后 red-r8 应为 0,实得 ${fStaged})`,
+      fStaged === 0,
+    )
+    const selfSrc = readFileSync(join(__dirname, 'check-gate-wiring.mjs'), 'utf8')
+    assert(
+      'F4 形状锁:判定面 blob 经共用层一次 catBatch;旧的逐文件派生读正文形态不得复活(复活=fork 风暴+PATH 依赖)',
+      /catBatch\(/.test(selfSrc) && !/git\(\['show'/.test(selfSrc),
+    )
   } catch (e) {
     assert(`EX 端到端异常: ${e && e.message}`, false)
   } finally {
@@ -1981,6 +2082,8 @@ export const __test__ = {
   findStaleExemptions,
   validateAllowlist,
   makeFixtureRepo,
+  // 2026-09-26 取材收口:token 提取与批量预取共用这一支,镜像测试要能直接拿到(§22c)
+  dispatcherToken,
   // R8:红条件委托给 lib,镜像测试要能直接拿到这三个出口构造正反例(§22c)
   findMalformedTriggers,
   parseTriggersLiteral,
