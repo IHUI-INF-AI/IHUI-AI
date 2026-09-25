@@ -801,19 +801,42 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     // 注意:apps/api 契约里另有 `/api/browser/probe|screenshot`(服务端渲染截图面),
     // 与本 scope 的 browser_* 工具面无关,不得混用。
     //
-    // 2026-09-25 判定:句柄族 `browser_page_*` / 页内 `page_*` 动词**不进本目录**。
-    // 本目录是「对外机器凭据可调面」的单一事实源 —— 条目必须同时给出真实端点与暴露它的
-    // 工具名。而 page_* 两族动词没有任何服务端 HTTP/MCP 入口:
-    //   · ai-service 全仓 `grep browser_page|page_snapshot app/**/*.py` 零命中
-    //     (`_TOOLS` 与 mcp_server 都没有该族 ⇒ `POST /api/browser/*` 收到也只会 4xx);
-    //   · 真正的执行体只有两处 —— apps/cli 自有 CDP 会话(`src/tools/browser-page.ts`,
-    //     本地进程内注册,不经 api 的鉴权面)与 extension content script(经
-    //     `POST /api/agent-control/execute`,该路由是内部服务凭据通道、本身不在本目录)。
-    // 在此登记一条没有落点的工具名,等于对开发者控制台宣称一个不存在的可调用能力
-    // (D 判据只反查 routes,不查 tools ⇒ 这种谎本门抓不到,只能靠这条判定说明)。
-    // 若将来把它做成 MCP 工具或 /v1 端点,须同票登记工具名并重跑 `pnpm capabilities:export`。
+    // 句柄族 `browser_page_*` 于 2026-09-25 登记进 tools —— 同日早先的判定("page_* 两族动词
+    // 没有任何服务端 HTTP/MCP 入口,故不登记")当时成立、现已被这张票消除:ai-service 侧现在有
+    // 真实工具面(app/services/page_control_bridge.py 注册七个 browser_page_* 工具),而它也有
+    // 真实落点(下面两条 agent-control 端点)。登记一条没有落点的工具名 = 对开发者控制台宣称一个
+    // 不存在的可调用能力,那正是当时拒绝的理由;理由消失,结论才跟着变。
+    //
+    // 这一族的三条路由各自的角色(不要把三条读成"三个可调面"):
+    //   · POST /api/agent-control/execute  执行面。category='browser' 经 apps/api 的
+    //     CATEGORY_ENDPOINT 择到 endpoint='extension',由扩展 content script 执行、
+    //     POST /result 回传。**ai-service 没有 DOM**,它的 handler 只转发 —— 把它写成本地
+    //     实现会给模型一份永远为真的假回执,那比不登记更糟。
+    //   · GET  /api/agent-control/status   授权面。只回**各族动作计数**(不含页面内容),
+    //     服务端闸 control_autonomy.filter_unauthorized_page_tools 读它的
+    //     browserPageActions>0;查不到即摘工具(fail-closed)。
+    //   · POST /api/browser/*              同 scope 的选择器族(上方注释,归属未变)。
+    //
+    // 数据边界(项目口径"只开放功能不开放数据",三条都是实测而非意图):
+    //   · 句柄与页面正文**不进 /v1 机器凭据面**:v1 网关构造上游请求体的字段是白名单
+    //     (apps/api/src/routes/v1-messages.ts 的 openaiBody 只放 model/messages/max_tokens/
+    //     temperature/top_p/stop/tools/tool_choice/metadata),不含 agent_tools ⇒ 机器凭据
+    //     请求不到这一族;且 /api/agent-control/* 不在 config/open-capability-registry.ts 的
+    //     paths 清单(该清单是"新增端点必须显式补进来才可对机器凭据开放"的封闭表)⇒ 也打不开
+    //     执行通道。反向对照见 apps/ai-service/tests/test_page_control_bridge.py。
+    //   · thirdPartyEligible=false 保持不变:这一族读的是用户正在浏览的**任意站点**,
+    //     永不对第三方 key 开放。
+    //   · 授权 = 双条件:客户端显式携带工具名(web 的 AGENT_TOOLS / 浏览器插件清单)+ 该用户
+    //     在线的扩展端申报了 browserPageActions。它**不进** control_autonomy 的词面自动注入
+    //     (那张表只覆盖四族应用内 UI,语义是"操作我们自己的站点")。
+    //   · 快照正文只在**用户自己的对话流**里出现(与 web_ui_read / browser_extract_dom 同一条
+    //     会话通道),没有第二条出口。
     host: 'ai-service',
-    routes: ['POST /api/browser/*'],
+    routes: [
+      'POST /api/browser/*',
+      'POST /api/agent-control/execute',
+      'GET /api/agent-control/status',
+    ],
     tools: [
       'browser_navigate',
       'browser_click',
@@ -831,6 +854,14 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
       'browser_switch_tab',
       'browser_type_text',
       'browser_wait_for_element',
+      // 句柄族(页内语义快照,执行体在扩展 content script)
+      'browser_page_snapshot',
+      'browser_page_click',
+      'browser_page_type',
+      'browser_page_select',
+      'browser_page_hover',
+      'browser_page_press_key',
+      'browser_page_pick_at_point',
     ],
   }),
   c({
