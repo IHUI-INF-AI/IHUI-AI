@@ -141,6 +141,21 @@ if (!hasImport) {
   console.log('[check-web-tokens-sync] @import tokens.css OK')
 }
 
+// base.css 的 @import 由本文件一并守(2026-09-25):原判据在无调度的
+// scripts/check-web-tokens-import.mjs 里 —— 那道判据今天没有任何调度器执行它(门 89 分类:
+// "有判据但零调用"),而 base.css 一旦不再被 @import,web 端拿不到 base 层样式且不报错。
+// 与小程序端对称:apps/miniapp-taro/src/app.css 的 base.css @import 由
+// scripts/check-miniapp-taro-design-tokens.mjs:247 判。刻意不另挂一道新门(§3 零冗余,
+// 两个漂移源必然各自腐烂)。
+const BASE_IMPORT_RE = /@import\s+['"][^'"]*design-tokens\/src\/styles\/base\.css['"]/
+if (!BASE_IMPORT_RE.test(webCss)) {
+  console.error('[check-web-tokens-sync] REGRESSION: globals.css missing @import base.css!')
+  console.error('  base layer (shared resets) is not loaded by any other means on web.')
+  exitCode = 1
+} else if (!quiet) {
+  console.log('[check-web-tokens-sync] @import base.css OK')
+}
+
 const themeVarNames = extractThemeVarNames(tokensCss)
 if (themeVarNames.size === 0) {
   console.error('[check-web-tokens-sync] WARN: tokens.css @theme has no vars')
