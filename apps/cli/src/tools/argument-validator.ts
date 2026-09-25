@@ -59,6 +59,23 @@ export interface ValidationResult {
 // ==================== 主入口 ====================
 
 /**
+ * 内容级相等判定(仅用于"重建过的值是否真的变了")。
+ *
+ * 用 JSON 序列化比对而不是手写深比较:校验器面对的输入来自模型输出的 JSON,
+ * 本就无函数 / 无循环;而比较失败(意外形态)一律返回 false,
+ * 让调用方按"确实发生了转换"处理 —— 宁可多记一条,也不要把真转换漏成没转。
+ */
+function sameContent(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * 校验 tool call 入参。
  *
  * @param args LLM 输出的原始入参(可能含有 string 数字 / null 等)
@@ -126,9 +143,17 @@ export function validateToolArguments(
     if (!(key in argObj)) continue; // 缺失已在上一步报告
     const value = argObj[key];
     if (value === undefined) continue; // 显式 undefined 等同缺失
+    // 与 checkObject 同一条规则:非 required 的顶层属性传 null 等同缺席(见 checkObject 注释)
+    if (value === null && !schema.parameters.required.includes(key)) continue;
     const coercedValue = coerceAndCheck(key, value, paramSchema, errors);
     coerced[key] = coercedValue;
-    if (coercedValue !== value) coercedFields.push(key);
+    // 判"是否发生转换"不能只看引用:checkArray 只要带 items 约束就**必然**返回新数组
+    // (它逐项重建;实测 checkObject 在无改动时原样返回同一引用,所以这一型只有数组)。
+    // 于是每个带 items 的 array 字段每次调用都被记成一次 coercion,而内容逐字没变。
+    // 这个假阳性会同时灌满两处读数:影子遥测的 coercedRuns(它是第③步 enforce
+    // 爆炸半径的预估依据)与离线偏差台账。改判内容:内容相同 ⇒ 没转换;
+    // 比较本身失败(意外形态)⇒ 按"转换了"算,宁可多记一条也不漏。
+    if (coercedValue !== value && !sameContent(coercedValue, value)) coercedFields.push(key);
   }
 
   // 3. 报告未知字段(可选严格模式,默认不报错,只 warn)
@@ -303,6 +328,13 @@ function checkObject(
   if (param.properties) {
     for (const [k, subSchema] of Object.entries(param.properties)) {
       if (!(k in obj) || obj[k] === undefined) continue;
+      // 可选属性上的显式 `null` = "这一项不适用",与缺席同义。
+      // 实测依据(A36 第①步离线台账):851 条历史工具调用里唯一的偏差就是
+      // `todo_write.todos[].summary` 被填成 null —— 那个字段本就写着"(可选)"。
+      // 模型用 null 表达"没有",校验器若判它违规,第③步 enforce 一开就会拒绝掉
+      // 一批完全正当的调用(与本仓"运行时版恒红"那条禁令同型)。
+      // 只豁免**不在本层 required 里**的属性;required 属性传 null 照旧违规。
+      if (obj[k] === null && !(param.required ?? []).includes(k)) continue;
       obj[k] = coerceAndCheck(`${field}.${k}`, obj[k], subSchema, errors);
     }
   }
