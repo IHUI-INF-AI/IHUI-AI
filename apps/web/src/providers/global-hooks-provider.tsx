@@ -30,6 +30,16 @@ const SETTINGS_PATH = '/settings'
 /** 浮层层栈 id(见 @/lib/overlay-stack):Ctrl+/ 帮助面板是全页最上层 */
 const SHORTCUT_HELP_OVERLAY_ID = 'global-shortcut-help-panel'
 
+/**
+ * Ctrl+K 命令面板的层栈 id(2026-09-25,Radix 协作桥):
+ * CommandPalette 是 Radix Dialog(@ihui/ui-react),自带 Esc 关闭但不注册层栈。
+ * 若不桥接,"帮助面板 + 命令面板"叠开时栈顶仍是先注册的帮助面板,
+ * 一次 Esc 会被 Radix(关命令面板)与帮助面板的 window 监听(判栈顶 true)双消费。
+ * 桥接只做注册(open → push,close → pop):Radix 的关闭逻辑自理,
+ * 注册仅让其它已注册层让位(fail-open 语义不变)。
+ */
+const COMMAND_PALETTE_OVERLAY_ID = 'global-command-palette'
+
 const SHORTCUT_ROUTES: Record<string, string> = {
   'global-shortcut:search': '/search',
   'global-shortcut:new-chat': '/chat',
@@ -146,6 +156,14 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
   useNativePushRegister()
   const { resolvedTheme, setTheme } = useTheme()
   const [showCommandPalette, setShowCommandPalette] = React.useState(false)
+
+  // 命令面板(Radix Dialog)桥接层栈:打开时成为栈顶,关闭时退出。
+  // Esc 仍由 Radix 自理;本注册只让帮助面板等已注册层在命令面板之上时让位。
+  React.useEffect(() => {
+    if (!showCommandPalette) return
+    pushOverlay(COMMAND_PALETTE_OVERLAY_ID)
+    return () => popOverlay(COMMAND_PALETTE_OVERLAY_ID)
+  }, [showCommandPalette])
 
   // 主题跨标签页同步:其他标签页修改 localStorage('theme')时,通过 setTheme 跟随
   // next-themes 自带 localStorage 持久化但不监听 storage 事件,需手动桥接。
@@ -272,7 +290,8 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
             if (e.target === e.currentTarget) toggleHelpPanel()
           }}
           onKeyDown={(e) => {
-            if (e.key === 'Escape') toggleHelpPanel()
+            // 与上方 window 监听同一守卫:非栈顶时不得关闭(focus 落在容器时的兜底路径)
+            if (e.key === 'Escape' && isTopOverlay(SHORTCUT_HELP_OVERLAY_ID)) toggleHelpPanel()
           }}
           style={{
             position: 'fixed',

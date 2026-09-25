@@ -7,8 +7,8 @@
  *
  * 判据不是清单而是**棘轮**:对 apps/cli/src/** 每个文件统计"在调用方就地决定危险放行"
  * 的形态数,锚点 = 该文件在 **HEAD 里自身的违规数**,只拦"把旁路加回来/新增一处",
- * 不拦已登记的存量(实测:本票落地后 commands/agent.ts 仍留 1 处,由另一会话在飞,
- * 待其落地后另票收口;commands/config-cmd.ts 的 1 处是 settings getter 形态,
+ * 不拦已登记的存量(commands/agent.ts 的 1 处存量已由 2026-09-25 L7905 收口票迁到
+ * 唯一出口,见 W2/W5;commands/config-cmd.ts 的 1 处是 settings getter 形态,
  * 与危险放行无关但两侧对称计数,不误红也不洗账)。
  *
  * 两种形态都必须覆盖(本仓老课:"门让你怎么写、门就看不见怎么写"):
@@ -84,6 +84,7 @@ const MIGRATED = [
   'server/agent-core.ts',
   'commands/repl.ts',
   'tools/subagent.ts',
+  'commands/agent.ts',
 ] as const
 
 const allFiles = walkTs(srcRoot).map((abs) => ({
@@ -105,7 +106,7 @@ describe('W1 棘轮:任何 src 文件的就地旁路数不得多于该文件自�
         offenders.push(`${f.relCli}: HEAD=${head} 工作树=${work}(危险放行策略只能经 createDangerGate 唯一出口,不得在调用方就地决定)`)
       }
     }
-    // 现值如实喊出来(供交付报告核对):本票落地后应只剩 agent.ts 与 config-cmd.ts 各 1
+    // 现值如实喊出来(供交付报告核对):L7905 收口后应只剩 config-cmd.ts 的 settings getter 1 处
     console.info(`[danger-gate-wiring] 就地旁路现值: ${remaining.join(', ') || '(全零)'}`)
     expect(offenders).toEqual([])
   })
@@ -161,6 +162,27 @@ describe('W4 反向对照:唯一出口的正当写法不得被误报', () => {
       'subagentParent: { modelId, allowDangerous: parentOpts.allowDangerous }',
     ].join('\n')
     expect(countInlineDecisions(sanctioned)).toBe(0)
+  })
+})
+
+describe('W5 L7905 收口:会话级 flag 随 ctx 下发,工具层披露可追溯', () => {
+  it('commands/agent.ts: setupAgentTools 的 ctx 携带 allowDangerous,且就地旁路归零', () => {
+    const src = readFileSync(path.join(srcRoot, 'commands', 'agent.ts'), 'utf-8')
+    expect(src).toMatch(/const ctx: ToolContext = \{[\s\S]{0,300}?allowDangerous: opts\.allowDangerous,/)
+    expect(src).toMatch(/createDangerGate\s*\(\s*\{/)
+    expect(countInlineDecisions(src)).toBe(0)
+  })
+
+  it('server/agent-core.ts: setupAgentTools 调用携带 allowDangerous(与 gate 同源)', () => {
+    const src = readFileSync(path.join(srcRoot, 'server', 'agent-core.ts'), 'utf-8')
+    expect(src).toMatch(
+      /setupAgentTools\(\{[\s\S]{0,400}?allowDangerous: this\.opts\.allowDangerous,[\s\S]{0,400}?confirmDangerous: createDangerGate\(/,
+    )
+  })
+
+  it('tools/subagent.ts: 子代理 ctx 同样携带(与 gate 的 flag 继承同源)', () => {
+    const src = readFileSync(path.join(srcRoot, 'tools', 'subagent.ts'), 'utf-8')
+    expect(src).toMatch(/allowDangerous: parentOpts\.allowDangerous,/)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
