@@ -38,17 +38,43 @@ function isInsideRepo(dir) {
   return rel === REPO_ROOT || rel.startsWith(REPO_ROOT + sep)
 }
 
+const live = new Set()
+
 export function mkScratch(prefix) {
   const root = scratchRoot()
   if (isInsideRepo(root)) {
     throw new Error(`scratch 落点不得在仓库树内: ${root}`)
   }
   mkdirSync(root, { recursive: true })
-  return mkdtempSync(join(root, prefix))
+  const dir = mkdtempSync(join(root, prefix))
+  live.add(dir)
+  return dir
 }
 
 // git 对象是只读文件,Windows 上首删常撞 EPERM,故带重试。
 export function rmScratch(dir) {
   rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+  live.delete(dir)
 }
+
+/**
+ * 进程退出前回收**本进程创建且未被显式删除**的夹具。
+ *
+ * 为什么放在共用层而不是要求各调用方写 try/finally:实测 `scripts/` 里 30 处 mkScratch 调用点
+ * 中,把 `rmScratch` 写在断言之后的比比皆是 —— 一条断言失败就把夹具永久留在 Temp
+ * (2026-09-25 一天漏 3 个,合计约 750KB,来自 `check-cross-end-tokens` 的端到端用例)。
+ * 靠"人人都记得写 finally"是散文约束,已经被证明会漏;这里让它结构上不可能漏。
+ *
+ * 边界(为什么不会误删别人的东西):注册表只含**本进程本次运行** mkScratch 出来的路径,
+ * 显式 rmScratch 过即出表;SIGKILL / 断电不在此列(那种残留由 §26 的每日 Temp 体检兜)。
+ */
+process.on('exit', () => {
+  for (const dir of [...live]) {
+    try {
+      rmScratch(dir)
+    } catch {
+      // 退出路径上不得因清理失败而改写结论 —— 判据的红要留在断言里,不是留在这里
+    }
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
