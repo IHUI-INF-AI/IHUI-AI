@@ -7,6 +7,7 @@ import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { SubscriptionsItem, SubscriptionsScreenProps } from '../../types'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 订阅列表共享屏 — props 注入式跨端组件 */
 export type { SubscriptionsItem, SubscriptionsScreenProps }
@@ -30,9 +31,7 @@ export function SubscriptionsScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.back}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('subscriptions.title')}</Text>
       </View>
 
@@ -96,7 +95,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: 4,
       gap: 12,
     },
-    back: { fontSize: 16, color: tk.text.medium },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     errorText: {
       paddingHorizontal: 10,

@@ -6,6 +6,7 @@ import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ActivityDetailItem, ActivityDetailScreenProps } from '../../types'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 活动详情共享屏 — props 注入式跨端组件 */
 export type { ActivityDetailItem, ActivityDetailScreenProps }
@@ -25,9 +26,7 @@ export function ActivityDetailScreen({
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={styles.back}>{t('common.back')}</Text>
-          </TouchableOpacity>
+          <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
           <Text style={styles.title}>{t('activityDetail.title')}</Text>
         </View>
         <View style={styles.center}>
@@ -41,13 +40,12 @@ export function ActivityDetailScreen({
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={styles.back}>{t('common.back')}</Text>
-          </TouchableOpacity>
+          <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
           <Text style={styles.title}>{t('activityDetail.title')}</Text>
         </View>
         <View style={styles.center}>
           <Text style={styles.error}>{error || t('activityDetail.empty')}</Text>
+          {/* back-label-exempt: 错误态/空态卡片内的按钮文案,或翻页/弹窗关闭动作 —— 此处「返回」是按钮文字而非页头箭头,换裸箭头反而不表意 */}
           <TouchableOpacity onPress={onBack} style={styles.retryBtn}>
             <Text style={styles.back}>{t('common.back')}</Text>
           </TouchableOpacity>
@@ -59,9 +57,7 @@ export function ActivityDetailScreen({
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.back}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('activityDetail.title')}</Text>
       </View>
       <View style={styles.body}>

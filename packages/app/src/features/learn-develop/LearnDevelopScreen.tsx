@@ -16,6 +16,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { LearnDevelopEntry, LearnDevelopScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 export type { LearnDevelopEntry, LearnDevelopScreenProps }
 
@@ -38,9 +39,7 @@ export function LearnDevelopScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </Pressable>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('learnDevelop.title', { fallback: '学习开发' })}</Text>
       </View>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -97,7 +96,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 12,
       gap: 12,
     } as ViewStyle,
-    backText: { fontSize: 16, color: tk.text.medium } as TextStyle,
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary } as TextStyle,
     scrollContent: { paddingHorizontal: 10, paddingVertical: 12, paddingBottom: 24 } as ViewStyle,
     grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 } as ViewStyle,

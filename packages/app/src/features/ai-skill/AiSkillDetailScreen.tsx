@@ -15,6 +15,7 @@ import {
 } from 'react-native'
 import type { TFunction } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** AI 技能详情数据(平台无关,由 wrapper 从 AiSkillMeta 映射) */
 export interface AiSkillDetailData {
@@ -77,14 +78,7 @@ export function AiSkillDetailScreen({
     <View style={styles.container}>
       {/* 顶部导航行:返回 / 标题(路由参数 name)/ 占位 */}
       <View style={styles.headerBar}>
-        <Pressable
-          onPress={onBack}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel="back"
-        >
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </Pressable>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.headerTitle} numberOfLines={1}>
           {title}
         </Text>
@@ -176,10 +170,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 16, // px-4
       paddingBottom: 8, // pb-2
       paddingTop: 12, // pt-3
-    },
-    backText: {
-      fontSize: 14, // text-sm
-      color: tk.text.secondary,
     },
     headerTitle: {
       fontSize: 16, // text-base

@@ -17,6 +17,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { N8nModelItem, N8nModelScreenProps, N8nModelTab } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** n8n 模型管理共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { N8nModelItem, N8nModelScreenProps }
@@ -58,9 +59,7 @@ export function N8nModelScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.headerTitle}>{t('n8nModel.title')}</Text>
         <TouchableOpacity style={styles.createBtn} onPress={onCreate} activeOpacity={0.8}>
           <Text style={styles.createText}>{t('n8nModel.create')}</Text>
@@ -206,7 +205,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 10,
       paddingVertical: 12,
     },
-    backText: { fontSize: 16, color: tk.text.secondary },
     headerTitle: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     createBtn: {
       paddingHorizontal: 14,

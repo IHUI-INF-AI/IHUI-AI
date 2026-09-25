@@ -19,6 +19,7 @@ import { Camera, SquarePen } from 'lucide-react-native'
 import type { Gender, ProfileEditScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 资料编辑共享屏 — props 注入式跨端组件(wrapper 负责 getProfile / updateProfile / Alert) */
 export type { ProfileEditScreenProps }
@@ -90,9 +91,7 @@ export function ProfileEditScreen({
       keyboardShouldPersistTaps="handled"
     >
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backBtn}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} style={styles.backBtn} />
         <Text style={styles.title}>{t('profileEdit.title')}</Text>
       </View>
 
@@ -220,7 +219,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 8,
     },
     backBtn: { marginRight: 12 },
-    backText: { fontSize: 16, color: tk.text.medium },
     title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     avatarWrap: { alignItems: 'center', paddingVertical: 16, gap: 8 },
     avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: tk.surface.light }, // radius-exempt: 48x48 圆形头像,半径=边长一半

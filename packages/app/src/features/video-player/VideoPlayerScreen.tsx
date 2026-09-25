@@ -9,6 +9,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { VideoPlayerProgress, VideoPlayerScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 export type { VideoPlayerProgress, VideoPlayerScreenProps }
 
@@ -47,9 +48,7 @@ export function VideoPlayerScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.headerTitle} numberOfLines={1}>
           {title ?? ''}
         </Text>
@@ -137,7 +136,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: 12,
       backgroundColor: tk.gray.black,
     },
-    backText: { fontSize: 18, color: tk.surface.light },
     headerTitle: { flex: 1, fontSize: 16, color: tk.surface.light, marginHorizontal: 12 },
     headerSpacer: { width: 40 },
     noUrlBox: {

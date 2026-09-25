@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { ReactNode, CSSProperties } from 'react'
+import { ChevronLeft } from 'lucide-react'
 import { getTokens, type AppThemeMode } from '../theme/tokens'
 
 /**
@@ -81,11 +82,6 @@ const viewStyles = {
 }
 
 const textStyles = {
-  backArrow: (tk: ReturnType<typeof getTokens>): CSSProperties => ({
-    fontSize: 20,
-    lineHeight: '22px',
-    color: tk.brand.DEFAULT,
-  }),
   title: (tk: ReturnType<typeof getTokens>): CSSProperties => ({
     fontSize: 18,
     fontWeight: 700,
@@ -135,7 +131,7 @@ export function NavBar({
             style={viewStyles.backBtn()}
             aria-label="返回"
           >
-            <span style={textStyles.backArrow(tk)}>{'‹'}</span>
+            <ChevronLeft size={20} color={tk.brand.DEFAULT} />
           </div>
         ) : (
           <div style={viewStyles.sidePlaceholder()} />

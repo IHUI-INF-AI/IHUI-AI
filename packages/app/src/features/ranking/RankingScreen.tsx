@@ -17,6 +17,7 @@ import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type { RankingItem, RankingRange, RankingScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 排行榜/Props 类型 re-export(单一来源 @ihui/types) */
 export type { RankingItem, RankingRange, RankingScreenProps }
@@ -76,13 +77,7 @@ export function RankingScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={onBack}
-          style={styles.backBtn}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} style={styles.backBtn} />
         <Text style={styles.title}>{t('ranking.title')}</Text>
         <Text style={styles.subtitle}>{t('ranking.subtitle')}</Text>
       </View>
@@ -173,7 +168,6 @@ function createStyles(tk: AppThemeTokens) {
     emptyText: { fontSize: 14, color: tk.text.tertiary, marginTop: 8 },
     header: { paddingHorizontal: 10, paddingBottom: 8 },
     backBtn: { marginBottom: 8 },
-    backText: { fontSize: 16, color: tk.text.secondary },
     title: { fontSize: 24, fontWeight: '700', color: tk.text.primary },
     subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     errorBar: {
