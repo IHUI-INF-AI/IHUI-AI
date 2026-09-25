@@ -13,6 +13,7 @@ import type {
   ChatScreenProps,
 } from '../../types'
 import { MessageInput } from './MessageInput'
+import { ContextUsagePanel } from './ContextUsagePanel'
 
 import { rnRadius } from '@ihui/design-tokens'
 
@@ -79,6 +80,7 @@ export function ChatScreen({
   const styles = useMemo(() => createStyles(tk), [tk])
 
   const currentModelName = models.find((m) => m.id === model)?.name || model
+  const currentModelContext = models.find((m) => m.id === model)?.context_length ?? 0
 
   const renderItem = ({ item, index }: { item: ChatScreenMessage; index: number }) => {
     const isUser = item.role === 'user'
@@ -135,6 +137,16 @@ export function ChatScreen({
             <ChevronDown size={14} color={tk.text.secondary} />
           </Text>
         </TouchableOpacity>
+      ) : null}
+
+      {/* 上下文占用归因(消费共享引擎,tailPreview 语义与 web 端一致) */}
+      {showModelBar ? (
+        <ContextUsagePanel
+          t={t}
+          messages={messages}
+          maxTokens={currentModelContext}
+          colorScheme={colorScheme}
+        />
       ) : null}
 
       <Modal
