@@ -39,7 +39,7 @@
  * 退出码:0 = 无需合并或已落地且复核干净;1 = 判据不过/两侧同改冲突需人工/CAS 失败;2 = 脚本自身异常。
  */
 import { execFileSync, spawnSync } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { auditOne } from './check-merge-addition-loss.mjs'
@@ -356,13 +356,60 @@ export function buildUnion(base, ours, theirs, cwd = ROOT, takeOurs = new Set())
   }
 }
 
+/** 逐路径列出 <rev> 的 blob oid(供"按内容判移动"用)。ls-tree -r 的格式是
+ *  `<mode> <type> <oid>\t<path>`,mode 可能是 120000(symlink)/ 160000(gitlink),一律如实带上。 */
+function oidMap(rev, cwd) {
+  const out = git(['ls-tree', '-r', rev], cwd)
+  const m = new Map()
+  for (const line of out.split('\n').filter(Boolean)) {
+    const tab = line.indexOf('\t')
+    if (tab < 0) continue
+    const oid = line.slice(0, tab).split(' ')[2]
+    if (!oid) continue
+    if (!m.has(oid)) m.set(oid, [])
+    m.get(oid).push(line.slice(tab + 1))
+  }
+  return m
+}
+
 /** 零丢失自证(路径面 + 活文档行面)。返回违规清单,空 = 可落地。
- *  两侧同改的"独有行不丢"断言在 buildUnion 里(结果内容当场在手),由 plan 合并进同一道闸。 */
-export function verifyUnion(ours, theirs, tree, cwd = ROOT) {
+ *  两侧同改的"独有行不丢"断言在 buildUnion 里(结果内容当场在手),由 plan 合并进同一道闸。
+ *
+ *  「对侧路径在合并树里找不到」有三种截然不同的成因,必须分开口径(2026-09-25 实测:
+ *  旧写法把第一种也判成吞并,于是收敛永远落不了地,而落地不了就等于各会话继续往 main 堆提交):
+ *    ① 本侧移动且内容逐字节未变 —— 同一 blob 在本侧另一路径上存在 ⇒ 按移动放行;
+ *    ② 本侧移动/删除,且**对侧相对基底根本没改这一路径**(theirs blob == base blob)——
+ *      这一路径的处置权按定义属于本侧(合并基底是本侧整棵树),放行;
+ *      它不弱化守门 100 的立罪面:A1 只管"某父提交有 ∧ 共同基底没有"的新增路径,
+ *      而②的前提恰恰是"基底里有",属本侧对既有路径的改名/搬家/删除;
+ *    ③ 真吞并 —— 对侧改过(或基底没有)而内容在合并树里无处可寻 ⇒ 判红,不落地。
+ *  ①② 一律逐条进 `bad.moved` 并在结论行点名,绝不静默成"0 处"。 */
+export function verifyUnion(ours, theirs, tree, cwd = ROOT, base = null) {
   const M = new Set(listPaths(tree, cwd))
   const bad = []
+  const moved = []
   for (const p of listPaths(ours, cwd)) if (!M.has(p)) bad.push(`合并树丢了本侧路径 ${p}`)
-  for (const p of listPaths(theirs, cwd)) if (!M.has(p)) bad.push(`合并树丢了对侧路径 ${p}`)
+  const theirsLost = listPaths(theirs, cwd).filter((p) => !M.has(p))
+  if (theirsLost.length) {
+    const oursOids = oidMap(ours, cwd)
+    const treeOids = oidMap(tree, cwd)
+    for (const p of theirsLost) {
+      const oid = blobOf(theirs, p, cwd)
+      const landed = oid && treeOids.get(oid)
+      const carried = oid && oursOids.get(oid)
+      const to = landed && carried && landed.find((q) => q !== p && carried.includes(q))
+      if (to) {
+        moved.push(`${p} → ${to}(本侧移动,内容逐字节同一 blob)`)
+        continue
+      }
+      const baseOid = base ? blobOf(base, p, cwd) : null
+      if (baseOid && baseOid === oid) {
+        moved.push(`${p}(本侧已移动或删除;对侧相对基底未改动这一路径 ⇒ 处置权归本侧)`)
+      } else {
+        bad.push(`合并树丢了对侧路径 ${p}`)
+      }
+    }
+  }
   for (const p of LIVE_DOCS) {
     const a = counter(show(ours, p, cwd))
     const b = counter(show(theirs, p, cwd))
@@ -370,6 +417,7 @@ export function verifyUnion(ours, theirs, tree, cwd = ROOT) {
     for (const [l, n] of [...a, ...b])
       if ((m.get(l) || 0) < n) bad.push(`${p} 未存活行:${l.slice(0, 50)}`)
   }
+  bad.moved = moved
   return bad
 }
 
@@ -409,10 +457,13 @@ export function plan(ours, theirs, cwd = ROOT, takeOurs = new Set()) {
   // needHuman 同时进 bad:任何只看 bad 的调用方(含 git-sync-converge 之外的使用者)都不可能
   //   把一枚含冲突文件的树落地。冲突详情仍单独留清单,报告要点名到"是哪个文件"。
   const blocked = built.needHuman.map((h) => `${h.path} 需人工判(${h.kind}):${h.detail}`)
+  const vu = verifyUnion(ours, theirs, built.tree, cwd, base)
   return {
     base,
     ...built,
-    bad: [...built.violations, ...blocked, ...verifyUnion(ours, theirs, built.tree, cwd)],
+    bad: [...built.violations, ...blocked, ...vu],
+    // 按移动放行的那些路径(内容级判据,见 verifyUnion 头注)—— 报告必须逐条点名
+    movedPaths: vu.moved,
   }
 }
 
@@ -427,11 +478,23 @@ function selfTest() {
     run('config', 'user.name', 't')
     writeFileSync(join(dir, 'PROJECT_PLAN.md'), 'a\nb\n', 'utf8')
     writeFileSync(join(dir, 'keep.ts'), 'k\n', 'utf8')
+    // 本侧会把它 mv 成 moved-to.ts(先 mv 后 add,不是 git mv)—— 这是"旧路径在合并树里消失"
+    // 的第二种成因,与守门 100 立罪的那种(内容真的没了)必须分开口径。
+    writeFileSync(join(dir, 'moved-from.ts'), 'M\n', 'utf8')
+    // ② 型夹具:本侧搬家**并改了内容**(相对基底),对侧原封不动 —— 真仓 2026-09-25 就是这个形态
+    // (waiting-keys 用例从 packages/i18n/tests 挪进 packages/shared/tests/chat,顺手改了相对 import)
+    writeFileSync(join(dir, 'edited-from.ts'), 'E\n', 'utf8')
+    // ③ 型夹具:基底有、本侧删、**对侧改** —— 这是必须判红的真吞并(绝不能被①②的通道洗绿)
+    writeFileSync(join(dir, 'theirs-edited.ts'), 'T0\n', 'utf8')
     run('add', '-A')
     run('commit', '-qm', 'init')
 
-    // 本侧:新增一个模块 + 登记一行
+    // 本侧:新增一个模块 + 登记一行 + 把 moved-from.ts 挪到 moved-to.ts + 搬家并改内容 + 删掉对侧随后会改的那个
     writeFileSync(join(dir, 'mine.ts'), 'export const m = 1\n', 'utf8')
+    writeFileSync(join(dir, 'moved-to.ts'), 'M\n', 'utf8')
+    rmSync(join(dir, 'moved-from.ts'), { force: true })
+    writeFileSync(join(dir, 'edited-to.ts'), 'E-changed\n', 'utf8')
+    rmSync(join(dir, 'edited-from.ts'), { force: true })
     writeFileSync(join(dir, 'PROJECT_PLAN.md'), 'a\nb\nours-line\n', 'utf8')
     run('add', '-A')
     run('commit', '-qm', 'ours')
@@ -442,6 +505,7 @@ function selfTest() {
     run('branch', '-D', 'main')
     writeFileSync(join(dir, 'theirs.ts'), 'export const t = 1\n', 'utf8')
     writeFileSync(join(dir, 'PROJECT_PLAN.md'), 'a\nb\ntheirs-line\n', 'utf8')
+    writeFileSync(join(dir, 'theirs-edited.ts'), 'T1-modified\n', 'utf8')
     run('rm', '-q', 'keep.ts')
     run('add', '-A')
     run('commit', '-qm', 'theirs')
@@ -459,6 +523,51 @@ function selfTest() {
       'keep.ts 被顺手删了 ⇒ 与"取某一侧"无区别',
     )
     ok('对侧删除项如实报数', p.skippedDeletes.includes('keep.ts'), JSON.stringify(p.skippedDeletes))
+    // 本侧 mv 走的那条路径:旧路径在合并树里消失,但内容以同一 blob 活在新路径上。
+    // 这一类若按"吞并"判红,收敛就永远落不了地(2026-09-25 实测:门自己把一次合法改名拦成了死局);
+    // 若不打勾点名,它又会变成任何人掩盖吞并的借口 —— 所以两头都要:放行 + 吼出来。
+    ok(
+      '本侧改名(mv 后 add)导致的旧路径消失按移动放行,并逐条点名',
+      p.bad.length === 0 && p.movedPaths.some((m) => m.startsWith('moved-from.ts → moved-to.ts')),
+      `bad=${p.bad.slice(0, 3).join(' / ')} moved=${(p.movedPaths || []).join(' / ')}`,
+    )
+    // ② 搬家**并改了内容**、对侧原封不动:合并树里旧路径消失不是吞并,处置权按定义归本侧。
+    // 真仓 2026-09-25 的拦阻就是这一型 —— waiting-keys 从 i18n/tests 挪进 shared/tests/chat 时顺手改了
+    // 相对 import,于是 blob 不再逐字节相等,旧判据把它当吞并,收敛落不了地。
+    ok(
+      '② 本侧搬家并改内容 ∧ 对侧相对基底未改 ⇒ 按移动放行(不判吞并)',
+      p.movedPaths.some((m) => m.startsWith('edited-from.ts(') && m.includes('对侧相对基底未改动')),
+      `moved=${(p.movedPaths || []).join(' / ')}`,
+    )
+    {
+      // ③ 边界:同一条路径,本侧删 ∧ 对侧改 —— 移动放行通道**不得**把它算成"本侧处置"。
+      // 真行为是保守侧:对侧改过的内容必须活下来(工具的既定纪律 —— "删除不随合并传播,
+      // 确要删必须在合并之后显式 git rm"),所以这里钉的是"它还在,且没被写进 moved 清单"。
+      run('checkout', '-q', '-b', 'ours-del', ours)
+      rmSync(join(dir, 'theirs-edited.ts'), { force: true })
+      run('add', '-A')
+      run('commit', '-qm', 'ours deletes a path theirs edited')
+      const p3 = plan(run('rev-parse', 'HEAD'), theirs, dir)
+      const stillThere = listPaths(p3.tree, dir).includes('theirs-edited.ts')
+      ok(
+        '③ 本侧删 ∧ 对侧改:对侧内容必须存活,且不得被移动通道算成本侧处置',
+        stillThere && !p3.movedPaths.some((m) => m.includes('theirs-edited.ts')) && p3.bad.length === 0,
+        JSON.stringify({ stillThere, bad: p3.bad.slice(0, 2), moved: p3.movedPaths }),
+      )
+      run('checkout', '-q', '--detach', ours)
+      run('branch', '-D', 'ours-del')
+    }
+    {
+      // 反向对照:真吞并不得被移动通道洗绿 —— 拿"本侧整棵树"当合并树,theirs.ts 的内容在本侧无处可寻
+      const oursTree = run('rev-parse', `${ours}^{tree}`)
+      const ghost = verifyUnion(ours, theirs, oursTree, dir)
+      ok(
+        '真吞并仍判红:对侧独有内容在本侧无处可寻时,移动通道不得放行',
+        ghost.some((b) => b.includes('丢了对侧路径') && b.includes('theirs.ts')) &&
+          !ghost.moved.some((m) => m.startsWith('theirs.ts')),
+        `${ghost.join(' / ')} | moved=${ghost.moved.join(' / ')}`,
+      )
+    }
     const doc = show(p.tree, 'PROJECT_PLAN.md', dir)
     ok(
       '台账两侧登记行都必须存活',
@@ -607,6 +716,9 @@ async function main() {
   )
   for (const d of p.skippedDeletes)
     console.log(`  · 对侧删除不随合并生效:${d}(确要删请在合并之后显式 git rm)`)
+  // 移动放行必须吼出来:它放的是"本侧把文件 mv 走了"这一类,不是"对侧新增被吞了"那一类。
+  // 不点名的话,这条通道就会变成任何人掩盖吞并的借口。
+  for (const mv of p.movedPaths || []) console.log(`  · 按移动放行(内容逐字节同一 blob,本侧另有该路径):${mv}`)
   if (p.mergedClean.length)
     console.log(
       `  · 两侧同改的 ${p.mergedClean.length} 个文件已走真三方归并(判据底线 = 各侧独有行重数不减少;\n` +
