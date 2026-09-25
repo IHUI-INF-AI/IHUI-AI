@@ -27,25 +27,38 @@
  *   node scripts/heal-worktree-tracked.mjs --align-drift # 额外对齐"幻影漂移"(索引==HEAD 且内容==祖先版本)
  * 紧急跳过:IHUI_SKIP_WORKTREE_HEAL=1
  */
-import { execFileSync } from 'node:child_process'
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+// git 派生一律走共用层 scripts/lib/face-reader.mjs(2026-09-25 收口):绝对路径 git +
+// `safe.directory` + `core.quotepath=false` + windowsHide + 显式接管 stdio(钩子/计划任务
+// 派生下裸 'git' 依赖 PATH 会直接找不到二进制,而"自愈静默失效"正是本层要防的那一类)。
 // 判据复用守门 84(§22d 已把 CLI 入口与导出分离,import 不会触发副作用)
 import { analyze } from './check-stale-revert.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 
-const GIT = process.env.IHUI_GIT_BIN || 'git'
 export const SKIP_ENV = 'IHUI_SKIP_WORKTREE_HEAL'
 
+/**
+ * 本自愈的派生出口。**`timeout: 0` 是刻意的**:共用层默认为只读派生封顶 60s,而本脚本的
+ * `g` 同时承载写操作(`update-index` / `read-tree` / `restore`)—— 写操作中途被 SIGTERM
+ * 可能留下 `.git/index.lock`,把一次挂起换成全局阻塞(守门 80 的口径正是"只给只读动词加
+ * timeout")。逐动词分流会在每个调用点上多一层"这是读还是写"的判断,漏一处就是引入新风险,
+ * 故整条出口保持与本收口之前**逐字相同**的"无界"语义,不顺手改行为。
+ * maxBuffer 同理保持原有 256MB(`git status --porcelain -z` / `ls-tree -r HEAD` 在滞后严重
+ * 的工作区里都可能超出共用层默认的 64MB)。
+ */
 function makeGit(repoRoot) {
-  return (args, opts = {}) =>
-    execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', ...args], {
-      cwd: repoRoot,
-      encoding: 'utf8',
-      windowsHide: true,
-      maxBuffer: 1 << 28,
-      ...opts,
-    })
+  return (args, opts = {}) => gitRaw(args, repoRoot, { timeout: 0, maxBuffer: 1 << 28, ...opts })
 }
 
 /**
@@ -72,6 +85,27 @@ export function lsStageChunked(g, paths, chunkSize = 150) {
 }
 
 /**
+ * 分批把绝对路径喂给 `git hash-object --`(每路径一行 oid,与 `--stdin-paths` 逐字同值,
+ * 已实测五个真实路径两侧 oid 全等)。用**参数**而不是 stdin:共用层的 `gitRaw` 不接 input
+ * (它把 stdio[0] 显式设成 'ignore',好让任何派生都不可能挂在 stdin 上),而分批同样是
+ * 为了绕开 Windows 命令行长度上限 —— 与 `lsStageChunked` 同一个 150 个一批的量级。
+ * 任一批失败或行数与路径数不等 ⇒ 整批判"取不到"(返回 null),绝不采信半截结果。
+ */
+function hashObjectsChunked(g, absPaths, chunkSize = 150) {
+  const out = []
+  for (let i = 0; i < absPaths.length; i += chunkSize) {
+    const batch = absPaths.slice(i, i + chunkSize)
+    if (!batch.length) continue
+    const lines = g(['hash-object', '--', ...batch])
+      .split('\n')
+      .filter(Boolean)
+    if (lines.length !== batch.length) return null
+    out.push(...lines)
+  }
+  return out
+}
+
+/**
  * 逐批把路径恢复到 HEAD。**一次锁竞争不该让整轮自愈崩掉**:
  * 共享工作区里并行会话的 commit 会瞬时持有 index.lock(实测本会话就撞上一次),
  * 原先三处 restore 循环都是直接 execFileSync —— 抛出即整 tick 失败,而这一层的意义正是
@@ -83,7 +117,7 @@ function restoreToHead(g, paths) {
   for (let i = 0; i < paths.length; i += 40) {
     const batch = paths.slice(i, i + 40)
     try {
-      g(['restore', '--source=HEAD', '--worktree', '--', ...batch], { stdio: ['ignore', 'pipe', 'pipe'] })
+      g(['restore', '--source=HEAD', '--worktree', '--', ...batch])
       done.push(...batch)
     } catch {
       deferred.push(...batch)
@@ -95,25 +129,7 @@ function restoreToHead(g, paths) {
 /** 工作区缺失但索引与 HEAD 完全一致的已跟踪文件 = 被外部删除 */
 export function findOrphanedDeletions(repoRoot) {
   const g = makeGit(repoRoot)
-  const st = execFileSync(
-    GIT,
-    [
-      '-c',
-      'safe.directory=*',
-      '-c',
-      'core.quotepath=false',
-      '-C',
-      repoRoot,
-      'status',
-      '--porcelain',
-      '-z',
-    ],
-    {
-      encoding: 'utf8',
-      windowsHide: true,
-      maxBuffer: 1 << 28,
-    },
-  )
+  const st = g(['status', '--porcelain', '-z'])
   const safe = []
   const held = []
   /**
@@ -132,7 +148,7 @@ export function findOrphanedDeletions(repoRoot) {
     const path = rec.slice(3).trim()
     if (xy === 'D ' && path) {
       try {
-        g(['rev-parse', `HEAD:${path}`], { stdio: ['ignore', 'pipe', 'ignore'] })
+        g(['rev-parse', `HEAD:${path}`])
         if (!existsSync(resolve(repoRoot, path))) orphanIndex.push(path)
       } catch {
         /* HEAD 也没有 ⇒ 不是本类,忽略 */
@@ -148,9 +164,10 @@ export function findOrphanedDeletions(repoRoot) {
     }
     let headBlob = ''
     try {
-      // 路径可能不在 HEAD 里(新增文件);git 的 fatal 要静默 —— 本脚本每 2 分钟被守护跑一次,
-      // stderr 噪音会淹掉真正的自愈审计行
-      headBlob = g(['rev-parse', `HEAD:${path}`], { stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+      // 路径可能不在 HEAD 里(新增文件);git 的 fatal 不得漏进结论面 —— 本脚本每 2 分钟被守护
+      // 跑一次,stderr 噪音会淹掉真正的自愈审计行。接管 stdio 由共用层负责(gitRaw 把 stderr
+      // 收进异常对象而不是透给父进程),这里只需把异常吞成"取不到"。
+      headBlob = g(['rev-parse', `HEAD:${path}`]).trim()
     } catch {
       headBlob = ''
     }
@@ -170,7 +187,7 @@ function isAncestorBlob(g, path, blob) {
     for (const c of anc) {
       let v = ''
       try {
-        v = g(['rev-parse', `${c}:${path}`], { stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+        v = g(['rev-parse', `${c}:${path}`]).trim()
       } catch {
         v = ''
       }
@@ -188,7 +205,10 @@ function isAncestorBlob(g, path, blob) {
  */
 export function snapshotWorktreeBytes(repoRoot, paths, destDir) {
   if (!paths.length) return []
-  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z')
+  const stamp = new Date()
+    .toISOString()
+    .replace(/[-:]/g, '')
+    .replace(/\.\d+Z$/, 'Z')
   const dir = join(destDir || repoRoot, '.ihui-agent', 'tmp', 'worktree-align-snapshots', stamp)
   const done = []
   for (const p of paths) {
@@ -276,7 +296,9 @@ export function compositeDriftPaths(
     const joined = groups.map((ls) => ls.join('\n'))
     let anc = []
     try {
-      anc = g(['log', `--max-count=${lookback}`, '--format=%H', 'HEAD', '--', p]).split('\n').filter(Boolean)
+      anc = g(['log', `--max-count=${lookback}`, '--format=%H', 'HEAD', '--', p])
+        .split('\n')
+        .filter(Boolean)
     } catch {
       continue
     }
@@ -298,7 +320,8 @@ export function compositeDriftPaths(
         .filter(Boolean)
         .sort()
         .join('\n')
-    if (norm(g(['show', `HEAD:${p}`])) === norm(readFileSync(resolve(repoRoot, p), 'utf8'))) continue
+    if (norm(g(['show', `HEAD:${p}`])) === norm(readFileSync(resolve(repoRoot, p), 'utf8')))
+      continue
     if (joined.every((grp) => texts.some((t) => t.includes(grp)))) hits.push(p)
   }
   return hits
@@ -341,17 +364,17 @@ export function refreshStaleIndex(repoRoot, { dryRun = false } = {}) {
   )
   const wtBlob = new Map()
   // 暂存删除(diff-filter=D)的路径在工作区里根本不存在,把它们一起喂给
-  // `hash-object --stdin-paths` 会让整条命令 fatal 退出 ⇒ 本自愈每轮都崩在同一处,
+  // `hash-object` 会让整条命令 fatal 退出 ⇒ 本自愈每轮都崩在同一处,
   // 工作区存续恢复通道等于停摆(2026-09-23 实测:scripts/tests/gitdir-archive-paths.test.mjs)。
   const present = staged.filter((p) => existsSync(resolve(repoRoot, p)))
   if (present.length) {
     try {
-      const hashOut = g(['hash-object', '--stdin-paths'], {
-        input: present.map((p) => resolve(repoRoot, p)).join('\n') + '\n',
-      })
-        .split('\n')
-        .filter(Boolean)
-      if (hashOut.length === present.length) present.forEach((p, i) => wtBlob.set(p, hashOut[i]))
+      const hashOut = hashObjectsChunked(
+        g,
+        present.map((p) => resolve(repoRoot, p)),
+      )
+      if (hashOut && hashOut.length === present.length)
+        present.forEach((p, i) => wtBlob.set(p, hashOut[i]))
     } catch {
       // 取不到工作区 blob ⇒ 宁可不刷新(held),也不要在看不到现场时动索引
     }
@@ -429,7 +452,13 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
   )
   const paths = [...whole, ...composite]
   if (!paths.length || dryRun) {
-    return { aligned: 0, paths, composite: composite.length, dryRun: true, skippedStaged: dirty.length - eligible.length }
+    return {
+      aligned: 0,
+      paths,
+      composite: composite.length,
+      dryRun: true,
+      skippedStaged: dirty.length - eligible.length,
+    }
   }
   // 护栏④:拼合通道覆盖前留现场快照(整块通道命中的工作区内容本就 == 某历史版本,无独有数据)
   const snapshots = snapshotWorktreeBytes(repoRoot, composite)
@@ -484,15 +513,17 @@ function reconcileStaleIndexOrphansInner(g, repoRoot, dryRun) {
   } catch {
     return { reconciled: 0, paths: staged, reason: 'index-unmerged(有冲突条目,跳过)' }
   }
-  // ⚠️ 别用 `rev-list --format=%T` 再按 "tree " 前缀过滤 —— %T 展开的是**裸 sha**(没有前缀),
-  //    那样祖先树集合恒为空,本判据会永远走"属有意删除,不碰"这支(自测 ⑭ 就是这么抓出来的)。
-  // 一次子进程问结论:把每个祖先 commit 的 ^{tree} 喂给 cat-file --batch。
-  const anc = g(['rev-list', '--max-count=60', 'HEAD']).split('\n').filter(Boolean)
+  // ⚠️ %T 展开的是**裸 sha**(行首没有 "tree " 前缀),按 "tree " 过滤会让祖先树集合恒为空,
+  //    本判据于是永远走"属有意删除,不碰"这支(自测 ⑭ 抓出来的正是这个错)。旧实现之所以能用
+  //    前缀过滤,是因为它把 `<c>^{tree}` 喂给 `cat-file --batch`、拿的是对象**头部**;改用
+  //    `rev-list --pretty=format:%T` 后取法是"整行恰为 40 位十六进制",而 `commit <sha>` 那几行
+  //    带前缀、天然不会被误收。两侧集合已实测逐字相等(真仓 60 棵、插入顺序同)。
+  // 一次派生问结论(旧写法是 rev-list + cat-file 两次,共用层不接 stdin 的批量读由它自己兜)。
   const ancTrees = new Set(
-    g(['cat-file', '--batch'], { input: anc.map((c) => `${c}^{tree}`).join('\n') + '\n' })
+    g(['rev-list', '--max-count=60', '--pretty=format:%T', 'HEAD'])
       .split('\n')
-      .filter((l) => /^\w{40} tree /.test(l))
-      .map((l) => l.split(' ')[0]),
+      .map((l) => l.trim())
+      .filter((l) => /^[0-9a-f]{40}$/.test(l)),
   )
   if (!ancTrees.has(idxTree))
     return {
@@ -532,9 +563,22 @@ export function heal(repoRoot, { dryRun = false } = {}) {
   const { safe, held, orphanIndex } = findOrphanedDeletions(repoRoot)
   const rec = reconcileStaleIndexOrphans(repoRoot, { dryRun })
   if (!safe.length)
-    return { restored: 0, held: held.length, reconciled: rec.reconciled, orphanIndex: orphanIndex.length, paths: [] }
+    return {
+      restored: 0,
+      held: held.length,
+      reconciled: rec.reconciled,
+      orphanIndex: orphanIndex.length,
+      paths: [],
+    }
   if (dryRun)
-    return { restored: 0, held: held.length, reconciled: rec.reconciled, orphanIndex: orphanIndex.length, paths: safe, dryRun: true }
+    return {
+      restored: 0,
+      held: held.length,
+      reconciled: rec.reconciled,
+      orphanIndex: orphanIndex.length,
+      paths: safe,
+      dryRun: true,
+    }
   const g = makeGit(repoRoot)
   const { done, deferred } = restoreToHead(g, safe)
   return {
@@ -604,16 +648,23 @@ function selfTestRun() {
       d2.aligned === 0 && readFileSync(join(tmp, 'keep.ts'), 'utf8') === 'v3 未提交的新工作\n',
     )
 
-
-
     // ⑭ 拼合旧基线(取用行形态):整块从未作为整体提交过(整块通道看不见),
     //    但每一块逐字见于历史 ⇒ 复合通道判回潮并对齐。改动行一律写成真实的
     //    单行属性赋值(backgroundColor / color / borderColor),与 §4 取用形态同构。
     const P1 = Array.from({ length: 12 }, (_, i) => '  padA' + i + ': 0,').join('\n')
     const P2 = Array.from({ length: 12 }, (_, i) => '  padB' + i + ': 0,').join('\n')
     const mix = (x, y, z) =>
-      'export const st = {\n  backgroundColor: tokens.brand.' + x + ',\n' +
-      P1 + '\n  color: tokens.brand.' + y + ',\n' + P2 + '\n  borderColor: tokens.brand.' + z + ',\n}\n'
+      'export const st = {\n  backgroundColor: tokens.brand.' +
+      x +
+      ',\n' +
+      P1 +
+      '\n  color: tokens.brand.' +
+      y +
+      ',\n' +
+      P2 +
+      '\n  borderColor: tokens.brand.' +
+      z +
+      ',\n}\n'
     writeFileSync(join(tmp, 'mix.ts'), mix('one', 'one', 'one'))
     g(['add', 'mix.ts'])
     g(['commit', '-qm', 'M1 one/one/one'])
@@ -624,17 +675,32 @@ function selfTestRun() {
     writeFileSync(join(tmp, 'mix.ts'), mix('two', 'two', 'two'))
     g(['commit', '-qam', 'M4(HEAD) two/two/two'])
     writeFileSync(join(tmp, 'mix.ts'), mix('one', 'one', 'two')) // 该组合从未整体提交过
-    check('⑭a 拼合态整块不等于任何祖先(整块通道失效)', analyze(tmp, ['mix.ts'], { source: 'worktree' }).length === 0)
-    check('⑭b 取用行逐块可对上历史 ⇒ 判为回潮', compositeDriftPaths(tmp, ['mix.ts']).includes('mix.ts'))
+    check(
+      '⑭a 拼合态整块不等于任何祖先(整块通道失效)',
+      analyze(tmp, ['mix.ts'], { source: 'worktree' }).length === 0,
+    )
+    check(
+      '⑭b 取用行逐块可对上历史 ⇒ 判为回潮',
+      compositeDriftPaths(tmp, ['mix.ts']).includes('mix.ts'),
+    )
     const d14 = alignDrifts(tmp)
-    check('⑭c 对齐后工作区回到 HEAD', d14.composite === 1 && readFileSync(join(tmp, 'mix.ts'), 'utf8') === mix('two', 'two', 'two'))
-    check('⑭d 覆盖前留了现场快照(护栏③)', d14.snapshots === 1 && existsSync(join(tmp, '.ihui-agent/tmp/worktree-align-snapshots')))
+    check(
+      '⑭c 对齐后工作区回到 HEAD',
+      d14.composite === 1 && readFileSync(join(tmp, 'mix.ts'), 'utf8') === mix('two', 'two', 'two'),
+    )
+    check(
+      '⑭d 覆盖前留了现场快照(护栏③)',
+      d14.snapshots === 1 && existsSync(join(tmp, '.ihui-agent/tmp/worktree-align-snapshots')),
+    )
 
     // ⑮ 单块回潮:本仓 8 个滞后文件的真实形态就是"一条取用行换回旧档名" ⇒ 不受块数限制
     writeFileSync(join(tmp, 'mix.ts'), mix('one', 'two', 'two'))
     check('⑮ 单块取用行回潮同样判拼合', compositeDriftPaths(tmp, ['mix.ts']).includes('mix.ts'))
     alignDrifts(tmp)
-    check('⑮b 已复位到 HEAD', readFileSync(join(tmp, 'mix.ts'), 'utf8') === mix('two', 'two', 'two'))
+    check(
+      '⑮b 已复位到 HEAD',
+      readFileSync(join(tmp, 'mix.ts'), 'utf8') === mix('two', 'two', 'two'),
+    )
 
     // ⑯ 逻辑行被改回旧写法(逐字见于历史,但不是取用行)⇒ 形状护栏不认领本通道;
     //    该文件整块恰等于 M5,故由**既有整块通道**收口 —— 两条通道的分工在这里钉死。
@@ -647,13 +713,19 @@ function selfTestRun() {
     writeFileSync(join(tmp, 'mix2.ts'), lg('a1'))
     check('⑯ 非取用行 ⇒ 本通道不认领(护栏①)', compositeDriftPaths(tmp, ['mix2.ts']).length === 0)
     const d16 = alignDrifts(tmp)
-    check('⑯b 整块等于祖先 ⇒ 由既有整块通道收口(composite=0/aligned=1)', d16.composite === 0 && d16.aligned === 1)
+    check(
+      '⑯b 整块等于祖先 ⇒ 由既有整块通道收口(composite=0/aligned=1)',
+      d16.composite === 0 && d16.aligned === 1,
+    )
 
     // ⑰ 取用行形态、但该写法从未出现在任何历史版本 ⇒ 判据②挡下
     writeFileSync(join(tmp, 'mix.ts'), mix('zz9', 'two', 'two'))
     check('⑰ 未见过的取用行 ⇒ 不判拼合(护栏②)', compositeDriftPaths(tmp, ['mix.ts']).length === 0)
     alignDrifts(tmp)
-    check('⑰b 该文件未被覆盖', readFileSync(join(tmp, 'mix.ts'), 'utf8') === mix('zz9', 'two', 'two'))
+    check(
+      '⑰b 该文件未被覆盖',
+      readFileSync(join(tmp, 'mix.ts'), 'utf8') === mix('zz9', 'two', 'two'),
+    )
 
     // ⑱ 删掉整段尾巴:git 会把删除并进相邻改动块,"只删不增"的 hunk 判据单独用会漏 —— 靠形状护栏兜住
     const cut = mix('one', 'one', 'two').replace(P2 + '\n', '')
@@ -673,7 +745,6 @@ function selfTestRun() {
     alignDrifts(tmp)
     check('⑲b 重排现场保留', readFileSync(join(tmp, 'mix.ts'), 'utf8') === reorderTxt)
     g(['restore', '--source=HEAD', '--worktree', '--', 'mix.ts'])
-
 
     // ⑳ 一次 git 写锁竞争不得让整轮自愈崩掉:失败批次只记账、延到下一 tick(实测本会话就撞上过)
     const boom = () => {
@@ -730,7 +801,10 @@ function selfTestRun() {
     rmSync(join(tmp, 'orphan.ts'), { force: true })
     const o1 = findOrphanedDeletions(tmp)
     check('⑴ 索引孤儿被如实报数', o1.orphanIndex.includes('orphan.ts'))
-    check('⑴b 索引孤儿绝不自动恢复', !o1.safe.includes('orphan.ts') && !existsSync(join(tmp, 'orphan.ts')))
+    check(
+      '⑴b 索引孤儿绝不自动恢复',
+      !o1.safe.includes('orphan.ts') && !existsSync(join(tmp, 'orphan.ts')),
+    )
     // ⑬ 暂存删除(工作区根本没有该文件)不得把刷新整条打崩
     //     —— hash-object --stdin-paths 遇到缺失文件会 fatal 退出,曾使本自愈每轮必崩。
     writeFileSync(join(tmp, 'gone.ts'), 'to be deleted\n')
@@ -750,16 +824,17 @@ function selfTestRun() {
       writeFileSync(join(t3, 'a.ts'), 'a1\n')
       q(['add', '-A'])
       q(['commit', '-qm', 'root'])
-      const bornBlob = q(['hash-object', '-w', '--stdin'], {
-        input: 'born by commit-tree\n',
-      }).trim()
-      const aBlob = q(['rev-parse', 'HEAD:a.ts']).trim()
-      // mktree 的清单走 stdin(注意:makeGit 第二参是 options,不是内容 —— 传错会静默生成空树)
-      const t2 = q(['mktree'], {
-        input: `100644 blob ${aBlob}\ta.ts\n100644 blob ${bornBlob}\tborn-by-bypass.ts\n`,
-      }).trim()
-      const c2 = q(['commit-tree', t2, '-p', 'HEAD']).trim()
-      q(['update-ref', 'refs/heads/main', c2]) // 索引原地不动 ⇒ 与真实现场同形
+      // 旁路提交的**同形现场**:该路径 HEAD 有、索引无、磁盘也没有。
+      // 旧写法是 `hash-object -w --stdin` + `mktree` + `commit-tree` + `update-ref` 四连
+      // (前两条要喂 stdin,而共用层刻意不接 stdin —— 它在层里会变成"读到空输入、静默生成
+      // 空树"那一类假结论)。改用真实命令造出**逐字相同的终态**(HEAD 多一个路径、索引停在
+      // 它的祖先树、磁盘没有该文件),既不再需要门内自拼派生,⑭ 的牙齿也没变松:
+      // `existsSync` 在 restore 之前仍是 false —— 因为写完就先删掉。
+      writeFileSync(join(t3, 'born-by-bypass.ts'), 'born by commit-tree\n')
+      q(['add', 'born-by-bypass.ts'])
+      q(['commit', '-qm', 'bypass: HEAD 里多一个路径(索引随后退回祖先树)'])
+      rmSync(join(t3, 'born-by-bypass.ts'), { force: true })
+      q(['read-tree', 'HEAD~1']) // 索引原地停在旁路提交之前 ⇒ 与 commit-tree+update-ref 同形
       const rec = reconcileStaleIndexOrphans(t3)
       check(
         '⑭ 旁路新增文件以"暂存删除"形态被识别并回写(reason=' + rec.reason + ')',
@@ -846,12 +921,15 @@ async function main() {
   console.log(
     `${dryRun ? '[check] 可恢复' : '已恢复'} ${res.restored || res.paths.length} 个被外部删除的跟踪文件` +
       (res.held ? `;另有 ${res.held} 个他人已暂存的删除(不碰)` : '') +
-      (res.orphanIndex ? `;⚠️ ${res.orphanIndex} 个路径 HEAD 有而索引+磁盘都无(旁路提交孤儿或有意 git rm,只报不修)` : ''),
+      (res.orphanIndex
+        ? `;⚠️ ${res.orphanIndex} 个路径 HEAD 有而索引+磁盘都无(旁路提交孤儿或有意 git rm,只报不修)`
+        : ''),
   )
   for (const p of res.paths.slice(0, 20)) console.log('   - ' + p)
   if (res.orphanIndex) {
     const { orphanIndex } = findOrphanedDeletions(repoRoot)
-    for (const p of orphanIndex.slice(0, 10)) console.log('   ⚠ 索引孤儿 ' + p + ' —— 归属会话提交或 git rm --cached 后方可判清')
+    for (const p of orphanIndex.slice(0, 10))
+      console.log('   ⚠ 索引孤儿 ' + p + ' —— 归属会话提交或 git rm --cached 后方可判清')
   }
   return checkOnly && (res.paths.length || res.orphanIndex) ? 1 : 0
 }
