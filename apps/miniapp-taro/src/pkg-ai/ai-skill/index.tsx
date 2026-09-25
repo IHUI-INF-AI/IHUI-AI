@@ -12,7 +12,6 @@ import { listAiSkills, type AiSkillMeta } from '@ihui/api-client'
 import { useTt } from '@/i18n'
 import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
-import BackChevron from '@/components/BackChevron'
 import ThemeRoot from '@/components/ThemeRoot'
 
 /** Taro rpx 单位换算(1px = 2rpx,750 设计稿基准) */
@@ -211,12 +210,6 @@ export default function AiSkillList() {
     })
   }
 
-  const goBack = () => {
-    Taro.navigateBack({ delta: 1 }).catch(() => {
-      Taro.switchTab({ url: '/pages/index/index' })
-    })
-  }
-
   const retry = () => {
     setLoading(true)
     void load()
@@ -236,7 +229,6 @@ export default function AiSkillList() {
     <ThemeRoot>
       <View style={viewStyles.container(tk, isDark)}>
         <View style={viewStyles.header()}>
-          <BackChevron onTap={goBack} />
           <Text style={textStyles.headerTitle(tk)}>{tt('aiSkill.title', 'AI 技能')}</Text>
           <View style={{ width: toRpx(40) }} />
         </View>
