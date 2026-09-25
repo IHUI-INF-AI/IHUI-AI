@@ -32,7 +32,7 @@
  *   2  环境错误(非 git 仓库/无 origin 等)
  */
 import { execSync, spawn, spawnSync } from 'node:child_process'
-import { appendFileSync, closeSync, mkdirSync, openSync, readSync, statSync } from 'node:fs'
+import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { classifyHookFailure, verdictLine } from './lib/commit-gate-attribution.mjs'
@@ -494,8 +494,32 @@ if (hookFailed && commitResult.status !== 0) {
   log('info', '跳门重试前重新暂存本票文件(首次失败时 lint-staged 已回滚新增文件的索引态)')
   const reAdd = gitStep(['add', '-A', '--', ...expectedFiles], 'git add (retry)')
   if (reAdd.status !== 0) {
-    log('err', `重新暂存失败: ${reAdd.stderr}`)
-    process.exit(1)
+    // **删除型提交的 pathspec 语义与 add 不同**(2026-09-25 临时仓三态实测,不是推测):
+    //   A 索引有 + 盘上无 ⇒ `add -A` 成功;
+    //   B 索引无 + HEAD 有 + 盘上无 ⇒ `add -A` 报 pathspec 不匹配,**而 `git diff --cached`
+    //     在这一态已经把该路径报成 D** ⇒ 旧写法在此 exit 1 纯属误伤;
+    //   C 索引无 + HEAD 无 ⇒ 同样报错,且 diff 为空 ⇒ 只有这一态真的没东西可交。
+    // lint-staged 在提交失败时回滚索引,留下的正是 B,于是"带删除的提交"永远走不到跳门兜底
+    // (实测:一条已入库并推送的删除被并发合流带回后,复删三轮全死在这一行)。
+    // 出口:盘上不在的声明路径改走 `git rm --cached --ignore-unmatch`(幂等;B 态本就成立,
+    // C 态空操作),随后**照旧交给下面的精确性校验** —— 判"该不该中止"的是 diff,不是 add 的退出码。
+    const onDisk = []
+    const deleted = []
+    for (const f of expectedFiles) (existsSync(join(repoRoot, normalize(f))) ? onDisk : deleted).push(f)
+    let recovered = true
+    if (onDisk.length) recovered = gitStep(['add', '-A', '--', ...onDisk], 'git add (retry: 在场文件)').status === 0
+    if (deleted.length && recovered)
+      recovered =
+        gitStep(['rm', '--cached', '--ignore-unmatch', '--', ...deleted], 'git add (retry: 删除态)').status === 0
+    if (!recovered) {
+      log('err', `重新暂存失败: ${reAdd.stderr}`)
+      process.exit(1)
+    }
+    log(
+      'info',
+      `兜底重暂存改走 rm --cached 分支(${deleted.length} 个磁盘上不存在的路径 / ${onDisk.length} 个在场路径)—— ` +
+        'add 只看索引与磁盘,抓不住"已被并发 reset 抹掉且盘上没有"的删除态',
+    )
   }
   {
     const reRaw = run('git diff --cached --name-only --no-renames', { allowFail: true })
