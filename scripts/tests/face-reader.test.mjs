@@ -15,8 +15,17 @@
  * 否则"0 命中"可能只是尺子坏了。
  */
 
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+} from 'node:fs'
 import { join, dirname } from 'node:path'
+import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
@@ -27,6 +36,7 @@ import {
   FACE_LABEL,
   Undetermined,
   catBatch,
+  parseBatch,
   catBatchCheck,
   catBatchOids,
   gitBinary,
@@ -60,10 +70,17 @@ test('层自身:每一处 cat-file --batch* 的 stdio[0] 都必须是 pipe(设�
   // 的**前缀**,按 indexOf 取窗口会永远落在第一个函数上 —— 那意味着后加入层的 batch 出口
   // (catBatchOids)根本不在这条判据的视野里,而这正是本层要防的那一型"尺子看不见自己产出的形态"。
   const sites = [...src.matchAll(/'cat-file',\s*'--batch(?:-check)?'/g)]
-  assert.ok(sites.length >= 3, `层的 batch 出口现测应有 3 处(batch / batch-check / batch-check 用 oid),实得 ${sites.length}`)
+  assert.ok(
+    sites.length >= 3,
+    `层的 batch 出口现测应有 3 处(batch / batch-check / batch-check 用 oid),实得 ${sites.length}`,
+  )
   for (const s of sites) {
     const block = src.slice(s.index, s.index + 700)
-    assert.match(block, /stdio:\s*\[\s*'pipe',\s*'pipe',\s*'pipe'\s*\]/, 'stdio[0] 非 pipe ⇒ 喂不进对象清单')
+    assert.match(
+      block,
+      /stdio:\s*\[\s*'pipe',\s*'pipe',\s*'pipe'\s*\]/,
+      'stdio[0] 非 pipe ⇒ 喂不进对象清单',
+    )
     assert.match(block, /input:\s*Buffer\.from\(/, '对象清单必须由 input 喂进去,不得拼进 argv')
     assert.match(
       block,
@@ -108,7 +125,10 @@ test('gitRaw 的 input 通道真的通(空 stdin 与喂清单的输出必须不�
   const fed = gitRaw(['cat-file', '--batch'], root, {
     input: Buffer.from('HEAD:package.json\n', 'utf8'),
   })
-  assert.ok(String(fed).includes(' blob '), `喂了一个对象却什么都没取回:${String(fed).slice(0, 60)}`)
+  assert.ok(
+    String(fed).includes(' blob '),
+    `喂了一个对象却什么都没取回:${String(fed).slice(0, 60)}`,
+  )
   // 反例:空清单 ⇒ 零输出。两条不同即证明 input 确实到达了 git,而不是被 stdio[0] 丢掉。
   const empty = gitRaw(['cat-file', '--batch'], root, { input: Buffer.from('', 'utf8') })
   assert.equal(String(empty).trim(), '', '空清单应得零输出')
@@ -221,6 +241,37 @@ test('catBatchOids:按行对齐回 oid,且不得像 catBatchCheck 那样把非 h
   )
 })
 
+/**
+ * `parseBatch` 的三条分支用**构造出来的 buffer** 测(不从真仓凑):截断需要"git 少写字节且不报错",
+ * 这在真仓里造不出来 —— 不可构造的分支等于没被验证过的分支,而它恰好就是"静默少扫"那一条。
+ */
+const hdr = (oid, size) => `${oid} blob ${size}\n`
+const O1 = '1'.repeat(40)
+const O2 = '2'.repeat(40)
+test('parseBatch:截断必须抛"无法判定",不得静默把剩余对象当成取不到', () => {
+  const revs = ['HEAD:a.ts', 'HEAD:b.ts', 'HEAD:c.ts']
+  // 正例:三条都有头(中间那条是合法 missing)⇒ 不抛,missing 归 null
+  const full = Buffer.from(
+    hdr(O1, 1) + 'x' + '\n' + `${revs[1]} missing\n` + hdr(O2, 1) + 'y' + '\n',
+    'utf8',
+  )
+  assert.deepEqual([...parseBatch(full, revs).values()], ['x', null, 'y'])
+  // 反例:第 2 条的头根本没出现 = 管道被截。必须抛,而不是返回"一条 + 两条 null"。
+  const cut = Buffer.from(hdr(O1, 1) + 'x' + '\n', 'utf8')
+  assert.throws(
+    () => parseBatch(cut, revs),
+    (e) => e instanceof Undetermined && /截断/.test(e.message),
+    '截断未大声失败 ⇒ 调用方会把它读成"没有违规"',
+  )
+})
+
+test('parseBatch:非 blob 的头(tree / commit)归 null,且不得把内容当下一条头读', () => {
+  // git 对 tree 也写 `<oid> tree <size>` 后跟**内容**;本层的判据面只喂 blob,
+  // 但一旦有人把整棵目录喂进来,必须表现为"取不到"而不是"取到一段乱码"。
+  const out = Buffer.from(`${O1} tree 3\nabc\n`, 'utf8')
+  assert.equal(parseBatch(out, ['HEAD:somedir']).get('HEAD:somedir'), null)
+})
+
 // ───────────────────────── 棘轮:存量认账,增量不认 ─────────────────────────
 //
 // 本票收口的是一类重复:各门各自派生 git。实测分成三型,分别钉住(数字一律以命令现测为准,
@@ -243,31 +294,106 @@ test('catBatchOids:按行对齐回 oid,且不得像 catBatchCheck 那样把非 h
  *    (`gitShow` → 层 `gitRaw`,try/catch 折 null 的语义一字不动)⇒ 现值 82。
  *    这一涨一收正是这条棘轮存在的理由:收口成一层之后,新增一处裸派生从"没人看得见"变成"红一道门"。
  *    另:本批迁的 6 道门用的都是型 B(常量),所以 A 不因那一批下降 —— 这恰好证明"只盯 A 的尺子会以为收口没效果"。
- *  · 型 B:本票首量 10 → 加"必须被当过派生首参"的第二道锚后 9 → **8**(第二枚提交把守门 84
- *    那句 `const GIT = process.env.IHUI_GIT_BIN || 'git'` 收进了层)。`lib/gitdir.mjs` 那处 'git' 是
- *    目录名、不是二进制 —— 第一版尺子被它骗过,所以才有第二道锚。不含本层自己那处**刻意**的最后一档兜底。
- *  · 型 C:首量 9 → 第一批 6 道门收口后 3 → **1**(第二枚再收 103 / 84)。
- *    余下唯一一处是 `scripts/check-cross-end-tokens.mjs`(守门 93),不在本票派单范围内。
+ *  · 型 B:本票首量 10 → 加"必须被当过派生首参"的第二道锚后 9 → 8 → **10**。
+ *    涨的两处是并行会话为守门 107(第三方来源台账)新入库的两个模块
+ *    `scripts/lib/third-party-roots.mjs` 与 `scripts/provenance-ledger.mjs`
+ *    (commit `b68bde4a868`,11:17),形态都是 `const GIT = process.env.IHUI_GIT_BIN || 'git'`
+ *    再 `execFileSync(GIT, …)` —— 型 B 的标准形态。**本票不代他人收口**(那是另一条线的门与
+ *    另一条线的镜像测试),也不把数字压回去装没看见;一行修法与归属记在台账 O63·续。
+ *    第二道锚(必须被当过派生首参)保留 —— `lib/gitdir.mjs` 那处 'git' 是目录名、不是二进制,
+ *    第一版尺子被它骗过。不含本层自己那处**刻意**的最后一档兜底。
+ *  · 型 C:首量 9 → 6 道门收口后 3 → **1**(只剩 `check-cross-end-tokens.mjs`,守门 93,不在派单面)。
+ *    ⚠️ 中途两次"涨到 2/3"量的都是**我自己尺子的假阳**,不是新债:旧正则
+ *    `/cat-file.{0,4}--batch/` 把 JSDoc 里的字样(`import-graph.mjs:164` "一次 cat-file --batch")
+ *    与 usage 字符串里的散文(`git-push-guard.mjs:289` "一次 git cat-file --batch-check 找 missing")
+ *    当成派生调用 —— 被误伤的那两个文件**都已经走本层**。现收紧成 argv 形态
+ *    (`['cat-file', '--batch…']`,注释与字符串里的散文不算),并配两条成对反例。
+ *    教训:**误报比漏报更贵** —— 它的下一步一定是有人为了过门去削判据。
+ *  · 取材面:三把尺子一律判 **HEAD blob**(2026-09-25 从工作树面换过来)。工作树面会把并行会话
+ *    **还没提交**的文件记成我的存量债(当场实测过:`third-party-roots.mjs` 当时是 `??` 未跟踪态),
+ *    而一台恒红的尺子只会逼人跳门。口径与本仓所有内容型守门(70/77/83/98/101/103)一致。
  */
 const BARE_GIT_BASELINE = 82
-const PATH_BOUND_GIT_BASELINE = 8
+const PATH_BOUND_GIT_BASELINE = 10
 const SELF_BATCH_BASELINE = 1
 
-function productionScripts(root) {
+/**
+ * 枚举与取材一律走 **HEAD**,不读工作树。
+ *
+ * 为什么必须换面(2026-09-25 实测):这三条棘轮原本 `readdirSync` 扫工作树,于是并行会话
+ * **还没提交**的文件会直接进我的分母 —— 当场表现为"基线 8 涨到 10",而涨的那两处里
+ * `scripts/lib/third-party-roots.mjs` 实测是 `??` 未跟踪态,根本不属任何已入库状态。
+ * 一台恒红的尺子只有一个结局:各会话跳门,连带全部守门作废(§12e 同型)。
+ * 本仓所有内容型守门(70/77/83/98/101/103)早就统一成"全量判 HEAD blob",棘轮没理由例外。
+ * 代价如实说明:未入库的违规本棘轮看不见 —— 但它一旦提交就会撞上门 80 / 编译期 / 本棘轮,
+ * 由提交者负责,而不是由别人替他平账。
+ */
+
+/**
+ * 只抹注释(整行行注释与成对斜杠星…星斜杠包围的块注释),**不抹字符串** ——
+ * 型 A 要找的派生调用里 `'git'` 本身就是字符串字面量,抹字符串等于把靶子涂掉。
+ *
+ * 为什么必须有这一步(2026-09-25 实测):`scripts/lib/import-graph.mjs` 明明已经 `import catBatch`
+ * 走本层,却被型 C 记成"自拼 batch 的门" —— 命中的是它第 164 行**JSDoc 注释**里那句
+ * "一次 cat-file --batch"。一条把注释当代码的尺子会把"已经收口"判成"又长了一枚债",
+ * 而这类误报的最终出路是有人去削判据或跳门。与守门 80 的 `markHidden` 同一取向。
+ *
+ * (本头注刻意不写出块注释的两个闭合字符 —— 写出来就是把本注释自己提前关掉,已踩过一次。)
+ */
+export function hideComments(src) {
   const out = []
-  const walk = (d) => {
-    for (const e of readdirSync(d, { withFileTypes: true })) {
-      const p = join(d, e.name)
-      if (e.isDirectory()) {
-        if (/(tests|__mocks__|node_modules)/.test(e.name)) continue
-        walk(p)
+  let inBlock = false
+  for (const line of src.split(/\r?\n/)) {
+    let res = ''
+    let i = 0
+    let quote = null // 当前所在字符串的引号(' " `);字符串里的 // 与 /* 都不是注释
+    while (i < line.length) {
+      const ch = line[i]
+      if (inBlock) {
+        if (line.startsWith('*/', i)) {
+          i += 2
+          inBlock = false
+        } else i += 1
         continue
       }
-      if (/\.(mjs|js|cjs)$/.test(e.name)) out.push(p)
+      if (quote) {
+        res += ch
+        if (ch === '\\') {
+          res += line[i + 1] ?? ''
+          i += 2
+          continue
+        }
+        if (ch === quote) quote = null
+        i += 1
+        continue
+      }
+      if (ch === "'" || ch === '"' || ch === '`') {
+        quote = ch
+        res += ch
+        i += 1
+        continue
+      }
+      if (line.startsWith('//', i)) {
+        // 行注释:整段抹平(URL 的 `://` 落在字符串里,已由上面的 quote 分支保住)
+        i = line.length
+        continue
+      }
+      if (line.startsWith('/*', i)) {
+        const end = line.indexOf('*/', i + 2)
+        if (end < 0) {
+          inBlock = true
+          i = line.length
+        } else i = end + 2
+        continue
+      }
+      res += ch
+      i += 1
     }
+    // 抹掉的部分补回等量空格以外的字符会导致行内列号漂移,但三条判据都不依赖列号 ⇒ 直接截断即可;
+    // 唯一必须保住的是**换行**,否则 `$`/multiline 类锚点会跨行误配。
+    out.push(res)
   }
-  walk(join(root, 'scripts'))
-  return out
+  return out.join('\n')
 }
 
 /**
@@ -300,19 +426,131 @@ function pathBoundGitCountOf(text) {
   return n
 }
 
-function filesWith(root, predicate) {
-  const hits = []
-  for (const p of productionScripts(root)) {
-    let src
-    try {
-      src = readFileSync(p, 'utf8')
-    } catch {
-      continue // 读不到交给判据本身暴露,不在这里静默跳过
-    }
-    if (predicate(src)) hits.push(p.slice(root.length + 1).replace(/\\/g, '/'))
+/**
+ * 型 C 的靶形:**argv 形态**的 batch 派生(`['cat-file', '--batch…']`),不是"文本里出现过这几个字"。
+ * 旧写法 `/cat-file.{0,4}--batch/` 会被**字符串里的散文**命中 —— 实测 `git-push-guard.mjs:289`
+ * 的 usage 文案"一次 git cat-file --batch-check 找 missing"被记成一枚未收口的门,而该文件的
+ * 第 9 处自拼 batch 早在 `dfadcc5ba70` 就收进层了。把说明文字当代码,红会指到一个已收口的门,
+ * 而这类误报的最终出路一定是有人去削判据。`--batch-check` 同族照样命中(前缀相同)。
+ * 只此一份定义:下面的 `headDerivationScan` 与本文件的反例夹具都调它,免得两处各自漂移。
+ */
+const hasBatchCall = (s) => /['"]cat-file['"]\s*,\s*['"]--batch/.test(s)
+
+/**
+ * ⚠️ 上面那把尺子量的是**工作树**,而并行会话未提交的改动会直接进分母 ——
+ * 2026-09-25 实测:三条棘轮同时报红(型 B 8→10、型 C 1→2),新增者之一是
+ * `scripts/lib/third-party-roots.mjs`,而它当时是 `??` **未跟踪态**,
+ * 也就是"别人正在写的文件被记成了我的存量债"。本仓每一道内容型守门(70/77/83/98/101/103)
+ * 都统一判 HEAD blob,棘轮没理由例外 ⇒ 下面换成 HEAD 面,并且用临时仓把这条口径钉死。
+ *
+ * 枚举与内容**同面同轮**(一次 `ls-tree` + 一次 `cat-file --batch`),不得"清单读盘 + 内容读 git"。
+ */
+export function headDerivationScan(root) {
+  const listed = spawnSync(
+    GIT,
+    [
+      '-c',
+      'safe.directory=*',
+      '-c',
+      'core.quotepath=false',
+      '-C',
+      root,
+      'ls-tree',
+      '-r',
+      '--name-only',
+      'HEAD',
+      '--',
+      'scripts/',
+    ],
+    { encoding: 'utf8', windowsHide: true, maxBuffer: 1 << 26 },
+  )
+  if (listed.status !== 0)
+    throw new Error(`棘轮取材失败(不是"没有违规"):git ls-tree HEAD 退出 ${listed.status}`)
+  const rel = String(listed.stdout || '')
+    .split('\n')
+    .filter(Boolean)
+    .map((p) => p.replace(/^scripts\//, ''))
+    .filter((p) => /\.(mjs|js|cjs)$/.test(p))
+    // 与换面前的目录排除口径逐字一致:夹具里大量"故意写坏"的样本,计进来就是把判据当分母
+    .filter((p) => !/(^|\/)(tests|__mocks__|node_modules)\//.test(p))
+  if (rel.length === 0)
+    throw new Error('棘轮取材失败:HEAD 的 scripts/ 下列出 0 个生产文件(空扫不记绿)')
+  const blobs = catBatch(
+    root,
+    rel.map((p) => `HEAD:scripts/${p}`),
+    { maxBuffer: 1 << 28 },
+  )
+  const files = rel.map((p) => ({ rel: p, text: blobs.get(`HEAD:scripts/${p}`) }))
+  // 判据一律读**抹掉注释之后**的源码(见 hideComments 的头注:注释里提一句 "cat-file --batch"
+  // 就把已收口的门记成未收口,这种误报的最后出路一定是削判据)
+  const hitsOf = (pred) =>
+    files
+      .filter((f) => typeof f.text === 'string' && pred(hideComments(f.text)))
+      .map((f) => `scripts/${f.rel}`)
+  return {
+    total: files.length,
+    unreadable: files.filter((f) => typeof f.text !== 'string').length,
+    bareGit: hitsOf((t) => bareGitCountOf(t) > 0),
+    pathBoundGit: hitsOf((t) => pathBoundGitCountOf(t) > 0).filter(
+      (p) => p !== 'scripts/lib/face-reader.mjs',
+    ),
+    selfBatch: hitsOf(hasBatchCall).filter(
+      // 按**路径**排除,不是按内容 —— 层的源文本里并不含 "lib/face-reader" 这个串,
+      // 用内容排除等于把层自己算成"未收口的门"(第一版就是这么错的,当场多算 1 枚)。
+      (p) => p !== 'scripts/lib/face-reader.mjs',
+    ),
   }
-  return hits
 }
+
+test('取材面必须是 HEAD:未跟踪文件不得进分母(工作树面会把别人的在飞改动算成我的债)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ratchet-face-'))
+  try {
+    const g = (...a) =>
+      spawnSync(GIT, ['-c', 'safe.directory=*', ...a], {
+        cwd: dir,
+        encoding: 'utf8',
+        windowsHide: true,
+      })
+    g('init', '-q', '-b', 'main')
+    g('config', 'user.email', 't@t')
+    g('config', 'user.name', 't')
+    mkdirSync(join(dir, 'scripts'), { recursive: true })
+    mkdirSync(join(dir, 'scripts', 'lib'), { recursive: true })
+    // 一枚"已入库的债":型 B 声明 + 真被当首参用
+    writeFileSync(
+      join(dir, 'scripts', 'committed-debt.mjs'),
+      "const GIT = process.env.IHUI_GIT_BIN || 'git'\nexecFileSync(GIT, ['status'])\n",
+      'utf8',
+    )
+    writeFileSync(join(dir, 'scripts', 'clean.mjs'), 'export const x = 1\n', 'utf8')
+    g('add', '-A')
+    g('commit', '-qm', 'base')
+    // 一枚"未跟踪的改动中文件":同样的债,但还没进提交树
+    writeFileSync(
+      join(dir, 'scripts', 'lib', 'in-flight.mjs'),
+      "const GIT = 'git'\nexecFileSync(GIT, ['ls-files'])\n",
+      'utf8',
+    )
+    const scan = headDerivationScan(dir)
+    assert.deepEqual(
+      scan.pathBoundGit,
+      ['scripts/committed-debt.mjs'],
+      `未跟踪文件被算进了分母 ⇒ 面没收对,实得 ${scan.pathBoundGit.join(', ')}`,
+    )
+    // 反向对照:同一枚文件在**磁盘面**上确实会被数到 —— 证明上一条绿是"面选对了",不是判据没牙
+    const diskHits = readdirSync(join(dir, 'scripts'), { recursive: true })
+      .filter((p) => String(p).endsWith('.mjs'))
+      .map((p) => join(dir, 'scripts', String(p)))
+      .filter((p) => pathBoundGitCountOf(readFileSync(p, 'utf8')) > 0)
+    assert.equal(
+      diskHits.length,
+      2,
+      '磁盘面应数到 2 枚(含未跟踪那枚);数不到说明本例的两枚写法不同形,对照失效',
+    )
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
 
 test('棘尺本身不恒真:三个计数函数都能真抓到注入的样本(含型 B 四条成对反例)', () => {
   assert.equal(bareGitCountOf("execFileSync('git', ['status'])"), 1)
@@ -340,11 +578,32 @@ test('棘尺本身不恒真:三个计数函数都能真抓到注入的样本(含
     2,
     '同文件多处分别计',
   )
-  const hasBatch = (s) => /cat-file.{0,4}--batch/.test(s)
-  assert.equal(hasBatch("x = execFileSync(G, ['cat-file', '--batch'])"), true)
+  /**
+   * 型 C 的靶形:**argv 形态**的 batch 派生(`['cat-file', '--batch…']`),不是"文本里出现过这几个字"。
+   * 旧写法 `/cat-file.{0,4}--batch/` 会被**字符串里的散文**命中 —— 实测 `git-push-guard.mjs:289`
+   * 的用法提示语 "一次 git cat-file --batch-check 找 missing" 被记成一枚未收口的门,
+   * 而该文件第 9 处自拼 batch 早在 `dfadcc5ba70` 就收进层了。一条把说明文字当代码的尺子,
+   * 报出来的红会把"已收口"的人逼去削判据。
+   * 只用一份正则(下面 headDerivationScan 与本文件的反例夹具共用它),避免两处各自漂移。
+   */
+  const hasBatchCall = (s) => /['"]cat-file['"]\s*,\s*['"]--batch/.test(s)
+  assert.equal(hasBatchCall("x = execFileSync(G, ['cat-file', '--batch'])"), true)
   // `--batch-check` 同族(同样一次问一批对象的存在性/sha,同样有 stdio/maxBuffer 陷阱),必须计入
-  assert.equal(hasBatch("spawnSync('git', ['cat-file', '--batch-check'])"), true)
-  assert.equal(hasBatch('const a = 1'), false)
+  assert.equal(hasBatchCall("spawnSync('git', ['cat-file', '--batch-check'])"), true)
+  assert.equal(hasBatchCall('const a = 1'), false)
+  // ⚠️ 反向对照:散文式提及(说明文字 / 用法提示里的 `git cat-file --batch-check`)不得算债。
+  // 这条不是假想 —— `git-push-guard.mjs:289` 的 usage 文案真实命中过旧正则,而该文件
+  // 的自拼 batch 早在 `dfadcc5ba70` 就收进层了:把说明文字当代码,红会指到一个已收口的门。
+  assert.equal(
+    hasBatchCall("  '  1) for-each-ref 取 sha + 一次 git cat-file --batch-check 找 missing'"),
+    false,
+    '字符串里的说明文字被当成了派生调用',
+  )
+  assert.equal(
+    hasBatchCall('// 一次 cat-file --batch 取多个 blob'),
+    false,
+    '注释里的字样被当成代码',
+  )
 
   // 型 B:本票迁的 6 道门**全是**这一型 —— 型 A 的尺子对它们整型盲视。
   // 少了这几条,棘轮会把"收口毫无进展"读成"存量本来就没动"。
@@ -362,7 +621,7 @@ test('棘尺本身不恒真:三个计数函数都能真抓到注入的样本(含
     '函数兜底再落裸名的也量(它同样会拿到 undefined 再退回 PATH)',
   )
   assert.equal(
-    pathBoundGitCountOf("const GIT = resolveGitBin()\n" + USE),
+    pathBoundGitCountOf('const GIT = resolveGitBin()\n' + USE),
     0,
     '收口后的正确写法不得误报',
   )
@@ -379,15 +638,51 @@ test('棘尺本身不恒真:三个计数函数都能真抓到注入的样本(含
     0,
     '同名目录名不得误报(root 从未被当派生首参)',
   )
+
+  // 注释不得算债 —— 成对两条:同一段代码放进注释里必须归 0,留在代码里必须归 1。
+  // (真仓的 import-graph.mjs 就是被 JSDoc 里那句"一次 cat-file --batch"记成未收口的门)
+  assert.equal(bareGitCountOf("execFileSync('git', ['status'])"), 1, '代码形态必须计')
+  assert.equal(
+    bareGitCountOf(hideComments("// execFileSync('git', ['status'])\n")),
+    0,
+    '行注释必须不计',
+  )
+  assert.equal(
+    bareGitCountOf(hideComments("/* execFileSync('git', ['x']) */\n")),
+    0,
+    '块注释必须不计',
+  )
+  assert.equal(
+    bareGitCountOf(hideComments("const a = 1 // execFileSync('git', ['x'])\nconst b = 2\n")),
+    0,
+    '行尾注释必须不计',
+  )
+  assert.equal(
+    bareGitCountOf(hideComments('/** 一次 cat-file --batch 取多个 blob */\nf()\n')),
+    0,
+    'JSDoc 里的 batch 字样必须不计',
+  )
+  assert.equal(
+    hideComments("const url = 'https://aizhs.top/x'\nexecFileSync('git', ['v'])\n").includes(
+      "execFileSync('git'",
+    ),
+    true,
+    '抹注释不得连代码一起抹掉(抹字符串就会把靶子涂掉,这里只抹注释)',
+  )
+  assert.equal(
+    hideComments("const s = '/* 这不是注释 */'\nexecFileSync('git', ['v'])\n").includes(
+      "execFileSync('git'",
+    ),
+    true,
+    '字符串里的 /* 不得把后续代码吞成注释',
+  )
 })
 
 test('型 B:常量绑到裸 git 的生产文件数只减不增(型 A 的尺子看不见这一型)', () => {
   const root = join(here, '..', '..')
   // 本层自己那处 `resolveGitBin() || 'git'` 是**刻意保留的最后一档兜底**(绝对路径解析失败时
   // 退回 PATH,好过直接抛"找不到 git"),不排除它就把唯一正解也计成债。
-  const hits = filesWith(root, (s) => pathBoundGitCountOf(s) > 0).filter(
-    (p) => !p.endsWith('lib/face-reader.mjs'),
-  )
+  const hits = headDerivationScan(root).pathBoundGit
   assert.ok(
     hits.length <= PATH_BOUND_GIT_BASELINE,
     `常量绑裸 git 的生产文件从基线 ${PATH_BOUND_GIT_BASELINE} 涨到 ${hits.length}: ${hits.join(', ')} —— ` +
@@ -402,7 +697,7 @@ test('型 B:常量绑到裸 git 的生产文件数只减不增(型 A 的尺子�
 
 test('裸 git 派生的生产文件数只减不增(存量记在基线,新增拦停)', () => {
   const root = join(here, '..', '..')
-  const hits = filesWith(root, (s) => bareGitCountOf(s) > 0)
+  const hits = headDerivationScan(root).bareGit
   assert.ok(
     hits.length <= BARE_GIT_BASELINE,
     `裸 git 派生的生产文件从基线 ${BARE_GIT_BASELINE} 涨到 ${hits.length} —— ` +
@@ -412,8 +707,8 @@ test('裸 git 派生的生产文件数只减不增(存量记在基线,新增拦�
       // 2026-09-25 那次 82→83 就是这样被误读了十几分钟。现在直接把求差命令写进提示。
       `下面列出的是按路径序的前 8 个存量文件,**不是**新增清单:\n  ${hits.slice(0, 8).join('\n  ')}\n` +
       '要定位新增者,拿"定基线那枚提交"与本枚结果求差:\n' +
-      "  git grep -lE \"(execFileSync|execSync|spawnSync|spawn)\\((['\\\"])git\" <该提交> -- scripts/ | grep -v /tests/\n" +
-      '  (注意:本判据扫的是**工作树**,并行会话未提交的改动也会进分母 —— 先确认它是否已入库再定性)',
+      '  git grep -lE "(execFileSync|execSync|spawnSync|spawn)\\(([\'\\"])git" <该提交> -- scripts/ | grep -v /tests/\n' +
+      '  (本判据判 **HEAD blob**:未提交的改动不进分母,见 headDerivationScan 的头注)',
   )
   if (hits.length < BARE_GIT_BASELINE) {
     console.log(
@@ -424,16 +719,26 @@ test('裸 git 派生的生产文件数只减不增(存量记在基线,新增拦�
 
 test('自拼 cat-file --batch 却不走本层的门,数量只减不增', () => {
   const root = join(here, '..', '..')
-  // 本层自己当然要有 batch —— 不排除它,这条就永远多算 1 个,且真正的"新增第 N 份"会被掩盖
-  const hits = filesWith(
-    root,
-    (s) => /cat-file.{0,4}--batch/.test(s) && !/lib\/face-reader/.test(s),
-  ).filter((p) => !p.endsWith('lib/face-reader.mjs'))
+  const s = headDerivationScan(root)
+  const hits = s.selfBatch
   assert.ok(
     hits.length <= SELF_BATCH_BASELINE,
     `自拼 batch 取材的门从基线 ${SELF_BATCH_BASELINE} 涨到 ${hits.length}: ${hits.join(', ')} —— ` +
       '每条 batch 都要重写一遍 stdio[0]=pipe / maxBuffer / 头解析,而这三处本仓都真踩过',
   )
-  console.log(`◽ 未收口的自拼 batch 取材:${hits.length} 个(${hits.join(', ') || '无'})`)
+  // 换面这件事本身也要有牙:HEAD 面读不出内容的文件必须为 0,否则"少了几枚分母"会伪装成"收口有效"
+  assert.equal(
+    s.unreadable,
+    0,
+    `HEAD 面有 ${s.unreadable} 个生产文件取不到内容 —— 分母在缩水,不能当作存量下降`,
+  )
+  if (hits.length < SELF_BATCH_BASELINE) {
+    console.log(
+      `◽ 未收口的自拼 batch 取材:${hits.length} 个(${hits.join(', ') || '无'})—— 请把基线一并下调`,
+    )
+  } else if (hits.length === 0) {
+    console.log('✅ 自拼 batch 取材已清零')
+  }
 })
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
