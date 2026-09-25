@@ -42,10 +42,6 @@
   font-size: 26rpx;
   color: var(--color-primary);
 }
-.card-entry-arrow {
-  font-size: 32rpx;
-  color: var(--color-muted-foreground);
-}
 .card-content {
   flex: 1;
   padding: 20rpx 30rpx 60rpx;
