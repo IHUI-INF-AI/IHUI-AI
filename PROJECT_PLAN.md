@@ -10081,3 +10081,36 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
     `community/index.css` 的改动不是我做的(删的是 `.community-s-t-b .w-full.rounded-b-\\[30rpx\\]` 一条),
     且全部受管样式文件括号逐文件平衡 ⇒ 判为并发会话**边写边被读**的瞬时态,复跑构建中,不当成结论。
   ② `SettingsScreen.tsx:99` 有 1 处 GA4 文字返回键(工作树面,该文件属并发会话),棘轮未越线,归其 owner。
+
+
+### 第五十波·续三 —— GA1 存量 70 处字符箭头清零(2026-09-25 夜,第三轮)
+
+- [x] ✅(2026-09-25) **守门 102 GA1 在 HEAD 面的 70 处 / 31 文件行尾字符箭头全部换成矢量**
+  - **为什么这轮才做**:这 70 处从 2026-09-24 立项起就被按文件 HEAD 棘轮"只报数不拦",
+    登记语是"免得恒红逼人绕过钩子"。判据取向没变、也不该变;变的是**存量现在清零了**,
+    所以"70 处"这个读数必须就地更新,否则下一个读文档的人会以为还有 70 处合法存量。
+  - **分布与改法**(色一律沿用该元素原有 token,不新增色值):
+    小程序 53 处 / 19 文件 → `<LineIcon name="chevron-right" size={24} …/>`
+    (24rpx = §4 的小程序光学档;原写法多是 40rpx,即"箭头比标签大"那一型);
+    web 8 处 / 5 文件 → lucide-react `ChevronLeft/ChevronRight/ArrowRight`(跟随原字号);
+    共享屏层 9 处 / 7 文件 → lucide-react-native `ChevronRight`,**尺寸沿用原 fontSize**
+    (这一型不是"箭头过大",只换载体不顺手改观感)。
+  - **随之删掉的无使用者样式**:`member-arrow` `pf-arrow` `vs-share-arrow` `cd-aigc-arrow`
+    `card-entry-arrow` `ask-create-picker-arrow`、`itemArrow` 定义、`modelBarArrow` 的 `fontSize`;
+    仍被别处引用的 `py-coupon-arrow` / `income-stat-value` **保留**(不替别人做清理)。
+  - **提交面**:miniapp 批 `b72021ef1a`(25 文件 +81/−89)、web+共享层批 `5f639343c0`(7 文件 +16/−37)。
+    剩 8 处分布在 **5 个被并发会话持有的脏文件**里(pay/index.tsx、SettingsScreen、
+    mobile-rn ModelConfigDialog、mobile-rn AiAssistantN8nScreen、agent-task-progress-pane)——
+    已按 §12 改到工作树(eslint/tsc/门 102 --files 三面实测干净)但**不整文件提交**,由 owner 带走。
+  - **两条实测教训(已写进 AGENTS §4 同一条)**:
+    ① 补 import 用 `/^import /` 找"最后一行"是错的 —— 多行 import 的**首行**也匹配,
+      于是新 import 被插进别人 import 的中间,当场写坏文件(eslint `Parsing error: Identifier expected`);
+      改按"以 `from …` 收尾的完整 import 行"定位,并回查上一批 19 个文件确认零同类插错。
+    ② 样式工厂(`makeStyles`)里的局部色变量不能搬到组件 JSX 作用域 —— `arrowColor` 在工厂内定义,
+      JSX 在组件内,搬过去即 lint unused + 运行时 undefined;改用组件作用域的 `tk.text.tertiary`。
+- **本轮量到但归属他人的两条,如实登记不代修**:
+  ① 小程序 `pnpm build` 一度 exit 1(`weapp-tw-css-generation-loader` 报 `CssSyntaxError: Missing opening (`,
+    点名 community/index.css 与 vip/success.css);我改过的 `vip/success.css` 对 HEAD **零 diff**,
+    `community/index.css` 的改动不是我做的(删的是 `.community-s-t-b .w-full.rounded-b-\\[30rpx\\]` 一条),
+    且全部受管样式文件括号逐文件平衡 ⇒ 判为并发会话**边写边被读**的瞬时态,复跑构建中,不当成结论。
+  ② `SettingsScreen.tsx:99` 有 1 处 GA4 文字返回键(工作树面,该文件属并发会话),棘轮未越线,归其 owner。
