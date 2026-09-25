@@ -74,6 +74,9 @@ interface CapabilityBody {
   uiActions?: string[]
   appUiActions?: string[]
   taroUiActions?: string[]
+  /** 第五族 ext_ui(2026-09-21 立)。㉒/㉓/㉔ 都在传这个字段,此前接口漏声明 ——
+   *  apps/api/tsconfig.json 的 exclude 含 `tests`,所以它从不显形,补回以免新用例照抄错形态 */
+  extUiActions?: string[]
   version?: string
   /** reportCapability 已在 payload 里兜底填了这个字段;个别用例显式覆盖,故声明为可选 */
   reportedAt?: string
@@ -98,6 +101,8 @@ interface StatusEndpoint {
   uiActions: number
   appUiActions: number
   taroUiActions: number
+  /** /status 对第五族同样只回计数(路由里 `?.length ?? 0`),㉓/㉔ 按此断言 */
+  extUiActions: number
 }
 
 const INTERNAL_HEADERS = { authorization: `Bearer ${INTERNAL_SECRET}` }
@@ -857,6 +862,82 @@ describe('agent-control ui category — /api/agent-control/*', () => {
     const ext = rows.find((r) => r.instanceId === 'ext-s')
     expect(ext?.extUiActions).toBe(2)
     expect(ext?.browserActions).toBe(1)
+  })
+
+  it('㉔ 反向断言:每个 category 的候选端恰好一个(1:1 择端,判据覆盖第五族自身形态)', async () => {
+    // 本用例钉的是**反向**那一侧。㉒/⑭ 证明的是"这一族投到了正确的端"(正向命中),
+    // 而正向取证对 1:N 改造同样绿灯:表若被写成 `Record<category, endpoint[]>`,
+    // 命中结果照样落在正确那一端,测试全绿,而"同一 category 有两个候选端"已经成立 ——
+    // 那正是本票刻意不复用 browser 所要防的形态(择端一旦可多选,ext_ui 指令可能被
+    // 当作 browser 执行,表现为回执 ok 而面板没动)。所以必须让判据能看见**表自己的形状**。
+    const iso = () => new Date().toISOString()
+    // 注册表刻意含**两个 extension 实例**(browser 与 ext_ui 共用的那一个端上双页面并存
+    // 是真实形态)。若哪天有人按 endpoint 而非 category 择端,这两个 category 就会各自
+    // 出现两个候选端 —— 只在此时 kinds 基数才会从 1 变成 2,正向用例抓不到这一型。
+    const seeds: ReadonlyArray<{
+      endpoint: AgentControlCapability['endpoint']
+      instanceId: string
+    }> = [
+      { endpoint: 'extension', instanceId: 'seed-ext-a' },
+      { endpoint: 'extension', instanceId: 'seed-ext-b' },
+      { endpoint: 'desktop', instanceId: 'seed-desktop' },
+      { endpoint: 'web', instanceId: 'seed-web' },
+      { endpoint: 'rn', instanceId: 'seed-rn' },
+      { endpoint: 'miniapp', instanceId: 'seed-miniapp' },
+    ]
+    for (const seed of seeds) {
+      await reportCapability({ ...seed, reportedAt: iso() }, USER_A)
+    }
+
+    const table = __test__.categoryEndpoint
+
+    // (1) 键集与 executeSchema 的 category 值域双向等值:少一项 ⇒ 该族无端可投;
+    //     多一项 ⇒ 冒出 schema 不收却会被择端的幽灵族。改 z.enum 必须同改这份字面量。
+    expect(Object.keys(table).sort()).toEqual(
+      ['app_ui', 'browser', 'computer', 'ext_ui', 'miniapp_ui', 'ui'].sort(),
+    )
+
+    // (2) 全表取值逐位钉死(可读的回归哨兵,优于"值落在端点值域里"的弱判据)
+    expect({ ...table }).toEqual({
+      browser: 'extension',
+      computer: 'desktop',
+      ui: 'web',
+      app_ui: 'rn',
+      miniapp_ui: 'miniapp',
+      ext_ui: 'extension',
+    })
+
+    for (const category of Object.keys(table) as AgentActionRequest['category'][]) {
+      const mapped = table[category]
+
+      // (3) 反向断言本体:候选端必须是**单个字符串**,不是数组/集合。
+      expect(typeof mapped, `category=${category} 应映射到单一端点`).toBe('string')
+      expect(Array.isArray(mapped), `category=${category} 不得映射到端点数组`).toBe(false)
+
+      // (4) 投递面自证:走生产择端的同一函数,该 category 可达的**端点种类数**恒为 1。
+      const kinds = new Set<AgentControlCapability['endpoint']>()
+      for (let i = 0; i < seeds.length; i += 1) {
+        // 反复取同一 category:候选端唯一时结果必须恒定,不随调用次序漂移
+        const hit = __test__.findEndpointByCategory(category, USER_A)
+        if (hit) kinds.add(hit.capability.endpoint)
+      }
+      expect(
+        kinds.size,
+        `category=${category} 出现 ${kinds.size} 个候选端: ${[...kinds].join(', ')}`,
+      ).toBe(1)
+      expect([...kinds][0]).toBe(mapped)
+    }
+
+    // (5) 那一处**刻意的**多对一:6 个 category 落在 5 个端上,且"共用 extension 的
+    //     category 恰好两个"。复用只发生在 endpoint 层,绝不发生在 category 层 ——
+    //     钉住"第五族是靠新增 category 落地的",而不是把 browser 改指过去或反过来。
+    //     (若有人图省事复用 browser,键集会缩成 5、extension 只挂 1 族,这里必红。)
+    const endpointsUsed = new Set(Object.values(table))
+    expect(endpointsUsed.size).toBe(5)
+    const categoriesOnExtension = (Object.keys(table) as AgentActionRequest['category'][])
+      .filter((c) => table[c] === 'extension')
+      .sort()
+    expect(categoriesOnExtension).toEqual(['browser', 'ext_ui'])
   })
 
   it('⑬ category=ui 被 executeSchema 接受(非法 category 仍 400)', async () => {
