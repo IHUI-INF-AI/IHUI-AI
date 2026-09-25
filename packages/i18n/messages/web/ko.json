@@ -14989,13 +14989,15 @@
     "fieldNotifyChannel": "알림 채널",
     "fieldNotifyMessage": "메시지 템플릿",
     "notifyMessageHint": "{{event}} {{tool}} {{args}} 변수 사용 가능",
+    "notifyWebhookUrlHint": "webhook 채널이 이 URL로 알림을 POST 합니다(webhook 액션과 동일한 발신기)",
     "notifyMessagePlaceholder": "{{event}} 발동됨",
     "fieldLogMessage": "로그 메시지 템플릿",
     "logMessageHint": "{{event}} {{tool}} {{args}} 변수 사용 가능, logs/hooks.log에 기록",
     "channel": {
       "toast": "토스트(짧은 알림)",
       "notification": "시스템 알림",
-      "email": "이메일"
+      "email": "이메일",
+      "webhook": "웹훅"
     },
     "logsAria": "Hook 로그",
     "logsTitle": "Hook 실행 로그",

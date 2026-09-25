@@ -78,19 +78,28 @@ export function buildEnvelope(opts: {
   /** 该输出对应的源文件(能取到就写,取不到省略这一行) */
   sourcePath?: string | null;
 }): string {
+  // 预览压缩空行(含首尾换行):reclaim(@ihui/context-compaction)对内嵌形态
+  // `[工具结果 ✓] name\n正文` 按 '\n\n' 分段,段级保护 isEnvelopeResult 要求 body
+  // 同时含 OPEN/CLOSE 两个标记。预览是原文逐字节切片,原文里的空行落在预览窗口内
+  // 时信封会被从中间劈开 —— 首段只带 OPEN 标记与产物路径行,逃过段级保护,被改写
+  // 成回收占位串 ⇒ `完整输出: <产物路径>` 逐字节丢失,冷启动 parseEnvelope /
+  // collectFromMessages 全部失效(重建提醒是内存态,兜不住会话恢复)。
+  // 空行属排版不属语义:压成单换行后信封恒为单个完整段,指针在改写前后逐字节可回
+  // (判据由 tests/reclaim-envelope-boundary.test.ts 钉死)。
+  const preview = opts.preview.replace(/\n{2,}/g, '\n').replace(/^\n+/, '').replace(/\n+$/, '');
   const head = [
     ENVELOPE_OPEN_MARKER,
     `工具: ${opts.toolName}`,
     ...(opts.sourcePath ? [`源文件: ${opts.sourcePath}`] : []),
     `完整输出: ${opts.artifact.relativePath} (共 ${opts.artifact.chars} 字符 / ${opts.totalLines} 行,上下文预算 ${opts.budgetChars} 字符)`,
-    `预览(前 ${opts.preview.length} 字符):`,
+    `预览(前 ${preview.length} 字符):`,
   ].join('\n');
   const tail = [
     ENVELOPE_PREVIEW_FOOTER,
     ENVELOPE_CLOSE_MARKER,
     '正文未进入上下文。需要更多内容请对上列路径用 read_file 分块读取(带 offset/limit),不要重复执行原工具。',
   ].join('\n');
-  return `${head}\n${opts.preview}\n${tail}`;
+  return `${head}\n${preview}\n${tail}`;
 }
 
 /**
