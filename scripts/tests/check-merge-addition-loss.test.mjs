@@ -5,11 +5,14 @@
 /**
  * 守门「合并新增文件存续性对账」镜像测试(§22c:直接 import 源模块,不复制实现)
  *
- * 这里钉三件事,顺序有意义:
+ * 这里钉五件事,顺序有意义:
  *  1. **判据本身**会抓到"合并吞掉对侧独有新增"(用真临时仓造一次事故,不是读字符串);
  *  2. **口径**不会把已入库的历史事故变成后来每次提交的恒红门 —— 那是逼人紧急跳过、连带废掉全部守门;
  *  3. **装车**:runner 里真的注册了这道门(blocking + 自己的 skipEnv + 编号恰好一次),
- *     且它被守门 80 的 HOT 清单覆盖、被 AGENTS/README 点名(否则守门 89 R4 判红)。
+ *     且它被守门 80 的 HOT 清单覆盖、被 AGENTS/README 点名(否则守门 89 R4 判红);
+ *  4. **取材面**:取数必须真走 `lib/face-reader.mjs`,且由守门 118 本人的分类器确认是 `face`
+ *     (半接线 = 这层看起来在用、判定面其实没换);
+ *  5. **面的方向**:台账三面分歧时取磁盘面 —— 本门判的是 commit/tree 对象,结构上没有索引面可切。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -19,6 +22,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { readFileSync } from 'node:fs'
 import { __test__ as G } from '../check-merge-addition-loss.mjs'
+import { __test__ as DISC, maskComments } from '../check-gate-face-discipline.mjs'
 
 const GIT = 'C:/Program Files/Git/cmd/git.exe'
 const SCRIPT = 'check-merge-addition-loss.mjs'
@@ -181,5 +185,59 @@ test('反向锁:remote 三元式不得回来(回来 = 不可解析残值再次�
     '选区间绕回三元式 ⇒ 门以 exit 2 冒充 blocking 违规,且没人能修',
   )
   assert.match(src, /const range = chooseRange[(]/, '选区间的决策必须走纯函数,不然不可证')
+})
+
+// ── 2026-09-26 迁入共用取材层:半接线必须被钉死在"不可复发"这一档 ──
+
+/**
+ * 装车证明(取材面)。三条一起读才成立:
+ *  ① 层的**读取入口**真出现在取材路径上(不是只 import 了这层 —— 那正是本门被判 `half-wired` 的形态:
+ *     引了 `resolveRemoteHead`,内容却仍由自己 `execFileSync` 派生 / 自己 `readFileSync` 读);
+ *  ② 自派生的 git 与磁盘读取都不在了(判据跑在**遮掉注释**的文本上,否则本文件说明历史的那句
+ *     "此前本门自己 execFileSync 派生"会让锁自己假红 —— 遮噪用的是门 118 本人那份,不另写一遍);
+ *  ③ 直接拿门 118 的分类器问一次:本文件必须是 `face`。这一条是**尺子说话**,
+ *     它比"看起来像走层了"强 —— 半接线归零这件事由判它的那道门当场确认。
+ */
+test('装车证明:取数必须真走 lib/face-reader.mjs,且门 118 对本文件的定性必须是 face', () => {
+  const src = readFileSync(new URL(`../${SCRIPT}`, import.meta.url), 'utf8')
+  const code = maskComments(src)
+  assert.match(
+    code,
+    /(?:^|[^.\w$])(?:catBatch|readWorktreeFile)\s*\(/,
+    '必须调用层的读取入口取内容(门 118 只认 catBatch / readWorktreeFile 两个凭证)',
+  )
+  assert.match(code, /gitRaw\s*\(/, 'git 派生必须经层的 gitRaw(绝对路径 / stdio / maxBuffer 一份实现)')
+  assert.doesNotMatch(code, /execFileSync\s*\(/, '不得再自派生 git —— 那是 half-wired 的前半')
+  assert.doesNotMatch(code, /readFileSync\s*\(/, '不得再自己 readFileSync 读台账 —— 那是 half-wired 的后半')
+  assert.doesNotMatch(code, /C:\/Program Files\/Git\/cmd\/git\.exe/, 'git 绝对路径只在层里有一份(本文件镜像夹具除外)')
+  assert.equal(
+    DISC.classify(`scripts/${SCRIPT}`, src).kind,
+    'face',
+    '本门被守门 118 判成非 face ⇒ 全仓 half-wired 归零的前提破了(恒红门的前置就是各会话跳门)',
+  )
+})
+
+/**
+ * 本门**不可能**有 blob 正文面,这条也要钉住方向,免得下一个人照抄"索引优先"的模板改错:
+ * 判据对象是 commit / tree 对象,而层的 `catBatch` 头解析只认 `<40hex> blob <size>`(tree 一律 null);
+ * 台账 `.workbuddy/` 被 .gitignore 忽略 ⇒ 结构上不在任何检出面里 ⇒ 只能跟磁盘。
+ * 这里用**临时真仓**造三面分歧(HEAD / 索引 / 磁盘各一份),证明取的是磁盘那份。
+ */
+test('台账三面分歧 ⇒ 取磁盘面(本门无索引面可切,方向不得照抄模板)', () => {
+  const { dir, run } = repo()
+  try {
+    const p = join(dir, 'ledger.json')
+    writeFileSync(p, '{"face":"head-side"}\n', 'utf8')
+    run('add', 'ledger.json')
+    run('commit', '-qm', 'ledger 入库一版')
+    writeFileSync(p, '{"face":"index-side"}\n', 'utf8')
+    run('add', 'ledger.json')
+    writeFileSync(p, '{"face":"disk-live"}\n', 'utf8')
+    assert.equal(G.readMarker(p).face, 'disk-live', '必须跟磁盘运行态;取到 head/index 那份 = 台账永不生效')
+    // 反向对照:同一判据对"只存在于 HEAD、磁盘上没有"的路径必须退回空表(不抛、不冒"已记过")
+    assert.deepEqual(G.readMarker(join(dir, 'not-on-disk.json')), {}, '磁盘缺失 ⇒ 空表(保守重判),不得抛')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
