@@ -123,6 +123,42 @@ export function isServerApiKey(value: string): boolean {
   return value.startsWith(SERVER_API_KEY_PREFIX);
 }
 
+/**
+ * JWT 载荷的**未验证**视图。签名不在此校验 ⇒ 只可用于"读自己的 token 里的字段"
+ * (本地登录态展示、过期判断、宿主绑定属主),**不得**当作鉴权结论。
+ */
+export interface JwtClaims {
+  /** 签发侧 `setSubject(userId)`(`packages/auth/src/jwt.ts`),故 sub 就是 user id */
+  sub?: string;
+  exp?: number;
+  iat?: number;
+  roleId?: number;
+  [key: string]: unknown;
+}
+
+/**
+ * 解析 JWT payload(**不验签**),失败返回 null。
+ *
+ * 这是全 CLI 唯一的 JWT 解码实现:`token-manager` 的过期判断与记忆工具的属主绑定
+ * 都读它。"两处算同一件事必须共用一份实现" —— 曾出现过各写一遍 base64url 补位,
+ * 一侧改了 padding 另一侧没改,表现为"本机正常、别人机器上永远判成已过期"。
+ */
+export function decodeJwtClaims(token: string | undefined | null): JwtClaims | null {
+  if (!token) return null;
+  const parts = token.split('.');
+  if (parts.length !== 3 || !parts[1]) return null;
+  try {
+    let b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4) b64 += '=';
+    const payload = JSON.parse(Buffer.from(b64, 'base64').toString('utf-8')) as unknown;
+    // JSON 合法但不是对象(如 `"abc"` / `123` / `[]`)时不得当成 claims 返回
+    if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) return null;
+    return payload as JwtClaims;
+  } catch {
+    return null;
+  }
+}
+
 /** 纯按值前缀分类;空值返回 undefined(= 无凭据)。 */
 export function classifyCredential(value: string | undefined | null): CredentialKind | undefined {
   if (!value) return undefined;

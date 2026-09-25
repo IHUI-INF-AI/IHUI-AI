@@ -48,6 +48,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { auditOne } from './check-merge-addition-loss.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { resolveRemoteHead } from './lib/face-reader.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GIT = 'C:/Program Files/Git/cmd/git.exe'
@@ -476,9 +477,23 @@ export function resolveTargets(theirsArg, cwd = ROOT) {
   let theirs = theirsArg
   if (!theirs) {
     try {
-      theirs = git(['rev-parse', `origin/${branch}`], cwd)
-    } catch {
-      return { head, theirs: '', skip: `取不到 origin/${branch}` }
+      // 远端位置只认**当次真值**(§5b:跟踪 ref 会被清理层删掉,packed-refs 里的旧值照样被读回来)。
+      // 拿残值落槌有两种都不报错的错向:残值==本地 ⇒ 报"已同步"而根本不合并;残值落后 ⇒ 去合一个
+      // 早已不存在的分叉。取不到就当"无法判定"交回上层,绝不猜一个 stage 用。
+      const r = resolveRemoteHead(branch, { root: cwd })
+      if (!r.sha)
+        return {
+          head,
+          theirs: '',
+          skip: `取不到 ${branch} 的当次远端真值(不拿跟踪 ref 残值落槌):${r.reason}`,
+        }
+      theirs = r.sha
+    } catch (e) {
+      return {
+        head,
+        theirs: '',
+        skip: `取远端 ${branch} 异常:${String((e && e.message) || e).slice(0, 90)}`,
+      }
     }
   }
   if (theirs === head) return { head, theirs, skip: '已同步' }
