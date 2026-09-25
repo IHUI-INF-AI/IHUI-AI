@@ -7130,6 +7130,26 @@
       "rollbackConfirmConfirm": "復元"
     },
     "pane": {
+      "hookSummary": {
+        "ariaLabel": "フック実行サマリー",
+        "state": {
+          "running": "フック実行中",
+          "ok": "フックは正常",
+          "failed": "フックでエラー",
+          "blocked": "フックが操作をブロック"
+        },
+        "runs": "· {n} 回実行",
+        "failedCount": "{n} 件失敗",
+        "blockedCount": "{n} 件ブロック",
+        "sourceLabel": "ソース",
+        "source": {
+          "admin": "管理者",
+          "user": "ユーザー",
+          "project": "プロジェクト",
+          "plugin": "プラグイン",
+          "session": "セッション"
+        }
+      },
       "businessForms": {
         "ariaLabel": "業務フォームカード",
         "aria": {
@@ -11422,14 +11442,14 @@
     },
     "commands": {
       "steerPrompt": {
+        "label": "プロンプトをステア",
         "description": "実行中の回答に現在の入力をガイドとして注入します",
-        "keywords": ["ステア", "ガイド", "steer"],
-        "label": "プロンプトをステア"
+        "keywords": ["ステア", "ガイド", "steer"]
       },
       "queuePrompt": {
+        "label": "プロンプトをキューに追加",
         "description": "実行中の回答の終了後、現在の入力を自動送信するためにキューに追加します",
-        "keywords": ["キュー", "待機", "queue"],
-        "label": "プロンプトをキューに追加"
+        "keywords": ["キュー", "待機", "queue"]
       },
       "agent": {
         "description": "AI エージェントの管理とディスパッチ",
@@ -16840,6 +16860,10 @@
       "pending": "受験待ち",
       "unknown": "不明"
     },
+    "submitBtn": "解答を提出",
+    "submitConfirm": "解答を提出しますか?提出すると完了として記録されます。",
+    "submitFailed": "提出に失敗しました",
+    "submitSuccess": "解答を提出しました",
     "title": "試験申込",
     "total": "全 {n} 件"
   },

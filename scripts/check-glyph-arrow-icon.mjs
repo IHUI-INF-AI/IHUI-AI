@@ -99,13 +99,31 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const SELF_SKIP = 'HUSKY_SKIP_GLYPH_ARROW_ICON'
 const GIT_TIMEOUT = 120000
 
-/** 目标面(任务书点名的四端);CSS 只在 GA2 生效 */
+/**
+ * 目标面 = **所有会渲染界面的端**,不是"任务书点名的那几端"。
+ * 2026-09-26 扩面:原清单只有 5 条(mobile-rn / packages/app / miniapp-taro / web×2),
+ * 于是 apps/extension、apps/desktop、apps/cli、apps/mobile-cap、packages/ui-react、
+ * packages/shared、packages/ui-native 共 **376 个源文件在门外** —— 而门内实测就有 1 处真违规
+ * (`apps/extension/entrypoints/sidepanel/pages/AgentPage.tsx` 的 i18n「返回」摆在箭头位),
+ * 它不是"漏改",是**结构上看不见**:pre-commit 永远不会为它喊红。
+ * 这正是本仓反复记的那一型:"一条门只管自己立项那一型" —— 这里换成"只管自己立项那几端"。
+ * 扩面不改变判据强度:棘轮锚点仍是"该文件 HEAD 自身违规数",所以新纳入端上的存量只报数、
+ * 不会把与改动无关的提交钉红(那才是逼人 --no-verify 的成因)。
+ * CSS 只在 GA2 生效。
+ */
 const SCAN_DIRS = [
   'apps/mobile-rn',
   'packages/app',
   'apps/miniapp-taro',
   'apps/web/app',
   'apps/web/src',
+  'apps/extension',
+  'apps/desktop',
+  'apps/cli/src',
+  'apps/mobile-cap',
+  'packages/ui-react/src',
+  'packages/ui-native/src',
+  'packages/shared/src',
 ]
 const TSX_RE = /\.tsx$/
 const SRC_RE = /\.(tsx?|css|scss|less)$/
@@ -197,9 +215,16 @@ const BACK_TEXT_LITERAL_RE = /^[「『]?返回[」』]?$/
  * 无法进预筛 —— `>` 在任意 TSX 里都是标签结束符,加进模式串等于取消预筛。
  * 该形态现网 0 处;若哪天要纳进来,得换成"两遍扫"(先扫结构再判字形),不得静默留着。
  * 筛不动(异常)退回全量,绝不退成"少扫文件 = 少违规"。
+ * 2026-09-26 再补一档,而且是**最贵的那一类漏**:`[bB]ack\d*["']` —— GA4 认的 i18n 形态
+ * `{t('common.back')}` 里根本没有中文「返回」二字(键名才是 back),而旧模式串只有 `返回` 这个
+ * 字面量 ⇒ 这类文件被预筛整批丢掉。实测全仓 298 个文件含 `…back…()` 调用,其中 **161 个不含
+ * 中文「返回」** ⇒ GA4 在这 161 个文件上结构上失明,`apps/extension/.../AgentPage.tsx` 就是撞上
+ * 的那一个(它在 HEAD 上就有一处真违规,而全量面报 0、把同一文件喂门却报 1 —— 两个面结论相反
+ * 就是判据失效的指纹)。自检里"预筛必须是判据字面量超集"那条锁只覆盖了**字形字符集**,
+ * 没覆盖**键名形态**,所以它一路绿灯地看着这个洞存在。
  */
 const PREFILTER =
-  '›|»|→|》|‹|←|«|返回|fontSize|font-size|\'>\'|">"|BackChevron|NavBar|navigationStyle'
+  '›|»|→|》|‹|←|«|返回|fontSize|font-size|\'>\'|">"|BackChevron|NavBar|navigationStyle|[bB]ack[0-9]*["\']'
 
 const git = (args, cwd = ROOT) => gitRaw(args, cwd, { timeout: GIT_TIMEOUT })
 
@@ -1675,6 +1700,22 @@ function selfTest() {
   t(
     '预筛必须是判据字面量的超集:GA5 的 « 与 GA6 的三个标识符少一个,门就在自己立项的那一型上失明',
     ['«', 'BackChevron', 'NavBar', 'navigationStyle'].every((lit) => PREFILTER.includes(lit)),
+  )
+  // 2026-09-26 补的锁 —— 上面那条**只查字符集与标识符**,所以它一路绿灯地放过了下面这个洞:
+  // GA4 的 i18n 形态 `{t('common.back')}` 里**没有中文「返回」二字**(键名才是 back),
+  // 而旧模式串只写了 `返回` 这个字面量 ⇒ 这类文件被预筛整批丢掉,全量面 GA4 报假 0。
+  // 实测规模:全仓 298 个文件含 `…back…()` 调用,其中 **161 个不含中文「返回」** = 纯盲区。
+  // 这条断言用**真正则**判(不是 includes),并把旧模式串当反例钉住:它必须测不到该形态。
+  t(
+    '预筛必须覆盖 GA4 的**键名形态**(文件只含 {t("common.back")}、不含中文「返回」也要能筛到)—— 旧模式串在这一条上是红的',
+    (() => {
+      const probe = '          <span>{t(\'common.back\')}</span>\n'
+      const hitByCurrent = new RegExp(PREFILTER).test(probe)
+      const oldPattern = '›|»|→|》|‹|←|«|返回|fontSize|font-size|\'>\'|">"|BackChevron|NavBar|navigationStyle'
+      const hitByOld = new RegExp(oldPattern).test(probe)
+      return hitByCurrent === true && hitByOld === false && !probe.includes('返回')
+    })(),
+    '当前模式串必须命中、旧模式串必须不命中(否则这条锁没有牙)',
   )
   t(
     'GA5 豁免:back-label-exempt 带原因 ⇒ 放过(A 型与 GA4 共用同一条人工出口)',
