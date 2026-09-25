@@ -14,6 +14,11 @@
  *   - Tagalog(tl)→ Filipino(fil)别名解析
  */
 
+import {
+  extractPrimarySubtag as sharedExtractPrimarySubtag,
+  readSystemLocaleEnv,
+} from '../utils/system-locale.js';
+
 /** STT 语言条目 */
 export interface SttLanguage {
   /** BCP-47 primary subtag,如 'en' / 'ja' / 'fil' */
@@ -78,33 +83,11 @@ function isKnownCode(code: string): boolean {
 }
 
 /**
- * 从环境变量读取系统 locale(LC_ALL > LC_MESSAGES > LANG)。
- * 空字符串视为未设置(不 mask 低优先级变量)。
- * 返回 BCP-47/POSIX 形式的 locale,如 'fr_FR.UTF-8' / 'ja_JP.UTF-8' / null。
+ * 系统 locale 与 primary subtag 的判据住在 `utils/system-locale.ts`(单一真相源)。
+ * 这里曾各有一份实现,与 `i18n/index.ts` 的取词语言长期可能分叉 —— 同一件事实只允许算一次。
  */
-function getSystemLocale(): string | null {
-  const lcAll = process.env.LC_ALL;
-  if (lcAll && lcAll.trim() !== '') return lcAll;
-  const lcMessages = process.env.LC_MESSAGES;
-  if (lcMessages && lcMessages.trim() !== '') return lcMessages;
-  const lang = process.env.LANG;
-  if (lang && lang.trim() !== '') return lang;
-  return null;
-}
-
-/**
- * 从 locale 字符串提取 primary subtag。
- * 'fr_FR.UTF-8' → 'fr'
- * 'ja_JP.UTF-8' → 'ja'
- * 'C' → null(POSIX C locale,无语言信息)
- * 'POSIX' → null
- */
-function extractPrimarySubtag(locale: string): string | null {
-  if (locale === 'C' || locale === 'POSIX') return null;
-  const primary = locale.split(/[_.@-]/)[0];
-  if (!primary || primary.length === 0) return null;
-  return primary.toLowerCase();
-}
+const getSystemLocale = readSystemLocaleEnv;
+const extractPrimarySubtag = sharedExtractPrimarySubtag;
 
 /**
  * 规范化 STT 语言输入。
