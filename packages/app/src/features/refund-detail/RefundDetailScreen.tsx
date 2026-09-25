@@ -7,6 +7,7 @@ import { useMemo } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { RefundDetailScreenProps } from '../../types'
+import { BackChevron } from '../../components/BackChevron'
 
 /**
  * 退款详情共享屏 — 平台无关渲染层。
@@ -41,6 +42,7 @@ export function RefundDetailScreen({
     return (
       <View style={styles.center}>
         <Text style={styles.error}>{error || t('refundDetail.empty')}</Text>
+        {/* back-label-exempt: 错误态/空态卡片内的按钮文案,或翻页/弹窗关闭动作 —— 此处「返回」是按钮文字而非页头箭头,换裸箭头反而不表意 */}
         <TouchableOpacity
           style={styles.backBtn}
           onPress={onBack}
@@ -55,9 +57,7 @@ export function RefundDetailScreen({
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.back}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('refundDetail.title')}</Text>
       </View>
       <View style={styles.body}>

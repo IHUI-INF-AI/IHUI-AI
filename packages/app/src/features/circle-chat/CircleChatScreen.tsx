@@ -16,6 +16,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CircleChatMessage, CircleChatScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 圈子聊天共享屏 — props 注入式跨端组件(wrapper 保留 API 调用,共享层负责渲染+自动滚动) */
 export type { CircleChatMessage, CircleChatScreenProps }
@@ -58,6 +59,7 @@ export function CircleChatScreen({
     return (
       <View style={styles.center}>
         <Text style={styles.error}>{error}</Text>
+        {/* back-label-exempt: 错误态/空态卡片内的按钮文案,或翻页/弹窗关闭动作 —— 此处「返回」是按钮文字而非页头箭头,换裸箭头反而不表意 */}
         <TouchableOpacity style={styles.backBtn} onPress={onBack}>
           <Text style={styles.backBtnText}>{t('common.back')}</Text>
         </TouchableOpacity>
@@ -68,9 +70,7 @@ export function CircleChatScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.back}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title} numberOfLines={1}>
           {title}
         </Text>
@@ -138,7 +138,6 @@ function createStyles(tk: AppThemeTokens) {
       gap: 12,
       marginBottom: 8,
     },
-    back: { fontSize: 16, color: tk.text.medium },
     title: { flex: 1, fontSize: 20, fontWeight: '600', color: tk.text.primary },
     list: { flex: 1 },
     empty: { paddingVertical: 40, alignItems: 'center' },

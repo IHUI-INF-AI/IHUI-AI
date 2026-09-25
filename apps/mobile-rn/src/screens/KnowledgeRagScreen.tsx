@@ -31,6 +31,7 @@ import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { BackChevron } from '@ihui/rn-app'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -191,9 +192,7 @@ export function KnowledgeRagScreen() {
 
   const renderHeader = (title: string, onBack: () => void) => (
     <View className="flex-row items-center justify-between px-4 pb-2 pt-3">
-      <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <Text className="text-sm text-gray-500">{t('common.back')}</Text>
-      </TouchableOpacity>
+      <BackChevron onPress={onBack} label={t('common.back')} colorScheme={resolvedTheme} />
       <Text className="max-w-[60%] truncate text-base font-medium">{title}</Text>
       <View className="w-10" />
     </View>

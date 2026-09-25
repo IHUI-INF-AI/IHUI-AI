@@ -17,6 +17,7 @@ import type { FavoritesItem, FavoritesScreenProps } from '../../types'
 import { Star } from 'lucide-react-native'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 收藏列表/Props 类型 re-export(单一来源 @ihui/types) */
 export type { FavoritesItem, FavoritesScreenProps }
@@ -47,9 +48,7 @@ export function FavoritesScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('favorites.title')}</Text>
       </View>
 
@@ -127,7 +126,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: 12,
       gap: 12,
     },
-    backText: { fontSize: 16, color: tk.text.medium },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     errorBar: { paddingHorizontal: 10, paddingVertical: 8 },
     errorText: { fontSize: 14, color: tk.danger.DEFAULT },

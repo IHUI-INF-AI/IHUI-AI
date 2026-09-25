@@ -8,6 +8,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { RegisterScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 注册共享屏 — props 注入式跨端组件(wrapper 负责 register API 调用 + 自动登录) */
 export type { RegisterScreenProps }
@@ -97,9 +98,7 @@ export function RegisterScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack}>
-          <Text style={styles.back}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('register.title')}</Text>
       </View>
       <View style={styles.card}>
@@ -223,7 +222,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: 32,
     },
     header: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, marginBottom: 12 },
-    back: { fontSize: 16, color: tk.text.secondary, marginRight: 12 },
     title: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
     card: { padding: 14, backgroundColor: tk.surface.light, borderRadius: rnRadius.xl },
     label: {
