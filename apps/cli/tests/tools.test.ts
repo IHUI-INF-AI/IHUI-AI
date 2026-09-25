@@ -14,6 +14,7 @@ import {
   type Tool,
   type ToolContext,
 } from '../src/tools/index.js'
+import { resetDangerousApprovals, snapshotDangerousApprovals } from '../src/tools/danger-gate.js'
 
 describe('Tool 注册与查询', () => {
   beforeEach(() => {
@@ -179,6 +180,111 @@ describe('executeToolCall', () => {
     expect(r.success).toBe(true)
     expect(r.output).toBe('deleted')
   })
+
+  it('dangerous 工具抛错被包装为 success=false', async () => {
+    const dangerous: Tool = {
+      name: 'rm-throws',
+      description: 'rm',
+      parameters: {},
+      required: [],
+      dangerLevel: 'dangerous',
+      execute: async () => {
+        throw new Error('boom')
+      },
+    }
+    registerTools([dangerous])
+    const r = await executeToolCall(
+      { name: 'rm-throws', arguments: {} },
+      { workspacePath: '.', confirmDangerous: async () => true },
+    )
+    expect(r.success).toBe(false)
+  })
+
+  describe('ToolContext.allowDangerous 影子披露字段(L7905 收口)', () => {
+  beforeEach(() => {
+    clearTools()
+    resetDangerousApprovals()
+  })
+
+  const registerDangerous = (name: string): void => {
+    registerTools([
+      {
+        name,
+        description: name,
+        parameters: {},
+        required: [],
+        dangerLevel: 'dangerous',
+        execute: async () => ({ success: true, output: 'ok' }),
+      },
+    ])
+  }
+
+  it('披露字段为 true 但未提供 confirmDangerous 时依旧拒绝(不构成放行,fail-closed 不变)', async () => {
+    registerDangerous('rm_flag_only')
+    const r = await executeToolCall(
+      { name: 'rm_flag_only', arguments: {} },
+      { workspacePath: '.', allowDangerous: true },
+    )
+    expect(r.success).toBe(false)
+    expect(r.error).toContain('被拒绝')
+    expect(snapshotDangerousApprovals()).toEqual([])
+  })
+
+  it('flag 在位且回调批准 → 执行,披露计入 sessionFlagApproved', async () => {
+    registerDangerous('rm_flag_ok')
+    const r = await executeToolCall(
+      { name: 'rm_flag_ok', arguments: {} },
+      { workspacePath: '.', allowDangerous: true, confirmDangerous: async () => true },
+    )
+    expect(r.success).toBe(true)
+    expect(snapshotDangerousApprovals()).toEqual([
+      { tool: 'rm_flag_ok', sessionFlagApproved: 1, callbackApproved: 0 },
+    ])
+  })
+
+  it('flag 缺省(undefined)且回调批准 → 执行,披露计入 callbackApproved', async () => {
+    registerDangerous('rm_noflag_ok')
+    const r = await executeToolCall(
+      { name: 'rm_noflag_ok', arguments: {} },
+      { workspacePath: '.', confirmDangerous: async () => true },
+    )
+    expect(r.success).toBe(true)
+    expect(snapshotDangerousApprovals()).toEqual([
+      { tool: 'rm_noflag_ok', sessionFlagApproved: 0, callbackApproved: 1 },
+    ])
+  })
+
+  it('flag 显式 false 与缺省同视', async () => {
+    registerDangerous('rm_false_ok')
+    await executeToolCall(
+      { name: 'rm_false_ok', arguments: {} },
+      { workspacePath: '.', allowDangerous: false, confirmDangerous: async () => true },
+    )
+    expect(snapshotDangerousApprovals()).toEqual([
+      { tool: 'rm_false_ok', sessionFlagApproved: 0, callbackApproved: 1 },
+    ])
+  })
+
+  it('被拒绝的调用不进披露计数', async () => {
+    registerDangerous('rm_denied')
+    await executeToolCall(
+      { name: 'rm_denied', arguments: {} },
+      { workspacePath: '.', allowDangerous: true, confirmDangerous: async () => false },
+    )
+    expect(snapshotDangerousApprovals()).toEqual([])
+  })
+
+  it('resetDangerousApprovals 清零快照', async () => {
+    registerDangerous('rm_reset')
+    await executeToolCall(
+      { name: 'rm_reset', arguments: {} },
+      { workspacePath: '.', allowDangerous: true, confirmDangerous: async () => true },
+    )
+    expect(snapshotDangerousApprovals()).toHaveLength(1)
+    resetDangerousApprovals()
+    expect(snapshotDangerousApprovals()).toEqual([])
+  })
+})
 
   it('工具抛出异常被捕获', async () => {
     const t: Tool = {
