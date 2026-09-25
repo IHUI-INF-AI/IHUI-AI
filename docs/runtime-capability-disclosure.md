@@ -733,6 +733,11 @@ Ollama `http://localhost:11434`、LM Studio `http://localhost:1234`、llama.cpp
 11. **注入表达式在真机 WebView2 窗口内的端到端**：§4.6 只证到"同内核家族的 Blink
     （本机 Edge 145 headless）里安装/派发/错误码全部按契约工作"，
     **未**在 `apps/desktop` 构建出的 GUI 壳内跑过一次（需 cargo 构建并起窗口）。
+    2026-09-25 补实测：这条的阻碍**不是"编不出来"** —— `cargo build` 在本机可成功产出
+    `ihui-desktop.exe`。真正的阻碍是取证路径本身：`tauri dev` 的 `devUrl` 是
+    `http://localhost:8801`，而 WebView2 的 Local Storage **按 origin 分仓**，本机那份存量明文住在
+    `https://aizhs.top` 档案下 ⇒ 起 dev 壳碰不到它（且 dev 还会先走一遍 §4.6 的缓存清理分支）。
+    要端到端只能跑**指向线上前端的正式壳**，那等于以真实账号使用一次本产品，属用户决定，不由 agent 代做。
     桌面 `page_*` 的接线三条件（§4.6）另属未决项，不是已验证的"能跑"。
 
 ---
