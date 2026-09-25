@@ -33,7 +33,11 @@ import {
   ToolNotFoundError,
   type ToolRegistry,
 } from './hub/index.js';
-import { projectToolInputSchema, type ToolContractMount } from '@ihui/types';
+import {
+  projectToolInputSchema,
+  type ToolContractMount,
+  type ToolResultBudgetContract,
+} from '@ihui/types';
 
 export interface ToolParameter {
   type: 'string' | 'number' | 'boolean' | 'array' | 'object';
@@ -528,6 +532,106 @@ export function formatToolResult(call: ParsedToolCall, result: ToolResult): stri
   return `[工具结果 ${status}] ${call.name}\n${safeOutput}${errorPart}`;
 }
 
+// ==================== ToolResultBudgetContract 消费(H-5,2026-09-26)====================
+//
+// packages/types/src/tool-contract.ts 第三节的 resultBudget 此前全仓零消费者(scripts 的
+// CONTRACT_GROUPS 只做声明校验)。唯一合理消费点是本文件的 executor 边界 —— executeToolCall
+// 本地路径收口处,即 handler 产出与"回灌模型上下文"之间。语义严格按契约字段注释执行:
+//   - inlineLimitBytes:内联展示阈值,超过即按 policy 处置(policy='inline' = 声明方接受大结果完整内联);
+//   - providerVisibleLimitBytes:回灌模型上下文的硬上限,**独立于内联展示** —— 任何 policy 下
+//     最终内容都不得越过;声明不自洽(preview.bytes 更大)时硬上限赢;
+//   - preview:裁剪预览形状,bytes 与 lines 是两个同时生效的上限,from 定保留侧;
+//   - 'artifact' 档本仓暂无 artifact 存储承接设施,降级为 truncate 预览并在标注注明 fallback
+//     (不臆造 artifact 语义,也不静默放行超限内容;存储设施落地属后续票)。
+// 契约缺席(contract?.resultBudget 为 undefined)⇒ 逐字节原样返回:ToolContractMount 的可选挂载
+// 是 A13 第一阶段的刻意设计(翻缺省属行为变更,须单独一票),本票只消费显式声明,不触碰
+// 无契约工具的既有行为。
+// 标注文案用 ASCII:消费方是模型而非终端用户界面,且本文件受守门 70 的硬编码中文基线棘轮约束
+// (同款理由见上方 execBudgetResult 注释)。
+
+/** 按 UTF-8 字节上限裁剪,from 定保留侧;切破的多字节序列由 Buffer.toString 归为 U+FFFD。 */
+function clipByBytes(text: string, maxBytes: number, from: 'head' | 'tail'): string {
+  const buf = Buffer.from(text, 'utf8');
+  if (buf.length <= maxBytes) return text;
+  const clipped =
+    from === 'head' ? buf.subarray(0, maxBytes) : buf.subarray(buf.length - maxBytes);
+  return clipped.toString('utf8');
+}
+
+/** 按 preview 形状裁剪:行数与字节数两个上限同时生效(取交集),from 决定保留头还是尾。 */
+function clipByPreview(output: string, preview: ToolResultBudgetContract['preview']): string {
+  const lines = output.split('\n');
+  let kept = lines;
+  if (kept.length > preview.lines) {
+    kept =
+      preview.from === 'head'
+        ? kept.slice(0, preview.lines)
+        : kept.slice(kept.length - preview.lines);
+  }
+  let text = kept.join('\n');
+  if (Buffer.byteLength(text, 'utf8') > preview.bytes) {
+    text = clipByBytes(text, preview.bytes, preview.from);
+  }
+  return text;
+}
+
+/**
+ * 按一份 `ToolResultBudgetContract` 处置单条工具结果(纯函数)。
+ *
+ * 两道闸:
+ *   ① output 超过 `inlineLimitBytes` 且 policy 非 'inline' ⇒ 按 preview 裁剪('artifact' 降级同型);
+ *   ② 最终内容仍超过 `providerVisibleLimitBytes` ⇒ 再按 preview 形状裁到硬上限内。
+ * 裁剪发生时在 output **头部**拼标注 —— 让模型第一眼就知道看到的是部分视图,不会把截断内容
+ * 当成完整事实。error 字段不裁(契约字段均围绕 output 语义,不臆造 error 的预算语义)。
+ */
+export function applyToolResultBudget(
+  result: ToolResult,
+  budget: ToolResultBudgetContract,
+): ToolResult {
+  const original = result.output;
+  if (original === '') return result;
+  const totalBytes = Buffer.byteLength(original, 'utf8');
+
+  let text = original;
+  let policyNote: string = budget.policy;
+  let truncated = false;
+
+  if (totalBytes > budget.inlineLimitBytes && budget.policy !== 'inline') {
+    text = clipByPreview(original, budget.preview);
+    truncated = true;
+    if (budget.policy === 'artifact') {
+      policyNote = 'artifact (no artifact storage wired; truncate fallback)';
+    }
+  }
+
+  if (Buffer.byteLength(text, 'utf8') > budget.providerVisibleLimitBytes) {
+    text = clipByBytes(
+      text,
+      Math.min(budget.preview.bytes, budget.providerVisibleLimitBytes),
+      budget.preview.from,
+    );
+    truncated = true;
+  }
+
+  if (!truncated) return result;
+  const keptBytes = Buffer.byteLength(text, 'utf8');
+  const note =
+    `[tool-result-budget] output truncated: original ${totalBytes} bytes, showing ${keptBytes} bytes ` +
+    `(policy: ${policyNote}, preview from ${budget.preview.from}). ` +
+    `This is a partial view, not the complete tool output.`;
+  return { ...result, output: `${note}\n${text}` };
+}
+
+/**
+ * executor 边界的**唯一**预算应用点(H-5 接线位):契约在位才消费,缺席逐字节原样返回。
+ * 唯一调用点 = `executeToolCall` 本地路径收口;hub 分支拿不到本地 Tool 对象,与
+ * `shadowValidateToolArguments` 的已知覆盖面缺口同型,本票不扩面。
+ */
+export function withToolResultBudget(tool: Tool, result: ToolResult): ToolResult {
+  const budget = tool.contract?.resultBudget;
+  return budget ? applyToolResultBudget(result, budget) : result;
+}
+
 export async function executeToolCall(
   call: ParsedToolCall,
   ctx: ToolContext,
@@ -593,7 +697,11 @@ export async function executeToolCall(
     }
   }
   // P1-5 Error recovery:read 工具失败自动重试 1 次 + 100ms 退避;write/dangerous 不重试(避免副作用)
-  return executeWithRetry(tool, call.arguments, ctx);
+  const executed = await executeWithRetry(tool, call.arguments, ctx);
+  // H-5:ToolResultBudgetContract 在 executor 边界消费 —— handler 产出回灌模型之前按声明预算
+  // 裁剪/标注。契约缺席 ⇒ 原样返回(零行为变更);hub 分支拿不到本地 Tool 对象,与上方
+  // shadowValidateToolArguments 的已知覆盖面缺口同型,本票不扩面。
+  return withToolResultBudget(tool, executed);
 }
 
 // ==================== P1-4 Rate limiting(滑动窗口计数)====================
