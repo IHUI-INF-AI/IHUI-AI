@@ -97,7 +97,7 @@ async function writeSkills(
 const MARKET_KEY = 'skills-market:global'
 
 /** 市场种子数据(7 个内置 skill) */
-const MARKET_SEED: SkillMarketEntry[] = [
+const MARKET_SEED_RAW: Omit<SkillMarketEntry, 'enabled' | 'source' | 'ownerId'>[] = [
   {
     name: 'content_engine',
     description: '内容引擎 — 自动生成公众号文章/口播稿/短视频脚本',
@@ -194,6 +194,17 @@ const MARKET_SEED: SkillMarketEntry[] = [
   },
 ]
 
+/**
+ * 内置种子补齐 listing 契约字段(P2-14):来源 builtin、默认在架、无归属用户。
+ * ownerId 刻意留空 ⇒ owner 判定对内置条目一律判"非 owner",任何人都不能把平台
+ * 内置技能下架后据为己有。
+ */
+const MARKET_SEED: SkillMarketEntry[] = MARKET_SEED_RAW.map((entry) => ({
+  ...entry,
+  enabled: true,
+  source: 'builtin' as const,
+}))
+
 const marketFallback = new Map<string, SkillMarketEntry[]>()
 const ratingsFallback = new Map<string, SkillRating[]>()
 
@@ -217,6 +228,11 @@ const publishSchema = z.object({
   version: z.string().default('1.0.0'),
   license: z.string().default('MIT'),
   content: z.string().min(1).max(65536),
+})
+
+/** listing 级上下架切换的请求体(P2-14) */
+const listingSchema = z.object({
+  enabled: z.boolean(),
 })
 
 async function readMarket(
@@ -567,6 +583,11 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
     const { q, tag, page, pageSize } = parsed.data
 
     let entries = await readMarket(server.redis, MARKET_KEY)
+    // listing 级下架(P2-14):显式 enabled === false 的条目对所有人隐身,只有 owner 自己
+    // 仍能在列表里看见它 —— 否则他下架完就没有入口再把它上架回去。
+    // 缺省字段按"在架"解释,兼容本字段落地前写入的历史条目。
+    const viewerId = Number(request.userId!)
+    entries = entries.filter((e) => e.enabled !== false || e.ownerId === viewerId)
     if (q) {
       const lower = q.toLowerCase()
       entries = entries.filter(
@@ -641,6 +662,75 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ name: removed!.name, unlisted: true }))
   })
 
+  // POST /skills/:name/listing — listing 级上下架切换(P2-14,owner 专用)
+  //
+  // 与上面 unlist 的区别:unlist 是"从市场目录里抹掉"(admin 治理动作,不认归属),
+  // 本端点是"条目还在、只是在架/不在架之间翻转",保留 installCount/rating/订阅关系。
+  // 顺序必须是 先鉴权 → 再校参数 → 再校归属:归属判定要读 request.userId,
+  // 放在鉴权之前拿到的永远是 undefined。
+  server.post<{ Params: { name: string } }>('/skills/:name/listing', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
+
+    const parsed = nameParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const bodyParsed = listingSchema.safeParse(request.body)
+    if (!bodyParsed.success) {
+      return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    const entries = await readMarket(server.redis, MARKET_KEY)
+    const entry = entries.find((e) => e.name === parsed.data.name)
+    if (!entry) {
+      return reply.status(404).send(error(404, '市场 Skill 不存在'))
+    }
+
+    // owner 判定一律服务端按 userId 校:内置/内部同步条目没有 ownerId ⇒ 无人是 owner。
+    // 不得只靠前端隐藏按钮 —— 那等于把别人的上架状态交给任意登录用户。
+    if (entry.ownerId === undefined || entry.ownerId !== Number(userId)) {
+      return reply.status(403).send(error(403, '只有上架者本人可以切换该 Skill 的上下架状态'))
+    }
+
+    entry.enabled = bodyParsed.data.enabled
+    entry.updatedAt = new Date().toISOString()
+    await writeMarket(server.redis, MARKET_KEY, entries)
+
+    return reply.send(success({ name: entry.name, enabled: entry.enabled }))
+  })
+
+  // GET /skills/:name/ownership — owner 判定所需的那个查询端点(P2-14)
+  //
+  // 前端按它决定"上下架"按钮是否出现(以及按钮文案),但**授权仍由上一个 POST 端点
+  // 独立把住**:本端点只是让 UI 不闪一下再消失,不是安全边界。
+  server.get<{ Params: { name: string } }>('/skills/:name/ownership', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
+
+    const parsed = nameParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    const entries = await readMarket(server.redis, MARKET_KEY)
+    const entry = entries.find((e) => e.name === parsed.data.name)
+    if (!entry) {
+      return reply.status(404).send(error(404, '市场 Skill 不存在'))
+    }
+
+    const ownerId = entry.ownerId
+    return reply.send(
+      success({
+        name: entry.name,
+        isOwner: ownerId !== undefined && ownerId === Number(userId),
+        ownerId: ownerId ?? null,
+        enabled: entry.enabled !== false,
+        source: entry.source ?? null,
+      }),
+    )
+  })
+
   // POST /skills/market — 发布 skill 到市场(用户上架自己的 skill)
   server.post('/skills/market', async (request: FastifyRequest, reply: FastifyReply) => {
     // 内部服务调用(self-evolution 自进化同步)可通过 X-Internal-Secret 绕过 JWT
@@ -655,6 +745,10 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const body = parsed.data as SkillPublishRequest
+
+    // 归属由服务端按调用身份推导,不接受请求体自报:
+    // 内部自进化同步 ⇒ source=hub 且无归属用户;登录用户上架 ⇒ source=user + ownerId。
+    const publisherId = isInternal ? undefined : Number(request.userId!)
 
     const entries = await readMarket(server.redis, MARKET_KEY)
     const existingIdx = entries.findIndex((e) => e.name === body.name)
@@ -672,6 +766,13 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
       existing.version = body.version
       existing.license = body.license
       existing.updatedAt = new Date().toISOString()
+      // 归属补齐:source/ownerId 落地之前上架的条目没有 owner,而作者名已由上一行
+      // 409 校验把住,所以这里认领的是"作者本人补登记",不是抢注。
+      // 刻意不动 enabled —— 版本更新不该把 owner 主动下架的条目偷偷放回在架。
+      if (existing.ownerId === undefined && publisherId !== undefined) {
+        existing.ownerId = publisherId
+        existing.source = 'user'
+      }
       await writeMarket(server.redis, MARKET_KEY, entries)
 
       // 通知所有订阅者(LPUSH 到各用户通知 List)
@@ -694,6 +795,9 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
       ratingCount: 0,
       createdAt: now,
       updatedAt: now,
+      enabled: true,
+      source: isInternal ? 'hub' : 'user',
+      ownerId: publisherId,
     }
     entries.push(entry)
     await writeMarket(server.redis, MARKET_KEY, entries)
