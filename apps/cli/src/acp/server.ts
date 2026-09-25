@@ -38,6 +38,7 @@ import {
   type RewindPoint,
 } from '../commands/session.js';
 import { setupAgentTools, runToolLoop, type ToolContext } from '../commands/agent.js';
+import { createDangerGate } from '../tools/danger-gate.js';
 import { PlanMachine } from '../plan/machine.js';
 import { CheckpointManager } from '../checkpoints/index.js';
 import {
@@ -306,22 +307,26 @@ export class IhuiAcpAgent {
           apiKey: this.opts.apiKey,
           allowDangerous: this.opts.allowDangerous,
         },
-        // D5:危险工具审批接入 request_permission(此前静默 false,IDE 内无弹窗);
-        // 编辑器不支持/取消 → null → 拒绝(安全默认与旧行为一致)
-        confirmDangerous: async (tool, args) => {
-          if (this.opts.allowDangerous) return true;
-          const selected = await requestPermissionFromEditor(cx, params.sessionId, {
-            toolCallId: `dangerous-${tool.name}-${Date.now()}`,
-            kind: 'execute',
-            title: `危险操作审批:${tool.name}`,
-            contentText: JSON.stringify(args).slice(0, 2000),
-            options: [
-              { optionId: 'allow', name: '允许本次执行', kind: 'allow_once' },
-              { optionId: 'deny', name: '拒绝', kind: 'reject_once' },
-            ],
-          });
-          return selected === 'allow';
-        },
+        // D5:危险工具审批接入 request_permission(此前静默 false,IDE 内无弹窗)。
+        // 策略收口到唯一出口 createDangerGate:silent 保持本端零额外输出,
+        // 编辑器不支持/取消 → prompt 非 true → denied(安全默认与旧行为逐路径等价)
+        confirmDangerous: createDangerGate({
+          allowDangerous: this.opts.allowDangerous,
+          silent: true,
+          prompt: async (tool, args) => {
+            const selected = await requestPermissionFromEditor(cx, params.sessionId, {
+              toolCallId: `dangerous-${tool.name}-${Date.now()}`,
+              kind: 'execute',
+              title: `危险操作审批:${tool.name}`,
+              contentText: JSON.stringify(args).slice(0, 2000),
+              options: [
+                { optionId: 'allow', name: '允许本次执行', kind: 'allow_once' },
+                { optionId: 'deny', name: '拒绝', kind: 'reject_once' },
+              ],
+            });
+            return selected === 'allow';
+          },
+        }),
       });
       state.systemPrompt = result.systemPrompt;
       state.ctx = result.ctx;

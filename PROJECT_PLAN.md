@@ -9199,3 +9199,29 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
     - 正确解法（留下一票，判据明确）：把 `my-agents.test.tsx` 的内联 react-native 工厂**删掉、改由共享替身供给**（共享替身已含全部所需出口），或删除该套件内联工厂中与 `tests/__mocks__/react-native.ts` 重复的部分。解阻判据：`cd apps/mobile-rn && pnpm vitest run tests/my-agents.test.tsx` 三条全绿，且**头条 52 个套件、489 条用例零失败**；修完必须复跑全量确认没有别的套件依赖同一条内联工厂。
     - 结构性失明一并入账（本票新量到的两条，都不是运气）：① **134 道门里没有任何一道跑 vitest**，`check-staged-typecheck` 走 tsc，结构上看不见 transform / 解析期失败 ⇒ CI 会红（`vitest run` 收集失败即 exit 1，`ci.yml:147` 无 continue-on-error）但**提交链不拦**，本机因此可以长期"看着绿"而覆盖被静默削掉；② 守门 83 的 `SCAN_DIRS` 只含 `apps/mobile-rn/src` 与 `packages/app/src`，**`apps/mobile-rn/tests/**` 不在射程**，所以"改档票自己全绿、它的配套回归测试长红"是**两边都不报**的那一类（同教训见守门 77 B6 的括号形态盲区：判据必须覆盖门自己产出的形态）。
     - 待决（不擅自建门）：是否新增一道「受影响端 vitest 收集失败套件数 == 0」的判据。按 §12e 与 §4 的反复教训，它**只能是 warn 级 + 独立巡检入口**、blocking 留给 CI —— 产不出可执行修复动作的恒红门只会逼人 `--no-verify`，连带废掉全部守门。
+
+### 第四十九批·续十三(2026-09-25 06:3x):线上 UI 复验时抓到三件事 —— 游客无限轮询、main 上悬空的 5 个 import、以及提交链的一处盲区
+- **触发**:用户问"线上样式都加载了吗"。样式侧先用 DOM 数值证清(6 张样式表 / **1199 条规则全部解析**、
+  125 张图 0 破图、主按钮实测 `#4A7A96`+白字+6px 圆角、深色档底色 `#F5F5F5→#242424` 且主按钮按定稿**不反转**)。
+  但控制台暴露了下面三件真事 —— 只报"200 + 健康检查通过"是查不出这些的。
+- **① 游客无限轮询(已修,提交见 `use-subagent-dispatch`)**:单个空闲首页标签页 4 分钟 **230+ 条请求**,
+  `/api/subagents/active` 401 + `/api/subagents/topology` 401 + `/api/auth/refresh` 400 以 ~1.5s 一组无限重复。
+  根因是两层叠加:轮询 hook 只有 `refetchInterval` 没有登录态守卫;而 `fetchApi` 把失败**降级成空数组**
+  (那是给已登录用户用的静默降级),于是 React Query 认为本轮成功 ⇒ 永不停。
+  修法加在**取数入口**(`enabled: isAuthenticated` + `refetch()` 也收 active 参数,因为它绕过 enabled),
+  **不动 fetchApi 的降级语义**(那是另一个契约)。回归 4 例含反向对照,变异证明:摘掉守卫恰好那两条"游客"红。
+- **② main 上悬空的 5 个 import(已修)**:`pnpm --filter @ihui/web typecheck` 报 `AgentPane.tsx`
+  `Cannot find name` ×5(`resolveGoalVerificationView` / `resultToneFromGoalKind` / `GoalVerificationView` /
+  `buildHardCriteria` / `AgentVerificationSection`)。三个符号**都存在且已导出、文件都已 tracked** ——
+  丢的只是 import 行,与 §"活文档/热文件被旧基线回写吃掉几行"同型,只是这次吃的是 import。
+  Next 构建不做类型检查所以线上没红,但走到 goal 校验分支会 ReferenceError。本票只补 import,不碰该功能逻辑。
+- **③ 提交链的一处盲区(登记,未动别人的链)**:`lint-staged` 在 guardian 批量检查**之前**执行,
+  它一失败 pre-commit 就提前退出 ⇒ 没有汇总 ⇒ 归因层只能记 `unattributed`,而 safe-commit 的应急路径
+  **照样 --no-verify 落地**。结果:我自己引入的一条 `react-hooks/rules-of-hooks` 违规(测试探针里条件调 hook)
+  穿过整条链进了仓。已前向修复(eslint rc=0、用例仍 4/4),但**链的形态问题留给守门作者**:
+  "跑不完"与"跑完但红"在台账上必须可区分,且 `unattributed` 不该等同于可跳。
+- **顺带一条测量纪律(我自己又踩)**:判 `PriceChart.tsx` / `tool-category.ts` "文件不存在、未被跟踪"是错的 ——
+  当时 shell 的 cwd 还停在 `apps/web`,于是拿 `apps/web/apps/web/...` 去判。回根目录重测:三文件都存在且已跟踪。
+  这条已记在 [[feedback-resolve-paths-dont-guess]],本次是复发,**凡跨命令用相对路径前先 `pwd`**。
+  同批更正:web 全量 typecheck 还有 21 处红(`progress-sections/tool-category*` 19 处 + `PriceChart.tsx` 2 处),
+  归属 09-24 的他人提交;之所以一直没暴露,是推送门按"本次改动范围"降级 ⇒ 与本票无关,不代改。
