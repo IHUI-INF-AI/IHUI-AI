@@ -170,6 +170,32 @@ export function deriveMiniappManaged(tokensCss, kind) {
 }
 
 /**
+ * v4 色档注册区(`@theme { … }`)的标记注释前缀 —— app.css 的**第 6 处** token 受管区。
+ * 定位机制与现有 5 区**完全同一套路**:按标记注释定位,不靠「第几个块数」;
+ * 已在位走 `mergeDeclsInPlace` 原位写回,不在位才整块插入(AGENTS §4「原位写回,禁止整块替换」)。
+ * 导出是给守门 36 与镜像测试共用的同一个标识 —— 三处各写一遍字面量就是第三份真相。
+ */
+export const THEME_REGION_MARK = '/* ===== v4 色档注册(自动同步自'
+
+/**
+ * `@theme` 区应有的档 = `deriveMiniappManaged(light)` **剔除 `-rgb` 三元组**。
+ *
+ * 两条都是实测逼出的,不是洁癖:
+ * 1. 档位集合必须由 `deriveMiniappManaged` 那**同一个谓词**派生(见本文件头注第 1 条)——
+ *    注册区若自己筛一遍,「该写的」与「该判的」就从不同形那一刻起分叉。
+ * 2. `--color-*-rgb` **绝对不能进 `@theme`**:v4 把任何 `--color-*` 都当成一个颜色档,
+ *    进了就长出 `.bg-muted-rgb{background-color:var(--color-muted-rgb)}` 这种脏档。
+ *    那批三元组归下面 `:root` 的 alpha 区管(守门 93 R6 要求每档必备),不参与注册。
+ *
+ * 为什么这一档非要有:v4 只认 `@theme` 里的 `--color-*`,而副本历史上把色值全写在普通
+ * `:root/.dark` 上 ⇒ 项目色档(`bg-*`/`text-*`/`border-*` 整族)在真构建产物里 0 条规则,
+ * 而命名布局档(`.flex`/`.p-3`)有 —— 症状精确到"只有色档没落地"(见 PROJECT_PLAN O62附⑧补)。
+ */
+export function deriveThemeRegistryDecls(tokensCss) {
+  return deriveMiniappManaged(tokensCss, 'light').filter((d) => !isAlphaRgbTriple(d.name))
+}
+
+/**
  * 从 tokens.css 提取 @theme 块内的变量声明。
  * @theme 块格式:@theme { ... --color-xxx: hsl(...); ... }
  * 返回:["--color-xxx: hsl(...);", ...]
@@ -225,6 +251,15 @@ function extractOpacityPalette(content) {
  */
 const ALPHA_RGB_NAME_RE = /^--color-[\w-]+-rgb$/
 const ALPHA_RGB_DECL_RE = /^--color-[\w-]+-rgb:\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3};$/
+
+/**
+ * 「这一档是不是 alpha 三元组」的**唯一**实现(在受管族内等价于名字以 `-rgb` 结尾)。
+ * 生成器剔它(`deriveThemeRegistryDecls`)与守门 36 判它(`rgbInTheme`)都走这一条 ——
+ * 一条写在正则里、另一条写 `endsWith('-rgb')`,就是两份真相(§4「取源只能有一份实现」)。
+ */
+export function isAlphaRgbTriple(name) {
+  return ALPHA_RGB_NAME_RE.test(name)
+}
 
 /**
  * 从 tokens.css 提取「独立 :root 块」中的业务品牌变量(--color-miniapp-green* 等。
@@ -329,7 +364,7 @@ function buildVarMap(lines) {
 //   - 谁写的解释性注释,同步一次就没一段。
 // 现改为**按区原位写回**:同名就地换值、值已等价连字节都不改(⇒ 幂等)、
 // 非受管声明与注释**逐字留在原位**、源头有而本区缺才补到本区尾部。
-// app.css 的 6 处受管块各自独立处理,不合并成一块。
+// app.css 的 6 处 token 受管块(5 个变量区 + 1 个 `@theme` 注册区)各自独立处理,不合并成一块。
 // ─────────────────────────────────────────────────────────────────────────
 
 /** 取不到输入 / 结构判不出 ⇒ 抛它。调用方折成 exit 2「无法判定」,既不冒红也绝不记绿。 */
@@ -422,6 +457,7 @@ export function mergeDeclsInPlace(text, decls, label = '') {
 export function planAppCssRegions(css, maps) {
   const roots = topLevelRanges(css, ':root')
   const darks = topLevelRanges(css, '.dark')
+  const themes = topLevelRanges(css, '@theme')
   if (roots.length === 0) throw new Undetermined('app.css 中没有 :root 块')
   if (darks.length === 0) throw new Undetermined('app.css 中没有 .dark 块')
   const hostOf = (idx) => roots.find((b) => idx > b.open && idx < b.bodyEnd)
@@ -447,6 +483,15 @@ export function planAppCssRegions(css, maps) {
       const a = markerRange(css, '/* ===== Tailwind v3 alpha', 'alpha 三元组')
       push('alpha 三元组', a.end, host.bodyEnd, maps.alpha)
     }
+  }
+  // 第 6 区:v4 色档注册块。块体由 topLevelRanges 定位(它先 maskComments 再配平,
+  // 所以散文注释里出现的字符串 @theme 不会被当块 —— TH3 有专门一条自检钉这个)。
+  if (maps.theme && maps.theme.size) {
+    const t = markerRange(css, THEME_REGION_MARK, 'v4 色档注册')
+    const block = themes.find((b) => b.open > t.end)
+    if (!block)
+      throw new Undetermined('受管区「v4 色档注册」的标记注释在位,但它后面没有 @theme 块(区被摘走了)')
+    push('v4 色档注册', block.bodyStart, block.bodyEnd, maps.theme)
   }
   for (const [label, marker, key] of [
     ['透明度色板', '/* ===== 透明度色板(自动同步自', 'opacity'],
@@ -495,20 +540,106 @@ export function mergeAppCssBase(css, baseCss) {
 }
 
 /**
- * app.css 的 6 处受管块逐块原位写回。
- * 先做 base 段(它在文件头部,会整体推移后面的下标),再在**新文本**上重算 5 个 token 区,
- * 最后按区间升序一次性拼装 —— 不在区间变化后继续沿用旧下标(那是越界改写的来源)。
+ * `@theme` 注册区的整块形态(首次落地用;已在位之后由 mergeDeclsInPlace 原位写回,不再走这里)。
+ * 块内那条说明注释是**故意**留在体内的:它解释 `-rgb` 为什么不进来,而下一次运行按标记定位到
+ * 同一个区、maskComments 认得它是注释 ⇒ 逐字留在原位(与端内自有档同一条待遇)。
+ */
+export function renderThemeRegion(decls) {
+  const body = [...decls].map(([name, value]) => `  ${name}: ${value};`).join('\n')
+  return [
+    `${THEME_REGION_MARK} tokens.css,勿手动编辑;变更后运行 sync-design-tokens.mjs)===== */`,
+    '@theme {',
+    '  /* 只注册 v4 认得的**色档**:--color-*-rgb 那批三元组不得进来 —— v4 把任何 --color-*',
+    '     都当成一个颜色档,进来就会长出 .bg-muted-rgb 这类脏档;它们由下面 :root 的 alpha 区管。 */',
+    body,
+    '}',
+  ].join('\n')
+}
+
+/**
+ * 首次落地的插入锚点(按优先级取第一条命中的)。依据,不得在别处再猜一遍:
+ * `@theme` 是 **v4 引擎的输入指令**,与 `@source` / `@import 'tailwindcss/utilities.css'` /
+ * `@tailwind base|components` 同属一簇 —— 所以它住在指令簇末尾、排在第一处消费
+ * `var(--color-*)` 的规则之前,读代码时"引擎输入"与"端内副本"才分得开。
+ * 排在 `:root` 副本之前**不会**让深色档失效:v4 把 `@theme` 的档写进 `@layer theme`,
+ * 而本文件后面的 `:root` / `.dark` 是**未分层**声明,层外优先级高于层内 ⇒ 运行期取值仍以副本为准,
+ * `@theme` 只负责"这一档存在、能长出 utility"。这也正是不能用 `@theme inline` 的原因
+ * (inline 把亮档值直接烘进每条 utility,`.dark` 再也压不住 ⇒ 深色模式整族失效);
+ * 也不用 `@theme reference`(它给每条规则加一份亮档 fallback,字节更贵)。只用普通 `@theme`。
+ * 四条锚一条都不命中 ⇒ 抛「无法判定」:猜个位置去插,比不插危险得多(与 markerRange 同一条规矩)。
+ */
+const THEME_ANCHORS = [
+  /^@source\s/m,
+  /^@import\s*['"]tailwindcss\/utilities\.css['"]/m,
+  /^@tailwind\s+components\s*;/m,
+  /^@tailwind\s+base\s*;/m,
+]
+
+export function insertThemeRegion(css, decls) {
+  for (const re of THEME_ANCHORS) {
+    const m = re.exec(css)
+    if (!m) continue
+    const lineEnd = css.indexOf('\n', m.index)
+    if (lineEnd < 0) continue // 锚点是文件末行(没有换行符)⇒ 换下一条,不在这里拼半截
+    return `${css.slice(0, lineEnd)}\n${renderThemeRegion(decls)}\n${css.slice(lineEnd)}`
+  }
+  throw new Undetermined(
+    'app.css 里没有 Tailwind 指令簇(@source / @import utilities / @tailwind base|components)⇒ 无法判定 @theme 区该插在哪'
+  )
+}
+
+/**
+ * `@theme` 区不在位时整块插入,已在位时**什么都不做** —— 原位写回是 planAppCssRegions +
+ * mergeDeclsInPlace 那条路的事(与另外 5 区同一条分工)。
+ * 源头该组为空也什么都不做:没有档就没有落点,不得为"看着完整"去猜一个位置。
+ * 标记重复不在这里判:交给 markerRange(它与另外 5 区共用同一个「重复即无法判定」出口)。
+ */
+export function ensureThemeRegion(css, decls) {
+  if (!decls || decls.size === 0) return css
+  if (css.indexOf(THEME_REGION_MARK) >= 0) return css
+  return insertThemeRegion(css, decls)
+}
+
+/**
+ * 从 tokens.css 算出 app.css 6 个 token 受管区应有的档集合。
+ * main() 与镜像测试**共用这一条**:测试若自己再拼一遍 6 个 map,拼错的那一份就会以
+ * "夹具跑不通"的形态被下游读成"判据通过"(§22c 同型)。
+ */
+export function buildAppCssMaps(tokensContent) {
+  const themeRaw = extractThemeBlock(tokensContent)
+  const darkRaw = extractDarkBlock(tokensContent)
+  const themeMap = buildVarMap(themeRaw)
+  const darkMap = buildVarMap(darkRaw)
+  return {
+    semantic: buildVarMap(filterTokens(themeRaw)),
+    alpha: buildVarMap(extractAlphaChannelBlock(tokensContent)),
+    opacity: buildVarMap(extractOpacityPalette(tokensContent)),
+    brand: buildVarMap(extractStandaloneRootBlock(tokensContent, themeMap, darkMap)),
+    dark: buildVarMap(filterTokens(darkRaw)),
+    theme: new Map(deriveThemeRegistryDecls(tokensContent).map((d) => [d.name, d.value])),
+    // 供 style.ts 的 COLORS 用(未过滤的 @theme/.dark 原图,与 maps.theme 无关,勿混用)
+    themeMap,
+    darkMap,
+  }
+}
+
+/**
+ * app.css 的 7 处受管块逐块原位写回(base.css 段 + 5 个 token 区 + 1 个 `@theme` 注册区)。
+ * 先做 base 段(它在文件头部,会整体推移后面的下标),再做 `@theme` 区的首次整块插入
+ * (同样推移下标),**最后才在最新文本上**重算 6 个 token 区 —— 不在区间变化后继续沿用旧下标
+ * (那是越界改写的来源)。
  */
 export function mergeAppCss(css, maps, baseCss) {
   const withBase = mergeAppCssBase(css, baseCss)
-  const plan = planAppCssRegions(withBase, maps)
+  const withTheme = ensureThemeRegion(withBase, maps.theme)
+  const plan = planAppCssRegions(withTheme, maps)
   let out = ''
   let last = 0
   for (const r of plan) {
-    out += withBase.slice(last, r.start) + mergeDeclsInPlace(withBase.slice(r.start, r.end), r.map, r.label)
+    out += withTheme.slice(last, r.start) + mergeDeclsInPlace(withTheme.slice(r.start, r.end), r.map, r.label)
     last = r.end
   }
-  return out + withBase.slice(last)
+  return out + withTheme.slice(last)
 }
 
 const COLORS_HEAD = 'export const COLORS = {'
@@ -607,53 +738,29 @@ function main() {
   const appCssContent = readFileSync(APP_CSS_TARGET, 'utf8')
   const styleTsContent = readFileSync(STYLE_TS_TARGET, 'utf8')
 
-  const themeLinesRaw = extractThemeBlock(tokensContent)
-  const darkLinesRaw = extractDarkBlock(tokensContent)
+  // 六区 + style.ts 两张图的**唯一**取源出口(与镜像测试共用,别处不得再拼一遍 6 个 map)
+  const maps = buildAppCssMaps(tokensContent)
 
-  if (themeLinesRaw.length === 0) {
+  if (maps.themeMap.size === 0) {
     console.error('[sync-design-tokens] 未从 @theme 块提取到任何变量,请检查 tokens.css 格式')
     process.exit(1)
   }
-  if (darkLinesRaw.length === 0) {
+  if (maps.darkMap.size === 0) {
     console.error('[sync-design-tokens] 未从 .dark 块提取到任何变量,请检查 tokens.css 格式')
     process.exit(1)
   }
 
-  // 用于去重与 style.ts 生成(提前构建,供业务品牌色去重判断)
-  const themeMap = buildVarMap(themeLinesRaw)
-  const darkMap = buildVarMap(darkLinesRaw)
-
-  // app.css 同步:用过滤后的变量(去掉 web 独有的字体/动画/断点等)
-  const themeLines = filterTokens(themeLinesRaw)
-  const darkLines = filterTokens(darkLinesRaw)
-  // Tailwind v3 端 alpha 通道三元组:亮值挂在**语义色同一个 :root 区**里(必须与 .dark 保持
-  // 「先亮后暗」的级联顺序 —— 另起一个 :root 块会落在 .dark 之后,暗色就压不住它)
-  const alphaRgbLines = extractAlphaChannelBlock(tokensContent)
-  // 透明度色板 / 业务品牌色:定义在 tokens.css 独立 :root 块,各占 app.css 一个独立受管区
-  const opacityLines = extractOpacityPalette(tokensContent)
-  const businessLines = extractStandaloneRootBlock(tokensContent, themeMap, darkMap)
-
-  // base.css 是第 6 处受管块(整段逐字拷贝)。背景:app.css 首行的跨包 @import 在 Taro 编译时
+  // base.css 是第 7 处受管块(整段逐字拷贝)。背景:app.css 首行的跨包 @import 在 Taro 编译时
   // 不被内联,产物 dist/app-origin.wxss 残留相对路径,微信 IDE 以 dist 为根解析失败
   // → [WXSS 文件编译错误] path ... not found from ./app-origin.wxss。
   const baseCssContent = readFileSync(BASE_CSS_SOURCE, 'utf8')
 
-  // 6 处受管块**逐块原位写回**(旧写法整块重铸 ⇒ 端内自有档与解释性注释被静默抹掉,见文件头第 1 条)
-  const newAppCss = mergeAppCss(
-    appCssContent,
-    {
-      semantic: buildVarMap(themeLines),
-      alpha: buildVarMap(alphaRgbLines),
-      opacity: buildVarMap(opacityLines),
-      brand: buildVarMap(businessLines),
-      dark: buildVarMap(darkLines),
-    },
-    baseCssContent
-  )
+  // 7 处受管块**逐块原位写回**(旧写法整块重铸 ⇒ 端内自有档与解释性注释被静默抹掉,见文件头第 1 条)
+  const newAppCss = mergeAppCss(appCssContent, maps, baseCssContent)
   // style.ts 只写 COLORS 块。旧写法用模板重铸**整个文件**,而磁盘那份开头带 §5c 的零宽溯源横幅、
   // 模板里没有 ⇒ 每次生成都删掉横幅,`--check` 因此天天报「style.ts 与 tokens.css 不同步」
   // (实测首处差异就是横幅第 1 行,22 个色值本就逐字节相同)。
-  const newStyleTs = mergeStyleColors(styleTsContent, buildColorRows(themeMap, darkMap))
+  const newStyleTs = mergeStyleColors(styleTsContent, buildColorRows(maps.themeMap, maps.darkMap))
   if (isCheck) {
     let drift = false
     if (newAppCss !== appCssContent) {
@@ -676,16 +783,18 @@ function main() {
 
   // 无任何变化 ⇒ 不改一个字节、也不碰 mtime(幂等的可观测形式;提交链里的
   // `git diff --quiet -- <file>` 也据此跳过多余的 git add)。
+  const counts = `${maps.semantic.size} 语义 + ${maps.alpha.size} alpha 三元组 + ${maps.opacity.size} 透明度 + ${maps.brand.size} 品牌 + ${maps.dark.size} 暗档 + ${maps.theme.size} v4 色档注册`
   if (newAppCss === appCssContent && newStyleTs === styleTsContent) {
-    console.info(
-      `[sync-design-tokens] ✅ app.css + style.ts 与 tokens.css 一致(${themeLines.length} 语义 + ${alphaRgbLines.length} alpha 三元组 + ${opacityLines.length} 透明度 + ${businessLines.length} 品牌 + ${darkLines.length} 暗档,原位写回零改动)`
-    )
+    console.info(`[sync-design-tokens] ✅ app.css + style.ts 与 tokens.css 一致(${counts},原位写回零改动)`)
     return
   }
+  // 首次落地是"整块插入",之后才是"原位写回" —— 两者必须在日志里分得开,否则人会把
+  // 第一次的大段新增读成"整块替换又回来了"(AGENTS §4 明令禁止的那一种)。
+  const themeLanded = !appCssContent.includes(THEME_REGION_MARK) && newAppCss.includes(THEME_REGION_MARK)
   if (newAppCss !== appCssContent) writeFileSync(APP_CSS_TARGET, newAppCss, 'utf8')
   if (newStyleTs !== styleTsContent) writeFileSync(STYLE_TS_TARGET, newStyleTs, 'utf8')
   console.info(
-    `[sync-design-tokens] ✅ 已原位写回${newAppCss !== appCssContent ? ' app.css' : ''}${newStyleTs !== styleTsContent ? `${newAppCss !== appCssContent ? ' + ' : ''}style.ts` : ''}(同名就地换值、缺档补到本区尾、端内自有档与注释逐字留在原位)`
+    `[sync-design-tokens] ✅ 已原位写回${newAppCss !== appCssContent ? ' app.css' : ''}${newStyleTs !== styleTsContent ? `${newAppCss !== appCssContent ? ' + ' : ''}style.ts` : ''}(同名就地换值、缺档补到本区尾、端内自有档与注释逐字留在原位)${themeLanded ? ` — 其中 v4 色档注册区为**首次整块插入**,共 ${maps.theme.size} 档` : ''}`
   )
 }
 
@@ -847,18 +956,18 @@ function selfTest() {
   --color-bg: #101010;
   --color-primary: white;
 }`
-  const wMaps = {
-    semantic: buildVarMap(filterTokens(extractThemeBlock(wTokens))),
-    alpha: buildVarMap(extractAlphaChannelBlock(wTokens)),
-    opacity: buildVarMap(extractOpacityPalette(wTokens)),
-    brand: buildVarMap(extractStandaloneRootBlock(wTokens, buildVarMap(extractThemeBlock(wTokens)), new Map())),
-    dark: buildVarMap(filterTokens(extractDarkBlock(wTokens))),
-  }
+  // 六个区的应有档一律走 buildAppCssMaps —— 自检若自己再拼一遍 map,拼错的那一份就是
+  // "夹具跑不通"被读成"判据通过"(§22c 同型),而这里正是 §22c 要防的第二份真相。
+  const wMaps = buildAppCssMaps(wTokens)
   const wBase = 'html, body, page {\n  margin: 0;\n}'
-  // 夹具刻意混入:端内自有档(假 --rn-* / --miniapp-*)、解释性注释、跨行渐变声明、错值
+  // 夹具刻意混入:端内自有档(假 --rn-* / --miniapp-*)、解释性注释、跨行渐变声明、错值。
+  // 那两行 @tailwind/@source 是**指令簇锚点**:`@theme` 注册区首次落地要有落点(见 THEME_ANCHORS),
+  // 夹具没有它就会以"无法判定"红 —— 而那与本轮要证的写回语义无关。
   const wCss = `/* ===== 共享基础样式(自动同步自 packages/design-tokens/src/styles/base.css,勿手动编辑;变更后运行 sync-design-tokens.mjs)===== */
 OLD BASE BODY
 /* ===== 共享基础样式结束(自动生成,勿手动编辑)===== */
+@tailwind base;
+@source "./**/*.{ts,tsx}";
 
 :root {
   /* ===== 语义色(自动同步自 tokens.css @theme 块,勿手动编辑)===== */
@@ -945,6 +1054,102 @@ export const SPACING = { xs: 4 } as const
   const t2 = mergeStyleColors(t1.replace("light: 'white'", "light: 'WRONG'"), wRows)
   ok('T5 字段值漂移必须被改回(阳性对照)', t2 === t1 && !t2.includes('WRONG'))
 
+  // ── TH 组:v4 色档注册区(第 6 处 token 受管区)。同样成对 ——
+  // 只证"会插"不证"绝不重复插",第二次运行就会把整份档名清单再写一遍;
+  // 反过来只证"不重复插",注册区就会缺档而守门看不见(§4「只比副本已有键的门等于没有」)。
+  const thBody = (css) => {
+    const b = topLevelRanges(css, '@theme')[0]
+    return b ? css.slice(b.bodyStart, b.bodyEnd) : ''
+  }
+  const th1 = mergeAppCss(wCss, wMaps, wBase)
+  ok('TH1 首次落地:无注册区 ⇒ 整块插入,带标记注释与 @theme 块', !wCss.includes(THEME_REGION_MARK) && th1.includes(THEME_REGION_MARK) && th1.includes('@theme {'))
+  ok(
+    'TH1b 幂等(要求的 (a)):插入后立刻再跑一次必须逐字节相同,且块恰好一个、没有"自动补入"注释',
+    mergeAppCss(th1, wMaps, wBase) === th1 &&
+      topLevelRanges(th1, '@theme').length === 1 &&
+      !/自动补入/.test(th1)
+  )
+  ok(
+    'TH2 插入位置有依据(指令簇末尾、第一处消费 var(--color-*) 之前):不得插到 :root 之后',
+    th1.indexOf('@theme {') > th1.indexOf('@source "') && th1.indexOf('@theme {') < th1.indexOf(':root {')
+  )
+
+  // (b) 注释里写着 @theme 而下面才有真块:必须写进真块,注释逐字原位保留。
+  // 夹具先把真块里的一档改坏,再把带 @theme 字样的散文注释整段拼在文件头 ——
+  // 若判据把注释当块,坏值就永远改不回来(且还会多长出一块)。
+  const th3Src = th1.replace('  --color-bg: white;', '  --color-bg: WRONG;')
+  const th3 = mergeAppCss(
+    `/* 散文注释:历史上这里写着 @theme {\n   --color-decoy: 这不是声明;\n   } 但它也不是块。 */\n` + th3Src,
+    wMaps,
+    wBase
+  )
+  const th3BlockOpen = topLevelRanges(th3, '@theme')[0]
+  ok(
+    'TH3 注释里的字符串 @theme 不得被当块(要求的 (b)):写进真块、散文逐字留着、块数仍为 1',
+    thBody(th3).includes('--color-bg: white;') &&
+      th3.includes('--color-decoy: 这不是声明;') &&
+      // "散文在真块之前"要拿真块的 open 当下标 —— 按文本 indexOf('@theme {') 会先命中
+      // 注释里那个假的,把这条断言变成永远为假的死尺子(写这条夹具时实测踩过)。
+      th3.indexOf('--color-decoy') < th3BlockOpen.open &&
+      topLevelRanges(th3, '@theme').length === 1
+  )
+
+  // (c) -rgb 三元组绝不进注册区(进了就长出 .bg-muted-rgb 这类脏档),但仍必须在 alpha 区。
+  ok(
+    'TH4 -rgb 档不进 @theme 而仍在 alpha 区(要求的 (c),含"它本该受管"的阳性对照)',
+    !/-rgb\s*:/.test(thBody(th1)) &&
+      th1.includes('--color-primary-rgb: 0, 0, 0;') &&
+      deriveMiniappManaged(wTokens, 'light').some((d) => d.name === '--color-primary-rgb') &&
+      wMaps.theme.size === deriveMiniappManaged(wTokens, 'light').length - 1
+  )
+
+  // (d) 源头新增一档 ⇒ 注册区被补入,而各区的原有行不受影响(区与区互不串写)。
+  const wTokensLate = wTokens.replace(
+    '  --color-primary: black;\n',
+    '  --color-primary: black;\n  --color-late-theme: #654321;\n'
+  )
+  const th5 = mergeAppCss(th1, buildAppCssMaps(wTokensLate), wBase)
+  const rootBefore = collectVars(th1, [':root'])
+  const rootAfter = collectVars(th5, [':root'])
+  ok(
+    'TH5 源头新增档必须补进注册区并点名来源(要求的 (d) 前半:缺档有出口,门不会恒红)',
+    thBody(th5).includes('--color-late-theme: #654321;') && /自动补入/.test(thBody(th5))
+  )
+  ok(
+    'TH5b 补档不得串写别的区(要求的 (d) 后半)::root 原有档逐条等值、只多该档自己那一条,第二次运行仍幂等',
+    [...rootBefore.entries()].every(([n, d]) => rootAfter.get(n)?.value === d.value) &&
+      rootAfter.size === rootBefore.size + 1 &&
+      (th5.match(/--color-late-theme:/g) || []).length === 2 &&
+      mergeAppCss(th5, buildAppCssMaps(wTokensLate), wBase) === th5
+  )
+
+  // 两种"判不出落点"必须大声失败,不得静默当成"无需同步"。
+  let thNoAnchor = false
+  try {
+    insertThemeRegion('/* 没有任何 Tailwind 指令簇 */', wMaps.theme)
+  } catch (e) {
+    thNoAnchor = e instanceof Undetermined
+  }
+  ok('TH6 找不到指令簇锚点 ⇒ 抛「无法判定」(不得猜一个位置去插)', thNoAnchor)
+  let thNoBlock = false
+  try {
+    mergeAppCss(th1.replace(/@theme\s*\{[\s\S]*?\n\}/, ''), wMaps, wBase)
+  } catch (e) {
+    thNoBlock = e instanceof Undetermined
+  }
+  ok('TH6b 标记注释在位而 @theme 块被摘走 ⇒ 抛「无法判定」(不得把档写进别处)', thNoBlock)
+  let thDup = false
+  try {
+    mergeAppCss(`${THEME_REGION_MARK} 又一份)===== */\n@theme {\n  --color-bg: white;\n}\n` + th1, wMaps, wBase)
+  } catch (e) {
+    thDup = e instanceof Undetermined
+  }
+  ok('TH6c 注册区标记重复 ⇒ 抛「无法判定」(与另外 5 区共用同一个 markerRange 出口)', thDup)
+  ok(
+    'TH7 源头注册集为空 ⇒ 一个字节都不动(没有档就没有落点);已在位时 ensure 阶段不重写',
+    ensureThemeRegion(wCss, new Map()) === wCss && ensureThemeRegion(th1, wMaps.theme) === th1
+  )
+
   let undetermined = 0
   for (const fn of [
     () => mergeAppCss('/* 一个受管块都没有 */', wMaps, wBase),
@@ -983,6 +1188,9 @@ export const __test__ = {
   isSkippedForMiniapp,
   isManagedForMiniapp,
   deriveMiniappManaged,
+  deriveThemeRegistryDecls,
+  isAlphaRgbTriple,
+  THEME_REGION_MARK,
   filterTokens,
   extractStandaloneRootBlock,
   extractThemeBlock,
@@ -990,6 +1198,7 @@ export const __test__ = {
   extractOpacityPalette,
   extractAlphaChannelBlock,
   buildVarMap,
+  buildAppCssMaps,
   buildColorRows,
   // 原位写回的那一侧(§22c:镜像测试直接 import,不得复制判据)
   mergeDeclsInPlace,
@@ -998,6 +1207,10 @@ export const __test__ = {
   mergeStyleColors,
   planAppCssRegions,
   topLevelRanges,
+  // v4 色档注册区(第 6 区)的首次落地机制
+  ensureThemeRegion,
+  insertThemeRegion,
+  renderThemeRegion,
   Undetermined,
   TOKENS_SOURCE_REL,
   BASE_CSS_REL,
