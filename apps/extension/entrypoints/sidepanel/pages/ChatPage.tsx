@@ -33,7 +33,18 @@ import { categoryLabel, historyLabel, splitModelCatalog } from '../../../src/lib
 import { toolsForChatRequest } from '../../../lib/ui-control-tools'
 import { VoiceInput } from '../components/VoiceInput'
 import { MessageContent } from '../components/MessageContent'
+import QueueBar from '../components/QueueBar'
 import { TaskStatusBar } from '../components/TaskStatusBar'
+import {
+  EXT_DEFAULT_FOLLOW_UP_MODE,
+  extEditQueueItem,
+  extInterruptRunPlan,
+  extRemoveQueueItem,
+  extReorderQueue,
+  type ExtQueueFacts,
+  type ExtQueueItem,
+} from '../../../lib/ext-queue-ops'
+import type { FollowUpMode } from '@ihui/shared/chat/queue-interactions'
 import type { PlanStep, TerminalTask } from '@ihui/types'
 import type { ChatMessage } from './types'
 
@@ -116,6 +127,28 @@ export default function ChatPage() {
   /** 本地消息 id → 后端 chat_messages.id(只有持久化成功的消息才有) */
   const [serverIds, setServerIds] = useState<Record<string, string>>({})
   const [branching, setBranching] = useState(false)
+
+  // ===== D38 队列语义完整交互(G-42,H18 扩展格)=====
+  // 端内排队 state:本端无 web 式 chat store,队列数组即 ChatPage 本地 state;
+  // 一切许可/重排/编辑/打断判定经 lib/ext-queue-ops → @ihui/shared 真相源,端内零判定分支。
+  const [queuedItems, setQueuedItems] = useState<ExtQueueItem[]>([])
+  const [followUpMode, setFollowUpMode] = useState<FollowUpMode>(EXT_DEFAULT_FOLLOW_UP_MODE)
+  /**
+   * Runtime 插话能力协商位:全仓尚无 runtimeSupportsInterjection 生产者
+   * (PROJECT_PLAN D38 未闭环③),接线前宿主必须诚实传 false ⇒ steer 经 effectiveMode
+   * 降级为 queue 并显式渲染降级句;不得端内自建第二套能力判定,也不得写死 true。
+   */
+  const EXT_RUNTIME_SUPPORTS_INTERJECTION = false
+  const queueFacts = (): ExtQueueFacts => ({
+    hasQueuedMessages: queuedItems.length > 0,
+    streaming,
+    runtimeSupportsInterjection: EXT_RUNTIME_SUPPORTS_INTERJECTION,
+  })
+  /** 当前流的 AbortController(W2 既有 abort 通道;「打断并执行」经它停流,不新建第三种停流语义) */
+  const abortRef = useRef<AbortController | null>(null)
+  const sendRef = useRef<(overrideText?: string) => Promise<void>>(async () => {})
+  /** 同一毫秒连排两条时防 id 撞车 */
+  const queueSeqRef = useRef(0)
 
   // 默认只展示"最新 + 对话类",其余按用途分类收进"历史模型"optgroup
   // (原生 select 无法折叠,optgroup 就是它的折叠区)
@@ -284,6 +317,8 @@ export default function ChatPage() {
     let streamFailed = false
 
     const controller = new AbortController()
+    // D38:登记当前流 abort 句柄 —— 「打断并执行」的 stopFirst 走 W2 既有 abort 通道
+    abortRef.current = controller
     const timeoutId = window.setTimeout(() => controller.abort(), 15_000)
     // W6:记录每个工具调用的起始时间,tool-result 到达时补算耗时(与 web stream-handlers 一致)
     const toolStartTimes = new Map<string, number>()
@@ -559,8 +594,53 @@ export default function ChatPage() {
       const formatted = formatSSEError(err)
       setError(formatted.message)
       setStreaming(false)
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null
     }
   }
+
+  // D38 ① 每轮渲染刷新发送句柄,drain effect 不得闭包持有过期 onSend(messages/model 会变)
+  useEffect(() => {
+    sendRef.current = onSend
+  })
+
+  // D38 ② 流结束后按队列顺序放行队首(W27 出队语义:队首恒为 queue[0],无第三种选择逻辑)。
+  // 「重排后发送顺序」硬指标:seed[a,b,c] → reorder(2,0) → 依次放行得 c,a,b。
+  useEffect(() => {
+    if (streaming || queuedItems.length === 0) return
+    const head = queuedItems[0]
+    if (!head) return
+    setQueuedItems((cur) => cur.slice(1))
+    void sendRef.current(head.text)
+  }, [streaming, queuedItems])
+
+  // D38 ③ 五动词派发(许可门全部在共享判定层,见 ext-queue-ops):
+  const handleReorder = (fromIndex: number, toIndex: number) => {
+    setQueuedItems((cur) => [...extReorderQueue(cur, fromIndex, toIndex)])
+  }
+  const handleUndo = (id: string) => {
+    setQueuedItems((cur) => [...extRemoveQueueItem(cur, id)])
+  }
+  const handleEdit = (id: string, text: string) => {
+    setQueuedItems((cur) => [...extEditQueueItem(cur, id, text)])
+  }
+  const handleInterruptAndRun = () => {
+    const plan = extInterruptRunPlan(queueFacts(), queuedItems[0]?.id ?? null)
+    if (!plan.allowed) return
+    if (plan.stopFirst) {
+      // 停当前流即由 drain effect 放行 queue[0](= plan.thenRun),队首语义一行不动
+      abortRef.current?.abort()
+      return
+    }
+    if (plan.thenRun) {
+      const head = queuedItems[0]
+      if (!head) return
+      setQueuedItems((cur) => cur.slice(1))
+      void onSend(head.text)
+    }
+  }
+  // setMode 是用户偏好,恒可切(许可判定 interactionAllowed('setMode') 即此语义)
+  const handleModeChange = (next: FollowUpMode) => setFollowUpMode(next)
 
   const lastMessageId = messages[messages.length - 1]?.id
   // G-152:仅在有错误时找可重发的用户原文;没有就返回空串 → 界面不给按钮
@@ -691,10 +771,41 @@ export default function ChatPage() {
         terminalTasks={taskMessage?.terminalTasks}
         isStreaming={taskStreaming}
       />
+      {/* D38 排队交互条:仅当队列非空渲染(撤回/编辑在空队上无可操作对象,许可门自然不可达);
+          五动词的许可判定在 QueueBar 内经共享层派发,宿主只接数组变换与打断计划 */}
+      {queuedItems.length > 0 ? (
+        <div className="px-2.5 pt-2">
+          <QueueBar
+            items={queuedItems}
+            streaming={streaming}
+            runtimeSupportsInterjection={EXT_RUNTIME_SUPPORTS_INTERJECTION}
+            mode={followUpMode}
+            onModeChange={handleModeChange}
+            onReorder={handleReorder}
+            onUndo={handleUndo}
+            onEdit={handleEdit}
+            onInterruptAndRun={handleInterruptAndRun}
+          />
+        </div>
+      ) : null}
       <form
         className="flex gap-1.5 px-2.5 py-2 border-t border-border bg-card"
         onSubmit={(e) => {
           e.preventDefault()
+          const text = input.trim()
+          if (!text) return
+          if (streaming) {
+            // D38 运行中输入 = 入队(steer 偏好经 effectiveMode 诚实降级为 queue,
+            // 降级句由 QueueBar 显式渲染;插话注入需能力协商生产者,未接入前不伪造通道)
+            setInput('')
+            queueSeqRef.current += 1
+            const now = Date.now()
+            setQueuedItems((cur) => [
+              ...cur,
+              { id: `q-${now}-${queueSeqRef.current}`, text, createdAt: now },
+            ])
+            return
+          }
           void onSend()
         }}
       >
@@ -703,15 +814,13 @@ export default function ChatPage() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={t('chat.inputPlaceholder')}
-          disabled={streaming}
         />
         <VoiceInput
           onTranscript={(text) => {
             setInput((prev) => (prev && !prev.endsWith(' ') ? `${prev} ${text}` : `${prev}${text}`))
           }}
-          disabled={streaming}
         />
-        <Button type="submit" variant="send" size="sm" disabled={!input.trim() || streaming}>
+        <Button type="submit" variant="send" size="sm" disabled={!input.trim()}>
           {t('chat.send')}
         </Button>
       </form>

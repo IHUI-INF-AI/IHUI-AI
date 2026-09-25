@@ -601,5 +601,17 @@
       }
     },
     "vividTail": ", 금방 끝납니다"
+  },
+  "ai": {
+    "pane": {
+      "inputNotices": {
+        "queue": {
+          "denied": {
+            "reorder": "대기열 순서를 변경할 수 없습니다",
+            "undo": "대기 중인 메시지를 취소할 수 없습니다"
+          }
+        }
+      }
+    }
   }
 }
