@@ -19,12 +19,6 @@
   gap: 24rpx;
   padding: 24rpx 20rpx;
 }
-.income-back {
-  font-size: 32rpx;
-  color: var(--color-text-medium);
-  padding: 0 8rpx;
-  line-height: 1;
-}
 .income-title {
   font-size: 40rpx;
   font-weight: 600;

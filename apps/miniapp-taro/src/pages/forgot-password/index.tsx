@@ -11,6 +11,7 @@ import PhoneAreaCodePicker from '@/components/PhoneAreaCodePicker'
 import PasswordVisibilityToggle from '@/components/PasswordVisibilityToggle'
 import AuthButton from '@/components/AuthButton'
 import ThemeRoot from '@/components/ThemeRoot'
+import BackChevron from '@/components/BackChevron'
 import './index.css'
 
 /**
@@ -122,9 +123,7 @@ export default function ForgotPassword() {
       <View className="container1">
         {/* 顶部:返回 + 标题(对齐 RN SharedChangePwdScreen header) */}
         <View className="fp-header">
-          <Text className="fp-back" onClick={backToLogin}>
-            {tt('common.back', '返回')}
-          </Text>
+          <BackChevron onTap={backToLogin} />
           <Text className="fp-title">{tt('forgot.title', '找回密码')}</Text>
         </View>
 
@@ -245,6 +244,7 @@ export default function ForgotPassword() {
           {/* 返回链接(端内 2 步流程步骤回退 / 回登录) */}
           <View className="back-row">
             {step === 2 ? (
+              /* back-label-exempt: 步骤回退文字链接,非页头返回键 until 2026-12-31 */
               <Text className="back-link" onClick={() => setStep(1)}>
                 {t('forgot.back')}
               </Text>
