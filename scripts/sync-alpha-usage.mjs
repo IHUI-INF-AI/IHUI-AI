@@ -77,7 +77,7 @@ if (isHelp) {
   node scripts/sync-alpha-usage.mjs --face staged   按 R6 的索引面扫描
   node scripts/sync-alpha-usage.mjs --self-test     判据自检
 
-扫描面: ${GATE.ALPHA_SCAN_FACES.join(' + ')}
+扫描面: ${GATE.ALPHA_V3_SCAN_FACES.join(' + ')}
 目标:   ${PLUGIN_REL}
 判据复用: scripts/check-cross-end-tokens.mjs 的 R6(剥注释 → 抽形态 → 对账,同一份实现)`
   )
@@ -355,7 +355,7 @@ async function run() {
   }
   if (sync.warned && !isQuiet) console.warn(`[sync-alpha-usage] ⚠️ ${sync.warned}`)
 
-  const corpus = GATE.collectAlphaCorpus({ face })
+  const corpus = GATE.collectAlphaCorpus({ face, faces: GATE.ALPHA_V3_SCAN_FACES })
   const files = corpus.map((c) => ({ rel: c.rel, src: c.eff }))
   const tiers = GATE.flattenColorTiers(reg.colors)
   const supportedKinds = Object.keys(plugin.ALPHA_UTILITY_KINDS)
@@ -374,7 +374,7 @@ async function run() {
 
   if (!isQuiet) {
     const hits = (m) => [...m.values()].reduce((s, x) => s + x.count, 0)
-    console.info(`[sync-alpha-usage] 扫描面 ${GATE.ALPHA_SCAN_FACES.join(' + ')}(${face} blob,${files.length} 文件)`)
+    console.info(`[sync-alpha-usage] 扫描面 ${GATE.ALPHA_V3_SCAN_FACES.join(' + ')}(${face} blob,${files.length} 文件)`)
     console.info(
       `  剥注释后命中 ${hits(h.forms) + hits(h.nonPreset) + hits(h.exempted) + hits(h.unsupported)} 处类名 ⇒ 该登记 ${h.forms.size} 形态(${hits(h.forms)} 处)· 默认色板 ${h.nonPreset.size} 形态(${hits(h.nonPreset)} 处,v3 原生支持不属本插件)· 已豁免 ${h.exempted.size} 形态(${hits(h.exempted)} 处)· 前缀不在能力表 ${h.unsupported.size} 形态(${hits(h.unsupported)} 处)· 动态拼接判不出 ${h.undeterminedLines} 行(R6 同口径命中 ${h.undetermined.length})`
     )
