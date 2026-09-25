@@ -161,6 +161,11 @@ export const WEAPP_CLASS_MANGLE_TABLE = new Map([
   [',', '_m'],
   ['.', '_d'],
   ['+', '_u'],
+  // `!`(important 前缀)→ `_e`。**本轮在同一次真产物里逐字取到三条证**:
+  // `._ebg-muted{background-color:var(--color-muted)!important}`、`._ebg-cta{…}`、`._ebg-primary{…}`。
+  // 立票时按 `\!`(CSS 反斜杠转义)去找 ⇒ 零命中,于是这一族 11 条被留在"表外标点"桶里判不出
+  // "真没落地 vs 表还缺一条"。教训同 P53:**取证要按构建方真实产出的形态查,不是按 CSS 规范里"应该"的形态查**。
+  ['!', '_e'],
 ])
 
 /** ASCII 标点全集(用于识别"表外标点");字母/数字/-/_ 不在其内,不是标点。 */
@@ -1619,9 +1624,16 @@ export function selfTest() {
     ],
   )
   eq(
-    'P48 表外标点不得猜转写(! % @ # * ~ 原样保留)',
-    [weappMangleClassName('!flex'), weappMangleClassName('w-[50%]'), weappMangleClassName('a@b#c'), weappMangleClassName('d*e~f')],
-    ['!flex', 'w-_b50%_B', 'a@b#c', 'd*e~f'],
+    'P48 表外标点不得猜转写(% @ # * ~ 原样保留)',
+    [weappMangleClassName('w-[50%]'), weappMangleClassName('a@b#c'), weappMangleClassName('d*e~f')],
+    ['w-_b50%_B', 'a@b#c', 'd*e~f'],
+  )
+  eq(
+    // `!` 不在本例里:它已于本轮拿到真产物三条证(`._ebg-muted{…!important}`),是**表内条目**。
+    // 把它留在这里 = 把已取证的事实当成猜测;真正的锁是"表内每一条都得有真产物样本"(镜像测试 §2b)。
+    'P48b 已取证的 ! 必须进表(反向锁:退回"不猜"会让 11 条 important 档永远判不出归属)',
+    weappMangleClassName('!bg-muted'),
+    '_ebg-muted',
   )
   eq(
     'P49 两态分开计数:原名直中与转写后中各记各的(合计当数会把"表漏一条"藏起来)',
@@ -1639,15 +1651,15 @@ export function selfTest() {
   eq(
     'P51 表外标点桶:只报数、不并入 hit、字符点名,且不进确定缺失的样例',
     (() => {
-      const c = computeCoverage(['!flex'], new Set(['!flex']), new Set(['flex']))
+      const c = computeCoverage(['w-[50%]'], new Set(['w-[50%]']), new Set(['w-full']))
       return [c.hitKinds, c.missKinds, c.unmangledPunctMisses, c.unmangledPunctChars, c.definiteMissKinds, c.missingSamples.length]
     })(),
-    [0, 1, 1, ['!'], 0, 0],
+    [0, 1, 1, ['%'], 0, 0],
   )
   eq(
-    'P52 反向:同一含 ! 的名字若原名直中,不得落进表外标点桶',
+    'P52 反向:同一含表外标点的名字若原名直中,不得落进表外标点桶',
     (() => {
-      const c = computeCoverage(['!flex'], new Set(['!flex']), new Set(['!flex']))
+      const c = computeCoverage(['w-[50%]'], new Set(['w-[50%]']), new Set(['w-[50%]']))
       return [c.hitOriginalKinds, c.unmangledPunctMisses]
     })(),
     [1, 0],
