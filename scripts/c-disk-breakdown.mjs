@@ -27,6 +27,7 @@
  */
 import { lstatSync, readdirSync, statfsSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { execFileSync } from 'node:child_process'
 
 const argv = process.argv.slice(2)
@@ -137,6 +138,13 @@ const MB = 1048576
 const GB = 1073741824
 const drive = ROOT.replace(/\/.*$/, '')
 
+/** 纯函数,单独放外面给镜像测试直接用(它不碰磁盘)。 */
+const depthOf = (p) => (p === ROOTKEY ? 0 : relative(ROOTKEY + '/', p).split(/[\\/]/).filter(Boolean).length)
+
+// §22d 双形态入口守卫:下面整段是**全盘遍历** + 一趟带 40s 超时的 PowerShell 派生 + 打印。
+// 没这道守卫时,测试只要 import 本模块就得把整盘走一遍才算加载完。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) {
 const { roll, denied, links } = rollUp(ROOT)
 const vol = volumeBytes(drive + '/')
 const usedByVolume = vol.total - vol.avail
@@ -145,7 +153,6 @@ const special = specialFilesMB(drive)
 const specialBytes = Object.values(special.map).reduce((s, n) => s + n, 0)
 const unexplained = usedByVolume - walked - specialBytes
 
-const depthOf = (p) => (p === ROOTKEY ? 0 : relative(ROOTKEY + '/', p).split(/[\\/]/).filter(Boolean).length)
 const byDepth = {}
 for (const [p, v] of roll.entries()) {
   const d = depthOf(p)
@@ -210,6 +217,7 @@ if (AS_JSON) {
   }
   console.info(`\n(本工具只读:未删除、未移动任何文件。清理入口是 scripts/c-drive-auto-maintain.ps1。`)
 }
+}
 
-export const __test__ = { rollUp, volumeBytes, depthOf, specialFilesMB }
+export const __test__ = { rollUp, volumeBytes, depthOf, specialFilesMB, norm, ROOTKEY }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

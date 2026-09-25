@@ -2080,7 +2080,7 @@
       "bypassSkipApproval": "已跳过审批",
       "mcpRequiresApproval": "MCP 标注要求确认",
       "policyRequiresApproval": "策略要求审批",
-      "policyForbidsExecution": "策略禁止执行"
+      "policySkipsApproval": "策略免审批"
     },
     "perm": {
       "allow": "已放行",
