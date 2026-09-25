@@ -8170,3 +8170,37 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   - 渲染层本机**不可取证**(微信开发者工具三个常见安装路径 + 注册表 Uninstall 全量 + Program Files 深度 3 搜 `cli.bat` 均零命中),故上面给的是静态替代证据:逐字摘录 A 侧无规则、B 侧有规则的样例(`.flex{display:flex}`、`.items-center{align-items:center}`、`.opacity-60{opacity:.6}`、`.inset-0{inset:0px}`)
 - **本票据此收窄的结论**:R6 那道新门守的是"源码用量 ↔ ALPHA_USAGE ↔ 插件产出"三者一致,**三者全在项目侧**;小程序实际产物由第三方 generator 决定,所以 **R6 绿灯不等于到端生效**。这一点已写进 AGENTS 那条 ⚠️ 里,防止下一个人拿 R6 的绿当交付证据。
 - **未决项(交用户定,不是待办建议)**:要不要动 weapp-tailwindcss 的 generator 接线。动它之前必须先解决主包 9 字节余量与 `text-card` 双义,否则是"修好 1.4 万处、打坏一屏"。
+## O63 八道门迁入取材层的第三波:6 道落地 + 2 道按住,并把"量等价"这件事从比旧基线改成同瞬间 A/B(2026-09-25 立并完成 ✅)
+- **票源**:O62 把 `scripts/lib/face-reader.mjs` 立成唯一取材层,但当时只收了被点名的三门(91/94/101),层外还散着两摊重复(各自派生 git / 各自拼 `cat-file --batch`)。本票派三个并行代理迁 8 道门。
+- **落地的 6 道**(`git show HEAD:<f>` 版 vs 迁移版,**同一瞬间**跑,stdout/stderr/exit 逐字比):
+  `check-dangling-local-imports`(98) · `check-staged-deletions`(99) · `check-commit-loss-guard`(30a) · `check-glyph-arrow-icon`(102) · `check-word-table-resolvable`(74) · `heal-worktree-tracked`(§5b 自愈层)。
+  12 组 A/B(全量 / `--self-test` / `--check` / `--check --json`)全部逐字等价;8 套镜像测试全绿(98 5/5 · 99 13/13 · 30a 26/26 · 102 13/13 · 74 36/36 · drift-align 4/4 · face-reader 13/13 · 架构门 13/13)。
+- **按住的 2 道**:`check-architecture-policy`(103)、`check-stale-revert`(84)。不是遗漏,是**层缺原语** —— 84 要的是"一次派生拿一批对象的 **oid**"(它的判据就是比较 blob sha),而层只给了 `catBatch`(回**内容**、按 utf8 解码 ⇒ 二进制不保真)和 `catBatchCheck`(只回 missing 集合、且过滤掉 `<oid>^{tree}` 形态);103 要一次读 8000+ 源文件 ≈ 85MB,而层的 `catBatch` 把 `maxBuffer` 钉死 64MB。**换上去会改变判据语义,那就不是等价重构** —— 所以按住,并把缺口写清楚(见下条)。**解阻判据**:层补出 `catBatchOids(root, specs)` 与 `catBatch(root, revs, {maxBuffer})` 两个出口,84/103 各自迁移后仍须过同瞬间 A/B 逐字等价。
+- **两份独立的代理报告 + 我读码印证,层的缺口收敛成四条**(下一次动层时一并补,别再各门自建绕行):
+  ① `catBatch` / `catBatchCheck` 的 `maxBuffer` 不可配 ⇒ 门 98 只能在门内按 40MB 预算把 8278 个 rev 切 3 片(它已证明切完零缺失,但这是门的负担不是层的);
+  ② `gitRaw` 不 status-aware ⇒ `git grep` 用 **exit 1** 表达"零命中"(合法空集),被层折成 `Undetermined`。门 99 现在靠"层报的空诊断 `(git 无输出)` ∧ 远未触及超时"两条同时成立来认零命中,并由镜像测试把 `gitErrText` 的措辞与门内常量**逐字对账**钉死 —— 这是一处真实的新耦合,层改措辞即红,是故意的;
+  ③ `gitRaw` 无 `input`(喂 stdin)通道,而 `cat-file --batch` 系全都要喂对象清单 ⇒ 两个代理各自绕开(改读 commit 内容取 `tree` 首行 / 用 `hash-object -- <abs>` 分批)。`git cat-file --batch-check=%(oid) <清单>` 实测被 git 拒收(`batch modes take no arguments`),所以绕行不是偷懒是唯一路;
+  ④ `catBatch` 的 120s 超时不可配(门 99 原用 180s,按层执行)。
+- **本票真正的收获是量法换了,不是迁了几道门**:先拿 08:56 的旧基线做逐字对照,报了 **15 项差异**;逐条查下来**没有一项来自迁移** —— 全是仓库自己往前走(HEAD 跟踪源文件 8264→8278、managed 名单被我自己那枚 09:15 提交扩了、tag 数 41→42、并行会话把 14 个路径 staged 成祖先版本包括 AGENTS/PLAN/README 三份活文档)。⇒ **"与迁移前基线逐字比"在共享工作区里结构上不可能干净**,它测的是仓库速度。所以补了 `.ihui-agent/tmp/ab-verify.mjs`:两侧看到的是同一个 HEAD/索引/工作树的**同瞬间 A/B**,这才是等价重构的证据,旧基线只留作"判据语义没被顺手改宽"的第二读法。已写进层测试的头注。
+- **一次假红,归因到测量窗口**:第一轮 verifier 报 `check-staged-deletions 11/1`、`check-commit-loss-guard 25/1`,单独跑却 13/13、26/26。当时**代理仍在写这些文件**(三份通知都在那之后才交回)。⇒ 在并行动 target 上取"稳定读数"是取不到的;之后的 3+3 连跑(隔离与交错两种)全绿才算复现失败。教训与"换线后必须重测再派单"同族。
+- **顺手补了尺子自己的一个整型盲区**:型 A 的正则只认 `execFileSync('git', …)` 这种**字面量首参**,而本票迁的 6 道门**全是**型 B —— `const GIT = process.env.IHUI_GIT_BIN || 'git'` 再 `execFileSync(GIT, …)`。不补这条,收口做完了棘轮数字却一动不动,会被读成"收口无效"。现新增 `pathBoundGitCountOf` + 独立棘轮(首量 **9**),并在反例里写死"字符串中间的同名片段"与"`join(…, 'backups', 'git')` 这个**目录名**"两条不得误报 —— 后者是第一版尺子真被骗过的那一行(`lib/gitdir.mjs:265`,把基线从 9 报成 10),单靠声明行无法区分,所以加了"该标识符必须被当过派生首参"第二道锚。
+- **型 C 棘轮 9 → 3**(余 103 / 93 / 84 三道,即上面按住的两道加一道未派单的 `check-cross-end-tokens`)。
+- **一处未动、如实登记**:`scripts/tests/check-theme-prop-wiring.test.mjs` 工作树相对 HEAD 只差**末尾 L3 零宽载荷行**(水印自愈产物,可见内容逐字节不变)。不属于本票逻辑改动,未代收 —— 谁提交它谁受水印门管,这是它的正确归属。
+- **并行代理交付里被我发现并核过的三处**(不采信自报):代理 C 报告称改了 `git-guardian-drift-align.test.mjs`,而我 09:17 的 `git status` 里**没有**这一项 → 复核为"报告时它已完成、我的读数是更早一次的",现在该文件确在 modified 列表内(闭包按 import 递归推导,不再手抄依赖清单)。代理 A 声称"三门逐字对齐",我用自己的 A/B 复跑 12 组独立确认。代理 B 声称的 2 项迁移**未落地**(arch-policy / stale-revert face-reader 引用数实测 0),按未交付处理,缺口自己读码重新定性为层缺原语而非代理偷懒。
+### 第四十九批·续五(2026-09-25):`git mv` 的还账动作被"复活"第二次 —— 这次不是自愈,是一枚提交把它写回了 HEAD
+- **现象**:`node scripts/check-architecture-policy.mjs` 全量判红 2 处(D1+D2,同一枚文件)
+  `packages/i18n/tests/waiting-keys-in-end-packages.test.ts:19`。而**这条账本来已经还掉了**:
+  `81cade291`(09:15)已把它移到 `packages/shared/tests/chat/`(移动理由写在文件头:换 import 写法消不掉 D2,
+  D2 只比 rank 数值;而它读各端词包用的是 `readFileSync`,不构成 import 边 ⇒ 放同包内零跨模块边)。
+- **实为两份并存**:HEAD 里旧路径 blob=`0e2312dce`、新路径 blob=`1173e9a01`,内容不同但**用例数同为 7**,
+  差异只有 import 相对深度与那段"为什么必须移动"的注释 ⇒ 新行是旧行的后继(§7 三问先过再删)。
+  部署环日志给出时序:`01:28:55` 记 `rename packages/{i18n/tests => shared/tests/chat}/…`,
+  而 `01:34:40` 又记 `create mode 100644 packages/i18n/tests/waiting-keys-in-…` ⇒ **旧路径是被一次提交重新写进 HEAD 的**。
+- **与 08:43 那篇「操作顺序教训」的关系**:那一篇归因给 §5b 存续自愈把合法移动当成外部删除恢复,并给出唯一正解
+  `git mv` 一步原子完成。**这次不是自愈**(自愈的三条判据要求"索引 blob == HEAD blob",而 `git rm` 的暂存删除
+  按定义不满足 ⇒ 自愈对已暂存的删除只报数不代裁,实测 `--check` 不动手)。这次的成因在自愈之外:**有人(或某轮的
+  整文件回写)把自愈恢复出来的那份又提交了**。所以那条"必须 `git mv`"的规矩仍然成立,但它**不充分** ——
+  移动之后还要**复验旧路径已不在 HEAD**,否则恢复动作会连同一次提交把复活固化下来。
+  复验命令就一行:`git cat-file -e HEAD:<旧路径> && echo 仍在 ⇒ 未还账`。
+- **本票动作**:`git rm` 旧路径(暂存删除 ⇒ 自愈窗口内不会反悔),补删后 `check-architecture-policy.mjs` 全量
+  由 rc=1(判红 2)转 **rc=0**;`pnpm test:scripts` 侧新路径那份用例照跑(移动未改判据)。
