@@ -18,9 +18,10 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-port-registry.mjs')
 // 源脚本核心规则(scripts/check-port-registry.mjs)
 // ============================================================
 // - 守门规则:dev/宿主映射端口必须以 88 开头(88xx 段)
-// - REGISTERED_PORTS:8801-8809 / 8810-8819 / 8820-8829 / 8830-8839 / 8841-8849
-//   ⚠️ 8840 不在注册表中(88xx 但未注册 → 违规)
-// - EXEMPT_PORTS:5432/6379/443/80/22 等(基础设施/CI/第三方)
+// - REGISTERED_PORTS:8801-8809 / 8810-8819 / 8820-8829 / 8830-8839 / 8841-8849 / 8877
+//   ⚠️ 8840 不在注册表中(88xx 但未注册 → 违规);8877 是 2026-09-25 按 §3.1 从「预留扩展」
+//      段认领的 web e2e 私有 dev 端口(docs/port-management.md §2.6)
+// - EXEMPT_PORTS:5432/6379/443/80/22 等(基础设施/CI/第三方);9997 = Xinference 自托管出厂口
 // - EXEMPT_PATH_PATTERNS:docs/ / .github/workflows/ / apps/api/tests/ 等
 // - warn-only:违规时 exit 1(仅供 runner 计 warning,不阻塞 commit),通过 stdout 区分 ✅ / ⚠️
 // - 两种模式:默认(staged) / --all(git ls-files 全量 tracked)
@@ -319,13 +320,16 @@ test('正则字符类 localhost:880[23] 不得被报成端口 880(实测假阳),
   }
 })
 
-test('反向对照:真端口 localhost:8877 仍必须被报出来(证明上一条的绿不是判据失明)', () => {
+test('反向对照:真端口 localhost:8840 仍必须被报出来(证明上一条的绿不是判据失明)', () => {
   const dir = createTempGitRepo()
   try {
-    stageFile(dir, 'apps/web/e2e/x.spec.ts', `const base = 'http://localhost:8877/foo'\n`)
+    // 8840 是 docs/port-management.md §2.5 明写的"蓝绿部署预留但未认领"端口 —— 用它,
+    // 本断言同时钉住"注册表里 8840 缺席"这件事本身(2026-09-25 曾因把 8877 认领进表,
+    // 让本例的旧夹具 8877 变成合法值而静默失去意义,是靠这条红发现的)。
+    stageFile(dir, 'apps/web/e2e/x.spec.ts', `const base = 'http://localhost:8840/foo'\n`)
     const r = runScript(dir, ['--all'])
     assertWarn(r)
-    assert.match(r.stdout, /8877/, `真端口被一起吞掉了\nstdout: ${r.stdout}`)
+    assert.match(r.stdout, /8840/, `真端口被一起吞掉了\nstdout: ${r.stdout}`)
     assert.doesNotMatch(r.stdout, /已跳过/, `本夹具里没有字符类,不该出现跳过计数\nstdout: ${r.stdout}`)
   } finally {
     rmSync(dir, { recursive: true, force: true })
