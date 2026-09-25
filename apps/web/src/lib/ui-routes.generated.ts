@@ -167,6 +167,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/admin/exam/records', param: false, group: 'admin' },
   { path: '/admin/exchange-rates', param: false, group: 'admin' },
   { path: '/admin/feedbacks', param: false, group: 'admin' },
+  { path: '/admin/github-app', param: false, group: 'admin' },
   { path: '/admin/gray-release', param: false, group: 'admin' },
   { path: '/admin/help', param: false, group: 'admin' },
   { path: '/admin/home-schema', param: false, group: 'admin' },

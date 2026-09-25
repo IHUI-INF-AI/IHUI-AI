@@ -9,6 +9,7 @@ import { createHmac } from 'node:crypto'
 import githubAppRoutes, {
   GITHUB_APP_EXPLICIT_ROUTES,
   HEALTH_PATH,
+  INSTALLATIONS_PATH,
   WEBHOOK_PATH,
 } from '../src/routes/github-app'
 import { createDeliveryDeduper } from '../src/services/github-app/events'
@@ -79,6 +80,8 @@ function buildApp({
     textModel,
     webhookSecret,
     deduper,
+    // 单测显式禁用持久层:不触碰真实 db 模块链(D15②);落库行为在 github-app-persistence.test.ts 覆盖
+    store: null,
   })
   return holder
 }
@@ -155,7 +158,7 @@ const textModelReturning =
 describe('github-app webhook:鉴权面(fail-closed)', () => {
   it('路由清单只有显式固定路径,零参数段 / 零通配', async () => {
     const urls = GITHUB_APP_EXPLICIT_ROUTES.map((route) => route.url)
-    expect(urls.sort()).toEqual([HEALTH_PATH, WEBHOOK_PATH].sort())
+    expect(urls.sort()).toEqual([HEALTH_PATH, INSTALLATIONS_PATH, WEBHOOK_PATH].sort())
     for (const url of urls) expect(url).not.toMatch(/[:*]/)
 
     const { server } = buildApp({ transport: makeTransport(() => PR_FILES_REPLY).transport })
