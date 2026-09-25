@@ -81,7 +81,9 @@ describe('三处迁移的装车断言(端内一律经出口)', () => {
 
   it('page.tsx 两处 mutation 走 helpers 包装,不再手拼 /api/skills URL 与方法', () => {
     expect(page).toMatch(/return postSkill\(body\)/)
-    expect(page).toMatch(/mutationFn:\s*\(id: string\)\s*=>\s*removeSkill\(id\)/)
+    // 形参名随"以 name 为身份"收口改为 name(条目没有 id;见 types.ts 的 Skill 注释与
+    // skill-table-name-identity.test.tsx)。本锚点判的是"走 helpers 包装、不手拼 URL/方法"。
+    expect(page).toMatch(/mutationFn:\s*\(name: string\)\s*=>\s*removeSkill\(name\)/)
     expect(page).not.toMatch(/\/api\/skills/)
     expect(page).not.toMatch(/method:\s*'(POST|DELETE)'/)
   })

@@ -16814,6 +16814,10 @@
     "viewDetail": "查看詳情"
   },
   "memberExamSignUpPage": {
+    "adminOnly": {
+      "description": "登入身分無法與報名紀錄沿用的歷史會員編號建立對應關係，服務端為避免越權讀取不提供自助檢視。如需查詢或更正，請與管理員聯絡。",
+      "title": "報名記錄由管理員維護"
+    },
     "cancelBtn": "取消報名",
     "cancelConfirm": "確認取消該考試報名?",
     "cancelFailed": "取消失敗",
@@ -23350,12 +23354,6 @@
     "browserView": "瀏覽器檢視",
     "figmaView": "Figma 檢視",
     "settingsView": "設定檢視"
-  },
-  "topBar": {
-    "editor": "編輯器",
-    "close": "關閉",
-    "plus": "新增",
-    "skillsMarket": "Skill 市場"
   },
   "statusBar": {
     "toggleTheme": "切換主題"

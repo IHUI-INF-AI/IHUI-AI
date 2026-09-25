@@ -61,9 +61,10 @@ import { db } from '../src/db/index.js'
 import type { SkillMarketEntry } from '@ihui/shared/skills/market'
 
 const MARKET_KEY = 'skills-market:global'
-const PUBLISHER_ID = 101
-const OTHER_OWNER_ID = 202
-const ADMIN_ID = 900
+/** 身份一律用真机形状(uuid):数字串会让 Number() 强转与存原文两种实现同样通过 */
+const PUBLISHER_ID = '7f0f3f2a-1c4b-4a8e-9d21-0a3b5c7e9f01'
+const OTHER_OWNER_ID = 'b21c9d47-55ae-4f30-8c72-1e6e0d2a4f02'
+const ADMIN_ID = 'e5a1b7c3-0d94-4e6f-8b2a-6f1c3d5a7b03'
 
 /** 与 MARKET_SEED_RAW 同名的内置作者名 —— 判据 1 与 2 的靶子(清单不在此另抄一份) */
 const BUILTIN_AUTHOR = 'IHUI'
@@ -275,38 +276,35 @@ beforeEach(() => {
 
 describe('POST /api/skills/market 新建面 —— 自报 author 不再构成身份', () => {
   it('攻击复现:普通用户以 author="IHUI" 新建 ⇒ 403 且 redis 未被写、条目数不变', async () => {
-    await attackAndAssertRejected({ userId: String(PUBLISHER_ID) }, publishBody())
+    await attackAndAssertRejected({ userId: PUBLISHER_ID }, publishBody())
   })
 
   it('换一个内置作者名同样被拒(OpenSource / DesignTools 都在种子清单里)', async () => {
     await attackAndAssertRejected(
-      { userId: String(PUBLISHER_ID) },
+      { userId: PUBLISHER_ID },
       publishBody({ name: 'new-1', author: 'OpenSource' }),
     )
     await attackAndAssertRejected(
-      { userId: String(PUBLISHER_ID) },
+      { userId: PUBLISHER_ID },
       publishBody({ name: 'new-2', author: 'DesignTools' }),
     )
   })
 
   it('他人已归属条目在用的作者名同样被拒 ⇒ 不能把别人的身份占成新条目', async () => {
     await attackAndAssertRejected(
-      { userId: String(PUBLISHER_ID) },
+      { userId: PUBLISHER_ID },
       publishBody({ name: 'new-3', author: 'someone-else' }),
     )
   })
 
   it('users 行查不到(兜底路径)时仍然拒 —— 判据不退化成"采信自报"', async () => {
     stubUsersRow(null)
-    await attackAndAssertRejected({ userId: String(PUBLISHER_ID) }, publishBody())
+    await attackAndAssertRejected({ userId: PUBLISHER_ID }, publishBody())
   })
 
   it('顺序:攻击 + 会让 Zod 判 400 的坏 description ⇒ 必须 403(授权先于校参数)', async () => {
     const before = fingerprint()
-    const res = await publishAs(
-      { userId: String(PUBLISHER_ID) },
-      publishBody({ description: '' }),
-    )
+    const res = await publishAs({ userId: PUBLISHER_ID }, publishBody({ description: '' }))
     expect(res.statusCode).toBe(403)
     expect(fingerprint()).toBe(before)
     expect(redis.set).not.toHaveBeenCalled()
@@ -314,7 +312,7 @@ describe('POST /api/skills/market 新建面 —— 自报 author 不再构成身
 
   it('管理员经 JWT 上架也不是平台身份:author="IHUI" 同样 403', async () => {
     await attackAndAssertRejected(
-      { userId: String(ADMIN_ID), roleId: 1 },
+      { userId: ADMIN_ID, roleId: 1 },
       publishBody({ name: 'admin-new' }),
     )
   })
@@ -324,7 +322,7 @@ describe('POST /api/skills/market 新建面 —— 两条合法路径没被修�
   it('正向:普通用户以自己身份上架 ⇒ 201,且条目 author 是服务端推导值而非自报值', async () => {
     stubUsersRow({ nickname: '李四', username: 'lisi' })
     const res = await publishAs(
-      { userId: String(PUBLISHER_ID) },
+      { userId: PUBLISHER_ID },
       publishBody({ name: 'my-own-skill', author: '随便写的名字' }),
     )
     expect(res.statusCode).toBe(201)
@@ -340,7 +338,7 @@ describe('POST /api/skills/market 新建面 —— 两条合法路径没被修�
   it('正向:nickname 为空时退回 username(仍是服务端推导,不吃自报值)', async () => {
     stubUsersRow({ nickname: '   ', username: 'wangwu' })
     const res = await publishAs(
-      { userId: String(PUBLISHER_ID) },
+      { userId: PUBLISHER_ID },
       publishBody({ name: 'fallback-username', author: 'ignored-by-server' }),
     )
     expect(res.statusCode).toBe(201)
@@ -350,7 +348,7 @@ describe('POST /api/skills/market 新建面 —— 两条合法路径没被修�
   it('正向:users 行取不到显示名 ⇒ 201 不阻断上架,非内置的自报值仍可用作 author', async () => {
     stubUsersRow({ nickname: null, username: null })
     const res = await publishAs(
-      { userId: String(PUBLISHER_ID) },
+      { userId: PUBLISHER_ID },
       publishBody({ name: 'no-display-name', author: '自填的名字' }),
     )
     expect(res.statusCode).toBe(201)
@@ -361,12 +359,12 @@ describe('POST /api/skills/market 新建面 —— 两条合法路径没被修�
   it('正向:自己已有的作者名可以再用(同一人第二次上架不被"他人已有"误伤)', async () => {
     stubUsersRow({ nickname: null, username: null })
     const first = await publishAs(
-      { userId: String(PUBLISHER_ID) },
+      { userId: PUBLISHER_ID },
       publishBody({ name: 'my-first', author: 'same-name' }),
     )
     expect(first.statusCode).toBe(201)
     const second = await publishAs(
-      { userId: String(PUBLISHER_ID) },
+      { userId: PUBLISHER_ID },
       publishBody({ name: 'my-second', author: 'same-name' }),
     )
     expect(second.statusCode).toBe(201)
@@ -387,14 +385,14 @@ describe('POST /api/skills/market 新建面 —— 两条合法路径没被修�
 
   it('正向:更新他人条目仍是 403(今天 P0 那道闸没被本票绕过)', async () => {
     await attackAndAssertRejected(
-      { userId: String(PUBLISHER_ID) },
+      { userId: PUBLISHER_ID },
       publishBody({ name: 'theirs', author: 'someone-else', version: '9.9.9' }),
     )
   })
 
   it('正向:内置条目本身没被动过(种子隔离与 author 都保持原值)', async () => {
     const before = entryByName(market(), 'content_engine')
-    await attackAndAssertRejected({ userId: String(PUBLISHER_ID) }, publishBody())
+    await attackAndAssertRejected({ userId: PUBLISHER_ID }, publishBody())
     const after = entryByName(market(), 'content_engine')
     expect(after).toEqual(before)
     expect(after.author).toBe(BUILTIN_AUTHOR)
@@ -407,7 +405,7 @@ describe('POST /api/skills/market 新建面 —— 推导链本身在跑(不是�
   it('users 表确实被按调用者 id 查过:execute 的 SQL 含 nickname/username 且带参数', async () => {
     stubUsersRow({ nickname: '赵六', username: 'zhaoliu' })
     await publishAs(
-      { userId: String(PUBLISHER_ID) },
+      { userId: PUBLISHER_ID },
       publishBody({ name: 'query-probe', author: 'whatever' }),
     )
     const calls = vi.mocked(db.execute).mock.calls
