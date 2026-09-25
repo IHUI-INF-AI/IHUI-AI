@@ -302,7 +302,7 @@ export default function AiChatDetail() {
   return (
     <ThemeRoot className="flex flex-col h-screen bg-background">
       {/* 对齐 RN ChatScreen header:无卡片底 + 底部描边 + 标题 20dp/600 */}
-      <View className="flex flex-row items-center justify-between px-[24rpx] py-[24rpx] border-b-[2rpx] border-border flex-shrink-0">
+      <View className="flex flex-row items-center justify-between px-[24rpx] py-[24rpx] border-b-[length:2rpx] border-border flex-shrink-0">
         <Text className="text-[length:40rpx] font-semibold text-foreground">
           {t('aiChatDetail.title')}
         </Text>
@@ -396,7 +396,7 @@ export default function AiChatDetail() {
       ) : null}
 
       {isInputFullscreen ? (
-        <View className="flex flex-row items-center justify-between px-[32rpx] py-[24rpx] border-b-[2rpx] border-border">
+        <View className="flex flex-row items-center justify-between px-[32rpx] py-[24rpx] border-b-[length:2rpx] border-border">
           <View onClick={handleFullscreenToggle} hoverClass="opacity-60">
             <Text className="text-[length:32rpx] text-muted-foreground mr-[24rpx]">
               ← {t('messageInput.fullscreenBack')}
@@ -409,7 +409,7 @@ export default function AiChatDetail() {
       ) : null}
 
       {isVoiceMode ? (
-        <View className="flex flex-col items-center px-[20rpx] pt-[10rpx] pb-[20rpx] border-t-[2rpx] border-border">
+        <View className="flex flex-col items-center px-[20rpx] pt-[10rpx] pb-[20rpx] border-t-[length:2rpx] border-border">
           <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)] mb-[12rpx]">
             {isRecording ? t('messageInput.recording') : t('messageInput.voiceHint')}
           </Text>
@@ -429,7 +429,7 @@ export default function AiChatDetail() {
           </View>
         </View>
       ) : (
-        <View className="px-[20rpx] pt-[10rpx] pb-[20rpx] border-t-[2rpx] border-border flex-shrink-0">
+        <View className="px-[20rpx] pt-[10rpx] pb-[20rpx] border-t-[length:2rpx] border-border flex-shrink-0">
           {/* 对齐 RN MessageInput inputRow:胶囊描边容器(radius 2xl=16px,聚焦态 border primary) */}
           <View
             className={`flex flex-row items-end rounded-2xl border-[length:2rpx] bg-card px-[30rpx] py-[12rpx] gap-[20rpx] ${isInputFocused ? 'border-primary' : 'border-border'}`}
