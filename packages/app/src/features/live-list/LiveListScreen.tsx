@@ -8,6 +8,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { LiveListItem, LiveListScreenProps, LiveListTab, LiveStatus } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 直播列表/Props 类型 re-export(单一来源 @ihui/types) */
 export type { LiveListItem, LiveListScreenProps, LiveListTab, LiveStatus }
@@ -53,13 +54,7 @@ export function LiveListScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={onBack}
-          style={styles.backBtn}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} style={styles.backBtn} />
         <Text style={styles.title}>{t('liveList.title')}</Text>
         <Text style={styles.subtitle}>{t('liveList.subtitle')}</Text>
       </View>
@@ -146,7 +141,6 @@ function createStyles(tk: AppThemeTokens) {
     container: { flex: 1, backgroundColor: tk.surface.bg },
     header: { paddingHorizontal: 10, paddingBottom: 8 },
     backBtn: { marginBottom: 8 },
-    backText: { fontSize: 16, color: tk.text.secondary },
     title: { fontSize: 22, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     tabs: { flexDirection: 'row', paddingHorizontal: 10, paddingVertical: 8, gap: 6 },

@@ -23,6 +23,7 @@ import type {
 } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 直播详情共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { LiveDetailItem, LiveDetailChatMessage, LiveDetailChatStatus, LiveDetailScreenProps }
@@ -96,6 +97,7 @@ export function LiveDetailScreen({
     return (
       <View style={styles.center}>
         <Text style={styles.errorText}>{error || t('liveDetail.empty')}</Text>
+        {/* back-label-exempt: 错误态/空态卡片内的按钮文案,或翻页/弹窗关闭动作 —— 此处「返回」是按钮文字而非页头箭头,换裸箭头反而不表意 until 2027-09-25 */}
         <TouchableOpacity style={styles.btnPrimary} onPress={onBack}>
           <Text style={styles.btnPrimaryText}>{t('common.back')}</Text>
         </TouchableOpacity>
@@ -113,9 +115,7 @@ export function LiveDetailScreen({
       keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
     >
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.back}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title} numberOfLines={2}>
           {live.title}
         </Text>
@@ -259,7 +259,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     btnPrimaryText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
     btnDisabled: { opacity: 0.5 },
-    back: { fontSize: 16, color: tk.text.secondary },
     header: { paddingHorizontal: 10, paddingBottom: 8 },
     title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },

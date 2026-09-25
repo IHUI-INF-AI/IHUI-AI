@@ -8,6 +8,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { NotificationSettingsItem, NotificationSettingsScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 通知设置共享屏 — props 注入式跨端组件 */
 export type { NotificationSettingsItem, NotificationSettingsScreenProps }
@@ -31,9 +32,7 @@ export function NotificationSettingsScreen({
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={styles.back}>{t('common.back')}</Text>
-          </TouchableOpacity>
+          <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
           <Text style={styles.title}>{t('notificationSettings.title')}</Text>
         </View>
         <View style={styles.center}>
@@ -47,9 +46,7 @@ export function NotificationSettingsScreen({
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={styles.back}>{t('common.back')}</Text>
-          </TouchableOpacity>
+          <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
           <Text style={styles.title}>{t('notificationSettings.title')}</Text>
         </View>
         <View style={styles.center}>
@@ -70,9 +67,7 @@ export function NotificationSettingsScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.back}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('notificationSettings.title')}</Text>
       </View>
       <View style={styles.body}>
@@ -122,7 +117,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 12,
       gap: 12,
     },
-    back: { fontSize: 16, color: tk.text.medium },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     body: { padding: 10 },
     card: {

@@ -4,9 +4,10 @@
 import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
+import { View, Text, StyleSheet } from 'react-native'
 import type { AboutScreenProps, SharedAppInfo } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 const DEFAULT_APP_INFO: Required<SharedAppInfo> = {
   appName: 'IHUI AI',
@@ -47,9 +48,7 @@ export function AboutScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('about.title')}</Text>
       </View>
 
@@ -87,7 +86,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 12,
       gap: 12,
     },
-    backText: { fontSize: 16, color: tk.text.medium },
     title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     body: { padding: 14 },
     logoCard: {

@@ -18,6 +18,7 @@ import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type { RecruitmentCategory, RecruitmentJob, RecruitmentScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 export type { RecruitmentCategory, RecruitmentJob, RecruitmentScreenProps }
 
@@ -79,13 +80,7 @@ export function RecruitmentScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={onBack}
-          style={styles.backBtn}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} style={styles.backBtn} />
         <Text style={styles.title}>{t('recruitment.title')}</Text>
         <Text style={styles.subtitle}>{t('recruitment.count', { count: filtered.length })}</Text>
       </View>
@@ -204,7 +199,6 @@ function createStyles(tk: AppThemeTokens) {
     errorText: { fontSize: 14, color: tk.danger.DEFAULT },
     header: { paddingHorizontal: 10, paddingBottom: 8 },
     backBtn: { paddingVertical: 4, marginBottom: 8 },
-    backText: { fontSize: 16, color: tk.text.secondary },
     title: { fontSize: 22, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: 8, fontSize: 14, color: tk.text.tertiary },
     listBody: { padding: 14, paddingBottom: 32 },

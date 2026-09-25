@@ -19,6 +19,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** AI 世界 Tab key(工具/应用/资讯/榜单) */
 export type AiWorldTab = 'tools' | 'apps' | 'news' | 'rankings'
@@ -170,9 +171,7 @@ export function AiWorldScreen({
     <View style={styles.container}>
       {/* 顶栏:返回 + 标题 + 收藏/浏览历史入口 */}
       <View style={styles.headerBar}>
-        <TouchableOpacity onPress={onBack} hitSlop={HIT_SLOP}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.headerTitle} numberOfLines={1}>
           {t('aiWorld.title')}
         </Text>
@@ -480,10 +479,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 16,
       paddingTop: 12,
       paddingBottom: 8,
-    },
-    backText: {
-      fontSize: 14,
-      color: tk.text.secondary,
     },
     headerTitle: {
       fontSize: 16,

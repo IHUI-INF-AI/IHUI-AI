@@ -9,6 +9,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AgentDetailScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** Agent 详情共享屏 — props 注入式跨端组件 */
 export type { AgentDetailScreenProps }
@@ -36,6 +37,7 @@ export function AgentDetailScreen({
     return (
       <View style={styles.center}>
         <Text style={styles.error}>{error || t('agentDetail.loadFailed')}</Text>
+        {/* back-label-exempt: 错误态/空态卡片内的按钮文案,或翻页/弹窗关闭动作 —— 此处「返回」是按钮文字而非页头箭头,换裸箭头反而不表意 until 2027-09-25 */}
         <TouchableOpacity style={styles.btn} onPress={onBack}>
           <Text style={styles.btnText}>{t('common.back')}</Text>
         </TouchableOpacity>
@@ -45,9 +47,7 @@ export function AgentDetailScreen({
 
   return (
     <ScrollView style={styles.container}>
-      <TouchableOpacity onPress={onBack}>
-        <Text style={styles.back}>{t('common.back')}</Text>
-      </TouchableOpacity>
+      <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
       <View style={styles.head}>
         <Text style={styles.name}>{item.name}</Text>
         <Text style={styles.category}>{item.category}</Text>
@@ -102,7 +102,6 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     btnText: { color: tk.surface.light, fontSize: 16 },
-    back: { fontSize: 16, color: tk.text.secondary },
     head: { marginTop: 8, marginBottom: 12 },
     name: { fontSize: 24, fontWeight: '700', color: tk.text.primary },
     category: { marginTop: 8, fontSize: 14, color: tk.brand.DEFAULT },

@@ -16,6 +16,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CourseEnrollItem, CourseEnrollScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 课程报名共享屏 — props 注入式跨端组件 */
 export type { CourseEnrollItem, CourseEnrollScreenProps }
@@ -48,9 +49,7 @@ export function CourseEnrollScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.back}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('courseEnroll.title')}</Text>
         <Text style={styles.subtitle}>{t('courseEnroll.subtitle')}</Text>
         {userNickname ? <Text style={styles.userText}>{userNickname}</Text> : null}
@@ -145,7 +144,6 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
     header: { paddingHorizontal: 10, paddingBottom: 8 },
-    back: { fontSize: 16, color: tk.text.secondary },
     title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     userText: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
