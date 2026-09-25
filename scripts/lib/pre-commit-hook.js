@@ -420,8 +420,16 @@ try {
       f.includes('apps/mobile-rn/global.css') ||
       f.includes('packages/design-tokens/src/styles/tokens.css'),
   )
+  // 本门 2026-09-26 收口为"默认判 HEAD blob",而提交链要审的是**这次会带走的那一份** ⇒ 必须显式
+  // 传 --staged。不带面旗等于让这条钩子悄悄换成审上一提交态:生成器刚写回、已 git add 的新值
+  // 不会被本步看到(它判的是 HEAD 里的旧值),这一格是"门在跑、判的不是被提交的内容"那一型。
   if (involvesRnTokens) {
-    if (!run('🔍 条件 RN global.css 同步守门...', 'node scripts/check-rn-global-css-sync.mjs')) {
+    if (
+      !run(
+        '🔍 条件 RN global.css 同步守门...',
+        'node scripts/check-rn-global-css-sync.mjs --staged',
+      )
+    ) {
       console.error(
         '❌ RN global.css 与 tokens.css 变量值不一致,提交已阻止(请同步变量值后再 commit)',
       )
