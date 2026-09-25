@@ -8373,3 +8373,16 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   引用上一轮读数 = 把过期结论当现状,而这类错误的代价是**重做别人正在做的票**(§12 最坏事故形态)。
   与 [[remeasure-before-dispatch-after-line-change]]、[[red-may-be-fixed-underneath-re-measure-and-ab]] 同族,
   只是这次红点不在门上,而在**我自己写的清单里** —— 所以更正也必须自己当场做,不能等别人发现。
+- [x] ✅(2026-09-25) **53 张票逐票判 HEAD 实现面**(8 个只读代理并行取证 + 本会话对每条结论逐条复跑)。**A-确未开工 7 张,全部是本会话亲手量到的否定式**:`D31` Figma 转码(figma 命中**全是营销页与 mock 市场数据**,`absoluteBoundingBox`/`componentSet`/`figma_node` 三个数据模型特征各 **0 文件**)、`D35` 长会话历史投影(`turn_ordinal` 与 `history_projection_state` **0 文件**,点名迁移不在树)、`D43` 语音笔记(`voice-note.ts` 不在任何 ref)、`D50` 多端遥控配对(`remote_control_enrollments` 唯一命中是覆盖台账 JSON 自身)、`D68` 多源建议面板(HEAD `message-input.tsx` 仍三浮层并存 import)、`D86` 钩子摘要卡(`packages/database/src/schema/` 下**根本没有 hooks 表** —— 该目录只有 `webhooks.ts`/`webhook-subscriptions.ts`,票面点名的 source/blocked 列无处可取)、`WP-1` CLI 策略层(`builtins.ts` HEAD 原文仍是 `dangerousMatch && !process.env.IHUI_YOLO`,策略函数零调用点)。**C-已在库该翻勾 1 张**:`D106`(四端 `onSteer` 实测 extension 2 / miniapp-taro 4 / mobile-rn 6 / cli 3 全非 0 + 13 锚点 + 守门 57 exit 0),两行均已翻。其余 45 张为 **B-部分开工**。
+- **交给 `check-rn-global-css-sync.mjs` 持有人的一行修法**:它的 `gitShow(spec)` 是 `try { execFileSync('git', ['-c','safe.directory=*','show',spec]) } catch { return null }` ⇒ 换成层的 `gitRaw(['show', spec], root)` 外包同一个 try 即可,"取不到 → null → 本门 exit 2"的语义一字不动(它刻意不带 `--quiet`,让 git 的 fatal 被层的异常通道接走而不再漏到门的 stderr 上)。
+### 第四十九批·续六(2026-09-25):**生产库备份链当场接回** —— 不依赖超管口令,用机器上已有的应用账号兜底
+- **决定性的用户反馈**:被问"要不要按低权角色路线走(需要一次超管会话)"时,用户答**「超管口令是我自己随便说给你吗?」** —— 这句是对的,也是本轮唯一正确的安全边界:**口令不进会话、不进日志、不交给我**。因此"建 `ihui_backup` 角色"从**恢复备份的前置条件**降级为**日后的升级项**(谁持有口令,谁在本机自己跑那份 SQL)。我先前"我去研究超管口令"的措辞已收回。
+- **实施(三级凭据顺序,高→低)**:`deploy/win/ihui-pg-backup.ps1`
+  ① 服务环境块 `IHUI_DB_BACKUP_USER` / `IHUI_DB_BACKUP_PASSWORD` → ② §5d 权威目录 `db-backup/ihui-backup.txt` → ③ **兜底 `.env` 的 `DB_USER`/`DB_PASSWORD`**。
+  ③ 的理由不是"图省事":本机 API 服务本来就用这个账号连库,脚本本来也已在读同一份 `.env` 取库名端口 ⇒ **零新建凭据、不落新副本**;权限偏大(该角色可写)这一代价**每轮日志显式 WARN**,不把降级藏在沉默里。
+  另修一处会在服务上下文里致命的写法:凭据路径探测原先无条件 `& node …`,而**本机真实 node 在 `D:\DevEnv\runtimes\node`、`C:\Program Files\nodejs` 根本不存在**(§26 已记过),LocalSystem 的 PATH 更不可假设 ⇒ 改成 `Get-Command node.exe` 先探 + `try/catch`。取路径的工具不该成为备份失败的原因。
+- **实测验收(不是"看起来能跑")**:真跑一次备份 → rc=0,产物 `ihui_dev_20260925_022154.dump` **94.3MB**;`pg_restore -l` 数出 **对象 5221 / TABLE DATA 716**,与 09-24 04:39 那枚**超管** dump 的基线**逐位相同** ⇒ 没有因角色降权少导一行(RLS 侧另有 `BYPASSRLS` 依据:库内 6 张 FORCE RLS 表)。云同步盘同日文件已就位。
+- **断链时长如实记**:`2026-09-24 04:39` → `2026-09-25 02:21`,**约 21.7 小时无备份**。夜里 03:00 的排定任务已跑在同一条已验证代码路径上(调度器按路径每次重读子脚本 ⇒ 无需重启服务);`ihui-monitor.ps1` 的 26h 新鲜度判据因这份新 dump 自动不再触发。
+- **仍开放的终态**:`deploy/win/ihui-pg-backup-role.sql`(只读 + BYPASSRLS + INHERIT,语法已用逐条自动提交的解析探针取证、零副作用)保留在仓里等持有超管口令的人执行;执行完把口令一行裸文本放进 ② 的路径,备份即自动升到终态,脚本无需再改。
+- **本轮两处判据自伤(记下,别当成"门坏了")**:① 我先按测试名 grep 定位红的那份文件,**同名用例在三份文件里都有** ⇒ 挑错了目标并据此断言"单独跑全绿、是批量互相干扰";真相是 `check-rn-global-css-sync.test.mjs` **单独跑也红 12 条**。教训:定位失败用例要用**文件路径**而不是用例外层字符串。② `--serial` 跑出红这件事我一开始没看,是它先证伪了我的干扰假设。
+- **归属他人、本票不代裁**:`scripts/check-rn-global-css-sync.mjs` 01:34 被改动后其镜像测试 12 条红(**门本身在真仓全量/staged 都 rc=0 ⇒ 不卡提交**,只红在 `pnpm test:scripts`/CI)。那是并行会话在飞的 design-tokens 自动同步改造,按 §12 不替别人改判据,只留此条台账。
