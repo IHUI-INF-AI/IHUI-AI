@@ -15,16 +15,36 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { execFileSync, spawnSync } from 'node:child_process'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { __test__ as claims } from '../check-task-claims.mjs'
 import { SIM_THRESHOLD } from '../lib/live-doc-similarity.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
 const SCRIPT = join(REPO, 'scripts', 'check-task-claims.mjs')
+
+/**
+ * 租约判据(CL1/CL2/CL3, 2026-09-25 A9 扩)的 T8-T16 一律在 **mkScratch 临时夹具**上跑。
+ * ⚠ 绝不允许为做"正向对照"往真 PROJECT_PLAN.md 写自测行 —— 它是多会话共写的活文档,
+ * 写进去就可能被别人的提交带走或造成误读(任务书明令)。被测脚本的目标路径经
+ * `--plan <file>` 注入,这正是判据可取证化的必需通道。
+ */
+function runCli(args, opts = {}) {
+  const r = spawnSync(process.execPath, [SCRIPT, ...args], {
+    cwd: opts.cwd ?? REPO,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 60000,
+    env: opts.env ?? process.env,
+  })
+  return { status: r.status, out: `${r.stdout ?? ''}${r.stderr ?? ''}` }
+}
+const isoDay = (offsetDays = 0) =>
+  new Date(Date.now() - offsetDays * 3600000 * 24).toISOString().slice(0, 10)
 
 const LONG_A = '把语音笔记的九键词条补齐到 web 五语言包并让守门 74 逐键能解析'
 const LONG_B = '把桌面端安装器的五档 DPI 位图重新导出并在卸载器里复核一遍'
@@ -145,5 +165,199 @@ test('T7 真仓:只断不变量,绝不断"当前几条"', () => {
     )
     assert.ok(/^- \[ \]/.test(src.full || ''), `孪生本体 L${t.line} 必须是未勾行`)
   }
+})
+
+// ---------- 以下 T8-T16:租约三要素(CL1/CL2/CL3)扩判据,2026-09-25 A9 ----------
+
+test('T8 四对正反例·第1对 CL1 过期租约:临时夹具上过期必红并点名,新鲜同文必绿', () => {
+  const dir = mkScratch('claims-t8')
+  try {
+    const stale = join(dir, 'stale.md')
+    writeFileSync(
+      stale,
+      `- [ ]（进行中@2020-01-01/tester）自测行:被 agent 死后的认领永久留在台账\n`,
+    )
+    const r1 = runCli(['--check-gate', '--plan', stale])
+    assert.equal(r1.status, 1, `过期租约必须 exit 1,实得 ${r1.status}:${r1.out}`)
+    assert.match(r1.out, /CL1/, '未点名判据类别')
+    assert.match(r1.out, /tester/, '未点名持有者')
+    assert.match(r1.out, /L1/, '未点名行号')
+    const fresh = join(dir, 'fresh.md')
+    writeFileSync(fresh, `- [ ]（进行中@${isoDay(1)}/tester）同一件事但日期新鲜\n`)
+    assert.equal(runCli(['--check-gate', '--plan', fresh]).status, 0, '新鲜租约竟被判红')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T9 四对正反例·第2对 CL2 半个租约:有 @日期 无 /持有者 必红,补齐即绿', () => {
+  const dir = mkScratch('claims-t9')
+  try {
+    const half = join(dir, 'half.md')
+    writeFileSync(half, `- [ ]（进行中@${isoDay(0)}）有日期没名字 —— 到期了都不知道找谁续租\n`)
+    const r = runCli(['--check-gate', '--plan', half])
+    assert.equal(r.status, 1)
+    assert.match(r.out, /CL2/)
+    const full = join(dir, 'full.md')
+    writeFileSync(full, `- [ ]（进行中@${isoDay(0)}/qa）三要素齐备\n`)
+    assert.equal(runCli(['--check-gate', '--plan', full]).status, 0)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T10 四对正反例·第3对 CL3 三态矛盾:租约标记×[x] 必红;正常翻勾绿,存量裸标记矛盾只报数', () => {
+  const dir = mkScratch('claims-t10')
+  try {
+    const bad = join(dir, 'bad.md')
+    writeFileSync(
+      bad,
+      `- [x]（进行中@${isoDay(0)}/qa）勾了却没摘认领牌\n- [ ]（进行中@${isoDay(0)}/qa）正文里混进 [x]\n`,
+    )
+    const r = runCli(['--check-gate', '--plan', bad])
+    assert.equal(r.status, 1)
+    assert.match(r.out, /CL3/)
+    const good = join(dir, 'good.md')
+    writeFileSync(good, `- [x] ✅(${isoDay(0)}) 正常闭环,标记已摘\n- [ ] 无人认领\n`)
+    assert.equal(runCli(['--check-gate', '--plan', good]).status, 0)
+    // 向后兼容钉死:真仓 HEAD 里存在"裸（进行中）残留 × [x]"的存量双态行(立项实测 4 行),
+    // 判红即恒红门 → 逼人 --no-verify。该形态必须**只计数不判红**,由 legacyContradictions 如实报出。
+    const legacy = join(dir, 'legacy.md')
+    writeFileSync(legacy, `- [x] ✅(2026-09-25)（进行中）旧协议留下的双态行\n`)
+    const rj = runCli(['--check-gate', '--plan', legacy, '--json'])
+    assert.equal(rj.status, 0, `存量裸标记矛盾行不得判红:${rj.out}`)
+    assert.equal(JSON.parse(rj.out).leases.legacyContradictions, 1, '矛盾行必须如实报数,不得静默')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T11 全角括号可选性正反例 —— `（进行中）?` 陷阱的装车证明', () => {
+  // 本仓记过的坑:`（进行中）?` 里的 `?` **只作用于最后一个全角字符 `）`**,
+  // 于是"可选标记"判据静默退化成"必须含字面前缀 `（进行中`"。
+  const bare = '- [ ] 没有标记的任务行'
+  const lease = '- [ ]（进行中@2026-09-25/qa）带租约的任务行'
+  // 正例:整组包住的可选形态,对裸行与租约行都真的"可选"(剥完只剩正文)。
+  assert.equal(
+    bare.replace(claims.CLAIM_MARKER_OPTIONAL_RE, ''),
+    '没有标记的任务行',
+    '可选形态漏掉裸行',
+  )
+  assert.equal(
+    lease.replace(claims.CLAIM_MARKER_OPTIONAL_RE, ''),
+    '带租约的任务行',
+    '可选形态漏掉租约行',
+  )
+  // 反例(对照必须"有牙"):naive `（进行中）?` 在租约行上只吃到 `（进行中`,残留 `@日期/qa）` ——
+  // 若这条对照哪天"意外通过",说明夹具失效,本测试就退化成空断言。
+  const naive = /^- \[ \]（进行中）?\s*/
+  assert.notEqual(
+    lease.replace(naive, ''),
+    '带租约的任务行',
+    'naive 形态竟也正确 ⇒ 夹具失去鉴别力,本对照是空的',
+  )
+  // 真实判据不受其害:分类 + text + bodyOf 三处都剥净整段租约标记。
+  const s = claims.scanTasks(`${bare}\n${lease}\n- [ ]（进行中）旧裸标记行\n`)
+  assert.equal(s.unclaimed.length, 1, '裸行被当成有认领 ⇒ 可选分支失效')
+  assert.equal(s.inProgress.length, 2)
+  assert.equal(s.inProgress[0].text, '带租约的任务行', 'text 残留租约载荷')
+  assert.equal(claims.bodyOf({ full: lease }), '带租约的任务行')
+  assert.equal(claims.bodyOf({ full: '- [x]（进行中）foo' }), 'foo')
+})
+
+test('T12 四对正反例·第4对 向后兼容:真仓存量裸标记全绿(只计数不判红;条数按当次实测,不钉死)', () => {
+  // 存量不变量(绝不断"当前几条"——那会随别人翻勾变红):
+  // 真仓 --check-gate 的红**只可能**来自租约形态(CL1/CL2/CL3 之租约支),
+  // 而 legacy 计数必须原样报出且与 violations 无交集。
+  const r = runCli(['--check-gate', '--json'])
+  assert.ok(r.status === 0 || r.status === 1, `退出码只能是 0/1,实得 ${r.status}`)
+  const j = JSON.parse(r.out)
+  assert.ok(j.leases.legacy >= 0)
+  for (const v of j.violations) assert.ok(['CL1', 'CL2', 'CL3'].includes(v.kind))
+  // 当前真仓快照下必须为绿(立项实测:全部进行中都是旧格式;若这行变红,
+  // 说明有人留下了过期/半个租约 —— 那是**真红**,不是本测试的假阳)。
+  assert.equal(r.status, 0, `真仓 --check-gate 现值应为 0:${r.out}`)
+})
+
+test('T13 未知 CLI 开关不得静默落进默认分支(白名单 + exit 2)', () => {
+  // 前例:`sync-lost-commit-tags.mjs` 的 `--push` 拼错掉进 `--check` 还 exit 0。
+  for (const bad of [
+    ['--nope'],
+    ['--plan'],
+    ['--ttl-hours', 'abc'],
+    ['--ttl-hours', '0'],
+    ['positional'],
+  ]) {
+    const r = runCli(bad)
+    assert.equal(r.status, 2, `${bad.join(' ')} 应 exit 2(无法判定),实得 ${r.status}`)
+  }
+  // --staged 必须被接受(runner 在 staged 模式对**所有**脚本统一追加;不认它 = 接线当天全红)。
+  assert.equal(runCli(['--check-gate', '--staged']).status, 0, '--staged 竟被判未知')
+})
+
+test('T14 租约阈值可调:--ttl-hours 与 IHUI_CLAIM_LEASE_TTL_HOURS 各生效一次', () => {
+  const dir = mkScratch('claims-t14')
+  try {
+    const f = join(dir, 'ttl.md')
+    writeFileSync(f, `- [ ]（进行中@${isoDay(4)}/qa）四天前认领,72h 阈值下已过期\n`)
+    assert.equal(runCli(['--check-gate', '--plan', f]).status, 1, '默认 72h 应红')
+    assert.equal(
+      runCli(['--check-gate', '--plan', f, '--ttl-hours', '240']).status,
+      0,
+      '放宽到 240h 应绿',
+    )
+    assert.equal(
+      runCli(['--check-gate', '--plan', f], {
+        env: { ...process.env, IHUI_CLAIM_LEASE_TTL_HOURS: '240' },
+      }).status,
+      0,
+      'env 放宽应绿',
+    )
+    assert.equal(
+      runCli(['--check-gate', '--plan', f, '--ttl-hours', '240'], {
+        env: { ...process.env, IHUI_CLAIM_LEASE_TTL_HOURS: '1' },
+      }).status,
+      0,
+      '显式 --ttl-hours 必须压过 env,而不是两处各说各话',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T15 接线条件不变量:本门**若**已被 runner/package.json 登记,则 mode/skipEnv/stagedTriggers 必须与规格一致;未登记则打印"待接线"不判失败', () => {
+  // 既不许恒红(未接线期就断言"必须在 runner 里"会把本测试钉死),也不许接线后被摘线无人知。
+  const runnerSrc = readFileSync(join(REPO, 'scripts', 'guardian-runner.mjs'), 'utf8')
+  const pkgSrc = readFileSync(join(REPO, 'package.json'), 'utf8')
+  const wired = runnerSrc.includes('check-task-claims') || pkgSrc.includes('check-task-claims')
+  if (!wired) {
+    console.log(
+      '  ℹ check-task-claims 尚未接入 runner/package.json —— **待接线**(建议 id 106,主会话统一改注册表)',
+    )
+    return
+  }
+  const m = runnerSrc.match(/id:\s*'106',[\s\S]*?\n  \},/)
+  assert.ok(m, '已登记却解析不到本门注册块(接线了但形状不认识,必须人工核对)')
+  const block = m[0]
+  assert.match(block, /mode:\s*'blocking'/, '接线档位必须是 blocking(存量恒绿,红点只来自新租约)')
+  assert.match(block, /skipEnv:\s*'HUSKY_SKIP_TASK_CLAIM_LEASE'/, '紧急跳过通道键名不符规格')
+  assert.match(
+    block,
+    /stagedTriggers:\s*\[[^\]]*PROJECT_PLAN\.md/,
+    'stagedTriggers 必须含 PROJECT_PLAN.md,否则改计划不唤起本门',
+  )
+  assert.match(block, /--check-gate/, 'args 必须显式带 --check-gate(默认分支只报数不判红)')
+})
+
+test('T16 与守门 71 互不遮蔽:runner 跑完再汇总(说明性断言,防 fail-fast 回潮)', () => {
+  // 规格要求登记:"71 与 106 对同一枚提交的结论互不遮蔽"。结构性保证 = 执行器不再
+  // fail-fast,而是跑完全部门后汇总失败清单(逃生舱 GUARDIAN_STOP_ON_FIRST 反证该设计)。
+  const runnerSrc = readFileSync(join(REPO, 'scripts', 'guardian-runner.mjs'), 'utf8')
+  assert.match(
+    runnerSrc,
+    /GUARDIAN_STOP_ON_FIRST/,
+    'fail-fast 逃生舱标识消失 ⇒ 可能回潮成首错即停,遮蔽其余门的结论',
+  )
+  assert.match(runnerSrc, /id:\s*'71'/, '守门 71 注册块消失属另一类事故,顺手钉住邻门在场')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
