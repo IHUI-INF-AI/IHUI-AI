@@ -15,6 +15,7 @@ import { chatStream, type ChatMessage } from '@/api'
 import { getToken, getUserInfo } from '@/utils/auth'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
+import BackChevron from '@/components/BackChevron'
 
 interface QAItem {
   question: string
@@ -231,15 +232,13 @@ export default function AiAssistantPage() {
 
   return (
     <ThemeRoot className="flex flex-col h-screen bg-background box-border">
-      {/* 对齐 RN NavBar:px 10dp=20rpx / backBtn 32dp=64rpx / title 18dp=36rpx w600 / 透出 root 背景 */}
+      {/* 对齐 RN NavBar:px 10dp=20rpx / backBtn 36dp=72rpx / title 18dp=36rpx w600 / 透出 root 背景 */}
       <View className="flex flex-row items-center px-[20rpx] py-[12rpx] bg-background">
-        <Text className="text-[length:48rpx] text-foreground" onClick={() => Taro.navigateBack()}>
-          ←
-        </Text>
+        <BackChevron onTap={() => Taro.navigateBack()} />
         <Text className="flex-1 text-center text-[length:36rpx] font-semibold text-foreground truncate">
           {pageTitle}
         </Text>
-        <View className="w-[64rpx]" />
+        <View className="w-[72rpx]" />
       </View>
 
       {/* 对齐 RN listContent:px rpx(32)=32rpx / py rpx(16)=16rpx / pb rpx(32)=32rpx */}
@@ -390,7 +389,9 @@ export default function AiAssistantPage() {
                 }}
                 hoverClass="opacity-60"
               >
-                <Text className="text-[length:24rpx] text-muted-foreground whitespace-nowrap">{q}</Text>
+                <Text className="text-[length:24rpx] text-muted-foreground whitespace-nowrap">
+                  {q}
+                </Text>
               </View>
             ))}
           </View>
