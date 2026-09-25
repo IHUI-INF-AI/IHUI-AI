@@ -363,3 +363,90 @@ test('装车证明:`node scripts/deploy-lock.mjs --self-test` 必须 exit 0', ()
   assert.match(r.stdout, /自检 \d+ 条:pass \d+ \/ fail 0/)
   assert.doesNotMatch(r.stdout, /^❌/m, '自检输出里不得出现失败行')
 })
+
+// ─────────────  六、身份:pid 会被人复用,锁龄与"活着"矛盾时必须有一方认账  ─────────────
+//
+// 2026-09-25 实测事故:`.deploy.lock/meta.json` 记着 pid=888 / ts=11:16:32,而当时占着 888 号的是
+// `C:\Windows\System32\nssm.exe`(StartTime=11:19:13,比锁晚 160 秒)。`isProcessAlive(888)` 恒真,
+// 旧 decideSteal 在"活着"这一支无条件 `wait` ⇒ 部署环每轮白等 600s 后 exit=1,**冻结 11h50m**,
+// 而 `release` 也因为同一个"活着"拒绝代为收口。两条判据都是量出来的,却没有任何一条问
+// "这个 pid 还是当初那个持锁过程吗"。
+
+test('身份·硬上限:名义存活 + 锁龄超上限 ⇒ steal,并点名"复用"', () => {
+  const base = mkScratch('dl-reuse-')
+  try {
+    // pid 用本测试进程自己,保证 isProcessAlive 一定为真 ⇒ 唯一能翻案的证据只剩锁龄。
+    const dir = lockFixture(base, okMeta({ pid: process.pid, ts: Date.now() - L.HARD_CAP_MS - 5_000 }))
+    const d = L.decideSteal({ dir, mode: 'build', staleMs: 600_000, hardCapMs: L.HARD_CAP_MS })
+    assert.equal(d.action, 'steal', `超上限仍 wait ⇒ 冻结会重演。why=${d.why}`)
+    assert.match(d.why, /硬上限/)
+    assert.equal(d.immediate, false, '复用兜底属于"先归档现场"那一档,不得走秒抢通道')
+  } finally {
+    rmScratch(base)
+  }
+})
+
+test('身份·反向对照:锁龄在上限内且存活 ⇒ wait(硬上限不得变成秒抢)', () => {
+  const base = mkScratch('dl-in-cap-')
+  try {
+    const dir = lockFixture(base, okMeta({ pid: process.pid, ts: Date.now() - 30_000 }))
+    const d = L.decideSteal({ dir, mode: 'build', staleMs: 600_000, hardCapMs: L.HARD_CAP_MS })
+    assert.equal(d.action, 'wait', d.why)
+  } finally {
+    rmScratch(base)
+  }
+})
+
+test('身份·ownerPid 才是判活对象(CLI 自己立刻退出,不是构建)', () => {
+  const base = mkScratch('dl-owner-')
+  try {
+    const dead = deadPid()
+    // CLI pid 已死、构建 owner 还活着 ⇒ 这是"构建进行中",不是悬挂锁。
+    // ts 必须给"刚刚":okMeta 的默认 ts 是 2023 年,那会先被硬上限判成复用,测不到 owner 这一格。
+    const held = lockFixture(base, okMeta({ pid: dead, ownerPid: process.pid, ts: Date.now() }))
+    assert.equal(L.decideSteal({ dir: held, mode: 'build', staleMs: 600_000 }).action, 'wait')
+    // 反过来:CLI pid 恰好还"活着"(复用),而声明的 owner 已退出 ⇒ 构建结束了,可抢。
+    const freed = lockFixture(base, okMeta({ pid: process.pid, ownerPid: dead, ts: Date.now() }))
+    const d = L.decideSteal({ dir: freed, mode: 'build', staleMs: 600_000 })
+    assert.equal(d.action, 'steal', `owner 已退出却因 CLI pid 活着而等 ⇒ 就是本次冻结的形态(${d.why})`)
+    assert.match(d.why, /owner pid=/)
+    assert.equal(L.holderPid({ pid: 7, ownerPid: 4242 }), 4242)
+    assert.equal(L.holderPid({ pid: 7, ownerPid: 0 }), 7, '旧 meta 没有 owner 时退回 CLI pid(向后兼容)')
+  } finally {
+    rmScratch(base)
+  }
+})
+
+test('身份·writeMeta 必须落 ownerPid,check 的打印要给出"判活对象"', () => {
+  const base = mkScratch('dl-meta-shape-')
+  try {
+    const dir = join(base, 'l')
+    mkdirSync(dir, { recursive: true })
+    L.writeMeta(dir, 'build', { ownerPid: 4242 })
+    const m = JSON.parse(readFileSync(join(dir, 'meta.json'), 'utf8'))
+    assert.equal(m.ownerPid, 4242, 'ownerPid 没落盘 ⇒ 判活只能看到早已退出的 CLI pid')
+    assert.equal(m.pid, process.pid)
+    let out = ''
+    L.check({ dir, log: (s) => (out += s) })
+    assert.match(out, /ownerPid=4242/)
+    assert.match(out, /判活对象=4242/, '打印必须说清"我问的是哪个 pid",否则读报告的人会把复用当存活')
+  } finally {
+    rmScratch(base)
+  }
+})
+
+test('身份·release 遇到"名义存活但超上限":不代删别人的锁,但出路必须指向自动档', () => {
+  const base = mkScratch('dl-release-reuse-')
+  try {
+    // 必须用**不是自己**的存活 pid:pid===process.pid 会被 release 认成"持有者自释",
+    // 测的就不是这一格了。父进程(npm/node --test 那层)在跑测期间一定活着。
+    assert.ok(L.isProcessAlive(process.ppid), '夹具需要父进程在位;拿不到就换判据,不要放行')
+    const dir = lockFixture(base, okMeta({ pid: process.ppid, ts: Date.now() - L.HARD_CAP_MS - 5_000 }))
+    const r = L.release({ mode: 'build', dir })
+    assert.equal(r.released, false, 'release 不得因为"看起来超上限"就删锁——删锁是持有者的动作')
+    assert.ok(existsSync(dir), '锁目录必须原样在位')
+    assert.match(r.why, /复用/, `拒绝理由要点名真实形态,实得 ${r.why}`)
+  } finally {
+    rmScratch(base)
+  }
+})
