@@ -24,7 +24,7 @@ import { randomUUID } from 'node:crypto';
 import * as path from 'node:path';
 import chalk from 'chalk';
 import ora from 'ora';
-import { streamChat, setBaseUrl, setTokenProvider, formatSSEError, type StreamChatOptions, type SSEErrorInfo, type SSEErrorSeverity, type PlanUpdateEvent } from '@ihui/api-client';
+import { streamChat, setBaseUrl, setTokenProvider, formatSSEError, type StreamChatOptions, type SSEErrorInfo, type SSEErrorSeverity, type PlanUpdateEvent, type TerminalDeltaEvent } from '@ihui/api-client';
 // L1-4(2026-07-25 立):doom_loop 反思沉淀 procedural memory,需 loadConfig 拿 ai-service URL
 import { loadConfig } from '../config/index.js';
 import {
@@ -414,6 +414,8 @@ export interface RunToolLoopOptions {
   onSteer?: NonNullable<StreamChatOptions['onSteer']>;
   /** 额度分档告警(budget) — 同上,REPL 据此打印"今日用量较高/即将耗尽"一行 */
   onBudget?: NonNullable<StreamChatOptions['onBudget']>;
+  /** D19 终端实时输出增量(terminal_delta) — 透传 api-client 的 onTerminalDelta,未传时零开销(与 onPlanUpdate 同一条纪律) */
+  onTerminalDelta?: NonNullable<StreamChatOptions['onTerminalDelta']>;
   /** 模型上下文窗口大小(tokens)。达 85% 自动压缩到 60%,默认 128_000(与 @ihui/api-client DEFAULT_CONTEXT_CAPACITY 跨端一致)。 */
   contextLimit?: number;
   /** 是否启用 plan 强制阻断(配合 planApproved 控制) */
@@ -719,6 +721,55 @@ interface SampleWithRetryOptions {
    * 未传时零开销(与 onPlanUpdate 同一条纪律)。
    */
   onUsage?: NonNullable<StreamChatOptions['onUsage']>;
+  /** D19 终端实时输出增量(terminal_delta)— 未传时零开销(与 onPlanUpdate 同一条纪律) */
+  onTerminalDelta?: NonNullable<StreamChatOptions['onTerminalDelta']>;
+}
+
+/**
+ * D19(2026-09-25 接):terminal_delta 帧 → 「已完整成行」的终端输出行。
+ *
+ * 后端在命令执行期间逐块下发 stdout/stderr 增量(web/extension/mobile-rn 有卡片面板,
+ * CLI 没有卡片宿主 — 最自然的渲染就是逐行打进输出流,与 noteLine 家族同一出口)。
+ * 防洪泛纪律:delta 块在**行中**断开是常态,半行单独打印会把正文打碎,
+ * 故只输出已带 `\n` 收尾的整行,未满行留在 pending[terminalId] 等下一帧拼接
+ * (调用方持有一轮对话的 pending;与 statusline「数据源低频才逐行」的前提兼容:
+ * 逐 delta 帧只在真有一整行输出时才算一次行)。
+ * 空 terminalId / 空 text 整帧丢弃(与 web send-message 的 onTerminalDelta 守卫同口径)。
+ */
+export const TERMINAL_LINE_MAX_CHARS = 200;
+
+export function takeTerminalDeltaLines(
+  pending: Record<string, string>,
+  event: Pick<TerminalDeltaEvent, 'terminalId' | 'command' | 'stream' | 'text'>,
+): string[] {
+  if (!event.terminalId || !event.text) return [];
+  const buffered = (pending[event.terminalId] ?? '') + event.text;
+  const parts = buffered.split('\n');
+  const rest = parts.pop() ?? '';
+  if (rest) pending[event.terminalId] = rest;
+  else delete pending[event.terminalId];
+  const tag = event.stream === 'stderr' ? '[terminal:err]' : '[terminal]';
+  const prefix = event.command ? `${tag} ${event.command} · ` : `${tag} `;
+  const lines: string[] = [];
+  for (const raw of parts) {
+    const line = raw.trim();
+    if (!line) continue;
+    lines.push(line.length > TERMINAL_LINE_MAX_CHARS ? `${prefix}${line.slice(0, TERMINAL_LINE_MAX_CHARS)}…` : `${prefix}${line}`);
+  }
+  return lines;
+}
+
+/**
+ * D19 打印汇(装车点:repl.ts 的 runToolLoop.onTerminalDelta 用它)。
+ * 内部持有本轮 terminalId→半行缓冲,把 terminal_delta 事件流转成 noteLine 调用。
+ */
+export function createTerminalDeltaSink(
+  noteLine: (line: string) => void,
+): (event: TerminalDeltaEvent) => void {
+  const pending: Record<string, string> = {};
+  return (event) => {
+    for (const line of takeTerminalDeltaLines(pending, event)) noteLine(line);
+  };
 }
 
 interface SampleWithRetryResult {
@@ -826,6 +877,7 @@ async function sampleWithRetry(
         ...(opts.onSteer ? { onSteer: opts.onSteer } : {}),
         ...(opts.onBudget ? { onBudget: opts.onBudget } : {}),
         ...(opts.onUsage ? { onUsage: opts.onUsage } : {}),
+        ...(opts.onTerminalDelta ? { onTerminalDelta: opts.onTerminalDelta } : {}),
         ...(opts.sampler ?? {}),
         onError: (msg, info) => { streamErr = msg; streamErrInfo = info; },
       } as Parameters<typeof streamChat>[0]);
@@ -1259,13 +1311,21 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         ...(opts.onCitations ? { onCitations: opts.onCitations } : {}),
         ...(opts.onSteer ? { onSteer: opts.onSteer } : {}),
         ...(opts.onBudget ? { onBudget: opts.onBudget } : {}),
+        // D19 终端实时输出增量透传(terminal_delta):REPL 借此把命令 stdout/stderr 逐行打进终端
+        ...(opts.onTerminalDelta ? { onTerminalDelta: opts.onTerminalDelta } : {}),
             sampler: opts.sampler,
             ...(withTools && nativeExtraBody ? { extraBody: nativeExtraBody } : {}),
             ...(withTools
               ? {
                   onToolCallEvent: (event: { type: string; toolCallId: string; toolName: string; args?: Record<string, unknown> }) => {
                     if (event.type === 'tool-call-start') {
-                      nativeToolEvents.push({ name: event.toolName, arguments: event.args ?? {} });
+                      const args = event.args ?? {};
+                      nativeToolEvents.push({ name: event.toolName, arguments: args });
+                      // 流内即时登记:满足准入线的只读调用当场开跑,不等整条流读完
+                      ledger.register(
+                        { toolCallId: event.toolCallId, toolName: event.toolName, args },
+                        dispatchEarlyTool(event.toolName, args),
+                      );
                     }
                   },
                 }
