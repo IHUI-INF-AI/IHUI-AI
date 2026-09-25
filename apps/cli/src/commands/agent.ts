@@ -1758,6 +1758,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         });
         // WP-3 预算信封:超限结果**不得整段进上下文** —— 落盘到项目内会话产物目录,
         // 这里只回灌"路径 + 前 K 字符预览 + 已截断说明"的信封(已信封的结果幂等跳过)。
+        // 预算优先取工具**声明的**契约结果档(A13 / ToolContractMount),没有才落回登记表。
         const budgeted = envelopeToolResult({
           call,
           result,
@@ -1765,6 +1766,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           sessionId: opts.sessionId,
           turn: iterations,
           tracker: readState,
+          resultBudget: getTool(call.name)?.contract?.resultBudget,
         });
         resultParts.push(formatToolResult(call, { ...result, output: budgeted.output }));
       }
