@@ -660,6 +660,15 @@ const nextConfig: NextConfig = {
           source: '/api/web-tools/:path*',
           destination: `${IHUI_AI_PROXY_TARGET}/api/web-tools/:path*`,
         },
+        // 2026-09-26 新增(D31 设计稿转码):/api/figma/* 路由直连 ai-service 8803。
+        // 原因:figma_import router(figma-import 页面,POST /api/figma/import)与既有
+        // 转码任务链路(figma.py,POST /api/figma/transcode + GET /api/figma/tasks/{id})
+        // 都注册在 ai-service(prefix="/api"),必须直连 8803 才能命中,
+        // 否则落到 /api/:path* → 8802(api server)404。置于 /api/:path* 通配符之前。
+        {
+          source: '/api/figma/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/figma/:path*`,
+        },
         // 2026-09-13 新增(模型池对外出售接入):OpenAI 兼容 /v1 与 Gemini 兼容 /v1beta
         // 公开网关,直连 api server 8802(走 API Key 鉴权,不经 web 登录态)。
         // 与 deploy/nginx/nginx-blue-green.conf 的 /v1 /v1beta /ws location 意图一致,
