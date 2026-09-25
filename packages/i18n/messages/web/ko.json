@@ -5809,6 +5809,31 @@
       "summary": "요약",
       "rawNote": "아래는 모델의 원시 출력으로, 서식 처리되지 않았습니다",
       "empty": "왼쪽 입력 후「진단 시작」을 누르면 보고서가 생성됩니다"
+    },
+    "githubApp": {
+      "title": "GitHub App 관리",
+      "subtitle": "GitHub App 설치 대장과 webhook 설정 상태를 확인합니다. 설치 이벤트는 webhook으로 자동 동기화됩니다",
+      "configSection": "설정 상태",
+      "webhookSecret": "Webhook 시크릿",
+      "appCredentials": "App 자격 증명",
+      "configured": "설정됨",
+      "notConfigured": "미설정",
+      "secretHint": "GitHub webhook 전송의 HMAC 서명을 검증합니다. 미설정 시 수신 진입이 닫혀 있습니다",
+      "credsHint": "installation token을 발급해 GitHub API를 호출하는 App ID와 개인 키",
+      "installationsTitle": "설치 인스턴스",
+      "empty": "아직 설치 기록이 없습니다. GitHub에서 이 App을 설치하면 자동으로 표시됩니다",
+      "colInstallation": "설치 ID",
+      "colAccount": "계정",
+      "colType": "유형",
+      "colStatus": "상태",
+      "colInstaller": "작업자 ID",
+      "colCreatedAt": "생성 시각",
+      "colUpdatedAt": "수정 시각",
+      "statusActive": "설치됨",
+      "statusRemoved": "제거됨",
+      "refresh": "새로 고침",
+      "loadFailed": "불러오기 실패",
+      "installerHint": "GitHub 측 작업자 id(플랫폼 사용자 아님)"
     }
   },
   "connectors": {
@@ -7130,6 +7155,40 @@
       "rollbackConfirmConfirm": "복원"
     },
     "pane": {
+      "elementPack": {
+        "feedbackSurvey": {
+          "question": "이 답변이 문제 해결에 도움이 되었나요?",
+          "answer": {
+            "solved": "해결됨",
+            "partial": "부분 해결",
+            "notSolved": "해결 안 됨"
+          },
+          "commentPlaceholder": "추가 설명(선택)",
+          "submit": "제출",
+          "dismiss": "건너뛰기",
+          "submitted": "접수되었습니다. 감사합니다"
+        }
+      },
+      "hookSummary": {
+        "ariaLabel": "훅 실행 요약",
+        "state": {
+          "running": "훅 실행 중",
+          "ok": "훅 정상",
+          "failed": "훅 오류 발생",
+          "blocked": "훅이 작업을 차단함"
+        },
+        "runs": "· {n}회 실행됨",
+        "failedCount": "{n}회 실패",
+        "blockedCount": "{n}회 차단",
+        "sourceLabel": "출처",
+        "source": {
+          "admin": "관리자",
+          "user": "사용자",
+          "project": "프로젝트",
+          "plugin": "플러그인",
+          "session": "세션"
+        }
+      },
       "businessForms": {
         "ariaLabel": "업무 폼 카드",
         "aria": {
@@ -8828,13 +8887,27 @@
       "unarchived": "보관 해제됨",
       "pinned": "상단 고정됨",
       "unpinned": "상단 고정 해제됨",
-      "pinFailed": "상단 고정 실패"
+      "pinFailed": "상단 고정 실패",
+      "orgSaved": {
+        "orgSaved": "대화 정리가 저장되었습니다"
+      }
     },
     "today": "오늘",
     "openWorkPanel": "작업 패널 열기",
     "closeWorkPanel": "작업 패널 닫기",
     "toggleWorkPanel": "작업 패널 전환",
-    "user": "사용자"
+    "user": "사용자",
+    "org": {
+      "title": "대화 정리",
+      "folderLabel": "폴더",
+      "folderPlaceholder": "폴더를 입력하거나 선택",
+      "tagsLabel": "태그",
+      "tagPlaceholder": "태그를 추가하고 Enter 누르기",
+      "removeTagAria": "태그 {tag} 제거",
+      "filterLabel": "폴더로 필터링",
+      "filterAll": "전체",
+      "folderNone": "미분류"
+    }
   },
   "aiCost": {
     "budgetAlerts": "예산 경고",
@@ -10468,7 +10541,8 @@
       "roleUser": "사용자",
       "roleAssistant": "어시스턴트",
       "exportCard": "이미지 카드 공유",
-      "shareCardUser": "사용자"
+      "shareCardUser": "사용자",
+      "exportPdf": "PDF をエクスポート"
     },
     "fallbackNotice": "백업 모델 {backup}(으)로 전환됨(원본 모델 {primary} 일시 사용 불가)",
     "fallbackNoticeQuota": "이번 답변은 {backup} 모델이 생성했습니다({primary} 모델의 제공사 계정 한도가 모두 소진되어 동일 계열의 사용 가능한 모델로 자동 전환했습니다).",
@@ -11422,14 +11496,14 @@
     },
     "commands": {
       "steerPrompt": {
+        "label": "프롬프트 스티어",
         "description": "실행 중인 답변에 현재 입력을 가이드로 주입합니다",
-        "keywords": ["스티어", "가이드", "steer"],
-        "label": "프롬프트 스티어"
+        "keywords": ["스티어", "가이드", "steer"]
       },
       "queuePrompt": {
+        "label": "프롬프트를 대기열에 추가",
         "description": "현재 입력을 대기열에 추가하여 현재 답변이 끝나면 자동으로 전송합니다",
-        "keywords": ["대기열", "큐", "queue"],
-        "label": "프롬프트를 대기열에 추가"
+        "keywords": ["대기열", "큐", "queue"]
       },
       "agent": {
         "description": "AI 에이전트 관리 및 디스패치",
@@ -16840,6 +16914,10 @@
       "pending": "대기",
       "unknown": "알 수 없음"
     },
+    "submitBtn": "답안 제출",
+    "submitConfirm": "답안을 제출하시겠습니까? 제출 후 완료로 표시됩니다.",
+    "submitFailed": "제출에 실패했습니다",
+    "submitSuccess": "답안이 제출되었습니다",
     "title": "시험 접수",
     "total": "총 {n}건"
   },
@@ -18163,6 +18241,7 @@
     "advancedAiTools": "고급 AI 도구",
     "mediaTasks": "미디어 작업",
     "webTools": "웹 도구",
+    "figmaImport": "디자인 변환",
     "voices": "음성 라이브러리",
     "agentGovernance": "Agent Token 거버넌스",
     "agentWorkbench": "에이전트 워크벤치",
@@ -18434,7 +18513,8 @@
     "faq": "FAQ",
     "home": "홈",
     "settings": "설정",
-    "adminDeployDiagnosis": "배포 진단"
+    "adminDeployDiagnosis": "배포 진단",
+    "githubApp": "GitHub App"
   },
   "news": {
     "allCategories": "All categories",
@@ -25108,6 +25188,23 @@
     "deleteConfirm": "이 음성을 삭제하시겠습니까? 삭제 후에는 클론 TTS에 사용할 수 없습니다.",
     "refresh": "새로고침",
     "notFound": "음성을 찾을 수 없습니다"
+  },
+  "figmaImportPage": {
+    "title": "디자인 변환",
+    "subtitle": "Figma fileKey와 노드 ID를 붙여넣어 실행 가능한 프런트엔드 컴포넌트 코드(React+Tailwind / Taro)를 생성합니다.",
+    "targetReact": "React + Tailwind",
+    "targetTaro": "Taro 미니프로그램",
+    "fileKeyPlaceholder": "Figma fileKey (예: a1b2c3...)",
+    "nodeIdPlaceholder": "노드 ID (예: 1:2 — Frame 선택 후 링크 복사)",
+    "run": "코드 생성",
+    "running": "생성 중...",
+    "tokenHint": "서버에 FIGMA_API_TOKEN 설정이 필요합니다. LLM 생성 실패 시 결정론적 HTML 스켈레톤으로 자동 강등됩니다.",
+    "errorRequired": "fileKey와 노드 ID를 모두 입력하세요",
+    "resultTitle": "생성 결과",
+    "copy": "코드 복사",
+    "copied": "복사됨",
+    "degradedNotice": "LLM 생성에 실패하여 결정론적 HTML 스켈레톤으로 강등되었습니다(그대로 사용 가능).",
+    "metaNodes": "노드 {nodes}개 · 텍스트 {texts}곳 · 이미지 참조 {images}곳"
   },
   "webToolsPage": {
     "title": "웹 도구",
