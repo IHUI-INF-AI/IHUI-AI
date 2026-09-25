@@ -146,6 +146,50 @@
   取证：自检 11→**21 条**、镜像 9→**17 例**、全量档复跑读数与派单前**逐位相同**（证明没把存量搞红）；
   变异自证（把 `enforced ? red : notice` 改坏 ⇒ 永不判红）自检与镜像各 exit **1**、改回 0/0。
 
+### 第八波（2026-09-25 14:5x–15:2x：三条定点取证结案 + 抓到"入参校验器建好没装车"）
+
+- [x] ✅(2026-09-25) **A29「批准的字节 ≠ 执行的字节」在本仓不成立（结案为不适用，附赋值链证据）**：
+  代理式风险形态是"批准弹窗展示一条命令、执行时另一处代码做了展开/规范化 ⇒ 用户批的和跑的不是同一件事"。
+  实测本仓三处取的是**同一个引用**：`apps/cli/src/tools/index.ts:324` 把 `call.arguments` 交给
+  `ctx.confirmDangerous(tool, call.arguments)` 弹窗（`apps/cli/src/tools/danger-gate.ts:96` →
+  `apps/cli/src/commands/agent.ts:1930-1933` 的 prompt 体只做 `JSON.stringify(args)`，**只读不改**），
+  同一表达式再原样进 `executeWithRetry(tool, call.arguments, ctx)` → `tool.execute(args, ctx)`。
+  ⇒ 没有 `resolveInput` 这一格不是缺陷，是**本仓根本没有"校验后替换入参"的环节**（见下一条）。**不得再按上游有 `resolveInput` 就立"补一个 resolveInput"的票。**
+- [x] ✅(2026-09-25) **A35「构造期冻结模型/provider 表」在本仓不成立（结案为不适用）**：
+  子代理只带一个字符串 id 下去（`apps/cli/src/tools/subagent.ts:251/270/374`，跨进程形态
+  `subagents/worker-entry.ts:156/197`），provider 每次现读（`apps/cli/src/commands/agent.ts:1147` 调
+  `apps/cli/src/provider/local.ts:55 resolveProvider(settings)`，无 memo 无 freeze），模型清单也是现读函数
+  （`commands/models.ts:234`、`provider/local.ts:272`）。
+  **唯一被构造期快照的是"工具注册表"**，且它在每次 spawn 时 `subagent.ts:381 savedTools = listTools()` →
+  `:450-452 finally { clearTools(); registerTools(savedTools) }` 成对还原 ⇒ 形态正确，不是债。
+- [ ] **★ 抓到本仓一处"造好没装车"：`apps/cli/src/tools/argument-validator.ts` 在生产面零调用方 ⇒ CLI 工具入参根本不校验**
+  （这是 A36 那条票的真身，也是 A13 那句"运行时怎么校验与模型被告知怎么填是同一份描述的两个投影"**目前只有后半句成立**）：
+  - 证据（主会话自跑）：`grep -rn "validateToolArguments|formatValidationErrors" --include=*.ts apps/cli/src packages/*/src`
+    ⇒ **只有该文件自身的定义行**（`:68` 定义、`:351` 定义、`:22/:345` 注释），零个 import 与零个调用点；
+    全仓 `grep -rn "argument-validator" apps packages | grep -v .test.` 也只在三处**注释**里被提及
+    （`tools/index.ts:549`、`packages/types/src/schema-projection.ts:9`、`tool-contract.ts:78`）。
+  - 后果不是"少一道校验"这么轻：`required` 目前只被用来**生成提示文案**（`tools/index.ts:187` 拼 `(必填)`）
+    与投给 provider 的 schema，没有任何一处按它拒绝或纠正入参 ⇒ 模型少传/传错类型时，
+    错误由**各工具 handler 自己**兜（`String(args.x ?? '')` 这类），同一类错误在 104 枚工具里有 104 种表现。
+  - **为什么不当场接线**：`parameters` 描述从来没有被执行过 ⇒ 它的准确度**从未被检验**。直接把校验打开，
+    表现可能是"昨天能跑今天全被拒"（正是门 111/113 反复写的那类恒红事故的运行时版本）。
+  - 正确顺序（三步，缺一不可，第一步是这票的唯一交付）：
+    ① **影子模式**：在 `executeToolCall` 里调用校验器但**只记账不拦截**，统计真实会话里"会被拒"的调用数、按工具名分布，
+    开关 `IHUI_TOOL_ARG_VALIDATION=shadow|off|enforce`，**默认 off**；
+    ② 拿影子数据把确实描述错的 `parameters` 修对（或按 `--touch-requires-declaration` 那条 TRD 一并收口），
+    判据是"enforce 打开后被拒率 = 0 或只落在真该拒的用例上"；
+    ③ 才允许 `enforce` 默认开，并把失败结构改成 **`{字段路径, 期望, 实得}` 逐条回灌给模型**
+    （现 `ValidationError` 有 `field`/`expected`/`actual`，`field` 已是 `items[0]` / `a.b` 形态但根节点写字面量 `(root)`、
+    且 `actual` 多数只是类型名（`describeType()`），只有枚举分支给字面值）——
+    **`formatValidationErrors` 今天在生产里没人调**，所以"回灌"这一步是零现状、要新建出口。
+  - 归属与解阻判据：本条属**吸收线自己挖出的本仓缺陷**，不依赖任何上游代码；
+    第①步单独一票（小，只加一个调用点 + 计数器 + 开关），做完才允许讨论第②③步。
+    立守卫前先证坏状态可达（既有口径），这条的可达性证据就是"零调用方"本身。
+- [x] ✅(2026-09-25) **一条取证纪律的回写（本轮第三次撞到同一型）**：上面 A29/A35 两条我最初都按"上游有 ⇒ 我们缺"写进任务书，
+  两路都判为**不成立**。机制是：**上游那份机制解决的故障，本仓可能根本没有产生它的环节**（A29 要有"校验后替换入参"才会有"批准的字节 ≠ 执行的字节"；
+  A35 要有构造期快照才会有 stale registry）。⇒ 今后"值得吸收"的判定必须附一条**本仓故障成因是否存在**的证据，
+  只附"上游有 X + 我们 grep 不到 X"的一律降级为未决。
+
 ## O61 safe-commit 的"钩子失败归因"从抄来的结论改成量出来的结论（2026-09-25 立并完成 ✅）
 
 - [ ]（进行中）**WP-7 浏览器语义快照与可复用元素句柄**(规格已写,未开工)。
