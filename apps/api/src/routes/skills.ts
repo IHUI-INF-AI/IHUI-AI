@@ -30,6 +30,7 @@ import type {
   SkillNotification,
 } from '@ihui/shared/skills/market'
 import { checkAuth } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { config } from '../config/index.js'
 
@@ -643,28 +644,42 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /skills/:name/unlist — 从市场下架 skill(移除目录条目;前端 admin SkillMarketDialog 使用)
-  server.post<{ Params: { name: string } }>('/skills/:name/unlist', async (request, reply) => {
-    if (!(await checkAuth(request, reply))) return
+  //
+  // 这是 entries.splice(...,1) 的**破坏性硬删**:installCount / 评分 / 订阅关系 / 归属一并消失,
+  // 且不认归属 —— 内置与内部同步条目没有 ownerId(见种子的 listing 约定:任何人都不能把平台
+  // 内置技能下架后据为己有),按 owner 判会连管理员都删不掉。所以它只允许系统管理员调用。
+  //
+  // 闸门走 requireAdmin preHandler(与 ab-testing.ts / 各 admin-*.ts 同一套写法,不自造第三套):
+  // 未登录 401 → 非管理员 403,两档都在 handler 之前落定,顺序天然是
+  // 先鉴权 → 再授权 → 再校参数 → 再动作(参数校验挪到鉴权前会 fail-open 崩在鉴权层后面,AGENTS §5)。
+  // requireAdmin 内部已 authenticate 并注入 request.userId / jwtPayload,故 handler 内不再重复
+  // checkAuth —— 那等于二次 authenticate(含 CSRF 与用户状态查询)。
+  server.post<{ Params: { name: string } }>(
+    '/skills/:name/unlist',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const parsed = nameParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
 
-    const parsed = nameParamSchema.safeParse(request.params)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
+      const entries = await readMarket(server.redis, MARKET_KEY)
+      const idx = entries.findIndex((e) => e.name === parsed.data.name)
+      const removed = idx < 0 ? undefined : entries[idx]
+      if (!removed) {
+        return reply.status(404).send(error(404, '市场 Skill 不存在'))
+      }
+      entries.splice(idx, 1)
+      await writeMarket(server.redis, MARKET_KEY, entries)
 
-    const entries = await readMarket(server.redis, MARKET_KEY)
-    const idx = entries.findIndex((e) => e.name === parsed.data.name)
-    if (idx < 0) {
-      return reply.status(404).send(error(404, '市场 Skill 不存在'))
-    }
-    const [removed] = entries.splice(idx, 1)
-    await writeMarket(server.redis, MARKET_KEY, entries)
-
-    return reply.send(success({ name: removed!.name, unlisted: true }))
-  })
+      return reply.send(success({ name: removed.name, unlisted: true }))
+    },
+  )
 
   // POST /skills/:name/listing — listing 级上下架切换(P2-14,owner 专用)
   //
-  // 与上面 unlist 的区别:unlist 是"从市场目录里抹掉"(admin 治理动作,不认归属),
+  // 与上面 unlist 的区别:unlist 是"从市场目录里抹掉"(破坏性硬删,由 requireAdmin preHandler
+  // 把住 admin 档,刻意不认归属 —— 内置条目没有 ownerId),
   // 本端点是"条目还在、只是在架/不在架之间翻转",保留 installCount/rating/订阅关系。
   // 顺序必须是 先鉴权 → 再校参数 → 再校归属:归属判定要读 request.userId,
   // 放在鉴权之前拿到的永远是 undefined。
