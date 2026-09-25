@@ -8,7 +8,8 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useNavigateWithProgress } from '@/stores/navigation'
-import { useTranslations } from 'next-intl'
+import Link from 'next/link'
+import { useLocale, useTranslations } from 'next-intl'
 import {
   ChevronLeft,
   Plus,
@@ -24,6 +25,7 @@ import {
   Wand2,
   Library,
   Boxes,
+  LayoutGrid,
   X,
   Square,
   Minus,
@@ -34,6 +36,8 @@ import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 
 /** 层栈 id(见 @/lib/overlay-stack):Plus 弹窗的 Esc 只在栈顶时被消费 */
 const PLUS_POPOVER_OVERLAY_ID = 'global-topbar-plus'
+/** 生态市场弹层的层栈 id(与 Plus 同一套 overlay-stack,一次 Esc 只关最上层) */
+const ECOSYSTEM_POPOVER_OVERLAY_ID = 'global-topbar-ecosystem'
 import { useDesktop } from '@/hooks/use-desktop'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { useWorkPanelStore } from '@/stores/work-panel'
@@ -64,19 +68,7 @@ import { useIsMobile } from '@/hooks/use-media-query'
 
 type PlusMenuAction = {
   /** 唯一 key,i18n 标签用 `topBar.<key>` 解析 */
-  key:
-    | 'document'
-    | 'browser'
-    | 'terminal'
-    | 'editor'
-    | 'codeChanges'
-    | 'agent'
-    | 'mcp'
-    | 'skill'
-    | 'mcpStore'
-    | 'capabilityMarket'
-    | 'skillsMarket'
-    | 'connectors'
+  key: 'document' | 'browser' | 'terminal' | 'editor' | 'codeChanges' | 'agent' | 'mcp'
   icon: LucideIcon
   /** 跳转路径(相对路径,会经 next/navigation 解析) */
   href?: string
@@ -102,7 +94,7 @@ type PlusMenuAction = {
 }
 
 const PLUS_MENU_GROUPS: Array<{
-  titleKey: 'groupView' | 'groupTools' | 'groupSettings'
+  titleKey: 'groupView' | 'groupTools'
   items: PlusMenuAction[]
 }> = [
   {
@@ -125,24 +117,35 @@ const PLUS_MENU_GROUPS: Array<{
       { key: 'mcp', icon: Plug, href: '/developer/ide', setIdeTab: 'mcp' },
     ],
   },
-  {
-    titleKey: 'groupSettings',
-    items: [
-      { key: 'skill', icon: Sparkles, href: '/ai-skills' },
-      // 2026-09-01 MCP 商店入口(内置 MCP Server 目录一键注册)
-      { key: 'mcpStore', icon: Store, href: '/mcp-store' },
-      // 2026-09 P2-8 能力市场入口(平台自研 MCP 能力一键启用)
-      { key: 'capabilityMarket', icon: Boxes, href: '/capability-market' },
-      // 2026-09-15 第三梯队 #14 Skill 市场入口(自进化技能一键安装/评分/订阅)
-      { key: 'skillsMarket', icon: Wand2, href: '/skills-market' },
-      // 2026-09-02 中文连接器入口(P2-2 语雀/飞书/企微/钉钉文档接入)
-      { key: 'connectors', icon: Library, href: '/connectors' },
-      // 2026-08-14 用户要求"把设置按钮从功能菜单内拿出来":
-      // 设置项已提取到左侧侧边栏底部用户行下拉菜单(2026-09-21 前为独立工具栏 SidebarActions),
-      // 不再放在本菜单内。Ctrl+Shift+, 全局快捷键仍由 useGlobalShortcuts + GlobalHooksProvider 跳转 /settings。
-    ],
-  },
+  // 2026-09-25 D17 生态统一入口:原第三组(groupSettings)并列的 5 个市场入口
+  // (/ai-skills /mcp-store /capability-market /skills-market /connectors)
+  // 已收敛为顶栏独立的「生态市场」入口(见下方 TopBarEcosystemMenu),不再并列在此。
+  // 2026-08-14 用户要求"把设置按钮从功能菜单内拿出来":
+  // 设置项已提取到左侧侧边栏底部用户行下拉菜单(2026-09-21 前为独立工具栏 SidebarActions),
+  // 不再放在本菜单内。Ctrl+Shift+, 全局快捷键仍由 useGlobalShortcuts + GlobalHooksProvider 跳转 /settings。
 ]
+
+// ================== 生态市场入口(D17) ==================
+
+/** 聚合页卡片键(`ecosystem.cards.<key>`),与 ecosystem-hub.tsx 的 MarketKey 同一组 */
+type EcosystemMarketKey =
+  'aiSkills' | 'mcpStore' | 'capabilityMarket' | 'skillsMarket' | 'connectors'
+
+/** 顶栏「生态市场」弹层直达项:href 与聚合页 MARKETS 表逐条同值(该表未导出,词包冻结轮不新增共享模块) */
+const ECOSYSTEM_MARKETS: ReadonlyArray<{
+  key: EcosystemMarketKey
+  href: string
+  icon: LucideIcon
+}> = [
+  { key: 'aiSkills', href: '/ai-skills', icon: Sparkles },
+  { key: 'mcpStore', href: '/mcp-store', icon: Store },
+  { key: 'capabilityMarket', href: '/capability-market', icon: Boxes },
+  { key: 'skillsMarket', href: '/skills-market', icon: Wand2 },
+  { key: 'connectors', href: '/connectors', icon: Library },
+]
+
+/** D17 收敛后的唯一目标:生态聚合页(老 URL 仍各自直达,未加跳转表 / 未删路由) */
+const ECOSYSTEM_HUB_HREF = '/ecosystem'
 
 /**
  * GlobalTopBar — 全站常驻的顶栏(2026-07-30 立)
@@ -184,6 +187,8 @@ const PLUS_MENU_GROUPS: Array<{
  *   1.5 TopBarBackButton       ← 统一返回键 36x36(2026-09-08 立,搜索右侧/加号左侧,
  *                                  由 topbar-back store 驱动显隐,无返回需求时动画收起不占位)
  *   2. <Plus>                  ← 添加视图 36x36(从原第 3 位上移)
+ *   2.5 <TopBarEcosystemMenu>  ← 生态市场单入口 36x36(D17:顶栏并列 5 个市场入口收敛为此 1 个,
+ *                                  点击展开弹层:首项 = /ecosystem 聚合页,其下保留 5 条直达)
  *   3. TagsViewChevronButton   ← 关闭其他/全部 36x36(tags.length===0 不渲染,从原第 2 位下移)
  *   4. <TagsView>              ← 标签栏(a 标签)flex-1 占满剩余空间
  */
@@ -535,6 +540,7 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
         {/* 第十二轮 flex 顺序契约(2026-07-31 用户反馈"这两个按钮对换一下",由 JSX 顺序控制):
             1. TagsViewSearchButton    ← 搜索按钮(36x36)
             2. <Plus>                  ← 添加视图 36x36(从原第 3 位上移)
+            2.5 <TopBarEcosystemMenu>  ← 生态市场单入口 36x36(D17,2026-09-25 收敛 5 个并列市场入口)
             3. TagsViewChevronButton   ← 关闭其他/全部 36x36(tags.length===0 不渲染,从原第 2 位下移)
             4. <TagsView>              ← 标签栏(a 标签)flex-1 占满剩余空间 */}
         <div ref={topbarInnerRef} data-tauri-drag-region className="flex h-9 items-center gap-1">
@@ -686,6 +692,12 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
               </div>
             </PortalPanel>
           </div>
+
+          {/* 2.5 生态市场单入口(D17 收敛,2026-09-25):顶栏原先并列的 5 个市场入口
+              (/ai-skills /mcp-store /capability-market /skills-market /connectors)
+              收敛为这 1 个入口;弹层首项指向 /ecosystem 聚合页,其下保留 5 条分组直达,
+              老 URL 一律继续可达(路由未改、未加跳转表、未隐藏任何页面)。 */}
+          <TopBarEcosystemMenu />
 
           {/* 3. chevron 关闭其他/全部 按钮(从 TagsView 抽出,2026-07-31 第十二轮挪到 Plus 后面) */}
           <React.Suspense fallback={null}>
@@ -866,6 +878,126 @@ function TopBarBackButton() {
     </div>
   )
 }
+
+/**
+ * TopBarEcosystemMenu — 顶栏「生态市场」单入口(D17 生态统一入口,2026-09-25 立)
+ *
+ * 立项背景:此前 5 个市场入口(/ai-skills /mcp-store /capability-market /skills-market
+ * /connectors)在顶栏 Plus 九宫格里**并列**占 5 格,与聚合页 /ecosystem 的分组导航重复,
+ * 且把"生态"这一族能力打散成 5 个平级按钮。本组件把它们收敛为 1 个入口:
+ * - 弹层首项 = /ecosystem 聚合页(票面要求的"指向 /ecosystem")
+ * - 其下保留 5 条分组直达,老 URL 一律继续可达(路由未改、未加跳转表、未隐藏任何页面)
+ * - 复用 Plus 同一套弹层原语(PortalPanel + 层栈 overlayId + Tooltip + TOPBAR_BTN_*),
+ *   **不是**第二套下拉实现
+ * - 文案全部走已存在键:`nav.ecosystemHub` + `ecosystem.cards.*.title` +
+ *   `ecosystem.marketsSection`(本轮词包冻结,零新增键)
+ * - 无障碍:trigger 带 aria-label(入口名 + 直达项清单,由 Intl.ListFormat 按 locale
+ *   拼顿号/逗号,不硬编码中文标点)+ aria-haspopup/aria-expanded + data-state(供
+ *   globals.css 抑制关闭后焦点环,见 check-popover-trigger-data-state);面板内是真实
+ *   `<a role="menuitem">`,Tab 与 Enter 原生可达
+ */
+function TopBarEcosystemMenu() {
+  const tNav = useTranslations('nav')
+  const tEco = useTranslations('ecosystem')
+  const locale = useLocale()
+  const [open, setOpen] = React.useState(false)
+  const anchorRef = React.useRef<HTMLDivElement>(null)
+
+  const hubLabel = tNav('ecosystemHub')
+  /** 脱离上下文必须成立的可及名称:入口名 + 面板内 5 个直达项(无新增词包键) */
+  const accessibleLabel = React.useMemo(
+    () =>
+      new Intl.ListFormat(locale, { style: 'narrow', type: 'conjunction' }).format([
+        hubLabel,
+        ...ECOSYSTEM_MARKETS.map((market) => tEco(`cards.${market.key}.title`)),
+      ]),
+    [hubLabel, locale, tEco],
+  )
+
+  return (
+    <div ref={anchorRef} className="relative h-full shrink-0">
+      {/* 气泡提示只给短名(与 Plus 的"添加视图 (⌘⇧P)"同量级,避免长串撑爆 tooltip);
+          完整直达清单交给 aria-label —— 视觉求短、无障碍名称须脱离上下文成立 */}
+      <Tooltip content={hubLabel} side="bottom">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-label={accessibleLabel}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          // 自写 popover trigger 必须挂 data-state(同 Plus/返回键):globals.css 靠它
+          // 抑制关闭后的焦点环常驻。详见 scripts/check-popover-trigger-data-state.mjs。
+          data-state={open ? 'open' : 'closed'}
+          data-testid="global-topbar-ecosystem-trigger"
+          className={cn(
+            TOPBAR_BTN_BASE,
+            TOPBAR_BTN_W9,
+            open ? 'bg-accent text-foreground' : 'dark:bg-shell-panel',
+          )}
+        >
+          <LayoutGrid className="h-3.5 w-3.5" />
+        </button>
+      </Tooltip>
+
+      {/* 弹层原语与 Plus 完全一致(PortalPanel:portal + 视口 clamp + Esc/外点关闭 + 层栈),
+          菜单/选项列表档内边距 p-1(见 AGENTS.md §4 浮动弹层内边距规范) */}
+      <PortalPanel
+        open={open}
+        anchorRef={anchorRef}
+        onClose={() => setOpen(false)}
+        side="bottom"
+        align="end"
+        gap={4}
+        role="menu"
+        overlayId={ECOSYSTEM_POPOVER_OVERLAY_ID}
+        testId="global-topbar-ecosystem-menu"
+        zIndexClassName="z-header"
+        className={cn(
+          'w-60 max-w-[calc(100vw-2rem)] rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md',
+        )}
+      >
+        <Link
+          href={ECOSYSTEM_HUB_HREF}
+          role="menuitem"
+          aria-label={hubLabel}
+          data-testid="global-topbar-ecosystem-hub"
+          onClick={() => setOpen(false)}
+          className={ECOSYSTEM_MENU_ITEM_CLASS}
+        >
+          <LayoutGrid className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span className="min-w-0 truncate">{hubLabel}</span>
+        </Link>
+
+        {/* 分组标题(非分割线:§4 禁 border-t,用 mt 间距 + 低对比文字分隔) */}
+        <div className="mt-1 px-2 pt-1 pb-0.5 text-[10px] font-medium text-muted-foreground/70">
+          {tEco('marketsSection')}
+        </div>
+
+        {ECOSYSTEM_MARKETS.map((market) => {
+          const Icon = market.icon
+          const label = tEco(`cards.${market.key}.title`)
+          return (
+            <Link
+              key={market.key}
+              href={market.href}
+              role="menuitem"
+              aria-label={label}
+              onClick={() => setOpen(false)}
+              className={ECOSYSTEM_MENU_ITEM_CLASS}
+            >
+              <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="min-w-0 truncate">{label}</span>
+            </Link>
+          )
+        })}
+      </PortalPanel>
+    </div>
+  )
+}
+
+/** 弹层菜单项共享类(h-8 紧凑档 + icon/中文同行 translateY 补偿,同 Plus 九宫格的色板) */
+const ECOSYSTEM_MENU_ITEM_CLASS =
+  'flex h-8 w-full items-center gap-2 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus:bg-muted/50 focus:text-foreground focus:outline-none [&>span]:translate-y-[var(--text-vcenter-offset)]'
 
 /** 窗口控制按钮(Min/Max/Close) — 2026-07-30 第十轮"做减法 v6"
  *  - 改用共享 TOPBAR_BTN_BASE + TOPBAR_BTN_W9(36px 方块,跟搜索/Plus/chevron-down 4 类按钮全部正方形)
