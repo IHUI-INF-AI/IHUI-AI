@@ -32,12 +32,9 @@ vi.mock('expo-audio', () => ({
   setAudioModeAsync: vi.fn(async () => {}),
   useAudioRecorder: () => ({}),
 }))
-// active-tokens 引 react-native-restart:该包被 vite 外部化后其 require('react-native')
-// 会打到真实 RN(Flow 源码)→ 'typeof' SyntaxError,与业务无关,替身截断即可。
-vi.mock('react-native-restart', () => ({
-  __esModule: true,
-  default: { restart: vi.fn(), restartAsync: vi.fn() },
-}))
+// active-tokens 引 react-native-restart 这一条**不再在本文件 vi.mock**:2026-09-25 起由
+// vitest.config.ts 的 alias → tests/__mocks__/react-native-restart.ts 在配置层收口。
+// 留在这里就是"逐套件打补丁"那一型(每新触到 active-tokens 的套件都得各抄一份,漏一个即再破)。
 // RN 替身的 Platform 没有 select(屏文件 StyleSheet 顶层用 Platform.select 取等宽字体,
 // HEAD 即如此,只是此前没有测试 import 过本屏)。在替身对象上补一个 select,不改动共享 mock 文件。
 vi.mock('react-native', async (importOriginal) => {
