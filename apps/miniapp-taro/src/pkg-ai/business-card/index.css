@@ -21,12 +21,6 @@
   gap: 24rpx;
   padding: 20rpx 20rpx 24rpx;
 }
-.back-btn {
-  font-size: 32rpx;
-  color: var(--color-muted-foreground);
-  width: 40rpx;
-  line-height: 1;
-}
 .page-title {
   flex: 1;
   font-size: 40rpx;

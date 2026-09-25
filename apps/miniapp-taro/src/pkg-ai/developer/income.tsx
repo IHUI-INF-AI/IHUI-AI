@@ -10,6 +10,7 @@ import { useDidShow, useReachBottom, navigateBack, showToast } from '@tarojs/tar
 import { getBuyInfo, getBuyList, getDeveloperWithdrawalList, post } from '@/api'
 import { getUserInfo } from '@/utils/auth'
 import ThemeRoot from '@/components/ThemeRoot'
+import BackChevron from '@/components/BackChevron'
 import './income.css'
 
 interface BuyInfo {
@@ -276,9 +277,7 @@ export default function DeveloperIncome() {
     <ThemeRoot>
       <View className="income-page">
         <View className="income-header">
-          <Text className="income-back" onClick={onBack}>
-            ‹
-          </Text>
+          <BackChevron onTap={onBack} />
           <Text className="income-title">{headerTitle}</Text>
         </View>
 

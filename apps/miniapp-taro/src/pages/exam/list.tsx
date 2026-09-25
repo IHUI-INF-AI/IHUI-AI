@@ -9,6 +9,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { getExamList, getExamRecords, type Exam, type ExamRecord } from '@/api'
 import { formatDateOnly } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
+import BackChevron from '@/components/BackChevron'
 
 type Tab = 'all' | 'pending' | 'completed'
 
@@ -164,9 +165,7 @@ export default function ExamList() {
       <View className="min-h-screen bg-background">
         {/* header 对齐 RN ExamScreen header(px20rpx / pt24rpx 平台适配原生导航栏 / pb16rpx) */}
         <View className="flex flex-col px-[20rpx] pt-[24rpx] pb-[16rpx]">
-          <View className="self-start" hoverClass="opacity-60" onClick={goBack}>
-            <Text className="text-[length:32rpx] text-muted-foreground">{t('common.back')}</Text>
-          </View>
+          <BackChevron className="self-start" onTap={goBack} />
           <Text className="mt-[16rpx] text-[length:44rpx] font-semibold text-foreground">
             {t('exam.title')}
           </Text>
@@ -205,7 +204,9 @@ export default function ExamList() {
         {/* 空态/加载态对齐 RN emptyText(28rpx text-tertiary 居中) */}
         {!loading && curList.length === 0 && (
           <View className="flex justify-center py-[80rpx]">
-            <Text className="text-[length:28rpx] text-[var(--color-text-tertiary)]">{t(emptyKey)}</Text>
+            <Text className="text-[length:28rpx] text-[var(--color-text-tertiary)]">
+              {t(emptyKey)}
+            </Text>
           </View>
         )}
         {loading && curList.length === 0 && (

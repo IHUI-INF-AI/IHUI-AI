@@ -10,6 +10,7 @@ import { getBusinessCard } from '@/api'
 import { showShareMenu, getShareInfo } from '@/utils/share'
 import { saveNetworkImageToAlbum } from '@/utils/save-album'
 import ThemeRoot from '@/components/ThemeRoot'
+import BackChevron from '@/components/BackChevron'
 
 /**
  * 名片卡页 — 样式对齐 RN 端电子名片共享屏
@@ -85,9 +86,7 @@ export default function CartePage() {
       <View className="min-h-screen bg-background flex flex-col">
         {/* 顶部导航(对齐共享名片屏 header:返回 + 标题) */}
         <View className="flex items-center gap-3 px-5 pt-5 pb-3">
-          <Text className="text-base text-muted-foreground w-10 leading-none" onClick={onBack}>
-            ‹
-          </Text>
+          <BackChevron onTap={onBack} />
           <Text className="text-xl font-semibold text-foreground">
             {tt('carte.title', '电子名片')}
           </Text>
