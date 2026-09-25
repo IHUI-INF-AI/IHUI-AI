@@ -2751,6 +2751,34 @@ const checks = [
     ].join('\n'),
   },
 
+  {
+    id: '106',
+    // extension 的 content script 把 UI 注进第三方页面,拿不到宿主的 CSS 变量,只能自带色值字面量。
+    // 这类副本过去不在任何对账面内(改 tokens.css 扩展不会跟着变,也不会红),现在按 RN 同法收成派生面:
+    // 可派生键逐位等值;不等值的必须落在两张登记表里(源头无此档 / 同名档语义分歧并写明依据),
+    // 登记表腐烂(登了但档没了、分歧已消失、值被改却没更新登记)同样判红。
+    // 写回出口就在提交链里(pre-commit-hook 的 TOKEN_SYNC_TARGETS),所以本门不会把人堵在门外。
+    label: '🧩 extension 注入层色值同源(blocking,可派生档逐位等值 + 分歧必须登记且不得腐烂)',
+    script: 'sync-extension-tokens.mjs',
+    args: ['--check', '--staged'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_EXTENSION_TOKENS',
+    onFailHint: [
+      '',
+      '  💡 三条判据:',
+      '     D1 可派生档必须与 tokens.css 逐位等值(含 hsl/rgb/hex 归一,复用门 93 的 colorsAgree);',
+      '     D2 不等值者必须已被 EXTENSION_ONLY_KEYS(源头无此档)或 DECLARED_DIVERGENCE(同名档不同语义',
+      '        且写明依据)登记;两者都没有 ⇒ 红;',
+      '     D3 反向腐烂:登记了却已不存在、登记的分歧其实已相等、值被改而登记没跟着改 ⇒ 都红。',
+      '',
+      '     修复(不要手改副本):node scripts/sync-extension-tokens.mjs   原位写回派生档',
+      '     查看台账:node scripts/sync-extension-tokens.mjs --list',
+      '     自检:node scripts/sync-extension-tokens.mjs --self-test(36 条含成对正反)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_EXTENSION_TOKENS=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',

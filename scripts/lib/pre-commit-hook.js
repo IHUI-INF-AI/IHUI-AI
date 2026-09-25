@@ -138,6 +138,15 @@ const TOKEN_SYNC_TARGETS = [
     failMode: 'block',
   },
   {
+    // extension 注入第三方页面的内联色(2026-09-25):它不能依赖宿主 CSS 变量,必须自带字面量,
+    // 所以是"派生出的副本"而不是"该删的硬编码"。profile 走 .dark(注入层永不反转)。
+    label: 'extension 注入样式色值',
+    file: 'apps/extension/entrypoints/content/content-toolbar.tsx',
+    cmd: 'node scripts/sync-extension-tokens.mjs --quiet',
+    trigger: 'tokens',
+    failMode: 'block',
+  },
+  {
     // ALPHA_USAGE 由三端真实用量导出(2026-09-25):登记 surface 不再靠人记。
     // 触发面是**端源码**而不是 tokens.css,所以 trigger 用 v3-src;按索引面扫,才与本次提交带走的内容同形。
     // failMode=warn:生成器在"表体之外另有未提交差异"时按设计拒绝写回(那是 §12 防吞他人行的闸门,
