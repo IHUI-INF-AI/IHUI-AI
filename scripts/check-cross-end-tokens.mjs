@@ -38,6 +38,10 @@
  *      推不到同名变量的一律不判(不猜语义)。
  *   R5 端内两表自洽 —— `rnTokens`(遗留基表)与 `rnLightTokens` 同路径必须同值。同一文件内两张表各说各话
  *      时,`packages/app` 导出的 `tokens` 就是基表 ⇒ 288 个调用点吃的是那份落后的值。零容忍。
+ *   R6 v3 端 `/alpha` 用量 ↔ alpha 插件登记表对账(2026-09-25 补,见文件下方 R6 段说明)——
+ *      扫三个 v3 消费端源码里**真实写过**的 `bg-<档>/<数值>`、`text-<档>/<数值>`、`border-<档>/<数值>` 类名,逐条要求
+ *      `tailwind-alpha-plugin.js` 的 `ALPHA_USAGE` 登记过、且 `buildAlphaUtilities` 真的产出了那个选择器;
+ *      表里登了却没人用的条目按"清单腐烂"同样判红。
  *
  * 为什么补 R4/R5:本门此前只核 13 条**手工登记的**映射,于是"8/8 in sync"与"基础档整片没人管"同时为真
  * —— AGENTS 第四十二批未闭环③点名的正是这个盲区。补登记式映射会把盲区换成一份必然过期的清单
@@ -51,6 +55,18 @@
  *     `(--[\w-]+):([^;]+);` 当成变量值(实测会产出 4 条假漂移,含"值里带换行的注释全文")。
  *   - R4 推不到的 86 条叶子(gray 色阶 / overlay / error / text.primary 等)依赖人工复核才进对账;
  *     逃逸路径是"给 RN 键改名使推导断链",那属 review 可见的改动,不由本门伪装语义推断来兜。
+ *
+ * 为什么补 R6(2026-09-25):AGENTS §4 有一条"新增颜色档必须同时进 tailwind-alpha-plugin,否则新档又缺
+ * /alpha",但它落地时**只有散文、零判据**(全仓无一道门 import 过该插件)。后果不是"风格不统一"而是
+ * 静默失效:v3 从 `var(--color-x)` 解析不出通道 ⇒ 未登记的 `bg-card/50` 根本不产出 CSS,typecheck / lint /
+ * build / 其余约 150 道门全都不红 —— 与本票要防的缺陷同型。插件文件头自称由
+ * `scripts/tests/tailwind-alpha-plugin.test.mjs` 的「用量对账」看护,该文件**在 HEAD 与磁盘上都不存在**
+ * (实测 `git cat-file -e HEAD:...` 报 does not exist),所以那句自述是空头支票,R6 是它的兑现。
+ * 单一真相 = **源码里的真实用量**,不新增第二份手工清单:登记表既被当期望集,也被反向核防腐烂。
+ * R6 的取材口径与 R3 相同(全量判 HEAD blob、`--staged` 判索引 blob),并且**表与用量必须同面**——
+ * 表读磁盘、用量读 HEAD 会在并行会话刚补行的瞬间产出假红,反之(表读磁盘 + 用量读索引)则产出假绿:
+ * 作者只暂存了源码那半边就能带着没有 CSS 的类名过关。故 `ALPHA_USAGE` / preset colors / tokens.css
+ * 三份输入一律按判定面取 blob(与同日"诊断只能取同一个面"的教训一致)。
  *
  * Exit: 0 = 全绿, 1 = 红
  */
@@ -535,6 +551,437 @@ export function checkIntraPalette({ base, light }) {
   return out
 }
 
+// ─── R6:v3 端 `/alpha` 用量 ↔ tailwind-alpha-plugin 登记表对账(2026-09-25) ───
+
+/** 三份输入的仓库路径(全部按判定面取 blob,不得混面)。 */
+export const ALPHA_PLUGIN_REL = 'packages/design-tokens/src/tailwind-alpha-plugin.js'
+export const ALPHA_PRESET_REL = 'packages/design-tokens/src/tailwind-preset.js'
+export const ALPHA_TOKENS_REL = 'packages/design-tokens/src/styles/tokens.css'
+/** 扫这三处 = Tailwind **v3** 的两个消费端 + 被 v3 端编译的共享包(实测 miniapp 3.4.17 / mobile-rn 3.4.19,
+ *  两端 tailwind.config 都 require 同一份 preset ⇒ 同一个插件)。web / extension 是 v4,原生支持 alpha,
+ *  扫它们会把"本来就能用的类名"判成缺登记 = 假红。 */
+export const ALPHA_SCAN_FACES = ['apps/miniapp-taro/src', 'apps/mobile-rn/src', 'packages/app/src']
+export const ALPHA_SCAN_EXT = /\.(tsx|ts|css|scss)$/
+/** 行内豁免:必须带原因,且只对**本行或紧邻上一行**生效(逐行,不得一行标记救全文件)。 */
+export const ALPHA_EXEMPT_RE = /alpha-plugin-exempt:\s*\S/
+
+const ALPHA_KINDS_ALL = [
+  'bg',
+  'text',
+  'border',
+  'from',
+  'via',
+  'to',
+  'ring',
+  'fill',
+  'stroke',
+  'outline',
+  'shadow',
+  'decoration',
+  'caret',
+  'accent',
+  'divide',
+  'placeholder',
+]
+
+class UndeterminedError extends Error {}
+
+/** 一次 git 调用;失败即抛(调用方按"无法判定"处理,绝不静默当扫过了)。 */
+function gitExec(args, opts = {}) {
+  return execFileSync(
+    'git',
+    ['-c', 'safe.directory=*', ...args],
+    { cwd: root, encoding: 'buffer', windowsHide: true, timeout: 120_000, maxBuffer: 256 << 20, ...opts },
+  )
+}
+
+const BLOB_HEADER_RE = /^([\da-f]{40})(\s+([\w-]+))?\s+(\d+)$/
+
+/** 一次 cat-file --batch 取多个 blob:rev 用 `HEAD:path` / `:path` 两种前缀。取不到记 null(不抛)。 */
+function catBatch(revs) {
+  const map = new Map()
+  if (revs.length === 0) return map
+  const out = gitExec(['cat-file', '--batch'], { input: Buffer.from(revs.join('\n') + '\n', 'utf8') })
+  let pos = 0
+  for (const rev of revs) {
+    const nl = out.indexOf(0x0a, pos)
+    if (nl < 0) {
+      map.set(rev, null)
+      break
+    }
+    const header = out.subarray(pos, nl).toString('utf8')
+    pos = nl + 1
+    const m = BLOB_HEADER_RE.exec(header)
+    if (!m) {
+      map.set(rev, null) // "<rev> missing" / unmerged
+      continue
+    }
+    map.set(rev, out.subarray(pos, pos + Number(m[4])).toString('utf8'))
+    pos += Number(m[4]) + 1
+  }
+  return map
+}
+
+/** 真取插件模块本体(判据用它的 buildAlphaUtilities,严禁在测试或本门里抄一份等价实现)。 */
+export async function loadAlphaPlugin(base = root) {
+  try {
+    return await import(pathToFileURL(join(base, ALPHA_PLUGIN_REL)).href)
+  } catch (e) {
+    throw new UndeterminedError(`取不到 alpha 插件实现(${ALPHA_PLUGIN_REL}):${e.message}`)
+  }
+}
+
+/** 极简 JS 字面量对象解析器:只认 键 / 字符串 / 数组 / 嵌套对象,其余一律判"无法判定"。
+ *  刻意不用 eval/new Function:登记表被人写成非常量形态时必须大声失败,而不是被静默求值。 */
+export function parseLiteralObject(body) {
+  let i = 0
+  const s = body
+  const ws = () => {
+    while (i < s.length && /[\s,;]/.test(s[i])) i++
+  }
+  const fail = (at) => {
+    throw new UndeterminedError(`字面量登记表解析失败(位置 ${at}):${JSON.stringify(s.slice(at, at + 40))}`)
+  }
+  const readString = () => {
+    const q = s[i]
+    const start = i++
+    while (i < s.length && s[i] !== q) i += s[i] === '\\' ? 2 : 1
+    if (i >= s.length) fail(start)
+    return s.slice(start + 1, i++)
+  }
+  const readValue = () => {
+    ws()
+    const c = s[i]
+    if (c === '{') {
+      i++
+      const inner = parseLiteralObjectInner()
+      return inner
+    }
+    if (c === '[') {
+      i++
+      const arr = []
+      for (;;) {
+        ws()
+        if (s[i] === ']') {
+          i++
+          return arr
+        }
+        if (i >= s.length) fail(i)
+        arr.push(readValue())
+      }
+    }
+    if (c === "'" || c === '"') return readString()
+    fail(i)
+  }
+  function parseLiteralObjectInner() {
+    const out = {}
+    for (;;) {
+      ws()
+      if (s[i] === '}' || i >= s.length) {
+        i++
+        return out
+      }
+      let key
+      if (s[i] === "'" || s[i] === '"') key = readString()
+      else {
+        const m = /^[A-Za-z_$][\w$]*|^\d+/.exec(s.slice(i))
+        if (!m) fail(i)
+        key = m[0]
+        i += m[0].length
+      }
+      ws()
+      if (s[i] !== ':') fail(i)
+      i++
+      out[key] = readValue()
+    }
+  }
+  return parseLiteralObjectInner()
+}
+
+/** 从 blob 文本里按锚点取出平衡花括号的对象体(锚点必须唯一,多处即无法判定)。 */
+export function extractObjectBody(src, anchorRe) {
+  // 必须沿用锚点自带的 flag(漏掉 m 会让 `^export const …` 只能在串首匹配 ⇒ 整门"取不到登记表")
+  const flags = anchorRe.flags.includes('g') ? anchorRe.flags : `${anchorRe.flags}g`
+  const hits = [...src.matchAll(new RegExp(anchorRe.source, flags))]
+  if (hits.length !== 1)
+    throw new UndeterminedError(`锚点 ${anchorRe} 命中 ${hits.length} 处(须恰好 1 处),登记表形态已超出判据`)
+  const m = hits[0]
+  let i = m.index + m[0].length
+  let depth = 1
+  const start = i
+  while (i < src.length && depth > 0) {
+    if (src[i] === '{') depth++
+    else if (src[i] === '}') depth--
+    i++
+  }
+  if (depth !== 0) throw new UndeterminedError('登记表花括号不配平')
+  return src.slice(start, i - 1)
+}
+
+/** preset 的 colors 树 → 类名可用档名集合(嵌套 DEFAULT 折叠为父名:`primary.DEFAULT` → `bg-primary`)。 */
+export function flattenColorTiers(colors) {
+  const out = new Set()
+  const walk = (obj, prefix) => {
+    for (const [k, v] of Object.entries(obj || {})) {
+      const path = [...prefix, k]
+      if (v && typeof v === 'object' && !Array.isArray(v)) {
+        if (Object.prototype.hasOwnProperty.call(v, 'DEFAULT')) out.add(path.join('-'))
+        walk(v, path)
+      } else if (typeof v === 'string') out.add(path.join('-'))
+    }
+  }
+  walk(colors, [])
+  return new Set([...out].filter((t) => !t.endsWith('-DEFAULT')))
+}
+
+/** 把注释字符替换成空格(保持行号/列号),字符串与模板原样保留。
+ *  两个历史假阳形态都由本函数消掉:① 注释里举例子(`// 如 bg-info/10`)不得当用量;
+ *  ② `'https://x/*'` 里的 `/*` 不得把后续代码骗进块注释状态机。 */
+export function maskComments(text, isCss = false) {
+  let out = ''
+  let i = 0
+  let mode = null // 'sq' | 'dq' | 'tpl' | 'line' | 'block'
+  while (i < text.length) {
+    const c = text[i]
+    const n = text[i + 1]
+    if (mode === 'line') {
+      if (c === '\n') {
+        mode = null
+        out += c
+      } else out += ' '
+      i++
+      continue
+    }
+    if (mode === 'block') {
+      if (c === '*' && n === '/') {
+        mode = null
+        out += '  '
+        i += 2
+        continue
+      }
+      out += c === '\n' ? '\n' : ' '
+      i++
+      continue
+    }
+    if (mode === 'sq' || mode === 'dq' || mode === 'tpl') {
+      const q = mode === 'sq' ? "'" : mode === 'dq' ? '"' : '`'
+      if (c === '\\') {
+        out += c + (n ?? '')
+        i += 2
+        continue
+      }
+      if (c === q) mode = null
+      else if (mode === 'tpl' && c === '\n') {
+        out += c
+        i++
+        continue
+      }
+      out += c
+      i++
+      continue
+    }
+    if (!isCss && (c === "'" || c === '"' || c === '`')) {
+      mode = c === "'" ? 'sq' : c === '"' ? 'dq' : 'tpl'
+      out += c
+      i++
+      continue
+    }
+    if (!isCss && c === '/' && n === '/') {
+      mode = 'line'
+      out += '  '
+      i += 2
+      continue
+    }
+    if (c === '/' && n === '*') {
+      mode = 'block'
+      out += '  '
+      i += 2
+      continue
+    }
+    out += c
+    i++
+  }
+  return out
+}
+
+/** 从一份(已剥注释的)源码里抽取 alpha 形态类名。返回命中 + 判不出来的动态拼接形态。
+ *  `original` 必须传**剥注释前**的原文:行内豁免 `alpha-plugin-exempt: 原因` 本身就写在注释里,
+ *  拿 masked 文本去找标记 = 豁免永远不生效(自检抓到过这个形态)。行号在两版里逐行对齐。 */
+export function extractAlphaUsages(masked, { tiers, isCss = false, original = null } = {}) {
+  const src = isCss ? masked.replace(/\\([\\/:.[\]()-])/g, '$1') : masked
+  const rawLines = (original ?? masked).split('\n')
+  const tokens = []
+  const undetermined = []
+  // 前导边界刻意允许 `.`:CSS 侧的选择器形态就是 `.bg-muted\/\[0\.12\]`。
+  // 仍禁止 `/` 与 `-` 与单词字符 —— 前者挡住 URL 路径段(`learn/bg-success/10` 不是类名),后两者防止把
+  // 更长标识符的尾巴当成一次独立命中。
+  const re = new RegExp(
+    `(^|[^\w/-])((?:[a-zA-Z0-9_.[\\]():;=-]+:)*)(?:(${ALPHA_KINDS_ALL.join('|')})-)` +
+      `([a-zA-Z][a-zA-Z0-9-]*|\\[[^\\]]*\\])/(\\[[^\\]]*\\]|[0-9]{1,3})(?![\\w/%])`,
+    'g',
+  )
+  let m
+  while ((m = re.exec(src)) !== null) {
+    const [, , variants, kind, tier, mod] = m
+    const upto = src.slice(0, m.index + m[0].length)
+    const line = upto.split('\n').length - 1
+    tokens.push({
+      kind,
+      tier,
+      mod,
+      variants: variants || '',
+      line,
+      onPresetTier: tiers ? tiers.has(tier) : false,
+      excerpt: (rawLines[line] || '').trim().slice(0, 110),
+    })
+  }
+  // 动态拼接出来的 alpha 类名(档位或修饰符来自变量/模板)—— 判据看不见内容,只如实报数不判红
+  const dynRes = [
+    new RegExp(`(?:${ALPHA_KINDS_ALL.join('|')})-[^\\s"'\\\`]*\\$\\{`, 'g'),
+    new RegExp(`(?:${ALPHA_KINDS_ALL.join('|')})-[a-zA-Z0-9_-]*/(?:['"\\\`]\\s*\\+|\\$\\{)`, 'g'),
+  ]
+  for (const r of dynRes) {
+    let d
+    while ((d = r.exec(src)) !== null) {
+      const line = src.slice(0, d.index).split('\n').length - 1
+      undetermined.push({ line, text: (rawLines[line] || '').trim().slice(0, 110) })
+    }
+  }
+  // 行内豁免只对命中行本身或紧邻上一行生效(取**原文**,豁免就写在注释里)
+  for (const t of tokens) {
+    t.exempt = ALPHA_EXEMPT_RE.test(rawLines[t.line] || '') || ALPHA_EXEMPT_RE.test(rawLines[t.line - 1] || '')
+  }
+  return { tokens, undetermined }
+}
+
+/**
+ * 用量 ↔ 登记表对账。produced 由**真插件**算出(单一实现,不在此复述产出规则)。
+ * @returns {{checked:number, missing:Array, rot:Array, unproduced:Array, buildIssues:Array,
+ *            unsupportedKind:Array, exempted:number, nonPreset:number}}
+ */
+export function checkAlphaUsage({ usages, usage, colors, plugin, baselineRot = null }) {
+  const built = plugin.buildAlphaUtilities(usage, colors)
+  const kinds = Object.keys(plugin.ALPHA_UTILITY_KINDS)
+  const missing = []
+  const unsupportedKind = []
+  const unproduced = []
+  const covered = new Set()
+  let nonPreset = 0
+  let exempted = 0
+  for (const u of usages) {
+    if (!u.onPresetTier) {
+      nonPreset++
+      continue
+    } // 默认色板(white/black/gray-*)v3 自己能算通道,不属本插件职责
+    if (u.exempt) {
+      exempted++
+      continue
+    }
+    const key = `${u.kind}-${u.tier}/${u.mod}`
+    if (!kinds.includes(u.kind)) {
+      unsupportedKind.push({ ...u, key })
+      continue
+    }
+    const listed = Array.isArray(usage[u.tier]?.[u.kind]) && usage[u.tier][u.kind].includes(u.mod)
+    if (!listed) {
+      missing.push({ ...u, key })
+      continue
+    }
+    covered.add(key)
+    if (!Object.prototype.hasOwnProperty.call(built.utilities, plugin.escapeSelectorClass(key)))
+      unproduced.push({ ...u, key })
+  }
+  const rotAll = []
+  for (const [tier, byKind] of Object.entries(usage)) {
+    for (const [kind, mods] of Object.entries(byKind || {}))
+      for (const mod of mods || []) {
+        const key = `${kind}-${tier}/${mod}`
+        if (covered.has(key) || usages.some((u) => u.exempt && `${u.kind}-${u.tier}/${u.mod}` === key)) continue
+        rotAll.push({ key, tier, kind, mod })
+      }
+  }
+  // 棘轮:baselineRot = 上一枚提交(HEAD 面)已有的腐烂集合。传入时只拦"本次新造出来的腐烂",
+  // 存量只报数不判红 —— 与守门 77/83/98 同一个取向:恒红门的唯一结局是逼人 --no-verify,连带废掉全部守门。
+  const rot = baselineRot ? rotAll.filter((x) => !baselineRot.has(x.key)) : rotAll
+  return {
+    checked: usages.filter((u) => u.onPresetTier).length,
+    missing,
+    rot,
+    rotInherited: rotAll.length - rot.length,
+    unproduced,
+    buildIssues: [...built.unresolvable, ...built.unknownKinds],
+    unsupportedKind,
+    exempted,
+    nonPreset,
+  }
+}
+
+/**
+ * 插件产出的是 `rgba(var(--color-X-rgb), a)`,所以每个登记档都必须能在 tokens.css 取到通道三元组。
+ * `:root`/`@theme` 缺 = 声明整条被浏览器判非法丢弃(与"没产出"同后果)⇒ 判红;
+ * 只有 `.dark` 缺 = cascade 回退到亮档值 ⇒ 暗档偏色但仍可见,按"如实报数不判红"处理。
+ */
+export function checkAlphaChannelVars({ usage, colors, cssLight, cssDark, plugin }) {
+  const missingLight = []
+  const missingDark = []
+  for (const tier of plugin.alphaTiers(usage)) {
+    const varName = plugin.cssVarFromTierColor(plugin.resolveThemeColor(colors, tier))
+    if (!varName) continue // 由 buildAlphaUtilities 的 unresolvable 判红,不在此重复计
+    const chan = `${varName}${plugin.ALPHA_CHANNEL_SUFFIX}`
+    if (!(chan in cssLight)) missingLight.push({ tier, chan })
+    else if (!(chan in cssDark)) missingDark.push({ tier, chan })
+  }
+  return { missingLight, missingDark }
+}
+
+/** 按判定面收集 R6 语料:清单与内容同面;`--staged` 用索引 blob 覆盖 HEAD,删除的路径从语料中移除。
+ *  同时带回 HEAD 原文(`head`)—— 腐烂判据要按"本次提交是否新增"算棘轮,必须有两个面的用量集。 */
+export function collectAlphaCorpus({ face }) {
+  const listed = gitExec(['ls-tree', '-r', '--name-only', 'HEAD', '-z', '--', ...ALPHA_SCAN_FACES])
+    .toString('utf8')
+    .split('\0')
+    .filter((p) => p && ALPHA_SCAN_EXT.test(p))
+  const paths = new Set(listed)
+  let staged = []
+  if (face === 'staged') {
+    staged = gitExec(['diff', '--name-only', '--cached', '--', ...ALPHA_SCAN_FACES])
+      .toString('utf8')
+      .split('\n')
+      .filter((p) => p && ALPHA_SCAN_EXT.test(p))
+    for (const p of staged) paths.add(p)
+  }
+  if (paths.size === 0)
+    throw new UndeterminedError(
+      `${face === 'staged' ? '索引' : 'HEAD'} 面在扫描面(${ALPHA_SCAN_FACES.join(' + ')})枚举到 0 个文件 —— 判据不扫空气`,
+    )
+  const all = [...paths]
+  const headMap = catBatch(all.map((p) => `HEAD:${p}`))
+  const idxMap = face === 'staged' ? catBatch(all.map((p) => `:${p}`)) : headMap
+  const out = []
+  const undeterminable = []
+  for (const rel of all) {
+    const head = headMap.get(`HEAD:${rel}`)
+    if (head === null || head === undefined) {
+      // 只在索引里存在(本次新增的文件):HEAD 没有它,自然也没有 HEAD 侧用量
+      if (face !== 'staged') undeterminable.push(rel)
+      out.push({ rel, head: '', eff: idxMap.get(`:${rel}`) ?? '' })
+      continue
+    }
+    if (face !== 'staged') {
+      out.push({ rel, head, eff: head })
+      continue
+    }
+    const idx = idxMap.get(`:${rel}`)
+    if (idx === null || idx === undefined) continue // 本次提交删除该文件:索引面即"不存在"
+    out.push({ rel, head, eff: idx })
+  }
+  if (undeterminable.length > 0)
+    throw new UndeterminedError(
+      `HEAD blob 取不到 ${undeterminable.length} 个路径(首个:${undeterminable[0]}),按无法判定处理,不静默少扫`,
+    )
+  return out
+}
+
 // ─── Main ───
 
 // §22d 双形态入口:被镜像测试 import 时只拿导出符号,绝不执行 CLI 主流程(读文件 + process.exit)
@@ -559,12 +1006,175 @@ export const __test__ = {
   checkIntraPalette,
   extractTsObjectBody,
   extractCssVars,
+  // R6(2026-09-25):v3 端 /alpha 用量 ↔ 插件登记表
+  UndeterminedError,
+  ALPHA_PLUGIN_REL,
+  ALPHA_PRESET_REL,
+  ALPHA_TOKENS_REL,
+  ALPHA_SCAN_FACES,
+  ALPHA_SCAN_EXT,
+  ALPHA_EXEMPT_RE,
+  parseLiteralObject,
+  extractObjectBody,
+  flattenColorTiers,
+  maskComments,
+  extractAlphaUsages,
+  checkAlphaUsage,
+  checkAlphaChannelVars,
+  collectAlphaCorpus,
+  loadAlphaPlugin,
+  readAlphaRegistry,
+  runR6,
 }
 
-if (isDirectRun) process.exit(cli())
+if (isDirectRun)
+  main().catch((e) => {
+    // 脚本自身异常(含"无法判定")= exit 2:不冒判据红,更绝不记绿
+    console.error(`❌ ${e?.message ?? e}`)
+    process.exit(2)
+  })
 
-function cli() {
-  if (SELF_TEST) return selfTest()
+async function main() {
+  await cli()
+}
+
+/** 按判定面读出 R6 的三份输入:登记表 / preset colors / tokens.css 变量表。三者必须同面。 */
+export function readAlphaRegistry(face) {
+  const prefix = face === 'staged' ? ':' : 'HEAD:'
+  // 索引里有未合并路径(merge/rebase 进行中)时 `:<path>` 是有歧义的 stage 号,读出来既不是索引
+  // 也不是工作树 ⇒ 一律判"无法判定",绝不猜一个 stage 用(与守门 94/101 同一口径)。
+  if (face === 'staged' && gitExec(['ls-files', '-u', '-z']).length > 0)
+    throw new UndeterminedError('索引存在未合并路径(merge/rebase 进行中),索引面取材有歧义 ⇒ 无法判定,先收敛 merge')
+  const [pluginTxt, presetTxt, tokensTxt] = [
+    ALPHA_PLUGIN_REL,
+    ALPHA_PRESET_REL,
+    ALPHA_TOKENS_REL,
+  ].map((rel) => {
+    const got = catBatch([prefix + rel]).get(prefix + rel)
+    if (got === null || got === undefined)
+      throw new UndeterminedError(`${face === 'staged' ? '索引' : 'HEAD'} 取不到 ${rel}`)
+    return got
+  })
+  const usage = parseLiteralObject(
+    extractObjectBody(
+      // 锚点带 `^` 就必须带 m flag:写 `/^…/` 而漏 m 时 `^` 只认串首,整张表变成"取不到"
+      // (本门第一版就是这样,`--self-test` 的"锚点带 ^ 必须多行命中"用例钉死这个回归)
+      maskComments(pluginTxt, false),
+      /^export const ALPHA_USAGE\s*=\s*\{/m,
+    ),
+  )
+  const colors = parseLiteralObject(
+    extractObjectBody(maskComments(presetTxt, false), /\bcolors\s*:\s*\{/),
+  )
+  const cssSrc = stripCssComments(tokensTxt)
+  const cssLight = mergeCssVars(cssSrc, ['@theme', ':root'])
+  return {
+    usage,
+    colors,
+    cssLight,
+    cssDark: { ...cssLight, ...mergeCssVars(cssSrc, ['.dark']) },
+    faces: { pluginTxt, presetTxt },
+  }
+}
+
+/** R6 全流程:取面 → 抽用量 → 对账。返回 failures 数组 + 计数,供 cli 与自检共用。 */
+export async function runR6({ face, quiet }) {
+  const reg = readAlphaRegistry(face)
+  const plugin = await loadAlphaPlugin()
+  const tiers = flattenColorTiers(reg.colors)
+  const corpus = collectAlphaCorpus({ face })
+  const scanOne = (getKey) => {
+    const list = []
+    let und = 0
+    for (const { rel, head, eff } of corpus) {
+      const isCss = /\.(css|scss)$/.test(rel)
+      const src = getKey === 'eff' ? eff : head
+      if (src === undefined) continue
+      const { tokens, undetermined: un } = extractAlphaUsages(maskComments(src, isCss), {
+        tiers,
+        isCss,
+        original: src,
+      })
+      und += un.length
+      for (const t of tokens) list.push({ ...t, rel })
+    }
+    return { tokens: list, undetermined: und }
+  }
+  const sEff = scanOne('eff')
+  // HEAD 侧的腐烂是"存量债":staged 面只拦本次提交新造出来的那些(棘轮,同守门 77/83/98 的取向)。
+  // 全量面没有"上一枚提交"可言,故 baseline 为 null = 全部照红。
+  const sHead = face === 'staged' ? scanOne('head') : null
+  const baseRot = sHead
+    ? new Set(
+        checkAlphaUsage({
+          usages: sHead.tokens,
+          usage: reg.usage,
+          colors: reg.colors,
+          plugin,
+        }).rot.map((x) => x.key),
+      )
+    : null
+  const usages = sEff.tokens
+  const undetermined = sEff.undetermined
+  const r = checkAlphaUsage({ usages, usage: reg.usage, colors: reg.colors, plugin, baselineRot: baseRot })
+  const chans = checkAlphaChannelVars({
+    usage: reg.usage,
+    colors: reg.colors,
+    cssLight: reg.cssLight,
+    cssDark: reg.cssDark,
+    plugin,
+  })
+  const failures = []
+  for (const x of r.missing)
+    failures.push({
+      tag: `R6 未登记的 alpha 用量 ${x.key}`,
+      detail: `${x.rel}:${x.line + 1} —— v3 端写得出这个类名但**根本不产出 CSS**(typecheck/lint/build 全不红)。` +
+        `补一行到 ${ALPHA_PLUGIN_REL} 的 ALPHA_USAGE:${x.tier}: { …, ${x.kind}: [..., '${x.mod}'] }`,
+    })
+  for (const x of r.unsupportedKind)
+    failures.push({
+      tag: `R6 插件不支持的前缀 ${x.key}`,
+      detail:
+        `${x.rel}:${x.line + 1} —— 档位来自 preset(v3 解析不出 var() 的通道),而 ${ALPHA_PLUGIN_REL} 的前缀能力表只有 ` +
+        `${Object.keys(plugin.ALPHA_UTILITY_KINDS).join('/')} ⇒ 这条类名静默零产出。确需支持要先在该表复刻输出形状(见插件头注"已知边界"),或写 ${x.key} 的等价写法;临时出口 \`alpha-plugin-exempt: 原因\``,
+    })
+  for (const x of r.unproduced)
+    failures.push({
+      tag: `R6 登记了却没产出选择器 ${x.key}`,
+      detail: `${x.rel}:${x.line + 1} —— buildAlphaUtilities 未生成该选择器(档取不出单一 var / 修饰符解析不出数值)`,
+    })
+  for (const x of r.buildIssues)
+    failures.push({
+      tag: `R6 登记表自身产不出内容:${x}`,
+      detail: `ALPHA_USAGE 里的这一项在 preset colors 里解析不出 CSS 变量或不支持前缀,必须修表或修 preset`,
+    })
+  for (const x of r.rot)
+    failures.push({
+      tag: `R6 清单腐烂:${x.key}`,
+      detail: `登记在 ALPHA_USAGE 里,但 v3 三个消费端源码已无人写它 —— 每条登记都等于往小程序主包塞一条死规则(插件头注:登记表大小 = 样式表增量),请删除该行`,
+    })
+  for (const x of chans.missingLight)
+    failures.push({
+      tag: `R6 缺通道三元组变量 ${x.chan}`,
+      detail: `tokens.css 的 @theme/:root 未声明它 ⇒ 插件产出的是一条 alpha 函数包着未定义变量的声明,整条被丢弃(与未登记同后果)。新增档位必须同时补 :root 与 .dark 两份三元组`,
+    })
+  if (!quiet) {
+    for (const x of chans.missingDark)
+      console.log(
+        `  ⚠️ NOTICE ${x.chan} 在 tokens.css 的 .dark 未声明 ⇒ 暗档 alpha 沿 cascade 用亮档值(可见但偏色),不判红、待人工定档`,
+      )
+    console.log(
+      `  · R6:${corpus.length} 个文件里抽到 ${usages.length} 处 alpha 类名(preset 档 ${r.checked} / 默认色板 ${r.nonPreset} / 已豁免 ${r.exempted}),` +
+        `登记 ${Object.values(reg.usage).reduce((a, b) => a + Object.values(b).reduce((x, y) => x + y.length, 0), 0)} 形态,` +
+        `判不出形态 ${undetermined} 处(不判红),腐烂 新增 ${r.rot.length} / HEAD 存量 ${r.rotInherited} 不计,` +
+        `口径 ${face === 'staged' ? '索引⊕HEAD(存量腐烂按棘轮放过)' : 'HEAD(全量审计,存量腐烂照红)'}`,
+    )
+  }
+  return { failures, counts: { files: corpus.length, tokens: usages.length, ...r, undetermined } }
+}
+
+async function cli() {
+  if (SELF_TEST) process.exit(await selfTest())
   if (listOnly) {
     console.log('check-cross-end-tokens.mjs 映射表(RN rn-tokens.ts ↔ tokens.css):')
     for (const [i, mp] of MAPPINGS.entries())
@@ -733,12 +1343,17 @@ function cli() {
   if (dangling.length > 12)
     failures.push({ tag: 'R3 悬空 brand 引用', detail: `…另有 ${dangling.length - 12} 处` })
 
+  // ── R6:v3 端 /alpha 用量 ↔ tailwind-alpha-plugin 登记表(AGENTS §4 那条散文规则的唯一判据) ──
+  const r6 = await runR6({ face: stagedMode ? 'staged' : 'head', quiet })
+  failures.push(...r6.failures)
+
   if (failures.length === 0) {
     if (!quiet)
       console.log(
         `[check-cross-end-tokens] ✅ ${checked} 条映射逐位同值 + R4 基础档按名推导 ${base.checked} 条同值` +
           `(已登记分歧 ${Object.keys(BASE_CONFLICTS).length} 条) + R5 端内两表 ${intra.length === 0 ? '同值' : '分叉'} + ` +
-          `品牌键全部已声明(${[...allowedKeys].join('/')}) + 无悬空 brand 引用(${stagedMode ? '索引' : 'HEAD'} 口径)`,
+          `品牌键全部已声明(${[...allowedKeys].join('/')}) + 无悬空 brand 引用 + ` +
+          `R6 alpha 用量 ${r6.counts.checked} 处全部已登记且真产出(${r6.counts.files} 文件,口径 ${stagedMode ? '索引⊕HEAD' : 'HEAD'})`,
       )
     process.exit(0)
   }
@@ -748,13 +1363,14 @@ function cli() {
   )
   for (const f of failures) console.error(`  ❌ ${f.tag}: ${f.detail}`)
   console.error(
-    '  值不一致 = 两端有一侧改了没同步,请人工决策对齐方向;R2/R3 = 品牌色不得在端内自立一档(AGENTS §4 跨端同源)。',
+    '  值不一致 = 两端有一侧改了没同步,请人工决策对齐方向;R2/R3 = 品牌色不得在端内自立一档(AGENTS §4 跨端同源);' +
+      'R6 = 新写/新登记的 /alpha 形态必须两边对上(AGENTS §4「新增颜色档必须同时进这个插件」的唯一判据)。',
   )
   process.exit(1)
 }
 
 // ─── 自检(不读真仓,纯判据正反例;--self-test) ───
-function selfTest() {
+async function selfTest() {
   const bodies = {
     ok: `
   brand: { DEFAULT: '#000000', foreground: '#FFFFFF', dark: '#34D399' },
@@ -1024,9 +1640,274 @@ function selfTest() {
   for (const i of realIntra.slice(0, 5))
     console.log(`     · 端内分叉 ${i.path} base=${i.base} vs light=${i.light}`)
 
-  const totalCases = cases.length + refCases.length + 1 + r4Cases.length + r5Cases.length + 3
+  const r6 = await selfTestR6()
+  const totalCases =
+    cases.length +
+    refCases.length +
+    1 +
+    r4Cases.length +
+    r5Cases.length +
+    3 +
+    r6.cases
   if (r4Fail + r5Fail > 0) fail += r4Fail + r5Fail
+  fail += r6.fail
   console.log(fail ? `❌ self-test 失败 ${fail} 例` : `✅ self-test 全通过(${totalCases} 例)`)
   return fail ? 1 : 0
 }
+
+// ─── R6 自检:成对正反例(表里缺项必红 / 在用必绿 / 无人用必红 / 动态只报数) ───
+async function selfTestR6() {
+  const plugin = await loadAlphaPlugin()
+  const fxColors = {
+    primary: { DEFAULT: 'var(--color-primary)', foreground: 'var(--color-primary-foreground)' },
+    card: 'var(--color-card)',
+    muted: { DEFAULT: 'var(--color-muted)' },
+    ring: 'var(--color-ring)',
+  }
+  const tiers = flattenColorTiers(fxColors)
+  const scan = (code, isCss = false) =>
+    extractAlphaUsages(maskComments(code, isCss), { tiers, isCss, original: code })
+  const sum = (x) => ({
+    missing: x.missing.length,
+    rot: x.rot.length,
+    unprod: x.unproduced.length,
+    unsup: x.unsupportedKind.length,
+    build: x.buildIssues.length,
+    nonPreset: x.nonPreset,
+    exempt: x.exempted,
+  })
+  const t = (mod, kind = 'bg') => ({ [kind]: [mod] })
+  const r6Cases = [
+    {
+      name: 'R6 表里已登记且源码在用 → 零红',
+      code: 'className="bg-primary/10"',
+      usage: { primary: t('10') },
+      want: { missing: 0, rot: 0, unprod: 0, unsup: 0, build: 0, nonPreset: 0, exempt: 0 },
+    },
+    {
+      name: 'R6 表里缺这一档(v3 静默零产出的真实形态)→ 必红并点名',
+      code: 'className="bg-card/50"',
+      usage: { primary: t('10') },
+      want: { missing: 1, rot: 1, unprod: 0, unsup: 0, build: 0, nonPreset: 0, exempt: 0 },
+      also: (x) => x.missing[0].key === 'bg-card/50',
+    },
+    {
+      name: 'R6 补了用到的档、同时留下没人用的档 → 只剩腐烂红且点名腐烂项',
+      code: 'className="bg-card/50"',
+      usage: { card: t('50'), primary: t('10') },
+      want: { missing: 0, rot: 1, unprod: 0, unsup: 0, build: 0, nonPreset: 0, exempt: 0 },
+      also: (x) => x.rot[0].key === 'bg-primary/10',
+    },
+    {
+      name: 'R6 表里有用量端无人用(清单腐烂)→ 必红',
+      code: '',
+      usage: { primary: t('10'), muted: t('[0.12]') },
+      want: { missing: 0, rot: 2, unprod: 0, unsup: 0, build: 0, nonPreset: 0, exempt: 0 },
+    },
+    {
+      name: 'R6 动态拼接的类名判不出来 → 只报数不判红',
+      code: 'const c = `bg-${tier}/${op}`',
+      usage: {},
+      want: { missing: 0, rot: 0, unprod: 0, unsup: 0, build: 0, nonPreset: 0, exempt: 0 },
+      also: (x, s) => s.undetermined.length === 1,
+    },
+    {
+      name: 'R6 注释里举的例子不得当用量(否则门会拿散文逼人造登记)',
+      code: '// 例如 bg-primary/10 需要登记\n/* bg-card/90 */\nconst x = 1',
+      usage: {},
+      want: { missing: 0, rot: 0, unprod: 0, unsup: 0, build: 0, nonPreset: 0, exempt: 0 },
+      also: (x, s) => s.tokens.length === 0,
+    },
+    {
+      name: 'R6 反向对照:串里的 /* 不得把后续真用量骗进块注释(守门 70 同型假绿)',
+      code: "const u = 'https://a/*x';\nconst c = \"bg-primary/10\"",
+      usage: { primary: t('10') },
+      want: { missing: 0, rot: 0, unprod: 0, unsup: 0, build: 0, nonPreset: 0, exempt: 0 },
+      also: (x, s) => s.tokens.length === 1,
+    },
+    {
+      name: 'R6 默认色板(white/black)v3 原生支持 → 不得要求登记',
+      code: 'className="bg-white/50 text-white/80"',
+      usage: {},
+      want: { missing: 0, rot: 0, unprod: 0, unsup: 0, build: 0, nonPreset: 2, exempt: 0 },
+    },
+    {
+      name: 'R6 变体前缀(hover:/dark:)必须被看见,否则按规矩写的形态反而隐身',
+      code: 'className="hover:bg-primary/10 dark:bg-primary/10"',
+      usage: { primary: t('10') },
+      want: { missing: 0, rot: 0, unprod: 0, unsup: 0, build: 0, nonPreset: 0, exempt: 0 },
+      also: (x, s) => s.tokens.length === 2 && s.tokens.every((tk) => tk.variants !== ''),
+    },
+    {
+      name: 'R6 CSS 侧转义选择器形态 .bg-muted\\/\\[0\\.12\\] 必须被看见',
+      code: '.bg-muted\\/\\[0\\.12\\] { background: red }',
+      usage: { muted: t('[0.12]') },
+      isCss: true,
+      want: { missing: 0, rot: 0, unprod: 0, unsup: 0, build: 0, nonPreset: 0, exempt: 0 },
+      also: (x, s) => s.tokens.length === 1,
+    },
+    {
+      name: 'R6 插件能力表外的前缀(ring-)→ 判红并给出口',
+      code: 'className="ring-primary/20"',
+      usage: { primary: t('10') },
+      want: { missing: 0, rot: 1, unprod: 0, unsup: 1, build: 0, nonPreset: 0, exempt: 0 },
+      also: (x) => x.unsupportedKind[0].key === 'ring-primary/20',
+    },
+    {
+      name: 'R6 豁免必须带原因:同行 alpha-plugin-exempt: <原因> → 不判红',
+      code: 'className="bg-card/50" // alpha-plugin-exempt: 浮层遮罩专用',
+      usage: {},
+      want: { missing: 0, rot: 0, unprod: 0, unsup: 0, build: 0, nonPreset: 0, exempt: 1 },
+    },
+    {
+      name: 'R6 豁免标记不带原因 → 无效,照判红(不得用它清账)',
+      code: 'className="bg-card/50" // alpha-plugin-exempt:',
+      usage: {},
+      want: { missing: 1, rot: 0, unprod: 0, unsup: 0, build: 0, nonPreset: 0, exempt: 0 },
+    },
+    {
+      name: 'R6 豁免只对命中行或紧邻上一行生效(逐行,不救全文件)',
+      // 标记只救本行与紧邻上一行:第 4 行的用量距标记 3 行,必须照判红
+      code: 'className="bg-card/50" // alpha-plugin-exempt: 只这一行\nconst pad = 1\nconst pad2 = 2\nconst b = "bg-card/60"',
+      usage: {},
+      want: { missing: 1, rot: 0, unprod: 0, unsup: 0, build: 0, nonPreset: 0, exempt: 1 },
+    },
+    {
+      name: 'R6 表里登了 preset 取不出的档 → buildAlphaUtilities 报 unresolvable,必红',
+      code: '',
+      usage: { ghost: t('10') },
+      want: { missing: 0, rot: 1, unprod: 0, unsup: 0, build: 1, nonPreset: 0, exempt: 0 },
+    },
+    {
+      name: 'R6 嵌套档 primary-foreground 必须能推导 + 真产出(否则 text-primary-foreground/90 判不出来)',
+      code: 'className="text-primary-foreground/90"',
+      usage: { 'primary-foreground': t('90', 'text') },
+      want: { missing: 0, rot: 0, unprod: 0, unsup: 0, build: 0, nonPreset: 0, exempt: 0 },
+    },
+  ]
+  let fail = 0
+  for (const c of r6Cases) {
+    const s = scan(c.code, !!c.isCss)
+    const full = checkAlphaUsage({ usages: s.tokens, usage: c.usage, colors: fxColors, plugin })
+    const got = sum(full)
+    let ok = JSON.stringify(got) === JSON.stringify(c.want)
+    if (ok && c.also) ok = c.also(full, s) === true
+    if (!ok) fail++
+    console.log(
+      `${ok ? '✅' : '❌'} ${c.name} → got=${JSON.stringify(got)}`,
+    )
+  }
+  // 腐烂棘轮成对证明(缺了它,无关提交会被"别人欠的债"钉红 → 逼人 --no-verify → 全部守门作废)
+  const rtTable = { card: t('50'), primary: t('10') }
+  const rtCode = 'className="bg-card/50"'
+  const rtSuppressed = checkAlphaUsage({
+    usages: scan(rtCode).tokens,
+    usage: rtTable,
+    colors: fxColors,
+    plugin,
+    baselineRot: new Set(['bg-primary/10']), // HEAD 已有这条存量腐烂
+  })
+  const rtFresh = checkAlphaUsage({
+    usages: scan(rtCode).tokens,
+    usage: rtTable,
+    colors: fxColors,
+    plugin,
+    baselineRot: new Set(), // 同一份输入,基线为空 → 必须红(证明上一条不是恒绿)
+  })
+  const rtNewStillRed = checkAlphaUsage({
+    usages: scan(rtCode).tokens,
+    usage: rtTable,
+    colors: fxColors,
+    plugin,
+    // 基线里躺着**另一条**存量腐烂:本次新造出来的 bg-primary/10 不在基线内 → 棘轮不得放过
+    baselineRot: new Set(['bg-ghost/99']),
+  })
+  const ratchetOk =
+    rtSuppressed.rot.length === 0 &&
+    rtSuppressed.rotInherited === 1 &&
+    rtFresh.rot.length === 1 &&
+    rtNewStillRed.rot.length === 1 &&
+    rtFresh.rot[0].key === 'bg-primary/10'
+  if (!ratchetOk) fail++
+  console.log(
+    `${ratchetOk ? '✅' : '❌'} R6 腐烂棘轮:HEAD 存量压红 ${rtSuppressed.rot.length}(须 0)/ 继承计数 ${rtSuppressed.rotInherited}(须 1)/ 无基线同一输入 ${rtFresh.rot.length}(须 1)/ 基线不含本条时 ${rtNewStillRed.rot.length}(须 1 —— 棘轮只放过存量,绝不放过本次新造的腐烂)`,
+  )
+  // 解析器:真登记表必须解析得出,且非常量形态必须大声失败(不得静默少扫)
+  let reg
+  try {
+    reg = readAlphaRegistry('head')
+  } catch (e) {
+    console.log(`❌ R6 真登记表取不到(无法判定,不算通过):${e.message}`)
+    return { fail: fail + 1, cases: r6Cases.length + 5 }
+  }
+  const parsedOk =
+    plugin.alphaTiers(reg.usage).length > 0 &&
+    Object.values(reg.usage).every((byKind) =>
+      Object.values(byKind).every((mods) => Array.isArray(mods) && mods.every((m) => typeof m === 'string')),
+    ) &&
+    JSON.stringify(reg.usage['primary'].bg) === JSON.stringify(['10'])
+  if (!parsedOk) fail++
+  console.log(
+    `${parsedOk ? '✅' : '❌'} R6 解析器读真登记表:${plugin.alphaTiers(reg.usage).length} 档 / ${plugin.alphaTiers(reg.usage).reduce((a, k) => a + Object.values(reg.usage[k]).reduce((x, y) => x + y.length, 0), 0)} 形态,flattenColorTiers 得 ${flattenColorTiers(reg.colors).size} 档(preset 无 -DEFAULT 泄漏:${![...flattenColorTiers(reg.colors)].some((x) => x.endsWith('-DEFAULT'))})`,
+  )
+  let threw = 0
+  try {
+    parseLiteralObject('a: foo(1)')
+  } catch (e) {
+    threw = e instanceof UndeterminedError ? 1 : 2
+  }
+  let anchorThrew = 0
+  try {
+    extractObjectBody('colors: { a: "x" } colors: { b: "y" }', /\bcolors\s*:\s*\{/)
+  } catch (e) {
+    anchorThrew = e instanceof UndeterminedError ? 1 : 2
+  }
+  if (threw !== 1 || anchorThrew !== 1) fail++
+  console.log(
+    `${threw === 1 && anchorThrew === 1 ? '✅' : '❌'} 登记表写成非常量形态 / 锚点不唯一 → 必须抛"无法判定"(got ${threw}/${anchorThrew})`,
+  )
+  // 锚点回归(本门第一版的真实缺陷):带 ^ 的锚点漏了 m flag ⇒ `^` 只认串首,整张表读成"取不到"
+  const anchorFixture = 'head\nexport const ALPHA_USAGE = { primary: { bg: ["10"] } }\n'
+  let withM = 'ok'
+  try {
+    extractObjectBody(anchorFixture, /^export const ALPHA_USAGE\s*=\s*\{/m)
+  } catch (e) {
+    withM = e instanceof UndeterminedError ? 'threw' : 'wrong-error'
+  }
+  let withoutM = 'ok'
+  try {
+    extractObjectBody(anchorFixture, /^export const ALPHA_USAGE\s*=\s*\{/)
+  } catch (e) {
+    withoutM = e instanceof UndeterminedError ? 'threw' : 'wrong-error'
+  }
+  const anchorFlagOk = withM === 'ok' && withoutM === 'threw'
+  if (!anchorFlagOk) fail++
+  console.log(
+    `${anchorFlagOk ? '✅' : '❌'} 锚点带 ^ 必须配 m flag 才命中(带 m=${withM} / 漏 m=${withoutM} —— 漏 m 正是首版让整门读不到登记表的原因)`,
+  )
+  // 真仓不变量:HEAD 面**不得有任何"该红没红"的方向**漏过。
+  // 刻意不把 rot.length === 0 也钉成必过条件:本票落地的那枚提交里才把首条腐烂行(bg-muted/40)删掉,
+  // 若钉死 rot==0,自检会在"判据已入库、数据修正在下一枚提交"的窗口里恒红 —— 恒红门的唯一结局是逼人
+  // 绕过钩子、连带废掉全部守门。腐烂照旧**逐条点名判红**(见 r6Cases 的腐烂用例),只是不由这条不变量代收。
+  let r6Real
+  try {
+    r6Real = await runR6({ face: 'head', quiet: true })
+  } catch (e) {
+    console.log(`❌ R6 真仓跑不动(无法判定,不算通过):${e.message}`)
+    return { fail: fail + 1, cases: r6Cases.length + 5 }
+  }
+  const hard = r6Real.failures.filter((f) => !f.tag.startsWith('R6 清单腐烂'))
+  const realOk = hard.length === 0 && r6Real.counts.checked > 40 && r6Real.counts.files > 800
+  if (!realOk) fail++
+  console.log(
+    `${realOk ? '✅' : '❌'} R6 真仓不变量:${r6Real.counts.files} 文件 / preset 档用量 ${r6Real.counts.checked} 处,` +
+      `未登记 ${r6Real.counts.missing.length}(须 0)/ 未产出选择器 ${r6Real.counts.unproduced.length}(须 0)/` +
+      ` 表自身产不出 ${r6Real.counts.buildIssues.length}(须 0)/ 不支持前缀 ${r6Real.counts.unsupportedKind.length}(须 0)/` +
+      ` 其余硬红 ${hard.length}(须 0),` +
+      `默认色板 ${r6Real.counts.nonPreset} 处不计、判不出 ${r6Real.counts.undetermined} 处不判红、腐烂 ${r6Real.counts.rot.length} 条(照红并点名)`,
+  )
+  for (const f of r6Real.failures.slice(0, 6)) console.log(`     · ${f.tag}: ${f.detail.slice(0, 120)}`)
+  return { fail, cases: r6Cases.length + 5 }
+}
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
