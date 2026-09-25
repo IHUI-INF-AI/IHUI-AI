@@ -12,13 +12,17 @@ import {
   copyFileSync,
   rmSync,
 } from 'node:fs'
-import { join } from 'node:path'
+import { join, dirname as pDirname } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 
+import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
+
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
-const SOURCE_SCRIPT = join(__dirname, '..', 'check-rn-global-css-sync.mjs')
+// 被测脚本与它的闭包都在 `scripts/` 下。`__dirname` 由 `new URL('.', …)` 得来,**带尾斜杠**,
+// 所以 `join(__dirname,'..')` 已经是 `scripts/`(再上跳一级就跑到仓库根,闭包必然找不到文件)。
+const SCRIPTS_DIR = join(__dirname, '..')
 
 // ============================================================
 // 源脚本核心规则(scripts/check-rn-global-css-sync.mjs)
@@ -41,8 +45,15 @@ const SOURCE_SCRIPT = join(__dirname, '..', 'check-rn-global-css-sync.mjs')
 function createTempEnv(rnCss, tokensCss) {
   const dir = mkdtempSync(join(tmpdir(), 'ihui-rn-css-sync-'))
   // 复制源脚本到 tempDir/scripts/(不改源脚本,只读复制)
-  mkdirSync(join(dir, 'scripts'), { recursive: true })
-  copyFileSync(SOURCE_SCRIPT, join(dir, 'scripts', 'check-rn-global-css-sync.mjs'))
+  // 复制源脚本**连同它的相对 import 闭包**到 tempDir/scripts/(不改源脚本,只读复制)。
+  // 原先这里是 `copyFileSync(单个脚本)` —— 而本脚本 import 了 design-token-blocks /
+  // sync-rn-global-css / face-reader 三跳,只拷一份必然 ERR_MODULE_NOT_FOUND(exit 1、stdout 空)。
+  // 闭包必须推导,不能手抄清单(见 lib/scratch-module-closure.mjs 头注记录的两次同型事故)。
+  copyScriptWithClosure(SCRIPTS_DIR, 'check-rn-global-css-sync.mjs', join(dir, 'scripts'), [
+    'lib/face-reader.mjs',
+    'lib/design-token-blocks.mjs',
+    'sync-rn-global-css.mjs',
+  ])
   // 写入 mobile-rn/global.css fixture
   mkdirSync(join(dir, 'apps', 'mobile-rn'), { recursive: true })
   writeFileSync(join(dir, 'apps', 'mobile-rn', 'global.css'), rnCss)
