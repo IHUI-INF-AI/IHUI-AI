@@ -97,12 +97,13 @@ const ACTION_TYPE_OPTIONS: readonly { value: HookActionType; labelKey: string }[
 ]
 
 const NOTIFY_CHANNEL_OPTIONS: readonly {
-  value: 'toast' | 'notification' | 'email'
+  value: 'toast' | 'notification' | 'email' | 'webhook'
   labelKey: string
 }[] = [
   { value: 'toast', labelKey: 'channel.toast' },
   { value: 'notification', labelKey: 'channel.notification' },
   { value: 'email', labelKey: 'channel.email' },
+  { value: 'webhook', labelKey: 'channel.webhook' },
 ]
 
 const HTTP_METHOD_OPTIONS: readonly { value: 'GET' | 'POST' | 'PUT'; label: string }[] = [
@@ -607,7 +608,9 @@ function HookActionConfigForm({
         <Field label={t('fieldNotifyChannel')}>
           <NativeSelect
             value={draft.notifyChannel}
-            onChange={(v) => onChange({ notifyChannel: v as 'toast' | 'notification' | 'email' })}
+            onChange={(v) =>
+              onChange({ notifyChannel: v as 'toast' | 'notification' | 'email' | 'webhook' })
+            }
             options={notifyChannelOptions}
           />
         </Field>
@@ -619,6 +622,36 @@ function HookActionConfigForm({
             maxLength={2048}
           />
         </Field>
+        {draft.notifyChannel === 'webhook' && (
+          <>
+            {/* webhook 渠道复用 webhook 动作同一发送器与同一批 config 键(url/method/headers),
+                所以草稿字段也直接复用 webhook* 那三个 —— 见 store 的 buildActionFromDraft。 */}
+            <Field label="URL" required>
+              <Input
+                value={draft.webhookUrl}
+                onChange={(e) => onChange({ webhookUrl: e.target.value })}
+                placeholder="https://example.com/webhook"
+                maxLength={2048}
+                type="url"
+              />
+            </Field>
+            <Field label={t('fieldHttpMethod')}>
+              <NativeSelect
+                value={draft.webhookMethod}
+                onChange={(v) => onChange({ webhookMethod: v as 'GET' | 'POST' | 'PUT' })}
+                options={HTTP_METHOD_OPTIONS}
+              />
+            </Field>
+            <Field label={t('fieldHeaders')}>
+              <textarea
+                className="flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={draft.webhookHeaders}
+                onChange={(e) => onChange({ webhookHeaders: e.target.value })}
+                spellCheck={false}
+              />
+            </Field>
+          </>
+        )}
       </div>
     )
   }
