@@ -37,6 +37,14 @@ const runCLI = (args) => {
   }
 }
 
+/**
+ * 从本门结论行里取"当次实测的收口集合"。模块级唯一一份 —— T12 与 T12b 共用同一把尺子,
+ * 不在第二个测试里重抄正则(§22c:两份真相必然漂移)。
+ * ⚠️ 必须停在 `|` 之前:同一行后面的「扫描 N 文件 / 跨模块边」计数天然随档位不同,
+ *    吞进来会让"表相同 ⇒ 结论同形"这一支恒红、又让"表不同 ⇒ 结论异形"那一支恒真。
+ */
+const managedOf = (t) => /managed:true ([^|\n]*)/.exec(t)?.[1]?.trim() ?? ''
+
 test('T1 装车证明:本门确实装在 runner 上,且是 blocking + 有真实 skipEnv', () => {
   const hits = gate.registrationOf(runnerText(), SCRIPT_NAME)
   assert.equal(hits.length, 1, `注册块应恰好 1 个,实得 ${hits.length}`)
@@ -126,11 +134,58 @@ test('T11 渐进收口不得退回 0:真表里 managed:true ≥ 1(钉不变量,�
   assert.equal(n0, 0, '变异没能把 managed 清零 ⇒ 上面那条断言恒真,本文件在装样子')
 })
 
-test('T9 策略表取材阶梯 HEAD→索引→工作树 固定,且三处皆无时判"无法判定"', () => {
+test('T9 降级阶梯本身固定(三处皆无时判"无法判定",不得冒绿)', () => {
   assert.equal(gate.pickPolicySource([['HEAD', null], ['索引', 'x'], ['工作树', 'y']]).label, '索引')
   assert.equal(gate.pickPolicySource([['HEAD', 'h'], ['索引', 'x']]).label, 'HEAD')
   assert.equal(gate.pickPolicySource([['HEAD', ''], ['索引', null], ['工作树', ' w']]).label, '工作树')
   assert.equal(gate.pickPolicySource([['HEAD', null], ['索引', null], ['工作树', undefined]]), null)
+})
+
+test('T12 取材面按档定向:--staged 选索引表、全量选 HEAD 表(否则"改表那枚提交"脱离本门审查)', () => {
+  // 这一条是 2026-09-25 实测缺陷的装车证明。当时的形态是两个面都 HEAD 优先,后果不是
+  // "少读一份表",而是本门对**修改策略表自身的提交**全程盲视:往索引版 apps/cli.requires
+  // 注入一条 `apps/api`(端应用 exported:false,T1 必判红),全量与 --staged 双双 exit 0。
+  // 现场复现(不需临时仓,ROOT 由脚本自身位置推导、不可注入,故用"索引≠HEAD"的构造面):
+  const faces = { HEAD: 'HEAD那份旧表', 索引: '索引里将要落地的新表', 工作树: '工作树副本' }
+  const pickOn = (isStaged) => gate.pickPolicySource(gate.policyFaceOrder(isStaged).map((l) => [l, faces[l]]))
+  assert.equal(pickOn(true).label, '索引', '--staged 没选索引表 ⇒ pre-commit 审的是 HEAD 旧表,改表不被审(即 09-25 的缺陷形态)')
+  assert.equal(pickOn(false).label, 'HEAD', '全量档必须判 HEAD,与"全量判 HEAD blob"的仓库口径同向')
+  // 夹具自证(反恒真):按**被废掉的旧顺序**组装候选,必然选到 HEAD。
+  // 若这里选到的不是 HEAD,说明 faces 三档取值写错 ⇒ 上面两条断言根本区分不出顺序。
+  const legacy = gate.pickPolicySource(['HEAD', '索引', '工作树'].map((l) => [l, faces[l]]))
+  assert.equal(legacy.label, 'HEAD', '夹具失效:旧顺序都没选中 HEAD,则上面那两条"有牙"的证明不成立')
+  // 真仓侧只钉"两档都必须绿"。**刻意不钉"两档结论是否同形"** —— 上一版在这里写了
+  // `索引表≠HEAD 表 ⇒ 两档收口集合必须异形 / 相同 ⇒ 必须同形` 的条件断言,两条前提都不成立:
+  //   ① "表不同"涵盖改注释、改 requires、改阈值等绝大多数形态,它们**不改变** managed 集合,
+  //      于是"异形"那一支会在完全正常的改表面误红(实测:本仓此刻正落此支,该断言判红);
+  //   ② 而"同形"那一支在尺子为 /[^\\n]*/ 时恒红(见 managedOf 定义处注释)。
+  // 一条在任何一种现实下都可能红的判据,结局只会是逼人 --no-verify(§12e 同型),已删。
+  // 顺序本身的证明全部交给上面的 pickOn()/legacy 构造面 —— 它们可判定、可变异、不依赖仓库瞬时状态。
+  const staged = runCLI(['--staged'])
+  const full = runCLI([])
+  assert.equal(staged.code, 0, `--staged 必须绿,实得:\n${staged.out.slice(-600)}`)
+  assert.equal(full.code, 0, `全量档必须绿,实得:\n${full.out.slice(-600)}`)
+})
+
+/**
+ * T12b —— 给 T12 那把尺子配反例。
+ * T12 的两个分支都只比 `managedOf` 的返回值,所以尺子一旦把"随行变化的计数"当成"收口集合",
+ * 就会出现**两支同时失效**:else 支恒红(脏工作树里必然红)、differs 支恒真(永远抓不到读串面)。
+ * 本条不依赖仓内任何状态,纯测尺子本身,是 T12 有意义的前提。
+ */
+test('T12b managedOf 尺子本身:计数不同不得算异形、集合不同必须算异形、取不到给空串', () => {
+  // 这条尺子反例是**独立价值**,与被审对象无关:任何将来拿"两档 managed 集合"做比较的判据
+  // 都必须先用它自证 —— 停在 `[^\n]*` 会把同行尾部"扫描 N 文件/跨模块边"一起吃进来,
+  // 于是同一把尺子在两个口径下永远不等(既测不出真差异,也注定误红)。
+  const a = '[arch-policy] 模块 24 个 | managed:true packages/api-client, packages/dom-actions | 扫描 9 文件 | 跨模块边 6 条'
+  const b = '[arch-policy] 模块 24 个 | managed:true packages/api-client, packages/dom-actions | 扫描 8077 文件 | 跨模块边 52 条'
+  const c = '[arch-policy] 模块 24 个 | managed:true packages/api-client | 扫描 8077 文件 | 跨模块边 52 条'
+  assert.equal(managedOf(a), managedOf(b), '同集合不同计数必须视为同形(否则任何按集合比较的判据恒红)')
+  assert.notEqual(managedOf(b), managedOf(c), '集合真的变了却判同形 ⇒ 该判据恒真(无牙)')
+  assert.equal(managedOf('全绿但没打 managed 行'), '', '取不到时给空串,不得抛')
+  // 反向对照:把尺子退回吞到行尾的旧写法,上面第一条必须红(证明"停在 | 前"在承重)
+  const naive = (t) => /managed:true ([^\n]*)/.exec(t)?.[1]?.trim() ?? ''
+  assert.notEqual(naive(a), naive(b), '尺子变异未生效 ⇒ 第一条断言恒真,本文件在装样子')
 })
 
 test('T10 解析器坏了必须大声失败,不得静默少读模块', () => {

@@ -1,4 +1,43 @@
 {
+  "ecosystem": {
+    "title": "エコシステム",
+    "description": "並列していた複数のマーケット入口を 1 ページに集約:スキル、MCP、ケイパビリティ、コネクタ、エキスパートバンドルへここから直接移動できます。",
+    "marketsSection": "ケイパビリティマーケット",
+    "bundlesSection": "エキスパートバンドル",
+    "bundlesHint": "エキスパートワークフローごとに複数マーケットの能力を組み合わせ、タグから該当ページへ移動",
+    "cards": {
+      "aiSkills": {
+        "title": "AI スキル",
+        "desc": "エージェントに AI スキルを付け、対話とタスクを拡張"
+      },
+      "mcpStore": {
+        "title": "MCP ストア",
+        "desc": "内蔵 MCP サーバーを一括登録で接続"
+      },
+      "capabilityMarket": {
+        "title": "ケイパビリティマーケット",
+        "desc": "自社製 MCP 能力(ツール/リソース/プロンプト)を有効化"
+      },
+      "skillsMarket": {
+        "title": "Skill マーケット",
+        "desc": "自己進化するスキル市場:導入・評価・購読"
+      },
+      "connectors": {
+        "title": "中国語コネクタ",
+        "desc": "Yuque・Feishu・WeCom・DingTalk のドキュメントを接続"
+      }
+    },
+    "bundles": {
+      "contentCreator": {
+        "title": "コンテンツ制作バンドル",
+        "desc": "執筆と公開ワークフローの統合入口:AI スキル、Skill マーケット、中国語コネクタ"
+      },
+      "developerExtension": {
+        "title": "開発者拡張バンドル",
+        "desc": "ツール拡張ワークフローの統合入口:MCP ストア登録とプラットフォーム能力"
+      }
+    }
+  },
   "aiWs": {
     "videoDone": "動画生成が完了しました",
     "videoFailed": "動画生成に失敗しました。もう一度お試しください",
@@ -18041,6 +18080,7 @@
     "none": "なし"
   },
   "nav": {
+    "ecosystemHub": "エコシステムマーケット",
     "adminRelayInsights": "インサイト",
     "adminRelayEnterprise": "エンタープライズ",
     "adminRelayPlugins": "プラグイン",
@@ -25144,6 +25184,14 @@
     "subscribed": "{name} の更新を購読しました",
     "unsubscribed": "{name} の購読を解除しました",
     "close": "閉じる",
+    "unlist": "掲載をやめる",
+    "relist": "掲載する",
+    "unlistSuccess": "{name} の掲載をやめました",
+    "relistSuccess": "{name} を再び掲載しました",
+    "unlisted": "掲載外",
+    "notFoundTitle": "Skill が見つかりません",
+    "notFoundHint": "「{name}」は存在しないか、投稿者によりマーケットから掲載外になりました。",
+    "backToMarket": "Skill マーケットに戻る",
     "ratingsTitle": "ユーザー評価",
     "rateTitle": "このスキルを評価",
     "yourScore": "あなたの評価",
