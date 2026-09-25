@@ -2031,6 +2031,13 @@
       "when": 1790388000000,
       "tag": "20260926100000_github_app_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 291,
+      "version": "7",
+      "when": 1790395200000,
+      "tag": "20260926120000_team_knowledge_engine",
+      "breakpoints": true
     }
   ]
 }
