@@ -39,6 +39,29 @@ const ANSI_RE = /\x1b\[[0-9;]*m/g
  */
 const FINDING_LINE_RE = /(error|错误|违规|failure|failed|❌|✗|:\d+\b|报数|判定)/i
 
+/** 汇总块之后才是"批外步骤"的输出(pre-commit-hook 在 runner 之后还有若干独立 blocking 步)。 */
+function tailAfterSummary(text) {
+  const clean = stripAnsi(text || '')
+  const at = clean.lastIndexOf('守门脚本批量检查汇总')
+  return at < 0 ? null : clean.slice(at)
+}
+
+/**
+ * 批外步骤名 —— 只在"汇总已跑完且批内 0 blocking 失败"时才有意义。
+ *
+ * 为什么要单独认这一型(2026-09-25 实测):钩子里 `i18n 死 key 扫描` 这类步骤跑在 runner **之后**,
+ * 它一红就 `process.exit(1)`,于是 `safe-commit` 拿到的是"批没红、提交却红了"的组合。
+ * 旧版把它归成 `unattributed`(措辞:汇总里没列出 blocking 失败门),然后照样 `--no-verify` 落地
+ * —— 而实测那一轮 154 道门**全部跑完、失败 0、警告 1**,即批内结论本来是拿得到的,却被丢掉。
+ * 现在点名是哪一步,并照旧按"它的结论行有没有点名本次文件"决定归因方向。
+ */
+export function outsideBatchStep(text) {
+  const tail = tailAfterSummary(text)
+  if (!tail) return null
+  const m = tail.match(/❌\s*([^\n]+?)\s*(?:失败|,提交已阻止)[^\n]*提交已阻止/)
+  return m ? m[1].trim() : null
+}
+
 /**
  * 只在"结论行(含其缩进续行)"里找本次声明的文件。
  *
@@ -204,6 +227,35 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate }
     }
   }
   const detail = [parsed.failed.length > 0 ? `失败门清单取材:${source}` : '']
+  if (parsed.batchReported && parsed.failed.length === 0) {
+    const step = outsideBatchStep(text) ?? outsideBatchStep(fallbackText)
+    if (step) {
+      const tail = tailAfterSummary(text) ?? tailAfterSummary(fallbackText) ?? ''
+      const named = stagedFiles.filter((f) => tail.includes(f))
+      const batchLine = `批内结论:总检查数已跑完、blocking 失败 0(该结论此前被整块丢弃)`
+      if (named.length > 0)
+        return {
+          kind: 'mine',
+          ranFullBatch: !parsed.earlyAbort,
+          failed: parsed.failed,
+          outsideStep: step,
+          detail: [batchLine, `批外步骤「${step}」的结论行点名本次文件:${named.join(' , ')}`],
+          reason: `守门批虽 0 失败,但批外步骤「${step}」点名了本次声明的文件 —— 这是本任务自己的红,必须修,禁止 --no-verify`,
+        }
+      return {
+        kind: 'not-ours',
+        ranFullBatch: !parsed.earlyAbort,
+        failed: parsed.failed,
+        outsideStep: step,
+        detail: [
+          batchLine,
+          `红在守门批**之外**的那一步「${step}」,其输出未点名本次任何文件`,
+          `该步仍会挡住后续提交,须由能改的人清理;本枚提交按应急路径落地,但不得读成"那个问题不存在"`,
+        ],
+        reason: `守门批已跑完且 blocking 失败 0,红在批外步骤「${step}」(其结论未点名本次文件)`,
+      }
+    }
+  }
   if (!parsed.batchReported || parsed.failed.length === 0) {
     return {
       kind: 'unattributed',
@@ -292,6 +344,8 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate }
 /** 给提交者看的一句话:只说量到的事,不做没做过的归因 */
 export function verdictLine(v) {
   if (v.kind === 'mine') return `❌ ${v.reason}`
+  if (v.kind === 'not-ours' && v.outsideStep)
+    return `✅ ${v.reason} —— 批内 0 失败这一条是**量出来的**,不是"没跑";批外那一步请随后清偿,别把它当成可以长期忽略的背景噪音`
   if (v.kind === 'not-ours') return `✅ ${v.reason}(据此走应急跳门,守门结论以下方逐道复跑记录为准)`
   return `⚠️ ${v.reason} —— 按应急路径落地,已留痕;请勿把它读成"通过了守门"或"因他人代码"`
 }
@@ -610,6 +664,60 @@ Found 2 errors in 2 files (checked 548 source files)
   assert(/^\s*⚠️/.test(unattr), `A10 未归因必须以警示口吻开头,实得:${unattr}`)
   assert(/请勿/.test(unattr), 'A10 未归因必须自带"不得当成已通过"的警示')
   assert(/复跑/.test(verdictLine(a1)), 'A10 not-ours 必须把结论指向复跑记录,而不是任何"过门"式断言')
+
+  // --- C 族:红在守门批**之外**的那一步(实测 2026-09-25 提交 46a4c18ed) ---
+  // 那一轮 154 道门全部跑完、blocking 失败 0,而 runner 之后跑的 `i18n 死 key 扫描` 判 3 枚孤儿键
+  // 直接 exit 1 ⇒ 钩子红。旧实现把这一型归成 unattributed("汇总里没列出 blocking 失败门"),
+  // 然后照样 --no-verify 落地 —— 结果是**已经量到的批内结论被整块丢掉**,而账面读起来像"没跑守门"。
+  const SUMMARY_CLEAN = `
+🛡️ 守门脚本批量检查汇总
+  总检查数: 154(已执行 154)
+  通过: 153
+  警告: 1
+  失败: 0
+  跳过: 0
+`
+  const DEADKEY_TAIL = `
+🌐 i18n 死 key 扫描(死 key > 0 阻断 commit,2026-07-26 立)
+  死 key: 3 (0.0%)
+[scan-dead-i18n-keys] --exit 1:发现 3 个死 key
+❌ 🌐 i18n 死 key 扫描(死 key > 0 阻断 commit,2026-07-26 立)失败，提交已阻止
+❌ i18n 死 key 扫描发现死 key,提交已阻止(请清理 packages/i18n/messages/* 中未引用的 key 后再 commit)
+`
+  assert(
+    outsideBatchStep(SUMMARY_CLEAN + DEADKEY_TAIL) ===
+      '🌐 i18n 死 key 扫描(死 key > 0 阻断 commit,2026-07-26 立)',
+    `C0 批外步骤名解析失效,实得:${String(outsideBatchStep(SUMMARY_CLEAN + DEADKEY_TAIL))}`,
+  )
+  assert(outsideBatchStep(DEADKEY_TAIL) === null, 'C0b 没有汇总块时不得凭空指认批外步骤')
+  const c1 = classifyHookFailure({
+    text: SUMMARY_CLEAN + DEADKEY_TAIL,
+    stagedFiles: MY_FILES,
+    runGate: () => ({ status: 0, output: '' }),
+  })
+  assert(c1.kind === 'not-ours', `C1 批内 0 失败而红在批外 ⇒ 应能归因,实得 ${c1.kind}`)
+  assert(c1.outsideStep && /死 key/.test(c1.outsideStep), 'C1 必须点名是哪一步')
+  assert(c1.ranFullBatch === true, 'C1 批已跑完,不得记成"全批未跑"')
+  assert(/批内结论/.test(c1.detail.join('\n')), 'C1 明细必须把"批内 0 失败"这条量到的结论写下来')
+  assert(/批内 0 失败/.test(verdictLine(c1)), 'C1 措辞须与"没跑守门"区分开,不得冒充未归因')
+  // 反向:批外那一步点名了本次文件 ⇒ 仍是本任务自己的红,禁止跳门(失效方向必须是"多要一次说明")
+  const c2 = classifyHookFailure({
+    text: `${SUMMARY_CLEAN}❌ 🌐 i18n 死 key 扫描失败，提交已阻止:scripts/foo.mjs 引用的键已不存在`,
+    stagedFiles: MY_FILES,
+    runGate: () => ({ status: 0, output: '' }),
+  })
+  assert(c2.kind === 'mine', `C2 批外步骤点名本次文件时必须仍判 mine,实得 ${c2.kind}`)
+  assert(/禁止 --no-verify/.test(c2.reason), 'C2 的出口必须是"修",不是跳门')
+  // 反向对照:批内**有**失败时不得走这一支(否则批内那道的责任被批外步骤洗掉)
+  const c3 = classifyHookFailure({
+    text: `${SUMMARY.replace('失败: 1', '失败: 1')}${FAIL_29}${DEADKEY_TAIL}`,
+    stagedFiles: MY_FILES,
+    runGate: () => ({ status: 1, output: '别的门 red' }),
+  })
+  assert(
+    c3.failed.length === 1 && !c3.outsideStep,
+    `C3 批内已有失败门时须按逐道复跑归因,实得 failed=${c3.failed.length} outsideStep=${c3.outsideStep}`,
+  )
   return { parsedFixture: p }
 }
 
@@ -620,6 +728,7 @@ export const __test__ = {
   parseGateSummary,
   pickLastSummaryRun,
   parseStagedEcho,
+  outsideBatchStep,
   classifyHookFailure,
   verdictLine,
   SUMMARY,

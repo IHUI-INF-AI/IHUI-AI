@@ -23450,7 +23450,6 @@
     "author": "Author"
   },
   "aigcPublish": {
-    "back": "Back",
     "title": "Publish AIGC work",
     "subtitle": "Share your AI creations to the content plaza",
     "labelType": "Work type",
@@ -23955,7 +23954,6 @@
     "startChat": "Start chat"
   },
   "aiGroup": {
-    "back": "Back",
     "metaActive": "Active {time} ago",
     "metaMessages": "{count} messages",
     "detailMembers": "{count} members",
@@ -24377,7 +24375,6 @@
   },
   "aigcCover": {
     "loading": "Loading…",
-    "back": "Back",
     "title": "Cover Settings",
     "subtitle": "Generate a cover for \"{title}\"",
     "empty": "No covers yet",
