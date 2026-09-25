@@ -18,6 +18,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { __test__ as gate } from '../check-architecture-policy.mjs'
+import { resolveGitBin } from '../lib/gitdir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
@@ -28,6 +29,15 @@ const SCRIPT_NAME = 'check-architecture-policy.mjs'
 const unq = (s) => (typeof s === 'string' ? s.replace(/^['"]|['"]$/g, '') : s)
 const runnerText = () => readFileSync(RUNNER, 'utf8')
 const policyText = () => readFileSync(POLICY, 'utf8')
+// git 二进制按仓库既有正例解析(§5b:不得依赖环境),且只读调用一律带 timeout(守门 80)
+const GIT = resolveGitBin()
+const runGit = (args) =>
+  execFileSync(GIT, ['-c', 'safe.directory=*', ...args], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 60000,
+    maxBuffer: 1 << 26,
+  })
 const runCLI = (args) => {
   try {
     const out = execFileSync(process.execPath, [SCRIPT, ...args], { encoding: 'utf8', maxBuffer: 1 << 28, windowsHide: true, timeout: 600000 })
@@ -126,11 +136,48 @@ test('T11 渐进收口不得退回 0:真表里 managed:true ≥ 1(钉不变量,�
   assert.equal(n0, 0, '变异没能把 managed 清零 ⇒ 上面那条断言恒真,本文件在装样子')
 })
 
-test('T9 策略表取材阶梯 HEAD→索引→工作树 固定,且三处皆无时判"无法判定"', () => {
+test('T9 降级阶梯本身固定(三处皆无时判"无法判定",不得冒绿)', () => {
   assert.equal(gate.pickPolicySource([['HEAD', null], ['索引', 'x'], ['工作树', 'y']]).label, '索引')
   assert.equal(gate.pickPolicySource([['HEAD', 'h'], ['索引', 'x']]).label, 'HEAD')
   assert.equal(gate.pickPolicySource([['HEAD', ''], ['索引', null], ['工作树', ' w']]).label, '工作树')
   assert.equal(gate.pickPolicySource([['HEAD', null], ['索引', null], ['工作树', undefined]]), null)
+})
+
+test('T12 取材面按档定向:--staged 选索引表、全量选 HEAD 表(否则"改表那枚提交"脱离本门审查)', () => {
+  // 这一条是 2026-09-25 实测缺陷的装车证明。当时的形态是两个面都 HEAD 优先,后果不是
+  // "少读一份表",而是本门对**修改策略表自身的提交**全程盲视:往索引版 apps/cli.requires
+  // 注入一条 `apps/api`(端应用 exported:false,T1 必判红),全量与 --staged 双双 exit 0。
+  // 现场复现(不需临时仓,ROOT 由脚本自身位置推导、不可注入,故用"索引≠HEAD"的构造面):
+  const faces = { HEAD: 'HEAD那份旧表', 索引: '索引里将要落地的新表', 工作树: '工作树副本' }
+  const pickOn = (isStaged) => gate.pickPolicySource(gate.policyFaceOrder(isStaged).map((l) => [l, faces[l]]))
+  assert.equal(pickOn(true).label, '索引', '--staged 没选索引表 ⇒ pre-commit 审的是 HEAD 旧表,改表不被审(即 09-25 的缺陷形态)')
+  assert.equal(pickOn(false).label, 'HEAD', '全量档必须判 HEAD,与"全量判 HEAD blob"的仓库口径同向')
+  // 夹具自证(反恒真):按**被废掉的旧顺序**组装候选,必然选到 HEAD。
+  // 若这里选到的不是 HEAD,说明 faces 三档取值写错 ⇒ 上面两条断言根本区分不出顺序。
+  const legacy = gate.pickPolicySource(['HEAD', '索引', '工作树'].map((l) => [l, faces[l]]))
+  assert.equal(legacy.label, 'HEAD', '夹具失效:旧顺序都没选中 HEAD,则上面那两条"有牙"的证明不成立')
+  // 真仓行为对照,钉的是**条件不变量**而非某一次的表内容(否则本票一提交就恒红):
+  //   索引表 ≠ HEAD 表 ⇒ 两档结论必须不同形(证明两个面各自读自己那份);
+  //   索引表 == HEAD 表 ⇒ 两档结论必须同形(没有幻影差异可钉)。
+  // 刻意不点名任何具体模块:合法回退不该把测试变红(与本文件 T11 同一取向)。
+  const idxTable = runGit(['show', `:${gate.POLICY_REL}`])
+  const headTable = runGit(['show', `HEAD:${gate.POLICY_REL}`])
+  const staged = runCLI(['--staged'])
+  const full = runCLI([])
+  assert.equal(staged.code, 0, `--staged 必须绿,实得:\n${staged.out.slice(-600)}`)
+  assert.equal(full.code, 0, `全量档必须绿,实得:\n${full.out.slice(-600)}`)
+  const managedOf = (t) => /managed:true ([^\n]*)/.exec(t)?.[1]?.trim() ?? ''
+  const differs = idxTable !== headTable
+  if (differs) {
+    assert.notEqual(
+      managedOf(staged.out),
+      managedOf(full.out),
+      `索引表与 HEAD 表不同(本次提交正在改表),但两档结论同形 ⇒ 有一个面没读自己那份表` +
+        `(缺陷形态:--staged 恒读 HEAD ⇒ 改表的提交脱离本门审查)`,
+    )
+  } else {
+    assert.equal(managedOf(staged.out), managedOf(full.out), '索引表与 HEAD 表相同,两档结论却不同形 ⇒ 取材面读串了')
+  }
 })
 
 test('T10 解析器坏了必须大声失败,不得静默少读模块', () => {
