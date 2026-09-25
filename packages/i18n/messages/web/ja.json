@@ -23440,7 +23440,6 @@
     "author": "作成者"
   },
   "aigcPublish": {
-    "back": "戻る",
     "title": "AIGC作品を公開",
     "subtitle": "AI 作品をコンテンツプラザで共有しましょう",
     "labelType": "作品タイプ",
@@ -23945,7 +23944,6 @@
     "startChat": "会話を開始"
   },
   "aiGroup": {
-    "back": "戻る",
     "metaActive": "{time} に最終アクティブ",
     "metaMessages": "メッセージ {count}",
     "detailMembers": "メンバー ({count})",
@@ -24367,7 +24365,6 @@
   },
   "aigcCover": {
     "loading": "読み込み中…",
-    "back": "戻る",
     "title": "カバー設定",
     "subtitle": "「{title}」のカバーを生成",
     "empty": "カバーはありません",

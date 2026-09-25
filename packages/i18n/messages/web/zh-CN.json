@@ -23417,7 +23417,6 @@
     "author": "作者"
   },
   "aigcPublish": {
-    "back": "返回",
     "title": "发布 AIGC 作品",
     "subtitle": "分享你的 AI 创作到内容广场",
     "labelType": "作品类型",
@@ -23922,7 +23921,6 @@
     "startChat": "开始对话"
   },
   "aiGroup": {
-    "back": "返回",
     "metaActive": "最近活跃 {time}",
     "metaMessages": "{count} 条消息",
     "detailMembers": "{count} 位成员",
@@ -24344,7 +24342,6 @@
   },
   "aigcCover": {
     "loading": "加载中…",
-    "back": "返回",
     "title": "封面设置",
     "subtitle": "为「{title}」生成封面",
     "empty": "暂无封面",
