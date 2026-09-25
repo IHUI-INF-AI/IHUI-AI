@@ -8078,3 +8078,77 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 - **做的事**:`apps/cli/package.json` 补 `"@ihui/dom-actions": "workspace:*"`(与 `apps/extension` 同形态)→ 按 §12e 跑**全量 `pnpm install`**(不带 `--filter`;3.9s,锁零改动 ⇒ 声明与锁本来就只差这一行)。跑前按 §12d 取证:无 next/turbo 进程、`.deploy.lock` 持有者 pid 已死(只读 `check` 报 locked 属预期,acquire 有 10min 兜底 ⇒ 不改别人的锁文件)。
 - **验收按 §12e 的实测口径,不看回显**:链接在位;`node_modules/.bin/eslint --version` = v10.8.1、`tsc --version` = 5.9.3 都出版本号;`lint-staged/bin/lint-staged.js` 在位;门 78 rc=0(25 包声明全链接、718 条链接内容完好);门 101 rc=0(specifier 全一致);`pnpm --filter @ihui/cli typecheck` **rc=0**(改前 rc=1);门 7 全量 **rc=0**。
 - **给后面人的判据(值得抄进 §3 共享层那节)**:凡是**新 import 一个 workspace 包**,同一次改动里必须落三样 —— `package.json` 声明、`pnpm install`(全量)、`--filter <该端> typecheck` 真跑一次。只加 import 不加声明,`tsc` 在**别的端**可能因 tsconfig paths 而看起来没事,而 TS2307/Module not found 会在下一个干净 checkout 或 CI 构建里才炸 —— 与守门 72/78 同族"本地全绿、出事在别人机器"。
+- [ ]（进行中）**P0 授权缺陷：`POST /skills/market` 可用自报 author 认领平台内置技能**（主会话逐行实测：787-789 行 `existing.ownerId=publisherId; source="user"` 的"归属补齐"，其上游闸门 773 行只比 `body.author` 字符串；内置种子 `author:'IHUI'` 源码公开且无 ownerId；该端点零 admin 校 ⇒ 任意登录用户可①认领内置技能②改写其 description/tags/version/license③触发对全体订阅者的伪"更新"通知。注释 764 行"不接受请求体自报"与实现分叉）
+- [x] ✅(2026-09-25) **架构契约表渐进收口:第三、四块翻正面,全仓软账清零**(接上条"剩余两块",两块当场还清 ⇒ 本门 D1/D2/D3 现有 4 个可问责模块)。
+  - **`packages/i18n`(第三块)**:账源是那枚跨包对账测试。按上条 ⑧-③ 更正后的**唯一合规出路**做 —— `git mv` 到 `packages/shared/tests/chat/`(同包 ⇒ 零跨模块边;它读各端词包用 readFileSync,不构成 import 边),只改 L27 import 与 L29 REPO_ROOT 两处。**没有采纳**上一票写的"改走公开入口"(D2 只比 rank,换路径照样红)。取证:新位置 **12/12 真被 vitest 收集执行**(整包 55 文件 1267 例全绿、i18n 剩 5 文件 108 例全绿)、`--staged --managed-trial packages/i18n` 判红 0。
+  - **`repo-tooling`(第四块)**:派子代理把 `scripts/tests/export-openapi-stub-key.test.mjs` 对 `apps/api` 的 import 去掉,改为从源码文本抠出 `normalizeStubKey` 在 `vm` 空上下文里真执行,并新增"抠不到即红"(改名/删除/复制成两份三形态各 `assert.throws` + 一条"改不动则不算证明"的对照)⇒ 保护力不降反升。**未**写进 requires(T1 必红)、**未**用 `arch-exempt` 糊。该测试 8/8 绿;它"已消 D1"的说法我另按工作树态复算复核(见下条口径)。
+  - **提交前预验的正确姿势(本轮新学,已写进表头)**:全量档只读 HEAD ⇒ 提交前看不见落地后结论;而**手工 `git add` 的中间态在高并发下不可依赖** —— 别的会话 safe-commit Step① 的 `git reset HEAD` 会清走我的暂存,本轮实测被清掉一次。解法 = 取 HEAD 全量面 8391 文件,只把本次三处路径**按工作树内容**改判,喂门自己 export 的 `analyze()` → **违规 0 处 / 判红 0 处**。
+  - ⚠️ **一条操作顺序教训(§5b 存续自愈与"合法移动"相撞,值得所有会话记住)**:我先 `mv` 后 `git add`,命中 `heal-worktree-tracked` 三条恢复判据(工作区缺 ∧ 索引==HEAD ∧ HEAD 中存在)⇒ 守护**把这次移动当成外部删除事故原地恢复了**,日志实证 `.workbuddy/git-guardian.log`「✅ 工作区存续自愈:恢复 1 个被外部删除的跟踪文件(packages/i18n/tests/waiting-keys-in-end-packages.test.ts)」,一度留下新旧两份并存。它按设计工作、**不是缺陷** —— 机器无从知道"移动"是合法意图。正确姿势只有一种:**`git mv` 一步原子完成**(索引同轮记 rename);已按此重做并立为表头规矩。
+  - **未闭环一块**(不写作已收口):`docs/**` 也在 `repo-tooling.roots` 内,翻 true 后若有人在文档示例里 import 未声明包会红。现在**无命中样本**故不动判据;真出现时按实际命中数决定是收窄 roots 还是逐处补 requires,不得先削阈值。
+- [x] ✅(2026-09-25) **架构契约表批量收口:一次翻正 19 块,24 块里按住 1 块 ⇒ 103 这道门从"只报数"正式转为"全仓问责"**。
+  - **为什么这批允许批量**(前三块是逐块登记"为什么是它"):逐块写理由是为在**未知**时防"把空壳模块翻上去让门对着空气打分"。该未知已消除 —— 23 块逐块 `--managed-trial` 全为 0 红,且本票用了**比逐块更强**的口径:把 19 块**同时**置 true 后跑一次 `analyze()`/`auditPolicy()`,跨块互相暴露的边不会被"一次只看一块"拆开漏掉。取证面 = HEAD 全量 8418 文件 + **工作树覆盖** + 26 枚未跟踪源文件 ⇒ 判红 **0** 处、T1 硬缺陷 **0** 处;落地后 `node scripts/check-architecture-policy.mjs` 全量 exit 0、违规合计 0 处。
+  - **实际收益**(不是数字好看):8 个产品端全部可问责 ⇒ 任何一端 import 未在 `requires` 登记的包、或按路径穿透别的包内部(D3)当场判红 —— AGENTS §3「共享层优先 / 禁止端内重新实现」从散文变成尺子。
+  - **刻意按住 `packages/types` 一块**:它带 EX-C2-1 存量债(`packages/types/src/app.ts` HEAD 实测 5258 行 > 契约上限 2000),那条例外的 reason 明写"按业务域拆成多入口前不得翻它"。**批量便利不构成推翻逐块立下的收口前置条件的理由** —— 要翻它先拆 app.ts。
+  - **执行方式与护栏**(yaml 带零宽溯源载荷,§5c 禁文本级批量改写,所以必须自证没伤载荷):逐块锚定"该模块块内的 managed 行"替换、匹配不到即退出;三条硬校验全过 —— 行数 657→657 等长、差异 19 行恰等于 19 块、`git diff` 实质行 38 条**全部**是 `managed` 取反(越界 0 条)、`watermark.mjs verify` exit 0 且残迹/损坏均 0。
+  - 🔴 **顺带逮到并修掉 T8 的同型缺陷(这是本票第二处"判据生命周期短于提交")**:镜像测试 T8 的 off 侧写的是"直接拿真表"并注释成 `managed:false`,即把"i18n 此刻还没收口"当成判据前提 —— 本票把 i18n 翻正的**同一轮**它就红了(`2 !== 0`)。与上条 ⑧-① 那条 T12 是**同一个毛病换了文件**,说明要改的是写法习惯:证"只有 managed 不同时结论不同",就必须**自己构造** false 那一侧,并配一条"构造面与真表恰好差这一处"的成对自证(否则 off 侧静默退化成测现况)。修后 13/13 绿、门自检 51 例绿。
+  - **回退纪律(已写进表头与 AGENTS/README)**:翻正后违规的唯一出路是改代码、登记 `requires`,或带原因的行内 `arch-exempt`;**禁止把 `managed` 降回 false 消红** —— T11 钉的是"≥ 1 块"不变量(刻意不钉条目,免得合法回退把测试钉红),所以这道回退**没有机器守卫**,只靠这条规矩。
+  - 文档同步:AGENTS 与 README 的门 103 条原写"存量模块一律 managed:false(…`managed:true` 0 个)",现补上"那是**立项状态不是现值**,现值按当次实测取"并明写回退禁令 —— 与本票刚立的"进度数字不入文档"口径一致。
+### O60d 第二波并行编码落地(2026-09-25 完成 ✅):6 票入库 + 1 票按住 + 两处 HEAD 级恒红当场清掉
+- [x] ✅(2026-09-25) **D62 语音字幕与讨论纪要装车(`7fa94d517d3`)**:判定层 `voice-subtitles.ts`、展示件
+  `voice-subtitle-bar.tsx`、语音栈三件此前全在库而**生产零消费点**;本次把字幕/互斥/四类麦克风错误
+  接进 `voice-toolbar.tsx` 与 `voice-input.tsx`(宿主由 `message-input.tsx:1296` 真实挂载)。播报态取值用
+  window **捕获阶段**监听 `HTMLAudioElement`(媒体事件不冒泡但捕获必经 window),不新建第二套录音/播报栈;
+  端内零复制分类逻辑(改走 `classifyMicError`)。新增宿主接线用例 5+4 例,三套合跑 29 passed,零新词包键。
+- [x] ✅(2026-09-25) **D67 额度归属分型卡装车(`4f246c706e1`)**:`QuotaOwnershipCard` 此前只有定义 + 自身测试;
+  现接进两个宿主 —— `FallbackBanner`(生产已由 MessageList 挂载)在 quota_equivalent 分支显示归属标题,
+  `MessageErrorCard` 走 `fromErrorCode` 分型 + 三动作族接既有 /points /vip /models/usage。分型卡刻意**不**传
+  onAction(下方 D39 动作族已带真实出口,重复摆按钮即噪声)。新增接线用例 11 例。
+  **残余(不归本票)**:① `MessageErrorCard` 自身在 HEAD 无生产消费点,那条接缝属 D39 渲染位;
+  ② `discountWindowStart/End` 与团队/计费组两类 errorCode 需后端产出,前端目前只有兜底形态。
+- [x] ✅(2026-09-25) **D81 活动条目四件接进 `tool-call-card`(`721bc59d730`)**:开工前两口径各量一遍 ——
+  `git grep -l tool-activity-line HEAD` 只命中文档与审计脚本(源码 importer 0),`git ls-tree` 命中 2 个文件
+  ⇒ 判"预建未接"而非"被取代";8 个词表键五语已在库,零新键。接了 ④长输出展开收起(顺带把
+  `extractCitations` 的 `slice(0,8)` 改成全量返回 + 折叠,正面解掉"截断即丢")、⑤引用条 + 读写分组
+  (方向判定复用共享层 `FILE_WRITE_TOOLS`,端内不另立)、⑥取消态。**未接的两件是判断不是遗漏**:
+  ②`ActivityDuration`/③`ActivitySearchQuery` 与 `stream-ui.tsx` 的 elapsedMs、`tool-display.ts` 的
+  `subjectKind:'query'` 功能等价,接上即同屏重复显示 —— 那是"删冗余"不属"补接线",留待单独裁决。
+  `apps/cli/tests/tool-activity-line.test.tsx` 测的是 CLI 同名纯函数(`task-status-line.js`),与本组件无关,未碰。
+- [x] ✅(2026-09-25) **D85 统计条补两条票面验收用例(`7b36151c9a0`,实现零改动)**:立项实测
+  `git grep -E "review-stats|deriveReviewStats|ReviewStatsBar" HEAD -- apps/web/tests` 为空 ⇒ 票面"计数与逐条
+  徽章同源 + 无理由缺省"此前确实零用例。4 例把"同源"钉成:DOM 读数 == 测试里用 `stepDecisionState`
+  **独立分类**同一组 steps 的计数 == `deriveReviewStats` 纯函数结果,且展开区徽章枚数同数;
+  变异自证(改坏同源侧 4→3 红→还原 4/4)。
+- [x] ✅(2026-09-25) **D17 顶栏五入口收敛(`3b2d534a4c1`,接 `ba42c804c6c` 的聚合页)**:Plus 九宫格第三组 5 个
+  并列市场入口整组摘除(菜单项 12→7),换成一枚 `TopBarEcosystemMenu`(复用同一个 `PortalPanel` 层栈,
+  36×36 矢量图标,零字符箭头/零分割线/零新键)。老 URL 可达三条证据:5 个 `page.tsx` 未动、弹层内 5 条
+  `<a href>` 逐条断言、`command-registry.ts` 与聚合页仍各自指向老 URL。用例 8 例。
+  **残余**:① `ide.topBar.{skill,mcpStore,capabilityMarket,skillsMarket,connectors}` 5 键自本改动起全仓零引用,
+  删词包属独立票(词包冻结轮未动);② 浏览器运行时取证未做(本机 8801/8802 无监听,起 dev 会清写他人
+  拥有的 `apps/web/.next`,改用 jsdom 真渲染 + 直读五语 messages 证 7 个取词点可解析)。
+- [x] ✅(2026-09-25) **D33 消息级降级交代行的渲染位补回(`e85017370e7`)** —— 本票是复核时量出来的**HEAD 级红**:
+  `git show HEAD:…MessageItem.tsx | grep -c message-fallback` = **0**,而 HEAD 的用例文件里该 testid 出现 3 次
+  ⇒ `message-item-fallback-line.test.tsx` 在 HEAD 必红(与本次改动无关,A/B 已证:还原台账与全部在途文件仍红)。
+  `stores/chat.ts` 的字段注释早就写明"MessageItem 按既有 chat.fallbackNotice / fallbackNoticeQuota 词渲染消息级
+  交代行",水合层与五语言词包都在库,**唯独渲染位随 .git 事故那份现场保全提交之后丢了**。补 16 行纯插入,
+  用例 3/3(改前 2 红),负例(无 fallback 不渲染)由既有用例钉住不是恒真。
+- [x] ✅(2026-09-25) **清掉一处 HEAD 级恒红:守门 90(`1c5e53cd348`))** —— 并发会话把 `client.ts` 的
+  `onFormRequest` 随 `0c56e79837` 一起收了进去,而五端的注册层都还没有这一帧 ⇒ 门 90 从 HEAD 起对**每一次提交**
+  判红(五端各一条)。恒红门的唯一结局是各会话跳门、连带全部守门作废,所以先压回绿再等 D77 整票:
+  `missing[5 端].onFormRequest` 写明理由与解阻判据,`baseline.cli` 12→13(第 13 帧已在 HEAD)。
+  同票修 `scripts/tests/check-sse-dispatch-parity.test.mjs` ⑤b:夹具取材由"工作树 `git add`"改为"HEAD blob
+  `update-index`" —— 原写法把并行会话的在途编辑收进临时索引,当天 `apps/cli/src/commands/agent.ts`(别人正改
+  终端流)让本例**在 HEAD 上就是红的**,而那条红与本门要证的不变量无关。取证:门 `--self-test` 8/8、
+  镜像 11/11(改前 ⑤b 红)、全量与 `--staged` 两档"✅ 通过(5 端,帧 28 个)"。
+- [x] ✅(2026-09-25) **D77 业务表单按住(不是遗漏,是两条硬拦阻实测在位)**:① `check-agent-event-parity` 会因
+  "form_request/form_response 仅存在于 TS 契约、Python 缺失"判红,而修法要动的
+  `apps/ai-service/app/core/sse_contract.py`(5+/1−)与 `routers/llm.py`(13+/4−)**正被并行会话改着** —— 提交这两个文件
+  等于代收他人未工作(§12 红线);② web 宿主(`contract.ts` 53+、`send-message.ts` 17+、`stores/business-forms.ts`、
+  `business-form-section.tsx`、`MessageList.tsx` 6+)按纪律必须与 Python 生产者**同票**,否则又造一次"契约先行、五端空转"
+  (就是上面门 90 那件事的成因)。解阻判据:上述两个 Python 文件工作树==HEAD ⇒ 一票内落"发帧 + 契约 + web 宿主 +
+  删门 90 登记项 + 上调 baseline",其余四端按 H18 矩阵补渲染位。**待补键 1 枚**:`ai.pane.businessForms.fields.rejectReason`
+  ×5 语言(现临时复用 `ai.pane.inputNotices.queue.reasonTitle`,不入库则宿主票不能落地)。
+- **O60d 残余(不写作收口)**:① D77 按上面的解阻判据走;② D19 仍按住(`git ls-tree -r HEAD | grep -c stream-tool-ledger`
+  实测 **0**,而工作树里 `apps/cli/src/stream-tool-ledger.ts` 是 WP-8 持有人未提交的模块,`agent.ts` 那 132 行同属他票);
+  ③ D67/D81 各自的两条残余(错误卡渲染位、两枚冗余 export 的删除裁决)与 D17 的 5 枚孤儿键,均属**别的票的范围**,
+  已逐条点名,不在本票顺手改;④ 本波全部产出按 §9 是 web 单端收口,`miniapp-taro`/`mobile-rn`/`extension`/`cli`
+  的对应面另计(D62 标了平台独占豁免:小程序无 TTS 播报栈)。

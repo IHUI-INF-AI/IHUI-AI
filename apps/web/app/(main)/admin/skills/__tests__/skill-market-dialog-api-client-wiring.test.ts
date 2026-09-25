@@ -2,52 +2,68 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { fetchApi } from '@/lib/api'
-import { fetchMarketSkills } from '@ihui/api-client'
-import type { Skill, SkillForm, MarketListResponse } from './types'
+// 装车证明(AGENTS.md §3 共享层优先 / 守门 73 同族):admin 技能市场对话框的后端调用
+// 必须经 @ihui/api-client 出口,不得回退为页面内 api() 直连拼 URL;同时钉死
+// install/unlist 的端点路径语义(禁止有人把 unlist 硬删"顺手"改成 listing 翻转)。
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-// 注意:本 helper 走 web 端 fetchApi 包装(apps/web/src/lib/api.ts),它在**非 GET** 收到 401
-// 时会自动弹登录框;@ihui/api-client 的共享 fetchApi 没有这一步(无 onUnauthorized 钩子可注册),
-// 且本文件两个调用方 page.tsx 的 saveMut/delMut 都没有 onError 分支 —— 弹窗是它们唯一的
-// 401 反馈。故下面两处 mutation 型调用**刻意不收口**到 api-client 端点(AGENTS §3 的例外,
-// 理由量化于票面),不得为"清直连数字"而迁移。GET 型的市场列表已迁,见 fetchMarketSkills。
-export async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
+import { describe, expect, it } from 'vitest'
 
-export async function fetchSkills(): Promise<Skill[]> {
-  const data = await api<{ skills: Skill[] }>('/api/skills')
-  return data?.skills ?? []
-}
+const here = dirname(fileURLToPath(import.meta.url))
+const dialogFile = resolve(here, '..', 'SkillMarketDialog.tsx')
+// here = apps/web/app/(main)/admin/skills/__tests__ → 上溯 7 级到仓库根
+const skillsMarketFile = resolve(
+  here,
+  '..',
+  '..',
+  '..',
+  '..',
+  '..',
+  '..',
+  '..',
+  'packages',
+  'api-client',
+  'src',
+  'endpoints',
+  'skills-market.ts',
+)
 
-export async function searchMarketSkills(
-  q: string,
-  tag: string,
-  page: number,
-  pageSize: number,
-): Promise<MarketListResponse> {
-  const r = await fetchMarketSkills({ q, tag, page, pageSize })
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
+describe('SkillMarketDialog 走 @ihui/api-client(共享层优先)', () => {
+  const src = readFileSync(dialogFile, 'utf8')
 
-export const EMPTY_FORM: SkillForm = {
-  name: '',
-  description: '',
-  version: '1.0.0',
-  tags: '',
-  metadata: '',
-}
+  it('从 @ihui/api-client 导入 installSkill / unlistSkill', () => {
+    expect(src).toMatch(
+      /import\s*\{[^}]*\binstallSkill\b[^}]*\bunlistSkill\b[^}]*\}\s*from\s*'@ihui\/api-client'/,
+    )
+  })
 
-export function skillToForm(item: Skill): SkillForm {
-  return {
-    name: item.name,
-    description: item.description ?? '',
-    version: item.version ?? '1.0.0',
-    tags: Array.isArray(item.tags) ? item.tags.join(', ') : '',
-    metadata: item.metadata ? JSON.stringify(item.metadata, null, 2) : '',
-  }
-}
+  it('不再从 ./helpers 导入 api,页面内无 api( 直连、无裸 fetch', () => {
+    expect(src).not.toMatch(/\bapi\s*\(/)
+    expect(src).not.toMatch(/\bfetch\s*\(/)
+    expect(src).not.toMatch(/from\s*'\.\/helpers'[^;]*\bapi\b/)
+  })
+
+  it('失败仍按原语义抛错(mutation 错误分支不变)', () => {
+    // 两处 mutationFn 各自把 !success 转成 throw,保证 react-query isError 行为与原 api() 一致
+    const throws = src.match(/if \(!r\.success\) throw new Error\(r\.error\)/g) ?? []
+    expect(throws).toHaveLength(2)
+  })
+})
+
+describe('api-client skills-market 出口路径语义钉死', () => {
+  const src = readFileSync(skillsMarketFile, 'utf8')
+
+  it('installSkill 打 /install,unlistSkill 打 /unlist(不得被改成 /listing 翻转)', () => {
+    // 模板字符串结尾是反引号,不是引号 —— 正则须按源码真实形态匹配
+    expect(src).toMatch(/export function installSkill[\s\S]*?\/install`/)
+    expect(src).toMatch(/export function unlistSkill[\s\S]*?\/unlist`/)
+  })
+
+  it('listing 级出口与 unlist 硬删并存且相互独立(setSkillListing 未被挪用替代)', () => {
+    expect(src).toMatch(/export function setSkillListing[\s\S]*?\/listing`/)
+    expect(src).toMatch(/export function unlistSkill/)
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
