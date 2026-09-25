@@ -75,13 +75,13 @@
 - [ ]（进行中）**WP-7 浏览器语义快照与可复用元素句柄**(规格已写,未开工)。
 - [ ]（进行中）**WP-8 上下文占用归因 + 流式工具账本 + 目标完成独立校验轮**。后者是补
   `AGENTS.md §8` 早就要求但**从未实现**的"禁止模型自评 yes"。
-- [ ] 钩子 trust 的**残余面**:webhook 形态钩子仍不过门(本批按 command 收口);
+- [x] ✅(2026-09-25) 钩子 trust 的**残余面**:webhook 形态钩子仍不过门(本批按 command 收口); 〔✅复测:两种形态已过**同一道**门 —— `apps/cli/src/hooks/index.ts` 头注"两种形态过"命中 1 处,`hookTrustSkipReason` → `gateHook` 对 webhook/command 共用一次判定,kind 由声明自身推出;配套专测 `apps/cli/tests/hooks-trust-gate.test.ts` + `hooks-trust-content.test.ts` 均在库。同行第二句也已落地:`commands/hooks.ts` 真有 `untrust <path>` 子命令(命中 9 处)。〕
   且缺 `ihui hooks trust <path>` 子命令(旧错误文案指向该不存在的命令,已改为指向真实出口),CLI 化信任需另票。
-- [ ] `reclaim` 改写信封内容的边界:本批只在 CLI 侧由"重建提醒"兜回产物指针,
+- [x] ✅(2026-09-25) `reclaim` 改写信封内容的边界:本批只在 CLI 侧由"重建提醒"兜回产物指针; 〔✅复测:判据与消费者都在 —— 常量与 `isEnvelopeContent` 上移 `packages/context-compaction/src/markers.ts`(命中 5 处),`reclaim.ts` 命中 5 处且分别落在"整条跳过"与"段级跳过"两个出口,不是"只有常量没有用法"。〕
   彻底解法需在 `reclaim.ts` 加 `isEnvelopeContent` 跳过 —— 属改他人在飞文件,未做。
-- [ ] WP-1 新 API 尚未接入 `builtins.ts`/`terminal.ts` 执行链(接一行即可恢复 YOLO 观感,
+- [x] ✅(2026-09-25) WP-1 新 API 尚未接入 `builtins.ts`/`terminal.ts` 执行链(接一行即可恢复 YOLO 观感); 〔✅复测:`gateCommandExecution` 在 `apps/cli/src/tools/builtins.ts` 命中 3 处、`apps/cli/src/tools/terminal.ts` 命中 4 处。⚠️ 派单陷阱:原票写的 `apps/cli/src/terminal.ts` **不存在**,真身在 `tools/` 下 —— 照票面路径 `git show` 必 fatal,而"查不到"极易被下一个人读成"没接入"。〕
   但需同步改他人 `terminal.test.ts` 的 `vi.mock`,本批未动)。
-- [ ] `config/architecture-policy.yaml` 目前 0 个模块 `managed:true` —— 渐进收口的第一块翻正面尚未选定。
+- [x] ✅(2026-09-25) `config/architecture-policy.yaml` 目前 0 个模块 `managed:true` —— 渐进收口的第一块翻正面尚未选定; 〔✅复测:该数字是**立项状态不是现值** —— `git show HEAD:config/architecture-policy.yaml | grep -c '^    managed: true'` 实得 **23**,`node scripts/check-architecture-policy.mjs` exit 0。真正的剩余量在别处:该门输出点名的"E2 契约工件未齐备 16 块"(默认只报数,`--strict` 才问责)。〕
 
 
 ### 未闭环(不写作收口)
@@ -7821,14 +7821,14 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 - [x] ✅(2026-09-25) 渐进收口第一块翻正面已由并发会话选定:`config/architecture-policy.yaml` 中
   `packages/api-client` 改 `managed: true`(实测门 103 仍全量 exit 0 —— 该包契约本就干净)。
 ### 第二波未闭环(不写作收口,各自给解阻判据)
-- [ ] **`stream-tool-ledger` 未入库**:模块与单测已绿(`apps/cli/src/stream-tool-ledger.ts`),
+- [x] ✅(2026-09-25) **`stream-tool-ledger` 未入库**:模块与单测已绿(`apps/cli/src/stream-tool-ledger.ts`); 〔✅复测:`git cat-file -e HEAD:apps/cli/src/stream-tool-ledger.ts` 成立;`git show HEAD:apps/cli/src/commands/agent.ts` 命中 3 行,含真 import 与 `new StreamToolLedger` ⇒ 生产者与消费者同枚提交入库,本票已闭环。〕
   但唯一接线点 `apps/cli/src/commands/agent.ts` **同时含他人未提交的 D19 terminal_delta 工作**,
   整文件提交即混提(§12 红线)。解阻判据:待该文件他人改动落地后,单独提一枚"账本接线"票。
-- [ ] `/api/agent/goal-verify` **无生产消费方**(端点已注册、测试已断言路由存在,但 goal 运行循环
+- [x] ✅(2026-09-25) `/api/agent/goal-verify` **无生产消费方**(端点已注册、测试已断言路由存在,但 goal 运行循环还没调它); 〔✅复测:**票面实质已闭环** —— 独立校验轮真被运行循环调用:`apps/ai-service/app/services/goal_completion_gate.py` 内 `await verify_goal_completion(...)`,而 `app/routers/agents.py` import 该 gate;web 侧结论随 done 帧下发。剩下的只是字面事实"这个 HTTP 端点自身无调用方"(全仓除路由注册与测试断言外 0 命中),而**端点存废属对外能力取舍**,不由 agent 单方删(§7 三问 + §24)。已就地写清两读法,勿再按原文派"接消费者"的活。〕
   还没调它)—— 属"生产者已备、消费面未接",另票接 CLI/服务端 goal 循环调用点。
 - [ ] `--allow-dangerous` 确认旁路仍在调用方(`commands/agent.ts:1757`、`server/agent-core.ts:101`),
   工具层结构上看不见;收口需改确认回调契约,本批按现状入库并在披露文档写明边界。
-- [ ] page_* 动词的**跨端登记**未做:web / miniapp-taro / RN / desktop / api 侧 `agent_action` 枚举与
+- [x] ✅(2026-09-25) page_* 动词的**跨端登记**未做:web / miniapp-taro / RN / desktop / api 侧 `agent_action` 枚举与 capability 目录尚未收; 〔✅复测(逐端点数,不按"命中 0"直接定性):枚举单源 `packages/types/src/agent-control.ts` 收 **7** 条 `page_*`,`capability-catalog.ts` + 产物 `generated/capabilities.json` + scope 映射各 **7** 条,`apps/cli` 7/7 全在,extension 经 `PageActionType` 消费;miniapp-taro / mobile-rn / desktop 命中 0 —— 已换第二种正向搜法复核(`PageActionType` / `pick_at_point` / `page_control`),三端**结构上没有 page 控制面**,属平台域外而非漏登记。唯一真残余:`apps/api` 侧只有测试面引用、无生产侧登记(已另记,不随本条翻勾)。〕
   capability 目录(`scripts/check-capability-catalog.mjs` 覆盖面)尚未收;扩展真机加载 MV3、
   真实多帧页面坐标累加均未取证。
 - [ ] RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 zh-TW/en/ja/ko 四语归因译文待人复核。
@@ -9198,3 +9198,12 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 - **验证(全部实跑,读数如下)**:`--self-test` **66/66**;镜像测试 **13/14**(唯一红的是"真仓 HEAD 上 S0 必须为 0",成因 = `BackChevron.tsx` 此刻尚未入库,**本票提交即闭合**,该断言本身是对的);守门 102 `--files` 本票 33 文件 ⇒ **GA4 = 0 / S0 = 0 / back-label-exempt 放过 4 处**,GA1 剩 2 处系这两个文件既有的右向 `›`(HEAD 棘轮容忍,非本票引入);`tsc --noEmit -p apps/miniapp-taro` ⇒ **本票文件 0 错误**(全量 3 条错误全在 `packages/types` + `packages/shared`,由他人**在飞的暂存删除** `D  tool-contract.ts / schema-projection.ts` 造成,`heal-worktree-tracked --dry-run` 判"可恢复 0、只报不修",按 §12 未代改);`eslint` 本票文件 **0 问题**;`scan-hardcoded-zh` 覆盖面不含 miniapp ⇒ 新组件的 `'返回'` 兜底串不计入其棘轮。
 - **未做与为什么(不留"看起来已完成"的假象)**:① 同一型在 **`packages/app/src/features/**` 有 223 处 / 168 文件**、`apps/mobile-rn/src/screens/**` 5 处、`apps/extension` 1 处,以及共享层 `packages/app/src/components/NavBar.tsx` / `apps/mobile-rn/src/components/NavBar.tsx` / `PayResultScreen` 的 3 处 `‹` —— 未在本票清,由 GA4 的**按文件 HEAD 棘轮**兜住"不得再加";② 端上真机渲染未验(微信开发者工具不在本会话能力内),本票只到"源码级 + 类型级 + 守门级"。
 - [ ] P1 **返回键同一型跨端清账(本票的直接续作,数字已量)**:① `packages/app` 223 处 / 168 文件的 `<Text>{t('common.back')}</Text>` 与 3 处 `‹`;② `apps/mobile-rn` 5 处文字 + 其 NavBar 的 `‹`(RN 侧写法是 `lucide-react-native ChevronLeft`,端内 `AboutScreen.tsx:61` 已有现成范例);③ `apps/extension` 1 处 `← {t('common.back')}`。做法与本票同:先建/复用该端唯一实现,再按文件收编,顺带删各自失效的样式工厂。**GA4 棘轮已把这些位置钉成"不得再加",但棘轮不会自动变小 —— 存量清零前 GA4 在这三端始终只是"没恶化",不是"已合规"。**
+## O73 危险操作确认旁路收口到工具层(五处收四处)+ 台账幻影债复测七条(2026-09-25)
+
+- [x] ✅(2026-09-25,提交 `29210a4f2e0`) **`confirmDangerous` 的五处就地短路收口成工具层单一策略**。旧状态不是"重复五行",是三条结构性缺陷:同一件事五份规则(实测三种分叉行为 —— agent 无提问通道直接拒、ACP 弹编辑器、agent-core 与 subagent 把 flag 表达式直接当返回值)、工具层只收到一个布尔因而**看不见这次放行走的是哪条路**(没有审计面)、第六个调用方忘了这回事时 typecheck 不红。新出口 `apps/cli/src/tools/danger-gate.ts` 的 `createDangerGate({allowDangerous, prompt, silent, onDecision})` 把三条路显式化:`flag` / `approved` / `denied`,**默认 fail-closed**(prompt 抛错或返回空一律记 denied,绝不退化成放行)。迁移四处:`acp/server.ts:313`、`server/agent-core.ts:103`、`commands/repl.ts:2271`(唯一真正的"人工批准"通路,原中文提示经 `onDecision` 逐字保留)、`tools/subagent.ts:367`。
+  **`commands/agent.ts` 本轮未迁** —— 它正被并发会话在飞编辑(`decideCompaction` 一带 6+/1-),动它=混提他人未提交工作(提交前用 `git diff | grep -c danger` 实测为 0 确认不是我改的)。所以本票如实是**五处收口四处**,不是"收口完成";剩那一处待其在飞改动落地后另票。
+  防回潮判据钉的是**不变量不是清单**:`tests/danger-gate-wiring.test.ts` 同时抓两种形态 —— `if(…allowDangerous…) return true` 与**不带 if 的裸直返** `async () => x.allowDangerous === true`(后一型正是 agent-core 与 subagent 的写法;只写前一种的尺子对它俩全盲 —— 守门 77 B6"门让你怎么写、门就看不见怎么写"同一课,并写了"只覆盖形态①必然漏形态②"的自证);锚点取 **HEAD blob** 逐文件比 `worktree ≤ HEAD`,即**只拦加回来、不拦存量**,不当恒红尺子;已迁文件必须真 import 并调用工厂(装了没接线=没有)。现值 `agent.ts` 1 处、`config-cmd.ts` 1 处(settings getter,两侧对称计数不洗账),其余归零。
+  取证(未采信代理自报,主代理逐项复跑):cli `tsc --noEmit` exit 0、cli 全量 vitest **139 files / 2797 tests 全通过**、新增 20 例 + 既有 `command-policy-wiring` 31 例全绿、eslint 七文件 0 error、`watermark verify` / `check-no-visible-spawn` exit 0。批量链在临时索引上按这 7 个路径跑完 143 项:通过 117 / 警告 3 / 失败 2,两道红([51] 能力目录产物、[104] prod-bundle 生产副本漂移 170 行)点名的路径**全不在本次 7 个文件里**。
+- [x] ✅(2026-09-25) **就地更正上一枚提交信息里的一处失实**:`29210a4f2e0` 的正文写着"批量链日志未打出汇总段 ⇒ 不能当 143 项跑完"。**该说法是错的** —— 汇总段一直在,是我那条 `grep "总检查数\|通过:"` 的模式没对上实际文案(`"  通过: 117"`)。**教训:找不到结论行先怀疑尺子,再怀疑世界**(本仓同一课已记过多次:量到 0 先问量法)。实际数字如上:143 项 / 117 通过 / 2 失败,失败均不点名本次文件。历史提交不改写(§22 禁止 amend 已落地提交),故在此留一条可追溯更正。
+- [x] ✅(2026-09-25) **台账幻影债七条复测并翻勾**(派单前实测,免得下一个人按旧副本白烧轮次;每条的证据都写成可复跑命令,判据见提交信息):钩子 trust 的 webhook 残余面(两形态已过同一道门)、`reclaim` 信封边界(判据与两处消费者都在)、WP-1 执行链接入(`builtins.ts` 3 / `tools/terminal.ts` 4 —— ⚠️ 原票写的 `apps/cli/src/terminal.ts` **路径不存在**,照它 `git show` 必 fatal 并被读成"没接入")、`architecture-policy.yaml` "0 个 managed:true"(实得 **23**,那是立项状态)、`stream-tool-ledger 未入库`(HEAD 有模块且 `agent.ts` 有真 import + `new`)、`goal-verify 无生产消费方`(**票面实质已闭环**:独立校验轮真被运行循环调用 `verify_goal_completion`;字面残余只是"该 HTTP 端点自身无调用方",而端点存废属对外能力取舍,不由 agent 单方删)、`page_* 跨端登记`(逐端点数:types 7 / 目录 7 / cli 7/7 / extension 经 `PageActionType` 消费;RN / 小程序 / 桌面命中 0 且已换第二种正向搜法复核 ⇒ 三端结构上没有 page 控制面,属平台域外而非漏登记)。
+- [ ] **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN / miniapp 未消费 tailPreview` —— 两端 1742 个跟踪文件里命中 0,唯一消费者是 web;难点不是接一行,而是两端如何取到 `context-attribution` 这份共享引擎(实测两端对它**零引用**,共享引擎在移动端没有装载路径)。② `apps/api` 侧 `page_*` 只有测试面引用、无生产侧登记(一格小账)。
