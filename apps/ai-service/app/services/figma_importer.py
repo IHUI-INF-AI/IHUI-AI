@@ -356,8 +356,8 @@ class FigmaImporter:
             data = resp.json()
         except ValueError as exc:
             raise FigmaImportError("FIGMA_API_ERROR", "Figma API 返回非 JSON 响应") from exc
-        nodes = data.get("nodes") or {}
-        doc = (nodes.get(node_id) or {}).get("document")
+        nodes: dict[str, Any] = data.get("nodes") or {}
+        doc: dict[str, Any] | None = (nodes.get(node_id) or {}).get("document")
         if doc is None:
             raise FigmaImportError("FIGMA_NODE_NOT_FOUND", f"节点 {node_id} 不存在或已删除")
         return doc
