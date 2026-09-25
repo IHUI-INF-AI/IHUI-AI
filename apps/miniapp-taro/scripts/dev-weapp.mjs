@@ -23,6 +23,19 @@ const appDir = resolve(here, '..')
 const repoRoot = resolve(appDir, '../..')
 
 /**
+ * i18n 档「要不要重生成」只认门在 `--group i18n --json` 下算好的 bundleStale
+ * (= blocking 里的 B1/B2,即"跑一次生成器修得了"的那两类)。两条边界:
+ *  ① **不得回落到全量面的退出码** —— 全量面另有 R1/R2/T1/G3 等与离线包无关的红点,
+ *     拿它当"包是否过期"会让快检在有漂移时永远判脏、又永远修不动(与设计意图相反)。
+ *  ② 字段缺失或不是布尔 ⇒ 判**未判定**,既不冒"已一致"也不冒"已刷新"
+ *     (守门 97 同型:取不到东西被当成业务结论)。
+ * 提到模块顶层是为了让它可被 §22d 的 import 形态直接喂夹具验证,不是为了给别人用。
+ */
+const staleOf = (v) => (typeof v?.bundleStale === 'boolean' ? v.bundleStale : null)
+/** 过期清单(打印用):门在 i18n 档下算好的 blocking 数组,形状不对就当没有 */
+const staleList = (v) => (Array.isArray(v?.blocking) ? v.blocking : [])
+
+/**
  * 冷启前把四件派生产物对账一遍。
  *
  * 为什么放这里:此前 gen-i18n-compressed.mjs 只在 build 链里、另三件连 package.json 入口都没有,
@@ -90,12 +103,18 @@ async function refreshGenerated() {
     console.warn(`[dev-weapp] ⚠️ 离线包对账未能执行(exit ${first.code}):${first.error} —— 跳过刷新,不阻断 dev`)
     return
   }
-  if (!first.verdict.bundleStale) {
+  const stale = staleOf(first.verdict)
+  if (stale === null) {
+    console.warn('[dev-weapp] ⚠️ 对账输出里没有布尔型 bundleStale ⇒ 门与 dev 链的契约已漂移,本次**未判定**(不重生成,也不报"已一致")')
+    return
+  }
+  if (!stale) {
     console.log('[dev-weapp] ✅ i18n 离线包与源一致(未重生成)')
   } else {
     const before = readFileSyncSafe(bundleFile)
-    console.log(`[dev-weapp] ⚠️ i18n 离线包过期 ${first.verdict.blocking.length} 处,重生成中…`)
-    for (const f of first.verdict.blocking) console.log(`           · ${f.detail}`)
+    const staleFindings = staleList(first.verdict)
+    console.log(`[dev-weapp] ⚠️ i18n 离线包过期 ${staleFindings.length} 处,重生成中…`)
+    for (const f of staleFindings) console.log(`           · ${f.detail}`)
     let genError = null
     try {
       execFileSync(process.execPath, [join(here, 'gen-i18n-compressed.mjs')], {
@@ -128,7 +147,9 @@ async function refreshGenerated() {
       return
     }
     const recheck = readVerdict()
-    if (recheck.verdict?.bundleStale) console.warn('[dev-weapp] ⚠️ 重生成后仍判过期(源可能正被并行会话改写),不阻断 dev')
+    const recheckStale = staleOf(recheck.verdict)
+    if (recheckStale === null) console.warn('[dev-weapp] ⚠️ 重生成后拿不到可判定的结论(未判定,不代表已刷新),不阻断 dev')
+    else if (recheckStale) console.warn('[dev-weapp] ⚠️ 重生成后仍判过期(源可能正被并行会话改写),不阻断 dev')
     else console.log('[dev-weapp] ✅ i18n 离线包已刷新')
   }
 
@@ -213,10 +234,18 @@ function startTaro() {
   process.on('SIGTERM', () => taro.kill('SIGTERM'))
 }
 
-refreshGenerated()
-  .catch((e) => {
-    // 走到这里说明对账自身抛了未捕获异常 —— 只报,不拦 dev
-    console.warn(`[dev-weapp] ⚠️ 产物对账异常退出(不阻断 dev):${String(e?.message || e).split('\n')[0]}`)
-  })
-  .finally(startTaro)
+// §22d 双形态入口:直接 node 执行才起对账 + taro;被测试 import 时不得有副作用
+// (否则 import 一次就拉起一个 watch 进程,并把真仓产物刷一遍)。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) {
+  refreshGenerated()
+    .catch((e) => {
+      // 走到这里说明对账自身抛了未捕获异常 —— 只报,不拦 dev
+      console.warn(`[dev-weapp] ⚠️ 产物对账异常退出(不阻断 dev):${String(e?.message || e).split('\n')[0]}`)
+    })
+    .finally(startTaro)
+}
+
+// 供镜像/临时夹具直接判定 i18n 档结论(§22c):刻意只暴露那两个纯函数,不暴露流程。
+export const __test__ = { staleOf, staleList }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
