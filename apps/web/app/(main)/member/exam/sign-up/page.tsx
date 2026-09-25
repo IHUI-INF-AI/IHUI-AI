@@ -86,7 +86,7 @@ export default function MemberExamSignUpPage() {
   })
 
   const cancelMut = useMutation({
-    mutationFn: (examId: string) => cancelSignUp(examId),
+    mutationFn: (signupId: string) => cancelSignUp(signupId),
     onSuccess: (r) => {
       if (r.success) {
         toast.success(t('cancelSuccess'))
@@ -113,9 +113,11 @@ export default function MemberExamSignUpPage() {
     minute: '2-digit',
   })
 
-  function handleCancel(examId: string) {
+  /** signupId = 报名行主键(`/signup/my` 返回的 `id`),不是 examId —— 后端 DELETE /signup/:sid
+   *  按 `eq(examSignUp.id, sid)` 删行,传 examId 会删掉另一场考试(或别人)的报名。 */
+  function handleCancel(signupId: string) {
     void confirmDialog({ title: t('cancelConfirm') }).then((ok) => {
-      if (ok) cancelMut.mutate(examId)
+      if (ok) cancelMut.mutate(signupId)
     })
   }
 
@@ -207,7 +209,7 @@ export default function MemberExamSignUpPage() {
                             size="sm"
                             className="text-destructive hover:text-destructive"
                             disabled={cancelMut.isPending}
-                            onClick={() => handleCancel(r.examId)}
+                            onClick={() => handleCancel(r.id)}
                           >
                             {t('cancelBtn')}
                           </Button>
