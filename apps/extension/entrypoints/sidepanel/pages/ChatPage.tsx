@@ -54,7 +54,7 @@ const FALLBACK_MODELS: LlmModel[] = SHARED_FALLBACK_MODELS.map((m) => ({
 // D106(2026-09-24):单消息 steer 交代上限,对齐后端 _STEER_QUEUE_LIMIT 与 web appendSteerNotice
 const STEER_NOTICE_MAX = 8
 
-// ===== D19(2026-09-26 接):terminal_delta 实时输出增量的端内折叠 =====
+// ===== D19(2026-09-25 接):terminal_delta 实时输出增量的端内折叠 =====
 // 后端在命令执行期间逐块下发 `event: terminal_delta`(stdout/stderr 增量,4 行/批)。
 // 本端刻意**不新建第二套终端 UI**:增量按 terminalId 累加进既有 terminalTasks[].output,
 // 由 MessageContent 既有终端块(buildRenderModel → TerminalRenderBlock.output)渲染。
@@ -434,7 +434,7 @@ export default function ChatPage() {
           evt.messageId,
         )
       },
-      // D19(2026-09-26 接):命令执行期间的 stdout/stderr 逐块增量。
+      // D19(2026-09-25 接):命令执行期间的 stdout/stderr 逐块增量。
       // 折进既有 terminalTasks[].output(渲染走 MessageContent 既有终端块),不落正文 ——
       // api-client 已把 terminal_delta 从 onDelta 通道分流(tryParseTerminalDelta),
       // 端内不注册这个回调就是二次静默丢帧(守门 90 的登记面)。
