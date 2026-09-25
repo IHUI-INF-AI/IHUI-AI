@@ -32,10 +32,23 @@
  *   2  环境错误(非 git 仓库/无 origin 等)
  */
 import { execSync, spawn, spawnSync } from 'node:child_process'
-import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readSync, statSync } from 'node:fs'
+import {
+  appendFileSync,
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readSync,
+  statSync,
+} from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { classifyHookFailure, verdictLine } from './lib/commit-gate-attribution.mjs'
+import {
+  classifyHookFailure,
+  decideWithSelfRunBatch,
+  needsBatchSelfRun,
+  verdictLine,
+} from './lib/commit-gate-attribution.mjs'
 
 // 本脚本所在仓的根(AGENTS §15:由自身位置推导,不得写死盘符)
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -442,21 +455,74 @@ if (hookFailed && commitResult.status !== 0) {
   } catch {
     hookLogTail = ''
   }
-  const verdict = classifyHookFailure({
+  const runGate = (script) => {
+    const g = spawnSync(process.execPath, [join(repoRoot, 'scripts', script), '--staged'], {
+      encoding: 'utf8',
+      cwd: repoRoot,
+      env: process.env,
+      windowsHide: true,
+      timeout: 300000,
+      maxBuffer: 32 << 20,
+    })
+    return { status: g.status ?? 1, output: `${g.stdout || ''}${g.stderr || ''}` }
+  }
+  const verdict0 = classifyHookFailure({
     text: hookOutput,
     fallbackText: hookLogTail,
     stagedFiles: expectedFiles,
-    runGate: (script) => {
-      const g = spawnSync(process.execPath, [join(repoRoot, 'scripts', script), '--staged'], {
-        encoding: 'utf8',
-        cwd: repoRoot,
-        env: process.env,
-        windowsHide: true,
-        timeout: 300000,
-        maxBuffer: 32 << 20,
-      })
-      return { status: g.status ?? 1, output: `${g.stdout || ''}${g.stderr || ''}` }
-    },
+    runGate,
+  })
+  /**
+   * 批没跑完 ⇒ 由本脚本自己把守门批跑一遍取证(2026-09-26 立)。
+   * 实测缺陷:`scripts/lib/pre-commit-hook.js` 里 lint-staged 跑在 `guardian-runner --staged`
+   * **之前**,于是一次 lint/prettier 失败 = 整批门一道都没跑 = 归因永远 unattributed =
+   * 照样 --no-verify 落地,而账面读起来像"跑过了、只是与本次无关"。
+   * 判"该不该跑"由 needsBatchSelfRun 决定(纯函数,镜像测试用构造输入钉死);
+   * 本闭包只是**非纯的那一半**,被 decideWithSelfRunBatch 在判真后才调用。
+   * ⚠️ 点名"红在批之前的哪一步"只喂 **hookOutput**(本轮 git commit 自己的 stdout+stderr),
+   * 不喂 hookLogTail —— 那份日志是多轮追加的,拿它找到的 ❌ 行可能是**别人那一轮**的,
+   * 而"借别人那轮的证据"正是本模块立项时要杀掉的形态(见 pickLastSummaryRun 的轮次绑定)。
+   * 需要应急提速就调小 IHUI_SAFE_COMMIT_BATCH_TIMEOUT_MS(极小值 ⇒ 自跑判"未成功",
+   * 结论照旧落 unattributed 并**带着原因**入库),而不是加一个静默开关。
+   */
+  const runBatchSelf = () => {
+    const runnerPath = join(repoRoot, 'scripts', 'guardian-runner.mjs')
+    if (!existsSync(runnerPath))
+      return { ran: false, status: null, output: '', why: `runner 不在位:${runnerPath}` }
+    const timeoutMs = Number(process.env.IHUI_SAFE_COMMIT_BATCH_TIMEOUT_MS || 900000)
+    // 三条硬约束:绝对路径 node(process.execPath)+ windowsHide(守门 52)+ 数字 timeout(守门 80);
+    // 不用 shell:true —— 一旦走 shell,cmd.exe 会为每条子命令拉起可见窗口(§5b 弹窗事故同型)。
+    const b = spawnSync(process.execPath, [runnerPath, '--staged'], {
+      encoding: 'utf8',
+      cwd: repoRoot,
+      env: process.env,
+      windowsHide: true,
+      timeout: timeoutMs,
+      maxBuffer: 64 * 1024 * 1024,
+    })
+    const out = `${b.stdout || ''}${b.stderr || ''}`
+    if (b.error)
+      return {
+        ran: false,
+        status: b.status ?? null,
+        output: out,
+        why: `派生失败 ${b.error.code || b.error.message}`,
+      }
+    if (b.status === null)
+      return { ran: false, status: null, output: out, why: `被中断或超时(${timeoutMs}ms)` }
+    return { ran: true, status: b.status, output: out, why: null }
+  }
+  if (needsBatchSelfRun(verdict0))
+    log(
+      'warn',
+      '归因层手里没有门级结论 ⇒ safe-commit 自跑 `node scripts/guardian-runner.mjs --staged` 取证(可能数分钟)',
+    )
+  const verdict = decideWithSelfRunBatch({
+    verdict: verdict0,
+    stagedFiles: expectedFiles,
+    runBatch: runBatchSelf,
+    runGate,
+    hookText: hookOutput,
   })
   log('warn', `首次 commit 失败(exit ${commitResult.status})—— 开始逐道复跑失败门以计算归因`)
   for (const line of verdict.detail) log('info', `  · ${line}`)
@@ -473,6 +539,12 @@ if (hookFailed && commitResult.status !== 0) {
       failedGates: verdict.failed.map((f) => f.id),
       declaredFiles: expectedFiles,
       headBefore: beforeSha,
+      // 三条新字段并入**既有记录**(不另立落盘文件,避免第二份真相):
+      // batchSelfRun=是否走了自跑取证支,selfRunOk=自跑有没有拿到门级结论,
+      // blockerBeforeBatch=量出来的"红在批之前的哪一步"(判不出则为 null,不编)。
+      batchSelfRun: verdict.batchSelfRun === true,
+      selfRunOk: verdict.selfRunOk === true,
+      blockerBeforeBatch: verdict.blockerBeforeBatch ?? null,
     })}\n`,
   )
 
@@ -505,12 +577,15 @@ if (hookFailed && commitResult.status !== 0) {
     // C 态空操作),随后**照旧交给下面的精确性校验** —— 判"该不该中止"的是 diff,不是 add 的退出码。
     const onDisk = []
     const deleted = []
-    for (const f of expectedFiles) (existsSync(join(repoRoot, normalize(f))) ? onDisk : deleted).push(f)
+    for (const f of expectedFiles)
+      (existsSync(join(repoRoot, normalize(f))) ? onDisk : deleted).push(f)
     let recovered = true
-    if (onDisk.length) recovered = gitStep(['add', '-A', '--', ...onDisk], 'git add (retry: 在场文件)').status === 0
+    if (onDisk.length)
+      recovered = gitStep(['add', '-A', '--', ...onDisk], 'git add (retry: 在场文件)').status === 0
     if (deleted.length && recovered)
       recovered =
-        gitStep(['rm', '--cached', '--ignore-unmatch', '--', ...deleted], 'git add (retry: 删除态)').status === 0
+        gitStep(['rm', '--cached', '--ignore-unmatch', '--', ...deleted], 'git add (retry: 删除态)')
+          .status === 0
     if (!recovered) {
       log('err', `重新暂存失败: ${reAdd.stderr}`)
       process.exit(1)
