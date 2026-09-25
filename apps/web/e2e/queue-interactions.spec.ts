@@ -143,10 +143,15 @@ async function mockConversation(page: Page): Promise<void> {
 /** 流式补答(/side 队列在流结束后被自动消费一条)走 POST /api/best-of-n/run;计数供断言。 */
 interface BestOfNCounter {
   calls: number
+  /** 每次 run 请求正文里的任务文本(= 被消费的侧问原文),按调用序记录 —— 重排后发送顺序断言的 oracle */
+  asked: string[]
 }
 async function mockBestOfN(page: Page, counter: BestOfNCounter): Promise<void> {
   await page.route('**/best-of-n/run', async (route) => {
     counter.calls += 1
+    // runBestOfN body: { messages: [{ role: 'user', content: task }], n }
+    const body = route.request().postDataJSON() as { messages?: { content?: string }[] }
+    counter.asked.push(body.messages?.[0]?.content ?? '')
     const candidate = {
       candidate_id: 1,
       content: SIDE_ANSWER,
@@ -273,7 +278,7 @@ async function openStreamWithSideQueue(
 
 test.describe('D38 队列语义五动词(排队侧问交互条)', () => {
   test('重排:流式中 ↑ 被拒且顺序不动;流结束后 ↑↓ 键盘重排逐位生效', async ({ adminPage: page }) => {
-    const bestOfN: BestOfNCounter = { calls: 0 }
+    const bestOfN: BestOfNCounter = { calls: 0, asked: [] }
     await mockConversation(page)
     await mockBestOfN(page, bestOfN)
     const held = await mockHeldStream(page)
@@ -314,11 +319,30 @@ test.describe('D38 队列语义五动词(排队侧问交互条)', () => {
     await expect
       .poll(() => queueSnapshot(page).then((s) => s.map((x) => x.id)))
       .toEqual([before[0].id, before[1].id])
+
+    // —— 重排后发送顺序断言(验收口径):把 丙 提到队首,触发第二轮主流;流结束
+    //    自动补答消费新队首 丙(best-of-n 请求正文 = 被消费侧问原文),而非入队最早的 乙。
+    await page
+      .locator(`[data-queue-op="reorderHandle"][data-item-id="${before[1].id}"]`)
+      .press('ArrowUp')
+    await expect
+      .poll(() => queueSnapshot(page).then((s) => s.map((x) => x.id)))
+      .toEqual([before[1].id, before[0].id])
+    const ta2 = asideTextarea(page).first()
+    await ta2.fill('E2E D38:第二轮主消息(验证重排后消费顺序)')
+    await ta2.press('Enter')
+    // 第二轮流结束 ⇒ 恰好补答一条(每轮流结束最多补答一条,W27 同节奏)
+    await expect.poll(() => bestOfN.calls, { timeout: 30_000 }).toBe(2)
+    expect(bestOfN.asked[1]).toBe('侧问丙')
+    await expect(queuedItems(page)).toHaveCount(1)
+    await expect
+      .poll(() => queueSnapshot(page).then((s) => s.map((x) => x.text)))
+      .toEqual(['侧问乙'])
     held.release()
   })
 
   test('撤回:项数 −1 且剩余项 id 序列正确', async ({ adminPage: page }) => {
-    const bestOfN: BestOfNCounter = { calls: 0 }
+    const bestOfN: BestOfNCounter = { calls: 0, asked: [] }
     await mockConversation(page)
     await mockBestOfN(page, bestOfN)
     const held = await mockHeldStream(page)
@@ -337,7 +361,7 @@ test.describe('D38 队列语义五动词(排队侧问交互条)', () => {
   })
 
   test('编辑:改后文本落位同一项;空文本被拒不产生空项', async ({ adminPage: page }) => {
-    const bestOfN: BestOfNCounter = { calls: 0 }
+    const bestOfN: BestOfNCounter = { calls: 0, asked: [] }
     await mockConversation(page)
     await mockBestOfN(page, bestOfN)
     const held = await mockHeldStream(page)
@@ -375,7 +399,7 @@ test.describe('D38 队列语义五动词(排队侧问交互条)', () => {
   test('打断并执行:宿主恒不支持插话 ⇒ 显式渲染被拒且点击绝不中止流', async ({
     adminPage: page,
   }) => {
-    const bestOfN: BestOfNCounter = { calls: 0 }
+    const bestOfN: BestOfNCounter = { calls: 0, asked: [] }
     await mockConversation(page)
     await mockBestOfN(page, bestOfN)
     const held = await mockHeldStream(page)
@@ -415,7 +439,7 @@ test.describe('D38 队列语义五动词(排队侧问交互条)', () => {
   test('模式切换:queue↔steer 控件状态正确,steer 遇不支持插话诚实渲染降级句', async ({
     adminPage: page,
   }) => {
-    const bestOfN: BestOfNCounter = { calls: 0 }
+    const bestOfN: BestOfNCounter = { calls: 0, asked: [] }
     await mockConversation(page)
     await mockBestOfN(page, bestOfN)
     const held = await mockHeldStream(page)

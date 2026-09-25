@@ -454,5 +454,88 @@ describe('useChatStore', () => {
       expect(useChatStore.getState().shiftSideQuestion('conv-none')).toBeNull()
     })
   })
+
+  // D38 队列语义完整交互(2026-09-24 立):四动作 + 模式偏好的 store 层契约。
+  // 渲染层许可门在 queue-interaction-bar.test.tsx;这里只断言幂等状态变更与
+  // 「重排后发送顺序」—— 消费路径(shiftSideQuestion / interruptAndRun)读到的是重排后的顺序,
+  // 消费点本身(message-input 流结束 effect)一行不动。
+  describe('D38 队列四动作与模式偏好', () => {
+    beforeEach(() => {
+      // 本组自持隔离:D28 组共用 conv-1 桶,且 sideQueueByConversation 持久化跨用例存留
+      useChatStore.setState({ sideQueueByConversation: {}, followUpQueueMode: 'queue' })
+    })
+    const textsOf = (conv: string) =>
+      useChatStore.getState().sideQueueByConversation[conv]?.map((q) => q.text)
+
+    it('requeue 重排后,消费按新顺序取队首 —— 发送顺序断言', () => {
+      useChatStore.getState().enqueueSideQuestion('conv-1', '甲')
+      useChatStore.getState().enqueueSideQuestion('conv-1', '乙')
+      useChatStore.getState().enqueueSideQuestion('conv-1', '丙')
+      // 尾位提到队首:显示顺序 [丙, 甲, 乙]
+      useChatStore.getState().requeue('conv-1', 2, 0)
+      expect(textsOf('conv-1')).toEqual(['丙', '甲', '乙'])
+      // 流结束自动补答消费的是新队首丙,而不是入队最早的甲
+      const head = useChatStore.getState().shiftSideQuestion('conv-1')
+      expect(head?.text).toBe('丙')
+      expect(textsOf('conv-1')).toEqual(['甲', '乙'])
+    })
+
+    it('requeue 越界 / 同位 / 非整数 / 未知会话一律 no-op', () => {
+      useChatStore.getState().enqueueSideQuestion('conv-1', '唯一')
+      const before = useChatStore.getState().sideQueueByConversation['conv-1']
+      useChatStore.getState().requeue('conv-1', 0, 0) // 同位
+      useChatStore.getState().requeue('conv-1', 0, 5) // 越界
+      useChatStore.getState().requeue('conv-1', -1, 0) // 负索引
+      useChatStore.getState().requeue('conv-1', 0.5, 1) // 非整数
+      useChatStore.getState().requeue('conv-none', 0, 1) // 未知会话
+      expect(useChatStore.getState().sideQueueByConversation['conv-1']).toEqual(before)
+    })
+
+    it('removeQueued 按 id 移除;未知 id no-op;删空删键', () => {
+      useChatStore.getState().enqueueSideQuestion('conv-1', '第一条')
+      useChatStore.getState().enqueueSideQuestion('conv-1', '第二条')
+      const ids = useChatStore.getState().sideQueueByConversation['conv-1']!.map((q) => q.id)
+      useChatStore.getState().removeQueued('conv-1', 'not-exist')
+      expect(textsOf('conv-1')).toEqual(['第一条', '第二条'])
+      useChatStore.getState().removeQueued('conv-1', ids[0]!)
+      expect(textsOf('conv-1')).toEqual(['第二条'])
+      useChatStore.getState().removeQueued('conv-1', ids[1]!)
+      expect(useChatStore.getState().sideQueueByConversation['conv-1']).toBeUndefined()
+    })
+
+    it('editQueued 只改文本不动元数据;trim;空文本 / 未知 id no-op', () => {
+      useChatStore.getState().enqueueSideQuestion('conv-1', '原始')
+      const item = useChatStore.getState().sideQueueByConversation['conv-1']![0]!
+      useChatStore.getState().editQueued('conv-1', item.id, '  改后  ')
+      const after = useChatStore.getState().sideQueueByConversation['conv-1']![0]!
+      expect(after.text).toBe('改后')
+      expect(after.createdAt).toBe(item.createdAt)
+      useChatStore.getState().editQueued('conv-1', item.id, '   ')
+      expect(textsOf('conv-1')).toEqual(['改后'])
+      useChatStore.getState().editQueued('conv-1', 'not-exist', 'x')
+      expect(textsOf('conv-1')).toEqual(['改后'])
+    })
+
+    it('interruptAndRun 返回队首并摘除(消费语义同 shift);空桶 null', () => {
+      useChatStore.getState().enqueueSideQuestion('conv-1', '队首')
+      useChatStore.getState().enqueueSideQuestion('conv-1', '队尾')
+      const head = useChatStore.getState().interruptAndRun('conv-1')
+      expect(head?.text).toBe('队首')
+      expect(textsOf('conv-1')).toEqual(['队尾'])
+      useChatStore.getState().interruptAndRun('conv-1')
+      useChatStore.getState().interruptAndRun('conv-1')
+      expect(useChatStore.getState().shiftSideQuestion('conv-1')).toBeNull()
+    })
+
+    it('setFollowUpQueueMode 切换生效;同值 no-op(状态引用不变)', () => {
+      useChatStore.getState().setFollowUpQueueMode('steer')
+      expect(useChatStore.getState().followUpQueueMode).toBe('steer')
+      const before = useChatStore.getState()
+      useChatStore.getState().setFollowUpQueueMode('steer')
+      expect(useChatStore.getState()).toBe(before)
+      useChatStore.getState().setFollowUpQueueMode('queue')
+      expect(useChatStore.getState().followUpQueueMode).toBe('queue')
+    })
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
