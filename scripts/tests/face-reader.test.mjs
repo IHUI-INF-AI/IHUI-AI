@@ -236,19 +236,20 @@ test('catBatchOids:按行对齐回 oid,且不得像 catBatchCheck 那样把非 h
  * 基线 = 当次实测真值(扫 scripts/ 生产文件)。调高它必须先在此说明理由。
  * ⚠️ 这些数会随收口下降;下降时测试只提示不拦停,请在同一票里把基线一并下调。
  * 历史:
- *  · 型 A:09-25 首量 80 → 修尺子(补 shell 串式与 spawnSync 两型)后真值 82 → **83**。
- *    09-25 09:25 的并行提交 `95447008f73` 给 `scripts/check-rn-global-css-sync.mjs` 新增了一处
- *    `execFileSync('git', …)`(该文件此前没有),这是在 09:11 定基线之后长出来的。
- *    **本票不代它收口**(那是别人的门与别人的镜像测试),也不把数字压回去装没看见 ——
- *    已按台账 O63 把这一处的一行修法(gitShow → 层 gitRaw,Catch 折 null 的语义不变)记给持有人。
- *    本批迁的 6 道门用的都是型 B(常量),所以 A 不因本批下降 —— 这恰好证明"只盯 A 的尺子会以为收口没效果"。
+ *  · 型 A:09-25 首量 80 → 修尺子(补 shell 串式与 spawnSync 两型)后真值 **82**。
+ *    中途涨到 83 又回到 82:涨的那处是 09:25 并行提交 `95447008f73` 给
+ *    `scripts/check-rn-global-css-sync.mjs` 新增的 `execFileSync('git', …)`(该文件此前没有),
+ *    而它涨在 09:11 定基线**之后**。本票没有把数字压回去装没看见,而是当场把它收进了层
+ *    (`gitShow` → 层 `gitRaw`,try/catch 折 null 的语义一字不动)⇒ 现值 82。
+ *    这一涨一收正是这条棘轮存在的理由:收口成一层之后,新增一处裸派生从"没人看得见"变成"红一道门"。
+ *    另:本批迁的 6 道门用的都是型 B(常量),所以 A 不因那一批下降 —— 这恰好证明"只盯 A 的尺子会以为收口没效果"。
  *  · 型 B:本票首量 10 → 加"必须被当过派生首参"的第二道锚后 9 → **8**(第二枚提交把守门 84
  *    那句 `const GIT = process.env.IHUI_GIT_BIN || 'git'` 收进了层)。`lib/gitdir.mjs` 那处 'git' 是
  *    目录名、不是二进制 —— 第一版尺子被它骗过,所以才有第二道锚。不含本层自己那处**刻意**的最后一档兜底。
  *  · 型 C:首量 9 → 第一批 6 道门收口后 3 → **1**(第二枚再收 103 / 84)。
  *    余下唯一一处是 `scripts/check-cross-end-tokens.mjs`(守门 93),不在本票派单范围内。
  */
-const BARE_GIT_BASELINE = 83
+const BARE_GIT_BASELINE = 82
 const PATH_BOUND_GIT_BASELINE = 8
 const SELF_BATCH_BASELINE = 1
 
