@@ -3214,6 +3214,26 @@ const checks = [
     ]
   },
 
+  {
+    id: '122',
+    label: '💾 文件写盘安全对账(blocking,工具写文件必须走原子写出口;裸写盘棘轮)',
+    script: 'check-file-write-safety.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_FILE_WRITE_SAFETY',
+    stagedTriggers: 'apps/cli/src/tools/',
+    onFailHint: [
+      '',
+      '  💡 工具层写文件必须经 scripts/lib 的原子写出口(同目录临时文件 + rename + Windows',
+      '  EPERM/ENOENT 重试 + 不跟随重解析点 + 读后写 stale 校验)。裸 writeFileSync 的风险:',
+      '  多会话共享工作区里两个写者交错会静默覆盖;§26 记过递归操作穿透 junction 清空真实目标。',
+      '  存量走棘轮(锚点=该文件 HEAD 自身计数);新增即红。',
+      '  单独复验:node scripts/check-file-write-safety.mjs',
+      '  自检:--self-test(24 例) 镜像:node --test scripts/tests/check-file-write-safety.test.mjs(13 例)',
+      '',
+    ]
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
