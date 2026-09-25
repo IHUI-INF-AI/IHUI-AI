@@ -3221,7 +3221,7 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_FILE_WRITE_SAFETY',
-    stagedTriggers: 'apps/cli/src/tools/',
+    stagedTriggers: ['apps/cli/src/tools/'],
     onFailHint: [
       '',
       '  💡 工具层写文件必须经 scripts/lib 的原子写出口(同目录临时文件 + rename + Windows',
@@ -3241,7 +3241,7 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_TOOL_EXEC_BUDGET',
-    stagedTriggers: 'apps/cli/src/tools/',
+    stagedTriggers: ['apps/cli/src/tools/'],
     onFailHint: [
       '',
       '  💡 钉"工具执行无界"三源:ToolContext 无 signal(取消无通道)/执行点无超时/exec 无 maxBuffer。',
