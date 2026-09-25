@@ -84,6 +84,9 @@ function fixture() {
     mkdirSync(join(dir, 'scripts', 'lib'), { recursive: true })
     copyFileSync(new URL(`../${SCRIPT}`, import.meta.url), join(dir, 'scripts', SCRIPT))
     copyFileSync(new URL('../lib/gitdir.mjs', import.meta.url), join(dir, 'scripts', 'lib', 'gitdir.mjs'))
+    // 2026-09-25:本门取材层改为复用 scripts/lib/face-reader.mjs(它自身只依赖 node 内建 + gitdir.mjs),
+    // 夹具必须一起复制,否则临时仓里的门脚本 Cannot find module —— e2e 四条会全红。
+    copyFileSync(new URL('../lib/face-reader.mjs', import.meta.url), join(dir, 'scripts', 'lib', 'face-reader.mjs'))
     w('packages/shared/src/chat/error-catalog.ts', CATALOG)
     w('packages/i18n/messages/web/zh-CN.json', MESSAGES)
     w('packages/api-client/src/client.ts', "const e = { errorCode: 'TIMEOUT' }\n")
