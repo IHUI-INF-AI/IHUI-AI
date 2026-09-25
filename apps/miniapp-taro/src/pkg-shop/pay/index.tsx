@@ -275,7 +275,7 @@ export default function PayIndex() {
             </View>
             <View className={`${radioBase}${payMethod === 'wechat' ? ` ${radioOn}` : ''}`}>
               {payMethod === 'wechat' && (
-                <LineIcon name="check" size={24} color="var(--color-primary-foreground)" />
+                <LineIcon name="check" size={24} color="var(--color-cta-foreground)" />
               )}
             </View>
           </View>
@@ -293,7 +293,7 @@ export default function PayIndex() {
             </View>
             <View className={`${radioBase}${payMethod === 'alipay' ? ` ${radioOn}` : ''}`}>
               {payMethod === 'alipay' && (
-                <LineIcon name="check" size={24} color="var(--color-primary-foreground)" />
+                <LineIcon name="check" size={24} color="var(--color-cta-foreground)" />
               )}
             </View>
           </View>
@@ -328,7 +328,7 @@ export default function PayIndex() {
             ) : (
               <View className={`${radioBase}${payMethod === 'balance' ? ` ${radioOn}` : ''}`}>
                 {payMethod === 'balance' && (
-                  <LineIcon name="check" size={24} color="var(--color-primary-foreground)" />
+                  <LineIcon name="check" size={24} color="var(--color-cta-foreground)" />
                 )}
               </View>
             )}
@@ -347,7 +347,12 @@ export default function PayIndex() {
                   : tt('pay.noCoupon', '暂无可用优惠券')}
               </Text>
             )}
-            <Text className="py-coupon-arrow">›</Text>
+            <LineIcon
+              name="chevron-right"
+              size={24}
+              color="var(--color-muted-foreground)"
+              className="py-coupon-arrow"
+            />
           </View>
         </View>
 

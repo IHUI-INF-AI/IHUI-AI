@@ -41,14 +41,14 @@
 }
 
 /* 头部账户卡 — 对齐 RN balanceCard(brand 底 hero 卡:margin 10/padding 16/radius 16)
-   文字用 primary-foreground 语义对(RN 源值 surface.light 恒白在暗色 brand 白底上不可读) */
+   文字用 cta-foreground 语义对(RN 源值 surface.light 恒白在暗色 brand 白底上不可读) */
 .rc-user-card {
   display: flex;
   align-items: center;
   margin: 20rpx;
   padding: 32rpx;
   border-radius: var(--radius-2xl);
-  background: var(--color-primary);
+  background: var(--color-cta);
 }
 .rc-user-avatar {
   width: 80rpx;
@@ -74,13 +74,13 @@
 }
 .rc-user-name {
   font-size: 30rpx;
-  color: var(--color-primary-foreground);
+  color: var(--color-cta-foreground);
   font-weight: 600;
 }
 .rc-user-sub {
   margin-top: 8rpx;
   font-size: 24rpx;
-  color: var(--color-primary-foreground);
+  color: var(--color-cta-foreground);
   opacity: 0.7;
 }
 
@@ -264,10 +264,10 @@
 }
 .rc-radio--on {
   border-color: var(--color-primary);
-  background: var(--color-primary);
+  background: var(--color-cta);
 }
 .rc-radio-mark {
-  color: var(--color-primary-foreground);
+  color: var(--color-cta-foreground);
   font-size: 24rpx;
   font-weight: 700;
   line-height: 1;
