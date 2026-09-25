@@ -33,6 +33,14 @@
  *    旧基线时它照样绿(实测 HEAD 曾因此积累 1179 处),而工作区滞后的旧草稿又会被它误记成本仓债务。
  *    scripts/radius-single-source-baseline.json 保留为人工兜底(现应为空)。
  *
+ * 取材纪律(2026-09-26 收口,门 118):判定面的 **blob 正文**一律经
+ *   `scripts/lib/face-reader.mjs` 的 `catBatch` **一次批量预取**再逐路径读 map ——
+ *   与守门 36/93/124/13c 同口径。兜住五件各门自己写必错的事(git 绝对路径、batch 的
+ *   stdio[0]=pipe、一次派生读一批而非 fork 风暴、junction 穿根比较、maxBuffer 给足)。
+ *   只做**路径枚举/存在性**的调用(`ls-files` / `diff --name-only` / `rev-parse --show-toplevel`)
+ *   不读 blob、层无对应出口,**留原样** —— 把它们算成"读内容"并硬改是本仓登记过的假阳型。
+ *   语义未动:全量档仍判 HEAD blob(棘轮锚点也恒取 HEAD),--staged/--files 仍取工作树。
+ *
  * 用法:
  *   node scripts/check-radius-single-source.mjs              # 全量审计(基线外新增即红)
  *   node scripts/check-radius-single-source.mjs --staged     # pre-commit:只扫暂存文件
@@ -47,6 +55,8 @@ import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs'
 import { join, relative, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execFileSync } from 'node:child_process'
+
+import { catBatch, Undetermined } from './lib/face-reader.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const BASELINE_FILE = join(ROOT, 'scripts/radius-single-source-baseline.json')
@@ -250,6 +260,36 @@ export function splitFresh(byFile, tolOf) {
     })
   }
   return fresh
+}
+
+/**
+ * 预取面访问器(2026-09-26 取材收口):只认「本批已预取的规格」。
+ * 未预取的规格**抛** `Undetermined`,而不是偷偷再派生一次 git —— 层纪律「先 prefetch 再 read」
+ * 的意义就在于:偷偷补派生会把逐文件 fork 风暴的退化掩盖成正常(face-reader 头注原话)。
+ * 值本身可为 null(该 HEAD 里确实没有这个文件),由调用方决定"无此文件"的业务含义。
+ */
+export function makeBlobAccessor(map) {
+  return (spec) => {
+    if (!map.has(spec)) throw new Undetermined(`未预取的规格:${spec}(先 prefetch 再 read,禁止补一次派生)`)
+    return map.get(spec)
+  }
+}
+
+/**
+ * 每文件扫描内容的取材分支(纯函数,自检注入假 reader 造「三面异形」现场):
+ *  - 全量档(auditHead)且该文件磁盘≠HEAD ⇒ 用预取的 **HEAD blob**(与旧逐文件 git 读同面,
+ *    判据未动 —— 滞后的工作树草稿不得被记成本仓债务);
+ *  - 其余 ⇒ 工作树(本门 --staged/--files 的既有约定,同 lint-staged 形态)。
+ * 工作树读失败回 null(旧形态 = 抛错被外层 catch 后 continue),调用方跳过该文件。
+ * blobOf 对未预取规格的抛**不被吞**:那是计划缺陷,必须大声失败而不是表现为"少扫一个文件"。
+ */
+export function pickScanSource(rel, { auditHead, diverged, blobOf, readWorktree }) {
+  if (auditHead && diverged && diverged.has(rel)) return blobOf(`HEAD:${rel}`) ?? null
+  try {
+    return readWorktree(rel)
+  } catch {
+    return null
+  }
 }
 
 export function scanText(rel, text, table) {
@@ -477,6 +517,80 @@ async function selfTest() {
     console.log(ok ? '✅' : '❌', r.name, ok ? '' : `→ 期望 ${r.want},实际 ${got}`)
     if (!ok) fail++
   }
+  // 取材迁移(2026-09-26,门 118)的构造面证明:用**注入的假 blob 面**造「三面异形」现场
+  // (不改真仓、不碰台账、不依赖仓库瞬时状态 —— §22c:判据是行为分支,必须构造证明)。
+  // 钉住两条:锚点数字只认 HEAD blob(滞后的磁盘/索引不得参与容忍上限),且全量档扫描内容
+  // 同取 HEAD blob;反向对照各一条,防止这两支退化成恒真式。
+  const FACE_REL = 'apps/web/src/face-probe.tsx'
+  const HEAD_CLEAN = 'const s = { a: { borderRadius: 0 } }\n'
+  const DISK_DIRTY =
+    'const s = { a: { borderRadius: 8 } }\nconst t = { a: { borderRadius: 8 } }\nconst u = { a: { borderRadius: 8 } }\n'
+  const faceProofs = []
+  {
+    const dirtyCounts = scanText(FACE_REL, DISK_DIRTY, table).length
+    const byFileF = new Map([[FACE_REL, scanText(FACE_REL, DISK_DIRTY, table)]])
+    const accHead0 = makeBlobAccessor(new Map([['HEAD:' + FACE_REL, HEAD_CLEAN]]))
+    const tolFromHead = (rel) => {
+      const b = accHead0(`HEAD:${rel}`)
+      return b === null ? 0 : scanText(rel, b, table).length
+    }
+    const freshHead0 = splitFresh(byFileF, tolFromHead).length
+    faceProofs.push({
+      name: `取材:磁盘 3 处而 HEAD blob 0 处时,--staged 档锚点必须取 HEAD(新增应 = ${dirtyCounts},绝不是 0)`,
+      ok: dirtyCounts === 3 && freshHead0 === 3,
+      detail: `dirty=${dirtyCounts}, fresh=${freshHead0}`,
+    })
+    // 反向对照:HEAD blob 换成同一份脏内容 ⇒ 同一输入新增 0(证明上一条不是恒真式)
+    const accHead3 = makeBlobAccessor(new Map([['HEAD:' + FACE_REL, DISK_DIRTY]]))
+    const freshHead3 = splitFresh(byFileF, (rel) => {
+      const b = accHead3(`HEAD:${rel}`)
+      return b === null ? 0 : scanText(rel, b, table).length
+    }).length
+    faceProofs.push({
+      name: '取材反向对照:HEAD blob 自身 3 处 ⇒ 同一待提交内容新增 0(锚点跟 HEAD 走,不替老债背红)',
+      ok: freshHead3 === 0,
+      detail: `fresh=${freshHead3}`,
+    })
+    // 未预取的规格必须抛(先 prefetch 再 read,禁止补一次派生)
+    let threw = false
+    try {
+      accHead0('HEAD:apps/web/src/never-prefetched.tsx')
+    } catch {
+      threw = true
+    }
+    faceProofs.push({
+      name: '取材:未预取规格必须抛(不得偷偷补派生掩盖退化)',
+      ok: threw,
+      detail: `threw=${threw}`,
+    })
+    // 全量档异形文件的**扫描内容**取 HEAD blob,而非工作树;--staged 档仍取工作树(既有约定)
+    const pickAudit = pickScanSource(FACE_REL, {
+      auditHead: true,
+      diverged: new Set([FACE_REL]),
+      blobOf: accHead0,
+      readWorktree: () => DISK_DIRTY,
+    })
+    const pickStaged = pickScanSource(FACE_REL, {
+      auditHead: false,
+      diverged: null,
+      blobOf: accHead0,
+      readWorktree: () => DISK_DIRTY,
+    })
+    faceProofs.push({
+      name: '取材:auditHead 档异形文件扫描内容 = HEAD blob(工作树再脏也不参与);取不到 ⇒ null 跳过',
+      ok: pickAudit === HEAD_CLEAN,
+      detail: JSON.stringify({ pickAudit: pickAudit && pickAudit.slice(0, 24) }),
+    })
+    faceProofs.push({
+      name: '取材:--staged/--files 档内容仍取工作树(迁移未被顺手改成 HEAD 面,判据语义未动)',
+      ok: pickStaged === DISK_DIRTY,
+      detail: JSON.stringify({ pickStaged: pickStaged && pickStaged.slice(0, 24) }),
+    })
+    for (const p of faceProofs) {
+      console.log(p.ok ? '✅' : '❌', p.name, p.ok ? '' : `→ ${p.detail}`)
+      if (!p.ok) fail++
+    }
+  }
   // A 表对账:CSS 值漂移必须识别
   const css = '--radius: 0.5rem;\n  --radius-xs: 0.125rem;\n  --radius-sm: 0.3rem;\n'
   const map = readCssRadius(css)
@@ -507,7 +621,7 @@ async function selfTest() {
     covRes.exempt.every((e) => !e.file.includes('newui'))
   console.log(covOk ? '✅' : '❌', 'C 判据:新端未归类必红 / 已声明范围外只计数 / 已覆盖目录交 B', covOk ? '' : JSON.stringify(covRes))
   if (!covOk) fail++
-  const total = cases.length + 3 + ratchet.length
+  const total = cases.length + 3 + ratchet.length + faceProofs.length
   console.log(fail ? `\n${fail}/${total} 例失败` : `\n全部 ${total} 例通过`)
   process.exit(fail ? 1 : 0)
 }
@@ -574,26 +688,43 @@ async function main() {
       return 2
     }
   }
+  // ── 取材迁移(2026-09-26,门 118 纪律)────────────────────────────────
+  // 这一段起所有 **blob 正文**经共用层 `catBatch` **一次批量预取**,再逐路径读 map。
+  // 旧形态是本文件自己逐文件派生 git 读内容(锚点一处 + 全量档异形文件一处),与本仓
+  // 36/93/124 收口前同型:逐路径派生 = fork 风暴,且裸 'git' 在 GUI 宿主/服务账户的
+  // PATH 下解析不通(§5b"git 调用不得依赖环境")。上面那批只**枚举路径/问存在性**的调用
+  // (ls-files / diff --name-only / rev-parse)不读 blob、层无对应出口,刻意留原样。
+  // 三面各归各位:全量档取 HEAD blob;--staged/--files 取工作树(既有约定,未被迁移顺手改掉)。
+  const headSpecs = []
+  if (auditHead) {
+    if (diverged) for (const rel of files) if (diverged.has(rel)) headSpecs.push(`HEAD:${rel}`)
+  } else {
+    for (const rel of files) headSpecs.push(`HEAD:${rel}`)
+  }
+  let headBlobs
+  try {
+    headBlobs = catBatch(ROOT, headSpecs)
+  } catch (e) {
+    console.error(
+      `❌ [radius-guard] 无法判定:HEAD blob 一次批量预取失败(${String(e?.message || e).split('\n')[0].slice(0, 180)})—— 判据未能执行,不记绿`,
+    )
+    return 2
+  }
+  const blobOf = makeBlobAccessor(headBlobs)
+  const readWorktree = (rel) => readFileSync(join(ROOT, rel), 'utf8')
   const headCounts = new Map()
   const headCountOf = (rel) => {
     if (headCounts.has(rel)) return headCounts.get(rel)
-    let n = 0
-    try {
-      n = scanText(rel, gitRo(['show', `HEAD:${rel}`]), table).length
-    } catch {
-      n = 0 // HEAD 无此文件(本次新增)→ 上限 0,任何绕档都算新增
-    }
+    const blob = blobOf(`HEAD:${rel}`)
+    // null = HEAD 里没有该文件(本次新增)→ 上限 0,任何绕档都算新增(与旧 catch 分支同义)
+    const n = blob === null || blob === undefined ? 0 : scanText(rel, blob, table).length
     headCounts.set(rel, n)
     return n
   }
   const byFile = new Map()
   for (const rel of files) {
-    let text
-    try {
-      text = auditHead && diverged && diverged.has(rel) ? gitRo(['show', `HEAD:${rel}`]) : readFileSync(join(ROOT, rel), 'utf8')
-    } catch {
-      continue // HEAD 里已无此文件(工作区滞后或删除)→ 不属于本仓现状
-    }
+    const text = pickScanSource(rel, { auditHead, diverged, blobOf, readWorktree })
+    if (text === null) continue // 该面取不到(HEAD 里已无此文件/工作区删除)→ 不属于本仓现状
     const vs = scanText(rel, text, table)
     if (!vs.length) continue
     byFile.set(rel, vs)
@@ -656,7 +787,9 @@ async function main() {
     if (fresh.length > 40) console.error(`   ...另有 ${fresh.length - 40} 处`)
     //  HEAD 已迁移而待提交内容仍有违规 = 草稿落在迁移前的旧基线上(共享工作区滞后),
     //  不是"你写错了档位",正解是把改动重做到 HEAD 版本之上。
-    const staleBase = [...byFile.keys()].filter((f) => headCountOf(f) === 0 && (isStaged || FILES_MODE))
+    //  2026-09-26 取材收口:全量档下旧写法仍会逐文件去读 HEAD blob,而 `(isStaged||FILES_MODE)`
+    //  为假时结果恒为空 ⇒ 判据一字未动,只把短路提到读之前(全量档不再为该目的派生任何 blob)。
+    const staleBase = isStaged || FILES_MODE ? [...byFile.keys()].filter((f) => headCountOf(f) === 0) : []
     if (staleBase.length) {
       console.error(`\n   ⚠️ 其中这些文件的 **HEAD 版本 0 违规**、待提交内容却有违规 → 你的草稿基于旧基线(圆角迁移已落在 HEAD):`)
       for (const f of staleBase.slice(0, 10)) console.error(`      - ${f}  (对照: git show HEAD:${f})`)

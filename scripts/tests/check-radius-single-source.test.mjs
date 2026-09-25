@@ -9,7 +9,7 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { join, dirname } from 'node:path'
-import { readFileSync, writeFileSync, mkdirSync, copyFileSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
@@ -53,8 +53,17 @@ test('tailwind preset 不得重新内联档位字面量(必须引用 RADIUS_REM)
 
 test('守门 77 的棘轮锚点必须是 HEAD 自身而不是静态清单(装车证明)', () => {
   const src = readFileSync(GUARD, 'utf8')
-  //  上限来源:该文件 HEAD 版本的违规数
-  assert.match(src, /gitRo\(\['show', `HEAD:\$\{rel\}`\]\)/, '锚点必须实读 HEAD blob')
+  //  上限来源:该文件 HEAD 版本的违规数。
+  //  2026-09-26 取材收口后,这条"实读 HEAD blob"由共用层的一次批量预取兑现(face-reader 纪律):
+  //  锁的方向随之反转 —— 必须出现层的读取入口 `catBatch(`,而旧的逐文件派生形态不得复活
+  //  (复活 = fork 风暴 + 裸 'git' 在服务账户 PATH 下静默失效,§5b/门 118 同型)。
+  assert.match(src, /catBatch\(/, 'HEAD blob 必须经 scripts/lib/face-reader.mjs 的批量预取读取')
+  assert.match(
+    src,
+    /from '\.\/lib\/face-reader\.mjs'/,
+    '必须真的 import 取材层(只写 catBatch 字样不引层 = 尺子失效)',
+  )
+  assert.doesNotMatch(src, /gitRo\(\['show'/, '锚点不得回到逐文件派生 git 读内容(取材纪律退化)')
   assert.match(src, /const tolOf = \(rel\) => Math\.max\(/, 'tolOf 必须存在并被使用')
   assert.match(src, /isStaged \|\| FILES_MODE \? headCountOf\(rel\) : 0/)
   //  全量审计判 HEAD 内容:否则并行会话滞后的旧草稿会被记成本仓债务(误红 → --no-verify 常态化)
@@ -76,6 +85,17 @@ test('守门 77 的棘轮锚点必须是 HEAD 自身而不是静态清单(装车
 // 棘轮过滤把候选整批滤成 0,判据一条没跑却打印「✅ 通过」exit 0。
 
 const GUARD_REL = 'scripts/check-radius-single-source.mjs'
+/**
+ * 2026-09-26 取材收口:门本体 import 了共用取材层 —— 夹具只复制门一个文件会当场
+ * ERR_MODULE_NOT_FOUND(第一版四条端到端全被这一条咬红)。**门依赖层**这件事因此
+ * 由夹具形态本身证明:缺依赖链就跑不起来,而不是"引了层却没用它"。
+ */
+const GUARD_DEPS = ['scripts/lib/face-reader.mjs', 'scripts/lib/gitdir.mjs']
+function copyGuardWithDeps(base) {
+  const g = writeAt(base, GUARD_REL, readFileSync(GUARD, 'utf8'))
+  for (const d of GUARD_DEPS) writeAt(base, d, readFileSync(join(ROOT, ...d.split('/')), 'utf8'))
+  return g
+}
 
 function git(dir, args) {
   return execFileSync('git', ['-c', 'safe.directory=*', ...args], { cwd: dir, encoding: 'utf8', windowsHide: true, timeout: 60000 })
@@ -104,7 +124,7 @@ function runGuard(guardPath) {
 test('无 git 环境(任何仓之外)⇒ exit 2 且输出含「无法判定」,不得记绿', () => {
   const base = mkScratch('r77-nogit')
   try {
-    const g = writeAt(base, GUARD_REL, readFileSync(GUARD, 'utf8'))
+    const g = copyGuardWithDeps(base)
     const r = runGuard(g)
     assert.equal(r.status, 2, `期望 exit 2(无法判定),实际 ${r.status}\nstdout:${r.stdout}\nstderr:${r.stderr}`)
     assert.match(r.stderr, /无法判定/)
@@ -125,7 +145,7 @@ test('隔离检出(无 .git 而祖先目录是 git 仓 ⇒ ls-files 假空集而
     git(base, ['-c', 'user.name=radius-guard-fixture', '-c', 'user.email=guard-fixture@invalid', 'commit', '-m', 'outer'])
     const iso = join(base, 'iso-checkout')
     mkdirSync(iso, { recursive: true })
-    const g = writeAt(iso, GUARD_REL, readFileSync(GUARD, 'utf8'))
+    const g = copyGuardWithDeps(iso)
     const r = runGuard(g)
     assert.equal(r.status, 2, `逃逸到外层仓的假空清单必须判"无法判定"(exit 2)而非记绿,实际 ${r.status}\nstdout:${r.stdout}\nstderr:${r.stderr}`)
     assert.match(r.stderr, /无法判定/)
@@ -138,7 +158,7 @@ test('隔离检出(无 .git 而祖先目录是 git 仓 ⇒ ls-files 假空集而
 test('判据真的在跑:有 git 的真仓夹具、0 违规 ⇒ exit 0 且扫描计数非 0(区分"执行了、命中 0")', () => {
   const base = mkScratch('r77-green')
   try {
-    copyFileSync(GUARD, writeAt(base, GUARD_REL, 'placeholder'))
+    copyGuardWithDeps(base)
     mkFixtureRepo(base, { withViolation: false })
     const r = runGuard(join(base, ...GUARD_REL.split('/')))
     assert.equal(r.status, 0, `夹具应判绿\nstdout:${r.stdout}\nstderr:${r.stderr}`)
@@ -152,7 +172,7 @@ test('判据真的在跑:有 git 的真仓夹具、0 违规 ⇒ exit 0 且扫描
 test('注入一处绕档取用(borderRadius: 8 数字字面量)⇒ exit 1 并点名 B1(阳性对照)', () => {
   const base = mkScratch('r77-red')
   try {
-    copyFileSync(GUARD, writeAt(base, GUARD_REL, 'placeholder'))
+    copyGuardWithDeps(base)
     mkFixtureRepo(base, { withViolation: true })
     const r = runGuard(join(base, ...GUARD_REL.split('/')))
     assert.equal(r.status, 1, `注入的绕档必须判红,实际 ${r.status}\nstdout:${r.stdout}\nstderr:${r.stderr}`)
