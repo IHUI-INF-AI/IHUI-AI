@@ -9817,4 +9817,5 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   - **仍 open 的一条(如实登记,不是漏项)**:生产者侧字段缺口 —— `matchType` 由本端按上游默认档 `"always"` 落(与 `RuleCreateBody.matchType` 默认一致,`oneOf` 只认四档不猜第五档),`behaviorCount` 上游根本不回,web 已改可选并在缺失时不渲染该句。**真要显示条数得动 `rules_engine.py` 的返回形状**,那是另一件事。
   - **本票的验证边界(不得读成"页面已修好")**:本机实测 `Get-NetTCPConnection` 对 8801-8811 零监听 ⇒ 没有真机端到端证据。本票做到的是**契约层**证明:HTTP 头/形状/降级路径由 10 例 vitest + 8 例 pytest 钉住,"Rules 页真的出数据"要在有服务的环境复跑才算闭环。
 
-
+  - **同票续做:守门 117 升 blocking(前置由本票自己达成,不是顺手改档)**。立项时它是 warn,理由写着"升 blocking 的前置 = 未对齐存量归零";本票收掉最后一个面(`app/routers/rules.py`)后 HEAD 面实测 **未对齐 0 个**,前置成立才翻档。三处必须同翻,少一处就是"账面 blocking、实际绿灯":runner `mode:'blocking'` + **`args:['--strict']`**(本门默认档只报数)+ 镜像测试 M13 改断言 blocking 且就近不得再出现 warn。
+    取证:`node scripts/check-memory-owner-binding.mjs` → "收 user_id 的端点文件 0 个 / 已对齐 0 个 / 未对齐 0 个";`node --test scripts/tests/check-memory-owner-binding.test.mjs` → **14 pass / 0 fail**;"未对齐即 exit 1"的升级路径由自检 S11 覆盖(不靠手改仓库造红)。AGENTS/README 的"刻意 warn"措辞已就地改写为升档史,并写明**降回 warn 等于重新放开新增敞口**、HEAD 面再报未对齐要先清偿而不是削判据。
