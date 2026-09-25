@@ -121,6 +121,27 @@ export function classifyMissing(headLines, wtLines, threshold = SIM_THRESHOLD) {
       verdict.set(t, 'superseded')
       continue
     }
+    /**
+     * 第三种"不是丢"的形态:**工作树那一行是 HEAD 同一行的更旧前缀**(翻勾 + 追加注记都发生在
+     * HEAD 侧)。它既不满足容器短路(旧行不是新行的超集),大改时也会掉到 Jaccard 阈值之下,
+     * 于是过去被并入 `superseded` —— 而 superseded 的语义是"别人改写了这行",这一种的语义是
+     * "我这副本落后了,提交会把这行退回旧态"。两者处置动作不同,必须分开报。
+     * 判据保守到只做**一条**、且方向唯一:剥掉勾选态后 WT 是 HEAD 的严格前缀 + 唯一候选 +
+     * HEAD 已勾而工作树未勾。任何一条不成立就退回原判据(宁可交人工,绝不把真删除洗成"旧态")。
+     */
+    if (/^- \[x\]/i.test(t)) {
+      const cands = []
+      for (let i = 0; i < localOnly.length; i++) {
+        const w = localOnly[i]
+        if (!/^- \[ \]/.test(w)) continue
+        const wb = squash(stripState(w))
+        if (wb.length >= CONTAIN_MIN && bare.length > wb.length && bare.startsWith(wb)) cands.push(w)
+      }
+      if (cands.length === 1) {
+        verdict.set(t, 'stale')
+        continue
+      }
+    }
     let best = 0
     for (const lt of localTok) {
       const s = jaccard(tt, lt)
@@ -328,6 +349,38 @@ function selfTest() {
   // ⑪ 2026-09-25 第二次被同一机制咬到:⑨ 只覆盖"正文原样 + 追加",而真实翻勾还会
   // 改行首状态(`- [ ]（进行中）` → `- [x] ✅(日期)`)。状态前缀不剥,容器通道对这一整类
   // 直接失效 —— 后果就是 `--apply` 把我刚翻勾的那行按"真丢失"插回来,当场造出双态行。
+  ck('⑰ 工作树停在旧形态(HEAD = 同一行翻勾 + 追加注记)⇒ 判 stale,与 superseded 分开', () => {
+    const old = '- [ ] 计划任务 `IHUI-C-Drive AutoMaintain` 仍未注册(注册 = 影响全机的删除动作,须用户授权);'
+    const newer =
+      '- [x] ✅(2026-09-25) 计划任务 `IHUI-C-Drive AutoMaintain` 仍未注册(注册 = 影响全机的删除动作,须用户授权);' +
+      ' 〔2026-09-25 孪生旧副本翻勾:同题已勾于 L9134〕'
+    const v = classifyMissing(['anchor', newer, 'tail'], ['anchor', old, 'tail'])
+    assert(v.get(trim(newer)) === 'stale', `应判 stale,实判 ${v.get(trim(newer))}`)
+    assert(mergeByAnchors(['anchor', newer, 'tail'], ['anchor', old, 'tail'], v).lines === 0, 'stale 不得被 --apply 插回(那会造新旧并存)')
+    return true
+  })
+  ck('⑰b 反向对照一:HEAD 行整体不见且无同形旧行 ⇒ 仍判 lost(不得被 stale 通道洗白)', () => {
+    const gone = '- [x] ✅(2026-09-25) **一整条与本机无关的登记行**,它的正文长到足以进入判定,别处不留副本'
+    const v = classifyMissing(['anchor', gone, 'tail'], ['anchor', 'tail'])
+    assert(v.get(trim(gone)) === 'lost', `真删除必须判 lost,实判 ${v.get(trim(gone))}`)
+    return true
+  })
+  ck('⑰c 反向对照二:有两条同前缀旧行 ⇒ 不猜,退回原判据(唯一性是生命线)', () => {
+    const base = '某条登记行的正文长到足以进入判据集合,并且在工作树里存在两个未翻勾的旧副本'
+    const newer = `- [x] ✅(2026-09-25) ${base} 〔追加注记,使 HEAD 侧成为工作树的严格超集〕`
+    const a = `- [ ] ${base}`
+    const b = `- [ ] ${base}`
+    const v = classifyMissing(['anchor', newer, 'tail'], ['anchor', a, b, 'tail'])
+    assert(v.get(trim(newer)) !== 'stale', `两条候选时必须退回原判据,实判 ${v.get(trim(newer))}`)
+    return true
+  })
+  ck('⑰d 反向对照三:未勾选的一直是"进行中"而不是旧态(HEAD 未翻勾 ⇒ 不进 stale 通道)', () => {
+    const head = '- [ ] 一条仍在推进的登记行,工作树里它只少了末尾一小段注记文字内容'
+    const wt = '- [ ] 一条仍在推进的登记行,工作树里它只少了末尾一小段注记'
+    const v = classifyMissing(['anchor', head, 'tail'], ['anchor', wt, 'tail'])
+    assert(v.get(trim(head)) !== 'stale', `HEAD 侧未翻勾时不得判 stale,实判 ${v.get(trim(head))}`)
+    return true
+  })
   ck('⑪ 翻勾改的是行首状态前缀:剥掉状态后正文仍逐字存活 ⇒ 判 superseded 不插回', () => {
     const held = '- [ ]（进行中） **D17(生态统一入口)**:页面已写完但缺语言包,按住'
     const flipped =
@@ -430,11 +483,12 @@ const headSet = new Set(headLines.map(trim).filter(Boolean))
 const verdict = classifyMissing(headLines, wtLines)
 const lost = [...verdict.entries()].filter(([, k]) => k === 'lost')
 const superseded = [...verdict.entries()].filter(([, k]) => k === 'superseded')
+const stale = [...verdict.entries()].filter(([, k]) => k === 'stale')
 const localOnly = wtLines.map(trim).filter((t) => t.length > 0 && !headSet.has(t))
 
 console.log(`${FILE}:HEAD 行数=${headLines.length} 工作树行数=${wtLines.length}`)
 console.log(
-  `  真丢失(需插回)= ${lost.length}   被就地改写取代(不插回)= ${superseded.length}   工作树独有(在途改写)= ${localOnly.length}`,
+  `  真丢失(需插回)= ${lost.length}   被就地改写取代(不插回)= ${superseded.length}   工作树滞后旧态(不插回,但提交会把这些行退回旧形态)= ${stale.length}   工作树独有(在途改写)= ${localOnly.length}`,
 )
 for (const [t] of lost.slice(0, 6)) console.log('   ! ' + t.slice(0, 86))
 if (lost.length > 6) console.log(`   … 另 ${lost.length - 6} 行`)
@@ -442,8 +496,28 @@ if (superseded.length) {
   console.log('  --- 判定为"被改写取代"的 HEAD 行(逐条供人工复核) ---')
   for (const [t] of superseded.slice(0, 8)) console.log('   ~ ' + t.slice(0, 78))
 }
+if (stale.length) {
+  console.log('  --- 判定为"工作树滞后旧态"的 HEAD 行(逐条供人工复核;--apply 不会动它们) ---')
+  for (const [t] of stale.slice(0, 8)) console.log('   -  ' + t.slice(0, 78))
+  if (stale.length > 8) console.log(`   … 另 ${stale.length - 8} 行`)
+}
 if (!lost.length) {
-  console.log('✅ 工作树 ⊇ HEAD,可安全提交(无需归并)')
+  /**
+   * 这里以前无条件印「✅ 工作树 ⊇ HEAD,可安全提交」—— 那是一句**做不到的承诺**:
+   * `lost=0` 只说明"没有整行不见",而 superseded / stale 两类恰恰是"HEAD 的那一行文字
+   * 在工作树里不存在"(前者被人改写、后者是工作树停在旧形态)。实测本轮 20 条登记行
+   * 就在 `lost=0` 的绿灯下被退回旧态。所以绿灯必须按实际形态说三种话。
+   */
+  if (!superseded.length && !stale.length) {
+    console.log('✅ 工作树 ⊇ HEAD(逐字包含全部 HEAD 行),可安全提交')
+  } else {
+    console.log(
+      `⚠️  无整行丢失,但**不等于**工作树 ⊇ HEAD:${superseded.length} 行被判就地改写、${stale.length} 行工作树停在旧形态 —— ` +
+        '这 ' +
+        (superseded.length + stale.length) +
+        ' 行提交后会以工作树的文字落地。stale 那几条要人工取 HEAD 形态(本工具不自动改,见头注 Q4 的实测:60 枚提交里有 73 处"合法缩短"与之前同形,自动回退会连人真删的字一起复原)。',
+    )
+  }
   process.exit(0)
 }
 if (!APPLY) {
