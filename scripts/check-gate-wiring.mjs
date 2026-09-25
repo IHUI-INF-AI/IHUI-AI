@@ -45,6 +45,13 @@
  *              HEAD∪索引)通篇没点名(文档看不见的门会被重复造或被绕过)。2026-09-24 由"仅报数"升档,前置 =
  *              真仓缺口 48→0 已清零;比对宽松到"出现去后缀同名即算点名",只会漏报不会误拦。
  *   R5 blocking:同一 id 在 guardian-runner 里登记多道门 ⇒ 串 skipEnv 与失败归属(同日实测撞号)。
+ *   R8 blocking:某道门的 `stagedTriggers` 一旦让归一层(`lib/guardian-triggers.mjs`)当场抛错,
+ *              runner 那个 `for (const check of effectiveChecks)` 循环**没有 catch** ⇒ 整条
+ *              pre-commit 中止,后果与崩点相同(实测:同型 TypeError 在钩子日志里出现 3 次 =
+ *              3 枚提交崩掉,每枚都被 --no-verify 兜住 ⇒ 152 道门对那 3 枚全废)。红条件
+ *              **直接调用那道契约**而不是本门自己写形状规则:裸字符串已由 lib 有意救援
+ *              (2026-09-25 起归一成单前缀),本门再判红就是两道门互相矛盾 ⇒ 恒红逼人跳门;
+ *              它只计入「已救回」报数。值不是字面量(变量/模板串)⇒ 计入「判不出」如实报出。
  *   R6 只报数 :同一 skipEnv 挂两个以上条目(本仓 id 2/2n-web 是刻意共用,故不判红)。
  *   R7 blocking:台账 type=dispatcher 的"依据"文件不存在、或文件里没提被豁免脚本 =
  *              假依据(实测抓到 check-lock.mjs 一条编造的 dispatcher 说明)。
@@ -94,6 +101,11 @@ const DEFAULT_ROOT = resolve(__dirname, '..')
 
 /** 本门自身豁免:创建当期 HEAD 里还没有它(鸡生蛋),接线由登记方补齐 */
 const SELF_EXEMPT_SCRIPT = 'check-gate-wiring.mjs'
+
+// R8 的红条件**不自己发明**:直接取 runner 归一层(lib/guardian-triggers.mjs)的契约 ——
+// 那道 lib 自 2026-09-25 起负责判定"什么形态会让整批门中止",本门若另写一套形状规则,
+// 两边必然漂移(而漂移的方向永远是某道门对合法注册恒红 ⇒ 逼人 --no-verify ⇒ 全部守门作废)。
+import { normalizeTriggers } from './lib/guardian-triggers.mjs'
 
 // ─── git 二进制解析(§5b:不得依赖环境) ───────────────────────────────────
 let GIT_BIN = 'git'
@@ -549,6 +561,120 @@ export function findDuplicateIds(runnerText) {
   return [...dup].sort()
 }
 
+/** 读一个单/双引号字面量;不配平则返回 null(交给上层判"判不出",绝不猜)。 */
+function readQuotedLiteral(s, i) {
+  const q = s[i]
+  if (q !== "'" && q !== '"') return null
+  let out = ''
+  i++
+  while (i < s.length) {
+    if (s[i] === '\\') {
+      out += s[i + 1] ?? ''
+      i += 2
+      continue
+    }
+    if (s[i] === q) return { value: out, end: i + 1 }
+    out += s[i]
+    i++
+  }
+  return null
+}
+
+/**
+ * 把注册表里 `stagedTriggers:` 后面的**字面量**求成 JS 值。只认两种形态:
+ * 字符串字面量、字符串字面量数组(含多行)。其余(变量、模板串拼接、函数调用、数组里混注释)
+ * 一律 `{ok:false}` ⇒ **不判红也不判绿**,只计入"判不出"如实报出。
+ * 刻意不用 eval/动态 import 去"执行注册表":判据不能靠跑被审对象来知道它是什么。
+ */
+export function parseTriggersLiteral(text) {
+  const s = String(text ?? '').trim().replace(/,\s*$/, '')
+  if (!s) return { ok: false }
+  if (s[0] === "'" || s[0] === '"') {
+    const one = readQuotedLiteral(s, 0)
+    return one && one.end === s.length ? { ok: true, value: one.value } : { ok: false }
+  }
+  if (s[0] !== '[') return { ok: false }
+  const items = []
+  let i = 1
+  for (;;) {
+    while (i < s.length && /[\s,]/.test(s[i])) i++
+    if (i >= s.length) return { ok: false }
+    if (s[i] === ']') return i + 1 >= s.length ? { ok: true, value: items } : { ok: false }
+    const q = readQuotedLiteral(s, i)
+    if (!q) return { ok: false }
+    items.push(q.value)
+    i = q.end
+  }
+}
+
+/**
+ * R8:注册形态**会不会让整批门中止**,红条件直接取 `normalizeTriggers` 的契约。
+ *
+ * 为什么不自己写一套形状规则:归一住在 `lib/guardian-triggers.mjs`(2026-09-25 由并行会话
+ * 落地,同一型事故的 runner 侧修复比本门早到一步)。本门若另立"什么叫非法形状",两边必然
+ * 漂移 —— 而漂移的代价是固定的:一道对合法注册恒红的 blocking 门 ⇒ 逼人 --no-verify ⇒
+ * 链上全部守门作废(§12e 那一型,本仓已记过多次)。所以现在:
+ *  · 裸字符串 **不判红** —— lib 把它归一成单前缀数组是**有意设计的救援路径**;它只计入
+ *    「已救回」报数,让写的人看得见,而不拦住提交。
+ *  · lib 归一后为空(`[]`、`''`、`['']`、含非字符串条目)⇒ **判红**。这类形态在 runner 里
+ *    是**未被 catch 的 throw**,落在 `for (const check of effectiveChecks)` 循环体内 ⇒
+ *    与 G-178 的 TypeError 崩点**同一后果**:整条 pre-commit 中止、提交被 --no-verify 兜住。
+ *    旧写法 `stagedTriggers: []` 更是双重失效(truthy 进判断 ⇒ `[].some()` 恒 false ⇒ 该门
+ *    在提交链上隐形失踪)。
+ *  · 值不是字面量(变量/模板串/函数)⇒ 计入「判不出」并如实报出,不猜、也不静默算通过。
+ */
+export function findMalformedTriggers(runnerText) {
+  const src = String(runnerText || '')
+  const starts = [...src.matchAll(/\n\s*id:\s*'([^']+)'/g)]
+  const bad = []
+  const rescued = []
+  const undetermined = []
+  const dead = []
+  const brief = (lit) => String(lit).split('\n')[0].trim().slice(0, 60)
+  starts.forEach((m, i) => {
+    // 条目边界 = 到下一个 id: 之前(与 findSharedSkipEnvs 同一套切法,否则会错配到邻门)
+    const body = src.slice(m.index, i + 1 < starts.length ? starts[i + 1].index : src.length)
+    const lines = body.split('\n')
+    for (let k = 0; k < lines.length; k++) {
+      // 只认**属性赋值行**。首版用 /stagedTriggers:\s*(…)/ 不带这道过滤,当场多报两枚:
+      // id 93 的 `// 不声明 stagedTriggers:R3 判的是…` 与 id 100 的 `// 不设 stagedTriggers:…`
+      // —— 注释里"stagedTriggers:"后紧跟中文,`\s*` 允许零空格就命中了。判红维度多报与
+      // 判红失效同罪,同 G-177 那一族(由 P31 反向锁钉死)。
+      if (/^\s*(?:\/\/|\*|\/\*)/.test(lines[k])) continue
+      const decl = lines[k].match(/^\s*stagedTriggers:\s*(.*)$/)
+      if (!decl) continue
+      let lit = decl[1]
+      let j = k
+      while ((lit.match(/\[/g) || []).length > (lit.match(/\]/g) || []).length) {
+        j++
+        if (j >= lines.length) break
+        lit += '\n' + lines[j]
+      }
+      const parsed = parseTriggersLiteral(lit)
+      if (!parsed.ok) {
+        undetermined.push({ id: m[1], value: brief(lit) })
+        return
+      }
+      // runner 的守卫是 `if (check.stagedTriggers && …)` ⇒ **falsy 值根本不会走到归一层**,
+      // 它是一条"声明了但永不生效"的死注册(该门恒跑),不会中止整批 ⇒ 只报数不判红。
+      // 这条区分必须显式做:否则"红条件=lib 抛错"会把 `''` 也判红,而它结构上不可能崩。
+      if (!parsed.value) {
+        dead.push({ id: m[1], value: brief(lit) })
+        return
+      }
+      try {
+        normalizeTriggers(parsed.value)
+      } catch (e) {
+        bad.push({ id: m[1], value: brief(lit), why: String(e.message).split('\n')[0] })
+        return
+      }
+      if (typeof parsed.value === 'string') rescued.push({ id: m[1], value: brief(lit) })
+      return
+    }
+  })
+  return { bad, rescued, undetermined, dead }
+}
+
 /**
  * 纯函数(R6,只报数):同一 skipEnv 挂在两个以上条目上。
  * **不判红**:本仓有一处是**刻意**共用(id 2 与 2n-web 同用 HUSKY_SKIP_I18N_PARITY,runner 里
@@ -881,6 +1007,36 @@ async function main(argv = process.argv.slice(2)) {
       })),
     )
   }
+  // R8 注册形态非法(判红):裸字符串会让整批门在该条目处抛 TypeError 中止,空数组会让该门
+  // 在 --staged 下恒不执行。两类都是"一条书写形态决定整条提交链"的缺陷,兜底不能代替判据。
+  //
+  // 取材面刻意与 R5/R6 不同:注册表**自身**就是被审对象,而"同一枚提交里既修注册形态、又新立
+  // 判据"是正确姿势 —— 只读 HEAD 会让这枚修复提交被自己刚上线的判据判红 ⇒ 逼人 --no-verify ⇒
+  // 全部守门作废(与 R2/R4 在 2026-09-24 为文档面开同一条例外的理由逐字同源)。所以 --staged
+  // 档优先读**索引**(= 本枚提交将要带走的内容),取不到才退回 HEAD 并如实点名。
+  let r8Text = runnerText
+  let r8Face = 'HEAD'
+  if (opts.staged) {
+    try {
+      r8Text = git(['show', ':scripts/guardian-runner.mjs'], root)
+      r8Face = '索引'
+    } catch (e) {
+      console.log(
+        `   ⚠️ R8 取不到索引版 guardian-runner(${e.message.split('\n')[0].slice(0, 80)})⇒ 退回 HEAD 面`,
+      )
+    }
+  }
+  const r8 = findMalformedTriggers(r8Text)
+  const badTriggers = r8.bad
+  if (badTriggers.length) {
+    reds.push(
+      ...badTriggers.map((b) => ({
+        script: `(runner id '${b.id}')`,
+        status: 'red-r8',
+        reason: `stagedTriggers=${b.value} ⇒ 归一层当场抛错 ⇒ 整批守门中止(${b.why})`,
+      })),
+    )
+  }
   // R4 反向差集:已接线但文档通篇没点名 ⇒ 文档看不见的门会被重复造或被绕过。
   // 文档面口径 = HEAD∪索引(同 R2,见「取材铁律」例外):AGENTS.md 直接复用上面已读的并集文本,
   // 不再单独 HEAD-only 读一次;README.md 同口径。实际用的口径由 docReader.modes() 如实报出。
@@ -921,11 +1077,13 @@ async function main(argv = process.argv.slice(2)) {
             selfExempt: by('self-exempt').length,
             undocumentedR4: undocumented.length,
             duplicateIds: dupIds.length,
+            malformedTriggers: badTriggers.length,
             sharedSkipEnvs: sharedEnvs.length,
             dispatcherProblems: dispatcherProblems.length,
           },
           dispatcherProblems,
           duplicateIds: dupIds,
+          malformedTriggers: badTriggers,
           sharedSkipEnvs: sharedEnvs,
           reds,
           undocumented: undocumented,
@@ -955,6 +1113,11 @@ async function main(argv = process.argv.slice(2)) {
       `   R4(已接线但 AGENTS.md/README.md 通篇未点名,判红): ${undocumented.length ? `${undocumented.length} 枚` : '0 枚'}`,
     )
     console.log(`   R5(重复 id,判红): ${dupIds.length ? dupIds.join(' / ') : '0 枚'}`)
+    console.log(
+      `   R8(注册形态会让整批门中止,判红;取材=${r8Face}): ${badTriggers.length ? badTriggers.map((b) => `${b.id}=${b.value}`).join(' / ') : '0 枚'}` +
+        ` | 已救回的裸字符串 ${r8.rescued.length} 枚` +
+        ` | 值非字面量·判不出 ${r8.undetermined.length} 枚`,
+    )
     console.log(
       `   R7(台账 dispatcher 依据不可核验,判红): ${dispatcherProblems.length ? `${dispatcherProblems.length} 条` : '0 条'}`,
     )
@@ -999,7 +1162,7 @@ async function main(argv = process.argv.slice(2)) {
   if (reds.length > 0) {
     if (!opts.json) {
       console.error(
-        `\n❌ 接线层结构性缺陷共 ${reds.length} 枚(R1/R2 撒谎 · R4 文档隐形 · R5 撞号 · R7 假依据)—— 禁止为消红塞台账:`,
+        `\n❌ 接线层结构性缺陷共 ${reds.length} 枚(R1/R2 撒谎 · R4 文档隐形 · R5 撞号 · R7 假依据 · R8 注册形态非法)—— 禁止为消红塞台账:`,
       )
       for (const r of reds)
         console.error(
@@ -1018,7 +1181,9 @@ async function main(argv = process.argv.slice(2)) {
       console.error(
         '         R4 → 在 AGENTS.md「守门脚本速查」或 README 补一行点名(写清判据/自检/跳过变量);',
       )
-      console.error('         R5 → 后来者改用空闲编号。紧急跳过 HUSKY_SKIP_GATE_WIRING=1')
+      console.error('         R5 → 后来者改用空闲编号。')
+      console.error('         R8 → stagedTriggers 必须是字符串数组(裸字符串会中止整批门,空数组则该门恒不跑)。')
+      console.error('         紧急跳过 HUSKY_SKIP_GATE_WIRING=1')
     }
     return 1
   }
@@ -1315,6 +1480,52 @@ function runSelfTest() {
         .map((x) => `\n  {\n    id: '${x.id}',\n    script: '${x.s}.mjs',`)
         .join('\n'),
     ).join(',') === '91',
+  )
+  // R8 六条:崩批形态必红;lib 已救援的、结构上崩不了的不是红而是如实分类报数;外加一条
+  // **本门首版自己多报**的负向锁(注释行)与一条"不猜变量值"的判不出锁。
+  const reg = (id, trigLine) => `\n  {\n    id: '${id}',\n    script: 'a.mjs',\n    ${trigLine}`
+  const r8 = (text) => findMalformedTriggers(text)
+  const r8Bad = (text) => r8(text).bad.map((b) => b.id).join(',')
+  const r8Of = (text, k) =>
+    r8(text)[k]
+      .map((b) => b.id)
+      .join(',')
+  assert(
+    'P28 R8 空数组必判红(truthy ⇒ 守卫放行 ⇒ 归一层抛错 ⇒ 无 catch 的循环整批中止)',
+    r8Bad(reg('121', 'stagedTriggers: [],')) === '121',
+  )
+  assert(
+    'P29 R8 归一后为空的数组必判红 —— 光看形状是"合法数组",只有把红条件委托给 lib 才判得出(本条即该设计的价值证明)',
+    r8Bad(reg('122', "stagedTriggers: [''],")) === '122',
+  )
+  assert(
+    'P30 R8 裸字符串不得判红(lib 已把它归一成单前缀数组,再判红就是两道门互相矛盾);必须计入「已救回」',
+    r8Bad(reg('118', "stagedTriggers: 'scripts/',")) === '' &&
+      r8Of(reg('118', "stagedTriggers: 'scripts/',"), 'rescued') === '118',
+  )
+  assert(
+    "P31 R8 falsy 字面量('')不得判红:runner 的守卫根本走不到归一层 ⇒ 是死注册不是崩点;计入 dead",
+    r8Bad(reg('123', "stagedTriggers: '',")) === '' &&
+      r8Of(reg('123', "stagedTriggers: '',"), 'dead') === '123',
+  )
+  assert(
+    'P32 R8 负向:单行数组与多行数组都是合法注册形态,不得判红(判红维度多报=逼人跳门)',
+    r8Bad(
+      reg('1', "stagedTriggers: ['apps/web/'],") +
+        reg('2', "stagedTriggers: [\n      'packages/app/',\n    ],"),
+    ) === '',
+  )
+  assert(
+    'P33 R8 值不是字面量(变量引用)⇒ 计入「判不出」,既不判红也不判绿(不猜、不静默算通过)',
+    r8Bad(reg('24', 'stagedTriggers: SHARED_PREFIXES,')) === '' &&
+      r8Of(reg('24', 'stagedTriggers: SHARED_PREFIXES,'), 'undetermined') === '24',
+  )
+  assert(
+    'P34 R8 负向:注释里"不声明 stagedTriggers:…"不得当成注册行(首版当场多报 id 93/100)',
+    r8Bad(
+      reg('93', '// 不声明 stagedTriggers:R3 判的是"这次提交会带走的悬空引用",可能出现在任何端内文件') +
+        reg('100', '// 不设 stagedTriggers:前缀语义表达不出"任意 */package.json",而漏挂等于没有这道门'),
+    ) === '',
   )
   assert(
     'P24 R5 负向 + R6 语义:编号唯一不得报红;共用 skipEnv 只计数不判红',
@@ -1770,5 +1981,9 @@ export const __test__ = {
   findStaleExemptions,
   validateAllowlist,
   makeFixtureRepo,
+  // R8:红条件委托给 lib,镜像测试要能直接拿到这三个出口构造正反例(§22c)
+  findMalformedTriggers,
+  parseTriggersLiteral,
+  normalizeTriggers,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
