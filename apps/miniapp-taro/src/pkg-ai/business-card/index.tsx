@@ -10,7 +10,6 @@ import { useState, useCallback } from 'react'
 import * as api from '@/api'
 import { BUSINESS_CARD_DATA_KEY } from '@/constants/storage'
 import ThemeRoot from '@/components/ThemeRoot'
-import BackChevron from '@/components/BackChevron'
 import './index.css'
 
 type StoredData = {
@@ -72,10 +71,6 @@ export default function BusinessCardIndex() {
     Taro.navigateTo({ url: '/pkg-shop/wallet/recharge/index' })
   }, [])
 
-  const onBack = useCallback(() => {
-    Taro.navigateBack({ delta: 1 })
-  }, [])
-
   const shareTitle = tt('businessCard.shareTitle', '我的社区名片')
 
   useShareAppMessage(() => ({
@@ -93,7 +88,6 @@ export default function BusinessCardIndex() {
     <ThemeRoot>
       <View className="card-page">
         <View className="page-header">
-          <BackChevron onTap={onBack} />
           <Text className="page-title">{tt('businessCard.title', '我的社区名片')}</Text>
         </View>
 
@@ -107,7 +101,7 @@ export default function BusinessCardIndex() {
           <Text className="card-entry-text">
             {tt('businessCard.customEntry', '社区名片定制入口')}
           </Text>
-          <Text className="card-entry-arrow">›</Text>
+          <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
         </View>
 
         <View className="card-content">

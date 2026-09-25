@@ -224,7 +224,7 @@ export default function AskCreatePage() {
                   ? getCategoryLabel(form.category)
                   : tt('ask.create.categoryPlaceholder', '选择分类')}
               </Text>
-              <Text className="ask-create-picker-arrow">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
             </View>
           </View>
 

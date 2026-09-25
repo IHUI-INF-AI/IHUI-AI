@@ -6,12 +6,12 @@ import { useTt } from '@/i18n'
 import { View, Text, Input } from '@tarojs/components'
 import { useState, useCallback } from 'react'
 import { rnRadius } from '@ihui/design-tokens'
-import { useDidShow, useReachBottom, navigateBack, showToast } from '@tarojs/taro'
+import { useDidShow, useReachBottom, showToast } from '@tarojs/taro'
 import { getBuyInfo, getBuyList, getDeveloperWithdrawalList, post } from '@/api'
 import { getUserInfo } from '@/utils/auth'
 import ThemeRoot from '@/components/ThemeRoot'
-import BackChevron from '@/components/BackChevron'
 import './income.css'
+import LineIcon from '@/components/LineIcon'
 
 interface BuyInfo {
   AccumulatedIncome?: number
@@ -160,12 +160,8 @@ export default function DeveloperIncome() {
     if (!cashLoaded) loadCashList()
   }
 
-  const onBack = () => {
-    if (title === 'detail') {
-      setTitle('income')
-    } else {
-      navigateBack({ delta: 1 }).catch(() => {})
-    }
+  const backToIncome = () => {
+    setTitle('income')
   }
 
   const openIncomePopup = () => {
@@ -277,7 +273,6 @@ export default function DeveloperIncome() {
     <ThemeRoot>
       <View className="income-page">
         <View className="income-header">
-          <BackChevron onTap={onBack} />
           <Text className="income-title">{headerTitle}</Text>
         </View>
 
@@ -316,7 +311,7 @@ export default function DeveloperIncome() {
                     <Text className="income-stat-label">
                       {tt('developer.income.cashDetail', '提现明细')}
                     </Text>
-                    <Text className="income-stat-value">›</Text>
+                    <LineIcon name="chevron-right" size={24} color="var(--color-foreground)" />
                   </View>
                 </View>
                 <View className="income-card-bottom">
@@ -384,6 +379,10 @@ export default function DeveloperIncome() {
           </View>
         ) : (
           <View className="cash-list">
+            {/* back-label-exempt: 面板内视图回退(提现明细→收入概览),非页面级返回键 until 2026-12-31 */}
+            <View onClick={backToIncome} hoverClass="opacity-60" style={{ marginBottom: '16rpx' }}>
+              <Text className="income-item-time">{tt('common.back', '返回')}</Text>
+            </View>
             {!cashLoaded ? (
               <Text className="income-empty">{tt('common.loading', '加载中…')}</Text>
             ) : cashList.length ? (
