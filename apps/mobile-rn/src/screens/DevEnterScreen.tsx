@@ -133,7 +133,10 @@ export default function DevEnterScreen() {
         }
       } catch (e: unknown) {
         const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
-        Alert.alert(t('common.hint'), detail.trim() ? toUserFriendlyMessage(e) : '加载失败，请检查网络')
+        Alert.alert(
+          t('common.hint'),
+          detail.trim() ? toUserFriendlyMessage(e) : '加载失败，请检查网络',
+        )
       } finally {
         setLoading(false)
         setRefreshing(false)
@@ -183,7 +186,10 @@ export default function DevEnterScreen() {
       }
     } catch (e: unknown) {
       const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
-      Alert.alert(t('common.hint'), detail.trim() ? toUserFriendlyMessage(e) : '下架失败，请检查网络')
+      Alert.alert(
+        t('common.hint'),
+        detail.trim() ? toUserFriendlyMessage(e) : '下架失败，请检查网络',
+      )
     } finally {
       setOfflining(false)
     }
@@ -383,7 +389,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
   } as ViewStyle,
   headTabActive: {
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
   } as ViewStyle,
   headTabText: {
     fontSize: 14,
@@ -391,7 +397,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   headTabTextActive: {
     fontSize: 14,
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
     fontWeight: '600',
   } as TextStyle,
   searchRow: {
@@ -408,14 +414,14 @@ const styles = StyleSheet.create({
     height: 38,
     paddingHorizontal: rpx(20),
     borderRadius: rnRadius.lg,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
   } as ViewStyle,
   searchBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
   } as TextStyle,
   subTabBar: {
     flexDirection: 'row',
@@ -479,7 +485,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   cardTitle: {
     fontSize: 16,
-    color: '#517BFF',
+    color: tokens.agentName.DEFAULT,
   } as TextStyle,
   cardDesc: {
     fontSize: 12,
@@ -497,11 +503,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(16),
     paddingVertical: rpx(6),
     borderRadius: rnRadius.md,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
   } as ViewStyle,
   setBtnText: {
     fontSize: 12,
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
     fontWeight: '500',
   } as TextStyle,
   statusText: {
