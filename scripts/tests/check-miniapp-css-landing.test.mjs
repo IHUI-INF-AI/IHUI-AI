@@ -21,10 +21,10 @@
  *     --no-verify 并连带废掉全部守门(§12e)。
  */
 import assert from 'node:assert/strict'
-import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join, relative, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import test from 'node:test'
 
 import { __test__ as G, WIRING_MODE } from '../check-miniapp-css-landing.mjs'
@@ -336,7 +336,7 @@ test('本门只读:源码里不得存在写向 产物/端源码/门自身 的调
   // 唯一可靠的性质是:**写调用的参数里不得出现任何模块级仓库路径常量或字面量端路径**。
   const REPO_PATHS = ['ROOT', 'DEFAULT_ROOT', 'APP_REL', 'SRC_PREFIX', 'process.cwd']
   const writers = [...code.matchAll(/\b(writeFileSync|appendFileSync|copyFileSync|rmSync|unlinkSync|rmdirSync|mkdirSync|createWriteStream)\s*\(([\s\S]{0,160}?)\)/g)]
-  const offending = writers.filter(([, fn, args]) => REPO_PATHS.some((p) => new RegExp(`\\b${p.replace(/\./g, '\\.')}\\b`).test(args)))
+  const offending = writers.filter((m) => REPO_PATHS.some((p) => new RegExp(`\\b${p.replace(/\./g, '\\.')}\\b`).test(m[2])))
   assert.deepEqual(
     offending.map(([, fn, args]) => `${fn}(${args.replace(/\s+/g, ' ').slice(0, 70)})`),
     [],
@@ -349,7 +349,7 @@ test('本门只读:源码里不得存在写向 产物/端源码/门自身 的调
   const judge = (text) => {
     const t = text.replace(/^\s*\/\/.*$/gm, '')
     const ws = [...t.matchAll(/\b(writeFileSync|appendFileSync|copyFileSync|rmSync|unlinkSync|rmdirSync|mkdirSync|createWriteStream)\s*\(([\s\S]{0,160}?)\)/g)]
-    return ws.filter(([, fn, args]) => REPO_PATHS.some((p) => new RegExp(`\\b${p.replace(/\./g, '\\.')}\\b`).test(args))).length
+    return ws.filter((m) => REPO_PATHS.some((p) => new RegExp(`\\b${p.replace(/\./g, '\\.')}\\b`).test(m[2]))).length
   }
   assert.equal(judge(`writeFileSync(join(base, 'x.wxss'), '')`), 0, '正向对照:写临时夹具不该被判红(否则上面那条是恒红尺)')
   assert.equal(judge(`writeFileSync(join(ROOT, 'apps/miniapp-taro/dist/app.wxss'), '')`), 1, '阳性对照:写仓库路径必须判红,量到 0 ⇒ 本条尺子没有牙')
