@@ -46,6 +46,39 @@ function tailAfterSummary(text) {
   return at < 0 ? null : clean.slice(at)
 }
 
+/** 钩子里"某一步失败并阻止提交"的打印(lint-staged / 各独立步骤都用这一形状)。 */
+const STEP_FAIL_RE = /❌\s*([^\n]{2,120}?)失败[，,]\s*提交已阻止/g
+/** 明显是"内容错"而非"清单回显"的形状。 */
+const ERROR_SHAPE_RE = /\d+:\d+\s+error|SyntaxError|Cannot find module|not defined|failed|✖/
+
+/**
+ * 从"没有守门汇总块"的钩子输出里做**最后一级**归因:找出把提交挡住的那一步,
+ * 取它自己那一段输出(失败标记之前 ≤45 行),看它有没有点名本次声明的文件。
+ *
+ * 为什么必须有这一级(2026-09-25 实测,提交 9bd6748ba):`lint-staged` 跑在守门批**之前**,
+ * 它一失败就没有任何汇总块产生 ⇒ 本模块的解析与逐道复跑全都没有输入 ⇒ 判 `unattributed`
+ * ⇒ safe-commit 走应急路径落地。而那一轮点名的是**我自己刚写出来的 eslint 错误**
+ * (`'Undetermined' is defined but never used` in 我本次提交的文件)。这与 48ac2c03e 是同一条
+ * 事故路径的第二个入口:第一个入口是"借了别人那轮的汇总"(已由轮次绑定关掉),这一个入口是
+ * "根本没有汇总,于是连尝试归因都没有"。判据仍然保守 —— 只在该步输出**同时**含错误形状
+ * (eslint 的 `行:列 error` / SyntaxError / Cannot find module …)且含本次声明的文件路径时才定责,
+ * 纯清单回显(`📋 staged 文件清单`)不含错误形状,不会被读成点名。
+ */
+export function blameFromFailedStep(text, stagedFiles) {
+  const clean = stripAnsi(text || '')
+  if (!clean.trim()) return null
+  const marks = [...clean.matchAll(STEP_FAIL_RE)]
+  for (const m of marks) {
+    const block = clean.slice(Math.max(0, m.index - 6000), m.index).split(/\r?\n/)
+    const window = block.slice(-45).join('\n')
+    if (!ERROR_SHAPE_RE.test(window)) continue
+    const win = window.replace(/\\/g, '/')
+    const named = (stagedFiles || []).filter((f) => win.includes(f.replace(/\\/g, '/')))
+    if (named.length > 0) return { step: m[1].trim(), named }
+  }
+  return null
+}
+
 /**
  * 批外步骤名 —— 只在"汇总已跑完且批内 0 blocking 失败"时才有意义。
  *
@@ -257,6 +290,20 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate }
     }
   }
   if (!parsed.batchReported || parsed.failed.length === 0) {
+    // 最后一道:没有汇总块时,仍然试一次"把提交挡住的那一步自己有没有点名我"。
+    const blame = blameFromFailedStep(text, stagedFiles) ?? blameFromFailedStep(fallbackText, stagedFiles)
+    if (blame) {
+      return {
+        kind: 'mine',
+        ranFullBatch: false,
+        failed: parsed.failed,
+        detail: [
+          '本轮**没有**守门汇总块(该步跑在批量检查之前),归因来自那一步自己的输出',
+          `阻塞步骤「${blame.step}」的报错正文点名本次声明的文件:${blame.named.join(' , ')}`,
+        ],
+        reason: `钩子未跑守门批,但阻塞步骤「${blame.step}」的报错点名了本任务声明的文件 —— 这是本任务自己的红,必须修,禁止 --no-verify`,
+      }
+    }
     return {
       kind: 'unattributed',
       ranFullBatch: false,
@@ -718,6 +765,42 @@ Found 2 errors in 2 files (checked 548 source files)
     c3.failed.length === 1 && !c3.outsideStep,
     `C3 批内已有失败门时须按逐道复跑归因,实得 failed=${c3.failed.length} outsideStep=${c3.outsideStep}`,
   )
+
+  // --- C4 无汇总块时的最后一级归因:报错正文点名本次文件 ⇒ mine(文本逐字取自 9bd6748ba 那轮真实钩子输出) ---
+  const LINT_STAGED_FAIL = `⋯ eslint --fix ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+D:\\IHUI-AI\\scripts\\check-project-plan-archive.mjs
+  36:10  error  'Undetermined' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+✖ 1 problem (1 error, 0 warnings)
+❌ 🎨 运行 lint-staged...失败，提交已阻止
+   (完整日志: .workbuddy/hook-logs/pre-commit.log)
+`
+  const BLAMED = 'scripts/check-project-plan-archive.mjs'
+  assert(
+    blameFromFailedStep(LINT_STAGED_FAIL, [BLAMED, 'PROJECT_PLAN.md'])?.named[0] === BLAMED,
+    'C4 真实 lint 失败形状必须被认出(Windows 反斜杠路径要先归一再比)',
+  )
+  const c4 = classifyHookFailure({
+    text: LINT_STAGED_FAIL,
+    stagedFiles: [BLAMED, 'PROJECT_PLAN.md'],
+    runGate: () => ({ status: 0, output: '' }),
+  })
+  assert(c4.kind === 'mine', `C4 报错点名本次文件时不得落到 unattributed,实得 ${c4.kind}`)
+  assert(/lint-staged/.test(c4.reason), `C4 必须点名是哪一步,实得:${c4.reason}`)
+  // C5 反向对照:失败步骤的输出里没有本次文件 ⇒ 仍走 unattributed(不得把别人的红算到我头上)
+  const c5 = classifyHookFailure({
+    text: LINT_STAGED_FAIL.replace('check-project-plan-archive', 'some-other-file'),
+    stagedFiles: [BLAMED, 'PROJECT_PLAN.md'],
+    runGate: () => ({ status: 0, output: '' }),
+  })
+  assert(c5.kind === 'unattributed', `C5 未点名本次文件时必须仍是"未归因",实得 ${c5.kind}`)
+  // C6 反向对照:纯 staged 清单回显(无错误形状)不得被读成点名 —— 与 A11 同一条禁令的另一半
+  const c6 = classifyHookFailure({
+    text: `📋 staged 文件清单(2 个):\n - scripts/foo.mjs\n - PROJECT_PLAN.md\n❌ 某步骤失败，提交已阻止`,
+    stagedFiles: MY_FILES,
+    runGate: () => ({ status: 0, output: '' }),
+  })
+  assert(c6.kind === 'unattributed', `C6 清单回显不得定责,实得 ${c6.kind}`)
   return { parsedFixture: p }
 }
 
@@ -729,6 +812,7 @@ export const __test__ = {
   pickLastSummaryRun,
   parseStagedEcho,
   outsideBatchStep,
+  blameFromFailedStep,
   classifyHookFailure,
   verdictLine,
   SUMMARY,
