@@ -9699,7 +9699,8 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   · **否掉的第一条(并行代理交来,附了行号)**:"`weapp-tailwindcss` 配了 `prefix:'tw-'`,类名对不上才是 blocker",出处写作 `config/index.ts:155` 与 `:20`。⇒ **两处引用都不存在**:全仓 `grep -rn "MP_TAILWIND_BASE_PREFIX" apps/ scripts/ packages/` **0 命中**、端内 `grep -rn "prefix: *'tw-'"` **0 命中**,而 `config/index.ts` 里含 "prefix" 的行**只有第 231 行的 `autoprefixer`**。
   · **否掉的第二条(同一代理改口后的新机制)**:"v4 把 `@tailwind utilities` 降级成 `@tailwind-compat` 层,该层只注册 `candidate` 不注册 `static`"。⇒ **`tailwindcss@4.3.3` 的 dist(611,262 B)里 `compat` 这个子串出现 0 次**,`@tailwind-compat` 这个层名根本不存在;真有的只是 8 处 `@tailwind` 处理码。**结论方向可能对(只产 arbitrary),但它给的机制是编的,不得照它去"补 `@import`"当成已证修法。**
   · **由 v4 dist 直接读到的、可用的一条事实**:`@tailwind utilities` 在 v4 里**支持 `source(...)` 参数**(dist 内有把 `source(...)` 拼进 `@tailwind utilities` params 的改写码)⇒ 若要把 content 喂给正在跑的那个引擎,这是**由 v4 自己的码支持的写法**,比猜 `@config` 更近。仍未跑构建复验,只登记为候选。
-  · **`@tailwind utilities` 在 v4 里是惰的**(2026-09-25 晚,并行代理用 v4 真源码直出实证,本会话复核其结论与其一次假阳):v4 的入口指令是 `@import "tailwindcss"`,**不认** `@tailwind base|components|utilities` 三条 v3 指令。端内 `src/app.css:66-68` 用的正是那三条 ⇒ **v4 把 `base`/`utilities` 当空层跳过**,产物里那 588 条 arbitrary 规则来自 weapp-tailwindcss 自己的扫描路径,**命名档 utility 因此一条不产**(实测:换成 `@import 'tailwindcss'` 并补 `@source './src/**/*.tsx'` ⇒ `.flex{display:flex}`/`.text-2xl`/`.font-bold`/`.bg-[var(--color-card)]` 全部产出,且 `@import` 与 `@tailwind base` 的产物**逐字节相同** ⇒ `base` 那行本就无贡献)。
+  · ~~**`@tailwind utilities` 在 v4 里是惰的**~~ **【本条的机制判读已于同日附⑧推翻,勿照它执行 —— 结论方向(命名档没落)对,原因错】**:v4 的入口指令是 `@import "tailwindcss"`,**不认** `@tailwind base|components|utilities` 三条 v3 指令。端内 `src/app.css:66-68` 用的正是那三条 ⇒ **v4 把 `base`/`utilities` 当空层跳过**,产物里那 588 条 arbitrary 规则来自 weapp-tailwindcss 自己的扫描路径,**命名档 utility 因此一条不产**(实测:换成 `@import 'tailwindcss'` 并补 `@source './src/**/*.tsx'` ⇒ `.flex{display:flex}`/`.text-2xl`/`.font-bold`/`.bg-[var(--color-card)]` 全部产出,且 `@import` 与 `@tailwind base` 的产物**逐字节相同** ⇒ `base` 那行本就无贡献)。
+    **反证(附⑧,本会话自己的 A/B 构建)**:同一份 `app.css`、同三条指令,**走 h5 构建**产出 46 个 CSS / 263,428 B,其中 `.items-center{` `.flex{` `.w-full{` `.text-sm{` `.rounded-lg{` 各 1 处全在;走 weapp 构建同一份源码则前两者 **0 处** ⇒ 指令不是惰的,**缺口在 weapp-tailwindcss 的 weapp 专用链上**。真正起效的修法与它的实测数据见附⑧(主树 C1 0.79% → 32.15%)。
   · ⇒ **这条取代上面 F1–F5 留下的"缺口形状无解释"空位**:不是"content 没喂给引擎",是**引擎压根没看见那三条指令**。旁证 = 上面 F5(config 整份没进链)与它同属"端内 v3 形状的写法在 v4 链里静默失效"。
   · ⚠️ **同一代理这条结论里出过一次假阳,已由其自撤**:它一度报"产物里有 129 个命名档 utility(`.w-4`/`.items-center`/`.text-2xl`)",据此说坎1 撤销 —— 用三种独立方法复核(逐类名 `indexOf`、括号深度解析、严格"单个 `.class` 即整条选择器")得 **0 条**;那 129 全是从**复合选择器**(如 `.w-full.rounded-b-\[30rpx\]`)里抠出子串造成的假阳。⇒ **坎1 的方向仍成立**(命名档一条没落),而它当时用来否坎1的那个数字是假的。
   ⇒ **教训(与"复核子代理报告"同条老账)**:一个自洽、漂亮、还带行号的根因,比一串模糊的观察更容易被照抄 —— 而**行号与"层名"恰恰是最该先核的东西,因为它们一眼可核**。本会话连着核掉两条,都是同一形状。
@@ -9865,3 +9866,26 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   整页零文本(未改过的 login 同样空白)⇒ 属启动关键页在本自动化会话下的渲染条件,判"未验证"而非"缺失";
   ② 截图里页头文字互相叠压,在**本票未碰过**的对照组 `pkg-content/search` 上同样出现 ⇒
   是已登记的 O62附②(该端 Tailwind utilities 在真实构建里 0 产出)所致,**不得**把布局观感算进本票的验收面。
+
+### O62 附⑧:开链已按实测落地(`edb225c909`)—— 渲染级 A/B、回归普查、以及"体积阻塞项"被量成反向(2026-09-25 晚)
+
+- [x] ✅(2026-09-25) **先撤回附⑦ 里我刚写进去的那条机制**:"`@tailwind utilities` 在 v4 里是惰的(v4 只认 `@import "tailwindcss")"。**同一份 `app.css`、同三条指令,走 h5 构建产出 46 个 CSS / 263,428 B,里面 `.items-center{` `.flex{` `.w-full{` `.text-sm{` `.rounded-lg{` 各 1 处全在** ⇒ 指令不是惰的。走 weapp 构建同一份源码则 `.items-center{` **0 处**、`.w-full{` **0 处** ⇒ **缺口在 weapp-tailwindcss 那条 weapp 专用链上,不在 Tailwind/v4**。这条是并行代理给的、我没核就写进了附⑦,现由自己的 A/B 构建推翻。(附⑦ 里"证伪四条假根因"那四条的证伪仍然成立,不受本条影响。)
+- [x] ✅(2026-09-25) **修法与它真正起效的原因**:`src/app.css` 只把 `@tailwind utilities;` 换成 `@import "tailwindcss/utilities.css";` + `@source "./**/*.{ts,tsx}";`(`base`/`components` 两行**一字未动**,把差异限制在 utilities 这一层)。weapp 单类规则 **2,151 → 2,422 条(+276)**,其中命名档 utility 从 0 变成有(`.items-center{` 0→1、`.w-full{` 0→1)。
+- [x] ✅(2026-09-25) **渲染级 A/B(真 weapp 渲染器,不是 h5 代理、不是读 CSS 文本)**:把两份归档 dist 分别 `cli.bat auto --project <dist> --auto-port N` 挂进开发者工具,连 `miniprogram-automator`,在**同一页 `pages/index/index`(两侧都 81 个 view 节点)**上读同一选择器的 computed style:
+  | 选择器 | BASE | CAND |
+  |---|---|---|
+  | `.items-center` 的 `display` | **`block`**(utility 完全没生效) | **`flex`** |
+  | `.flex` 的 `display` | `block` | `flex` |
+  截图 `shotA.png` 29,430 B vs `shotB.png` 38,639 B:A 图里功能 chip 竖排堆叠、图标列挤压重叠、无顶栏;B 图里顶栏(汉堡 + 标题 + 搜索 + 加入社群)、直播横幅、**横排** chip 行、图标网格全部到位 ⇒ **BASE 是坏的,CAND 是设计意图**。
+  ⚠️ 过程教训:automator 的 `style('alignItems')` 返回 `null` 而 `style('display')` 返回实值 —— **单个属性读不到不等于样式没生效**,必须换一个能读到的属性复核,否则又是一次"探针坏被当成被测物坏"。另外 `mp.reLaunch()` 在本机 IDE 上抛 `Cannot destructure property 'rawPath' of getPageMetaByWebviewId(...)`,而 `mp.currentPage()` 正常 ⇒ 别用 reLaunch 驱动,直接测入口页。
+- [x] ✅(2026-09-25) **回归普查(全量,比抽样强):开链引入的"同元素同属性竞争"= 27 处,其中实质风险 0 处。** 判据 = 源码里每个同元素多类列表 × B 的规则集,找 2+ 个类写同一属性且值不同。分解:
+  · **26 处是 utility × utility**(如 `.text-xs`×`.leading-relaxed`、`.block`×`.line-clamp-1`)⇒ 由 Tailwind 自身层叠序决定,实测 B 里 `.text-xs`@37775 < `.leading-relaxed`@39914、`.block`@13824 > `.line-clamp-1`@13481 —— **正是 Tailwind 的规范序,与 web 端同解**,不是新引入的歧义;
+  · **1 处 utility × 端内既有手写单类**(`pages/user/index.tsx` 的 `.mb-0` vs `.membership-benefits-container`)⇒ 两侧值分别是 `0` 与 `0rpx`,**同一个值**,零观感影响。
+  · 另有 **≥3,417 个 class 列表是"纯补上原本缺失的声明"、无任何竞争** —— 这才是 A/B 截图里那些版面回来的来源。
+- [x] ✅(2026-09-25) **守恒与层叠都没有被这次改动破坏(两条独立对照)**:① A 里每个页面 wxss 失去的规则,**在 B 的全局 `app-origin.wxss` 里全部找得到**,判"真丢规则"= **0 条**(失去的是"每个页面各存一份 utility"的重复,总量 wxss 446,585 → 269,626 B);② "页面 wxss × 全局同名不同值"冲突 **A 28 处/24 名、B 28 处/24 名,B 独有 0 个** ⇒ 这 28 处是端内既有的同名冲突(另案),**不是开链造出来的**。
+- [x] ✅(2026-09-25) **附⑤/附⑦ 的"必须先腾量才能开链"被量成反向,据此作废该前置**:同一 commit、同一 node_modules、唯一变量是那一行 —— 主包 **2,044,427 B → 1,982,773 B**,余量 **52,725 B → 114,379 B**,**开链反而净省 61,654 B**。机制就是①:utility 从"每页一份"上移成全局一份。⇒ 此前四轮登记的"余量 318 B / 42,392 B / 38,183 B"全部作废,而且**方向都反了**:拦开链的那道体积顾虑不成立。
+- [x] ✅(2026-09-25) **落地后在主树重跑真实 weapp 构建复核(不是 worktree 数、不是预测数)**:`pnpm build` exit 0 ⇒ 守门 `check-miniapp-css-landing` 现读
+  · **C1 落地覆盖 6/759(0.79%) → 244/759(32.15%)**,产物规则名 2,284 → 2,559;
+  · **C3 主包 2,044,427 B → 1,981,663 B,余量 52,725 B → 115,489 B** ⇒ 附⑤/附⑦ 的"必须先腾量"在主树上也确认为反向;
+  · 本门**仍 exit 1**,因为它的 `--min-coverage` 默认要求 100%,而分母那 843 条参考层是**端内 v3.4.19 直出的**、产物实跑 v4(输出里 `tailwind(产物指纹)= v4` + 引擎失配警告就是这件事)。**⇒ 剩下的 515 条不得读成"还有 515 个缺陷"**:在把参考层换成与产物同引擎之前,这个分母本身不成立(这正是本票给本门加引擎判据的理由)。要拿这个数问责,先修参考层引擎,再谈阈值。
+- **本票边界**:改动只有 `src/app.css` 一处 5 行(含 4 行说明注释),提交 `edb225c909`;`base`/`components` 两行一字未动,`tailwind.config.ts`/preset/alpha 插件均未动。
