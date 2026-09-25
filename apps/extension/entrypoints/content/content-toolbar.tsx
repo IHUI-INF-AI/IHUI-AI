@@ -27,7 +27,6 @@ import {
 } from '../../src/content/position-memory'
 import { RADIUS_CSS_PX } from '@ihui/design-tokens'
 
-
 export type ToolbarAction = 'translate' | 'highlight' | 'vocab' | 'send'
 
 export interface ToolbarLabels {
@@ -245,14 +244,23 @@ export class ContentToolbar {
     style.textContent = `
       /*
        * 容器级 design-tokens CSS 变量(content script 注入第三方页面,
-       * 不依赖宿主 :root;变量定义在扩展容器自身,命名对齐 @ihui/design-tokens,
-       * 值保留 content script dark theme 色板确保视觉一致)。
+       * 不依赖宿主 :root;变量定义在扩展容器自身,命名对齐 @ihui/design-tokens)。
+       * 本块整段在一个 JS 模板字符串里 —— 注释里**不得出现反引号**(会直接关掉模板字面量,
+       * tsc 报 TS1005 而守门只当它是文本),命令名一律裸写。
+       * 本块的档分三类,**第一类不得手工改**:
+       *  1) 派生档 —— 值由 node scripts/sync-extension-tokens.mjs 从 tokens.css 的暗档
+       *     原位写回;改了 tokens.css 就复跑它,漏跑由它的 --check 判红。
+       *  2) 扩展自有档 —— tokens.css 根本没有这一档(--color-accent-strong / --color-info-muted)。
+       *  3) 已登记分歧档 —— 源头有同名档但语义不是一回事(teal 系 / 边框位借用背景档 /
+       *     半透明高亮),逐条依据写在 scripts/sync-extension-tokens.mjs 的
+       *     EXTENSION_ONLY_KEYS 与 DECLARED_DIVERGENCE 里 —— 想改观感去改那两处并写理由,
+       *     不要在这里默默换一个值(那会被判"已登记分歧档被改成第三个值")。
        */
       #${TOOLBAR_ID}, .ihui-ctx-popup {
-        --color-card: #161616;
-        --color-foreground: #f5f5f5;
-        --color-border: #262626;
-        --color-accent: #262626;
+        --color-card: hsl(0 0% 10%);
+        --color-foreground: hsl(0 0% 98%);
+        --color-border: hsl(0 0% 22%);
+        --color-accent: hsl(0 0% 24%);
         --color-accent-strong: #404040;
         --color-accent-foreground: #fafafa;
         --color-muted: #525252;

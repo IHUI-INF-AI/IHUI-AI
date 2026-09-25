@@ -5,6 +5,7 @@
 import { useTt, t } from '@/i18n'
 import { View, Text, ScrollView, Input, Image } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
+import { icon } from '@/constants/remote-icons'
 import { useState, useEffect, useCallback } from 'react'
 import type { TitleSwitchTypeBarItem, TitleSwitchTypeBarProps } from '@ihui/types'
 import './TitleSwitchTypeBar.css'
@@ -12,6 +13,21 @@ import './TitleSwitchTypeBar.css'
 // 共享类型 TitleSwitchTypeBarItem / TitleSwitchTypeBarProps 已下沉到 packages/types,两端复用。
 // 重新导出以维持本模块公开 API(原文件 export 这些类型)。
 export type { TitleSwitchTypeBarItem, TitleSwitchTypeBarProps }
+
+/**
+ * 四个 tab 图标走远程图库注册表(守门 R1「引用存在的资产」)。
+ *
+ * 下面这组常量替换掉原先写死的 `/static/images/*.png` —— 那个目录下的 4 个 PNG
+ * **在 git 全部历史里从未存在过**(逐路径 `git log --all -- <path>` = 0 条),它们是旧项目
+ * `client/miniapp/src/static/images/` 的字面量被端口搬迁时原样抄过来的残留。
+ * 图的实际落点是 `src/assets/remote/images/`(CDN 上传镜像,不参与端内路径引用),
+ * 取用唯一出口 = `@/constants/remote-icons` 的注册表键(见文件内注释),故这里按键名命名,
+ * 便于与旧文件名 1:1 对照审计。
+ */
+const TAB_ICON_QZDY = icon('qzdy20250816161419a289')
+const TAB_ICON_SZDY = icon('szdy20250816161421a290')
+const TAB_ICON_SQB = icon('sqb20250816161049a277')
+const TAB_ICON_QQB = icon('qqb20250816161046a276')
 
 /**
  * 扩展 props:在共享 TitleSwitchTypeBarProps 基础上新增 multi/single 模式专用受控值与回调。
@@ -141,8 +157,8 @@ export default function TitleSwitchTypeBar({
         id: customValue,
         name: customValue,
         type: 'type',
-        field1: '/static/images/qzdy_20250816161419A289.png',
-        butUrl: '/static/images/szdy_20250816161421A290.png',
+        field1: TAB_ICON_QZDY,
+        butUrl: TAB_ICON_SZDY,
       }
       setTabList((prev) => [item, ...prev])
       const next: TitleSwitchTypeBarItem[] = mode === 'single' ? [item] : [...tabValue, item]
@@ -169,11 +185,7 @@ export default function TitleSwitchTypeBar({
           >
             <Image
               className="title-switch-type-bar__icon"
-              src={
-                all
-                  ? '/static/images/sqb_20250816161049A277.png'
-                  : '/static/images/qqb_20250816161046A276.png'
-              }
+              src={all ? TAB_ICON_SQB : TAB_ICON_QQB}
             />
             <Text>{tt('common.all', '全部')}</Text>
           </View>
@@ -214,10 +226,7 @@ export default function TitleSwitchTypeBar({
             onClick={() => setAddType(true)}
             hoverClass="opacity-60"
           >
-            <Image
-              className="title-switch-type-bar__icon"
-              src="/static/images/szdy_20250816161421A290.png"
-            />
+            <Image className="title-switch-type-bar__icon" src={TAB_ICON_SZDY} />
             <Text>{tt('TitleSwitchTypeBar.text1', '自定义')}</Text>
           </View>
         ) : null}

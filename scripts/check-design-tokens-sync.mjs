@@ -30,6 +30,31 @@
  * 兼容性:接受 --quiet / --staged / --check(均为 no-op 或仅抑制输出),
  *   原调用方迁移到 --target=<web|miniapp-taro|mobile-rn> 即可。
  *
+ * ── 调度现状与逐 target 处置(2026-09-25 审计;`node scripts/check-gate-wiring.mjs` 可复核)──
+ *   miniapp-taro / mobile-rn / web 三个 target **有执行者**:
+ *     `scripts/run-8end-consistency-cert.mjs:47-49` 以 `warnOnly: false` 逐条调用(8 端一致性认证周回归),
+ *     并在 `.github/workflows/8end-consistency-cert.yml:38` 登记为"本文件自身变更即触发"。
+ *     守门 89 对它的实测分类是「仅 CI 接线(弱一档,不判红)」,不是"零注册"。
+ *   `registry` target **零调用方**,本次判定为**不接线(是结论,不是遗漏)**,依据两条同时成立:
+ *     ① 它守的 `packages/design-tokens/src/token-registry.ts` 在全仓**无运行时消费方** —— 只有
+ *        `src/index.ts` re-export 了 TOKEN_REGISTRY / TOKEN_NAMES / TOKEN_COUNT,各端 apps 下的
+ *        src 与 app、packages 下的 src 里没有任何 import 读到这三个名字(实测 grep,排除 dist/.next/
+ *        .tmp-sync 产物),而该文件头自述"供守门脚本 + CI 使用"。所以"注册表里有、tokens.css 里没有"
+ *        不会在任何端表现为 undefined 颜色 —— 它是一条表的新鲜度,不是一类线上缺陷(与守门 98 管的
+ *        "悬空具名导入"那一类不同,那一类才值得挂 blocking)。
+ *     ② 反方向(tokens.css 里有、注册表没登)实测缺口 **111 个键**,含 2026-09-24 新增的
+ *        `--color-cta` / `--color-cta-foreground` —— 表当前是半数维护状态,门只能把这一侧留作 warn。
+ *        在这种表上单侧挂 blocking,红点会落在"谁恰好又注册了一枚"而不是"谁改坏了东西",
+ *        而恒红门的本仓已知结局只有一个:逼人 `--no-verify`,连带全部守门作废。
+ *     **升档前置条件(两条同时成立才接)**:注册表出现真实运行时消费方,或 CSS→registry 缺口先清零。
+ *   与 runner 第 36/37 项的关系:36/37 是本文件 miniapp-taro / web 两个 target 的**早期窄版**
+ *     (36 只判 `--color-*` 且合并 app.css 全部 3 个 `:root` 块 = 175 键;本文件同 target 判 7 类
+ *      但只取首块 = 133 键)。两者互补而非重复挂闸:窄版在提交链、宽版在 CI。
+ *
+ *   注:不带 --target 直接跑本文件按设计 exit 2(参数错误),因此它**不能**原样挂进 guardian-runner
+ *     —— 必须带 args,且需与 README/AGENTS 的点名行同一枚提交落地,否则守门 89 的 R4 会把"已接线但
+ *     文档未点名"判红。本次未接线,故不涉及。
+ *
  * 用法:
  *   node scripts/check-design-tokens-sync.mjs --target=miniapp-taro
  *   node scripts/check-design-tokens-sync.mjs --target=mobile-rn [--quiet] [--staged]
