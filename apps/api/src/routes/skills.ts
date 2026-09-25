@@ -206,6 +206,15 @@ const MARKET_SEED: SkillMarketEntry[] = MARKET_SEED_RAW.map((entry) => ({
   source: 'builtin' as const,
 }))
 
+/**
+ * 测试观察面:种子数组本体与 readMarket 的导出(AGENTS §5c 之外的最小暴露面)。
+ * 立因:readMarket 在 redis 空/异常两条兜底路径上曾**直接返回 MARKET_SEED 本体**,
+ * 调用方(POST /skills/market 的 entries.push、listing/unlist 的字段赋值)一次改写
+ * 即永久污染进程内种子,跨请求泄漏 —— apps/api/tests/skills-market-seed-isolation.test.ts
+ * 需要同时拿到"函数"和"本体"才能取证污染与否,故二者必须可见。业务代码不得 import 使用。
+ */
+export const __test__ = { readMarket, getMarketSeed: (): SkillMarketEntry[] => MARKET_SEED }
+
 const marketFallback = new Map<string, SkillMarketEntry[]>()
 const ratingsFallback = new Map<string, SkillRating[]>()
 
@@ -274,6 +283,15 @@ function mayWriteMarketEntry(input: {
   return input.callerId !== undefined && input.target.ownerId === input.callerId
 }
 
+/**
+ * 市场条目的**防御性深拷贝**:条目对象本身是平铺的,唯一嵌套可变态是 `tags` 数组,
+ * 故一层对象浅拷 + tags 数组浅拷即构成完整隔离(再浅一层就宣称"修好"是假的 ——
+ * 调用方 `entry.tags.push(...)` 会顺着共享数组本体污染种子)。
+ */
+function cloneMarketEntries(entries: SkillMarketEntry[]): SkillMarketEntry[] {
+  return entries.map((entry) => ({ ...entry, tags: [...entry.tags] }))
+}
+
 async function readMarket(
   redis: {
     get: (k: string) => Promise<string | null>
@@ -284,13 +302,16 @@ async function readMarket(
   try {
     const raw = await redis.get(key)
     if (!raw) {
-      // 首次访问初始化种子数据
+      // 首次访问初始化种子数据 —— 返回**深拷贝**而非 MARKET_SEED 本体:
+      // 本体是模块级数组,调用方的 push/字段赋值会永久改写进程内种子(跨请求污染)。
       await redis.set(key, JSON.stringify(MARKET_SEED))
-      return MARKET_SEED
+      return cloneMarketEntries(MARKET_SEED)
     }
     return JSON.parse(raw) as SkillMarketEntry[]
   } catch {
-    return marketFallback.get(key) ?? MARKET_SEED
+    // 兜底两条路径同型:marketFallback 里缓存的数组同样不得随返回值交出本体;
+    // `?? MARKET_SEED` 若不拷贝,就是"redis 抖动一次 ⇒ 种子被首个写请求永久改写"。
+    return cloneMarketEntries(marketFallback.get(key) ?? MARKET_SEED)
   }
 }
 

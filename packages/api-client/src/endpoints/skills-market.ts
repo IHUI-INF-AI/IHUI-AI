@@ -120,26 +120,34 @@ export function unlistSkill(name: string) {
  * 技能库,非市场目录),且解包形态是 `{ skills, total }` 之外的 `PageData`。两者是不同
  * 资源,不是同一资源的不同参数,故另立出口。
  *
- * ⚠️ 返回字段名按**现网消费方契约**(`list`)声明,与后端 handler 写入的 `items` 不一致 ——
- * 这是本票落地前既存的缺陷(admin 市场列表因此恒空),**迁移刻意零改动**:改字段名会连带
- * 改运行时行为,且修它要动 apps/api(不在本票范围)。留此说明,勿当已核实为正确照抄。
+ * 字段名按**后端 handler 实际写入的契约**(`apps/api/src/routes/skills.ts` 的
+ * `SkillMarketListResponse`:`{ items, total, page, pageSize }`)声明。2026-09-25 前本出口
+ * 曾按 `list` 声明(admin 市场列表因此恒空),现已与后端对齐;改字段名必须先改后端。
  */
 export interface SkillMarketItem {
-  id: string
   name: string
-  description?: string | null
-  version?: string | null
-  tags?: string[] | null
-  author?: string | null
-  rating?: number | null
-  installCount?: number | null
-  isInstalled: boolean
-  isOwner: boolean
+  description: string
+  tags: string[]
+  author: string
+  version: string
+  license: string
+  /** lucide 图标名(可选,前端按名渲染;缺省回退通用图标) */
+  icon?: string
+  installCount: number
+  rating: number
+  ratingCount: number
   createdAt: string
+  updatedAt: string
+  /** listing 级上下架开关;缺省即在架(与后端 P2-14 语义同) */
+  enabled?: boolean
+  /** 条目来源,由服务端按调用身份推导,不接受客户端自报 */
+  source?: 'builtin' | 'user' | 'hub'
+  /** 上架者用户 ID;内置/内部同步条目留空 ⇒ 无人是 owner */
+  ownerId?: number
 }
 
 export interface SkillMarketListResult {
-  list: SkillMarketItem[]
+  items: SkillMarketItem[]
   total: number
   page: number
   pageSize: number
