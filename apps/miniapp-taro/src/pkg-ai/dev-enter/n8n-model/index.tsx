@@ -11,7 +11,6 @@ import { useUiField } from '@/lib/ui-field-registry'
 import { get, post } from '@/api'
 import { chooseImages, uploadImage } from '@/utils/upload-image'
 import ThemeRoot from '@/components/ThemeRoot'
-import BackChevron from '@/components/BackChevron'
 import './index.css'
 
 type ParamType = 'string' | 'number' | 'boolean' | 'file' | 'select' | 'json'
@@ -475,7 +474,6 @@ export default function N8nModel() {
     <ThemeRoot>
       <View className="nm-page">
         <View className="nm-header">
-          <BackChevron onTap={() => setView('list')} />
           <Text className="nm-title">{tt('devEnter.n8nModel.createTitle', '创建智能体')}</Text>
         </View>
         <ScrollView scrollY className="nm-body">

@@ -14,7 +14,6 @@ import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
 import { fetchApi } from '@ihui/api-client'
 import ThemeRoot from '@/components/ThemeRoot'
-import BackChevron from '@/components/BackChevron'
 
 /** Taro rpx 单位换算(1px = 2rpx,750 设计稿基准) */
 const toRpx = (px: number): string => `${px * 2}rpx`
@@ -174,13 +173,6 @@ export default function CommunityCreate() {
     }
   }, [title, content, tags, circleId, tt])
 
-  const goBack = () => {
-    // 发帖页从社区 tab 进入,navigateBack 失败时回落 switchTab 社区(tab 页不可 navigateTo)
-    Taro.navigateBack({ delta: 1 }).catch(() => {
-      Taro.switchTab({ url: '/pages/community/index' })
-    })
-  }
-
   // 提交中整页 loading(对齐共享屏 if (saving) 分支)
   if (saving) {
     return (
@@ -197,7 +189,6 @@ export default function CommunityCreate() {
       <View style={viewStyles.container(tk)}>
         <ScrollView scrollY style={viewStyles.bodyScroll()}>
           <View style={viewStyles.body()}>
-            <BackChevron onTap={goBack} />
             <Text style={textStyles.title(tk)}>{tt('postCreate.title', '发布帖子')}</Text>
             {error ? <Text style={textStyles.error(tk)}>{error}</Text> : null}
             <Text style={textStyles.label(tk)}>{tt('postCreate.titleLabel', '标题')}</Text>
