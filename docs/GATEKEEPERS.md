@@ -6,7 +6,7 @@
 
 # 守门规则详解(Gatekeepers)
 
-> IHUI-AI pre-commit / commit-msg / post-commit / pre-push 四阶段守门体系全解:29 个守门脚本的工作原理、失败排查与跳过策略。守门脚本速查表见 [AGENTS.md 守门脚本速查](../AGENTS.md),本文档聚焦每个脚本的检测逻辑与实操,不重复速查表。
+> IHUI-AI pre-commit / commit-msg / post-commit / pre-push 四阶段守门体系全解:各守门脚本的工作原理、失败排查与跳过策略。**门数与编号一律现读** —— `node scripts/guardian-runner.mjs --help` 的末行即权威现值(本文档刻意不钉数字:2026-09-21 那版写的是 29 项,2026-09-25 实测 runner 已 155 项,钉住必然腐烂,与本仓 §4 圆角门、§26 门编号漂移同型)。守门脚本速查表见 [AGENTS.md 守门脚本速查](../AGENTS.md),本文档聚焦每个脚本的检测逻辑与实操,不重复速查表。
 
 ---
 
@@ -16,10 +16,10 @@ IHUI-AI 通过 Husky git hooks 在 4 个阶段部署自动守门,从 commit 到 
 
 | 阶段 | 钩子文件 | 职责 | 守门数 |
 |------|----------|------|--------|
-| pre-commit | `.husky/pre-commit` | 25 个 `.mjs` 脚本 + lint-staged + 条件 typecheck/build | 25 项 |
-| commit-msg | `.husky/commit-msg` | commit message 规范 + `Verified-DOM:` trailer 校验 | 2 项 |
-| post-commit | `.husky/post-commit` | 自动 push + 验证 local == remote(§21) | 1 项 |
-| pre-push | `.husky/pre-push` | 全量 typecheck 闸门(清 `.tsbuildinfo` 缓存) | 1 项 |
+| pre-commit | `.husky/pre-commit` | 由 `scripts/guardian-runner.mjs` 调度 + lint-staged + 条件 typecheck/build | 现读 `--help` |
+| commit-msg | `.husky/commit-msg` | commit message 规范 + `Verified-DOM:` trailer 校验 | 现读钩子文件 |
+| post-commit | `.husky/post-commit` | 自动 push + 验证 local == remote(AGENTS §20) | 现读钩子文件 |
+| pre-push | `.husky/pre-push` | 全量 typecheck 闸门(清 `.tsbuildinfo` 缓存)+ `guardian-runner --push-gate` | 现读 `--push-gate` |
 
 **设计哲学**:把 [AGENTS.md](../AGENTS.md) 的强制规则从人工自觉变成机制守门,agent 单端改动时强制显式声明,否则 warn 提醒或阻塞 commit。
 
@@ -29,7 +29,7 @@ IHUI-AI 通过 Husky git hooks 在 4 个阶段部署自动守门,从 commit 到 
 
 ### 2.1 pre-commit 流程
 
-`.husky/pre-commit` 是跨平台 Node.js 脚本(Windows 兼容),按编号顺序执行 29 项检查。任一**阻塞项**(exit 1)即终止提交;**warn-only / info-only** 项只打印不阻塞。
+`.husky/pre-commit` 是跨平台 Node.js 脚本(Windows 兼容),按 runner 清单执行全部登记项(项数以 `node scripts/guardian-runner.mjs --help` 现读为准;本节旧版写死 "29 项",那是 2026-09-21 的读数,早已失真)。执行语义(2026-09-22 起):**跑完再汇总**,任一 blocking 失败不再中断本轮,末尾列失败门清单 + 单独复现命令后 exit 1(逃生舱 `GUARDIAN_STOP_ON_FIRST=1` 恢复旧的 fail-fast);**warn-only / info-only** 项只打印不阻塞。
 
 ```
 git commit
@@ -344,7 +344,7 @@ git commit
 | 检测 | 无检测,始终 exit 0 |
 | 立规依据 | 与第 19 项互补:19 是跨端超阈值 warn,23 是无条件打印清单 |
 
-### 第 24 项 check-sidebar-width-consistency.mjs(阻塞)
+### 第 24a 项 check-sidebar-width-consistency.mjs(阻塞)
 
 | 维度 | 说明 |
 |------|------|
@@ -354,7 +354,7 @@ git commit
 | 修复 | 统一三源值;改 `token-registry.ts` 后需 `npm run build`(packages/design-tokens)同步 dist |
 | 立规依据 | 2026-07-22 立(design-tokens.css 200px vs sidebar.tsx 130px 跳变教训);2026-09-09 扩展(--sidebar-collapsed-width 漂移 54px vs 60 长期未被发现,旧守门只查展开宽度单源单值) |
 
-### 第 24 项(端口)check-port-registry.mjs(warn-only)
+### 第 24b 项 check-port-registry.mjs(warn-only)
 
 | 维度 | 说明 |
 |------|------|
@@ -461,7 +461,7 @@ HUSKY_SKIP_TYPECHECK=1 git push   # 紧急 push,不推荐
 
 | 钩子 | 跳过方式 | 说明 |
 |------|----------|------|
-| pre-commit | `git commit --no-verify` | 跳过全部 29 项守门 |
+| pre-commit | `git commit --no-verify` | 跳过提交链上**全部**登记门(项数现读;这就是本仓反复写"一道恒红门 = 全部守门作废"的原因) |
 | commit-msg | `git commit --no-verify` | 跳过 message 校验 + Verified-DOM |
 | post-commit | `HUSKY_SKIP_PUSH=1 git commit` | 跳过自动 push,commit 仅落地本地 |
 | pre-push | `HUSKY_SKIP_TYPECHECK=1 git push` | 跳过全量 typecheck |
@@ -544,7 +544,7 @@ if (!run('🔍 检查 xxx...', 'node scripts/check-xxx.mjs --staged')) {
 
 ## 相关文档
 
-- [AGENTS.md 守门脚本速查](../AGENTS.md) — 23 项守门脚本速查表(本文档的索引)
+- [AGENTS.md 守门脚本速查](../AGENTS.md) — 守门脚本速查表(本文档的索引;项数与编号同样以 runner 现值为准)
 - [AGENTS.md §21](../AGENTS.md) — 任务完成硬定义 / git-push-guard 5 条标准
 - [AGENTS.md §12/§16](../AGENTS.md) — `--no-verify` 合法性边界
 - [I18N.md](./I18N.md) — i18n 守门脚本(第 2/2b/2c/2d/2e 项)详解
