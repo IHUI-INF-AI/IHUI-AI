@@ -44,6 +44,12 @@ export function AgentPane() {
   // 输入区 state
   const [goal, setGoal] = React.useState('')
   const [model, setModel] = React.useState('')
+  /**
+   * goal 模式的硬性指标声明(每行一条,AGENTS.md §8 第 1 步"拆分硬性/软性指标")。
+   * 非空 → 请求体带 hard_criteria → ai-service 的独立校验闸门才会跑;
+   * 空 → 普通运行,done 帧不带 verification(与接线前逐零差异)。
+   */
+  const [criteriaDraft, setCriteriaDraft] = React.useState('')
 
   // 执行状态 state
   const [isRunning, setIsRunning] = React.useState(false)
@@ -55,6 +61,8 @@ export function AgentPane() {
   const [error, setError] = React.useState<string | null>(null)
   const [taskId, setTaskId] = React.useState<string | null>(null)
   const [currentNode, setCurrentNode] = React.useState<string | null>(null)
+  /** done 帧带来的闸门结论;null = 本轮还没跑完 */
+  const [goalView, setGoalView] = React.useState<GoalVerificationView | null>(null)
 
   // refs
   const abortRef = React.useRef<AbortController | null>(null)
@@ -89,6 +97,7 @@ export function AgentPane() {
     setError(null)
     setTaskId(null)
     setCurrentNode(null)
+    setGoalView(null)
   }, [])
 
   // 停止执行(abort SSE + 调 cancelAgent)
@@ -249,6 +258,7 @@ export function AgentPane() {
     setError(null)
     setTaskId(null)
     setCurrentNode(null)
+    setGoalView(null)
     setIsRunning(true)
     toolIdCounter.current = 0
     terminalIdCounter.current = 0
@@ -256,9 +266,12 @@ export function AgentPane() {
     const controller = new AbortController()
     abortRef.current = controller
 
+    // 每行一条 → 硬性指标;空集不发送该字段(闸门按「没声明」处理,行为零变更)
+    const hardCriteria = buildHardCriteria(criteriaDraft)
     const params: AgentExecuteRequest = {
       goal: trimmedGoal,
       ...(model ? { model } : {}),
+      ...(hardCriteria.length > 0 ? { hard_criteria: hardCriteria } : {}),
     }
 
     const callbacks: AgentStreamCallbacks = {
@@ -294,6 +307,8 @@ export function AgentPane() {
       },
       onDone: (event) => {
         if (event.task_id) setTaskId(event.task_id)
+        // 闸门结论必须在**读 success 之前**定档:判不了/未达成一律不渲染成完成
+        setGoalView(resolveGoalVerificationView(event, hardCriteria.length > 0))
         const doneResult =
           typeof event.result === 'string'
             ? event.result
@@ -322,7 +337,7 @@ export function AgentPane() {
       setIsRunning(false)
       abortRef.current = null
     }
-  }, [goal, model, isRunning, handleStreamEvent, t])
+  }, [goal, model, criteriaDraft, isRunning, handleStreamEvent, t])
 
   // 卸载时取消进行中的 SSE
   React.useEffect(() => {
@@ -352,6 +367,8 @@ export function AgentPane() {
         onGoalChange={setGoal}
         model={model}
         onModelChange={setModel}
+        criteria={criteriaDraft}
+        onCriteriaChange={setCriteriaDraft}
         isRunning={isRunning}
         canRun={canRun}
         onRun={() => void run()}
@@ -369,12 +386,16 @@ export function AgentPane() {
         hasProgress={hasProgress}
       />
 
+      {/* ─── 独立校验闸门结论(§8 第 3 步"结论必须到人";非 goal 运行不占版面) ─── */}
+      {goalView && <AgentVerificationSection view={goalView} />}
+
       {/* ─── 底部:结果 + 控制区 ─── */}
       <AgentResultFooter
         error={error}
         result={result}
         isRunning={isRunning}
         taskId={taskId}
+        tone={resultToneFromGoalKind(goalView ? goalView.kind : null)}
         onStop={() => void stop()}
         onClear={clear}
       />
