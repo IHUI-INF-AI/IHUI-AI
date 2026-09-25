@@ -149,11 +149,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.cd-aigc-arrow {
-  font-size: 32rpx;
-  color: var(--color-muted-foreground);
-}
-
 /* ===== 话题标签(对齐 RN circle chip: bg surface.card / px 6dp→12rpx py 2dp→4rpx / 圆角 4dp→8rpx / 11dp→22rpx secondary) ===== */
 .cd-topic {
   display: inline-flex;
