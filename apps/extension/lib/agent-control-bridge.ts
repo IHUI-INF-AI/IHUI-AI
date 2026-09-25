@@ -19,6 +19,7 @@
  * 2026-07-22 P1 fix:BRIDGE_BASE_URL 改为从 ./config 派生,不再硬编码 127.0.0.1:8802。
  */
 import type {
+  AgentActionAssignment,
   AgentActionRequest,
   AgentActionResponse,
   AgentControlCapability,
@@ -84,6 +85,38 @@ const BROWSER_PAGE_ACTIONS: BrowserPageControlActionType[] = [...PAGE_ACTIONS]
 
 let bridgeInitialized = false
 
+/** 本桥的稳定实例 ID(与能力上报同一值,定址过滤必须用同一个,不得两处各算) */
+function getBridgeInstanceId(): string {
+  return `ext-${chrome.runtime.id}`
+}
+
+/** requestId → 本次派发的 assignment.token;回执时原样回显(期望身份由服务端记录,客户端只回显) */
+const _assignmentByRequestId = new Map<string, string>()
+function rememberAssignment(requestId: string, token: string): void {
+  _assignmentByRequestId.set(requestId, token)
+  if (_assignmentByRequestId.size > _PROCESSED_IDS_MAX) {
+    const oldest = _assignmentByRequestId.keys().next().value
+    if (oldest !== undefined) _assignmentByRequestId.delete(oldest)
+  }
+}
+
+/** 取出并消费本请求的回显 token(无 = 旧服务端形态,回执不带身份) */
+function takeAssignmentToken(requestId: string): string | undefined {
+  const token = _assignmentByRequestId.get(requestId)
+  _assignmentByRequestId.delete(requestId)
+  return token
+}
+
+/**
+ * 定址判定(2026-09-26):api 的 WS 投递按用户广播,同 category 第二宿主上线后,
+ * 未指派端**不得执行**。缺 assignment = 旧服务端形态,按原语义执行(向后兼容)。
+ * 导出供单测直接驱动判据本身。
+ */
+export function shouldExecuteAssignment(assignment: AgentActionAssignment | undefined): boolean {
+  if (!assignment) return true
+  return assignment.endpoint === 'extension' && assignment.instanceId === getBridgeInstanceId()
+}
+
 /** requestId 去重集,防止 WS 重连后重复推送相同 lastMessage 导致同一 DOM 操作执行两次(与 desktop hook 一致) */
 const _processedIds = new Set<string>()
 const _PROCESSED_IDS_MAX = 100
@@ -113,7 +146,7 @@ async function postJson(path: string, body: unknown): Promise<boolean> {
 function buildCapability(): AgentControlCapability {
   return {
     endpoint: 'extension',
-    instanceId: `ext-${chrome.runtime.id}`,
+    instanceId: getBridgeInstanceId(),
     browserActions: BROWSER_ACTIONS,
     browserPageActions: BROWSER_PAGE_ACTIONS,
     computerActions: [],
@@ -139,7 +172,15 @@ async function reportCapability(): Promise<void> {
 
 async function reportResult(response: AgentActionResponse): Promise<void> {
   if (!getToken()) return
-  const ok = await postJson('/result', response)
+  // 回执身份回显(2026-09-26):只回显服务端派发过的 token + 自报本实例,不算第二份期望身份
+  const token = takeAssignmentToken(response.requestId)
+  const payload: AgentActionResponse = token
+    ? {
+        ...response,
+        responded: { instanceId: getBridgeInstanceId(), assignmentToken: token },
+      }
+    : response
+  const ok = await postJson('/result', payload)
   if (!ok) {
     console.warn('[IHUI AI] agent-control bridge: result report failed')
   }
@@ -148,12 +189,17 @@ async function reportResult(response: AgentActionResponse): Promise<void> {
 // ===== WS notification listener =====
 
 /**
- * 从 ws.notification payload 中提取 AgentActionRequest。
+ * 从 ws.notification payload 中提取 AgentActionRequest 与服务端派发的定址信封。
  * 兼容两种 payload 格式:
  *  - WSNotification 直接作为 payload
  *  - { notification: WSNotification } 包装格式
+ * assignment(2026-09-26 定址投递票)由服务端在 /execute 派发时写入;旧服务端没有该
+ * 字段时返回 undefined,走兼容路径。
  */
-function extractAgentRequest(payload: unknown): AgentActionRequest | null {
+function extractAgentEnvelope(payload: unknown): {
+  request: AgentActionRequest
+  assignment?: AgentActionAssignment
+} | null {
   if (!payload || typeof payload !== 'object') return null
   const p = payload as Record<string, unknown>
 
@@ -171,14 +217,26 @@ function extractAgentRequest(payload: unknown): AgentActionRequest | null {
   if (!wsData || wsData.type !== 'agent.action') return null
   const req = wsData.request as AgentActionRequest | undefined
   if (!req || typeof req !== 'object') return null
-  return req
+  const assignment = wsData.assignment as AgentActionAssignment | undefined
+  return { request: req, ...(assignment ? { assignment } : {}) }
 }
 
 function onRuntimeMessage(msg: unknown): void {
   const m = msg as { type?: string; payload?: unknown }
   if (m?.type !== 'ws.notification') return
-  const req = extractAgentRequest(m.payload)
-  if (!req) return
+  const envelope = extractAgentEnvelope(m.payload)
+  if (!envelope) return
+  const { request: req, assignment } = envelope
+  // 定址过滤(2026-09-26):非指派端不得执行;如实记日志,不得静默 return
+  if (!shouldExecuteAssignment(assignment)) {
+    console.warn(
+      '[IHUI AI] agent-control bridge: 指令非指派给本实例,忽略',
+      `requestId=${req.requestId}`,
+      `assigned=${String(assignment?.instanceId)}`,
+      `self=${getBridgeInstanceId()}`,
+    )
+    return
+  }
   // requestId 去重,防止 WS 重连后重复执行同一指令(与 desktop hook 一致)
   if (_processedIds.has(req.requestId)) return
   _processedIds.add(req.requestId)
@@ -190,6 +248,7 @@ function onRuntimeMessage(msg: unknown): void {
       _processedIds.add(id)
     }
   }
+  if (assignment) rememberAssignment(req.requestId, assignment.token)
   void dispatchAgentActionRequest(req)
     .then(reportResult)
     .catch((err) => {
