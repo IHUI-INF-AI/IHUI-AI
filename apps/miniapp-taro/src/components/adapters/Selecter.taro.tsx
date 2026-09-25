@@ -375,6 +375,7 @@ export function Selecter({
             </View>
           ) : (
             <View style={viewStyles.inner()}>
+              {/* back-label-exempt: 面板内"回到上一步"按钮,文字即标签,非页头返回键 until 2026-12-31 */}
               <View
                 style={{ ...viewStyles.backBtn(), borderColor: tk.gray[500] }}
                 onTap={resetRatioSelection}
