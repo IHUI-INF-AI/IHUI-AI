@@ -219,6 +219,43 @@ export function collectLandedFromDist(distDir) {
   return { landed, wxssFiles: wxss.length }
 }
 
+/**
+ * 产物实际跑的 Tailwind 大版本 —— 由 base 层指纹判,**不看 package.json**。
+ *
+ * 为什么必须有这一条(2026-09-25 O62附⑦):本门的 C1 判据与 C3 的"装不装得下"算术都建立在
+ * "utility 参考层"上,而参考层是拿**端内解析到的** tailwind 直出的(现值 3.4.19)。可产物 base 层
+ * 带的是 **v4** 指纹,且端 config 明写 `corePlugins.preflight:false` 而产物**照样有 preflight**
+ * ⇒ 那份 config 根本没进链。用 v3 参考层去算 v4 构建的体积预算,算的是**错引擎的数**,
+ * 而它打印的是"(装得下)"—— 一个会让人据此开链的结论。
+ *
+ * 两版独有的自定义属性各列一把,**必须成组用**:单看一条会误判(`--tw-ring-offset-shadow` 两版都有)。
+ * 命中数只作方向,取"独有指纹谁更全"的那个版本。
+ */
+const V4_ONLY_PROPS = ['--tw-leading', '--tw-tracking', '--tw-gradient-position', '--tw-drop-shadow-size', '--tw-duration', '--tw-ease']
+const V3_ONLY_PROPS = ['--tw-bg-opacity', '--tw-text-opacity', '--tw-border-opacity']
+
+export function detectProductTailwindMajor(distDir) {
+  const wxss = walkFiles(distDir).filter((p) => p.endsWith('.wxss'))
+  if (wxss.length === 0) throw new Undetermined(`遍历 ${distDir} 一个 .wxss 也没读到,无法判定产物引擎`)
+  // base 层只可能出现在 app 级 wxss(及其 @import 的 origin 件),不必拼 154 个文件
+  const base = wxss
+    .filter((p) => /(^|[\\/])app[^\\/]*\.wxss$/.test(p))
+    .map((p) => readFileSync(p, 'utf8'))
+    .join('\n')
+  if (!base) throw new Undetermined('产物里没有 app 级 wxss,判不出 base 层指纹')
+  const hit = (list) => list.filter((k) => base.includes(k))
+  const v4 = hit(V4_ONLY_PROPS)
+  const v3 = hit(V3_ONLY_PROPS)
+  return {
+    major: v4.length > 0 && v3.length === 0 ? 'v4' : v3.length > 0 && v4.length === 0 ? 'v3' : 'unknown',
+    v4Hits: v4.length,
+    v4Total: V4_ONLY_PROPS.length,
+    v3Hits: v3.length,
+    v3Total: V3_ONLY_PROPS.length,
+    preflight: /box-sizing:\s*border-box/.test(base) && /border:\s*0\s+solid/.test(base),
+  }
+}
+
 /* ───────────────────────── 主包体积(C3,只报数) ───────────────────────── */
 
 /**
@@ -598,6 +635,19 @@ export async function runCheck(opts) {
       `C1 落地覆盖率 ${(coverage.pct * 100).toFixed(2)}%(${coverage.hitKinds}/${coverage.demandedKinds} 类、${coverage.missOccurrences} 处用法无规则)< 要求的 ${minCoverage * 100}%`,
     )
   }
+  // 产物引擎 vs 参考层引擎:不同 ⇒ 参考层给的是"错引擎的清单",C1 的可选集与 C3 的算术都失去依据。
+  // 判红会踩"恒红门逼人绕过钩子"那条老账(本门判的是产物,产物在提交者机器上结构上未必存在),
+  // 所以这里**只把结论降级成"不可据以开链"**,不改 exit。
+  let productEngine = null
+  try {
+    productEngine = detectProductTailwindMajor(distDir)
+  } catch (e) {
+    if (e instanceof Undetermined) undetermined.push(`产物引擎判不出:${e.message}`)
+    else throw e
+  }
+  const refMajor = reference?.tailwindVersion ? String(reference.tailwindVersion).split('.')[0] : null
+  const engineMismatch =
+    !!productEngine && productEngine.major !== 'unknown' && !!refMajor && `${productEngine.major.slice(1)}.x` !== `${refMajor}.x`
   const exit = undetermined.length ? 2 : failing.length ? 1 : 0
   return {
     exit,
@@ -609,6 +659,8 @@ export async function runCheck(opts) {
     usedTokenKinds: usedTokens.size,
     ownClassKinds: own.size,
     tailwindVersion: reference ? reference.tailwindVersion : null,
+    productEngine,
+    engineMismatch,
     referenceBytes: reference ? reference.bytes : null,
     referenceFace: reference ? referenceFace : null,
     coverage,
@@ -639,7 +691,19 @@ function report(r, asJson) {
     `源码:${r.tsFileCount} 个 .ts/.tsx、${r.cssFileCount} 个 .css;className token ${r.usedTokenKinds} 种、端内自有类名 ${r.ownClassKinds} 种`,
   )
   if (r.tailwindVersion) console.log(`tailwind(端内解析)= ${r.tailwindVersion}`)
+  if (r.productEngine) {
+    console.log(
+      `tailwind(产物指纹)= ${r.productEngine.major || 'unknown'}` +
+        `(v4 独有 ${r.productEngine.v4Hits}/${r.productEngine.v4Total}、v3 独有 ${r.productEngine.v3Hits}/${r.productEngine.v3Total};preflight ${r.productEngine.preflight ? '在' : '无'})`,
+    )
+  }
   console.log(`产物形态 = ${r.distShape},wxss ${r.wxssFiles} 个`)
+  if (r.engineMismatch) {
+    console.log(
+      `⚠️ 引擎不一致 ⇒ 下面的"参考层"是**错引擎的清单**:产物跑 ${r.productEngine.major},参考层由端内 ${r.tailwindVersion} 直出。` +
+        `因此 C1 的"可选集"与 C3 的算术**都不构成"该不该开链"的依据**;要据此决策,先把参考层换成与产物同引擎再重跑。`,
+    )
+  }
 
   if (r.coverage) {
     const c = r.coverage
@@ -671,7 +735,8 @@ function report(r, asJson) {
     if (r.referenceBytes != null) {
       const slack = b.headroomBytes - r.referenceBytes
       console.log(
-        `   若开启 utilities:${b.headroomBytes} - 参考层 ${r.referenceBytes} = ${slack} B ${slack >= 0 ? '(装得下)' : '(装不下)'}`,
+        `   若开启 utilities:${b.headroomBytes} - 参考层 ${r.referenceBytes} = ${slack} B ${slack >= 0 ? '(装得下)' : '(装不下)'}` +
+          (r.engineMismatch ? ' 〔⚠️ 此数按错引擎的参考层算,不得据以决策〕' : ''),
       )
     }
   }
@@ -822,8 +887,28 @@ export function selfTest() {
     eq('P25 余量 = 上限 - 主包', m.headroomBytes, MAIN_PACKAGE_LIMIT - wantMain)
     eq('P26 分包根计数按 app.json 实数', m.subpackageRootCount, 2)
     eq('P27 缺 app.json ⇒ Undetermined', throwsUndetermined(() => measureMainPackage(join(d, 'pages'))), true)
+
+    // P28-P30:产物引擎指纹判据(参考层用错引擎 ⇒ C1 的可选集与 C3 的算术都失去依据)
+    const engRoot = mkTempDir('eng')
+    const engBase = join(engRoot, 'dist')
+    mkdirSync(engBase, { recursive: true })
+    const V4 = '--tw-leading:;--tw-tracking:;--tw-gradient-position:initial;--tw-drop-shadow-size:;--tw-duration:initial;--tw-ease:initial;'
+    const V3 = '--tw-bg-opacity:1;--tw-text-opacity:1;--tw-border-opacity:1;'
+    writeFileSync(join(engBase, 'app.wxss'), '@import "./app-origin.wxss";')
+    // P28 纯 v4 指纹 ⇒ v4,且 preflight 在(端 config 明写 preflight:false 时这就是"config 没进链"的证据)
+    writeFileSync(
+      join(engBase, 'app-origin.wxss'),
+      `page{box-sizing:border-box;border:0 solid}${V4}.a{color:red}`,
+    )
+    eq('P28 只有 v4 指纹 ⇒ v4 + preflight 在', (() => { const r = detectProductTailwindMajor(engBase); return [r.major, r.preflight, r.v4Hits, r.v3Hits] })(), ['v4', true, 6, 0])
+    // P29 纯 v3 指纹 ⇒ v3(反向对照:否则本判据等于恒答 v4)
+    writeFileSync(join(engBase, 'app-origin.wxss'), `page{margin:0}${V3}`)
+    eq('P29 只有 v3 指纹 ⇒ v3 且 preflight 不在', (() => { const r = detectProductTailwindMajor(engBase); return [r.major, r.preflight] })(), ['v3', false])
+    // P30 两版指纹同时出现 ⇒ unknown,不得猜一个方向
+    writeFileSync(join(engBase, 'app-origin.wxss'), `${V4}${V3}`)
+    eq('P30 两版指纹都有 ⇒ unknown(不猜)', detectProductTailwindMajor(engBase).major, 'unknown')
   } catch (e) {
-    results.push({ label: 'P24-P27 主包切分', ok: false, got: String(e).slice(0, 200) })
+    results.push({ label: 'P24-P30 主包切分与产物引擎', ok: false, got: String(e).slice(0, 200) })
   } finally {
     rmTempDir(b2)
   }
@@ -927,6 +1012,7 @@ export const __test__ = {
   harvestLandedSelectors,
   unescapeClassName,
   classifyDist,
+  detectProductTailwindMajor,
   collectLandedFromDist,
   measureMainPackage,
   classifyDualMeaning,
