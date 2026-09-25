@@ -166,10 +166,12 @@ export function gateCommandExecution(command: string): CommandExecutionGate {
  *   - alwaysConfirm 档:逃生舱**不能**越 —— YOLO 意味着"没有人在场",
  *     而这一档的定义就是"逃生舱也不得静默放行"。
  *
- * 说清本门的边界:另一枚逃生舱 `--allow-dangerous` 是调用方在
- * `confirmDangerous` 里直接 return true(见 commands/agent.ts、server/agent-core.ts),
- * 工具层看不见它,所以本门能给的只有"绝不让它拿到 autoApprovable"。
- * 要把那条橡皮图章也管住,得改确认回调的契约 —— 那是另一次决策,不在本票内。
+ * 说清本门的边界:另一枚逃生舱 `--allow-dangerous` 由调用方经唯一出口
+ * `createDangerGate` 注入(见 commands/agent.ts、server/agent-core.ts)。
+ * 2026-09-25 L7905 收口后,会话级 flag 事实经 `ToolContext.allowDangerous`
+ * 随 ctx 下发,工具层可追溯(见 danger-gate.ts 的 `noteDangerousApproval`)——
+ * 但它仍是**披露面而非决策面**:本字段不构成任何放行,本门能给的依旧只有
+ * "绝不让逃生舱拿到 autoApprovable";alwaysConfirm 档对任何确认语义都硬拦。
  */
 export function describeCommandBlock(gate: CommandExecutionGate, yolo: boolean): string | null {
   if (gate.dangerousPattern && !yolo) {
