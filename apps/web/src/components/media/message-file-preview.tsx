@@ -66,12 +66,11 @@ export function PdfEmbed({ src, className }: { src: string; className?: string }
     <div
       className={cn('my-0 overflow-hidden rounded-md border border-border', className)}
       data-testid="pdf-embed"
+      data-artifact-preview-kind="pdf"
     >
       <div className="flex items-center justify-between gap-2 bg-muted/40 px-2 py-1">
         <span className="truncate text-[10px] font-medium text-muted-foreground">
-          {total !== null
-            ? t('pdfPageIndicator', { page, total })
-            : t('pdfPageOnly', { page })}
+          {total !== null ? t('pdfPageIndicator', { page, total }) : t('pdfPageOnly', { page })}
         </span>
         <span className="flex shrink-0 items-center gap-2">
           <span className="flex items-center gap-1">
@@ -168,6 +167,7 @@ export function CsvPreview({ src }: { src: string }) {
       className="my-0 overflow-hidden rounded-md border border-border"
       data-testid="csv-preview"
       data-csv-total={view.total}
+      data-artifact-preview-kind="csv"
     >
       <div className="flex items-center justify-between gap-2 bg-muted/40 px-2 py-1">
         <span className="truncate text-[10px] font-medium text-muted-foreground">
