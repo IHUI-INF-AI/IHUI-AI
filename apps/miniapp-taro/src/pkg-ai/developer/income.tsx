@@ -11,6 +11,7 @@ import { getBuyInfo, getBuyList, getDeveloperWithdrawalList, post } from '@/api'
 import { getUserInfo } from '@/utils/auth'
 import ThemeRoot from '@/components/ThemeRoot'
 import './income.css'
+import LineIcon from '@/components/LineIcon'
 
 interface BuyInfo {
   AccumulatedIncome?: number
@@ -310,7 +311,7 @@ export default function DeveloperIncome() {
                     <Text className="income-stat-label">
                       {tt('developer.income.cashDetail', '提现明细')}
                     </Text>
-                    <Text className="income-stat-value">›</Text>
+                    <LineIcon name="chevron-right" size={24} color="var(--color-foreground)" />
                   </View>
                 </View>
                 <View className="income-card-bottom">

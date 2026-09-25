@@ -102,12 +102,6 @@
 .ask-create-picker-placeholder {
   color: var(--color-text-tertiary);
 }
-
-.ask-create-picker-arrow {
-  font-size: 32rpx;
-  color: var(--color-muted-foreground);
-}
-
 /* 悬赏积分 chip(pickBtn 语言: 圆角 16dp→32rpx / border.medium / bg card) */
 .ask-create-rewards {
   display: flex;
