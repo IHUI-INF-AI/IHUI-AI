@@ -154,6 +154,8 @@ describe('OfficePreview 四态降级', () => {
     await waitFor(() =>
       expect(screen.getByTestId('office-preview').dataset.officeState).toBe('unsupported'),
     )
+    // 对标 Qoder data-artifact-preview-kind:预览容器必须带格式标识
+    expect(screen.getByTestId('office-preview').dataset.artifactPreviewKind).toBe('xyz')
     expect(screen.getByTestId('office-unsupported').textContent).toBe('WORD_UNSUPPORTED')
     expect(spy).not.toHaveBeenCalled()
   })
@@ -237,6 +239,8 @@ describe('OfficePreview 渲染面', () => {
   it('pdf:PdfEmbed 显示页码(1/5),跳转输入 3 后 iframe 锚更新为 #page=3', async () => {
     render(<PdfEmbed src="https://x/a.pdf" />)
     await screen.findByTestId('pdf-embed')
+    // 对标 Qoder data-artifact-preview-kind
+    expect(screen.getByTestId('pdf-embed').dataset.artifactPreviewKind).toBe('pdf')
     const indicator = await screen.findByText('WORD_PAGE(1)/(5)')
     expect(indicator).toBeTruthy()
     const input = screen.getByTestId('pdf-page-input')
