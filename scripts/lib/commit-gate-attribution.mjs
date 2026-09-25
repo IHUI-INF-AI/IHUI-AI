@@ -346,8 +346,189 @@ export function verdictLine(v) {
   if (v.kind === 'mine') return `❌ ${v.reason}`
   if (v.kind === 'not-ours' && v.outsideStep)
     return `✅ ${v.reason} —— 批内 0 失败这一条是**量出来的**,不是"没跑";批外那一步请随后清偿,别把它当成可以长期忽略的背景噪音`
+  // 自跑那一轮的 not-ours:证据是真的,但**来源**必须点名 —— 钩子里那一轮从未跑到批量检查。
+  // 不写清来源,下一行日志读起来就和"守门在提交链上跑过、没点名本次文件"完全同形。
+  if (v.kind === 'not-ours' && v.batchSelfRun)
+    return `✅ ${v.reason} —— 取证来自 **safe-commit 自跑**的那一轮守门批(钩子内那一轮从未跑到批量检查);据此走应急跳门。不得把这行读成"守门没跑",也不得读成"钩子里跑过了"`
   if (v.kind === 'not-ours') return `✅ ${v.reason}(据此走应急跳门,守门结论以下方逐道复跑记录为准)`
-  return `⚠️ ${v.reason} —— 按应急路径落地,已留痕;请勿把它读成"通过了守门"或"因他人代码"`
+  return `⚠️ ${v.reason} —— 按应急路径落地,已留痕;请勿把它读成"通过了守门"或"因他人代码"${
+    v.batchSelfRun ? '(safe-commit 自跑取证也未取得门级结论)' : ''
+  }`
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  「批没跑完」从**中性事实**改成**必须先补证据的分支**(2026-09-26 立)
+//
+//  现场(2026-09-26 05:3x 实测,提交 scripts/check-gate-face-discipline.mjs 时):
+//    ❌ 🎨 运行 lint-staged...失败，提交已阻止
+//    🔒   · 未能从钩子输出解析出守门汇总块 —— 归因未计算,不得声称"因他人代码"
+//    ⚠️  已用 --no-verify 落地(归因=unattributed)
+//  成因是**结构性**的:`scripts/lib/pre-commit-hook.js` 里 lint-staged 跑在
+//  `node scripts/guardian-runner.mjs --staged` **之前**(实测 :97 与 :266),任一 lint/prettier
+//  失败即 `process.exit(1)` ⇒ **整批守门一道都不跑**。归因层于是永远拿不到汇总块,只能记
+//  `unattributed`,然后照旧 `--no-verify` 落地。
+//  后果:一次 lint 错误 = 全部守门被静默跳过,而账面读起来像"跑过了、只是与本次无关"。
+//  这正是本仓最恨的那一型 —— **判据失效的表现永远是"安静"**(守门 70/76/81 同型)。
+//
+//  本节的解法不是"调整钩子顺序"(那是另一张票,且动的是所有会话的提交路径),而是**补证据**:
+//  归因层取不到门级结论时,由 safe-commit 自己把 `guardian-runner.mjs --staged` 跑一遍,
+//  再按**完全相同的铰链**(classifyHookFailure)分流。三条出口:
+//    点名本次文件 ⇒ mine ⇒ 拒绝跳门;
+//    一个都没点名(含"批跑完且 blocking 失败 0"这一结构性证据)⇒ 可跳,但措辞必须交代取证来源;
+//    自跑本身也没成功 ⇒ 照旧落地,而 unattributed 的措辞必须带上**具体原因**。
+//  ⚠️ 刻意**不**把 unattributed 改成拒绝跳门:那会让"别人把我挡在 lint 外"的应急路径消失,
+//  逼人手工 `git commit --no-verify` —— 绕得更彻底,还不留痕。
+//
+//  三个函数都是纯判定(runBatch / runGate 注入),因此可用构造输入证明,不依赖真仓瞬时状态。
+//
+//  一条如实登记的局限:自跑发生在**首次 commit 失败之后**,而 lint-staged 失败时会回滚它自己
+//  动过的暂存区 ⇒ 新加的文件此刻已退回未跟踪,所以自跑那一轮 `--staged` 看到的暂存集**可能少于**
+//  声明集。这与既有"逐道复跑失败门"处于同一刻、同一索引态(两份证据因此可互相比较),但它是
+//  自跑结论覆盖面的一条真实上限 —— 不得把它读成"等价于钩子里那一轮全批"。
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** `run()` 的失败打印形态:`❌ <label>失败，提交已阻止`(.husky 薄壳同样转印这一行)。 */
+const PRE_BATCH_BLOCKER_RE = /❌\s*(.+?)\s*失败[，,]\s*提交已阻止/g
+
+/**
+ * 取"跑在守门批**之前**的那一步"的点名(最后一个命中)。
+ *
+ * 为什么只看汇总块**之前**:同一段钩子尾部也可能带着 `❌ 🛡️ 运行守门脚本批量检查...失败，提交已阻止`,
+ * 那是"批跑了且有红"的形态,归因层本该拿得到汇总;把它误当成"批前拦截"会写出一句反过来的措辞。
+ * 批量检查那一行本身也排除掉(它不是"批之前"的步骤)。
+ * @returns {string|null} null = 没能点名(措辞里必须如实写"未点名",不得编一个)
+ */
+export function blockedBeforeBatch(text) {
+  const clean = stripAnsi(text)
+  if (!clean) return null
+  const at = clean.lastIndexOf('守门脚本批量检查汇总')
+  const seg = at < 0 ? clean : clean.slice(0, at)
+  let last = null
+  for (const m of seg.matchAll(PRE_BATCH_BLOCKER_RE)) {
+    const label = m[1].trim()
+    if (!label) continue
+    if (/^🛡️?\s*运行守门脚本批量检查/.test(label)) continue
+    last = label
+  }
+  return last
+}
+
+/**
+ * 该不该自跑一遍守门批 —— 判"归因层手里有没有可用的门级结论",不判"红是谁的"。
+ *
+ * 反向锁的落点就在这一行:`kind ∈ {mine, not-ours} ∧ ranFullBatch === true`
+ * (即"批跑完了且解析到汇总")**必须**返回 false,否则新分支会截走 C0–C3 钉住的那条旧链。
+ * `mine` 一并返回 false:它的出口已经是"拒绝跳门、exit 1",再跑一遍只多花几分钟、不改结论。
+ */
+export function needsBatchSelfRun(verdict) {
+  if (!verdict || typeof verdict !== 'object') return false
+  if (verdict.kind === 'mine') return false
+  return verdict.kind === 'unattributed' || verdict.ranFullBatch === false
+}
+
+/**
+ * 把自跑那一轮接回**同一把铰链**。
+ *
+ * @param verdict    classifyHookFailure 在钩子那一轮上的结论
+ * @param stagedFiles 本次声明并暂存的文件清单(与首轮同一个数组)
+ * @param runBatch   () => {ran:boolean, status:number|null, output:string, why:string|null}
+ *                   —— 非纯的那一半由调用方提供(spawn guardian-runner);本函数**只在
+ *                   needsBatchSelfRun 为真时才调用它**,这是"汇总块存在时绝不自跑"的可证形式
+ * @param runGate    与首轮同一个逐道复跑出口(铰链必须是同一份实现)
+ * @param hookText   首次 commit 的 stdout+stderr,用于点名"红在批之前的哪一步"
+ */
+export function decideWithSelfRunBatch({ verdict, stagedFiles, runBatch, runGate, hookText }) {
+  const blocker = blockedBeforeBatch(hookText)
+  const sourceNote = blocker
+    ? `红在守门批**之前**的那一步「${blocker}」⇒ 批量检查在钩子里一道都没跑`
+    : '钩子那一轮从未跑到守门批量检查(未能从输出点名具体步骤)'
+  if (!needsBatchSelfRun(verdict)) return { ...verdict, batchSelfRun: false }
+
+  let selfRun = null
+  let failure = null
+  try {
+    selfRun = runBatch ? runBatch() : null
+  } catch (e) {
+    failure = `自跑抛异常:${e?.message ?? e}`
+  }
+  if (!selfRun || !selfRun.ran) {
+    // 原因取值顺序刻意是「自跑自己报的 → 抛的异常 → 没给出口」:
+    // 自跑闭包最清楚它为什么没跑成(ENOENT / 超时 / 被中断),拿外层猜测覆盖它会写出一条错解释。
+    const reason =
+      selfRun?.why ?? failure ?? (runBatch ? '自跑未产出结论(既无 ran 也无 why)' : '未提供自跑出口')
+    return {
+      ...verdict,
+      kind: 'unattributed',
+      batchSelfRun: true,
+      selfRunOk: false,
+      blockerBeforeBatch: blocker,
+      detail: [...(verdict.detail ?? []), sourceNote, `自跑取证也未成功:${reason}`],
+      reason: `${verdict.reason};${sourceNote},而 safe-commit 自跑 guardian-runner 同样未成功(${reason})`,
+    }
+  }
+
+  const provenance = `门级结论取自 safe-commit 自跑的那一轮 guardian-runner --staged(exit ${selfRun.status}),不是钩子内那一轮`
+  // 同一把铰链:把自跑的输出当成"另一轮的钩子输出"喂回 classifyHookFailure
+  const hinge = classifyHookFailure({ text: selfRun.output, stagedFiles, runGate })
+  const summary = parseGateSummary(selfRun.output)
+
+  if (hinge.kind === 'mine') {
+    return {
+      ...hinge,
+      batchSelfRun: true,
+      selfRunOk: true,
+      blockerBeforeBatch: blocker,
+      detail: [sourceNote, provenance, ...hinge.detail],
+      reason: `${hinge.reason}(取证来自自跑的那一轮守门批,非钩子内那一轮)`,
+    }
+  }
+  if (hinge.kind === 'not-ours') {
+    return {
+      ...hinge,
+      batchSelfRun: true,
+      selfRunOk: true,
+      blockerBeforeBatch: blocker,
+      detail: [sourceNote, provenance, ...hinge.detail],
+    }
+  }
+  /**
+   * 批跑完、blocking 失败 0、退出码 0 ⇒ **结构上没有任何一门点名本次文件**(红门数为 0)。
+   * 这正是"一个都没点名"那一支,只是它由"全绿"而不是由"逐道复跑未点名"证明。
+   * 首轮的 classifyHookFailure 对这种输入会给 unattributed(它只认"解析到失败门清单"),
+   * 所以这一格必须在这里显式升级 —— 而升级的依据是 `failed.length === 0` 这个量出来的数,
+   * 不是"我看它像绿的"。
+   */
+  if (
+    summary.batchReported &&
+    !summary.earlyAbort &&
+    summary.failed.length === 0 &&
+    selfRun.status === 0
+  ) {
+    return {
+      kind: 'not-ours',
+      ranFullBatch: true,
+      failed: [],
+      batchSelfRun: true,
+      selfRunOk: true,
+      blockerBeforeBatch: blocker,
+      detail: [
+        sourceNote,
+        provenance,
+        `自跑批已跑完全部 ${summary.total ?? '?'} 道门、blocking 失败 0 ⇒ 没有一门点名本次文件(红不在守门批内,在批外那一步)`,
+      ],
+      reason: `safe-commit 自跑守门批:总检查数 ${summary.total ?? '?'}、blocking 失败 0 ⇒ 红不在守门批(${sourceNote})`,
+    }
+  }
+  // 自跑了但仍拿不到门级结论(超时后仍有部分输出 / 格式漂了解析不出 / 复跑不可用)
+  return {
+    ...verdict,
+    kind: 'unattributed',
+    batchSelfRun: true,
+    selfRunOk: false,
+    blockerBeforeBatch: blocker,
+    detail: [...(verdict.detail ?? []), sourceNote, provenance, `自跑那一轮的结论:${hinge.reason}`],
+    reason: `${verdict.reason};safe-commit 自跑守门批后仍无法归因 —— 自跑也未成功(${hinge.reason})`,
+  }
 }
 
 // ------------------------------------------------------------------ 自检
@@ -480,10 +661,14 @@ export function selfTest(assert, runnerSource) {
     stagedFiles: MY_FILES,
     runGate: () => ({
       status: 1,
-      output: '❌ 检出 1 个文件的暂存内容等于其**历史提交版本**:\n   - scripts/foo.mjs  ==  307afd6c3\n',
+      output:
+        '❌ 检出 1 个文件的暂存内容等于其**历史提交版本**:\n   - scripts/foo.mjs  ==  307afd6c3\n',
     }),
   })
-  assert(a2b.kind === 'mine', `A2b 两行形态的点名必须判 mine(旧版在这里判成 not-ours ⇒ 放行跳门),实得 ${a2b.kind}`)
+  assert(
+    a2b.kind === 'mine',
+    `A2b 两行形态的点名必须判 mine(旧版在这里判成 not-ours ⇒ 放行跳门),实得 ${a2b.kind}`,
+  )
 
   // --- A3b 反向对照:续行点名的是**别人的**文件 ⇒ 不得因"带了续行"就判 mine ---
   const a3b = classifyHookFailure({
@@ -491,7 +676,8 @@ export function selfTest(assert, runnerSource) {
     stagedFiles: MY_FILES,
     runGate: () => ({
       status: 1,
-      output: '❌ 检出 1 个文件的暂存内容等于其**历史提交版本**:\n   - apps/web/src/other.tsx  ==  307afd6c3\n',
+      output:
+        '❌ 检出 1 个文件的暂存内容等于其**历史提交版本**:\n   - apps/web/src/other.tsx  ==  307afd6c3\n',
     }),
   })
   assert(a3b.kind === 'not-ours', `A3b 续行未涉及本次文件时应仍为 not-ours,实得 ${a3b.kind}`)
@@ -731,6 +917,9 @@ export const __test__ = {
   outsideBatchStep,
   classifyHookFailure,
   verdictLine,
+  blockedBeforeBatch,
+  needsBatchSelfRun,
+  decideWithSelfRunBatch,
   SUMMARY,
   FAIL_29,
   MY_FILES,
