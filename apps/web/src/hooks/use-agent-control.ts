@@ -4,6 +4,11 @@
 
 'use client'
 
+// 链名: chain: replayable —— 本文件消费的是「断线重放链」:api 侧 `agent.action` 经 WS 送达,
+// 同一用户的多个连接/重连都可能把同一条指令再送一次(投递保证是"至少一次"),所以这里必须按
+// 指令 id 做幂等去重。与之相对的桌面原生事件总线是 chain: continuous(见 use-desktop.ts),
+// 那条链没有 id 也没有队列,两者语义不得互换 —— 判据 scripts/check-desktop-event-wiring.mjs 规则 E。
+
 /**
  * Desktop Agent Control Bridge(2026-08-16 立)——打通 LLM computer_* 工具 →
  * api → desktop(webview)的完整闭环,镜像 apps/extension/lib/agent-control-bridge.ts。
