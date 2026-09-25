@@ -850,4 +850,43 @@ test('自拼 cat-file --batch 却不走本层的门,数量只减不增', () => {
   }
 })
 
+
+// ── 第四型尺子:判"远端在哪"只许走层(§5b 的引用清理病理) ──────────────────
+test('判"远端在哪"只许走层:生产文件不得拿会被清理层删掉的跟踪 ref 落槌', () => {
+  // 先拿构造面证明这把尺子**有牙**(阳性必抓、两种正确写法不得误报),再扫真仓 —— 
+  // 顺序反了就是一支恒红或恒绿的尺子。
+  const usesLayer = (s) => /from '\.\.?\/?lib\/face-reader\.mjs'/.test(s)
+  const asksServer = (s) => /ls-remote/.test(s)
+  const decidesOnTrackingRef = (s) => /rev-parse[^\n]{0,40}(refs\/remotes\/origin|['"`]origin\/)/.test(s)
+  const violates = (s) => decidesOnTrackingRef(s) && !usesLayer(s) && !asksServer(s)
+  assert.equal(
+    violates("const s = git(['rev-parse', 'refs/remotes/origin/main'])"),
+    true,
+    '阳性对照:纯跟踪 ref 当决策输入必须被抓到',
+  )
+  assert.equal(
+    violates("import { resolveRemoteHead } from './lib/face-reader.mjs'\nconst s = resolveRemoteHead('main', { root })"),
+    false,
+    '反向对照:走层的不得误报',
+  )
+  assert.equal(
+    violates("const a = git(['ls-remote', 'origin', 'refs/heads/main'])\nconst b = git(['rev-parse', 'origin/main'])"),
+    false,
+    '反向对照:ls-remote 之后的离线兜底是允许的(git-push-guard / check-push-sync 就是这个形状)',
+  )
+  const root = join(here, '..', '..')
+  const files = gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '--', 'scripts/'], root)
+    .split('\n')
+    .filter((p) => p.endsWith('.mjs') && !p.startsWith('scripts/tests/'))
+  const blobs = catBatch(
+    root,
+    files.map((f) => `HEAD:${f}`),
+  )
+  const bad = files.filter((f) => {
+    const src = blobs.get(`HEAD:${f}`)
+    return typeof src === 'string' && violates(src)
+  })
+  assert.deepEqual(bad, [], `这些文件仍在拿跟踪 ref 判远端位置:${bad.join(', ')}`)
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
