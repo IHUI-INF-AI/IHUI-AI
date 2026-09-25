@@ -657,7 +657,8 @@ export async function findHistoryTurnPage(
       .selectDistinct({ turnOrdinal: chatMessages.turnOrdinal })
       .from(chatMessages)
       .where(
-        opts.cursorTurnOrdinal != null
+        // eslint eqeqeq:!= null(含 undefined)改显式双判,语义不变
+        opts.cursorTurnOrdinal !== null && opts.cursorTurnOrdinal !== undefined
           ? and(convEq, turnNotNull, gt(chatMessages.turnOrdinal, opts.cursorTurnOrdinal))
           : and(convEq, turnNotNull),
       )
@@ -670,7 +671,9 @@ export async function findHistoryTurnPage(
   } else {
     // newest / older:取尾部窗口(降序取 limit+1,反转成升序)
     const where =
-      opts.direction === 'older' && opts.cursorTurnOrdinal != null
+      opts.direction === 'older' &&
+      opts.cursorTurnOrdinal !== null &&
+      opts.cursorTurnOrdinal !== undefined
         ? and(convEq, turnNotNull, lt(chatMessages.turnOrdinal, opts.cursorTurnOrdinal))
         : and(convEq, turnNotNull)
     const behind = await db
@@ -707,7 +710,8 @@ export async function findHistoryTurnPage(
 
   const byTurn = new Map<number, ChatMessage[]>()
   for (const row of rows) {
-    if (row.turnOrdinal == null) continue
+    // eslint eqeqeq:== null(含 undefined)改显式双判,语义不变
+    if (row.turnOrdinal === null || row.turnOrdinal === undefined) continue
     const list = byTurn.get(row.turnOrdinal)
     if (list) list.push(row)
     else byTurn.set(row.turnOrdinal, [row])
@@ -1151,13 +1155,27 @@ export async function unfavoriteConversation(
 /**
  * D49①(2026-09-23):消息点赞/点踩落库 —— upsert 语义(一人一消息一票,改票覆盖)。
  * 归属校验前置:消息必须存在且其会话属于该用户,否则 not-found(不区分不存在/无权)。
+ *
+ * D64⑤(2026-09-26):反馈问卷化扩展 —— reason(五类原因)/comment(≤500)结构化落库。
+ * 零迁移硬约束:chat_message_feedbacks 无对应列,packages/database 本票禁改,
+ * 故借 chat_messages.metadata jsonb(既有可写字段)单语句 `||` 原子合并写入
+ * `feedbackSurvey` 键(不读改写,不覆盖他人键;重复提交按键覆盖 = 最新一票为准)。
+ * 残余边界:updateMessage(patch.metadata) 是整体替换式写 metadata,流式刚结束的
+ * 短窗口内理论上可覆盖本键;评分行(chat_message_feedbacks)不受影响,仅问卷附言可能丢。
  */
 export type MessageRating = 'like' | 'dislike'
+
+/** D64⑤ 问卷结构化答案(均可选;reason 五类点踩细分,comment 用户补充说明) */
+export interface MessageFeedbackSurvey {
+  reason?: 'inaccurate' | 'incomplete' | 'offTopic' | 'style' | 'other'
+  comment?: string
+}
 
 export async function rateChatMessage(
   userId: string,
   messageId: string,
   rating: MessageRating,
+  survey?: MessageFeedbackSurvey,
 ): Promise<{ ok: boolean; reason?: 'not-found' }> {
   const owned = await db
     .select({ conversationId: chatMessages.conversationId })
@@ -1174,6 +1192,18 @@ export async function rateChatMessage(
       target: [chatMessageFeedbacks.userId, chatMessageFeedbacks.messageId],
       set: { rating, updatedAt: new Date() },
     })
+  // D64⑤:只在确实带了结构化答案时追加写入(旧载荷零额外语句,行为与 D49① 逐字节一致)
+  if (survey?.reason || survey?.comment) {
+    const patch: Record<string, unknown> = { rating, answeredAt: new Date().toISOString() }
+    if (survey.reason) patch.reason = survey.reason
+    if (survey.comment) patch.comment = survey.comment
+    await db
+      .update(chatMessages)
+      .set({
+        metadata: sql`coalesce(${chatMessages.metadata}, '{}'::jsonb) || ${JSON.stringify({ feedbackSurvey: patch })}::jsonb`,
+      })
+      .where(eq(chatMessages.id, messageId))
+  }
   return { ok: true }
 }
 
