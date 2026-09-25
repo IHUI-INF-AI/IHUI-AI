@@ -7635,6 +7635,30 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
   ③ 存量明文的实际消失要靠下一次桌面端启动，届时 `pnpm check:desktop-cache-plaintext` 应转绿，
   若仍红才说明迁移路径真有 bug。
 
+### 第五波（同日 10:3x 起：桌面票交回后自己撞出来的一条数据丢失缺陷 + 上游第二轮规格派出的票）
+
+- [x] ✅(2026-09-25) **桌面端"清理缓存"删的其实是整棵 WebView2 数据树**。起因不是规格，是我为"真机 WebView2
+  端到端"把桌面壳 `cargo build` 编出来（成功，产物 `ihui-desktop.exe`），顺手去读那段
+  `#[cfg(all(dev, target_os = "windows"))]` 的"dev 每次启动清空 EBWebView"——第一反应是"`dev` 不是 cargo 内建
+  cfg，这大概是段永不编译的死码"，于是**回读了 `tauri-build` 的构建输出**：里面确有 `cargo:rustc-cfg=dev`
+  ⇒ 它真参与编译。而 `EBWebView/Default/` 下同时住着 `Local Storage`(登录态 + 已加密的本机会话)、
+  `Session Storage`、`IndexedDB`、`Network`(Cookie) ⇒ 任何人跑一次 `tauri dev`、或用户在设置页点一次
+  "清理缓存"，等于把登录与本机数据整棵清空。它同时否证了上一节 item ③ 的验证姿势：**"下次启动自动迁移"
+  不得拿 dev 启动去验，那是删数据不是迁数据**。
+  改法 = 一处 `clear_webview_caches()` 给两个入口共用（设置页命令 + dev 分支）：缓存白名单只列"重访站点即
+  自动重建"的目录；数据名另列拒绝表；两表任一段重合即整条剔除；根目录末段不是 `EBWebView` 时**拒绝执行**
+  （拼错路径的后果必须是"什么也没清"，不能是"抹掉一棵树"）。取证：Rust 单测 4/4（含"数据必须活着"与
+  "被拒时一个子项都不许少"两条反向对照）+ `scripts/tests/desktop-webview-data-loss.test.mjs` 4/4
+  （第④例把**旧写法喂回判据**证明尺子有牙、第②例是两处入口的装车证明）。披露文档 §4.6 同票改写。
+- [ ] **本波自己踩到的取证纪律（已在上一批记过，仍复发，所以再记一次）**：`cmd 2>&1 | tail -N` 之后
+  `echo $?` 拿的是 `tail` 的码 —— 本轮 `cargo test` 编译失败（E0308 两处）时 `test_rc` 照样显示 0，
+  靠回头读日志才发现。长任务一律先 `> file 2>&1` 再取退出码，然后读文件。
+- [ ] **上游第二轮规格派出的票（规格在 `.ihui-agent/tmp/zcode-absorb/MECHANISM-SPEC-2.md`，gitignored）**：
+  §6 来源台账、§1 豁免到期 + §7 lint 抑制预算（两票在跑）；§2 三轴基线新鲜度自检紧随其后。
+  规格里"**扫完确认无新点**"的区域与 4 项**否证/我们更强**（上游全仓仅 4 个 `*.test.ts`、仓库内零 CI、
+  `node-linker=hoisted` 与本仓门 78/38 判据前提直接冲突、`formal-proof`/`zcode-cua` 为空壳）一并登记，
+  **不得回头再把它们当待办重做**。
+
 
 ## O61 safe-commit 的"钩子失败归因"从抄来的结论改成量出来的结论（2026-09-25 立并完成 ✅）
 
