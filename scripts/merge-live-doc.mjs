@@ -436,6 +436,28 @@ function selfTest() {
     const v = classifyMissing(['anchor', held, 'tail'], ['anchor', flipped, 'tail'])
     assert(v.get(held) === 'superseded', `应判 superseded,实判 ${v.get(held)}`)
   })
+  // ⑲ ⑬ 的第三次同型补刀:守门 109(2026-09-25 立)把认领标记升级成**租约**
+  // `- [ ]（进行中@YYYY-MM-DD/持有者）`,而 STATE_PREFIX 第一版只认裸 `（进行中）`。
+  // 于是"摘牌翻勾"这一整型编辑又被判成真丢失 —— 本票实测:三张票的租约行被判 lost=3,
+  // 而 `--apply` 会把已翻勾的那行**原样再插回一遍**,造出"未勾 + 已勾"双态行(正是本工具
+  // 立项要消灭的形态)。同一条注释里写着"必须枚举本项目所有合法编辑形态",第二次应验。
+  ck('⑲ 认领租约前缀（进行中@日期/持有者）摘牌后判 superseded,不得插回造双态行', () => {
+    const held = '- [ ]（进行中@2026-09-26/D29票） D29 团队级知识引擎:记忆/Wiki/知识卡云端共享(G-35)'
+    const flipped =
+      '- [x] ✅(2026-09-26) D29 团队级知识引擎:记忆/Wiki/知识卡云端共享(G-35)' +
+      ' 〔2026-09-26 摘牌:本票已落地,详见台账内 ✅ 详情行〕'
+    assert(
+      !squash(flipped).includes(squash(held)),
+      '本例必须"连租约前缀一起剥才成立":若整行原样互含,就测不到 @日期/持有者 这一层',
+    )
+    const v = classifyMissing(['anchor', held, 'tail'], ['anchor', flipped, 'tail'])
+    assert(v.get(held) === 'superseded', `应判 superseded,实判 ${v.get(held)}`)
+    assert(mergeByAnchors(['anchor', held, 'tail'], ['anchor', flipped, 'tail'], v).lines === 0, '把摘牌行又插回一遍')
+    // 反向对照:租约通道不得替真丢失洗地(与 ⑫ 同一条禁令,换了前缀形态也必须仍然拦)
+    const gone = '- [ ]（进行中@2026-09-26/D99票） **D99 交还前必须自行复验**:按权威入口复跑并贴末行输出'
+    const other = '- [x] ✅(2026-09-26) **D98 别的条目**:已完成,与 D99 无关,只是同样带租约前缀'
+    assert(classifyMissing(['anchor', gone], ['anchor', other]).get(gone) === 'lost', '租约前缀洗掉了真丢失')
+  })
   // ⑫ ⑪/⑬ 的对照组:状态前缀**不能**变成万能洗地通道。
   ck('⑫ 剥状态前缀不得替真丢失洗地(整条正文没存活的行仍判 lost)', () => {
     const gone = '- [ ]（进行中） **D99 交还前必须自行复验**:按权威入口复跑并贴末行输出,不得转述'
