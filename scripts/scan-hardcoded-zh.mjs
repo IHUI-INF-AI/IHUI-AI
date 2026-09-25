@@ -32,8 +32,15 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
-import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+// 判定面取材的唯一出口(2026-09-26 迁,守门 118 的 loose-git 档收口)。此前本门有两处自己派生:
+//   · `execFileSync('git', ['diff','--cached',…])` —— 裸 `'git'` 依赖 PATH(服务账户/GUI 宿主不通);
+//   · `headCountOf()` 的 `execFileSync(GIT_BIN, ['show', 'HEAD:<rel>'])` —— 写死 C:/Program Files/Git
+//     且**逐文件一次派生**(HEAD 面有命中的文件 ~899 个 ⇒ fork 风暴),任何一次 git 失败被 catch 折成
+//     `n = 0`,于是"GIT_BIN 不在这台机上"会表现成"每个文件额度都是基线值"的假红/假绿。
+// 现在一律经 scripts/lib/face-reader.mjs:绝对 git + stdio[0]=pipe + **一次 cat-file --batch 读完整批**
+// + maxBuffer 给足 + 取不到 ⇒ 抛 Undetermined ⇒ 对外 exit 2「无法判定」。
+import { Undetermined, catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
 
 // ROOT 由脚本自身位置推导:守门链偶发从子包 cwd 调用,写死 process.cwd() 会静默扫不到文件而"恒绿"
 // 唯一例外是集成测试:--root 显式注入临时夹具根(测试只改 cwd 时,脚本仍会去扫真仓,
@@ -148,6 +155,56 @@ const TOP_N = args.has('--top') ? parseInt(argv[argv.indexOf('--top') + 1], 10) 
 const STRICT = args.has('--exit') && argv[argv.indexOf('--exit') + 1] === '1'
 const STAGED = args.has('--staged')
 const UPDATE_BASELINE = args.has('--update-baseline')
+const WORKTREE_FLAG = args.has('--worktree')
+if (STAGED && WORKTREE_FLAG) {
+  console.error('[scan-hardcoded-zh] 无法判定(exit 2): --staged 与 --worktree 不得同用(两个判定面互斥)')
+  process.exit(2)
+}
+
+/** 读 git 输出的通用出口(经共用层:绝对 git 二进制 + quotepath + windowsHide + 数字 timeout)。
+ *  裸 `'git'` 依赖 PATH,服务账户 / GUI 宿主的 PATH 与交互终端不通(AGENTS §5b)。 */
+function gitLines(gitArgs, root = ROOT) {
+  try {
+    return gitRaw(gitArgs, root, { timeout: 120000 })
+      .split('\n')
+      .map((s) => s.trim().replace(/\\/g, '/'))
+      .filter(Boolean)
+  } catch (e) {
+    const msg = e instanceof Undetermined ? e.message : e?.message ?? String(e)
+    throw new Undetermined(`git ${gitArgs[0]} 未能真正运行,判定面无法枚举:${msg}`)
+  }
+}
+
+/**
+ * 暂存文件集合(只是**枚举路径**,内容一律另按索引 blob 取)。
+ * 返回 `null` = 暂存面**不可用**(git 问不到),与"可用且确实为空"是两件事 ——
+ * 前者必须喊出来;把"没问成"表现成"没有暂存改动"再回退全量,是一把在故障现场报绿的尺子。
+ */
+function stagedFiles() {
+  try {
+    return new Set(gitLines(['diff', '--cached', '--name-only', '--diff-filter=ACMR']))
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 一次 `cat-file --batch` 读一批 blob 正文(逐文件派生 = fork 风暴,§5b 同型;
+ * 本门原先的 `headCountOf` 就是每台命中文件一次 `git show`,HEAD 面近 900 次派生)。
+ * @param {string} rev '' = 索引;HEAD = 提交树
+ */
+function readBlobs(root, rev, rels, batch = null) {
+  const out = new Map()
+  if (rels.length === 0) return out
+  const specs = rels.map((r) => `${rev}:${r}`)
+  const opts = { maxBuffer: 1 << 29, timeout: 120000 }
+  // 显式写 `catBatch(...)`:守门 118 只认"真的调用层的读取入口",
+  // 把 catBatch 当形参默认值再调 `batch(...)` 会被判成 half-wired(引了层却没用它读)。
+  const got = batch ? batch(root, specs, opts) : catBatch(root, specs, opts)
+  for (let i = 0; i < rels.length; i++) out.set(rels[i], got.get(specs[i]) ?? null)
+  return out
+}
+
 
 /** 读基线:缺文件时按"空基线"处理(新文件一律零额度,宁可误拦不可漏拦) */
 function readBaseline() {
@@ -156,24 +213,6 @@ function readBaseline() {
     return raw && raw.files ? raw.files : {}
   } catch {
     return {}
-  }
-}
-
-function stagedFiles() {
-  try {
-    return new Set(
-      execFileSync('git', ['-c', 'safe.directory=*', 'diff', '--cached', '--name-only', '--diff-filter=ACMR'], {
-        cwd: ROOT,
-        encoding: 'utf8',
-        windowsHide: true,
-        stdio: ['ignore', 'pipe', 'ignore'],
-      })
-        .split('\n')
-        .map((s) => s.trim().replace(/\\/g, '/'))
-        .filter(Boolean),
-    )
-  } catch {
-    return new Set()
   }
 }
 
@@ -198,8 +237,29 @@ for (const t of TARGETS) walk(t, allFiles)
 const stagedSet = STAGED ? stagedFiles() : null
 const scopeFiles =
   stagedSet && stagedSet.size > 0
-    ? allFiles.filter((f) => stagedSet.has(path.relative(ROOT, f).replace(/\\/g, '/')))
+    ? allFiles.filter((f) => stagedSet.has(relOf(f)))
     : allFiles
+
+/** 判定面(2026-09-26 全部经 scripts/lib/face-reader.mjs,口径与本门自己的判据同形):
+ *   · 缺省(全量)⇒ **工作树磁盘**。本门的"新增即拦"要求看得见**尚未 git add** 的在途中文,
+ *     这一条由镜像测试「HEAD 锚点:既有中文不被判新增」的正反成对两条钉着;
+ *     它的夹具还是**非 git 目录**,所以全量档不得改判 HEAD blob —— 那会让 13 例夹具当场失效。
+ *   · `--staged` 且暂存集非空 ⇒ **索引 blob**(一次 `cat-file --batch`;盘上随后改对不算修好)。
+ *   · `--worktree` 只是把缺省面写成显式旗标(人工逃生舱),与缺省同值。
+ *   · 棘轮**额度**那一维恒取 **HEAD blob**(与命中面是两件事:额度问的是"仓库里本来有多少")。
+ * 暂存集为空 / git 不可用时退回全量口径 —— 这是既有设计("空暂存 ⇒ 零命中 ⇒ 恒绿"是假通过),
+ * 但**退回必须喊出来**,不许静默把人换成另一把尺子。 */
+const FACE_LABEL = { worktree: '工作树磁盘(缺省全量档)', staged: '索引 blob', head: 'HEAD blob' }
+let face = 'worktree'
+let faceNotice = null
+if (STAGED) {
+  if (stagedSet === null)
+    faceNotice = '暂存面不可用(git 问不到)⇒ 已退回全量口径按工作树判;这不是"没有暂存改动"'
+  else if (stagedSet.size === 0)
+    faceNotice = '--staged 暂存集为空 ⇒ 已退回全量口径按工作树判(与 scopeFiles 同一条兜底)'
+  else face = 'staged'
+}
+if (faceNotice) console.log(`⚠️  [scan-hardcoded-zh] 判定面退回提示:${faceNotice}`)
 
 /** 对一份源码文本跑同一套命中判定(磁盘/索引/HEAD 三种取材共用一份判据,不得有两套真相)。
  *  本文件是"全顶层 + process.exit"的 CLI 脚本,没有 isDirectRun 守卫,故不 export ——
@@ -250,11 +310,48 @@ const fileHits = []
 // 内容文案豁免清单(见 contentExemptReason):只报数不判红,但必须逐文件可见
 const contentExempts = []
 
+function relOf(f) {
+  // 归一为正斜杠:基线要入仓,Windows 的 path.relative 给反斜杠会跨平台漂移
+  return path.relative(ROOT, f).replace(/\\/g, '/')
+}
+
+function dieUndetermined(e) {
+  const msg = e instanceof Undetermined ? e.message : e?.message ?? String(e)
+  console.error(`[scan-hardcoded-zh] 无法判定(exit 2): ${msg}`)
+  if (!(e instanceof Undetermined)) console.error(e?.stack ?? '')
+  process.exit(2)
+}
+
+/**
+ * 判定面的内容(2026-09-26 迁):
+ *  - `--staged` ⇒ **索引 blob**,一次 `cat-file --batch` 读完整批(原先读磁盘:盘上随后改对不算修好)
+ *  - 缺省 ⇒ **工作树磁盘**,但经共用层的 `readWorktreeFile`(存在性 / 编码错误不得伪装成"这文件没中文")
+ * 枚举面仍是按 TARGETS 目录树发现候选 —— 那是**枚举路径**,不是被审内容;本门的"新增即拦"要求
+ * 看得见尚未 git add 的在途中文(镜像夹具「HEAD 锚点」的正反成对两条就钉着这件事)。
+ */
+let indexTexts = new Map()
+try {
+  if (face === 'staged') indexTexts = readBlobs(ROOT, '', scopeFiles.map(relOf))
+} catch (e) {
+  dieUndetermined(e)
+}
+
 for (const f of scopeFiles) {
-  const src = fs.readFileSync(f, 'utf8')
+  const rel = relOf(f)
+  let src
+  if (face === 'staged') {
+    const t = indexTexts.get(rel)
+    if (typeof t !== 'string') {
+      dieUndetermined(new Undetermined(`${rel}: 索引 blob 取不到 —— --staged 面无法判定(不回退磁盘)`))
+    }
+    src = t
+  } else {
+    const t = readWorktreeFile(ROOT, rel)
+    if (typeof t !== 'string') continue // 磁盘面取不到 = 与改判前一样跳过(walk 已保证存在,此处只兜竞态)
+    src = t
+  }
   const hits = scanSource(src)
   if (hits.length > 0) {
-    const rel = path.relative(ROOT, f).replace(/\\/g, '/')
     const reason = contentExemptReason(src)
     if (reason) {
       // 内容文案声明生效:不入 fileHits(不参与基线/越线判定),但逐文件报数与理由,
@@ -264,7 +361,6 @@ for (const f of scopeFiles) {
     }
     totalHits += hits.length
     fileHits.push({
-      // 归一为正斜杠:基线要入仓,Windows 的 path.relative 给反斜杠会跨平台漂移
       file: rel,
       count: hits.length,
       samples: hits,
@@ -284,26 +380,55 @@ fileHits.sort((a, b) => b.count - a.count)
 // (中文命中 250 → 250,差值 0)仍被判"新增 245"。静态清单漏入账 = 该端永久红灯 = 逼人绕过钩子,
 // 连带废掉全部守门(与守门 77 换锚点同一条教训:**锚点必须能让它自己说话**)。
 // 新文件不在 HEAD ⇒ headCount 取 0,额度仍为 0,"新文件写死中文即拦"的语义不变。
-const GIT_BIN = 'C:/Program Files/Git/cmd/git.exe'
 const baseline = readBaseline()
 const headCountCache = new Map()
-function headCountOf(rel) {
-  if (headCountCache.has(rel)) return headCountCache.get(rel)
-  let n = 0
+/**
+ * 额度那一维的取材(2026-09-26 迁):原先是**逐文件** `execFileSync(GIT_BIN, ['show', 'HEAD:<rel>'])`
+ * —— 写死 `C:/Program Files/Git/cmd/git.exe`(不在那台机上就每次抛错、被 catch 折成 `n = 0`,
+ * 于是"我自己的 git 路径不对"表现成"这些文件都不在 HEAD"),且 HEAD 面有命中的文件近 900 个
+ * ⇒ 900 次进程派生(§5b fork 风暴同型)。现在一次 `cat-file --batch` 读完,内容仍是同一批 HEAD blob。
+ *
+ * 一条必须分清的界:"这个仓根本没有"(镜像夹具 / 无 VCS 检出)与"这个路径不在 HEAD"是两件事。
+ * 后者按既有语义取 0(新文件零额度,"新文件写死中文即拦"不变);前者整面不适用 ⇒ 也取 0,
+ * 但**必须打印出来** —— 旧实现两种都静默,于是"额度维度整个失效"和"确实都是新文件"长得一模一样。
+ */
+let headFaceNotice = null
+function headFaceAvailable(root) {
   try {
-    const src = execFileSync(GIT_BIN, ['-c', 'safe.directory=*', '-C', ROOT, 'show', `HEAD:${rel}`], {
-      encoding: 'utf8',
-      windowsHide: true,
-      maxBuffer: 32 << 20,
-      timeout: 60000,
-    })
-    n = scanSource(src).length
+    gitRaw(['rev-parse', '--git-dir'], root, { timeout: 60000 })
+    return true
   } catch {
-    n = 0 // 该路径不在 HEAD(新文件)⇒ 额度 0
+    return false
   }
-  headCountCache.set(rel, n)
-  return n
 }
+function prefetchHeadAnchor(rels, batch = catBatch) {
+  const set = [...new Set(rels)]
+  if (set.length === 0) return
+  if (!headFaceAvailable(ROOT)) {
+    headFaceNotice = `${ROOT} 不是 git 仓库 ⇒ 棘轮的 HEAD 额度维度整面不适用,一律按 0 计(与逐文件 git show 失败时的旧行为同值,但现在喊出来了)`
+    for (const r of set) headCountCache.set(r, 0)
+    return
+  }
+  const specs = set.map((r) => `HEAD:${r}`)
+  let got
+  try {
+    got = batch(ROOT, specs, { maxBuffer: 1 << 29, timeout: 120000 })
+  } catch (e) {
+    dieUndetermined(e)
+  }
+  for (let i = 0; i < set.length; i++) {
+    const t = got.get(specs[i]) ?? null
+    let n = 0 // 该路径不在 HEAD(新文件)⇒ 额度 0,"新文件写死中文即拦"的语义不变
+    if (typeof t === 'string') n = scanSource(t).length
+    headCountCache.set(set[i], n)
+  }
+}
+function headCountOf(rel) {
+  if (!headCountCache.has(rel)) headCountCache.set(rel, 0)
+  return headCountCache.get(rel)
+}
+prefetchHeadAnchor(fileHits.map((h) => h.file))
+if (headFaceNotice) console.log(`⚠️  [scan-hardcoded-zh] ${headFaceNotice}`)
 const violations = fileHits
   .map((h) => ({
     file: h.file,
@@ -367,6 +492,7 @@ fileHits.slice(0, TOP_N).forEach(h => {
 console.log('\n=== 总计 ===')
 console.log(`  含硬编码中文的文件: ${fileHits.length}`)
 console.log(`  硬编码中文行数: ${totalHits}`)
+console.log(`  判定面(命中数取的是哪一份): ${FACE_LABEL[face]} —— 棘轮额度那一维恒取 ${FACE_LABEL.head}`)
 console.log(`  扫描路径: ${TARGETS.map(t => path.relative(ROOT, t)).join(' + ')}`)
 console.log(`  排除目录: ${[...EXCLUDE_DIRS].join(', ')}`)
 if (contentExempts.length > 0) {
