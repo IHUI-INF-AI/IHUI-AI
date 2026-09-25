@@ -1869,7 +1869,7 @@ export default function AiAssistantN8nScreen() {
             <Settings size={12} color={tokens.text.secondary} />
             <Text style={styles.modelConfigBtnLabel}>{t('agent.config')}</Text>
           </TouchableOpacity>
-          <Text style={styles.modelBarArrow}>{'›'}</Text>
+          <ChevronRight size={18} color={tokens.text.tertiary} style={styles.modelBarArrow} />
         </TouchableOpacity>
         {/* VoiceInput 语音输入(对齐 Uniapp ai_assistant_n8n.vue 行 285/302 BottomActionBar
             :isVoiceInput + @toggle-voice-input:语音转文字回填输入框,随发送提交) */}
