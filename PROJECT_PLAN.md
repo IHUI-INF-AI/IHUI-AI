@@ -9102,3 +9102,81 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 - **验证(全部实跑,读数如下)**:`--self-test` **66/66**;镜像测试 **13/14**(唯一红的是"真仓 HEAD 上 S0 必须为 0",成因 = `BackChevron.tsx` 此刻尚未入库,**本票提交即闭合**,该断言本身是对的);守门 102 `--files` 本票 33 文件 ⇒ **GA4 = 0 / S0 = 0 / back-label-exempt 放过 4 处**,GA1 剩 2 处系这两个文件既有的右向 `›`(HEAD 棘轮容忍,非本票引入);`tsc --noEmit -p apps/miniapp-taro` ⇒ **本票文件 0 错误**(全量 3 条错误全在 `packages/types` + `packages/shared`,由他人**在飞的暂存删除** `D  tool-contract.ts / schema-projection.ts` 造成,`heal-worktree-tracked --dry-run` 判"可恢复 0、只报不修",按 §12 未代改);`eslint` 本票文件 **0 问题**;`scan-hardcoded-zh` 覆盖面不含 miniapp ⇒ 新组件的 `'返回'` 兜底串不计入其棘轮。
 - **未做与为什么(不留"看起来已完成"的假象)**:① 同一型在 **`packages/app/src/features/**` 有 223 处 / 168 文件**、`apps/mobile-rn/src/screens/**` 5 处、`apps/extension` 1 处,以及共享层 `packages/app/src/components/NavBar.tsx` / `apps/mobile-rn/src/components/NavBar.tsx` / `PayResultScreen` 的 3 处 `‹` —— 未在本票清,由 GA4 的**按文件 HEAD 棘轮**兜住"不得再加";② 端上真机渲染未验(微信开发者工具不在本会话能力内),本票只到"源码级 + 类型级 + 守门级"。
 - [ ] P1 **返回键同一型跨端清账(本票的直接续作,数字已量)**:① `packages/app` 223 处 / 168 文件的 `<Text>{t('common.back')}</Text>` 与 3 处 `‹`;② `apps/mobile-rn` 5 处文字 + 其 NavBar 的 `‹`(RN 侧写法是 `lucide-react-native ChevronLeft`,端内 `AboutScreen.tsx:61` 已有现成范例);③ `apps/extension` 1 处 `← {t('common.back')}`。做法与本票同:先建/复用该端唯一实现,再按文件收编,顺带删各自失效的样式工厂。**GA4 棘轮已把这些位置钉成"不得再加",但棘轮不会自动变小 —— 存量清零前 GA4 在这三端始终只是"没恶化",不是"已合规"。**
+
+
+
+
+- [x] ✅(2026-09-25 现测**本条是幻影债**:任务一直在位、当天 03:00 已自动跑过,不需要注册) 计划任务 `IHUI-C-Drive-AutoMaintain` 仍未注册(注册 = 影响全机的删除动作,须用户授权);
+  ↑ **本行原文的连字符名 `IHUI-C-Drive-AutoMaintain` 从未存在过** —— 真实注册名是
+  **`IHUI C-Drive AutoMaintain`(空格分隔)**。拿连字符名点名查,`schtasks` 必回「系统找不到指定的文件」⇒
+  L276/L304 那两条"终判:当前不存在"与 §26 的反复失真**都是同一个名字陷阱的产物**(§26 早已记过这条坑,这次又踩中)。
+  正确查法(UTF-16 输出要先 `tr -d '\000'` 再按 GBK 解码,否则 grep 当它是二进制、连命中数都报不准 —— 本票先栽过一次):
+  `MSYS_NO_PATHCONV=1 schtasks /query /fo CSV /nh | tr -d '\000' | cut -d, -f1 | grep -i ihui` → 列出 `IHUI C-Drive AutoMaintain`;
+  `schtasks /query /tn "IHUI C-Drive AutoMaintain" /v /fo LIST` 现读:**已启用 / 上次运行 2026-09-25 03:00:01 /
+  上次结果 0 / 下次运行 2026-09-26 03:00 / 要运行的任务 = `wscript.exe "G:\IHUI-AI\scripts\c-drive-maintain-hidden.vbs"`**,
+  XML 侧 `<LogonType>S4U</LogonType>` + `<StartBoundary>2026-09-24T03:00:00` + `<DaysInterval>1` 三项齐备
+  ⇒ "每天 03:00 自动清理"**是现状,不是设计意图**。当日这轮实删证据(`D:\DevEnv\logs\c-drive-maintain.log`,mtime 即 09-25 03:00):
+  内核转储 8 条/2MB、`C:\Windows\Temp` 37 项、本项目产物 10 项,合计释放 38.9 MB,清理后 C 盘可用 86.46 GB。
+  **处置:没有重新注册** —— 对一份健康的定义跑 `schtasks /create /f` 是纯风险(把 S4U/参数/触发器赌在一次覆盖上),
+  而"注册=影响全机的每日删除"这项授权前提**已由 2026-09-24 那次授权满足并生效中**,重复执行不等于更完整。本行只销账,不改任务。
+  一条**机主该知道的副作用**(第 6 段回潮源封禁,日志自己写了):存在 Chrome 策略键 ⇒ 设置页显示「浏览器由所属组织管理」,
+  撤销 = 删那个 DWORD。这不是新缺陷,是 §26 既有设计的后果。
+- [x] ✅(2026-09-25 销账:任务在位且当天跑过,取证见上一行) 计划任务 `IHUI-C-Drive-AutoMaintain` 仍未注册(注册 = 影响全机的删除动作,须用户授权);
+  ↑ 本节副本。实名是 `IHUI C-Drive AutoMaintain`(空格),连字符写法查不到 ⇒ 别再据此"补注册"。
+  - **NEW P1 待开票：mobile-rn 有 14 个测试套件在 HEAD 上收集期即失败，131 条用例从未运行**（2026-09-25 只读调查实测。头条读数 `Test Files 15 failed | 37 passed` / `Tests 2 failed | 350 passed` 会把这件事读成「只有 2 条红」，实际是**约三分之一端内覆盖被静默削掉**）：
+    - 根因单一：`react-native-restart` 未进 `apps/mobile-rn/vitest.config.ts` 的 resolve.alias 与 `server.deps.inline` ⇒ 被外部化后交给 Node 解析，其内部对 react-native 的 import 绕过 alias 命中真实 Flow 源码 ⇒ `SyntaxError: Unexpected token typeof`。肇事提交 `202bd15cdaa`（加依赖与 import 而未同步配置）；上一轮只给单个套件 `tests/terminal-delta-live.test.ts:35-40` 加局部 vi.mock，属**逐点打补丁**，所以每个新触到 `src/theme/active-tokens.ts:17` 的套件都会再破一次。
+    - **为什么整条提交链看不见它**：134 道门里没有任何一道跑 vitest，而 `check-staged-typecheck` 走 tsc，结构上就看不见 transform / 解析期失败。CI 侧其实会红（`vitest run` 收集失败即 exit 1，`ci.yml:147` 无 continue-on-error），**但提交链不拦**，于是本机长期「看着绿」。这与守门 70/76 的「造好没装车」、守门 89 的「声称已接线」同族：**判据覆盖面缺「测试是否真的在跑」这一维**。
+    - 同批 2 条真断言红属另一类，别混为一谈：`tests/category-bar-style.test.tsx` 仍断言 `brand.DEFAULT` / `brand.foreground`，而组件已按 AGENTS §4 的 2026-09-24 定稿迁到 `brand.cta`（实测 rgb(74, 122, 150)）+ `brand.ctaForeground` ⇒ 守门 83 的 R1/R3/R5 **刻意认 cta 配对合法**，于是改档票自己全绿、它的配套回归测试长红——**「按规矩写就红、不写就不红」两边都不报**，与守门 77 B6 的括号形态盲区同教训（判据必须覆盖门自己产出的那种形态）。
+    - 已派单在途修（配置层一次收口 + 断言随改档迁移，并明令禁止逐套件打补丁、禁止为凑绿放宽断言）。**待决**：是否新增一道「受影响端 vitest 收集失败套件数 == 0」的判据。按 §12e 与 §4 的反复教训，它**只能是 warn 级 + 独立巡检入口**，blocking 留给 CI——产不出可执行修复动作的恒红门只会逼人 `--no-verify`，连带废掉全部守门。
+  - **守门 57 已补 extension 队列交互条锚点**（承上一条 D38 格交付时留的「只有主会话能做」残余）：`scripts/data/chat-flow-elements.json` 的 `queue-item-interactions` 条目新增 5 条锚点（组件声明 / 宿主 import / JSX 渲染位 / 端内唯一动词派发出口 / 组件经适配器取判据），**判据代码零改动、他人条目零删改**（`git diff --numstat` = 20 增 0 删）。从此谁把 QueueBar 从 ChatPage 摘线，是**全仓通用门**红，而不是只靠那一端的自建测试。两条如实登记的边界：① 锚点语义是 `text.includes`，**注释式摘线仍全盲**（该条目 web/cli 侧既有锚点与端内测试同盲区，非本次引入；要堵需给 checkAnchors 加「剥注释后再匹配」）；② `entryCountBaseline` 只数条目不数锚点 ⇒ **把这 5 行从 JSON 里删掉门不会红**，而这份登记表正是 §12 记过的「多会话共写、易被旧基线整文件回写」那一类（守门 71 只保 PROJECT_PLAN），后续应补「锚点存续性」判据。
+### 第四十九批·续十二(2026-09-25 05:5x):全量审计 142 道门只剩 **1 道红(107)**,成因与归属登记清楚
+- 收敛后跑 `node scripts/guardian-runner.mjs` 全量:**138 通过 / 3 警告 / 1 失败(228.5s)**。
+  此前那三道红的另外两道**已被各自作者收掉**,我一行没碰:103 由 `3b89b779c` 收回被并发 merge 复活的
+  `packages/i18n/tests/waiting-keys-in-end-packages.test.ts`(与我独立判断同一条:跨层 import 的旧测试副本);
+  108 由 `scripts/module-context.mjs:135` 把帮助文本改成"族名 arch-exempt,须带原因"(不再构成可扫标记)。
+- **我在 108 上先写错了一版修法并自我撤回**,值得留档:本想给门加"字符串字面量内的标记不算豁免"的判据,
+  自检 `S04` 立刻红 —— `F_ALLOW` 是 `s.textContent='*{…/*!ihui-allow-important:…*/}'`,
+  **内容脚本注入的 CSS 里豁免本来就必须写在字符串内**。照我那版改会让这一族真豁免集体隐身(假绿),
+  比误红坏得多。已 `git restore --source=HEAD --worktree --` 整文件撤回并复测 36/36 回到原状。
+  教训:**给"计数型"门加丢弃规则之前,先看它的正向夹具是不是恰好落在那个丢弃区里。**
+- **107 现状与归属**(`scripts/provenance-ledger.mjs`,P5 判据):机制账
+  `config/third-party-provenance/mechanisms.json:25` 的 `specFile` 指向
+  `.ihui-agent/tmp/zcode-absorb/MECHANISM-SPEC-2.md`,而 ① `.ihui-agent/` 被 `.gitignore:145` 整目录忽略
+  ⇒ 跟踪面上永不存在;② 该目录**在本机盘上也已不存在**(`find` 全盘零命中)。所以这道门现在是**恒红**,
+  后果不是"少一个检查"而是**每次提交都被逼 `--no-verify`、连带 142 道全废**(§12e 同型)。
+  归属=该账本的作者(PLAN 第 7681 行仍有其未勾选票"上游第二轮规格派出的票,规格在 …MECHANISM-SPEC-2.md")。
+  **我不是作者,且这是第三方来源/许可记账** —— 三条出路都由他定:(a) 把规格正文落到跟踪路径
+  (如 `config/third-party-provenance/specs/` 或 `docs/`)并改指;(b) 若规格确实不可考,按门要求的
+  "显式 null + 说明"形态记账;(c) 调整 P5 使其接受"规格在 gitignored 区 ⇒ 必须改跟踪件"。
+  我**刻意不自造一份规格文件顶上** —— 替别人的来源声明编锚点,比这道红坏得多。
+### O62 动作契约"双写无对账"这一族的系统性审计(2026-09-25 完成两枚,余两项按判据按住)
+- [x] ✅(2026-09-25,`59f192009db` + `f7e529fb63e`) **补上 Python↔TS 动作字面量的对账,并把尺子从一种形态扩到两种**。
+  起点是 `ui_action_bridge.py:354` 那句"与 packages/types 的 AppUiActionType 一一对应"**只有散文**
+  (同型复制在 page 族早由 `test_page_control_bridge.py::test_verb_list_matches_shared_contract` 逐字看守)。
+  第一枚补该条对账后,第二枚发现**我自己的尺子只认得 `= 'a' | 'b'` 单行形态**,而同文件的
+  `UiControlActionType`(:279)写成"等号后换行 + 每成员前一行 JSDoc + 成员行以 `|` 开头",
+  对它直接判"断链"—— 一把只守得住自己顺手写的那种形态的尺子,等于其余形态没人守。
+  改为逐行解析(只取以 `|` 开头的行、注释与空行跳过、撞下一个 `export type` 即停),
+  覆盖扩到 2 族。前缀一律从 `ub._TOOL_PREFIX` 取,测试内不抄第二份字符串。
+  **取证三件**:①改尺子后原有那条**仍绿**(扩面不是把旧的弄瞎);②第 2 条内建反自咬证明 ——
+  它的 JSDoc 里合法写着 `'wallet'`、`'agent 规则'`,若尺子误收注释里的引号串,集合当场就不等 ⇒ 它绿着即已自证;
+  ③变异 `describe`→`describe_probe` 得 **`1 failed, 1 passed`**,红的正是被牵动那条并点名漂移项,
+  另一条不受遮蔽地保持绿。还原后生产文件 `git diff` 为空、该测试 **29 passed**。
+- [x] ✅(2026-09-25) **同族全量审计的结论(两路代理 + 本人逐条复核,不是抽样)**:A/B/C/D/E 五族的 verb 集合
+  **当前零漂移**,所以本票两枚都是防回潮而不是消红。三类**刻意不纳进双向对账**,判据已写进测试注释:
+  ①纯别名(`TaroUiActionType`/`ExtUiActionType` 无成员,按成员解析必假红);
+  ②粒度不同(`capability-catalog` 是对外登记面,不是运行时动词表;`_ADMIN_ONLY_TOOLS` 是权限矩阵);
+  ③**刻意真子集**(`BACKGROUND_ACTIONS` 按 `isBackgroundAction` 路由、`PAGE_READONLY_ACTIONS`「结构上不触碰页面」、
+  `control_autonomy.py:45-51`「`browser_page_*` 刻意不进这张表…那不是自主性,那是越权」)—— 双向对账会误红。
+- [ ] **存量漂移一条(另票,本票未代改)**:`packages/types/src/hooks.ts` 的 `HookNotifyChannel`(3 值)与
+  `apps/api/src/routes/hooks.ts:97` zod `channel`(4 值)**实差一条 `webhook`**,且两侧无任何机械对账
+  (`test_hooks.py:154`、`test_hook_engine.py:122` 只做成员包含断言,从不读 TS)。
+  解阻判据:先定"channel 该不该有 webhook 这一档"这个产品口径 —— 收紧 zod 还是补 TS 契约,方向不同后果不同,
+  **不得为了让对账绿而任选一侧**。
+- [ ] **`BROWSER_ACTIONS` 手抄清单不照 page 族那样派生(经取证否决,非疏漏)**:
+  `apps/extension/lib/agent-control-bridge.ts:50` 是 12 条手抄数组,契约加第 13 条 TS 不报(数组无需穷举)。
+  page 族能一行派生(`:91 [...PAGE_ACTIONS]`)是因为 `packages/dom-actions` 里存在 `PAGE_ACTIONS` **数组真相源**;
+  browser 族只有 union、没有数组 ⇒ 照抄派生就得先造一份数组(= 新增第四把手抄),或先把
+  `BrowserControlActionType` 拆成 `Dom | Background` 两个子 union 让两张分区表各自穷举(跨包类型重构,
+  牵动 `isDomAction` 路由、`DOM_ACTIONS` 并入 page 族的现状、扩展分流与门 103 的 public_entrypoints)。
+  本票实测该清单与契约**当前同集**,无存量缺陷 ⇒ 属设计票,不在这一轮顺手做掉。
