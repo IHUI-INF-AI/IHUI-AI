@@ -16814,6 +16814,10 @@
     "viewDetail": "查看详情"
   },
   "memberExamSignUpPage": {
+    "adminOnly": {
+      "description": "登录身份无法与报名表沿用的历史会员编号建立对应关系，服务端为避免越权读取不提供自助视图。如需查询或更正，请联系管理员。",
+      "title": "报名记录由管理员维护"
+    },
     "cancelBtn": "取消报名",
     "cancelConfirm": "确认取消该考试报名?",
     "cancelFailed": "取消失败",
