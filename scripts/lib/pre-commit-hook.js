@@ -98,17 +98,35 @@ if (!run('🎨 运行 lint-staged...', 'npx lint-staged --max-arg-length 4096 --
   process.exit(1)
 }
 
-// 🎨 design-tokens → miniapp-taro app.css 自动同步(2026-07-28 立,P2-B 任务)
-// 背景:开发者改 packages/design-tokens/src/styles/tokens.css 后常忘记跑
-//       pnpm --filter @ihui/miniapp-taro sync-tokens 同步 apps/miniapp-taro/src/app.css,
-//       导致 guardian-runner 守门项 36 阻塞 commit。
-// 策略:在 guardian-runner 调用之前检测 staged 中是否含 tokens.css,若有则自动同步 + git add,
-//       实现"改 tokens.css 即自动同步 app.css",无需开发者手动跑命令。
+// 🎨 design-tokens → 各端 CSS 副本 自动同步(2026-07-28 立 miniapp / 2026-09-25 收口成多目标)
+// 背景:改 packages/design-tokens/src/styles/tokens.css 后,端内那份 CSS 字面量副本会漂移,
+//       而 NativeWind(v3)/Taro 吃的正是副本 —— 源头改了端内没跟上 = "手机上改了 web 没改"。
+// 策略:在 guardian-runner 之前检测 staged 是否含 tokens.css,若有则**逐目标**跑生成器 + git add。
+// 2026-09-25 为什么改结构:这段原本只服务 miniapp 一个目标,而 mobile-rn 的 `global.css` 在同文件
+//       下方只做"检出漂移即拦红"、不回写 —— 同一个需求一端自动一端人工。现在抽成
+//       TOKEN_SYNC_TARGETS 表 + 单一实现:加一端只加一行,**不得复制第二份** git add / 快照 /
+//       失败处理(复制出去的那份正是最先腐烂的那份)。
+// 前置(为什么 RN 这一行今天才敢加):生成器旧写法是整块替换,会抹掉 `.dark` 里 13 个在用的
+//       `--rn-*` 端内档;已改为原位写回 + 与守门共用取值实现,详见 `scripts/sync-rn-global-css.mjs` 头注。
 // 跳过方法(紧急):HUSKY_SKIP_TOKENS_SYNC=1 git commit ...
-// 错误处理:sync-tokens 失败时 exit 1,不静默忽略(避免 app.css 漂移悄悄通过)
-// 无变化处理:同步后 app.css 与 staged 内容一致时跳过 git add,不报错
+// 错误处理:生成器失败时 exit 1,不静默忽略(避免副本漂移悄悄通过)
+// 无变化处理:同步后与 index 一致时跳过 git add,不报错
 // staging-snapshot 协同:git add 后同步更新 INITIAL_STAGED_SNAPSHOT,避免 setupRestoreOnExit
-//       把新加的 app.css 当作"非预期 staged 文件"unstage(见 staging-snapshot.js)
+//       把新加的文件当作"非预期 staged 文件"unstage(见 staging-snapshot.js)
+const TOKENS_CSS_REL = 'packages/design-tokens/src/styles/tokens.css'
+const TOKEN_SYNC_TARGETS = [
+  {
+    label: 'miniapp-taro app.css',
+    file: 'apps/miniapp-taro/src/app.css',
+    cmd: 'pnpm --filter @ihui/miniapp-taro sync-tokens',
+  },
+  {
+    label: 'mobile-rn global.css',
+    file: 'apps/mobile-rn/global.css',
+    cmd: 'node scripts/sync-rn-global-css.mjs --quiet',
+  },
+]
+
 if (process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
   try {
     const stagedForTokens = execSync('git diff --cached --name-only --diff-filter=ACMR', {
@@ -116,71 +134,61 @@ if (process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
       cwd: process.cwd(),
       windowsHide: true,
     })
+    // git 在 Windows 下可能给出反斜杠路径,两种分隔符都要认(旧实现手写两条字面量比较,加一端就漏一端)
     const involvesTokensCss = stagedForTokens
       .split('\n')
       .filter(Boolean)
-      .some(
-        (f) =>
-          f === 'packages/design-tokens/src/styles/tokens.css' ||
-          f === 'packages\\design-tokens\\src\\styles\\tokens.css',
+      .some((f) => f.replace(/\\/g, '/') === TOKENS_CSS_REL)
+    if (!involvesTokensCss) {
+      console.log(
+        `⏭  design-tokens → 各端 CSS 副本自动同步(无 ${TOKENS_CSS_REL} staged 改动, 跳过)`,
       )
-    if (involvesTokensCss) {
-      console.log('🎨 检测到 tokens.css staged,自动同步 miniapp-taro app.css(2026-07-28 立)')
-      try {
-        execSync('pnpm --filter @ihui/miniapp-taro sync-tokens', {
-          stdio: 'inherit',
-          cwd: process.cwd(),
-          windowsHide: true,
-        })
-      } catch {
-        console.error('❌ pnpm --filter @ihui/miniapp-taro sync-tokens 失败,提交已阻止')
-        console.error(
-          '   请手动排查同步脚本错误,或紧急跳过:HUSKY_SKIP_TOKENS_SYNC=1 git commit ...',
-        )
-        process.exit(1)
-      }
-      // git diff --quiet -- <file>: exit 0=工作区与 index 一致(无变化); exit 1=有差异或 index 无此文件
-      let hasDiff = true
-      try {
-        execSync('git diff --quiet -- apps/miniapp-taro/src/app.css', {
-          stdio: 'ignore',
-          cwd: process.cwd(),
-          windowsHide: true,
-        })
-        hasDiff = false
-      } catch {
-        hasDiff = true
-      }
-      if (hasDiff) {
+    } else {
+      for (const t of TOKEN_SYNC_TARGETS) {
+        console.log(`🎨 检测到 tokens.css staged,自动同步 ${t.label}`)
         try {
-          execSync('git add apps/miniapp-taro/src/app.css', {
-            stdio: 'inherit',
+          execSync(t.cmd, { stdio: 'inherit', cwd: process.cwd(), windowsHide: true })
+        } catch {
+          console.error(`❌ ${t.cmd} 失败,提交已阻止`)
+          console.error(
+            `   请手动排查 ${t.label} 的生成器错误,或紧急跳过:HUSKY_SKIP_TOKENS_SYNC=1 git commit ...`,
+          )
+          process.exit(1)
+        }
+        // git diff --quiet -- <file>: exit 0=工作区与 index 一致(无变化); exit 1=有差异或 index 无此文件
+        let hasDiff = true
+        try {
+          execSync(`git diff --quiet -- ${t.file}`, {
+            stdio: 'ignore',
             cwd: process.cwd(),
             windowsHide: true,
           })
-          // 同步更新 staging 快照,避免 setupRestoreOnExit 把 app.css 当作
-          // "非预期 staged 文件" unstage(staging-snapshot.js 的防御机制)
-          if (INITIAL_STAGED_SNAPSHOT && typeof INITIAL_STAGED_SNAPSHOT.add === 'function') {
-            INITIAL_STAGED_SNAPSHOT.add('apps/miniapp-taro/src/app.css')
-          }
-          console.log('  ✅ 已将同步后的 apps/miniapp-taro/src/app.css 加入 staged')
+          hasDiff = false
         } catch {
-          console.error('❌ git add apps/miniapp-taro/src/app.css 失败,提交已阻止')
+          hasDiff = true
+        }
+        if (!hasDiff) {
+          console.log(`  ✅ ${t.label} 同步后无变化,跳过 git add`)
+          continue
+        }
+        try {
+          execSync(`git add ${t.file}`, { stdio: 'inherit', cwd: process.cwd(), windowsHide: true })
+          // 同步更新 staging 快照,避免 setupRestoreOnExit 把它当作"非预期 staged 文件"unstage
+          if (INITIAL_STAGED_SNAPSHOT && typeof INITIAL_STAGED_SNAPSHOT.add === 'function') {
+            INITIAL_STAGED_SNAPSHOT.add(t.file)
+          }
+          console.log(`  ✅ 已将同步后的 ${t.file} 加入 staged`)
+        } catch {
+          console.error(`❌ git add ${t.file} 失败,提交已阻止`)
           process.exit(1)
         }
-      } else {
-        console.log('  ✅ app.css 同步后无变化,跳过 git add')
       }
-    } else {
-      console.log(
-        '⏭  design-tokens → miniapp-taro app.css 自动同步(无 tokens.css staged 改动, 跳过)',
-      )
     }
   } catch {
-    console.log('⏭  design-tokens → miniapp-taro app.css 自动同步(非 git 环境, 跳过)')
+    console.log('⏭  design-tokens → 各端 CSS 副本自动同步(非 git 环境, 跳过)')
   }
 } else {
-  console.log('⏭  design-tokens → miniapp-taro app.css 自动同步(HUSKY_SKIP_TOKENS_SYNC=1, 跳过)')
+  console.log('⏭  design-tokens → 各端 CSS 副本自动同步(HUSKY_SKIP_TOKENS_SYNC=1, 跳过)')
 }
 
 // 1-4c, 6-29: 批量执行所有守门脚本(guardian-runner 单进程顺序执行)
