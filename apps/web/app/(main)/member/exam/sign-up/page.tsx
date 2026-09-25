@@ -18,7 +18,7 @@ import {
   Lock,
 } from 'lucide-react'
 
-import { getMySignUps, cancelSignUp } from '@ihui/api-client'
+import { getMySignUps, cancelSignUp, submitSignUp } from '@ihui/api-client'
 import { Button } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 import { Alert } from '@/components/feedback'
@@ -99,6 +99,19 @@ export default function MemberExamSignUpPage() {
     onError: (e: Error) => toast.error(e.message),
   })
 
+  const submitMut = useMutation({
+    mutationFn: (signupId: string) => submitSignUp(signupId),
+    onSuccess: (r) => {
+      if (r.success) {
+        toast.success(t('submitSuccess'))
+        qc.invalidateQueries({ queryKey: ['member', 'exam', 'signups'] })
+      } else {
+        toast.error(r.error || t('submitFailed'))
+      }
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
   const rows = data?.list ?? []
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
@@ -120,6 +133,13 @@ export default function MemberExamSignUpPage() {
   function handleCancel(signupId: string) {
     void confirmDialog({ title: t('cancelConfirm') }).then((ok) => {
       if (ok) cancelMut.mutate(signupId)
+    })
+  }
+
+  /** submit 的归属由后端 JWT 判定(C 方案),UI 只传 signupId —— 报名行主键,不是 examId。 */
+  function handleSubmit(signupId: string) {
+    void confirmDialog({ title: t('submitConfirm') }).then((ok) => {
+      if (ok) submitMut.mutate(signupId)
     })
   }
 
@@ -206,15 +226,25 @@ export default function MemberExamSignUpPage() {
                       </td>
                       <td className="px-3 py-2 text-right">
                         {canCancel ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive hover:text-destructive"
-                            disabled={cancelMut.isPending}
-                            onClick={() => handleCancel(r.id)}
-                          >
-                            {t('cancelBtn')}
-                          </Button>
+                          <span className="inline-flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={submitMut.isPending}
+                              onClick={() => handleSubmit(r.id)}
+                            >
+                              {t('submitBtn')}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              disabled={cancelMut.isPending}
+                              onClick={() => handleCancel(r.id)}
+                            >
+                              {t('cancelBtn')}
+                            </Button>
+                          </span>
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>
                         )}
