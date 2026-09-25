@@ -9,6 +9,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getProfile, logout, type UserInfo } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
 
 const VERSION = '1.0.0'
 
@@ -102,7 +103,7 @@ export default function SettingIndexPage() {
                 {tt('setting.profile', '个人资料')}
               </Text>
               {/* arrow 对齐 RN: 20dp→40rpx + text.tertiary */}
-              <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
@@ -112,7 +113,7 @@ export default function SettingIndexPage() {
               <Text className="text-[length:32rpx] text-muted-foreground">
                 {tt('setting.accountCancel', '账号注销')}
               </Text>
-              <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
@@ -122,7 +123,7 @@ export default function SettingIndexPage() {
               <Text className="text-[length:32rpx] text-muted-foreground">
                 {tt('setting.notificationSetting', '通知设置')}
               </Text>
-              <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
           </View>
         </View>
@@ -140,7 +141,7 @@ export default function SettingIndexPage() {
               <Text className="text-[length:32rpx] text-muted-foreground">
                 {tt('setting.clearCache', '清除缓存')}
               </Text>
-              <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
@@ -150,7 +151,7 @@ export default function SettingIndexPage() {
               <Text className="text-[length:32rpx] text-muted-foreground">
                 {tt('setting.languageSetting', '语言设置')}
               </Text>
-              <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
@@ -160,7 +161,7 @@ export default function SettingIndexPage() {
               <Text className="text-[length:32rpx] text-muted-foreground">
                 {tt('setting.themeSetting', '主题设置')}
               </Text>
-              <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
           </View>
         </View>
@@ -178,7 +179,7 @@ export default function SettingIndexPage() {
               <Text className="text-[length:32rpx] text-muted-foreground">
                 {tt('setting.feedback', '意见反馈')}
               </Text>
-              <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
@@ -188,7 +189,7 @@ export default function SettingIndexPage() {
               <Text className="text-[length:32rpx] text-muted-foreground">
                 {tt('setting.privacyPermission', '隐私与权限')}
               </Text>
-              <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
@@ -198,7 +199,7 @@ export default function SettingIndexPage() {
               <Text className="text-[length:32rpx] text-muted-foreground">
                 {tt('setting.aboutUs', '关于我们')}
               </Text>
-              <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
           </View>
         </View>

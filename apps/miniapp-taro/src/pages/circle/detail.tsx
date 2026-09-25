@@ -253,7 +253,7 @@ export default function CircleDetailPage() {
                     <Text className="cd-aigc-tag">{tt('circle.detail.aigcTag', 'AI 作品')}</Text>
                     <Text className="cd-aigc-title">{data.aigcWork.title}</Text>
                   </View>
-                  <Text className="cd-aigc-arrow">›</Text>
+                  <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
                 </View>
               ) : null}
 
