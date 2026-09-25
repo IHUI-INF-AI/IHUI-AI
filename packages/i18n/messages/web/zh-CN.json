@@ -5809,6 +5809,31 @@
       "summary": "结论摘要",
       "rawNote": "以下为模型原始输出，未经排版处理",
       "empty": "填写左侧输入后点击「开始诊断」生成报告"
+    },
+    "githubApp": {
+      "title": "GitHub App 管理",
+      "subtitle": "查看 GitHub App 安装台账与 webhook 配置状态，安装事件由 webhook 自动同步落库",
+      "configSection": "配置状态",
+      "webhookSecret": "Webhook Secret",
+      "appCredentials": "App 凭据",
+      "configured": "已配置",
+      "notConfigured": "未配置",
+      "secretHint": "用于校验 GitHub webhook 推送的 HMAC 签名；未配置时接收入口保持关闭",
+      "credsHint": "App ID 与私钥，用于换取 installation token 调用 GitHub API",
+      "installationsTitle": "安装实例",
+      "empty": "暂无安装记录，在 GitHub 上安装本 App 后会自动出现在这里",
+      "colInstallation": "安装 ID",
+      "colAccount": "账号",
+      "colType": "类型",
+      "colStatus": "状态",
+      "colInstaller": "操作者 ID",
+      "colCreatedAt": "创建时间",
+      "colUpdatedAt": "更新时间",
+      "statusActive": "已安装",
+      "statusRemoved": "已卸载",
+      "refresh": "刷新",
+      "loadFailed": "加载失败",
+      "installerHint": "GitHub 侧操作者 id，非平台用户"
     }
   },
   "connectors": {
@@ -7130,6 +7155,40 @@
       "rollbackConfirmConfirm": "确认恢复"
     },
     "pane": {
+      "elementPack": {
+        "feedbackSurvey": {
+          "question": "这次回复有没有帮你解决问题？",
+          "answer": {
+            "solved": "解决了",
+            "partial": "部分解决",
+            "notSolved": "没解决"
+          },
+          "commentPlaceholder": "补充说明（可选）",
+          "submit": "提交",
+          "dismiss": "跳过",
+          "submitted": "已收到，感谢反馈"
+        }
+      },
+      "hookSummary": {
+        "ariaLabel": "钩子执行摘要",
+        "state": {
+          "running": "钩子运行中",
+          "ok": "钩子运行正常",
+          "failed": "钩子执行出错",
+          "blocked": "钩子已阻止操作"
+        },
+        "runs": "· 运行了 {n} 次",
+        "failedCount": "失败 {n} 次",
+        "blockedCount": "拦截 {n} 次",
+        "sourceLabel": "来源",
+        "source": {
+          "admin": "管理员",
+          "user": "用户",
+          "project": "项目",
+          "plugin": "插件",
+          "session": "会话"
+        }
+      },
       "businessForms": {
         "ariaLabel": "业务表单卡",
         "aria": {
@@ -8828,13 +8887,27 @@
       "unarchived": "已取消归档",
       "pinned": "已置顶",
       "unpinned": "已取消置顶",
-      "pinFailed": "置顶操作失败"
+      "pinFailed": "置顶操作失败",
+      "orgSaved": {
+        "orgSaved": "会话组织已保存"
+      }
     },
     "today": "今天",
     "openWorkPanel": "打开工作展示区",
     "closeWorkPanel": "关闭工作展示区",
     "toggleWorkPanel": "切换工作展示区",
-    "user": "用户"
+    "user": "用户",
+    "org": {
+      "title": "整理会话",
+      "folderLabel": "文件夹",
+      "folderPlaceholder": "输入或选择文件夹",
+      "tagsLabel": "标签",
+      "tagPlaceholder": "添加标签后回车",
+      "removeTagAria": "移除标签 {tag}",
+      "filterLabel": "按文件夹筛选",
+      "filterAll": "全部",
+      "folderNone": "未分类"
+    }
   },
   "aiCost": {
     "budgetAlerts": "预算告警",
@@ -10468,7 +10541,8 @@
       "roleUser": "用户",
       "roleAssistant": "助手",
       "exportCard": "分享图片卡",
-      "shareCardUser": "用户"
+      "shareCardUser": "用户",
+      "exportPdf": "导出 PDF"
     },
     "fallbackNotice": "已切换到备用模型 {backup}(原模型 {primary} 暂时不可用)",
     "fallbackNoticeQuota": "本次由 {backup} 作答({primary} 所属厂商账号额度已用尽,已自动改道同族可用模型)",
@@ -16840,6 +16914,10 @@
       "pending": "待考",
       "unknown": "未知"
     },
+    "submitBtn": "提交答卷",
+    "submitConfirm": "确定提交答卷吗?提交后将标记为已完成。",
+    "submitFailed": "提交失败",
+    "submitSuccess": "答卷已提交",
     "title": "我的考试报名",
     "total": "共 {n} 条"
   },
@@ -18163,6 +18241,7 @@
     "advancedAiTools": "高级 AI 工具",
     "mediaTasks": "媒体任务",
     "webTools": "网页工具",
+    "figmaImport": "设计稿转码",
     "voices": "声纹库",
     "agentGovernance": "Agent Token 治理",
     "agentWorkbench": "智能体工作台",
@@ -18434,7 +18513,8 @@
     "faq": "常见问题",
     "home": "首页",
     "settings": "设置",
-    "adminDeployDiagnosis": "部署诊断"
+    "adminDeployDiagnosis": "部署诊断",
+    "githubApp": "GitHub App"
   },
   "news": {
     "allCategories": "全部分类",
@@ -25096,6 +25176,23 @@
     "deleteConfirm": "删除该声纹?删除后不可再用于克隆 TTS。",
     "refresh": "刷新",
     "notFound": "未找到该声纹"
+  },
+  "figmaImportPage": {
+    "title": "设计稿转码",
+    "subtitle": "贴入 Figma fileKey + 节点 ID,一键生成可运行的前端组件代码(React+Tailwind / Taro)。",
+    "targetReact": "React + Tailwind",
+    "targetTaro": "Taro 小程序",
+    "fileKeyPlaceholder": "Figma fileKey(如 a1b2c3...)",
+    "nodeIdPlaceholder": "节点 ID(如 1:2,选中 Frame 后复制链接可得)",
+    "run": "生成代码",
+    "running": "生成中...",
+    "tokenHint": "需服务端配置 FIGMA_API_TOKEN;LLM 生成失败时自动降级为确定性 HTML 骨架。",
+    "errorRequired": "请填写 fileKey 与节点 ID",
+    "resultTitle": "生成结果",
+    "copy": "复制代码",
+    "copied": "已复制",
+    "degradedNotice": "LLM 生成失败,已降级为确定性 HTML 骨架(仍可直接使用,不白屏)。",
+    "metaNodes": "节点 {nodes} 个 · 文本 {texts} 处 · 图片引用 {images} 处"
   },
   "webToolsPage": {
     "title": "网页工具",

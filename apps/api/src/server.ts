@@ -91,6 +91,17 @@ import { tokenBalanceService } from './plugins/token-balance-service.js'
 import { resilienceToolkit } from './plugins/resilience-toolkit.js'
 import canaryRouterPlugin from './plugins/canary-router.js'
 import { startAutoRollbackMonitor } from './services/auto-rollback.js'
+// D30 无人值守修复闭环(2026-09-26 立,计划行 659):PAT 基础,与 D15 installation 体系解耦。
+// 内部 env 门控:IHUI_AUTOMATIONS_ENABLED 未开启时 startAutomationsScheduler() 直接返回,
+// 零定时器/零网络;关闭走下方 onClose 钩子优雅停。
+import {
+  startAutomationsScheduler,
+  stopAutomationsScheduler,
+} from './services/automations/index.js'
+import {
+  startRepairCycleScheduler,
+  stopRepairCycleScheduler,
+} from './services/automation-repair-service.js'
 // P0 第二批次(2026-07-31 立):响应缓存初始化(RELAY_CACHE_ENABLED=true 时启用)
 import { initRelayResponseCache } from './services/relay-response-cache.js'
 import searchAspectPlugin from './plugins/search-aspect.js'
@@ -294,6 +305,17 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   // 启动金丝雀自动回滚监控（CANARY_ENABLED=true 时生效，默认空操作）
   startAutoRollbackMonitor()
+
+  // D30 无人值守修复闭环:env 门控启动(IHUI_AUTOMATIONS_ENABLED=true 才生效);
+  // 未开启 = 完全不启动(零定时器、零网络)。onClose 钩子负责优雅关停。
+  server.addHook('onClose', async () => {
+    stopAutomationsScheduler()
+    stopRepairCycleScheduler()
+  })
+  startAutomationsScheduler()
+  // D30 第二段(2026-09-26):修复认领环 + 状态机 + App 通道回帖。同一 env 门控;
+  // Redis 不可达时认领整族 fail-closed(设计行为,不降级为无锁放行)。
+  startRepairCycleScheduler(() => server.redis)
 
   return server
 }

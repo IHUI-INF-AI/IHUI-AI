@@ -34,6 +34,17 @@ import {
 } from '../src/tools/mcp-oauth.js';
 import { loadMcpCredentials } from '../src/tools/mcp-credentials.js';
 
+/**
+ * SSRF 守卫(2026-09-25 H-2 接线)在发请求前会把令牌端点的域名解析成 IP 再判档。
+ * `auth.example.com` 在测试环境结构上解析不到 ⇒ 守卫按"解析失败即不安全"拒发,
+ * 那是守卫的**正确行为**,不是被测 OAuth 逻辑的缺陷。
+ * 因此桩只替换"名字→地址"这一层并返回公网 IP;守卫本体照跑,
+ * 换成 127.0.0.1 / 私网段时仍会被拒(见 tests/ssrf-outbound*.test.ts)。
+ */
+vi.mock('node:dns/promises', () => ({
+  lookup: vi.fn(async () => [{ address: '93.184.216.34', family: 4 }]),
+}));
+
 // mock child_process.spawn 防止 openBrowser 真实打开浏览器
 vi.mock('node:child_process', () => ({
   spawn: vi.fn(() => ({
