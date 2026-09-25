@@ -2679,6 +2679,49 @@ const checks = [
     ].join('\n'),
   },
 
+  // prod-bundle 影子副本对账 —— 门 2026-09-24 就立了,但唯一挂点是根 package.json 的 check:all,
+  // 从未进提交链(实测 `grep -c check-prod-bundle-shadow guardian-runner.mjs` = 0)。这正是本仓
+  // 最高频的那一型:"造好没装车" —— 判据正确、跑得通,而没有任何调度器跑它,于是漂移永远静默。
+  // 接进来时必须按「机器态 vs 内容态」分流,而不是简单二选 blocking/warn:
+  //   deploy/prod-bundle/ 整目录被 .gitignore 忽略 ⇒ 运行副本**只存在于部署机上**。若按现状把
+  //   "对账对象不在"判红,别的机器 / 干净 clone / CI 上每一次提交都会被拦,而恒红门的唯一结局是
+  //   逼人 --no-verify,连带把全部 130+ 道守门一起作废(AGENTS §4 / §12e / 守门 77·78 同型)。
+  //   所以:运行副本缺失 ⇒ 未判定 + exit 0(输出里必须喊出来,不许静默绿);
+  //         入库源缺失 / 摘线 / 登记过期 / 逐字节漂移 ⇒ blocking 判红并点名(内容态,在哪台机都该红)。
+  // 刻意**不挂 stagedTriggers**:会漂移的那一侧是被忽略的运行副本,它在结构上永远不会出现在暂存区,
+  //   按 staged 收窄等于把本门立门的那一型(生产侧被单独改过)整个放过。runner 统一追加的
+  //   --staged 本门不解释 ⇒ 恒全量判定(实测单次 ~0.4s,每轮跑得起)。
+  // id 取号:注册前 `grep -oE "^    id: '[^']*'" | sort | uniq -d` 零输出(无重复号),
+  //   纯数字最大 103 ⇒ 本门顺延取 104,并由镜像测试钉"104 在 runner 中恰好出现一次"。
+  {
+    id: '104',
+    label: '🧬 prod-bundle 影子副本对账(blocking,入库源 ↔ 生产实际执行的那份逐字节等值)',
+    script: 'check-prod-bundle-shadow.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PROD_BUNDLE_SHADOW',
+    onFailHint: [
+      '',
+      '  💡 本门钉的是"生产到底在跑哪份代码":deploy/prod-bundle/ 整目录被 .gitignore 忽略,',
+      '     里面的运维脚本可以完全没有入库源(对跟踪文件做的 grep 对它零覆盖)。AGENTS §5e 早就',
+      '     写了"落进 prod-bundle 的脚本必须同时落一份入库源",本门是那句话说的那把尺子。',
+      '     四类红,各自对应一种会静默失真的形态:',
+      '     S0 入库源不存在 —— 登记表里有配对、仓内却没有源 ⇒ 对账无从成立(这一侧在所有机器上',
+      '        都该在,所以它不是"未判定",是真缺陷)。',
+      '     S1 入库源未被跟踪 —— 源写了但没入库,等于仍只有运行副本那一份真相。',
+      '     S2 运行副本竟在版本树里 —— 登记表过期,删掉这条登记即可(它已不需要本门)。',
+      '     S3 影子漂移 —— 两侧 sha1 不等 ⇒ 线上行为与仓内代码无关,这是最贵的一类。',
+      '     未判定(运行副本不在本机)不判红,但会在输出里点名:那是非部署机 / CI / 干净检出,',
+      '     提交者结构上无法满足它;拿它判红等于造一台恒红的尺子。',
+      '     同步方向:生产执行的是被忽略的那一份,改任何一侧都要把另一侧改成逐字节相同。',
+      '     单独复验:node scripts/check-prod-bundle-shadow.mjs',
+      '     自检:node scripts/check-prod-bundle-shadow.mjs --self-test(连跑两次都须 exit 0)',
+      '     镜像测试:node --test scripts/tests/check-prod-bundle-shadow.test.mjs(含装车证明)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_PROD_BUNDLE_SHADOW=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
