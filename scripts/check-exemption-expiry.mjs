@@ -77,6 +77,13 @@ const FAMILY_LIFETIME_DAYS = {
   'r7-nest-exempt': 60,
   'rust-state-exempt': 60,
   'i18n-content-exempt-file': 180,
+  /**
+   * 守门 102 GA4 的合法例外通道：该位置的「返回」是按钮文案(错误态卡片/翻页/弹窗关闭)，
+   * 不是页头导航箭头。取 365 天而非同门的 30 天 —— 它是**结构性定性**而不是待偿债务，
+   * 位置性质不随时间改变；短周期到期会逼人删标记，删了就被 GA4 判红，两道门互咬
+   * (恒红门的结局是跳门、连带全部守门作废 —— §12e 同型)。
+   */
+  'back-label-exempt': 365,
 }
 /** 标记词表按**形状**发现而不是白名单:清单会腐烂,新门刚加的族必须当天就被看见。 */
 const MARKER_RE = /(?:[a-z][a-z0-9-]*-exempt(?:-file)?|ihui-allow-important)\s*:/gi
