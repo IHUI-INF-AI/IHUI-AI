@@ -14,6 +14,9 @@ export interface AgentInputAreaProps {
   onGoalChange: (value: string) => void
   model: string
   onModelChange: (value: string) => void
+  /** goal 模式硬性指标(每行一条);空 = 不启用独立校验闸门 */
+  criteria: string
+  onCriteriaChange: (value: string) => void
   isRunning: boolean
   canRun: boolean
   onRun: () => void
@@ -24,6 +27,8 @@ export function AgentInputArea({
   onGoalChange,
   model,
   onModelChange,
+  criteria,
+  onCriteriaChange,
   isRunning,
   canRun,
   onRun,
@@ -32,6 +37,7 @@ export function AgentInputArea({
   return (
     <div className="shrink-0 space-y-2 bg-card p-2">
       <textarea
+        data-testid="agent-pane-goal-input"
         value={goal}
         onChange={(e) => onGoalChange(e.target.value)}
         onKeyDown={(e) => {
@@ -46,6 +52,25 @@ export function AgentInputArea({
         aria-label={t('agentPane.placeholder')}
         className="w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring/40 disabled:opacity-60"
       />
+      {/*
+        goal 模式的硬性指标必须**执行前**声明(AGENTS.md §8 第 1 步),否则独立校验闸门
+        没有对照物可判。这里只负责把它喂给 hard_criteria,判定权在 ai-service 的闸门。
+      */}
+      <label className="block space-y-1">
+        <span className="text-[10px] font-medium text-muted-foreground">
+          {t('agentPane.criteriaLabel')}
+        </span>
+        <textarea
+          data-testid="agent-pane-criteria-input"
+          value={criteria}
+          onChange={(e) => onCriteriaChange(e.target.value)}
+          rows={2}
+          disabled={isRunning}
+          placeholder={t('agentPane.criteriaPlaceholder')}
+          aria-label={t('agentPane.criteriaLabel')}
+          className="w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring/40 disabled:opacity-60"
+        />
+      </label>
       <div className="flex items-center gap-1.5">
         <select
           value={model}
