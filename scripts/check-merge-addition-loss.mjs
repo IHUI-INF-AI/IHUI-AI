@@ -107,6 +107,29 @@ export function auditRecent(limit = DEFAULT_LIMIT, startRef = 'HEAD', cwd = ROOT
  *  历史里那枚已入库的事故(`9a0f7610e9`)不该把后来每一次提交都钉红 —— 一道按规矩写就红的门
  *  只会逼人 `--no-verify`,连带废掉其余全部守门。要回看历史用 `--limit N` 手工取证,
  *  要连别人推来的合并也覆盖用 `--all-new`(增量台账,由守护巡检调)。 */
+/** 该 sha 在本仓对象库里能不能解析成提交(多机同仓 / 被 GC / 残值来自别台 ⇒ 常不可)。 */
+function commitExists(sha, cwd = ROOT) {
+  if (!sha) return false
+  try {
+    git(['cat-file', '-e', `${sha}^{commit}`], cwd)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 区间左端怎么选 —— 纯函数,好让三种情形都能被构造面证明(联网才能走到的 pendingMerges 本身不可单测)。
+ *   `remote` 为空         ⇒ 'HEAD'(全量回看,保守)
+ *   `remote` 可解析       ⇒ `${remote}..HEAD`
+ *   `remote` **不可解析** ⇒ null ⇒ 调用方退到"有界 + 台账去重",绝不允许把 fatal 当结论
+ */
+export function chooseRange({ remote, exists }) {
+  if (!remote) return 'HEAD'
+  if (!exists) return null
+  return `${remote}..HEAD`
+}
+
 export function pendingMerges(cwd = ROOT) {
   // 区间左端优先用**当次服务器真值**:残值偏新 ⇒ 漏判别人推来的合并,偏旧 ⇒ 把已审过的重判一遍。
   // 但这一处的兜底方向与收敛器**相反**:收敛器拿残值落槌会把"未收敛"当成"已推送"(静默漏推),
@@ -119,7 +142,19 @@ export function pendingMerges(cwd = ROOT) {
   } catch {
     remote = ''
   }
-  const range = remote ? `${remote}..HEAD` : 'HEAD'
+  const range = chooseRange({ remote, exists: commitExists(remote, cwd) })
+  if (range === null) {
+    // 拿到了 sha,但它**不在本仓对象库里** —— 多机同仓时别台推来的头会被本地 GC 掉,或 `stale`
+    // 残值本身就是另一台的历史。此时 `rev-list <sha>..HEAD` 直接 `fatal: Invalid revision range`,
+    // 整门以 exit 2 崩掉,而批量器把非零计成"blocking 违规" ⇒ 一道与任何改动无关、也没人能修的
+    // 恒红(实测 G-175:起点 90ce75ad2f5 在本仓不可解析)。出路不是跳过不判,而是退到
+    // "回看最近 N 枚 + 增量台账去重":老提交不会反复红,新合进来的照样被判到一次。
+    console.log(
+      `  ⚠️ 远端残值 ${remote.slice(0, 11)} 在本仓不可解析(多机同仓/已被 GC)⇒ 不拿它当区间左端,` +
+        `改按 HEAD 回看最近 ${DEFAULT_LIMIT} 枚并用增量台账去重(不静默跳过)`,
+    )
+    return auditUnseen(DEFAULT_LIMIT, cwd)
+  }
   return auditRecent(Infinity, range, cwd)
 }
 
@@ -287,5 +322,5 @@ if (isDirectRun) {
   })
 }
 
-export const __test__ = { treePaths, parentsOf, basesOf, auditOne, auditRecent, pendingMerges, auditUnseen, readMarker, markerPath }
+export const __test__ = { treePaths, parentsOf, basesOf, auditOne, auditRecent, pendingMerges, auditUnseen, readMarker, markerPath, chooseRange, commitExists }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
