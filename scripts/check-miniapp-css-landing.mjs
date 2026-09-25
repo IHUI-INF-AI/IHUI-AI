@@ -103,7 +103,16 @@
  *
  * 用法见 --help。镜像测试:node --test scripts/tests/check-miniapp-css-landing.test.mjs
  */
-import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { createRequire } from 'node:module'
 import { basename, dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -128,12 +137,21 @@ export const WIRING_MODE = 'manual'
  * 「声明 commit 而实际被摘线」两个方向都必须能红。若这段判断写在测试里,测试就只能观察到
  * 当前真值(manual + 未接线 = 绿)那一格,另外两格永远没被证明过 —— 那等于没锁。
  */
-export function auditWiring({ declared, runnerText, scriptName = 'check-miniapp-css-landing.mjs' }) {
-  if (!['manual', 'commit'].includes(declared)) return { ok: false, reason: `WIRING_MODE 取值非法:${declared}` }
-  if (typeof runnerText !== 'string') return { ok: false, reason: 'runner 文本取不到,无法判定接线态' }
+export function auditWiring({
+  declared,
+  runnerText,
+  scriptName = 'check-miniapp-css-landing.mjs',
+}) {
+  if (!['manual', 'commit'].includes(declared))
+    return { ok: false, reason: `WIRING_MODE 取值非法:${declared}` }
+  if (typeof runnerText !== 'string')
+    return { ok: false, reason: 'runner 文本取不到,无法判定接线态' }
   const wired = runnerText.includes(scriptName)
   if (declared === 'manual' && wired) {
-    return { ok: false, reason: `声明为手动/CI 门,但 runner 里出现了 ${scriptName} —— 被接进提交链而没改声明` }
+    return {
+      ok: false,
+      reason: `声明为手动/CI 门,但 runner 里出现了 ${scriptName} —— 被接进提交链而没改声明`,
+    }
   }
   if (declared === 'commit' && !wired) {
     return { ok: false, reason: `声明已接提交链,但 runner 里没有 ${scriptName} —— 本门被静默摘线` }
@@ -141,7 +159,11 @@ export function auditWiring({ declared, runnerText, scriptName = 'check-miniapp-
   if (declared === 'commit') {
     const i = runnerText.indexOf(scriptName)
     const block = runnerText.slice(Math.max(0, i - 600), i + 600)
-    if (!/skipEnv/.test(block)) return { ok: false, reason: '接进提交链的门必须留 skipEnv 应急出口,否则恒红只会逼人 --no-verify' }
+    if (!/skipEnv/.test(block))
+      return {
+        ok: false,
+        reason: '接进提交链的门必须留 skipEnv 应急出口,否则恒红只会逼人 --no-verify',
+      }
   }
   return { ok: true, reason: '', wired }
 }
@@ -218,7 +240,8 @@ export function weappMangleClassName(name) {
 export function unmappedPunctIn(name) {
   const out = []
   for (const ch of String(name)) {
-    if (/[A-Za-z0-9\-_]/.test(ch) || !ASCII_PUNCT.test(ch) || WEAPP_CLASS_MANGLE_TABLE.has(ch)) continue
+    if (/[A-Za-z0-9\-_]/.test(ch) || !ASCII_PUNCT.test(ch) || WEAPP_CLASS_MANGLE_TABLE.has(ch))
+      continue
     if (!out.includes(ch)) out.push(ch)
   }
   return out
@@ -281,19 +304,33 @@ function ruleNodes(cssText) {
         buf += ch
         pos++
         if (ch === '\\') {
-          if (pos < src.length) { buf += src[pos]; pos++ }
+          if (pos < src.length) {
+            buf += src[pos]
+            pos++
+          }
           continue
         }
         if (ch === quote) quote = ''
         continue
       }
-      if (ch === '"' || ch === "'" || ch === '`') { quote = ch; buf += ch; pos++; continue }
+      if (ch === '"' || ch === "'" || ch === '`') {
+        quote = ch
+        buf += ch
+        pos++
+        continue
+      }
       if (ch === ';' || ch === '{' || ch === '}') {
         const head = buf.trim()
         buf = ''
         pos++
-        if (ch === ';') { if (head) node.decls.push(head); continue }
-        if (ch === '}') { if (head) node.decls.push(head); break }
+        if (ch === ';') {
+          if (head) node.decls.push(head)
+          continue
+        }
+        if (ch === '}') {
+          if (head) node.decls.push(head)
+          break
+        }
         node.children.push(block(head, !head.startsWith('@')))
         continue
       }
@@ -358,7 +395,8 @@ export function harvestClassDeclarations(cssText) {
  * 允许伪类/伪元素(`.hover\:bg-primary:hover`、`.focus\:outline-none:focus`)—— 那仍是单类;
  * 排除组合器与第二个类(`.a .b`、`.w-full.rounded-b-\[30rpx\]`、`.a>.b`)。
  */
-const BARE_SINGLE_CLASS = /^\.-?(?![0-9])(?:\\.|[A-Za-z0-9_\u00a0-\uffff-])+(?::{1,2}[-\w]+(?:\([^)]*\))?)*$/
+const BARE_SINGLE_CLASS =
+  /^\.-?(?![0-9])(?:\\.|[A-Za-z0-9_\u00a0-\uffff-])+(?::{1,2}[-\w]+(?:\([^)]*\))?)*$/
 export function isBareUtilitySelector(sel) {
   return BARE_SINGLE_CLASS.test(String(sel).trim())
 }
@@ -447,12 +485,17 @@ function countFilesWithExt(dir, ext) {
  * 不做这层判别,门会把"h5 的 dist"读成"weapp 产物里 0 条规则",产出与真实改动无关的假红。
  */
 export function classifyDist(distDir) {
-  if (!existsSync(distDir)) return { kind: 'absent', reason: `产物目录不存在:${distDir}`, wxssCount: 0 }
+  if (!existsSync(distDir))
+    return { kind: 'absent', reason: `产物目录不存在:${distDir}`, wxssCount: 0 }
   let entries
   try {
     entries = readdirSync(distDir)
   } catch (e) {
-    return { kind: 'undetermined', reason: `产物目录读不出来:${distDir}(${e.message})`, wxssCount: 0 }
+    return {
+      kind: 'undetermined',
+      reason: `产物目录读不出来:${distDir}(${e.message})`,
+      wxssCount: 0,
+    }
   }
   const wxssCount = countFilesWithExt(distDir, '.wxss')
   const wxmlCount = countFilesWithExt(distDir, '.wxml')
@@ -465,10 +508,18 @@ export function classifyDist(distDir) {
     }
   }
   if (wxmlCount === 0) {
-    return { kind: 'wrong-platform', reason: 'dist 下没有任何 .wxml,不是一次 weapp 构建产物', wxssCount }
+    return {
+      kind: 'wrong-platform',
+      reason: 'dist 下没有任何 .wxml,不是一次 weapp 构建产物',
+      wxssCount,
+    }
   }
   if (wxssCount === 0) {
-    return { kind: 'wrong-platform', reason: 'dist 有 .wxml 但 .wxss 计数为 0,产物不完整', wxssCount }
+    return {
+      kind: 'wrong-platform',
+      reason: 'dist 有 .wxml 但 .wxss 计数为 0,产物不完整',
+      wxssCount,
+    }
   }
   return { kind: 'weapp', reason: '', wxssCount, wxmlCount }
 }
@@ -563,7 +614,8 @@ export function collectLandedFromDist(distDir) {
  */
 export function collectRuntimeFace(distDir) {
   const files = walkFiles(distDir).filter((p) => /\.(js|wxml|wxs)$/.test(p))
-  if (files.length === 0) throw new Undetermined(`遍历 ${distDir} 一个 js/wxml/wxs 也没读到,运行时类名面判不出`)
+  if (files.length === 0)
+    throw new Undetermined(`遍历 ${distDir} 一个 js/wxml/wxs 也没读到,运行时类名面判不出`)
   const tokens = new Set()
   let haystack = ''
   let unreadable = 0
@@ -581,10 +633,14 @@ export function collectRuntimeFace(distDir) {
       for (const t of m[1].split(/[\s,]+/)) if (t) tokens.add(t)
   }
   if (tokens.size === 0)
-    throw new Undetermined(`扫了 ${files.length} 个运行时文件,一个 class token 也没抽到 —— 抽取失效,不得当"没有名字可用"`)
+    throw new Undetermined(
+      `扫了 ${files.length} 个运行时文件,一个 class token 也没抽到 —— 抽取失效,不得当"没有名字可用"`,
+    )
   // 全文面为空 = 整层没有可读内容 ⇒ 「谁都没被目击」这个结论不成立,不得让 C5 拿它判"腿空转"。
   if (haystack.trim() === '')
-    throw new Undetermined(`扫了 ${files.length} 个运行时文件,全文一个字符也没有 —— 抽取失效,不得当"转写名都没出现"`)
+    throw new Undetermined(
+      `扫了 ${files.length} 个运行时文件,全文一个字符也没有 —— 抽取失效,不得当"转写名都没出现"`,
+    )
   return { tokens, haystack, files: files.length, unreadable }
 }
 
@@ -610,7 +666,8 @@ export function collectRuntimeClassTokens(distDir) {
  * 会让面 2 恒 > 0,空转的腿照样绿)。
  */
 export function findMangledSightings(haystack, names) {
-  if (typeof haystack !== 'string') throw new Undetermined('运行时全文语料没取到 ⇒ 转写名目击维判不出,不得当"一个都没被看见"')
+  if (typeof haystack !== 'string')
+    throw new Undetermined('运行时全文语料没取到 ⇒ 转写名目击维判不出,不得当"一个都没被看见"')
   const seen = new Set()
   for (const n of names ?? []) {
     const m = weappMangleClassName(n)
@@ -631,12 +688,20 @@ export function findMangledSightings(haystack, names) {
  * 两版独有的自定义属性各列一把,**必须成组用**:单看一条会误判(`--tw-ring-offset-shadow` 两版都有)。
  * 命中数只作方向,取"独有指纹谁更全"的那个版本。
  */
-const V4_ONLY_PROPS = ['--tw-leading', '--tw-tracking', '--tw-gradient-position', '--tw-drop-shadow-size', '--tw-duration', '--tw-ease']
+const V4_ONLY_PROPS = [
+  '--tw-leading',
+  '--tw-tracking',
+  '--tw-gradient-position',
+  '--tw-drop-shadow-size',
+  '--tw-duration',
+  '--tw-ease',
+]
 const V3_ONLY_PROPS = ['--tw-bg-opacity', '--tw-text-opacity', '--tw-border-opacity']
 
 export function detectProductTailwindMajor(distDir) {
   const wxss = walkFiles(distDir).filter((p) => p.endsWith('.wxss'))
-  if (wxss.length === 0) throw new Undetermined(`遍历 ${distDir} 一个 .wxss 也没读到,无法判定产物引擎`)
+  if (wxss.length === 0)
+    throw new Undetermined(`遍历 ${distDir} 一个 .wxss 也没读到,无法判定产物引擎`)
   // base 层只可能出现在 app 级 wxss(及其 @import 的 origin 件),不必拼 154 个文件
   const base = wxss
     .filter((p) => /(^|[\\/])app[^\\/]*\.wxss$/.test(p))
@@ -647,7 +712,8 @@ export function detectProductTailwindMajor(distDir) {
   const v4 = hit(V4_ONLY_PROPS)
   const v3 = hit(V3_ONLY_PROPS)
   return {
-    major: v4.length > 0 && v3.length === 0 ? 'v4' : v3.length > 0 && v4.length === 0 ? 'v3' : 'unknown',
+    major:
+      v4.length > 0 && v3.length === 0 ? 'v4' : v3.length > 0 && v4.length === 0 ? 'v3' : 'unknown',
     v4Hits: v4.length,
     v4Total: V4_ONLY_PROPS.length,
     v3Hits: v3.length,
@@ -673,7 +739,11 @@ export function measureMainPackage(distDir) {
     throw new Undetermined(`app.json 解析失败:${e.message}`)
   }
   const roots = [...(app.subpackages || []), ...(app.subPackages || [])]
-    .map((s) => String(s.root || '').replace(/^\/+|\/+$/g, '').replace(/\//g, sep))
+    .map((s) =>
+      String(s.root || '')
+        .replace(/^\/+|\/+$/g, '')
+        .replace(/\//g, sep),
+    )
     .filter(Boolean)
   let mainBytes = 0
   let subBytes = 0
@@ -713,9 +783,14 @@ export function measureMainPackage(distDir) {
  */
 export function pickReferenceEngine({ productMajor, requested = 'auto' }) {
   if (requested !== 'auto' && requested !== 'v3' && requested !== 'v4')
-    return { engine: null, explicit: false, reason: `--reference-engine 取值非法:${requested}(只认 auto/v3/v4)` }
+    return {
+      engine: null,
+      explicit: false,
+      reason: `--reference-engine 取值非法:${requested}(只认 auto/v3/v4)`,
+    }
   if (requested !== 'auto') return { engine: requested, explicit: true, reason: '' }
-  if (productMajor === 'v3' || productMajor === 'v4') return { engine: productMajor, explicit: false, reason: '' }
+  if (productMajor === 'v3' || productMajor === 'v4')
+    return { engine: productMajor, explicit: false, reason: '' }
   return {
     engine: null,
     explicit: false,
@@ -755,7 +830,12 @@ export function planReferenceFace({ face, engine, explicit = false }) {
       reason: `v3 参考层由生成器读磁盘产出,与 ${face} 源码面天然异面 ⇒ 拒绝出判定覆盖率;要同面对账请跑 --worktree(人工档)`,
     }
   }
-  return { sameFace: false, judged: false, action: 'abstain', reason: `未知参考层引擎:${String(engine)}` }
+  return {
+    sameFace: false,
+    judged: false,
+    action: 'abstain',
+    reason: `未知参考层引擎:${String(engine)}`,
+  }
 }
 
 function majorOf(version) {
@@ -774,7 +854,9 @@ function esmEntryOf(pkgDir, pkg) {
   if (cand && existsSync(cand)) return cand
   const fallback = join(pkgDir, 'dist', 'lib.mjs')
   if (existsSync(fallback)) return fallback
-  throw new Undetermined(`tailwindcss@${pkg.version} 找不到 ESM 入口(exports['.']=${JSON.stringify(e)})`)
+  throw new Undetermined(
+    `tailwindcss@${pkg.version} 找不到 ESM 入口(exports['.']=${JSON.stringify(e)})`,
+  )
 }
 
 /**
@@ -797,7 +879,9 @@ export function resolveTailwindInstall({ root, appDir, wantMajor }) {
       tried.push(`${anchor} → 解析失败(${String(e.message).split('\n')[0].slice(0, 90)})`)
     }
   }
-  throw new Undetermined(`解析不到 tailwindcss${wantMajor ? `(${wantMajor})` : ''};试过 ${tried.join(' | ')}`)
+  throw new Undetermined(
+    `解析不到 tailwindcss${wantMajor ? `(${wantMajor})` : ''};试过 ${tried.join(' | ')}`,
+  )
 }
 
 /**
@@ -850,7 +934,11 @@ function resolvePkgDir(anchorDir, name) {
         if (parent === cur) break
         cur = parent
       }
-      return { pkgDir: null, pkg: null, reason: `主入口向上没找到 name=${name} 的 package.json(先:${first})` }
+      return {
+        pkgDir: null,
+        pkg: null,
+        reason: `主入口向上没找到 name=${name} 的 package.json(先:${first})`,
+      }
     } catch {
       return { pkgDir: null, pkg: null, reason: first }
     }
@@ -905,14 +993,19 @@ export async function resolveV4Loaders({ root, appDir, twPkgDir, wantMajor = 'v4
   const pushStore = (dir, label) => {
     const store = findPnpmStore(dir)
     const got = storeCandidates(store, '@tailwindcss/node', wantMajor)
-    if (!got.length) tried.push(`虚拟仓(${label} → ${store || '解析不到 store'})里没有 ${wantMajor} 的 @tailwindcss/node`)
+    if (!got.length)
+      tried.push(
+        `虚拟仓(${label} → ${store || '解析不到 store'})里没有 ${wantMajor} 的 @tailwindcss/node`,
+      )
     for (const c of got) cands.push(c)
   }
   pushStore(twPkgDir, 'tailwindcss')
   for (const anchor of [appDir, root]) {
     const r = resolvePkgDir(anchor, '@tailwindcss/node')
-    if (r.pkgDir && majorOf(r.pkg.version) === wantMajor) cands.push({ pkgDir: r.pkgDir, pkg: r.pkg, via: `createRequire(${anchor})` })
-    else tried.push(`${anchor} → ${r.reason || `解析到 ${r.pkg && r.pkg.version},不是 ${wantMajor}`}`)
+    if (r.pkgDir && majorOf(r.pkg.version) === wantMajor)
+      cands.push({ pkgDir: r.pkgDir, pkg: r.pkg, via: `createRequire(${anchor})` })
+    else
+      tried.push(`${anchor} → ${r.reason || `解析到 ${r.pkg && r.pkg.version},不是 ${wantMajor}`}`)
   }
   for (const anchor of [appDir, root, join(root, 'apps', 'web')]) {
     const plugin = resolvePkgDir(anchor, '@tailwindcss/postcss')
@@ -923,7 +1016,11 @@ export async function resolveV4Loaders({ root, appDir, twPkgDir, wantMajor = 'v4
     pushStore(plugin.pkgDir, `@tailwindcss/postcss@${anchor}`)
     const viaPlugin = resolvePkgDir(plugin.pkgDir, '@tailwindcss/node')
     if (viaPlugin.pkgDir && majorOf(viaPlugin.pkg.version) === wantMajor)
-      cands.push({ pkgDir: viaPlugin.pkgDir, pkg: viaPlugin.pkg, via: `@tailwindcss/postcss ← ${anchor}` })
+      cands.push({
+        pkgDir: viaPlugin.pkgDir,
+        pkg: viaPlugin.pkg,
+        via: `@tailwindcss/postcss ← ${anchor}`,
+      })
     else tried.push(`经 postcss(${anchor})→ ${viaPlugin.reason || `不是 ${wantMajor}`}`)
   }
   const seen = new Set()
@@ -943,12 +1040,20 @@ export async function resolveV4Loaders({ root, appDir, twPkgDir, wantMajor = 'v4
         tried.push(`${c.via} → 不导出 loadModule`)
         continue
       }
-      return { loadModule: mod.loadModule, pkgDir: c.pkgDir, version: c.pkg.version, via: c.via, tried }
+      return {
+        loadModule: mod.loadModule,
+        pkgDir: c.pkgDir,
+        version: c.pkg.version,
+        via: c.via,
+        tried,
+      }
     } catch (e) {
       tried.push(`${c.via} → 载入失败 ${String(e.message).split('\n')[0].slice(0, 70)}`)
     }
   }
-  throw new Undetermined(`解析不到 v4 的 @tailwindcss/node(loadModule);候选 ${cands.length} 个,记录:${[...tried, ...cands.map((c) => c.via)].join(' | ').slice(0, 400)}`)
+  throw new Undetermined(
+    `解析不到 v4 的 @tailwindcss/node(loadModule);候选 ${cands.length} 个,记录:${[...tried, ...cands.map((c) => c.via)].join(' | ').slice(0, 400)}`,
+  )
 }
 
 /**
@@ -968,7 +1073,10 @@ export async function buildUtilityReferenceV4({ root, appDir, candidates }) {
   const tw = resolveTailwindInstall({ root, appDir, wantMajor: 'v4' })
   const loaders = await resolveV4Loaders({ root, appDir, twPkgDir: tw.pkgDir, wantMajor: 'v4' })
   const configPath = join(appDir, 'tailwind.config.ts')
-  if (!existsSync(configPath)) throw new Undetermined(`端内没有 tailwind.config.ts:${configPath}(命名档全出自它,缺它参考层必失真)`)
+  if (!existsSync(configPath))
+    throw new Undetermined(
+      `端内没有 tailwind.config.ts:${configPath}(命名档全出自它,缺它参考层必失真)`,
+    )
   let engine
   try {
     engine = await import(pathToFileURL(esmEntryOf(tw.pkgDir, tw.pkg)).href)
@@ -977,7 +1085,9 @@ export async function buildUtilityReferenceV4({ root, appDir, candidates }) {
     throw new Undetermined(`载入 v4 引擎失败:${String(e.message).split('\n')[0].slice(0, 160)}`)
   }
   if (typeof engine.compile !== 'function')
-    throw new Undetermined(`tailwindcss@${tw.version} 不导出 compile() —— 不是 v4 的低层入口,拿它直出的清单与产物不同形`)
+    throw new Undetermined(
+      `tailwindcss@${tw.version} 不导出 compile() —— 不是 v4 的低层入口,拿它直出的清单与产物不同形`,
+    )
 
   const loadStylesheet = async (id, base) => {
     const p =
@@ -1011,10 +1121,13 @@ export async function buildUtilityReferenceV4({ root, appDir, candidates }) {
     themeOnly = await run(head)
   } catch (e) {
     if (e instanceof Undetermined) throw e
-    throw new Undetermined(`v4 utilities 参考层直出失败:${String(e.message).split('\n')[0].slice(0, 200)}`)
+    throw new Undetermined(
+      `v4 utilities 参考层直出失败:${String(e.message).split('\n')[0].slice(0, 200)}`,
+    )
   }
   const decls = harvestClassDeclarations(css)
-  if (decls.size === 0) throw new Undetermined('v4 参考层产出 0 个类名 —— 输入不成立,不得拿它当分母')
+  if (decls.size === 0)
+    throw new Undetermined('v4 参考层产出 0 个类名 —— 输入不成立,不得拿它当分母')
   const total = Buffer.byteLength(css, 'utf8')
   const utilitiesBytes = total - Buffer.byteLength(themeOnly, 'utf8')
   return {
@@ -1134,7 +1247,12 @@ export function classifyDualMeaning(utilDecls, ownDecls) {
   const utilColors = valuesFor(utilDecls, /^color\s*:/)
   const ownColors = valuesFor(ownDecls, /^color\s*:/)
   const ownBgs = valuesFor(ownDecls, /^background(-color)?\s*:/)
-  if (utilColors.some((v) => looksLight(v)) && ownBgs.length && ownBgs.some((v) => looksLight(v)) && !ownColors.length)
+  if (
+    utilColors.some((v) => looksLight(v)) &&
+    ownBgs.length &&
+    ownBgs.some((v) => looksLight(v)) &&
+    !ownColors.length
+  )
     return 'white-on-white'
   if (utilColors.length && ownColors.length) return 'color-overlap'
   return 'coexist'
@@ -1169,8 +1287,9 @@ export function findBlindSpots(usedAndOwnClassed, referenceNames) {
  * 隐含性质:`mangle(n) !== n` ⇒ 集内每个名字至少含一个表内标点(见 `findMangledSightings` 头注)。
  */
 export function mangledOnlyNames(usedTokenNames, referenceNames, landedNames) {
-  return [...new Set([...usedTokenNames].filter((n) => referenceNames.has(n)))]
-    .filter((n) => !landedNames.has(n) && landedNames.has(weappMangleClassName(n)))
+  return [...new Set([...usedTokenNames].filter((n) => referenceNames.has(n)))].filter(
+    (n) => !landedNames.has(n) && landedNames.has(weappMangleClassName(n)),
+  )
 }
 
 /**
@@ -1214,9 +1333,21 @@ export function partitionRuntimeReachability(names, runtimeTokens, sightedNames 
  */
 export function auditMangleLeg({ demandKinds, sightingKinds, sampleNames = [] }) {
   if (!Number.isFinite(demandKinds) || !Number.isFinite(sightingKinds))
-    return { verdict: 'undetermined', reason: '面 1/面 2 没量到,不得据以判定转写腿是否空转', demandKinds: demandKinds ?? null, sightingKinds: sightingKinds ?? null, sampleNames: [] }
+    return {
+      verdict: 'undetermined',
+      reason: '面 1/面 2 没量到,不得据以判定转写腿是否空转',
+      demandKinds: demandKinds ?? null,
+      sightingKinds: sightingKinds ?? null,
+      sampleNames: [],
+    }
   if (demandKinds === 0)
-    return { verdict: 'undetermined', reason: '本轮无可观测转写需求(面 1 = 0)⇒ 这一维判不出,不得记为通过', demandKinds, sightingKinds, sampleNames: [] }
+    return {
+      verdict: 'undetermined',
+      reason: '本轮无可观测转写需求(面 1 = 0)⇒ 这一维判不出,不得记为通过',
+      demandKinds,
+      sightingKinds,
+      sampleNames: [],
+    }
   if (sightingKinds === 0)
     return {
       verdict: 'idle',
@@ -1284,7 +1415,9 @@ export function computeCoverage(
   const compoundMode = referenceBareNames instanceof Set && compoundLeadNames instanceof Set
   const hitCompound = compoundMode
     ? notBareHit.filter(
-        (n) => !referenceBareNames.has(n) && (compoundLeadNames.has(n) || compoundLeadNames.has(weappMangleClassName(n))),
+        (n) =>
+          !referenceBareNames.has(n) &&
+          (compoundLeadNames.has(n) || compoundLeadNames.has(weappMangleClassName(n))),
       )
     : []
   const hitCompoundSet = new Set(hitCompound)
@@ -1309,6 +1442,12 @@ export function computeCoverage(
     hitCompoundKinds: hitCompound.length,
     deadRuleKinds: deadRule.length,
     deadRuleSamples: deadRule.sort().slice(0, MISSING_SAMPLES),
+    /**
+     * 全量死规则名单(数据,不是判据)。留这一格的理由:样例只给 5 条,而"剩下 26 条是什么"
+     * 恰好是要回答"为什么运行时侧没被改名"的那个人唯一缺的输入 —— 没有它,他只能重跑一遍构建
+     * 或改门代码;而门输出的 `--min-coverage 0` 逃生舱只让它不判红,不告诉他差集在哪。
+     */
+    deadRuleKindsList: deadRule.sort(),
     // 运行时类名语料是否量到过:没量到 ⇒ dead 维恒为 0,报告必须写明这一格是"未判定"而不是"没有死规则"
     runtimeFaceJudged: runtimeTokens instanceof Set,
     // 全文目击维是否量到过:没量到 ⇒ 第 2 态恒 0,报告得说"三态里少一态",不得读成"没有拼接 class"
@@ -1322,7 +1461,8 @@ export function computeCoverage(
     pct:
       demanded.length === 0
         ? 1
-        : (hitOriginal.length + hitRenamed.length + hitSighted.length + hitCompound.length) / demanded.length,
+        : (hitOriginal.length + hitRenamed.length + hitSighted.length + hitCompound.length) /
+          demanded.length,
     missOccurrences: 0,
     referenceKinds: referenceNames.size,
     landedRuleKinds: landedNames.size,
@@ -1348,7 +1488,8 @@ function listSourceFiles(root, face) {
       ? ['ls-files', '--full-name', '-z', '--', SRC_PREFIX]
       : ['ls-tree', '-r', '--name-only', 'HEAD', '-z', '--', SRC_PREFIX]
   const list = gitRaw(args, root, { timeout: 60000 }).split('\0').filter(Boolean)
-  if (list.length === 0) throw new Undetermined(`${face} 面在 ${SRC_PREFIX} 下列出 0 个文件,无法判定`)
+  if (list.length === 0)
+    throw new Undetermined(`${face} 面在 ${SRC_PREFIX} 下列出 0 个文件,无法判定`)
   return list
 }
 
@@ -1421,7 +1562,8 @@ export async function runCheck(opts) {
       bag.files.add(rel.slice(SRC_PREFIX.length))
     }
   }
-  if (unreadable) undetermined.push(`${face} 面有 ${unreadable} 个源码文件取不到内容(计入"少扫",不静默)`)
+  if (unreadable)
+    undetermined.push(`${face} 面有 ${unreadable} 个源码文件取不到内容(计入"少扫",不静默)`)
   // 单一物化点:Map#keys() 是**一次性迭代器**,消费一次即耗尽。下游 C1/C2/C4/C5 共用这一份数组,
   // 否则第二个消费者拿到空序列 —— 那会把"没需求"和"没死规则"两种健康读数一起伪造出来。
   const usedTokenList = [...usedTokens.keys()]
@@ -1455,11 +1597,21 @@ export async function runCheck(opts) {
   let referenceFace = null
   let reference = null
   let referenceJudged = true
-  const wanted = opts.skipReference ? 'skip' : opts.legacyReferenceV3 ? 'v3' : opts.referenceEngine || 'auto'
-  const picked = opts.skipReference ? { engine: null, explicit: false, reason: '--skip-reference' } : pickReferenceEngine({ productMajor: productEngine?.major || null, requested: wanted })
-  const facePlan = picked.engine ? planReferenceFace({ face, engine: picked.engine, explicit: picked.explicit }) : { action: 'abstain', judged: false, sameFace: false, reason: '' }
+  const wanted = opts.skipReference
+    ? 'skip'
+    : opts.legacyReferenceV3
+      ? 'v3'
+      : opts.referenceEngine || 'auto'
+  const picked = opts.skipReference
+    ? { engine: null, explicit: false, reason: '--skip-reference' }
+    : pickReferenceEngine({ productMajor: productEngine?.major || null, requested: wanted })
+  const facePlan = picked.engine
+    ? planReferenceFace({ face, engine: picked.engine, explicit: picked.explicit })
+    : { action: 'abstain', judged: false, sameFace: false, reason: '' }
   if (opts.skipReference) {
-    undetermined.push('--skip-reference:无 utility 全集 ⇒ C1 覆盖率与 C2 双义结构上判不出,只报产物规则总数')
+    undetermined.push(
+      '--skip-reference:无 utility 全集 ⇒ C1 覆盖率与 C2 双义结构上判不出,只报产物规则总数',
+    )
   } else if (!picked.engine) {
     // 同引擎不可得 ⇒ **不出覆盖率数字**。报一个错引擎的百分比,比报"判不出"危害大得多:
     // 前者会让人照着它决策(开链/收口),后者只会让人去查原因。
@@ -1491,7 +1643,11 @@ export async function runCheck(opts) {
   // 只有人工指定(--legacy-reference-v3 / --reference-engine)才可能不匹配。
   // 不匹配时 **C1 不计红**,只作为对比读数输出。
   const refMajor = reference ? majorOf(reference.tailwindVersion) : null
-  const engineMismatch = !!reference && !!productEngine && productEngine.major !== 'unknown' && refMajor !== productEngine.major
+  const engineMismatch =
+    !!reference &&
+    !!productEngine &&
+    productEngine.major !== 'unknown' &&
+    refMajor !== productEngine.major
   if (reference && !picked.explicit && engineMismatch) {
     // 兜底:万一将来又允许 auto 走出不同引擎的分支,这里必须弃权而不是报数。
     reference = null
@@ -1518,7 +1674,13 @@ export async function runCheck(opts) {
   // 与 C2 盲区同一道过滤:**只落在 Tailwind 命名空间里** —— 端内自有类(login-btn、
   // action-btn…)前缀下没有任何 utility,结构上不可能是候选,全算进来就是 1,501 条噪声
   // (实测不过滤时正是这个数,会把真该看的那几条埋掉 —— 报数报到没人看,等于没报)。
-  const referenceBlindSpots = reference && landed ? findBlindSpots([...usedTokenList].filter((n) => landed.has(n)), reference.names) : []
+  const referenceBlindSpots =
+    reference && landed
+      ? findBlindSpots(
+          [...usedTokenList].filter((n) => landed.has(n)),
+          reference.names,
+        )
+      : []
   if (referenceBlindSpots.length) {
     notices.push(
       `参考层反向盲区 ${referenceBlindSpots.length} 个:产物里有规则、${face} 面确实用了、且落在 Tailwind 命名空间里,但参考层不认它 ⇒ 它不进 C1 分母,覆盖率因此**偏高**(样例 ${referenceBlindSpots.slice(0, MISSING_SAMPLES).join(', ')})。逐条查参考层的输入是不是还缺了构建那边的某一样(缺 theme / 缺 config / 候选没喂到),不得当成"本来就没这条规则"`,
@@ -1538,7 +1700,13 @@ export async function runCheck(opts) {
   let missingSamples = []
   // C5 的红在 C1 段里算,但要合进下面统一的 `failing` —— 先单独收着,免得看起来像被 minCoverage 管着
   const failingC5 = []
-  let mangleLeg = { verdict: 'undetermined', reason: 'C1 未能判定(无参考层或无产物规则集)⇒ 面 1 无从谈起', demandKinds: null, sightingKinds: null, sampleNames: [] }
+  let mangleLeg = {
+    verdict: 'undetermined',
+    reason: 'C1 未能判定(无参考层或无产物规则集)⇒ 面 1 无从谈起',
+    demandKinds: null,
+    sightingKinds: null,
+    sampleNames: [],
+  }
   let cssLeg = { verdict: 'undetermined', reason: 'C1 未能判定 ⇒ CSS 腿见证无从取' }
   if (reference && landed) {
     // 第四/五参把"该按哪种产出形态验收"交给参考层自己的形状:
@@ -1552,7 +1720,10 @@ export async function runCheck(opts) {
     let runtimeSighted = null
     try {
       runtime = collectRuntimeFace(distDir)
-      if (runtime.unreadable) notices.push(`运行时类名面有 ${runtime.unreadable}/${runtime.files} 个文件读不到(计入"少扫",不静默)`)
+      if (runtime.unreadable)
+        notices.push(
+          `运行时类名面有 ${runtime.unreadable}/${runtime.files} 个文件读不到(计入"少扫",不静默)`,
+        )
     } catch (e) {
       if (!(e instanceof Undetermined)) throw e
       undetermined.push(`C4 运行时类名面判不出:${e.message} ⇒ 本轮"死规则"一维计未判定,不得当成 0`)
@@ -1560,7 +1731,8 @@ export async function runCheck(opts) {
     // 面 1 先算(与 computeCoverage 同一个 `mangledOnlyNames`,单一判据源);面 1 == 0 时**不去扫全文**:
     // 没有需求就没有可判的腿,硬扫一遍再报 0 会把"本轮无需求"与"腿没跑"混成同一个读数。
     const mangleDemand = mangledOnlyNames(usedTokenList, reference.names, landed)
-    if (runtime && mangleDemand.length > 0) runtimeSighted = findMangledSightings(runtime.haystack, mangleDemand)
+    if (runtime && mangleDemand.length > 0)
+      runtimeSighted = findMangledSightings(runtime.haystack, mangleDemand)
     coverage = computeCoverage(
       usedTokenList,
       reference.names,
@@ -1577,7 +1749,8 @@ export async function runCheck(opts) {
       sightingKinds: runtimeSighted instanceof Set ? runtimeSighted.size : NaN,
       sampleNames: mangleDemand,
     })
-    if (mangleLeg.verdict === 'idle') failingC5.push(`C5 ${mangleLeg.reason}(样例:${mangleLeg.sampleNames.join(' ')})`)
+    if (mangleLeg.verdict === 'idle')
+      failingC5.push(`C5 ${mangleLeg.reason}(样例:${mangleLeg.sampleNames.join(' ')})`)
     /* ---- C6:weapp CSS 腿整条没跑(改名 + rem2rpx 都没生效)----
        立项实测:三连构建里最坏的那一档 C1 反而读到 99.35% / 死规则 0 / C5=in,
        因为 CSS 用转义选择器 `.z-\[1001\]` 与运行时源名字面相同 —— 名字对得上,平台却未必认。
@@ -1606,7 +1779,6 @@ export async function runCheck(opts) {
     delete coverage.missingSamples
     delete coverage.missNames
   }
-
 
   /* ---- C2 同名双义 ---- */
   const dual = []
@@ -1738,10 +1910,16 @@ function report(r, asJson) {
         )
       }
       if (c.definiteMissKinds) {
-        const top = c.missFamilies.slice(0, 5).map((f) => `${f.family}(${f.count})`).join(' ')
-        console.log(`   确定缺失 ${c.definiteMissKinds} 类按族分布(共 ${c.missFamilies.length} 族,top5):${top}`)
+        const top = c.missFamilies
+          .slice(0, 5)
+          .map((f) => `${f.family}(${f.count})`)
+          .join(' ')
+        console.log(
+          `   确定缺失 ${c.definiteMissKinds} 类按族分布(共 ${c.missFamilies.length} 族,top5):${top}`,
+        )
       }
-      if (r.missingSamples.length) console.log(`   缺失样例(≤${MISSING_SAMPLES},只取确定缺失):${r.missingSamples.join(', ')}`)
+      if (r.missingSamples.length)
+        console.log(`   缺失样例(≤${MISSING_SAMPLES},只取确定缺失):${r.missingSamples.join(', ')}`)
     }
   } else {
     console.log('C1 覆盖:未判定(见下方「无法判定」)—— 拿不到同引擎的参考层就**不出覆盖率数字**')
@@ -1749,7 +1927,12 @@ function report(r, asJson) {
 
   /* ---- C5:转写腿的结构性对账(与 pct 无关,观测档 --min-coverage 0 照样判红) ---- */
   {
-    const L = r.mangleLeg || { verdict: 'undetermined', demandKinds: null, sightingKinds: null, sampleNames: [] }
+    const L = r.mangleLeg || {
+      verdict: 'undetermined',
+      demandKinds: null,
+      sightingKinds: null,
+      sampleNames: [],
+    }
     if (L.verdict === 'idle')
       console.log(
         `❌ C5 本轮 JS/WXML 转写腿空转(结构性,不是量级):面 1「wxss 里只有转写名」的转写需求 ${L.demandKinds} 类,` +
@@ -1789,7 +1972,9 @@ function report(r, asJson) {
       console.log(
         `   utilities 参考层体积 = ${r.referenceBytes} B —— 链已开(2026-09-25 起,起效载体是 app.css 的 @source),` +
           `上方主包/余量是**含 utilities 落地量的实测现值**;旧的"若开启…装不装得下"假设算术不再成立(那组前置数实测方向是反的)。` +
-          (r.referenceBytesIsNetUtilities === false ? ' 〔参考层含 theme 块,非纯 utilities 体积〕' : ''),
+          (r.referenceBytesIsNetUtilities === false
+            ? ' 〔参考层含 theme 块,非纯 utilities 体积〕'
+            : ''),
       )
     }
   }
@@ -1815,20 +2000,36 @@ export function selfTest() {
   // token harvest
   eq(
     'P1 双引号 / 单引号 / 模板串三种形态都收',
-    harvestClassNameTokens(`a className="flex p-3" b className='w-full' c className={\`text-sm\`} ${'x'}`).sort(),
+    harvestClassNameTokens(
+      `a className="flex p-3" b className='w-full' c className={\`text-sm\`} ${'x'}`,
+    ).sort(),
     ['flex', 'p-3', 'text-sm', 'w-full'].sort(),
   )
   eq('P2 非 class 属性不得收', harvestClassNameTokens('href="flex items-center"'), [])
 
   // selector harvest
-  eq('P3 注释里的假规则不算定义', [...harvestClassDeclarations('/* .fake{color:red} */ .real{color:red}').keys()], ['real'])
+  eq(
+    'P3 注释里的假规则不算定义',
+    [...harvestClassDeclarations('/* .fake{color:red} */ .real{color:red}').keys()],
+    ['real'],
+  )
   eq('P4 多选择器共享规则体逐个收', [...harvestLandedSelectors('.a,.b{color:red}')], ['a', 'b'])
   eq('P5 无规则体的裸类名不算落地', [...harvestLandedSelectors('.only-parent .x')], [])
   eq('P6 转义类名反解', unescapeClassName('\\!visible'), '!visible')
-  has('P7 任意值类名可收', harvestLandedSelectors('.-right-\\[12rpx\\]{right:-12rpx}'), '-right-[12rpx]')
+  has(
+    'P7 任意值类名可收',
+    harvestLandedSelectors('.-right-\\[12rpx\\]{right:-12rpx}'),
+    '-right-[12rpx]',
+  )
   eq('P8 数字开头不算类名', [...harvestClassDeclarations('.2xl{a:b}').keys()], [])
-  eq('P9 声明体确实带出来', harvestClassDeclarations('.flex{display:flex}').get('flex'), ['display:flex'])
-  eq('P10 同名多规则的声明取并集', harvestClassDeclarations('.x{color:red}.x{padding:1px}').get('x'), ['color:red', 'padding:1px'])
+  eq('P9 声明体确实带出来', harvestClassDeclarations('.flex{display:flex}').get('flex'), [
+    'display:flex',
+  ])
+  eq(
+    'P10 同名多规则的声明取并集',
+    harvestClassDeclarations('.x{color:red}.x{padding:1px}').get('x'),
+    ['color:red', 'padding:1px'],
+  )
 
   // dist 形态判别 —— 把"工具失效"和"业务结论"分开的那道闸
   const base = mkTempDir('shape')
@@ -1837,7 +2038,11 @@ export function selfTest() {
     mkdirSync(join(base, 'h5'), { recursive: true })
     writeFileSync(join(base, 'h5', 'index.html'), '<html>')
     writeFileSync(join(base, 'h5', 'app.js'), '')
-    eq('P12 h5 覆盖必须判 wrong-platform(绝不当成 0% 覆盖)', classifyDist(join(base, 'h5')).kind, 'wrong-platform')
+    eq(
+      'P12 h5 覆盖必须判 wrong-platform(绝不当成 0% 覆盖)',
+      classifyDist(join(base, 'h5')).kind,
+      'wrong-platform',
+    )
     const w = join(base, 'w')
     mkdirSync(join(w, 'pages'), { recursive: true })
     writeFileSync(join(w, 'app.wxss'), '@import "./a.wxss";')
@@ -1848,21 +2053,52 @@ export function selfTest() {
     const partial = join(base, 'partial')
     mkdirSync(join(partial, 'pages'), { recursive: true })
     writeFileSync(join(partial, 'pages', 'x.wxml'), '')
-    eq('P14 有 wxml 无 wxss ⇒ 产物不完整,判 wrong-platform', classifyDist(partial).kind, 'wrong-platform')
+    eq(
+      'P14 有 wxml 无 wxss ⇒ 产物不完整,判 wrong-platform',
+      classifyDist(partial).kind,
+      'wrong-platform',
+    )
     const { landed, wxssFiles } = collectLandedFromDist(w)
     eq('P15 落地集合可枚举', [wxssFiles, landed.has('flex')], [2, true])
     // P15b/P15c:裸类判据的四对正反例 —— 复合手写规则不得冒充 utility 落地(本门最大的一个洞)
-    eq('P15b 裸类/伪类算落地', ['a', 'b', 'c', 'd'].map((k) => isBareUtilitySelector({ a: '.flex', b: '.hover\\:bg-primary:hover', c: '.text-2xl', d: '.-top-\\[2px\\]' }[k])), [true, true, true, true])
-    eq('P15c 复合/后代/双类不算落地', ['a', 'b', 'c', 'd'].map((k) => isBareUtilitySelector({ a: '.vip-page .border-border', b: '.w-full.rounded-b-\\[30rpx\\]', c: '.a>.b', d: '.dark .flex' }[k])), [false, false, false, false])
+    eq(
+      'P15b 裸类/伪类算落地',
+      ['a', 'b', 'c', 'd'].map((k) =>
+        isBareUtilitySelector(
+          { a: '.flex', b: '.hover\\:bg-primary:hover', c: '.text-2xl', d: '.-top-\\[2px\\]' }[k],
+        ),
+      ),
+      [true, true, true, true],
+    )
+    eq(
+      'P15c 复合/后代/双类不算落地',
+      ['a', 'b', 'c', 'd'].map((k) =>
+        isBareUtilitySelector(
+          {
+            a: '.vip-page .border-border',
+            b: '.w-full.rounded-b-\\[30rpx\\]',
+            c: '.a>.b',
+            d: '.dark .flex',
+          }[k],
+        ),
+      ),
+      [false, false, false, false],
+    )
     eq(
       'P15d 落地集合只收裸类(端到端:同一份 CSS 里两种写法并存)',
       (() => {
-        const s = harvestLandedSelectors('.vip-page .border-border{border-color:var(--vip-border)}\n.flex{display:flex}\n.w-full.rounded-x{width:100%}')
+        const s = harvestLandedSelectors(
+          '.vip-page .border-border{border-color:var(--vip-border)}\n.flex{display:flex}\n.w-full.rounded-x{width:100%}',
+        )
         return [s.has('flex'), s.has('border-border'), s.has('w-full')]
       })(),
       [true, false, false],
     )
-    eq('P16 空目录 collect 必抛 Undetermined', throwsUndetermined(() => collectLandedFromDist(join(base, 'nope'))), true)
+    eq(
+      'P16 空目录 collect 必抛 Undetermined',
+      throwsUndetermined(() => collectLandedFromDist(join(base, 'nope'))),
+      true,
+    )
 
     /* ---- P16b–P16k:v4「只产出复合选择器」那一族的第三态(2026-09-25 形状盲区) ----
        真产物实测 `.space-x-2>view+view,.space-x-2>view+text,…` —— 源名 space-x-2 确实落地,
@@ -1873,8 +2109,16 @@ export function selfTest() {
     eq(
       'P16b 阳性:复合首族规则 ⇒ 记第三态,不进 miss',
       (() => {
-        const leads = harvestCompoundLeadNames('.space-x-2>view+view,.space-x-2>view+text{margin-right:8rpx}')
-        const c = computeCoverage(['space-x-2'], new Set(['space-x-2']), new Set(), compoundOnly, leads)
+        const leads = harvestCompoundLeadNames(
+          '.space-x-2>view+view,.space-x-2>view+text{margin-right:8rpx}',
+        )
+        const c = computeCoverage(
+          ['space-x-2'],
+          new Set(['space-x-2']),
+          new Set(),
+          compoundOnly,
+          leads,
+        )
         return [c.hitCompoundKinds, c.hitKinds, c.missKinds, c.definiteMissKinds, c.pct]
       })(),
       [1, 1, 0, 0, 1],
@@ -1882,8 +2126,16 @@ export function selfTest() {
     eq(
       'P16c 反向锁(本票重点):后代手写提及**不算**首族,space-x-2 仍判缺',
       (() => {
-        const leads = harvestCompoundLeadNames('.card-list .space-x-2{margin:0}\n.text-muted{color:red}')
-        const c = computeCoverage(['space-x-2'], new Set(['space-x-2']), new Set(), compoundOnly, leads)
+        const leads = harvestCompoundLeadNames(
+          '.card-list .space-x-2{margin:0}\n.text-muted{color:red}',
+        )
+        const c = computeCoverage(
+          ['space-x-2'],
+          new Set(['space-x-2']),
+          new Set(),
+          compoundOnly,
+          leads,
+        )
         return [leads.has('space-x-2'), c.hitCompoundKinds, c.missKinds, c.definiteMissKinds, c.pct]
       })(),
       [false, 0, 1, 1, 0],
@@ -1894,10 +2146,25 @@ export function selfTest() {
         const d = join(base, 'compound-descendant')
         mkdirSync(join(d, 'pages'), { recursive: true })
         writeFileSync(join(d, 'pages', 'i.wxml'), '<view/>')
-        writeFileSync(join(d, 'app.wxss'), '.card-list .space-x-2{margin:0}\n.text-muted{color:red}')
+        writeFileSync(
+          join(d, 'app.wxss'),
+          '.card-list .space-x-2{margin:0}\n.text-muted{color:red}',
+        )
         const got = collectLandedFromDist(d)
-        const c = computeCoverage(['space-x-2'], new Set(['space-x-2']), got.landed, compoundOnly, got.compoundLeads)
-        return [got.landed.has('space-x-2'), got.landed.has('text-muted'), got.compoundLeads.has('space-x-2'), c.hitKinds, c.definiteMissKinds]
+        const c = computeCoverage(
+          ['space-x-2'],
+          new Set(['space-x-2']),
+          got.landed,
+          compoundOnly,
+          got.compoundLeads,
+        )
+        return [
+          got.landed.has('space-x-2'),
+          got.landed.has('text-muted'),
+          got.compoundLeads.has('space-x-2'),
+          c.hitKinds,
+          c.definiteMissKinds,
+        ]
       })(),
       [false, true, false, 0, 1],
     )
@@ -1907,9 +2174,18 @@ export function selfTest() {
         const d = join(base, 'compound-leading')
         mkdirSync(join(d, 'pages'), { recursive: true })
         writeFileSync(join(d, 'pages', 'i.wxml'), '<view/>')
-        writeFileSync(join(d, 'app.wxss'), '.card-list .space-x-2{margin:0}\n.space-x-2>view+view{margin-right:8rpx}')
+        writeFileSync(
+          join(d, 'app.wxss'),
+          '.card-list .space-x-2{margin:0}\n.space-x-2>view+view{margin-right:8rpx}',
+        )
         const got = collectLandedFromDist(d)
-        const c = computeCoverage(['space-x-2'], new Set(['space-x-2']), got.landed, compoundOnly, got.compoundLeads)
+        const c = computeCoverage(
+          ['space-x-2'],
+          new Set(['space-x-2']),
+          got.landed,
+          compoundOnly,
+          got.compoundLeads,
+        )
         return [got.compoundLeads.has('space-x-2'), c.hitCompoundKinds, c.definiteMissKinds]
       })(),
       [true, 1, 0],
@@ -1918,7 +2194,13 @@ export function selfTest() {
       'P16f 裸类命中优先:已有裸规则的名字不得被记进第三态(三态必须互斥)',
       (() => {
         const leads = harvestCompoundLeadNames('.flex>view+view{a:b}')
-        const c = computeCoverage(['flex'], new Set(['flex']), new Set(['flex']), compoundOnly, leads)
+        const c = computeCoverage(
+          ['flex'],
+          new Set(['flex']),
+          new Set(['flex']),
+          compoundOnly,
+          leads,
+        )
         return [c.hitOriginalKinds, c.hitCompoundKinds, c.missKinds]
       })(),
       [1, 0, 0],
@@ -1927,7 +2209,13 @@ export function selfTest() {
       'P16g 参考层是裸形态的名字**不吃**第三态(否则复合手写规则又能冒充 utility 落地)',
       (() => {
         const leads = harvestCompoundLeadNames('.border-border>view+view{border-color:red}')
-        const c = computeCoverage(['border-border'], new Set(['border-border']), new Set(), new Set(['border-border']), leads)
+        const c = computeCoverage(
+          ['border-border'],
+          new Set(['border-border']),
+          new Set(),
+          new Set(['border-border']),
+          leads,
+        )
         return [c.hitCompoundKinds, c.missKinds]
       })(),
       [0, 1],
@@ -1952,14 +2240,26 @@ export function selfTest() {
       (() => {
         const leads = harvestCompoundLeadNames('.space-x-2>view+view{a:b}')
         const off = computeCoverage(['space-x-2'], new Set(['space-x-2']), new Set(), null, leads)
-        const on = computeCoverage(['space-x-2'], new Set(['space-x-2']), new Set(), compoundOnly, leads)
+        const on = computeCoverage(
+          ['space-x-2'],
+          new Set(['space-x-2']),
+          new Set(),
+          compoundOnly,
+          leads,
+        )
         return [off.hitCompoundKinds, off.missKinds, on.hitCompoundKinds]
       })(),
       [0, 1, 1],
     )
     eq(
       'P16l 归族不得被第三态带跑:真缺项仍按前缀成族(space 族这次只剩真缺的那一条)',
-      computeCoverage(['space-x-2', 'space-y-9'], new Set(['space-x-2', 'space-y-9']), new Set(), compoundOnly, harvestCompoundLeadNames('.space-x-2>view+view{a:b}')).missFamilies,
+      computeCoverage(
+        ['space-x-2', 'space-y-9'],
+        new Set(['space-x-2', 'space-y-9']),
+        new Set(),
+        compoundOnly,
+        harvestCompoundLeadNames('.space-x-2>view+view{a:b}'),
+      ).missFamilies,
       [{ family: 'space', count: 1 }],
     )
   } finally {
@@ -1969,7 +2269,10 @@ export function selfTest() {
   // 同名双义分类 —— 三档各一正一反,否则分类判据等于没有
   eq(
     'P17 浅色 color × 浅色 background 且自有不设 color ⇒ white-on-white',
-    classifyDualMeaning(['color:var(--color-card)'], ['background:var(--color-card)', 'padding:28rpx']),
+    classifyDualMeaning(
+      ['color:var(--color-card)'],
+      ['background:var(--color-card)', 'padding:28rpx'],
+    ),
     'white-on-white',
   )
   eq(
@@ -1977,11 +2280,31 @@ export function selfTest() {
     classifyDualMeaning(['color:var(--color-foreground)'], ['color:#111827']),
     'color-overlap',
   )
-  eq('P19 两侧属性不相交 ⇒ coexist', classifyDualMeaning(['width:100%'], ['background:var(--color-card)']), 'coexist')
-  eq('P20 深色 background 不得判成白底事故', classifyDualMeaning(['color:var(--color-card)'], ['background:#111827']), 'coexist')
-  eq('P21 utility 不出 color ⇒ 不构成白底事故', classifyDualMeaning(['display:flex'], ['background:var(--color-card)']), 'coexist')
-  eq('P22 #fff / white 字面量按浅色算', classifyDualMeaning(['color:#fff'], ['background:white']), 'white-on-white')
-  eq('P23 深色 foreground 档(#0a0a0a)不得按浅色认', classifyDualMeaning(['color:var(--color-foreground)'], ['background:var(--color-card)']), 'coexist')
+  eq(
+    'P19 两侧属性不相交 ⇒ coexist',
+    classifyDualMeaning(['width:100%'], ['background:var(--color-card)']),
+    'coexist',
+  )
+  eq(
+    'P20 深色 background 不得判成白底事故',
+    classifyDualMeaning(['color:var(--color-card)'], ['background:#111827']),
+    'coexist',
+  )
+  eq(
+    'P21 utility 不出 color ⇒ 不构成白底事故',
+    classifyDualMeaning(['display:flex'], ['background:var(--color-card)']),
+    'coexist',
+  )
+  eq(
+    'P22 #fff / white 字面量按浅色算',
+    classifyDualMeaning(['color:#fff'], ['background:white']),
+    'white-on-white',
+  )
+  eq(
+    'P23 深色 foreground 档(#0a0a0a)不得按浅色认',
+    classifyDualMeaning(['color:var(--color-foreground)'], ['background:var(--color-card)']),
+    'coexist',
+  )
 
   // C2 盲区:参考层判磁盘、源码判 HEAD 时,"盘上改名但 HEAD 还在用"的那批必须被点名,
   // 否则 C2 的少报会表现为"没有双义"—— 立因当天正是这样漏掉了 white-on-white 那一型。
@@ -2000,14 +2323,26 @@ export function selfTest() {
     findBlindSpots(['action-btn', 'agent-avatar'], new Set(['text-sm', 'flex'])),
     [],
   )
-  eq('P23d 参考层全覆盖时盲区必须为空(不得凭空造盲区)', findBlindSpots(['flex'], new Set(['flex'])), [])
-  eq('P23e 盲区去重且稳定排序', findBlindSpots(['text-b', 'text-a', 'text-b'], new Set(['text-sm'])), ['text-a', 'text-b'])
+  eq(
+    'P23d 参考层全覆盖时盲区必须为空(不得凭空造盲区)',
+    findBlindSpots(['flex'], new Set(['flex'])),
+    [],
+  )
+  eq(
+    'P23e 盲区去重且稳定排序',
+    findBlindSpots(['text-b', 'text-a', 'text-b'], new Set(['text-sm'])),
+    ['text-a', 'text-b'],
+  )
 
   // C1 算术:该红必红、该绿必绿,且分母只算参考层内的名字(否则造出一把恒红的尺子)
   eq(
     'P23f 全缺失 ⇒ pct 0 并点名样例',
     (() => {
-      const c = computeCoverage(['flex', 'text-sm', 'w-full'], new Set(['flex', 'text-sm', 'w-full']), new Set())
+      const c = computeCoverage(
+        ['flex', 'text-sm', 'w-full'],
+        new Set(['flex', 'text-sm', 'w-full']),
+        new Set(),
+      )
       return [c.pct, c.demandedKinds, c.missKinds, c.missingSamples.length]
     })(),
     [0, 3, 3, 3],
@@ -2015,14 +2350,19 @@ export function selfTest() {
   eq(
     'P23g 全落地 ⇒ pct 1、无缺失',
     (() => {
-      const c = computeCoverage(['flex', 'text-sm'], new Set(['flex', 'text-sm']), new Set(['flex', 'text-sm', 'bg-red-500']))
+      const c = computeCoverage(
+        ['flex', 'text-sm'],
+        new Set(['flex', 'text-sm']),
+        new Set(['flex', 'text-sm', 'bg-red-500']),
+      )
       return [c.pct, c.missKinds, c.landedRuleKinds]
     })(),
     [1, 0, 3],
   )
   eq(
     'P23h 参考层外的自有类不得进分母(否则覆盖率被永远压低=恒红)',
-    computeCoverage(['flex', 'action-btn', 'my-title'], new Set(['flex']), new Set(['flex'])).demandedKinds,
+    computeCoverage(['flex', 'action-btn', 'my-title'], new Set(['flex']), new Set(['flex']))
+      .demandedKinds,
     1,
   )
   eq(
@@ -2030,7 +2370,11 @@ export function selfTest() {
     computeCoverage(['a', 'b', 'c'], new Set(['a', 'b', 'c']), new Set(['a'])).pct,
     1 / 3,
   )
-  eq('P23j 分母为空不得当成 0 覆盖(无需求=无可判)', computeCoverage(['x'], new Set(), new Set()).pct, 1)
+  eq(
+    'P23j 分母为空不得当成 0 覆盖(无需求=无可判)',
+    computeCoverage(['x'], new Set(), new Set()).pct,
+    1,
+  )
   const b2 = mkTempDir('budget')
   try {
     const d = join(b2, 'dist')
@@ -2049,13 +2393,18 @@ export function selfTest() {
     eq('P24 pages/ 下的分包根必须剔除,不得算进主包', [m.mainBytes, m.subBytes], [wantMain, 1200])
     eq('P25 余量 = 上限 - 主包', m.headroomBytes, MAIN_PACKAGE_LIMIT - wantMain)
     eq('P26 分包根计数按 app.json 实数', m.subpackageRootCount, 2)
-    eq('P27 缺 app.json ⇒ Undetermined', throwsUndetermined(() => measureMainPackage(join(d, 'pages'))), true)
+    eq(
+      'P27 缺 app.json ⇒ Undetermined',
+      throwsUndetermined(() => measureMainPackage(join(d, 'pages'))),
+      true,
+    )
 
     // P28-P30:产物引擎指纹判据(参考层用错引擎 ⇒ C1 的可选集与 C3 的算术都失去依据)
     const engRoot = mkTempDir('eng')
     const engBase = join(engRoot, 'dist')
     mkdirSync(engBase, { recursive: true })
-    const V4 = '--tw-leading:;--tw-tracking:;--tw-gradient-position:initial;--tw-drop-shadow-size:;--tw-duration:initial;--tw-ease:initial;'
+    const V4 =
+      '--tw-leading:;--tw-tracking:;--tw-gradient-position:initial;--tw-drop-shadow-size:;--tw-duration:initial;--tw-ease:initial;'
     const V3 = '--tw-bg-opacity:1;--tw-text-opacity:1;--tw-border-opacity:1;'
     writeFileSync(join(engBase, 'app.wxss'), '@import "./app-origin.wxss";')
     // P28 纯 v4 指纹 ⇒ v4,且 preflight 在(端 config 明写 preflight:false 时这就是"config 没进链"的证据)
@@ -2063,10 +2412,24 @@ export function selfTest() {
       join(engBase, 'app-origin.wxss'),
       `page{box-sizing:border-box;border:0 solid}${V4}.a{color:red}`,
     )
-    eq('P28 只有 v4 指纹 ⇒ v4 + preflight 在', (() => { const r = detectProductTailwindMajor(engBase); return [r.major, r.preflight, r.v4Hits, r.v3Hits] })(), ['v4', true, 6, 0])
+    eq(
+      'P28 只有 v4 指纹 ⇒ v4 + preflight 在',
+      (() => {
+        const r = detectProductTailwindMajor(engBase)
+        return [r.major, r.preflight, r.v4Hits, r.v3Hits]
+      })(),
+      ['v4', true, 6, 0],
+    )
     // P29 纯 v3 指纹 ⇒ v3(反向对照:否则本判据等于恒答 v4)
     writeFileSync(join(engBase, 'app-origin.wxss'), `page{margin:0}${V3}`)
-    eq('P29 只有 v3 指纹 ⇒ v3 且 preflight 不在', (() => { const r = detectProductTailwindMajor(engBase); return [r.major, r.preflight] })(), ['v3', false])
+    eq(
+      'P29 只有 v3 指纹 ⇒ v3 且 preflight 不在',
+      (() => {
+        const r = detectProductTailwindMajor(engBase)
+        return [r.major, r.preflight]
+      })(),
+      ['v3', false],
+    )
     // P30 两版指纹同时出现 ⇒ unknown,不得猜一个方向
     writeFileSync(join(engBase, 'app-origin.wxss'), `${V4}${V3}`)
     eq('P30 两版指纹都有 ⇒ unknown(不猜)', detectProductTailwindMajor(engBase).major, 'unknown')
@@ -2084,24 +2447,62 @@ export function selfTest() {
   eq(
     'P31 类规则自带 @supports 嵌套时仍必须收到该类和它自己的声明',
     [
-      [...harvestLandedSelectors('.bg-primary\\/10{background-color:var(--color-primary);@supports (color:color-mix(in lab,red,red)){background-color:color-mix(in oklab,var(--color-primary)10%,transparent)}}')],
-      harvestClassDeclarations('.bg-primary\\/10{background-color:var(--color-primary);@supports (x:y){color:red}}').get('bg-primary/10'),
+      [
+        ...harvestLandedSelectors(
+          '.bg-primary\\/10{background-color:var(--color-primary);@supports (color:color-mix(in lab,red,red)){background-color:color-mix(in oklab,var(--color-primary)10%,transparent)}}',
+        ),
+      ],
+      harvestClassDeclarations(
+        '.bg-primary\\/10{background-color:var(--color-primary);@supports (x:y){color:red}}',
+      ).get('bg-primary/10'),
     ],
     [['bg-primary/10'], ['background-color:var(--color-primary)', 'color:red']],
   )
-  eq('P32 反向对照:@media 嵌在类规则里但全树零声明 ⇒ 不算落地(不得把空壳当规则)', [...harvestLandedSelectors('.a{@media (min-width:24rem){}}')], [])
-  eq('P33 at-rule 头部 里的数值不得被当成类名', [...harvestLandedSelectors('@media (min-width: 24.5rem){.c{color:red}}')], ['c'])
-  eq('P34 @supports 条件里的逗号/百分号不得产出假类名', [...harvestLandedSelectors('@supports (color: color-mix(in lab, red 50%, red)){.d{color:red}}')], ['d'])
-  eq('P35 值里的花括号与分号(引号内)不得打断解析', [...harvestLandedSelectors('.e{content:"{"}.f{color:red}.g{background:url("a;b.png")}')].sort(), ['e', 'f', 'g'])
+  eq(
+    'P32 反向对照:@media 嵌在类规则里但全树零声明 ⇒ 不算落地(不得把空壳当规则)',
+    [...harvestLandedSelectors('.a{@media (min-width:24rem){}}')],
+    [],
+  )
+  eq(
+    'P33 at-rule 头部 里的数值不得被当成类名',
+    [...harvestLandedSelectors('@media (min-width: 24.5rem){.c{color:red}}')],
+    ['c'],
+  )
+  eq(
+    'P34 @supports 条件里的逗号/百分号不得产出假类名',
+    [
+      ...harvestLandedSelectors(
+        '@supports (color: color-mix(in lab, red 50%, red)){.d{color:red}}',
+      ),
+    ],
+    ['d'],
+  )
+  eq(
+    'P35 值里的花括号与分号(引号内)不得打断解析',
+    [...harvestLandedSelectors('.e{content:"{"}.f{color:red}.g{background:url("a;b.png")}')].sort(),
+    ['e', 'f', 'g'],
+  )
   eq(
     'P36 多层嵌套(类 > @media > 声明)逐层收',
-    [...harvestLandedSelectors('@layer utilities{.h{color:red}.i{@media (width>=40rem){color:blue}}}')].sort(),
+    [
+      ...harvestLandedSelectors(
+        '@layer utilities{.h{color:red}.i{@media (width>=40rem){color:blue}}}',
+      ),
+    ].sort(),
     ['h', 'i'],
   )
   eq('P37 空规则体仍不算落地(立项语义不得被嵌套改造带跑)', [...harvestLandedSelectors('.j{}')], [])
   // P38-P42:参考层引擎择档(auto = 同引擎,判不出即弃权)
-  eq('P38 auto + 产物 v4 ⇒ 参考层走 v4,且不是人工档', pickReferenceEngine({ productMajor: 'v4' }), { engine: 'v4', explicit: false, reason: '' })
-  eq('P39 auto + 产物 v3 ⇒ 走 v3(反向对照:否则本判据等于恒答 v4)', pickReferenceEngine({ productMajor: 'v3' }).engine, 'v3')
+  eq('P38 auto + 产物 v4 ⇒ 参考层走 v4,且不是人工档', pickReferenceEngine({ productMajor: 'v4' }), {
+    engine: 'v4',
+    explicit: false,
+    reason: '',
+  })
+  eq(
+    'P39 auto + 产物 v3 ⇒ 走 v3(反向对照:否则本判据等于恒答 v4)',
+    pickReferenceEngine({ productMajor: 'v3' }).engine,
+    'v3',
+  )
   eq(
     'P40 auto + 引擎判不出 ⇒ 必须弃权(engine null 并给原因),不得继续报一个覆盖率',
     (() => {
@@ -2110,7 +2511,11 @@ export function selfTest() {
     })(),
     [null, false, true],
   )
-  eq('P41 人工指定 v3 对比档 ⇒ 放行且标 explicit(由调用方决定不判红)', pickReferenceEngine({ productMajor: 'v4', requested: 'v3' }), { engine: 'v3', explicit: true, reason: '' })
+  eq(
+    'P41 人工指定 v3 对比档 ⇒ 放行且标 explicit(由调用方决定不判红)',
+    pickReferenceEngine({ productMajor: 'v4', requested: 'v3' }),
+    { engine: 'v3', explicit: true, reason: '' },
+  )
   eq(
     'P42 非法档名 ⇒ 弃权并点名,不静默按 auto 跑',
     (() => {
@@ -2135,8 +2540,16 @@ export function selfTest() {
     planReferenceFace({ face: 'worktree', engine: 'v3', explicit: false }).action,
     'build',
   )
-  eq('P44a 同面正向的另一半:v3 × worktree 时 judged 必须为 true(否则 P44 只证了 action)', planReferenceFace({ face: 'worktree', engine: 'v3', explicit: false }).judged, true)
-  eq('P45 v4 档候选由被审面喂入 ⇒ 任何源码面都同面、可判', planReferenceFace({ face: 'head', engine: 'v4' }), { sameFace: true, judged: true, action: 'build', reason: '' })
+  eq(
+    'P44a 同面正向的另一半:v3 × worktree 时 judged 必须为 true(否则 P44 只证了 action)',
+    planReferenceFace({ face: 'worktree', engine: 'v3', explicit: false }).judged,
+    true,
+  )
+  eq(
+    'P45 v4 档候选由被审面喂入 ⇒ 任何源码面都同面、可判',
+    planReferenceFace({ face: 'head', engine: 'v4' }),
+    { sameFace: true, judged: true, action: 'build', reason: '' },
+  )
   eq(
     'P46 人工对比档:异面仍出**读数**,但 judged=false(报告行必须标"不计红")',
     (() => {
@@ -2186,21 +2599,36 @@ export function selfTest() {
   eq(
     'P49 两态分开计数:原名直中与转写后中各记各的(合计当数会把"表漏一条"藏起来)',
     (() => {
-      const c = computeCoverage(['flex', '-top-[8rpx]'], new Set(['flex', '-top-[8rpx]']), new Set(['flex', '-top-_b8rpx_B']))
+      const c = computeCoverage(
+        ['flex', '-top-[8rpx]'],
+        new Set(['flex', '-top-[8rpx]']),
+        new Set(['flex', '-top-_b8rpx_B']),
+      )
       return [c.hitOriginalKinds, c.hitMangledKinds, c.hitKinds, c.missKinds, c.pct]
     })(),
     [1, 1, 2, 0, 1],
   )
   eq(
     'P50 反向对照:产物里没有的名字收紧后仍判缺(加转写表 ≠ 放水)',
-    computeCoverage(['bg-does-not-exist-tier'], new Set(['bg-does-not-exist-tier']), new Set(['bg-_bvar_p--x_P_B', 'flex'])).missKinds,
+    computeCoverage(
+      ['bg-does-not-exist-tier'],
+      new Set(['bg-does-not-exist-tier']),
+      new Set(['bg-_bvar_p--x_P_B', 'flex']),
+    ).missKinds,
     1,
   )
   eq(
     'P51 表外标点桶:只报数、不并入 hit、字符点名,且不进确定缺失的样例',
     (() => {
       const c = computeCoverage(['w-[50%]'], new Set(['w-[50%]']), new Set(['w-full']))
-      return [c.hitKinds, c.missKinds, c.unmangledPunctMisses, c.unmangledPunctChars, c.definiteMissKinds, c.missingSamples.length]
+      return [
+        c.hitKinds,
+        c.missKinds,
+        c.unmangledPunctMisses,
+        c.unmangledPunctChars,
+        c.definiteMissKinds,
+        c.missingSamples.length,
+      ]
     })(),
     [0, 1, 1, ['%'], 0, 0],
   )
@@ -2214,13 +2642,23 @@ export function selfTest() {
   )
   eq(
     'P53 归族:确定缺失按前缀成族、按数降序("整族缺失"那个真信号必须可读)',
-    computeCoverage(['bg-b', 'bg-a', 'text-c'], new Set(['bg-b', 'bg-a', 'text-c']), new Set()).missFamilies,
+    computeCoverage(['bg-b', 'bg-a', 'text-c'], new Set(['bg-b', 'bg-a', 'text-c']), new Set())
+      .missFamilies,
     [
       { family: 'bg', count: 2 },
       { family: 'text', count: 1 },
     ],
   )
-  eq('P54 族取法:剥变体前缀、忽略负号、无连字符即整名', [missFamily('hover:bg-muted'), missFamily('-top-[8rpx]'), missFamily('flex'), missFamily('text-cta-foreground')], ['bg', 'top', 'flex', 'text'])
+  eq(
+    'P54 族取法:剥变体前缀、忽略负号、无连字符即整名',
+    [
+      missFamily('hover:bg-muted'),
+      missFamily('-top-[8rpx]'),
+      missFamily('flex'),
+      missFamily('text-cta-foreground'),
+    ],
+    ['bg', 'top', 'flex', 'text'],
+  )
   eq(
     'P55 无标点名字不受转写表影响(原名直中态不因收紧而改变)',
     (() => {
@@ -2277,9 +2715,19 @@ export function selfTest() {
       const names = ['z-[1001]', 'bg-muted']
       const ref = new Set(names)
       const landed = new Set(['bg-muted', 'z-_b1001_B'])
-      const pick = (c) => JSON.stringify([c.hitKinds, c.hitOriginalKinds, c.hitMangledKinds, c.mangleDemandKinds, c.definiteMissKinds, c.pct])
+      const pick = (c) =>
+        JSON.stringify([
+          c.hitKinds,
+          c.hitOriginalKinds,
+          c.hitMangledKinds,
+          c.mangleDemandKinds,
+          c.definiteMissKinds,
+          c.pct,
+        ])
       const asArray = pick(computeCoverage([...names], ref, landed))
-      const asIterator = pick(computeCoverage(new Map(names.map((n) => [n, 1])).keys(), ref, landed))
+      const asIterator = pick(
+        computeCoverage(new Map(names.map((n) => [n, 1])).keys(), ref, landed),
+      )
       return [asArray, asIterator, asArray === asIterator]
     })(),
     (() => {
@@ -2345,11 +2793,22 @@ export function selfTest() {
   eq(
     'P64 三态正向:抽取器看不见、全文搜索目击得到的拼接 class ⇒ 算可达,不再计死规则(sighted 集喂**源名**,与 findMangledSightings 的返回同形)',
     (() => {
-      const p = partitionRuntimeReachability(['border-[length:14rpx]'], new Set(['border-[length:14rpx]']), new Set(['border-[length:14rpx]']))
+      const p = partitionRuntimeReachability(
+        ['border-[length:14rpx]'],
+        new Set(['border-[length:14rpx]']),
+        new Set(['border-[length:14rpx]']),
+      )
       // 反向形状锁:sighted 集若被误喂成**转写名**,不会报错,只会安静地把一切判成 dead
       // —— 而"死规则变多"看起来像发现了更多缺陷,是最坏的那种失效。两臂同测才钉得住键形。
-      const wrongKey = partitionRuntimeReachability(['border-[length:14rpx]'], new Set(['border-[length:14rpx]']), new Set(['border-_blength_c14rpx_B']))
-      return [[p.byToken.length, p.bySighting.length, p.dead.length], [wrongKey.bySighting.length, wrongKey.dead.length]]
+      const wrongKey = partitionRuntimeReachability(
+        ['border-[length:14rpx]'],
+        new Set(['border-[length:14rpx]']),
+        new Set(['border-_blength_c14rpx_B']),
+      )
+      return [
+        [p.byToken.length, p.bySighting.length, p.dead.length],
+        [wrongKey.bySighting.length, wrongKey.dead.length],
+      ]
     })(),
     [
       [0, 1, 0],
@@ -2369,7 +2828,12 @@ export function selfTest() {
     (() => {
       const names = ['z-[1001]', 'border-[length:14rpx]']
       const p = partitionRuntimeReachability(names, new Set(['z-_b1001_B']), new Set(names))
-      return [[...p.byToken], [...p.bySighting], p.dead.length, p.byToken.length + p.bySighting.length + p.dead.length]
+      return [
+        [...p.byToken],
+        [...p.bySighting],
+        p.dead.length,
+        p.byToken.length + p.bySighting.length + p.dead.length,
+      ]
     })(),
     [['z-[1001]'], ['border-[length:14rpx]'], 0, 2],
   )
@@ -2381,10 +2845,30 @@ export function selfTest() {
       const landed = new Set(['z-_b1001_B', 'border-_blength_c14rpx_B'])
       const tokens = new Set(['z-[1001]', 'border-[length:14rpx]']) // 源名在运行时,**转写名一个都没有**
       const two = computeCoverage(used, ref, landed, null, null, tokens)
-      const three = computeCoverage(used, ref, landed, null, null, tokens, new Set(['border-[length:14rpx]']))
+      const three = computeCoverage(
+        used,
+        ref,
+        landed,
+        null,
+        null,
+        tokens,
+        new Set(['border-[length:14rpx]']),
+      )
       return [
-        [two.hitMangledKinds, two.hitSightedKinds, two.deadRuleKinds, two.hitKinds, two.runtimeSightJudged],
-        [three.hitMangledKinds, three.hitSightedKinds, three.deadRuleKinds, three.hitKinds, three.runtimeSightJudged],
+        [
+          two.hitMangledKinds,
+          two.hitSightedKinds,
+          two.deadRuleKinds,
+          two.hitKinds,
+          two.runtimeSightJudged,
+        ],
+        [
+          three.hitMangledKinds,
+          three.hitSightedKinds,
+          three.deadRuleKinds,
+          three.hitKinds,
+          three.runtimeSightJudged,
+        ],
         [Number(two.pct.toFixed(4)), Number(three.pct.toFixed(4))],
       ]
     })(),
@@ -2404,8 +2888,20 @@ export function selfTest() {
       const legacy = computeCoverage(used, ref, landed, null, null, tokens)
       const explicitNull = computeCoverage(used, ref, landed, null, null, tokens, null)
       return [
-        [legacy.hitOriginalKinds, legacy.hitMangledKinds, legacy.hitSightedKinds, legacy.deadRuleKinds, legacy.hitKinds],
-        [explicitNull.hitOriginalKinds, explicitNull.hitMangledKinds, explicitNull.hitSightedKinds, explicitNull.deadRuleKinds, explicitNull.hitKinds],
+        [
+          legacy.hitOriginalKinds,
+          legacy.hitMangledKinds,
+          legacy.hitSightedKinds,
+          legacy.deadRuleKinds,
+          legacy.hitKinds,
+        ],
+        [
+          explicitNull.hitOriginalKinds,
+          explicitNull.hitMangledKinds,
+          explicitNull.hitSightedKinds,
+          explicitNull.deadRuleKinds,
+          explicitNull.hitKinds,
+        ],
       ]
     })(),
     [
@@ -2421,7 +2917,12 @@ export function selfTest() {
       const landed = new Set(['flex', 'z-_b1001_B', 'border-_blength_c14rpx_B'])
       const face1 = mangledOnlyNames(used, ref, landed)
       const c = computeCoverage(used, ref, landed, null, null, new Set(), new Set(['z-[1001]']))
-      return [[...face1].sort(), c.mangleDemandKinds, c.hitMangledKinds + c.hitSightedKinds + c.deadRuleKinds, face1.length === c.mangleDemandKinds]
+      return [
+        [...face1].sort(),
+        c.mangleDemandKinds,
+        c.hitMangledKinds + c.hitSightedKinds + c.deadRuleKinds,
+        face1.length === c.mangleDemandKinds,
+      ]
     })(),
     [['border-[length:14rpx]', 'z-[1001]'], 2, 2, true],
   )
@@ -2467,16 +2968,33 @@ export function selfTest() {
       const c = computeCoverage(used, new Set(used), landed, null, null, face.tokens, sighted)
       eq(
         'P72 拼接 class:token 抽取看不见、全文维必须看得见 ⇒ 第 3 态计数,不再是死规则',
-        [face.tokens.has('border-_blength_c14rpx_B'), sighted.has('border-[length:14rpx]'), c.hitSightedKinds, c.deadRuleKinds],
+        [
+          face.tokens.has('border-_blength_c14rpx_B'),
+          sighted.has('border-[length:14rpx]'),
+          c.hitSightedKinds,
+          c.deadRuleKinds,
+        ],
         [false, true, 1, 1],
       )
       // 夹具自证:P73 的"判缺"不是根本没扫到 —— 两条转写名在这份 dist 的 CSS 里都真有裸类规则体
-      eq('P72b 夹具自证:两条转写名在 wxss 里都真有裸类规则(否则 P73 的判缺没有判别力)', [landed.has('z-_b1001_B'), landed.has('border-_blength_c14rpx_B')], [true, true])
-      eq('P73 反向锁(端到端):z-[1001] 的转写名在 JS 全文里真的一个字都没有 ⇒ 仍判 dead,没被"全文搜索"洗白', [c.hitMangledKinds, c.deadRuleKinds, c.deadRuleSamples], [0, 1, ['z-[1001]']])
+      eq(
+        'P72b 夹具自证:两条转写名在 wxss 里都真有裸类规则(否则 P73 的判缺没有判别力)',
+        [landed.has('z-_b1001_B'), landed.has('border-_blength_c14rpx_B')],
+        [true, true],
+      )
+      eq(
+        'P73 反向锁(端到端):z-[1001] 的转写名在 JS 全文里真的一个字都没有 ⇒ 仍判 dead,没被"全文搜索"洗白',
+        [c.hitMangledKinds, c.deadRuleKinds, c.deadRuleSamples],
+        [0, 1, ['z-[1001]']],
+      )
       eq(
         'P74 C5 端到端取材:面 1>0 且面 2>0 ⇒ 本轮判"在"(健康构建不得被判死);idle 时才带样例名',
         (() => {
-          const leg = auditMangleLeg({ demandKinds: c.mangleDemandKinds, sightingKinds: sighted.size, sampleNames: demand })
+          const leg = auditMangleLeg({
+            demandKinds: c.mangleDemandKinds,
+            sightingKinds: sighted.size,
+            sampleNames: demand,
+          })
           return [c.mangleDemandKinds, sighted.size, leg.verdict, leg.sampleNames.length]
         })(),
         [2, 1, 'in', 0],
@@ -2485,7 +3003,11 @@ export function selfTest() {
         'P75 兼容出口 collectRuntimeClassTokens 与 collectRuntimeFace 的 token 集必须全等(不得两份取材)',
         (() => {
           const legacy = collectRuntimeClassTokens(rf)
-          return [legacy.files, [...legacy.tokens].sort().join('|') === [...face.tokens].sort().join('|'), legacy.unreadable]
+          return [
+            legacy.files,
+            [...legacy.tokens].sort().join('|') === [...face.tokens].sort().join('|'),
+            legacy.unreadable,
+          ]
         })(),
         [2, true, 0],
       )
@@ -2501,22 +3023,38 @@ export function selfTest() {
     }
   }
 
-
   /* ---- C6:weapp CSS 腿整条没跑(2026-09-26 三连构建实测里最坏那一档) ---- */
-  eq('P71 C6 阳性:源码有含标点档而产物 0 个转写形态 ⇒ 必须判 off(这是 C1/C4/C5 一致报好的那一档)',
-    auditCssLeg({ mangledRuleKinds: 0, arbitraryDemand: 550 }).verdict, 'off')
-  eq('P72 C6 反向:产物有转写形态 ⇒ 判 in,新判据不得把健康构建判死',
-    auditCssLeg({ mangledRuleKinds: 559, arbitraryDemand: 724 }).verdict, 'in')
-  eq('P73 C6 空扫不记绿:源码本轮没有含标点档 ⇒ 只能 undetermined(不得报 in)',
-    auditCssLeg({ mangledRuleKinds: 0, arbitraryDemand: 0 }).verdict, 'undetermined')
-  eq('P74 C6 见证量不到 ⇒ undetermined(不冒红也不记绿)',
-    auditCssLeg({ mangledRuleKinds: null, arbitraryDemand: 12 }).verdict, 'undetermined')
-  eq('P75 countMangledRuleKinds 只数带转写痕迹的类名(源名/普通档不计)',
-    countMangledRuleKinds(new Set(['bg-_bvar_p--color-card_P_B', 'flex', 'text-sm', 'z-_b1001_B'])), 2)
+  eq(
+    'P71 C6 阳性:源码有含标点档而产物 0 个转写形态 ⇒ 必须判 off(这是 C1/C4/C5 一致报好的那一档)',
+    auditCssLeg({ mangledRuleKinds: 0, arbitraryDemand: 550 }).verdict,
+    'off',
+  )
+  eq(
+    'P72 C6 反向:产物有转写形态 ⇒ 判 in,新判据不得把健康构建判死',
+    auditCssLeg({ mangledRuleKinds: 559, arbitraryDemand: 724 }).verdict,
+    'in',
+  )
+  eq(
+    'P73 C6 空扫不记绿:源码本轮没有含标点档 ⇒ 只能 undetermined(不得报 in)',
+    auditCssLeg({ mangledRuleKinds: 0, arbitraryDemand: 0 }).verdict,
+    'undetermined',
+  )
+  eq(
+    'P74 C6 见证量不到 ⇒ undetermined(不冒红也不记绿)',
+    auditCssLeg({ mangledRuleKinds: null, arbitraryDemand: 12 }).verdict,
+    'undetermined',
+  )
+  eq(
+    'P75 countMangledRuleKinds 只数带转写痕迹的类名(源名/普通档不计)',
+    countMangledRuleKinds(new Set(['bg-_bvar_p--color-card_P_B', 'flex', 'text-sm', 'z-_b1001_B'])),
+    2,
+  )
 
   let failed = 0
   for (const x of results) {
-    console.log(`${x.ok ? '✅' : '❌'} ${x.label}${x.ok ? '' : ` got=${JSON.stringify(x.got)} want=${JSON.stringify(x.want)}`}`)
+    console.log(
+      `${x.ok ? '✅' : '❌'} ${x.label}${x.ok ? '' : ` got=${JSON.stringify(x.got)} want=${JSON.stringify(x.want)}`}`,
+    )
     if (!x.ok) failed++
   }
   console.log(`--self-test:${results.length} 例,失败 ${failed}`)
