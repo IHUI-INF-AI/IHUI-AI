@@ -3,6 +3,17 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 export { cn } from './lib/utils'
+// Esc 层栈(2026-09-26 立,Esc 无层栈协议):浮层统一注册,一次 Esc 只关最上层。
+// Dialog/Sheet/Drawer/Select 家族已内建注册;web/extension 等端的自绘 portal 层
+// 从各自 re-export(如 apps/web 的 @/lib/overlay-stack)取同一实现接入。
+export {
+  pushOverlay,
+  popOverlay,
+  isTopOverlay,
+  getOverlayStack,
+  __resetOverlayStack,
+} from './lib/overlay-stack'
+export { useEscStackId, mergeEscStackRef, guardEscKeyDown } from './lib/use-esc-stack'
 // lucide-react 全量转导出: 供 web 各端从 @ihui/ui-react 统一取图标(避免散落 import 'lucide-react')
 export * from 'lucide-react'
 export { Button, buttonVariants } from './components/button'
