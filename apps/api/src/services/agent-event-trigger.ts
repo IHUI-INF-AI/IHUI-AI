@@ -68,7 +68,7 @@ export function verifyGitHubSignature(
 // =============================================================================
 
 /** GitHub 事件名(本服务支持的子集) */
-export type GitHubEventName = 'pull_request' | 'issues' | 'push'
+export type GitHubEventName = 'pull_request' | 'issues' | 'push' | 'code_scanning_alert'
 
 /**
  * 按 (repoFullName, event) 从候选规则中筛出启用中的命中项。
@@ -300,18 +300,14 @@ export function buildIntakeSummary(raw: string): string {
 }
 
 export type IntakeParseResult =
-  | { ok: true; data: NormalizedIntake; dedupKey: string }
-  | { ok: false; errors: string[] }
+  { ok: true; data: NormalizedIntake; dedupKey: string } | { ok: false; errors: string[] }
 
 /**
  * 单一入口:kind 一致性 + strict 校验 + 摘要清洗 + 去重键构造。
  * eventName 来自 x-github-event 头;与 payload.kind 不一致即拒(不允许头/体两套真相)。
  * 本函数是纯函数,不触 DB / 网络,可直接单测。
  */
-export function parseUnattendedIntake(
-  eventName: string,
-  payload: unknown,
-): IntakeParseResult {
+export function parseUnattendedIntake(eventName: string, payload: unknown): IntakeParseResult {
   if (!isUnattendedIntakeKind(eventName)) {
     return { ok: false, errors: [`unsupported_event:${eventName}`] }
   }
