@@ -214,7 +214,7 @@ export default function ActivityList() {
                     {index > 0 ? <View style={viewStyles.separator()} /> : null}
                     <View style={viewStyles.card()}>
                       <View style={viewStyles.titleRow()}>
-                        <Text style={textStyles.cardTitle()} className="text-ellipsis">
+                        <Text style={textStyles.cardTitle()} className="ihui-ellipsis">
                           {item.title}
                         </Text>
                         <View style={viewStyles.badge(statusColor(item.status))}>

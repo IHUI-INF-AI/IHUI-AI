@@ -60,18 +60,13 @@
   align-items: center;
   gap: 8rpx;
   padding: 16rpx 28rpx;
-  background: var(--color-primary);
+  background: var(--color-cta);
   border-radius: var(--radius-lg);
 }
 .share-rank-enter-text {
   font-size: 26rpx;
-  color: var(--color-card);
+  color: var(--color-cta-foreground);
   font-weight: 600;
-}
-.share-rank-enter-arrow {
-  font-size: 24rpx;
-  color: var(--color-card);
-  transition: transform 0.2s;
 }
 .share-rank-enter:active .share-rank-enter-arrow {
   transform: translateX(4rpx);

@@ -179,7 +179,9 @@ export default function StudyRecord() {
         {stats.map((s) => (
           <View key={s.key} className="flex-1 flex flex-col items-center">
             <View className="flex items-baseline justify-center">
-              <Text className="text-[length:40rpx] font-bold text-foreground leading-[1.2]">{s.num}</Text>
+              <Text className="text-[length:40rpx] font-bold text-foreground leading-[1.2]">
+                {s.num}
+              </Text>
               {s.unit && (
                 <Text className="text-[length:22rpx] text-muted-foreground ml-[4rpx] font-normal">
                   {s.unit}
@@ -231,7 +233,7 @@ export default function StudyRecord() {
                     </View>
                   )}
                   <View className="flex-1 min-w-0 ml-[20rpx] flex flex-col">
-                    <Text className="text-[length:32rpx] font-bold text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
+                    <Text className="text-[length:32rpx] font-bold text-foreground overflow-hidden ihui-ellipsis whitespace-nowrap">
                       {r.courseTitle}
                     </Text>
                     <View className="mt-[12rpx]">

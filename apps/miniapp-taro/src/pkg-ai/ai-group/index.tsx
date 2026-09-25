@@ -213,7 +213,7 @@ export default function AiGroup() {
                     />
                     <View className="flex-1 min-w-0 ml-[24rpx]">
                       <View className="flex items-center gap-[12rpx]">
-                        <Text className="flex-1 text-[length:32rpx] font-semibold text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
+                        <Text className="flex-1 text-[length:32rpx] font-semibold text-foreground overflow-hidden ihui-ellipsis whitespace-nowrap">
                           {name || t('aiGroup.agent')}
                         </Text>
                         {isVip ? (
@@ -226,7 +226,7 @@ export default function AiGroup() {
                         ) : null}
                       </View>
                       {desc ? (
-                        <Text className="block mt-[16rpx] text-[length:28rpx] leading-[36rpx] text-muted-foreground overflow-hidden text-ellipsis line-clamp-2">
+                        <Text className="block mt-[16rpx] text-[length:28rpx] leading-[36rpx] text-muted-foreground overflow-hidden ihui-ellipsis line-clamp-2">
                           {desc}
                         </Text>
                       ) : null}

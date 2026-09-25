@@ -38,10 +38,11 @@
     border-color 0.2s ease;
 }
 
-/* 选中态:primary 填充 + primary-foreground 文字 + 600 字重(web ITEM_ACTIVE / RN itemActive) */
+/* 选中态:cta 实底填充 + cta-foreground 文字 + 600 字重(web ITEM_ACTIVE / RN itemActive)
+   描边仍走 primary(描边不是"实底 + 其上文字"场景,不随 CTA 档迁移) */
 .category-bar__item--active {
   border-color: var(--color-primary);
-  background: var(--color-primary);
+  background: var(--color-cta);
 }
 
 .category-bar__icon {
@@ -61,7 +62,7 @@
 
 .category-bar__item--active .category-bar__label {
   font-weight: 600;
-  color: var(--color-primary-foreground);
+  color: var(--color-cta-foreground);
 }
 
 /* 计数徽章:确定性居中模板(flex 自居中 + 行高=字号 + 等宽数字,任意位数不偏移) */

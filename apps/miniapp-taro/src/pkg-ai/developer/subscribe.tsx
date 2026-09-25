@@ -200,19 +200,25 @@ export default function DeveloperSubscribePage() {
         {/* 统计行 — 对齐 RN statRow(bg card/radius rpx(16)/py rpx(24)/value 16 600/label 12 tertiary) */}
         <View className="flex bg-card rounded-lg py-[24rpx] mb-[24rpx]">
           <View className="flex-1 flex flex-col items-center gap-[8rpx]">
-            <Text className="text-[length:32rpx] font-semibold text-foreground">{stats.subscribers}</Text>
+            <Text className="text-[length:32rpx] font-semibold text-foreground">
+              {stats.subscribers}
+            </Text>
             <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
               {tt('developer.subscribe.statSubscribers', '订阅人数')}
             </Text>
           </View>
           <View className="flex-1 flex flex-col items-center gap-[8rpx]">
-            <Text className="text-[length:32rpx] font-semibold text-foreground">{stats.modelCount}</Text>
+            <Text className="text-[length:32rpx] font-semibold text-foreground">
+              {stats.modelCount}
+            </Text>
             <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
               {tt('developer.subscribe.statModels', '模型数')}
             </Text>
           </View>
           <View className="flex-1 flex flex-col items-center gap-[8rpx]">
-            <Text className="text-[length:32rpx] font-semibold text-foreground">{stats.totalUses}</Text>
+            <Text className="text-[length:32rpx] font-semibold text-foreground">
+              {stats.totalUses}
+            </Text>
             <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
               {tt('developer.subscribe.statUses', '总使用次数')}
             </Text>
@@ -245,12 +251,14 @@ export default function DeveloperSubscribePage() {
                   </View>
                   <View className="flex-1 min-w-0 flex flex-col gap-[8rpx]">
                     <View className="flex items-baseline justify-between gap-[12rpx]">
-                      <Text className="text-[length:28rpx] font-semibold text-foreground">{m.name}</Text>
+                      <Text className="text-[length:28rpx] font-semibold text-foreground">
+                        {m.name}
+                      </Text>
                       <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)] flex-shrink-0">
                         {tt('developer.subscribe.uses', '使用')} {m.uses}
                       </Text>
                     </View>
-                    <Text className="text-[length:26rpx] text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap">
+                    <Text className="text-[length:26rpx] text-muted-foreground overflow-hidden ihui-ellipsis whitespace-nowrap">
                       {m.description || tt('developer.subscribe.noDesc', '暂无描述')}
                     </Text>
                   </View>

@@ -480,6 +480,25 @@
     "copied": "已複製"
   },
   "ai": {
+    "contextUsage": {
+      "title": "上下文使用情況",
+      "used": "已使用",
+      "max": "最大容量",
+      "segSystem": "系統提示",
+      "segToolSchema": "工具定義",
+      "segSkill": "技能正文",
+      "segRoleUser": "使用者訊息",
+      "segRoleAssistant": "助手回覆",
+      "segRoleToolCall": "工具呼叫參數",
+      "segRoleToolResult": "工具結果",
+      "segSystemPrompt": "系統提示（整段）",
+      "unnamedItem": "未命名條目",
+      "resultSuffix": "結果",
+      "unobservedServerOnly": "該部分在服務端裝配，本端取不到確切用量",
+      "unobservedNotSupplied": "本輪未下發該系統段",
+      "detailsTruncated": "另有 {count} 條未展開",
+      "residualLabel": "未歸類開銷"
+    },
     "title": "AI 助手",
     "welcomeTitle": "你好,我是智匯 AI 助手",
     "welcomeDesc": "有什麼可以幫你的嗎?",

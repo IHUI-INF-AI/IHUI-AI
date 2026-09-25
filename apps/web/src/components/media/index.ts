@@ -9,6 +9,7 @@ export { PDFViewer } from './PDFViewer'
 export { MarkdownViewer } from './MarkdownViewer'
 export { CodeViewer } from './CodeViewer'
 export { FilePreview } from './FilePreview'
+export type { ImagePreviewItem } from './FilePreview'
 export {
   ArtifactTurnBadge,
   ArtifactKindBadge,
