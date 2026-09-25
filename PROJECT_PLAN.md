@@ -8915,3 +8915,38 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   `assertBundleSuperset` 恰恰实现了这套叶子键对账(注释明写"removed 必须为 0,否则回滚")。
   ⇒ 同一判据已存在于 dev 冷启路径,却没接进提交链与全量审计,是"判据必须在真跑它的那一刻才成立"的又一实例。
   接手动作:把 `assertBundleSuperset` 的键集比对移进 105 的 i18n 组复用(勿再抄第四份包格式)。
+
+### O60j 失败卡两份实现合一（任务 #10 收口），并更正我 O60i 里一句过强的话（2026-09-25 完成 ✅）
+
+- [x] ✅(2026-09-25) **`MessageErrorCard` 现在是失败卡的唯一实现**：`MessageItem.tsx` 的整段内联错误卡
+  （标题条 / 正文 / D92 错误码行 / 建议动作 / 重试钮 / D60 草稿提示）**删掉**，改为渲染组件；
+  组件侧加两枚**由宿主喂入**的口子：`titleText`（D92 分类表算出的标题，缺省回落 `t('errorCardTitle')`）
+  与 `children`（夹在错误正文与倒计时/动作族之间的宿主行 —— D92 两行与 D94 交接单从这里进）。
+  判据留在拿得到 `isFallback` 的一侧：**组件不 import 分类表**，免得 D92 那张表在端内出现第二个调用点。
+  `handleRetry` 的事件形参改可选（组件契约是 `() => void`）；实测该子树内无祖先级 `onClick`，
+  两枚 `e?.` 在无事件路径下是空操作，保留守卫只为别处再挂宿主时不丢截断。
+- [x] ✅(2026-09-25) **补上那条我说过"从来没有"的尺子**（写进 `message-item-error-card-wiring.test.ts`）：
+  ① `MessageErrorCard` 必须被**生产面**文件 import —— `productionFiles()` 结构性排除 `__tests__/`、`tests/`、
+  `*.test.tsx`（把测试算成 importer 就会重演"孤儿当夜全绿"）；
+  ② `message-error-card-` 这个 testid 全生产面**只能有一处发射**，且判 `data-testid={…}` **形态**而非裸子串。
+  **本票自己先被 ② 咬了一次**：我为解释事故写的注释里含该 testid 字面量，判据按裸子串就把注释当成了发射点
+  ⇒ 与守门 84/30c 那类"叙述文本被当实现"的坑同型，改成结构匹配后 5 套 31 例全绿。
+  **判据有牙用 git 面 A/B 证明，不靠嘴说**：`git show HEAD^:MessageItem.tsx | grep -c "…/MessageErrorCard'"` = **0**
+  （换前确实无生产者），`git grep -ln "message-error-card-" HEAD | grep -v __tests__` = **2 个文件**
+  （重明确实存在过）⇒ 两条断言在改动前必红、改动后必绿。
+- [x] ✅(2026-09-25) **更正 O60i 里我写过头的一句**：原文"额度归属分型卡今天到不了 web 用户眼前"
+  **只对错误卡路径成立**。实测 `FallbackBanner.tsx`（`MessageItem` 生产挂载）也 import 了
+  `QuotaOwnershipCard`，且 `quota-ownership-wiring.test.tsx` 有"分型卡在横幅内上屏"的用例
+  ⇒ 走**降级横幅**这条路的用户是看得到的；看不到的只有**错误消息**那条路（因为它的宿主组件从未被 import）。
+  一句"到不了用户眼前"把两条通道混成一条，是我把"宿主组件没挂载"直接推广成"能力没上屏"——
+  少看了同能力的**第二个落点**。口径:**判能力可达性要按通道逐落点数,不能按组件数。**
+- **仍然没上屏的两族，如实登记且不喂假数据**：组件带的 **D34 三态倒计时**（`retryInfo`）与
+  **D39 额度动作族**（`quotaError` / `freeTierAvailable`）在 web 侧**没有数据源** ——
+  `git grep "retryInfo\|quotaError" HEAD -- apps/web/src` 除组件自身与测试外**零命中**，
+  web 的 `ChatMessage` 里也没有这两个字段（实测 `apps/web/src/stores/chat.ts` 的消息形状只有
+  `fallback / compaction / question / permissionMode / streamCompleted` 等）。
+  ⇒ 本票传的是**缺省参数**，那两族照旧不渲染。**不得**为了"让测试变绿/让卡片热闹"造 `retryInfo` 样例数据
+  （那是假接线）。归属：**D34 / D39 的数据面**（帧到客户端 → 消息模型 → 宿主透传），不属本票范围。
+- **本票验证**：web `typecheck` 对本票 3 个文件 **0 错误**（整包剩 33 处全部落在并行会话脏文件里，
+  逐文件归属已列，非本票引入）；失败卡族 5 套 vitest **31/31** 通过
+  （含 `quota-ownership-wiring` 的 9 条向后兼容用例 —— 新增两枚 prop 未改变既有契约）。
