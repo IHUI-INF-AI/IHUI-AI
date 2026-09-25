@@ -289,6 +289,7 @@ class DapClient {
 
 // ==================== Session 管理 ====================
 
+// routing-handle: key=sessionId minted-by=randomUUID registry=sessions 句柄而非路由身份:值由本进程 randomUUID 铸造,只经 sessions 查表,未知 id 一律 getSession() 返回 null 后报 not_found
 const sessions = new Map<string, DapClient>();
 
 function getAdapterCommand(language: string): { cmd: string; args: string[]; adapterId: string } | null {
