@@ -10,6 +10,7 @@
 // 跑法:node --test scripts/tests/check-tool-contract-declared.test.mjs
 import assert from 'node:assert/strict'
 import path from 'node:path'
+import { readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
@@ -145,5 +146,120 @@ test('T9 --staged 与 --worktree 同给必须判死(两个面互斥,不得静默
   }
   assert.equal(code, 2, `期望 exit 2,实得 ${code}:${err}`)
   assert.match(err, /不得同用/)
+})
+
+// ==================== TRD(触碰即须声明)2026-09-25 换锚点 ====================
+//
+// 本票的全部技术核心:锚点从"该文件 HEAD 存量违规数"(碰了也不红)换成"碰了就必须补"。
+// 下列断言**不复制任何判据实现**(§22c 红线),只驱动源文件的 __test__ 出口。
+
+const BARE_FILE = {
+  rel: 'apps/cli/src/tools/builtins.ts',
+  toolCount: 1,
+  violations: gate.violationsOf(gate.extractToolLiterals(BARE)),
+}
+const DECLARED_FILE = {
+  rel: 'apps/cli/src/tools/declared.ts',
+  toolCount: 1,
+  violations: gate.violationsOf(gate.extractToolLiterals(COMPLETE)),
+}
+
+test('T10 §22c 锚点:TRD 三出口 + 宽限常量必须真导出(缺一个 = 测试在驱动空气)', () => {
+  for (const key of ['trdEnabled', 'trdState', 'trdAssess', 'enumerationBlind', 'isoDay']) {
+    assert.equal(typeof gate[key], 'function', `__test__.${key} 缺失`)
+  }
+  assert.match(String(gate.GRANDFATHER_UNTIL), /^\d{4}-\d{2}-\d{2}$/, '宽限截止日必须是 ISO 日期')
+  assert.equal(gate.TRD_OFF_FLAG, '--no-touch-requires-declaration')
+})
+
+test('T11 TRD 默认开:没有"漏挂开关就整条判据隐身"的空间(关档必须显式点名)', () => {
+  assert.equal(gate.trdEnabled([]), true, '缺省必须是开档 —— 默认关的判据等于没有判据')
+  assert.equal(gate.trdEnabled(['--staged']), true)
+  assert.equal(gate.trdEnabled([gate.TRD_OFF_FLAG]), false, '只有显式 --no- 才关')
+})
+
+test('T12 两档日期都可构造:宽限期内只报数,过期后同一输入判红(today 注入,不依赖系统时钟)', () => {
+  const until = gate.GRANDFATHER_UNTIL
+  const grace = gate.trdAssess({
+    files: [BARE_FILE],
+    face: 'staged',
+    state: gate.trdState({ today: '2020-01-01', until }),
+  })
+  const expired = gate.trdAssess({
+    files: [BARE_FILE],
+    face: 'staged',
+    state: gate.trdState({ today: '2099-01-01', until }),
+  })
+  assert.equal(grace.reds.length, 0, '宽限期内不得判红(否则今天起没人能提交)')
+  assert.equal(grace.notices.length, 1, '宽限期内必须如实报数,不得静默')
+  assert.equal(expired.reds.length, 1, '过期后同一输入必须判红')
+  assert.equal(expired.notices.length, 0)
+  assert.equal(expired.violations, 1)
+  // 到期日当天不算过期(与守门 108 同边界);日期不可解析不得静默放行
+  assert.equal(gate.trdState({ today: until, until }).enforce, false)
+  assert.equal(gate.trdState({ today: 'garbage', until }).enforce, true)
+})
+
+test('T13 全量档逐字不变 + 全员已声明必须绿(证明本票没把存量 104 处搞红)', () => {
+  const headFace = gate.trdAssess({
+    files: [BARE_FILE],
+    face: 'head',
+    state: gate.trdState({ today: '2099-01-01', until: gate.GRANDFATHER_UNTIL }),
+  })
+  assert.equal(headFace.applied, false, 'head 面整条 TRD 不得生效')
+  assert.equal(headFace.reds.length, 0)
+  const green = gate.trdAssess({
+    files: [DECLARED_FILE],
+    face: 'staged',
+    state: gate.trdState({ today: '2099-01-01', until: gate.GRANDFATHER_UNTIL }),
+  })
+  assert.equal(green.reds.length + green.notices.length, 0, '契约齐备必须绿(否则本门恒红)')
+  // 换锚点的实质:旧棘轮 2 vs HEAD 2 放绿,TRD 仍计 2 处
+  assert.equal(gate.exceedsAnchor(2, 2), false)
+  const swap = gate.trdAssess({
+    files: [{ ...BARE_FILE, violations: [...BARE_FILE.violations, ...BARE_FILE.violations] }],
+    face: 'staged',
+    state: gate.trdState({ today: '2099-01-01', until: gate.GRANDFATHER_UNTIL }),
+  })
+  assert.equal(swap.violations, 2, 'TRD 必须按"碰了就必须补"计数,而非与 HEAD 齐平就放过')
+})
+
+test('T14 枚举到 0 枚注册 ⇒ 判死(暂存触及文件而抽不到工具 = 判据失明,不得记绿)', () => {
+  assert.equal(gate.enumerationBlind({ face: 'staged', judgedCount: 3, totalTools: 0 }), true)
+  assert.equal(gate.enumerationBlind({ face: 'staged', judgedCount: 3, totalTools: 4 }), false)
+  assert.equal(gate.enumerationBlind({ face: 'head', judgedCount: 55, totalTools: 0 }), false)
+})
+
+test('T15 装车证明:main 必须真的调用 TRD 判据并把当前档位打进输出(判据存在而永不调用 = 没有)', () => {
+  const src = readFileSync(SCRIPT, 'utf8')
+  assert.match(src, /trdAssess\(\{/, 'main 未调用 trdAssess ⇒ TRD 判据只是死代码')
+  assert.match(src, /enumerationBlind\(\{/, 'main 未调用 enumerationBlind ⇒ 0 枚举判死未接线')
+  assert.match(src, /TRD\(触碰即须声明\)当前档位/, '输出必须明写当前是哪一档')
+  assert.match(src, /宽限截止/, '输出必须把宽限日期与剩余天数打出来')
+  // 全量档的 ✅ 结论行口径不得被 TRD 改写:后缀只允许出现在暂存档
+  assert.match(src, /face === 'staged' && trd\.applied/, '只有暂存档才给 ✅ 行加 TRD 后缀')
+})
+
+test('T16 --today 非法日期必须判死(不得把"打错参数"当成已核)', () => {
+  let code = 0
+  let err = ''
+  try {
+    runScript(['--staged', '--today', '2026-13-99'])
+  } catch (e) {
+    code = e.status
+    err = String(e.stderr || e.message)
+  }
+  assert.equal(code, 2, `期望 exit 2,实得 ${code}:${err}`)
+  assert.match(err, /需要一个 ISO 日期/)
+})
+
+test('T17 真仓全量档复跑:末行三读数仍在且 exit 0(换锚点后存量仍不被搞红)', () => {
+  const out = runScript([])
+  assert.match(out, /TRD\(触碰即须声明\)当前档位:开但\*\*只作用于 --staged 档\*\*/)
+  const last = out.trim().split('\n').pop()
+  const m = /注册工具数 (\d+) \/ 无契约数 (\d+) \/ 棘轮余量 (\d+)/.exec(last)
+  assert.ok(m, `末行缺三项读数:${last}`)
+  assert.ok(Number(m[1]) > 0, '抽到 0 个工具 = 判据失明')
+  assert.ok(Number(m[2]) > Number(m[3]), '存量无契约数必须仍被报出(只报数,不判红)')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
