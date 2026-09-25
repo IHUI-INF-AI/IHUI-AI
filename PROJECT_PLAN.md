@@ -656,6 +656,7 @@
 - [x] ✅(2026-09-24) **两处杂项**:① 门 84 / 门 94 新入守门 80 的 HOT 清单(它们现在会派生 git;HOT 是清单式棘轮,新热路径不登记就是留静默缺口);② 代理写的成因注释出现 `2026-09-25` 这种**未来日期**(本机实测 09-24 19:31),已改回绝对日期 —— 时间戳写错会让后来人把已修的问题当成未发生的事去查。
 - [x] ✅(2026-09-24)**D76 产物归属 turn 与产物面板分型(G-103/G-105)**:①每个产物记 **originating turn**(哪个回答产生的),支持"从产物跳回产生它的那轮"与反向;②产物面板按类型分型(文档/演示/**电子表格**),与 D41 Office 预览共用一套;③补**逐 turn 前后跳**导航(`step-back`/`step-forward`)。**证据边界**:Codex 侧为 E2 存在性(asar 内 chunk 文件名),进入实施前须另行取得"渲染为何种样式"的证据,**不得以文件名写 UI 断言**。**验收**:归属字段进契约与持久化(D33 同批)+ 跳转锚点用例 + 前后跳键盘用例**进度(2026-09-24)**:web 渲染层完成(ARTIFACT_KIND_BY_EXT 分型+originating turn 纯派生+Badge/Nav,9 例过+63 例回归+词包 108 例),artifactTurn 五语 8 键。**剩余**:徽章/导航未挂产物卡(tool-call-card/artifact-canvas/MessageItem 他人域)+反向监听,待接线票;持久化随 D33/D34 批。
 - [ ]（进行中@2026-09-26/D29票） D29 团队级知识引擎:记忆/Repo Wiki/知识卡云端共享+成员修正+过程审计(对标 Qoder 1.0,官方实证输入 token -40%)(G-35)
+- [x] ✅(2026-09-26) D29 团队级知识引擎:记忆/Repo Wiki/知识卡云端共享+成员修正+过程审计(对标 Qoder 1.0,官方实证输入 token -40%)(G-35) 〔2026-09-26 落地:schema 四表(迁移 idx=291,仅离线 B1-B5+drift 验证,本机无 PG 未做库上重放)+ 服务层权限 max(成员/团队/创建者) 且 restricted 不认团队默认档 + 12 条显式路径零公开面 + api-client 12 端点 + web 页面与四子组件 + 侧栏入口 + 注册即装车对账 5 例(路径合成比对正反双向)+ teamKnowledge 66 键×5 语;测试 36+5 例全绿〕
 - [ ]（进行中@2026-09-26/D30票） D30 无人值守修复闭环:GitHub issue/代码扫描告警/失败测试→automations 定时认领修复→PR 回帖(对标 QoderWake;与 D14/D15 协同)(G-36)
 - [ ]（进行中@2026-09-26/D31票） D31 设计稿转码:Figma Frame/组件→可运行前端代码(对标 Trae 设计还原)(G-37)
 - [x] ✅(2026-09-26) D30 无人值守修复闭环:GitHub issue/代码扫描告警/失败测试→automations 定时认领修复→PR 回帖(对标 QoderWake;与 D14/D15 协同)(G-36) 〔2026-09-26 落地:状态机+迁移审计/Redis 锁互斥认领(无 Redis 即 fail-closed)/回帖只经 D15 App 通道/显式三路径双闸 + 定时认领环接线(c5a61a47534 骨架不重写);15+9 例全绿,api typecheck 0 错。前提:需 GITHUB_APP_ID+私钥且 installation 授 issues:write/pull_requests:write,IHUI_AUTOMATIONS_ENABLED=true 才启动〕
@@ -8112,6 +8113,34 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 不在盘根留目录），`node_modules` 以 junction 借入，同一台机跑同样 4 套；再在真工作树里跑第三遍。三组读数：
 | 套件 | 干净 HEAD | 干净 HEAD^ | 真工作树 | 结论 |
 | --- | --- | --- | --- | --- |
+  | ① 未补 `cssEntries` | 在(`--spacing:8rpx`、321 个 `_b` 形态) | **整轮空转**(JS 里 0 个转写名) | `34.89% / 死规则 485` | 当时**接不住**:只表现为覆盖率变低 |
+  | ② 补 `cssEntries` | 在 | 在 | `93.77% / 死规则 31` | ✅ C5=in |
+  | ③ 补后再构建 | **整条没跑**(`--spacing` 停在 `0.25rem`、`_b` 形态 0 个) | 源名两侧一致 | **`99.35% / 死规则 0 / C5=in`** | ❌ **看产物的门把最坏一档读成最好一档** |
+  ③ 为什么骗过 C1/C4/C5:CSS 腿没跑时,Tailwind 直接产出**转义选择器** `.z-\[1001\]`,而运行时 className 也是 `z-[1001]`
+  ⇒ 声明侧与挂载侧**字面相同**,可达性判据完全满意。但微信 WXSS 是否认这种转义类名**从未被证明** ——
+  weapp-tailwindcss 之所以存在、之所以要 `_b/_B` 改名,正是为了绕开它。
+- [x] ✅ **根因定位到一处配置缺失**:插件的类型声明 `dist/types/user-defined-options/important.d.ts:38` 有 `cssEntries?: string[]`,
+  包 README 原话"Tailwind CSS 4 项目中,入口 CSS 需要同时满足两点:在项目里被实际引入,**并通过 `cssEntries` 显式传给插件用于稳定识别**"。
+  不传时,插件的 class set 采集依赖"在本轮编译里自动发现那个 CSS 模块" —— 发现不到就是①档(CSS 照改名、JS 一个名都不改)。
+  落点 `config/index.ts`:`.use(WeappTailwindcss, [{ rem2rpx, injectAdditionalCssVarScope, cssEntries:[path.resolve(__dirname,'..','src/app.css')] }])`。
+  **A/B 实测**(两份冻结产物对照):`--spacing` 与 `_b` 形态两侧完全相同(Δwxss = 0),差别只在 JS 侧转写名命中
+  `0 个文件 → 1 个文件`;主包代价 **+1,032 B**(2,069,006 → 2,070,038)。
+- [x] ✅ **守门补两条结构性判据**,专职"认档",不再让人对着百分比猜:
+  **C5 `auditMangleLeg`**(JS/WXML 腿活性:面 1 = "CSS 有转写规则而原名没有"那批,面 2 = 该批转写名在产物 js/wxml/wxs 的**全文子串**里目击到多少;
+  `面1>0 ∧ 面2==0 ⇒ idle 判红` —— 部分偏跳不触发 C5,由 C4 逐条计;**`面1==0 ⇒ 未判定`,绝不记通过**);
+  **C6 `auditCssLeg`**(CSS 腿整条未跑:`含标点档需求 > 0 ∧ 产物转写形态类名 == 0 ⇒ off 判红`)。
+  C6 **刻意不用"产物还剩多少 rem"当见证** —— 主题变量本身就带 rem(健康产物实测稳定留 29 处,如 `--text-sm:0.875rem`),
+  那条见证会把好构建判死;我第一版就是这么写的,当场被自己的正向对照挡下。
+  另修一处本票自查出的**自伤**:`computeCoverage` 收的是 `Map#keys()` **一次性迭代器**,`demanded` 抽干它之后
+  `mangledOnlyNames` 又拿一次 ⇒ 拿到空序列 ⇒ 面 1 恒 0、485 条整批伪装成"确定缺失"、C5 再退成"未判定" ——
+  **一个耗尽的迭代器同时伪造出两种健康读数**。现加单一物化点 + "数组输入与迭代器输入必须逐字同读数"的自检锁。
+  取证:`--self-test` 与镜像测试末行以现测为准(本票落地时 110 例 / 45 例全绿)。
+- **仍未闭环(如实登记,不粉饰)**:① ③ 档(rem2rpx 整条未跑)**根因未查** —— 我只加了能看见它的门,没修它产生的机制,
+  候选是 webpack 持久缓存或 `@source`/`cssEntries` 之间的时序,未做同配置双时点 A/B;
+  ② C4 残余 31 条里 19 条是"按形态偏跳"(裸小数间距 / `!p-*` / `first:`/`last:`),**机制未取证**,
+  影响 **76 处用法 / 39 个文件**(实测脚本 `.ihui-agent/tmp/tw-landing/a1-impact.mjs`),另有 12 条是死码/未装载(组件没进 bundle,用户可见影响 0);
+  ③ 主包余量已到 **27,114 B**(上限 2,097,152),这是并发提交累积的既有紧张,不是本票造成(本票只 +1,032 B),但它已经近到值得单独盯;
+  ④ 本票没有把 `check-miniapp-css-landing` 接进提交链(它判的是产物在不在、什么档,提交者结构上满足不了 ⇒ 会变成恒红门),问责仍走手动/CI。
 | `check-sse-dispatch-parity` | ❌ 5 | ❌ 5 | ✅ 0 | 红在**提交内容**里：该会话的代码/台账一致性修复仍留在工作树未提交 ⇒ 提交树上账实不符。门正常工作，不是缺陷，也不归本票 |
 | `check-staged-typecheck` | ✅ | ✅ | ✅ | 聚合那一跑是并发负载下的瞬态 |
 | `tauri-updater-platforms` | ✅ | ✅ | ❌ 3 | 只在**脏工作树**里红 ⇒ 它读磁盘态，不读提交态 |
@@ -10331,15 +10360,10 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   - **同批前向修掉两格 HEAD 里躺着的 lint 错(我是第一个碰这文件的人,所以由我清偿)**:`markHidden` 被 import 却从未调用、`RED_KINDS` 定义后无人使用 ⇒ `@typescript-eslint/no-unused-vars` 两条 error。危险不在"有两条 lint 错",而在**它们的位置**:lint-staged 只跑 staged 文件 ⇒ 这两个错对 HEAD 一路静默,而**任何后续会话一改这道门就会被提交链挡下**,却查不到是谁的锅。`RED_KINDS` 这次真的用起来(decide 的判红集只有一处定义,不再在聚合里抄第二份 kind 名单);死 import 删除并注明为什么不复用那一档遮噪。
   - **顺带量到提交链的一处真缺口(登记,本次不代裁)**:上面那枚提交(约 `acaf8407cc`)的归因写的是 **`unattributed`,不是 `not-ours`**。成因:`lint-staged` 在**守门批之前**失败 ⇒ 155 道门一道都没跑,归因层解析不到汇总块,于是按"应急路径"照样 `--no-verify` 落地。后果是**一次 lint 错误 = 全部守门被静默跳过且没有任何门级证据**,而账面读起来像"跑过了、只是与本次无关"。可做的出口是:归因取不到汇总时,safe-commit 自己直接跑一遍 `guardian-runner --staged` 取证据再决定跳不跳(而不是把"批没跑"当成一条中性事实)。这条改动落在提交链本身、影响所有会话,需单独一票做,不得顺手改。
 - [ ] **D86 钩子摘要卡(G-117;D65 口径升级为三家同证)**:Qoder `hook_non_blocking_error` + Trae `enterpriseHooks.toolFailure` + **Codex `assistantMessage.hookStats`**(运行/错误/已阻止/· 运行了 N 次 + **来源归属枚举 管理员/用户/项目/插件/会话**)。我方 hook 体系已有 source 语义 → 属"数据在手未上屏",**先自证再开工**的判定已完成(三家证据齐)。**验收**:摘要卡五态 + 来源枚举 + 折叠进活动条不抢主流程
-- [ ] D29 团队级知识引擎:记忆/Repo Wiki/知识卡云端共享+成员修正+过程审计(对标 Qoder 1.0,官方实证输入 token -40%)(G-35)
+- [x] ✅(2026-09-26) D29 团队级知识引擎:记忆/Repo Wiki/知识卡云端共享+成员修正+过程审计(对标 Qoder 1.0,官方实证输入 token -40%)(G-35) 〔2026-09-26 落地:schema 四表(迁移 idx=291,仅离线 B1-B5+drift 验证,本机无 PG 未做库上重放)+ 服务层权限 max(成员/团队/创建者) 且 restricted 不认团队默认档 + 12 条显式路径零公开面 + api-client 12 端点 + web 页面与四子组件 + 侧栏入口 + 注册即装车对账 5 例(路径合成比对正反双向)+ teamKnowledge 66 键×5 语;测试 36+5 例全绿〕
 - [x] ✅(2026-09-25) **G-188 `merge-live-doc` 那句「✅ 工作树 ⊇ HEAD,可安全提交」是一句做不到的承诺,而本会话就在它下面把 20 条别人的登记行提交成了旧形态**:根因是定性只有两态 —— `lost`(插回)与 `superseded`(不插回),而后者的定义恰恰是"**HEAD 的那一行文字不在工作树里**"。所以 `lost=0` 从来推不出 `⊇ HEAD`。实测有一种明确形态被混进了 superseded:工作树那一行是 HEAD 同一行的**更旧前缀**(HEAD 侧后来翻了勾并追加了〔…〕注记),处置动作与"有人改写"完全不同 —— 前者该取回 HEAD 形态,后者必须保留新文字,插回就是造新旧并存。**新增第三态 `stale`**(剥掉勾选状态后 WT 是 HEAD 的严格前缀 ∧ 唯一候选 ∧ HEAD 已勾 ∧ 工作树未勾 ⇒ 报行号、给出口,**不自动回退**),为什么不自动回退:实测近 60 枚提交里"合法缩短"有 **241** 次、其中 **73** 次不带任何勾选状态变化,它们与"副本滞后"在内容上同形 —— 自动回退等于连人真删的字一起复原,那是把一次静默回退换成一次更响的破坏。唯一性是生命线(两条同前缀候选 ⇒ 不猜,退回原判据)。报告文案同步改口:只有**逐字包含全部 HEAD 行**时才印 `⊇ HEAD`,否则按三态报数并写明"这几行会被退回旧态,需人工取 HEAD 形态"。取证:`--self-test` 16→20 例(⑰ stale 命中 + ⑰b 真删除仍 lost + ⑰c 两条候选不猜 + ⑰d HEAD 未翻勾不进此通道),镜像 3→4 例(新增 D 例走真仓两枚 commit 造出"HEAD 新 / 工作树旧"的现场;**A 例的断言方向同时反了过来** —— 以前要求结论行写"可安全提交",现在要求有非逐字存活行时**不得**出现 `⊇ HEAD`,这条就是防工具再撒一次做不到的谎)。三份活文档现测 `lost=0 / superseded=0 / stale=0`。
 - [ ]（进行中@2026-09-25/主会话）**G-189 两格已量化、刻意不当场执行的事项(附现成判据与取证,下一步可直接做)**:① **12 道 warn 门里有 7 道的前置实测已满足,可升 blocking**(逐条读自身头注 + 现跑现测,不是估):`2g-web`(头注写"1 周观察期 2026-08-03 后评估",今测 758 文件 0 违规)、`11b`(`:43` 同型观察期,全量违规 0)、`2f-ext`/`2g-ext`/`2h-ext`/`2i-ext`(web 侧同名门早已 blocking,扩展端现测均 0)、`2f-mobile-rn`(runner `:826` 写的"待 check-i18n-keys 补 mobile-rn 分支"这句**已过期** —— 分支在 `:74-152`,5×3366 键 parity OK)。**未做的唯一原因:共享工作树里 `scripts/guardian-runner.mjs` 有别人 9 小时未提交的在飞改动**(门 54 也已报它超龄),按 pathspec 提交整文件等于替别人打包,走临时索引旁路又不该为一个可选收紧动用注册类文件的双写通道。**接手动作**:等该文件落库后一次性翻 7 处 `mode`,每处附一条现跑命令(如 `node scripts/check-rounded-overflow.mjs --staged; echo $?`),并按 §12 提交后 diff 复验注册块没被别人挤掉。② **`/api/memory/working` 的属主绑定缺口(与已收口的 memory.py 同型,但后果不同)**:`apps/ai-service/app/api/memory.py:208` 只收 `session_id`、**不收身份**,而 `memory_service.get_working`(`:249`)是 `self._working.get(session_id)` 无属主过滤 ⇒ 拿到别人 session_id 即可读他人工作记忆;`:31` 那句"不在本票对齐面内"是**准确的自述**,不是遗漏。刻意不当场修的理由是实测到的风险:收紧成"必须属主匹配"会让真实在跑的会话读不到自己的 working 记忆(无测试钉住现状 —— `apps/ai-service/tests/test_memory_authz.py:42-50` 的 `MEMORY_ENDPOINTS` **不含** `/memory/working`)。同批实测 `apps/api/src/routes/v1-knowledge-tools.ts:2308-2310` 那条转发**根本不传 `session_id`** ⇒ 该路由在网关侧已 422/503,属"看起来是敞口、实际是死路"的那一类。**下一步的正确顺序**:先测"谁在调 `/memory/working`"(仓内 0 命中 ⇒ 若外部无调用方,则与 usage 同处理:绑定 + 补测试,一次做完);若有调用方,需要先定 session↔owner 的权威来源再动。**不得**为消红去削门 117 —— 它今天刚从"扫不到任何端点的假绿灯"里被救回来(见 G-187),现在它对这类形状的判据是"文件级 require_request_user_id 在位",而 `working` 是"整层不挂 Depends"的第四型,**那一型本门刻意未覆盖**,登记为判据边界而非已防住。
 - [x] ✅(2026-09-25) **G-190 全量审计抓到 4 项红,其中一项是"线上根本发不出新版本"级别的**:补回 `apps/web/src/components/ai/hook-summary.ts`。实况是 `hook-summary-card.tsx` 与它的测试都在 `import './hook-summary'`,而**这个文件在 HEAD、在工作树、在整个 git 历史里都不存在**(`git log --all -- <该路径>` 零命中)—— 即有人提交了调用方却没提交被调用方。后果不是"检查红",是 web 端 typecheck 与 `next build` 必然失败 ⇒ 部署环构建 1/4 一直过不去,线上停在旧版。修法不是我另设计一套:契约已经入库(卡片怎么用 + 测试怎么断言都写死了),按那份契约补实现,`vitest` 该文件 10 例全过、门 98 的"悬空具名导入"归零。**教训:一道门判红可能是"机器态",也可能是"仓库里真缺东西"——门 98 这次报的 2 处就是后者,数存量对不对不看门号看引用能不能解析。**同批另两项是真红:`web/ko.json` 的 `org.*` 九键被填成**日文**(不是韩文)、`web/zh-TW.json` 一处"平台"用了简体字形 —— 均已按 zh-CN/en 原文重译(韩)与改字(繁),复测 `scan-i18n-zh-residue zh-TW`/`ko` 双双 ✅、五语 parity 仍 OK。剩下一项是**机器态未修**:`@ihui/rn-app` 声明了 `@ihui/shared` 而 `packages/app/node_modules/@ihui/shared` 不存在(处置动作=全量 `pnpm install`,**禁止带 --filter**——§12e 那条剪掉根链接的教训);我刻意没跑:`node scripts/deploy-lock.mjs check` 实测锁被 pid 888 持有且 alive,构建在跑时装依赖会造出半套依赖树,那比这条红更糟。**接手动作**:构建结束后跑一次全量 install,再 `node scripts/check-workspace-dep-links.mjs` 复验 exit 0。
-
-
-
-
-
 - [ ] **D41 Office/PDF 产物预览(G-49)**:docx/pptx(含讲者备注)/xlsx(sheet 切换 + 选区)/pdf(页码)preview + preview/源码切换 + 不可用/过大/过期三态降级(对标 Qoder `data-artifact-preview-kind`)。共享层优先:先查 `packages/ui-react` 与既有 FilePreview,不得端内重造。**验收**:四态(可用/过大/过期/不支持)用例 + 与 `canOpenInWorkPanel` 互不冲突 + 大文件不内联走懒加载 **侦察定档(2026-09-24)**:pdfjs-dist ^6.2.108 已在 web 依赖(PDF 页码预览低阻),但 docx/xlsx 解析需装新依赖(pnpm-lock.yaml 共享热点,并行会话下 lockfile 变更高危)、pptx 无成熟纯 JS 渲染库(讲者备注可经 jszip 解 XML 取文本,幻灯片渲染需降级为"文本+备注大纲"形态)——**依赖选型(docx-preview vs mammoth、xlsx 库体积)与 pptx 降级形态需 owner 拍板后一次装齐,避免 lockfile 多次冲突**;message-file-preview.tsx 空闲可承接。
 - [ ] **D41 Office/PDF 产物预览(G-49)**:docx/pptx(含讲者备注)/xlsx(sheet 切换 + 选区)/pdf(页码)preview + preview/源码切换 + 不可用/过大/过期三态降级(对标 Qoder `data-artifact-preview-kind`)。共享层优先:先查 `packages/ui-react` 与既有 FilePreview,不得端内重造。**验收**:四态(可用/过大/过期/不支持)用例 + 与 `canOpenInWorkPanel` 互不冲突 + 大文件不内联走懒加载
 - [ ] **D41 Office/PDF 产物预览(G-49)**:docx/pptx(含讲者备注)/xlsx(sheet 切换 + 选区)/pdf(页码)preview + preview/源码切换 + 不可用/过大/过期三态降级(对标 Qoder `data-artifact-preview-kind`)。共享层优先:先查 `packages/ui-react` 与既有 FilePreview,不得端内重造。**验收**:四态(可用/过大/过期/不支持)用例 + 与 `canOpenInWorkPanel` 互不冲突 + 大文件不内联走懒加载 **侦察定档(2026-09-24)**:pdfjs-dist ^6.2.108 已在 web 依赖(PDF 页码预览低阻),但 docx/xlsx 解析需装新依赖(pnpm-lock.yaml 共享热点,并行会话下 lockfile 变更高危)、pptx 无成熟纯 JS 渲染库(讲者备注可经 jszip 解 XML 取文本,幻灯片渲染需降级为"文本+备注大纲"形态)——**依赖选型(docx-preview vs mammoth、xlsx 库体积)与 pptx 降级形态需 owner 拍板后一次装齐,避免 lockfile 多次冲突**;message-file-preview.tsx 空闲可承接。 **对账进度(2026-09-24,HEAD 取证)**:media/office-preview.tsx + PDFViewer.tsx + docx-preview/pdfjs-dist/xlsx 依赖均在 HEAD;"不可用/过大/过期三态用例"未逐条重证,保持未勾。
@@ -10361,6 +10385,20 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 - [x] ✅(2026-09-26 06:4x) **"守门批一道都没跑"从`unattributed`的中性事实改成必须先补证据的分支**(`scripts/lib/commit-gate-attribution.mjs` + `scripts/safe-commit.mjs` + 镜像 13 例) —— 成因是结构性的:`scripts/lib/pre-commit-hook.js` 里 lint-staged 跑在 `guardian-runner --staged` **之前**(实测 :97 与 :266),任一 lint/prettier 失败即 `process.exit(1)` ⇒ **156 道门一道都不跑**,归因层拿不到汇总块只能记 `unattributed`,然后照旧跳门落地。本会话自己就在约一小时内连吃两次(`acaf8407cc` 前后与 `d379215126`),而账面读起来都像"跑过了、只是与本次无关" —— 判据失效的表现永远是"安静",这与守门 70/76/81 是同一条禁令。
   - 解法刻意**不是**去调钩子顺序(那是另一张票,动的是所有会话的提交路径),而是**补证据**:归因取不到门级结论时,由 safe-commit 自己跑一遍 `guardian-runner --staged`,再把那一轮输出喂回**同一条铰链**(`classifyHookFailure`)分流 ⇒ 点名本次文件即 `mine` 拒绝跳门;一个都没点名则可跳但措辞必须交代"取证来自自跑那一轮,不是钩子内那一轮";自跑也没成功则照旧落地并**带上具体原因**(runner 不在位 / 派生失败码 / 超时)。**为什么不干脆把 `unattributed` 改成拒绝跳门**:那会让"别人把我挡在 lint 外"的应急路径消失,逼人手工 `git commit` 跳得更彻底且不留痕 —— 失效方向仍是"多要一次定向说明",绝不是"多放一次跳门"。
   - **两条如实登记的局限(比结论更该留)**:① 自跑发生在首次 commit 失败**之后**,而 lint-staged 失败时会回滚它自己动过的暂存区 ⇒ 新增文件此刻已退回未跟踪,自跑那一轮看到的暂存集**可能少于声明集**;它与既有"逐道复跑"处于同一刻、同一索引态(两份证据可互相比较),但不得读成"等价于钩子里那一轮全批"。② 点名"红在批之前的哪一步"只喂本轮 `hookOutput`,**不喂** `.workbuddy/hook-logs/pre-commit.log` 那份多轮追加的尾巴 —— 拿它找到的 ❌ 行可能是别人那一轮的,而"借别人那轮的证据"正是本模块立项时杀掉的形态。取证:镜像 13 例(含"汇总块在位时绝不自跑"的反向锁 + 装车证明),`IHUI_SAFE_COMMIT_BATCH_TIMEOUT_MS` 是调小而非静默关闭(极小值 ⇒ 判"未成功"并带原因入库)。
+
+### 第九批 ZCode 吸收线:六个未读切片并行取证 + 六票落地(2026-09-26,主会话 + 六路取证 + 六路实现)
+
+- **取证面(第九轮首次进入的切片,覆盖率如实登记)**:`bootstrap/`(232 ts,深读 17 + 浅读 8;`src/app/` 仍有 97 个未读、`v4-gateway.ts` 函数体零接触)、`core/src/workflow/`+`dynamic-workflow*`(99)、`packages/desktop|web|client|server|zcode-server-cli|rpc`(约 400,函数体覆盖 19/403≈4.7%)、`packages/shared`(226)+`core/src` 十个未读子目录(permission 6/6、memory 顶层 7/8、system-reminder 3/3 为逐行)、`tui|telemetry|node-repl-host|i18n|model-option-map`(debug/ 12 个全未读)、根治理件+`provider|provider-node|harness/remote`(DESIGN.md 仅标题层)。**"没读到"不等于"没有机制"**,以上盲区均登记在 `.ihui-agent/tmp/zcode-absorb/MECHANISM-SPEC-9{A..F}-*.md`(gitignored)。clean-room 三扫照例:上游标识 0、目录名未照搬、克隆与规格均未跟踪。
+- **已落地七票(每票都由主会话独立复跑权威入口,不是采信代理报告)**:
+  1. `fd595ae2c33` **提示词边界完整性**(A9D-1+A9D-4)—— `[系统提醒]` 裸前缀改为带 `kind` 的结构块,唯一出口 `apps/cli/src/utils/prompt-boundary.ts`(`frameSystemReminder`/`neutralizeBoundaries`);第三方技能正文加单条 24 KB + 总量 96 KB 两道预算、名称剥控制符/零宽/尖括号、**被省略必须在输出里留计数行**。复验:`tsc -p apps/cli` rc=0、相关 3 文件 72 例全过、cli 全量 2916 例除 mcp-oauth 外全绿。反第二真相由 `apps/cli/tests/prompt-boundary.test.ts` 最后一组钉死(源码面除唯一出口外不得再出现裸提醒字样)。
+  2. `c54ff3deee5` **系统 locale 链单一实现**(A9E-8)—— `voice/language.ts` 的 env 链与 `i18n/index.ts` 的 Intl 各算一件事,现同源于 `apps/cli/src/utils/system-locale.ts`。**同票抓到一处静默错**:界面归一只认 BCP-47,POSIX 值 `zh_TW.UTF-8` 会**悄悄落回默认档**,已补归一并加正例(38 例)。
+  3. `0eb45923759` **mcp-oauth 夹具补 dns 桩** —— 11 例红的真因是令牌端点域名在测试环境结构上解析不到,守卫按 `dns-failed` **正确拒发**;只桩"名字→地址"这一层,守卫本体照跑(26 例全绿)。
+  4. `23b27cd434b` **日志清洗入口封顶**(A9E-1)—— 先封顶(默认 4096 字符,`IHUI_LOG_SANITIZE_MAX_CHARS` 可覆盖、垃圾值回默认且只警告一次)后正则,截断留 `[TRUNCATED …]` 可见标记。次序判据由"截断点劈开邮箱"那条精确等例钉住(纯"不含凭据"断言结构上序不变)。复验:32 例 + api tsc rc=0。
+  5. `7d276b572b5` **编排 pillar 调用诚实性**(B1)—— 实测 hub 声明的 6 条 `/api/*/orchestrate` 在 `apps/api` 侧**一条都不存在**(唯一命中是不同路径不同服务的 `/hooks/auto-orchestrate`),旧写法把 404 折进布尔位、`_process_event` 又把结论丢掉。现封闭状态集 `ok|http_404|http_5xx|http_4xx_other|transport_error|not_configured|unreported` + `degraded/non_ok_pillars/base_url_configured` 上抛。复验:188 例(相关回归 203)、mypy strict 干净。**联动仍未接通**,本票只把"假成功"变成"可判定的失败"。
+  6. `4a7903b7b8a` **SSE 重放窗口空洞降级**(A9F-6)—— 缓冲 `splice` 静默裁头后,旧代码把残缺尾巴当完整重放发出(表现为"少了几条但界面看着连续")。现由 `isReplayWindowComplete` 纯判据(裁头计数唯一存 `droppedCount`,"最早 id"一律现取不留第二份)在两条重放分支前把关,有洞即落到**既有**整条重生成路径并点名 `lastSeq/lowestBufferedId/droppedCount`;协议、事件名、客户端零改动。复验:21 例 + SSE 相关 44 例 + api tsc + 门 57 全 rc=0。
+  7. checkpoint / deploy-lock / 新门三枚见下方提交(`bbpolqeog` 链)—— B2 崩溃残留 `running` 在两个 resume 入口归位(封闭 action/reason + CAS 单行 + 复用 `run_ownership`,不新造存活信号);A9-3 锁四态 `absent|ok|invalid|unreadable` 且抢占前归档现场;A9A-4 `packages/shared` 非 Node 宿主纯度门(入口值边闭包 154 文件,HEAD 面实测"含内建但不可达 1 处"只报数)。
+- **三条被实测推翻的代理主张(登记为取证纪律,不是追责)**:① "deploy-lock 坏 JSON 会直接删锁" —— 对 `acquire` 不成立(它死等 600s 并把"会自动抢占"写进超时文案,那句是谎),**但对 `release` 成立**(两个 `meta &&` 守卫短路后落到 `removeLock`,一次 release 就能删掉别人正在用的锁)——同一条断言的两个半边结论相反,只测一半就会把修好的那半当成已修;② "我方 api 是宽生存异常策略" —— `apps/api/src/index.ts:278` 实为 `process.exit(1)`,比上游更严;③ "重放缓冲可能是死代码" —— 我据 import 面初判 `getEventsAfter` 无消费者,实测经 `sse-state-store.ts`/`sse-stream-registry.ts` 两跳委托在用,**判"未接线"必须数调用面而不是数实现文件名的直接 import**。
+- **未闭环与归属(每条带解阻判据,勿当已完成)**:① hub 的 `POST /orchestration/events/emit` 对外 `code` 位仍为 0(degraded 只在 `get_status`/dashboard 可见),收这一格要动 `app/routers/orchestration.py`,属下一票;② 6 条 pillar 端点"补实现 vs 删声明"仍待定性 —— 补=新能力(须先定产品边界),删=§7 删除安全(须先证有等价实现),二者都不该由吸收线顺手做;③ `packages/shared` 里 `ssrf-guard.ts` 的 `node:dns` 依赖**源码处置**未做(纯度门判据先立、当前不可达所以天然 0 红),正解是把 DNS 解析改成平台 adapter 注入;④ checkpoint 归位的"响应 meta 报归位几行+原因"未做(载体 `routers/agents.py`/`agent_loop_v2.py` 在票面禁改清单内,约 10 行);⑤ `apps/ai-service/tests/test_agent_checkpoint.py` **收集期就失败**(`tool_input_scanner.py:32` 从 `app.services.sandbox` 取不存在的 `_DANGEROUS_PATTERNS`)⇒ 那 15+ 条核心用例零执行信号,归沙箱线持有人,门 114 现测为 warn;⑥ deploy-lock 的 ownerToken 收口需同时改 `build-next-prod.ps1` 与 `apps/web/package.json`,未授权未做;⑦ A9E-4(`isDirectRun` 朴素比较经 junction 必 false ⇒ main 静默不跑)已实测机制真实(夹具 A/B:link 路径 `naive:false`、real 路径 `true`),但本仓当前无任何钩子路径穿重解析点,判"不可达"故不动那 101 处,只立规矩:**新增 CLI 型脚本一律 realpath 两侧再比**;⑧ 上一批遗留真债:散写取材面的门现测 `face 30 / loose 72 / halfWired 1`(门 118 现读),迁移仍按"谁碰那道门谁收口"的棘轮推进,不批量代改。
 - [x] ✅(2026-09-26 07:0x) **守门 125 的 R4 看不见"被 prettier 拆开的那一行",而我上一枚提交就是那样的形态** —— 收口类改动的第二种自伤:`scripts/lib/pre-commit-hook.js` 里 `run('🔍 条件 RN global.css 同步守门...', 'node … --staged')` 超过 printWidth 100,prettier 当场把它拆成「`if (` / `!run(` / 标签 / 命令 / `)`」多行,而 R4 的在场证据提取是**逐行**的(`hookLines.some(l => l.includes(base) && l.includes('!run('))`)⇒ 拆行后脚本名与 `!run(` 不再同行,那道专门看守"派生面有没有复核者"的门对这一行只剩「未判定」。它不是判红,所以没人会来修;而它下次遇到真的被摘线的调用,同样只会说"判不出"。
   - 处置顺序值得记:**先试的是改调用点**(把标签缩短让命令行内 —— 实测 `--worktree` 跑确实绿了),但那是**让代码去迁就一把尺子**,而这条尺子的形状由 prettier 决定,任何人都可能在下一次格式化里把它拆回去。所以正解是**改尺子**:命中行向上 ≤3 行找 `!run(`,途中①跳过注释行(注释里的脚本名永远不算在场证据)②遇到"非注释、非参数续行(不以 `,` 或 `(` 收尾)"的行立即停 ⇒ 不跨语句边界。两条自检成对钉住:**16b** prettier 拆行形态必须认作在场(判据要覆盖门自己产出的形态)、**16c** 命中行上方隔着一条完整语句时**不得**借那条 `!run(` 洗白(否则本门从"判不出"退化成"什么都能过",那比失明更糟)。取证:`--self-test` 25→**27 例全绿**、镜像 11 例全绿、真仓 HEAD 面 R4「未判定」计数归零且结论行不再出现该行。
 ### 第五十波·续末② —— 守门 102 的 HEAD 存量清到 0,并把"全端已覆盖"这句话换成实测(2026-09-26)
@@ -10418,34 +10456,6 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   不是端常态,而是**三档模式里的第 ① 档**。今日同一份 `apps/miniapp-taro/config/index.ts`(除本票新增 `cssEntries` 外)连做四次
   `taro build --type weapp`(每次均 exit 0),产物形态如下 —— 关键是**构建本身不给任何信号**:
   | 档 | CSS 腿(改名 + rem2rpx) | JS/WXML 腿(改名) | 守门读数 | 判据是否接住 |
-  | --- | --- | --- | --- | --- |
-  | ① 未补 `cssEntries` | 在(`--spacing:8rpx`、321 个 `_b` 形态) | **整轮空转**(JS 里 0 个转写名) | `34.89% / 死规则 485` | 当时**接不住**:只表现为覆盖率变低 |
-  | ② 补 `cssEntries` | 在 | 在 | `93.77% / 死规则 31` | ✅ C5=in |
-  | ③ 补后再构建 | **整条没跑**(`--spacing` 停在 `0.25rem`、`_b` 形态 0 个) | 源名两侧一致 | **`99.35% / 死规则 0 / C5=in`** | ❌ **看产物的门把最坏一档读成最好一档** |
-  ③ 为什么骗过 C1/C4/C5:CSS 腿没跑时,Tailwind 直接产出**转义选择器** `.z-\[1001\]`,而运行时 className 也是 `z-[1001]`
-  ⇒ 声明侧与挂载侧**字面相同**,可达性判据完全满意。但微信 WXSS 是否认这种转义类名**从未被证明** ——
-  weapp-tailwindcss 之所以存在、之所以要 `_b/_B` 改名,正是为了绕开它。
-- [x] ✅ **根因定位到一处配置缺失**:插件的类型声明 `dist/types/user-defined-options/important.d.ts:38` 有 `cssEntries?: string[]`,
-  包 README 原话"Tailwind CSS 4 项目中,入口 CSS 需要同时满足两点:在项目里被实际引入,**并通过 `cssEntries` 显式传给插件用于稳定识别**"。
-  不传时,插件的 class set 采集依赖"在本轮编译里自动发现那个 CSS 模块" —— 发现不到就是①档(CSS 照改名、JS 一个名都不改)。
-  落点 `config/index.ts`:`.use(WeappTailwindcss, [{ rem2rpx, injectAdditionalCssVarScope, cssEntries:[path.resolve(__dirname,'..','src/app.css')] }])`。
-  **A/B 实测**(两份冻结产物对照):`--spacing` 与 `_b` 形态两侧完全相同(Δwxss = 0),差别只在 JS 侧转写名命中
-  `0 个文件 → 1 个文件`;主包代价 **+1,032 B**(2,069,006 → 2,070,038)。
-- [x] ✅ **守门补两条结构性判据**,专职"认档",不再让人对着百分比猜:
-  **C5 `auditMangleLeg`**(JS/WXML 腿活性:面 1 = "CSS 有转写规则而原名没有"那批,面 2 = 该批转写名在产物 js/wxml/wxs 的**全文子串**里目击到多少;
-  `面1>0 ∧ 面2==0 ⇒ idle 判红` —— 部分偏跳不触发 C5,由 C4 逐条计;**`面1==0 ⇒ 未判定`,绝不记通过**);
-  **C6 `auditCssLeg`**(CSS 腿整条未跑:`含标点档需求 > 0 ∧ 产物转写形态类名 == 0 ⇒ off 判红`)。
-  C6 **刻意不用"产物还剩多少 rem"当见证** —— 主题变量本身就带 rem(健康产物实测稳定留 29 处,如 `--text-sm:0.875rem`),
-  那条见证会把好构建判死;我第一版就是这么写的,当场被自己的正向对照挡下。
-  另修一处本票自查出的**自伤**:`computeCoverage` 收的是 `Map#keys()` **一次性迭代器**,`demanded` 抽干它之后
-  `mangledOnlyNames` 又拿一次 ⇒ 拿到空序列 ⇒ 面 1 恒 0、485 条整批伪装成"确定缺失"、C5 再退成"未判定" ——
-  **一个耗尽的迭代器同时伪造出两种健康读数**。现加单一物化点 + "数组输入与迭代器输入必须逐字同读数"的自检锁。
-  取证:`--self-test` 与镜像测试末行以现测为准(本票落地时 110 例 / 45 例全绿)。
-- **仍未闭环(如实登记,不粉饰)**:① ③ 档(rem2rpx 整条未跑)**根因未查** —— 我只加了能看见它的门,没修它产生的机制,
-  候选是 webpack 持久缓存或 `@source`/`cssEntries` 之间的时序,未做同配置双时点 A/B;
-  ② C4 残余 31 条里 19 条是"按形态偏跳"(裸小数间距 / `!p-*` / `first:`/`last:`),**机制未取证**,
-  影响 **76 处用法 / 39 个文件**(实测脚本 `.ihui-agent/tmp/tw-landing/a1-impact.mjs`),另有 12 条是死码/未装载(组件没进 bundle,用户可见影响 0);
-  ③ 主包余量已到 **27,114 B**(上限 2,097,152),这是并发提交累积的既有紧张,不是本票造成(本票只 +1,032 B),但它已经近到值得单独盯;
-  ④ 本票没有把 `check-miniapp-css-landing` 接进提交链(它判的是产物在不在、什么档,提交者结构上满足不了 ⇒ 会变成恒红门),问责仍走手动/CI。
 - [x] ✅(2026-09-25) **G-191 那 8 个"从未入库"的归档锚点:4 个已按逐字证据找回入库,2 条确认找不回,4 项继续在台账上报数**:G-186 登记的洞有了第一次真清偿。方法不是"重写一遍历史",而是**从 git 历史里逐字取回**——每条归档占位注释都是在"把正文从计划文档搬走"的那枚提交里写下的,所以那枚提交删掉的内容块本身就是归档正文;判据 = **该正文逐字存在于所引提交的父版本 `PROJECT_PLAN.md`**,不成立就不落地。找回 `PROJECT_PLAN_2026-07-26_auto-archive.md`(12 块中 7 块)/ `2026-08-03`(12)/ `2026-08-15`(4)/ `2026-09-12`(5 段连续区域),共 **28 块 / 567 行实质正文,0 行无出处**(两把独立尺子各自验过:逐块对应 23/23、格式无关的全量行级比对 567/567;后者不依赖重建脚本自己的注释格式,专门防"脚本自己给自己发合格证")。每个落地文件保留逐条 `recovered from <sha>` 出处注释并加一句来源性质说明,**它不是当时原写,是找回件** —— 这一点必须写在文件里,否则后来人会把重建文本误当成一手记录。**确认找不回的 2 条**(`2026-07-26` 那组里 L3774/L3778):它们的占位是在 `3a5b737bf8` 里**凭空新增**的(纯 `+` 行,夹在既有兄弟行之间),按裸标题做 `git log -S` 证明这两个条目从未在计划文档里存在过 ⇒ 从别的提交"补"出来就是编造,不当干。**方法上一个必须绕过的坑**:23/28 的出处不能直接用"最旧一次 `-S` 命中"来定 —— `b129e09482` 做过一次 `.trae-cn/archive/` → `.ihui-agent/archive/` 的**占位文本搬家**,朴素取最旧会选中这次搬家(它没有删除任何内容),真正的删除发生在搬家之前;必须沿搬家链回走。同批把门 13c 的 `LOST_ANCHOR_LEDGER` 从 8 项减到 4 项 —— **这条是台账自己的规矩要求的**:文件已回到审面却还挂在清单里,会被判「清单腐烂」红(该锁同时防另一个方向:删行没修好照旧红)。剩余 4 项(07-20 两份 / 09-23 bulk / archive_2026-08-20)继续只报数,其中 `2026-09-12` 那份 268 KB 的重建里含一个 486 行的**元归档**块,它内部又嵌着 218 条更早的占位 ⇒ 递归找回是下一格,不做完不许把这一项读成"已彻底清账"。
 - **H-5 `ToolResultBudgetContract` 零消费者**:唯一合理消费点在 `apps/cli/src/tools/index.ts` 的 executor 边界(该文件本轮刚被超时票改过),先接线再谈判据;摘除会砸坏守门 111 的 CONTRACT_GROUPS(§7 有承接功能不得删)。
+
