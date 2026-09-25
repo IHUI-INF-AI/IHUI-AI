@@ -162,38 +162,23 @@ export function toolCategoryKeyList(): string[] {
   return [...new Set(Object.values(TOOL_CATEGORY_ACTIVITY_KEYS))]
 }
 
-/** 搜索类工具的查询词取值键(顺序即优先级) */
-const SEARCH_QUERY_KEYS: ReadonlyArray<string> = [
-  'query',
-  'keyword',
-  'keywords',
-  'q',
-  'search_term',
-  'pattern',
-  'prompt',
-]
-
-/**
- * 取搜索类工具的查询词(D81 第③项 searchWithQuery)。
- * 非搜索类一律返回空串(避免把其它工具的 prompt/command 误当查询词展示);
- * 拿不到时返回空串,渲染层据此决定是否显示查询条。
- */
-export function toolActivitySearchQuery(
-  toolName: string,
-  args?: Record<string, unknown> | null,
-): string {
-  if (toolCategory(toolName) !== 'search') return ''
-  if (!args) return ''
-  for (const key of SEARCH_QUERY_KEYS) {
-    const value = args[key]
-    if (typeof value === 'string' && value.trim() !== '') return value
-  }
-  return ''
-}
+// 曾在此处放 `toolActivitySearchQuery`(D81 第③项),2026-09-25 删除。它是 `tool-display.ts`
+// 里 `SUBJECT_KEYS.query` 的**严格子集**(实测 7 键 ⊂ 10 键,差的 description/selector/target
+// 恰是它取不到的),即同一件事的第二份取值表 —— 取查询词的唯一入口是
+// `describeToolCall().subject`(web / miniapp / RN 三端同一口径已在用)。
+// 需要"只取搜索类工具的查询词"时,请在调用方按 `toolCategory(toolName) === 'search'` 过滤
+// `describeToolCall` 的结果,**不得**在此另立一份键表。
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ⑤ 活动按连接器读写分组(D81 第⑤项):把带连接器来源的工具活动按"读 / 写"方向聚合。
 // 纯函数,跨端共用;渲染层用 readingConnector / writingConnector 词表给分组加标签。
+//
+// 接线状态(2026-09-25 实测,如实登记,勿当已闭环):本函数生产侧**零消费者**。
+// 它的宿主形态是"一条消息里多枚工具卡按连接器分组加分组头",而该列表在
+// `apps/web/src/components/chat/message-list/MessageItem.tsx` 的 `m.toolCalls?.map()`(:914);
+// 现渲染路径是**每张卡各打一次标签**(`tool-call-card.tsx` 用共享层 `FILE_WRITE_TOOLS` 判方向),
+// 属"逐行注解"而非"分组",故不能靠把本函数喂一个单元素数组来制造消费计数
+// —— 那只会产出一条假的装车证明。分组头落地见 PROJECT_PLAN / 该票报告。
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type ConnectorDirection = 'read' | 'write'
@@ -222,8 +207,7 @@ export function groupToolActivitiesByConnector(
 ): ConnectorActivityGroup[] {
   const map = new Map<string, ConnectorActivityGroup>()
   for (const item of items) {
-    const connector =
-      item.connector && item.connector.trim() !== '' ? item.connector : EMPTY_CONNECTOR
+    const connector = item.connector && item.connector.trim() !== '' ? item.connector : EMPTY_CONNECTOR
     const direction: ConnectorDirection = item.direction === 'write' ? 'write' : 'read'
     const groupKey = `${connector}::${direction}`
     const group = map.get(groupKey)
