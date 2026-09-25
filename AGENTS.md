@@ -568,6 +568,12 @@ pnpm dev                                       # 启动所有服务(web + api + 
 - **强制规则**:多 agent 并行环境(≥2 个 agent 同时工作)下,agent commit **必须**用 `node scripts/safe-commit.mjs -m "<message>" -- <file1> [file2 ...]`,**禁止**直接 `git add <file> && git commit -m "..."`。
 - **safe-commit.mjs 5 步法(零信任)**:① `git reset HEAD` 清空整个暂存区(无论谁 staged 的)→ ② `git add -A -- <声明的文件>` 只暂存自己声明的文件 → ③ 校验 `git diff --cached --name-only` === 声明文件(有意外文件立即 exit 1)→ ④ `git commit -- <pathspec>` 原生 pathspec 终极兜底 → ⑤ `git show --name-only HEAD` 验证 commit 内容只包含预期文件。
 - **钩子失败的归因是量出来的,不是抄来的(2026-09-25 立,`scripts/lib/commit-gate-attribution.mjs`)**:旧版首次 commit 一失败就打印「按用户规则"hook 失败因其他 agent 代码 → --no-verify 重试"」并整批跳门 —— 它**从未计算过归因**。实测一轮 134 道门 111 通过 / 1 失败,红的是 `check-push-sync`(判远端态、与提交内容无关),措辞仍是"他人代码"。现流程:解析 runner 的失败门清单 → **逐道复跑** → 该门这次的输出**点名本次声明的文件 ⇒ 判"本任务自己的红",拒绝 `--no-verify` 并 exit 1**(必须修);一个都没点名 ⇒ 允许跳,但只说量到的话;批没跑完 / 解析不到 / 复跑全不可用 ⇒ 明写「未归因」,按应急路径落地并留痕于 `.workbuddy/safe-commit-attestation.jsonl`。**刻意不建"机器态门 id 清单"** —— 豁免清单必然腐烂(见 §4 对 `RN_ONLY_BRAND_KEYS` 的教训)。取证:镜像测试 5/5(含装车证明 + 真实 `hook-logs/pre-commit.log` 取样校验夹具)+ 三条变异各自变红(ANSI 剥色那条登记为**等价变异**,不造假具硬凑红)。**因此:agent 不得再假设"钩子红了就能跳"** —— 被拒时那句红点名了哪个文件,就去修哪个文件;确属误判才可按 §16 显式说明后手工提交。
+  - **"点名"必须连结论行的缩进续行一起看(2026-09-25 实战补)**:守门 84/30c 这类门把**结论**与**定位**拆成两行
+    (`❌ 检出 1 个文件的暂存内容等于其历史提交版本:` 一行不带路径,下一缩进行才给路径)。`findingLines()` 原为
+    逐行匹配 `FINDING_LINE_RE`,于是第二行不算结论行 ⇒ 看不见被点名的文件 ⇒ 判 `not-ours` ⇒ **放行跳门** ——
+    方向正好反了:**门说得越具体,铰链越松**,而这条铰链决定的是"能不能绕过 130+ 道门"。现并入结论行下方
+    ≤3 行的缩进续行;取证是自检 A2b(两行形态必判 mine)/ A3b(续行点的是别人的文件仍判 not-ours),
+    变异证明 = 把续行上限改回 0 即退回旧误判。**判据失效的方向必须是"多要一次定向说明",绝不能是"多放一次跳门"。**
 - **单 agent 环境豁免**:确认无其他 agent 并行时,可直接 `git add <file> && git commit`,但必须先 `git status --porcelain` 确认 staging area 干净(无其他已 staged 文件)。
 - **pre-commit hook 配套提示层**(2026-08-06 立):hook 入口调用 `auditStagingFiles()` 打印 staged 文件清单(按目录分组)+ 同目录多文件警告 + 文件数 > 5 严重警告(warn-only,不阻塞)。提示层无法真正阻止污染,真正阻止污染的是 safe-commit.mjs 的 `git reset HEAD` 清空暂存区。
 - **红线**:
