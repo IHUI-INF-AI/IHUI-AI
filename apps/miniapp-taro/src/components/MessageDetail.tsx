@@ -64,7 +64,7 @@ export default function MessageDetail({
               >
                 <Text className="text-sm">{msg.content}</Text>
               </View>
-              <Text className="text-[20rpx] text-muted-foreground mt-1">{msg.createdAt}</Text>
+              <Text className="text-[length:20rpx] text-muted-foreground mt-1">{msg.createdAt}</Text>
             </View>
           </View>
         ))}

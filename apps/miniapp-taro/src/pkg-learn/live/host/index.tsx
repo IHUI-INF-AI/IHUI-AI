@@ -134,19 +134,19 @@ export default function LiveHost() {
         {/* header:状态徽章(11dp → 22rpx,radius 12 → 24rpx) */}
         <View className="flex items-center px-[20rpx] pt-[16rpx] pb-[16rpx]">
           <View className={`px-[16rpx] py-[4rpx] rounded-xl ${badgeCls}`}>
-            <Text className="text-[22rpx] text-[var(--color-primary-foreground)]">{badgeText}</Text>
+            <Text className="text-[length:22rpx] text-[var(--color-primary-foreground)]">{badgeText}</Text>
           </View>
         </View>
 
         {error ? (
           <View className="px-[20rpx] py-[8rpx]">
-            <Text className="text-[28rpx] text-[var(--color-danger)]">{error}</Text>
+            <Text className="text-[length:28rpx] text-[var(--color-danger)]">{error}</Text>
           </View>
         ) : null}
 
         {/* previewArea:height 176 → 352rpx,marginHorizontal 10 → 20rpx,radius 12 → 24rpx,bg gray.900 */}
         <View className="mx-[20rpx] mt-[16rpx] h-[352rpx] rounded-xl bg-[var(--color-screen-canvas)] flex items-center justify-center">
-          <Text className="text-[28rpx] text-[var(--color-text-tertiary)]">
+          <Text className="text-[length:28rpx] text-[var(--color-text-tertiary)]">
             {status === 'active'
               ? tt('liveHost.cameraPreviewActive', '直播推流中')
               : tt('liveHost.cameraPreview', '摄像头预览')}
@@ -154,12 +154,12 @@ export default function LiveHost() {
         </View>
 
         {/* sectionBox:marginHorizontal 10 → 20rpx,marginTop 12 → 24rpx,padding 12 → 24rpx,radius 24rpx */}
-        <View className="mx-[20rpx] mt-[24rpx] p-[24rpx] rounded-xl border-[2rpx] border-[var(--color-border)]">
-          <Text className="block text-[28rpx] text-[var(--color-text-tertiary)] mb-[16rpx]">
+        <View className="mx-[20rpx] mt-[24rpx] p-[24rpx] rounded-xl border-[length:2rpx] border-[var(--color-border)]">
+          <Text className="block text-[length:28rpx] text-[var(--color-text-tertiary)] mb-[16rpx]">
             {tt('liveHost.streamTitle', '直播标题')}
           </Text>
           <Input
-            className="rounded-xl border-[2rpx] border-[var(--color-border)] px-[24rpx] py-[28rpx] text-[32rpx] text-foreground bg-[var(--color-muted)]"
+            className="rounded-xl border-[length:2rpx] border-[var(--color-border)] px-[24rpx] py-[28rpx] text-[length:32rpx] text-foreground bg-[var(--color-muted)]"
             value={streamTitle}
             onInput={(e) => setStreamTitle(e.detail.value)}
             placeholder={tt('liveHost.streamTitlePlaceholder', '请输入直播标题')}
@@ -171,7 +171,7 @@ export default function LiveHost() {
                 onClick={() => stream.pushUrl && copyText(stream.pushUrl)}
                 hoverClass="opacity-60"
               >
-                <Text className="block mt-[16rpx] text-[28rpx] text-[var(--color-text-tertiary)]">
+                <Text className="block mt-[16rpx] text-[length:28rpx] text-[var(--color-text-tertiary)]">
                   {tt('liveHost.pushUrl', '推流地址')}:{stream.pushUrl || '—'}
                 </Text>
               </View>
@@ -180,7 +180,7 @@ export default function LiveHost() {
                 onClick={() => copyText(stream.streamKey)}
                 hoverClass="opacity-60"
               >
-                <Text className="block mt-[16rpx] text-[28rpx] text-[var(--color-text-tertiary)]">
+                <Text className="block mt-[16rpx] text-[length:28rpx] text-[var(--color-text-tertiary)]">
                   {tt('liveHost.streamKey', '流密钥')}:{stream.streamKey}
                 </Text>
               </View>
@@ -197,7 +197,7 @@ export default function LiveHost() {
             onClick={startLive}
             hoverClass="opacity-60"
           >
-            <Text className="text-[32rpx] font-semibold text-[var(--color-primary-foreground)]">
+            <Text className="text-[length:32rpx] font-semibold text-[var(--color-primary-foreground)]">
               {loading && status === 'idle'
                 ? tt('liveHost.starting', '开启中...')
                 : tt('liveHost.startLive', '开始直播')}
@@ -210,7 +210,7 @@ export default function LiveHost() {
             onClick={endLive}
             hoverClass="opacity-60"
           >
-            <Text className="text-[32rpx] font-semibold text-[var(--color-primary-foreground)]">
+            <Text className="text-[length:32rpx] font-semibold text-[var(--color-primary-foreground)]">
               {loading && status === 'active'
                 ? tt('liveHost.ending', '结束中...')
                 : tt('liveHost.endLive', '结束直播')}
@@ -219,24 +219,24 @@ export default function LiveHost() {
         </View>
 
         {/* 直播数据:sectionTitle 18dp → 36rpx semibold;statLabel 14 → 28rpx;statValue 16 → 32rpx */}
-        <View className="mx-[20rpx] mt-[24rpx] p-[24rpx] rounded-xl border-[2rpx] border-[var(--color-border)]">
-          <Text className="block text-[36rpx] font-semibold text-foreground mb-[16rpx]">
+        <View className="mx-[20rpx] mt-[24rpx] p-[24rpx] rounded-xl border-[length:2rpx] border-[var(--color-border)]">
+          <Text className="block text-[length:36rpx] font-semibold text-foreground mb-[16rpx]">
             {tt('liveHost.liveData', '直播数据')}
           </Text>
           <View className="flex flex-wrap">
             {stats.map((s) => (
               <View key={s.label} className="w-1/2 mb-[16rpx]">
-                <Text className="text-[28rpx] text-[var(--color-text-tertiary)]">{s.label}</Text>
-                <Text className="text-[32rpx] font-semibold text-foreground">{s.value}</Text>
+                <Text className="text-[length:28rpx] text-[var(--color-text-tertiary)]">{s.label}</Text>
+                <Text className="text-[length:32rpx] font-semibold text-foreground">{s.value}</Text>
               </View>
             ))}
           </View>
         </View>
 
         {/* 商品管理:lastSection marginBottom 32 → 64rpx;添加按钮 bg card + success 文字 */}
-        <View className="mx-[20rpx] mt-[24rpx] p-[24rpx] rounded-xl border-[2rpx] border-[var(--color-border)] mb-[64rpx]">
+        <View className="mx-[20rpx] mt-[24rpx] p-[24rpx] rounded-xl border-[length:2rpx] border-[var(--color-border)] mb-[64rpx]">
           <View className="flex items-center justify-between mb-[16rpx]">
-            <Text className="text-[36rpx] font-semibold text-foreground">
+            <Text className="text-[length:36rpx] font-semibold text-foreground">
               {tt('liveHost.productManagement', '商品管理')}
             </Text>
             <View
@@ -249,20 +249,20 @@ export default function LiveHost() {
               }
               hoverClass="opacity-60"
             >
-              <Text className="text-[28rpx] text-[var(--color-success)]">
+              <Text className="text-[length:28rpx] text-[var(--color-success)]">
                 {tt('liveHost.addProduct', '+ 添加商品')}
               </Text>
             </View>
           </View>
           {MOCK_PRODUCTS(tt).length === 0 ? (
-            <Text className="block text-[28rpx] text-[var(--color-text-tertiary)] py-[16rpx] text-center">
+            <Text className="block text-[length:28rpx] text-[var(--color-text-tertiary)] py-[16rpx] text-center">
               {tt('pointsMall.empty', '暂无商品')}
             </Text>
           ) : (
             MOCK_PRODUCTS(tt).map((item) => (
               <View key={item.id} className="flex items-center justify-between py-[16rpx]">
-                <Text className="flex-1 mr-[16rpx] text-[32rpx] text-foreground">{item.name}</Text>
-                <Text className="text-[32rpx] font-semibold text-[var(--color-danger)]">
+                <Text className="flex-1 mr-[16rpx] text-[length:32rpx] text-foreground">{item.name}</Text>
+                <Text className="text-[length:32rpx] font-semibold text-[var(--color-danger)]">
                   ¥{item.price}
                 </Text>
               </View>
