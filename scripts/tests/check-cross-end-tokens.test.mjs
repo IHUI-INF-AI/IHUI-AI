@@ -478,7 +478,11 @@ async function buildRepo(tag) {
     'lib/face-reader.mjs',
     'lib/gitdir.mjs',
   ])
-  const srcRel = 'apps/miniapp-taro/src/box.tsx'
+  // 用量必须落在**真 v3 消费端**才受 R6 管辖。此前写的是 miniapp,而 miniapp 实跑 v4
+  // (v4 原生支持 /alpha,见 check-cross-end-tokens.mjs 的 ALPHA_V4_FACES 注释)⇒ 它不再判红,
+  // 而表里登记的 primary/bg/10 反而成了腐烂 ⇒ 夹具首跑就红。红是新语义下的正确答案,
+  // 所以要挪面,不是把断言放宽。
+  const srcRel = 'apps/mobile-rn/src/box.tsx'
   put(srcRel, 'export const A = () => <View className="bg-primary/10" />\n')
   git(['init', '-q'])
   git(['config', 'user.email', 'gate@test.local'])
@@ -559,15 +563,26 @@ test('取材面端到端:两份 token 源的比对必须随判定面走(旧行�
 
 test('R6 解析器与真登记表:解析结果必须能驱动真产出函数', async () => {
   const reg = readAlphaRegistry('head')
-  assert.ok(Object.keys(reg.usage).length >= 5, 'HEAD 面必须解析得到登记表(解析断 = 整门失明)')
+  // 真表只断"解析得出对象"这一形状,**不断它的大小或内容** ——
+  // 表由 sync-alpha-usage.mjs 从用量导出,合法地可以是 {}(2026-09-25 就是),
+  // 把"≥5 档 / ≥15 条 / 必含 bg-primary/10"钉在这里,等于把某天的用量快照当成长期契约。
+  assert.ok(reg && typeof reg.usage === 'object' && !Array.isArray(reg.usage), '解析必须得出对象')
   const built = alphaPlugin.buildAlphaUtilities(reg.usage, reg.colors)
   assert.equal(built.unresolvable.length, 0, '表里每一档都必须能从 preset 解析出 CSS 变量')
   assert.equal(built.unknownKinds.length, 0, '表里每个前缀都必须在能力表内')
+  // "解析结果真能驱动产出"这条**改用构造面**证明:与仓库当天有没有人写 /alpha 无关,
+  // 且这张构造表就是 R6 归零后仍然要保证能工作的那件事。
+  const probe = { primary: { bg: ['10'], border: ['20', '30', '40'] }, muted: { bg: ['40', '[0.12]'] } }
+  const builtProbe = alphaPlugin.buildAlphaUtilities(probe, reg.colors)
+  assert.equal(builtProbe.unresolvable.length, 0, '构造表必须全部可解析')
   assert.ok(
-    Object.keys(built.utilities).length >= 15,
-    `产出条数量级不对(${Object.keys(built.utilities).length}),疑似解析到半张表`,
+    Object.keys(builtProbe.utilities).length >= 5,
+    `构造表产出条数量级不对(${Object.keys(builtProbe.utilities).length})⇒ 产出函数或转义坏了`,
   )
-  assert.ok(built.utilities[alphaPlugin.escapeSelectorClass('bg-primary/10')], 'bg-primary/10 必须真产出')
+  assert.ok(
+    builtProbe.utilities[alphaPlugin.escapeSelectorClass('bg-primary/10')],
+    '构造表里的 bg-primary/10 必须真产出(否则"解析驱动产出"这条没被证明过)',
+  )
   // 写成非常量形态的登记表必须大声失败,绝不能被静默当成"没有用量"
   assert.throws(() => parseLiteralObject('a: compute()'), __test__.UndeterminedError)
   assert.throws(
