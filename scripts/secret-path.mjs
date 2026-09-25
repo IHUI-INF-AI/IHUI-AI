@@ -9,25 +9,66 @@
  * 被下游报成凭据失效"的成因。判据逻辑一律留在 scripts/lib/key-dir.mjs,这里只做出口。
  *
  * 用法:
- *   node scripts/secret-path.mjs <子目录> <文件名>   # 打印绝对路径(不含任何口令内容)
+ *   node scripts/secret-path.mjs <子目录> <文件名>            # 打印绝对路径(不含任何口令内容)
  *   node scripts/secret-path.mjs --verify <子目录> <文件名>
+ *   node scripts/secret-path.mjs --explain <子目录> <文件名>  # 出处诊断走 stderr,stdout 仍是单行裸路径
  *
  * 退出码:
  *   0  解析到且文件存在(stdout = 路径)
  *   1  凭据文件不存在(路径确实找不到 —— 调用方应"快速失败并说明落点",不得当成"口令错误")
- *   2  凭据**根目录**都不可达(换机/离线/未挂盘)⇒ 无法判定,同样不得说成凭据无效
+ *   2  凭据**根目录**都不可达(换机/离线/未挂盘)⇒ 无法判定,同样不得说成凭据无效;
+ *      未知开关亦为 2(不许静默掉进默认分支)
  *
  * 刻意不把口令打到 stdout:调用方只要路径,自己按行读;NSSM 会把服务 stdout 落进日志。
+ * --explain 只往 stderr 加诊断(命中哪个盘符候选、其前哪些被跳过),不改任何分支的 stdout。
  */
-import { keyFile, resolveKeyDir, resolveSecretsRoot, SECRETS_ROOT_CANDIDATES } from './lib/key-dir.mjs'
+import {
+  keyFile,
+  resolveKeyDir,
+  resolveKeyDirDetailed,
+  resolveSecretsRoot,
+  SECRETS_ROOT_CANDIDATES,
+} from './lib/key-dir.mjs'
 
 const args = process.argv.slice(2)
-const verifyOnly = args[0] === '--verify'
-const [sub, name] = verifyOnly ? args.slice(1) : args
+// 开关白名单解析:未知开关立即 exit 2 —— 若把它当位置参数放行,会静默走默认分支
+// (本仓在 sync-lost-commit-tags.mjs 上过这堂课)。
+let verifyOnly = false
+let explain = false
+const positional = []
+for (const a of args) {
+  if (a === '--verify') verifyOnly = true
+  else if (a === '--explain') explain = true
+  else if (a.startsWith('-')) {
+    console.error(
+      `未知开关: ${a}(仅支持 --verify / --explain)\n用法: node scripts/secret-path.mjs [--verify] [--explain] <子目录> <文件名>`,
+    )
+    process.exit(2)
+  } else positional.push(a)
+}
+const [sub, name] = positional
 
 if (!sub || !name) {
-  console.error('用法: node scripts/secret-path.mjs [--verify] <子目录> <文件名>')
+  console.error('用法: node scripts/secret-path.mjs [--verify] [--explain] <子目录> <文件名>')
   process.exit(2)
+}
+
+if (explain) {
+  // 出处诊断:候选序探查是 resolveKeyDirDetailed 的唯一出口(不在这里抄第二份盘符表)。
+  const d = resolveKeyDirDetailed(sub)
+  const lines = ['explain(诊断走 stderr;stdout 契约不变,仍为单行裸路径):']
+  d.triedCandidates.forEach((c, i) => {
+    let mark
+    if (d.winnerIndex === -1) mark = '根不存在,跳过'
+    else if (i < d.winnerIndex) mark = '根不存在,跳过'
+    else mark = d.path ? '命中' : '根存在但该根下无此子目录'
+    lines.push(`  [${i}] ${c} —— ${mark}`)
+  })
+  if (d.winnerIndex === -1)
+    lines.push('  ⇒ 没有任何候选根存在(换机/未挂盘)⇒ 无法判定,不等于凭据失效')
+  else if (d.path) lines.push(`  ⇒ 命中候选 [${d.winnerIndex}],其前被跳过 ${d.winnerIndex} 个`)
+  else lines.push(`  ⇒ 命中根 [${d.winnerIndex}] 但子目录不存在 —— 先建目录再放口令`)
+  console.error(lines.join('\n'))
 }
 
 const root = resolveSecretsRoot()
