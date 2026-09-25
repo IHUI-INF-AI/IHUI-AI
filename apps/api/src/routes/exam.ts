@@ -1467,13 +1467,33 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /exam/composition/signup/:sid/submit - 提交答卷
-  // ⚠️ 同型敞口**本票未收口**,原因如实登记(不是遗漏):提交答卷是会员的**自助**动作,把它
-  // 一并收到管理员档会直接砍掉自助流(与上面三条不同 —— 那三条全仓零自助调用方)。而按
-  // 归属放行需要的正是本域顶部证明"不存在"的那张 uuid→member_id 映射。故收口它的前置条件是
-  // 建模层动作(给报名加一个 users.id 归属列,或建映射表),属新 schema 变更 + 产品决策,
-  // 不在"文档/判据收口"这一票范围内。现状:任意登录用户可按 sid 把他人报名标为 completed。
+  // 已收口(2026-09-25):判据与 GET / PUT / DELETE /signup/:sid 三条同源同形 —— 先鉴权
+  // (checkAuth ⇒ 401)、再授权(isSystemAdmin ⇒ 403)、再校参数(sidParam)、最后动作。
+  // 收口前该 handler 只有 checkAuth + sidParam.parse,.where(eq(examSignUp.id, Number(sid)))
+  // 不含任何归属条件 ⇒ 任意登录用户可按 sid 把**他人**报名标为 completed(篡改他人考试结果)。
+  //
+  // ① 现状与代价(如实登记,不含糊):普通会员的"提交答卷"**自助流在本域结构性不可用**,
+  //    与 /signup/my、GET/POST/PUT/DELETE /signup* 同因 —— 本域顶部实测结论证明
+  //    uuid(request.userId)→ member_id(integer、无外键)的可推导映射不存在,
+  //    于是"这条 sid 是不是你的"在服务端根本无法求值。不能求值的判据不得假装存在。
+  //    顺带纠正上一条注释里的一处未取证断言:它称"上面三条全仓零自助调用方"而 submit 不同;
+  //    本次实测 submit 同样零调用方 —— grep 全仓(含 packages/api-client 源码与 dist)只有
+  //    本文件的定义处,api-client 只暴露 GET/PUT/DELETE /:sid 与 POST /signup(exam.ts:168-188)。
+  //    所以这次收口砍掉的是一条**无人调用**的敞口,不是砍掉一条在用的功能。
+  // ② 解阻判据(归属列落地后按此替换,不得另立):给 exam_sign_up 增加一个指向 users.id 的
+  //    uuid 归属列(或建映射表)之后,把上面的 isSystemAdmin 闸门换成**按归属放行** ——
+  //    where 必须同时含 `eq(examSignUp.id, Number(sid))` 与 `eq(<归属列>, request.userId)`,
+  //    两者是 AND 而非择一;届时历史 NULL 归属行(建列前的存量)仍**只走管理员路径**
+  //    (归属未知 ≠ 归属成立),不得用 `IS NULL OR =` 一并放行。
+  // ③ 这一层只是"把敞口变成显性限制",**不是把功能做完**:自助提交仍未接通,
+  //    做没做完由 ② 的归属列是否存在决定,不由这段注释决定。
   server.post('/exam/composition/signup/:sid/submit', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
+    if (!isSystemAdmin(request, { includeInternalChannel: false })) {
+      return reply
+        .status(403)
+        .send(error(403, '无权提交该答卷:无法由登录身份校验该报名归属,仅管理员可按 sid 提交'))
+    }
     const { sid } = sidParam.parse(request.params)
     const [updated] = await db
       .update(examSignUp)
