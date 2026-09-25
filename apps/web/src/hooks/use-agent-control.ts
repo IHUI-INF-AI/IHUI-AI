@@ -28,6 +28,7 @@ import * as React from 'react'
 
 import { createNotificationClient } from '@ihui/api-client'
 import type {
+  AgentActionAssignment,
   AgentActionRequest,
   AgentActionResponse,
   AgentControlCapability,
@@ -93,6 +94,35 @@ function getInstanceId(): string {
   return cachedInstanceId
 }
 
+/**
+ * 定址投递(2026-09-26,镜像 extension agent-control-bridge 的姊妹实现):
+ * api 的 WS 推送按用户广播,assignment 由服务端派发时写入载荷 —— 非指派端不得执行,
+ * 且如实记日志(不静默 return);回执原样回显 token + 自报本实例,身份对账在服务端做。
+ */
+const _assignmentByRequestId = new Map<string, string>()
+
+/** requestId → assignment.token(仅缓存服务端下发值,不在端内计算期望身份) */
+function recordAssignment(requestId: string, assignment: AgentActionAssignment): void {
+  _assignmentByRequestId.set(requestId, assignment.token)
+  if (_assignmentByRequestId.size > PROCESSED_IDS_MAX) {
+    const oldest = _assignmentByRequestId.keys().next().value
+    if (oldest !== undefined) _assignmentByRequestId.delete(oldest)
+  }
+}
+
+/** 取出并消费本请求的回显 token(无 = 旧服务端形态,回执不带身份) */
+function takeAssignmentToken(requestId: string): string | undefined {
+  const token = _assignmentByRequestId.get(requestId)
+  _assignmentByRequestId.delete(requestId)
+  return token
+}
+
+/** 本条指令是否指派给本实例:无 assignment(旧服务端)按原语义执行;有则须实例一致 */
+function isAssignedToThisInstance(assignment: AgentActionAssignment | undefined): boolean {
+  if (!assignment) return true
+  return assignment.endpoint === 'desktop' && assignment.instanceId === getInstanceId()
+}
+
 // ===== Capability reporting =====
 
 function buildCapability(): AgentControlCapability {
@@ -123,10 +153,17 @@ async function reportCapability(): Promise<void> {
 // ===== Result reporting =====
 
 async function reportResult(response: AgentActionResponse): Promise<void> {
+  const token = takeAssignmentToken(response.requestId)
+  const payload: AgentActionResponse = token
+    ? {
+        ...response,
+        responded: { instanceId: getInstanceId(), assignmentToken: token },
+      }
+    : response
   try {
     const res = await fetchApi<{ accepted: boolean }>('/api/agent-control/result', {
       method: 'POST',
-      body: JSON.stringify(response),
+      body: JSON.stringify(payload),
     })
     if (!res.success) {
       console.warn('[desktop] agent-control result report failed')
@@ -256,10 +293,13 @@ async function executeAction(req: AgentActionRequest): Promise<AgentActionRespon
 // ===== WS notification listener =====
 
 /**
- * 从 WS 消息中提取 AgentActionRequest(兼容直接 / { notification } 包装两种格式)。
- * 与 extension agent-control-bridge.ts 的 extractAgentRequest 一致。
+ * 从 WS 消息中提取 AgentActionRequest 与服务端派发的定址信封 assignment
+ * (兼容直接 / { notification } 包装两种格式)。与 extension agent-control-bridge.ts 一致。
  */
-function extractAgentRequest(payload: unknown): AgentActionRequest | null {
+function extractAgentEnvelope(payload: unknown): {
+  request: AgentActionRequest
+  assignment?: AgentActionAssignment
+} | null {
   if (!payload || typeof payload !== 'object') return null
   const p = payload as Record<string, unknown>
 
@@ -276,12 +316,25 @@ function extractAgentRequest(payload: unknown): AgentActionRequest | null {
   if (!wsData || wsData.type !== 'agent.action') return null
   const req = wsData.request as AgentActionRequest | undefined
   if (!req || typeof req !== 'object') return null
-  return req
+  const assignment = wsData.assignment as AgentActionAssignment | undefined
+  return { request: req, ...(assignment ? { assignment } : {}) }
 }
 
 function handleWsMessage(msg: WSNotification): void {
-  const req = extractAgentRequest(msg)
-  if (!req || req.category !== 'computer') return
+  const envelope = extractAgentEnvelope(msg)
+  if (!envelope) return
+  const { request: req, assignment } = envelope
+  if (req.category !== 'computer') return
+  // 定址过滤(2026-09-26):非指派端不得执行;如实记日志,不得静默 return
+  if (!isAssignedToThisInstance(assignment)) {
+    console.warn(
+      '[desktop] agent-control: 指令非指派给本实例,忽略',
+      `requestId=${req.requestId}`,
+      `assigned=${String(assignment?.instanceId)}`,
+      `self=${getInstanceId()}`,
+    )
+    return
+  }
   // requestId 去重,防止 WS 重连后重复执行同一指令
   if (processedIds.has(req.requestId)) return
   processedIds.add(req.requestId)
@@ -292,6 +345,7 @@ function handleWsMessage(msg: WSNotification): void {
       processedIds.add(id)
     }
   }
+  if (assignment) recordAssignment(req.requestId, assignment)
   void executeAction(req)
     .then(reportResult)
     .catch((err) => {
@@ -300,6 +354,14 @@ function handleWsMessage(msg: WSNotification): void {
 }
 
 // ===== Hook =====
+
+/** 测试面(2026-09-26 定址投递票):入站处理与判据直接驱动,不开写接口 */
+export const __test__ = {
+  handleWsMessage,
+  isAssignedToThisInstance,
+  getInstanceId,
+  takeAssignmentToken,
+}
 
 /**
  * 全局挂载(浏览器端 no-op):

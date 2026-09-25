@@ -1,0 +1,100 @@
+{
+  "$schemaNote": [
+    "第三方来源台账 ②「复制进仓库的源码 / 素材」—— 不以依赖形式存在、而是被拷进树里的外部内容。",
+    "与 ① 的区别:① 是编译/安装期由包管理器解析的组件;② 是本仓直接携带的文件(其上游不会随 pnpm install 重建)。",
+    "P4 硬约束:upstream.gitRevision 不可考时必须显式 null 并填 gitRevisionNote,禁止留空字符串、禁止填猜测日期。",
+    "attributionBoundary 字段声明「同一 roots 目录内本仓自研文件不归属上游」,防止反向把自家代码也算成第三方。"
+  ],
+  "schemaVersion": 1,
+  "updatedOn": "2026-09-25",
+  "entries": [
+    {
+      "id": "pdfjs-worker-6.x",
+      "kind": "copied",
+      "name": "PDF.js worker(pdf.worker.min.mjs)",
+      "purpose": "apps/web 的 PDF 预览把 worker 作为静态资源直接挂在 /pdfjs/ 路径下,供 PDFViewer 用 pdfjs-dist 的 GlobalWorkerOptions 指向它(引用方:apps/web/src/components/media/PDFViewer.tsx、apps/web/src/components/media/message-file-preview.tsx)。",
+      "upstream": {
+        "project": "pdfjs",
+        "repository": "https://github.com/mozilla/pdf.js",
+        "acquisition": "由本仓 npm 依赖 pdfjs-dist(apps/web/package.json 记 ^6.2.108)的产物复制而来",
+        "version": null,
+        "gitRevision": null,
+        "gitRevisionNote": "复制时未记录确切的 pdfjs-dist 安装版本,文件内亦无可解析的版本常量(实测仅能取到『Copyright 2024 Mozilla Foundation』一行),故版本与 commit 双 null:本条只主张『来自 pdfjs 且当前锚点是 apps/web/package.json 的 ^6.2.108 范围』,不主张与该范围某次安装产物逐字节相等。"
+      },
+      "license": {
+        "spdx": "Apache-2.0",
+        "texts": [
+          {
+            "form": "externalOnly",
+            "fetchUrl": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+            "note": "许可原文未单独入库(该文件只有源码内的 Apache 头),台账不虚构哈希。"
+          }
+        ]
+      },
+      "roots": ["apps/web/public/pdfjs/pdf.worker.min.mjs"],
+      "modification": "unmodified-copy",
+      "modificationNote": "实测为上游构建产物的原样副本(minified),1,081,755 字节,无本仓编辑痕迹(CR 字节 0)。",
+      "attributionBoundary": "apps/web/public/pdfjs/ 目录内除本条目列出的文件外,新增文件须另立条目或证明为自研;当前该目录只有 1 个跟踪文件。",
+      "obligations": "待补登记:① 复制时的 pdfjs-dist 确切版本(建议在升级时把版本写进 version 字段并同步复核 sha256);② 对外分发 web 构建产物时是否需要在站点 LICENSES 页保留 Mozilla 版权头(Apache-2.0 §4)。"
+    },
+    {
+      "id": "gradle-wrapper-scripts",
+      "kind": "copied",
+      "name": "Gradle Wrapper 启动脚本(gradlew / gradlew.bat)",
+      "purpose": "apps/mobile-cap 的 Android 原生工程由 Capacitor 生成,两个 wrapper 脚本随模板落进仓库,负责按 gradle-wrapper.properties 拉取 Gradle 发行版。",
+      "upstream": {
+        "project": "gradle(Gradle Wrapper)",
+        "repository": "https://github.com/gradle/gradle",
+        "acquisition": "由 npx cap add android 的 @capacitor/android 模板生成后入库",
+        "version": null,
+        "gitRevision": null,
+        "gitRevisionNote": "wrapper 脚本本身不携带 Gradle 版本常量,真正的版本锚点在同目录 gradle/wrapper/gradle-wrapper.properties 的 distributionUrl(实测 gradle-8.11.1-all.zip);脚本内容在上游按 Gradle 大版本长期稳定,故此处 version 留 null 并指向该 properties,不猜脚本对应的 commit。",
+        "companionAnchors": ["apps/mobile-cap/android/gradle/wrapper/gradle-wrapper.properties"]
+      },
+      "license": {
+        "spdx": "Apache-2.0",
+        "texts": [
+          {
+            "form": "externalOnly",
+            "fetchUrl": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+            "note": "脚本头部保留『Copyright © 2015-2021 the original authors.』(gradlew)与『Copyright 2015 the original author or authors.』(gradlew.bat),未附完整原文。"
+          }
+        ]
+      },
+      "roots": ["apps/mobile-cap/android/gradlew", "apps/mobile-cap/android/gradlew.bat"],
+      "modification": "unmodified-copy",
+      "modificationNote": "两文件均无本仓改动(仅上游版权头 + 标准 wrapper 引导逻辑)。",
+      "attributionBoundary": "apps/mobile-cap/android/** 的其余 60 个跟踪文件属 Capacitor 模板生成 + 本仓自研配置(含 MainActivity.java、AndroidManifest.xml 等),不主张来自 gradle 上游;本条只覆盖两个 wrapper 脚本自身。",
+      "obligations": "待补登记:apps/mobile-cap 整目录是 Capacitor 生成的脚手架,其中 Java/Kotlin 侧若引入 capacitor 插件源码副本需另立条目;当前扫描只命中这两个带第三方版权头的文件。"
+    },
+    {
+      "id": "lucide-triangle-alert-svg",
+      "kind": "copied",
+      "name": "lucide 图标 triangle-alert.svg",
+      "purpose": "miniapp-taro 端的 UI 图标素材(AGENTS §4 规定小程序图标取自 lucide 风格 SVG),按 scripts/gen-taro-lucide-icons.mjs 从 lucide 提取。",
+      "upstream": {
+        "project": "lucide",
+        "repository": "https://github.com/lucide-icons/lucide",
+        "acquisition": "node scripts/gen-taro-lucide-icons.mjs <name> 生成;该生成器在产物首行写入 \"<!-- @license lucide-static v1.31.0 - ISC -->\"(scripts/gen-taro-lucide-icons.mjs:51),版本锚点即从此行实测取得",
+        "version": "1.31.0",
+        "gitRevision": null,
+        "gitRevisionNote": "上游锚点是 npm 包 lucide-static 的版本号 1.31.0(生成器写进产物的归属注释),不是 git commit;故 gitRevision 显式 null:本条主张图形源自 lucide-static@1.31.0 的 triangle-alert,不主张等于该包内某个 commit。"
+      },
+      "license": {
+        "spdx": "ISC",
+        "texts": [
+          {
+            "form": "externalOnly",
+            "fetchUrl": "https://raw.githubusercontent.com/lucide-icons/lucide/main/LICENSE",
+            "note": "ISC 原文未入库;SVG 产物本身不携带许可头(lucide 上游即如此)。"
+          }
+        ]
+      },
+      "roots": ["apps/miniapp-taro/src/static/images/icons/triangle-alert.svg"],
+      "modification": "unmodified-copy",
+      "modificationNote": "生成器只做名称/别名解析与 stroke 颜色改写(端内约定 stroke 用 #6366F1 或本文件的 #000 原值),几何路径未手改。",
+      "attributionBoundary": "apps/miniapp-taro/src/static/images/icons/ 目录当前**只有这 1 个跟踪文件**(实测 git ls-files 计数 1);其余图标只存在于本机工作树、未入库,故不构成台账对象。新增该目录的跟踪图标必须由生成器产出并在此登记。",
+      "obligations": "待补登记:① 生成器应在产物注释里落 lucide 版本(否则每条素材的 revision 永远不可考);② 若后续批量入库现有工作树图标,须一并补登记。"
+    }
+  ]
+}
