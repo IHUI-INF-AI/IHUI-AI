@@ -504,3 +504,42 @@ test('R6 解析器与真登记表:解析结果必须能驱动真产出函数', a
     __test__.UndeterminedError,
   )
 })
+
+// ── 崩溃面(2026-09-25 补)──
+// 起因:全量模式偶发匿名 `TypeError: Cannot read properties of undefined (reading 'length')` + exit 2,
+// 只打 message 不打栈 ⇒ 复跑三轮再也复现不出来。修法是"崩 ⇒ 具名无法判定"与"截断 ⇒ 大声失败",
+// 而这两条**只能用纯函数 + 构造面证明**(把旧形状写回本文件当证明会因 `break` 落循环外而语法错)。
+test('表名漂移必须抛具名"无法判定",而不是裸 TypeError', async () => {
+  const { checkCrashShape } = await import('../check-cross-end-tokens.mjs')
+  assert.equal(typeof checkCrashShape, 'function', 'checkCrashShape 必须被导出(否则形状判据测不到)')
+
+  const src = readFileSync(new URL('../check-cross-end-tokens.mjs', import.meta.url), 'utf8')
+  const onReal = checkCrashShape(src)
+  assert.equal(onReal.truncatedNamed, true, 'catBatch 截断必须点名')
+  assert.equal(onReal.silentBreakBack, false, '真文件不得含旧静默 break 形状')
+  assert.equal(onReal.catchHasStack, true, '顶层 catch 必须带栈')
+
+  // 反例:旧写法回来 ⇒ 必须被抓到(证明这把尺子有牙,不是恒绿)
+  const onBad = checkCrashShape('function catBatch(revs){\n  map.set(rev, null)\n      break\n}\n')
+  assert.equal(onBad.silentBreakBack, true, '含旧静默 break 的文本必须判 silentBreakBack=true')
+
+  // 反例:catch 只打 message ⇒ 必须被抓到
+  assert.equal(
+    checkCrashShape('main().catch((e) => { console.error(e.message); process.exit(2) })')
+      .catchHasStack,
+    false,
+    '不带栈的 catch 必须判红'
+  )
+})
+
+test('resolveTsPath 拿到不存在的表 ⇒ 具名 UndeterminedError 且点名表名', async () => {
+  const m = await import('../check-cross-end-tokens.mjs')
+  const { resolveTsPath, UndeterminedError } = m.__test__ ?? m
+  assert.throws(
+    () => resolveTsPath(undefined, ['rnGhostTokens', 'gold']),
+    (e) => e instanceof UndeterminedError && /rnGhostTokens/.test(e.message) && /取不到/.test(e.message),
+    '必须是具名"无法判定",且消息里要点名是哪张表'
+  )
+  // 反向对照:正常 body 不得被新守卫误伤
+  assert.doesNotThrow(() => resolveTsPath('vip: { gold: "#FFD700" };', ['vip', 'gold']))
+})
