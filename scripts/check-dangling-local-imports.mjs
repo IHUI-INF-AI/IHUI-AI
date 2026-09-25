@@ -27,13 +27,15 @@
  *   node scripts/check-dangling-local-imports.mjs --self-test     # 逻辑自检(正反成对)
  * 紧急跳过:HUSKY_SKIP_DANGLING_IMPORTS=1 git commit ...
  */
-import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+// git 派生与 `cat-file --batch` 取材一律走共用层 scripts/lib/face-reader.mjs(绝对路径 git、
+// safe.directory、显式 stdio、批量读)。本门不再自带那份 `git()` / `catBatch()` —— 五处易错点
+// (裸 'git'、stdio[0]='ignore'、逐文件派生、junction 下的仓库根比较、maxBuffer)只该存在一处。
+import { catBatch, gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const GIT = 'C:/Program Files/Git/cmd/git.exe'
 const SELF_SKIP = 'HUSKY_SKIP_DANGLING_IMPORTS'
 const EXT = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']
 /** 带 `?raw` / `?url` 后缀的导入(Vite/测试里读源码文本):查询串在 resolveSpec 里剥掉,
@@ -44,39 +46,48 @@ const SKIP_DIR = /(^|\/)(node_modules|dist|\.next|\.expo|build|android|ios|cover
 const FIXTURE_ROOT = /^(benchmarks|testdata|fixtures)\//
 const GIT_TIMEOUT = 120000
 
-const gitOpts = { encoding: 'utf8', windowsHide: true, maxBuffer: 512 << 20, timeout: GIT_TIMEOUT }
-const git = (args) => execFileSync(GIT, ['-c', 'safe.directory=*', '-C', ROOT, ...args], gitOpts)
-
 // ── 内容取材:HEAD blob / 索引 blob / 工作区,三种口径共用一条批量读取通道 ──────────────
-/** 一次 `cat-file --batch` 读完一批对象,避免 N 次派生(git 写锁与进程风暴都在这里省掉)。
- *  返回 Map<"<rev>:<path>", text|null>(missing / 非 blob 一律 null,不抛异常) */
-function catBatch(revs) {
-  const out = execFileSync(GIT, ['-c', 'safe.directory=*', '-C', ROOT, 'cat-file', '--batch'], {
-    cwd: ROOT,
-    windowsHide: true,
-    maxBuffer: 512 << 20,
+/** 层的 catBatch 把 maxBuffer 钉死在 64MB(lib/face-reader.mjs 的 GIT_MAX_BUFFER),而本门全量一次
+ *  要读**全部**跟踪源文件(HEAD 内容实测约 85MB)⇒ 单次 batch 必然 ENOBUFS,且它会被层折成"取不到
+ *  内容"而不是"缓冲不够"。层当前**没有**给 catBatch 开 maxBuffer / 分片预算的口子(已在交付报告
+ *  登记为缺失原语),故这里按 blob 体积分片喂**同一个** catBatch —— 仍是"一次读一批",不是逐文件派生。
+ *  体积来自一次 `ls-tree -r -l -z HEAD`(NUL 分帧,中文/空格路径不被打断);索引面取不到体积,
+ *  而那一面只喂"本次暂存的少数文件",单片远不到预算。 */
+const CAT_BUDGET = 40 << 20
+
+function headBlobSizes() {
+  const sizes = new Map()
+  for (const row of gitRaw(['ls-tree', '-r', '-l', '--full-name', '-z', 'HEAD'], ROOT, {
     timeout: GIT_TIMEOUT,
-    input: Buffer.from(revs.join('\n') + '\n', 'utf8'),
-  })
-  const map = new Map()
-  let pos = 0
-  for (let i = 0; i < revs.length; i++) {
-    const nl = out.indexOf(0x0a, pos)
-    if (nl < 0) {
-      map.set(revs[i], null)
-      continue
-    }
-    const header = out.subarray(pos, nl).toString('utf8')
-    pos = nl + 1
-    const m = /^([0-9a-f]{40}) blob (\d+)$/.exec(header)
-    if (!m) {
-      map.set(revs[i], null) // "<rev>:<path> missing" 之类
-      continue
-    }
-    map.set(revs[i], out.subarray(pos, pos + Number(m[2])).toString('utf8'))
-    pos += Number(m[2]) + 1
+  }).split('\0')) {
+    if (!row) continue
+    const tab = row.indexOf('\t')
+    if (tab < 0) continue
+    const size = Number(row.slice(0, tab).split(/\s+/)[3])
+    if (Number.isFinite(size)) sizes.set(row.slice(tab + 1), size)
   }
-  return map
+  return sizes
+}
+
+/** 一次(或按预算的几次)`cat-file --batch` 读完一批 rev → Map<"<rev>:<path>", text|null> */
+function catBatchBudgeted(revs, sizes) {
+  const out = new Map()
+  let part = []
+  let used = 0
+  const flush = () => {
+    if (!part.length) return
+    for (const [rev, text] of catBatch(ROOT, part)) out.set(rev, text)
+    part = []
+    used = 0
+  }
+  for (const rev of revs) {
+    const size = (sizes && sizes.get(rev.slice(rev.indexOf(':') + 1))) || 0
+    if (part.length && used + size > CAT_BUDGET) flush()
+    part.push(rev)
+    used += size
+  }
+  flush()
+  return out
 }
 
 function trackedSourceFiles(rev) {
@@ -89,11 +100,14 @@ function trackedSourceFiles(rev) {
  *  (实测 11 处)。判 HEAD 的门,存在性也只能按 HEAD 树判。 */
 function treePaths(rev) {
   return rev === '' || rev === 'INDEX'
-    ? git(['ls-files', '-z']).split('\0').filter(Boolean)
-    : git(['ls-tree', '-r', '--name-only', rev, '-z']).split('\0').filter(Boolean)
+    ? gitRaw(['ls-files', '-z'], ROOT, { timeout: GIT_TIMEOUT }).split('\0').filter(Boolean)
+    : gitRaw(['ls-tree', '-r', '--name-only', rev, '-z'], ROOT, { timeout: GIT_TIMEOUT })
+        .split('\0')
+        .filter(Boolean)
 }
 
-const NON_CODE_EXT = /\.(css|scss|less|svg|png|jpe?g|gif|webp|ico|woff2?|ttf|eot|mp3|mp4|md|html|txt|glb|hdr|json|map)$/i
+const NON_CODE_EXT =
+  /\.(css|scss|less|svg|png|jpe?g|gif|webp|ico|woff2?|ttf|eot|mp3|mp4|md|html|txt|glb|hdr|json|map)$/i
 
 function resolveCands(rel) {
   if (NON_CODE_EXT.test(rel)) return [rel] // 资源:只看存在性,不参与导出对账
@@ -113,7 +127,11 @@ function resolveCands(rel) {
   // 补扩展名的判据是"**不是已知扩展名**",不是"不含点":本仓有一批合法的中缀点文件名
   //  —— `Selecter.taro`(→ Selecter.taro.tsx)、`admin-tenants.types`、`redirects.config`、
   //  `desktop-feed.generated`。按"含点即有扩展名"处理会让这四类全部假报 D2(实测 12 处)。
-  if (!/\.(ts|tsx|js|jsx|mjs|cjs|json|css|scss|less|svg|png|jpe?g|gif|webp|ico|woff2?|ttf|eot|mp3|mp4|md|html|txt)$/i.test(last))
+  if (
+    !/\.(ts|tsx|js|jsx|mjs|cjs|json|css|scss|less|svg|png|jpe?g|gif|webp|ico|woff2?|ttf|eot|mp3|mp4|md|html|txt)$/i.test(
+      last,
+    )
+  )
     out.push(...EXT.map((e) => rel + e))
   out.push(...EXT.map((e) => `${rel}/index${e}`))
   return out
@@ -255,7 +273,12 @@ export function auditFile(relPath, readFile, hasPath) {
       }
     }
     if (!target) {
-      bad.push({ line: imp.line, rule: 'D2', raw: imp.spec, hint: '相对导入解析不到任何文件(路径已改/文件已删/大小写不符)' })
+      bad.push({
+        line: imp.line,
+        rule: 'D2',
+        raw: imp.spec,
+        hint: '相对导入解析不到任何文件(路径已改/文件已删/大小写不符)',
+      })
       continue
     }
     if (NON_CODE_EXT.test(target)) continue // 资源模块:只核存在性,没有导出名单可对
@@ -263,14 +286,30 @@ export function auditFile(relPath, readFile, hasPath) {
     if (opaque) continue
     for (const n of imp.named) {
       if (n.imported === 'default') {
-        if (!names.has('default')) bad.push({ line: imp.line, rule: 'D1', raw: `default ← ${imp.spec}`, hint: '目标文件没有 export default' })
+        if (!names.has('default'))
+          bad.push({
+            line: imp.line,
+            rule: 'D1',
+            raw: `default ← ${imp.spec}`,
+            hint: '目标文件没有 export default',
+          })
         continue
       }
       if (!names.has(n.imported))
-        bad.push({ line: imp.line, rule: 'D1', raw: `${n.imported} ← ${imp.spec}`, hint: `目标文件未导出 ${n.imported};该符号在 HEAD 上根本不存在,Metro 不查类型 ⇒ 打包能过、渲染到它才崩` })
+        bad.push({
+          line: imp.line,
+          rule: 'D1',
+          raw: `${n.imported} ← ${imp.spec}`,
+          hint: `目标文件未导出 ${n.imported};该符号在 HEAD 上根本不存在,Metro 不查类型 ⇒ 打包能过、渲染到它才崩`,
+        })
     }
     if (imp.defaultImport && !names.has('default'))
-      bad.push({ line: imp.line, rule: 'D1', raw: `default ← ${imp.spec}`, hint: '默认导入但目标无 export default' })
+      bad.push({
+        line: imp.line,
+        rule: 'D1',
+        raw: `default ← ${imp.spec}`,
+        hint: '默认导入但目标无 export default',
+      })
   }
   return bad
 }
@@ -309,8 +348,12 @@ async function main() {
   }
 
   const headFiles = trackedSourceFiles('HEAD')
+  const headSizes = headBlobSizes()
   const mkRead = (rev, files) => {
-    const map = catBatch(files.map((p) => `${rev}:${p}`))
+    const map = catBatchBudgeted(
+      files.map((p) => `${rev}:${p}`),
+      rev === 'HEAD' ? headSizes : null,
+    )
     const cache = new Map()
     const missing = new Set()
     return (p) => {
@@ -337,7 +380,9 @@ async function main() {
   let contentMode = 'HEAD 内容'
   if (isStaged) {
     contentMode = '索引内容(锚点=该文件 HEAD 自身)'
-    const staged = git(['diff', '--cached', '--name-only', '--diff-filter=ACMR'])
+    const staged = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMR'], ROOT, {
+      timeout: GIT_TIMEOUT,
+    })
       .split('\n')
       .filter((p) => SRC_RE.test(p) && !SKIP_DIR.test(p) && !FIXTURE_ROOT.test(p))
     stagedCount = staged.length
@@ -372,14 +417,16 @@ async function main() {
   //    全量模式只跑在 check:all / CI,正适合当"合并把已修好的悬空导入带回来"的哨兵。
   if (!isStaged && !FILES_MODE && total > 0) {
     console.log(`❌ 全量口径为零容忍:HEAD 上仍有 ${total} 处悬空具名导入(存量已于 2026-09-24 清零)`)
-    for (const [f, list] of byPending) for (const v of list) console.log(`   ${f}:${v.line} [${v.rule}] ${v.raw}  → ${v.hint}`)
+    for (const [f, list] of byPending)
+      for (const v of list) console.log(`   ${f}:${v.line} [${v.rule}] ${v.raw}  → ${v.hint}`)
     console.log('   单独复现:node scripts/check-dangling-local-imports.mjs')
     console.log(`   紧急跳过:${SELF_SKIP}=1(仅对 check:all/CI 有意义,提交链走 --staged)`)
     process.exit(1)
   }
   if (!fresh.length) {
     console.log('✅ 无新增悬空具名导入' + (total ? `(存量 ${total} 处如实报数,见下)` : ''))
-    for (const [f, list] of byPending) for (const v of list) console.log(`   · 存量 ${f}:${v.line} [${v.rule}] ${v.raw}`)
+    for (const [f, list] of byPending)
+      for (const v of list) console.log(`   · 存量 ${f}:${v.line} [${v.rule}] ${v.raw}`)
     return
   }
   console.log(`❌ 新增 ${fresh.length} 个文件存在解析不到的具名导入:`)
@@ -387,7 +434,9 @@ async function main() {
     console.log(`   ${file}(HEAD 自身 ${tol} 处 → 本次 ${list.length} 处)`)
     for (const v of list) console.log(`      :${v.line} [${v.rule}] ${v.raw}  → ${v.hint}`)
   }
-  console.log(`   单独复现:node scripts/check-dangling-local-imports.mjs --files ${fresh.map((f) => f.file).join(' ')}`)
+  console.log(
+    `   单独复现:node scripts/check-dangling-local-imports.mjs --files ${fresh.map((f) => f.file).join(' ')}`,
+  )
   console.log(`   紧急跳过:${SELF_SKIP}=1 git commit ...(会连同把悬空导入留在 main 上,勿滥用)`)
   process.exit(1)
 }
@@ -395,27 +444,132 @@ async function main() {
 // ── 自检:正反成对 ─────────────────────────────────────────────────────────────────────
 function selfTest() {
   const cases = [
-    { name: 'D1 导入不存在的导出必拦', files: { 'a/i.tsx': "import { Ghost } from './b'\n<Ghost />", 'a/b.tsx': 'export function Real() { return null }' }, red: 1 },
-    { name: 'D1 导出确实存在必须放行(与上条成对)', files: { 'a/i.tsx': "import { Real } from './b'\n<Real />", 'a/b.tsx': 'export function Real() { return null }' }, red: 0 },
-    { name: 'D1 多行 import 里的悬空项要看得见', files: { 'a/i.ts': "import {\n  Real,\n  Ghost,\n} from './b'\nexport const x = [Real, Ghost]", 'a/b.ts': 'export const Real = 1' }, red: 1 },
-    { name: 'D1 export { A as B } 的对外名是 B', files: { 'a/i.ts': "import { B } from './b'\nexport const x = B", 'a/b.ts': 'const A = 1\nexport { A as B }' }, red: 0 },
-    { name: 'D1 export { B as C } 时导入 B 不算合规', files: { 'a/i.ts': "import { B } from './b'\nexport const x = B", 'a/b.ts': 'const B = 1\nexport { B as C }' }, red: 1 },
+    {
+      name: 'D1 导入不存在的导出必拦',
+      files: {
+        'a/i.tsx': "import { Ghost } from './b'\n<Ghost />",
+        'a/b.tsx': 'export function Real() { return null }',
+      },
+      red: 1,
+    },
+    {
+      name: 'D1 导出确实存在必须放行(与上条成对)',
+      files: {
+        'a/i.tsx': "import { Real } from './b'\n<Real />",
+        'a/b.tsx': 'export function Real() { return null }',
+      },
+      red: 0,
+    },
+    {
+      name: 'D1 多行 import 里的悬空项要看得见',
+      files: {
+        'a/i.ts': "import {\n  Real,\n  Ghost,\n} from './b'\nexport const x = [Real, Ghost]",
+        'a/b.ts': 'export const Real = 1',
+      },
+      red: 1,
+    },
+    {
+      name: 'D1 export { A as B } 的对外名是 B',
+      files: {
+        'a/i.ts': "import { B } from './b'\nexport const x = B",
+        'a/b.ts': 'const A = 1\nexport { A as B }',
+      },
+      red: 0,
+    },
+    {
+      name: 'D1 export { B as C } 时导入 B 不算合规',
+      files: {
+        'a/i.ts': "import { B } from './b'\nexport const x = B",
+        'a/b.ts': 'const B = 1\nexport { B as C }',
+      },
+      red: 1,
+    },
     { name: 'D2 路径解析不到必拦', files: { 'a/i.ts': "import { x } from './nope'" }, red: 1 },
-    { name: '缩进/注释里的示例 import 一律不判(防假红第一道)', files: { 'a/i.ts': 'export const k = 1\n//   import { Ghost } from \'./b\'\n/** import { Ghost2 } from \'./b\' */' }, red: 0 },
-    { name: 'export * 的目标不可枚举,必须放过', files: { 'a/i.ts': "import { Anything } from './b'", 'a/b.ts': "export * from './c'", 'a/c.ts': 'export const Anything = 1' }, red: 0 },
-    { name: '非相对路径(@/、包名)不参与判定', files: { 'a/i.ts': "import { Ghost } from '@/components/ghost'\nimport { View } from 'react-native'" }, red: 0 },
-    { name: 'type 导入同样要真存在(TS2305 也是编译期事故)', files: { 'a/i.ts': "import type { Ghost } from './b'\nexport const x: Ghost = 1", 'a/b.ts': 'export type Real = 1' }, red: 1 },
-    { name: 'side-effect 导入无具名项', files: { 'a/i.ts': "import './b'", 'a/b.ts': 'export const Real = 1' }, red: 0 },
-    { name: "TS 风格 './b.js' 指向 b.ts 必须解析得到(首版误判上百处 D2)", files: { 'a/i.ts': "import { Real } from './b.js'", 'a/b.ts': 'export const Real = 1' }, red: 0 },
-    { name: '资源导入只核存在性,不核导出名单', files: { 'a/i.ts': "import logo from './logo.svg'\nexport const L = logo", 'a/logo.svg': '<svg />' }, red: 0 },
-    { name: '资源路径真缺失仍要报 D2(与上条成对)', files: { 'a/i.ts': "import logo from './gone.svg'" }, red: 1 },
-    { name: 'export type { A } 转导出也算导出', files: { 'a/i.ts': "import { A } from './b'\nexport const x: A = 1", 'a/b.ts': "import type { A } from './c'\nexport type { A }", 'a/c.ts': 'export type A = number' }, red: 0 },
-    { name: '解构导出 export const { X } = factory 必须算导出(7 处假红的成因)', files: { 'a/i.ts': "import { useAuthStore } from './store'", 'a/store.ts': 'const factory = {}\nexport const { useAuthStore } = factory' }, red: 0 },
-    { name: '模板字符串里拼出来的 import 不判(生成器夹具)', files: { 'a/gen.mjs': 'export const SRC = 1', 'a/g.mjs': "const tpl = `\nimport { Ghost } from './nope'\n`\nexport const t = tpl" }, red: 0 },
+    {
+      name: '缩进/注释里的示例 import 一律不判(防假红第一道)',
+      files: {
+        'a/i.ts':
+          "export const k = 1\n//   import { Ghost } from './b'\n/** import { Ghost2 } from './b' */",
+      },
+      red: 0,
+    },
+    {
+      name: 'export * 的目标不可枚举,必须放过',
+      files: {
+        'a/i.ts': "import { Anything } from './b'",
+        'a/b.ts': "export * from './c'",
+        'a/c.ts': 'export const Anything = 1',
+      },
+      red: 0,
+    },
+    {
+      name: '非相对路径(@/、包名)不参与判定',
+      files: {
+        'a/i.ts': "import { Ghost } from '@/components/ghost'\nimport { View } from 'react-native'",
+      },
+      red: 0,
+    },
+    {
+      name: 'type 导入同样要真存在(TS2305 也是编译期事故)',
+      files: {
+        'a/i.ts': "import type { Ghost } from './b'\nexport const x: Ghost = 1",
+        'a/b.ts': 'export type Real = 1',
+      },
+      red: 1,
+    },
+    {
+      name: 'side-effect 导入无具名项',
+      files: { 'a/i.ts': "import './b'", 'a/b.ts': 'export const Real = 1' },
+      red: 0,
+    },
+    {
+      name: "TS 风格 './b.js' 指向 b.ts 必须解析得到(首版误判上百处 D2)",
+      files: { 'a/i.ts': "import { Real } from './b.js'", 'a/b.ts': 'export const Real = 1' },
+      red: 0,
+    },
+    {
+      name: '资源导入只核存在性,不核导出名单',
+      files: {
+        'a/i.ts': "import logo from './logo.svg'\nexport const L = logo",
+        'a/logo.svg': '<svg />',
+      },
+      red: 0,
+    },
+    {
+      name: '资源路径真缺失仍要报 D2(与上条成对)',
+      files: { 'a/i.ts': "import logo from './gone.svg'" },
+      red: 1,
+    },
+    {
+      name: 'export type { A } 转导出也算导出',
+      files: {
+        'a/i.ts': "import { A } from './b'\nexport const x: A = 1",
+        'a/b.ts': "import type { A } from './c'\nexport type { A }",
+        'a/c.ts': 'export type A = number',
+      },
+      red: 0,
+    },
+    {
+      name: '解构导出 export const { X } = factory 必须算导出(7 处假红的成因)',
+      files: {
+        'a/i.ts': "import { useAuthStore } from './store'",
+        'a/store.ts': 'const factory = {}\nexport const { useAuthStore } = factory',
+      },
+      red: 0,
+    },
+    {
+      name: '模板字符串里拼出来的 import 不判(生成器夹具)',
+      files: {
+        'a/gen.mjs': 'export const SRC = 1',
+        'a/g.mjs': "const tpl = `\nimport { Ghost } from './nope'\n`\nexport const t = tpl",
+      },
+      red: 0,
+    },
     {
       name: '本地转导出 export { X } 不得把下一条 export-from 拼进来(web e2e fixtures 假红的成因)',
       files: {
-        'a/i.ts': "import { test as baseTest } from '@playwright/test'\nexport { baseTest }\nexport {\n  A,\n} from './b'",
+        'a/i.ts':
+          "import { test as baseTest } from '@playwright/test'\nexport { baseTest }\nexport {\n  A,\n} from './b'",
         'a/b.ts': 'export const A = 1',
       },
       red: 0,
@@ -424,7 +578,8 @@ function selfTest() {
       name: '导出名单里夹块注释(本仓 types.ts 满屏都是)不得吃掉注释后那个名字',
       files: {
         'a/b/i.ts': "import { LiveStatus } from '../../types'",
-        'types.ts': "export type {\n  TFunction,\n  /** 批次 12:直播列表 */\n  LiveStatus,\n} from '@ihui/types'",
+        'types.ts':
+          "export type {\n  TFunction,\n  /** 批次 12:直播列表 */\n  LiveStatus,\n} from '@ihui/types'",
       },
       red: 0,
     },
@@ -441,7 +596,10 @@ function selfTest() {
   // 真仓对照:HEAD 上这一类的真实存量必须是**已知且有限**的,判据不得凭空放大
   const real = trackedSourceFiles('HEAD')
   const trackedAll = new Set(treePaths('HEAD'))
-  const readHead = catBatch(real.map((p) => `HEAD:${p}`))
+  const readHead = catBatchBudgeted(
+    real.map((p) => `HEAD:${p}`),
+    headBlobSizes(),
+  )
   const cache = new Map()
   const read = (p) => {
     if (cache.has(p)) return cache.get(p)
@@ -452,9 +610,12 @@ function selfTest() {
   const found = auditTree(read, real, (p) => trackedAll.has(p) || existsSync(join(ROOT, p)))
   const total = [...found.values()].reduce((s, v) => s + v.length, 0)
   console.log(`\n📎 真仓 HEAD 实测:${real.length} 个跟踪源文件,悬空 ${total} 处`)
-  for (const [f, list] of found) for (const v of list) console.log(`   ${f}:${v.line} [${v.rule}] ${v.raw}`)
+  for (const [f, list] of found)
+    for (const v of list) console.log(`   ${f}:${v.line} [${v.rule}] ${v.raw}`)
   if (total > 0) {
-    console.log(`❌ 存量已清零后本门零容忍 —— HEAD 上仍有 ${total} 处,说明有回归(多半是合并把已修好的导出又吞了)`)
+    console.log(
+      `❌ 存量已清零后本门零容忍 —— HEAD 上仍有 ${total} 处,说明有回归(多半是合并把已修好的导出又吞了)`,
+    )
     process.exit(1)
   }
   if (fail) {

@@ -19,9 +19,17 @@
 //   ③ 逃生舱 —— IHUI_SKIP_DRIFT_ALIGN=1 在对齐层生效(与恢复层的 IHUI_SKIP_WORKTREE_HEAL 分开,
 //      紧急停一侧不得连带停另一侧)。
 import { execFileSync, spawnSync } from 'node:child_process'
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join, normalize, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -62,15 +70,43 @@ test('逃生舱只对对齐层生效,不影响恢复层', () => {
 /**
  * 造一个最小仓:v1 → v2(HEAD),再把工作区写回 v1(索引==HEAD ⇒ 幻影漂移)。
  * 自愈 CLI 的 repoRoot 由**脚本自身位置**推导(`resolve(dirname(import.meta.url),'..')`),
- * 所以必须把 CLI 连同它唯一的依赖(check-stale-revert.mjs)复制进演练仓再执行 ——
+ * 所以必须把 CLI 连同它的**整条相对 import 闭包**复制进演练仓再执行 ——
  * 直接跑仓内 CLI 会去对齐真实工作区(第一版就犯了这个错,断言读到的是真仓漂移数 2)。
+ *
+ * 闭包是**推导**出来的而不是手抄的:CLI 原先只依赖 check-stale-revert.mjs,2026-09-25 把
+ * git 派生收口进 scripts/lib/face-reader.mjs 后又多了两跳(face-reader → gitdir)。手抄清单
+ * 晚了一拍的后果就是子进程 ERR_MODULE_NOT_FOUND、exit 1、stdout 空 —— 下面两条 CLI 契约测试
+ * 会红在一件与被测行为完全无关的事上(清单腐烂,与本仓多道门登记过的同型缺陷一致)。
  */
+function localImportClosure(entryRel, seen = new Set()) {
+  if (seen.has(entryRel)) return seen
+  seen.add(entryRel)
+  let text = ''
+  try {
+    text = readFileSync(join(HEAL_DIR, entryRel), 'utf8')
+  } catch {
+    return seen // 复制面之外的文件(不该发生):闭包就此收住,由调用方的存在性断言去报
+  }
+  for (const m of text.matchAll(/^\s*import\b[^'"]*from\s*'(\.[^']+)'/gm)) {
+    const next = normalize(join(dirname(entryRel), m[1])).replace(/\\/g, '/')
+    localImportClosure(next, seen)
+  }
+  return seen
+}
+
 function makeDrillRepo() {
   const tmp = mkdtempSync(join(tmpdir(), 'gk-drift-'))
   mkdirSync(join(tmp, 'scripts'), { recursive: true })
-  for (const f of ['heal-worktree-tracked.mjs', 'check-stale-revert.mjs']) {
-    copyFileSync(HEAL_DIR + '/' + f, join(tmp, 'scripts', f))
+  for (const rel of localImportClosure('heal-worktree-tracked.mjs')) {
+    const dst = join(tmp, 'scripts', rel)
+    mkdirSync(dirname(dst), { recursive: true })
+    copyFileSync(join(HEAL_DIR, rel), dst)
   }
+  // 反向哨兵:闭包里必须真的含收口后的共用层,否则本测试又变回"跑得通但拷错了东西"
+  assert.ok(
+    existsSync(join(tmp, 'scripts', 'lib', 'face-reader.mjs')),
+    '演练仓未拷到 scripts/lib/face-reader.mjs —— CLI 的 git 派生已收口到共用层,少一跳就是 ERR_MODULE_NOT_FOUND',
+  )
   const g = (args) =>
     execFileSync('git', ['-c', 'safe.directory=*', '-C', tmp, ...args], { encoding: 'utf8' })
   g(['init', '-q', '--initial-branch=main'])

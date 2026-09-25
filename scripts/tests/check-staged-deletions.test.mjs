@@ -91,15 +91,33 @@ test('豁免清单:文件不存在正常工作;坏 JSON 必须显式报错(不�
   assert.equal(bad.entries.length, 0)
 })
 
-test('取材纪律:spawn 一律带 windowsHide + timeout(守门 52 / 80 的口径)', () => {
+// 取材纪律(2026-09-25 同位重锚:本门的 git 派生与 `cat-file --batch` 已收口到
+// scripts/lib/face-reader.mjs,源文件里**不再有** execFileSync —— 旧断言"每处 spawn 必须带
+// windowsHide + timeout"的前置(存在 spawn)已经不成立,照它执行会恒红。
+// 现行更强的口径:① 本门一律不自拼派生;② 必须真的经层(gitRaw + catBatch 都在用);
+// ③ safe.directory 这类"只有一个人会写对"的细节不得在端内重复一份;④ 层必须仍然导出这些原语。)
+test('取材纪律:本门不得自拼 git 派生,取材一律经 scripts/lib/face-reader.mjs', () => {
   const src = readFileSync(GUARD, 'utf8')
-  const sites = [...src.matchAll(/execFileSync\(/g)]
-  assert.ok(sites.length >= 2, `期望至少 2 处 git 派生,实际 ${sites.length}`)
-  for (const [i, m] of sites.entries()) {
-    const win = src.slice(m.index, m.index + 520)
-    assert.match(win, /windowsHide:\s*true/, `第 ${i + 1} 处派生缺 windowsHide(守门 52 会拦)`)
-    assert.match(win, /\btimeout\b/, `第 ${i + 1} 处派生缺 timeout(守门 80 会拦)`)
+  for (const banned of ['execFileSync(', 'execSync(', 'spawnSync(', 'spawn(']) {
+    assert.ok(!src.includes(banned), `迁移后门里不应再有自拼派生 ${banned}`)
   }
+  assert.ok(!src.includes(`'safe.directory=*'`), 'safe.directory 该由层单点持有,不得在端内重复')
+  assert.match(src, /from '\.\/lib\/face-reader\.mjs'/, '必须真接层')
+  for (const used of ['gitRaw(', 'catBatch('])
+    assert.ok(src.includes(used), `取材通道必须真的用到层的 ${used}`)
+})
+
+test('层的 gitErrText 空 stderr 措辞必须与门内的"零命中"常量逐字同', async () => {
+  // 旧判据读 `e.status === 1`;层把所有非零折成 Undetermined 且**不暴露 exit code**,
+  // 于是"git grep 零命中(合法空集)"与"真失败"只剩一条可观测差异:git 有没有留下诊断。
+  // 这条耦合必须由机器看着 —— 层改了措辞,本门会把"零命中"读成"真失败"而整门 exit 2。
+  const layer = await import('../lib/face-reader.mjs')
+  assert.equal(typeof layer.gitErrText, 'function', '层必须仍导出 gitErrText')
+  assert.equal(
+    __test__.ZERO_HIT_MARK,
+    layer.gitErrText({ stderr: '' }),
+    'ZERO_HIT_MARK 与层的空诊断措辞漂移 ⇒ grep 的零命中/真失败分档失效',
+  )
 })
 
 test('真仓取材通路可用(只读:不改索引、不改工作区)', () => {
