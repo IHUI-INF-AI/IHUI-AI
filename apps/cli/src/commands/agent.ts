@@ -726,7 +726,7 @@ interface SampleWithRetryOptions {
 }
 
 /**
- * D19(2026-09-26 接):terminal_delta 帧 → 「已完整成行」的终端输出行。
+ * D19(2026-09-25 接):terminal_delta 帧 → 「已完整成行」的终端输出行。
  *
  * 后端在命令执行期间逐块下发 stdout/stderr 增量(web/extension/mobile-rn 有卡片面板,
  * CLI 没有卡片宿主 — 最自然的渲染就是逐行打进输出流,与 noteLine 家族同一出口)。
