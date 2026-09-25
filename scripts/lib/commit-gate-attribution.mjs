@@ -39,11 +39,32 @@ const ANSI_RE = /\x1b\[[0-9;]*m/g
  */
 const FINDING_LINE_RE = /(error|错误|违规|failure|failed|❌|✗|:\d+\b|报数|判定)/i
 
-/** 只在"结论行"里找本次声明的文件 */
+/**
+ * 只在"结论行(含其缩进续行)"里找本次声明的文件。
+ *
+ * ⚠️ 为什么必须带续行(2026-09-25 实测逼出来):不少门把**结论**与**定位**拆成两行 ——
+ * 守门 84 的正文就是
+ *   `❌ 检出 1 个文件的暂存内容等于其**历史提交版本**…`   ← 只有 ❌,没有路径
+ *   `   - apps/…/remote-locales.gen.ts  ==  307afd6c3`      ← 只有路径,没有 FINDING 字样
+ * 逐行匹配时第二行不算结论行 ⇒ 本函数看不见被点名的文件 ⇒ 判 `not-ours` ⇒ **允许跳门**。
+ * 也就是"门说得越具体,铰链越松",方向正好错。取续行的判据是"缩进比结论行更深且非空",
+ * 最多 3 行;宁可将清单回显一并计入(至多多要求一次定向说明),也不放过一次本任务自己的红。
+ */
 export function findingLines(output) {
-  return stripAnsi(output)
-    .split(/\r?\n/)
-    .filter((l) => FINDING_LINE_RE.test(l))
+  const lines = stripAnsi(output).split(/\r?\n/)
+  const found = []
+  for (let i = 0; i < lines.length; i++) {
+    if (!FINDING_LINE_RE.test(lines[i])) continue
+    found.push(lines[i])
+    const baseIndent = /^\s*/.exec(lines[i])[0].length
+    for (let j = i + 1; j <= i + 3 && j < lines.length; j++) {
+      const cont = lines[j]
+      if (!cont.trim()) break
+      if (/^\s*/.exec(cont)[0].length <= baseIndent) break
+      found.push(cont)
+    }
+  }
+  return found
 }
 
 export function stripAnsi(text) {
@@ -313,6 +334,30 @@ export function selfTest(assert, runnerSource) {
   })
   assert(a2.kind === 'mine', `A2 失败门点名本次文件时必须判 mine,实得 ${a2.kind}`)
   assert(/禁止 --no-verify/.test(a2.reason), 'A2 mine 的措辞必须落到"禁止跳门"')
+
+  // --- A2b 结论与定位拆两行(守门 84 的真实形态)⇒ 仍须判 mine ---
+  // 旧实现逐行匹配,只看第一行有没有 FINDING 字样:那正是本函数上线后第一次实战里
+  // 判错的方向(门点名了本次文件,却被说成"未点名"),所以这条不是补充用例,是补漏洞。
+  const a2b = classifyHookFailure({
+    text: SUMMARY + FAIL_29,
+    stagedFiles: MY_FILES,
+    runGate: () => ({
+      status: 1,
+      output: '❌ 检出 1 个文件的暂存内容等于其**历史提交版本**:\n   - scripts/foo.mjs  ==  307afd6c3\n',
+    }),
+  })
+  assert(a2b.kind === 'mine', `A2b 两行形态的点名必须判 mine(旧版在这里判成 not-ours ⇒ 放行跳门),实得 ${a2b.kind}`)
+
+  // --- A3b 反向对照:续行点名的是**别人的**文件 ⇒ 不得因"带了续行"就判 mine ---
+  const a3b = classifyHookFailure({
+    text: SUMMARY + FAIL_29,
+    stagedFiles: MY_FILES,
+    runGate: () => ({
+      status: 1,
+      output: '❌ 检出 1 个文件的暂存内容等于其**历史提交版本**:\n   - apps/web/src/other.tsx  ==  307afd6c3\n',
+    }),
+  })
+  assert(a3b.kind === 'not-ours', `A3b 续行未涉及本次文件时应仍为 not-ours,实得 ${a3b.kind}`)
 
   // --- A3 别人的内容红(未点名我的文件)⇒ not-ours,但 detail 要如实说"仍红" ---
   const a3 = classifyHookFailure({
