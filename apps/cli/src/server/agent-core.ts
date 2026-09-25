@@ -93,6 +93,8 @@ export class AgentCore {
       enableMcp: this.opts.enableMcp,
       silent: true,
       permissionMode: this.opts.permissionMode,
+      // 会话级旁路事实随 ctx 下发,工具层披露可追溯(L7905 收口)
+      allowDangerous: this.opts.allowDangerous,
       subagentParent: {
         modelId: this.opts.model,
         apiUrl: this.opts.apiUrl,
