@@ -2308,6 +2308,7 @@ IHUI-AI/
 
 **跨端设计真值的自动同步(2026-09-25)**:`packages/design-tokens/src/styles/tokens.css` 是唯一色值源头,`apps/miniapp-taro/src/app.css` 与 `apps/mobile-rn/global.css` 是它的**派生副本**(Taro 与 NativeWind 只吃 Tailwind v3 语法,无法直接 `@import` 源头)。两端副本都由 `scripts/lib/pre-commit-hook.js` 的 `TOKEN_SYNC_TARGETS` 表在提交时自动重生成并加入暂存 —— 改源头一处即可,不需要谁记得跑命令。派生与对账**共用同一份取源实现** `scripts/lib/design-token-blocks.mjs`(生成器和守门各抄一遍取值逻辑必然不同形,后果见 PROJECT_PLAN 第五十批的实测);RN 侧写回是**原位写回**:同名 `--color-*` 行换值、源头新增档补到块尾,而端内自有档(如 `.dark` 里那批 `--rn-*`)与解释性注释逐字不动,值已等价时连字节都不改,因此幂等。
 
+**同一批把"第二真相"也收进派生面(2026-09-25)**:`packages/design-tokens/src/rn-tokens.ts` 的色值由 `scripts/sync-rn-tokens.mjs` 从 `tokens.css` 派生(可派生 87 档,不可派生 77 档逐条列因),`tailwind-alpha-plugin.js` 的 `ALPHA_USAGE` 由 `scripts/sync-alpha-usage.mjs` 从 v3 三端源码**剥注释后扫描**自动产出 —— 注释里的类名不是用量,这条判据本身就是这么被逼出来的。派生表在提交链里按**各自触发面**执行:token 类看 `tokens.css`,用量类看三端源码;后者生成器若因表体外存在未提交差异而拒绝写回,只告警不阻塞(他人现场不该钉红每一次提交),正确性仍由守门 93 的 R6 兜底。
 ---
 
 ## 快速开始
