@@ -5833,7 +5833,7 @@
       "statusRemoved": "已解除安裝",
       "refresh": "重新整理",
       "loadFailed": "載入失敗",
-      "installerHint": "GitHub 側操作者 id，非平台使用者"
+      "installerHint": "GitHub 側操作者 id，非平臺使用者"
     }
   },
   "connectors": {
