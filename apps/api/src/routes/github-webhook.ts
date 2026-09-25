@@ -45,13 +45,17 @@ import {
 } from '../services/agent-event-trigger.js'
 
 /** GitHub 支持的事件名(本服务订阅子集) */
-const WATCHED_EVENTS: GitHubEventName[] = ['pull_request', 'issues', 'push']
+const WATCHED_EVENTS: GitHubEventName[] = ['pull_request', 'issues', 'push', 'code_scanning_alert']
 
 /** 判断某事件的 action 是否命中订阅(未列出的 action 忽略,不触发) */
 function isActionWatched(event: GitHubEventName, action: string | undefined): boolean {
   if (event === 'pull_request') return action === 'opened' || action === 'synchronize'
   if (event === 'issues') return action === 'opened'
   if (event === 'push') return true // push 无 action 维度
+  // 代码扫描告警(D30 第三腿):只认"新出现/重现/回到分支"三态 —— 这些意味着代码里有待修的问题;
+  // fixed / closed_by_user 是**收敛方向**,唤起 agent 去修一个已修的告警纯属浪费。
+  if (event === 'code_scanning_alert')
+    return action === 'created' || action === 'appeared_in_branch' || action === 'reopened'
   return false
 }
 
@@ -217,6 +221,16 @@ const githubWebhookRoutes: FastifyPluginAsync = async (server) => {
       sender: (payload.sender as { login?: string } | undefined)?.login ?? '',
       action: action ?? '',
       branch: (payload.ref as string | undefined) ?? '',
+    }
+    // 代码扫描告警(D30 第三腿):把告警的规则描述与链接注入占位符上下文。
+    // title 截断 300 —— 与 ci_failed/gate_failed 信源的 summary 同一档上限,
+    // 防止长描述把 prompt 撑爆;url 是 GitHub 侧 html_url,非用户输入,不截。
+    if (eventName === 'code_scanning_alert') {
+      const alert = payload.alert as
+        { rule?: { description?: string }; html_url?: string } | undefined
+      const desc = (alert?.rule?.description ?? '').replace(/\s+/g, ' ').trim().slice(0, 300)
+      ctx.title = desc || (alert?.rule ? 'code scanning alert' : '')
+      ctx.url = alert?.html_url ?? ''
     }
     for (const trigger of matched) {
       const rendered = {

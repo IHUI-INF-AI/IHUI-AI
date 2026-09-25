@@ -109,6 +109,36 @@ test('PROJECT_PLAN.md 体积 > 500KB → exit 1(warn-only)+ ⚠️ 警告', () =
   }
 })
 
+// ─── 4b. 出路必须实测(2026-09-25 抓到本门给着一条跑不通的建议)────────
+
+test('warn 的出路必须实测:给出归档器实测量或明写未判定,不得再印旧那句', () => {
+  const dir = createTempRoot()
+  try {
+    writePlan(dir, 'x'.repeat(WARN_BYTES + 1024))
+    const r = runScript(dir)
+    assert.equal(r.status, 1, 'warn-only 违规仍应 exit 1(本测试不得改退出语义)')
+    // 两条合法出路:(a) 真问到了归档器 (b) 问不到就明写未判定。缺标注即为"给未验证建议"。
+    assert.match(
+      r.err,
+      /归档器实测/,
+      `出路必须标明它来自归档器的实测或"未判定",实得 stderr:\n${r.err.slice(0, 400)}`,
+    )
+    // 反向锁:旧文本建议"把已完成(✅)历史条目归档到 .ihui-agent/archive/",而
+    // `archive-completed-tasks.mjs --all --dry-run` 实测报「无可归档的已完成任务条目 (共 0 个)」——
+    // 归档器按 §1 只搬 `### 标题(已完成 ✅)` 条目,登记 bullet 不在射程 ⇒ 那句话是跑不通的出路
+    //(同型先例:守门 check-c-drive-pollution 曾提示一个 package.json 里不存在的脚本名)。
+    assert.doesNotMatch(
+      r.err,
+      /建议: 把已完成\(✅\)历史条目归档/,
+      '旧那条"去归档"的死路措辞不得回来(它会让人跑一条返回 0 的命令)',
+    )
+    // 未判定时必须自带原因,不许只说"跑不了"
+    if (/未判定/.test(r.err)) assert.match(r.err, /未判定\(.+\)/, '未判定必须带括号里的原因')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 // ─── 5. 阈值边界 ────────────────────────────────────────
 
 test('边界: 体积刚好 = 500KB → 不触发 warn(源脚本用 > 严格大于)', () => {
