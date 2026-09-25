@@ -14,6 +14,7 @@ import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
 import { fetchApi } from '@ihui/api-client'
 import ThemeRoot from '@/components/ThemeRoot'
+import BackChevron from '@/components/BackChevron'
 
 /** Taro rpx 单位换算(1px = 2rpx,750 设计稿基准) */
 const toRpx = (px: number): string => `${px * 2}rpx`
@@ -44,9 +45,6 @@ const viewStyles = {
     height: '100vh',
     paddingLeft: toRpx(16),
     paddingRight: toRpx(16),
-  }),
-  backBtn: (): CSSProperties => ({
-    alignSelf: 'flex-start',
   }),
   input: (tk: RnThemeTokens): CSSProperties => ({
     marginTop: toRpx(8),
@@ -84,10 +82,6 @@ const viewStyles = {
 const textStyles = {
   muted: (tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(14),
-    color: tk.text.secondary,
-  }),
-  back: (tk: RnThemeTokens): CSSProperties => ({
-    fontSize: toRpx(16),
     color: tk.text.secondary,
   }),
   title: (tk: RnThemeTokens): CSSProperties => ({
@@ -203,9 +197,7 @@ export default function CommunityCreate() {
       <View style={viewStyles.container(tk)}>
         <ScrollView scrollY style={viewStyles.bodyScroll()}>
           <View style={viewStyles.body()}>
-            <View style={viewStyles.backBtn()} onTap={goBack} hoverClass="opacity-60">
-              <Text style={textStyles.back(tk)}>{tt('common.back', '返回')}</Text>
-            </View>
+            <BackChevron onTap={goBack} />
             <Text style={textStyles.title(tk)}>{tt('postCreate.title', '发布帖子')}</Text>
             {error ? <Text style={textStyles.error(tk)}>{error}</Text> : null}
             <Text style={textStyles.label(tk)}>{tt('postCreate.titleLabel', '标题')}</Text>

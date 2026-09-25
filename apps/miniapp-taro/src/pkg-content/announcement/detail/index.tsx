@@ -14,6 +14,7 @@ import { useTt } from '@/i18n'
 import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
 import ThemeRoot from '@/components/ThemeRoot'
+import BackChevron from '@/components/BackChevron'
 
 /** Taro rpx 单位换算(1px = 2rpx,750 设计稿基准) */
 const toRpx = (px: number): string => `${px * 2}rpx`
@@ -44,9 +45,6 @@ const viewStyles = {
     height: '100vh',
     padding: toRpx(16),
     backgroundColor: tk.surface.bg,
-  }),
-  backBtn: (): CSSProperties => ({
-    alignSelf: 'flex-start',
   }),
   metaRow: (): CSSProperties => ({
     display: 'flex',
@@ -79,10 +77,6 @@ const textStyles = {
     color: tk.danger.DEFAULT,
     marginBottom: toRpx(8),
     textAlign: 'center',
-  }),
-  back: (tk: RnThemeTokens): CSSProperties => ({
-    fontSize: toRpx(16),
-    color: tk.text.secondary,
   }),
   title: (tk: RnThemeTokens): CSSProperties => ({
     marginTop: toRpx(8),
@@ -164,6 +158,7 @@ export default function AnnouncementDetail() {
           <Text style={textStyles.error(tk)}>
             {error || tt('announcementDetail.empty', '公告不存在或已删除')}
           </Text>
+          {/* back-label-exempt: 错误态卡片按钮,文字即标签,非页头返回键 until 2026-12-31 */}
           <View style={viewStyles.btn(tk)} onTap={goBack} hoverClass="opacity-60">
             <Text style={textStyles.btnText(tk)}>{tt('common.back', '返回')}</Text>
           </View>
@@ -177,9 +172,7 @@ export default function AnnouncementDetail() {
       <View style={viewStyles.container(tk)}>
         <ScrollView scrollY style={viewStyles.bodyScroll()}>
           <View style={viewStyles.body()}>
-            <View style={viewStyles.backBtn()} onTap={goBack} hoverClass="opacity-60">
-              <Text style={textStyles.back(tk)}>{tt('common.back', '返回')}</Text>
-            </View>
+            <BackChevron onTap={goBack} />
             <Text style={textStyles.title(tk)}>{item.title}</Text>
             <View style={viewStyles.metaRow()}>
               <Text style={textStyles.author(tk)}>{item.author}</Text>

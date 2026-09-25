@@ -14,6 +14,7 @@ import { useAppTheme } from '@/lib/theme'
 import { fetchApi } from '@ihui/api-client'
 import type { TaskCenterItem, TaskCenterTab } from '@ihui/types'
 import ThemeRoot from '@/components/ThemeRoot'
+import BackChevron from '@/components/BackChevron'
 
 const TABS: TaskCenterTab[] = ['daily', 'weekly', 'newbie']
 
@@ -42,9 +43,6 @@ const viewStyles = {
     paddingLeft: toRpx(10),
     paddingTop: toRpx(12),
     paddingBottom: toRpx(8),
-  }),
-  backBtn: (): CSSProperties => ({
-    alignSelf: 'flex-start',
   }),
   tabs: (): CSSProperties => ({
     display: 'flex',
@@ -155,10 +153,6 @@ const viewStyles = {
 }
 
 const textStyles = {
-  backText: (tk: RnThemeTokens): CSSProperties => ({
-    fontSize: toRpx(16),
-    color: tk.text.secondary,
-  }),
   title: (tk: RnThemeTokens): CSSProperties => ({
     marginTop: toRpx(8),
     fontSize: toRpx(22),
@@ -321,9 +315,7 @@ export default function TaskCenter() {
           onRefresherRefresh={() => void load(activeTab, true)}
         >
           <View style={viewStyles.header()}>
-            <View style={viewStyles.backBtn()} onTap={goBack} hoverClass="opacity-60">
-              <Text style={textStyles.backText(tk)}>{tt('common.back', '返回')}</Text>
-            </View>
+            <BackChevron onTap={goBack} />
             <Text style={textStyles.title(tk)}>{tt('taskCenter.title', '任务中心')}</Text>
             <Text style={textStyles.subtitle(tk)}>
               {tt('taskCenter.subtitle', '做任务,拿奖励')}
