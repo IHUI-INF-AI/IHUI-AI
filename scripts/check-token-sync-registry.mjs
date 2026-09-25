@@ -132,7 +132,8 @@ function extractTokenSyncTargets(src) {
   if (masked[i] !== '[')
     return {
       status: 'unparseable',
-      reason: '`TOKEN_SYNC_TARGETS =` 后面不是数组字面量(表被改成运行时计算/别处导入,本门无法从形状判定行内容)',
+      reason:
+        '`TOKEN_SYNC_TARGETS =` 后面不是数组字面量(表被改成运行时计算/别处导入,本门无法从形状判定行内容)',
     }
   const open = i
   const pairs = { '[': ']', '{': '}', '(': ')' }
@@ -324,7 +325,10 @@ function lookupPnpmScript(pkg, script, pathArr, readText) {
       kind: 'undetermined',
       detail: `面上有 ${unreadable} 份 package.json 取不到/解析不出,无法断定包 ${pkg} 是否存在(不记绿)`,
     }
-  return { kind: 'red', detail: `被审面上找不到名为 ${pkg} 的 workspace 包(scripts 里的 ${script} 无从核对)` }
+  return {
+    kind: 'red',
+    detail: `被审面上找不到名为 ${pkg} 的 workspace 包(scripts 里的 ${script} 无从核对)`,
+  }
 }
 
 /**
@@ -356,7 +360,9 @@ function evaluateRegistry({ hookSrc, runnerSrc, otherRefsText, paths, hasPath, r
   const rows = ext.rows
   const regs = parseGuardianRegistrations(runnerSrc)
   // R4 找 hook 调用点前先把表区抹掉:表行里的 `check:` 是被审对象,不能自己给自己当在场证据。
-  const hookCallSites = ext.arraySpan ? blankRange(hookSrc, ext.arraySpan[0], ext.arraySpan[1]) : hookSrc
+  const hookCallSites = ext.arraySpan
+    ? blankRange(hookSrc, ext.arraySpan[0], ext.arraySpan[1])
+    : hookSrc
   const hookLines = hookCallSites.split(/\r?\n/)
   const pathArr = [...paths]
   const violations = []
@@ -423,9 +429,25 @@ function evaluateRegistry({ hookSrc, runnerSrc, otherRefsText, paths, hasPath, r
           )
         return
       }
-      const hookHits = hookLines.filter((l) => l.includes(base))
-      if (hookHits.some((l) => l.includes('!run(') && !isCommentLine(l))) return // 行 418 那种肯定式 = 合法在场
-      const nonCommentHit = hookHits.some((l) => !isCommentLine(l))
+      const hookHits = hookLines.map((l, i) => ({ l, i })).filter(({ l }) => l.includes(base))
+      // prettier 在 printWidth 下会把 `run('label', 'node scripts/x.mjs --staged')` 拆成
+      // 「`if (` / `!run(` / 参数 / `)`」多行 —— 只扫命中行的写法对这种**格式化产物**失明,
+      // 于是把一行合法调用读成「引用了但取不出失败即拦的肯定式」的未判定(门看不见门自己
+      // 被格式化后的形态 = 没有门)。改为自命中行向上找 ≤3 行窗口内的 `!run(`,并逐行跳过
+      // 注释行(注释里的脚本名同样不得充当在场证据)。
+      const isBlockingHookCall = (lineIdx) => {
+        for (let k = lineIdx; k >= 0 && k > lineIdx - 4; k--) {
+          const l = hookLines[k]
+          if (l === undefined) break
+          if (isCommentLine(l)) continue
+          if (l.includes('!run(')) return true
+          // 已经向上越过一个非注释、非 `!run(` 的锚点行(说明命中行处在别的语句里)⇒ 停止扩大窗口
+          if (k < lineIdx && /\S/.test(l) && !/[,(]\s*$/.test(l)) return false
+        }
+        return false
+      }
+      if (hookHits.some(({ l, i }) => !isCommentLine(l) && isBlockingHookCall(i))) return
+      const nonCommentHit = hookHits.some(({ l }) => !isCommentLine(l))
       if (!nonCommentHit && otherRefsText.includes(base)) return // .husky/* / 根 package.json / workflows 点名
       if (nonCommentHit)
         undetermined.push(
@@ -464,7 +486,9 @@ function evaluateRegistry({ hookSrc, runnerSrc, otherRefsText, paths, hasPath, r
  */
 function buildFaceContext(root, face) {
   const listed =
-    face === 'head' ? gitRaw(['ls-tree', '-r', '--name-only', 'HEAD'], root) : gitRaw(['ls-files'], root)
+    face === 'head'
+      ? gitRaw(['ls-tree', '-r', '--name-only', 'HEAD'], root)
+      : gitRaw(['ls-files'], root)
   const paths = new Set(
     String(listed)
       .split(/\r?\n/)
@@ -472,12 +496,15 @@ function buildFaceContext(root, face) {
       .filter(Boolean),
   )
   if (paths.size === 0) throw new Undetermined(`面 ${FACE_LABEL[face]} 枚举到 0 个路径 ⇒ 判死`)
-  const hasPath = face === 'worktree' ? (rel) => existsSync(path.join(root, rel)) : (rel) => paths.has(rel)
+  const hasPath =
+    face === 'worktree' ? (rel) => existsSync(path.join(root, rel)) : (rel) => paths.has(rel)
   // 一次性预读全部要用的 blob(head/staged 各只派生一次 cat-file --batch,§5b fork 风暴同型)
   const need = [HOOK_REL, RUNNER_REL].concat(
     [...paths].filter(
       (p) =>
-        /(^|\/)package\.json$/.test(p) || p.startsWith('.husky/') || p.startsWith('.github/workflows/'),
+        /(^|\/)package\.json$/.test(p) ||
+        p.startsWith('.husky/') ||
+        p.startsWith('.github/workflows/'),
     ),
   )
   const cache = new Map()
@@ -612,7 +639,10 @@ function assert(cond, msg) {
   if (!cond) throw new Error(`自检失败:${msg}`)
 }
 function hasViolation(v, re, msg) {
-  assert(v.some((s) => re.test(s)), `${msg}(实得:${JSON.stringify(v)})`)
+  assert(
+    v.some((s) => re.test(s)),
+    `${msg}(实得:${JSON.stringify(v)})`,
+  )
 }
 function noViolation(v, re, msg) {
   assert(!v.some((s) => re.test(s)), msg)
@@ -751,7 +781,10 @@ function runSelfTest() {
       buildTableSrc([{ ...goodRow(1), failMode: 'warn' }]),
       regRunner([{ id: '9', script: 'check-row1.mjs', mode: 'blocking' }]),
     )
-    assert(v.status === 'ok' && v.counts.warnRows === 1, `warn 行应合法且被计数:${JSON.stringify(v)}`)
+    assert(
+      v.status === 'ok' && v.counts.warnRows === 1,
+      `warn 行应合法且被计数:${JSON.stringify(v)}`,
+    )
   })
   // 7/8 R2 成对
   step('07 R2:file 两个空格分隔路径、其一不在面 ⇒ 红且点名缺的那个', () => {
@@ -777,7 +810,10 @@ function runSelfTest() {
       buildTableSrc([r]),
       regRunner([{ id: '9', script: 'check-row1.mjs', mode: 'blocking' }]),
     )
-    assert(v.status === 'ok' && v.undetermined.length === 1 && /R3/.test(v.undetermined[0]), `应恰 1 条未判定:${JSON.stringify(v)}`)
+    assert(
+      v.status === 'ok' && v.undetermined.length === 1 && /R3/.test(v.undetermined[0]),
+      `应恰 1 条未判定:${JSON.stringify(v)}`,
+    )
   })
   // 11/12 R3 pnpm 形态
   step('11 R3:pnpm --filter 形态,包在而脚本名没了 ⇒ 红并点名包与脚本', () => {
@@ -843,7 +879,31 @@ function runSelfTest() {
   step('17 R4:hook 引用存在但取不出 !run 肯定式 ⇒ 未判定(不记绿也不冒红)', () => {
     const hook = buildTableSrc([goodRow(1)]) + `\nexecSync('node scripts/check-row1.mjs')\n`
     const v = evalPure(rowFiles, hook)
-    assert(v.status === 'ok' && v.undetermined.some((s) => /R4/.test(s)), `应计入未判定:${JSON.stringify(v)}`)
+    assert(
+      v.status === 'ok' && v.undetermined.some((s) => /R4/.test(s)),
+      `应计入未判定:${JSON.stringify(v)}`,
+    )
+  })
+  // 16b/16c:格式化产物的形状锁(16b 防"看不见合法调用",16c 防"向上借证据")
+  step('16b R4:prettier 把长调用拆成多行后仍须认作在场(判据必须覆盖门自己产出的形态)', () => {
+    const hook =
+      buildTableSrc([goodRow(1)]) +
+      `\nif (\n  !run(\n    'x...',\n    'node scripts/check-row1.mjs --staged',\n  )\n) {\n  process.exit(1)\n}\n`
+    const v = evalPure(rowFiles, hook)
+    assert(
+      v.status === 'ok' && !v.undetermined.some((s) => /R4/.test(s)),
+      `拆行形态被判成"未判定"= 门对自己仓库的格式化失明:${JSON.stringify(v.undetermined)}`,
+    )
+  })
+  step('16c R4:向上找 `!run(` 不得越过语句边界(别借上面那条调用给自己当在场证据)', () => {
+    const hook =
+      buildTableSrc([goodRow(1)]) +
+      `\nif (!run('前一道门...', 'node scripts/check-other.mjs')) {\n  process.exit(1)\n}\nconst target = 'node scripts/check-row1.mjs'\nexecSync(target)\n`
+    const v = evalPure(rowFiles, hook)
+    assert(
+      v.undetermined.some((s) => /R4/.test(s)) || v.violations.some((s) => /R4/.test(s)),
+      '命中行上方隔着一条完整语句仍被认作 blocking 调用 ⇒ 窗口在替"没接线"洗白',
+    )
   })
   // 18/19 空扫与形状漂 ⇒ 无法判定而非绿
   step('18 表为空数组 ⇒ 无法判定(空扫不报绿)', () => {
@@ -852,7 +912,10 @@ function runSelfTest() {
   })
   step('19 表被改成解不出的形状 ⇒ 无法判定而非 0 行绿', () => {
     const v = evalPure({}, 'const TOKEN_SYNC_TARGETS = computeTargets(process.env)\n')
-    assert(v.status === 'undetermined' && /形状|数组/.test(v.reason ?? ''), `要喊无法判定,实得 ${JSON.stringify(v)}`)
+    assert(
+      v.status === 'undetermined' && /形状|数组/.test(v.reason ?? ''),
+      `要喊无法判定,实得 ${JSON.stringify(v)}`,
+    )
   })
   // 20 反向报数
   step('20 存在但不属于表行的 scripts/check-*.mjs ⇒ 只报数不判红', () => {
@@ -862,7 +925,10 @@ function runSelfTest() {
       buildTableSrc([goodRow(1)]),
       regRunner([{ id: '9', script: 'check-row1.mjs', mode: 'blocking' }]),
     )
-    assert(v.status === 'ok' && v.counts.unlistedCheckScripts === 1, `unlisted 应为 1 且不计红:${JSON.stringify(v)}`)
+    assert(
+      v.status === 'ok' && v.counts.unlistedCheckScripts === 1,
+      `unlisted 应为 1 且不计红:${JSON.stringify(v)}`,
+    )
   })
   // 21-24 CLI 级面纪律:mkScratch 真仓,构造"索引 ≠ HEAD"
   step('21 面纪律:HEAD 表好、索引表指向缺失路径 ⇒ 默认档 exit 0、--staged exit 1', () => {
@@ -876,7 +942,10 @@ function runSelfTest() {
     const headAgain = cliGate(['--root', dir])
     assert(headAgain.code === 0, `默认档判 HEAD,不该被索引的坏行顶红:${headAgain.out}`)
     const staged = cliGate(['--root', dir, '--staged'])
-    assert(staged.code === 1 && /R2 .*gone-in-index\.css/.test(staged.out), `--staged 应红在索引行上:${staged.out}`)
+    assert(
+      staged.code === 1 && /R2 .*gone-in-index\.css/.test(staged.out),
+      `--staged 应红在索引行上:${staged.out}`,
+    )
   })
   step('22 两面旗同给 ⇒ exit 2 判死', () => {
     const dir = fixtureRepo(buildTableSrc([goodRow(1)]), rowFiles)
