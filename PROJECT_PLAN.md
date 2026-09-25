@@ -8080,3 +8080,52 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   ③ D67/D81 各自的两条残余(错误卡渲染位、两枚冗余 export 的删除裁决)与 D17 的 5 枚孤儿键,均属**别的票的范围**,
   已逐条点名,不在本票顺手改;④ 本波全部产出按 §9 是 web 单端收口,`miniapp-taro`/`mobile-rn`/`extension`/`cli`
   的对应面另计(D62 标了平台独占豁免:小程序无 TTS 播报栈)。
+- [ ] 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()`(`check-workspace-dep-links` /
+### O62 附②:推翻本票上一句交付结论 —— `/alpha` 在小程序**真实构建产物**里到不了,根因比插件深一层(2026-09-25 实测)
+- [x] ✅(2026-09-25) **更正本票 O62 的一条过度声明**。我在 O62 里写"miniapp 端 18 个透明度档位从静默不生效变可用",依据是一个独立 Tailwind CLI harness 上"选择器 73 → 91、REMOVED 0 / ADDED 18"。**那个证据证明的是裸 Tailwind 层,不是小程序实际构建层。** 本轮把链走到产物级,结论是:**`/alpha` 在 `apps/miniapp-taro` 的真实构建产物里一条都没有生效**,而且原因不在插件。
+- [x] ✅(2026-09-25) **量到的事实(真实 build 脚本复跑,`pnpm --filter @ihui/miniapp-taro build` exit 0 / 23s / dist 全新)**:小程序源码 467 个 TSX 静态用到 **687 个 Tailwind utility、合计 11,105 处**(口径 = 该 class token 不被项目自有 CSS 的 2,228 个类名定义,且符合 utility 语法),而 dist 的 154 个 wxss 里 **0/687 有对应规则**;`.flex{` `.items-center{` `.rounded-xl{` `.bg-muted{` 逐条缺失,Tailwind 版本横幅 0 处,preflight 指纹(`text-size-adjust` / `border-style:solid`)亦 0 处。
+  **阳性对照**(缺了这组,上面整段都不成立):同一份 dist 里,`src/app.css` 手写的 98 个类名有 **75 个能查到规则**(未命中 23 个是伪类/`@dark` 变体/scss 残留,属预期);`.exam-detail-participant-row{display:flex}` 这类手写规则在产物中在位。⇒ 检索姿势有效,**"utilities 全缺"不是探针假象,而是产物真的没有**。
+- [x] ✅(2026-09-25) **机制定位到层,但不下"已查明"的结论**:`apps/miniapp-taro/config/index.ts:102` 是 `tailwindcss: { enable: true, config: {} }`。`@tailwind base/components/utilities` 三条指令在产物里**既不残留也不产出**(被消费掉但展开为空),且 preflight 也没有 ⇒ 形态与"tailwind 插件拿到的是一份不含 content/preset 的空内联配置"一致(v3 把传入对象当完整内联配置)。候选成因两条,本票**只量到"产物面为零"这一层,未继续下钻**:① Taro 把 `config: {}` 原样喂给插件 ⇒ 端内 `tailwind.config.ts`(content globs + `presets:[@ihui/design-tokens/tailwind-preset]` + 本票的 alpha 插件)从未被加载;② 该 postcss 键在当前 Taro 版本下根本没接上插件。区分二者要动构建配置,见下条。
+- **为什么本票不自己修(不是遗漏,是半径)**:修它等于**让 687 个 utility、11,105 处用法突然开始产出 CSS**,即整端小程序的布局/字号/圆角/间距同时改变;而现状很可能是"手写 CSS 已经补偿过了"(自有 CSS 定义了 2,228 个类名)。开启后是修好还是打坏,**只能靠微信开发者工具真机渲染判定,本机无法取证**,且不是"revert 一个文件"能收回的观感事故。故按 §24/§12 的半径纪律停在登记,交用户定。
+- **顺带暴露的一条结构性盲区(值得单独一票)**:AGENTS §4 要求"web 与 miniapp-taro 视觉必须完全一致",并有门 36 / 37 / 93 / `check-miniapp-taro-style-parity` / `check-miniapp-tokens-sync` 五道在守这件事 —— **它们全部核对的是源码与 token 源头,没有一道看产物**。于是本票全程五道门全绿,而实际到端的 CSS 是零。这与"判据必须覆盖门自己产出的形态"同族,只是尺度大一个量级:**同源对账门保证的是"两边写的同源",不是"两边都生效"**。
+  **✅ 已机制化(2026-09-25,第四十九批·续)**:没有另立新门,而是把**守门 84 自己那句"merge 上下文整轮豁免"收窄**成 R1m
+  —— 那句豁免就是盲区本身;另立新门会把同一件事记在两处,多一处会腐烂的注册(且要动 guardian-runner 这块今天被反复回写的热文件)。
+  ⑦ **23 模块全量复测试跑(取代 09-24 那组数字)**:**20 块判红 0**,有账 3 块 = `apps/cli` 3 条(**本票已还**)+ `packages/i18n` 2 条 + `repo-tooling` 1 条。**未收口的残余两块,各自给出解阻动作**(不得当成已收口):翻 `packages/i18n` 前须处置 `packages/i18n/tests/waiting-keys-in-end-packages.test.ts:19` 按相对路径 `../../shared/src/chat/waiting-pool` 穿透(改走 `@ihui/shared/chat` 公开入口,或补 requires 并确认层级不反向);翻 `repo-tooling` 前须处置 `scripts/tests/export-openapi-stub-key.test.mjs:22` 同类问题 —— 该处**不得**靠把 `apps/api` 写进 `repo-tooling.requires` 消红(④ 的注入实验正是拿它当"必红样本"做的,T1 当场判红)。
+### 第四十九批·续(2026-09-25):把"合并期整轮豁免"从守门 84 自己身上摘下来 —— 消掉第四十二批未闭环④
+- **票源**:第四十二批未闭环④「合并路径上『索引 ∉ {两父, 工作树}』应当有一道门」。当时只能用一次性脚本判(结果 0 个),**豁免本身还在** —— 而"门自己把一类现场整轮跳过"这件事,和守门 64「造好没装车」、77「判据看不见门自己产出的形态」是同一族。
+- **做法(选形比实现重要)**:**没有另立新门**,而是把 `check-stale-revert.mjs` 里那句 `exempt ? [] : analyze(...)` 换成窄判据 **R1m**,且**只对 `MERGE_HEAD` 生效**。不另立的两条理由:① 同一件事记在两处 ⇒ 多一处会腐烂的注册;② 新门必须改 `guardian-runner.mjs`,而这块文件今天已被并发旧基线回写过多次。**三条件缺一不可**:`ours(P)==theirs(P)`(两父一致 ⇒ 合并对它无事可做)∧ `index(P)!=ours(P)`(存在外来内容)∧ `index(P)` 恰等于该路径某历史祖先版本(= 回写)。第三条是**必须**的 —— 人工解冲突写进的新内容同样满足前两条,不加第三条就是把正当行为判红。一侧缺路径(add/delete 冲突)不判。`cherry-pick / revert / rebase` 仍整轮豁免:那三种操作取历史内容本就是其语义。
+- **取证**:
+  - `--self-test` 8 例 → **12 例**,合并场域一次配齐四对照:5a 两父本就不同⇒绿 / 5b 两父一致而索引等于历史版本⇒**红**(旧口径正是这里放行)/ 5c 红时点名路径与回到的版本 / 5d 两父一致而索引是**新写内容**⇒绿(正当解冲突绝不可拦)/ 6b cherry-pick⇒仍豁免(证明收窄只针对 merge)。
+  - §22c 镜像测试 4 例 → **7 例**,含**反向回归锁**:源里不得再出现 `exempt ? [] : analyze(` 那种整轮放行写法,且 `audit` 必须真的调用 `analyzeMerge` —— **函数存在不等于装上车**(守门 70/76 同型)。跑满 7/7 绿。
+  - **真仓两条口径实测均 rc=0**(全量:判定 2 个文件无回写;`--staged`:无可判定文件)⇒ 判据不是"改前恒绿、改后恒红"那一类;`MAX_FILES` 乘数级例外与本次收窄互不遮蔽。
+  - 夹具两处坑记下:① 演练仓必须先 `checkout HEAD -- <file>` 复位暂存再开 `theirs` 分支,否则带着 staged 内容切分支会把它一起带走;② 造"两父不同"用真分支比 `GIT_INDEX_FILE` 旁路简单且不需要 stdin 封装。
+- **顺带量到的两枚真红(本次全链 134 项跑完,只有这两道 blocking 红,均与本票无关但都是"main 上恒红 ⇒ 逼人 --no-verify")**:
+  - **[7] `check-dedupe`**:lock 内确有可去重版本(单跑复现 rc=1)。**本票没跑 `pnpm dedupe`** —— 它重写 `node_modules` 链接,而本机此刻正在部署环构建中;§12e 记过的正是这一型(`--filter` 剪掉 lint-staged ⇒ 109 道门全废)。要做必须在无人构建的窗口跑,且当场以"`.bin/eslint --version` + `.bin/tsc --version` 都出版本号"验收,不看 `pnpm install` 回显。窗口归用户定。
+  - **[90] `check-sse-dispatch-parity`**:合并进来的 `onFormRequest` 帧在 extension / miniapp-taro / mobile-rn / cli 四端既未注册也未声明理由 ⇒ 静默丢弃。已单列一榜处理(见下条),不在本票顺手加豁免 —— **豁免清单是要写证据的地方,不是消红按钮**(同批已有一次"把豁免当修法"被证明是误读设计)。
+### 第四十九批·续二(2026-09-25):`merge-live-doc` 的第三种定性 —— 把"我上一票只能自己写脚本证明"的那条判断做成机器规则
+- **票源**:上一票提交时被 safe-commit 的活文档对账拦下,报"AGENTS 吃掉 HEAD 已入库的行",给的出路是 `--apply`。而它要吃掉的那行**正是我要改写的那行** —— 照它做就是新旧两行同时留下。当时我靠一次性核对脚本(逐事实比对旧行的每条断言是否仍在新行里,结果 `LOST=1`:旧行的"临时 index 端到端演练 3/3"确实被我丢了,补回后才 `LOST=0`)才敢不跑 `--apply`。**一个人每次都要重做一遍的判断,就是没做完。**
+- **规则**:三份活文档都是「一件事一行」,行首有稳定锚点(`- **名称**`(编号) / `### 标题`)。**同一锚点在「HEAD 缺失集」与「工作树独有集」里各只出现一次** ⇒ 判 `superseded`。已有两级判据(容器短路管"逐字存活"、Jaccard 管"两行很像")在**改行中段**时同时失效,这就是误判的机制。唯一性是本条的命门:锚点在任一侧数量 ≠ 1 就不猜,退回原判据 —— 宁可多报一行交人工,也不能把"整段登记被删"洗成"他改写了"(那是比误报更坏的一侧)。
+- **实物证据(不是我推的成因)**:AGENTS.md 里现在就躺着**两行几乎同文的**"提交活文档前必须做『工作树 ⊇ HEAD』行级对账"登记(一行有"四步"、一行没有),守门 83 更有三条同体行 —— 本仓重复登记行的制造路径之一就是这个误判 + 一次 `--apply`。**误判的代价不是"多一行报告",是逼人 `--apply`,而 `--apply` 造出的重复行下一轮又被判成需要归并:它自带正反馈环。**
+- **取证(两层,缺一不可)**:
+  - `node scripts/merge-live-doc.mjs --self-test` **13 → 16 例**:⑭ 改写(锚点同、正文全换)⇒ `superseded`;⑮ 整行删除 ⇒ 仍 `lost`(阳性对照,防本条变成万能洗地通道);⑯ 同锚点在缺失集里有两条 ⇒ 不猜。原有 10/12 两例"真丢失不得被洗绿"的对照组**全部仍绿** ⇒ 放宽没有吃到它们的判据。
+  - 新增 **`scripts/tests/merge-live-doc-anchor.test.mjs`(3 例,`node --test` 3/3 绿)** —— CLI 级装车证明。为什么必须 spawn 而不能 import:`merge-live-doc.mjs` 顶层就是 CLI 主流程且**没有 §22d `isDirectRun` 守卫**(`lib/live-doc-similarity.mjs` 当年正是为了绕开这点才被抽出来),所以测试把脚本连同一个临时 git 仓摆好后直接跑它。C 例是**夹具自证**:断言两行确实 Jaccard 低于阈值且旧行不逐字存活 —— 否则 A 臂哪天就退化成"容器短路"的测试而无人察觉。
+  - **真行回放**(一次性,跑完即删):把事故当时的 AGENTS gate-84 旧行/新行原文塞进临时仓,跑已装车的 CLI ⇒ A 臂 `真丢失=0 / 可安全提交`、B 臂(整行删掉)`真丢失=1`。用的不是我自己造的夹具,是那两行**原文**。
+- **仍然开着的一条(如实登记,不在本票顺手做)**:`merge-live-doc.mjs` 缺 `isDirectRun` 守卫这一事实未修 —— 给它加守卫要把 75 行 CLI 主体整体缩进/包函数,而它是本次事故里唯一被多方读写的文件之一,收益不抵风险。因此它的判据函数至今**不可 import**,镜像测试只能走 spawn 这一条笨路;哪天要单测更细的分支,先补守卫再补测试。
+### 第四十九批·续三(2026-09-25):合并把守门"影子对账"从 2 对扩到 6 对,本机当场红 —— 两类红分开处置,且都不该由提交者背
+- **现场**:`git-sync-converge` 落地对侧 `915e1cf94`(prod-bundle 影子门自身两处失效修复 + compose 链建入库源)之后,本机 `node scripts/check-prod-bundle-shadow.mjs` 立刻 **exit 2**,再修一层后 **exit 1**。这不是我改坏了什么 —— 合并前后我一行都没碰这个门。
+- **两类红,处置完全不同**(门的分档是对的,值得照此记一次):
+  1. **运行副本压根不在本机**(`deploy/prod-bundle/{deploy-diagnose.sh,ai-diagnose.mjs}` 缺失 ⇒ 登记对"无法判定" exit 2)。对侧提交说明已给定调:**"2 枚『无法判定』按补哪一侧处置为复原运行副本,不删登记"** ⇒ 本机照同一处置复原(逐字节 `sha1sum` 两侧一致后才继续)。**没有**为了让门绿而删登记表 —— 那是把别人的判据改成能过。
+  2. **运行副本陈旧**(`deploy/prod-bundle/{deploy.sh,health-check.sh}` 与入库源差 97 / 71 行 ⇒ S3 漂移 exit 1)。取证后才动:① 两侧 CR 计数 = 各自行数 ⇒ 差异**不是**行尾噪声;② `<` 侧独有段落是 P2-13 部署诊断采集(`ihui_diag_*` 一族 + 缺库时的空函数摘线保护),本机那份停在 09-10 ⇒ 本机是旧的;③ 全仓 grep 无任何服务/compose 执行这两个 `.sh`(只有文档与归档在提它们,归档那份明写本机的是"主仓同名文件的旧版")⇒ 对齐是**升级一份本机无人执行的陈旧产物**,不是改生产行为。真改生产行为的对齐动作(比如 `ihui-monitor.ps1`)不适用此判据,那类必须先查 `nssm get AppParameters`。
+- **留给持有人的一条判断(我没有替它改)**:对侧新增的镜像测试 **T3「真仓 audit 全等值,undetermined 必须为 0」** 现在**依赖本机部署态**。本机已复原 ⇒ 5/5 绿;但一份**干净 checkout 或第三台机**跑 `pnpm test:scripts` 会红在 T3。两种读法都成立:①它正是"你还没部署 prod-bundle 就别提交"的响铃(与 §5e"生产执行的是被忽略的那一份"同口径)——那就保留;②它把"代码判据"和"某台机的部署事实"焊在一起——那该改成自建夹具或 `skip` 当运行副本缺席。**我不动别人的测试**(§12 越权线),只把这条留在台账里请作者定夺;若选 ①,建议把红时的提示语写成"先跑 `cp deploy/scripts/prod-bundle/* deploy/prod-bundle/`"这类出路,否则下一个人只会把它当误报绕开。
+- **一句话教训**:影子门的登记表每扩一对,**所有机器的 `deploy/prod-bundle/` 都进入判据面**,而这个目录按设计不入版本树 ⇒ 登记表变化必须以"每台机都已复原运行副本"为完工条件之一,否则就是"在 A 机提交、B 机恒红"。这条与 §5b"凡盘符/引擎/远端形态按当次实测取值"同族。
+### 第四十九批·续四(2026-09-25):守门 7 让我去跑 `pnpm dedupe`,而真因是**一枚漏写的依赖声明** —— 照门说的做会把坏状态锁死
+- **入口**:全链跑完后本机只剩两道 blocking 红([7] dedupe / [90] SSE)。[90] 到当前 HEAD 复测**已经绿了**(对侧 `1c5e53cd3` 落了"onFormRequest 五端显式登记理由")—— 我又差点凭一次旧读数去修一件已被修好的事;**开工前在当次 HEAD 重测**这条纪律今天第二次救我。
+- **[7] 报的修法与真因方向相反**。门说:`apps/cli └── - @ihui/dom-actions`,`Run pnpm dedupe to apply`。但按顺序查下来:
+  1. `apps/cli/package.json` **从未在任何提交里声明过** `@ihui/dom-actions`(`git log -S '@ihui/dom-actions' -- apps/cli/package.json` 空 ⇒ 不是并发旧基线回写吃掉的,是 `f2121db10` 加 import 时就没加声明);
+  2. 而 `apps/cli/src/tools/browser-page.ts:33` **确实** `import ... from '@ihui/dom-actions'`;
+  3. `apps/cli/node_modules/@ihui/dom-actions` 链接**不存在**,`createRequire` 探 = `MODULE_NOT_FOUND`;
+  4. **决定性一条**:`pnpm --filter @ihui/cli typecheck` 当场 `TS2307: Cannot find module`(连带一枚 `TS7006` 都是它的下游)⇒ **main 上这个端此刻根本构建不过**,不是碎片化卫生问题。
+  ⇒ 锁里那条 `importers.apps.cli['@ihui/dom-actions']` 是**正当记账的提前记录**,`pnpm dedupe` 要删的正是它 —— 删完 package.json 仍无声明、链接仍缺、TS2307 照红,只是再没人能从锁上看出来这里欠了一条声明。**门给的是"让报错消失"的动作,不是"让系统变对"的动作,这一型我上一票才写过(豁免当修法),这次是它的镜像:回滚当清理。**
+- **做的事**:`apps/cli/package.json` 补 `"@ihui/dom-actions": "workspace:*"`(与 `apps/extension` 同形态)→ 按 §12e 跑**全量 `pnpm install`**(不带 `--filter`;3.9s,锁零改动 ⇒ 声明与锁本来就只差这一行)。跑前按 §12d 取证:无 next/turbo 进程、`.deploy.lock` 持有者 pid 已死(只读 `check` 报 locked 属预期,acquire 有 10min 兜底 ⇒ 不改别人的锁文件)。
+- **验收按 §12e 的实测口径,不看回显**:链接在位;`node_modules/.bin/eslint --version` = v10.8.1、`tsc --version` = 5.9.3 都出版本号;`lint-staged/bin/lint-staged.js` 在位;门 78 rc=0(25 包声明全链接、718 条链接内容完好);门 101 rc=0(specifier 全一致);`pnpm --filter @ihui/cli typecheck` **rc=0**(改前 rc=1);门 7 全量 **rc=0**。
+- **给后面人的判据(值得抄进 §3 共享层那节)**:凡是**新 import 一个 workspace 包**,同一次改动里必须落三样 —— `package.json` 声明、`pnpm install`(全量)、`--filter <该端> typecheck` 真跑一次。只加 import 不加声明,`tsc` 在**别的端**可能因 tsconfig paths 而看起来没事,而 TS2307/Module not found 会在下一个干净 checkout 或 CI 构建里才炸 —— 与守门 72/78 同族"本地全绿、出事在别人机器"。
