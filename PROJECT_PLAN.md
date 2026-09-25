@@ -7812,27 +7812,6 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   - **本票自己造成的一次词包险情（必须留痕，判据差点没抓住它）**：web 语言包此刻处于**双向发散** —— 工作树副本比 HEAD 少 4 枚（他人已入库的 `chat.contextUsage.category*`）又比 HEAD 多 19 枚（他人**未提交**的键）。我先"以工作树为底"改 ⇒ 把已入库的 4 枚写回旧态；改判"以 HEAD 为底"重建 ⇒ 把那 19 枚未提交键抹掉。**两侧都不对**，正确解是按完整键路径取**并集**（`union-merge-locale.mjs`：仅 HEAD 有→留、仅 worktree 有→留、两侧值不同→默认取 HEAD 并打印，本票自己的 16 键走豁免清单）。落地后逐语言复验：合并 22497 叶 = HEAD 22462 + 工作树独有 35，值冲突 0，"合并后仍缺 HEAD=0 / worktree=0"，五语言对 HEAD **零丢失**、parity OK。**教训**：改这类"多会话共写且有未提交增量"的 JSON/台账，**底稿既不能取工作树也不能取 HEAD，只能取两侧并集**；而判据必须是"两个方向各求一次差"，只查一个方向会恰好放过自己那一次破坏（我第一次跑的"丢失=0"就是因为当时 HEAD 还没有那 4 枚）。
 - [x] ✅(2026-09-25) **O60 残余② 当场收口(不留"报告只在 tmp"的尾巴)**:8 份逐票对账报告 + 5 份编码批次报告 + 两份派单任务书(含"一律判 HEAD / 命中≠实现 / 每条结论必须带可复跑命令"三条硬规则)+ D17 尚未并入语言包的 21 键 × 5 语载荷,共 **19 个文件**转正进 `docs/plan-audit-2026-09-25/`,与 `docs/lost-commit-archive.md` 同属"证据档案"落点。先试过 `.ihui-agent/archive/`,但 `.gitignore:145` 把整个目录忽略(里面只有两枚当年 `add -f` 的孤例),不给这批文件开第三个先例。目录内 README 写明读法与"再派单前必须按 BRIEF 判据当次重测"—— 本票实测已证明为什么:代理判 D15 = "C 已在库该翻勾",而票面正文自己列着 6 项未完成。
 - [x] ✅(2026-09-25) **收口守门 90 的一道 HEAD 级恒红**:台账 `scripts/data/sse-dispatch-coverage.json` 把 `cli.onUsage` 声明成"该端无用量展示位",而 `git grep -l onUsage HEAD -- apps/cli/src` 实测 HEAD 的 `commands/agent.ts` 早已注册该回调 ⇒ 全量模式对**每一次**提交报红,与提交内容无关(正是"恒红逼人 `--no-verify` 、连带废掉全部守门"那一型)。只动登记面:删该声明 + 随之失去引用的理由分组 `no-usage-ui`(镜像测试自身要求"孤儿分组应删除,留着就是替已实现的功能喊 WONTFIX")。`node scripts/check-sse-dispatch-parity.mjs` 全量与 `--staged` 双口径 **exit 0**(修正前全量 exit 1)。**A/B 留档**(`docs/plan-audit-2026-09-25/tools/ab-gate90.mjs` 现场跑两遍):修正前后镜像测试的失败集合同形(②真仓一致 / ⑤b 暂存区口径)⇒ 本修正不新增红也不掩盖红;那两项红的成因是工作树里两批**未入库**代码(D19 的 `onTerminalDelta`:HEAD 命中 0 文件、工作树 2 文件;以及 budget 一族)。**刻意没把 cli baseline 从 12 抬到 13** —— 抬了会让 HEAD 反向变红,基线必须随代码同票走。
-
-### O62 附②:推翻本票上一句交付结论 —— `/alpha` 在小程序**真实构建产物**里到不了,根因比插件深一层(2026-09-25 实测)
-
-- [x] ✅(2026-09-25) **更正本票 O62 的一条过度声明**。我在 O62 里写"miniapp 端 18 个透明度档位从静默不生效变可用",依据是一个独立 Tailwind CLI harness 上"选择器 73 → 91、REMOVED 0 / ADDED 18"。**那个证据证明的是裸 Tailwind 层,不是小程序实际构建层。** 本轮把链走到产物级,结论是:**`/alpha` 在 `apps/miniapp-taro` 的真实构建产物里一条都没有生效**,而且原因不在插件。
-- [x] ✅(2026-09-25) **量到的事实(真实 build 脚本复跑,`pnpm --filter @ihui/miniapp-taro build` exit 0 / 23s / dist 全新)**:小程序源码 467 个 TSX 静态用到 **687 个 Tailwind utility、合计 11,105 处**(口径 = 该 class token 不被项目自有 CSS 的 2,228 个类名定义,且符合 utility 语法),而 dist 的 154 个 wxss 里 **0/687 有对应规则**;`.flex{` `.items-center{` `.rounded-xl{` `.bg-muted{` 逐条缺失,Tailwind 版本横幅 0 处,preflight 指纹(`text-size-adjust` / `border-style:solid`)亦 0 处。
-  **阳性对照**(缺了这组,上面整段都不成立):同一份 dist 里,`src/app.css` 手写的 98 个类名有 **75 个能查到规则**(未命中 23 个是伪类/`@dark` 变体/scss 残留,属预期);`.exam-detail-participant-row{display:flex}` 这类手写规则在产物中在位。⇒ 检索姿势有效,**"utilities 全缺"不是探针假象,而是产物真的没有**。
-- [x] ✅(2026-09-25) **机制定位到层,但不下"已查明"的结论**:`apps/miniapp-taro/config/index.ts:102` 是 `tailwindcss: { enable: true, config: {} }`。`@tailwind base/components/utilities` 三条指令在产物里**既不残留也不产出**(被消费掉但展开为空),且 preflight 也没有 ⇒ 形态与"tailwind 插件拿到的是一份不含 content/preset 的空内联配置"一致(v3 把传入对象当完整内联配置)。候选成因两条,本票**只量到"产物面为零"这一层,未继续下钻**:① Taro 把 `config: {}` 原样喂给插件 ⇒ 端内 `tailwind.config.ts`(content globs + `presets:[@ihui/design-tokens/tailwind-preset]` + 本票的 alpha 插件)从未被加载;② 该 postcss 键在当前 Taro 版本下根本没接上插件。区分二者要动构建配置,见下条。
-- **为什么本票不自己修(不是遗漏,是半径)**:修它等于**让 687 个 utility、11,105 处用法突然开始产出 CSS**,即整端小程序的布局/字号/圆角/间距同时改变;而现状很可能是"手写 CSS 已经补偿过了"(自有 CSS 定义了 2,228 个类名)。开启后是修好还是打坏,**只能靠微信开发者工具真机渲染判定,本机无法取证**,且不是"revert 一个文件"能收回的观感事故。故按 §24/§12 的半径纪律停在登记,交用户定。
-- **顺带暴露的一条结构性盲区(值得单独一票)**:AGENTS §4 要求"web 与 miniapp-taro 视觉必须完全一致",并有门 36 / 37 / 93 / `check-miniapp-taro-style-parity` / `check-miniapp-tokens-sync` 五道在守这件事 —— **它们全部核对的是源码与 token 源头,没有一道看产物**。于是本票全程五道门全绿,而实际到端的 CSS 是零。这与"判据必须覆盖门自己产出的形态"同族,只是尺度大一个量级:**同源对账门保证的是"两边写的同源",不是"两边都生效"**。
-
-
-
-
-
-
-
-
-
-
-
-
 - [ ]（进行中）**P2-13③ prod-bundle docker compose 链路接 AI 部署诊断**（交接档判"约 5 行改 + 必须一并补结果落盘"；落点 `deploy/**`；详见 `.ihui-agent/archive/orphan-capabilities-equivalence-2026-09-24.md`）
 - [x] ✅(2026-09-25) **P2-14 技能市场详情：URL 深链(web 端) + listing 契约三字段 + 后端两路由** —— 深链由生成器产出(未手改生成物)且复用既有 GET /api/skills/market 反查、不另起第二套详情 UI 与第二个详情端点；契约落在 `packages/shared/src/skills/market.ts`(该文件注明"单一契约源"、api 与 api-client 共用，改在 api-client 会造第二真相源)，且市场条目存 Redis 非 PG 表 ⇒ 不触数据库列红线；新增 `POST /skills/:name/listing`(上下架切换,保留 installCount/评分,顺序严格 先鉴权→校参数→校归属,无归属一律 403) 与 `GET /skills/:name/ownership`；归属由服务端按调用身份推导、请求体不接受 ownerId。**两项如实登记的遗留**：① miniapp/rn/extension 三端**整块技能市场界面不存在**，深链跨端要先有那三端页面；② 既有 `POST /skills/:name/unlist` **至今不做 owner 校**(任意登录用户可摘别人条目)，属落地前的旧面，本票只新增未改它 —— **建议列为下一票(授权面缺陷，非新功能)**。**P2-14 技能市场详情：URL 深链 + listing 契约 `enabled/source/ownerId` + 后端两路由**（判"不要原样迁回归档那 245 行，会与 `SkillDetailDialog` 双轨"；需 DB 列则交回，journal 在他人的 in-flight 里）
 - [ ]（进行中）**B15② `ext_ui` 第五族：把扩展自有界面(sidepanel 44 页 / 51 控件)纳入 AI 操控面**（不复用 `browser→extension`，须补"同一 category 不得有两个候选端"反向断言）
@@ -8035,3 +8014,48 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   与本票系列一直在收的那一类（77/83/91/94/98/101/103 全量判 HEAD blob、`--staged` 判索引 blob）同源。
   修法已验证可行：`git archive` 式干净检出或直接判 HEAD blob；两把尺子共用一份判据即可。
   **归属**：桌面端发布线与收敛器持有人，不代改。
+
+- [x] ✅(2026-09-25) **更正本票 O62 的一条过度声明**。我在 O62 里写"miniapp 端 18 个透明度档位从静默不生效变可用",依据是一个独立 Tailwind CLI harness 上"选择器 73 → 91、REMOVED 0 / ADDED 18"。**那个证据证明的是裸 Tailwind 层,不是小程序实际构建层。** 本轮把链走到产物级,结论是:**`/alpha` 在 `apps/miniapp-taro` 的真实构建产物里一条都没有生效**,而且原因不在插件。
+- [x] ✅(2026-09-25) **量到的事实(真实 build 脚本复跑,`pnpm --filter @ihui/miniapp-taro build` exit 0 / 23s / dist 全新)**:小程序源码 467 个 TSX 静态用到 **687 个 Tailwind utility、合计 11,105 处**(口径 = 该 class token 不被项目自有 CSS 的 2,228 个类名定义,且符合 utility 语法),而 dist 的 154 个 wxss 里 **0/687 有对应规则**;`.flex{` `.items-center{` `.rounded-xl{` `.bg-muted{` 逐条缺失,Tailwind 版本横幅 0 处,preflight 指纹(`text-size-adjust` / `border-style:solid`)亦 0 处。
+  **阳性对照**(缺了这组,上面整段都不成立):同一份 dist 里,`src/app.css` 手写的 98 个类名有 **75 个能查到规则**(未命中 23 个是伪类/`@dark` 变体/scss 残留,属预期);`.exam-detail-participant-row{display:flex}` 这类手写规则在产物中在位。⇒ 检索姿势有效,**"utilities 全缺"不是探针假象,而是产物真的没有**。
+- [x] ✅(2026-09-25) **机制定位到层,但不下"已查明"的结论**:`apps/miniapp-taro/config/index.ts:102` 是 `tailwindcss: { enable: true, config: {} }`。`@tailwind base/components/utilities` 三条指令在产物里**既不残留也不产出**(被消费掉但展开为空),且 preflight 也没有 ⇒ 形态与"tailwind 插件拿到的是一份不含 content/preset 的空内联配置"一致(v3 把传入对象当完整内联配置)。候选成因两条,本票**只量到"产物面为零"这一层,未继续下钻**:① Taro 把 `config: {}` 原样喂给插件 ⇒ 端内 `tailwind.config.ts`(content globs + `presets:[@ihui/design-tokens/tailwind-preset]` + 本票的 alpha 插件)从未被加载;② 该 postcss 键在当前 Taro 版本下根本没接上插件。区分二者要动构建配置,见下条。
+- **为什么本票不自己修(不是遗漏,是半径)**:修它等于**让 687 个 utility、11,105 处用法突然开始产出 CSS**,即整端小程序的布局/字号/圆角/间距同时改变;而现状很可能是"手写 CSS 已经补偿过了"(自有 CSS 定义了 2,228 个类名)。开启后是修好还是打坏,**只能靠微信开发者工具真机渲染判定,本机无法取证**,且不是"revert 一个文件"能收回的观感事故。故按 §24/§12 的半径纪律停在登记,交用户定。
+- **顺带暴露的一条结构性盲区(值得单独一票)**:AGENTS §4 要求"web 与 miniapp-taro 视觉必须完全一致",并有门 36 / 37 / 93 / `check-miniapp-taro-style-parity` / `check-miniapp-tokens-sync` 五道在守这件事 —— **它们全部核对的是源码与 token 源头,没有一道看产物**。于是本票全程五道门全绿,而实际到端的 CSS 是零。这与"判据必须覆盖门自己产出的形态"同族,只是尺度大一个量级:**同源对账门保证的是"两边写的同源",不是"两边都生效"**。
+
+
+
+
+
+
+
+
+
+
+
+
+### O62 附②:推翻本票上一句交付结论 —— `/alpha` 在小程序**真实构建产物**里到不了,根因比插件深一层(2026-09-25 实测)
+
+
+### 第五十批（进行中）(2026-09-25,用户指令"我需要所有都做到自动同步 以 web app 为主")
+- **用户诉求**:跨端设计真值不要再靠"人记得跑同步脚本 + 提交时守门拦红",改成自动派生,以 web(tokens.css)+ app(rn-tokens.ts)为权威源。
+- **先更正上一轮我给用户的错判**(取证在 `scripts/lib/pre-commit-hook.js`):
+  1. **小程序端其实早就自动同步了** —— `pre-commit-hook.js:112-176`:检测到 tokens.css 被 staged 就自动跑 `sync-tokens` + `git add apps/miniapp-taro/src/app.css` + 更新 staging 快照。AGENTS.md 那句"自动同步"在这一端是兑现的,我上一轮说"要人记得跑"是错的。
+  2. **`tailwind-preset.js` 不是第二真相** —— 实测 0 个 HEX 字面量 / 35 处 `var(--color-*)`;它自述的"色值来自这份 JS 而不是 tokens.css"是**误导注释**,待改。
+- **RN 端(`apps/mobile-rn/global.css`)确实只拦红不回写**(`pre-commit-hook.js:340-355`),而这道不对称**不是漏接,是接上必炸** —— 本批实测出 `scripts/sync-rn-global-css.mjs` 的两处缺陷:
+  1. **整块替换会删掉在用的端内档**:`.dark` 里有 **13 个 `--rn-*`**(文件注释明写"用 --rn-* 前缀避免被只校验 --color-* 的那道门拦"),接上提交链跑一次即抹掉这 13 行,**并连带抹掉 6 段解释性注释**(含"destructive 明暗同值故 .dark 不重复"的设计依据)。
+  2. **取值口径与守门不同形**:生成器用 `/@theme\s*\{([\s\S]*?)\}/` 只取**首个非贪婪**块,漏掉 tokens.css 第 326/341/407… 行的后续 `:root` 块 —— 里面正是 3 条 `--color-*-rgb` 三元组(alpha 通道,守门 93 R6 要求每档必备)。实测:一次"同步"把这 3 行删除。守门 `check-rn-global-css-sync.mjs` 反而**不剥注释**(小程序那道 `check-miniapp-tokens-sync.mjs:55-57` 剥了)—— 同一判据两处不同形,即本仓反复踩的那一类。
+- **已写好但未能入库的修法**(方案已验证,落地被共享工作区回退,见下):抽 `scripts/lib/design-token-blocks.mjs` 作 tokens.css 取块/取值的**唯一实现**(生成器与守门共用),生成器改**原位写回**:同名行换值、源里新增档补到块尾、注释与 `--rn-*` 一个字符不动;并把 RN 自动同步并进 `pre-commit-hook.js` 那张 `TOKEN_SYNC_TARGETS` 表(不再复制第二份 git add / 快照 / 失败处理)。实测读数:修后 `--rn-*` 26→26、`--color-*-rgb` 13→13、注释 42→45(净增),幂等(run2 与 run1 字节相同)。
+- **落地被吞的现场(如实登记,不假装完成)**:上述两个文件的改动写盘后被共享工作区**整文件回退**(`git status` 里 `scripts/sync-rn-global-css.mjs` 重新等于 HEAD),我造成的 `global.css` 红已当场 `git restore` 复原(复跑 `check-rn-global-css-sync` exit 0、`--rn-*` 26 条在位)。⇒ 下一动作:**按 §12d 在 `git worktree add --detach` 里改+验+提交,再回主 worktree 收编**,不在共享工作树上与并发回写抢时间。
+- **本批顺带量到的其他"未自动同步"面**(逐条已有定位,尚未动):
+  - `apps/extension/entrypoints/content/content-toolbar.tsx:252-270` 15 条内联 `--color-*: #hex` + `content.ts:183-185` —— **全仓无任何守门覆盖**;守门 93 只认 RN 端内 brand 键。
+  - `packages/ui-react/src/styles/auth-shell.css:41-47` 影子重定义 `--color-accent`/`--color-muted`(HSL),不在任何对账面内。
+  - 图标三生成器 `gen-taro-lucide-icons.mjs` / `gen-line-icons.mjs` / `gen-tabbar-icons.mjs` —— **无 package.json 入口、无守门、纯人工**;而守门 64/99 都拦过"造好没装车"这一型。
+  - `gen-i18n-compressed.mjs` 进 `build`/`build:weapp` 但**不进 dev**(dev 走 `scripts/dev-weapp.mjs`)⇒ 离线语言包在 dev 下可能是旧的。
+  - 守门 93 全量模式偶发 `TypeError: Cannot read properties of undefined (reading 'length')` + exit 2(`--staged` 口径三次全绿)。定位:`resolveTsPath:209-218` 对 `rnBodies[name]` **没有 null 守卫**(R4/R2 都兜了,唯独 R1 没兜),表名一漂移即裸异常。另一处更危险:`catBatch:601-621` 的 EOF-break 截断会让 `scanOne:1093` 的 `if (src === undefined) continue` **静默少扫不红**。
+- **边界(做不到自动同步的部分,如实说明)**:组件/页面层**结构上无法自动同步** —— `packages/app`(`@ihui/rn-app`)是 react-native 实现,Taro 端跑不了(实测 `apps/miniapp-taro/src` 对它零 import,只有注释里的"视觉对齐"说明)。可自动化的只有真值层(色 / 圆角 / alpha / 图标名 / 文案键);页面结构只能靠契约 + 守门。
+- **✅ 本批已落地(2026-09-25,worktree 隔离提交后收编)**:上面"落地被吞"那一节所述风险成真过(共享工作树把我的两处改动整文件回退),故按 §12d 走 `git worktree add --detach ../IHUI-AI-wt-tokensync` 改+验+提交(`75c2c71225`,worktree 无 node_modules 故 `--no-verify`,符合 §12d),再回主 worktree `cherry-pick --no-commit` 收编并跑全部门链。实测读数:
+  - 生成器 `--self-test` **11 条全绿**,含两条阳性对照(注释里的 `--color-x: 散文` 不得当声明改写;跨行 `linear-gradient(` 声明不得被误判"尚缺"再补一遍 —— 后者是本次新发现的幂等破功根因,已钉成 T4/P8)。
+  - `apps/mobile-rn/global.css` 落派生态:**128 行纯新增 / 0 删除**;`--rn-*` 26 条、`--color-*-rgb` 13 条全部在位;复跑逐字节相同(幂等),`--check` exit 0。
+  - 守门 `check-rn-global-css-sync.mjs` 收紧后**对 HEAD 旧副本判出 124 处缺档**(旧 subset 判据对同一份一路报绿 ⇒ 门此前无牙);对派生态 exit 0。
+  - §22c 镜像测试 `scripts/tests/sync-rn-global-css.test.mjs` **9/9**,含 T5(门有牙)/ T6(反向对照,不得恒红)/ T7(单一实现,禁止两处各抄取值)/ T8(装车证明:`TOKEN_SYNC_TARGETS` 含两目标 + 落地 `git add` 恰好一处 —— 第一版拿 "git add" 词频当尺子,健康仓库上必红 5 次,已改为匹配调用式)。
+  - **仍未闭环(各自带解阻判据,不是"后续建议")**:① `tailwind-alpha-plugin.js` 的 `ALPHA_USAGE` 仍是人工登记表 ⇒ 解阻判据=改成"剥注释后扫三端源码自动产出",且 R6 的腐烂判据随之结构性消失;② `packages/design-tokens/src/rn-tokens.ts` 仍是手抄 HEX 第二真相 ⇒ 解阻判据=由 tokens.css 派生受管块并保留守门 93 的对账面;③ `apps/extension/entrypoints/content/content-toolbar.tsx:252-270` 的 15 条内联 hex 与 `packages/ui-react/src/styles/auth-shell.css:41-47` 的影子重定义**不在任何对账面内** ⇒ 解阻判据=纳入门 93 的品牌键/悬空引用判据;④ 守门 93 全量模式偶发裸 `TypeError` + exit 2(`resolveTsPath:209` 无 null 守卫)与 `catBatch` 截断致"少扫不红"(`scanOne:1093` 静默 `continue`)⇒ 解阻判据=具名「无法判定」+ 两条自检;⑤ 三个图标生成器零挂点零守门、`gen-i18n-compressed.mjs` 不进 dev ⇒ 解阻判据=接进构建入口。⑥ **产物面未证**:按同日登记的实测,小程序端 `config/index.ts` 的 `tailwindcss.config:{}` 让端内 tailwind 配置在真实构建中从未加载 ⇒ 本票的"同源"仍是**源码级同源**,端到端产物一致性另有其题。
