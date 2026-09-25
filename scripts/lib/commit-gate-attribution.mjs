@@ -108,16 +108,51 @@ export function parseGateSummary(text) {
 const SUMMARY_HEAD_RE = /🛡️\s*守门脚本批量检查汇总/g
 
 /**
- * 从一整段日志(多轮追加)里取**最后一轮**的汇总文本。
+ * 取某一轮汇总块**之前**最近一次的 `staged 文件清单(N 个):` 回显,解析成文件集合。
+ * 这是本仓唯一能把一段日志输出**绑定到具体某一枚提交**的内容证据 —— 日志没有时间戳、
+ * 也没有轮次号(实测按 `^YYYY-MM-DD` 抓时间戳零命中),而这份回显是钩子入口自己打的。
+ * @returns {string[]|null} null = 该块之前找不到回显(无从判定归属)
+ */
+export function parseStagedEcho(text, beforeIndex = String(text || '').length) {
+  const seg = String(text || '').slice(0, beforeIndex)
+  // 只锚 "staged 文件清单" 这段前缀:钩子真实措辞是 `staged 文件清单(N 个):`(实测 149/158 轮
+  // 有回显),而本模块的夹具历史上写成不带计数的 `staged 文件清单:` —— 两种都要认,
+  // 否则判据会因为"自己 fixtures 与线上不同形"而恒判"无回显"(=永远未归因,等于没有第二输入源)。
+  const at = seg.lastIndexOf('staged 文件清单')
+  if (at < 0) return null
+  const files = []
+  for (const line of seg.slice(at).split('\n').slice(1)) {
+    const m = line.match(/^\s*-\s+(\S+)\s*$/)
+    if (m) {
+      files.push(m[1].trim())
+      continue
+    }
+    // 第一个非 `- ` 行即清单结束(再往后属于别的段,不是本轮的暂存集)
+    break
+  }
+  return files.length ? [...new Set(files)].sort() : null
+}
+
+/**
+ * 从一整段日志(多轮追加)里取**最后一轮**的汇总文本,并把它**绑定到本次声明的文件集**。
  *
  * 为什么需要它:实测 2026-09-25 那次 --no-verify,`hookOutput` 里只有到 `[30a]` 为止的进度行,
  * 真正的汇总块(134 项跑完 / 3 道红:30c 71 84)只落在 `.workbuddy/hook-logs/pre-commit.log`。
  * 没有这一层,归因在真仓里的实际命中率是"永远未归因"。
  *
- * 只认最后一轮,并要求这一轮里**出现过本次声明的任一文件名** —— 否则可能拿着
- * 上一轮(别人的提交)的清单给自己归因,那是凭空造一条"不是我"的证据。
+ * 为什么第二道锁必须换掉(同日晚间实测):旧写法只要求"窗口里出现过本次声明的**任一**文件名"
+ * (`.some()`)。而那段窗口实测有 48KB–202KB,里头几乎必然提到 `PROJECT_PLAN.md` / `AGENTS.md`
+ * (守门 71/13c 的结论行就点名它们)⇒ **任何一次借用上一轮汇总都能过锁**。后果不是少跑一道门,
+ * 而是把"我自己的红"洗成 `not-ours` 并合法 --no-verify:实测提交 `48ac2c03e`(4 文件,红在
+ * eslint `no-unused-vars`)就是这样跳掉了整批 152 道门 —— 它借用的那一轮属于别人一次 2 文件的
+ * 提交,两次的声明集**互不相交**,可窗口里那句 `PROJECT_PLAN.md` 就让旧锁放行了。
+ * 现改成对**本轮 staged 清单回显**做**包含**判定:本次声明的每个文件都必须出现在该回显里
+ * (回显由钩子入口 `auditStagingFiles()` 打,是唯一能把一段日志绑定到具体某枚提交的信号)。
+ * 不相交 ⇒ 拒;只相交一部分(极端情形 = 256KB 尾部把回显截断了)⇒ 也拒 ⇒ 结论落到
+ * `unattributed`。**失效方向刻意是"多要一次定向说明",绝不是"多放一次跳门"**(§12d 同一条禁令)。
+ *
  * @param {string} logText 日志全文(调用方负责截尾,别把整份 33KB×N 喂进来)
- * @param {string[]} mustMention 本次声明的文件清单
+ * @param {string[]} mustMention 本次声明并暂存的文件清单(仓库根相对路径)
  * @returns {{text:string|null, why:string}}
  */
 export function pickLastSummaryRun(logText, mustMention) {
@@ -128,11 +163,20 @@ export function pickLastSummaryRun(logText, mustMention) {
   const seg = clean.slice(start)
   if (!/道\s*blocking\s*门失败|失败:\s*\d+/.test(seg))
     return { text: null, why: '最后一轮汇总块不完整' }
-  // 回溯本轮开头:上一轮汇总之后到本轮汇总之前,应当出现过本次声明的文件
-  const prevStart = heads.length > 1 ? heads[heads.length - 2].index : 0
-  const window = clean.slice(prevStart, start)
-  if (!(mustMention ?? []).some((f) => window.includes(f))) {
-    return { text: null, why: '最后一轮汇总之前的清单未点名本次文件 ⇒ 可能是他人那一轮,不用于归因' }
+  const mine = [...new Set((mustMention ?? []).map((f) => String(f).trim()).filter(Boolean))].sort()
+  if (mine.length === 0) return { text: null, why: '本次声明清单为空 ⇒ 无从绑定轮次,不用于归因' }
+  const echo = parseStagedEcho(clean, start)
+  if (echo === null)
+    return { text: null, why: '该汇总块之前没有 staged 清单回显 ⇒ 无法证明属于本轮,不用于归因' }
+  const absent = mine.filter((f) => !echo.includes(f))
+  if (absent.length) {
+    return {
+      text: null,
+      why:
+        `该汇总块之前的 staged 清单(${echo.length} 项)未完整包含本次声明集(${mine.length} 项),` +
+        `缺 ${absent.length} 项(${absent.slice(0, 3).join(' , ')})⇒ 不能证明是本轮,不用于归因` +
+        `(旧锁只看"窗口里出现过任一文件名",而窗口里必然有 PROJECT_PLAN.md/AGENTS.md,正是被这种重名放过的)`,
+    }
   }
   return { text: seg, why: 'ok' }
 }
@@ -155,7 +199,7 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate }
       const p2 = parseGateSummary(picked.text)
       if (p2.failed.length > 0) {
         parsed = p2
-        source = '同一轮钩子日志尾部(stdout 未带汇总)'
+        source = '同一轮钩子日志尾部(stdout 未带汇总;该轮 staged 清单已含本次声明集)'
       }
     }
   }
@@ -313,6 +357,45 @@ export function selfTest(assert, runnerSource) {
   assert(
     parseGateSummary(SUMMARY + FAIL_29 + FAIL_29.replace('[29]', '[77]')).failed.length === 2,
     'P0b 去重不得把**不同**门吃掉',
+  )
+
+  // --- P-R 轮次绑定:汇总块必须靠"本轮 staged 清单回显 == 本次声明集"才算属于本轮 ---
+  // 立因是实测:提交 48ac2c03e 红在 eslint no-unused-vars(我自己的红),而 lint-staged 失败
+  // 使守门批**根本没跑** ⇒ stdout 无汇总 ⇒ 旧实现去日志尾部借了上一轮的汇总块,旧锁只要求
+  // "窗口里出现过任一本次文件名"—— 那段窗口 48KB–202KB 里必然提到 PROJECT_PLAN.md/AGENTS.md
+  // (守门 71/13c 的结论行就点名它们),于是我的红被洗成 not-ours,合法跳掉整批 152 道门。
+  const roundLog = (files, tail) =>
+    `  ℹ️  staged 文件清单(${files.length} 个):\n` +
+    files.map((f) => `     - ${f}`).join('\n') +
+    `\n\n${tail}`
+  const four = ['AGENTS.md', 'PROJECT_PLAN.md', 'scripts/a.mjs', 'scripts/b.mjs']
+  // 回显比声明集多几项也算本轮(钩子按磁盘实际暂存打,可能含同一枚提交的其它路径)
+  const r1 = pickLastSummaryRun(
+    roundLog(four, SUMMARY + FAIL_29),
+    four.map((f) => f),
+  )
+  assert(r1.text !== null, `P-R1 声明集与回显全等时必须取到本轮汇总(实得 why=${r1.why})`)
+  // P-R2 = 48ac2c03e 的实测形态:本轮没跑批(无回显、无汇总),日志里只剩别人那一轮的汇总块,
+  // 而该轮的清单是**本次的真子集**(活文档重名)。旧锁放过 ⇒ 新锁必须拒。
+  const otherRound = roundLog(['PROJECT_PLAN.md'], SUMMARY + FAIL_29)
+  const r2 = pickLastSummaryRun(otherRound, four)
+  assert(
+    r2.text === null && /未完整包含/.test(r2.why),
+    `P-R2 声明集的真子集重名(旧 .some() 会放过)必须判"不是本轮",实得 ${JSON.stringify(r2.why)}`,
+  )
+  assert(
+    pickLastSummaryRun(SUMMARY + FAIL_29, four).text === null,
+    'P-R3 没有 staged 清单回显时不得用于归因(宁可未归因,绝不借用)',
+  )
+  assert(
+    pickLastSummaryRun(roundLog([], SUMMARY + FAIL_29), []).text === null,
+    'P-R4 声明集为空 ⇒ 无从绑定轮次,不用于归因',
+  )
+  // P-R5 反向锁:旧的"任一命中"写法不得回来 —— 它在活文档上必然恒真,等于没有这道锁
+  assert(
+    !/some\(\(f\) => window\.includes\(f\)\)/.test(String(pickLastSummaryRun)) &&
+      !/const window = clean\.slice/.test(String(pickLastSummaryRun)),
+    'P-R5 不得回退到"窗口里出现过任一本次文件名"的弱锁(实测会被 PROJECT_PLAN.md/AGENTS.md 放过)',
   )
 
   // --- A1 实测那一轮:红的是远端态门,复跑过关 ⇒ not-ours ---
@@ -517,7 +600,7 @@ Found 2 errors in 2 files (checked 548 source files)
   // --- B3 同一轮里点名我 ⇒ 仍须 mine(第二输入源不得把责任洗掉) ---
   const b3 = classifyHookFailure({
     text: '',
-    fallbackText: `清单:\n - scripts/foo.mjs\n${ROUND_MINE}`,
+    fallbackText: `staged 文件清单(2 个):\n - scripts/foo.mjs\n - PROJECT_PLAN.md\n${ROUND_MINE}`,
     stagedFiles: MY_FILES,
     runGate: () => ({ status: 1, output: '  ✗ scripts/foo.mjs:3 历史版本回写' }),
   })
@@ -536,6 +619,7 @@ export const __test__ = {
   findingLines,
   parseGateSummary,
   pickLastSummaryRun,
+  parseStagedEcho,
   classifyHookFailure,
   verdictLine,
   SUMMARY,
