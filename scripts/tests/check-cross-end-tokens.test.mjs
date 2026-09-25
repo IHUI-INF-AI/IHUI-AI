@@ -15,6 +15,8 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
+
 const here = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(here, '..', '..')
 const SCRIPT = join(ROOT, 'scripts', 'check-cross-end-tokens.mjs')
@@ -441,7 +443,6 @@ test('R6 取材口径端到端:未提交的改动不得钉红无关提交,暂存
     'packages/design-tokens/src/radius.js',
     'packages/design-tokens/src/styles/tokens.css',
     'packages/design-tokens/src/rn-tokens.ts',
-    'scripts/check-cross-end-tokens.mjs',
   ]) {
     let content = readFileSync(join(ROOT, rel), 'utf8')
     if (rel.endsWith('tailwind-alpha-plugin.js'))
@@ -452,6 +453,13 @@ test('R6 取材口径端到端:未提交的改动不得钉红无关提交,暂存
       )
     put(rel, content)
   }
+  // 被测脚本按 **import 闭包** 拷,不手抄清单:本门把 git 派生收口到共用层之后,少拷一跳
+  // `lib/face-reader.mjs` 就是 ERR_MODULE_NOT_FOUND —— 而那红的是一件无关的事(实测踩过)。
+  // `expect` 是反向哨兵:哪天连层的依赖变了,由它点名,而不是让夹具静默缺文件。
+  copyScriptWithClosure(join(ROOT, 'scripts'), 'check-cross-end-tokens.mjs', join(dir, 'scripts'), [
+    'lib/face-reader.mjs',
+    'lib/gitdir.mjs',
+  ])
   const srcRel = 'apps/miniapp-taro/src/box.tsx'
   put(srcRel, 'export const A = () => <View className="bg-primary/10" />\n')
   git(['init', '-q'])
@@ -509,19 +517,47 @@ test('R6 解析器与真登记表:解析结果必须能驱动真产出函数', a
 // 起因:全量模式偶发匿名 `TypeError: Cannot read properties of undefined (reading 'length')` + exit 2,
 // 只打 message 不打栈 ⇒ 复跑三轮再也复现不出来。修法是"崩 ⇒ 具名无法判定"与"截断 ⇒ 大声失败",
 // 而这两条**只能用纯函数 + 构造面证明**(把旧形状写回本文件当证明会因 `break` 落循环外而语法错)。
-test('表名漂移必须抛具名"无法判定",而不是裸 TypeError', async () => {
+test('装车形状:本门必须真走取材层,且不得自带 batch 解析(含"半收口"反例)', async () => {
   const { checkCrashShape } = await import('../check-cross-end-tokens.mjs')
   assert.equal(typeof checkCrashShape, 'function', 'checkCrashShape 必须被导出(否则形状判据测不到)')
 
   const src = readFileSync(new URL('../check-cross-end-tokens.mjs', import.meta.url), 'utf8')
   const onReal = checkCrashShape(src)
-  assert.equal(onReal.truncatedNamed, true, 'catBatch 截断必须点名')
+  assert.equal(
+    onReal.usesLayer,
+    true,
+    '本门必须从 ./lib/face-reader.mjs 取层的 catBatch —— 不再自带一份',
+  )
+  assert.equal(onReal.selfBatchBack, false, '本门不得再出现自己的 cat-file --batch 派生')
   assert.equal(onReal.silentBreakBack, false, '真文件不得含旧静默 break 形状')
   assert.equal(onReal.catchHasStack, true, '顶层 catch 必须带栈')
 
-  // 反例:旧写法回来 ⇒ 必须被抓到(证明这把尺子有牙,不是恒绿)
-  const onBad = checkCrashShape('function catBatch(revs){\n  map.set(rev, null)\n      break\n}\n')
-  assert.equal(onBad.silentBreakBack, true, '含旧静默 break 的文本必须判 silentBreakBack=true')
+  // 反例 1:旧写法(自带 batch + 静默 break 少扫)回来 ⇒ 三个字段必须同时翻(证明尺子有牙,不是恒绿)
+  const onBad = checkCrashShape(
+    "function catBatch(revs){ const out = execFileSync('git', ['cat-file', '--batch'])\n  map.set(rev, null)\n      break\n}\n",
+  )
+  assert.deepEqual(
+    { u: onBad.usesLayer, b: onBad.selfBatchBack, s: onBad.silentBreakBack },
+    { u: false, b: true, s: true },
+    '一段自带解析的文本必须被 usesLayer / selfBatchBack / silentBreakBack 三处同时抓到',
+  )
+
+  // 反例 2:两个字段必须**互相独立**,不能互为代理 —— "收口收了一半"(走了层、又另起一处 batch 派生)
+  // 只有 selfBatchBack 会翻。同时钉住已知前缀陷阱:`'--batch'` 是 `'--batch-check'` 的前缀,
+  // 只出现后者不得被判成自带解析。
+  const halfMoved = checkCrashShape(
+    "import { catBatch } from './lib/face-reader.mjs'\nconst m = catBatch(root, revs)\nfunction extra(){ return g(['cat-file', '--batch-check']) }\n",
+  )
+  assert.equal(halfMoved.usesLayer, true, '走了层 ⇒ usesLayer 必须为 true')
+  assert.equal(halfMoved.selfBatchBack, false, "只出现 '--batch-check' 不是自带 batch,不得误判")
+  const halfMoved2 = checkCrashShape(
+    "import { catBatch } from './lib/face-reader.mjs'\nconst m = catBatch(root, revs)\nfunction extra(){ return g(['cat-file', '--batch']) }\n",
+  )
+  assert.equal(
+    halfMoved2.selfBatchBack,
+    true,
+    '同一文件既走层又另起一处 batch 派生 ⇒ 必须点名(半收口不许蒙过)',
+  )
 
   // 反例:catch 只打 message ⇒ 必须被抓到
   assert.equal(
