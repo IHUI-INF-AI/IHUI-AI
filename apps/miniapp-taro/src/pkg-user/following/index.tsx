@@ -87,11 +87,11 @@ export default function FollowingPage() {
       {/* 顶部:关注统计 + 搜索 */}
       <View className="flex flex-col gap-[16rpx]">
         <View className="flex items-baseline">
-          <Text className="text-[28rpx] text-muted-foreground">
+          <Text className="text-[length:28rpx] text-muted-foreground">
             {tt('following.total', '已关注')}
           </Text>
-          <Text className="mx-[8rpx] text-[40rpx] font-bold text-primary">{totalCount}</Text>
-          <Text className="text-[24rpx] text-muted-foreground">{tt('following.people', '人')}</Text>
+          <Text className="mx-[8rpx] text-[length:40rpx] font-bold text-primary">{totalCount}</Text>
+          <Text className="text-[length:24rpx] text-muted-foreground">{tt('following.people', '人')}</Text>
         </View>
         {/* 搜索栏(统一圆角输入井,共享 SearchBar) */}
         <SearchBar
@@ -111,7 +111,7 @@ export default function FollowingPage() {
           onClick={() => setActiveTab('followedAt')}
         >
           <Text
-            className={`text-[28rpx] ${activeTab === 'followedAt' ? 'text-primary-foreground font-semibold' : 'text-muted-foreground'}`}
+            className={`text-[length:28rpx] ${activeTab === 'followedAt' ? 'text-primary-foreground font-semibold' : 'text-muted-foreground'}`}
           >
             {tt('following.sortByFollowed', '关注时间')}
           </Text>
@@ -122,7 +122,7 @@ export default function FollowingPage() {
           onClick={() => setActiveTab('recent')}
         >
           <Text
-            className={`text-[28rpx] ${activeTab === 'recent' ? 'text-primary-foreground font-semibold' : 'text-muted-foreground'}`}
+            className={`text-[length:28rpx] ${activeTab === 'recent' ? 'text-primary-foreground font-semibold' : 'text-muted-foreground'}`}
           >
             {tt('following.sortByRecent', '最近活跃')}
           </Text>
@@ -141,7 +141,7 @@ export default function FollowingPage() {
                 {/* 对齐 RN FollowScreen card:padding 12dp/radius 12dp/描边 border.light/底 surface.bg */}
                 <View
                   key={item.id}
-                  className="flex items-center p-[24rpx] bg-background border-[2rpx] border-border rounded-xl"
+                  className="flex items-center p-[24rpx] bg-background border-[length:2rpx] border-border rounded-xl"
                 >
                   {item.avatar ? (
                     <Image
@@ -152,7 +152,7 @@ export default function FollowingPage() {
                   ) : (
                     <View className="w-[96rpx] h-[96rpx] rounded-full bg-muted mr-[24rpx] shrink-0 flex items-center justify-center">
                       {/* 对齐 RN avatarInitial 18dp/600/text.secondary */}
-                      <Text className="text-[36rpx] font-semibold text-muted-foreground">
+                      <Text className="text-[length:36rpx] font-semibold text-muted-foreground">
                         {initial}
                       </Text>
                     </View>
@@ -160,28 +160,28 @@ export default function FollowingPage() {
                   {/* 对齐 RN cardInfo:marginLeft 12dp;bio/meta marginTop 8dp */}
                   <View className="flex-1 min-w-0 flex flex-col gap-[16rpx]">
                     <View className="flex items-center justify-between">
-                      <Text className="text-[32rpx] font-semibold text-foreground truncate">
+                      <Text className="text-[length:32rpx] font-semibold text-foreground truncate">
                         {name}
                       </Text>
-                      <View className="py-[4rpx] px-[12rpx] bg-primary/10 border-[2rpx] border-primary/30 rounded-xs">
-                        <Text className="text-[20rpx] text-primary">
+                      <View className="py-[4rpx] px-[12rpx] bg-primary/10 border-[length:2rpx] border-primary/30 rounded-xs">
+                        <Text className="text-[length:20rpx] text-primary">
                           {tt('following.following', '已关注')}
                         </Text>
                       </View>
                     </View>
                     {item.bio ? (
-                      <Text className="text-[22rpx] text-muted-foreground truncate">
+                      <Text className="text-[length:22rpx] text-muted-foreground truncate">
                         {item.bio}
                       </Text>
                     ) : null}
                     <View className="flex items-center justify-between">
-                      <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+                      <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
                         {tt('following.followedAt', '关注于')}{' '}
                         {formatDateByTemplate(item.followedAt, 'YYYY-MM-DD') || '-'}
                       </Text>
                       {/* 对齐 RN unfollowBtn:paddingHorizontal 12dp/paddingVertical 6dp/radius 12dp/描边 border.light/字 text.primary */}
                       <Text
-                        className="py-[12rpx] px-[24rpx] text-[28rpx] text-foreground bg-background border-[2rpx] border-border rounded-xl"
+                        className="py-[12rpx] px-[24rpx] text-[length:28rpx] text-foreground bg-background border-[length:2rpx] border-border rounded-xl"
                         onClick={() => handleUnfollow(item)}
                       >
                         {tt('following.delete', '取消关注')}
@@ -199,7 +199,7 @@ export default function FollowingPage() {
       {displayList.length === 0 && !loading ? (
         <View className="py-[96rpx] flex flex-col items-center">
           <LineIcon name="message-circle" size={80} color="var(--color-muted-foreground)" />
-          <Text className="mt-[16rpx] text-[28rpx] text-muted-foreground">
+          <Text className="mt-[16rpx] text-[length:28rpx] text-muted-foreground">
             {searchText
               ? tt('following.searchEmpty', '未找到匹配用户')
               : tt('following.empty', '暂无关注')}
@@ -209,7 +209,7 @@ export default function FollowingPage() {
             hoverClass="opacity-60"
             onClick={goDiscover}
           >
-            <Text className="text-primary-foreground text-[26rpx]">
+            <Text className="text-primary-foreground text-[length:26rpx]">
               {tt('following.goDiscover', '去发现更多')}
             </Text>
           </View>
@@ -218,17 +218,17 @@ export default function FollowingPage() {
 
       {/* 加载状态(对齐 RN footerText 11dp/paddingVertical 16dp) */}
       {loading && displayList.length === 0 ? (
-        <View className="text-center py-[32rpx] text-[22rpx] text-muted-foreground">
+        <View className="text-center py-[32rpx] text-[length:22rpx] text-muted-foreground">
           <Text>{tt('common.loading', '加载中…')}</Text>
         </View>
       ) : null}
       {loading && displayList.length > 0 ? (
-        <View className="text-center py-[32rpx] text-[22rpx] text-muted-foreground">
+        <View className="text-center py-[32rpx] text-[length:22rpx] text-muted-foreground">
           <Text>{tt('following.loadMore', '加载更多')}</Text>
         </View>
       ) : null}
       {!loading && !hasMore && displayList.length > 0 ? (
-        <View className="text-center py-[32rpx] text-[22rpx] text-muted-foreground">
+        <View className="text-center py-[32rpx] text-[length:22rpx] text-muted-foreground">
           <Text>{tt('following.noMore', '没有更多了')}</Text>
         </View>
       ) : null}

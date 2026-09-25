@@ -93,12 +93,12 @@ export default function MyStudy() {
         {/* 对齐 RN StudyRecordScreen(共享屏):容器 bg surface.bg;header px10dp→20rpx/pt48dp→96rpx/pb12dp→24rpx,标题 20dp→40rpx/600 */}
         <View className="flex flex-col h-screen bg-background">
           <View className="px-[20rpx] pt-[96rpx] pb-[24rpx] flex-shrink-0">
-            <Text className="text-[40rpx] font-semibold text-foreground">
+            <Text className="text-[length:40rpx] font-semibold text-foreground">
               {t('study.myStudy.title')}
             </Text>
           </View>
           <View className="flex-1 min-h-[0] flex flex-col items-center pt-[96rpx]">
-            <Text className="text-[28rpx] text-muted-foreground">{t('common.loading')}</Text>
+            <Text className="text-[length:28rpx] text-muted-foreground">{t('common.loading')}</Text>
           </View>
         </View>
       </ThemeRoot>
@@ -110,12 +110,12 @@ export default function MyStudy() {
       <ThemeRoot>
         <View className="flex flex-col h-screen bg-background">
           <View className="px-[20rpx] pt-[96rpx] pb-[24rpx] flex-shrink-0">
-            <Text className="text-[40rpx] font-semibold text-foreground">
+            <Text className="text-[length:40rpx] font-semibold text-foreground">
               {t('study.myStudy.title')}
             </Text>
           </View>
           <View className="flex-1 min-h-[0] flex flex-col items-center pt-[96rpx] px-[20rpx]">
-            <Text className="text-[28rpx] text-[var(--color-danger)]">
+            <Text className="text-[length:28rpx] text-[var(--color-danger)]">
               {tt('study.myStudy.loadFailed', '加载失败')}
             </Text>
             <View
@@ -123,7 +123,7 @@ export default function MyStudy() {
               hoverClass="opacity-60"
               onClick={loadData}
             >
-              <Text className="text-[28rpx] font-semibold text-primary-foreground">
+              <Text className="text-[length:28rpx] font-semibold text-primary-foreground">
                 {t('common.retry')}
               </Text>
             </View>
@@ -137,7 +137,7 @@ export default function MyStudy() {
     <ThemeRoot>
       <View className="flex flex-col h-screen bg-background">
         <View className="px-[20rpx] pt-[96rpx] pb-[24rpx] flex-shrink-0">
-          <Text className="text-[40rpx] font-semibold text-foreground">
+          <Text className="text-[length:40rpx] font-semibold text-foreground">
             {t('study.myStudy.title')}
           </Text>
         </View>
@@ -146,7 +146,7 @@ export default function MyStudy() {
           {TABS(tt).map((tab) => (
             <View
               key={tab.key}
-              className={`flex-1 flex items-center justify-center py-[12rpx] rounded-xl text-[28rpx] ${
+              className={`flex-1 flex items-center justify-center py-[12rpx] rounded-xl text-[length:28rpx] ${
                 activeTab === tab.key
                   ? 'bg-cta text-cta-foreground font-semibold'
                   : 'bg-card text-muted-foreground'
@@ -171,7 +171,7 @@ export default function MyStudy() {
                     <LineIcon name="book-open" size={40} color="var(--color-muted-foreground)" />
                   </View>
                   <View className="flex-1 ml-[16rpx] flex flex-col">
-                    <Text className="text-[32rpx] text-foreground font-bold leading-[1.4] overflow-hidden">
+                    <Text className="text-[length:32rpx] text-foreground font-bold leading-[1.4] overflow-hidden">
                       {item.courseTitle || t('study.myStudy.courseFallback')}
                     </Text>
                     <View className="flex items-center mt-[16rpx]">
@@ -181,12 +181,12 @@ export default function MyStudy() {
                           style={{ width: `${Math.min(100, Math.max(0, item.progress))}%` }}
                         />
                       </View>
-                      <Text className="text-[22rpx] text-muted-foreground flex-shrink-0">
+                      <Text className="text-[length:22rpx] text-muted-foreground flex-shrink-0">
                         {tt('study.myStudy.progress', '进度')} {item.progress}%
                       </Text>
                     </View>
                     {item.time ? (
-                      <Text className="text-[22rpx] text-[var(--color-text-tertiary)] mt-[8rpx]">
+                      <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)] mt-[8rpx]">
                         {tt('study.myStudy.lastTime', '上次学习')}: {formatRelativeTime(item.time)}
                       </Text>
                     ) : null}
@@ -195,7 +195,7 @@ export default function MyStudy() {
                       hoverClass="opacity-60"
                       onClick={() => onContinue(item)}
                     >
-                      <Text className="text-[28rpx] font-semibold text-primary-foreground">
+                      <Text className="text-[length:28rpx] font-semibold text-primary-foreground">
                         {t('study.continueLearning')}
                       </Text>
                     </View>
@@ -210,7 +210,7 @@ export default function MyStudy() {
                   color="var(--color-text-tertiary)"
                   style={{ marginBottom: '16rpx' }}
                 />
-                <Text className="block text-center text-[28rpx] text-muted-foreground">
+                <Text className="block text-center text-[length:28rpx] text-muted-foreground">
                   {getEmptyText(activeTab)}
                 </Text>
               </View>

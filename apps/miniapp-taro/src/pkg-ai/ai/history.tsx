@@ -240,7 +240,7 @@ export default function HistoryPage() {
           onClear={() => setKeyword('')}
         />
         {list.length > 0 ? (
-          <Text className="text-[26rpx] text-destructive flex-shrink-0" onClick={onClearAll}>
+          <Text className="text-[length:26rpx] text-destructive flex-shrink-0" onClick={onClearAll}>
             {tt('ai.historyPage.clearAll', '清空全部')}
           </Text>
         ) : null}
@@ -259,7 +259,7 @@ export default function HistoryPage() {
             hoverClass="opacity-60"
           >
             <Image src={f.icon} className="w-[28rpx] h-[28rpx]" mode="aspectFit" />
-            <Text className="text-[24rpx]">{tt(f.labelKey, f.fallback)}</Text>
+            <Text className="text-[length:24rpx]">{tt(f.labelKey, f.fallback)}</Text>
           </View>
         ))}
       </View>
@@ -280,14 +280,14 @@ export default function HistoryPage() {
               className="w-[120rpx] h-[120rpx]"
               mode="aspectFit"
             />
-            <Text className="text-[28rpx] text-muted-foreground mt-[24rpx]">
+            <Text className="text-[length:28rpx] text-muted-foreground mt-[24rpx]">
               {isFiltered
                 ? tt('ai.historyPage.noResult', '未找到相关对话')
                 : t('ai.historyPage.empty')}
             </Text>
             {!isFiltered ? (
               <Button
-                className="mt-[40rpx] px-[64rpx] h-[100rpx] leading-[100rpx] bg-primary text-[var(--color-surface-light)] rounded-xl text-[32rpx] font-semibold"
+                className="mt-[40rpx] px-[64rpx] h-[100rpx] leading-[100rpx] bg-primary text-[var(--color-surface-light)] rounded-xl text-[length:32rpx] font-semibold"
                 onClick={() => goChat()}
               >
                 {tt('ai.historyPage.startNew', '开始新对话')}
@@ -301,7 +301,7 @@ export default function HistoryPage() {
               if (!items || items.length === 0) return null
               return (
                 <View key={g.key} className="mb-[32rpx]">
-                  <Text className="block text-[24rpx] text-muted-foreground mb-[16rpx] pl-[8rpx]">
+                  <Text className="block text-[length:24rpx] text-muted-foreground mb-[16rpx] pl-[8rpx]">
                     {tt(g.labelKey, g.fallback)}
                   </Text>
                   {items.map((h) => {
@@ -329,17 +329,17 @@ export default function HistoryPage() {
                           </View>
                           <View className="flex-1 min-w-0">
                             <View className="flex items-center justify-between gap-[16rpx]">
-                              <Text className="text-[30rpx] text-foreground font-semibold flex-1 truncate">
+                              <Text className="text-[length:30rpx] text-foreground font-semibold flex-1 truncate">
                                 {h.title}
                               </Text>
-                              <Text className="text-[22rpx] text-muted-foreground flex-shrink-0">
+                              <Text className="text-[length:22rpx] text-muted-foreground flex-shrink-0">
                                 {fmtTime(ts)}
                               </Text>
                             </View>
-                            <Text className="block text-[26rpx] text-muted-foreground mt-[8rpx] leading-[1.4] truncate">
+                            <Text className="block text-[length:26rpx] text-muted-foreground mt-[8rpx] leading-[1.4] truncate">
                               {preview}
                             </Text>
-                            <Text className="block text-[22rpx] text-muted-foreground mt-[12rpx]">
+                            <Text className="block text-[length:22rpx] text-muted-foreground mt-[12rpx]">
                               {t('ai.historyPage.msgCount', { n: count })}
                             </Text>
                           </View>
@@ -351,7 +351,7 @@ export default function HistoryPage() {
               )
             })}
             {!hasMore ? (
-              <Text className="block text-center p-[32rpx] text-[24rpx] text-muted-foreground">
+              <Text className="block text-center p-[32rpx] text-[length:24rpx] text-muted-foreground">
                 {tt('ai.historyPage.noMore', '没有更多了')}
               </Text>
             ) : null}

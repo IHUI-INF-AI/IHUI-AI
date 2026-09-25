@@ -64,7 +64,7 @@ export default function BusinessLicense() {
               onClick={previewLicense}
               hoverClass="opacity-60"
             >
-              <Text className="text-[28rpx] text-muted-foreground">
+              <Text className="text-[length:28rpx] text-muted-foreground">
                 {tt('about.businessLicense.tapToView', '点击查看营业执照')}
               </Text>
             </View>
@@ -77,8 +77,8 @@ export default function BusinessLicense() {
               key={item.label}
               className={`flex justify-between items-center p-[32rpx]${idx === 0 ? '' : ' mt-[16rpx]'}`}
             >
-              <Text className="text-[28rpx] text-muted-foreground flex-shrink-0">{item.label}</Text>
-              <Text className="text-[28rpx] text-foreground text-right ml-[24rpx] break-all">
+              <Text className="text-[length:28rpx] text-muted-foreground flex-shrink-0">{item.label}</Text>
+              <Text className="text-[length:28rpx] text-foreground text-right ml-[24rpx] break-all">
                 {item.value}
               </Text>
             </View>
@@ -86,14 +86,14 @@ export default function BusinessLicense() {
         </View>
 
         <View className="bg-card rounded-xl overflow-hidden p-[28rpx] mb-[24rpx]">
-          <Text className="block text-[28rpx] text-foreground font-medium mb-[16rpx]">
+          <Text className="block text-[length:28rpx] text-foreground font-medium mb-[16rpx]">
             {tt('about.businessLicense.scopeTitle', '经营范围')}
           </Text>
-          <Text className="text-[28rpx] text-muted-foreground leading-[44rpx]">{SCOPE}</Text>
+          <Text className="text-[length:28rpx] text-muted-foreground leading-[44rpx]">{SCOPE}</Text>
         </View>
 
         <View className="py-[24rpx] px-[32rpx]">
-          <Text className="text-[22rpx] text-[var(--color-text-tertiary)] leading-[40rpx]">
+          <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)] leading-[40rpx]">
             {tt('about.businessLicense.footer', '以上信息仅供参考,以工商登记为准')}
           </Text>
         </View>

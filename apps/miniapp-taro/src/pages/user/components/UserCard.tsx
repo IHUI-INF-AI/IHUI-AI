@@ -61,7 +61,7 @@ export default function UserCard({ onGoPage }: UserCardProps) {
           <ThemeRoot key={item.key}>
             <View
               key={item.key}
-              className={`flex items-center px-[24rpx] py-[20rpx] rounded-lg mb-[14rpx] bg-card border-[2rpx] border-border ${isFullWidth ? 'w-full' : 'w-[calc(50vw-47rpx)]'}`}
+              className={`flex items-center px-[24rpx] py-[20rpx] rounded-lg mb-[14rpx] bg-card border-[length:2rpx] border-border ${isFullWidth ? 'w-full' : 'w-[calc(50vw-47rpx)]'}`}
               onClick={() => {
                 const userInfodata = Taro.getStorageSync('data')
                 if (!userInfodata) {
@@ -79,8 +79,8 @@ export default function UserCard({ onGoPage }: UserCardProps) {
                 <Image src={item.icon} className="w-full h-full" mode="aspectFill" />
               </View>
               <View>
-                <Text className="block text-[32rpx] text-foreground">{item.title}</Text>
-                <Text className="block text-[28rpx] text-muted-foreground mt-[4rpx]">
+                <Text className="block text-[length:32rpx] text-foreground">{item.title}</Text>
+                <Text className="block text-[length:28rpx] text-muted-foreground mt-[4rpx]">
                   {item.desc}
                 </Text>
               </View>

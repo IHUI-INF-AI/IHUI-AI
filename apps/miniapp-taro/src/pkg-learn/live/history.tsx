@@ -124,7 +124,7 @@ export default function LiveHistory() {
         {FILTER_TABS.map((tab) => (
           <Text
             key={tab.key}
-            className={`flex-1 text-center h-[64rpx] leading-[64rpx] text-[26rpx] text-muted-foreground bg-card border-[2rpx] border-[var(--color-border)] rounded-md${filter === tab.key ? ' text-primary border-primary font-semibold' : ''}`}
+            className={`flex-1 text-center h-[64rpx] leading-[64rpx] text-[length:26rpx] text-muted-foreground bg-card border-[length:2rpx] border-[var(--color-border)] rounded-md${filter === tab.key ? ' text-primary border-primary font-semibold' : ''}`}
             onClick={() => setFilter(tab.key)}
           >
             {tt(tab.i18nKey, tab.fb)}
@@ -142,29 +142,29 @@ export default function LiveHistory() {
               /* 对齐 RN card:padding 12 → 24rpx,radius 12 → 24rpx,1px border.light → 2rpx var(--color-border),无卡片底色 */
               <ThemeRoot key={item.id}>
                 <View
-                  className="p-[24rpx] rounded-xl border-[2rpx] border-[var(--color-border)]"
+                  className="p-[24rpx] rounded-xl border-[length:2rpx] border-[var(--color-border)]"
                   onClick={() => goDetail(item.id)}
                   hoverClass="opacity-60"
                 >
                   {/* 对齐 RN cardTitle(16dp → 32rpx semibold,单行截断) */}
-                  <Text className="block overflow-hidden whitespace-nowrap text-ellipsis text-[32rpx] font-semibold text-foreground">
+                  <Text className="block overflow-hidden whitespace-nowrap text-ellipsis text-[length:32rpx] font-semibold text-foreground">
                     {item.title}
                   </Text>
                   {/* 对齐 RN cardMeta(marginTop 8 → 16rpx,11dp → 22rpx,text.tertiary) */}
                   {item.anchor && (
-                    <Text className="block mt-[16rpx] text-[22rpx] text-[var(--color-text-tertiary)]">
+                    <Text className="block mt-[16rpx] text-[length:22rpx] text-[var(--color-text-tertiary)]">
                       {tt('live.history.anchorLabel', '主播')}: {item.anchor}
                     </Text>
                   )}
                   {/* 对齐 RN metaRow(两端对齐,marginTop 8 → 16rpx)+ cardAction(14dp → 28rpx 品牌色 semibold) */}
                   <View className="flex items-center justify-between mt-[16rpx]">
-                    <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+                    <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
                       {item.watchDuration
                         ? `${tt('live.history.watchDuration', '观看')} ${formatDuration(item.watchDuration)}`
                         : item.watchTime || item.startTime || ''}
                     </Text>
                     <Text
-                      className="text-[28rpx] font-semibold text-[var(--color-brand-accent-deep)]"
+                      className="text-[length:28rpx] font-semibold text-[var(--color-brand-accent-deep)]"
                       onClick={(e) => {
                         e.stopPropagation()
                         goDetail(item.id)
@@ -183,19 +183,19 @@ export default function LiveHistory() {
       )}
 
       {!loading && displayList.length === 0 && (
-        <View className="block text-center text-[28rpx] text-muted-foreground py-[96rpx]">
+        <View className="block text-center text-[length:28rpx] text-muted-foreground py-[96rpx]">
           <Text>{tt('live.history.empty', '暂无历史直播')}</Text>
         </View>
       )}
 
       {loading && (
-        <View className="block text-center text-[28rpx] text-muted-foreground py-[96rpx]">
+        <View className="block text-center text-[length:28rpx] text-muted-foreground py-[96rpx]">
           <Text>{tt('live.history.loading', '加载中…')}</Text>
         </View>
       )}
 
       {!loading && !hasMore && displayList.length > 0 && (
-        <View className="block text-center text-[28rpx] text-muted-foreground py-[96rpx]">
+        <View className="block text-center text-[length:28rpx] text-muted-foreground py-[96rpx]">
           <Text>{tt('common.noMore', '没有更多了')}</Text>
         </View>
       )}

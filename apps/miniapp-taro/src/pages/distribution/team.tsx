@@ -162,7 +162,7 @@ export default function DistributionTeam() {
 
       {/* 团队总人数 — 小程序特有统计行,按 RN 文字层级着色 */}
       <View className="mx-[20rpx] mt-[16rpx]">
-        <Text className="text-[28rpx] text-muted-foreground">
+        <Text className="text-[length:28rpx] text-muted-foreground">
           {tt('distribution.team.totalMembers', '团队总人数')}:
           <Text className="font-semibold text-foreground">{teamTotal}</Text>
         </Text>
@@ -176,7 +176,7 @@ export default function DistributionTeam() {
           hoverClass="opacity-60"
         >
           <Text
-            className={`text-[28rpx] ${activeTab === 'orderNum' ? 'text-[var(--color-primary-foreground)] font-semibold' : 'text-muted-foreground'}`}
+            className={`text-[length:28rpx] ${activeTab === 'orderNum' ? 'text-[var(--color-primary-foreground)] font-semibold' : 'text-muted-foreground'}`}
           >
             {tt('distribution.team.sortByOrderNum', '成交订单数')}
           </Text>
@@ -194,7 +194,7 @@ export default function DistributionTeam() {
             className={`w-full flex items-center justify-center gap-[8rpx] py-[12rpx] rounded-xl ${activeTab === 'date' ? 'bg-primary' : 'bg-card'}`}
           >
             <Text
-              className={`text-[28rpx] ${activeTab === 'date' ? 'text-[var(--color-primary-foreground)] font-semibold' : 'text-muted-foreground'}`}
+              className={`text-[length:28rpx] ${activeTab === 'date' ? 'text-[var(--color-primary-foreground)] font-semibold' : 'text-muted-foreground'}`}
             >
               {selectedDate || tt('distribution.team.sortByDate', '邀请时间')}
             </Text>
@@ -231,7 +231,7 @@ export default function DistributionTeam() {
                       />
                     ) : (
                       <View className="w-[88rpx] h-[88rpx] rounded-full bg-[var(--color-muted)] items-center justify-center">
-                        <Text className="text-[36rpx] font-semibold text-muted-foreground">
+                        <Text className="text-[length:36rpx] font-semibold text-muted-foreground">
                           {m.nickname.charAt(0) || '?'}
                         </Text>
                       </View>
@@ -239,10 +239,10 @@ export default function DistributionTeam() {
                     <View
                       className={`absolute left-0 top-[-8rpx] min-w-[56rpx] h-[56rpx] px-[8rpx] flex items-center justify-center rounded-sm z-10 ${medalClass(rank)}`}
                     >
-                      <Text className="text-[18rpx] font-bold">{medalText(rank)}</Text>
+                      <Text className="text-[length:18rpx] font-bold">{medalText(rank)}</Text>
                     </View>
                   </View>
-                  <Text className="mt-[12rpx] text-[24rpx] text-foreground max-w-[88rpx] truncate">
+                  <Text className="mt-[12rpx] text-[length:24rpx] text-foreground max-w-[88rpx] truncate">
                     {m.nickname}
                   </Text>
                 </View>
@@ -250,32 +250,32 @@ export default function DistributionTeam() {
                 <View className="flex-1 min-w-0 flex flex-col gap-[8rpx]">
                   <View className="flex flex-row justify-between items-center">
                     <View className="flex flex-row items-baseline gap-[8rpx]">
-                      <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+                      <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
                         {tt('distribution.team.transactionVolume', '成交额')}
                       </Text>
-                      <Text className="text-[28rpx] font-semibold text-foreground">
+                      <Text className="text-[length:28rpx] font-semibold text-foreground">
                         ¥{formatToYuan(m.transactionVolume)}
                       </Text>
                     </View>
                     <View className="flex flex-row items-baseline gap-[8rpx]">
-                      <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+                      <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
                         {tt('distribution.team.commission', '获取佣金')}
                       </Text>
-                      <Text className="text-[28rpx] font-semibold text-foreground">
+                      <Text className="text-[length:28rpx] font-semibold text-foreground">
                         ¥{formatToYuan(m.commission)}
                       </Text>
                     </View>
                   </View>
                   <View className="flex flex-row items-center">
-                    <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+                    <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
                       {tt('distribution.team.orderNum', '成交订单数')}
                     </Text>
-                    <Text className="ml-[8rpx] text-[28rpx] font-semibold text-foreground">
+                    <Text className="ml-[8rpx] text-[length:28rpx] font-semibold text-foreground">
                       {m.orderNum}
                     </Text>
                   </View>
                   <View className="flex flex-row items-center justify-between">
-                    <Text className="flex-1 text-[22rpx] text-[var(--color-text-tertiary)] truncate">
+                    <Text className="flex-1 text-[length:22rpx] text-[var(--color-text-tertiary)] truncate">
                       {tt('distribution.team.joinTime', '邀请时间')}:{' '}
                       {formatDateByTemplate(m.createdAt, 'YYYY-MM-DD') || '-'}
                     </Text>
@@ -284,7 +284,7 @@ export default function DistributionTeam() {
                       onClick={() => goSubordinates(m.id)}
                       hoverClass="opacity-60"
                     >
-                      <Text className="text-[24rpx] text-[var(--color-primary-foreground)]">
+                      <Text className="text-[length:24rpx] text-[var(--color-primary-foreground)]">
                         {tt('distribution.team.viewSubordinates', '查看下级')}
                       </Text>
                     </View>
@@ -299,14 +299,14 @@ export default function DistributionTeam() {
       {/* 状态文案 */}
       {displayList.length === 0 && !loading && !error && (
         <View className="py-[64rpx] text-center">
-          <Text className="text-[28rpx] text-[var(--color-text-tertiary)]">
+          <Text className="text-[length:28rpx] text-[var(--color-text-tertiary)]">
             {tt('distribution.team.empty', '暂无团队成员')}
           </Text>
         </View>
       )}
       {error && !loading && (
         <View className="flex flex-col items-center py-[48rpx] gap-[24rpx]">
-          <Text className="text-[28rpx] text-muted-foreground text-center">
+          <Text className="text-[length:28rpx] text-muted-foreground text-center">
             {tt('distribution.team.error', '加载失败')}
           </Text>
           <View
@@ -314,19 +314,19 @@ export default function DistributionTeam() {
             onClick={() => load(true)}
             hoverClass="opacity-60"
           >
-            <Text className="text-[28rpx] font-medium text-[var(--color-primary-foreground)]">
+            <Text className="text-[length:28rpx] font-medium text-[var(--color-primary-foreground)]">
               {tt('distribution.team.retry', '点击重试')}
             </Text>
           </View>
         </View>
       )}
       {loading && (
-        <Text className="block text-center text-[28rpx] text-[var(--color-text-tertiary)] py-[48rpx]">
+        <Text className="block text-center text-[length:28rpx] text-[var(--color-text-tertiary)] py-[48rpx]">
           {tt('distribution.team.loading', '加载中...')}
         </Text>
       )}
       {!loading && !hasMore && displayList.length > 0 && (
-        <Text className="block text-center text-[28rpx] text-[var(--color-text-tertiary)] py-[48rpx]">
+        <Text className="block text-center text-[length:28rpx] text-[var(--color-text-tertiary)] py-[48rpx]">
           {tt('distribution.team.noMore', '没有更多了')}
         </Text>
       )}
