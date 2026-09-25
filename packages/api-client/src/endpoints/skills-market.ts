@@ -55,7 +55,8 @@ export interface SkillListingState {
 export interface SkillOwnership {
   name: string
   isOwner: boolean
-  ownerId: number | null
+  /** 用户 ID 原文(uuid);见 @ihui/shared 的 SkillMarketEntry.ownerId —— 不得强转数字 */
+  ownerId: string | null
   enabled: boolean
   source: 'builtin' | 'user' | 'hub' | null
 }
@@ -142,8 +143,8 @@ export interface SkillMarketItem {
   enabled?: boolean
   /** 条目来源,由服务端按调用身份推导,不接受客户端自报 */
   source?: 'builtin' | 'user' | 'hub'
-  /** 上架者用户 ID;内置/内部同步条目留空 ⇒ 无人是 owner */
-  ownerId?: number
+  /** 上架者用户 ID(uuid 原文,与后端 request.userId 同域);内置/内部同步条目留空 ⇒ 无人是 owner */
+  ownerId?: string
 }
 
 export interface SkillMarketListResult {
