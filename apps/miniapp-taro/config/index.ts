@@ -18,7 +18,13 @@ export default defineConfig(async (merge) => {
   // node_modules/@tarojs/cli/src/cli.ts:66),此处读到的值即真实平台。
   // 显式 fallback 到 'weapp' 防御 shell 注入 TARO_ENV 但 --type 缺失的边界场景。
   const taroEnv = process.env.TARO_ENV || 'weapp'
-  const outputRoot = taroEnv === 'alipay' ? 'dist-alipay' : 'dist'
+  // 隔离构建落点(2026-09-26 立):共享 `dist/` 被 .gitignore 忽略、被多会话**共读**,一次"只为量产物"
+  // 的取证构建把它换成另一形态(h5 覆盖 weapp 是既发事故,见 check-miniapp-css-landing 的 C1 头注),
+  // 别人的读数就失真。设 IHUI_MINIAPP_OUTPUT_ROOT 即把整条产物链(含下方 copy.patterns)改道到私有目录;
+  // **未设该变量时本行与改前逐字等值**。取值必须是 `.tmp-*` 形态(根 .gitignore:239 已忽略),
+  // 不得让取证构建在端目录里长出新的未跟踪目录。
+  const outputRoot =
+    process.env.IHUI_MINIAPP_OUTPUT_ROOT || (taroEnv === 'alipay' ? 'dist-alipay' : 'dist')
   // 显式日志,排查"alipay 编译到 wechat dist"类问题(用户常因 WeChat IDE
   // 仍指向 ./dist 看到陈旧产物,误判本次编译走错目录)
   // eslint-disable-next-line no-console -- Taro 构建配置允许 console 输出诊断
@@ -136,10 +142,20 @@ export default defineConfig(async (merge) => {
               // 版迁移):处理 Tailwind 任意值语法 [xxx] 的 WXSS 选择器转义 +
               // wxml class 匹配 + rem2rpx。v5.2.9 webpack 入口导出同名类,
               // .use(类, [参数]) 由 webpack-chain 负责 new。alipay 不注入(保持原状)。
+              // cssEntries:入口 CSS 除了"被项目 import"之外还必须**显式告诉插件** —— 包自己的 README 原话是
+              // "Tailwind CSS 4 项目中,入口 CSS 需要同时满足两点:在项目里被实际引入,并通过 cssEntries
+              // 显式传给插件用于稳定识别"。不传的实测后果(2026-09-26,同一份仓库配置三次构建):
+              // 插件的 class set 采集靠在本轮编译里"发现"那个 CSS 模块,发现不到时 **CSS 选择器照转写、
+              // JS/WXML 侧一个名都不改** ⇒ 485 条 utility 变成谁也挂不上的死规则,而构建仍然 exit 0。
+              // 由守门 check-miniapp-css-landing 的 C5(转写腿活性)结构性接住,不再靠人眼看覆盖率。
               if (process.env.TARO_ENV === 'weapp') {
-                chain
-                  .plugin('weappTailwindcss')
-                  .use(WeappTailwindcss, [{ rem2rpx: true, injectAdditionalCssVarScope: true }])
+                chain.plugin('weappTailwindcss').use(WeappTailwindcss, [
+                  {
+                    rem2rpx: true,
+                    injectAdditionalCssVarScope: true,
+                    cssEntries: [path.resolve(__dirname, '..', 'src/app.css')],
+                  },
+                ])
               }
             },
           }
