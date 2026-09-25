@@ -8157,3 +8157,16 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 
 
   - ⚠️ **本票在 AGENTS.md 里造出的双态行已就地标注(一行未删)**:我同日对守门 103 那一条连改三次(立项原文 → "12 例 + 条件不变量" → "13 例"),并发 union 把前两个版本都留在了文件里 ⇒ 下一个人会照过期文本执行。处置 = 各追一条 `> ⚠️ 本行是…旧副本` 指针(注明现行是哪条、以及为什么不能再照它做),**不删行**(§12)。这是"活文档并集会留改写前的旧副本"那一型的第三次实测复现,而**这次的制造者是本会话自己** —— 根因不是 union 的缺陷,是**同一行在同一天被反复改写**;只要还是"改完就提交"而非"改完先等合流",这类重复行还会再长。
+
+### O62 附③:更正附②的两处事实错误 + 机制改判 + 影响半径已量出(2026-09-25 同日)
+
+- [x] ✅(2026-09-25) **撤回附②里"preflight 指纹亦 0 处"这句 —— 它是我的探针错,不是事实**。我当时查的是 `border-style:solid` 与 `text-size-adjust`,而产物里 preflight 是**简写形态** `border:0 solid;box-sizing:border-box;margin:0;padding:0`,在 `app-origin.wxss` 里**确实在**。⇒ 症状要收窄成一句:**base/preflight 层在,只有 utilities 层为空**。这个区别不是措辞:它把"tailwind 插件根本没跑"直接排除了,插件跑了、`@tailwind base` 展开了,只有 `@tailwind utilities` 展开为空。
+- [x] ✅(2026-09-25) **再撤回附②的机制归因:"`config/index.ts` 那行传空对象导致 config.ts 从未被加载"这个说法不成立**。隔离环境里做了三组构建(同一棵 HEAD 树,worktree 内全量 `pnpm install`):A 原样、B 把该行改成真实配置路径、C 干脆 `enable:false` —— **三组 dist 逐字节相同**(`diff -rq` 零输出,三组均 154 wxss / 642,304 B / 2,489 规则 / 2,227+ 类名)。⇒ **那一行不是开关**。真因方向改为:weapp-tailwindcss 5.2.9 **自带一份 vendored tailwind**(其 `dist/tailwindcss-*.js`),CSS 由它自己的 generator 产出,项目 `tailwind.config.ts` 的 content globs 没有喂进那条链。附②里"从 weapp-tw 解析到 tailwind 4.3.3"那条证据**同时作废** —— 复核时该 resolve 直接 `MODULE_NOT_FOUND`,而 `tailwindcss@4.3.3` 在 pnpm 图里属于 `apps/web`(web 声明 `^4.3.3`,miniapp 声明 `^3.4.17`);我上一轮用来找"谁依赖 v4"的 grep `"tailwindcss": "[^"]*4\.` 会连 `^3.4.17` 一起命中(串里含 "4."),是个假阳性探针。
+- [x] ✅(2026-09-25) **影响半径量出来了(用 v3 CLI + 端内真配置直出参考层:863 规则 / 829 类名 / 压缩后 42,392 B)**:
+  - **"从 0 规则到有效"共 764 个类名 / 14,141 处用法** ⇒ 主体是修好,不是改坏
+  - ⚠️ **主包体积顶到墙**:现主包 `2,054,751 B = 1.960 MiB`,weapp 上限 `2,097,152 B`,**余量仅 42,401 B**;而 utilities 压缩后 **42,392 B** ⇒ 开启后主包约 `2,097,143 B`,**只剩 9 字节**。这一条单独就足以否决"直接开"
+  - ⚠️ **一条确定性事故**:`text-card` 同名双义 —— `pkg-ai/aigc/list.css:168` 手写它当**卡片容器**(`background:var(--color-card)` + 描边),而 Tailwind 会给同一个类名注入 `color: var(--color-card)`,于是 `list.tsx:466` 那个 `<View className="text-card">` 变**白底白字**。另有 6 条同名(`text-muted-foreground`/`text-foreground`/`bg-card`/`border-border`/`dark`/`text-ellipsis`)经核为"现规则只在 vip 页且特异度更高"或"同名同值",良性
+  - ⚠️ **一条附带的硬缺陷**:参考层里有 **22 条把长度喂给颜色属性**的无效规则(如 `.text-\[28rpx\]{color:28rpx}`),覆盖源码 **1,330 处** `text-[Nrpx]` 用法 ⇒ 即使开关,这些字号仍不生效,只多一堆死规则;要生效须改写为 `text-[length:28rpx]` 形态
+  - 渲染层本机**不可取证**(微信开发者工具三个常见安装路径 + 注册表 Uninstall 全量 + Program Files 深度 3 搜 `cli.bat` 均零命中),故上面给的是静态替代证据:逐字摘录 A 侧无规则、B 侧有规则的样例(`.flex{display:flex}`、`.items-center{align-items:center}`、`.opacity-60{opacity:.6}`、`.inset-0{inset:0px}`)
+- **本票据此收窄的结论**:R6 那道新门守的是"源码用量 ↔ ALPHA_USAGE ↔ 插件产出"三者一致,**三者全在项目侧**;小程序实际产物由第三方 generator 决定,所以 **R6 绿灯不等于到端生效**。这一点已写进 AGENTS 那条 ⚠️ 里,防止下一个人拿 R6 的绿当交付证据。
+- **未决项(交用户定,不是待办建议)**:要不要动 weapp-tailwindcss 的 generator 接线。动它之前必须先解决主包 9 字节余量与 `text-card` 双义,否则是"修好 1.4 万处、打坏一屏"。
