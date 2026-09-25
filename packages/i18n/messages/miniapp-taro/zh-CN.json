@@ -480,6 +480,25 @@
     "copied": "已复制"
   },
   "ai": {
+    "contextUsage": {
+      "title": "上下文使用情况",
+      "used": "已使用",
+      "max": "最大容量",
+      "segSystem": "系统提示",
+      "segToolSchema": "工具定义",
+      "segSkill": "技能正文",
+      "segRoleUser": "用户消息",
+      "segRoleAssistant": "助手回复",
+      "segRoleToolCall": "工具调用参数",
+      "segRoleToolResult": "工具结果",
+      "segSystemPrompt": "系统提示（整段）",
+      "unnamedItem": "未命名条目",
+      "resultSuffix": "结果",
+      "unobservedServerOnly": "该部分在服务端装配，本端取不到确切用量",
+      "unobservedNotSupplied": "本轮未下发该系统段",
+      "detailsTruncated": "另有 {count} 条未展开",
+      "residualLabel": "未归类开销"
+    },
     "title": "AI 助手",
     "inputPlaceholder": "输入你的问题…",
     "suggestions": ["帮我写一首诗", "解释量子力学", "写一段代码", "翻译这段话"],
