@@ -42,6 +42,7 @@
     "module:context": "node scripts/module-context.mjs",
     "check:routing-identity": "node scripts/check-tool-arg-routing-identity.mjs",
     "check:tool-arg-validation": "node scripts/check-tool-arg-validation-wired.mjs",
+    "check:egress-facts": "node scripts/check-egress-facts.mjs",
     "check:compaction-denominator": "node scripts/check-compaction-denominator.mjs",
     "check:artifact-budget": "node scripts/check-artifact-budget.mjs --target miniapp",
     "check:test-collection": "node scripts/check-test-collection-runs.mjs --strict",
