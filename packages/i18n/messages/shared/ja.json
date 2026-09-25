@@ -171,8 +171,6 @@
     "searchActivity": "{state, select, running {検索中} completed {検索済み} other {検索}}",
     "thinkingActivity": "{state, select, running {分析中} completed {分析済み} other {分析}}",
     "customActivity": "{state, select, running {実行中} completed {実行済み} other {実行}}",
-    "workedForDuration": "所要時間 {duration}",
-    "searchWithQuery": "クエリ：{query}",
     "showAllLines": "すべて展開",
     "hideLines": "折りたたむ",
     "sourcesButton": "出典",
@@ -2065,9 +2063,6 @@
     "enableSuccess": "{name} を有効化しました",
     "disableSuccess": "{name} を無効化しました",
     "notFound": "機能が見つかりません"
-  },
-  "topBar": {
-    "capabilityMarket": "機能マーケット"
   },
   "stepDecision": {
     "decision": {

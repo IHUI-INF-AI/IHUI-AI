@@ -4,29 +4,38 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 -->
 
-# 未认领票全量对账与并行编码批次产物（2026-09-25）
+# i18n 死 key 审计报告(2026-09-25,target=miniapp-taro)
 
-O60 / O60b 两轮与 O60h 第三波的一手取证，从 `.ihui-agent/tmp/` 转正为持久台账（AGENTS §25：临时验证件不得长期只躺在 tmp）。
-
-| 文件 | 内容 |
-| --- | --- |
-| `BRIEF.md` | 派给 8 个只读对账代理的任务书（含"一律判 HEAD、命中≠实现、每条结论必须带可复跑命令"三条硬规则） |
-| `RULES-FOR-CODERS.md` | 派给 5 个编码代理的通用约束（单写者检查、禁 git 写、共享层优先、水印、圆角/CTA/图标/i18n 守门、禁止"造好没装车"） |
-| `report-{1..8}.md` | 53 张未认领票的逐票三态判定与证据（A-确未开工 / B-部分开工 / C-已在库该翻勾 / U-未判定） |
-| `code-*.md` | 两批并行编码的批次报告。第一批五路：WP-1（检出并行冲突后零写入）、D16、D17、D19、D83；第二批六路：D62（语音字幕装车）、D67（额度归属分型卡接两宿主）、D77（业务表单，因 Python 侧被并行占用而**按住未入库**）、D81（活动条目四件接 tool-call-card）、D85（统计条补验收用例）、D17topbar（顶栏五入口收敛） |
-| `i18n-d17/` | D17 生态入口 21 键 × 5 语的待并入载荷（web 语言包当时被并行会话占用，未写入） |
-| `wave3-BRIEF.md` | 第三波 9 路取证代理的任务书(在 BRIEF 三条硬规则之上再加"逐条给可复跑命令 + 端覆盖必须量到落点性质") |
-| `wave3-G1.md` | 取证路 1(双态行与台账漂移):逐 ID 命中数、拒改理由、粘连行接缝位置 |
-| `wave3-G2.md` | 取证路 2(api-client 调用面与路由注册对账):team-memory 404 的取证链与变异自证 |
-| `wave3-G3.md` | 取证路 3(镜像测试红点归因):check-rn-global-css-sync 14 条红的逐条 expected 读数 |
-| `wave3-G4.md` | 取证路 4(端覆盖与"造好没装车"):D55/D62/D67/D69 的取词点与挂载点计数 |
-| `wave3-G5.md` | 取证路 5(i18n 影子命名空间):取词作用域枚举、topBar 整块无读者的证明路径 |
-| `wave3-G6.md` | 取证路 6(在飞项排除):15 项不得派单的脏路径清单 |
-| `wave3-DEADKEYS.md` | 死键证死过程全量清单(含扫描器按前缀记活的机制复现) |
-| `wave3-D81TAIL.md` | D81 尾票裁决记录:三个重复实现删除依据 + 分组函数接线点归属 |
-| `wave3-backlog.md` | 下一轮派单权威清单(可派 / 不得派 / 判据过期三类) |
-| `wave3-miniapp-deadkey-evidence.md` | scan-dead-i18n-keys --target miniapp-taro 的自动报告原文(敞口第 3 条的一手读数) |
-
-
-**读法提醒**：报告里的判定取自当日 `HEAD`，本仓并发极高，任何一条被再次派单前都要按 `BRIEF.md` 的判据**重测**（实测教训见 PROJECT_PLAN 的 O60/O60b 两条）。
+> 自动生成 by `scripts/scan-dead-i18n-keys.mjs`(2026-07-26 公共函数抽象到 _i18n-scan-helpers.mjs)
+> target=miniapp-taro,messagesPath=packages/i18n/messages/miniapp-taro/zh-CN.json
+## 总览
+- target:**miniapp-taro**
+- 扫描文件:5 语言(`packages\i18n\messages\miniapp-taro\zh-CN.json`, `packages\i18n\messages\miniapp-taro\en.json`, `packages\i18n\messages\miniapp-taro\ja.json`, `packages\i18n\messages\miniapp-taro\ko.json`, `packages\i18n\messages\miniapp-taro\zh-TW.json`)
+- 递归 leaf key 总数:**3365**
+- 代码静态引用 key(全路径 `t('a.b.c')` 形式):**3985**(去重)
+- `useTranslations/getTranslations('namespace')` 命名空间:**7** 个(命名空间下所有 key 视作潜在引用,启发式)
+- 死 key 数量:**1**(占比 **0.0%**)
+- 翻译不完整 key 数量:**0**
+- 动态 t(`prefix.${var}`) 命中:3 处
+## 死 key 列表(按 namespace 分组)
+### `ai.*`  (1 个)
+- `ai.chatMessageItem.downloadSuccess`
+## 契约键声明(scripts/i18n-contract-keys.json,仅免除"死键"判定)
+> 这些键在本端无静态引用**不是孤儿**,而是跨端词包契约 / 被测试钉住的形状键。每条依据都按 HEAD 内容核验过(文件存在 + 行号在范围内 + 该行含被引用的标识符);依据不成立即判红。**parity / 翻译完整性 / 语言纯度一律不受本节影响。**
+_本端无契约声明命中_
+## 翻译不完整 key 列表(5 语言中任一缺失)
+_翻译完整_ ✅
+## 动态 key 提示(代码中拼接的 key,无法静态扫描)
+共 3 处动态 key 调用,这些 key 即使在 zh-CN.json 中定义也无法通过静态扫描验证,建议人工核对:
+- `apps\miniapp-taro\src\components\AgentRuntimePanel.tsx`(1 处)
+  - L78: `{permissionDecisionWord(permission.decision, (k) => t(`stepDecision.${k}`))}`
+- `apps\miniapp-taro\src\pkg-ai\ai\ChatMessageItem.tsx`(1 处)
+  - L781: `{t(`ai.pane.${titleView.titleKey}`, titleView.values)}`
+- `packages\shared\src\validation\form-schema.ts`(1 处)
+  - L35: `return t(`${VALIDATION_NS}.${key}`, vars as Record<string, string | number> | undefined)`
+## 排除项
+- 目录:node_modules / .next / dist / coverage / __tests__ / tests / __mocks__ / fixtures
+- 文件:`*.test.ts(x)` / `*.spec.ts(x)` / `*.d.ts`
+---
+_Generated at 2026-09-25T03:09:32.927Z_
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

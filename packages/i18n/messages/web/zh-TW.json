@@ -23351,12 +23351,6 @@
     "figmaView": "Figma 檢視",
     "settingsView": "設定檢視"
   },
-  "topBar": {
-    "editor": "編輯器",
-    "close": "關閉",
-    "plus": "新增",
-    "skillsMarket": "Skill 市場"
-  },
   "statusBar": {
     "toggleTheme": "切換主題"
   },
