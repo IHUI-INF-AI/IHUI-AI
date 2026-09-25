@@ -37,6 +37,7 @@ import { fileURLToPath } from 'node:url'
 import { request } from 'node:https'
 import { request as httpRequest } from 'node:http'
 import { resolveGitBin } from './lib/gitdir.mjs'
+import { resolveRemoteHead } from './lib/face-reader.mjs'
 import { keyFile, resolveKeyDir, firstExisting } from './lib/key-dir.mjs'
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -481,7 +482,10 @@ function deployStallCheck() {
     }
   }
   const liveSha = readText(join(REPO, 'apps', 'web', '.next', 'IHUI_BUILD_SHA')).trim()
-  let tipSha = git('rev-parse', 'refs/remotes/origin/main') || git('rev-parse', 'FETCH_HEAD')
+  // 远端 tip 必须先问服务器再退本地引用(§5b:`refs/remotes/origin/*` 会被本机清理层删掉,而
+  // packed-refs 里的**旧值**照样被读回来)。旧顺序"本地引用优先"在一台已经推完的机器上会读到
+  // 落后 sha ⇒ 把正常的部署环报成"停摆"**假告警**(告警通道最怕的就是假响)。
+  let tipSha = resolveRemoteHead('main', { root: REPO, fetchedNow: false }).sha || git('rev-parse', 'FETCH_HEAD')
   if (!tipSha) tipSha = git('rev-parse', 'HEAD') // 连不上远端引用时退化为本机 tip(仍能看到停摆)
   const log = readText(join(REPO, 'deploy', 'win', 'deploy-loop.log'))
   // 取最后一次"部署完成"(日志时间是 UTC,+00:00)
