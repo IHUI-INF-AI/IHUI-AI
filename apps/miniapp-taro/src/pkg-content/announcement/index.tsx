@@ -12,7 +12,6 @@ import { fetchApi } from '@ihui/api-client'
 import type { AnnouncementItem } from '@ihui/types'
 import { useTt } from '@/i18n'
 import ThemeRoot from '@/components/ThemeRoot'
-import BackChevron from '@/components/BackChevron'
 
 /** Taro rpx 单位换算(1px = 2rpx,750 设计稿基准) */
 const toRpx = (px: number): string => `${px * 2}rpx`
@@ -156,17 +155,10 @@ export default function AnnouncementList() {
     })
   }
 
-  const goBack = () => {
-    Taro.navigateBack({ delta: 1 }).catch(() => {
-      Taro.switchTab({ url: '/pages/index/index' })
-    })
-  }
-
   return (
     <ThemeRoot>
       <View style={viewStyles.container()}>
         <View style={viewStyles.header()}>
-          <BackChevron onTap={goBack} />
           <Text style={textStyles.title()}>{tt('announcement.title', '平台公告')}</Text>
         </View>
 

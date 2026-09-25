@@ -9,7 +9,6 @@ import { useState, useCallback, useMemo } from 'react'
 import { getExamList, getExamRecords, type Exam, type ExamRecord } from '@/api'
 import { formatDateOnly } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
-import BackChevron from '@/components/BackChevron'
 
 type Tab = 'all' | 'pending' | 'completed'
 
@@ -55,13 +54,6 @@ export default function ExamList() {
 
   const goDetail = (id: string) => Taro.navigateTo({ url: `/pages/exam/detail?id=${id}` })
   const goResult = (id: string) => Taro.navigateTo({ url: `/pages/exam/result?id=${id}` })
-
-  // 对齐 RN ExamScreen header 返回键(navigateBack 失败降级回首页,同 check-in/task-center)
-  const goBack = () => {
-    Taro.navigateBack({ delta: 1 }).catch(() => {
-      Taro.switchTab({ url: '/pages/index/index' })
-    })
-  }
 
   // 卡片对齐 RN ExamScreen card:p28rpx 圆角24rpx 2rpx描边(border);标题 36rpx/700 最多2行
   const renderPaper = (e: Exam) => (
@@ -165,7 +157,6 @@ export default function ExamList() {
       <View className="min-h-screen bg-background">
         {/* header 对齐 RN ExamScreen header(px20rpx / pt24rpx 平台适配原生导航栏 / pb16rpx) */}
         <View className="flex flex-col px-[20rpx] pt-[24rpx] pb-[16rpx]">
-          <BackChevron className="self-start" onTap={goBack} />
           <Text className="mt-[16rpx] text-[length:44rpx] font-semibold text-foreground">
             {t('exam.title')}
           </Text>
