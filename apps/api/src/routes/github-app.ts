@@ -8,17 +8,19 @@
  * 挂载方式由主会话单点接线(见交付报告的"需要接线的确切代码"),本文件不注册自己。
  *
  * 鉴权面(AGENTS §5 红线:必须显式列举,禁止参数正则兜底):
- * - 本路由**只有两条**固定路径,见 GITHUB_APP_EXPLICIT_ROUTES,零参数路由、零通配段;
+ * - 本路由**只有三条**固定路径,见 GITHUB_APP_EXPLICIT_ROUTES,零参数路由、零通配段;
  * - `/webhook` 是机器调用面,不走用户 JWT,以 HMAC-SHA256 签名作为唯一准入;
  * - `/health` 只回布尔配置状态,不回任何凭据、不回仓库数据;
- * - 两条路径的 handler **都不读 request.userId**,因此未签名请求得到 401 而不是 500
- *   (fail-open 崩在鉴权层后面,比 401 更难发现 —— 本路由由测试钉死这条)。
+ * - `/installations` 是 admin 查询面,走 requireAdmin(人用 JWT + roleId 门禁);
+ * - 三条路径的 webhook/health handler **都不读 request.userId**,因此未签名请求得到
+ *   401 而不是 500(fail-open 崩在鉴权层后面,比 401 更难发现 —— 本路由由测试钉死)。
  *
  * 处理链:secret 未配置 → 503;签名缺失/非法/不匹配 → 401;
  *        事件不在白名单 → 200 accepted:false;事件体不合 schema → 400;
- *        delivery guid 重复 → 200 duplicate;否则按事件种类派发。
+ *        delivery guid 重复 → 200 duplicate(内存 LRU 一级 + deliveries 表二级);
+ *        否则按事件种类派发,处理完成后投递落表 processed(D15②)。
  */
-import type { FastifyBaseLogger, FastifyPluginAsync } from 'fastify'
+import type { FastifyBaseLogger, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 
 import {
   createDeliveryDeduper,
@@ -28,8 +30,12 @@ import {
   WEBHOOK_DELIVERY_HEADER,
   WEBHOOK_EVENT_HEADER,
   type DeliveryDeduper,
+  type InstallationEventPayload,
+  type WebhookEnvelope,
   type WebhookParseResult,
 } from '../services/github-app/events.js'
+import type { GithubAppStore, GithubAppInstallationRow } from '../services/github-app/store.js'
+import { resolveGithubAppStore } from '../services/github-app/store.js'
 import {
   readWebhookSecret,
   verifyWebhookSignature,
@@ -60,10 +66,12 @@ import {
 export const GITHUB_APP_EXPLICIT_ROUTES = [
   { method: 'POST', url: '/webhook', admission: 'github-hmac-signature' },
   { method: 'GET', url: '/health', admission: 'public-status-flags-only' },
+  { method: 'GET', url: '/installations', admission: 'admin-jwt' },
 ] as const
 
 export const WEBHOOK_PATH = '/webhook'
 export const HEALTH_PATH = '/health'
+export const INSTALLATIONS_PATH = '/installations'
 
 interface ApiOk<T> {
   code: 0
@@ -101,6 +109,13 @@ export interface GithubAppRouteOptions {
   webhookSecret?: string | null
   env?: NodeJS.ProcessEnv
   deduper?: DeliveryDeduper
+  /**
+   * 持久层(D15①②)。undefined = 惰性接真实 db;null = 显式禁用(单测);
+   * 注入实例 = 单测假实现。webhook 面在 store 不可用时降级为纯内存幂等,绝不 5xx。
+   */
+  store?: GithubAppStore | null
+  /** 覆盖 /installations 的 admin 闸门(测试注入);缺省懒加载 require-permission 的 requireAdmin */
+  adminGuard?: (request: FastifyRequest, reply: FastifyReply) => Promise<void>
 }
 
 /** 请求头统一取值(Fastify 会把重头折叠成数组) */
@@ -153,6 +168,82 @@ function buildGithubTransport(
   return withInstallationAuth(base, createInstallationTokenProvider(identity, base), installationId)
 }
 
+/** 惰性解析持久层:显式注入(null/实例)优先,否则走 store.ts 的动态 import 缺省链 */
+async function resolveStore(
+  options: GithubAppRouteOptions,
+  log: FastifyBaseLogger,
+): Promise<GithubAppStore | null> {
+  if (options.store !== undefined) return options.store
+  return resolveGithubAppStore(log)
+}
+
+/** 处理完成后把投递落表;存储故障只告警 —— webhook 面绝不因幂等表 5xx */
+async function recordProcessedDelivery(
+  store: GithubAppStore | null,
+  envelope: WebhookEnvelope,
+  log: FastifyBaseLogger,
+): Promise<void> {
+  if (!store || !envelope.deliveryId) return
+  try {
+    await store.recordDelivery(envelope.deliveryId, envelope.event)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '未知错误'
+    log.warn({ delivery: envelope.deliveryId }, `[github-app] 投递落表失败(不影响响应):${message}`)
+  }
+}
+
+/** installation 事件的处理结果:applied=已落表;skipped 带原因 */
+export interface InstallationOutcome {
+  status: 'applied' | 'skipped'
+  reason?: 'unsupported_action' | 'store_unavailable' | 'store_error'
+  installationId?: number
+}
+
+/** 本 App 消费的 installation action → 落表状态(白名单,非这两个一律忽略) */
+const INSTALLATION_ACTION_STATUS: Record<string, 'active' | 'removed'> = {
+  created: 'active',
+  deleted: 'removed',
+  new_permission_accepted: 'active',
+}
+
+/**
+ * 把 installation 事件映射成安装表 upsert(D15①)。
+ * created / new_permission_accepted → active,deleted → removed;
+ * 事件体缺 sender 时 installed_by_user_id 落 NULL(拿不到就是拿不到,不造数)。
+ */
+async function applyInstallationEvent(
+  store: GithubAppStore | null,
+  event: InstallationEventPayload,
+  log: FastifyBaseLogger,
+): Promise<InstallationOutcome> {
+  const status = INSTALLATION_ACTION_STATUS[event.action]
+  if (!status) return { status: 'skipped', reason: 'unsupported_action' }
+  if (!store) return { status: 'skipped', reason: 'store_unavailable' }
+  try {
+    await store.applyInstallationEvent({
+      installationId: event.installation.id,
+      accountLogin: event.installation.account?.login ?? null,
+      targetType: event.installation.target_type ?? null,
+      installedByUserId: event.sender?.id ?? null,
+      status,
+    })
+    return { status: 'applied', installationId: event.installation.id }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '未知错误'
+    log.warn({ installationId: event.installation.id }, `[github-app] 安装事件落表失败:${message}`)
+    return { status: 'skipped', reason: 'store_error' }
+  }
+}
+
+/**
+ * /installations 的缺省 admin 闸门:懒加载 require-permission(其静态链拖 auth/rbac/db,
+ * 不能在模块顶层 import,否则 webhook 单测的加载面被污染)。
+ */
+async function requireAdminGuardLazy(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { requireAdmin } = await import('../plugins/require-permission.js')
+  return requireAdmin(request, reply)
+}
+
 type IgnoredParse = Extract<WebhookParseResult, { status: 'ignored' }>
 
 function ignoredReply(
@@ -181,6 +272,32 @@ export const githubAppRoutes: FastifyPluginAsync<GithubAppRouteOptions> = async 
       explicitRoutes: GITHUB_APP_EXPLICIT_ROUTES.map((route) => route.url),
     })
   })
+
+  // D15③:admin 查询面 —— 安装台账 + 配置状态(只报布尔,绝不回任何 secret 值)
+  server.get(
+    INSTALLATIONS_PATH,
+    { preHandler: options.adminGuard ?? requireAdminGuardLazy },
+    async (request, reply) => {
+      const store = await resolveStore(options, request.log)
+      if (!store) return reply.status(503).send(fail(503, 'GitHub App 持久层未就绪'))
+      let installations: GithubAppInstallationRow[]
+      try {
+        installations = await store.listInstallations()
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '未知错误'
+        request.log.warn(`[github-app] 安装列表查询失败:${message}`)
+        return reply.status(500).send(fail(500, '安装列表查询失败'))
+      }
+      const env = options.env ?? process.env
+      return ok({
+        installations,
+        config: {
+          webhookSecretConfigured: readWebhookSecret(env) !== null,
+          appCredentialsConfigured: readGithubAppIdentity(env) !== null,
+        },
+      })
+    },
+  )
 
   server.post(WEBHOOK_PATH, async (request, reply) => {
     const env = options.env ?? process.env
@@ -232,7 +349,8 @@ export const githubAppRoutes: FastifyPluginAsync<GithubAppRouteOptions> = async 
       return reply.status(400).send(fail(400, parsed.message))
     }
 
-    // 4) 幂等:GitHub 重投同一 X-GitHub-Delivery,只处理一次
+    // 4) 幂等(两级,D15②):一级内存 LRU 吃分钟级重投;二级 deliveries 表吃跨重启重投。
+    //    表查询失败时按"未处理"继续(fail-open),由处理器自身的 (repo, pr, commit) 幂等兜底。
     const { envelope } = parsed.data
     if (envelope.deliveryId && !deduper.record(envelope.deliveryId)) {
       request.log.info({ delivery: envelope.deliveryId }, '[github-app] 重复投递,跳过')
@@ -240,8 +358,45 @@ export const githubAppRoutes: FastifyPluginAsync<GithubAppRouteOptions> = async 
         ok({ accepted: false, reason: 'duplicate_delivery', event: envelope.event }),
       )
     }
+    const store = await resolveStore(options, request.log)
+    if (envelope.deliveryId && store) {
+      let seenInDb = false
+      try {
+        seenInDb = await store.hasDelivery(envelope.deliveryId)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '未知错误'
+        request.log.warn(
+          { delivery: envelope.deliveryId },
+          `[github-app] 投递查表失败,按未处理继续:${message}`,
+        )
+      }
+      if (seenInDb) {
+        request.log.info(
+          { delivery: envelope.deliveryId },
+          '[github-app] 重复投递(持久层命中),跳过',
+        )
+        return reply.send(
+          ok({ accepted: false, reason: 'duplicate_delivery', event: envelope.event }),
+        )
+      }
+    }
     if (parsed.data.kind === 'ping') {
+      await recordProcessedDelivery(store, envelope, request.log)
       return reply.send(ok({ accepted: true, reason: 'pong', event: 'ping' }))
+    }
+
+    // 4.5) installation 事件:只驱动安装映射表(D15①),不碰 GitHub API
+    if (parsed.data.kind === 'installation') {
+      const outcome = await applyInstallationEvent(store, parsed.data.payload, request.log)
+      await recordProcessedDelivery(store, envelope, request.log)
+      return reply.send(
+        ok({
+          accepted: outcome.status === 'applied',
+          event: 'installation',
+          action: envelope.action,
+          outcome,
+        }),
+      )
     }
 
     // 5) 派发
@@ -294,6 +449,8 @@ export const githubAppRoutes: FastifyPluginAsync<GithubAppRouteOptions> = async 
           log: (level, message) => request.log[level](message),
         },
       )
+      // 到这里处理已收敛(runPrReview 不抛,失败也是 outcome.status),投递落表
+      await recordProcessedDelivery(store, envelope, request.log)
       return reply.send(
         ok({ accepted: true, event: 'pull_request', action: envelope.action, outcome }),
       )
@@ -341,6 +498,7 @@ export const githubAppRoutes: FastifyPluginAsync<GithubAppRouteOptions> = async 
         log: (level, message) => request.log[level](message),
       },
     )
+    await recordProcessedDelivery(store, envelope, request.log)
     return reply.send(ok({ accepted: true, event: 'issue_comment', outcome }))
   })
 }

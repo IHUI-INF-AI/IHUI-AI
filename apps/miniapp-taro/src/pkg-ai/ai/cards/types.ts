@@ -9,7 +9,7 @@
  * 以便 ChatMessage(api/index.ts)以纯类型方式引用,避免反向依赖 ai-cards.tsx 的 React/Taro 运行时。
  */
 import type { ToolCall } from '@ihui/types/chat'
-import type { ToolCallEvent } from '@ihui/api-client'
+import type { TerminalDeltaEvent, ToolCallEvent } from '@ihui/api-client'
 import type { PlanStepStatus } from '@ihui/types'
 
 export type { ToolCallEvent } from '@ihui/api-client'
@@ -82,7 +82,7 @@ export interface PlanStepView {
   error?: boolean
 }
 
-/** 终端任务卡片数据(由 TerminalStart/EndEvent 聚合) */
+/** 终端任务卡片数据(由 TerminalStart/EndEvent 聚合;D19 后 output 在 running 期由 terminal_delta 实时累加) */
 export interface TerminalTaskView {
   id: string
   command: string
@@ -93,6 +93,36 @@ export interface TerminalTaskView {
   totalChars?: number
   durationMs?: number
   exitCode?: number
+}
+
+/** D19:terminal_delta 实时输出累加上限,对齐 web store appendTerminalOutput 的 20000 字符/键(防长命令刷爆 setData) */
+const MAX_TERMINAL_LIVE_CHARS = 20000
+
+/**
+ * D19(本票):把 terminal_delta 增量帧归并进 terminalTasks(纯函数,chat.tsx 消费)。
+ *
+ * 载荷自带 terminalId + command ⇒ start 帧缺失时按帧自建 running 任务(帧自洽,对齐
+ * web onTerminalDelta"只按 terminalId 关联、不要求 messageId"的口径);已结束的任务
+ * 不再累加(terminal_end 的 output 是权威快照,后到的 delta 不得改写终态);累加超限
+ * 按 web 同值 20000 字符裁剪保留尾部。terminalId / text 缺一即无操作(宁丢不造)。
+ */
+export function appendTerminalDelta(
+  tasks: readonly TerminalTaskView[],
+  evt: Pick<TerminalDeltaEvent, 'terminalId' | 'command' | 'text'>,
+): TerminalTaskView[] {
+  if (!evt.terminalId || !evt.text) return [...tasks]
+  const idx = tasks.findIndex((x) => x.id === evt.terminalId)
+  if (idx < 0) {
+    return [...tasks, { id: evt.terminalId, command: evt.command, status: 'running', output: evt.text }]
+  }
+  const task = tasks[idx]
+  if (!task || task.status !== 'running') return [...tasks]
+  const merged = (task.output ?? '') + evt.text
+  const clipped =
+    merged.length > MAX_TERMINAL_LIVE_CHARS
+      ? merged.slice(merged.length - MAX_TERMINAL_LIVE_CHARS)
+      : merged
+  return tasks.map((x, i) => (i === idx ? { ...x, output: clipped } : x))
 }
 
 /**

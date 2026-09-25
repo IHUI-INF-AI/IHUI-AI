@@ -2024,6 +2024,13 @@
       "when": 1790301600000,
       "tag": "20260925100000_exam_sign_up_owner_uuid",
       "breakpoints": true
+    },
+    {
+      "idx": 290,
+      "version": "7",
+      "when": 1790388000000,
+      "tag": "20260926100000_github_app_tables",
+      "breakpoints": true
     }
   ]
 }

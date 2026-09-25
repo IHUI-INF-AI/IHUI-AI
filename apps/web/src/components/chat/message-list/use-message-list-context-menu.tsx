@@ -130,9 +130,18 @@ export function useMessageListContextMenu({
             toast.error(t('toast.feedbackFailed'))
             return
           }
+          const rating: 'like' | 'dislike' = action === 'likeMessage' ? 'like' : 'dislike'
           try {
-            await rateChatMessage({ messageId: msg.id, rating: action === 'likeMessage' ? 'like' : 'dislike' })
+            await rateChatMessage({ messageId: msg.id, rating })
             toast.success(t('toast.feedbackSaved'))
+            // D64⑤(2026-09-26 接线):点踩后展开「这次回复有没有帮你解决问题?」问卷卡。
+            // 票已落库(D49① 语义不变),问卷是点踩的补充细化;由 MessageItem 监听本事件
+            // 挂载 FeedbackSurveyCard(此前 2026-09-24 立卡后一直是零消费点)。点赞不弹,直接提交即完事。
+            if (rating === 'dislike') {
+              window.dispatchEvent(
+                new CustomEvent('ihui:feedback-survey-open', { detail: { messageId: msg.id } }),
+              )
+            }
           } catch {
             toast.error(t('toast.feedbackFailed'))
           }
