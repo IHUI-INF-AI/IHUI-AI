@@ -18,7 +18,15 @@ import * as React from 'react'
 
 import { useTranslations } from 'next-intl'
 import { createNotificationClient } from '@ihui/api-client'
+import {
+  createAssignmentTokenLedger,
+  isAgentActionAssignedToInstance,
+  unassignedAgentActionLogMessage,
+  withRespondedIdentity,
+  type AgentActionSelfIdentity,
+} from '@ihui/shared/utils/agent-action-addressing'
 import type {
+  AgentActionAssignment,
   AgentActionRequest,
   AgentActionResponse,
   AgentControlCapability,
@@ -58,6 +66,19 @@ const UI_ACTIONS: UiControlActionType[] = [
 
 /** requestId 去重:WS 重连后服务端可能重推同一指令,重复执行会双击/双提交 */
 const processedIds = new Set<string>()
+
+/**
+ * 定址投递(2026-09-26,与 extension / 桌面 webview 桥同一套共享判据):api 的 WS 按用户
+ * 广播,`assignment` 由服务端派发时写入载荷 —— 非指派到本标签页的指令不得执行,且如实
+ * 记日志(不静默 return);回执原样回显服务端 token + 自报本实例,身份对账在服务端做。
+ * 缺 assignment = 旧服务端形态,逐字走改前路径(含回执不带 responded)。
+ */
+const assignmentTokens = createAssignmentTokenLedger(PROCESSED_IDS_MAX)
+
+/** 本桥身份:端种类 'web' + 既有实例 id 单点(惰性取,模块加载期不得碰 window/SSR) */
+function selfIdentity(): AgentActionSelfIdentity {
+  return { endpoint: 'web', instanceId: getInstanceId() }
+}
 
 let cachedInstanceId: string | null = null
 function getInstanceId(): string {
@@ -103,10 +124,11 @@ async function reportCapability(): Promise<void> {
 }
 
 async function reportResult(response: AgentActionResponse): Promise<void> {
+  const payload = withRespondedIdentity(response, assignmentTokens, selfIdentity())
   try {
     const res = await fetchApi<{ accepted: boolean }>('/api/agent-control/result', {
       method: 'POST',
-      body: JSON.stringify(response),
+      body: JSON.stringify(payload),
     })
     if (!res.success) console.warn('[web-ui] agent-control result report failed')
   } catch (err) {
@@ -114,7 +136,10 @@ async function reportResult(response: AgentActionResponse): Promise<void> {
   }
 }
 
-function extractAgentRequest(payload: unknown): AgentActionRequest | null {
+function extractAgentEnvelope(payload: unknown): {
+  request: AgentActionRequest
+  assignment?: AgentActionAssignment
+} | null {
   if (!payload || typeof payload !== 'object') return null
   const p = payload as Record<string, unknown>
   let wsData: Record<string, unknown> | undefined
@@ -129,7 +154,8 @@ function extractAgentRequest(payload: unknown): AgentActionRequest | null {
   if (!wsData || wsData.type !== 'agent.action') return null
   const req = wsData.request as AgentActionRequest | undefined
   if (!req || typeof req !== 'object') return null
-  return req
+  const assignment = wsData.assignment as AgentActionAssignment | undefined
+  return { request: req, ...(assignment ? { assignment } : {}) }
 }
 
 function isUiAction(action: unknown): action is UiControlActionType {
@@ -137,8 +163,18 @@ function isUiAction(action: unknown): action is UiControlActionType {
 }
 
 function handleWsMessage(msg: WSNotification): void {
-  const req = extractAgentRequest(msg)
-  if (!req || req.category !== 'ui' || !isUiAction(req.action)) return
+  const envelope = extractAgentEnvelope(msg)
+  if (!envelope) return
+  const { request: req, assignment } = envelope
+  if (req.category !== 'ui' || !isUiAction(req.action)) return
+  // 定址过滤:非指派到本实例不得执行,且留下可诊断痕迹(不得静默 return)
+  if (!isAgentActionAssignedToInstance(assignment, selfIdentity())) {
+    console.warn(
+      '[web-ui]',
+      unassignedAgentActionLogMessage(req.requestId, assignment, selfIdentity()),
+    )
+    return
+  }
   if (processedIds.has(req.requestId)) return
   processedIds.add(req.requestId)
   if (processedIds.size > PROCESSED_IDS_MAX) {
@@ -146,6 +182,7 @@ function handleWsMessage(msg: WSNotification): void {
     processedIds.clear()
     for (const id of arr.slice(-Math.floor(PROCESSED_IDS_MAX / 2))) processedIds.add(id)
   }
+  if (assignment) assignmentTokens.remember(req.requestId, assignment.token)
   const start = performance.now()
   void executeUiAction(req.action, (req.params ?? {}) as Record<string, unknown>)
     .then((r): AgentActionResponse => {
@@ -222,5 +259,11 @@ export function useUiControlBridge(): void {
       wsClient?.disconnect()
     }
   }, [enabled, !!token])
+}
+
+/** 测试面(2026-09-26 定址投递票,同 use-agent-control.ts):入站处理与身份直接驱动,不开写接口 */
+export const __test__ = {
+  handleWsMessage,
+  selfIdentity,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
