@@ -47,7 +47,7 @@ import {
 import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import type { ModelConfigType } from '@ihui/ui-native'
-import { Check, Mic, Music, Plus, Square, X } from 'lucide-react-native'
+import { Check, ChevronRight, Mic, Music, Plus, Square, X } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
 
 // 共享类型(ModelConfigType)从 packages/types 下沉,两端复用。
@@ -275,6 +275,7 @@ function RatioSelector({
   return (
     <View>
       <View className="mb-1.5 flex-row items-center">
+        {/* back-label-exempt: 弹窗内二级选择器的步骤回退按钮,「返回」是标签非页头返回键;本组件无 i18n/色值通道 until 2026-12-31 */}
         <Pressable
           onPress={() => setSizeIndex(null)}
           className="mr-1.5 rounded-md bg-gray-100 dark:bg-neutral-800 px-2.5 py-1.5"
@@ -906,7 +907,7 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                     {audioUrl ? '当前已选择音色' : '从系统音色库中选择'}
                   </Text>
                 </View>
-                <Text className="text-xs text-gray-300 dark:text-neutral-600">›</Text>
+                <ChevronRight size={12} color={tokens.text.tertiary} />
               </Pressable>
 
               <Pressable onPress={handleCloneVoice} className="flex-row items-center px-5 py-3">
@@ -917,7 +918,7 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                   <Text className="text-xs font-medium text-gray-900 dark:text-neutral-100">克隆音色</Text>
                   <Text className="text-xs text-gray-400 dark:text-neutral-500">上传音频文件克隆音色</Text>
                 </View>
-                <Text className="text-xs text-gray-300 dark:text-neutral-600">›</Text>
+                <ChevronRight size={12} color={tokens.text.tertiary} />
               </Pressable>
             </View>
           </View>
