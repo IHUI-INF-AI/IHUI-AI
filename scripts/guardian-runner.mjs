@@ -3178,6 +3178,27 @@ const checks = [
     ]
   },
 
+  {
+    id: '121',
+    label: '🗑️ 声明策略必须有消费者(blocking,MAX_AGE/TTL/RETENTION/Contract 谓词/清理函数未接线即红,存量棘轮)',
+    script: 'check-declared-policy-has-consumer.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_DECLARED_POLICY_CONSUMER',
+    stagedTriggers: 'apps/,packages/',
+    onFailHint: [
+      '',
+      '  💡 本仓最高频失效型"造好没装车":声明了保留期/预算契约/清理函数,却没有任何生产面',
+      '     消费者(注释、字符串、纯 re-export、测试面、scripts 层都不算消费者)。',
+      '     实测存量:候选 131 / 未接线 32 处 29 文件(含 pruneOldSubagentStates、apps/api cleanup 族 9 处)⇒ 只报数。',
+      '     棘轮锚点=该文件 HEAD 自身未接线数;新增即红。全量判 HEAD blob、--staged 判索引、取不到 exit 2。',
+      '     单独复验:node scripts/check-declared-policy-has-consumer.mjs',
+      '     自检:--self-test(22 例,含真未接线/已接线双夹具 + 禁闭包/禁外部消费双变异)',
+      '     镜像:node --test scripts/tests/check-declared-policy-has-consumer.test.mjs(8 例,含装车前置证明)',
+      '',
+    ]
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
