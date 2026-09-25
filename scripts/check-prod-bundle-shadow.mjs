@@ -53,6 +53,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { gitBinary } from './lib/face-reader.mjs'
 
 if (process.env.HUSKY_SKIP_PROD_BUNDLE_SHADOW === '1') {
   console.log('⏭  HUSKY_SKIP_PROD_BUNDLE_SHADOW=1 — 跳过 prod-bundle 影子副本对账')
@@ -60,6 +61,10 @@ if (process.env.HUSKY_SKIP_PROD_BUNDLE_SHADOW === '1') {
 }
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+// §5b:git 调用一律绝对路径 —— 裸 'git' 依赖 PATH,而服务账户(LocalSystem)与交互账户的 PATH
+// 不相通,钩子/计划任务里派生就会静默失败(本门的失败形态是"取不到 ⇒ 无法判定",更容易被误读成
+// "两侧都没部署")。绝对路径出口只有一处:`lib/face-reader.mjs` 的 gitBinary()。
+const GIT = gitBinary()
 
 /**
  * 登记对:tracked = 入库源(必须跟踪),runner = 生产实际执行的那份(被忽略)
@@ -115,7 +120,7 @@ const sha1 = (buf) => createHash('sha1').update(buf).digest('hex')
  */
 function isTracked(root, rel) {
   try {
-    execFileSync('git', ['-C', root, 'ls-files', '--error-unmatch', '--', rel], {
+    execFileSync(GIT, ['-C', root, 'ls-files', '--error-unmatch', '--', rel], {
       stdio: 'ignore',
       timeout: 20000,
       windowsHide: true,
@@ -135,7 +140,7 @@ function isTracked(root, rel) {
  */
 function isIgnored(root, rel) {
   try {
-    execFileSync('git', ['-C', root, 'check-ignore', '-q', '--', rel], {
+    execFileSync(GIT, ['-C', root, 'check-ignore', '-q', '--', rel], {
       stdio: 'pipe',
       timeout: 20000,
       windowsHide: true,
@@ -250,7 +255,7 @@ function selfTest() {
   mkdirSync(join(root, 'deploy/prod-bundle'), { recursive: true })
   writeFileSync(join(root, '.gitignore'), 'deploy/prod-bundle/\n')
   const g = (...a) =>
-    execFileSync('git', ['-C', root, '-c', 'safe.directory=*', ...a], {
+    execFileSync(GIT, ['-C', root, '-c', 'safe.directory=*', ...a], {
       stdio: 'ignore',
       timeout: 60000,
       windowsHide: true,
