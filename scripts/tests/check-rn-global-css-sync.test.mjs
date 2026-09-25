@@ -27,9 +27,13 @@ const SCRIPTS_DIR = join(__dirname, '..')
 // - 路径解析:基于 import.meta.url(非 process.cwd),root = 脚本父目录的上一级
 // - mobile-rn 提取::root(浅色)+ .dark(深色)
 // - tokens.css 提取:@theme + :root(浅色,两种语法合并)+ .dark(深色)
-// - 比较范围:仅检查 mobile-rn 中存在的变量(它复制的是子集)
-// - 退出码:0 = 同步,1 = 发现不一致
-// - CLI 标志:--quiet(仅输出错误)/ --staged(接受,无操作,仍全量扫描)
+// - 比较范围:**以源头(tokens.css)为准** —— 逐位同值 + 副本不得缺档(源头有、副本没有 ⇒ 判红)。
+//   副本里多出的 --color-* 档属端内自立档,只报数不判红(旧口径"只查 mobile-rn 里存在的变量"
+//   会把缺档放过,而 NativeWind 下缺档的真实后果是该色值端内静默取不到 —— 2026-09-25 改)。
+// - 取材面:默认磁盘;`--staged` 走**索引面**(取不到回落 HEAD 那份),与全仓
+//   "全量判 HEAD blob、--staged 判索引 blob"同口径 —— 判的是"这次提交会带走的那一份"。
+// - 退出码:0 = 一致;1 = 值漂移/缺档;**2 = 无法判定(某个面取不到,既不冒红也不记绿)**
+// - CLI 标志:--quiet(抑制通过消息,错误仍走 stderr)/ --staged(切索引面,**不是**无操作)
 // ============================================================
 
 // ─── 辅助:创建临时环境(复制脚本 + 写入 fixture) ───
@@ -54,7 +58,24 @@ function createTempEnv(rnCss, tokensCss) {
   // 写入 design-tokens/tokens.css fixture
   mkdirSync(join(dir, 'packages', 'design-tokens', 'src', 'styles'), { recursive: true })
   writeFileSync(join(dir, 'packages', 'design-tokens', 'src', 'styles', 'tokens.css'), tokensCss)
+  // 2026-09-25:本门 `--staged` 改为**按索引面取材**(与全仓"全量判 HEAD、staged 判索引"同口径)。
+  // 夹具若不进索引,门如实报"取不到 ⇒ 无法判定 exit 2" —— 那不是 bug,是它拒绝冒绿。
+  // 所以这里把两份 fixture 落成一个小 git 仓并暂存,模拟"这次提交会带走的那一份"。
+  git(dir, 'init', '-q')
+  git(dir, 'config', 'user.email', 't@t')
+  git(dir, 'config', 'user.name', 't')
+  git(dir, 'add', '-A')
   return dir
+}
+
+/** 临时仓里的 git:绝对化 safe.directory + windowsHide + timeout(§5b/§52 同口径)。 */
+function git(cwd, ...args) {
+  return spawnSync('git', ['-c', 'safe.directory=*', ...args], {
+    cwd,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 120000,
+  })
 }
 
 // ─── 辅助:运行复制的脚本 ───
@@ -67,24 +88,34 @@ function runScript(tempDir, args = []) {
   })
 }
 
-// ─── 辅助:断言通过(exit 0 + stdout 含 "in sync") ───
+// ─── 辅助:断言通过(exit 0 + stdout 含"受管档逐位同值且无缺档",并带受管档计数)───
+// 2026-09-25:门把英文 "in sync" 换成了中文计数句。断言仍要求**带数字**,
+// 这样"扫到 0 档却报绿"那型假绿不会被放宽成通过。
 function assertPass(r) {
   assert.equal(
     r.status,
     0,
     `应 exit 0(同步),实际 exit ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
   )
-  assert.match(r.stdout, /in sync/, `stdout 应含 "in sync"\nstdout: ${r.stdout}`)
+  assert.match(
+    r.stdout,
+    /All \d+ 个受管档逐位同值且无缺档/,
+    `stdout 应含带受管档计数的同步行\nstdout: ${r.stdout}`,
+  )
 }
 
-// ─── 辅助:断言不一致(exit 1 + stderr 含 "mismatch") ───
+// ─── 辅助:断言不一致(exit 1 + stderr 含汇总计数行)───
 function assertMismatch(r) {
   assert.equal(
     r.status,
     1,
     `应 exit 1(不一致),实际 exit ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
   )
-  assert.match(r.stderr, /mismatch/, `stderr 应含 "mismatch"\nstderr: ${r.stderr}`)
+  assert.match(
+    r.stderr,
+    /Found \d+ 处值漂移 \/ \d+ 处缺档/,
+    `stderr 应含"值漂移/缺档"汇总行\nstderr: ${r.stderr}`,
+  )
 }
 
 // ============================================================
@@ -102,6 +133,25 @@ test('CLI: --quiet 同步时抑制 stdout 通过消息(仍 exit 0)', () => {
     assert.equal(r.status, 0, `--quiet 同步应 exit 0\nstdout: ${r.stdout}`)
     // --quiet 时不应输出通过消息
     assert.equal(r.stdout, '', `--quiet 应抑制 stdout,实际: ${r.stdout}`)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// ─── 3b. 反假绿锁:--staged 时索引与 HEAD 都取不到 ⇒ **exit 2 无法判定**(绝不记绿)───
+// 这条就是本次改夹具时暴露出来的新行为:门的取材面换成索引后,"读不到"必须显式失败,
+// 否则它会拿磁盘内容冒充"这次提交会带走的那一份",产出与真实提交不一致的结论。
+test('反假绿: --staged 取不到索引面 → exit 2 无法判定(不冒绿也不冒红)', () => {
+  const dir = createTempEnv(
+    `:root {\n  --color-primary: #fff;\n}\n`,
+    `:root {\n  --color-primary: #fff;\n}\n`,
+  )
+  try {
+    // 把源头文件从索引里摘掉(夹具仓只 add 过、没有 commit ⇒ HEAD 也没有它)
+    git(dir, 'rm', '--cached', '-q', '--', 'packages/design-tokens/src/styles/tokens.css')
+    const r = runScript(dir, ['--staged'])
+    assert.equal(r.status, 2, `取不到该面应 exit 2,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.match(r.stderr, /无法判定/, `stderr 应说明"无法判定"\nstderr: ${r.stderr}`)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -136,8 +186,8 @@ test('核心: :root + .dark 全部同步 → exit 0 + 计数消息', () => {
     // 通过消息应含变量总数(4 = 2 root + 2 dark)
     assert.match(
       r.stdout,
-      /4 variables are in sync/,
-      `stdout 应含 "4 variables"\nstdout: ${r.stdout}`,
+      /All 4 个受管档逐位同值且无缺档/,
+      `stdout 应含带受管档计数的同步行\nstdout: ${r.stdout}`,
     )
   } finally {
     rmSync(dir, { recursive: true, force: true })
@@ -156,8 +206,12 @@ test('核心: :root 值不一致 → exit 1 + 报告 :root diff', () => {
   try {
     const r = runScript(dir)
     assertMismatch(r)
-    // stderr 应含 :root 块标记
-    assert.match(r.stderr, /:root block/, `stderr 应含 ":root block"\nstderr: ${r.stderr}`)
+    // stderr 应点名到"哪个块 + 哪个档"(2026-09-25:门改中文行格式,不再打 ":root block")
+    assert.match(
+      r.stderr,
+      /:root --color-primary:.*值漂移/,
+      `stderr 应含 ":root --color-primary … 值漂移"\nstderr: ${r.stderr}`,
+    )
     // stderr 应含变量名 + 双方值
     assert.match(r.stderr, /--color-primary/, `stderr 应含 "--color-primary"\nstderr: ${r.stderr}`)
     assert.match(r.stderr, /#fff/, `stderr 应含 mobile-rn 值 #fff\nstderr: ${r.stderr}`)
@@ -179,8 +233,12 @@ test('核心: .dark 值不一致 → exit 1 + 报告 .dark diff', () => {
   try {
     const r = runScript(dir)
     assertMismatch(r)
-    // stderr 应含 .dark 块标记
-    assert.match(r.stderr, /\.dark block/, `stderr 应含 ".dark block"\nstderr: ${r.stderr}`)
+    // stderr 应点名 .dark 块与具体档
+    assert.match(
+      r.stderr,
+      /\.dark --color-primary:.*值漂移/,
+      `stderr 应含 ".dark --color-primary … 值漂移"\nstderr: ${r.stderr}`,
+    )
     assert.match(r.stderr, /#aaa/, `stderr 应含 mobile-rn 值 #aaa\nstderr: ${r.stderr}`)
     assert.match(r.stderr, /#bbb/, `stderr 应含 tokens 值 #bbb\nstderr: ${r.stderr}`)
   } finally {
@@ -192,32 +250,52 @@ test('核心: .dark 值不一致 → exit 1 + 报告 .dark diff', () => {
 // 检查 5:核心规则 —— mobile-rn 有变量但 tokens 缺失 → exit 1
 // ============================================================
 
-// ─── 6. 核心: :root 变量在 tokens 中缺失 → exit 1 + "<missing>" ───
-test('核心: :root 变量在 tokens 中缺失 → exit 1 + "<missing>"', () => {
+// ─── 6. 核心: 源头有而副本缺 ⇒ exit 1 + 报"缺档"(2026-09-25 判据方向)───
+test('核心: 源头有而副本缺 → exit 1 + 报"缺档"', () => {
   const rnCss = `:root {\n  --color-accent: #ff0;\n}\n`
   const tokensCss = `:root {\n  --color-other: #abc;\n}\n`
   const dir = createTempEnv(rnCss, tokensCss)
   try {
     const r = runScript(dir)
     assertMismatch(r)
-    // stderr 应含 <missing> 标记(tokens 中不存在该变量)
-    assert.match(r.stderr, /<missing>/, `stderr 应含 "<missing>"\nstderr: ${r.stderr}`)
-    assert.match(r.stderr, /--color-accent/, `stderr 应含 "--color-accent"\nstderr: ${r.stderr}`)
+    // 门现在只判"源头有、副本缺"(缺档);副本多出来的档是端内自立档,只报数不判红
+    assert.match(r.stderr, /缺档/, `stderr 应含 "缺档"\nstderr: ${r.stderr}`)
+    assert.match(r.stderr, /--color-other/, `stderr 应含源头档名\nstderr: ${r.stderr}`)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
 })
 
-// ─── 7. 核心: .dark 变量在 tokens 中缺失 → exit 1 + "<missing>" ───
-test('核心: .dark 变量在 tokens 中缺失 → exit 1 + "<missing>"', () => {
+// ─── 7. 核心: 源头 .dark 有、副本缺 ⇒ exit 1 + 点名 .dark 缺档 ───
+test('核心: 源头 .dark 有而副本缺 → exit 1 + 点名 .dark 缺档', () => {
+  const rnCss = `:root {\n  --color-x: #000;\n}\n`
+  const tokensCss = `:root {\n  --color-x: #000;\n}\n.dark {\n  --color-y: #222;\n}\n`
+  const dir = createTempEnv(rnCss, tokensCss)
+  try {
+    const r = runScript(dir)
+    assertMismatch(r)
+    assert.match(
+      r.stderr,
+      /\.dark --color-y:.*缺档/,
+      `stderr 应含 ".dark --color-y … 缺档"\nstderr: ${r.stderr}`,
+    )
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// ─── 7b. 方向锁:副本多出源头没有的档 ⇒ **不判红**,只作为"端内自立档"报数 ───
+// 2026-09-25 判据方向:门只管"源头有、副本缺"与"值漂移"。副本里自立的 --color-* 档
+// (端内自己加的)生成器无权删,判它红会把人推向 --no-verify。这一条防止有人把方向改回去
+// 或把它当漏判"修好"。
+test('方向锁: 副本有、源头没有的自立档 ⇒ exit 0 且计入只报数(不得判红)', () => {
   const rnCss = `:root {\n  --color-x: #000;\n}\n.dark {\n  --color-x: #111;\n}\n`
   const tokensCss = `:root {\n  --color-x: #000;\n}\n`
   const dir = createTempEnv(rnCss, tokensCss)
   try {
     const r = runScript(dir)
-    assertMismatch(r)
-    assert.match(r.stderr, /\.dark block/, `stderr 应含 ".dark block"\nstderr: ${r.stderr}`)
-    assert.match(r.stderr, /<missing>/, `stderr 应含 "<missing>"\nstderr: ${r.stderr}`)
+    assert.equal(r.status, 0, `自立档不该判红,实际 exit ${r.status}\nstderr: ${r.stderr}`)
+    assert.match(r.stdout, /All \d+ 个受管档逐位同值且无缺档/, `stdout: ${r.stdout}`)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -227,21 +305,24 @@ test('核心: .dark 变量在 tokens 中缺失 → exit 1 + "<missing>"', () => 
 // 检查 6:核心规则 —— tokens 有额外变量(mobile-rn 无)→ exit 0
 // ============================================================
 
-// ─── 8. 核心: tokens 有额外变量(mobile-rn 未复制)→ exit 0(子集检查) ───
-test('核心: tokens 有额外变量(mobile-rn 未复制)→ exit 0(子集检查)', () => {
+// ─── 8. 核心: 源头有而副本未复制 ⇒ **exit 1 + 缺档**(旧版"子集放过"已被推翻)───
+// 2026-09-25 判据变更:旧口径把"tokens 有、mobile-rn 没有"当合法子集放过,而 NativeWind 下
+// 缺档的真实后果是该色值在端内**静默取不到**(样式不生效但不报错),正是本门该拦的那一型;
+// 现在由 `sync-rn-global-css.mjs` 负责补齐,门只管判缺。保留本用例是为把方向钉死。
+test('核心: 源头有而副本未复制 → exit 1 + 缺档(旧"子集放过"已废)', () => {
   const rnCss = `:root {\n  --color-primary: #fff;\n}\n`
-  // tokens 含 mobile-rn 没有的 --color-extra,不应触发不一致
   const tokensCss = `:root {\n  --color-primary: #fff;\n  --color-extra: #abc;\n}\n`
   const dir = createTempEnv(rnCss, tokensCss)
   try {
     const r = runScript(dir)
-    assertPass(r)
-    // 计数应只算 mobile-rn 的变量(1 个),不含 tokens 的额外变量
+    assertMismatch(r)
     assert.match(
-      r.stdout,
-      /1 variables are in sync/,
-      `stdout 应含 "1 variables"\nstdout: ${r.stdout}`,
+      r.stderr,
+      /:root --color-extra:.*缺档/,
+      `stderr 应点名缺的档\nstderr: ${r.stderr}`,
     )
+    // 受管档计数按**源头**算(2 档),不受副本影响
+    assert.match(r.stderr, /Found 0 处值漂移 \/ 1 处缺档/, `stderr: ${r.stderr}`)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -283,11 +364,11 @@ test('语法: tokens.css @theme + :root 合并(后者覆盖前者)→ exit 0', (
 })
 
 // ============================================================
-// 检查 9:边界 —— 两个文件都无 --color-* 变量 → exit 0(0 in sync)
+// 检查 9:边界 —— 两个文件都无 --color-* 变量 → exit 0(0 个受管档)
 // ============================================================
 
-// ─── 11. 边界: 两文件均无 --color-* 变量 → exit 0(0 in sync) ───
-test('边界: 两文件均无 --color-* 变量 → exit 0(0 in sync)', () => {
+// ─── 11. 边界: 两文件均无 --color-* 变量 → exit 0(0 个受管档) ───
+test('边界: 两文件均无 --color-* 变量 → exit 0(0 个受管档)', () => {
   const rnCss = `:root {\n  --spacing-sm: 4px;\n}\n`
   const tokensCss = `:root {\n  --spacing-sm: 4px;\n}\n`
   const dir = createTempEnv(rnCss, tokensCss)
@@ -296,7 +377,7 @@ test('边界: 两文件均无 --color-* 变量 → exit 0(0 in sync)', () => {
     assert.equal(r.status, 0, `无 --color-* 变量应 exit 0\nstdout: ${r.stdout}`)
     assert.match(
       r.stdout,
-      /0 variables are in sync/,
+      /All 0 个受管档逐位同值且无缺档/,
       `stdout 应含 "0 variables"\nstdout: ${r.stdout}`,
     )
   } finally {
@@ -344,8 +425,8 @@ test('边界: mobile-rn 多个 :root 块(后者覆盖)→ 用合并值比对 exi
 // 检查 12:输出格式 —— 通过消息含检查提示 + 变量计数
 // ============================================================
 
-// ─── 14. 输出: 默认模式 stdout 含 "Checking" 提示 + "in sync" 计数 ───
-test('输出: 默认模式 stdout 含 "Checking" 提示 + "in sync" 计数', () => {
+// ─── 14. 输出: 默认模式 stdout 含 "Checking" 提示 + 受管档计数 ───
+test('输出: 默认模式 stdout 含 "Checking" 提示 + 受管档计数', () => {
   const rnCss = `:root {\n  --color-a: #111;\n}\n.dark {\n  --color-a: #222;\n}\n`
   const tokensCss = `:root {\n  --color-a: #111;\n}\n.dark {\n  --color-a: #222;\n}\n`
   const dir = createTempEnv(rnCss, tokensCss)
@@ -357,7 +438,7 @@ test('输出: 默认模式 stdout 含 "Checking" 提示 + "in sync" 计数', () 
     // 应输出变量计数(2 = 1 root + 1 dark)
     assert.match(
       r.stdout,
-      /2 variables are in sync/,
+      /All 2 个受管档逐位同值且无缺档/,
       `stdout 应含 "2 variables"\nstdout: ${r.stdout}`,
     )
   } finally {
@@ -380,7 +461,7 @@ test('输出: --quiet 不一致时 stderr 仍输出错误(exit 1)', () => {
     // --quiet 抑制 stdout 的 "Checking" 提示
     assert.equal(r.stdout, '', `--quiet 应抑制 stdout,实际: ${r.stdout}`)
     // 但 stderr 仍输出错误
-    assert.match(r.stderr, /mismatch/, `stderr 应含 "mismatch"\nstderr: ${r.stderr}`)
+    assert.match(r.stderr, /值漂移/, `stderr 应含"值漂移"\nstderr: ${r.stderr}`)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
