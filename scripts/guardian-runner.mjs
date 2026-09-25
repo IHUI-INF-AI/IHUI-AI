@@ -3298,6 +3298,35 @@ const checks = [
       '',
     ]
   },
+  {
+    id: '126',
+    label: '🧪 shared 包非 Node 宿主纯度对账(blocking,入口闭包可达面内不得有 node: 内建导入)',
+    script: 'check-shared-nonde-node-purity.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_SHARED_NONDE_PURITY',
+    stagedTriggers: [
+      'packages/shared/',
+      'apps/miniapp-taro/src',
+      'apps/mobile-rn/src',
+      'packages/app/src',
+      'apps/web/',
+      'apps/extension/',
+    ],
+    onFailHint: [
+      '',
+      '  💡 `packages/shared` 被 web / 小程序 / RN / packages/app 这些**非 Node 宿主**共同消费,',
+      '     而入口闭包可达面里一旦出现 `node:fs`/`node:dns` 这类内建导入,失败形态是构建期 resolve',
+      '     报错或运行时 undefined —— `pnpm typecheck` 结构上看不见(TS 走 tsconfig paths,不看打包器)。',
+      '     本门按**可达性**判:从 `src/index.ts` + package.json 非通配 exports 做值边传递闭包',
+      '     (`import type` 不计),闭包内出现内建导入即红并打印链路;宿主直接摸进含内建的文件也红。',
+      '     "含内建但闭包不可达"只报数不判红(那是待处置的源码面,不是当前缺陷) —— 但必须打印,',
+      '     否则读报告的人会以为 shared 是纯的。正确修法=把平台特有依赖改成 adapter 注入或移出',
+      '     共享面(§3 工厂模式),不得为消红去放宽判据或把可达文件改判成不可达。',
+      '     单独复验:node scripts/check-shared-nonde-node-purity.mjs(自检 23 例,镜像 18 例)',
+      '',
+    ]
+  },
 
   // --- info (1 项) ---
   {
