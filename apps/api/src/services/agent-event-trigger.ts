@@ -19,10 +19,13 @@
 
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import type { FastifyRequest } from 'fastify'
+import { z } from 'zod'
 import { db } from '../db/index.js'
 import { eq } from 'drizzle-orm'
 import { agentEventTriggers, type AgentEventTrigger, type EventTriggerAction } from '@ihui/database'
 import { captureAgentRuntimeStream } from './agent-runtime-stream.js'
+// D30① 信源接入:摘要脱敏复用既有正则脱敏出口(services/log-sanitizer),禁止自拼第二套。
+import { sanitizeText } from './log-sanitizer.js'
 
 // =============================================================================
 // 纯函数:GitHub webhook 签名校验
@@ -196,5 +199,219 @@ export function fireEventTriggerAsync(
   void fireEventTrigger(trigger, request).catch((err) => {
     logger?.warn({ triggerId: trigger.id, err: String(err) }, '[event-trigger] 触发执行失败')
   })
+}
+
+// =============================================================================
+// D30① 无人值守修复闭环 —— 信源接入(ci_failed / gate_failed)
+// =============================================================================
+
+/**
+ * 两种新触发 kind。语义与 agent_event_triggers.event(varchar(40))同域,
+ * 由 CI 侧 workflow 经**既有 HMAC 鉴权路由** POST /api/webhooks/github 投递,
+ * 不新造匿名端点(鉴权沿用 GITHUB_WEBHOOK_SECRET 签名校验,不放宽)。
+ */
+export const UNATTENDED_INTAKE_KINDS = ['ci_failed', 'gate_failed'] as const
+export type UnattendedIntakeKind = (typeof UNATTENDED_INTAKE_KINDS)[number]
+
+export function isUnattendedIntakeKind(name: string): name is UnattendedIntakeKind {
+  return (UNATTENDED_INTAKE_KINDS as readonly string[]).includes(name)
+}
+
+/** 摘要入参上限(防整段日志塞进事件;也是脱敏正则的复杂度上限) */
+export const INTAKE_SUMMARY_INPUT_MAX_CHARS = 2000
+/** 摘要进入事件前的最终截断长度(短文本,单位字符) */
+export const INTAKE_SUMMARY_MAX_CHARS = 300
+
+/**
+ * 去重窗口 = 4h。依据:与 §5e 运维告警去重窗口(默认 4h)同档 —— 一次 CI 连红的
+ * 重跑/重投集中发生在分钟~小时级,4h 足以拦风暴,又保证持续失败隔天仍能再次入队;
+ * 修复产生新 commit 后 sha 变化,天然产生新键,不受本窗口压制。
+ */
+export const INTAKE_DEDUP_WINDOW_MS = 4 * 60 * 60 * 1000
+
+/** 来源三元组(workflow 名 / job / commit sha),两种 kind 共用 */
+const intakeSourceFields = {
+  /** CI workflow 显示名(如 "CI (Monorepo)") */
+  workflow: z.string().min(1).max(200),
+  /** 失败的 job 名 */
+  job: z.string().min(1).max(200),
+  /** 触发失败的 commit sha(短/全长十六进制) */
+  commitSha: z.string().regex(/^[0-9a-fA-F]{7,40}$/, 'commitSha 须为 7-40 位十六进制'),
+} as const
+
+const intakeCommonFields = {
+  /** 仓库全名 owner/repo,与 agent_event_triggers.repo_full_name 匹配 */
+  repo: z
+    .string()
+    .min(3)
+    .max(255)
+    .regex(/^[^/\s]+\/[^/\s]+$/, 'repo 须为 owner/name 形态'),
+  /** 可追溯链接(GitHub Actions run URL) */
+  runUrl: z.url().max(500),
+  /** 失败摘要(短文本;入口上限 INTAKE_SUMMARY_INPUT_MAX_CHARS) */
+  summary: z.string().min(1).max(INTAKE_SUMMARY_INPUT_MAX_CHARS),
+} as const
+
+/** ci_failed:GitHub Actions 红。strict:未知字段一律拒绝 */
+export const ciFailedPayloadSchema = z.strictObject({
+  kind: z.literal('ci_failed'),
+  ...intakeCommonFields,
+  ...intakeSourceFields,
+})
+
+/** gate_failed:全量守门(guardian-runner)失败。多一个可选守门项名,同样 strict */
+export const gateFailedPayloadSchema = z.strictObject({
+  kind: z.literal('gate_failed'),
+  ...intakeCommonFields,
+  ...intakeSourceFields,
+  /** 失败的守门项 id/名(可选,便于点名归因) */
+  guardianId: z.string().min(1).max(80).optional(),
+})
+
+const intakePayloadSchema = z.discriminatedUnion('kind', [
+  ciFailedPayloadSchema,
+  gateFailedPayloadSchema,
+])
+
+export type UnattendedIntakePayload = z.infer<typeof intakePayloadSchema>
+
+/** 归一化后的入队载荷:summary 已脱敏+截断,字段扁平可直接喂占位符渲染 */
+export interface NormalizedIntake {
+  kind: UnattendedIntakeKind
+  repo: string
+  workflow: string
+  job: string
+  commitSha: string
+  runUrl: string
+  summary: string
+  guardianId?: string
+}
+
+/**
+ * 摘要清洗:先过**既有正则脱敏出口** sanitizeText(sk- 前缀 API Key / Bearer JWT /
+ * email / phone,见 services/log-sanitizer.ts,禁止自拼第二套),
+ * 再折叠空白、按字符数截断。
+ * 顺序刻意"先脱敏后截断":截断点若落在凭据中段会留下半截秘钥。
+ */
+export function buildIntakeSummary(raw: string): string {
+  const oneLine = sanitizeText(raw).replace(/\s+/g, ' ').trim()
+  if (oneLine.length <= INTAKE_SUMMARY_MAX_CHARS) return oneLine
+  return `${oneLine.slice(0, INTAKE_SUMMARY_MAX_CHARS - 1)}…`
+}
+
+export type IntakeParseResult =
+  | { ok: true; data: NormalizedIntake; dedupKey: string }
+  | { ok: false; errors: string[] }
+
+/**
+ * 单一入口:kind 一致性 + strict 校验 + 摘要清洗 + 去重键构造。
+ * eventName 来自 x-github-event 头;与 payload.kind 不一致即拒(不允许头/体两套真相)。
+ * 本函数是纯函数,不触 DB / 网络,可直接单测。
+ */
+export function parseUnattendedIntake(
+  eventName: string,
+  payload: unknown,
+): IntakeParseResult {
+  if (!isUnattendedIntakeKind(eventName)) {
+    return { ok: false, errors: [`unsupported_event:${eventName}`] }
+  }
+  const parsed = intakePayloadSchema.safeParse(payload)
+  if (!parsed.success) {
+    return {
+      ok: false,
+      errors: parsed.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`),
+    }
+  }
+  if (parsed.data.kind !== eventName) {
+    return {
+      ok: false,
+      errors: [`kind_mismatch: header=${eventName} body=${parsed.data.kind}`],
+    }
+  }
+  const data: NormalizedIntake = {
+    kind: parsed.data.kind,
+    repo: parsed.data.repo,
+    workflow: parsed.data.workflow,
+    job: parsed.data.job,
+    commitSha: parsed.data.commitSha.toLowerCase(),
+    runUrl: parsed.data.runUrl,
+    summary: buildIntakeSummary(parsed.data.summary),
+    ...(parsed.data.kind === 'gate_failed' && parsed.data.guardianId
+      ? { guardianId: parsed.data.guardianId }
+      : {}),
+  }
+  return {
+    ok: true,
+    data,
+    dedupKey: intakeDedupKey(data.kind, data.repo, data.commitSha, data.job),
+  }
+}
+
+/** 去重键:(kind, repo, sha, job)。sha 归一小写,避免长短/大小写两套键 */
+export function intakeDedupKey(
+  kind: UnattendedIntakeKind,
+  repo: string,
+  commitSha: string,
+  job: string,
+): string {
+  return `${kind}|${repo}|${commitSha.toLowerCase()}|${job}`
+}
+
+/**
+ * 去重判据(纯函数,便于单测):窗口内无该键记录才放行。
+ * lastSeenAt 由调用方持有(本模块的 IntakeStormGuard 或 Map 均可),
+ * 判据本身零副作用。
+ */
+export function shouldAcceptIntake(
+  lastSeenAt: ReadonlyMap<string, number>,
+  key: string,
+  nowMs: number,
+  windowMs: number = INTAKE_DEDUP_WINDOW_MS,
+): boolean {
+  const last = lastSeenAt.get(key)
+  if (last === undefined) return true
+  return nowMs - last >= windowMs
+}
+
+/** 风暴保护容器:纯判据 + 进程内记录(取舍同 DeliveryDedup:容量上限 + 最旧淘汰) */
+export class IntakeStormGuard {
+  private readonly store = new Map<string, number>()
+  constructor(
+    private readonly windowMs: number = INTAKE_DEDUP_WINDOW_MS,
+    private readonly capacity: number = 5000,
+  ) {}
+
+  /** 返回 true = 放行入队;false = 窗口内重复,应跳过 */
+  accept(key: string, nowMs: number = Date.now()): boolean {
+    if (!shouldAcceptIntake(this.store, key, nowMs, this.windowMs)) return false
+    if (this.store.size >= this.capacity) {
+      const oldest = this.store.keys().next().value as string | undefined
+      if (oldest !== undefined) this.store.delete(oldest)
+    }
+    this.store.set(key, nowMs)
+    return true
+  }
+
+  /** 测试用:清空 */
+  clear(): void {
+    this.store.clear()
+  }
+}
+
+/** 单进程共享风暴保护器(路由接线时使用) */
+export const intakeStormGuard = new IntakeStormGuard()
+
+/** 归一化载荷 → buildTriggerPrompt 的占位符上下文 */
+export function buildIntakePromptCtx(data: NormalizedIntake): Record<string, string> {
+  return {
+    kind: data.kind,
+    repo: data.repo,
+    workflow: data.workflow,
+    job: data.job,
+    commitSha: data.commitSha,
+    runUrl: data.runUrl,
+    summary: data.summary,
+    ...(data.guardianId ? { guardianId: data.guardianId } : {}),
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

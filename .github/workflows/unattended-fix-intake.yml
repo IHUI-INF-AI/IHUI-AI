@@ -1,0 +1,118 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+# D30① 无人值守修复闭环 —— 信源接入(2026-09-26 立)。
+# 把「CI 红 / 全量守门失败」投进既有 HMAC 鉴权 webhook 路由 POST /api/webhooks/github
+# (apps/api/src/routes/github-webhook.ts),x-github-event 取 ci_failed / gate_failed。
+# 鉴权沿用 GITHUB_WEBHOOK_SECRET(HMAC-SHA256,X-Hub-Signature-256),不新造匿名端点。
+# 摘要只带短文本(服务端还会再截断+脱敏);凭据一律经 env 注入,绝不回显。
+name: Unattended Fix Intake
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+      - CI (Monorepo)
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: 信源类型(gate_failed 供全量守门失败方调用)
+        required: true
+        type: choice
+        options:
+          - ci_failed
+          - gate_failed
+      job_name:
+        description: 失败的 job / 守门项名
+        required: true
+        type: string
+      commit_sha:
+        description: 关联 commit sha
+        required: true
+        type: string
+      summary:
+        description: 失败摘要(短文本)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  intake:
+    name: deliver-failure-intake
+    runs-on: ubuntu-latest
+    # workflow_run 分支只在失败时投递;dispatch 分支由调用方显式发起
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure')
+    env:
+      # 与服务端 GITHUB_WEBHOOK_SECRET 同值的仓库级 secret;缺失即显式失败,绝不静默跳过
+      IHUI_INTAKE_SECRET: ${{ secrets.IHUI_UNATTENDED_INTAKE_WEBHOOK_SECRET }}
+      IHUI_INTAKE_BASE_URL: ${{ vars.IHUI_UNATTENDED_INTAKE_API_URL }}
+      INTAKE_KIND: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.kind || 'ci_failed' }}
+      INTAKE_REPO: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_repository.full_name || github.repository }}
+      INTAKE_WORKFLOW: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.name || github.workflow }}
+      INTAKE_JOB: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.job_name || github.event.workflow_run.name }}
+      INTAKE_SHA: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.commit_sha || github.event.workflow_run.head_sha }}
+      INTAKE_RUN_URL: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.html_url || format('{0}/{1}/actions/runs/{2}', github.server_url, github.repository, github.run_id) }}
+      INTAKE_SUMMARY: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.summary || format('{0} conclusion=failure run={1}', github.event.workflow_run.name, github.event.workflow_run.run_number) }}
+      INTAKE_DELIVERY_ID: ${{ github.event_name == 'workflow_run' && format('gha-workflow-run-{0}', github.event.workflow_run.id) || format('gha-dispatch-{0}', github.run_id) }}
+    steps:
+      - name: Sign and POST to existing HMAC webhook route
+        env:
+          GUARDIAN_ID: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.kind == 'gate_failed' && github.event.inputs.job_name || '' }}
+        run: |
+          set -eu
+          if [ -z "${IHUI_INTAKE_SECRET:-}" ]; then
+            echo "::error::缺少 secrets.IHUI_UNATTENDED_INTAKE_WEBHOOK_SECRET,信源投递无法鉴权,显式失败(不静默跳过)"
+            exit 1
+          fi
+          if [ -z "${IHUI_INTAKE_BASE_URL:-}" ]; then
+            echo "::error::缺少 vars.IHUI_UNATTENDED_INTAKE_API_URL(api 基址),显式失败"
+            exit 1
+          fi
+          node <<'NODE_EOF'
+          const { createHmac } = require('node:crypto')
+          const base = process.env.IHUI_INTAKE_BASE_URL.replace(/\/+$/, '')
+          const kind = process.env.INTAKE_KIND
+          const payload = {
+            kind,
+            repo: process.env.INTAKE_REPO,
+            workflow: process.env.INTAKE_WORKFLOW,
+            job: process.env.INTAKE_JOB,
+            commitSha: process.env.INTAKE_SHA,
+            runUrl: process.env.INTAKE_RUN_URL,
+            summary: String(process.env.INTAKE_SUMMARY || 'no summary').slice(0, 1500),
+          }
+          if (kind === 'gate_failed' && process.env.GUARDIAN_ID) {
+            payload.guardianId = String(process.env.GUARDIAN_ID).slice(0, 80)
+          }
+          // 签名基于原始字节:body 只 stringify 一次,发送与签名共用同一份
+          const body = JSON.stringify(payload)
+          const sig = 'sha256=' + createHmac('sha256', process.env.IHUI_INTAKE_SECRET).update(body, 'utf8').digest('hex')
+          fetch(`${base}/api/webhooks/github`, {
+            method: 'POST',
+            headers: {
+              'content-type': 'application/json',
+              'x-github-event': kind,
+              'x-github-delivery': process.env.INTAKE_DELIVERY_ID,
+              'x-hub-signature-256': sig,
+            },
+            body,
+          })
+            .then(async (res) => {
+              const text = await res.text()
+              // 只打印状态码与响应摘要,不回显任何凭据/签名
+              console.log(`intake delivered: http=${res.status} body=${text.slice(0, 300)}`)
+              if (res.status < 200 || res.status >= 300) process.exit(1)
+            })
+            .catch((err) => {
+              console.error(`intake delivery failed: ${String(err && err.message ? err.message : err)}`)
+              process.exit(1)
+            })
+          NODE_EOF
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
