@@ -7576,6 +7576,31 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
   这道门只剩 C1/T1 的表格自检）。选它的三条理由与试跑数字写在表头「已收口模块」注释段；
   **刻意不选 `apps/desktop`** —— 它的声明是 `requires: [] / public_entrypoints: [] / exported: false`，
   翻那种空壳等于让门对着空气打分（正是本表 T1 要拦的"表与现实脱节"）。
+- [x] ✅(2026-09-25) **CLI 句柄族 5/7 → 7/7：上一票"逐端判据"漏列了 CLI 这个真实执行体**。
+  上面那条 `page_*` 跨端申报的清单是「只有 extension 与 api 登记，web/miniapp-taro/mobile-rn/desktop/ai-service
+  逐端判据不登记」——**它没列 `apps/cli`**，而 CLI 恰是这一族的第二个执行体（自有 CDP 会话
+  `apps/cli/src/tools/browser-page.ts`；`page_control_bridge.py:9-10` 自己就写着"此前它只有两个执行体"）。
+  实测该端只接了七动词中的五个，缺 `browser_page_select` / `browser_page_hover`。
+  **三方都不红**：tsc 不红（数组清单少一项只是"短一点"，类型合法）；既有 `browser-page-snapshot.cdp.test.ts`
+  不红（它按名字逐个取工具，取不到的那条用例根本不存在）；守门链不红（`callPageApi` 的 method 联合
+  早已含 `'act'`，通道备好无人调 = 本仓最高频的"造好没装车"）。
+  修法按**载体替换**不是补清单：注册面改为 `Record<PageActionType, Tool>`、导出数组由 `PAGE_ACTIONS.map()` 派生，
+  契约新增动词而本端没实现 ⇒ `tsc` 当场 `TS2741 Property 'page_hover' is missing`（变异实测取证，非推断）；
+  运行期另加 `apps/cli/tests/browser-page-action-parity.test.ts` 7 例双向对账（少一条**点名动词**、多申报一条也算漂移、
+  只读档与 `PAGE_READONLY_ACTIONS` 同源、除只读两条外 handle 必填）。
+  **写第一版时踩到自己的一条**：对账测试取 `t.name` 未容 undefined，变异注入后套件在 import 期崩成
+  `0 test / no tests` —— 红了但不说缺哪个动词，等于把诊断成本推给下一个人；改为逐槽判 undefined 后才产出
+  `缺少执行体: browser_page_hover` 的点名失败（两轮变异分别取证）。
+  `page_hover` 走 CDP `mouseMoved`（与 click 同一真输入通道，复用抽出的 `resolveHandleCentre`）；
+  `page_select` 走页内 `act()`——选项匹配规则在 `@ihui/dom-actions` 只有一份，端内再拼一套就是分叉的开始。
+  验收：CLI `tsc` exit 0、**全量 134 个测试文件通过**；门 98 / 51 / 55(86/86) / 56(4202 项) 全绿；
+  门 103 `--staged`（提交链实际面对的档）exit 0。README 两处同体段落一并更正（原文"执行体在扩展 content script"不完整）。
+- [ ] **他人账，本票未代改（登记事实与解阻判据）**：门 103 **全量**档 exit 1 报 2 处，红在
+  `packages/i18n/tests/waiting-keys-in-end-packages.test.ts:19` 的 D1/D2 —— 该文件已于本日迁到
+  `packages/shared/tests/chat/`（迁后 i18n 旧路径由 `729551ef938` 删除），现**两份并存且都在 HEAD**。
+  归属非本票（本票只动 `apps/cli` + README + PLAN，三者与 i18n 无 import 关系），且 `--staged` 档 exit 0 不拦提交链。
+  解阻判据：确认旧路径那份不再被任何采集面引用后删旧路径；**不得**改 `requires` 消红
+  （`packages/i18n` rank 20 高于 `packages/shared` rank 30，D2 只比 rank，换 import 路径不解决问题）。
   取证：24 个模块逐个 `--managed-trial` 均判红 0 处（现存 3 条软账 `packages/i18n`×2、`repo-tooling`×1，
   归属别的模块）；镜像测试 11/11，新增 **T11 钉"真表 managed:true ≥ 1"这一不变量**
   （不钉具体条目 —— 合法回退不该把测试变红），并带反向对照：把全表 true 抹回 false 时 T11 必须变红，
@@ -7694,9 +7719,27 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
   **本票顺手量到的一条副产品**：多出来的第 12 族是 `r3-cta-exempt`（3 处），而守门 83 只认 `r5-cta-exempt`
   ⇒ 这 3 处是**从来没生效过的悬空豁免**（写的人以为豁免掉了，门根本没看）。归属守门 83 的持有者处置，
   本票不代改他人判据。
-- [ ] **接线由主会话单做**（本波四张票都按任务书没碰 `guardian-runner.mjs` / `package.json` / 活文档）：
-  新门编号取当时最大值之后并先查重（实测现最大 104），豁免到期定 blocking，产物预算定 warn + CI 判红，
-  三轴自检不进提交链只做 `pnpm` 入口 + 守护报数。
+- [x] ✅(2026-09-25) **本波新门统一接线完成**（主会话单写注册表；各实现票按任务书都没碰共享注册文件）：
+  guardian id **107** `provenance-ledger.mjs`（blocking，`skipEnv HUSKY_SKIP_PROVENANCE_LEDGER`，刻意不挂
+  `stagedTriggers` —— 新登记一条 vendored 内容这件事可以发生在任何路径）、**108**
+  `check-exemption-expiry.mjs`（blocking，存量进棘轮基线只报数）、**109**
+  `check-task-claims.mjs --check-gate`（blocking，`stagedTriggers=PROJECT_PLAN.md`）、**110**
+  `check-artifact-budget.mjs`（**warn** —— 产物在不在本机是机器态，判红即恒红门；问责放 CI）。
+  三轴基线自检 `check-baseline-freshness.mjs` 按规格**不进提交链**，只给 `pnpm check:baseline-freshness`
+  入口 + 守护侧报数。`AGENTS.md`（§1 认领租约 + 守门速查四条）与 `README.md`（守门表四行）同枚改，
+  因为守门 89 的 R4 判"已接线但文档未点名"= 拦。
+  **接线途中被并发推进两次，值得留成教训**：我第一版按当时读数把工作树里的 `guardian-runner.mjs`
+  写成 106/107/108，而并发会话在同一位置加了他们的 id **106**（extension 注入层色值同源）——
+  若照工作树整文件提交，就会把那位的 19 行注册块整块写回旧态（§12 记过同型事故：提交 runner 咬掉别人 7 行）。
+  正解不是"再编辑一次"，而是 **从 HEAD 取底 + 程序化插入 + 复验 `git diff HEAD` 必须 N/0 纯新增**，
+  再按空闲号顺次改 107/108/109/110（改号也要占位再回填，避免连环替换）。
+  —— 本条取代的那三条旧行**逐字留档**（§12 不丢行；读起来与上面重复即因如此）：
+  `- [ ] **接线由主会话单做**（本波四张票都按任务书没碰 `guardian-runner.mjs` / `package.json` / 活文档）：`
+  `  新门编号取当时最大值之后并先查重（实测现最大 104），豁免到期定 blocking，产物预算定 warn + CI 判红，`
+  `  三轴自检不进提交链只做 `pnpm` 入口 + 守护报数。`
+  取证：`node scripts/check-gate-wiring.mjs` rc=0（已接线 150 / 文档未点名 0）；`node --check
+  scripts/guardian-runner.mjs` 通过且全表无重复号；两扇新门现跑读数 `--check-gate` exit 0（37 条进行中
+  全为旧格式，只计数不判红）、`--target miniapp` exit 0（本机无新鲜产物 ⇒ 未判定，不冒红也不静默记绿）。
 
 
 
