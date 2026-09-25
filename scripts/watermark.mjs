@@ -20,7 +20,10 @@
  *   node scripts/watermark.mjs decode <file>      # 解码指定文件中的隐写内容
  *   node scripts/watermark.mjs clean <file>       # 移除指定文件的水印(仅限版权所有者自查用)
  *
- * verify / list-uncovered 的判定口径 = `git ls-files` ∩ 可注入类型(见 scanCoverage)。
+ * verify / list-uncovered 的判定口径 = `git ls-files` ∩ 可注入类型(见 scanCoverage)
+ *   **减去**来源台账已登记的第三方内容(`config/third-party-provenance/*.json` 的 roots,
+ *   经 scripts/lib/third-party-roots.mjs 单点解析)。横幅是归属主张,不得打到第三方作品上;
+ *   这些文件不是"没人管",而是改由 scripts/provenance-ledger.mjs 的 P8「归属反噬」审计。
  */
 
 import { execFileSync } from 'node:child_process'
@@ -28,7 +31,32 @@ import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from '
 import { basename, extname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { createExclusionPredicate, LedgerUnavailable } from './lib/third-party-roots.mjs'
+
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..')
+
+/**
+ * 已登记第三方内容的排除面(scripts/lib/third-party-roots.mjs 是唯一来源)。
+ *
+ * 惰性求值 + 缓存:一次 `git ls-files`,且 `decode` / `clean <file>` 这类不关心排除面的
+ * 子命令不必派生 git。取不到时**大声失败**:排除面算不出来就按"没有第三方内容"继续跑,
+ * 等于让自愈式门禁往 Apache-2.0 许可原文里插横幅 —— 那是本层存在的理由反过来的事故。
+ */
+let _excl
+function exclusion() {
+  if (!_excl) {
+    try {
+      _excl = createExclusionPredicate(ROOT)
+    } catch (e) {
+      const why = e instanceof LedgerUnavailable ? e.message : String(e?.message ?? e)
+      console.error(`[watermark] 第三方排除面无法判定:${why.split('\n')[0]}`)
+      console.error('  水印层拒绝在算不出"哪些是已登记第三方内容"时继续判定(既不冒绿也不冒红)。')
+      console.error('  请先修 config/third-party-provenance/*.json 或 git 可用性,再重跑。')
+      process.exit(1)
+    }
+  }
+  return _excl
+}
 
 // ---------- 水印配置 ----------
 const WATERMARK_TEXT = 'IHUI-AI·智汇AI·李春川·LC·aizhs.top·PROVENANCE-2026'
@@ -169,6 +197,10 @@ const SKIP_DIRS = new Set([
   '.pytest_cache',
   '.venv',
   'venv',
+  // ⚠️ `'vendor'` 是**目录名巧合**,不是第三方排除机制:它只是让
+  // apps/desktop/src-tauri/vendor/tray-icon-0.24.2/ 碰巧幸免。第三方排除的唯一出口是台账 roots
+  // (见 exclusion() / scripts/lib/third-party-roots.mjs),与本条无关,摘掉本条也不得改变
+  // 已登记第三方路径的排除结论。留着是因为未登记的 vendor/** 仍属"拿了没登记"(P2 的地盘)。
   'vendor',
   'expo/dist',
   '.expo',
@@ -296,6 +328,11 @@ function makeBanner(style, extra) {
 function injectFile(absPath) {
   const style = styleFor(absPath)
   if (!style) return 'skip-type'
+  // 已登记第三方内容一律不注入:横幅是**归属主张**,往 Mozilla/Cargo 分发的文件上打它
+  // 等于把别人的作品声明成自己的(2026-09-25 实测 pdf.worker.min.mjs 的前 3 行即此事故)。
+  // 放在 isBinary/styleFor 之后、任何写入之前;连"显式点名注入"也拒(见主流程 exit 1)。
+  const relOfTarget = relative(ROOT, absPath).replaceAll('\\', '/')
+  if (exclusion().isExcluded(relOfTarget)) return 'skip-third-party'
   const buf = readFileSync(absPath)
   if (isBinary(buf)) return 'skip-binary'
   let text = buf.toString('utf8').replace(/^\uFEFF/, '') // strip BOM, 避免 shebang 检测失败
@@ -307,11 +344,7 @@ function injectFile(absPath) {
   // 2026-09-22 补第三类触发:横幅文本存在但**从未有过载荷**(裸两行版权头)。旧实现只在
   // "见到 BANNER_ID 或零宽字符"时才清洗 ⇒ 这类文件被直接前置一条新横幅,留下**双横幅**,
   // 而此后载荷已完整 ⇒ 恒走 skip-done ⇒ 重复头永久冻结(实测 141 个已跟踪文件,119 个已入 main)。
-  if (
-    text.includes(BANNER_ID) ||
-    INVISIBLE_RE.test(text) ||
-    text.split('\n').some(isBannerLine)
-  ) {
+  if (text.includes(BANNER_ID) || INVISIBLE_RE.test(text) || text.split('\n').some(isBannerLine)) {
     try {
       cleanFile(absPath)
       text = readFileSync(absPath, 'utf8').replace(/^\uFEFF/, '')
@@ -490,16 +523,29 @@ function scanCoverage(scope) {
   let total = 0,
     marked = 0,
     residue = 0,
-    skipped = 0
+    skipped = 0,
+    thirdParty = 0
   const missing = []
   const residues = []
   const corrupted = []
+  const excluded = []
+  const excl = exclusion()
   const candidates = scope ?? gitTrackedFiles().filter((rel) => !underSkipDir(rel))
   for (const rel of candidates) {
     const abs = join(ROOT, rel)
     if (SKIP_FILES.has(basename(abs))) continue
     if (BINARY_EXT.has(extname(abs).toLowerCase())) continue
     if (!styleFor(abs)) continue
+    // 台账登记的第三方内容**从分母里移出**,但不是"看不见":它改由 provenance-ledger 的
+    // P8「归属反噬」按同一份 roots 审计(有我方横幅 ⇒ 判红)。水印层与台账层在此交接,
+    // 谁都不许既不管又不报数,故 excluded 原样回传并打印条数。
+    // 显式传参(scope 非空)同样适用:否则 `verify <第三方文件>` 会凭空报一个假缺口,
+    // 而自愈式门禁就会照着它去 inject —— 那正是本次要根除的动作。
+    if (excl.isExcluded(rel)) {
+      thirdParty++
+      excluded.push(rel)
+      continue
+    }
     // 已跟踪但工作区无此文件(并行会话删文件未提交 / 部分 checkout): 无从校验, 不计入分母
     if (!existsSync(abs)) {
       skipped++
@@ -517,14 +563,22 @@ function scanCoverage(scope) {
       residues.push(rel)
     } else missing.push(rel)
   }
-  return { total, marked, residue, skipped, missing, residues, corrupted }
+  return { total, marked, residue, skipped, missing, residues, corrupted, thirdParty, excluded }
 }
 
 function verifyAll(scope) {
-  const { total, marked, residue, skipped, missing, residues, corrupted } = scanCoverage(scope)
+  const { total, marked, residue, skipped, missing, residues, corrupted, thirdParty, excluded } =
+    scanCoverage(scope)
   console.log(
-    `[watermark:verify] 覆盖 ${marked}/${total} 个${scope ? '指定' : '已跟踪'}文件, 残迹(载荷丢失) ${residue} 个, 载荷损坏 ${corrupted.length} 个, 跳过 ${skipped} 个`,
+    `[watermark:verify] 覆盖 ${marked}/${total} 个${scope ? '指定' : '已跟踪'}文件, 残迹(载荷丢失) ${residue} 个, 载荷损坏 ${corrupted.length} 个, 跳过 ${skipped} 个, 台账登记的第三方内容不计入 ${thirdParty} 个`,
   )
+  // 排除面必须可见:静默少算 N 个文件与"根本没有第三方内容"在输出上无法区分,
+  // 而后者会让人以为门禁从未碰过第三方(它碰过,见 pdf.worker.min.mjs 事故)。
+  if (thirdParty > 0) {
+    console.log(`  已登记第三方(改由 provenance-ledger P8 审计归属反噬),示例(前 10):`)
+    excluded.slice(0, 10).forEach((f) => console.log('  · ' + f))
+    if (excluded.length > 10) console.log(`  · … 其余 ${excluded.length - 10} 个`)
+  }
   if (residue) {
     console.log(`残迹文件 ${residue} 个(需 clean 后重新注入), 示例(前 15):`)
     residues.slice(0, 15).forEach((f) => console.log('  - ' + f))
@@ -559,21 +613,27 @@ if (cmd === 'inject') {
       }
       const r = injectFile(abs)
       console.log(`[watermark:inject] ${relative(ROOT, abs).replaceAll('\\', '/')} → ${r}`)
-      if (r === 'skip-type' || r === 'skip-binary') process.exitCode = 1
+      // 'skip-third-party' 也计红:有人(或某个生成器)显式点名要把横幅打进已登记的
+      // 第三方内容,这是一次需要被看见的拒绝,不是一次静默的"好的已经处理完了"。
+      if (r === 'skip-type' || r === 'skip-binary' || r === 'skip-third-party') process.exitCode = 1
     }
   } else {
     let n = 0,
       done = 0,
-      skip = 0
+      skip = 0,
+      tp = 0
     for (const abs of walk(ROOT)) {
       if (SKIP_FILES.has(basename(abs))) continue
       if (BINARY_EXT.has(extname(abs).toLowerCase())) continue
       const r = injectFile(abs)
       if (r === 'injected') n++
       else if (r === 'skip-done') done++
+      else if (r === 'skip-third-party') tp++
       else skip++
     }
-    console.log(`[watermark:inject] 新注入 ${n} 个, 已有 ${done} 个, 跳过(类型/二进制) ${skip} 个`)
+    console.log(
+      `[watermark:inject] 新注入 ${n} 个, 已有 ${done} 个, 跳过(类型/二进制) ${skip} 个, 台账登记的第三方内容未触碰 ${tp} 个`,
+    )
   }
 } else if (cmd === 'verify') {
   verifyAll(rest.length ? scopeFromArgs(rest) : null)
