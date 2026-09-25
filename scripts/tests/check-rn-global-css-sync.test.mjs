@@ -5,20 +5,18 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import {
-  mkdtempSync,
-  mkdirSync,
-  writeFileSync,
-  copyFileSync,
-  rmSync,
-} from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 
+import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
+
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
-const SOURCE_SCRIPT = join(__dirname, '..', 'check-rn-global-css-sync.mjs')
+// 被测脚本与它的闭包都在 `scripts/` 下。`__dirname` 由 `new URL('.', …)` 得来,**带尾斜杠**,
+// 所以 `join(__dirname,'..')` 已经是 `scripts/`(再上跳一级就跑到仓库根,闭包必然找不到文件)。
+const SCRIPTS_DIR = join(__dirname, '..')
 
 // ============================================================
 // 源脚本核心规则(scripts/check-rn-global-css-sync.mjs)
@@ -41,17 +39,21 @@ const SOURCE_SCRIPT = join(__dirname, '..', 'check-rn-global-css-sync.mjs')
 function createTempEnv(rnCss, tokensCss) {
   const dir = mkdtempSync(join(tmpdir(), 'ihui-rn-css-sync-'))
   // 复制源脚本到 tempDir/scripts/(不改源脚本,只读复制)
-  mkdirSync(join(dir, 'scripts'), { recursive: true })
-  copyFileSync(SOURCE_SCRIPT, join(dir, 'scripts', 'check-rn-global-css-sync.mjs'))
+  // 复制源脚本**连同它的相对 import 闭包**到 tempDir/scripts/(不改源脚本,只读复制)。
+  // 原先这里是 `copyFileSync(单个脚本)` —— 而本脚本 import 了 design-token-blocks /
+  // sync-rn-global-css / face-reader 三跳,只拷一份必然 ERR_MODULE_NOT_FOUND(exit 1、stdout 空)。
+  // 闭包必须推导,不能手抄清单(见 lib/scratch-module-closure.mjs 头注记录的两次同型事故)。
+  copyScriptWithClosure(SCRIPTS_DIR, 'check-rn-global-css-sync.mjs', join(dir, 'scripts'), [
+    'lib/face-reader.mjs',
+    'lib/design-token-blocks.mjs',
+    'sync-rn-global-css.mjs',
+  ])
   // 写入 mobile-rn/global.css fixture
   mkdirSync(join(dir, 'apps', 'mobile-rn'), { recursive: true })
   writeFileSync(join(dir, 'apps', 'mobile-rn', 'global.css'), rnCss)
   // 写入 design-tokens/tokens.css fixture
   mkdirSync(join(dir, 'packages', 'design-tokens', 'src', 'styles'), { recursive: true })
-  writeFileSync(
-    join(dir, 'packages', 'design-tokens', 'src', 'styles', 'tokens.css'),
-    tokensCss,
-  )
+  writeFileSync(join(dir, 'packages', 'design-tokens', 'src', 'styles', 'tokens.css'), tokensCss)
   return dir
 }
 
@@ -72,11 +74,7 @@ function assertPass(r) {
     0,
     `应 exit 0(同步),实际 exit ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
   )
-  assert.match(
-    r.stdout,
-    /in sync/,
-    `stdout 应含 "in sync"\nstdout: ${r.stdout}`,
-  )
+  assert.match(r.stdout, /in sync/, `stdout 应含 "in sync"\nstdout: ${r.stdout}`)
 }
 
 // ─── 辅助:断言不一致(exit 1 + stderr 含 "mismatch") ───
@@ -86,11 +84,7 @@ function assertMismatch(r) {
     1,
     `应 exit 1(不一致),实际 exit ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
   )
-  assert.match(
-    r.stderr,
-    /mismatch/,
-    `stderr 应含 "mismatch"\nstderr: ${r.stderr}`,
-  )
+  assert.match(r.stderr, /mismatch/, `stderr 应含 "mismatch"\nstderr: ${r.stderr}`)
 }
 
 // ============================================================
@@ -107,11 +101,7 @@ test('CLI: --quiet 同步时抑制 stdout 通过消息(仍 exit 0)', () => {
     const r = runScript(dir, ['--quiet'])
     assert.equal(r.status, 0, `--quiet 同步应 exit 0\nstdout: ${r.stdout}`)
     // --quiet 时不应输出通过消息
-    assert.equal(
-      r.stdout,
-      '',
-      `--quiet 应抑制 stdout,实际: ${r.stdout}`,
-    )
+    assert.equal(r.stdout, '', `--quiet 应抑制 stdout,实际: ${r.stdout}`)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -144,7 +134,11 @@ test('核心: :root + .dark 全部同步 → exit 0 + 计数消息', () => {
     const r = runScript(dir)
     assertPass(r)
     // 通过消息应含变量总数(4 = 2 root + 2 dark)
-    assert.match(r.stdout, /4 variables are in sync/, `stdout 应含 "4 variables"\nstdout: ${r.stdout}`)
+    assert.match(
+      r.stdout,
+      /4 variables are in sync/,
+      `stdout 应含 "4 variables"\nstdout: ${r.stdout}`,
+    )
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -243,7 +237,11 @@ test('核心: tokens 有额外变量(mobile-rn 未复制)→ exit 0(子集检查
     const r = runScript(dir)
     assertPass(r)
     // 计数应只算 mobile-rn 的变量(1 个),不含 tokens 的额外变量
-    assert.match(r.stdout, /1 variables are in sync/, `stdout 应含 "1 variables"\nstdout: ${r.stdout}`)
+    assert.match(
+      r.stdout,
+      /1 variables are in sync/,
+      `stdout 应含 "1 variables"\nstdout: ${r.stdout}`,
+    )
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -296,7 +294,11 @@ test('边界: 两文件均无 --color-* 变量 → exit 0(0 in sync)', () => {
   try {
     const r = runScript(dir)
     assert.equal(r.status, 0, `无 --color-* 变量应 exit 0\nstdout: ${r.stdout}`)
-    assert.match(r.stdout, /0 variables are in sync/, `stdout 应含 "0 variables"\nstdout: ${r.stdout}`)
+    assert.match(
+      r.stdout,
+      /0 variables are in sync/,
+      `stdout 应含 "0 variables"\nstdout: ${r.stdout}`,
+    )
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -353,7 +355,11 @@ test('输出: 默认模式 stdout 含 "Checking" 提示 + "in sync" 计数', () 
     // 默认模式应输出检查提示
     assert.match(r.stdout, /Checking/, `stdout 应含 "Checking" 提示\nstdout: ${r.stdout}`)
     // 应输出变量计数(2 = 1 root + 1 dark)
-    assert.match(r.stdout, /2 variables are in sync/, `stdout 应含 "2 variables"\nstdout: ${r.stdout}`)
+    assert.match(
+      r.stdout,
+      /2 variables are in sync/,
+      `stdout 应含 "2 variables"\nstdout: ${r.stdout}`,
+    )
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
