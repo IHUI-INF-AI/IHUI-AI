@@ -1442,7 +1442,11 @@ async function runLiveChecks(api, ai) {
         .slice(0, 17)
       const meta = (name) => ({
         client_name: name,
-        redirect_uris: ['http://127.0.0.1:4319/callback'],
+        // DCR 的必填占位:本用例走 client_credentials 换 token,全文件不监听任何端口
+        // (实测无 createServer / listen)。保留 loopback 形状是因为服务端可能拒绝非回环
+        // redirect_uri,但端口改用**已注册**的 8841(CLI Agent Server,docs/port-management.md §2.5)
+        // —— 原来写死的 4319 既没人监听、又不在注册表里,等于凭空虚报一次宿主端口占用。
+        redirect_uris: ['http://127.0.0.1:8841/callback'],
         grant_types: ['authorization_code', 'client_credentials'],
         response_types: ['code'],
         token_endpoint_auth_method: 'client_secret_post',

@@ -389,4 +389,43 @@ test('C11 接线条件不变量:登记了就 mode=warn + skipEnv + 编号唯一 
       '只接提交链 = 退化成一台永远不会真红的 warn。',
   )
 })
+
+// ── C12:提交链里的「可执行性」(G-176)────────────────────────────────
+// 本门刻意「缺/未知 --target 即 exit 2、不回落默认档」,而 runner 曾以 `args: []` 登记它,
+// 且提交链会给每道门自动下发 --staged ⇒ 它在链里 100% 跑不起来。exit 2 被 warn 档计成
+// 「警告」,看起来像检测结果,实际含义是"这道门从没运行过" —— 那比恒红更坏(恒红至少逼人去看)。
+test('C12 链式调用形态必须可执行:--target + --staged 不得 exit 2', () => {
+  const r = spawnSync(
+    process.execPath,
+    [join(REPO, 'scripts', SCRIPT), '--target', 'miniapp', '--staged'],
+    { encoding: 'utf8', windowsHide: true, timeout: 240000 },
+  )
+  assert.notEqual(
+    r.status,
+    2,
+    `链式形态被判"无法判定" ⇒ 本门在提交链里等于没跑\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+  )
+  assert.ok(r.status === 0 || r.status === 1, `应给出真结论(0 或 1),实得 ${r.status}`)
+})
+
+test('C12b runner 的 110 注册块必须带 --target(args 为空就是本门的死因)', () => {
+  const runner = readFileSync(join(REPO, 'scripts', 'guardian-runner.mjs'), 'utf8')
+  const at = runner.indexOf(`script: '${SCRIPT}'`)
+  assert.ok(at > 0, 'runner 里没有本门注册块,本断言失去对象')
+  const block = runner.slice(runner.lastIndexOf('\n  {', at), runner.indexOf('\n  }', at))
+  assert.match(
+    block,
+    /args: \[[^\]]*'--target'/,
+    "args 必须含 --target:空 args 让本门在链里恒 exit 2(它不回落默认档是对的,别让它没参数跑)",
+  )
+})
+
+test('C12c 反向对照:未知参数仍必须 exit 2(证明 C12 的绿不是"什么都收"换来的)', () => {
+  const r = spawnSync(
+    process.execPath,
+    [join(REPO, 'scripts', SCRIPT), '--totally-unknown-flag'],
+    { encoding: 'utf8', windowsHide: true, timeout: 120000 },
+  )
+  assert.equal(r.status, 2, `未知参数应仍判"无法判定",实得 ${r.status}`)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
