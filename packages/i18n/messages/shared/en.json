@@ -2080,7 +2080,7 @@
       "bypassSkipApproval": "Approval skipped",
       "mcpRequiresApproval": "MCP annotations require approval",
       "policyRequiresApproval": "Policy requires approval",
-      "policyForbidsExecution": "Policy forbids execution"
+      "policySkipsApproval": "Policy skips approval"
     },
     "perm": {
       "allow": "Allowed",

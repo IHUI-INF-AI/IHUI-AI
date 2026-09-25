@@ -2080,7 +2080,7 @@
       "bypassSkipApproval": "承認をスキップ",
       "mcpRequiresApproval": "MCP 注釈が承認を要求",
       "policyRequiresApproval": "ポリシーが承認を要求",
-      "policyForbidsExecution": "ポリシーが実行を禁止"
+      "policySkipsApproval": "ポリシーにより承認省略"
     },
     "perm": {
       "allow": "許可しました",
