@@ -311,11 +311,25 @@ export async function likeKnowledge(id: string): Promise<ApiResult<{ success: bo
 
 // ===================== skills（技能） =====================
 
-/** 获取技能列表*/
+/**
+ * `GET /api/skills` 的响应形态。
+ *
+ * 刻意不复用 `PageData<T>`:后端 `apps/api/src/routes/skills.ts` 的
+ * `server.get('/skills')` 实返 `success({ skills, total })`(键名是 `skills`,不是 `list`),
+ * 且**不接受**分页参数。此前本函数声明 `PageData<Skill>` ⇒ 谁按 `.list` 解包谁拿到恒空
+ * (这一型判定见 apps/web/app/(main)/admin/skills/__tests__/market-list-items-contract.test.tsx
+ * 的同类契约收口)。
+ */
+export interface SkillListResponse {
+  skills: Skill[]
+  total: number
+}
+
+/** 获取技能列表（当前用户自己的技能，非市场）*/
 export async function getSkills(
   query: PageQuery & { category?: string } = {},
-): Promise<ApiResult<PageData<Skill>>> {
-  return fetchApi<PageData<Skill>>(`/api/skills${buildQs(query)}`)
+): Promise<ApiResult<SkillListResponse>> {
+  return fetchApi<SkillListResponse>(`/api/skills${buildQs(query)}`)
 }
 
 /** 获取技能详情*/
@@ -339,8 +353,15 @@ export async function updateSkill(id: string, input: Partial<Skill>): Promise<Ap
   })
 }
 
-/** 删除技能*/
-export async function deleteSkill(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/skills/${id}`, { method: 'DELETE' })
+/** 删除技能 */
+export async function deleteSkill(
+  id: string,
+): Promise<ApiResult<{ name: string; deleted: boolean }>> {
+  // encodeURIComponent 是**调用点语义的一部分**,不是可选加固:这个端点的 :id 位在后端是
+  // `:name`(技能名,用户可输入空格 / 中文 / `#`),不编码会让含空格的技能名变成 404 或截断路由。
+  // 迁移前的调用方(apps/web admin/skills)本来就自行编码,故编码收口到本出口,调用点不再重复。
+  return fetchApi<{ name: string; deleted: boolean }>(`/api/skills/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -465,10 +465,10 @@ describe('POST /api/skills/market —— 合法路径没被修死(正向对照)'
     }
   })
 
-  it('普通用户新建条目 ⇒ 201 + ownerId=自己 + source=user(新建路径的归属推导未动)', async () => {
+  it('普通用户以自己 author 新建条目 ⇒ 201 + ownerId=自己 + source=user（内置名冒充由 create 闸拦下，另有用例；此处必须用非内置名才不构成正向对照与攻击载荷互斥）', async () => {
     const res = await publishAs(
       { userId: String(ATTACKER_ID) },
-      publishBody({ name: 'brand-new', author: 'IHUI' }),
+      publishBody({ name: 'brand-new', author: 'tester-owned' }),
     )
     expect(res.statusCode).toBe(201)
     const created = entryByName(market(), 'brand-new')

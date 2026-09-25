@@ -22,20 +22,20 @@
  *
  * 用法:
  *   node scripts/check-architecture-policy.mjs                  # 全量(判 HEAD)
- *   node scripts/check-architecture-policy.mjs --staged         # pre-commit(判索引,只咬暂存文件)
+ *   node scripts/check-architecture-policy.mjs --staged         # pre-commit(判索引,只咬暂存文件;暂存集为空 ⇒ 回退全量)
  *   node scripts/check-architecture-policy.mjs --json           # 机器可读报告
  *   node scripts/check-architecture-policy.mjs --managed-trial packages/sdk
  *   node scripts/check-architecture-policy.mjs --strict         # 未登记模块/存量债也判红(人工巡检用,默认关)
  *   node scripts/check-architecture-policy.mjs --self-test      # 成对正反例自检
  * 紧急跳过:HUSKY_SKIP_ARCH_POLICY=1 git commit ...
  */
-import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { dirname as pDirname, resolve as pResolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import { catBatch, gitRaw } from './lib/face-reader.mjs'
+
 const ROOT = pResolve(pDirname(fileURLToPath(import.meta.url)), '..')
-const GIT = 'C:/Program Files/Git/cmd/git.exe'
 const POLICY_REL = 'config/architecture-policy.yaml'
 const SELF_SKIP = 'HUSKY_SKIP_ARCH_POLICY'
 const SRC_RE = /\.(ts|tsx|js|jsx|mjs|cjs)$/
@@ -53,14 +53,13 @@ const RULES = {
 /** 不受 managed 开关约束、全仓即时判红的规则 */
 const ALWAYS_RED = new Set(['table-integrity', 'file-lines'])
 
-const git = (args, input) =>
-  execFileSync(GIT, ['-c', 'safe.directory=*', '-C', ROOT, ...args], {
-    encoding: input ? undefined : 'utf8',
-    windowsHide: true,
-    maxBuffer: 1 << 29,
-    timeout: GIT_TIMEOUT,
-    input,
-  })
+/**
+ * 一律经 `scripts/lib/face-reader.mjs`。此前本门把 git **硬编码成** `C:/Program Files/Git/cmd/git.exe`,
+ * 那是"换机/换安装位置即失效"的一档 —— 层的 `gitBinary()` 认 PortableGit / IHUI_GIT_BIN / 绝对路径探测,
+ * 并且 timeout / maxBuffer / quotepath / windowsHide 都在同一处封顶(本门一次要读 512MB 量级)。
+ * 预算保持不变:180s / 1<<29,与原实现逐字同档,免得收口顺带把超时口径改了。
+ */
+const git = (args) => gitRaw(args, ROOT, { timeout: GIT_TIMEOUT, maxBuffer: 1 << 29 })
 
 // ── 受限 YAML 子集解析器 ───────────────────────────────────────────────────────────────
 // 只支持策略表实际用到的形态:缩进块、`key: value`、`key:` + 子块、`- 标量`、`- key: value`、
@@ -515,17 +514,14 @@ export function analyze(P, files, opts = {}) {
 function readFace(rev, paths) {
   const map = new Map()
   if (!paths.length) return map
-  const out = git(['cat-file', '--batch'], Buffer.from(paths.map((p) => `${rev}:${p}`).join('\n') + '\n', 'utf8'))
-  let pos = 0
-  for (const f of paths) {
-    const nl = out.indexOf(0x0a, pos)
-    if (nl < 0) break
-    const h = out.subarray(pos, nl).toString('utf8')
-    pos = nl + 1
-    const m = /^([0-9a-f]{40}) blob (\d+)$/.exec(h)
-    if (!m) continue
-    map.set(f, out.subarray(pos, pos + Number(m[2])).toString('utf8'))
-    pos += Number(m[2]) + 1
+  // 层的 catBatch 对每个 rev 都给一项(missing ⇒ null);本门的判据把"没这项"与"这项是空文件"
+  // 分得很清 —— `files.size` 会直接打进结论行(`HEAD blob(N 个源文件)`),把 null 也塞进去就等于
+  // 凭空把 N 涨成"所有请求数"。所以这里只做形状适配:**只收命中的**,missing 继续不占位。
+  const specs = paths.map((p) => `${rev}:${p}`)
+  const got = catBatch(ROOT, specs, { maxBuffer: 1 << 29, timeout: GIT_TIMEOUT })
+  for (let i = 0; i < paths.length; i++) {
+    const text = got.get(specs[i])
+    if (typeof text === 'string') map.set(paths[i], text)
   }
   return map
 }
@@ -558,6 +554,67 @@ export function policyFaceOrder(isStaged) {
   return isStaged ? ['索引', 'HEAD', '工作树'] : ['HEAD', '索引', '工作树']
 }
 
+/**
+ * `--staged` 档**内容**的取材范围决策(纯函数,抽出来是为了让 `--self-test` 与镜像测试能证明它)。
+ *
+ * 2026-09-25 独立复核实测的缺陷:暂存区里没有源文件时,本门打出
+ * `扫描 0 文件 … ✅ 架构契约门通过` —— 依赖面(D1/D2/D3/D4/C2/C3)审了空集却记绿。
+ * 本仓同型教训已由守门 70 / 81 收口过一次:**暂存集为空时必须回退全量**,不得静默绿。
+ * 刻意不 exit 2:pre-commit 会为任何一次提交跑本门,把提交链打死与静默绿同样错。
+ *
+ * @param {string[]} srcPathsInFace 当前档(索引)全部源文件路径,已由 SRC_RE 筛过
+ * @param {Set<string>} stagedSet   暂存区里 ACMR 形态的路径清单
+ * @returns {{mode:'staged'|'full', paths:string[]}}
+ */
+export function planStagedScope(srcPathsInFace, stagedSet) {
+  const picked = srcPathsInFace.filter((p) => stagedSet.has(p))
+  return picked.length ? { mode: 'staged', paths: picked } : { mode: 'full', paths: [] }
+}
+
+/**
+ * 策略表取材面的提示语 —— **只在真的错位时喊**(2026-09-25 修第二处缺陷)。
+ *
+ * 旧写法是 `if (policyFace !== 'HEAD')`,于是"索引与 HEAD 逐字节同一版"时(实测
+ * `git rev-parse :表` == `git rev-parse HEAD:表`)也照样打印"尚未入库",把人支去找一个
+ * 根本不存在的错位;而 `--staged` 档读索引本就是 `policyFaceOrder` 规定的**正常行为**
+ * (它正是上一轮为"改表那枚提交不被审"而定的)。现按 oid 比对分四档:
+ *   HEAD                ⇒ 安静(与全量口径同向)
+ *   索引 且 oid==HEAD   ⇒ 安静(读的就是那份已入库的表)
+ *   索引 且 oid!=HEAD   ⇒ info:本次提交正在改这张表,审将要落地的那份
+ *   索引 而 HEAD 无此表 ⇒ warn:表尚未入库,落表提交必须与本门注册同批
+ *   工作树              ⇒ warn:HEAD 与索引都取不到,既没入库也没暂存
+ *
+ * @param {string} pickedLabel pickPolicySource 选中的面名
+ * @param {{HEAD?:string|null, 索引?:string|null}} oids 各面 blob oid(取不到给 null)
+ * @returns {null|{level:'info'|'warn', msg:string}}
+ */
+export function policyFaceNotice(pickedLabel, oids = {}) {
+  const head = oids.HEAD ?? null
+  const index = oids['索引'] ?? null
+  if (pickedLabel === 'HEAD') return null
+  if (pickedLabel === '索引') {
+    if (head === null) return { level: 'warn', msg: `策略表只在索引里(HEAD 还没有它)—— 落表提交必须与本门的注册同批,否则审的不是那份已生效的表` }
+    if (index !== null && index === head) return null
+    return { level: 'info', msg: `策略表取自索引且与 HEAD 不同版(${String(index).slice(0, 8)} ≠ ${String(head).slice(0, 8)})—— 本次提交正在改这张表,审的是将要落地的那份,属正常形态` }
+  }
+  if (pickedLabel === '工作树') return { level: 'warn', msg: `策略表退到工作树副本 —— HEAD 与索引都取不到它,这张表既没入库也没暂存` }
+  return { level: 'warn', msg: `策略表取自「${pickedLabel}」而非 HEAD,请核对取材面` }
+}
+
+/** 各面策略表的 blob oid(取不到给 null)。
+ *  为什么问 oid 而不是"读没读到内容":缺陷 2 的误报形态正是"读了索引就喊表没入库",
+ *  而索引与 HEAD 常常是同一版 —— 只有 oid 能区分"同版(安静)"与"HEAD 没有这张表(该喊)"。 */
+function readPolicyOids() {
+  const oid = (spec) => {
+    try {
+      return git(['rev-parse', '--verify', '-q', spec]).trim() || null
+    } catch {
+      return null
+    }
+  }
+  return { HEAD: oid(`HEAD:${POLICY_REL}`), 索引: oid(`:${POLICY_REL}`) }
+}
+
 function main(argv) {
   const isStaged = argv.includes('--staged')
   const json = argv.includes('--json')
@@ -567,6 +624,7 @@ function main(argv) {
   const rev = isStaged ? '' : 'HEAD'
   let policyText
   let policyFace = 'HEAD'
+  let policyOids = { HEAD: null, 索引: null }
   try {
     let worktreeText = null
     try {
@@ -586,6 +644,7 @@ function main(argv) {
     }
     policyFace = picked.label
     policyText = picked.text
+    policyOids = readPolicyOids()
   } catch (e) {
     console.error(`❌ 无法判定:取策略表时 git 派生失败 —— ${e.message}`)
     return 2
@@ -600,14 +659,30 @@ function main(argv) {
   let files
   let existing
   let faceDesc
+  let scopeMode = 'full'
   try {
     existing = treePaths(rev)
     const srcAll = existing.filter((p) => SRC_RE.test(p))
     if (isStaged) {
+      scopeMode = 'staged'
       const staged = new Set(git(['diff', '--cached', '--name-only', '--diff-filter=ACMR']).split('\n').filter(Boolean))
-      const pick = srcAll.filter((p) => staged.has(p))
-      files = readFace('', pick)
-      faceDesc = `索引 blob(暂存源文件 ${files.size} 个;表自洽性按全索引面判)`
+      const scope = planStagedScope(srcAll, staged)
+      if (scope.mode === 'staged') {
+        files = readFace('', scope.paths)
+        faceDesc = `索引 blob(暂存源文件 ${files.size} 个;表自洽性按全索引面判)`
+      } else {
+        // 暂存集为空 ⇒ 回退全量(HEAD blob)。不回退就等于"审 0 个文件却记绿"(守门 70 同型)。
+        // 策略表本身**仍按 --staged 档的索引优先**取材(见 policyFaceOrder)—— 内容面与表面
+        // 各自的方向是两件事,顺手把表面也换成 HEAD 就会让"改表那枚提交"重新脱离审查。
+        const headSrc = treePaths('HEAD').filter((p) => SRC_RE.test(p))
+        files = readFace('HEAD', headSrc)
+        scopeMode = 'staged-empty-fallback-full'
+        faceDesc = `暂存集为空 ⇒ 回退全量(HEAD blob,${files.size} 个源文件;防"空暂存恒绿",守门 70 同型)`
+        if (files.size === 0) {
+          console.error('❌ 无法判定:暂存集为空且全量面(HEAD)也取不到任何源文件 —— 回退后仍审 0 个文件,不得记为通过')
+          return 2
+        }
+      }
     } else {
       files = readFace('HEAD', srcAll)
       faceDesc = `HEAD blob(${files.size} 个源文件)`
@@ -641,12 +716,14 @@ function main(argv) {
   const managedIds = [...P.modules.values()].filter((m) => m.managed).map((m) => m.id)
   if (strict && (res.stats.unowned.size || res.stats.unknownPkg.size)) hard.push({ rule: 'table-integrity', file: POLICY_REL, line: 0, msg: '--strict:存在含源文件却未登记的模块' })
 
+  const fellBack = scopeMode === 'staged-empty-fallback-full'
   if (json) {
-    console.log(JSON.stringify({ face: isStaged ? 'index' : 'HEAD', policyFace, modules: P.modules.size, managed: managedIds, scanned: res.stats.scanned, edges: res.edges.size, byRule: tally(res.violations), redByRule: tally(hard), hard: hard.slice(0, 80), softTotal: soft.length, unowned: [...res.stats.unowned], unknownPkg: [...res.stats.unknownPkg], exempted: res.stats.exempted, policyExceptions: res.stats.policyExceptions, invalidExempt: res.stats.invalidExempt, staleExceptions: softTable.length }, null, 2))
+    console.log(JSON.stringify({ face: isStaged ? (fellBack ? 'index-fallback-head' : 'index') : 'HEAD', stagedFallback: fellBack, policyFace, modules: P.modules.size, managed: managedIds, scanned: res.stats.scanned, edges: res.edges.size, byRule: tally(res.violations), redByRule: tally(hard), hard: hard.slice(0, 80), softTotal: soft.length, unowned: [...res.stats.unowned], unknownPkg: [...res.stats.unknownPkg], exempted: res.stats.exempted, policyExceptions: res.stats.policyExceptions, invalidExempt: res.stats.invalidExempt, staleExceptions: softTable.length }, null, 2))
     return hard.length ? 1 : 0
   }
   console.log(`[arch-policy] 内容取材口径:${faceDesc}`)
-  if (policyFace !== 'HEAD') console.log(`[arch-policy] ⚠️ 策略表取自「${policyFace}」而非 HEAD —— 说明 ${POLICY_REL} 尚未入库,落表提交必须与本门的注册同批,否则审的不是那份已生效的表`)
+  const notice = policyFaceNotice(policyFace, policyOids)
+  if (notice) console.log(`[arch-policy] ${notice.level === 'warn' ? '⚠️' : 'ℹ️'} ${notice.msg}`)
   console.log(`[arch-policy] 模块 ${P.modules.size} 个 | managed:true ${managedIds.length ? managedIds.join(', ') : '0 个(存量一律只报数)'} | 扫描 ${res.stats.scanned} 文件 | 跨模块边 ${res.edges.size} 条 | 非本表射程的说明符 ${res.stats.foreign} 处(第三方/别名,不判但如实计数)`)
   console.log(`[arch-policy] 违规合计 ${res.violations.length + table.length} 处:` + Object.entries({ ...tally(res.violations), ...{ 'table-integrity': table.length } }).map(([k, n]) => ` ${(RULES[k] || k).split(' ')[0]}=${n}`).join(''))
   console.log(`[arch-policy] 判红 ${hard.length} 处(C1/T1 全仓即时 + 已收口模块的契约违规)| 报数 ${soft.length} 处(managed:false 存量,不判红)` + (res.stats.exempted ? ` | 行内 arch-exempt 放过 ${res.stats.exempted} 处` : '') + (res.stats.policyExceptions ? ` | 策略表 exceptions 放过 ${res.stats.policyExceptions} 处` : '') + (res.stats.invalidExempt ? ` | arch-exempt 缺原因(不生效)${res.stats.invalidExempt} 处` : '') + (softTable.length ? ` | 待清理的失效例外 ${softTable.length} 条` : ''))
@@ -835,6 +912,17 @@ exceptions:
   const stagedFace = F({ 'apps/demo/src/a.ts': imp('@ihui/schema') })
   const fullFace = F({ 'apps/demo/src/a.ts': imp('@ihui/schema'), 'packages/kit/src/b.ts': imp('@ihui/demo') })
   eq('--staged 面与全量面必须不同形(取材面决定结论)', analyze(ON, fullFace, {}).red.length > analyze(ON, stagedFace, {}).red.length ? 1 : 0, 1)
+  // 空暂存回退(2026-09-25 缺陷 1):暂存集为空时必须回退全量,不得"审 0 个文件却记绿"
+  eq('planStagedScope:暂存面有源文件 ⇒ 只咬暂存集(窄口径,不回退)', JSON.stringify(planStagedScope(['apps/web/src/a.ts', 'packages/x/index.ts'], new Set(['packages/x/index.ts']))), JSON.stringify({ mode: 'staged', paths: ['packages/x/index.ts'] }))
+  eq('planStagedScope:与上条成对,暂存集为空 ⇒ 回退全量', planStagedScope(['apps/web/src/a.ts'], new Set()).mode, 'full')
+  eq('planStagedScope:暂存集里只有非源文件 ⇒ 同样算空、同样回退(守门 70 同型)', planStagedScope(['apps/web/src/a.ts'], new Set(['README.md'])).mode, 'full')
+  eq('planStagedScope:回退态不得把空 paths 当结果交出去(否则 analyze 照跑 ⇒ 又是一次"扫 0 记绿")', planStagedScope(['a.ts'], new Set()).paths.length, 0)
+  // 取材面提示语(2026-09-25 缺陷 2):只有 oid 真的不等才喊,"读了索引"不等于"表没入库"
+  eq('policyFaceNotice:索引==HEAD ⇒ 安静(旧写法 `!== HEAD` 在这里误报)', policyFaceNotice('索引', { HEAD: 'aaaa', 索引: 'aaaa' }), null)
+  eq('policyFaceNotice:与上条成对,索引≠HEAD ⇒ 提示,且是 info 不是 warn(--staged 读索引属正常行为)', policyFaceNotice('索引', { HEAD: 'aaaa', 索引: 'bbbb' }).level, 'info')
+  eq('policyFaceNotice:HEAD 根本没有这张表 ⇒ warn(只有这一型才允许说"尚未入库")', policyFaceNotice('索引', { HEAD: null, 索引: 'bbbb' }).level, 'warn')
+  eq('policyFaceNotice:退到工作树 ⇒ warn(既没入库也没暂存)', policyFaceNotice('工作树', { HEAD: null, 索引: null }).level, 'warn')
+  eq('policyFaceNotice:全量档取 HEAD ⇒ 完全安静', policyFaceNotice('HEAD', { HEAD: 'aaaa', 索引: 'bbbb' }), null)
   // T1:表与现实脱节的四种形态(变异锚点必须唯一命中,否则本自检就是在测空气)
   const existing = ['packages/schema/src/a.ts', 'packages/kit/src/a.ts', 'apps/demo/src/a.ts', 'apps/demo/src/debt.ts', 'apps/demo/package.json']
   const mutate = (yaml, from, to, name) => {
@@ -880,7 +968,7 @@ exceptions:
   // relFrom
   eq('relFrom:仓库相对路径下的 .. 归一', relFrom('apps/demo/src', '../../../packages/kit/src/x') === 'packages/kit/src/x' ? 1 : 0, 1)
   eq('relFrom:与上条成对,不越界时原地解析', relFrom('packages/kit/src', './a/b') === 'packages/kit/src/a/b' ? 1 : 0, 1)
-  console.log(fail ? `\n❌ 自检 ${fail} 例失败` : `\n全部 ${ran} 例通过(成对正反例 + T1 表自洽 + 两面口径差异 + 解析器大声失败 + glob/relFrom)`)
+  console.log(fail ? `\n❌ 自检 ${fail} 例失败` : `\n全部 ${ran} 例通过(成对正反例 + T1 表自洽 + 两面口径差异 + 空暂存回退 + 取材面提示语 + 解析器大声失败 + glob/relFrom)`)
   process.exit(fail ? 1 : 0)
 }
 
@@ -901,5 +989,5 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { parseYaml, loadPolicy, analyze, auditPolicy, extractSpecs, globToRe, mkMatcher, matchEntrypoint, relFrom, pickPolicySource, policyFaceOrder, registrationOf, unusedExceptions, RULES, ALWAYS_RED, POLICY_REL }
+export const __test__ = { parseYaml, loadPolicy, analyze, auditPolicy, extractSpecs, globToRe, mkMatcher, matchEntrypoint, relFrom, pickPolicySource, policyFaceOrder, planStagedScope, policyFaceNotice, registrationOf, unusedExceptions, RULES, ALWAYS_RED, POLICY_REL }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
