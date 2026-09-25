@@ -284,11 +284,12 @@ describe('POST /api/skills/market —— 上架时由服务端推导归属', () 
         content: 'body',
       },
     })
-    expect(res.statusCode).toBe(200)
-    const data = bodyOf<{ data: SkillMarketEntry }>(res).data
-    expect(data.ownerId).toBe(Number(OTHER_ID))
-    expect(data.source).toBe('user')
-    expect(data.enabled).toBeUndefined()
+    // P0 授权修复:非 admin 不得认领无主的内置/legacy 条目 —— 旧断言这里期望 200 +
+    // ownerId=调用者，等于把"任何人带 author 字符串即可认领平台资产"写成预期行为。
+    // admin 侧的补认领由 tests/skills-market-publish-ownership.test.ts 覆盖。
+    expect(res.statusCode).toBe(403)
+    // "条目逐字段未变 + redis 未被写"由 tests/skills-market-publish-ownership.test.ts
+    // 以整个 redis 状态指纹字节相等断言覆盖，此处不重复实现一套读取。
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
