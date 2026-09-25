@@ -470,5 +470,63 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
     assert.match(src, /n = 0 \/\/ 该路径不在 HEAD\(新文件\)/, '新文件额度必须仍为 0(否则"新文件写死中文即拦"失效)')
   })
 
+  // ─── 18/19. 判定面(2026-09-26 迁到 scripts/lib/face-reader.mjs)───
+  // 门 118 现测本门是 `loose-git` 档:额度那一维此前**逐文件** `execFileSync(GIT_BIN, ['show', …])`,
+  // 而 `--staged` 的命中数此前读**磁盘** —— 正是"盘上随后改对不算修好"那一型。
+  // 证明形态:让 HEAD / 索引 / 磁盘**三面各不同**(1 / 3 / 2),于是"数"本身就是面指纹 ——
+  // --staged 报 3 只可能来自索引,全量报 2 只可能来自磁盘;哪个面读错了都会数字不符,不是恒真式。
+  test('判定面:--staged 报索引 blob 的数、全量报工作树的数(三面各异时数即面指纹)', () => {
+    const { root, git } = createGitProject()
+    try {
+      const rel = 'apps/web/app/face-probe.tsx'
+      mkdirSync(join(root, 'apps/web/app'), { recursive: true })
+      const line = (n) => `export const V${n} = '文案${n}'`
+      // ① HEAD = 1 处中文(此后不再动提交)
+      writeFileSync(join(root, rel), `${line(1)}\n`, 'utf8')
+      git(['add', '-A'])
+      git(['commit', '-q', '-m', 'init'])
+      assert.equal(runScript(['--exit', '1'], { cwd: root }).status, 0, '三面一致时不得判红')
+      // ② 索引 = 3 处(只 add,不 commit)
+      writeFileSync(join(root, rel), [line(1), line(2), line(3)].join('\n') + '\n', 'utf8')
+      git(['add', '--', rel])
+      // ③ 磁盘 = 2 处(add 之后又改回去,但未 add)
+      writeFileSync(join(root, rel), [line(1), line(2)].join('\n') + '\n', 'utf8')
+
+      const staged = runScript(['--staged', '--exit', '1'], { cwd: root })
+      const stagedOut = `${staged.stdout}\n${staged.stderr}`
+      assert.notEqual(staged.status, 0, `--staged 必须判红(索引里有 3 处)。实得:\n${stagedOut}`)
+      assert.match(stagedOut, /face-probe\.tsx: 3 处 > 基线 1 处\(新增 2\)/, '--staged 的数必须来自**索引 blob**(3),不是磁盘(2)也不是 HEAD(1)')
+      assert.match(stagedOut, /判定面\(命中数取的是哪一份\): 索引 blob/, '--staged 档必须点名判定面')
+
+      const full = runScript(['--exit', '1'], { cwd: root })
+      const fullOut = `${full.stdout}\n${full.stderr}`
+      assert.notEqual(full.status, 0, '全量档必须判红(磁盘里有 2 处 —— 本门"新增即拦"的定义)')
+      assert.match(fullOut, /face-probe\.tsx: 2 处 > 基线 1 处\(新增 1\)/, '全量档的数必须来自**工作树**(2)——与 --staged 的 3 不同面不同数')
+      assert.match(fullOut, /判定面\(命中数取的是哪一份\): 工作树磁盘/, '全量档必须点名判定面')
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  test('装车锁:正文必须经共用取材层读,不得再自己派生 git show / 裸 git', () => {
+    const src = readFileSync(SCRIPT_PATH, 'utf8')
+    // 遮噪方向与判据同源:**整行 `//` 注释里提到 execFileSync('git'…) 是"这段在解释为什么不能用它",
+    // 不是调用点**(守门 102/80 同一课:拿注释当现场会把反向锁变成"谁写说明谁被判红")。
+    const code = src
+      .split('\n')
+      .filter((l) => !/^\s*\/\//.test(l))
+      .join('\n')
+    assert.match(
+      code,
+      /import\s*\{[^}]*catBatch[^}]*\}\s*from\s*['"]\.\/lib\/face-reader\.mjs['"]/,
+      '未经 scripts/lib/face-reader.mjs 取正文(守门 118 的 half-wired 型:引了层却自己读)',
+    )
+    assert.match(code, /batch\(ROOT,\s*specs/, 'catBatch 未被真正调用(只有 import 不算读取凭证)')
+    assert.ok(!/'show',\s*`HEAD:/.test(code), "又改回自己派生 `git show` 读正文 —— 应经共用取材层")
+    assert.ok(!/['"]cat-file['"]/.test(code), "不得再自己拼 `cat-file`(取材层的存在就是为了不再各写一遍)")
+    assert.ok(!/execFileSync\('git'/.test(code), "不得再裸 execFileSync('git')(服务账户 / GUI 宿主 PATH 不通)")
+    assert.ok(!/const GIT_BIN = 'C:/.test(code), '不得再写死 Git 安装目录这种盘符绝对路径(AGENTS §15)')
+  })
+
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
