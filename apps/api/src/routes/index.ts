@@ -35,6 +35,7 @@ import { userExtraRoutes } from './user-extras.js'
 import { aiSkillsProxyRoutes } from './ai-skills-proxy.js'
 import { contentRoutes, adminContentRoutes } from './content.js'
 import { learnRoutes, adminLearnRoutes } from './learn.js'
+import { deployDiagnosisRoutes } from './deploy-diagnosis.js'
 import { systemRoutes, adminSystemRoutes } from './system.js'
 import { examRoutes } from './exam.js'
 import { orderRoutes, adminOrderRoutes } from './order.js'
@@ -327,6 +328,9 @@ import { agentRuntimeRoutes } from './agent-runtime.js'
 import { repoWikiRoutes } from './repo-wiki.js'
 // Knowledge Card:仓库级任务经验卡(2026-09-10 新增,2-1 项目知识引擎)
 import { knowledgeCardRoutes } from './knowledge-card.js'
+// D29 团队记忆面(2026-09-25 接):路由/服务/api-client 端点/web 页四件早在库,
+// 唯独这里没注册 ⇒ /api/team-memory 生产 404。注册面判据见 tests/team-memory-routes-registered.test.ts。
+import { teamMemoryRoutes } from './team-memory.js'
 import automationsRoutes from './automations.js'
 import patrolRoutes from './patrol.js'
 import githubAppRoutes from './github-app.js'
@@ -536,6 +540,8 @@ export function registerRoutes(server: FastifyInstance) {
   // 学习模块：/api/learn/* + /api/admin/learn/*
   server.register(learnRoutes, { prefix: '/api' })
   server.register(adminLearnRoutes, { prefix: '/api/admin' })
+  // 管理台 AI 部署诊断：POST /api/admin/deploy-diagnosis（整条子树走 requireAdmin，登录+roleId 门禁在 handler 内）
+  server.register(deployDiagnosisRoutes, { prefix: '/api/admin' })
   // 积分 / 等级 / 签到：/api/points /api/sign-in /api/levels /api/leaderboard
   server.register(gamificationRoutes, { prefix: '/api' })
   // 按日积分消耗聚合（只读，需登录）：/api/credits/usage/daily
@@ -1284,6 +1290,12 @@ export function registerRoutes(server: FastifyInstance) {
 
   // Knowledge Card:仓库级任务经验卡 CRUD + 检索(2026-09-10 立,2-1 项目知识引擎)
   server.register(knowledgeCardRoutes, { prefix: '/api/knowledge-cards' })
+
+  // D29 团队记忆 CRUD(2026-09-25 补注册):路由内是 `/` 与 `/:id`,挂此前缀后逐字等于
+  // packages/api-client/src/endpoints/team-memory.ts 里 fetchApi('/api/team-memory…') 的路径。
+  // 缺这一行时,apps/web/app/(main)/team-memory/page.tsx 的每次调用都是 404,而 typecheck/lint/单测全绿
+  // —— 该路由的既有测试自己 `app.register(teamMemoryRoutes)` 挂载,所以"测试绿"从不覆盖"注册过"。
+  server.register(teamMemoryRoutes, { prefix: '/api/team-memory' })
 
   // 用户侧 Agent 定时自动化(对标 WorkBuddy automations,2026-09-07 立)
   server.register(automationsRoutes, { prefix: '/api/automations' })

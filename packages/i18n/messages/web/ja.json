@@ -15351,18 +15351,13 @@
     "topBar": {
       "agent": "エージェント",
       "browser": "内蔵ブラウザ",
-      "capabilityMarket": "機能マーケット",
       "close": "閉じる",
       "codeChanges": "コード変更",
-      "connectors": "中文コネクタ",
       "document": "ドキュメント",
       "editor": "エディタ",
       "mcp": "MCP",
-      "mcpStore": "MCP ストア",
       "plus": "ビューを追加",
       "settings": "設定",
-      "skill": "スキル",
-      "skillsMarket": "Skill マーケット",
       "terminal": "ターミナル"
     },
     "viewSwitcher": {
