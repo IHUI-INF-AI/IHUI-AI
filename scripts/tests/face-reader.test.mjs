@@ -5,10 +5,12 @@
 /**
  * `scripts/lib/face-reader.mjs` 的镜像测试。
  *
- * 这道层要解决的是"同一个易错口径被三门各抄一份"。而**收口本身没有哨兵就会重新腐烂**
+ * 这道层要解决的是"同一个易错口径被各门各抄一份"。而**收口本身没有哨兵就会重新腐烂**
  * (本仓对豁免清单的教训:`RN_ONLY_BRAND_KEYS` 那种清单过期了没人发现)。所以本文件守两件事:
- *   ① 层自身的四条硬规矩还在(绝对路径 git / batch 的 stdio[0] 是 pipe / 有 timeout / 仓库根比较穿 junction);
- *   ② 三门真的挂在这层上,且没有偷偷自己拼 git 派生。
+ *   ① 层自身的几条硬规矩还在(绝对路径 git / batch 的 stdio[0] 是 pipe / 有 timeout 与够用的
+ *      maxBuffer / 仓库根比较穿 junction / 子进程 stderr 不外漏);
+ *   ② 挂在这层上的门真的挂着,且没有偷偷自己拼 git 派生 —— 门有几道由下面的三条棘轮现场量,
+ *      **不在注释里写死数字**(写死的那一行,下一次收口就变成一句骗人的旧话)。
  * 每条否定式判据都配**阳性对照**:先拿一段"违规写法"喂同一个判据函数,证明它能抓得住,
  * 否则"0 命中"可能只是尺子坏了。
  */
@@ -16,6 +18,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
@@ -24,12 +27,16 @@ import {
   FACE_LABEL,
   Undetermined,
   catBatch,
+  catBatchCheck,
+  catBatchOids,
   gitBinary,
+  gitRaw,
   selectFace,
 } from '../lib/face-reader.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const scriptsDir = join(here, '..')
+const GIT = gitBinary()
 const read = (f) => readFileSync(join(scriptsDir, f), 'utf8')
 
 /** 三门:各自都已收敛到共用层(守门 91 = 主题接线、94 = 错误码覆盖、101 = 锁与清单对账) */
@@ -47,18 +54,30 @@ test('层自身:绝对路径 git(裸 "git" 会让服务账户/GUI 宿主下的�
   assert.match(src, /resolveGitBin\(\) \|\| 'git'/, '兜底必须显式写在层里,不得散在各门')
 })
 
-test('层自身:cat-file --batch 的 stdio[0] 必须是 pipe(设成 ignore 会让每个 rev 都"取不到")', () => {
+test('层自身:每一处 cat-file --batch* 的 stdio[0] 都必须是 pipe(设成 ignore 会让每个 rev 都"取不到")', () => {
   const src = read('lib/face-reader.mjs')
-  const at = src.indexOf("'cat-file', '--batch'")
-  assert.ok(at > 0, '层里找不到 cat-file --batch —— 这条陷阱的归宿没了')
-  const block = src.slice(at, at + 700)
-  assert.match(block, /stdio:\s*\[\s*'pipe',\s*'pipe',\s*'pipe'\s*\]/)
-  assert.match(block, /input:\s*Buffer\.from\(/, 'rev 清单必须由 input 喂进去')
-  assert.match(block, /timeout:\s*[A-Z_]+|timeout:\s*\d+/, '无数字 timeout ⇒ 守门 80 那类无界挂起')
+  // ⚠️ 逐个调用点各判一遍,不是"找到的第一处"。`'cat-file', '--batch'` 是 `'--batch-check'`
+  // 的**前缀**,按 indexOf 取窗口会永远落在第一个函数上 —— 那意味着后加入层的 batch 出口
+  // (catBatchOids)根本不在这条判据的视野里,而这正是本层要防的那一型"尺子看不见自己产出的形态"。
+  const sites = [...src.matchAll(/'cat-file',\s*'--batch(?:-check)?'/g)]
+  assert.ok(sites.length >= 3, `层的 batch 出口现测应有 3 处(batch / batch-check / batch-check 用 oid),实得 ${sites.length}`)
+  for (const s of sites) {
+    const block = src.slice(s.index, s.index + 700)
+    assert.match(block, /stdio:\s*\[\s*'pipe',\s*'pipe',\s*'pipe'\s*\]/, 'stdio[0] 非 pipe ⇒ 喂不进对象清单')
+    assert.match(block, /input:\s*Buffer\.from\(/, '对象清单必须由 input 喂进去,不得拼进 argv')
+    assert.match(
+      block,
+      /timeout:\s*(?:opts\.timeout\s*\?\?\s*)?[A-Z_]+|timeout:\s*\d+/,
+      '无数字 timeout ⇒ 守门 80 那类无界挂起',
+    )
+    assert.match(
+      block,
+      /maxBuffer:\s*(?:opts\.maxBuffer\s*\?\?\s*)?GIT_MAX_BUFFER/,
+      'batch 调用必须吃到那个常量(允许开可配口子,但默认值必须是它)',
+    )
+  }
   // maxBuffer 是模块级常量,不在调用点写数字 —— 判据要跟它的真身对齐
   assert.match(src, /const GIT_MAX_BUFFER = 64 << 20/, 'maxBuffer 常量必须给足(真仓有 >1MB 单文件)')
-  assert.match(src, /maxBuffer: opts\.maxBuffer \?\? GIT_MAX_BUFFER/)
-  assert.match(block, /maxBuffer: GIT_MAX_BUFFER/, 'batch 调用必须吃到那个常量')
 })
 
 test('层自身:gitRaw 必须显式接管 stdio(否则子进程 stderr 会漏进守门自己的判定输出)', () => {
@@ -68,9 +87,32 @@ test('层自身:gitRaw 必须显式接管 stdio(否则子进程 stderr 会漏进
   const block = src.slice(at, src.indexOf('\nexport ', at + 10))
   assert.match(
     block,
-    /stdio:\s*\[\s*'ignore',\s*'pipe',\s*'pipe'\s*\]/,
+    /\['ignore',\s*'pipe',\s*'pipe'\]/,
     'gitRaw 未接管 stdio ⇒ `fatal: …` 会直接写在门的 stderr 上;各门只会被迫加 --quiet 绕行',
   )
+  // 有 input 的那一支必须把 stdio[0] 切成 pipe —— 两态都要在,少一态就是"喂不进去还不报错"
+  assert.match(
+    block,
+    /\['pipe',\s*'pipe',\s*'pipe'\]/,
+    '带 input 的派生若仍用 ignore 作 stdin ⇒ git 收到空清单,对象一律"取不到"',
+  )
+})
+
+/**
+ * 上面那条是**源码形状**判据;这一条是它的装车证明:真拿 input 走一次 gitRaw。
+ * 只判形状会漏掉"两个分支都写了、但条件写反"这一型 —— 形状对了而行为是空的,
+ * git 也不会报错(`cat-file --batch` 收到空 stdin 就是零输出),所以必须量输出。
+ */
+test('gitRaw 的 input 通道真的通(空 stdin 与喂清单的输出必须不同)', () => {
+  const root = join(here, '..', '..')
+  const fed = gitRaw(['cat-file', '--batch'], root, {
+    input: Buffer.from('HEAD:package.json\n', 'utf8'),
+  })
+  assert.ok(String(fed).includes(' blob '), `喂了一个对象却什么都没取回:${String(fed).slice(0, 60)}`)
+  // 反例:空清单 ⇒ 零输出。两条不同即证明 input 确实到达了 git,而不是被 stdio[0] 丢掉。
+  const empty = gitRaw(['cat-file', '--batch'], root, { input: Buffer.from('', 'utf8') })
+  assert.equal(String(empty).trim(), '', '空清单应得零输出')
+  assert.notStrictEqual(String(fed), String(empty), 'input 分支必须与"没喂东西"可区分')
 })
 
 test('层自身:仓库根比较必须穿 junction(本机 DevEnv 系是改道路径)', () => {
@@ -135,6 +177,50 @@ test('真实取材抽查:HEAD 面能读到大 blob(>1MB 的那个语言包),证�
   assert.equal(map.get('HEAD:nope/missing.ts'), null, 'missing 必须是 null,不得抛成"仓库坏了"')
 })
 
+/**
+ * 层的两个新出口 —— 都是并行代理在迁移时**独立**报出来的缺口,不是预防性设计:
+ * ① `catBatch(…, {maxBuffer})`:门 98/103 一次读 8000+ 源文件 ≈ 85-89MB,默认 64MB 会 ENOBUFS;
+ * ② `catBatchOids`:守门 84 的判据是"比较 blob sha",要的是 oid 而不是内容,
+ *    而既有 `catBatchCheck` 的 hex-only 过滤会把 `<oid>^{tree}` 这类合法规格整型丢掉。
+ */
+test('catBatch 的 maxBuffer 口子:超限必须抛,不得静默降级成"每个 rev 都取不到"', () => {
+  const root = join(here, '..', '..')
+  const revs = ['HEAD:package.json', 'HEAD:pnpm-lock.yaml']
+  // 正例:给足预算 ⇒ 两个都读到
+  const okMap = catBatch(root, revs, { maxBuffer: 1 << 26 })
+  assert.ok(okMap.get('HEAD:package.json')?.length > 3000, '给足预算时 package.json 必须读到')
+  // 反例(本条的真正牙齿):预算 1 字节 ⇒ 必抛。
+  // 若层把 ENOBUFS 折成"取不到",这里会拿到一个全 null 的 Map 而测试判绿 —— 那正是
+  // 下游读成"没有违规"的假绿形态,所以必须断言它**抛**,而且抛的是 Undetermined。
+  assert.throws(
+    () => catBatch(root, revs, { maxBuffer: 1 }),
+    (e) => e instanceof Undetermined,
+    '超预算必须显式"无法判定",绝不能静默返回空内容',
+  )
+})
+
+test('catBatchOids:按行对齐回 oid,且不得像 catBatchCheck 那样把非 hex 规格整型丢掉', () => {
+  const root = join(here, '..', '..')
+  const head = spawnSync(GIT, ['-C', root, 'rev-parse', 'HEAD'], {
+    encoding: 'utf8',
+    windowsHide: true,
+  }).stdout.trim()
+  assert.ok(/^[0-9a-f]{40}$/.test(head), `rev-parse HEAD 取到的不是 sha:${head}`)
+  const specs = ['HEAD:package.json', `${head}^{tree}`, 'HEAD:nope/missing.ts']
+  const m = catBatchOids(root, specs)
+  assert.match(m.get('HEAD:package.json') ?? '', /^[0-9a-f]{40}$/, 'blob 规格必须解出 oid')
+  assert.match(m.get(`${head}^{tree}`) ?? '', /^[0-9a-f]{40}$/, 'peel 规格必须解出 oid')
+  assert.equal(m.get('HEAD:nope/missing.ts'), null, 'missing 归 null,交调用方判取不到')
+  // 反向对照:同一批规格喂旧的 catBatchCheck,三条**全部**被 hex-only 过滤掉 —— 一条都不参与判定。
+  // 这条对照是"为什么要有第二个出口"的唯一机器证据;没有它,下一个人又会说"用 Check 就行"。
+  const viaCheck = catBatchCheck(root, specs)
+  assert.equal(
+    viaCheck.total,
+    0,
+    'catBatchCheck 只认纯 hex 对象名,rev/peel 规格对它整型隐身 —— 所以它不能拿来做 sha 比较',
+  )
+})
+
 // ───────────────────────── 棘轮:存量认账,增量不认 ─────────────────────────
 //
 // 本票收口的是一类重复:各门各自派生 git。实测分成三型,分别钉住(数字一律以命令现测为准,
@@ -150,15 +236,21 @@ test('真实取材抽查:HEAD 面能读到大 blob(>1MB 的那个语言包),证�
  * 基线 = 当次实测真值(扫 scripts/ 生产文件)。调高它必须先在此说明理由。
  * ⚠️ 这些数会随收口下降;下降时测试只提示不拦停,请在同一票里把基线一并下调。
  * 历史:
- *  · 型 A:09-25 首量 80 → 修尺子(补 shell 串式与 spawnSync 两型)后真值 82。本批迁的 6 道门
- *    用的都是型 B(常量),所以 A 不随本批下降 —— 这恰好证明"只盯 A 的尺子会以为收口没效果"。
- *  · 型 B:本票首量 10 → 加"必须被当过派生首参"的第二道锚后 9(`lib/gitdir.mjs` 那处 'git' 是
- *    目录名,不是二进制 —— 第一版尺子被它骗过)。不含本层自己那处**刻意**的最后一档兜底。
- *  · 型 C:首量 9 → 本批 6 道门收口后 3(余 arch-policy / cross-end-tokens / stale-revert)。
+ *  · 型 A:09-25 首量 80 → 修尺子(补 shell 串式与 spawnSync 两型)后真值 82 → **83**。
+ *    09-25 09:25 的并行提交 `95447008f73` 给 `scripts/check-rn-global-css-sync.mjs` 新增了一处
+ *    `execFileSync('git', …)`(该文件此前没有),这是在 09:11 定基线之后长出来的。
+ *    **本票不代它收口**(那是别人的门与别人的镜像测试),也不把数字压回去装没看见 ——
+ *    已按台账 O63 把这一处的一行修法(gitShow → 层 gitRaw,Catch 折 null 的语义不变)记给持有人。
+ *    本批迁的 6 道门用的都是型 B(常量),所以 A 不因本批下降 —— 这恰好证明"只盯 A 的尺子会以为收口没效果"。
+ *  · 型 B:本票首量 10 → 加"必须被当过派生首参"的第二道锚后 9 → **8**(第二枚提交把守门 84
+ *    那句 `const GIT = process.env.IHUI_GIT_BIN || 'git'` 收进了层)。`lib/gitdir.mjs` 那处 'git' 是
+ *    目录名、不是二进制 —— 第一版尺子被它骗过,所以才有第二道锚。不含本层自己那处**刻意**的最后一档兜底。
+ *  · 型 C:首量 9 → 第一批 6 道门收口后 3 → **1**(第二枚再收 103 / 84)。
+ *    余下唯一一处是 `scripts/check-cross-end-tokens.mjs`(守门 93),不在本票派单范围内。
  */
-const BARE_GIT_BASELINE = 82
-const PATH_BOUND_GIT_BASELINE = 9
-const SELF_BATCH_BASELINE = 3
+const BARE_GIT_BASELINE = 83
+const PATH_BOUND_GIT_BASELINE = 8
+const SELF_BATCH_BASELINE = 1
 
 function productionScripts(root) {
   const out = []
