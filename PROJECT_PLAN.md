@@ -8680,3 +8680,19 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   `git show HEAD:<file> | grep -c`、`git grep ... HEAD`、`merge-base --is-ancestor` 三类尺重跑;
   引用上一轮读数就等于把过期结论当现状(本会话在同一天里错了三次,其中一次是把"镜像测试红"归因成了夹具问题,
   复测才发现是中文化文案没同步测试)。
+
+- [x] ✅(2026-09-25) **O60h-3 交付未入远端的阻塞登记(不写作收口,逐条给取证与解阻判据)**:
+  本票提交 `cab0cff1740` 在**本地 main**(`git merge-base --is-ancestor cab0cff1740 HEAD` = 真),
+  而 `origin/main` 已被另一台机的 4 枚提交分叉(实测现读 `ahead=5 / behind=4`)。
+  权威收敛器 `node scripts/git-sync-converge.mjs` **判"需人工"**,两条取证都不是"判据过敏":
+  ① `node scripts/union-converge.mjs` 的落地闸报 5 处未存活行(PROJECT_PLAN 3 / README 2),但把三路面
+  (`base=c88fa867367 / ours=b8eab3c8b0d / theirs=02bf99e33c4`)逐条拉出来数,这些行**三侧各恰 1 份**,
+  而 `unionLines()` 产出的并集里是 **2 份** ⇒ 落地闸拦下的是**"并集把同一段落复制两遍"**,
+  正是本仓最高频的孪生行事故(`live-doc-union-leaves-pre-rewrite-twin-rows`),它工作正常;
+  ② `git merge-file` 真三方在 `PROJECT_PLAN.md` 有 2 个冲突块、`README.md` 有 1 个,其中一块是整段
+  WP-1…WP-6 的登记(两侧各自都是合法内容,谁都不该被整块覆盖)。
+  **因此本会话没有强行落地、没有选边、没有 `--no-verify`、没有动 `--take-ours`**(该例外要求"对侧那一版在本树必红"
+  的取证,这里两侧都不红,不满足声明条件)。
+  **解阻判据(交给持有另一台机提交的那条会话或人)**:对这三块逐块裁决后重跑
+  `node scripts/git-sync-converge.mjs`;收敛成功出口会自动调 `union-converge` 的复核与守门 100 的 A1。
+  推送腿状态可用 `node scripts/git-push-converge.mjs` 只读核验(现读 `DIVERGED`)。
