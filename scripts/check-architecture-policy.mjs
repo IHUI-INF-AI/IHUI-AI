@@ -29,13 +29,13 @@
  *   node scripts/check-architecture-policy.mjs --self-test      # 成对正反例自检
  * 紧急跳过:HUSKY_SKIP_ARCH_POLICY=1 git commit ...
  */
-import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { dirname as pDirname, resolve as pResolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import { catBatch, gitRaw } from './lib/face-reader.mjs'
+
 const ROOT = pResolve(pDirname(fileURLToPath(import.meta.url)), '..')
-const GIT = 'C:/Program Files/Git/cmd/git.exe'
 const POLICY_REL = 'config/architecture-policy.yaml'
 const SELF_SKIP = 'HUSKY_SKIP_ARCH_POLICY'
 const SRC_RE = /\.(ts|tsx|js|jsx|mjs|cjs)$/
@@ -53,14 +53,13 @@ const RULES = {
 /** 不受 managed 开关约束、全仓即时判红的规则 */
 const ALWAYS_RED = new Set(['table-integrity', 'file-lines'])
 
-const git = (args, input) =>
-  execFileSync(GIT, ['-c', 'safe.directory=*', '-C', ROOT, ...args], {
-    encoding: input ? undefined : 'utf8',
-    windowsHide: true,
-    maxBuffer: 1 << 29,
-    timeout: GIT_TIMEOUT,
-    input,
-  })
+/**
+ * 一律经 `scripts/lib/face-reader.mjs`。此前本门把 git **硬编码成** `C:/Program Files/Git/cmd/git.exe`,
+ * 那是"换机/换安装位置即失效"的一档 —— 层的 `gitBinary()` 认 PortableGit / IHUI_GIT_BIN / 绝对路径探测,
+ * 并且 timeout / maxBuffer / quotepath / windowsHide 都在同一处封顶(本门一次要读 512MB 量级)。
+ * 预算保持不变:180s / 1<<29,与原实现逐字同档,免得收口顺带把超时口径改了。
+ */
+const git = (args) => gitRaw(args, ROOT, { timeout: GIT_TIMEOUT, maxBuffer: 1 << 29 })
 
 // ── 受限 YAML 子集解析器 ───────────────────────────────────────────────────────────────
 // 只支持策略表实际用到的形态:缩进块、`key: value`、`key:` + 子块、`- 标量`、`- key: value`、
@@ -515,17 +514,14 @@ export function analyze(P, files, opts = {}) {
 function readFace(rev, paths) {
   const map = new Map()
   if (!paths.length) return map
-  const out = git(['cat-file', '--batch'], Buffer.from(paths.map((p) => `${rev}:${p}`).join('\n') + '\n', 'utf8'))
-  let pos = 0
-  for (const f of paths) {
-    const nl = out.indexOf(0x0a, pos)
-    if (nl < 0) break
-    const h = out.subarray(pos, nl).toString('utf8')
-    pos = nl + 1
-    const m = /^([0-9a-f]{40}) blob (\d+)$/.exec(h)
-    if (!m) continue
-    map.set(f, out.subarray(pos, pos + Number(m[2])).toString('utf8'))
-    pos += Number(m[2]) + 1
+  // 层的 catBatch 对每个 rev 都给一项(missing ⇒ null);本门的判据把"没这项"与"这项是空文件"
+  // 分得很清 —— `files.size` 会直接打进结论行(`HEAD blob(N 个源文件)`),把 null 也塞进去就等于
+  // 凭空把 N 涨成"所有请求数"。所以这里只做形状适配:**只收命中的**,missing 继续不占位。
+  const specs = paths.map((p) => `${rev}:${p}`)
+  const got = catBatch(ROOT, specs, { maxBuffer: 1 << 29, timeout: GIT_TIMEOUT })
+  for (let i = 0; i < paths.length; i++) {
+    const text = got.get(specs[i])
+    if (typeof text === 'string') map.set(paths[i], text)
   }
   return map
 }
