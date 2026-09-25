@@ -39,7 +39,6 @@
     "apps/mobile-rn/src/components/DevErrorToast.tsx::radius-exempt": 1,
     "apps/mobile-rn/src/components/HandPlatePops.tsx::radius-exempt": 2,
     "apps/mobile-rn/src/components/InputArea.tsx::radius-exempt": 2,
-    "apps/mobile-rn/src/components/InputArea.tsx::r3-cta-exempt": 3,
     "apps/mobile-rn/src/components/IntroducePopup.tsx::radius-exempt": 2,
     "apps/mobile-rn/src/components/LoginPopUp.tsx::radius-exempt": 4,
     "apps/mobile-rn/src/components/ModelList.tsx::radius-exempt": 1,
