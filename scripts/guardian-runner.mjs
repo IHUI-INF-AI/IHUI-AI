@@ -35,6 +35,7 @@ import { execSync, execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createHash } from 'node:crypto'
+import { normalizeTriggers, triggersTouch } from './lib/guardian-triggers.mjs'
 
 // === 颜色 ===
 const C = {
@@ -3125,7 +3126,7 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_GATE_FACE_DISCIPLINE',
-    stagedTriggers: 'scripts/',
+    stagedTriggers: ['scripts/'],
     onFailHint: [
       '',
       '  💡 本仓 159 道门里只有 24 道走 scripts/lib/face-reader.mjs,散写 git/按磁盘判的 74 道',
@@ -3148,7 +3149,7 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_SUBAGENT_PERMISSION_INHERITED',
-    stagedTriggers: 'apps/cli/src/',
+    stagedTriggers: ['apps/cli/src/'],
     onFailHint: [
       '',
       '  💡 判三条:P1 派生面出现字面量 bypassPermissions 作默认档(零容忍,不吃豁免)/',
@@ -3176,6 +3177,27 @@ const checks = [
       '     至少有一条断言的输入取自名单本身;判不出 ⇒ 记"未判定"并如实点名,不记通过。',
       '     单独复验:node scripts/check-list-predicate-has-positive-proof.mjs',
       '     自检:--self-test(15 条) 镜像:node --test scripts/tests/check-list-predicate-has-positive-proof.test.mjs(6 例)',
+      '',
+    ]
+  },
+
+  {
+    id: '121',
+    label: '🗑️ 声明策略必须有消费者(blocking,MAX_AGE/TTL/RETENTION/Contract 谓词/清理函数未接线即红,存量棘轮)',
+    script: 'check-declared-policy-has-consumer.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_DECLARED_POLICY_CONSUMER',
+    stagedTriggers: ['apps/', 'packages/'],
+    onFailHint: [
+      '',
+      '  💡 本仓最高频失效型"造好没装车":声明了保留期/预算契约/清理函数,却没有任何生产面',
+      '     消费者(注释、字符串、纯 re-export、测试面、scripts 层都不算消费者)。',
+      '     实测存量:候选 131 / 未接线 32 处 29 文件(含 pruneOldSubagentStates、apps/api cleanup 族 9 处)⇒ 只报数。',
+      '     棘轮锚点=该文件 HEAD 自身未接线数;新增即红。全量判 HEAD blob、--staged 判索引、取不到 exit 2。',
+      '     单独复验:node scripts/check-declared-policy-has-consumer.mjs',
+      '     自检:--self-test(22 例,含真未接线/已接线双夹具 + 禁闭包/禁外部消费双变异)',
+      '     镜像:node --test scripts/tests/check-declared-policy-has-consumer.test.mjs(8 例,含装车前置证明)',
       '',
     ]
   },
@@ -3414,12 +3436,9 @@ function stagedFilesOrNull() {
 }
 
 function stagedPathsTouch(prefixes) {
-  const files = stagedFilesOrNull()
-  if (files === null) return true
-  return files.some((f) => {
-    const norm = f.replace(/\\/g, '/')
-    return prefixes.some((p) => norm.startsWith(p))
-  })
+  // 归一交给 lib/guardian-triggers.mjs:裸字符串注册(HEAD 实测 3 道)曾在此处
+  // TypeError 崩掉整条守门链;空清单则抛错,不允许"永不运行"的隐形失踪。
+  return triggersTouch(stagedFilesOrNull(), prefixes)
 }
 
 for (const check of effectiveChecks) {
@@ -3437,7 +3456,7 @@ for (const check of effectiveChecks) {
   if (check.stagedTriggers && passStaged && !stagedPathsTouch(check.stagedTriggers)) {
     skipped++
     console.log(
-      `⏭  [${check.id}] ${check.label}(暂存区未触及:${check.stagedTriggers.join(' / ')},跳过)`,
+      `⏭  [${check.id}] ${check.label}(暂存区未触及:${normalizeTriggers(check.stagedTriggers).join(' / ')},跳过)`,
     )
     continue
   }

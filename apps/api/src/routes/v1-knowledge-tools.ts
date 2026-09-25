@@ -13,6 +13,11 @@
  * - 内部 /api/* 路由:用 mintInternalJwt(userId) 签发短期 JWT,fetch 转发到 INTERNAL_BASE,
  *   成功响应 { code:0, message:'success', data } 自动拆壳返回 data。
  * - ai-service 路由:fetch 直接转发到 config.AI_SERVICE_URL,透传 JSON。
+ * - ai-service memory 族(2026-09-25 v1 租户隔离收口):ai-service 侧已按
+ *   require_request_user_id 把记忆桶归属到令牌主体(sub),必须用
+ *   mintInternalJwt(apiKey.userId) 注入真实用户主体 —— 走 system-worker 会把
+ *   全部 v1 API-key 租户折进同一个系统桶(v1 租户互见)。仅 /memory/working
+ *   例外:ai-service 侧按 session_id 作用域、无用户主体参数,保持系统通道。
  *
  * 端点清单(58 个):
  * === Knowledge/RAG(14)===
@@ -130,7 +135,7 @@ import { requireApiKeyAuth, requireApiKeyQuota } from '../plugins/api-key-auth.j
 import { requireCapability } from '../utils/capability-guard.js'
 import { error } from '../utils/response.js'
 // /v1 网关专用:ai-service 调用注入系统 access token(2026-09-13 修 jwt_auth 401)
-import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
+import { aiServiceSystemFetch, aiServiceUserFetch } from '../utils/ai-service-fetch.js'
 import { dbRead } from '../db/index.js'
 import { users, apiLogs, apiKeyQuotas, llmCallLogs, aiCostRecords } from '@ihui/database'
 import { knowledgeRagService } from '../services/knowledge-rag-service.js'
@@ -490,15 +495,24 @@ async function forwardInternal(
 /**
  * 通用 ai-service 转发(JSON 请求 + JSON 响应)。
  * ai-service 返回裸 JSON(无 { code, message, data } 壳),error 字段标识错误。
+ *
+ * 主体选择(2026-09-25 v1 租户隔离收口):
+ * - 缺省走 aiServiceSystemFetch(sub='system-worker',系统级语义:工具/资源/截图等无属主面)。
+ * - 传 userId 走 aiServiceUserFetch(mintInternalJwt 签发,sub = apiKey.userId):
+ *   memory 族转发必须传 —— ai-service 按 require_request_user_id 收属主,
+ *   system-worker 会让全部 v1 租户共享同一个桶。
  */
 async function forwardAiService(
   reply: FastifyReply,
   path: string,
   init: RequestInit,
   mapper?: (data: unknown) => unknown,
+  userId?: string,
 ): Promise<void> {
   try {
-    const resp = await aiServiceSystemFetch(path, init)
+    const resp = userId
+      ? await aiServiceUserFetch(path, init, await mintInternalJwt(userId))
+      : await aiServiceSystemFetch(path, init)
     if (!resp.ok) {
       const txt = await resp.text().catch(() => '')
       return reply
@@ -2038,17 +2052,25 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
       preHandler: [requireApiKeyAuth, requireCapability('memory:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
       const parsed = saveMemorySchema.safeParse(request.body)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      return forwardAiService(reply, '/api/memory/save', jsonInit(parsed.data), (data) => {
-        const d = asObj(data)
-        return {
-          memoryId: String(d.memoryId ?? d.id ?? ''),
-          status: 'saved' as const,
-        }
-      })
+      return forwardAiService(
+        reply,
+        '/api/memory/save',
+        jsonInit(parsed.data),
+        (data) => {
+          const d = asObj(data)
+          return {
+            memoryId: String(d.memoryId ?? d.id ?? ''),
+            status: 'saved' as const,
+          }
+        },
+        userId,
+      )
     },
   )
 
@@ -2080,33 +2102,41 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
       preHandler: [requireApiKeyAuth, requireCapability('memory:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
       const qs = new URLSearchParams(request.query as Record<string, string>)
       const path = qs.toString() ? `/api/memory/recall?${qs}` : '/api/memory/recall'
-      return forwardAiService(reply, path, { method: 'GET' }, (data) => {
-        const d = asObj(data)
-        const items = Array.isArray(d.data)
-          ? d.data
-          : Array.isArray(d.memories)
-            ? d.memories
-            : Array.isArray(d)
-              ? d
-              : []
-        const result: V1RecallMemoryResponse = {
-          object: 'list',
-          data: items.map((m) => {
-            const o = asObj(m)
-            return {
-              id: String(o.id ?? ''),
-              content: String(o.content ?? ''),
-              type: String(o.type ?? 'working'),
-              score: typeof o.score === 'number' ? o.score : 0,
-              createdAt: String(o.createdAt ?? o.created_at ?? new Date().toISOString()),
-              ...(o.metadata ? { metadata: o.metadata as Record<string, unknown> } : {}),
-            }
-          }),
-        }
-        return result
-      })
+      return forwardAiService(
+        reply,
+        path,
+        { method: 'GET' },
+        (data) => {
+          const d = asObj(data)
+          const items = Array.isArray(d.data)
+            ? d.data
+            : Array.isArray(d.memories)
+              ? d.memories
+              : Array.isArray(d)
+                ? d
+                : []
+          const result: V1RecallMemoryResponse = {
+            object: 'list',
+            data: items.map((m) => {
+              const o = asObj(m)
+              return {
+                id: String(o.id ?? ''),
+                content: String(o.content ?? ''),
+                type: String(o.type ?? 'working'),
+                score: typeof o.score === 'number' ? o.score : 0,
+                createdAt: String(o.createdAt ?? o.created_at ?? new Date().toISOString()),
+                ...(o.metadata ? { metadata: o.metadata as Record<string, unknown> } : {}),
+              }
+            }),
+          }
+          return result
+        },
+        userId,
+      )
     },
   )
 
@@ -2135,6 +2165,8 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
       preHandler: [requireApiKeyAuth, requireCapability('memory:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
       const parsed = memorySearchSchema.safeParse(request.body)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -2143,6 +2175,8 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
         reply,
         '/api/agents/memory/search',
         jsonInit(parsed.data as V1MemorySearchRequest),
+        undefined,
+        userId,
       )
     },
   )
@@ -2176,24 +2210,32 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
       preHandler: [requireApiKeyAuth, requireCapability('memory:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
       const parsed = memoryDreamSchema.safeParse(request.body)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      return forwardAiService(reply, '/api/memory/dream', jsonInit(parsed.data), (data) => {
-        const d = asObj(data)
-        const result: V1MemoryDreamResponse = {
-          dreamId: String(d.dreamId ?? d.dream_id ?? ''),
-          insights: Array.isArray(d.insights) ? (d.insights as string[]) : [],
-          newMemories:
-            typeof d.newMemories === 'number'
-              ? d.newMemories
-              : typeof d.new_memories === 'number'
-                ? d.new_memories
-                : 0,
-        }
-        return result
-      })
+      return forwardAiService(
+        reply,
+        '/api/memory/dream',
+        jsonInit(parsed.data),
+        (data) => {
+          const d = asObj(data)
+          const result: V1MemoryDreamResponse = {
+            dreamId: String(d.dreamId ?? d.dream_id ?? ''),
+            insights: Array.isArray(d.insights) ? (d.insights as string[]) : [],
+            newMemories:
+              typeof d.newMemories === 'number'
+                ? d.newMemories
+                : typeof d.new_memories === 'number'
+                  ? d.new_memories
+                  : 0,
+          }
+          return result
+        },
+        userId,
+      )
     },
   )
 
@@ -2226,6 +2268,8 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
       preHandler: [requireApiKeyAuth, requireCapability('memory:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
       const parsed = forgetMemorySchema.safeParse(request.body)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -2236,6 +2280,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
         '/api/memory/forget',
         jsonInit({ memoryId }, 'DELETE'),
         () => ({ memoryId, status: 'forgotten' as const }),
+        userId,
       )
     },
   )
@@ -2260,6 +2305,9 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
       preHandler: [requireApiKeyAuth, requireCapability('memory:read'), requireApiKeyQuota()],
     },
     async (_request, reply) => {
+      // 主体豁免(2026-09-25 v1 租户隔离收口):ai-service 的 /memory/working 按
+      // session_id 作用域(会话内存缓冲,端点无 user_id 参数、无 require_request_user_id),
+      // 用户主体在此无属主语义 —— 保持系统通道,不硬改。
       return forwardAiService(reply, '/api/memory/working', { method: 'GET' }, (data) => {
         const d = asObj(data)
         const items = Array.isArray(d.items) ? d.items : Array.isArray(d.data) ? d.data : []
@@ -2297,27 +2345,35 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
       },
       preHandler: [requireApiKeyAuth, requireCapability('memory:read'), requireApiKeyQuota()],
     },
-    async (_request, reply) => {
-      return forwardAiService(reply, '/api/memory/episodic', { method: 'GET' }, (data) => {
-        const d = asObj(data)
-        const episodes = Array.isArray(d.episodes)
-          ? d.episodes
-          : Array.isArray(d.data)
-            ? d.data
-            : []
-        const result: V1EpisodicMemoryResponse = {
-          episodes: episodes.map((e) => {
-            const o = asObj(e)
-            return {
-              id: String(o.id ?? ''),
-              summary: String(o.summary ?? ''),
-              timestamp: String(o.timestamp ?? o.created_at ?? new Date().toISOString()),
-              participants: Array.isArray(o.participants) ? (o.participants as string[]) : [],
-            }
-          }),
-        }
-        return result
-      })
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+      return forwardAiService(
+        reply,
+        '/api/memory/episodic',
+        { method: 'GET' },
+        (data) => {
+          const d = asObj(data)
+          const episodes = Array.isArray(d.episodes)
+            ? d.episodes
+            : Array.isArray(d.data)
+              ? d.data
+              : []
+          const result: V1EpisodicMemoryResponse = {
+            episodes: episodes.map((e) => {
+              const o = asObj(e)
+              return {
+                id: String(o.id ?? ''),
+                summary: String(o.summary ?? ''),
+                timestamp: String(o.timestamp ?? o.created_at ?? new Date().toISOString()),
+                participants: Array.isArray(o.participants) ? (o.participants as string[]) : [],
+              }
+            }),
+          }
+          return result
+        },
+        userId,
+      )
     },
   )
 
@@ -2340,32 +2396,40 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
       },
       preHandler: [requireApiKeyAuth, requireCapability('memory:read'), requireApiKeyQuota()],
     },
-    async (_request, reply) => {
-      return forwardAiService(reply, '/api/memory/procedural', { method: 'GET' }, (data) => {
-        const d = asObj(data)
-        const procedures = Array.isArray(d.procedures)
-          ? d.procedures
-          : Array.isArray(d.data)
-            ? d.data
-            : []
-        const result: V1ProceduralMemoryResponse = {
-          procedures: procedures.map((p) => {
-            const o = asObj(p)
-            return {
-              id: String(o.id ?? ''),
-              name: String(o.name ?? ''),
-              steps: Array.isArray(o.steps) ? (o.steps as string[]) : [],
-              successRate:
-                typeof o.successRate === 'number'
-                  ? o.successRate
-                  : typeof o.success_rate === 'number'
-                    ? o.success_rate
-                    : 0,
-            }
-          }),
-        }
-        return result
-      })
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+      return forwardAiService(
+        reply,
+        '/api/memory/procedural',
+        { method: 'GET' },
+        (data) => {
+          const d = asObj(data)
+          const procedures = Array.isArray(d.procedures)
+            ? d.procedures
+            : Array.isArray(d.data)
+              ? d.data
+              : []
+          const result: V1ProceduralMemoryResponse = {
+            procedures: procedures.map((p) => {
+              const o = asObj(p)
+              return {
+                id: String(o.id ?? ''),
+                name: String(o.name ?? ''),
+                steps: Array.isArray(o.steps) ? (o.steps as string[]) : [],
+                successRate:
+                  typeof o.successRate === 'number'
+                    ? o.successRate
+                    : typeof o.success_rate === 'number'
+                      ? o.success_rate
+                      : 0,
+              }
+            }),
+          }
+          return result
+        },
+        userId,
+      )
     },
   )
 

@@ -24,6 +24,9 @@ const PUBLIC_PREFIXES = [
   '/api/oauth/',
   '/api/payments/',
   '/api/ai/callback',
+  // D30① 信源入口:同 ai-callback 属"机器回调",调用方不携带租户头(它带的是 HMAC 签名)。
+  // 只放这一条**完整路径**;`/api/webhooks/` 前缀一律不放(理由见 plugins/csrf.ts 同条注释)。
+  '/api/webhooks/github',
   '/api/tbox/events',
   '/api/csrf-token',
   '/api/configs',

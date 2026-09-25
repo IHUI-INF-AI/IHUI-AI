@@ -114,6 +114,16 @@ const NOTIFY_MSG_DIR = join(WORKTREE, '.ihui-agent', 'tmp', 'git-guardian-notify
 /** 派发器单次调用墙上时钟上限:tsx 冷启 + SMTP 握手最坏叠加(同 check-credential-health 实测值) */
 const NOTIFY_DISPATCH_TIMEOUT_MS = 90_000
 
+// —— 收敛器收尾对齐停摆 → 到人(2026-09-25 票 O74)——
+// git-sync-converge 的 alignWorktreeAfterHeadMove 失败原先"只记日志":锁被长期占用时,
+// 工作区会无声地一直落后 HEAD(§12d 的静默回滚温床)。收敛器本体是一次性进程不适合发信,
+// 而本守护每 2 分钟一轮、已是全部自愈告警的派发点 ⇒ 状态由收敛器写
+// (.workbuddy/converge-align-state.json),这里读它并按阈值喊人。
+// 阈值两个数都可被 env 覆盖(IHUI_ALIGN_STALL_FAILS / IHUI_ALIGN_STALL_AGE_MS),默认 3 / 600000。
+const CONVERGE_ALIGN_STATE = join(WORKTREE, '.workbuddy', 'converge-align-state.json')
+const ALIGN_STALL_DEFAULT_FAILS = 3
+const ALIGN_STALL_DEFAULT_AGE_MS = 10 * 60 * 1000
+
 const CHECK_ONLY = process.argv.includes('--check')
 const STATUS_ONLY = process.argv.includes('--status')
 const INSTALL = process.argv.includes('--install')
@@ -1073,6 +1083,103 @@ function notifySummary() {
   }
 }
 
+// ── 收敛器收尾对齐停摆的阈值判据与检查(2026-09-25 票 O74,纯函数化以便构造输入取证) ──
+
+/** 阈值解析:cfg 显式值 > env(IHUI_ALIGN_STALL_FAILS / IHUI_ALIGN_STALL_AGE_MS)> 默认 3 / 600000 */
+function alignStallThresholds(cfg = {}) {
+  const envFails = parseInt(process.env.IHUI_ALIGN_STALL_FAILS ?? '', 10)
+  const envAge = parseInt(process.env.IHUI_ALIGN_STALL_AGE_MS ?? '', 10)
+  return {
+    minFails: Number.isFinite(cfg.minFails)
+      ? cfg.minFails
+      : Number.isFinite(envFails)
+        ? envFails
+        : ALIGN_STALL_DEFAULT_FAILS,
+    minAgeMs: Number.isFinite(cfg.minAgeMs)
+      ? cfg.minAgeMs
+      : Number.isFinite(envAge)
+        ? envAge
+        : ALIGN_STALL_DEFAULT_AGE_MS,
+  }
+}
+
+/**
+ * 该不该喊人:**连续失败 ≥ minFails 且 最后失败距今 ≥ minAgeMs** 才 alert。
+ * 状态缺失 / 坏 JSON / consecutiveFailures 不是有限数 ⇒ "无法判定",一律不喊
+ * (绝不因为"状态文件不存在"喊人;恢复成功后计数归零,同样不喊)。
+ */
+export function shouldAlertAlignStall(state, nowMs, cfg = {}) {
+  const { minFails, minAgeMs } = alignStallThresholds(cfg)
+  if (
+    !state ||
+    typeof state !== 'object' ||
+    Array.isArray(state) ||
+    !Number.isFinite(state.consecutiveFailures)
+  ) {
+    return { alert: false, reason: '状态缺失或不可读(无法判定 ⇒ 不喊)', fails: null, ageMs: null }
+  }
+  const fails = state.consecutiveFailures
+  if (fails < minFails) {
+    return { alert: false, reason: `连续失败 ${fails} 次 < 阈值 ${minFails}`, fails, ageMs: null }
+  }
+  if (!Number.isFinite(state.lastFailAt)) {
+    return { alert: false, reason: 'lastFailAt 缺失(无法判定 ⇒ 不喊)', fails, ageMs: null }
+  }
+  const ageMs = nowMs - state.lastFailAt
+  if (ageMs < minAgeMs) {
+    return {
+      alert: false,
+      reason: `最后失败距今 ${Math.round(ageMs / 1000)}s < 阈值 ${minAgeMs}ms`,
+      fails,
+      ageMs,
+    }
+  }
+  return {
+    alert: true,
+    reason: `连续失败 ${fails} 次且 ${Math.round(ageMs / 60000)} 分钟未恢复`,
+    fails,
+    ageMs,
+  }
+}
+
+/**
+ * 每轮 tick 的收尾对齐停摆检查。notify 出口可注入(镜像测试用假派发器断言参数,
+ * 绝不在测试里真发邮件);检查层自身任何异常只降级为一行日志,不改守护自愈与退出码。
+ * detail 里的数字(次数/分钟)会被 alertFingerprint 归一为 '#' ⇒ 停摆期间同指纹,
+ * 由 notifyGuardRed 的 4h 窗口压住重复轰炸;恢复后计数归零,自然不再触发。
+ */
+export function checkConvergeAlignStall(opts = {}) {
+  const {
+    now = Date.now(),
+    statePath = CONVERGE_ALIGN_STATE,
+    notify = notifyGuardRed,
+    cfg = {},
+  } = opts
+  try {
+    let state = null
+    try {
+      state = JSON.parse(readFileSync(statePath, 'utf8'))
+    } catch {
+      return { alert: false, reason: '状态文件读不到/坏 JSON ⇒ 无法判定,不喊' }
+    }
+    const d = shouldAlertAlignStall(state, now, cfg)
+    if (!d.alert) return d
+    const detail =
+      `收敛器收尾对齐(git-sync-converge → heal-worktree-tracked --align-drift)连续失败 ${d.fails} 次,` +
+      `已 ${Math.round((d.ageMs ?? 0) / 60000)} 分钟未恢复。长期失败意味着工作区持续落后 HEAD(§12d 静默回滚温床)。\n` +
+      `最后失败时间: ${new Date(state.lastFailAt).toISOString()}\n` +
+      `rc/真因(收敛器 alignFailureNote 原文): ${String(state.lastNote ?? '(无)').slice(0, 200)}\n` +
+      `状态文件: ${statePath}`
+    notify('converge-align-stall', detail)
+    return d
+  } catch (e) {
+    log(
+      `⚠️ 收敛对齐停摆检查自身异常(已忽略,不影响自愈): ${String((e && e.message) || e).slice(0, 160)}`,
+    )
+    return { alert: false, reason: '检查异常(已吞)' }
+  }
+}
+
 function healRootSeal() {
   const script = join(dirname(fileURLToPath(import.meta.url)), 'seal-c-root-stray.mjs')
   if (!existsSync(script)) return
@@ -1601,6 +1708,9 @@ function main() {
     if (!CHECK_ONLY) reportBaselineFreshness()
     // §5b 的"唯一空白层":恢复源刷新原本挂在计划任务上,而那个任务已实测消失 ⇒ 并入 tick。
     if (!CHECK_ONLY) refreshRecoverySource()
+    // 收敛器收尾对齐停摆喊人(票 O74):收敛器一次性进程只写状态,派发点在此(与
+    // heal*/watchWatchdog 同一真正会执行的分支;挂进 CHECK_ONLY 早退分支等于永不执行)。
+    if (!CHECK_ONLY) checkConvergeAlignStall()
     // 看门人也要有人看:凭据/停摆巡检靠 schtasks 每 6 小时自跑,任务被删/被停/node 路径
     // 失效时它**自己不会喊**(故障形态是"安静",正是今天两天冻结的同类)。本守护每 2 分钟
     // 一趟且自身分层自愈,由它盯心跳最省。--check 仍零副作用。
@@ -1664,6 +1774,9 @@ function startDaemon() {
         healRootSeal()
         // 以及 §26 家目录改道(改道树被清后 2 分钟内自动补回;占用项 30 分钟冷却)
         healHomeJunctions()
+        // 收敛器收尾对齐停摆喊人(票 O74;与 main() 单轮路径同一挂点语义,notify 内部
+        // 还有一层 CHECK_ONLY/去重保护,双执行体并存也不会翻倍发信)
+        checkConvergeAlignStall()
       }
     } catch (e) {
       log('巡检异常(忽略): ' + String(e.message || e))
@@ -1698,6 +1811,9 @@ export const __test__ = {
   redactChildOutput,
   judgeDryRunChannel,
   notifyGuardRed,
+  shouldAlertAlignStall,
+  checkConvergeAlignStall,
+  alignStallThresholds,
   NOTIFY_DEFAULT_WINDOW_MS,
   NOTIFY_DEFAULT_FAIL_COOLDOWN_MS,
 }
