@@ -8,6 +8,7 @@ import type {
   CreateHookInput,
   Hook,
   HookAction,
+  HookNotifyChannel,
   HookTriggerEvent,
   TestHookResult,
 } from '@ihui/types'
@@ -44,7 +45,10 @@ export interface HookDraft {
   // script
   scriptCommand: string
   // notify
-  notifyChannel: 'toast' | 'notification' | 'email'
+  // 不再手抄联合:O80 已把 HookNotifyChannel 加宽到 4 值(含 webhook),第二份手抄
+  // 会让"载入一条 channel=webhook 的既有 hook"在 typecheck 层被判非法(main 实红过)。
+  // 下拉选项是否暴露 webhook 由 O80 的欠条(WEB_PENDING,until 2026-10-02)另行定夺。
+  notifyChannel: HookNotifyChannel | 'webhook'
   notifyMessage: string
   // log
   logMessage: string
