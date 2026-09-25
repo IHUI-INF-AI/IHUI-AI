@@ -173,7 +173,7 @@ Git 协作守门、CLI 验证、运维工具、证书管理、API 工具、基�
 | 脚本名                   | 用途                                                               | pre-commit 项 | 备注                                 |
 | ------------------------ | ------------------------------------------------------------------ | ------------- | ------------------------------------ |
 | dev-web.mjs              | 启动 @ihui/web dev server + 进程树生命周期管理(防僵尸 next-server) | —             | 支持 `--clean` `--port`              |
-| miniapp-preview.mjs      | 启动 miniapp H5 开发服务器并输出预览 URL                           | —             | `pnpm --filter @ihui/miniapp dev:h5` |
+| miniapp-preview.mjs      | 启动 miniapp H5 开发服务器并输出预览 URL                           | —             | `pnpm -F @ihui/miniapp-taro dev:h5`  |
 | setup-mirror-repos.mjs   | 国内镜像仓库一键初始化(Gitee + GitCode)                            | —             | 用 PAT,仓库已存在视为成功            |
 | grant-ihui-superuser.mjs | 给 ihui 数据库用户授予 SUPERUSER                                   | —             | 幂等                                 |
 | test-llm-connection.mjs  | 验证 AI service LLM 接入是否可用(/health + 模型调用)               | —             | 默认 AI_URL=http://localhost:8803    |
