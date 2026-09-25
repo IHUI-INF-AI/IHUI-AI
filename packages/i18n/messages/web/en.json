@@ -18256,6 +18256,7 @@
     "advancedAiTools": "Advanced AI Tools",
     "mediaTasks": "Media Tasks",
     "webTools": "Web Tools",
+    "figmaImport": "Design to Code",
     "voices": "Voice Library",
     "agentGovernance": "Agent Token Governance",
     "agentWorkbench": "Agent Workbench",
@@ -25208,6 +25209,23 @@
     "deleteConfirm": "Delete this voice? It can no longer be used for cloned TTS.",
     "refresh": "Refresh",
     "notFound": "Voice not found"
+  },
+  "figmaImportPage": {
+    "title": "Design to Code",
+    "subtitle": "Paste a Figma fileKey + node ID to generate runnable frontend component code (React+Tailwind / Taro).",
+    "targetReact": "React + Tailwind",
+    "targetTaro": "Taro Mini Program",
+    "fileKeyPlaceholder": "Figma fileKey (e.g. a1b2c3...)",
+    "nodeIdPlaceholder": "Node ID (e.g. 1:2 — copy link after selecting a frame)",
+    "run": "Generate Code",
+    "running": "Generating...",
+    "tokenHint": "Requires FIGMA_API_TOKEN on the server; falls back to a deterministic HTML skeleton if LLM generation fails.",
+    "errorRequired": "Please provide both fileKey and node ID",
+    "resultTitle": "Generated Result",
+    "copy": "Copy Code",
+    "copied": "Copied",
+    "degradedNotice": "LLM generation failed; degraded to a deterministic HTML skeleton (still usable, never blank).",
+    "metaNodes": "{nodes} nodes · {texts} texts · {images} image refs"
   },
   "webToolsPage": {
     "title": "Web Tools",
