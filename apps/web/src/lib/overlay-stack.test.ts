@@ -68,5 +68,17 @@ describe('overlay-stack', () => {
     const closable = ['menu', 'popover', 'dialog'].filter(isTopOverlay)
     expect(closable).toEqual(['dialog'])
   })
+
+  it('Radix 桥接:未自带 Esc 栈的弹层注册后,先注册的层让位;桥接层退出后收回栈顶', () => {
+    // 场景:帮助面板(已注册)开着 → Ctrl+K 命令面板(Radix,经桥接 push)叠开。
+    // 一次 Esc 只应关命令面板(Radix 自理),帮助面板的守卫必须判 false。
+    pushOverlay('global-shortcut-help-panel')
+    pushOverlay('global-command-palette')
+    expect(isTopOverlay('global-shortcut-help-panel')).toBe(false)
+    expect(isTopOverlay('global-command-palette')).toBe(true)
+    // 命令面板关闭(onOpenChange(false) → pop),帮助面板重新成为唯一可关层
+    popOverlay('global-command-palette')
+    expect(isTopOverlay('global-shortcut-help-panel')).toBe(true)
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
