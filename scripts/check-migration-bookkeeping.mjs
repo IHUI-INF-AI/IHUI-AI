@@ -33,10 +33,21 @@
  *     B8 max(created_at) == max(when)(migrate「不空转」的充要条件)
  *     B9 库内每行 hash 均为合法 sha256(64 位十六进制)且唯一 —— 防再现 2026-09-13 的
  *        污染形态(453 行中含 153 个重复 hash 与 `NOFILE:` / `manual_` 伪值)
+ *   旁路(warn 级,**不并入 B1-B5 的判红面**,也不改它们的退出码):
+ *     B10 journal 登记表当前是否「无人 in flight」—— 报五路径( journal / 两张 schema /
+ *        api 的 chat 路由与查询 )的 git 状态(已暂存 / 仅工作树脏 / 干净),以及
+ *        packages/database/drizzle 下**未跟踪的 .sql** 清单。
+ *        起因(2026-09-25 实测):本门离线 B1-B5 全过、exit 0,而绿**只是因为该门按工作树取材、
+ *        磁盘上正躺着别人未跟踪的迁移文件**,journal 的脏改动也没暂存。于是「账目结构合法」
+ *        与「这张登记表当前无人在飞」被混为一谈,后来者会据绿抢跑追加 idx。
+ *        本判据就是把第二件事变成机器可判的 —— 但只**报状态**,不判红:
+ *        别人的在飞改动不是本次提交的错(同守门 70/77/83 的"恒红门只会逼人 --no-verify")。
+ *        要问责请跑 `--require-idle`(CI / 巡检),默认不改退出码。
  *
  * 用法:
  *   node scripts/check-migration-bookkeeping.mjs            # 离线(默认)
  *   node scripts/check-migration-bookkeeping.mjs --staged   # pre-commit(等价离线)
+ *   node scripts/check-migration-bookkeeping.mjs --require-idle  # B10 由「只报」升为「判红」
  *   node scripts/check-migration-bookkeeping.mjs --db       # 追加库校验
  *       (DSN 取自 $DATABASE_URL,否则读 apps/api/.env 的 DATABASE_URL;
  *        psql 取自 $IHUI_PSQL,否则 D:\DevEnv\runtimes\pgsql\bin\psql.exe,否则 PATH 上的 psql)
@@ -44,6 +55,7 @@
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
+import { resolveGitBin } from './lib/gitdir.mjs'
 
 const ROOT = process.cwd()
 const DIR = join(ROOT, 'packages/database/drizzle')
@@ -51,6 +63,8 @@ const JOURNAL = join(DIR, 'meta/_journal.json')
 
 const args = process.argv.slice(2)
 const wantDb = args.includes('--db')
+// B10 定级开关:默认 warn(只报不改退出码);--require-idle 才升成判红(供 CI / 巡检问责)
+const requireIdle = args.includes('--require-idle')
 
 // 应急跳过(与仓库其它守门一致): HUSKY_SKIP_MIGRATION_BOOKKEEPING=1 git commit ...
 if (process.env.HUSKY_SKIP_MIGRATION_BOOKKEEPING === '1') {
@@ -248,6 +262,129 @@ if (wantDb) {
   }
 }
 
+// ---------- B10: journal 登记表是否「无人在飞」(warn 级,不并入 B1-B5 判红面) ----------
+// 口径要点(三条都是刻意选择,改前三思):
+//   ① 判的是**工作树 + 索引 + 未跟踪面**,不是 HEAD blob —— 本门问的就是"此刻有没有别人
+//      正在改这张登记表",按 HEAD 判永远得到"空闲",等于没有这道判据。
+//      (与 B1-B5 的取材面不同是有意的:B1-B5 判"账目结构合法",B10 判"登记表当前无人动"。)
+//   ② 只报不判红。别人的在飞改动不是本次提交的错,与改动无关的 blocking 红只会逼人
+//      --no-verify 并连带废掉全部守门(AGENTS §12e 同型)。问责出口是 --require-idle。
+//   ③ 刻意**不调用 wa()**:wa() 会计入末尾「N 条告警」计数,而那个计数是 B1-B4 的口径。
+//      B10 只新增自己的段落 + 一行独立小结,既有输出行逐字不变、退出码语义一字不动。
+const B10_WATCH = [
+  'packages/database/drizzle/meta/_journal.json',
+  'packages/database/src/schema/chat.ts',
+  'packages/database/src/schema/relation-tables.ts',
+  'apps/api/src/routes/chat.ts',
+  'apps/api/src/db/chat-queries.ts',
+]
+const B10_MIG_DIR = 'packages/database/drizzle'
+const GIT_READ_TIMEOUT_MS = Number(process.env.IHUI_B10_GIT_TIMEOUT_MS) || 15000
+
+/** git 只读调用:绝对路径 + safe.directory=* + windowsHide + timeout(AGENTS.md §5b / 守门 80) */
+function gitReadonly(gitArgs) {
+  const bin = resolveGitBin()
+  if (!bin) throw new Error('未解析到 git 可执行文件(resolveGitBin 全部候选失败)')
+  return execFileSync(bin, ['-c', 'safe.directory=*', '-C', ROOT, ...gitArgs], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+    timeout: GIT_READ_TIMEOUT_MS,
+  })
+}
+
+/** porcelain XY → 人话状态;同一路径多行取"更脏"的那一条 */
+function classifyXy(xy) {
+  if (xy.includes('U')) return { text: '未合并(merge 冲突中)', rank: 4 }
+  const x = xy[0] ?? ' '
+  const y = xy[1] ?? ' '
+  if (x === '?') return { text: '未跟踪', rank: 3 }
+  if (x !== ' ') return y !== ' ' ? { text: '已暂存 + 工作树另有改动', rank: 3 } : { text: '已暂存', rank: 3 }
+  if (y !== ' ') return { text: '仅工作树脏', rank: 2 }
+  return { text: '干净', rank: 0 }
+}
+
+/**
+ * 探针:返回 { verdict: 'idle'|'busy'|'undetermined', paths:[{path,state}], untrackedSql:[...], reason? }
+ * 取不到 git 状态 ⇒ verdict='undetermined' 且**绝不记为空闲**(失败必须响,B10 静默绿 = 没有)。
+ */
+function probeJournalIdle() {
+  let inside = ''
+  try {
+    inside = gitReadonly(['rev-parse', '--is-inside-work-tree']).trim()
+  } catch (e) {
+    return { verdict: 'undetermined', paths: [], untrackedSql: [], reason: `git 不可用:${String(e.message).split('\n')[0]}` }
+  }
+  if (inside !== 'true') {
+    return { verdict: 'undetermined', paths: [], untrackedSql: [], reason: `该目录不在 git 工作树内(rev-parse 返回 ${inside || '<空>'})` }
+  }
+  try {
+    // 注意:git status --porcelain 对**不存在/未跟踪的路径**给空输出,与"干净"同形。
+    // 故先用 ls-files 确认跟踪态,未跟踪一律判"无法判定",不得记为空闲。
+    const tracked = new Set(
+      gitReadonly(['ls-files', '--', ...B10_WATCH])
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter(Boolean),
+    )
+    const worst = new Map()
+    for (const line of gitReadonly(['status', '--porcelain', '--', ...B10_WATCH]).split(/\r?\n/)) {
+      if (line.trim() === '') continue
+      const raw = line.slice(3)
+      const p = (raw.includes(' -> ') ? raw.split(' -> ').pop() : raw).replace(/^"|"$/g, '').replace(/\\/g, '/')
+      const s = classifyXy(line.slice(0, 2))
+      const prev = worst.get(p)
+      if (!prev || s.rank > prev.rank) worst.set(p, s)
+    }
+    const paths = B10_WATCH.map((p) => {
+      if (!tracked.has(p)) return { path: p, state: '未被 git 跟踪', rank: -1 }
+      const s = worst.get(p)
+      return { path: p, state: s ? s.text : '干净', rank: s ? s.rank : 0 }
+    })
+    const untrackedSql = gitReadonly(['ls-files', '--others', '--exclude-standard', '--', B10_MIG_DIR])
+      .split(/\r?\n/)
+      .map((l) => l.trim().replace(/\\/g, '/'))
+      .filter((l) => l.endsWith('.sql'))
+    const unknown = paths.filter((p) => p.rank === -1)
+    if (unknown.length) {
+      return {
+        verdict: 'undetermined',
+        paths,
+        untrackedSql,
+        reason: `${unknown.length} 个受控路径未被 git 跟踪(${unknown.map((u) => u.path).join(', ')})——无法判定是否空闲`,
+      }
+    }
+    const dirty = paths.filter((p) => p.rank > 0)
+    if (dirty.length || untrackedSql.length) return { verdict: 'busy', paths, untrackedSql }
+    return { verdict: 'idle', paths, untrackedSql }
+  } catch (e) {
+    return { verdict: 'undetermined', paths: [], untrackedSql: [], reason: `git 查询失败:${String(e.message).split('\n')[0]}` }
+  }
+}
+
+console.log(`${C.bold}[迁移记账] B10 journal 登记表空闲性(warn 级,不参与 B1-B5 判定)${C.reset}`)
+const idle = probeJournalIdle()
+for (const p of idle.paths) {
+  const mark = p.rank > 0 ? C.yellow : p.rank === 0 ? C.green : C.yellow
+  console.log(`  ${mark}${p.rank > 0 ? '!' : '✓'}${C.reset} ${p.path} ${C.dim}${p.state}${C.reset}`)
+}
+for (const f of idle.untrackedSql) {
+  console.log(`  ${C.yellow}!${C.reset} ${f} ${C.dim}未跟踪的迁移文件(在飞)${C.reset}`)
+}
+if (idle.verdict === 'idle') {
+  ok('B10 空闲:五路径全干净且 drizzle/ 下无未跟踪 .sql')
+} else if (idle.verdict === 'busy') {
+  const d = idle.paths.filter((p) => p.rank > 0).length
+  console.log(
+    `  ${C.yellow}! B10 未判定,有人在飞 —— 受控路径 ${d} 个脏 / 未跟踪迁移 ${idle.untrackedSql.length} 枚(已逐条点名)${C.reset}`,
+  )
+} else {
+  console.log(`  ${C.yellow}! B10 未判定(无法取证):${idle.reason}${C.reset}`)
+}
+console.log(
+  `  ${C.dim}结论:B1-B5 绿不等于 journal 空闲,凡追加 idx / 新增迁移的票,开工前置是本判据报空闲。${C.reset}`,
+)
+
 // ---------- 汇总 ----------
 console.log('')
 if (warn.length) console.log(`${C.yellow}[迁移记账] ${warn.length} 条告警(非阻塞)${C.reset}`)
@@ -258,4 +395,13 @@ if (fail.length) {
   process.exit(1)
 }
 console.log(`${C.green}${C.bold}[迁移记账] ✓ 全部通过(${tags.length} 条迁移,离线${wantDb ? ' + 库内双射' : ''})${C.reset}`)
+
+// B10 问责档:只有 --require-idle 才把「非空闲 / 无法判定」升为判红。
+// 默认档(CI 与提交链跑的形态)退出码与 B1-B5 完全不变 —— 这是本票的硬约束。
+if (requireIdle && idle.verdict !== 'idle') {
+  const why = idle.verdict === 'busy' ? '有人在飞' : `无法判定(${idle.reason})`
+  console.error(`${C.red}${C.bold}[迁移记账] ✗ B10 --require-idle:journal 登记表非空闲 —— ${why}${C.reset}`)
+  console.error(`${C.dim}  开工前置未满足:等对方的迁移落地/暂存完毕,或把本次动作让给该票持有者。${C.reset}`)
+  process.exit(1)
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
