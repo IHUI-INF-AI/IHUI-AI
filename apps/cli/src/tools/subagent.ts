@@ -23,6 +23,7 @@
 import { setBaseUrl, setTokenProvider } from '@ihui/api-client';
 import { setupAgentTools, runToolLoop } from '../commands/agent.js';
 import type { Tool, ToolResult } from './index.js';
+import { createDangerGate } from './danger-gate.js';
 import { listTools, clearTools, registerTools } from './index.js';
 import { runHook } from '../hooks/index.js';
 import {
@@ -362,7 +363,11 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
         const { systemPrompt, ctx } = await setupAgentTools({
           workspacePath: effectiveWorkspace,
           silent: true,
-          confirmDangerous: async () => parentOpts.allowDangerous === true,
+          // 策略收口到唯一出口:子代理内无人可问 ⇒ 无 prompt,继承父进程 flag;未开即 denied(fail-closed,与旧行为逐路径等价)
+          confirmDangerous: createDangerGate({
+            allowDangerous: parentOpts.allowDangerous,
+            silent: true,
+          }),
           hunkTracker: parentOpts.hunkTracker,
           agentId: subagentId,
           subagentParent: {
