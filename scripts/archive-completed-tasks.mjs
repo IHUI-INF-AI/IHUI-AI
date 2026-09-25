@@ -52,6 +52,9 @@ const daysThreshold = daysIdx >= 0 && args[daysIdx + 1] ? parseInt(args[daysIdx 
 
 // git 二进制按 §5b 取候选,不依赖 PATH(钩子/服务账户环境下 PATH 可能没有 git)
 const GIT_BIN = (() => {
+  // IHUI_GIT_BIN 与守门 71 同名:既是换机逃生舱,也让**失败路径可被执行验证**
+  // (指向一个必然失败的可执行文件就能真跑到回滚分支,不靠静态断言)
+  if (process.env.IHUI_GIT_BIN) return process.env.IHUI_GIT_BIN
   for (const p of ['C:/Program Files/Git/bin/git.exe', 'git']) {
     try {
       execFileSync(p, ['--version'], { stdio: 'ignore', windowsHide: true, timeout: 15_000 })
@@ -287,12 +290,68 @@ function main() {
       const planRel = 'PROJECT_PLAN.md'
       const archiveRel = `.ihui-agent/archive/PROJECT_PLAN_${today}_auto-archive.md`
       const gitQ = ['-c', 'safe.directory=*'] // §5b:不得依赖环境
-      execFileSync(GIT_BIN, [...gitQ, 'add', '--', planRel, archiveRel], {
-        cwd: ROOT,
-        stdio: 'pipe',
-        windowsHide: true,
-        timeout: 120_000,
-      })
+      // `-f` + 事务性核验 —— 2026-09-25 实测:归档器**第一次真跑**就死在这里。归档目录被
+      // .gitignore 的 `.ihui-agent/` 整目录忽略 ⇒ `git add` 拒绝该路径 ⇒ 自动 commit 失败 ⇒
+      // 计划文档的改写以"已 staged 未提交"挂在**共享索引**里(别人一次不带 pathspec 的提交就把它
+      // 带走),而那 15KB 归档内容**只存在于本机**。同批把 .gitignore 改成 `.ihui-agent/*` +
+      // `!.ihui-agent/archive/` 让锚点默认可入库;`-f` 是防"将来又被人加回忽略"的兜底。
+      let stagedOk = false
+      try {
+        execFileSync(GIT_BIN, [...gitQ, 'add', '-f', '--', planRel, archiveRel], {
+          cwd: ROOT,
+          stdio: 'pipe',
+          windowsHide: true,
+          timeout: 120_000,
+        })
+        const staged = new Set(
+          execFileSync(
+            GIT_BIN,
+            [...gitQ, 'diff', '--cached', '--name-only', '--', planRel, archiveRel],
+            {
+              cwd: ROOT,
+              encoding: 'utf8',
+              windowsHide: true,
+              timeout: 120_000,
+            },
+          )
+            .split('\n')
+            .map((s) => s.trim())
+            .filter(Boolean),
+        )
+        stagedOk = staged.has(planRel) && staged.has(archiveRel)
+        if (!stagedOk) {
+          console.error(
+            C.red +
+              '❌ 归档未被索引收下(暂存集=' +
+              JSON.stringify([...staged]) +
+              ')—— 通常是 .gitignore 又把 .ihui-agent/archive/ 忽略了' +
+              C.reset,
+          )
+        }
+      } catch (e) {
+        console.error(C.red + '❌ git add -f 失败:' + e.message + C.reset)
+      }
+      if (!stagedOk) {
+        // 还原:**绝不留"内容已从计划里搬走、但没有任何版本记住它"的中间态**。
+        // 先按 §12d 的形态逐路径撤销暂存,再把工作树写回搬运前的原文(内存里那份 content)。
+        try {
+          execFileSync(GIT_BIN, [...gitQ, 'restore', '--staged', '--', planRel, archiveRel], {
+            cwd: ROOT,
+            stdio: 'pipe',
+            windowsHide: true,
+            timeout: 120_000,
+          })
+        } catch {
+          /* 撤销失败也要继续还原工作树,不在此处再抛 */
+        }
+        writeFileSync(PLAN_FILE, content, 'utf8')
+        console.error(
+          C.yellow +
+            '   已回滚:计划文档还原到搬运前,归档文件留在磁盘当证据。修好忽略规则/索引后重跑即可。' +
+            C.reset,
+        )
+        process.exit(1)
+      }
       const msg = `chore(auto): 归档 ${toArchive.length} 个已完成任务条目至 .ihui-agent/archive/`
       execFileSync(
         GIT_BIN,
