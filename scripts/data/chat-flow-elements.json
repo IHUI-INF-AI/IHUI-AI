@@ -53,27 +53,8 @@
     }
   },
   "commentOnlyAnchorBaseline": {
-    "$comment": "判据⑤ 注释式摘线的存量清单(2026-09-25 立)。下列锚点的关键标识在宿主文件里**只存在于注释中**,把 code 面上那行改成注释门却看不见 —— 判据⑤把匹配面从原文改为剥注释后的文本,它们即暴露。定级为存量只报数不判红(本门无 stagedTriggers、每轮都跑,当场判红即恒红门,唯一结局是逼人 --no-verify 连带废掉全部守门);只减不增,清偿动作是**把 mustMatch 改指代码面上的真实标识**(该条目持有人 PR 内完成),不得反向把注释删掉来消账。清单里若某项已不再命中(已被清偿)只提示移除,不计红。",
-    "entries": [
-      {
-        "id": "context-injection-disclosure",
-        "file": "apps/web/src/components/chat/message-list/MessageItem.tsx",
-        "mustMatch": "InjectionBar",
-        "note": "宿主内该词只在 D34/D37 的 JSX 注释里出现(真实渲染位是 m.injections);正解是把锚点改指代码面上的标识,属该条目持有人动作,不得为此放宽判据"
-      },
-      {
-        "id": "tool-row-bilingual-tense-wording",
-        "file": "apps/web/src/components/ai/task-status-bar.tsx",
-        "mustMatch": "describeToolActivity",
-        "note": "宿主内该词只在「与旧 describeToolActivity 等价」的说明注释里出现;同上"
-      },
-      {
-        "id": "runtime-permission-tier-visibility",
-        "file": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
-        "mustMatch": "permissionTier",
-        "note": "宿主内该子串只在 D111 注释里(作为 permissionTierWordKeys 的一部分)出现;同上"
-      }
-    ]
+    "$comment": "判据⑤ 注释式摘线的存量清单(2026-09-25 立)。锚点的关键标识若在宿主文件里**只存在于注释中**,剥注释后 code 面上即不存续 —— 定级为存量只报数不判红(本门无 stagedTriggers、每轮都跑,当场判红即恒红门,唯一结局是逼人 --no-verify 连带废掉全部守门);只减不增,清偿动作是**把 mustMatch 改指代码面上的真实标识**,不得反向把注释删掉来消账。清单里若某项已不再命中(已被清偿)只提示移除,不计红。**2026-09-25 首轮三处存量已全部按「重指向宿主代码面真实标识」清偿,清单归零**(三处宿主文件本身未改一行,只改锚点指针;旧值 → 新值:MessageItem.tsx 的 InjectionBar → ContextAssemblyBar,真实渲染位是该文件第 55 行 import 与第 1096 行 <ContextAssemblyBar injections={m.injections} />;task-status-bar.tsx 的 describeToolActivity → describeMcpToolActivity,该文件第 16 行 import、第 154 行调用,D83 接线后它就是这一行双时态措辞的去路;AiAssistantN8nScreen.tsx 的 permissionTier → PermissionTierRow,第 115 行 import、第 1805 行渲染位)。三处均判为「锚点选错了串」而非「能力未接通」,故一律未动用撤锚 —— anchorCountBaseline 的逐条目额度与 total(167)因此逐字未变。键刻意保留为空数组而非删除:判据⑤的存量出口必须一直在位,下一处新违规才有的可登记(删键等于该判据没有出口)。",
+    "entries": []
   },
   "implemented": [
     {
@@ -488,7 +469,7 @@
         },
         {
           "file": "apps/web/src/components/chat/message-list/MessageItem.tsx",
-          "mustMatch": "InjectionBar"
+          "mustMatch": "ContextAssemblyBar"
         },
         {
           "file": "apps/extension/entrypoints/sidepanel/components/MessageContent.tsx",
@@ -607,7 +588,7 @@
         },
         {
           "file": "apps/web/src/components/ai/task-status-bar.tsx",
-          "mustMatch": "describeToolActivity"
+          "mustMatch": "describeMcpToolActivity"
         }
       ]
     },
@@ -772,7 +753,7 @@
       "anchors": [
         {
           "file": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
-          "mustMatch": "permissionTier"
+          "mustMatch": "PermissionTierRow"
         },
         {
           "file": "apps/extension/entrypoints/sidepanel/components/MessageContent.tsx",
