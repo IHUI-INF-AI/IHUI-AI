@@ -5976,7 +5976,7 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - **O40 残余(一条,不是待办清单)**:TEMP 漂移仍在恶化回潮通道 —— HKCU `TEMP=D:\DevEnv\Temp`,但实测 `pwsh $env:TEMP` 与 `node -p os.tmpdir()` **都还是** `C:\Users\Administrator\AppData\Local\Temp`;环境块只被新进程继承 ⇒ 新开终端/重启宿主前,任何走 `os.tmpdir()` 的脚本会继续落 C(当前 C 侧 TEMP 仅 65.4 MB)。另有 7 个脚本的 `--self-test` 仍直接用 `os.tmpdir()`,由守门 91 提供可见性。
 - **O40 残余(不写作收口)**:① R4 仍有 **45 枚**已接线而文档零点名的门 —— 补登记属机械活但体量不小,且 README.md 此刻仍被并发会话 `MM` 暂存锁住(解阻判据 `git status --porcelain -- README.md` 为空);R4 判据设计为"AGENTS ∪ README 任一提到即算",所以两本都能收账。② `check-watermark-syntax.mjs` 仍是"先修判据再接"在册债:26 条红点里**真存量债 0 条**(22 条落在被 gitignore 的本地产物上,因判据用 `readdirSync` 全 walk 而非 `git ls-files`;另 4 条是正则字面量/自家夹具/`watermark.mjs` 自己注入的 L3 尾行被判红),四步修法已写进 O39 残余 ①。③ `check-sse-dispatch-parity.mjs` 已被并发会话登记为守门 90,但它"帧清单读磁盘、命中集读 HEAD"的跨取材面缺陷**不在本票职权内**,由该门持有人处理;门 89 的 R1/R2 实测对它零红,说明这道门不会自己变红,风险落在判据准确性而非接线状态。④ 台账既有 4 条(`check-lock`/`check-messages-dev-restart`/`check-p2-3-acceptance`/`scan-upstream-models`)仍沿用建账轮的自述分类未逐枚追真调用点,门 89 的"可撤销豁免"巡检会在它们真接线后点名。
 - [x] ✅(2026-09-25 现测:**本票所述的 venv 退化已不存在**,但同一条命令顺手量出 46 条 collection error,根因不是 venv,另立一条见下) **ai-service `.venv` 处于半损坏态**:`.venv/pyvenv.cfg` 丢失(venv 退化成全局解释器视角,`python -m pytest` 报 no module;已按 uv 0.12.4 形态重建 cfg 恢复 venv 识别),且 `uv sync` 全量对齐被 **pywin32 的 pywintypes312.dll 文件锁**打断(本地有一个 61MB 的 python 进程疑似占着 DLL,不杀并行会话可能在用的进程)。当前状态:大部分包在,`requests`/`idna` 等在 sync 中断中丢失,O17/A2A 卡片测试文件因 import 链过长暂无法在本机 pytest。**修复路径**:确认占 DLL 的进程身份并终止(或停本地 ai-service dev 实例)→ 重跑 `uv sync --no-install-package pywin32` → 跑 `tests/test_a2a_agent_card.py`(含 2026-09-24 新增 3 用例)。O20 的行为正确性已由临时验证脚本 7/7 实证(`.ihui-agent/tmp/mail-0924/verify_host_fix.py`,用后即删)。
-- [ ] **node `spawnSync` 对原生 exe 持续 EBUSY**(`schtasks.exe`/`cmd.exe` 全中,`execSync` 同):`safe-commit.mjs`、`git-sync-converge.mjs`、`.husky/post-commit` 的推送腿在此环境下失效,提交落地但自动推送缺席。绕行:prettier/eslint 判据手动实跑 + 提交靠并行会话的 converge push 带上(073de24 已实证被带上;2dddc85 待带上,见下)。git.exe 进程堆积的清理方法见 skill 记载(MSYS_NO_PATHCONV 前缀防路径转换)。**本机命令校验层**(WorkBuddy 安全策略)拦截计划任务注册类命令文本,agent 无法直接注册——注册类动作须人执行或由已有守护设施代做。
+- [x] ✅(2026-09-25 现测证伪:`spawnSync('schtasks.exe'|'cmd.exe')` 与 `execSync` 同题各 2 例全部 status=0 且有输出;推送腿 converge 本轮实测 done) **node `spawnSync` 对原生 exe 持续 EBUSY**(`schtasks.exe`/`cmd.exe` 全中,`execSync` 同):`safe-commit.mjs`、`git-sync-converge.mjs`、`.husky/post-commit` 的推送腿在此环境下失效,提交落地但自动推送缺席。绕行:prettier/eslint 判据手动实跑 + 提交靠并行会话的 converge push 带上(073de24 已实证被带上;2dddc85 待带上,见下)。git.exe 进程堆积的清理方法见 skill 记载(MSYS_NO_PATHCONV 前缀防路径转换)。**本机命令校验层**(WorkBuddy 安全策略)拦截计划任务注册类命令文本,agent 无法直接注册——注册类动作须人执行或由已有守护设施代做。
 - [ ] **O20 提交待上 origin**:`2dddc85c588`(web 反代白名单 + 卡片 Host 推导反代免疫 + LIVE-D02 公网回归)在本地 main,因 EBUSY converge 推送缺席,等并行会话下一轮 converge 带上;部署生效后跑 `node scripts/e2e-agent-access.mjs --live` 看 LIVE-D02,并验 `https://aizhs.top/.well-known/agent.json` 200。
 
 ## 环境事实(2026-09-24 本会话登记,零尾巴后续)
@@ -8318,7 +8318,26 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 - **顺手补了尺子自己的一个整型盲区**:型 A 的正则只认 `execFileSync('git', …)` 这种**字面量首参**,而本票迁的 6 道门**全是**型 B —— `const GIT = process.env.IHUI_GIT_BIN || 'git'` 再 `execFileSync(GIT, …)`。不补这条,收口做完了棘轮数字却一动不动,会被读成"收口无效"。现新增 `pathBoundGitCountOf` + 独立棘轮(首量 **9**),并在反例里写死"字符串中间的同名片段"与"`join(…, 'backups', 'git')` 这个**目录名**"两条不得误报 —— 后者是第一版尺子真被骗过的那一行(`lib/gitdir.mjs:265`,把基线从 9 报成 10),单靠声明行无法区分,所以加了"该标识符必须被当过派生首参"第二道锚。
 - **型 C 棘轮 9 → 3**(余 103 / 93 / 84 三道,即上面按住的两道加一道未派单的 `check-cross-end-tokens`)。
 - **一处未动、如实登记**:`scripts/tests/check-theme-prop-wiring.test.mjs` 工作树相对 HEAD 只差**末尾 L3 零宽载荷行**(水印自愈产物,可见内容逐字节不变)。不属于本票逻辑改动,未代收 —— 谁提交它谁受水印门管,这是它的正确归属。
-- **并行代理交付里被我发现并核过的三处**(不采信自报):代理 C 报告称改了 `git-guardian-drift-align.test.mjs`,而我 09:17 的 `git status` 里**没有**这一项 → 复核为"报告时它已完成、我的读数是更早一次的",现在该文件确在 modified 列表内(闭包按 import 递归推导,不再手抄依赖清单)。代理 A 声称"三门逐字对齐",我用自己的 A/B 复跑 12 组独立确认。代理 B 声称的 2 项迁移**未落地**(arch-policy / stale-revert face-reader 引用数实测 0),按未交付处理,缺口自己读码重新定性为层缺原语而非代理偷懒。
+- **并行代理交付里被我发现并核过的三处**(不采信自报):代理 C 报告称改了 `git-guardian-drift-align.test.mjs`,而我 09:17 的 `git status` 里**没有**这一项 → 复核为"报告时它已完成、我的读数是更早一次的",现在该文件确在 modified 列表内(闭包按 import 递归推导,不再手抄依赖清单)。代理 A 声称的三门逐字对齐,我用自己的 A/B 复跑 12 组独立确认。代理 B 声称的 2 项迁移**未落地**(arch-policy / stale-revert face-reader 引用数实测 0),按未交付处理。
+
+### O63·续(2026-09-25):按"接新任务"扫台账,结果五条未认领票当场实测全是幻影债 —— 翻勾并留下逐条命令,另立一条**真**拦路项
+
+- **为什么这算一件事**:第四十批那票已经把同一批结论登记过一遍(L6352),但**原文的 `- [ ]` 没翻勾**,所以 `check-task-claims.mjs` 仍把它们报成"无人认领可派"。该工具自己的告警就是这句:"按旧行派单即白烧一轮"。本票做的增量是**逐条翻勾 + 每人一条可复跑的命令**,不是重新发现。
+- **逐条现测(全部在 10:5x 的同一个 HEAD 上跑)**:
+  | 台账行 | 旧结论 | 现测命令 | 结果 |
+  | --- | --- | --- | --- |
+  | L5636 | 4 道 blocking 门红在 HEAD | `node scripts/check-{radius-single-source,brand-foreground,no-visible-spawn,dedupe}.mjs` | 四道 **rc=0**;门 52 输出里 `check-git-read-timeout` 命中数 **0**(那 8 处夹具命中已消失),其镜像测试 31/31 |
+  | L5462 / L6281(逐字副本两份) | 索引里 16 条"已暂存的删除"会被人一次普通 commit 带走 | `node scripts/heal-worktree-tracked.mjs --check --json` | `{"restored":0,"held":0,"reconciled":0,"orphanIndex":0,"paths":[]}` |
+  | L5978 | `.venv/pyvenv.cfg` 丢失,venv 退化成全局解释器 | `ls .venv/pyvenv.cfg` + `.venv/Scripts/python.exe -m pytest --collect-only -q` | cfg 在位(282B)、`sys.prefix != base_prefix` 为 True、collect **13457** 条 ⇒ **venv 这一半已不存在** |
+  | L5979 | `spawnSync` 对原生 exe 持续 EBUSY,拖死推送腿 | 同一进程内对 `schtasks.exe` / `cmd.exe` 各跑 `spawnSync` 与 `execSync` | 四个读数全部 `status=0` 且 stdout 非空(53 / 95 字节)⇒ **不复现** |
+  | L6728 | 缺 `notify-deploy-failure` 的参数/收件人/payload 测试 | `ls apps/api/tests/notify-deploy-failure.test.ts` + `--twins` | 文件在库;`--twins` 判其为已勾 L6729 的孪生行 |
+- **`.venv` 那条不许写成"全绿"**(有残余就不得说收口):同一条 `--collect-only` 顺手量出 **46 个文件 collection error**。根因**不在 venv**,是 `app/services/tool_input_scanner.py:32` 的 `from .sandbox import _DANGEROUS_PATTERNS` 解析到了**未跟踪目录** `apps/ai-service/app/services/sandbox/`(`git status` = `??`,HEAD 里根本没有它,HEAD 只有单文件 `sandbox.py` 且它确实定义那个名字)。Python 让**包遮蔽模块** ⇒ 并行会话把 `sandbox.py` 拆成包的过程中,这台机整片 ai-service 测试不可收集。
+  - **证明它不是仓库缺陷**(而不是只讲道理):`git archive HEAD apps/ai-service | tar -x` 出来的干净导出里只有 `sandbox.py`、没有 `sandbox/`,那条 import 链在导出中可解析 ⇒ 红在**本机在飞现场**,不在提交树。
+  - **归属与解阻判据**:握 `sandbox/` 的那条会话 —— 要么在 `sandbox/__init__.py` 里 re-export `_DANGEROUS_PATTERNS`(或把 `tool_input_scanner` 改指新落点),要么删掉旧 `sandbox.py`;二者任一落地后 `cd apps/ai-service && .venv/Scripts/python.exe -m pytest --collect-only -q` 必须 `46 errors` 归零。**本票不代改**(未跟踪目录里全是他人代码,§12 越权线)。
+- **两条顺手量到的机器事实,只登记不处置**(它们不挡本票的链,处置权也不在我):
+  1. **本机 `os.tmpdir()` 与 HKCU `TEMP` 实测都是 `D:\caches\Temp`**,而 AGENTS §26 与本台账多处把它写成 `D:\DevEnv\Temp`。 ⇒ L316 那条"未接 `scratch-dir` 的脚本仍会落 C 盘"的**两个扩面触发条件当场都不成立**(守门 92 判 TEMP 一致;C 盘 TEMP 里没有本项目产物前缀),所以那 15 个未接 `scratch-dir` 的生产脚本继续按住是对的 —— 但按住的**理由**要换成"落点同为 D 盘",不能再引用一个不存在的盘符目标。
+  2. 守门 92 现测「**C 盘本项目产物 865 项 / 约 13120 MB**」,其中含 `C:\temp\{full,ml,ml2}.log`(内容归因命中,非名字命中)。该门 warn-only 且**没有处置挂点**,`c-drive-auto-maintain.ps1` 的删除面按名字白名单走,这三个名字不在其中 ⇒ 想清必须先补名字并得到用户授权(§26:注册/删除动作影响全机)。
+- **一句话教训**:"扫台账接活"这一步的产出不该是"找到一条待办就开工",而是**先在当次 HEAD 上把旧结论重测一遍**。这次五条里四条是已经被别人修好的,真可做的只有"翻勾 + 留命令"这一件 —— 剩下那条 46 错的拦路项,归属明确,不该由我代改。
 ### 第四十九批·续五(2026-09-25):`git mv` 的还账动作被"复活"第二次 —— 这次不是自愈,是一枚提交把它写回了 HEAD
 - **现象**:`node scripts/check-architecture-policy.mjs` 全量判红 2 处(D1+D2,同一枚文件)
   `packages/i18n/tests/waiting-keys-in-end-packages.test.ts:19`。而**这条账本来已经还掉了**:
