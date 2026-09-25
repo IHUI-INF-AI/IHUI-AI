@@ -89,6 +89,7 @@
     "check:dep-links:strict": "node scripts/check-workspace-dep-links.mjs --strict",
     "check:merge-loss": "node scripts/check-merge-addition-loss.mjs",
     "check:desktop-cache-plaintext": "node scripts/check-desktop-cache-plaintext.mjs",
+    "scrub:temp": "node scripts/scrub-temp-fixtures.mjs",
     "alerts:render": "node scripts/render-alertmanager-config.mjs",
     "alerts:check": "node scripts/render-alertmanager-config.mjs --check",
     "test:alertmanager-config": "node --test scripts/tests/render-alertmanager-config.test.mjs",
