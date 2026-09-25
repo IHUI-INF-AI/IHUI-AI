@@ -12,7 +12,6 @@ import { fetchApi } from '@ihui/api-client'
 import type { ActivityItem } from '@ihui/types'
 import { useTt } from '@/i18n'
 import ThemeRoot from '@/components/ThemeRoot'
-import BackChevron from '@/components/BackChevron'
 
 /** Taro rpx 单位换算(1px = 2rpx,750 设计稿基准) */
 const toRpx = (px: number): string => `${px * 2}rpx`
@@ -185,17 +184,10 @@ export default function ActivityList() {
     void load()
   })
 
-  const goBack = () => {
-    Taro.navigateBack({ delta: 1 }).catch(() => {
-      Taro.switchTab({ url: '/pages/index/index' })
-    })
-  }
-
   return (
     <ThemeRoot>
       <View style={viewStyles.container()}>
         <View style={viewStyles.header()}>
-          <BackChevron onTap={goBack} />
           <Text style={textStyles.title()}>{tt('activity.title', '平台活动')}</Text>
         </View>
 

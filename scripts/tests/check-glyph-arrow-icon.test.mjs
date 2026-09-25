@@ -292,16 +292,19 @@ test('HEAD 口径:全量必须判 HEAD blob,不得回退成"按磁盘读"(共享
 
 test('S0 机制清单必须就是 AGENTS.md 点名的那些唯一实现,且每个条目自带锚点与矢量判据', () => {
   // 按**路径集合**对账而不是按条数:条数断言只会说"不对",路径集合会说"多了谁/少了谁"。
-  // 清单第 4 条(2026-09-25)= 小程序端页头返回键,与前三条「更多」箭头同属"箭头必须是矢量"这一族。
+  // 第 4/5 条(2026-09-25)= 页头返回键的**两份同名实现**(小程序端内 + RN/共享屏层)。
+  // 为什么两份都要登记:只看着端内那一份时,共享层 `packages/app` 那份被摘线(改回文本字形、
+  // 或没人 import)本门全绿 —— 而 RN 与桌面端同时失去唯一实现。同名不同实现最容易只记一份。
   assert.deepEqual(
     [...gate.MECHANISMS.map((m) => m.file)].sort(),
     [
       'apps/miniapp-taro/src/components/BackChevron.tsx',
       'apps/miniapp-taro/src/components/LineIcon/icons.ts',
       'apps/web/src/components/common/view-more-link.tsx',
+      'packages/app/src/components/BackChevron.tsx',
       'packages/app/src/components/MoreLink.tsx',
     ].sort(),
-    'S0 机制清单与既定四条形成了偏差',
+    'S0 机制清单与既定五条形成了偏差',
   )
   for (const m of gate.MECHANISMS) {
     assert.ok(
@@ -329,4 +332,59 @@ test('真仓 HEAD 上 S0 必须为 0(机制此刻就在位;谁摘线谁变红,�
     `S0 现状即结论:${result.violations.s0.map((x) => `${x.file}:${x.msg}`).join(' | ')}`,
   )
 })
+
+test('GA5 / GA6 必须真的挂在 scan() 上(判据写在文件里而没人调用 = 没有这道门)', () => {
+  // 守门 70/76/81 的同一型事故:函数存在、自检也过,但 scan() 从没调它 ⇒ 提交链上一路绿灯。
+  // 这里不读源码注释,直接喂内存 reader 走 scan,拿**出口桶**证明接线。
+  const read = (p) => FIXTURES[p] ?? null
+  const { violations, notes } = gate.scan(read, Object.keys(FIXTURES), { checkWiring: true })
+  assert.equal(violations.ga5.length, 1, 'GA5 整格混写未经 scan() 产出(接线断了或判据被摘)')
+  // 该红的两个(裸键型 + NavBar 型),该绿的一个(custom 页)—— 只有红没有绿就是恒红门,
+  // 而恒红门的实际结局是逼人 --no-verify、连带废掉全部守门。"取不到 config"的正反例由 --self-test 管。
+  assert.deepEqual(
+    violations.ga6.map((x) => x.file).sort(),
+    [
+      'apps/miniapp-taro/src/pages/dupe/index.tsx',
+      'apps/miniapp-taro/src/pages/navbar/index.tsx',
+    ],
+    `GA6 跨文件判据未经 scan() 产出,或继承链判序坏:${violations.ga6.map((x) => x.file).join(' | ')}`,
+  )
+  assert.equal(notes.chromeUndetermined.length, 0, '本夹具两处 config 齐备 ⇒ 不该出现未判定')
+  // GA6 与屏文件同面:config 必须由**同一个 readFile** 取,不得自己 import 磁盘
+  assert.ok(
+    !/readFileSync\([^)]*\.config\.ts/.test(
+      readFileSync(join(ROOT, 'scripts', 'check-glyph-arrow-icon.mjs'), 'utf8'),
+    ),
+    'GA6 直接按磁盘读页面 config 会造出"索引里没改而磁盘上改了"的假红/假绿',
+  )
+})
+
+test('新增豁免族必须在守门 108 的存活期表里登记(否则它只报数不判红,等于无限期豁免)', () => {
+  const expiry = readFileSync(join(ROOT, 'scripts', 'check-exemption-expiry.mjs'), 'utf8')
+  for (const fam of ['back-label-exempt', 'nav-chrome-exempt']) {
+    assert.ok(
+      new RegExp(`'${fam}':\\s*\\d+`).test(expiry),
+      `${fam} 是本门的人工出口,却没在 108 的 FAMILY_LIFETIME_DAYS 登记 —— 未登记族只报数,豁免就永不过期`,
+    )
+  }
+})
+
+// 上面那条 scan 接线断言的夹具:三种出口各一个(ga5 命中 / ga6 命中 / ga6 未判定)
+const FIXTURES = {
+  'apps/miniapp-taro/src/mix.tsx':
+    "export const P = ({ go }) => <Text onClick={go}>← 返回</Text>\n",
+  'apps/miniapp-taro/src/pages/dupe/index.tsx':
+    "import BackChevron from '@/components/BackChevron'\nexport default function V() {\n  return <BackChevron />\n}\n",
+  'apps/miniapp-taro/src/pages/dupe/index.config.ts':
+    "export default definePageConfig({ navigationBarTitleText: '标题' })\n",
+  'apps/miniapp-taro/src/pages/navbar/index.tsx':
+    "import NavBar from '@/components/NavBar'\nexport default function W() {\n  return <NavBar />\n}\n",
+  'apps/miniapp-taro/src/pages/alright/index.tsx':
+    "import NavBar from '@/components/NavBar'\nexport default function Z() {\n  return <NavBar />\n}\n",
+  'apps/miniapp-taro/src/pages/alright/index.config.ts':
+    "export default definePageConfig({ navigationStyle: 'custom' })\n",
+  'apps/miniapp-taro/src/app.config.ts':
+    "export default defineAppConfig({ window: { navigationBarTitleText: 'I' } })\n",
+  'apps/miniapp-taro/src/components/MoreLink.tsx': 'x',
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
