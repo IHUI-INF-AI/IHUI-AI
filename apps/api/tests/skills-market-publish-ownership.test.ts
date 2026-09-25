@@ -70,9 +70,14 @@ import { verifyAccessToken } from '@ihui/auth'
 import type { SkillMarketEntry } from '@ihui/shared/skills/market'
 
 const MARKET_KEY = 'skills-market:global'
-const ATTACKER_ID = 101
-const OTHER_OWNER_ID = 202
-const ADMIN_ID = 900
+/**
+ * 身份一律用**真机形状**(users.id 是 uuid,见 packages/database/src/schema/users.ts)。
+ * 用 '101' 这类数字串是本缺陷的藏身之处:Number('101')===101 让"写入侧强转"与
+ * "存原文"两种实现同样通过,于是 NaN 失效只有真机才会暴露。
+ */
+const ATTACKER_ID = '7f0f3f2a-1c4b-4a8e-9d21-0a3b5c7e9f01'
+const OTHER_OWNER_ID = 'b21c9d47-55ae-4f30-8c72-1e6e0d2a4f02'
+const ADMIN_ID = 'e5a1b7c3-0d94-4e6f-8b2a-6f1c3d5a7b03'
 
 /** 内置条目上登记的订阅者:攻击若得逞就会向他们 LPUSH 伪更新 —— 判据 C 的观测面 */
 const SUBSCRIBERS_OF_BUILTIN = ['11', '12', '13']
@@ -328,17 +333,12 @@ beforeEach(() => {
 
 describe('POST /api/skills/market —— 归属与改写授权不得由自报 author 背书', () => {
   it('攻击复现:普通用户以 author="IHUI" 认领内置条目 ⇒ 403 且零副作用', async () => {
-    await attackAndAssertRejected(
-      { userId: String(ATTACKER_ID) },
-      publishBody(),
-      'content_engine',
-      403,
-    )
+    await attackAndAssertRejected({ userId: ATTACKER_ID }, publishBody(), 'content_engine', 403)
   })
 
   it('换作者名不构成绕过:code-reviewer(内置,author=OpenSource)同样 403', async () => {
     await attackAndAssertRejected(
-      { userId: String(ATTACKER_ID) },
+      { userId: ATTACKER_ID },
       publishBody({ name: 'code-reviewer', author: 'OpenSource' }),
       'code-reviewer',
       403,
@@ -347,7 +347,7 @@ describe('POST /api/skills/market —— 归属与改写授权不得由自报 au
 
   it('hub 条目(内部同步,无 ownerId)普通用户不可改 ⇒ 403', async () => {
     await attackAndAssertRejected(
-      { userId: String(ATTACKER_ID) },
+      { userId: ATTACKER_ID },
       publishBody({ name: 'hub-sync', version: '4.0.0' }),
       'hub-sync',
       403,
@@ -361,7 +361,7 @@ describe('POST /api/skills/market —— 归属与改写授权不得由自报 au
     expect(beforeTarget.source).toBeUndefined()
 
     const res = await publishAs(
-      { userId: String(ATTACKER_ID) },
+      { userId: ATTACKER_ID },
       publishBody({ name: 'legacy', author: 'tester' }),
     )
 
@@ -381,7 +381,7 @@ describe('POST /api/skills/market —— 归属与改写授权不得由自报 au
 
   it('他人已归属条目:普通用户改它 ⇒ 403(原实现完全不校归属)', async () => {
     await attackAndAssertRejected(
-      { userId: String(ATTACKER_ID) },
+      { userId: ATTACKER_ID },
       publishBody({ name: 'theirs', author: 'someone-else', version: '2.0.0' }),
       'theirs',
       403,
@@ -396,12 +396,12 @@ describe('POST /api/skills/market —— 归属与改写授权不得由自报 au
     const before = fingerprint()
     const badPayload = publishBody({ description: '' })
 
-    const forbidden = await publishAs({ userId: String(ATTACKER_ID) }, badPayload)
+    const forbidden = await publishAs({ userId: ATTACKER_ID }, badPayload)
     expect(forbidden.statusCode).toBe(403)
 
     // 反向对照:同一个 body 换成 admin 必须是 400 —— 少了这句,本用例可能因为
     // "参数本来就错得离谱"而恒真,测的就不是顺序而是别的东西。
-    const badParam = await publishAs({ userId: String(ADMIN_ID), roleId: 1 }, badPayload)
+    const badParam = await publishAs({ userId: ADMIN_ID, roleId: 1 }, badPayload)
     expect(badParam.statusCode).toBe(400)
     expect(fingerprint()).toBe(before)
     expect(redis.set).not.toHaveBeenCalled()
@@ -410,7 +410,7 @@ describe('POST /api/skills/market —— 归属与改写授权不得由自报 au
   it('授权先于作者冲突探针:非归属者 + 错误 author 打内置条目 ⇒ 403 而不是 409', async () => {
     // 旧顺序把 409 当探针:任何人(哪怕毫无归属)都能靠"409/200 之分"枚举某条目的作者名。
     await attackAndAssertRejected(
-      { userId: String(ATTACKER_ID) },
+      { userId: ATTACKER_ID },
       publishBody({ author: 'wrong-author' }),
       'content_engine',
       403,
@@ -419,7 +419,7 @@ describe('POST /api/skills/market —— 归属与改写授权不得由自报 au
 
   it('正向仍在位:归属者本人 + 错误 author ⇒ 409(校验收住了,没被顺手删掉)', async () => {
     const res = await publishAs(
-      { userId: String(ATTACKER_ID) },
+      { userId: ATTACKER_ID },
       publishBody({ name: 'mine', author: 'not-me' }),
     )
     expect(res.statusCode).toBe(409)
@@ -429,7 +429,7 @@ describe('POST /api/skills/market —— 归属与改写授权不得由自报 au
 describe('POST /api/skills/market —— 合法路径没被修死(正向对照)', () => {
   it('归属者本人更新自己的条目 ⇒ 200,字段刷新且 installCount/rating 保留', async () => {
     const res = await publishAs(
-      { userId: String(ATTACKER_ID) },
+      { userId: ATTACKER_ID },
       publishBody({
         name: 'mine',
         author: 'tester',
@@ -455,7 +455,7 @@ describe('POST /api/skills/market —— 合法路径没被修死(正向对照)'
   it('订阅者的通知链没有被摘线:版本一变,3 名订阅者各得一条', async () => {
     // content_engine 是内置条目 ⇒ 普通用户发不动;用 admin 治理面验证通知链在位
     const res = await publishAs(
-      { userId: String(ADMIN_ID), roleId: 1 },
+      { userId: ADMIN_ID, roleId: 1 },
       publishBody({ name: 'content_engine', author: 'IHUI', version: '1.3.0' }),
     )
     expect(res.statusCode).toBe(200)
@@ -467,7 +467,7 @@ describe('POST /api/skills/market —— 合法路径没被修死(正向对照)'
 
   it('普通用户以自己 author 新建条目 ⇒ 201 + ownerId=自己 + source=user（内置名冒充由 create 闸拦下，另有用例；此处必须用非内置名才不构成正向对照与攻击载荷互斥）', async () => {
     const res = await publishAs(
-      { userId: String(ATTACKER_ID) },
+      { userId: ATTACKER_ID },
       publishBody({ name: 'brand-new', author: 'tester-owned' }),
     )
     expect(res.statusCode).toBe(201)
@@ -479,7 +479,7 @@ describe('POST /api/skills/market —— 合法路径没被修死(正向对照)'
 
   it('系统管理员(roleId=1)是认领无主语义目的唯一出口', async () => {
     const res = await publishAs(
-      { userId: String(ADMIN_ID), roleId: 1 },
+      { userId: ADMIN_ID, roleId: 1 },
       publishBody({ name: 'legacy', author: 'tester', version: '1.0.1' }),
     )
     expect(res.statusCode).toBe(200)
@@ -515,7 +515,7 @@ describe('POST /api/skills/market —— 合法路径没被修死(正向对照)'
 
   it('错的内部密钥不构成内部通道:回落为普通用户 ⇒ 内置条目 403', async () => {
     await attackAndAssertRejected(
-      { userId: String(ATTACKER_ID), secret: 'not-the-secret' },
+      { userId: ATTACKER_ID, secret: 'not-the-secret' },
       publishBody(),
       'content_engine',
       403,
@@ -525,7 +525,7 @@ describe('POST /api/skills/market —— 合法路径没被修死(正向对照)'
   it('userId 写着管理员的号但 roleId=0 ⇒ 不是 admin ⇒ 内置条目仍 403(档位不等于 id)', async () => {
     // admin 依据只有 jwtPayload.roleId >= 1 这一条;把 userId 填成某个管理员的号不构成提权。
     const res = await publishAs(
-      { userId: String(ADMIN_ID) },
+      { userId: ADMIN_ID },
       publishBody({ name: 'content_engine', author: 'IHUI' }),
     )
     expect(res.statusCode).toBe(403)

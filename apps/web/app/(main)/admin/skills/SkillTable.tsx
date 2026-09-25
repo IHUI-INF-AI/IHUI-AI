@@ -18,7 +18,11 @@ interface Props {
   error: Error | null
   total: number
   onEdit: (skill: Skill) => void
-  onDelete: (id: string) => void
+  /**
+   * 删除入口的入参是 **name**,不是 id:`SkillRecord` 没有 id,后端按
+   * `DELETE /api/skills/:name` 寻址(见 ./types.ts 的 Skill 注释)。
+   */
+  onDelete: (name: string) => void
   onOpenMarket: () => void
 }
 
@@ -80,7 +84,7 @@ export function SkillTable({
         </thead>
         <tbody>
           {skills.map((skill) => (
-            <tr key={skill.id} className="transition-colors hover:bg-muted/30">
+            <tr key={skill.name} className="transition-colors hover:bg-muted/30">
               <td className="px-4 py-2.5">
                 <div className="flex items-center gap-2">
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
@@ -128,7 +132,7 @@ export function SkillTable({
                     variant="ghost"
                     size="sm"
                     className="text-destructive hover:text-destructive"
-                    onClick={() => onDelete(skill.id)}
+                    onClick={() => onDelete(skill.name)}
                   >
                     <Trash2 className="mr-1 h-3.5 w-3.5" />
                     {tc('delete')}
