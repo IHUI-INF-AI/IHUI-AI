@@ -82,7 +82,9 @@ export default function AiCircle() {
   return (
     <View className="min-h-screen bg-background pb-[160rpx]">
       <View className="p-[24rpx] bg-card border-b border-[var(--color-border)]">
-        <Text className="text-[length:36rpx] font-semibold text-foreground">{t('aiCircle.title')}</Text>
+        <Text className="text-[length:36rpx] font-semibold text-foreground">
+          {t('aiCircle.title')}
+        </Text>
       </View>
       <View className="p-[24rpx]">
         {loading ? (
@@ -128,7 +130,7 @@ export default function AiCircle() {
                         src={avatar}
                         mode="aspectFill"
                       />
-                      <Text className="flex-1 min-w-0 text-[length:26rpx] font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
+                      <Text className="flex-1 min-w-0 text-[length:26rpx] font-medium text-foreground overflow-hidden ihui-ellipsis whitespace-nowrap">
                         {author}
                       </Text>
                       {createTime ? (
@@ -138,7 +140,7 @@ export default function AiCircle() {
                       ) : null}
                     </View>
                     {title ? (
-                      <Text className="block text-[length:30rpx] font-semibold text-foreground overflow-hidden text-ellipsis line-clamp-2">
+                      <Text className="block text-[length:30rpx] font-semibold text-foreground overflow-hidden ihui-ellipsis line-clamp-2">
                         {title}
                       </Text>
                     ) : null}

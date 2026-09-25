@@ -650,12 +650,6 @@
 
 /* ===== 分类弹层 TitleSwitchScrollTitle 适配 ===== */
 
-.community-s-t-b .w-full.rounded-b-\[30rpx\] {
-  background-color: var(--color-card);
-  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-  padding-bottom: 16rpx;
-}
-
 .community-s-t-b .text-\[60rpx\] {
   font-size: 28rpx;
   color: var(--color-muted-foreground, var(--color-white-70));
