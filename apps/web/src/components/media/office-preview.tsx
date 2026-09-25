@@ -45,13 +45,7 @@ export const XLSX_PREVIEW_MAX_ROWS = 200
 export const SUPPORTED_EXTS = new Set(['docx', 'xlsx', 'pptx'])
 
 export type OfficePreviewStatus =
-  | 'probing'
-  | 'lazy'
-  | 'loading'
-  | 'ready'
-  | 'too-large'
-  | 'expired'
-  | 'unsupported'
+  'probing' | 'lazy' | 'loading' | 'ready' | 'too-large' | 'expired' | 'unsupported'
 
 /** 0 基列号 → 表格列标(A/B/…/Z/AA/…)。 */
 export function xlsxColumnRef(col: number): string {
@@ -265,7 +259,9 @@ function XlsxGrid({ data, maxRows }: { data: ArrayBuffer; maxRows: number }) {
         ))}
         <span className="ml-auto flex items-center gap-2 text-[10px] text-muted-foreground">
           {selectedRef && (
-            <span data-testid="xlsx-selection">{t('officeSelectedCell', { cell: selectedRef })}</span>
+            <span data-testid="xlsx-selection">
+              {t('officeSelectedCell', { cell: selectedRef })}
+            </span>
           )}
           {truncated && (
             <span data-testid="xlsx-truncated">
@@ -495,6 +491,7 @@ export function OfficePreview({
       className={cn('my-0 overflow-hidden rounded-md border border-border', className)}
       data-testid="office-preview"
       data-office-state={status}
+      data-artifact-preview-kind={kind}
     >
       <div className="flex items-center justify-between gap-2 bg-muted/40 px-2 py-1">
         <span className="truncate text-[10px] font-medium text-muted-foreground">

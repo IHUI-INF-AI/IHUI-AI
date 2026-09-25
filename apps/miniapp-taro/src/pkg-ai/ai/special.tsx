@@ -268,7 +268,7 @@ export default function SpecialModelsPage() {
                 <View className="w-[80rpx] h-[80rpx] flex items-center justify-center bg-muted rounded-xl">
                   <Image src={m.icon} className="w-[48rpx] h-[48rpx]" mode="aspectFit" />
                 </View>
-                <Text className="block mt-[12rpx] text-[length:26rpx] text-foreground font-medium max-w-full overflow-hidden text-ellipsis whitespace-nowrap">
+                <Text className="block mt-[12rpx] text-[length:26rpx] text-foreground font-medium max-w-full overflow-hidden ihui-ellipsis whitespace-nowrap">
                   {m.name}
                 </Text>
                 <Text className="block mt-[4rpx] text-[length:22rpx] text-[var(--color-text-tertiary)]">
@@ -298,7 +298,7 @@ export default function SpecialModelsPage() {
               </View>
               <View className="flex-1 min-w-0 ml-[20rpx] flex flex-col">
                 <View className="flex items-center justify-between gap-[12rpx]">
-                  <Text className="text-[length:32rpx] font-semibold text-foreground flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+                  <Text className="text-[length:32rpx] font-semibold text-foreground flex-1 min-w-0 overflow-hidden ihui-ellipsis whitespace-nowrap">
                     {m.name}
                   </Text>
                   <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)] flex-shrink-0">
@@ -347,7 +347,9 @@ export default function SpecialModelsPage() {
           <Text className="text-[length:26rpx] text-muted-foreground">
             {tt('ai.special.error', '加载失败')}
           </Text>
-          <Text className="mt-[12rpx] text-[length:26rpx] text-primary">{tt('common.retry', '重试')}</Text>
+          <Text className="mt-[12rpx] text-[length:26rpx] text-primary">
+            {tt('common.retry', '重试')}
+          </Text>
         </View>
       ) : null}
 
