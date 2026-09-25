@@ -34,6 +34,7 @@
     "typecheck": "node scripts/typecheck-full.mjs",
     "typecheck:full": "node scripts/typecheck-full.mjs",
     "check:staged-typecheck": "node scripts/check-staged-typecheck.mjs",
+    "check:provenance": "node scripts/provenance-ledger.mjs",
     "check:capabilities": "node scripts/check-capability-catalog.mjs",
     "check:capabilities:staged": "node scripts/check-capability-catalog.mjs --staged",
     "check:pkg-installable": "node scripts/check-pkg-installable.mjs",
@@ -117,7 +118,6 @@
     "migration:check": "node scripts/check-migration-bookkeeping.mjs",
     "migration:check:db": "node scripts/check-migration-bookkeeping.mjs --db",
     "check:miniapp-parity": "node scripts/check-miniapp-taro-style-parity.mjs",
-    "check:miniapp-css-landing": "node scripts/check-miniapp-css-landing.mjs",
     "check:sdk-publish": "node --test packages/sdk/tests/publish-ready.test.mjs"
   },
   "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
