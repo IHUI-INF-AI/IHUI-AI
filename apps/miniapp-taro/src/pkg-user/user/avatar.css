@@ -65,7 +65,7 @@
   width: 48rpx;
   height: 48rpx;
   border-radius: 50%; /* radius-exempt: 圆形编辑角标,取边长一半 */
-  background: var(--color-primary);
+  background: var(--color-cta);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -73,7 +73,7 @@
 .avatar-edit-badge-text {
   font-size: 24rpx;
   line-height: 1;
-  color: var(--color-surface-light);
+  color: var(--color-cta-foreground);
 }
 .avatar-nickname {
   font-size: 32rpx;
@@ -102,8 +102,8 @@
   border: none;
 }
 .avatar-btn-primary {
-  background: var(--color-primary);
-  color: var(--color-surface-light);
+  background: var(--color-cta);
+  color: var(--color-cta-foreground);
 }
 .avatar-btn-outline {
   background: var(--color-muted);

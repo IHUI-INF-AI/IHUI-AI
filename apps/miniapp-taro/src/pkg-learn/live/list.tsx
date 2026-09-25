@@ -159,7 +159,7 @@ export default function LiveList() {
               >
                 {/* 对齐 RN titleRow:标题(flex1, numberOfLines 1)+ 状态徽章 */}
                 <View className="flex items-center justify-between gap-[16rpx]">
-                  <Text className="flex-1 text-ellipsis text-[length:32rpx] font-semibold text-foreground">
+                  <Text className="flex-1 ihui-ellipsis text-[length:32rpx] font-semibold text-foreground">
                     {item.title}
                   </Text>
                   <View
