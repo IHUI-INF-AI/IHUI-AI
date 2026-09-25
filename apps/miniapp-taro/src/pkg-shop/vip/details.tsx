@@ -8,7 +8,6 @@ import Taro from '@tarojs/taro'
 import { useState } from 'react'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon, { type IconName } from '@/components/LineIcon'
-import BackChevron from '@/components/BackChevron'
 
 // 权益对比数据(AI 平台场景)
 interface Benefit {
@@ -121,7 +120,6 @@ export default function VipDetailsPage() {
     <View className="min-h-screen bg-background pb-[140rpx]">
       {/* 顶部标题区(对齐 RN VipCompareScreen header:px20/py24,back 32 medium,title 40 bold) */}
       <View className="pt-[24rpx] px-[20rpx] pb-[24rpx]">
-        <BackChevron className="mb-[16rpx]" onTap={() => Taro.navigateBack()} />
         <Text className="block text-[length:40rpx] font-bold text-foreground">
           {t('vip.details.title')}
         </Text>

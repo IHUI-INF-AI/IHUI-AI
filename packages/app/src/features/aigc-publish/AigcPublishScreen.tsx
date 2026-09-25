@@ -15,6 +15,7 @@ import {
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AigcPublishFile, AigcPublishScreenProps, AigcPublishWorkType } from '../../types'
+import { BackChevron } from '../../components/BackChevron'
 
 import { rnRadius } from '@ihui/design-tokens'
 
@@ -65,9 +66,7 @@ export function AigcPublishScreen({
 
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      <TouchableOpacity onPress={onBack}>
-        <Text style={styles.backText}>{t('aigcPublish.back')}</Text>
-      </TouchableOpacity>
+      <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
       <Text style={styles.title}>{t('aigcPublish.title')}</Text>
       <Text style={styles.subtitle}>{t('aigcPublish.subtitle')}</Text>
 
@@ -221,7 +220,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 10,
       paddingBottom: 16,
     },
-    backText: { fontSize: 16, color: tk.text.secondary },
     title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary, marginBottom: 12 },
     label: { marginTop: 14, fontSize: 14, color: tk.text.secondary, marginBottom: 6 },
