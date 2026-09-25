@@ -233,10 +233,10 @@ export default function AiAssistantPage() {
     <ThemeRoot className="flex flex-col h-screen bg-background box-border">
       {/* 对齐 RN NavBar:px 10dp=20rpx / backBtn 32dp=64rpx / title 18dp=36rpx w600 / 透出 root 背景 */}
       <View className="flex flex-row items-center px-[20rpx] py-[12rpx] bg-background">
-        <Text className="text-[48rpx] text-foreground" onClick={() => Taro.navigateBack()}>
+        <Text className="text-[length:48rpx] text-foreground" onClick={() => Taro.navigateBack()}>
           ←
         </Text>
-        <Text className="flex-1 text-center text-[36rpx] font-semibold text-foreground truncate">
+        <Text className="flex-1 text-center text-[length:36rpx] font-semibold text-foreground truncate">
           {pageTitle}
         </Text>
         <View className="w-[64rpx]" />
@@ -251,14 +251,14 @@ export default function AiAssistantPage() {
             onClick={() => setTishiShow((v) => !v)}
             hoverClass="opacity-60"
           >
-            <Text className="text-[26rpx] text-muted-foreground">
+            <Text className="text-[length:26rpx] text-muted-foreground">
               {tishiShow ? tt('common.close', '关闭') : tt('ai.tishi.view', '查看')}智能体引导说明
             </Text>
           </View>
           {/* 对齐 RN thinkingBox:maxWidth 78% / px16 py12 rpx / 8dp=16rpx 圆角 / muted 底 / 12dp=24rpx 次级文字 */}
           {tishiShow && agentPrologue ? (
             <View className="max-w-[78%] mb-[16rpx] px-[16rpx] py-[12rpx] bg-[var(--color-muted)] rounded-lg">
-              <Text className="text-[24rpx] leading-[36rpx] text-muted-foreground">
+              <Text className="text-[length:24rpx] leading-[36rpx] text-muted-foreground">
                 {agentPrologue}
               </Text>
             </View>
@@ -267,7 +267,7 @@ export default function AiAssistantPage() {
           {/* 对齐 RN Empty:py 48dp=96rpx / px 24dp=48rpx / 文字 14dp=28rpx 次级色 */}
           {list.length === 0 ? (
             <View className="flex flex-col items-center py-[96rpx] px-[48rpx]">
-              <Text className="text-[28rpx] text-muted-foreground">
+              <Text className="text-[length:28rpx] text-muted-foreground">
                 {tt('aiassistant.text3', '请在下方输入您的问题')}
               </Text>
             </View>
@@ -277,7 +277,7 @@ export default function AiAssistantPage() {
                 {/* 对齐 RN bubbleStyles.rowUser:右对齐;气泡 px24 py16 rpx / 8dp=16rpx 圆角 / brand 底 + surface.light 字 / 14dp=28rpx */}
                 <View className="flex flex-row justify-end mb-[8rpx]">
                   <View
-                    className="max-w-[78%] px-[24rpx] py-[16rpx] bg-[var(--color-brand)] text-[var(--color-surface-light)] rounded-lg text-[28rpx] leading-[40rpx]"
+                    className="max-w-[78%] px-[24rpx] py-[16rpx] bg-[var(--color-brand)] text-[var(--color-surface-light)] rounded-lg text-[length:28rpx] leading-[40rpx]"
                     onClick={() => setPrompt(item.question)}
                     hoverClass="opacity-60"
                   >
@@ -288,7 +288,7 @@ export default function AiAssistantPage() {
                   <View className="flex flex-col">
                     {/* 对齐 RN bubbleAi:card 底 / px24 py16 rpx / 16rpx 圆角 / 28rpx 主文字 */}
                     <View className="max-w-[78%] px-[24rpx] py-[16rpx] bg-card rounded-lg">
-                      <Text className="block text-[28rpx] leading-[40rpx] text-foreground whitespace-pre-wrap break-words">
+                      <Text className="block text-[length:28rpx] leading-[40rpx] text-foreground whitespace-pre-wrap break-words">
                         {item.answer}
                       </Text>
                       {/* 对齐 RN imageGrid:gap 12rpx / mt 16rpx / 120dp=240rpx 方图 / 6dp=12rpx 圆角 */}
@@ -318,7 +318,7 @@ export default function AiAssistantPage() {
                     </View>
                     {/* 对齐 RN actionRow:mt 8rpx / 消耗文案 11dp=22rpx 三级色 / 操作次级色 gap 20rpx */}
                     <View className="flex flex-row items-center justify-between max-w-[78%] mt-[8rpx]">
-                      <Text className="flex-1 mr-[16rpx] text-[22rpx] text-[var(--color-text-tertiary)]">
+                      <Text className="flex-1 mr-[16rpx] text-[length:22rpx] text-[var(--color-text-tertiary)]">
                         {tt('aiassistant.text4', '智汇AI生成')}
                         {item.totalTokens !== undefined
                           ? t('aiassistant.y1', { p1: formatTokens(item.totalTokens) })
@@ -326,13 +326,13 @@ export default function AiAssistantPage() {
                       </Text>
                       <View className="flex flex-row items-center gap-[20rpx]">
                         <Text
-                          className="text-[24rpx] text-muted-foreground"
+                          className="text-[length:24rpx] text-muted-foreground"
                           onClick={() => toggleVisible(idx)}
                         >
                           {tt('forgot.hidePassword', '隐藏')}
                         </Text>
                         <Text
-                          className="text-[24rpx] text-muted-foreground"
+                          className="text-[length:24rpx] text-muted-foreground"
                           onClick={() => copyHandle(item.answer)}
                         >
                           {tt('ai.chatMessageItem.copy', '复制')}
@@ -343,7 +343,7 @@ export default function AiAssistantPage() {
                 ) : (
                   <View className="max-w-[78%] px-[24rpx] py-[16rpx] bg-card rounded-lg flex flex-row justify-center">
                     <Text
-                      className="text-[24rpx] text-muted-foreground"
+                      className="text-[length:24rpx] text-muted-foreground"
                       onClick={() => toggleVisible(idx)}
                     >
                       {tt('aiassistant.text5', '显示回答')}
@@ -360,10 +360,10 @@ export default function AiAssistantPage() {
       {thinking ? (
         <View className="px-[24rpx] py-[12rpx] bg-card">
           <View className="flex flex-row items-center mb-[8rpx]">
-            <Text className="text-[24rpx] text-[var(--color-text-tertiary)] mr-[12rpx]">
+            <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)] mr-[12rpx]">
               {tt('aiassistant.text6', '正在极速生成中')}
             </Text>
-            <Text className="text-[24rpx] text-[var(--color-text-tertiary)]">
+            <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
               {Math.floor(thinkingProgress)}%
             </Text>
           </View>
@@ -390,7 +390,7 @@ export default function AiAssistantPage() {
                 }}
                 hoverClass="opacity-60"
               >
-                <Text className="text-[24rpx] text-muted-foreground whitespace-nowrap">{q}</Text>
+                <Text className="text-[length:24rpx] text-muted-foreground whitespace-nowrap">{q}</Text>
               </View>
             ))}
           </View>
@@ -399,7 +399,7 @@ export default function AiAssistantPage() {
       {/* 对齐 RN InputArea:row 底对齐 / px12 py8 dp=24/16 rpx / card 底 + 上边框;输入框 minHeight 48dp=96rpx / 12dp=24rpx 圆角 / root 底描边;发送钮 44dp=88rpx brand 底 */}
       <View className="flex flex-row items-end bg-card border-t border-border px-[24rpx] py-[16rpx]">
         <Input
-          className="flex-1 h-[96rpx] px-[24rpx] bg-background border border-border rounded-xl text-[28rpx] text-foreground"
+          className="flex-1 h-[96rpx] px-[24rpx] bg-background border border-border rounded-xl text-[length:28rpx] text-foreground"
           placeholder={tt('tail.9', '请输入描述')}
           value={prompt}
           onInput={(e) => setPrompt(e.detail.value)}
@@ -410,7 +410,7 @@ export default function AiAssistantPage() {
           onClick={handleSend}
           hoverClass="opacity-60"
         >
-          <Text className="text-[28rpx] font-semibold text-[var(--color-surface-light)]">
+          <Text className="text-[length:28rpx] font-semibold text-[var(--color-surface-light)]">
             {loading ? tt('aiassistant.p3', '生成中') : tt('ai.agentDetail.runtimeSend', '发送')}
           </Text>
         </View>

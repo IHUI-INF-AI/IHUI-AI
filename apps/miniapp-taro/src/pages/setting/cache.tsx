@@ -139,8 +139,8 @@ export default function CachePage() {
         <View className="mx-[20rpx] flex flex-col gap-[2rpx] overflow-hidden rounded-lg bg-[color:var(--color-border)]">
           <View className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted">
             {/* rowLabel 对齐 RN: 16dp→32rpx + text.medium 语义映射 muted-foreground */}
-            <Text className="text-[32rpx] text-muted-foreground">{t('setting.cache.current')}</Text>
-            <Text className="text-[32rpx] text-foreground">{size}</Text>
+            <Text className="text-[length:32rpx] text-muted-foreground">{t('setting.cache.current')}</Text>
+            <Text className="text-[length:32rpx] text-foreground">{size}</Text>
           </View>
         </View>
 
@@ -153,7 +153,7 @@ export default function CachePage() {
                 style={{ width: `${progress}%` }}
               />
             </View>
-            <Text className="mt-[16rpx] block text-center text-[24rpx] text-muted-foreground">
+            <Text className="mt-[16rpx] block text-center text-[length:24rpx] text-muted-foreground">
               {tt('setting.cache.clearing', '清理中')} {progress}%
             </Text>
           </View>
@@ -165,21 +165,21 @@ export default function CachePage() {
             onClick={onClearImage}
             hoverClass="opacity-60"
           >
-            <Text className="text-[32rpx] text-muted-foreground">
+            <Text className="text-[length:32rpx] text-muted-foreground">
               {t('setting.cache.clearImage')}
             </Text>
             {/* arrow 对齐 RN: 20dp→40rpx + text.tertiary */}
-            <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+            <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
           </View>
           <View
             className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
             onClick={onClearFile}
             hoverClass="opacity-60"
           >
-            <Text className="text-[32rpx] text-muted-foreground">
+            <Text className="text-[length:32rpx] text-muted-foreground">
               {t('setting.cache.clearFile')}
             </Text>
-            <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+            <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
           </View>
         </View>
 
@@ -187,7 +187,7 @@ export default function CachePage() {
             + brand(--color-primary)底;文字 16dp→32rpx semibold;
             文字色用 --color-primary-foreground 修正 RN surface.light 在暗色 brand 白底下不可读 */}
         <Button
-          className="mx-[20rpx] mt-[32rpx] flex h-[100rpx] items-center justify-center rounded-xl bg-primary text-[32rpx] font-semibold disabled:opacity-60"
+          className="mx-[20rpx] mt-[32rpx] flex h-[100rpx] items-center justify-center rounded-xl bg-primary text-[length:32rpx] font-semibold disabled:opacity-60"
           style={{ color: 'var(--color-primary-foreground)' }}
           onClick={onClearAll}
           disabled={clearing}
@@ -198,10 +198,10 @@ export default function CachePage() {
 
         {/* 提示文字对齐 RN versionText: 12dp→24rpx + text.tertiary + 居中;marginTop 4dp→8rpx */}
         <View className="mx-[20rpx] mt-[32rpx]">
-          <Text className="block text-center text-[24rpx] leading-[1.8] text-[color:var(--color-text-tertiary)]">
+          <Text className="block text-center text-[length:24rpx] leading-[1.8] text-[color:var(--color-text-tertiary)]">
             {t('setting.cache.tip1')}
           </Text>
-          <Text className="mt-[8rpx] block text-center text-[24rpx] leading-[1.8] text-[color:var(--color-text-tertiary)]">
+          <Text className="mt-[8rpx] block text-center text-[length:24rpx] leading-[1.8] text-[color:var(--color-text-tertiary)]">
             {t('setting.cache.tip2')}
           </Text>
         </View>
