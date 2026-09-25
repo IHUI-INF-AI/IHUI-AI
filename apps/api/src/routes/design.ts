@@ -127,7 +127,11 @@ export const designRoutes: FastifyPluginAsync = async (server) => {
     const now = new Date().toISOString()
     const preview: DesignPreview = {
       id: randomUUID(),
-      userId: Number(userId),
+      // P0 同型修复(2026-09-25,范式见 routes/tasks.ts:270):request.userId 是 users.id 的
+      // UUID 字符串(packages/auth/src/jwt.ts:16),`Number(uuid)` = NaN ⇒ 写进 Redis 后该字段
+      // 永久变成 null,归属信息丢失。Redis 分区键 userKey(userId) 用的本来就是 string uuid,
+      // 所以隔离没坏、只有这个字段坏 —— 这正是本型缺陷的指纹。
+      userId,
       name,
       html,
       createdAt: now,
@@ -169,7 +173,10 @@ export const designRoutes: FastifyPluginAsync = async (server) => {
       id: randomUUID(),
       previewId,
       elementId: elementId ?? '',
-      userId: Number(userId),
+      // P0 同型修复(2026-09-25,范式见 routes/tasks.ts:270):同 POST /design/preview ——
+      // `Number(userId)` 对 UUID 得 NaN。本对象内紧邻的 userName 用的是 string 形态的 userId
+      // (显示名一直正常),而归属字段一直是 null:同一函数内两字段一好一坏,即本型缺陷的指纹。
+      userId,
       userName: phone || `User ${userId}`,
       content,
       createdAt: new Date().toISOString(),
