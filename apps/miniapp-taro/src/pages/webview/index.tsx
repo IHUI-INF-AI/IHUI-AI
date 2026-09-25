@@ -86,7 +86,7 @@ export default function WebviewIndex() {
       // 头部 px-4(32rpx)/pt-3(24rpx)/pb-2(16rpx) + 底部描边,标题 text-base(32rpx) font-medium
       <ThemeRoot>
         <View className="min-h-screen bg-card">
-          <View className="px-[32rpx] pt-[24rpx] pb-[16rpx] border-b-[2rpx] border-border">
+          <View className="px-[32rpx] pt-[24rpx] pb-[16rpx] border-b-[length:2rpx] border-border">
             <Text className="text-[length:32rpx] font-medium text-foreground">{t('webview.title')}</Text>
           </View>
           <View className="flex flex-col items-center py-[96rpx]">

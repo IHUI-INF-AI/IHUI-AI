@@ -545,7 +545,8 @@ const checks = [
     ].join('\n'),
   },
   // --- 36 (2026-07-27 新增,miniapp-taro token 同步守门,防 app.css 与 tokens.css 漂移) ---
-  // blocking:Taro 4 + Tailwind v3 不兼容 v4 @theme 语法,app.css 由 sync-design-tokens.mjs
+  // blocking:Taro 4 + Tailwind v3 不兼容 v4 @theme 语法,app.css 由 scripts/sync-miniapp-tokens.mjs
+  //   (2026-09-25 由端内 apps/miniapp-taro/scripts/sync-design-tokens.mjs 搬来,原因见该文件头注)
   //   自动生成 :root/.dark 块。若手动编辑 app.css 或 tokens.css 改后未运行 sync 脚本,
   //   会导致 miniapp-taro 视觉与 web 端不一致。本守门在 pre-commit 校验,发现漂移阻塞 commit。
   // 失败含义:app.css 的 --color-* 变量与 tokens.css 不一致,需运行:
@@ -558,9 +559,16 @@ const checks = [
     mode: 'blocking',
     onFailHint: [
       '',
-      '  💡 apps/miniapp-taro/src/app.css 的 --color-* 变量与 packages/design-tokens/src/styles/tokens.css 不一致,',
-      '     修复:pnpm --filter @ihui/miniapp-taro sync-tokens',
+      '  💡 apps/miniapp-taro/src/app.css 的**受管** --color-* 档与 packages/design-tokens/src/styles/tokens.css 不一致,',
+      '     修复:pnpm --filter @ihui/miniapp-taro sync-tokens(写回受管块,幂等)',
       '     然后重新 git add apps/miniapp-taro/src/app.css 并 commit',
+      '     ⚠️ 本门曾被判错方向:判据只遍历副本已有的键 ⇒ 对「源头有、副本整批缺」一路报绿;',
+      '        补上判缺档后又拿源头**全部**属性去判,把生成器按政策刻意不搬的档(非色档 / web 独有的',
+      '        --color-sidebar*/--color-shell-panel / 跨行 --color-gradient-*)算成缺档,255 红点里 88 条是误判,',
+      '        门因此被降权。现在「该判什么」与「该写什么」是同一个谓词',
+      '        (scripts/sync-miniapp-tokens.mjs 导出的 MINIAPP_SKIP_PREFIXES + isManagedForMiniapp)。',
+      '        所以**不得**为了消红去放宽判据或往跳过表里塞条目:生成器写不出来的新跨行档,要么改写成单行,',
+      '        要么扩生成器的写回面(两侧同笔入账),要么交回主控判定。',
       '',
     ].join('\n'),
   },
