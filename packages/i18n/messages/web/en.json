@@ -16824,6 +16824,10 @@
     "viewDetail": "View Detail"
   },
   "memberExamSignUpPage": {
+    "adminOnly": {
+      "description": "Your signed-in identity cannot be matched to the legacy member id recorded on sign-ups, so no self-service view is offered here — that would be an unprovable ownership check. To review or correct a record, please contact an administrator.",
+      "title": "Sign-up records are maintained by administrators"
+    },
     "cancelBtn": "Cancel Sign-up",
     "cancelConfirm": "Confirm canceling this exam sign-up?",
     "cancelFailed": "Failed to cancel",
