@@ -46,6 +46,27 @@ const runCLI = (args) => {
  */
 const managedOf = (t) => /managed:true ([^|\n]*)/.exec(t)?.[1]?.trim() ?? ''
 
+/** 取 CLI 输出里「❌ 架构契约判红 N 处」清单的规则标签(结构位:每条 `path[:line] [TAG] msg`)。 */
+function redTags(out) {
+  const i = out.indexOf('❌ 架构契约判红')
+  if (i < 0) return []
+  return [...out.slice(i).matchAll(/^\s+\S+(?::\d+)? \[([A-Za-z]\d+)\]/gm)].map((m) => m[1])
+}
+
+/** 默认档禁止判红的两条新判据:E1 入口齐备性 / E2 契约工件齐备性。
+ *  T6/T12/T14 的断言对象是**这一条设计**,不是"真仓此刻是否全绿"。
+ *  为什么必须换掉旧写法:旧断言 `assert.equal(code, 0)` 把仓库瞬时状态当恒定前提 ——
+ *  真仓 HEAD 此刻挂着与本片无关的 D1/D2 存量红(packages/i18n 的测试反向依赖 packages/shared),
+ *  于是三支测试在完全合规的代码上恒红,而红点会把人推向 --no-verify、连带废掉全部守门(§12e 同型)。
+ *  判据本身没有错,是尺子钉错了对象;E1/E2 的"默认只报数"由下面的成对断言守住,
+ *  并由 --strict 侧的配对证明它不是永久豁免。 */
+const NOT_RED_BY_DEFAULT = ['E1', 'E2']
+
+function assertNoDeclaredReds(out, face) {
+  const escalated = redTags(out).filter((t) => NOT_RED_BY_DEFAULT.includes(t))
+  assert.deepEqual(escalated, [], `档[${face}] 把齐备性(E1/E2)判成了红 —— 未齐备存量默认只报数,问责走 --strict;即时判红就是恒红机器`)
+}
+
 test('T1 装车证明:本门确实装在 runner 上,且是 blocking + 有真实 skipEnv', () => {
   const hits = gate.registrationOf(runnerText(), SCRIPT_NAME)
   assert.equal(hits.length, 1, `注册块应恰好 1 个,实得 ${hits.length}`)
@@ -95,12 +116,26 @@ test('T5 策略表本身必须能被装载,且模块清单非空(扫到 0 条不
   assert.ok([...P.modules.values()].some((m) => m.pkg), '至少要有一个可被 @ihui/* 引用的包')
 })
 
-test('T6 真仓默认档必须是绿的(这道门不得成为恒红机器)', () => {
+test('T6 默认档不得因 E1/E2 判红(这道门不得成为恒红机器),且判红必须逐条点名', () => {
+  // 成对判据一:默认档只报数。E1/E2 出现在判红清单里即红 —— 这一支与下面 --strict 那一支互证,
+  // 单独任何一支都会退化成"恒绿"或"恒红"(本仓反复记过的同一条:判据必须有牙)。
   const full = runCLI([])
-  assert.equal(full.code, 0, `全量档 exit ${full.code}\n${full.out}`)
-  assert.match(full.out, /架构契约门通过|managed:false 的存量违规以报数形式留痕/)
+  assertNoDeclaredReds(full.out, '全量')
   const staged = runCLI(['--staged'])
-  assert.equal(staged.code, 0, `--staged 档 exit ${staged.code}\n${staged.out}`)
+  assertNoDeclaredReds(staged.out, '--staged')
+  // 反"静默给退出码":非 0 却不点名任何一条判红 = 调用方无从修复,同样判失败
+  if (full.code !== 0) assert.ok(redTags(full.out).length > 0, `全量档 exit ${full.code} 却拿不出判红清单:${full.out.slice(-400)}`)
+  // 真仓此刻的存量红如实打印(只报数不定性、不拿它当断言对象):它归别的票,不该由本片消红,
+  // 也不该由本片把它糊掉。
+  console.log(`  ℹ️ 真仓默认档判红 ${redTags(full.out).length} 处(标签:${[...new Set(redTags(full.out))].join(',') || '无'})`)
+  // 成对判据二:有未齐备存量时 --strict 必须真的升成 E2 问责,否则"默认只报数"就是永久豁免。
+  // 条件挂在计数器上而不是挂在条目上 —— 全部补齐后这一支自然不再要求红(不会腐烂)。
+  const absent = Number(/E2 未齐备模块 (\d+) 块/.exec(full.out)?.[1] ?? '0')
+  if (absent > 0) {
+    const strict = runCLI(['--strict'])
+    assert.ok(redTags(strict.out).includes('E2'), `--strict 未把 ${absent} 块未齐备模块升成 E2 判红 ⇒ 齐备性问责形同虚设`)
+    assert.equal(strict.code, 1, '--strict 判了 E2 红却仍 exit 0')
+  }
 })
 
 test('T7 自检必须全绿(成对正反例是判据的唯一证人)', () => {
@@ -188,7 +223,10 @@ test('T12 取材面按档定向:--staged 选索引表、全量选 HEAD 表(否�
   // 若这里选到的不是 HEAD,说明 faces 三档取值写错 ⇒ 上面两条断言根本区分不出顺序。
   const legacy = gate.pickPolicySource(['HEAD', '索引', '工作树'].map((l) => [l, faces[l]]))
   assert.equal(legacy.label, 'HEAD', '夹具失效:旧顺序都没选中 HEAD,则上面那两条"有牙"的证明不成立')
-  // 真仓侧只钉"两档都必须绿"。**刻意不钉"两档结论是否同形"** —— 上一版在这里写了
+  // 真仓侧钉的是**这一条设计**:两档都不得把 E1/E2 判成红(见 assertNoDeclaredReds 的注释)。
+  // 旧写法在这里钉的是"两档都必须 exit 0",那把仓库瞬时状态当恒定前提 —— 真仓 HEAD 挂着
+  // 与本片无关的 D1/D2 存量红时它会恒红,而红点把人推向 --no-verify。
+  // **同样刻意不钉"两档结论是否同形"** —— 上一版在这里写了
   // `索引表≠HEAD 表 ⇒ 两档收口集合必须异形 / 相同 ⇒ 必须同形` 的条件断言,两条前提都不成立:
   //   ① "表不同"涵盖改注释、改 requires、改阈值等绝大多数形态,它们**不改变** managed 集合,
   //      于是"异形"那一支会在完全正常的改表面误红(实测:本仓此刻正落此支,该断言判红);
@@ -197,8 +235,9 @@ test('T12 取材面按档定向:--staged 选索引表、全量选 HEAD 表(否�
   // 顺序本身的证明全部交给上面的 pickOn()/legacy 构造面 —— 它们可判定、可变异、不依赖仓库瞬时状态。
   const staged = runCLI(['--staged'])
   const full = runCLI([])
-  assert.equal(staged.code, 0, `--staged 必须绿,实得:\n${staged.out.slice(-600)}`)
-  assert.equal(full.code, 0, `全量档必须绿,实得:\n${full.out.slice(-600)}`)
+  assertNoDeclaredReds(staged.out, '--staged')
+  assertNoDeclaredReds(full.out, '全量')
+  assert.doesNotMatch(staged.out, /扫描 0 文件/, '--staged 档扫到 0 文件却继续给结论')
 })
 
 /**
@@ -342,10 +381,10 @@ test('T14 空暂存必须回退全量(缺陷 1):"扫描 0 文件却记绿"这一
   // 变异自证:旧实现等价于"永远按暂存集收窄",同一把尺子必须量到它扫 0 个
   const legacy = (all, staged) => all.filter((p) => staged.has(p))
   assert.equal(legacy(srcAll, new Set()).length, 0, '夹具失效:旧形态都没产出 0 文件,上面那条断言就是恒真')
-  // CLI 面:两种档都不得出现"扫描 0 文件"
+  // CLI 面:两种档都不得出现"扫描 0 文件",且都不得因 E1/E2 判红(尺子口径见 assertNoDeclaredReds)
   for (const args of [[], ['--staged']]) {
     const r = runCLI(args)
-    assert.equal(r.code, 0, `档[${args.join(' ') || '全量'}] exit ${r.code}\n${r.out.slice(-600)}`)
+    assertNoDeclaredReds(r.out, args.join(' ') || '全量')
     assert.doesNotMatch(r.out, /扫描 0 文件/, `档[${args.join(' ') || '全量'}] 扫到 0 文件却打 ✅ ⇒ 依赖面(D1/D2/D3/D4/C2/C3)没审任何东西`)
   }
   // 若当次实测确实走了回退,口径行必须如实说明(不得静默换面)
