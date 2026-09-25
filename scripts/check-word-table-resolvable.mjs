@@ -69,8 +69,16 @@
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { execFileSync } from 'node:child_process'
-import { resolveGitBin } from './lib/gitdir.mjs'
+// 判定面取材的原语(绝对路径 git、`cat-file --batch` 批量读、仓库根校验)统一来自
+// scripts/lib/face-reader.mjs —— 本门不再自带一份 gitExec + catBatch。那五处只有一个人会
+// 写对的陷阱(裸 'git' 依赖 PATH / cat-file 的 stdio[0] 必须是 pipe / 逐文件派生 git /
+// 仓库根比较要穿 junction / maxBuffer 要给足)只在那一处存在,重复一份就是重复一份风险。
+import {
+  Undetermined,
+  assertRepoRoot as assertGitRepoRoot,
+  catBatch,
+  gitRaw,
+} from './lib/face-reader.mjs'
 // 复用既有闸的合并语义与 taro 离线包解码(§22d:被 import 时不触发它的 main)
 import {
   mergeMessages,
@@ -79,8 +87,6 @@ import {
 } from './check-tool-display-resolvable.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const GIT = resolveGitBin() ?? 'git'
-const GIT_TIMEOUT = 120000
 const LANGS = ['zh-CN', 'zh-TW', 'en', 'ja', 'ko']
 /** 端清单与 check-tool-display-resolvable.mjs:32 同口径(api 不产界面文案,故不在列) */
 const END_DIRS = ['web', 'extension', 'miniapp-taro', 'mobile-rn', 'cli']
@@ -121,11 +127,42 @@ const DOTTED_KEY_RE = /^['"]([A-Za-z][\w-]*(?:\.[\w$-]+)+)['"]$/
 
 /** W6 的形状白名单之外还要一道"这不是取词属性"的排除:这些 `*Key` 名字在界面上从不取词。 */
 const NON_I18N_KEY_PROPS = new Set([
-  'queryKey', 'mutationKey', 'cacheKey', 'storageKey', 'persistKey', 'sessionKey', 'localeKeyStorage',
-  'apiKey', 'api_key', 'secretKey', 'accessKey', 'refreshKey', 'publicKey', 'privateKey',
-  'encryptionKey', 'signingKey', 'hashKey', 'lockKey', 'partitionKey', 'sortKey', 'groupKey',
-  'groupByKey', 'rowKey', 'indexKey', 'mapKey', 'primaryKey', 'foreignKey', 'compositeKey',
-  'hotKey', 'kbdKey', 'eventKey', 'reactKey', 'domKey', 'slotKey', 'formKey', 'fieldKey',
+  'queryKey',
+  'mutationKey',
+  'cacheKey',
+  'storageKey',
+  'persistKey',
+  'sessionKey',
+  'localeKeyStorage',
+  'apiKey',
+  'api_key',
+  'secretKey',
+  'accessKey',
+  'refreshKey',
+  'publicKey',
+  'privateKey',
+  'encryptionKey',
+  'signingKey',
+  'hashKey',
+  'lockKey',
+  'partitionKey',
+  'sortKey',
+  'groupKey',
+  'groupByKey',
+  'rowKey',
+  'indexKey',
+  'mapKey',
+  'primaryKey',
+  'foreignKey',
+  'compositeKey',
+  'hotKey',
+  'kbdKey',
+  'eventKey',
+  'reactKey',
+  'domKey',
+  'slotKey',
+  'formKey',
+  'fieldKey',
 ])
 /** 属性名以 Key 结尾(含 JSX 属性形态)。`key`/`keyCode` 不在其中,天然排除。 */
 const KEY_PROP_NAME_RE = /^[A-Za-z_$][\w$]*Key$/
@@ -137,67 +174,23 @@ const CORPUS_SOURCES = ['shared', 'web', 'extension', 'miniapp-taro', 'mobile-rn
 // 判定面(取材层):HEAD blob / 索引 blob / 工作区,同一轮只允许一个面
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** exit 2 专用:输入取不到 / 清单为空 = "本门没能判定",与"判定为违规"(exit 1)严格分开。 */
-export class UndeterminedError extends Error {}
-
-function gitExec(args, { input, timeout = GIT_TIMEOUT, maxBuffer = 512 << 20 } = {}) {
-  try {
-    return execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', '-C', ROOT, ...args], {
-      cwd: ROOT,
-      input,
-      windowsHide: true, // 钩子/守护派生下漏此参数必弹控制台窗(§5b)
-      timeout,
-      maxBuffer,
-    })
-  } catch (e) {
-    const raw = e?.stderr ?? e?.stdout ?? e?.message ?? String(e)
-    const first = Buffer.isBuffer(raw) ? raw.toString('utf8') : String(raw)
-    throw new UndeterminedError(`git ${args.join(' ')} 取材失败:${first.trim().split(/\r?\n/)[0]}`)
-  }
-}
-
-const BLOB_HEADER_RE = /^([0-9a-f]{40}) blob (\d+)$/
-/** 一次 `cat-file --batch` 读完一批对象 —— 5000 个文件各起一次 git 派生会打满进程。
- *  返回 Map<"<rev>:<path>", text|null>;missing / 非 blob 一律 null,由调用方判"取不到"。 */
-function catBatch(revs) {
-  const map = new Map()
-  if (revs.length === 0) return map
-  const out = gitExec(['cat-file', '--batch'], { input: Buffer.from(revs.join('\n') + '\n', 'utf8') })
-  let pos = 0
-  for (let k = 0; k < revs.length; k++) {
-    const rev = revs[k]
-    const nl = out.indexOf(0x0a, pos)
-    if (nl < 0) {
-      // 输出被截断/派生失败:剩下的全部按"取不到"记,由 read() 那侧抛「无法判定」,绝不记绿
-      for (const rest of revs.slice(k)) map.set(rest, null)
-      break
-    }
-    const header = out.subarray(pos, nl).toString('utf8')
-    pos = nl + 1
-    const m = BLOB_HEADER_RE.exec(header)
-    if (!m) {
-      map.set(rev, null) // "<rev>:<path> missing" / 非 blob
-      continue
-    }
-    map.set(rev, out.subarray(pos, pos + Number(m[2])).toString('utf8'))
-    pos += Number(m[2]) + 1
-  }
-  return map
-}
+/** exit 2 专用:输入取不到 / 清单为空 = "本门没能判定",与"判定为违规"(exit 1)严格分开。
+ *  类本体就是共用层的 `Undetermined`(别名再导出,保持对外导出面与本门测试的 `instanceof` 不变)。 */
+export const UndeterminedError = Undetermined
 
 function treePaths(rev) {
+  // -z 空字节分隔:中文/空格路径不能被换行分帧打断
   return rev === ''
-    ? gitExec(['ls-files', '-z']).toString('utf8').split('\0').filter(Boolean)
-    : gitExec(['ls-tree', '-r', '--name-only', rev, '-z']).toString('utf8').split('\0').filter(Boolean)
+    ? gitRaw(['ls-files', '-z'], ROOT).split('\0').filter(Boolean)
+    : gitRaw(['ls-tree', '-r', '--name-only', rev, '-z'], ROOT).split('\0').filter(Boolean)
 }
 
+/** git 面的前置校验:① ROOT 必须是仓库根(共用层穿过 junction 比较,本门若是子目录会产出
+ *  "自洽但基准错位"的假绿)② HEAD 面必须有提交 ③ staged 面不得有未合并路径。后两条是本门
+ *  特有的面语义,故留在门里,不塞进共用层。 */
 function assertRepoRoot() {
-  const top = gitExec(['rev-parse', '--show-toplevel']).toString('utf8').trim().replace(/\\/g, '/')
-  const want = ROOT.replace(/\\/g, '/')
-  const same = process.platform === 'win32' ? top.toLowerCase() === want.toLowerCase() : top === want
-  if (!same)
-    throw new UndeterminedError(`ROOT 不是 git 仓库根(=${want},toplevel=${top}),清单与内容会基准错位 ⇒ 无法判定`)
-  gitExec(['rev-parse', '--verify', 'HEAD']) // HEAD 面必须有提交,绝不退化成"扫到 0 个文件所以绿"
+  assertGitRepoRoot(ROOT, '本门判定面')
+  gitRaw(['rev-parse', '--verify', 'HEAD'], ROOT) // 绝不退化成"扫到 0 个文件所以绿"
 }
 
 function isSourcePath(p) {
@@ -214,8 +207,10 @@ function makeGitReader(face) {
   const label = face === 'head' ? 'HEAD blob' : '索引 blob'
   const prefix = face === 'staged' ? ':' : 'HEAD:'
   assertRepoRoot()
-  if (face === 'staged' && gitExec(['ls-files', '-u', '-z']).toString('utf8').length > 0)
-    throw new UndeterminedError('索引存在未合并路径(merge/rebase 进行中),:<path> 取材有歧义 ⇒ 无法判定,先收敛 merge')
+  if (face === 'staged' && gitRaw(['ls-files', '-u', '-z'], ROOT).length > 0)
+    throw new UndeterminedError(
+      '索引存在未合并路径(merge/rebase 进行中),:<path> 取材有歧义 ⇒ 无法判定,先收敛 merge',
+    )
   const contents = new Map()
   const allPaths = new Set(treePaths(face === 'staged' ? '' : 'HEAD'))
   return {
@@ -224,13 +219,18 @@ function makeGitReader(face) {
     listSourceFiles() {
       const out = (face === 'staged' ? [...allPaths] : treePaths('HEAD')).filter(isSourcePath)
       if (out.length === 0)
-        throw new UndeterminedError(`${label} 在扫描面(${SCAN_ROOTS.join(' + ')})枚举到 0 个源文件 ⇒ 无法判定`)
+        throw new UndeterminedError(
+          `${label} 在扫描面(${SCAN_ROOTS.join(' + ')})枚举到 0 个源文件 ⇒ 无法判定`,
+        )
       return out.sort()
     },
     fetch(rels) {
       const missing = [...new Set(rels)].filter((r) => r && !contents.has(r))
       if (missing.length === 0) return
-      const map = catBatch(missing.map((r) => prefix + r))
+      const map = catBatch(
+        ROOT,
+        missing.map((r) => prefix + r),
+      )
       for (const rel of missing) {
         const text = map.get(prefix + rel)
         contents.set(rel, text === undefined ? null : text)
@@ -239,7 +239,8 @@ function makeGitReader(face) {
     read(rel) {
       if (!contents.has(rel)) this.fetch([rel])
       const text = contents.get(rel)
-      if (text === null) throw new UndeterminedError(`${label} 取不到 ${rel}(对象缺失 / 非 blob / 已删除)`)
+      if (text === null)
+        throw new UndeterminedError(`${label} 取不到 ${rel}(对象缺失 / 非 blob / 已删除)`)
       return text
     },
     tryRead(rel) {
@@ -287,7 +288,8 @@ function makeWorktreeReader() {
         }
       }
       for (const d of SCAN_ROOTS) walk(join(ROOT, d))
-      if (out.length === 0) throw new UndeterminedError('工作区在扫描面枚举到 0 个源文件 ⇒ 无法判定')
+      if (out.length === 0)
+        throw new UndeterminedError('工作区在扫描面枚举到 0 个源文件 ⇒ 无法判定')
       return out.sort()
     },
     fetch() {},
@@ -651,8 +653,7 @@ export function tableReachableNames(moduleText, tableName) {
 function reachableFromBlocks(blocks, tableName) {
   const word = new Map()
   const reFor = (name) => {
-    if (!word.has(name))
-      word.set(name, new RegExp(String.raw`\b${name.replace(/[$]/g, '\\$')}\b`))
+    if (!word.has(name)) word.set(name, new RegExp(String.raw`\b${name.replace(/[$]/g, '\\$')}\b`))
     return word.get(name)
   }
   const tainted = new Set([tableName])
@@ -1086,8 +1087,7 @@ export function splitScatteredRatchet(pendingByFile, headCountOf) {
 
 function stagedFiles() {
   try {
-    return gitExec(['diff', '--cached', '--name-only', '--diff-filter=ACMR'])
-      .toString('utf8')
+    return gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMR'], ROOT)
       .split('\n')
       .map((s) => s.trim().replace(/\\/g, '/'))
       .filter(Boolean)
@@ -1098,9 +1098,7 @@ function stagedFiles() {
 
 /** 权威语料的全部路径(与 buildMergedViews / buildKeyUniverse 同清单,一轮只取一次面) */
 function corpusRelPaths() {
-  return CORPUS_SOURCES.flatMap((s) =>
-    LANGS.map((l) => `packages/i18n/messages/${s}/${l}.json`),
-  )
+  return CORPUS_SOURCES.flatMap((s) => LANGS.map((l) => `packages/i18n/messages/${s}/${l}.json`))
 }
 
 /** W6 的廉价预筛:整份文本里连 `Key` 与 `t(` 都没有 ⇒ 三种形状都不可能出现。
@@ -1258,7 +1256,12 @@ export function run({ staged = false, json = false, quiet = false, worktree = fa
       freshKeys: scatteredFresh.reduce((a, x) => a + Math.max(0, x.list.length - x.tol), 0),
       // 全量存量清单只有走 --json 才看得见(文本输出只截 12 行,提交时不刷屏)
       inventory: [...pendingByFile]
-        .map(([file, list]) => ({ file, count: list.length, headCount: headCountOf(file), keys: list.map((v) => `${v.key}@${v.line}`) }))
+        .map(([file, list]) => ({
+          file,
+          count: list.length,
+          headCount: headCountOf(file),
+          keys: list.map((v) => `${v.key}@${v.line}`),
+        }))
         .sort((a, b) => b.count - a.count || a.file.localeCompare(b.file)),
       detail: scatteredFresh.map((x) => ({
         file: x.file,
@@ -1266,7 +1269,13 @@ export function run({ staged = false, json = false, quiet = false, worktree = fa
         keys: x.list.map((v) => `${v.key}@${v.line}(${v.field})`),
       })),
     },
-    landingDebts: notices.map((f) => ({ rule: f.rule, table: `${f.table.file}:${f.table.line}#${f.table.name}`, key: f.key, where: f.where, why: f.why })),
+    landingDebts: notices.map((f) => ({
+      rule: f.rule,
+      table: `${f.table.file}:${f.table.line}#${f.table.name}`,
+      key: f.key,
+      where: f.where,
+      why: f.why,
+    })),
     failures: failures.map((f) => ({
       rule: f.rule,
       table: `${f.table.file}:${f.table.line}#${f.table.name}`,
@@ -1298,9 +1307,7 @@ export function run({ staged = false, json = false, quiet = false, worktree = fa
   }
   if (!failures.length) {
     if (pendingByFile.size) {
-      log(
-        `  ⏸ W6 存量如实报数(锚点 = 各文件 HEAD 自身,只拦"这次改动把缺键加回来"的那些形态):`,
-      )
+      log(`  ⏸ W6 存量如实报数(锚点 = 各文件 HEAD 自身,只拦"这次改动把缺键加回来"的那些形态):`)
       for (const [file, list] of [...pendingByFile].slice(0, 12))
         log(`   · 存量 ${file}:${list.map((v) => `${v.key}@${v.line}`).join(' ')}`)
       if (pendingByFile.size > 12) log(`   …另 ${pendingByFile.size - 12} 个文件(--json 看全量)`)
@@ -1581,10 +1588,7 @@ function selfTest() {
     'export function zhOnly(k: string) { return ZH_ONLY[k] }',
   ].join('\n')
   const scopedMulti = [...tableScopedSymbols(modMulti, 'WORDS')].sort()
-  t(
-    '收窄:读表的导出符号留下、读另一张中文字面量表的不留',
-    scopedMulti.join(',') === 'WORDS,keyOf',
-  )
+  t('收窄:读表的导出符号留下、读另一张中文字面量表的不留', scopedMulti.join(',') === 'WORDS,keyOf')
   t(
     '反例(判据非恒真):把 zhOnly 改成也读这张表 → 它必须进触表面',
     [...tableScopedSymbols(modMulti.replace('ZH_ONLY[k]', 'WORDS[k]'), 'WORDS')]
@@ -1629,9 +1633,12 @@ function selfTest() {
   // 真仓 A/B:同一份盘、只换符号面,证明收窄只影响该收的那一张
   t(
     '真仓:permission-tier 的真 accessor 不被收窄掉(收窄过窄即伪绿)',
-    [...tableScopedSymbols(sourceFile('packages/shared/src/chat/permission-tier.ts'), 'PERMISSION_TIER_WORD_KEYS')].includes(
-      'permissionTierWordKeys',
-    ),
+    [
+      ...tableScopedSymbols(
+        sourceFile('packages/shared/src/chat/permission-tier.ts'),
+        'PERMISSION_TIER_WORD_KEYS',
+      ),
+    ].includes('permissionTierWordKeys'),
   )
   t(
     '真仓 A/B:error-messages 用全量符号面算出消费端、用收窄面算出零消费端',
@@ -1725,14 +1732,14 @@ function selfTest() {
     ['footer.platforms.n8n', 'search.title', 'history.title'].flatMap((p) => keySuffixes(p)),
   )
   const w6src = [
-    "const MENU_ITEMS: HomeMenuItem[] = [",
+    'const MENU_ITEMS: HomeMenuItem[] = [',
     "  { key: 'Search', labelKey: 'menu.search', icon: Search },",
     "  { key: 'History', labelKey: 'menu.history', icon: History },",
     "  { key: 'Ok', labelKey: 'search.title', icon: Ok },",
     "  { key: 'Rel', nameKey: 'platforms.n8n', icon: Rel },",
     "  { key: 'Bare', key: 'Search', label: 'title' },",
     "  { id: 'q', queryKey: 'not.i18n.at.all' },",
-    "]",
+    ']',
     "const s = t('search.title')",
     "const u = t('brand.new')",
     'const v = t(`search.title`)',
@@ -1740,7 +1747,11 @@ function selfTest() {
     "// 注释里举例:labelKey: 'never.exists.line', descKey: 'never.exists.two'",
     "/* 块注释里的示例:labelKey: 'never.exists.block' */",
   ].join('\n')
-  const w6bad = evaluateScatteredKeys({ file: 'apps/demo/src/x.tsx', text: w6src, universe: w6universe })
+  const w6bad = evaluateScatteredKeys({
+    file: 'apps/demo/src/x.tsx',
+    text: w6src,
+    universe: w6universe,
+  })
   const w6keys = new Set(w6bad.map((b) => b.key))
   t(
     'W6 阳性对照:数组里 labelKey/menu.* 从未入库 → 必被抓并点名键',
@@ -1752,7 +1763,9 @@ function selfTest() {
   )
   t(
     'W6 反例(判据非恒红):已入库的绝对键 + 模板插值动态键一律放过',
-    !w6keys.has('search.title') && !w6keys.has('title') && ![...w6keys].some((k) => k.includes('dyn')),
+    !w6keys.has('search.title') &&
+      !w6keys.has('title') &&
+      ![...w6keys].some((k) => k.includes('dyn')),
   )
   t(
     'W6 反例:命名空间相对取词按后缀吸收(platforms.n8n 只在 footer.* 下有)',
@@ -1771,8 +1784,14 @@ function selfTest() {
     w6bad.find((b) => b.key === 'menu.search')?.line === 2,
   )
   // 棘轮:锚点 = 该文件 HEAD 自身违规数
-  const headCounts = new Map([['a.tsx', 3], ['b.tsx', 1]])
-  const mk = (file, n) => [file, Array.from({ length: n }, (_, i) => ({ key: `k${i}`, line: i + 1 }))]
+  const headCounts = new Map([
+    ['a.tsx', 3],
+    ['b.tsx', 1],
+  ])
+  const mk = (file, n) => [
+    file,
+    Array.from({ length: n }, (_, i) => ({ key: `k${i}`, line: i + 1 })),
+  ]
   const ratchet = splitScatteredRatchet(
     new Map([mk('a.tsx', 3), mk('b.tsx', 2), mk('new.tsx', 1)]),
     (f) => headCounts.get(f) ?? 0,

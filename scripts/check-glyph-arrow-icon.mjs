@@ -56,14 +56,15 @@
  * 紧急跳过:HUSKY_SKIP_GLYPH_ARROW_ICON=1 git commit ...
  */
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
-import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { resolveGitBin } from './lib/gitdir.mjs'
+// 判定面取材的五个易错点(git 必须绝对路径、`cat-file --batch` 的 stdin 必须是 pipe、
+// 不得逐文件派生 git、仓库根比较要穿 junction、maxBuffer 要给足)只应有一处实现。
+// 本门此前自带一份 `git()` + `catBatch()`,与守门 91/94/101 同形;现统一走共用层。
+import { Undetermined, catBatch, gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const GIT = resolveGitBin()
 const SELF_SKIP = 'HUSKY_SKIP_GLYPH_ARROW_ICON'
 const GIT_TIMEOUT = 120000
 
@@ -127,46 +128,29 @@ const MAX_ANCESTORS = 8
  */
 const PREFILTER = '›|»|→|》|fontSize|font-size'
 
-const gitOpts = {
-  encoding: 'utf8',
-  windowsHide: true,
-  maxBuffer: 64 * 1024 * 1024,
-  timeout: GIT_TIMEOUT,
+const git = (args, cwd = ROOT) => gitRaw(args, cwd, { timeout: GIT_TIMEOUT })
+
+/**
+ * `git grep` 的"零命中"用退出码 1 表达,且**不往 stderr 写任何东西**。共用层把派生失败统一
+ * 包成 Undetermined(gitErrText 对空 stderr 的哨兵是 `(git 无输出)`),没有把退出码透出来 ——
+ * 故本门按该哨兵还原三态:命中哨兵 = 真的零命中(返回空串),其余异常原样抛。
+ * ⚠️ 这是对上游文案的依赖(缺的原语 = "带退出码的只读派生出口"):若上游改了哨兵,
+ *   预筛一侧会把零命中升成异常 ⇒ 退回**全量**扫描(更保守,不会少扫文件少报违规),
+ *   wiring 一侧会以 exit 2「无法判定」响亮收场(绝不静默记绿)。
+ */
+const NO_MATCH_SENTINEL = ': (git 无输出)'
+const gitGrep = (args, cwd = ROOT) => {
+  try {
+    return git(args, cwd)
+  } catch (e) {
+    if (e instanceof Undetermined && e.message.endsWith(NO_MATCH_SENTINEL)) return ''
+    throw e
+  }
 }
-const git = (args, cwd = ROOT) =>
-  execFileSync(GIT, ['-c', 'safe.directory=*', '-C', cwd, ...args], gitOpts)
 
 // ── 取材 ──────────────────────────────────────────────────────────────────────────────
-/** 一次 cat-file --batch 读完一批 blob(逐文件 git show 在数百文件上就是钩子链上的分钟级挂起) */
-function catBatch(cwd, revs) {
-  if (!revs.length) return new Map()
-  const out = execFileSync(GIT, ['-c', 'safe.directory=*', '-C', cwd, 'cat-file', '--batch'], {
-    cwd,
-    windowsHide: true,
-    maxBuffer: 512 << 20,
-    timeout: GIT_TIMEOUT,
-    input: Buffer.from(revs.join('\n') + '\n', 'utf8'),
-  })
-  const map = new Map()
-  let pos = 0
-  for (const rev of revs) {
-    const nl = out.indexOf(0x0a, pos)
-    if (nl < 0) {
-      map.set(rev, null)
-      continue
-    }
-    const header = out.subarray(pos, nl).toString('utf8')
-    pos = nl + 1
-    const m = /^([0-9a-f]{40}) blob (\d+)$/.exec(header)
-    if (!m) {
-      map.set(rev, null) // "<rev>:<path> missing" 等
-      continue
-    }
-    map.set(rev, out.subarray(pos, pos + Number(m[2])).toString('utf8'))
-    pos += Number(m[2]) + 1
-  }
-  return map
-}
+/** 一次 cat-file --batch 读完一批 blob(逐文件 git show 在数百文件上就是钩子链上的分钟级挂起)
+ *  实现已收口到 scripts/lib/face-reader.mjs 的 catBatch —— 参数同为 (仓库根, rev 列表)。 */
 
 /** 面 → 前缀:head 用 `HEAD:`、index 用 `:`、worktree 直读磁盘 */
 const revPrefix = (face) => (face === 'head' ? 'HEAD:' : face === 'index' ? ':' : '')
@@ -204,13 +188,13 @@ function candidateSet(cwd, face) {
         : ['grep', '-l', '-I', '-E', PREFILTER, '--', ...SCAN_DIRS]
   try {
     return new Set(
-      git(args, cwd)
+      gitGrep(args, cwd)
         .split('\n')
         .filter(Boolean)
         .map((l) => l.replace(/^HEAD:/, '').replaceAll('\\', '/')),
     )
-  } catch (e) {
-    return e?.status === 1 ? new Set() : null
+  } catch {
+    return null
   }
 }
 
@@ -757,13 +741,7 @@ function computeWiring(cwd, face) {
         : face === 'index'
           ? ['grep', '--cached', '-l', '-I', '-F', symbol, '--', ...SCAN_DIRS]
           : ['grep', '-l', '-I', '-F', symbol, '--', ...SCAN_DIRS]
-    let out = ''
-    try {
-      out = git(args, cwd)
-    } catch (e) {
-      if (e?.status === 1) out = ''
-      else throw e
-    }
+    const out = gitGrep(args, cwd)
     map.set(
       mech.file,
       out
