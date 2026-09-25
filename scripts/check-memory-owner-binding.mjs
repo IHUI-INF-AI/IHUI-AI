@@ -34,13 +34,11 @@
  *
  * 用法:node scripts/check-memory-owner-binding.mjs [--staged|--self-test|--json|--strict]
  */
-import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 
 const ROOT = resolve(import.meta.dirname, '..')
-const GIT = process.env.GIT_BIN || 'git'
 
 /** 被审面:ai-service 里凡收 user_id 的路由文件 */
 const SCAN_GLOBS = ['apps/ai-service/app/api', 'apps/ai-service/app/routers']
@@ -49,30 +47,50 @@ const FORWARD_GLOBS = ['apps/api/src/routes']
 
 /** 对齐出口 —— 出现即认为该文件把身份交给了令牌主体 */
 const ALIGN_RE = /\brequire_request_user_id\b|\bresolve_request_user_id\b|\brequest\.state\.user_id\b/
-/** 收 user_id 的两种 Python 语法锚点(必须两条都认,少一条该形态整片隐身) */
-const QUERY_ID_RE = /\buser_id\s*:\s*str\s*=\s*Query\s*\(/
-const FIELD_ID_RE = /\buser_id\s*:\s*str\s*=\s*Field\s*\(/
+/**
+ * 收 user_id 的 Python 语法锚点(必须全认,少一条该形态整片隐身)。
+ *
+ * ⚠️ 可选标注那一档是 2026-09-25 补的实测缺口:`3b0170fa176` 把该文件的参数一律改写成
+ * `user_id: str | None = Query(...)`(把"缺身份"交给 `require_request_user_id` 去拒),
+ * 而本门两条正则都只认 `: str =` ⇒ 一个端点都扫不到 ⇒ 输出"收 user_id 的端点文件 0 个 /
+ * 未对齐 0 个"并 **exit 0**。这道今天刚被升到 blocking(带 `--strict`)的门就此变成一台
+ * 永远绿灯的尺子:它既看不见现存敞口,也看不见"明天有人把 require_request_user_id 删掉"。
+ * 教训与 §"判据必须覆盖门自己产出的形态"同一条 —— **改被审代码的写法,必须同时改审它的正则**。
+ */
+const OPT_TAIL = String.raw`(?:\s*\|\s*None|None\s*\|\s*str|Optional\[\s*str\s*\])?`
+const QUERY_ID_RE = new RegExp(String.raw`\buser_id\s*:\s*str${OPT_TAIL}\s*=\s*Query\s*\(`)
+const FIELD_ID_RE = new RegExp(String.raw`\buser_id\s*:\s*str${OPT_TAIL}\s*=\s*Field\s*\(`)
 
-function git(args, opt = {}) {
-  return execFileSync(GIT, ['-c', 'safe.directory=*', ...args], {
-    cwd: ROOT,
-    encoding: 'utf8',
-    windowsHide: true,
-    maxBuffer: 128 * 1024 * 1024,
-    ...opt,
-  })
-}
+/**
+ * 统一的 git 派生一律走取材层(2026-09-25 迁移):此前本门自己写了 `execFileSync(GIT, …)`,
+ * 绝对路径 / safe.directory / quotepath / windowsHide / timeout / stdio 六件事各门各写一遍就
+ * 会漂一遍(守门 80 的无 timeout 型、§5b 的"服务账户 PATH 与终端不通"型都是这一族),
+ * 而守门 118 见"散写 git 读内容"即判红 —— 它要的正是"只有一份实现"。
+ */
+const git = (args, opt = {}) => gitRaw(args, ROOT, opt)
 
 /**
  * 取材面:默认 HEAD blob(与守门 70/77/83/98/101/103 同取向 —— 共享工作树常年滞后 HEAD,
  * 按磁盘算会在"恒红/假绿"之间来回跳,还会把别人的半编辑态算成本仓债务)。
+ * 清单与内容**必须同面同轮**:一面读盘一面读 git 会造出一把自洽但基准错位的尺子(77/101 同型)。
  */
 function makeFaceReader(face) {
-  if (face === 'worktree') return (rel) => readFileSync(join(ROOT, rel), 'utf8')
+  if (face === 'worktree') return (rel) => readWorktreeFile(ROOT, rel)
   const prefix = face === 'staged' ? ':' : 'HEAD:'
-  // 逐文件 git show:面必须与 listFiles 用的是同一个(索引 or HEAD),否则
-  // "清单读盘 + 内容读 git"会造出一把自洽但基准错位的尺子(见守门 77/101 同型教训)。
-  return (rel) => git(['show', `${prefix}${rel}`])
+  let cache = null
+  const reader = (rel) => {
+    const spec = `${prefix}${rel}`
+    if (!cache) cache = catBatch(ROOT, [spec], { timeout: 60000 })
+    else {
+      // 逐文件补读:cat-file --batch 是按规格回流的会话式协议,这里保持"每次问一个新规格"
+      const more = catBatch(ROOT, [spec], { timeout: 60000 })
+      for (const [k, v] of more) cache.set(k, v)
+    }
+    const v = cache.get(spec)
+    if (typeof v !== 'string') throw new Undetermined(`取材面 ${spec} 取不到内容`)
+    return v
+  }
+  return reader
 }
 
 function listFiles(face, globs, exts) {
@@ -229,6 +247,35 @@ async def lst(user_id: str = Query(...)):
   const r = report({ bindings: [s1], unbound: [s1], forwards: fwd, undetermined: [], face: 'head', strict: false })
     .join('\n')
   ok('S16 报告必须同时含未对齐数与透传清单', /未对齐\*{0,2}\s*1/.test(r) && /透传/.test(r))
+  // S17/S18:**可选标注**那一档是本门的实测盲区补票。`3b0170fa176` 把参数一律改写成
+  // `user_id: str | None = Query(...)`,而两条正则都只认 `: str =` ⇒ 扫到 0 个端点、
+  // 一路 exit 0 —— 一道今天刚升到 blocking 的安全门变成永远绿灯的尺子。
+  // 夹具逐字取自真实文件(apps/ai-service/app/routers/usage.py 与 app/api/memory.py)。
+  const PY_OPTIONAL_QUERY = `
+@router.get("/api/v1/ai/usage/stats")
+async def get_usage_stats(
+    request: Request,
+    days: int = Query(7, ge=1, le=365, description="统计天数范围"),
+    user_id: str | None = Query(None, description="指定用户 ID(管理员用)"),
+) -> dict[str, Any]:
+    uid = user_id or getattr(request.state, "user_id", None)
+`
+  const o1 = scanSource('usage.py', PY_OPTIONAL_QUERY)
+  ok('S17 可选标注 user_id: str | None = Query(...) 必须被认出(旧正则在此整片隐身)', !!o1 && o1.takesId && o1.forms.includes('Query'))
+  ok('S18 该形态未挂对齐出口 ⇒ 判未对齐(认出却不定责等于没认)', o1 && o1.aligned === false)
+  const PY_OPTIONAL_BOUND = `
+from app.core.jwt_auth import require_request_user_id
+
+async def get_quota(request: Request, user_id: str | None = Query(None)) -> dict[str, Any]:
+    uid = await _scope_user_id(request, user_id)
+    caller = await require_request_user_id(request)
+`
+  ok('S19 可选标注 + 对齐出口 ⇒ 判已对齐', scanSource('usage2.py', PY_OPTIONAL_BOUND)?.aligned === true)
+  const PY_OPTIONAL_FIELD = `
+class Q(BaseModel):
+    user_id: str | None = Field(None, description="指定用户")
+`
+  ok('S20 Field 的可选标注同样要认(只补 Query 半边等于没补)', scanSource('q.py', PY_OPTIONAL_FIELD)?.forms.includes('Field') === true)
   let pass = 0
   for (const [n, v] of cases) {
     if (v) pass++
@@ -245,7 +292,15 @@ if (isDirectRun) {
   if (argv.includes('--self-test')) process.exit(selfTest() ? 0 : 1)
   const strict = argv.includes('--strict')
   const json = argv.includes('--json')
-  const face = argv.includes('--staged') ? 'staged' : argv.includes('--worktree') ? 'worktree' : 'head'
+  const { face, error: faceError } = selectFace({
+    staged: argv.includes('--staged'),
+    worktree: argv.includes('--worktree'),
+    def: 'head',
+  })
+  if (faceError) {
+    console.error(`❌ 无法判定: ${faceError}`)
+    process.exit(2)
+  }
   const read = makeFaceReader(face)
   const files = listFiles(face, SCAN_GLOBS, ['py'])
   const fFiles = listFiles(face, FORWARD_GLOBS, ['ts'])
