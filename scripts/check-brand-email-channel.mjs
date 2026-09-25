@@ -1148,7 +1148,7 @@ function selfTestRun() {
     )
     check(
       '50 R4b 红:receiver 改名 feishu-copy 仍判红 —— 认的是 slug,不只有原名字',
-      r4(AM_REL, AM_CLEAN + "\n  - name: 'feishu-copy'\n    webhook_configs:\n      - url: 'http://127.0.0.1:9097/hook'\n")
+      r4(AM_REL, AM_CLEAN + "\n  - name: 'feishu-copy'\n    webhook_configs:\n      - url: 'http://hook.invalid/hook'\n")
         .filter((v) => /R4b/.test(v.reason)).length === 1,
     )
     check(

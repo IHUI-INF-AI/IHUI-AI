@@ -152,20 +152,102 @@ function resolveSpec(fromPath, rawSpec) {
  *  `export` 那一路额外要求紧跟 `{`/`*`/`type {` —— 否则 `export const k = 1` 这类普通导出行
  *  会顺着续行把后面的注释示例拼成一条"导入语句"(自检抓到过的真实假红形态)。 */
 /** 数一行的花括号净深度,**先剥掉字符串字面量**(否则 `['"`]` 这类正则/字符串里的括号会算错) */
+/** 剥单/双引号字符串 —— **一份实现两处用**(braceDepth 的括号净深度、parseImports 的模板奇偶),
+ *  各写一份必漂移;本仓写过多次"两处算同一件事必须共用一份实现"。 */
+const QUOTE_SPAN_RE = /'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"/g
+
 function braceDepth(line) {
-  const s = line.replace(/'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`/g, '""')
+  const s = line.replace(QUOTE_SPAN_RE, '""').replace(/`(?:\\.|[^`\\])*`/g, '""')
   return (s.match(/\{/g) || []).length - (s.match(/\}/g) || []).length
+}
+
+/**
+ * 逐行标出"处于模板字符串内部"的行 —— 用来认出夹具/生成器里拼出来的 import。
+ *
+ * 为什么不是"数反引号奇偶":实测两处都会把奇偶拨错,而拨错的后果是**假红**(把别人的
+ * --self-test 夹具当真导入判悬空):
+ *   ① 反引号写在引号串里 —— `if (c === '"' || c === "'" || c === '`')`(门 119 有 5 行)
+ *   ② 反引号写在正则字面量里 —— `/^(?:'|"|`)(light|dark)(?:'|"|`)$/`(门 91:403 一行,
+ *      直接把后面 500 多行的奇偶整体反档,G-177 暴露的那处"悬空导入"就是这么来的)
+ * 所以这里做一次带状态的词法走查:字符串 / 模板 / 行注释 / 块注释 / 正则字面量各自进出。
+ * 认不出来的形态一律按"不在模板内"处理 —— 宁可多判一条(逼人复看),绝不静默放过。
+ */
+export function templateInteriorLines(text) {
+  const inside = []
+  let inTpl = false
+  let inLine = null
+  let inBlock = false
+  let inRegex = false
+  let prevSig = ''
+  const lines = String(text ?? '').split('\n')
+  const REGEX_OK = new Set(['=', '(', ',', ':', '[', '!', '&', '|', '?', '{', '}', ';', '+', '-', '*', '%', '<', '>'])
+  for (let i = 0; i < lines.length; i++) {
+    inside.push(inTpl)
+    const line = lines[i]
+    inLine = null // 行注释只在本行内有效
+    for (let j = 0; j < line.length; j++) {
+      const c = line[j]
+      if (inBlock) {
+        if (c === '*' && line[j + 1] === '/') {
+          inBlock = false
+          j++
+        }
+        continue
+      }
+      if (inLine) continue
+      if (inRegex) {
+        if (c === '\\') j++
+        else if (c === '[') {
+          while (j < line.length && line[j] !== ']' && line[j] !== '\\') j++
+        } else if (c === '/' && line[j - 1] !== '\\') inRegex = false
+        continue
+      }
+      if (inTpl) {
+        if (c === '\\') j++
+        else if (c === '`') inTpl = false
+        continue
+      }
+      if (c === '/' && line[j + 1] === '/') {
+        inLine = true
+        break
+      }
+      if (c === '/' && line[j + 1] === '*') {
+        inBlock = true
+        j++
+        continue
+      }
+      if (c === "'" || c === '"') {
+        const q = c
+        j++
+        while (j < line.length && line[j] !== q) {
+          if (line[j] === '\\') j++
+          j++
+        }
+        prevSig = q
+        continue
+      }
+      if (c === '`') {
+        inTpl = true
+        prevSig = c
+        continue
+      }
+      if (c === '/' && (prevSig === '' || REGEX_OK.has(prevSig))) {
+        inRegex = true
+        continue
+      }
+      if (!/\s/.test(c)) prevSig = c
+    }
+  }
+  return inside
 }
 
 export function parseImports(text) {
   const out = []
   const lines = text.split('\n')
-  let tickParity = 0 // 累计未闭合的反引号数:奇数 = 正处于模板字符串内部
+  const inTemplate = templateInteriorLines(text)
   for (let i = 0; i < lines.length; i++) {
     const first = lines[i]
-    const openTick = tickParity % 2 === 1
-    tickParity += (first.match(/(?<!\\)`/g) || []).length
-    if (openTick) continue // 生成器/夹具里拼出来的 import 文本不是真导入
+    if (inTemplate[i]) continue // 生成器/夹具里拼出来的 import 文本不是真导入
     if (/^\s*(\/\/|\*|\/\*)/.test(first)) continue
     const isImport = /^import\b/.test(first)
     const isReexport = /^export\s+(?:type\s*)?[\{*]/.test(first)
@@ -564,6 +646,39 @@ function selfTest() {
         'a/g.mjs': "const tpl = `\nimport { Ghost } from './nope'\n`\nexport const t = tpl",
       },
       red: 0,
+    },
+    {
+      // G-177 的形态:字符字面量里的反引号先拨错奇偶,后面的模板夹具就被当成真代码。
+      // 这一条与上一条的区别只在"文件里多了几行 `c === '`'` 状判引号种类的正常代码"。
+      name: '字符字面量里的反引号不得拨错模板奇偶(门自身夹具的假红成因)',
+      files: {
+        'a/gen.mjs': 'export const SRC = 1',
+        'a/g.mjs':
+          "function q(c) {\n  if (c === '\"' || c === \"'\" || c === '`') return c\n  return null\n}\nconst tpl = `\nimport { Ghost } from './nope'\n`\nexport const t = tpl",
+      },
+      red: 0,
+    },
+    {
+      // G-177 的真实成因(比上一条更狠):反引号出现在**正则字面量**里 ——
+      // 实测 scripts/check-theme-prop-wiring.mjs:403 一行 `/^(?:'|"|`)(light|dark)…$/`
+      // 就把该文件后面 500 多行的模板奇偶整体反档,让 :917 的夹具 import 被判悬空。
+      name: '正则字面量里的反引号不得拨错模板区间(真仓 G-177 的那一行形态)',
+      files: {
+        'a/gen.mjs': 'export const SRC = 1',
+        'a/g.mjs':
+          "const lit = /^(?:'|\"|`)(light|dark)(?:'|\"|`)$/.exec(inner)\nconst FIX = `\nimport { Ghost } from './nope'\n`\nexport const t = FIX",
+      },
+      red: 0,
+    },
+    {
+      // 反向对照:同样含反引号字符字面量的文件里,列 0 的真悬空 import 必须仍然红 —— 否则
+      // "认出模板区间"就退化成了万能放行口。
+      name: '反向对照:同样含反引号字符字面量的文件里,列 0 的真悬空 import 必须仍判红',
+      files: {
+        'a/g.mjs':
+          "function q(c) {\n  if (c === '\"' || c === \"'\" || c === '`') return c\n  return null\n}\nimport { Ghost } from './nope'\nexport const k = q\nexport const SRC = 1",
+      },
+      red: 1,
     },
     {
       name: '本地转导出 export { X } 不得把下一条 export-from 拼进来(web e2e fixtures 假红的成因)',
