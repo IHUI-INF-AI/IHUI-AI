@@ -61,7 +61,7 @@ export default function VipPriceSelector(props: VipPriceSelectorProps) {
             className={`flex-1 relative px-3 py-3 rounded-xl border-2 ${
               selected
                 ? 'border-[var(--color-brand-accent-deep)] bg-[var(--color-brand-accent-light)]'
-                : 'border-border bg-card'
+                : 'vip-border vip-surface'
             }`}
             onClick={() => onSelect?.(opt)}
             hoverClass="opacity-60"
@@ -78,29 +78,27 @@ export default function VipPriceSelector(props: VipPriceSelectorProps) {
             )}
             <Text
               className={`block text-sm font-medium text-center ${
-                selected ? 'text-[var(--color-brand-accent-deep)]' : 'text-foreground'
+                selected ? 'text-[var(--color-brand-accent-deep)]' : 'vip-text'
               }`}
             >
               {opt.name}
             </Text>
             <View className="flex items-baseline justify-center mt-1">
-              <Text className="text-xs text-muted-foreground">¥</Text>
+              <Text className="text-xs vip-text-muted">¥</Text>
               <Text
                 className={`text-xl font-bold ${
-                  selected ? 'text-[var(--color-brand-accent-deep)]' : 'text-foreground'
+                  selected ? 'text-[var(--color-brand-accent-deep)]' : 'vip-text'
                 }`}
               >
                 {opt.price}
               </Text>
             </View>
             {opt.originalPrice && (
-              <Text className="block text-xs text-muted-foreground line-through text-center mt-0.5">
+              <Text className="block text-xs vip-text-muted line-through text-center mt-0.5">
                 ¥{opt.originalPrice}
               </Text>
             )}
-            <Text className="block text-xs text-muted-foreground text-center mt-1">
-              {opt.period}
-            </Text>
+            <Text className="block text-xs vip-text-muted text-center mt-1">{opt.period}</Text>
             {opt.discount && (
               <View
                 className="mt-1.5 px-1.5 py-0.5 rounded bg-warning/10 inline-block"
