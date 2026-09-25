@@ -12,6 +12,12 @@ import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { voiceSttFromBlob, VoiceSttHttpError } from '@ihui/api-client'
 import { useWebAuthStore } from '@/stores/auth-store'
+// D62(G-76):麦克风错误的四类归一判据一律走共享层,端内不得再写 if/switch 分类
+import {
+  classifyMicError,
+  micErrorTitleKey,
+  type MicErrorKind,
+} from '@ihui/shared/chat/voice-subtitles'
 
 interface VoiceInputProps {
   onTranscript: (text: string) => void
@@ -30,6 +36,8 @@ interface VoiceInputProps {
 export interface VoiceInputHandle {
   readonly recording: boolean
   readonly pendingSegments: number
+  /** D62:classifyMicError 归一后的四类麦克风错误(null = 无错误),供宿主 VoiceToolbar 渲染字幕条 */
+  readonly micError: MicErrorKind | null
   toggleRecording: () => void
 }
 
@@ -108,10 +116,23 @@ function VoiceInputBase(
   ref: React.ForwardedRef<VoiceInputHandle | null>,
 ) {
   const t = useTranslations('chat')
+  // D62:四类麦克风错误文案的唯一词包位(ai.pane.voiceSubtitles.micError.<kind>,五语齐备)
+  const tv = useTranslations('ai.pane.voiceSubtitles')
   const accessToken = useWebAuthStore((s) => s.token)
   const [mode, setMode] = React.useState<VoiceMode>('native')
   const [recording, setRecording] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [micErrorKind, setMicErrorKind] = React.useState<MicErrorKind | null>(null)
+
+  /** 麦克风启动类失败的统一落点:异常 → classifyMicError 归一四类 → 各类各自文案。 */
+  const applyMicFailure = React.useCallback(
+    (e: unknown) => {
+      const kind = classifyMicError(e)
+      setMicErrorKind(kind)
+      setError(tv(micErrorTitleKey(kind)))
+    },
+    [tv],
+  )
 
   // 用 ref 持有最新回调,避免父组件每次渲染传入新函数导致 effect 反复重建(中断录音)
   const onTranscriptRef = React.useRef(onTranscript)
@@ -193,11 +214,13 @@ function VoiceInputBase(
     recognitionRef.current = recognition
     transcriptRef.current = ''
     setError(null)
+    setMicErrorKind(null)
     try {
       recognition.start()
       setRecording(true)
-    } catch {
-      setError(t('voiceInputError') || '语音识别启动失败,请重试')
+    } catch (e) {
+      // D62:识别器启动异常同样走四类归一(AbortError/未知 → startFailed 兜底)
+      applyMicFailure(e)
     }
   }
 
@@ -258,6 +281,7 @@ function VoiceInputBase(
           segDoneRef.current++
           if (text) {
             setError(null)
+            setMicErrorKind(null)
             onTranscriptRef.current(text)
           }
         } catch (e) {
@@ -290,6 +314,7 @@ function VoiceInputBase(
   const startFallbackRecording = async () => {
     try {
       setError(null)
+      setMicErrorKind(null)
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
       const recorder = new MediaRecorder(stream)
@@ -314,9 +339,11 @@ function VoiceInputBase(
       recorder.start(SEGMENT_MS)
       mediaRecorderRef.current = recorder
       setRecording(true)
-    } catch {
+    } catch (e) {
+      // D62:不再把所有异常糊成一条笼统文案 —— getUserMedia 的 DOMException 名
+      // 交 classifyMicError 归一为 无权限/无设备/被占用/启动失败 四类,各自文案。
       setRecording(false)
-      setError('无法访问麦克风,请在浏览器设置中允许麦克风权限')
+      applyMicFailure(e)
     }
   }
 
@@ -335,6 +362,7 @@ function VoiceInputBase(
       return
     }
     setError(null)
+    setMicErrorKind(null)
     if (mode === 'native') {
       startNativeRecording()
     } else if (mode === 'fallback') {
@@ -347,14 +375,17 @@ function VoiceInputBase(
   const handleRef = React.useRef<{
     recording: boolean
     pendingSegments: number
+    micError: MicErrorKind | null
     toggle: () => void
   }>({
     recording: false,
     pendingSegments: 0,
+    micError: null,
     toggle: () => {},
   })
   handleRef.current.recording = recording
   handleRef.current.pendingSegments = pendingSegments
+  handleRef.current.micError = micErrorKind
   handleRef.current.toggle = toggle
   React.useImperativeHandle(
     ref,
@@ -364,6 +395,9 @@ function VoiceInputBase(
       },
       get pendingSegments() {
         return handleRef.current.pendingSegments
+      },
+      get micError() {
+        return handleRef.current.micError
       },
       toggleRecording: () => {
         handleRef.current.toggle()
