@@ -23429,7 +23429,6 @@
     "author": "작성자"
   },
   "aigcPublish": {
-    "back": "뒤로",
     "title": "AIGC 작품 게시",
     "subtitle": "AI 창작물을 콘텐츠 플라자에 공유하세요",
     "labelType": "작품 유형",
@@ -23934,7 +23933,6 @@
     "startChat": "대화 시작"
   },
   "aiGroup": {
-    "back": "뒤로",
     "metaActive": "{time}에 마지막 활동",
     "metaMessages": "메시지 {count}개",
     "detailMembers": "멤버 {count}명",
@@ -24356,7 +24354,6 @@
   },
   "aigcCover": {
     "loading": "불러오는 중...",
-    "back": "뒤로",
     "title": "커버 설정",
     "subtitle": "\"{title}\" 커버 생성",
     "empty": "표지가 없습니다. 먼저 생성해 주세요",
