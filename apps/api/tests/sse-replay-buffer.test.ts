@@ -4,6 +4,8 @@
 
 import { describe, it, expect, vi } from 'vitest'
 import {
+  getReplayWindowStatus,
+  hasReplayHole,
   registerStream,
   pushEvent,
   getEventsAfter,
@@ -53,6 +55,39 @@ describe('sse-replay-buffer', () => {
     expect(evs.length).toBe(2000)
     expect(evs[0]?.id).toBe(N - 2000) // 最旧(id 0..49)被淘汰,首条为 50
     expect(evs[evs.length - 1]?.id).toBe(N - 1)
+  })
+
+  it('裁头必须留痕:droppedCount 等于被淘汰条数,未裁时为 0', () => {
+    const notTrimmed = `d1:${Math.random()}`
+    registerStream(notTrimmed)
+    for (let i = 0; i < 5; i++) pushEvent(notTrimmed, { id: i, rawLine: `data: ${i}\n` })
+    expect(getReplayWindowStatus(notTrimmed, -1).droppedCount).toBe(0)
+
+    const trimmed = `d2:${Math.random()}`
+    registerStream(trimmed)
+    const N = 2050
+    for (let i = 0; i < N; i++) pushEvent(trimmed, { id: i, rawLine: `data: ${i}\n` })
+    const st = getReplayWindowStatus(trimmed, -1)
+    expect(st.droppedCount).toBe(50)
+    expect(st.lowestId).toBe(50)
+    // 重复注册重置计数(否则一次洞会被读成永久洞)
+    registerStream(trimmed)
+    expect(getReplayWindowStatus(trimmed, -1).droppedCount).toBe(0)
+  })
+
+  it('未满容量 ⇒ 无洞;lastSeq 落在被裁区间 ⇒ 有洞(同一 key 两次判定翻转)', () => {
+    const key = `d3:${Math.random()}`
+    registerStream(key)
+    for (let i = 0; i < 5; i++) pushEvent(key, { id: i, rawLine: `data: ${i}\n` })
+    expect(hasReplayHole(key, -1)).toBe(false)
+    expect(hasReplayHole(key, 2)).toBe(false)
+
+    const N = 2050
+    for (let i = 5; i < N; i++) pushEvent(key, { id: i, rawLine: `data: ${i}\n` })
+    // 缓冲现在持有 [50 .. 2049]
+    expect(hasReplayHole(key, 10)).toBe(true) // 10 落在被裁掉的 [0..49]
+    expect(hasReplayHole(key, 49)).toBe(false) // 边界:尾巴正好接上
+    expect(hasReplayHole(key, 48)).toBe(true) // 差 1 即为洞
   })
 
   it('超过 200 个流时 FIFO 淘汰最旧流', () => {
