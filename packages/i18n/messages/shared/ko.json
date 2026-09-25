@@ -171,8 +171,6 @@
     "searchActivity": "{state, select, running {검색 중} completed {검색 완료} other {검색}}",
     "thinkingActivity": "{state, select, running {분석 중} completed {분석 완료} other {분석}}",
     "customActivity": "{state, select, running {실행 중} completed {실행 완료} other {실행}}",
-    "workedForDuration": "소요 시간 {duration}",
-    "searchWithQuery": "쿼리: {query}",
     "showAllLines": "모두 펼치기",
     "hideLines": "접기",
     "sourcesButton": "출처",
@@ -2065,9 +2063,6 @@
     "enableSuccess": "{name} 활성화됨",
     "disableSuccess": "{name} 비활성화됨",
     "notFound": "기능을 찾을 수 없음"
-  },
-  "topBar": {
-    "capabilityMarket": "기능 마켓"
   },
   "stepDecision": {
     "decision": {
