@@ -84,7 +84,7 @@
     "check:auth-refresh-singleton": "node scripts/check-auth-refresh-singleton.mjs",
     "check:killer-parity-ends": "node scripts/check-killer-parity-ends.mjs",
     "check:conflict-markers": "node scripts/check-no-conflict-markers.mjs",
-    "check:all": "pnpm check:conflict-markers && pnpm check:api-key-leak && pnpm check:i18n-keys && pnpm check:stale-dist && pnpm check:db-schema-drift && pnpm check:sanitizer-bypass && pnpm check:api-routes:warn && pnpm check:safe-parse && pnpm check:nav-dead-links && pnpm check:popover-trigger-data-state && pnpm check:miniapp-parity && pnpm check:rn-parity && pnpm check:cross-end-tokens && pnpm check:adapter-parity && pnpm check:killer-parity-ends && node scripts/scan-dead-i18n-keys.mjs --target all --exit 1 && pnpm check:auth-refresh-singleton && node scripts/check-agent-event-parity.mjs && pnpm check:desktop-event-wiring && pnpm check:dep-links:strict && pnpm check:merge-loss && node scripts/check-prod-bundle-shadow.mjs && pnpm check:sdk-publish && pnpm check:artifact-budget",
+    "check:all": "pnpm check:conflict-markers && pnpm check:api-key-leak && pnpm check:i18n-keys && pnpm check:stale-dist && pnpm check:db-schema-drift && pnpm check:sanitizer-bypass && pnpm check:api-routes:warn && pnpm check:safe-parse && pnpm check:nav-dead-links && pnpm check:popover-trigger-data-state && pnpm check:miniapp-parity && pnpm check:miniapp-generated && pnpm check:rn-parity && pnpm check:cross-end-tokens && pnpm check:adapter-parity && pnpm check:killer-parity-ends && node scripts/scan-dead-i18n-keys.mjs --target all --exit 1 && pnpm check:auth-refresh-singleton && node scripts/check-agent-event-parity.mjs && pnpm check:desktop-event-wiring && pnpm check:dep-links:strict && pnpm check:merge-loss && node scripts/check-prod-bundle-shadow.mjs && pnpm check:sdk-publish && pnpm check:artifact-budget",
     "check:dep-links": "node scripts/check-workspace-dep-links.mjs",
     "check:dep-links:strict": "node scripts/check-workspace-dep-links.mjs --strict",
     "check:merge-loss": "node scripts/check-merge-addition-loss.mjs",
@@ -134,6 +134,7 @@
     "migration:check": "node scripts/check-migration-bookkeeping.mjs",
     "migration:check:db": "node scripts/check-migration-bookkeeping.mjs --db",
     "check:miniapp-parity": "node scripts/check-miniapp-taro-style-parity.mjs",
+    "check:miniapp-generated": "node scripts/check-miniapp-generated.mjs",
     "check:sdk-publish": "node --test packages/sdk/tests/publish-ready.test.mjs"
   },
   "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
