@@ -71,4 +71,39 @@ export function setSkillListing(name: string, enabled: boolean) {
 export function fetchSkillOwnership(name: string) {
   return fetchApi<SkillOwnership>(`/api/skills/${encodeURIComponent(name)}/ownership`)
 }
+
+/**
+ * 市场条目「安装 / 下架」(2026-09-25 收口:admin 技能市场对话框由页面内 api() 直连改走本出口)。
+ *
+ * 对应后端 apps/api/src/routes/skills.ts:
+ *  - POST /api/skills/:name/install → installCount++ 并写入当前用户私有库 Hash(登录用户即可)
+ *  - POST /api/skills/:name/unlist  → 从市场目录**破坏性硬删**条目(requireAdmin,401/403 在 handler 之前落定)
+ *
+ * 与 setSkillListing 互斥、不是它的别名:unlist 连带抹掉 installCount/评分/订阅关系;
+ * listing 只是"条目还在、在架/不在架翻转"。要可逆用 setSkillListing,本票只原样换通道。
+ */
+export interface SkillInstallResult {
+  name: string
+  installed: boolean
+  installCount: number
+}
+
+export interface SkillUnlistResult {
+  name: string
+  unlisted: boolean
+}
+
+/** 安装一个市场条目到当前用户技能库 */
+export function installSkill(name: string) {
+  return fetchApi<SkillInstallResult>(`/api/skills/${encodeURIComponent(name)}/install`, {
+    method: 'POST',
+  })
+}
+
+/** 管理员:从市场目录硬删条目(不可逆,区别于 setSkillListing) */
+export function unlistSkill(name: string) {
+  return fetchApi<SkillUnlistResult>(`/api/skills/${encodeURIComponent(name)}/unlist`, {
+    method: 'POST',
+  })
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
