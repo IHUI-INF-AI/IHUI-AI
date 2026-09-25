@@ -15351,18 +15351,13 @@
     "topBar": {
       "agent": "에이전트",
       "browser": "내장 브라우저",
-      "capabilityMarket": "기능 마켓",
       "close": "닫기",
       "codeChanges": "코드 변경",
-      "connectors": "중국 커넥터",
       "document": "문서",
       "editor": "에디터",
       "mcp": "MCP",
-      "mcpStore": "MCP 스토어",
       "plus": "뷰 추가",
       "settings": "설정",
-      "skill": "스킬",
-      "skillsMarket": "스킬 마켓",
       "terminal": "터미널"
     },
     "viewSwitcher": {
