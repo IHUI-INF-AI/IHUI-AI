@@ -18,6 +18,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { NoteItem, NoteScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 笔记管理共享屏(含编辑 Modal)— props 注入式跨端组件 */
 export type { NoteItem, NoteScreenProps }
@@ -61,6 +62,7 @@ export function NoteScreen({
     return (
       <View style={styles.center}>
         <Text style={styles.errorText}>{error}</Text>
+        {/* back-label-exempt: 错误态/空态卡片内的按钮文案,或翻页/弹窗关闭动作 —— 此处「返回」是按钮文字而非页头箭头,换裸箭头反而不表意 */}
         <TouchableOpacity
           style={styles.retryBtn}
           onPress={onBack}
@@ -75,9 +77,7 @@ export function NoteScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('note.title')}</Text>
         <Text style={styles.subtitle}>{t('note.subtitle')}</Text>
         {userLabel ? <Text style={styles.userText}>{userLabel}</Text> : null}
@@ -200,7 +200,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     loadingText: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     header: { paddingHorizontal: 10, paddingBottom: 8 },
-    backText: { fontSize: 16, color: tk.text.secondary },
     title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     userText: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },

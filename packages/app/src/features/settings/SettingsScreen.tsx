@@ -8,6 +8,7 @@ import type { ReactNode } from 'react'
 import { View, Text, Switch, TextInput, TouchableOpacity, Modal, StyleSheet, ScrollView } from 'react-native'
 import type { SettingsScreenProps, SharedNotificationToggles } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 type NotifKey = keyof SharedNotificationToggles
 
@@ -93,9 +94,7 @@ export function SettingsScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('settings.title')}</Text>
       </View>
 
@@ -315,7 +314,6 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       paddingVertical: 12,
       gap: 12,
     },
-    backText: { fontSize: 16, color: tk.text.medium },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     bodyScroll: { flex: 1 },
     body: { paddingHorizontal: 10, paddingTop: 12, paddingBottom: 24, gap: 16 },

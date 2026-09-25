@@ -22,6 +22,7 @@ import type {
 } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 模型广场共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { ModelPlazaItem, ModelPlazaProvider, ModelPlazaScreenProps }
@@ -112,9 +113,7 @@ export function ModelPlazaScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.headerTitle}>{t('modelPlaza.title')}</Text>
         <TouchableOpacity style={styles.compareBtn} onPress={onPressCompare} activeOpacity={0.85}>
           <Text style={styles.compareText}>{t('modelPlaza.compareBtn')}</Text>
@@ -290,7 +289,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: 8,
       backgroundColor: tk.surface.bg,
     },
-    backText: { fontSize: 16, color: tk.text.secondary },
     headerTitle: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     compareBtn: {
       paddingHorizontal: 12,

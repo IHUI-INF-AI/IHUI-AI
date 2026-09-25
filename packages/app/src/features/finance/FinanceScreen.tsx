@@ -14,6 +14,7 @@ import {
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { FinanceSummary, FinanceScreenProps } from '../../types'
+import { BackChevron } from '../../components/BackChevron'
 
 export type { FinanceSummary, FinanceScreenProps }
 
@@ -48,6 +49,7 @@ export function FinanceScreen({
     return (
       <View style={styles.center}>
         <Text style={styles.errorText}>{error}</Text>
+        {/* back-label-exempt: 错误态/空态卡片内的按钮文案,或翻页/弹窗关闭动作 —— 此处「返回」是按钮文字而非页头箭头,换裸箭头反而不表意 */}
         <TouchableOpacity onPress={onBack} style={styles.backBtn}>
           <Text style={styles.link}>{t('common.back')}</Text>
         </TouchableOpacity>
@@ -73,9 +75,7 @@ export function FinanceScreen({
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: 10 }}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('finance.title')}</Text>
       </View>
       {cards.map((c) => (
@@ -101,7 +101,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     header: { flexDirection: 'row', alignItems: 'center', paddingBottom: 12, gap: 12 },
     backBtn: { marginTop: 12 },
-    backText: { fontSize: 16, color: tk.text.medium },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     card: {
       padding: 12,

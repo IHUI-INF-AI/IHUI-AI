@@ -8,6 +8,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AiCareerScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** AI 生涯指导 — 孩子学业问卷共享屏(props 注入式跨端组件,纯 UI,不依赖平台 API) */
 export type { AiCareerScreenProps }
@@ -33,9 +34,7 @@ export function AiCareerScreen({
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      <TouchableOpacity onPress={onBack} style={styles.backBtn}>
-        <Text style={styles.back}>{t('common.back')}</Text>
-      </TouchableOpacity>
+      <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} style={styles.backBtn} />
       <View style={styles.header}>
         <Text style={styles.headerTitle}>AI生涯指导</Text>
         <Text style={styles.headerSub}>填写孩子学业情况问卷，提交后获取 AI 学业建议</Text>
@@ -123,7 +122,6 @@ function createStyles(tk: AppThemeTokens) {
     container: { flex: 1, backgroundColor: tk.surface.bg },
     content: { padding: 16, paddingBottom: 32 },
     backBtn: { paddingBottom: 4 },
-    back: { fontSize: 16, color: tk.text.secondary },
     header: { paddingTop: 4, paddingBottom: 16 },
     headerTitle: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
     headerSub: { marginTop: 8, fontSize: 14, color: tk.text.secondary, lineHeight: 20 },
