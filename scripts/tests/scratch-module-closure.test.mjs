@@ -37,7 +37,7 @@ function makeFixtureScripts() {
       'export const go = () => a + readFile + deeply + sideEffect',
     ].join('\n'),
   )
-  w('lib/one.mjs', "export const a = 1\n")
+  w('lib/one.mjs', 'export const a = 1\n')
   w('side-effect.mjs', 'export const sideEffect = 2\n')
   w('lib/reexported.mjs', 'export const r = 3\n')
   w('lib/deep.mjs', "import { r } from './reexported.mjs'\nexport const deeply = r\n")
@@ -84,7 +84,11 @@ try {
       ])
       throw new Error(`应当抛,却返回了 ${copied.length} 项`)
     } catch (e) {
-      assert.match(String(e?.message), /face-reader|ERR_MODULE_NOT_FOUND/, `抛错原因不对:${e?.message}`)
+      assert.match(
+        String(e?.message),
+        /face-reader|ERR_MODULE_NOT_FOUND/,
+        `抛错原因不对:${e?.message}`,
+      )
     } finally {
       rmSync(dst, { recursive: true, force: true })
     }
@@ -93,7 +97,10 @@ try {
   check('正向对照:expect 只列闭包内该有的项时必须通过', () => {
     const dst = mkdtempSync(join(tmpdir(), 'closure-dst2-'))
     try {
-      const copied = copyScriptWithClosure(fix, 'entry.mjs', dst, ['lib/one.mjs', 'side-effect.mjs'])
+      const copied = copyScriptWithClosure(fix, 'entry.mjs', dst, [
+        'lib/one.mjs',
+        'side-effect.mjs',
+      ])
       assert.equal(copied.length, 5)
       assert.ok(existsSync(join(dst, 'lib', 'deep.mjs')), '递归到的第二跳也必须拷')
     } finally {
