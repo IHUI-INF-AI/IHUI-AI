@@ -6,7 +6,7 @@
 // ① 词表必须覆盖后端字面量全集(少一条就等于界面上多一条英文码);
 // ② 后端不得出现词表外的新字面量(多一条 = 静默回退原样显示);
 // ③ 取词失败/未知取值**绝不编造**,也绝不把键名喷到界面上。
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -45,24 +45,55 @@ function realT(lang: string): (key: string) => string {
 }
 
 const PY_SOURCE = join(here, '../../../../apps/ai-service/app/services/agent_loop_v2.py')
+const PY_DIR = dirname(PY_SOURCE)
 
-const collectFromPython = (): Set<string> => {
-  const src = readFileSync(PY_SOURCE, 'utf8')
+/** 三条 harvest 判据的唯一实现。测试与阳性对照共用它 —— 对照若另抄一份正则,
+ *  漂移的正是本该被发现的缺口本身。 */
+const HARVEST_PATTERNS = {
+  // 词码允许大小写/数字/下划线:只认 [a-z_] 会让 `block_v2` 这类码**静默不匹配**
+  // (不报错、不判红,是假绿里最坏的一种)。
+  derived: /return\s+\(?\s*["']([A-Za-z][\w]*)["']\s*,/g,
+  hint: /_decision_hints(?:\[[^\]]*\])?\s*=\s*\(\s*["']([A-Za-z][\w]*)["']/g,
+  permission: /_emit_permission_mode_event\([^()]*?["']([A-Za-z][\w]*)["']/g,
+  // 刻意**不**加 `_decision_hints.update({...})` 形态的判据:那种写法的第一个字符串字面量
+  // 是 dict 的键(tool_call_id),不是决策码,配上就是假红。同理"经 helper 函数写入"
+  // (`_set_hint(tc.id, "x", r)`)结构上看不见 —— 只能靠纪律,不装成有判据。
+} as const
+
+function harvest(pyText: string, extraTexts: string[] = []): Set<string> {
   const found = new Set<string>()
   // 只在 _derive_step_decision 函数体内扫 return(全文件扫会把无关的 `return "xx", ` 收进来)
-  const start = src.indexOf('def _derive_step_decision')
-  const end = src.indexOf('\ndef ', start + 10)
+  const start = pyText.indexOf('def _derive_step_decision')
+  const end = pyText.indexOf('\ndef ', start + 10)
   if (start < 0 || end <= start) throw new Error('_derive_step_decision 定位失败,判据失效')
-  const body = src.slice(start, end)
-  const scans: ReadonlyArray<[string, RegExp]> = [
-    [body, /return "([a-z_]+)",\s/g],
-    [src, /_decision_hints\[[^\]]*\] = \(\s*"([a-z_]+)"/g],
-    [src, /_emit_permission_mode_event\([^()]*?"([a-z_]+)"/g],
-  ]
-  for (const [text, re] of scans) {
-    for (const m of text.matchAll(re)) found.add(m[1])
+  const derived = pyText.slice(start, end)
+  const all = [pyText, ...extraTexts]
+  for (const [name, re] of Object.entries(HARVEST_PATTERNS)) {
+    const sources = name === 'derived' ? [derived] : all
+    for (const text of sources) {
+      for (const m of text.matchAll(new RegExp(re.source, 'g'))) found.add(m[1])
+    }
   }
   return found
+}
+
+/** 后端可能产出决策码的全部文件(此前只扫 agent_loop_v2.py 一个 ⇒ 别的模块造 step 全盲) */
+const collectFromPython = (): Set<string> => {
+  const main = readFileSync(PY_SOURCE, 'utf8')
+  const siblings = readdirSync(PY_DIR)
+    .filter((f) => f.endsWith('.py') && f !== 'agent_loop_v2.py')
+    .map((f) => join(PY_DIR, f))
+  const extra: string[] = []
+  for (const p of siblings) {
+    try {
+      const t = readFileSync(p, 'utf8')
+      if (t.includes('_decision_hints') || t.includes('_emit_permission_mode_event')) extra.push(t)
+    } catch {
+      // 读不到就少扫一个文件 —— 但必须让这件事可见,不得静默
+      throw new Error(`无法读取 ${p},提取面不完整`)
+    }
+  }
+  return harvest(main, extra)
 }
 
 describe('step-decision 词汇表(D55/G-66)', () => {
@@ -76,6 +107,49 @@ describe('step-decision 词汇表(D55/G-66)', () => {
     const missing = STEP_DECISIONS.filter((d) => !py.has(d))
     const extra = [...py].filter((d) => !isStepDecision(d))
     expect({ missing, extra }).toEqual({ missing: [], extra: [] })
+  })
+
+  // 阳性对照:一条"扫不到东西"的判据和一条"没有违规"的判据长得一模一样,
+  // 而后者会让上面那个用例**全绿通过**。所以必须先证明过滤器能命中每种已知写法。
+  it('提取式对每种 emit 形态都要命中(否则双向一致是假绿)', () => {
+    const fixture = [
+      'def _derive_step_decision(tr):',
+      '    if a:',
+      '        return "old_style_ok", "r"',
+      '    if b:',
+      '    if c:',
+      "        return ('single_quoted_ok', 'r')",
+      '    if d:',
+      '        return ("parenthesized_ok", "r")',
+      '    if e:',
+      '        return "block_v2", "r"',
+      '',
+      'def _other():',
+      '    self._decision_hints[tc.id] = ("oneline_hint", r)',
+      '    self._decision_hints[tc.id] = (',
+      "        'multiline_single_quoted_hint',",
+      '        r,',
+      '    )',
+      '    self._decision_hints[tc.id] = (_RUNTIME_CONST, r)',
+      '    _set_hint(tc.id, "helper_written", r)',
+      '    self._emit_permission_mode_event(tool_name, "perm_evt_ok")',
+      '',
+    ].join('\n')
+    const got = harvest(fixture)
+    for (const shape of [
+      'old_style_ok',
+      'single_quoted_ok',
+      'parenthesized_ok',
+      'block_v2',
+      'oneline_hint',
+      'multiline_single_quoted_hint',
+      'perm_evt_ok',
+    ]) {
+      expect(got.has(shape), `形态 ${shape} 未被提取式看见`).toBe(true)
+    }
+    // 反向诚实:变量与 helper 两种形态结构上判不了,写在用例里而不是写在注释里 ——
+    // 哪天有人给它们配了判据,这条会红,那时再决定收不收(收了就改这条)。
+    expect([...got].filter((x) => x.includes('helper') || x.includes('RUNTIME'))).toEqual([])
   })
 
   it('五种语言:15 个决策词 + 4 个态词全部命中,且不等于英文码', () => {

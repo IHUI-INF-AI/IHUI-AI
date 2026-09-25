@@ -55,7 +55,7 @@ const DECISION_WORD_KEY: Record<StepDecision, string> = {
   bypass_skip_approval: 'decision.bypassSkipApproval',
   mcp_annotations_require_approval: 'decision.mcpRequiresApproval',
   approval_policy_always: 'decision.policyRequiresApproval',
-  approval_policy_never: 'decision.policyForbidsExecution',
+  approval_policy_never: 'decision.policySkipsApproval',
 }
 
 const DECISION_STATE: Record<StepDecision, StepDecisionState> = {
@@ -73,7 +73,10 @@ const DECISION_STATE: Record<StepDecision, StepDecisionState> = {
   bypass_skip_approval: 'approved',
   mcp_annotations_require_approval: 'needsUser',
   approval_policy_always: 'needsUser',
-  approval_policy_never: 'rejected',
+  // 后端 `never` 指的是"永不弹窗"(agent_loop_v2.py 置 needs_approval=False 后照常执行),
+  // 不是"永不允许"。曾按字面把它归进 rejected + 「策略禁止执行」,于是界面在工具真的
+  // 跑完之后告诉用户"被拒绝了" —— 改回来之前先读那两行。
+  approval_policy_never: 'approved',
 }
 
 export function isStepDecision(value: unknown): value is StepDecision {
