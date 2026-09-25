@@ -36,13 +36,25 @@ export interface SkillMarketEntry {
   /**
    * 上架者的用户 ID,owner 判定的唯一依据(服务端按 request.userId 比对此列)。
    * 内置种子与内部同步条目没有归属者 ⇒ 留空,任何人都不算 owner。
+   *
+   * **类型必须是 string:`users.id` 是 uuid(packages/database/src/schema/users.ts 的
+   * `uuid('id').defaultRandom()`),而 request.userId 就是这个 uuid 原文。** 此前声明成
+   * number、写入侧做 `Number(request.userId!)` ⇒ 生产环境恒为 NaN,而
+   * `JSON.stringify(NaN)` 落成 `null`:归属者与自己条目的每一处 `===` 比较都必然为假
+   * (NaN === NaN 为假),"本人可更新/下架自己的条目"在真机上永远 403,只有测试里塞数字
+   * id 才看得见它工作。改回 string 后**不得**再在任何读写点强转。
    */
-  ownerId?: number
+  ownerId?: string
 }
 
 export interface SkillRating {
   id: string
-  userId: number
+  /**
+   * 与上面 `ownerId` 同族:`users.id` 是 uuid 原文,不得强转数字。
+   * 此前这里写 `number`、写入侧做 `Number(userId)` ⇒ 落盘的是 `null`,
+   * 评分记录从此查不回是谁评的(且 `userName` 显示成 `user-NaN` 的可能形态被掩盖)。
+   */
+  userId: string
   userName: string
   skillName: string
   score: number

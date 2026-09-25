@@ -21,7 +21,8 @@ export default function AdminSkillsPage() {
   const qc = useQueryClient()
   const [open, setOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<Skill | null>(null)
-  const [delId, setDelId] = React.useState<string | null>(null)
+  // 删除目标存 **name**(技能库条目没有 id,后端按 name 段寻址删除端点)
+  const [delName, setDelName] = React.useState<string | null>(null)
   const [search, setSearch] = React.useState('')
   const [marketOpen, setMarketOpen] = React.useState(false)
 
@@ -53,10 +54,10 @@ export default function AdminSkillsPage() {
 
   const delMut = useMutation({
     // encodeURIComponent 已收口到 api-client 的 deleteSkill 出口,此处不再重复编码
-    mutationFn: (id: string) => removeSkill(id),
+    mutationFn: (name: string) => removeSkill(name),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'skills'] })
-      setDelId(null)
+      setDelName(null)
     },
   })
 
@@ -104,7 +105,7 @@ export default function AdminSkillsPage() {
         error={error as Error | null}
         total={skills.length}
         onEdit={openEdit}
-        onDelete={(id) => setDelId(id)}
+        onDelete={(name) => setDelName(name)}
         onOpenMarket={() => setMarketOpen(true)}
       />
 
@@ -118,12 +119,12 @@ export default function AdminSkillsPage() {
       />
 
       <SkillDeleteDialog
-        delId={delId}
+        delId={delName}
         delPending={delMut.isPending}
         onConfirm={() => {
-          if (delId) delMut.mutate(delId)
+          if (delName) delMut.mutate(delName)
         }}
-        onClose={() => setDelId(null)}
+        onClose={() => setDelName(null)}
       />
 
       <SkillMarketDialog open={marketOpen} onClose={() => setMarketOpen(false)} />

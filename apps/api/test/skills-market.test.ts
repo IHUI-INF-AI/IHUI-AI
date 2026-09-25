@@ -327,7 +327,9 @@ describe('Skills Market API', () => {
         // 该 mock 的 checkAuth 注入的是 userId=1。
         enabled: true,
         source: 'user',
-        ownerId: 1,
+        // ownerId 存 request.userId 原文(本 mock 注入 '1'):真机 users.id 是 uuid,
+        // 写入侧任何 Number() 强转都会恒 NaN ⇒ 归属判定永久失效。
+        ownerId: '1',
       })
 
       // 验证可被市场搜索到
@@ -406,7 +408,8 @@ describe('Skills Market API', () => {
       expect(b1.data.score).toBe(5)
       expect(b1.data.comment).toBe('很好用')
       expect(b1.data.skillName).toBe('content_engine')
-      expect(b1.data.userId).toBe(1)
+      // uuid 原文直接落库,不做 Number() 强转(强转 ⇒ NaN ⇒ JSON 里成 null,查不回评分人)
+      expect(b1.data.userId).toBe('1')
       expect(b1.data.id).toBeTruthy()
 
       // 第二次评分 3 分,验证平均分重算
