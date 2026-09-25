@@ -8236,3 +8236,24 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 - **O60e 残余(不写作收口,逐条给归属)**:① 上面 ② ③ 两组镜像套件红点属**他人持有**(门 103 持有人 / 桌面发布线持有人),
   判据与复现命令已写死在本条;② D77 / D19 两票的解阻判据仍分别挂在 O60d / O60c,未因本批变化;
   ③ 本波六票按 §9 是 web 单端收口,`miniapp-taro` / `mobile-rn` / `extension` / `cli` 的对应面另计。
+### O62 附③:更正附②的两处事实错误 + 机制改判 + 影响半径已量出(2026-09-25 同日)
+- [x] ✅(2026-09-25) **撤回附②里"preflight 指纹亦 0 处"这句 —— 它是我的探针错,不是事实**。我当时查的是 `border-style:solid` 与 `text-size-adjust`,而产物里 preflight 是**简写形态** `border:0 solid;box-sizing:border-box;margin:0;padding:0`,在 `app-origin.wxss` 里**确实在**。⇒ 症状要收窄成一句:**base/preflight 层在,只有 utilities 层为空**。这个区别不是措辞:它把"tailwind 插件根本没跑"直接排除了,插件跑了、`@tailwind base` 展开了,只有 `@tailwind utilities` 展开为空。
+- [x] ✅(2026-09-25) **再撤回附②的机制归因:"`config/index.ts` 那行传空对象导致 config.ts 从未被加载"这个说法不成立**。隔离环境里做了三组构建(同一棵 HEAD 树,worktree 内全量 `pnpm install`):A 原样、B 把该行改成真实配置路径、C 干脆 `enable:false` —— **三组 dist 逐字节相同**(`diff -rq` 零输出,三组均 154 wxss / 642,304 B / 2,489 规则 / 2,227+ 类名)。⇒ **那一行不是开关**。真因方向改为:weapp-tailwindcss 5.2.9 **自带一份 vendored tailwind**(其 `dist/tailwindcss-*.js`),CSS 由它自己的 generator 产出,项目 `tailwind.config.ts` 的 content globs 没有喂进那条链。附②里"从 weapp-tw 解析到 tailwind 4.3.3"那条证据**同时作废** —— 复核时该 resolve 直接 `MODULE_NOT_FOUND`,而 `tailwindcss@4.3.3` 在 pnpm 图里属于 `apps/web`(web 声明 `^4.3.3`,miniapp 声明 `^3.4.17`);我上一轮用来找"谁依赖 v4"的 grep `"tailwindcss": "[^"]*4\.` 会连 `^3.4.17` 一起命中(串里含 "4."),是个假阳性探针。
+- [x] ✅(2026-09-25) **影响半径量出来了(用 v3 CLI + 端内真配置直出参考层:863 规则 / 829 类名 / 压缩后 42,392 B)**:
+  - **"从 0 规则到有效"共 764 个类名 / 14,141 处用法** ⇒ 主体是修好,不是改坏
+  - ⚠️ **主包体积顶到墙**:现主包 `2,054,751 B = 1.960 MiB`,weapp 上限 `2,097,152 B`,**余量仅 42,401 B**;而 utilities 压缩后 **42,392 B** ⇒ 开启后主包约 `2,097,143 B`,**只剩 9 字节**。这一条单独就足以否决"直接开"
+  - ⚠️ **一条确定性事故**:`text-card` 同名双义 —— `pkg-ai/aigc/list.css:168` 手写它当**卡片容器**(`background:var(--color-card)` + 描边),而 Tailwind 会给同一个类名注入 `color: var(--color-card)`,于是 `list.tsx:466` 那个 `<View className="text-card">` 变**白底白字**。另有 6 条同名(`text-muted-foreground`/`text-foreground`/`bg-card`/`border-border`/`dark`/`text-ellipsis`)经核为"现规则只在 vip 页且特异度更高"或"同名同值",良性
+  - ⚠️ **一条附带的硬缺陷**:参考层里有 **22 条把长度喂给颜色属性**的无效规则(如 `.text-\[28rpx\]{color:28rpx}`),覆盖源码 **1,330 处** `text-[Nrpx]` 用法 ⇒ 即使开关,这些字号仍不生效,只多一堆死规则;要生效须改写为 `text-[length:28rpx]` 形态
+  - 渲染层本机**不可取证**(微信开发者工具三个常见安装路径 + 注册表 Uninstall 全量 + Program Files 深度 3 搜 `cli.bat` 均零命中),故上面给的是静态替代证据:逐字摘录 A 侧无规则、B 侧有规则的样例(`.flex{display:flex}`、`.items-center{align-items:center}`、`.opacity-60{opacity:.6}`、`.inset-0{inset:0px}`)
+- **本票据此收窄的结论**:R6 那道新门守的是"源码用量 ↔ ALPHA_USAGE ↔ 插件产出"三者一致,**三者全在项目侧**;小程序实际产物由第三方 generator 决定,所以 **R6 绿灯不等于到端生效**。这一点已写进 AGENTS 那条 ⚠️ 里,防止下一个人拿 R6 的绿当交付证据。
+- **未决项(交用户定,不是待办建议)**:要不要动 weapp-tailwindcss 的 generator 接线。动它之前必须先解决主包 9 字节余量与 `text-card` 双义,否则是"修好 1.4 万处、打坏一屏"。
+- **上面那句归因不完整,当天即被第三次复活证伪(须以本条为准)**:我按上述复验删过一次并推送,`c6a4863a3d9` 之后
+  旧路径**又回来了**。真机制不是自愈、也不是"谁误提交",而是 **`check-merge-addition-loss` 的 A1 判据本身**:
+  A1 = "路径 P ∈ 某父提交树 ∧ P ∉ 本次合并的共同基底 ⇒ P 必须 ∈ 合并结果"。我删完之后,**远端 tip 仍带着那份旧路径**
+  (实测 `git ls-tree -r origin/main` 同时有旧路径与新路径两份),于是对任何一次"我方删 + 对侧仍持有"的合并,
+  A1 都会把这次删除判成丢失并强制放回 —— 收敛日志原话:`按移动放行(内容逐字节同一 blob,本侧另有该路径)`
+  之所以没救下这次,是因为**两副本 blob 并不相同**(`0e2312dce` vs `1173e9a01`,差在 import 深度与那段注释),
+  移动识别按 blob 等值判定 ⇒ 判不成移动,只能按"新增文件被删"处理。**教训两条:**
+  ① 跨机共享的仓里,**"删一份重复文件"必须两侧同时落地**才算完成 —— 单侧删除会被 A1 每一次合并重新否决;
+  ② A1 与 `git mv` 语义之间缺一块"同目录改名但内容也变了"的识别面,补法只能是**按 rename 检测(相似度)放行**
+  而非按 blob 全等,这一条留给该门的作者定夺(不替它改判据)。本轮先按"删除 + 立即推送 + 复验远端是否 adopt"处置。
