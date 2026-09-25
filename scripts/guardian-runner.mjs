@@ -35,6 +35,7 @@ import { execSync, execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createHash } from 'node:crypto'
+import { normalizeTriggers, triggersTouch } from './lib/guardian-triggers.mjs'
 
 // === 颜色 ===
 const C = {
@@ -2732,16 +2733,23 @@ const checks = [
 
   {
     id: '105',
-    // warn 而非 blocking,是有意的:立项实测全量面就红 —— 8 处 R1「源码引用而面上无档」
-    // (qzdy/szdy/sqb/qqb/default-avatar/erweima/… 这批图片在「图片全外置 CDN」那轮被清走,引用还留着),
-    // 9 处孤儿默认只报数。把它挂成 blocking 等于让每一次提交都红 ⇒ 逼人 --no-verify ⇒ 全部守门作废,
-    // 这是本仓记过最多次的反面教训。**升 blocking 的前置条件**:R1 存量清零,或给它加 HEAD 自身违规数
-    // 作锚点的棘轮基线(照守门 70/77/83 的口径),两者都没做之前不得升档。
+    // 定级史(升档已完成 —— 别把它再读成"永久 warn"):
+    //  · 立项时 warn 是**有意**的:全量面当时就红 —— 8 处 G1/R1「源里有而产物面上查无」(qzdy/szdy/sqb/
+    //    qqb/default-avatar/erweima/… 这批图在「图片全外置 CDN」那轮被清走而引用还留着)+ 9 处孤儿默认只
+    //    报数。挂 blocking 等于每一次提交都红 ⇒ 逼人 --no-verify ⇒ 全部守门作废(本仓记过最多次的反面
+    //    教训)。当时写下的前置条件:**G1/R1 存量清零**(或改成以"该文件 HEAD 自身违规数"为锚点的棘轮)。
+    //  · 2026-09-25 前置实测达成 ⇒ 升 blocking:全量面 `未发现漏生成`、exit 0;R2 孤儿与 G3 图标按设计
+    //    **不是** blocking 判据(默认只报数,--strict 才判红),所以升档不新增任何恒红面。
+    //  · 升档的直接起因是本会话自己踩的坑:改了 i18n 键名却没重生成离线包,门判出 4 处 B2 —— 但因为它只是
+    //    warn,提交链没有拦住,于是静默上线了一版"小程序取不到这个词"的产物。**warn 的代价不是"少一道闸",
+    //    而是"门判对了也没人被打断"**。
+    //  · 修法单命令、不需要人工裁:pnpm --filter @ihui/miniapp-taro gen:i18n(应急跳过
+    //    HUSKY_SKIP_MINIAPP_GENERATED=1)。取不到判据输入仍是 exit 2「无法判定」,不冒红也不记绿。
     label:
-      '🧩 小程序派生产物对账(warn;图标三件与离线语言包是否落后于源、孤儿/死资源、动态路径只报数)',
+      '🧩 小程序派生产物对账(blocking;离线语言包/图标/位图是否落后于源;孤儿与动态路径只报数不判红)',
     script: 'check-miniapp-generated.mjs',
     args: [],
-    mode: 'warn',
+    mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_MINIAPP_GENERATED',
     onFailHint: [
       '',
@@ -2871,7 +2879,9 @@ const checks = [
     id: '110',
     label: '📦 产物预算对账(warn,交付出去的产物第一次有上限表:主包口径 / 悬空 sourceMappingURL 引用)',
     script: 'check-artifact-budget.mjs',
-    args: [],
+    // 必须带 --target:本门刻意「未知/缺 target 即 exit 2、不回落默认档」,空 args 会让它在提交链里
+    // 永远跑不起来(实测 G-176)。miniapp 是唯一已校准上限的档;其余档在 CI 里逐档 --target 问责。
+    args: ['--target', 'miniapp'],
     mode: 'warn',
     skipEnv: 'HUSKY_SKIP_ARTIFACT_BUDGET',
     onFailHint: [
@@ -3087,12 +3097,16 @@ const checks = [
   //   本门归零,所以在选型落地前它就是"存量报数、新增判红"的棘轮;当场 blocking = 与任何一次
   //   提交都无关的恒红门,唯一结局是逼人 --no-verify 并连带废掉全部守门(§12e 同型)。
   //   升 blocking 的前置条件 = 未对齐存量归零。
+  //   **2026-09-25 升档(前置已满足,不是顺手)**:`752c6eb110b` 清掉最后一个未对齐面
+  //   (`app/routers/rules.py`)后,HEAD 面实测"未对齐 0 个"(`node scripts/check-memory-owner-binding.mjs`),
+  //   零容忍不再等于恒红;故 args 带 --strict、mode 改 blocking。复算入口就是上面那条命令,
+  //   若哪天 HEAD 面重新出现未对齐(例:有人 --no-verify 塞进来),先清偿再提其它票,不得削判据。
   {
     id: '117',
-    label: '🔐 记忆端点属主绑定对账(warn,收 user_id 的端点必须与令牌主体对齐;未对齐存量只报数)',
+    label: '🔐 记忆端点属主绑定对账(blocking,收 user_id 的端点必须与令牌主体对齐;存量已归零⇒零容忍)',
     script: 'check-memory-owner-binding.mjs',
-    args: [],
-    mode: 'warn',
+    args: ['--strict'],
+    mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_MEMORY_OWNER_BINDING',
     stagedTriggers: ['apps/ai-service/app/', 'apps/api/src/routes/'],
     onFailHint: [
@@ -3111,7 +3125,8 @@ const checks = [
       '     自检:node scripts/check-memory-owner-binding.mjs --self-test(17 例,正反成对)',
       '     镜像测试:node --test scripts/tests/check-memory-owner-binding.test.mjs(14 例,含',
       '     "本门未注册时不得被判定为已装车"的方向性对照)',
-      '     紧急跳过:HUSKY_SKIP_MEMORY_OWNER_BINDING=1 git commit ...(本门 warn,通常不需要)',
+      '     紧急跳过:HUSKY_SKIP_MEMORY_OWNER_BINDING=1 git commit ...(本门 blocking,跳过即把' +
+        '一个跨用户读改删的面提交进 HEAD,必须在提交信息里写明理由与清偿票)',
       '',
     ].join('\n'),
   },
@@ -3201,23 +3216,39 @@ const checks = [
 
   {
     id: '122',
-    label: '🎨 [miniapp-taro] 原生 chrome 派生对账(blocking,theme.json + THEME_CHROME 必须是 tokens.css 派生态;无登记/无生成器时代结束)',
-    script: 'check-miniapp-chrome.mjs',
+    label: '💾 文件写盘安全对账(blocking,工具写文件必须走原子写出口;裸写盘棘轮)',
+    script: 'check-file-write-safety.mjs',
     args: [],
     mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_MINIAPP_CHROME',
+    skipEnv: 'HUSKY_SKIP_FILE_WRITE_SAFETY',
+    stagedTriggers: ['apps/cli/src/tools/'],
     onFailHint: [
       '',
-      '  💡 微信原生 chrome 只认字面 hex,所以 theme.json(app.config.ts @变量 的编译期源)与',
-      '     lib/theme.ts 的 THEME_CHROME(运行期 setNavigationBarColor/setTabBarStyle)是"派生副本",',
-      '     立项前两份手抄且全链零覆盖(grep -rl theme.json scripts/*.mjs = 0)。四类红:',
-      '     drifted(跑生成器写回)/ thirdValue(登记字段被改第三值,写回按登记值)/',
-      '     rot(登记值与 nearToken 源头重新同值 ⇒ 显式删登记挪回派生)/ unregistered(新色键或被摘登记)。',
-      '     派生与登记的分流依据都在 scripts/sync-miniapp-chrome.mjs 两张表内(dark navBg/windowBg 的',
-      '     #262626 是 commit d2d80c1b23 记录在案的刻意分歧,不是漂移 —— 不得为过门改成 #242424)。',
-      '     漂移类修复:node scripts/sync-miniapp-chrome.mjs(原位写回,幂等)后重新 git add 两份副本',
-      '     单独复验:node scripts/check-miniapp-chrome.mjs --self-test(3 例)',
-      '     镜像:node --test scripts/tests/check-miniapp-chrome.test.mjs',
+      '  💡 工具层写文件必须经 scripts/lib 的原子写出口(同目录临时文件 + rename + Windows',
+      '  EPERM/ENOENT 重试 + 不跟随重解析点 + 读后写 stale 校验)。裸 writeFileSync 的风险:',
+      '  多会话共享工作区里两个写者交错会静默覆盖;§26 记过递归操作穿透 junction 清空真实目标。',
+      '  存量走棘轮(锚点=该文件 HEAD 自身计数);新增即红。',
+      '  单独复验:node scripts/check-file-write-safety.mjs',
+      '  自检:--self-test(24 例) 镜像:node --test scripts/tests/check-file-write-safety.test.mjs(13 例)',
+      '',
+    ]
+  },
+
+  {
+    id: '123',
+    label: '⏱️ 工具执行预算对账(blocking,工具级超时/取消机制在位且被调用;缺常量/缺通道即红)',
+    script: 'check-tool-exec-budget.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_TOOL_EXEC_BUDGET',
+    stagedTriggers: ['apps/cli/src/tools/'],
+    onFailHint: [
+      '',
+      '  💡 钉"工具执行无界"三源:ToolContext 无 signal(取消无通道)/执行点无超时/exec 无 maxBuffer。',
+      '     S1 系判机制在位(常量三件套/解析出口/Math.min 封顶/linkAbortSignal/executeWithinExecBudget 装车);',
+      '     S2 判注入点(未传 signal 的 ctx 构造点名);判定面=取材面(HEAD/索引),不判滞后的共享工作树。',
+      '     单独复验:node scripts/check-tool-exec-budget.mjs',
+      '     自检:--self-test(26 例) 镜像:node --test scripts/tests/check-tool-exec-budget.test.mjs(9 例)',
       '',
     ]
   },
@@ -3455,36 +3486,10 @@ function stagedFilesOrNull() {
   return stagedFilesCache
 }
 
-/**
- * `stagedTriggers` 的**形状归一化 + 失败方向**:
- * 2026-09-25 实测本函数在 HEAD 上就能崩 —— 三道门(118 / subagent-permission-inherited /
- * declared-policy-has-consumer)把它写成**字符串**(`stagedTriggers: 'scripts/'`),而这里按
- * 数组用(`prefixes.some`)⇒ `TypeError: prefixes.some is not a function` 直接把整个 runner 打死
- * ⇒ pre-commit 拿不到任何守门汇总 ⇒ 每个会话都被 safe-commit 的"归因未计算"兜底成 `--no-verify`
- * ⇒ **全仓 159 道门对全队同时失效**,而 `git status`、typecheck、提交成功本身全都看不出来。
- * 这是 §12e(一道红门废掉全部守门)的**更严重变体**:红门至少还会喊,崩了只剩一句"提前退出"。
- * 两条口径:① 字符串按逗号切成数组(旧声明不改语义,只改形状);② 形状完全不认(数字/对象…)
- * 一律**判"要跑"**而不是抛 —— 判错方向的代价是一轮多余的门,而抛的代价是全部门作废。
- */
-function normalizeTriggers(prefixes) {
-  if (Array.isArray(prefixes)) return prefixes.filter((p) => typeof p === 'string' && p)
-  if (typeof prefixes === 'string')
-    return prefixes
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean)
-  return null
-}
-
 function stagedPathsTouch(prefixes) {
-  const list = normalizeTriggers(prefixes)
-  if (list === null || list.length === 0) return true // 认不出形状 ⇒ 宁跑不跳
-  const files = stagedFilesOrNull()
-  if (files === null) return true
-  return files.some((f) => {
-    const norm = f.replace(/\\/g, '/')
-    return list.some((p) => norm.startsWith(p))
-  })
+  // 归一交给 lib/guardian-triggers.mjs:裸字符串注册(HEAD 实测 3 道)曾在此处
+  // TypeError 崩掉整条守门链;空清单则抛错,不允许"永不运行"的隐形失踪。
+  return triggersTouch(stagedFilesOrNull(), prefixes)
 }
 
 for (const check of effectiveChecks) {
@@ -3501,10 +3506,9 @@ for (const check of effectiveChecks) {
   // 与 skipEnv 同计入"跳过",并打印触发清单,避免"静默没跑"。
   if (check.stagedTriggers && passStaged && !stagedPathsTouch(check.stagedTriggers)) {
     skipped++
-    // 打印侧同样不得假设它是数组:同一处崩溃在 HEAD 里已经发生过一次(判据侧修了、
-    // 这一行还是 .join ⇒ 跳过路径照样炸)。走同一个归一化出口。
-    const trig = normalizeTriggers(check.stagedTriggers) || ['(形状不认 ⇒ 恒跑)']
-    console.log(`⏭  [${check.id}] ${check.label}(暂存区未触及:${trig.join(' / ')},跳过)`)
+    console.log(
+      `⏭  [${check.id}] ${check.label}(暂存区未触及:${normalizeTriggers(check.stagedTriggers).join(' / ')},跳过)`,
+    )
     continue
   }
   const cmdArgs = [...check.args]
