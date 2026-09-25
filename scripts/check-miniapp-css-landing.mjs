@@ -19,6 +19,16 @@
  * 三条判据:
  *   C1 落地覆盖率 = |源码用到 ∩ utility 参考层 ∩ dist 里真有规则| / |源码用到 ∩ utility 参考层|。
  *      低于 --min-coverage(默认 100%)即判红,并给若干缺失样例。
+ *      **命中判据按 weapp 转写名比对**(2026-09-25 收紧):weapp-tailwindcss 产出 wxss 时把类名
+ *      里的标点按固定表转写(`top-1/2` → `.top-1_f2`,表见 weappMangleClassName),旧判据只拿
+ *      源文件里的原始类名去比,于是**所有含标点的档(arbitrary value、分数、任意属性)整片被误判
+ *      "没落地"** —— 实测同一份 dist 上 `.bg-muted`/`.top-1_f2` 声明体都在,而覆盖率报 34.5%、
+ *      505 条缺项绝大多数是这把尺的噪声。收紧后:命中 = 原名直中 或 转写后中,**两态分开计数**
+ *      (只报合计会把"表漏了一条"藏起来);缺项里含**表外标点**(`! * % # @ > ~` 等未实证转写)的
+ *      单独归 unmangledPunctMisses **只报数、绝不并入 hit** 并把字符列出来 —— 判不出是"真没落地"
+ *      还是"表漏一条",把字符交给下一次实测,而不是继续把它们算成"没落地"或猜进表。
+ *      缺项样例/归族只统计"确定缺"(definite):上一轮正是靠"缺项恰好成族(项目色档整族)"
+ *      定位到真缺陷,这个信号不能再被噪声埋掉。
  *      **参考层的引擎由产物决定**(见下「引擎同源」):拿 v3 的可选集去量 v4 的产物,
  *      报出来的"还剩 N 条没落地"不是缺陷计数,是一把量错东西的尺子的读数。
  *   C2 同名双义 = 源码用到的 utility 名同时被端内自有 CSS 定义为同名类。逐条列出并分类,
@@ -119,6 +129,71 @@ function unescapeClassName(s) {
 /** 注释里的假规则不得参与判定(建门时同类假阳记过多次) */
 function stripComments(text) {
   return text.replace(/\/\*[\s\S]*?\*\//g, '')
+}
+
+/* ─────────── weapp-tailwindcss 类名转写:源名 → 产物名的唯一正向表 ─────────── */
+
+/**
+ * 标点 → 转写。**转写方向 = 构建方向**,一对一、无歧义;不得反向解产物名(会把端内本来就含
+ * `_b`/`_d` 的自有类名误改)。条目取证(2026-09-25,真 weapp 构建 dist 逐条对账):
+ *   `[ → _b  ] → _B  / → _f  : → _c  ( → _p  ) → _P  , → _m  . → _d`
+ *   实测样本:`-top-[8rpx]`→`.-top-_b8rpx_B`、`top-1/2`→`.top-1_f2`、
+ *   `bg-[var(--color-black-50)]`→`.bg-_bvar_p--color-black-50_P_B`、
+ *   `bg-[rgba(0,0,0,0.4)]`→`.bg-_brgba_p0_m0_m0_m0_d4_P_B`(证明 arbitrary value **内部**的
+ *   `(`/`,`/`.`/`)` 与外层走同一张表)、`dark:text-foreground`→`.dark_ctext-foreground`
+ *   (证明变体前缀的 `:` 同样转写)。
+ *   `+ → _u` 在立票时标"未观测";本轮在同一次构建产物里观测到了 ——
+ *   `pb-[calc(20rpx+env(safe-area-inset-bottom,0))]`→
+ *   `.pb-_bcalc_p20rpx_uenv_psafe-area-inset-bottom_m0_P_P_B`,九条现全部有真产物依据。
+ * `! * % # @ > ~` 等**不在表内**:未在真产物里实测到转写形态(本 dist 里连 `\!` 形态的落地都
+ * 是零),给它们猜一条转写就是把猜测装进判据 —— 猜错的方向是"把真没落地的判成落地"。
+ * 这些字符参与的缺项由 unmappedPunctIn 归入"表外标点桶",把字符如实报出来留给下一次实测。
+ * ⚠ 不得把 mangle(mangle(x)) 当不动点用:现表替换只引入 [A-Za-z0-9_] 所以二次应用恰好不变,
+ *   但那是这张表现值的巧合,判据不依赖它(将来若加入输出含标点的条目,该假设立刻失效)。
+ */
+export const WEAPP_CLASS_MANGLE_TABLE = new Map([
+  ['[', '_b'],
+  [']', '_B'],
+  ['/', '_f'],
+  [':', '_c'],
+  ['(', '_p'],
+  [')', '_P'],
+  [',', '_m'],
+  ['.', '_d'],
+  ['+', '_u'],
+])
+
+/** ASCII 标点全集(用于识别"表外标点");字母/数字/-/_ 不在其内,不是标点。 */
+const ASCII_PUNCT = /[!-/:-@[-`{-~]/
+
+export function weappMangleClassName(name) {
+  let out = ''
+  for (const ch of String(name)) out += WEAPP_CLASS_MANGLE_TABLE.get(ch) || ch
+  return out
+}
+
+/** 该名字里出现、且不在转写表内的 ASCII 标点(去重)。空数组 = 该名字可被表完整转写。
+ *  `-` 与 `_` 不算:它们构建前后原样(真产物里 `--color-black-50`、`_b` 段都带连字符),
+ *  把连字符当"表外标点"会让每个普通类名都误进桶 —— 写第一版时 P53 当场抓到这个。 */
+export function unmappedPunctIn(name) {
+  const out = []
+  for (const ch of String(name)) {
+    if (/[A-Za-z0-9\-_]/.test(ch) || !ASCII_PUNCT.test(ch) || WEAPP_CLASS_MANGLE_TABLE.has(ch)) continue
+    if (!out.includes(ch)) out.push(ch)
+  }
+  return out
+}
+
+/**
+ * 缺项归族:变体前缀(最后一个 `:` 之后)→ 剥负号 → 取首个连字符段。
+ * `hover:bg-muted`→bg、`-top-[8rpx]`→top、`text-cta-foreground`→text、`flex`→flex。
+ * 族是"整族缺失"那类真信号(立项定位靠的就是项目色档整族)的人读单位。
+ */
+export function missFamily(name) {
+  const s = String(name)
+  const base = s.slice(s.lastIndexOf(':') + 1).replace(/^-+/, '')
+  const seg = base.split('-')[0]
+  return seg || '∅'
 }
 
 /* ───────────────────────── 源码侧:用量与自有类 ───────────────────────── */
@@ -562,7 +637,7 @@ function resolvePkgDir(anchorDir, name) {
         cur = parent
       }
       return { pkgDir: null, pkg: null, reason: `主入口向上没找到 name=${name} 的 package.json(先:${first})` }
-    } catch (e2) {
+    } catch {
       return { pkgDir: null, pkg: null, reason: first }
     }
   }
@@ -872,20 +947,42 @@ export function findBlindSpots(usedAndOwnClassed, referenceNames) {
  * 下观察它,镜像测试就证明不了它"该红时红、该绿时绿"(§22c:形状判据只能用纯函数 + 构造面证明)。
  * 分母只算 `源码用到 ∩ 参考层` —— 参考层外的名字(端内自有语义类)结构上不可能产出,
  * 纳进分母等于把覆盖率永远压低,造出一把恒红的尺子。
+ *
+ * 命中判据(2026-09-25 收紧,见文件头 C1 条目):产物里的类名被 weapp-tailwindcss 按
+ * WEAPP_CLASS_MANGLE_TABLE 转写过,只比原名会把所有含标点的档误判成没落地。现命中 =
+ * `landed.has(n) || landed.has(weappMangleClassName(n))`,且**两态分开计数**
+ * (hitOriginalKinds / hitMangledKinds):合计会把"表漏一条"藏起来,分两态才看得见来源。
+ * 缺项里含表外标点的归 unmangledPunctMisses(只报数、不并入 hit、列出待验字符);
+ * 样例与归族只统计 definite misses —— 保住"整族缺失"那个真信号的可读性。
  */
 export function computeCoverage(usedTokenNames, referenceNames, landedNames) {
   const demanded = [...new Set([...usedTokenNames].filter((n) => referenceNames.has(n)))]
-  const hit = demanded.filter((n) => landedNames.has(n))
-  const miss = demanded.filter((n) => !landedNames.has(n))
+  const hitOriginal = demanded.filter((n) => landedNames.has(n))
+  const hitMangled = demanded.filter((n) => !landedNames.has(n) && landedNames.has(weappMangleClassName(n)))
+  const miss = demanded.filter((n) => !landedNames.has(n) && !landedNames.has(weappMangleClassName(n)))
+  const unmangled = miss.filter((n) => unmappedPunctIn(n).length > 0)
+  const definite = miss.filter((n) => unmappedPunctIn(n).length === 0)
+  const unmangledPunctChars = [...new Set(unmangled.flatMap((n) => unmappedPunctIn(n)))].sort()
+  const fam = new Map()
+  for (const n of definite) fam.set(missFamily(n), (fam.get(missFamily(n)) || 0) + 1)
+  const missFamilies = [...fam.entries()]
+    .map(([family, count]) => ({ family, count }))
+    .sort((a, b) => b.count - a.count || a.family.localeCompare(b.family))
   return {
     demandedKinds: demanded.length,
-    hitKinds: hit.length,
+    hitKinds: hitOriginal.length + hitMangled.length,
+    hitOriginalKinds: hitOriginal.length,
+    hitMangledKinds: hitMangled.length,
     missKinds: miss.length,
-    pct: demanded.length === 0 ? 1 : hit.length / demanded.length,
+    definiteMissKinds: definite.length,
+    unmangledPunctMisses: unmangled.length,
+    unmangledPunctChars,
+    pct: demanded.length === 0 ? 1 : (hitOriginal.length + hitMangled.length) / demanded.length,
     missOccurrences: 0,
     referenceKinds: referenceNames.size,
     landedRuleKinds: landedNames.size,
-    missingSamples: miss.sort().slice(0, MISSING_SAMPLES),
+    missingSamples: definite.sort().slice(0, MISSING_SAMPLES),
+    missFamilies,
   }
 }
 
@@ -1087,7 +1184,9 @@ export async function runCheck(opts) {
   let missingSamples = []
   if (reference && landed) {
     coverage = computeCoverage(usedTokens.keys(), reference.names, landed)
-    const miss = [...usedTokens.keys()].filter((n) => reference.names.has(n) && !landed.has(n))
+    // missOccurrences 与 computeCoverage 的 miss 集**必须同谓词**(原名与转写名都不中),
+    // 两处各写一遍必然漂移 —— 类名转写收紧后这里曾差点留在旧口径上。
+    const miss = [...usedTokens.keys()].filter((n) => reference.names.has(n) && !landed.has(n) && !landed.has(weappMangleClassName(n)))
     coverage.missOccurrences = miss.reduce((a, n) => a + (usedTokens.get(n) || 0), 0)
     missingSamples = coverage.missingSamples
     delete coverage.missingSamples
@@ -1197,12 +1296,23 @@ function report(r, asJson) {
     const c = r.coverage
     console.log(
       `C1 覆盖 ${c.hitKinds}/${c.demandedKinds} 类(${(c.pct * 100).toFixed(2)}%)` +
+        ` —— 原名直中 ${c.hitOriginalKinds} + weapp 转写后中 ${c.hitMangledKinds}` +
         ` —— utility 参考层共 ${c.referenceKinds} 个可选,产物规则名共 ${c.landedRuleKinds} 个` +
         (r.c1Judged ? '' : ' 〔对比档:参考层与产物不同引擎或与源码不同面,本行只是读数,不计红〕'),
     )
     if (c.missKinds) {
       console.log(`   缺失 ${c.missKinds} 类 / ${c.missOccurrences} 处用法`)
-      console.log(`   缺失样例(≤${MISSING_SAMPLES}):${r.missingSamples.join(', ')}`)
+      if (c.unmangledPunctMisses) {
+        console.log(
+          `   其中 ${c.unmangledPunctMisses} 类含转写表外标点(待验字符:${c.unmangledPunctChars.join(' ')})` +
+            ` ⇒ 只报数、不计红:判不出是"真没落地"还是"表缺一条转写",不得为消红去猜加表条目`,
+        )
+      }
+      if (c.definiteMissKinds) {
+        const top = c.missFamilies.slice(0, 5).map((f) => `${f.family}(${f.count})`).join(' ')
+        console.log(`   确定缺失 ${c.definiteMissKinds} 类按族分布(共 ${c.missFamilies.length} 族,top5):${top}`)
+      }
+      if (r.missingSamples.length) console.log(`   缺失样例(≤${MISSING_SAMPLES},只取确定缺失):${r.missingSamples.join(', ')}`)
     }
   } else {
     console.log('C1 覆盖:未判定(见下方「无法判定」)—— 拿不到同引擎的参考层就**不出覆盖率数字**')
@@ -1221,7 +1331,7 @@ function report(r, asJson) {
       `C3 主包 ${b.mainBytes} B / 上限 ${b.limitBytes} B ⇒ 余量 ${b.headroomBytes} B` +
         `(按 app.json 的 ${b.subpackageRootCount} 个分包根剔除)`,
     )
-    if (r.referenceBytes != null) {
+    if (typeof r.referenceBytes === 'number') {
       console.log(
         `   utilities 参考层体积 = ${r.referenceBytes} B —— 链已开(2026-09-25 起,起效载体是 app.css 的 @source),` +
           `上方主包/余量是**含 utilities 落地量的实测现值**;旧的"若开启…装不装得下"假设算术不再成立(那组前置数实测方向是反的)。` +
@@ -1483,6 +1593,83 @@ export function selfTest() {
     ['build', false, false],
   )
 
+  /* ---- P47–P55:weapp 类名转写比对(2026-09-25 C1 收紧)----
+     正例样本**逐字取自一次真 weapp 构建产物**(不是照抄立票时的猜测);
+     反向对照钉住"加转写表"不得变成"让门更容易点头"。
+     另注:不得把 mangle(mangle(x)) 当不动点用 —— 判据里没有第二遍应用,也就无需假设它幂等。 */
+  eq(
+    'P47 转写表与真产物逐字一致(含 arbitrary value 内部标点与变体前缀)',
+    [
+      weappMangleClassName('-top-[8rpx]'),
+      weappMangleClassName('top-1/2'),
+      weappMangleClassName('bg-[var(--color-black-50)]'),
+      weappMangleClassName('bg-[rgba(0,0,0,0.4)]'),
+      weappMangleClassName('dark:text-foreground'),
+      weappMangleClassName('pb-[calc(20rpx+env(safe-area-inset-bottom,0))]'),
+      weappMangleClassName('flex'),
+    ],
+    [
+      '-top-_b8rpx_B',
+      'top-1_f2',
+      'bg-_bvar_p--color-black-50_P_B',
+      'bg-_brgba_p0_m0_m0_m0_d4_P_B',
+      'dark_ctext-foreground',
+      'pb-_bcalc_p20rpx_uenv_psafe-area-inset-bottom_m0_P_P_B',
+      'flex',
+    ],
+  )
+  eq(
+    'P48 表外标点不得猜转写(! % @ # * ~ 原样保留)',
+    [weappMangleClassName('!flex'), weappMangleClassName('w-[50%]'), weappMangleClassName('a@b#c'), weappMangleClassName('d*e~f')],
+    ['!flex', 'w-_b50%_B', 'a@b#c', 'd*e~f'],
+  )
+  eq(
+    'P49 两态分开计数:原名直中与转写后中各记各的(合计当数会把"表漏一条"藏起来)',
+    (() => {
+      const c = computeCoverage(['flex', '-top-[8rpx]'], new Set(['flex', '-top-[8rpx]']), new Set(['flex', '-top-_b8rpx_B']))
+      return [c.hitOriginalKinds, c.hitMangledKinds, c.hitKinds, c.missKinds, c.pct]
+    })(),
+    [1, 1, 2, 0, 1],
+  )
+  eq(
+    'P50 反向对照:产物里没有的名字收紧后仍判缺(加转写表 ≠ 放水)',
+    computeCoverage(['bg-does-not-exist-tier'], new Set(['bg-does-not-exist-tier']), new Set(['bg-_bvar_p--x_P_B', 'flex'])).missKinds,
+    1,
+  )
+  eq(
+    'P51 表外标点桶:只报数、不并入 hit、字符点名,且不进确定缺失的样例',
+    (() => {
+      const c = computeCoverage(['!flex'], new Set(['!flex']), new Set(['flex']))
+      return [c.hitKinds, c.missKinds, c.unmangledPunctMisses, c.unmangledPunctChars, c.definiteMissKinds, c.missingSamples.length]
+    })(),
+    [0, 1, 1, ['!'], 0, 0],
+  )
+  eq(
+    'P52 反向:同一含 ! 的名字若原名直中,不得落进表外标点桶',
+    (() => {
+      const c = computeCoverage(['!flex'], new Set(['!flex']), new Set(['!flex']))
+      return [c.hitOriginalKinds, c.unmangledPunctMisses]
+    })(),
+    [1, 0],
+  )
+  eq(
+    'P53 归族:确定缺失按前缀成族、按数降序("整族缺失"那个真信号必须可读)',
+    computeCoverage(['bg-b', 'bg-a', 'text-c'], new Set(['bg-b', 'bg-a', 'text-c']), new Set()).missFamilies,
+    [
+      { family: 'bg', count: 2 },
+      { family: 'text', count: 1 },
+    ],
+  )
+  eq('P54 族取法:剥变体前缀、忽略负号、无连字符即整名', [missFamily('hover:bg-muted'), missFamily('-top-[8rpx]'), missFamily('flex'), missFamily('text-cta-foreground')], ['bg', 'top', 'flex', 'text'])
+  eq(
+    'P55 无标点名字不受转写表影响(原名直中态不因收紧而改变)',
+    (() => {
+      const c = computeCoverage(['flex'], new Set(['flex']), new Set(['flex']))
+      return [c.hitOriginalKinds, c.hitMangledKinds]
+    })(),
+    [1, 0],
+  )
+
   let failed = 0
   for (const x of results) {
     console.log(`${x.ok ? '✅' : '❌'} ${x.label}${x.ok ? '' : ` got=${JSON.stringify(x.got)} want=${JSON.stringify(x.want)}`}`)
@@ -1592,6 +1779,10 @@ export const __test__ = {
   harvestLandedSelectors,
   isBareUtilitySelector,
   unescapeClassName,
+  weappMangleClassName,
+  unmappedPunctIn,
+  missFamily,
+  WEAPP_CLASS_MANGLE_TABLE,
   classifyDist,
   detectProductTailwindMajor,
   collectLandedFromDist,
