@@ -14,7 +14,6 @@ import { useTt } from '@/i18n'
 import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
 import ThemeRoot from '@/components/ThemeRoot'
-import BackChevron from '@/components/BackChevron'
 
 /** Taro rpx 单位换算(1px = 2rpx,750 设计稿基准) */
 const toRpx = (px: number): string => `${px * 2}rpx`
@@ -172,7 +171,6 @@ export default function AnnouncementDetail() {
       <View style={viewStyles.container(tk)}>
         <ScrollView scrollY style={viewStyles.bodyScroll()}>
           <View style={viewStyles.body()}>
-            <BackChevron onTap={goBack} />
             <Text style={textStyles.title(tk)}>{item.title}</Text>
             <View style={viewStyles.metaRow()}>
               <Text style={textStyles.author(tk)}>{item.author}</Text>

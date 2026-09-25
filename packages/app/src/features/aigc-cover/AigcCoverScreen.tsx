@@ -7,6 +7,7 @@ import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { Check } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AigcCoverFilter, AigcCoverOption, AigcCoverScreenProps } from '../../types'
+import { BackChevron } from '../../components/BackChevron'
 
 import { rnRadius } from '@ihui/design-tokens'
 
@@ -63,9 +64,7 @@ export function AigcCoverScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack}>
-          <Text style={styles.backText}>{t('aigcCover.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('aigcCover.title')}</Text>
         <Text style={styles.subtitle} numberOfLines={1}>
           {t('aigcCover.subtitle', { title: workTitle })}
@@ -152,7 +151,6 @@ function createStyles(tk: AppThemeTokens) {
     empty: { paddingVertical: 40, alignItems: 'center' },
     emptyText: { fontSize: 14, color: tk.text.tertiary },
     header: { paddingHorizontal: 10, paddingBottom: 8 },
-    backText: { fontSize: 16, color: tk.text.secondary },
     title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     scroll: { flex: 1 },
