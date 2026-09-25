@@ -332,13 +332,25 @@ test('T15 接线条件不变量:本门**若**已被 runner/package.json 登记,�
   const wired = runnerSrc.includes('check-task-claims') || pkgSrc.includes('check-task-claims')
   if (!wired) {
     console.log(
-      '  ℹ check-task-claims 尚未接入 runner/package.json —— **待接线**(建议 id 106,主会话统一改注册表)',
+      '  ℹ check-task-claims 尚未接入 runner/package.json —— **待接线**(编号由主会话按当次空闲号取,本测试不钉编号)',
     )
     return
   }
-  const m = runnerSrc.match(/id:\s*'106',[\s\S]*?\n  \},/)
-  assert.ok(m, '已登记却解析不到本门注册块(接线了但形状不认识,必须人工核对)')
-  const block = m[0]
+  // 按**脚本名**定位注册块，不按编号 —— 编号是并发抢占资源(本仓门 80/93 记过撞号与
+  // "按硬写编号找块 ⇒ 别人的块被当自己的断言"两型)，钉编号会让本测试替别人红或替别人绿。
+  const at = runnerSrc.indexOf("script: 'check-task-claims.mjs'")
+  assert.ok(at > 0, '已登记却按脚本名解析不到本门注册块(接线了但形状不认识,必须人工核对)')
+  const start = runnerSrc.lastIndexOf('  {', at)
+  const end = runnerSrc.indexOf('\n  },', at)
+  assert.ok(start >= 0 && end > at, '注册块边界解析不到')
+  const block = runnerSrc.slice(start, end + 5)
+  const idInBlock = /id:\s*'([0-9]+)'/.exec(block)?.[1]
+  assert.ok(idInBlock, '注册块里没有数字编号')
+  assert.equal(
+    [...runnerSrc.matchAll(new RegExp(`id:\\s*'${idInBlock}'`, 'g'))].length,
+    1,
+    `编号 ${idInBlock} 在 runner 里不唯一(撞号会串 skipEnv 与失败归属)`,
+  )
   assert.match(block, /mode:\s*'blocking'/, '接线档位必须是 blocking(存量恒绿,红点只来自新租约)')
   assert.match(block, /skipEnv:\s*'HUSKY_SKIP_TASK_CLAIM_LEASE'/, '紧急跳过通道键名不符规格')
   assert.match(

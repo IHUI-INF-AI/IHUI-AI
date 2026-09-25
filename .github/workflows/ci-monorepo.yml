@@ -131,6 +131,11 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - run: pnpm turbo run build --filter=@ihui/${{ matrix.app }}
+      # 产物预算门只在 CI 问责:此处产物必然新鲜存在,超上限就是真红;
+      # 本机跑它只会得到"未判定(产物不在)" —— 提交链里它是 warn,没有这一步就等于没有问责面。
+      - name: 产物预算对账(仅 miniapp 档,主包口径上限 2,097,152 B)
+        if: matrix.app == 'miniapp-taro'
+        run: node scripts/check-artifact-budget.mjs --target miniapp
       - uses: actions/upload-artifact@v4
         with:
           name: build-${{ matrix.app }}

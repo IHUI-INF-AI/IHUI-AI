@@ -95,6 +95,9 @@ from ..core.mcp_tool_approval import (
 from ..core.mcp_tool_approval import (
     requires_mcp_tool_approval as _requires_mcp_tool_approval,
 )
+
+# A25(2026-09-26):服务端限流指示优先于本地退避曲线的唯一裁决层
+from ..core.retry_after import hint_from_error, resolve_retry_delay_s
 from .guarded_tool_pipeline import (
     ERROR_INJECTION_BLOCKED,
     ERROR_SCAN_BLOCKED,
@@ -3050,6 +3053,11 @@ class AgentLoopV2:
                     ).inc()
                 except Exception:
                     pass
+                # A25 第 1 层:上游明示"不要再试"(x-should-retry: false)→ 立即放弃,
+                # 原始异常照常上抛(等价一次耗尽,不做任何本地重试)。
+                _retry_hint = hint_from_error(e)
+                if _retry_hint is not None and not _retry_hint.should_retry:
+                    break
                 # 批 57 接线:Responses 流重试决策状态机统一化(行为兼容,仅作决策来源)。
                 # 现有 attempt>=llm_retry_max 的 break 仍主导主链路;decide 仅补充
                 # exhausted 前置判与 notify 文案,不改动退避数值。状态机统一化第一步。
@@ -3073,7 +3081,12 @@ class AgentLoopV2:
                         session_is_internal=False,
                         provider_is_bedrock=False,
                         fallback_transport_available=False,
-                        server_retry_delay=None,
+                        # A25:此前恒传 None(decide 的 server 优先位没有生产者)。
+                        # 现在把 ProviderError 携带的服务端指示喂进去,状态机与
+                        # 本地循环看到同一个数。
+                        server_retry_delay=(
+                            _retry_hint.retry_after_s if _retry_hint is not None else None
+                        ),
                         websocket_transport=False,
                         debug_assertions=False,
                     )
@@ -3083,9 +3096,16 @@ class AgentLoopV2:
                     _notify_message = _decision.notify_message
                 except Exception:
                     pass
-                backoff = self.llm_retry_backoff * (2**attempt) * (
+                # A25 第 2/3 层:服务端 Retry-After 优先于本地指数退避(唯一裁决
+                # resolve_retry_delay_s,含 [0,60s] 封顶);无指示时逐字节透传既有
+                # 曲线(反向对照:random 消费与数值都不变)。
+                _local_backoff = self.llm_retry_backoff * (2**attempt) * (
                     0.5 + random.random() * 0.5
                 )
+                _scheduled = resolve_retry_delay_s(_retry_hint, _local_backoff)
+                if _scheduled is None:
+                    break
+                backoff = _scheduled
                 # 2026-09-18 第二批(对标 Codex StreamError):重试/限流事件流出,
                 # 客户端可实时感知"模型流断了正在重试",429 标注 rate_limited。
                 with contextlib.suppress(Exception):
