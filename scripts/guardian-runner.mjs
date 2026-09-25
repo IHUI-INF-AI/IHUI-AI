@@ -3023,6 +3023,36 @@ const checks = [
     ].join('\n'),
   },
 
+  {
+    id: '115',
+    label: '🧪 入参校验装车对账(blocking,校验器必须有生产调用方 + 影子档在位且默认不是 enforce)',
+    script: 'check-tool-arg-validation-wired.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_TOOL_ARG_VALIDATION_WIRED',
+    stagedTriggers: ['apps/cli/src/tools/', 'packages/types/src/'],
+    onFailHint: [
+      '',
+      '  💡 本门钉的是 A36 查出来的事实:`apps/cli/src/tools/argument-validator.ts` 写得挺全',
+      '     (field / expected / actual、嵌套 items[0] 路径都有),但**生产面零调用方** —— grep 只命中它',
+      '     自己的定义行与注释。后果不是"少一道校验"这么轻:`required` 只被用来生成提示文案和投给 provider',
+      '     的 schema,没有任何一处按它拒绝或纠正入参 ⇒ 模型少传/传错类型时,同一类错误在 104 枚工具里',
+      '     有 104 种表现,而 A13 那句"运行时怎么校验与模型被告知怎么填同源"只有后半句成立。',
+      '     只判两条:① `validateToolArguments(` 必须有非测试调用方(**注释里的提及不算** —— 那正是',
+      '     "看起来有、其实没装车"这一型);② 模式开关必须在位、默认必须是 off、且 shadow 档存在',
+      '     (**enforce 未实现前默认绝不能是 enforce**:没被执行过的描述一旦变成拒绝,就是运行时版恒红事故)。',
+      '     接线顺序登记在 PROJECT_PLAN 第八波:① 影子模式(本门钉住的这层)→ ② 用影子数据把描述修对',
+      '     → ③ 才允许 enforce 默认开,并把 {字段路径, 期望, 实得} 逐条回灌模型。',
+      '     覆盖面缺口(如实登记,不得读成"全链已覆盖"):hubEnabled 分支在拿到 Tool 对象之前就 return,',
+      '     那条路径下影子不生效。',
+      '     单独复验:node scripts/check-tool-arg-validation-wired.mjs',
+      '     自检:node scripts/check-tool-arg-validation-wired.mjs --self-test(14 条,含成对正反例 +',
+      '     "摘掉调用方必红"与"空枚举不得记绿"两条反向对照)',
+      '     镜像测试:node --test scripts/tests/check-tool-arg-validation-wired.test.mjs(5 例,含装车前置)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
