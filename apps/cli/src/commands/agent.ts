@@ -85,6 +85,7 @@ import { loadMcpTools, loadMcpConnections } from '../tools/mcp-runtime.js';
 import { registerMcpToolsToHub } from '../tools/hub/mcp-adapter.js';
 import { InMemoryRegistry } from '../tools/hub/registry.js';
 import { loadSkills, formatSkillsForPrompt, type Skill } from '../skills/index.js';
+import { neutralizeBoundaries } from '../utils/prompt-boundary.js';
 import { loadMemory, formatMemoryForPrompt, type MemoryEntry } from '../memory/index.js';
 import { auditLog } from '../audit.js';
 import { loadHooks, runSessionStartHooks, runSessionEndHooks, runHook } from '../hooks/index.js';
@@ -1768,7 +1769,9 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           tracker: readState,
           resultBudget: getTool(call.name)?.contract?.resultBudget,
         });
-        resultParts.push(formatToolResult(call, { ...result, output: budgeted.output }));
+        resultParts.push(
+          formatToolResult(call, { ...result, output: neutralizeBoundaries(budgeted.output) }),
+        );
       }
 
       // P1-2 Reminders:工具结果后自动注入系统提醒(context budget / iteration progress)
@@ -1788,7 +1791,9 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
 
       // P2-1 fsnotify:把最近 60s 文件变更事件注入 user 消息(让 LLM 感知外部编辑)
       if (opts.fsEventSource) {
-        const fsContext = formatFsEventsForPrompt(opts.fsEventSource.getRecentEvents(60_000));
+        const fsContext = neutralizeBoundaries(
+          formatFsEventsForPrompt(opts.fsEventSource.getRecentEvents(60_000)),
+        );
         if (fsContext) {
           resultParts.push(fsContext);
         }
