@@ -241,6 +241,9 @@ export type {
 export { MoreLink } from './components'
 export type { MoreLinkProps } from './components'
 
+export { BackChevron } from './components'
+export type { BackChevronProps } from './components'
+
 /** 统一分类栏(横滑条 + 点击下拉窗),两端共用;文案与图标一律由调用方 items 传入 */
 export { CategoryInlineBar, CategoryDropdown } from './components'
 export type { CategoryInlineBarProps, CategoryDropdownProps, CategoryItem } from './components'

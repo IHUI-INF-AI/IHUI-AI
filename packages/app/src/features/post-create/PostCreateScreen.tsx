@@ -8,6 +8,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { PostCreateScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 发帖共享屏 — props 注入式跨端组件(表单类) */
 export type { PostCreateScreenProps }
@@ -39,9 +40,7 @@ export function PostCreateScreen({
 
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <Text style={styles.back}>{t('common.back')}</Text>
-      </TouchableOpacity>
+      <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
       <Text style={styles.title}>{t('postCreate.title')}</Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Text style={styles.label}>{t('postCreate.titleLabel')}</Text>
@@ -97,7 +96,6 @@ function createStyles(tk: AppThemeTokens) {
       padding: 16,
     },
     muted: { fontSize: 14, color: tk.text.secondary },
-    back: { fontSize: 16, color: tk.text.secondary },
     title: {
       marginTop: 8,
       fontSize: 22,

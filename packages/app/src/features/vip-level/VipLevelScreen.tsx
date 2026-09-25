@@ -12,6 +12,7 @@ import { useMemo } from 'react'
 import { ScrollView, Text, TouchableOpacity, View, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { VipLevelScreenProps } from '../../types'
+import { BackChevron } from '../../components/BackChevron'
 
 export function VipLevelScreen({
   t,
@@ -36,6 +37,7 @@ export function VipLevelScreen({
     return (
       <View style={styles.center}>
         <Text style={styles.error}>{error || t('vipLevel.empty')}</Text>
+        {/* back-label-exempt: 错误态/空态卡片内的按钮文案,或翻页/弹窗关闭动作 —— 此处「返回」是按钮文字而非页头箭头,换裸箭头反而不表意 */}
         <TouchableOpacity
           style={styles.backBtn}
           onPress={onBack}
@@ -50,9 +52,7 @@ export function VipLevelScreen({
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.back}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('vipLevel.title')}</Text>
       </View>
       <View style={styles.body}>
