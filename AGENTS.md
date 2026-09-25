@@ -1606,6 +1606,15 @@ nssm 服务(IHUI-API / IHUI-DEPLOYLOOP 以 LocalSystem 运行)拿到的仍是 `C
 2. `ForceDelete` 只有 `DeleteDirectory` 分支,对**文件**路径必然抛后被 catch 吞掉 ⇒ 静默"清理成功但什么都没删"(盘根 `IHUI-probe-*.ps1` 就属于这一类)。现按 Leaf/Directory 分流。
 3. 新增 `-DryRun`,**拦在 `ForceDelete` 这个唯一删除出口上**而非某一段里。教训实测:最初只把 DryRun 写在第三段,预演模式下第一段(Chrome 缓存)和第二段(Temp >3 天目录)**照样被真删了**(DeletePermanently 不进回收站);当时释放约 29.8MB,均为 `Temp` 下 mtime>3 天的目录,项目文件/备份/凭据全在 D 盘未受影响。现每段逐条留痕(`[DEL]`/`[DRY]`),不再静默删除。
 
+**本票新建的两把常驻工具(量算/归并出口,不是守门 —— 勿因"没接 guardian-runner"就当作没装车)**:
+`scripts/c-disk-breakdown.mjs` —— 全盘**只读**量算仪,junction 安全(刻意不跟随重解析点,否则把 D 盘的量算成
+C 盘的债),强制对账「遍历 + 特殊文件 + 未解释 = 已用」,未解释 >2GB 或为负都当场喊话。报磁盘状态先跑它,
+不要跑 `df`(§26 已记过一次它给出相反百分比)。用法 `node scripts/c-disk-breakdown.mjs [--root C:/] [--depth N] [--json]`。
+它的文件名不以 `check|scan|guard` 开头 ⇒ 守门 89 结构上看不见它,所以它的不变量由自己那把尺子钉:
+`scripts/tests/c-disk-breakdown.test.mjs`(7 例:滚到全部祖先 / junction 不跟随 / ROOTKEY 尾斜杠 / 量不到不得伪装成结论)。
+`scripts/plan-union-merge.mjs` —— 活文档台账被撞号或整段回写时的人工归并出口(临时索引 + commit-tree + CAS,
+落地前自证"本侧/对侧路径零丢失"),镜像测试 4 例在位。两者**都不做任何删除**。
+
 **手动触发**:`pwsh -File scripts/c-drive-auto-maintain.ps1`
 **查看日志**:`D:\DevEnv\logs\c-drive-maintain.log`(旧文档写 `D:\caches\...`,该目录本机不存在,日志从未写出)
 **查看任务状态**:`Get-ScheduledTask -TaskName "IHUI-*"` / `schtasks /Query /TN "IHUI-C-Drive-AutoMaintain"`
@@ -1931,17 +1940,15 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
     ≤3 行的缩进续行;取证是自检 A2b(两行形态必判 mine)/ A3b(续行点的是别人的文件仍判 not-ours),
     变异证明 = 把续行上限改回 0 即退回旧误判。**判据失效的方向必须是"多要一次定向说明",绝不能是"多放一次跳门"。**
 
-
-
-
-
-
 ### 页头返回键单一源头(强制,2026-09-25 立)
+
 - **起因(用户实拍)**:"小程序端所有返回按钮怎么是返回两个字"。web 端 2026-09-08 就把返回键收进顶栏唯一实现(`GlobalTopBar.tsx` 的 `TopBarBackButton`,lucide `<ChevronLeft />`,36×36 方块,守门 46 拦私接),**但小程序端没人跟着收口**:20 处把「返回」两个汉字当箭头渲染(各页自写 `tt('common.back','返回')` + 各自的字号/颜色)、8 处用字符 `‹` 当箭头。守门 102 当时的字符集只有右向 `›»→》` —— **一条门只管自己立项那一型,就是这一型的洞**(判据必须覆盖门自己产出的形态,同 §4 圆角那一条的教训)。
 - **唯一写法**:小程序端一律 `<BackChevron onTap={…} />`(`apps/miniapp-taro/src/components/BackChevron.tsx`,内部 `LineIcon name="chevron-left"` 复用 `components/LineIcon/icons.ts` 既有素材 ⇒ 零新素材、零新色值;方块 72rpx=36px 与 web 的 36×36 同档)。返回动作(`navigateBack` / `switchTab` 降级 / 回登录页)语义**留在调用方**,组件只管外观。web/RN 侧对应写法是 `ChevronLeft`(lucide-react / lucide-react-native)。**禁止**在页头返回位写文字、写 `‹`,或端内自造第二种几何(负 margin 凑命中区、每页各自 `w-[80rpx]` 预留宽度 —— 后者会被组件行内 `width` 静默盖掉)。
 - **文字标签的合法例外**:错误态卡片按钮、步骤回退链接这类**「返回」是按钮文案而非导航箭头**的位置保留文字,在**可点元素起始行或其紧邻上行**写 `back-label-exempt: <原因>`。它与 `glyph-arrow-exempt` 是两条独立通道,不得混用(给 GA1 开第二道口就等于没有那条锁)。带宾语的标签(`backHome` / `backLogin` / `prevMonth`)按判据结构上不纳,**不得为消红去改 i18n 文案**。
 - **守门**:并入 102(见下一节末条),新增判据 **GA4** 与 S0 机制清单第 4 条(`components/BackChevron.tsx` 被摘线或无人 import 即红)。
 - **未收口的同一型(如实登记,不是已完成)**:`packages/app/src/features/**` 有 **223 处 / 168 文件**、`apps/mobile-rn/src/screens/**` 有 5 处仍是 `<Text>{t('common.back')}</Text>`;共享层两个 NavBar 与 `PayResultScreen` 用 `‹`。它们由 102 的**按文件 HEAD 棘轮**兜住"不得再加",清理另计一批。
+
 <!-- ⚠️ 本行是守门 102 的**立项原文**(三类判据),已于 2026-09-25 被下方"四类判据"条就地改写取代;其中"字符集只有 ›»→》""三端唯一实现""--self-test 45 例"三项均已是旧值,照它派单会漏掉左向字形与 GA4。保留本行只为不丢行(§12),勿照它执行。 -->
+
 - **守门**:`scripts/check-glyph-arrow-icon.mjs`(guardian 第 **102** 项,blocking)四类判据:**GA1** 整格字符箭头 `›»→》‹←`(或 `{'>'}`)在可证 affordance 语境(自身或 ≤8 层祖先带 `on*Press/Click/Tap` 或 `role="button"`,或祖先为 `Link/Pressable/Touchable*/Button`)当图标 —— **左向 `‹`/`←` 于 2026-09-25 补入**(立项时只有右向四字,于是小程序 NavBar 与 7 个页面头拿 `‹` 当返回图标长期零判据);**GA2** 「更多」类标签与**同词干** `*Arrow*` 样式配对后箭头字号 > 标签字号(单位不同不判红,计入 undetermined);**GA4**(同日新增)整格子内容是「返回」类文案(`t('common.back')` 这类键名末段为 `back`/`back<数字>` 的 i18n 调用,或字面量 `返回`)且处在可证 affordance 语境 ⇒ 即"把返回两个字当返回箭头";**带宾语的标签刻意不纳**(`backHome`/`backLogin`/`prevMonth` —— 那些是按钮文案,换成裸箭头反而不表意);**S0** 共享唯一实现被摘线或无人 import(防"造好没装车"),现登记 4 条:三端「更多」箭头 + `components/BackChevron.tsx`。GA1 与 GA4 **共用同一遍遍历**(`walkAffordanceChildren`),两条对"可证 affordance"的定义必须同形 —— 各写一遍必然在栈深/祖先窗口上漂移。口径同 77/83:全量判 HEAD blob、`--staged` 判索引、**棘轮锚点 = 该文件 HEAD 自身违规数**(行尾字符箭头存量 70 处只报数不拦,免得恒红逼人绕过钩子连带废掉全部门);行内豁免**两条独立通道** `glyph-arrow-exempt: <原因>`(GA1/GA2,只认命中同行)与 `back-label-exempt: <原因>`(GA4,认命中行、可点元素起始行、及其紧邻上行)—— **宽严刻意不对称**且各由自检钉住:GA1 若也按块放行,一个标记就能救整棵子树,"一行救不了别处"那条反向锁就没了;GA4 若只认同行,人按直觉把标记写在可点块上就永远不生效(初版即如此,四处真实站点全部落空 ⇒ 恒红)。**原因不得由注释闭合符冒充**(裸标记 + `*/` 曾被读成"带了原因"⇒ 整行免检;该洞自 §22c 立项起就在 GA1 里,由 GA4 的自检反手抓出,现两条通道同锁,全仓零裸标记存量故改严无债务)。取证 `--self-test` 66 例(含阳性对照、棘轮四向、预筛必须是判据字面量超集的对账)+ 镜像测试 14 例(含"GA1/GA4 豁免宽严不得悄悄对齐"与"预筛漏字形=门对该形态全盲"两条锁)。紧急跳过 `HUSKY_SKIP_GLYPH_ARROW_ICON=1`。
 - **发给 provider 的 function parameters 必须由校验面单向投影**(2026-09-25 立,A13):统一出口是 `@ihui/types` 的 `projectToolInputSchema` / `toolsToProviderSchema` (`packages/types/src/schema-projection.ts`),**禁止端内手搓 `parameters` 对象或自拼第二份 JSON Schema** —— "运行时怎么校验"与"模型被告知怎么填"必须是同一份描述的两个投影,否则两边各自漂移而 typecheck 全绿。等价性由 158/158 个真工具对象的同瞬间 A/B 证明(线字节 + 属性名集合 + required 集合三项全等)。
