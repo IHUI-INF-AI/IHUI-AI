@@ -65,9 +65,13 @@ page {
 /* ===== 共享基础样式结束(自动生成,勿手动编辑)===== */
 @tailwind base;
 @tailwind components;
-/* weapp 构建下 `@tailwind utilities` 只产出 arbitrary-value 那一半,命名档(flex/items-center/w-full/text-sm…)
-   一条不落(同一份 app.css 的 h5 构建却全有 ⇒ 缺口在 weapp-tailwindcss 那条链上,不在 Tailwind)。
-   换成 v4 的 utilities 入口 + 显式 @source 后命名档才产出;层叠序仍是 Tailwind 自身的规范序。 */
+/* weapp 构建下命名档 utility(flex/items-center/w-full/p-3…)此前一条不产,而同一份 app.css 走 h5
+   构建时全都有 ⇒ 缺口在 weapp-tailwindcss 那条 weapp 专用链上,不在 Tailwind 本身。
+   起效的是下面那行 @source:它把端内源码显式喂给生成器,命名档才进候选集。
+   (上面的 @tailwind utilities 换成 @import 'tailwindcss/utilities.css' 是**空转**——该文件内容
+    逐字就是 `@tailwind utilities;`,21 字节;保留只为与 v4 的入口写法对齐。)
+   ⚠️ 仍未解决:项目色档(bg-*/text-*/border-*)整族还是 0 落地,因为 v4 只把 @theme 里的
+    --color-* 认作主题档,而本文件把色值落在普通 :root/.dark 上。见 PROJECT_PLAN O62附⑧补。 */
 @import 'tailwindcss/utilities.css';
 @source "./**/*.{ts,tsx}";
 
