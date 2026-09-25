@@ -237,17 +237,24 @@ test('③轴端到端正反对照:写回祖先版本被挑出并点名最旧的�
 })
 
 test('复用守门 84,不另抄一份祖先比对(单一真相源)', () => {
-  const src = readFileSync(new URL('../check-baseline-freshness.mjs', import.meta.url), 'utf8')
-  assert.match(src, /from '\.\/check-stale-revert\.mjs'/, '必须 import 门 84 的判据')
-  assert.match(src, /analyze\(/, 'import 了却不调用 = 摆设')
-  assert.match(src, /worktreeDirtyPaths\(/, '漂移面清单同样复用门 84 的出口')
-  // 第二份真相的指纹:本门自己不得再搭一套 blob 比对
+  const raw = readFileSync(new URL('../check-baseline-freshness.mjs', import.meta.url), 'utf8')
+  // 只判**代码**:头注释必须写"为什么不自己 cat-file",把注释也算进去就是拆掉说理。
+  const code = raw.replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')
+  assert.match(code, /from '\.\/check-stale-revert\.mjs'/, '必须 import 门 84 的判据')
+  assert.match(code, /analyze\(/, 'import 了却不调用 = 摆设')
+  assert.match(code, /worktreeDirtyPaths\(/, '漂移面清单同样复用门 84 的出口')
+  assert.match(code, /ancestorCommits\(/, '跨度换算也走门 84 的祖先清单,不自造搜索')
+  // 第二份真相的指纹:本门**代码里**不得再搭一套 blob 取材/比对
   assert.doesNotMatch(
-    src,
+    code,
     /hash-object|cat-file|--batch/,
     '这里出现了第二套 blob 取材/比对实现 ⇒ 与门 84 必然漂移',
   )
-  assert.doesNotMatch(src, /findObject|find-object/, '同理不得自己再造祖先搜索')
+  assert.doesNotMatch(code, /findObject|find-object/, '同理不得自己再造祖先搜索')
+  assert.ok(
+    raw.includes('绝不进提交链') && raw.includes('恒红门'),
+    '③轴边界的"为什么"必须留在门头注释里 —— 镜像测试只证明它有牙,证明不了它为何这样设计',
+  )
 })
 
 test('decide() 是纯函数(同输入两次调用逐字相同,不藏状态)', () => {
