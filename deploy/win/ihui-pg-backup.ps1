@@ -21,10 +21,15 @@ $retentionDays = 7
 # 云备份同步(2026-08-05 加):复制到百度网盘同步盘 = 异地容灾(同步盘自动云同步)
 $cloudDir = "D:\BaiduSyncdisk\IHUI-PG-BACKUP"
 
-# 读取数据库配置(只取库名与端口;口令一律不走 .env,见下方凭据段)
+# 读取数据库配置。`.env` 由 .gitignore 忽略、不入仓也不进聊天记录;本脚本本来就为拿库名/端口读它,
+# 现在顺带取应用账号(仅作为下方"过渡档"凭据来源,不复制口令到任何新文件)。
+$dbUserFromDotEnv = $null
+$dbPwFromDotEnv = $null
 Get-Content "$ProjectRoot\.env" | ForEach-Object {
     if ($_ -match "^DB_NAME=(.+)$") { $dbName = $matches[1] }
     if ($_ -match "^DB_PORT=(.+)$") { $dbPort = $matches[1] }
+    if ($_ -match "^DB_USER=(.+)$") { $dbUserFromDotEnv = $matches[1].Trim() }
+    if ($_ -match "^DB_PASSWORD=(.+)$") { $dbPwFromDotEnv = $matches[1].Trim() }
 }
 if (-not $dbName) { $dbName = "ihui_dev" }
 if (-not $dbPort) { $dbPort = "8810" }
@@ -41,25 +46,46 @@ if (-not $dbPort) { $dbPort = "8810" }
 # 中文留在 Write-Host 与注释里无妨 —— 输出面确实会因 GBK 控制台代码页而花屏(实测),但那不影响判据。
 # 完整性依据(不是猜的):应用角色 ihui 带 BYPASSRLS,其 dump 与超管 dump 的 TOC 同为
 # TABLE DATA 716 条(对象 5226 vs 5221)⇒ 非超管不会少行;新角色照此只授 BYPASSRLS + 读权限。
-$dbUser = if ($env:IHUI_DB_BACKUP_USER) { $env:IHUI_DB_BACKUP_USER } else { 'ihui_backup' }
+# 凭据优先级(高→低):
+#   ① 服务环境块 IHUI_DB_BACKUP_USER / IHUI_DB_BACKUP_PASSWORD
+#   ② §5d 权威目录里的专用角色口令文件(<密钥根>/db-backup/ihui-backup.txt)
+#   ③ 兜底:.env 里的应用账号(过渡档 —— 见下面注释为什么允许它)
+# ③ 的存在是因为 ② 需要一次超管会话才能建角色,而**备份不能因为这一步没人做就一直断**。
+# 实测依据:应用角色 ihui 带 BYPASSRLS,它的 dump 与超管 dump 的 TOC 同为 TABLE DATA 716 条
+# ⇒ 用它导出不缺行;它同时也是 API 服务在用的账号,所以 ③ **不新增任何凭据副本**,
+# 只是复用磁盘上已有的一份。代价是备份权限偏大(该角色可写),故每轮都在日志里显式警告。
+# 想升到终态:跑 deploy\win\ihui-pg-backup-role.sql 建 ihui_backup(只读+BYPASSRLS),
+# 把口令写成一行裸文本放进 ② 的路径 —— 这一步由持有超管口令的人自己做,不要把口令交给会话/日志。
+$dbUser = $env:IHUI_DB_BACKUP_USER
 $dbPw = $env:IHUI_DB_BACKUP_PASSWORD
 if (-not $dbPw) {
-    $probe = & node (Join-Path $ProjectRoot 'scripts\secret-path.mjs') 'db-backup' 'ihui-backup.txt' 2>&1
-    $probeRc = $LASTEXITCODE
-    if ($probeRc -eq 0) {
-        $credFile = ($probe | Select-Object -First 1).Trim()
+    $credFile = $null
+    # node 在本地系统账户下不一定在 PATH 里(本机真实 node 在 D:\DevEnv\runtimes\node)。
+    # 探测不到就安静跳过 ②,直接走 ③ —— 取路径的工具不该变成备份失败的原因。
+    if (Get-Command node.exe -ErrorAction SilentlyContinue) {
+        try {
+            $probe = & node.exe (Join-Path $ProjectRoot 'scripts\secret-path.mjs') 'db-backup' 'ihui-backup.txt' 2>&1
+            if ($LASTEXITCODE -eq 0 -and $probe) { $credFile = ($probe | Select-Object -First 1).Trim() }
+        } catch {
+            Write-Host "[WARN] 凭据路径探测异常(跳过专用角色档): $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+    }
+    if ($credFile -and (Test-Path -LiteralPath $credFile)) {
         $dbPw = (Get-Content -LiteralPath $credFile -TotalCount 1).Trim()
+        if (-not $dbUser) { $dbUser = 'ihui_backup' }
         if (-not $dbPw) {
             Write-Host "[ERROR] 凭据文件为空: $credFile" -ForegroundColor Red
             exit 1
         }
+    } elseif ($dbPwFromDotEnv) {
+        if (-not $dbUser) { $dbUser = $dbUserFromDotEnv }
+        $dbPw = $dbPwFromDotEnv
+        Write-Host "[WARN] 用 .env 的应用账号『$dbUser』跑备份(过渡档,非终态):未找到 $credFile 之类的专用角色凭据" -ForegroundColor Yellow
+        Write-Host "       升终态:deploy\win\ihui-pg-backup-role.sql(需一次超管会话,由口令持有人本机执行)" -ForegroundColor Yellow
     } else {
-        # exit 1 = 凭据目录或文件不存在;exit 2 = 连凭据根都不可达 ⇒ 这两种都不是"口令错误",必须说清
-        Write-Host "[ERROR] 取不到备份凭据(node scripts/secret-path.mjs exit=$probeRc):" -ForegroundColor Red
-        foreach ($l in $probe) { Write-Host "        $l" -ForegroundColor Yellow }
-        Write-Host "        角色建制 SQL: deploy\win\ihui-pg-backup-role.sql(需一次超管会话)" -ForegroundColor Yellow
-        Write-Host "        临时顶一次(不必建角色):设 IHUI_DB_BACKUP_USER / IHUI_DB_BACKUP_PASSWORD" -ForegroundColor Yellow
-        Write-Host "        注:应用角色 ihui 亦可(实测其 dump 与超管同 TOC),但它是 createdb+bypassrls 的高权角色,只作过渡" -ForegroundColor Yellow
+        Write-Host "[ERROR] 取不到任何备份凭据:环境变量未设、专用角色口令文件不存在、.env 里也没有 DB_PASSWORD" -ForegroundColor Red
+        Write-Host "        三条出路:①设 IHUI_DB_BACKUP_USER / IHUI_DB_BACKUP_PASSWORD;②跑角色 SQL 后写口令文件;" -ForegroundColor Yellow
+        Write-Host "        ③确认 $ProjectRoot\.env 里 DB_PASSWORD 有值" -ForegroundColor Yellow
         exit 1
     }
 }

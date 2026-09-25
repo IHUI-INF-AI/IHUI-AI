@@ -1422,24 +1422,190 @@ fn adapt_window_to_screen(window: &tauri::WebviewWindow) -> Result<(), String> {
     Ok(())
 }
 
+/// WebView2 数据目录里**删了就丢用户数据**的名字(2026-09-25 立)。
+/// 起因:旧实现把整棵 `EBWebView` 目录 `remove_dir_all` 当作"清理缓存"——用户在设置页点一次
+/// "清理缓存",或谁跑一次 `tauri dev`(下面的 dev 分支同样曾经整树删),登录态、本地会话、
+/// 已加密的 `ihui-chat` 信封就一起没了。清理缓存不该等于注销并清空本机数据。
+const WEBVIEW_DATA_NAMES: [&str; 6] = [
+    "Local Storage",
+    "Session Storage",
+    "IndexedDB",
+    "Network",
+    "Local State",
+    "leveldb",
+];
+
+/// 可安全删除的缓存目录(相对 `EBWebView`;`Default/` 下的与根级的都列出)。
+/// 只列**重新访问站点就会自动重建**的东西;拿不准的不列(宁可少清,不可误删)。
+const WEBVIEW_CACHE_NAMES: [&str; 8] = [
+    "Default/Cache",
+    "Default/Code Cache",
+    "Default/GPUCache",
+    "Default/blob_storage",
+    "Default/Service Worker/CacheStorage",
+    "Default/Service Worker/ScriptCache",
+    "GrShaderCache",
+    "ShaderCache",
+];
+
+/// 白名单与数据名单有任何一段重名 ⇒ 该条整条剔除(配置错误的默认结论是"不删")。
+fn webview_cache_paths(root: &std::path::Path) -> Vec<std::path::PathBuf> {
+    WEBVIEW_CACHE_NAMES
+        .iter()
+        .filter(|rel| {
+            !rel.split('/')
+                .any(|seg| WEBVIEW_DATA_NAMES.contains(&seg))
+        })
+        .map(|rel| root.join(rel.replace('/', std::path::MAIN_SEPARATOR_STR)))
+        .filter(|p| p.is_dir())
+        .collect()
+}
+
+/// 只删缓存类目录,数据类目录一律保留;返回 (删除数, 在场且被保留的数据目录名)。
+fn clear_webview_caches(root: &std::path::Path) -> Result<(usize, Vec<&'static str>), String> {
+    // 根目录名不是 EBWebView 就拒删:拼错路径的后果应该是"什么也没清",不是"抹掉一棵树"
+    let is_ebwebview = root
+        .file_name()
+        .map(|n| n.to_string_lossy().eq_ignore_ascii_case("EBWebView"))
+        .unwrap_or(false);
+    if !is_ebwebview {
+        return Err(format!(
+            "拒绝清理:目标末段不是 EBWebView({})",
+            root.display()
+        ));
+    }
+    let mut cleared = 0usize;
+    for p in webview_cache_paths(root) {
+        std::fs::remove_dir_all(&p).map_err(|e| format!("{}: {}", p.display(), e))?;
+        cleared += 1;
+    }
+    let skipped = WEBVIEW_DATA_NAMES
+        .iter()
+        .filter(|n| root.join("Default").join(n).is_dir() || root.join(n).is_dir())
+        .copied()
+        .collect();
+    Ok((cleared, skipped))
+}
+
 /// 清理 WebView2 缓存(Windows)。
-/// 2026-07-29 #6:prod 模式 EBWebView 目录会无限增长(几个月可达数百 MB),
-/// 供前端设置项"清理缓存"调用。清理后建议重启应用。
+/// 2026-07-29 #6:prod 模式缓存子目录会无限增长(几个月可达数百 MB),供前端设置项"清理缓存"调用。
+/// 2026-09-25:由"整树删"改为"只删缓存白名单"——清理动作不再可能带走登录态与本地会话。
 #[tauri::command]
 fn clear_webview_cache() -> Result<OkResult, String> {
     #[cfg(target_os = "windows")]
     {
         if let Some(local_app_data) = std::env::var_os("LOCALAPPDATA") {
-            let webview_cache = std::path::Path::new(&local_app_data)
+            let webview_root = std::path::Path::new(&local_app_data)
                 .join("com.ihui.desktop")
                 .join("EBWebView");
-            if webview_cache.exists() {
-                std::fs::remove_dir_all(&webview_cache).map_err(|e| e.to_string())?;
-                log::info!("[desktop] WebView2 cache cleared by user: {}", webview_cache.display());
+            if webview_root.is_dir() {
+                let (cleared, skipped) = clear_webview_caches(&webview_root)?;
+                log::info!(
+                    "[desktop] WebView2 缓存已由用户清理:删除 {} 个缓存目录,保留 {} 个数据目录({})",
+                    cleared,
+                    skipped.len(),
+                    skipped.join(", ")
+                );
             }
         }
     }
     Ok(OkResult { ok: true })
+}
+
+#[cfg(test)]
+mod webview_cache_tests {
+    use super::{clear_webview_caches, webview_cache_paths, WEBVIEW_CACHE_NAMES, WEBVIEW_DATA_NAMES};
+    use std::fs;
+    use std::path::{Path, PathBuf};
+
+    /// 造一棵最小 WebView2 树:每个名字一个目录,里面各放一个文件,便于事后判"还在不在"。
+    fn fixture(tag: &str, dirs: &[&str]) -> PathBuf {
+        let root = std::env::temp_dir()
+            .join(format!("ihui-wvcache-{}", tag))
+            .join("EBWebView");
+        let _ = fs::remove_dir_all(root.parent().unwrap());
+        for d in dirs {
+            let p = root.join(d.replace('/', std::path::MAIN_SEPARATOR_STR));
+            fs::create_dir_all(&p).expect("建夹具目录失败");
+            fs::write(p.join("payload.bin"), b"must-survive-or-be-deleted-as-a-whole")
+                .expect("写夹具文件失败");
+        }
+        root
+    }
+
+    fn exists(root: &Path, rel: &str) -> bool {
+        root.join(rel.replace('/', std::path::MAIN_SEPARATOR_STR)).exists()
+    }
+
+    fn child_names(dir: &Path) -> Vec<String> {
+        let mut v: Vec<String> = fs::read_dir(dir)
+            .expect("夹具目录应可读")
+            .filter_map(|e| e.ok())
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        v.sort();
+        v
+    }
+
+    #[test]
+    fn 配置不变量_缓存白名单里不得有任何数据段() {
+        for rel in WEBVIEW_CACHE_NAMES.iter() {
+            for seg in rel.split('/') {
+                assert!(
+                    !WEBVIEW_DATA_NAMES.contains(&seg),
+                    "缓存白名单 {} 里出现了数据目录段 {},清理会连带删掉用户数据",
+                    rel,
+                    seg
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn 清缓存必须保住登录态与本地会话() {
+        let root = fixture(
+            "keep-data",
+            &[
+                "Default/Cache",
+                "Default/Code Cache",
+                "Default/GPUCache",
+                "Default/Local Storage",
+                "Default/IndexedDB",
+                "Default/Network",
+                "GrShaderCache",
+            ],
+        );
+        let (cleared, skipped) = clear_webview_caches(&root).expect("清理应成功");
+        assert_eq!(cleared, 4, "应删掉 4 个缓存目录");
+        assert!(exists(&root, "Default/Local Storage"), "登录态被删了");
+        assert!(exists(&root, "Default/IndexedDB"), "本地会话被删了");
+        assert!(exists(&root, "Default/Network"), "Cookie 被删了");
+        assert!(!exists(&root, "Default/Cache"), "缓存没被删掉");
+        assert_eq!(skipped.len(), 3, "保留清单应如实报出在场的 3 个数据目录");
+        let _ = fs::remove_dir_all(root.parent().unwrap());
+    }
+
+    #[test]
+    fn 目标根目录名不对就整条拒删() {
+        let misplaced = std::env::temp_dir().join("ihui-wvcache-wrong-root").join("Default");
+        let _ = fs::remove_dir_all(misplaced.parent().unwrap());
+        fs::create_dir_all(misplaced.join("Local Storage")).expect("建夹具失败");
+        let before = child_names(&misplaced);
+        let err = clear_webview_caches(&misplaced).expect_err("末段不是 EBWebView 必须被拒");
+        assert!(err.contains("拒绝清理"), "报错文案要能看出是被拒,不是被删:{}", err);
+        let after = child_names(&misplaced);
+        assert_eq!(before, after, "被拒的同时一个子项都不许少");
+        let _ = fs::remove_dir_all(misplaced.parent().unwrap());
+    }
+
+    #[test]
+    fn 白名单筛出的路径只含在场的目录() {
+        let root = fixture("paths", &["Default/Cache", "Default/Session Storage"]);
+        let picked = webview_cache_paths(&root);
+        assert_eq!(picked.len(), 1, "只应挑中在场的缓存目录: {:?}", picked);
+        assert!(picked[0].ends_with("Cache"));
+        let _ = fs::remove_dir_all(root.parent().unwrap());
+    }
 }
 
 /// 根据状态返回本地化托盘 tooltip(2026-07-29 #10)。
@@ -1610,17 +1776,26 @@ pub fn run() {
     }
     // 2026-07-26 立:启动时清理 WebView2 缓存(Windows),彻底杜绝桌面端样式不同步问题
     // - 用户反馈"样式没同步":web dev 已更新,但 Tauri WebView2 缓存了旧 CSS chunk
-    // - 每次 dev 启动清空 EBWebView 目录,强制重新加载 dev server 的最新 HTML/CSS
+    // - 2026-09-25 收窄:旧写法是 `remove_dir_all(EBWebView)`,而 `cfg(dev)` **确实会被编译**
+    //   (`tauri-build` 输出 `cargo:rustc-cfg=dev`,已在构建日志里回读到),所以每次 `tauri dev`
+    //   启动都在删用户的 WebView2 数据树(登录态 / 本地会话 / 已加密的 ihui-chat 信封一并没了)。
+    //   现在只删缓存白名单,样式同步所需的"重新取 chunk"照样成立,数据目录一律保留。
     // - 仅 dev 模式生效(release 模式加载 frontendDist 静态产物,不需要清缓存)
     #[cfg(all(dev, target_os = "windows"))]
     {
         if let Some(local_app_data) = std::env::var_os("LOCALAPPDATA") {
-            let webview_cache = std::path::Path::new(&local_app_data)
+            let webview_root = std::path::Path::new(&local_app_data)
                 .join("com.ihui.desktop")
                 .join("EBWebView");
-            if webview_cache.exists() {
-                let _ = std::fs::remove_dir_all(&webview_cache);
-                log::info!("[desktop] WebView2 cache cleared: {}", webview_cache.display());
+            if webview_root.is_dir() {
+                match clear_webview_caches(&webview_root) {
+                    Ok((cleared, skipped)) => log::info!(
+                        "[desktop] dev 启动清理 WebView2 缓存:删除 {} 个缓存目录,保留 {} 个数据目录",
+                        cleared,
+                        skipped.len()
+                    ),
+                    Err(e) => log::warn!("[desktop] dev 启动清理缓存被拒:{}", e),
+                }
             }
         }
     }
