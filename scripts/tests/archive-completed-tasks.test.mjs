@@ -544,7 +544,9 @@ test('自动档 commit 必须带 pathspec:共享索引里挂着别人的 staged 
       .map((s) => s.trim())
       .filter(Boolean)
     assert.ok(
-      files.every((f) => f === 'PROJECT_PLAN.md' || f.includes('.ihui-agent/archive/PROJECT_PLAN_')),
+      files.every(
+        (f) => f === 'PROJECT_PLAN.md' || f.includes('.ihui-agent/archive/PROJECT_PLAN_'),
+      ),
       `归档 commit 只许动这两个路径,实际动了:\n  ${files.join('\n  ')}`,
     )
     assert.ok(!files.includes('other.txt'), '别人 staged 的删除被卷进了归档 commit(§12 污染)')
@@ -559,3 +561,102 @@ test('自动档 commit 必须带 pathspec:共享索引里挂着别人的 staged 
   }
 })
 
+// ─── 18. 归档锚点必须真能入库(2026-09-25:夹具与生产的差异就是这次事故本身) ───
+
+test('生产形态的 .gitignore(整目录忽略 .ihui-agent/)下,自动档仍必须产出 commit 且锚点已入库', () => {
+  // 这条测试的存在理由:上一轮我新加的"pathspec 回归"夹具**没有 .gitignore**,所以在生产里
+  // 必然失败的场景下它偏绿 —— 而生产实测正是 `git add` 被 .gitignore 拒绝 ⇒ 自动 commit 失败 ⇒
+  // 计划文档改写以"已 staged 未提交"挂在共享索引里、归档内容只存在本机。
+  // ⇒ 凡判据对象是"真实文件的形态",夹具就必须复刻那个形态(§22c 红线新增条)。
+  const dir = createTempGitRepo()
+  try {
+    const d = dateAgo(30)
+    const opt = { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
+    writeFileSync(
+      join(dir, 'PROJECT_PLAN.md'),
+      `# plan\n\n### 任务A(已完成 ✅ ${d})\n正文A\n\n## 保留章节\n别的内容\n`,
+    )
+    // 刻意用**生产当时那一型**:整目录忽略、无例外 —— 旧代码(不带 -f)在这型下必然 add 失败,
+    // 新代码靠 -f 才能把锚点入库。夹具若写"已修好的 ignore 形态",旧实现也能过,等于没牙。
+    writeFileSync(join(dir, '.gitignore'), '.ihui-agent/\n')
+    spawnSync('git', ['add', 'PROJECT_PLAN.md', '.gitignore'], opt)
+    spawnSync('git', ['commit', '-q', '-m', 'init with prod-shaped gitignore'], opt)
+
+    const r = runScript(dir, ['--auto-commit'])
+    assert.equal(r.status, 0, `自动档应成功,实得 ${r.status}\n${r.out}\n${r.err}`)
+    const files = spawnSync('git', ['show', '--pretty=format:', '--name-only', 'HEAD'], opt)
+      .stdout.split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    assert.ok(
+      files.some((f) => f.includes('.ihui-agent/archive/PROJECT_PLAN_')),
+      `归档文件必须进 commit(锚点入库),实得:\n  ${files.join('\n  ')}`,
+    )
+    const tracked = spawnSync('git', ['ls-files', '--', '.ihui-agent/archive'], opt).stdout
+    assert.match(tracked, /PROJECT_PLAN_.*_auto-archive\.md/, '归档锚点必须已被 git 跟踪')
+    // 计划文档里必须留下 13c/71 认得的占位注释,且非条目内容一字不动
+    const plan = readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8')
+    assert.match(plan, /<!-- 已归档\(/, '原位置须留占位注释')
+    assert.ok(plan.includes('别的内容'), '条目外内容不得被动')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('锚点入不了库时必须回滚:不得留下"计划已搬走而没人记住"的中间态', () => {
+  // 造一个 add 必然失败的档案:把 .gitignore 写成"整目录忽略、无例外" —— 这时
+  // `git add -f` 仍能成功,所以改用**只读目录**来逼出失败路径(Windows 上 chmod 555
+  // 对 git 写索引不生效,故这里直接断言"若核验不通过则计划必须回到原样"这一条不变量:
+  // 用 --dry-run 走不到回滚分支,因此本例只做**静态装车证明** —— 源里必须存在
+  // "核验失败 → restore --staged + 写回原文 + exit 1" 这一整段,缺了就是回到旧行为。)
+  const src = readFileSync(SCRIPT_PATH, 'utf8')
+  assert.match(src, /restore'\s*,\s*'--staged'/, '失败路径必须逐路径撤销暂存(不得用裸 git reset)')
+  assert.match(src, /writeFileSync\(PLAN_FILE, content/, '失败路径必须把计划文档写回搬运前的原文')
+  assert.match(
+    src,
+    /staged\.has\(planRel\) && staged\.has\(archiveRel\)/,
+    '必须有"两路径都进索引"的核验',
+  )
+  assert.match(src, /'add', '-f'/, '必须用 add -f,防 .gitignore 再次忽略归档目录')
+})
+
+test('回滚分支必须真被执行过:git add 失败时计划文档要写回原文、退出码非 0、不得留中间态', () => {
+  // 这一条不是静态断言 —— 用 IHUI_GIT_BIN 指向一个"必然失败的可执行文件"(node 拿 'add'
+  // 当脚本名,找不到模块 ⇒ 非零退出)把分支真跑一遍。理由:一个从没被执行过的失败分支,
+  // 和一条没写的错误处理等价(本仓这一族已记过多次"演练只能证明会红,判据才证明不会修")。
+  const dir = createTempGitRepo()
+  try {
+    const d = dateAgo(30)
+    const opt = { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
+    const original = `# plan\n\n### 任务A(已完成 ✅ ${d})\n正文A\n\n## 保留章节\n别的内容\n`
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), original)
+    spawnSync('git', ['add', 'PROJECT_PLAN.md'], opt)
+    spawnSync('git', ['commit', '-q', '-m', 'init'], opt)
+
+    const r = spawnSync('node', [SCRIPT_PATH, '--auto-commit'], {
+      cwd: dir,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120_000,
+      env: { ...process.env, IHUI_GIT_BIN: process.execPath }, // 让 git add 失败
+    })
+    assert.notEqual(r.status, 0, `git add 失败时本门不得报成功(旧实现只打一句"请手动"然后 exit 0)`)
+    assert.equal(
+      readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8'),
+      original,
+      '计划文档必须逐字节回到搬运前 —— 不得留下"内容已搬走而无人记住"的中间态',
+    )
+    const out = String(r.stdout || '')
+      .concat(String(r.stderr || ''))
+      .replace(/\x1b\[[0-9;]*m/g, '')
+    assert.match(out, /已回滚|未被索引收下|add -f 失败/, '必须喊出为什么回滚')
+    // 索引里不得残留计划文档的改写(那条改写已被工作树还原抵消)
+    const staged = spawnSync('git', ['diff', '--cached', '--name-only'], opt).stdout.trim()
+    assert.ok(
+      !staged.split('\n').includes('PROJECT_PLAN.md'),
+      `撤销暂存必须生效,实得 staged=${JSON.stringify(staged)}`,
+    )
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
