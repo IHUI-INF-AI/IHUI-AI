@@ -473,6 +473,49 @@ def test_unregister_prefix_removes_tools() -> None:
     assert not (_EXPECTED_TOOLS & names)
 
 
+# 服务端把共享契约里的动作集合**复制**成一份 Python 字面量(`_APP_ACTIONS`,其上方注释写着
+# "与 packages/types 的 AppUiActionType 一一对应")。page 族的同型复制早就被
+# `test_page_control_bridge.py::test_verb_list_matches_shared_contract` 机器看守,
+# 而这一族的"一一对应"至今**只有散文** —— 散文约束在本仓已被反复实测会腐烂,故补同一条对账。
+_ACTION_CONTRACTS: tuple[tuple[str, str, tuple[str, ...], str], ...] = (
+    ("packages/types/src/agent-control.ts", "AppUiActionType", ub._APP_ACTIONS, "服务端 _APP_ACTIONS"),
+)
+
+
+def _contract_actions(repo_root: Path, rel: str, type_name: str) -> set[str]:
+    """从 TS 联合类型字面量取动作集合(不做 AST:此处形态稳定且被本用例锁死)。
+
+    解析不到成员一律判失败而不是跳过 —— 把 `AppUiActionType` 改写成纯别名
+    (`= WebUiActionType`)同样是断链:那样这份字面量就不再受任何对账约束。
+    """
+    text = (repo_root / rel).read_text(encoding="utf-8")
+    block = re.search(rf"export type {type_name}\s*=\s*((?:'[^']+'\s*\|?\s*)+)", text)
+    assert block, (
+        f"{rel} 里取不到 `export type {type_name} = 'a' | 'b' ...` 字面量"
+        "(改名、改成别名或换形态都算断链,须同步更新本对账)"
+    )
+    return set(re.findall(r"'([a-z_]+)'", block.group(1)))
+
+
+@pytest.mark.parametrize(("rel", "type_name", "py_side", "label"), _ACTION_CONTRACTS)
+def test_python_action_copies_match_ts_contract(
+    rel: str, type_name: str, py_side: tuple[str, ...], label: str
+) -> None:
+    """服务端每一份动作字面量必须与 TS 契约**双向**逐字同集合。
+
+    两个漂移方向都红,因为两种都是静默失效:契约加一条而 Python 没跟上 ⇒ 新动词永远进不了
+    模型工具面(能力缺失而不报错);Python 多一条而契约不认 ⇒ 端上回 `UNSUPPORTED_ACTION`(谎报能力)。
+    """
+    repo_root = Path(__file__).resolve().parents[3]
+    contract = _contract_actions(repo_root, rel, type_name)
+    assert contract, f"{type_name} 解析出空清单(联合类型形态变了,不是没有动作)"
+    assert set(py_side) == contract, (
+        f"{label} 与 {type_name} 漂移:"
+        f"服务端缺 {sorted(contract - set(py_side))} / "
+        f"服务端多 {sorted(set(py_side) - contract)}"
+    )
+
+
 # 端内"本次请求要带哪些工具"的清单(客户端正门)。三端各写一份 TS 常量,
 # 服务端注册面写在 Python 里 —— 两边只有这一条机械路径能对上。
 _CLIENT_TOOL_LISTS: tuple[tuple[str, str, str], ...] = (
