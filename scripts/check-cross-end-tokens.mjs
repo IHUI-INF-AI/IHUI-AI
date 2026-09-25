@@ -1107,15 +1107,45 @@ export function readAlphaRegistry(face) {
 /** R6 全流程:取面 → 抽用量 → 对账。返回 failures 数组 + 计数,供 cli 与自检共用。 */
 /**
  * R7:v3 端「裸 rpx 长度」被解析成颜色属性。
- * 实测(v3.4.19 + 端内 preset,隔离夹具):`text-[28rpx]` → `color: 28rpx`、
- * `border-[2rpx]` → `border-color: 2rpx`;而 `text-[13px]` / `border-[2px]` 本就正确落
- * font-size / border-width。**决定对错的是单位不是前缀** —— 只有 rpx 这一族坏,
- * 因为 v3 的类型推断认得 px/rem/em、不认 rpx。故本判据只拦 rpx,不得扩到 px。
+ * 实测(v3.4.19 + 隔离夹具,逐条摘录见 PROJECT_PLAN O62附④):
+ *   `text-[28rpx]` → `color: 28rpx`、`border-[2rpx]` → `border-color: 2rpx`、
+ *   `border-t-[1rpx]` → `border-top-color: 1rpx`(b/l/r 同理;x/y 落两轴 color,
+ *   s/e 落 border-inline-*-color)、`divide-[2rpx]` → 子元素 `border-color`、
+ *   `ring-[6rpx]` → `--tw-ring-color`、`outline-[2rpx]` → `outline-color` —— 全部无效且不报错。
+ *   而 `text-[13px]` / `border-t-[1px]` / `ring-[6px]` / `outline-[2px]` 本就正确落
+ *   font-size / border-*-width / ring width / outline-width。**决定对错的是单位不是前缀** ——
+ *   只有 rpx 这一族坏,因为 v3 的类型推断认得 px/rem/em、不认 rpx(量错的二进制不得引用结论:
+ *   端内 node_modules 是 v3.4.19,根 node_modules 是 v4,v4 认任意单位)。
+ * 覆盖面按实测划定,两处**刻意不收**(收了就是噪音红,判据不得覆盖本来就对的形态):
+ *   ① `divide-x-[Nrpx]` / `divide-y-[Nrpx]`(轴形式)落 border-*-width,正确;
+ *   ② `w-/h-/p-/m-/gap-/top-…` 等单类型 length 插件对 rpx 是透传(width: 10rpx),正确。
+ * 正解 = 显式类型前缀:`border-t-[length:1rpx]`(夹具实测落 border-top-width);
+ * 裸 `divide-[Nrpx]` 的正解是改用轴形式(它想表达的若是线宽)。
  */
+export const R7_PREFIX_ALT = 'border-(?:[tblrxyse])|border|text|divide|ring|outline'
+/** fam → v3 实际落到的(错误)属性,全部来自上方隔离夹具的逐字摘录。 */
+export const R7_WRONG_PROP = {
+  text: 'color',
+  border: 'border-color',
+  'border-t': 'border-top-color',
+  'border-b': 'border-bottom-color',
+  'border-l': 'border-left-color',
+  'border-r': 'border-right-color',
+  'border-x': 'border-left-color + border-right-color',
+  'border-y': 'border-top-color + border-bottom-color',
+  'border-s': 'border-inline-start-color',
+  'border-e': 'border-inline-end-color',
+  divide: 'border-color(子元素)',
+  ring: '--tw-ring-color',
+  outline: 'outline-color',
+}
 export function extractBareRpxLengths(masked, original) {
   const hits = []
   let undetermined = 0
-  const re = /\b(text|border)-\[(\d+(?:\.\d+)?)rpx\]/g
+  // `border-(?:[tblrxyse])` 必须排在 `border` 之前:alternation 取先命中者,反过来
+  // "border-t-[1rpx]" 会在 "border" 分支上因后随 "-t" 而非 "-[" 而整体退空。
+  // 同一次命中也保证 divide-x/divide-y 不被误收("divide" 分支要求紧跟 "-[")。
+  const re = new RegExp(`\\b(${R7_PREFIX_ALT})-\\[(\\d+(?:\\.\\d+)?)rpx\\]`, 'g')
   for (const m of masked.matchAll(re)) {
     const at = m.index
     const col = masked.slice(0, at).split('\n').pop().length
@@ -1126,7 +1156,7 @@ export function extractBareRpxLengths(masked, original) {
   // 括号里带插值的任意值(如 `text-[${size}rpx]`)结构上判不出单位,只报数不判红。
   // 刻意只认"方括号内部含 ${"这一形态 —— 早先用"全文任意插值"计数会报出上千处,
   // 那个数字与判据无关,只会让报告里的"判不出"看起来像一批待办。
-  const dyn = original.match(/\b(?:text|border)-\[[^\]]*\$\{[^\]]*\]/g) || []
+  const dyn = original.match(new RegExp(`\\b(?:${R7_PREFIX_ALT})-\\[[^\\]]*\\$\\{[^\\]]*\\]`, 'g')) || []
   undetermined += dyn.length
   return { hits, undetermined }
 }
@@ -1153,13 +1183,18 @@ export async function runR7({ face, quiet }) {
   const fresh = headKeys ? sEff.hits.filter((h) => !headKeys.has(`${h.rel} ${h.key}`)) : sEff.hits
 
   const failures = []
-  for (const h of fresh.slice(0, 12))
+  for (const h of fresh.slice(0, 12)) {
+    const prop = R7_WRONG_PROP[h.fam] || '颜色属性'
+    const fix =
+      h.fam === 'divide'
+        ? '改法:改用轴形式 `divide-x-[…rpx]` / `divide-y-[…rpx]`(轴形式在 v3 下本就落 border-*-width);裸 divide-[<rpx>] 会被当作 divide 的颜色档'
+        : `改法:加显式类型前缀 \`${h.fam}-[length:${h.value}]\`。`
     failures.push({
       tag: `R7 裸 rpx 长度 ${h.key}`,
       detail: `${h.rel}:${h.ln} —— v3 不认 rpx 单位,会把它解析成**颜色属性**` +
-        `(\`${h.key}\` → ${h.fam === 'text' ? 'color' : 'border-color'}: ${h.value}),整条声明无效。` +
-        `改法:加显式类型前缀 \`${h.fam}-[length:${h.value}]\`。`,
+        `(\`${h.key}\` → ${prop}: ${h.value}),整条声明无效。` + fix,
     })
+  }
   if (fresh.length > 12) failures.push({ tag: 'R7 裸 rpx 长度', detail: `…另有 ${fresh.length - 12} 处` })
 
   const counts = {
@@ -1449,7 +1484,8 @@ async function cli() {
   for (const f of failures) console.error(`  ❌ ${f.tag}: ${f.detail}`)
   console.error(
     '  值不一致 = 两端有一侧改了没同步,请人工决策对齐方向;R2/R3 = 品牌色不得在端内自立一档(AGENTS §4 跨端同源);' +
-      'R6 = 新写/新登记的 /alpha 形态必须两边对上(AGENTS §4「新增颜色档必须同时进这个插件」的唯一判据)。',
+      'R6 = 新写/新登记的 /alpha 形态必须两边对上(AGENTS §4「新增颜色档必须同时进这个插件」的唯一判据);' +
+      'R7 = 裸 rpx 长度必须加显式 length:(覆盖面 = text/border + border 八方向 + 裸 divide + ring + outline;divide-x/y、w/p/gap 与一切 px/rem 形态本就落对属性,不得拦)。',
   )
   process.exit(1)
 }
@@ -1845,6 +1881,30 @@ function selfTestR7() {
   t('裸 rpx text 必命中', 'className="text-[28rpx]"', ['text-[28rpx]'])
   t('裸 rpx border 必命中', 'className="border-[2rpx]"', ['border-[2rpx]'])
   t('小数 rpx 必命中', 'style="text-[1.5rpx]"', ['text-[1.5rpx]'])
+  // ── 2026-09-25 扩面:方向性 border / 裸 divide / ring / outline(夹具实测全部落颜色属性)──
+  // 每一族都有成对的反向例(实测本来就对的形态),判据覆盖面 = 缺陷面,不得多也不得少。
+  t('border-t 必命中', 'className="border-t-[1rpx] border-border"', ['border-t-[1rpx]'])
+  t('border-b 必命中', 'className="border-b-[2rpx]"', ['border-b-[2rpx]'])
+  t('border-l/r 必命中', 'className="border-l-[1rpx] border-r-[1rpx]"', ['border-l-[1rpx]', 'border-r-[1rpx]'])
+  t('border-x 必命中', 'className="border-x-[3rpx]"', ['border-x-[3rpx]'])
+  t('border-y 必命中', 'className="border-y-[3rpx]"', ['border-y-[3rpx]'])
+  t('border-s/e 必命中', 'className="border-s-[2rpx] border-e-[2rpx]"', ['border-s-[2rpx]', 'border-e-[2rpx]'])
+  t('裸 divide 必命中', 'className="divide-[2rpx]"', ['divide-[2rpx]'])
+  t('ring 必命中', 'className="focus:ring-[6rpx]"', ['ring-[6rpx]'])
+  t('outline 必命中', 'className="outline-[2rpx]"', ['outline-[2rpx]'])
+  // 反向例:夹具逐字证明这些形态在 v3 下落**正确属性**,纳进必制造噪音红
+  t('divide-x 轴形式不命中(落 border-*-width,本就对)', 'className="divide-x-[4rpx]"', [])
+  t('divide-y 轴形式不命中', 'className="divide-y-[4rpx]"', [])
+  t('单类型 length 插件不命中(w/p/gap 对 rpx 是透传)', 'className="w-[10rpx] p-[10rpx] gap-[10rpx]"', [])
+  t('border-t px 不命中', 'className="border-t-[1px]"', [])
+  t('ring px 不命中', 'className="ring-[6px]"', [])
+  t('outline px 不命中', 'className="outline-[2px]"', [])
+  t('方向性已带 length: 不命中(门自己产出的修复形态必须被认作合法)', 'className="border-t-[length:1rpx] border-b-[length:2rpx]"', [])
+  t('ring/outline 已带 length: 不命中', 'className="ring-[length:6rpx] outline-[length:2rpx]"', [])
+  t('border-t-0 标量不命中', 'className="border-t-0"', [])
+  // 真实源码形状(notification.tsx 原样):同串里颜色档任意值与方向性裸 rpx 并存,
+  // 只许命中前者之外的那一条,`border-[color:var(…)]` 不得被计债
+  t('方向性与 color 显式档混排只命中裸 rpx 那一条', 'className="border-t-[1rpx] border-solid border-[color:var(--color-border)]"', ['border-t-[1rpx]'])
   // 单位决定对错:px/rem/em 在 v3 下本就落对属性,绝不该报
   t('px 不命中', 'className="text-[13px]"', [])
   t('border px 不命中', 'className="border-[2px]"', [])
