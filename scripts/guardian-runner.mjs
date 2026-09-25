@@ -3088,12 +3088,16 @@ const checks = [
   //   本门归零,所以在选型落地前它就是"存量报数、新增判红"的棘轮;当场 blocking = 与任何一次
   //   提交都无关的恒红门,唯一结局是逼人 --no-verify 并连带废掉全部守门(§12e 同型)。
   //   升 blocking 的前置条件 = 未对齐存量归零。
+  //   **2026-09-25 升档(前置已满足,不是顺手)**:`752c6eb110b` 清掉最后一个未对齐面
+  //   (`app/routers/rules.py`)后,HEAD 面实测"未对齐 0 个"(`node scripts/check-memory-owner-binding.mjs`),
+  //   零容忍不再等于恒红;故 args 带 --strict、mode 改 blocking。复算入口就是上面那条命令,
+  //   若哪天 HEAD 面重新出现未对齐(例:有人 --no-verify 塞进来),先清偿再提其它票,不得削判据。
   {
     id: '117',
-    label: '🔐 记忆端点属主绑定对账(warn,收 user_id 的端点必须与令牌主体对齐;未对齐存量只报数)',
+    label: '🔐 记忆端点属主绑定对账(blocking,收 user_id 的端点必须与令牌主体对齐;存量已归零⇒零容忍)',
     script: 'check-memory-owner-binding.mjs',
-    args: [],
-    mode: 'warn',
+    args: ['--strict'],
+    mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_MEMORY_OWNER_BINDING',
     stagedTriggers: ['apps/ai-service/app/', 'apps/api/src/routes/'],
     onFailHint: [
@@ -3112,7 +3116,8 @@ const checks = [
       '     自检:node scripts/check-memory-owner-binding.mjs --self-test(17 例,正反成对)',
       '     镜像测试:node --test scripts/tests/check-memory-owner-binding.test.mjs(14 例,含',
       '     "本门未注册时不得被判定为已装车"的方向性对照)',
-      '     紧急跳过:HUSKY_SKIP_MEMORY_OWNER_BINDING=1 git commit ...(本门 warn,通常不需要)',
+      '     紧急跳过:HUSKY_SKIP_MEMORY_OWNER_BINDING=1 git commit ...(本门 blocking,跳过即把' +
+        '一个跨用户读改删的面提交进 HEAD,必须在提交信息里写明理由与清偿票)',
       '',
     ].join('\n'),
   },
