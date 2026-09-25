@@ -122,12 +122,12 @@ export default function AgentListPanel({
                 <View className="flex-1 min-w-0">
                   {/* RN nameRow gap 6dp→12rpx;name fontSize 16dp→32rpx / fontWeight 600 / flex 1 */}
                   <View className="flex items-center gap-[12rpx]">
-                    <Text className="text-[32rpx] font-semibold text-foreground truncate flex-1">
+                    <Text className="text-[length:32rpx] font-semibold text-foreground truncate flex-1">
                       {agent.name}
                     </Text>
                     {agent.vipType ? (
                       <Text
-                        className={`shrink-0 text-[20rpx] px-[12rpx] py-[8rpx] rounded-sm font-semibold ${VIP_TAG_CLASSES[agent.vipType]}`}
+                        className={`shrink-0 text-[length:20rpx] px-[12rpx] py-[8rpx] rounded-sm font-semibold ${VIP_TAG_CLASSES[agent.vipType]}`}
                       >
                         {VIP_TAG_LABELS(tt)[agent.vipType]}
                         {agent.vipType === 4 && agent.price
@@ -136,26 +136,26 @@ export default function AgentListPanel({
                       </Text>
                     ) : agent.isVipExclusive ? (
                       /* RN vipBadge: bg warning.DEFAULT / 字 warning-foreground(surface.light) */
-                      <Text className="shrink-0 text-[20rpx] px-[12rpx] py-[8rpx] rounded-sm font-semibold bg-[var(--color-warning)] text-[var(--color-warning-foreground)]">
+                      <Text className="shrink-0 text-[length:20rpx] px-[12rpx] py-[8rpx] rounded-sm font-semibold bg-[var(--color-warning)] text-[var(--color-warning-foreground)]">
                         VIP
                       </Text>
                     ) : null}
                     {agent.category && (
-                      <Text className="shrink-0 text-[20rpx] px-[12rpx] py-[8rpx] rounded-sm bg-[var(--color-black-10)] text-[var(--color-primary)]">
+                      <Text className="shrink-0 text-[length:20rpx] px-[12rpx] py-[8rpx] rounded-sm bg-[var(--color-black-10)] text-[var(--color-primary)]">
                         {agent.category}
                       </Text>
                     )}
                   </View>
                   {/* RN desc marginTop 8dp→16rpx / fontSize 14dp→28rpx / color text.secondary */}
                   {agent.description && (
-                    <Text className="block text-[28rpx] text-muted-foreground truncate mt-[16rpx]">
+                    <Text className="block text-[length:28rpx] text-muted-foreground truncate mt-[16rpx]">
                       {agent.description}
                     </Text>
                   )}
                 </View>
                 {/* RN meta fontSize 11dp→22rpx / color text.tertiary */}
                 {agent.useCount !== undefined && (
-                  <Text className="shrink-0 text-[22rpx] text-[var(--color-text-tertiary)] ml-[16rpx]">
+                  <Text className="shrink-0 text-[length:22rpx] text-[var(--color-text-tertiary)] ml-[16rpx]">
                     {agent.useCount}
                     {tt('agent.uses', '次')}
                   </Text>

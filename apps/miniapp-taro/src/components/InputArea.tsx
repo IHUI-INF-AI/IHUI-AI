@@ -770,7 +770,7 @@ export default function InputArea({
             >
               <Image src={searchAddPng} className="w-5 h-5" mode="aspectFit" />
             </View>
-            <Text className="text-[18rpx] text-muted-foreground leading-none mt-[4rpx]">
+            <Text className="text-[length:18rpx] text-muted-foreground leading-none mt-[4rpx]">
               {t('messageInput.addFile')}
             </Text>
           </View>

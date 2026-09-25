@@ -34,10 +34,24 @@
  * (往表里加一条源码里从没写过的 `bg-primary/50`,样式表就多一条规则;把 22 档 opacity 刻度
  * × 3 前缀 × 7 档全铺开,就是 462 条死规则)。所以这张表的大小**等于**样式表增大的大小,
  * 而小程序主包有 2MB 硬预算 ⇒ 只能逐条登记真实写过的形态。
- * 代价也要如实说清:新写一个没登记过的形态(如 `bg-info/10`)仍然**静默不产出**,
- * 与改动前的症状一模一样。拦住它的是守门 `scripts/check-cross-end-tokens.mjs` 的 **R6** 判据
- * (2026-09-25 落地)—— 它扫 v3 三个消费端源码里真实写过的 alpha 类名,未登记即红并点名补哪一行;
- * 反向也判:登了却没人用的行(等于往小程序主包塞死规则)同样红。改这张表之前先记住:门在,别绕过它。
+ *
+ * 【2026-09-25 就地改写:这张表现在由 `scripts/sync-alpha-usage.mjs` 扫描生成,不再人工维护】
+ * 上面"只能逐条登记真实写过的形态"这个约束一个字没变(变的是**谁来登记**)。人工登记当天咬了两口,
+ * 方向正好相反:① 登了没人用 —— `bg-muted/40` 曾进表,而那 2 处"用量"全在注释文本里(统计没剥注释),
+ * 等于往主包塞一条永不产出的死规则;② 写了没登记 —— 新加 `bg-info/10` 照样静默不产出。
+ * 现在表的来源是 v3 三端源码的真实类名(先剥注释再统计),于是 ① 从定义上消失(生成器写不出源码里没有
+ * 的形态),② 靠"下次生成必然覆盖"消失。
+ *
+ * 由此,下面这段旧措辞里被推翻的部分如实留在原地(勿照它执行):
+ * ~~代价也要如实说清:新写一个没登记过的形态(如 `bg-info/10`)仍然**静默不产出**,与改动前的症状一模一样。
+ * 拦住它的是守门 `scripts/check-cross-end-tokens.mjs` 的 **R6** 判据(2026-09-25 落地)—— 它扫 v3 三个
+ * 消费端源码里真实写过的 alpha 类名,未登记即红并点名补哪一行;反向也判:登了却没人用的行(等于往小程序
+ * 主包塞死规则)同样红。改这张表之前先记住:门在,别绕过它。~~
+ * 现行关系:R6 **仍在**且判据未动,但表既然由同一份用量导出,它的"未登记即红"就**不该再触发** —— 红点
+ * 含义降级为"生成器没跑 / 跑前被手改过"的兜底哨兵;它的"登了却没人用 = 腐烂"这一族结构性消失,唯一
+ * 出口是 `alpha-plugin-exempt: <原因>` 行内豁免(生成器与 R6 两侧同形:豁免的既不登记也不判红)。
+ * R6 还判第三件事,生成器**不代它判**:`tokens.css` 每档必须有 `--color-X-rgb` 通道三元组 —— 表里新增
+ * 档名后仍要跑一次 `node scripts/check-cross-end-tokens.mjs` 确认通道在位。
  * (本头注此前声称由 `scripts/tests/tailwind-alpha-plugin.test.mjs` 看护 —— 该文件在 HEAD 与磁盘上
  *  都不存在,即一句没有兑现的承诺;R6 是它的实际出口。)
  *
@@ -69,20 +83,36 @@ export const ALPHA_UTILITY_KINDS = {
 
 /**
  * 用量登记表:档位 → 前缀 → 已写过的透明度修饰符。
- * 数据来源 2026-09-25 实测(扫描面 apps/miniapp-taro/src + apps/mobile-rn/src + packages/app/src):
- *   bg-primary/10 37 · bg-warning/10 5 · border-primary/30 3 · bg-destructive/10 3
- *   border-primary/20 2 · border-primary/40 2 · bg-foreground/80 1
- *   bg-foreground/30 1 · bg-warning/20 1 · bg-success/10 1 · bg-destructive/5 1
- *   border-destructive/40 1 · text-primary-foreground/90 1
- *   任意值 /[*] 5 处:bg-muted/[0.12] 2 · bg-destructive/[0.12] 1 · bg-success/[0.12] 1
- *              · bg-warning/[0.12] 1
- * 共 17 个去重形态。`[0.12]` 一支只有这一个数值,如实登记而不是一族。
  *
- * 【2026-09-25 由守门 R6 揪出并删除的一行】原表登记过 `bg-muted/40`(数据行写作"bg-muted/40 2")。
- * 那 2 处命中全在**注释里**(packages/app 的 SearchInput.tsx / LoginScreen.tsx 各一处,内容是
- * "(web 基准:… bg-muted/40 …)"这类对照说明)—— 当初的用量统计没剥注释,于是把散文当成了用量,
- * 往主包里留下一条永远不会被用到的规则。真正写 `bg-muted/40` 的代码在 apps/web 与 apps/extension,
- * 而它们是 Tailwind v4、原生支持 alpha、根本不经过本插件。R6 的"登了却没人用 = 腐烂"判据正是为此而设。
+ * 【本表由 `node scripts/sync-alpha-usage.mjs` 扫描生成,不要手改】
+ * 扫描面 = Tailwind v3 的三个消费端 `apps/miniapp-taro/src` + `apps/mobile-rn/src` + `packages/app/src`,
+ * 取材口径与守门 R6 同一套(默认 HEAD blob,`--face staged` 走索引⊕HEAD),并且**先剥注释再统计** ——
+ * 注释里的类名不是用量。判据本身也复用 R6 那份实现(`scripts/check-cross-end-tokens.mjs` 的
+ * `maskComments` / `extractAlphaUsages` / `parseLiteralObject` / `flattenColorTiers`),不在这里抄第二份:
+ * 同一判据两处不同形正是这张表当初登进死规则的成因。
+ * 写回是**原位**的:只替换本对象的花括号内部,上面这段说明、`ALPHA_UTILITY_KINDS`、下面的函数体
+ * 一律逐字节不动;表与用量一致时脚本零改动(幂等),所以手改的内容会在下一次生成时被覆盖 —— 这是特性。
+ *
+ * 【登记什么、不登记什么(四类都在脚本输出里如实计数,绝不静默丢弃)】
+ *  - 登记:`bg|text|border-<preset 档>/<数值或 [任意值]>`,且未被 `alpha-plugin-exempt:` 豁免。
+ *  - 不登记:默认色板(`bg-white/50` 这类)—— v3 自己能算通道,本插件不该接,接了是重复产出。
+ *  - 不登记:前缀不在 `ALPHA_UTILITY_KINDS` 里的(`ring-*` / `from-*` / `divide-*` …)—— 那要先扩能力表,
+ *    否则登记一行也产不出东西;脚本点名它,但不替作者决定要不要支持。
+ *  - 不登记也不判缺:动态拼接的类名(`bg-${x}/10`、`bg-primary/${a}`)—— 判据看不见内容,归 undetermined 报数。
+ *
+ * 【数值档与任意值档是两族,逐条如实登记,永不归并】
+ * `[0.12]` 与 `12` 产出的选择器不同(`bg-muted\/\[0\.12\]` vs `bg-muted\/12`),归并成一族就产出错的那条。
+ *
+ * 【本表不再附一份手写用量统计】此前这里抄过一份"2026-09-25 实测:bg-primary/10 37 · …"的数字。
+ * 那种快照登记即腐烂(改一处用法它就过期,而没人会回来改注释),现一律看命令输出:
+ * `node scripts/sync-alpha-usage.mjs --check` 打印形态清单、各自计数、四类排除面与 undetermined 明细。
+ *
+ * 【2026-09-25 由守门 R6 揪出并删除的一行(人工维护的代价,留作本表改为生成的理由)】
+ * 原表登记过 `bg-muted/40`(数据行写作"bg-muted/40 2")。那 2 处命中全在**注释里**
+ * (packages/app 的 SearchInput.tsx / LoginScreen.tsx 各一处,内容是"(web 基准:… bg-muted/40 …)"
+ * 这类对照说明)—— 当初的用量统计没剥注释,于是把散文当成了用量,往主包里留下一条永远不会被用到的规则。
+ * 真正写 `bg-muted/40` 的代码在 apps/web 与 apps/extension,而它们是 Tailwind v4、原生支持 alpha、
+ * 根本不经过本插件。这一型现在由生成器的剥注释判据从源头堵住(`--self-test` 的 A1/A1b 成对锁住)。
  */
 export const ALPHA_USAGE = {
   primary: { bg: ['10'], border: ['20', '30', '40'] },

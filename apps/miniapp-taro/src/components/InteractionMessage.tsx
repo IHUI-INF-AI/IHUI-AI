@@ -103,7 +103,7 @@ export default function InteractionMessage({ list, onClick }: InteractionMessage
                 </Text>
               </View>
             )}
-            <Text className="text-[20rpx] text-muted-foreground mt-1">{item.createdAt}</Text>
+            <Text className="text-[length:20rpx] text-muted-foreground mt-1">{item.createdAt}</Text>
           </View>
         </View>
       ))}

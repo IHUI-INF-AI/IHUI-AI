@@ -159,7 +159,7 @@ export default function LiveList() {
               >
                 {/* 对齐 RN titleRow:标题(flex1, numberOfLines 1)+ 状态徽章 */}
                 <View className="flex items-center justify-between gap-[16rpx]">
-                  <Text className="flex-1 text-ellipsis text-[32rpx] font-semibold text-foreground">
+                  <Text className="flex-1 text-ellipsis text-[length:32rpx] font-semibold text-foreground">
                     {item.title}
                   </Text>
                   <View
@@ -171,28 +171,28 @@ export default function LiveList() {
                           : 'bg-[var(--color-text-tertiary)]'
                     }`}
                   >
-                    <Text className="text-[24rpx] text-[var(--color-primary-foreground)]">
+                    <Text className="text-[length:24rpx] text-[var(--color-primary-foreground)]">
                       {statusText(item.status)}
                     </Text>
                   </View>
                 </View>
                 {/* 对齐 RN lecturer 行(marginTop 6 → 12rpx, 14px → 28rpx, text.medium) */}
                 {item.anchor ? (
-                  <Text className="block mt-[12rpx] text-[28rpx] text-[var(--color-text-medium)]">
+                  <Text className="block mt-[12rpx] text-[length:28rpx] text-[var(--color-text-medium)]">
                     {item.anchor}
                   </Text>
                 ) : null}
                 {/* 对齐 RN metaRow:开始时间 + 观看人数两端对齐(marginTop 8 → 16rpx, 12px → 24rpx, text.tertiary) */}
                 <View className="flex items-center justify-between mt-[16rpx]">
                   {item.startTime ? (
-                    <Text className="text-[24rpx] text-[var(--color-text-tertiary)]">
+                    <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
                       {item.startTime}
                     </Text>
                   ) : (
                     <Text />
                   )}
                   {item.watchCount !== undefined && (
-                    <Text className="text-[24rpx] text-[var(--color-text-tertiary)]">
+                    <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)]">
                       {t('live.viewers', { n: item.watchCount })}
                     </Text>
                   )}
@@ -204,13 +204,13 @@ export default function LiveList() {
 
         {!loading && list.length === 0 && (
           <View className="flex flex-col items-center py-[96rpx]">
-            <Text className="text-[28rpx] text-muted-foreground">{t('live.empty')}</Text>
+            <Text className="text-[length:28rpx] text-muted-foreground">{t('live.empty')}</Text>
           </View>
         )}
 
         {loading && (
           <View className="flex flex-col items-center py-[96rpx]">
-            <Text className="text-[28rpx] text-muted-foreground">{t('common.loading')}</Text>
+            <Text className="text-[length:28rpx] text-muted-foreground">{t('common.loading')}</Text>
           </View>
         )}
       </View>
