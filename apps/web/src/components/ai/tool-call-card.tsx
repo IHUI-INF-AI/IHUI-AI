@@ -316,9 +316,8 @@ function CitationsBlock({ citations }: { citations: string[] }) {
           const chipCls =
             'rounded-sm border border-amber-500/25 bg-amber-500/10 px-1.5 py-0.5 text-[10px] leading-4 text-amber-700 dark:text-amber-400'
           return url ? (
-            <Tooltip content={url}>
+            <Tooltip key={c} content={url}>
               <a
-                key={c}
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
