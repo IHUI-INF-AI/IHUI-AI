@@ -9,10 +9,15 @@
 //
 // 三态可观测:倒计时(schedule)/ HTTP 状态 / 无响应超时 —— 全部消费 retryInfo 帧,缺失即降级。
 // 额度型错误(quotaError)渲染动作族;非额度错误仅保留重试按钮。
+// D67(2026-09-25 装车):同一分支上方再挂 QuotaOwnershipCard —— 归属四型的分型标题 /
+// escalate 标记 / 降级建议 / 低峰折扣倒计时由它出,动作三件的出口复用本卡既有注入点。
 // 草稿保留提示(message-draft-preserved-${id})与 message-error-card-${id} 契约保留,便于 MessageItem 平滑替换。
 
 import * as React from 'react'
 import { AlertTriangle, RefreshCw } from 'lucide-react'
+
+import { QuotaOwnershipCard } from '@/components/ai/quota-ownership-card'
+import { fromErrorCode, type QuotaOwnershipAction } from '@ihui/shared/chat/quota-ownership'
 
 import { QuotaActionFamily } from './QuotaActionFamily'
 import {
@@ -39,6 +44,12 @@ export interface MessageErrorCardProps {
   freeTierAvailable?: boolean
   /** 是否额度型错误(决定渲染额度动作族) */
   quotaError?: boolean
+  /**
+   * D67 额度归属分型的**唯一入口**:消息上的 D71 errorCode(如 BUDGET_EXHAUSTED)。
+   * 归属四型由 shared 层 `fromErrorCode` 判定(先过 error-catalog 真相源闸,
+   * 映射不到即 null ⇒ 分型卡不渲染),端内不得自建第二套归属判定。
+   */
+  errorCode?: string | null
   onAddPoints?: () => void
   onUpgradePlan?: () => void
   onSwitchTier?: () => void
@@ -56,11 +67,14 @@ export function MessageErrorCard({
   noResponseTimeout,
   freeTierAvailable,
   quotaError,
-  // onAddPoints / onUpgradePlan / onViewUsage 三枚动作在 `MessageErrorCardProps` 里仍是对外的
-  // 契约面(调用方照传),但当前渲染分支只剩 onSwitchTier 一条出口 —— 参数解构里先不列它们,
-  // 否则 `noUnusedLocals` 把整包 web typecheck 钉红。三枚动作是否要重新上屏属产品决策,
+  errorCode,
+  // onAddPoints / onReLogin 两枚动作在 `MessageErrorCardProps` 里仍是对外的
+  // 契约面(调用方照传),但当前渲染分支没有它们的出口 —— 参数解构里先不列它们,
+  // 否则 `noUnusedLocals` 把整包 web typecheck 钉红。两枚动作是否要重新上屏属产品决策,
   // 已在计划登记,不得靠保留死参数假装"已接线"。
   onSwitchTier,
+  onViewUsage,
+  onUpgradePlan,
   onReLogin,
 }: MessageErrorCardProps) {
   // 帧缺失:retryInfo 为 null/undefined → remaining 无意义,view 为 null,倒计时块不渲染
@@ -79,6 +93,30 @@ export function MessageErrorCard({
     ((view.scheduleLabel !== null && view.scheduleLabel !== undefined) ||
       (view.httpStatusLabel !== null && view.httpStatusLabel !== undefined) ||
       (view.noResponseLabel !== null && view.noResponseLabel !== undefined))
+
+  // D67 额度归属分型:errorCode → 四型由 shared 层唯一判定(映射不到 = null,分型卡自行不渲染)
+  const ownershipKind = fromErrorCode(errorCode)
+  /**
+   * 分型动作族 → 本卡既有动作接缝(与 D39 动作族同一批注入点,不另开通道):
+   *   viewUsage → onViewUsage / switchFreeModel → onSwitchTier / upgradeOrAdmin → onUpgradePlan
+   * 穷尽三型、无 default:新增归属动作而漏接出口 ⇒ 编译期收窄失败。
+   */
+  const handleOwnershipAction = (action: QuotaOwnershipAction): void => {
+    switch (action) {
+      case 'viewUsage':
+        onViewUsage?.()
+        return
+      case 'switchFreeModel':
+        onSwitchTier?.()
+        return
+      case 'upgradeOrAdmin':
+        onUpgradePlan?.()
+        return
+    }
+  }
+  // 一枚出口都没注入时不给 onAction —— 分型卡的动作行整体不渲染,免得摆三个点了没反应的按钮
+  // (标题/降级建议/折扣仍照常渲染,那才是本票要的"分型上屏")。
+  const hasOwnershipActions = Boolean(onViewUsage || onSwitchTier || onUpgradePlan)
 
   return (
     <div
@@ -122,7 +160,20 @@ export function MessageErrorCard({
 
       {quotaError ? (
         // 额度型错误:渲染动作族(含重试,复用 message-retry-${id} 契约便于平滑替换 MessageItem)
-        <div className="px-3 pb-2">
+        <div className="flex flex-col gap-2 px-3 pb-2">
+          {/*
+            D67 分型卡:D39 动作族只说"额度用尽了",本卡说清"是谁的额度、下一步找谁"。
+            显示门槛(仅当次请求因额度被拒)与付费动作剔除都由 shared 判定层把关,
+            渲染层不复述判据 —— rejectedByQuota 刻意把 quotaError 与"errorCode 可归到额度型"
+            两路并起来(宿主只传 errorCode 也应当上屏)。
+          */}
+          <QuotaOwnershipCard
+            kind={ownershipKind}
+            rejectedByQuota={quotaError === true || ownershipKind !== null}
+            freeTierAvailable={freeTierAvailable}
+            onAction={hasOwnershipActions ? handleOwnershipAction : undefined}
+            data-testid={`message-quota-ownership-${messageId}`}
+          />
           <QuotaActionFamily
             t={t}
             freeTierAvailable={freeTierAvailable}
