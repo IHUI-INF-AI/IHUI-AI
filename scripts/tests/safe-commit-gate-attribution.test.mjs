@@ -78,6 +78,21 @@ test('装车证明:safe-commit 必须真的 import 并调用本判据', () => {
   )
 })
 
+/**
+ * 反"造好没装车"的第三层:判据模块自身若不再被使用,本仓库里那三条裸 git 判据
+ * (`scripts/tests/face-reader.test.mjs`)就没人跑 —— 归因会悄悄退回"整段 includes"那一型。
+ * 这里只钉**不变量**(必须有东西引用它 + 裸 git 判据必须存在),不钉条目,免得合法重构把测试钉死。
+ */
+test('判据不得变成孤儿模块:必须有生产代码 import 它,且裸 git 反例判据仍在', () => {
+  assert.match(safeCommitSource, /lib\/commit-gate-attribution/, '判据已无人引用(孤儿)')
+  const faceReaderTest = readFileSync(join(here, 'face-reader.test.mjs'), 'utf8')
+  assert.match(
+    faceReaderTest,
+    /bareGitCount/,
+    '裸 git 派生的反例判据不在了 ⇒ "收口成一层"这件事没有哨兵,重复实现会重新长回来',
+  )
+})
+
 test('反向对照:旧那句未经计算的"因其他 agent 代码"不得再作为唯一措辞出现', () => {
   // 允许在注释/历史说明里提到它,但它不能再是直接抛给用户的那条结论
   const claims = safeCommitSource
