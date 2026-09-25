@@ -3,55 +3,23 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 浮层层栈(overlay stack)
+ * 浮层层栈(overlay stack) —— Esc 无层栈协议的 web 端出口。
  *
- * 背景:全项目 20+ 处浮层各自在 `document`/`window` 上挂 keydown 监听消费 Escape,
- * 且都不做互斥。同一事件里每个监听器都会被调用(同 target 上的多个监听器不受
- * stopPropagation 影响),导致"按一次 Esc 把所有层一起关掉"。
+ * 落点决策(2026-09-26 立):单一实现放 `@ihui/ui-react/src/lib/overlay-stack`,
+ * 本文件只 re-export —— ui-react 的 Dialog/Sheet/Drawer/Select 家族要在包内一处
+ * 内建注册(接全部端),而 ui-react 不允许反向依赖 apps/web;re-export 保持 web
+ * 侧既有 `@/lib/overlay-stack` import 路径与模块实例(single source)不变。
  *
- * 本模块提供最小注册式层栈:浮层 open 时 pushOverlay(id),close/unmount 时
- * popOverlay(id),其 Esc 处理器首行 `if (!isTopOverlay(id)) return` —— 只有栈顶
- * 那一层消费 Esc,其余层保持打开,由用户逐层退出。
- *
- * 设计约束:
- * - 模块级数组,单浏览器页面内共享(浮层本身就在同一 document 上)。
- * - push 幂等:重复 push 同一 id 只做"移到栈顶",不产生重复项。
- * - isTopOverlay 对"未注册 id"一律返回 true(fail-open):未接入栈的层
- *   (Radix Dialog / Drawer 等)行为完全不变,绝不会因为接入本模块而让 Esc 失灵。
+ * 语义:浮层 open 时 pushOverlay(id)、close/unmount 时 popOverlay(id),
+ * Esc 处理器首行 `if (!isTopOverlay(id)) return` —— 只有栈顶层消费 Esc。
+ * isTopOverlay 对未注册 id 一律 true(fail-open),未接入层(Radix 原生等)零影响。
  */
 
-const stack: string[] = []
-
-/** 注册一个浮层为当前栈顶(幂等:已存在则移到栈顶)。 */
-export function pushOverlay(id: string): void {
-  const existing = stack.indexOf(id)
-  if (existing !== -1) stack.splice(existing, 1)
-  stack.push(id)
-}
-
-/** 注销一个浮层(不存在则 noop;可安全重复调用)。 */
-export function popOverlay(id: string): void {
-  let existing = stack.indexOf(id)
-  while (existing !== -1) {
-    stack.splice(existing, 1)
-    existing = stack.indexOf(id)
-  }
-}
-
-/** 该浮层是否应消费 Esc:栈顶、栈为空、或该 id 未接入栈时为 true。 */
-export function isTopOverlay(id: string): boolean {
-  if (stack.length === 0) return true
-  if (stack[stack.length - 1] === id) return true
-  return !stack.includes(id)
-}
-
-/** 只读快照(调试 / 测试用)。 */
-export function getOverlayStack(): readonly string[] {
-  return stack
-}
-
-/** 仅供单元测试重置全局状态。 */
-export function __resetOverlayStack(): void {
-  stack.length = 0
-}
+export {
+  pushOverlay,
+  popOverlay,
+  isTopOverlay,
+  getOverlayStack,
+  __resetOverlayStack,
+} from '@ihui/ui-react'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
