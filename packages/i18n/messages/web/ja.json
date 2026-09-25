@@ -16814,6 +16814,10 @@
     "viewDetail": "詳細表示"
   },
   "memberExamSignUpPage": {
+    "adminOnly": {
+      "description": "ログイン情報では申込表が引き継ぐ旧会員番号と対応付けできないため、権限外の閲覧を防ぐ目的で本人向けビューを提供していません。照会や訂正は管理者にお問い合わせください。",
+      "title": "登録記録は管理者が管理しています"
+    },
     "cancelBtn": "申込キャンセル",
     "cancelConfirm": "この試験申込をキャンセルしますか?",
     "cancelFailed": "キャンセル失敗",

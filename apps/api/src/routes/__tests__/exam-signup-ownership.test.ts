@@ -2,7 +2,8 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 归属校验回归:GET / POST /exam/composition/signup*(2026-09-25 数据泄露级 P0 修复的取证)
+// 归属校验回归:GET / POST / PUT / DELETE /exam/composition/signup*
+// (2026-09-25 数据泄露级 P0 修复的取证 + 同型剩余面收口的取证)
 //
 // 本文件刻意**不** mock @ihui/auth,也**不** mock plugins/auth.js:鉴权判据(JWT 验签 +
 // roleId 提取 + isSystemAdmin 管理员档位)必须真跑,否则"越权拿不到东西"这句结论就是被
@@ -85,6 +86,13 @@ const H = vi.hoisted(() => {
     whereSeen: 0,
     /** insert().values() 收到的行,用于断言写归属 */
     inserted: [] as Record<string, unknown>[],
+    /**
+     * update().set() 收到的补丁、以及 update/delete 各被调了几次。
+     * 用于把"普通会员改不动 / 删不掉"从"响应码像 403"升级成**一行都没写过**。
+     */
+    updated: [] as Record<string, unknown>[],
+    updateCalls: 0,
+    deleteCalls: 0,
     /** 取证:每次解析时收到的 where 条件渲染结果(定位 mock 与真实 SQL 的错位) */
     frags: [] as string[],
     cond: undefined as unknown,
@@ -160,6 +168,7 @@ const H = vi.hoisted(() => {
     limit: () => Chain
     offset: () => Chain
     values: (v: Record<string, unknown>) => Chain
+    set: (v: Record<string, unknown>) => Chain
     returning: () => Chain
   }
 
@@ -177,6 +186,10 @@ const H = vi.hoisted(() => {
       offset: () => self,
       values: (v) => {
         state.inserted.push(v)
+        return self
+      },
+      set: (v) => {
+        state.updated.push(v)
         return self
       },
       returning: () => self,
@@ -211,8 +224,18 @@ vi.mock('../../db/index.js', () => ({
         ]
       }),
     ),
-    update: vi.fn(() => H.makeChain(() => [])),
-    delete: vi.fn(() => H.makeChain(() => [])),
+    update: vi.fn(() => {
+      H.state.updateCalls += 1
+      // 与真库 .returning() 对齐:把本轮 set 的补丁贴到某一行上返回,便于断言"管理员档可写"
+      return H.makeChain(() => {
+        const patch = H.state.updated[H.state.updated.length - 1] ?? {}
+        return [{ ...H.ROWS[0], ...patch }]
+      })
+    }),
+    delete: vi.fn(() => {
+      H.state.deleteCalls += 1
+      return H.makeChain(() => [])
+    }),
   },
 }))
 
@@ -234,6 +257,12 @@ function recordsIn(body: unknown): SignupRow[] {
   return Array.isArray(list) ? (list as SignupRow[]) : []
 }
 
+/** 从响应体里取出单条报名详情({ signup });取不到 ⇒ null,即"一条详情都没给"。 */
+function signupIn(body: unknown): SignupRow | null {
+  const s = (body as { data?: { signup?: SignupRow } } | null)?.data?.signup
+  return s ?? null
+}
+
 describe('/exam/composition/signup 归属校验(P0 数据泄露回归)', () => {
   let app: FastifyInstance
   let memberHeaders: Record<string, string> = {}
@@ -252,6 +281,9 @@ describe('/exam/composition/signup 归属校验(P0 数据泄露回归)', () => {
   beforeEach(async () => {
     H.state.whereSeen = 0
     H.state.inserted.length = 0
+    H.state.updated.length = 0
+    H.state.updateCalls = 0
+    H.state.deleteCalls = 0
     H.state.cond = undefined
     memberHeaders = await bearer(CALLER_UUID, 0)
     adminHeaders = await bearer(ADMIN_UUID, 1)
@@ -364,6 +396,146 @@ describe('/exam/composition/signup 归属校验(P0 数据泄露回归)', () => {
     })
     expect(res.statusCode).toBe(400)
     expect(H.state.inserted).toHaveLength(0)
+  })
+
+  // ===========================================================================
+  // 同型剩余面收口的取证(2026-09-25 追加):/signup/list、GET/PUT/DELETE /signup/:sid
+  // 三条判据都是 fail-closed 到管理员档 —— 依据是"uuid→member_id 无映射可校验归属",
+  // 见 exam.ts 报名域顶部的实测结论。每条都配**正向对照**,否则"整条路由恒 403"
+  // 也会被读成"收口成功"。
+  // ===========================================================================
+
+  it('9) list:普通会员(不带 memberId)⇒ 403,一条记录都拿不到', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/exam/composition/signup/list',
+      headers: memberHeaders,
+    })
+    expect(recordsIn(res.json())).toEqual([])
+    expect(res.statusCode).toBe(403)
+    // 修复前:不传 memberId ⇒ where = sql`TRUE` ⇒ 整表 4 条(含 member 9)直接吐出
+    expect(H.state.whereSeen, `where 取证: ${JSON.stringify(H.state.frags)}`).toBe(0)
+  })
+
+  it('10) list:普通会员显式请求 memberId=9 ⇒ 同样 403(参数不能代替归属)', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/exam/composition/signup/list?memberId=9',
+      headers: memberHeaders,
+    })
+    expect(recordsIn(res.json())).toEqual([])
+    expect(res.statusCode).toBe(403)
+    expect(H.state.whereSeen).toBe(0)
+  })
+
+  it('11) list:管理员不带 memberId ⇒ 400,绝不退化成全表', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/exam/composition/signup/list',
+      headers: adminHeaders,
+    })
+    expect(res.statusCode).toBe(400)
+    expect(recordsIn(res.json())).toEqual([])
+    expect(H.state.whereSeen).toBe(0)
+  })
+
+  it('12) list 正向对照:管理员 + memberId=7 ⇒ 只回 7 的两条,SQL 必带 member_id', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/exam/composition/signup/list?memberId=7',
+      headers: adminHeaders,
+    })
+    expect(res.statusCode).toBe(200)
+    const list = recordsIn(res.json())
+    expect(list).toHaveLength(2)
+    expect(list.every((r) => r.memberId === 7)).toBe(true)
+    expect(list.some((r) => r.memberId === OTHER_MEMBER_ID)).toBe(false)
+    expect(H.state.frags.some((f) => /member_id/.test(f))).toBe(true)
+    expect(H.state.whereSeen).toBe(1)
+  })
+
+  it('13) list:管理员叠加 examId 过滤器 ⇒ 归属约束不会被挤掉(恒在 conditions[0])', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/exam/composition/signup/list?memberId=7&examId=101',
+      headers: adminHeaders,
+    })
+    expect(res.statusCode).toBe(200)
+    // mock 只忠实执行 member_id 过滤,所以条数按 member 7 计(2 条);本例要证的是
+    // "member_id 这一条永远在",而不是 examId 过滤得对不对。
+    expect(recordsIn(res.json()).every((r) => r.memberId === 7)).toBe(true)
+    expect(H.state.frags.some((f) => /member_id/.test(f))).toBe(true)
+  })
+
+  it('14) GET /:sid:普通会员按 sid 枚举 ⇒ 403 且拿不到任何详情', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/exam/composition/signup/1',
+      headers: memberHeaders,
+    })
+    // 比状态码更强:响应体里根本没有 signup 对象(修复前此处是 member 7 的整行)
+    expect(signupIn(res.json())).toBeNull()
+    expect(res.statusCode).toBe(403)
+    expect(H.state.whereSeen).toBe(0)
+  })
+
+  it('15) GET /:sid 正向对照:管理员 ⇒ 200 读到详情(证明收口不是恒 403)', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/exam/composition/signup/1',
+      headers: adminHeaders,
+    })
+    expect(res.statusCode).toBe(200)
+    expect(signupIn(res.json())).not.toBeNull()
+    expect(H.state.whereSeen).toBe(1)
+  })
+
+  it('16) PUT /:sid:普通会员 ⇒ 403,且一次 UPDATE 都没发出', async () => {
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/exam/composition/signup/1',
+      headers: memberHeaders,
+      payload: { status: 'attended' },
+    })
+    expect(res.statusCode).toBe(403)
+    expect(H.state.updateCalls).toBe(0)
+    expect(H.state.updated).toHaveLength(0)
+    expect(H.state.whereSeen).toBe(0)
+  })
+
+  it('17) PUT /:sid 正向对照:管理员 ⇒ 真写进去一次', async () => {
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/exam/composition/signup/1',
+      headers: adminHeaders,
+      payload: { status: 'attended' },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(H.state.updateCalls).toBe(1)
+    expect(H.state.updated[0]).toMatchObject({ status: 'attended' })
+    expect(signupIn(res.json())?.status).toBe('attended')
+  })
+
+  it('18) DELETE /:sid:普通会员 ⇒ 403,且一次 DELETE 都没发出', async () => {
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/api/exam/composition/signup/1',
+      headers: memberHeaders,
+    })
+    expect(res.statusCode).toBe(403)
+    expect(H.state.deleteCalls).toBe(0)
+    expect(H.state.whereSeen).toBe(0)
+    expect((res.json() as { data?: { ok?: boolean } }).data?.ok).toBeUndefined()
+  })
+
+  it('19) DELETE /:sid 正向对照:管理员 ⇒ 200 且 delete 真被调用一次', async () => {
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/api/exam/composition/signup/1',
+      headers: adminHeaders,
+    })
+    expect(res.statusCode).toBe(200)
+    expect(H.state.deleteCalls).toBe(1)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
