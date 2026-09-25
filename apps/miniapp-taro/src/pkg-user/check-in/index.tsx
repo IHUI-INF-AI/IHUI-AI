@@ -15,6 +15,7 @@ import { useAppTheme } from '@/lib/theme'
 import { fetchApi } from '@ihui/api-client'
 import type { CheckInInfo } from '@ihui/types'
 import ThemeRoot from '@/components/ThemeRoot'
+import BackChevron from '@/components/BackChevron'
 
 /** 已签到日历格白色对勾图标(RN 端为 lucide Check,stroke 白色) */
 const CHECK_ICON = 'check-white'
@@ -58,10 +59,6 @@ const viewStyles = {
     paddingLeft: toRpx(10),
     paddingTop: toRpx(12),
     paddingBottom: toRpx(8),
-  }),
-  backBtn: (): CSSProperties => ({
-    alignSelf: 'flex-start',
-    marginBottom: toRpx(8),
   }),
   statsCard: (tk: RnThemeTokens): CSSProperties => ({
     marginLeft: toRpx(10),
@@ -135,10 +132,6 @@ const textStyles = {
   retryBtnText: (tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(16),
     color: tk.surface.light,
-  }),
-  backText: (tk: RnThemeTokens): CSSProperties => ({
-    fontSize: toRpx(16),
-    color: tk.text.secondary,
   }),
   title: (tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(24),
@@ -285,9 +278,7 @@ export default function CheckIn() {
           onRefresherRefresh={() => void load(true)}
         >
           <View style={viewStyles.header()}>
-            <View style={viewStyles.backBtn()} onTap={goBack} hoverClass="opacity-60">
-              <Text style={textStyles.backText(tk)}>{tt('common.back', '返回')}</Text>
-            </View>
+            <BackChevron onTap={goBack} style={{ marginBottom: toRpx(8) }} />
             <Text style={textStyles.title(tk)}>{tt('checkIn.title', '每日签到')}</Text>
             <Text style={textStyles.subtitle(tk)}>{tt('checkIn.subtitle', '连续签到领积分')}</Text>
           </View>
