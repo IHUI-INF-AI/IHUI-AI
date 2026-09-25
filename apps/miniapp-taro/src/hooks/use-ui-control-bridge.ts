@@ -6,7 +6,15 @@
 import { useEffect } from 'react'
 import Taro from '@tarojs/taro'
 import { createNotificationClient, fetchApi } from '@ihui/api-client'
+import {
+  createAssignmentTokenLedger,
+  isAgentActionAssignedToInstance,
+  unassignedAgentActionLogMessage,
+  withRespondedIdentity,
+  type AgentActionSelfIdentity,
+} from '@ihui/shared/utils/agent-action-addressing'
 import type {
+  AgentActionAssignment,
   AgentActionRequest,
   AgentActionResponse,
   AgentControlCapability,
@@ -75,6 +83,18 @@ export function getTaroInstanceId(): string {
   return INSTANCE_ID
 }
 
+/**
+ * 定址投递(2026-09-26,五桥共用 `@ihui/shared/utils/agent-action-addressing` 那一份判据):
+ * api 的 WS 按 userId 广播,`assignment` 由服务端派发时写入载荷 —— 非指派到本端的指令不得
+ * 执行,且留可诊断日志(不静默 return);回执原样回显服务端 token + 自报本实例。
+ * 载荷缺 assignment = 旧服务端形态,逐字走改前路径(含回执不带 responded)。
+ */
+const assignmentTokens = createAssignmentTokenLedger(PROCESSED_IDS_MAX)
+
+function selfIdentity(): AgentActionSelfIdentity {
+  return { endpoint: 'miniapp', instanceId: INSTANCE_ID }
+}
+
 /* ────────────────────────── WS URL(绕开 new URL 坑) ────────────────────────── */
 
 const ABSOLUTE_HTTP_RE = /^(https?):\/\/([^/?#]+)/i
@@ -111,7 +131,10 @@ function rememberRequestId(requestId: string): void {
   }
 }
 
-function extractAgentRequest(payload: unknown): AgentActionRequest | null {
+function extractAgentEnvelope(payload: unknown): {
+  request: AgentActionRequest
+  assignment?: AgentActionAssignment
+} | null {
   if (!payload || typeof payload !== 'object') return null
   const outer = payload as Record<string, unknown>
   const data =
@@ -121,7 +144,8 @@ function extractAgentRequest(payload: unknown): AgentActionRequest | null {
   if (!data || data.type !== 'agent.action') return null
   const request = data.request
   if (!request || typeof request !== 'object') return null
-  return request as AgentActionRequest
+  const assignment = data.assignment as AgentActionAssignment | undefined
+  return { request: request as AgentActionRequest, ...(assignment ? { assignment } : {}) }
 }
 
 function isTaroUiAction(action: unknown): action is TaroUiActionType {
@@ -160,7 +184,12 @@ async function reportCapability(): Promise<void> {
 }
 
 async function reportResult(response: AgentActionResponse): Promise<void> {
-  await postQuiet('/api/agent-control/result', response, '回传小程序端执行结果')
+  // 回执身份回显:只回显服务端派发过的 token + 自报本实例(无 token = 旧服务端形态,原样回传)
+  await postQuiet(
+    '/api/agent-control/result',
+    withRespondedIdentity(response, assignmentTokens, selfIdentity()),
+    '回传小程序端执行结果',
+  )
 }
 
 function toResponse(
@@ -182,12 +211,22 @@ function toResponse(
 
 /* ────────────────────────── WS 消息处理 ────────────────────────── */
 
-function handleAgentAction(request: AgentActionRequest): void {
+function handleAgentAction(request: AgentActionRequest, assignment?: AgentActionAssignment): void {
+  // 定址过滤(2026-09-26):非指派到本端不得执行,且留可诊断痕迹(不得静默 return)
+  if (!isAgentActionAssignedToInstance(assignment, selfIdentity())) {
+    logger.warn(
+      'ui-bridge',
+      'agent.action dropped',
+      unassignedAgentActionLogMessage(request.requestId, assignment, selfIdentity()),
+    )
+    return
+  }
   if (processedIds.has(request.requestId)) return
   // api 按 userId 广播,同用户多设备都会收到;被钉定给别的实例时静默让位,
-  // 否则两台手机会各自执行一次同一条指令
+  // 否则两台手机会各自执行一次同一条指令(旧服务端无 assignment 时这是唯一防撞手段)
   if (request.targetInstanceId && request.targetInstanceId !== INSTANCE_ID) return
   rememberRequestId(request.requestId)
+  if (assignment) assignmentTokens.remember(request.requestId, assignment.token)
 
   if (!isTaroUiAction(request.action)) {
     void reportResult({
@@ -227,10 +266,18 @@ function handleWsNotification(msg: WSNotification): void {
   } catch {
     // eventCenter 异常不影响本端执行
   }
-  const request = extractAgentRequest(msg)
-  if (!request || request.category !== 'miniapp_ui') return
+  const envelope = extractAgentEnvelope(msg)
+  if (!envelope) return
+  const { request, assignment } = envelope
+  if (request.category !== 'miniapp_ui') return
   if (typeof request.requestId !== 'string' || !request.requestId) return
-  handleAgentAction(request)
+  handleAgentAction(request, assignment)
+}
+
+/** 测试面(2026-09-26 定址投递票,与 web 端 use-agent-control.ts 同形态):只读驱动,不开写接口 */
+export const __test__ = {
+  handleWsNotification,
+  selfIdentity,
 }
 
 /* ────────────────────────── 生命周期(前后台) ────────────────────────── */
