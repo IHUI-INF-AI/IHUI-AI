@@ -193,7 +193,7 @@ test('装车证明:转写判据真挂在 computeCoverage / runCheck / report 上
   assert.match(src, /coverage\.missNames\.reduce/, 'runCheck 的 missOccurrences 没吃 computeCoverage 的 miss 全集 ⇒ 两处数字不同源')
   assert.doesNotMatch(src, /const miss = \[\.\.\.usedTokens\.keys\(\)\]\.filter/, 'runCheck 里手写的第二份 miss 谓词不得回来')
   assert.match(src, /miss\.filter\(\(n\) => unmappedPunctIn\(n\)\.length > 0\)/, '表外标点桶定义了却没挂上')
-  assert.match(src, /原名直中 \$\{c\.hitOriginalKinds\} \+ weapp 转写后中 \$\{c\.hitMangledKinds\}/, '两态计数算出来了却没进报告(只报合计会把"表漏一条"藏起来)')
+  assert.match(src, /原名直中 \$\{c\.hitOriginalKinds\} \+ weapp 转写后中·token 抽取 \$\{c\.hitMangledKinds\}[\s\S]{0,140}转写后中·全文目击 \$\{c\.hitSightedKinds\}/, '四态计数没全进报告(第 3 态被并进合计 = "抽取器漏一整型"这件事又看不见了;两态同理)')
   assert.match(src, /待验字符:\$\{c\.unmangledPunctChars\.join\(' '\)\}/, '表外字符没在报告里点名 ⇒ 下一次实测不知道表还缺哪几条')
   assert.match(src, /按族分布\(共 \$\{c\.missFamilies\.length\} 族,top5\)/, '缺项归族没进报告 ⇒ 样例仍是扁平截断,"成族"信号不可读')
   // 负锁:未实测的标点不得被"顺手补进"转写表。只认**映射条目形态** `['X', '_y']` ——
@@ -230,10 +230,36 @@ test('装车证明:第三态的输入(参考层裸类子集 / 产物首族集合
     const flat = src.replace(/\s+/g, ' ')
     assert.match(
       flat,
-      /computeCoverage\( usedTokens\.keys\(\), reference\.names, landed, reference\.bareNames, compoundLeads, runtimeTokens,? \)/,
-      'runCheck 没把两个新集合 + 运行时类名语料喂进 C1 判据 = 判据改了但链路上没人用',
+      /computeCoverage\( usedTokenList, reference\.names, landed, reference\.bareNames, compoundLeads, runtime \? runtime\.tokens : null, runtimeSighted,? \)/,
+      'runCheck 没把两个新集合 + 运行时两把语料喂进 C1 判据 = 判据改了但链路上没人用',
     )
-    assert.match(flat, /collectRuntimeClassTokens\(distDir\)/, 'C4 的运行时语料没在 runCheck 里采集(定义了没接 = 没有)')
+    // 单一物化点必须存在且**只有一处**:`Map#keys()` 是一次性迭代器,下游任一消费者再拿它就得到空序列。
+    // 这条真实缺陷曾在真产物上把 485 条转写档整批伪装成"确定缺失"、同时让 C5 退成"未判定"。
+    assert.match(flat, /const usedTokenList = \[\s*\.\.\.usedTokens\.keys\(\)\s*\]/, '没有单一物化点 ⇒ 迭代器会被消费两次')
+    assert.equal(
+      (src.match(/usedTokens\.keys\(\)/g) || []).length,
+      1,
+      '`usedTokens.keys()` 出现不止一次 ⇒ 除物化点外还有人在直接消费一次性迭代器',
+    )
+    // C4 的 token 维与 C5 的全文维必须**一次取材**(读同一份磁盘快照)。各读一遍 dist,
+    // 期间同端一次 taro build 就会把整目录换掉(本仓实测踩过),两维量的就不是同一次构建。
+    assert.match(flat, /runtime = collectRuntimeFace\(distDir\)/, 'C4/C5 的运行时语料没在 runCheck 里采集(定义了没接 = 没有)')
+    // 只在 **runCheck 函数体内**数取材调用点:兼容出口 `collectRuntimeClassTokens` 里那句
+    // `= collectRuntimeFace(distDir)` 是正当的委托(它就是把活交给同一份实现),不在射程内。
+    const runCheckBody = src.slice(src.indexOf('export async function runCheck(opts) {'), src.indexOf('/* ───────────────────────── 输出'))
+    assert.ok(runCheckBody.length > 1000, 'runCheck 函数体切不出来 ⇒ 本条断言会退化成恒真,别让它裸奔')
+    assert.equal(
+      (runCheckBody.match(/collectRuntimeFace\(distDir\)/g) || []).length,
+      1,
+      'runCheck 里出现第二次 dist 取材 ⇒ token 维与全文维不再同源',
+    )
+    // C5 的两维:面 1 只能来自 coverage 自己算的那一个数,面 2 只能来自共用实现。
+    // ⚠ 这里刻意要 `usedTokenList` 而**不是** `usedTokens.keys()`:那是一次性迭代器,
+    // 第二次消费就得到空序列 —— 真产物上曾把 485 条转写档整批伪装成"确定缺失"、又让 C5 退成"未判定"。
+    assert.match(flat, /const mangleDemand = mangledOnlyNames\(\s*usedTokenList,\s*reference\.names,\s*landed\s*\)/, 'C5 的面 1 另写了一遍谓词(或又在消费一次性迭代器)⇒ 与 C4 不同源必漂移')
+    assert.match(flat, /demandKinds: coverage\.mangleDemandKinds/, 'C5 的面 1 没吃 coverage 的单一读数')
+    assert.match(flat, /sightingKinds: runtimeSighted instanceof Set \? runtimeSighted\.size : NaN/, '面 2 没量到时必须传 NaN ⇒ 让 auditMangleLeg 判"未判定",不得冒红也不得记绿')
+    assert.match(flat, /findMangledSightings\(runtime\.haystack, mangleDemand\)/, 'C5 的面 2 与 C4 的第 3 态没共用同一份全文实现')
   }
   assert.match(src, /!referenceBareNames\.has\(n\) && \(compoundLeadNames\.has\(n\) \|\| compoundLeadNames\.has\(weappMangleClassName\(n\)\)\)/, 'computeCoverage 没按"参考层是否裸产出"分流,或没同时认转写名 ⇒ 要么放松了裸类锁,要么转写档在第三态隐身')
   assert.match(src, /referenceBareNames instanceof Set && compoundLeadNames instanceof Set/, '两参缺一不开启第三态的护栏不在 ⇒ 旧三参调用行为会变')
@@ -301,27 +327,164 @@ test('阳性对照(真 dist + 真参考层):space-x-2/space-x-3/space-y-2 走第
   assert.deepEqual([c.hitCompoundKinds, c.missKinds, c.pct], [3, 0, 1], '真 dist 上第三态没把这族认回来 ⇒ 判据没吃到产物首族集合,或分流开关接错了')
 })
 
-test('C4 装车证明(真 dist):转写名只进 CSS、不进运行时 ⇒ 必须判死规则而不是命中', async (t) => {
+/**
+ * C4/C5 的**方向性**结论一律只能在构造面上证(§"形状判据只能用纯函数 + 构造面证明")。
+ *
+ * 为什么这一组从"真 dist"改成了临时 dist:本用例原先钉着两条 2026-09-25 深夜的机器读数
+ * (`run.tokens.has('z-[1001]') === true` ∧ `run.tokens.has('z-_b1001_B') === false`),
+ * 而 2026-09-26 的现产产物已经把第二条**推翻**(同日 05:16 那次构建 weapp 的 JS/WXML 改名腿接通了,
+ * 实测 `className:"sticky … z-_b1001_B …"` 逐字在产物里)。它注释里本来就写了"这条变了就该红、
+ * 提醒人重判口径"—— 今天它红了,而红的原因不是缺陷,是**世界按设计变了**。
+ * ⇒ 把"哪一侧挂名字"当断言 = 把移动量钉成期望(本仓记过多次的同型);而 C5 的立项依据恰恰是
+ * **这个量会在两轮之间翻转**(22:35 那轮零转写、05:16 那轮全转写)。所以:
+ *  - 方向性(死规则 vs 可达、腿空转 vs 腿在)→ 临时 dist 夹具,A/B 两臂都在自己手里;
+ *  - 真 dist → 只断言**与轮次无关的守恒式与三态闭集**,并把读数如实打印出来当证据。
+ */
+function mkDistFixture(tag, { wxss, js = '', wxml = '<view/>' }) {
+  const d = mkTmp(tag)
+  const dist = join(d, 'dist')
+  mkdirSync(join(dist, 'pages'), { recursive: true })
+  writeFileSync(join(dist, 'app.wxss'), wxss)
+  writeFileSync(join(dist, 'pages', 'i.wxml'), wxml)
+  if (js) writeFileSync(join(dist, 'pages', 'i.js'), js)
+  writeFileSync(join(dist, 'app.json'), JSON.stringify({ pages: ['pages/i'] }))
+  return { base: d, dist }
+}
+
+test('C4 三态(构造 dist):CSS 有转写规则而运行时全文一个字都没有 ⇒ 判 dead,不被"全文搜索"洗白', () => {
+  // 反向锁 —— 这一条是 C4 第 3 态与 C5 面 2 **共用的牙齿**:加了全文搜索之后,真死规则仍必须判 dead。
+  const f = mkDistFixture('c4-dead', { wxss: '.z-_b1001_B{z-index:1001}', js: 'var el={className:"sticky flex"};' })
+  try {
+    const landed = G.collectLandedFromDist(f.dist).landed
+    const face = G.collectRuntimeFace(f.dist)
+    const used = ['z-[1001]']
+    const demand = G.mangledOnlyNames(used, new Set(used), landed)
+    const sighted = G.findMangledSightings(face.haystack, demand)
+    const c = G.computeCoverage(used, new Set(used), landed, null, null, face.tokens, sighted)
+    assert.deepEqual([demand.length, sighted.size], [1, 0], '夹具失效:name 的转写名竟出现在 JS 里')
+    assert.deepEqual([c.hitMangledKinds, c.hitSightedKinds, c.deadRuleKinds, c.hitKinds, c.pct], [0, 0, 1, 0, 0], '全文搜索把真死规则洗白了 ⇒ 第 3 态成了放水口')
+  } finally {
+    rmTmp(f.base)
+  }
+})
+
+test('C4 三态(构造 dist):拼接 class 的转写名只在 .concat() 参数里 ⇒ token 维看不见、全文维必须看见', () => {
+  const f = mkDistFixture('c4-concat', {
+    wxss: '.z-_b1001_B{z-index:1001}',
+    // 抽取器只看得到**源名**(className 紧邻字面量);转写名藏在 .concat() 的参数里 —— 真实产物就是这个形态
+    js: 'var el={className:"sticky z-[1001] flex"};var b=".concat(v===t?\\"border-transparent z-_b1001_B\\":\\"\\")";',
+  })
+  try {
+    const landed = G.collectLandedFromDist(f.dist).landed
+    const face = G.collectRuntimeFace(f.dist)
+    const used = ['z-[1001]']
+    const demand = G.mangledOnlyNames(used, new Set(used), landed)
+    const sighted = G.findMangledSightings(face.haystack, demand)
+    // 夹具自证:抽取器**确实**看不见它(否则下面"全文维救回来"没有判别力,整条是恒真)
+    assert.equal(face.tokens.has('z-_b1001_B'), false, '夹具失效:这条写法本应被抽取器漏掉,却抽到了')
+    const c = G.computeCoverage(used, new Set(used), landed, null, null, face.tokens, sighted)
+    assert.deepEqual([sighted.size, c.hitMangledKinds, c.hitSightedKinds, c.deadRuleKinds, c.pct], [1, 0, 1, 0, 1], '拼接 class 仍被记成死规则 ⇒ C4 的修口没生效(死维度高估)')
+    // 反向:去掉全文维(旧口径)必须退回"判 dead"—— 证明这一格真的是第 3 态救的,不是别处松了
+    const legacy = G.computeCoverage(used, new Set(used), landed, null, null, face.tokens)
+    assert.deepEqual([legacy.hitSightedKinds, legacy.deadRuleKinds], [0, 1], '不喂全文维时竟也算可达 ⇒ 第 3 态被接到了别的地方')
+  } finally {
+    rmTmp(f.base)
+  }
+})
+
+test('C5(构造 dist)两个方向:JS/WXML 腿整轮空转 ⇒ 必判 idle;腿在 ⇒ 判 in', () => {
+  const WXSS = '.z-_b1001_B{z-index:1001}\n.w-_b100rpx_B{width:100rpx}'
+  const used = ['z-[1001]', 'w-[100rpx]']
+  // A 臂 = 2026-09-25 22:35 那一型的复现:wxss 全转写、JS 侧一个转写名都没有(只有源名)
+  const idle = mkDistFixture('c5-idle', { wxss: WXSS, js: 'var a={className:"z-[1001] w-[100rpx] flex"};' })
+  // B 臂 = 05:16 那一型:JS 侧同样被改名 ⇒ 面 2 > 0
+  const live = mkDistFixture('c5-live', { wxss: WXSS, js: 'var a={className:"z-_b1001_B w-_b100rpx_B flex"};' })
+  try {
+    const measure = (dist) => {
+      const landed = G.collectLandedFromDist(dist).landed
+      const face = G.collectRuntimeFace(dist)
+      const demand = G.mangledOnlyNames(used, new Set(used), landed)
+      const sighted = G.findMangledSightings(face.haystack, demand)
+      const c = G.computeCoverage(used, new Set(used), landed, null, null, face.tokens, sighted)
+      return [G.auditMangleLeg({ demandKinds: c.mangleDemandKinds, sightingKinds: sighted.size, sampleNames: demand }), c.mangleDemandKinds, sighted.size]
+    }
+    const [a, aDemand, aSight] = measure(idle.dist)
+    const [b, bDemand, bSight] = measure(live.dist)
+    assert.deepEqual([aDemand, aSight, a.verdict], [2, 0, 'idle'], 'A 臂:腿整轮没跑却没判 idle ⇒ C5 就是本票要补的那一格,它必须能翻红')
+    assert.match(a.reason, /JS\/WXML 转写腿空转/)
+    assert.equal(a.sampleNames.length, 2)
+    assert.deepEqual([bDemand, bSight, b.verdict], [2, 2, 'in'], 'B 臂:腿在跑却被判空转 ⇒ 新判据误杀健康构建')
+  } finally {
+    rmTmp(idle.base)
+    rmTmp(live.base)
+  }
+})
+
+test('C5 饿死方向(构造面):面 1 == 0 ⇒ 只能"未判定",绝不记为通过(空扫报绿是本仓最高频失效型)', () => {
+  // 面 1 == 0 的现实形态:产物里**没有**任何"只有转写名"的规则(全原名直中,或全无)
+  const r = G.auditMangleLeg({ demandKinds: G.computeCoverage(['flex'], new Set(['flex']), new Set(['flex'])).mangleDemandKinds, sightingKinds: 0, sampleNames: [] })
+  assert.deepEqual([r.verdict, r.verdict === 'in', r.sampleNames.length], ['undetermined', false, 0])
+  assert.match(r.reason, /无可观测转写需求/)
+})
+
+test('C4/C5(真 dist,只断与轮次无关的不变量):三态守恒 + 合计口径 + 健康构建不得被判 idle', async (t) => {
   const dist = join(ROOT, 'apps', 'miniapp-taro', 'dist')
   if (G.classifyDist(dist).kind !== 'weapp') {
-    t.skip('本机当前无可信 weapp 产物 ⇒ 自跳过并明说,不冒绿')
+    t.skip('本机当前无可信 weapp 产物(dist 被同端另一次构建整目录换掉,是常态)⇒ 自跳过并明说,不冒绿')
     return
   }
-  let got, run
+  let got, face
   try {
     got = G.collectLandedFromDist(dist)
-    run = G.collectRuntimeClassTokens(dist)
+    face = G.collectRuntimeFace(dist)
   } catch (e) {
     t.skip(`产物读取失败(构建可能正在进行):${e.message}`)
     return
   }
-  // 立项实测的两条锚:CSS 侧有 `.z-_b1001_B{`,运行时侧只有源名 `z-[1001]`。
-  // 这两条任一条变了,就说明 weapp 的 JS/WXML 改名侧被接通了 —— 那时本用例该红,提醒人重判口径。
-  assert.equal(got.landed.has('z-_b1001_B'), true, '产物 CSS 里没有转写形态的 .z-_b1001_B —— 与立项实测矛盾')
-  assert.equal(run.tokens.has('z-[1001]'), true, '运行时类名语料里没有源名 z-[1001] —— 抽取失效或产物变了')
-  assert.equal(run.tokens.has('z-_b1001_B'), false, '运行时已挂上转写名 ⇒ weapp 改名侧接通了,C4 口径要重定,别再判死规则')
-  const c = G.computeCoverage(['z-[1001]'], new Set(['z-[1001]']), got.landed, null, null, run.tokens)
-  assert.deepEqual([c.hitMangledKinds, c.deadRuleKinds, c.hitKinds, c.pct], [0, 1, 0, 0], 'CSS 有规则而运行时挂不上,却没判成死规则 ⇒ C4 没接线')
+  const names = [...new Set([...face.tokens])]
+  const ref = new Set(names)
+  const demand = G.mangledOnlyNames(names, ref, got.landed)
+  const sighted = demand.length ? G.findMangledSightings(face.haystack, demand) : new Set()
+  const cc = G.computeCoverage(names, ref, got.landed, null, null, face.tokens, sighted)
+  // 不变量 1:**守恒** —— 面 1 = 三个可达/死态之和,且第 1 态必须等于"独立算出的 token 可见集"
+  // (两条都不是恒真:第一条会因"死规则被重复计/漏计"而崩,第二条会因"两维取材不同一轮"而崩)
+  const byToken = demand.filter((n) => face.tokens.has(G.weappMangleClassName(n)))
+  assert.equal(cc.mangleDemandKinds, cc.hitMangledKinds + cc.hitSightedKinds + cc.deadRuleKinds, '三态之和不等于面 1 ⇒ 有一个桶在漏计/重计')
+  assert.equal(cc.hitMangledKinds, byToken.length, '第 1 态与独立算出的 token 可见集不等 ⇒ 判据内部不同形')
+  // 不变量 2:全文维看见的必须是 token 维看见的**超集**(同一份快照下 token ⊆ 全文)
+  assert.ok(
+    byToken.every((n) => sighted.has(n)),
+    'token 维可达的名字在全文维里搜不到 ⇒ 两维不再读同一份快照(C4/C5 共用的前提塌了)',
+  )
+  // 不变量 3:**结论必须由这两面推出**,而不是"断真产物一定健康"。
+  // 反例就是本轮实测:本机 dist 面 1=485 而面 2=0(wxss 有 491 个 `_b` 名、JS 里一个都搜不到),
+  // 那次构建的 JS/WXML 腿真的整轮没跑 ⇒ 若这里断"不得判 idle",等于把一次偶发的坏构建钉成永久事实
+  // (本仓反复记的"别把移动量钉成健康期望值"),而恒红门的已知结局是逼人绕钩子、连带废掉全部守门。
+  // in/idle 两个方向的正反证明交给上面的构造夹具;这里只断"判据与自己的输入同形"。
+  const leg = G.auditMangleLeg({ demandKinds: demand.length, sightingKinds: sighted.size, sampleNames: demand })
+  const expect = demand.length === 0 ? 'undetermined' : sighted.size === 0 ? 'idle' : 'in'
+  assert.equal(leg.verdict, expect, `C5 的结论与它自己的两面输入不等价(应 ${expect},实 ${leg.verdict}) ⇒ 判据在凭别的东西下结论`)
+  console.info(`   [真 dist 读数] 面 1=${demand.length} 面 2=${sighted.size} verdict=${leg.verdict} runtimeFiles=${face.files}`)
+})
+
+
+test('装车证明:C5 真挂在报告 / JSON / 退出码上,且它的红**不受 --min-coverage 管辖**', () => {
+  const src = readFileSync(GATE, 'utf8')
+  assert.match(src, /failing\.push\(\.\.\.failingC5\)/, 'C5 判 idle 却没合进 failing ⇒ 喊了红但不改退出码(定义了没接 = 没有)')
+  // 顺序即语义:C5 的收口必须落在 minCoverage 那道闸**之外**。写成闸内就等于让观测档
+  // (`--min-coverage 0`,恰是最需要发现"腿整轮没跑"的那一档)把它一起免检。
+  assert.ok(
+    src.indexOf('failing.push(...failingC5)') > src.indexOf('coverage.pct < minCoverage'),
+    'C5 的红被 minCoverage 管住了 ⇒ 本票要防的"量级判据冒充结构判据"原样回来',
+  )
+  assert.match(src, /const exit = undetermined\.length \? 2 : failing\.length \? 1 : 0/, '退出码口径变了 ⇒ C5 的红可能不落地')
+  assert.match(src, /C5 转写腿/, 'C5 结论没进人读报告')
+  assert.match(src, /mangleLeg,/, 'C5 结论没进返回对象 ⇒ --json 拿不到')
+  // 端到端两问:非 JSON 报告里有这一行;JSON 里这个键在位且取值合法(产物缺失时也必须在,写"未判定")
+  const txt = runGate(['--min-coverage', '0'])
+  assert.match(txt.out, /C5 转写腿|❌ C5/, '报告里没有 C5 那一行(任何一次运行都得把它说出来,包括弃权轮)')
+  const j = JSON.parse(runGate(['--json', '--min-coverage', '0']).out.replace(/^[^{]*/, ''))
+  assert.ok(['in', 'idle', 'undetermined'].includes(j.mangleLeg?.verdict), `JSON 里的 C5 verdict 取值非法:${j.mangleLeg?.verdict}`)
 })
 
 /* ─────────────── 3. 同名双义三档分类,各一正一反 ─────────────── */
@@ -680,6 +843,14 @@ test('§22c:__test__ 必须导出判据函数本体(不得让测试复制第二�
     'harvestCompoundLeadNames',
     'classifyDist',
     'collectLandedFromDist',
+    // 2026-09-26:C4 三态与 C5 的四个出口必须在 __test__ 里 —— 形状判据只能用纯函数 + 构造面证明,
+    // 拿不到它们就只能退回"真仓跑一次看它红不红",而 dist 会被同端构建整目录换掉(那种证明等于没测)。
+    'collectRuntimeFace',
+    'collectRuntimeClassTokens',
+    'findMangledSightings',
+    'mangledOnlyNames',
+    'partitionRuntimeReachability',
+    'auditMangleLeg',
     'measureMainPackage',
     'classifyDualMeaning',
     'findBlindSpots',
