@@ -576,6 +576,24 @@ const MessageItem = React.memo(function MessageItem({
       .map((tc) => tc.image_url)
       .filter((url): url is string => typeof url === 'string' && url.length > 0)
   }, [m.toolCalls])
+  // D64 ②(2026-09-25 补挂):同消息全部图片作为画廊注入 ToolCallCard —— 画廊与
+  // messageImages 是同一份真相(同一遍历的投影),渲染件不自行收集附件(避免第二套聚合)。
+  const imageGallery = React.useMemo(() => messageImages.map((url) => ({ url })), [messageImages])
+  // 每个带图工具调用在画廊内的下标(与 messageImages 同序得出,不二次数)
+  const galleryIndexByCallId = React.useMemo(() => {
+    const map = new Map<string, number>()
+    let next = 0
+    for (const tc of m.toolCalls ?? []) {
+      if (typeof tc.image_url === 'string' && tc.image_url.length > 0) {
+        map.set(tc.id, next)
+        next += 1
+      }
+    }
+    return map
+  }, [m.toolCalls])
+  // 翻页是受控模式:FilePreview 只回报 onGalleryIndexChange,宿主必须自己记账,
+  // 否则点了上一张/下一张画面不动(受控组件没有内部兜底)。
+  const [galleryIndices, setGalleryIndices] = React.useState<Record<string, number>>({})
   const handleDownloadImages = React.useCallback(() => {
     if (messageImages.length === 0) return
     messageImages.forEach((url, idx) => {
@@ -995,6 +1013,11 @@ const MessageItem = React.memo(function MessageItem({
                           repeated={tc.repeated}
                           retryCount={tc.retryCount}
                           imageUrl={effectiveImageUrl}
+                          gallery={imageGallery.length > 1 ? imageGallery : undefined}
+                          galleryIndex={galleryIndices[tc.id] ?? galleryIndexByCallId.get(tc.id)}
+                          onGalleryIndexChange={(index) =>
+                            setGalleryIndices((prev) => ({ ...prev, [tc.id]: index }))
+                          }
                           audioUrl={effectiveAudioUrl}
                           videoUrl={effectiveVideoUrl}
                           taskId={effectiveTaskId}

@@ -7130,6 +7130,26 @@
       "rollbackConfirmConfirm": "确认恢复"
     },
     "pane": {
+      "hookSummary": {
+        "ariaLabel": "钩子执行摘要",
+        "state": {
+          "running": "钩子运行中",
+          "ok": "钩子运行正常",
+          "failed": "钩子执行出错",
+          "blocked": "钩子已阻止操作"
+        },
+        "runs": "· 运行了 {n} 次",
+        "failedCount": "失败 {n} 次",
+        "blockedCount": "拦截 {n} 次",
+        "sourceLabel": "来源",
+        "source": {
+          "admin": "管理员",
+          "user": "用户",
+          "project": "项目",
+          "plugin": "插件",
+          "session": "会话"
+        }
+      },
       "businessForms": {
         "ariaLabel": "业务表单卡",
         "aria": {
@@ -16840,6 +16860,10 @@
       "pending": "待考",
       "unknown": "未知"
     },
+    "submitBtn": "提交答卷",
+    "submitConfirm": "确定提交答卷吗?提交后将标记为已完成。",
+    "submitFailed": "提交失败",
+    "submitSuccess": "答卷已提交",
     "title": "我的考试报名",
     "total": "共 {n} 条"
   },

@@ -202,6 +202,25 @@
     "runtimeSend": "Send"
   },
   "chat": {
+    "contextUsage": {
+      "title": "Context Usage",
+      "used": "Used",
+      "max": "Max Capacity",
+      "segSystem": "System prompt",
+      "segToolSchema": "Tool definitions",
+      "segSkill": "Skill bodies",
+      "segRoleUser": "User messages",
+      "segRoleAssistant": "Assistant replies",
+      "segRoleToolCall": "Tool call arguments",
+      "segRoleToolResult": "Tool results",
+      "segSystemPrompt": "System prompt (whole)",
+      "unnamedItem": "Unnamed item",
+      "resultSuffix": "result",
+      "unobservedServerOnly": "Assembled on the server, so exact usage is not observable from this client",
+      "unobservedNotSupplied": "No system segment was supplied for this turn",
+      "detailsTruncated": "{count} more items not shown",
+      "residualLabel": "Unclassified overhead"
+    },
     "voice": "Voice",
     "title": "IHUI AI",
     "modelLabel": "Model",
