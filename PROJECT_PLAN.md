@@ -7588,6 +7588,47 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
   把同位置换成 `@ihui/types`（已声明）⇒ 判红 0、exit 0。两条同表同轮，证明红绿差确实由本块的
   `managed:true` 产生，而不是别处状态。收尾核对：主索引暂存项 0，脚本未向其写入（取证脚本 `.ihui-agent/tmp/` 内，已删）。
 
+### 第四波（同日上午 01:2x–10:2x：把上一节三条"归属他人 / 非本批可 finish"当场做掉，再补桌面三项）
+
+- [x] ✅(2026-09-25,`b153c2d0d4b`) **`stream-tool-ledger` 接线完成 —— 上面那条"等他人入库"改成了部分落地**，
+  不是等：临时索引 + 逐 hunk 过滤，留本票 11 个 hunk、剔他人 5 个。判据必须写成 **forbidOnly**
+  （剔除"新增行含他人标识符"的 hunk），不能写成"认出我的行"——后者把注释/JSX/续行 20/25 判成
+  "无法归属"而无法收敛。落地后再对**生成出来的树**做 `git grep` 零命中断言 + 该 blob 单文件
+  `tsc --noEmit` 0 错误；他人那份 D19 随后自己入库（`c1a6f4d4593`），本票未带走其一。
+- [x] ✅(2026-09-25,`307afd6c36c`) **`page_*` 对外能力面开启**：ai-service 侧 `services/page_control_bridge.py`
+  把契约七动词注册为 `browser_page_*`，注册与派发过同一道 `filter_unauthorized_page_tools`
+  （无申报端 ⇒ 工具根本不进模型可见面，fail-closed）；清单四处同源（契约 `PAGE_ACTIONS` ↔ `packages/types`
+  联合 ↔ 服务端元组 ↔ web 携带名），词表 `tool-display` 与五语包 + 小程序离线包同票重生成。
+- [x] ✅(2026-09-25,`dd709027c67`) **goal 校验结论接上 UI 消费方**：`agent-pane/model.ts:174`
+  `resolveGoalVerificationView` 三态 fail-closed（achieved 绿 / unmet 红 / **undetermined 琥珀并写明
+  "不视为完成"**），`resultToneFromGoalKind` 不再对非达成态发绿勾；同票补 v1 网关工具白名单，
+  避免"服务端注册了而网关不放行"那种半落地。
+- [x] ✅(2026-09-25,`aaee4d40f06` + `649a3d25533`) **桌面三项**。A 项判为**"机制可行、接线不可行"，未挂壳**：
+  可行侧证 = `auto_refresh.rs:256/293` 的 `webview.eval`（生产在用的注入通道）+
+  `capabilities/default.json:6-8`（IPC 授给 aizhs.top = 回执通道）+ 本机 Edge 145 headless（同内核家族 Blink）
+  跑通注入与派发全链，含 `HANDLE_SCOPE_MISMATCH` / `HANDLE_MALFORMED` 两枚负例。不可行三判据（本会话逐条
+  回到源码复核为真）：① `control_autonomy.py:230-243` 反向闸只认 `endpoint=="extension"`；
+  ② `apps/api/src/routes/agent-control.ts:94-106` 的 `CATEGORY_ENDPOINT` 是"一 category 一端"穷举表，
+  把 `browser` 挪给 desktop 会连带把 12 个选择器族动词一起投过去；③ 指令按 **userId** 投递（`:292`）、
+  `/result` 先回者定终（`:350-358`）⇒ 桌面自家页面的快照能顶掉扩展的真实结果。结论钉成**双向不变量**
+  （申报 ⟺ 接线，两方向各一条红臂），牙已用变异验过：临时给桌面加 `browserPageActions` ⇒ 红并打出
+  `false/false/false`，随后按 sha 回读还原（文件干净）。B 项 = 两条链定名 `chain: continuous` /
+  `chain: replayable`，各钉一条防回退断言（既有守门新增规则 E/F，不占新编号），规则 F 判"Rust 进程级状态
+  不得持有 task/session 类业务名词"、零容忍不设清单（HEAD 实测唯一一处 `WINDOW_STATE_LAST_SAVE`）。
+  C 项 = 披露文档 §4.6 成文。
+- [x] ✅(2026-09-25) **把桌面票自己写错的一句归因纠正掉**（这条才是本波真正的收获）：§4.6 初稿写
+  "桌面聊天正文当前明文落盘，已入库的加密实现**没有覆盖到这个键**"。按时间线复核 —— 那份 leveldb log 的
+  mtime 是 **09-23 18:11**，而 `chat.ts:1433` 的 `createChatPersistStorage` 落地于 **09-24 06:23**
+  （`72a2eae9aca`）、`auth.json` 的"读时即封"更晚（**09-25 00:01**，`0250cb110cf`），本机桌面端此后再没启动
+  ⇒ 是**存量未迁移**而非"线没接"；迁移路径本身 `vitest run tests/d48-chat-persist-encryption.test.ts`
+  **15/15 绿**（夹具为真实 zustand 序列化产物）。巡检判 `violations` 依然正确（盘上确有明文），
+  错的是因果，而那会直接把下一个人送去改一条已经接对的线。已同时进 §7 否证表与 §9 修订表。
+- [ ] **本波未闭环（归属明确，不是遗漏）**：① 桌面 `page_*` 要真成立需三处同改（新增独立 category /
+  反向闸按端类型放行 / 端内复用 `runPageAction`），落点全在他人当前在飞或本票禁改文件里 —— 属**决策项**，
+  判据已钉住"闸开了却没人接"和"挂壳骗人"两个方向；② 真机 WebView2 GUI 壳端到端未跑（§8 第 11 条）；
+  ③ 存量明文的实际消失要靠下一次桌面端启动，届时 `pnpm check:desktop-cache-plaintext` 应转绿，
+  若仍红才说明迁移路径真有 bug。
+
 
 ## O61 safe-commit 的"钩子失败归因"从抄来的结论改成量出来的结论（2026-09-25 立并完成 ✅）
 
