@@ -101,7 +101,7 @@ export default function BusinessCardIndex() {
           <Text className="card-entry-text">
             {tt('businessCard.customEntry', '社区名片定制入口')}
           </Text>
-          <Text className="card-entry-arrow">›</Text>
+          <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
         </View>
 
         <View className="card-content">

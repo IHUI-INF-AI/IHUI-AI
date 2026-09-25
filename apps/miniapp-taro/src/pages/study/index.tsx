@@ -15,6 +15,7 @@ const recordBackIcon = '/static/images/record_back.png'
 const studyIconAddIcon = aizhsUrl('remote-images/study_icon_add.png')
 const wenjianIcon = aizhsUrl('remote-images/wenjian.png')
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
 
 function isImagePath(s: string): boolean {
   return /^(https?:)?\/\//.test(s) || s.startsWith('/') || s.startsWith('data:')
@@ -96,7 +97,9 @@ export default function StudyIndex() {
             </Text>
           </View>
           <View className="w-[calc(50%_-_8rpx)] flex flex-col items-center p-[28rpx] rounded-xl border border-border bg-card">
-            <Text className="text-[length:44rpx] font-bold text-success">{info.continuousDays}</Text>
+            <Text className="text-[length:44rpx] font-bold text-success">
+              {info.continuousDays}
+            </Text>
             <Text className="block mt-[16rpx] text-[length:22rpx] text-muted-foreground">
               {t('study.continuousDays')}
             </Text>
@@ -126,7 +129,7 @@ export default function StudyIndex() {
               <Text className="flex-1 ml-[24rpx] text-[length:28rpx] text-foreground">
                 {t(e.labelKey)}
               </Text>
-              <Text className="text-muted-foreground">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
             </View>
           ))}
         </View>
@@ -165,7 +168,9 @@ export default function StudyIndex() {
           </View>
         ) : (
           <View className="text-center py-[48rpx]">
-            <Text className="text-[length:28rpx] text-muted-foreground">{t('study.emptyCourse')}</Text>
+            <Text className="text-[length:28rpx] text-muted-foreground">
+              {t('study.emptyCourse')}
+            </Text>
           </View>
         )}
 

@@ -3253,6 +3253,30 @@ const checks = [
     ]
   },
 
+  {
+    id: '124',
+    label: '🎨 小程序原生 chrome 派生对账(blocking,theme.json + THEME_CHROME 必须是 tokens.css 的派生态)',
+    script: 'check-miniapp-chrome.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_MINIAPP_CHROME',
+    stagedTriggers: [
+      'packages/design-tokens/src/styles/tokens.css',
+      'apps/miniapp-taro/src/theme.json',
+      'apps/miniapp-taro/src/lib/theme.ts',
+    ],
+    onFailHint: [
+      '',
+      '  💡 原生导航栏/tabBar 的配色不走 CSS,过去是**手抄**在 theme.json 与 theme.ts 的 THEME_CHROME 里,',
+      '     改 tokens.css 不会带动它们 ⇒ "手机上改了 web 没改"的又一成因。现在两份副本由',
+      '     `node scripts/sync-miniapp-chrome.mjs` 派生,并挂在 pre-commit 的 TOKEN_SYNC_TARGETS 上按',
+      '     tokens.css 触发面自动写回(原位写回,不整块替换)。',
+      '     已登记的唯一分歧(d2d80c1b23 对齐 rn gray.800)与"登记却已不冲突=清单腐烂"都由本门核。',
+      '     单独复验:node scripts/check-miniapp-chrome.mjs(自检 --self-test,镜像 13 例)',
+      '',
+    ]
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
