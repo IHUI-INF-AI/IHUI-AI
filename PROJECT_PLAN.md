@@ -8751,3 +8751,33 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   ③ `stream-tool-ledger 接线` —— 票面两条解阻条件本轮实测全部成立,接线已在 `b153c2d0d4b`;
   ④ `VideoPlayerScreen 状态栏带色` —— 落点 `apps/mobile-rn/App.tsx` 当时正被并发会话改(工作树 M),
      且票面自定验收 = "真机出包装机量像素" ⇒ 本机不可验收,不可领;
+### O60i D94 交接单接进对话流失败位，并自曝一条"装车"判据的漏洞（2026-09-25 完成 ✅）
+
+- [x] ✅(2026-09-25) **D94 的"剩余项"之一当场闭环**：`apps/web/src/components/chat/message-list/MessageItem.tsx`
+  失败位(`data-testid="message-error-card-${id}"` 那张卡内)挂上 `HandoffPackageCard`，
+  `ctx` 三项**全部取自这条消息的真实字段** —— 错误原文(剥 shared 层加的 `⚠ ` 前缀)、
+  统一分类表给出的错误码(`errorCodeText`，即 D92 那张表的产出)、消息创建时间；
+  `occurredAt` 用 `Number.isFinite(m.createdAt)` 兜 NaN ⇒ **缺证据就交给共享层写"未提供"，不臆造时间**。
+  新增 `__tests__/message-item-handoff-wiring.test.tsx` 4 例**真渲染**(喂真 `MessageItem`，不 mock 组件本体)：
+  ① 交接单必须是错误卡的**后代**(防"页面别处孤立渲染一张卡"冒充接线)且四段结构位齐备；
+  ② 卡片正文含该条消息的错误原文(证 `ctx` 吃的是消息字段而非写死样例)；
+  ③ **反向对照**：同一条消息去掉 `error` 后卡片必须不出现；④ NaN 时间仍渲染且不臆造。
+  **变异自证**：把挂载摘掉 ⇒ `3 failed | 1 passed`，且绿的那条正是断"不存在"的反向对照(它必须不受影响)；
+  恢复挂载后 30/30 过(连带既有 error-card 源码接线、fallback 交代行、交接单卡本体三套回归)，eslint 0。
+- [x] ✅(2026-09-25) **自曝：上一批 D67 的"额度归属卡接两宿主"是组件级装车，不是生产装车**。
+  `git grep -n MessageErrorCard HEAD` 在 `apps/` + `packages/` 里的**生产 importer = 0**，
+  唯一外部引用是 `__tests__/quota-ownership-wiring.test.tsx` **直接渲染该组件本身**；
+  而用户在屏幕上看到的是 `MessageItem.tsx:761` 的**内联**错误卡 —— 两者甚至**共用同一个
+  `message-error-card-${id}` testid**(所以任何"页面上有这个 testid"的探针都会假绿)。
+  ⇒ 额度归属分型卡今天**到不了 web 用户眼前**。
+  **判据教训(比这条红点更值钱)**："组件有自己的渲染测试"≠"组件有生产者"。装车证明必须含一条
+  **生产面 import 计数 > 0** —— 守门 64 对 miniapp 适配器做的正是这件事(3078 行"造好没装车"直到删除都无闸可拦)，
+  但组件面从来没有等价判据。归属：本会话(D67 那批的验收口径是我写的，红点也记我名下)。
+- **本票刻意没做的两件，各给理由**：
+  ① 把内联错误卡**替换**成 `MessageErrorCard`(即真正合并两份实现)没有夹带在本票里 —— 那是一次改渲染结构的重构，
+  且 `MessageList.tsx` 此刻正被并行会话改(`git diff HEAD --numstat` = 6/0)，在同一处对撞等于替别人决定落地顺序。
+  解阻判据：单开一票，先补"生产面 importer 计数 > 0"的断言到 `quota-ownership-wiring.test.tsx`，
+  再替换内联卡并删 testid 重名(两张卡不得共用一个 testid，否则探针永远分不出挂的是哪张)。
+  ② 票面另一半"`onCopy` 接 §5e 邮件出口"没做：交接单外发是**用户主动动作**，而 §5e 那条通道是**运维到人**，
+  给它接 `notify-deploy-failure.ts` 属越界(守门 81 管的是邮件版式单源，不是给用户开一个寄信口)；
+  要做须先定产品口径(走工单？走用户自己的中转站？)，不能由实现侧顺手决定。
