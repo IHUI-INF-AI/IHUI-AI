@@ -5,7 +5,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { checkAuth } from '../plugins/auth.js'
-import { requireAdmin } from '../plugins/require-permission.js'
+import { requireAdmin, isSystemAdmin } from '../plugins/require-permission.js'
 import { db } from '../db/index.js'
 import {
   examExam,
@@ -1251,9 +1251,29 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
         pageSize: z.coerce.number().int().min(1).max(100).optional().default(20),
       })
       .parse(request.query)
-    // 从已认证用户推断 memberId
-    const effectiveMemberId = memberId || Number(request.userId) || 0
-    const where = effectiveMemberId ? eq(examSignUp.memberId, effectiveMemberId) : sql`TRUE`
+    // P0 修复(2026-09-25,数据泄露):原 `memberId || Number(request.userId) || 0` 对
+    // UUID 恒返回 NaN ⇒ NaN || 0 = 0 ⇒ where 退化成 sql`TRUE` ⇒ 凡请求不带 memberId,本端点
+    // 就把 exam_sign_up **整表**(所有用户的报名)返回给调用者。同型缺陷本仓已按 P0 修过两处,
+    // 此处照抄其范式而非另立一套:
+    //   - routes/tasks.ts:270                原 Number(userId) 使全用户写进同一 Redis key,「严重数据泄露 + 串台」
+    //   - routes/admin-auth-edu-routes.ts:1061  补 Zod 校验,拒绝把 userId 猜成数字
+    // 为什么这里**不能**"从已认证用户推断 memberId"(实测结论,非推测):
+    //   examSignUp.memberId 是 integer 且无外键(schema/relation-tables.ts:64 +
+    //   drizzle/0055_remaining_11_tables.sql:136,旧 Java 系统遗留 ID 空间);request.userId 是
+    //   users.id = uuid(schema/users.ts:48);edu_members.id 同样是 uuid(schema/member.ts:72)。
+    //   三套 ID 空间互不相通,users 表没有任何一列、全仓也没有任何映射表能把当前登录人换算成
+    //   整数 member_id ⇒ **服务端可推导的映射不存在**,故 fail-closed:非管理员一律 403(结构上
+    //   无法证明 memberId 属于调用者),管理员也必须显式给 memberId 否则 400。
+    //   绝不保留"缺参数即查全表"这条兜底。
+    if (!isSystemAdmin(request, { includeInternalChannel: false })) {
+      return reply
+        .status(403)
+        .send(error(403, '无权查看考试报名记录:登录身份与报名表 member_id 之间无映射可校验归属'))
+    }
+    if (memberId === undefined) {
+      return reply.status(400).send(error(400, '缺少 memberId:无法从登录身份推断'))
+    }
+    const where = eq(examSignUp.memberId, memberId)
     const list = await db
       .select()
       .from(examSignUp)
@@ -1310,18 +1330,29 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       })
       .transform((b) => ({
         examId: b.examId ?? (typeof b.eid === 'number' ? b.eid : Number(b.eid)),
-        memberId: b.memberId ?? 0, // 历史表用 integer memberId,新用户用 uuid,这里从 auth 取
+        // 注意:此处不得"从 auth 取"memberId —— users.id 是 uuid 而 member_id 是旧系统整数,
+        // 三者(users.id / edu_members.id / exam_sign_up.member_id)无映射可用,详见
+        // GET /exam/composition/signup/my 上方的 P0 修复注释。0 = 调用方未提供,由下方 400 拦下。
+        memberId: b.memberId ?? 0,
         status: b.status,
       }))
       .parse(request.body)
     if (!Number.isFinite(body.examId)) {
       return reply.status(400).send(error(400, '无效的考试 ID'))
     }
-    // 从已认证用户推断 memberId
-    const memberId = body.memberId || Number(request.userId) || 0
-    if (!memberId) {
+    // P0 修复(2026-09-25):原 `body.memberId || Number(request.userId) || 0` 同型失效
+    // (Number(uuid)=NaN),而 body.memberId 由调用方**自报** ⇒ 任何登录用户都能把报名写到
+    // 他人的 member_id 下(自报字段当归属凭据 = 可伪造他人数据)。无映射可校验归属,故与 GET
+    // /signup/my 同样 fail-closed 到管理员;范式同 routes/tasks.ts:270。
+    if (!isSystemAdmin(request, { includeInternalChannel: false })) {
+      return reply
+        .status(403)
+        .send(error(403, '无权代他人创建报名:登录身份与报名表 member_id 之间无映射可校验归属'))
+    }
+    if (!Number.isInteger(body.memberId) || body.memberId <= 0) {
       return reply.status(400).send(error(400, '无效的 memberId'))
     }
+    const memberId = body.memberId
     const [created] = await db
       .insert(examSignUp)
       .values({
