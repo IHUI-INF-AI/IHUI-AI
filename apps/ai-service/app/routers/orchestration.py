@@ -40,6 +40,7 @@ from typing import Any
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
+from ..core.executor_switch import guard_loop_v2_pilot
 from ..services.llm_budget_governor import llm_budget_governor
 from ..services.orchestration_hub import orchestration_hub
 from ..services.telemetry_service import telemetry_service
@@ -132,6 +133,10 @@ async def get_events(
 async def emit_event(body: EmitEventBody) -> dict[str, Any]:
     """发射事件到编排中枢。"""
     try:
+        # D6① 收敛开关接线点(默认 legacy 直接返回,行为与改前等价;loop_v2 档
+        # 在触达 hub.emit 之前 fail-fast,错误经本 handler 既有 except 转为
+        # {code:500} 信封且消息含 AGENT_LOOP_V2_PILOT_NOT_WIRED)
+        guard_loop_v2_pilot("routers/orchestration.emit_event")
         event_id = await orchestration_hub.emit(
             event_type=body.event_type,
             source_pillar=body.source_pillar,
