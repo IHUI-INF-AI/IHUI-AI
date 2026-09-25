@@ -5,11 +5,30 @@
 /**
  * fetch_url 工具测试 — URL 校验 / HTML 清洗 / 错误处理 / 截断
  */
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import * as http from 'node:http';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { AddressInfo } from 'node:net';
+import type * as SsrfGuardModule from '@ihui/shared/utils/ssrf-guard';
+
+/**
+ * 本文件测的是 fetch_url 自己的"取内容 → HTML 清洗 → 截断 → 状态行"行为。
+ * 这类夹具 server 结构上只能听在 127.0.0.1,而 SSRF 守卫的**正确行为恰恰是拒绝回环** ——
+ * 所以这里把裁决桩成放行。
+ *
+ * "接入是否真生效"不由本文件证明(桩出来的绿灯证明不了任何事),而由
+ * `tests/ssrf-outbound.test.ts` 的**未桩**集成组证明:同一目标裸 fetch 真能打通(命中计数=1),
+ * 过守卫后判不安全、目标端口命中数归零、逐跳 Location 复校验、错误串不含响应体。
+ */
+vi.mock('@ihui/shared/utils/ssrf-guard', async (importOriginal) => {
+  const actual = await importOriginal<SsrfGuardModule>();
+  return {
+    ...actual,
+    assertSafeFetchUrl: async (rawUrl: string) => ({ safe: true, host: new URL(rawUrl).hostname }),
+  };
+});
+
 import { FETCH_TOOLS, fetch_url } from '../src/tools/fetch-url.js';
 
 describe('FETCH_TOOLS 注册', () => {
