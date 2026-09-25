@@ -3234,6 +3234,25 @@ const checks = [
     ]
   },
 
+  {
+    id: '123',
+    label: '⏱️ 工具执行预算对账(blocking,工具级超时/取消机制在位且被调用;缺常量/缺通道即红)',
+    script: 'check-tool-exec-budget.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_TOOL_EXEC_BUDGET',
+    stagedTriggers: 'apps/cli/src/tools/',
+    onFailHint: [
+      '',
+      '  💡 钉"工具执行无界"三源:ToolContext 无 signal(取消无通道)/执行点无超时/exec 无 maxBuffer。',
+      '     S1 系判机制在位(常量三件套/解析出口/Math.min 封顶/linkAbortSignal/executeWithinExecBudget 装车);',
+      '     S2 判注入点(未传 signal 的 ctx 构造点名);判定面=取材面(HEAD/索引),不判滞后的共享工作树。',
+      '     单独复验:node scripts/check-tool-exec-budget.mjs',
+      '     自检:--self-test(26 例) 镜像:node --test scripts/tests/check-tool-exec-budget.test.mjs(9 例)',
+      '',
+    ]
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
