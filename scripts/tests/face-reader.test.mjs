@@ -49,11 +49,15 @@ const scriptsDir = join(here, '..')
 const GIT = gitBinary()
 const read = (f) => readFileSync(join(scriptsDir, f), 'utf8')
 
-/** 三门:各自都已收敛到共用层(守门 91 = 主题接线、94 = 错误码覆盖、101 = 锁与清单对账) */
+/** 已收敛到共用层的门(91 主题接线 / 94 错误码覆盖 / 101 锁与清单对账 / 93 跨端色值对账)。
+ *  条数不写进任何断言文案 —— 它是会过期的数字,用例只按 `GATES.length` 说话。 */
 const GATES = [
   'check-theme-prop-wiring.mjs',
   'check-error-code-coverage.mjs',
   'check-lock-manifest-consistency.mjs',
+  // 守门 93 是全链**最后一处自带 `cat-file --batch` 解析**的门,2026-09-25 收口进来后本清单才含它。
+  // 清单长度不写进断言文案(会过期),用例一律按 `GATES.length` 说话。
+  'check-cross-end-tokens.mjs',
 ]
 
 test('层自身:绝对路径 git(裸 "git" 会让服务账户/GUI 宿主下的取数静默失败)', () => {
@@ -157,9 +161,40 @@ test('层自身:面集合固定为三个,两面旗同给必须返回 error 而�
 
 test('取材失败必须走 Undetermined 而不是"当作不存在"(静默少扫 = 偏绿)', () => {
   assert.equal(typeof Undetermined.prototype, 'object')
-  const src = read('lib/face-reader.mjs')
-  assert.match(src, /class Undetermined extends Error/)
-  assert.match(src, /throw new Undetermined\(`git \$\{args\[0\]\} 失败/)
+  // **行为证明**而非文本锚点:真派生一次必然失败的 git 调用,断言抛出的是 Undetermined。
+  // 原先这条锁的是 `throw new Undetermined(\`git …\`)` 那一行源码字面量 —— 它既证明不了"会抛",
+  // 又会在任何等价改写(如把消息换成变量)时无端变红。文本锚点留给"必须有某段注释"这类
+  // 真正无法用行为表达的约束,判据本身一律问行为。
+  const bogus = join(here, 'no-such-repo-for-sure-' + process.pid)
+  assert.throws(
+    () => gitRaw(['rev-parse', '--verify', 'HEAD'], bogus),
+    (e) => e instanceof Undetermined,
+    'git 取不到必须抛 Undetermined,不得返回空让调用方当成"没有违规"',
+  )
+})
+
+test('gitRaw 必须把 git 的退出码带到异常上(区分"git 说没有"与"git 没跑成")', () => {
+  // `git grep` 无命中是**正常结论** rc=1,调用方(守门 93 的 R3)要据此放过。若层只留一句
+  // 文本消息,调用方就只能去 parse 自己的异常字符串 —— 那是把结论建立在文本上。
+  const root = join(here, '..', '..')
+  let e1 = null
+  try {
+    gitRaw(['grep', '-l', 'IHUI-NO-SUCH-TOKEN-ZZ-20260925', 'HEAD', '--', 'scripts'], root)
+  } catch (e) {
+    e1 = e
+  }
+  assert.ok(e1 instanceof Undetermined, '无命中也必须走 Undetermined(层不猜语义)')
+  assert.equal(e1.status, 1, `rc=1 必须原样带到异常上,实得 ${e1.status}`)
+  // 反向对照:真失败(git 自己的 128 类错误)不得也报 1,否则本判据无法区分两态。
+  // (刻意不用"不存在的子命令"当反例 —— git 对它也回 1,和"没命中"同码,区分不出来。)
+  let e2 = null
+  try {
+    gitRaw(['--git-dir=' + join(root, 'no-such-gitdir-zz'), 'rev-parse', 'HEAD'], root)
+  } catch (e) {
+    e2 = e
+  }
+  assert.ok(e2 instanceof Undetermined)
+  assert.equal(e2.status, 128, `git 自身错误必须是 128 而非 1,实得 ${e2.status}`)
 })
 
 /** 阳性对照用的"违规写法"样本:证明下面那条判据真的能抓住裸 git,而不是恒过 */
@@ -168,19 +203,19 @@ const bareGitCount = (text) =>
   (text.match(/execFileSync\(\s*['"]git['"]/g) || []).length +
   (text.match(/execSync\(\s*['"]git\b/g) || []).length
 
-test('判据本身不恒真:同一把尺子必须能抓住违规样本、而对三门均为 0', () => {
+test('判据本身不恒真:同一把尺子必须能抓住违规样本、而对已收口的门均为 0', () => {
   assert.equal(bareGitCount(BAD_SAMPLE), 2, `尺子连样本都抓不住(实得 ${bareGitCount(BAD_SAMPLE)})`)
   assert.equal(bareGitCount("execFileSync(GIT_BIN, ['status'])"), 0, '走常量的正确写法不得误报')
   for (const f of GATES) assert.equal(bareGitCount(read(f)), 0, `${f} 里仍有自拼的裸 git 派生`)
 })
 
-test('装车证明:三门都必须真的 import 这一层', (t) => {
+test(`装车证明:${GATES.length} 道门都必须真的 import 这一层`, (t) => {
   for (const f of GATES) {
-    const src = read(f)
     if (!existsSync(join(scriptsDir, f))) {
       t.skip(`${f} 不在盘上 ⇒ 未判定,不计为通过`)
       continue
     }
+    const src = read(f)
     assert.match(
       src,
       /from '\.\/lib\/face-reader\.mjs'/,
