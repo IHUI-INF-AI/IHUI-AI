@@ -18241,6 +18241,7 @@
     "advancedAiTools": "進階 AI 工具",
     "mediaTasks": "媒體任務",
     "webTools": "網頁工具",
+    "figmaImport": "設計稿轉碼",
     "voices": "聲紋庫",
     "agentGovernance": "Agent Token 治理",
     "agentWorkbench": "智能體工作臺",
@@ -25175,6 +25176,23 @@
     "deleteConfirm": "刪除該聲紋?刪除後不可再用於克隆 TTS。",
     "refresh": "重新整理",
     "notFound": "未找到該聲紋"
+  },
+  "figmaImportPage": {
+    "title": "設計稿轉碼",
+    "subtitle": "貼入 Figma fileKey 與節點 ID,一鍵產生可執行的前端元件程式碼(React+Tailwind / Taro)。",
+    "targetReact": "React + Tailwind",
+    "targetTaro": "Taro 小程式",
+    "fileKeyPlaceholder": "Figma fileKey(如 a1b2c3...)",
+    "nodeIdPlaceholder": "節點 ID(如 1:2,選取 Frame 後複製連結可取得)",
+    "run": "產生程式碼",
+    "running": "產生中...",
+    "tokenHint": "需伺服器端設定 FIGMA_API_TOKEN;LLM 產生失敗時自動降級為確定性 HTML 骨架。",
+    "errorRequired": "請填寫 fileKey 與節點 ID",
+    "resultTitle": "產生結果",
+    "copy": "複製程式碼",
+    "copied": "已複製",
+    "degradedNotice": "LLM 產生失敗,已降級為確定性 HTML 骨架(仍可直接使用,不會白屏)。",
+    "metaNodes": "節點 {nodes} 個 · 文字 {texts} 處 · 圖片參照 {images} 處"
   },
   "webToolsPage": {
     "title": "網頁工具",
