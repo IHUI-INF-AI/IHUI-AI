@@ -16,6 +16,7 @@ import {
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
+import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatTimeOnly } from '../utils/date-utils'
 import { getToken } from '../lib/token'
@@ -50,6 +51,7 @@ function mapMessage(m: ChatMessage): LiveDetailChatMessage {
 
 export function LiveDetailScreen() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const route = useRoute<Route>()
   const navigation = useNavigation<NavigationProp>()
   const { id } = route.params
@@ -163,6 +165,7 @@ export function LiveDetailScreen() {
       </View>
       <SharedLiveDetailScreen
         t={t}
+        colorScheme={resolvedTheme}
         live={sharedLive}
         loading={loading}
         error={error}
