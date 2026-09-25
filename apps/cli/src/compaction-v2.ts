@@ -27,13 +27,16 @@ import {
   type CompressionResult,
 } from './context.js';
 // 内部 import 的 type 不会自动对外可见;测试与调用方按本模块取词,故显式转导出。
-export type { ChatMessage, CompressionResult };
+export type { ChatMessage, CompressionResult, CompactionDecisionReason };
 // 阈值常量从共享包引用(跨端统一 0.88,与 context.ts / API / ai-service 一致)
 import {
   DEFAULT_KEEP_RECENT,
   DEFAULT_TRIGGER_RATIO,
   DEFAULT_TARGET_RATIO,
   reclaimStaleToolResults,
+  // P1:压缩分母的唯一出口(共享窗口必须先扣输出预留),不在端内自拼第二份算式
+  effectiveContextWindow,
+  type CompactionDecisionReason,
   type ReclaimResult,
 } from '@ihui/context-compaction';
 
@@ -65,6 +68,20 @@ export interface CompactionObserver {
 export interface CompactionV2Options {
   /** 模型上下文窗口大小(tokens) */
   contextLimit: number;
+  /**
+   * 本轮模型可用输出上限(tokens)。provider 的 context window 是 **input 与 output 共享**
+   * 的同一个窗口,分母必须先扣掉它 —— 唯一出口是共享包 `effectiveContextWindow`。
+   * 不传则按保守默认预留(仍然会扣,不会退回旧的分母)。
+   */
+  maxOutputTokens?: number;
+  /** 分母的额外安全余量(估算误差等),默认 0 */
+  contextBufferTokens?: number;
+  /**
+   * 关掉"输出预留"这一档 ⇒ 分母逐字回到 contextWindow 原值(旧行为)。
+   * 也可用环境变量 `IHUI_COMPACTION_OUTPUT_RESERVE=0` 全局关。默认**开启**。
+   * 之所以留开关:更早压缩是用户可感知的行为改变,需要一条可对照的回退路径。
+   */
+  outputReserveEnabled?: boolean;
   /** 触发压缩的占用率(0-1,默认 0.88,跨端统一) */
   triggerRatio?: number;
   /** 压缩后的目标占用率(0-1,默认 0.6) */
@@ -124,6 +141,17 @@ const DEFAULT_MIN_SUMMARY_SEED_CHARS = 500;
 const DEFAULT_MAX_ATTEMPTS = 3;
 const DEFAULT_RETRY_DELAY_MS = 1000;
 const DEFAULT_SAMPLING_TIMEOUT_MS = 30_000;
+
+/**
+ * 输出预留的总开关(默认开)。设为 `0` / `false` 即分母回到 contextWindow 原值。
+ * 只在 CLI 入口层读 env(§"外部 I/O 边界收敛"),共享包不认环境变量。
+ */
+const OUTPUT_RESERVE_ENV = 'IHUI_COMPACTION_OUTPUT_RESERVE';
+
+function outputReserveEnabledByDefault(): boolean {
+  const raw = typeof process !== 'undefined' ? process.env?.[OUTPUT_RESERVE_ENV] : undefined;
+  return raw !== '0' && raw !== 'false';
+}
 
 /** 识别 user 消息中嵌入的 tool 结果标记(IHUI-AI 约定) */
 const TOOL_RESULT_MARKER_REGEX = /\[工具结果\s*[✓✗]\]/;
@@ -242,22 +270,32 @@ export function selectTurnsToCompact(
 /**
  * shouldCompact — 参考行业 Agent 框架的 trigger 实现。
  * lastPromptTokens / contextLimit > triggerRatio(默认 0.88,跨端统一)→ 触发。
+ *
+ * ⚠️ 第二个参数必须是**已扣掉输出预留的分母**(见 `effectiveContextWindow`):
+ * provider 的窗口是 input/output 共享的,直接除窗口原值算的是"占满整个共享窗口的 88%",
+ * 而同一窗口里模型还要生成回复 ⇒ "压缩判过了还是 400 / context overflow"。
  */
 export function shouldCompact(
   lastPromptTokens: number,
   contextLimit: number,
   _currentStep?: number,
   opts: { triggerRatio?: number } = {},
-): { shouldCompact: boolean; trigger: CompactionTrigger; percent: number } {
+): {
+  shouldCompact: boolean;
+  trigger: CompactionTrigger;
+  percent: number;
+  /** P2 闭集原因:below-threshold / above-threshold(分母无效时为 disabled) */
+  reason: CompactionDecisionReason;
+} {
   const triggerRatio = opts.triggerRatio ?? DEFAULT_TRIGGER_RATIO;
   if (contextLimit <= 0) {
-    return { shouldCompact: false, trigger: 'none', percent: 0 };
+    return { shouldCompact: false, trigger: 'none', percent: 0, reason: 'disabled' };
   }
   const percent = lastPromptTokens / contextLimit;
   if (percent > triggerRatio) {
-    return { shouldCompact: true, trigger: 'ratio', percent };
+    return { shouldCompact: true, trigger: 'ratio', percent, reason: 'above-threshold' };
   }
-  return { shouldCompact: false, trigger: 'none', percent };
+  return { shouldCompact: false, trigger: 'none', percent, reason: 'below-threshold' };
 }
 
 /** isDegenerateSummary — 摘要 trim 后长度 < minSummarySeedChars(默认 500)视为退化 */
@@ -334,6 +372,11 @@ export async function sampleWithRetry(
 
 // ==================== 主入口 ====================
 
+/** 给一份压缩结果补上闭集原因(V1 fallback 不设 reason,这里如实标注 V2 的决策依据) */
+function withReason(result: CompressionResult, reason: CompactionDecisionReason): CompressionResult {
+  return { ...result, reason };
+}
+
 /** fallback 到现有 compressContextIfNeeded(只读复用 context.ts) */
 function fallbackToV1(messages: ChatMessage[], opts: CompactionV2Options): CompressionResult {
   return compressContextIfNeeded(messages, {
@@ -360,6 +403,7 @@ function reclaimAsCompression(
     compressedTokens: reclaim.afterTokens,
     removedCount: reclaim.reclaimedCount,
     trigger: 'reclaim',
+    reason: 'above-threshold',
     usageRatio: contextLimit > 0 ? originalTokens / contextLimit : 0,
   };
 }
@@ -374,7 +418,16 @@ export async function compressContextV2(
   inputMessages: ChatMessage[],
   opts: CompactionV2Options,
 ): Promise<CompressionResult> {
-  const contextLimit = opts.contextLimit;
+  // P1:分母 = 共享窗口 − 输出预留(封顶)− 余量。**只会 ≤ 旧分母 ⇒ 压缩更早触发**,
+  // 这是本票唯一的行为变化(用户可感知),回退路径见 `outputReserveEnabled` /
+  // 环境变量 IHUI_COMPACTION_OUTPUT_RESERVE=0。下方所有除法与阈值乘法都用这一份,
+  // 不再出现第二处"除窗口原值"。
+  const contextLimit = effectiveContextWindow({
+    contextWindow: opts.contextLimit,
+    ...(typeof opts.maxOutputTokens === 'number' ? { maxOutputTokens: opts.maxOutputTokens } : {}),
+    ...(typeof opts.contextBufferTokens === 'number' ? { buffer: opts.contextBufferTokens } : {}),
+    enabled: opts.outputReserveEnabled ?? outputReserveEnabledByDefault(),
+  });
   const triggerRatio = opts.triggerRatio ?? DEFAULT_TRIGGER_RATIO;
   const targetRatio = opts.targetRatio ?? DEFAULT_TARGET_RATIO;
   const keepRecent = opts.keepRecent ?? DEFAULT_KEEP_RECENT;
@@ -428,18 +481,19 @@ export async function compressContextV2(
       compressedTokens: currentTokens,
       removedCount: 0,
       trigger: 'none',
+      reason: trigger.reason,
       usageRatio: contextLimit > 0 ? currentTokens / contextLimit : 0,
     };
   }
 
   // 2. 消息数过少 → fallback
   if (messages.length < minMessages) {
-    return fallbackToV1(messages, opts);
+    return withReason(fallbackToV1(messages, opts), 'not-enough');
   }
 
   // 3. sampler 未提供且无缓存摘要 → fallback(缓存命中时无需 sampler)
   if (!opts.sampler && !(typeof opts.cachedSummary === 'string' && opts.cachedSummary.trim().length > 0)) {
-    return fallbackToV1(messages, opts);
+    return withReason(fallbackToV1(messages, opts), 'disabled');
   }
 
   // 4. 分割 head/tail
@@ -463,7 +517,7 @@ export async function compressContextV2(
   const headNonSystem = headToCompact.filter((m) => m.role !== 'system');
   const headTokens = estimateMessagesTokens(headNonSystem);
   if (headNonSystem.length < 1 || (!hasCachedSummary && (headNonSystem.length < minMessages || headTokens < minCompactableTokens))) {
-    return fallbackToV1(messages, opts);
+    return withReason(fallbackToV1(messages, opts), 'not-enough');
   }
 
   const startTime = Date.now();
@@ -485,14 +539,14 @@ export async function compressContextV2(
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       opts.observer?.onError({ target: 'compaction-v2', statusLabel: 'sampler-failed', error });
-      return fallbackToV1(messages, opts);
+      return withReason(fallbackToV1(messages, opts), 'sampler-failed');
     }
   }
 
   // 7. 退化检测
   if (isDegenerateSummary(sampleResult.response, minSummarySeedChars)) {
     opts.observer?.onError({ target: 'compaction-v2', statusLabel: 'degenerate-summary' });
-    return fallbackToV1(messages, opts);
+    return withReason(fallbackToV1(messages, opts), 'sampler-failed');
   }
 
   // 8. 清理控制标签
@@ -512,7 +566,7 @@ export async function compressContextV2(
   const guard = reductionGuard(originalTokens, compressedTokens, maxReductionRatio);
   if (!guard.accepted) {
     opts.observer?.onError({ target: 'compaction-v2', statusLabel: 'reduction-rejected' });
-    return fallbackToV1(messages, opts);
+    return withReason(fallbackToV1(messages, opts), 'guard-rejected');
   }
 
   // 11. 成功
@@ -532,6 +586,7 @@ export async function compressContextV2(
     compressedTokens,
     removedCount: headNonSystem.length,
     trigger: trigger.trigger,
+    reason: 'above-threshold',
     usageRatio: contextLimit > 0 ? originalTokens / contextLimit : 0,
   };
 }
