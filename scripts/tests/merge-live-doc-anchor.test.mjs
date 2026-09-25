@@ -68,6 +68,7 @@ function seedRepo() {
   const counts = (out) => ({
     lost: Number(/真丢失\(需插回\)= (\d+)/.exec(out)?.[1] ?? -1),
     superseded: Number(/被就地改写取代\(不插回\)= (\d+)/.exec(out)?.[1] ?? -1),
+    stale: Number(/工作树滞后旧态[^=]*= (\d+)/.exec(out)?.[1] ?? -1),
   })
   return { dir, doc, run, counts }
 }
@@ -80,7 +81,38 @@ test('A 就地改写(锚点相同、正文全换)⇒ 真丢失=0,且不再要求
     const c = counts(out)
     assert.equal(c.lost, 0, `改写被判吃掉 ⇒ 会逼人 --apply 造出重复登记行。报告:\n${out}`)
     assert.equal(c.superseded, 1, '应恰有一行判"被就地改写取代"')
-    assert.match(out, /可安全提交/, '结论行应转为可安全提交')
+    /**
+     * 2026-09-25 改的断言方向:旧版这里要求结论行写「可安全提交」,而那正是被证伪的承诺 ——
+     * `lost=0` 只保证"没有整行不见",superseded/stale 两类的定义恰恰是"HEAD 的那一行文字
+     * 不在工作树里"。实测 20 条登记行就在这句绿灯下被退回旧态。所以本例现在断言的是:
+     * **有任一非逐字存活行时,结论行不得声称 ⊇ HEAD**。
+     */
+    assert.doesNotMatch(out, /工作树 ⊇ HEAD\(逐字包含/, '有改写行时不得再声称逐字 ⊇ HEAD(那是假保证)')
+    assert.match(out, /不等于\*\*工作树 ⊇ HEAD/, '结论行必须按实际形态说话')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('D 工作树停在旧形态(HEAD 翻勾 + 追加注记)⇒ 报 stale=1,且与 superseded 分列', () => {
+  const base =
+    '一条登记行的正文长到足以进入判据集合,并且在工作树里存在一个未翻勾的旧副本,别处不留它的文字'
+  const { dir, doc, run, counts } = seedRepo()
+  const g = (...a) =>
+    execFileSync(GIT, ['-c', 'safe.directory=*', ...a], { cwd: dir, encoding: 'utf8', windowsHide: true, timeout: 120000 })
+  try {
+    // 先把 HEAD 推到"已翻勾 + 追加注记"那一版并入库,再把工作树写回未翻勾的旧形态 ——
+    // stale 的定义就是工作树比 HEAD 旧,所以必须先建 commit 再改盘(A 例不需要是因为它只比 seed)。
+    doc(`# 头\n- [x] ✅(2026-09-25) ${base} 〔同日追加的注记让 HEAD 侧成为工作树的严格超集〕\n- 无关行\n`)
+    g('add', '-A')
+    g('commit', '-qm', 'head 侧翻勾并追加注记')
+    doc(`# 头\n- [ ] ${base}\n- 无关行\n`)
+    const out = run()
+    const c = counts(out)
+    assert.equal(c.lost, 0, `旧形态行不该被判整行丢失:\n${out}`)
+    assert.equal(c.stale, 1, `应恰有一行判"工作树滞后旧态",实得 ${c.stale} —— 报告:\n${out}`)
+    assert.equal(c.superseded, 0, 'stale 必须与"被人改写"分列 —— 两者处置动作不同')
+    assert.match(out, /stale 那几条要人工取 HEAD 形态/, '报告要给出出口,不能只报数')
   } finally {
     rmScratch(dir)
   }
