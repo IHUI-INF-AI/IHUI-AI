@@ -126,7 +126,7 @@
 - [x] ✅(2026-09-24 17:1x 已按用户授权重新注册) 计划任务 `IHUI-C-Drive-AutoMaintain` 此前
   §26 的「已注册」表述已就地改正。**2026-09-24 终判已交付**(三路取证见上一行,任务确实不在),本条的残余不是"未知"而是**"待授权恢复"**:解阻判据 = 用户明确同意重新注册后,按 §26 的 `wscript → 纯 ASCII .vbs → pwsh -File` 链注册并 `schtasks /Query /XML` 回读 `LogonType=S4U` + `StartBoundary=03:00`;在此之前每日 C 盘清理为零执行。
 - [ ]（进行中）**P2-13③ prod-bundle docker compose 链路接 AI 部署诊断**（交接档判"约 5 行改 + 必须一并补结果落盘"；落点 `deploy/**`；详见 `.ihui-agent/archive/orphan-capabilities-equivalence-2026-09-24.md`）
-- [ ]（进行中）**P2-14 技能市场详情：URL 深链 + listing 契约 `enabled/source/ownerId` + 后端两路由**（判"不要原样迁回归档那 245 行，会与 `SkillDetailDialog` 双轨"；需 DB 列则交回，journal 在他人的 in-flight 里）
+- [x] ✅(2026-09-25) **P2-14 技能市场详情：URL 深链(web 端) + listing 契约三字段 + 后端两路由** —— 深链由生成器产出(未手改生成物)且复用既有 GET /api/skills/market 反查、不另起第二套详情 UI 与第二个详情端点；契约落在 `packages/shared/src/skills/market.ts`(该文件注明"单一契约源"、api 与 api-client 共用，改在 api-client 会造第二真相源)，且市场条目存 Redis 非 PG 表 ⇒ 不触数据库列红线；新增 `POST /skills/:name/listing`(上下架切换,保留 installCount/评分,顺序严格 先鉴权→校参数→校归属,无归属一律 403) 与 `GET /skills/:name/ownership`；归属由服务端按调用身份推导、请求体不接受 ownerId。**两项如实登记的遗留**：① miniapp/rn/extension 三端**整块技能市场界面不存在**，深链跨端要先有那三端页面；② 既有 `POST /skills/:name/unlist` **至今不做 owner 校**(任意登录用户可摘别人条目)，属落地前的旧面，本票只新增未改它 —— **建议列为下一票(授权面缺陷，非新功能)**。**P2-14 技能市场详情：URL 深链 + listing 契约 `enabled/source/ownerId` + 后端两路由**（判"不要原样迁回归档那 245 行，会与 `SkillDetailDialog` 双轨"；需 DB 列则交回，journal 在他人的 in-flight 里）
 - [ ]（进行中）**B15② `ext_ui` 第五族：把扩展自有界面(sidepanel 44 页 / 51 控件)纳入 AI 操控面**（不复用 `browser→extension`，须补"同一 category 不得有两个候选端"反向断言）
 - [x] ✅(2026-09-25) **B15② `ext_ui` 第五族：把扩展自有界面(sidepanel 44 页 / 51 控件)纳入 AI 操控面** —— **实测结论：能力本身 2026-09-21 早已落地，本票前提过期**（上方 B15 那条已就地改写为指针）；本票真正交付的是缺失的那枚**反向断言**用例 ㉔ + 把择端表纳入 `__test__` 出口，24/24 绿且变异取证。**遗留一项待你决策**：`apps/api/tsconfig.json` 的 `include` 不含 `tests/` ⇒ api 测试面结构性不被 tsc 覆盖（实测既有两个 fixture 都缺 `extUiActions` 声明而三处在传/在读，typecheck 一路绿），纳入属全仓口径变更、会一次性浮出历史错误，未擅自动。
 - [ ] 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()`(`check-workspace-dep-links` /
@@ -7511,6 +7511,64 @@ ode_modules` ⇒ 解析到不存在的 `D:IHUI-AIIHUI-AI...`,`.bin` 掉到 66 �
   遮蔽已跟踪 `sandbox.py` ⇒ 守门 35 mypy 恒红(`tool_input_scanner.py:32` / `mcp_server.py:1954`,
   两文件均工作树==HEAD);`check-i18n-keys` 的 5 处缺失键在 `ecosystem` 命名空间;
   `apps/web` 另有 3 例 `tool-call-rollback-badge` 因缺 `TooltipProvider` 基线红。三者归属均为他人,本批未代改。
+
+### 第三波(同夜 03:0x–03:4x,把上一节"未闭环"逐条判掉:能做的当场做完,做不完的给出归属与证据)
+
+- [x] ✅(2026-09-25) **上一条"未闭环六项"里四项已就地做完**:
+  ① goal 独立校验轮**接上消费面**(`fa...`见下条);② `page_*` 跨端登记;③ 两处基线红;④ 四语译文复核。
+  下面逐条给证据,并把剩下两条改写成"归属明确、非本批可 finish"的事实。
+- [x] ✅(2026-09-25) **goal 完成判定闸门**(`feat(ai-service): goal 完成判定接独立校验闸门`)——
+  实测纠正一条比"端点没消费方"更根本的事实:**本仓没有 §8 意义上的 goal 运行循环**;
+  唯一"宣布达成"的生产出口是 `app/services/agent_loop_v2.py:3574-3586`
+  「LLM 不再发 tool_calls ⇒ success=True / stop_reason=completed」,那**恰好就是 §8 禁止的模型自评**。
+  闸门接在 `app/routers/agents.py:1086-1088`(done 帧组装**之前**),另有 :989 流前校验声明(422)、
+  :923 单轮入口对 `hard_criteria` 拒 400(不许"收下却不校验"= 另一个 fail-open 入口)。
+  三判据 + 两反向对照共 23 例(`test_goal_completion_gate.py`),连库存量 31 例 **54 passed**;
+  `未判定` 沿 done 帧 → `packages/api-client` 的 `GoalVerification` / `AgentStreamEvent.goal_status`
+  一路传到人眼,TS 侧测试钉死"缺字段不等于通过"。策略常量只落 `tunables.py` 段 6,刻意不进 parity 清单。
+  **不造第二套 goal 状态机**(web 的 `/goal` 是纯客户端 store、done 由人手点,无循环可接)。
+- [x] ✅(2026-09-25,`fa91dd93fe3`) **`page_*` 跨端申报**:只有 extension(唯一真有 DOM 通道的端)
+  与 api 转发面登记;web / miniapp-taro / mobile-rn / desktop / ai-service **逐端给判据不登记**
+  (如 `TARO_UI_ACTIONS` 是 `_APP_ACTIONS` 应用内七动词族,与页面族不同族不扩)。
+  capability 目录判据钉在 `browser:operate` 条目注释里:目录只收"有真实端点 + 有暴露它的工具名"的对外可调面,
+  `page_*` 在 api 与 ai-service 全仓零命中 ⇒ 登记即谎报能力。
+  两处静默失败已用测试钉死:api 的 zod 默认 strip 未声明键(漏 `capabilitySchema` 那行=申报静默丢失且不响)、
+  契约**多报**方向类型上合法且处处不红(故补 `Expect<Equals<PageActionType, BrowserPageControlActionType>>`)。
+- [x] ✅(2026-09-25,`a4bd378b788`) **两处拦人的基线红**:`zh-TW.json` 里上一枚并行提交带入的
+  3 处 U+2F12 Kangxi 部首 `⼒`(五语只有 zh-TW 命中,且没有任何门判红)+ 2 枚简体 `平台`;
+  `tool-call-rollback-badge.test.tsx` 3 例缺 `TooltipProvider`(按既有惯例只改测试侧,
+  未碰生产码、未放宽断言,同目录 **397 passed / 0 failed**)。
+- [x] ✅(2026-09-25,`3b58fed1883`) **归因四语译文复核**:19 枚键逐键对账(占位符/缺键/多键全一致,
+  zh-TW 无简体、ja 无简体字形、en 无机翻、ko 无中文),就地订正 ko 两处错译
+  (`cacheHit` 的"재사용 复用"→"다시 읽기 读回";`residualNote` 把"另有"误译成"총 总计"会把语义反掉);
+  `cacheUnavailable` / `unobservedServerOnly` 四语核对**未被译弱**。
+  `tailPreview` 实测**只有 web 有消费面**(共享引擎在 RN/小程序零引用、`chat.contextUsage` 19 键
+  只存在于 web 词包,两端只有 SSE before/after 计数的压缩提示条)⇒ 按 §9 标注**单端**,不新造界面。
+- [x] ✅(2026-09-25,`f6e23e691fd`) **我自己踩到的一条假绿灯**:`sync-lost-commit-tags.mjs` 的
+  `isCheck` 兜底逻辑让任何未知/缩写开关(我用了文档措辞直觉写的 `--push`)**静默落到 `--check`**、
+  exit 0,而我那枚存档 tag 实际没上远端(`ls-remote` 回读为空,显式 push 才落地)。
+  改为未知参数 stderr 点名 + `exit 2`,并把 `--push` 收为 `--auto-push` 的显式别名;三态实测复跑。
+- [ ] **`stream-tool-ledger` 接线(唯一真正剩下的技术活)——归属是他人、非本批可 finish**:
+  唯一接线点 `apps/cli/src/commands/agent.ts` 自 01:2x 起持续含另一会话**未提交**的 D19 `terminal_delta`
+  工作(其测试 `apps/cli/tests/terminal-delta.test.ts` 至今未跟踪),整文件提交即混提(§12 红线)。
+  为防止"未跟踪文件被本机清理层吃掉"(§5b/§23 有丢过 15 枚未推送提交的先例),已用
+  **对象空间提交 + backup tag** 把模块与单测存档到远端:
+  `backup/wip-stream-tool-ledger-2026-09-25` → `55a0a9dae57`(ls-remote 回读 sha 一致),main 未动。
+  解阻判据:待 `agent.ts` 他人改动入库后,`git stash apply` 式取回该 tag 内容(`git show <tag>:<path>`)
+  并按三道守卫同法补一条"真被调用"的装车测试。
+- [ ] **本批刻意不碰的他人半落地内容(证据已给全,免得下一个人重新猜)**:
+  ① `packages/shared/src/sse/contract.ts` 与 `__tests__/contract.test.ts` 整块是并发会话
+  D77 `form_request`/`form_response`(G-106)的在飞改动 —— 实测该文件里 goal 相关行**为零**,
+  故 api-client 那 4 个文件在**不带**它的前提下 tsc exit 0 + 190 例全绿,证明不依赖;
+  当前 `check-agent-event-parity` rc=1 报的两条漂移即源于此(HEAD 两侧均 0,纯工作树在飞态)。
+  ② `apps/ai-service/app/routers/llm.py`、`apps/api/src/{db/chat-queries.ts,routes/chat.ts,routes/skills.ts}`、
+  `apps/ai-service/tests/test_sandbox_*.py`、`zh-TW.json` 之外的 skillMarket 缺键
+  (`check-i18n-keys` 现报 8 枚,引用方 `PageClient.tsx` 工作树 M、HEAD 五语已有该块)同属他人。
+  ③ mypy 恒红的真因经取证**不是**"重构拆了一半",而是新包 `app/services/sandbox/` 以同名包遮蔽已跟踪
+  `sandbox.py` 的**命名冲突**(`_DANGEROUS_PATTERNS:116` / `sandbox_executor:804` 唯一实现仍在被遮蔽文件里,
+  包内 4 模块与 `__all__` 命中均为 0)⇒ 干净检出与 CI 必然绿。
+  **但风险要登记**:该目录"未跟踪**也未被忽略**"(`.gitignore` 的 `!**/__init__.py` 反向规则救回),
+  谁跑一次 `git add -A` 就会把整块新包入库并改变全仓解析语义,而**当前没有任何门会提示**。
 
 
 - [x] ✅(2026-09-25)**渐进收口的第一块已选定并翻正**：`config/architecture-policy.yaml` 里
