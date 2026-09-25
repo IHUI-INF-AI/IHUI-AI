@@ -16,7 +16,15 @@
  *
  * 调用方:@ihui/extension 的 agent-control.ts(re-export 给 content.ts)、其他端可按需 import
  */
-import type { BrowserControlActionType, AgentActionErrorCode } from '@ihui/types'
+import type { BrowserControlActionType, AgentActionErrorCode, BrowserPageControlActionType } from '@ihui/types'
+import { isPageAction, type PageActionErrorCode, type PageActionType } from './page-snapshot/contract.js'
+import { runPageAction } from './page-snapshot/host.js'
+
+export * from './page-snapshot/contract.js'
+export * from './page-snapshot/page-api.js'
+export * from './page-snapshot/install-expression.js'
+export * from './page-snapshot/serialize.js'
+export * from './page-snapshot/host.js'
 
 // ===== Result type =====
 
@@ -24,12 +32,16 @@ export interface DomActionResult {
   success: boolean
   data?: Record<string, unknown>
   error?: string
-  errorCode?: AgentActionErrorCode
+  /**
+   * 句柄族动词有自己的一套错误码（`HANDLE_STALE` / `HANDLE_SCOPE_MISMATCH` …），
+   * 与选择器族的 `SELECTOR_NOT_FOUND` 语义不同，故并列而非改写。
+   */
+  errorCode?: AgentActionErrorCode | PageActionErrorCode
 }
 
 // ===== Action classification =====
 
-export const DOM_ACTIONS = new Set<BrowserControlActionType>([
+export const DOM_ACTIONS = new Set<BrowserControlActionType | PageActionType>([
   'click_element',
   'type_text',
   'scroll',
@@ -38,21 +50,65 @@ export const DOM_ACTIONS = new Set<BrowserControlActionType>([
   'get_attribute',
   'hover',
   'select_option',
+  // 句柄族动词同样"纯 DOM、无 chrome.* 依赖"，因此并入同一集合：
+  // 下游（background 的择端转发、content 的执行入口）不必为它另开一条路由。
+  'page_snapshot',
+  'page_click',
+  'page_type',
+  'page_select',
+  'page_hover',
+  'page_press_key',
+  'page_pick_at_point',
 ])
 
-export function isDomAction(action: BrowserControlActionType): boolean {
-  return DOM_ACTIONS.has(action)
+export function isDomAction(action: BrowserControlActionType | PageActionType | string): boolean {
+  return DOM_ACTIONS.has(action as BrowserControlActionType | PageActionType)
 }
+
+/**
+ * 句柄族动词与契约 `@ihui/types` 的 `BrowserPageControlActionType` **双向同形**对账(2026-09-25 立)。
+ *
+ * 为什么不能只靠 extension 那一侧的赋值:那里是 `[...PAGE_ACTIONS]` 赋给契约类型标注的常量,
+ * 只在"本包多一条"时报 `TS2322`;反方向(契约多一条、本包没有)**类型上完全合法**,
+ * 后果是对外宣称能做而端上 `isDomAction` 判 false,回来的是 `UNSUPPORTED_ACTION` ——
+ * 申报与能力分叉,且没有任何一处会红。
+ *
+ * `Equals` 恒等判定 + `Expect` 把两个方向一起钉在编译期:不新增第二份清单、不需要运行时对账。
+ * 放在 index(宿主侧)而非 contract:contract 是**注入页面**的自包含源,不得引入包依赖。
+ */
+type Expect<T extends true> = T
+type Equals<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
+export type PageActionContractParity = Expect<Equals<PageActionType, BrowserPageControlActionType>>
 
 // ===== DOM action executor (runs in content script) =====
 
 export async function executeDomAction(
-  action: BrowserControlActionType,
+  action: BrowserControlActionType | PageActionType,
   params: Record<string, unknown>,
   timeoutMs = 30000,
 ): Promise<DomActionResult> {
   if (!isDomAction(action)) {
     return { success: false, errorCode: 'UNSUPPORTED_ACTION', error: `not a DOM action: ${action}` }
+  }
+  // 句柄族自成一条支路：错误码与副作用标记与选择器族不同形，混进 doDomAction 的 switch
+  // 会让两侧语义互相污染（同一码在两族含义不同）。
+  if (isPageAction(action)) {
+    const result = runPageAction(action, params)
+    return {
+      success: result.ok,
+      data: {
+        ...(result.data ?? {}),
+        // 确定性标记必须随信封一起出去：它掉了，模型就只能"不知道有没有副作用"，
+        // 而这个码族存在的唯一理由就是回答"能不能重试"。
+        dispatched: result.dispatched,
+        sideEffect: result.sideEffect,
+        sideEffectReason: result.sideEffectReason,
+        ...(result.hint ? { hint: result.hint } : {}),
+      },
+      error: result.error,
+      errorCode: result.errorCode,
+    }
   }
   const exec = doDomAction(action, params)
   const timeout = new Promise<DomActionResult>((resolve) => {

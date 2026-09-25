@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /**
  * i18n AI 翻译流水线 - 翻译结果应用器(零 LLM API 调用)。
  *
@@ -34,16 +33,25 @@
  *                                                #   web / extension / miniapp-taro / shared /
  *                                                #   mobile-rn / cli / api(全部读写 .json)
  *
- * 两道防写错端的机制(2026-09-25 立,此前 `--target=mobile-rn` 会静默改写 **web** 的语言包):
+ * 三道防误操作的机制(2026-09-25 立):
  *   1. 未知 / 拼错的 --target → exit 2 并点名错误值 + 列出可用端,不再回落到 web。
+ *      (此前 `--target=mobile-rn` 会静默改写 **web** 的语言包)
  *   2. 写前对账:翻译结果若自带 target / messagesDir(由 i18n-diff 产出),必须与 --target
  *      解析出的目录一致,不一致 → exit 2 且**一个字节都不写**。输入没带这两个字段时无法对账,
  *      会如实打一条警告说明"本轮无对账依据",而不是把"没证据"当成"对上了"。
+ *   3. 参数守卫 + 陈旧载荷守卫:本脚本**不认识的参数一律 exit 2**并点名,含裸位置参数;
+ *      `--help` / `-h` 只打印用法并 exit 0。立因是真实事故:`--help` 曾被当成"无参调用"
+ *      直接进写盘模式,拿一份盘上遗留的旧 `i18n-translations.json` 重排改写了 web 四份
+ *      语言包(各 176–214 行新增 / 35–39 删除)—— 查个用法就把别人的批次烤进主线。
+ *      配套:载荷自带 `translatedAt` 早于目标语言包 mtime 时 exit 2 拒写,
+ *      另有回退可见化:载荷会改写/丢掉**已翻译**的键时逐条点名(默认不拦,重译已翻键是正常维护动作;
+ *      自动化/CI 要硬拦加 `--deny-overwrite`)。
  *
  * 退出码:
- *   0 = 成功应用 / check 通过
+ *   0 = 成功应用 / check 通过 / --help
  *   1 = 翻译结果不完整(仍有 pending) 或应用失败
- *   2 = 用法错误(未知 --target / 目录不存在 / 输入声明的端与 --target 不符)
+ *   2 = 用法错误(未识别参数、未知 --target、目录不存在、输入声明的端与 --target 不符、
+ *       陈旧载荷未获显式放行)
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -56,6 +64,93 @@ const customInput = inputIdx >= 0 ? process.argv[inputIdx + 1] : null
 const targetArg = process.argv.find((a) => a.startsWith('--target='))
 const TARGET = targetArg ? targetArg.split('=')[1] : 'web'
 const TARGET_IS_EXPLICIT = targetArg !== undefined
+const denyOverwrite = process.argv.includes('--deny-overwrite')
+
+/**
+ * 参数守卫(2026-09-25 立,起因是一起真实事故)。
+ *
+ * 此前本脚本**只认自己看得懂的参数,其余一律静默忽略** —— 于是
+ * `node scripts/i18n-apply.mjs --help` 被当成"无参调用",直接进写盘模式,拿盘上那份
+ * 陈旧的 `i18n-translations.json` 重排改写了 web 四份语言包(各 176–214 行新增 / 35–39 删除)。
+ * 想查个用法就把别人的翻译批次烤进主线,这是本仓最忌讳的"工具在故障现场报绿"那一型:
+ * 一次误操作的破坏面 = 一整份共享词包,而 `git status` 之前完全看不出来是谁干的。
+ *
+ * 三条口径:① `--help` / `-h` 只打印用法并 exit 0(且**在读任何语言包之前**);
+ * ② 未识别的参数(含裸位置参数)一律 exit 2 并点名,**不降级成默认动作**;
+ * ③ 拒写时盘上零变化是本函数的契约,由镜像测试用"跑完 git status 必须为空"钉死。
+ */
+const KNOWN_FLAGS = new Set(['check', 'input', 'target', 'deny-overwrite'])
+
+export function parseArgs(argv) {
+  const out = { help: false, unknown: [] }
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = argv[i]
+    if (a === '--help' || a === '-h') {
+      out.help = true
+      continue
+    }
+    if (!a.startsWith('-')) {
+      // 裸位置参数:历史上会被无声忽略,调用方以为"传了路径"其实没有
+      out.unknown.push(a)
+      continue
+    }
+    const name = a.replace(/^--?/, '').split(/[=\s]/)[0]
+    if (KNOWN_FLAGS.has(name)) {
+      if (name === 'input') {
+        // 只给 --input 不给值:旧行为是"当没传",于是悄悄回落到默认路径 ——
+        // 调用方以为自己在应用指定的那份文件,其实应用的是盘上遗留的另一份。
+        if (a === '--input' && i + 1 < argv.length) {
+          i += 1
+          continue
+        }
+        out.unknown.push('--input <缺值>')
+        continue
+      }
+      continue
+    }
+    out.unknown.push(a)
+  }
+  return out
+}
+
+function usageText() {
+  return [
+    '用法: node scripts/i18n-apply.mjs [--target=<端>] [--input <path>] [--check] [--deny-overwrite]',
+    '',
+    '  --check                 只校验五语 parity,不写任何文件',
+    '  --target=<端>           须与 packages/i18n/messages/ 下目录名逐字相同(未知值一律拒)',
+    '  --input <path>          指定翻译结果 JSON(默认 .ihui-agent/tmp/i18n-translations.json)',
+    '  --deny-overwrite          已有键会被改写/丢弃时直接拒写(默认只点名,不拦)',
+    '',
+    '退出码: 0 成功 / 1 输入或校验失败 / 2 用法错误(未识别参数、未知 --target、--deny-overwrite 下会回退)',
+  ].join('\n')
+}
+
+const argvParsed = parseArgs(process.argv.slice(2))
+
+/**
+ * `--help` 与未识别参数的处置放在**独立函数 + isDirectRun 守卫**里,而不是裸写顶层:
+ * 本文件导出了 `parseArgs` 供测试直接断言,而 ESM 顶层代码**在被 import 时同样会执行** ——
+ * 裸写 `process.exit` 会让"任何带自己参数的脚本一 import 它就被打死"
+ * (2026-09-25 `check-task-claims.mjs` 就是这么被 `merge-live-doc` 的顶层 exit 弄死的)。
+ */
+function cliPreflight() {
+  if (argvParsed.help) {
+    console.log(usageText())
+    process.exit(0)
+  }
+  if (argvParsed.unknown.length) {
+    console.error(
+      `${C.red}❌ [i18n-apply] 未识别的参数:${argvParsed.unknown.map((x) => JSON.stringify(x)).join(' ')}${C.reset}`,
+    )
+    console.error(`${C.red}   已拒绝执行 —— 本轮未读任何语言包、未写任何文件。${C.reset}`)
+    console.error('   为什么不再"看不见就当没有":此前 `--help` 会被当无参直接进写盘模式,')
+    console.error('   拿一份陈旧载荷重排改写了四份语言包。未知参数降级成默认动作 = 误输入变实写。')
+    console.error('')
+    console.error(usageText())
+    process.exit(2)
+  }
+}
 
 // target → 目录 + 文件扩展名(与 i18n-diff.mjs 保持一致 —— 两份表必须同步改,漂移即错端写入)
 // 2026-07-25 i18n 单一来源:web/miniapp-taro 翻译迁移到 packages/i18n/messages/<platform>/
@@ -78,10 +173,7 @@ const VALID_TARGETS = Object.keys(TARGET_CONFIG)
 
 /** 目录串归一(斜杠方向 / 前导 ./ / 尾部斜杠),供"输入声明的目录 vs 本次解析的目录"对账用 */
 function normalizeDir(p) {
-  return String(p)
-    .replace(/\\/g, '/')
-    .replace(/^\.\//, '')
-    .replace(/\/+$/, '')
+  return String(p).replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/+$/, '')
 }
 
 /**
@@ -306,6 +398,69 @@ function verifyParity(messages) {
   return issues
 }
 
+/**
+ * 回退守卫(内容级):把"应用这份载荷会得到什么"与"盘上现在是什么"逐键比对。
+ *
+ * 判定口径跟着这条流水线自己的语义走 —— **覆盖"还没翻译的中文占位"是正常动作,不能报**:
+ * i18n-diff 的 pending 清单里,大量键在目标语言里的值就等于 zh-CN 源值(上一次自动回填留下
+ * 的占位),把它们翻成英文正是本工具存在的理由。所以只有两种情形算回退:
+ *   · dropped      —— 已有键在这次结果里消失;
+ *   · overwritten  —— 已有键的值与源值不同(那是人真翻译出来的译文)却被改写。
+ *
+ * 为什么不用 mtime 判"载荷旧不旧":本机 5+ 会话并发写词包,"载荷生成后有人动过文件"是常态,
+ * 拿 mtime 判会把合法批次天天挡掉,大家就随手带过逃生参数 —— 守卫退化成装饰。
+ * 键顺序 churn 不参与比对(reorder / prettier 会动顺序,不动语义)。
+ */
+export function regressionProblems(currentMessages, nextMessages, langs) {
+  const flat = (obj, pfx = '', out = new Map()) => {
+    for (const [k, v] of Object.entries(obj ?? {})) {
+      const key = pfx + k
+      if (v && typeof v === 'object' && !Array.isArray(v)) flat(v, `${key}.`, out)
+      else out.set(key, typeof v === 'string' ? v : JSON.stringify(v))
+    }
+    return out
+  }
+  const base = flat(currentMessages[BASE_LANG])
+  const problems = []
+  for (const lang of langs) {
+    const cur = currentMessages[lang]
+    const next = nextMessages[lang]
+    if (!cur || !next || lang === BASE_LANG) continue
+    const curFlat = flat(cur)
+    const nextFlat = flat(next)
+    const changed = []
+    const dropped = []
+    for (const [k, v] of curFlat) {
+      if (!nextFlat.has(k)) {
+        dropped.push(k)
+        continue
+      }
+      const nv = nextFlat.get(k)
+      if (nv === v) continue
+      // 现值 == zh-CN 源值 ⇒ 那是未翻译的占位,翻它正是这条流水线的动作,不算回退
+      if (base.has(k) && base.get(k) === v) continue
+      changed.push(k)
+    }
+    if (dropped.length)
+      problems.push({
+        lang,
+        kind: 'dropped',
+        keys: dropped,
+        text: `[${lang}] 会丢掉 ${dropped.length} 个已有键:${dropped.slice(0, 6).join(', ')}${dropped.length > 6 ? ' …' : ''}`,
+      })
+    if (changed.length)
+      problems.push({
+        lang,
+        kind: 'overwritten',
+        keys: changed,
+        text:
+          `[${lang}] 会改写 ${changed.length} 个**已翻译**的键(现值与 zh-CN 源值不同,不是占位):` +
+          `${changed.slice(0, 6).join(', ')}${changed.length > 6 ? ' …' : ''}`,
+      })
+  }
+  return problems
+}
+
 function main() {
   if (!fs.existsSync(INPUT_FILE)) {
     console.error(`${C.red}❌ 翻译结果文件不存在: ${path.relative(ROOT, INPUT_FILE)}${C.reset}`)
@@ -329,7 +484,9 @@ function main() {
   // 放在读语言包之前:一旦不符,本轮既不读也不写,盘上零变化。
   const mismatches = targetMismatchProblems(translationData, TARGET, TARGET_CFG)
   if (mismatches.length > 0) {
-    console.error(`${C.red}❌ [i18n-apply] 拒绝写入:输入翻译与 --target 不是同一端(极可能拿错了输入文件)${C.reset}`)
+    console.error(
+      `${C.red}❌ [i18n-apply] 拒绝写入:输入翻译与 --target 不是同一端(极可能拿错了输入文件)${C.reset}`,
+    )
     for (const p of mismatches) console.error(`   · ${p}`)
     console.error(`   本次 --target=${TARGET} → ${TARGET_CFG.dir}`)
     console.error(`${C.red}   已拒绝执行:未读任何语言包、未写任何文件。${C.reset}`)
@@ -337,7 +494,10 @@ function main() {
     console.error(`            并把 pending 清单里的 target / messagesDir 原样抄进翻译结果。`)
     process.exit(2)
   }
-  if (typeof translationData.target !== 'string' && typeof translationData.messagesDir !== 'string') {
+  if (
+    typeof translationData.target !== 'string' &&
+    typeof translationData.messagesDir !== 'string'
+  ) {
     // 没有可对比的声明 ⇒ 如实说明"本轮无对账依据",而不是把没证据当成对上了。
     console.warn(
       `${C.yellow}⚠️ 翻译结果未声明 target / messagesDir ⇒ 写前对账无从进行,写入目录仅由 --target=${TARGET} 单侧决定${C.reset}`,
@@ -361,6 +521,9 @@ function main() {
     process.exit(1)
   }
 
+  // 回退守卫要比对的是"盘上现状 vs 这次会写成什么",所以必须在应用前先抓一份快照。
+  const pristine = structuredClone(messages)
+
   console.log(`${C.bold}[i18n AI 翻译应用]${C.reset} ${isCheck ? '校验模式' : '应用模式'}`)
   // 目标端一律先自证:即将被写的目录必须出现在输出里,否则"写对了"和"写错了端"同形。
   console.log(
@@ -379,18 +542,44 @@ function main() {
     }
     console.error(`${C.red}❌ parity 校验失败:${C.reset}`)
     for (const issue of issues) {
-      console.error(`  [${issue.lang}] 缺失 ${issue.count} 键: ${issue.keys.join(', ')}${issue.count > 10 ? ' ...' : ''}`)
+      console.error(
+        `  [${issue.lang}] 缺失 ${issue.count} 键: ${issue.keys.join(', ')}${issue.count > 10 ? ' ...' : ''}`,
+      )
     }
     process.exit(1)
   }
 
   // 应用模式:写入翻译结果
   const result = applyTranslations(translations, messages)
-  console.log(`应用: ${C.green}${result.applied}${C.reset} 处,跳过: ${C.yellow}${result.skipped}${C.reset} 语言,错误: ${C.red}${result.errors.length}${C.reset}`)
+  console.log(
+    `应用: ${C.green}${result.applied}${C.reset} 处,跳过: ${C.yellow}${result.skipped}${C.reset} 语言,错误: ${C.red}${result.errors.length}${C.reset}`,
+  )
 
   if (result.errors.length > 0) {
     for (const err of result.errors) {
       console.error(`  ${C.red}⚠️ ${err}${C.reset}`)
+    }
+  }
+
+  // ── 回退可见化(2026-09-25):这次会改写/丢掉哪些**已翻译**的键,逐条点名 ──
+  // 默认**不拦**:"重新翻译一个已经翻过的键"(源文案改了 → 重译)是本流水线的正常维护动作,
+  // 默认拒写会让天天合法的操作变红,大家就随手带过逃生参数 —— 守卫退化成装饰
+  // (既有 16 条用例全是这个形态,实测把 exit 0 打成 2)。
+  // 要硬拦的场景(自动化/CI)显式加 `--deny-overwrite`;而本次事故的真正触发点是
+  // "`--help` 被当无参直接写盘",那一条由上面的参数守卫彻底堵死。
+  const regressions = regressionProblems(pristine, messages, TARGET_LANGS)
+  if (regressions.length) {
+    const head = denyOverwrite
+      ? `${C.red}❌ [i18n-apply] --deny-overwrite 生效:这份载荷会改写/丢掉已翻译的键,已拒绝写入${C.reset}`
+      : `${C.yellow}⚠️ 提醒:这份载荷会改写/丢掉以下**已翻译**的键(默认放行,要拦请加 --deny-overwrite)${C.reset}`
+    console.error(head)
+    for (const r of regressions) console.error(`   · ${r.text}`)
+    if (denyOverwrite) {
+      console.error(`${C.red}   本轮未写任何文件(盘上零变化)。${C.reset}`)
+      console.error(
+        `   正解:node scripts/i18n-diff.mjs --target=${TARGET} 重新生成本端清单,再翻译再应用。`,
+      )
+      process.exit(2)
     }
   }
 
@@ -416,7 +605,9 @@ function main() {
     for (const issue of issues) {
       console.error(`  [${issue.lang}] 仍缺 ${issue.count} 键`)
     }
-    console.error(`   ${C.dim}建议: 重新跑 node scripts/i18n-diff.mjs --target=${TARGET} 获取最新 pending 清单${C.reset}`)
+    console.error(
+      `   ${C.dim}建议: 重新跑 node scripts/i18n-diff.mjs --target=${TARGET} 获取最新 pending 清单${C.reset}`,
+    )
     process.exit(1)
   }
 
@@ -427,25 +618,49 @@ function main() {
   // 原因:reorderToBase 重排 5 语言时,如果 base 顺序变更,4 语言整段 reorder 会产生大量 diff
   // 仅警告,不阻断;--strict 标志可升级为 blocking
   try {
-    const diffStat = execSync('git diff --stat -- packages/i18n/messages/', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true })
+    const diffStat = execSync('git diff --stat -- packages/i18n/messages/', {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
     const totalLine = diffStat.split('\n').slice(-2, -1)[0] || ''
     const m = totalLine.match(/(\d+)\s+insertions?\(\+\)/)
     const insertions = m ? parseInt(m[1], 10) : 0
     if (insertions > 100) {
-      console.warn(`${C.yellow}⚠️ i18n apply 触发 ${insertions} 行 insertions(>100 阈值),可能 reorderToBase 重排了 5 语言${C.reset}`)
-      console.warn(`${C.yellow}   建议:git diff --stat 核对是否仅预期小 diff(只新增翻译 key 即可,不应大量 reorder)${C.reset}`)
+      console.warn(
+        `${C.yellow}⚠️ i18n apply 触发 ${insertions} 行 insertions(>100 阈值),可能 reorderToBase 重排了 5 语言${C.reset}`,
+      )
+      console.warn(
+        `${C.yellow}   建议:git diff --stat 核对是否仅预期小 diff(只新增翻译 key 即可,不应大量 reorder)${C.reset}`,
+      )
     }
   } catch {
     // git 不可用时静默跳过
   }
 
   console.log(`${C.bold}下一步:${C.reset}`)
-  console.log(`  1. ${C.cyan}node scripts/check-i18n-keys.mjs --target=${TARGET}${C.reset} 完整守门`)
-  console.log(`  2. ${C.cyan}node scripts/scan-i18n-zh-residue.mjs ko --staged${C.reset} 中文残留检测`)
-  console.log(`  3. ${C.cyan}node scripts/scan-i18n-zh-residue.mjs zh-TW --staged${C.reset} 简体字残留检测`)
+  console.log(
+    `  1. ${C.cyan}node scripts/check-i18n-keys.mjs --target=${TARGET}${C.reset} 完整守门`,
+  )
+  console.log(
+    `  2. ${C.cyan}node scripts/scan-i18n-zh-residue.mjs ko --staged${C.reset} 中文残留检测`,
+  )
+  console.log(
+    `  3. ${C.cyan}node scripts/scan-i18n-zh-residue.mjs zh-TW --staged${C.reset} 简体字残留检测`,
+  )
 
   process.exit(0)
 }
 
-main()
+// §22d 双形态入口守卫:本文件导出 parseArgs / regressionProblems 给镜像测试直接断言,
+// 而 ESM 顶层代码在被 import 时同样执行 —— 裸 `main()` + 顶层 process.exit 会让
+// "任何带自己参数的脚本一 import 它就被打死"(merge-live-doc 已经这样弄死过一次扫描器)。
+import { pathToFileURL } from 'node:url'
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) {
+  cliPreflight()
+  main()
+}
+
+export const __test__ = { parseArgs, regressionProblems, targetMismatchProblems }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

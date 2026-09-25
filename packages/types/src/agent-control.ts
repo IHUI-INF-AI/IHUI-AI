@@ -30,6 +30,32 @@ export type BrowserControlActionType =
   | 'switch_tab'
   | 'close_tab'
 
+/**
+ * 句柄族(页内语义快照)动词的跨端契约副本(2026-09-25 登记)。
+ *
+ * 与 `BrowserControlActionType` 并列而非并入:后者每轮按 CSS 选择器重新解析,
+ * 本族只认页内活引用 `el:<scope8>:<serial36>`,两族的错误码语义不同形
+ * (见 `AgentActionErrorCode` 里 HANDLE_* 那一段的说明),并成一个 union 会让
+ * `doDomAction` / `executeBackgroundAction` 的 switch 被迫处理一批永不落进
+ * 自己分支的动词,exhaustive 判据即失效。
+ *
+ * 也不得并入 `AppUiActionType` 七动词:那一族是**应用内 UI 桥**(靠端内控件注册表定位,
+ * 服务端真源 `apps/ai-service/app/services/ui_action_bridge.py` 的 `_APP_ACTIONS`),
+ * 本族是**浏览器页面**能力,只有 extension(content script)与 CLI(自有 CDP 会话)真能执行。
+ *
+ * 唯一真相源是 `@ihui/dom-actions` 的 `PAGE_ACTIONS`(它 import 本包,故本包不得反向依赖)。
+ * 防漂移靠编译期:extension `lib/agent-control-bridge.ts` 把 `PAGE_ACTIONS` 赋给本类型标注的
+ * 常量 —— 两侧任一侧少/多一条动词即 `TS2322`,与 `AgentActionErrorCode` 同一套护栏,不需要另建对账清单。
+ */
+export type BrowserPageControlActionType =
+  | 'page_snapshot'
+  | 'page_click'
+  | 'page_type'
+  | 'page_select'
+  | 'page_hover'
+  | 'page_press_key'
+  | 'page_pick_at_point'
+
 export interface BrowserScreenshotParams {
   /** 截图区域:'viewport'(当前视口) | 'fullpage'(整页) | 'element'(指定元素) */
   area?: 'viewport' | 'fullpage' | 'element'
@@ -440,6 +466,23 @@ export type AgentActionErrorCode =
   | 'DESTRUCTIVE_BLOCKED'
   /** 2026-09-20 web UI 桥接:导航目标不在站内路由白名单内 */
   | 'ROUTE_NOT_ALLOWED'
+  /**
+   * 2026-09-25 页内语义快照(活句柄)一侧的结构化错误码。
+   * 必须与 `@ihui/dom-actions` 的 `PageActionErrorCode` 保持一致 —— 扩展端
+   * `lib/agent-control.ts` 把它们原样赋给本枚举,少一条就是 `TS2322`(编译期即护栏,
+   * 不需要另建对账清单)。不复用 SELECTOR_NOT_FOUND 的理由见 contract:那条码把
+   * "选择器没匹配"和"活引用失效"混成一码,模型无从判断该重拍快照还是换坐标。
+   */
+  | 'HANDLE_MALFORMED'
+  | 'HANDLE_SCOPE_MISMATCH'
+  | 'HANDLE_STALE'
+  | 'HANDLE_NOT_RENDERED'
+  | 'TARGET_NOT_EDITABLE'
+  | 'TARGET_NOT_SELECTABLE'
+  | 'PAGE_API_UNAVAILABLE'
+  | 'COORD_OUT_OF_BOUNDS'
+  | 'NO_ELEMENT_AT_POINT'
+  | 'PARAM_INVALID'
 
 /** 执行结果回传 envelope */
 export interface AgentActionResponse {
@@ -484,6 +527,13 @@ export interface AgentControlCapability {
   instanceId: string
   /** 支持的 browser action 列表 */
   browserActions?: BrowserControlActionType[]
+  /**
+   * 支持的句柄族(页内快照)action 列表 —— 与 `browserActions` 分列而非合并上报,
+   * 因为两族错误码/定位方式不同形(见 `BrowserPageControlActionType` 的说明),
+   * 合并会让读侧无法区分"这个端能按选择器点"与"这个端能按活句柄点"。
+   * 目前只有 extension 会填(CLI 不走本通道,它有自己的工具注册表)。
+   */
+  browserPageActions?: BrowserPageControlActionType[]
   /** 支持的 computer action 列表 */
   computerActions?: ComputerControlActionType[]
   /** 支持的 web UI action 列表(2026-09-20 立,web 前端上报) */
