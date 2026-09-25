@@ -16,6 +16,7 @@ import {
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AigcCategory, AigcFileType, AigcListItem, AigcListScreenProps } from '../../types'
+import { BackChevron } from '../../components/BackChevron'
 
 /** AIGC 作品列表共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AigcCategory, AigcListItem, AigcListScreenProps }
@@ -121,9 +122,7 @@ export function AigcListScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('aigcList.title')}</Text>
         <Text style={styles.headerSubtitle}>{t('aigcList.subtitle')}</Text>
       </View>
@@ -183,7 +182,6 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.light },
     header: { paddingHorizontal: 10, paddingBottom: 8 },
-    backText: { fontSize: 16, color: tk.text.secondary },
     title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     headerSubtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     categoryBar: { maxHeight: 48 },

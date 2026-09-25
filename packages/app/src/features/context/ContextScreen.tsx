@@ -16,6 +16,7 @@ import {
 } from 'react-native'
 import type { TFunction } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /**
  * 压缩事件(结构对齐 @ihui/api-client ContextCompressionEvent)。
@@ -118,9 +119,7 @@ export function ContextScreen({
     <View style={styles.container}>
       {/* 顶部导航行:返回 / 标题 / 重试(重新拉取统计) */}
       <View style={styles.headerBar}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.titleText}>{t('context.title')}</Text>
         <TouchableOpacity onPress={onRetry} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Text style={styles.retryText}>{t('common.retry')}</Text>
@@ -232,10 +231,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 16,
       paddingTop: 12,
       paddingBottom: 8,
-    },
-    backText: {
-      fontSize: 14,
-      color: tk.text.secondary,
     },
     titleText: {
       fontSize: 16,

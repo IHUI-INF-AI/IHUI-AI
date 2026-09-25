@@ -116,6 +116,10 @@ __pycache__/
 deploy/cf-preferred-ip.env
 deploy/cf-preferred-ip.lkg
 
+# 2026-09-25 D48② 桌面端本地保险库(主密钥落点,正常在 app_data_dir;开发机把数据目录指进仓库时
+# 仍有被 git add . 收进来的路径,故结构性排除)。文件名唯一源 apps/web/src/lib/local-vault.ts。
+ihui-vault.json
+
 # 2026-09-07 同域 aizhs.top 出图:web public 冗余复制(真图见 miniapp 资源,
 # cdn-server 由已忽略的 deploy/server-root 直出)与本机部署用工具/测速输出,均不入库。
 apps/web/public/remote-images/

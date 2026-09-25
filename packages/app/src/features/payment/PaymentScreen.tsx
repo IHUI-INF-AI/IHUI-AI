@@ -15,6 +15,7 @@ import {
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 支付订单状态(字段对齐 mobile-rn PaymentScreen PaymentStatus) */
 export type PaymentOrderStatus = 'pending' | 'paid' | 'failed' | 'cancelled' | 'refunded'
@@ -91,9 +92,7 @@ export function PaymentScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('payment.title')}</Text>
         <Text style={styles.subtitle}>{t('payment.subtitle')}</Text>
       </View>
@@ -224,7 +223,6 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
     header: { paddingHorizontal: 10, paddingBottom: 8 },
-    backText: { fontSize: 18, color: tk.text.medium },
     title: { marginTop: 8, fontSize: 24, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     errorWrap: { paddingHorizontal: 10, paddingVertical: 8 },
