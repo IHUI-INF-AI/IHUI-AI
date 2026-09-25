@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { aizhsUrl } from '@/constants/icon-urls'
+import { icon } from '@/constants/remote-icons'
 import { useTt, t } from '@/i18n'
 import { useState } from 'react'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
@@ -10,6 +11,13 @@ import { getSystemInfoCompat } from '@/utils/system-info'
 import { rnRadius } from '@ihui/design-tokens'
 // 对勾图标(对齐原项目 UserMembershipBenefits.vue 的 pigeona.png)
 const pigeonaImg = aizhsUrl('remote-images/pigeona.png')
+// 「服务」弹窗的名片图 + 二维码图:原先写死 `/static/images/…`,而该目录下的这两个 PNG
+// 在 git 全部历史里从未存在过(`git log --all -- <path>` = 0 条)—— 属旧项目
+// client/miniapp/src/static/images/ 的字面量残留。两份图的真实落点是 CDN 图库
+// `remote-images/default/mingpian.png` / `remote-images/erweima.png`,
+// 已在 @/constants/remote-icons 注册为 defaultMingpian2 / erweima,故按注册表取用。
+const mingpianImg = icon('defaultMingpian2')
+const erweimaImg = icon('erweima')
 
 /**
  * 会员权益介绍弹窗 — 对齐原项目 introduce-popup 4 个变体
@@ -541,7 +549,7 @@ export default function VipBenefitsPopup({
               hoverClass="opacity-60"
             >
               <View className="flex flex-col items-center">
-                {/* 服务弹窗内容:名片 + 二维码(用占位图,实际使用时替换为真实资源) */}
+                {/* 服务弹窗内容:名片 + 二维码(取 @/constants/remote-icons 注册表,见文件头 mingpianImg/erweimaImg) */}
                 <Image
                   className="block mx-auto"
                   style={{
@@ -550,13 +558,13 @@ export default function VipBenefitsPopup({
                     borderRadius: rnRadius['2xl'],
                     marginBottom: '16rpx',
                   }}
-                  src="/static/images/default/mingpian.png"
+                  src={mingpianImg}
                   mode="aspectFill"
                 />
                 <Image
                   className="block mx-auto"
                   style={{ width: '100%', borderRadius: rnRadius.sm }}
-                  src="/static/images/erweima.png"
+                  src={erweimaImg}
                   mode="widthFix"
                   showMenuByLongpress
                 />
