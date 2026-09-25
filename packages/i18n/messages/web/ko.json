@@ -7130,6 +7130,26 @@
       "rollbackConfirmConfirm": "복원"
     },
     "pane": {
+      "hookSummary": {
+        "ariaLabel": "훅 실행 요약",
+        "state": {
+          "running": "훅 실행 중",
+          "ok": "훅 정상",
+          "failed": "훅 오류 발생",
+          "blocked": "훅이 작업을 차단함"
+        },
+        "runs": "· {n}회 실행됨",
+        "failedCount": "{n}회 실패",
+        "blockedCount": "{n}회 차단",
+        "sourceLabel": "출처",
+        "source": {
+          "admin": "관리자",
+          "user": "사용자",
+          "project": "프로젝트",
+          "plugin": "플러그인",
+          "session": "세션"
+        }
+      },
       "businessForms": {
         "ariaLabel": "업무 폼 카드",
         "aria": {
@@ -11422,14 +11442,14 @@
     },
     "commands": {
       "steerPrompt": {
+        "label": "프롬프트 스티어",
         "description": "실행 중인 답변에 현재 입력을 가이드로 주입합니다",
-        "keywords": ["스티어", "가이드", "steer"],
-        "label": "프롬프트 스티어"
+        "keywords": ["스티어", "가이드", "steer"]
       },
       "queuePrompt": {
+        "label": "프롬프트를 대기열에 추가",
         "description": "현재 입력을 대기열에 추가하여 현재 답변이 끝나면 자동으로 전송합니다",
-        "keywords": ["대기열", "큐", "queue"],
-        "label": "프롬프트를 대기열에 추가"
+        "keywords": ["대기열", "큐", "queue"]
       },
       "agent": {
         "description": "AI 에이전트 관리 및 디스패치",
@@ -16840,6 +16860,10 @@
       "pending": "대기",
       "unknown": "알 수 없음"
     },
+    "submitBtn": "답안 제출",
+    "submitConfirm": "답안을 제출하시겠습니까? 제출 후 완료로 표시됩니다.",
+    "submitFailed": "제출에 실패했습니다",
+    "submitSuccess": "답안이 제출되었습니다",
     "title": "시험 접수",
     "total": "총 {n}건"
   },
