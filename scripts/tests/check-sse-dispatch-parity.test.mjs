@@ -147,8 +147,18 @@ test('④ 注入违规:baseline 抬高 1 必须判红(ratchet 真的咬住)', ()
 
 test('⑤ 取材基准是提交树,不是工作树(pre-commit 须切暂存区,否则同票推进被自己卡死)', () => {
   const src = readFileSync(join(REPO, 'scripts', 'check-sse-dispatch-parity.mjs'), 'utf8')
-  // 帧清单与命中侧都走 git,且两侧同一修订
-  assert.match(src, /git\(\['show',\s*spec\]\)/u, '帧清单未走 git show')
+  // 命中侧与清单侧同一修订;清单那份 blob 正文自 2026-09-26 起**必须**经共用取材层的读取入口
+  // (`catBatch`)取 —— 原先是自己 `git(['show', spec])`,那正是守门 118 的 `loose-git` 档。
+  assert.match(src, /batch\(ROOT,\s*\[spec\]/u, '帧清单未经 face-reader 的读取入口取正文')
+  assert.match(
+    src,
+    /import\s*\{\s*catBatch\s*\}\s*from\s*['"]\.\/lib\/face-reader\.mjs['"]/u,
+    '未从 scripts/lib/face-reader.mjs import catBatch(半接线:引了层却自己读)',
+  )
+  assert.ok(
+    !/git\(\['show',\s*spec\]\)/u.test(src),
+    '帧清单又改回自己派生 `git show` 读正文 —— 应经共用取材层(守门 118 的 loose-git 档)',
+  )
   assert.match(src, /basis === 'index' \? '' : 'HEAD'/u, "帧清单未支持 'index' 修订")
   assert.match(src, /'grep',\s*'--cached',\s*'-o',\s*'-E',\s*alt/u, '暂存区口径的 --cached 未放在模式串之前')
   assert.match(src, /argv\.includes\('--staged'\) \? 'index' : 'head'/u, 'pre-commit 模式未切到暂存区')
