@@ -21,6 +21,7 @@ from typing import Any
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
+from ..core.executor_switch import guard_loop_v2_pilot
 from ..services.agent_teams import (
     ResultAggregator,
     TeamContributor,
@@ -78,6 +79,9 @@ class TeamAggregateBody(BaseModel):
 async def run_team_round(body: TeamRoundBody) -> dict[str, Any]:
     """并行 fan-out 多个 subagent 并做结构化聚合,产成回传主循环的 summary_context。"""
     try:
+        # D6① 收敛开关接线点(默认 legacy 直接返回,行为与改前等价;loop_v2 档
+        # 在任何 fan-out 发生前 fail-fast,不触达 team_orchestrator/LLM)
+        guard_loop_v2_pilot("routers/team_orchestration.run_team_round")
         result = await team_orchestrator.run_round(
             objective=body.objective,
             tasks=[t.model_dump() for t in body.tasks],
