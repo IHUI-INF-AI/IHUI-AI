@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url'
 
 import { formatIcu, hasIcuSyntax } from '@ihui/i18n'
 
+import { readIntlLocale, readSystemLocaleEnv } from '../utils/system-locale.js'
+
 export type Locale = 'zh-CN' | 'en' | 'ja' | 'ko' | 'zh-TW'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -42,7 +44,10 @@ const baseMessages: Record<Locale, Messages> = {
 
 let activeLocale: Locale = getLocale()
 function normalizeLocale(raw: string): Locale {
-  const lower = raw.toLowerCase()
+  // 同时接住 POSIX(`zh_TW.UTF-8`)与 BCP-47(`zh-TW`)两族形态:
+  // 剥掉编码/变体后缀,下划线换连字符。此前本函数只可能收到 Intl 的 BCP-47,
+  // env 链接进来后若不归一,`zh-tw.utf-8` 会静默落回默认档(错得毫无声响)。
+  const lower = (raw.toLowerCase().split(/[.@]/)[0] ?? '').replace(/_/g, '-')
   if (lower === 'zh' || lower === 'zh-cn') return 'zh-CN'
   if (lower === 'zh-tw' || lower === 'zh-hk') return 'zh-TW'
   if (lower === 'en' || lower.startsWith('en-')) return 'en'
@@ -55,7 +60,12 @@ export function getLocale(): Locale {
   if (process.env.IHUI_LOCALE) {
     return normalizeLocale(process.env.IHUI_LOCALE)
   }
-  return normalizeLocale(Intl.DateTimeFormat().resolvedOptions().locale)
+  // 系统环境语言优先于 ICU:与 voice/language.ts 共用同一份链实现
+  // (`LC_ALL > LC_MESSAGES > LANG`,C/POSIX 档判"无语言信息")。
+  // 此前这里只读 Intl,两处各算一次,会出现"界面按 ICU、语音按 env"的分叉。
+  const fromEnv = readSystemLocaleEnv()
+  if (fromEnv) return normalizeLocale(fromEnv)
+  return normalizeLocale(readIntlLocale())
 }
 
 export function setLocale(locale: Locale): void {

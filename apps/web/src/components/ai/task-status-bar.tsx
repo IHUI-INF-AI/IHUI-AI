@@ -19,6 +19,7 @@ import {
 } from '@ihui/shared/chat'
 import { useAgentProgress } from '@/hooks/use-agent-progress'
 import { useChatStore } from '@/stores/chat'
+import { HookSummaryCard } from './hook-summary-card'
 import type { PlanStepStatus } from '@ihui/types/ai'
 
 /** 步骤状态图标:与消息流内 PlanStepsCard 同一套语义 */
@@ -229,6 +230,9 @@ export function TaskStatusBar() {
             ))}
           </ul>
         ) : null}
+
+        {/* D86 钩子摘要卡:折叠进活动条展开区,空闲态自身返回 null */}
+        {open ? <HookSummaryCard running={isStreaming} /> : null}
       </div>
     </div>
   )
