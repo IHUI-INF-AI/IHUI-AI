@@ -3,24 +3,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo, useState } from 'react'
-import {
-  FlatList,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  type NativeSyntheticEvent,
-  type NativeScrollEvent,
-  type TextStyle,
-  type ViewStyle,
-} from 'react-native'
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View, type NativeSyntheticEvent, type NativeScrollEvent, type TextStyle, type ViewStyle } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type { TFunction } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 文章卡片(共享层简化类型,保留 UI 渲染所需字段) */
 export interface ArticleItem {
@@ -148,9 +137,7 @@ export function SquareScreen({
       {hideHeader ? null : (
         <View style={styles.header}>
           {onBack ? (
-            <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={styles.backText}>{t('common.back')}</Text>
-            </TouchableOpacity>
+            <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
           ) : null}
           <Text style={styles.navTitle}>{t('square.title') || '广场'}</Text>
         </View>
@@ -230,10 +217,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 12,
       gap: 12,
     } as ViewStyle,
-    backText: {
-      fontSize: 16,
-      color: tk.text.medium,
-    } as TextStyle,
     navTitle: {
       fontSize: 20,
       fontWeight: '600',

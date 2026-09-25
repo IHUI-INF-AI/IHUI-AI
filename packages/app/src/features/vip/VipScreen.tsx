@@ -8,6 +8,7 @@ import { getTokens, tokens as baseTokens, type AppThemeTokens } from '../../them
 import type { VipLevelItem2, VipMembershipInfo, VipScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** VIP/Props 类型 re-export(单一来源 @ihui/types) */
 export type { VipLevelItem2, VipMembershipInfo, VipScreenProps }
@@ -67,9 +68,7 @@ export function VipScreen({
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('vip.title')}</Text>
         <Text style={styles.subtitle}>{t('vip.subtitle')}</Text>
       </View>
@@ -163,7 +162,6 @@ function createStyles(tk: AppThemeTokens) {
     fullCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
     body: { paddingBottom: 32 },
     header: { paddingHorizontal: 16, paddingBottom: 8 },
-    backText: { fontSize: 16, color: tk.text.secondary },
     title: { marginTop: 8, fontSize: 24, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: 4, fontSize: 14, color: tk.text.secondary },
     errorBar: { paddingHorizontal: 16, paddingVertical: 8 },

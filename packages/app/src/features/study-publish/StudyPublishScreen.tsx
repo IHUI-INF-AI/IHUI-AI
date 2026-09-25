@@ -3,22 +3,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import {
-  ActivityIndicator,
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { getTokens, tokens as baseTokens, type AppThemeTokens } from '../../theme/tokens'
 import { CategoryDropdown } from '../../components/category/CategoryDropdown'
 import type { TFunction } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 课程分类(共享层简化类型,对齐 @ihui/types CourseCategory) */
 export interface StudyCategory {
@@ -484,9 +475,7 @@ export function StudyPublishScreen({
     <View style={styles.root}>
       <View style={styles.header}>
         {onBack ? (
-          <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={styles.backText}>{t('common.back')}</Text>
-          </TouchableOpacity>
+          <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         ) : null}
         <Text style={styles.title}>{t('studyPublish.title') || '发布课程'}</Text>
       </View>
@@ -560,7 +549,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 12,
       gap: 12,
     },
-    backText: { fontSize: 16, color: tk.text.medium },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     tabRow: {
       flexDirection: 'row',

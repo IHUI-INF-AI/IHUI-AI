@@ -8,6 +8,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { IncomeCommissionItem, IncomeData, IncomeScreenProps } from '@ihui/types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 收益记录/Props 类型 re-export(单一来源 @ihui/types) */
 export type { IncomeCommissionItem, IncomeData, IncomeScreenProps }
@@ -85,9 +86,7 @@ export function IncomeScreen({
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={styles.backText}>{t('common.back')}</Text>
-          </TouchableOpacity>
+          <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
           <Text style={styles.title}>{t('income.title')}</Text>
         </View>
         <View style={styles.center}>
@@ -101,9 +100,7 @@ export function IncomeScreen({
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={styles.backText}>{t('common.back')}</Text>
-          </TouchableOpacity>
+          <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
           <Text style={styles.title}>{t('income.title')}</Text>
         </View>
         <View style={styles.center}>
@@ -116,9 +113,7 @@ export function IncomeScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('income.title')}</Text>
       </View>
 
@@ -248,7 +243,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: 12,
       gap: 12,
     },
-    backText: { fontSize: 16, color: tk.text.medium },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     center: { alignItems: 'center', paddingVertical: 48 },
     muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },

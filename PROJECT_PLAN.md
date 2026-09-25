@@ -9399,3 +9399,70 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   且 `app-origin.wxss` 里 486 条 / 24,069 B 手写补偿规则到端即与 utilities 同源重复。
   两笔相加,接线后的真实净增远低于 38,183 B —— **"主包装不下"这个否决理由被削弱**,但 C 类(同名不同值)
   重叠分析因执行代理超轮次未完成,**尚缺逐条证据,不得据此翻案**。
+
+
+  - **mobile-rn 收集失败收口票：残余已闭环 + 两条结构性失明入账**（2026-09-25 14:5x，就地替换上一版"仍红"的措辞）：
+    - 已成立且可回读：收集期失败套件 **14 → 0**，头条用例 **352 → 489**（131 条 it 声明展开 137 枚，第一次真正被执行）；`react-native-restart` 在 vitest 配置层一次收口（照该文件既有 alias 形态加，不另起第二套机制），`terminal-delta-live` 的局部 vi.mock 已删并证冗余；`category-bar-style` 两条断言随 §4 的 CTA 改档迁移（**保留**"底色不得等于 surface.card / 页面背景"的反向对照，另加"cta 明暗同值"判据）；`CategoryInlineBar.tsx:69` 陈旧注释按实测代码改正（实底 `brand.cta` / 文字 `brand.ctaForeground` / **描边仍是 `brand.DEFAULT`**）。
+    - ✅ **上一版写着"仍红"的那条残余已闭环**：`tests/my-agents.test.tsx` 自带 `vi.mock('react-native', …)` 工厂**遮蔽了 alias 替身**，正解是删内联工厂改吃共享替身（删前逐项比过能力差集为零），**不是**往工厂里再抄一份 PixelRatio（那是要根治的逐套件打补丁）。落库 `165128c5a99`；权威读数由主会话自跑：`Test Files 52 passed (52) / Tests 489 passed (489)` —— 全端零失败，正是当时写死的解阻判据。同批还堵了两层更深的共享替身缺口（`ihui-rn-app.ts` 不导出 `MoreLink`、`react-native.ts` 缺 `PixelRatio` 出口）。
+    - ⚠️ **结构性失明一：提交链没有任何一道门跑测试。**134 道门里无一跑 vitest，`check-staged-typecheck` 走 tsc，结构上看不见 transform / 解析期失败；CI 会红（收集失败即 exit 1，`ci.yml:147` 无 continue-on-error）但提交链不拦 ⇒ 本机可长期"看着绿"而覆盖被静默削掉。已派单补一道 **warn 级**存续性判据「收集失败套件数 == 0」（`--strict` 给 CI；取不到结论必须显式"无法判定"、零测试文件不得当绿）——**刻意不做 blocking**：产不出可执行修复动作的恒红门只会逼人 `--no-verify`，一次绕过等于全部守门作废（§12e 同型教训）。
+    - ⚠️ **结构性失明二：守门 49 绿灯 ≠ journal 无人占用。**`check-migration-bookkeeping.mjs` 离线档 B1-B5 全过、EXIT=0，而它绿**只因为该门按工作树取材、磁盘上正躺着他人未跟踪的 `20260924100000_chat_history_projection.sql`**（磁盘 entries 288 / HEAD 287）。"账目结构合法"与"这张登记表当前无人在飞"是两件事，空档目前只能靠 `git status --porcelain <五路径>` 手工填。**建议判据形态**（本次不建门，避免与并发会话抢 `scripts/**`）：凡"追加 idx / 新增迁移"类票，开工前置应是那五路径全空而非门 49 绿；idx 现值必须当次实算，不得照抄任何文档数字。
+    - ⚠️ **结构性失明三**：守门 83 的 `SCAN_DIRS` 只含 `apps/mobile-rn/src` 与 `packages/app/src`，**`apps/mobile-rn/tests/**` 不在射程** ⇒ "改档票自己全绿、它的配套回归测试长红"是**两边都不报**（与守门 77 B6 的括号形态盲区同教训：判据必须覆盖门自己产出的形态）。
+- **未做与为什么(不留"看起来已完成"的假象)**:① 同一型在 **`packages/app/src/features/**` 有 223 处 / 168 文件**、`apps/mobile-rn/src/screens/**` 5 处、`apps/extension` 1 处,以及共享层 `packages/app/src/components/NavBar.tsx` / `apps/mobile-rn/src/components/NavBar.tsx` / `PayResultScreen` 的 3 处 `‹` —— 未在本票清,由 GA4 的**按文件 HEAD 棘轮**兜住"不得再加";② 端上真机渲染未验(微信开发者工具不在本会话能力内),本票只到"源码级 + 类型级 + 守门级"。
+- [x] ✅(2026-09-25) P1 **返回键同一型跨端清账(本票的直接续作,数字已量)**:① `packages/app` 223 处 / 168 文件的 `<Text>{t('common.back')}</Text>` 与 3 处 `‹`;② `apps/mobile-rn` 5 处文字 + 其 NavBar 的 `‹`(RN 侧写法是 `lucide-react-native ChevronLeft`,端内 `AboutScreen.tsx:61` 已有现成范例);③ `apps/extension` 1 处 `← {t('common.back')}`。做法与本票同:先建/复用该端唯一实现,再按文件收编,顺带删各自失效的样式工厂。**GA4 棘轮已把这些位置钉成"不得再加",但棘轮不会自动变小 —— 存量清零前 GA4 在这三端始终只是"没恶化",不是"已合规"。**
+## O74 按转正后的派单表接两枚(2026-09-25):密钥文件结构性排除 + 阶段标签层立防回潮判据
+- **为什么按表不按票面行**:`PROJECT_PLAN.md` 里 166 条"未认领"实测有 **61 条是已闭环 `[x]` 行的孪生旧副本**(`node scripts/check-task-claims.mjs --twins`),照票面派单即白烧轮次(同日 D83 就是例子:票面未勾,而 `mcp-tool-activity.ts` 已于当日 `cb0a20deeec` 落地)。故改取 `docs/plan-audit-2026-09-25/wave3-backlog.md`「可直接派单」表的第 1、3 行,且**每行取票后按当次 HEAD 复测**——该表自陈是带保质期的读数。
+- [x] ✅(2026-09-25) **D48② `ihui-vault.json` 进 `.gitignore`**(表第 1 行):保险库文件名唯一源是 `apps/web/src/lib/local-vault.ts:33` 的 `VAULT_STORE_FILE`,此前只有 `check-desktop-cache-plaintext.mjs` 判据 3 的 `git ls-files` **事后断言**——那是"进了仓再发现",不是一条也不会被 `git add .` 收进来的结构保证。**动作**:`.gitignore` 凭据段加 `ihui-vault.json`(不含斜杠 ⇒ 任意层级生效)。**取证**:`git check-ignore -v` 逐条命中(根 / `apps/web/` 下 / 与既有 `deploy/prod-bundle/` 目录规则互不遮蔽);`node scripts/check-desktop-cache-plaintext.mjs --self-test` **10/10 不破**,其"落点字符串单源"仍只认 `local-vault.ts`(该门的 `SOURCE_EXT` 不含 `.gitignore`,不会把新增行误判成第二处源码);表内验收式 `git show HEAD:.gitignore | grep -c ihui-vault` 由 0 → ≥1 **在本票提交后才成立**,提交前不得引用。
+- [x] ✅(2026-09-25) **D107① 阶段标签层立机器判据**(表第 3 行):开工实测 `git grep -n "阶段标签" HEAD -- scripts` = **0**,判据确实不存在。**但票面前半被推翻**——这一层**没有"某端看不到阶段标签"的静默缺口**:五端各有进度条宿主(web `apps/web/src/components/chat/message-input.tsx:900`、taro `.../pkg-ai/ai/chat.tsx:1308`、rn `apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx:1886`、extension `.../sidepanel/pages/ChatPage.tsx:768`、cli `apps/cli/src/commands/repl.ts:615`),视图推导一律经单一真相源 `deriveTaskStatusBar`(`packages/shared/src/chat/task-status.ts:227`),阶段文案走 `taskStatus` 命名空间(五语言各有该键)。**所以本票落点是防回潮判据,不是补功能**:守门 57 台账新增 `stage-label-five-ends` —— 12 枚锚点覆盖「共享推导源 + 词表源 + 五端各自的渲染器与挂载点」,并按该门既有 `checkEvents` 形态声明四个带阶段的帧(`plan_updated`/`subagent_progress`/`terminal_start`/`terminal_end`,两端契约均已在册)。**任一端宿主被摘线/改名 ⇒ 判据①当场点名**。
+  - **基线抬法**:锚点总数 155 → 167、`perElement["stage-label-five-ends"] = 12`;`entryCountBaseline` **刻意不动**(它 = G-编号数 + 元素数,抬它等于把本票绑到别人改计划行的波动上)。
+  - **判据有牙证明(变异对照)**:① 把本条目一枚 `mustMatch` 改成不存在标识 ⇒ 门 `exit 1` 点名 `stage-label-five-ends :: packages/shared/.../task-status.ts 内找不到…`;② 把本条目事件名改成两端契约都没有的 ⇒ `exit 1` 报 `event-contract-drift :: …: ai-service=无 shared=无`。两次变异后逐字节还原(`sha256` 复等)⇒ 绿灯不是"没人写所以没人判"。
+  - **权威入口读数**:`node scripts/check-chat-element-coverage.mjs` 全量 **exit 0**(清单 133 条 = G-ID 93 + 已实现 40、锚点 167)、`--staged` exit 0、`--self-test` 全过、镜像 `node --test scripts/tests/check-chat-element-coverage.test.mjs` **32/32**。
+  - **入库路径如实登记(不是"我提交的那枚")**:本条目写完后曾与并发会话的"守门 57 补票"同处暂存区(索引 vs HEAD:脚本 +464/−15、JSON +125/0),按 §12/§12b **不代对方提交**;对方于 14:47 落 `3fec18c1f71`(标题只写"补两条判据 —— 锚点存续性 + 剥注释后再匹配"),**我的 12 枚锚点随该枚提交一起进了 HEAD**,其提交信息未点名本票 ⇒ 追溯路径就是本节。认定命令:`git show HEAD:scripts/data/chat-flow-elements.json | grep -c stage-label-five-ends`(**现值 2** = 条目 + perElement 额度各一处)。
+  - **同批量到、与该表相反的事实(现已解)**:取票时 HEAD 上的门 57 **还没有判据④/⑤**(`git show HEAD:scripts/check-chat-element-coverage.mjs | grep -c anchor-baseline-missing` 当时 = 0),而那两条正是并发会话在飞的补票 ⇒ 派单表"触达文件(干净)"这一列对这两枚文件当时已过期。补票现随 `3fec18c1f71` 落地,本条只留作"表是带保质期读数"的实例。
+- **路上量到、刻意不顺手修的缺陷(归属 miniapp-taro 交代帧持有人)**:`apps/miniapp-taro/src/pkg-ai/ai/chat.tsx:593` 把后端英文 `evt.phase` 原样插进界面(词包 `packages/i18n/messages/miniapp-taro/zh-CN.json` 的 `子任务:{phase}`),上屏形态是「子任务:tool_call」——违反 D106 已写死的纪律③"禁止把后端原文当界面文本"。修法要把 phase 枚举收进取词键(五语言),属他端文案批。**并记一条本票判据的已知盲区**:`stage-label-five-ends` 钉的是"宿主在不在",不钉"枚举是否本地化",所以这条敞口对本门是绿的——别把本门绿灯读成"阶段文案已全部本地化"。
+### 第四十九波·续 —— 返回键跨端清账落地(packages/app + mobile-rn + extension,2026-09-25)
+- **先纠一笔前提**:上面那张票面写的"本票的直接续作"不成立 —— 它续的那一票
+  (小程序端页头返回键收编 + 守门 102 GA4)在 14:07 由 `5ca171947c8` 登记为「完成 ✅」,
+  但**产物从未入库**:`git log --all --diff-filter=A -- '**/BackChevron.tsx'` 零命中、
+  近 300 枚提交的树里无该路径、守门 102 无 GA4、HEAD 的 miniapp `components/NavBar.tsx:129/:284`
+  两处 `{'‹'}` 原样在。即登记行进了 HEAD 而代码面全丢 —— 与本仓「造好没装车」同型,
+  差别是这次连"造过"的证据都只剩文档。**票面的 223 处 / 168 文件因此不是残局而是全量。**
+- **交付**(两枚提交):
+  - `259fb1262d9` refactor(app,mobile-rn,extension): 页头返回键收进矢量单一源头 —— 新建
+    `packages/app/src/components/BackChevron.tsx`(lucide-react-native ChevronLeft,
+    命中块 36×36 对齐 web `TopBarBackButton`;**`colorScheme` 是必填 prop 而非 `= 'light'` 默认值**:
+    守门 91 只把"带默认值"认作静默脱主题开关,必填改由 tsc 强制,比门更严)。
+    迁移走 TS-AST 定位「可点元素唯一子内容是 `<Text>{t('common.back')}</Text>`」,
+    再按祖先容器语义分流:`styles.center`/`styles.pagination`/`styles.modalContent`
+    三型是卡片按钮文案、翻页、弹窗关闭 ⇒ 保留文字并写 `back-label-exempt`(**43 处**),
+    其余 **180 处**收进组件;随之删掉失效样式键与 20 处失效 `TouchableOpacity` import(零死代码)。
+    同型字符 `‹` 三处换矢量(packages/app NavBar / PayResultScreen / apps/mobile-rn NavBar),
+    `apps/extension` AgentPage 的「← 返回」改 `ChevronLeft` + 文案。
+  - `30250a26d8b` fix(gates,app): 门 108「豁免到期账」判红 40 条**全属上一枚提交** ——
+    `back-label-exempt` 既不在 `FAMILY_LIFETIME_DAYS` 登记表里、标记也不带到期日。
+    补登族(取 **365** 天而非同门 `glyph-arrow-exempt` 的 30:它是结构性定性不是待偿债务,
+    短周期到期只会逼人删标记,删了又被守门 102 GA4 判红,两道门互咬)+ 43 处补
+    `until 2027-09-25`。§5c 禁对含零宽载荷文件做文本级批量改写,故只替换本票那一条固定串,
+    改后 `check-watermark-coverage --no-fix` 复验载荷完好。
+- **验证(实跑读数)**:packages/app / mobile-rn / extension 三端 `tsc --noEmit` 与
+  `eslint` 本票文件 **0 错误**;门 108 `--worktree` exit 0 且 back-label-exempt 命中 0;
+  全量守门 145 项跑完 **136 通过 / 4 警告 / 5 失败**(失败为 mypy / 门 63 SSE / 门 70 硬编码中文 /
+  门 104 prod-bundle / 门 108 —— 其中 108 已修,余下 4 道按触及面推定与本票无关:
+  本票零 Python、零 SSE 帧、零 `deploy/**`;门 70 直跑全量 exit 0 且点名他人文件)。
+  **未验**:RN 真机与 jsdom 渲染 —— `packages/app` 无测试装配(`vitest` 报 No test files found),
+  不谎称已验。文字当箭头的存量由 226 处降到 42 处(全部带豁免)。
+- **提交链的一处机器态教训(登记以免重复排查)**:首枚提交 `.husky/pre-commit` 一失败,
+  safe-commit 归因器报"未能解析出守门汇总块 ⇒ 归因未计算",按应急路径 `--no-verify` 落地。
+  日志里门 91 / 门 83 都在同一轮说"暂存区无 …\/src 的 .tsx,跳过",而该提交实含 180 个文件
+  ⇒ **并发会话在钩子读取索引前把它清空了**,那轮门禁链判的是空暂存而不是本票内容。
+  第二枚提交归因器工作正常(逐道复跑并点名"未点名本次文件"),两枚的红由本票在 HEAD 面补跑
+  `guardian-runner` 全量兜住 —— 即 **--no-verify 落地后必须按 HEAD 面补跑,否则等于没跑过门禁**。
+- **路上量到、刻意不改**(票面未点名,属步骤回退而非页头返回,不顺手修):
+  `packages/app/src/components/Selecter.tsx:415` 与 `apps/mobile-rn/src/components/ModelConfigDialog.tsx:282`
+  的「`← 返回`」;GA1 只判"整格唯一子内容是字形"、GA4 只判"整格是返回类文案",
+  字形+文案的混合形态**两条都不纳** ⇒ 这是一个已知的判据空档,不是本票漏改。
+- **留下的账(可核算,不写作收口)**:① 守门 102 的 S0 机制清单现登记小程序端那一份
+  `components/BackChevron.tsx`,**RN 共享层这一份 `packages/app/src/components/BackChevron.tsx`
+  未被 S0 覆盖** —— 它被摘线或无人 import 时无人喊红(该文件由并行会话持有,本票未代改
+  `scripts/check-glyph-arrow-icon.mjs`);② 小程序端那一票仍需在它自己的会话里重新落地,
+  本票未代做(避免与在飞会话撞同一批文件);③ web 端 `packages/i18n` 的 `common.back` 键
+  在四端仍各有一份定义,词包合并另计。
