@@ -280,3 +280,6 @@ export * from './endpoints/team-memory'
 // 用户侧 Agent 定时自动化端点(2026-09-07 新增)
 export * from './endpoints/automations'
 export * from './endpoints/patrol'
+
+// GitHub App 管理端点(2026-09-26 立,D15④:admin 安装台账 + 配置状态)
+export * from './endpoints/admin-github-app'

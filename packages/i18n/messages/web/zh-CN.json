@@ -18241,6 +18241,7 @@
     "advancedAiTools": "高级 AI 工具",
     "mediaTasks": "媒体任务",
     "webTools": "网页工具",
+    "figmaImport": "设计稿转码",
     "voices": "声纹库",
     "agentGovernance": "Agent Token 治理",
     "agentWorkbench": "智能体工作台",
@@ -25175,6 +25176,23 @@
     "deleteConfirm": "删除该声纹?删除后不可再用于克隆 TTS。",
     "refresh": "刷新",
     "notFound": "未找到该声纹"
+  },
+  "figmaImportPage": {
+    "title": "设计稿转码",
+    "subtitle": "贴入 Figma fileKey + 节点 ID,一键生成可运行的前端组件代码(React+Tailwind / Taro)。",
+    "targetReact": "React + Tailwind",
+    "targetTaro": "Taro 小程序",
+    "fileKeyPlaceholder": "Figma fileKey(如 a1b2c3...)",
+    "nodeIdPlaceholder": "节点 ID(如 1:2,选中 Frame 后复制链接可得)",
+    "run": "生成代码",
+    "running": "生成中...",
+    "tokenHint": "需服务端配置 FIGMA_API_TOKEN;LLM 生成失败时自动降级为确定性 HTML 骨架。",
+    "errorRequired": "请填写 fileKey 与节点 ID",
+    "resultTitle": "生成结果",
+    "copy": "复制代码",
+    "copied": "已复制",
+    "degradedNotice": "LLM 生成失败,已降级为确定性 HTML 骨架(仍可直接使用,不白屏)。",
+    "metaNodes": "节点 {nodes} 个 · 文本 {texts} 处 · 图片引用 {images} 处"
   },
   "webToolsPage": {
     "title": "网页工具",
