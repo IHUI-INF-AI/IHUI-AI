@@ -13,6 +13,7 @@ import {
   branchConversation,
   getMessages as getConversationMessages,
   type StreamChatOptions,
+  type TerminalDeltaEvent,
   type LlmModel,
 } from '@ihui/api-client'
 import { GitBranch } from 'lucide-react'
@@ -52,6 +53,50 @@ const FALLBACK_MODELS: LlmModel[] = SHARED_FALLBACK_MODELS.map((m) => ({
 
 // D106(2026-09-24):单消息 steer 交代上限,对齐后端 _STEER_QUEUE_LIMIT 与 web appendSteerNotice
 const STEER_NOTICE_MAX = 8
+
+// ===== D19(2026-09-26 接):terminal_delta 实时输出增量的端内折叠 =====
+// 后端在命令执行期间逐块下发 `event: terminal_delta`(stdout/stderr 增量,4 行/批)。
+// 本端刻意**不新建第二套终端 UI**:增量按 terminalId 累加进既有 terminalTasks[].output,
+// 由 MessageContent 既有终端块(buildRenderModel → TerminalRenderBlock.output)渲染。
+// 单键上限与 web store.terminalOutputs / mobile-rn TERMINAL_LIVE_MAX_CHARS 同值(超限保尾部)。
+
+/** terminal_delta 累计输出单键上限(超出保尾部,防长命令把内存撑爆) */
+export const TERMINAL_LIVE_MAX_CHARS = 20000
+
+/**
+ * 把一帧 terminal_delta 折进对应 terminalId 的 task.output。
+ * 空帧(无 terminalId / 空 text)与无主帧(该 terminalId 没有 terminal_start 建过任务)
+ * 整帧丢弃并返回原数组引用 —— web 同一口径(其渲染按 task id 取 live 键,无任务帧本就不可见)。
+ */
+export function foldTerminalDeltaIntoTasks(
+  tasks: TerminalTask[],
+  evt: Pick<TerminalDeltaEvent, 'terminalId' | 'text'>,
+): TerminalTask[] {
+  if (!evt.terminalId || !evt.text) return tasks
+  let hit = false
+  const next = tasks.map((task) => {
+    if (task.id !== evt.terminalId) return task
+    hit = true
+    const merged = (task.output ?? '') + evt.text
+    return {
+      ...task,
+      output:
+        merged.length > TERMINAL_LIVE_MAX_CHARS ? merged.slice(-TERMINAL_LIVE_MAX_CHARS) : merged,
+    }
+  })
+  return hit ? next : tasks
+}
+
+/**
+ * terminal_end 输出归并口径(对齐 web terminal-section 的 effectiveOutput):取更长者。
+ * 后端整帧 output 截 8000 字符,构建日志尾部只存在于流期累计里 —— 直接覆盖会丢尾。
+ */
+export function pickTerminalEndOutput(
+  evtOutput: string | undefined,
+  taskOutput: string | undefined,
+): string | undefined {
+  return (evtOutput?.length ?? 0) >= (taskOutput?.length ?? 0) ? evtOutput : taskOutput
+}
 
 export default function ChatPage() {
   const { onLogout } = useOutletContext<Ctx>()
@@ -389,6 +434,20 @@ export default function ChatPage() {
           evt.messageId,
         )
       },
+      // D19(2026-09-26 接):命令执行期间的 stdout/stderr 逐块增量。
+      // 折进既有 terminalTasks[].output(渲染走 MessageContent 既有终端块),不落正文 ——
+      // api-client 已把 terminal_delta 从 onDelta 通道分流(tryParseTerminalDelta),
+      // 端内不注册这个回调就是二次静默丢帧(守门 90 的登记面)。
+      onTerminalDelta: (evt) => {
+        window.clearTimeout(timeoutId)
+        updateAssistantMessage(
+          (m) => ({
+            ...m,
+            terminalTasks: foldTerminalDeltaIntoTasks(m.terminalTasks ?? [], evt),
+          }),
+          evt.messageId,
+        )
+      },
       onTerminalEnd: (evt) => {
         updateAssistantMessage(
           (m) => ({
@@ -398,7 +457,9 @@ export default function ChatPage() {
                 ? {
                     ...task,
                     status: evt.status,
-                    output: evt.output,
+                    // 取更长者(web terminal-section 同一口径):整帧 output 截 8000,
+                    // 流期累计的尾部不能被短整帧吃掉
+                    output: pickTerminalEndOutput(evt.output, task.output),
                     // 缺省不覆盖:后端只在真截断时带 truncated,历史值要留住
                     truncated: evt.truncated ?? task.truncated,
                     totalChars: evt.totalChars ?? task.totalChars,
