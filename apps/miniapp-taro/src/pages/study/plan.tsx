@@ -101,10 +101,10 @@ export default function StudyPlan() {
             {list.map((p) => (
               <View key={p.id} className="bg-card rounded-xl border border-border p-[28rpx]">
                 <View className="flex justify-between items-center">
-                  <Text className="flex-1 text-[36rpx] text-foreground font-bold overflow-hidden">
+                  <Text className="flex-1 text-[length:36rpx] text-foreground font-bold overflow-hidden">
                     {p.title}
                   </Text>
-                  <Text className="text-[22rpx] text-[var(--color-text-tertiary)] ml-[16rpx] flex-shrink-0">
+                  <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)] ml-[16rpx] flex-shrink-0">
                     {t('study.planPage.target', { n: p.target })}
                   </Text>
                 </View>
@@ -115,12 +115,12 @@ export default function StudyPlan() {
                   />
                 </View>
                 <View className="flex justify-between items-center mt-[16rpx]">
-                  <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
+                  <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)]">
                     {t('study.planPage.completed', { n: p.progress })}
                   </Text>
                   {/* 状态徽章对齐 RN statusBadge(10dp→20rpx/600/px6→12rpx/py4→8rpx/radius 4dp→8rpx):完成=success.lighter+deepText,进行中=success.light+success.DEFAULT */}
                   <Text
-                    className={`text-[20rpx] font-semibold px-[12rpx] py-[8rpx] rounded-sm ${
+                    className={`text-[length:20rpx] font-semibold px-[12rpx] py-[8rpx] rounded-sm ${
                       p.progress >= p.target
                         ? 'bg-[var(--color-success-lighter)] text-[var(--color-success-deep-text)]'
                         : 'bg-[var(--color-success-light)] text-success'
@@ -137,11 +137,11 @@ export default function StudyPlan() {
         )}
         {!loading && list.length === 0 && (
           <View className="flex items-center justify-center py-[96rpx]">
-            <Text className="text-[28rpx] text-muted-foreground">{t('study.planPage.empty')}</Text>
+            <Text className="text-[length:28rpx] text-muted-foreground">{t('study.planPage.empty')}</Text>
           </View>
         )}
         <Button
-          className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-2xl text-[32rpx] font-semibold text-center"
+          className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-2xl text-[length:32rpx] font-semibold text-center"
           onClick={onAdd}
         >
           {t('study.planPage.add')}
@@ -157,19 +157,19 @@ export default function StudyPlan() {
               hoverClass="opacity-60"
               onClick={(e) => e.stopPropagation()}
             >
-              <Text className="block text-[32rpx] text-foreground font-semibold mb-[24rpx]">
+              <Text className="block text-[length:32rpx] text-foreground font-semibold mb-[24rpx]">
                 {t('study.planPage.add')}
               </Text>
               {/* 输入框对齐 RN fieldStyles.input:border light / radius 12dp→24rpx / h 50dp→100rpx / px 12dp→24rpx / bg surface.muted */}
               <Input
-                className="h-[100rpx] px-[24rpx] bg-muted border border-border rounded-xl text-[32rpx] text-foreground mb-[24rpx]"
+                className="h-[100rpx] px-[24rpx] bg-muted border border-border rounded-xl text-[length:32rpx] text-foreground mb-[24rpx]"
                 placeholder={t('study.publish.titlePlaceholder')}
                 value={newTitle}
                 onInput={(e) => setNewTitle(e.detail.value)}
               />
               <View className="flex items-center mb-[24rpx]">
                 <Input
-                  className="flex-1 h-[100rpx] px-[24rpx] bg-muted border border-border rounded-xl text-[32rpx] text-foreground"
+                  className="flex-1 h-[100rpx] px-[24rpx] bg-muted border border-border rounded-xl text-[length:32rpx] text-foreground"
                   type="number"
                   placeholder={t('study.planPage.target', { n: 30 })}
                   value={newTarget}
@@ -178,13 +178,13 @@ export default function StudyPlan() {
               </View>
               <View className="flex gap-[16rpx]">
                 <Button
-                  className="flex-1 h-[100rpx] leading-[100rpx] bg-muted text-foreground rounded-xl text-[32rpx] text-center"
+                  className="flex-1 h-[100rpx] leading-[100rpx] bg-muted text-foreground rounded-xl text-[length:32rpx] text-center"
                   onClick={() => setShowAdd(false)}
                 >
                   {t('common.cancel')}
                 </Button>
                 <Button
-                  className="flex-1 h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-xl text-[32rpx] font-semibold text-center"
+                  className="flex-1 h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-xl text-[length:32rpx] font-semibold text-center"
                   loading={saving}
                   disabled={saving}
                   onClick={submitAdd}

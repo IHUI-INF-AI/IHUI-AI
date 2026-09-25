@@ -88,7 +88,7 @@ export default function DeveloperWithdrawal() {
   const statusClass = useCallback((item: WithdrawalItem) => {
     const norm = normalizeStatus(item.status)
     // 对齐 RN IncomeScreen cardStatus:纯彩色文字徽章(无底色)
-    const base = 'text-[22rpx] font-semibold'
+    const base = 'text-[length:22rpx] font-semibold'
     const styles: Record<string, string> = {
       pending: 'text-warning',
       processing: 'text-info',
@@ -119,49 +119,49 @@ export default function DeveloperWithdrawal() {
       <View className="min-h-screen bg-background p-[20rpx]">
         {/* 页头 — 对齐 RN WithdrawScreen header(backText/title:text.primary 20 600) */}
         <View className="pb-[24rpx]">
-          <Text className="text-[40rpx] font-semibold text-foreground">
+          <Text className="text-[length:40rpx] font-semibold text-foreground">
             {t('developer.withdrawal.title')}
           </Text>
         </View>
         {/* 汇总卡 — 对齐 RN balanceCard(padding 14/radius 12/白卡,value 28 700) */}
         <View className="flex bg-card rounded-xl p-[28rpx] mb-[24rpx]">
           <View className="flex-1 flex flex-col items-center">
-            <Text className="text-[28rpx] text-muted-foreground">
+            <Text className="text-[length:28rpx] text-muted-foreground">
               {t('developer.income.withdrawnYuan')}
             </Text>
-            <Text className="text-[56rpx] font-bold text-foreground mt-[16rpx]">
+            <Text className="text-[length:56rpx] font-bold text-foreground mt-[16rpx]">
               {loading ? '--' : totalAmount}
             </Text>
           </View>
           <View className="flex-1 flex flex-col items-center">
-            <Text className="text-[28rpx] text-muted-foreground">
+            <Text className="text-[length:28rpx] text-muted-foreground">
               {t('developer.income.withdrawn')}
             </Text>
-            <Text className="text-[56rpx] font-bold text-foreground mt-[16rpx]">
+            <Text className="text-[length:56rpx] font-bold text-foreground mt-[16rpx]">
               {loading ? '--' : totalSuccess}
             </Text>
           </View>
         </View>
         <View>
           {loading ? (
-            <Text className="block text-center text-muted-foreground text-[28rpx] py-[96rpx]">
+            <Text className="block text-center text-muted-foreground text-[length:28rpx] py-[96rpx]">
               {t('common.loading')}
             </Text>
           ) : list.length ? (
             list.map((item) => (
               <View
                 key={item.id}
-                className="flex items-center justify-between bg-card border-[2rpx] border-border rounded-xl p-[24rpx] mb-[20rpx]"
+                className="flex items-center justify-between bg-card border-[length:2rpx] border-border rounded-xl p-[24rpx] mb-[20rpx]"
               >
                 <View className="flex-1">
-                  <Text className="block text-[32rpx] text-foreground font-semibold mb-[8rpx]">
+                  <Text className="block text-[length:32rpx] text-foreground font-semibold mb-[8rpx]">
                     ¥{item.amount}
                   </Text>
-                  <Text className="block text-[22rpx] text-[var(--color-text-tertiary)]">
+                  <Text className="block text-[length:22rpx] text-[var(--color-text-tertiary)]">
                     {displayTime(item)}
                   </Text>
                   {displayReason(item) ? (
-                    <Text className="block text-[22rpx] text-destructive mt-[12rpx]">
+                    <Text className="block text-[length:22rpx] text-destructive mt-[12rpx]">
                       {displayReason(item)}
                     </Text>
                   ) : null}
@@ -170,7 +170,7 @@ export default function DeveloperWithdrawal() {
               </View>
             ))
           ) : (
-            <Text className="block text-center text-muted-foreground text-[28rpx] py-[96rpx]">
+            <Text className="block text-center text-muted-foreground text-[length:28rpx] py-[96rpx]">
               {t('developer.withdrawal.empty')}
             </Text>
           )}
