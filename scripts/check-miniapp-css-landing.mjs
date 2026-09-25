@@ -473,6 +473,55 @@ export function classifyDist(distDir) {
   return { kind: 'weapp', reason: '', wxssCount, wxmlCount }
 }
 
+/**
+ * C6 —— **weapp-tailwindcss 的 CSS 腿本轮到底跑没跑**(结构性判据,不是量级)。
+ *
+ * 立项依据是同一天三连构建的实测对照(同一份 `config/index.ts`):
+ *  - A:CSS 腿在(产物有 321 个 `_b…_B` 转写名)、JS 腿不在 ⇒ C4 死规则 485、C1 34.89%、C5=idle;
+ *  - B:两腿都在 ⇒ 死规则 31、C1 93.77%、C5=in;
+ *  - C:**CSS 腿整个没跑** —— `--spacing` 停在 `0.25rem`(没做 rem2rpx)、`_b` 形态 0 个,
+ *       此时 CSS 用的是 Tailwind 自己的转义选择器 `.z-\[1001\]`,与运行时源名**字面相同**,
+ *       于是 C1 读到 **99.35% / 死规则 0 / C5=in** —— 一门"看产物"的门,把最坏的一档读成了最好的一档。
+ *
+ * 为什么不能让 C1/C4 顺带抓住它:C4/C5 问的是"两侧名字对不对得上",而 C 档两侧确实对得上(都源名);
+ * 它答不了"**这个平台的 CSS 引擎该不该看到这些名字**"。微信 WXSS 对反斜杠转义类名的支持就是
+ * weapp-tailwindcss 存在的理由(它做 `_b` 改名正是为了绕开转义),所以"没改名 + 留转义/rem"
+ * 只能由一条**独立的机制判据**接住 —— 这就是 C6。
+ *
+ * 两面见证(取不到即 undetermined,**绝不记为通过**):
+ *  - `mangledRuleKinds`  产物 landed 里含转写痕迹(`_x` 形态)的类名数;
+ *  - `arbitraryDemand`   源码里含表内标点、因此**本应被改名**的 class token 数。
+ * 判据:`arbitraryDemand > 0 ∧ mangledRuleKinds == 0` ⇒ CSS 腿整条没跑。
+ * 刻意不用"产物还剩多少 rem":主题变量本身就带 rem,健康产物也留 29 处,那是假红源。
+ */
+export function auditCssLeg({ mangledRuleKinds, arbitraryDemand }) {
+  if (typeof mangledRuleKinds !== 'number' || typeof arbitraryDemand !== 'number')
+    return { verdict: 'undetermined', reason: 'CSS 腿见证面没量到 ⇒ 不判通过' }
+  if (arbitraryDemand > 0 && mangledRuleKinds === 0)
+    return {
+      verdict: 'off',
+      reason: `源码有 ${arbitraryDemand} 个含标点档(按规矩该被 weapp 改名),产物里却是 **0 个** 转写形态类名 ⇒ CSS 腿整条未跑;此时 CSS 用的是转义选择器,与运行时源名字面相同,C1/C4/C5 会一致报好 —— 这一维就是为那种假绿存在的`,
+    }
+  if (arbitraryDemand === 0)
+    return {
+      verdict: 'undetermined',
+      reason: '本轮源码无含标点档 ⇒ CSS 腿在不在这一维判不出(空扫不记绿)',
+      mangledRuleKinds,
+      arbitraryDemand,
+    }
+  return { verdict: 'in', reason: '', mangledRuleKinds, arbitraryDemand }
+}
+
+/** 产物 wxss 里 weapp 转写形态的类名计数(从**已解析的 landed 集**数,不扫原始文本)。
+ *  ⚠ 刻意**不**用"产物里还剩多少 rem"当见证:Tailwind 的主题变量本身就带 rem
+ *  (`--text-sm: 0.875rem`),健康产物实测稳定留有 29 处 rem —— 那会把好构建判成坏构建。
+ *  rem2rpx 真正的、唯一的必要见证就是"该被改名的类名有没有被改名"。 */
+export function countMangledRuleKinds(landedNames) {
+  let n = 0
+  for (const name of landedNames) if (/_\S/.test(name)) n++
+  return n
+}
+
 /** dist 下全部 wxss 的落地选择器并集(恒判磁盘:HEAD/索引里没有产物)。
  *  landed = 裸类形态;compoundLeads = 复合选择器的首族类名(2026-09-25 补第三态的产物侧输入)。 */
 export function collectLandedFromDist(distDir) {
@@ -1490,6 +1539,7 @@ export async function runCheck(opts) {
   // C5 的红在 C1 段里算,但要合进下面统一的 `failing` —— 先单独收着,免得看起来像被 minCoverage 管着
   const failingC5 = []
   let mangleLeg = { verdict: 'undetermined', reason: 'C1 未能判定(无参考层或无产物规则集)⇒ 面 1 无从谈起', demandKinds: null, sightingKinds: null, sampleNames: [] }
+  let cssLeg = { verdict: 'undetermined', reason: 'C1 未能判定 ⇒ CSS 腿见证无从取' }
   if (reference && landed) {
     // 第四/五参把"该按哪种产出形态验收"交给参考层自己的形状:
     // 裸产出档要求裸类规则;复合产出档(space-x / space-y / divide-x / divide-y 一族)只要求**首族**复合规则。
@@ -1528,6 +1578,26 @@ export async function runCheck(opts) {
       sampleNames: mangleDemand,
     })
     if (mangleLeg.verdict === 'idle') failingC5.push(`C5 ${mangleLeg.reason}(样例:${mangleLeg.sampleNames.join(' ')})`)
+    /* ---- C6:weapp CSS 腿整条没跑(改名 + rem2rpx 都没生效)----
+       立项实测:三连构建里最坏的那一档 C1 反而读到 99.35% / 死规则 0 / C5=in,
+       因为 CSS 用转义选择器 `.z-\[1001\]` 与运行时源名字面相同 —— 名字对得上,平台却未必认。
+       所以这一维必须独立存在:C1/C4/C5 结构上答不了"该不该看到这个名字"。 */
+    let cssLegWitness = null
+    try {
+      cssLegWitness = { mangled: countMangledRuleKinds(landed) }
+    } catch (e) {
+      if (!(e instanceof Undetermined)) throw e
+      undetermined.push(`C6 CSS 腿见证取不到:${e.message} ⇒ 这一维未判定,不记通过`)
+    }
+    if (cssLegWitness) {
+      const arbitraryDemand = [...usedTokenList].filter((n) => weappMangleClassName(n) !== n).length
+      cssLeg = auditCssLeg({
+        mangledRuleKinds: cssLegWitness.mangled,
+        arbitraryDemand,
+      })
+      cssLeg.arbitraryDemand = arbitraryDemand
+      if (cssLeg.verdict === 'off') failingC5.push(`C6 ${cssLeg.reason}`)
+    }
     // missOccurrences 与 computeCoverage 的 miss 集**共用同一份判据**(2026-09-25 收口):
     // 旧写法在这里原地重写第二份谓词,注释自己也警告"两处各写一遍必然漂移" ——
     // 第三态一出来它就真的漂了(复合首族命中的名字会被这行重新算成 miss)。现直接吃 missNames。
@@ -1592,6 +1662,7 @@ export async function runCheck(opts) {
     referenceFace: reference ? referenceFace : null,
     coverage,
     mangleLeg,
+    cssLeg,
     missingSamples,
     dual,
     blindSpots,
@@ -1694,6 +1765,11 @@ function report(r, asJson) {
         `C5 转写腿:**未判定**${L.demandKinds === 0 ? '(本轮无可观测转写需求)' : ''}` +
           `${L.reason ? ` —— ${L.reason}` : ''};这一维**不计为通过**,与"腿在"是两回事`,
       )
+    console.log(
+      `C6 CSS 腿:${r.cssLeg.verdict} —— ` +
+        (r.cssLeg.reason ||
+          `含标点档 ${r.cssLeg.arbitraryDemand} 个,产物转写形态类名 ${r.cssLeg.mangledRuleKinds} 个 ⇒ 整条未跑已被排除`),
+    )
   }
 
   console.log(`C2 同名双义:${r.dual.length} 条`)
@@ -2426,6 +2502,18 @@ export function selfTest() {
   }
 
 
+  /* ---- C6:weapp CSS 腿整条没跑(2026-09-26 三连构建实测里最坏那一档) ---- */
+  eq('P71 C6 阳性:源码有含标点档而产物 0 个转写形态 ⇒ 必须判 off(这是 C1/C4/C5 一致报好的那一档)',
+    auditCssLeg({ mangledRuleKinds: 0, arbitraryDemand: 550 }).verdict, 'off')
+  eq('P72 C6 反向:产物有转写形态 ⇒ 判 in,新判据不得把健康构建判死',
+    auditCssLeg({ mangledRuleKinds: 559, arbitraryDemand: 724 }).verdict, 'in')
+  eq('P73 C6 空扫不记绿:源码本轮没有含标点档 ⇒ 只能 undetermined(不得报 in)',
+    auditCssLeg({ mangledRuleKinds: 0, arbitraryDemand: 0 }).verdict, 'undetermined')
+  eq('P74 C6 见证量不到 ⇒ undetermined(不冒红也不记绿)',
+    auditCssLeg({ mangledRuleKinds: null, arbitraryDemand: 12 }).verdict, 'undetermined')
+  eq('P75 countMangledRuleKinds 只数带转写痕迹的类名(源名/普通档不计)',
+    countMangledRuleKinds(new Set(['bg-_bvar_p--color-card_P_B', 'flex', 'text-sm', 'z-_b1001_B'])), 2)
+
   let failed = 0
   for (const x of results) {
     console.log(`${x.ok ? '✅' : '❌'} ${x.label}${x.ok ? '' : ` got=${JSON.stringify(x.got)} want=${JSON.stringify(x.want)}`}`)
@@ -2547,6 +2635,8 @@ export const __test__ = {
   collectRuntimeFace,
   findMangledSightings,
   mangledOnlyNames,
+  auditCssLeg,
+  countMangledRuleKinds,
   partitionRuntimeReachability,
   auditMangleLeg,
   measureMainPackage,
