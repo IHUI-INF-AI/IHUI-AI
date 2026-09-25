@@ -54,14 +54,24 @@
 #     (同一 analyze/loadPolicy 入口,表换成索引版)⇒ 判红 0 处、违规合计由 6 降到 3。
 #     ⚠️ 本票同时纠一处**表与现实脱节**(本表 T1 类问题的现实版):`apps/cli` 自 2026-09-24
 #     取证的 3 条软账之外**新长出 3 条** —— apps/cli 真 import @ihui/dom-actions 而 requires
-#     没登记。已按现实补进 requires(取证:三处均为 `from '@ihui/dom-actions'` 主入口、
-#     apps/cli/package.json 已声明 workspace:*、node_modules/@ihui/dom-actions 链接在位、
-#     platform(20)→product(40) 层级不反向)。这条不是为消红登记的:依赖本来就在那儿。
+#     没登记。已按现实补进 requires(取证:三处均为 `from '@ihui/dom-actions'` **主入口**说明符
+#     ⇒ 非深导入;platform(20)→product(40) 层级不反向;node_modules/@ihui/dom-actions 链接在位)。
+#     ⚠️ 一条**没被本门覆盖**的账,当场量到但不由本门消:该包在 `apps/cli/package.json` 里的
+#     `workspace:*` 声明在本票取证时**只存在于共享工作树**,HEAD/索引面上没有(并行会话在途)。
+#     门 101 从 HEAD 侧独立报出同一事实:`[孤儿] apps/cli dependencies.@ihui/dom-actions:
+#     lock 仍记 workspace:*,package.json 已不声明`(R3 只报数不判红)⇒ HEAD 面上这是**真幽灵依赖**
+#     (源码 import、清单未声明)。requires 登记的是"依赖边存在",**不声称**"清单已对齐";
+#     该声明必须由持有 apps/cli 清单的那一路随代码同票入库,不得由本门代提。
+#     这条不是为消红登记的:依赖本来就在那儿。
 #     2026-09-25 全 23 模块复测试跑(取代下方 09-24 那组数字):**20 块判红 0**,有账的是
 #     `packages/i18n` 2 条、`repo-tooling` 1 条、`apps/cli` 3 条(本票已还)⇒ 剩余待整改 2 块。
-#     下一块要先还的账:翻 `packages/i18n` 前须先处置 `tests/waiting-keys-in-end-packages.test.ts`
-#     跨包相对 import(要么把该出口补进 requires 并确认层级不反向,要么改走公开出口);
-#     翻 `repo-tooling` 前须处置 `scripts/tests/export-openapi-stub-key.test.mjs` 同类问题。
+#     下一块要先还的账(两处,均已量化到行,解法见本节下方 09-24 试跑取证的更正值):
+#       ① 翻 `packages/i18n` —— 须把 `tests/waiting-keys-in-end-packages.test.ts` 移到
+#          `packages/shared/tests/chat/`(改 2 处路径)。**换 import 路径消不掉 D2**,理由见上。
+#       ② 翻 `repo-tooling` —— 须处置 `scripts/tests/export-openapi-stub-key.test.mjs:22`;
+#          它只用到 `export-openapi.ts` 里一个零依赖纯函数(`normalizeStubKey`),而该测试**已有**
+#          三条"读源码文本"的装车断言 ⇒ 最小改法是去掉 import、从文本里抠出该函数再执行
+#          (保护力不降,反而多一条"抠不到即红")。**不得**把 apps/api 写进 requires(T1 当场判红)。
 #     ⚠️ 09-24 那句"全仓 24 个模块逐一试跑均 0 处,现存 3 条软账"**已过期**,保留只为留痕:
 #     次日实测是 6 条(多出 apps/cli 那 3 条)。这正是本表要防的形态 —— 抄旧取证数字派单会漏账。
 #
@@ -126,7 +136,18 @@
 #      判红共 3 条,全部是"表还没覆盖到的现实边",没有一个模块的既有代码违反声明:
 #        - packages/i18n/tests/waiting-keys-in-end-packages.test.ts:19  D1+D2
 #          测试按相对路径 ../../shared/src/chat/waiting-pool 穿透进 composite 层实现。
-#          收口动作:改走 @ihui/shared/chat 公开入口(它是 ./chat/* 已声明的子入口)。
+#          ❌ 当时写的收口动作"改走 @ihui/shared/chat 公开入口"**做不到,已推翻**(2026-09-25 取证):
+#            analyze() 里 D2 判据是 `target.rank > mod.rank`,**只比 rank 数值**,与走不走公开入口、
+#            requires 是否声明全无关;而 packages/i18n=platform(rank 20)、packages/shared=composite
+#            (rank 30),30>20 ⇒ 换路径照样判红。补 requires 只消 D1 不消 D2;把 i18n 挪到 composite
+#            或把 shared 挪到 platform 属"挪层消红",本节上方已禁止。
+#          ✅ 唯一合规出路 = 把该测试放到**不反向**的那一层:`packages/shared/tests/chat/`
+#            (同包 ⇒ 无跨模块边;它读各端 JSON 词包用的是 readFileSync,不构成 import 边,门不判),
+#            改法是 2 处:L27 的 import 改 `../src/chat/waiting-pool`、L29 的 REPO_ROOT 由 '../../..'
+#            改 '../../../..'。已实测收集面覆盖该目录(packages/shared/vitest.config.ts 只加 exclude、
+#            未设 include ⇒ 默认收 tests/**),且全仓**无**按旧路径锚它的代码级引用(grep scripts/ .github/)。
+#          另注:全仓 repo-tooling→apps/* 的真 import 边实测**只有 1 处**(下述 export-openapi-stub-key),
+#          同目录 `deploy/tests/prod-bundle-diagnose.test.mjs:227` 已有"读文本不 import"的现成正例可抄。
 #        - scripts/tests/export-openapi-stub-key.test.mjs:22  D1
 #          仓库脚本按相对路径读 apps/api/scripts/export-openapi.ts。
 #          **不得**为了消红把 apps/api 写进 repo-tooling.requires —— 试过,T1 当场判红
@@ -504,8 +525,11 @@ modules:
       - 'packages/design-tokens'
       - 'packages/i18n'
       # 2026-09-25 补:apps/cli/src/tools/browser-page.ts 与两枚同族测试真 import
-      # '@ihui/dom-actions'(主入口,非深导入),且 apps/cli/package.json 已声明
-      # workspace:*、node_modules 链接在位 —— 是表没追上现实,不是新增依赖。
+      # '@ihui/dom-actions'(主入口,非深导入)—— 是表没追上现实,不是新增依赖。
+      # ⚠️ 口径提醒:该包在 apps/cli/package.json 里的 workspace:* 声明此刻**只在共享工作树**,
+      # HEAD/索引面上没有(属并行会话在途改动,由持有者入库;复跑
+      # `node scripts/check-lock-manifest-consistency.mjs --staged` 可见那条孤儿记账)。
+      # requires 记的是"这条依赖边真实存在",不等于"包清单已对齐"。
       - 'packages/dom-actions'
     public_entrypoints: []
 
