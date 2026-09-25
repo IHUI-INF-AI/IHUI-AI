@@ -77,7 +77,8 @@ export function SkillMarketDialog({ open, onClose }: Props) {
   })
 
   const marketData = marketQ.data
-  const list = marketData?.list ?? []
+  // 解包键必须与后端契约一致(items);此处曾读 list ⇒ 恒空。反向对照见 __tests__ 契约测试。
+  const list = marketData?.items ?? []
   const total = marketData?.total ?? 0
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
@@ -190,43 +191,44 @@ export function SkillMarketDialog({ open, onClose }: Props) {
                   </div>
                 </div>
                 <div className="ml-3 flex shrink-0 items-center gap-1">
-                  {skill.isInstalled ? (
-                    <Button variant="outline" size="sm" disabled className="text-xs">
+                  {/*
+                    安装按钮恒显:后端市场列表不产出"当前管理员是否已装"字段(旧 isInstalled
+                    是随 `list` 一起臆造的、从未有数据)。install 服务端幂等(installCount++ +
+                    写私有库 Hash),重复安装无副作用。
+                  */}
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => handleInstall(skill)}
+                    disabled={installMut.isPending}
+                    className="text-xs"
+                  >
+                    {installMut.isPending ? (
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    ) : (
                       <Download className="mr-1 h-3 w-3" />
-                      {t('installed')}
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={() => handleInstall(skill)}
-                      disabled={installMut.isPending}
-                      className="text-xs"
-                    >
-                      {installMut.isPending ? (
-                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                      ) : (
-                        <Download className="mr-1 h-3 w-3" />
-                      )}
-                      {t('install')}
-                    </Button>
-                  )}
-                  {skill.isOwner ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleUnlist(skill)}
-                      disabled={unlistMut.isPending}
-                      className="text-xs text-destructive hover:text-destructive"
-                    >
-                      {unlistMut.isPending ? (
-                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                      ) : (
-                        <X className="mr-1 h-3 w-3" />
-                      )}
-                      {t('unlist')}
-                    </Button>
-                  ) : null}
+                    )}
+                    {t('install')}
+                  </Button>
+                  {/*
+                    下架按钮恒显:本对话框本身就是 admin 界面(入口在 /admin/skills),
+                    权限由服务端 POST /skills/:name/unlist 的 requireAdmin preHandler 兜底,
+                    403 在 handler 之前落定 —— 前端不再自造 isOwner 判断。
+                  */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleUnlist(skill)}
+                    disabled={unlistMut.isPending}
+                    className="text-xs text-destructive hover:text-destructive"
+                  >
+                    {unlistMut.isPending ? (
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    ) : (
+                      <X className="mr-1 h-3 w-3" />
+                    )}
+                    {t('unlist')}
+                  </Button>
                 </div>
               </div>
             ))
