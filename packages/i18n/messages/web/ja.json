@@ -18246,6 +18246,7 @@
     "advancedAiTools": "高度な AI ツール",
     "mediaTasks": "メディアタスク",
     "webTools": "ウェブツール",
+    "figmaImport": "デザイン変換",
     "voices": "声紋ライブラリ",
     "agentGovernance": "Agent Token ガバナンス",
     "agentWorkbench": "エージェントワークベンチ",
@@ -25198,6 +25199,23 @@
     "deleteConfirm": "この声紋を削除しますか?削除後はクローン TTS に使用できなくなります。",
     "refresh": "更新",
     "notFound": "声紋が見つかりません"
+  },
+  "figmaImportPage": {
+    "title": "デザイン変換",
+    "subtitle": "Figma の fileKey とノード ID を貼り付けて、実行可能なフロントエンドコンポーネントコード(React+Tailwind / Taro)を生成します。",
+    "targetReact": "React + Tailwind",
+    "targetTaro": "Taro ミニプログラム",
+    "fileKeyPlaceholder": "Figma fileKey(例: a1b2c3...)",
+    "nodeIdPlaceholder": "ノード ID(例: 1:2。Frame 選択後にリンクをコピー)",
+    "run": "コード生成",
+    "running": "生成中...",
+    "tokenHint": "サーバー側に FIGMA_API_TOKEN が必要です。LLM 生成に失敗した場合は決定論的 HTML スケルトンへ自動降級します。",
+    "errorRequired": "fileKey とノード ID を入力してください",
+    "resultTitle": "生成結果",
+    "copy": "コードをコピー",
+    "copied": "コピーしました",
+    "degradedNotice": "LLM 生成に失敗したため、決定論的 HTML スケルトンに降級しました(そのまま利用可能です)。",
+    "metaNodes": "ノード {nodes} 個 · テキスト {texts} 件 · 画像参照 {images} 件"
   },
   "webToolsPage": {
     "title": "ウェブツール",

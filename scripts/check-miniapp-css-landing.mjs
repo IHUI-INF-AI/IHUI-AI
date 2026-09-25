@@ -47,6 +47,31 @@
  *      utilities 链**已于 2026-09-25 开链落地**(实测主包 C1 覆盖 0.79% → 32.15%,主包体积反瘦 61KB),
  *      所以这里报的是**含 utilities 落地量的实测现值** —— 旧的"若开启…装不装得下"假设算术已作废。
  *      **只报数不判红** —— 体积是决策输入,不是本门的对错。
+ *   C4 可达性 = 转写名进了 wxss,还得在产物 js/wxml/wxs 那一侧**挂得上**才算到端可用。
+ *      运行时维自 2026-09-26 起是**三态**而非两态(修口,起因是实测把三条正当落地判成死规则):
+ *        · `hitMangledKinds` —— `collectRuntimeFace().tokens` 看得见(class/className 紧邻字面量)
+ *        · `hitSightedKinds` —— 抽取器看不见、但**全文子串搜索**目击得到
+ *          (实测形态 `".concat(v===t?"font-bold border-_blength_c14rpx_B border-transparent":"")"`:
+ *           类名在 `.concat()` / 三元的**参数**里,`CLASS_ATTR_RE` 那种"属性紧邻字面量"的抽取结构上看不见,
+ *           于是 `border-[length:14rpx]` / `from-[var(--color-brand-accent)]` / `to-[var(--color-danger)]`
+ *           三条被高估成死规则 —— 死规则维度对拼接 class 会**虚报**);
+ *        · `deadRuleKinds` —— 两侧都看不见 ⇒ 规则产出了但谁也没挂上(第 3 桶)。
+ *      三态分开报数,合计必须等于「CSS 侧只有转写名」那一集(镜像测试钉死)。**第 2 态不是放水**:
+ *      它由同一个 `findMangledSightings` 判据给,而该判据的反向锁(全文真一个字都没有 ⇒ 仍判 dead)
+ *      与 C5 共用 —— 反向证明在 `--self-test` / 镜像测试里都做了。
+ *   C5 转写腿结构性对账(2026-09-26 立,**结构判据,不是量级判据**)。
+ *      起因(实测,已定论):同一份仓库配置,一次构建 JS 侧**一个转写名都没有**(死规则 485、
+ *      C1 掉到 34.89%),另一次全转写(死规则 34),而 `apps/miniapp-taro/config/index.ts`
+ *      两次之间**一字未改** ⇒ weapp 的 JS/WXML 改名腿会**整轮空转**,而当时没有任何一条判据
+ *      能在"腿整轮没跑"时必然翻红:它只是让 pct 变小,而 `--min-coverage 0` 的观测档下 pct 根本不判红
+ *      —— 那是拿"量级判据"冒充"结构判据"。现口径(两维职责不互吞):
+ *        面 1 = mangledOnly 集(demanded ∧ 原名在 wxss 无规则 ∧ 转写名在 wxss 有规则)= 命中(两态)+ 死规则;
+ *        面 2 = 对面 1 每个名字取 `weappMangleClassName(名)` 到产物 js/wxml/wxs **全文**做子串搜索
+ *               (刻意不用 tokens 抽取集 —— 见 C4 第 2 态,抽取器看不见拼接串),数"至少命中一次"的名字;
+ *        面 1 > 0 ∧ 面 2 == 0 ⇒ **必红**(结论行点名"本轮 JS/WXML 转写腿空转",样例 ≤5);
+ *        面 1 == 0 ⇒ 这一维写**「未判定(本轮无可观测转写需求)」,绝不记为通过**(空扫报绿是本仓最高频失效型);
+ *        **部分偏跳不触发 C5**,仍归 C4 计数 —— C5 只判"整轮没跑"这一型结构性失效,量级偏跳是 C4 的地盘。
+ *      C5 与 C1 的 pct **互不遮蔽**:它不受 `--min-coverage` 影响(观测档照样判红),C1 判不判红也不决定 C5。
  *
  * 引擎同源(2026-09-25 换档,本门从"报一个错引擎的数"改成"同引擎或弃权"):
  *   端 `apps/miniapp-taro/package.json` 声明 Tailwind v3,但真实 weapp 构建跑的是 **v4.3.3**
@@ -448,6 +473,55 @@ export function classifyDist(distDir) {
   return { kind: 'weapp', reason: '', wxssCount, wxmlCount }
 }
 
+/**
+ * C6 —— **weapp-tailwindcss 的 CSS 腿本轮到底跑没跑**(结构性判据,不是量级)。
+ *
+ * 立项依据是同一天三连构建的实测对照(同一份 `config/index.ts`):
+ *  - A:CSS 腿在(产物有 321 个 `_b…_B` 转写名)、JS 腿不在 ⇒ C4 死规则 485、C1 34.89%、C5=idle;
+ *  - B:两腿都在 ⇒ 死规则 31、C1 93.77%、C5=in;
+ *  - C:**CSS 腿整个没跑** —— `--spacing` 停在 `0.25rem`(没做 rem2rpx)、`_b` 形态 0 个,
+ *       此时 CSS 用的是 Tailwind 自己的转义选择器 `.z-\[1001\]`,与运行时源名**字面相同**,
+ *       于是 C1 读到 **99.35% / 死规则 0 / C5=in** —— 一门"看产物"的门,把最坏的一档读成了最好的一档。
+ *
+ * 为什么不能让 C1/C4 顺带抓住它:C4/C5 问的是"两侧名字对不对得上",而 C 档两侧确实对得上(都源名);
+ * 它答不了"**这个平台的 CSS 引擎该不该看到这些名字**"。微信 WXSS 对反斜杠转义类名的支持就是
+ * weapp-tailwindcss 存在的理由(它做 `_b` 改名正是为了绕开转义),所以"没改名 + 留转义/rem"
+ * 只能由一条**独立的机制判据**接住 —— 这就是 C6。
+ *
+ * 两面见证(取不到即 undetermined,**绝不记为通过**):
+ *  - `mangledRuleKinds`  产物 landed 里含转写痕迹(`_x` 形态)的类名数;
+ *  - `arbitraryDemand`   源码里含表内标点、因此**本应被改名**的 class token 数。
+ * 判据:`arbitraryDemand > 0 ∧ mangledRuleKinds == 0` ⇒ CSS 腿整条没跑。
+ * 刻意不用"产物还剩多少 rem":主题变量本身就带 rem,健康产物也留 29 处,那是假红源。
+ */
+export function auditCssLeg({ mangledRuleKinds, arbitraryDemand }) {
+  if (typeof mangledRuleKinds !== 'number' || typeof arbitraryDemand !== 'number')
+    return { verdict: 'undetermined', reason: 'CSS 腿见证面没量到 ⇒ 不判通过' }
+  if (arbitraryDemand > 0 && mangledRuleKinds === 0)
+    return {
+      verdict: 'off',
+      reason: `源码有 ${arbitraryDemand} 个含标点档(按规矩该被 weapp 改名),产物里却是 **0 个** 转写形态类名 ⇒ CSS 腿整条未跑;此时 CSS 用的是转义选择器,与运行时源名字面相同,C1/C4/C5 会一致报好 —— 这一维就是为那种假绿存在的`,
+    }
+  if (arbitraryDemand === 0)
+    return {
+      verdict: 'undetermined',
+      reason: '本轮源码无含标点档 ⇒ CSS 腿在不在这一维判不出(空扫不记绿)',
+      mangledRuleKinds,
+      arbitraryDemand,
+    }
+  return { verdict: 'in', reason: '', mangledRuleKinds, arbitraryDemand }
+}
+
+/** 产物 wxss 里 weapp 转写形态的类名计数(从**已解析的 landed 集**数,不扫原始文本)。
+ *  ⚠ 刻意**不**用"产物里还剩多少 rem"当见证:Tailwind 的主题变量本身就带 rem
+ *  (`--text-sm: 0.875rem`),健康产物实测稳定留有 29 处 rem —— 那会把好构建判成坏构建。
+ *  rem2rpx 真正的、唯一的必要见证就是"该被改名的类名有没有被改名"。 */
+export function countMangledRuleKinds(landedNames) {
+  let n = 0
+  for (const name of landedNames) if (/_\S/.test(name)) n++
+  return n
+}
+
 /** dist 下全部 wxss 的落地选择器并集(恒判磁盘:HEAD/索引里没有产物)。
  *  landed = 裸类形态;compoundLeads = 复合选择器的首族类名(2026-09-25 补第三态的产物侧输入)。 */
 export function collectLandedFromDist(distDir) {
@@ -464,7 +538,7 @@ export function collectLandedFromDist(distDir) {
 }
 
 /**
- * 产物**运行时**那一侧的类名语料(js / wxml / wxs 里出现过的 class token)。
+ * 产物**运行时**那一面的语料 —— class token 抽取维与全文子串维**共用同一份取材**。
  *
  * 为什么必须有这一维(2026-09-25 深夜实测逼出来的):
  * weapp-tailwindcss 把 wxss 选择器里的标点转写(`z-[1001]` → `.z-_b1001_B`),但本端这次真构建里
@@ -475,13 +549,23 @@ export function collectLandedFromDist(distDir) {
  * 只比 CSS 会把 485 个**死规则**计成落地,把 34.5% 刷成 97.4% —— 那正是本仓反复记的
  * "判据只覆盖产出形态的一半"的反面案例:**规则产出了,名字接不上**。
  *
- * 这一函数不判对错,只把"运行时到底挂了什么名字"量出来给判据用;
- * 一旦 weapp 的 JS/WXML 改名侧被接通(运行时也变成 `_b…_B`),`renamed` 自然翻成可达,判据不用改。
+ * 返回两份**不同粒度**的读数,因为要问的问题不同:
+ *  - `tokens` —— 从 `class` / `className` 的**紧邻字面量**里抽出的 token 集(C4 第 1 态用)。
+ *    抽取器有结构上的盲区:拼接串 / 三元参数里的类名它**看不见**(实测三条,见文件头 C4 条目),
+ *    所以"不在 tokens 里"**不能**直接推出"产物里没有那个名字" —— 那是 C4 修口前的第二个洞。
+ *  - `haystack` —— 同一批文件的**全文**,给 `findMangledSightings` 做子串搜索用。
+ *
+ * 两个维度必须读同一批文件:各自 `walkFiles` 一遍就会一端跟着构建走、另一端停在旧快照上,
+ * 而本仓记过太多次"两处算同一件事必须共用一份实现"。
+ *
+ * 这一函数不判对错,只把"运行时到底有什么"量出来给判据用;
+ * 一旦 weapp 的 JS/WXML 改名侧被接通(运行时也变成 `_b…_B`),第 2/3 态自然翻成可达,判据不用改。
  */
-export function collectRuntimeClassTokens(distDir) {
-  const tokens = new Set()
+export function collectRuntimeFace(distDir) {
   const files = walkFiles(distDir).filter((p) => /\.(js|wxml|wxs)$/.test(p))
   if (files.length === 0) throw new Undetermined(`遍历 ${distDir} 一个 js/wxml/wxs 也没读到,运行时类名面判不出`)
+  const tokens = new Set()
+  let haystack = ''
   let unreadable = 0
   for (const p of files) {
     let text
@@ -491,12 +575,48 @@ export function collectRuntimeClassTokens(distDir) {
       unreadable++
       continue
     }
+    haystack += text + '\n'
     // 两种落点:wxml 的 class="…" 属性,以及 js bundle 里 className:"…" / 模板串里的整段 class
     for (const m of text.matchAll(/(?:class|className)\s*[=:]\s*["'`]([^"'`\n]{1,600})["'`]/g))
       for (const t of m[1].split(/[\s,]+/)) if (t) tokens.add(t)
   }
-  if (tokens.size === 0) throw new Undetermined(`扫了 ${files.length} 个运行时文件,一个 class token 也没抽到 —— 抽取失效,不得当"没有名字可用"`)
-  return { tokens, files: files.length, unreadable }
+  if (tokens.size === 0)
+    throw new Undetermined(`扫了 ${files.length} 个运行时文件,一个 class token 也没抽到 —— 抽取失效,不得当"没有名字可用"`)
+  // 全文面为空 = 整层没有可读内容 ⇒ 「谁都没被目击」这个结论不成立,不得让 C5 拿它判"腿空转"。
+  if (haystack.trim() === '')
+    throw new Undetermined(`扫了 ${files.length} 个运行时文件,全文一个字符也没有 —— 抽取失效,不得当"转写名都没出现"`)
+  return { tokens, haystack, files: files.length, unreadable }
+}
+
+/** 兼容出口:只要 token 维的调用方(镜像测试与旧口径)。取材恒经 `collectRuntimeFace`,不另走一遍。 */
+export function collectRuntimeClassTokens(distDir) {
+  const { tokens, files, unreadable } = collectRuntimeFace(distDir)
+  return { tokens, files, unreadable }
+}
+
+/**
+ * 全文子串搜索:**C5 的面 2 与 C4 的第 2 态共用这一份实现**(2026-09-26 立)。
+ * 两个判据问的是同一件事("产物运行时全文里有没有出现过这个转写名"),各写一遍必然漂移 ——
+ * 而漂移的代价不对称:抽取器那一份偏严(把拼接 class 判成死规则),这一份偏松(什么子串都认),
+ * 两边不同形时"死规则"这个数就说不清是谁给的。
+ *
+ * **反向锁(不得被"全文搜索"洗白的部分)**:只搜 `weappMangleClassName(名)`,不搜原名,也不做
+ * 模糊/大小写/去下划线归一 —— 产物 JS 里那个转写名**真的一个字都没有**时必不命中,该名字仍判 dead。
+ * 这条由 `--self-test` 与镜像测试各钉一次(镜像那次用真临时 dist 端到端)。
+ *
+ * 结构性安全:C5 的面 1 恒满足 `mangle(n) !== n`(原名不在 landed 而转写名在 ⇒ 两者必不同 ⇒ 名字里
+ * 至少有一个表内标点),所以本函数的命中不可能被"任何代码里都出现的裸词"白送 —— 面 2 为 0 就真的是
+ * "全文里没有过任何一个转写名"。判据不依赖这条也成立,但 C5 的判别力靠它(否则 `flex` 这类名字
+ * 会让面 2 恒 > 0,空转的腿照样绿)。
+ */
+export function findMangledSightings(haystack, names) {
+  if (typeof haystack !== 'string') throw new Undetermined('运行时全文语料没取到 ⇒ 转写名目击维判不出,不得当"一个都没被看见"')
+  const seen = new Set()
+  for (const n of names ?? []) {
+    const m = weappMangleClassName(n)
+    if (m && haystack.includes(m)) seen.add(n)
+  }
+  return seen
 }
 
 /**
@@ -1043,6 +1163,72 @@ export function findBlindSpots(usedAndOwnClassed, referenceNames) {
 }
 
 /**
+ * 「CSS 侧只有转写名、没有原名」那一集的**唯一取法**(2026-09-26 立)。
+ * 它同时是 C4 三态的输入与 C5 的面 1,所以只能有一份实现:两处各写一遍谓词必然漂移,
+ * 而漂移的表现是"C4 与 C5 对同一份产物给出两个不同的转写需求数"—— 那正是本仓反复记的那一型。
+ * 隐含性质:`mangle(n) !== n` ⇒ 集内每个名字至少含一个表内标点(见 `findMangledSightings` 头注)。
+ */
+export function mangledOnlyNames(usedTokenNames, referenceNames, landedNames) {
+  return [...new Set([...usedTokenNames].filter((n) => referenceNames.has(n)))]
+    .filter((n) => !landedNames.has(n) && landedNames.has(weappMangleClassName(n)))
+}
+
+/**
+ * C4 运行时可达性的**三态分流**(纯函数,可用构造面证明)。
+ *  - `byToken`   —— class/className 紧邻字面量抽取得到 ⇒ 可达(第 1 态)
+ *  - `bySighting`—— 抽取看不见、全文子串搜索目击到 ⇒ 可达(第 2 态,拼接 class 那一型)
+ *  - `dead`      —— 两侧都看不见 ⇒ 死规则(第 3 态,不进 hitKinds/pct)
+ * `sightedNames = null` = 没量全文维 ⇒ 退回两态旧口径(dead = 抽取看不见的那批),
+ * 与三态改造前逐字一致(镜像测试与 `--self-test` 各钉一次这条向后对照)。
+ * ⚠ 两把集合的**键形不同**,这是本函数唯一容易用错的地方:`runtimeTokens` 装的是**转写名**
+ * (产物 class 语料原样),`sightedNames` 装的是**源名**(`findMangledSightings` 的返回就是源名集,
+ * 转写在它内部做)。调用方把转写名喂进 `sightedNames` 不会报错,只会安静地产出"全都判 dead"——
+ * 那条误用由 `--self-test` P64 钉住(它同时也是一条形状锁:sighted 集按源名索引)。
+ */
+export function partitionRuntimeReachability(names, runtimeTokens, sightedNames = null) {
+  const byToken = []
+  const bySighting = []
+  const dead = []
+  for (const n of names) {
+    const m = weappMangleClassName(n)
+    if (runtimeTokens instanceof Set && runtimeTokens.has(m)) byToken.push(n)
+    else if (sightedNames instanceof Set && sightedNames.has(n)) bySighting.push(n)
+    else dead.push(n)
+  }
+  return { byToken, bySighting, dead }
+}
+
+/**
+ * C5 结构性判据(纯函数):本轮 JS/WXML 转写腿是不是**整轮空转**。
+ *
+ * 为什么不能用 pct 代替:pct 是量级读数 —— 腿整轮没跑只是让它变小,而观测档
+ * (`--min-coverage 0`)下 pct 根本不判红,于是"没有任何一条判据能在腿没跑时必然翻红"。
+ * 本函数只看两件事:**有没有转写需求**、**需求里的转写名在运行时全文出现过没有**。
+ *  - 面 1 > 0 ∧ 面 2 == 0 ⇒ `idle`(必红):CSS 全是转写名,运行时一次都没出现过 ⇒ 腿没跑;
+ *  - 面 1 == 0            ⇒ `undetermined`:无可观测需求 = 判不出,**绝不记为通过**
+ *                            ("空扫报绿"是本仓最高频失效型,宁要未判定);
+ *  - 其余                  ⇒ `in`。
+ * **部分偏跳不在本判据内**(今测那种只有若干条没转写的形态):面 2 > 0 就判 `in`,
+ * 具体是谁没挂上由 C4 逐条计数 —— 两维职责不互吞,否则 C5 会变成一个"数量阈值门",
+ * 而阈值一旦落地,就又会有人为消红去调它。
+ */
+export function auditMangleLeg({ demandKinds, sightingKinds, sampleNames = [] }) {
+  if (!Number.isFinite(demandKinds) || !Number.isFinite(sightingKinds))
+    return { verdict: 'undetermined', reason: '面 1/面 2 没量到,不得据以判定转写腿是否空转', demandKinds: demandKinds ?? null, sightingKinds: sightingKinds ?? null, sampleNames: [] }
+  if (demandKinds === 0)
+    return { verdict: 'undetermined', reason: '本轮无可观测转写需求(面 1 = 0)⇒ 这一维判不出,不得记为通过', demandKinds, sightingKinds, sampleNames: [] }
+  if (sightingKinds === 0)
+    return {
+      verdict: 'idle',
+      reason: `本轮 JS/WXML 转写腿空转:面 1 有 ${demandKinds} 类"wxss 里只有转写名"的需求,而面 2 在产物 js/wxml/wxs 全文里一次都没搜到任何转写名 ⇒ 这些规则谁也挂不上`,
+      demandKinds,
+      sightingKinds,
+      sampleNames: sampleNames.slice(0, MISSING_SAMPLES),
+    }
+  return { verdict: 'in', reason: '', demandKinds, sightingKinds, sampleNames: [] }
+}
+
+/**
  * C1 的算术,**刻意做成纯函数**:覆盖率是本门唯一判红的量。若只能在"真仓 + 真跑 tailwind"
  * 下观察它,镜像测试就证明不了它"该红时红、该绿时绿"(§22c:形状判据只能用纯函数 + 构造面证明)。
  * 分母只算 `源码用到 ∩ 参考层` —— 参考层外的名字(端内自有语义类)结构上不可能产出,
@@ -1056,13 +1242,17 @@ export function findBlindSpots(usedAndOwnClassed, referenceNames) {
  * 样例与归族只统计 definite misses —— 保住"整族缺失"那个真信号的可读性。
  *
  * 第三态(2026-09-25 补形状盲区):v4 有一族 utility(space-x / space-y / divide-x / divide-y)
- * **从不产出裸类规则**,
- * 只以复合选择器出现(真产物实测 `.space-x-2>view+view,…`)。裸类判据把它们整族误判"没落地"。
- * 修法不是放松,而是**由参考层自己的产出形状决定产物该长成什么样**:调用方多喂两个集合 ——
- * `referenceBareNames`(参考层里以裸类规则产出的子集)与 `compoundLeadNames`(dist 里复合
- * 选择器的首族类名)。对"参考层就只有复合形态"的名字,产物侧要求**首族**命中(单列
+ * **从不产出裸类规则**,只以复合选择器出现(真产物实测 `.space-x-2>view+view,…`)。裸类判据把它们
+ * 整族误判"没落地"。修法不是放松,而是**由参考层自己的产出形状决定产物该长成什么样**:调用方多喂
+ * 两个集合 —— `referenceBareNames`(参考层里以裸类规则产出的子集)与 `compoundLeadNames`(dist 里
+ * 复合选择器的首族类名)。对"参考层就只有复合形态"的名字,产物侧要求**首族**命中(单列
  * hitCompoundKinds);`.card-list .space-x-2{}` 这类后代手写提及仍判缺 —— 那是原 bug 的锁。
  * 两个新参缺一即不开启第三态,行为与三参旧调用逐字一致。
+ *
+ * 第四态(2026-09-26 C4 修口):第六参 `runtimeTokens` 把可达性判据从"CSS 有规则"收紧成
+ * "运行时挂得上",第七参 `sightedNames` 再补上**抽取器看不见、全文搜索看得见**的那一档 ——
+ * 少了它,拼接 class(`.concat(cond?"font-bold border-_blength_c14rpx_B":"")`)会被虚报成死规则。
+ * 可达性两档(token 抽取 / 全文目击)**分开计数**,与两态同理:合计会把"抽取器漏一整型"藏起来。
  */
 export function computeCoverage(
   usedTokenNames,
@@ -1071,13 +1261,25 @@ export function computeCoverage(
   referenceBareNames = null,
   compoundLeadNames = null,
   runtimeTokens = null,
+  sightedNames = null,
 ) {
-  const demanded = [...new Set([...usedTokenNames].filter((n) => referenceNames.has(n)))]
+  // ⚠ 必须**先物化**再用:`runCheck` 传进来的是 `Map#keys()` 迭代器,只能消费一次。
+  // 旧写法在 `demanded` 里 `[...usedTokenNames]` 抽干之后,又把同一个已耗尽的迭代器交给
+  // `mangledOnlyNames` ⇒ 面 1 恒为 0、489 条转写档被整批误判成"确定缺失",
+  // 而 C5 因"面 1 = 0"退成"未判定"—— 一个耗尽的迭代器同时伪装成"没需求"和"没死规则"两种健康读数。
+  // 这条由 `--self-test` 的"迭代器输入必须与数组输入同读数"那例钉死。
+  const usedArr = [...usedTokenNames]
+  const demanded = [...new Set(usedArr.filter((n) => referenceNames.has(n)))]
   const hitOriginal = demanded.filter((n) => landedNames.has(n))
-  const mangledOnly = demanded.filter((n) => !landedNames.has(n) && landedNames.has(weappMangleClassName(n)))
-  // 转写名进了 CSS,还得运行时真挂得上才算数(runtimeTokens 为 null = 没量这一维,退回旧口径)
-  const hitRenamed = runtimeTokens instanceof Set ? mangledOnly.filter((n) => runtimeTokens.has(weappMangleClassName(n))) : mangledOnly
-  const deadRule = runtimeTokens instanceof Set ? mangledOnly.filter((n) => !runtimeTokens.has(weappMangleClassName(n))) : []
+  const mangledOnly = mangledOnlyNames(usedArr, referenceNames, landedNames)
+  // 运行时维没量到 ⇒ 退回旧口径(全部算可达),报告必须写明"死规则一维未判定",不得静默当 0
+  const { byToken, bySighting, dead } =
+    runtimeTokens instanceof Set
+      ? partitionRuntimeReachability(mangledOnly, runtimeTokens, sightedNames)
+      : { byToken: mangledOnly, bySighting: [], dead: [] }
+  const hitRenamed = byToken
+  const hitSighted = bySighting
+  const deadRule = dead
   const notBareHit = demanded.filter((n) => !hitOriginal.includes(n) && !mangledOnly.includes(n))
   const compoundMode = referenceBareNames instanceof Set && compoundLeadNames instanceof Set
   const hitCompound = compoundMode
@@ -1098,19 +1300,29 @@ export function computeCoverage(
   return {
     demandedKinds: demanded.length,
     // 死规则**不进** hitKinds/pct —— 它产出了 CSS 却没有任何元素会挂上那个名字,对用户等于没生效。
-    hitKinds: hitOriginal.length + hitRenamed.length + hitCompound.length,
+    hitKinds: hitOriginal.length + hitRenamed.length + hitSighted.length + hitCompound.length,
     hitOriginalKinds: hitOriginal.length,
     hitMangledKinds: hitRenamed.length,
+    // 第 2 态:抽取器看不见、全文子串搜索目击得到的那批(拼接 class / 三元参数那一型)。
+    // 没量全文维时为 0,与 C4 修口前的读数逐字相同(向后对照由 --self-test P68 钉住)。
+    hitSightedKinds: hitSighted.length,
     hitCompoundKinds: hitCompound.length,
     deadRuleKinds: deadRule.length,
     deadRuleSamples: deadRule.sort().slice(0, MISSING_SAMPLES),
     // 运行时类名语料是否量到过:没量到 ⇒ dead 维恒为 0,报告必须写明这一格是"未判定"而不是"没有死规则"
     runtimeFaceJudged: runtimeTokens instanceof Set,
+    // 全文目击维是否量到过:没量到 ⇒ 第 2 态恒 0,报告得说"三态里少一态",不得读成"没有拼接 class"
+    runtimeSightJudged: sightedNames instanceof Set,
+    // C5 的面 1 从这里出(单一源):"CSS 侧只有转写名"的全部需求数 = 可达两态 + 死规则
+    mangleDemandKinds: mangledOnly.length,
     missKinds: miss.length,
     definiteMissKinds: definite.length,
     unmangledPunctMisses: unmangled.length,
     unmangledPunctChars,
-    pct: demanded.length === 0 ? 1 : (hitOriginal.length + hitRenamed.length + hitCompound.length) / demanded.length,
+    pct:
+      demanded.length === 0
+        ? 1
+        : (hitOriginal.length + hitRenamed.length + hitSighted.length + hitCompound.length) / demanded.length,
     missOccurrences: 0,
     referenceKinds: referenceNames.size,
     landedRuleKinds: landedNames.size,
@@ -1210,6 +1422,9 @@ export async function runCheck(opts) {
     }
   }
   if (unreadable) undetermined.push(`${face} 面有 ${unreadable} 个源码文件取不到内容(计入"少扫",不静默)`)
+  // 单一物化点:Map#keys() 是**一次性迭代器**,消费一次即耗尽。下游 C1/C2/C4/C5 共用这一份数组,
+  // 否则第二个消费者拿到空序列 —— 那会把"没需求"和"没死规则"两种健康读数一起伪造出来。
+  const usedTokenList = [...usedTokens.keys()]
 
   /* ---- 产物面(先判,因为参考层要跟它同引擎) ---- */
   const distDir = join(appDir, opts.distDirname || 'dist')
@@ -1257,7 +1472,7 @@ export async function runCheck(opts) {
     try {
       reference =
         picked.engine === 'v4'
-          ? await buildUtilityReferenceV4({ root, appDir, candidates: [...usedTokens.keys()] })
+          ? await buildUtilityReferenceV4({ root, appDir, candidates: [...usedTokenList] })
           : await buildUtilityReference(appDir)
       referenceFace =
         picked.engine === 'v4'
@@ -1288,7 +1503,7 @@ export async function runCheck(opts) {
   // 等于把"判据够不到"洗成"没有双义"。立因当天漏掉的正是 white-on-white 那一型。
   const blindSpots = reference
     ? findBlindSpots(
-        [...usedTokens.keys()].filter((n) => own.has(n)),
+        [...usedTokenList].filter((n) => own.has(n)),
         reference.names,
       )
     : []
@@ -1303,7 +1518,7 @@ export async function runCheck(opts) {
   // 与 C2 盲区同一道过滤:**只落在 Tailwind 命名空间里** —— 端内自有类(login-btn、
   // action-btn…)前缀下没有任何 utility,结构上不可能是候选,全算进来就是 1,501 条噪声
   // (实测不过滤时正是这个数,会把真该看的那几条埋掉 —— 报数报到没人看,等于没报)。
-  const referenceBlindSpots = reference && landed ? findBlindSpots([...usedTokens.keys()].filter((n) => landed.has(n)), reference.names) : []
+  const referenceBlindSpots = reference && landed ? findBlindSpots([...usedTokenList].filter((n) => landed.has(n)), reference.names) : []
   if (referenceBlindSpots.length) {
     notices.push(
       `参考层反向盲区 ${referenceBlindSpots.length} 个:产物里有规则、${face} 面确实用了、且落在 Tailwind 命名空间里,但参考层不认它 ⇒ 它不进 C1 分母,覆盖率因此**偏高**(样例 ${referenceBlindSpots.slice(0, MISSING_SAMPLES).join(', ')})。逐条查参考层的输入是不是还缺了构建那边的某一样(缺 theme / 缺 config / 候选没喂到),不得当成"本来就没这条规则"`,
@@ -1321,28 +1536,68 @@ export async function runCheck(opts) {
   /* ---- C1 落地覆盖率 ---- */
   let coverage = null
   let missingSamples = []
+  // C5 的红在 C1 段里算,但要合进下面统一的 `failing` —— 先单独收着,免得看起来像被 minCoverage 管着
+  const failingC5 = []
+  let mangleLeg = { verdict: 'undetermined', reason: 'C1 未能判定(无参考层或无产物规则集)⇒ 面 1 无从谈起', demandKinds: null, sightingKinds: null, sampleNames: [] }
+  let cssLeg = { verdict: 'undetermined', reason: 'C1 未能判定 ⇒ CSS 腿见证无从取' }
   if (reference && landed) {
     // 第四/五参把"该按哪种产出形态验收"交给参考层自己的形状:
     // 裸产出档要求裸类规则;复合产出档(space-x / space-y / divide-x / divide-y 一族)只要求**首族**复合规则。
-    // 第六参把**运行时**类名语料喂进来:weapp 只改了 CSS 侧的名字时,那条规则谁也挂不上 ⇒ 计死规则,不计命中。
-    // 运行时语料取不到 ⇒ 传 null ⇒ 这一维**未判定**,报告必须喊出来,不得静默当"没有死规则"。
-    let runtimeTokens = null
+    // 第六/七参把**运行时**那一侧喂进来:weapp 只改了 CSS 侧的名字时,那条规则谁也挂不上 ⇒ 计死规则,不计命中;
+    //   而"名字不在抽取器抽到的 class 字面量里"还不够 —— 拼接串里的类名抽取器结构上看不见,
+    //   故再给一档"全文子串搜索目击得到"。运行时语料取不到 ⇒ 传 null ⇒ 相应一维**未判定**,报告必须喊出来。
+    // **一次取材、两维共用同一份磁盘快照**:分两次读 dist,期间同端一次 `taro build` 就会把整目录
+    // 换掉(立因当天本机就这样),那"token 维"与"全文维"量的就不是同一次构建 —— 两维结论必须同源。
+    let runtime = null
+    let runtimeSighted = null
     try {
-      const r = collectRuntimeClassTokens(distDir)
-      runtimeTokens = r.tokens
-      if (r.unreadable) notices.push(`运行时类名面有 ${r.unreadable}/${r.files} 个文件读不到(计入"少扫",不静默)`)
+      runtime = collectRuntimeFace(distDir)
+      if (runtime.unreadable) notices.push(`运行时类名面有 ${runtime.unreadable}/${runtime.files} 个文件读不到(计入"少扫",不静默)`)
     } catch (e) {
       if (!(e instanceof Undetermined)) throw e
       undetermined.push(`C4 运行时类名面判不出:${e.message} ⇒ 本轮"死规则"一维计未判定,不得当成 0`)
     }
+    // 面 1 先算(与 computeCoverage 同一个 `mangledOnlyNames`,单一判据源);面 1 == 0 时**不去扫全文**:
+    // 没有需求就没有可判的腿,硬扫一遍再报 0 会把"本轮无需求"与"腿没跑"混成同一个读数。
+    const mangleDemand = mangledOnlyNames(usedTokenList, reference.names, landed)
+    if (runtime && mangleDemand.length > 0) runtimeSighted = findMangledSightings(runtime.haystack, mangleDemand)
     coverage = computeCoverage(
-      usedTokens.keys(),
+      usedTokenList,
       reference.names,
       landed,
       reference.bareNames,
       compoundLeads,
-      runtimeTokens,
+      runtime ? runtime.tokens : null,
+      runtimeSighted,
     )
+    // C5:面 1 = coverage 给的那一份(单一源),面 2 = 上面那次全文搜索的命中数。
+    // 没量到面 2 时 sightingKinds 传 NaN ⇒ auditMangleLeg 自己判"未判定",不冒红也不记绿。
+    mangleLeg = auditMangleLeg({
+      demandKinds: coverage.mangleDemandKinds,
+      sightingKinds: runtimeSighted instanceof Set ? runtimeSighted.size : NaN,
+      sampleNames: mangleDemand,
+    })
+    if (mangleLeg.verdict === 'idle') failingC5.push(`C5 ${mangleLeg.reason}(样例:${mangleLeg.sampleNames.join(' ')})`)
+    /* ---- C6:weapp CSS 腿整条没跑(改名 + rem2rpx 都没生效)----
+       立项实测:三连构建里最坏的那一档 C1 反而读到 99.35% / 死规则 0 / C5=in,
+       因为 CSS 用转义选择器 `.z-\[1001\]` 与运行时源名字面相同 —— 名字对得上,平台却未必认。
+       所以这一维必须独立存在:C1/C4/C5 结构上答不了"该不该看到这个名字"。 */
+    let cssLegWitness = null
+    try {
+      cssLegWitness = { mangled: countMangledRuleKinds(landed) }
+    } catch (e) {
+      if (!(e instanceof Undetermined)) throw e
+      undetermined.push(`C6 CSS 腿见证取不到:${e.message} ⇒ 这一维未判定,不记通过`)
+    }
+    if (cssLegWitness) {
+      const arbitraryDemand = [...usedTokenList].filter((n) => weappMangleClassName(n) !== n).length
+      cssLeg = auditCssLeg({
+        mangledRuleKinds: cssLegWitness.mangled,
+        arbitraryDemand,
+      })
+      cssLeg.arbitraryDemand = arbitraryDemand
+      if (cssLeg.verdict === 'off') failingC5.push(`C6 ${cssLeg.reason}`)
+    }
     // missOccurrences 与 computeCoverage 的 miss 集**共用同一份判据**(2026-09-25 收口):
     // 旧写法在这里原地重写第二份谓词,注释自己也警告"两处各写一遍必然漂移" ——
     // 第三态一出来它就真的漂了(复合首族命中的名字会被这行重新算成 miss)。现直接吃 missNames。
@@ -1352,10 +1607,11 @@ export async function runCheck(opts) {
     delete coverage.missNames
   }
 
+
   /* ---- C2 同名双义 ---- */
   const dual = []
   if (reference) {
-    for (const name of new Set([...usedTokens.keys()].filter((n) => reference.names.has(n)))) {
+    for (const name of new Set([...usedTokenList].filter((n) => reference.names.has(n)))) {
       const o = own.get(name)
       if (!o) continue
       dual.push({
@@ -1381,6 +1637,9 @@ export async function runCheck(opts) {
       `C1 落地覆盖率 ${(coverage.pct * 100).toFixed(2)}%(${coverage.hitKinds}/${coverage.demandedKinds} 类、${coverage.missOccurrences} 处用法无规则)< 要求的 ${minCoverage * 100}%`,
     )
   }
+  // C5 的红**不看 minCoverage、也不看 c1Judged**:它是结构性判据,而"观测档"(阈值调到 0)
+  // 恰恰是最需要它的那一刻 —— 让阈值能免掉它,就等于又造一条"量级判据冒充结构判据"。
+  failing.push(...failingC5)
   const exit = undetermined.length ? 2 : failing.length ? 1 : 0
   return {
     exit,
@@ -1402,6 +1661,8 @@ export async function runCheck(opts) {
     referenceBytesIsNetUtilities: reference ? !!reference.bytesIsNetUtilities : null,
     referenceFace: reference ? referenceFace : null,
     coverage,
+    mangleLeg,
+    cssLeg,
     missingSamples,
     dual,
     blindSpots,
@@ -1456,10 +1717,15 @@ function report(r, asJson) {
     const c = r.coverage
     console.log(
       `C1 覆盖 ${c.hitKinds}/${c.demandedKinds} 类(${(c.pct * 100).toFixed(2)}%)` +
-        ` —— 原名直中 ${c.hitOriginalKinds} + weapp 转写后中 ${c.hitMangledKinds} + 复合首族 ${c.hitCompoundKinds}(三态分开计数,合计会把漏判藏起来)` +
+        ` —— 原名直中 ${c.hitOriginalKinds} + weapp 转写后中·token 抽取 ${c.hitMangledKinds}` +
+        ` + weapp 转写后中·全文目击 ${c.hitSightedKinds} + 复合首族 ${c.hitCompoundKinds}` +
+        `(四态分开计数,合计会把"漏判在哪一态"藏起来;第 3 态是拼接 class,见 C4 条目)` +
         (c.runtimeFaceJudged
-          ? ` + C4 死规则 ${c.deadRuleKinds} 类(CSS 里有转写规则、运行时类名里却没有那个名字 ⇒ **谁也挂不上**,不计进命中;样例 ${c.deadRuleSamples.join(' ')})`
+          ? ` + C4 死规则 ${c.deadRuleKinds} 类(CSS 里有转写规则、运行时 token 抽取与全文子串两侧都看不见 ⇒ **谁也挂不上**,不计进命中;样例 ${c.deadRuleSamples.join(' ')})`
           : ' + C4 死规则:**未判定**(运行时类名语料没量到,不得把这格当成 0)') +
+        (c.runtimeFaceJudged && !c.runtimeSightJudged
+          ? ' 〔第 3 态未量(全文语料没取到)⇒ 本行的死规则读数是**两态口径**,对拼接 class 偏高,不得读成"这些都是真死规则"〕'
+          : '') +
         ` —— utility 参考层共 ${c.referenceKinds} 个可选,产物规则名共 ${c.landedRuleKinds} 个` +
         (r.c1Judged ? '' : ' 〔对比档:参考层与产物不同引擎或与源码不同面,本行只是读数,不计红〕'),
     )
@@ -1479,6 +1745,31 @@ function report(r, asJson) {
     }
   } else {
     console.log('C1 覆盖:未判定(见下方「无法判定」)—— 拿不到同引擎的参考层就**不出覆盖率数字**')
+  }
+
+  /* ---- C5:转写腿的结构性对账(与 pct 无关,观测档 --min-coverage 0 照样判红) ---- */
+  {
+    const L = r.mangleLeg || { verdict: 'undetermined', demandKinds: null, sightingKinds: null, sampleNames: [] }
+    if (L.verdict === 'idle')
+      console.log(
+        `❌ C5 本轮 JS/WXML 转写腿空转(结构性,不是量级):面 1「wxss 里只有转写名」的转写需求 ${L.demandKinds} 类,` +
+          `而面 2 在产物 js/wxml/wxs 全文里一次都没搜到任何转写名 ⇒ 腿整轮没跑,这些规则谁也挂不上。样例(≤${MISSING_SAMPLES}):${L.sampleNames.join(' ')}`,
+      )
+    else if (L.verdict === 'in')
+      console.log(
+        `C5 转写腿:在 —— 面 1 ${L.demandKinds} 类转写需求中,面 2 全文子串搜索目击到 ${L.sightingKinds} 类` +
+          `(整轮空转已被排除;个别偏跳由 C4 逐条计数,两维职责不互吞)`,
+      )
+    else
+      console.log(
+        `C5 转写腿:**未判定**${L.demandKinds === 0 ? '(本轮无可观测转写需求)' : ''}` +
+          `${L.reason ? ` —— ${L.reason}` : ''};这一维**不计为通过**,与"腿在"是两回事`,
+      )
+    console.log(
+      `C6 CSS 腿:${r.cssLeg.verdict} —— ` +
+        (r.cssLeg.reason ||
+          `含标点档 ${r.cssLeg.arbitraryDemand} 个,产物转写形态类名 ${r.cssLeg.mangledRuleKinds} 个 ⇒ 整条未跑已被排除`),
+    )
   }
 
   console.log(`C2 同名双义:${r.dual.length} 条`)
@@ -1978,6 +2269,25 @@ export function selfTest() {
     [false, 0, 1],
   )
   eq(
+    'P70 输入形态不变量:数组与一次性迭代器必须给出逐字相同的读数',
+    (() => {
+      // 回归本票真实缺陷:runCheck 传 Map#keys(),被 demanded 抽干后面 1 恒 0,
+      // 485 条转写档整批伪装成"确定缺失",C5 又因"无需求"退成未判定 —— 一个耗尽的迭代器
+      // 同时伪造了两种健康读数。只测数组输入永远发现不了它。
+      const names = ['z-[1001]', 'bg-muted']
+      const ref = new Set(names)
+      const landed = new Set(['bg-muted', 'z-_b1001_B'])
+      const pick = (c) => JSON.stringify([c.hitKinds, c.hitOriginalKinds, c.hitMangledKinds, c.mangleDemandKinds, c.definiteMissKinds, c.pct])
+      const asArray = pick(computeCoverage([...names], ref, landed))
+      const asIterator = pick(computeCoverage(new Map(names.map((n) => [n, 1])).keys(), ref, landed))
+      return [asArray, asIterator, asArray === asIterator]
+    })(),
+    (() => {
+      const j = [2, 1, 1, 1, 0, 2 / 2]
+      return [JSON.stringify(j), JSON.stringify(j), true]
+    })(),
+  )
+  eq(
     'P59 死规则既不混进 miss、也不从报告里消失:自成第 4 桶并带样例',
     (() => {
       const c = computeCoverage(
@@ -1992,6 +2302,217 @@ export function selfTest() {
     })(),
     [0, 2, 2],
   )
+
+  /* ---- P60–P76:2026-09-26 两条新判据 —— C5 转写腿结构性对账 + C4 运行时可达性的第 3 态 ----
+     C5 立项依据(实测、已定论):同一份仓库配置,一次构建 JS 侧一个转写名都没有(死规则 485、
+     C1 34.89%),另一次全转写(死规则 34),config/index.ts 两次之间一字未改。
+     那时"腿整轮没跑"只会让 pct 变小 —— 量级判据冒充结构判据,而 `--min-coverage 0` 的观测档
+     下 pct 压根不判红。P60/P61 就是把这一型钉成"必然翻红 + 空扫不得记通过"。
+     C4 修口依据(实测):`border-[length:14rpx]` 等三条被判 dead,而产物 JS 里逐字可见
+     `".concat(v===t?"font-bold border-_blength_c14rpx_B border-transparent":"")` —— 抽取器只认
+     `class/className` 紧邻字面量,拼接串结构上看不见 ⇒ 死规则维度对拼接 class **高估**。
+     第 3 态必须与 C5 的面 2 **共用同一份全文实现**,且反向锁(P64/P65)不许把真死规则洗白。 */
+  eq(
+    'P60 C5 反向证明:健康的构建(面 1>0 ∧ 面 2>0)必判"在",不得被新判据误杀',
+    (() => {
+      const r = auditMangleLeg({ demandKinds: 485, sightingKinds: 454, sampleNames: ['z-[1001]'] })
+      return [r.verdict, r.reason === '', r.demandKinds, r.sightingKinds]
+    })(),
+    ['in', true, 485, 454],
+  )
+  eq(
+    'P61 C5 阳性:面 1>0 而面 2==0 ⇒ 必判 idle(腿整轮空转),并带 ≤5 个样例名',
+    (() => {
+      const many = Array.from({ length: 9 }, (_, i) => `a-[${i}]`)
+      const r = auditMangleLeg({ demandKinds: many.length, sightingKinds: 0, sampleNames: many })
+      return [r.verdict, /空转/.test(r.reason), /JS\/WXML/.test(r.reason), r.sampleNames.length]
+    })(),
+    ['idle', true, true, 5],
+  )
+  eq(
+    'P62 C5 饿死方向对照:面 1==0 ⇒ 只能"未判定",**绝不记为通过**(空扫报绿是本仓最高频失效型)',
+    (() => {
+      const r = auditMangleLeg({ demandKinds: 0, sightingKinds: 0, sampleNames: [] })
+      return [r.verdict, r.verdict === 'in', /无可观测转写需求/.test(r.reason)]
+    })(),
+    ['undetermined', false, true],
+  )
+  eq(
+    'P63 面 2 没量到(全文语料取不到)⇒ 未判定,不得冒红也不得记绿',
+    auditMangleLeg({ demandKinds: 485, sightingKinds: NaN }).verdict,
+    'undetermined',
+  )
+  eq(
+    'P64 三态正向:抽取器看不见、全文搜索目击得到的拼接 class ⇒ 算可达,不再计死规则(sighted 集喂**源名**,与 findMangledSightings 的返回同形)',
+    (() => {
+      const p = partitionRuntimeReachability(['border-[length:14rpx]'], new Set(['border-[length:14rpx]']), new Set(['border-[length:14rpx]']))
+      // 反向形状锁:sighted 集若被误喂成**转写名**,不会报错,只会安静地把一切判成 dead
+      // —— 而"死规则变多"看起来像发现了更多缺陷,是最坏的那种失效。两臂同测才钉得住键形。
+      const wrongKey = partitionRuntimeReachability(['border-[length:14rpx]'], new Set(['border-[length:14rpx]']), new Set(['border-_blength_c14rpx_B']))
+      return [[p.byToken.length, p.bySighting.length, p.dead.length], [wrongKey.bySighting.length, wrongKey.dead.length]]
+    })(),
+    [
+      [0, 1, 0],
+      [0, 1],
+    ],
+  )
+  eq(
+    'P65 三态反向锁(不得放水):CSS 有转写规则、产物全文里那个转写名一个字都没有 ⇒ 仍判 dead',
+    (() => {
+      const p = partitionRuntimeReachability(['z-[1001]'], new Set(['z-[1001]']), new Set())
+      return [p.byToken.length, p.bySighting.length, p.dead.length]
+    })(),
+    [0, 0, 1],
+  )
+  eq(
+    'P66 第 1 态优先:token 抽取看得见的名字不得被记进第 2 态(三态必须互斥、合计守恒)',
+    (() => {
+      const names = ['z-[1001]', 'border-[length:14rpx]']
+      const p = partitionRuntimeReachability(names, new Set(['z-_b1001_B']), new Set(names))
+      return [[...p.byToken], [...p.bySighting], p.dead.length, p.byToken.length + p.bySighting.length + p.dead.length]
+    })(),
+    [['z-[1001]'], ['border-[length:14rpx]'], 0, 2],
+  )
+  eq(
+    'P67 computeCoverage 端到端:全文目击那一条进 hitKinds/pct,deadRuleKinds 相应减 1',
+    (() => {
+      const used = ['z-[1001]', 'border-[length:14rpx]']
+      const ref = new Set(used)
+      const landed = new Set(['z-_b1001_B', 'border-_blength_c14rpx_B'])
+      const tokens = new Set(['z-[1001]', 'border-[length:14rpx]']) // 源名在运行时,**转写名一个都没有**
+      const two = computeCoverage(used, ref, landed, null, null, tokens)
+      const three = computeCoverage(used, ref, landed, null, null, tokens, new Set(['border-[length:14rpx]']))
+      return [
+        [two.hitMangledKinds, two.hitSightedKinds, two.deadRuleKinds, two.hitKinds, two.runtimeSightJudged],
+        [three.hitMangledKinds, three.hitSightedKinds, three.deadRuleKinds, three.hitKinds, three.runtimeSightJudged],
+        [Number(two.pct.toFixed(4)), Number(three.pct.toFixed(4))],
+      ]
+    })(),
+    [
+      [0, 0, 2, 0, false],
+      [0, 1, 1, 1, true],
+      [0, 0.5],
+    ],
+  )
+  eq(
+    'P68 向后兼容:不喂全文维时读数与 C4 修口前逐字一致(新判据不得悄悄改旧账)',
+    (() => {
+      const used = ['flex', 'z-[1001]', 'w-[100rpx]']
+      const ref = new Set(used)
+      const landed = new Set(['flex', 'z-_b1001_B', 'w-_b100rpx_B'])
+      const tokens = new Set(['z-_b1001_B'])
+      const legacy = computeCoverage(used, ref, landed, null, null, tokens)
+      const explicitNull = computeCoverage(used, ref, landed, null, null, tokens, null)
+      return [
+        [legacy.hitOriginalKinds, legacy.hitMangledKinds, legacy.hitSightedKinds, legacy.deadRuleKinds, legacy.hitKinds],
+        [explicitNull.hitOriginalKinds, explicitNull.hitMangledKinds, explicitNull.hitSightedKinds, explicitNull.deadRuleKinds, explicitNull.hitKinds],
+      ]
+    })(),
+    [
+      [1, 1, 0, 1, 2],
+      [1, 1, 0, 1, 2],
+    ],
+  )
+  eq(
+    'P69 面 1 单一源:mangledOnlyNames 与 coverage 的三态合计必须等值(两处各写一遍必漂移)',
+    (() => {
+      const used = ['flex', 'z-[1001]', 'border-[length:14rpx]', 'nope-[1px]']
+      const ref = new Set(used)
+      const landed = new Set(['flex', 'z-_b1001_B', 'border-_blength_c14rpx_B'])
+      const face1 = mangledOnlyNames(used, ref, landed)
+      const c = computeCoverage(used, ref, landed, null, null, new Set(), new Set(['z-[1001]']))
+      return [[...face1].sort(), c.mangleDemandKinds, c.hitMangledKinds + c.hitSightedKinds + c.deadRuleKinds, face1.length === c.mangleDemandKinds]
+    })(),
+    [['border-[length:14rpx]', 'z-[1001]'], 2, 2, true],
+  )
+  eq(
+    'P70 面 1 结构性安全:原名直中的不进面 1;面 1 里的名字 mangle 后必不等于原名(否则全文子串会被裸词白送,腿空转就看不见)',
+    (() => {
+      const ref = new Set(['flex', 'z-[1001]'])
+      const a = mangledOnlyNames(['flex', 'z-[1001]'], ref, new Set(['flex', 'z-_b1001_B']))
+      const b = mangledOnlyNames(['flex', 'z-[1001]'], ref, new Set(['z-_b1001_B']))
+      return [a.length, [...b], b.every((n) => weappMangleClassName(n) !== n)]
+    })(),
+    [1, ['z-[1001]'], true],
+  )
+  eq(
+    'P71 全文子串搜索判据:只认转写名、不认原名(搜原名会把没转写的裸词到处命中算成目击)',
+    (() => {
+      const hay = 'className="z-[1001]" x.concat("border-_blength_c14rpx_B")'
+      const seen = findMangledSightings(hay, ['z-[1001]', 'border-[length:14rpx]'])
+      return [[...seen].sort(), seen.has('z-[1001]')]
+    })(),
+    [['border-[length:14rpx]'], false],
+  )
+  {
+    // P72–P74:运行时取材面 —— token 维与全文维**必须读同一批文件**(共用 collectRuntimeFace)。
+    // 这里造的真夹具同时是 C4 第 3 态的**端到端反向锁**:CSS 有转写规则、JS 全文一个字都没有 ⇒ 判 dead。
+    const rf = mkTempDir('runtime-face')
+    try {
+      mkdirSync(join(rf, 'pages'), { recursive: true })
+      writeFileSync(join(rf, 'pages', 'i.wxml'), '<view/>')
+      const wxss = '.z-_b1001_B{z-index:1001}\n.border-_blength_c14rpx_B{border-width:14rpx}'
+      const landed = harvestLandedSelectors(wxss)
+      // 拼接形态:`className:"z-[1001]"` 是抽取器**看得见**的落点;而 border-… 那条只出现在 `.concat()`
+      // 的**参数**里 —— CLASS_ATTR_RE 要求 class/className 紧邻字面量,这种写法它结构上看不见(本票修的那一型)。
+      writeFileSync(join(rf, 'app.wxss'), wxss)
+      writeFileSync(
+        join(rf, 'pages', 'i.js'),
+        'var el={className:"z-[1001]"};var b=".concat(v===t?\\"font-bold border-_blength_c14rpx_B border-transparent\\":\\"\\")";',
+      )
+      const used = ['z-[1001]', 'border-[length:14rpx]']
+      const face = collectRuntimeFace(rf)
+      const demand = mangledOnlyNames(used, new Set(used), landed)
+      const sighted = findMangledSightings(face.haystack, demand)
+      const c = computeCoverage(used, new Set(used), landed, null, null, face.tokens, sighted)
+      eq(
+        'P72 拼接 class:token 抽取看不见、全文维必须看得见 ⇒ 第 3 态计数,不再是死规则',
+        [face.tokens.has('border-_blength_c14rpx_B'), sighted.has('border-[length:14rpx]'), c.hitSightedKinds, c.deadRuleKinds],
+        [false, true, 1, 1],
+      )
+      // 夹具自证:P73 的"判缺"不是根本没扫到 —— 两条转写名在这份 dist 的 CSS 里都真有裸类规则体
+      eq('P72b 夹具自证:两条转写名在 wxss 里都真有裸类规则(否则 P73 的判缺没有判别力)', [landed.has('z-_b1001_B'), landed.has('border-_blength_c14rpx_B')], [true, true])
+      eq('P73 反向锁(端到端):z-[1001] 的转写名在 JS 全文里真的一个字都没有 ⇒ 仍判 dead,没被"全文搜索"洗白', [c.hitMangledKinds, c.deadRuleKinds, c.deadRuleSamples], [0, 1, ['z-[1001]']])
+      eq(
+        'P74 C5 端到端取材:面 1>0 且面 2>0 ⇒ 本轮判"在"(健康构建不得被判死);idle 时才带样例名',
+        (() => {
+          const leg = auditMangleLeg({ demandKinds: c.mangleDemandKinds, sightingKinds: sighted.size, sampleNames: demand })
+          return [c.mangleDemandKinds, sighted.size, leg.verdict, leg.sampleNames.length]
+        })(),
+        [2, 1, 'in', 0],
+      )
+      eq(
+        'P75 兼容出口 collectRuntimeClassTokens 与 collectRuntimeFace 的 token 集必须全等(不得两份取材)',
+        (() => {
+          const legacy = collectRuntimeClassTokens(rf)
+          return [legacy.files, [...legacy.tokens].sort().join('|') === [...face.tokens].sort().join('|'), legacy.unreadable]
+        })(),
+        [2, true, 0],
+      )
+      eq(
+        'P76 空扫不得记绿:全文语料取不到 ⇒ 抛"无法判定",而不是回一个 seen=0 让 C5 拿它判红/判绿',
+        throwsUndetermined(() => findMangledSightings(null, ['z-[1001]'])),
+        true,
+      )
+    } catch (e) {
+      results.push({ label: 'P72-P76 运行时取材面', ok: false, got: String(e).slice(0, 200) })
+    } finally {
+      rmTempDir(rf)
+    }
+  }
+
+
+  /* ---- C6:weapp CSS 腿整条没跑(2026-09-26 三连构建实测里最坏那一档) ---- */
+  eq('P71 C6 阳性:源码有含标点档而产物 0 个转写形态 ⇒ 必须判 off(这是 C1/C4/C5 一致报好的那一档)',
+    auditCssLeg({ mangledRuleKinds: 0, arbitraryDemand: 550 }).verdict, 'off')
+  eq('P72 C6 反向:产物有转写形态 ⇒ 判 in,新判据不得把健康构建判死',
+    auditCssLeg({ mangledRuleKinds: 559, arbitraryDemand: 724 }).verdict, 'in')
+  eq('P73 C6 空扫不记绿:源码本轮没有含标点档 ⇒ 只能 undetermined(不得报 in)',
+    auditCssLeg({ mangledRuleKinds: 0, arbitraryDemand: 0 }).verdict, 'undetermined')
+  eq('P74 C6 见证量不到 ⇒ undetermined(不冒红也不记绿)',
+    auditCssLeg({ mangledRuleKinds: null, arbitraryDemand: 12 }).verdict, 'undetermined')
+  eq('P75 countMangledRuleKinds 只数带转写痕迹的类名(源名/普通档不计)',
+    countMangledRuleKinds(new Set(['bg-_bvar_p--color-card_P_B', 'flex', 'text-sm', 'z-_b1001_B'])), 2)
 
   let failed = 0
   for (const x of results) {
@@ -2111,6 +2632,13 @@ export const __test__ = {
   detectProductTailwindMajor,
   collectLandedFromDist,
   collectRuntimeClassTokens,
+  collectRuntimeFace,
+  findMangledSightings,
+  mangledOnlyNames,
+  auditCssLeg,
+  countMangledRuleKinds,
+  partitionRuntimeReachability,
+  auditMangleLeg,
   measureMainPackage,
   classifyDualMeaning,
   findBlindSpots,

@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { sql } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { db } from '../src/db/index.js'
 import { users, chatConversations, chatMessages, chatMessageFeedbacks } from '@ihui/database'
 import { rateChatMessage } from '../src/db/chat-queries.js'
@@ -11,6 +11,9 @@ import { rateChatMessage } from '../src/db/chat-queries.js'
 /**
  * D49① 消息点赞/点踩落库 —— 真实 DB 集成测试(2026-09-23 立)。
  * 验收判据(台账):反馈表行数 +1;upsert 改票覆盖;归属校验(他人消息/不存在消息 not-found)。
+ * D64⑤(2026-09-26)补充:问卷结构化答案(reason/comment)零迁移落库 ——
+ * 借 chat_messages.metadata jsonb `||` 原子合并写 `feedbackSurvey` 键;
+ * 重复提交按键覆盖;纯评分(不带问卷)不写该键。
  * 运行方式:vitest.real.config.ts(真库 ihui_test),默认 vitest 排除 *.real.test.ts。
  */
 describe('rateChatMessage — 真实 DB 集成测试(D49①)', () => {
@@ -103,5 +106,47 @@ describe('rateChatMessage — 真实 DB 集成测试(D49①)', () => {
       'dislike',
     )
     expect(result).toEqual({ ok: false, reason: 'not-found' })
+  })
+
+  it('D64⑤ 问卷扩展:reason/comment 原子合并进 metadata.feedbackSurvey', async () => {
+    const result = await rateChatMessage(userId, messageId, 'dislike', {
+      reason: 'incomplete',
+      comment: '少了最后一步',
+    })
+    expect(result).toEqual({ ok: true })
+    const [msg] = await db.select().from(chatMessages).where(eq(chatMessages.id, messageId))
+    const survey = (msg?.metadata as Record<string, unknown> | null)?.feedbackSurvey as
+      | Record<string, unknown>
+      | undefined
+    expect(survey).toMatchObject({
+      rating: 'dislike',
+      reason: 'incomplete',
+      comment: '少了最后一步',
+    })
+    expect(typeof survey?.answeredAt).toBe('string')
+  })
+
+  it('D64⑤ 重复提交问卷:feedbackSurvey 键覆盖为最新一票,反馈行仍一行', async () => {
+    await rateChatMessage(userId, messageId, 'dislike', { reason: 'inaccurate' })
+    await rateChatMessage(userId, messageId, 'dislike', { comment: '补充第二版' })
+    const [msg] = await db.select().from(chatMessages).where(eq(chatMessages.id, messageId))
+    const survey = (msg?.metadata as Record<string, unknown> | null)?.feedbackSurvey as
+      | Record<string, unknown>
+      | undefined
+    // 最新一票为准:reason 已被不带 reason 的提交覆盖掉,comment 换新
+    expect(survey).toMatchObject({ rating: 'dislike', comment: '补充第二版' })
+    expect(survey?.reason).toBeUndefined()
+    const rows = await db
+      .select()
+      .from(chatMessageFeedbacks)
+      .where(sql`user_id = ${userId} AND message_id = ${messageId}`)
+    expect(rows).toHaveLength(1)
+  })
+
+  it('D64⑤ 旧载荷(不带问卷)不写 metadata.feedbackSurvey 键', async () => {
+    await rateChatMessage(userId, messageId, 'like')
+    const [msg] = await db.select().from(chatMessages).where(eq(chatMessages.id, messageId))
+    const meta = (msg?.metadata ?? {}) as Record<string, unknown>
+    expect(meta.feedbackSurvey).toBeUndefined()
   })
 })

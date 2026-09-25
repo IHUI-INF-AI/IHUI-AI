@@ -266,6 +266,7 @@ interface AdminNavItem {
     | 'adminSkillVersions'
     | 'adminSkillBatch'
     | 'deployDiagnosis'
+    | 'githubApp'
   icon: React.ComponentType<{ className?: string }>
   dynamicLabel?: string
 }
@@ -343,6 +344,8 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/configs', labelKey: 'configs', icon: SlidersHorizontal },
   { href: '/admin/home-schema', labelKey: 'dashboard', icon: LayoutGrid, dynamicLabel: '首页布局' },
   { href: '/admin/integrations', labelKey: 'integrations', icon: Plug },
+  // D15④: GitHub App 安装台账 + webhook 配置状态(2026-09-26 立)
+  { href: '/admin/github-app', labelKey: 'githubApp', icon: GitBranch },
   { href: '/admin/deploy-diagnosis', labelKey: 'deployDiagnosis', icon: Gauge },
   { href: '/admin/logs', labelKey: 'logs', icon: ScrollText },
   { href: '/admin/events', labelKey: 'events', icon: Activity },
@@ -898,6 +901,7 @@ const NAV_LABEL_KEY: Record<AdminNavItem['labelKey'], string> = {
   configs: 'nav.configs',
   integrations: 'nav.integrations',
   deployDiagnosis: 'nav.adminDeployDiagnosis',
+  githubApp: 'nav.githubApp',
   logs: 'nav.logs',
   events: 'nav.events',
   exam: 'nav.exam',
