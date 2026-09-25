@@ -24,9 +24,13 @@ import {
   resolveWaitingText,
   waitingI18nKey,
   waitingI18nKeyList,
-} from '../../shared/src/chat/waiting-pool'
+} from '../../src/chat/waiting-pool'
 
-const REPO_ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '../../..')
+// 本测试原在 packages/i18n/tests/ 下,按相对路径穿透进 packages/shared 实现 ⇒ 架构契约门判
+// D1(未声明依赖)+D2(i18n rank 20 反向依赖 shared rank 30)。**换 import 写法消不掉 D2**
+// (D2 只比 rank 数值),而把 i18n 挪层属"挪层消红"被禁 ⇒ 唯一合规出路是让测试待在**不反向**
+// 的那一层:它读各端 JSON 词包用的是 readFileSync(不构成 import 边),故放 shared 同包内即零跨模块边。
+const REPO_ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '../../../..')
 const END_PACKAGES = ['web', 'extension', 'mobile-rn', 'miniapp-taro', 'cli'] as const
 const END_DIR: Record<(typeof END_PACKAGES)[number], string> = {
   web: 'packages/i18n/messages/web',
