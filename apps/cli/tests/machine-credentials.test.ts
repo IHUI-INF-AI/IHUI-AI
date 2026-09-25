@@ -120,7 +120,9 @@ describe('settings.json 向后兼容(O12 不破坏既有读取)', () => {
 
   it('历史文件(只有 apiKey=JWT + refreshToken)仍按原语义读出', () => {
     writeSettings({
-      apiUrl: 'http://localhost:8899',
+      // RFC 2606 保留域,不带端口:这条只验"存进去原样读出来",
+      // 造一个 localhost:88xx 假端口会让端口注册表守门把测试数据当成宿主端口占用。
+      apiUrl: 'http://cfg.invalid',
       apiKey: JWT_TOKEN,
       refreshToken: 'rt-1',
       maxIterations: 7,
@@ -134,7 +136,7 @@ describe('settings.json 向后兼容(O12 不破坏既有读取)', () => {
 
     const cfg = resolveEffectiveConfig({});
     expect(cfg.apiKey).toBe(JWT_TOKEN);
-    expect(cfg.apiUrl).toBe('http://localhost:8899');
+    expect(cfg.apiUrl).toBe('http://cfg.invalid');
     expect(cfg.maxIterations).toBe(7);
     expect(cfg.credentialKind).toBe('auto');
     expect(cfg.apiSecret).toBe('');
