@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 归属校验回归:GET / POST / PUT / DELETE /exam/composition/signup*
+// + POST /exam/composition/signup/:sid/submit
 // (2026-09-25 数据泄露级 P0 修复的取证 + 同型剩余面收口的取证)
 //
 // 本文件刻意**不** mock @ihui/auth,也**不** mock plugins/auth.js:鉴权判据(JWT 验签 +
@@ -536,6 +537,66 @@ describe('/exam/composition/signup 归属校验(P0 数据泄露回归)', () => {
     })
     expect(res.statusCode).toBe(200)
     expect(H.state.deleteCalls).toBe(1)
+  })
+
+  // ===========================================================================
+  // POST /signup/:sid/submit 收口的取证(2026-09-25 追加)。这一格原本是报名域**唯一还开着**
+  // 的同型面:handler 只有 checkAuth + sidParam.parse,where(eq(examSignUp.id, Number(sid)))
+  // 不含任何归属条件 ⇒ 任意登录用户可按 sid 把他人报名标为 completed。
+  // 四条用例与上面 GET/PUT/DELETE 三条完全同形,并且**必须含正向对照**(用例 22)——
+  // 否则"整条路由恒 403"也会被读成"收口成功",而那等于把功能删了而不是收了口。
+  // ===========================================================================
+
+  it('20) submit:未登录 ⇒ 401(鉴权在授权之前,顺序不得颠倒)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/exam/composition/signup/1/submit',
+    })
+    expect(res.statusCode).toBe(401)
+    expect(H.state.updateCalls).toBe(0)
+    expect(H.state.whereSeen).toBe(0)
+  })
+
+  it('21) submit:普通会员(合法 JWT、非 admin)按他人 sid ⇒ 403 且一次 UPDATE 都没发出', async () => {
+    // sid=3 属于 member 9,而调用者是 uuid 身份的普通会员 —— 收口前这里会把该行改成 completed
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/exam/composition/signup/3/submit',
+      headers: memberHeaders,
+    })
+    expect(res.statusCode).toBe(403)
+    expect(H.state.updateCalls).toBe(0)
+    expect(H.state.updated).toHaveLength(0)
+    // 比"没有写入"更强:授权判据在**发出任何查询之前**就返回了
+    expect(H.state.whereSeen).toBe(0)
+    expect((res.json() as { data?: { signup?: unknown } }).data?.signup).toBeUndefined()
+  })
+
+  it('22) submit 正向对照:管理员 ⇒ 200 且真把 status 写成 completed(证明收口不是恒 403)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/exam/composition/signup/3/submit',
+      headers: adminHeaders,
+    })
+    expect(res.statusCode).toBe(200)
+    expect(H.state.updateCalls).toBe(1)
+    expect(H.state.updated[0]).toMatchObject({ status: 'completed' })
+    expect(signupIn(res.json())?.status).toBe('completed')
+  })
+
+  it('23) submit:请求体自报 memberId / userId / roleId 不构成档位(档位只由 JWT roleId 决定)', async () => {
+    // 与本仓 skills-submissions-security.test.ts:240 同形:把管理员的 uuid 与 memberId 填进
+    // body、连 roleId 都自报成 1,也不能换到管理员档 —— isSystemAdmin 只读 request.jwtPayload.roleId。
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/exam/composition/signup/1/submit',
+      headers: memberHeaders,
+      payload: { memberId: 7, userId: ADMIN_UUID, roleId: 1, isAdmin: true },
+    })
+    expect(res.statusCode).toBe(403)
+    expect(H.state.updateCalls).toBe(0)
+    expect(H.state.updated).toHaveLength(0)
+    expect(H.state.whereSeen).toBe(0)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
