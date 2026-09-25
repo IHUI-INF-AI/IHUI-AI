@@ -21,12 +21,61 @@ import type {
 
 // ---- Agent 执行 ----
 
+/**
+ * AGENTS.md §8 第 3 步"独立评估校验(禁止模型自评 yes)"的一条硬性指标(执行**前**声明)。
+ * 对应 ai-service `GoalCriterionIn`(app/routers/agents.py) —— 键名与本端点其余字段
+ * (session_id / max_iterations / stop_reason / checkpoint_id)同处 snake_case 契约面,
+ * 不得在此另开一套 camelCase,否则客户端"发了"与服务端"收到了"会不同义。
+ * `probe_command` 非空 → 该条由机器证据(本轮真跑过该命令的退出码)定案,校验模型碰不到它;
+ * 留空 → 只能语义判定,交独立校验轮逐条判 met/unmet 并引用证据 id。
+ */
+export interface GoalHardCriterion {
+  id: string
+  statement: string
+  evidence_kind?: 'command' | 'test' | 'file' | 'http' | 'manual'
+  required?: boolean
+  probe_command?: string
+  expected_exit_code?: number
+}
+
+/** 独立校验轮回给调用端的结论(§8 要求"落到用户可见处",不是只进日志)。 */
+export interface GoalVerification {
+  /** achieved | not_achieved | undetermined | blocked | budget_limited | not_run */
+  status: string
+  /** goal 生命周期档位:前端 goal 状态行按它渲染 */
+  goal_status: string
+  /** 唯一可当作"完成"的一档:status === 'achieved' */
+  treat_as_complete: boolean
+  criteria: Array<{
+    criterion_id: string
+    statement: string
+    verdict: 'met' | 'unmet' | 'unknown'
+    basis: 'machine' | 'judge' | 'missing-evidence'
+    reason: string
+    evidence_ids: string[]
+    contradicted: boolean
+  }>
+  independent_request_made: boolean
+  judge_model: string | null
+  /** status=undetermined / not_run 时的原因(不得当成通过) */
+  unavailable_reason: string | null
+  independence_warnings: string[]
+  consecutive_failures: number
+  max_consecutive_failures: number
+}
+
 export interface AgentExecuteRequest {
   goal: string
   session_id?: string
   model?: string
   max_iterations?: number
   tools?: string[]
+  /**
+   * 非空即进入 goal 模式:循环自宣完成后必须先过一次独立校验,
+   * 校验未达成 / 未判定一律把 done 帧的 success 写成 false。
+   * 不声明 = 现有全部调用方行为逐零差异。
+   */
+  hard_criteria?: GoalHardCriterion[]
 }
 
 export interface AgentExecuteStep {
@@ -114,6 +163,12 @@ export interface AgentStreamEvent {
   duration_ms?: number
   resume_from?: string | null
   stub?: boolean
+  /** done 帧携带:循环自身的成功标志(独立校验闸门可能把它收成 false) */
+  success?: boolean
+  /** done 帧携带:goal 模式下的独立校验结论;未启用校验时为 null/缺字段 */
+  verification?: GoalVerification | null
+  /** done 帧携带:goal 生命周期档位(achieved/not_achieved/undetermined/blocked/budget_limited) */
+  goal_status?: string | null
   [key: string]: unknown
 }
 
