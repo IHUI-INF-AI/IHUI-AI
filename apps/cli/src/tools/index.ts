@@ -23,6 +23,7 @@ import { redactSecrets } from '../redact.js';
 import { checkFolderTrust, type FolderTrustMap } from '../sandbox/index.js';
 import { checkPermission, type PermissionRules } from './permissions.js';
 import { shadowValidateToolArguments } from './argument-validation-telemetry.js';
+import { noteDangerousApproval } from './danger-gate.js';
 import { BROWSER_TOOLS } from './browser.js';
 import { BROWSER_PAGE_TOOLS } from './browser-page.js';
 import {
@@ -314,6 +315,19 @@ export interface ToolContext {
   workspacePath: string;
   /** 危险操作确认回调,返回 true 表示允许执行。未提供时 dangerous 操作直接拒绝。 */
   confirmDangerous?: (tool: Tool, args: Record<string, unknown>) => Promise<boolean>;
+  /**
+   * 会话级危险旁路披露字段(--allow-dangerous;2026-09-25 L7905 收口)。
+   *
+   * 此前旁路事实只活在调用方构造的 confirmDangerous 闭包里,工具层结构上不可见。
+   * 现由调用方随 ctx 传入(setupAgentTools 的 allowDangerous),工具层可据此追溯
+   * 「本次危险放行时会话级 flag 是否在位」(executeToolCall 获准后记入
+   * danger-gate.ts 的 noteDangerousApproval 披露计数)。
+   *
+   * 影子式扩展(刻意不改确认语义):放行决策仍 100% 由 confirmDangerous 决定,
+   * 本字段**不参与任何判定** —— 为 true 但未提供 confirmDangerous 的 dangerous
+   * 工具依旧拒绝(fail-closed 不变)。未传(undefined)时行为与引入前逐字节等价。
+   */
+  allowDangerous?: boolean;
   /** 沙盒配置(命令白名单 + env 过滤),由 setupAgentTools 从 settings.json 注入 */
   sandbox?: {
     /** 三态:null = 禁止一切命令,undefined / [] = 不检查(与 SandboxOptions 同口径) */
@@ -568,6 +582,8 @@ export async function executeToolCall(
   }
   if (tool.dangerLevel === 'dangerous') {
     const allowed = ctx.confirmDangerous ? await ctx.confirmDangerous(tool, call.arguments) : false;
+    // 披露面(L7905 收口):只记账不改判定 —— 放行路径(会话级 flag / 回调自批)可追溯
+    if (allowed) noteDangerousApproval(ctx.allowDangerous === true, tool.name);
     if (!allowed) {
       return {
         success: false,

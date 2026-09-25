@@ -1312,6 +1312,9 @@ importers:
       '@ihui/design-tokens':
         specifier: workspace:*
         version: link:../design-tokens
+      '@ihui/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@ihui/types':
         specifier: workspace:*
         version: link:../types
