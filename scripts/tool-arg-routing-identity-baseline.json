@@ -1,0 +1,15 @@
+{
+  "comment": "守门 check-tool-arg-routing-identity 的基线:每文件每键计数,只减不增。键名口径 = normalizeKey(小写 + 去下划线/连字符)。清单唯一源 = packages/types/src/tool-contract.ts 的 ROUTING_IDENTITY_KEYS。",
+  "counts": {
+    "apps/cli/src/tools/debug.ts": {
+      "sessionid": 7
+    },
+    "apps/cli/src/tools/memory.ts": {
+      "userid": 4,
+      "sessionid": 1
+    },
+    "apps/cli/src/tools/terminal.ts": {
+      "sessionid": 4
+    }
+  }
+}

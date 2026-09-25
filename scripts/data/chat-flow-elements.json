@@ -6,6 +6,75 @@
     "gapIdPattern": "G-[0-9]{2,3}"
   },
   "entryCountBaseline": 103,
+  "anchorCountBaseline": {
+    "$comment": "判据④ 锚点存续性基线(2026-09-25 立,守门 57 补票)。登记的是每个已实现元素的锚点数与全清单锚点总数。只减不增:某条目锚点数低于 perElement 额度、或总数低于 total 即判红 —— 这条堵的是把整份台账按旧基线回写(AGENTS §12 记过多会话共写的登记表正是最易被回写的一类),既有 entryCountBaseline 只数条目数不数锚点数,删 5 行锚点它看不见。判据按**条目**而非按文件,所以把某端锚点搬到同条目的另一端是合法重构(总数不变即绿)。锚点是新增的(条数高于额度)一律放行,只需在同 PR 里把额度抬上去 —— 不得为消红去调低额度。",
+    "total": 167,
+    "perElement": {
+      "message-usage-metrics": 1,
+      "streaming-skeleton": 1,
+      "scroll-jump-buttons": 1,
+      "checkpoint-impact-preview": 2,
+      "tool-call-card-meta": 1,
+      "fold-policy-adaptive": 1,
+      "web-search-toggle-and-quoting": 1,
+      "model-capability-filter": 1,
+      "tool-output-persistence": 0,
+      "plan-steps-persistence": 1,
+      "permission-mode-consequence": 7,
+      "context-compaction-ceiling": 6,
+      "error-retry-action": 9,
+      "citation-sources": 16,
+      "unified-task-dashboard": 2,
+      "delivery-review-panel": 1,
+      "external-session-import": 2,
+      "context-usage-ring": 1,
+      "artifact-canvas": 1,
+      "tool-name-i18n-coverage": 1,
+      "permission-mode-popover": 1,
+      "context-injection-disclosure": 18,
+      "upstream-retry-disclosure": 11,
+      "tool-row-bilingual-tense-wording": 4,
+      "terminal-output-truncation-disclosure": 5,
+      "terminal-isolation-disclosure": 6,
+      "step-decision-localized-badge": 9,
+      "agent-event-whitelist-rendered": 1,
+      "diff-staging-semantics": 2,
+      "end-neutral-icu-engine": 2,
+      "sse-parser-disclosure-parity": 1,
+      "runtime-permission-tier-visibility": 2,
+      "steer-injection-disclosure": 13,
+      "queue-item-interactions": 10,
+      "credits-daily-heatmap": 4,
+      "image-preview-gallery-controls": 4,
+      "thinking-card-dual-title": 1,
+      "reply-feedback-survey": 2,
+      "multi-pane-workspace": 3,
+      "stage-label-five-ends": 12
+    }
+  },
+  "commentOnlyAnchorBaseline": {
+    "$comment": "判据⑤ 注释式摘线的存量清单(2026-09-25 立)。下列锚点的关键标识在宿主文件里**只存在于注释中**,把 code 面上那行改成注释门却看不见 —— 判据⑤把匹配面从原文改为剥注释后的文本,它们即暴露。定级为存量只报数不判红(本门无 stagedTriggers、每轮都跑,当场判红即恒红门,唯一结局是逼人 --no-verify 连带废掉全部守门);只减不增,清偿动作是**把 mustMatch 改指代码面上的真实标识**(该条目持有人 PR 内完成),不得反向把注释删掉来消账。清单里若某项已不再命中(已被清偿)只提示移除,不计红。",
+    "entries": [
+      {
+        "id": "context-injection-disclosure",
+        "file": "apps/web/src/components/chat/message-list/MessageItem.tsx",
+        "mustMatch": "InjectionBar",
+        "note": "宿主内该词只在 D34/D37 的 JSX 注释里出现(真实渲染位是 m.injections);正解是把锚点改指代码面上的标识,属该条目持有人动作,不得为此放宽判据"
+      },
+      {
+        "id": "tool-row-bilingual-tense-wording",
+        "file": "apps/web/src/components/ai/task-status-bar.tsx",
+        "mustMatch": "describeToolActivity",
+        "note": "宿主内该词只在「与旧 describeToolActivity 等价」的说明注释里出现;同上"
+      },
+      {
+        "id": "runtime-permission-tier-visibility",
+        "file": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
+        "mustMatch": "permissionTier",
+        "note": "宿主内该子串只在 D111 注释里(作为 permissionTierWordKeys 的一部分)出现;同上"
+      }
+    ]
+  },
   "implemented": [
     {
       "id": "message-usage-metrics",
@@ -912,6 +981,62 @@
         {
           "file": "apps/web/src/stores/pane-split.ts",
           "mustMatch": "usePaneSplitStore"
+        }
+      ]
+    },
+    {
+      "id": "stage-label-five-ends",
+      "title": "阶段标签层(D107①):哪几帧带阶段 + 五端有无把它渲染出来。视图推导只认单一真相源 deriveTaskStatusBar,阶段文案只认 taskStatus 取词命名空间;某端宿主被摘线或退化成显示后端英文枚举,由本条锚点当场判红",
+      "sourceTask": "D107",
+      "events": ["plan_updated", "subagent_progress", "terminal_start", "terminal_end"],
+      "anchors": [
+        {
+          "file": "packages/shared/src/chat/task-status.ts",
+          "mustMatch": "export function deriveTaskStatusBar"
+        },
+        {
+          "file": "packages/i18n/messages/shared/zh-CN.json",
+          "mustMatch": "\"taskStatus\""
+        },
+        {
+          "file": "apps/web/src/components/ai/task-status-bar.tsx",
+          "mustMatch": "deriveTaskStatusBar("
+        },
+        {
+          "file": "apps/web/src/components/chat/message-input.tsx",
+          "mustMatch": "<TaskStatusBar"
+        },
+        {
+          "file": "apps/miniapp-taro/src/pkg-ai/ai/task-status-bar.tsx",
+          "mustMatch": "deriveTaskStatusBar("
+        },
+        {
+          "file": "apps/miniapp-taro/src/pkg-ai/ai/chat.tsx",
+          "mustMatch": "<TaskStatusBar"
+        },
+        {
+          "file": "apps/mobile-rn/src/components/ai/TaskStatusBar.tsx",
+          "mustMatch": "deriveTaskStatusBar("
+        },
+        {
+          "file": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
+          "mustMatch": "<TaskStatusBar"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/components/TaskStatusBar.tsx",
+          "mustMatch": "deriveTaskStatusBar("
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx",
+          "mustMatch": "<TaskStatusBar"
+        },
+        {
+          "file": "apps/cli/src/commands/task-status-line.ts",
+          "mustMatch": "deriveTaskStatusBar("
+        },
+        {
+          "file": "apps/cli/src/commands/repl.ts",
+          "mustMatch": "createTaskStatusLine()"
         }
       ]
     }
