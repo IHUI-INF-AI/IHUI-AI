@@ -119,7 +119,7 @@ export default function NewsDetailPage() {
         <NavBar showBack />
         {loading ? (
           <View className="flex items-center justify-center py-[240rpx]">
-            <Text className="text-[28rpx] text-muted-foreground">
+            <Text className="text-[length:28rpx] text-muted-foreground">
               {tt('common.loading', '加载中…')}
             </Text>
           </View>
@@ -127,32 +127,32 @@ export default function NewsDetailPage() {
 
         {!loading && news.title ? (
           <View className="px-[20rpx] pt-[24rpx]">
-            <Text className="block text-[44rpx] text-foreground font-semibold leading-[1.4]">
+            <Text className="block text-[length:44rpx] text-foreground font-semibold leading-[1.4]">
               {news.title}
             </Text>
             {/* metaRow:发布时间(左)/阅读数(右),对齐 RN author + publishedAt */}
             <View className="flex flex-row items-center justify-between mt-[12rpx] mb-[12rpx]">
-              <Text className="text-[28rpx] font-medium text-muted-foreground">
+              <Text className="text-[length:28rpx] font-medium text-muted-foreground">
                 {news.createTime}
               </Text>
-              <Text className="text-[22rpx] text-[color:var(--color-text-tertiary)]">
+              <Text className="text-[length:22rpx] text-[color:var(--color-text-tertiary)]">
                 {tt('news.readCount', '{n}阅读', { n: news.views || 0 })}
               </Text>
             </View>
             {/* statRow:阅读/点赞 chip(白底圆角),对齐 RN statRow */}
             <View className="flex flex-row items-center gap-[16rpx] mb-[24rpx]">
               <View className="flex flex-row items-center bg-card px-[16rpx] py-[4rpx] rounded-lg">
-                <Text className="text-[22rpx] text-muted-foreground">
+                <Text className="text-[length:22rpx] text-muted-foreground">
                   {tt('news.readCount', '{n}阅读', { n: news.views || 0 })}
                 </Text>
               </View>
               <View className="flex flex-row items-center gap-[8rpx] bg-card px-[16rpx] py-[4rpx] rounded-lg">
                 <LineIcon name="heart" size={11} color="var(--color-muted-foreground)" />
-                <Text className="text-[22rpx] text-muted-foreground">{likes}</Text>
+                <Text className="text-[length:22rpx] text-muted-foreground">{likes}</Text>
               </View>
             </View>
             {/* 正文:直接铺在页面底色上(RN content 无卡片) */}
-            <View className="text-[32rpx] text-[color:var(--color-text-medium)] leading-[44rpx]">
+            <View className="text-[length:32rpx] text-[color:var(--color-text-medium)] leading-[44rpx]">
               <RichText nodes={news.content} />
             </View>
           </View>
@@ -160,7 +160,7 @@ export default function NewsDetailPage() {
 
         {!loading && related.length ? (
           <View className="px-[20rpx] mt-[24rpx]">
-            <Text className="block text-[30rpx] text-foreground font-semibold mb-[16rpx]">
+            <Text className="block text-[length:30rpx] text-foreground font-semibold mb-[16rpx]">
               {tt('news.detail.related', '相关推荐')}
             </Text>
             <View className="flex flex-col gap-[16rpx]">
@@ -179,14 +179,14 @@ export default function NewsDetailPage() {
                     />
                   ) : null}
                   <View className="flex-1 flex flex-col justify-between py-[2rpx] min-w-0">
-                    <Text className="text-[28rpx] text-foreground font-semibold leading-[1.4] line-clamp-2">
+                    <Text className="text-[length:28rpx] text-foreground font-semibold leading-[1.4] line-clamp-2">
                       {r.title}
                     </Text>
                     <View className="flex gap-[16rpx] mt-[12rpx]">
-                      <Text className="text-[22rpx] text-[color:var(--color-text-tertiary)]">
+                      <Text className="text-[length:22rpx] text-[color:var(--color-text-tertiary)]">
                         {r.createTime}
                       </Text>
-                      <Text className="text-[22rpx] text-[color:var(--color-text-tertiary)]">
+                      <Text className="text-[length:22rpx] text-[color:var(--color-text-tertiary)]">
                         {tt('news.readCount', '{n}阅读', { n: r.views || 0 })}
                       </Text>
                     </View>
@@ -199,7 +199,7 @@ export default function NewsDetailPage() {
 
         {!loading && !news.title ? (
           <View className="flex items-center justify-center py-[240rpx]">
-            <Text className="text-[28rpx] text-muted-foreground">
+            <Text className="text-[length:28rpx] text-muted-foreground">
               {tt('common.empty', '暂无数据')}
             </Text>
           </View>
@@ -218,7 +218,7 @@ export default function NewsDetailPage() {
                 size={18}
                 color={liked ? 'var(--color-danger-bright)' : 'var(--color-muted-foreground)'}
               />
-              <Text className="text-[26rpx] text-muted-foreground leading-none">
+              <Text className="text-[length:26rpx] text-muted-foreground leading-none">
                 {likes > 0 ? likes : tt('news.detail.like', '点赞')}
               </Text>
             </View>
@@ -228,7 +228,7 @@ export default function NewsDetailPage() {
               hoverClass="opacity-60"
             >
               <LineIcon name="message-circle" size={18} color="var(--color-muted-foreground)" />
-              <Text className="text-[26rpx] text-muted-foreground leading-none">
+              <Text className="text-[length:26rpx] text-muted-foreground leading-none">
                 {comments > 0 ? comments : tt('news.detail.comment', '评论')}
               </Text>
             </View>
@@ -238,7 +238,7 @@ export default function NewsDetailPage() {
               hoverClass="opacity-60"
             >
               <LineIcon name="share-2" size={18} color="var(--color-muted-foreground)" />
-              <Text className="text-[26rpx] text-muted-foreground leading-none">
+              <Text className="text-[length:26rpx] text-muted-foreground leading-none">
                 {tt('news.detail.share', '分享')}
               </Text>
             </View>

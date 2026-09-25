@@ -122,7 +122,7 @@ export default function UserInfoCard({
                   />
                   {isVip && vipTitle ? (
                     <View className="absolute inset-0 flex items-center justify-center">
-                      <Text className="text-[20rpx] text-[var(--color-white-98)] font-medium leading-none">
+                      <Text className="text-[length:20rpx] text-[var(--color-white-98)] font-medium leading-none">
                         {vipTitle}
                       </Text>
                     </View>
@@ -135,7 +135,7 @@ export default function UserInfoCard({
                     style={{ background: 'var(--color-warning-tint-strong)' }}
                   >
                     <Text
-                      className="text-[20rpx] font-medium"
+                      className="text-[length:20rpx] font-medium"
                       style={{ color: 'var(--color-warning)' }}
                     >
                       {tt('distribution.index.defaultName', '操盘手')}
@@ -165,7 +165,7 @@ export default function UserInfoCard({
                         : undefined
                     }
                   >
-                    <Text className="text-[20rpx] text-primary font-medium">{displayLevel}</Text>
+                    <Text className="text-[length:20rpx] text-primary font-medium">{displayLevel}</Text>
                   </View>
                 ) : null}
                 {/* 智汇值行:wirelesslogo + tokenDisplay + rechargebtn(对齐原项目 token 显示) */}
@@ -203,10 +203,10 @@ export default function UserInfoCard({
               {showGrowthBar ? (
                 <View className="mt-2">
                   <View className="flex items-center justify-between mb-1">
-                    <Text className="text-[20rpx] text-muted-foreground">
+                    <Text className="text-[length:20rpx] text-muted-foreground">
                       {tt('member.index.growth', '成长值')}
                     </Text>
-                    <Text className="text-[20rpx] text-muted-foreground">
+                    <Text className="text-[length:20rpx] text-muted-foreground">
                       {growthValue} / {growthMax}
                     </Text>
                   </View>
@@ -236,7 +236,7 @@ export default function UserInfoCard({
                     }}
                     hoverClass="opacity-85"
                   >
-                    <Text className="text-[22rpx] text-primary-foreground font-medium">
+                    <Text className="text-[length:22rpx] text-primary-foreground font-medium">
                       {tt('vipTrader.openTitle', '开通会员')}
                     </Text>
                   </View>
@@ -251,7 +251,7 @@ export default function UserInfoCard({
                     }}
                     hoverClass="opacity-85"
                   >
-                    <Text className="text-[22rpx] text-muted-foreground">
+                    <Text className="text-[length:22rpx] text-muted-foreground">
                       {tt('UserInfoCard.text2', '退订')}
                     </Text>
                   </View>
@@ -266,7 +266,7 @@ export default function UserInfoCard({
                     }}
                     hoverClass="opacity-85"
                   >
-                    <Text className="text-[22rpx] text-primary-foreground font-medium">
+                    <Text className="text-[length:22rpx] text-primary-foreground font-medium">
                       {tt('wallet.recharge.submit', '充值')}
                     </Text>
                   </View>

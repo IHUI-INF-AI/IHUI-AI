@@ -60,6 +60,7 @@ export type RnVipTokens = {
  *  (gray/slate)切换为 shadcn 中性灰;status DEFAULT 对齐 web 语义色。
  *  brand.DEFAULT = #000000 对齐 web 亮色 --color-primary(2026-07-24 用户要求消除绿色)。 */
 export const rnTokens = {
+  /* rn-tokens:managed —— 本表凡能由 tokens.css 推出的档,值由 scripts/sync-rn-tokens.mjs 原位写回(勿手改这些值);推不到的档属 RN 专属或源里无同名变量,仍是手抄 */
   brand: {
     DEFAULT: '#000000',
     /** 品牌底(brand.DEFAULT)之上的前景色。深色下 brand.DEFAULT 翻成白,前景必须翻黑,
@@ -209,6 +210,7 @@ export type RnThemeTokens = {
  * - brand.DEFAULT = #000000 对齐 web 亮色 --color-primary(2026-07-24 消除绿色)。
  */
 export const rnLightTokens: RnThemeTokens = {
+  /* rn-tokens:managed —— 本表凡能由 tokens.css 推出的档,值由 scripts/sync-rn-tokens.mjs 原位写回(勿手改这些值);推不到的档属 RN 专属或源里无同名变量,仍是手抄 */
   brand: {
     DEFAULT: '#000000',
     foreground: '#FFFFFF',
@@ -285,6 +287,7 @@ export const rnLightTokens: RnThemeTokens = {
  * 即 web 的 --color-primary + --color-primary-foreground —— 同一语义只留一个档,
  * 暗色"纯白是否刺眼"要调就调 tokens.css 的 .dark --color-primary,三端一起动。 */
 export const rnDarkTokens: RnThemeTokens = {
+  /* rn-tokens:managed —— 本表凡能由 tokens.css 推出的档,值由 scripts/sync-rn-tokens.mjs 原位写回(勿手改这些值);推不到的档属 RN 专属或源里无同名变量,仍是手抄 */
   brand: {
     DEFAULT: '#FFFFFF',
     foreground: '#000000',

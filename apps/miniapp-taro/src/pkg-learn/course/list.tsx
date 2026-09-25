@@ -105,7 +105,7 @@ export default function CourseList() {
             onClear={() => setKeyword('')}
           />
           <View
-            className="ml-[16rpx] px-[24rpx] h-[100rpx] leading-[100rpx] text-muted-foreground text-[28rpx]"
+            className="ml-[16rpx] px-[24rpx] h-[100rpx] leading-[100rpx] text-muted-foreground text-[length:28rpx]"
             hoverClass="opacity-60"
             onClick={onSearch}
           >
@@ -138,14 +138,14 @@ export default function CourseList() {
                 />
                 {/* 对齐 RN courseInfo:padding 12dp→24rpx,纵向 gap 6dp→12rpx;价格独立成行(RN pricePaid:16dp→32rpx/600/text.primary) */}
                 <View className="flex-1 p-[24rpx] flex flex-col gap-[12rpx]">
-                  <Text className="text-[32rpx] text-foreground font-semibold">{item.title}</Text>
+                  <Text className="text-[length:32rpx] text-foreground font-semibold">{item.title}</Text>
                   {item.subtitle && (
-                    <Text className="text-[28rpx] text-muted-foreground">{item.subtitle}</Text>
+                    <Text className="text-[length:28rpx] text-muted-foreground">{item.subtitle}</Text>
                   )}
                   {item.teacher && (
-                    <Text className="text-[24rpx] text-muted-foreground">{item.teacher}</Text>
+                    <Text className="text-[length:24rpx] text-muted-foreground">{item.teacher}</Text>
                   )}
-                  <Text className="text-[32rpx] text-foreground font-semibold">
+                  <Text className="text-[length:32rpx] text-foreground font-semibold">
                     ¥{item.price ?? 0}
                   </Text>
                 </View>
@@ -157,7 +157,7 @@ export default function CourseList() {
         {/* 对齐 RN emptyWrap/emptyText:paddingY 48dp→96rpx,字号 14dp→28rpx,text.secondary */}
         {!loading && list.length === 0 && (
           <View className="text-center py-[96rpx]">
-            <Text className="text-[28rpx] text-muted-foreground">{t('course.list.empty')}</Text>
+            <Text className="text-[length:28rpx] text-muted-foreground">{t('course.list.empty')}</Text>
           </View>
         )}
 

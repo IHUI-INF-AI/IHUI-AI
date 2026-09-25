@@ -87,7 +87,7 @@ export default function LanguagePage() {
             行对齐 plainRow:minHeight 60dp→120rpx / py 14dp→28rpx / px 12dp→24rpx,
             卡面亮色 surface.light→--color-card、暗色 surface.muted→--color-muted(dark:bg-muted) */}
         <View className="mx-[20rpx] mt-[32rpx]">
-          <Text className="mb-[16rpx] block text-[28rpx] text-muted-foreground">
+          <Text className="mb-[16rpx] block text-[length:28rpx] text-muted-foreground">
             {tt('setting.language.chooseHint', '选择应用语言')}
           </Text>
           <View className="flex flex-col gap-[2rpx] overflow-hidden rounded-lg bg-[color:var(--color-border)]">
@@ -100,18 +100,18 @@ export default function LanguagePage() {
               >
                 <View className="min-w-0 flex-1">
                   {/* rowLabel 对齐 RN: 16dp→32rpx + text.medium 语义映射 muted-foreground */}
-                  <Text className="text-[32rpx] text-muted-foreground">
+                  <Text className="text-[length:32rpx] text-muted-foreground">
                     {tt(LANG_KEY[l.key] ?? 'legal.supportedRegions.languageZhCN', l.native)}
                   </Text>
                   {/* 副行(英文名)为小程序端补充信息:24rpx + text.tertiary + userMeta gap 2dp→4rpx */}
-                  <Text className="mt-[4rpx] block text-[24rpx] text-[color:var(--color-text-tertiary)]">
+                  <Text className="mt-[4rpx] block text-[length:24rpx] text-[color:var(--color-text-tertiary)]">
                     {l.english}
                   </Text>
                 </View>
                 {/* 选中态对齐 RN SelectRow checkMark: 16dp→32rpx bold + brandAccent→--color-brand-accent;
                     当前语言由选中行呈现,不再渲染 RN 没有的"当前语言"卡片 */}
                 {current === l.value ? (
-                  <Text className="text-[32rpx] font-bold text-[color:var(--color-brand-accent-deep)]">
+                  <Text className="text-[length:32rpx] font-bold text-[color:var(--color-brand-accent-deep)]">
                     ✓
                   </Text>
                 ) : null}
@@ -122,10 +122,10 @@ export default function LanguagePage() {
 
         {/* 底部说明对齐 RN versionText: 12dp→24rpx + text.tertiary;marginTop 4dp→8rpx */}
         <View className="mx-[20rpx] mt-[32rpx]">
-          <Text className="block text-center text-[24rpx] leading-[1.6] text-[color:var(--color-text-tertiary)]">
+          <Text className="block text-center text-[length:24rpx] leading-[1.6] text-[color:var(--color-text-tertiary)]">
             {tt('setting.language.tip', '切换语言后将自动保存并生效')}
           </Text>
-          <Text className="mt-[8rpx] block text-center text-[24rpx] leading-[1.6] text-[color:var(--color-text-tertiary)]">
+          <Text className="mt-[8rpx] block text-center text-[length:24rpx] leading-[1.6] text-[color:var(--color-text-tertiary)]">
             {tt('setting.language.note', '部分内容可能仍以原文显示,我们正在持续完善多语言支持。')}
           </Text>
         </View>

@@ -91,19 +91,19 @@ export default function LiveSubscribe() {
     <ThemeRoot>
       {/* 对齐 RN shared SubscriptionsScreen container(tk.surface.bg)+ listBody(padding 10 → 20rpx,paddingBottom 32 → 64rpx) */}
       <View className="min-h-screen bg-[var(--color-background)] px-[20rpx] pt-[20rpx] pb-[64rpx] box-border">
-        <View className="flex items-baseline text-[28rpx] text-foreground">
+        <View className="flex items-baseline text-[length:28rpx] text-foreground">
           <Text>{tt('live.subscribe.count', '已订阅')}</Text>
-          <Text className="font-bold text-[40rpx] text-primary mx-[8rpx]">{list.length}</Text>
+          <Text className="font-bold text-[length:40rpx] text-primary mx-[8rpx]">{list.length}</Text>
           <Text>{tt('live.subscribe.unit', '场')}</Text>
         </View>
 
         {/* 开播前提醒卡片:对齐 RN card(p 12 → 24rpx,radius 12 → 24rpx,1px border.light → 2rpx var(--color-border)) */}
-        <View className="mt-[20rpx] flex items-center justify-between p-[24rpx] border-[2rpx] border-[var(--color-border)] rounded-xl">
+        <View className="mt-[20rpx] flex items-center justify-between p-[24rpx] border-[length:2rpx] border-[var(--color-border)] rounded-xl">
           <View>
-            <Text className="text-[28rpx] text-foreground">
+            <Text className="text-[length:28rpx] text-foreground">
               {tt('live.subscribe.reminder', '开播前提醒')}
             </Text>
-            <Text className="text-[24rpx] text-muted-foreground mt-[6rpx]">
+            <Text className="text-[length:24rpx] text-muted-foreground mt-[6rpx]">
               {tt('live.subscribe.reminderDesc', '订阅直播开播前 10 分钟通知')}
             </Text>
           </View>
@@ -117,7 +117,7 @@ export default function LiveSubscribe() {
               /* 对齐 RN card:row + items-center,无卡片底色 */
               <View
                 key={l.id}
-                className="flex items-center p-[24rpx] border-[2rpx] border-[var(--color-border)] rounded-xl"
+                className="flex items-center p-[24rpx] border-[length:2rpx] border-[var(--color-border)] rounded-xl"
               >
                 {/* 对齐 RN thumb(40dp → 80rpx,radius 24rpx,bg muted) */}
                 <Image
@@ -132,29 +132,29 @@ export default function LiveSubscribe() {
                   hoverClass="opacity-60"
                 >
                   {/* 对齐 RN targetId(16dp → 32rpx semibold,单行截断) */}
-                  <Text className="overflow-hidden whitespace-nowrap text-ellipsis text-[32rpx] font-semibold text-foreground">
+                  <Text className="overflow-hidden whitespace-nowrap text-ellipsis text-[length:32rpx] font-semibold text-foreground">
                     {l.title}
                   </Text>
                   {/* 对齐 RN createdAt(14dp → 28rpx,text.secondary) */}
                   {l.anchor && (
-                    <Text className="text-[28rpx] text-muted-foreground mt-[16rpx]">
+                    <Text className="text-[length:28rpx] text-muted-foreground mt-[16rpx]">
                       {l.anchor}
                     </Text>
                   )}
                   {l.startTime && (
-                    <Text className="text-[28rpx] text-muted-foreground mt-[16rpx]">
+                    <Text className="text-[length:28rpx] text-muted-foreground mt-[16rpx]">
                       {l.startTime}
                     </Text>
                   )}
                   <View className="flex items-center justify-between mt-[16rpx]">
                     <Text
-                      className={`px-[16rpx] py-[4rpx] rounded-md text-[22rpx] ${STATUS_BADGE[l.status]}`}
+                      className={`px-[16rpx] py-[4rpx] rounded-md text-[length:22rpx] ${STATUS_BADGE[l.status]}`}
                     >
                       {statusText(l.status)}
                     </Text>
                     {/* 对齐 RN cancelBtn(px 12 → 24rpx,py 6 → 12rpx,radius 24rpx,border + 中性文字) */}
                     <Text
-                      className="px-[24rpx] py-[12rpx] text-[28rpx] font-semibold text-[var(--color-text-medium)] border-[2rpx] border-[var(--color-border)] rounded-xl"
+                      className="px-[24rpx] py-[12rpx] text-[length:28rpx] font-semibold text-[var(--color-text-medium)] border-[length:2rpx] border-[var(--color-border)] rounded-xl"
                       onClick={(e) => {
                         e.stopPropagation()
                         onUnsubscribe(l.id)
@@ -170,11 +170,11 @@ export default function LiveSubscribe() {
         ) : (
           /* 对齐 RN center(paddingVertical 48 → 96rpx)+ muted(14 → 28rpx) */
           <View className="flex flex-col items-center py-[96rpx]">
-            <Text className="text-[28rpx] text-muted-foreground">
+            <Text className="text-[length:28rpx] text-muted-foreground">
               {tt('live.subscribe.empty', '暂无订阅')}
             </Text>
             <Text
-              className="mt-[24rpx] text-[28rpx] font-semibold text-[var(--color-brand-accent-deep)]"
+              className="mt-[24rpx] text-[length:28rpx] font-semibold text-[var(--color-brand-accent-deep)]"
               onClick={goDiscover}
             >
               {tt('live.subscribe.discover', '去发现直播')}
@@ -183,7 +183,7 @@ export default function LiveSubscribe() {
         )}
 
         {loading && (
-          <View className="text-center text-[28rpx] text-muted-foreground py-[32rpx]">
+          <View className="text-center text-[length:28rpx] text-muted-foreground py-[32rpx]">
             <Text>{tt('common.loading', '加载中…')}</Text>
           </View>
         )}

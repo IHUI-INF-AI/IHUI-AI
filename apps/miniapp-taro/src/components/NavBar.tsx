@@ -246,13 +246,13 @@ export default function NavBar({
             style={{ backgroundColor: 'var(--color-notification-bg)' }}
           >
             <Text
-              className="flex-1 truncate text-[24rpx]"
+              className="flex-1 truncate text-[length:24rpx]"
               style={{ color: 'var(--color-notification-text)' }}
             >
               {notification.text}
             </Text>
             <Text
-              className="ml-[16rpx] text-[32rpx] leading-none"
+              className="ml-[16rpx] text-[length:32rpx] leading-none"
               style={{ color: 'var(--color-notification-text)' }}
               onClick={notification.onClose}
             >
@@ -309,13 +309,13 @@ export default function NavBar({
           }}
         >
           <Text
-            className="flex-1 truncate text-[24rpx]"
+            className="flex-1 truncate text-[length:24rpx]"
             style={{ color: 'var(--color-notification-text)' }}
           >
             {notification.text}
           </Text>
           <Text
-            className="ml-[16rpx] text-[32rpx] leading-none"
+            className="ml-[16rpx] text-[length:32rpx] leading-none"
             style={{ color: 'var(--color-notification-text)' }}
             onClick={notification.onClose}
           >
