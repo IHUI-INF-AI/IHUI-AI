@@ -15,6 +15,7 @@ import {
   gte,
   lte,
   isNull,
+  isNotNull,
   inArray,
   count,
   type SQL,
@@ -98,6 +99,7 @@ export async function findConversationsByUser(
         shareToken: chatConversations.shareToken,
         pinned: chatConversations.pinned,
         pinnedAt: chatConversations.pinnedAt,
+        historyProjectionState: chatConversations.historyProjectionState,
       })
       .from(chatConversations)
       .where(where)
@@ -605,6 +607,152 @@ export async function findMessagesCursor(
   return { messages, nextCursor, hasMore }
 }
 
+// =============================================================================
+// D35 长会话 turn 分片拉取(第一段数据面)
+// =============================================================================
+
+export interface FindHistoryTurnPageOpts {
+  /** 每页 turn 数;路由层已夹取,这里再兜底夹取 */
+  limit: number
+  /** 回放断点(turn 序号);direction=newest 时忽略 */
+  cursorTurnOrdinal?: number | null
+  /** newest=取最新 N turn;older=断点之前(上翻);newer=断点之后(增量续读) */
+  direction: 'newest' | 'older' | 'newer'
+}
+
+export interface HistoryTurnGroup {
+  turnOrdinal: number
+  messages: ChatMessage[]
+}
+
+export interface FindHistoryTurnPageResult {
+  /** turnOrdinal 升序 */
+  turns: HistoryTurnGroup[]
+  nextCursor: { turnOrdinal: number } | null
+  hasMore: boolean
+}
+
+/**
+ * turn 分片 keyset 分页(D35 第一段):
+ * 1. 先用 DISTINCT turn_ordinal 的 keyset 窗口选出本页的 turn 集合(limit+1 判 hasMore);
+ * 2. 再按 (turn_ordinal, created_at, id) 一次性取回这批 turn 的全部消息行,内存分组
+ *    —— 两条轻查询,无 N+1;消息行数 = 响应体本身,不拉全量。
+ * turn_ordinal 为 NULL 的存量行不可见(回填在第二段);分片语义与共享层
+ * projectHistoryPage 同构(@ihui/shared/chat/history-projection)。
+ */
+export async function findHistoryTurnPage(
+  conversationId: string,
+  opts: FindHistoryTurnPageOpts,
+): Promise<FindHistoryTurnPageResult> {
+  const limit = Math.min(Math.max(Math.trunc(opts.limit) || 1, 1), 100)
+  const convEq = eq(chatMessages.conversationId, conversationId)
+  const turnNotNull = isNotNull(chatMessages.turnOrdinal)
+
+  // ---- 第一步:选出本页 turn 集合 ----
+  let turnRows: { turnOrdinal: number }[]
+  let hasMore: boolean
+  if (opts.direction === 'newer') {
+    // 增量续读:断点之后的最小 N 个 turn(升序)
+    const ahead = await db
+      .selectDistinct({ turnOrdinal: chatMessages.turnOrdinal })
+      .from(chatMessages)
+      .where(
+        opts.cursorTurnOrdinal != null
+          ? and(convEq, turnNotNull, gt(chatMessages.turnOrdinal, opts.cursorTurnOrdinal))
+          : and(convEq, turnNotNull),
+      )
+      .orderBy(asc(chatMessages.turnOrdinal))
+      .limit(limit + 1)
+    hasMore = ahead.length > limit
+    turnRows = (hasMore ? ahead.slice(0, limit) : ahead).map((r) => ({
+      turnOrdinal: Number(r.turnOrdinal),
+    }))
+  } else {
+    // newest / older:取尾部窗口(降序取 limit+1,反转成升序)
+    const where =
+      opts.direction === 'older' && opts.cursorTurnOrdinal != null
+        ? and(convEq, turnNotNull, lt(chatMessages.turnOrdinal, opts.cursorTurnOrdinal))
+        : and(convEq, turnNotNull)
+    const behind = await db
+      .selectDistinct({ turnOrdinal: chatMessages.turnOrdinal })
+      .from(chatMessages)
+      .where(where)
+      .orderBy(desc(chatMessages.turnOrdinal))
+      .limit(limit + 1)
+    hasMore = behind.length > limit
+    turnRows = (hasMore ? behind.slice(0, limit) : behind)
+      .map((r) => ({ turnOrdinal: Number(r.turnOrdinal) }))
+      .reverse()
+  }
+
+  if (turnRows.length === 0) {
+    return { turns: [], nextCursor: null, hasMore: false }
+  }
+
+  // ---- 第二步:一次取回本页 turn 的全部消息,按 turn 分组 ----
+  const rows = await db
+    .select()
+    .from(chatMessages)
+    .where(
+      and(
+        convEq,
+        inArray(
+          chatMessages.turnOrdinal,
+          turnRows.map((t) => t.turnOrdinal),
+        ),
+      ),
+    )
+    // 与消息级分页同款决胜:(created_at, id) 保证同轮内顺序稳定
+    .orderBy(asc(chatMessages.turnOrdinal), asc(chatMessages.createdAt), asc(chatMessages.id))
+
+  const byTurn = new Map<number, ChatMessage[]>()
+  for (const row of rows) {
+    if (row.turnOrdinal == null) continue
+    const list = byTurn.get(row.turnOrdinal)
+    if (list) list.push(row)
+    else byTurn.set(row.turnOrdinal, [row])
+  }
+  const turns: HistoryTurnGroup[] = turnRows
+    .map((t) => ({ turnOrdinal: t.turnOrdinal, messages: byTurn.get(t.turnOrdinal) ?? [] }))
+    .filter((g) => g.messages.length > 0)
+
+  let nextCursor: { turnOrdinal: number } | null = null
+  if (hasMore && turns.length > 0) {
+    // newest/older → 页内最小 turn(供 older 上翻);newer → 页内最大 turn(供继续续读)
+    const first = turns[0]
+    const last = turns[turns.length - 1]
+    if (first && last) {
+      nextCursor = {
+        turnOrdinal: opts.direction === 'newer' ? last.turnOrdinal : first.turnOrdinal,
+      }
+    }
+  }
+
+  return { turns, nextCursor, hasMore }
+}
+
+/** D35:turn 游标序列化(base64url JSON {turnOrdinal}),与 encodeMessageCursor 同形态 */
+export function encodeHistoryCursor(cursor: { turnOrdinal: number }): string {
+  return Buffer.from(JSON.stringify(cursor), 'utf8').toString('base64url')
+}
+
+/** D35:turn 游标还原;格式非法(含非整数序号)返回 null,路由层转 400 */
+export function decodeHistoryCursor(raw: string): { turnOrdinal: number } | null {
+  try {
+    const parsed: unknown = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'))
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      Number.isInteger((parsed as Record<string, unknown>).turnOrdinal)
+    ) {
+      return { turnOrdinal: (parsed as { turnOrdinal: number }).turnOrdinal }
+    }
+  } catch {
+    return null
+  }
+  return null
+}
+
 /** 分享页面专用：走只读副本，无数量上限 */
 export async function findMessagesForShare(id: string): Promise<ChatMessage[]> {
   return dbRead
@@ -629,15 +777,28 @@ export interface CreateMessageInput {
  */
 export async function createMessage(input: CreateMessageInput): Promise<ChatMessage> {
   return db.transaction(async (tx) => {
+    // D35(2026-09-24):turn 序号补齐 —— user 消息开启新轮(会话内 max+1),
+    // assistant/system 沿用当前轮(无轮时归 turn 1)。并发容忍:同会话并发写
+    // 可能读到同一 max 导致 turn 边界重叠,第一段按尽力而为处理,严格串行化
+    // (行锁/重试)待增量回放段落接线时评估。
+    const turnRows = await tx
+      .select({ maxTurn: sql<number | null>`max(${chatMessages.turnOrdinal})` })
+      .from(chatMessages)
+      .where(eq(chatMessages.conversationId, input.conversationId))
+    const maxTurn = Number(turnRows[0]?.maxTurn ?? 0)
+    const role = input.role ?? 'user'
+    const turnOrdinal = role === 'user' ? maxTurn + 1 : Math.max(maxTurn, 1)
+
     const rows = await tx
       .insert(chatMessages)
       .values({
         conversationId: input.conversationId,
-        role: input.role ?? 'user',
+        role,
         content: input.content,
         reasoning: input.reasoning,
         tokens: input.tokens,
         metadata: input.metadata as Record<string, unknown> | null,
+        turnOrdinal,
       })
       .returning()
     const row = rows[0]
@@ -889,6 +1050,8 @@ export async function branchConversationFrom(
           tokens: m.tokens,
           metadata: m.metadata as Record<string, unknown> | null,
           createdAt: m.createdAt,
+          // D35:分支复制保留源消息的 turn 序号(分叉后的 turn 结构与源一致)
+          turnOrdinal: m.turnOrdinal,
         })),
       )
     }
@@ -929,17 +1092,24 @@ export async function replaceMessages(
   await db.transaction(async (tx) => {
     await tx.delete(chatMessages).where(eq(chatMessages.conversationId, conversationId))
     if (messages.length > 0) {
+      // D35(2026-09-24):重插流按 role 重算 turn 序号 —— user 消息开启新轮,
+      // assistant/system 沿用当前轮;压缩摘要(通常 system/user 开头)自然归入 turn 1。
+      let turnCounter = 0
       await tx.insert(chatMessages).values(
-        messages.map((m) => ({
-          id: m.id ?? crypto.randomUUID(),
-          conversationId,
-          role: m.role,
-          content: m.content,
-          reasoning: m.reasoning ?? undefined,
-          tokens: m.tokens ?? null,
-          metadata: m.metadata ?? null,
-          createdAt: m.createdAt ? new Date(m.createdAt) : new Date(),
-        })),
+        messages.map((m) => {
+          if (m.role === 'user') turnCounter += 1
+          return {
+            id: m.id ?? crypto.randomUUID(),
+            conversationId,
+            role: m.role,
+            content: m.content,
+            reasoning: m.reasoning ?? undefined,
+            tokens: m.tokens ?? null,
+            metadata: m.metadata ?? null,
+            createdAt: m.createdAt ? new Date(m.createdAt) : new Date(),
+            turnOrdinal: m.role === 'user' ? turnCounter : Math.max(turnCounter, 1),
+          }
+        }),
       )
     }
   })
@@ -1040,6 +1210,7 @@ export async function findFavoriteConversations(
         shareToken: chatConversations.shareToken,
         pinned: chatConversations.pinned,
         pinnedAt: chatConversations.pinnedAt,
+        historyProjectionState: chatConversations.historyProjectionState,
         favorite: sql<boolean>`TRUE`,
         favoriteId: chatFavorites.id,
         favoriteCreatedAt: chatFavorites.createdAt,
