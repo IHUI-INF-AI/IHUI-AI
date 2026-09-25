@@ -8156,3 +8156,22 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 - **做的事**:`apps/cli/package.json` 补 `"@ihui/dom-actions": "workspace:*"`(与 `apps/extension` 同形态)→ 按 §12e 跑**全量 `pnpm install`**(不带 `--filter`;3.9s,锁零改动 ⇒ 声明与锁本来就只差这一行)。跑前按 §12d 取证:无 next/turbo 进程、`.deploy.lock` 持有者 pid 已死(只读 `check` 报 locked 属预期,acquire 有 10min 兜底 ⇒ 不改别人的锁文件)。
 - **验收按 §12e 的实测口径,不看回显**:链接在位;`node_modules/.bin/eslint --version` = v10.8.1、`tsc --version` = 5.9.3 都出版本号;`lint-staged/bin/lint-staged.js` 在位;门 78 rc=0(25 包声明全链接、718 条链接内容完好);门 101 rc=0(specifier 全一致);`pnpm --filter @ihui/cli typecheck` **rc=0**(改前 rc=1);门 7 全量 **rc=0**。
 - **给后面人的判据(值得抄进 §3 共享层那节)**:凡是**新 import 一个 workspace 包**,同一次改动里必须落三样 —— `package.json` 声明、`pnpm install`(全量)、`--filter <该端> typecheck` 真跑一次。只加 import 不加声明,`tsc` 在**别的端**可能因 tsconfig paths 而看起来没事,而 TS2307/Module not found 会在下一个干净 checkout 或 CI 构建里才炸 —— 与守门 72/78 同族"本地全绿、出事在别人机器"。
+
+## O63 八道门迁入取材层的第三波:6 道落地 + 2 道按住,并把"量等价"这件事从比旧基线改成同瞬间 A/B(2026-09-25 立并完成 ✅)
+
+- **票源**:O62 把 `scripts/lib/face-reader.mjs` 立成唯一取材层,但当时只收了被点名的三门(91/94/101),层外还散着两摊重复(各自派生 git / 各自拼 `cat-file --batch`)。本票派三个并行代理迁 8 道门。
+- **落地的 6 道**(`git show HEAD:<f>` 版 vs 迁移版,**同一瞬间**跑,stdout/stderr/exit 逐字比):
+  `check-dangling-local-imports`(98) · `check-staged-deletions`(99) · `check-commit-loss-guard`(30a) · `check-glyph-arrow-icon`(102) · `check-word-table-resolvable`(74) · `heal-worktree-tracked`(§5b 自愈层)。
+  12 组 A/B(全量 / `--self-test` / `--check` / `--check --json`)全部逐字等价;8 套镜像测试全绿(98 5/5 · 99 13/13 · 30a 26/26 · 102 13/13 · 74 36/36 · drift-align 4/4 · face-reader 13/13 · 架构门 13/13)。
+- **按住的 2 道**:`check-architecture-policy`(103)、`check-stale-revert`(84)。不是遗漏,是**层缺原语** —— 84 要的是"一次派生拿一批对象的 **oid**"(它的判据就是比较 blob sha),而层只给了 `catBatch`(回**内容**、按 utf8 解码 ⇒ 二进制不保真)和 `catBatchCheck`(只回 missing 集合、且过滤掉 `<oid>^{tree}` 形态);103 要一次读 8000+ 源文件 ≈ 85MB,而层的 `catBatch` 把 `maxBuffer` 钉死 64MB。**换上去会改变判据语义,那就不是等价重构** —— 所以按住,并把缺口写清楚(见下条)。**解阻判据**:层补出 `catBatchOids(root, specs)` 与 `catBatch(root, revs, {maxBuffer})` 两个出口,84/103 各自迁移后仍须过同瞬间 A/B 逐字等价。
+- **两份独立的代理报告 + 我读码印证,层的缺口收敛成四条**(下一次动层时一并补,别再各门自建绕行):
+  ① `catBatch` / `catBatchCheck` 的 `maxBuffer` 不可配 ⇒ 门 98 只能在门内按 40MB 预算把 8278 个 rev 切 3 片(它已证明切完零缺失,但这是门的负担不是层的);
+  ② `gitRaw` 不 status-aware ⇒ `git grep` 用 **exit 1** 表达"零命中"(合法空集),被层折成 `Undetermined`。门 99 现在靠"层报的空诊断 `(git 无输出)` ∧ 远未触及超时"两条同时成立来认零命中,并由镜像测试把 `gitErrText` 的措辞与门内常量**逐字对账**钉死 —— 这是一处真实的新耦合,层改措辞即红,是故意的;
+  ③ `gitRaw` 无 `input`(喂 stdin)通道,而 `cat-file --batch` 系全都要喂对象清单 ⇒ 两个代理各自绕开(改读 commit 内容取 `tree` 首行 / 用 `hash-object -- <abs>` 分批)。`git cat-file --batch-check=%(oid) <清单>` 实测被 git 拒收(`batch modes take no arguments`),所以绕行不是偷懒是唯一路;
+  ④ `catBatch` 的 120s 超时不可配(门 99 原用 180s,按层执行)。
+- **本票真正的收获是量法换了,不是迁了几道门**:先拿 08:56 的旧基线做逐字对照,报了 **15 项差异**;逐条查下来**没有一项来自迁移** —— 全是仓库自己往前走(HEAD 跟踪源文件 8264→8278、managed 名单被我自己那枚 09:15 提交扩了、tag 数 41→42、并行会话把 14 个路径 staged 成祖先版本包括 AGENTS/PLAN/README 三份活文档)。⇒ **"与迁移前基线逐字比"在共享工作区里结构上不可能干净**,它测的是仓库速度。所以补了 `.ihui-agent/tmp/ab-verify.mjs`:两侧看到的是同一个 HEAD/索引/工作树的**同瞬间 A/B**,这才是等价重构的证据,旧基线只留作"判据语义没被顺手改宽"的第二读法。已写进层测试的头注。
+- **一次假红,归因到测量窗口**:第一轮 verifier 报 `check-staged-deletions 11/1`、`check-commit-loss-guard 25/1`,单独跑却 13/13、26/26。当时**代理仍在写这些文件**(三份通知都在那之后才交回)。⇒ 在并行动 target 上取"稳定读数"是取不到的;之后的 3+3 连跑(隔离与交错两种)全绿才算复现失败。教训与"换线后必须重测再派单"同族。
+- **顺手补了尺子自己的一个整型盲区**:型 A 的正则只认 `execFileSync('git', …)` 这种**字面量首参**,而本票迁的 6 道门**全是**型 B —— `const GIT = process.env.IHUI_GIT_BIN || 'git'` 再 `execFileSync(GIT, …)`。不补这条,收口做完了棘轮数字却一动不动,会被读成"收口无效"。现新增 `pathBoundGitCountOf` + 独立棘轮(首量 **9**),并在反例里写死"字符串中间的同名片段"与"`join(…, 'backups', 'git')` 这个**目录名**"两条不得误报 —— 后者是第一版尺子真被骗过的那一行(`lib/gitdir.mjs:265`,把基线从 9 报成 10),单靠声明行无法区分,所以加了"该标识符必须被当过派生首参"第二道锚。
+- **型 C 棘轮 9 → 3**(余 103 / 93 / 84 三道,即上面按住的两道加一道未派单的 `check-cross-end-tokens`)。
+- **一处未动、如实登记**:`scripts/tests/check-theme-prop-wiring.test.mjs` 工作树相对 HEAD 只差**末尾 L3 零宽载荷行**(水印自愈产物,可见内容逐字节不变)。不属于本票逻辑改动,未代收 —— 谁提交它谁受水印门管,这是它的正确归属。
+- **并行代理交付里被我发现并核过的三处**(不采信自报):代理 C 报告称改了 `git-guardian-drift-align.test.mjs`,而我 09:17 的 `git status` 里**没有**这一项 → 复核为"报告时它已完成、我的读数是更早一次的",现在该文件确在 modified 列表内(闭包按 import 递归推导,不再手抄依赖清单)。代理 A 声称"三门逐字对齐",我用自己的 A/B 复跑 12 组独立确认。代理 B 声称的 2 项迁移**未落地**(arch-policy / stale-revert face-reader 引用数实测 0),按未交付处理,缺口自己读码重新定性为层缺原语而非代理偷懒。

@@ -211,7 +211,33 @@ test('HEAD 口径:全量必须判 HEAD blob,不得回退成"按磁盘读"(共享
     /'ls-tree',\s*'-r',\s*'--name-only',\s*'-z',\s*'HEAD'/,
     '全量清单不再按 HEAD 树取',
   )
-  assert.match(src, /cat-file',\s*'--batch/, '内容必须走 blob 批读,不是 readFileSync(工作树)')
+  // 2026-09-25 同位重锚(不是放宽):blob 批读的实现已收口到 scripts/lib/face-reader.mjs,
+  // 本门源码里因此**不再出现** `cat-file','--batch` 字面量。原判据若继续钉该字面量,就会在
+  // 合规代码上恒红(按规矩写就红的门 = 逼人 --no-verify)。判据换成同一方向的三件事:
+  //   ① 批读必须真的来自共用层(而不是本门自带一份、更不是退回 readFileSync 读工作树);
+  //   ② 本门不得再自己拼 git 派生 —— 搬回去就红,红的是"又长出第二份取材实现"这件事;
+  //   ③ 本门用"空 stderr 哨兵"区分 `git grep` 零命中与派生失败(共用层缺"带退出码的只读派生
+  //      出口"这一原语),该耦合必须由测试看守:上游改文案 ⇒ 这里红,而不是预筛静默退化成全量。
+  assert.match(
+    src,
+    /import\s*\{[^}]*\bcatBatch\b[^}]*\}\s*from\s*'\.\/lib\/face-reader\.mjs'/,
+    '内容必须走共用层的 blob 批读(catBatch),不是 readFileSync(工作树)',
+  )
+  assert.doesNotMatch(
+    src,
+    /execFileSync\s*\(|execSync\s*\(/,
+    '取材派生必须收口到 scripts/lib/face-reader.mjs —— 本门自带一份就是那五处易错点的入口',
+  )
+  assert.doesNotMatch(
+    src,
+    /safe\.directory=\*/,
+    'safe.directory 由共用层统一给,端内不得再拼(拼了就是又一处只有一个人会写对的陷阱)',
+  )
+  assert.match(
+    readFileSync(join(ROOT, 'scripts', 'lib', 'face-reader.mjs'), 'utf8'),
+    /\(git 无输出\)/,
+    '共用层的"空输出哨兵"改名了 → 本门 gitGrep 的零命中判定会静默升成异常,须同步改 NO_MATCH_SENTINEL',
+  )
   // 棘轮锚点=该文件 HEAD 自身,而不是静态清单也不是 0
   assert.equal(gate.splitFresh(new Map([['a.tsx', 70]]), new Map([['a.tsx', 70]])).fresh.length, 0)
   assert.equal(gate.splitFresh(new Map([['a.tsx', 71]]), new Map([['a.tsx', 70]])).fresh.length, 1)
