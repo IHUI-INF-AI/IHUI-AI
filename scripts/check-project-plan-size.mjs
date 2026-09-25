@@ -54,20 +54,26 @@ function archiverVerdict() {
       timeout: 60_000,
       maxBuffer: 32 << 20,
     })
-    const line = String(out || '')
+    const all = String(out || '')
       .split('\n')
       .map((s) => s.trim())
       .filter(Boolean)
-      .pop()
+    // 取**带结论的那一行**,不是最后一行:dry-run 的末行是「⚠ --dry-run 模式,未实际归档」,
+    // 拿它当答案就把量级(几条/哪些)丢了 —— 而本门要的正是在不在 0 这一格。
+    const line =
+      all.find((s) => /可归档的已完成任务条目/.test(s)) ||
+      all.find((s) => /无可归档|不存在|跳过/.test(s)) ||
+      all[all.length - 1] ||
+      ''
     if (!line) return { ok: false, why: '归档器零输出 —— 拿不到结论,不计为已核实' }
     return { ok: true, args: args.join(' '), line }
   } catch (e) {
     // 归档器非零退出时它自己的输出通常仍可读,那种场合仍算"实测到了";彻底跑不起来才判未判定。
-    const text = String(e?.stdout || e?.message || '')
+    const all = String(e?.stdout || e?.message || '')
       .split('\n')
       .map((s) => s.trim())
       .filter(Boolean)
-      .pop()
+    const text = all.find((s) => /可归档的已完成任务条目/.test(s)) || all[all.length - 1] || ''
     return { ok: false, why: text ? `归档器异常但回了「${text.slice(0, 90)}」` : '归档器跑不起来' }
   }
 }
