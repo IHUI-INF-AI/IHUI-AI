@@ -7,6 +7,7 @@
 import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { CLOSE_BUTTON_BASE, CLOSE_BUTTON_ICON, CLOSE_BUTTON_POSITION } from '@ihui/design-tokens'
+import { guardEscKeyDown, mergeEscStackRef, useEscStackId } from '../lib/use-esc-stack'
 import { cn } from '../lib/utils'
 
 // 2026-09-16 修复:静态导出预渲染偶发 "`DialogTrigger` must be used within `Dialog`"
@@ -47,10 +48,18 @@ const DialogContent = React.forwardRef<
      */
     hideCloseButton?: boolean
   }
->(({ className, children, hideCloseButton, ...props }, ref) => {
+>(({ className, children, hideCloseButton, onEscapeKeyDown, ...props }, ref) => {
   // 2026-09-16:无 Root 时(React19 prerender context 断裂)渲染 null 而非抛错——
   // 同 DialogTrigger 降级逻辑(见文件头),异常分支仅 SSR HTML 缺失,真实交互路径不受影响。
   const inDialog = React.useContext(InDialogContext)
+  // 2026-09-26 Esc 层栈接入:Content 的 ref callback 同步 commit —— 挂载即注册、
+  // 卸载即注销(ref 时序比 Portal 内 effect 可靠);Esc 非栈顶 → preventDefault
+  // 拦下 Radix dismiss,保证"一次 Esc 只关最上层"。
+  const escStackId = useEscStackId()
+  const escStackRef = React.useCallback(
+    mergeEscStackRef(escStackId, ref),
+    [escStackId, ref],
+  )
   if (!inDialog) return null
   return (
     // 强制 container=document.body(2026-07-28 立):
@@ -74,7 +83,8 @@ const DialogContent = React.forwardRef<
         保留 closed 态 fade-out-0,关闭时仍有平滑淡出过渡。 */}
       <DialogPrimitive.Overlay className="fixed inset-0 z-modal bg-black/80 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-(--duration-unified) data-[state=closed]:ease-unified" />
       <DialogPrimitive.Content
-        ref={ref}
+        ref={escStackRef}
+        onEscapeKeyDown={guardEscKeyDown(escStackId, onEscapeKeyDown)}
         className={cn(
           // 2026-07-31 移动端适配:padding/gap 按断点渐进放大
           //   - 默认(移动端):p-3 gap-3,sm(≥375px)及以上:p-3 gap-4
