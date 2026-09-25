@@ -50,6 +50,12 @@ export default defineConfig({
         __dirname,
         '../../packages/shared/src/utils/app-control-intent.ts',
       ),
+      // 同上:投递定址判定也是纯逻辑(只读 assignment + 注入的身份),必须指向真实源码 ——
+      // 给它写 mock 就等于"测 mock",而本票的全部意义是让五桥共用这一份实现。
+      '@ihui/shared/utils/agent-action-addressing': resolve(
+        __dirname,
+        '../../packages/shared/src/utils/agent-action-addressing.ts',
+      ),
       '@ihui/shared/utils': resolve(__dirname, 'tests/__mocks__/ihui-shared-utils.ts'),
       '@ihui/shared/hooks': resolve(__dirname, 'tests/__mocks__/ihui-shared-hooks.ts'),
       '@ihui/shared/stores': resolve(__dirname, 'tests/__mocks__/ihui-shared-stores.ts'),
