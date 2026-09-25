@@ -47,6 +47,14 @@ const runCLI = (args) => {
   }
 }
 
+/**
+ * 从本门结论行里取"当次实测的收口集合"。模块级唯一一份 —— T12 与 T12b 共用同一把尺子,
+ * 不在第二个测试里重抄正则(§22c:两份真相必然漂移)。
+ * ⚠️ 必须停在 `|` 之前:同一行后面的「扫描 N 文件 / 跨模块边」计数天然随档位不同,
+ *    吞进来会让"表相同 ⇒ 结论同形"这一支恒红、又让"表不同 ⇒ 结论异形"那一支恒真。
+ */
+const managedOf = (t) => /managed:true ([^|\n]*)/.exec(t)?.[1]?.trim() ?? ''
+
 test('T1 装车证明:本门确实装在 runner 上,且是 blocking + 有真实 skipEnv', () => {
   const hits = gate.registrationOf(runnerText(), SCRIPT_NAME)
   assert.equal(hits.length, 1, `注册块应恰好 1 个,实得 ${hits.length}`)
@@ -166,7 +174,8 @@ test('T12 取材面按档定向:--staged 选索引表、全量选 HEAD 表(否�
   const full = runCLI([])
   assert.equal(staged.code, 0, `--staged 必须绿,实得:\n${staged.out.slice(-600)}`)
   assert.equal(full.code, 0, `全量档必须绿,实得:\n${full.out.slice(-600)}`)
-  const managedOf = (t) => /managed:true ([^\n]*)/.exec(t)?.[1]?.trim() ?? ''
+  // 尺子用模块级 managedOf(唯一一份)。它为什么必须停在 `|` 之前,以及停在 `[^\n]*`
+  // 会同时坏掉两个方向(else 支恒红、differs 支恒真)—— 见其定义处注释,反例见 T12b。
   const differs = idxTable !== headTable
   if (differs) {
     assert.notEqual(
@@ -178,6 +187,21 @@ test('T12 取材面按档定向:--staged 选索引表、全量选 HEAD 表(否�
   } else {
     assert.equal(managedOf(staged.out), managedOf(full.out), '索引表与 HEAD 表相同,两档结论却不同形 ⇒ 取材面读串了')
   }
+})
+
+/**
+ * T12b —— 给 T12 那把尺子配反例。
+ * T12 的两个分支都只比 `managedOf` 的返回值,所以尺子一旦把"随行变化的计数"当成"收口集合",
+ * 就会出现**两支同时失效**:else 支恒红(脏工作树里必然红)、differs 支恒真(永远抓不到读串面)。
+ * 本条不依赖仓内任何状态,纯测尺子本身,是 T12 有意义的前提。
+ */
+test('T12b managedOf 只取收口集合:计数不同不得算异形、集合不同必须算异形', () => {
+  const a = '[arch-policy] 模块 24 个 | managed:true packages/api-client, packages/dom-actions | 扫描 9 文件 | 跨模块边 6 条'
+  const b = '[arch-policy] 模块 24 个 | managed:true packages/api-client, packages/dom-actions | 扫描 8077 文件 | 跨模块边 52 条'
+  const c = '[arch-policy] 模块 24 个 | managed:true packages/api-client | 扫描 8077 文件 | 跨模块边 52 条'
+  assert.equal(managedOf(a), managedOf(b), '同集合不同计数必须视为同形(否则 T12 的 else 支恒红)')
+  assert.notEqual(managedOf(b), managedOf(c), '集合真的变了却判同形 ⇒ T12 的 differs 支成为恒真')
+  assert.equal(managedOf('全绿但没打 managed 行'), '', '取不到时给空串,不得抛(它会以"同形"参与比较)')
 })
 
 test('T10 解析器坏了必须大声失败,不得静默少读模块', () => {

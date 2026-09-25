@@ -23,6 +23,11 @@
 #   其余(D1 依赖方向、D3 深导入、C2 契约行上限、C3 公开出口数)一律 managed-only。
 #
 # 已收口模块(逐块登记,附**为什么是它**与**试跑数字**):
+#     ⚠️ 本段是**历史留痕,不是现值**。某模块此刻是否 `managed:true`、全仓还剩几条软账,
+#        一律当次实测取:`node scripts/check-architecture-policy.mjs` 的 `managed:true …` 行,
+#        或 `grep -c '^    managed: true' config/architecture-policy.yaml`。
+#        从本段抄数字派单 = 复刻 09-24 那次"均 0 处"次日就变 6 条的错(下方已就地标注一例)。
+#        留痕不删的原因与 §12 一致:删行会让下一个人重复踩,而删证据不等于删错误。
 # - packages/api-client —— 2026-09-25 翻正面,是本表第一块 managed:true。
 #     选它的三条理由:① 它有**实质契约**(requires 1 条 + public_entrypoints 6 个 + exported:true),
 #        翻上去 D1/D2/D3 三条判据立刻有对象可审;对照 `apps/desktop` 的声明是

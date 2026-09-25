@@ -429,30 +429,99 @@ test('T19 该面取不到 ⇒ exit 2 并点名路径,绝不"跳过该包然后�
 test('T20 单一取材出口:三处判据取材全走同一个 readFace,面外不得再有直接读文件', () => {
   const src = readFileSync(SCRIPT, 'utf8')
   const start = src.indexOf('export function makeFaceReader(')
-  const end = src.indexOf('\nfunction gitExec(', start)
-  assert.ok(start > 0 && end > start, '找不到 makeFaceReader 这个唯一取材出口')
+  assert.ok(start > 0, '找不到 makeFaceReader 这个唯一取材出口')
+  // 出口的边界 = 它之后第一个**顶层**函数(makeFaceReader 内部的 loadTracked 是缩进的,不算)。
+  // 2026-09-25 收口前这里是门自己的 `function gitExec(`;现在 git 派生整体搬进了
+  // scripts/lib/face-reader.mjs,所以边界改用同一个"下一个顶层函数"规则去取,不再点那个名字。
+  const end = src.indexOf('\nfunction ', start)
+  assert.ok(end > start, 'makeFaceReader 之后找不到出口边界')
   const readerBlock = src.slice(start, end)
   const outside = src.slice(0, start) + src.slice(end)
+  // ①面外不得有任何直接读文件的路径(一半读盘一半读 git = 混面假绿)
   for (const call of ['readFileSync(', 'readdirSync(']) {
-    const inBlock = readerBlock.split('\n').filter((l) => l.includes(call))
     const outBlock = outside.split('\n').filter((l) => l.includes(call) && !/^import /.test(l))
-    assert.ok(inBlock.length >= 1, `${call} 必须由 makeFaceReader 承担(worktree 面)`)
-    // 面外再出现一次读文件 = 一半读盘一半读 git 的混面通道
     assert.deepEqual(outBlock, [], `${call} 泄漏到 makeFaceReader 之外:${outBlock.join(' | ')}`)
   }
+  // ②磁盘面:本门不再自己 readFileSync,只调层里的 readWorktreeFile;listDir 仍由本门承担
+  //   (层刻意不提供 —— 94 要文件清单、101 要包清单),所以 readdirSync 必须**留在**出口内。
+  const anyReadFile = src
+    .split('\n')
+    .filter((l) => l.includes('readFileSync(') && !/^import /.test(l))
+  assert.deepEqual(anyReadFile, [], '本门仍在自己 readFileSync —— 磁盘面应走层的 readWorktreeFile')
+  assert.match(readerBlock, /readWorktreeFile\(root, rel\)/, 'worktree 面未接层的 readWorktreeFile')
+  assert.ok(
+    readerBlock.split('\n').some((l) => l.includes('readdirSync(')),
+    'readdirSync( 必须由 makeFaceReader 承担(worktree 面的 listDir)',
+  )
   // 三个参与比对的文件都必须经 readFace 取,且 runCheck 显式带面参数
   assert.match(src, /reader\.readFace\('pnpm-workspace\.yaml'\)/)
   assert.match(src, /reader\.readFace\('pnpm-lock\.yaml'\)/)
   assert.match(src, /reader\.readFace\(relPath\)/)
   assert.match(src, /const reader = makeFaceReader\(face, root\)/)
   assert.match(src, /export function runCheck\(root, face = 'worktree'\)/)
-  // git 派生三件套:绝对路径 git + safe.directory + windowsHide + 数字 timeout(§5b / 守门 80)
-  assert.match(src, /\['-c', 'safe\.directory=\*', '-C', root, \.\.\.args\]/)
-  for (const call of ['catBatch', 'gitExec']) {
-    const body = src.slice(src.indexOf(`function ${call}(`), src.indexOf('\n}', src.indexOf(`function ${call}(`)))
-    assert.match(body, /windowsHide: true/, `${call} 缺 windowsHide`)
-    assert.match(body, /timeout: [A-Z_]+/, `${call} 缺数字 timeout`)
+  // ③git 派生三件套(绝对路径 git + safe.directory + windowsHide + 数字 timeout)只允许存在一份。
+  //   收口前这条判据打在**本门**的 catBatch / gitExec 上;现在打在层上,同时反向钉住
+  //   "本门一次都没自己派生 git" —— 比改前更严(改前门里有两处 execFileSync)。
+  assert.equal(src.includes('execFileSync('), false, '本门仍在自己派生 git,收口被绕开')
+  assert.equal(
+    src.includes("'safe.directory=*'"),
+    false,
+    'safe.directory 的字面量不得在门里再抄一遍',
+  )
+  assert.match(src, /from '\.\/lib\/face-reader\.mjs'/, '本门未 import 共用层')
+  assert.match(
+    readerBlock,
+    /gitRaw\(\['rev-parse', '--show-toplevel'\], root\)/,
+    '仓库根未走层的 gitRaw',
+  )
+  assert.match(
+    readerBlock,
+    /sameDir\(top, root\)/,
+    '仓库根比较未走层的 sameDir(junction 下会误判错位)',
+  )
+  assert.match(
+    readerBlock,
+    /catBatch\(root, need\.map/,
+    '内容未走层的 cat-file batch(逐文件派生会打满进程)',
+  )
+  const layer = readFileSync(resolve(HERE, '..', 'lib', 'face-reader.mjs'), 'utf8')
+  assert.match(
+    layer,
+    /resolveGitBin\(\) \|\| 'git'/,
+    '层未用绝对路径 git(§5b:服务账户/GUI 宿主的 PATH 不通)',
+  )
+  assert.match(
+    layer,
+    /\['-c', 'safe\.directory=\*', '-c', 'core\.quotepath=false', '-C', root, \.\.\.args\]/,
+  )
+  const HAS_TIMEOUT = /timeout:\s*(?:opts\.timeout\s*\?\?\s*)?[A-Z_]+\b/
+  // 阳性对照:同一把尺子必须抓住"没有数字 timeout 的写法"(守门 80 那类无界挂起),
+  // 否则下面这条 match 只是恒真。
+  assert.equal(
+    HAS_TIMEOUT.test('foo(bar, { cwd: root, windowsHide: true })'),
+    false,
+    '尺子连无 timeout 的样本都抓不住',
+  )
+  for (const name of ['gitRaw', 'catBatch']) {
+    const at = layer.indexOf(`export function ${name}(`)
+    assert.ok(at > 0, `层里找不到 ${name}`)
+    const body = layer.slice(at, layer.indexOf('\n}', at))
+    assert.match(body, /windowsHide: true/, `${name} 缺 windowsHide`)
+    assert.match(body, HAS_TIMEOUT, `${name} 缺数字 timeout`)
   }
+  // 层里 batch 的 stdio[0] 必须是 pipe —— 设成 'ignore' 会让 git 读到空输入,于是每个 rev 都
+  // "取不到"(本门第一次真仓自验就是被这一条咬出的假 exit 2)。收口前这条写在本门的注释里,
+  // 现在必须钉在它实现所在的那一处,否则教训随代码搬家一起丢。
+  const at = layer.indexOf("'cat-file', '--batch'")
+  assert.ok(at > 0, '层里找不到 cat-file --batch')
+  const batch = layer.slice(at, at + 700)
+  assert.match(batch, /stdio:\s*\[\s*'pipe',\s*'pipe',\s*'pipe'\s*\]/)
+  assert.match(batch, /input: Buffer\.from\(/, 'rev 清单必须由 input 喂进去')
+  assert.match(
+    batch,
+    /maxBuffer: GIT_MAX_BUFFER/,
+    'batch 必须吃到给足的 maxBuffer(真仓有 >1MB 单文件)',
+  )
 })
 
 test('T21 同一轮只判一个面:三面各验一次 --json 的 judgedFace 与退出码', () => {
