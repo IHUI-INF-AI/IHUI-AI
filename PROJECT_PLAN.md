@@ -8215,15 +8215,6 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 - [x] ✅(2026-09-25) **给"改写"本身配了判据(守门 93 新增 R7)**:本票做了 1,331 处改写,若只改不守,下一枚提交随手写回一个 `text-[24rpx]` 就静默复发 —— 而且**实测已经有这个风险**:15 个他人脏文件里带着未提交的 `text-[24rpx]` / `text-[32rpx]`,他们一提交就把裸 rpx 带回来。R7 拦这个:扫三个 v3 消费端,裸 `text-[Nrpx]` / `border-[Nrpx]` 即红,点名文件:行、说明它落到哪个错属性、给出 `[length:]` 改法。口径同 R6(staged 判索引 ⇒ 存量走棘轮只拦本次新造,全量判 HEAD)。取证:自检 13 例(三条阳性对照 `text-[28rpx]`/`border-[2rpx]`/`text-[1.5rpx]` 必命中,`px`/`rem`/已带 `length:`/`color:`/`var()`/注释形态 六类必不命中,行号定位一例;形状判据一律用纯函数 + 构造面证明,不往真仓写样本);真仓 HEAD 实测 **0 处**;判据有牙用私有索引注入 `text-[36rpx]` ⇒ exit 1 点名 `pages/index/index.tsx:2`,还原即归 0。镜像测试 23 pass / 0 fail。
 - **本票顺带量到、只登记不代裁的三件**:① `scripts/miniapp-preview.mjs` 把包名写成 `@ihui/miniapp`(实为 `@ihui/miniapp-taro`)⇒ CI 的 `miniapp-preview.yml` 按现状必失败;② `apps/miniapp-taro` 的 `dev:h5` 起不来(`ValidationError: unknown property 'https'`,既有故障);③ 同族越界的 `border-t-[1rpx]`×5 / `border-t-[2rpx]`×3 / `border-b-[2rpx]`×3 实测落 `border-top-color` / `border-bottom-color`(错属性),按"极窄、只碰点名两族"未动 —— **R7 目前也不拦它们**,要收就把判据的前缀族扩到 `border-[tblr]-`,那是一票独立的事。
 - **提交形态(为什么不走 safe-commit)**:137 个候选里 **15 个混有他人未提交内容**(在飞的 `--color-cta` 迁移、`rnRadius` import、重新生成的 `remote-locales.gen.ts`)。safe-commit 的 Step 2 是 `git add <工作树>`,会把它们代收进本笔。⇒ 全部走「HEAD ⊕ 本票改写」重建(从 `git show HEAD:<f>` 起、只施加本票那一条正则),再逐文件断言"相对 HEAD 的每一新增行都可归因于本票":123 文件 / 1,336 新增行,唯一未归因的 3 行是本票自己写的中文注释正文。**他人未提交行一行未收、一行未改**;复验残留脏行 62 行里 `[length:` 计数为 **0**。另:子代理曾把 14 处改写写进 2 个他人文件,已全部回退并独立复核(两侧 `[length:` 计数皆 0、diff 中无 `length:` 行)。
-
-
-
-
-
-
-
-
-
 ### 第四波（同日上午 01:2x–10:2x：把上一节三条"归属他人 / 非本批可 finish"当场做掉，再补桌面三项）
 - [x] ✅(2026-09-25,`b153c2d0d4b`) **`stream-tool-ledger` 接线完成 —— 上面那条"等他人入库"改成了部分落地**，
   不是等：临时索引 + 逐 hunk 过滤，留本票 11 个 hunk、剔他人 5 个。判据必须写成 **forbidOnly**
@@ -8432,3 +8423,5 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 - **仍开放的终态**:`deploy/win/ihui-pg-backup-role.sql`(只读 + BYPASSRLS + INHERIT,语法已用逐条自动提交的解析探针取证、零副作用)保留在仓里等持有超管口令的人执行;执行完把口令一行裸文本放进 ② 的路径,备份即自动升到终态,脚本无需再改。
 - **本轮两处判据自伤(记下,别当成"门坏了")**:① 我先按测试名 grep 定位红的那份文件,**同名用例在三份文件里都有** ⇒ 挑错了目标并据此断言"单独跑全绿、是批量互相干扰";真相是 `check-rn-global-css-sync.test.mjs` **单独跑也红 12 条**。教训:定位失败用例要用**文件路径**而不是用例外层字符串。② `--serial` 跑出红这件事我一开始没看,是它先证伪了我的干扰假设。
 - **归属他人、本票不代裁**:`scripts/check-rn-global-css-sync.mjs` 01:34 被改动后其镜像测试 12 条红(**门本身在真仓全量/staged 都 rc=0 ⇒ 不卡提交**,只红在 `pnpm test:scripts`/CI)。那是并行会话在飞的 design-tokens 自动同步改造,按 §12 不替别人改判据,只留此条台账。
+
+- **✅ 本批未闭环⑤(生成器挂点)与产物面看守已落地(2026-09-25)**:① `apps/miniapp-taro/scripts/dev-weapp.mjs` 新增 `refreshGenerated()` —— 把此前**只在 build 链**的 `gen-i18n-compressed.mjs` 接进 dev 冷启,并先跑 `check-miniapp-generated.mjs --worktree --group i18n --json` 做**快速校验**,产物不旧就整段跳过(全盘扫描实测 12–15s,冷启不可接受;窄面快检约 1s)。**刻意只自动刷 i18n 这一件**:`gen-line-icons` 的源目录已被「图片全量外置 CDN」那轮清空(刷它等于造 77 个新 svg),`gen-tabbar-icons` 实测重跑产出与已入库 PNG **字节不同**(sharp/lucide 已漂移),会伪装成"已刷新" —— 二者改为「报数 + 给命令」,并写了硬断言禁止自动执行。② 新增守门 **105 `check-miniapp-generated.mjs`**(warn 档):R1 引用断链 / R2 孤儿 / G3 图标词表对账 / 动态路径只报数;`--self-test` 11 例 + 镜像测试 11 例(含 T9 两档对照)。**为什么不升 blocking**:立项全量实测就红(8 处 R1 是他人外置债、9 处孤儿默认只报数),恒红 ⇒ 逼人 `--no-verify` ⇒ 约 110 道门全废 —— 这是本仓记过最多次的反面;升档前置条件已写进注册块注释(R1 清零或加 HEAD 自身违规数棘轮基线)。③ 新增 `check-miniapp-css-landing.mjs`(产物面门,`pnpm check:miniapp-css-landing`,**刻意不接提交链、不串 check:all**):它判的是"源码用到的 utility 在 dist 里是否真出规则",现有 dist 缺 ⇒ exit 2「未判定」,绝不记绿也不冒红;`--self-test` 与镜像测试各成对。**它存在的意义正是补上那五道同源门共同的盲区**:36/37/93/parity/radius 全核源码,没有一道看产物。
