@@ -121,6 +121,7 @@ const TOKEN_SYNC_TARGETS = [
     cmd: 'pnpm --filter @ihui/miniapp-taro sync-tokens',
     trigger: 'tokens',
     failMode: 'block',
+    check: 'check-miniapp-tokens-sync.mjs',
   },
   {
     // 小程序原生 chrome 两份副本(2026-09-25 立项,AGENTS §4「副本一律是派生态」):
@@ -135,6 +136,7 @@ const TOKEN_SYNC_TARGETS = [
     cmd: 'node scripts/sync-miniapp-chrome.mjs --quiet',
     trigger: 'tokens',
     failMode: 'block',
+    check: 'check-miniapp-chrome.mjs',
   },
   {
     label: 'mobile-rn global.css',
@@ -142,6 +144,7 @@ const TOKEN_SYNC_TARGETS = [
     cmd: 'node scripts/sync-rn-global-css.mjs --quiet',
     trigger: 'tokens',
     failMode: 'block',
+    check: 'check-rn-global-css-sync.mjs',
   },
   {
     // rn-tokens.ts 的色值派生面(2026-09-25):改 tokens.css 一处,RN 侧手抄 HEX 表自动跟上。
@@ -150,6 +153,7 @@ const TOKEN_SYNC_TARGETS = [
     cmd: 'node scripts/sync-rn-tokens.mjs --quiet',
     trigger: 'tokens',
     failMode: 'block',
+    check: 'check-cross-end-tokens.mjs',
   },
   {
     // extension 注入第三方页面的内联色(2026-09-25):它不能依赖宿主 CSS 变量,必须自带字面量,
@@ -159,6 +163,7 @@ const TOKEN_SYNC_TARGETS = [
     cmd: 'node scripts/sync-extension-tokens.mjs --quiet',
     trigger: 'tokens',
     failMode: 'block',
+    check: 'sync-extension-tokens.mjs',
   },
   {
     // ALPHA_USAGE 由三端真实用量导出(2026-09-25):登记 surface 不再靠人记。
@@ -170,6 +175,7 @@ const TOKEN_SYNC_TARGETS = [
     cmd: 'node scripts/sync-alpha-usage.mjs --quiet --face staged',
     trigger: 'v3-src',
     failMode: 'warn',
+    check: 'check-cross-end-tokens.mjs',
   },
 ]
 const V3_USAGE_DIRS = ['apps/miniapp-taro/src/', 'apps/mobile-rn/src/', 'packages/app/src/']
