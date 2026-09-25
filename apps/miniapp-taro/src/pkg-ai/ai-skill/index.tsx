@@ -12,6 +12,7 @@ import { listAiSkills, type AiSkillMeta } from '@ihui/api-client'
 import { useTt } from '@/i18n'
 import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
+import BackChevron from '@/components/BackChevron'
 import ThemeRoot from '@/components/ThemeRoot'
 
 /** Taro rpx 单位换算(1px = 2rpx,750 设计稿基准) */
@@ -121,10 +122,6 @@ const viewStyles = {
 const textStyles = {
   // text.secondary #666666/#A3A3A3 ↔ --color-muted-foreground(亮暗成对)
   muted: (_tk: RnThemeTokens): CSSProperties => ({
-    fontSize: toRpx(14),
-    color: 'var(--color-muted-foreground)',
-  }),
-  back: (_tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(14),
     color: 'var(--color-muted-foreground)',
   }),
@@ -239,9 +236,7 @@ export default function AiSkillList() {
     <ThemeRoot>
       <View style={viewStyles.container(tk, isDark)}>
         <View style={viewStyles.header()}>
-          <View onTap={goBack} hoverClass="opacity-60">
-            <Text style={textStyles.back(tk)}>{tt('common.back', '返回')}</Text>
-          </View>
+          <BackChevron onTap={goBack} />
           <Text style={textStyles.headerTitle(tk)}>{tt('aiSkill.title', 'AI 技能')}</Text>
           <View style={{ width: toRpx(40) }} />
         </View>
