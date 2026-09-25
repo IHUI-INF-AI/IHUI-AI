@@ -157,7 +157,7 @@ describe('SSRF 守卫 · 探针实测可达性(先证可达,再改判据)', () =
   });
 });
 
-describe.skip('fetch_url 工具接入前后的行为对照(本轮接入被既有夹具钉住:tests/fetch-url.test.ts 有 5 例断言 127.0.0.1 抓取应成功——那正是本守卫要拒的形态;守卫与元层门先入库,接入与夹具翻转同票落地,见任务 #31)', () => {
+describe('fetch_url 工具接入前后的行为对照(未桩真链路:本票的接入即在此证明)', () => {
   let server: http.Server;
   let baseUrl = '';
   let hitCount = 0;
