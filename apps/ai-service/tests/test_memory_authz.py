@@ -102,17 +102,29 @@ def _enforce_jwt(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(jwt_auth.settings, "jwt_secret", TEST_SECRET)
 
 
+_SEEN: list[str] = []
+"""服务层被调用的记录 —— 让"未发出查询"成为可断言的事实。
+越权/无身份用例断言它**为空**;同主正例断言它**非空**。后者不是多余:少了这条,
+"为空"的断言在"stub 根本没接上"的世界里也永远成立,判据就成了摆设
+(本仓记过多次"看起来有、其实没装车"那一型)。"""
+
+
 @pytest.fixture(autouse=True)
 def _stub_memory_services(monkeypatch: pytest.MonkeyPatch) -> None:
     """服务层全 mock:属主校验通过后的 200 正例不触达任何真实存储。"""
+    _SEEN.clear()
 
-    async def _ok(*args: object, **kwargs: object) -> dict[str, str]:
-        return {"stubbed": "ok"}
+    def _make(name: str):
+        async def _ok(*args: object, **kwargs: object) -> dict[str, str]:
+            _SEEN.append(name)
+            return {"stubbed": "ok"}
+
+        return _ok
 
     for name in ("save", "recall", "list_episodic", "list_procedural", "get_working", "add_procedural"):
-        monkeypatch.setattr(memory_api.memory_service, name, _ok)
+        monkeypatch.setattr(memory_api.memory_service, name, _make(name))
     for name in ("consolidate", "dream_topic", "forget"):
-        monkeypatch.setattr(memory_api.dream_service, name, _ok)
+        monkeypatch.setattr(memory_api.dream_service, name, _make(name))
 
 
 def _memory_app(*, with_middleware: bool) -> FastAPI:
@@ -166,10 +178,17 @@ async def test_anonymous_through_middleware_is_401(probe_client: AsyncClient, me
 
 @pytest.mark.parametrize("method,path,kwargs", MEMORY_ENDPOINTS)
 async def test_cross_user_request_is_403(probe_client: AsyncClient, method: str, path: str, kwargs: dict[str, Any]) -> None:
-    """A 持合法令牌填 B 的 user_id → 403。此前该请求会直达服务层读/写 B 的记忆。"""
+    """A 持合法令牌填 B 的 user_id → 403。此前该请求会直达服务层读/写 B 的记忆。
+
+    状态码 403 单独不够:若授权判定被挪到查库**之后**,响应仍是 403,而别人的行已被读过/写过一次。
+    故这里同时断言**服务层一次都没被调用**(= 未发出任何查询)。该断言的非恒真由
+    test_same_owner_request_reaches_service 钉住(同主请求必须真的调到服务层)。
+    """
+    _SEEN.clear()
     resp = await getattr(probe_client, method)(path, headers=_auth(USER_A), **kwargs)
     assert resp.status_code == 403, f"{method.upper()} {path} 仍可跨用户操作(实得 {resp.status_code})"
     assert resp.json()["detail"] == "user_id 与令牌主体不一致(禁止读写他人记忆)"
+    assert _SEEN == [], f"{method.upper()} {path} 虽回 403,但已把请求打到服务层:{_SEEN}(授权判定晚于查库)"
 
 
 # ---------------------------------------------------------------------------
@@ -184,4 +203,18 @@ async def test_same_owner_request_is_200(probe_client: AsyncClient, method: str,
     )
     assert resp.status_code == 200, f"{method.upper()} {path} 同主请求被误拒(实得 {resp.status_code})"
     assert resp.json()["code"] == 0
+
+
+@pytest.mark.parametrize("method,path,kwargs", MEMORY_ENDPOINTS)
+async def test_same_owner_request_reaches_service(probe_client: AsyncClient, method: str, path: str, kwargs: dict[str, Any]) -> None:
+    """403 用例里"未发出查询"这条断言的**非恒真证明**:同主请求必须真的落到服务层。
+
+    缺了这条,`assert _SEEN == []` 在"stub 压根没接上"的世界里也永远成立 —— 判据看着在、其实是空的。
+    """
+    _SEEN.clear()
+    resp = await getattr(probe_client, method)(
+        path, headers=_auth(USER_A), **_swap_user(kwargs, USER_A)
+    )
+    assert resp.status_code == 200, f"{method.upper()} {path} 同主请求被误拒(实得 {resp.status_code})"
+    assert _SEEN, f"{method.upper()} {path} 通过鉴权却没调用任何服务层方法 ⇒ 记录器没接上,403 用例的断言是空的"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
