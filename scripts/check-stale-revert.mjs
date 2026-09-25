@@ -33,10 +33,10 @@
  */
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { execFileSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-const GIT = process.env.IHUI_GIT_BIN || 'git'
+import { Undetermined, catBatchOids, gitRaw } from './lib/face-reader.mjs'
+
 export const SKIP_ENV = 'HUSKY_SKIP_STALE_REVERT_GUARD'
 export const ANCESTOR_WINDOW = 40
 // 每文件一次 `git log` + 一次批量 cat-file;超大暂存集(整仓重排)按上限跳过,
@@ -67,54 +67,44 @@ export function isMultiplierPath(p) {
 const REVERT_CONTEXT_FILES = ['MERGE_HEAD', 'CHERRY_PICK_HEAD', 'REVERT_HEAD', 'REBASE_HEAD']
 
 function git(args, opts = {}) {
-  return execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', ...args], {
-    encoding: 'utf8',
-    maxBuffer: 1 << 28,
-    windowsHide: true,
-    ...opts,
-  })
+  // 调用点沿用旧形状 `git(['-C', repoRoot, …])`;层自己会带 `-C <root>`,所以在这里剥掉这两个
+  // token —— 同一参数出现两份时 git 取后者,那是一个"两份不一致就静默换仓"的隐性来源。
+  // ⚠️ stdio 由**层**统一接管(两态:无 input 时 ignore / 有 input 时 pipe)。下面几个调用点
+  // 仍带着迁移前的 `stdio: ['ignore','pipe','ignore']`,那在此已**不再生效** —— 留着是因为
+  // 删它要动 5 处零宽载荷文件里的行,收益不抵风险;新写调用点不要再传 stdio。
+  const [cFlag, root, ...rest] = args
+  if (cFlag !== '-C' || !root) throw new Error('本门 git() 的调用必须带 -C <repoRoot>')
+  return gitRaw(rest, root, { maxBuffer: 1 << 28, ...opts })
 }
 
 /** 一次 cat-file --batch-check 解出所有对象规格 → Map(spec -> blob|null) */
 export function resolveBlobs(repoRoot, specs) {
-  const map = new Map()
-  if (!specs.length) return map
-  const out = git(['-C', repoRoot, 'cat-file', '--batch-check'], {
-    input: specs.map((s) => `${s}\n`).join(''),
-  }).split('\n')
-  specs.forEach((spec, i) => {
-    const line = (out[i] || '').trim()
-    map.set(spec, !line || line === 'missing' ? null : line.split(' ')[0])
-  })
-  return map
+  return catBatchOids(repoRoot, specs)
 }
 
 /** 该路径在 HEAD 上前 ANCESTOR_WINDOW 个"动过它"的提交 */
 export function ancestorCommits(repoRoot, path) {
   try {
-    return git(
-      ['-C', repoRoot, 'log', `--max-count=${ANCESTOR_WINDOW}`, '--format=%H', 'HEAD', '--', path],
-      { stdio: ['ignore', 'pipe', 'ignore'] },
-    )
+    return git(['-C', repoRoot, 'log', `--max-count=${ANCESTOR_WINDOW}`, '--format=%H', 'HEAD', '--', path])
       .split('\n')
       .filter(Boolean)
-  } catch {
+  } catch (e) {
+    // 迁移到层之后本门多了一个原先没有的失败态:只读派生现在**有 60s 上限**(层的默认值,
+    // 本门原先无界 —— 那正是守门 80 拦的那一型)。既然引入了"可能超时",就绝不能把它折成
+    // `[]`:"没有祖先提交"与"这次没读到"是两件事,后者会被判成"没有回写"= 把红洗成绿。
+    // 真·无历史(`git log` 对无匹配路径)是 exit 0 + 空输出,不走这条。
+    if (e instanceof Undetermined) throw e
     return []
   }
 }
 
 /** 暂存区改动路径(删除项单列给 R2) */
 export function stagedPaths(repoRoot) {
-  const all = git(['-C', repoRoot, 'diff', '--cached', '--name-only', '--no-renames'], {
-    stdio: ['ignore', 'pipe', 'ignore'],
-  })
+  const all = git(['-C', repoRoot, 'diff', '--cached', '--name-only', '--no-renames'])
     .split('\n')
     .filter(Boolean)
   const deleted = new Set(
-    git(
-      ['-C', repoRoot, 'diff', '--cached', '--name-only', '--no-renames', '--diff-filter=D'],
-      { stdio: ['ignore', 'pipe', 'ignore'] },
-    )
+    git(['-C', repoRoot, 'diff', '--cached', '--name-only', '--no-renames', '--diff-filter=D'])
       .split('\n')
       .filter(Boolean),
   )
