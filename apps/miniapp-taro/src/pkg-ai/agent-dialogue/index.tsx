@@ -104,7 +104,7 @@ export default function AgentDialogue() {
   const receiverUuidRef = useRef('')
   const userUuidRef = useRef('')
   const userAvatarRef = useRef('')
-  const sellerAvatarRef = useRef('/static/images/default-avatar.png')
+  const sellerAvatarRef = useRef('/static/default-avatar.png')
   const pageRef = useRef(1)
   const hasMoreRef = useRef(true)
   const wsTaskRef = useRef<Taro.SocketTask | null>(null)
