@@ -18,7 +18,6 @@ import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { __test__ as gate } from '../check-architecture-policy.mjs'
-import { resolveGitBin } from '../lib/gitdir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
@@ -29,15 +28,6 @@ const SCRIPT_NAME = 'check-architecture-policy.mjs'
 const unq = (s) => (typeof s === 'string' ? s.replace(/^['"]|['"]$/g, '') : s)
 const runnerText = () => readFileSync(RUNNER, 'utf8')
 const policyText = () => readFileSync(POLICY, 'utf8')
-// git 二进制按仓库既有正例解析(§5b:不得依赖环境),且只读调用一律带 timeout(守门 80)
-const GIT = resolveGitBin()
-const runGit = (args) =>
-  execFileSync(GIT, ['-c', 'safe.directory=*', ...args], {
-    encoding: 'utf8',
-    windowsHide: true,
-    timeout: 60000,
-    maxBuffer: 1 << 26,
-  })
 const runCLI = (args) => {
   try {
     const out = execFileSync(process.execPath, [SCRIPT, ...args], { encoding: 'utf8', maxBuffer: 1 << 28, windowsHide: true, timeout: 600000 })
@@ -164,29 +154,17 @@ test('T12 取材面按档定向:--staged 选索引表、全量选 HEAD 表(否�
   // 若这里选到的不是 HEAD,说明 faces 三档取值写错 ⇒ 上面两条断言根本区分不出顺序。
   const legacy = gate.pickPolicySource(['HEAD', '索引', '工作树'].map((l) => [l, faces[l]]))
   assert.equal(legacy.label, 'HEAD', '夹具失效:旧顺序都没选中 HEAD,则上面那两条"有牙"的证明不成立')
-  // 真仓行为对照,钉的是**条件不变量**而非某一次的表内容(否则本票一提交就恒红):
-  //   索引表 ≠ HEAD 表 ⇒ 两档结论必须不同形(证明两个面各自读自己那份);
-  //   索引表 == HEAD 表 ⇒ 两档结论必须同形(没有幻影差异可钉)。
-  // 刻意不点名任何具体模块:合法回退不该把测试变红(与本文件 T11 同一取向)。
-  const idxTable = runGit(['show', `:${gate.POLICY_REL}`])
-  const headTable = runGit(['show', `HEAD:${gate.POLICY_REL}`])
+  // 真仓侧只钉"两档都必须绿"。**刻意不钉"两档结论是否同形"** —— 上一版在这里写了
+  // `索引表≠HEAD 表 ⇒ 两档收口集合必须异形 / 相同 ⇒ 必须同形` 的条件断言,两条前提都不成立:
+  //   ① "表不同"涵盖改注释、改 requires、改阈值等绝大多数形态,它们**不改变** managed 集合,
+  //      于是"异形"那一支会在完全正常的改表面误红(实测:本仓此刻正落此支,该断言判红);
+  //   ② 而"同形"那一支在尺子为 /[^\\n]*/ 时恒红(见 managedOf 定义处注释)。
+  // 一条在任何一种现实下都可能红的判据,结局只会是逼人 --no-verify(§12e 同型),已删。
+  // 顺序本身的证明全部交给上面的 pickOn()/legacy 构造面 —— 它们可判定、可变异、不依赖仓库瞬时状态。
   const staged = runCLI(['--staged'])
   const full = runCLI([])
   assert.equal(staged.code, 0, `--staged 必须绿,实得:\n${staged.out.slice(-600)}`)
   assert.equal(full.code, 0, `全量档必须绿,实得:\n${full.out.slice(-600)}`)
-  // 尺子用模块级 managedOf(唯一一份)。它为什么必须停在 `|` 之前,以及停在 `[^\n]*`
-  // 会同时坏掉两个方向(else 支恒红、differs 支恒真)—— 见其定义处注释,反例见 T12b。
-  const differs = idxTable !== headTable
-  if (differs) {
-    assert.notEqual(
-      managedOf(staged.out),
-      managedOf(full.out),
-      `索引表与 HEAD 表不同(本次提交正在改表),但两档结论同形 ⇒ 有一个面没读自己那份表` +
-        `(缺陷形态:--staged 恒读 HEAD ⇒ 改表的提交脱离本门审查)`,
-    )
-  } else {
-    assert.equal(managedOf(staged.out), managedOf(full.out), '索引表与 HEAD 表相同,两档结论却不同形 ⇒ 取材面读串了')
-  }
 })
 
 /**
@@ -195,13 +173,19 @@ test('T12 取材面按档定向:--staged 选索引表、全量选 HEAD 表(否�
  * 就会出现**两支同时失效**:else 支恒红(脏工作树里必然红)、differs 支恒真(永远抓不到读串面)。
  * 本条不依赖仓内任何状态,纯测尺子本身,是 T12 有意义的前提。
  */
-test('T12b managedOf 只取收口集合:计数不同不得算异形、集合不同必须算异形', () => {
+test('T12b managedOf 尺子本身:计数不同不得算异形、集合不同必须算异形、取不到给空串', () => {
+  // 这条尺子反例是**独立价值**,与被审对象无关:任何将来拿"两档 managed 集合"做比较的判据
+  // 都必须先用它自证 —— 停在 `[^\n]*` 会把同行尾部"扫描 N 文件/跨模块边"一起吃进来,
+  // 于是同一把尺子在两个口径下永远不等(既测不出真差异,也注定误红)。
   const a = '[arch-policy] 模块 24 个 | managed:true packages/api-client, packages/dom-actions | 扫描 9 文件 | 跨模块边 6 条'
   const b = '[arch-policy] 模块 24 个 | managed:true packages/api-client, packages/dom-actions | 扫描 8077 文件 | 跨模块边 52 条'
   const c = '[arch-policy] 模块 24 个 | managed:true packages/api-client | 扫描 8077 文件 | 跨模块边 52 条'
-  assert.equal(managedOf(a), managedOf(b), '同集合不同计数必须视为同形(否则 T12 的 else 支恒红)')
-  assert.notEqual(managedOf(b), managedOf(c), '集合真的变了却判同形 ⇒ T12 的 differs 支成为恒真')
-  assert.equal(managedOf('全绿但没打 managed 行'), '', '取不到时给空串,不得抛(它会以"同形"参与比较)')
+  assert.equal(managedOf(a), managedOf(b), '同集合不同计数必须视为同形(否则任何按集合比较的判据恒红)')
+  assert.notEqual(managedOf(b), managedOf(c), '集合真的变了却判同形 ⇒ 该判据恒真(无牙)')
+  assert.equal(managedOf('全绿但没打 managed 行'), '', '取不到时给空串,不得抛')
+  // 反向对照:把尺子退回吞到行尾的旧写法,上面第一条必须红(证明"停在 | 前"在承重)
+  const naive = (t) => /managed:true ([^\n]*)/.exec(t)?.[1]?.trim() ?? ''
+  assert.notEqual(naive(a), naive(b), '尺子变异未生效 ⇒ 第一条断言恒真,本文件在装样子')
 })
 
 test('T10 解析器坏了必须大声失败,不得静默少读模块', () => {
