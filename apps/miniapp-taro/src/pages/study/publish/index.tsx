@@ -78,7 +78,7 @@ export default function StudyPublish() {
           input 语言:border light / radius 12dp→24rpx / h 50dp→100rpx / px 12dp→24rpx / bg surface.muted / 字号 16dp→32rpx;提交按钮 h 50dp→100rpx / radius 15dp→30rpx */}
       <View className="min-h-screen bg-background px-[28rpx] pt-[28rpx] pb-[180rpx] flex flex-col gap-[28rpx]">
         <Input
-          className="h-[100rpx] px-[24rpx] py-[20rpx] bg-muted border border-border rounded-xl text-[32rpx] text-foreground"
+          className="h-[100rpx] px-[24rpx] py-[20rpx] bg-muted border border-border rounded-xl text-[length:32rpx] text-foreground"
           placeholder={t('study.publish.titlePlaceholder')}
           maxlength={50}
           value={title}
@@ -87,13 +87,13 @@ export default function StudyPublish() {
 
         <View className="flex flex-col gap-[12rpx]">
           <Textarea
-            className="w-full min-h-[160rpx] px-[24rpx] py-[20rpx] bg-muted border border-border rounded-xl text-[32rpx] text-foreground"
+            className="w-full min-h-[160rpx] px-[24rpx] py-[20rpx] bg-muted border border-border rounded-xl text-[length:32rpx] text-foreground"
             placeholder={t('study.publish.contentPlaceholder')}
             maxlength={2000}
             value={content}
             onInput={(e) => setContent(e.detail.value)}
           />
-          <Text className="block text-right text-[22rpx] text-[var(--color-text-tertiary)]">
+          <Text className="block text-right text-[length:22rpx] text-[var(--color-text-tertiary)]">
             {content.length}/2000
           </Text>
         </View>
@@ -107,13 +107,13 @@ export default function StudyPublish() {
             onChange={(e) => setCategory(Number(e.detail.value))}
           >
             <View className="flex items-center h-[100rpx] px-[24rpx] bg-muted border border-border rounded-xl">
-              <Text className="text-[28rpx] text-foreground w-[160rpx]">
+              <Text className="text-[length:28rpx] text-foreground w-[160rpx]">
                 {t('study.publish.category')}
               </Text>
-              <Text className="flex-1 text-[28rpx] text-muted-foreground text-right">
+              <Text className="flex-1 text-[length:28rpx] text-muted-foreground text-right">
                 {categories[category]}
               </Text>
-              <Text className="text-[32rpx] text-muted-foreground ml-[16rpx]">›</Text>
+              <Text className="text-[length:32rpx] text-muted-foreground ml-[16rpx]">›</Text>
             </View>
           </Picker>
           <Picker
@@ -123,17 +123,17 @@ export default function StudyPublish() {
             onChange={(e) => setVisibility(Number(e.detail.value))}
           >
             <View className="flex items-center h-[100rpx] px-[24rpx] bg-muted border border-border rounded-xl">
-              <Text className="text-[28rpx] text-foreground w-[160rpx]">
+              <Text className="text-[length:28rpx] text-foreground w-[160rpx]">
                 {t('study.publish.visibility')}
               </Text>
-              <Text className="flex-1 text-[28rpx] text-muted-foreground text-right">
+              <Text className="flex-1 text-[length:28rpx] text-muted-foreground text-right">
                 {visibilityOptions[visibility]}
               </Text>
-              <Text className="text-[32rpx] text-muted-foreground ml-[16rpx]">›</Text>
+              <Text className="text-[length:32rpx] text-muted-foreground ml-[16rpx]">›</Text>
             </View>
           </Picker>
           <Input
-            className="h-[100rpx] px-[24rpx] bg-muted border border-border rounded-xl text-[28rpx] text-foreground"
+            className="h-[100rpx] px-[24rpx] bg-muted border border-border rounded-xl text-[length:28rpx] text-foreground"
             placeholder={t('study.publish.tagsPlaceholder')}
             value={tags}
             onInput={(e) => setTags(e.detail.value)}
@@ -141,7 +141,7 @@ export default function StudyPublish() {
         </View>
 
         <Button
-          className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-2xl text-[32rpx] font-semibold text-center"
+          className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-2xl text-[length:32rpx] font-semibold text-center"
           loading={saving}
           onClick={submit}
           disabled={saving}

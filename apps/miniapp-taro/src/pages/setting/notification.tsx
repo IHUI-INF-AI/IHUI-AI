@@ -85,7 +85,7 @@ export default function NotificationPage() {
       <View className="min-h-screen bg-background pt-[24rpx] pb-[48rpx]">
         {/* 分组标题沿用共享 SettingsScreen sectionTitle 视觉:14dp→28rpx(text.secondary) */}
         <View className="mx-[20rpx] mt-[32rpx]">
-          <Text className="mb-[16rpx] block text-[28rpx] text-muted-foreground">
+          <Text className="mb-[16rpx] block text-[length:28rpx] text-muted-foreground">
             {tt('setting.notification.categoryTitle', '通知分类')}
           </Text>
           {/* 卡片对齐 RN card: 圆角 12dp→24rpx + padding 12dp→24rpx + surface.light→--color-card
@@ -94,13 +94,13 @@ export default function NotificationPage() {
             {loading ? (
               <View className="py-[60rpx] text-center">
                 {/* muted 对齐 RN: 14dp→28rpx + text.secondary */}
-                <Text className="text-[28rpx] text-muted-foreground">
+                <Text className="text-[length:28rpx] text-muted-foreground">
                   {tt('common.loading', '加载中…')}
                 </Text>
               </View>
             ) : list.length === 0 ? (
               <View className="py-[60rpx] text-center">
-                <Text className="text-[28rpx] text-muted-foreground">
+                <Text className="text-[length:28rpx] text-muted-foreground">
                   {tt('setting.notification.empty', '暂无通知设置项')}
                 </Text>
               </View>
@@ -112,7 +112,7 @@ export default function NotificationPage() {
                 >
                   <View className="mr-[16rpx] flex-1">
                     {/* label 对齐 RN: 14dp→28rpx + text.medium 语义映射 muted-foreground */}
-                    <Text className="text-[28rpx] text-muted-foreground">{item.title}</Text>
+                    <Text className="text-[length:28rpx] text-muted-foreground">{item.title}</Text>
                   </View>
 
                   {/* Switch trackColor true 对齐 RN brand.DEFAULT → --color-primary */}
@@ -128,7 +128,7 @@ export default function NotificationPage() {
         </View>
 
         <View className="mx-[20rpx] mt-[32rpx]">
-          <Text className="mb-[16rpx] block text-[28rpx] text-muted-foreground">
+          <Text className="mb-[16rpx] block text-[length:28rpx] text-muted-foreground">
             {tt('setting.notification.moreTitle', '更多')}
           </Text>
           <View className="rounded-xl bg-card p-[24rpx]">
@@ -138,10 +138,10 @@ export default function NotificationPage() {
               hoverClass="opacity-60"
             >
               <View className="mr-[16rpx] flex-1">
-                <Text className="text-[28rpx] text-muted-foreground">
+                <Text className="text-[length:28rpx] text-muted-foreground">
                   {tt('setting.notification.wxSubscribe', '微信催费提醒')}
                 </Text>
-                <Text className="mt-[6rpx] block text-[24rpx] leading-[1.5] text-[color:var(--color-text-tertiary)]">
+                <Text className="mt-[6rpx] block text-[length:24rpx] leading-[1.5] text-[color:var(--color-text-tertiary)]">
                   {tt(
                     'setting.notification.wxSubscribeDesc',
                     '订阅后可在微信接收学费催缴提醒(每次订阅可收一条)',
@@ -149,7 +149,7 @@ export default function NotificationPage() {
                 </Text>
               </View>
               {/* arrow 对齐 RN plainRow arrow: 20dp→40rpx + text.tertiary */}
-              <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+              <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
             </View>
             <View
               className="flex items-center justify-between border-t-[1rpx] border-solid border-[color:var(--color-border)] py-[20rpx]"
@@ -157,15 +157,15 @@ export default function NotificationPage() {
               hoverClass="opacity-60"
             >
               <View className="mr-[16rpx] flex-1">
-                <Text className="text-[28rpx] text-muted-foreground">
+                <Text className="text-[length:28rpx] text-muted-foreground">
                   {tt('setting.notification.myBills', '我的学费账单')}
                 </Text>
-                <Text className="mt-[6rpx] block text-[24rpx] leading-[1.5] text-[color:var(--color-text-tertiary)]">
+                <Text className="mt-[6rpx] block text-[length:24rpx] leading-[1.5] text-[color:var(--color-text-tertiary)]">
                   {tt('setting.notification.myBillsDesc', '查看应缴/已缴/欠费并在线缴费')}
                 </Text>
               </View>
               {/* arrow 对齐 RN plainRow arrow: 20dp→40rpx + text.tertiary */}
-              <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+              <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
             </View>
             <View
               className="flex items-center justify-between border-t-[1rpx] border-solid border-[color:var(--color-border)] py-[20rpx]"
@@ -173,15 +173,15 @@ export default function NotificationPage() {
               hoverClass="opacity-60"
             >
               <View className="mr-[16rpx] flex-1">
-                <Text className="text-[28rpx] text-muted-foreground">
+                <Text className="text-[length:28rpx] text-muted-foreground">
                   {tt('setting.notification.detail', '通知详情')}
                 </Text>
-                <Text className="mt-[6rpx] block text-[24rpx] leading-[1.5] text-[color:var(--color-text-tertiary)]">
+                <Text className="mt-[6rpx] block text-[length:24rpx] leading-[1.5] text-[color:var(--color-text-tertiary)]">
                   {tt('setting.notification.detailDesc', '查看历史通知消息')}
                 </Text>
               </View>
               {/* arrow 对齐 RN plainRow arrow: 20dp→40rpx + text.tertiary */}
-              <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+              <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
             </View>
           </View>
         </View>

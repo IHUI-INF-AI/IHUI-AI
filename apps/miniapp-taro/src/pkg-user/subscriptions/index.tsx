@@ -71,7 +71,7 @@ export default function SubscriptionsPage() {
     <View className="min-h-screen bg-background">
       {items.length === 0 && !loading && (
         <View className="flex flex-col items-center py-[96rpx]">
-          <Text className="text-[28rpx] text-muted-foreground">{t('subscriptions.empty')}</Text>
+          <Text className="text-[length:28rpx] text-muted-foreground">{t('subscriptions.empty')}</Text>
         </View>
       )}
       {items.length > 0 && (
@@ -82,7 +82,7 @@ export default function SubscriptionsPage() {
             return (
               <ThemeRoot key={item.id}>
                 {/* 对齐 RN card:边框卡 + 40x40 thumb(radius 12→24rpx)+ 标题/副文字 + 描边取消按钮 */}
-                <View className="mb-[24rpx] flex items-center border-[2rpx] border-border rounded-xl bg-background p-[24rpx]">
+                <View className="mb-[24rpx] flex items-center border-[length:2rpx] border-border rounded-xl bg-background p-[24rpx]">
                   {item.cover ? (
                     <Image
                       className="w-[80rpx] h-[80rpx] rounded-xl bg-muted mr-[24rpx] flex-shrink-0"
@@ -91,21 +91,21 @@ export default function SubscriptionsPage() {
                     />
                   ) : (
                     <View className="w-[80rpx] h-[80rpx] rounded-xl bg-muted mr-[24rpx] flex items-center justify-center flex-shrink-0">
-                      <Text className="text-[28rpx] font-semibold text-foreground">
+                      <Text className="text-[length:28rpx] font-semibold text-foreground">
                         {targetTypeLabel(item.targetType)}
                       </Text>
                     </View>
                   )}
                   <View className="flex-1 min-w-0">
-                    <Text className="text-[32rpx] font-semibold text-foreground truncate block">
+                    <Text className="text-[length:32rpx] font-semibold text-foreground truncate block">
                       {title}
                     </Text>
-                    <Text className="text-[28rpx] text-muted-foreground mt-[16rpx] truncate block">
+                    <Text className="text-[length:28rpx] text-muted-foreground mt-[16rpx] truncate block">
                       {sub}
                     </Text>
                   </View>
                   <Text
-                    className="ml-[24rpx] border-[2rpx] border-border rounded-xl bg-background px-[24rpx] py-[12rpx] text-[28rpx] font-semibold text-[var(--color-text-medium)] flex-shrink-0"
+                    className="ml-[24rpx] border-[length:2rpx] border-border rounded-xl bg-background px-[24rpx] py-[12rpx] text-[length:28rpx] font-semibold text-[var(--color-text-medium)] flex-shrink-0"
                     onClick={() => handleCancel(item)}
                   >
                     {t('subscriptions.delete')}
@@ -116,13 +116,13 @@ export default function SubscriptionsPage() {
           })}
           <View className="flex items-center justify-center py-[32rpx]">
             {loading ? (
-              <Text className="text-[28rpx] text-muted-foreground">{t('common.loading')}</Text>
+              <Text className="text-[length:28rpx] text-muted-foreground">{t('common.loading')}</Text>
             ) : hasMore ? (
-              <Text className="text-[28rpx] text-muted-foreground">
+              <Text className="text-[length:28rpx] text-muted-foreground">
                 {t('subscriptions.loadMore')}
               </Text>
             ) : (
-              <Text className="text-[28rpx] text-muted-foreground">
+              <Text className="text-[length:28rpx] text-muted-foreground">
                 {t('subscriptions.noMore')}
               </Text>
             )}
@@ -131,7 +131,7 @@ export default function SubscriptionsPage() {
       )}
       {loading && items.length === 0 && (
         <View className="flex flex-col items-center py-[96rpx]">
-          <Text className="text-[28rpx] text-muted-foreground">{t('common.loading')}</Text>
+          <Text className="text-[length:28rpx] text-muted-foreground">{t('common.loading')}</Text>
         </View>
       )}
     </View>

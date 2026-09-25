@@ -148,9 +148,9 @@ export default function RankingIndex() {
       {/* header 对齐 RN RankingScreen header(back 32rpx / 标题 48rpx/700,页底色无卡片底) */}
       <View className="flex flex-col px-[20rpx] pt-[24rpx] pb-[16rpx]">
         <View className="self-start mb-[16rpx]" onClick={goBack} hoverClass="opacity-60">
-          <Text className="text-[32rpx] text-muted-foreground">{tt('common.back', '返回')}</Text>
+          <Text className="text-[length:32rpx] text-muted-foreground">{tt('common.back', '返回')}</Text>
         </View>
-        <Text className="text-[48rpx] font-bold text-foreground">
+        <Text className="text-[length:48rpx] font-bold text-foreground">
           {tt('ranking.listTitle', 'AI榜单')}
         </Text>
       </View>
@@ -177,7 +177,7 @@ export default function RankingIndex() {
               hoverClass="opacity-60"
             >
               <Text
-                className={`text-[28rpx] ${
+                className={`text-[length:28rpx] ${
                   fileType === tab.key ? 'text-primary-foreground' : 'text-muted-foreground'
                 }`}
               >
@@ -209,28 +209,28 @@ export default function RankingIndex() {
                 >
                   {logo ? (
                     <Image
-                      className="w-[88rpx] h-[88rpx] rounded-full border-[3rpx] border-solid border-border bg-[var(--color-muted)] shrink-0"
+                      className="w-[88rpx] h-[88rpx] rounded-full border-[length:3rpx] border-solid border-border bg-[var(--color-muted)] shrink-0"
                       src={logo}
                       mode="aspectFill"
                     />
                   ) : null}
                   <View className="flex-1 ml-[20rpx] overflow-hidden flex flex-col gap-[16rpx]">
-                    <Text className="text-[32rpx] font-semibold text-foreground leading-[1.4] line-clamp-1">
+                    <Text className="text-[length:32rpx] font-semibold text-foreground leading-[1.4] line-clamp-1">
                       {name || '-'}
                     </Text>
                     {desc ? (
-                      <Text className="text-[22rpx] text-[var(--color-text-tertiary)] leading-[1.5] line-clamp-2">
+                      <Text className="text-[length:22rpx] text-[var(--color-text-tertiary)] leading-[1.5] line-clamp-2">
                         {desc}
                       </Text>
                     ) : null}
                     <View className="flex flex-wrap gap-x-[24rpx] gap-y-[8rpx]">
-                      <Text className="text-[22rpx] text-muted-foreground">
+                      <Text className="text-[length:22rpx] text-muted-foreground">
                         {tt('ranking.detail.attention', '关注度')}: {attention || '-'}
                       </Text>
-                      <Text className="text-[22rpx] text-muted-foreground">
+                      <Text className="text-[length:22rpx] text-muted-foreground">
                         {tt('ranking.detail.category', '类别')}: {category}
                       </Text>
-                      <Text className="text-[22rpx] text-[var(--color-success)]">
+                      <Text className="text-[length:22rpx] text-[var(--color-success)]">
                         {tt('ranking.detail.price', '价格')}: {price}
                       </Text>
                     </View>
@@ -244,7 +244,7 @@ export default function RankingIndex() {
 
       {!loading && !list.length ? (
         <View className="flex justify-center py-[64rpx]">
-          <Text className="text-[28rpx] text-[var(--color-text-tertiary)]">
+          <Text className="text-[length:28rpx] text-[var(--color-text-tertiary)]">
             {tt('ranking.empty', '暂无数据')}
           </Text>
         </View>
@@ -252,7 +252,7 @@ export default function RankingIndex() {
 
       {loading ? (
         <View className="flex justify-center py-[64rpx]">
-          <Text className="text-[28rpx] text-[var(--color-text-tertiary)]">
+          <Text className="text-[length:28rpx] text-[var(--color-text-tertiary)]">
             {tt('common.loading', '加载中...')}
           </Text>
         </View>
