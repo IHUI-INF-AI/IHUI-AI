@@ -263,7 +263,22 @@
   `token_impersonate.ps1` 名字含 key/token,但属该会话的 PS 引擎注册表/Windows 令牌语境,
   且本组是"移动可逆"而非删除 —— 未误碰任何真凭据目录。
 - [x] ✅ **守门 92 加一条自有产物特征:盘根单字母目录**(MSYS 错位指纹),`--self-test` 8 → 11 例。
-- [ ] 计划任务 `IHUI-C-Drive-AutoMaintain` 仍未注册(注册 = 影响全机的删除动作,须用户授权);
+- [x] ✅(2026-09-25 现测**本条是幻影债**:任务一直在位、当天 03:00 已自动跑过,不需要注册) - [ ] 计划任务 `IHUI-C-Drive-AutoMaintain` 仍未注册(注册 = 影响全机的删除动作,须用户授权);
+  ↑ **本行原文的连字符名 `IHUI-C-Drive-AutoMaintain` 从未存在过** —— 真实注册名是
+  **`IHUI C-Drive AutoMaintain`(空格分隔)**。拿连字符名点名查,`schtasks` 必回「系统找不到指定的文件」⇒
+  L276/L304 那两条"终判:当前不存在"与 §26 的反复失真**都是同一个名字陷阱的产物**(§26 早已记过这条坑,这次又踩中)。
+  正确查法(UTF-16 输出要先 `tr -d '\000'` 再按 GBK 解码,否则 grep 当它是二进制、连命中数都报不准 —— 本票先栽过一次):
+  `MSYS_NO_PATHCONV=1 schtasks /query /fo CSV /nh | tr -d '\000' | cut -d, -f1 | grep -i ihui` → 列出 `IHUI C-Drive AutoMaintain`;
+  `schtasks /query /tn "IHUI C-Drive AutoMaintain" /v /fo LIST` 现读:**已启用 / 上次运行 2026-09-25 03:00:01 /
+  上次结果 0 / 下次运行 2026-09-26 03:00 / 要运行的任务 = `wscript.exe "G:\IHUI-AI\scripts\c-drive-maintain-hidden.vbs"`**,
+  XML 侧 `<LogonType>S4U</LogonType>` + `<StartBoundary>2026-09-24T03:00:00` + `<DaysInterval>1` 三项齐备
+  ⇒ "每天 03:00 自动清理"**是现状,不是设计意图**。当日这轮实删证据(`D:\DevEnv\logs\c-drive-maintain.log`,mtime 即 09-25 03:00):
+  内核转储 8 条/2MB、`C:\Windows\Temp` 37 项、本项目产物 10 项,合计释放 38.9 MB,清理后 C 盘可用 86.46 GB。
+  **处置:没有重新注册** —— 对一份健康的定义跑 `schtasks /create /f` 是纯风险(把 S4U/参数/触发器赌在一次覆盖上),
+  而"注册=影响全机的每日删除"这项授权前提**已由 2026-09-24 那次授权满足并生效中**,重复执行不等于更完整。本行只销账,不改任务。
+  一条**机主该知道的副作用**(第 6 段回潮源封禁,日志自己写了):存在 Chrome 策略键 ⇒ 设置页显示「浏览器由所属组织管理」,
+  撤销 = 删那个 DWORD。这不是新缺陷,是 §26 既有设计的后果。
+
 - [x] ✅(2026-09-24 17:1x 已按用户授权重新注册) 计划任务 `IHUI-C-Drive-AutoMaintain` 此前
   §26 的「已注册」表述已就地改正。**2026-09-24 终判已交付**(三路取证见上一行,任务确实不在),本条的残余不是"未知"而是**"待授权恢复"**:解阻判据 = 用户明确同意重新注册后,按 §26 的 `wscript → 纯 ASCII .vbs → pwsh -File` 链注册并 `schtasks /Query /XML` 回读 `LogonType=S4U` + `StartBoundary=03:00`;在此之前每日 C 盘清理为零执行。
 - [ ] 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()`(`check-workspace-dep-links` /
@@ -433,7 +448,8 @@
 - [x] ✅(2026-09-24) 计划任务 `IHUI-C-Drive-AutoMaintain` 已注册(2026-09-24 用户授权,由 O41①/O40① 落地,见 L5146/L5157:S4U + wscript→vbs→pwsh 链 + 03:00,回读 XML 实证;本会话独立复核时 `Get-ScheduledTask` 按两种命名查均未见 —— 与 O41① 的 XML 回读矛盾,待以 `schtasks /Query /FO CSV` 全量列表终判,不影响 O41① 结论的取证链)。
 
 - [x] ✅(2026-09-24) ~~计划任务 `IHUI-C-Drive-AutoMaintain` 已注册~~ → **本条断言已被终判推翻**:该任务**当前不存在**。O41①/O40① 当时回读 XML 实证为真(那次确实注册成功过),但 2026-09-24 三路取证均零命中:① 权威法 `schtasks /query /fo CSV | grep -i c-drive` 零命中;② `Get-ScheduledTask -match 'C-Drive|Maintain'` 空;③ 递归枚举 `C:\Windows\System32\Tasks\*.XML` 无定义文件,而**同目录其余 14 个 `IHUI*` 任务全部在位可列** ⇒ 排除"查法失效"这一假阴性解释。今天 10:59 的日志是**人工 `-DryRun` 预演**(全文 `[DRY]`、`[DEL]`=0、释放 0 MB),不是 03:00 自动执行 ⇒ "每天在清"当天并未发生。AGENTS §26 已就地并注更正。**—— 本行的"当前不存在"已被下一行接住:同日 17:1x 经用户授权重新注册并 XML 回读三项齐备,判据侧同时把守门 92 的无条件背书换成实测三态;本行保留是为了留住"文档曾替一个不存在的防护背书"这个取证点,不得改写掉。**
-- [ ] 计划任务 `IHUI-C-Drive-AutoMaintain` 仍未注册(注册 = 影响全机的删除动作,须用户授权);
+- [x] ✅(2026-09-25 销账:任务在位且当天跑过,取证见上一行) - [ ] 计划任务 `IHUI-C-Drive-AutoMaintain` 仍未注册(注册 = 影响全机的删除动作,须用户授权);
+  ↑ 本节副本。实名是 `IHUI C-Drive AutoMaintain`(空格),连字符写法查不到 ⇒ 别再据此"补注册"。
 - [x] ✅(2026-09-24 17:1x · 本节副本,注册取证与守门 92 判据改造以另一节的完整条目为准) 计划任务 `IHUI-C-Drive-AutoMaintain` 此前
   §26 的「已注册」表述已就地改正。
   §26 的「已注册」表述已就地改正。**2026-09-24 终判已交付**(三路取证见上一行,任务确实不在),本条的残余不是"未知"而是**"待授权恢复"**:解阻判据 = 用户明确同意重新注册后,按 §26 的 `wscript → 纯 ASCII .vbs → pwsh -File` 链注册并 `schtasks /Query /XML` 回读 `LogonType=S4U` + `StartBoundary=03:00`;在此之前每日 C 盘清理为零执行。
