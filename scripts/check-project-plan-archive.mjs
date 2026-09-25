@@ -271,7 +271,8 @@ const NEVER_EXISTED = [
 export const LOST_ANCHOR_LEDGER = [
   'PROJECT_PLAN_2026-07-20_pre-permission-runtime.md',
   'PROJECT_PLAN_2026-07-20_publish-task-archive.md',
-  'PROJECT_PLAN_2026-09-23_bulk-archive.md',
+  // PROJECT_PLAN_2026-09-23_bulk-archive.md 已于 d0beedb1b 入库 ⇒ 本行按上面的"清单腐烂"规矩删除,
+  // 不得因为它"曾经缺失"就留着(留着就是替一条已成立的承诺继续喊未兑现)。
   'PROJECT_PLAN_archive_2026-08-20.md',
   ...NEVER_EXISTED,
 ]
