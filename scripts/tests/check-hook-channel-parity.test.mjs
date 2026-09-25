@@ -71,12 +71,13 @@ export function parseWebNotifyChannelOptions(src) {
 
 /**
  * 已知欠账面(2026-09-25 登记于 O80):web 下拉尚未承认 `webhook` 档。
- * **这不是豁免,是一张带到期日的欠条** —— 下面两条断言把它钉住:
+ * **这不是豁免,是一张带到期日的欠条** —— reconcileFaces 里的两条断言把它钉住:
  *  · 腐烂:web 面其实已经有这个值了,欠条还挂着 ⇒ 红(清单腐烂,§4 的 RN_ONLY_BRAND_KEYS 同型);
  *  · 到期:过了 `until` 仍缺 ⇒ 红(欠条不能无限期存在,到期只有两种合法出路:补上,或改判方向)。
- * 补上之后必须把该条**整条删除**,不得留着。
+ * **欠条还清后必须清空成 `[]`,空表才是终态**(2026-09-25 已还清:web 下拉四档齐);
+ * 将来任一面再出现缺档,按 `{ face, missing, until }` 形态重新登记一条即可 —— 判据机制见 judgePending。
  */
-export const WEB_PENDING = [{ face: 'web 下拉', missing: 'webhook', until: '2026-10-02' }]
+export const WEB_PENDING = []
 
 /**
  * 欠条判据(**权威入口** —— 下面的断言一律调它,不得在测试里另抄一份逻辑,
@@ -204,22 +205,24 @@ test('变异对照:只往 api zod 加第 5 值 ⇒ reconcileFaces 点名其余�
   }
 })
 
-test('欠条自身有两道锁:腐烂(其实已补上)与到期(过期仍缺)都判红', () => {
+test('欠条判据有两道锁:腐烂(其实已补上)与到期(过期仍缺)都判红(构造条目,不依赖真仓现况)', () => {
   const web = parseWebNotifyChannelOptions(readFileSync(WEB_FILE, 'utf8'))
   const DAY = 24 * 60 * 60 * 1000
-  // 真仓现况 ⇒ ok(既没补上也没到期)
-  assert.equal(judgePending(WEB_PENDING[0], web, Date.now()), 'ok')
-  // 变异 1:web 面补上了 webhook,而欠条没删 ⇒ 判"清单腐烂"
-  assert.equal(
-    judgePending(WEB_PENDING[0], new Set([...web, 'webhook']), Date.now()),
-    'stale-entry',
-  )
+  // 真仓欠条已还清(空表是终态);登记中的条目必须既没补上也没到期
+  for (const p of WEB_PENDING) {
+    assert.equal(judgePending(p, web, Date.now()), 'ok')
+  }
+  // 构造条目钉判据本身,将来再挂欠条时机制必须仍在:
+  const entry = { face: 'web 下拉', missing: 'webhook', until: '2026-10-02' }
+  // 变异 1:web 面补上了 webhook,而欠条没删 ⇒ 判"清单腐烂"(真仓 web 面现含 webhook,可直接当阳性面)
+  assert.equal(judgePending(entry, web, Date.parse(entry.until) - DAY), 'stale-entry')
   // 变异 2:时间推到到期日之后而值仍缺 ⇒ 判"到期"
-  assert.equal(judgePending(WEB_PENDING[0], web, Date.parse(WEB_PENDING[0].until) + DAY), 'expired')
+  assert.equal(
+    judgePending(entry, new Set(['toast', 'notification', 'email']), Date.parse(entry.until) + DAY),
+    'expired',
+  )
   // 变异 3:该面解析不到 ⇒ 如实 no-face,不冒"没问题"
-  assert.equal(judgePending(WEB_PENDING[0], null, Date.now()), 'no-face')
-  // 反向对照:欠条不得为空表(空表等于"第四面永远不参与对账")
-  assert.ok(WEB_PENDING.length > 0, '欠条表为空 ⇒ 本面欠账无人认领')
+  assert.equal(judgePending(entry, null, Date.now()), 'no-face')
 })
 
 test('webhook 档在全部三面同时在位(本票定性:执行侧真实能力,三面皆须承认)', () => {
@@ -284,5 +287,24 @@ test('TS 面同样能抓到单面加值(三面判据同形,不是只偏袒某一
   const others = new Set(['toast', 'notification', 'email', 'webhook'])
   const findings = diffFaces({ 'TS 契约': ts, 'api zod': new Set(others), py: new Set(others) })
   assert.ok(findings.some((f) => f.includes('sms')))
+})
+
+// ── 第五面(2026-09-25,第五十三波):web store 的草稿类型不得再手抄联合 ──
+// 成因:O80 把契约加宽到 4 值时只验了 @ihui/types 与 @ihui/api 两个包,web store 里
+// 那份 3 值手抄联合让 `pnpm --filter @ihui/web typecheck` 在 main 上红了(TS2322,
+// 载入 channel=webhook 的既有 hook 即触发)。修法是引用契约本体;这道锁防的是
+// 有人"顺手"再写回一份手抄联合 —— 类型漂移的病根是第二份真相,不是差一个值。
+// (下拉要不要暴露 webhook 选项不归本面管:那是 WEB_PENDING 欠条的格。)
+test('web store 草稿类型必须引用契约本体,不得手抄联合(第五面)', () => {
+  const store = readFileSync(join(REPO_ROOT, 'apps', 'web', 'src', 'stores', 'hooks.ts'), 'utf8')
+  assert.match(
+    store,
+    /notifyChannel:\s*HookNotifyChannel\b/,
+    'stores/hooks.ts 的 HookDraft.notifyChannel 必须引用 HookNotifyChannel(手抄联合=第二份真相,O80 已栽过)',
+  )
+  assert.ok(
+    !/notifyChannel:\s*'[^']*'\s*\|/.test(store),
+    'stores/hooks.ts 不得再出现手抄的 channel 联合类型',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
