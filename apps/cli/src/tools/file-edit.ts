@@ -28,6 +28,30 @@ import { seekSequence, type MatchLevel } from './seek-sequence.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
 import type { HunkTracker } from '../checkpoints/hunk-tracker.js';
 import { createBatchEditTools } from './file-batch-edit.js';
+import {
+  AtomicReplaceFailedError,
+  captureWriteBaseline,
+  commitAtomicWrite,
+  SymlinkTargetError,
+  WriteConflictError,
+} from '../util/atomic-write.js';
+
+/**
+ * 落盘失败 → ToolResult 的归一出口。
+ *
+ * 三类失败都必须**报得能被自修**:它们都不是"重试一次就好",而是"你手上那份内容已经不是磁盘上那份了"。
+ * `errorType` 用稳定字面量,不依赖错误文本做流程判断(调用方/retry 判据都读它)。
+ */
+function writeFailure(e: unknown): ToolResult | null {
+  if (
+    e instanceof WriteConflictError ||
+    e instanceof SymlinkTargetError ||
+    e instanceof AtomicReplaceFailedError
+  ) {
+    return { success: false, output: '', error: e.message, errorType: e.code };
+  }
+  return null;
+}
 
 export interface EditToolContext extends ToolContext {
   checkpoints?: CheckpointManager;
@@ -143,37 +167,51 @@ export function createWriteFileTool(ctx: EditToolContext): Tool {
       if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
       const abs = resolvePath(ctx, filePath);
-      const existed = fs.existsSync(abs);
-      const original = existed ? fs.readFileSync(abs, 'utf-8') : '';
-      const { startLine, endLine } = existed
-        ? computeChangedRange(original, content)
-        : { startLine: 1, endLine: Math.max(1, content.split('\n').length) };
-      warnConflictIfAny(ctx, abs, startLine, endLine);
-      snapshotBeforeEdit(ctx, [abs], 'auto_pre_write_file');
-      fs.mkdirSync(path.dirname(abs), { recursive: true });
-      fs.writeFileSync(abs, content, 'utf-8');
-      recordHunk(ctx, abs, startLine, endLine, content);
-      runPostToolCall('write_file', { path: filePath, bytes: content.length });
-      const lines = content.split('\n').length;
-      const diff = existed ? computeUnifiedDiff(original, content, filePath) : '';
-      return { success: true, output: `已写入 ${filePath} (${lines} 行, ${content.length} 字节)${diff}` };
+      try {
+        // 捕获基线 ⇒ 落盘前逐字节复核:窗口内被人改过就拒绝,绝不静默覆盖(读后写校验)
+        const baseline = captureWriteBaseline(abs);
+        const existed = baseline.content !== null;
+        const original = baseline.content ?? '';
+        const { startLine, endLine } = existed
+          ? computeChangedRange(original, content)
+          : { startLine: 1, endLine: Math.max(1, content.split('\n').length) };
+        warnConflictIfAny(ctx, abs, startLine, endLine);
+        snapshotBeforeEdit(ctx, [abs], 'auto_pre_write_file');
+        commitAtomicWrite(baseline, content);
+        recordHunk(ctx, abs, startLine, endLine, content);
+        runPostToolCall('write_file', { path: filePath, bytes: content.length });
+        const lines = content.split('\n').length;
+        const diff = existed ? computeUnifiedDiff(original, content, filePath) : '';
+        return { success: true, output: `已写入 ${filePath} (${lines} 行, ${content.length} 字节)${diff}` };
+      } catch (e) {
+        const mapped = writeFailure(e);
+        if (mapped) return mapped;
+        throw e;
+      }
     },
   };
 }
 
 const SEARCH_REPLACE_REGEX = /<<<<<<< SEARCH\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> REPLACE/g;
 
+interface AppliedBlock {
+  /** 命中的匹配级别:exact / rstrip / trim / unicode */
+  level: MatchLevel;
+  /** 命中处在"应用该块当时"的文本里的 1-based 行号(用于人核对是不是改对了地方) */
+  line: number;
+}
+
 interface ApplyResult {
   result: string;
   replacements: number;
-  /** 命中的匹配级别(最高级别,用于诊断) */
-  matchLevels: MatchLevel[];
+  /** 逐块回传的等级信息 —— 弱级命中必须能被调用方看见,不得只在成功文案里捎一句 */
+  blocks: AppliedBlock[];
 }
 
 function applySearchReplace(original: string, patch: string): ApplyResult | { error: string } {
   let result = original;
   let replacements = 0;
-  const matchLevels: MatchLevel[] = [];
+  const blocks: AppliedBlock[] = [];
   let match: RegExpExecArray | null;
   SEARCH_REPLACE_REGEX.lastIndex = 0;
   while ((match = SEARCH_REPLACE_REGEX.exec(patch)) !== null) {
@@ -185,14 +223,39 @@ function applySearchReplace(original: string, patch: string): ApplyResult | { er
     if (!seek) {
       return { error: `未找到匹配的文本(已尝试 4 级模糊匹配 exact/rstrip/trim/unicode):\n${searchText.slice(0, 100)}...` };
     }
+    blocks.push({
+      level: seek.level,
+      line: result.slice(0, seek.index).split('\n').length,
+    });
     result = result.slice(0, seek.index) + replaceText + result.slice(seek.index + seek.length);
-    matchLevels.push(seek.level);
     replacements++;
   }
   if (replacements === 0 && patch.includes('<<<<<<< SEARCH')) {
     return { error: 'patch 格式错误,未执行替换' };
   }
-  return { result, replacements, matchLevels };
+  return { result, replacements, blocks };
+}
+
+/**
+ * 弱等级命中的告警文案(空串 = 全是 exact,无需告警)。
+ *
+ * 为什么只告警、不当场拒绝(实测决定的档位,不是偷懒):
+ *   既有测试面里 edit_file 的成功用例共 6 枚,落在弱级的恰好 1 枚 —— 而它是
+ *   `apps/cli/tests/file-edit.test.ts:136` 显式断言的正当行为("行尾空白差异触发 rstrip 模糊匹配"),
+ *   **零枚**"弱级落到了错位置"的案例。全仓也没有任何一处把匹配等级打进遥测,所以"弱级误命中率"
+ *   现状根本无法测量。在没有误命中证据前把它翻成拒绝 = 只降低一次改对率、不消除任何已测到的坏状态,
+ *   而票面纪律是"量不出来就只加 warning、不改拒绝"。
+ *   要翻成拒绝的前置:先把等级打进结果遥测并观察到误命中,再单独立票(行为变更)。
+ */
+function fuzzyMatchWarning(blocks: AppliedBlock[]): string {
+  const weak = blocks.filter((b) => b.level !== 'exact');
+  if (weak.length === 0) return '';
+  const detail = weak.map((b) => `第 ${b.line} 行按 ${b.level} 级命中`).join(';');
+  return (
+    `⚠️ 模糊匹配 ${weak.length}/${blocks.length} 处:${detail}。` +
+    '落盘的是"最像的那一处",不是逐字命中的那一处 —— 若这不是你要改的位置,' +
+    '请 read_file 该路径后按原文逐字重发 patch。\n\n'
+  );
 }
 
 export function createEditFileTool(ctx: EditToolContext): Tool {
@@ -218,40 +281,47 @@ export function createEditFileTool(ctx: EditToolContext): Tool {
       if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
       const abs = resolvePath(ctx, filePath);
-      if (!fs.existsSync(abs)) return { success: false, output: '', error: `文件不存在: ${filePath}` };
+      // 基线一次捕获两用:① "是否存在"沿用原语义(不存在 ⇒ 报错,不新建),
+      // ② 内容作为落盘前的复核锚点 —— 快照/patch 计算这段时间里磁盘被改过就必须失败
+      let original: string;
+      try {
+        const baseline = captureWriteBaseline(abs);
+        if (baseline.content === null) {
+          return { success: false, output: '', error: `文件不存在: ${filePath}` };
+        }
+        original = baseline.content;
+        snapshotBeforeEdit(ctx, [abs], 'auto_pre_edit_file');
 
-      const original = fs.readFileSync(abs, 'utf-8');
-      snapshotBeforeEdit(ctx, [abs], 'auto_pre_edit_file');
+        let patchStr: string;
+        if (args.patch) {
+          patchStr = args.patch as string;
+        } else if (args.search !== undefined && args.replace !== undefined) {
+          patchStr = `<<<<<<< SEARCH\n${args.search}\n=======\n${args.replace}\n>>>>>>> REPLACE`;
+        } else {
+          return { success: false, output: '', error: '需要 search+replace 或 patch 参数' };
+        }
 
-      let patchStr: string;
-      if (args.patch) {
-        patchStr = args.patch as string;
-      } else if (args.search !== undefined && args.replace !== undefined) {
-        patchStr = `<<<<<<< SEARCH\n${args.search}\n=======\n${args.replace}\n>>>>>>> REPLACE`;
-      } else {
-        return { success: false, output: '', error: '需要 search+replace 或 patch 参数' };
+        const applied = applySearchReplace(original, patchStr);
+        if ('error' in applied) {
+          return { success: false, output: '', error: applied.error };
+        }
+
+        const { startLine, endLine } = computeChangedRange(original, applied.result);
+        warnConflictIfAny(ctx, abs, startLine, endLine);
+        commitAtomicWrite(baseline, applied.result);
+        recordHunk(ctx, abs, startLine, endLine, applied.result);
+        runPostToolCall('edit_file', { path: filePath, replacements: applied.replacements });
+        const diff = computeUnifiedDiff(original, applied.result, filePath);
+        // 弱等级命中:告警放在**最前面**,不能让它在 diff 之后被划过去看不见
+        return {
+          success: true,
+          output: `${fuzzyMatchWarning(applied.blocks)}已编辑 ${filePath} (${applied.replacements} 处替换)${diff}`,
+        };
+      } catch (e) {
+        const mapped = writeFailure(e);
+        if (mapped) return mapped;
+        throw e;
       }
-
-      const applied = applySearchReplace(original, patchStr);
-      if ('error' in applied) {
-        return { success: false, output: '', error: applied.error };
-      }
-
-      const { startLine, endLine } = computeChangedRange(original, applied.result);
-      warnConflictIfAny(ctx, abs, startLine, endLine);
-      fs.writeFileSync(abs, applied.result, 'utf-8');
-      recordHunk(ctx, abs, startLine, endLine, applied.result);
-      runPostToolCall('edit_file', { path: filePath, replacements: applied.replacements });
-      const diff = computeUnifiedDiff(original, applied.result, filePath);
-      // 非全 exact 匹配时附加级别提示,帮助 LLM 感知 patch 与源文件的差异
-      const nonExact = applied.matchLevels.filter((lv) => lv !== 'exact');
-      const levelHint = nonExact.length > 0
-        ? ` [模糊匹配: ${applied.matchLevels.join('/')}]`
-        : '';
-      return {
-        success: true,
-        output: `已编辑 ${filePath} (${applied.replacements} 处替换)${levelHint}${diff}`,
-      };
     },
   };
 }
