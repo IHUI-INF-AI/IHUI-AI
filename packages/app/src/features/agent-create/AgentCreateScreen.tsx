@@ -16,6 +16,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AgentCreateScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** Agent 创建共享屏 — props 注入式跨端组件(表单,状态由 wrapper 管理) */
 export type { AgentCreateScreenProps }
@@ -52,9 +53,7 @@ export function AgentCreateScreen({
 
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      <TouchableOpacity onPress={onBack}>
-        <Text style={styles.back}>{t('common.back')}</Text>
-      </TouchableOpacity>
+      <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
       <Text style={styles.title}>{t('agentCreate.title')}</Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Text style={styles.label}>{t('agentCreate.name')}</Text>
@@ -126,7 +125,6 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
     },
     muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
-    back: { fontSize: 16, color: tk.text.secondary },
     title: {
       marginTop: 8,
       marginBottom: 12,

@@ -16,6 +16,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CircleCreateScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 圈子创建共享屏 — props 注入式跨端组件(状态由 wrapper 管理) */
 export type { CircleCreateScreenProps }
@@ -46,9 +47,7 @@ export function CircleCreateScreen({
 
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <Text style={styles.back}>{t('common.back')}</Text>
-      </TouchableOpacity>
+      <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
       <Text style={styles.title}>{t('circleCreate.title')}</Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Text style={styles.label}>{t('circleCreate.name')}</Text>
@@ -99,7 +98,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     error: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8 },
-    back: { fontSize: 16, color: tk.text.medium },
     title: {
       marginTop: 8,
       fontSize: 22,

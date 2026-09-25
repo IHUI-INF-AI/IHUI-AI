@@ -8,6 +8,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AgentMarketScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** Agent 市场共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AgentMarketScreenProps }
@@ -38,6 +39,7 @@ export function AgentMarketScreen({
     return (
       <View style={styles.center}>
         <Text style={styles.error}>{error}</Text>
+        {/* back-label-exempt: 错误态/空态卡片内的按钮文案,或翻页/弹窗关闭动作 —— 此处「返回」是按钮文字而非页头箭头,换裸箭头反而不表意 until 2027-09-25 */}
         <TouchableOpacity style={styles.btn} onPress={onBack}>
           <Text style={styles.btnText}>{t('common.back')}</Text>
         </TouchableOpacity>
@@ -47,9 +49,7 @@ export function AgentMarketScreen({
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity onPress={onBack}>
-        <Text style={styles.back}>{t('common.back')}</Text>
-      </TouchableOpacity>
+      <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
       <Text style={styles.title}>{t('agentMarket.title')}</Text>
       <View style={styles.searchRow}>
         <TextInput
@@ -122,7 +122,6 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     btnText: { color: tk.brand.ctaForeground, fontSize: 16 },
-    back: { fontSize: 16, color: tk.text.secondary },
     title: {
       marginTop: 8,
       marginBottom: 12,

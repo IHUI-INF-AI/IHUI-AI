@@ -20,6 +20,7 @@ import { Smartphone, Users, PenLine, BarChart3, BookOpen } from 'lucide-react-na
 import type { LearnCategory, LearnScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** LearnScreen props re-export(单一来源 @ihui/types) */
 export type { LearnCategory, LearnScreenProps }
@@ -75,9 +76,7 @@ export function LearnScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>学习</Text>
       </View>
       {loading ? (
@@ -242,7 +241,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: 12,
       gap: 12,
     },
-    backText: { fontSize: 16, color: tk.text.medium } as TextStyle,
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary } as TextStyle,
     scroll: { flex: 1 } as ViewStyle,
     scrollContent: {
