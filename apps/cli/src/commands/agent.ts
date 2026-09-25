@@ -24,7 +24,7 @@ import { randomUUID } from 'node:crypto';
 import * as path from 'node:path';
 import chalk from 'chalk';
 import ora from 'ora';
-import { streamChat, setBaseUrl, setTokenProvider, formatSSEError, type StreamChatOptions, type SSEErrorInfo, type SSEErrorSeverity, type PlanUpdateEvent } from '@ihui/api-client';
+import { streamChat, setBaseUrl, setTokenProvider, formatSSEError, type StreamChatOptions, type SSEErrorInfo, type SSEErrorSeverity, type PlanUpdateEvent, type TerminalDeltaEvent } from '@ihui/api-client';
 // L1-4(2026-07-25 立):doom_loop 反思沉淀 procedural memory,需 loadConfig 拿 ai-service URL
 import { loadConfig } from '../config/index.js';
 import {
@@ -68,6 +68,12 @@ import { CONTEXT_BUDGET_THRESHOLD, DEFAULT_TRIGGER_RATIO } from '@ihui/context-c
 import { ContextGuards } from '../context-guards.js';
 import { isPromptTooLongErrorMessage, recoverAfterOverflow } from '../context-guards.js';
 import { envelopeToolResult, ReadStateTracker } from '../tools/result-envelope/index.js';
+// 流式期工具登记账本:登记 + 提前执行 + 恢复锚点(机制在 stream-tool-ledger.ts)
+import {
+  StreamToolLedger,
+  formatLedgerSummary,
+  type LedgerSnapshot,
+} from '../stream-tool-ledger.js';
 import {
   primeCompactionSummary,
   getCachedCompactionSummary,
@@ -408,6 +414,8 @@ export interface RunToolLoopOptions {
   onSteer?: NonNullable<StreamChatOptions['onSteer']>;
   /** 额度分档告警(budget) — 同上,REPL 据此打印"今日用量较高/即将耗尽"一行 */
   onBudget?: NonNullable<StreamChatOptions['onBudget']>;
+  /** D19 终端实时输出增量(terminal_delta) — 透传 api-client 的 onTerminalDelta,未传时零开销(与 onPlanUpdate 同一条纪律) */
+  onTerminalDelta?: NonNullable<StreamChatOptions['onTerminalDelta']>;
   /** 模型上下文窗口大小(tokens)。达 85% 自动压缩到 60%,默认 128_000(与 @ihui/api-client DEFAULT_CONTEXT_CAPACITY 跨端一致)。 */
   contextLimit?: number;
   /** 是否启用 plan 强制阻断(配合 planApproved 控制) */
@@ -463,6 +471,11 @@ export interface RunToolLoopOptions {
   contextGuards?: ContextGuards;
   /** 守卫熔断诊断出口(面向用户;每轮挂起都会回调一次) */
   onContextDiagnostic?: (diagnostic: string) => void;
+  /**
+   * 流式期工具账本快照(每轮流读完时回调一次)。
+   * 恢复路径据此判断"上一轮哪些工具确实发出去了",避免断流后重放造成重复副作用。
+   */
+  onToolLedgerSnapshot?: (snapshot: LedgerSnapshot) => void;
   /**
    * 压缩动作注入点(默认走 decideCompaction)。
    * 存在的必要:熔断的价值是"真的不再自动压缩",而按默认路径跑没法从外部观察到
@@ -708,6 +721,55 @@ interface SampleWithRetryOptions {
    * 未传时零开销(与 onPlanUpdate 同一条纪律)。
    */
   onUsage?: NonNullable<StreamChatOptions['onUsage']>;
+  /** D19 终端实时输出增量(terminal_delta)— 未传时零开销(与 onPlanUpdate 同一条纪律) */
+  onTerminalDelta?: NonNullable<StreamChatOptions['onTerminalDelta']>;
+}
+
+/**
+ * D19(2026-09-26 接):terminal_delta 帧 → 「已完整成行」的终端输出行。
+ *
+ * 后端在命令执行期间逐块下发 stdout/stderr 增量(web/extension/mobile-rn 有卡片面板,
+ * CLI 没有卡片宿主 — 最自然的渲染就是逐行打进输出流,与 noteLine 家族同一出口)。
+ * 防洪泛纪律:delta 块在**行中**断开是常态,半行单独打印会把正文打碎,
+ * 故只输出已带 `\n` 收尾的整行,未满行留在 pending[terminalId] 等下一帧拼接
+ * (调用方持有一轮对话的 pending;与 statusline「数据源低频才逐行」的前提兼容:
+ * 逐 delta 帧只在真有一整行输出时才算一次行)。
+ * 空 terminalId / 空 text 整帧丢弃(与 web send-message 的 onTerminalDelta 守卫同口径)。
+ */
+export const TERMINAL_LINE_MAX_CHARS = 200;
+
+export function takeTerminalDeltaLines(
+  pending: Record<string, string>,
+  event: Pick<TerminalDeltaEvent, 'terminalId' | 'command' | 'stream' | 'text'>,
+): string[] {
+  if (!event.terminalId || !event.text) return [];
+  const buffered = (pending[event.terminalId] ?? '') + event.text;
+  const parts = buffered.split('\n');
+  const rest = parts.pop() ?? '';
+  if (rest) pending[event.terminalId] = rest;
+  else delete pending[event.terminalId];
+  const tag = event.stream === 'stderr' ? '[terminal:err]' : '[terminal]';
+  const prefix = event.command ? `${tag} ${event.command} · ` : `${tag} `;
+  const lines: string[] = [];
+  for (const raw of parts) {
+    const line = raw.trim();
+    if (!line) continue;
+    lines.push(line.length > TERMINAL_LINE_MAX_CHARS ? `${prefix}${line.slice(0, TERMINAL_LINE_MAX_CHARS)}…` : `${prefix}${line}`);
+  }
+  return lines;
+}
+
+/**
+ * D19 打印汇(装车点:repl.ts 的 runToolLoop.onTerminalDelta 用它)。
+ * 内部持有本轮 terminalId→半行缓冲,把 terminal_delta 事件流转成 noteLine 调用。
+ */
+export function createTerminalDeltaSink(
+  noteLine: (line: string) => void,
+): (event: TerminalDeltaEvent) => void {
+  const pending: Record<string, string> = {};
+  return (event) => {
+    for (const line of takeTerminalDeltaLines(pending, event)) noteLine(line);
+  };
 }
 
 interface SampleWithRetryResult {
@@ -815,6 +877,7 @@ async function sampleWithRetry(
         ...(opts.onSteer ? { onSteer: opts.onSteer } : {}),
         ...(opts.onBudget ? { onBudget: opts.onBudget } : {}),
         ...(opts.onUsage ? { onUsage: opts.onUsage } : {}),
+        ...(opts.onTerminalDelta ? { onTerminalDelta: opts.onTerminalDelta } : {}),
         ...(opts.sampler ?? {}),
         onError: (msg, info) => { streamErr = msg; streamErrInfo = info; },
       } as Parameters<typeof streamChat>[0]);
@@ -1097,6 +1160,74 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
     });
   }
 
+  // ── 流式期工具登记账本(见 ../stream-tool-ledger.ts)──────────────────
+  // 每轮一条流一个账本。登记发生在 tool-call-start 到达的**当下**,不等流结束;
+  // 满足准入线的只读调用当场提前发起执行,主执行路径再经 runOnce 复用同一个
+  // promise —— 所以"提前跑"只会少等,绝不会多跑一次。
+  // 辅助函数定义在循环外:收尾(finalizeLedger)必须在所有退出路径
+  // (换册 / break / 被 catch 的异常)都跑得动,放循环体内它出不了作用域。
+  /**
+   * 提前执行的准入线(四条同时成立):
+   * 1. 非 plan 待批 / 非 gathering 写阻断 —— 否则等于绕过 Plan Mode 的安全闸;
+   * 2. 工具已注册且 dangerLevel === 'read' —— 有副作用的一律等主路径;
+   * 3. 权限判定不落在 deny/ask —— 需要确认的必须回主路径走确认;
+   * 4. 未挂 plugins —— preToolCall 钩子可能改写参数,提前跑就绕过了它。
+   * 已知取舍:第 4 条让带插件的会话拿不到提前执行收益,这是有意的保守。
+   */
+  const mayDispatchEarly = (toolName: string): boolean => {
+    if (opts.signal?.aborted) return false;
+    if (opts.planFirst && !opts.planApproved) return false;
+    if (opts.planMachine?.isWriteBlocked()) return false;
+    if (opts.plugins) return false;
+    const tool = getTool(toolName);
+    if (!tool || tool.dangerLevel !== 'read') return false;
+    const mode = opts.ctx.permissionMode ?? 'default';
+    return checkPermission(toolName, opts.ctx.permissions, mode, tool.dangerLevel) === 'allow';
+  };
+  /**
+   * 提前发起一次只读执行;抛错原样上送,由账本记成 ok=false。
+   * 同步返回 promise(不包 async)—— 时序敏感测试对微任务跳数敏感,包装层会
+   * 平白多推节拍,让"登记即起跑"在断言里慢一拍。
+   */
+  const dispatchEarlyTool =
+    (name: string, args: Record<string, unknown>) =>
+    (): Promise<unknown> =>
+      executeToolCall({ name, arguments: args }, opts.ctx);
+  const newLedger = (): StreamToolLedger =>
+    new StreamToolLedger({
+      turn: iterations,
+      // streamId 带轮次前缀:跨流日志/对账一眼能定位是哪一轮发的流(uuid 仍保证唯一)
+      streamId: `t${iterations}-${randomUUID()}`,
+      mayRunEarly: mayDispatchEarly,
+    });
+  let ledger = newLedger();
+  let ledgerFinalized = false;
+  /**
+   * 收尾当前账本并交付快照。幂等 —— 换册前、每轮尾、循环退出后都可放心调。
+   * end_of_stream 的真实时机是**本轮所有调用都已派发/裁决之后**:在派发之前
+   * 收尾会把"待主路径执行"的条目误判成 stranded,快照也会谎报它们没跑过。
+   */
+  const finalizeLedger = (): void => {
+    if (ledgerFinalized) return;
+    ledgerFinalized = true;
+    const stranded = ledger.markEndOfStream();
+    if (stranded.length > 0) {
+      process.stderr.write(
+        chalk.yellow(
+          `[tool-ledger] ${formatLedgerSummary(ledger.snapshot())} stranded=${stranded.map((e) => e.toolName).join(',')}\n`,
+        ),
+      );
+    }
+    // 空账本不发工件:没有调用的轮次不需要对账,回调不该为它制造噪音
+    if (ledger.size > 0) opts.onToolLedgerSnapshot?.(ledger.snapshot());
+  };
+  /** 换一条新流 = 先收尾旧册(已提前发起的执行不得没有记录),再开新册 */
+  const installFreshLedger = (): void => {
+    finalizeLedger();
+    ledger = newLedger();
+    ledgerFinalized = false;
+  };
+
   try {
     for (let i = 0; i < opts.maxIterations; i++) {
       iterations = i + 1;
@@ -1150,6 +1281,10 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       const useNativeTools = nativeToolsEnabled && listTools().length > 0;
       const nativeExtraBody = useNativeTools ? { tools: toolsToProviderSchema(listTools()) } : undefined;
 
+      // 每轮一条流:换册前先收尾旧册(finalizeLedger 幂等 —— 上一轮尾已收尾则此处为 no-op;
+      // 走过 continue 早退路径的旧册则在此交账,已提前发起的执行不得没有记录)。
+      installFreshLedger();
+
       const doSample = (withTools: boolean) =>
         sampleWithRetry(
           {
@@ -1176,13 +1311,21 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         ...(opts.onCitations ? { onCitations: opts.onCitations } : {}),
         ...(opts.onSteer ? { onSteer: opts.onSteer } : {}),
         ...(opts.onBudget ? { onBudget: opts.onBudget } : {}),
+        // D19 终端实时输出增量透传(terminal_delta):REPL 借此把命令 stdout/stderr 逐行打进终端
+        ...(opts.onTerminalDelta ? { onTerminalDelta: opts.onTerminalDelta } : {}),
             sampler: opts.sampler,
             ...(withTools && nativeExtraBody ? { extraBody: nativeExtraBody } : {}),
             ...(withTools
               ? {
                   onToolCallEvent: (event: { type: string; toolCallId: string; toolName: string; args?: Record<string, unknown> }) => {
                     if (event.type === 'tool-call-start') {
-                      nativeToolEvents.push({ name: event.toolName, arguments: event.args ?? {} });
+                      const args = event.args ?? {};
+                      nativeToolEvents.push({ name: event.toolName, arguments: args });
+                      // 流内即时登记:满足准入线的只读调用当场开跑,不等整条流读完
+                      ledger.register(
+                        { toolCallId: event.toolCallId, toolName: event.toolName, args },
+                        dispatchEarlyTool(event.toolName, args),
+                      );
                     }
                   },
                 }
@@ -1220,6 +1363,9 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         for (const tc of result.toolCalls) {
           nativeToolEvents.push({ name: tc.name, arguments: tc.arguments });
           pendingToolCallIds.push(tc.id);
+          // 本地 provider 的 tool_calls 在流读完才拿到:登记仍要做(账本是对账依据),
+          // 但提前执行没有意义,所以不传 run。
+          ledger.register({ toolCallId: tc.id, toolName: tc.name, args: tc.arguments });
         }
         return result.error ? { error: result.error } : {};
       };
@@ -1235,6 +1381,9 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         nativeToolsEnabled = false;
         iterationText = '';
         nativeToolEvents = [];
+        // 重读同一条逻辑流:旧账本先收尾交账再作废(否则上一趟的登记会被误判成 stranded,
+        // 而已提前发起的执行会随旧册一起"执行过但账本无记录")
+        installFreshLedger();
         process.stderr.write(chalk.dim('[native-fc] provider 不支持原生 tools,降级为 prompt 模式\n'));
         samplerResult = await sampleOnce(false);
       }
@@ -1249,6 +1398,8 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           contextGuards.touchActivity();
           iterationText = '';
           nativeToolEvents = [];
+          // 同上一条:重发本轮请求 = 新的一条流,旧账本先收尾(快照照交)再作废
+          installFreshLedger();
           process.stderr.write(
             chalk.yellow(
               `[context-guard] 上下文超长:已整组丢弃最老 ${recovery.droppedRounds} 轮后重试(${recovery.beforeTokens}→${recovery.afterTokens} tokens)\n`,
@@ -1340,6 +1491,10 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
 
       opts.messages.push({ role: 'assistant', content: iterationText });
       assistantText += iterationText;
+
+      // 账本收尾不在这里 —— markEndOfStream 必须发生在**本轮派发/裁决之后**:
+      // 在派发前收尾会把"待主路径执行"的条目谎报成 stranded,快照也会谎报没跑过。
+      // 单一出口是 finalizeLedger(本轮尾 + 循环退出后各调一次,幂等)。
 
       // 工具调用提取:原生 SSE tool-call 事件优先,解析不到降级走正则(无 FC 能力模型路径)
       const toolCalls = extractToolCalls(
@@ -1536,7 +1691,12 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
               };
             }
           }
-          const result = await executeToolCall(call, opts.ctx);
+          // 经账本发起执行:流式期已提前跑起来的,这里复用同一个 promise(绝不重复执行);
+          // 匹配按 (工具名+参数指纹) 而非下标 —— 上游解析器丢条目时下标会整体错位一格。
+          const ledgerEntry = ledger.matchForCall(call.name, call.arguments);
+          const result = ledgerEntry
+            ? (await ledger.runOnce(ledgerEntry, () => executeToolCall(call, opts.ctx))).value
+            : await executeToolCall(call, opts.ctx);
           if (call.name === 'dispatch_subagent') {
             const subId = String(call.arguments.subagentId ?? call.arguments.task ?? '').slice(0, 80);
             runHook('subagentStop', {
@@ -1623,6 +1783,9 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       // 本轮有真实产出(工具结果已进历史)→ 重置空闲计时。reclaim 的空闲触发以此为准,
       // 不接这一步就等于永远没有 lastActivityAtMs 可传(守卫二/回收触发都会失真)。
       contextGuards.touchActivity();
+      // end_of_stream 的真实时机在这里:本轮调用已全部派发/裁决,此刻仍是
+      // registered 的条目才是"声明过却没走到执行"。快照在此交账(幂等)。
+      finalizeLedger();
 
       // P2-4 agent-lifecycle:turnEnd hook(本轮成功结束 - 工具调用执行完毕)
       runHook('turnEnd', {
@@ -1648,6 +1811,11 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       await opts.onError?.(msg);
     }
   }
+
+  // 断流/异常/预算/plan 审批等所有 break 出口都走到这里再交账。断流恰恰是最需要
+  // 对账的时刻 —— 账本没交出去,恢复端就无从判断哪些调用已经真发出去了。
+  // (本轮尾已收尾的账本会被幂等标志直接放过,这里只兜"没收尾就退出"的路径。)
+  finalizeLedger();
 
   let stopReason: AgentStopReason;
   if (opts.signal?.aborted) {
