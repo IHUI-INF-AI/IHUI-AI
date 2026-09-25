@@ -31,6 +31,7 @@ import {
   ToolNotFoundError,
   type ToolRegistry,
 } from './hub/index.js';
+import { projectToolInputSchema, type ToolContractMount } from '@ihui/types';
 
 export interface ToolParameter {
   type: 'string' | 'number' | 'boolean' | 'array' | 'object';
@@ -59,7 +60,22 @@ export interface ToolResult {
   errorType?: string;
 }
 
-export interface Tool {
+/**
+ * 一等工具面。
+ *
+ * `ToolContractMount`(packages/types/src/tool-contract.ts,A13 第一阶段)带一个**可选** `contract`,
+ * 本票只让 Tool 承接契约类型,**不改任何缺省行为**:`dangerLevel` 的缺省语义仍是"按只读处理",
+ * 四个既有消费者(clawdbot/permission-guard、routes/agent-runtime、ai-service/agent_engine、
+ * 本端 commands/agent)一律未动。翻缺省("未声明即按最危险处理")是行为变更 —— 用户侧表现为
+ * "昨天能跑今天全要批准",必须单独一票逐点复核后再做。
+ *
+ * 第二阶段的输入(2026-09-25 立项时实测,数字会随仓库推进漂移,**复测为准**:
+ * `node scripts/check-tool-contract-declared.mjs --flip-audit`):
+ *   - 契约缺席的工具字面量:102 个 —— 若把判定源整体换成 `mayWriteWorkspace`,这 102 个全部按不可信处置;
+ *   - 其中**连 dangerLevel 都没写**的:16 个 —— 今天靠"缺省按只读"放行,翻缺省后立刻变成要批准。
+ *   所以补档顺序应是:先给 16 个显式 dangerLevel/contract,再谈翻缺省。
+ */
+export interface Tool extends ToolContractMount {
   name: string;
   description: string;
   parameters: Record<string, ToolParameter>;
@@ -525,43 +541,28 @@ export interface ProviderToolSchema {
   };
 }
 
-/** 把单个 ToolParameter 递归转换为 JSON Schema(深拷贝,不共享引用) */
-function toJsonProperty(p: ToolParameter): Record<string, unknown> {
-  const prop: Record<string, unknown> = { type: p.type, description: p.description };
-  if (p.enum) prop.enum = [...p.enum];
-  if (p.items) prop.items = toJsonProperty(p.items);
-  if (p.properties) {
-    const props: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(p.properties)) props[k] = toJsonProperty(v);
-    prop.properties = props;
-  }
-  if (p.required) prop.required = [...p.required];
-  return prop;
-}
-
 /**
  * 把 Tool[] 转为 OpenAI 兼容的 tools schema 数组,用于原生 function calling 下发。
  * 输出为深拷贝 — 修改 schema 不会影响原 Tool 定义。
+ *
+ * 模型可见面自本票起**只由投影器产出**(`@ihui/types/schema-projection`)。原先这里有一份手写的
+ * `toJsonProperty` 递归转换 —— 它与校验面(argument-validator 读的同一份 `parameters`)各写一遍,
+ * 正是"发给 provider 的参数形态"与"我们自己校验用的规则"能分叉的成因。删掉后只剩一条出口。
+ *
+ * 等价性取证(2026-09-25,替换前跑的 A/B,两侧同瞬间吃真 Tool 对象):
+ * `apps/cli/node_modules/.bin/tsx .ihui-agent/tmp/a13-baseline/ab-equality.mts`
+ * → 覆盖 158 个真工具对象(含 factory 产出的多实例),**158/158 线字节相同 + 属性名集合相同 +
+ * required 集合相同**,归一化账本零动作。数字会随仓库推进漂移,复测请按上面命令跑。
  */
 export function toolsToProviderSchema(tools: Tool[]): ProviderToolSchema[] {
-  return tools.map((t) => {
-    const properties: Record<string, unknown> = {};
-    for (const [name, p] of Object.entries(t.parameters)) {
-      properties[name] = toJsonProperty(p);
-    }
-    return {
-      type: 'function' as const,
-      function: {
-        name: t.name,
-        description: t.description,
-        parameters: {
-          type: 'object' as const,
-          properties,
-          required: [...t.required],
-        },
-      },
-    };
-  });
+  return tools.map((t) => ({
+    type: 'function' as const,
+    function: {
+      name: t.name,
+      description: t.description,
+      parameters: projectToolInputSchema(t.parameters, t.required),
+    },
+  }));
 }
 
 /** 解析 arguments 字段:JSON 字符串 / 对象 / 非法值 → {} */
