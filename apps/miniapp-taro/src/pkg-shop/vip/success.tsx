@@ -195,7 +195,7 @@ export default function VipSuccessPage() {
               {tt('vip.success.shareDesc', '邀请好友开通会员,享 20% 现金佣金')}
             </Text>
           </View>
-          <Text className="vs-share-arrow">›</Text>
+          <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
         </View>
       </View>
     </ThemeRoot>

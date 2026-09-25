@@ -10,6 +10,7 @@ import { useState, useCallback } from 'react'
 import { getProfile, updateUserAvatar, type UserInfo } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import './profile.css'
+import LineIcon from '@/components/LineIcon'
 
 export default function Profile() {
   const { t } = useI18n()
@@ -128,7 +129,7 @@ export default function Profile() {
               <Text className="pf-avatar-hint">
                 {tt('user.profile.clickToChange', '点击更换头像')}
               </Text>
-              <Text className="pf-arrow">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
           </View>
         </View>
@@ -147,7 +148,7 @@ export default function Profile() {
                 <Text className="pf-item-label">{row.label}</Text>
                 <View className="pf-item-right">
                   <Text className="pf-item-value">{row.value}</Text>
-                  <Text className="pf-arrow">›</Text>
+                  <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
                 </View>
               </View>
             ))}
@@ -168,7 +169,7 @@ export default function Profile() {
                 <Text className="pf-item-label">{row.label}</Text>
                 <View className="pf-item-right">
                   {row.value ? <Text className="pf-item-value">{row.value}</Text> : null}
-                  <Text className="pf-arrow">›</Text>
+                  <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
                 </View>
               </View>
             ))}
@@ -186,7 +187,7 @@ export default function Profile() {
             >
               <Text className="pf-item-label">{t('user.profile.feedback')}</Text>
               <View className="pf-item-right">
-                <Text className="pf-arrow">›</Text>
+                <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
               </View>
             </View>
           </View>

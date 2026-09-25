@@ -8,7 +8,7 @@ import * as React from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import Image from 'next/image'
-import { ChevronDown, Pause, Play, Volume2, Lightbulb } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, Lightbulb, Pause, Play, Volume2 } from 'lucide-react'
 import { CloseButton } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -187,7 +187,7 @@ function ImagePreview({
             className="absolute left-4 flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 text-white transition-colors hover:bg-white/20"
             aria-label={t('prev')}
           >
-            ‹
+            <ChevronLeft className="h-5 w-5" />
           </button>
           <button
             onClick={(e) => {
@@ -197,7 +197,7 @@ function ImagePreview({
             className="absolute right-4 top-1/2 flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 text-white transition-colors hover:bg-white/20"
             aria-label={t('next')}
           >
-            ›
+            <ChevronRight className="h-5 w-5" />
           </button>
         </>
       )}

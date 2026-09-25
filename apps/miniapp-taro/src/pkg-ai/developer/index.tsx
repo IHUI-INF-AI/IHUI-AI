@@ -9,6 +9,7 @@ import { useState, useCallback, useEffect } from 'react'
 import * as api from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import SearchBar from '@/components/SearchBar'
+import LineIcon from '@/components/LineIcon'
 
 // 智能体小类(对标原 category() 返回的 modelTypes)
 interface ModelType {
@@ -249,7 +250,7 @@ export default function DeveloperIndex() {
               {t('developer.index.subscribeDesc')}
             </Text>
           </View>
-          <Text className="text-[length:40rpx] text-primary-foreground opacity-80">›</Text>
+          <LineIcon name="chevron-right" size={24} color="var(--color-primary-foreground)" />
         </View>
 
         {/* RN headTabBar: px 20rpx py 16rpx gap 16rpx;tab px 24rpx py 10rpx radius 8dp=16rpx

@@ -10,6 +10,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getNotificationSettings, updateNotificationSettings } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
 
 interface NotificationSettingItem {
   key: string
@@ -149,7 +150,7 @@ export default function NotificationPage() {
                 </Text>
               </View>
               {/* arrow 对齐 RN plainRow arrow: 20dp→40rpx + text.tertiary */}
-              <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
               className="flex items-center justify-between border-t-[length:1rpx] border-solid border-[color:var(--color-border)] py-[20rpx]"
@@ -165,7 +166,7 @@ export default function NotificationPage() {
                 </Text>
               </View>
               {/* arrow 对齐 RN plainRow arrow: 20dp→40rpx + text.tertiary */}
-              <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
               className="flex items-center justify-between border-t-[length:1rpx] border-solid border-[color:var(--color-border)] py-[20rpx]"
@@ -181,7 +182,7 @@ export default function NotificationPage() {
                 </Text>
               </View>
               {/* arrow 对齐 RN plainRow arrow: 20dp→40rpx + text.tertiary */}
-              <Text className="text-[length:40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
           </View>
         </View>
