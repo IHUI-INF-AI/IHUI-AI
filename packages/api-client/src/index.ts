@@ -35,9 +35,14 @@ export {
   // (并行改动 use-auth-bootstrap.ts 依赖它;client.ts 已实现,入口遗漏导致编译失败)
   refreshAccessTokenOnce,
   isAbortError,
+  // 2026-09-25 补能力:401 处理器注册口 —— 端内改走本包端点函数后仍能拿到"弹登录框"反馈
+  setUnauthorizedHandler,
+  getUnauthorizedHandler,
 } from './client'
 export type {
   TokenProvider,
+  UnauthorizedContext,
+  UnauthorizedHandler,
   DeviceFingerprintProvider,
   StreamChatOptions,
   SSEErrorInfo,

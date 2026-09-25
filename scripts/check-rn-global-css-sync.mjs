@@ -26,9 +26,9 @@
  * 退出码:0 = 一致;1 = 漂移/缺档;2 = 无法判定(取不到某个面,绝不冒绿也绝不冒红)
  */
 import { readFileSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, join } from 'node:path'
+import { gitRaw } from './lib/face-reader.mjs'
 import { collectVars } from './lib/design-token-blocks.mjs'
 import { deriveRnDecls, TOKENS_SOURCE_REL, GLOBAL_CSS_REL } from './sync-rn-global-css.mjs'
 
@@ -39,12 +39,10 @@ const staged = args.includes('--staged')
 
 function gitShow(spec) {
   try {
-    return execFileSync('git', ['-c', 'safe.directory=*', 'show', spec], {
-      encoding: 'utf8',
-      maxBuffer: 1 << 28,
-      cwd: root,
-      windowsHide: true,
-    })
+    // 走共用层而不是裸 `execFileSync('git', …)`:裸命令名依赖 PATH,而钩子进程 / 服务账户 /
+    // GUI 宿主的 PATH 与交互终端互不相通(AGENTS §5b),取不到时这里返回 null,
+    // 门会判成"取不到 = 无法判定 exit 2" —— 症状是"守门突然不干活",查不到根因。
+    return gitRaw(['show', spec], root, { maxBuffer: 1 << 28 })
   } catch {
     return null
   }
