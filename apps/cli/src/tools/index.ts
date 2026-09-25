@@ -59,6 +59,16 @@ export interface ToolResult {
   error?: string;
   /** P1-4 错误类型分级,供调用方/LLM 判断是否需要重试 */
   errorType?: string;
+  /**
+   * 该结果不是 handler 自己产出的,而是**执行链边界**在"墙钟到点"或"外层取消"时代为结算的。
+   *
+   * 两个用途,缺一不可:
+   * 1. `executeWithRetry` 见到它**立即停止自动重试** —— 一次预算再叠一次重试等于两倍墙钟,
+   *    而超时被判成"可重试"是本票要消灭的挂死形态的延长线(`timeout` 在 `isRetryableErrorType` 里是可重试档)。
+   * 2. 回灌给模型的错误里因此带着"副作用不确定"的语义:本票只能让**调用方**脱身,
+   *    不合作的 handler 仍在后台继续跑完(强杀子进程树属另一票 A8E-1 的范围,不在本票)。
+   */
+  abortedByExecBudget?: 'budget' | 'cancelled';
 }
 
 /**
@@ -83,8 +93,222 @@ export interface Tool extends ToolContractMount {
   required: string[];
   /** 危险级别:read(只读,默认)/ write(写入)/ dangerous(危险,需用户确认) */
   dangerLevel?: 'read' | 'write' | 'dangerous';
+  /**
+   * 单次执行的墙钟预算声明(缺省 = 用 `TOOL_EXEC_BUDGET_DEFAULT_MS`)。
+   * 唯一解释器是 `resolveToolExecBudgetMs()`,唯一应用点是 `executeWithinExecBudget()`。
+   * 结构性不可打断用 `notInterruptible` 形态,**必须带 reason**,且不得改用 `*-exempt:` 注释
+   * (那条通道属守门 108 的"到期豁免账",蹭它就是给一道没有寿命的豁免开后门)。
+   */
+  execBudget?: ToolExecBudget;
   execute(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult>;
 }
+
+// ==================== 工具执行墙钟预算与取消下发 ====================
+//
+// 立票理由(实测,不是设想):本文件的 `executeToolCall` 在改前对 `tool.execute` 的 await
+// **既无墙钟上限也无取消通道**,而 `tools/subagent.ts` 的 `dispatch_subagent` 在里面嵌套跑
+// 一整条 agent loop ⇒ provider 一挂就是这一枚工具调用永久挂起,且 Ctrl-C 到不了。
+// 探针读数见交付报告(同一探针在改后由"未结算"翻成"预算内结算")。
+
+/** 默认档 30 分钟。取值依据:本仓工具**自身**最长的一档限是后台任务等待 600s(`tools/background-registry.ts`)
+ *  与 DAP stopped 事件 300s(`tools/debug.ts`),默认档必须显著高于所有自限档 —— 否则本票会把"工具自己
+ *  还在正常工作"判成超时,即"把现有正常工具改红"。30 min = 现有最长自限 × 3。
+ *  需要更长的工具**显式声明** `execBudget`,不得为消红去抬这一档。 */
+export const TOOL_EXEC_BUDGET_DEFAULT_MS = 30 * 60_000;
+
+/** 硬封顶 60 分钟:任何来源(默认档 / 工具声明 / 环境变量覆盖)都不得越过。
+ *  这一行是"模型侧或工具侧覆盖越过后端上限"的唯一收口点,删掉它 = 本票失效。 */
+export const TOOL_EXEC_BUDGET_MAX_MS = 60 * 60_000;
+
+/** 结算宽限:到点后先 abort,再给 handler 这么多时间自己收尾;仍不 settle 就**停止等待**并代为结算。
+ *  语义是"到点之后额外留给清理的时间",不是"把超时推迟"。 */
+export const TOOL_EXEC_BUDGET_SETTLE_GRACE_MS = 5_000;
+
+/** 逃生舱:总开关(仅应急)。设 off/0/false 时整条预算不生效,行为逐路径回到改前。 */
+const EXEC_BUDGET_DISABLE_ENV = 'IHUI_TOOL_EXEC_BUDGET';
+/** 观察档:覆盖默认值,用于逐档量"哪些工具会撞上新上限"(仍受 MAX 封顶)。 */
+const EXEC_BUDGET_DEFAULT_ENV = 'IHUI_TOOL_EXEC_BUDGET_MS';
+
+/** 显式预算档(毫秒)。 */
+export interface ToolExecBudgetMs {
+  readonly ms: number;
+}
+
+/** 结构性声明:该工具**不该被墙钟打断**,且理由写进数据而不是注释(注释会被编辑掉,数据不会)。 */
+export interface ToolExecBudgetNotInterruptible {
+  readonly notInterruptible: true;
+  readonly reason: string;
+}
+
+export type ToolExecBudget = ToolExecBudgetMs | ToolExecBudgetNotInterruptible;
+
+function parsePositiveIntMs(raw: string | undefined): number | undefined {
+  if (raw === undefined || raw.trim() === '') return undefined;
+  const n = Number(raw.trim());
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
+/**
+ * 预算解析的**唯一出口**。三段优先级:
+ *   ① 结构性声明 notInterruptible ⇒ `undefined`(连定时器都不建)
+ *   ② 工具显式声明 `ms` ⇒ 该值
+ *   ③ 否则 环境变量覆盖档 ?? 默认档
+ * 最后**一律**过 `Math.min(…, TOOL_EXEC_BUDGET_MAX_MS)` 封顶。
+ *
+ * 刻意不读模型传的参数(`args.timeout_ms` 一类):那等于把"这次执行多久"交给被调用方决定,
+ * 而本票要收的是"宿主说了算"。已有自带 timeout 参数的工具(run_command / spawn_parallel)
+ * 由其 handler 内部解释,不在本函数覆盖面内。
+ *
+ * `0` 与非法值一律退回默认档 —— 这不是宽容,是把"0 被压成 1ms 立刻超时"这一型写死在门外。
+ */
+export function resolveToolExecBudgetMs(
+  tool: Pick<Tool, 'name' | 'execBudget'>,
+  env: NodeJS.ProcessEnv = process.env,
+): number | undefined {
+  const declared = tool.execBudget;
+  if (declared && 'notInterruptible' in declared) return undefined;
+  if (/^(?:off|0|false)$/i.test((env[EXEC_BUDGET_DISABLE_ENV] ?? '').trim())) return undefined;
+  const envDefault = parsePositiveIntMs(env[EXEC_BUDGET_DEFAULT_ENV]);
+  const base = declared ? declared.ms : (envDefault ?? TOOL_EXEC_BUDGET_DEFAULT_MS);
+  const safe = Number.isFinite(base) && base > 0 ? base : (envDefault ?? TOOL_EXEC_BUDGET_DEFAULT_MS);
+  return Math.min(safe, TOOL_EXEC_BUDGET_MAX_MS);
+}
+
+const NOOP_UNLINK = (): void => undefined;
+
+/**
+ * 父 → 子单向 link,并**返回真正解绑的闭包**。
+ *
+ * 三条都不可省:
+ * - 父已 aborted ⇒ 立刻 abort 子再返回(否则子控制器永远等不到这次取消);
+ * - 返回值必须 `removeEventListener` ⇒ 否则每枚工具调用在长会话的父 signal 上留一个永不释放的监听器;
+ * - 透传 `parent.reason` ⇒ 取消原因不得在链路中途被换成无意义的 Error。
+ */
+export function linkAbortSignal(
+  parent: AbortSignal | undefined,
+  child: AbortController,
+): () => void {
+  if (!parent) return NOOP_UNLINK;
+  if (parent.aborted) {
+    child.abort(parent.reason);
+    return NOOP_UNLINK;
+  }
+  const relay = (): void => child.abort(parent.reason);
+  parent.addEventListener('abort', relay, { once: true });
+  return () => parent.removeEventListener('abort', relay);
+}
+
+/**
+ * 到点/取消时代为结算的失败结果。
+ *
+ * 文案刻意用 ASCII:这两条是**新增**的运行时字面量,守门 70(硬编码中文基线棘轮)按
+ * "该文件在 HEAD 自身的命中数"给额度,新写一行中文界面文案就是凭空+1 红(实测本文件
+ * 38 > 基线 33 就是这两条买来的)。正解本是走 `t()` + 语言包,但 cli 的语言包不在本票
+ * 文件清单内(§11 的"只允许以下文件");而这两串的消费方是**模型**不是终端用户界面,
+ * 走英文零信息损失。将来要给用户看,再连 i18n 一起做,不得反过来把中文塞回来消红。
+ */
+function execBudgetResult(
+  toolName: string,
+  kind: 'budget' | 'cancelled',
+  budgetMs: number | undefined,
+): ToolResult {
+  if (kind === 'budget') {
+    const limitLabel = budgetMs === undefined ? 'not-configured' : `${budgetMs}ms`;
+    return {
+      success: false,
+      output: '',
+      error:
+        `Tool ${toolName} exceeded its wall-clock execution budget (${limitLabel}) and was aborted. ` +
+        `Side effects MAY already have happened - abort only releases the caller, the handler may still be ` +
+        `running in background. Verify on-disk / remote state before retrying.`,
+      errorType: 'timeout',
+      abortedByExecBudget: 'budget',
+    };
+  }
+  return {
+    success: false,
+    output: '',
+    error:
+      `Tool ${toolName} was cancelled by the outer scope (user interrupt or parent task stopped). ` +
+      `Side effects are indeterminate - do NOT assume nothing happened.`,
+    errorType: 'cancelled',
+    abortedByExecBudget: 'cancelled',
+  };
+}
+
+/**
+ * 工具执行的**唯一**墙钟/取消应用点。
+ *
+ * @param tool 只需 name + execBudget(hub 路径拿不到本地 Tool 对象,按默认档走)
+ * @param ctx  工具上下文,`ctx.signal` 是外层取消的来源
+ * @param run  真正的执行体;收到的 signal 是"父取消 ∪ 预算到点"的合成信号,可能为 undefined
+ *
+ * 覆盖面如实登记:只包 handler 本身。`confirmDangerous` 的等待发生在 `executeToolCall` 里、
+ * 本函数之外 ⇒ 用户思考时间不计入预算(这是对的,否则"用户还没点确认"会被系统判成工具超时)。
+ */
+export async function executeWithinExecBudget(
+  tool: Pick<Tool, 'name' | 'execBudget'>,
+  ctx: ToolContext,
+  run: (signal: AbortSignal | undefined) => Promise<ToolResult>,
+): Promise<ToolResult> {
+  const parentSignal = ctx.signal;
+  if (parentSignal?.aborted) {
+    // 提前拒绝:取消已经发生 ⇒ 一次 handler 都不该调
+    return execBudgetResult(tool.name, 'cancelled', undefined);
+  }
+  const budgetMs = resolveToolExecBudgetMs(tool);
+  if (budgetMs === undefined && !parentSignal) {
+    // 零回归路径:结构性豁免且无外层信号 ⇒ 与改前逐字同形(不建 controller、不建 timer)
+    return run(undefined);
+  }
+
+  const controller = new AbortController();
+  const unlinkParent = linkAbortSignal(parentSignal, controller);
+  let budgetTimer: NodeJS.Timeout | undefined;
+  let graceTimer: NodeJS.Timeout | undefined;
+  let trigger: 'budget' | 'cancelled' | undefined;
+
+  try {
+    return await new Promise<ToolResult>((resolve, reject) => {
+      let settled = false;
+      const settle = (r: ToolResult): void => {
+        if (settled) return;
+        settled = true;
+        resolve(r);
+      };
+      // handler **自己抛的错原样冒泡**(不代偿成 ToolResult):`executeToolCall` 的 hub 分支靠
+      // `err instanceof ToolNotFoundError` 决定要不要回落到本地注册表,把它包成结果会让那条
+      // fallback 静默失效;而 `executeWithRetry` 的 catch 已经在做同样的转换,这里不需要重复。
+      const settleReject = (err: unknown): void => {
+        if (settled) return;
+        settled = true;
+        reject(err);
+      };
+      // 一次故障只产出一条结论:trigger 与 settled 是同一件事的两道闸(前者定性质,后者防双结算)
+      const enterGrace = (kind: 'budget' | 'cancelled'): void => {
+        if (trigger) return;
+        trigger = kind;
+        controller.abort(new Error(`ihui:exec-${kind}:${tool.name}`));
+        graceTimer = setTimeout(
+          () => settle(execBudgetResult(tool.name, kind, budgetMs)),
+          TOOL_EXEC_BUDGET_SETTLE_GRACE_MS,
+        );
+      };
+      if (budgetMs !== undefined) budgetTimer = setTimeout(() => enterGrace('budget'), budgetMs);
+      // 父取消经 linkAbortSignal 到达本 controller;预算到点也会 abort 本 controller,
+      // 但那时 trigger 已被置为 'budget',所以不会二次产出一条"已取消"(归因分叉是这条的坏状态)。
+      controller.signal.addEventListener('abort', () => enterGrace('cancelled'), { once: true });
+      // 用 async IIFE 包一层:handler **同步抛错**也必须走同一条结算路径,否则 timer 与
+      // 父 signal 上的监听器都留在那儿(本函数是 async,同步抛错会直接冒泡,finally 拿不到机会)。
+      void (async () => run(controller.signal))().then(settle, settleReject);
+    });
+  } finally {
+    if (budgetTimer) clearTimeout(budgetTimer);
+    if (graceTimer) clearTimeout(graceTimer);
+    unlinkParent();
+  }
+}
+
 
 export interface ToolContext {
   workspacePath: string;
@@ -101,6 +325,17 @@ export interface ToolContext {
   folderTrust?: FolderTrustMap;
   /** P0-7 Permission rules:白名单/黑名单控制(--tools/--disallowed-tools CLI flag 注入) */
   permissions?: PermissionRules;
+  /**
+   * 外层取消信号(Ctrl-C / 父任务停止),由 `executeWithinExecBudget()` 读取并**继续下发**给
+   * handler 与被 link 出来的子 controller。
+   *
+   * 为什么不是可选形参了还留 `?`:`commands/agent.ts` 构造 ctx 的那一处(以及 hub 适配器、
+   * server/agent-core 等 4 处构造点)不在本票文件清单内,收紧成必填会在别人的文件上产红。
+   * 所以本票装的是"接收端 + 下发端"两段,父级注入那一行由主会话补;在补上之前,
+   * **墙钟预算仍然生效**(它不依赖父信号),即挂死已被收口,只有"取消能走多深"这一半待接线。
+   * 该缺口由守门 `scripts/check-tool-exec-budget.mjs` 的 S2 按 HEAD 棘轮点名,不会静默。
+   */
+  signal?: AbortSignal;
 }
 
 const registry = new Map<string, Tool>();
@@ -287,8 +522,13 @@ export async function executeToolCall(
   // ToolNotFoundError 时 fallback 到原 getTool 路径(零回归保障);其他错误转 ToolResult 返回。
   // 横切关注点(permission / rate limit / retry)在 hub 未启用或 fallback 时仍由原路径处理。
   if (hubEnabled && hubResolver) {
+    const resolver = hubResolver;
     try {
-      return await hubResolver.dispatch(call.name, call.arguments, ctx);
+      // hub 路径同样收进唯一出口:这一支拿不到本地 Tool 对象(可能是 MCP 远端工具),
+      // 所以按**默认档**约束 —— 特性开关不得成为绕过墙钟预算的第二条执行路径。
+      return await executeWithinExecBudget({ name: call.name }, ctx, (signal) =>
+        resolver.dispatch(call.name, call.arguments, signal ? { ...ctx, signal } : ctx),
+      );
     } catch (err) {
       if (!(err instanceof ToolNotFoundError)) {
         return {
@@ -409,9 +649,14 @@ export async function executeWithRetry(
   let lastResult: ToolResult = { success: false, output: '', error: '未执行' };
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const result = await tool.execute(args, ctx);
+      const result = await executeWithinExecBudget(tool, ctx, (signal) =>
+        tool.execute(args, signal ? { ...ctx, signal } : ctx),
+      );
       if (result.success) return result;
       lastResult = result;
+      // 墙钟/取消代偿的失败**不进重试**:errorType 'timeout' 在 `isRetryableErrorType` 里是
+      // 可重试档,照旧走一遍等于把一次挂死延长成两倍预算 —— 那正是本票要收口的形态。
+      if (result.abortedByExecBudget) break;
     } catch (err) {
       lastResult = {
         success: false,

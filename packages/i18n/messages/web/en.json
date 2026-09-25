@@ -14999,13 +14999,15 @@
     "fieldNotifyChannel": "Notification channel",
     "fieldNotifyMessage": "Message template",
     "notifyMessageHint": "Supports the {{event}} {{tool}} {{args}} variables",
+    "notifyWebhookUrlHint": "The webhook channel POSTs the notification to this URL (same sender as the webhook action)",
     "notifyMessagePlaceholder": "{{event}} triggered",
     "fieldLogMessage": "Log message template",
     "logMessageHint": "Supports the {{event}} {{tool}} {{args}} variables; written to logs/hooks.log",
     "channel": {
       "toast": "Toast (inline notice)",
       "notification": "System notification",
-      "email": "Email"
+      "email": "Email",
+      "webhook": "Webhook"
     },
     "logsAria": "Hook logs",
     "logsTitle": "Hook execution logs",

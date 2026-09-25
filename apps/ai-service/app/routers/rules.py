@@ -18,9 +18,10 @@
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from ..core.jwt_auth import require_request_user_id
 from ..services.rules_engine import rules_engine
 
 router = APIRouter()
@@ -59,10 +60,6 @@ class RuleMatchBody(BaseModel):
     scope: str | None = None
 
 
-class AutoGenerateBody(BaseModel):
-    user_id: str = Field(..., description="用户 ID")
-
-
 class ResolveConflictsBody(BaseModel):
     conflicts: list[dict[str, Any]] = Field(..., description="detect_conflicts 输出的冲突列表")
 
@@ -98,10 +95,24 @@ async def create_rule(body: RuleCreateBody) -> dict[str, Any]:
 
 
 @router.post("/rules/auto-generate")
-async def auto_generate_rules(body: AutoGenerateBody) -> dict[str, Any]:
-    """基于行为模式自动生成规则草稿(不自动创建,返回草稿供用户确认)。"""
+async def auto_generate_rules(
+    principal: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """基于行为模式自动生成规则草稿(不自动创建,返回草稿供用户确认)。
+
+    身份来源 = **令牌主体**(2026-09-25 安全收口,认证 ≠ 授权)。此前该端点把 user_id
+    当请求体字段收并原样喂给引擎,全文件零处与 request.state.user_id 比对 ⇒ 任何已登录
+    用户填别人的 UUID 就能读他人行为模式并生成规则草稿。现请求体**不再有身份键**
+    (`AutoGenerateBody` 已删 —— 留一个"可传但忽略"的 user_id 在本仓判为没修),
+    归属只由 `require_request_user_id`(`app/core/jwt_auth.py`,与 /api/memory 同一份
+    出口,不新造第二套身份判定)解析:
+      - 生产态无身份 → 401(该判定在依赖里完成,**先于**本函数的 try 块,故不会被
+        `except Exception` 吞成 {"code":500} —— 401 结论必须是 401);
+      - 客户端在 body 里塞谁的 id 都不参与决定(无模型消费该字段)。
+    引擎返回形状不变 [{pattern, draft_rule:{name,description,content,scope}, confidence}]。
+    """
     try:
-        data = await rules_engine.auto_generate_rules(body.user_id)
+        data = await rules_engine.auto_generate_rules(principal)
         return {"code": 0, "message": "success", "data": data}
     except Exception as e:
         return {"code": 500, "message": str(e), "data": None}

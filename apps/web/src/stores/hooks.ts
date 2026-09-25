@@ -8,6 +8,7 @@ import type {
   CreateHookInput,
   Hook,
   HookAction,
+  HookNotifyChannel,
   HookTriggerEvent,
   TestHookResult,
 } from '@ihui/types'
@@ -44,7 +45,10 @@ export interface HookDraft {
   // script
   scriptCommand: string
   // notify
-  notifyChannel: 'toast' | 'notification' | 'email'
+  // 不再手抄联合:O80 已把 HookNotifyChannel 加宽到 4 值(含 webhook),第二份手抄
+  // 会让"载入一条 channel=webhook 的既有 hook"在 typecheck 层被判非法(main 实红过)。
+  // webhook 档已于 2026-09-25 还清 O80 欠条后随 hooks-manager 一并暴露(对账见 check-hook-channel-parity)。
+  notifyChannel: HookNotifyChannel | 'webhook'
   notifyMessage: string
   // log
   logMessage: string
@@ -158,6 +162,29 @@ function buildActionFromDraft(draft: HookDraft): HookAction {
     }
   }
   if (type === 'notify') {
+    // webhook 渠道复用 webhook 动作同一发送器,config 键同名(url/method/headers)——
+    // hook_engine._run_notify 里 notify(webhook) 分支就是从这几个键取值。
+    if (draft.notifyChannel === 'webhook') {
+      let headers: Record<string, string> | undefined
+      try {
+        const parsed = JSON.parse(draft.webhookHeaders || '{}')
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          headers = parsed as Record<string, string>
+        }
+      } catch {
+        // JSON 解析失败,忽略 headers
+      }
+      return {
+        type: 'notify',
+        config: {
+          channel: draft.notifyChannel,
+          message: draft.notifyMessage.trim() || undefined,
+          url: draft.webhookUrl.trim() || undefined,
+          method: draft.webhookMethod,
+          headers,
+        },
+      }
+    }
     return {
       type: 'notify',
       config: {
