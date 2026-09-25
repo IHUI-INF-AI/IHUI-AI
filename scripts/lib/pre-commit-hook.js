@@ -123,6 +123,20 @@ const TOKEN_SYNC_TARGETS = [
     failMode: 'block',
   },
   {
+    // 小程序原生 chrome 两份副本(2026-09-25 立项,AGENTS §4「副本一律是派生态」):
+    // theme.json 是微信 darkmode 配置(app.config.ts 以 @变量 引用它,是编译期唯一源),
+    // lib/theme.ts 的 THEME_CHROME 是运行期 setNavigationBarColor/setTabBarStyle 的取色。
+    // 微信只认字面 hex,所以它们是"派生出的副本"而不是"该删的硬编码" —— 与 extension 那条同理。
+    // file 为两个空格分隔路径:下游是 `git diff --quiet -- <file>` / `git add <file>` 的 shell 拼接,
+    // 两个 pathspec 都合法;登记一个漏另一个会让第二份副本永不自动入库(两份必须同进同退)。
+    // failMode=block 的依据:立项当日对真仓 --check exit 0,连跑两次写回 0 字节(幂等)。
+    label: 'miniapp 原生 chrome 副本(theme.json + THEME_CHROME)',
+    file: 'apps/miniapp-taro/src/theme.json apps/miniapp-taro/src/lib/theme.ts',
+    cmd: 'node scripts/sync-miniapp-chrome.mjs --quiet',
+    trigger: 'tokens',
+    failMode: 'block',
+  },
+  {
     label: 'mobile-rn global.css',
     file: 'apps/mobile-rn/global.css',
     cmd: 'node scripts/sync-rn-global-css.mjs --quiet',

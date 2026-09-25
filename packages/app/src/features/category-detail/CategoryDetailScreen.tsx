@@ -12,8 +12,10 @@ import {
   type ListRenderItem,
   type ViewStyle,
 } from 'react-native'
+import { ChevronRight } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
+import { BackChevron } from '../../components/BackChevron'
 
 import { rnRadius } from '@ihui/design-tokens'
 
@@ -34,6 +36,7 @@ export interface CategoryDetailScreenProps {
 const TABS = ['推荐', '热门', '最新'] as const
 
 export function CategoryDetailScreen({
+  t,
   items,
   activeTab,
   loading,
@@ -64,16 +67,14 @@ export function CategoryDetailScreen({
           </Text>
         ) : null}
       </View>
-      <Text style={styles.itemArrow}>{'›'}</Text>
+      <ChevronRight size={20} color={tk.text.tertiary} />
     </TouchableOpacity>
   )
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>返回</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>分类详情</Text>
       </View>
       <View style={styles.tabsRow}>
@@ -134,7 +135,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: 12,
       gap: 12,
     },
-    backText: { fontSize: 16, color: tk.text.medium },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     tabsRow: {
       flexDirection: 'row',
@@ -174,7 +174,6 @@ function createStyles(tk: AppThemeTokens) {
     itemBody: { flex: 1, minWidth: 0 },
     itemName: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
     itemDesc: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
-    itemArrow: { fontSize: 20, color: tk.text.tertiary },
     centerWrap: {
       flex: 1,
       alignItems: 'center',

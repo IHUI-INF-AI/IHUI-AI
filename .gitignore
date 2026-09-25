@@ -146,7 +146,11 @@ deploy/prod-bundle/cloudflared/*.local.txt
 .idea/
 .vscode/
 .trae/
-.ihui-agent/
+# 只忽略 .ihui-agent/ 的**内容**,但把 archive/ 例外放行:守门 71 与 §1 归档协议都以
+# .ihui-agent/archive/PROJECT_PLAN_*.md 为"这行是被正当归档、不是被删"的依据。锚点只存在于
+# 某一台机器,等于让另一台机器的对账依据凭空消失(G-173 同条规矩:可审计锚点必须受版本控制)。
+.ihui-agent/*
+!.ihui-agent/archive/
 .qoder/
 *.swp
 *.swo

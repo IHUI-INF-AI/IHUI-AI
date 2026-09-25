@@ -15,6 +15,7 @@ const kechengIcon = aizhsUrl('remote-images/kecheng.png')
 const rankoneIcon = aizhsUrl('remote-images/rankone.png')
 const useNumIcon = aizhsUrl('remote-images/useNum.png')
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
 
 // chuangke.png 已外置到 CDN(与 src/assets/remote/images/chuangke.png 字节一致),
 // 通过 aizhsUrl 运行时加载,不再复制进主包。
@@ -231,7 +232,7 @@ export default function LearnDevelop() {
                 {tt('learnDevelop.rankEntry', '学习排行榜')}
               </Text>
             </View>
-            <Text className="text-[length:36rpx] text-muted-foreground">›</Text>
+            <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
           </View>
         </View>
       </View>
