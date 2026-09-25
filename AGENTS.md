@@ -153,6 +153,17 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 
 - **未收口的同一型(如实登记,不是已完成)**:`packages/app/src/features/**` 有 **223 处 / 168 文件**、`apps/mobile-rn/src/screens/**` 有 5 处仍是 `<Text>{t('common.back')}</Text>`;共享层两个 NavBar 与 `PayResultScreen` 用 `‹`。它们由 102 的**按文件 HEAD 棘轮**兜住"不得再加",清理另计一批。
 
+> ⚠️ **上面那格的"223 处未收口 / 清理另计一批"已被 2026-09-26 的实测取代 —— 照它派单会去清一批不存在的东西。**
+> 现读(HEAD 面,五个 UI 目录):`common.back` 共 **243 处**,其中 **194 处是 `label=` / `aria` / 配置字段**
+> —— 那是喂给 `<BackChevron label={…}/>` 的**无障碍名称**,不是渲染出来的文字(设计要求:可见文案求箭头、
+> 无障碍名称须脱离上下文成立)。剩下 **49 处**确实是 `<Text>{t('common.back')}</Text>` 这种"文字摆在按钮里",
+> 但**逐条带 `back-label-exempt: <原因>`**(错误态/空态卡片按钮、翻页、弹窗关闭 —— 那里「返回」是按钮文案不是
+> 页头箭头,换成裸箭头反而不表意,见本节"文字标签的合法例外"),抽查三处(`AgentDetailScreen.tsx:42`、
+> `ActivityDetailScreen.tsx:50`、`miniapp plaza/detail/index.tsx:242`)标记都写在可点元素起始行的紧邻上行、
+> 与判据要求的三个落点一致。所以守门 102 的 GA4 报 **0** 不是"判据没看见",而是"该收的收进了唯一实现、
+> 该留的按理由留"。**这一批没有剩余清理项**;真要动这 49 处,得先逐条论证它其实是箭头位 —— 那属于改判据,
+> 不属于清存量。`‹` 字符在 HEAD 面还剩 10 处,但都不在可证 affordance 语境(GA1 实判 0)。
+
 ### 区段头「更多」入口单一源头(强制,2026-09-24 立)
 
 - **三端唯一实现**:RN = `packages/app/src/components/MoreLink.tsx`(经 `@ihui/rn-app` 导出);web = `apps/web/src/components/common/view-more-link.tsx`;小程序 = `LineIcon name="chevron-right"`(`components/LineIcon/icons.ts` 已含该图标,零新素材)。**禁止在任何端再自拼第四份**「标签 + 箭头」。
