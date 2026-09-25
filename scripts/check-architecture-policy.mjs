@@ -743,11 +743,26 @@ export function policyFaceOrder(isStaged) {
  *
  * @param {string[]} srcPathsInFace 当前档(索引)全部源文件路径,已由 SRC_RE 筛过
  * @param {Set<string>} stagedSet   暂存区里 ACMR 形态的路径清单
- * @returns {{mode:'staged'|'full', paths:string[]}}
+ * @param {{headSrcPaths?:string[], deletedSet?:Set<string>}} [opts]
+ *        headSrcPaths = HEAD 面全部源文件(回退档的候选);deletedSet = 暂存区 **D 形态**清单
+ * @returns {{mode:'staged'|'full', paths:string[], keep:string[], droppedDeleted:string[]}}
+ *   keep 是回退档**该读的路径集** —— 由本函数算,调用方不得再自己求一次差集
+ *   (两处算同一个集合必然漂移:第一版把剔除清单建在索引面上,而 D 形态的路径根本不在索引面里,
+ *    于是真实场景下"剔除了什么"永远打印为空,等于静默排除)。
+ *
+ * 2026-09-25 同日补的第二条缺陷(由本门**自己的修复提交被自己钉红**暴露):回退全量时若不排除
+ * "本次提交正删除的路径",则**纯删除型修复永远落不了地** —— 删掉违规文件的那枚提交,暂存集里没有
+ * 源文件 ⇒ 回退 HEAD ⇒ HEAD 里那个文件还在 ⇒ 判红 ⇒ 跳门。本门要拦的是"提交后仓库仍违规",
+ * 而删除恰恰是修复动作,对着修复前的快照问责等于惩罚修复。排除只认 D 清单(不认任何宽泛条件),
+ * 且**必须打印排除了哪些**(静默排除 = 判据失效)。
  */
-export function planStagedScope(srcPathsInFace, stagedSet) {
+export function planStagedScope(srcPathsInFace, stagedSet, opts = {}) {
+  const { headSrcPaths = [], deletedSet = new Set() } = opts
   const picked = srcPathsInFace.filter((p) => stagedSet.has(p))
-  return picked.length ? { mode: 'staged', paths: picked } : { mode: 'full', paths: [] }
+  if (picked.length) return { mode: 'staged', paths: picked, keep: picked, droppedDeleted: [] }
+  const droppedDeleted = headSrcPaths.filter((p) => deletedSet.has(p))
+  const dropped = new Set(droppedDeleted)
+  return { mode: 'full', paths: [], keep: headSrcPaths.filter((p) => !dropped.has(p)), droppedDeleted }
 }
 
 /**
@@ -845,7 +860,11 @@ function main(argv) {
     if (isStaged) {
       scopeMode = 'staged'
       const staged = new Set(git(['diff', '--cached', '--name-only', '--diff-filter=ACMR']).split('\n').filter(Boolean))
-      const scope = planStagedScope(srcAll, staged)
+      // D 形态单独取:回退全量时要把"本次提交正删掉的路径"剔出去(否则纯删除型修复永远落不了地)
+      const deleted = new Set(git(['diff', '--cached', '--name-only', '--diff-filter=D']).split('\n').filter(Boolean))
+      // 回退档的候选面 = HEAD 全部源文件;一次算清"该读哪些 / 剔除了哪些"(单一真相源,拆两处必漂移)
+      const headSrcAll = treePaths('HEAD').filter((p) => SRC_RE.test(p))
+      const scope = planStagedScope(srcAll, staged, { headSrcPaths: headSrcAll, deletedSet: deleted })
       if (scope.mode === 'staged') {
         files = readFace('', scope.paths)
         faceDesc = `索引 blob(暂存源文件 ${files.size} 个;表自洽性按全索引面判)`
@@ -853,10 +872,12 @@ function main(argv) {
         // 暂存集为空 ⇒ 回退全量(HEAD blob)。不回退就等于"审 0 个文件却记绿"(守门 70 同型)。
         // 策略表本身**仍按 --staged 档的索引优先**取材(见 policyFaceOrder)—— 内容面与表面
         // 各自的方向是两件事,顺手把表面也换成 HEAD 就会让"改表那枚提交"重新脱离审查。
-        const headSrc = treePaths('HEAD').filter((p) => SRC_RE.test(p))
-        files = readFace('HEAD', headSrc)
+        files = readFace('HEAD', scope.keep)
         scopeMode = 'staged-empty-fallback-full'
-        faceDesc = `暂存集为空 ⇒ 回退全量(HEAD blob,${files.size} 个源文件;防"空暂存恒绿",守门 70 同型)`
+        const dropNote = scope.droppedDeleted.length
+          ? `;已剔除本次提交删除的 ${scope.droppedDeleted.length} 个源文件(${scope.droppedDeleted.slice(0, 5).join(' ')})`
+          : ''
+        faceDesc = `暂存集为空 ⇒ 回退全量(HEAD blob,${files.size} 个源文件;防"空暂存恒绿",守门 70 同型${dropNote})`
         if (files.size === 0) {
           console.error('❌ 无法判定:暂存集为空且全量面(HEAD)也取不到任何源文件 —— 回退后仍审 0 个文件,不得记为通过')
           return 2
@@ -1101,10 +1122,31 @@ exceptions:
   const fullFace = F({ 'apps/demo/src/a.ts': imp('@ihui/schema'), 'packages/kit/src/b.ts': imp('@ihui/demo') })
   eq('--staged 面与全量面必须不同形(取材面决定结论)', analyze(ON, fullFace, {}).red.length > analyze(ON, stagedFace, {}).red.length ? 1 : 0, 1)
   // 空暂存回退(2026-09-25 缺陷 1):暂存集为空时必须回退全量,不得"审 0 个文件却记绿"
-  eq('planStagedScope:暂存面有源文件 ⇒ 只咬暂存集(窄口径,不回退)', JSON.stringify(planStagedScope(['apps/web/src/a.ts', 'packages/x/index.ts'], new Set(['packages/x/index.ts']))), JSON.stringify({ mode: 'staged', paths: ['packages/x/index.ts'] }))
+  eq('planStagedScope:暂存面有源文件 ⇒ 只咬暂存集(窄口径,不回退)', JSON.stringify(planStagedScope(['apps/web/src/a.ts', 'packages/x/index.ts'], new Set(['packages/x/index.ts']))), JSON.stringify({ mode: 'staged', paths: ['packages/x/index.ts'], keep: ['packages/x/index.ts'], droppedDeleted: [] }))
   eq('planStagedScope:与上条成对,暂存集为空 ⇒ 回退全量', planStagedScope(['apps/web/src/a.ts'], new Set()).mode, 'full')
   eq('planStagedScope:暂存集里只有非源文件 ⇒ 同样算空、同样回退(守门 70 同型)', planStagedScope(['apps/web/src/a.ts'], new Set(['README.md'])).mode, 'full')
   eq('planStagedScope:回退态不得把空 paths 当结果交出去(否则 analyze 照跑 ⇒ 又是一次"扫 0 记绿")', planStagedScope(['a.ts'], new Set()).paths.length, 0)
+  // 「纯删除型修复不得被自己钉红」两条成对(2026-09-25,由本门的修复提交被本门拦下这一现场暴露)
+  eq(
+    '回退全量必须剔掉本次提交删除的路径(否则删除违规文件的那枚提交永远落不了地)',
+    JSON.stringify(planStagedScope(['a.ts'], new Set(), { headSrcPaths: ['a.ts', 'bad.ts'], deletedSet: new Set(['bad.ts']) }).keep),
+    JSON.stringify(['a.ts']),
+  )
+  eq(
+    '与上条成对:剔除动作必须**可见**(静默排除 = 判据失效,清单要交出来给 faceDesc 打印)',
+    JSON.stringify(planStagedScope(['a.ts'], new Set(), { headSrcPaths: ['a.ts', 'bad.ts'], deletedSet: new Set(['bad.ts']) }).droppedDeleted),
+    JSON.stringify(['bad.ts']),
+  )
+  eq(
+    '剔除清单必须算在 **HEAD 面**上而不是索引面(D 形态的路径根本不在索引源文件清单里 —— 第一版就错在此处,导致真实场景永远打印"剔除了 0 个")',
+    planStagedScope([], new Set(), { headSrcPaths: ['bad.ts'], deletedSet: new Set(['bad.ts']) }).droppedDeleted.length,
+    1,
+  )
+  eq(
+    '与上三条成对:没有删除时不得凭空剔除(剔除面只认 D 清单,不接受任何宽泛条件)',
+    planStagedScope(['a.ts'], new Set(), { headSrcPaths: ['a.ts', 'b.ts'], deletedSet: new Set() }).keep.length,
+    2,
+  )
   // 取材面提示语(2026-09-25 缺陷 2):只有 oid 真的不等才喊,"读了索引"不等于"表没入库"
   eq('policyFaceNotice:索引==HEAD ⇒ 安静(旧写法 `!== HEAD` 在这里误报)', policyFaceNotice('索引', { HEAD: 'aaaa', 索引: 'aaaa' }), null)
   eq('policyFaceNotice:与上条成对,索引≠HEAD ⇒ 提示,且是 info 不是 warn(--staged 读索引属正常行为)', policyFaceNotice('索引', { HEAD: 'aaaa', 索引: 'bbbb' }).level, 'info')

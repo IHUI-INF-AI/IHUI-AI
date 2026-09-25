@@ -132,7 +132,7 @@ function main(argv) {
   console.log(`# 模块阅读包 ${r.m.id}${r.m.pkg ? ` (${r.m.pkg})` : ''}`)
   console.log(`策略表面: ${label} | 纳管 managed: ${yn(r.m.managed)}${r.m.managed ? '(契约违规按判红口径问责)' : '(只报数)'} | 层: ${r.m.layer} | 对外 exported: ${yn(r.m.exported)}`)
   console.log('边界条款: 跨模块只能经「已声明的 requires + public_entrypoints」进入;按路径穿透别的包内部 = 守门 103 的 D3;未声明就 import = D1。')
-  console.log('           行内豁免 `// arch-exempt: <原因>` 只对 D 判据生效且必须带原因;不得为消红改 managed / 阈值 / exported。')
+  console.log('           行内豁免注释(族名 arch-exempt，须带原因)只对 D 判据生效;不得为消红改 managed / 阈值 / exported。')
   console.log(`\n## 声明依赖 requires(${r.m.requires.size})`)
   for (const d of r.deps) console.log(`- ${d.module}  managed=${yn(d.managed)} exported=${yn(d.exported)}${d.note ? `  ← ${d.note}` : ''}`)
   if (!r.deps.length) console.log('- (无:本模块声明为零依赖)')
