@@ -9101,6 +9101,32 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   (如 `config/third-party-provenance/specs/` 或 `docs/`)并改指;(b) 若规格确实不可考,按门要求的
   "显式 null + 说明"形态记账;(c) 调整 P5 使其接受"规格在 gitignored 区 ⇒ 必须改跟踪件"。
   我**刻意不自造一份规格文件顶上** —— 替别人的来源声明编锚点,比这道红坏得多。
+
+### 第四十九批·续十三(2026-09-25 06:3x):线上 UI 复验时抓到三件事 —— 游客无限轮询、main 上悬空的 5 个 import、以及提交链的一处盲区
+- **触发**:用户问"线上样式都加载了吗"。样式侧先用 DOM 数值证清(6 张样式表 / **1199 条规则全部解析**、
+  125 张图 0 破图、主按钮实测 `#4A7A96`+白字+6px 圆角、深色档底色 `#F5F5F5→#242424` 且主按钮按定稿**不反转**)。
+  但控制台暴露了下面三件真事 —— 只报"200 + 健康检查通过"是查不出这些的。
+- **① 游客无限轮询(已修,提交见 `use-subagent-dispatch`)**:单个空闲首页标签页 4 分钟 **230+ 条请求**,
+  `/api/subagents/active` 401 + `/api/subagents/topology` 401 + `/api/auth/refresh` 400 以 ~1.5s 一组无限重复。
+  根因是两层叠加:轮询 hook 只有 `refetchInterval` 没有登录态守卫;而 `fetchApi` 把失败**降级成空数组**
+  (那是给已登录用户用的静默降级),于是 React Query 认为本轮成功 ⇒ 永不停。
+  修法加在**取数入口**(`enabled: isAuthenticated` + `refetch()` 也收 active 参数,因为它绕过 enabled),
+  **不动 fetchApi 的降级语义**(那是另一个契约)。回归 4 例含反向对照,变异证明:摘掉守卫恰好那两条"游客"红。
+- **② main 上悬空的 5 个 import(已修)**:`pnpm --filter @ihui/web typecheck` 报 `AgentPane.tsx`
+  `Cannot find name` ×5(`resolveGoalVerificationView` / `resultToneFromGoalKind` / `GoalVerificationView` /
+  `buildHardCriteria` / `AgentVerificationSection`)。三个符号**都存在且已导出、文件都已 tracked** ——
+  丢的只是 import 行,与 §"活文档/热文件被旧基线回写吃掉几行"同型,只是这次吃的是 import。
+  Next 构建不做类型检查所以线上没红,但走到 goal 校验分支会 ReferenceError。本票只补 import,不碰该功能逻辑。
+- **③ 提交链的一处盲区(登记,未动别人的链)**:`lint-staged` 在 guardian 批量检查**之前**执行,
+  它一失败 pre-commit 就提前退出 ⇒ 没有汇总 ⇒ 归因层只能记 `unattributed`,而 safe-commit 的应急路径
+  **照样 --no-verify 落地**。结果:我自己引入的一条 `react-hooks/rules-of-hooks` 违规(测试探针里条件调 hook)
+  穿过整条链进了仓。已前向修复(eslint rc=0、用例仍 4/4),但**链的形态问题留给守门作者**:
+  "跑不完"与"跑完但红"在台账上必须可区分,且 `unattributed` 不该等同于可跳。
+- **顺带一条测量纪律(我自己又踩)**:判 `PriceChart.tsx` / `tool-category.ts` "文件不存在、未被跟踪"是错的 ——
+  当时 shell 的 cwd 还停在 `apps/web`,于是拿 `apps/web/apps/web/...` 去判。回根目录重测:三文件都存在且已跟踪。
+  这条已记在 [[feedback-resolve-paths-dont-guess]],本次是复发,**凡跨命令用相对路径前先 `pwd`**。
+  同批更正:web 全量 typecheck 还有 21 处红(`progress-sections/tool-category*` 19 处 + `PriceChart.tsx` 2 处),
+  归属 09-24 的他人提交;之所以一直没暴露,是推送门按"本次改动范围"降级 ⇒ 与本票无关,不代改。
 ### O60j 失败卡两份实现合一（任务 #10 收口），并更正我 O60i 里一句过强的话（2026-09-25 完成 ✅）
 - [x] ✅(2026-09-25) **`MessageErrorCard` 现在是失败卡的唯一实现**：`MessageItem.tsx` 的整段内联错误卡
   （标题条 / 正文 / D92 错误码行 / 建议动作 / 重试钮 / D60 草稿提示）**删掉**，改为渲染组件；
