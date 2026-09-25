@@ -305,7 +305,21 @@ function selfTest() {
     assert(mergeByAnchors(head, wt, v).lines === 0, '把刚翻勾的行又插回一遍(= 造双态行)')
   })
 
-  // ⑫ ⑪ 的对照组:状态前缀**不能**变成万能洗地通道。
+  // ⑬ ⑪ 的补刀用例:翻勾时除了换状态标记,还会加 `✅(日期)` 完成戳。
+  // 第一版 stripState 只剥前者,这条形态照样被判"真丢失" —— 同一个坑第二天又踩一次。
+  ck('⑬ 带 ✅(日期) 完成戳的翻勾行也判 superseded(第一版 stripState 漏的那一型)', () => {
+    const held = '- [ ]（进行中） **守卫票：`scripts/i18n-apply.mjs` 把未知参数当无参直接写盘**'
+    const flipped =
+      '- [x] ✅(2026-09-25) **守卫票：`scripts/i18n-apply.mjs` 把未知参数当无参直接写盘**' +
+      ' **已落地**:`--help` 只打印用法,未识别参数 exit 2,判定全在读词包之前。'
+    assert(
+      squash(flipped).includes(squash(held)) === false,
+      '本例必须"连状态前缀一起剥才成立":若整行原样互含,就测不到 ✅ 戳这一层',
+    )
+    const v = classifyMissing(['anchor', held, 'tail'], ['anchor', flipped, 'tail'])
+    assert(v.get(held) === 'superseded', `应判 superseded,实判 ${v.get(held)}`)
+  })
+  // ⑫ ⑪/⑬ 的对照组:状态前缀**不能**变成万能洗地通道。
   ck('⑫ 剥状态前缀不得替真丢失洗地(整条正文没存活的行仍判 lost)', () => {
     const gone = '- [ ]（进行中） **D99 交还前必须自行复验**:按权威入口复跑并贴末行输出,不得转述'
     const unrelated = '- [x] ✅(2026-09-25) **D98 别的条目**:已完成,与 D99 无关,只是同样带状态前缀'
