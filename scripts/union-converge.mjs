@@ -39,11 +39,17 @@
  *   node scripts/union-converge.mjs --take-ours <path> [--take-ours <path>]...
  *       # 两侧同改且**能证明对侧那一版在本树必红**时,声明该路径取本侧。
  *       #   必须逐条附取证(跑过对侧版的结果),且会出现在输出与合并提交信息里。
+ *   node scripts/union-converge.mjs --resolve '<path>=<内容文件>' [--resolve ...]
+ *       # 真三方报冲突后,**人工判完的回灌出口**(2026-09-26 立)。此前"请人工判"是一句死路:
+ *       #   工具不接收人工结果,人只能去做裸 git 手术(read-tree/commit-tree/update-ref),
+ *       #   从而绕过本工具全部断言 —— 只判不修的门逼人绕过,这条对工具自己同样成立。
+ *       # 它与 --take-ours 的区别是本条的安全前提:喂进来的**整份内容**照样跑
+ *       #   "两侧独有行重数不得减少"的断言,少哪一侧就当场 bad ⇒ 它不是选边的别名。
  *   node scripts/union-converge.mjs --self-test      # 真临时仓取证(含"选边必判失败"反向对照)
  * 退出码:0 = 无需合并或已落地且复核干净;1 = 判据不过/两侧同改冲突需人工/CAS 失败;2 = 脚本自身异常。
  */
 import { execFileSync, spawnSync } from 'node:child_process'
-import { rmSync, writeFileSync } from 'node:fs'
+import { readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { auditOne } from './check-merge-addition-loss.mjs'
@@ -269,7 +275,7 @@ export function unionLines(oursText, theirsText, baseText = null) {
  *  而且把夹具写进仓库树内还会让 git 的 toplevel 向上逃逸。
  *  返回 needHuman(冲突/二进制/取不到 mode ⇒ 交人工)与 violations(两侧同改的丢行断言),
  *  两者都在本函数里算:归并结果的内容此刻已在手上,不必再派生一次 git 去重读。 */
-export function buildUnion(base, ours, theirs, cwd = ROOT, takeOurs = new Set()) {
+export function buildUnion(base, ours, theirs, cwd = ROOT, takeOurs = new Set(), resolutions = new Map()) {
   const scratch = mkScratch('union-idx')
   const idx = join(scratch, 'index')
   try {
@@ -302,6 +308,7 @@ export function buildUnion(base, ours, theirs, cwd = ROOT, takeOurs = new Set())
     const skippedDeletes = []
     const needHuman = []
     const keptOurs = []
+    const humanResolved = []
     const violations = []
     const touchedOurs = new Set(diffNames(base, ours, cwd))
     for (const p of diffNames(base, theirs, cwd)) {
@@ -350,7 +357,42 @@ export function buildUnion(base, ours, theirs, cwd = ROOT, takeOurs = new Set())
       }
       const m = mergeThreeBlobs(baseBlob, oursBlob, theirsBlob, cwd)
       if (!m.ok) {
-        needHuman.push({ path: p, kind: m.kind, detail: m.detail })
+        // 人工判必须有**受支持的出口**(2026-09-26 立):旧写法只丢一句"请人工判",而人工判完
+        // 没有任何回灌路径 —— 于是人只能去做裸 git 手术(read-tree/commit-tree/update-ref),
+        // 绕过本工具的全部断言。"只判不修"的门逼人绕过,这条对**工具自己**同样成立。
+        // 出口是 `--resolve <path>=<文件>`:人工写好的整份内容。**但它不是选边的别名** ——
+        // 喂进去的内容照样过"两侧独有行不得减少"的断言,少了哪一侧就当场 violations。
+        const viaFile = resolutions.get(p)
+        if (!viaFile) {
+          needHuman.push({ path: p, kind: m.kind, detail: m.detail })
+          continue
+        }
+        let text = null
+        try {
+          text = readFileSync(viaFile, 'utf8')
+        } catch (e) {
+          needHuman.push({
+            path: p,
+            kind: 'resolve-unreadable',
+            detail: `--resolve 的文件读不到:${viaFile}(${String(e.message).split('\n')[0]})`,
+          })
+          continue
+        }
+        const buf = Buffer.from(text.replace(/\r\n/g, '\n'), 'utf8')
+        const oid = writeBlob(buf, p, cwd)
+        if (oid !== oursBlob)
+          run(['update-index', '--add', '--cacheinfo', `${mode},${oid},${p}`])
+        mergedClean.push(p)
+        humanResolved.push(p)
+        const [baseText, oursText, theirsText] = [
+          blobText(baseBlob, cwd),
+          blobText(oursBlob, cwd),
+          blobText(theirsBlob, cwd),
+        ]
+        for (const l of lostAddedLines(baseText, oursText, theirsText, text))
+          violations.push(`${p} 人工归并结果丢本侧独有行:${l.slice(0, 60)}`)
+        for (const l of lostAddedLines(baseText, theirsText, oursText, text))
+          violations.push(`${p} 人工归并结果丢对侧独有行:${l.slice(0, 60)}`)
         continue
       }
       const oid = writeBlob(m.buf, p, cwd)
@@ -375,6 +417,7 @@ export function buildUnion(base, ours, theirs, cwd = ROOT, takeOurs = new Set())
       skippedDeletes,
       needHuman,
       keptOurs,
+      humanResolved,
       violations,
     }
   } finally {
@@ -514,9 +557,9 @@ function isAncestor(a, b, cwd) {
   )
 }
 
-export function plan(ours, theirs, cwd = ROOT, takeOurs = new Set()) {
+export function plan(ours, theirs, cwd = ROOT, takeOurs = new Set(), resolutions = new Map()) {
   const base = git(['merge-base', ours, theirs], cwd)
-  const built = buildUnion(base, ours, theirs, cwd, takeOurs)
+  const built = buildUnion(base, ours, theirs, cwd, takeOurs, resolutions)
   // needHuman 同时进 bad:任何只看 bad 的调用方(含 git-sync-converge 之外的使用者)都不可能
   //   把一枚含冲突文件的树落地。冲突详情仍单独留清单,报告要点名到"是哪个文件"。
   const blocked = built.needHuman.map((h) => `${h.path} 需人工判(${h.kind}):${h.detail}`)
@@ -735,6 +778,37 @@ function selfTest() {
         show(q.tree, 'PROJECT_PLAN.md', d2).includes('theirs-line'),
       )
       ok('无丢行违规(干净三方那一个文件)', q.violations.length === 0, JSON.stringify(q.violations))
+
+      // —— --resolve:人工判完的回灌出口必须**不是**选边的别名 ——
+      const rfBoth = join(d2, '.resolve-both.txt')
+      writeFileSync(rfBoth, 'x1\nOURS\nTHEIRS\nx3\n', 'utf8')
+      const qr = plan(o2, t2, d2, new Set(), new Map([['clash.ts', rfBoth]]))
+      ok(
+        '--resolve 含两侧独有行 ⇒ 冲突消失、进 mergedClean、落地闸过',
+        !qr.needHuman.some((h) => h.path === 'clash.ts') &&
+          qr.humanResolved.includes('clash.ts') &&
+          !qr.bad.some((b) => b.includes('clash.ts')),
+        JSON.stringify([qr.needHuman.map((h) => h.path), qr.humanResolved, qr.bad]),
+      )
+      ok(
+        '--resolve 的落树内容 == 人工那份(不是本侧、也不是对侧)',
+        show(qr.tree, 'clash.ts', d2) === 'x1\nOURS\nTHEIRS\nx3',
+        show(qr.tree, 'clash.ts', d2).replace(/\n/g, '|'),
+      )
+      const rfOursOnly = join(d2, '.resolve-ours.txt')
+      writeFileSync(rfOursOnly, 'x1\nOURS\nx3\n', 'utf8')
+      const qo = plan(o2, t2, d2, new Set(), new Map([['clash.ts', rfOursOnly]]))
+      ok(
+        '反向锁:--resolve 只放本侧内容 ⇒ 判"丢对侧独有行"并进 bad(否则它就是选边后门)',
+        qo.bad.some((b) => b.includes('clash.ts') && /对侧独有行/.test(b)),
+        qo.bad.slice(0, 3).join(' / '),
+      )
+      const qb = plan(o2, t2, d2, new Set(), new Map([['clash.ts', join(d2, 'no-such-file.txt')]]))
+      ok(
+        '--resolve 指向读不到的文件 ⇒ 仍落 needHuman 并点名原因(不静默按本侧落地)',
+        qb.needHuman.some((h) => h.path === 'clash.ts' && h.kind === 'resolve-unreadable'),
+        JSON.stringify(qb.needHuman.map((h) => [h.path, h.kind])),
+      )
     } finally {
       rmScratch(d2)
     }
@@ -875,12 +949,25 @@ async function main() {
   const takeOurs = new Set()
   for (let i = 0; i < argv.length; i++)
     if (argv[i] === '--take-ours' && argv[i + 1]) takeOurs.add(argv[++i])
+  // --resolve <path>=<文件>(可重复):人工判完冲突后的**回灌出口**。与 --take-ours 的关键区别:
+  //   它不选边 —— 喂进来的整份内容照样过"两侧独有行不得减少"的断言,少哪一侧当场 violations。
+  const resolutions = new Map()
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    if (a !== '--resolve' || !argv[i + 1]) continue
+    const eq = argv[++i].indexOf('=')
+    if (eq <= 0) {
+      console.log(`❌ --resolve 需要 <path>=<内容文件>,得到的是:${argv[i]}`)
+      process.exit(2)
+    }
+    resolutions.set(argv[i].slice(0, eq), argv[i].slice(eq + 1))
+  }
   const t = resolveTargets(ti >= 0 ? argv[ti + 1] : '')
   if (t.skip) {
     console.log(`[union-converge] ${t.skip} ⇒ 无需合并`)
     process.exit(0)
   }
-  const p = plan(t.head, t.theirs, ROOT, takeOurs)
+  const p = plan(t.head, t.theirs, ROOT, takeOurs, resolutions)
   console.log(
     `[union-converge] ${apply ? 'APPLY' : 'CHECK ONLY'} base=${p.base.slice(0, 11)} ours=${t.head.slice(0, 11)} theirs=${t.theirs.slice(0, 11)} / 取对侧 ${p.tookTheirs.length} 路径 / 两侧同改三方归并 ${p.mergedClean.length} / 需人工 ${p.needHuman.length} / 对侧删除不传播 ${p.skippedDeletes.length} / 活文档行 union`,
   )
@@ -896,7 +983,14 @@ async function main() {
         '    不判顺序与语义交织 —— 真三方把两侧改动接到不同位置时顺序本就会变,这属局限而非已验证正确)',
     )
   for (const h of p.needHuman)
-    console.log(`  ❌ ${h.path} —— ${h.kind}:${h.detail}(本工具不猜、不选边,请人工判这一个文件)`)
+    console.log(
+      `  ❌ ${h.path} —— ${h.kind}:${h.detail}(本工具不猜、不选边,请人工判这一个文件;` +
+        `判好后用 --resolve '${h.path}=<整份内容文件>' 回灌,它会替你的判断做两侧丢行断言)`,
+    )
+  for (const r of p.humanResolved || [])
+    console.log(
+      `  · 人工归并已回灌:${r}(内容取自 --resolve;两侧独有行丢行断言已在这份内容上跑过,未过即 bad)`,
+    )
   if (p.bad.length) {
     console.log(`❌ 落地闸不过 ${p.bad.length} 处:`)
     for (const b of p.bad.slice(0, 15)) console.log(`   ${b}`)
@@ -906,7 +1000,12 @@ async function main() {
     console.log('  未落地(加 --apply 才建合并提交;本工具从不 checkout、不碰共享工作区)')
     process.exit(0)
   }
-  const msg = `Merge ${t.theirs} into ${t.head} —— 文件面零丢失 union(本侧整棵树 ∪ 对侧自身改动 ∪ 两侧同改三方归并 ∪ 活文档行 union)`
+  const msg =
+    `Merge ${t.theirs} into ${t.head} —— 文件面零丢失 union(本侧整棵树 ∪ 对侧自身改动 ∪ 两侧同改三方归并 ∪ 活文档行 union)` +
+    (p.humanResolved?.length
+      ? `;人工归并回灌(已过两侧丢行断言): ${p.humanResolved.join(' ')}`
+      : '') +
+    (p.keptOurs?.length ? `;取本侧(已声明+可复核): ${p.keptOurs.join(' ')}` : '')
   const sha = git(['commit-tree', p.tree, '-p', t.head, '-p', t.theirs, '-m', msg])
   const cas = spawnSync(
     GIT,
