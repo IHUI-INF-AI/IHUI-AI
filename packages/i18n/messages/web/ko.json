@@ -18241,6 +18241,7 @@
     "advancedAiTools": "고급 AI 도구",
     "mediaTasks": "미디어 작업",
     "webTools": "웹 도구",
+    "figmaImport": "디자인 변환",
     "voices": "음성 라이브러리",
     "agentGovernance": "Agent Token 거버넌스",
     "agentWorkbench": "에이전트 워크벤치",
@@ -25187,6 +25188,23 @@
     "deleteConfirm": "이 음성을 삭제하시겠습니까? 삭제 후에는 클론 TTS에 사용할 수 없습니다.",
     "refresh": "새로고침",
     "notFound": "음성을 찾을 수 없습니다"
+  },
+  "figmaImportPage": {
+    "title": "디자인 변환",
+    "subtitle": "Figma fileKey와 노드 ID를 붙여넣어 실행 가능한 프런트엔드 컴포넌트 코드(React+Tailwind / Taro)를 생성합니다.",
+    "targetReact": "React + Tailwind",
+    "targetTaro": "Taro 미니프로그램",
+    "fileKeyPlaceholder": "Figma fileKey (예: a1b2c3...)",
+    "nodeIdPlaceholder": "노드 ID (예: 1:2 — Frame 선택 후 링크 복사)",
+    "run": "코드 생성",
+    "running": "생성 중...",
+    "tokenHint": "서버에 FIGMA_API_TOKEN 설정이 필요합니다. LLM 생성 실패 시 결정론적 HTML 스켈레톤으로 자동 강등됩니다.",
+    "errorRequired": "fileKey와 노드 ID를 모두 입력하세요",
+    "resultTitle": "생성 결과",
+    "copy": "코드 복사",
+    "copied": "복사됨",
+    "degradedNotice": "LLM 생성에 실패하여 결정론적 HTML 스켈레톤으로 강등되었습니다(그대로 사용 가능).",
+    "metaNodes": "노드 {nodes}개 · 텍스트 {texts}곳 · 이미지 참조 {images}곳"
   },
   "webToolsPage": {
     "title": "웹 도구",
