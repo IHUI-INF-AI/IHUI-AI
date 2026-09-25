@@ -1208,24 +1208,27 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
   // ----- Composition signup 报名 -----
   //
-  // 整个报名域的归属判据共用同一条**实测结论**(不得在此之外的分支重新假设):
-  //   exam_sign_up.member_id 是 integer 且无外键(schema/relation-tables.ts:60-64,旧 Java 遗留
-  //   ID 空间);request.userId 是 users.id = uuid(schema/users.ts:45-48);edu_members.id 同样是
-  //   uuid(schema/member.ts:72-75)。三套 ID 空间互不相通,**服务端可推导的映射不存在**,
-  //   故一律 fail-closed 到管理员档(非管理员 403 / 管理员须显式给参数),不得猜、不得用
-  //   sql`TRUE` 兜底、不得 Number(userId)(uuid 恒为 NaN)。
-  //   唯一像"映射"的东西是 users.phone ↔ edu_members.mobile(edu-full.ts:54-64 的 edu_user 也只有
-  //   serial 主键 + mobile,**没有任何一列指向 users.id**)—— 按手机号匹配是启发式猜测而非归属证明:
-  //   两侧都无唯一约束保证一一对应(users.phone 可空,edu_members.mobile 长度 30 且无唯一索引),
-  //   一次串号即把他人报名面整体交出去。所以本域**不接受**用手机号打通归属。
-  //   对照:同文件的错题本面是真成立的 —— exam_wrong_question.user_id 本身就是 uuid
-  //   (schema/exam-extended.ts:95-96)且由 request.userId 直接写入,故 eq(userId, request.userId)
-  //   可证归属(见下方 /exam/wrong/*)。两域**不可类比**:报名用的是遗留整数 ID。
+  // 整个报名域的归属判据共用同一条结论(不得在此之外的分支重新假设):
+  //   exam_sign_up.member_id 是 integer 且无外键(schema/relation-tables.ts,旧 Java 遗留
+  //   ID 空间);request.userId 是 users.id = uuid(schema/users.ts)。两套 ID 空间互不相通,
+  //   服务端可推导的映射不存在 —— 前序票(2026-09-25)据此把本域 7 处闸门全部 fail-close
+  //   到管理员档。
+  //   **2026-09-25 起归属列已落地**(迁移 20260925100000_exam_sign_up_owner_uuid):
+  //   exam_sign_up.user_id uuid 可空、指向 users.id。闸门从 fail-close 换成**按归属放行**:
+  //   归属可证的行(user_id = request.userId,服务端写入)本人可读写;
+  //   **NULL 归属行(建列前的历史存量)仍 fail-close** —— 归属未知 ≠ 归属成立,
+  //   只走管理员显式 memberId 路径,禁止 `IS NULL OR =` 一并放行。
+  //   历史行**禁止回填**(按手机号/姓名回填 = 制造假归属;users.phone ↔ edu_members.mobile
+  //   两侧都无唯一约束,一次串号即把他人报名面整体交出去,前序票已实测并否证)。
+  //   member_id 列保留 notNull(历史兼容):新报名(member 自助)写 memberId=0(无遗留会员
+  //   关联,归属由 user_id 承载);管理员代建仍写显式 memberId 且不写 user_id(归属未知)。
+  //   对照:同文件的错题本面同判据(exam_wrong_question.user_id 本身就是 uuid,直接 eq)。
   //
-  // GET /exam/composition/signup/list - 报名列表
+  // GET /exam/composition/signup/list - 报名列表(管理查询面,保持管理员档)
   // P0 收口(2026-09-25,数据泄露):原实现只有 checkAuth,且不传 memberId 时 where 退化成
-  // sql`TRUE` ⇒ 任何登录用户都能翻全表。现与 GET /signup/my 同口径(见上方实测结论):
-  // 非管理员 403;管理员**也必须**显式给 memberId。
+  // sql`TRUE` ⇒ 任何登录用户都能翻全表。C 方案(2026-09-25)落地后本端点**仍保持管理员档**:
+  // 它是"按 member_id 查任意会员"的管理查询面,归属放行语义(只看自己的)不适用于它 ——
+  // 会员自助面由 GET /signup/my 承载。管理员也必须显式给 memberId。
   // 为什么选"必须带 memberId"而不是给管理员开一条"我要看全表"的语义:
   //   ① 全仓零调用方(grep `composition/signup/list` 只命中本文件 ⇒ 没有任何 UI 依赖无界读数),
   //      在无 caller 的情况下新增"管理员无界导出整表 PII"属新能力(AGENTS §24),不在本票范围;
@@ -1286,25 +1289,47 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       .parse(request.query)
     // P0 修复(2026-09-25,数据泄露):原 `memberId || Number(request.userId) || 0` 对
     // UUID 恒返回 NaN ⇒ NaN || 0 = 0 ⇒ where 退化成 sql`TRUE` ⇒ 凡请求不带 memberId,本端点
-    // 就把 exam_sign_up **整表**(所有用户的报名)返回给调用者。同型缺陷本仓已按 P0 修过两处,
-    // 此处照抄其范式而非另立一套:
-    //   - routes/tasks.ts:270                原 Number(userId) 使全用户写进同一 Redis key,「严重数据泄露 + 串台」
-    //   - routes/admin-auth-edu-routes.ts:1061  补 Zod 校验,拒绝把 userId 猜成数字
-    // 为什么这里**不能**"从已认证用户推断 memberId"(实测结论,非推测):
-    //   examSignUp.memberId 是 integer 且无外键(schema/relation-tables.ts:64 +
-    //   drizzle/0055_remaining_11_tables.sql:136,旧 Java 系统遗留 ID 空间);request.userId 是
-    //   users.id = uuid(schema/users.ts:48);edu_members.id 同样是 uuid(schema/member.ts:72)。
-    //   三套 ID 空间互不相通,users 表没有任何一列、全仓也没有任何映射表能把当前登录人换算成
-    //   整数 member_id ⇒ **服务端可推导的映射不存在**,故 fail-closed:非管理员一律 403(结构上
-    //   无法证明 memberId 属于调用者),管理员也必须显式给 memberId 否则 400。
+    // 就把 exam_sign_up **整表**(所有用户的报名)返回给调用者。
+    // C 方案(2026-09-25,本票):exam_sign_up.user_id 归属列已落地(迁移 20260925100000),
+    // 会员档从 fail-close 换成**按归属放行**:
+    //   非管理员 ⇒ where = eq(examSignUp.userId, request.userId),只回本人报名。
+    //   **NULL 归属行不放行** —— 归属未知 ≠ 归属成立,eq 对 NULL 行天然不命中,
+    //   不得写成 `IS NULL OR =` 一并放行(那会把历史无主行整体交给任意登录用户)。
+    //   member 自报的 memberId 参数对非管理员**无效**(参数不能代替归属)。
+    //   管理员档不变:必须显式 memberId 否则 400(按遗留 member_id 查任意会员的管理面)。
     //   绝不保留"缺参数即查全表"这条兜底。
     if (!isSystemAdmin(request, { includeInternalChannel: false })) {
-      return reply
-        .status(403)
-        .send(error(403, '无权查看考试报名记录:登录身份与报名表 member_id 之间无映射可校验归属'))
+      const where = eq(examSignUp.userId, request.userId!)
+      const list = await db
+        .select()
+        .from(examSignUp)
+        .where(where)
+        .orderBy(desc(examSignUp.createdAt))
+        .limit(Number(pageSize))
+        .offset((Number(page) - 1) * Number(pageSize))
+      const totalRows = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(examSignUp)
+        .where(where)
+      // 响应: PageData<ExamSignUp> 扁平形状(与前端 api-client getMySignUps 契约一致)
+      const flatList = list.map((s) => ({
+        id: String(s.id),
+        examId: String(s.examId),
+        userId: String(s.memberId),
+        status: s.status,
+        signedAt: s.createdAt.toISOString(),
+      }))
+      return reply.send(
+        success({
+          list: flatList,
+          total: Number(totalRows[0]?.count ?? 0),
+          page: Number(page),
+          pageSize: Number(pageSize),
+        }),
+      )
     }
     if (memberId === undefined) {
-      return reply.status(400).send(error(400, '缺少 memberId:无法从登录身份推断'))
+      return reply.status(400).send(error(400, '缺少 memberId:管理员按遗留会员编号查询必须显式给参'))
     }
     const where = eq(examSignUp.memberId, memberId)
     const list = await db
@@ -1339,23 +1364,23 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // GET /exam/composition/signup/:sid - 报名详情
   // P0 收口(2026-09-25,越权读取):原实现拿到 sid 就按主键查,**没有任何归属校验** ⇒ 任意登录
   // 用户可用 sid 递增枚举他人报名详情(examId / member_id / status / completedTime)。
-  // 为什么这里只能"要求管理员档"而不能校验归属:sid 是 exam_sign_up.id(serial),从 sid 出发
-  // 能拿到的唯一归属线索就是那一行的 member_id(integer),而它与调用者的 users.id(uuid)
-  // 之间无映射可换算(依据见本域顶部实测结论)—— 于是"是不是本人的"这条判据在服务端**根本
-  // 无法求值**。不能求值的判据不得假装存在(否则就是一个恒真的授权门),故:
-  // **本路由对普通会员不可用**,只有管理员档可读写任意 sid。
+  // C 方案(2026-09-25,本票):user_id 归属列落地,闸门从"仅管理员"换成**按归属放行**:
+  //   非管理员 ⇒ where 必须**同时**含 eq(id, sid) 与 eq(user_id, request.userId),AND 而非择一;
+  //   不满足(含 NULL 归属的历史行)⇒ 404(不披露存在性)。
+  //   管理员档不变:按 sid 读任意行。
   server.get('/exam/composition/signup/:sid', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
-    if (!isSystemAdmin(request, { includeInternalChannel: false })) {
-      return reply
-        .status(403)
-        .send(error(403, '无权查看该报名详情:无法由登录身份校验该记录归属,仅管理员可按 sid 读取'))
-    }
     const { sid } = sidParam.parse(request.params)
+    // conditions[0] 恒为 id 约束;非管理员追加归属约束 ⇒ where 结构上不可能无归属全表读
+    const conditions = [eq(examSignUp.id, Number(sid))]
+    if (!isSystemAdmin(request, { includeInternalChannel: false })) {
+      // NULL 归属行在此天然不命中(eq 对 NULL 为假),继续只走管理员显式路径
+      conditions.push(eq(examSignUp.userId, request.userId!))
+    }
     const result = await db
       .select()
       .from(examSignUp)
-      .where(eq(examSignUp.id, Number(sid)))
+      .where(and(...conditions))
       .limit(1)
     if (!result[0]) return reply.status(404).send(error(404, '报名记录不存在'))
     return reply.send(success({ signup: result[0] }))
@@ -1366,6 +1391,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // 响应: 扁平 ExamSignUp,匹配前端 api-client ExamSignUp
   server.post('/exam/composition/signup', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
+    const isAdmin = isSystemAdmin(request, { includeInternalChannel: false })
     const body = z
       .object({
         eid: z.union([z.number().int(), z.string()]).optional(),
@@ -1375,9 +1401,8 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       })
       .transform((b) => ({
         examId: b.examId ?? (typeof b.eid === 'number' ? b.eid : Number(b.eid)),
-        // 注意:此处不得"从 auth 取"memberId —— users.id 是 uuid 而 member_id 是旧系统整数,
-        // 三者(users.id / edu_members.id / exam_sign_up.member_id)无映射可用,详见
-        // GET /exam/composition/signup/my 上方的 P0 修复注释。0 = 调用方未提供,由下方 400 拦下。
+        // 非管理员路径忽略此值:自报的 memberId 不构成归属凭据(可伪造他人数据);
+        // 管理员代建路径才消费它(管理员档 = 显式声明替哪个遗留会员建)。
         memberId: b.memberId ?? 0,
         status: b.status,
       }))
@@ -1385,15 +1410,38 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
     if (!Number.isFinite(body.examId)) {
       return reply.status(400).send(error(400, '无效的考试 ID'))
     }
-    // P0 修复(2026-09-25):原 `body.memberId || Number(request.userId) || 0` 同型失效
-    // (Number(uuid)=NaN),而 body.memberId 由调用方**自报** ⇒ 任何登录用户都能把报名写到
-    // 他人的 member_id 下(自报字段当归属凭据 = 可伪造他人数据)。无映射可校验归属,故与 GET
-    // /signup/my 同样 fail-closed 到管理员;范式同 routes/tasks.ts:270。
-    if (!isSystemAdmin(request, { includeInternalChannel: false })) {
-      return reply
-        .status(403)
-        .send(error(403, '无权代他人创建报名:登录身份与报名表 member_id 之间无映射可校验归属'))
+    // C 方案(2026-09-25,本票):user_id 归属列落地,会员自助报名从 fail-close 放开。
+    //   归属由**服务端**按 request.userId 写入(与 skills.ts resolveServerAuthor 同姿态),
+    //   不接受请求体自报 userId/memberId —— 自报字段当归属凭据 = 可伪造他人数据
+    //   (P0 修复前的缺陷形态,前序票 2026-09-25 已收口)。
+    //   memberId=0:会员无法自证遗留会员编号,0 = "无遗留会员关联,归属由 user_id 承载"
+    //   (列保留 notNull 是历史兼容,0 是显式哨兵值,admin 按 memberId=0 可圈出新报名)。
+    //   status 由服务端钉成 'pending':自报 status 同样不构成事实(报名从待确认起步)。
+    if (!isAdmin) {
+      const [created] = await db
+        .insert(examSignUp)
+        .values({
+          memberId: 0,
+          examId: body.examId,
+          userId: request.userId!,
+          status: 'pending',
+        })
+        .returning()
+      if (!created) {
+        return reply.status(500).send(error(500, '创建报名失败'))
+      }
+      // 响应: 扁平 ExamSignUp 形状
+      const result = {
+        id: String(created.id),
+        examId: String(created.examId),
+        userId: String(created.memberId),
+        status: created.status,
+        signedAt: created.createdAt.toISOString(),
+      }
+      return reply.status(201).send(success(result))
     }
+    // 管理员代建档(不变):显式 memberId 必填;user_id 不写 —— 管理员不知道目标用户的
+    // uuid,写管理员自己的 id 会制造假归属,留 NULL 让该行继续只走管理员路径。
     if (!Number.isInteger(body.memberId) || body.memberId <= 0) {
       return reply.status(400).send(error(400, '无效的 memberId'))
     }
@@ -1422,15 +1470,12 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
   // PUT /exam/composition/signup/:sid - 修改报名
   // P0 收口(2026-09-25,越权写入):原实现按 sid 直接 UPDATE,无归属校验 ⇒ 任意登录用户可改
-  // 他人报名状态/交卷时间(改 status 即等价篡改他人考试结果)。判据与 GET /signup/:sid 同源:
-  // 归属在服务端无法求值(本域顶部实测结论),故**仅管理员档可写**,普通会员此路由不可用。
+  // 他人报名状态/交卷时间(改 status 即等价篡改他人考试结果)。
+  // C 方案(2026-09-25,本票):user_id 归属列落地,非管理员按**归属 AND 条件**放行:
+  //   where 必须**同时**含 eq(id, sid) 与 eq(user_id, request.userId);不满足(含 NULL 归属
+  //   历史行)⇒ 404。管理员档不变(按 sid 改任意行)。
   server.put('/exam/composition/signup/:sid', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
-    if (!isSystemAdmin(request, { includeInternalChannel: false })) {
-      return reply
-        .status(403)
-        .send(error(403, '无权修改该报名:无法由登录身份校验该记录归属,仅管理员可改'))
-    }
     const { sid } = sidParam.parse(request.params)
     const body = z
       .object({
@@ -1438,6 +1483,10 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
         completedTime: z.iso.datetime().optional(),
       })
       .parse(request.body)
+    const conditions = [eq(examSignUp.id, Number(sid))]
+    if (!isSystemAdmin(request, { includeInternalChannel: false })) {
+      conditions.push(eq(examSignUp.userId, request.userId!))
+    }
     const [updated] = await db
       .update(examSignUp)
       .set({
@@ -1445,7 +1494,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
         ...(body.completedTime !== undefined && { completedTime: new Date(body.completedTime) }),
         updatedAt: new Date(),
       })
-      .where(eq(examSignUp.id, Number(sid)))
+      .where(and(...conditions))
       .returning()
     if (!updated) return reply.status(404).send(error(404, '报名记录不存在'))
     return reply.send(success({ signup: updated }))
@@ -1453,48 +1502,46 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /exam/composition/signup/:sid - 删除报名
   // P0 收口(2026-09-25,越权删除):原实现按 sid 直接 DELETE 且**不校验影响行数** ⇒ 任意登录
-  // 用户可按 sid 抹掉他人报名(且删不中也不报错,是一个静默的破坏面)。判据同上:仅管理员档。
+  // 用户可按 sid 抹掉他人报名(且删不中也不报错,是一个静默的破坏面)。
+  // C 方案(2026-09-25,本票):user_id 归属列落地,非管理员按**归属 AND 条件**放行:
+  //   where 必须**同时**含 eq(id, sid) 与 eq(user_id, request.userId);不满足(含 NULL 归属
+  //   历史行)⇒ 404。管理员档不变。改用 .returning() 校验影响行数,静默删除面一并收掉。
   server.delete('/exam/composition/signup/:sid', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
-    if (!isSystemAdmin(request, { includeInternalChannel: false })) {
-      return reply
-        .status(403)
-        .send(error(403, '无权删除该报名:无法由登录身份校验该记录归属,仅管理员可删'))
-    }
     const { sid } = sidParam.parse(request.params)
-    await db.delete(examSignUp).where(eq(examSignUp.id, Number(sid)))
+    const conditions = [eq(examSignUp.id, Number(sid))]
+    if (!isSystemAdmin(request, { includeInternalChannel: false })) {
+      conditions.push(eq(examSignUp.userId, request.userId!))
+    }
+    const deleted = await db
+      .delete(examSignUp)
+      .where(and(...conditions))
+      .returning()
+    if (!deleted || deleted.length === 0) {
+      return reply.status(404).send(error(404, '报名记录不存在'))
+    }
     return reply.send(success({ ok: true }))
   })
 
   // POST /exam/composition/signup/:sid/submit - 提交答卷
-  // 已收口(2026-09-25):判据与 GET / PUT / DELETE /signup/:sid 三条同源同形 —— 先鉴权
-  // (checkAuth ⇒ 401)、再授权(isSystemAdmin ⇒ 403)、再校参数(sidParam)、最后动作。
-  // 收口前该 handler 只有 checkAuth + sidParam.parse,.where(eq(examSignUp.id, Number(sid)))
-  // 不含任何归属条件 ⇒ 任意登录用户可按 sid 把**他人**报名标为 completed(篡改他人考试结果)。
-  //
-  // ① 现状与代价(如实登记,不含糊):普通会员的"提交答卷"**自助流在本域结构性不可用**,
-  //    与 /signup/my、GET/POST/PUT/DELETE /signup* 同因 —— 本域顶部实测结论证明
-  //    uuid(request.userId)→ member_id(integer、无外键)的可推导映射不存在,
-  //    于是"这条 sid 是不是你的"在服务端根本无法求值。不能求值的判据不得假装存在。
-  //    顺带纠正上一条注释里的一处未取证断言:它称"上面三条全仓零自助调用方"而 submit 不同;
-  //    本次实测 submit 同样零调用方 —— grep 全仓(含 packages/api-client 源码与 dist)只有
-  //    本文件的定义处,api-client 只暴露 GET/PUT/DELETE /:sid 与 POST /signup(exam.ts:168-188)。
-  //    所以这次收口砍掉的是一条**无人调用**的敞口,不是砍掉一条在用的功能。
-  // ② 解阻判据(归属列落地后按此替换,不得另立):给 exam_sign_up 增加一个指向 users.id 的
-  //    uuid 归属列(或建映射表)之后,把上面的 isSystemAdmin 闸门换成**按归属放行** ——
-  //    where 必须同时含 `eq(examSignUp.id, Number(sid))` 与 `eq(<归属列>, request.userId)`,
-  //    两者是 AND 而非择一;届时历史 NULL 归属行(建列前的存量)仍**只走管理员路径**
-  //    (归属未知 ≠ 归属成立),不得用 `IS NULL OR =` 一并放行。
-  // ③ 这一层只是"把敞口变成显性限制",**不是把功能做完**:自助提交仍未接通,
-  //    做没做完由 ② 的归属列是否存在决定,不由这段注释决定。
+  // 已收口(2026-09-25,P0):原 handler 只有 checkAuth + sidParam.parse,
+  // .where(eq(examSignUp.id, Number(sid))) 不含任何归属条件 ⇒ 任意登录用户可按 sid 把
+  // **他人**报名标为 completed(篡改他人考试结果)。
+  // C 方案(2026-09-25,本票 = 前序票注释里预留的解阻判据②,已兑现):exam_sign_up.user_id
+  // 归属列落地(迁移 20260925100000),闸门从"仅管理员"换成**按归属放行**:
+  //   非管理员 ⇒ where 必须**同时**含 `eq(examSignUp.id, Number(sid))` 与
+  //   `eq(examSignUp.userId, request.userId)`,两者是 AND 而非择一;
+  //   历史 NULL 归属行(建列前的存量)仍**只走管理员路径**(归属未知 ≠ 归属成立),
+  //   不得用 `IS NULL OR =` 一并放行 —— NULL 行在 eq 条件下天然不命中 ⇒ 404。
+  // 鉴权顺序铁律(§5):先鉴权(checkAuth ⇒ 401)→ 再授权(归属条件进 where)→ 再校参数
+  // (sidParam)→ 最后动作(UPDATE)。
   server.post('/exam/composition/signup/:sid/submit', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
-    if (!isSystemAdmin(request, { includeInternalChannel: false })) {
-      return reply
-        .status(403)
-        .send(error(403, '无权提交该答卷:无法由登录身份校验该报名归属,仅管理员可按 sid 提交'))
-    }
     const { sid } = sidParam.parse(request.params)
+    const conditions = [eq(examSignUp.id, Number(sid))]
+    if (!isSystemAdmin(request, { includeInternalChannel: false })) {
+      conditions.push(eq(examSignUp.userId, request.userId!))
+    }
     const [updated] = await db
       .update(examSignUp)
       .set({
@@ -1502,7 +1549,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
         completedTime: new Date(),
         updatedAt: new Date(),
       })
-      .where(eq(examSignUp.id, Number(sid)))
+      .where(and(...conditions))
       .returning()
     if (!updated) return reply.status(404).send(error(404, '报名记录不存在'))
     return reply.send(success({ signup: updated }))
