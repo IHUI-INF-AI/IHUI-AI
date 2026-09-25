@@ -48,6 +48,19 @@ export const ask_user_question: Tool = {
   name: 'ask_user_question',
   description: '向用户提问以获取决策(单选/多选)。参数:question(问题文本),header(简短标签,可选),multiSelect(是否多选,默认 false),options(选项数组,每项含 label + description)。REPL 模式弹 inquirer 选择;headless 模式拒绝并返回错误。适用于:在多路径方案中让用户决定、确认 destructive 操作的细节、获取缺失的配置参数。',
   dangerLevel: 'read',
+  /**
+   * 结构性声明(不是豁免账):本工具的全部工作就是**等人回答**,墙钟打断它等于
+   * "用户还没想完,系统替他选了失败"。headless 分支在进 prompt 之前就已返回,不占用这一档。
+   *
+   * 用 `notInterruptible` 而不是 `*-exempt:` 注释,是刻意的两件事:
+   * ① 守门 108 管的是"带到期日的豁免账",而这一条是**结构性定性**(位置性质不随时间改变),
+   *    给它挂到期日只会逼人删标记、删了又被预算门判红(两道门互咬);
+   * ② 理由写在数据里而不是注释里 —— 注释能被下一次编辑顺手带走,字段不能,且缺 reason 直接不合法。
+   */
+  execBudget: {
+    notInterruptible: true,
+    reason: 'Waits for a human answer at the inquirer prompt; a wall-clock abort would answer on their behalf.',
+  },
   parameters: {
     question: { type: 'string', description: '问题文本' },
     header: { type: 'string', description: '简短标签(最多 12 字符,如 "Auth method")' },
