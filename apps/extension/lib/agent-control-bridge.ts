@@ -23,8 +23,10 @@ import type {
   AgentActionResponse,
   AgentControlCapability,
   BrowserControlActionType,
+  BrowserPageControlActionType,
   ExtUiActionType,
 } from '@ihui/types'
+import { PAGE_ACTIONS } from '@ihui/dom-actions'
 import { getToken } from './token'
 import { getBridgeBaseUrl } from './config'
 import { dispatchAgentActionRequest } from './ext-ui-forwarder'
@@ -62,6 +64,24 @@ const EXT_UI_VERBS: ExtUiActionType[] = EXT_UI_CONTROL_TOOLS.map((tool) =>
   tool.replace(/^ext_ui_/, ''),
 ) as ExtUiActionType[]
 
+/**
+ * 句柄族(页内语义快照)能力上报(2026-09-25 登记)。
+ *
+ * 这一族本端**早就真能执行**了 —— `executeAgentActionRequest` 的 `isDomAction(action)`
+ * 分支(`@ihui/dom-actions` 的 `DOM_ACTIONS` 已并入七个 `page_*` 动词)会把它们转发给
+ * content script 的 `executeDomAction`。缺的只是"说了自己能做":能力申报是
+ * `GET /api/agent-control/status` 上唯一的机器可读出口(`browserActions: …?.length ?? 0`
+ * 那一组计数),不申报就等于对外宣称"本端只会那 12 个选择器动词"。
+ * 边界如实说明:ai-service 的自主注入(`control_autonomy.py`)只读 `endpoint` 字段决定注入
+ * 哪一族**应用内 UI** 工具,既不读动作计数也不注入 browser 族 —— 本条登记不改变它的行为,
+ * "让模型自主拿到 page_* 工具"属新增对外能力面,须另立票。
+ *
+ * 刻意**从 `PAGE_ACTIONS` 派生而非手抄第二份清单**,并把它赋给契约侧的
+ * `BrowserPageControlActionType[]`:共享包加一条动词而契约没跟上 → TS2322;契约加了而
+ * 共享包没有 → 同样 TS2322。两个方向都由编译器看守,与 `AgentActionErrorCode` 同一套路。
+ */
+const BROWSER_PAGE_ACTIONS: BrowserPageControlActionType[] = [...PAGE_ACTIONS]
+
 let bridgeInitialized = false
 
 /** requestId 去重集,防止 WS 重连后重复推送相同 lastMessage 导致同一 DOM 操作执行两次(与 desktop hook 一致) */
@@ -95,6 +115,7 @@ function buildCapability(): AgentControlCapability {
     endpoint: 'extension',
     instanceId: `ext-${chrome.runtime.id}`,
     browserActions: BROWSER_ACTIONS,
+    browserPageActions: BROWSER_PAGE_ACTIONS,
     computerActions: [],
     extUiActions: [...EXT_UI_VERBS],
     version: VERSION,

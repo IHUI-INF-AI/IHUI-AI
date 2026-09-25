@@ -70,6 +70,8 @@ interface CapabilityBody {
   endpoint: string
   instanceId: string
   browserActions?: string[]
+  /** 句柄族(页内快照)动词的申报栏(2026-09-25 登记,㉕ 按此断言) */
+  browserPageActions?: string[]
   computerActions?: string[]
   uiActions?: string[]
   appUiActions?: string[]
@@ -97,6 +99,8 @@ interface StatusEndpoint {
   version?: string
   lastSeen: string
   browserActions: number
+  /** 句柄族与选择器族分栏计数,两者不得互串(㉕) */
+  browserPageActions: number
   computerActions: number
   uiActions: number
   appUiActions: number
@@ -861,6 +865,37 @@ describe('agent-control ui category — /api/agent-control/*', () => {
     const rows = (st.json() as { data?: { endpoints?: StatusEndpoint[] } }).data?.endpoints ?? []
     const ext = rows.find((r) => r.instanceId === 'ext-s')
     expect(ext?.extUiActions).toBe(2)
+    expect(ext?.browserActions).toBe(1)
+  })
+
+  it('㉕ browserPageActions(句柄族)被 capabilitySchema 收下并单独计数', async () => {
+    // 这一条钉的是**静默 strip** 那一类:zod object 默认丢弃未声明的键。
+    // 所以 extension 上报了 page_* 族而 schema 少一行时,POST /capability 照样回 200、
+    // 注册表里那栏却是 undefined,/status 计数恒为 0 —— 申报丢了没有任何一处会响。
+    const PAGE_VERBS = [
+      'page_snapshot',
+      'page_click',
+      'page_type',
+      'page_select',
+      'page_hover',
+      'page_press_key',
+      'page_pick_at_point',
+    ]
+    await reportCapability(
+      {
+        endpoint: 'extension',
+        instanceId: 'ext-page',
+        browserActions: ['click_element'],
+        browserPageActions: PAGE_VERBS,
+      },
+      USER_A,
+    )
+    expect(__test__.endpoints.get('ext-page')?.capability.browserPageActions).toEqual(PAGE_VERBS)
+    const st = await app.inject({ method: 'GET', url: `${PREFIX}/status` })
+    const rows = (st.json() as { data?: { endpoints?: StatusEndpoint[] } }).data?.endpoints ?? []
+    const ext = rows.find((r) => r.instanceId === 'ext-page')
+    expect(ext?.browserPageActions).toBe(PAGE_VERBS.length)
+    // 两栏不得互串:句柄族不并入选择器族计数(并了就分不清"能按选择器点"与"能按活句柄点")
     expect(ext?.browserActions).toBe(1)
   })
 
