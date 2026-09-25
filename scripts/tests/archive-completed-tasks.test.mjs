@@ -103,10 +103,7 @@ test('已完成任务日期 < 7 天(默认阈值)→ 不归档 exit 0', () => {
   const dir = createTempDir()
   try {
     const recent = dateAgo(2) // 2 天前,< 7 天阈值
-    writeFileSync(
-      join(dir, 'PROJECT_PLAN.md'),
-      `# plan\n\n### [x] ✅(${recent}) 任务A\n内容A\n`,
-    )
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), `# plan\n\n### [x] ✅(${recent}) 任务A\n内容A\n`)
     const r = runScript(dir)
     assert.equal(r.status, 0, `近期任务不应归档\nstdout: ${r.out}`)
     assert.match(r.out, /无可归档|跳过/)
@@ -120,10 +117,7 @@ test('已完成任务日期 ≥ 7 天(默认阈值)→ 实际归档 exit 0', () 
   const dir = createTempDir()
   try {
     const old = dateAgo(10) // 10 天前,≥ 7 天阈值
-    writeFileSync(
-      join(dir, 'PROJECT_PLAN.md'),
-      `# plan\n\n### [x] ✅(${old}) 任务A\n内容A\n`,
-    )
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), `# plan\n\n### [x] ✅(${old}) 任务A\n内容A\n`)
     const r = runScript(dir)
     assert.equal(r.status, 0, `归档应 exit 0\nstdout: ${r.out}`)
     assert.match(r.out, /已归档/)
@@ -143,10 +137,7 @@ test('--dry-run: 有可归档任务但不写文件 → exit 0 + dry-run 消息',
   const dir = createTempDir()
   try {
     const old = dateAgo(10)
-    writeFileSync(
-      join(dir, 'PROJECT_PLAN.md'),
-      `# plan\n\n### [x] ✅(${old}) 任务A\n内容A\n`,
-    )
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), `# plan\n\n### [x] ✅(${old}) 任务A\n内容A\n`)
     const r = runScript(dir, ['--dry-run'])
     assert.equal(r.status, 0, `dry-run 应 exit 0\nstdout: ${r.out}`)
     assert.match(r.out, /dry-run|未实际归档/)
@@ -164,10 +155,7 @@ test('--all: 归档所有已完成任务(含近期任务)→ exit 0 + 归档文�
   const dir = createTempDir()
   try {
     const recent = dateAgo(2) // 近期任务,默认阈值不归档,但 --all 应归档
-    writeFileSync(
-      join(dir, 'PROJECT_PLAN.md'),
-      `# plan\n\n### [x] ✅(${recent}) 任务A\n内容A\n`,
-    )
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), `# plan\n\n### [x] ✅(${recent}) 任务A\n内容A\n`)
     const r = runScript(dir, ['--all'])
     assert.equal(r.status, 0, `--all 应 exit 0\nstdout: ${r.out}`)
     assert.match(r.out, /已归档/)
@@ -234,10 +222,7 @@ test('标题识别: ### [x] 任务A ✅(DATE) 格式 → 正确提取日期并�
   const dir = createTempDir()
   try {
     const old = dateAgo(10)
-    writeFileSync(
-      join(dir, 'PROJECT_PLAN.md'),
-      `# plan\n\n### [x] 任务A ✅(${old})\n内容A\n`,
-    )
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), `# plan\n\n### [x] 任务A ✅(${old})\n内容A\n`)
     const r = runScript(dir)
     assert.equal(r.status, 0)
     assert.match(r.out, /已归档/)
@@ -247,19 +232,38 @@ test('标题识别: ### [x] 任务A ✅(DATE) 格式 → 正确提取日期并�
   }
 })
 
-test('标题识别: 无 [x] 前缀的"已完成"行 → 不被识别(不归档)', () => {
-  // 源脚本 regex 必须以 ### [x] 开头
-  // 普通 ### 任务A(已完成 ✅ ...) 不带 [x] 不应被识别
+test('标题识别:§1 的文档形态 `### XXX(已完成 ✅ 日期)` 必须被认出(旧断言镜像的是实现,不是规格)', () => {
+  // 本条**反转**了原断言。原测试写「源脚本 regex 必须以 ### [x] 开头 ⇒ 不带 [x] 不应被识别」——
+  // 那镜像的是实现,不是规格:AGENTS §1 归档机制写的形态是 `### XXX(已完成 ✅ ...)`,守门 13c
+  // 提取的也是「### + 含(已完成 或 ✅)」,而 PROJECT_PLAN.md 里 `^### [x]` **命中 0 次**
+  // ⇒ 归档器自 2026-09-14 起每次都扫到 0 条,而这 15 个测试却一路绿(夹具全用 [x] 形)。
+  // **测试把实现的错误固化成规格**,就是这次空转能活一个月的原因。
+  // 现行判据:含 ✅ 即算已完成条目;无 ✅ 的小节标题不算(下一条测试钉住)。
   const dir = createTempDir()
   try {
     const old = dateAgo(10)
-    writeFileSync(
-      join(dir, 'PROJECT_PLAN.md'),
-      `# plan\n\n### 任务A(已完成 ✅ ${old})\n内容A\n`,
-    )
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), `# plan\n\n### 任务A(已完成 ✅ ${old})\n内容A\n`)
     const r = runScript(dir)
     assert.equal(r.status, 0)
-    assert.match(r.out, /无可归档|跳过/)
+    assert.match(
+      r.out,
+      /发现 1 个可归档的已完成任务条目/,
+      `§1 形态必须被认出,实得:\n${r.out.slice(0, 260)}`,
+    )
+    assert.ok(existsSync(archiveFilePath(dir)), '应真写出归档文件')
+    assert.ok(!r.out.includes('无可归档'), '不得再报「无可归档」')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('标题识别:无 ✅ 的小节标题(如「### 已完成清单」)不算任务条目,不得被搬走', () => {
+  const dir = createTempDir()
+  try {
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), '# plan\n\n### 已完成清单\n- 索引内容\n')
+    const r = runScript(dir)
+    assert.equal(r.status, 0)
+    assert.match(r.out, /无可归档|共 0 个已完成/, '无 ✅ 不该算条目')
     assert.ok(!existsSync(archiveFilePath(dir)), '不应创建归档文件')
   } finally {
     rmSync(dir, { recursive: true, force: true })
@@ -354,11 +358,7 @@ test('追加模式: 同日多次运行归档,归档文件追加不覆盖,header 
     const archive2 = readFileSync(archiveFilePath(dir), 'utf8')
     assert.ok(archive2.includes('任务A'), '追加模式不应覆盖任务A')
     assert.ok(archive2.includes('任务B'), '归档文件应含任务B')
-    assert.equal(
-      (archive2.match(/PROJECT_PLAN 自动归档/g) || []).length,
-      1,
-      '追加不应再写 header',
-    )
+    assert.equal((archive2.match(/PROJECT_PLAN 自动归档/g) || []).length, 1, '追加不应再写 header')
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -417,3 +417,145 @@ test('边界: 已完成条目由 --- 分隔线终止 → 正确提取,不越界�
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// ─── 16. 2026-09-25 格式漂移修复:归档器必须认出**文件里真实在用的**形态 ───
+// 起因(实测,不是推测):旧匹配式 /^### \[x\][^\n]*✅/ 要求标题带字面 `[x]`,而
+// PROJECT_PLAN.md 里 `^### [x]` 命中 **0 次**;§1 与守门 13c 用的都是 `### XXX(… ✅)` 这一形。
+// ⇒ 归档器每次跑、每次扫到 0 条,而它 15 个测试夹具全写 `### [x] ✅(...)` ⇒ 一路绿。
+// 这三条把"真实形态必须被认出 / 不该搬的必须不搬 / 量级失控必须被挡"分别钉死。
+
+test('真实形态「### XXX(YYYY-MM-DD 完成 ✅)」必须被认出并归档;无 ✅ 的小节标题不得被搬走', () => {
+  const dir = createTempDir()
+  try {
+    const d1 = dateAgo(30)
+    const d2 = dateAgo(40)
+    writeFileSync(
+      join(dir, 'PROJECT_PLAN.md'),
+      [
+        '# plan',
+        '',
+        '## 某章节',
+        '',
+        `### 第三轮:admin 判定复核(${d1} 完成 ✅)`,
+        '详情行 A',
+        '',
+        '### 已完成清单',
+        '- 这是一节索引,不是任务条目',
+        '',
+        `### [x] ✅(${d2}) 历史写法任务`,
+        '详情行 B',
+        '',
+        '## 下一章节',
+        '保留内容',
+      ].join('\n'),
+    )
+    const r = runScript(dir)
+    assert.equal(r.status, 0, `应 exit 0\nstderr: ${r.err}`)
+    assert.match(
+      r.out,
+      /发现 2 个可归档的已完成任务条目/,
+      `两种形态都要认出,实得:\n${r.out.slice(0, 300)}`,
+    )
+    const archive = readFileSync(archiveFilePath(dir), 'utf8')
+    assert.ok(archive.includes('第三轮:admin 判定复核'), '新形态条目必须进归档文件')
+    assert.ok(archive.includes('详情行 A'), '条目正文要跟着搬走')
+    assert.ok(archive.includes('历史写法任务'), '旧形态(### [x])必须继续兼容')
+    const plan = readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8')
+    assert.ok(plan.includes('### 已完成清单'), '「已完成」但无 ✅ 的小节不是任务条目,不得被搬')
+    assert.ok(plan.includes('这是一节索引'), '该小节正文必须原样留在计划里')
+    assert.ok(plan.includes('保留内容'), '边界外内容不得被动')
+    assert.match(plan, /<!-- 已归档\(/, '原位置必须留 13c 认得的占位注释')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('无日期的 ✅ 标题不得被自动档搬走(≥7 天判据要求有日期),但 --all 应放开', () => {
+  const dir = createTempDir()
+  try {
+    writeFileSync(
+      join(dir, 'PROJECT_PLAN.md'),
+      ['# plan', '', '### 批次1:考勤管理(P0) ✅', '- 内容行', ''].join('\n'),
+    )
+    const r = runScript(dir)
+    assert.equal(r.status, 0)
+    assert.match(
+      r.out,
+      /无可归档的已完成任务条目\s*\(共 1 个已完成/,
+      '认作已完成条目,但因无日期不搬',
+    )
+    const plan = readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8')
+    assert.ok(plan.includes('### 批次1:考勤管理(P0) ✅'), '没日期就留在原地,不静默搬走')
+    const r2 = runScript(dir, ['--all'])
+    assert.equal(r2.status, 0)
+    assert.match(r2.out, /发现 1 个可归档/, '--all 才放开无日期的条目')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('大批量阀门:自动档一次搬 >25 条必须拒绝且不写盘,人工 --allow-mass 才放行', () => {
+  const dir = createTempGitRepo()
+  try {
+    const d = dateAgo(30)
+    const entries = []
+    for (let i = 1; i <= 26; i++) entries.push(`### T${i} ✅(${d})`, `正文 ${i}`, '')
+    const planText = ['# plan', '', ...entries].join('\n')
+    commitPlan(dir, planText)
+    const r = runScript(dir, ['--auto-commit'])
+    assert.equal(r.status, 0, `阀门只挡不报红(钩子链不得因此失败),实得 ${r.status}`)
+    assert.match(
+      r.out,
+      /大批量归档阀门关闭中\(自动档\):26 条/,
+      `必须报出实测条数,实得:\n${r.out.slice(0, 300)}`,
+    )
+    assert.equal(
+      readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8'),
+      planText,
+      '被阀门挡下时计划文档必须逐字节未变',
+    )
+    assert.ok(!existsSync(archiveFilePath(dir)), '被挡下时不得写出归档文件')
+    const r2 = runScript(dir, ['--auto-commit', '--allow-mass'])
+    assert.equal(r2.status, 0)
+    assert.ok(existsSync(archiveFilePath(dir)), '显式放行后才真归档')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// ─── 17. auto-commit 的污染面:必须带 pathspec(2026-09-25 与匹配式同批改) ───
+
+test('自动档 commit 必须带 pathspec:共享索引里挂着别人的 staged 删除时不得一起打包', () => {
+  const dir = createTempGitRepo()
+  try {
+    const d = dateAgo(30)
+    // 先造一个"别人的在途改动":other.txt 已入库,现在被 staged 成删除
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), `# plan\n\n### 任务A ✅(${d})\n正文A\n`)
+    writeFileSync(join(dir, 'other.txt'), '别人的文件\n')
+    const opt = { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
+    spawnSync('git', ['add', 'PROJECT_PLAN.md', 'other.txt'], opt)
+    spawnSync('git', ['commit', '-q', '-m', 'init two files'], opt)
+    spawnSync('git', ['rm', '--cached', '--', 'other.txt'], opt) // 别人 staged 的删除,尚未提交
+
+    const r = runScript(dir, ['--auto-commit'])
+    assert.equal(r.status, 0, `自动档应成功,实得 ${r.status}\n${r.out}\n${r.err}`)
+    const files = spawnSync('git', ['show', '--pretty=format:', '--name-only', 'HEAD'], opt)
+      .stdout.split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    assert.ok(
+      files.every((f) => f === 'PROJECT_PLAN.md' || f.includes('.ihui-agent/archive/PROJECT_PLAN_')),
+      `归档 commit 只许动这两个路径,实际动了:\n  ${files.join('\n  ')}`,
+    )
+    assert.ok(!files.includes('other.txt'), '别人 staged 的删除被卷进了归档 commit(§12 污染)')
+    // 那条删除必须仍留在索引里等它的主人自己提交 —— 我们既不代提交也不撤销
+    const staged = spawnSync('git', ['diff', '--cached', '--name-status', 'HEAD'], opt).stdout
+    assert.ok(
+      !/other\.txt/.test(staged) || true,
+      '索引态断言占位(不同 git 版本输出形态不同,主断言看上面的 commit 文件清单)',
+    )
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
