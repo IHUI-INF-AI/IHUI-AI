@@ -7,6 +7,7 @@ import {
   setBaseUrl,
   setStreamBaseUrl,
   setDeviceFingerprintProvider,
+  setUnauthorizedHandler,
   fetchApi as fetchApiShared,
 } from '@ihui/api-client'
 import type { ApiResult } from '@ihui/types'
@@ -78,13 +79,44 @@ if (typeof window !== 'undefined') {
 }
 
 /**
- * Web 端 fetchApi 包装:401 未授权时自动打开登录弹窗。
+ * 401 → 弹登录框的**唯一**决策函数(2026-09-25 将原包装层内联逻辑原样提出)。
+ *
+ * 提出来的原因:这个判断此前只存在于本文件的 `fetchApi` 包装层里。端内一旦改走
+ * `@ihui/api-client` 的端点函数(它们直接调共享 fetchApi,不经过本包装),就静默失去
+ * 反馈 —— 对那些没有 onError 分支的 mutation 来说,是"点了没反应"。共享包补了
+ * `setUnauthorizedHandler` 注册口后,把同一个函数喂给它即可,不需要复制第二份判断。
  *
  * 懒触发策略(2026-07-23 用户要求"刚进页面不弹出,只有需要登录的功能点击后才弹出"):
  * - GET 请求(页面初始加载 / 查询)的 401 不弹窗,避免一进页面就被弹窗打断
  * - 非 GET 请求(POST/PUT/DELETE/PATCH,即用户主动操作如安装/评分/发消息)的 401 才弹窗
- * - 业务调用方无需关心 401 → 弹窗的串联
  * - 统一走 openLoginDialogOnce(2026-07-24 深度根治):自带全局去重 guard + 公开路径白名单
+ */
+function requestLoginDialogForUnauthorized(method: string): void {
+  if (typeof window === 'undefined') return
+  // 仅用户主动操作(非 GET)的 401 才弹窗
+  if (method === 'GET') return
+  // 2026-08-14 修复:页面刷新后 isAuthenticated=true 但 token=null(刷新中)时,
+  // 不触发弹窗。避免 bootstrap 静默刷新期间被其他并发请求的 401 打断。
+  // refresh 成功 → token 恢复 → 后续请求正常;refresh 失败 → logout() 降级 isAuthenticated=false,
+  // 再遇到 401 才弹窗(用户确实需要登录)。
+  const { isAuthenticated, token } = useAuthStore.getState()
+  if (isAuthenticated && !token) return
+  const currentPath = window.location.pathname + window.location.search
+  openLoginDialogOnce(currentPath)
+}
+
+// 2026-09-25 接线:让"经端点函数发出"的请求也拿到与经本包装层完全相同的 401 反馈。
+// 与 setTokenProvider 同档,无条件注册(SSR 下 requestLoginDialogForUnauthorized 自行早返回)。
+setUnauthorizedHandler((ctx) => requestLoginDialogForUnauthorized(ctx.method))
+
+/**
+ * Web 端 fetchApi 包装:401 未授权时自动打开登录弹窗。
+ *
+ * 2026-09-25 起该判断收口到 `requestLoginDialogForUnauthorized`,本包装层与共享包的
+ * 401 处理器**共用同一份实现**,不产生第二套弹窗逻辑。
+ * 直调路径不会"弹两次":openLoginDialogOnce 自带模块级 openGuard(跨所有触发点共享,
+ * 弹窗未关闭前第二次调用直接返回 false),这正是它名字里 Once 的职责;两条路径在同一个
+ * 宏任务内先后命中,后到的一次被 guard 吃掉。
  */
 // 2026-09-07:options 放宽支持 timeoutMs(透传 @ihui/api-client FetchApiOptions,
 // 供 /bestof 等同步阻塞、耗时可达分钟级的端点放大超时,默认 30s)。
@@ -94,18 +126,7 @@ export async function fetchApi<T>(
 ): Promise<ApiResult<T>> {
   const result = await fetchApiShared<T>(url, options)
   if (!result.success && result.status === 401) {
-    const method = (options.method ?? 'GET').toUpperCase()
-    // 仅用户主动操作(非 GET)的 401 才弹窗
-    if (method !== 'GET') {
-      // 2026-08-14 修复:页面刷新后 isAuthenticated=true 但 token=null(刷新中)时,
-      // 不触发弹窗。避免 bootstrap 静默刷新期间被其他并发请求的 401 打断。
-      // refresh 成功 → token 恢复 → 后续请求正常;refresh 失败 → logout() 降级 isAuthenticated=false,
-      // 再遇到 401 才弹窗(用户确实需要登录)。
-      const { isAuthenticated, token } = useAuthStore.getState()
-      if (isAuthenticated && !token) return result
-      const currentPath = window.location.pathname + window.location.search
-      openLoginDialogOnce(currentPath)
-    }
+    requestLoginDialogForUnauthorized((options.method ?? 'GET').toUpperCase())
   }
   return result
 }
