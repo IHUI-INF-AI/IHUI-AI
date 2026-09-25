@@ -147,7 +147,7 @@ export default function LiveHistory() {
                   hoverClass="opacity-60"
                 >
                   {/* 对齐 RN cardTitle(16dp → 32rpx semibold,单行截断) */}
-                  <Text className="block overflow-hidden whitespace-nowrap text-ellipsis text-[length:32rpx] font-semibold text-foreground">
+                  <Text className="block overflow-hidden whitespace-nowrap ihui-ellipsis text-[length:32rpx] font-semibold text-foreground">
                     {item.title}
                   </Text>
                   {/* 对齐 RN cardMeta(marginTop 8 → 16rpx,11dp → 22rpx,text.tertiary) */}
