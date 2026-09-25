@@ -26,21 +26,25 @@
  *    少写/删掉一档,旧门就是瞎的。现缺档即红 —— 生成器会自动补入,所以这条不会恒红,
  *    它拦的是「没人跑生成器」与「有人手删了受管行」这两种形态。
  *
- * 取材面(与全链其余门同口径):默认判**磁盘**(全量),`--staged` 判**索引 blob**
- * (这次提交会带走的那一份 —— 盘上随后改对不算修好)。任一面取不到 ⇒ **exit 2「无法判定」**,
- * 既不冒红也不记绿。
+ * 取材面(2026-09-25 收口,同守门 93/77/83/91/103 口径):默认判 **HEAD blob**,`--staged` 判
+ * **索引 blob**(这次提交会带走的那一份 —— 盘上随后改对不算修好),`--worktree` 只作人工逃生舱,
+ * 两个面旗同给 = 自相矛盾 ⇒ 判死;任一面取不到 ⇒ **exit 2「无法判定」**,既不冒红也不记绿。
+ * 为什么不再是"默认判磁盘":共享工作树常年滞后 HEAD,按磁盘判会在恒红与假绿之间来回跳,
+ * 并把错数写回棘轮基线(旧写法 `--staged` 取不到索引还悄悄回落 HEAD,那是自洽而错位的假绿)。
  *
  * 用法:
- *   node scripts/check-miniapp-tokens-sync.mjs            全量(磁盘)
- *   node scripts/check-miniapp-tokens-sync.mjs --staged   索引面
- *   node scripts/check-miniapp-tokens-sync.mjs --quiet    只出错才说话
+ *   node scripts/check-miniapp-tokens-sync.mjs             全量(HEAD blob)
+ *   node scripts/check-miniapp-tokens-sync.mjs --staged    索引面
+ *   node scripts/check-miniapp-tokens-sync.mjs --worktree  人工排查(盘上内容,提交链不走这档)
+ *   node scripts/check-miniapp-tokens-sync.mjs --quiet     只出错才说话
  *   node scripts/check-miniapp-tokens-sync.mjs --self-test 判据自检(纯内存夹具,不碰真仓)
- * 退出码:0 = 一致;1 = 值漂移 / 缺档;2 = 无法判定
+ * 退出码:0 = 一致;1 = 值漂移 / 缺档;2 = 无法判定(含两个面旗同给)
  */
-import { readFileSync } from 'node:fs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, join } from 'node:path'
-import { gitRaw } from './lib/face-reader.mjs'
+// 取材只走这一层:绝对路径 git、safe.directory、quotepath、windowsHide、maxBuffer、
+// "输出被截断 ⇒ 无法判定" —— 这五处易错点各门自己写一遍就会各漏一遍(AGENTS §4/守门 118)。
+import { Undetermined, catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 import { collectVars } from './lib/design-token-blocks.mjs'
 import {
   deriveMiniappManaged,
@@ -51,30 +55,54 @@ import {
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const args = process.argv.slice(2)
 const quiet = args.includes('--quiet')
-const staged = args.includes('--staged')
 
-function gitShow(spec) {
-  try {
-    // 走共用层而不是裸 `execFileSync('git', …)`:钩子进程 / 服务账户 / GUI 宿主的 PATH 与交互终端
-    // 互不相通(AGENTS §5b)。取不到时返回 null ⇒ 本门判「无法判定 exit 2」,
-    // 症状是"守门突然不干活"而不是"仓库坏了",可诊断。
-    return gitRaw(['show', spec], root, { maxBuffer: 1 << 28 })
-  } catch {
-    return null
-  }
+/**
+ * 纯函数:argv → 判定面(默认 head)。导出是为了让"默认已不再是磁盘"这一格能被构造面证明,
+ * 而不是等人跑一次真仓看一眼结论行 —— 结论行会被人改,函数不会。
+ */
+export function faceFromArgv(argv) {
+  return selectFace({
+    staged: argv.includes('--staged'),
+    worktree: argv.includes('--worktree'),
+    def: 'head',
+  })
 }
 
-/** 判哪个面就按哪个面取**两份**:源与副本混面会在并发会话的瞬间产出假红/假绿。 */
-function readFace(rel) {
-  if (!staged) {
-    try {
-      return readFileSync(join(root, rel), 'utf8')
-    } catch {
-      return null
+const FACE_SEL = faceFromArgv(args)
+const FACE_TXT = {
+  head: 'HEAD blob(全量审计)',
+  staged: '索引 blob(本次提交会带走的那一份)',
+  worktree: '工作树(人工逃生舱,提交链不走这档)',
+}
+
+/**
+ * 按判定面取**两份**输入(源 + 副本),一次 `cat-file --batch` 同面同轮读完。
+ * 混面会在并发会话的瞬间产出假红/假绿;取不到一律抛 `Undetermined`(调用方折成 exit 2),
+ * **不回落**到另一个面 —— 回落就是把"没判"写成"判过了"。
+ * root/face 都是入参:镜像测试因此能在临时 git 仓里造"索引≠磁盘"的现场,不依赖真仓瞬时状态。
+ */
+export function readFaceInputs(repoRoot, face) {
+  const rels = [TOKENS_SOURCE_REL, APP_CSS_REL]
+  if (face === 'worktree') {
+    const out = {}
+    for (const rel of rels) {
+      const t = readWorktreeFile(repoRoot, rel)
+      if (t === null || t === undefined) throw new Undetermined(`工作树(逃生舱)取不到 ${rel}`)
+      out[rel] = t
     }
+    return out
   }
-  const idx = gitShow(`:${rel}`)
-  return idx === null ? gitShow(`HEAD:${rel}`) : idx
+  const prefix = face === 'staged' ? ':' : 'HEAD:'
+  const specs = rels.map((rel) => prefix + rel)
+  const got = catBatch(repoRoot, specs, { maxBuffer: 1 << 28 })
+  const out = {}
+  for (let i = 0; i < rels.length; i++) {
+    const t = got.get(specs[i])
+    if (t === null || t === undefined)
+      throw new Undetermined(`${face === 'staged' ? '索引' : 'HEAD'} 取不到 ${rels[i]}`)
+    out[rels[i]] = t
+  }
+  return out
 }
 
 /**
@@ -168,6 +196,13 @@ function selfTest() {
   const r6 = compare({ tokensCss: tokens, appCss: '/* 一个受管档都没有 */' })
   ok('M8 副本整块为空必须报满缺档而非"无档可判"(空扫不记绿)', r6.missing.length === 5, `实得 ${r6.missing.length}`)
 
+  // 取材面四态(2026-09-25 收口):这一组就是"默认档已从磁盘换成 HEAD"的机器证明 ——
+  // 结论行会被人改,函数不会;只靠跑一次真仓看末行的取证等于没取证。
+  ok('M9 默认面必须是 HEAD(旧默认是磁盘,本条是换锚的反向锁)', faceFromArgv([]).face === 'head', JSON.stringify(faceFromArgv([])))
+  ok('M10 --staged ⇒ 索引面', faceFromArgv(['--staged']).face === 'staged', JSON.stringify(faceFromArgv(['--staged'])))
+  ok('M11 --worktree ⇒ 人工逃生舱面', faceFromArgv(['--worktree']).face === 'worktree', JSON.stringify(faceFromArgv(['--worktree'])))
+  ok('M12 两个面旗同给 ⇒ 判死(取哪一面都会让另一面成为假绿)', !!faceFromArgv(['--staged', '--worktree']).error, JSON.stringify(faceFromArgv(['--staged', '--worktree'])))
+
   for (const r of results) console.log(r)
   const failed = results.filter((r) => r.startsWith('❌')).length
   console.log(failed ? `self-test 失败 ${failed} 条` : `✅ self-test 全通过(${results.length} 条)`)
@@ -176,34 +211,43 @@ function selfTest() {
 
 function main() {
   if (args.includes('--self-test')) return selfTest()
+  if (FACE_SEL.error) {
+    console.error(`[check-miniapp-tokens-sync] ❌ 无法判定:${FACE_SEL.error}`)
+    process.exit(2)
+  }
+  const face = FACE_SEL.face
   if (!quiet)
     console.log(
-      `[check-miniapp-tokens-sync] Checking ${APP_CSS_REL} vs ${TOKENS_SOURCE_REL}(取材面:${
-        staged ? '索引' : '磁盘'
-      })...`
+      `[check-miniapp-tokens-sync] Checking ${APP_CSS_REL} vs ${TOKENS_SOURCE_REL}(取材面:${FACE_TXT[face]})...`
     )
-  const tokensCss = readFace(TOKENS_SOURCE_REL)
-  const appCss = readFace(APP_CSS_REL)
-  if (tokensCss === null || appCss === null) {
+  let inputs
+  try {
+    inputs = readFaceInputs(root, face)
+  } catch (e) {
+    // 「无法判定」是预期结论,一句话足够;**其他异常**必须带栈落地 —— 匿名 exit 2 = 不可诊断
+    // (守门 93 同型教训:一个编码/权限错误不得伪装成"该文件不存在"的业务结论)。
+    const known = e instanceof Undetermined
     console.error(
-      `[check-miniapp-tokens-sync] 取不到 ${
-        tokensCss === null ? TOKENS_SOURCE_REL : APP_CSS_REL
-      } ⇒ 无法判定(不记为通过)`
+      `[check-miniapp-tokens-sync] 取不到输入(${FACE_TXT[face]})⇒ 无法判定(不记为通过):${known ? e.message : (e?.stack ?? e)}`
     )
     process.exit(2)
   }
+  const tokensCss = inputs[TOKENS_SOURCE_REL]
+  const appCss = inputs[APP_CSS_REL]
 
   const { mismatches, missing, extras } = compare({ tokensCss, appCss })
   const managed =
     deriveMiniappManaged(tokensCss, 'light').length + deriveMiniappManaged(tokensCss, 'dark').length
   if (managed === 0) {
-    console.error('[check-miniapp-tokens-sync] 源头受管档为 0 ⇒ 无法判定(不记为通过)')
+    console.error(
+      `[check-miniapp-tokens-sync] 源头受管档为 0(${FACE_TXT[face]})⇒ 无法判定(不记为通过)`
+    )
     process.exit(2)
   }
   if (mismatches.length === 0 && missing.length === 0) {
     if (!quiet)
       console.log(
-        `[check-miniapp-tokens-sync] All ${managed} 个受管档逐位同值且无缺档(另有 ${extras} 个端内自有档,只报数不判红)`
+        `[check-miniapp-tokens-sync] All ${managed} 个受管档逐位同值且无缺档(另有 ${extras} 个端内自有档,只报数不判红)(取材面:${FACE_TXT[face]})`
       )
     process.exit(0)
   }
@@ -212,7 +256,7 @@ function main() {
   for (const m of missing)
     console.error(`  ${m.block} ${m.name}: 副本里没有(源头值 '${m.want}')—— 缺档`)
   console.error(
-    `[check-miniapp-tokens-sync] Found ${mismatches.length} 处值漂移 / ${missing.length} 处缺档`
+    `[check-miniapp-tokens-sync] Found ${mismatches.length} 处值漂移 / ${missing.length} 处缺档(取材面:${FACE_TXT[face]})`
   )
   console.error(
     '  修复:pnpm --filter @ihui/miniapp-taro sync-tokens(原位写回,幂等,不动端内自有档与注释)'
@@ -224,5 +268,5 @@ function main() {
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) main()
 
-export const __test__ = { compare }
+export const __test__ = { compare, faceFromArgv, readFaceInputs }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
