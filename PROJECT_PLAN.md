@@ -8703,3 +8703,30 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   **解阻判据(交给持有另一台机提交的那条会话或人)**:对这三块逐块裁决后重跑
   `node scripts/git-sync-converge.mjs`;收敛成功出口会自动调 `union-converge` 的复核与守门 100 的 A1。
   推送腿状态可用 `node scripts/git-push-converge.mjs` 只读核验(现读 `DIVERGED`)。
+
+
+### O61 领票前逐条实测:本轮从"可认领"清单里挑的 5 枚没有一枚是真待办(2026-09-25,只读取证)
+
+- [x] ✅(2026-09-25) **登记只为省下一个人的轮次** —— `check-task-claims.mjs` 现报"可认领 111",本轮按它挑了 5 枚,逐条量下来全是假票:
+  ① `goal-verify 无生产消费方` —— 已由 `0c562010837` 闭环(`app/routers/agents.py:49` 真 import `goal_completion_gate`,
+     `goal_completion_gate.py:507` 真调 `verify_goal_completion`);
+  ② `page_* 跨端登记` —— 已由 `fa91dd93fe3` 闭环,**但那枚票的"逐端判据"清单漏列 `apps/cli`**,量出 CLI 句柄族只接 5/7
+     ⇒ 真残余,已由 `b8eab3c8b0d` 补完(注册表改 `Record<PageActionType, Tool>` 由契约派生 + 7 例双向对账,
+     变异实测 `tsc` 报 `TS2741 Property 'page_hover' is missing`);
+  ③ `stream-tool-ledger 接线` —— 票面两条解阻条件本轮实测全部成立,接线已在 `b153c2d0d4b`;
+  ④ `VideoPlayerScreen 状态栏带色` —— 落点 `apps/mobile-rn/App.tsx` 当时正被并发会话改(工作树 M),
+     且票面自定验收 = "真机出包装机量像素" ⇒ 本机不可验收,不可领;
+  ⑤ `--allow-dangerous 确认旁路在调用方` —— 复核后**不是 fail-open**:`apps/cli/src/tools/index.ts:323-332`
+     缺 `confirmDangerous` 即取 `allowed=false` 拒绝;要改的是"确认回调契约"这一设计决策,属待拍板。
+  **`--twins` 抓不到 ①③④⑤** 的原因:它按行文本相似度配已勾近亲,而这四枚的完成条目是另写的证据段(带 sha)。
+  本轮试过补"行首编号配对"判据,**量下来不成立**:完成条目与待办条目根本不同编号(①的完成条目叫"goal 完成判定闸门"),
+  按编号配照样漏,而误配会把"子项未完成"判成整票已闭环 —— 比漏判更坏。为凑一道门硬造判据是投机代码,已放弃不留半成品。
+  可复用的只有三分钟取证顺序:`git log --oneline -3 -- <落点>` ∧ `git grep -ln "<导出名>" HEAD`(只命中自身定义+自身测试=没装车)
+  ∧ `git status --porcelain -- <落点>`(脏=他人在飞,不可领)。
+- [ ] **顺手登记一条门 71 的漏判(事实,非本票可修)**:上面这一整节由 `7c22d68d09b` 入库,随后被并发提交
+  `85e07c9e70b` 按旧基线整文件回写吞掉(该提交不跑 pre-commit,§12 已记过同一形态)。
+  而 `node scripts/check-plan-line-loss.mjs --heal --commit` 报的是 **"扫描 717 条登记行:无缺失,无需回捞"**,
+  `--self-test` 也全绿 ⇒ **本门对"一个只出现在一枚提交里、且该行首编号在历史上无其它登记点"的整节丢失是盲的**。
+  解阻判据:在本门自己的镜像测试里造一条"某编号仅由单枚提交引入 → 下一枚旁路提交整文件回写"的现场,
+  先证明它现在判不出(红在断言前),再决定是放宽 `historyMarkers` 深度还是改按 blob 差集判;**不得**为了让
+  这一节回得来就去调低本门的判据强度。当前回补手段只有人工重放(本节即第二次落地)。
