@@ -41,6 +41,12 @@ test('§22c phase B:源脚本必须 export __test__ 且含核心判据(缺一项
     'isLabelName',
     'BARE_GLYPH_RE',
     'BRACED_GLYPH_RE',
+    'BACK_LABEL_EXPR_RE',
+    'BACK_TEXT_LITERAL_RE',
+    'BACK_EXEMPT_LINE_RE',
+    'classifyBackLabel',
+    'findBackLabelChildren',
+    'walkAffordanceChildren',
     'HANDLER_ATTR_RE',
     'PREFILTER',
     'SCAN_DIRS',
@@ -74,8 +80,10 @@ test('扫描面必须是任务书点名的四端 + 单一入口路径不得写�
   assert.doesNotMatch(src, /\b[DdGg]:[\\/]/, '取材路径不得写死盘符(§15)')
 })
 
-test('预筛必须是判据字面量的严格超集 —— 加了字形忘了加进预筛 = 门对该形态全盲', () => {
-  const glyphs = new Set(['›', '»', '→', '》', '>'])
+test('预筛必须是判据字面量的超集 —— 加了字形忘了加进预筛 = 门对该形态全盲', () => {
+  // 右向四个是立项那批;左向 ‹/← 与 GA4 的「返回」是 2026-09-25 小程序返回键收口补的。
+  // 本断言的存在理由正是"上一轮加判据时,预筛与判据分别由两次改动写,漏者无声"。
+  const glyphs = new Set(['›', '»', '→', '》', '‹', '←', '>'])
   for (const g of glyphs) {
     // 整格判据里的每个字符都必须出现在预筛模式串里(或该字符本就由更宽的词根覆盖)
     assert.ok(
@@ -84,8 +92,39 @@ test('预筛必须是判据字面量的严格超集 —— 加了字形忘了加
     )
     if (g !== '>') assert.ok(gate.PREFILTER.includes(g), `预筛漏了 ${g}:该字形将永远扫不到`)
   }
-  for (const w of ['fontSize', 'font-size'])
-    assert.ok(gate.PREFILTER.includes(w), `预筛漏了 ${w}:GA2 将永远扫不到`)
+  for (const w of ['fontSize', 'font-size', '返回'])
+    assert.ok(gate.PREFILTER.includes(w), `预筛漏了 ${w}:GA2/GA4 将永远扫不到`)
+  // GA4 的键名判据必须认 back 与 back<数字> 两种,且**不得**认带宾语的标签
+  for (const k of ['common.back', 'forgot.back', 'adaptersSelectertaro.back4'])
+    assert.ok(
+      gate.BACK_LABEL_EXPR_RE.test(`{tt('${k}', '返回')}`),
+      `GA4 漏认键名 ${k}(该形态将永远扫不到)`,
+    )
+  for (const k of ['pay.backHome', 'forgot.backLogin', 'live.calendar.prevMonth'])
+    assert.ok(
+      !gate.BACK_LABEL_EXPR_RE.test(`{t('${k}')}`),
+      `GA4 误纳带宾语/翻页的标签 ${k}(换成裸箭头反而不表意)`,
+    )
+})
+
+test('豁免原因不得由注释闭合符冒充(两条通道同口径;裸标记生效等于整行免检)', () => {
+  // 端到端走 auditFile,而不是只喂 collectExemptLines —— 证明的是"提交链里这一行真会被判"。
+  const GA1_LINE = 'export const P = ({ go }) => <Text onClick={go}>›</Text> {'
+  const GA4_LINE = 'export const P = ({ go }) => <Text onClick={go}>返回</Text> {'
+  const close = '/* MARKER: */}\n' // JSX 注释容器:标记之后只剩 星号/斜杠/花括号
+  const reasonClose = '/* MARKER: 与封面同源的指示符 */}\n'
+  const cases = [
+    { name: 'glyph-arrow-exempt', rule: 'GA1', line: GA1_LINE },
+    { name: 'back-label-exempt', rule: 'GA4', line: GA4_LINE },
+  ]
+  for (const c of cases) {
+    const bare = (c.line + close.replace('MARKER', c.name)).replace(/\s+$/, '')
+    const withReason = (c.line + reasonClose.replace('MARKER', c.name)).replace(/\s+$/, '')
+    const nOf = (src) => gate.auditFile('apps/miniapp-taro/src/t.tsx', src).findings.filter((f) => f.rule === c.rule).length
+    assert.equal(nOf(c.line + '\n'), 1, `${c.name}:阳性对照失效 —— 已知违规看不见,后面两条断言都无意义`)
+    assert.equal(nOf(bare), 1, `${c.name}:裸标记 + 注释闭合符被当成"带了原因"⇒ 整行免检`)
+    assert.equal(nOf(withReason), 0, `${c.name}:真原因必须放过,否则人工出口是空头承诺`)
+  }
 })
 
 test('装车前置:未注册时本门必须不在 runner 里;一旦注册则必须 blocking + 声明 skipEnv', () => {
@@ -140,9 +179,13 @@ test('§22d isDirectRun:被 import 时绝不跑 CLI,且必须经 pathToFileURL �
 
 test('GA1 必须保留"可证 affordance"这一限制(去掉它 = 把面包屑/表格数据全判红)', () => {
   const src = readFileSync(join(ROOT, 'scripts', SCRIPT), 'utf8')
+  // 2026-09-25 起 GA1/GA4 共用一遍遍历 walkAffordanceChildren,证据函数由 affordanceReason
+  // 改名为 affordanceEvidence(要额外带出 anchor 元素给 GA4 的块级豁免用)。
+  // 本锁因此改为钉"证据被算出 ⇒ 且 push 以它为条件"这一**配对**,而不是某个变量名;
+  // 真正的牙在下面那对端到端正反例(摘掉条件 ⇒ 反向例立即变红),配对只是把意图留在原地。
   assert.match(
     src,
-    /if\s*\(via\)\s*hits\.push/,
+    /const ev = affordanceEvidence\([\s\S]{0,200}?if\s*\(ev\)\s*out\.push/,
     'affordance 判定被摘 ⇒ 本门从"拦字形图标"变成"拦一切标点"',
   )
   // 端到端正反成对:同一段整格 ›,有可点祖先必红、无可点证据必绿
@@ -247,8 +290,19 @@ test('HEAD 口径:全量必须判 HEAD blob,不得回退成"按磁盘读"(共享
   )
 })
 
-test('S0 机制清单必须就是 AGENTS.md 定的"三端唯一实现",且每个条目自带锚点与矢量判据', () => {
-  assert.equal(gate.MECHANISMS.length, 3, 'AGENTS.md 定的是三端唯一实现,清单不得自增自减')
+test('S0 机制清单必须就是 AGENTS.md 点名的那些唯一实现,且每个条目自带锚点与矢量判据', () => {
+  // 按**路径集合**对账而不是按条数:条数断言只会说"不对",路径集合会说"多了谁/少了谁"。
+  // 清单第 4 条(2026-09-25)= 小程序端页头返回键,与前三条「更多」箭头同属"箭头必须是矢量"这一族。
+  assert.deepEqual(
+    [...gate.MECHANISMS.map((m) => m.file)].sort(),
+    [
+      'apps/miniapp-taro/src/components/BackChevron.tsx',
+      'apps/miniapp-taro/src/components/LineIcon/icons.ts',
+      'apps/web/src/components/common/view-more-link.tsx',
+      'packages/app/src/components/MoreLink.tsx',
+    ].sort(),
+    'S0 机制清单与既定四条形成了偏差',
+  )
   for (const m of gate.MECHANISMS) {
     assert.ok(
       m.symbol && m.icon && m.file && m.note,
@@ -257,7 +311,7 @@ test('S0 机制清单必须就是 AGENTS.md 定的"三端唯一实现",且每个
     assert.ok(existsSync(join(ROOT, m.file)), `共享实现已不存在:${m.file}`)
     assert.ok(!/\.test\.|__tests__/.test(m.file), '机制清单不得收录测试夹具')
   }
-  // 文档点名的三条路径必须就是清单这三条(按端内相对路径比对,文档写的是 `components/LineIcon/icons.ts` 这种尾段)
+  // 文档点名的路径必须就是清单这几条(按端内相对路径比对,文档写的是 `components/LineIcon/icons.ts` 这种尾段)
   const agents = readFileSync(join(ROOT, 'AGENTS.md'), 'utf8')
   for (const m of gate.MECHANISMS) {
     const tail = m.file.split('/').slice(-2).join('/')

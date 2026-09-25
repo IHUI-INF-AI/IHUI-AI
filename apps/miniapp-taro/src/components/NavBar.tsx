@@ -1,14 +1,13 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius } from '@ihui/design-tokens'
-
 import { useTt, t } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
-import { cn } from '@ihui/design-tokens'
+import { cn, rnRadius } from '@ihui/design-tokens'
 import { rpx, px } from '@/utils/rpx'
+import BackChevron from '@/components/BackChevron'
 
 export interface NavBarNotification {
   text: string
@@ -118,18 +117,7 @@ export default function NavBar({
         >
           {/* 左侧:返回首页按钮 + 菜单按钮(对齐原项目 navigation-bars: @pack + @menu-click) */}
           <View className="flex items-center gap-[12rpx]">
-            {onPack ? (
-              <View
-                className="flex items-center justify-center"
-                style={{ width: rpx(40), height: rpx(40) }}
-                onClick={onPack}
-                hoverClass="opacity-60"
-              >
-                <Text style={{ fontSize: rpx(32), color: textColor, fontWeight: 'bold' }}>
-                  {'‹'}
-                </Text>
-              </View>
-            ) : null}
+            {onPack ? <BackChevron onTap={onPack} color={textColor} /> : null}
             <View
               className="flex items-center justify-center"
               style={{ width: rpx(40), height: rpx(40) }}
@@ -275,14 +263,12 @@ export default function NavBar({
       }}
     >
       {showBack && (
-        <View
-          className={cn('absolute left-3 flex items-center justify-center w-8 h-8 rounded-lg')}
-          style={{ top: px(statusBarHeight + (navBarHeight - 32) / 2) }}
-          onClick={handleBack}
-          hoverClass="opacity-60"
-        >
-          <Text style={{ color: textColor, fontSize: '22px' }}>{'‹'}</Text>
-        </View>
+        <BackChevron
+          onTap={handleBack}
+          color={textColor}
+          className="absolute left-2"
+          style={{ top: px(statusBarHeight + (navBarHeight - 36) / 2) }}
+        />
       )}
       <Text
         className="text-base font-medium truncate max-w-[60%]"

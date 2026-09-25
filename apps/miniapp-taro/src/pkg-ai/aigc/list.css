@@ -22,14 +22,6 @@
   align-items: flex-start;
   padding: 16rpx 20rpx;
 }
-.back-btn {
-  margin-left: -8rpx;
-  padding: 4rpx 8rpx;
-}
-.back-text {
-  font-size: 32rpx;
-  color: var(--color-muted-foreground);
-}
 .page-title {
   margin-top: 16rpx;
   font-size: 44rpx;
