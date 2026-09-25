@@ -28,6 +28,9 @@ export {
   FALLBACK_REASON_QUOTA_EQUIVALENT,
   mergeAbortSignals,
   postToolResult,
+  // D77(2026-09-25 立):对话流业务表单的上行出口 —— 与 postToolResult 同一条 ai-service 会话通道
+  postFormResponse,
+  buildFormResponseEvent,
   // 2026-08-14 补充 re-export:401 自动续期全局单例,web useAuthBootstrap 复用
   // (并行改动 use-auth-bootstrap.ts 依赖它;client.ts 已实现,入口遗漏导致编译失败)
   refreshAccessTokenOnce,
