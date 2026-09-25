@@ -8,6 +8,7 @@ import { View, Text, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useCallback, useState } from 'react'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
 
 const REQUIRED_FLAGS = [true, false, true, false, false, true]
 const ALBUM_NAME_FB = t('about.appPermission.albumName')
@@ -121,7 +122,9 @@ export default function AppPermission() {
             <View className="flex items-start">
               <View className="flex-1 mr-[16rpx]">
                 <View className="flex items-center flex-wrap gap-[12rpx]">
-                  <Text className="text-[length:32rpx] font-semibold text-foreground">{p.name}</Text>
+                  <Text className="text-[length:32rpx] font-semibold text-foreground">
+                    {p.name}
+                  </Text>
                   {p.required ? (
                     <Text className="text-[length:20rpx] text-destructive-foreground bg-destructive py-[2rpx] px-[12rpx] rounded-xs">
                       {t('about.appPermission.required')}
@@ -156,7 +159,7 @@ export default function AppPermission() {
           <Text className="text-[length:32rpx] font-semibold text-foreground">
             {tt('about.appPermission.openAllSetting', '打开系统设置')}
           </Text>
-          <Text className="text-[var(--color-text-medium)] text-[length:32rpx]">›</Text>
+          <LineIcon name="chevron-right" size={24} color="var(--color-text-medium)" />
         </View>
 
         <Text className="block text-center text-[length:22rpx] text-muted-foreground pt-[8rpx]">

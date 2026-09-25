@@ -55,6 +55,24 @@ export type RnVipTokens = {
   goldEnd: string
 }
 
+/**
+ * 模型广场类型徽章三色(明暗同值)。
+ * 键名按 `scripts/sync-rn-tokens.mjs` 的同名推导规则对位 tokens.css,不加第二张映射表:
+ * `modelType.textBg` → `--color-model-type-text-bg`。改色值只能改 tokens.css 再跑派生器。
+ */
+export type RnAgentNameTokens = {
+  DEFAULT: string
+}
+
+export type RnModelTypeTokens = {
+  text: string
+  textBg: string
+  image: string
+  imageBg: string
+  av: string
+  avBg: string
+}
+
 /** RN 端基础 tokens(向后兼容 RootNavigator Tab Bar)
  *  2026-09-04 全量对齐 web 端 tokens.css(单一来源):中性色从 Tailwind 蓝灰阶
  *  (gray/slate)切换为 shadcn 中性灰;status DEFAULT 对齐 web 语义色。
@@ -133,6 +151,19 @@ export const rnTokens = {
     gold: '#FFD700',
     goldEnd: '#FFAA00',
   } satisfies RnVipTokens,
+  /* 模型广场类型徽章(明暗同值)—— 值由 scripts/sync-rn-tokens.mjs 从 tokens.css 派生,勿手改 */
+  modelType: {
+    text: '#1888ee',
+    textBg: '#e8f4fd',
+    image: '#c41e7a',
+    imageBg: '#fde8f5',
+    av: '#2e7d32',
+    avBg: '#e8f5e9',
+  } satisfies RnModelTypeTokens,
+  /* 智能体卡片名称链接色(对齐 --color-agent-name,明暗同值)—— 同上,派生态。
+     必须是「命名空间 + DEFAULT」而不是顶层标量:mobile-rn 的 theme/active-tokens.ts 按命名空间
+     浅拷与就地覆写(clonePalette / apply),顶层字符串会被摊成字符对象 ⇒ 运行时是不合法颜色。 */
+  agentName: { DEFAULT: '#517bff' } satisfies RnAgentNameTokens,
   gray: {
     50: '#fafafa',
     100: '#f5f5f5',
@@ -185,6 +216,11 @@ export type RnThemeTokens = {
   success: RnSuccessTokens
   danger: RnDangerTokens
   vip: RnVipTokens
+  /* 模型广场类型徽章三色(--color-model-type-*;明暗同值,派生自 tokens.css) */
+  modelType: RnModelTypeTokens
+  /* 智能体卡片名称链接色(--color-agent-name;明暗同值,派生自 tokens.css)。
+     形状取 { DEFAULT } 而非裸字符串,原因见 rnTokens 内同档注释(active-tokens 逐命名空间覆写)。 */
+  agentName: RnAgentNameTokens
   gray: {
     50: string
     100: string
@@ -256,6 +292,16 @@ export const rnLightTokens: RnThemeTokens = {
   },
   danger: { light: '#fee2e2', DEFAULT: '#dc2626', bright: '#f87171' },
   vip: { gold: '#FFD700', goldEnd: '#FFAA00' },
+  /* 值由 scripts/sync-rn-tokens.mjs 从 tokens.css 派生(--color-model-type-* / --color-agent-name),勿手改 */
+  modelType: {
+    text: '#1888ee',
+    textBg: '#e8f4fd',
+    image: '#c41e7a',
+    imageBg: '#fde8f5',
+    av: '#2e7d32',
+    avBg: '#e8f5e9',
+  },
+  agentName: { DEFAULT: '#517bff' },
   gray: {
     50: '#fafafa',
     100: '#f5f5f5',
@@ -333,6 +379,16 @@ export const rnDarkTokens: RnThemeTokens = {
   },
   danger: { light: '#7f1d1d', DEFAULT: '#ef4444', bright: '#fca5a5' },
   vip: { gold: '#FFD700', goldEnd: '#FFAA00' },
+  /* 明暗同值档:暗档值同样由 scripts/sync-rn-tokens.mjs 派生(tokens.css .dark 里成对声明) */
+  modelType: {
+    text: '#1888ee',
+    textBg: '#e8f4fd',
+    image: '#c41e7a',
+    imageBg: '#fde8f5',
+    av: '#2e7d32',
+    avBg: '#e8f5e9',
+  },
+  agentName: { DEFAULT: '#517bff' },
   gray: {
     50: '#fafafa',
     100: '#f5f5f5',

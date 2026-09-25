@@ -11,6 +11,7 @@ import Taro from '@tarojs/taro'
 import type { ModelConfigType } from '@ihui/types'
 import { Selecter } from './adapters/Selecter.taro'
 import './ModelConfigDialog.css'
+import LineIcon from '@/components/LineIcon'
 
 // aigc variant 上传按钮图标(对齐原项目 ModelConfigDialog/indexa.vue):
 // icon-album(首帧/尾帧空)/ icon-yinpin(音频空 + 克隆音色行)/ icon-audio-success(音频成功)/
@@ -611,7 +612,7 @@ export default function ModelConfigDialog({
                       {tt('ModelConfigDialog.upload12', '上传音频文件克隆音色')}
                     </Text>
                   </View>
-                  <Text className="text-muted-foreground">›</Text>
+                  <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
                 </View>
               </View>
             </View>
