@@ -15,6 +15,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CertApplyScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 证书申请共享屏 — props 注入式跨端组件(wrapper 负责 POST /certificates) */
 export type { CertApplyScreenProps }
@@ -37,9 +38,7 @@ export function CertApplyScreen({
 
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      <TouchableOpacity onPress={onBack}>
-        <Text style={styles.back}>{t('common.back')}</Text>
-      </TouchableOpacity>
+      <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
       <Text style={styles.title}>{t('certApply.title')}</Text>
       <Text style={styles.label}>{t('certApply.name')}</Text>
       <TextInput
@@ -82,7 +81,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 10,
       paddingBottom: 32,
     },
-    back: { fontSize: 16, color: tk.text.secondary },
     title: {
       marginTop: 8,
       fontSize: 22,

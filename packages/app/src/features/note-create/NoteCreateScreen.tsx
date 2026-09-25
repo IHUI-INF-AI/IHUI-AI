@@ -16,6 +16,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { NoteCreateScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 笔记创建共享屏 — props 注入式跨端组件(状态由 wrapper 管理,isPublic 用模拟 Switch) */
 export type { NoteCreateScreenProps }
@@ -50,9 +51,7 @@ export function NoteCreateScreen({
 
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      <TouchableOpacity onPress={onBack}>
-        <Text style={styles.back}>{t('common.back')}</Text>
-      </TouchableOpacity>
+      <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
       <Text style={styles.title}>{t('noteCreate.title')}</Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Text style={styles.label}>{t('noteCreate.titleLabel')}</Text>
@@ -119,7 +118,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     error: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8 },
-    back: { fontSize: 16, color: tk.text.secondary },
     title: {
       marginTop: 8,
       fontSize: 22,

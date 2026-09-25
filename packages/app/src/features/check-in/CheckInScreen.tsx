@@ -9,6 +9,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CheckInDay, CheckInInfo, CheckInScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { BackChevron } from '../../components/BackChevron'
 
 /** 签到/Props 类型 re-export(单一来源 @ihui/types) */
 export type { CheckInDay, CheckInInfo, CheckInScreenProps }
@@ -61,9 +62,7 @@ export function CheckInScreen({
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('checkIn.title')}</Text>
         <Text style={styles.subtitle}>{t('checkIn.subtitle')}</Text>
       </View>
@@ -161,7 +160,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     retryBtnText: { color: tk.surface.light, fontSize: 16 },
     header: { paddingHorizontal: 10, paddingBottom: 8 },
-    backText: { fontSize: 16, color: tk.text.secondary, marginBottom: 8 },
     title: { fontSize: 24, fontWeight: '700', color: tk.text.primary },
     subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     statsCard: {

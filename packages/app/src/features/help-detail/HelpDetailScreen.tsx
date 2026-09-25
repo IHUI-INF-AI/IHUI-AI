@@ -7,6 +7,7 @@ import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { HelpDetailItem, HelpDetailScreenProps } from '../../types'
+import { BackChevron } from '../../components/BackChevron'
 
 export type { HelpDetailItem, HelpDetailScreenProps }
 
@@ -39,6 +40,7 @@ export function HelpDetailScreen({
     return (
       <View style={styles.center}>
         <Text style={styles.error}>{error || t('helpDetail.empty')}</Text>
+        {/* back-label-exempt: 错误态/空态卡片内的按钮文案,或翻页/弹窗关闭动作 —— 此处「返回」是按钮文字而非页头箭头,换裸箭头反而不表意 until 2027-09-25 */}
         <TouchableOpacity onPress={onBack} style={styles.backBtn}>
           <Text style={styles.back}>{t('common.back')}</Text>
         </TouchableOpacity>
@@ -49,9 +51,7 @@ export function HelpDetailScreen({
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack}>
-          <Text style={styles.back}>{t('common.back')}</Text>
-        </TouchableOpacity>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('helpDetail.title')}</Text>
       </View>
       <View style={styles.body}>
