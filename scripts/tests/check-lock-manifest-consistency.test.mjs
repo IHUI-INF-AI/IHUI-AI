@@ -28,13 +28,23 @@ const BROKEN_WEB = { dependencies: { xlsx: '^0.18.5', '@ihui/shared': 'workspace
 const WEB_PKG_REL = join('apps', 'web', 'package.json')
 
 function fixtureWebPkg(overrides) {
-  return { dependencies: { xlsx: 'npm:@e965/xlsx@^0.20.3', '@ihui/shared': 'workspace:*' }, ...overrides }
+  return {
+    dependencies: { xlsx: 'npm:@e965/xlsx@^0.20.3', '@ihui/shared': 'workspace:*' },
+    ...overrides,
+  }
 }
 
 /** CLI 通道:返回 {code,out},out 合流 stdout+stderr(无法判定的原因行走 stderr) */
 function runCLI(args) {
   try {
-    return { code: 0, out: execFileSync(process.execPath, [SCRIPT, ...args], { encoding: 'utf8', windowsHide: true, timeout: 120000 }) }
+    return {
+      code: 0,
+      out: execFileSync(process.execPath, [SCRIPT, ...args], {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 120000,
+      }),
+    }
   } catch (e) {
     return { code: e.status, out: `${e.stdout ?? ''}${e.stderr ?? ''}` }
   }
@@ -80,7 +90,11 @@ test('T3 声明了而 lock 缺条目判红;孤儿记账不判红但如实报数'
   try {
     const missing = gate.makeFixture(join(s, 'm'), {
       webPkg: fixtureWebPkg({
-        dependencies: { xlsx: 'npm:@e965/xlsx@^0.20.3', '@ihui/shared': 'workspace:*', 'docx-preview': '^0.3.5' },
+        dependencies: {
+          xlsx: 'npm:@e965/xlsx@^0.20.3',
+          '@ihui/shared': 'workspace:*',
+          'docx-preview': '^0.3.5',
+        },
       }),
       lock: LOCK,
     })
@@ -170,8 +184,14 @@ test('T7 §22c 装车锚点:源脚本必须 export __test__ 且测试必须直�
     assert.ok(src.includes(`${key},`) || src.includes(`${key}:`), `__test__ 缺少导出键 ${key}`)
   }
   const testSrc = readFileSync(fileURLToPath(import.meta.url), 'utf8')
-  assert.match(testSrc, /import\s*\{\s*__test__\s*as\s+\w+\s*\}\s*from\s*'\.\.\/check-lock-manifest-consistency\.mjs'/)
-  assert.match(src, /const isDirectRun = process\.argv\[1\] && import\.meta\.url === pathToFileURL\(process\.argv\[1\]\)\.href/)
+  assert.match(
+    testSrc,
+    /import\s*\{\s*__test__\s*as\s+\w+\s*\}\s*from\s*'\.\.\/check-lock-manifest-consistency\.mjs'/,
+  )
+  assert.match(
+    src,
+    /const isDirectRun = process\.argv\[1\] && import\.meta\.url === pathToFileURL\(process\.argv\[1\]\)\.href/,
+  )
   assert.match(src, /if \(isDirectRun\) \{/)
   // __test__ 的 export 必须在 isDirectRun 守卫之后(§22d 位置约束)
   assert.ok(src.indexOf('if (isDirectRun) {') < src.indexOf('export const __test__ = {'))
@@ -215,10 +235,10 @@ test('T9 维度 A 放过真仓两种 override 键形态,并如实计入 override
     assert.equal(r.overrideExempted.length, 2)
     assert.equal(r.overridesLoaded, 2)
     // 放过必须点名到具体是哪条 override key,否则无法审计
-    assert.deepEqual(
-      r.overrideExempted.map((x) => x.overrideKeys[0]).sort(),
-      ['@types/react', 'postcss@<=8.5.22'],
-    )
+    assert.deepEqual(r.overrideExempted.map((x) => x.overrideKeys[0]).sort(), [
+      '@types/react',
+      'postcss@<=8.5.22',
+    ])
   } finally {
     rmScratch(s)
   }
@@ -267,7 +287,11 @@ test('T11 未被 override、非 peer 的依赖:今天的真事故形态在带 ov
     const rr = runCLI(['--all', '--worktree', '--root', red])
     assert.equal(rr.code, 1)
     assert.match(rr.out, /xlsx/)
-    const green = gate.makeFixture(join(s, 'green'), { webPkg: fixtureWebPkg(), lock: LOCK, workspace: ws })
+    const green = gate.makeFixture(join(s, 'green'), {
+      webPkg: fixtureWebPkg(),
+      lock: LOCK,
+      workspace: ws,
+    })
     assert.equal(runCLI(['--all', '--worktree', '--root', green]).code, 0)
   } finally {
     rmScratch(s)
@@ -306,7 +330,10 @@ test('T14 peer 记在 devDependencies 段且值不同 → 绿并计入 peerExemp
   const s = mkScratch('lmci-t14')
   try {
     const present = gate.makeFixture(join(s, 'present'), {
-      webPkg: { peerDependencies: { '@tarojs/taro': '>=4.0.0' }, devDependencies: { '@tarojs/taro': '4.2.1' } },
+      webPkg: {
+        peerDependencies: { '@tarojs/taro': '>=4.0.0' },
+        devDependencies: { '@tarojs/taro': '4.2.1' },
+      },
       lock: gate.lockFrom({ devDependencies: { '@tarojs/taro': '4.2.1' } }),
     })
     const rp = gate.runCheck(present)
@@ -359,7 +386,8 @@ test('T16 面旗标 → 面的映射是唯一且显式的:缺省判 HEAD,两面�
   // 同时给两个面旗标 ⇒ 静默取其一会让"这次判了哪一面"从命令里读不出来
   assert.throws(() => gate.resolveFace(['--staged', '--worktree']), /冲突/)
   assert.deepEqual(gate.FACES, ['staged', 'head', 'worktree'])
-  for (const f of gate.FACES) assert.ok(gate.FACE_LABEL[f] && gate.FACE_NOTE[f], `面 ${f} 缺标签或说明`)
+  for (const f of gate.FACES)
+    assert.ok(gate.FACE_LABEL[f] && gate.FACE_NOTE[f], `面 ${f} 缺标签或说明`)
   const r = runCLI(['--staged', '--worktree', '--root', process.cwd()])
   assert.equal(r.code, 2)
   assert.match(r.out, /判定面互相冲突/)
@@ -369,7 +397,9 @@ test('T17 假绿钉死(端到端):索引里那对不一致、盘上已改对 ⇒
   const s = mkScratch('lmci-t17')
   try {
     // 先按事故形态 add + commit ⇒ 索引/HEAD 里就是那对坏内容
-    const dir = gate.gitifyFixture(gate.makeFixture(join(s, 'repo'), { webPkg: BROKEN_WEB, lock: LOCK }))
+    const dir = gate.gitifyFixture(
+      gate.makeFixture(join(s, 'repo'), { webPkg: BROKEN_WEB, lock: LOCK }),
+    )
     // 随后作者只把**磁盘**文件改对(没再 git add)—— 判盘的旧实现在这里会放行坏提交
     overwriteWebPkg(dir, fixtureWebPkg())
     const staged = runCLI(['--staged', '--root', dir])
@@ -388,7 +418,9 @@ test('T17 假绿钉死(端到端):索引里那对不一致、盘上已改对 ⇒
 test('T18 假红钉死(端到端):索引里那对一致、盘上是别人半编辑的不一致 ⇒ --staged 必绿', () => {
   const s = mkScratch('lmci-t18')
   try {
-    const dir = gate.gitifyFixture(gate.makeFixture(join(s, 'repo'), { webPkg: fixtureWebPkg(), lock: LOCK }))
+    const dir = gate.gitifyFixture(
+      gate.makeFixture(join(s, 'repo'), { webPkg: fixtureWebPkg(), lock: LOCK }),
+    )
     overwriteWebPkg(dir, BROKEN_WEB) // 并行会话把磁盘改坏了,与本次提交无关
     const staged = runCLI(['--staged', '--root', dir])
     assert.equal(staged.code, 0)
@@ -405,9 +437,12 @@ test('T19 该面取不到 ⇒ exit 2 并点名路径,绝不"跳过该包然后�
   const s = mkScratch('lmci-t19')
   try {
     // 只 init + add(不 commit),先把取材原语验明:该面有的给出内容、没有的给 null
-    const dir = gate.gitifyFixture(gate.makeFixture(join(s, 'repo'), { webPkg: fixtureWebPkg(), lock: LOCK }), {
-      commit: false,
-    })
+    const dir = gate.gitifyFixture(
+      gate.makeFixture(join(s, 'repo'), { webPkg: fixtureWebPkg(), lock: LOCK }),
+      {
+        commit: false,
+      },
+    )
     const got = gate.catBatch(dir, [':pnpm-lock.yaml', ':nope/missing.yaml'])
     assert.ok(String(got.get(':pnpm-lock.yaml')).includes('lockfileVersion'))
     assert.equal(got.get(':nope/missing.yaml'), null)
@@ -512,22 +547,37 @@ test('T20 单一取材出口:三处判据取材全走同一个 readFace,面外�
   // 层里 batch 的 stdio[0] 必须是 pipe —— 设成 'ignore' 会让 git 读到空输入,于是每个 rev 都
   // "取不到"(本门第一次真仓自验就是被这一条咬出的假 exit 2)。收口前这条写在本门的注释里,
   // 现在必须钉在它实现所在的那一处,否则教训随代码搬家一起丢。
-  const at = layer.indexOf("'cat-file', '--batch'")
-  assert.ok(at > 0, '层里找不到 cat-file --batch')
-  const batch = layer.slice(at, at + 700)
+  //
+  // ⚠️ 两处修正(2026-09-25,都是"针脚必须钉在真身而不是形状"的同一族):
+  // ① 定位不能用 `indexOf("'cat-file', '--batch'")` —— 它是 `'--batch-check'` 的**前缀**,
+  //   那样永远落在 `catBatchCheck` 上,`catBatch` 本体(本门真正调的那个出口)根本不在视野里。
+  //   改为按 `export function catBatch(` 取函数体。
+  // ② maxBuffer 现在是**可配**的(`opts.maxBuffer ?? GIT_MAX_BUFFER`,层为门 98/103 那种
+  //   一次读 85MB 的批量口径开的口子,默认值不变)。针脚要钉的是"默认必须吃到那个常量",
+  //   不是"字面上必须等于 GIT_MAX_BUFFER" —— 钉字面会把层的合法演进判成缺陷。
+  const catBatchAt = layer.indexOf('export function catBatch(')
+  assert.ok(catBatchAt > 0, '层里找不到 catBatch 本体')
+  const batch = layer.slice(catBatchAt, layer.indexOf('\nexport ', catBatchAt + 10))
   assert.match(batch, /stdio:\s*\[\s*'pipe',\s*'pipe',\s*'pipe'\s*\]/)
-  assert.match(batch, /input: Buffer\.from\(/, 'rev 清单必须由 input 喂进去')
+  assert.match(batch, /input:\s*Buffer\.from\(/, 'rev 清单必须由 input 喂进去')
   assert.match(
     batch,
-    /maxBuffer: GIT_MAX_BUFFER/,
-    'batch 必须吃到给足的 maxBuffer(真仓有 >1MB 单文件)',
+    /maxBuffer:\s*(?:opts\.maxBuffer\s*\?\?\s*)?GIT_MAX_BUFFER/,
+    'batch 的 maxBuffer 默认必须是给足的那个常量(真仓有 >1MB 单文件,且批量面可达 85MB)',
+  )
+  // 反向对照:把默认值改掉(哪怕仍写 opts.maxBuffer ??)也必须被本条咬住
+  assert.ok(
+    !/maxBuffer:\s*(?:opts\.maxBuffer\s*\?\?\s*)?(?:1 << 20|1024)\b/.test(batch),
+    'batch 的默认 maxBuffer 被换成了小值 —— 真仓单文件就超 1MB',
   )
 })
 
 test('T21 同一轮只判一个面:三面各验一次 --json 的 judgedFace 与退出码', () => {
   const s = mkScratch('lmci-t21')
   try {
-    const dir = gate.gitifyFixture(gate.makeFixture(join(s, 'repo'), { webPkg: BROKEN_WEB, lock: LOCK }))
+    const dir = gate.gitifyFixture(
+      gate.makeFixture(join(s, 'repo'), { webPkg: BROKEN_WEB, lock: LOCK }),
+    )
     overwriteWebPkg(dir, fixtureWebPkg())
     for (const [flag, want] of [
       ['--staged', 'staged'],
@@ -562,7 +612,9 @@ test('T21 同一轮只判一个面:三面各验一次 --json 的 judgedFace 与�
 test('T22 面的独立性:磁盘文件被删,git 面照判(连包清单枚举也没读盘)', () => {
   const s = mkScratch('lmci-t22')
   try {
-    const dir = gate.gitifyFixture(gate.makeFixture(join(s, 'repo'), { webPkg: BROKEN_WEB, lock: LOCK }))
+    const dir = gate.gitifyFixture(
+      gate.makeFixture(join(s, 'repo'), { webPkg: BROKEN_WEB, lock: LOCK }),
+    )
     rmSync(join(dir, WEB_PKG_REL), { force: true })
     rmSync(join(dir, 'pnpm-workspace.yaml'), { force: true })
     const r = gate.runCheck(dir, 'staged')
@@ -580,7 +632,9 @@ test('T22 面的独立性:磁盘文件被删,git 面照判(连包清单枚举也
 test('T23 索引处于未合并态(并行会话真跑过 merge)⇒ 取不到即 exit 2,不得按"没有这个包"报绿', () => {
   const s = mkScratch('lmci-t23')
   try {
-    const dir = gate.gitifyFixture(gate.makeFixture(join(s, 'repo'), { webPkg: BROKEN_WEB, lock: LOCK }))
+    const dir = gate.gitifyFixture(
+      gate.makeFixture(join(s, 'repo'), { webPkg: BROKEN_WEB, lock: LOCK }),
+    )
     const write = (spec) => {
       overwriteWebPkg(dir, { dependencies: { xlsx: spec, '@ihui/shared': 'workspace:*' } })
       gate.gitInFixture(dir, ['add', '-A'])
@@ -611,7 +665,9 @@ test('T23 索引处于未合并态(并行会话真跑过 merge)⇒ 取不到即 
 test('T24 --root 指到仓库子目录 ⇒ 显式"无法判定",绝不按错位基准产出混面的绿', () => {
   const s = mkScratch('lmci-t24')
   try {
-    const dir = gate.gitifyFixture(gate.makeFixture(join(s, 'repo'), { webPkg: fixtureWebPkg(), lock: LOCK }))
+    const dir = gate.gitifyFixture(
+      gate.makeFixture(join(s, 'repo'), { webPkg: fixtureWebPkg(), lock: LOCK }),
+    )
     const r = gate.runCheck(join(dir, 'apps'), 'staged')
     assert.notEqual(r.undetermined, null)
     assert.match(r.undetermined, /toplevel/)
