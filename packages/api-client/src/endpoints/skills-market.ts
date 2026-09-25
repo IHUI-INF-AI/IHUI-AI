@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { fetchApi } from '../client'
+import { buildQs } from '../utils'
 import type { SkillEnabledList, SkillEnabledState } from '@ihui/types'
 
 /**
@@ -105,5 +106,54 @@ export function unlistSkill(name: string) {
   return fetchApi<SkillUnlistResult>(`/api/skills/${encodeURIComponent(name)}/unlist`, {
     method: 'POST',
   })
+}
+
+/**
+ * 市场目录**列表**(2026-09-25 收口:admin 技能页 helpers 的 `searchMarketSkills` 由页面内
+ * `api()` 直连改走本出口)。
+ *
+ * 对应后端 apps/api/src/routes/skills.ts: `GET /api/skills/market`
+ *  - 需登录(checkAuth),q/tag 为可选过滤,page/pageSize 必填分页(服务端 zod 校验)
+ *  - 已下架条目(enabled === false)对非 owner 隐身 —— 过滤在服务端,调用方无需重复实现
+ *
+ * 为什么不能复用 `resource.ts` 的 `getSkills`:那是 `GET /api/skills`(**当前用户自己的**
+ * 技能库,非市场目录),且解包形态是 `{ skills, total }` 之外的 `PageData`。两者是不同
+ * 资源,不是同一资源的不同参数,故另立出口。
+ *
+ * ⚠️ 返回字段名按**现网消费方契约**(`list`)声明,与后端 handler 写入的 `items` 不一致 ——
+ * 这是本票落地前既存的缺陷(admin 市场列表因此恒空),**迁移刻意零改动**:改字段名会连带
+ * 改运行时行为,且修它要动 apps/api(不在本票范围)。留此说明,勿当已核实为正确照抄。
+ */
+export interface SkillMarketItem {
+  id: string
+  name: string
+  description?: string | null
+  version?: string | null
+  tags?: string[] | null
+  author?: string | null
+  rating?: number | null
+  installCount?: number | null
+  isInstalled: boolean
+  isOwner: boolean
+  createdAt: string
+}
+
+export interface SkillMarketListResult {
+  list: SkillMarketItem[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+export interface SkillMarketQuery {
+  q?: string
+  tag?: string
+  page?: number
+  pageSize?: number
+}
+
+/** 分页查询市场目录(q/tag 空串按"不过滤"处理,buildQs 自动剔除) */
+export function fetchMarketSkills(query: SkillMarketQuery = {}) {
+  return fetchApi<SkillMarketListResult>(`/api/skills/market${buildQs(query)}`)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
