@@ -233,7 +233,7 @@ function mergeAllVars(css, selectors) {
 
 /** 仅取每个选择器的**首个**块,合并变量。用于目标文件(miniapp-taro / mobile-rn)。
  *
- *  背景:miniapp-taro/src/app.css 含两个 :root 块 —— 首块由 sync-design-tokens.mjs
+ *  背景:miniapp-taro/src/app.css 含两个 :root 块 —— 首块由 scripts/sync-miniapp-tokens.mjs
  *  自动生成(与 tokens.css 同步),次块是 miniapp-taro 本地扩展色板(非 tokens.css
  *  同步范围,见 app.css 注释"本块不会被覆盖")。若合并所有块,本地扩展变量
  *  (--color-link / --color-brand 等)会被误报为与 tokens.css 不一致。
