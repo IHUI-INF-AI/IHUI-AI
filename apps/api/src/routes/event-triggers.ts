@@ -23,11 +23,18 @@ import { agentEventTriggers } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 
-// GitHub 事件三值 + D30① 无人值守信源两值(2026-09-25 用户批准)。
-// ci_failed / gate_failed 不由 GitHub 投递,而是由 .github/workflows/unattended-fix-intake.yml
-// 以同族信封投到 POST /api/webhooks/github;没有这两档,信源分支永远 `no_matching_trigger`
-// (实测这是该链第二个断点,第一个是路由未注册)。
-const EVENT_VALUES = ['pull_request', 'issues', 'push', 'ci_failed', 'gate_failed'] as const
+// GitHub 原生事件(pull_request/issues/push)+ D30 无人值守信源三腿:ci_failed / gate_failed
+// (由 .github/workflows/unattended-fix-intake.yml 以同族信封投到 POST /api/webhooks/github)
+// 与 code_scanning_alert(GitHub 原生 webhook 事件,webhook 侧只认 created/appeared_in_branch/reopened
+// 三态 —— fixed/closed_by_user 是收敛方向,不唤起修复)。
+const EVENT_VALUES = [
+  'pull_request',
+  'issues',
+  'push',
+  'ci_failed',
+  'gate_failed',
+  'code_scanning_alert',
+] as const
 
 const uuidParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
