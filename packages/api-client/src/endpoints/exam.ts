@@ -169,6 +169,24 @@ export async function getSignUp(
   )
 }
 
+/**
+ * POST /exam/composition/signup/:sid/submit —— 会员提交答卷(把本人报名标 completed)。
+ *
+ * 后端判据(exam.ts:1538-1576,C 方案):`eq(examSignUp.id, sid) AND eq(user_id, request.userId)`
+ * —— 归属由 JWT 决定,`sid` 是**报名行主键**(不是 examId);NULL 归属的历史行与他人的行
+ * 都不命中 ⇒ 404。调用方拿 `id` 的正规途径与上面相同:`ExamSignUp.id`。
+ */
+export async function submitSignUp(
+  signupId: string,
+): Promise<ApiResult<{ signup: ExamSignUpRecord }>> {
+  return fetchApi<{ signup: ExamSignUpRecord }>(
+    `/exam/composition/signup/${encodeURIComponent(signupId)}/submit`,
+    {
+      method: 'POST',
+    },
+  )
+}
+
 export async function saveSignUp(examId: string): Promise<ApiResult<ExamSignUp>> {
   return fetchApi<ExamSignUp>(`/exam/composition/signup`, {
     method: 'POST',
