@@ -21,6 +21,10 @@
  * - Bearer:   Bearer eyJxxx.yyy.zzz → Bearer ***(JWT 整体替换)
  * - messages content: 替换为 [REDACTED length=N](N 为原长度)
  * - tool function.arguments: 替换为 [REDACTED](保留 tool_calls 结构)
+ *
+ * 入口封顶(A9E-1):所有会进入下方正则的字符串先在 sanitizeText 入口无条件
+ * 截到 resolveSanitizeInputCap()(默认 4096,env IHUI_LOG_SANITIZE_MAX_CHARS 可覆盖),
+ * 被截断时输出末尾追加 [TRUNCATED ...] 可见标记。顺序 = 先封顶、后正则,不可颠倒。
  */
 
 // =============================================================================
@@ -66,6 +70,48 @@ const BEARER_REGEX = /Bearer\s+[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g
 const IPV4_REGEX = /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g
 
 // =============================================================================
+// 入口长度封顶(先封顶、后正则 — A9E-1 吸收,2026-09 立)
+// =============================================================================
+
+/**
+ * 进入任何脱敏正则前的输入硬封顶(字符数,默认值)。
+ * 清洗对象常是上游 HTTP 响应体 / 工具输出 / CI 日志片段,长度无界;
+ * 多条带回溯风险的 Alternation 正则 × 无界输入 = 单条日志可拖垮请求线程。
+ */
+export const MAX_SANITIZE_INPUT_CHARS = 4096
+
+/** 封顶值的 env 覆盖键(解析失败回默认值,且只警告一次) */
+const ENV_MAX_SANITIZE_CHARS = 'IHUI_LOG_SANITIZE_MAX_CHARS'
+
+/** 只警告一次的闩(不得每次打日志,否则垃圾 env 会把日志面 itself 淹掉) */
+let invalidEnvWarned = false
+
+/**
+ * 解析当次生效的封顶值:env 为合法正整数时用 env,否则回 MAX_SANITIZE_INPUT_CHARS。
+ * 每次调用现读 env(读对象属性 + Number 的成本远低于任何一条正则),
+ * 但"垃圾值"警告全程至多一条。
+ */
+export function resolveSanitizeInputCap(): number {
+  const raw = process.env[ENV_MAX_SANITIZE_CHARS]
+  if (raw === undefined || raw.trim() === '') return MAX_SANITIZE_INPUT_CHARS
+  const parsed = Number(raw)
+  if (Number.isInteger(parsed) && parsed > 0) return parsed
+  if (!invalidEnvWarned) {
+    invalidEnvWarned = true
+    console.warn(
+      `[log-sanitizer] 环境变量 ${ENV_MAX_SANITIZE_CHARS}="${raw}" 不是正整数,` +
+        `已回退默认封顶 ${MAX_SANITIZE_INPUT_CHARS}(本警告只输出一次)`,
+    )
+  }
+  return MAX_SANITIZE_INPUT_CHARS
+}
+
+/** 被封顶这件事必须在输出里留下可见标记(含原长度与被丢的字符数),禁止静默变短 */
+function truncationMarker(originalLength: number, keptLength: number): string {
+  return `\n…[TRUNCATED 原长度=${originalLength}字符,已丢弃=${originalLength - keptLength}字符]`
+}
+
+// =============================================================================
 // 内部脱敏函数
 // =============================================================================
 
@@ -98,12 +144,23 @@ function redactPhoneMatch(match: string): string {
 /**
  * 对纯文本做正则脱敏。
  * 按 options 控制各类敏感信息的脱敏开关,keepOriginalForAdmin=true 时直接返回原文。
+ *
+ * 【顺序不可颠倒:先封顶、后正则】
+ * - 先封顶 ⇒ 脱敏正则永远只面对 ≤cap 的输入,ReDoS/无界 CPU 成本被结构性排除;
+ *   并且脱敏面必然覆盖"最终会输出"的全部剩余输入。
+ * - 若反过来"先正则后封顶":正则跑在整段无界自由文本上,封顶只是事后剪短结果 ——
+ *   成本与回溯风险已经发生,封顶就失去了它存在的理由。
+ * 截断不是静默行为:被丢弃的字符数与原长度以可见标记追加在输出末尾。
  */
 export function sanitizeText(text: string, options?: SanitizeOptions): string {
   const opts = mergeDefaults(options)
-  if (opts.keepOriginalForAdmin) return text
+  const cap = resolveSanitizeInputCap()
+  const truncated = text.length > cap
+  const input = truncated ? text.slice(0, cap) : text
+  const marker = truncated ? truncationMarker(text.length, input.length) : ''
+  if (opts.keepOriginalForAdmin) return input + marker
 
-  let result = text
+  let result = input
 
   if (opts.redactApiKey) {
     // Bearer JWT(整体替换,与 API Key 同属认证凭据)
@@ -121,7 +178,7 @@ export function sanitizeText(text: string, options?: SanitizeOptions): string {
     result = result.replace(IPV4_REGEX, '[IP REDACTED]')
   }
 
-  return result
+  return result + marker
 }
 
 // =============================================================================

@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /* eslint-disable no-console -- CLI 工具,需 console 输出诊断信息 */
 /**
  * deploy-lock.mjs — 部署/构建流程全局串行化锁(2026-08-09 立,根治多 agent 并发部署)。
@@ -23,23 +22,54 @@
  *     死循环轮询 600s,已改为持有者死即抢占,消除启动卡死窗口)
  *   - 超时:acquire 等待 timeoutMs(默认 600s)后抛错退出(不覆盖不打断进行中的部署)
  *
+ * 锁的状态认识论(2026-09-26 立,第九轮 ZCode 吸收 A9-3):
+ *   `readMeta()` 返回**穷尽四态**,因为"读不到"与"确实没有"是两件不同的事,
+ *   把它们混成一态(null)会产出本仓最贵的一类故障——**判不出来就当没人持锁**:
+ *     - `absent`     锁目录存在而 meta.json 不存在(acquire 的两步窗口 / 持有者崩于其间)
+ *     - `ok`         元数据完好且 pid 可用 ⇒ 只有这一态能判"持有者死/活"
+ *     - `invalid`    读到了内容但内容不可用(空文件 / 半个 JSON / 顶层不是对象 / 没有 pid)
+ *     - `unreadable` 文件在而读不出内容(EISDIR / EACCES / 并发半写入被占用)
+ *   旧实现把这四态全折叠成 `null` ⇒ acquire 的抢占分支要求 `meta &&`,于是
+ *   "持有者早已死、但 meta.json 坏了"的锁**永不被抢占**,所有后续构建/部署死等
+ *   600s 后抛错,而报错文案还写着"超 stale 时间会自动抢占"(该形态下是假的);
+ *   release 一侧的两个 `meta &&` 守卫同时短路 ⇒ **坏锁 = 白拿**,直接删掉别人正在用的锁。
+ *   现口径:
+ *     1. 不可判定三态**绝不等价于"无人持锁"**,不得凭猜测删锁;
+ *     2. 但也不得傻等到超时不给出路 —— 唯一出路是**锁龄超 stale 阈值**才抢占,
+ *        且抢占前必须把现场**原样归档**(不得静默覆盖);
+ *     3. 超时报错文案必须与实际判据一致,不同形态给不同出路;
+ *     4. `check` 如实打印"无法判定 + 原因",禁止打印成空字段
+ *        (读报告的人会把"读不出"当成"没进程持锁")。
+ *
  * 用法(CLI):
  *   node scripts/deploy-lock.mjs acquire [--mode <build|dev>] [--timeout <ms>] [--stale <ms>]
  *   node scripts/deploy-lock.mjs release [--mode <build|dev>]
  *   node scripts/deploy-lock.mjs check            # 只读:exit 0=无锁 1=有锁(打印持锁信息)
+ *   node scripts/deploy-lock.mjs --self-test      # 临时夹具内自检,绝不触碰真实 .deploy.lock
+ *   通用选项:--lock-dir <path>(默认项目根 .deploy.lock;测试/夹具专用)
  *
  * 集成点:
  *   - scripts/build-next-prod.ps1:构建开始 acquire(build),结束 release
  *   - apps/web 的 dev 启动脚本:启动前 acquire(dev),退出 release
  */
-import { mkdirSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs'
+import {
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+  existsSync,
+  statSync,
+  readdirSync,
+  copyFileSync,
+} from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(__dirname, '..')
+const POLL_MS = 500
 
-/** 锁目录(固定路径:项目根 .deploy.lock,不随 cwd 变化) */
+/** 锁目录(默认路径:项目根 .deploy.lock,不随 cwd 变化) */
 function lockDir() {
   return join(repoRoot, '.deploy.lock')
 }
@@ -48,12 +78,82 @@ function metaFile(dir) {
   return join(dir, 'meta.json')
 }
 
-function readMeta(dir) {
-  try {
-    return JSON.parse(readFileSync(metaFile(dir), 'utf8'))
-  } catch {
-    return null
+/**
+ * 把 meta.json 的**原始字节**归一为四态判据(纯函数,不碰文件系统,便于镜像测试直接喂夹具)。
+ *
+ * 为什么 `absent` 与 `invalid` 处置不同:
+ *   - `absent`(文件确实不存在)是一个**确定的否定事实**——这个锁从来没写下过元数据。
+ *     它仍不等于"无人持锁"(mkdir 与 writeMeta 之间有两步窗口,持有者可能是活的),
+ *     所以 acquire 也**不会**凭它立刻删锁;但它的出路是"等 meta 出现或锁龄超 stale"。
+ *   - `invalid`/`unreadable` 是一个**未知的判断**——内容在,而我们读不懂/读不到。
+ *     此时锁很可能正被活人持有(写坏通常来自崩溃或并发半写),
+ *     所以两者的共同底线是:**既不按"无人持锁"抢占,也不傻等到超时不给出路**;
+ *     唯一自动出路是"锁龄超 stale 阈值 ⇒ 归档现场后抢占"。
+ * 把三态混成"没有元数据"就是旧实现的全部病灶。
+ *
+ * @param {string|null|undefined} rawText 文件内容文本;传 null 表示"文件不存在"(absent)
+ * @returns {{kind:'absent',reason:string}
+ *          | {{kind:'ok'},meta:{mode:string,pid:number,ts:number}}
+ *          | {kind:'invalid'|'unreadable',raw:string|null,reason:string}}
+ */
+function classifyMeta(rawText) {
+  if (rawText === null || rawText === undefined) {
+    return {
+      kind: 'absent',
+      reason: 'meta.json 不存在(锁从未写下元数据,或持有者崩于 mkdir 与写 meta 之间)',
+    }
   }
+  if (rawText.trim() === '') {
+    return { kind: 'invalid', raw: rawText, reason: 'meta.json 是空文件(0 字节/全空白)' }
+  }
+  let parsed
+  try {
+    parsed = JSON.parse(rawText)
+  } catch (e) {
+    return { kind: 'invalid', raw: rawText, reason: `meta.json 不是合法 JSON:${e?.message ?? e}` }
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return { kind: 'invalid', raw: rawText, reason: 'meta.json 顶层不是对象,拿不到 mode/pid/ts' }
+  }
+  const pid = Number(parsed.pid)
+  if (!Number.isInteger(pid) || pid <= 0) {
+    // pid 是唯一能判"持有者死/活"的东西;缺它 ⇒ 无法判定,不得当成"pid 不存在=进程不存在"
+    return {
+      kind: 'invalid',
+      raw: rawText,
+      reason: `meta.json 缺少可用 pid(实得 ${JSON.stringify(parsed.pid)}),无法判定持有者是否存活`,
+    }
+  }
+  const ts = Number(parsed.ts)
+  return {
+    kind: 'ok',
+    meta: {
+      mode: typeof parsed.mode === 'string' ? parsed.mode : '',
+      pid,
+      // ts 缺失/非法不致命:活性判据靠 pid,锁龄可降级用目录 mtime(见 lockAgeMs)
+      ts: Number.isFinite(ts) && ts > 0 ? ts : 0,
+    },
+  }
+}
+
+/**
+ * 读取锁元数据 ⇒ 四态。
+ * 注意 `unreadable` 与 `absent` 的分界:只有 ENOENT(文件确实没有)才算 absent;
+ * EISDIR / EACCES / EBUSY 等一律是"读不到内容"= 无法判定,不是"没有内容"。
+ */
+function readMeta(dir) {
+  let raw
+  try {
+    raw = readFileSync(metaFile(dir), 'utf8')
+  } catch (e) {
+    if (e && e.code === 'ENOENT') return classifyMeta(null)
+    return {
+      kind: 'unreadable',
+      raw: null,
+      reason: `meta.json 读取失败:${e?.code ?? e?.message ?? e}`,
+    }
+  }
+  return classifyMeta(raw)
 }
 
 function writeMeta(dir, mode) {
@@ -69,19 +169,188 @@ function removeLock(dir) {
   try {
     rmSync(dir, { recursive: true, force: true })
   } catch {
-    /* 忽略 */
+    /* 忽略:调用方必须回读 existsSync 复核(2026-08-14 的教训) */
   }
 }
 
-/** 进程是否存活(跨平台) */
+/**
+ * 进程是否存活(跨平台)。
+ * 2026-09-26 修一处方向性误判:`process.kill(pid, 0)` 抛 **EPERM** 的含义是
+ * "进程存在但不归本用户管",旧实现一律 catch ⇒ 判死 ⇒ **抢占别人正在用的锁**。
+ * 服务账户/其他用户的构建进程正落在这一格里。
+ */
 function isProcessAlive(pid) {
   if (!pid) return false
   try {
     process.kill(pid, 0)
     return true
-  } catch {
-    return false
+  } catch (e) {
+    return !!e && e.code === 'EPERM'
   }
+}
+
+/**
+ * 锁龄(ms)与它的测量来源。
+ * `meta.ts` 是首选(持锁者自己写的时间);元数据不可判定时只能降级用**锁目录 mtime**——
+ * 这是**降级信号**:它不如 pid 可靠(任何一次写入目录的动作都会刷新它,包括别人的
+ * 归档/取证读取以外的写入),所以它**只用于**"不可判定态的 stale 兜底",
+ * 绝不反过来用于"判定持有者已死"。
+ */
+function lockAgeMs(dir, state, now = Date.now()) {
+  if (state.kind === 'ok' && state.meta.ts > 0) {
+    return { ageMs: Math.max(0, now - state.meta.ts), source: 'meta.ts' }
+  }
+  try {
+    return {
+      ageMs: Math.max(0, now - statSync(dir).mtimeMs),
+      source: '锁目录 mtime(降级信号,不如 pid 可靠)',
+    }
+  } catch {
+    return { ageMs: 0, source: '不可测(锁目录 stat 失败)' }
+  }
+}
+
+/** 现场归档根目录:只走本仓既有落点(§15b 批准的临时/归档面),禁止硬编码盘符(§5b/§15b 前例)。 */
+function sceneArchiveRoot() {
+  const override = process.env.IHUI_DEPLOY_LOCK_ARCHIVE_DIR
+  if (override) return resolve(override)
+  return join(repoRoot, '.ihui-agent', 'tmp', 'deploy-lock-scene')
+}
+
+/**
+ * 抢占/代为收口前把锁现场**原样归档**(A9-3「抢占保现场」)。
+ * 归档的是**字节**不是重新序列化的对象——坏锁的价值恰恰在于"它到底长什么样"。
+ * @param {{kind:string,reason?:string,ageMs?:number,ageSource?:string}} state 四态判据(附锁龄,供现场说明)
+ * @returns {string|null} 归档目录;null = 归档失败(调用方须把原始内容逐字打到 stderr,绝不静默覆盖)
+ */
+function archiveScene(dir, state, why) {
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const target = join(
+    sceneArchiveRoot(),
+    `${stamp}-by-pid${process.pid}-${Math.random().toString(36).slice(2, 6)}`,
+  )
+  let rawBuf = null
+  try {
+    rawBuf = readFileSync(metaFile(dir))
+  } catch {
+    rawBuf = null
+  }
+  try {
+    mkdirSync(target, { recursive: true })
+    if (rawBuf !== null) writeFileSync(join(target, 'meta.json'), rawBuf)
+    else
+      writeFileSync(join(target, 'meta.json.unavailable.txt'), `读取失败:${state.reason}\n`, 'utf8')
+    // 锁目录里除 meta 之外的任何文件一并原样复制(禁止整棵 rm -rf 前不留档)
+    for (const name of readdirSync(dir)) {
+      if (name === 'meta.json') continue
+      try {
+        copyFileSync(join(dir, name), join(target, name))
+      } catch {
+        /* 单个附属文件复制失败不阻断(主现场已落) */
+      }
+    }
+    writeFileSync(
+      join(target, 'scene-note.txt'),
+      [
+        `归档时间: ${new Date().toISOString()}`,
+        `执行进程: pid=${process.pid} 命令=${process.argv.slice(1).join(' ') || '(in-process)'}`,
+        `锁目录: ${dir}`,
+        `元数据态: ${state.kind}${state.reason ? `(${state.reason})` : ''}`,
+        `锁龄: ${state.ageMs ?? '未知'}ms 来源=${state.ageSource ?? '未知'}`,
+        `抢占理由: ${why}`,
+      ].join('\n'),
+      'utf8',
+    )
+    console.log(`[deploy-lock] 抢占前现场已原样归档: ${target}`)
+    return target
+  } catch (e) {
+    console.error(
+      `[deploy-lock] ❌ 归档现场失败(${e?.code ?? e?.message}) —— 不得静默覆盖,meta.json 原始内容逐字如下:`,
+    )
+    console.error(rawBuf === null ? '(原始内容不可得)' : rawBuf.toString('utf8'))
+    return null
+  }
+}
+
+/**
+ * 一次「这锁能不能拿」的勘验(纯判据,不删不改 —— 便于二次确认时复用同一条判据)。
+ * 返回 action:
+ *   - `coexist` dev+dev 放宽(旧 check-lock 语义)
+ *   - `steal`   可抢占(调用方仍须二次确认 + 归档现场)
+ *   - `wait`    继续等
+ */
+function decideSteal({ dir, mode, staleMs, now = Date.now() }) {
+  const state = readMeta(dir)
+  const age = lockAgeMs(dir, state, now)
+  const info = { state, ageMs: age.ageMs, ageSource: age.source }
+
+  if (state.kind === 'ok') {
+    const alive = isProcessAlive(state.meta.pid)
+    if (mode === 'dev' && state.meta.mode === 'dev' && alive) {
+      return {
+        action: 'coexist',
+        holderAlive: alive,
+        ...info,
+        why: `dev+dev 共存(持有者 pid=${state.meta.pid} 存活)`,
+      }
+    }
+    if (!alive) {
+      // 2026-08-27 立的判据,一字不许改回:持有者已退出 ⇒ **不限锁龄**立即抢占。
+      return {
+        action: 'steal',
+        immediate: true,
+        holderAlive: alive,
+        ...info,
+        why: `持有者 pid=${state.meta.pid} 已退出(锁龄 ${age.ageMs}ms 来源 ${age.source},按 2026-08-27 判据不限锁龄)`,
+      }
+    }
+    return {
+      action: 'wait',
+      holderAlive: alive,
+      ...info,
+      why: `持有者 pid=${state.meta.pid} 仍在运行`,
+    }
+  }
+
+  // —— 不可判定三态:绝不等价于"无人持锁"(A9-3),也不许傻等到超时不给出路
+  if (age.ageMs > staleMs) {
+    return {
+      action: 'steal',
+      immediate: false,
+      holderAlive: null,
+      ...info,
+      why: `元数据不可判定(${state.kind}:${state.reason})且锁龄 ${age.ageMs}ms 已超 stale 阈值 ${staleMs}ms —— 这是唯一自动出路`,
+    }
+  }
+  return {
+    action: 'wait',
+    holderAlive: null,
+    ...info,
+    why: `元数据不可判定(${state.kind}:${state.reason})⇒ 不凭猜测删锁;锁龄 ${age.ageMs}ms 未超 stale=${staleMs}ms`,
+  }
+}
+
+/** 超时报错:文案必须与该形态的**实际判据**一致(旧文案在这里撒过谎) */
+function lockTimeoutMessage({ timeoutMs, decision, staleMs, dir, mkdirErr }) {
+  const { state, ageMs, ageSource, holderAlive } = decision
+  const holderInfo =
+    state.kind === 'ok'
+      ? `mode=${state.meta.mode} pid=${state.meta.pid} ${state.meta.ts ? `于 ${new Date(state.meta.ts).toLocaleTimeString()}` : '(无 ts)'}${holderAlive ? '(运行中)' : '(已退出)'}`
+      : `无法判定(${state.kind}${state.reason ? `:${state.reason}` : ''})`
+  let route
+  if (state.kind === 'ok') {
+    route = holderAlive
+      ? '持有进程仍在运行,本工具不会打断它;它退出后锁会被立即抢占并归档现场'
+      : `持有者已退出即可抢占(锁龄 ${ageMs}ms 来源 ${ageSource})——仍未抢到说明删锁目录失败,请查权限/占用`
+  } else {
+    route = `元数据不可判定,本工具不会凭猜测删锁;唯一自动出路是锁龄超 stale=${staleMs}ms 后归档并抢占(当前 ${ageMs}ms,来源 ${ageSource})`
+  }
+  const mkdirNote =
+    mkdirErr && mkdirErr.code !== 'EEXIST' ? `(另:创建锁目录返回 ${mkdirErr.code})` : ''
+  return (
+    `[deploy-lock] 等待部署锁超时(${timeoutMs}ms)。当前持锁: ${holderInfo}。${route}。${mkdirNote} ` +
+    `紧急可人工确认持锁者后删除 ${dir}`
+  )
 }
 
 /**
@@ -89,39 +358,73 @@ function isProcessAlive(pid) {
  * 规则:
  *   - dev+dev:放宽(多个 dev 可共存,与旧 check-lock 一致)
  *   - build 与其他任何模式:严格互斥
- *   - 悬挂锁(进程已死且超 stale):自动抢占
- *   - 超时未获锁:抛错(不打断进行中的部署)
+ *   - 元数据完好且持有者进程已退出:**立即抢占(不限锁龄,2026-08-27 判据)**
+ *   - 元数据不可判定(absent/invalid/unreadable):只在锁龄超 stale 后抢占,且抢占前归档现场
+ *   - 超时未获锁:抛错(不打断进行中的部署),文案按形态给真实出路
  */
-async function acquire({ mode = 'build', timeoutMs = 600_000, staleMs: _staleMs = 600_000 } = {}) {
-  const dir = lockDir()
+async function acquire({
+  mode = 'build',
+  timeoutMs = 600_000,
+  staleMs = 600_000,
+  dir = lockDir(),
+} = {}) {
   const deadline = Date.now() + timeoutMs
   for (;;) {
+    let mkdirErr = null
     try {
       mkdirSync(dir, { recursive: false })
       writeMeta(dir, mode)
       console.log(`[deploy-lock] ${mode} 锁已获取 (pid=${process.pid})`)
       return true
-    } catch {
-      // 锁已存在:判断是否可共存 / 是否 stale
-      const meta = readMeta(dir)
-      const holderPid = meta?.pid
-      const holderAlive = isProcessAlive(holderPid)
-
-      if (mode === 'dev' && meta?.mode === 'dev' && holderAlive) {
-        // dev+dev 共存(旧 check-lock 语义)
-        console.log(`[deploy-lock] dev+dev 共存,继续 (持有者 pid=${holderPid})`)
-        return true
-      }
-
-      if (meta && !holderAlive) {
-        // 2026-08-27 修复:持有者已死 → 无论锁龄,立即抢占。
-        // 原逻辑要求"锁龄 > staleMs(600s)"才抢占,导致"强杀 dev 树后
-        // 立即重启 start-dev"时落入死循环轮询 500ms 直到 600s 超时抛错,
-        // 表现为启动卡死(predev 永久等待,8801 永不监听)。
-        // 持有者进程已退出 = 锁必然悬挂,抢占安全(process.kill(pid,0) 可靠)。
-        console.warn(
-          `[deploy-lock] 检测到悬挂锁(pid=${holderPid} 已退出,锁龄 ${Math.round((Date.now() - (meta.ts ?? 0)) / 1000)}s),立即抢占`,
+    } catch (e) {
+      // 只有"目录已存在"(EEXIST)才是"别人持锁"。mkdir 成功而 writeMeta 失败(ENOSPC/权限)
+      // 必须当场报错:旧实现把两步全裹在同一个 catch 里,写不进 meta 时会退化成
+      // "死等一把自己刚建的锁",600s 后抛错还把责任推给"残留锁"。
+      if (e && e.code && e.code !== 'EEXIST') {
+        // 刻意**不**在这里删锁:非 EEXIST(如 EACCES)证明不了"这个目录是我刚建的",
+        // 而证明不了的删除就可能是在删别人的锁(本票红线)。留下的空锁目录会被后续
+        // acquire 按 absent 态走"超 stale ⇒ 归档 ⇒ 抢占"这条自愈路,不需要未证明的破坏动作。
+        throw new Error(
+          `[deploy-lock] 创建/写入锁 ${dir} 失败(${e.code}:${e?.message ?? e})。` +
+            '因无法证明该目录为本次所建,本工具不代删;请查磁盘空间/权限后重试。',
         )
+      }
+      mkdirErr = e
+    }
+    // 锁已存在:判断是否可共存 / 是否可抢占
+    const decision = decideSteal({ dir, mode, staleMs })
+    if (decision.action === 'coexist') {
+      console.log(`[deploy-lock] dev+dev 共存,继续 (持有者 pid=${decision.state.meta.pid})`)
+      return true
+    }
+    if (decision.action === 'steal') {
+      // 二次确认:判据必须仍然成立(这一轮与上一轮之间持有者可能已换人/已复活)
+      const again = decideSteal({ dir, mode, staleMs })
+      if (again.action !== 'steal') {
+        console.warn(`[deploy-lock] 抢占判据在二次确认时不再成立(${again.why}),继续等待`)
+      } else {
+        console.warn(`[deploy-lock] 检测到可抢占锁:${again.why}`)
+        const archived = archiveScene(
+          dir,
+          { ...again.state, ageMs: again.ageMs, ageSource: again.ageSource },
+          again.why,
+        )
+        if (archived === null) {
+          // 归档失败时**不**删锁:现场不得静默覆盖(原始内容已逐字打到 stderr,不丢判据)。
+          // 例外:immediate(持有者已死)那一型若因归档失败而卡住,会把 2026-08-27 修的启动死循环
+          // 换回来 —— 故仅在该型继续删锁(现场已在 stderr 留痕),不可判定型仍保守等待。
+          if (!again.immediate) {
+            await new Promise((r) => setTimeout(r, POLL_MS))
+            if (Date.now() > deadline)
+              throw new Error(
+                lockTimeoutMessage({ timeoutMs, decision: again, staleMs, dir, mkdirErr }),
+              )
+            continue
+          }
+          console.warn(
+            '[deploy-lock] ⚠️ 归档失败但持有者已退出,按 2026-08-27 判据继续抢占(现场已逐字打印到 stderr)',
+          )
+        }
         removeLock(dir)
         // 2026-08-14 修复:removeLock 内部 rmSync 失败会被静默吞掉,
         // 若目录仍在则继续 for(;;) 会无限死循环(build/dev 永远卡住)。
@@ -129,54 +432,349 @@ async function acquire({ mode = 'build', timeoutMs = 600_000, staleMs: _staleMs 
         // 不再 continue 进入下一轮轮询。
         if (existsSync(dir)) {
           throw new Error(
-            `[deploy-lock] 无法删除悬挂锁 ${dir}(可能被其他进程占用/权限不足)。` +
-              '请手动删除该项目根 .deploy.lock 目录后重试。',
+            `[deploy-lock] 无法删除待抢占的锁 ${dir}(可能被其他进程占用/权限不足)。` +
+              '请手动删除该目录后重试。',
           )
         }
         continue
       }
-
-      if (Date.now() > deadline) {
-        const holderInfo = meta
-          ? `mode=${meta.mode} pid=${meta.pid} 于 ${new Date(meta.ts).toLocaleTimeString()}${holderAlive ? '(运行中)' : '(已退出)'}`
-          : '未知'
-        throw new Error(
-          `[deploy-lock] 等待部署锁超时(${timeoutMs}ms)。当前持锁: ${holderInfo}。` +
-            '若为残留锁(进程已退出),超 stale 时间会自动抢占;紧急可删项目根 .deploy.lock',
-        )
-      }
-      // 轮询等待
-      await new Promise((r) => setTimeout(r, 500))
     }
+    if (Date.now() > deadline) {
+      throw new Error(lockTimeoutMessage({ timeoutMs, decision, staleMs, dir, mkdirErr }))
+    }
+    // 轮询等待
+    await new Promise((r) => setTimeout(r, POLL_MS))
   }
 }
 
-/** 释放锁(CLI 场景 acquire/release 是不同进程,按 mode 匹配释放;持有者同 mode 时即视为可释放) */
-function release({ mode } = {}) {
-  const dir = lockDir()
-  if (!existsSync(dir)) return
-  const meta = readMeta(dir)
+/**
+ * 释放锁(CLI 场景 acquire/release 是不同进程,按 mode 匹配释放;持有者同 mode 时即视为可释放)。
+ * A9-3 收紧:**元数据不可判定时拒绝释放**——旧实现在此处两个 `meta &&` 守卫全短路,
+ * 于是"坏锁 = 白拿",一次 release 就能删掉别人正在用的锁。
+ */
+function release({ mode, dir = lockDir() } = {}) {
+  if (!existsSync(dir)) return { released: false, why: '无锁目录' }
+  const state = readMeta(dir)
+  if (state.kind !== 'ok') {
+    console.error(
+      `[deploy-lock] ❌ 拒绝释放:锁元数据无法判定(${state.kind}:${state.reason})。` +
+        `此刻删锁可能删掉别人正在用的锁。请人工确认持锁者后删除 ${dir};` +
+        '自动出路是 acquire 侧「锁龄超 stale 后归档抢占」。',
+    )
+    return { released: false, why: `无法判定:${state.kind}` }
+  }
   // 若调用方指定 mode,要求锁的 mode 一致才释放(避免误删他人不同类型的锁)
-  if (mode && meta && meta.mode !== mode) return
-  if (meta && meta.pid !== process.pid && meta.pid && isProcessAlive(meta.pid)) {
+  if (mode && state.meta.mode !== mode)
+    return { released: false, why: `mode 不匹配(锁=${state.meta.mode} 调用=${mode})` }
+  const self = state.meta.pid === process.pid
+  if (!self && isProcessAlive(state.meta.pid)) {
     // 锁持有进程还活着且不是自己 → 不释放(尊重持有者)
-    console.warn(`[deploy-lock] 锁由 pid=${meta.pid} 持有且仍在运行,拒绝释放`)
-    return
+    console.warn(`[deploy-lock] 锁由 pid=${state.meta.pid} 持有且仍在运行,拒绝释放`)
+    return { released: false, why: '他人持锁且存活' }
+  }
+  if (!self) {
+    // 非持有者代为收口 = 破坏性动作:先留现场,再二次确认持有者确实已退出
+    if (isProcessAlive(state.meta.pid)) {
+      console.warn(`[deploy-lock] 二次确认:pid=${state.meta.pid} 已恢复存活,拒绝释放`)
+      return { released: false, why: '二次确认持有者存活' }
+    }
+    const age = lockAgeMs(dir, state)
+    archiveScene(
+      dir,
+      { ...state, ageMs: age.ageMs, ageSource: age.source },
+      `代为释放非本进程持有的悬挂锁(pid=${state.meta.pid})`,
+    )
   }
   removeLock(dir)
   console.log(`[deploy-lock] 锁已释放 (pid=${process.pid})`)
+  return { released: true, why: self ? '持有者自释' : '悬挂锁代为收口' }
 }
 
-/** 只读检查:exit 0=无锁,1=有锁 */
-function check() {
-  const dir = lockDir()
+/** 只读检查:exit 0=无锁,1=有锁(不可判定态必须如实喊出"无法判定",禁止打印成空字段) */
+function check({ dir = lockDir(), log = (...a) => console.log(...a) } = {}) {
   if (!existsSync(dir)) return 0
-  const meta = readMeta(dir)
-  const alive = meta?.pid ? isProcessAlive(meta.pid) : false
-  console.log(
-    `locked: mode=${meta?.mode ?? ''} pid=${meta?.pid ?? ''} alive=${alive} ts=${meta ? new Date(meta.ts).toISOString() : ''}`,
+  const state = readMeta(dir)
+  const age = lockAgeMs(dir, state)
+  if (state.kind === 'ok') {
+    const alive = isProcessAlive(state.meta.pid)
+    log(
+      `locked: mode=${state.meta.mode} pid=${state.meta.pid} alive=${alive} ts=${state.meta.ts ? new Date(state.meta.ts).toISOString() : '(无)'} age=${age.ageMs}ms 锁龄来源=${age.source}`,
+    )
+    return 1
+  }
+  log(
+    `locked: 无法判定(${state.kind})——原因:${state.reason}。` +
+      `锁龄 ${age.ageMs}ms(来源:${age.source})。` +
+      `注意:这不是"没有进程持锁",也不是"持锁进程已退出";` +
+      'acquire 侧只会等锁龄超 stale 阈值后归档并抢占,不会凭猜测删锁。',
   )
   return 1
+}
+
+/**
+ * 自检:全部在临时夹具里跑(scripts/lib/scratch-dir.mjs),
+ * **绝不允许**触碰真实仓库根的 .deploy.lock(那是并发会话正在用的锁)。
+ * 归档面也用 IHUI_DEPLOY_LOCK_ARCHIVE_DIR 指进夹具,避免测试往仓库写现场。
+ */
+async function runSelfTest() {
+  const { mkScratch, rmScratch } = await import('./lib/scratch-dir.mjs')
+  const base = mkScratch('deploy-lock-selftest-')
+  process.env.IHUI_DEPLOY_LOCK_ARCHIVE_DIR = join(base, 'scene')
+  const results = []
+  let seq = 0
+  const freshDir = () => {
+    const d = join(base, `lock-${++seq}`)
+    mkdirSync(d, { recursive: true })
+    return d
+  }
+  const putMeta = (dir, text) => {
+    writeFileSync(metaFile(dir), text, 'utf8')
+    return text
+  }
+  const findDeadPid = () => {
+    for (let p = 999_000; p < 1_200_000; p += 11) if (!isProcessAlive(p)) return p
+    throw new Error('夹具需要一个确定已死的 pid,但未找到')
+  }
+  const DEAD_PID = findDeadPid()
+  const t = (name, cond, detail = '') => {
+    results.push({ name, ok: !!cond, detail })
+    console.log(`${cond ? '✅' : '❌'} ${name}${cond ? '' : ` — ${detail || '断言不成立'}`}`)
+  }
+  const elapsed = async (fn) => {
+    const s = Date.now()
+    const r = await fn()
+    return { ms: Date.now() - s, r }
+  }
+
+  try {
+    // —— 1) 四态勘验(纯判据)
+    t('S01 absent:meta.json 不存在 ⇒ absent', classifyMeta(null).kind === 'absent')
+    t(
+      'S02 ok:完好元数据 ⇒ ok',
+      classifyMeta(JSON.stringify({ mode: 'build', pid: 4321, ts: 1_700_000_000_000 })).kind ===
+        'ok',
+    )
+    t('S03 invalid:空文件 ⇒ invalid(不得当成 absent)', classifyMeta('').kind === 'invalid')
+    t('S04 invalid:全空白 ⇒ invalid', classifyMeta('   \n').kind === 'invalid')
+    t('S05 invalid:半个 JSON ⇒ invalid', classifyMeta('{"mode":"build","pid":').kind === 'invalid')
+    t('S06 invalid:顶层是数组 ⇒ invalid', classifyMeta('[1,2]').kind === 'invalid')
+    t(
+      'S07 invalid:缺 pid ⇒ invalid(无法判定持有者)',
+      classifyMeta('{"mode":"build"}').kind === 'invalid',
+    )
+    t(
+      'S08 invalid:pid 非法(0/字符串) ⇒ invalid',
+      classifyMeta('{"pid":"abc"}').kind === 'invalid' &&
+        classifyMeta('{"pid":0}').kind === 'invalid',
+    )
+    t(
+      'S09 ok:缺 ts 仍算 ok(活性靠 pid,锁龄可降级)',
+      classifyMeta('{"mode":"dev","pid":99}').kind === 'ok',
+    )
+    t(
+      'S10 absent 与 invalid 必须是不同态(处置动作不同)',
+      classifyMeta(null).kind !== classifyMeta('x').kind,
+    )
+
+    // —— 2) unreadable 与 absent 的分界:meta.json 位置放一个目录
+    const unDir = freshDir()
+    mkdirSync(metaFile(unDir), { recursive: true })
+    t(
+      'S11 unreadable:meta.json 是目录 ⇒ unreadable(不是 absent)',
+      readMeta(unDir).kind === 'unreadable',
+    )
+    // S11b 是"把 invalid/unreadable 在 readMeta 层折叠成 absent"这一变异**唯一能看见**的地方:
+    // classifyMeta 仍分得清,而 check 的 else 分支对三态都喊"无法判定" —— 只有态名会露馅。
+    const collapseDir = freshDir()
+    putMeta(collapseDir, '{"mode":"build","pid":')
+    t(
+      'S11b readMeta 层也不得把 invalid 折叠成 absent(变异对照的落点)',
+      readMeta(collapseDir).kind === 'invalid',
+    )
+    const collapse2 = freshDir()
+    putMeta(collapse2, '')
+    t('S11c 空文件在 readMeta 层仍是 invalid(不是 absent)', readMeta(collapse2).kind === 'invalid')
+
+    // —— 3) 无锁 ⇒ 直接获取
+    const d3 = join(base, 'no-lock')
+    const r3 = await elapsed(() => acquire({ mode: 'build', timeoutMs: 3000, dir: d3 }))
+    t('S12 absent(连锁目录都没有)⇒ acquire 秒成功', r3.r === true && r3.ms < 2000, `ms=${r3.ms}`)
+    t('S13 获取后 meta.json 记录了自己 pid', readMeta(d3).meta?.pid === process.pid)
+
+    // —— 4) 完好 + 持有者存活 ⇒ 等待并超时,且**绝不覆盖别人的锁**
+    const d4 = freshDir()
+    const raw4 = putMeta(d4, JSON.stringify({ mode: 'build', pid: process.pid, ts: Date.now() }))
+    let err4 = null
+    const r4 = await elapsed(async () => {
+      try {
+        await acquire({ mode: 'build', timeoutMs: 900, staleMs: 600_000, dir: d4 })
+        return 'no-throw'
+      } catch (e) {
+        err4 = e
+        return 'threw'
+      }
+    })
+    t(
+      'S14 活持有者 ⇒ 不抢占(等待后超时)',
+      r4.r === 'threw' && r4.ms >= 900,
+      `r=${r4.r} ms=${r4.ms}`,
+    )
+    t('S15 活持有者 ⇒ 锁的字节一字未变', readFileSync(metaFile(d4), 'utf8') === raw4)
+    t(
+      'S16 超时文案不得出现"会自动抢占"的假承诺',
+      !/会自动抢占/.test(err4?.message ?? ''),
+      err4?.message,
+    )
+
+    // —— 5) 回归对照:强杀 dev 树后立即重启(持有者已退出 + 锁龄 1s ⇒ 必须秒抢占)
+    const d5 = freshDir()
+    putMeta(d5, JSON.stringify({ mode: 'dev', pid: DEAD_PID, ts: Date.now() - 1000 }))
+    const r5 = await elapsed(() =>
+      acquire({ mode: 'dev', timeoutMs: 600_000, staleMs: 600_000, dir: d5 }),
+    )
+    t(
+      'S17 持有者已退出 + 锁龄 1s + stale=600s ⇒ 秒抢占(2026-08-27 行为保住)',
+      r5.r === true && r5.ms < 4000,
+      `ms=${r5.ms}`,
+    )
+    t(
+      'S18 秒抢占前已归档现场',
+      existsSync(process.env.IHUI_DEPLOY_LOCK_ARCHIVE_DIR) &&
+        readdirSync(process.env.IHUI_DEPLOY_LOCK_ARCHIVE_DIR).length >= 1,
+    )
+
+    // —— 6/7) invalid:半截 JSON ⇒ 不得立即抢占;超 stale 才归档抢占
+    for (const [tag, bad] of [
+      ['JSON6', '{"mode":"build","pid":'],
+      ['EMPTY', ''],
+      ['NOPID', JSON.stringify({ mode: 'build', ts: 1 })],
+    ]) {
+      const dirA = freshDir()
+      putMeta(dirA, bad)
+      const ageA = lockAgeMs(dirA, readMeta(dirA)).ageMs
+      let errA = null
+      await acquire({ mode: 'build', timeoutMs: 900, staleMs: ageA + 600_000, dir: dirA }).catch(
+        (e) => (errA = e),
+      )
+      t(`S19-${tag} 不可判定 + 未超 stale ⇒ 不抢占(超时)`, !!errA && existsSync(metaFile(dirA)))
+      t(
+        `S20-${tag} 超时文案如实写"无法判定"、点名真实出路、且不得谎称"文件不存在"`,
+        /无法判定/.test(errA?.message ?? '') &&
+          /stale/.test(errA?.message ?? '') &&
+          !/不存在/.test(errA?.message ?? ''),
+        errA?.message,
+      )
+
+      const dirB = freshDir()
+      const rawB = putMeta(dirB, bad)
+      const ageB = lockAgeMs(dirB, readMeta(dirB)).ageMs
+      const rB = await acquire({
+        mode: 'build',
+        timeoutMs: 5000,
+        staleMs: Math.max(-1, ageB - 1),
+        dir: dirB,
+      })
+      t(`S21-${tag} 不可判定 + 已超 stale ⇒ 归档后抢占成功`, rB === true)
+      const archived = readdirSync(process.env.IHUI_DEPLOY_LOCK_ARCHIVE_DIR).some((n) => {
+        const f = join(process.env.IHUI_DEPLOY_LOCK_ARCHIVE_DIR, n, 'meta.json')
+        try {
+          return readFileSync(f, 'utf8') === rawB
+        } catch {
+          return false
+        }
+      })
+      t(`S22-${tag} 现场按**原字节**归档(坏内容原样留档)`, archived)
+    }
+
+    // —— 8) unreadable 与 invalid 同样不得白拿
+    const d8 = freshDir()
+    mkdirSync(metaFile(d8), { recursive: true })
+    let err8 = null
+    await acquire({ mode: 'build', timeoutMs: 900, staleMs: 600_000, dir: d8 }).catch(
+      (e) => (err8 = e),
+    )
+    t(
+      'S23 unreadable ⇒ 不立即抢占且文案给真实出路',
+      !!err8 && /无法判定/.test(err8.message),
+      err8?.message,
+    )
+
+    // —— 9) 目录在而 meta 从未写下(absent 态):不得当成"无人持锁"秒删
+    const d9 = freshDir()
+    let err9 = null
+    await acquire({ mode: 'build', timeoutMs: 900, staleMs: 600_000, dir: d9 }).catch(
+      (e) => (err9 = e),
+    )
+    t(
+      'S24 空锁目录(absent)未超 stale ⇒ 不等价于"无人持锁",不删别人正在创建的锁',
+      !!err9 && existsSync(d9),
+    )
+
+    // —— 10) check 三态如实输出
+    const lineOf = (dir) => {
+      let out = ''
+      check({ dir, log: (s) => (out += s) })
+      return out
+    }
+    t('S25 check:无锁 ⇒ exit 0', check({ dir: join(base, 'nothing'), log: () => {} }) === 0)
+    t('S26 check:ok+存活 ⇒ exit 1 且打印 pid/alive', lineOf(d4).includes('alive=true'))
+    const badChk = freshDir()
+    putMeta(badChk, '{"mode":"build","pid":')
+    const chk = lineOf(badChk)
+    t(
+      'S27 check:invalid ⇒ 输出含"无法判定"与原因**且点名态名**',
+      chk.includes('无法判定') && chk.includes('invalid') && chk.includes('JSON'),
+      chk,
+    )
+    t(
+      'S28 check:invalid ⇒ 禁止打印成空字段形态(旧版 "mode= pid= ts=")',
+      !/mode=\s+pid=\s+alive=/.test(chk) && !/ts=\s*$/.test(chk),
+      chk,
+    )
+    t('S29 check:unreadable ⇒ 同样喊"无法判定"', lineOf(d8).includes('无法判定'))
+
+    // —— 30) release 不得"坏锁白拿"
+    const d10 = freshDir()
+    putMeta(d10, 'not json at all')
+    const rel10 = release({ mode: 'build', dir: d10 })
+    t(
+      'S30 release:元数据不可判定 ⇒ 拒绝释放,锁目录仍在',
+      rel10.released === false && existsSync(d10),
+    )
+    const rel11 = release({ mode: 'build', dir: d3 })
+    t('S31 release:持有者是自己 ⇒ 释放成功', rel11.released === true && !existsSync(d3))
+    const d12 = freshDir()
+    putMeta(d12, JSON.stringify({ mode: 'build', pid: DEAD_PID, ts: Date.now() }))
+    const rel12 = release({ mode: 'build', dir: d12 })
+    t('S32 release:悬挂锁(持有者已死)可代为收口', rel12.released === true && !existsSync(d12))
+
+    // —— 33) dev+dev 共存语义不得回归
+    const d13 = freshDir()
+    putMeta(d13, JSON.stringify({ mode: 'dev', pid: process.pid, ts: Date.now() }))
+    const r13 = await acquire({ mode: 'dev', timeoutMs: 900, dir: d13 })
+    t('S33 dev+dev 共存仍然放行', r13 === true)
+    // —— 34) 创建锁本身失败(非 EEXIST)必须当场报错,不得退化成"死等一把自己建不出来的锁"
+    let err34 = null
+    await acquire({
+      mode: 'build',
+      timeoutMs: 1500,
+      dir: join(base, 'no-such-parent', 'lock'),
+    }).catch((e) => (err34 = e))
+    t(
+      'S34 mkdir 非 EEXIST 失败 ⇒ 立刻报错并点名错误码(不进死等)',
+      !!err34 && /创建\/写入锁/.test(err34.message) && /ENOENT/.test(err34.message),
+      err34?.message ?? '未抛错',
+    )
+  } finally {
+    rmScratch(base)
+  }
+
+  const failed = results.filter((r) => !r.ok)
+  console.log(
+    `自检 ${results.length} 条:pass ${results.length - failed.length} / fail ${failed.length}`,
+  )
+  for (const f of failed) console.log(`  ❌ ${f.name} — ${f.detail}`)
+  return failed.length === 0 ? 0 : 1
 }
 
 async function main() {
@@ -186,20 +784,33 @@ async function main() {
     const i = args.indexOf(name)
     return i >= 0 ? args[i + 1] : undefined
   }
+  const dir = getOpt('--lock-dir') ? resolve(getOpt('--lock-dir')) : undefined
 
   try {
-    if (cmd === 'acquire') {
+    if (cmd === '--self-test' || args.includes('--self-test')) {
+      try {
+        process.exit(await runSelfTest())
+      } catch (e) {
+        // 自检脚本自身异常 ≠ 判据失败:按 §22d/§22b 约定用 exit 2 显式"无法判定"
+        console.error(`❌ 自检脚本异常(非判据失败):${e?.message ?? e}\n${e?.stack ?? ''}`)
+        process.exit(2)
+      }
+    } else if (cmd === 'acquire') {
       await acquire({
         mode: getOpt('--mode') ?? 'build',
         timeoutMs: Number(getOpt('--timeout') ?? 600_000),
         staleMs: Number(getOpt('--stale') ?? 600_000),
+        ...(dir ? { dir } : {}),
       })
     } else if (cmd === 'release') {
-      release({ mode: getOpt('--mode') ?? 'build' })
+      release({ mode: getOpt('--mode') ?? 'build', ...(dir ? { dir } : {}) })
     } else if (cmd === 'check') {
-      process.exit(check())
+      process.exit(check(dir ? { dir } : {}))
     } else {
-      console.error('用法: deploy-lock.mjs acquire|release|check [--mode <build|dev>] [--timeout <ms>] [--stale <ms>]')
+      console.error(
+        '用法: deploy-lock.mjs acquire|release|check [--mode <build|dev>] [--timeout <ms>] [--stale <ms>] [--lock-dir <path>]\n' +
+          '      deploy-lock.mjs --self-test',
+      )
       process.exit(1)
     }
   } catch (e) {
@@ -208,5 +819,29 @@ async function main() {
   }
 }
 
-void main()
+// §22d:双形态入口守护 —— 被测试 import 时绝不触发 CLI 副作用
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) {
+  main().catch((e) => {
+    console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
+    process.exit(2)
+  })
+}
+
+// §22c:暴露给镜像测试,禁止在测试里复制第二份判据实现
+export const __test__ = {
+  lockDir,
+  metaFile,
+  classifyMeta,
+  readMeta,
+  writeMeta,
+  isProcessAlive,
+  lockAgeMs,
+  decideSteal,
+  acquire,
+  release,
+  check,
+  sceneArchiveRoot,
+  repoRoot,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
