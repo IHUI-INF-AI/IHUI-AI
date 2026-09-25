@@ -49,9 +49,19 @@ const RULES = {
   'layer-direction': 'D2 依赖方向违反层序',
   'deep-import': 'D3 穿透公开入口的深导入',
   'module-cycle': 'D4 现实 import 边成环',
+  // ── 声明齐备性两判(2026-09-25 补,MECHANISM-SPEC-2 §4)──
+  // 方向与 T1 同源:**表里写了什么,现实里就必须有什么**。此前 T1 只对账 `roots`,
+  // 而 `public_entrypoints` 是 D3 深导入的唯一依据 —— 入口被改名/搬走而表没跟上时,
+  // D3 就对着空气工作(判据存在而审的是不存在的对象 = 没有)。
+  'entrypoint-missing': 'E1 声明的公开入口在取材面里不存在',
+  'contract-artifact-missing': 'E2 纳管模块缺契约工件/声明的契约文件不存在',
 }
 /** 不受 managed 开关约束、全仓即时判红的规则 */
 const ALWAYS_RED = new Set(['table-integrity', 'file-lines'])
+/** 入口存在性判据的取用形态:仓库相对路径恒正斜杠,故扩展名表是**唯一**一份(module-context 复用) */
+const ENTRY_EXTS = ['', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.json', '.css', '/index.ts', '/index.tsx', '/index.js', '/index.mjs']
+/** 模块自述/契约文档名(齐备性判据的合法工件之一;新增名字改这一处) */
+const MODULE_DOC_NAMES = ['README.md', 'AGENTS.md', 'CONTEXT.md', 'CONTRACT.md']
 
 /**
  * 一律经 `scripts/lib/face-reader.mjs`。此前本门把 git **硬编码成** `C:/Program Files/Git/cmd/git.exe`,
@@ -268,6 +278,10 @@ export function loadPolicy(doc) {
       roots,
       requires: new Set(Array.isArray(m.requires) ? m.requires : []),
       entrypoints: Array.isArray(m.public_entrypoints) ? m.public_entrypoints : [],
+      // E2 的最小新增键:模块**显式声明**的契约/自述工件清单(可选)。
+      // 语义与 public_entrypoints 同一族 —— 声明了就必须在取材面里存在;没声明的模块
+      // 退而认 contract_file_patterns 命中或模块根下的自述文档(见 moduleContractArtifacts)。
+      contractFiles: Array.isArray(m.contract_files) ? m.contract_files.map(String) : [],
     })
   }
   const cons = doc.constraints || {}
@@ -360,6 +374,137 @@ export function auditPolicy(P, existingPaths) {
       v.push({ rule: 'table-integrity', file: POLICY_REL, line: 0, soft: true, msg: `例外 ${e.id} 指向的 ${e.file} 已不在取材面里(清单腐烂,请删该条)` })
   }
   return v
+}
+
+// ── E1 / E2:声明齐备性(纯函数,取材面由调用方注入) ─────────────────────────
+// 与 auditPolicy(T1) 的分工:T1 只对账 `roots`,这里对账**剩下的两格声明** ——
+// `public_entrypoints`(E1)与契约工件(E2)。三条判据共用同一个 ctx:
+//   ctx = { tracked:Set<路径>, allPaths:路径[], manifestOf:(moduleId)=>清单对象|null }
+// 抽成 ctx 注入而不是在函数里派生 git,是为了让 `--self-test` 与镜像测试能**构造面**
+// (本仓教训:证明取材面行为只能用纯函数 + 构造面,不得依赖仓库瞬时状态)。
+const inRoots = (m, p) => m.roots.some((r) => p === r || p.startsWith(r + '/'))
+/**
+ * 子路径模式里的 `*` 按 npm exports 语义**跨段**匹配 —— 与 `matchEntrypoint`(D3)同一族口径。
+ * 这跟 `globToRe` 的"段内 `*`"不是一回事:拿段内 `*` 去判存在性,会把
+ * `./messages/*` → `packages/i18n/messages/api/en.json` 这种多层命中算成"入口不存在",
+ * 即**解析口径错**而不是真缺(E1 首跑就抓到这一条,故单列一份实现并在此说明)。
+ */
+const subPathRe = (pat) => new RegExp(`^${String(pat).replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`)
+const stemOf = (p) => p.replace(/\.[^./]+$/, '')
+
+const targetsOfExports = (v) => (typeof v === 'string' ? [v] : v && typeof v === 'object' ? Object.values(v).flatMap((x) => (typeof x === 'string' ? [x] : Array.isArray(x) ? x.filter((y) => typeof y === 'string') : [])) : [])
+
+/** 一个 public_entrypoints 条目解析到取材面里的真实文件(解析不到即 state:'missing') */
+export function resolveEntrypoint(m, ep, ctx) {
+  const root = m.roots[0]
+  if (!root) return { ep, state: 'missing', path: null, how: '无 roots(该模块由 T1 点名)' }
+  const key = ep === '.' ? '.' : ep.startsWith('./') ? ep : './' + ep.replace(/^\//, '')
+  const rel = key.replace(/^\.\//, '')
+  // 1) 约定式:模块根与根下 src/ 两条前缀,扩展名表逐一试
+  if (key !== '.') {
+    if (!rel.includes('*')) {
+      for (const e of ENTRY_EXTS) {
+        for (const base of [`${root}/${rel}${e}`, `${root}/src/${rel}${e}`]) {
+          if (ctx.tracked.has(base)) return { ep, state: 'ok', path: base, how: '约定式路径' }
+        }
+      }
+    } else {
+      const hit = ctx.allPaths.find((p) => subPathRe(`${root}/${rel}`).test(p) || subPathRe(`${root}/src/${rel}`).test(p))
+      if (hit) return { ep, state: 'ok', path: hit, how: '约定式 glob 命中' }
+    }
+  }
+  const j = ctx.manifestOf ? ctx.manifestOf(m.id) : null
+  const ex = j && j.exports && typeof j.exports === 'object' ? j.exports : null
+  // 2) 主入口:裸包名 '.' 走 package.json 的 exports['.'] / main,再退到 index 约定
+  if (key === '.') {
+    const vals = ex ? targetsOfExports(ex['.']) : []
+    if (typeof j?.main === 'string') vals.push(j.main)
+    for (const t of vals) {
+      const cand = `${root}/${String(t).replace(/^\.\//, '')}`
+      if (ctx.tracked.has(cand)) return { ep, state: 'ok', path: cand, how: '包清单主入口' }
+    }
+    for (const cand of [`${root}/src/index.ts`, `${root}/index.ts`, `${root}/src/index.tsx`, `${root}/src/index.js`, `${root}/index.js`, `${root}/index.mjs`]) {
+      if (ctx.tracked.has(cand)) return { ep, state: 'ok', path: cand, how: '主入口 index 约定' }
+    }
+    return { ep, state: 'missing', path: null, how: '主入口既无清单也无 index 文件' }
+  }
+  // 3) 包清单 exports 的显式子路径键(精确键或 glob 键)
+  if (ex) {
+    const declaredKey = Object.prototype.hasOwnProperty.call(ex, key) ? key : Object.keys(ex).find((k) => k.includes('*') && subPathRe(k).test(key))
+    if (declaredKey) {
+      for (const t of targetsOfExports(ex[declaredKey])) {
+        const rel2 = String(t).replace(/^\.\//, '')
+        const cand = `${root}/${rel2}`
+        if (rel2.includes('*')) {
+          const hit = ctx.allPaths.find((p) => subPathRe(cand).test(p))
+          if (hit) return { ep, state: 'ok', path: hit, how: `exports['${declaredKey}'] 映射` }
+          continue
+        }
+        if (ctx.tracked.has(cand)) return { ep, state: 'ok', path: cand, how: `exports['${declaredKey}'] 映射` }
+        const alt = ctx.allPaths.find((p) => stemOf(p) === stemOf(cand))
+        if (alt) return { ep, state: 'ok', path: alt, how: `exports['${declaredKey}'] 映射(同干换扩展名)` }
+      }
+      return { ep, state: 'missing', path: null, how: `exports['${declaredKey}'] 映射到的文件不在取材面` }
+    }
+  }
+  return { ep, state: 'missing', path: null, how: '既无约定式文件也无 exports 声明' }
+}
+
+/** 模块的契约工件面:显式声明 ∪ contract_file_patterns 命中 ∪ 模块根下的自述文档 */
+export function moduleContractArtifacts(m, ctx, P) {
+  const declared = m.contractFiles.map((f) => {
+    const p = f.startsWith('/') ? f.slice(1) : m.roots.length && !f.startsWith(m.roots[0] + '/') ? `${m.roots[0]}/${f.replace(/^\.\//, '')}` : f.replace(/^\.\//, '')
+    return { path: p, exists: ctx.tracked.has(p), source: '声明的 contract_files' }
+  })
+  const isContract = mkMatcher(P.contractPatterns)
+  const patternHits = ctx.allPaths.filter((p) => inRoots(m, p) && isContract(p)).map((p) => ({ path: p, exists: true, source: 'contract_file_patterns 命中' }))
+  const docs = []
+  for (const r of m.roots) for (const d of MODULE_DOC_NAMES) if (ctx.tracked.has(`${r}/${d}`)) docs.push({ path: `${r}/${d}`, exists: true, source: '模块自述文档' })
+  const bad = declared.filter((x) => !x.exists)
+  return { declared, patternHits, docs, all: [...declared, ...patternHits, ...docs], sufficient: declared.length > 0 || patternHits.length > 0 || docs.length > 0, bad }
+}
+
+/**
+ * E1 + E2 的判据面(返回违规数组,形状与 auditPolicy 一致,可直接并进表级报账)。
+ * 问责前置(与全门同一条渐进收口制度):**只有 managed:true 的模块**的结果才计红;
+ * managed:false / 未收口的模块一律 `soft: true`(只报数)。
+ * 「未齐备」这一类**默认恒报数**:HEAD 实测有十几块纳管模块既没有 pattern 命中也没有
+ * 自述文档,把它做成即时判红等于造一台恒红门(唯一结局是逼人 --no-verify);
+ * 要按这一类问责请跑 `--strict`(人工巡检档),它的语义本就是"存量债也判红"。
+ */
+export function auditDeclarations(P, ctx, opts = {}) {
+  const trial = new Set(opts.trialModules || [])
+  const strict = opts.strict === true
+  const v = []
+  const counters = { entrypointsChecked: 0, entrypointMissing: 0, contractDeclaredMissing: 0, contractAbsentModules: 0 }
+  for (const m of P.modules.values()) {
+    const held = m.managed || trial.has(m.id)
+    for (const ep of m.entrypoints) {
+      counters.entrypointsChecked++
+      const r = resolveEntrypoint(m, ep, ctx)
+      if (r.state === 'ok') continue
+      counters.entrypointMissing++
+      v.push({ rule: 'entrypoint-missing', file: POLICY_REL, line: 0, module: m.id, managed: held, soft: !held, msg: `模块 ${m.id} 声明的 public_entrypoints "${ep}" 在取材面里解析不到文件(${r.how})—— D3 深导入判据正对着不存在的出口工作` })
+    }
+    const art = moduleContractArtifacts(m, ctx, P)
+    for (const b of art.bad) {
+      counters.contractDeclaredMissing++
+      v.push({ rule: 'contract-artifact-missing', file: b.path, line: 0, module: m.id, managed: held, soft: !held, msg: `模块 ${m.id} 在 contract_files 里声明了 ${b.path},但取材面里没有这个文件(契约工件失踪)` })
+    }
+    if (held && !art.sufficient) {
+      counters.contractAbsentModules++
+      v.push({
+        rule: 'contract-artifact-missing',
+        file: POLICY_REL,
+        line: 0,
+        module: m.id,
+        managed: held,
+        soft: !strict,
+        msg: `模块 ${m.id} 已纳管(managed:true)却没有任何契约工件:既未声明 contract_files,也不命中 contract_file_patterns,模块根下也没有 ${MODULE_DOC_NAMES.join('/')} —— 齐备性按 --strict 档问责,默认只报数`,
+      })
+    }
+  }
+  return { violations: v, counters }
 }
 
 // ── 核心判定(纯函数:files = Map<相对路径, 文本>) ──────────────────────────────────────
@@ -527,6 +672,40 @@ function readFace(rev, paths) {
 }
 const treePaths = (rev) => (rev === '' ? git(['ls-files', '-z']).split('\0').filter(Boolean) : git(['ls-tree', '-r', '--name-only', rev, '-z']).split('\0').filter(Boolean))
 
+/**
+ * E1/E2 判据的取材上下文:路径清单 + 包清单读取器,**全部来自同一个面**。
+ *
+ * 做成注入式有两个理由:① 判据与本门的阅读包出口 `scripts/module-context.mjs` 必须共用
+ * 同一份解析实现(两处算同一件事不得各写一遍),而两侧取的可以不是同一个面;
+ * ② `--self-test` 与镜像测试要能**构造面**来证明判据有牙(本仓教训:证明取材面行为
+ * 只能用纯函数 + 构造面,不得依赖仓库瞬时状态)。
+ * 坏清单不静默 —— 记进 `unparsed` 由调用方喊出来:JSON.parse 失败会伪装成"入口解析不到",
+ * 一个解析错误冒充业务结论正是本门注释里写过的那一型。
+ */
+export function declarationContext(P, facePaths, rev) {
+  const tracked = new Set(facePaths)
+  const want = [...new Set([...P.modules.values()].map((m) => (m.pkg && m.roots.length ? `${m.roots[0]}/package.json` : null)).filter(Boolean))].filter((p) => tracked.has(p))
+  const byPath = new Map()
+  const unparsed = []
+  for (const [p, text] of readFace(rev, want)) {
+    try {
+      byPath.set(p, JSON.parse(text))
+    } catch {
+      unparsed.push(p)
+    }
+  }
+  return {
+    tracked,
+    allPaths: facePaths,
+    unparsed,
+    manifestOf(id) {
+      const m = P.modules.get(id)
+      const pj = m && m.roots.length ? `${m.roots[0]}/package.json` : null
+      return pj && byPath.has(pj) ? byPath.get(pj) : null
+    },
+  }
+}
+
 /** 策略表自身的取材:按 `policyFaceOrder(isStaged)` 给定的顺序,取第一个读得到的。
  *  三档降级(而非 exit 2)的理由仍然成立:新落表的那一枚提交之前,若坚持只认 HEAD
  *  就会在"表还没入库"时把整条提交链打死(= 恒红机器)。
@@ -691,7 +870,10 @@ function main(argv) {
     console.error(`❌ 无法判定:git 取材失败 —— ${e.message}`)
     return 2
   }
-  const table = auditPolicy(P, existing)
+  const declCtx = declarationContext(P, existing, rev)
+  const decl = auditDeclarations(P, declCtx, { trialModules, strict })
+  const policyTable = auditPolicy(P, existing)
+  const table = [...policyTable, ...decl.violations]
   // 表自洽性的提交链棘轮(见 filterNewTableDefining 的注释):HEAD 那份表**已有**的缺陷
   // 不得转嫁给本次提交;HEAD 那份读不出/解不开时不设基线(宁可多报,绝不静默放过)。
   let baselineMsgs = new Set()
@@ -700,7 +882,10 @@ function main(argv) {
       const headText = readFace('HEAD', [POLICY_REL]).get(POLICY_REL)
       if (typeof headText === 'string') {
         const PH = loadPolicy(parseYaml(headText, `${POLICY_REL}@HEAD`))
-        for (const v of auditPolicy(PH, treePaths('HEAD'))) if (!v.soft) baselineMsgs.add(v.msg)
+        const headPaths = treePaths('HEAD')
+        for (const v of auditPolicy(PH, headPaths)) if (!v.soft) baselineMsgs.add(v.msg)
+        // 齐备性(E1/E2)同样走棘轮:HEAD 那份表本来就解析不到的入口,不得转嫁给本次提交
+        for (const v of auditDeclarations(PH, declarationContext(PH, headPaths, 'HEAD'), { trialModules, strict }).violations) if (!v.soft) baselineMsgs.add(v.msg)
       }
     } catch {
       baselineMsgs = new Set()
@@ -718,15 +903,18 @@ function main(argv) {
 
   const fellBack = scopeMode === 'staged-empty-fallback-full'
   if (json) {
-    console.log(JSON.stringify({ face: isStaged ? (fellBack ? 'index-fallback-head' : 'index') : 'HEAD', stagedFallback: fellBack, policyFace, modules: P.modules.size, managed: managedIds, scanned: res.stats.scanned, edges: res.edges.size, byRule: tally(res.violations), redByRule: tally(hard), hard: hard.slice(0, 80), softTotal: soft.length, unowned: [...res.stats.unowned], unknownPkg: [...res.stats.unknownPkg], exempted: res.stats.exempted, policyExceptions: res.stats.policyExceptions, invalidExempt: res.stats.invalidExempt, staleExceptions: softTable.length }, null, 2))
+    console.log(JSON.stringify({ face: isStaged ? (fellBack ? 'index-fallback-head' : 'index') : 'HEAD', stagedFallback: fellBack, policyFace, modules: P.modules.size, managed: managedIds, scanned: res.stats.scanned, edges: res.edges.size, byRule: tally(res.violations), redByRule: tally(hard), hard: hard.slice(0, 80), softTotal: soft.length, unowned: [...res.stats.unowned], unknownPkg: [...res.stats.unknownPkg], exempted: res.stats.exempted, policyExceptions: res.stats.policyExceptions, invalidExempt: res.stats.invalidExempt, staleExceptions: softTable.length, declarations: decl.counters, unparsedManifests: declCtx.unparsed }, null, 2))
     return hard.length ? 1 : 0
   }
   console.log(`[arch-policy] 内容取材口径:${faceDesc}`)
   const notice = policyFaceNotice(policyFace, policyOids)
   if (notice) console.log(`[arch-policy] ${notice.level === 'warn' ? '⚠️' : 'ℹ️'} ${notice.msg}`)
   console.log(`[arch-policy] 模块 ${P.modules.size} 个 | managed:true ${managedIds.length ? managedIds.join(', ') : '0 个(存量一律只报数)'} | 扫描 ${res.stats.scanned} 文件 | 跨模块边 ${res.edges.size} 条 | 非本表射程的说明符 ${res.stats.foreign} 处(第三方/别名,不判但如实计数)`)
-  console.log(`[arch-policy] 违规合计 ${res.violations.length + table.length} 处:` + Object.entries({ ...tally(res.violations), ...{ 'table-integrity': table.length } }).map(([k, n]) => ` ${(RULES[k] || k).split(' ')[0]}=${n}`).join(''))
-  console.log(`[arch-policy] 判红 ${hard.length} 处(C1/T1 全仓即时 + 已收口模块的契约违规)| 报数 ${soft.length} 处(managed:false 存量,不判红)` + (res.stats.exempted ? ` | 行内 arch-exempt 放过 ${res.stats.exempted} 处` : '') + (res.stats.policyExceptions ? ` | 策略表 exceptions 放过 ${res.stats.policyExceptions} 处` : '') + (res.stats.invalidExempt ? ` | arch-exempt 缺原因(不生效)${res.stats.invalidExempt} 处` : '') + (softTable.length ? ` | 待清理的失效例外 ${softTable.length} 条` : ''))
+  console.log(`[arch-policy] 违规合计 ${res.violations.length + table.length} 处:` + Object.entries({ ...tally(res.violations), ...tally(table) }).map(([k, n]) => ` ${(RULES[k] || k).split(' ')[0]}=${n}`).join(''))
+  console.log(`[arch-policy] 齐备性对账:E1 公开入口 ${decl.counters.entrypointsChecked} 条已核 → 解析不到 ${decl.counters.entrypointMissing} 条 | E2 契约工件:声明失踪 ${decl.counters.contractDeclaredMissing} 处、未齐备模块 ${decl.counters.contractAbsentModules} 块(未齐备这一档默认只报数 —— HEAD 实测存量十几块,即时判红就是恒红门;要按它问责跑 --strict)`)
+  if (declCtx.unparsed.length) console.log(`[arch-policy] ⚠️ ${declCtx.unparsed.length} 份包清单 JSON.parse 失败(会被算成"入口解析不到",先修清单再看 E1):${declCtx.unparsed.join(', ')}`)
+  const staleExc = softTable.filter((x) => x.rule === 'table-integrity').length
+  console.log(`[arch-policy] 判红 ${hard.length} 处(C1/T1 全仓即时 + 已收口模块的契约违规;E1/E2 的红只按 managed:true 问责)| 报数 ${soft.length} 处(managed:false 存量,不判红)` + (res.stats.exempted ? ` | 行内 arch-exempt 放过 ${res.stats.exempted} 处` : '') + (res.stats.policyExceptions ? ` | 策略表 exceptions 放过 ${res.stats.policyExceptions} 处` : '') + (res.stats.invalidExempt ? ` | arch-exempt 缺原因(不生效)${res.stats.invalidExempt} 处` : '') + (staleExc ? ` | 待清理的失效例外 ${staleExc} 条` : '') + (decl.counters.contractAbsentModules ? ` | E2 未齐备模块 ${decl.counters.contractAbsentModules} 块(默认只报数)` : ''))
   if (res.stats.unowned.size) console.log(`[arch-policy] ⚠️ 含源文件却未登记进表的目录 ${res.stats.unowned.size} 个(只报数):${[...res.stats.unowned].slice(0, 12).join(', ')}${res.stats.unowned.size > 12 ? ' …' : ''}`)
   const staleIds = unusedExceptions(P, res.stats.exceptionIds, isStaged ? 'index' : 'HEAD')
   if (staleIds.length) console.log(`[arch-policy] ⚠️ 本轮一条都没命中的例外 ${staleIds.length} 条(清单腐烂候补,确认后可删):${staleIds.join(', ')}`)
@@ -968,7 +1156,79 @@ exceptions:
   // relFrom
   eq('relFrom:仓库相对路径下的 .. 归一', relFrom('apps/demo/src', '../../../packages/kit/src/x') === 'packages/kit/src/x' ? 1 : 0, 1)
   eq('relFrom:与上条成对,不越界时原地解析', relFrom('packages/kit/src', './a/b') === 'packages/kit/src/a/b' ? 1 : 0, 1)
-  console.log(fail ? `\n❌ 自检 ${fail} 例失败` : `\n全部 ${ran} 例通过(成对正反例 + T1 表自洽 + 两面口径差异 + 空暂存回退 + 取材面提示语 + 解析器大声失败 + glob/relFrom)`)
+  // ── E1 / E2 声明齐备性:全部用**构造面**(判据不得依赖仓库瞬时状态) ─────────────────
+  const eYaml = (managed) => `
+version: 1
+constraints:
+  max_file_lines: 100
+  max_contract_file_lines: 40
+  max_public_exports: 5
+  contract_file_patterns:
+    - 'packages/kinds/src/schema/**'
+layers:
+  - id: 'contract'
+    rank: 10
+modules:
+  - id: 'packages/kinds'
+    package: '@ihui/kinds'
+    layer: 'contract'
+    exported: true
+    managed: ${managed}
+    roots:
+      - 'packages/kinds'
+    requires: []
+    public_entrypoints:
+      - '.'
+      - './alpha'
+      - './beta/*'
+    contract_files:
+      - 'src/schema.ts'
+  - id: 'packages/loose'
+    package: '@ihui/loose'
+    layer: 'contract'
+    exported: true
+    managed: ${managed}
+    roots:
+      - 'packages/loose'
+    requires: []
+    public_entrypoints: []
+  - id: 'packages/off'
+    package: '@ihui/off'
+    layer: 'contract'
+    exported: true
+    managed: false
+    roots:
+      - 'packages/off'
+    requires: []
+    public_entrypoints:
+      - './gone'
+`
+  const EON = loadPolicy(parseYaml(eYaml(true), 'E1-ON'))
+  const EOFF = loadPolicy(parseYaml(eYaml(false), 'E1-OFF'))
+  const faceOf = (list, manifests = {}) => ({ tracked: new Set(list), allPaths: list, unparsed: [], manifestOf: (id) => manifests[id] || null })
+  const GOOD_FACE = ['packages/kinds/src/index.ts', 'packages/kinds/src/alpha.ts', 'packages/kinds/src/beta/one.ts', 'packages/kinds/src/schema.ts', 'packages/loose/src/index.ts']
+  const hardOf = (r) => r.violations.filter((x) => !x.soft)
+  const declGood = auditDeclarations(EON, faceOf(GOOD_FACE), {})
+  eq('E1 齐备面:纳管块 packages/kinds 的 . / ./alpha / ./beta/* 三条入口全部解析得到(0 判红)', hardOf(declGood).filter((x) => x.rule === 'entrypoint-missing' && x.module === 'packages/kinds').length, 0)
+  eq('E1 未收口模块的缺失入口只报数:packages/off 的 ./gone 计 1 条 missing、0 条判红', `${declGood.counters.entrypointMissing}/${hardOf(declGood).length}`, '1/0')
+  eq('E2 已声明 contract_files 的模块不算"未齐备"(loose 才是)', declGood.counters.contractAbsentModules, 1)
+  eq('E2 未齐备档默认只报数(恒红门禁开关)', hardOf(declGood).length, 0)
+  eq('与上条成对:--strict 档对同一份面把未齐备升成判红', hardOf(auditDeclarations(EON, faceOf(GOOD_FACE), { strict: true })).length, 1)
+  const noAlpha = auditDeclarations(EON, faceOf(GOOD_FACE.filter((p) => p !== 'packages/kinds/src/alpha.ts')), {})
+  eq('E1 变异:入口文件从面里消失 ⇒ 判红并点名该模块', `${hardOf(noAlpha).length}:${hardOf(noAlpha)[0] ? hardOf(noAlpha)[0].rule : '-'}`, '1:entrypoint-missing')
+  eq('与上条成对:同一份缺面放在 managed:false 表里只报数(渐进收口不得被新判据绕过)', hardOf(auditDeclarations(EOFF, faceOf(GOOD_FACE.filter((p) => p !== 'packages/kinds/src/alpha.ts')), {})).length, 0)
+  const noSchema = auditDeclarations(EON, faceOf(GOOD_FACE.filter((p) => p !== 'packages/kinds/src/schema.ts')), {})
+  eq('E2 变异:contract_files 声明的文件失踪 ⇒ 判红(这就是"缺工件要进退出码"那一半)', `${noSchema.counters.contractDeclaredMissing}:${hardOf(noSchema).filter((x) => x.rule === 'contract-artifact-missing').length}`, '1:1')
+  eq('--managed-trial 让未收口模块的齐备性照样试跑出条数', auditDeclarations(EOFF, faceOf(GOOD_FACE.filter((p) => p !== 'packages/kinds/src/alpha.ts')), { trialModules: ['packages/kinds'] }).violations.filter((x) => x.rule === 'entrypoint-missing' && !x.soft).length, 1)
+  // 解析口径的三条独立形态(每条都是"少一条就漏判整类")
+  const mKinds = EON.modules.get('packages/kinds')
+  eq('E1 约定式解不到时须回落到包清单 exports 映射', resolveEntrypoint(mKinds, './zeta', faceOf(['packages/kinds/lib/zeta.ts'], { 'packages/kinds': { exports: { './zeta': './lib/zeta.ts' } } })).state, 'ok')
+  eq('与上条成对:约定式与 exports 都指不到 ⇒ missing(不得当成"判不出"静默放过)', resolveEntrypoint(mKinds, './zeta', faceOf(['packages/kinds/lib/zeta.ts'], { 'packages/kinds': { exports: { './other': './lib/other.ts' } } })).state, 'missing')
+  eq('E1 子路径 * 必须按 npm exports 语义跨段(段内 * 会把 messages/api/en.json 判成失踪)', resolveEntrypoint(mKinds, './messages/*', faceOf(['packages/kinds/messages/api/en.json'])).state, 'ok')
+  eq('与上条成对:主入口 "." 无清单时按 index 约定命中', resolveEntrypoint(mKinds, '.', faceOf(['packages/kinds/src/index.ts'])).path, 'packages/kinds/src/index.ts')
+  eq('E2 模块根下的自述文档(README/AGENTS/CONTEXT)是合法契约工件', moduleContractArtifacts(EON.modules.get('packages/loose'), faceOf(['packages/loose/AGENTS.md']), EON).sufficient ? 1 : 0, 1)
+  eq('E1 报账拆分:纳管块的红与未纳管块的报数各归各(不得互相顶替)', `${hardOf(noAlpha).filter((x) => x.module === 'packages/kinds').length}/${noAlpha.violations.filter((x) => x.soft && x.rule === 'entrypoint-missing').length}`, '1/1')
+  console.log(fail ? `\n❌ 自检 ${fail} 例失败` : `\n全部 ${ran} 例通过(成对正反例 + T1 表自洽 + E1/E2 声明齐备性 + 两面口径差异 + 空暂存回退 + 取材面提示语 + 解析器大声失败 + glob/relFrom)`)
   process.exit(fail ? 1 : 0)
 }
 
@@ -989,5 +1249,5 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { parseYaml, loadPolicy, analyze, auditPolicy, extractSpecs, globToRe, mkMatcher, matchEntrypoint, relFrom, pickPolicySource, policyFaceOrder, planStagedScope, policyFaceNotice, registrationOf, unusedExceptions, RULES, ALWAYS_RED, POLICY_REL }
+export const __test__ = { parseYaml, loadPolicy, analyze, auditPolicy, auditDeclarations, resolveEntrypoint, moduleContractArtifacts, declarationContext, extractSpecs, globToRe, mkMatcher, matchEntrypoint, relFrom, pickPolicySource, policyFaceOrder, planStagedScope, policyFaceNotice, registrationOf, unusedExceptions, RULES, ALWAYS_RED, POLICY_REL }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
