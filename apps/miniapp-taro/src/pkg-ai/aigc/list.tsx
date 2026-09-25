@@ -9,6 +9,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { getAigcList } from '@/api'
 import './list.css'
 import ThemeRoot from '@/components/ThemeRoot'
+import BackChevron from '@/components/BackChevron'
 import LineIcon from '@/components/LineIcon'
 
 /** 文件类型枚举(对标原项目 fileType: 0=图片 1=视频 3=音频 4=文本) */
@@ -422,11 +423,9 @@ export default function AigcList() {
 
   return (
     <ThemeRoot className="aigc-list-page">
-      {/* 顶部导航(对齐 RN SharedAigcListScreen header):返回文字 + 标题 + 副标题 */}
+      {/* 顶部导航(对齐 RN SharedAigcListScreen header):返回矢量图标 + 标题 + 副标题 */}
       <View className="page-header">
-        <View className="back-btn" onClick={onBack} hoverClass="opacity-60">
-          <Text className="back-text">{tt('common.back', '返回')}</Text>
-        </View>
+        <BackChevron onTap={onBack} />
         <Text className="page-title">{tt('aigcList.title', '灵感')}</Text>
         <Text className="page-subtitle">
           {tt('aigcList.subtitle', 'AI 生成的图文/视频/音频作品')}
