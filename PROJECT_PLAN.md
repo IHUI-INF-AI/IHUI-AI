@@ -9699,3 +9699,16 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   **精确修法(三步,一步都不必改判据)**:① 删掉该文件里那个 git 常量绑定;② 把它的 `git()` 包装器 body 换成 `return gitRaw(args, ROOT, { timeout: 120_000, maxBuffer: 64 * 1024 * 1024 })` 并 `import { gitRaw } from './lib/face-reader.mjs'`(层里已含绝对路径 git / `-C` / `safe.directory` / `quotepath` / 显式 stdio / 超时封顶);③ 删掉随之失效的 `execFileSync` 导入。**等价性取证口径**同本仓既有规矩:改前后**同瞬间并跑**两版,`全量` 与 `--json` 两档 stdout 逐字节比(临时副本放 `scripts/` 下带 `__` 前缀,跑完即删)—— 本票**未替该持有人做这步**,故不声称它已证。
   **我为什么没直接提交它**:该文件当前带**两处既有 ESLint error**(`analyzeFile` 的 `path` 与 `decide` 的 `provenance` 两参数声明未用,实测 `:151:24` 与 `:215:43`),任何人碰这个文件都会被 lint-staged 拦住 —— 那不是我的行,我不替别人改代码;而把它们改名成 `_path`/`_provenance` 会**把"参数拿到了却没用到"这件事洗掉**:`decide()` 收 `provenance` 而不用,可能正是"来源信息进了判定却没参与判定"的真缺陷,该由该门持有者判,不该由路过的人用下划线糊掉。解阻判据:按上面三步收口(顺手把那两个未用参数改成真参与判定或显式删除),复跑该套件应为 **26/26**(O76 落地后)。
   登记人另注:本次尝试里我自己犯过同一课第三次 —— 第一版在解释注释里**原样写了被禁的那个常量绑定形态**,于是棘轮把注释当成新增违规、计数纹丝不动(11→11)。**判据量的是本文件自身时,被禁形态只能拼接、不能引用。**
+
+
+### 第五十一波·记忆端点"认证≠授权"变成机器判据(守门 117,warn;2026-09-25)
+
+- [x] ✅(2026-09-25) **新建 `scripts/check-memory-owner-binding.mjs` —— 把一条散文级安全结论变成门**(接第五十波;本票非移动端,是 ai-service/api 身份面):
+  - **立因**:同日 CLI 侧那半(`5ddaa0a07c1`)把 `user_id`/`session_id` 从模型可见参数里拆了,但票面自己写着"**服务端 fail-closed 未派单**"。实测 `apps/ai-service/app/api/memory.py` 仍把 `user_id` 当请求参数收且全文件零处与令牌主体比对 ⇒ 已认证用户之间的水平越权;门 113 只覆盖 `apps/cli/src/tools/**`,结构上看不到 Python 侧。
+  - **本门新量出的一处**:除 `app/api/memory.py` 外,**`app/routers/rules.py` 同样收 `user_id` 且不对齐** —— 此前无人枚举过该文件(登记只写了 memory.py 三行锚点)。现值一律 `node scripts/check-memory-owner-binding.mjs` 自取。
+  - **语法锚点两条必须同时认**:`user_id: str = Query(...)` 与 Pydantic `user_id: str = Field(...)`。写门时自检 S4/M2 专钉这点 —— **只认 Query 会让整类 POST 端点整片隐身**,而 memory.py 的 save/dream 恰是 POST+Field 形态。反向也钉:对齐出口**只出现在注释里不算**(M5,即"自称已拆、实际没拆"那一型)。
+  - **定级 warn 的理由与选型绑在一起**:HEAD 存量 2 个文件未对齐,而"怎么对齐"(客户端传的必须等于令牌主体→403,还是只信令牌、忽略入参)取决于 **v1 对外 API 能否代表他人访问记忆** —— 实测 `apps/api/src/routes/v1-knowledge-tools.ts` 有 `/api/memory/save` 与 `/api/memory/dream` 两条 `jsonInit(parsed.data)` **原样透传客户端自报身份**,本门把它列成"上游透传清单"只报数,正是给那次选型看爆炸半径用的。两种改法都会让本门归零 ⇒ 选型落地前它是"存量报数、新增判红"的棘轮;当场 blocking = 与任何提交无关的恒红门 → 逼人 `--no-verify` → 约 145 道门全废(§12e 同型)。**升 blocking 的前置条件写死为未对齐存量归零**。
+  - **口径**:全量判 HEAD blob、`--staged` 判索引、`--worktree` 仅逃生舱;**枚举到 0 个 .py 判"无法判定"exit 2 而非记绿**(判据失明不是通过 —— 这条由自检 S13 与镜像 M7 正反各钉一次,且 M8 钉住"有文件但都不收 user_id"必须是 0 不是 2,否则两态混为一谈)。`decide()` 刻意**不改投入参数组**(M10:共用一份 `undetermined` 的多条用例互相咬,这是我写自检时自己踩到的)。
+  - **接线**:guardian-runner id **117**(warn,skipEnv `HUSKY_SKIP_MEMORY_OWNER_BINDING`,`stagedTriggers=['apps/ai-service/app/','apps/api/src/routes/']` —— 只在真碰到身份面时跑,不放 `apps/` 让每次提交白扫);根 `package.json` 加 `check:memory-owner`(走 `--strict`,它是问责出口不是报数)。AGENTS 守门速查与 README 守门段同枚点名(门 89 R4 会拦"接了线文档不写")。
+  - **取证**:`--self-test` 17/17、`node --test scripts/tests/check-memory-owner-binding.test.mjs` **14/14**(含 M13/M14 两条装车证明 + "未注册时不得被判定为已装车"的方向性对照);eslint 本票两文件 0 error;`node --check` 双过。
+  - **未做(归属明确,不是本票漏项)**:① 服务端真正的 fail-closed 改动 —— 待那次 v1 身份口径拍板;② 本门升 blocking —— 前置是存量归零;③ Python 侧同类出口的镜像测试(门 113 的 CLI 面已有,ai-service 面无)。
