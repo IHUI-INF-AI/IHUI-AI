@@ -27,7 +27,8 @@
  *   node scripts/check-cross-end-tokens.mjs --quiet   # errors only
  *   node scripts/check-cross-end-tokens.mjs --self-test  # 三条判据的正反例取证
  *
- * 除"已声明映射逐位对账"外,还有四条**反自立门户**判据:
+ * 除"已声明映射逐位对账"外,还有若干条**反自立门户 / 反手抄**判据(现行清单 = R2…R8,以代码为准,
+ * 不在注释里数条数 —— 数一次就会过期一次):
  *   R2 品牌键覆盖 —— rn-tokens 的 `brand` 命名空间里每个键,必须要么被某条已声明映射覆盖,
  *      要么在 RN_ONLY_BRAND_KEYS 里写明"web 无对应变量"的理由;豁免项若已不存在同样算红(防清单腐烂)。
  *   R3 悬空引用 —— 全仓任何 `tokens.brand.<key>` / `tk.brand.<key>` 形态的引用必须命中已声明键集合
@@ -42,6 +43,10 @@
  *      扫三个 v3 消费端源码里**真实写过**的 `bg-<档>/<数值>`、`text-<档>/<数值>`、`border-<档>/<数值>` 类名,逐条要求
  *      `tailwind-alpha-plugin.js` 的 `ALPHA_USAGE` 登记过、且 `buildAlphaUtilities` 真的产出了那个选择器;
  *      表里登了却没人用的条目按"清单腐烂"同样判红。
+ *   R8 手抄色值回潮(2026-09-25 补,见文件下方 R8 段说明)—— RN 令牌表里那些「与 tokens.css 同名同值」
+ *      的档已经由 scripts/sync-rn-tokens.mjs 派生到端上,共享 RN 代码(packages/app/src)里再写一份
+ *      同值 `#hex` 字面量就是第二真相。禁用值集合是**由两份源算出来的**,不是手工清单;存量按 HEAD 棘轮
+ *      只报数,本次新引入的那一枚才判红。
  *
  * 为什么补 R4/R5:本门此前只核 13 条**手工登记的**映射,于是"8/8 in sync"与"基础档整片没人管"同时为真
  * —— AGENTS 第四十二批未闭环③点名的正是这个盲区。补登记式映射会把盲区换成一份必然过期的清单
@@ -1004,8 +1009,11 @@ export function checkAlphaChannelVars({ usage, colors, cssLight, cssDark, plugin
 }
 
 /** 按判定面收集 R6 语料:清单与内容同面;`--staged` 用索引 blob 覆盖 HEAD,删除的路径从语料中移除。
- *  同时带回 HEAD 原文(`head`)—— 腐烂判据要按"本次提交是否新增"算棘轮,必须有两个面的用量集。 */
-export function collectAlphaCorpus({ face, faces = ALPHA_SCAN_FACES }) {
+ *  同时带回 HEAD 原文(`head`)—— 腐烂判据要按"本次提交是否新增"算棘轮,必须有两个面的用量集。
+ *  `allowEmpty`(R8 用):枚举到 0 个路径时返回空数组而不是判"无法判定"。理由是一条**辅助**判据的
+ *  扫描面在某台检出/最小夹具里可以合法地不存在(没有 packages/app),不该让整个门 exit 2;
+ *  但空面必须由 `counts.emptyFace` 大声带出,不得伪装成"扫过了、干净"。 */
+export function collectAlphaCorpus({ face, faces = ALPHA_SCAN_FACES, allowEmpty = false }) {
   const FACE_SHORT = { head: 'HEAD', staged: '索引', worktree: '工作树' }
   const listed = gitExec(['ls-tree', '-r', '--name-only', 'HEAD', '-z', '--', ...faces])
     .split('\0')
@@ -1025,6 +1033,9 @@ export function collectAlphaCorpus({ face, faces = ALPHA_SCAN_FACES }) {
       .filter((p) => p && ALPHA_SCAN_EXT.test(p))
   }
   for (const p of extra) paths.add(p)
+  // 辅助判据(R8)的扫描面可以在某台检出/最小夹具里合法地不存在;
+  // 让它把整个门打成 exit 2 是过度反应 —— 但空面必须由 counts.emptyFace 大声带出,不得伪装成"扫过且干净"。
+  if (paths.size === 0 && allowEmpty) return []
   if (paths.size === 0)
     throw new UndeterminedError(
       `${FACE_SHORT[face]} 面在扫描面(${faces.join(' + ')})枚举到 0 个文件 —— 判据不扫空气`,
@@ -1111,6 +1122,13 @@ export const __test__ = {
   loadAlphaPlugin,
   readAlphaRegistry,
   runR6,
+  // R8(2026-09-25):手抄色值回潮 ↔ RN 派生面。两个常量**不进本对象** —— 它们是 __test__ 之后
+  // 才声明的 const,写在这里会撞 TDZ(模块求值期 ReferenceError);函数声明有提升故可列。
+  // 测试要取常量请从模块命名空间取(import 的活绑定在求值完成后才读)。
+  indexDerivedColors,
+  extractHandCopiedColors,
+  pickFreshHandCopies,
+  runR8,
 }
 
 if (isDirectRun)
@@ -1308,8 +1326,169 @@ export async function runR7({ face, quiet }) {
   return { failures, counts }
 }
 
-export async function runR6({ face, quiet }) {
-  const reg = readAlphaRegistry(face)
+// ─── R8:手抄色值回潮 ↔ RN 派生面(2026-09-25)───
+/**
+ * 判的是「生成器已经把这一档送到端上了,组件里却又写回一份字面量」—— 即 AGENTS §4
+ * 「端内 CSS/色值副本一律是派生态,禁止手抄」在共享 RN 代码里那一格。此前本门只核
+ * **两份色值表是否同源**(R1/R4)与**端内有没有自立品牌档**(R2/R3),而组件里写死
+ * `'#C41E7A'` 结构上不在任何一判据的射程内:表同源、键已声明,门一路绿灯,而派生器一改
+ * 源值这一处就静默掉队(2026-09-25 实测:modelType 六色 + agentName 共 7 处即此型)。
+ *
+ * 判据是**派生出来的集合**而不是手工清单(手工清单必腐烂,本仓记过多次):
+ * 禁用值 = RN 三张表里「能按名推到同名 CSS 变量且两侧同值」的那些档的颜色值。
+ * 所以 modelType / agentName 一旦进 rn-tokens.ts,组件里再写这些字面量就自动纳判,
+ * 不需要任何人再登记一次;反过来,源里根本没有对应档的自造色不属本判据(那是 R2/R4 的地盘)。
+ *
+ * 宁漏不误报的三条窄口径:① 只认 `#hex` 字面量(rgba/hsl 形态与注释文本一律不判);
+ * ② 只扫 HAND_COPY_SCAN_FACES(apps/mobile-rn/src 的同一型由
+ *    scripts/check-mobile-rn-style-parity.mjs 的基线棘轮管,两端互补不互替);
+ * ③ 存量按 HEAD 棘轮只报数 —— 与无关提交过不去的 blocking 红只会逼人 --no-verify、
+ *    连带废掉全部守门(§12e 同型),本次新引入的那一枚才判红。
+ * 行内出口:`handcopy-token-exempt: <原因>`,须带原因,且只救本行或紧邻上一行(同 R6 口径)。
+ */
+export const HAND_COPY_SCAN_FACES = ['packages/app/src']
+export const HAND_COPY_EXEMPT_RE = /handcopy-token-exempt:\s*\S/
+/**
+ * 纯黑 / 纯白刻意**不入禁用集**(归一后已把 #fff / #000 展开成六位)。
+ * 理由不是"判不出来",而是本仓合同明确允许把它们当常量写:rn-tokens.ts 的 surface.light 文档块原文
+ * 「真正需要品牌色上的白字…应使用 brand.foreground…**或直接用 #FFFFFF 常量**」。
+ * 收进来只会给别人的正当写法(遮罩上的白字、图片上的黑底)制造噪音红,
+ * 而噪音红的代价本仓记过很多次:逼人 --no-verify,连带废掉全部守门。
+ */
+export const HAND_COPY_NEUTRALS = new Set(['#ffffff', '#000000'])
+const HEX_LEAF_RE = /^\s*#[0-9a-f]{3,8}\s*$/i
+
+/** RN 派生面上「与源同值」的颜色 → 出处(表.路径 + 同名 CSS 变量),供报错文案点名该走哪一档。 */
+export function indexDerivedColors({ leavesByConst, cssLight, cssDark }) {
+  const idx = new Map()
+  for (const [constName, leaves] of Object.entries(leavesByConst)) {
+    const table = constName === 'rnDarkTokens' ? cssDark : cssLight
+    for (const lf of leaves) {
+      if (!HEX_LEAF_RE.test(lf.value)) continue
+      const varName = deriveCssVarNames(lf.path).find((c) => c in table)
+      if (!varName) continue
+      // 值不同即不收录:那一档正被 R4 判红(或已登记分歧),本门不得替它背书"组件也该用这个值"
+      if (!colorsAgree(lf.value, table[varName])) continue
+      const norm = normalizeColor(lf.value)
+      if (HAND_COPY_NEUTRALS.has(norm)) continue
+      if (!idx.has(norm)) idx.set(norm, { rnPath: `${constName}.${lf.path}`, cssVar: varName })
+    }
+  }
+  return idx
+}
+
+/** 从(已剥注释的)源码里抽出与派生面同值的 hex 字面量。`original` 必须是剥注释前的原文(豁免写在注释里)。 */
+export function extractHandCopiedColors(masked, original, valueIndex) {
+  const hits = []
+  const rawLines = original.split('\n')
+  // 大小写都要认:派生面上大量档写的是 **#FFFFFF / #C41E7A** 这类大写形态,
+  // 只写 [0-9a-f] 会让"手抄回去的那一枚"正好隐身(本门首版即如此,由自检的阳性对照抓出)。
+  const re = /#([0-9a-fA-F]{3,8})\b/g
+  let m
+  while ((m = re.exec(masked)) !== null) {
+    const norm = normalizeColor(m[0])
+    const via = valueIndex.get(norm)
+    if (!via) continue
+    const line = masked.slice(0, m.index).split('\n').length - 1
+    const exempt =
+      HAND_COPY_EXEMPT_RE.test(rawLines[line] || '') ||
+      HAND_COPY_EXEMPT_RE.test(rawLines[line - 1] || '')
+    hits.push({
+      hex: norm,
+      key: norm,
+      ln: line + 1,
+      line: (rawLines[line] || '').trim().slice(0, 120),
+      exempt,
+      via,
+    })
+  }
+  return { hits }
+}
+
+/** 棘轮对账:本次判定面上出现、而 HEAD 那一面没有的 (文件, 色值) 才判红。 */
+export function pickFreshHandCopies(effHits, headHitKeys) {
+  if (headHitKeys === null) return { fresh: effHits.filter((h) => !h.exempt), inherited: 0 }
+  const fresh = []
+  let inherited = 0
+  for (const h of effHits) {
+    if (headHitKeys.has(`${h.rel} ${h.key}`)) {
+      inherited++
+      continue
+    }
+    if (!h.exempt) fresh.push(h)
+  }
+  return { fresh, inherited }
+}
+
+export async function runR8({ face, quiet }) {
+  const src = readTokenSources(face)
+  const rnSrc = stripTsComments(src.rn)
+  const cssSrc = stripCssComments(src.css)
+  const cssLight = mergeCssVars(cssSrc, ['@theme', ':root'])
+  const cssDark = { ...cssLight, ...mergeCssVars(cssSrc, ['.dark']) }
+  const leavesByConst = {}
+  for (const name of ['rnTokens', 'rnLightTokens', 'rnDarkTokens']) {
+    const body = extractTsObjectBody(rnSrc, name)
+    if (body === null)
+      throw new UndeterminedError(`R8 在 rn-tokens.ts 里定位不到 export const ${name} ⇒ 无法判定`)
+    leavesByConst[name] = objectLeaves(body, [])
+  }
+  const valueIndex = indexDerivedColors({ leavesByConst, cssLight, cssDark })
+  if (valueIndex.size === 0)
+    throw new UndeterminedError('R8 的禁用值集合取到 0 条(派生面为空)= 判据失明,不记为通过')
+
+  const corpus = collectAlphaCorpus({ face, faces: HAND_COPY_SCAN_FACES, allowEmpty: true })
+  const emptyFace = corpus.length === 0
+  const scanOne = (getKey) => {
+    const list = []
+    for (const { rel, head, eff } of corpus) {
+      const src0 = getKey === 'eff' ? eff : head
+      if (src0 === undefined) continue
+      for (const h of extractHandCopiedColors(maskComments(src0, false), src0, valueIndex).hits)
+        list.push({ ...h, rel })
+    }
+    return list
+  }
+  const sEff = scanOne('eff')
+  const sHead = face === 'head' ? null : scanOne('head')
+  const headKeys = sHead ? new Set(sHead.map((h) => `${h.rel} ${h.key}`)) : null
+  const { fresh, inherited } = pickFreshHandCopies(sEff, headKeys)
+  const exempted = sEff.filter((h) => h.exempt).length
+
+  const failures = []
+  for (const h of fresh.slice(0, 12))
+    failures.push({
+      tag: `R8 手抄色值回潮 ${h.rel}:${h.ln} ${h.hex}`,
+      detail:
+        `${h.line} —— 这个色值已由 tokens.css 经 scripts/sync-rn-tokens.mjs 派生进 RN 令牌表` +
+        `(档:${h.via.rnPath} ← ${h.via.cssVar}),组件里再写一份字面量就是第二真相:源改色时它不跟随。` +
+        `改法是取同一份主题袋(tk.modelType.* / tk.agentName.DEFAULT,或 mobile-rn 的 tokens.*)。` +
+        `确属不该同源时写行内 handcopy-token-exempt: <原因>`,
+    })
+  if (fresh.length > 12)
+    failures.push({ tag: 'R8 手抄色值回潮', detail: `…另有 ${fresh.length - 12} 处` })
+
+  const counts = {
+    files: corpus.length,
+    checked: sEff.length,
+    fresh: fresh.length,
+    inherited,
+    exempted,
+    values: valueIndex.size,
+    emptyFace,
+  }
+  if (!quiet)
+    console.log(
+      `  · R8:${counts.files} 文件(禁用值集 ${counts.values} 条,派生自 RN 令牌表 ↔ tokens.css 同值档)里抽到 ` +
+        `${counts.checked} 处同值 hex 字面量(本次新引入 ${counts.fresh}${face === 'head' ? '' : `,HEAD 存量 ${inherited} 不计=棘轮`},` +
+        `已豁免 ${counts.exempted})` +
+        (emptyFace ? ' —— ⚠️ 扫描面为空,本判据本轮未生效(不记为通过)' : '') +
+        `,口径 ${face}`,
+    )
+  return { failures, counts }
+}
+
+export async function runR6({ face, quiet }) {  const reg = readAlphaRegistry(face)
   const plugin = await loadAlphaPlugin()
   const tiers = flattenColorTiers(reg.colors)
   const corpus = collectAlphaCorpus({ face })
@@ -1572,6 +1751,10 @@ async function cli() {
   const r7 = await runR7({ face, quiet })
   failures.push(...r7.failures)
 
+  // ── R8:手抄色值回潮 ↔ RN 派生面(AGENTS §4「端内色值副本一律是派生态」在共享 RN 代码里的判据) ──
+  const r8 = await runR8({ face, quiet })
+  failures.push(...r8.failures)
+
   if (failures.length === 0) {
     if (!quiet)
       console.log(
@@ -1579,7 +1762,8 @@ async function cli() {
           `(已登记分歧 ${Object.keys(BASE_CONFLICTS).length} 条) + R5 端内两表 ${intra.length === 0 ? '同值' : '分叉'} + ` +
           `品牌键全部已声明(${[...allowedKeys].join('/')}) + 无悬空 brand 引用 + ` +
           `R6 alpha 用量 ${r6.counts.checked} 处全部已登记且真产出(${r6.counts.files} 文件,口径 ${FACE_TXT[face]}) + ` +
-          `R7 裸 rpx 长度 ${r7.counts.checked} 处(已全部改为 [length:] 形态)`,
+          `R7 裸 rpx 长度 ${r7.counts.checked} 处(已全部改为 [length:] 形态) + ` +
+          `R8 手抄色值 ${r8.counts.fresh} 处新增(${r8.counts.checked} 处同值字面量,存量 ${r8.counts.inherited} 按棘轮放过)`,
       )
     process.exit(0)
   }
@@ -1591,7 +1775,8 @@ async function cli() {
   console.error(
     '  值不一致 = 两端有一侧改了没同步,请人工决策对齐方向;R2/R3 = 品牌色不得在端内自立一档(AGENTS §4 跨端同源);' +
       'R6 = 新写/新登记的 /alpha 形态必须两边对上(AGENTS §4「新增颜色档必须同时进这个插件」的唯一判据);' +
-      'R7 = 裸 rpx 长度必须加显式 length:(覆盖面 = text/border + border 八方向 + 裸 divide + ring + outline;divide-x/y、w/p/gap 与一切 px/rem 形态本就落对属性,不得拦)。',
+      'R7 = 裸 rpx 长度必须加显式 type 前缀(覆盖面 = text/border + border 八方向 + 裸 divide + ring + outline;divide-x/y、w/p/gap 与一切 px/rem 形态本就落对属性,不得拦)。' +
+      'R8 = 已由 tokens.css 派生进 RN 令牌表的色值不得在共享 RN 组件里再写一份字面量(禁用集是派生出来的,不是手工清单;存量走 HEAD 棘轮,只拦本次新引入)。',
   )
   process.exit(1)
 }
