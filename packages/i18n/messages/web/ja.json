@@ -5809,6 +5809,31 @@
       "summary": "概要",
       "rawNote": "以下はモデルの生出力で、整形していません",
       "empty": "左の入力後に「診断を開始」を押すとレポートが表示されます"
+    },
+    "githubApp": {
+      "title": "GitHub App 管理",
+      "subtitle": "GitHub App のインストール台帳と webhook 設定状態を確認。インストールイベントは webhook 経由で自動同期されます",
+      "configSection": "設定状態",
+      "webhookSecret": "Webhook シークレット",
+      "appCredentials": "App 認証情報",
+      "configured": "設定済み",
+      "notConfigured": "未設定",
+      "secretHint": "GitHub webhook 配信の HMAC 署名を検証します。未設定の場合は受付が閉じたままです",
+      "credsHint": "installation token を発行して GitHub API を呼び出すための App ID と秘密鍵",
+      "installationsTitle": "インストール一覧",
+      "empty": "インストール記録はまだありません。GitHub で本 App をインストールすると自動的に表示されます",
+      "colInstallation": "インストール ID",
+      "colAccount": "アカウント",
+      "colType": "種別",
+      "colStatus": "状態",
+      "colInstaller": "操作者 ID",
+      "colCreatedAt": "作成日時",
+      "colUpdatedAt": "更新日時",
+      "statusActive": "有効",
+      "statusRemoved": "アンインストール済み",
+      "refresh": "更新",
+      "loadFailed": "読み込みに失敗しました",
+      "installerHint": "GitHub 側の操作者 id(プラットフォームユーザーではありません)"
     }
   },
   "connectors": {
@@ -7130,6 +7155,40 @@
       "rollbackConfirmConfirm": "復元"
     },
     "pane": {
+      "elementPack": {
+        "feedbackSurvey": {
+          "question": "この回答は問題の解決に役立ちましたか？",
+          "answer": {
+            "solved": "解決した",
+            "partial": "部分的に解決",
+            "notSolved": "解決していない"
+          },
+          "commentPlaceholder": "詳細（任意）",
+          "submit": "送信",
+          "dismiss": "スキップ",
+          "submitted": "受け付けました。ご協力ありがとうございます"
+        }
+      },
+      "hookSummary": {
+        "ariaLabel": "フック実行サマリー",
+        "state": {
+          "running": "フック実行中",
+          "ok": "フックは正常",
+          "failed": "フックでエラー",
+          "blocked": "フックが操作をブロック"
+        },
+        "runs": "· {n} 回実行",
+        "failedCount": "{n} 件失敗",
+        "blockedCount": "{n} 件ブロック",
+        "sourceLabel": "ソース",
+        "source": {
+          "admin": "管理者",
+          "user": "ユーザー",
+          "project": "プロジェクト",
+          "plugin": "プラグイン",
+          "session": "セッション"
+        }
+      },
       "businessForms": {
         "ariaLabel": "業務フォームカード",
         "aria": {
@@ -8828,13 +8887,27 @@
       "unarchived": "アーカイブ解除済み",
       "pinned": "ピン留めしました",
       "unpinned": "ピン留めを解除しました",
-      "pinFailed": "ピン留め操作に失敗しました"
+      "pinFailed": "ピン留め操作に失敗しました",
+      "orgSaved": {
+        "orgSaved": "会話の整理を保存しました"
+      }
     },
     "today": "今日",
     "openWorkPanel": "ワークパネルを開く",
     "closeWorkPanel": "ワークパネルを閉じる",
     "toggleWorkPanel": "ワークパネルを切り替える",
-    "user": "ユーザー"
+    "user": "ユーザー",
+    "org": {
+      "title": "整理會話",
+      "folderLabel": "資料夾",
+      "folderPlaceholder": "輸入或選擇資料夾",
+      "tagsLabel": "標籤",
+      "tagPlaceholder": "新增標籤後按 Enter",
+      "removeTagAria": "移除標籤 {tag}",
+      "filterLabel": "依資料夾篩選",
+      "filterAll": "全部",
+      "folderNone": "未分類"
+    }
   },
   "aiCost": {
     "budgetAlerts": "予算アラート",
@@ -10468,7 +10541,8 @@
       "roleUser": "ユーザー",
       "roleAssistant": "アシスタント",
       "exportCard": "画像カードを共有",
-      "shareCardUser": "ユーザー"
+      "shareCardUser": "ユーザー",
+      "exportPdf": "匯出 PDF"
     },
     "fallbackNotice": "バックアップモデル {backup} に切り替えました(元モデル {primary} は一時的に利用不可)",
     "fallbackNoticeQuota": "今回の回答は {backup} が生成しました（{primary} を提供する事業者のアカウント利用枠が上限に達したため、同一系列の利用可能なモデルに自動で切り替えました）。",
@@ -11422,14 +11496,14 @@
     },
     "commands": {
       "steerPrompt": {
+        "label": "プロンプトをステア",
         "description": "実行中の回答に現在の入力をガイドとして注入します",
-        "keywords": ["ステア", "ガイド", "steer"],
-        "label": "プロンプトをステア"
+        "keywords": ["ステア", "ガイド", "steer"]
       },
       "queuePrompt": {
+        "label": "プロンプトをキューに追加",
         "description": "実行中の回答の終了後、現在の入力を自動送信するためにキューに追加します",
-        "keywords": ["キュー", "待機", "queue"],
-        "label": "プロンプトをキューに追加"
+        "keywords": ["キュー", "待機", "queue"]
       },
       "agent": {
         "description": "AI エージェントの管理とディスパッチ",
@@ -16840,6 +16914,10 @@
       "pending": "受験待ち",
       "unknown": "不明"
     },
+    "submitBtn": "解答を提出",
+    "submitConfirm": "解答を提出しますか?提出すると完了として記録されます。",
+    "submitFailed": "提出に失敗しました",
+    "submitSuccess": "解答を提出しました",
     "title": "試験申込",
     "total": "全 {n} 件"
   },
@@ -18168,6 +18246,7 @@
     "advancedAiTools": "高度な AI ツール",
     "mediaTasks": "メディアタスク",
     "webTools": "ウェブツール",
+    "figmaImport": "デザイン変換",
     "voices": "声紋ライブラリ",
     "agentGovernance": "Agent Token ガバナンス",
     "agentWorkbench": "エージェントワークベンチ",
@@ -18439,7 +18518,8 @@
     "faq": "よくある質問",
     "home": "ホーム",
     "settings": "設定",
-    "adminDeployDiagnosis": "デプロイ診断"
+    "adminDeployDiagnosis": "デプロイ診断",
+    "githubApp": "GitHub App"
   },
   "news": {
     "allCategories": "All categories",
@@ -25119,6 +25199,23 @@
     "deleteConfirm": "この声紋を削除しますか?削除後はクローン TTS に使用できなくなります。",
     "refresh": "更新",
     "notFound": "声紋が見つかりません"
+  },
+  "figmaImportPage": {
+    "title": "デザイン変換",
+    "subtitle": "Figma の fileKey とノード ID を貼り付けて、実行可能なフロントエンドコンポーネントコード(React+Tailwind / Taro)を生成します。",
+    "targetReact": "React + Tailwind",
+    "targetTaro": "Taro ミニプログラム",
+    "fileKeyPlaceholder": "Figma fileKey(例: a1b2c3...)",
+    "nodeIdPlaceholder": "ノード ID(例: 1:2。Frame 選択後にリンクをコピー)",
+    "run": "コード生成",
+    "running": "生成中...",
+    "tokenHint": "サーバー側に FIGMA_API_TOKEN が必要です。LLM 生成に失敗した場合は決定論的 HTML スケルトンへ自動降級します。",
+    "errorRequired": "fileKey とノード ID を入力してください",
+    "resultTitle": "生成結果",
+    "copy": "コードをコピー",
+    "copied": "コピーしました",
+    "degradedNotice": "LLM 生成に失敗したため、決定論的 HTML スケルトンに降級しました(そのまま利用可能です)。",
+    "metaNodes": "ノード {nodes} 個 · テキスト {texts} 件 · 画像参照 {images} 件"
   },
   "webToolsPage": {
     "title": "ウェブツール",
