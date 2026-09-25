@@ -13,8 +13,39 @@
  * 同族教训:守门 64「造好没装车」、mcp-view-failure.test.tsx 的 ?raw 三断言。
  */
 import { describe, it, expect } from 'vitest'
+import { readdirSync, readFileSync } from 'node:fs'
+import { join, relative, resolve } from 'node:path'
 import cardSrc from '../MessageItem.tsx?raw'
 import producerSrc from '../../../../hooks/use-chat/send-answer.ts?raw'
+
+/**
+ * 生产面文件清单(O60i 补的尺子)。
+ * 为什么需要它:`MessageErrorCard.tsx` 自入库起就躺着,`git grep` 只在**测试**里命中 ⇒
+ * 组件级测试全绿而用户屏幕上一直是 MessageItem 的内联实现。**"组件有自己的渲染测试"
+ * 不等于"组件有生产者"** —— 守门 64 对 miniapp 适配器做的正是"必须被目录外源文件 import"
+ * 这件事,组件面从来没有等价尺子。刻意排除 `*.test.tsx` 与 `__tests__/`:
+ * 若把测试算成 importer,本判据会在孤儿当夜就绿(那正是过去两周的状态)。
+ */
+function productionFiles(): Array<{ path: string; code: string }> {
+  const out: Array<{ path: string; code: string }> = []
+  const walk = (dir: string) => {
+    for (const ent of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, ent.name)
+      if (ent.isDirectory()) {
+        if (ent.name === '__tests__' || ent.name === 'tests' || ent.name === 'node_modules') continue
+        walk(full)
+        continue
+      }
+      if (!/\.(ts|tsx)$/.test(ent.name)) continue
+      out.push({
+        path: relative(resolve(process.cwd()), full).replaceAll('\\', '/'),
+        code: readFileSync(full, 'utf8'),
+      })
+    }
+  }
+  for (const root of ['app', 'src']) walk(resolve(process.cwd(), root))
+  return out
+}
 
 describe('D92 错误卡接线:必须走统一分类表', () => {
   it('消费侧 import 并调用 resolveViewFailure(与 MCP 面板同一张表)', () => {
@@ -56,6 +87,40 @@ describe('D71② 生产侧透传:errorCode 必须活到 store', () => {
     // 4 个失败出口(onError / 15s / 60s / catch)全部带上码;至少断言出现 3 次
     const withCode = producerSrc.match(/setMessageError\([^)]*,\s*formatted\.errorCode\)/g) ?? []
     expect(withCode.length).toBeGreaterThanOrEqual(3)
+  })
+})
+
+describe('O60i 装车判据:失败卡只能有一个生产实现,且组件必须有生产者', () => {
+  it('MessageErrorCard 被生产面文件 import(不再是"只在测试里活着"的孤儿)', () => {
+    const importers = productionFiles()
+      .filter(
+        (f) =>
+          !f.path.endsWith('MessageErrorCard.tsx') &&
+          f.code.includes("from '@/components/chat/message-list/MessageErrorCard'"),
+      )
+      .map((f) => f.path)
+    expect(importers).toContain('src/components/chat/message-list/MessageItem.tsx')
+  })
+
+  it('message-error-card- 这个 testid 全生产面只能有一处发出(两份实现重名 = 探针失明)', () => {
+    // 判**发射形态**而不是裸子串:解释性注释里提到这个 testid 不算发射
+    // (本票自己的注释就写过一次,把判据逼成结构匹配 —— 见 `data-testid={` 前缀)。
+    const emitters = productionFiles()
+      .filter((f) => /data-testid=\{?["`]message-error-card-/.test(f.code))
+      .map((f) => f.path)
+    expect(emitters).toEqual(['src/components/chat/message-list/MessageErrorCard.tsx'])
+  })
+
+  it('宿主把 D92 分类标题传进组件,组件不再自己决定回落文案(判据留在拿得到 isFallback 的一侧)', () => {
+    expect(cardSrc).toMatch(/titleText=\{errorCardTitle\}/)
+    const comp = readFileSync(
+      resolve(process.cwd(), 'src/components/chat/message-list/MessageErrorCard.tsx'),
+      'utf8',
+    )
+    expect(comp).toMatch(/\{titleText \?\? t\('errorCardTitle'\)\}/)
+    // 反例钉死:组件不得 import 分类表模块(那会把 D92 的表在端内复制成第二处调用点)。
+    // 同样只判 import 形态 —— 组件注释里写了 `resolveViewFailure` 的名字来说明"为什么不在这里算"。
+    expect(comp).not.toMatch(/from\s*'@ihui\/shared\/utils\/view-failure-taxonomy'/)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
