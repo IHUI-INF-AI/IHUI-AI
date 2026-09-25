@@ -576,7 +576,7 @@ export default function ShareIndexPage() {
             </View>
             <View className="share-rank-enter" onClick={() => activeNav(0)} hoverClass="opacity-60">
               <Text className="share-rank-enter-text">{tt('share.index.enter', '进入资讯')}</Text>
-              <Text className="share-rank-enter-arrow">→</Text>
+              <LineIcon name="chevron-right" size={24} color="var(--color-cta-foreground)" />
             </View>
           </View>
           <View className="share-rank-card">
