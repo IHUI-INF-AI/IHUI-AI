@@ -109,6 +109,12 @@ if (conflicted.length > 1 || conflicted[0] !== FILE) {
 
 /* ---- 三方内容 + union 合成 ---- */
 const dir = mkdtempSync(join(tmpdir(), 'ihui-planunion-'))
+// try 块内有三处提前 process.exit(lostReal 放弃 / 预演出口 / CAS 放弃)—— process.exit **不执行 finally**,
+// 这正是历史上每次跑完留一个 ihui-planunion-* 目录的成因(实测累积 18 个)。提前退出必须先自清。
+const exitClean = (code) => {
+  rmSync(dir, { recursive: true, force: true })
+  process.exit(code)
+}
 const w = (n, txt) => {
   const p = join(dir, n)
   writeFileSync(p, txt, 'utf8')
@@ -206,7 +212,7 @@ try {
   }
   if (lostReal.length) {
     console.info(`  ❌ 有 ${lostReal.length} 行属"双方都在却被丢" ⇒ 真丢行,放弃并交人工:\n    ` + lostReal.slice(0, 12).join('\n    '))
-    process.exit(1)
+    exitClean(1)
   }
   /* ---- C3:防长行重复膨胀 ---- */
   const dupDelta = (src) => {
@@ -224,7 +230,7 @@ try {
 
   if (!APPLY) {
     console.info('\n✅ 三条安全边界全过 —— 预演结束,未写任何东西。加 --apply 才落合并提交。')
-    process.exit(0)
+    exitClean(0)
   }
 
   /* ---- 落提交:临时索引 + commit-tree + CAS,绝不碰共享工作区 ---- */
@@ -250,7 +256,7 @@ try {
     } catch (e) {
       console.info(`  ❌ CAS 放弃,且 tag 失败(需人工看一眼,否则 30a 会拦):${(e.message || '').slice(0, 120)}`)
     }
-    process.exit(1)
+    exitClean(1)
   }
   git(['update-ref', 'refs/heads/main', commit, before])
   console.info(`\n✅ 合并提交 ${commit.slice(0, 11)} 已写入 main(CAS 通过)。工作区未触碰(与 converge 同取向)。`)
