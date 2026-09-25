@@ -53,6 +53,15 @@ const GIT_TIMEOUT = 60000
 const BATCH_TIMEOUT = 120000
 /** 64MB:真仓单文件最大已实测 >1MB,默认 1MB 会把大 blob 截成"取不到" */
 const GIT_MAX_BUFFER = 64 << 20
+/**
+ * 每块最多 500 个规格 —— 这只是**条数**护栏(防止一批几千个小文件挤成一次巨大派生),
+ * 真正防溢出的是下面的字节预算。依据是实测而不是估算:2026-09-25 按 500 条/块切分时第 4 块仍
+ * `ENOBUFS` —— 那 500 个 blob 恰好都是大文件,合计超过默认 64MB。候选集里有什么,取材层预料不了,
+ * 所以块大小必须由字节说话,条数只当上限。
+ */
+const CAT_BATCH_CHUNK = 500
+/** 单块累计字节预算:必须显著小于默认 64MB,留出一条巨型 blob 也装得下的余量。 */
+const BATCH_BLOCK_BYTES = 16 << 20
 const HASH_RE = /^([0-9a-f]{40}) blob (\d+)$/
 
 export function gitBinary() {
@@ -183,14 +192,63 @@ export function gitErrText(e) {
 }
 
 /**
- * 一次 `cat-file --batch` 读完一批对象。返回 `Map<rev, text|null>`;
- * missing / unmerged / 非 blob 一律 null,由调用方判"取不到"(本层不代替业务结论)。
+ * 把 `execFileSync` 抛出的**派生层故障**翻成可诊断的一句话(纯函数,与真实 git 分开,所以每一支都能构造)。
  *
- * `opts.maxBuffer` 是给"整仓 HEAD blob 一次读完"那类门留的口子:默认 64MB 够绝大多数,
- * 但门 98/103 一次要读 8000+ 源文件 ≈ 85-89MB。缺口不设口子时,超限的表现是
- * **整批改写成"每个 rev 都取不到"** —— 那会被下游读成"没有违规",是一道假绿。
- * 所以超限必须抛(下面的 Undetermined),不能静默降级。
+ * 为什么必须有这一层:2026-09-25 实测,守门 99 对"以删除为主的提交"一路报 `无法取材: (git 无输出)`,
+ * 现场像是 git 坏了。真因是**一次批量读 11,182 个索引 blob 超过默认 64MB**,`execFileSync` 抛
+ * `ERR_CHILD_PROCESS_STDOUT_MAXBUFFER` 而 stderr 为空 —— 旧写法把 e.stderr 折成 `(git 无输出)`,
+ * 于是"我自己的缓冲区太小"被表达成"git 什么都没写"。一个把自己病因说反的层,会把每个调用方
+ * 都带去查错的方向(与 §5d "读不到文件被下游报成凭据失效"同族)。
  */
+export function spawnCauseText(e, maxBuffer, chunkLabel) {
+  const code = e?.code
+  const raw = String(e?.message ?? '')
+  // Node 把"子进程输出超过 maxBuffer"报成 `ENOBUFS`(并且顺手 SIGTERM 掉子进程),
+  // 而**超时**报成 `ETIMEDOUT`。两者都带 signal,所以必须先按 code 分流:
+  // 把缓冲区溢出误标成"派生超时",会让人去加 timeout 参数,而真实缺口在块大小上。
+  if (code === 'ENOBUFS' || code === 'ERR_CHILD_PROCESS_STDOUT_MAXBUFFER' || /maxBuffer/i.test(raw))
+    return (
+      `单块输出超过 maxBuffer(${maxBuffer}B)——不是 git 没输出,是本层缓冲区不足(${chunkLabel});` +
+      `调 opts.maxBytes / opts.maxBuffer`
+    )
+  if (code === 'ETIMEDOUT') return `git 派生超时(${chunkLabel},code=${code})`
+  return gitErrText(e)
+}
+
+/**
+ * 按**字节**装箱(纯函数,构造面即可证明,不依赖真仓大小)。
+ *
+ * 为什么不能只按条数分块:2026-09-25 实测 500 条/块仍会 `ENOBUFS` —— 块里挤进几个大文件就破 64MB。
+ * 判据覆盖面不该由"这一批里恰好有多少大文件"决定,所以规格数与累计字节**两个上限都要守**;
+ * 单条自身就超过 maxBytes 时单独成块(绝不丢弃 —— 丢了就是一道静默少扫的假绿)。
+ */
+export function packByBytes(specs, sizeOf, opts = {}) {
+  const maxBytes = opts.maxBytes ?? BATCH_BLOCK_BYTES
+  const maxCount = opts.maxCount ?? CAT_BATCH_CHUNK
+  if (!Number.isFinite(maxBytes) || maxBytes < 1) throw new Undetermined(`maxBytes 必须是 ≥1 的整数,实得 ${String(opts.maxBytes)}`)
+  if (!Number.isFinite(maxCount) || maxCount < 1) throw new Undetermined(`maxCount 必须是 ≥1 的整数,实得 ${String(opts.maxCount)}`)
+  const blocks = []
+  let cur = []
+  let curBytes = 0
+  for (const spec of specs) {
+    const size = Math.max(0, Number(sizeOf(spec)) || 0)
+    if (cur.length && (cur.length >= maxCount || curBytes + size > maxBytes)) {
+      blocks.push(cur)
+      cur = []
+      curBytes = 0
+    }
+    cur.push(spec)
+    curBytes += size
+    if (cur.length >= maxCount || curBytes >= maxBytes) {
+      blocks.push(cur)
+      cur = []
+      curBytes = 0
+    }
+  }
+  if (cur.length) blocks.push(cur)
+  return blocks
+}
+
 /**
  * `cat-file --batch` 的头解析(纯函数,与派生分开,这样"截断"那条分支能被构造出来测)。
  * 抽出来之前它埋在 `catBatch` 里,而截断需要"git 少写字节但不报错"这种真实管道事故才能触发 ——
@@ -229,22 +287,106 @@ export function parseBatch(out, revs) {
   return map
 }
 
-export function catBatch(root, revs, opts = {}) {
-  if (revs.length === 0) return new Map()
+/**
+ * `cat-file --batch-check` 的头解析(纯函数,与派生分开 —— "某条 missing"这一支只能构造证明)。
+ * 行格式 `<oid> blob <size>`;missing / unmerged / 目录树都归 null。
+ */
+export function parseBatchCheckSizes(out, specs) {
+  const map = new Map()
+  const lines = String(out).split('\n')
+  ;[...specs].forEach((spec, i) => {
+    const m = /^\S+ blob (\d+)$/.exec((lines[i] || '').trim())
+    map.set(spec, m ? Number(m[1]) : null)
+  })
+  return map
+}
+
+/** 先问一遍大小(输出只有几十字节/条),这样后面的读**按字节装箱**而不是按条数瞎切。 */
+export function catBatchSizes(root, specs, opts = {}) {
+  const list = [...specs]
+  if (list.length === 0) return new Map()
   let out
   try {
-    out = execFileSync(GIT, ['-c', 'safe.directory=*', '-C', root, 'cat-file', '--batch'], {
+    out = execFileSync(GIT, ['-c', 'safe.directory=*', '-C', root, 'cat-file', '--batch-check'], {
       cwd: root,
-      input: Buffer.from(revs.join('\n') + '\n', 'utf8'),
+      input: Buffer.from(list.join('\n') + '\n', 'utf8'),
+      encoding: 'utf8',
       windowsHide: true,
       maxBuffer: opts.maxBuffer ?? GIT_MAX_BUFFER,
       timeout: opts.timeout ?? BATCH_TIMEOUT,
       stdio: ['pipe', 'pipe', 'pipe'],
     })
   } catch (e) {
-    throw new Undetermined(`git cat-file --batch 失败,${root} 的判定面无法取材: ${gitErrText(e)}`)
+    throw new Undetermined(
+      `git cat-file --batch-check 失败(${list.length} 个规格),${root} 的判定面无法取材: ${spawnCauseText(e, opts.maxBuffer ?? GIT_MAX_BUFFER, '取大小')}`,
+    )
   }
-  return parseBatch(out, revs)
+  return parseBatchCheckSizes(out, list)
+}
+
+/**
+ * 一次读完一批对象,返回 `Map<rev, text|null>`;missing / unmerged / 非 blob 一律 null,
+ * 由调用方判"取不到"(本层不代替业务结论)。
+ *
+ * **调用方的候选集大小从来不是本层能预料的**,所以这里按字节装箱:先用 `--batch-check`
+ * 问一遍大小(输出每条约几十字节),再按 `min(opts.maxBytes, 16MB)` + 条数上限切块,
+ * 每块给子进程的 maxBuffer 取 `max(调用方给的, 本块字节数 + 1MB)`。
+ * 因此 ① 单条巨型 blob 仍能读出(不会被"默认值"判成取不到),② 一批几千个大文件也不会
+ * 再让整门 `无法判定`。2026-09-25 立:此前不分块时,守门 99 对"以删除为主的提交"一路报
+ * `(git 无输出)`,真因是 11,182 个候选 blob 超过默认 64MB,而层把 `ENOBUFS` 折成了那句话。
+ * 超限/超时一律**抛**(见 `spawnCauseText`),绝不静默降级成"每个 rev 都取不到" ——
+ * 那会被下游读成"没有违规",是一道假绿。
+ */
+export function catBatch(root, revs, opts = {}) {
+  const list = [...revs]
+  if (list.length === 0) return new Map()
+  const maxBuffer = opts.maxBuffer ?? GIT_MAX_BUFFER
+  // 单块预算取 min(默认块上限, 调用方给的缓冲区) —— 调用方把 maxBuffer 调大只该让它
+  // **更敢读**,不该反过来把块撑大到一个 blob 就能顶爆的量。
+  const maxBytes = opts.maxBytes ?? Math.min(BATCH_BLOCK_BYTES, maxBuffer)
+  const sizes = list.length > 1 ? catBatchSizes(root, list, opts) : new Map()
+  const bytesOf = (s) => sizes.get(s) ?? 0
+  const blocks = packByBytes(list, bytesOf, {
+    maxBytes,
+    maxCount: opts.chunkSize ?? CAT_BATCH_CHUNK,
+  })
+  const out = new Map()
+  let seen = 0
+  for (let c = 0; c < blocks.length; c++) {
+    const part = blocks[c]
+    // 给子进程的实际缓冲区 = max(调用方的, 本块字节数 + 1MB 余量):单条巨型 blob 因此
+    // 仍能读出来,而不是被"默认值"判成取不到。
+    const budget = Math.max(maxBuffer, part.reduce((a, s) => a + bytesOf(s), 0) + (1 << 20))
+    let raw
+    try {
+      raw = execFileSync(GIT, ['-c', 'safe.directory=*', '-C', root, 'cat-file', '--batch'], {
+        cwd: root,
+        input: Buffer.from(part.join('\n') + '\n', 'utf8'),
+        windowsHide: true,
+        maxBuffer: budget,
+        timeout: opts.timeout ?? BATCH_TIMEOUT,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      })
+    } catch (e) {
+      throw new Undetermined(
+        `git cat-file --batch 失败,${root} 的判定面无法取材(第 ${c + 1}/${blocks.length} 块,${part.length} 个规格): ${spawnCauseText(e, budget, `块 ${c + 1}/${blocks.length}`)}`,
+      )
+    }
+    for (const [k, v] of parseBatchWithOffset(raw, part, seen)) out.set(k, v)
+    seen += part.length
+  }
+  return out
+}
+
+/** 复用纯解析器 `parseBatch`,只把"第几块"补进截断消息,便于定位是哪一段没读完。 */
+function parseBatchWithOffset(out, revs, offset) {
+  try {
+    return parseBatch(out, revs)
+  } catch (e) {
+    if (e instanceof Undetermined)
+      throw new Undetermined(`${e.message}(规格起点 ${offset},块长 ${revs.length})`)
+    throw e
+  }
 }
 
 /**

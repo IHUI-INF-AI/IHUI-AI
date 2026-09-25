@@ -41,7 +41,11 @@ import {
   catBatchOids,
   gitBinary,
   gitRaw,
+  gitErrText,
   selectFace,
+  packByBytes,
+  spawnCauseText,
+  parseBatchCheckSizes,
 } from '../lib/face-reader.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -91,11 +95,18 @@ test('层自身:每一处 cat-file --batch* 的 stdio[0] 都必须是 pipe(设�
       /timeout:\s*(?:opts\.timeout\s*\?\?\s*)?[A-Z_]+|timeout:\s*\d+/,
       '无数字 timeout ⇒ 守门 80 那类无界挂起',
     )
-    assert.match(
-      block,
-      /maxBuffer:\s*(?:opts\.maxBuffer\s*\?\?\s*)?GIT_MAX_BUFFER/,
-      'batch 调用必须吃到那个常量(允许开可配口子,但默认值必须是它)',
-    )
+    // 2026-09-25 契约变化:批次现在**按字节装箱**,`catBatch` 的读点用的是
+    // `maxBuffer: budget`,而 budget = `Math.max(maxBuffer, 本块字节数 + 1MB)`、
+    // `maxBuffer = opts.maxBuffer ?? GIT_MAX_BUFFER` —— 常量仍是**下限**,所以这条判据
+    // 的性质没变(不许退回 execFileSync 默认的 1MB),只是形态从"写常量"变成"常量作 floor"。
+    const okMaxBuffer =
+      /maxBuffer:\s*(?:opts\.maxBuffer\s*\?\?\s*)?GIT_MAX_BUFFER/.test(block) ||
+      (/maxBuffer:\s*budget\b/.test(block) &&
+        // budget 定义在调用点**之前**,所以往回扩 900 字符再查(只查模块会让"随便某处有个
+        // Math.max"就能过 —— 那这条判据就没有牙了)
+        /const maxBuffer = opts\.maxBuffer \?\? GIT_MAX_BUFFER/.test(src) &&
+        /const budget = Math\.max\(maxBuffer,/.test(src.slice(Math.max(0, s.index - 900), s.index)))
+    assert.ok(okMaxBuffer, 'batch 调用必须以 GIT_MAX_BUFFER 为 floor(直写常量,或经 Math.max 抬升)')
   }
   // maxBuffer 是模块级常量,不在调用点写数字 —— 判据要跟它的真身对齐
   assert.match(src, /const GIT_MAX_BUFFER = 64 << 20/, 'maxBuffer 常量必须给足(真仓有 >1MB 单文件)')
@@ -758,6 +769,61 @@ test('裸 git 派生的生产文件数只减不增(存量记在基线,新增拦�
       `◽ 裸 git 存量已降到 ${hits.length}(基线 ${BARE_GIT_BASELINE})—— 收口有效,请把基线一并下调`,
     )
   }
+})
+
+/* ── 2026-09-25 按字节装箱:三个新出口都用构造面证明,不依赖真仓恰好有多大 ───────────── */
+
+test('packByBytes 不丢不重,且单条超预算也自成一块(绝不静默丢弃)', () => {
+  const specs = Array.from({ length: 25 }, (_, i) => `:${i}`)
+  const size = (s) => (s === ':7' ? 40 << 20 : 1 << 10) // 第 8 条是 40MB 的巨无霸
+  const blocks = packByBytes(specs, size, { maxBytes: 8 << 20, maxCount: 4 })
+  const flat = blocks.flat()
+  assert.equal(flat.length, specs.length, `装箱丢了 ${specs.length - flat.length} 个规格`)
+  assert.equal(new Set(flat).size, specs.length, '装箱出现重复规格')
+  assert.ok(
+    blocks.some((b) => b.length === 1 && b[0] === ':7'),
+    '超过 maxBytes 的单条必须自己成一块 —— 丢弃它等于让下游"少扫一条却报绿"',
+  )
+  for (const b of blocks) assert.ok(b.length <= 4, `块内条数越界:${b.length}`)
+})
+
+test('packByBytes 的非法参数一律拒,不许退化成"空结果"', () => {
+  // 空结果在下游永远是绿 —— 所以尺寸参数坏掉必须抛,而不是返回 []
+  assert.throws(() => packByBytes(['a'], () => 1, { maxBytes: 0 }), /maxBytes/)
+  assert.throws(() => packByBytes(['a'], () => 1, { maxCount: 0 }), /maxCount/)
+  assert.throws(() => packByBytes(['a'], () => 1, { maxBytes: NaN }), /maxBytes/)
+  assert.deepEqual(packByBytes([], () => 1, { maxBytes: 10, maxCount: 10 }), [], '空输入才是唯一的空输出')
+})
+
+test('spawnCauseText:缓冲区溢出不得被折成"git 无输出",超时与溢出两支要分得开', () => {
+  const enobufs = spawnCauseText({ code: 'ENOBUFS', stderr: '' }, 64 << 20, '块 4/23')
+  assert.match(enobufs, /maxBuffer/, 'ENOBUFS 必须报成缓冲区不足')
+  assert.ok(!enobufs.includes('无输出'), '把缓冲区溢出说成"git 无输出"正是 09-25 误诊十几分钟的成因')
+  assert.match(enobufs, /块 4\/23/, '要带是哪一块,否则无法定位输入形态')
+  const tmo = spawnCauseText({ code: 'ETIMEDOUT', signal: 'SIGTERM', stderr: '' }, 64 << 20, '块 1/1')
+  assert.match(tmo, /超时/, 'ETIMEDOUT 才是超时')
+  assert.ok(!tmo.includes('maxBuffer'), '超时不得报成缓冲区(两者处置动作不同)')
+  // 反向:真正的零命中仍必须是层那个常量串(守门 99 与本文件都按它逐字对账)
+  assert.equal(spawnCauseText({ stderr: '' }, 64 << 20, 'x'), gitErrText({ stderr: '' }))
+  assert.equal(spawnCauseText({ stderr: '' }, 64 << 20, 'x'), '(git 无输出)')
+})
+
+test('parseBatchCheckSizes:oid blob size 对齐回填,missing / tree 归 null', () => {
+  const oid = 'f'.repeat(40)
+  const out = `${oid} blob 123\n:no-such blob missing\n${oid} tree 4096\n`
+  const m = parseBatchCheckSizes(out, [':a', ':b', ':c'])
+  assert.equal(m.get(':a'), 123)
+  assert.equal(m.get(':b'), null, 'missing 必须 null,不得把规格原文当数字返回')
+  assert.equal(m.get(':c'), null, 'tree 不是 blob,读它没有意义')
+})
+
+test('行为等值:同一批规格,逐条一块与整块一块的结论必须完全相同(证明装箱不改语义)', () => {
+  const root = join(here, '..', '..')
+  const specs = ['HEAD:package.json', 'HEAD:README.md', 'HEAD:nope/missing.ts'].map((s) => s)
+  const one = catBatch(root, specs, { chunkSize: 1, maxBytes: 1 })
+  const all = catBatch(root, specs, { chunkSize: specs.length })
+  assert.deepEqual([...one.entries()], [...all.entries()], '分块与不分块必须逐 key 同序同值')
+  assert.equal(one.get('HEAD:nope/missing.ts'), null)
 })
 
 test('自拼 cat-file --batch 却不走本层的门,数量只减不增', () => {
