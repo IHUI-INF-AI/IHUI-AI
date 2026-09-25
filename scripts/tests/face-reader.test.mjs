@@ -137,20 +137,28 @@ test('真实取材抽查:HEAD 面能读到大 blob(>1MB 的那个语言包),证�
 
 // ───────────────────────── 棘轮:存量认账,增量不认 ─────────────────────────
 //
-// 本票只收了被点名的三门(91/94/101)。但同一类重复实测还有两摊:
-//   · 自拼裸 `git` 派生的 scripts/ 生产文件(实测 33 个)
-//   · 自拼 `cat-file --batch` 却没走本层的门(本票实测 9 个,不含本层自己)
-// 一次性扫 80 个文件会与各并行会话在提交链上对撞,且多数只是 `git status` 一类一次性调用;
-// 所以这里不"顺手全改",而是**钉住不许再长**:数量只减不增,降了不更新基线也算提示。
-// 与守门 70/77 的棘轮同一取向 —— 存量债记账,新增债拦停。
+// 本票收口的是一类重复:各门各自派生 git。实测分成三型,分别钉住(数字一律以命令现测为准,
+// 下面只记变化轨迹 —— 把存量数写进散文,下一次收口就会留下一句骗人的旧话):
+//   · 型 A 裸字面量派生:`execFileSync('git', …)` / `execSync('git status …')` —— 依赖 PATH
+//   · 型 B 常量绑到裸 'git':`const GIT = process.env.IHUI_GIT_BIN || 'git'` 再 `execFileSync(GIT, …)`
+//     —— **A 看不见它**,而这正是"服务账户/GUI 宿主下 PATH 不通"那一型(§5b 已记过一次)
+//   · 型 C 自拼 `cat-file --batch` 却不走本层 —— 每条都要重写 stdio[0]=pipe / maxBuffer / 头解析
+// 一次性全改会与各并行会话在提交链上对撞,所以这里不"顺手扫",而是**钉住不许再长**:
+// 只减不增,降了不更新基线也算提示。与守门 70/77 的棘轮同一取向 —— 存量债记账,新增债拦停。
 
 /**
  * 基线 = 当次实测真值(扫 scripts/ 生产文件)。调高它必须先在此说明理由。
- * ⚠️ 这个数会随收口下降;下降时测试只提示不拦停,请在同一票里把基线一并下调。
- * 历史:09-25 首量 80 → 修尺子(补 shell 串式与 spawnSync 两型)后真值 82 → 本批 8 道门收口后重定。
+ * ⚠️ 这些数会随收口下降;下降时测试只提示不拦停,请在同一票里把基线一并下调。
+ * 历史:
+ *  · 型 A:09-25 首量 80 → 修尺子(补 shell 串式与 spawnSync 两型)后真值 82。本批迁的 6 道门
+ *    用的都是型 B(常量),所以 A 不随本批下降 —— 这恰好证明"只盯 A 的尺子会以为收口没效果"。
+ *  · 型 B:本票首量 10 → 加"必须被当过派生首参"的第二道锚后 9(`lib/gitdir.mjs` 那处 'git' 是
+ *    目录名,不是二进制 —— 第一版尺子被它骗过)。不含本层自己那处**刻意**的最后一档兜底。
+ *  · 型 C:首量 9 → 本批 6 道门收口后 3(余 arch-policy / cross-end-tokens / stale-revert)。
  */
 const BARE_GIT_BASELINE = 82
-const SELF_BATCH_BASELINE = 9
+const PATH_BOUND_GIT_BASELINE = 9
+const SELF_BATCH_BASELINE = 3
 
 function productionScripts(root) {
   const out = []
@@ -179,6 +187,26 @@ function productionScripts(root) {
 const BARE_GIT_RE = /(execFileSync|execSync|spawnSync|spawn)\(\s*['"]git(?:\.exe)?(?=['"\s])/g
 const bareGitCountOf = (text) => (text.match(BARE_GIT_RE) || []).length
 
+/**
+ * 型 B:变量被**初始化成**裸 'git'(直接赋值,或 `|| 'git'` / `?? 'git'` / 三元兜底),
+ * 之后所有派生都写成 `execFileSync(GIT, …)` —— 对型 A 完全隐形,但同样依赖 PATH。
+ * 只认"声明即绑裸名",不认 `= resolveGitBin()` / `= gitBinary()` 这类正确写法。
+ *
+ * ⚠️ 单看声明行会误报:`const root = join(…, 'DevEnv', 'backups', 'git')` 里的 'git' 是**目录名**,
+ * 而 `lib/gitdir.mjs` 真有这么一行(第一版尺子就被它骗过,把基线从 9 报成 10)。所以加第二道锚:
+ * 该标识符必须在文件里被当过**派生首参**(`X(git, [`)。宁可用两条同时成立换零误报。
+ */
+const PATH_BOUND_GIT_DECL_RE =
+  /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=[^;\n]*['"]git(?:\.exe)?['"]\s*[;,)]?\s*$/gm
+function pathBoundGitCountOf(text) {
+  let n = 0
+  for (const m of text.matchAll(PATH_BOUND_GIT_DECL_RE)) {
+    const usedAsProgram = new RegExp(`\\(\\s*${m[1]}\\s*,\\s*\\[`).test(text)
+    if (usedAsProgram) n++
+  }
+  return n
+}
+
 function filesWith(root, predicate) {
   const hits = []
   for (const p of productionScripts(root)) {
@@ -193,7 +221,7 @@ function filesWith(root, predicate) {
   return hits
 }
 
-test('棘尺本身不恒真:两个计数函数都能真抓到注入的样本', () => {
+test('棘尺本身不恒真:三个计数函数都能真抓到注入的样本(含型 B 四条成对反例)', () => {
   assert.equal(bareGitCountOf("execFileSync('git', ['status'])"), 1)
   // shell 串式:`git` 后面跟的是空格,只匹配 `['"]git['"]` 会整类漏掉(本仓大量存在)
   assert.equal(
@@ -224,6 +252,59 @@ test('棘尺本身不恒真:两个计数函数都能真抓到注入的样本', (
   // `--batch-check` 同族(同样一次问一批对象的存在性/sha,同样有 stdio/maxBuffer 陷阱),必须计入
   assert.equal(hasBatch("spawnSync('git', ['cat-file', '--batch-check'])"), true)
   assert.equal(hasBatch('const a = 1'), false)
+
+  // 型 B:本票迁的 6 道门**全是**这一型 —— 型 A 的尺子对它们整型盲视。
+  // 少了这几条,棘轮会把"收口毫无进展"读成"存量本来就没动"。
+  // 每条都带第二参 `[` 的派生调用 —— 声明+被当首参用 两条同时成立才算债(见上注释)。
+  const USE = "\nexecFileSync(GIT, ['status'], { cwd })\n"
+  assert.equal(
+    pathBoundGitCountOf("const GIT = process.env.IHUI_GIT_BIN || 'git'\n" + USE),
+    1,
+    'env 兜底裸 git 必须被量到(§5b:服务账户与交互账户的 PATH 互不相通)',
+  )
+  assert.equal(pathBoundGitCountOf("const GIT = 'git';\n" + USE), 1, '直接赋裸 git 必须被量到')
+  assert.equal(
+    pathBoundGitCountOf("const bin = gitBin() || 'git'\nexecFileSync(bin, ['ls-files'])\n"),
+    1,
+    '函数兜底再落裸名的也量(它同样会拿到 undefined 再退回 PATH)',
+  )
+  assert.equal(
+    pathBoundGitCountOf("const GIT = resolveGitBin()\n" + USE),
+    0,
+    '收口后的正确写法不得误报',
+  )
+  assert.equal(
+    pathBoundGitCountOf('const msg = "checking \'git\' now"\nexecFileSync(msg, [])\n'),
+    0,
+    '字符串中间的同名片段不得误报(锚行尾正是为此)',
+  )
+  // 真仓第一版就被这一型骗过:'git' 在这里是**目录名**,不是二进制
+  assert.equal(
+    pathBoundGitCountOf(
+      "  const root = join(resolve(wt, '..', '..'), 'DevEnv', 'backups', 'git')\n",
+    ),
+    0,
+    '同名目录名不得误报(root 从未被当派生首参)',
+  )
+})
+
+test('型 B:常量绑到裸 git 的生产文件数只减不增(型 A 的尺子看不见这一型)', () => {
+  const root = join(here, '..', '..')
+  // 本层自己那处 `resolveGitBin() || 'git'` 是**刻意保留的最后一档兜底**(绝对路径解析失败时
+  // 退回 PATH,好过直接抛"找不到 git"),不排除它就把唯一正解也计成债。
+  const hits = filesWith(root, (s) => pathBoundGitCountOf(s) > 0).filter(
+    (p) => !p.endsWith('lib/face-reader.mjs'),
+  )
+  assert.ok(
+    hits.length <= PATH_BOUND_GIT_BASELINE,
+    `常量绑裸 git 的生产文件从基线 ${PATH_BOUND_GIT_BASELINE} 涨到 ${hits.length}: ${hits.join(', ')} —— ` +
+      '新增者请改用 scripts/lib/face-reader.mjs 的 gitRaw(内部 gitBinary() 走绝对路径)。',
+  )
+  if (hits.length < PATH_BOUND_GIT_BASELINE) {
+    console.log(
+      `◽ 型 B 存量已降到 ${hits.length}(基线 ${PATH_BOUND_GIT_BASELINE}):${hits.join(', ')} —— 请把基线一并下调`,
+    )
+  }
 })
 
 test('裸 git 派生的生产文件数只减不增(存量记在基线,新增拦停)', () => {

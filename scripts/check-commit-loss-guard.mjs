@@ -59,7 +59,15 @@
  *   - scripts/guardian-runner.mjs 第 30 项(warn-only → 后续 blocking)
  *   - 手动验证: git 异常操作后跑一次确认无丢失
  */
-import { execSync, spawnSync } from 'node:child_process'
+import { catBatch, gitRaw } from './lib/face-reader.mjs'
+
+/**
+ * 判定对象 = **当前工作目录所在的仓库**,不是脚本自己所在的那个仓库。
+ * 镜像测试把本门 `spawn` 进临时夹具仓里跑(cwd=临时仓),这是"装车证明"能成立的前提:
+ * 若把根锚在脚本位置,所有临时仓用例都会去查真仓,测试就把"判据有牙"证明不了。
+ * 原先每条命令都靠继承 cwd 定位仓库,这里显式传给层,取值不变。
+ */
+const ROOT = process.cwd()
 
 const C = {
   red: '\x1b[31m',
@@ -107,64 +115,51 @@ const skip = process.env[SKIP_ENV] === '1'
 const REMOTE_TIMEOUT_MS = 15_000
 // 本地 git 命令(批量 subject 获取)限时,防单次调用异常挂起
 const LOCAL_GIT_TIMEOUT_MS = 10_000
+/** 旧 `runGit()`(spawnSync 通道)的默认上限;层默认 60s,这里显式保住原值,免得迁移改了失败时机 */
+const SPAWN_DEFAULT_TIMEOUT_MS = 120_000
 
-function run(cmd, opts = {}) {
+/**
+ * 本门唯一的 git 出口:命令构造与派生本体都在共用层 `scripts/lib/face-reader.mjs` 的 `gitRaw`
+ * (绝对路径 git + safe.directory + quotepath + 显式 stdio + windowsHide + maxBuffer 都给足)。
+ * 这里只剩本门特有的两件事:① `allowFail` —— 把"取不到"折成空串交由调用方降级;② `.trim()`
+ * (与旧的 `run()` / `runGit()` 逐字一致)。
+ * 旧写法有两条通道:`run(shell 字符串)` 与 `runGit(spawnSync argv)`,同一道判据两套引号语义
+ * (cmd 会展开 `%(objectname)` 那类形态,已留过事故);现统一为层的 argv 形态。
+ */
+function gitText(args, opts = {}) {
+  const { allowFail = false, ...rest } = opts
   try {
-    return execSync(cmd, {
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-      windowsHide: true,
-      ...opts,
-    }).trim()
+    return gitRaw(args, ROOT, rest).trim()
   } catch (e) {
-    if (opts.allowFail) return ''
+    if (allowFail) return ''
     throw e
   }
 }
 
-// 2026-09-04 加固:不经 shell 的 git argv 直调(spawnSync).
-// 实测本环境双重陷阱:
-//  ① execSync/execFileSync 传 argv 数组时默认仍走 shell:true,node 会丢弃
-//     args 数组(git 落到 usage 分支非零退出);
-//  ② PATH 首位是 MSYS `git`(bash shim),直接 spawn 参数同样被吞.
-// 解法:spawnSync(天然无 shell)+ where git 解析到 Git for Windows 真实二进制
-// cmd\git.exe.自测见 scripts/tmp-verify-gitbin.mjs(2026-09-04 验证通过).
-const GIT_BIN = (() => {
-  if (process.platform !== 'win32') return 'git'
-  try {
-    const whereOut = execSync('where git', { encoding: 'utf8', windowsHide: true })
-    for (const raw of whereOut.split('\n')) {
-      const p = raw.trim()
-      if (/\\cmd\\git\.exe$/i.test(p)) return p
-    }
-    // 无 cmd\git.exe 时取第一个 .exe(排除 MSYS usr\bin 版)
-    for (const raw of whereOut.split('\n')) {
-      const p = raw.trim()
-      if (/git\.exe$/i.test(p) && !/\\usr\\bin\\/i.test(p)) return p
-    }
-  } catch {
-    /* where 失败时回退裸 git */
+/**
+ * 一批 commit oid → `Map<commit, tree oid>`。
+ *
+ * 原实现把 `<oid>^{tree}` 喂给 `cat-file --batch-check=%(objectname)`;层只暴露内容版的
+ * `catBatch`,而 commit 对象的**第一行就是 `tree <oid>`** ⇒ 用同一条批量通道问一次即可,
+ * 既不必新增第二处自拼派生,也不必逐对象 `rev-parse`(4500 枚 = 4500 次进程创建)。
+ * 批量体量:4.5k 个 commit ≈ 2MB,远在层的 64MB 缓冲之内。
+ *
+ * 与旧写法的唯一结论差(如实登记):备份 tag 若指向**非 commit**(tree/blob),旧写法经
+ * `^{tree}` 剥出树 oid 计入"已备份树"集合,现在不计 ⇒ 方向是"更难放行",丢失防护只会更严;
+ * 而本仓 lost-commit/* 与 backup/* 全部指向 commit,实测两侧结论相同。
+ * 旧写法对"对象缺失"那行取首 token(= 输入的 commit oid)当成树 oid 收进集合,本实现跳过 ——
+ * 那个 token 永远不可能等于任何真树 oid,两种写法对判定无影响。
+ */
+function treesForCommits(oids) {
+  const out = new Map()
+  const list = [...new Set(oids.filter((h) => /^[0-9a-f]{40}$/.test(String(h) || '')))]
+  if (list.length === 0) return out
+  const got = catBatch(ROOT, list)
+  for (const h of list) {
+    const m = /^tree ([0-9a-f]{40})/.exec(got.get(h) || '')
+    if (m) out.set(h, m[1])
   }
-  return 'git'
-})()
-
-function runGit(args, opts = {}) {
-  const r = spawnSync(GIT_BIN, args, {
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-    windowsHide: true,
-    // 默认封顶:本函数现有调用(for-each-ref / cat-file)全部只读,中途被终止不会
-    // 留下 index.lock 之类的半成品状态。放在 ...opts 之前 ⇒ 需要更长上限的调用方可覆盖。
-    timeout: 120_000,
-    ...opts,
-  })
-  if (r.status !== 0) {
-    if (opts.allowFail) return ''
-    throw new Error(
-      `git ${args[0]} 失败(exit=${r.status}): ${(r.stderr || '').trim().slice(0, 200)}`,
-    )
-  }
-  return (r.stdout || '').trim()
+  return out
 }
 
 /**
@@ -192,20 +187,35 @@ function healMissingRemoteTags(names) {
     const chunk = target.slice(i, i + CHUNK)
     const refspecs = chunk.map((t) => `refs/tags/${t}:refs/tags/${t}`)
     try {
-      runGit(['fetch', '--no-tags', 'origin', ...refspecs], { timeout: TIMEOUT })
+      gitText(['fetch', '--no-tags', 'origin', ...refspecs], { timeout: TIMEOUT })
       for (const t of chunk) {
-        const sha = runGit(['rev-parse', '--verify', '--quiet', `refs/tags/${t}`], { allowFail: true })
+        const sha = gitText(['rev-parse', '--verify', '--quiet', `refs/tags/${t}`], {
+          allowFail: true,
+          timeout: SPAWN_DEFAULT_TIMEOUT_MS,
+        })
         if (sha) fetched.push(t)
       }
     } catch (e) {
       // 离线 / 超时 / 无凭据:如实记录,由调用方降级为警告,绝不把提交卡死
       networkFailed = true
-      reason = String((e && (e.stderr || e.message)) || e).split('\n')[0].slice(0, 160)
+      reason = String((e && (e.stderr || e.message)) || e)
+        .split('\n')[0]
+        .slice(0, 160)
     }
   }
-  if (fetched.length) runGit(['pack-refs', '--all', '--prune'], { allowFail: true })
+  if (fetched.length)
+    gitText(['pack-refs', '--all', '--prune'], {
+      allowFail: true,
+      timeout: SPAWN_DEFAULT_TIMEOUT_MS,
+    })
   const stillMissing = target.filter((t) => !fetched.includes(t))
-  return { fetched, stillMissing, networkFailed, reason, truncated: Math.max(0, names.length - target.length) }
+  return {
+    fetched,
+    stillMissing,
+    networkFailed,
+    reason,
+    truncated: Math.max(0, names.length - target.length),
+  }
 }
 
 function header(label) {
@@ -215,7 +225,7 @@ function header(label) {
 function detectResets() {
   // reflog 最近 50 步(每行包含: hash | ref@{} | action: subject)
   // 2026-07-26 升级:从 20 步扩到 50 步,覆盖更长期的 reset 历史
-  const out = run('git reflog --all --date=iso -n 50', { allowFail: true })
+  const out = gitText(['reflog', '--all', '--date=iso', '-n', '50'], { allowFail: true })
   if (!out) return []
   const lines = out.split('\n')
   const resets = []
@@ -278,7 +288,12 @@ function listUnreachableHashes() {
   // missing)**逐条相同** ⇒ 快 42.6 倍且判据零损失。
   // 为什么值得为此改一行:完整 fsck 的 130 秒窗口横跨并发会话的 reset/tag 手术,
   // 期间读到的正是一份**移动中的现场**;窗口越短,pre-commit 被并发态误判成红的概率越低。
-  const out = run('git fsck --connectivity-only --unreachable --no-reflogs 2>&1', { allowFail: true })
+  // 旧写法在这里挂 `2>&1`(只有 shell 通道才需要)。层的 gitRaw 分别捕获 stdout/stderr,
+  // 而本判据只取 stdout 上的 `unreachable commit` 行(git 的不可达对象清单本来就打在 stdout,
+  // 诊断与警告才走 stderr)⇒ 去掉合并不会少一行,少了的行也不是判据输入。
+  const out = gitText(['fsck', '--connectivity-only', '--unreachable', '--no-reflogs'], {
+    allowFail: true,
+  })
   if (!out) return []
   return out
     .split('\n')
@@ -304,7 +319,7 @@ function filterStashLike(hashes) {
   const subjectByHash = new Map()
   for (let i = 0; i < hashes.length; i += BATCH) {
     const batch = hashes.slice(i, i + BATCH)
-    const out = run(`git log --no-walk --format=%H%x09%s ${batch.join(' ')}`, {
+    const out = gitText(['log', '--no-walk', '--format=%H%x09%s', ...batch], {
       allowFail: true,
       timeout: LOCAL_GIT_TIMEOUT_MS,
     })
@@ -318,22 +333,22 @@ function filterStashLike(hashes) {
 }
 
 function listLostCommitTags() {
-  const out = run('git tag -l "lost-commit/*"', { allowFail: true })
+  const out = gitText(['tag', '-l', 'lost-commit/*'], { allowFail: true })
   if (!out) return []
   return out.split('\n').filter(Boolean)
 }
 
 function listBackups() {
-  const out = run('git tag -l "backup/*"', { allowFail: true })
+  const out = gitText(['tag', '-l', 'backup/*'], { allowFail: true })
   if (!out) return []
   return out.split('\n').filter(Boolean)
 }
 
 // 2026-07-26 升级:远程 tag 完整性校验(防"本地 tag 被 git gc + 远端 fetch 失败"事故复发)
 // 解析 git ls-remote 输出,过滤掉 ^{} peel 行(只保留 tag 引用本身)
-// 注意:不能依赖 cmd 的引号剥离行为——run(shell:true)下 node 把双引号原样传给 cmd,
-// cmd 内 git 收到带字面引号的 pathspec 会匹配不到任何 ref(与手动 PowerShell 调用行为不同).
-// 用 [^ ] 字符类显式排除空格 glob,无需引号.
+// 注意:pattern 里的 `[^ ]` 字符类是显式排除空格的写法,与引号无关 —— shell 通道的引号剥离
+// 陷阱(cmd 把双引号原样交给 git,pathspec 就带上了字面引号)在 argv 通道里根本不存在,
+// 迁移到层(gitRaw 恒 argv)后这句只作为"为什么这里没有引号"的说明留着.
 function parseRemoteTagOutput(stdout) {
   if (!stdout) return []
   return stdout
@@ -348,17 +363,17 @@ function parseRemoteTagOutput(stdout) {
 
 function listRemoteLostCommitTags() {
   // ls-remote 可能因网络/凭据失败,失败时返回 null(区别于成功的空集)
-  // Windows 上 git.exe 在 pipe stdio 模式下 schannel SSL handshake 不稳定,
-  // 必须用 shell:true 走 cmd 包装器(参考 PS 调用 git 的成功行为)
-  // 2026-08-17 加 timeout:境外 GitHub 访问慢时 execSync 无限阻塞(实测 >12min),
-  // 导致 pre-commit [30a] 卡死、commit 无法完成。15s 超时按失败处理(安全降级跳过远程校验)。
+  // 旧注释写"Windows 上 git.exe 在 pipe stdio 模式下 schannel SSL handshake 不稳定,必须用
+  // shell:true 走 cmd 包装器" —— 该前提在迁移时当次实测已不成立:同一份 argv + stdio['ignore',
+  // 'pipe','pipe'] 跑 `ls-remote origin refs/tags/lost-commit/[^ ]*` 取回 4558 行 / 8.4s(本机
+  // origin 走 ssh-over-443)。故撤掉 shell 通道,统一走层;真失败仍由下方 catch 折成 null 降级。
+  // 2026-08-17 加 timeout:境外 GitHub 访问慢时无限阻塞(实测 >12min),导致 pre-commit [30a]
+  // 卡死、commit 无法完成。15s 超时按失败处理(安全降级跳过远程校验)。
   // 2026-09-06 修复:失败/超时此前返回空集被当成"远端无任何 tag",导致全部本地 tag
   // 被误报"仅本地 N 千个未 push"(误导性警告)。现失败返回 null,调用方降级跳过远程 diff。
   let out
   try {
-    out = run('git ls-remote origin "refs/tags/lost-commit/[^ ]*"', {
-      shell: true,
-      windowsHide: true, // 防 Windows 弹可见 cmd 窗口
+    out = gitText(['ls-remote', 'origin', 'refs/tags/lost-commit/[^ ]*'], {
       timeout: REMOTE_TIMEOUT_MS,
     })
   } catch {
@@ -368,12 +383,10 @@ function listRemoteLostCommitTags() {
 }
 
 function listRemoteBackups() {
-  // 同上:加 timeout 防境外网络无限阻塞(2026-08-17);2026-09-06 失败返回 null
+  // 同上:argv 走层,15s 超时防境外网络无限阻塞(2026-08-17);2026-09-06 失败返回 null
   let out
   try {
-    out = run('git ls-remote origin "refs/tags/backup/[^ ]*"', {
-      shell: true,
-      windowsHide: true, // 防 Windows 弹可见 cmd 窗口
+    out = gitText(['ls-remote', 'origin', 'refs/tags/backup/[^ ]*'], {
       timeout: REMOTE_TIMEOUT_MS,
     })
   } catch {
@@ -388,8 +401,13 @@ function listRemoteBackups() {
 // 批量获取全部 tag 的 objectname + peeled objectname,内存组装结果(实测 <2s)。
 function verifyAllTagReachability(tags) {
   if (tags.length === 0) return []
-  const out = run(
-    'git for-each-ref --format=%(refname:short)%09%(objectname)%09%(*objectname) refs/tags/lost-commit refs/tags/backup',
+  const out = gitText(
+    [
+      'for-each-ref',
+      '--format=%(refname:short)%09%(objectname)%09%(*objectname)',
+      'refs/tags/lost-commit',
+      'refs/tags/backup',
+    ],
     { allowFail: true, timeout: LOCAL_GIT_TIMEOUT_MS },
   )
   if (!out) return []
@@ -461,11 +479,20 @@ function main() {
     const missing = [...lostTagDiff.onlyRemote, ...backupTagDiff.onlyRemote]
     if (missing.length && !remoteCheckSkipped) {
       const r = healMissingRemoteTags(missing)
-      remoteHeal = { attempted: true, fetched: r.fetched, stillMissing: r.stillMissing, degraded: r.networkFailed, reason: r.reason }
+      remoteHeal = {
+        attempted: true,
+        fetched: r.fetched,
+        stillMissing: r.stillMissing,
+        degraded: r.networkFailed,
+        reason: r.reason,
+      }
       if (r.fetched.length) {
         // 重取本地清单再对账(fetch 前拿的那份已经是旧的了)
         try {
-          runGit(['pack-refs', '--all', '--prune'], { allowFail: true })
+          gitText(['pack-refs', '--all', '--prune'], {
+            allowFail: true,
+            timeout: SPAWN_DEFAULT_TIMEOUT_MS,
+          })
         } catch {
           /* 固化失败不改变判定,只是下次还得再拉 */
         }
@@ -488,7 +515,9 @@ function main() {
     }
     console.log(`\n  ${C.yellow}💡 reset 可能导致 commit 丢失(参见 AGENTS.md §22)。${C.reset}`)
     console.log(`     验证步骤:`)
-    console.log(`       1. ${C.cyan}git fsck --connectivity-only --unreachable --no-reflogs${C.reset} 看悬空 commit(本机实测 3s;不带 --connectivity-only 的全量校验实测 130s,判据集合相同)`)
+    console.log(
+      `       1. ${C.cyan}git fsck --connectivity-only --unreachable --no-reflogs${C.reset} 看悬空 commit(本机实测 3s;不带 --connectivity-only 的全量校验实测 130s,判据集合相同)`,
+    )
     console.log(`       2. ${C.cyan}git show <commit-hash>${C.reset} 确认内容`)
     console.log(
       `       3. 若需保留:${C.cyan}git tag lost-commit/<name> <hash> -m "lost via reset"${C.reset}`,
@@ -508,7 +537,7 @@ function main() {
     console.log(`  ${C.yellow}⚠️  检测到 ${unreachable.length} 个悬空 commit:${C.reset}`)
     for (const c of unreachable.slice(0, 10)) {
       const short = c.slice(0, 12)
-      const subject = run(`git log -1 --format=%s ${c}`, { allowFail: true })
+      const subject = gitText(['log', '-1', '--format=%s', c], { allowFail: true })
       console.log(`     ${C.cyan}${short}${C.reset}  ${C.dim}${subject || '(空)'}${C.reset}`)
     }
     if (unreachable.length > 10) {
@@ -530,10 +559,17 @@ function main() {
     // 时 20+ 分钟)。改为一次 for-each-ref 拿全部 tag 的 commit hash + 一次
     // git log --no-walk 批量拿 subject(复用 verifyAllTagReachability 的批量思路)。
     const subjByHash = new Map()
-    const refs = lostTags.map((t) => `refs/tags/${t}`).join(' ')
-    const refOut = run(
-      `git for-each-ref --format=%(refname:short)%09%(*objectname)%09%(objectname) ${refs}`,
-      { allowFail: true, timeout: LOCAL_GIT_TIMEOUT_MS },
+    const refPaths = lostTags.map((t) => `refs/tags/${t}`)
+    // 逐枚 tag 名作 argv 传进去(本地积压 4.5k 枚 ⇒ 命令行远超 CreateProcess 的 32767 上限),
+    // 旧写法经 shell 时同样超限 ⇒ 两边都是 allowFail → '' ⇒ 明细行的 hash 恒显 "?"。
+    // 迁移刻意**不**把它"修好":那会把一行展示形态的既有结论换成新的,而本票是等价重构。
+    // (真正的批量口径由 verifyAllTagReachability 的两次 for-each-ref 命名空间调用提供。)
+    const refOut = gitText(
+      ['for-each-ref', '--format=%(refname:short)%09%(*objectname)%09%(objectname)', ...refPaths],
+      {
+        allowFail: true,
+        timeout: LOCAL_GIT_TIMEOUT_MS,
+      },
     )
     const tagToHash = new Map()
     for (const line of (refOut || '').split('\n')) {
@@ -544,7 +580,7 @@ function main() {
     const HASH_BATCH = 50
     for (let i = 0; i < uniqueHashes.length; i += HASH_BATCH) {
       const batch = uniqueHashes.slice(i, i + HASH_BATCH)
-      const subjOut = run(`git log --no-walk --format=%H%x09%s ${batch.join(' ')}`, {
+      const subjOut = gitText(['log', '--no-walk', '--format=%H%x09%s', ...batch], {
         allowFail: true,
         timeout: LOCAL_GIT_TIMEOUT_MS,
       })
@@ -572,7 +608,7 @@ function main() {
     console.log(`\n  ${C.dim}backup/* tag:${C.reset}`)
     const BACKUP_DETAIL_LIMIT = 10
     for (const tag of backups.slice(0, BACKUP_DETAIL_LIMIT)) {
-      const hash = run(`git rev-list -1 ${tag}`, { allowFail: true })
+      const hash = gitText(['rev-list', '-1', tag], { allowFail: true })
       console.log(`     ${C.cyan}${tag}${C.reset} → ${C.dim}${hash?.slice(0, 12) || '?'}${C.reset}`)
     }
     if (backups.length > BACKUP_DETAIL_LIMIT) {
@@ -707,23 +743,25 @@ function main() {
     //   时暂存区快照,与 HEAD/base 树**并不恒等**(部分 stage 场景),纯 tree
     //   等价判定对这类 commit 会漏放;且 stash 链 parent/grandparent 均不可达
     //   时唯一可靠出口是显式 tag 备份(unreachable-commits-backup/*).
-    // 性能:backedUp ~4400 个 hash,批量 for-each-ref + cat-file --batch-check,
-    // 且用 spawnSync argv 直调(不经 shell)避免 %(xxx) format 被破坏.
+    // 性能:backedUp ~4400 个 hash,批量 for-each-ref + 一次批量取 tree,
+    // 且一律 argv 直调(不经 shell)避免 %(xxx) format 被破坏.
     const backedTrees = new Set()
     {
-      // 2026-09-04 加固:改用 execSync argv 数组直调(shell:false,不经 cmd).
-      // 原字符串版经 shell:true 时 cmd 会把 %(objectname) 当环境变量展开、
-      // 把双引号原样传给 git,导致 refOut 为空/格式错乱;虽然 backedUp 集合
-      // 兜底使主路径未爆,但并行高频 stash 场景下该兜底可能失效,
-      // 必须从根上消除 shell 依赖.
+      // 2026-09-04 加固:必须 argv 直调(不经 cmd)——原字符串版经 shell:true 时 cmd 会把
+      // %(objectname) 当环境变量展开、把双引号原样传给 git,导致 refOut 为空/格式错乱;
+      // 虽然 backedUp 集合兜底使主路径未爆,但并行高频 stash 场景下该兜底可能失效,
+      // 必须从根上消除 shell 依赖.(2026-09-25 迁移:argv 通道即共用层 gitRaw 的唯一通道。)
       let refOut = ''
       try {
-        refOut = runGit([
-          'for-each-ref',
-          'refs/tags/lost-commit',
-          'refs/tags/backup',
-          '--format=%(objectname)%09%(*objectname)',
-        ])
+        refOut = gitText(
+          [
+            'for-each-ref',
+            'refs/tags/lost-commit',
+            'refs/tags/backup',
+            '--format=%(objectname)%09%(*objectname)',
+          ],
+          { timeout: SPAWN_DEFAULT_TIMEOUT_MS },
+        )
       } catch {
         refOut = ''
       }
@@ -736,24 +774,16 @@ function main() {
         const commitHash = cols[1] || cols[0]
         if (/^[0-9a-f]{40}$/.test(commitHash || '')) hashes.add(commitHash)
       }
-      const treeInput = [...hashes].map((h) => `${h}^{tree}`).join('\n') + '\n'
       try {
-        // 2026-09-04 加固:runGit argv 直调,--batch-check=<fmt> 等号形式免引号
-        const out = runGit(['cat-file', '--batch-check=%(objectname)'], {
-          input: treeInput,
-          timeout: LOCAL_GIT_TIMEOUT_MS * 10,
-          maxBuffer: 64 * 1024 * 1024,
-        })
-        for (const line of out.split('\n')) {
-          const t = line.trim().split(/\s+/)[0]
-          if (/^[0-9a-f]{40}$/.test(t)) backedTrees.add(t)
-        }
+        // 旧写法把 `<oid>^{tree}` 喂 `cat-file --batch-check=%(objectname)`;层没有那条批量
+        // 通道,改由层的 catBatch 读 commit 内容首行的 `tree <oid>`(仍是一次批量派生)。
+        for (const tree of treesForCommits([...hashes]).values()) backedTrees.add(tree)
       } catch {
         /* 批量失败时安全降级:backedTrees 为空,退回 hash/subject 判定 */
       }
     }
     // 性能:批量取 subject(同 filterStashLike 的 --no-walk 分批法),
-    // 再对仍未放行者一次 cat-file --batch-check 批量取 tree,避免逐 commit execSync.
+    // 再对仍未放行者一次批量取 tree,避免逐 commit 派生.
     const unbacked = (() => {
       const candidates = unreachable.filter((c) => !backedUp.has(c))
       // ① subject 内嵌原 hash 匹配(stash-like 指向已备份 base)
@@ -761,7 +791,7 @@ function main() {
       const subjectByHash = new Map()
       for (let i = 0; i < candidates.length; i += BATCH) {
         const batch = candidates.slice(i, i + BATCH)
-        const out = run(`git log --no-walk --format=%H%x09%s ${batch.join(' ')}`, {
+        const out = gitText(['log', '--no-walk', '--format=%H%x09%s', ...batch], {
           allowFail: true,
           timeout: LOCAL_GIT_TIMEOUT_MS,
         })
@@ -780,20 +810,13 @@ function main() {
       }
       if (survivors.length === 0) return survivors
       // ② tree 等价放行(stash WIP/index commit 树与 base 恒等)
-      const treeInput = survivors.map((h) => `${h}^{tree}`).join('\n') + '\n'
       const treeByCommit = new Map()
       try {
-        // 2026-09-04 加固:runGit argv 直调,消除 shell 对 %(objectname) 的破坏
-        const out = runGit(['cat-file', '--batch-check=%(objectname)'], {
-          input: treeInput,
-          timeout: LOCAL_GIT_TIMEOUT_MS * 10,
-          maxBuffer: 64 * 1024 * 1024,
-        })
-        const lines = out.split('\n').filter(Boolean)
-        for (let i = 0; i < survivors.length && i < lines.length; i++) {
-          const t = lines[i].trim().split(/\s+/)[0]
-          if (/^[0-9a-f]{40}$/.test(t)) treeByCommit.set(survivors[i], t)
-        }
+        // 旧写法:把 `<oid>^{tree}` 喂 `cat-file --batch-check`(argv 直调,消除 shell 对
+        // %(objectname) 的破坏)。层没有那条批量通道 ⇒ 改由层的 catBatch 读 commit 内容首行
+        // 的 `tree <oid>`,按 commit oid 关联(旧写法按**位置**关联,--batch-check 保序才成立;
+        // 键控版本不依赖保序,更稳)。批量失败时安全降级:无 tree 映射,退回 hash/subject 判定。
+        for (const [commit, tree] of treesForCommits(survivors)) treeByCommit.set(commit, tree)
       } catch {
         /* 批量失败时安全降级:无 tree 映射,退回 hash/subject 判定 */
       }
@@ -809,7 +832,7 @@ function main() {
       // 2026-09-04 修复:打印具体未备份 hash(原仅报数量,无法定位处置;
       // 并行 agent 高频 fsck 会持续产生新悬空对象,需可见才能针对性 tag 备份)
       for (const c of unbacked.slice(0, 10)) {
-        const subj = run(`git log -1 --format=%s ${c}`, { allowFail: true }) || ''
+        const subj = gitText(['log', '-1', '--format=%s', c], { allowFail: true }) || ''
         console.log(
           `  ${C.yellow}   ↳ 未备份:${C.cyan}${c.slice(0, 12)}${C.reset} ${C.dim}${subj.slice(0, 80)}${C.reset}`,
         )
