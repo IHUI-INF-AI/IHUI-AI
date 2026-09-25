@@ -20,10 +20,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { rulesService } from '../src/services/rules-service.js'
+import { rulesServiceFor } from '../src/services/rules-service.js'
 
 const CALLER_TOKEN = 'Bearer caller-token-should-be-forwarded'
-const SUBJECT = '11111111-2222-3333-4444-555555555555'
 
 interface Captured {
   url: string
@@ -70,25 +69,26 @@ afterEach(() => {
 describe('autoGenerateRules —— 出站点契约', () => {
   it('① 转发调用方令牌:Authorization 头逐字等于路由交下来的值', async () => {
     stubFetch(() => ({ ok: true, body: { code: 0, message: 'success', data: UPSTREAM_DRAFTS } }))
-    await rulesService.autoGenerateRules(SUBJECT, CALLER_TOKEN)
+    await rulesServiceFor(CALLER_TOKEN).autoGenerateRules()
 
     expect(calls).toHaveLength(1)
     const headers = calls[0]!.init.headers as Record<string, string>
     expect(headers['Authorization']).toBe(CALLER_TOKEN)
   })
 
-  it('② 请求体用上游字段名 user_id,且不含任何驼峰身份键', async () => {
+  it('② 请求体不再携带任何身份键(身份只走令牌;上游要 user_id、我们旧代码发 userId,两头都错)', async () => {
     stubFetch(() => ({ ok: true, body: { code: 0, message: 'success', data: UPSTREAM_DRAFTS } }))
-    await rulesService.autoGenerateRules(SUBJECT, CALLER_TOKEN)
+    await rulesServiceFor(CALLER_TOKEN).autoGenerateRules()
 
     const sent = JSON.parse(String(calls[0]!.init.body)) as Record<string, unknown>
-    expect(sent).toEqual({ user_id: SUBJECT })
+    expect(sent).toEqual({})
     expect(sent).not.toHaveProperty('userId')
+    expect(sent).not.toHaveProperty('user_id')
   })
 
   it('③ 出口形状摊平成 candidates(与 web 消费的字段名一致)', async () => {
     stubFetch(() => ({ ok: true, body: { code: 0, message: 'success', data: UPSTREAM_DRAFTS } }))
-    const out = await rulesService.autoGenerateRules(SUBJECT, CALLER_TOKEN)
+    const out = await rulesServiceFor(CALLER_TOKEN).autoGenerateRules()
 
     expect(out.degraded).toBeFalsy()
     expect(out.candidates).toHaveLength(1)
@@ -104,7 +104,7 @@ describe('autoGenerateRules —— 出站点契约', () => {
 
   it('④ 上游不可达 → 降级为空 candidates 且不抛错(保留既有语义,字段名跟着换)', async () => {
     stubFetch(() => ({ ok: false, status: 401, body: { detail: 'Authentication required' } }))
-    const out = await rulesService.autoGenerateRules(SUBJECT, undefined)
+    const out = await rulesServiceFor(undefined).autoGenerateRules()
 
     expect(out).toEqual({ candidates: [], degraded: true })
     expect('drafts' in out).toBe(false)
@@ -123,13 +123,13 @@ describe('autoGenerateRules —— 出站点契约', () => {
         ],
       },
     }))
-    const out = await rulesService.autoGenerateRules(SUBJECT, CALLER_TOKEN)
+    const out = await rulesServiceFor(CALLER_TOKEN).autoGenerateRules()
     expect(out.candidates.map((c) => c.name)).toEqual(['跨端样式同源'])
   })
 
   it('⑥ 不带令牌时不得凭空造一个 Authorization 头(否则把"缺身份"伪装成"有身份")', async () => {
     stubFetch(() => ({ ok: true, body: { code: 0, message: 'success', data: UPSTREAM_DRAFTS } }))
-    await rulesService.autoGenerateRules(SUBJECT)
+    await rulesServiceFor(undefined).autoGenerateRules()
     const headers = (calls[0]!.init.headers ?? {}) as Record<string, string>
     expect('Authorization' in headers).toBe(false)
   })
@@ -146,10 +146,19 @@ describe('路由接线(装车证明:判据得落在真跑的入口上)', () => {
     routeSrc.indexOf("server.post('/rules/resolve-conflicts'"),
   )
 
-  it('⑦ handler 身份取 request.userId,并把 request.headers.authorization 传下去', () => {
-    expect(handler).toContain('rulesService.autoGenerateRules(')
+  it('⑦ handler 身份仍由 requireAuth 把门,取数走绑好令牌的 rules(request) 工厂', () => {
+    expect(handler).toContain('rules(request).autoGenerateRules()')
     expect(handler).toContain('request.userId')
-    expect(handler).toContain('request.headers.authorization')
+    // 令牌绑定收在唯一的工厂里,不散在 22 个调用点上
+    expect(routeSrc).toContain(
+      'const rules = (request: FastifyRequest) => rulesServiceFor(request.headers.authorization)',
+    )
+  })
+
+  it('⑦b 反裸调:整个路由文件不得再直接调无令牌的单例(22 个调用点全走工厂)', () => {
+    expect(routeSrc).not.toMatch(/\brulesService\./)
+    const bound = [...routeSrc.matchAll(/\brules\(request\)\./g)].length
+    expect(bound).toBeGreaterThanOrEqual(20)
   })
 
   it('⑧ 请求体不得再有身份键 schema(回到旧写法即红)', () => {

@@ -46,7 +46,17 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
-import { rulesService } from '../services/rules-service.js'
+import { rulesServiceFor } from '../services/rules-service.js'
+
+/**
+ * 每次调用都绑当次请求的令牌(2026-09-25 修:)。
+ *
+ * `/api/rules` 不在 ai-service 的 `PUBLIC_PATHS`,而该服务的中间件对不带 `Bearer` 的请求
+ * 直接 401;此前本文件 22 个调用点全都用同一个**无令牌**裸单例,于是每条都 401 并被
+ * service 层的 `catch` 收成"降级返回空"—— 页面能打开、零报错、数据永远空。
+ * 这里统一从一个工厂取实例,漏传令牌的写法在类型层就不可能出现。
+ */
+const rules = (request: FastifyRequest) => rulesServiceFor(request.headers.authorization)
 
 export const rulesRoutes: FastifyPluginAsync = async (server) => {
   // 鉴权 helper(同 v1-apply-diff.ts 模式)
@@ -133,7 +143,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
   server.get('/rules', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    const data = await rulesService.listRules()
+    const data = await rules(request).listRules()
     return reply.send(success(data))
   })
 
@@ -146,7 +156,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     try {
-      const rule = await rulesService.createRule(parsed.data)
+      const rule = await rules(request).createRule(parsed.data)
       return reply.status(201).send(success(rule))
     } catch (e) {
       return reply.status(502).send(error(502, (e as Error).message))
@@ -158,7 +168,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     try {
-      const data = await rulesService.detectConflicts()
+      const data = await rules(request).detectConflicts()
       return reply.send(success(data))
     } catch (e) {
       return reply.status(502).send(error(502, (e as Error).message))
@@ -170,7 +180,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     try {
-      const data = await rulesService.listTemplates()
+      const data = await rules(request).listTemplates()
       return reply.send(success(data))
     } catch (e) {
       return reply.status(502).send(error(502, (e as Error).message))
@@ -182,7 +192,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     try {
-      const data = await rulesService.getAuditLog()
+      const data = await rules(request).getAuditLog()
       return reply.send(success(data))
     } catch (e) {
       return reply.status(502).send(error(502, (e as Error).message))
@@ -197,7 +207,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const scope = request.query.scope ?? 'global'
     try {
-      const data = await rulesService.getResolvedRules(scope, request.query.agentId)
+      const data = await rules(request).getResolvedRules(scope, request.query.agentId)
       return reply.send(success(data))
     } catch (e) {
       return reply.status(502).send(error(502, (e as Error).message))
@@ -209,7 +219,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     try {
-      const data = await rulesService.getGlobalStats()
+      const data = await rules(request).getGlobalStats()
       return reply.send(success(data))
     } catch (e) {
       return reply.status(502).send(error(502, (e as Error).message))
@@ -225,7 +235,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     try {
-      const data = await rulesService.abTestRules(
+      const data = await rules(request).abTestRules(
         parsed.data.ruleIdA,
         parsed.data.ruleIdB,
         parsed.data.message,
@@ -243,11 +253,8 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     try {
-      // 身份取令牌主体,不取请求体;并把调用方令牌透传给 ai-service(它的中间件要验)。
-      const data = await rulesService.autoGenerateRules(
-        request.userId,
-        request.headers.authorization,
-      )
+      // 身份不进请求体:令牌交给工厂,上游只认令牌主体(require_request_user_id)。
+      const data = await rules(request).autoGenerateRules()
       return reply.send(success(data))
     } catch (e) {
       return reply.status(502).send(error(502, (e as Error).message))
@@ -263,7 +270,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     try {
-      const data = await rulesService.resolveConflicts(parsed.data.conflicts)
+      const data = await rules(request).resolveConflicts(parsed.data.conflicts)
       return reply.send(success(data))
     } catch (e) {
       return reply.status(502).send(error(502, (e as Error).message))
@@ -277,7 +284,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
       await requireAuth(request, reply)
       if (!request.userId) return
       try {
-        const data = await rulesService.getRulesKnowledgeGraph(request.query.scope)
+        const data = await rules(request).getRulesKnowledgeGraph(request.query.scope)
         return reply.send(success(data))
       } catch (e) {
         return reply.status(502).send(error(502, (e as Error).message))
@@ -289,7 +296,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
   server.get<{ Params: { id: string } }>('/rules/:id', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    const rule = await rulesService.getRule(request.params.id)
+    const rule = await rules(request).getRule(request.params.id)
     if (!rule) {
       return reply.status(404).send(error(404, '规则不存在'))
     }
@@ -305,7 +312,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     try {
-      const rule = await rulesService.updateRule(request.params.id, parsed.data)
+      const rule = await rules(request).updateRule(request.params.id, parsed.data)
       if (!rule) {
         return reply.status(404).send(error(404, '规则不存在'))
       }
@@ -319,7 +326,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
   server.delete<{ Params: { id: string } }>('/rules/:id', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    const deleted = await rulesService.deleteRule(request.params.id)
+    const deleted = await rules(request).deleteRule(request.params.id)
     if (!deleted) {
       return reply.status(404).send(error(404, '规则不存在'))
     }
@@ -335,7 +342,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     try {
-      const result = await rulesService.testRule(request.params.id, parsed.data.message)
+      const result = await rules(request).testRule(request.params.id, parsed.data.message)
       return reply.send(success(result))
     } catch (e) {
       return reply.status(502).send(error(502, (e as Error).message))
@@ -347,7 +354,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     try {
-      const data = await rulesService.getRuleHistory(request.params.id)
+      const data = await rules(request).getRuleHistory(request.params.id)
       return reply.send(success(data))
     } catch (e) {
       return reply.status(502).send(error(502, (e as Error).message))
@@ -366,7 +373,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, '缺少 version 参数'))
     }
     try {
-      const rule = await rulesService.rollbackRule(request.params.id, version)
+      const rule = await rules(request).rollbackRule(request.params.id, version)
       if (!rule) {
         return reply.status(404).send(error(404, '规则或版本不存在'))
       }
@@ -388,7 +395,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, '缺少 from 或 to 参数'))
     }
     try {
-      const data = await rulesService.diffRuleVersions(request.params.id, from, to)
+      const data = await rules(request).diffRuleVersions(request.params.id, from, to)
       return reply.send(success(data))
     } catch (e) {
       return reply.status(502).send(error(502, (e as Error).message))
@@ -404,7 +411,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     try {
-      const data = await rulesService.recordFeedback(request.params.id, parsed.data.feedback)
+      const data = await rules(request).recordFeedback(request.params.id, parsed.data.feedback)
       return reply.send(success(data))
     } catch (e) {
       return reply.status(502).send(error(502, (e as Error).message))
@@ -416,7 +423,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     try {
-      const data = await rulesService.getRuleStats(request.params.id)
+      const data = await rules(request).getRuleStats(request.params.id)
       return reply.send(success(data))
     } catch (e) {
       return reply.status(502).send(error(502, (e as Error).message))
@@ -431,7 +438,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const result = await rulesService.matchRules(parsed.data.message, parsed.data.scope)
+    const result = await rules(request).matchRules(parsed.data.message, parsed.data.scope)
     return reply.send(success(result))
   })
 
@@ -446,7 +453,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     try {
-      const data = await rulesService.predictRuleEffect(
+      const data = await rules(request).predictRuleEffect(
         request.params.id,
         parsed.data.dryRunMessage,
       )
@@ -465,7 +472,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     try {
-      const data = await rulesService.recordLearnFeedback(
+      const data = await rules(request).recordLearnFeedback(
         request.params.id,
         parsed.data.feedback,
         parsed.data.accepted,
