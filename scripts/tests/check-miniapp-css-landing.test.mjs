@@ -261,9 +261,16 @@ test('装车证明:第三态的输入(参考层裸类子集 / 产物首族集合
     assert.match(flat, /sightingKinds: runtimeSighted instanceof Set \? runtimeSighted\.size : NaN/, '面 2 没量到时必须传 NaN ⇒ 让 auditMangleLeg 判"未判定",不得冒红也不得记绿')
     assert.match(flat, /findMangledSightings\(runtime\.haystack, mangleDemand\)/, 'C5 的面 2 与 C4 的第 3 态没共用同一份全文实现')
   }
-  assert.match(src, /!referenceBareNames\.has\(n\) && \(compoundLeadNames\.has\(n\) \|\| compoundLeadNames\.has\(weappMangleClassName\(n\)\)\)/, 'computeCoverage 没按"参考层是否裸产出"分流,或没同时认转写名 ⇒ 要么放松了裸类锁,要么转写档在第三态隐身')
-  assert.match(src, /referenceBareNames instanceof Set && compoundLeadNames instanceof Set/, '两参缺一不开启第三态的护栏不在 ⇒ 旧三参调用行为会变')
-  assert.match(src, /复合首族 \$\{c\.hitCompoundKinds\}/, '第三态计数没进报告(合计当数会把"复合形态整片隐身"藏起来,与两态同理)')
+  // 同上一条的口径:这三把锁判的是**形状是否存在**,不是格式。HEAD 面上它们已经因为
+  // prettier 把 `!referenceBareNames.has(n) && (…)` 折成多行而恒红(与本票无关的既有红,
+  // 由本会话第一个跑这套测试的人撞上并前向修)。**归一化空白**才是这里要比的东西;
+  // 但归一化只能"抹平空白",不得顺手放宽成子串搜索 —— 所以两边都用 `\s+ → ' '` 后精确匹配。
+  {
+    const flatSrc = src.replace(/\s+/g, ' ')
+    assert.match(flatSrc, /!referenceBareNames\.has\(n\) && \(compoundLeadNames\.has\(n\) \|\| compoundLeadNames\.has\(weappMangleClassName\(n\)\)\)/, 'computeCoverage 没按"参考层是否裸产出"分流,或没同时认转写名 ⇒ 要么放松了裸类锁,要么转写档在第三态隐身')
+    assert.match(src, /referenceBareNames instanceof Set && compoundLeadNames instanceof Set/, '两参缺一不开启第三态的护栏不在 ⇒ 旧三参调用行为会变')
+    assert.match(src, /复合首族 \$\{c\.hitCompoundKinds\}/, '第三态计数没进报告(合计当数会把"复合形态整片隐身"藏起来,与两态同理)')
+  }
   // 分流必须复用同一把判据,不许出现第二份形状规则(§"两处算同一件事必须共用一份实现")
   assert.match(src, /function harvestCompoundLeadNames[\s\S]{0,700}isBareUtilitySelector\(/, 'harvestCompoundLeadNames 没复用 isBareUtilitySelector 排除裸类分支 ⇒ 又写了第二份形状判据,或裸/复合两态会重叠计数')
 })
