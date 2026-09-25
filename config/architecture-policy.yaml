@@ -33,11 +33,32 @@
 #      ③ 面小 ⇒ 将来任何一条红都只能是改这个包的人自己造的,不会摊派给无关提交。
 #     试跑取证:`--managed-trial packages/api-client` ⇒ 判红 0 处(全仓 24 个模块逐一试跑均 0 处,
 #     现存 3 条软账都归属别的模块:`packages/i18n` 2 条 + `repo-tooling` 1 条)。
+#     收口进度不得退回:镜像测试 `check-architecture-policy.test.mjs` 钉的是
+#     "真表里 managed:true ≥ 1"这一**不变量**(不钉具体条目 —— 合法回退不该把测试变红)。
+# - packages/dom-actions —— 2026-09-25 翻正面,是本表第二块 managed:true。
+#     选它的三条理由(与 api-client 同一把尺):
+#      ① 有**实质契约且真被消费**:requires 1 条 + exported:true,且 HEAD 实测有 3 处真实
+#         import(apps/cli/src/tools/browser-page.ts + 两枚同族测试),全走主入口 `.` ⇒ D1/D2
+#         立刻有对象可审;对照 `packages/sdk`(requires 1 条但全仓 0 个消费方)—— 翻它是让
+#         门对着空气打分,故本轮不翻;
+#      ② 它是"快照采集/预算/字段顺序"的唯一实现处,AGENTS §3 共享层优先要求端内**不得复制
+#         第二份规则** —— 而端内一旦按路径 `@ihui/dom-actions/src/...` 穿透,正是 D3 深导入
+#         要拦的那一类;它只有 `.` 一个出口,收口后这条线才有人守;
+#      ③ 面最小(整个包只有 index.ts + page-snapshot/),将来任何一条红都只能是改这个包的人自己造的。
+#     试跑取证:`--managed-trial packages/dom-actions` ⇒ 判红 0 处;翻后按**新表**复算
+#     (同一 analyze/loadPolicy 入口,表换成索引版)⇒ 判红 0 处、违规合计由 6 降到 3。
+#     ⚠️ 本票同时纠一处**表与现实脱节**(本表 T1 类问题的现实版):`apps/cli` 自 2026-09-24
+#     取证的 3 条软账之外**新长出 3 条** —— apps/cli 真 import @ihui/dom-actions 而 requires
+#     没登记。已按现实补进 requires(取证:三处均为 `from '@ihui/dom-actions'` 主入口、
+#     apps/cli/package.json 已声明 workspace:*、node_modules/@ihui/dom-actions 链接在位、
+#     platform(20)→product(40) 层级不反向)。这条不是为消红登记的:依赖本来就在那儿。
+#     2026-09-25 全 23 模块复测试跑(取代下方 09-24 那组数字):**20 块判红 0**,有账的是
+#     `packages/i18n` 2 条、`repo-tooling` 1 条、`apps/cli` 3 条(本票已还)⇒ 剩余待整改 2 块。
 #     下一块要先还的账:翻 `packages/i18n` 前须先处置 `tests/waiting-keys-in-end-packages.test.ts`
 #     跨包相对 import(要么把该出口补进 requires 并确认层级不反向,要么改走公开出口);
 #     翻 `repo-tooling` 前须处置 `scripts/tests/export-openapi-stub-key.test.mjs` 同类问题。
-#     收口进度不得退回:镜像测试 `check-architecture-policy.test.mjs` 钉的是
-#     "真表里 managed:true ≥ 1"这一**不变量**(不钉具体条目 —— 合法回退不该把测试变红)。
+#     ⚠️ 09-24 那句"全仓 24 个模块逐一试跑均 0 处,现存 3 条软账"**已过期**,保留只为留痕:
+#     次日实测是 6 条(多出 apps/cli 那 3 条)。这正是本表要防的形态 —— 抄旧取证数字派单会漏账。
 #
 # ---------------------------------------------------------------------------
 # 阈值实测依据(2026-09-24,全部按 **HEAD blob** 口径量,不按滞后的共享工作树)
@@ -323,7 +344,7 @@ modules:
     package: '@ihui/dom-actions'
     layer: 'platform'
     exported: true
-    managed: false
+    managed: true
     roots:
       - 'packages/dom-actions'
     requires:
@@ -477,6 +498,10 @@ modules:
       - 'packages/context-compaction'
       - 'packages/design-tokens'
       - 'packages/i18n'
+      # 2026-09-25 补:apps/cli/src/tools/browser-page.ts 与两枚同族测试真 import
+      # '@ihui/dom-actions'(主入口,非深导入),且 apps/cli/package.json 已声明
+      # workspace:*、node_modules 链接在位 —— 是表没追上现实,不是新增依赖。
+      - 'packages/dom-actions'
     public_entrypoints: []
 
   - id: 'apps/extension'
