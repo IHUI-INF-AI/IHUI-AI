@@ -20,6 +20,7 @@ import {
   Clock,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { isTopOverlay, popOverlay, pushOverlay } from '../lib/overlay-stack'
 import { Input } from './input'
 import { CloseButton } from './close-button'
 import { ResizableHandle } from './resizable'
@@ -218,6 +219,8 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
     const [dropdownTab, setDropdownTab] = React.useState<'favorites' | 'history'>('favorites')
     const dropdownRef = React.useRef<HTMLDivElement>(null)
     const dropdownTriggerRef = React.useRef<HTMLButtonElement>(null)
+    // Esc 层栈(2026-09-26 立):dropdown 的浮层注册 id
+    const escStackId = React.useId()
 
     // P3++:Tab 拖拽状态(记录被拖动的 tab id,用于半透明 + 防止自己 drop 到自己)
     const [draggedTabId, setDraggedTabId] = React.useState<string | null>(null)
@@ -242,12 +245,21 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
     // ESC 关闭 dropdown
     React.useEffect(() => {
       if (!dropdownOpen) return
+      // Esc 层栈(2026-09-26 立):dropdown open 期间注册为浮层,只在栈顶时消费 Esc。
+      pushOverlay(escStackId)
       const handler = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') setDropdownOpen(false)
+        if (e.key === 'Escape') {
+          // 层栈守卫:非栈顶(上面还压着别的浮层)时不消费 Esc
+          if (!isTopOverlay(escStackId)) return
+          setDropdownOpen(false)
+        }
       }
       document.addEventListener('keydown', handler)
-      return () => document.removeEventListener('keydown', handler)
-    }, [dropdownOpen])
+      return () => {
+        document.removeEventListener('keydown', handler)
+        popOverlay(escStackId)
+      }
+    }, [dropdownOpen, escStackId])
 
     if (!open) return null
 

@@ -8,6 +8,7 @@ import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { CLOSE_BUTTON_BASE, CLOSE_BUTTON_ICON, CLOSE_BUTTON_POSITION } from '@ihui/design-tokens'
+import { guardEscKeyDown, mergeEscStackRef, useEscStackId } from '../lib/use-esc-stack'
 import { cn } from '../lib/utils'
 
 // 2026-09-16:与 dialog.tsx 同款安全降级(见 dialog.tsx 注释),游离 DrawerTrigger 降级为纯 children。
@@ -59,15 +60,23 @@ interface DrawerContentProps
 const DrawerContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DrawerContentProps
->(({ side = 'right', className, children, ...props }, ref) => {
+>(({ side = 'right', className, children, onEscapeKeyDown, ...props }, ref) => {
   // 2026-09-16:无 Root 时渲染 null(同 dialog.tsx Content 降级,防 prerender 抛错)。
   const inDialog = React.useContext(InDialogContext)
+  // 2026-09-26 Esc 层栈接入(同 dialog.tsx):Content ref callback 同步注册/注销,
+  // Esc 非栈顶 → preventDefault 拦下 Radix dismiss。
+  const escStackId = useEscStackId()
+  const escStackRef = React.useCallback(
+    mergeEscStackRef(escStackId, ref),
+    [escStackId, ref],
+  )
   if (!inDialog) return null
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="fixed inset-0 z-modal bg-black/80 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-(--duration-unified) data-[state=closed]:ease-unified" />
       <DialogPrimitive.Content
-        ref={ref}
+        ref={escStackRef}
+        onEscapeKeyDown={guardEscKeyDown(escStackId, onEscapeKeyDown)}
         className={cn(drawerSideVariants({ side }), className)}
         {...props}
       >
