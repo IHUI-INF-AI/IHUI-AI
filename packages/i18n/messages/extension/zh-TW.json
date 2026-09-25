@@ -601,5 +601,17 @@
       }
     },
     "vividTail": "，馬上就好"
+  },
+  "ai": {
+    "pane": {
+      "inputNotices": {
+        "queue": {
+          "denied": {
+            "reorder": "無法調整排隊順序",
+            "undo": "無法撤回排隊訊息"
+          }
+        }
+      }
+    }
   }
 }
