@@ -375,6 +375,8 @@ const KNOWLEDGE_CHILDREN: NavItem[] = [
   { href: '/repo-wiki', labelKey: 'repoWiki', icon: FileText },
   // 2026-09-10 2-1b-fe:Knowledge Card 页(仓库级任务经验卡)
   { href: '/knowledge-cards', labelKey: 'knowledgeCards', icon: NotebookPen },
+  // D29 团队级知识引擎(G-35,2026-09-26 追加):空间/成员/条目/修订审计
+  { href: '/team-knowledge', labelKey: 'teamKnowledge', icon: Users },
 ]
 
 /**
@@ -446,6 +448,8 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/media-tasks', labelKey: 'mediaTasks', icon: Clapperboard },
       // 网页工具中心(2026-09-09 立):Firecrawl 四件套融合的只读网页抓取(正文/站点地图/结构化抽取)
       { href: '/web-tools', labelKey: 'webTools', icon: Globe },
+      // D31 设计稿转码(2026-09-26 立):Figma Frame/组件 → 可运行前端代码(lucide 无 Figma 图标,用 Palette)
+      { href: '/figma-import', labelKey: 'figmaImport', icon: Palette },
       // 声纹库管理(2026-09-09 F4):token6688 克隆音色列表/详情/删除/上传
       { href: '/voices', labelKey: 'voices', icon: Mic },
       { href: '/workspace', labelKey: 'workspace', icon: FolderOpen },

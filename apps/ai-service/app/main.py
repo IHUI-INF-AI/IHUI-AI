@@ -907,6 +907,12 @@ def create_app() -> FastAPI:
 
     app.include_router(session_import.router, prefix="/api", tags=["session-import"])
 
+    # D31 设计稿转码:Figma Frame/组件 → IR → LLM 生成前端代码(2026-09-26 立)
+    # FIGMA_API_TOKEN 未配置时 fail-closed(503 + FIGMA_NOT_CONFIGURED),零网络零半成品
+    from app.routers import figma_import
+
+    app.include_router(figma_import.router, prefix="/api", tags=["figma-import"])
+
     # IHUI 作为 MCP Server 对外开放(2026-09-03 立,逆向杀手锏只做客户端的对标产品)
     # 由 ENABLE_MCP_EXPORT 环境变量控制开关,默认关闭(避免影响现有服务,不启动额外 listener)。
     # 开启后暴露两种 transport:

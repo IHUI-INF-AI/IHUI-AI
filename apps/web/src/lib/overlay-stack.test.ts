@@ -53,6 +53,39 @@ describe('overlay-stack', () => {
     expect(getOverlayStack()).toEqual([])
   })
 
+  it('连续 push 同一 id(模拟重复挂载)后单次 pop 即全清', () => {
+    pushOverlay('a')
+    pushOverlay('a')
+    pushOverlay('a')
+    expect(getOverlayStack()).toEqual(['a'])
+    popOverlay('a')
+    expect(getOverlayStack()).toEqual([])
+    expect(isTopOverlay('a')).toBe(true)
+  })
+
+  it('乱序 pop 中间层:栈顶与底层互不影响', () => {
+    pushOverlay('mask')
+    pushOverlay('dialog')
+    pushOverlay('pane')
+    popOverlay('dialog')
+    expect(getOverlayStack()).toEqual(['mask', 'pane'])
+    expect(isTopOverlay('pane')).toBe(true)
+    expect(isTopOverlay('mask')).toBe(false)
+    // 中间层重新 open → 幂等移到栈顶(复开语义)
+    pushOverlay('dialog')
+    expect(isTopOverlay('dialog')).toBe(true)
+    expect(isTopOverlay('pane')).toBe(false)
+  })
+
+  it('卸载清理:反复 open/close 循环后栈回到空(无泄漏)', () => {
+    for (let i = 0; i < 3; i++) {
+      pushOverlay('transient')
+      expect(isTopOverlay('transient')).toBe(true)
+      popOverlay('transient')
+    }
+    expect(getOverlayStack()).toEqual([])
+  })
+
   it('fail-open:栈为空或未接入栈的 id 一律允许消费 Esc', () => {
     expect(isTopOverlay('anything')).toBe(true)
     pushOverlay('a')
