@@ -21,7 +21,6 @@ import {
   Square,
   CheckCheck,
   Ban,
-  AlertTriangle,
   Quote,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
@@ -34,6 +33,10 @@ import { MarkdownStream } from '@/components/ai/markdown-stream'
 // D87(2026-09-23 立):AI 回复文本批注双向锚点(圈选回复选区 → 持久锚点 + 失效态 + 再编辑/删除)
 import { ReplyAnnotationLayer } from '@/components/ai/reply-annotation'
 import { ToolCallCard, deriveDiffInfo } from '@/components/ai/tool-call-card'
+// D94 尾票(2026-09-25 接线):失败位产出可对外提交的脱敏交接单
+import { HandoffPackageCard } from '@/components/ai/handoff-package-card'
+// O60i(2026-09-25):失败卡两份实现合一 —— 本文件的内联卡已删,唯一出口是这张组件卡
+import { MessageErrorCard } from '@/components/chat/message-list/MessageErrorCard'
 import { StreamGroup } from '@/components/chat/stream/stream-ui'
 import { describeToolCall, humanizeToolText } from '@ihui/shared/chat'
 import {
@@ -615,9 +618,12 @@ const MessageItem = React.memo(function MessageItem({
   // 通过 window CustomEvent 'ihui:retry-message' 派发,由 message-input 监听后触发重新发送。
   // 不直接调用 chat store(任务约束),保持组件解耦。
   const handleRetry = React.useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation()
-      e.preventDefault()
+    // 事件形参改可选:O60i 之后本函数由 `MessageErrorCard` 的重试钮调用(契约是 `() => void`)。
+    // 该钮所在的失败卡子树里没有任何祖先级点击处理器(实测本文件 700-760 段无 onClick),
+    // 所以两枚 `e?.` 在无事件路径下是空操作 —— 保留守卫是为了别处再挂宿主时不丢截断。
+    (e?: React.MouseEvent) => {
+      e?.stopPropagation()
+      e?.preventDefault()
       window.dispatchEvent(new CustomEvent('ihui:retry-message', { detail: { messageId: m.id } }))
       const retryLabel = t('retry') === 'retry' ? 'Retrying…' : t('retry')
       if (retryLabel === 'retry') {
@@ -753,26 +759,28 @@ const MessageItem = React.memo(function MessageItem({
             />
           </div>
         ) : m.error ? (
-          // D22(2026-09-19 立):error 独立消息类型渲染 — 红色边框错误卡片(替代原纯红文本),
-          // 头部警示图标 + 独立标题,正文纯文本(剥离 shared 层附加的 ⚠ 前缀),
-          // 重试按钮内聚卡片底部(原气泡外置 retry 按钮随本次改造移除)。
-          <div
-            className="w-full overflow-hidden rounded-lg border border-destructive/40 bg-destructive/5"
-            data-testid={`message-error-card-${m.id}`}
+          // D22(2026-09-19 内联立)→ O60i(2026-09-25 合一):同一张失败卡在仓里曾有**两份实现**
+          // (本文件内联 + `MessageErrorCard.tsx`),且**两份都发 `message-error-card-${id}`** ——
+          // 于是"页面上有这个 testid"的探针根本分不出挂的是哪一张,而组件那份带的
+          // D34 三态倒计时 / D39 额度动作族 / D67 归属分型卡**永远进不了屏幕**。
+          // 现在宿主唯一出口是组件;标题由宿主算完再传(回落态判 `isFallback` 的权力留在拿得到
+          // 分类结果的一侧,不在卡里另起一张表)。
+          <MessageErrorCard
+            messageId={m.id}
+            content={m.content}
+            t={(key: string) => t(key)}
+            titleText={errorCardTitle}
+            onRetry={() => handleRetry()}
+            draftPreservedText={
+              failedDraft !== null
+                ? resolvePersistTexts(failedDraftStatus ?? 'failed_retryable').title
+                : null
+            }
           >
-            <div className="flex items-center gap-2 border-b border-destructive/20 bg-destructive/10 px-3 py-2 text-destructive">
-              <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
-              {/* D92(2026-09-24 接线):有后端业务错误码时按**统一分类表**取标题/建议动作
-                  (`@ihui/shared/utils/view-failure-taxonomy`,与 MCP 面板同一张表,不另起);
-                  分类不到(unknown)时保留原 `chat.errorCardTitle` 笼统标题 —— 回落态不得
-                  把"未判定"包装成确定性结论。 */}
-              <span className="text-xs font-medium">{errorCardTitle}</span>
-            </div>
-            <p className="whitespace-pre-wrap break-words px-3 py-2 text-sm text-destructive/90">
-              {m.content.replace(/^⚠\s*/, '')}
-            </p>
             {errorViewFailure && (
               <>
+                {/* D92(2026-09-24 接线):有后端业务错误码时按**统一分类表**取错误码行/建议动作
+                    (`@ihui/shared/utils/view-failure-taxonomy`,与 MCP 面板同一张表,不另起)。 */}
                 {errorCodeText && (
                   <div
                     className="break-all px-3 pb-1 font-mono text-[11px] text-muted-foreground tabular-nums"
@@ -789,28 +797,21 @@ const MessageItem = React.memo(function MessageItem({
                 </p>
               </>
             )}
-            <div className="px-3 pb-2 pt-0.5">
-              <button
-                type="button"
-                onClick={handleRetry}
-                data-testid={`message-retry-${m.id}`}
-                className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                <RefreshCw className="h-3 w-3" aria-hidden />
-                <span>{t('retry') === 'retry' ? 'Retry' : t('retry')}</span>
-              </button>
-            </div>
-            {/* D60(2026-09-23):输入正文已存 store.failedDraft → 明示"草稿已保留,可重发"。
-                archived/deleted 终态文案不含重发承诺(resolvePersistTexts 逐态给词),不误导。 */}
-            {failedDraft !== null && (
-              <p
-                className="px-3 pb-2 text-xs text-muted-foreground"
-                data-testid={`message-draft-preserved-${m.id}`}
-              >
-                {resolvePersistTexts(failedDraftStatus ?? 'failed_retryable').title}
-              </p>
-            )}
-          </div>
+            {/* D94 尾票(2026-09-25 接线):失败位除"标题 + 错误码 + 建议动作"外,
+                产出一份**可直接对外提交的脱敏交接单**(诊断方法／已试修复／证据／界面位置四段)。
+                ctx 三项全部取自本条消息的真实字段:错误原文、分类表给出的错误码、消息创建时间;
+                缺哪项就留缺 —— 共享层对缺证据写"未提供",不臆造(见 handoff-package.ts:182-201)。 */}
+            <HandoffPackageCard
+              ctx={{
+                errorMessage: m.content.replace(/^⚠\s*/, ''),
+                localSignals: { errorCode: errorCodeText ?? undefined },
+                occurredAt: Number.isFinite(m.createdAt)
+                  ? new Date(m.createdAt).toISOString()
+                  : undefined,
+              }}
+              data-testid={`message-handoff-${m.id}`}
+            />
+          </MessageErrorCard>
         ) : isUser ? (
           // 2026-08-02:用户消息字号同步调整 14px → 15px(text-[15px]),与 AI 消息对齐
           <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">{m.content}</p>

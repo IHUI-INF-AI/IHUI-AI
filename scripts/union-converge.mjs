@@ -20,7 +20,11 @@
  *             三个 blob)。此前这一类是"整文件取对侧",会**静默吃掉本侧在该文件里的改动** —— 与它要防的
  *             事故同型,只是粒度从文件降到行。合并出冲突或遇二进制/非普通文件:判失败并**点名文件**,
  *             由人来判;绝不猜、绝不选边(这与"零丢失"同等重要)。
- *           ∪ 活文档(PROJECT_PLAN / AGENTS / README)按「每行重数 = max(ours, theirs)」union。
+ *           ∪ 活文档(PROJECT_PLAN / AGENTS / README)按**三方行重数** union
+ *             `结果[l] = 本侧重数 + max(0, 对侧重数 − max(基底重数, 本侧重数))`
+ *             —— 只有"对侧相对基底新增"的行才被强制补回;对侧没动、被本侧改写/删除的行
+ *               处置权在本侧。旧写法 `max(ours,theirs)` 会把本侧就地改写**之前**的旧行复活
+ *               (2026-09-25 实测:刚翻勾的待办被并回未勾,`check-task-claims` 当场重新报成可派)。
  *   落地前自证:丢本侧路径 = 0 ∧ 丢对侧路径 = 0 ∧ 三份文档未存活行 = 0 ∧ 两侧同改文件的**独有行不丢**
  *             (字符行 multiset 底线;真三方可能把两侧改动交织到不同位置,本断言只保证重数不减少、
  *              不判语义顺序 —— 局限如实说明,不假装更强);
@@ -214,16 +218,36 @@ export function lostAddedLines(baseText, sideText, otherText, mergedText) {
   return out
 }
 
-/** 行级 union:以本侧顺序为脊柱,把对侧多出来的重数补在末尾;任一侧的每一行重数都不得减少。 */
-export function unionLines(oursText, theirsText) {
+/**
+ * 活文档三方行 union 的**期望重数表**:`结果[l] = 本侧重数 + max(0, 对侧重数 − max(基底重数, 本侧重数))`。
+ *
+ * 为什么必须带基底这一维(2026-09-25 实测逼出来的,不是理论洁癖):
+ * 旧写法 `结果 = max(本侧, 对侧)` 在**本侧就地改写某一行**时必然把改写前的旧行复活 ——
+ * 本侧旧行 0 份 / 新行 1 份,对侧旧行 1 份未动 ⇒ max 把旧行判成"对侧多出来的",补回末尾。
+ * 于是活文档里同时留下新旧两份同体行,而 `- [ ]`/`- [x]` 这种**行首就是状态位**的行被复活,
+ * 等于把刚刚翻勾的待办又变回未认领(实测:`check-task-claims` 当场重新报成可派)。
+ * 只有"对侧**相对基底新增**的行"才是本工具存在的理由(保住别人的独有行);
+ * 对侧相对基底没动、而被本侧改掉/删掉的行,处置权在本侧。
+ */
+export function liveDocExpectedCounts(oursText, theirsText, baseText = null) {
   const co = counter(oursText)
   const ct = counter(theirsText)
-  const out = oursText.split('\n')
-  const need = new Map()
+  const cb = baseText === null ? new Map() : counter(baseText)
+  const want = new Map(co)
   for (const [l, n] of ct) {
     const own = co.get(l) || 0
-    if (n > own) need.set(l, n - own)
+    const addedByTheirs = Math.max(0, n - Math.max(cb.get(l) || 0, own))
+    if (addedByTheirs > 0) want.set(l, own + addedByTheirs)
   }
+  return want
+}
+
+/** 行级 union:以本侧顺序为脊柱,把对侧**相对基底新增**的重数补在末尾。 */
+export function unionLines(oursText, theirsText, baseText = null) {
+  const want = liveDocExpectedCounts(oursText, theirsText, baseText)
+  const out = oursText.split('\n')
+  const need = new Map(want)
+  for (const [l, n] of counter(oursText)) need.set(l, (need.get(l) || 0) - n)
   const extra = []
   for (const l of theirsText.split('\n')) {
     const k = need.get(l) || 0
@@ -234,7 +258,7 @@ export function unionLines(oursText, theirsText) {
   }
   const res = out.concat(extra).join('\n')
   const cr = counter(res)
-  for (const [l, n] of [...co, ...ct])
+  for (const [l, n] of want)
     if ((cr.get(l) || 0) < n) throw new Error(`行 union 丢行:${l.slice(0, 60)}`)
   return res.endsWith('\n') ? res : res + '\n'
 }
@@ -260,12 +284,13 @@ export function buildUnion(base, ours, theirs, cwd = ROOT, takeOurs = new Set())
       }).trim()
     run(['read-tree', ours])
 
-    // 1) 活文档:行 multiset union(两侧每一行都必须存活)
+    // 1) 活文档:三方行 union(对侧相对基底的**独有行**必须存活;本侧就地改写的行不得被旧副本复活)
     for (const p of LIVE_DOCS) {
       const a = show(ours, p, cwd)
       const b = show(theirs, p, cwd)
       if (a === b) continue
-      const oid = git(['hash-object', '-w', '--path', p, '--stdin'], cwd, unionLines(a, b))
+      const bt = base ? show(base, p, cwd) : null
+      const oid = git(['hash-object', '-w', '--path', p, '--stdin'], cwd, unionLines(a, b, bt))
       run(['update-index', '--add', '--cacheinfo', `100644,${oid},${p}`])
     }
 
@@ -411,11 +436,34 @@ export function verifyUnion(ours, theirs, tree, cwd = ROOT, base = null) {
     }
   }
   for (const p of LIVE_DOCS) {
-    const a = counter(show(ours, p, cwd))
-    const b = counter(show(theirs, p, cwd))
+    const a = show(ours, p, cwd)
+    const b = show(theirs, p, cwd)
+    if (a === null || b === null) {
+      bad.push(`${p} 落地后取不到(本侧或对侧任一面读不出 = 无法自证,不记通过)`)
+      continue
+    }
+    const bt = base ? show(base, p, cwd) : null
+    // 断言必须用**同一个期望表**(liveDocExpectedCounts),不得各写一份:
+    // 上一版这里仍是旧的 max(本侧,对侧),于是三方化之后每一枚"本侧改写过别人的行"的合并
+    // 都被落地闸判成"丢了 12 行"而拒绝落地 —— 判据与实现不同形时,工具会把自己锁死。
+    const want = liveDocExpectedCounts(a, b, bt)
     const m = counter(show(tree, p, cwd))
-    for (const [l, n] of [...a, ...b])
+    for (const [l, n] of want)
       if ((m.get(l) || 0) < n) bad.push(`${p} 未存活行:${l.slice(0, 50)}`)
+    // 反向对照:本侧改写/删除过的行,合并树里的**重数**不得高于期望表 ——
+    // 不能判">0 即复活":活文档里同一行常有真实多份(台账登记行就是如此,实测 D38 有 4 份),
+    // 判存在会把"保住的那 3 份"误报成复活。第一版就被真仓咬出这一条。
+    if (bt !== null) {
+      const cb = counter(bt)
+      const ca = counter(a)
+      for (const [l, n] of cb) {
+        if ((ca.get(l) || 0) >= n) continue // 本侧留着它 ⇒ 不是改写/删除
+        if ((m.get(l) || 0) > (want.get(l) || 0))
+          bad.push(
+            `${p} 旧行被复活(本侧已改写/删除):重数 ${m.get(l)} > 期望 ${want.get(l) || 0} —— ${l.slice(0, 50)}`,
+          )
+      }
+    }
   }
   bad.moved = moved
   return bad
@@ -551,7 +599,9 @@ function selfTest() {
       const stillThere = listPaths(p3.tree, dir).includes('theirs-edited.ts')
       ok(
         '③ 本侧删 ∧ 对侧改:对侧内容必须存活,且不得被移动通道算成本侧处置',
-        stillThere && !p3.movedPaths.some((m) => m.includes('theirs-edited.ts')) && p3.bad.length === 0,
+        stillThere &&
+          !p3.movedPaths.some((m) => m.includes('theirs-edited.ts')) &&
+          p3.bad.length === 0,
         JSON.stringify({ stillThere, bad: p3.bad.slice(0, 2), moved: p3.movedPaths }),
       )
       run('checkout', '-q', '--detach', ours)
@@ -687,6 +737,110 @@ function selfTest() {
       '丢行判据:重数下降也算丢失',
       lostAddedLines('a\n', 'a\nn\nn\n', 'a\n', 'a\nn\n').join() === 'n',
     )
+
+    // ── 活文档三方行 union(2026-09-25 实测逼出:旧写法 max(ours,theirs) 会把"本侧就地改写"
+    //    之前的旧行复活。行首是状态位的行一旦被复活,刚翻勾的待办就重新变成"无人认领可派"。) ──
+    ok(
+      '活文档:本侧就地改写一行 ⇒ 改写前的旧行不得被对侧复活',
+      !unionLines('a\nb\nL2\n', 'a\nb\nL\n', 'a\nb\nL\n').split('\n').includes('L'),
+      '合并结果里仍出现旧行 L',
+    )
+    ok(
+      '活文档:对侧相对基底新增的行必须保住(本工具的存在理由)',
+      unionLines('a\nb\nL2\n', 'a\nb\nL\nT\n', 'a\nb\nL\n').includes('T'),
+    )
+    ok(
+      '活文档:两侧各自新增不同行 ⇒ 两行都在,不选边',
+      ['O-new', 'T-new'].every((s) => unionLines('a\nO-new\n', 'a\nT-new\n', 'a\n').includes(s)),
+    )
+    ok(
+      '活文档:两侧新增了**同一行** ⇒ 只留一份(旧写法在此已是 max,新公式不得回退成 2 份)',
+      counter(unionLines('a\nsame\n', 'a\nsame\n', 'a\n')).get('same') === 1,
+    )
+    ok(
+      '活文档:本侧删掉一行而对侧未动 ⇒ 删除归本侧处置,不被补回',
+      !unionLines('a\n', 'a\nb\n', 'a\nb\n').split('\n').includes('b'),
+    )
+    ok(
+      '活文档:无基底信息(两侧都是新增文件)⇒ 退回旧的 max 语义,一条都不丢',
+      ['x', 'y'].every((s) => counter(unionLines('x\n', 'y\n', null)).get(s) === 1),
+    )
+    ok(
+      '防复活必须是**有基底的三方判据**:只给两侧文本时旧行为不变(证明收紧靠的是 base 而不是削判据)',
+      counter(unionLines('a\n', 'a\nb\n')).get('b') === 1,
+    )
+    // 多重行的口径(真仓第一天就把我这条反向对照判成假阳:台账同一行本来就有 4 份)
+    ok(
+      '活文档:同一行有多份时按重数算,本侧删掉一份 ≠ "旧行被复活"',
+      liveDocExpectedCounts('x\n', 'x\nx\n', 'x\nx\n').get('x') === 1,
+    )
+    ok(
+      '活文档:多份行且对侧又加了一份 ⇒ 期望重数 = 本侧 + 对侧净增,不重复计',
+      liveDocExpectedCounts('x\n', 'x\nx\nx\n', 'x\nx\n').get('x') === 2,
+    )
+    // 端到端:走真临时仓的 plan(),而不是只测纯函数 —— 纯函数过而调用点忘传 base 是本类缺陷最常见的残法。
+    // ⚠️ 两侧必须是**真分叉**(同一基底的两个兄弟提交)。第一版这里写成"提交对侧 → 在同一线上
+    //   接着提交本侧",于是 merge-base 就是对侧那枚,基底里根本没有那行,"不复活"与"保住对侧行"
+    //   两条断言同时变成空转 —— 是反向对照(必须保住对侧独有行)当场把它抓出来的。
+    {
+      const d3 = mkScratch('ihui-union-resurrect-')
+      try {
+        const g3 = (...a) => git(a, d3)
+        g3('init', '-q', '-b', 'main')
+        g3('config', 'user.email', 't@t')
+        g3('config', 'user.name', 't')
+        const DOC0 = '- [ ] 待办 T9\n- [ ] 别人的行\n'
+        writeFileSync(join(d3, 'PROJECT_PLAN.md'), DOC0, 'utf8')
+        writeFileSync(join(d3, 'x.ts'), '1\n', 'utf8')
+        g3('add', '-A')
+        g3('commit', '-qm', 'base')
+        // 对侧分支:只在文档尾部加自己的一行(不动 T9)
+        g3('checkout', '-q', '-b', 'theirs')
+        writeFileSync(join(d3, 'PROJECT_PLAN.md'), DOC0 + '- [ ] 对侧新行\n', 'utf8')
+        g3('add', '-A')
+        g3('commit', '-qm', 'theirs')
+        const theirs3 = g3('rev-parse', 'HEAD').trim()
+        // 本侧:回到兄弟分支的同一个基底,把 T9 **就地改写**(翻勾)
+        g3('checkout', '-q', '-B', 'ours', g3('rev-parse', 'theirs~1').trim())
+        writeFileSync(
+          join(d3, 'PROJECT_PLAN.md'),
+          '- [x] ✅ 待办 T9 已闭环\n- [ ] 别人的行\n',
+          'utf8',
+        )
+        g3('add', '-A')
+        g3('commit', '-qm', 'ours')
+        const base3 = g3('merge-base', 'ours', 'theirs').trim()
+        const merged3 = show(
+          plan(g3('rev-parse', 'HEAD').trim(), theirs3, d3).tree,
+          'PROJECT_PLAN.md',
+          d3,
+        )
+        // 夹具自证:这确实是一枚真分叉(否则下面两条断言都是空转)
+        ok(
+          '端到端夹具自证:两侧是同一基底的两个兄弟提交(merge-base 就是 base)',
+          base3 === g3('rev-parse', 'theirs~1').trim() && DOC0.includes('- [ ] 待办 T9'),
+          `merge-base=${base3}`,
+        )
+        ok(
+          '端到端(真临时仓):本侧翻勾的一行在对侧未动的情况下不得被复活成未勾',
+          !/^- \[ \] 待办 T9$/m.test(merged3),
+          `合并树里又出现了未勾的 T9:\n${merged3}`,
+        )
+        ok(
+          '端到端:同一次合并仍必须保住对侧独有新增行(反向对照,防"不复活"被写成"丢对侧")',
+          /^- \[ \] 对侧新行$/m.test(merged3),
+          `对侧独有行被吞了:\n${merged3}`,
+        )
+        // 再一条反向:改写前的旧行确实存在于基底与对侧,否则"没复活"只是因为从来就没有过
+        ok(
+          '端到端夹具自证:旧行 T9 在未合并的两父里都在(证明第一条是"防复活"而不是"本来没有")',
+          /^- \[ \] 待办 T9$/m.test(show(theirs3, 'PROJECT_PLAN.md', d3)) &&
+            /^- \[ \] 待办 T9$/m.test(show(base3, 'PROJECT_PLAN.md', d3)),
+        )
+      } finally {
+        rmScratch(d3)
+      }
+    }
   } finally {
     rmScratch(dir)
   }
@@ -704,7 +858,8 @@ async function main() {
   // --take-ours <path>(可重复):仅在"两侧同改且能证明对侧那一版在本树必红"时使用。
   //   它不隐藏任何事:输出会逐条列出,合并提交信息里也带同一份清单(见 msg 拼装处)。
   const takeOurs = new Set()
-  for (let i = 0; i < argv.length; i++) if (argv[i] === '--take-ours' && argv[i + 1]) takeOurs.add(argv[++i])
+  for (let i = 0; i < argv.length; i++)
+    if (argv[i] === '--take-ours' && argv[i + 1]) takeOurs.add(argv[++i])
   const t = resolveTargets(ti >= 0 ? argv[ti + 1] : '')
   if (t.skip) {
     console.log(`[union-converge] ${t.skip} ⇒ 无需合并`)
@@ -718,7 +873,8 @@ async function main() {
     console.log(`  · 对侧删除不随合并生效:${d}(确要删请在合并之后显式 git rm)`)
   // 移动放行必须吼出来:它放的是"本侧把文件 mv 走了"这一类,不是"对侧新增被吞了"那一类。
   // 不点名的话,这条通道就会变成任何人掩盖吞并的借口。
-  for (const mv of p.movedPaths || []) console.log(`  · 按移动放行(内容逐字节同一 blob,本侧另有该路径):${mv}`)
+  for (const mv of p.movedPaths || [])
+    console.log(`  · 按移动放行(内容逐字节同一 blob,本侧另有该路径):${mv}`)
   if (p.mergedClean.length)
     console.log(
       `  · 两侧同改的 ${p.mergedClean.length} 个文件已走真三方归并(判据底线 = 各侧独有行重数不减少;\n` +

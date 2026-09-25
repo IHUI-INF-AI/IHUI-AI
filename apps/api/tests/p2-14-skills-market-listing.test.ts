@@ -43,8 +43,14 @@ import { skillsRoutes } from '../src/routes/skills.js'
 import type { SkillMarketEntry } from '@ihui/shared/skills/market'
 
 const MARKET_KEY = 'skills-market:global'
-const OWNER_ID = '101'
-const OTHER_ID = '303'
+/**
+ * 真机形状的 user id:`users.id` 是 uuid,所以这些值必须是**非数字串** ——
+ * 数字 id 会让 `Number(userId)` 与 uuid 原文两种实现都通过,即把归属判定失效藏起来。
+ */
+const OWNER_ID = '7f0f3f2a-1c4b-4a8e-9d21-0a3b5c7e9f01'
+const OTHER_ID = 'b21c9d47-55ae-4f30-8c72-1e6e0d2a4f02'
+/** 新建路径专用身份:断言"落库的 ownerId 就是 request.userId 原文"(NaN 回归的正向对照) */
+const FRESH_ID = 'e5a1b7c3-0d94-4e6f-8b2a-6f1c3d5a7b03'
 
 /** 只实现市场相关端点用到的 KV 两个方法,其余路由不参与本回归 */
 function createMockRedis() {
@@ -78,10 +84,10 @@ function entry(over: Partial<SkillMarketEntry> & { name: string }): SkillMarketE
 
 /** 四种形态各一枚:有归属在架 / 他人归属在架 / 无归属历史条目 / 有归属但已下架 */
 const SEED: SkillMarketEntry[] = [
-  entry({ name: 'mine', ownerId: 101, source: 'user', enabled: true }),
-  entry({ name: 'theirs', ownerId: 202, source: 'user', enabled: true }),
+  entry({ name: 'mine', ownerId: OWNER_ID, source: 'user', enabled: true }),
+  entry({ name: 'theirs', ownerId: OTHER_ID, source: 'user', enabled: true }),
   entry({ name: 'legacy' }),
-  entry({ name: 'mine-hidden', ownerId: 101, source: 'user', enabled: false }),
+  entry({ name: 'mine-hidden', ownerId: OWNER_ID, source: 'user', enabled: false }),
   entry({ name: 'builtin-thing', source: 'builtin', enabled: true }),
 ]
 
@@ -223,7 +229,7 @@ describe('GET /api/skills/:name/ownership —— owner 判定', () => {
     expect(bodyOf<{ data: Record<string, unknown> }>(res).data).toEqual({
       name: 'mine',
       isOwner: true,
-      ownerId: 101,
+      ownerId: OWNER_ID,
       enabled: true,
       source: 'user',
     })
@@ -252,7 +258,7 @@ describe('GET /api/skills/:name/ownership —— owner 判定', () => {
 
 describe('POST /api/skills/market —— 上架时由服务端推导归属', () => {
   it('登录用户新建条目 ⇒ source=user + ownerId=其 userId + enabled=true', async () => {
-    const res = await as('404', '/api/skills/market', {
+    const res = await as(FRESH_ID, '/api/skills/market', {
       method: 'POST',
       payload: {
         name: 'brand-new',
@@ -266,7 +272,7 @@ describe('POST /api/skills/market —— 上架时由服务端推导归属', () 
     })
     expect(res.statusCode).toBe(201)
     const created = bodyOf<{ data: SkillMarketEntry }>(res).data
-    expect(created.ownerId).toBe(404)
+    expect(created.ownerId).toBe(FRESH_ID)
     expect(created.source).toBe('user')
     expect(created.enabled).toBe(true)
   })

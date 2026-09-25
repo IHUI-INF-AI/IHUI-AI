@@ -16814,6 +16814,10 @@
     "viewDetail": "상세 보기"
   },
   "memberExamSignUpPage": {
+    "adminOnly": {
+      "description": "로그인 정보로는 신청 대장의 이전 회원 번호와 연결할 수 없어, 권한 없는 열람을 막기 위해 본인용 조회 화면을 제공하지 않습니다. 조회나 정정이 필요하면 관리자에게 문의해 주세요.",
+      "title": "신청 기록은 관리자가 관리합니다"
+    },
     "cancelBtn": "접수 취소",
     "cancelConfirm": "이 시험 접수를 취소하시겠습니까?",
     "cancelFailed": "취소 실패",
@@ -23362,12 +23366,6 @@
     "browserView": "브라우저 보기",
     "figmaView": "Figma 보기",
     "settingsView": "설정 보기"
-  },
-  "topBar": {
-    "editor": "편집기",
-    "close": "닫기",
-    "plus": "새로 만들기",
-    "skillsMarket": "스킬 마켓"
   },
   "statusBar": {
     "toggleTheme": "테마 전환"

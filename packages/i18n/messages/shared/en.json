@@ -171,8 +171,6 @@
     "searchActivity": "{state, select, running {Searching} completed {Searched} other {Search}}",
     "thinkingActivity": "{state, select, running {Analyzing} completed {Analyzed} other {Analyze}}",
     "customActivity": "{state, select, running {Running} completed {Ran} other {Run}}",
-    "workedForDuration": "Took {duration}",
-    "searchWithQuery": "Query: {query}",
     "showAllLines": "Show all",
     "hideLines": "Collapse",
     "sourcesButton": "Sources",
@@ -2065,9 +2063,6 @@
     "enableSuccess": "{name} enabled",
     "disableSuccess": "{name} disabled",
     "notFound": "Capability not found"
-  },
-  "topBar": {
-    "capabilityMarket": "Capability Market"
   },
   "stepDecision": {
     "decision": {

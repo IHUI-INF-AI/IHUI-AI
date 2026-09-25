@@ -31,12 +31,50 @@ export function resolveSecretsRoot(env = process.env) {
 /**
  * 子目录(如 `模型` / `git仓库` / `微信`)。根不存在或子目录不存在时返回 null ——
  * 调用方据此把结论降级为 `unknown`,而不是把"读不到"说成"凭据无效"。
+ * 行为与签名自 A19 起为 resolveKeyDirDetailed 的降格投影(只取 path),逐字等价由
+ * .ihui-agent 等价对账脚本证明;需要出处(triedCandidates/winnerIndex)时调 detailed 版,
+ * **禁止**在调用方再抄一份 F→D→E→G→C 候选表(§5d)。
  */
 export function resolveKeyDir(sub, env = process.env) {
-  const root = resolveSecretsRoot(env)
-  if (!root) return null
+  return resolveKeyDirDetailed(sub, env).path
+}
+
+/**
+ * resolveKeyDir 的"值携带出处"版本(A19,唯一候选序出口)。
+ * 返回 { path, triedCandidates, winnerIndex }:
+ * - path:命中的子目录绝对路径,否则 null(与 resolveKeyDir 同值);
+ * - triedCandidates:按探查顺序排列的候选子目录全路径,到首个存在的**根**为止
+ *   (根选取不看子目录,与 resolveSecretsRoot 语义一致)——"在其之前哪些候选被跳过"即此清单;
+ * - winnerIndex:命中根在候选表中的下标(一个根都没命中为 -1)。
+ *   三态判读:winnerIndex === -1 ⇒ 盘没挂上/根缺失(无法判定,不等于凭据失效);
+ *   winnerIndex >= 0 且 path === null ⇒ 根存在但该根下无此子目录(先建目录再放口令);
+ *   path 非 null ⇒ 命中。环境变量 IHUI_SECRETS_ROOT 覆盖时候选只有该一项(winnerIndex 0 或 -1)。
+ */
+export function resolveKeyDirDetailed(sub, env = process.env) {
+  const triedCandidates = []
+  const fromEnv = env.IHUI_SECRETS_ROOT
+  let root = null
+  let winnerIndex = -1
+  if (fromEnv) {
+    triedCandidates.push(join(fromEnv, sub).replace(/\\/g, '/'))
+    if (existsSync(fromEnv)) {
+      root = fromEnv.replace(/\\/g, '/')
+      winnerIndex = 0
+    }
+  } else {
+    for (let i = 0; i < CANDIDATE_ROOTS.length; i++) {
+      const c = CANDIDATE_ROOTS[i]
+      triedCandidates.push(join(c, sub).replace(/\\/g, '/'))
+      if (existsSync(c)) {
+        root = c
+        winnerIndex = i
+        break
+      }
+    }
+  }
+  if (!root) return { path: null, triedCandidates, winnerIndex: -1 }
   const dir = join(root, sub).replace(/\\/g, '/')
-  return existsSync(dir) ? dir : null
+  return { path: existsSync(dir) ? dir : null, triedCandidates, winnerIndex }
 }
 
 /** 子目录下的具体密钥文件;任一级不存在时返回 null。 */

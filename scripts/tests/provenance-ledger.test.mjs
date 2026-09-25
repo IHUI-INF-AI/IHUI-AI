@@ -167,3 +167,101 @@ test('台账文件必须真被 git 跟踪(否则任何检出都判"无法判定"
   assert.ok(existsSync(join(REAL_ROOT, 'scripts', 'tests', 'provenance-ledger.test.mjs')))
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// ---------------------------------------------------------------- P8 归属反噬
+// 本票(2026-09-25)新增判据的镜像测试。与 --self-test 的分工不变:self-test 用真临时 git 仓
+// 证明"判据会红也会绿";这里只钉**不随仓库内容腐烂的不变量** —— 判据是否真被 runCheck 接到、
+// 归属主张的四种形状各自落到哪一侧、以及"排除面与审计面是不是同一份实现"。
+
+const LIB_SRC = join(REAL_ROOT, 'scripts', 'lib', 'third-party-roots.mjs')
+const lib = await import('../lib/third-party-roots.mjs')
+
+test('P8 装车证明:判据必须真被 runCheck 调用,且两侧消费者都走同一个共享出口', () => {
+  const src = readFileSync(SRC, 'utf8')
+  assert.match(src, /P8 归属反噬/, '源文件里找不到 P8 的违规文案 —— 判据没接线')
+  assert.match(
+    src,
+    /expandRootsToFiles\(allRoots,\s*reader\.list\(\)\)/,
+    'P8 必须用共享的 expandRootsToFiles 在**当次判定面**上展开 roots;' +
+      '自己另拼一份前缀匹配,就会与水印层的排除面漂移(免除横幅却无人审计 / 审计了却仍在打横幅)',
+  )
+  for (const rel of ['scripts/watermark.mjs', 'scripts/check-watermark-coverage.mjs']) {
+    const s = readFileSync(join(REAL_ROOT, rel), 'utf8')
+    assert.match(
+      s,
+      /from '\.\/lib\/third-party-roots\.mjs'/,
+      `${rel} 没有 import 共享出口:排除面又变成各写一份了`,
+    )
+  }
+})
+
+test('台账路径清单只有一份:provenance-ledger 与共享出口必须是同一对象(不得各抄一张表)', () => {
+  assert.equal(G.LEDGER_DIR, lib.LEDGER_DIR, 'LEDGER_DIR 出现两份取值')
+  assert.equal(
+    G.LEDGER_FILES,
+    lib.LEDGER_FILES,
+    'LEDGER_FILES 必须是**同一个引用**,不是内容相同的两份字面量',
+  )
+})
+
+test('carriesOurAttribution 四形对照:横幅结构串 / 行首版权 / 零宽载荷判红,自著清单的作者字段判绿', () => {
+  const bannerLine =
+    '// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top\n'
+  assert.ok(
+    G.carriesOurAttribution(Buffer.from(bannerLine + 'export const a = 1\n')),
+    '可见版权行(行首注释形态)必须判红',
+  )
+  assert.ok(
+    G.carriesOurAttribution(Buffer.from('/*\n  © 2026 IHUI AI (智汇AI) · x\n*/\n')),
+    '块注释版式的版权行也必须判红(.css / .md 用的就是这一形)',
+  )
+  assert.ok(
+    G.carriesOurAttribution(Buffer.from('// \u2060\u200b\u200c\u200b\u200d\u2060\n')),
+    '只剩零宽载荷(可见横幅被手删)必须判红 —— 否则"删两行"即绕过 P8',
+  )
+  // 假阳钉死(本票第一版就在这里红过):我们**自己清单里**的 author / copyright 字段
+  // 不是"往别人文件上打的章"。品牌串出现在**值**里 ⇒ 绿。
+  const ownManifest = Buffer.from(
+    JSON.stringify(
+      {
+        author: '李春川 (Li Chunchuan) <IHUI AI (智汇AI)>',
+        copyright: '© 2026 IHUI AI (智汇AI) · 李春川 · All rights reserved.',
+      },
+      null,
+      2,
+    ) + '\n',
+  )
+  assert.equal(
+    G.carriesOurAttribution(ownManifest),
+    null,
+    'JSON 值里的品牌串被判红 = P8 在替我们自己清单的作者字段编造第三方归属,会把无关提交钉红并逼人 --no-verify',
+  )
+  // 上游自己的归属头必须判绿(P8 只管"我们的"主张,不是"有版权头就红")
+  assert.equal(
+    G.carriesOurAttribution(
+      Buffer.from('// Copyright 2024 Mozilla Foundation\n// SPDX-License-Identifier: Apache-2.0\n'),
+    ),
+    null,
+    '上游版权头不得被 P8 判红(那是台账该登记的东西,不是归属反噬)',
+  )
+  // 二进制内容不参与文本判定(且不得因此崩)
+  assert.equal(G.carriesOurAttribution(Buffer.from([0x2f, 0x2a, 0x00, 0xff])), null)
+})
+
+test('expandRootsToFiles 前缀语义:目录 root 只吞自己子树,不得顺手吃掉同前缀兄弟目录', () => {
+  const files = [
+    'vendor/demo/src/lib.rs',
+    'vendor/demo2/src/lib.rs',
+    'vendor/demo',
+    'apps/x/package.json',
+  ]
+  const got = lib.expandRootsToFiles(['vendor/demo', 'apps/x/package.json'], files)
+  assert.ok(got.has('vendor/demo/src/lib.rs'), '目录 root 必须展开其子树')
+  assert.ok(got.has('vendor/demo'), 'root 本身是文件时也必须命中')
+  assert.ok(got.has('apps/x/package.json'))
+  assert.ok(
+    !got.has('vendor/demo2/src/lib.rs'),
+    '`vendor/demo` 不得把 `vendor/demo2` 一起排除 —— 那会把未登记的东西一起洗成"第三方内容不用带横幅"',
+  )
+  assert.equal(lib.expandRootsToFiles([], files).size, 0, 'roots 为空必须展开为空(不得全排除)')
+})
