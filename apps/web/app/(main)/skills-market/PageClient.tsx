@@ -7,6 +7,8 @@
 import * as React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { toast } from 'sonner'
 import {
   Wand2,
@@ -19,12 +21,17 @@ import {
   Bell,
   BellOff,
   User,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
 
 import {
   enableSkill,
   disableSkill,
   fetchEnabledSkills,
+  fetchSkillOwnership,
+  setSkillListing,
+  type SkillOwnership,
 } from '@ihui/api-client/endpoints/skills-market'
 import {
   fetchSkillsMarket,
@@ -49,10 +56,17 @@ import { Button, Input } from '@ihui/ui-react'
  *   GET  /api/skills/market(q/tag 分页检索)
  *   POST /api/skills/:name/install | /rate | /enable | /disable | /subscribe
  *   GET  /api/skills/enabled | /:name/ratings
+ *   POST /api/skills/:name/listing + GET /api/skills/:name/ownership
+ *     ↑ P2-14 补齐的 listing 级上下架与 owner 判定(仅上架者可见该按钮)
+ *
+ * 深链(2026-09-25 补):本组件同时服务 `/skills-market` 与 `/skills-market/[id]`,
+ * 后者传 `deepLinkName`,按 name 反查后自动打开同一份详情弹层 —— 只有一个详情实现,
+ * 不存在"页面版 + 弹层版"双轨。
  */
-export default function SkillsMarketPageClient() {
+export default function SkillsMarketPageClient({ deepLinkName }: { deepLinkName?: string }) {
   const t = useTranslations('skillMarket')
   const qc = useQueryClient()
+  const router = useRouter()
   const [q, setQ] = React.useState('')
   const [debouncedQ, setDebouncedQ] = React.useState('')
   const [tag, setTag] = React.useState('')
@@ -73,6 +87,34 @@ export default function SkillsMarketPageClient() {
     queryKey: ['skills-market', 'list', { q: debouncedQ, tag, page }],
     queryFn: () => fetchSkillsMarket({ q: debouncedQ, tag, page, pageSize: 20 }),
   })
+
+  /**
+   * 深链条目解析:/skills-market/[id] 用 name 反查市场条目。
+   * 走既有的 GET /skills/market(q 精确匹配 name),**不新增第二个详情端点** ——
+   * 列表端点已经把 `enabled === false` 的条目滤掉了,所以"已下架"与"不存在"
+   * 在这里天然是同一个结果:查不到 ⇒ 空态。
+   */
+  const deepLinkQuery = useQuery({
+    queryKey: ['skills-market', 'detail', deepLinkName ?? null],
+    queryFn: async (): Promise<SkillMarketEntry | null> => {
+      if (!deepLinkName) return null
+      const r = await fetchSkillsMarket({ q: deepLinkName, page: 1, pageSize: 100 })
+      return r.items.find((it) => it.name === deepLinkName) ?? null
+    },
+    enabled: Boolean(deepLinkName),
+    retry: false,
+  })
+
+  // 命中即自动打开详情弹层(复用列表页那一份实现,不另起第二套详情 UI)
+  React.useEffect(() => {
+    if (deepLinkName && deepLinkQuery.data) setDetail(deepLinkQuery.data)
+  }, [deepLinkName, deepLinkQuery.data])
+
+  /** 关闭详情:在深链路由上顺带退回市场列表,否则留下一个没有详情的空 URL */
+  const closeDetail = () => {
+    setDetail(null)
+    if (deepLinkName) router.push('/skills-market')
+  }
 
   // 已启用集合(初始化启停状态;api-client 返回未拆包的 ApiResult,此处拆包)
   const { data: enabledData } = useQuery({
@@ -154,6 +196,42 @@ export default function SkillsMarketPageClient() {
     for (const it of items) for (const tg of it.tags) s.add(tg)
     return Array.from(s).slice(0, 12)
   }, [items])
+
+  // 深链解析中:先给骨架,不要闪一屏"不存在"
+  if (deepLinkName && deepLinkQuery.isLoading) {
+    return (
+      <div className="mx-auto w-full max-w-6xl space-y-5 px-4 py-4">
+        <BackButton />
+        <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>{t('loading')}</span>
+        </div>
+      </div>
+    )
+  }
+
+  // 深链直达一个不存在或已下架的 skill:必须给明确空态 + 回列表出口,不得白屏。
+  // (下架即隐身:GET /skills/market 不返回 enabled === false 的条目,所以这里
+  //  "查不到"同时覆盖"从没有过"与"已被上架者下架"两种情形。)
+  if (deepLinkName && !deepLinkQuery.data) {
+    return (
+      <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-6">
+        <BackButton />
+        <div className="rounded-lg border border-dashed p-8 text-center">
+          <p className="text-sm font-medium text-foreground">{t('notFoundTitle')}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {t('notFoundHint', { name: deepLinkName })}
+          </p>
+          <Link
+            href="/skills-market"
+            className="mt-4 inline-flex items-center text-xs text-primary hover:underline"
+          >
+            <span>{t('backToMarket')}</span>
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-5 px-4 py-4">
@@ -256,7 +334,7 @@ export default function SkillsMarketPageClient() {
         </div>
       )}
 
-      {detail && <SkillDetailDialog entry={detail} onClose={() => setDetail(null)} />}
+      {detail && <SkillDetailDialog entry={detail} onClose={closeDetail} />}
     </div>
   )
 }
@@ -396,6 +474,38 @@ function SkillDetailDialog({ entry, onClose }: { entry: SkillMarketEntry; onClos
   })
   const subscribed = subscription?.subscribed ?? false
 
+  /**
+   * owner 判定(P2-14):只有上架者本人看见"上下架"按钮。
+   * 隐藏按钮只是体验 —— 真正的授权在 POST /skills/:name/listing 里按 userId 再校一次,
+   * 不得反过来把服务端校验当成可省略的一环。
+   */
+  const { data: ownership } = useQuery({
+    queryKey: ['skills-market', 'ownership', entry.name],
+    queryFn: async (): Promise<SkillOwnership | null> => {
+      const r = await fetchSkillOwnership(entry.name)
+      return r.success ? (r.data ?? null) : null
+    },
+    staleTime: 0,
+    retry: false,
+  })
+  const [listingToggling, setListingToggling] = React.useState(false)
+
+  const handleToggleListing = async () => {
+    if (!ownership || listingToggling) return
+    const next = !ownership.enabled
+    setListingToggling(true)
+    try {
+      const r = await setSkillListing(entry.name, next)
+      if (!r.success) throw new Error(r.error ?? 'failed')
+      toast.success(next ? t('relistSuccess') : t('unlistSuccess'))
+      void qc.invalidateQueries({ queryKey: ['skills-market'] })
+    } catch {
+      toast.error(t('actionFailed'))
+    } finally {
+      setListingToggling(false)
+    }
+  }
+
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ['skills-market', 'list'] })
     void refetchRatings()
@@ -448,6 +558,7 @@ function SkillDetailDialog({ entry, onClose }: { entry: SkillMarketEntry; onClos
               <h2 className="text-lg font-bold tracking-tight text-foreground">{entry.name}</h2>
               <Badge variant="primary">v{entry.version}</Badge>
               <Badge variant="default">{entry.license}</Badge>
+              {ownership && !ownership.enabled && <Badge variant="default">{t('unlisted')}</Badge>}
             </div>
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1">
@@ -494,6 +605,22 @@ function SkillDetailDialog({ entry, onClose }: { entry: SkillMarketEntry; onClos
           <Button variant="outline" onClick={onClose}>
             {t('close')}
           </Button>
+          {ownership?.isOwner && (
+            <Button
+              variant="outline"
+              onClick={() => void handleToggleListing()}
+              disabled={listingToggling}
+            >
+              {listingToggling ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : ownership.enabled ? (
+                <EyeOff className="mr-1.5 h-3.5 w-3.5" />
+              ) : (
+                <Eye className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              {ownership.enabled ? t('unlist') : t('relist')}
+            </Button>
+          )}
         </div>
 
         {/* 评分区 */}

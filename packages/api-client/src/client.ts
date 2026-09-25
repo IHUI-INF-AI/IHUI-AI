@@ -992,6 +992,12 @@ export interface StreamChatOptions {
   /** D39 重试交代(2026-09-22 立):网关要换 key / 退避重试时下发,前端显示"第 N/M 次重试,
    *  Xs 后继续"。没有它,用户在流上看到的只是"卡住"。 */
   onRetryScheduled?: (event: RetryScheduledEvent) => void
+  /** D77 对话流业务表单(2026-09-25 立,G-106):后端请在消息流内让用户填一张业务表单
+   *  (邮件撰写 / 日历创建·更新)时下发本帧。前端把请求挂到对应 assistant 消息并渲染
+   *  BusinessFormCard,用户的批准/拒绝经 `postFormResponse` 走**同一条会话通道**回传
+   *  (形态与 tool-delegate → postToolResult 完全同族)。
+   *  成对动作是协议要求:`actions` 必同时含 approve 与 reject,缺一条的帧在解析层即被丢弃。 */
+  onFormRequest?: (event: FormRequestEvent) => void
   /** 2026-08-15 立:显式声明流式模式,默认 true。
    *  后端 detectStreamUsage 依赖 request.stream===true 才启用 usage chunk 注入,
    *  不传或传 false 会导致 usage 缺失,token 显示为 0。 */
@@ -1312,6 +1318,57 @@ export interface RetryScheduledEvent {
   httpStatus?: number
   messageId?: string
 }
+
+/**
+ * D77 对话流业务表单请求帧(2026-09-25 立,G-106)。
+ *
+ * SSE 事件格式(与 packages/shared/src/sse/contract.ts 的 form_request 成员逐字段同形):
+ *   event: form_request
+ *   data: {"type":"form_request","requestId":"frm-1","sessionId":"s-1",
+ *          "kind":"email","fields":[{"key":"to","type":"email","required":true}],
+ *          "actions":["approve","reject"],"messageId":"m-1"}
+ *
+ * fields / actions 的形状**不在本文件重定义**:判定层
+ * packages/shared/src/chat/business-forms.ts 的 BUSINESS_FORM_FIELDS 是唯一字段表,
+ * 本端只做"字段名照抄、类型收窄"的 wire 镜像;校验/状态机全在那一侧。
+ * 缺 requestId 或 actions 不成对(必须 approve+reject 两条)即视为畸形帧,不发回调。
+ */
+export interface FormRequestEvent {
+  /** 应答锚点:提交 form_response 时原样带回 */
+  requestId: string
+  /** 上行回传通道会话 ID(与 tool-delegate 的 session_id 同族);缺省时端内不得自造 */
+  sessionId?: string
+  /** 'email' | 'calendarEvent'(判定层 BUSINESS_FORM_KINDS) */
+  kind: string
+  /** 字段集(key/type/required;type 取值见 FORM_FIELD_TYPES) */
+  fields: Array<{ key: string; type: string; required: boolean; placeholderKey?: string }>
+  /** 成对动作,恒为 ['approve','reject'] */
+  actions: string[]
+  messageId?: string
+}
+
+/**
+ * D77 业务表单应答帧(**上行**)。
+ *
+ * 由 `buildFormResponseEvent()` 产出、`postFormResponse()` 发出,与 contract.ts 的
+ * form_response 成员逐字段同形。成对判据:
+ *   · action='approve' → 必带 values,不带 rejectReason
+ *   · action='reject'  → 必带 rejectReason,**整字段省略 values**(拒绝零副作用:
+ *     空对象会诱导后端建一条空记录)
+ */
+export interface FormResponseEvent {
+  requestId: string
+  kind: string
+  action: 'approve' | 'reject'
+  /** 仅 approve 携带 */
+  values?: Record<string, string | readonly string[]>
+  /** 仅 reject 携带 */
+  rejectReason?: string
+  messageId?: string
+}
+
+/** 业务表单成对动作(与判定层 FORM_ACTIONS 同取值;本包不依赖 @ihui/shared,故本地收窄) */
+export const FORM_RESPONSE_ACTIONS = ['approve', 'reject'] as const
 
 /**
  * 阶段 2:工具委托执行事件(2026-08-02 立,浏览器端工具执行代理)。
@@ -1957,6 +2014,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       const hasBudget = typeof opts.onBudget === 'function'
       const hasInjection = typeof opts.onInjectionApplied === 'function'
       const hasRetryScheduled = typeof opts.onRetryScheduled === 'function'
+      // D77(2026-09-25 立):业务表单请求帧;帧带 fields/actions 结构化字段,
+      // 未注册回调时不解析(与 injection 同口径)。
+      const hasFormRequest = typeof opts.onFormRequest === 'function'
       // hasCitations 被 tryParseCitations 的守护读取(消除 TS6133:声明未使用)
       void hasCitations
 
@@ -2776,6 +2836,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
        *  - budget:tryParseBudget(Budget 用量分档提醒 2026-09-19 立,网关发)
        *  - injection_applied / retry_scheduled:tryParseInjection / tryParseRetryScheduled
        *    (D34/D39 2026-09-22 立;两帧都带文本字段,漏分流会喷进正文增量)
+       *  - form_request:tryParseFormRequest(D77 2026-09-25 立;对话流业务表单请求帧,
+       *    带结构化 fields/actions;批准与拒绝不成对的帧在解析层即丢弃)
        */
       /** D34/D39:上下文注入交代帧与重试交代帧(两帧都带文本字段,绝不能进兜底抽取链)。 */
       const tryParseInjection = (line: string): void => {
@@ -2844,6 +2906,69 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         }
       }
 
+      /**
+       * D77 业务表单请求帧(2026-09-25 立,G-106)。
+       * 畸形帧一律**不发回调**,而不是发一张填不了/无法应答的表单:
+       *  · 缺 requestId → 应答无处带回
+       *  · actions 不成对(approve 与 reject 缺一)→ 违背本票硬约束,不给渲染
+       *  · fields 为空/非数组 → 渲染不出任何输入位
+       * fields/actions 的形状权威在 packages/shared/src/chat/business-forms.ts,本处只做 wire 收窄。
+       */
+      const tryParseFormRequest = (line: string): void => {
+        if (!hasFormRequest) return
+        if (!line || line.startsWith(':')) return
+        let data = line
+        if (line.startsWith('data:')) {
+          data = line.slice(5).replace(/^\s/, '')
+        } else if (
+          line.startsWith('event:') ||
+          line.startsWith('id:') ||
+          line.startsWith('retry:')
+        ) {
+          return
+        }
+        if (!data || data === '[DONE]') return
+        try {
+          const json = JSON.parse(data) as Record<string, unknown>
+          if (json?.type !== 'form_request') return
+          const requestId = json.requestId
+          const kind = json.kind
+          if (typeof requestId !== 'string' || requestId === '') return
+          if (typeof kind !== 'string' || kind === '') return
+          const rawFields = json.fields
+          if (!Array.isArray(rawFields) || rawFields.length === 0) return
+          const fields: FormRequestEvent['fields'] = []
+          for (const raw of rawFields) {
+            if (typeof raw !== 'object' || raw === null) continue
+            const f = raw as Record<string, unknown>
+            if (typeof f.key !== 'string' || f.key === '') continue
+            fields.push({
+              key: f.key,
+              type: typeof f.type === 'string' ? f.type : 'text',
+              required: f.required === true,
+              ...(typeof f.placeholderKey === 'string' ? { placeholderKey: f.placeholderKey } : {}),
+            })
+          }
+          if (fields.length === 0) return
+          const actions = Array.isArray(json.actions)
+            ? json.actions.filter((a): a is string => typeof a === 'string')
+            : []
+          // 成对判据:批准与拒绝必须同时在,缺一即畸形帧
+          // (只给"批准"的表单等于替用户做完决定,只给"拒绝"的表单等于什么都不做)。
+          if (!actions.includes('approve') || !actions.includes('reject')) return
+          opts.onFormRequest!({
+            requestId,
+            kind,
+            fields,
+            actions,
+            ...(typeof json.sessionId === 'string' ? { sessionId: json.sessionId } : {}),
+            ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
+          })
+        } catch {
+          /* 非 JSON 或非 form_request 事件忽略 */
+        }
+      }
+
       const routeLineByType = (line: string): string | null => {
         if (!line || line.startsWith(':')) return null
         if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
@@ -2908,6 +3033,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
               return 'injection_applied'
             case 'retry_scheduled':
               return 'retry_scheduled'
+            // D77(2026-09-25 立):对话流业务表单请求帧
+            case 'form_request':
+              return 'form_request'
             default:
               return null
           }
@@ -2952,6 +3080,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           tryParseInjection(line)
         } else if (route === 'retry_scheduled') {
           tryParseRetryScheduled(line)
+        } else if (route === 'form_request') {
+          tryParseFormRequest(line)
         } else {
           // fallback:无 type / 未知 type / 注释 / event:/id:/retry: / 非 JSON token 行。
           // 各 tryParse 内部第一道守护(`if (!hasXxx) return` + line 前缀检查)对非匹配行立即 return,
@@ -2973,6 +3103,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           tryParseBudget(line)
           tryParseInjection(line)
           tryParseRetryScheduled(line)
+          tryParseFormRequest(line)
         }
       }
 
@@ -3110,6 +3241,24 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
  * ai-service base URL 通过 import.meta.env.NEXT_PUBLIC_AI_SERVICE_URL 获取,
  * 默认 http://localhost:8803。非 Vite 环境(无 import.meta.env)走默认值。
  */
+/**
+ * ai-service base URL 解析(2026-09-25 抽出;原文抄自 postToolResult,行为逐字不变)。
+ *
+ * 注意:webpack 只对 `process.env.NEXT_PUBLIC_X` **直接点号访问**做构建期内联,
+ * 把 process.env 赋给变量再取属性不会被替换;import.meta.env 保留给 Vite 系构建(Taro/extension)。
+ * 上行回传帧(tool-result / form-response)共用这一处,不得各抄一份默认值。
+ */
+function aiServiceBaseUrl(): string {
+  const viteEnv = (import.meta as unknown as { env?: Record<string, unknown> }).env
+  const nextUrl =
+    typeof process !== 'undefined' && process.env
+      ? process.env.NEXT_PUBLIC_AI_SERVICE_URL
+      : undefined
+  const rawUrl = viteEnv?.NEXT_PUBLIC_AI_SERVICE_URL ?? nextUrl
+  const baseUrl = typeof rawUrl === 'string' && rawUrl ? rawUrl : undefined
+  return baseUrl || 'http://localhost:8803'
+}
+
 export async function postToolResult(
   sessionId: string,
   toolCallId: string,
@@ -3118,20 +3267,11 @@ export async function postToolResult(
 ): Promise<void> {
   // 2026-09-04 修复:Next.js(webpack)不注入 import.meta.env,原实现恒回落
   // localhost:8803,桌面端/生产 web 的工具结果回传全部打不到 ai-service。
-  // 注意:webpack 只对 `process.env.NEXT_PUBLIC_X` 直接点号访问做构建期内联,
-  // 把 process.env 赋给变量再取属性不会被替换,必须写成直接点号访问。
-  // import.meta.env 保留给 Vite 系构建(Taro/extension)。
-  const viteEnv = (import.meta as unknown as { env?: Record<string, unknown> }).env
-  const nextUrl =
-    typeof process !== 'undefined' && process.env
-      ? process.env.NEXT_PUBLIC_AI_SERVICE_URL
-      : undefined
-  const rawUrl = viteEnv?.NEXT_PUBLIC_AI_SERVICE_URL ?? nextUrl
-  const baseUrl = typeof rawUrl === 'string' && rawUrl ? rawUrl : undefined
-  const aiServiceUrl = baseUrl || 'http://localhost:8803'
+  // 解析口径已抽到 aiServiceBaseUrl()(D77 起两条上行通道共用)。
   // 2026-08-06 修复:原实现忽略 fetch 结果,失败时既不抛错也不重试,
   // ai-service 工具循环等待的 asyncio.Event 永远不唤醒 → 前端工具代理流程挂死。
   // 现在检查 resp.ok,失败抛错让调用方重试(调用方已有重试/降级策略)。
+  const aiServiceUrl = aiServiceBaseUrl()
   let resp: Response
   try {
     resp = await fetch(`${aiServiceUrl}/llm/complete/stream/${sessionId}/tool-result`, {
@@ -3153,6 +3293,88 @@ export async function postToolResult(
     }
     throw new Error(
       `postToolResult failed: HTTP ${resp.status} (session=${sessionId}, tool=${toolCallId})${detail ? `: ${detail}` : ''}`,
+    )
+  }
+}
+
+/**
+ * D77(2026-09-25 立,G-106):把用户的批准/拒绝组装成 **form_response** 帧(纯函数,零副作用)。
+ *
+ * 成对判据钉在这里,而不是散在各端的点击回调里:
+ *  · approve → 带 values(判定层校验通过后的表单值),**不写 rejectReason**
+ *  · reject  → 带 rejectReason(用户填的拒绝理由),**整字段省略 values**
+ *    —— 这是判定层 `rejectNoSideEffect`("拒绝路径不得触发任何提交动作")在协议形状上的落点。
+ *    给个空对象 `{}` 会诱导后端建一条空草稿/空日程,所以是"没有这个字段",不是"字段为空"。
+ *  同理:拒绝时若用户没填理由,**省略 rejectReason 而不是写空串** ——
+ *  空串等于声称"用户说了个空原因",与"无处可载"是两回事,后端不该收到假信息。
+ */
+export function buildFormResponseEvent(input: {
+  requestId: string
+  kind: string
+  action: 'approve' | 'reject'
+  values?: Record<string, string | readonly string[]>
+  reason?: string
+  messageId?: string
+}): FormResponseEvent {
+  const trimmedReason = typeof input.reason === 'string' ? input.reason.trim() : ''
+  const event: FormResponseEvent = {
+    requestId: input.requestId,
+    kind: input.kind,
+    action: input.action,
+  }
+  if (input.action === 'approve') {
+    if (input.values) event.values = input.values
+  } else if (trimmedReason) {
+    // reject-only:绝不带 values(见上,零副作用的形状)
+    event.rejectReason = trimmedReason
+  }
+  if (typeof input.messageId === 'string' && input.messageId) event.messageId = input.messageId
+  return event
+}
+
+/**
+ * form_response 上行回传(与 postToolResult 同一条 ai-service 会话通道,2026-09-25 立)。
+ *
+ * POST /llm/complete/stream/{session_id}/form-response
+ * Body: { request_id, kind, action, values?, reject_reason?, message_id? }
+ *       —— ai-service 侧字段名沿用 snake_case(与 tool-result 的 tool_call_id 同族)。
+ *
+ * 失败必抛(照 postToolResult 的 2026-08-06 教训):静默吞掉 = 用户点了"批准"而 AI 侧
+ * 永远等不到应答,表单卡停在已批准的假象上。调用方据异常把状态改判为 failed。
+ */
+export async function postFormResponse(
+  sessionId: string,
+  event: FormResponseEvent,
+): Promise<void> {
+  const aiServiceUrl = aiServiceBaseUrl()
+  let resp: Response
+  try {
+    resp = await fetch(`${aiServiceUrl}/llm/complete/stream/${sessionId}/form-response`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        request_id: event.requestId,
+        kind: event.kind,
+        action: event.action,
+        ...(event.values ? { values: event.values } : {}),
+        ...(event.rejectReason ? { reject_reason: event.rejectReason } : {}),
+        ...(event.messageId ? { message_id: event.messageId } : {}),
+      }),
+    })
+  } catch (e) {
+    throw new Error(
+      `postFormResponse network error (session=${sessionId}, request=${event.requestId}): ${(e as Error).message}`,
+    )
+  }
+  if (!resp.ok) {
+    let detail = ''
+    try {
+      detail = (await resp.text()).slice(0, 200)
+    } catch {
+      // 忽略 body 读取失败,只保留 status
+    }
+    throw new Error(
+      `postFormResponse failed: HTTP ${resp.status} (session=${sessionId}, request=${event.requestId})${detail ? `: ${detail}` : ''}`,
     )
   }
 }

@@ -18,6 +18,13 @@
  *   137 个),这类删除被顺手提交同样是回滚;但删除也可能是真意图(`git rm` 合法),
  *   按「宁漏不误报」只告警。
  *
+ * 合并上下文(2026-09-25 由"整轮豁免"收窄):旧口径因"merge/cherry-pick/revert 的解析结果
+ * 本就可能是历史内容"而整轮跳过 R1,于是**本门自己的豁免**成了这一族的无人看守区(登记在
+ * 第四十二批未闭环④,本轮机制化)。收窄后只对 merge 上下文跑 R1m:两父在某路径上逐字节
+ * 一致 ⇒ 合并对它无事可做 ⇒ 索引里与两父都不同的内容不可能来自本次合并,再要求它恰等于
+ * 该路径某历史版本才判红(人工解冲突写进的新内容不满足该条,放过 —— 那是正当形态)。
+ * cherry-pick / revert / rebase 仍整轮豁免:那三种操作取历史内容本就是其语义。
+ *
  * 用法:
  *   node scripts/check-stale-revert.mjs --staged      # pre-commit(runner 自动下发)
  *   node scripts/check-stale-revert.mjs               # 全量:比对工作区 vs HEAD
@@ -182,6 +189,67 @@ export function inRevertContext(repoRoot) {
   return REVERT_CONTEXT_FILES.some((f) => existsSync(join(gd, f)))
 }
 
+/** 合并中取 theirs(MERGE_HEAD)的 sha;取不到返回 null(则退回整轮豁免) */
+export function mergeHeadSha(repoRoot) {
+  try {
+    return (
+      git(['-C', repoRoot, 'rev-parse', '--verify', 'MERGE_HEAD'], {
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim() || null
+    )
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 合并上下文里的窄判据 —— 取代旧的"整轮豁免"(2026-09-25)。
+ *
+ * 为什么旧口径必须收窄:R1 在 merge/cherry-pick/revert 上下文里被整轮跳过,是因为"这些
+ * 操作的解析结果本就可能是历史内容";但**合并**恰好有一种形态不成立 —— 两父在某路径上
+ * 逐字节一致时,合并对它无事可做,索引里那条与两父都不同的内容**不可能来自本次合并**。
+ * 那一型正是共享工作区落后 HEAD 时最容易发生的事(本轮实测:合并期 `PROJECT_PLAN.md`
+ * 的索引停在旧基线),而当时全链无人看守:守门 30c 判红是对的却只说"取 theirs",
+ * 守门 84 自己豁免。
+ *
+ * 只判一种,且刻意保守:
+ *   ① ours(P) == theirs(P)                 (两父一致 ⇒ 合并无事可做)
+ *   ② index(P) != ours(P)                  (存在外来内容)
+ *   ③ index(P) == P 的某个历史祖先版本      (= 回写;人工解冲突写进的新内容不满足 ③,放过)
+ * 一侧缺该路径(add/delete 冲突)不判 —— 那本身就是需要人决定的形态。
+ */
+export function analyzeMerge(repoRoot, paths, mergeHead, { source = 'index' } = {}) {
+  if (!mergeHead || !paths.length) return []
+  const present = source === 'worktree' ? paths.filter((p) => existsSync(join(repoRoot, p))) : paths
+  if (!present.length) return []
+  const wt = source === 'worktree' ? worktreeBlobs(repoRoot, present) : new Map()
+  if (source === 'worktree' && wt.size !== present.length) return []
+
+  const ancestry = new Map(present.map((p) => [p, ancestorCommits(repoRoot, p)]))
+  const specs = []
+  for (const p of present) {
+    specs.push(`:${p}`, `HEAD:${p}`, `${mergeHead}:${p}`)
+    for (const c of ancestry.get(p)) specs.push(`${c}:${p}`)
+  }
+  const blobs = resolveBlobs(repoRoot, specs)
+
+  const violations = []
+  let i = 0
+  for (const p of present) {
+    const idxSpec = specs[i]
+    const ours = blobs.get(specs[i + 1])
+    const theirs = blobs.get(specs[i + 2])
+    i += 3
+    const cur = source === 'index' ? blobs.get(idxSpec) : wt.get(p)
+    if (!cur || !ours || !theirs) continue // 删除/取不到/一侧无此路径 → 不判
+    if (ours !== theirs) continue // 两父本就不同 → 合并产出任一或融合结果都正当
+    if (cur === ours) continue // 与两父一致 → 无外来内容
+    const hit = ancestry.get(p).find((c) => blobs.get(`${c}:${p}`) === cur)
+    if (hit) violations.push({ path: p, commit: hit.slice(0, 9) })
+  }
+  return violations
+}
+
 function audit(repoRoot, { staged }) {
   const { modified, deleted } = staged
     ? stagedPaths(repoRoot)
@@ -211,8 +279,16 @@ function audit(repoRoot, { staged }) {
   }
 
   const exempt = inRevertContext(repoRoot)
-  const violations = exempt ? [] : analyze(repoRoot, judged, { source: staged ? 'index' : 'worktree' })
-  if (exempt) lines.push('⚠️  处于 merge/cherry-pick/revert 上下文,R1 本轮豁免')
+  const mergeHead = exempt ? mergeHeadSha(repoRoot) : null
+  const src = staged ? 'index' : 'worktree'
+  let violations = []
+  if (!exempt) violations = analyze(repoRoot, judged, { source: src })
+  else if (mergeHead) {
+    violations = analyzeMerge(repoRoot, judged, mergeHead, { source: src })
+    lines.push(
+      `⚠️  合并上下文中:R1 未整轮豁免,改判"两父一致而暂存内容等于历史版本"(theirs=${mergeHead.slice(0, 9)}) —— 待判 ${judged.length} 个路径,命中 ${violations.length} 枚`,
+    )
+  } else lines.push('⚠️  处于 cherry-pick/revert/rebase 上下文,R1 本轮豁免')
   if (violations.length) {
     failed = true
     lines.push(
@@ -286,10 +362,47 @@ function selfTestRun() {
     writeFileSync(join(repo, 'a.ts'), 'v1\n')
     g(['add', '-A'])
     const gd = gitDirOf(repo)
-    writeFileSync(join(gd, 'MERGE_HEAD'), g(['rev-parse', 'HEAD']) + '\n')
-    check('5 merge 上下文识别 + audit 放行', inRevertContext(repo) && audit(repo, { staged: true }).code === 0)
+    const headSha = g(['rev-parse', 'HEAD']).trim()
+
+    // ── 合并上下文三对照(旧口径是"整轮豁免",2026-09-25 收窄后必须能分辨这三种)──
+    // 先造一枚真正的 theirs 分支(它的 a.ts 与 ours 不同),再造回"旧基线回写"的暂存态。
+    g(['checkout', '-q', 'HEAD', '--', 'a.ts']) // 暂存复位到 HEAD(v2),丢弃演练态
+    g(['checkout', '-qb', 'theirs'])
+    writeFileSync(join(repo, 'a.ts'), 'theirs-v9\n')
+    g(['commit', '-qam', 'T: v9'])
+    const theirsSha = g(['rev-parse', 'HEAD']).trim()
+    g(['checkout', '-q', 'main'])
+    writeFileSync(join(repo, 'a.ts'), 'v1\n') // 又一回写:索引=v1,而 ours=v2
+    g(['add', '-A'])
+
+    writeFileSync(join(gd, 'MERGE_HEAD'), theirsSha + '\n')
+    check(
+      '5a 合并中且两父本就不同 ⇒ 放过(合并有权产出任一/融合结果)',
+      inRevertContext(repo) && audit(repo, { staged: true }).code === 0,
+    )
+
+    writeFileSync(join(gd, 'MERGE_HEAD'), headSha + '\n')
+    const m1 = audit(repo, { staged: true })
+    check('5b 两父一致而索引等于历史版本 ⇒ 判红(旧口径在这里整轮豁免,即盲区)', m1.code === 1)
+    check('5c 命中时点名该路径与回到的版本', m1.lines.join('\n').includes('a.ts'))
+
+    writeFileSync(join(repo, 'a.ts'), 'hand-resolved-fresh\n') // 人工解冲突写进的新内容
+    g(['add', '-A'])
+    check(
+      '5d 两父一致而索引是**新写的内容**(非任何历史版本)⇒ 放过(正当解冲突)',
+      audit(repo, { staged: true }).code === 0,
+    )
     rmSync(join(gd, 'MERGE_HEAD'), { force: true })
+    writeFileSync(join(repo, 'a.ts'), 'v1\n')
+    g(['add', '-A'])
     check('6 清理后同一暂存判红', audit(repo, { staged: true }).code === 1)
+
+    writeFileSync(join(gd, 'CHERRY_PICK_HEAD'), headSha + '\n')
+    check(
+      '6b cherry-pick 上下文仍整轮豁免(收窄只针对 merge)',
+      audit(repo, { staged: true }).code === 0,
+    )
+    rmSync(join(gd, 'CHERRY_PICK_HEAD'), { force: true })
 
     g(['rm', '-q', '--cached', 'keep.ts'])
     const { modified, deleted } = stagedPaths(repo)
@@ -337,5 +450,18 @@ if (isDirectRun) {
   })
 }
 
-export const __test__ = { analyze, stagedPaths, resolveBlobs, inRevertContext, audit, isMultiplierPath, MULTIPLIER_RE, SKIP_ENV, ANCESTOR_WINDOW, MAX_FILES }
+export const __test__ = {
+  analyze,
+  analyzeMerge,
+  mergeHeadSha,
+  stagedPaths,
+  resolveBlobs,
+  inRevertContext,
+  audit,
+  isMultiplierPath,
+  MULTIPLIER_RE,
+  SKIP_ENV,
+  ANCESTOR_WINDOW,
+  MAX_FILES,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
