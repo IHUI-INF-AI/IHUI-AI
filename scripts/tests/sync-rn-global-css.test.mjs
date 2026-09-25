@@ -89,12 +89,21 @@ test('T4 幂等:第二次写回必须与第一次逐字节相同(跨行声明曾
   assert.equal(sync.__test__.replaceBlock(once, ':root', decls), once, '第二次必须零改动')
 })
 
-test('T5 门有牙:HEAD 那份 global.css 必须被判出缺档(旧 subset 判据对它一路报绿)', () => {
-  const r = gate.__test__.compare({
-    tokensCss: GIT('HEAD:packages/design-tokens/src/styles/tokens.css'),
-    globalCss: GIT('HEAD:apps/mobile-rn/global.css'),
-  })
-  assert.ok(r.missing.length > 0, `缺档必须非 0,实得 ${r.missing.length}`)
+test('T5 门有牙:从真仓副本删掉一条受管档,必须被判成缺档(旧 subset 判据看不见"副本比源头少")', () => {
+  // 尺子不得依赖仓库瞬时状态:本断言原先写"HEAD 的 global.css 必须判出缺档",那是**落地前**的
+  // 历史事实(实测曾缺 124 档 —— 记在提交说明与 PROJECT_PLAN 第五十批,不当判据);副本补齐后它必然
+  // 自己变红,变成一条自我作废的断言。构造夹具才是永久有效的证明方式。
+  const tokensCss = GIT('HEAD:packages/design-tokens/src/styles/tokens.css')
+  const landed = GIT('HEAD:apps/mobile-rn/global.css')
+  const one = landed.match(/^\s*--color-[\w-]+\s*:\s*[^;\n]+;\n/m)
+  assert.ok(one, '真仓副本里必须至少有一条受管 --color-* 声明可作夹具')
+  const crippled = landed.replace(one[0], '')
+  assert.notEqual(crippled, landed, '夹具必须真的删掉了一行(否则本例是无牙断言)')
+  const r = gate.__test__.compare({ tokensCss, globalCss: crippled })
+  const names = r.missing.map((m) => m.name)
+  assert.ok(names.includes(one[0].match(/--color-[\w-]+/)[0]), `必须点名被删的那条,实得 ${names.join(',')}`)
+  // 反向对照:同一份未删的副本必须判绿(否则本例退化成"怎么都红"的尺子)
+  assert.equal(gate.__test__.compare({ tokensCss, globalCss: landed }).missing.length, 0)
 })
 
 test('T6 反向对照:派生态不得判红(否则本门只会逼人 --no-verify)', () => {
