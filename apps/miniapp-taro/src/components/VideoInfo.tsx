@@ -54,7 +54,7 @@ export default function VideoInfo({ info = {} }: VideoInfoProps) {
           {info.tags.map((tag, i) => (
             <Text
               key={i}
-              className="text-[22rpx] px-2 py-0.5 mr-1.5 mb-1 rounded bg-muted text-muted-foreground"
+              className="text-[length:22rpx] px-2 py-0.5 mr-1.5 mb-1 rounded bg-muted text-muted-foreground"
             >
               {tag}
             </Text>

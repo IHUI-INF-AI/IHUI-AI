@@ -135,7 +135,7 @@ export default function AiGroup() {
   return (
     <View className="min-h-screen bg-background">
       {/* 页头标题(对齐 SharedAgentScreen title: fontSize 22dp→44rpx / 700 / px-20rpx pt-pb-16rpx) */}
-      <Text className="px-[20rpx] pt-[16rpx] pb-[16rpx] text-[44rpx] font-bold text-foreground">
+      <Text className="px-[20rpx] pt-[16rpx] pb-[16rpx] text-[length:44rpx] font-bold text-foreground">
         {t('aiGroup.title')}
       </Text>
       {/* 分类 chips(对齐 RN AgentScreen 分类 tab: bg-muted / 激活 bg-primary 反白, radius 8dp→16rpx) */}
@@ -155,8 +155,8 @@ export default function AiGroup() {
             <Text
               className={
                 activeCategory === cat.key
-                  ? 'text-[26rpx] font-semibold text-[var(--color-primary-foreground)]'
-                  : 'text-[26rpx] text-muted-foreground'
+                  ? 'text-[length:26rpx] font-semibold text-[var(--color-primary-foreground)]'
+                  : 'text-[length:26rpx] text-muted-foreground'
               }
             >
               {cat.label}
@@ -167,13 +167,13 @@ export default function AiGroup() {
       <View className="p-[32rpx]">
         {loading ? (
           <View className="flex flex-col items-center py-[96rpx]">
-            <Text className="text-center text-muted-foreground text-[28rpx]">
+            <Text className="text-center text-muted-foreground text-[length:28rpx]">
               {t('common.loading')}
             </Text>
           </View>
         ) : error ? (
           <View className="flex flex-col items-center py-[96rpx]">
-            <Text className="text-center text-[28rpx] text-[var(--color-danger)]">
+            <Text className="text-center text-[length:28rpx] text-[var(--color-danger)]">
               {tt('aiGroup.loadFailed', '加载失败')}
             </Text>
             <View
@@ -181,7 +181,7 @@ export default function AiGroup() {
               onClick={loadData}
               hoverClass="opacity-60"
             >
-              <Text className="text-[32rpx] text-[var(--color-primary-foreground)]">
+              <Text className="text-[length:32rpx] text-[var(--color-primary-foreground)]">
                 {t('common.retry')}
               </Text>
             </View>
@@ -213,25 +213,25 @@ export default function AiGroup() {
                     />
                     <View className="flex-1 min-w-0 ml-[24rpx]">
                       <View className="flex items-center gap-[12rpx]">
-                        <Text className="flex-1 text-[32rpx] font-semibold text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
+                        <Text className="flex-1 text-[length:32rpx] font-semibold text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
                           {name || t('aiGroup.agent')}
                         </Text>
                         {isVip ? (
                           // VIP 徽章(对齐 SharedAgentScreen vipBadge: bg-warning 反白, radius 4dp→8rpx)
                           <View className="py-[8rpx] px-[12rpx] rounded-sm bg-[var(--color-warning)] shrink-0">
-                            <Text className="text-[20rpx] font-semibold text-[var(--color-surface-light)]">
+                            <Text className="text-[length:20rpx] font-semibold text-[var(--color-surface-light)]">
                               VIP
                             </Text>
                           </View>
                         ) : null}
                       </View>
                       {desc ? (
-                        <Text className="block mt-[16rpx] text-[28rpx] leading-[36rpx] text-muted-foreground overflow-hidden text-ellipsis line-clamp-2">
+                        <Text className="block mt-[16rpx] text-[length:28rpx] leading-[36rpx] text-muted-foreground overflow-hidden text-ellipsis line-clamp-2">
                           {desc}
                         </Text>
                       ) : null}
                       {uses > 0 ? (
-                        <Text className="block mt-[16rpx] text-[22rpx] text-[var(--color-text-tertiary)]">
+                        <Text className="block mt-[16rpx] text-[length:22rpx] text-[var(--color-text-tertiary)]">
                           {tt('aiGroup.useCount', '{n}人使用', { n: uses })}
                         </Text>
                       ) : null}
@@ -243,7 +243,7 @@ export default function AiGroup() {
           </View>
         ) : (
           <View className="flex flex-col items-center py-[96rpx]">
-            <Text className="text-center text-[28rpx] text-[var(--color-text-tertiary)]">
+            <Text className="text-center text-[length:28rpx] text-[var(--color-text-tertiary)]">
               {t('aiGroup.empty')}
             </Text>
           </View>
