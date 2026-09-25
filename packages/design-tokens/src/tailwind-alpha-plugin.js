@@ -115,13 +115,6 @@ export const ALPHA_UTILITY_KINDS = {
  * 根本不经过本插件。这一型现在由生成器的剥注释判据从源头堵住(`--self-test` 的 A1/A1b 成对锁住)。
  */
 export const ALPHA_USAGE = {
-  primary: { bg: ['10'], border: ['20', '30', '40'] },
-  'primary-foreground': { text: ['90'] },
-  foreground: { bg: ['30', '80'] },
-  muted: { bg: ['[0.12]'] },
-  destructive: { bg: ['5', '10', '[0.12]'], border: ['40'] },
-  success: { bg: ['10', '[0.12]'] },
-  warning: { bg: ['10', '20', '[0.12]'] },
 }
 
 /** 登记表里的档位集合(单一真相 = ALPHA_USAGE 的键,不留第二份清单)。 */

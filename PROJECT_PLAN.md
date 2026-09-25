@@ -9370,3 +9370,32 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 - [x] ✅(2026-09-25) **台账幻影债七条复测并翻勾**(派单前实测,免得下一个人按旧副本白烧轮次;每条的证据都写成可复跑命令,判据见提交信息):钩子 trust 的 webhook 残余面(两形态已过同一道门)、`reclaim` 信封边界(判据与两处消费者都在)、WP-1 执行链接入(`builtins.ts` 3 / `tools/terminal.ts` 4 —— ⚠️ 原票写的 `apps/cli/src/terminal.ts` **路径不存在**,照它 `git show` 必 fatal 并被读成"没接入")、`architecture-policy.yaml` "0 个 managed:true"(实得 **23**,那是立项状态)、`stream-tool-ledger 未入库`(HEAD 有模块且 `agent.ts` 有真 import + `new`)、`goal-verify 无生产消费方`(**票面实质已闭环**:独立校验轮真被运行循环调用 `verify_goal_completion`;字面残余只是"该 HTTP 端点自身无调用方",而端点存废属对外能力取舍,不由 agent 单方删)、`page_* 跨端登记`(逐端点数:types 7 / 目录 7 / cli 7/7 / extension 经 `PageActionType` 消费;RN / 小程序 / 桌面命中 0 且已换第二种正向搜法复核 ⇒ 三端结构上没有 page 控制面,属平台域外而非漏登记)。
 - [ ] **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN / miniapp 未消费 tailPreview` —— 两端 1742 个跟踪文件里命中 0,唯一消费者是 web;难点不是接一行,而是两端如何取到 `context-attribution` 这份共享引擎(实测两端对它**零引用**,共享引擎在移动端没有装载路径)。② `apps/api` 侧 `page_*` 只有测试面引用、无生产侧登记(一格小账)。
 ## O73 危险操作确认旁路收口到工具层(五处收四处)+ 台账幻影债复测七条(2026-09-25)
+
+### O62 附⑥:把 R6 收到"真 v3 消费端"后量到的结论 —— `tailwind-alpha-plugin` 至今**零真实使用者**(2026-09-25)
+
+- [x] ✅(2026-09-25) **动作**:R6 的"必须登记 / 清单腐烂"两判据从三个消费端收窄到**真 v3 两端**(`apps/mobile-rn/src` + `packages/app/src`)。实现是单一真相的:`check-cross-end-tokens.mjs` 新增 `ALPHA_V4_FACES` / `ALPHA_V3_SCAN_FACES` / `isV4Face()` 并导出给生成器,`collectAlphaCorpus({face, faces})` 加可选面参数,`sync-alpha-usage.mjs` 改用它 —— **不在别处再抄一份面清单**。miniapp 的 alpha 用量仍**照数报出**(64 处),只是不判红。
+- [x] ✅(2026-09-25) **收窄后量到的事实(这才是本条的价值)**:17 条登记**全部变成腐烂** ⇒ 说明 **全仓 64 处 `/alpha` 用量没有一处在 v3 消费端**,全在 miniapp。再用真 `@theme` 喂 v4 复测,**7/7 原生命中**:
+  `.bg-red-500\/10`、`.bg-primary\/10`、`.bg-muted\/40`、`.border-primary\/30`、`.bg-cta\/20`、`.bg-muted\/\[0\.12\]`、`.text-primary-foreground\/90`
+  声明体是 `color-mix(in srgb, …)` —— **v4 对任意值形态(`[0.12]`)和项目自定义色都原生支持**。
+  ⇒ 结论:**`tailwind-alpha-plugin` 从落地起就没有真实使用者。** 我上一轮"证明它有效"的那次量测是
+  **miniapp 源码 × v3 CLI 夹具**,而 miniapp 真实构建既不加载该 preset、也不走 v3 —— 那条链在仓库里不存在。
+- [x] ✅(2026-09-25) **登记表按用量归零**:`ALPHA_USAGE` 由生成器原位重写为 `{}`(−7 行表体,文件其余一字未动)。
+  `node scripts/sync-alpha-usage.mjs --check` **exit 0**、`--self-test` **26 条全通过**。
+  表空不等于机制废:哪天 mobile-rn 写一个 `bg-x/10`,R6 的"未登记即红"会命中,而它的**修复出口已改成跑生成器**
+  (原文案"补一行到 ALPHA_USAGE"是让人手改一张由工具维护的表 —— 那是假出口,已换)。
+- [x] ✅(2026-09-25) **顺带查清:`--color-*-rgb` 三元组变量在全仓只有一个引用点,而且是注释。**
+  `git grep -- "-rgb)" HEAD -- apps packages` 排除插件与门自身后**命中 1 个文件**(`apps/mobile-rn/global.css:58` 的解释注释),
+  现产物 `app-origin.wxss` 里 **0 处使用**。⇒ 本票为 v3 落进 `tokens.css` / `app.css` / `global.css` 的约 70 行三元组变量
+  **当前无消费者**,它们是主包预算里的纯负债。
+- **没有顺手删那 70 行,原因如实**:删它要同时动 token 单一源头 + 两份生成物 + 三道同步门(36 / 93 / rn-global-css-sync),
+  而**此刻验不了** —— 另一会话正在改 `scripts/lib/face-reader.mjs`,其工作树版本调用了尚未定义的 `chunkRevs()`
+  (`node --check` 通过 ⇒ 是运行期 `ReferenceError`,HEAD 版无此符号),该 lib 被约十道门 import,
+  所以现在跑门 93 会崩在 `catBatch`,**与我的改动无关、也不该由我去补别人的在飞编辑**。
+  已验证的部分独立于该 lib:纯函数面断言 4/4(`ALPHA_V3_SCAN_FACES` 恰为两端、不含 miniapp、`__test__` 导出同一引用)、
+  生成器 `--check`/`--self-test` 全绿、插件文件差异恰为 −7 行表体。
+  ⇒ 三元组变量的移除留作**独立一票**,前置条件是"face-reader 修复后重跑门 93 全档绿",不得在验不了的时候删东西。
+- **这条对"要不要接线 utilities 到端"的影响(修正附⑤)**:附⑤说"接线净增 38,183 B、只剩 318 B"。
+  现在知道:那 38,183 B 里**包含 alpha 形态**,而 v4 原生就会出这些 ⇒ **不需要为 alpha 保留任何东西**;
+  且 `app-origin.wxss` 里 486 条 / 24,069 B 手写补偿规则到端即与 utilities 同源重复。
+  两笔相加,接线后的真实净增远低于 38,183 B —— **"主包装不下"这个否决理由被削弱**,但 C 类(同名不同值)
+  重叠分析因执行代理超轮次未完成,**尚缺逐条证据,不得据此翻案**。
