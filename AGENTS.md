@@ -637,9 +637,11 @@ pnpm dev                                       # 启动所有服务(web + api + 
 
 - **事故背景**(8-09 实锤):多 Agent/自动化任务并行触发 `build-next-prod.ps1` 时,两个构建同时备份/清理/写入 `apps/web/.next` → 8801 短暂 502 + 监控报警,产物存在损坏风险。原 `apps/web/scripts/check-lock.js` 只有 dev-vs-build 互斥,**没有 build-vs-build 互斥**;且 `build-next-prod.ps1` 曾引用不存在的 `scripts/check-lock.js`,锁从未生效。
 - **锁机制**:`node scripts/deploy-lock.mjs acquire|release|check`(锁 = 项目根 `.deploy.lock` 目录,mkdir 原子性)。build 与 build/dev 全部互斥;dev+dev 共存;stale(10min)+ 超时(10min)自动兜底。
+- **判活问的是"哪个 pid"——这一格在 2026-09-25 冻结过生产 11h50m**(登记 G-193):`acquire` 是一次性 CLI,打印"锁已获取"就退出,所以 meta 里那个 `pid` **不是持锁者**,拿它判活等于没有判据 —— 要么恒"已退出"(别人构建中途被抢),要么该号被系统复用给别的过程(实测:`meta.ts=11:16:32 pid=888`,而当时占着 888 的是 `C:\Windows\System32\nssm.exe`,**StartTime 11:19:13,比锁晚 160 秒**,一个进程不可能在它存在之前写锁)⇒ `alive=true` 永远成立 ⇒ 每轮白等 600s 后 exit=1,部署环从 11:16 起没产出新构建,而 `git status`、typecheck、154 道门全都看不出来。两条修法同时落地:**① `--owner-pid`**(调用方自己的 `$PID`,这才是这段锁真正的主人;`build-next-prod.ps1` 已传)**② 硬上限 30min**——"名义存活"与"锁龄超上限"同时成立只可能是复用 ⇒ 归档现场后抢占(与 §12 `git-lock` 的 1800s 复用兜底是同一条设计)。**判据矛盾时的失效方向**:宁可抢一把明显超时的锁(现场先归档,可复核),不可无限 wait(那等于把"没人能说清"变成"生产一直不更新")。`release` 在这一格**仍不代删别人的锁**,但必须点名"pid 疑似被复用"并指出出路是下一次 `acquire`。
+  - **如实登记未完成的部分**:`apps/web/package.json` 的 `predev` / `dev:clean` / `dev:stable` / `prebuild` 四处**没法声明 owner**(npm 生命周期进程在 dev server 起来之前就退了),它们的互斥仍靠"CLI pid 多半已死 ⇒ 秒抢"这条弱机制;真正的解是心跳续期(照 `git-lock` 每 5s 写 `meta.ts`),而那需要一个能看见 dev server 生死的常驻方 —— 现在没有。所以这一段的事实是:**build 侧已收口,dev 侧靠硬上限兜底(最长 30min 让位),不是已有心跳**。
 - **已自动生效**:`build-next-prod.ps1` [0/6] 阶段自动 acquire、[7/6] release;web 包 `prebuild`/`predev` 已接入。**agent 无需额外操作,直接跑构建脚本即可**。
 - **手动构建必须遵守**:触发 web 构建前先 `node scripts/deploy-lock.mjs check`(exit 0=可构建;exit 1=有其他构建/部署进行中,等待后重试)。**禁止**绕过锁直接 `next build` 或并发触发 `build-next-prod.ps1`。
-- **锁异常处理**:超时自动报错;超过 10min 的悬挂锁(持锁进程已死)自动抢占;紧急可删项目根 `.deploy.lock`(先确认无构建进程)。`.deploy.lock/` 已 gitignore。
+- **锁异常处理**:超时自动报错;持有者已退出的悬挂锁**不限锁龄**立即抢占(2026-08-27 判据);"名义存活但锁龄超 30min 硬上限"= pid 复用,同样归档后抢占(见上节 G-193);紧急可删项目根 `.deploy.lock`(先确认无构建进程)。`.deploy.lock/` 已 gitignore。
 - **禁止**用 `-CleanCache` 或其它参数绕过锁;多 Agent 协作时若需排队构建,等待而不是强删锁。
 
 ### 12b. 协作收尾 SOP (2026-08-18 立, §22c 配套)
