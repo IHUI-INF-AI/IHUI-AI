@@ -46,6 +46,12 @@ from ..services.agent_events import (
 )
 from ..services.agent_loop import agent_executor
 from ..services.agent_orchestrator import AgentOrchestrator, agent_orchestrator
+from ..services.goal_completion_gate import (
+    GoalCriterionSpec,
+    GoalCriterionSpecError,
+    gate_goal_completion,
+    validate_specs,
+)
 from ..services.memory import memory_store
 from ..services.run_ownership import owner_of, record_ownership, release_ownership
 from ..services.skills import skill_evolution_service
@@ -668,6 +674,32 @@ def store_trace(session_id: str, trace_data: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 
+class GoalCriterionIn(BaseModel):
+    """一条执行前声明的硬性指标(§8"验证标准:命令退出码 / 测试输出 / 文件状态 / HTTP 响应")。
+
+    `probeCommand` 非空 = 这条由**机器证据**定案(本轮必须真跑过该命令,退出码即结论,
+    校验模型碰不到它);为空 = 只能靠语义,交独立校验轮逐条判 met/unmet 并引用证据 id。
+    字段名沿用 goal_verification 端点的 camelCase 口径(同一机制的两种入口,不得两制)。
+    """
+
+    id: str = Field(min_length=1, max_length=64)
+    statement: str = Field(min_length=1, max_length=2000)
+    evidence_kind: str = Field(default="manual", max_length=32)
+    required: bool = True
+    probe_command: str = Field(default="", max_length=2000)
+    expected_exit_code: int = 0
+
+    def to_spec(self) -> GoalCriterionSpec:
+        return GoalCriterionSpec(
+            id=self.id,
+            statement=self.statement,
+            evidence_kind=self.evidence_kind,
+            required=self.required,
+            probe_command=self.probe_command,
+            expected_exit_code=self.expected_exit_code,
+        )
+
+
 class AgentExecuteRequest(BaseModel):
     """执行 agent 请求。"""
 
@@ -683,6 +715,17 @@ class AgentExecuteRequest(BaseModel):
         None,
         description="权限模式:default / acceptEdits / bypassPermissions / plan / manual"
         "(历史别名 auto / accept-edits / accept-all / read-only / plan-only 自动归一)",
+    )
+    # AGENTS.md §8 第 3 步的调用点(2026-09-25 立):执行**前**声明的硬性指标。
+    # 声明了才启用独立校验闸门;不声明 = 非 goal 模式,done 帧行为与接线前逐零差异。
+    hard_criteria: list[GoalCriterionIn] | None = Field(
+        None,
+        description=(
+            "goal 模式的硬性指标(执行前声明)。非空时,循环自宣完成后必须先过一次"
+            "独立校验轮才允许把 done 帧的 success 写成 true;"
+            "校验判未达成 / 未判定一律 success=false。"
+        ),
+        max_length=40,
     )
 
 
@@ -873,6 +916,18 @@ async def execute_agent(
                 "(非流式端点使用弃用的单轮执行器,不含审批门)"
             ),
         )
+    # 同一条"发了≠生效就不许发"的规矩(§8 第 3 步):独立校验闸门只接在流式端点上,
+    # 因为它是唯一留下 iterations 当机器事实入口的执行路径。此处若不拒,声明了
+    # hard_criteria 的调用方会拿到一个"从没被校验过却写着 success"的结果 —— 那正是
+    # 本票要堵的 fail-open,不能因为走了另一个入口就又开了。
+    if req.hard_criteria:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "hard_criteria 仅在 POST /agents/execute/stream 生效"
+                "(单轮执行器不产出工具调用记录,独立校验无从取证,宁可不答)"
+            ),
+        )
     if req.session_id:
         record_ownership(req.session_id, current_user)
         owned.append(req.session_id)
@@ -926,6 +981,14 @@ async def execute_agent_stream(
     """
 
     last_event_id = request.headers.get("last-event-id")
+    # 硬性指标的声明层面校验放在**开始流式之前**:声明不合法是请求错(422),
+    # 不该以一个 SSE 错误帧的形式让客户端在流里猜。校验口径复用 gate 的 validate_specs,
+    # 不在端点里再抄一份"重复 id 怎么判"。
+    if req.hard_criteria is not None:
+        try:
+            validate_specs([c.to_spec() for c in req.hard_criteria])
+        except GoalCriterionSpecError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     async def event_generator() -> AsyncIterator[str]:
         task_id = f"task-{asyncio.get_running_loop().time()}"
@@ -1011,6 +1074,52 @@ async def execute_agent_stream(
                                 break
                             await asyncio.sleep(0.05)
                     result = run_task.result()
+                    # ── AGENTS.md §8 第 3 步的调用点(2026-09-25 立)────────────────
+                    # 循环在"LLM 不再发 tool_calls"那一轮就返回 success=True
+                    # (agent_loop_v2.py:3574-3586) —— 那正是 §8 禁止的"模型自评 yes"。
+                    # 声明了硬性指标时,达成宣告必须先过独立校验轮:闸门只允许把
+                    # True 收成 False,任何"未判定"都不构成通过。异常同样 fail-closed
+                    # (闸门内部已收敛,这里再兜一层防止 done 帧整个丢掉)。
+                    verification_payload: dict[str, Any] | None = None
+                    frame_success = result.success
+                    frame_stop_reason = result.stop_reason
+                    if req.hard_criteria:
+                        try:
+                            decision = await gate_goal_completion(
+                                session_id=session_id,
+                                specs=[c.to_spec() for c in req.hard_criteria],
+                                iterations=result.iterations,
+                                final_response=result.final_response,
+                                executor_model=req.model,
+                                loop_success=result.success,
+                                loop_stop_reason=result.stop_reason,
+                            )
+                        except Exception as exc:  # noqa: BLE001 - 判不了就等于没达成
+                            logger.exception("goal 独立校验闸门调用失败(按未判定处理)")
+                            frame_success = False
+                            frame_stop_reason = "verification_undetermined"
+                            verification_payload = {
+                                "status": "not_run",
+                                "goal_status": "undetermined",
+                                "treat_as_complete": False,
+                                "criteria": [],
+                                "independent_request_made": False,
+                                "judge_model": None,
+                                "unavailable_reason": (
+                                    f"独立校验闸门调用失败: {type(exc).__name__}: {exc}"
+                                ),
+                                "independence_warnings": [],
+                                "consecutive_failures": 0,
+                                "max_consecutive_failures": 0,
+                            }
+                        else:
+                            verification_payload = (
+                                dict(decision.payload) if decision.payload else None
+                            )
+                            if not decision.allowed_complete:
+                                frame_success = False
+                                if decision.stop_reason:
+                                    frame_stop_reason = decision.stop_reason
                     # 结果事件(唯一 done,含 success/stop_reason/output)
                     # 2026-09-17 修复:去掉 [:2000] 截断——长回复被静默截断,
                     # 前端拿不到完整 final_response;SSE 行大小由网关层保证。
@@ -1018,13 +1127,22 @@ async def execute_agent_stream(
                         "type": SSE_DONE,
                         "task_id": task_id,
                         "session_id": session_id,
-                        "success": result.success,
-                        "stop_reason": result.stop_reason,
+                        "success": frame_success,
+                        "stop_reason": frame_stop_reason,
                         "output": getattr(result, "final_response", ""),
                         # W9#7(2026-09-18):done 回传 checkpoint_id —— 前端无需再
                         # 二次查询 /checkpoints 即可定位可回滚点(paused/cancelled/
                         # 异常中断时 AgentLoopResult 均携带;正常完成通常为 None)
                         "checkpoint_id": getattr(result, "checkpoint_id", None),
+                        # §8 第 3 步:校验结论必须到人,不得只进日志。None = 本次未启用
+                        # 独立校验(非 goal 模式);启用时逐条 verdict + reason 都在这里,
+                        # 前端按 goal_status 渲染 goal 状态行即可。
+                        "verification": verification_payload,
+                        "goal_status": (
+                            verification_payload.get("goal_status")
+                            if verification_payload
+                            else None
+                        ),
                     }
                     eid3 = sse_buffer.append(task_id, result_evt)
                     yield _format_sse(eid3, result_evt)
