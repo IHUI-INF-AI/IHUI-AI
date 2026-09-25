@@ -83,10 +83,10 @@ export default function SetNeed() {
        内容不同,仅对齐视觉语言;ThemeRoot 上提到页面根(修复暗色作用域)。 */
     <ThemeRoot className="min-h-screen bg-background px-[20rpx] pt-[24rpx] pb-[180rpx]">
       <View>
-        <Text className="block text-[32rpx] text-foreground font-semibold">
+        <Text className="block text-[length:32rpx] text-foreground font-semibold">
           {t('plaza.setNeed.directionTitle')}
         </Text>
-        <Text className="block text-[24rpx] text-muted-foreground mt-[8rpx]">
+        <Text className="block text-[length:24rpx] text-muted-foreground mt-[8rpx]">
           {t('plaza.setNeed.directionDesc')}
         </Text>
         <View className="flex flex-wrap gap-[16rpx] mt-[16rpx]">
@@ -101,7 +101,7 @@ export default function SetNeed() {
                 hoverClass="opacity-60"
               >
                 <Text
-                  className={`text-[32rpx] ${active ? 'text-primary-foreground' : 'text-foreground'}`}
+                  className={`text-[length:32rpx] ${active ? 'text-primary-foreground' : 'text-foreground'}`}
                 >
                   {label}
                 </Text>
@@ -112,7 +112,7 @@ export default function SetNeed() {
       </View>
 
       <View className="mt-[16rpx]">
-        <Text className="block text-[32rpx] text-foreground font-semibold">
+        <Text className="block text-[length:32rpx] text-foreground font-semibold">
           {t('plaza.setNeed.levelTitle')}
         </Text>
         <View className="flex flex-wrap gap-[16rpx] mt-[16rpx]">
@@ -126,7 +126,7 @@ export default function SetNeed() {
                 hoverClass="opacity-60"
               >
                 <Text
-                  className={`text-[32rpx] ${active ? 'text-primary-foreground' : 'text-foreground'}`}
+                  className={`text-[length:32rpx] ${active ? 'text-primary-foreground' : 'text-foreground'}`}
                 >
                   {lv}
                 </Text>
@@ -137,7 +137,7 @@ export default function SetNeed() {
       </View>
 
       <View className="mt-[16rpx]">
-        <Text className="block text-[32rpx] text-foreground font-semibold">
+        <Text className="block text-[length:32rpx] text-foreground font-semibold">
           {t('plaza.setNeed.budgetTitle')}
         </Text>
         <View className="flex flex-wrap gap-[16rpx] mt-[16rpx]">
@@ -151,7 +151,7 @@ export default function SetNeed() {
                 hoverClass="opacity-60"
               >
                 <Text
-                  className={`text-[32rpx] ${active ? 'text-primary-foreground' : 'text-foreground'}`}
+                  className={`text-[length:32rpx] ${active ? 'text-primary-foreground' : 'text-foreground'}`}
                 >
                   {b}
                 </Text>
@@ -162,7 +162,7 @@ export default function SetNeed() {
       </View>
 
       <Button
-        className="fixed bottom-[32rpx] left-[20rpx] right-[20rpx] h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-xl text-[32rpx] font-semibold"
+        className="fixed bottom-[32rpx] left-[20rpx] right-[20rpx] h-[100rpx] leading-[100rpx] bg-cta text-cta-foreground rounded-xl text-[length:32rpx] font-semibold"
         loading={saving}
         onClick={save}
         disabled={saving}
