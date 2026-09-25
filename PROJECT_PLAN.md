@@ -9363,3 +9363,12 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
 
 ## O73 危险操作确认旁路收口到工具层(五处收四处)+ 台账幻影债复测七条(2026-09-25)
 - **✅ 顺手收掉本票取证过程中自己制造的一处泄漏(2026-09-25,`scripts/lib/scratch-dir.mjs`)**:上面那两次"干净 HEAD 隔离检出"用到 `mkScratch`,而共用层此前**要求调用方自己写 finally** —— 实测 `scripts/tests/check-cross-end-tokens.test.mjs:426` 就把 `rmScratch` 写在断言之后,该用例今天失败过 3 次,于是 `DevEnv/Temp/ihui-scratch` 里留下 3 个约 750KB 的孤儿夹具。"人人都记得 try/finally"是散文约束,已被证明会漏 ⇒ 改为 `mkScratch` 注册 + `process.on('exit')` 统一回收(**只回收本进程本次建的**,显式 `rmScratch` 即出表;SIGKILL/断电不在内,那类残留由 §26 每日 Temp 体检兜)。取证:`scripts/tests/scratch-dir.test.mjs` 4 例 → **6 例连跑两次全绿**,含成对双向对照 —— 阳性:子进程 `mkScratch` 后抛错,路径必须消失;反向:同目录里别的进程留下的夹具**不得**被扫掉(按前缀 glob 清理的实现会在这一条红)。变异证明:把钩子摘掉 ⇒ 恰好这 2 条红并点名残留路径。写这批测试时自己也踩了一次:第一版按"scratch 根里有几个 `leak-probe-` 前缀目录"计数,于是**上一次运行留下的残留**会让本次判假红 —— 判据依赖历史而不是依赖被测行为,已改为只断言"这一次子进程打出来的那个路径"消失。
+- [ ] 钩子 trust 的**残余面**:webhook 形态钩子仍不过门(本批按 command 收口);
+- [ ] `reclaim` 改写信封内容的边界:本批只在 CLI 侧由"重建提醒"兜回产物指针,
+- [ ] WP-1 新 API 尚未接入 `builtins.ts`/`terminal.ts` 执行链(接一行即可恢复 YOLO 观感,
+- [ ] `config/architecture-policy.yaml` 目前 0 个模块 `managed:true` —— 渐进收口的第一块翻正面尚未选定。
+- [ ] **`stream-tool-ledger` 未入库**:模块与单测已绿(`apps/cli/src/stream-tool-ledger.ts`),
+- [ ] `/api/agent/goal-verify` **无生产消费方**(端点已注册、测试已断言路由存在,但 goal 运行循环
+- [ ] page_* 动词的**跨端登记**未做:web / miniapp-taro / RN / desktop / api 侧 `agent_action` 枚举与
+- **未做与为什么(不留"看起来已完成"的假象)**:① 同一型在另三端仍在 —— **分端存量一律按当次实测取**(`node scripts/check-glyph-arrow-icon.mjs --json` 的 `violations.ga4` 按 `file` 前缀计数),本票立项当次读数为 **packages/app 229 处 / mobile-rn 3 处,共 177 文件**。此处刻意不沿用本票正文早先那对 grep 级数字("223 处 / 168 文件"):门只数**整格子内容 + 可证 affordance** 的那些,与裸 grep 命中不同口径,两个数混用会让下一个人按错的清单派单 —— 与本仓"收口进度不写进文档、数字按当次实测取"是同一条规矩。② 端上真机渲染未验(微信开发者工具不在本会话能力内),本票只到"源码级 + 类型级 + 守门级"。
+- [ ] P1 **返回键同一型跨端清账(本票的直接续作)**:① `packages/app/src/features/**` 与两个共享 `NavBar` / `PayResultScreen` 的 ‹;② `apps/mobile-rn/src/screens/**` 及其端内 `NavBar`(RN 侧写法是 `lucide-react-native ChevronLeft`,端内 `apps/mobile-rn/src/screens/AboutScreen.tsx` 已有现成范例);③ `apps/extension` 那处「字符箭头 + 文字」双写(属 102 的 GA1 族而非 GA4)。做法与本票同:先复用该端既有矢量出口,再按文件收编,顺带删各自失效的样式工厂。**存量数字一律按上面那条命令现取,勿照任何文档里的历史数派单。** GA4 棘轮已把这些位置钉成"不得再加",但棘轮不会自动变小 —— 存量清零前,GA4 在这三端始终只是"没恶化",不是"已合规"。
