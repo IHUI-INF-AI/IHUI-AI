@@ -9052,6 +9052,27 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   `assertBundleSuperset` 恰恰实现了这套叶子键对账(注释明写"removed 必须为 0,否则回滚")。
   ⇒ 同一判据已存在于 dev 冷启路径,却没接进提交链与全量审计,是"判据必须在真跑它的那一刻才成立"的又一实例。
   接手动作:把 `assertBundleSuperset` 的键集比对移进 105 的 i18n 组复用(勿再抄第四份包格式)。
+
+### 第四十九批·续十二(2026-09-25 05:5x):全量审计 142 道门只剩 **1 道红(107)**,成因与归属登记清楚
+- 收敛后跑 `node scripts/guardian-runner.mjs` 全量:**138 通过 / 3 警告 / 1 失败(228.5s)**。
+  此前那三道红的另外两道**已被各自作者收掉**,我一行没碰:103 由 `3b89b779c` 收回被并发 merge 复活的
+  `packages/i18n/tests/waiting-keys-in-end-packages.test.ts`(与我独立判断同一条:跨层 import 的旧测试副本);
+  108 由 `scripts/module-context.mjs:135` 把帮助文本改成"族名 arch-exempt,须带原因"(不再构成可扫标记)。
+- **我在 108 上先写错了一版修法并自我撤回**,值得留档:本想给门加"字符串字面量内的标记不算豁免"的判据,
+  自检 `S04` 立刻红 —— `F_ALLOW` 是 `s.textContent='*{…/*!ihui-allow-important:…*/}'`,
+  **内容脚本注入的 CSS 里豁免本来就必须写在字符串内**。照我那版改会让这一族真豁免集体隐身(假绿),
+  比误红坏得多。已 `git restore --source=HEAD --worktree --` 整文件撤回并复测 36/36 回到原状。
+  教训:**给"计数型"门加丢弃规则之前,先看它的正向夹具是不是恰好落在那个丢弃区里。**
+- **107 现状与归属**(`scripts/provenance-ledger.mjs`,P5 判据):机制账
+  `config/third-party-provenance/mechanisms.json:25` 的 `specFile` 指向
+  `.ihui-agent/tmp/zcode-absorb/MECHANISM-SPEC-2.md`,而 ① `.ihui-agent/` 被 `.gitignore:145` 整目录忽略
+  ⇒ 跟踪面上永不存在;② 该目录**在本机盘上也已不存在**(`find` 全盘零命中)。所以这道门现在是**恒红**,
+  后果不是"少一个检查"而是**每次提交都被逼 `--no-verify`、连带 142 道全废**(§12e 同型)。
+  归属=该账本的作者(PLAN 第 7681 行仍有其未勾选票"上游第二轮规格派出的票,规格在 …MECHANISM-SPEC-2.md")。
+  **我不是作者,且这是第三方来源/许可记账** —— 三条出路都由他定:(a) 把规格正文落到跟踪路径
+  (如 `config/third-party-provenance/specs/` 或 `docs/`)并改指;(b) 若规格确实不可考,按门要求的
+  "显式 null + 说明"形态记账;(c) 调整 P5 使其接受"规格在 gitignored 区 ⇒ 必须改跟踪件"。
+  我**刻意不自造一份规格文件顶上** —— 替别人的来源声明编锚点,比这道红坏得多。
 ### O60j 失败卡两份实现合一（任务 #10 收口），并更正我 O60i 里一句过强的话（2026-09-25 完成 ✅）
 - [x] ✅(2026-09-25) **`MessageErrorCard` 现在是失败卡的唯一实现**：`MessageItem.tsx` 的整段内联错误卡
   （标题条 / 正文 / D92 错误码行 / 建议动作 / 重试钮 / D60 草稿提示）**删掉**，改为渲染组件；
