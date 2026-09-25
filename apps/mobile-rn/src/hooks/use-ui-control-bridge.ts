@@ -4,7 +4,15 @@
 
 import { useEffect, useRef } from 'react'
 import { createNotificationClient, fetchApi, type WSNotification } from '@ihui/api-client'
+import {
+  createAssignmentTokenLedger,
+  isAgentActionAssignedToInstance,
+  unassignedAgentActionLogMessage,
+  withRespondedIdentity,
+  type AgentActionSelfIdentity,
+} from '@ihui/shared/utils/agent-action-addressing'
 import type {
+  AgentActionAssignment,
   AgentActionRequest,
   AgentActionResponse,
   AgentControlCapability,
@@ -67,6 +75,18 @@ export function getRnInstanceId(): string {
   return INSTANCE_ID
 }
 
+/**
+ * 定址投递(2026-09-26,五桥共用 `@ihui/shared/utils/agent-action-addressing` 那一份判据):
+ * api 的 WS 按 userId 广播,`assignment` 由服务端派发时写入载荷 —— 非指派到本机的指令不得
+ * 执行,且留可诊断日志(不静默 return);回执原样回显服务端 token + 自报本实例。
+ * 载荷缺 assignment = 旧服务端形态,逐字走改前路径(含回执不带 responded)。
+ */
+const assignmentTokens = createAssignmentTokenLedger(PROCESSED_IDS_MAX)
+
+function selfIdentity(): AgentActionSelfIdentity {
+  return { endpoint: 'rn', instanceId: INSTANCE_ID }
+}
+
 /* ────────────────────────── 消息解析与去重 ────────────────────────── */
 
 /** requestId 去重:WS 重连后服务端可能重推同一指令,重复执行会重复导航 */
@@ -81,7 +101,10 @@ function rememberRequestId(requestId: string): void {
   }
 }
 
-function extractAgentRequest(payload: unknown): AgentActionRequest | null {
+function extractAgentEnvelope(payload: unknown): {
+  request: AgentActionRequest
+  assignment?: AgentActionAssignment
+} | null {
   if (!payload || typeof payload !== 'object') return null
   const outer = payload as Record<string, unknown>
   const data =
@@ -91,7 +114,8 @@ function extractAgentRequest(payload: unknown): AgentActionRequest | null {
   if (!data || data.type !== 'agent.action') return null
   const request = data.request
   if (!request || typeof request !== 'object') return null
-  return request as AgentActionRequest
+  const assignment = data.assignment as AgentActionAssignment | undefined
+  return { request: request as AgentActionRequest, ...(assignment ? { assignment } : {}) }
 }
 
 function isAppUiAction(action: unknown): action is AppUiActionType {
@@ -146,17 +170,33 @@ function reportCapability(): void {
 }
 
 function reportResult(response: AgentActionResponse): void {
-  void postQuiet('/api/agent-control/result', response, '回传移动端执行结果')
+  // 回执身份回显:只回显服务端派发过的 token + 自报本实例(无 token = 旧服务端形态,原样回传)
+  void postQuiet(
+    '/api/agent-control/result',
+    withRespondedIdentity(response, assignmentTokens, selfIdentity()),
+    '回传移动端执行结果',
+  )
 }
 
 /* ────────────────────────── WS 消息处理 ────────────────────────── */
 
-export function handleAgentAction(request: AgentActionRequest): void {
+export function handleAgentAction(
+  request: AgentActionRequest,
+  assignment?: AgentActionAssignment,
+): void {
+  // 定址过滤(2026-09-26):非指派到本实例不得执行,且留可诊断痕迹(不得静默 return)
+  if (!isAgentActionAssignedToInstance(assignment, selfIdentity())) {
+    console.warn(
+      `${LOG_TAG} ${unassignedAgentActionLogMessage(request.requestId, assignment, selfIdentity())}`,
+    )
+    return
+  }
   if (processedIds.has(request.requestId)) return
   // api 按 userId 广播,同用户多设备都会收到;被钉定给别的实例时静默让位,
-  // 否则两台手机会各自执行一次同一条指令
+  // 否则两台手机会各自执行一次同一条指令(旧服务端无 assignment 时这是唯一防撞手段)
   if (request.targetInstanceId && request.targetInstanceId !== INSTANCE_ID) return
   rememberRequestId(request.requestId)
+  if (assignment) assignmentTokens.remember(request.requestId, assignment.token)
 
   if (!isAppUiAction(request.action)) {
     reportResult({
@@ -189,10 +229,12 @@ export function handleAgentAction(request: AgentActionRequest): void {
 }
 
 export function handleWsNotification(msg: WSNotification): void {
-  const request = extractAgentRequest(msg)
-  if (!request || request.category !== 'app_ui') return
+  const envelope = extractAgentEnvelope(msg)
+  if (!envelope) return
+  const { request, assignment } = envelope
+  if (request.category !== 'app_ui') return
   if (typeof request.requestId !== 'string' || !request.requestId) return
-  handleAgentAction(request)
+  handleAgentAction(request, assignment)
 }
 
 /* ────────────────────────── 连接生命周期 ────────────────────────── */
