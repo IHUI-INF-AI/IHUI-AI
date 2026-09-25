@@ -30,7 +30,7 @@ import type {
   SkillNotification,
 } from '@ihui/shared/skills/market'
 import { checkAuth } from '../plugins/auth.js'
-import { requireAdmin } from '../plugins/require-permission.js'
+import { requireAdmin, isSystemAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { config } from '../config/index.js'
 
@@ -235,6 +235,44 @@ const publishSchema = z.object({
 const listingSchema = z.object({
   enabled: z.boolean(),
 })
+
+/**
+ * 从请求体里只读取 name,用于「授权」这一步(先于 Zod,见 POST /skills/market)。
+ * 取不到合法 name 时返回 undefined ⇒ 调用处跳过条目级授权、继续走 Zod 拿 400。
+ * 这一步是 fail-closed 的:它只会「提前拒」,不可能「提前放行」——写动作仍在校参数之后。
+ */
+function readRawNameForAuthorization(body: unknown): string | undefined {
+  if (typeof body !== 'object' || body === null) return undefined
+  const candidate = (body as { name?: unknown }).name
+  return typeof candidate === 'string' ? candidate : undefined
+}
+
+/**
+ * 市场条目的写授权判据(纯函数;三条身份 × 四种条目形态由
+ * apps/api/tests/skills-market-publish-ownership.test.ts 逐档列全)。
+ *
+ * **依据只有两样:调用者的服务端身份,与条目上已存的 `ownerId`。**
+ * 请求体自报的 `author` 字符串一律不参与判定 —— 原缺陷正是拿它当归属凭证:author 是
+ * 公开可见的自由文本(内置种子就写着 `IHUI`,见 MARKET_SEED_RAW),比它等于让任何
+ * 登录用户抄源码里的作者名,把平台内置技能认领成自己的并原地改写。
+ *
+ * 档位(自上而下短路):
+ *  1. 内部自进化同步通道 ⇒ 放行。它写的就是 hub 条目本身,且 publisherId 恒为 undefined,
+ *     不会认领归属;收紧它等于把 ai-service 的同步链路打死。
+ *  2. 系统管理员(roleId >= 1,只认人用 JWT)⇒ 放行。hub / builtin / 无主 legacy 这些
+ *     「无人是 owner」的条目,治理面只有这一档。
+ *  3. 其余 ⇒ 仅归属者本人。`ownerId` 为空时无人匹配 ⇒ 一律 false,认领通道即此关闭。
+ */
+function mayWriteMarketEntry(input: {
+  target: Pick<SkillMarketEntry, 'ownerId'>
+  isInternal: boolean
+  isAdmin: boolean
+  callerId: number | undefined
+}): boolean {
+  if (input.isInternal) return true
+  if (input.isAdmin) return true
+  return input.callerId !== undefined && input.target.ownerId === input.callerId
+}
 
 async function readMarket(
   redis: {
@@ -748,6 +786,7 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /skills/market — 发布 skill 到市场(用户上架自己的 skill)
   server.post('/skills/market', async (request: FastifyRequest, reply: FastifyReply) => {
+    // ── 1. 鉴权(身份)────────────────────────────────────────────────────────────
     // 内部服务调用(self-evolution 自进化同步)可通过 X-Internal-Secret 绕过 JWT
     const internalSecret = request.headers['x-internal-secret']
     const isInternal = !!config.AI_CALLBACK_SECRET && internalSecret === config.AI_CALLBACK_SECRET
@@ -755,22 +794,56 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
       if (!(await checkAuth(request, reply))) return
     }
 
+    // ── 2. 调用者档位:一律由服务端推导,不接受请求体自报 ─────────────────────────
+    // 内部自进化同步 ⇒ source=hub 且无归属用户;登录用户上架 ⇒ source=user + ownerId。
+    const publisherId = isInternal ? undefined : Number(request.userId!)
+    // admin 档只认人用 JWT(includeInternalChannel:false),与 requireAdmin 同档:
+    // "持有内部密钥 + 把 X-User-Id 填成某管理员"不构成 admin 提权。
+    const isAdmin = !isInternal && isSystemAdmin(request, { includeInternalChannel: false })
+
+    // ── 3. 授权(先于校参数,AGENTS §5)────────────────────────────────────────────
+    // 条目级授权需要按 name 查条目,所以这里只能用未过 Zod 的原始 name;拿不到字符串
+    // 就跳过本步、由下一步给 400。跳过只可能"少拒一次",不可能"多放一次"——写动作仍
+    // 在校参数之后,且第 5 步会再判一次同一谓据。
+    const entries = await readMarket(server.redis, MARKET_KEY)
+    const rawName = readRawNameForAuthorization(request.body)
+    const preTarget = rawName === undefined ? undefined : entries.find((e) => e.name === rawName)
+    if (
+      preTarget &&
+      !mayWriteMarketEntry({
+        target: preTarget,
+        isInternal,
+        isAdmin,
+        callerId: publisherId,
+      })
+    ) {
+      return reply
+        .status(403)
+        .send(error(403, '只有该 Skill 的上架者本人或管理员可以更新这个市场条目'))
+    }
+
+    // ── 4. 校参数 ─────────────────────────────────────────────────────────────────
     const parsed = publishSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const body = parsed.data as SkillPublishRequest
 
-    // 归属由服务端按调用身份推导,不接受请求体自报:
-    // 内部自进化同步 ⇒ source=hub 且无归属用户;登录用户上架 ⇒ source=user + ownerId。
-    const publisherId = isInternal ? undefined : Number(request.userId!)
-
-    const entries = await readMarket(server.redis, MARKET_KEY)
+    // ── 5. 动作 ───────────────────────────────────────────────────────────────────
     const existingIdx = entries.findIndex((e) => e.name === body.name)
 
     // 同名 + 同作者 → 视为版本更新(更新条目 + 通知订阅者)
     if (existingIdx >= 0) {
       const existing = entries[existingIdx]!
+      // 再判一次:授权不建立在"上面第 3 步判过"这种隐式约定上 —— 那句一旦在后续重构里
+      // 被摘掉,这里就静默退化成无闸门。两次判定之间不存在任何写入。
+      if (!mayWriteMarketEntry({ target: existing, isInternal, isAdmin, callerId: publisherId })) {
+        return reply
+          .status(403)
+          .send(error(403, '只有该 Skill 的上架者本人或管理员可以更新这个市场条目'))
+      }
+      // 作者冲突检查排在授权之后:非归属者连"这条目的作者是谁"都不该试探得到
+      // (原顺序把 409 当探针,等于给攻击者一台作者名枚举机)。
       if (existing.author !== body.author) {
         return reply.status(409).send(error(409, '同名 Skill 已存在且作者不同'))
       }
@@ -781,8 +854,12 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
       existing.version = body.version
       existing.license = body.license
       existing.updatedAt = new Date().toISOString()
-      // 归属补齐:source/ownerId 落地之前上架的条目没有 owner,而作者名已由上一行
-      // 409 校验把住,所以这里认领的是"作者本人补登记",不是抢注。
+      // 归属补齐(给契约落地前上架、没有 ownerId 的条目补登记)。
+      // 谁能走到这里:上面的写授权已把住"非归属的普通用户一律 403",而内部通道
+      // publisherId 恒为 undefined 故本分支自然不触发 ⇒ 实际只剩**系统管理员**能补齐。
+      // 这正是改法所在:补齐的依据是"调用者是管理员"这一服务端身份,不再是请求体自报的
+      // author 字符串 —— 旧注释声称"归属不接受自报",实现里却拿自报的 author 当凭证,
+      // 内置种子的 author('IHUI' / 'OpenSource')在源码里公开可见,等于任何人可认领。
       // 刻意不动 enabled —— 版本更新不该把 owner 主动下架的条目偷偷放回在架。
       if (existing.ownerId === undefined && publisherId !== undefined) {
         existing.ownerId = publisherId
