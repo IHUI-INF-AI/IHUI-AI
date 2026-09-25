@@ -38,8 +38,8 @@
  *   ③ 回归网: --self-test(真仓库演练,正反用例) + scripts/tests/ 下镜像测试(§22c)。
  */
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { resolveRemoteHead } from './lib/face-reader.mjs'
 
@@ -109,6 +109,82 @@ export function alignFailureNote(e) {
       .filter(Boolean)[0] || String((e && e.message) || e || '未知原因').split('\n')[0]
   const timedOut = e && e.timedOut ? '(超时)' : ''
   return `${code}${timedOut} ${cause}`.slice(0, 200)
+}
+
+// ─── 收尾对齐状态台账(2026-09-25 票 O74:从"失败只记日志"到"能喊到人") ───
+// 收敛器是"谁跑谁一次性"的进程,自己不适合直接发邮件;守护 git-guardian 每 2 分钟一轮,
+// 已是所有自愈告警的派发点 ⇒ 本文件**只写** `.workbuddy/converge-align-state.json`
+// (失败 +1 / 成功归零并写 lastOkAt),阈值判断与到人只在 git-guardian.mjs 侧
+// (`shouldAlertAlignStall` → `notifyGuardRed('converge-align-stall', …)`,§5e 唯一邮件通道)。
+// 并发安全:临时文件 + renameSync 原子替换;读不到 / JSON 坏了 ⇒ 视作"无法判定"并照常重写。
+// 收敛器停摆的代价远大于状态缺失,本层任何异常一律吞掉,绝不让状态文件把收敛器搞崩。
+// 相对 repo 根的固定落点(recordAlignOutcome 用 resolve(repoRoot, ALIGN_STATE_FILE) 拼绝对)。
+// **必须保持相对路径** —— 写成 resolve(cwd) 的绝对路径会让 repoRoot 参数形同虚设。
+export const ALIGN_STATE_FILE = '.workbuddy/converge-align-state.json'
+
+/** 读状态;文件缺失 / 坏 JSON / 形状不对一律返回 null("无法判定"),不抛 */
+export function readAlignState(p) {
+  try {
+    const s = JSON.parse(readFileSync(p, 'utf8'))
+    if (!s || typeof s !== 'object' || !Number.isFinite(s.consecutiveFailures)) return null
+    return s
+  } catch {
+    return null
+  }
+}
+
+/** 原子写(临时文件 + rename);目录不存在即补建;任何失败只返回 false,不外抛 */
+export function writeAlignState(p, s) {
+  const tmp = `${p}.${process.pid}.tmp`
+  try {
+    mkdirSync(dirname(p), { recursive: true })
+    writeFileSync(tmp, JSON.stringify(s, null, 1), 'utf8')
+    renameSync(tmp, p)
+    return true
+  } catch {
+    try {
+      rmSync(tmp, { force: true })
+    } catch {
+      /* 清理临时文件失败也无所谓 */
+    }
+    return false
+  }
+}
+
+/** 纯函数:由旧状态 + 本轮成败算出新状态(失败 +1 / 成功归零并写 lastOkAt) */
+export function nextAlignState(prev, { ok, note, nowMs, roundMerges }) {
+  const hasPrev = prev && typeof prev === 'object'
+  const numOr = (v, dflt) => (Number.isFinite(v) ? v : dflt)
+  if (ok) {
+    return {
+      consecutiveFailures: 0,
+      lastFailAt: numOr(hasPrev ? prev.lastFailAt : null, null),
+      lastOkAt: nowMs,
+      lastNote: String(note ?? 'ok'),
+      // 语义:本次对齐**实际修复的文件数**(0 = 无漂移,也是成功)
+      lastRoundMerges: numOr(roundMerges, null),
+    }
+  }
+  return {
+    consecutiveFailures: numOr(hasPrev ? prev.consecutiveFailures : 0, 0) + 1,
+    lastFailAt: nowMs,
+    lastOkAt: numOr(hasPrev ? prev.lastOkAt : null, null),
+    lastNote: String(note ?? ''),
+    lastRoundMerges: numOr(roundMerges, null),
+  }
+}
+
+/** 收敛器收尾处调用:把本轮对齐结果落进状态台账(整体吞异常,绝不影响收敛结论) */
+export function recordAlignOutcome(repoRoot, ok, note, roundMerges) {
+  try {
+    const p = resolve(repoRoot, ALIGN_STATE_FILE)
+    writeAlignState(
+      p,
+      nextAlignState(readAlignState(p), { ok, note, nowMs: Date.now(), roundMerges }),
+    )
+  } catch {
+    /* 状态台账失败不回扰收敛 */
+  }
 }
 
 /** a 是否为 b 的祖先(merge-base --is-ancestor 靠 exit code 判定) */
@@ -463,6 +539,8 @@ function main() {
    * 对齐判据在 scripts/heal-worktree-tracked.mjs:索引==HEAD 且 工作区内容==该路径某祖先版本
    * 才动,任一不成立即放过 ⇒ 会话的真实未提交改动与有暂存的路径都不被覆盖。
    * 失败只记日志,绝不影响收敛结论(推送已成功)。
+   * 2026-09-25 票 O74:成败都写进 .workbuddy/converge-align-state.json,由 git-guardian
+   * 按"连续 ≥3 次且最后失败 ≥10 分钟"的阈值经 notifyGuardRed 喊到人(只记日志不再是终点)。
    */
   function alignWorktreeAfterHeadMove() {
     try {
@@ -483,11 +561,13 @@ function main() {
         .split('\n')
         .pop()
       const r = JSON.parse(out || '{}')
+      recordAlignOutcome(repoRoot, true, `aligned=${r.aligned ?? 0}`, r.aligned ?? 0)
       if (r.aligned) {
         log(C.dim, `  🧹 工作区幻影漂移已对齐 ${r.aligned} 个文件(HEAD 前进未 checkout 的后遗症)`)
       }
     } catch (e) {
       log(C.yellow, '  工作区漂移对齐未完成(不影响收敛结论): ' + alignFailureNote(e))
+      recordAlignOutcome(repoRoot, false, alignFailureNote(e), null)
     }
   }
 
@@ -736,6 +816,10 @@ export const __test__ = {
   assertNoSilentRevert,
   resolveRemoteHead,
   alignFailureNote,
+  readAlignState,
+  writeAlignState,
+  nextAlignState,
+  recordAlignOutcome,
   selfTest,
 }
 
