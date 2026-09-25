@@ -23374,12 +23374,6 @@
     "figmaView": "Figma ビュー",
     "settingsView": "設定ビュー"
   },
-  "topBar": {
-    "editor": "エディタ",
-    "close": "閉じる",
-    "plus": "新規",
-    "skillsMarket": "Skill マーケット"
-  },
   "statusBar": {
     "toggleTheme": "テーマ切替"
   },
