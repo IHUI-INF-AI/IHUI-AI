@@ -30,12 +30,21 @@
  * 紧急跳过:HUSKY_SKIP_DOCKERFILE_COPY_GUARD=1 git commit ...
  */
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
-import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+
+// 判定面取材一律走共用层(2026-09-26 迁,守门 118 的 loose-git 档收口)。
+// 本门此前自己 `execFileSync('git', ['show','HEAD:package.json'])` 读正文:那五件各门自己写必错的
+// 事(裸 'git' 依赖 PATH / cat-file 的 stdio[0] / 逐文件派生 / junction 下的根比对 / maxBuffer)
+// 全在这里各写了一遍。**面本身一字未改** —— A 判据的基准仍是"提交内容"(HEAD),被审的 Dockerfile
+// 内容、workflow 上下文与 workspace 包图仍按工作树取(文件头注释写明的口径),换的只是取法。
+import { Undetermined, catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
+
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const GIT_TIMEOUT = 120000
 const LIFECYCLE_KEYS = ['preinstall', 'postinstall', 'prepare']
 const SCRIPT_FILE_RE = /\.(mjs|cjs|js|ts)$/
 /** 根 monorepo 上下文标记:只有根 package.json 安装阶段才会被 COPY 进来的文件 */
@@ -50,19 +59,55 @@ const C = {
   reset: '\x1b[0m',
 }
 
+/**
+ * 枚举路径清单(不读正文)也走层的统一派生:绝对 git + safe.directory + quotepath + 数字 timeout
+ * + maxBuffer。失败仍返回 `[]` —— 与改法前逐字等值，调用方各自有"空清单不得静默判绿"的护栏。
+ */
 function gitLines(args) {
   try {
-    return execFileSync('git', ['-c', 'safe.directory=*', ...args], {
-      cwd: ROOT,
-      encoding: 'utf8',
-      windowsHide: true,
-    })
+    return gitRaw(args, ROOT, { timeout: GIT_TIMEOUT })
       .split('\n')
       .map((s) => s.trim())
       .filter(Boolean)
   } catch {
     return []
   }
+}
+
+/**
+ * 按面读一个路径的**正文**(取材层)。
+ *
+ * 本门各判据取哪一面,是文件头注释里写定的既有口径,本票一字未改:
+ *  - A 判据的基准 = `HEAD`(CI/Docker 构建消费的是提交内容,工作树可能正被并行会话改);
+ *  - B/C 判据的被审内容(Dockerfile、workflow 上下文、workspace 包图)= 工作树。
+ * 换的只是"怎么取":此前是 `execFileSync('git',['show','HEAD:package.json'])` + `readFileSync`。
+ * 抽成函数是为了让 `--self-test` 能**构造**"索引 ≠ HEAD"的现场,证明取的是被点名的那一面,
+ * 而不是"碰巧磁盘上就是 HEAD 的那一份"(§22c:判据的对象是文件形态时,镜像/自检的输入必须取自真实现场)。
+ */
+export function readAtFace(root, face, rel) {
+  if (face === 'worktree') return readWorktreeFile(root, rel)
+  const rev = face === 'staged' ? '' : 'HEAD'
+  const spec = `${rev}:${rel}`
+  return catBatch(root, [spec], { maxBuffer: 1 << 29, timeout: GIT_TIMEOUT }).get(spec) ?? null
+}
+
+/**
+ * A 判据基准的取源:HEAD 优先,取不到才降级到工作树(原实现的兜底顺序,未改),
+ * 两面都给不出 ⇒ 抛 `Undetermined` ⇒ 对外 exit 2「无法判定」，
+ * 不得把"没读到根清单"混成 `return 2` 的一句模糊话,更不得当成通过。
+ */
+export function lifecyclePackageSource(root, read = (face, rel) => readAtFace(root, face, rel)) {
+  const head = read('head', 'package.json')
+  if (typeof head === 'string') return { src: head, used: 'HEAD blob' }
+  let why = 'HEAD 面取不到'
+  try {
+    const disk = read('worktree', 'package.json')
+    if (typeof disk === 'string') return { src: disk, used: '工作树(HEAD 取不到时降级)' }
+    why = '工作树也没有该文件'
+  } catch (e) {
+    why = `工作树读取失败:${e?.message ?? e}`
+  }
+  throw new Undetermined(`读不到根 package.json(HEAD 与工作树均失败):${why}`)
 }
 
 /** 从 package.json 的生命周期钩子里抽出被 `node <file>` 引用的脚本路径(只收仓库内相对路径)。 */
@@ -161,10 +206,11 @@ export function workflowContexts(root) {
   for (const wf of files) {
     let text
     try {
-      text = readFileSync(join(root, wf), 'utf8')
+      text = readWorktreeFile(root, wf)
     } catch {
       continue
     }
+    if (typeof text !== 'string') continue
     let ctx = null
     for (const line of text.split(/\r?\n/)) {
       const c = /^\s*context:\s*(\S+)\s*$/.exec(line)
@@ -192,15 +238,7 @@ export function workflowContexts(root) {
 export function committedPaths(root = ROOT) {
   let files = []
   try {
-    files = execFileSync(
-      'git',
-      ['-c', 'safe.directory=*', 'ls-tree', '-r', '--name-only', 'HEAD'],
-      {
-        cwd: root,
-        encoding: 'utf8',
-        windowsHide: true,
-      },
-    )
+    files = gitRaw(['ls-tree', '-r', '--name-only', 'HEAD'], root, { timeout: GIT_TIMEOUT })
       .split('\n')
       .map((s) => s.trim())
       .filter(Boolean)
@@ -357,7 +395,7 @@ export function workspaceGraph(root = ROOT) {
     if (relPath.includes('node_modules')) continue
     let p
     try {
-      p = JSON.parse(readFileSync(join(root, relPath), 'utf8'))
+      p = JSON.parse(readWorktreeFile(root, relPath))
     } catch {
       continue
     }
@@ -499,7 +537,67 @@ function selfTest() {
     if (!ok) bad++
     console.log(`${ok ? '✅' : '❌'} ${c.name}(期望 ${c.want},实得 ${got})`)
   }
-  const n = SELFTEST_CASES.length
+  // ---- 判定面构造证明(2026-09-26 迁移配套)------------------------------------
+  // 现场:临时 git 仓里 `package.json` 的**索引版本**新增了 postinstall 钩子(引用一个没被 COPY 的
+  // 脚本),而 **HEAD 版本**没有。四条断言各证明一件事,少一条就是恒真式:
+  //   ① staged 面必须取到索引那一份(钩子 = 1)⇒"跟面走"不是注释;
+  //   ② head 面对同一输入必须取到 HEAD 那一份(钩子 = 0)⇒ ① 的反向对照;
+  //   ③ A 判据的基准按本门既有口径**恒取 HEAD**(文件头注释写明的),所以它此刻必须看不见索引那一份;
+  //   ④ HEAD 取不到才降级工作树,两面都取不到 ⇒ 抛 `Undetermined`(对外 exit 2),绝不静默判绿。
+  // ⚠️ 断言必须**在 rmScratch 之前**执行:上一版把注册与执行拆到 finally 两侧,用例真正跑起来时
+  //    目录已没了,`spawnSync` 报的是 `git.exe ENOENT` —— 一个夹具生命周期 bug 伪装成"git 坏了"。
+  const extra = []
+  const xt = (name, fn) => extra.push({ name, fn })
+  const repo = mkScratch('ihui-dockerfile-face-')
+  try {
+    const pkgClean = JSON.stringify({ name: 't', scripts: {} })
+    const pkgHook = JSON.stringify({ name: 't', scripts: { postinstall: 'node scripts/new-hook.mjs' } })
+    mkdirSync(join(repo, 'packages', 'a'), { recursive: true })
+    writeFileSync(join(repo, 'package.json'), pkgClean, 'utf8')
+    gitRaw(['init', '-q'], repo, { timeout: GIT_TIMEOUT })
+    gitRaw(['add', '-A'], repo, { timeout: GIT_TIMEOUT })
+    gitRaw(['-c', 'user.name=gate', '-c', 'user.email=gate@local', 'commit', '-q', '-m', 'base'], repo, { timeout: GIT_TIMEOUT })
+    writeFileSync(join(repo, 'package.json'), pkgHook, 'utf8')
+    gitRaw(['add', '--', 'package.json'], repo, { timeout: GIT_TIMEOUT })
+
+    xt('索引内容与 HEAD 不同 ⇒ staged 面必须取索引那一份(A 判据基准的钩子数 = 1)', () => {
+      const refs = lifecycleScriptRefs(JSON.parse(readAtFace(repo, 'staged', 'package.json')))
+      if (refs.length !== 1 || refs[0] !== 'scripts/new-hook.mjs') throw new Error(`实得 ${JSON.stringify(refs)}`)
+    })
+    xt('同一输入在 HEAD 面给出 HEAD 的结论(反向对照:上一条不是恒真式)', () => {
+      const refs = lifecycleScriptRefs(JSON.parse(readAtFace(repo, 'head', 'package.json')))
+      if (refs.length !== 0) throw new Error(`HEAD 那一版没有钩子,实得 ${JSON.stringify(refs)}`)
+    })
+    xt('A 判据的基准按既有口径恒取 HEAD —— 索引里改了也不算跟随索引', () => {
+      const got = lifecyclePackageSource(repo)
+      if (got.used !== 'HEAD blob') throw new Error(`used=${got.used}`)
+      if (lifecycleScriptRefs(JSON.parse(got.src)).length !== 0) throw new Error('A 判据基准不该跟随索引那一份')
+    })
+    xt('HEAD 取不到才降级工作树;两面都取不到 ⇒ 抛 Undetermined(不得把"没读到"记成通过)', () => {
+      const diskOnly = lifecyclePackageSource(repo, (face) => (face === 'head' ? null : pkgHook))
+      if (lifecycleScriptRefs(JSON.parse(diskOnly.src)).length !== 1) throw new Error('降级后必须看见工作树那一份的钩子')
+      let threw = null
+      try {
+        lifecyclePackageSource(repo, () => null)
+      } catch (e) {
+        threw = e
+      }
+      if (!(threw instanceof Undetermined)) throw new Error(`两面都取不到必须抛 Undetermined,实得 ${String(threw)}`)
+    })
+
+    for (const c of extra) {
+      try {
+        c.fn()
+        console.log(`✅ ${c.name}`)
+      } catch (e) {
+        bad++
+        console.log(`❌ ${c.name} — ${e.message}`)
+      }
+    }
+  } finally {
+    rmScratch(repo)
+  }
+  const n = SELFTEST_CASES.length + extra.length
   console.log(bad === 0 ? `\nself-test 全通过(${n} 例)` : `\nself-test 失败 ${bad}/${n} 例`)
   return bad === 0 ? 0 : 1
 }
@@ -529,22 +627,23 @@ export async function main(argv = process.argv.slice(2)) {
   if (argv.includes('--self-test')) return selfTest()
 
   const staged = argv.includes('--staged')
+  // 本门没有"工作树档"这个判定面(A 基准恒取 HEAD、B 的存在性按提交内容、被审内容取工作树),
+  // 所以 `--worktree` 不是"另一个面"而是**未知开关**。未知开关静默落进默认分支是本仓踩过的坑
+  // (表现为"账面像按档判了,其实什么都没换"),这里直接判死而不是忽略。
+  // 把本门口径统一成三面同形属另一票(见 PROJECT_PLAN 第八批交接 H-3 的落地注记)。
+  if (argv.includes('--worktree')) {
+    console.error(`${C.red}✗${C.reset} 本门无 --worktree 档(判定面口径见文件头,统一属另一票)`)
+    return 2
+  }
   // A 判据的钩子引用集取自 **HEAD 的根 package.json**:CI/Docker 构建的是提交内容而非工作树,
   // 而工作树里这份文件可能正被并行会话改(实测:它已被本地删掉钩子但未暂存)。
+  // 取法走取材层(`readAtFace`),降级顺序与兜底语句与原实现一致;两面都给不出 ⇒ exit 2。
   let pkgSrc
   try {
-    pkgSrc = execFileSync('git', ['-c', 'safe.directory=*', 'show', 'HEAD:package.json'], {
-      cwd: ROOT,
-      encoding: 'utf8',
-      windowsHide: true,
-    })
-  } catch {
-    try {
-      pkgSrc = readFileSync(join(ROOT, 'package.json'), 'utf8')
-    } catch (e) {
-      console.error(`${C.red}✗${C.reset} 读不到根 package.json(HEAD 与工作树均失败):${e.message}`)
-      return 2
-    }
+    pkgSrc = lifecyclePackageSource(ROOT).src
+  } catch (e) {
+    console.error(`${C.red}✗${C.reset} ${e instanceof Undetermined ? e.message : `读不到根 package.json:${e?.message ?? e}`}`)
+    return 2
   }
   let pkg
   try {
@@ -582,10 +681,11 @@ export async function main(argv = process.argv.slice(2)) {
   for (const rel of files) {
     let content
     try {
-      content = readFileSync(join(ROOT, rel), 'utf8')
+      content = readWorktreeFile(ROOT, rel)
     } catch {
       continue
     }
+    if (typeof content !== 'string') continue
     const context = contexts.get(rel) ?? contexts.get(rel.replace(/^\.\/+/, ''))
     if (context) judgedB += 1
     violations.push(...scanDockerfile({ rel, content, rootRefs, context, committed, graph }))
