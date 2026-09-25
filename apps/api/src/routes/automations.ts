@@ -15,7 +15,8 @@
  *
  * 所有查询强制 where userId = req.userId 防越权。
  */
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { Redis } from 'ioredis'
 import { z } from 'zod'
 import { and, desc, eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
@@ -23,6 +24,8 @@ import { userAutomations, chatConversations } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { parseNextRun, executeAutomation } from '../services/agent-automation-scheduler.js'
+import type { AutomationRepairService } from '../services/automation-repair-service.js'
+import { buildRepairService } from '../services/automation-repair-service.js'
 
 // =============================================================================
 // Zod schemas
@@ -97,7 +100,95 @@ function computeNextRunAt(input: {
 }
 
 // =============================================================================
-// 路由
+// D30 无人值守修复闭环 admin 面(2026-09-26 立,G-36)
+// =============================================================================
+//
+// 与上面用户侧 CRUD 隔离为**独立 encapsulated 插件**,单一集中 admin 闸门
+// (requireAdmin,roleId >= 1;懒加载避免把 auth/rbac/db 静态链拖进本文件加载面)。
+// 路径全部显式列举,不引任何 `[^/]+` 兜底参数路由 —— 整族路由默认需要 admin,
+// 新登记的 /repair/<静态段> 天然在闸门后,不存在"新增静态段被当游客详情放行"的洞。
+//
+// 服务未启用(IHUI_AUTOMATIONS_ENABLED !== 'true')/ 装配失败 ⇒ 一律 503 明确原因,
+// 不静默退化(无人值守 = 高危面,fail-closed)。
+
+const repairListQuerySchema = z.object({
+  state: z.enum(['pending', 'claimed', 'running', 'fixed', 'failed']).optional(),
+})
+
+const repairKeyParamSchema = z.object({
+  /** 任务键:issue:123 / code-scanning:45 / workflow-run:6789 */
+  key: z
+    .string()
+    .min(3)
+    .max(120)
+    .regex(/^[\w.-]+:[\w.-]+$/, '任务键形如 source:number'),
+})
+
+export interface RepairAdminRoutesOptions {
+  /** 注入式服务(测试用);缺省按 env 懒装配一次并缓存 */
+  service?: AutomationRepairService | null
+  /** 覆盖 admin 闸门(测试注入);缺省懒加载 require-permission 的 requireAdmin */
+  guard?: (request: FastifyRequest, reply: FastifyReply) => Promise<void>
+}
+
+async function requireAdminGuardLazy(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { requireAdmin } = await import('../plugins/require-permission.js')
+  return requireAdmin(request, reply)
+}
+
+export const repairAdminRoutes: FastifyPluginAsync<RepairAdminRoutesOptions> = async (
+  server,
+  opts,
+) => {
+  const guard = opts.guard ?? requireAdminGuardLazy
+  server.addHook('preHandler', async (request, reply) => {
+    await guard(request, reply)
+  })
+
+  let cached: AutomationRepairService | null | undefined = opts.service ?? undefined
+  const resolveService = async (): Promise<AutomationRepairService | null> => {
+    if (cached !== undefined) return cached
+    // server.redis 由 plugins/redis.ts 装饰;缺省时服务层落 fail-closed 锁(拒认领)
+    const redis = (server as unknown as { redis?: Redis }).redis ?? null
+    cached = await buildRepairService({ redis })
+    return cached
+  }
+
+  // GET /repair/tasks — 任务列表(可按状态过滤)
+  server.get('/repair/tasks', async (request, reply) => {
+    const service = await resolveService()
+    if (!service)
+      return reply.status(503).send(error(503, '无人值守修复闭环未启用或装配失败(fail-closed)'))
+    const parsed = repairListQuerySchema.safeParse(request.query)
+    if (!parsed.success) return reply.status(400).send(error(400, 'state 参数非法'))
+    return reply.send(success({ items: service.listTasks(parsed.data.state) }))
+  })
+
+  // GET /repair/tasks/:key — 单任务详情(含迁移审计流水)
+  server.get('/repair/tasks/:key', async (request, reply) => {
+    const service = await resolveService()
+    if (!service)
+      return reply.status(503).send(error(503, '无人值守修复闭环未启用或装配失败(fail-closed)'))
+    const parsed = repairKeyParamSchema.safeParse(request.params)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const task = service.getTask(parsed.data.key)
+    if (!task) return reply.status(404).send(error(404, '修复任务不存在'))
+    return reply.send(success(task))
+  })
+
+  // POST /repair/cycle — 手动触发一轮(摄入 → 认领 → 执行 → 回帖),返回逐任务报告
+  server.post('/repair/cycle', async (_request, reply) => {
+    const service = await resolveService()
+    if (!service)
+      return reply.status(503).send(error(503, '无人值守修复闭环未启用或装配失败(fail-closed)'))
+    const result = await service.runCycle()
+    return reply.send(success(result))
+  })
+}
+
+// =============================================================================
+// 路由(用户侧自动化 CRUD + D30 修复闭环 admin 面)
 // =============================================================================
 
 const automationsRoutes: FastifyPluginAsync = async (server) => {
@@ -296,6 +387,10 @@ const automationsRoutes: FastifyPluginAsync = async (server) => {
     }
     return reply.send(success({ id: row.id, summary }))
   })
+
+  // D30 修复闭环 admin 面:作为子插件注册,继承本插件的 authenticate,
+  // 再叠加集中 requireAdmin 闸门(双闸,任何一道失效另一道仍拦)。
+  void server.register(repairAdminRoutes)
 }
 
 export default automationsRoutes
