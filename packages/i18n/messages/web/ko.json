@@ -1,4 +1,43 @@
 {
+  "ecosystem": {
+    "title": "생태",
+    "description": "나란히 있던 여러 마켓 진입점을 한 페이지로 모았습니다. 스킬·MCP·케파빌리티·커넥터 마켓과 전문가 팩에서 바로 이동할 수 있습니다.",
+    "marketsSection": "케파빌리티 마켓",
+    "bundlesSection": "전문가 팩",
+    "bundlesHint": "전문가 워크플로 기준으로 여러 마켓의 역량을 묶었습니다. 태그를 눌러 해당 페이지로 이동하세요",
+    "cards": {
+      "aiSkills": {
+        "title": "AI 스킬",
+        "desc": "에이전트에 AI 스킬을 연결해 대화와 작업 확장"
+      },
+      "mcpStore": {
+        "title": "MCP 스토어",
+        "desc": "내장 MCP 서버 디렉터리를 원클릭 등록"
+      },
+      "capabilityMarket": {
+        "title": "케파빌리티 마켓",
+        "desc": "플랫폼 자체 MCP 역량(도구/리소스/프롬프트) 활성화"
+      },
+      "skillsMarket": {
+        "title": "Skill 마켓",
+        "desc": "자기 진화 스킬 마켓: 설치·평점·구독"
+      },
+      "connectors": {
+        "title": "중국어 커넥터",
+        "desc": "위두·페이수·기업위챗·딩톡 문서 소스 연결"
+      }
+    },
+    "bundles": {
+      "contentCreator": {
+        "title": "콘텐츠 크리에이터 팩",
+        "desc": "집필·발행 워크플로 종합 진입점: AI 스킬, Skill 마켓, 중국어 커넥터"
+      },
+      "developerExtension": {
+        "title": "개발자 확장 팩",
+        "desc": "도구 확장 워크플로 종합 진입점: MCP 스토어 등록과 플랫폼 역량"
+      }
+    }
+  },
   "aiWs": {
     "videoDone": "동영상 생성이 완료되었습니다",
     "videoFailed": "동영상 생성에 실패했습니다. 다시 시도해 주세요",
@@ -10381,11 +10420,11 @@
       "noReferences": "참조가 없습니다",
       "uploading": "첨부 업로드 중",
       "uploadFailed": "첨부 업로드 실패",
-      "cacheHit": "캐시 적중 {ratio} ({read} 재사용)",
+      "cacheHit": "캐시 적중 {ratio} ({read} 다시 읽기)",
       "cacheOccupancyNote": "적중된 부분도 여전히 창에 {occupied}를 차지하지만 다시 프리필할 필요는 없습니다",
       "cacheUnavailable": "이번 사용량 프레임에 캐시 수치가 없어 적중 여부를 판단할 수 없습니다",
       "detailsTruncated": "외 {count}개 항목은 접혀 있습니다",
-      "residualNote": "총 {tokens}는 프로토콜 포장 및 직렬화 오버헤드로 위 구성에 포함되지 않았습니다",
+      "residualNote": "별도로 {tokens}는 프로토콜 포장 및 직렬화 오버헤드이며 위 구성에 포함되지 않았습니다",
       "resultSuffix": "결과",
       "segRoleAssistant": "어시스턴트 응답",
       "segRoleToolCall": "도구 호출 인자",
@@ -18036,6 +18075,7 @@
     "none": "없음"
   },
   "nav": {
+    "ecosystemHub": "생태 마켓",
     "adminRelayInsights": "인사이트",
     "adminRelayEnterprise": "기업 컴플라이언스",
     "adminRelayPlugins": "플러그인",
@@ -25133,6 +25173,14 @@
     "subscribed": "{name} 업데이트를 구독했습니다",
     "unsubscribed": "{name} 구독을 취소했습니다",
     "close": "닫기",
+    "unlist": "게시 중단",
+    "relist": "다시 게시",
+    "unlistSuccess": "{name} 게시를 중단했습니다",
+    "relistSuccess": "{name}을(를) 다시 게시했습니다",
+    "unlisted": "게시 중단됨",
+    "notFoundTitle": "Skill을 찾을 수 없습니다",
+    "notFoundHint": "“{name}”이(가) 존재하지 않거나 게시자가 마켓에서 게시를 중단했습니다.",
+    "backToMarket": "Skill 마켓으로 돌아가기",
     "ratingsTitle": "사용자 평점",
     "rateTitle": "이 스킬 평점 남기기",
     "yourScore": "내 평점",

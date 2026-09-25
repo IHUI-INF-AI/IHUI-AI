@@ -50,7 +50,7 @@ const trim = (l) => l.trim()
 // 打断 —— 2026-09-25 实测把 `check-task-claims.mjs` 弄死过一次,故把纯函数抽出去而不是被 import。
 // 这里**原样再导出**同名符号,既有调用方(`SIM_THRESHOLD` / `tokenize` / `jaccard`)一字不变。
 export { SIM_THRESHOLD, jaccard, tokenize } from './lib/live-doc-similarity.mjs'
-import { SIM_THRESHOLD, CONTAIN_MIN, jaccard, squash, tokenize } from './lib/live-doc-similarity.mjs'
+import { SIM_THRESHOLD, CONTAIN_MIN, jaccard, squash, stripState, tokenize } from './lib/live-doc-similarity.mjs'
 
 /**
  * 容器短路:HEAD 行的**全部非空白字符**原样出现在工作树某行里 ⇒ 内容逐字存活,只是被就地延长。
@@ -61,20 +61,63 @@ import { SIM_THRESHOLD, CONTAIN_MIN, jaccard, squash, tokenize } from './lib/liv
  * 下界 CONTAIN_MIN 个非空白字符:再短的裸标记行(`- [ ]` 等)在满屏清单里必然被"包含",会被误洗成存活。
  */
 
-/** 给每个"HEAD 有而工作树无"的行定性 lost / superseded(被就地改写取代)。 */
+/**
+ * 登记锚点:这三份文档里「一件事一行」的写法都有稳定头部(`- **名称**` / `### 标题`),
+ * 所以同一锚点在「HEAD 缺失集」与「工作树独有集」里各出现**一次** ⇒ 那是就地改写,不是吃掉。
+ *
+ * 为什么必须有它(2026-09-25 实测):容器短路只管"HEAD 行逐字存活在更长的新行里",
+ * 而我改守门 84 那行时改的是**中段**(把"merge 整轮豁免"换成 R1m 三条件),旧行并不逐字
+ * 存活,长行大改后 Jaccard 又掉到阈值下 ⇒ 被判真丢失、跑 --apply 会把旧行原样插回 ⇒
+ * 新旧两行并存,正是本仓已出现三次的那种重复登记行。
+ * 唯一性是本条规则的生命线:锚点在任一侧出现不止一次 ⇒ 不猜,退回原判据(宁可多报一行,
+ * 也不能把"整段登记被人删掉"洗成"他改写了")。
+ */
+export function anchorKey(line) {
+  const s = String(line).trim()
+  if (!s.length) return null
+  let m = /^[-*]\s+\*\*(.{2,80}?)\*\*/.exec(s)
+  if (m) return `B#${m[1].trim()}`
+  m = /^#{2,4}\s+(.{2,140}?)(?=[(（:：—-]|$)/.exec(s)
+  if (m) return `H#${m[1].trim()}`
+  return null
+}
+
+/** 给每个「HEAD 有而工作树无」的行定性 lost / superseded(被就地改写取代)。 */
 export function classifyMissing(headLines, wtLines, threshold = SIM_THRESHOLD) {
   const wtSet = new Set(wtLines.map(trim).filter(Boolean))
   const headSet = new Set(headLines.map(trim).filter(Boolean))
   const localOnly = wtLines.map(trim).filter((t) => t.length > 0 && !headSet.has(t))
   const localTok = localOnly.map(tokenize)
   const localSquashed = localOnly.map(squash)
+  const bump = (map, k) => {
+    if (k) map.set(k, (map.get(k) || 0) + 1)
+  }
+  const localAnchor = new Map()
+  for (const l of localOnly) bump(localAnchor, anchorKey(l))
+  const missingAnchor = new Map()
+  for (const raw of headLines) {
+    const t = trim(raw)
+    if (t.length && !wtSet.has(t)) bump(missingAnchor, anchorKey(t))
+  }
+  // 翻勾会改行首状态(`- [ ]（进行中）` → `- [x] ✅(日期)`),不剥掉它就永远"不逐字包含",
+  // 于是把刚翻勾的那行判成真丢失、`--apply` 再插回一遍 —— 双态行就是这么造出来的。
+  const localBare = localOnly.map((l) => squash(stripState(l)))
   const verdict = new Map()
   for (const raw of headLines) {
     const t = trim(raw)
     if (!t.length || wtSet.has(t)) continue
     const tt = tokenize(t)
     const sq = squash(t)
-    if (sq.length >= CONTAIN_MIN && localSquashed.some((w) => w.includes(sq))) {
+    const bare = squash(stripState(t))
+    if (
+      (sq.length >= CONTAIN_MIN && localSquashed.some((w) => w.includes(sq))) ||
+      (bare.length >= CONTAIN_MIN && localBare.some((w) => w.includes(bare)))
+    ) {
+      verdict.set(t, 'superseded')
+      continue
+    }
+    const ak = anchorKey(t)
+    if (ak && localAnchor.get(ak) === 1 && missingAnchor.get(ak) === 1) {
       verdict.set(t, 'superseded')
       continue
     }
@@ -280,6 +323,76 @@ function selfTest() {
       ['anchor', '- [ ] 某条长待办正文内容远超容器下界'],
     )
     assert(v2.get('- [ ]') === 'lost', '短裸标记行被容器短路误洗')
+  })
+
+  // ⑪ 2026-09-25 第二次被同一机制咬到:⑨ 只覆盖"正文原样 + 追加",而真实翻勾还会
+  // 改行首状态(`- [ ]（进行中）` → `- [x] ✅(日期)`)。状态前缀不剥,容器通道对这一整类
+  // 直接失效 —— 后果就是 `--apply` 把我刚翻勾的那行按"真丢失"插回来,当场造出双态行。
+  ck('⑪ 翻勾改的是行首状态前缀:剥掉状态后正文仍逐字存活 ⇒ 判 superseded 不插回', () => {
+    const held = '- [ ]（进行中） **D17(生态统一入口)**:页面已写完但缺语言包,按住'
+    const flipped =
+      '- [x] ✅(2026-09-25) **D17(生态统一入口)**:页面已写完但缺语言包,按住' +
+      ' **同票补齐并入库**:五语 30 键已插入,vitest 8 passed,check-i18n-keys 由红转 parity OK。'
+    assert(!squash(flipped).includes(squash(held)), '本例必须"带状态前缀就不互含",否则测不到 stripState 的意义')
+    const head = ['anchor', held, 'tail']
+    const wt = ['anchor', flipped, 'tail']
+    const v = classifyMissing(head, wt)
+    assert(v.get(held) === 'superseded', `应判 superseded,实判 ${v.get(held)}`)
+    assert(mergeByAnchors(head, wt, v).lines === 0, '把刚翻勾的行又插回一遍(= 造双态行)')
+  })
+
+  // ⑬ ⑪ 的补刀用例:翻勾时除了换状态标记,还会加 `✅(日期)` 完成戳。
+  // 第一版 stripState 只剥前者,这条形态照样被判"真丢失" —— 同一个坑第二天又踩一次。
+  ck('⑬ 带 ✅(日期) 完成戳的翻勾行也判 superseded(第一版 stripState 漏的那一型)', () => {
+    const held = '- [ ]（进行中） **守卫票：`scripts/i18n-apply.mjs` 把未知参数当无参直接写盘**'
+    const flipped =
+      '- [x] ✅(2026-09-25) **守卫票：`scripts/i18n-apply.mjs` 把未知参数当无参直接写盘**' +
+      ' **已落地**:`--help` 只打印用法,未识别参数 exit 2,判定全在读词包之前。'
+    assert(
+      squash(flipped).includes(squash(held)) === false,
+      '本例必须"连状态前缀一起剥才成立":若整行原样互含,就测不到 ✅ 戳这一层',
+    )
+    const v = classifyMissing(['anchor', held, 'tail'], ['anchor', flipped, 'tail'])
+    assert(v.get(held) === 'superseded', `应判 superseded,实判 ${v.get(held)}`)
+  })
+  // ⑫ ⑪/⑬ 的对照组:状态前缀**不能**变成万能洗地通道。
+  ck('⑫ 剥状态前缀不得替真丢失洗地(整条正文没存活的行仍判 lost)', () => {
+    const gone = '- [ ]（进行中） **D99 交还前必须自行复验**:按权威入口复跑并贴末行输出,不得转述'
+    const unrelated = '- [x] ✅(2026-09-25) **D98 别的条目**:已完成,与 D99 无关,只是同样带状态前缀'
+    const v = classifyMissing(['anchor', gone], ['anchor', unrelated])
+    assert(v.get(gone) === 'lost', '剥了状态前缀就把不相关行当成同一条 ⇒ 真丢失会被洗绿')
+  })
+
+  // ⑭⑮⑯ 锚点规则(2026-09-25 加):容器短路只管"逐字存活",改中段就看不见。
+  ck('⑭ 中段大改(旧行不逐字存活且 Jaccard 低于阈值)但锚点唯一 ⇒ 判 superseded 不插回', () => {
+    const oldLine = '- **闸门甲**(7):旧口径把 merge 与 cherry-pick 一起整轮放行,取证 8 例'
+    const newLine =
+      '- **闸门甲**(7):新口径只在 MERGE_HEAD 上跑三条件窄判据 ours==theirs ∧ index!=ours ∧ index∈历史祖先,取证扩到 12 例并补一把反向回归锁,真仓两条口径复测均 rc=0'
+    const v = classifyMissing(['shared', oldLine], ['shared', newLine])
+    assert(
+      jaccard(tokenize(oldLine), tokenize(newLine)) < SIM_THRESHOLD,
+      '对照组失效:这两行本来就够像,测不到锚点规则',
+    )
+    assert(!newLine.includes(oldLine), '旧行不得逐字存活(否则走的是容器短路,不是本条)')
+    assert(v.get(oldLine) === 'superseded', `锚点唯一应判 superseded,实判 ${v.get(oldLine)}`)
+  })
+
+  ck('⑮ 反向对照:整条登记被删(工作树无同锚点行)⇒ 仍判 lost,不得被锚点规则洗绿', () => {
+    const gone = '- **闸门乙**(9):这一条被别人从文档里整段删掉了'
+    const other = '- **闸门丙**(9):另一件事,锚点不同,措辞也几乎不重叠 zzzz yyyy wwww'
+    const v = classifyMissing(['shared', gone], ['shared', other])
+    assert(v.get(gone) === 'lost', '删掉的登记必须报丢失 —— 锚点规则只认"同锚点存在改写"')
+  })
+
+  ck('⑯ 锚点在缺失集里出现两次(HEAD 自带重复登记)⇒ 不猜,退回原判据', () => {
+    const a = '- **闸门丁**(5):AAA BBB CCC DDD EEE FFF GGG HHH III JJJ KKK LLL'
+    const b = '- **闸门丁**(5):xxx yyy zzz www vvv uuu ttt sss rrr qqq ppp ooo'
+    const c = '- **闸门丁**(5):mmm nnn bbb vvv ccc zzz ddd xxx fff ggg hhh jjj kkk'
+    const v = classifyMissing(['shared', a, b], ['shared', c])
+    assert(
+      v.get(a) === 'lost' && v.get(b) === 'lost',
+      '同锚点有多条待归位时不猜是哪条被改写 ⇒ 宁可多报交人工',
+    )
   })
 
   for (const [mark, name] of cases) console.log(`${mark} ${name}`)
