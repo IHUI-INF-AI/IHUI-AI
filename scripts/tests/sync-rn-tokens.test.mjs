@@ -238,3 +238,53 @@ test('T8 与门同面:派生器认作已同步的每一档,用门自己的 color
     )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+test('T9 modelType / agentName 是派生态:同名推导自动命中,改源一档三表跟着改(正向对照)', () => {
+  const paths = [
+    'modelType.text',
+    'modelType.textBg',
+    'modelType.image',
+    'modelType.imageBg',
+    'modelType.av',
+    'modelType.avBg',
+    'agentName.DEFAULT',
+  ]
+  const tables = ['rnTokens', 'rnLightTokens', 'rnDarkTokens']
+  const plan = realPlan()
+  for (const p of paths)
+    for (const t of tables) {
+      const e = plan.entries.find((x) => x.table === t && x.path === p)
+      assert.ok(e, `${t}.${p} 必须在派生台账里(不在 = 这一档仍是手抄)`)
+      assert.match(e.status, /^derived-/, `${t}.${p} 状态应为可派生,实得 ${e.status}`)
+      assert.ok(
+        !plan.unmanaged.some((u) => u.table === t && u.path === p),
+        `${t}.${p} 不得落进不可派生清单`,
+      )
+    }
+  // agentName 走的是「DEFAULT 折叠成父名」那条推导(仓内没有 --color-agent-name-default)
+  const an = plan.entries.find((x) => x.table === 'rnTokens' && x.path === 'agentName.DEFAULT')
+  assert.equal(an.srcVar, '--color-agent-name', '必须推到父名档,而不是臆造另一个变量')
+
+  // 正向对照:改**源**的一档(内存夹具,绝不写真文件)⇒ 三张表都跟着产生写回
+  const css = readFileSync(join(ROOT, CSS_REL), 'utf8')
+  const changed = css.split('--color-model-type-image: #c41e7a;').join('--color-model-type-image: #ff00aa;')
+  assert.ok(css !== changed, '夹具必须真的改到源(且 @theme 与 .dark 两处都改,明暗同值档成对声明)')
+  const t2 = sync.readTokenTables(changed)
+  const p2 = sync.planDerivation({ rnText: readFileSync(join(ROOT, RN_REL), 'utf8'), light: t2.light, dark: t2.dark })
+  const hits = p2.changes.filter((c) => c.path === 'modelType.image')
+  assert.equal(hits.length, 3, `三张表各一处待写回,实得 ${hits.length}`)
+  for (const h of hits) assert.equal(h.to, '#ff00aa', '写回值必须等于新源值')
+  assert.equal(
+    p2.changes.filter((c) => /^modelType\./.test(c.path) && c.path !== 'modelType.image').length,
+    0,
+    '只许动被改的那一档,不得牵连兄弟键',
+  )
+  // 幂等:写回后再判必须零漂移
+  const applied = sync.applyPlan(readFileSync(join(ROOT, RN_REL), 'utf8'), p2)
+  const t3 = sync.readTokenTables(changed)
+  assert.equal(
+    sync.planDerivation({ rnText: applied, light: t3.light, dark: t3.dark }).changes.length,
+    0,
+    '按源写回后必须逐档收敛',
+  )
+})

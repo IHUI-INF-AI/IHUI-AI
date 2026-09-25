@@ -59,8 +59,16 @@ function providerIcon(providerId: string): { letter: string; bg: string } {
   )
 }
 
-/** 类型徽章配色(对齐 uniapp model-plaza:图像粉 / 音视频绿 / 文本蓝,语义区分非主色) */
-function typeBadge(type: ModelPlazaModelType): {
+/**
+ * 类型徽章配色(图像粉 / 音视频绿 / 文本蓝,语义区分非主色)。
+ * 色值不在这里写字面量:唯一来源是 tokens.css 的 --color-model-type-*,
+ * 经 scripts/sync-rn-tokens.mjs 派生进 rn-tokens.ts 的 modelType 命名空间,再由主题袋取用
+ * (小程序端同一批 token 走 var(--color-model-type-*),两端同源 —— AGENTS §4 跨端同步铁律)。
+ */
+function typeBadge(
+  type: ModelPlazaModelType,
+  tk: AppThemeTokens,
+): {
   text: string
   color: string
   bg: string
@@ -69,18 +77,23 @@ function typeBadge(type: ModelPlazaModelType): {
   if (type === 'image') {
     return {
       text: '',
-      color: '#C41E7A',
-      bg: '#FDE8F5',
+      color: tk.modelType.image,
+      bg: tk.modelType.imageBg,
       labelKey: 'modelPlaza.typeImage',
     }
   }
   if (type === 'av') {
-    return { text: '', color: '#2E7D32', bg: '#E8F5E9', labelKey: 'modelPlaza.typeAv' }
+    return {
+      text: '',
+      color: tk.modelType.av,
+      bg: tk.modelType.avBg,
+      labelKey: 'modelPlaza.typeAv',
+    }
   }
   return {
     text: '',
-    color: '#1888EE',
-    bg: '#E8F4FD',
+    color: tk.modelType.text,
+    bg: tk.modelType.textBg,
     labelKey: 'modelPlaza.typeText',
   }
 }
@@ -204,7 +217,7 @@ export function ModelPlazaScreen({
           </View>
         }
         renderItem={({ item }) => {
-          const tb = typeBadge(item.type)
+          const tb = typeBadge(item.type, tk)
           return (
             <TouchableOpacity
               style={styles.modelCard}

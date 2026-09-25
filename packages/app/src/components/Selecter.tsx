@@ -400,6 +400,7 @@ export function Selecter({
             </div>
           ) : (
             <div style={viewStyles.inner()}>
+              {/* back-label-exempt: 子面板(比例档)收合回退按钮,文字是标签非页头返回键;本文件无 i18n/矢量图标通道,until 2026-12-31 */}
               <div
                 role="button"
                 tabIndex={0}
@@ -412,7 +413,7 @@ export function Selecter({
                   }
                 }}
               >
-                <span style={textStyles.backText(tk)}>← 返回</span>
+                <span style={textStyles.backText(tk)}>返回</span>
               </div>
               <div style={viewStyles.sizeLabel()}>
                 <span style={{ ...textStyles.sizeLabel(), color: tk.brand.DEFAULT }}>
