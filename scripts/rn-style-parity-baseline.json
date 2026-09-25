@@ -5,7 +5,7 @@
   "hooks/use-push.ts": ["#ff231f7c"],
   "screens/CarteScreen.tsx": ["#9395e4"],
   "screens/ChatScreen.tsx": ["#9cdcfe"],
-  "screens/DevEnterScreen.tsx": ["#517bff", "#b0aefa", "#cfceff"],
+  "screens/DevEnterScreen.tsx": ["#b0aefa", "#cfceff"],
   "screens/LoginScreen.tsx": ["#000000", "#ffffff"],
   "screens/MoreCourseScreen.tsx": ["#93d2e2"],
   "screens/RecruitmentScreen.tsx": ["#9395e4"],
