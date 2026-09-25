@@ -125,19 +125,19 @@ export default function PayResult() {
             <LineIcon name={statusGlyph[status]} size={80} color="var(--color-surface-light)" />
           </View>
           {/* statusText 对齐 RN: mt rpx(32)→32rpx + fontSize 18dp→36rpx semibold + text.primary→foreground */}
-          <Text className="mt-[32rpx] text-[36rpx] font-semibold text-foreground">
+          <Text className="mt-[32rpx] text-[length:36rpx] font-semibold text-foreground">
             {tt(statusKey[status][0], statusKey[status][1])}
           </Text>
           {/* amountText 对齐 RN: mt rpx(16)→16rpx + fontSize 20dp→40rpx semibold + danger.DEFAULT→--color-danger */}
           {amount > 0 && (
-            <Text className="mt-[16rpx] text-[40rpx] font-semibold text-[color:var(--color-danger)]">
+            <Text className="mt-[16rpx] text-[length:40rpx] font-semibold text-[color:var(--color-danger)]">
               ¥{amount.toFixed(2)}
             </Text>
           )}
           {orderNo ? (
             <View className="mt-[24rpx] px-[60rpx]">
               {/* 订单号为小程序端补充信息(RN 无此行):13dp→26rpx + text.secondary→muted-foreground */}
-              <Text className="text-center text-[26rpx] text-muted-foreground">
+              <Text className="text-center text-[length:26rpx] text-muted-foreground">
                 {`${tt('pay.orderNo', '订单号')}：${orderNo}`}
               </Text>
             </View>
@@ -155,7 +155,7 @@ export default function PayResult() {
                 hoverClass="opacity-85"
                 onTap={goBack}
               >
-                <Text className="text-[30rpx] font-semibold text-[color:var(--color-primary-foreground)]">
+                <Text className="text-[length:30rpx] font-semibold text-[color:var(--color-primary-foreground)]">
                   {tt('pay.backHome', '返回首页')}
                 </Text>
               </View>
@@ -166,7 +166,7 @@ export default function PayResult() {
                 hoverClass="opacity-85"
                 onTap={goOrders}
               >
-                <Text className="text-[30rpx] text-foreground">
+                <Text className="text-[length:30rpx] text-foreground">
                   {tt('pay.viewOrders', '查看订单')}
                 </Text>
               </View>
@@ -177,7 +177,7 @@ export default function PayResult() {
               hoverClass="opacity-85"
               onTap={() => void check()}
             >
-              <Text className="text-[30rpx] font-semibold text-[color:var(--color-primary-foreground)]">
+              <Text className="text-[length:30rpx] font-semibold text-[color:var(--color-primary-foreground)]">
                 {tt('pay.refresh', '刷新状态')}
               </Text>
             </View>
