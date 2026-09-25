@@ -83,7 +83,11 @@ interface RuleCandidate {
 
 interface RuleAutoGenerateResult {
   candidates: RuleCandidate[]
-  behaviorCount: number
+  /**
+   * 参与统计的行为条数。ai-service 的 auto-generate 只回候选列表、不回这个数,
+   * 所以本端**不得**造一个 0 冒充"分析过 0 条" —— 缺失即整句不显示(见 Dialog)。
+   */
+  behaviorCount?: number
   degraded: boolean
   message?: string
 }
