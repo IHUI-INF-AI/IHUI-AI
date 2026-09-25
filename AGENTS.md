@@ -1947,3 +1947,11 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 - **路由身份键对账**(113):`scripts/check-tool-arg-routing-identity.mjs`(blocking,`stagedTriggers=apps/cli/src/tools/`,2026-09-25 立) —— 钉的是**"谁的数据"不得由模型决定**:路由身份一律由宿主在 closure / ctx 绑定,绝不得出现在模型可见参数集合里。键清单的**唯一源**是 `packages/types/src/tool-contract.ts` 的 `ROUTING_IDENTITY_KEYS`(门与类型层共用一份实现,禁止第二份;该常量被摘线本门即 exit 2 并点名,而不是"清单空 ⇒ 全绿")。三类落点都判:直接 `parameters` 字面量、具名 helper 单跳回溯、契约 `shape.input.properties` 跨文件解析;键名归一化(小写去 `_`/`-`)故 `sessionId`/`session_id`/`SESSION_ID` 同视。**刻意只收 16 个"填错会把结果送到别人那里"的键** —— `messageId`/`toolCallId`/`taskId`/`fileId`/`path` 属内容引用或业务句柄,纳进来会误拦正当用法(加键先问那一句,镜像测试反向钉死)。投影出口侧不是"未判到":静态验 `schema-projection.ts` 里 `properties[name]` 的键名逐字取自 `Object.entries(parameters)`、无字面量下标/改名 ⇒ 判 `name-preserving`;解析不出即计未判定并 exit 2。口径同 77/83/98/103/112(全量判 HEAD blob、`--staged` 判索引、暂存集空退全量并如实点名、枚举 0 个判死)。**首跑 16 处已冻棘轮基线,但那不是清偿**:`memory.ts` 把 `user_id` 标成 `required`,而服务端 `routes/memory.ts:118` 只认 `request.userId!` ⇒ 真是"模型不可能满足的必填参数"(功能面 bug);`debug.ts`/`terminal.ts` 的 11 处是工具自句柄,须把排除理由正式登记进键清单注释,**不得用行内豁免遮掉**。取证 `--self-test` 23 例 + §22c 镜像 7 例;紧急跳过 `HUSKY_SKIP_TOOL_ARG_ROUTING_IDENTITY=1`。
   - ⚠️ **中文出参会被控制台码页吃掉(2026-09-25 实测,和上一条同为"码页"但方向相反)**:上面说中文当 **argv** 传出去无损;但 node 往 stdout 打的**路径**含中文(`密钥/...`)时,PowerShell 按 **GBK 码页**解码 ⇒ 拿回的是乱码字符串 ⇒ `Test-Path` 判"不存在" ⇒ 脚本静默退回兜底凭据,表现得像"口令文件没建"。**凡"把一个值读回来继续用"的场合(路径/文件名/URL),调 node 前必须显式 `[Console]::OutputEncoding = UTF8` 并在 finally 还原**;只在控制台显示乱码的是"输出面",这条不成立 —— 值一旦参与判据就不是显示问题。同类修法也适用于 §5e 说的"多行中文正文走 --message-file"。
   - **凭据目录现状**(2026-09-25 起):`db-backup/ihui-backup.txt` = 只读备份账号 `beifen` 的口令;`IHUI生产账号/pgsql管理员-postgres-*.txt` = 该库 `postgres` 的口令(此前**从未设过**,详见 `deploy/win/ihui-pg-backup-role.sql` 顶部的执行记录)。两份都在仓库外、都在 §5d 权威目录里,都不进日志/聊天/提交。
+**本票新建的两把常驻工具(量算/归并出口,不是守门 —— 勿因"没接 guardian-runner"就当作没装车)**:
+`scripts/c-disk-breakdown.mjs` —— 全盘**只读**量算仪,junction 安全(刻意不跟随重解析点,否则把 D 盘的量算成
+C 盘的债),强制对账「遍历 + 特殊文件 + 未解释 = 已用」,未解释 >2GB 或为负都当场喊话。报磁盘状态先跑它,
+不要跑 `df`(§26 已记过一次它给出相反百分比)。用法 `node scripts/c-disk-breakdown.mjs [--root C:/] [--depth N] [--json]`。
+它的文件名不以 `check|scan|guard` 开头 ⇒ 守门 89 结构上看不见它,所以它的不变量由自己那把尺子钉:
+`scripts/tests/c-disk-breakdown.test.mjs`(7 例:滚到全部祖先 / junction 不跟随 / ROOTKEY 尾斜杠 / 量不到不得伪装成结论)。
+`scripts/plan-union-merge.mjs` —— 活文档台账被撞号或整段回写时的人工归并出口(临时索引 + commit-tree + CAS,
+落地前自证"本侧/对侧路径零丢失"),镜像测试 4 例在位。两者**都不做任何删除**。

@@ -2080,7 +2080,7 @@
       "bypassSkipApproval": "심사 건너뜀",
       "mcpRequiresApproval": "MCP 주석이 승인 필요",
       "policyRequiresApproval": "정책상 승인 필요",
-      "policyForbidsExecution": "정책상 실행 금지"
+      "policySkipsApproval": "정책상 승인 생략"
     },
     "perm": {
       "allow": "허용함",
