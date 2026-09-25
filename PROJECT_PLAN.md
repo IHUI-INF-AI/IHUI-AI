@@ -7998,3 +7998,32 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   - 新增 **`scripts/tests/merge-live-doc-anchor.test.mjs`(3 例,`node --test` 3/3 绿)** —— CLI 级装车证明。为什么必须 spawn 而不能 import:`merge-live-doc.mjs` 顶层就是 CLI 主流程且**没有 §22d `isDirectRun` 守卫**(`lib/live-doc-similarity.mjs` 当年正是为了绕开这点才被抽出来),所以测试把脚本连同一个临时 git 仓摆好后直接跑它。C 例是**夹具自证**:断言两行确实 Jaccard 低于阈值且旧行不逐字存活 —— 否则 A 臂哪天就退化成"容器短路"的测试而无人察觉。
   - **真行回放**(一次性,跑完即删):把事故当时的 AGENTS gate-84 旧行/新行原文塞进临时仓,跑已装车的 CLI ⇒ A 臂 `真丢失=0 / 可安全提交`、B 臂(整行删掉)`真丢失=1`。用的不是我自己造的夹具,是那两行**原文**。
 - **仍然开着的一条(如实登记,不在本票顺手做)**:`merge-live-doc.mjs` 缺 `isDirectRun` 守卫这一事实未修 —— 给它加守卫要把 75 行 CLI 主体整体缩进/包函数,而它是本次事故里唯一被多方读写的文件之一,收益不抵风险。因此它的判据函数至今**不可 import**,镜像测试只能走 spawn 这一条笨路;哪天要单测更细的分支,先补守卫再补测试。
+
+
+- [ ]（进行中）**授权缺陷：`POST /skills/:name/unlist` 只有 checkAuth 却做硬删条目** ⇒ 任意登录用户可永久删除他人/内置市场条目；注释自称"admin 治理动作"但实现里连 admin 校都没有（注释与实现分叉）。唯一调用方是 admin 页 ⇒ 收紧不破坏正常路径。
+- [ ]（进行中）**`deploy/prod-bundle/` 被 gitignore 导致 compose 链脚本全仓无入库源**（按 `check-prod-bundle-shadow.mjs` 既定"入库源+逐字节等值"形态解；该门现报 2 枚"无法判定"判 ❌）
+  ⑦ **23 模块全量复测试跑(取代 09-24 那组数字)**:**20 块判红 0**,有账 3 块 = `apps/cli` 3 条(**本票已还**)+ `packages/i18n` 2 条 + `repo-tooling` 1 条。**未收口的残余两块,各自给出解阻动作**(不得当成已收口):翻 `packages/i18n` 须把 `packages/i18n/tests/waiting-keys-in-end-packages.test.ts` **移到** `packages/shared/tests/chat/`;翻 `repo-tooling` 须处置 `scripts/tests/export-openapi-stub-key.test.mjs:22` —— 该处**不得**靠把 `apps/api` 写进 `repo-tooling.requires` 消红(④ 的注入实验正是拿它当"必红样本"做的,T1 当场判红)。两块的到法已实测并写进策略表头(含"为什么换 import 路径不行"的判据级理由,见下条 ⑧-③)。
+  ⑧ **本票落地后被独立复核查出、并当场回补的四件**(登记在此是因为它们全是"我自己造的、本地跑着绿但会在别人手里红"那一类,不复跑权威入口根本看不见):
+     ① **T12 尾部那条条件断言是我写坏的判据,已删**(最严重)。它写的是"索引表≠HEAD 表 ⇒ 两档收口集合必异形 / 相同 ⇒ 必同形",**两条前提都不成立**:改注释、改 requires 都是"表不同而 managed 集合不变"(实测此刻落这一支 ⇒ 误红);而尺子 `/managed:true ([^\n]*)/` 把同行尾部"| 扫描 N 文件"一起吃进 needle,两档扫描数天然不同 ⇒ 另一支恒真无牙。**并行会话已先把尺子改成 `[^|\n]*` 并加了 T12b 反例**;我按"磁盘最终态收、不起第二套"保留其尺子,删掉自己那条条件断言,并把 T12b 升级为带变异对照的独立尺子证明(把尺子退回 `[^\n]*` 时"同集合不同计数"那条必红)→ **13/13 绿**。教训:**一条在任何现实下都可能红的判据,结局只会是逼人 `--no-verify`**;证明取材面必须用纯函数+构造面(pickOn/legacy),不得依赖仓库瞬时状态。
+     ② 删掉因①而失去调用点的 `runGit`/`resolveGitBin` import(未用变量会咬 lint)。
+     ③ **推翻上一票留在表头的两条"解法"**:写的是"改走 `@ihui/shared/chat` 公开入口(它是已声明子入口)" —— 拿 `analyze()` 本体验:**D2 只比 `target.rank > mod.rank`,与路径、与 requires 是否声明全无关**,而 i18n=20、shared=30,换路径照样红;补 requires 只消 D1。挪层消红本节又禁止 ⇒ 唯一合规出路是**换层放测试**(已实测 `packages/shared/vitest.config.ts` 未设 include ⇒ `tests/**` 会被收集,且全仓无按旧路径锚它的代码级引用,改法精确到 L27/L29 两行)。repo-tooling 那块同时取证到"只用一个零依赖纯函数 + 该测试已有三条读文本断言"⇒ 最小改法是从文本抠函数执行,并有 `deploy/tests/prod-bundle-diagnose.test.mjs:227` 现成正例可抄。
+     ④ **`apps/cli` 那条 `workspace:*` 声明在 HEAD/索引面上并不存在**(并行会话工作树在途),而我上一票写进表的取证却把它说成"已声明" —— 属"拿工作树取证、登记进 HEAD 口径的门注释"。已就地改成如实表述,并记下门 101 从 HEAD 侧独立报出的同一事实(`[孤儿] apps/cli dependencies.@ihui/dom-actions: lock 仍记 workspace:*`,R3 只报数)⇒ HEAD 面上这是**真幽灵依赖**,归 apps/cli 清单持有者随代码同票入库,**不由本门代提**。另修 `guardian-runner.mjs` 门 103 的 `onFailHint` 两行(旧降级顺序文案 + 48→51 例)—— 那是红点时给人看的现行口径,写错等于教人按错法修。
+  ⑨ 复核代理另报"HEAD 里 `check-git-read-timeout.mjs`/`apps/cli/package.json` 未入库":两者经核均为**他人工作树在途改动**(我从未编辑),按 §12b 不代提交、只在上条 ④ 里登记事实;其"HOT 现 18 项"的 AGENTS 数字同理不动(它随他人入库才对)。代理关于"T12 现在就红"的结论**不成立**(它跑在 differs=true 的瞬时窗口),我自己在独立副本 `git archive HEAD` 上复算后才定性为"表相同那支恒红 + 异形那支无牙"—— 子代理结论按例不直接采信。
+### O62·附：全量镜像套件 7 条红的逐条归因（干净检出对照法，不采信"看起来不是我改的"）
+`node scripts/run-script-tests.mjs`：文件 152 / 用例 2447 / pass 2437 / **fail 7**。
+归因方法：`git archive` 把**当前 HEAD** 与**我这枚提交的父提交**各解到临时目录（不占分支、不动共享索引、
+不在盘根留目录），`node_modules` 以 junction 借入，同一台机跑同样 4 套；再在真工作树里跑第三遍。三组读数：
+| 套件 | 干净 HEAD | 干净 HEAD^ | 真工作树 | 结论 |
+| --- | --- | --- | --- | --- |
+| `check-sse-dispatch-parity` | ❌ 5 | ❌ 5 | ✅ 0 | 红在**提交内容**里：该会话的代码/台账一致性修复仍留在工作树未提交 ⇒ 提交树上账实不符。门正常工作，不是缺陷，也不归本票 |
+| `check-staged-typecheck` | ✅ | ✅ | ✅ | 聚合那一跑是并发负载下的瞬态 |
+| `tauri-updater-platforms` | ✅ | ✅ | ❌ 3 | 只在**脏工作树**里红 ⇒ 它读磁盘态，不读提交态 |
+| `union-converge` | ✅ | ✅ | ❌ 1 | 同上 |
+- **本票造成的红：0 条。** 三条证据链：① 我这 10 个文件与上述 4 套无 import/数据依赖；
+  ② 那 4 套在含本票的 HEAD 干净检出上读数与父提交一致；③ 我这 4 套（91/94/101/103 + `face-reader`）
+  在全量与定向跑里均绿。
+- **给这两套的门留一条明确建议（不是环境噪音，是同一类口径缺陷）**：`tauri-updater-platforms`
+  与 `union-converge` 的判据读**共享工作树**，于是"别人改到一半"会让它们对无关提交忽红忽绿 ——
+  与本票系列一直在收的那一类（77/83/91/94/98/101/103 全量判 HEAD blob、`--staged` 判索引 blob）同源。
+  修法已验证可行：`git archive` 式干净检出或直接判 HEAD blob；两把尺子共用一份判据即可。
+  **归属**：桌面端发布线与收敛器持有人，不代改。
