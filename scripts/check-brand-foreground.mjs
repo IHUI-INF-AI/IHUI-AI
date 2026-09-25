@@ -111,6 +111,12 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+// 判定面取材的唯一出口(2026-09-26 迁,守门 118 的 loose-git 档收口)。此前本门自己派生
+// `execFileSync('git', ['show', 'HEAD:<rel>'])` **逐文件**读正文 —— 裸 `'git'` 依赖 PATH
+// (服务账户 / GUI 宿主与交互终端不通,AGENTS §5b),而 500+ 文件 = 500 次进程创建:本门自述
+// "27–45s 的大头正是逐文件 git show 取材成本",迁成一次 batch 是唯一正确的性能修法。
+// 保留 execFileSync 只用于**枚举路径清单**(ls-files / diff --cached / grep -l),不读正文。
+import { Undetermined, catBatch, readWorktreeFile } from './lib/face-reader.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
@@ -1139,38 +1145,59 @@ function stagedFiles() {
   return out.map((rel) => path.join(ROOT, rel))
 }
 
-/** 取 HEAD blob;HEAD 没有该路径返回 null */
-function headText(rel) {
-  try {
-    return execFileSync('git', ['-c', 'safe.directory=*', 'show', `HEAD:${rel}`], {
-      cwd: ROOT,
-      encoding: 'utf8',
-      maxBuffer: 1 << 26,
-      windowsHide: true,
-      timeout: 20000,
-    })
-  } catch {
-    return null
-  }
+/**
+ * 取一批 blob 正文 —— **一次 `cat-file --batch`**,不是逐文件派生(2026-09-26 迁)。
+ *
+ * 本门自述"27–45s 的大头是既有的逐文件 `git show` 取材成本"(AGENTS 守门 83 R7 条),
+ * 而这正是要防的 fork 风暴:HEAD 面一次扫 500+ 文件 = 500 次进程创建。
+ * 原先还有两处独立缺陷一起走:
+ *   · 裸 `'git'` 依赖 PATH —— 服务账户 / GUI 宿主的 PATH 与交互终端不通(AGENTS §5b);
+ *   · 任何一次派生失败被 `catch { return null }` 吞掉 ⇒ "我自己的 git 跑不起来"表现成
+ *     "这些文件都不在 HEAD" ⇒ 判据少扫一整片而账面全绿(一道假绿的尺子)。
+ * 现在:批次跑不成 ⇒ 抛 Undetermined ⇒ 对外 exit 2「无法判定」;单个路径不在这一面 ⇒ null,
+ * 由 readText 按面各自的规则处置(全量档降级取工作树、暂存档判死)。
+ *
+ * @param batch 注入点 —— self-test 用它**构造**「同一条路径在索引面脏、在 HEAD 面干净」的现场,
+ *   不真改仓库、也不依赖并发会话此刻往索引里放了什么。
+ */
+function prefetchFace(root, rev, rels, batch = null) {
+  const out = new Map()
+  const uniq = [...new Set(rels)]
+  if (uniq.length === 0) return out
+  const specs = uniq.map((r) => `${rev}:${r}`)
+  const opts = { maxBuffer: 1 << 29, timeout: 120000 }
+  // `catBatch(...)` 必须**逐字出现在调用点**:守门 118 只认真的使用了层的读取入口,
+  // 把 catBatch 写成形参默认值再调 `batch(...)` 会被判成 half-wired(引了层却没用它读)。
+  const got = batch ? batch(root, specs, opts) : catBatch(root, specs, opts)
+  for (let i = 0; i < uniq.length; i++) out.set(uniq[i], got.get(specs[i]) ?? null)
+  return out
 }
 
+/** 当次判定的这一轮:被审内容(rel → 正文|null)与它来自哪一面。 */
+let faceTexts = new Map()
+let faceMode = 'head'
+
 /**
- * 判据取内容的口径:**全量审计与 --update-baseline 判 HEAD blob,`--staged` 判磁盘/暂存**。
+ * 判据取内容的口径(2026-09-26 起两面都经 `scripts/lib/face-reader.mjs`):
+ *   · 全量 ⇒ **HEAD blob**;HEAD 没有该路径(并发会话刚 `git add` 的新文件)⇒ 降级取工作树;
+ *     两面都没有 ⇒ null(不判、不猜),与改判前一致。
+ *   · `--staged` ⇒ **索引 blob**;取不到 ⇒ 抛 Undetermined ⇒ 对外 exit 2。
+ *     旧写法在这里读的是**磁盘**,即"盘上随后改对不算修好"那一型 —— 提交进去的仍是索引这一份。
  *
- * 共享工作树对成百上千个路径滞后 HEAD —— §12d 的 commit-tree/merge-tree 旁路只推进 HEAD 与
- * 索引、从不 checkout;`--update-baseline` 又把按磁盘算出的数写回基线,于是这道门在"恒红"与
- * "假绿"之间来回跳(同一份 HEAD 内容,本机与干净检出算出不同的数;本仓 2026-09-24 一天内
- * R3 登记被整文件回退三次,每次都要人重跑归属核查)。守门 77 / 57 / 70 同日已改判仓库内容。
+ * 共享工作树对成百上千个路径滞后 HEAD(§12d 的 commit-tree/merge-tree 旁路只推进 HEAD 与
+ * 索引、从不 checkout),按磁盘判会让这道门在"恒红"与"假绿"之间来回跳,并把错数写回棘轮基线
+ * (本仓 2026-09-24 一天内 R3 登记被整文件回退三次即此型)。守门 77 / 57 / 70 同取向。
  *
- * @returns 判据文本行数组;null = HEAD 与磁盘都没有该文件(不判,不猜)
+ * @returns 判据文本行数组;null = 该面与磁盘都没有该文件(不判,不猜)
  */
-function readText(file, fromHead) {
+function readText(file) {
   const rel = path.relative(ROOT, file).replace(/\\/g, '/')
-  if (fromHead) {
-    const t = headText(rel)
-    if (t !== null) return t.split('\n')
-  }
-  return existsSync(file) ? readFileSync(file, 'utf8').split('\n') : null
+  const t = faceTexts.get(rel)
+  if (typeof t === 'string') return t.split('\n')
+  if (faceMode === 'staged')
+    throw new Undetermined(`${rel}: 索引 blob 取不到 —— --staged 面无法判定(不回退磁盘、不静默跳过)`)
+  const wt = readWorktreeFile(ROOT, rel)
+  return typeof wt === 'string' ? wt.split('\n') : null
 }
 
 function run(options) {
@@ -1189,12 +1216,42 @@ function run(options) {
   // R5 覆盖面(web 类名面)与上面两条 RN 清单互不重叠,必须各自成立:
   // 只有两边都空才允许早退,否则"只改了 web 的提交"会整门跳过,R5 永远不醒(判据存在而永不调用 = 没有)。
   const r5Scan = options.staged ? stagedR5Files() : listR5Files()
-  console.log(`📎 内容口径:${options.staged ? '暂存区/磁盘' : 'HEAD blob(工作树滞后不参与判定)'}`)
+  faceMode = options.staged ? 'staged' : 'head'
+  console.log(
+    `📎 内容口径:${faceMode === 'staged' ? '索引 blob(git show :<path>,一次 cat-file --batch)' : 'HEAD blob(一次 cat-file --batch;HEAD 无此路径才降级工作树)'} —— 工作树滞后不参与判定`,
+  )
   if (options.staged && files.length === 0 && r5Scan.files.length === 0) {
     console.log(
       '⏭ 暂存区无 apps/mobile-rn/src、packages/app/src、apps/web、packages/ui-react、apps/miniapp-taro 文件,跳过',
     )
     return 0
+  }
+  // **先 prefetch 再 read**:层内 read() 对未预取的路径会抛,这里不偷偷补派生(退化必须被看见)。
+  // 清单与内容必须同一轮、同一个面 —— 否则"枚举读盘 + 内容读 git"会造出自洽但基准错位的假绿。
+  try {
+    faceTexts = prefetchFace(
+      ROOT,
+      faceMode === 'staged' ? '' : 'HEAD',
+      [...files, ...r5Scan.files].map((f) => path.relative(ROOT, f).replace(/\\/g, '/')),
+    )
+  } catch (e) {
+    const msg = e instanceof Undetermined ? e.message : e?.message ?? String(e)
+    console.error(`❌ 无法判定(exit 2):${msg}`)
+    if (!(e instanceof Undetermined)) console.error(e?.stack ?? '')
+    return 2
+  }
+  // 暂存档的"取不到"必须在**判之前**就问出来:readText 里的 throw 是结构护栏(自检第三条钉它),
+  // 但让异常从采集循环里冒出去会被外层当成脚本异常,措辞与退出码都不是判据给的这套。
+  if (faceMode === 'staged') {
+    const missing = [...files, ...r5Scan.files]
+      .map((f) => path.relative(ROOT, f).replace(/\\/g, '/'))
+      .filter((rel) => typeof faceTexts.get(rel) !== 'string')
+    if (missing.length > 0) {
+      console.error(
+        `❌ 无法判定(exit 2):${missing.length} 个暂存路径取不到索引 blob(${missing.slice(0, 5).join(', ')}${missing.length > 5 ? ' …' : ''})—— 不回退磁盘、不静默跳过`,
+      )
+      return 2
+    }
   }
 
   const r1 = []
@@ -1205,7 +1262,7 @@ function run(options) {
   r7ParseErrors.length = 0
   for (const file of files) {
     const rel = path.relative(ROOT, file).replace(/\\/g, '/')
-    const lines = readText(file, !options.staged)
+    const lines = readText(file)
     if (lines === null) continue
     for (const v of findR1Violations(lines)) r1.push(`${rel} → ${v}`)
     const r4Pairs = findR4Violations(lines)
@@ -1223,7 +1280,7 @@ function run(options) {
   const webClassPairCounts = {}
   for (const file of r5Scan.files) {
     const rel = path.relative(ROOT, file).replace(/\\/g, '/')
-    const lines = readText(file, !options.staged)
+    const lines = readText(file)
     if (lines === null) continue
     const c = countWebClassPairs(lines)
     if (c > 0) webClassPairCounts[rel] = c
@@ -2264,6 +2321,53 @@ function selfTest() {
       BASELINE_R7_KEY !== other,
       `R7 复用了 ${other} ⇒ 一次 --update-baseline 会把另一条判据的存量发给 R7`,
     )
+  }
+  /**
+   * 取材面(2026-09-26 迁到 scripts/lib/face-reader.mjs)的构造面证明。
+   *
+   * 注入假 batch 造「同一条路径在**索引面**脏、在 **HEAD 面**干净」—— 真仓的索引此刻由并发会话
+   * 决定,拿它当夹具就是一台时红时绿的尺子。两条必须给出**不同结论**:若 readText 忽略面,
+   * 其中一条必红,所以这不是一句恒真式。第三条钉"取不到 ⇒ 无法判定"而不是回退磁盘。
+   */
+  {
+    const dirty = ['  card: {', '    backgroundColor: tk.brand.cta,', '    color: tk.surface.light,', '  },']
+    const clean = [
+      '  card: {',
+      '    backgroundColor: tk.brand.cta,',
+      '    color: tk.brand.ctaForeground,',
+      '  },',
+    ]
+    const fake = (root, specs) =>
+      new Map(specs.map((s) => [s, s.startsWith('HEAD:') ? clean.join('\n') : dirty.join('\n')]))
+    const rel = 'packages/app/src/features/face-probe.ts'
+    const abs = path.join(ROOT, rel)
+    faceTexts = prefetchFace(ROOT, '', [rel], fake)
+    faceMode = 'staged'
+    assert(
+      findR1Violations(readText(abs)).length === 1,
+      '取材面①:--staged 档必须跟**索引 blob** 走(索引侧那处跨档错配必须被看见)',
+    )
+    faceTexts = prefetchFace(ROOT, 'HEAD', [rel], fake)
+    faceMode = 'head'
+    assert(
+      findR1Violations(readText(abs)).length === 0,
+      '取材面②(反向对照):同一输入在 head 档取 HEAD blob ⇒ 结论必须随面改变(证明①不是恒真)',
+    )
+    faceTexts = new Map([[rel, null]])
+    faceMode = 'staged'
+    let threwUndetermined = false
+    try {
+      readText(abs)
+    } catch (e) {
+      threwUndetermined = e instanceof Undetermined
+    }
+    assert(
+      threwUndetermined,
+      '取材面③:--staged 取不到索引 blob ⇒ 抛 Undetermined(对外 exit 2),不得回退磁盘、不得静默跳过',
+    )
+    // 自检不得把伪造的判定面留给后面的读者
+    faceTexts = new Map()
+    faceMode = 'head'
   }
   console.log('✅ check-brand-foreground self-test 全部通过')
   return 0
