@@ -375,6 +375,8 @@ const KNOWLEDGE_CHILDREN: NavItem[] = [
   { href: '/repo-wiki', labelKey: 'repoWiki', icon: FileText },
   // 2026-09-10 2-1b-fe:Knowledge Card 页(仓库级任务经验卡)
   { href: '/knowledge-cards', labelKey: 'knowledgeCards', icon: NotebookPen },
+  // D29 团队级知识引擎(G-35,2026-09-26 追加):空间/成员/条目/修订审计
+  { href: '/team-knowledge', labelKey: 'teamKnowledge', icon: Users },
 ]
 
 /**
