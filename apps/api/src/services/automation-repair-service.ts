@@ -688,4 +688,51 @@ export async function buildRepairService(
     return null
   }
 }
+
+let repairTimer: NodeJS.Timeout | null = null
+let repairCycleRunning = false
+
+/**
+ * D30 定时认领环:与 `startAutomationsScheduler` 同一 env 门控、同一单飞形态。
+ * 返回 true 仅表示"门控通过并已发起装配",定时器在装配成功后才登记
+ * (`buildRepairService` 拒启 = 永不启动,零定时器零网络)。
+ */
+export function startRepairCycleScheduler(
+  getRedis: () => Redis | undefined,
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  if (repairTimer) return true
+  const cfg = loadAutomationsConfig(env)
+  if (!cfg.enabled) return false
+  const reject = validateConfig(cfg)
+  if (reject) {
+    defaultAudit().warn(`[automation-repair] 门控已开启但配置不完整,拒绝启动:${reject}`)
+    return false
+  }
+  void buildRepairService({ redis: getRedis(), env })
+    .then((service) => {
+      if (!service) return
+      if (repairTimer) return
+      repairTimer = setInterval(() => {
+        if (repairCycleRunning) return
+        repairCycleRunning = true
+        service
+          .runCycle()
+          .catch((err: unknown) => defaultAudit().warn(`[automation-repair] 轮次失败:${String(err)}`))
+          .finally(() => {
+            repairCycleRunning = false
+          })
+      }, cfg.intervalMs)
+      repairTimer.unref()
+    })
+    .catch((err: unknown) => defaultAudit().warn(`[automation-repair] 装配未完成:${String(err)}`))
+  return true
+}
+
+export function stopRepairCycleScheduler(): void {
+  if (repairTimer) {
+    clearInterval(repairTimer)
+    repairTimer = null
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
