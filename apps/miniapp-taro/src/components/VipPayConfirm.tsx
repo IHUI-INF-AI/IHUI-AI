@@ -35,41 +35,37 @@ export default function VipPayConfirm({
     <View className="fixed inset-0 z-[2000] flex items-end" onClick={onCancel}>
       <View className="absolute inset-0 bg-[var(--color-black-50)]" />
       <View
-        className="relative bg-card rounded-t-2xl w-full px-6 pb-6 pt-4"
+        className="relative vip-surface rounded-t-2xl w-full px-6 pb-6 pt-4"
         onClick={(e) => e.stopPropagation()}
         hoverClass="opacity-60"
       >
         <View className="flex items-center justify-between mb-4">
-          <Text className="text-base font-medium text-foreground">
+          <Text className="text-base font-medium vip-text">
             {tt('pay.confirmOrder', '确认订单')}
           </Text>
-          <Text className="text-sm text-muted-foreground" onClick={onCancel}>
+          <Text className="text-sm vip-text-muted" onClick={onCancel}>
             ×
           </Text>
         </View>
 
         <View className="bg-muted rounded-xl p-4 mb-4">
           <View className="flex justify-between items-center mb-2">
-            <Text className="text-sm text-foreground">{planName}</Text>
+            <Text className="text-sm vip-text">{planName}</Text>
             <Text className="text-base font-bold text-warning">¥{price}</Text>
           </View>
           {originalPrice && (
             <View className="flex justify-between items-center">
-              <Text className="text-xs text-muted-foreground">
-                {tt('pay.originalPrice', '原价')}
-              </Text>
-              <Text className="text-xs text-muted-foreground line-through">¥{originalPrice}</Text>
+              <Text className="text-xs vip-text-muted">{tt('pay.originalPrice', '原价')}</Text>
+              <Text className="text-xs vip-text-muted line-through">¥{originalPrice}</Text>
             </View>
           )}
         </View>
 
-        <Text className="block text-sm text-foreground mb-2">
-          {tt('pay.paymentMethod', '支付方式')}
-        </Text>
+        <Text className="block text-sm vip-text mb-2">{tt('pay.paymentMethod', '支付方式')}</Text>
         <View className="flex space-x-3 mb-4">
           <View
             className={`flex-1 flex items-center justify-center py-3 rounded-lg border-2 ${
-              paymentMethod === 'wechat' ? 'border-primary bg-primary/10' : 'border-border'
+              paymentMethod === 'wechat' ? 'border-primary bg-primary/10' : 'vip-border'
             }`}
             onClick={() => onMethodChange?.('wechat')}
             hoverClass="opacity-60"
@@ -80,11 +76,11 @@ export default function VipPayConfirm({
               size={28}
               color="var(--color-muted-foreground)"
             />
-            <Text className="text-sm text-foreground">{tt('pay.wechat', '微信支付')}</Text>
+            <Text className="text-sm vip-text">{tt('pay.wechat', '微信支付')}</Text>
           </View>
           <View
             className={`flex-1 flex items-center justify-center py-3 rounded-lg border-2 ${
-              paymentMethod === 'alipay' ? 'border-primary bg-primary/10' : 'border-border'
+              paymentMethod === 'alipay' ? 'border-primary bg-primary/10' : 'vip-border'
             }`}
             onClick={() => onMethodChange?.('alipay')}
             hoverClass="opacity-60"
@@ -95,7 +91,7 @@ export default function VipPayConfirm({
               size={28}
               color="var(--color-muted-foreground)"
             />
-            <Text className="text-sm text-foreground">{tt('pay.alipay', '支付宝')}</Text>
+            <Text className="text-sm vip-text">{tt('pay.alipay', '支付宝')}</Text>
           </View>
         </View>
 
