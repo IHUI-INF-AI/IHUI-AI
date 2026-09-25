@@ -33,6 +33,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { resolveRemoteHead } from './lib/face-reader.mjs'
 
 const GIT = 'C:/Program Files/Git/cmd/git.exe'
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -107,9 +108,14 @@ export function auditRecent(limit = DEFAULT_LIMIT, startRef = 'HEAD', cwd = ROOT
  *  只会逼人 `--no-verify`,连带废掉其余全部守门。要回看历史用 `--limit N` 手工取证,
  *  要连别人推来的合并也覆盖用 `--all-new`(增量台账,由守护巡检调)。 */
 export function pendingMerges(cwd = ROOT) {
+  // 区间左端优先用**当次服务器真值**:残值偏新 ⇒ 漏判别人推来的合并,偏旧 ⇒ 把已审过的重判一遍。
+  // 但这一处的兜底方向与收敛器**相反**:收敛器拿残值落槌会把"未收敛"当成"已推送"(静默漏推),
+  // 而本门的 `range` 一旦退化成 `'HEAD'` 就是**整条历史**重判 ⇒ 一道恒红门(只会逼人跳门,连带
+  // 废掉其余守门)。所以连不上服务器时按 `stale` 残值取一个**保守下界**,宁可多判一轮。
   let remote = ''
   try {
-    remote = git(['rev-parse', '--verify', '-q', 'origin/main'], cwd).trim()
+    const r = resolveRemoteHead('main', { root: cwd })
+    remote = r.sha || r.stale || ''
   } catch {
     remote = ''
   }
