@@ -345,6 +345,12 @@ def _sync_env_file_to_os() -> None:
             "AGENT_SELF_HEALING_ENABLED",
             "AGENT_SELF_HEAL_MAX_PER_RUN",
             "AGENT_SELF_HEALING_MODEL",
+            # D6①(2026-09-26)编排栈收敛开关三键:app/core/executor_switch.py 以
+            # os.environ 直读(默认档 = legacy 现状行为,缺省/未识别值都回 legacy)。
+            # 不进本白名单则 .env 配置静默失效(与本文件反复记录的同一类静默失效)。
+            "ORCHESTRATION_CONVERGENCE_EXECUTOR",
+            "ORCHESTRATION_CONVERGENCE_SESSIONS",
+            "ORCHESTRATION_CONVERGENCE_TENANTS",
             # FIM 补全专用档位(2026-09-14):routers/fim.py 以 os.environ.get 直读,
             # 不在白名单则 .env 配置静默失效 → 选型恒回退 auto
             "FIM_PREFERRED_MODEL",
