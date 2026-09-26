@@ -323,8 +323,15 @@ async def test_resume_endpoint_resumes_from_checkpoint(monkeypatch):
     assert cp_id
 
     # 2) 端点续跑(端点内部重建 loop,从 checkpoint 续跑)
+    # V3 #47 第二格:端点新增 `request` 形参用以读调用者角色(`resolve_request_role_id`),
+    # 直调测试因此必须自带一个带 state.role_id 的桩 —— 给 1 是为了顺带覆盖"admin 经 resume
+    # 链不再被静默降成普通用户"这条新契约(角色取值的正反对例在 test_agents_role_parity.py)。
+    from types import SimpleNamespace
+
+    fake_request = SimpleNamespace(state=SimpleNamespace(role_id=1))
     resp = await resume_agent_execute(
-        AgentResumeRequest(checkpoint_id=cp_id, model="smoke-model")
+        AgentResumeRequest(checkpoint_id=cp_id, model="smoke-model"),
+        fake_request,  # type: ignore[arg-type]
     )
     assert resp["code"] == 0
     assert resp["data"]["checkpoint_id"] == cp_id
@@ -335,6 +342,7 @@ async def test_resume_endpoint_resumes_from_checkpoint(monkeypatch):
 async def test_resume_endpoint_404_for_missing_checkpoint(monkeypatch):
     """POST /agents/execute/resume 对不存在的 checkpoint_id 返回 code=404。"""
     import uuid
+    from types import SimpleNamespace
 
     from app.routers.agents import AgentResumeRequest, resume_agent_execute
 
@@ -346,7 +354,8 @@ async def test_resume_endpoint_404_for_missing_checkpoint(monkeypatch):
     monkeypatch.setattr(lg.llm_gateway, "complete", fake_complete)
 
     resp = await resume_agent_execute(
-        AgentResumeRequest(checkpoint_id=f"cp-missing-{uuid.uuid4().hex}", model="m")
+        AgentResumeRequest(checkpoint_id=f"cp-missing-{uuid.uuid4().hex}", model="m"),
+        SimpleNamespace(state=SimpleNamespace(role_id=0)),  # type: ignore[arg-type]
     )
     assert resp["code"] == 404
     assert resp["data"] is None

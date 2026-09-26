@@ -14,6 +14,15 @@
 - hook_engine.emit 失败降级(不抛,继续等待 → 超时兜底)
 
 mock 策略:hook_engine 单例在测试中替换为 fake(记录 emit context,不真广播)。
+
+⚠️ 2026-09-26(V3 #47 第二格)本文件新增一条**前置条件**:`user_role=_ADMIN_ROLE`。
+起因不是判据错,而是这两道闸的次序被补全了 —— `_execute_single` 现在在审批门**之前**
+先过角色矩阵(`mcp_server._ADMIN_ONLY_TOOLS`),而本文件用的高危样本恰是
+`write_file` / `run_command`(都在 admin 名单里)。默认 `user_role=0` 会让它们在进审批
+门前就被拒,于是"批准后执行 / 拒绝回执 / 超时回执"这些断言全部拿不到审批事件。
+角色档给成 1 = 让本文件测的东西仍是它声称测的那道闸,而不是把角色判据削掉;
+角色门自身的正反例(含"role 0 时未执行、未发出审批")在
+`tests/test_engine_role_parity.py`,两道闸各自生效、互不遮蔽。
 """
 
 from __future__ import annotations
@@ -30,6 +39,11 @@ from app.services.agent_loop_v2 import (
     ToolDefinition,
     resolve_approval_response,
 )
+
+# 审批门样本工具(write_file / run_command)同在 admin 专属名单里,而角色闸排在审批门之前
+# (V3 #47 第二格),所以本文件的每个 AgentLoopV2 都要显式声明"这是 admin 在调"。
+# 命名成常量是为了让这件事在 8 个构造点上一眼可见、可 grep,不藏在参数里。
+_ADMIN_ROLE = 1
 
 # =============================================================================
 # fixture:替换 hook_engine,记录审批事件 emit
@@ -135,6 +149,7 @@ async def test_approval_approved_executes(_mock_hook_engine):
         [ToolDefinition(name="write_file", description="写文件", parameters={}, executor=_exec)],
         approval_enabled=True,
         approval_timeout=5,
+        user_role=_ADMIN_ROLE,
     )
     tc = ToolCall(id="c1", name="write_file", args={"path": "/tmp/x.txt"})
     task = asyncio.create_task(loop._execute_single(tc))
@@ -178,6 +193,7 @@ async def test_approval_rejected_tool_result(_mock_hook_engine):
         [ToolDefinition(name="run_command", description="执行命令", parameters={}, executor=_exec)],
         approval_enabled=True,
         approval_timeout=5,
+        user_role=_ADMIN_ROLE,
     )
     tc = ToolCall(id="c1", name="run_command", args={"command": "rm -rf /tmp/x"})
     task = asyncio.create_task(loop._execute_single(tc))
@@ -197,7 +213,7 @@ async def test_approval_rejected_tool_result(_mock_hook_engine):
 async def test_approval_rejected_unknown_tool_still_gate(_mock_hook_engine):
     """审批优先于工具存在性校验:未知高危工具被拒绝也返回 user_rejected。"""
     emitted = _mock_hook_engine["emitted"]
-    loop = AgentLoopV2(None, [], approval_enabled=True, approval_timeout=5)
+    loop = AgentLoopV2(None, [], approval_enabled=True, approval_timeout=5, user_role=_ADMIN_ROLE)
     tc = ToolCall(id="c1", name="write_file", args={})
     task = asyncio.create_task(loop._execute_single(tc))
     await asyncio.sleep(0)
@@ -227,6 +243,7 @@ async def test_approval_timeout_tool_result(_mock_hook_engine):
         [ToolDefinition(name="run_command", description="执行命令", parameters={}, executor=_exec)],
         approval_enabled=True,
         approval_timeout=0.1,
+        user_role=_ADMIN_ROLE,
     )
     tc = ToolCall(id="c1", name="run_command", args={"command": "ls"})
     tr = await loop._execute_single(tc)  # 直接 await,等待超时
@@ -241,7 +258,7 @@ async def test_approval_timeout_tool_result(_mock_hook_engine):
 
 async def test_approval_timeout_cleans_registry(_mock_hook_engine):
     """超时后审批注册表条目被清理(内存泄漏防护)。"""
-    loop = AgentLoopV2(None, [], approval_enabled=True, approval_timeout=0.1)
+    loop = AgentLoopV2(None, [], approval_enabled=True, approval_timeout=0.1, user_role=_ADMIN_ROLE)
     tc = ToolCall(id="c1", name="write_file", args={})
     await loop._execute_single(tc)
     assert agent_loop_v2._approval_registry == {}
@@ -271,6 +288,7 @@ async def test_approval_disabled_executes_directly(_mock_hook_engine):
         None,
         [ToolDefinition(name="write_file", description="写文件", parameters={}, executor=_exec)],
         approval_enabled=False,
+        user_role=_ADMIN_ROLE,
     )
     tc = ToolCall(id="c1", name="write_file", args={"path": "/tmp/x"})
     tr = await loop._execute_single(tc)
@@ -315,7 +333,7 @@ async def test_approval_emit_failure_degrades(_mock_hook_engine, monkeypatch):
         raise RuntimeError("hook engine down")
 
     monkeypatch.setattr(agent_loop_v2, "hook_engine", types.SimpleNamespace(emit=_boom))
-    loop = AgentLoopV2(None, [], approval_enabled=True, approval_timeout=0.1)
+    loop = AgentLoopV2(None, [], approval_enabled=True, approval_timeout=0.1, user_role=_ADMIN_ROLE)
     tc = ToolCall(id="c1", name="write_file", args={})
     tr = await loop._execute_single(tc)
     assert tr.error == "Approval timeout"
@@ -343,7 +361,9 @@ async def test_approval_through_execute_tools_reject(_mock_hook_engine):
         ToolDefinition(name="write_file", description="写文件", parameters={}, executor=_write),
         ToolDefinition(name="read_file", description="读文件", parameters={}, executor=_read),
     ]
-    loop = AgentLoopV2(None, tools, approval_enabled=True, approval_timeout=5)
+    loop = AgentLoopV2(
+        None, tools, approval_enabled=True, approval_timeout=5, user_role=_ADMIN_ROLE
+    )
     calls = [
         ToolCall(id="c1", name="write_file", args={"path": "/tmp/a"}),
         ToolCall(id="c2", name="read_file", args={"path": "/tmp/b"}),

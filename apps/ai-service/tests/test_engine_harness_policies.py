@@ -70,6 +70,11 @@ async def test_policy_never_skips_approval_for_high_risk_tool():
         approval_enabled=True,
         approval_timeout=5,
         approval_policies={"run_command": "never"},
+        # 2026-09-26 V3 #47 第二格:run_command ∈ _ADMIN_ONLY_TOOLS,而角色闸排在审批闸之前。
+        # 本例测的是 approval_policy=never 覆盖审批档,不是覆盖角色 —— 所以前置条件是
+        # "调用者本来就有这个权"(role=1),而不是把角色闸一起免掉。
+        # never ≠ admin:免审只免"要不要问用户",从未免"你有没有资格"。
+        user_role=1,
     )
     tr = await loop._execute_single(ToolCall(id="c1", name="run_command", args={"command": "ls"}))
     assert tr.error is None and tr.result == {"ok": True}

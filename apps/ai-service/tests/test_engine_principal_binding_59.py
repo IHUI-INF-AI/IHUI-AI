@@ -158,12 +158,26 @@ def test_bind_principal_edge_shapes() -> None:
     # params 缺失 / 非 dict → 原样返回,不凭空造结构
     assert engine_router._bind_principal({"method": "x"}, principal) == {"method": "x"}
     assert engine_router._bind_principal({"params": "str"}, principal) == {"params": "str"}
-    # principal 缺失 → 不动
+    # principal 缺失 → userId 不动(未鉴权通道与结算通道同一信任级,历史语义不变);
+    # 但 roleId 一律被绑成 0 —— 见下面 V3 #47 第二格那两条,角色是授权输入,不认自述值。
     msg = {"params": {"userId": "declared"}}
     assert engine_router._bind_principal(msg, None) is msg
     assert msg["params"]["userId"] == "declared"
     # 正常路径:覆盖自述值,其余参数不受影响
     msg2: dict[str, Any] = {"params": {"userId": "declared", "model": "m"}}
     engine_router._bind_principal(msg2, principal)
-    assert msg2["params"] == {"userId": "alice", "model": "m"}
+    # ⚠️ 本行断言于 2026-09-26 由 {"userId","model"} 改为含 "roleId":
+    # 旧写法把"_bind_principal 只绑 userId、不绑角色"当成了规格,而那正是 V3 #47 第二格
+    # 判为缺陷的形态(引擎自带工具因此完全不经 _ADMIN_ONLY_TOOLS 角色矩阵)。
+    # 改的是夹具以匹配新契约,不是削判据:角色的正反例见下面两条新增断言。
+    assert msg2["params"] == {"userId": "alice", "model": "m", "roleId": 0}
+    # V3 #47 第二格 · 自述角色必须被验证角色覆盖(否则"谎报 role=1"即提权旁路)
+    msg3: dict[str, Any] = {"params": {"userId": "declared", "roleId": 9}}
+    engine_router._bind_principal(msg3, principal, 1)
+    assert msg3["params"]["roleId"] == 1
+    # V3 #47 第二格 · 未鉴权通道(principal=None)仍落 0,而不是保留客户端自述的 9
+    msg4: dict[str, Any] = {"params": {"userId": "declared", "roleId": 9}}
+    engine_router._bind_principal(msg4, None)
+    assert msg4["params"]["roleId"] == 0
+    assert msg4["params"]["userId"] == "declared"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

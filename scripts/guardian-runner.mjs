@@ -3484,6 +3484,37 @@ const checks = [
       '',
     ].join('\n'),
   },
+  // --- i18n 语种内容对账(1 项,blocking;2026-09-26 立)---
+  {
+    id: '133',
+    label:
+      '🈶 语言包语种内容对账(blocking,L1 跨族/块级只报数 + L2 同名自套一层按 HEAD 锚点棘轮 —— parity 绿不等于语种对)',
+    script: 'check-i18n-locale-content-language.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_I18N_LOCALE_CONTENT_LANGUAGE',
+    stagedTriggers: ['packages/i18n/messages/'],
+    onFailHint: [
+      '',
+      '  💡 本门补的是既有五道 i18n 门**结构上看不见**的那一维:它们判"键集"与"有没有中文残留",',
+      '     所以"某一块整体被落成另一门语言"一路绿灯。立因实测(2026-09-26 同日两次):',
+      '     ① `web/ja :: aiChat.org` 整块是繁体中文、`web/zh-TW :: aiChat.org` 整块是谚文,',
+      '     ② `web/ko :: chat.exportMenu.exportPdf` 是日文假名(三向轮转),',
+      '     ③ `web/*:: aiChat.toast.orgSaved` 被机械写成 `{orgSaved:{orgSaved:"…"}}` 自套一层,',
+     '        `t()` 取到对象 ⇒ 功能成功但提示永远不响。三型当时五道门全绿。',
+      '     判据按**码位族**(han/hira/kata/hangul/latin,区间两两不相交由 lib 机器证明),',
+      '     汉字族内部简繁**刻意不判**(日本新字体与中国简化字同码位),判不了就计"未判定"并点名。',
+      '     ① 看清单:node scripts/check-i18n-locale-content-language.mjs --all',
+      '     ② 问责档:pnpm check:i18n-locale-content-language(带 --strict,L1 存量也判红)',
+      '     ③ 修法只有"把值改回这门语言";**不得**删键、改键名凑数、把值置空或改英文占位过门;',
+      '     ④ 改完必走 §19 流水线(i18n-diff → apply → check-i18n-keys → scan-i18n-zh-residue),',
+      '        并按守门 105 重生成小程序离线包,否则源改了产物没跟,到端还是旧词。',
+      '     自检:node scripts/check-i18n-locale-content-language.mjs --self-test(例数以末行为准)',
+      '     镜像测试:node --test scripts/tests/check-i18n-locale-content-language.test.mjs',
+      '     紧急跳过(不推荐):HUSKY_SKIP_I18N_LOCALE_CONTENT_LANGUAGE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
   // --- info (1 项) ---
   {
     id: '23',
