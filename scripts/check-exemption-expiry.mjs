@@ -78,6 +78,13 @@ const FAMILY_LIFETIME_DAYS = {
   'statusbar-exempt': 30,
   'glyph-arrow-exempt': 30,
   'alpha-plugin-exempt': 30,
+  /**
+   * 守门「批量写计数诚实性对账」的行内例外通道(该门第四条放过通道)。取 **30 天**,与
+   * `glyph-arrow-exempt` / `statusbar-exempt` 同档:它是**待偿的迁移债**(把 handler 改到
+   * `.returning` + `utils/batch-outcome.ts` 唯一出口即可消掉),不是结构性定性 ——
+   * 不给到期日就等于让"这一处先记着"永远留在提交树里。
+   */
+  'batch-count-exempt': 30,
   'r5-cta-exempt': 60,
   'r3-cta-exempt': 60,
   'r7-nest-exempt': 60,
