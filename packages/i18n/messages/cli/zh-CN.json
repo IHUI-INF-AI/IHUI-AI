@@ -97,7 +97,8 @@
     "commandSafety": {
       "dangerous": "⚠ 危险命令被拦截：命令匹配危险模式 {pattern}\n如确需执行，请设置 IHUI_YOLO=1",
       "alwaysConfirm": "⚠ 命令被拦截：它属于\"永远需要确认\"档（删除 / 强推 / rebase / 发布一类难以撤销的操作），IHUI_YOLO 不得静默放行。\n去掉 IHUI_YOLO 后重试，由你逐条确认。"
-    }
+    },
+    "goalNotAchieved": "独立校验未通过:本次运行不得宣布完成"
   },
   "waiting": {
     "agent": {
@@ -404,7 +405,13 @@
     "auditColTotal": "总数",
     "auditColSuccess": "成功",
     "auditColFailure": "失败",
-    "auditColRate": "成功率"
+    "auditColRate": "成功率",
+    "goalDesc": "goal 模式:目标原文(配合 --goal-criteria 使用)",
+    "goalCriteriaDesc": "goal 模式:硬性指标 JSON 文件(数组,每项含 id/statement,可选 probe_command/expected_exit_code/required)",
+    "goalCriteriaBadArg": "--goal-criteria 需要一个文件路径",
+    "goalCriteriaUnreadable": "读不到 --goal-criteria 文件 {file}:{error}",
+    "goalCriteriaNotAnArray": "{file} 的内容必须是非空 JSON 数组",
+    "goalCriteriaBadEntry": "第 {index} 条指标缺少 id 或 statement"
   },
   "cliWorkflows": {
     "contextBadJson": "--context 不是有效的 JSON: {message}",
