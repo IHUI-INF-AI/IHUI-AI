@@ -216,4 +216,36 @@ export function toUserFriendlyMessage(error: unknown): string {
   // 6. 英文兜底
   return '操作失败,请稍后重试'
 }
+/**
+ * ApiResult 的失败分支 → Error,并把 `status` / `errorCode` / `retryAfter` 一起挂在错误对象上。
+ *
+ * 为什么要专门有这个出口,而不是各处写 `throw new Error(res.error)`:全仓实测 **213 处**
+ * `throw new Error(res.error)`,而 ApiResult 的失败分支本来带着 status/errorCode ——
+ * 只取 message 就等于把"这个错误是鉴权失败 / 限流 / 校验失败"的身份信息整份丢掉。
+ * 本文件的判序是 **errorCode → HTTP status → 文案正则**,前两档一旦被丢,
+ * 401 的 "Invalid or expired token" 就只能落到参数类正则 `/invalid|missing|required/` 上,
+ * 用户看到「提交的信息有误,请检查后重试」—— 真机实测:进「广场」tab 一进来就弹这句
+ * (PROJECT_PLAN「广场 tab 一进即弹错误框」条)。这不是文案偏好问题:它把"去登录"
+ * 引导成了"改表单",用户照着做永远修不好。
+ *
+ * 迁移这 213 处时**逐处换成本函数**,不要各处再手搓一次 Object.assign(那正是本仓
+ * "两处算同一件事必漂移"反复记过的形态)。
+ */
+export function apiFailureToError(res: {
+  error: string
+  status?: number
+  errorCode?: string
+  retryAfter?: number
+}): Error {
+  const err = new Error(res.error)
+  // 只挂"真的带了值"的字段:挂 status: undefined 会让 toUserFriendlyMessage 的
+  // `if (status)` 判空分支与"字段不存在"混成一类,以后想区分就分不出来了。
+  if (typeof res.status === 'number') (err as Error & { status?: number }).status = res.status
+  if (typeof res.errorCode === 'string')
+    (err as Error & { errorCode?: string }).errorCode = res.errorCode
+  if (typeof res.retryAfter === 'number')
+    (err as Error & { retryAfter?: number }).retryAfter = res.retryAfter
+  return err
+}
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
