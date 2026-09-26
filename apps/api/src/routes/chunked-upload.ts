@@ -30,6 +30,7 @@ import {
   digestMatches,
   listReceivedChunkNumbers,
 } from '../services/upload-integrity.js'
+import { withUploadMergeSlot } from '../services/upload-merge-gate.js'
 
 /** 校验和失败后的会话终态:不再接受分片、不再产出 url、由 reaper 到期收目录。
  *  取值取自 `@ihui/database` 的词表 —— 本文件不得再自拼状态字面量(那正是
@@ -297,70 +298,111 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
     const fileId = randomUUID()
     const finalPath = join(PUBLIC_UPLOAD_DIR, fileId)
 
-    try {
-      if (!existsSync(PUBLIC_UPLOAD_DIR)) mkdirSync(PUBLIC_UPLOAD_DIR, { recursive: true })
-
-      // 按 1..totalChunks 顺序读取所有 .part 文件合并为最终文件
-      const writeStream = createWriteStream(finalPath)
-      for (let i = 1; i <= session.totalChunks; i++) {
-        const partPath = join(chunkDir, `${i}.part`)
-        if (!existsSync(partPath)) {
-          writeStream.destroy()
-          // 清理已写入的半成品文件
-          try {
-            unlinkSync(finalPath)
-          } catch {
-            // ignore
-          }
-          return reply.status(400).send(error(400, `分片 ${i} 缺失，无法合并`))
+    // 合并阶段(读全部 .part → 写最终文件 → 实算校验 → 删分片)**整段过有界并发闸**
+    // (2026-09-26,补上本链登记遗留的最后一格):此前对同时开跑的合并数不限,
+    // 第 N 个大文件合并可把哈希 CPU 与磁盘队列打满并拖累同进程的全部请求。
+    // 超限**排队不拒绝**(拒绝 = 把正常用户挡在门外);排队深度与等待时长经闸的
+    // 台账(首次喊话 + 节流复读)与 request.log 可见,不新建第二套 metrics。
+    // 磁盘删除护栏原样保留:闸内也只删 <CHUNKS_ROOT>/<uploadId>/,绝不整片删 uploads/。
+    type MergePhaseOutcome =
+      | { kind: 'merged' }
+      | { kind: 'missing-part'; part: number }
+      | {
+          kind: 'checksum-mismatch'
+          declaredMd5: string | null
+          actualMd5: string
+          actualSha256: string
+          actualSize: number
         }
-        // P1 修复:用流式读取替代 readFileSync,避免阻塞 event loop
-        await pipeline(createReadStream(partPath), writeStream, { end: false })
-      }
-      await new Promise<void>((resolve, reject) => {
-        writeStream.on('error', reject)
-        writeStream.end(() => resolve())
-      })
+      | { kind: 'disk-error'; err: unknown }
 
-      // 校验和兑现(2026-09-26 补):此前 `fileMd5` 全仓零验证点 —— 客户端声明什么
-      // 都收,校验位形同装饰。现在合并完就按服务端**实算**摘要逐字比对,不符即:
-      // 删除已合并文件 + 会话置终态 + 返回 4xx **不带 url**。绝不"记条日志继续交付"。
-      const digests = await hashFile(finalPath)
-      if (!digestMatches(session.fileMd5, digests.md5)) {
-        const actualSize = statSync(finalPath).size
+    const outcome: MergePhaseOutcome = await withUploadMergeSlot(
+      'chunked-upload/merge',
+      async () => {
         try {
-          unlinkSync(finalPath)
-        } catch (cleanErr) {
-          request.log.error({ err: cleanErr, finalPath }, '校验失败后清理合并文件失败')
-        }
-        await db
-          .update(uploadSessions)
-          .set({ status: STATUS_CHECKSUM_MISMATCH, updatedAt: new Date() })
-          .where(eq(uploadSessions.uploadId, uploadId))
-        request.log.error(
-          {
-            uploadId,
-            declaredMd5: session.fileMd5,
-            actualMd5: digests.md5,
-            actualSha256: digests.sha256,
-            actualSize,
-          },
-          '分片合并结果与声明校验和不符,已拒绝交付',
-        )
-        return reply
-          .status(400)
-          .send(
-            error(
-              400,
-              `校验和不符:声明 md5=${session.fileMd5 ?? '(未声明)'} 实算 md5=${digests.md5}(sha256=${digests.sha256}, ${actualSize} 字节),已拒绝并清理合并文件`,
-            ),
-          )
-      }
+          if (!existsSync(PUBLIC_UPLOAD_DIR)) mkdirSync(PUBLIC_UPLOAD_DIR, { recursive: true })
 
-      // 校验通过才清理 chunks 目录
-      if (existsSync(chunkDir)) rmSync(chunkDir, { recursive: true, force: true })
-    } catch (e) {
-      request.log.error({ err: e }, '合并分片失败')
+          // 按 1..totalChunks 顺序读取所有 .part 文件合并为最终文件
+          const writeStream = createWriteStream(finalPath)
+          for (let i = 1; i <= session.totalChunks; i++) {
+            const partPath = join(chunkDir, `${i}.part`)
+            if (!existsSync(partPath)) {
+              writeStream.destroy()
+              // 清理已写入的半成品文件
+              try {
+                unlinkSync(finalPath)
+              } catch {
+                // ignore
+              }
+              return { kind: 'missing-part', part: i } as const
+            }
+            // P1 修复:用流式读取替代 readFileSync,避免阻塞 event loop
+            await pipeline(createReadStream(partPath), writeStream, { end: false })
+          }
+          await new Promise<void>((resolve, reject) => {
+            writeStream.on('error', reject)
+            writeStream.end(() => resolve())
+          })
+
+          // 校验和兑现(2026-09-26 补):此前 `fileMd5` 全仓零验证点 —— 客户端声明什么
+          // 都收,校验位形同装饰。现在合并完就按服务端**实算**摘要逐字比对,不符即:
+          // 删除已合并文件 + 会话置终态 + 返回 4xx **不带 url**。绝不"记条日志继续交付"。
+          const digests = await hashFile(finalPath)
+          if (!digestMatches(session.fileMd5, digests.md5)) {
+            const actualSize = statSync(finalPath).size
+            try {
+              unlinkSync(finalPath)
+            } catch (cleanErr) {
+              request.log.error({ err: cleanErr, finalPath }, '校验失败后清理合并文件失败')
+            }
+            await db
+              .update(uploadSessions)
+              .set({ status: STATUS_CHECKSUM_MISMATCH, updatedAt: new Date() })
+              .where(eq(uploadSessions.uploadId, uploadId))
+            request.log.error(
+              {
+                uploadId,
+                declaredMd5: session.fileMd5,
+                actualMd5: digests.md5,
+                actualSha256: digests.sha256,
+                actualSize,
+              },
+              '分片合并结果与声明校验和不符,已拒绝交付',
+            )
+            return {
+              kind: 'checksum-mismatch',
+              declaredMd5: session.fileMd5 ?? null,
+              actualMd5: digests.md5,
+              actualSha256: digests.sha256,
+              actualSize,
+            } as const
+          }
+
+          // 校验通过才清理 chunks 目录
+          if (existsSync(chunkDir)) rmSync(chunkDir, { recursive: true, force: true })
+          return { kind: 'merged' } as const
+        } catch (e) {
+          return { kind: 'disk-error', err: e } as const
+        }
+      },
+      { log: request.log },
+    )
+
+    if (outcome.kind === 'missing-part') {
+      return reply.status(400).send(error(400, `分片 ${outcome.part} 缺失，无法合并`))
+    }
+    if (outcome.kind === 'checksum-mismatch') {
+      return reply
+        .status(400)
+        .send(
+          error(
+            400,
+            `校验和不符:声明 md5=${outcome.declaredMd5 ?? '(未声明)'} 实算 md5=${outcome.actualMd5}(sha256=${outcome.actualSha256}, ${outcome.actualSize} 字节),已拒绝并清理合并文件`,
+          ),
+        )
+    }
+    if (outcome.kind === 'disk-error') {
+      request.log.error({ err: outcome.err }, '合并分片失败')
       return reply.status(500).send(error(500, '合并分片失败'))
     }
 
