@@ -710,6 +710,8 @@
       "emptyRecent": "最近使用エージェントなし"
     },
     "historyPage": {
+      "loadMoreFailed": "読み込みに失敗しました。下に引っ張って更新してください",
+      "deleteFailed": "削除に失敗しました。もう一度お試しください",
       "empty": "対話履歴なし",
       "deleteOne": "この対話を削除",
       "clearAll": "すべて削除",
@@ -749,6 +751,7 @@
       "useCount": "{n} 回使用"
     },
     "chat": {
+      "replayFailed": "この会話の読み込みに失敗しました。もう一度お試しください",
       "agentTipTitle": "エージェント使用ガイド",
       "agentTipConfirm": "了解しました",
       "agentTipSkill": "スキル選択",
