@@ -11194,7 +11194,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 ### 第二梯队 P1:对等性与体验
 
 - [x] ✅(2026-09-27) 52. RAG 真重排(RRF 多源融合 + 可选 cross-encoder/LLM 二段;`_keyword_fallback` 从兜底升为融合源) 交付:_keyword_fallback 升为常驻融合源 + RRF(k 默认 60,`RAG_RRF_K` 可配已登记能力矩阵)+ 二段按入参开关、拿不到可信结果即诚实降级 `DEPTH_RRF`;真实语料夹具逐字取自 `skills/content_engine/articles/archive/{0713,0714,0716}.md` 并造出 k=60/k=2 名次真分叉对照。回归 RAG 族 126 passed。
-- [ ] 53. 计划模式硬约束下放到主聊天流(主链路从纯提示词注入改为 `tools ∩ READONLY_TOOLS` 硬收窄;mode × permission_mode 笛卡尔矩阵单一真源;ModeSwitcher 补 `ask` 态)
+- [ ]（进行中@2026-09-27/v3wave2）53. 计划模式硬约束下放到主聊天流(主链路从纯提示词注入改为 `tools ∩ READONLY_TOOLS` 硬收窄;mode × permission_mode 笛卡尔矩阵单一真源;ModeSwitcher 补 `ask` 态)
 - [ ] 54. 工具连续失败反思 / 卡死检测上提到主链路(failure-streak ≥3 换策略 + stuck 检测;CLI `doom-loop-detector` 逻辑抽共享层 + Python 等价实现 + parity 守门)
 - [x] 57.(capability matrix 端点 + 管理端开关页 + 禁止新增默认关 env) ✅(2026-09-26)capability_matrix.py 76 env 台账(开关 56/灰度 7/门控 13,逐条 grep 实证非凭记忆)+ main.py 启动自检 + GET /api/admin/capabilities(role_id≥1,403/200 测试)+ 守门 check-capability-matrix.mjs(剥注释取材,self-test 红绿咬合,真跑 553py 对账一致;J1 幽灵条目/J2 台账逃逸断言)已接 pre-commit;单测 7
 - [ ] 59. 消息级版本切换 ← 1/3 →(regenerate 改为新增 sibling 而非物理删除;共用 `CanvasVersionMenu` 交互)
@@ -11219,7 +11219,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 
 - [ ]（进行中@2026-09-27/v3wave2）62. 会话搜索栏挂载 + 侧栏批量选择(`ChatSearchBar`/`useChatSearch` 零消费者;**按 #62 定下的规矩:孤儿件要么接要么删,并登记**)
 - [ ] 64. AI 消息可编辑 + 消息级 pin/书签(共用 59 的 sibling 存储)
-- [ ] 68. 流式中切换模型 → 终止后自动带入新模型
+- [ ]（进行中@2026-09-27/v3wave2）68. 流式中切换模型 → 终止后自动带入新模型
 
 ### 第四梯队 P3:五年领先(79–86,均等 15–78 全绿后单独立项)
 
