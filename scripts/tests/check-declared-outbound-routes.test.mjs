@@ -10,22 +10,25 @@
  * 临时 git 仓里造"索引 ≠ HEAD ≠ 磁盘"的三面现场,证明默认档真在判 HEAD blob、--staged 真在判索引 blob,
  * 以及"两面旗同给 / 无提交"都判死而不是记绿。
  *
- * 一条方向性对照(T1)专门钉住"未注册时不得被判定为已装车":本票按任务书**没有**碰 guardian-runner,
- * 所以此刻它必须查无此人;等主会话把它接线,这条断言会反过来要求 blocking + skipEnv 齐备。
+ * 一条方向性对照(T1)钉住"接线必须成套":本门已由主会话接进 guardian-runner,
+ * 所以它要求 `mode: 'blocking'` 与 `skipEnv` 同时在场 —— 只接一半(比如漏 skipEnv)比不接更危险,
+ * 因为判据红的时候没有人能正当脱身,唯一结局是各会话跳门并连带废掉全部守门。
  */
-import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
-import { GIT_BIN, ROOT, runGate, writeRepo } from './helpers/outbound-routes-fixtures.mjs'
+import { GIT_BIN, runGate, writeRepo } from './helpers/outbound-routes-fixtures.mjs'
 
-test('T1 未装车方向性:本门此刻不得在 guardian-runner 里被记成已接提交链', () => {
+test('T1 接线成套性:未接则放过,已接则必须 blocking + skipEnv 齐备', () => {
   const runner = readFileSync(new URL('../guardian-runner.mjs', import.meta.url), 'utf8')
   const wired = runner.includes('check-declared-outbound-routes.mjs')
   if (!wired) return
   // 一旦被接线(主会话的权限),必须同时是 blocking 且有应急跳过通道 —— 缺一即红。
-  const block = /check-declared-outbound-routes\.mjs[\s\S]{0,600}?blocking:\s*true/.test(runner)
+  // 注:runner 的定级字段是 `mode: 'blocking'`,不是 `blocking: true` —— 按 runner 的真实 schema 判,
+  // 否则这条断言会在**已正确接线**的提交上恒红(判据错 ≠ 交付缺陷)。
+  const block = /check-declared-outbound-routes\.mjs[\s\S]{0,600}?mode:\s*'blocking'/.test(runner)
   const skip = runner.includes('HUSKY_SKIP_DECLARED_OUTBOUND_ROUTES')
   if (!block || !skip)
     throw new Error(`接线不完整: blocking=${block} skipEnv=${skip}(半接线比不接更危险)`)
