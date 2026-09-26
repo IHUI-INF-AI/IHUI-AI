@@ -10994,3 +10994,14 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - [ ] **O82续三·D41后续①**：11 条新文案只在组件内联兜底（清单在 `.ihui-agent/tmp/i18n-d41.json`，键名 `previewView*` / `previewSource*`），**未入语言包** ⇒ 五种语言实际都不走取词通道；补录要按 §19 流水线（`i18n-diff` → 翻译 → `i18n-apply` → parity 复验），不得手改单个语言文件。
 - [ ] **O82续三·守门8后续①**：三端首纳入的死调用存量已冻进 `scripts/api-routes-baseline.json`（现值以 `node scripts/check-api-routes.mjs` 末行现读为准），清理另计；同票登记的 `GET /api/study/videos @ apps/mobile-rn/src/screens/StudyIndexScreen.tsx` 是"后端从未注册的列表接口"，与视频页那条归并处理，不得两处各修一遍。
 - [ ] **O82续三·GA7后续①**：RN 双层页头 HEAD 存量 3 处（`SettingsScreen.tsx`、`CourseDetailScreen.tsx`、`LiveDetailScreen.tsx`）只报数未清理；属移动端实现票，判据本体一字未改。
+
+## O82续三 本会话清账与落地（2026-09-26，三路守门票 + 两波功能票 + F4 新判据）
+
+- [x] ✅(2026-09-26) **O82续三 落账** 三路守门票全部入库：守门 8 前端调用面从 apps/web 扩到 mobile-rn/miniapp-taro/extension（`1e7ed628e9b`，死调用首现判据；新增 `OPAQUE_MOUNT_PREFIXES` 把 ai-service `mount_to_app` 那两条按守门 127 同一口径计「未判定」，web 侧此前把它们误报成死调用）；auth refresh 单例守门改判受审面（`1b5b10b4c1e`，默认 HEAD blob / `--staged` 索引 blob / 两面旗同给 exit 2，并给 `pre-commit-hook.js` 调用点补 `--staged` —— 门收口到判 HEAD 而钩子不传面旗，等于在审上一提交态）；守门 102 新增 GA7「同屏双返回 · 双层页头」（`3c9e3c7ec09`，H1 按紧邻 return 切段 / H2 跨文件一跳 / H3 `headerShown` 回潮，HEAD 存量 3 处按文件棘轮只报数）。
+- [x] ✅(2026-09-26) **O82续三 落账** 两波功能票入库：D35 历史分页投影进 `packages/shared` 并接上 api-client + web 唯一生产 importer（`dba0ed1b360`，契约形状逐字取自 `apps/api/src/routes/chat.ts:803-814`/`:184-188` 与 `db/chat-queries.ts:739-758`，20 例含四条接线锁）；D41 产物预览 preview↔源码切换（`58b1a4b1b4f`，「切换不重新取数」由 spy 计数逐字不变断言，media 目录 9 files / 82 tests 全绿）。
+- [x] ✅(2026-09-26) **O82续三 更正** 上面第二格说"18 条翻勾 + 2 条租约摘牌 + 1 条改写"，枚数抄错：实测 `9147d9f4847` 是 **19 行翻勾（其中 2 行同时带 `（进行中）` 标记被摘牌）+ 1 行 B15 票面改写**，共 20 行差异、numstat 20/20。登记枚数与实测不符会让下一个人照错数复核。
+- [ ] **O82续三·D35后续①**：`projectionState` 的**写入**方仍无人接 —— 服务端注释自称"投影器写入在后续段落接线"，本票只做了读侧；读侧投影已可用，不得读成整票闭环。
+- [ ] **O82续三·D35后续②**：`packages/shared/src/chat/index.ts` 的 barrel 里 `voice-note` 与 `prompt-drafts` 两行仍是**注释态**，而这两个文件都已存在于 HEAD（实测 `git cat-file -e HEAD:packages/shared/src/chat/voice-note.ts` 通过）⇒ 共享层"造好没装车"的又一格；解开注释属实现票，须先跑 `pnpm --filter @ihui/shared typecheck` 与各端构建再定。
+- [ ] **O82续三·D41后续①**：11 条新文案只在组件内联兜底（清单在 `.ihui-agent/tmp/i18n-d41.json`，键名 `previewView*` / `previewSource*`），**未入语言包** ⇒ 五种语言实际都不走取词通道；补录要按 §19 流水线（`i18n-diff` → 翻译 → `i18n-apply` → parity 复验），不得手改单个语言文件。
+- [ ] **O82续三·守门8后续①**：三端首纳入的死调用存量已冻进 `scripts/api-routes-baseline.json`（现值以 `node scripts/check-api-routes.mjs` 末行现读为准），清理另计；同票登记的 `GET /api/study/videos @ apps/mobile-rn/src/screens/StudyIndexScreen.tsx` 是"后端从未注册的列表接口"，与视频页那条归并处理，不得两处各修一遍。
+- [ ] **O82续三·GA7后续①**：RN 双层页头 HEAD 存量 3 处（`SettingsScreen.tsx`、`CourseDetailScreen.tsx`、`LiveDetailScreen.tsx`）只报数未清理；属移动端实现票，判据本体一字未改。
