@@ -2,19 +2,18 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { aizhsUrl } from '@/constants/icon-urls'
 import { useTt, t } from '@/i18n'
 import { useState } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
-import { View, Text, Input, Switch, Image } from '@tarojs/components'
+import { View, Text, Input, Switch } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { ModelConfigType } from '@ihui/types'
 import { TARO_RPX_PER_PX } from '@ihui/design-tokens'
 import {
+  MODEL_CONFIG_BLOCK_GLYPH_PX,
   MODEL_CONFIG_INLINE_GLYPH_PX,
   MODEL_CONFIG_SWITCH_THUMB_PX,
   MODEL_CONFIG_SWITCH_THUMB_TRAVEL_PX,
-  MODEL_CONFIG_UPLOAD_MARK_PX,
   MODEL_CONFIG_UPLOAD_TILE_PX,
   modelConfigAudioMenuIconStyle,
   modelConfigDeleteBadgeStyle,
@@ -27,20 +26,19 @@ import { Selecter } from './adapters/Selecter.taro'
 import './ModelConfigDialog.css'
 import LineIcon from '@/components/LineIcon'
 
-/// 本组件所有会显形的几何数字(删除角标 / 音色菜单图标块 / 上传图块与标记盒 / 自绘开关轨道
-/// 与拇指及其行程 / 参数输入行高 / 行内字形)一律不在本文件取数 —— 唯一源是
+/// 本组件所有会显形的几何数字(删除角标 / 音色菜单图标块 / 上传图块 / 自绘开关轨道
+/// 与拇指及其行程 / 参数输入行高 / 行内字形与块内字形)一律不在本文件取数 —— 唯一源是
 /// @ihui/shared/ui/model-config-dialog-spec(与 RN 端同档,裁决依据写在该文件);
 /// 本文件只做 rpx 换算与挂自己的布局原语。
 const toUnit = (px: number) => rpx(px * TARO_RPX_PER_PX)
 
-// aigc variant 上传按钮图标(对齐原项目 ModelConfigDialog/indexa.vue):
-// icon-album(首帧/尾帧空)/ icon-yinpin(音频空 + 克隆音色行)/ icon-audio-success(音频成功)/
-// icon-kelong(视频空)/ icon-video-success(视频成功)/ model_edit_yes(首帧/尾帧成功)
-const iconAlbumPng = aizhsUrl('remote-images/icon-album.png')
-const iconYinpinPng = aizhsUrl('remote-images/icon-yinpin.png')
-const iconAudioSuccessPng = aizhsUrl('remote-images/icon-audio-success.png')
-const iconKelongPng = aizhsUrl('remote-images/icon-kelong.png')
-const iconVideoSuccessPng = aizhsUrl('remote-images/icon-video-success.png')
+// O81 票⑤续(2026-09-26):本组件 aigc variant 原先有 7 处把 aizhs.top 的 CDN 位图
+// (icon-album / icon-yinpin / icon-audio-success / icon-kelong / icon-video-success /
+// model_edit_yes)当 UI 图标。位图不随主题反色、不跟字号缩放,违反 AGENTS §4「UI 图标一律
+// 用矢量图标库」,故按"矢量优先"全部换成与 RN 端 `ModelConfigDialog.tsx` 同一 lucide 字形:
+// 上传图块空态 = `plus`(RN UploadButton `<Plus>`)/ 已上传态 = `check`(RN `<Check>`)/
+// 克隆音色行前 = `mic`(RN 克隆行 `<Mic>`)。墨迹档一律取 spec 的 BLOCK_GLYPH(=RN 同槽 18),
+// 默认色 `var(--color-muted-foreground)`(=RN tokens.text.secondary,见 LineIcon 头注)。
 
 // ===== 默认 variant 用:简化版配置 =====
 export interface ModelConfig {
@@ -138,8 +136,6 @@ interface UploadItem {
   label: string
   url: string
   name: string
-  emptyIcon: string
-  successIcon: string
 }
 
 export default function ModelConfigDialog({
@@ -475,39 +471,32 @@ export default function ModelConfigDialog({
     setConfigValue(key, '')
   }
 
-  // 上传按钮配置
+  // 上传按钮配置。空态/成功态字形在渲染处统一取 `plus`/`check`(与 RN 端 UploadButton
+  // 的 `<Plus>`/`<Check>` 同槽同字形,RN 侧本就不按上传类型区分图标,故这里也不再各带一枚位图)。
   const uploadItems: UploadItem[] = [
     {
       key: 'firstFrame',
       label: t('ModelConfigDialog.text7'),
       url: uploads.firstFrame.url,
       name: uploads.firstFrame.name,
-      emptyIcon: iconAlbumPng,
-      successIcon: aizhsUrl('sys-mini/xtk/model_edit_yes.png'),
     },
     {
       key: 'lastFrame',
       label: t('ModelConfigDialog.text8'),
       url: uploads.lastFrame.url,
       name: uploads.lastFrame.name,
-      emptyIcon: iconAlbumPng,
-      successIcon: aizhsUrl('sys-mini/xtk/model_edit_yes.png'),
     },
     {
       key: 'audio',
       label: t('ModelConfigDialog.text9'),
       url: uploads.audio.url,
       name: uploads.audio.name,
-      emptyIcon: iconYinpinPng,
-      successIcon: iconAudioSuccessPng,
     },
     {
       key: 'video',
       label: t('ModelConfigDialog.text10'),
       url: uploads.video.url,
       name: uploads.video.name,
-      emptyIcon: iconKelongPng,
-      successIcon: iconVideoSuccessPng,
     },
   ]
 
@@ -543,10 +532,11 @@ export default function ModelConfigDialog({
                       className="flex items-center justify-center bg-muted rounded-lg"
                       style={modelConfigSquareStyle(MODEL_CONFIG_UPLOAD_TILE_PX, toUnit)}
                     >
-                      <Image
-                        src={it.emptyIcon}
-                        style={modelConfigSquareStyle(MODEL_CONFIG_UPLOAD_MARK_PX, toUnit)}
-                        mode="aspectFit"
+                      {/* RN 同槽(UploadButton 空态)= `<Plus>`;LineIcon number 量纲是 rpx,乘系数 */}
+                      <LineIcon
+                        name="plus"
+                        size={MODEL_CONFIG_BLOCK_GLYPH_PX * TARO_RPX_PER_PX}
+                        color="var(--color-muted-foreground)"
                       />
                     </View>
                   ) : (
@@ -554,10 +544,11 @@ export default function ModelConfigDialog({
                       className="flex items-center justify-center bg-primary/10 rounded-lg"
                       style={modelConfigSquareStyle(MODEL_CONFIG_UPLOAD_TILE_PX, toUnit)}
                     >
-                      <Image
-                        src={it.successIcon}
-                        style={modelConfigSquareStyle(MODEL_CONFIG_UPLOAD_MARK_PX, toUnit)}
-                        mode="aspectFit"
+                      {/* RN 同槽(UploadButton 已上传态)= `<Check>` */}
+                      <LineIcon
+                        name="check"
+                        size={MODEL_CONFIG_BLOCK_GLYPH_PX * TARO_RPX_PER_PX}
+                        color="var(--color-muted-foreground)"
                       />
                     </View>
                   )}
@@ -632,12 +623,18 @@ export default function ModelConfigDialog({
                   }}
                   hoverClass="opacity-60"
                 >
-                  <Image
-                    src={iconYinpinPng}
-                    className="mr-2"
+                  {/* RN 克隆音色行前图标 = 40 盒(AudioMenuIcon)+ 18 字形(Mic),本端同构:
+                      盒子沿用 modelConfigAudioMenuIconStyle(原位图占据的同一档),字形档取 BLOCK_GLYPH */}
+                  <View
+                    className="flex items-center justify-center mr-2"
                     style={modelConfigAudioMenuIconStyle(toUnit)}
-                    mode="aspectFit"
-                  />
+                  >
+                    <LineIcon
+                      name="mic"
+                      size={MODEL_CONFIG_BLOCK_GLYPH_PX * TARO_RPX_PER_PX}
+                      color="var(--color-muted-foreground)"
+                    />
+                  </View>
                   <View className="flex-1">
                     <Text className="block text-sm">
                       {uploads.audio.name
