@@ -962,4 +962,38 @@ test('R8 预筛完备性:真仓每一条应计行所在文件都必须在预筛�
     assert.ok(set.has(f) || !gate.isR5Scope(f), `预筛漏了 ${f}`)
   }
 })
+
+// ─── R8 覆盖面形状锁:整面取,不维护端名单 ───
+// 立因(2026-09-26 一天内补两次才找齐):
+//  ① R5 立项的端表里没有 apps/extension ⇒ 类名形态在扩展端整块失明(HEAD 真留一处 border-primary);
+//  ② R8 的类名面扩展名里没有 .css/.scss ⇒ `border-color: var(--color-primary)` 这一书写形态
+//     整块失明(实测 19 处,全在小程序端)。同一条设计规矩被书写形态切成三块盲区。
+// 端名单会腐烂(§4 对 RN_ONLY_BRAND_KEYS 的同一条教训),所以判据改成"整个 UI 跟踪面 + 叙述面排除"。
+test('R8 覆盖面必须按整面取,且枚举与筛选同表、预筛含 CSS 声明形态', () => {
+  assert.deepEqual(gate.R8_DIRS, ['apps', 'packages'], 'R8 面不得再维护端名单')
+  for (const f of [
+    'apps/web/src/x.tsx',
+    'apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx',
+    'apps/miniapp-taro/src/components/CategoryBar.css',
+    'apps/desktop/src/main.ts',
+    'packages/shared/src/design/design-templates.ts',
+  ])
+    assert.equal(gate.isR8Scope(f), true, '漏了某个端或某种书写:' + f)
+  for (const f of ['apps/web/e2e/x.tsx', 'apps/web/src/a.spec.ts', 'packages/ui-react/t/tests/x.ts'])
+    assert.equal(gate.isR8Scope(f), false, '叙述面不得进射程:' + f)
+  const src = readFileSync(join(REPO, 'scripts', 'check-brand-foreground.mjs'), 'utf8')
+  const at = src.indexOf('function listR8WebFiles(')
+  assert.ok(at >= 0, '找不到 listR8WebFiles(改名了?)')
+  const nextFn = src.indexOf('\nfunction ', at + 10)
+  const body = src.slice(at, nextFn < 0 ? src.length : nextFn)
+  assert.ok(body.includes('...R8_DIRS'), '枚举面必须用 R8 自己的目录表(沿用 R5 表 = 扩面静默失效)')
+  assert.ok(!body.includes('...R5_DIRS'), '枚举面里不得再出现 R5 的目录表')
+  const patAt = src.indexOf('const R8_CLASS_GREP_PATTERN')
+  assert.ok(patAt >= 0, '预筛模式常量不见了')
+  assert.ok(
+    src.slice(patAt, patAt + 300).includes('--color-primary'),
+    '预筛必须含 CSS 声明形态 —— 少了它,该类命中永远进不了候选,门对该形态全盲',
+  )
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
