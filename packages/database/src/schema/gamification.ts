@@ -11,6 +11,7 @@ import {
   date,
   jsonb,
   unique,
+  index,
 } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
 
@@ -37,20 +38,30 @@ export const userPoints = pgTable('user_points', {
  * 积分流水表。
  * type: 'earn' | 'spend'。amount 正数 earn / 负数 spend。
  * balance_after 记录操作后余额；source 标识来源；reference_id 关联资源（如签到记录 id）。
+ * 索引 ix_point_transactions_user_created_at 同时服务按日消耗聚合（credits-usage-service，
+ * user_id 等值 + created_at 区间）与流水端点的 user_id + created_at 倒序分页；
+ * 与迁移 20260927170000_point_transactions_user_created_idx.sql 同形（手写索引同步声明
+ * 的先例见 chat.ts 的 ix_chat_messages_conversation）。
  */
-export const pointTransactions = pgTable('point_transactions', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userId: uuid('user_id')
-    .references(() => users.id, { onDelete: 'cascade' })
-    .notNull(),
-  type: varchar('type', { length: 16 }).notNull(),
-  source: varchar('source', { length: 32 }).notNull(),
-  amount: integer('amount').notNull(),
-  balanceAfter: integer('balance_after').notNull(),
-  description: varchar('description', { length: 255 }),
-  referenceId: varchar('reference_id', { length: 64 }),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-})
+export const pointTransactions = pgTable(
+  'point_transactions',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    type: varchar('type', { length: 16 }).notNull(),
+    source: varchar('source', { length: 32 }).notNull(),
+    amount: integer('amount').notNull(),
+    balanceAfter: integer('balance_after').notNull(),
+    description: varchar('description', { length: 255 }),
+    referenceId: varchar('reference_id', { length: 64 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    userCreatedAtIdx: index('ix_point_transactions_user_created_at').on(t.userId, t.createdAt),
+  }),
+)
 
 /**
  * 签到记录表。
