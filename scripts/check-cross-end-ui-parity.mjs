@@ -495,6 +495,34 @@ export function geometryDeclCheck(jsSrc, dtsSrc) {
   return { steps, declared, missingInDts, missingInJs, problem: bits.join(' | ') }
 }
 
+/**
+ * 拆对声明 —— "这两个同名文件根本是两个东西",与"两端确实不同形"是两种结论。
+ *
+ * 立论实例(2026-09-27 现读两端头注):`FloatBox` 小程序端是**右下角悬浮功能盒**(赚米/客服/反馈
+ * 三按钮),RN 端是**顶部悬浮消息提示**(toast,4 种 type、3s 自动消失、由 Toast Portal 堆叠)。
+ * 同名不同物 ⇒ 它的 4 处"几何差异"与 5 枚单侧档**不是一致性问题**,是配对本身错了。
+ * 把这种族继续算进差异账,会让台账读起来比仓库更糟,也会诱导下一个人去"收敛"两个不同的小工具
+ * —— 那正是"为消红改数字"的反面:该修的是尺子的输入,不是输出。
+ *
+ * 但拆对天然是一条**豁免通道**,所以判据收紧成三条,任一不成立即判红:
+ *  ① `reason` 必须非空且够长(空串/占位不算,与 `waiverProblem` 同一取向);
+ *  ② `until` 必须是合法日期且**未到期** —— 过期即红,"到期只判红不自动恢复配对",
+ *     因为到期含义是"该重新判一次它到底是不是同一个东西",不是"免检期满";
+ *  ③ 拆掉的族**不得再挂在 `counts` 或 `waivers` 上** —— 那是一笔双记账,账面会同时
+ *     声称"这不是同一个元素"和"这个元素两端差 N 档"(清单腐烂的一种)。
+ */
+export function rejectProblem(r) {
+  if (!r || typeof r !== 'object') return '拆对声明必须是对象(带 reason + until)'
+  const reason = typeof r.reason === 'string' ? r.reason.trim() : ''
+  if (reason.length < 12) return 'reason 缺失或过短(拆对是判据输入的改变,不是一句"不用管")'
+  if (typeof r.until !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(r.until))
+    return 'until 必须是 YYYY-MM-DD(拆对必须有复审日期,永不过期的拆对等于静默删族)'
+  const until = Date.parse(`${r.until}T23:59:59Z`)
+  if (Number.isNaN(until)) return `until 不是可解析的日期:${r.until}`
+  if (until < Date.now()) return `拆对声明已到期(${r.until})⇒ 必须重新判这对到底是不是同一个元素`
+  return null
+}
+
 /* ───────────────── 端入口可达性:什么才算"一条腿" ───────────────── */
 
 /**
@@ -1090,7 +1118,8 @@ function listFace(repoRoot, face, dir) {
  * 面 → 两端清单 + 同名配对正文。一次 cat-file --batch 同面同轮读完;任一份取不到即 Undetermined。
  * `pairAll` 是人工核对的逃生舱:退回"只要同名就配对",不做可达性剔除(默认档必做)。
  */
-export function collect(repoRoot, face, { pairAll = false } = {}) {
+export function collect(repoRoot, face, { pairAll = false, rejected = [] } = {}) {
+  const rejSet = new Set(rejected)
   const lists = {}
   for (const [side, dirs] of Object.entries(SIDES)) {
     const acc = []
@@ -1103,6 +1132,13 @@ export function collect(repoRoot, face, { pairAll = false } = {}) {
   }
   let pairs = scan(lists.miniapp, lists.rn)
   if (pairs.undetermined) throw new Undetermined(`${pairs.reason} ⇒ 判据失明,不得记为通过`)
+  /**
+   * 拆对声明在**可达性剔除之前**生效:同名不同物的两个组件不该再产生任何一维读数
+   * (几何、SL、IC 三维修的是同一句话"这是同一个界面元素")。但它必须留在账面上被点名,
+   * 不得变成静默删族 —— 所以被拆掉的族由 main 逐条打印,且判据要求台账里不再挂它的锚点。
+   */
+  const rejectedHits = pairs.pairs.filter((p) => rejSet.has(p.name))
+  if (rejSet.size) pairs = { ...pairs, pairs: pairs.pairs.filter((p) => !rejSet.has(p.name)) }
   let unreachable = []
   let undeterminedEdges = []
   let coverageNote = null
@@ -1175,6 +1211,7 @@ export function collect(repoRoot, face, { pairAll = false } = {}) {
     text,
     tiers,
     geoDecl,
+    rejected: rejectedHits,
     unreachableLegs: unreachable,
     undeterminedEdges,
     coverageNote,
@@ -1247,10 +1284,18 @@ export function verdictOf(findings, baseline) {
   return { red, shrunk, waived }
 }
 
-export function emitBaseline(findings) {
+export function emitBaseline(findings, prior = {}) {
   const counts = {}
   for (const f of findings) counts[f.name] = diffCount(f)
-  return { counts, waivers: {} }
+  /**
+   * `pairingRejects` 必须**原样带走**:它是判据输入(哪些同名族不是同一个元素),不是存量数字。
+   * 旧写法整对象重写会把别人的拆对声明冲掉 —— 冲掉的后果不是"少一行 JSON",而是那一族
+   * 立刻回到"被当配对算差异"的状态,台账凭空多出 N 处"差异"(守门 83 的 `--update-baseline`
+   * 冲掉他人审计台账,是同一型事故)。
+   */
+  const out = { counts, waivers: {} }
+  if (prior && prior.pairingRejects) out.pairingRejects = prior.pairingRejects
+  return out
 }
 
 export function parseBaseline(text, where) {
@@ -1288,10 +1333,19 @@ export function faceFromArgv(argv) {
 export function main(argv, repoRoot = ROOT) {
   const pairAll = argv.includes('--pair-all')
   let face, collected, baseline
+  let rejProblems = []
+  let rejNames = []
   try {
     face = faceFromArgv(argv)
     baseline = loadBaseline(repoRoot, face)
-    collected = collect(repoRoot, face, { pairAll })
+    /** 拆对声明先校验再喂给 collect:一条坏声明(无理由 / 过期 / 不是对象)必须判红,
+     *  绝不能因为"解析不出"就退回默认档继续把这条族当配对算。 */
+    const rej = baseline.pairingRejects ?? {}
+    rejNames = Object.keys(rej)
+    rejProblems = rejNames
+      .map((n) => ({ name: n, why: rejectProblem(rej[n]) }))
+      .filter((x) => x.why)
+    collected = collect(repoRoot, face, { pairAll, rejected: rejNames })
   } catch (e) {
     if (e instanceof Undetermined) {
       console.log(`⚠️ 无法判定:${e.message}`)
@@ -1301,7 +1355,7 @@ export function main(argv, repoRoot = ROOT) {
   }
   const res = audit(collected.pairs, collected.text, baseline, collected.tiers)
   if (argv.includes('--emit-baseline')) {
-    console.log(JSON.stringify(emitBaseline(res.findings), null, 2))
+    console.log(JSON.stringify(emitBaseline(res.findings, baseline), null, 2))
     console.log(
       `模板按 ${FACE_TXT[face]} 面生成;逐条核过再放进 ${BASELINE_REL}(它是存量锚点,不是合格证)`,
     )
@@ -1442,6 +1496,33 @@ export function main(argv, repoRoot = ROOT) {
     }
   }
   /*
+   * ── PAIR 拆对声明对账 ───────────────────────────────────────────
+   * 三条红:① 声明本身坏(无理由 / 过期 / 形态不对);② 拆掉的族仍挂 `counts` 或 `waivers`
+   * (同一族既被声明"不是同一个元素"又被记账"两端差 N 档"= 双记账,必有一份是假的);
+   * ③ 台账声明拆了某族,而配对面上**根本没这个名字** —— 要么文件改名/删了(声明该跟着了结),
+   * 要么它已回到"只有一端有"的状态,两种都不该继续挂着。
+   * 刻意不因"未判定"放过:拆对是本门输入的改变,比调台账数字更需要证据。
+   */
+  const rejAll = baseline.pairingRejects ?? {}
+  const rejStillAnchored = Object.keys(rejAll).filter(
+    (n) => (baseline.counts ?? {})[n] !== undefined || (baseline.waivers ?? {})[n] !== undefined,
+  )
+  const pairedNames = new Set((collected.rejected ?? []).map((x) => x.name))
+  const rejGhosted = Object.keys(rejAll).filter((n) => !pairedNames.has(n))
+  const rejInvalid = rejProblems.map((x) => `${x.name}:${x.why}`)
+  if (!argv.includes('--json')) {
+    for (const x of collected.rejected ?? [])
+      console.log(`  ⊘ PAIR ${x.name} —— 同名不同物,已按声明拆对:${rejAll[x.name].reason}`)
+    for (const m of rejInvalid) console.log(`  × PAIR 拆对声明无效:${m}`)
+    for (const n of rejStillAnchored)
+      console.log(`  × PAIR ${n} 已声明拆对,台账仍挂它的锚点/豁免 ⇒ 双记账,删 ` + 'counts' + ' 那条')
+    for (const n of rejGhosted)
+      console.log(
+        `  × PAIR ${n} 声明拆对,而配对面上找不到这一对 ⇒ 文件已搬走或只剩一端,该了结这条声明`,
+      )
+  }
+  const rejRed = rejInvalid.length + rejStillAnchored.length + rejGhosted.length
+  /*
    * ── G 几何表与其类型声明对账 ────────────────────────────────────
    * 两侧都判:表有档而类型不认 / 类型承认而表里没有。零容忍是安全的:
    * HEAD 现测两份同名(2 档),所以本维不存在"存量当场判红 = 恒红门"的问题(§12e 那一型),
@@ -1460,7 +1541,7 @@ export function main(argv, repoRoot = ROOT) {
         `  · G 几何表 ${g.steps.length} 档与 GeometryStep ${g.declared.length} 档同名(表↔类型一致)`,
       )
   }
-  return res.red.length + icRed.length + slRed.length + (geoRed ? 1 : 0) ? 1 : 0
+  return res.red.length + icRed.length + slRed.length + rejRed + (geoRed ? 1 : 0) ? 1 : 0
 }
 
 /**
@@ -2039,6 +2120,68 @@ function runSelfTest() {
         /collected\.geoDecl/.test(src) &&
         /\+ \(geoRed \? 1 : 0\)\s*\?\s*1\s*:\s*0/.test(src)
       )
+    })(),
+  )
+  t(
+    '㊺ 拆对声明三条判据:无理由 / 日期形态错 / 已到期 各自判红,合法声明返回 null',
+      (() => {
+      const future = new Date(Date.now() + 86400000 * 30).toISOString().slice(0, 10)
+      const ok = rejectProblem({ reason: '两端头注逐字读自 HEAD:一个是右下角功能盒,一个是顶部 toast', until: future })
+      const noReason = rejectProblem({ reason: '', until: future })
+      const shortReason = rejectProblem({ reason: '不一样', until: future })
+      const expired = rejectProblem({ reason: '两端头注逐字读自 HEAD:一个是右下角功能盒,一个是顶部 toast', until: '2020-01-01' })
+      const badDate = rejectProblem({ reason: '两端头注逐字读自 HEAD:一个是右下角功能盒,一个是顶部 toast', until: '2027-13-99x' })
+      const notObj = rejectProblem('FloatBox')
+      return (
+        ok === null &&
+        !!noReason && !!shortReason && !!expired && !!badDate && !!notObj &&
+        /到期/.test(expired)
+      )
+    })(),
+  )
+  t(
+    '㊻ 拆对必须发生在配对层:该族不再进 findings,但必须在 rejected 里点名(不得静默消失)',
+    (() => {
+      const dir = makeFixtureRepo(
+        FIXTURE_BASE({
+          rn: "import { Bar, Foo } from '@ihui/rn-app'\nexport function RootNavigator() { return null }\n",
+        }),
+      )
+      try {
+        const plain = collect(dir, 'head')
+        const withRej = collect(dir, 'head', { rejected: ['Foo'] })
+        return (
+          plain.pairs.pairs.some((p) => p.name === 'Foo') &&
+          plain.rejected.length === 0 &&
+          !withRej.pairs.pairs.some((p) => p.name === 'Foo') &&
+          withRej.rejected.length === 1 &&
+          withRej.rejected[0].name === 'Foo' &&
+          withRej.rejected[0].rn === 'packages/app/src/components/Foo.tsx'
+        )
+      } finally {
+        rmScratch(dir)
+      }
+    })(),
+  )
+  t(
+    '㊼ emitBaseline 必须原样带走 pairingRejects(重写台账把别人的拆对声明冲掉 = 该族凭空多出一堆"差异")',
+    (() => {
+      const prior = { counts: { A: 1 }, waivers: {}, pairingRejects: { F: { reason: 'x', until: '2027-01-01' } } }
+      const out = emitBaseline([{ name: 'A', named: [], geometry: { onlyMiniapp: [], onlyRn: [] } }], prior)
+      const dropped = emitBaseline([{ name: 'A', named: [], geometry: { onlyMiniapp: [], onlyRn: [] } }], {})
+      return (
+        !!out.pairingRejects &&
+        out.pairingRejects.F.reason === 'x' &&
+        !Object.keys(out.counts).includes('F') &&
+        dropped.pairingRejects === undefined
+      )
+    })(),
+  )
+  t(
+    '㊽ 装车锁:拆对的红必须折进退出码(只打印不拦提交 = 声明坏了没人知道)',
+    (() => {
+      const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+      return /\+ slRed\.length \+ rejRed \+ \(geoRed \? 1 : 0\)/.test(src)
     })(),
   )
   console.log(`--self-test:${pass} 通过 / ${fail} 失败`)
