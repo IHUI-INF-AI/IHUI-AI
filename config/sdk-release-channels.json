@@ -1,0 +1,108 @@
+{
+  "$schemaVersion": 1,
+  "$purpose": "O14 SDK 发布就绪性台账:五个 registry 通道(npm / PyPI / Maven Central / NuGet / Go module)的『就绪 / 未就绪』机器可读清单。散文说『已具备发布出口』不构成结论 —— 本文件由 packages/sdk/tests/publish-ready.test.mjs 做结构对账(清单 ↔ release-sdk.yml 的 job ↔ 各语言清单坐标),由 scripts/check-sdk-release-channels.mjs 做实跑对账(每条 verifyCommand 必须真能跑,每条 status 必须与实跑读数一致)。",
+  "$faceNote": "本文件是【运行态台账】而非被审代码:校验两侧(publish-ready 结构判据 / 实跑判据)刻意按工作树读 —— 若按 HEAD 判,任何一次如实改账都要先提交才能被自己的门看见,等价于把账实人锁在门后。防漂移由 git 跟踪 + 坐标/作业双向对账承担,不靠取材面。",
+  "$truthfulnessRule": "status 只能按当次实测翻转,不得为过门预填 ready。实跑判据的三态:present(回读命中)/ absent(确定性地查无此物)/ undetermined(网络不可达、命令缺失、身份不可用)。『网络不可达 ≠ 无效』(AGENTS.md §5d):blocked-* 项的 undetermined 只报数不判红;但 ready 项的 undetermined 判红 —— 声称就绪却连验都无法验,正是本台账要拦的那一型。",
+  "liveChecker": "scripts/check-sdk-release-channels.mjs",
+  "releaseTrigger": {
+    "tag": "sdk-v<semver>",
+    "repo": "origin",
+    "note": "唯一触发器(on.push.tags: sdk-v*)。推 tag 是 owner 动作,对所有通道共享,不构成任何单一通道的 blocker。Go 通道的发布物本体是另一枚 tag packages/sdk/go/v<semver>(子目录模块约定),由 CI 的 go-publish job 负责推。"
+  },
+  "outOfScopeNotes": [
+    "homebrew cask 的 sha256 回填需要真实 release 资产(gh release 产物)才能做,属发布后动作,不在本台账五通道判据内。",
+    "NuGet 已知残余:nupkg 未随包 NOTICE 全文(经 PackageLicenseExpression 属合法形态);补随包需改 packages/sdk/dotnet/Ihui.AI.csproj,属既有文件、owner 决定。",
+    "packages/api-client 不在 O14 发布对象内(release-sdk.yml 不含它);但它的 package.json 已非 private 且带 publishConfig,而 check-pkg-installable 实测其产物不可安装(workspace: 依赖 + 92 处无扩展名 ESM import)。处置建议(不在本票授权范围):补 private:true 或修产物,归主会话。"
+  ],
+  "channels": [
+    {
+      "id": "npm",
+      "job": "npm-publish",
+      "coordinate": "@ihui/sdk",
+      "status": "blocked-by-credential",
+      "blocker": "GitHub 仓库 secrets 里没有 NPM_TOKEN(2026-09-26 gh secret list 实测 13 项,均为部署/镜像/邮件类,无任一 registry 凭据);npm @ihui org 归属未确认、未配 trusted publisher。CI 的 gate 步在 real 模式下会因此直接判红,不会静默跳过。",
+      "unblockAction": "① 在 npmjs.com 确认/申请 @ihui org 归属(若为他人 org,先裁决是否换包名 —— 换名必须同步 packages/sdk/package.json 与本台账与 CI 回读字面量,三处由 publish-ready 回归钉住);② 生成 Automation token → gh secret set NPM_TOKEN --repo IHUI-INF-AI/IHUI-AI;③ 首发成功后再评估是否切换 GitHub OIDC trusted publishing(首发只能走 token,因为 trusted publisher 要求包已存在)。",
+      "requiredSecrets": ["NPM_TOKEN"],
+      "verifyCommand": "npm view @ihui/sdk version --registry=https://registry.npmjs.org/",
+      "probe": {
+        "kind": "http-status",
+        "url": "https://registry.npmjs.org/@ihui%2Fsdk",
+        "presentOn": [200],
+        "absentOn": [404, 410]
+      },
+      "statusVerifiedAt": "2026-09-26",
+      "lastRealProbe": "absent(HTTP 404,curl 实测 2026-09-26)"
+    },
+    {
+      "id": "pypi",
+      "job": "pypi-publish",
+      "coordinate": "ihui-ai",
+      "status": "blocked-by-credential",
+      "blocker": "secrets.PYPI_TOKEN 未配置(同上实测);项目名 ihui-ai 在 pypi.org 尚无人认领(JSON API 回读 404)—— 这是有利形态:首次上传即完成认领,不存在被抢注后的申诉链。",
+      "unblockAction": "① pypi.org 注册我方账号(PyPI 无『先占名后上传』机制,认领 = 首次成功上传);② 生成 API token(整账号或限定 ihui-ai 项目)→ gh secret set PYPI_TOKEN --repo IHUI-INF-AI/IHUI-AI;③ token 有效性无法在不上传的前提下探测(官方无 dry-run 端点),唯一判据仍是发布后 JSON API 回读 —— gate 步对此只判『非空』并如实写明不构成可用证明。",
+      "requiredSecrets": ["PYPI_TOKEN"],
+      "verifyCommand": "curl -sS -o /dev/null -w \"%{http_code}\\n\" https://pypi.org/pypi/ihui-ai/json",
+      "probe": {
+        "kind": "http-status",
+        "url": "https://pypi.org/pypi/ihui-ai/json",
+        "presentOn": [200],
+        "absentOn": [404]
+      },
+      "statusVerifiedAt": "2026-09-26",
+      "lastRealProbe": "absent(HTTP 404,curl 实测 2026-09-26)"
+    },
+    {
+      "id": "maven",
+      "job": "maven-publish",
+      "coordinate": "com.ihui:ihui-ai-java",
+      "status": "blocked-by-external-ownership",
+      "blocker": "groupId 命名空间 com.ihui 尚未在 Sonatype Central Portal 完成域名验证(需要 aizhs.top 的 DNS 管理权挂验证记录 —— 属外部账号/域名侧动作,不是补一条 secret 能解的);MAVEN_USERNAME / MAVEN_TOKEN 亦未配置(同上实测)。repo1.maven.org/maven2/com/ihui/ 回读 404,该命名空间无人发过物。",
+      "unblockAction": "① 用 aizhs.top 的管理权在 Central Portal 添加/验证 namespace com.ihui(DNS TXT);② 生成 Central Publishing User Token → gh secret set MAVEN_USERNAME / MAVEN_TOKEN;③ 有效性判据 = 发布后 repo1 的 pom 回读(首传含自动发布可延数小时,Central 索引延迟不是失败)。",
+      "requiredSecrets": ["MAVEN_USERNAME", "MAVEN_TOKEN"],
+      "verifyCommand": "curl -sS -o /dev/null -w \"%{http_code}\\n\" https://repo1.maven.org/maven2/com/ihui/ihui-ai-java/",
+      "probe": {
+        "kind": "http-status",
+        "url": "https://repo1.maven.org/maven2/com/ihui/ihui-ai-java/",
+        "presentOn": [200],
+        "absentOn": [404]
+      },
+      "statusVerifiedAt": "2026-09-26",
+      "lastRealProbe": "absent(HTTP 404,curl 实测 2026-09-26)"
+    },
+    {
+      "id": "nuget",
+      "job": "nuget-publish",
+      "coordinate": "Ihui.AI",
+      "status": "blocked-by-credential",
+      "blocker": "secrets.NUGET_API_KEY 未配置(同上实测;gate 步对此判红而非跳过)。PackageId Ihui.AI 在 nuget.org 未注册(flatcontainer 回读经区域 CDN 302 后终值 404,实测 2026-09-26)。发布机制本身已在位:nupkg 的 build/pack/自检/双轮回读都在 release-sdk.yml 的 nuget-publish job 里,且『工程文件 ↔ job』由 publish-ready 回归双向钉住 —— 缺的只有凭据这一格。",
+      "unblockAction": "① nuget.org 注册账号并生成 API Key(仅 Push 权限,可限定包前缀);② gh secret set NUGET_API_KEY --repo IHUI-INF-AI/IHUI-AI;③ key 有效性同样无法在不上传的前提下探测(与 PyPI 同族困境),唯一判据 = 发布后 flatcontainer 双轮回读(index.json 收录 + nupkg 本体 nuspec 的 id/version 比对)。另:本机 dotnet CLI 只有运行时没有 SDK,可构建性判据只落在 CI 的 dry-run 分支 —— 首次打 tag 前先跑一次 workflow_dispatch dry_run=true 拿构建证据。",
+      "requiredSecrets": ["NUGET_API_KEY"],
+      "verifyCommand": "curl -sSL -o /dev/null -w \"%{http_code}\\n\" https://api.nuget.org/v3-flatcontainer/ihui.ai/index.json",
+      "probe": {
+        "kind": "http-status",
+        "url": "https://api.nuget.org/v3-flatcontainer/ihui.ai/index.json",
+        "presentOn": [200],
+        "absentOn": [404, 410]
+      },
+      "statusVerifiedAt": "2026-09-26",
+      "lastRealProbe": "absent(302→404,curl -L 实测 2026-09-26;对照组 newtonsoft.json=200 / 乱名=404,证明判据不是查法失效)"
+    },
+    {
+      "id": "go",
+      "job": "go-publish",
+      "coordinate": "github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go",
+      "status": "ready",
+      "blocker": null,
+      "unblockAction": "无需解除:本通道不依赖任何第三方凭据 —— 发布动作 = CI 往 origin 推 packages/sdk/go/v<semver> tag,用的就是自带 GITHUB_TOKEN(workflow permissions.contents=write 已覆盖;gate 步对 go 的判据是对 tag 列表接口做一次真实只读调用,失败即判红)。唯一前置是所有通道共享的 sdk-v* 触发 tag,属 owner 动作。proxy.golang.org 收录延迟不计判据(CI 里如实记状态,不写成『已可 go get』)。",
+      "requiredSecrets": [],
+      "verifyCommand": "git ls-remote --tags origin \"refs/tags/packages/sdk/go/v*\"",
+      "probe": {
+        "kind": "git-ls-remote",
+        "remote": "origin",
+        "pattern": "refs/tags/packages/sdk/go/v*"
+      },
+      "statusVerifiedAt": "2026-09-26",
+      "lastRealProbe": "absent(命令 exit 0、输出为空 = origin 可达且尚无该前缀 tag;实测 2026-09-26)"
+    }
+  ]
+}

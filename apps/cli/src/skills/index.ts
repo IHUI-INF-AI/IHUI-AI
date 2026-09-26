@@ -39,6 +39,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { buildSkillPromptSection } from '../utils/prompt-boundary.js';
+import { recordInjectionInjected, recordInjectionSkipped } from '../utils/prompt-injection-registry.js';
 import * as os from 'node:os';
 import type { SkillFrontmatter, SkillPrerequisites, SkillSource } from '@ihui/types';
 
@@ -444,7 +445,12 @@ export function loadSkills(opts: LoadSkillsOptions): Skill[] {
  * 以及"被省略必须留下可读计数"都在那一处实现,本函数不再自带第二份逻辑。
  */
 export function formatSkillsForPrompt(skills: Skill[]): string {
-  return buildSkillPromptSection(skills.map((s) => ({ name: s.name, body: s.body }))).text;
+  if (skills.length === 0) return recordInjectionSkipped('skill_list', '未发现任何技能');
+  const built = buildSkillPromptSection(skills.map((s) => ({ name: s.name, body: s.body })));
+  const text = built.included === 0
+    ? recordInjectionSkipped('skill_list', `${skills.length} 个技能正文全为空`)
+    : recordInjectionInjected('skill_list', built.text);
+  return text;
 }
 
 /**

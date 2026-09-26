@@ -7,11 +7,13 @@ import {
   View,
   Text,
   Image,
+  Pressable,
   TouchableOpacity,
   ScrollView,
   RefreshControl,
   StyleSheet,
 } from 'react-native'
+import { Pin, PinOff } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { NotificationCard, createCardStyles } from '../../components/NotificationCard'
 import type {
@@ -47,6 +49,7 @@ export function MessageCenterScreen({
   onPressItem,
   conversations,
   onPressConversation,
+  onTogglePin,
   onBack,
   colorScheme = 'light',
 }: MessageCenterScreenProps) {
@@ -67,6 +70,17 @@ export function MessageCenterScreen({
       default:
         return t('messageCenter.type.system')
     }
+  }
+
+  /**
+   * 置顶按钮的无障碍名称(动作语义,与 web conversation-list 同形:
+   * 已置顶 → 「取消置顶」,未置顶 → 「置顶」)。messageCenter.pin / messageCenter.unpin
+   * 两键尚未入库(i18n 面由主会话统一登记),缺键时回落中文,不给读屏用户回显裸 key。
+   */
+  const pinActionLabel = (pinned: boolean | undefined): string => {
+    const key = pinned ? 'messageCenter.unpin' : 'messageCenter.pin'
+    const label = t(key)
+    return label === key ? (pinned ? '取消置顶' : '置顶') : label
   }
 
   return (
@@ -155,6 +169,23 @@ export function MessageCenterScreen({
                       </Text>
                     ) : null}
                   </View>
+                  {/* 置顶切换(D20 G-11 端内接线):图标即动作,与 web 菜单同形;
+                      onTogglePin 不传则整颗按钮不渲染(其它端零影响) */}
+                  {onTogglePin ? (
+                    <Pressable
+                      style={styles.convPinBtn}
+                      hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+                      accessibilityRole="button"
+                      accessibilityLabel={pinActionLabel(conv.pinned)}
+                      onPress={() => onTogglePin(conv)}
+                    >
+                      {conv.pinned ? (
+                        <PinOff size={16} color={tk.text.primary} />
+                      ) : (
+                        <Pin size={16} color={tk.text.tertiary} />
+                      )}
+                    </Pressable>
+                  ) : null}
                 </TouchableOpacity>
               ))}
             </View>
@@ -250,6 +281,7 @@ function createStyles(tk: AppThemeTokens) {
     convName: { flex: 1, fontSize: 15, fontWeight: '600', color: tk.text.primary },
     convTime: { fontSize: 12, color: tk.text.tertiary },
     convPreview: { marginTop: 2, fontSize: 13, color: tk.text.secondary },
+    convPinBtn: { paddingHorizontal: 4, justifyContent: 'center' },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
