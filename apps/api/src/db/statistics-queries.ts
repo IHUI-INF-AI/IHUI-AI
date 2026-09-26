@@ -23,6 +23,8 @@ import {
   type StatisticsSnapshot,
   type VisitLog,
 } from '@ihui/database'
+// 个人口径统计要按用户聚合学习记录(与上面的平台级统计同文件,不另开一个查询模块造第二把尺子)
+import { lessonRecords } from '@ihui/database'
 
 // =============================================================================
 // 聚合统计查询
@@ -350,6 +352,36 @@ export interface UserCenterStatistics {
   vipTotal: number
   normalTotal: number
   disabledTotal: number
+}
+
+/**
+ * 用户中心统计(**个人口径**,2026-09-27 立)。
+ *
+ * 与下面的 `getUserCenterStatistics()`(平台级、admin 口径)**不是一个东西**:那边数的是
+ * "全站有多少用户/VIP/教育会员",这里数的是"我这个用户学了多少"。api-client 的
+ * `getUserStatistics()` 自写下起打 `/api/statistics/user-center` 而该路径 404,
+ * 唯一同名的真实路由在 `adminStatisticsRoutes`(前缀 `/api/admin`)⇒ 普通用户即使改对
+ * 路径也只会拿到 403,缺的正是这一个用户口径出口。
+ *  - courseCount = 该用户有学习记录的**去重课时数**(lessonRecords 没有 courseId 列,
+ *    刻意不谎称"课程数";要对到课程粒度得先定 lesson→course 的归属口径,另计一票)
+ *  - studyHours  = watchDuration 秒数聚合成小时,保留 1 位小数(与 edu-frontend-routes
+ *    的学习时长算法同式,不另立第二套舍入)
+ */
+export async function getUserCenterStats(userId: string): Promise<{ courseCount: number; studyHours: number }> {
+  const [lessonRows, durationRows] = await Promise.all([
+    db
+      .select({ n: sql<number>`COUNT(DISTINCT ${lessonRecords.lessonId})::int` })
+      .from(lessonRecords)
+      .where(eq(lessonRecords.userId, userId)),
+    db
+      .select({ total: sql<number>`COALESCE(sum(${lessonRecords.watchDuration})::int, 0)` })
+      .from(lessonRecords)
+      .where(eq(lessonRecords.userId, userId)),
+  ])
+  return {
+    courseCount: lessonRows[0]?.n ?? 0,
+    studyHours: Math.round(((durationRows[0]?.total ?? 0) / 3600) * 10) / 10,
+  }
 }
 
 /** 用户中心统计：平台用户数 + 教育会员数 + VIP 数 + 普通用户数 + 禁用用户数。 */
