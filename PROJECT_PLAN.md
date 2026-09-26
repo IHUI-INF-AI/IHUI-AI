@@ -10507,3 +10507,81 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   - 落地取证:`node scripts/union-converge.mjs --self-test` 38→**41 例全绿**(新增"--resolve 含两侧独有行 ⇒ 冲突消失且落树内容==人工那份"/"只放本侧内容 ⇒ 判丢对侧独有行并进 bad"/"文件读不到 ⇒ 仍落 needHuman 并点名原因"三条成对锁);`--apply --resolve …` 报「取对侧 94 路径 / 真三方归并 2 / 需人工 0 / 人工归并已回灌 1」并 **A1 复核 0 丢失**(合并提交 `0fe36ea`)。**同批前向修掉我上一枚提交留下的两处**:① `PROJECT_PLAN.md` 里一个被 bash 转义吃掉的 0x08(应为字面 `\b`),② `pre-commit-hook.js` 的 RN 复核调用被 prettier 拆行后守门 125 的 R4 看不见(改判据而非改代码,见上一格)。
 - [ ] D20 会话文件夹/标签/置顶+导出 PDF(G-11)。**TTS 朗读已存在**(2026-09-19 晚 V2 复核:voice-stream-speaker.tsx+MessageItem TTS 朗读按钮),从本项剔除 〔PROGRESS 2026-09-26: 文件夹/标签(编辑对话框复用 shared 归一化)+侧栏筛选展示+打印通道导出 PDF 已落地(主会话接管补完 printConversationPdf 与 11 键 i18n,parity 过);置顶与导出余项未做,另批〕
   | --- | --- | --- | --- | --- |
+
+
+- [ ] D29 团队级知识引擎:记忆/Repo Wiki/知识卡云端共享+成员修正+过程审计(对标 Qoder 1.0,官方实证输入 token -40%)(G-35)
+- [ ] D30 无人值守修复闭环:GitHub issue/代码扫描告警/失败测试→automations 定时认领修复→PR 回帖(对标 QoderWake;与 D14/D15 协同)(G-36)
+- [ ] D31 设计稿转码:Figma Frame/组件→可运行前端代码(对标 Trae 设计还原)(G-37)
+- [ ] D16 多模型智能路由(任务类型分类器+成本感知选模+预算降级)(G-21) **本行是裸副本**,现行对账见紧邻下一条;2026-09-25 晚复测更正:该"零非测试调用点"判据**已被实测推翻** —— `route_live/route` 经 `_apply_cost_aware_routing`(llm_gateway.py:996,:1207 调用)进 `_resolve_auto_model`,后者被主链 `complete()`(:2157)与 `astream()`(:2762)在 `model=="auto"` 时真实调用;`from_catalog` 亦在同函数 :1023 被调。三个入口均有生产链可达性与非恒真测试(tests/test_model_router_wiring.py 40 passed)。D16 票面三件(分类器/成本选模/预算降级)的"用户不可达"说法作废 ⇒ 成本感知选模与预算降级对用户仍不可达,本票属部分开工。
+- [ ]（进行中） **D19(extension + cli 的 `terminal_delta` 宿主)产出完整但按住**:代码 `apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx`(+61)、`apps/cli/src/commands/{agent,repl}.ts`、两份新测试(extension 8 例 / cli 6 例,实测全过)、台账 `scripts/data/sse-dispatch-coverage.json` 与门 90 镜像测试。**按住的理由是两条硬阻塞,不是"没做完"**:① `apps/cli/src/commands/agent.ts` 同一份 diff 里叠着并行会话 WP-8 的 132 行 `stream-tool-ledger` 改动,而那个模块至今 `??` 未入库 —— 只提 agent.ts 会让 HEAD 出现悬空 import(门 98/77 B6 那一族);② 台账基线按"代码同票"抬高到 extension 17 / cli 14,单提台账必造恒红。**副作用如实登记**:工作树里 `node scripts/check-sse-dispatch-parity.mjs` 全量模式现红 4 项(台账先行、代码未入库),提交链的 `--staged` 模式不受影响。**解阻判据**:等 WP-8 的 `stream-tool-ledger.ts` 入库后,把上述文件与台账同一枚提交,再跑门 90 全量须 exit 0。
+- [ ] D16 多模型智能路由(任务类型分类器+成本感知选模+预算降级)(G-21) **对账进度(2026-09-24,HEAD 取证)**:ai-service model_router.py(TaskComplexity/assess_complexity/_estimate_cost)+ tests/test_model_router.py 已在 HEAD;"预算降级"链路未重证,保持未勾。
+- [ ] D16 多模型智能路由(任务类型分类器+成本感知选模+预算降级)(G-21) **本行是裸副本**,现行对账见紧邻下一条;2026-09-25 补测:`route()/route_live()/from_catalog()` 在 `apps/ai-service/app` 内**零非测试调用点** ⇒ 成本感知选模与预算降级对用户仍不可达,本票属部分开工。
+- [ ] D16 多模型智能路由(任务类型分类器+成本感知选模+预算降级)(G-21)
+- [ ]（进行中@2026-09-26/D29票） D29 团队级知识引擎:记忆/Repo Wiki/知识卡云端共享+成员修正+过程审计(对标 Qoder 1.0,官方实证输入 token -40%)(G-35)
+- [ ]（进行中@2026-09-26/D30票） D30 无人值守修复闭环:GitHub issue/代码扫描告警/失败测试→automations 定时认领修复→PR 回帖(对标 QoderWake;与 D14/D15 协同)(G-36)
+- [ ]（进行中@2026-09-26/D31票） D31 设计稿转码:Figma Frame/组件→可运行前端代码(对标 Trae 设计还原)(G-37)
+- [ ] **G-195 生产构建被 HEAD 上的一处半成品卡住(D20 的消费者已入库、被调用方从未写过)—— 归属 D20 持有会话,处置需拍板**:实测链四步,每步可复跑 —— ① `git merge-base --is-ancestor 2bbde1e7b HEAD` ⇒ 真(`feat(web): D20 会话组织与导出 …(代理中断于半成品)`,2026-09-26 05:42);② 该提交改了 8 个文件,**全部是消费侧**(sidebar-chat-history.tsx +210 行、conversation-org-dialog.tsx 新 175 行、conversation-export.ts、五语 i18n),`git show --stat` 里**没有任何 `packages/shared/**` 或新 store 文件**;③ 它引用的东西现在哪儿都没有:`@/stores/conversation-org`(`useConversationOrgMap` / `useConversationOrgStore`)在工作树与 HEAD **均不存在**(`git ls-tree -r HEAD | grep conversation-org` 只剩 dialog 一个),而 `@ihui/shared` 的六个名字 `normalizeOrgName` / `normalizeTagList` / `ORG_FOLDER_MAX_LENGTH` / `ConversationOrgMeta` / `filterByFolder` / `getOrgMeta` / `listFolderNames` / `sortPinnedFirst` 在 `packages/shared/src` + `packages/types/src` 的**导出命中全为 0**,`git log --all -S filterByFolder` 只指向 ② 那一枚提交 —— 即"从未写过",不是"被谁回写掉了";④ 这文件在构建图里跑不掉:`sidebar-chat-history.tsx` 被 `Sidebar.tsx` 引用(应用外壳),所以 `next build` 必然死在模块解析,而 `ignoreBuildErrors: true` 只兜类型、**兜不了 module-not-found**。部署环日志的实证与此吻合:23:10 / 23:12 / 23:15 三轮 `构建尝试` 全 `exit=1`,trace 行逐条点的正是这些 import 位(`ItemEditDialog.tsx:18`、`KnowledgeItemList.tsx:18`、`SpaceMembersPanel.tsx:19`、`sidebar-chat-history.tsx:44`)。
+- [x] ✅(2026-09-26) **G-196 把"提交了调用方却没提交被调用方"这一型变成机器可见的(守门 98 新增 D3)**:G-195 那一格暴露的不只是半成品,而是**全链 154 道门对这一型结构性盲**——门 98 只判仓内相对路径(源码里那句 `if (!spec.startsWith('./') && !spec.startsWith('../')) continue`),所以 `@/stores/conversation-org` 这种"别名指向一个从未写过的模块"它永远看不见;而 `pnpm typecheck` 只跑共享工作区、`next build` 只在部署环里跑,于是 HEAD 带着一个**必然构建失败**的导入合入并推上远端,账面全绿。现给 98 加 **D3 = tsconfig `compilerOptions.paths` 解析后的别名路径必须存在**(只认尾随 `*` 的前缀映射;`extends` 与精确键刻意不碰 —— 认它们就要完整 resolver,宁窄不误),口径与 D1/D2 同形:全量判 HEAD blob、`--staged` 判索引 blob、棘轮锚点恒为该文件 HEAD 自身违规数。**HEAD 现测就是 G-195 那一处**(`sidebar-chat-history.tsx:46`),它进 `KNOWN_ALIAS_LEDGER` 只报数不判红 —— 存量未清就 blocking 等于造一台与任何人改动都无关的恒红门(§12e 那一型,唯一结局是各会话跳门、全部守门作废);**修好 G-195 后必须删台账行**,留着就是替一条已兑现的承诺继续喊欠。取证:自检 21→**30** 例(D3 五例成对 + 真 tsconfig 形态一例 + `aliasEntries` 三态:有映射建表 / 无 paths 返回空表 / 解析失败返回 null 且计入 unparsed)+ 镜像 12→14 例,含两条**反"假绿"**的锁:① 别名表若整体读不到(索引为空),"悬空 0 处"就是假的,所以端到端先断言 `生效映射 N 个包目录` 的 N>0;② 台账外的任何 D3 一律红。**写这道门时自己踩到的两个坑,都值得留**:① 第一版把 `stripJsonc` 写成"剥块注释"的**正则**,而每个 tsconfig 的 `include` 里都有 `"**/*.ts"` 这种 glob —— 串里同时含着块注释的开与闭两个序列,于是**整段 JSON 被当注释吃掉**、解析失败、别名表为空、门一路报 0;`node --check` 还当场炸在**我描述这个 bug 的那条注释**上(注释里把那两个序列原样写了出来,把自己关掉了)—— 同一个字符陷阱在一小时内咬了判据和说明它的话各一次。② `readHead` 是按"源文件清单"建的批量读,拿它读 `tsconfig.json` 恒 null ⇒ 别名表静默为空;修法是**另开一次只喂 tsconfig 的批量读**,并把"生效映射几个包"打进输出行。**判据扩大射程时必须同时给出"这一格不判"的出口**(第一版把所有含 `/` 的 spec 放进来,`node:assert/strict` 被当相对路径解析,一次跑出数百处假红)。
+  **为什么不由我补**:`useConversationOrgStore` 的持久化语义**没有任何已入库证据可依据** —— `grep -rn "folder|tags" apps/api/src/routes/*conversation*` 与 `packages/database/src/schema/*` 双双零命中,即后端根本没有承载列。选"localStorage 客户端存"还是"建 schema+API+迁移"是**产品决策**,按 §7 三问(该功能无可等价实现 ⇒ 不许删)与 §16(修改其他 agent 的代码"帮他们修"= 越权事故)两条,我只能把格子钉准,不能替它选。同理**不许 `git revert 2bbde1e7b`**:那会把别人已完成的一半(含五语 i18n 与 dialog UI)一起退掉,而 §7 明确禁止用"路径不兼容/看起来是半成品"当删除依据。
+  **两条出路,待人选**:A 由 D20 持有会话补齐 provider(store + shared 六导出 + 落点决策);B 若 A 迟迟不来,需要一个"构建可用性优先于半成品上线"的显式决定(例如把那两处消费侧引用暂时退回未接状态并保留 dialog/i18n),那属功能取舍,须拍板后做。
+  **顺带暴露的门禁盲区(下一票的题面)**:守门 98 只管**仓内相对路径**(`!spec.startsWith('./') && !spec.startsWith('../') ⇒ continue`),所以 `@/stores/conversation-org` 这种**别名指向不存在模块**它结构上看不见;而 154 道门全绿 + 生产构建死,正是本仓最典型的"绿钩子冒充已验证"。修法已想清楚但没有实现:给 98 加 **D3 = tsconfig `compilerOptions.paths` 解析后的别名路径必须存在**(只认尾随 `*` 的前缀映射;解析失败计"判不出"),难点在**装上它的那一刻 HEAD 就有真违规** ⇒ 必须先清 A/B 之一,否则就是造一台恒红门(§12e 那一型)。**现状事实(按产物面量,不按日志猜):线上跑的仍是 `apps/web/.next/IHUI_BUILD_SHA` = `8bd9fdcb060b`(11:15 的 merge,11:20 落盘),`.rollback` 位同值 —— 即从 11:20 起今天的几十枚提交一枚都没产出物。**
+- [x] ✅(2026-09-26 09:1x) **"miniapp typecheck 断在 @ihui/types 没有 AgentInstanceState"一案定性为`工作树陈旧基线`,不是 HEAD 债**,并补上这一格的尺子。取证:索引 == HEAD(空 diff),HEAD 面 `packages/types/src/agent-runtime.ts:138/149` 两个导出齐、barrel 第 18 行 `export * from './agent-runtime'` 在位、消费方(shared `agent-actions.ts` / web `agent-actions-card.tsx`)三面一致;而**工作树那份副本的 blob 恰等于祖先提交 `1d0a143f71`(2026-09-23)的版本**(用 `git log --find-object=0f71447b2f` 钉死),内容是一次纯 45 行删除(D103 整块)⇒ 这是并发会话旧基线写回,不是谁在改类型。处置:按 §12d 第 3 层用 `git checkout-index -f -- <该文件>` 把工作树对齐到索引/HEAD(可证无损:盘上那份是**祖先**版本,不含任何独有数据),对齐后 `@ihui/types build/typecheck` 双 0、`AgentInstanceState` 那枚 TS2305 消失。**同批留在册的另一格不是同一型**:`packages/shared/src/chat/prompt-history.ts` 工作树副本丢了 HEAD 有的 5 个导出,但它**不等于任何祖先 blob** ⇒ 判不出是不是他人正在写的现场,按 §12 不代裁、不覆写,归该文件持有者(它眼下是 `@ihui/shared typecheck` 唯一剩下的红源)。
+### 第五十波·续末③ —— 三路并行审计推翻了我上一轮的两句结论;把"散文式后续"换成机器可见的欠账清单(2026-09-26)
+- [x] ✅(2026-09-26) **先销自己的错**(上一格"续末②"里我写的两个数都是错的,现按实测更正):
+  - "49 处文字返回按钮逐条带豁免" ⇒ 现读 **47 处**(45 处标记在合法落点 + 2 处见下"判据失明")。多出的 2 条是
+    `packages/app/components/BackChevron.tsx:37`(JSDoc 里**逐字引用**了那段 JSX)与
+    `apps/miniapp-taro/components/BackChevron.tsx:55`(`ariaLabel=` 驼峰属性不被 `aria-`/`label=` 滤网命中)。
+  - "`‹` 字符在 HEAD 还剩 10 处" ⇒ 现读 **2 行**(`apps/miniapp-taro/components/BackChevron.tsx:16` 注释、
+    `pkg-learn/live/calendar.tsx:162`);第 3 处只在**被污染的工作树** `apps/mobile-rn/components/NavBar.tsx:99`,未入库。
+  - 教训同 §26/§5b:**否定结论必须带阳性对照**,而"我数出来的数"若只抽查 3 条就写成全量结论,它就是散文不是读数。
+- [x] ✅(2026-09-26) **门 102 补两处真缺陷 + 一把"自报失明"的探针**:
+  - **解析缺陷**:`parseTagAt` 原来 `c === '<'` 无条件 `return null`,于是 `<Text style={[a, page <= 1 && b]}>`
+    这种**属性表达式里带比较符**的开标签会被整体放弃 —— 不只是那一格判不到,该处之后**整个文件的遍历栈失配**。
+    现改为只在深度 0 才拒(`else if (c === '<' && depth === 0)`)。取证:自检新增一条锁,把修复退回旧写法 ⇒
+    **84/85 且红的正是这一条**;`packages/app/features/course-tab/CourseTabScreen.tsx` 的 `backExempt` 由 0 翻成 1
+    (此前它是"标记写了但门根本没咨询过这一格")。
+  - **盲区探针 `backBlind`**(本门第一次能喊出"我可能没看见"):用一条刻意宽松的**渲染位**正则数「返回」类调用,
+    凡是它命中、而栈遍历一个都没咨询过、且该行确为元素唯一子内容、且上方 12 行内有可点证据 ⇒ **点名报数,不静默成 GA4=0**。
+    口径演进值得留:第一版虚报 49 处(`[^'"]*[bB]ack` 把 `setting.feedback` 也算进去了 —— 少个 `\b`),
+    第二版 32 处(把"图标 + 文案"的多子元素带标签按钮当盲区,而那是 GA4 设计上不纳的形态),
+    收紧"前一行必须是开标签收尾(排除 `/>` 与 `=>)"后 ⇒ **现读 1 处**:
+    `packages/app/src/features/course-screen/CourseScreen.tsx:113`(跨行自闭合标签 `/>` 让遍历栈错乱,
+    实测截到 130 行能识别、加上 131 行的 `/>` 反而识别不到)。**这一处仍是已知盲区**,修它要动 walker 的
+    自闭合处理,不是一行判据;探针的意义是它从"静默"变成"点名"。
+- [ ] **机器可见的欠账清单(三路并行审计的产出;每条都带 file:line 与"为什么现在没人看守")**:
+  - **A. 第二/三份自绘返回键(6 + 3 处,跨两端)** —— 形态合法(矢量 ChevronLeft + 方块),但每文件一套几何与色档,
+    而 S0 只登记 `packages/app/components/BackChevron.tsx` 与小程序同名件,**对未登记件零覆盖**:
+    `packages/app/components/NavBar.tsx:134`(`color={tk.brand.DEFAULT}` —— 与 BackChevron 的 `text.medium` 不同档)、
+    `chat-room/ChatRoomScreen.tsx:322`、`lecturer-detail:291`、`lecturer-list:197`、`publish:311`、`self-media:318`;
+    `apps/mobile-rn/components/NavBar.tsx:119`(且 `accessibilityLabel="返回"` 是**硬编码中文**,不走 i18n)、
+    `apps/mobile-rn/screens/AboutScreen.tsx:61`。前 6 个文件工作树干净、已派单收编;后 2 个被并发会话持有。
+  - **B. web 端 16 处 `router.back()/history.back()` 落在 `apps/web/app/**`,而守门 46 的 `TARGET_DIR` 写死 `apps/web/src`**
+    ⇒ 该门对 web 真实页头返回键**当前拦零**(实测 `✅ 通过(1259 个文件,0 处私接)`)。9 个文件:
+    `admin/theme/create`、`admin/unauthorized`、`asks/[id]`、`circles/[id]`、`download/[platform]`、
+    `learn/buyconfirm`、`orders/[id]`、`login/PageClient`、`not-found.tsx`。扩面必须同时给**按文件 HEAD 棘轮**
+    (否则 16 处当场判红 = 恒红门 = 逼人绕钩子),故单列一票做,不顺手改。
+  - **C. GA1/GA5 的 9 处形态盲区**(逐条以最小变异实测,非推断):`Picker onChange` 不在事件/标签表
+    (`pkg-learn/study/publish/index.tsx:116/132`);`tt(key,'‹')` 把字形当**兜底实参**,GA1 两型正则不解析调用实参
+    (`pkg-learn/live/calendar.tsx:162/171`);文案+尾随字形(`CircleDetailScreen:114`、`FeedbackScreen:101`、
+    `circle/create:306`、`docs/manual/_manual-nav:26`);GA5 的 `\bback\d*` 只认小写,漏 `fullscreenBack`
+    (`pkg-ai/ai-chat-detail/index.tsx:402`);原生 `<a href>` 不在标签白名单(`docs/manual/page.tsx:170`)。
+    **为什么不当场扩判据**:每扩一条就立刻产出对应红点,而其中 4 条要先改源码;在无棘轮的前提下当场扩面
+    = 造一台恒红门(§12e 同型)。顺序:先按 A/B 收源码,再逐条扩判据,每条扩面同笔带自检正反例。
+  - **D. `glyph-arrow-exempt` 全仓 HEAD 0 处使用**(通道在、无人用)——不是缺陷,但说明 GA1/GA2 的合法例外
+    实际都走了 `back-label-exempt`;若哪天有人给 GA1 加豁免,先看这条通道为什么空着。
+- [x] ✅(2026-09-26) **续末③ 清单 A 的源码收编落地一半,并把"另一半为什么收不了"写成证据**:
+  `lecturer-detail` / `lecturer-list` / `publish` / `self-media` 四屏的私有 `Header`(自绘 `Pressable + ChevronLeft`)
+  已整体换成唯一实现 `<BackChevron onPress label colorScheme />`,导航语义未动,随之失效的 `headerBackBtn`/`headerIcon`
+  样式键删除。验证读数:`check-glyph-arrow-icon --files` 四文件 6 判据全 0、`tsc --noEmit -p packages/app` rc=0、
+  eslint/prettier 干净、四文件 `ChevronLeft` 残留 0。
+  **两处刻意没做(不是漏做)**:
+  ① `packages/app/src/components/NavBar.tsx` **结构性不可换** —— 它是 DOM 形态(`CSSProperties`/`<div role="button">`/
+     `lucide-react`),头注第 15-16 行明写"不依赖 react-native";而 `BackChevron` 用 `Pressable/StyleSheet` +
+     `lucide-react-native`。**并且我上一格 A 清单里"miniapp 4 页 + RN 28 屏在用它"这句是错的**:
+     逐条复核后那些调用点全部指向**各端自己的同名 NavBar**,从 `@ihui/rn-app` 导入 NavBar 的跨包消费者**实测 0 处**
+     ⇒ 这个文件是**孤儿件**(不是"第二份实现",而是"没人用的第二份")。孤儿件属 §7 删除安全范围,不得顺手删,单列。
+  ② `chat-room/ChatRoomScreen.tsx` **收不了** —— 全文 0 处 `t(`,`ChatRoomScreenProps` 没有 i18n 通道,
+     而 `BackChevron` 的 `label` 是必填 ⇒ 换它就得新增取词通道,那是改别人组件的 API,按同一禁令不做。
+  **顺带纠正派单里两处失效指令**(记下来,免得下次还这么派):`check-theme-prop-wiring`(91)与
+  `check-brand-foreground`(83)**没有 `--worktree`/`--files` 参数**(实测只有 `--staged/--strict/--update-baseline/--self-test/--json`),
+  二者全量判 HEAD blob ⇒ 看不见工作树改动;代理改用"全量同读数比对 + 逐文件 grep 色档"补证,方向正确。
