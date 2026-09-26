@@ -232,6 +232,45 @@ export function iconCarriers(src) {
   return [...out].sort()
 }
 
+/**
+ * 剔掉"没在渲染的那一份"。立因(2026-09-26 实测):`packages/app` 里的 `NavBar` / `UserInfoCard`
+ * 是渲染 `div`/`span` 的**零调用 DOM 副本** —— 拿它当 RN 那一腿比对,数字再绿也不是屏幕上那件事。
+ * 判据:组件名在被审面上必须被"它自己以外、且非测试/非快照"的文件引用,否则不构成一条腿,剔除并
+ * **如实计数**(静默剔除会让"没判"读成"已通过")。取不到引用信息 ⇒ 判"无法判定",不猜。
+ */
+export function pruneDeadCopies(repoRoot, face, scanned) {
+  const kept = []
+  const dead = []
+  for (const p of scanned.pairs) {
+    const args =
+      face === 'staged'
+        ? ['grep', '-l', '--cached', '-e', p.name, '--', 'apps', 'packages']
+        : ['grep', '-l', '-e', p.name, 'HEAD', '--', 'apps', 'packages']
+    let out
+    try {
+      out = gitRaw(args, repoRoot, {})
+    } catch (e) {
+      return { pairs: scanned, undetermined: `${FACE_TXT[face]}:git grep 派生失败(${e?.message ?? e})` }
+    }
+    if (out === null || out === undefined)
+      return { pairs: scanned, undetermined: `${FACE_TXT[face]}:git grep 取不到 ${p.name} 的引用面` }
+    const importers = out
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(
+        (f) =>
+          f &&
+          f !== p.rn &&
+          f !== p.miniapp &&
+          !/(^|\/)(tests?|__tests__)\//.test(f) &&
+          !/\.(md|snap)$/.test(f),
+      ).length
+    if (importers === 0) dead.push({ name: p.name, rn: p.rn })
+    else kept.push(p)
+  }
+  return { pairs: { ...scanned, pairs: kept }, dead }
+}
+
 const FACE_TXT = { head: 'HEAD', staged: '索引' }
 
 /**
@@ -261,8 +300,11 @@ export function collect(repoRoot, face) {
     }
     lists[side] = acc
   }
-  const pairs = scan(lists.miniapp, lists.rn)
+  let pairs = scan(lists.miniapp, lists.rn)
   if (pairs.undetermined) throw new Undetermined(`${pairs.reason} ⇒ 判据失明,不得记为通过`)
+  const pruned = pruneDeadCopies(repoRoot, face, pairs)
+  if (pruned.undetermined) throw new Undetermined(`渲染腿判据无法成立:${pruned.undetermined}`)
+  pairs = pruned.pairs
   const need = [...new Set(pairs.pairs.flatMap((p) => [p.miniapp, p.rn]))]
   const text = {}
   const specs = need.map((rel) => (face === 'staged' ? ':' : 'HEAD:') + rel)
@@ -272,7 +314,7 @@ export function collect(repoRoot, face) {
     if (t === null || t === undefined) throw new Undetermined(`${FACE_TXT[face]}取不到 ${need[i]}`)
     text[need[i]] = t
   }
-  return { pairs, text }
+  return { pairs, text, deadCopies: pruned.dead }
 }
 
 /** 一处"看得见的差异" = 一个档值(具名常量不同值另计,同一处不双计)。 */
@@ -405,7 +447,13 @@ export function main(argv, repoRoot = ROOT) {
       }),
     )
   } else {
-    console.log(`判定面 ${FACE_TXT[face]}:同名配对组件 ${res.pairCount} 对(重复实现 = 改一端另一端不跟随)`)
+    const dead = collected.deadCopies ?? []
+    console.log(
+      `判定面 ${FACE_TXT[face]}:同名配对组件 ${res.pairCount} 对(重复实现 = 改一端另一端不跟随)` +
+        (dead.length
+          ? `;已剔除零调用副本 ${dead.length} 个(${dead.map((d) => d.name).join('/')})—— 它们不在渲染路径上,配对它们等于对空气判一致`
+          : ''),
+    )
     for (const f of res.findings) {
       const bits = []
       if (f.named.length) bits.push(`同名常量不同值 ${f.named.join(', ')}`)
@@ -511,6 +559,41 @@ function runSelfTest() {
       return e instanceof Undetermined
     }
   })())
+  t(
+    '㉒ 渲染腿判据在真仓可跑通且不误伤有调用方的组件(BackChevron 必须留在配对里)',
+    (() => {
+      try {
+        const scanned = collect(ROOT, 'head')
+        const r = pruneDeadCopies(ROOT, 'head', { pairs: scanned.pairs.pairs.map((p) => ({ ...p })), ...scanned.pairs })
+        if (r.undetermined) return false
+        return r.pairs.pairs.every((p) => p.name !== 'BackChevron') === false
+      } catch {
+        return false
+      }
+    })(),
+  )
+  t(
+    '㉓ 被剔除的每个副本都必须真的零引用(重算一遍,不靠同一遍结果自证)',
+    (() => {
+      try {
+        const scanned = collect(ROOT, 'head')
+        const r = pruneDeadCopies(ROOT, 'head', scanned.pairs)
+        if (r.undetermined) return false
+        return (r.dead ?? []).every((d) => {
+          const out = gitRaw(['grep', '-l', '-e', d.name, 'HEAD', '--', 'apps', 'packages'], ROOT, {}) ?? ''
+          return (
+            out
+              .split('\n')
+              .map((s) => s.trim())
+              .filter((f) => f && f !== d.rn && !/(^|\/)(tests?|__tests__)\//.test(f) && !/\.(md|snap)$/.test(f)).length === 0
+          )
+        })
+      } catch {
+        return false
+      }
+    })(),
+  )
+  t('㉔ 引用面取不到 ⇒ 判"无法判定",绝不按"零引用"把组件悄悄剔掉', !!pruneDeadCopies(resolve(dirname(fileURLToPath(import.meta.url)), '..', '..'), 'head', { pairs: [{ name: 'X', miniapp: 'a/X.tsx', rn: 'b/X.tsx' }] }).undetermined)
   console.log(`--self-test:${pass} 通过 / ${fail} 失败`)
   return fail ? 1 : 0
 }
