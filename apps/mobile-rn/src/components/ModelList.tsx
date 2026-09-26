@@ -41,6 +41,7 @@ import {
 } from 'react-native'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { MODEL_LIST_EMPTY_FONT_PX } from '@ihui/shared/ui/model-list-spec'
 
 /** 排名第一徽章金色(design-tokens 无同值金色,复刻 rankone 用;文字用品牌对比白) */
 const RANK_GOLD_BG = '#F5B301'
@@ -464,7 +465,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 12,
+    // 空态字号唯一源在 @ihui/shared/ui/model-list-spec(与小程序 popup 变体同档)
+    fontSize: MODEL_LIST_EMPTY_FONT_PX,
     color: tokens.text.tertiary,
   },
 })
