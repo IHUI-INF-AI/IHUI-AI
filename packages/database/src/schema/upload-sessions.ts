@@ -6,9 +6,37 @@ import { pgTable, uuid, varchar, integer, bigint, timestamp, index } from 'drizz
 import { users } from './users.js'
 
 /**
+ * 上传会话的状态词表 —— **唯一一份**。此前取值只写在下面的注释里,而 `checksum_mismatch`
+ * 已是真终态却不在注释中(注释字典与代码字面量各说各话,而 typecheck 看不见任何一边)。
+ * 分档判据(终态 / 可回收)由这两个子集给出,消费方不得再抄第三份清单。
+ */
+export const UPLOAD_SESSION_STATUS = {
+  uploading: 'uploading',
+  merging: 'merging',
+  completed: 'completed',
+  cancelled: 'cancelled',
+  checksumMismatch: 'checksum_mismatch',
+} as const
+
+export type UploadSessionStatus = (typeof UPLOAD_SESSION_STATUS)[keyof typeof UPLOAD_SESSION_STATUS]
+
+/** 终态:永不回收(completed 行要留给业务查文件,cancelled 的目录已由 cancel 清过)。 */
+export const UPLOAD_SESSION_TERMINAL_STATUSES: readonly UploadSessionStatus[] = [
+  UPLOAD_SESSION_STATUS.completed,
+  UPLOAD_SESSION_STATUS.cancelled,
+  UPLOAD_SESSION_STATUS.checksumMismatch,
+]
+
+/** 可回收态:未到期前停在这些状态才可能被 TTL 删掉。 */
+export const UPLOAD_SESSION_REAPABLE_STATUSES: readonly UploadSessionStatus[] = [
+  UPLOAD_SESSION_STATUS.uploading,
+  UPLOAD_SESSION_STATUS.merging,
+]
+
+/**
  * 分片上传会话表。
  * 记录大文件分片上传的进度与最终合并产物。
- * status: uploading(上传中) / merging(合并中) / completed(已完成) / cancelled(已取消)
+ * status 取值见 `UPLOAD_SESSION_STATUS`(本文件导出),不得在此重复列一遍清单。
  */
 export const uploadSessions = pgTable(
   'upload_sessions',
@@ -24,7 +52,7 @@ export const uploadSessions = pgTable(
       .default(5 * 1024 * 1024)
       .notNull(),
     mimeType: varchar('mime_type', { length: 128 }),
-    status: varchar('status', { length: 32 }).default('uploading').notNull(), // uploading/merging/completed/cancelled
+    status: varchar('status', { length: 32 }).default(UPLOAD_SESSION_STATUS.uploading).notNull(), // 取值见本文件 UPLOAD_SESSION_STATUS
     filePath: varchar('file_path', { length: 512 }),
     userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

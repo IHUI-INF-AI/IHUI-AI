@@ -20,7 +20,11 @@ import { existsSync, readdirSync, rmSync, createReadStream } from 'node:fs'
 import { join } from 'node:path'
 import { inArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { uploadSessions } from '@ihui/database'
+import {
+  uploadSessions,
+  UPLOAD_SESSION_TERMINAL_STATUSES,
+  UPLOAD_SESSION_REAPABLE_STATUSES,
+} from '@ihui/database'
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads')
 /** 分片临时目录根:reaper 只允许删 `<CHUNKS_ROOT>/<uploadId>`,绝不允许整片删 uploads/。 */
@@ -99,10 +103,7 @@ export function normalizeDeclaredDigest(declared: string): string {
  * 未声明摘要 → 视为无可验证项放过(该字段 schema 上是 optional,不能凭空要求)。
  * 声明了不等 → false。调用方拿到 false 必须返错并删除半成品,不得降级成"只记日志"。
  */
-export function digestMatches(
-  declared: string | null | undefined,
-  actualHex: string,
-): boolean {
+export function digestMatches(declared: string | null | undefined, actualHex: string): boolean {
   if (declared === undefined || declared === null || declared.trim() === '') return true
   return normalizeDeclaredDigest(declared) === actualHex.trim().toLowerCase()
 }
@@ -135,7 +136,7 @@ export const dbUploadReapPort: UploadReapPort = {
         updatedAt: uploadSessions.updatedAt,
       })
       .from(uploadSessions)
-      .where(inArray(uploadSessions.status, ['uploading', 'merging']))
+      .where(inArray(uploadSessions.status, [...UPLOAD_SESSION_REAPABLE_STATUSES]))
   },
   async removeSessions(ids) {
     if (ids.length === 0) return
@@ -143,8 +144,9 @@ export const dbUploadReapPort: UploadReapPort = {
   },
 }
 
-/** 终态永不回收:completed 行要留着给业务查文件,cancelled 行的目录已由 cancel 清过。 */
-const TERMINAL_STATUSES = new Set(['completed', 'cancelled', 'checksum_mismatch'])
+/** 终态永不回收:completed 行要留着给业务查文件,cancelled 的目录已由 cancel 清过,
+ *  checksum_mismatch 是合并校验失败后的终态(清单取自 `@ihui/database`,不在这里重列)。 */
+const TERMINAL_STATUSES = new Set<string>(UPLOAD_SESSION_TERMINAL_STATUSES)
 
 /** 单个会话是否该被回收。expiresAt 缺失的行(本票之前建的旧数据)退回 updatedAt + ttl。 */
 export function isUploadSessionExpired(
