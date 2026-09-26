@@ -178,37 +178,39 @@ const MAPPINGS = [
     basis:
       'rn-tokens.ts rnDarkTokens brand.foreground = #000000(深色底翻黑前景);tokens.css .dark --color-primary-foreground: hsl(0 0% 0%)',
   },
-  // 2026-09-24:CTA 独立档(明暗同值)。它不是 §4 当年删掉的那种"端内自立混血键"
-  // (ctaFill 浅色=web primary、深色另取一档)—— 这一档**两主题逐位同值**,且先在
-  // tokens.css @theme 落变量再登记,正是 §4「真要新增品牌档」规定的顺序。
-  // 为什么必须新增:--color-primary 在 web 兼任墨色(text-primary 1803 处),不能为了
-  // 按钮观感去动它;而 brand.DEFAULT 浅=纯黑/深=纯白,大色块在两主题里都是与页面相反的一极。
+  // 2026-09-24:CTA 独立档;2026-09-26 用户定稿回翻为黑/白反转(亮=纯黑底/纯白字,暗=纯白底/纯黑字),
+  // .dark 显式覆盖,与 --color-primary 同一明暗行为。它不是 §4 当年删掉的那种"端内自立混血键"
+  // (ctaFill 浅色=web primary、深色另取一档)—— 这一档先在 tokens.css @theme/.dark 落变量再登记,
+  // 正是 §4「真要新增品牌档」规定的顺序。
+  // 为什么保留独立档名而不并进 primary:--color-primary 在 web 兼任墨色(text-primary 1803 处),
+  // 不能为了按钮观感去动它。
   {
     label: 'brand.cta (light) ↔ --color-cta (:root/@theme)',
     rn: { light: ['rnLightTokens', 'brand', 'cta'] },
     css: { light: '--color-cta' },
     basis:
-      'tokens.css @theme --color-cta: #4a7a96(= --color-brand-accent-deep 亮档,2026-09-14 定稿强调色);rn-tokens.ts rnLightTokens brand.cta = #4A7A96',
+      'tokens.css @theme --color-cta: hsl(0 0% 0%)(2026-09-26 用户定稿回翻,纯黑底);rn-tokens.ts rnLightTokens brand.cta = #000000',
   },
   {
-    label: 'brand.cta (dark) ↔ --color-cta (.dark 无覆盖,cascade 回退)',
+    label: 'brand.cta (dark) ↔ --color-cta (.dark)',
     rn: { dark: ['rnDarkTokens', 'brand', 'cta'] },
     css: { dark: '--color-cta' },
     basis:
-      '刻意明暗同值:tokens.css .dark 不覆盖 --color-cta(cascade 回退 @theme 的 #4a7a96);rn-tokens.ts rnDarkTokens brand.cta = #4A7A96',
+      'tokens.css .dark --color-cta: hsl(0 0% 100%)(2026-09-26 回翻,纯白底,与 primary 同一行为);rn-tokens.ts rnDarkTokens brand.cta = #ffffff',
   },
   {
     label: 'brand.ctaForeground (light) ↔ --color-cta-foreground (:root/@theme)',
     rn: { light: ['rnLightTokens', 'brand', 'ctaForeground'] },
     css: { light: '--color-cta-foreground' },
     basis:
-      'tokens.css @theme --color-cta-foreground: #ffffff;rn-tokens.ts rnLightTokens brand.ctaForeground = #FFFFFF(白字对 #4A7A96 实测 4.65:1,过 AA)',
+      'tokens.css @theme --color-cta-foreground: hsl(0 0% 100%);rn-tokens.ts rnLightTokens brand.ctaForeground = #FFFFFF(纯黑底上纯白字,21:1)',
   },
   {
-    label: 'brand.ctaForeground (dark) ↔ --color-cta-foreground (.dark 无覆盖,cascade 回退)',
+    label: 'brand.ctaForeground (dark) ↔ --color-cta-foreground (.dark)',
     rn: { dark: ['rnDarkTokens', 'brand', 'ctaForeground'] },
     css: { dark: '--color-cta-foreground' },
-    basis: '同上,明暗同值 #ffffff',
+    basis:
+      'tokens.css .dark --color-cta-foreground: hsl(0 0% 0%)(纯白底上纯黑字);rn-tokens.ts rnDarkTokens brand.ctaForeground = #000000',
   },
   // 2026-09-06:danger/错误红对齐。RN danger.DEFAULT + error.text 与 web --color-danger
   // 统一为同一语义口(亮 #dc2626 / 暗 #ef4444),并纳入守门防漂移。
