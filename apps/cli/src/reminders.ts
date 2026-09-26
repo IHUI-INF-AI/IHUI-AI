@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { frameSystemReminder } from './utils/prompt-boundary.js';
-import { injectReminderSection, recordInjectionSkipped, renderInjectionNotice } from './utils/prompt-injection-registry.js';
+import { injectReminderSection, renderInjectionNotice } from './utils/prompt-injection-registry.js';
 
 /**
  * P1-2 Reminders 系统提醒自动注入。
@@ -70,12 +70,11 @@ export function generateReminders(ctx: ReminderContext): string[] {
       ),
     );
     ctx.injected.add('context_budget');
-  } else {
-    recordInjectionSkipped(
-      'reminder_context_budget',
-      ctx.injected.has('context_budget') ? '本会话已注入过' : '未达阈值',
-    );
   }
+  // 刻意**不为"本轮没到档位"记账**:提醒类段落本来就是第 N 轮才出现的,
+  // 把"还没到那一轮"记成 skipped 会让 `renderInjectionNotice()` 几乎每轮都吐一行
+  // "上下文注入异常"—— 一行常年为真的噪声,后果是它既污染消息列表、又被后人当噪声删掉,
+  // 于是"真降级时也没人信这行"。台账只记**真降级**(预算耗尽/正文为空/未登记即产出)。
 
   // 2. iteration progress reminder(每 5 轮提醒,最后一轮不提醒)
   if (
@@ -93,8 +92,6 @@ export function generateReminders(ctx: ReminderContext): string[] {
         ),
       ),
     );
-  } else {
-    recordInjectionSkipped('reminder_iteration_progress', '未到进度档位');
   }
 
   // 未注入必须可见:本轮任何登记项落空都留一行计数 —— 没有它,"提示变短了"只对读代码的人成立
