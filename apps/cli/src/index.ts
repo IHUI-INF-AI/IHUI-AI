@@ -25,7 +25,13 @@ import { dirname, join } from 'node:path';
 import { setBaseUrl, setTokenProvider, setDeviceFingerprintProvider, setUserAgent } from '@ihui/api-client';
 import type { GoalHardCriterion } from '@ihui/api-client';
 import { cliDeviceFingerprintCollector, CLI_USER_AGENT } from './lib/device-fingerprint.js';
-import { grantLeaseFromFlag, releaseLeaseAfterRun } from './utils/permission-lease-flag.js';
+import {
+  digestGateRejectionFor,
+  grantDigestTrackedLeaseFromFlag,
+  grantLeaseFromFlag,
+  isDigestTrackedLease,
+  releaseLeaseAfterRun,
+} from './utils/permission-lease-flag.js';
 import { tryParseJson, isRecord } from './util/json.js';
 import { padCell } from './util/text-width.js';
 import {
@@ -141,6 +147,7 @@ program
   .option('--permission-lease <tools>', t('cliEntry.permissionLeaseDesc'))
   .option('--permission-lease-ttl <minutes>', t('cliEntry.permissionLeaseTtlDesc'))
   .option('--permission-lease-turns <n>', t('cliEntry.permissionLeaseTurnsDesc'))
+  .option('--permission-lease-digest', t('cliEntry.permissionLeaseDigestDesc'))
   .option('--plan', t('cliEntry.planDesc'))
   .option('--auto-approve-plan', t('cliEntry.autoApprovePlanDesc'))
   .option('--temperature <num>', t('cliEntry.temperatureDesc'))
@@ -327,12 +334,31 @@ async function runAgentAndExit(
     // `activePermissionLease()` 恒 null ⇒ 所有消费点走的仍是改造前那一份判定实现(逐字不变)。
     // 判不下来 ⇒ 失败关闭 exit 1:悄悄回落成"没给 flag 继续跑"会把操作员要的放宽模式
     // 换成另一套语义,而账面一切正常(本仓"失败必须响"同一条禁令)。
-    const leaseOutcome = grantLeaseFromFlag({
-      toolsRaw: cfg.permissionLease,
-      ttlRaw: cfg.permissionLeaseTtl,
-      turnsRaw: cfg.permissionLeaseTurns,
-      target: session.id,
-    });
+    const leaseDigestOn = opts.permissionLeaseDigest === true;
+    const digestRejection = digestGateRejectionFor(leaseDigestOn, cfg.permissionLease);
+    if (digestRejection) {
+      console.error(chalk.red(`✗ ${t('cliEntry.permissionLeaseInvalid', { reason: digestRejection })}`));
+      process.exitCode = 1;
+      return;
+    }
+    // 两个出口各管一档,分叉点只有 `leaseDigestOn` 这一个布尔:
+    // 关档那一支调的就是改前那一份 `grantLeaseFromFlag`,一行参数都没多 ⇒ 行为逐字等价。
+    const leaseOutcome = leaseDigestOn
+      ? grantDigestTrackedLeaseFromFlag({
+          toolsRaw: cfg.permissionLease,
+          ttlRaw: cfg.permissionLeaseTtl,
+          turnsRaw: cfg.permissionLeaseTurns,
+          target: session.id,
+          // 身份只有一个来源:CLI 的 workspacePath(与消费侧 recordApprovedInvocation 同一份映射)。
+          // 拿不到 ⇒ 该出口判 invalid 并 exit 1,绝不静默用 cwd/pid 冒充身份。
+          workspacePath: typeof opts.workspace === 'string' ? opts.workspace : undefined,
+        })
+      : grantLeaseFromFlag({
+          toolsRaw: cfg.permissionLease,
+          ttlRaw: cfg.permissionLeaseTtl,
+          turnsRaw: cfg.permissionLeaseTurns,
+          target: session.id,
+        });
     if (leaseOutcome.kind === 'invalid') {
       console.error(chalk.red(`✗ ${t('cliEntry.permissionLeaseInvalid', { reason: leaseOutcome.reason })}`));
       process.exitCode = 1;
@@ -349,6 +375,10 @@ async function runAgentAndExit(
           }),
         ),
       );
+      // 档位开着时把"这是收紧"说清楚:生效值沿用上面那行的 ttl/轮次/到期,这里补语义与关闭出口。
+      if (isDigestTrackedLease(leaseOutcome.lease)) {
+        console.info(chalk.yellow(t('cliEntry.permissionLeaseDigestOn')));
+      }
     }
     // H4 云会话写入:CLI agent 运行记录写 ai-service(/api/cloud-runs,session_alias 绑定本会话),
     // 全程静默降级绝不影响主流程;start 与 runAgent 并发,网络等待不叠加到任务耗时。
