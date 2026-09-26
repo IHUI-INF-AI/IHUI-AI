@@ -9,7 +9,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import type { CSSProperties } from 'react'
 import voiceRecorder from '@/utils/voice-recorder'
-import { cn, rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'
+import { cn, rnRadius, TARO_RPX_PER_PX, taroGeometry } from '@ihui/design-tokens'
 // 放大钮内缩 / 语音钮间距 —— 唯一源在 @ihui/shared/ui/input-area-spec(与 RN 端同档);
 // 本文件只做 rpx 换算。两侧的同族裸 6 必须同枚提交进 spec,漏一侧就是台账 +1(上一轮的 23→24)。
 import {
@@ -712,12 +712,26 @@ export default function InputArea({
               >
                 {/* 附件按钮 search-box2:44rpx×44rpx,默认可见,isShowIcon 只控制旋转 */}
                 <View className="search-box2" onClick={handleUploadToggle} hoverClass="opacity-60">
-                  {/* 与 RN `PlusButton`(search-box2 的同一槽位)同字形:lucide Plus */}
-                  <LineIcon
-                    className={cn('search-box2-img', isShowIcon ? 'rotate-icon' : '')}
-                    name="plus"
-                    size={toUnit(INPUT_AREA_AI_HOME_ADD_GLYPH_PX)}
-                  />
+                  {/* 与 RN PlusButton 同槽同档:方块 `controlBox`(32)、墨迹 `controlGlyph`(14);
+                      激活态两端同一对 cta 实底 + 配对前景(web 的触发钮是 ghost,取 RN 的激活形态,
+                      因为两端的"展开面板"高亮此前一端有一端无)。 */}
+                  <View
+                    className={cn(
+                      'flex items-center justify-center rounded-lg',
+                      isShowIcon ? 'bg-cta text-cta-foreground' : '',
+                    )}
+                    style={{
+                      width: toUnit(taroGeometry.controlBox),
+                      height: toUnit(taroGeometry.controlBox),
+                    }}
+                  >
+                    <LineIcon
+                      className={cn('search-box2-img', isShowIcon ? 'rotate-icon' : '')}
+                      name="plus"
+                      size={toUnit(INPUT_AREA_AI_HOME_ADD_GLYPH_PX)}
+                      color={isShowIcon ? 'var(--color-cta-foreground)' : undefined}
+                    />
+                  </View>
                 </View>
 
                 {/* 清空 + 发送 search-box3 */}
@@ -733,16 +747,25 @@ export default function InputArea({
                     />
                   ) : null}
 
-                  {/* 发送按钮:与 RN `<Send>`(框外/框内两态)同字形;这一枚是纯图标无背景容器,
-                      故前景取品牌色而不是 RN 的 ctaForeground(那是白字压黑底,裸图标会看不见) */}
-                  <LineIcon
-                    className="search-box3-img"
-                    name="send"
-                    size={toUnit(INPUT_AREA_AI_HOME_ICON_BOX_PX)}
-                    color="var(--color-brand)"
-                    style={{ marginLeft: toUnit(INPUT_AREA_AI_HOME_SEND_ICON_MARGIN_PX) }}
+                  {/* 发送按钮:与 RN `<Send>`、web 发送钮同一组档 —— 方块 `GEOMETRY_PX.controlBox`(32)
+                      实底 cta + 配对前景,墨迹 `controlGlyph`(14)。此前本端是 25 的裸图标 + 品牌绿前景,
+                      而 RN/web 是 32 黑底白字方块的同一枚控件,即"两端还是不一样"里最显眼的一格。 */}
+                  <View
+                    className="flex items-center justify-center ml-2 rounded-lg bg-cta text-cta-foreground"
+                    style={{
+                      width: toUnit(taroGeometry.controlBox),
+                      height: toUnit(taroGeometry.controlBox),
+                    }}
+                    hoverClass="opacity-60"
                     onClick={handleSend}
-                  />
+                  >
+                    <LineIcon
+                      className="search-box3-img"
+                      name="send"
+                      size={toUnit(INPUT_AREA_AI_HOME_ICON_BOX_PX)}
+                      color="var(--color-cta-foreground)"
+                    />
+                  </View>
                 </View>
               </View>
             </View>

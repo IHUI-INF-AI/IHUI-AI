@@ -1356,7 +1356,12 @@ export function main(argv, repoRoot = ROOT) {
   const res = audit(collected.pairs, collected.text, baseline, collected.tiers)
   if (argv.includes('--emit-baseline')) {
     console.log(JSON.stringify(emitBaseline(res.findings, baseline), null, 2))
-    console.log(
+    /**
+     * 说明行一律走 stderr:这条模板的既定用法就是 `--emit-baseline > <台账文件>`,
+     * 把它打进 stdout 等于把一句散文追加进 JSON 文件 —— 实测砸出来的
+     * `SyntaxError: Unexpected token 模` 会让 lint-staged 在提交当场崩掉(而 JSON 看起来"像"是门产的合法物)。
+     */
+    console.error(
       `模板按 ${FACE_TXT[face]} 面生成;逐条核过再放进 ${BASELINE_REL}(它是存量锚点,不是合格证)`,
     )
     return 0
