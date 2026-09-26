@@ -216,8 +216,11 @@ const {{businessName}}Routes: FastifyPluginAsync = async (server: FastifyInstanc
     await requireAdmin(req, reply)
     if (reply.sent) return
     const { id } = req.params as { id: string }
-    await db.delete({{businessName}}Table).where(eq({{businessName}}Table.id, id))
-    return reply.send(success({ deleted: true }))
+    const removed = await db
+      .delete({{businessName}}Table)
+      .where(eq({{businessName}}Table.id, id))
+      .returning({ id: {{businessName}}Table.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 }
 
@@ -394,8 +397,11 @@ const genTableRoutes: FastifyPluginAsync = async (server: FastifyInstance) => {
 
     const { id } = parseOrThrow(idParamSchema, req.params)
     await db.delete(genTableColumn).where(eq(genTableColumn.tableId, id))
-    await db.delete(genTable).where(eq(genTable.tableId, id))
-    return reply.send(success({ deleted: true }))
+    const removed = await db
+      .delete(genTable)
+      .where(eq(genTable.tableId, id))
+      .returning({ tableId: genTable.tableId })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 }
 

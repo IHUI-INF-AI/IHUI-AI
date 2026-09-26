@@ -89,7 +89,7 @@ export const askExtendedRoutes: FastifyPluginAsync = async (server) => {
       if (rows.length === 0) {
         return reply.status(404).send(error(404, '回答不存在或无权删除'))
       }
-      return reply.send(success({ id: rows[0]!.id, deleted: true }))
+      return reply.send(success({ id: rows[0]!.id, deleted: rows.length > 0 }))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '删除回答失败'))
@@ -400,7 +400,7 @@ export const askExtendedRoutes: FastifyPluginAsync = async (server) => {
       if (rows.length === 0) {
         return reply.status(404).send(error(404, '分类不存在'))
       }
-      return reply.send(success({ id: rows[0]!.id, deleted: true }))
+      return reply.send(success({ id: rows[0]!.id, deleted: rows.length > 0 }))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '删除分类失败'))
