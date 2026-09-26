@@ -4,6 +4,7 @@
 
 import 'dotenv/config'
 import type { Worker } from 'bullmq'
+import type { FastifyInstance } from 'fastify'
 import { buildServer } from './server.js'
 import { startWorkers } from './workers/index.js'
 import { startSchedulerWorker } from './workers/scheduler-worker.js'
@@ -63,6 +64,47 @@ const HOST = process.env.HOST ?? '0.0.0.0'
 const SYNC_STOP_MS = 1_000
 const QUEUE_WORKER_MS = 5_000
 const SERVER_CLOSE_MS = 8_000
+
+/**
+ * listen 的上界。必须大于 server.ts 的 pluginTimeout(120s),否则一次正常的
+ * 慢启动会被本守卫误杀。
+ */
+const LISTEN_DEADLINE_MS = Number(process.env.API_STARTUP_LISTEN_DEADLINE_MS ?? 180_000)
+/** listen 失败后留给 shutdown 的时间;到点无条件退出。 */
+const SHUTDOWN_DEADLINE_MS = 10_000
+
+/** listen 成功之后置真:此后任何启动尾部异常都不该杀掉一个正在服务的进程。 */
+let isListening = false
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms).unref()
+  })
+}
+
+/**
+ * 2026-09-26 07:58 线上哑火:路由插件在**注册期**执行的建表 DDL 抛错,之后的 46 分钟里
+ * `sc query` 显示 RUNNING、ws-auto-recovery 照常每分钟写一行日志,8802 却从未 bind,
+ * 而日志里既没有 'Failed to start server'(listen 的 catch 没被命中)也没有
+ * 'Server listening' —— 即 listen() 这条 promise 既不 resolve 也不 reject。
+ * 所以 bind 必须有上界:无论异常是以拒绝形态落进下面的 catch,还是把 avvio 的
+ * ready 队列吊住,到点都要带着原因退出非零,交给服务管理器重启。
+ * 不许有"进程在、端口没有"这一格。
+ */
+async function listenWithinDeadline(server: FastifyInstance): Promise<void> {
+  let timer: NodeJS.Timeout | undefined
+  const deadline = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`server.listen() 未在 ${LISTEN_DEADLINE_MS}ms 内完成`)),
+      LISTEN_DEADLINE_MS,
+    )
+  })
+  try {
+    await Promise.race([server.listen({ port: PORT, host: HOST }), deadline])
+  } finally {
+    clearTimeout(timer)
+  }
+}
 
 /**
  * 启动期生产环境安全检查:
@@ -185,14 +227,23 @@ async function start() {
   try {
     // 2026-08-02 修复:注册 poolTracker onClose 清理,防进程不退出
     registerPoolTrackerCleanup(server)
-    await server.listen({ port: PORT, host: HOST })
+    await listenWithinDeadline(server)
+    isListening = true
     server.log.info(`🚀 API server listening on http://${HOST}:${PORT}`)
   } catch (err) {
     // P0 修复(2026-07-31):listen 失败时必须清理已启动的 workers / schedulers,
     // 否则 BullMQ worker 持有的 ioredis 连接、scheduler cron 句柄会泄露,
     // tsx watch 重启时会累积(死进程句柄 3791 的事故根因之一)。
     server.log.error({ err }, 'Failed to start server')
-    await shutdown('listen-failure', 1)
+    // 但清理不能挡住退出:worker.close() / server.close() 自己也要用 Redis·DB,
+    // 依赖不可用时它们会挂住,挂住就等于回到"进程在、端口没有"那一格。
+    await Promise.race([
+      shutdown('listen-failure', 1).catch((e: unknown) => {
+        logger.warn('shutdown after listen failure itself failed', { err: e })
+      }),
+      delay(SHUTDOWN_DEADLINE_MS),
+    ])
+    process.exit(1)
   }
 
   // 启动 AI World 数据同步定时任务(每 12 小时一次,默认开启,ENABLE_AI_WORLD_SYNC=false 禁用)
@@ -261,5 +312,20 @@ process.on('uncaughtException', (err) => {
   process.exit(1)
 })
 
-start()
+start().catch((err: unknown) => {
+  // 2026-09-26 线上哑火收口。start() 此前是一个裸 promise:它一 reject 只会命中上面
+  // 那个 "process still alive, investigate" 处理器(只记日志、不退出),于是 listen
+  // 从未被调用而进程照样活着 —— NSSM 报 RUNNING、健康面零响应。
+  // (07:58 那次的日志形态正是这样:只有一行 unhandledRejection,既没有
+  //  'Failed to start server' 也没有 'Server listening' —— 说明异常根本没落到下面
+  //  listen 的 catch,所以光给 listen 加兜底是不够的,start() 自身这条链必须有人收。)
+  // 已经 bind 成功的进程不因尾部异常自杀(那会把可用服务打死);还没 bind 的必须退出
+  // 非零交给服务管理器重启 —— 启动阶段只允许"在监听"与"已退出"两种状态。
+  if (isListening) {
+    logger.error('Startup tail failed after listen (serving continues)', { err })
+    return
+  }
+  logger.error('Startup failed before listen, exiting to let the service manager restart', { err })
+  process.exit(1)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
