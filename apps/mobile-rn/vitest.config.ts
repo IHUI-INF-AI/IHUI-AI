@@ -97,6 +97,29 @@ export default defineConfig({
         '../../packages/shared/src/chat/conversation-pin.ts',
       ),
       '@ihui/shared/chat': resolve(__dirname, '../../packages/shared/src/chat/index.ts'),
+      // O81 票③:shared 包新增 './ui' 子路径导出(barrel + 纯 spec 模块,无 DOM/RN 依赖),
+      // 当时漏配别名 ⇒ 父别名 '@ihui/shared' 按 startsWith(pattern+'/') 吞掉 '@ihui/shared/ui',
+      // 改写成 <mock ihui-shared.ts>/ui 而解析失败(BackChevron.tsx / VoiceInput.tsx 等收集期即炸)。
+      // 与 app-control-intent / element-pack 同理:纯结构/几何源必须指真实源码,测 mock 即测假。
+      // 子路径别名排在 '@ihui/shared/ui' 之前、整体排在 '@ihui/shared' 之前(最长匹配优先)。
+      '@ihui/shared/ui/bottom-action-bar-spec': resolve(
+        __dirname,
+        '../../packages/shared/src/ui/bottom-action-bar-spec.ts',
+      ),
+      '@ihui/shared/ui/loading-spec': resolve(
+        __dirname,
+        '../../packages/shared/src/ui/loading-spec.ts',
+      ),
+      '@ihui/shared/ui/menu-spec': resolve(__dirname, '../../packages/shared/src/ui/menu-spec.ts'),
+      '@ihui/shared/ui/model-list-spec': resolve(
+        __dirname,
+        '../../packages/shared/src/ui/model-list-spec.ts',
+      ),
+      '@ihui/shared/ui/voice-input-spec': resolve(
+        __dirname,
+        '../../packages/shared/src/ui/voice-input-spec.ts',
+      ),
+      '@ihui/shared/ui': resolve(__dirname, '../../packages/shared/src/ui/index.ts'),
       '@ihui/types/permission-mode': resolve(
         __dirname,
         '../../packages/types/src/permission-mode.ts',

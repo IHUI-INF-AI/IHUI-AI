@@ -66,6 +66,19 @@ import {
 } from 'lucide-react-native'
 
 import { rnRadius } from '@ihui/design-tokens'
+// 放大钮内缩 / 命中外扩 / 计数浮层距底 / 语音钮间距 —— 唯一源在
+// @ihui/shared/ui/input-area-spec(与小程序端同档;上一轮只搬小程序侧的 6 造成台账 23→24,
+// 两侧必须同枚改指本文件)。机制通道(hitSlop 仅 RN 有)各端保留,数值不再端内自定。
+import {
+  INPUT_AREA_FANGDA_TOP_PX,
+  INPUT_AREA_CONTROL_HIT_SLOP_PX,
+  INPUT_AREA_COUNTER_BOTTOM_PX,
+  INPUT_AREA_VOICE_BTN_GAP_PX,
+  INPUT_AREA_PARAM_FIELD_PADDING_V_PX,
+  INPUT_AREA_INPUT_PADDING_TOP_PX,
+  INPUT_AREA_DOC_NAME_FONT_PX,
+  INPUT_AREA_ATTACHMENT_CLOSE_GLYPH_PX,
+} from '@ihui/shared/ui/input-area-spec'
 
 /** 图片/视频/文档列表项。对应原 uniapp imgs_list 项(imgUrl / fileType / filename / video_url) */
 export interface InputImageItem {
@@ -423,7 +436,7 @@ export function InputArea({
           accessibilityRole="button"
           accessibilityLabel="删除附件"
         >
-          <X size={10} color={tokens.text.secondary} />
+          <X size={INPUT_AREA_ATTACHMENT_CLOSE_GLYPH_PX} color={tokens.text.secondary} />
         </TouchableOpacity>
       </View>
     )
@@ -437,7 +450,7 @@ export function InputArea({
           style={styles.collapseBtn}
           onPress={handleCollapseToggle}
           activeOpacity={0.7}
-          hitSlop={6}
+          hitSlop={INPUT_AREA_CONTROL_HIT_SLOP_PX}
           accessibilityRole="button"
           accessibilityLabel={collapseButtonLabel ?? '收起输入区'}
         >
@@ -554,7 +567,12 @@ export function InputArea({
                 style={styles.expandBtnInShell}
                 onPress={handleExpandToggle}
                 activeOpacity={0.7}
-                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                hitSlop={{
+                  top: INPUT_AREA_CONTROL_HIT_SLOP_PX,
+                  bottom: INPUT_AREA_CONTROL_HIT_SLOP_PX,
+                  left: INPUT_AREA_CONTROL_HIT_SLOP_PX,
+                  right: INPUT_AREA_CONTROL_HIT_SLOP_PX,
+                }}
                 accessibilityRole="button"
                 accessibilityLabel={isExpanded ? '缩小输入框' : '放大输入框'}
               >
@@ -666,7 +684,12 @@ export function InputArea({
                   style={styles.expandBtn}
                   onPress={handleExpandToggle}
                   activeOpacity={0.7}
-                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  hitSlop={{
+                    top: INPUT_AREA_CONTROL_HIT_SLOP_PX,
+                    bottom: INPUT_AREA_CONTROL_HIT_SLOP_PX,
+                    left: INPUT_AREA_CONTROL_HIT_SLOP_PX,
+                    right: INPUT_AREA_CONTROL_HIT_SLOP_PX,
+                  }}
                   accessibilityRole="button"
                   accessibilityLabel={isExpanded ? '缩小输入框' : '放大输入框'}
                 >
@@ -835,7 +858,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   docName: {
-    fontSize: 10,
+    fontSize: INPUT_AREA_DOC_NAME_FONT_PX,
     color: tokens.text.primary,
   },
   thumbClose: {
@@ -852,7 +875,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.border.medium,
   },
   thumbCloseIcon: {
-    fontSize: 10,
+    fontSize: INPUT_AREA_ATTACHMENT_CLOSE_GLYPH_PX,
     color: tokens.text.secondary,
     lineHeight: 12,
   },
@@ -896,7 +919,7 @@ const styles = StyleSheet.create({
   },
   inputBare: {
     paddingHorizontal: 4,
-    paddingTop: 10,
+    paddingTop: INPUT_AREA_INPUT_PADDING_TOP_PX,
     paddingBottom: 24,
     fontSize: 14,
     color: tokens.text.primary,
@@ -958,7 +981,7 @@ const styles = StyleSheet.create({
   voiceBtn: {
     width: 32,
     height: 48,
-    marginRight: 6,
+    marginRight: INPUT_AREA_VOICE_BTN_GAP_PX,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -972,7 +995,7 @@ const styles = StyleSheet.create({
   input: {
     minHeight: MIN_INPUT_HEIGHT,
     paddingHorizontal: 12,
-    paddingTop: 10,
+    paddingTop: INPUT_AREA_INPUT_PADDING_TOP_PX,
     paddingBottom: 24,
     borderRadius: rnRadius.xl,
     borderWidth: 1,
@@ -1010,7 +1033,7 @@ const styles = StyleSheet.create({
   counter: {
     position: 'absolute',
     right: 8,
-    bottom: 6,
+    bottom: INPUT_AREA_COUNTER_BOTTOM_PX,
     fontSize: 11,
     color: tokens.text.tertiary,
     marginTop: 4,
@@ -1022,7 +1045,7 @@ const styles = StyleSheet.create({
   expandBtn: {
     position: 'absolute',
     right: 8,
-    top: 6,
+    top: INPUT_AREA_FANGDA_TOP_PX,
     width: 20,
     height: 20,
     alignItems: 'center',
@@ -1052,7 +1075,7 @@ const styles = StyleSheet.create({
   paramInput: {
     minHeight: 32,
     paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingVertical: INPUT_AREA_PARAM_FIELD_PADDING_V_PX,
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,

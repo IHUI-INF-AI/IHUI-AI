@@ -34,6 +34,16 @@ import {
 import Video, { type VideoRef, type OnProgressData, type OnLoadData } from 'react-native-video'
 import { useI18n } from '../i18n'
 import type { VideoPlayerMinimalProps } from '@ihui/types'
+import {
+  VP_CONTROL_BUTTON_HIT_SLOP_PX,
+  VP_CONTROL_GAP_PX,
+  VP_LABEL_FONT_PX,
+  VP_OVERLAY_PADDING_PX,
+  VP_PROGRESS_BAR_HIT_SLOP_PX,
+  VP_PROGRESS_ROW_HEIGHT_PX,
+  VP_STAGE_ASPECT,
+  VP_TRACK_HEIGHT_PX,
+} from '@ihui/shared/ui/video-player-spec'
 
 import { Loading } from '@ihui/ui-native'
 const PLAYBACK_RATES = [0.75, 1, 1.25, 1.5, 2] as const
@@ -173,8 +183,8 @@ export function VideoPlayer({
 
   return (
     <View
-      className="aspect-video w-full"
-      style={{ backgroundColor: tokens.gray[900] }}
+      className="w-full"
+      style={{ backgroundColor: tokens.gray[900], aspectRatio: VP_STAGE_ASPECT }}
       onLayout={onContainerLayout}
       testID="video-player"
     >
@@ -205,58 +215,78 @@ export function VideoPlayer({
         </View>
       ) : null}
 
-      {/* 标题 + 全屏按钮 */}
-      <View className="absolute left-0 right-0 top-0 flex-row items-center bg-black/40 px-3 py-2">
-        <Text className="flex-1 text-xs text-white" numberOfLines={1}>
+      {/* 标题 + 全屏按钮(数字档来自 @ihui/shared/ui/video-player-spec,裁决见该文件头注) */}
+      <View
+        className="absolute left-0 right-0 top-0 flex-row items-center bg-black/40"
+        style={{ padding: VP_OVERLAY_PADDING_PX }}
+      >
+        <Text
+          className="flex-1 text-white"
+          style={{ fontSize: VP_LABEL_FONT_PX }}
+          numberOfLines={1}
+        >
           {title ?? ''}
         </Text>
         <Pressable
           onPress={toggleFullscreen}
           accessibilityLabel={t('player.fullscreen')}
-          className="rounded-md bg-white/10 px-2 py-1"
+          hitSlop={VP_CONTROL_BUTTON_HIT_SLOP_PX}
+          className="rounded-lg bg-white/10 px-2 py-1"
           testID="video-fullscreen"
         >
-          <Text className="text-[10px] text-white">
+          <Text className="text-white" style={{ fontSize: VP_LABEL_FONT_PX }}>
             {fullscreen ? t('player.exitFullscreen') : t('player.fullscreen')}
           </Text>
         </Pressable>
       </View>
 
       {/* 底部控制条 */}
-      <View className="absolute bottom-0 left-0 right-0 bg-black/50 px-3 py-2">
-        <View className="flex-row items-center gap-2">
+      <View
+        className="absolute bottom-0 left-0 right-0 bg-black/50"
+        style={{ padding: VP_OVERLAY_PADDING_PX }}
+      >
+        <View className="flex-row items-center" style={{ gap: VP_CONTROL_GAP_PX }}>
           <Pressable
             onPress={togglePlay}
             accessibilityLabel={paused ? t('player.play') : t('player.pause')}
-            className="rounded-md bg-white/15 px-3 py-1"
+            hitSlop={VP_CONTROL_BUTTON_HIT_SLOP_PX}
+            className="rounded-lg bg-white/15 px-3 py-1"
             testID="video-play-pause"
           >
-            <Text className="text-xs text-white">
+            <Text className="text-white" style={{ fontSize: VP_LABEL_FONT_PX }}>
               {paused ? t('player.play') : t('player.pause')}
             </Text>
           </Pressable>
           <Pressable
             onPress={cycleRate}
             accessibilityLabel={t('player.rate')}
-            className="rounded-md bg-white/15 px-2 py-1"
+            hitSlop={VP_CONTROL_BUTTON_HIT_SLOP_PX}
+            className="rounded-lg bg-white/15 px-2 py-1"
             testID="video-rate"
           >
-            <Text className="text-xs text-white">{rate}x</Text>
+            <Text className="text-white" style={{ fontSize: VP_LABEL_FONT_PX }}>
+              {rate}x
+            </Text>
           </Pressable>
-          <Text className="text-[10px] text-white/80">
+          <Text className="text-white/80" style={{ fontSize: VP_LABEL_FONT_PX }}>
             {formatTime(currentTime)} / {formatTime(duration)}
           </Text>
         </View>
         <Pressable
           onPress={onProgressBarTap}
           accessibilityLabel={t('player.seek')}
-          className="mt-2 h-1.5 justify-center"
+          hitSlop={VP_PROGRESS_BAR_HIT_SLOP_PX}
+          className="justify-center"
+          style={{ marginTop: VP_CONTROL_GAP_PX, height: VP_PROGRESS_ROW_HEIGHT_PX }}
           testID="video-progress"
         >
-          <View className="h-1 overflow-hidden rounded-md bg-white/20">
+          <View
+            className="overflow-hidden rounded-lg bg-white/20"
+            style={{ height: VP_TRACK_HEIGHT_PX }}
+          >
             <View
-              className="h-1 bg-emerald-400"
-              style={{ width: `${Math.round(progressRatio * 100)}%` }}
+              className="bg-emerald-400"
+              style={{ height: VP_TRACK_HEIGHT_PX, width: `${Math.round(progressRatio * 100)}%` }}
             />
           </View>
         </Pressable>
