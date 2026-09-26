@@ -52,11 +52,11 @@ interface Opt {
 const OPT_BASE =
   'h-[72rpx] px-[28rpx] rounded-xl border border-border bg-background text-[length:28rpx] text-[var(--color-text-medium)] flex items-center justify-center box-border'
 // RN chipActive:border brand.DEFAULT + bg surface.muted;chipTextActive:text.primary + 600
-const OPT_ACTIVE = 'border-primary bg-muted text-foreground font-semibold'
+const OPT_ACTIVE = 'border-brand-accent-deep bg-muted text-foreground font-semibold'
 // RN 端种类标签与选项 chip 完全同款(chip/chipText 无区分),统一为 OPT 样式
 const TAG_BASE =
   'h-[72rpx] px-[28rpx] rounded-xl border border-border bg-background text-[length:28rpx] text-[var(--color-text-medium)] flex items-center justify-center box-border'
-const TAG_ACTIVE = 'border-primary bg-muted text-foreground font-semibold'
+const TAG_ACTIVE = 'border-brand-accent-deep bg-muted text-foreground font-semibold'
 
 export default function ModelEdit() {
   const { t } = useI18n()
@@ -293,7 +293,7 @@ export default function ModelEdit() {
               value={deptIndex}
               onChange={(e) => setDeptIndex(Number(e.detail.value))}
             >
-              <View className="flex items-center justify-between h-[72rpx] px-[28rpx] rounded-xl border border-primary bg-muted text-[length:28rpx] font-semibold text-foreground box-border">
+              <View className="flex items-center justify-between h-[72rpx] px-[28rpx] rounded-xl border border-brand-accent-deep bg-muted text-[length:28rpx] font-semibold text-foreground box-border">
                 <Text>{DEPARTMENTS[deptIndex]}</Text>
                 <LineIcon name="chevron-down" size={24} color="var(--color-muted-foreground)" />
               </View>

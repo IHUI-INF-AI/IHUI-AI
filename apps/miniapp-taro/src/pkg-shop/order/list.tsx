@@ -335,7 +335,7 @@ export default function OrderList() {
                       )}
                       {o.status === 'paid' && (
                         <Text
-                          className="inline-block text-[length:24rpx] text-primary px-[32rpx] py-[10rpx] border-[length:2rpx] border-primary rounded-md"
+                          className="inline-block text-[length:24rpx] text-primary px-[32rpx] py-[10rpx] border-[length:2rpx] border-brand-accent-deep rounded-md"
                           onClick={(e) => {
                             e.stopPropagation()
                             goRefund(o)

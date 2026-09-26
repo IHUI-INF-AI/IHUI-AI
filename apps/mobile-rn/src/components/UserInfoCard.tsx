@@ -298,7 +298,9 @@ const newStyles = StyleSheet.create({
   loginBtn: {
     backgroundColor: tokens.brand.cta,
     borderWidth: 2,
-    borderColor: tokens.text.primary,
+    // 描边不得取墨档 text.primary(亮 #0A0A0A / 暗 #FAFAFA)——项目设计里没有纯黑描边;
+    // 本块填充就是 brand.cta,描边同色即"加厚",两态观感与改前一致且不再出现墨档
+    borderColor: tokens.brand.cta,
     borderRadius: rnRadius.xl,
     paddingVertical: 14,
     paddingHorizontal: 32,
@@ -628,7 +630,9 @@ const oldStyles = StyleSheet.create({
   loginBtn: {
     backgroundColor: tokens.brand.cta,
     borderWidth: 2,
-    borderColor: tokens.text.primary,
+    // 描边不得取墨档 text.primary(亮 #0A0A0A / 暗 #FAFAFA)——项目设计里没有纯黑描边;
+    // 本块填充就是 brand.cta,描边同色即"加厚",两态观感与改前一致且不再出现墨档
+    borderColor: tokens.brand.cta,
     borderRadius: rnRadius.xl,
     paddingVertical: 12,
     paddingHorizontal: 32,
