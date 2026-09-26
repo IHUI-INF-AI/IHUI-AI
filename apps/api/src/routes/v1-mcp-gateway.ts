@@ -37,6 +37,9 @@ import { config } from '../config/index.js'
 import { requireApiKeyAuth, modelInList } from '../plugins/api-key-auth.js'
 import { requireCapabilityRules } from '../utils/capability-guard.js'
 import { recordCall } from '../services/relay-billing-service.js'
+// 格②(2026-09-26):耗时一律走单调钟出口,落库形态经唯一适配器投影
+import { startStopwatch } from '../utils/elapsed-ms.js'
+import { persistableLatency } from '../utils/latency-persistence.js'
 import { success, error } from '../utils/response.js'
 
 // =============================================================================
@@ -209,7 +212,8 @@ const v1McpGatewayRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { name, arguments: args } = parsed.data
-    const startTime = Date.now()
+    // 格②(2026-09-26):原 `const startTime = Date.now()` 是墙钟 epoch,换成单调钟表
+    const sw = startStopwatch()
 
     // 转发到 ai-service
     const result = await forwardToAiService(
@@ -220,6 +224,7 @@ const v1McpGatewayRoutes: FastifyPluginAsync = async (server) => {
     )
 
     if (!result.ok) {
+      const latency = persistableLatency(sw.stop())
       void recordCall({
         apiKeyId: apiKey.id,
         userId: apiKey.userId,
@@ -229,15 +234,20 @@ const v1McpGatewayRoutes: FastifyPluginAsync = async (server) => {
         promptTokens: 0,
         completionTokens: 0,
         totalTokens: MCP_TOOL_BASE_TOKENS,
-        latencyMs: Date.now() - startTime,
+        latencyMs: latency.latencyMs,
         status: 'error',
         errorMessage: result.message,
-        metadata: { protocol: 'mcp-gateway', toolName: name },
+        metadata: {
+          protocol: 'mcp-gateway',
+          toolName: name,
+          latencyTrusted: latency.latencyTrusted,
+        },
         clientIp: request.ip,
       }).catch(() => {})
       return reply.status(result.httpStatus).send(error(result.code, result.message))
     }
 
+    const latency = persistableLatency(sw.stop())
     void recordCall({
       apiKeyId: apiKey.id,
       userId: apiKey.userId,
@@ -247,9 +257,13 @@ const v1McpGatewayRoutes: FastifyPluginAsync = async (server) => {
       promptTokens: 0,
       completionTokens: 0,
       totalTokens: MCP_TOOL_BASE_TOKENS,
-      latencyMs: Date.now() - startTime,
+      latencyMs: latency.latencyMs,
       status: 'success',
-      metadata: { protocol: 'mcp-gateway', toolName: name },
+      metadata: {
+        protocol: 'mcp-gateway',
+        toolName: name,
+        latencyTrusted: latency.latencyTrusted,
+      },
       clientIp: request.ip,
     }).catch(() => {})
 
