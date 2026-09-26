@@ -7231,6 +7231,29 @@
     },
     "pane": {
       "elementPack": {
+        "backgroundTask": {
+          "state": {
+            "pending": "Pending",
+            "running": "Running",
+            "stopping": "Stopping",
+            "stopFailed": "Stop failed",
+            "completed": "Completed",
+            "failed": "Failed",
+            "cancelled": "Cancelled",
+            "timeout": "Timed out"
+          },
+          "hint": {
+            "stopping": "Stop request sent, waiting for the subtask to exit…",
+            "stopFailed": "The subtask is still running; the stop request did not take effect",
+            "timeout": "The subtask wait timed out; you can retry"
+          },
+          "action": {
+            "stop": "Stop",
+            "retryStop": "Retry stop",
+            "retry": "Retry",
+            "ignore": "Ignore"
+          }
+        },
         "feedbackSurvey": {
           "question": "Did this reply help solve your problem?",
           "answer": {
@@ -9804,6 +9827,11 @@
     "adoptHint": "Write the selected candidate into the current conversation"
   },
   "goalCard": {
+    "editAriaLabel": "Edit goal",
+    "editSave": "Save",
+    "editCancel": "Cancel",
+    "collapse": "Collapse",
+    "expand": "Expand",
     "achievedInTime": "Goal achieved in {totalTime}",
     "empty": "No conversation goal set yet",
     "emptyHint": "Type /goal <goal> in the input box, or let the AI drive it",
