@@ -2052,6 +2052,13 @@
       "when": 1790496000000,
       "tag": "20260927100000_tenant_rls_policies_batch1",
       "breakpoints": true
+    },
+    {
+      "idx": 294,
+      "version": "7",
+      "when": 1790499600000,
+      "tag": "20260927170000_point_transactions_user_created_idx",
+      "breakpoints": true
     }
   ]
 }
