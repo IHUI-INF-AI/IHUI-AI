@@ -212,7 +212,7 @@ const patrolRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(patrolTasks.id, parsed.data.id), eq(patrolTasks.userId, userId)))
       .returning({ id: patrolTasks.id })
     if (deleted.length === 0) return reply.status(404).send(error(404, '巡检任务不存在'))
-    return reply.send(success({ id: parsed.data.id, deleted: true }))
+    return reply.send(success({ id: parsed.data.id, deleted: deleted.length > 0 }))
   })
 
   // POST /:id/run-now — 立即巡检一次(复用调度器执行函数)

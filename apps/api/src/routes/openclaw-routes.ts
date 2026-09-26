@@ -349,8 +349,8 @@ export const openclawRoutes: FastifyPluginAsync = async (server) => {
       if (!list) continue
       const idx = list.findIndex((item) => item.id === id)
       if (idx >= 0) {
-        list.splice(idx, 1)
-        return reply.send(success({ deleted: true }))
+        const removed = list.splice(idx, 1)
+        return reply.send(success({ deleted: removed.length > 0 }))
       }
     }
     return reply.status(404).send(error(404, '任务不存在'))
@@ -387,8 +387,8 @@ export const openclawRoutes: FastifyPluginAsync = async (server) => {
     const custom = getCustomChannels(userId)
     const idx = custom.findIndex((c) => c.id === id)
     if (idx < 0) return reply.status(404).send(error(404, '渠道不存在'))
-    custom.splice(idx, 1)
-    return reply.send(success({ deleted: true }))
+    const removed = custom.splice(idx, 1)
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   server.post('/openclaw/channels/:id/connect', async (request, reply) => {
