@@ -8,7 +8,8 @@
  * PROJECT_PLAN.md 已完成任务条目自动归档脚本(2026-07-23 立)
  *
  * 功能:
- *   - 扫描 PROJECT_PLAN.md 中的已完成任务条目(### [x] ✅(YYYY-MM-DD) ...)
+ *   - 扫描 PROJECT_PLAN.md 中的已完成任务条目(§1 粒度 = ##/### 两级,标题含 ✅;
+ *     兼容旧写法 `### [x] ✅(YYYY-MM-DD)`;识别实现与守门 13c 共用 scripts/lib/plan-task-headings.mjs)
  *   - 把完成日期 ≥ 阈值天数的条目移动到 .ihui-agent/archive/PROJECT_PLAN_YYYY-MM-DD_auto-archive.md
  *   - 原位置留 HTML 注释占位(符合 AGENTS.md §1 归档规则 + check-project-plan-archive.mjs 守门)
  *
@@ -18,10 +19,11 @@
  *   node scripts/archive-completed-tasks.mjs --all        # 归档所有已完成条目(不论日期)
  *   node scripts/archive-completed-tasks.mjs --allow-mass  # 人工放行大批量(自动档阀门见 main())
  *
- * 与守门 13c 的分工(2026-09-25 立,别再让两边各写一套式子):
- *   13c 保护的是「### + 含(已完成 或 ✅)」的**全部**标题行(不许无声删除);
- *   本脚本只搬其中**含 ✅ 且带日期**的子集 —— 搬运集必须是保护集的真子集,
- *   否则一边搬一边护就是互咬。无 ✅ 的「### 已完成清单」一类小节标题因此永远不动。
+ * 与守门 13c 的分工(2026-09-25 立,2026-09-26 起两边**共用一份提取实现**):
+ *   13c 保护的是「##/### + 含(已完成 或 ✅)」的**全部**标题行(不许无声删除);
+ *   本脚本只搬其中**含 ✅** 的子集 —— 搬运集必须是保护集的真子集,由
+ *   lib 的构造保证(isArchivableTaskHeading 先过 isCompletedTaskHeading),不是注释约定。
+ *   无 ✅ 的「### 已完成清单」一类小节标题因此永远不动。
  *   node scripts/archive-completed-tasks.mjs --dry-run    # 只打印不实际归档
  *   node scripts/archive-completed-tasks.mjs --auto-commit # 归档后自动 git add + commit(防递归: IHUI_ARCHIVE_COMMIT=1)
  *
@@ -33,9 +35,19 @@
  *   0 = 成功(无论是否归档)
  *   1 = 错误(文件读写失败等)
  */
-import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync } from 'node:fs'
+import { existsSync, mkdirSync, appendFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
+import { readWorktreeFile } from './lib/face-reader.mjs'
+// 「什么算一个已完成条目标题」的**单一实现**(2026-09-26,与守门 13c 共用一份):
+// 两边各写一遍标题正则正是本仓最高频失效型 —— 写法一漂,判据静默失明且失明表现为安静
+// (HEAD 面 `^### .*✅` 0 命中 / `^## .*✅` 71 命中,归档器每次跑每次 0 条)。
+// 搬运集 ⊂ 保护集由 lib 的构造保证(isArchivableTaskHeading 定义第一句即 isCompletedTaskHeading)。
+import {
+  parseCompletedTaskBlocks,
+  extractCompletedTaskHeadings,
+  countBulletCompleted,
+} from './lib/plan-task-headings.mjs'
 
 const ROOT = process.cwd()
 const PLAN_FILE = join(ROOT, 'PROJECT_PLAN.md')
@@ -89,62 +101,12 @@ function dateDiffDays(dateStr) {
 }
 
 /**
- * 解析 PROJECT_PLAN.md,提取已完成任务条目。
- * 条目标题: **含 ✅ 的 ### 标题**(历史上还接受过 `### [x] ✅(日期)` 那种写法,继续兼容)。
- *   ⚠ 2026-09-25 修前的式子是 /^### \[x\][^\n]*✅/,而 PROJECT_PLAN.md 里 `^### [x]` **命中 0 次** ——
- *   真实形态是 `### XXX ✅(YYYY-MM-DD …)` / `### XXX(YYYY-MM-DD 完成 ✅)`(§1 与守门 13c 用的都是这一形)。
- *   后果:自 2026-09-14(b599edbba 之后)归档器**每次都跑、每次扫到 0 条**,而它的 6 个镜像测试夹具全写
- *   `### [x] ✅(...)` ⇒ 测试一路绿。这是"判据与它所守的对象不同形"的教科书案例,也是守门 13b 那条
- *   "去归档"建议在 09-25 实测返回 0 的真因(不是没东西可归,是它看不见)。
- *   同形要求:本式的目标集必须是 13c 保护集(### + (已完成 或 ✅))的**子集** —— 搬运动作只能作用于
- *   受保护对象,否则一边保护一边搬运会互相抵消(那正是"两道门互咬")。
- * 边界: 下一个 ### / ## 标题 或 单独 --- 分隔行 或 EOF
- * @param {string} content
- * @returns {Array<{startLine:number, endLine:number, title:string, titleText:string, date:string|null, bodyLines:string[]}>}
+ * 解析已完成任务条目 —— 实现已收进 scripts/lib/plan-task-headings.mjs 的
+ * parseCompletedTaskBlocks(2026-09-26,单一事实源)。级别感知粒度 ##/###;
+ * `### [x] ✅(日期)` 旧写法继续兼容;`### 已完成清单` 一类无 ✅ 小节不算条目、不搬。
+ * (历史教训原样保留在 lib 头注:旧式 /^### \[x\]/ 对真实形态 0 命中,空转 11 天而 15 个
+ *  镜像测试全绿 —— 因为夹具复刻的是实现的形状,不是世界的形状,§22c。)
  */
-function parseCompletedTasks(content) {
-  const lines = content.split('\n')
-  const tasks = []
-  let current = null
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-    // 已完成标题:### 级 + 含 ✅。日期取标题里**第一个** YYYY-MM-DD —— 真实形态里日期常在 ✅ 之前
-    //   (`### 第三轮:…(2026-09-09 完成 ✅)`),旧式要求紧跟 ✅ 之后,那种条目就会被判"无日期"而永不归档。
-    const headingMatch = /^### (?:\[x\] )?[^\n]*✅/.test(line) ? line : null
-    const dateMatch = headingMatch
-      ? line.match(/\((\d{4}-\d{2}-\d{2})/) || line.match(/(\d{4}-\d{2}-\d{2})/)
-      : null
-
-    if (headingMatch) {
-      // 遇到已完成标题:先结束前一个,再开始新条目
-      if (current) {
-        current.endLine = i - 1
-        tasks.push(current)
-      }
-      current = {
-        startLine: i,
-        endLine: i,
-        title: line,
-        titleText: line.replace(/^###\s+/, '').trim(),
-        date: dateMatch ? dateMatch[1] : null,
-        bodyLines: [line],
-      }
-    } else if (current) {
-      // 在条目内,检查是否到达边界
-      if (/^### /.test(line) || /^## /.test(line) || /^---\s*$/.test(line)) {
-        current.endLine = i - 1
-        tasks.push(current)
-        current = null
-      } else {
-        current.bodyLines.push(line)
-        current.endLine = i
-      }
-    }
-  }
-  if (current) tasks.push(current)
-  return tasks
-}
 
 /**
  * 去除条目正文末尾的空行
@@ -169,21 +131,36 @@ function main() {
     process.exit(0)
   }
 
-  const content = readFileSync(PLAN_FILE, 'utf8')
-  const tasks = parseCompletedTasks(content)
+  // 内容经取材层的 readWorktreeFile 读(与守门 118 的取材面纪律同形:本脚本是**变换器**,
+  // 它的合法工作面就是工作树 —— 它要把占位写回的就是这份文件;判定类脚本才默认判 HEAD blob)。
+  const content = readWorktreeFile(ROOT, 'PROJECT_PLAN.md')
+  if (content === null) {
+    console.log(`${C.dim}⏭  PROJECT_PLAN.md 读取失败或为空文件,跳过归档${C.reset}`)
+    process.exit(0)
+  }
+  const tasks = parseCompletedTaskBlocks(content)
   const toArchive = tasks.filter(shouldArchive)
+  // 如实报数(禁止把"看不见"洗成"确信没有"):保护集比搬运集宽的部分、以及完全在归档粒度
+  // 之外的 bullet 级 `- [x]`,都必须出现在输出里。
+  const protectedCount = extractCompletedTaskHeadings(content).length
+  const bulletCount = countBulletCompleted(content)
+  const granularityNote =
+    `(保护集 ${protectedCount} 条含"已完成"无"✅"者只护不搬;` +
+    `另有 ${bulletCount} 处已完成状态写在 bullet 级 - [x],不在 §1 条目粒度内,不搬也不护)`
 
   if (toArchive.length === 0) {
     console.log(
       `${C.dim}⏭  无可归档的已完成任务条目${C.reset} ` +
-        `${C.dim}(共 ${tasks.length} 个已完成,阈值 ${allMode ? 'all' : '≥' + daysThreshold + ' 天'})${C.reset}`,
+        `${C.dim}(共 ${tasks.length} 个已完成,阈值 ${allMode ? 'all' : '≥' + daysThreshold + ' 天'})${C.reset}\n` +
+        `${C.dim}   ${granularityNote}${C.reset}`,
     )
     process.exit(0)
   }
 
   console.log(
     `${C.cyan}📦 发现 ${toArchive.length} 个可归档的已完成任务条目${C.reset}` +
-      `${C.dim}(共 ${tasks.length} 个已完成,阈值 ${allMode ? '--all' : '≥' + daysThreshold + ' 天'})${C.reset}`,
+      `${C.dim}(共 ${tasks.length} 个已完成,阈值 ${allMode ? '--all' : '≥' + daysThreshold + ' 天'})${C.reset}` +
+      `\n${C.dim}   ${granularityNote}${C.reset}`,
   )
   toArchive.forEach((t) => {
     console.log(`${C.dim}  - ${t.titleText.slice(0, 70)}${C.reset}`)
