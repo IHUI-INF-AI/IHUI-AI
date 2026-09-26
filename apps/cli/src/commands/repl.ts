@@ -70,6 +70,9 @@ import {
   revokePermissionLease,
 } from '../tools/permission-lease.js';
 import {
+  digestSlotCountOf,
+  isDigestTrackedLease,
+  leaseWorkspaceIdOf,
   parseLeaseTools,
   resolveLeaseTtlMinutes,
   resolveLeaseTurns,
@@ -2288,8 +2291,11 @@ const REPL_LEASE_SCOPE_PREFIX = 'cli-repl:';
  * `/lease` —— 交互式授予/查看/撤销限时权限租约(grantor:'repl-command')。
  *
  * 三态:
- *  1. `/lease <工具1,工具2> [--ttl=分钟] [--turns=轮]` ⇒ 显式授予;
- *  2. `/lease` 裸命令 ⇒ 打印当前租约(scope/能力/剩余秒/轮次进度/auditRef),无租约明写"未授予(默认档)";
+ *  1. `/lease <工具1,工具2> [--ttl=分钟] [--turns=轮] [--digest]` ⇒ 显式授予
+ *     (`--digest` = 打开内容绑定档:这是**收紧** —— 清单内工具须先拿到一次真人批准才被钉住,
+ *      此后调用内容一变旧批准即失效。缺省不带该 flag ⇒ 传给构造口的对象与改前逐字相同);
+ *  2. `/lease` 裸命令 ⇒ 打印当前租约(scope/能力/剩余秒/轮次进度/auditRef)+ 摘要绑定档与已绑定槽位数,
+ *     无租约明写"未授予(默认档)";
  *  3. `/lease off` ⇒ 立即撤销并回显审计引用。
  *
  * 失败方向与 cli-flag 档同形:非法输入只打印一行拒因、**当前租约状态逐字不变** ——
@@ -2343,6 +2349,15 @@ export function handleLease(state: ReplState, args: string[]): void {
         }),
       ),
     );
+    // 档位与槽位数**两行都要报**:bind-on-first-approval 的租约出生时槽位表是空的,
+    // 只报其中一个就会把"开着但还没绑"读成"没开"(状态读数与语义分叉)。
+    console.info(
+      chalk.dim(
+        isDigestTrackedLease(lease)
+          ? t('cliEntry.replLeaseDigestStateOn', { slots: String(digestSlotCountOf(lease)) })
+          : t('cliEntry.replLeaseDigestStateOff'),
+      ),
+    );
     return;
   }
 
@@ -2350,15 +2365,19 @@ export function handleLease(state: ReplState, args: string[]): void {
   const positional: string[] = [];
   let ttlRaw: string | undefined;
   let turnsRaw: string | undefined;
+  let digestOn = false;
   for (const token of args) {
     if (token.startsWith('--ttl=')) ttlRaw = token.slice('--ttl='.length);
     else if (token.startsWith('--turns=')) turnsRaw = token.slice('--turns='.length);
+    // 只认裸 `--digest`:`--digest=0` 这类"带值的开关"落到下面的未知项分支失败关闭,
+    // 不去猜它的语义(关掉就写 `/lease a,b` 不带这个 flag,或设 IHUI_LEASE_SLOT_DIGEST=0)。
+    else if (token === '--digest') digestOn = true;
     else if (token.startsWith('--')) {
       // 未知 flag 一律失败关闭:猜它的语义等于悄悄换一套授予规则
       console.info(
         chalk.yellow(
           t('cliEntry.replLeaseInvalid', {
-            reason: `unknown option: ${token} (allowed: --ttl=<minutes>, --turns=<turns>)`,
+            reason: `unknown option: ${token} (allowed: --ttl=<minutes>, --turns=<turns>, --digest)`,
           }),
         ),
       );
@@ -2385,6 +2404,12 @@ export function handleLease(state: ReplState, args: string[]): void {
   const ttlMinutes = resolveLeaseTtlMinutes(ttlRaw);
   const turns = resolveLeaseTurns(turnsRaw);
   const target = (state.session?.id ?? '').trim() || `pid-${process.pid}`;
+  // 档位在位时才多带这两个键:关档时传给构造口的对象与改前逐字相同 ⇒ 既有 `/lease` 使用者零变化。
+  // 身份仍只经 leaseWorkspaceIdOf 取(与 CLI 授予侧、消费侧 recordApprovedInvocation 同一份映射);
+  // 拿不到身份 ⇒ 唯一构造出口自身判死(requireText),本命令走下面的 catch 打印拒因、状态逐字不变。
+  const digestFields = digestOn
+    ? { workspaceId: leaseWorkspaceIdOf(state.opts.workspacePath), digestTrackOnApproval: true }
+    : {};
   try {
     // 唯一构造出口:判死(空清单/通配/无到期/叠租约)都在它内部,本命令只转译拒因
     const lease = grantPermissionLease({
@@ -2393,6 +2418,7 @@ export function handleLease(state: ReplState, args: string[]): void {
       grantor: 'repl-command',
       ttlMs: ttlMinutes * 60_000,
       expiresAfterTurns: turns,
+      ...digestFields,
     });
     console.info(
       chalk.green(
@@ -2405,6 +2431,10 @@ export function handleLease(state: ReplState, args: string[]): void {
         }),
       ),
     );
+    // 打开这一档是**收紧**,不是放宽:必须当场把这件事与关闭出口说清楚。
+    if (isDigestTrackedLease(lease)) {
+      console.info(chalk.yellow(t('cliEntry.replLeaseDigestGranted')));
+    }
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
     console.info(chalk.yellow(t('cliEntry.replLeaseInvalid', { reason })));

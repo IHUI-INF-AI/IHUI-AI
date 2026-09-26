@@ -9,6 +9,12 @@ import { ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { clipCsvRows, CSV_PREVIEW_MAX_ROWS, parseCsv } from '@/lib/csv-preview'
+import {
+  PreviewSourceText,
+  PreviewViewSwitch,
+  type PreviewSourceAvailability,
+  type PreviewViewMode,
+} from './preview-view-switch'
 
 /**
  * MessageFilePreview — PDF/CSV 消息内富预览(P3 #32,2026-09-16 立)。
@@ -22,13 +28,25 @@ import { clipCsvRows, CSV_PREVIEW_MAX_ROWS, parseCsv } from '@/lib/csv-preview'
  *    默认前 50 行可展开全部;首行按表头加粗
  */
 
+/**
+ * PDF 的源码档**恒定不可用**,并写明原因(D41)。
+ *
+ * PdfEmbed 走浏览器原生 iframe 查看器,组件手里从来没有正文字节;要拿到文本层就得再
+ * `getDocument({url})` 一次 —— 那正是票面禁止的「切视图触发新取数」。仓库里已有的
+ * `PDFTextLayer` 是"给已渲染页做定位覆盖层"的组件(要 pdfPage + viewport),不是文本转储出口,
+ * 复用不了。所以按票面的处置:禁用 + 说明,不隐藏、不留空白。
+ */
+const PDF_SOURCE_AVAILABILITY: PreviewSourceAvailability = {
+  available: false,
+  reason: 'previewSourceUnavailableBinary',
+}
+
 /** PDF 内嵌预览(浏览器原生查看器)。高度固定 420px,滚动由查看器内部处理。 */
 export function PdfEmbed({ src, className }: { src: string; className?: string }) {
   const t = useTranslations('chat')
   const [page, setPage] = React.useState(1)
   const [total, setTotal] = React.useState<number | null>(null)
   const [jumpValue, setJumpValue] = React.useState('')
-
   // 仅取 numPages(总页数);worker/网络不可用时静默降级,不影响 iframe 预览
   React.useEffect(() => {
     let cancelled = false
@@ -66,6 +84,7 @@ export function PdfEmbed({ src, className }: { src: string; className?: string }
     <div
       className={cn('my-0 overflow-hidden rounded-md border border-border', className)}
       data-testid="pdf-embed"
+      data-preview-view="preview"
       data-artifact-preview-kind="pdf"
     >
       <div className="flex items-center justify-between gap-2 bg-muted/40 px-2 py-1">
@@ -73,6 +92,15 @@ export function PdfEmbed({ src, className }: { src: string; className?: string }
           {total !== null ? t('pdfPageIndicator', { page, total }) : t('pdfPageOnly', { page })}
         </span>
         <span className="flex shrink-0 items-center gap-2">
+          <PreviewViewSwitch
+            mode="preview"
+            onModeChange={(next) => {
+              // 源码档 disabled,正常路径点不到;这里把"绕过 disabled 的调用"钉成无事发生,
+              // 避免出现一个没有内容的 source 视图。
+              if (next !== 'preview') return
+            }}
+            source={PDF_SOURCE_AVAILABILITY}
+          />
           <span className="flex items-center gap-1">
             <input
               type="number"
@@ -120,20 +148,27 @@ export function PdfEmbed({ src, className }: { src: string; className?: string }
 export function CsvPreview({ src }: { src: string }) {
   const t = useTranslations('chat')
   const [rows, setRows] = React.useState<string[][] | null>(null)
+  const [raw, setRaw] = React.useState<string | null>(null)
   const [failed, setFailed] = React.useState(false)
   const [expanded, setExpanded] = React.useState(false)
+  const [mode, setMode] = React.useState<PreviewViewMode>('preview')
 
   React.useEffect(() => {
     let cancelled = false
     setRows(null)
+    setRaw(null)
     setFailed(false)
+    setMode('preview')
     fetch(src)
       .then((r) => {
         if (!r.ok) throw new Error(String(r.status))
         return r.text()
       })
       .then((text) => {
-        if (!cancelled) setRows(parseCsv(text))
+        if (cancelled) return
+        // 原文留在手里:源码视图直接用它,切换时不再发第二次 fetch
+        setRaw(text)
+        setRows(parseCsv(text))
       })
       .catch(() => {
         if (!cancelled) setFailed(true)
@@ -161,61 +196,79 @@ export function CsvPreview({ src }: { src: string }) {
   const view = clipCsvRows(parsed, expanded ? Number.MAX_SAFE_INTEGER : CSV_PREVIEW_MAX_ROWS)
   const header = view.rows[0] ?? []
   const bodyRows = view.rows.slice(1)
+  // 源码档用**已经在手**的原文:文本还没回来(加载中)就只能禁用 + 说明,不得为此再发一次请求
+  const sourceAvailability: PreviewSourceAvailability =
+    rows !== null && raw !== null
+      ? { available: true }
+      : { available: false, reason: 'previewSourceUnavailableLoad' }
 
   return (
     <div
       className="my-0 overflow-hidden rounded-md border border-border"
       data-testid="csv-preview"
       data-csv-total={view.total}
+      data-preview-view={mode}
       data-artifact-preview-kind="csv"
     >
       <div className="flex items-center justify-between gap-2 bg-muted/40 px-2 py-1">
         <span className="truncate text-[10px] font-medium text-muted-foreground">
           {t('csvPreviewMeta', { rows: view.total, cols: header.length })}
         </span>
-        {view.truncated && (
-          <button
-            type="button"
-            onClick={() => setExpanded((p) => !p)}
-            className="inline-flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
-            data-testid="csv-expand-toggle"
-          >
-            {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-            <span>{expanded ? t('csvCollapse') : t('csvExpand')}</span>
-          </button>
-        )}
+        <span className="flex shrink-0 items-center gap-2">
+          <PreviewViewSwitch mode={mode} onModeChange={setMode} source={sourceAvailability} />
+          {view.truncated && (
+            <button
+              type="button"
+              onClick={() => setExpanded((p) => !p)}
+              className="inline-flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
+              data-testid="csv-expand-toggle"
+            >
+              {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              <span>{expanded ? t('csvCollapse') : t('csvExpand')}</span>
+            </button>
+          )}
+        </span>
       </div>
-      <div className="max-h-[360px] overflow-auto">
-        {rows === null ? (
-          <p className="p-3 text-xs text-muted-foreground">{t('csvLoading')}</p>
-        ) : (
-          <table className="w-full border-collapse text-xs" data-testid="csv-table">
-            <thead>
-              <tr>
-                {header.map((h, i) => (
-                  <th
-                    key={`h-${i}`}
-                    className="border border-border bg-muted/50 px-2 py-1 text-left font-medium"
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {bodyRows.map((r, ri) => (
-                <tr key={`r-${ri}`}>
-                  {r.map((c, ci) => (
-                    <td key={`c-${ci}`} className="border border-border px-2 py-1">
-                      {c}
-                    </td>
+      {mode === 'source' ? (
+        <PreviewSourceText
+          status="ready"
+          text={raw ?? ''}
+          truncated={false}
+          testId="csv-source-text"
+        />
+      ) : (
+        <div className="max-h-[360px] overflow-auto">
+          {rows === null ? (
+            <p className="p-3 text-xs text-muted-foreground">{t('csvLoading')}</p>
+          ) : (
+            <table className="w-full border-collapse text-xs" data-testid="csv-table">
+              <thead>
+                <tr>
+                  {header.map((h, i) => (
+                    <th
+                      key={`h-${i}`}
+                      className="border border-border bg-muted/50 px-2 py-1 text-left font-medium"
+                    >
+                      {h}
+                    </th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+              </thead>
+              <tbody>
+                {bodyRows.map((r, ri) => (
+                  <tr key={`r-${ri}`}>
+                    {r.map((c, ci) => (
+                      <td key={`c-${ci}`} className="border border-border px-2 py-1">
+                        {c}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
     </div>
   )
 }

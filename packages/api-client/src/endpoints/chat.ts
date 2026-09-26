@@ -285,6 +285,56 @@ export interface GetMessagesResult {
   nextCursor: string | null
 }
 
+/**
+ * D35 turn 分片拉取参数(2026-09-26 立)。契约逐字取自
+ * `apps/api/src/routes/chat.ts` 的 `GET /conversations/:id/history` 与其
+ * `historyListSchema`:limit 是**每页 turn 数**(非消息数)∈[1,100],默认 20,
+ * 越界由服务端 400 —— 本包只做传输,不夹取、不重试。
+ */
+export interface GetConversationHistoryParams {
+  limit?: number
+  /** 回放断点(base64url JSON {turnOrdinal}),由服务端生成、客户端透明回传。 */
+  cursor?: string
+  /**
+   * newest=取最新 N turn;older=断点之前(上翻);newer=断点之后(增量续读)。
+   * 字面量集合与 `@ihui/shared/chat` 的 `HistoryTurnDirection` / `HISTORY_TURN_DIRECTIONS` 同集;
+   * 本包刻意不 import 那个类型 —— api-client 的运行时依赖面只有 `@ihui/types`,
+   * 为一个类型引入 `@ihui/shared` 会把共享层拖进发布物依赖(见 client.ts 头注同一处置)。
+   */
+  direction?: 'newest' | 'older' | 'newer'
+}
+
+/** 一个 turn 分片(一轮 user→assistant 交互),messages 按 (createdAt,id) 稳定升序。 */
+export interface ConversationHistoryTurn {
+  turnOrdinal: number
+  messages: ConversationMessage[]
+}
+
+/**
+ * D35:会话历史 turn 分片响应。投影语义(合并去重/边界判定)**不在本包实现**,
+ * 一律交 `@ihui/shared/chat` 的 `history-projection` —— 本包只做传输,
+ * 否则三端各拼一份时间线就是"手机上改了 web 没改"的成因(AGENTS §3)。
+ */
+export interface ConversationHistoryResult {
+  turns: ConversationHistoryTurn[]
+  limit: number
+  hasMore: boolean
+  nextCursor: string | null
+  /** 会话投影状态透传;null = 尚未投影。本包不解释其形状。 */
+  projectionState: unknown
+}
+
+/** D35 turn 分片拉取 — GET /api/chat/conversations/:id/history */
+export function getConversationHistory(id: string, params: GetConversationHistoryParams = {}) {
+  const qs = new URLSearchParams()
+  if (params.limit !== undefined) qs.set('limit', String(params.limit))
+  if (params.cursor) qs.set('cursor', params.cursor)
+  if (params.direction) qs.set('direction', params.direction)
+  return fetchApi<ConversationHistoryResult>(
+    `/api/chat/conversations/${encodeURIComponent(id)}/history?${qs.toString()}`,
+  )
+}
+
 export function getMessages(id: string, params: GetMessagesParams = {}) {
   const qs = new URLSearchParams()
   qs.set('page', String(params.page ?? 1))
