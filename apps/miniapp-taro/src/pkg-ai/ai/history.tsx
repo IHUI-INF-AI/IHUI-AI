@@ -43,7 +43,7 @@ type GroupKey = 'today' | 'yesterday' | 'thisWeek' | 'earlier'
 /** 列表当前的数据来源:server=服务端会话(可置顶);local=本机快照(兜底,不可置顶) */
 export type HistorySource = 'server' | 'local'
 
-interface HistoryItem {
+export interface HistoryItem {
   id: string
   title: string
   time: string
