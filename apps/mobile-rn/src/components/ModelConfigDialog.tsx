@@ -50,11 +50,21 @@ import type { ModelConfigType } from '@ihui/ui-native'
 import { Check, ChevronLeft, Mic, Music, Plus, Square, X } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
 import { ChevronRight } from 'lucide-react-native'
-// 删除角标 / 音色菜单图标块尺寸 —— 唯一源在 @ihui/shared/ui/model-config-dialog-spec(与小程序端同档);
+// 本组件所有会显形的几何数字(删除角标 / 音色菜单图标块 / 上传卡宽与标记盒 / 参数输入行高 /
+// 自绘录音按钮 / 三档字形)一律不在本文件取数 —— 唯一源在
+// @ihui/shared/ui/model-config-dialog-spec(与小程序端同档,裁决依据写在该文件);
 // RN 单位 dp 与逻辑 px 1:1,换算取恒等。
 import {
-  modelConfigDeleteBadgeStyle,
+  MODEL_CONFIG_BLOCK_GLYPH_PX,
+  MODEL_CONFIG_INLINE_GLYPH_PX,
+  MODEL_CONFIG_RECORD_BUTTON_PX,
+  MODEL_CONFIG_RECORD_GLYPH_PX,
+  MODEL_CONFIG_UPLOAD_MARK_PX,
   modelConfigAudioMenuIconStyle,
+  modelConfigDeleteBadgeStyle,
+  modelConfigInputBoxStyle,
+  modelConfigSquareStyle,
+  modelConfigUploadCardStyle,
 } from '@ihui/shared/ui/model-config-dialog-spec'
 
 const toUnit = (px: number) => px
@@ -295,7 +305,7 @@ function RatioSelector({
           className="mr-1.5 flex-row items-center rounded-md px-2.5 py-1.5"
           style={{ backgroundColor: tokens.surface.muted }}
         >
-          <ChevronLeft size={12} color={tokens.text.secondary} />
+          <ChevronLeft size={MODEL_CONFIG_INLINE_GLYPH_PX} color={tokens.text.secondary} />
           <Text className="text-xs" style={{ color: tokens.text.secondary }}>
             {t('common.back')}
           </Text>
@@ -418,8 +428,9 @@ function DynamicVariables({
                 value={String(cur ?? '')}
                 onChangeText={(t) => emit({ [v.name]: t })}
                 placeholder={`请输入${v.desc}`}
-                className="h-10 rounded-md px-3.5 text-xs"
+                className="rounded-md px-3.5 text-xs"
                 style={{
+                  ...modelConfigInputBoxStyle(toUnit),
                   backgroundColor: tokens.surface.muted,
                   color: tokens.text.primary,
                 }}
@@ -506,8 +517,12 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
             value={String(config.temperature)}
             keyboardType="numeric"
             onChangeText={(v) => update({ temperature: Number(v) || 0 })}
-            className="mr-2 h-10 flex-1 rounded-md px-3.5 text-xs"
-            style={{ backgroundColor: tokens.surface.muted, color: tokens.text.primary }}
+            className="mr-2 flex-1 rounded-md px-3.5 text-xs"
+            style={{
+              ...modelConfigInputBoxStyle(toUnit),
+              backgroundColor: tokens.surface.muted,
+              color: tokens.text.primary,
+            }}
           />
           <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
             0.0 - 2.0
@@ -520,8 +535,12 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
           value={String(config.maxTokens)}
           keyboardType="numeric"
           onChangeText={(v) => update({ maxTokens: Number(v) || 0 })}
-          className="h-10 rounded-md px-3.5 text-xs"
-          style={{ backgroundColor: tokens.surface.muted, color: tokens.text.primary }}
+          className="rounded-md px-3.5 text-xs"
+          style={{
+            ...modelConfigInputBoxStyle(toUnit),
+            backgroundColor: tokens.surface.muted,
+            color: tokens.text.primary,
+          }}
         />
       </Row>
 
@@ -530,8 +549,12 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
           value={String(config.topP)}
           keyboardType="numeric"
           onChangeText={(v) => update({ topP: Number(v) || 0 })}
-          className="h-10 rounded-md px-3.5 text-xs"
-          style={{ backgroundColor: tokens.surface.muted, color: tokens.text.primary }}
+          className="rounded-md px-3.5 text-xs"
+          style={{
+            ...modelConfigInputBoxStyle(toUnit),
+            backgroundColor: tokens.surface.muted,
+            color: tokens.text.primary,
+          }}
         />
       </Row>
 
@@ -949,7 +972,7 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                   选择音色
                 </Text>
                 <Pressable onPress={() => setShowAudioMenu(false)} hitSlop={8}>
-                  <X size={12} color={tokens.text.secondary} />
+                  <X size={MODEL_CONFIG_INLINE_GLYPH_PX} color={tokens.text.secondary} />
                 </Pressable>
               </View>
 
@@ -962,7 +985,7 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                     backgroundColor: tokens.success.light,
                   }}
                 >
-                  <Music size={18} color={tokens.text.secondary} />
+                  <Music size={MODEL_CONFIG_BLOCK_GLYPH_PX} color={tokens.text.secondary} />
                 </View>
                 <View className="flex-1">
                   <Text className="text-xs font-medium" style={{ color: tokens.text.primary }}>
@@ -972,7 +995,7 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                     {audioUrl ? '当前已选择音色' : '从系统音色库中选择'}
                   </Text>
                 </View>
-                <ChevronRight size={12} color={tokens.text.tertiary} />
+                <ChevronRight size={MODEL_CONFIG_INLINE_GLYPH_PX} color={tokens.text.tertiary} />
               </Pressable>
 
               <Pressable onPress={handleCloneVoice} className="flex-row items-center px-5 py-3">
@@ -983,7 +1006,7 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                     backgroundColor: tokens.success.light,
                   }}
                 >
-                  <Mic size={18} color={tokens.text.secondary} />
+                  <Mic size={MODEL_CONFIG_BLOCK_GLYPH_PX} color={tokens.text.secondary} />
                 </View>
                 <View className="flex-1">
                   <Text className="text-xs font-medium" style={{ color: tokens.text.primary }}>
@@ -993,7 +1016,7 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                     上传音频文件克隆音色
                   </Text>
                 </View>
-                <ChevronRight size={12} color={tokens.text.tertiary} />
+                <ChevronRight size={MODEL_CONFIG_INLINE_GLYPH_PX} color={tokens.text.tertiary} />
               </Pressable>
             </View>
           </View>
@@ -1025,7 +1048,7 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                     音色克隆
                   </Text>
                   <Pressable onPress={handleCloseRecordDialog} hitSlop={8}>
-                    <X size={12} color={tokens.text.secondary} />
+                    <X size={MODEL_CONFIG_INLINE_GLYPH_PX} color={tokens.text.secondary} />
                   </Pressable>
                 </View>
 
@@ -1058,14 +1081,15 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                       onPress={isRecording ? handleStopRecord : handleStartRecord}
                       className={
                         isRecording
-                          ? 'h-16 w-16 items-center justify-center rounded-xl bg-red-500'
-                          : 'h-16 w-16 items-center justify-center rounded-xl bg-emerald-500'
+                          ? 'items-center justify-center rounded-xl bg-red-500'
+                          : 'items-center justify-center rounded-xl bg-emerald-500'
                       }
+                      style={modelConfigSquareStyle(MODEL_CONFIG_RECORD_BUTTON_PX, toUnit)}
                     >
                       {isRecording ? (
-                        <Square size={24} color={tokens.surface.light} />
+                        <Square size={MODEL_CONFIG_RECORD_GLYPH_PX} color={tokens.surface.light} />
                       ) : (
-                        <Mic size={24} color={tokens.surface.light} />
+                        <Mic size={MODEL_CONFIG_RECORD_GLYPH_PX} color={tokens.surface.light} />
                       )}
                     </Pressable>
                     <Text className="mt-2 text-xs" style={{ color: tokens.text.tertiary }}>
@@ -1100,7 +1124,7 @@ function UploadButton({
   onDelete?: () => void
 }) {
   return (
-    <View className="mr-1.5 mb-1.5 w-[80px]">
+    <View className="mr-1.5 mb-1.5" style={modelConfigUploadCardStyle(toUnit)}>
       <Pressable
         onPress={onPress}
         className="items-center rounded-lg border border-dashed py-2"
@@ -1109,11 +1133,14 @@ function UploadButton({
           backgroundColor: tokens.success.light,
         }}
       >
-        <View className="mb-1 h-8 w-8 items-center justify-center">
+        <View
+          className="mb-1 items-center justify-center"
+          style={modelConfigSquareStyle(MODEL_CONFIG_UPLOAD_MARK_PX, toUnit)}
+        >
           {url ? (
-            <Check size={18} color={tokens.text.secondary} />
+            <Check size={MODEL_CONFIG_BLOCK_GLYPH_PX} color={tokens.text.secondary} />
           ) : (
-            <Plus size={18} color={tokens.text.secondary} />
+            <Plus size={MODEL_CONFIG_BLOCK_GLYPH_PX} color={tokens.text.secondary} />
           )}
         </View>
         <Text className="text-xs" style={{ color: tokens.text.secondary }} numberOfLines={1}>
