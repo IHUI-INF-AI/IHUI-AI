@@ -87,8 +87,8 @@ page {
   --color-popover-foreground: hsl(0 0% 3.9%);
   --color-primary: hsl(0 0% 0%);
   --color-primary-foreground: hsl(0 0% 100%);
-  --color-cta: #4a7a96;
-  --color-cta-foreground: #ffffff;
+  --color-cta: hsl(0 0% 0%);
+  --color-cta-foreground: hsl(0 0% 100%);
   --color-secondary: hsl(0 0% 96.1%);
   --color-secondary-foreground: hsl(0 0% 9%);
   --color-muted: hsl(0 0% 92%);
@@ -380,8 +380,8 @@ iframe#webpack-dev-server-client-overlay {
   --color-popover-foreground: hsl(0 0% 3.9%);
   --color-primary: hsl(0 0% 0%);
   --color-primary-foreground: hsl(0 0% 100%);
-  --color-cta: #4a7a96;
-  --color-cta-foreground: #ffffff;
+  --color-cta: hsl(0 0% 0%);
+  --color-cta-foreground: hsl(0 0% 100%);
   --color-secondary: hsl(0 0% 96.1%);
   --color-secondary-foreground: hsl(0 0% 9%);
   --color-muted: hsl(0 0% 92%);
@@ -673,6 +673,10 @@ iframe#webpack-dev-server-client-overlay {
   --color-muted-rgb: 38, 38, 38;
   --color-success-rgb: 45, 210, 105;
   --color-warning-rgb: 238, 166, 43;
+
+  /* 以下 2 档为 tokens.css 中存在而本区尚缺,由 sync-design-tokens.mjs 自动补入(勿手改) */
+  --color-cta: hsl(0 0% 100%);
+  --color-cta-foreground: hsl(0 0% 0%);
 }
 
 /* ===== 通用工具类 ===== */
