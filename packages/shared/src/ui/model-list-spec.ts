@@ -59,6 +59,9 @@ export const MODEL_LIST_SECTION_HEADER_FONT_PX = 12
  * 空态容器纵向留白(逻辑 px)。
  * 取值依据:小程序 popup `padding: 40rpx 0` = 20 vs RN `empty.paddingVertical = 48`
  * → 规则 2 取紧凑档 20(空态盒上下无贴边/裁切风险,不触发"取小会裁切才取大"的例外)。
+ * 覆盖面(2026-09-26 补齐):本档此前只落到小程序 **popup** 变体与 RN `empty`,而同一组件的
+ * **list** 变体空态仍写 `py-12`(= 48,正是当初从 RN 摘掉的那个值)⇒ 两枚空态两种留白,
+ * 且 list 变体与 RN 不同值。现 list 变体同样经本档取数,三处落点(popup / list / RN)同值 20。
  */
 export const MODEL_LIST_EMPTY_PADDING_Y_PX = 20
 
@@ -67,6 +70,11 @@ export const MODEL_LIST_EMPTY_PADDING_Y_PX = 20
  * 取值依据:此前 RN `listBody.paddingBottom = 24` 是端内独有一档、小程序列表容器底部无留白。
  * 规则 3「一端有档另一端无 → 取较大者并让缺失端补同档」(措辞与做法同 `loading-spec` 的
  * `LOADING_INLINE_PADDING_X_PX`)→ 定 24,两端的列表容器同取,不再一端有档一端没有。
+ * 覆盖面如实登记(2026-09-26 复核):该"补齐"落在小程序 **popup** 变体容器与 RN `listBody`;
+ * 小程序 **list** 变体的外层容器内衬仍是类名刻度 `px-3 py-1`(= 12 / 4),没有这一档 ——
+ * 它不是跨端第二份真相(两端同锚),而是**同一端的两个变体**留白不齐,且给 inline paddingBottom
+ * 会与类名 `py-1` 争同一属性(后者同时设顶与底)。要不要让 list 变体也吃 24 属布局裁决,另计一票,
+ * 不在本档射程(照 AGENTS §4 浮动弹层档位表:内容面板 p-3=12 / 菜单列表 p-1=4,两档都已在上)。
  */
 export const MODEL_LIST_CONTENT_BOTTOM_PADDING_PX = 24
 
@@ -76,6 +84,10 @@ export const MODEL_LIST_CONTENT_BOTTOM_PADDING_PX = 24
  * 矢量化为 `<LineIcon name="bot">` 后取 RN `AgentModeRow` 同一槽 `<Bot size={20}>` 的现值 ——
  * **非单侧档**(两端同有 Agent 行,两端墨迹自本档起同值)。行盒本身
  * (小程序 20×20 vs RN iconWrap 40×44)仍是文件头登记的裁决项,不因本档改变。
+ * 消费面补齐(2026-09-26 复核):本档立项时声明"两端墨迹自本档起同值",但 RN 端仍写裸数字
+ * `<Bot size={20}>` 未引用本档 ⇒ 那一格是**第二份真相**(改本档 RN 不跟随)。现 RN 端已改为
+ * 引用本档,两端墨迹真正由同一个数字决定。普通模型行的 `<item.icon size={20}>` 与 `iconEmoji`
+ * 的 20 **不**并入本档(它与 40×44 logo 块同属上面那句裁决项)。
  * 小程序消费方式:`size={MODEL_LIST_AGENT_GLYPH_PX * TARO_RPX_PER_PX}`(LineIcon number 量纲 rpx)。
  */
 export const MODEL_LIST_AGENT_GLYPH_PX = 20
@@ -87,6 +99,7 @@ export const MODEL_LIST_AGENT_GLYPH_PX = 20
  * **非单侧档**。前景取 AGENTS §4 品牌实底成对档(底 `--color-cta` / 字形 `--color-cta-foreground`,
  * 与 RN `brand.cta` + `brand.ctaForeground` 同形);外盒尺寸与圆角(小程序 16px vs RN 20px 正圆)
  * 仍是文件头登记的行盒分叉,不在本档射程。
+ * 消费面补齐(2026-09-26 复核):同上 —— RN 端此前写裸数字 `<CheckIcon size={12}>`,现引用本档。
  */
 export const MODEL_LIST_CHECK_GLYPH_PX = 12
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
