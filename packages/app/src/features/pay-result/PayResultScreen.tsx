@@ -151,11 +151,8 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       backgroundColor: tk.surface.bg,
     },
-    /* 顶部导航行(对齐 NavBar:卡片底 + 下边框 + 状态栏区留白) */
+    /* 顶部导航行(对齐 NavBar:透明底、无下描边 ⇒ 透出 container 页面底色;状态栏区留白) */
     header: {
-      backgroundColor: tk.surface.card,
-      borderBottomWidth: 1,
-      borderBottomColor: tk.border.light,
       // 状态栏区留白(对齐共享层 PaymentScreen 头部惯例)
       paddingHorizontal: 10,
     },
