@@ -655,12 +655,18 @@
       "cleared": "Cleared",
       "deleteOne": "Delete this chat",
       "empty": "No chat history",
+      "fallbackNotice": "Couldn't load conversations from the server. Showing this device's history instead.",
       "msgCount": "{n} messages",
       "noMore": "No more",
+      "pinned": "Pinned",
+      "pinFailed": "Failed to pin, please try again",
+      "pin": "Pin",
+      "unpinFailed": "Failed to unpin, please try again",
       "noResult": "No matching chats",
       "refreshSuccess": "Refreshed successfully",
       "searchPlaceholder": "Search chat history",
-      "startNew": "Start new conversation"
+      "startNew": "Start new conversation",
+      "unpin": "Unpin"
     },
     "image": {
       "download": "Download",
