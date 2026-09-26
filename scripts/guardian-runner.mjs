@@ -3421,6 +3421,36 @@ const checks = [
       '',
     ],
   },
+  // --- RN interop 函数形态 style 对账(1 项,blocking)---
+  {
+    id: '131',
+    label:
+      '🧬 RN 函数形态 style 被 cssInterop 吃掉(blocking,按文件 HEAD 自身存量棘轮:存量只报数、新增即拦)',
+    script: 'check-rn-interop-fn-style.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_RN_INTEROP_FN_STYLE',
+    stagedTriggers: ['apps/mobile-rn/', 'packages/app/'],
+    onFailHint: [
+      '',
+      '  💡 拦的是:函数形态 `style={({pressed}) => …}` 落在**被 cssInterop 注册过的 RN 组件**上。',
+      '     为什么必须拦(真机 A/B 定案,PROJECT_PLAN「O83 登记④」):interop 收集内联档时对非数组声明',
+      '     执行 `{ ...declaration }`,而 `{ ...函数 }` === `{}`,又因 `applyStyles` 把 props 清成 `{}`',
+      '     后再合并 ⇒ **该元素整份内联 style 消失**,布局退回默认 column + stretch。',
+      '     症状不是"少个按压态",而是 padding/gap/flexDirection/背景全不见(实测把「更多」折成两行)。',
+      '     ① 唯一正确修法:`style` 用数组,按压反馈走 Pressable 的 children 渲染函数',
+      '        (不新增布局节点、几何不变)—— 参照 packages/app/src/components/MoreLink.tsx;',
+      '     ② 注册表是**现读** node_modules 里的 interop 包,不是手工清单;`Modal` 不在注册表内,',
+      '        落在 Modal 上的函数形态不算这一型;',
+      '     ③ 确属例外写 `interop-style-exempt: <一句话原因>`(带原因,已进守门 108 存活期表 30 天);',
+      '     ④ 严禁为过门去削判据或改注册表清单 —— 内置兜底表若与现读注册表对不上会判"清单腐烂"红。',
+      '     单独复验:node scripts/check-rn-interop-fn-style.mjs(全量档) / --staged(本次提交档)',
+      '     自检:node scripts/check-rn-interop-fn-style.mjs --self-test',
+      '     镜像测试:node --test scripts/tests/check-rn-interop-fn-style.test.mjs',
+      '     紧急跳过(不推荐):HUSKY_SKIP_RN_INTEROP_FN_STYLE=1 git commit ...',
+      '',
+    ],
+  },
   // --- 工具族注册对账(1 项,warn)---
   {
     id: '132',
