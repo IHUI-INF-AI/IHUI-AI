@@ -660,3 +660,87 @@ test('回滚分支必须真被执行过:git add 失败时计划文档要写回�
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+// ─── 19. 2026-09-26 粒度对齐:归档识别扩到 ## 级(与 13c 共用 lib 后的端到端) ───
+
+const GATE_PATH = join(__dirname, '..', 'check-project-plan-archive.mjs')
+
+test('## 级条目端到端:父块吞并嵌套 ✅ 子标题一起搬;无 ✅ 的 ### 小节闭合父块留在原地;bullet 级如实报数;归档后 13c 必须绿', () => {
+  const dir = createTempGitRepo()
+  try {
+    const d = dateAgo(30)
+    const base = [
+      '# plan',
+      '',
+      `## O99 父条目(${d} 完成 ✅)`,
+      '父正文',
+      `### 子阶段(${d} 完成 ✅)`, // 更深一级:并入父块一起搬,不另立条目(防范围重叠踩行)
+      '子正文',
+      '',
+      '### 已完成清单', // 被保护但不可搬:闭合父块,自身与正文留下
+      '索引留在原地',
+      '',
+      '## 活章节',
+      '活内容',
+      '- [x] bullet 级已完成(不在条目粒度,只报数)',
+      '',
+    ].join('\n')
+    commitPlan(dir, base)
+    const r = runScript(dir, ['--auto-commit'])
+    assert.equal(r.status, 0, `应归档+commit 成功\n${r.out}\n${r.err}`)
+    assert.match(
+      r.out,
+      /发现 1 个可归档的已完成任务条目/,
+      `## 与嵌套 ### 是**一个**块,实得:\n${r.out.slice(0, 400)}`,
+    )
+    assert.match(
+      r.out,
+      /1 处已完成状态写在 bullet 级/,
+      `bullet 计数必须如实打出来(禁止把"看不见"写成"没有"),实得:\n${r.out.slice(0, 500)}`,
+    )
+    const archive = readFileSync(archiveFilePath(dir), 'utf8')
+    assert.ok(archive.includes('父正文') && archive.includes('子正文'), '父子正文应一起进归档件')
+    const plan = readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8')
+    assert.ok(plan.includes('### 已完成清单') && plan.includes('索引留在原地'), '不可搬小节不得被动')
+    assert.ok(plan.includes('活内容') && plan.includes('- [x] bullet'), '条目外内容与 bullet 行原样保留')
+    assert.match(plan, /<!--\s*已归档\(/, '原位置须留 13c 认得的占位')
+    // 端到端"两侧同形"装车证明:归档落地后,13c(同一份 lib 的保护集/占位反查/锚点判据)必须判绿。
+    // 若归档器写的占位标题形态与门反查的剥前缀形态漂开,这一步会红 —— 那正是本票要根治的那一型。
+    const g = spawnSync('node', [GATE_PATH, '--root', dir], {
+      cwd: dir,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120_000,
+    })
+    const gout = String(g.stdout || '')
+      .concat(String(g.stderr || ''))
+      .replace(/\x1b\[[0-9;]*m/g, '')
+    assert.equal(g.status, 0, `归档后 13c 必须通过,实得 ${g.status}:\n${gout.slice(0, 600)}`)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('真实 HEAD 面逐字行作夹具:## O74 完成条目必须被认出(§22c —— 判据输入取自真实文件)', () => {
+  const dir = createTempDir()
+  try {
+    // 该行逐字取自 2026-09-26 的 HEAD:PROJECT_PLAN.md(仅把日期换成 ≥7 天前以满足阈值)
+    const real = '## O74 收敛器不再拿"会被清掉的本地指针"当远端真值(2026-09-25 完成 ✅,闭合 O74 的 ②)'
+    const d = dateAgo(30)
+    writeFileSync(
+      join(dir, 'PROJECT_PLAN.md'),
+      ['# plan', '', real.replace(/2026-09-25/, d), '正文', ''].join('\n'),
+    )
+    const r = runScript(dir)
+    assert.equal(r.status, 0)
+    assert.match(
+      r.out,
+      /发现 1 个可归档/,
+      `真实 ## 形态必须被认出,实得:\n${r.out.slice(0, 300)}`,
+    )
+    const archive = readFileSync(archiveFilePath(dir), 'utf8')
+    assert.ok(archive.includes('收敛器不再拿'), '归档件须含真实标题原文')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

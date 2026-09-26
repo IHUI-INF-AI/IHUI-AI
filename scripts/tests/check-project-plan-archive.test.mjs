@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync, execFileSync } from 'node:child_process'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync, readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -436,3 +436,103 @@ test('A4 真实标题形态:占位与同一条目并存 ⇒ 判本次引入的�
   assert.equal(resurrectionVerdict(face, `${ph}\n`).introduced.length, 0, '归档完成态被判红 = 门反着咬自己')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// ─── 2026-09-26 粒度对齐 + T3 元判据(归档粒度扩到 ##/###;提取实现收进 lib;T3 守"判据看见现实") ───
+import { __test__ as archiveGate } from '../check-project-plan-archive.mjs'
+import { shapeCoverageVerdict as libShapeCoverageVerdict } from '../lib/plan-task-headings.mjs'
+
+test('真实 HEAD 面逐字样本:现行提取式无失明;提取式收窄回"只认 ###"必红(§22c 有牙证明)', () => {
+  const head = execFileSync('git', ['-c', 'safe.directory=*', 'show', 'HEAD:PROJECT_PLAN.md'], {
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    windowsHide: true,
+    timeout: 60_000,
+  })
+  const sample = head.split(/\r?\n/).find((l) => /^## .+✅/.test(l))
+  assert.ok(sample, 'HEAD 面必有 ##+✅ 行(2026-09-26 实测 71 处);取不到 = 现读失败,本例判死')
+  assert.ok(archiveGate.extractCompletedTaskHeadings(head).includes(sample))
+  assert.equal(
+    libShapeCoverageVerdict(head, { grandfathered: archiveGate.T3_GRANDFATHERED_SHAPES }).red.length,
+    0,
+    '现行提取式 + 存量台账对 HEAD 不得判红(h4 两形态在台账只报数)',
+  )
+  const narrow = (line) => line.startsWith('### ') && (line.includes('✅') || line.includes('已完成'))
+  const v = libShapeCoverageVerdict(head, { isCovered: narrow })
+  assert.ok(
+    v.red.some((r) => r.includes('h2|✅')),
+    '收窄回 2026-09-26 之前的形态必须被 T3 点名 —— 那次空转(## 级 71 条看不见)从此有哨兵',
+  )
+})
+
+test('提取实现只有一份:本门与归档器源码都不得再本地声明标题提取式', () => {
+  const gateSrc = readFileSync(SCRIPT_PATH, 'utf8')
+  assert.ok(!/function extractCompletedTaskHeadings/.test(gateSrc), '13c 不得回来一份自己的提取式')
+  assert.ok(!/function parseCompletedTasks\b/.test(gateSrc), '13c 不得复制归档器的块解析')
+  const archSrc = readFileSync(
+    join(__dirname, '..', 'archive-completed-tasks.mjs'),
+    'utf8',
+  )
+  // 只禁「执行形态」的重复判据(正则字面量紧跟 .test(),即真正会跑的标题识别)——
+  // 注释里以历史教训口吻引用的旧式 `/^### \[x\]/` 是文档,不构成第二份真相,不该被锁误伤。
+  assert.ok(
+    !/\/\^### [^/]*\/\.test\(/.test(archSrc),
+    '归档器不得再自带可执行的标题识别式 —— 两边各写一遍正是"写法一漂、静默失明"的成因',
+  )
+  assert.ok(!/function parseCompletedTasks\b/.test(archSrc), '归档器不得再本地保留块解析函数(须走 lib)')
+  assert.ok(/from '\.\/lib\/plan-task-headings\.mjs'/.test(gateSrc))
+  assert.ok(/from '\.\/lib\/plan-task-headings\.mjs'/.test(archSrc))
+})
+
+test('## 级条目被直接删除(无占位)⇒ exit 1;换成占位 ⇒ exit 0(粒度对齐的端到端)', () => {
+  const dir = createTempGitRepo()
+  try {
+    const base = [
+      '# plan',
+      '',
+      '## O99 根治某某静默失效(2026-01-01 立并完成 ✅)',
+      '条目正文 A',
+      '',
+      '### 已完成清单',
+      '不是条目',
+      '',
+      '## 活的章节',
+      '内容',
+    ].join('\n')
+    commitPlan(dir, base)
+    // 删掉 ## 条目整块、不留占位 ⇒ 扩到 ## 的保护集必须拦得住
+    writeWorkingTree(dir, '# plan\n\n### 已完成清单\n不是条目\n\n## 活的章节\n内容\n')
+    const r = runScript(dir)
+    assert.equal(r.status, 1, `## 级条目被无声删除必须 exit 1,实得 ${r.status}\n${r.out}`)
+    assert.ok(r.err.includes('O99'), '被删标题(剥前缀后)须被点名')
+    // 同一次删除换上占位 ⇒ 合规
+    writeWorkingTree(
+      dir,
+      '# plan\n\n<!-- 已归档(2026-01-02):O99 根治某某静默失效(2026-01-01 立并完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_*.md -->\n\n### 已完成清单\n不是条目\n\n## 活的章节\n内容\n',
+    )
+    const r2 = runScript(dir)
+    assert.equal(r2.status, 0, `带占位应合规,实得 ${r2.status}\n${r2.err.slice(0, 300)}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T3 端到端:工作树出现未登记的已完成形态(h5+✅)⇒ exit 1 并点名形态与行号', () => {
+  const dir = createTempGitRepo()
+  try {
+    commitPlan(dir, '# plan\n\n- [ ] 活任务\n')
+    writeWorkingTree(
+      dir,
+      '# plan\n\n- [ ] 活任务\n\n##### 某新阶段(2026-02-02 完成 ✅)\n正文\n',
+    )
+    const r = runScript(dir)
+    assert.equal(r.status, 1, `新形态不被提取式覆盖必须判红,实得 ${r.status}\n${r.out}${r.err}`)
+    assert.ok(r.err.includes('T3 判据失明'), '必须喊"判据失明"而不是静默跳过')
+    assert.ok(r.err.includes('h5|✅'), '必须点名形态(级别|标记)')
+    // 同一形态进了存量台账 ⇒ 只报数不判红(防恒红:与任何提交都无关的红只会逼人 --no-verify)
+    const r2 = runScript(dir, ['--grandfather', 'h5|✅'])
+    assert.equal(r2.status, 0, `登记为存量后不得判红,实得 ${r2.status}\n${r2.err.slice(0, 300)}`)
+    assert.ok(r2.out.includes('T3 存量形态'), '但必须打印报数行')
+  } finally {
+    rmScratch(dir)
+  }
+})
