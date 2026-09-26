@@ -11,6 +11,7 @@ import { toast } from '@/components/common'
 import { Modal } from '@/components/feedback'
 import { useEnvironmentInfoStore } from '@/stores/environment-info'
 import { useAiPanelStore } from '@/stores/ai-panel'
+import { apiFailureToError } from '@ihui/shared/utils'
 import {
   clearGithubToken,
   pollGithubDeviceToken,
@@ -215,7 +216,7 @@ export function GithubConfigDialog() {
     setBusy('save')
     try {
       const res = await setGithubToken({ workspacePath, token: token.trim() })
-      if (!res.success) throw new Error(res.error ?? t('tokenSaveFailed'))
+      if (!res.success) throw apiFailureToError(res, t('tokenSaveFailed'))
       toast.success(t('tokenSaved'))
       closeGithubConfig()
       refresh()
@@ -231,7 +232,7 @@ export function GithubConfigDialog() {
     setBusy('clear')
     try {
       const res = await clearGithubToken()
-      if (!res.success) throw new Error(res.error ?? t('tokenCleared'))
+      if (!res.success) throw apiFailureToError(res, t('tokenCleared'))
       toast.success(t('tokenCleared'))
       refresh()
     } catch (e) {
