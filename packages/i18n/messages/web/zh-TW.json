@@ -10408,6 +10408,12 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "budgetBar": {
+      "title": "今日 AI 額度",
+      "critical": "即將用盡",
+      "tokens": "已用 {used} / {limit}",
+      "resetAt": "{time} 重置"
+    },
     "voiceNote": {
       "title": "語音筆記",
       "phase": {
