@@ -198,7 +198,7 @@ export const mcpExtendedRoutes: FastifyPluginAsync = async (server) => {
     try {
       const ok = await configDelete(parsed.data.id)
       if (!ok) return reply.status(404).send(error(404, 'MCP 项目不存在'))
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
+      return reply.send(success({ id: parsed.data.id, deleted: ok }))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '删除 MCP 项目失败'))
@@ -343,7 +343,7 @@ export const mcpExtendedRoutes: FastifyPluginAsync = async (server) => {
     try {
       const ok = await configDelete(parsed.data.id)
       if (!ok) return reply.status(404).send(error(404, 'MCP 集成不存在'))
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
+      return reply.send(success({ id: parsed.data.id, deleted: ok }))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '删除 MCP 集成失败'))
