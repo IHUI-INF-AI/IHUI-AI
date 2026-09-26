@@ -75,6 +75,15 @@ class BasePlatformAdapter(ABC):
     supported_formats: list[str] = []  # ['md', 'html', 'docx', 'pdf', 'image', 'video']
     requires_credentials: list[str] = []  # ['token'] / ['app_id', 'app_secret'] / ['cookie']
     needs_browser: bool = False  # Playwright 适配器为 True
+    #: publish_accounts 行 id —— 反风控身份键的稳定锚点,由调度器/验证入口在取到适配器后显式赋值。
+    #: 适配器实例由 get_adapter() 每次新建(非单例),所以这是调用级状态,不会跨任务串号。
+    db_account_id: int | str | None = None
+
+    def account_identity(self, credentials: dict[str, Any]) -> str:
+        """该账号跨会话恒定的反风控身份键(唯一出口,禁止在端内另算一份)。"""
+        from .anti_risk.account_identity import resolve_account_id
+
+        return resolve_account_id(self.platform_id, credentials, self.db_account_id)
 
     @abstractmethod
     async def verify_credentials(self, credentials: dict[str, Any]) -> tuple[bool, str]:
