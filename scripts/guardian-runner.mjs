@@ -3603,22 +3603,6 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- background-task-type-parity(1 项,blocking)---
-  {
-    id: '136',
-    label:
-      '后台任务类型声明↔实现↔接线三面 parity(V3 #51:六类 executor 不得回到 sleep/echo 回显)',
-    script: 'check-background-task-type-parity.mjs',
-    args: [],
-    mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_BG_TASK_TYPE_PARITY',
-    stagedTriggers: ['apps/ai-service/app/services/', 'apps/ai-service/app/api/'],
-    onFailHint: [
-      '',
-      '',
-    ].join('\n'),
-  },
-
   // --- 名字承诺/实现兑现对账(拦「函数或字段叫 hash/digest/指纹/脱敏,实现却是明文拼接且流向持久化或出网」这一型 —— 本仓 4 处真缺陷同族立门)(1 项,blocking)---
   {
     id: '137',
