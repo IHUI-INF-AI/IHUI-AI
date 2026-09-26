@@ -25,12 +25,16 @@ vi.mock('@/hooks/use-page-visibility', () => ({
   usePageVisibility: () => true,
 }))
 
-const fetchApi = vi.fn(async () => ({
+// 桩签名与被测实现的调用方式对齐:use-subagent-dispatch.ts 以 fetchApi('/api/...') 单个
+// url 实参调用(真实现 src/lib/api.ts:123 为 (url, options?))。旧写法把 vi.fn 实现声明成
+// 0 参数、再用 `...(args as [string])` 硬塞 1 个实参,TS2554 由此而来 —— 与被测守卫的
+// 签名演化无关(守卫 enabled: isAuthenticated 在 use-subagent-dispatch.ts:77/:92 在位)。
+const fetchApi = vi.fn(async (_url: string) => ({
   success: true,
   data: { dispatches: [], topology: { nodes: [], edges: [] } },
 }))
 vi.mock('@/lib/api', () => ({
-  fetchApi: (...args: unknown[]) => fetchApi(...(args as [string])),
+  fetchApi: (url: string) => fetchApi(url),
 }))
 
 import { useActiveDispatches, useSwarmTopology } from '../use-subagent-dispatch'
@@ -81,7 +85,8 @@ describe('use-subagent-dispatch 登录态守卫', () => {
       mount(which)
       await settle()
       expect(fetchApi).toHaveBeenCalledTimes(1)
-      const path = String(fetchApi.mock.calls[0][0])
+      // ?. :calls[0] 缺失时 String(undefined)='undefined',与下方路径期望不符,断言照样失败
+      const path = String(fetchApi.mock.calls[0]?.[0])
       expect(path).toBe(which === 'active' ? '/api/subagents/active' : '/api/subagents/topology')
     })
   }
