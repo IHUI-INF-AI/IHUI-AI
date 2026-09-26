@@ -24477,9 +24477,6 @@
     "completed": "已完成",
     "failed": "失敗"
   },
-  "mentionPopover": {
-    "removeLabel": "取消提及"
-  },
   "message": {
     "shareLinkCopied": "分享連結已複製",
     "hideContent": "隱藏內容",
