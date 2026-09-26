@@ -10408,6 +10408,7 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "modelSwitchStopped": "已切换到 {model},本轮回答已终止",
     "filePreviewEmpty": "文件没有可预览的数据行",
     "filePreviewTypeMismatch": "文件内容与 {ext} 格式不符",
     "filePreviewCorrupt": "文件无法解析，可能已损坏",

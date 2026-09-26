@@ -683,10 +683,13 @@ export function verifyClientSecret(
 ): boolean {
   if (isPublicClientApp(app)) return false
   if (!presented) return false
-  const hashed = [app.clientSecretHash, app.clientSecret].filter(
+  // 原名 `hashed` 撒谎:这个列表里既可能是摘要也可能是**明文** legacy clientSecret(下一行就是
+  // 明文分支)。改名成"待试的存储候选",让名字只承诺它真做到的事(门 137 的命中项按改名收口,
+  // 不用行内豁免遮掉 —— 豁免是给"名字没错、判据看不见"的,不是给命名债的)。
+  const storedCandidates = [app.clientSecretHash, app.clientSecret].filter(
     (v): v is string => typeof v === 'string' && v.length > 0,
   )
-  for (const stored of hashed) {
+  for (const stored of storedCandidates) {
     if (isHashedClientSecret(stored)) {
       if (matchHashedClientSecret(stored, presented)) return true
       continue
