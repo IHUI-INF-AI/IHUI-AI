@@ -110,7 +110,11 @@ jobs:
         # 本仓已有 7 个包 exports 指 dist(cli/i18n/design-tokens/types/dom-actions/api-client/
         # context-compaction),**手工点名"要先建哪几个包"必然落后于新增** —— 落后一次的形态是
         # "CI 恒红而本地全绿"(守门 72/78 同族)。选择器由 pnpm 从包图算,加包不再需要改本文件。
-        run: pnpm --filter "@ihui/api^..." --filter "@ihui/web^..." run build
+        # 2026-09-27 补:web 的 prebuild 会先构建 extension(wxt),而 @ihui/dom-actions
+        # 只被 extension 依赖、不在 @ihui/web^... / @ihui/api^... 闭包内 ⇒ dist 缺失,
+        # web build 解析失败(run 36261667875 实测)。追加 extension 的依赖闭包(不含本包,
+        # 本包由 web 的 prebuild 构建)。
+        run: pnpm --filter "@ihui/api^..." --filter "@ihui/web^..." --filter "@ihui/extension^..." run build
 
       - name: Run database migrations
         working-directory: packages/database
