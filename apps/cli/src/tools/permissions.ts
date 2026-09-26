@@ -22,7 +22,7 @@
 // (实测 import('@ihui/types') → ERR_MODULE_NOT_FOUND './user'),而本文件所在包
 // 需要**运行时值**导入。permission-mode.ts 零依赖,可被 node 直接加载(已实测)。
 import { normalizePermissionMode, type PermissionModeId } from '@ihui/types/permission-mode'
-import { noteLeaseCall, resolveLeaseRelaxation, type PermissionLease } from './permission-lease.js';
+import { noteLeaseCall, resolveLeaseRelaxationDetail, type PermissionLease } from './permission-lease.js';
 
 /** 5 种权限模式:取值以 @ihui/types 的唯一真源为准(G-161 前本文件自抄了一份字面量联合)。 */
 export type PermissionMode = PermissionModeId
@@ -165,27 +165,37 @@ export function checkPermission(
  *  1. 只有 `'ask'` 可能被放宽 —— `'deny'`(黑名单 / 不在白名单)**永远**赢,
  *     所以租约放宽的是"是否还要人批准",结构上放宽不了"能不能做";
  *  2. `dangerLevel === 'dangerous'` 一律不放宽(AGENTS §8 高危清单仍在);
- *  3. 到期/撤销/轮次/次数/能力覆盖的判定全部委托给 `resolveLeaseRelaxation`
- *     —— 一份实现,不在这里再算一遍时间比较。
+ *  3. 到期/撤销/轮次/次数/能力覆盖/**槽位指纹(摘要)**的判定全部委托给
+ *     `resolveLeaseRelaxationDetail` —— 一份实现,不在这里再算一遍时间比较或摘要比对。
  *
- * `lease` 为 null/undefined 时**逐字返回原 decision**,即默认档行为不变。
+ * `lease` 为 null/undefined、或租约未做摘要绑定且未提供 `invocationContent` 时
+ * **逐字返回原 decision**,即默认档行为不变。
  */
+interface LeaseApplyResult {
+  decision: PermissionDecision;
+  /** true = 该槽位摘要绑定而调用内容已漂移:旧批准失效,待再审(不并入"从未批准")。 */
+  contentDrifted?: boolean;
+}
+
 function applyLeaseToDecision(
   decision: PermissionDecision,
   toolName: string,
   dangerLevel: 'read' | 'write' | 'dangerous',
   lease?: PermissionLease | null,
-): PermissionDecision {
-  if (decision !== 'ask') return decision;
-  const applied = resolveLeaseRelaxation(lease ?? null, toolName, dangerLevel);
-  if (!applied) return decision;
-  noteLeaseCall(applied, toolName);
-  return 'allow';
+  invocationContent?: string | null,
+): LeaseApplyResult {
+  if (decision !== 'ask') return { decision };
+  const applied = resolveLeaseRelaxationDetail(lease ?? null, toolName, dangerLevel, invocationContent ?? null);
+  if (!applied) return { decision };
+  if (applied.contentDrifted) return { decision: 'ask', contentDrifted: true };
+  noteLeaseCall(applied.lease, toolName);
+  return { decision: 'allow' };
 }
 
 /**
  * 带租约的 mode-aware 判定(与 `checkPermission` 4 参重载同一份 `decideWithMode`,
- * 只是把结果再交给 `applyLeaseToDecision`)。无租约时与旧实现等价。
+ * 只是把结果再交给 `applyLeaseToDecision`)。无租约时与旧实现等价;
+ * `invocationContent` 只对摘要绑定的槽位生效,缺省 ⇒ 走旧语义。
  */
 export function checkPermissionWithLease(
   toolName: string,
@@ -193,13 +203,15 @@ export function checkPermissionWithLease(
   mode: PermissionMode,
   dangerLevel: 'read' | 'write' | 'dangerous',
   lease?: PermissionLease | null,
+  invocationContent?: string | null,
 ): PermissionDecision {
   return applyLeaseToDecision(
     decideWithMode(toolName, rules, mode, dangerLevel),
     toolName,
     dangerLevel,
     lease,
-  );
+    invocationContent,
+  ).decision;
 }
 
 /**
@@ -208,10 +220,16 @@ export function checkPermissionWithLease(
  * 无租约 ⇒ 走 `matchRulesOnly` 原路径(返回体逐字同旧实现)。
  */
 export interface LeaseAwareCheckResult extends PermissionCheckResult {
-  /** true = 这一格仍需人来批准(租约没覆盖到 / 已到期 / 属高危) */
+  /** true = 这一格仍需人来批准(租约没覆盖到 / 已到期 / 属高危 / 内容已漂移) */
   requiresApproval?: boolean;
   /** true = 本次放行来自租约(审计与 UI 披露读它,不读它 = 来自旧语义) */
   viaLease?: boolean;
+  /**
+   * 只在摘要维度出现:`'content-drifted'` = 该槽位曾被批准、调用内容已变、待再审。
+   * 与 `requiresApproval:true 且无本字段`(该槽从未有过批准记录)必须可区分 ——
+   * 前者要向用户披露"这一条被改过",后者是常规首次征询,处置动作不同。
+   */
+  approvalState?: 'content-drifted';
 }
 
 export function checkRulesWithLease(
@@ -219,11 +237,13 @@ export function checkRulesWithLease(
   rules: PermissionRules | undefined,
   dangerLevel: 'read' | 'write' | 'dangerous',
   lease?: PermissionLease | null,
+  invocationContent?: string | null,
 ): LeaseAwareCheckResult {
   // 无租约 ⇒ 直接交回旧实现,返回体形状与改造前逐字相同(默认档不变的第一道保证)
   if (!lease) return checkPermission(toolName, rules);
   const base = matchRulesOnly(toolName, rules);
-  const decision = applyLeaseToDecision(base, toolName, dangerLevel, lease);
+  const applied = applyLeaseToDecision(base, toolName, dangerLevel, lease, invocationContent);
+  const decision = applied.decision;
   if (decision === 'deny') {
     return {
       allowed: false,
@@ -231,6 +251,15 @@ export function checkRulesWithLease(
       reason: rules?.deny?.includes(toolName)
         ? `工具 ${toolName} 在 --disallowed-tools 黑名单中`
         : `工具 ${toolName} 不在 --tools 白名单中`,
+    };
+  }
+  if (applied.contentDrifted) {
+    return {
+      allowed: true,
+      requiresApproval: true,
+      viaLease: false,
+      approvalState: 'content-drifted',
+      reason: '租约批准过的命令内容已变(摘要不符),旧批准失效,需重新审核',
     };
   }
   return {

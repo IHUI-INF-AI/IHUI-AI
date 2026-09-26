@@ -24,6 +24,8 @@
  * null,而所有消费点在 lease 为 null 时走的都是**改造前那一份**判定实现。
  */
 
+import { createHash } from 'node:crypto'
+
 import { auditLog } from '../audit.js';
 
 /** 租约可覆盖的能力档位:显式工具名(不允许通配)。 */
@@ -50,6 +52,13 @@ export interface PermissionLease {
   readonly auditRef: string;
   /** 撤销时刻;null 表示未撤销。 */
   revokedAt: string | null;
+  /** 摘要绑定的工作区身份(仅当授予时给了 `digestDeclarations` 才存在)。
+   *  缺省 ⇒ 本租约没有摘要维度,判定逐字同旧语义(默认档不变的构造保证)。 */
+  readonly workspaceId?: string;
+  /** 槽位指纹:工具名 → 授予时刻声明内容摘要集合(sha256 hex)。持久信任键 = 工作区身份 × 声明摘要。
+   *  出现在这里的 capability 受摘要治理:运行期每次比对调用内容,**内容变了旧批准即失效**,
+   *  并落单列的待再审态(见 `LeaseRelaxationDetail.contentDrifted`),不是压回"从未批准"。 */
+  readonly slotDigests?: Readonly<Record<string, readonly string[]>>;
   /** 已推进轮次(内部可变计数,到期判据读它)。 */
   turnsUsed: number;
   /** 已放宽次数(内部可变计数)。 */
@@ -66,6 +75,11 @@ export interface GrantLeaseInput {
   expiresAfterTurns?: number;
   maxCalls?: number;
   nowMs?: number;
+  /** 工作区身份:提供 `digestDeclarations` 时必填 —— 两处算同一 key 必须共用一份实现。 */
+  workspaceId?: string;
+  /** 按摘要钉住的内容声明:工具名 → 授予时被批准的完整命令/声明文本。键必须是 capabilities 的子集。
+   *  不在此表的 capability 继续按工具名精确匹配的旧语义放宽(未启用摘要维度 ⇒ 既有链路行为不变)。 */
+  digestDeclarations?: Readonly<Record<string, readonly string[]>>;
 }
 
 /** 租约不成立时的错误类型(调用方必须把它当缺陷处理,不得吞掉)。 */
@@ -109,9 +123,65 @@ export function leaseCovers(lease: PermissionLease, toolName: string): boolean {
 }
 
 /**
- * 唯一消费出口:某次工具调用能否因租约而免逐次批准。
- * 返回 null = 本次不因租约放宽(走改造前的原判定)。
- * `dangerLevel === 'dangerous'` **一律** null,与租约内容无关。
+ * 持久信任键 / 槽位指纹:sha256(工作区身份 \0 声明内容)。用最普通的稳定哈希,不自创规范。
+ * 授予与运行期比对都只能经这一个出口 —— 两处各写一遍摘要算法必然漂移(本仓"两处算同一
+ * key 共用一份实现"同族教训)。
+ */
+export function slotDigest(workspaceId: string, declaration: string): string {
+  return createHash('sha256').update(`${workspaceId}\u0000${declaration}`, 'utf8').digest('hex')
+}
+
+/** 租约放宽明细判定的结果:`contentDrifted` 把"曾批准、内容已变、待再审"与"从未批准"分开。 */
+export interface LeaseRelaxationDetail {
+  readonly lease: PermissionLease
+  /** true = 该槽位摘要绑定,而本次调用内容与授予时声明摘要不符(含未提供内容):
+   *  旧批准失效、落入单列的待再审态 —— 消费点不得把它读成"从未批准"。 */
+  readonly contentDrifted: boolean
+}
+
+/**
+ * 摘要维度加入后的**唯一明细判定出口**。判序与旧 `resolveLeaseRelaxation` 逐字相同,
+ * 只在能力覆盖之后多一步槽位指纹比对:
+ *  - 该工具未被摘要绑定 ⇒ `contentDrifted:false`,语义与旧完全一致(默认档不变);
+ *  - 已绑定但未提供调用内容 ⇒ 按 drifted 处理(fail-closed:无从校验不得静默放行);
+ *  - 已绑定且内容相符 ⇒ 照常放宽;不符 ⇒ 不放宽,并留可区分的态 + 审计行。
+ */
+export function resolveLeaseRelaxationDetail(
+  lease: PermissionLease | null,
+  toolName: string,
+  dangerLevel: 'read' | 'write' | 'dangerous',
+  invocationContent: string | null | undefined,
+  nowMs: number = Date.now(),
+): LeaseRelaxationDetail | null {
+  if (!lease) return null;
+  if (dangerLevel === 'dangerous') return null;
+  if (!isPermissionLeaseLive(lease, nowMs)) return null;
+  if (!leaseCovers(lease, toolName)) return null;
+  const bound = lease.slotDigests?.[toolName]
+  if (!bound || bound.length === 0) return { lease, contentDrifted: false }
+  const digest = invocationContent == null ? null : slotDigest(lease.workspaceId ?? '', invocationContent)
+  const drifted = digest === null || !bound.includes(digest)
+  if (drifted) {
+    auditLog({
+      timestamp: new Date(nowMs).toISOString(),
+      tool: 'permission_lease_content_drift',
+      input: {
+        auditRef: lease.auditRef,
+        scope: lease.scope,
+        capability: toolName,
+        reason: invocationContent == null ? '摘要绑定槽位未提供调用内容(fail-closed)' : '调用内容与授予时声明摘要不符',
+      },
+      success: false,
+      error: '内容漂移使旧批准失效,需用户重新审批',
+    });
+  }
+  return { lease, contentDrifted: drifted };
+}
+
+/**
+ * 消费出口(旧签名,瘦投影):某次工具调用能否因租约而免逐次批准。
+ * 返回 null = 本次不因租约放宽(走改造前的原判定)。`dangerLevel === 'dangerous'` **一律** null。
+ * 该入口不携带调用内容 ⇒ 摘要绑定的槽位按 fail-closed 不放宽;未绑定槽约的结论与改造前逐字相同。
  */
 export function resolveLeaseRelaxation(
   lease: PermissionLease | null,
@@ -119,11 +189,8 @@ export function resolveLeaseRelaxation(
   dangerLevel: 'read' | 'write' | 'dangerous',
   nowMs: number = Date.now(),
 ): PermissionLease | null {
-  if (!lease) return null;
-  if (dangerLevel === 'dangerous') return null;
-  if (!isPermissionLeaseLive(lease, nowMs)) return null;
-  if (!leaseCovers(lease, toolName)) return null;
-  return lease;
+  const detail = resolveLeaseRelaxationDetail(lease, toolName, dangerLevel, null, nowMs);
+  return detail && !detail.contentDrifted ? detail.lease : null;
 }
 
 /** 记账一次实际放宽(由消费点在放宽真的生效时调用)。 */
@@ -199,6 +266,29 @@ export function grantPermissionLease(input: GrantLeaseInput): PermissionLease {
   if (input.maxCalls !== undefined && !(input.maxCalls >= 1)) {
     throw new PermissionLeaseError('maxCalls 必须 >= 1');
   }
+  // 摘要绑定的字段校验(赋值之前判死):键必须在能力清单内、声明非空、工作区身份必填。
+  const digestDecls = input.digestDeclarations ?? {};
+  const boundTools = Object.keys(digestDecls);
+  let workspaceId: string | undefined;
+  let slotDigests: Record<string, readonly string[]> | undefined;
+  if (boundTools.length > 0) {
+    // const 捕获:闭包里读 let 变量会被 TS 收窄回 string|undefined,摘要入口要的是 string
+    const wsId = requireText(input.workspaceId, 'workspaceId(摘要绑定)');
+    workspaceId = wsId;
+    for (const tool of boundTools) {
+      if (!caps.includes(tool)) {
+        throw new PermissionLeaseError(`摘要绑定的能力不在清单内: ${tool}(绑定即静默扩大作用域)`);
+      }
+      const decls = digestDecls[tool] ?? [];
+      if (decls.length === 0 || decls.some((d) => d.length === 0)) {
+        throw new PermissionLeaseError(`摘要绑定槽位 ${tool} 的声明内容不得为空(空摘要使漂移判定失效)`);
+      }
+    }
+    slotDigests = {};
+    for (const tool of boundTools) {
+      slotDigests[tool] = Object.freeze((digestDecls[tool] ?? []).map((d) => slotDigest(wsId, d)));
+    }
+  }
 
   const lease: PermissionLease = {
     scope,
@@ -210,6 +300,8 @@ export function grantPermissionLease(input: GrantLeaseInput): PermissionLease {
     grantor: input.grantor,
     auditRef: `lease-${nowMs.toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     revokedAt: null,
+    ...(workspaceId !== undefined ? { workspaceId } : {}),
+    ...(slotDigests !== undefined ? { slotDigests: Object.freeze(slotDigests) } : {}),
     turnsUsed: 0,
     callsUsed: 0,
   };
@@ -227,6 +319,8 @@ export function grantPermissionLease(input: GrantLeaseInput): PermissionLease {
       expiresAt: lease.expiresAt,
       expiresAfterTurns: lease.expiresAfterTurns ?? null,
       maxCalls: lease.maxCalls ?? null,
+      // 记账哪些槽位受摘要治理(只记键名与指纹存在性;摘要不可逆,不落命令明文)
+      digestBoundCapabilities: lease.slotDigests ? Object.keys(lease.slotDigests) : [],
     },
     success: true,
   });
