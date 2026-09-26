@@ -149,7 +149,7 @@ _CTE_HEAD_RE = re.compile(r"\bWITH\s+(\w+)\s+AS\s*\(", re.IGNORECASE)
 _CTE_NEXT_RE = re.compile(r"[,)\s](\w+)\s+AS\s*\(\s*(?:WITH|SELECT|INSERT|UPDATE|DELETE)\b", re.IGNORECASE)
 
 
-def _cte_names(sql: str) -> set:
+def _cte_names(sql: str) -> set[str]:
     """提取该段 SQL 里所有 CTE 别名(小写),供表名判定排除。"""
     names = {m.lower() for m in _CTE_HEAD_RE.findall(sql)}
     names |= {m.lower() for m in _CTE_NEXT_RE.findall(sql)}
