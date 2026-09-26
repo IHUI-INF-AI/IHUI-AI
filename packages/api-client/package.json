@@ -53,9 +53,7 @@
     "pack:check": "node scripts/pack-check.mjs",
     "clean": "rimraf dist .turbo node_modules"
   },
-  "dependencies": {
-    "@ihui/types": "workspace:*"
-  },
+  "dependencies": {},
   "peerDependencies": {
     "@tarojs/taro": ">=4.0.0"
   },
@@ -66,6 +64,7 @@
   },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
+    "@ihui/types": "workspace:*",
     "@tarojs/taro": "4.2.1",
     "typescript": "catalog:",
     "rimraf": "catalog:",
