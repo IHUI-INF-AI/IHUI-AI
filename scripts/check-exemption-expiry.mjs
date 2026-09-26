@@ -75,6 +75,9 @@ const FAMILY_LIFETIME_DAYS = {
   'arch-exempt': 90,
   'ihui-allow-important': 90,
   'brand-mail-exempt': 30,
+  // 守门 137(名字承诺/实现兑现对账)的行内出口:豁免的是"命名没错、判据看不见"的那一类,
+  // 命名债本身必须改名收口而不是靠它遮 —— 所以给最短档 30 天,到期由人工重新定性。
+  'digest-name-exempt': 30,
   'statusbar-exempt': 30,
   'glyph-arrow-exempt': 30,
   'alpha-plugin-exempt': 30,
