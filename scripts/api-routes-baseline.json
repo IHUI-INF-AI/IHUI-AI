@@ -1,10 +1,24 @@
 {
   "version": 1,
   "anchor": "该文件在基线里的死调用存量数(只减不增;新增即判红,存量只报数)",
-  "reason": "2026-09-26 把守门 8 的前端调用面从 apps/web 扩到 mobile-rn / miniapp-taro / extension,首次纳入的存量",
-  "ends": ["extension", "miniapp-taro", "mobile-rn"],
+  "reason": "2026-09-26 把守门 8 的前端调用面从 apps/web 扩到 mobile-rn / miniapp-taro / extension,再扩到 packages/api-client,首次纳入的存量。api-client 这批不是本次改动引入的调用:那 15 个文件最近的提交 ca93dd962e 只改了 import 的 .js 扩展名,逐文件新增 /api/ 字面量 0 条(实测),所以它们是从写下起就没人对账过的存量。",
+  "ends": ["api-client", "extension", "miniapp-taro", "mobile-rn"],
   "face": "head",
   "perFileCount": {
-    "apps/mobile-rn/src/screens/StudyIndexScreen.tsx": 1
+    "packages/api-client/src/endpoints/admin-content.ts": 3,
+    "packages/api-client/src/endpoints/admin-system.ts": 1,
+    "packages/api-client/src/endpoints/admin-tenants.ts": 2,
+    "packages/api-client/src/endpoints/ai-media.ts": 4,
+    "packages/api-client/src/endpoints/ai.ts": 3,
+    "packages/api-client/src/endpoints/business.ts": 5,
+    "packages/api-client/src/endpoints/course.ts": 1,
+    "packages/api-client/src/endpoints/developer.ts": 1,
+    "packages/api-client/src/endpoints/learn.ts": 2,
+    "packages/api-client/src/endpoints/legacy-public.ts": 1,
+    "packages/api-client/src/endpoints/misc.ts": 7,
+    "packages/api-client/src/endpoints/notification.ts": 2,
+    "packages/api-client/src/endpoints/payment.ts": 1,
+    "packages/api-client/src/endpoints/subagents.ts": 1,
+    "packages/api-client/src/endpoints/system.ts": 2
   }
 }
