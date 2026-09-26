@@ -22,7 +22,6 @@
 """
 from __future__ import annotations
 
-import hashlib
 from typing import TYPE_CHECKING, Any
 
 from app.core.logging import get_logger
@@ -139,11 +138,12 @@ class PlaywrightBaseAdapter(BasePlatformAdapter):
         return result
 
     def _account_id(self, credentials: dict[str, Any], primary: str) -> str:
-        """生成反风控账号标识(同账号跨会话稳定,绑定固定指纹/代理)。"""
-        acct = credentials.get("account_id")
-        if acct:
-            return f"{self.platform_id}_{acct}"
-        return f"{self.platform_id}_{hashlib.md5(primary.encode()).hexdigest()[:8]}"
+        """反风控账号标识 —— 委托唯一出口。
+
+        `primary`(主 cookie 值)**不再参与身份键**:它正是刷新时会变的那一列,拿它算键
+        等于每次续期给账号换一张脸。参数保留只为不改各调用点。
+        """
+        return self.account_identity(credentials)
 
     def _check_primary(self, credentials: dict[str, Any]) -> str | None:
         """返回主 cookie 值;缺失返回 None。"""
