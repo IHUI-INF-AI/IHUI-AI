@@ -483,4 +483,24 @@ async def test_http_round_trip_rejects_evidence_for_undeclared_criterion(
         )
     assert resp.status_code == 422
     assert "ghost" in resp.text
+
+
+def test_response_echoes_server_side_convergence_budget() -> None:
+    """收口上限的**权威值必须由响应回送**。
+
+    CLI 那侧确实要自己计数(它跑的是自己的循环,服务端 gate 管不到),但阈值不能两端
+    各抄一份 —— tunables.py 是唯一真源,所以响应里回送 `max_consecutive_failures`,
+    TS 侧的镜像常量只在"服务端没给"时兜底。本用例就是钉住"没给"不会发生。
+    """
+    from app.core.tunables import GOAL_VERIFICATION_MAX_CONSECUTIVE_FAILURES
+    from app.routers.goal_verification import VerifyOut
+
+    out = VerifyOut(
+        status="achieved",
+        treat_as_complete=True,
+        criteria=[],
+        independent_request_made=False,
+    )
+    assert out.max_consecutive_failures == GOAL_VERIFICATION_MAX_CONSECUTIVE_FAILURES
+    assert out.consecutive_failures == 0
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
