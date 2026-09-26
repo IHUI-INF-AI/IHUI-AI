@@ -9,7 +9,6 @@ import { cn, TARO_RPX_PER_PX } from '@ihui/design-tokens'
 import {
   USER_INFO_CARD_ACTION_PADDING_X_PX,
   USER_INFO_CARD_ACTION_PADDING_Y_PX,
-  USER_INFO_CARD_AVATAR_PX,
   USER_INFO_CARD_BADGE_PADDING_X_PX,
   USER_INFO_CARD_BADGE_PADDING_Y_PX,
   USER_INFO_CARD_HEADER_GAP_PX,
@@ -19,18 +18,19 @@ import {
   USER_INFO_CARD_ROW_MARGIN_TOP_PX,
   USER_INFO_CARD_SMALL_FONT_PX,
   USER_INFO_CARD_TOKEN_FONT_PX,
+  userInfoCardAvatarStyle,
 } from '@ihui/shared/ui/user-info-card-spec'
 import { rpx } from '@/utils/rpx'
 import type { UserInfoCardMinimalProps } from '@ihui/types'
 
 /// 档位数字唯一源在 @ihui/shared/ui/user-info-card-spec(与 RN 端同表);本文件只做 rpx 换算 + 挂 Taro 原语。
+/// 书写形态按 design-tokens/geometry.js 的规矩分两路:**有等值 Tailwind 整档时用类名**(下表注释),
+/// 没有整档可等值时才用 `toUnit()` 内联(如 14px 上下内边距没有 `py-` 整档 ⇒ `py-3.5` 有,故用类名)。
 const toUnit = (logicalPx: number) => rpx(logicalPx * TARO_RPX_PER_PX)
 const PAD_STYLE = { padding: toUnit(USER_INFO_CARD_PADDING_PX) }
 const HEADER_GAP_STYLE = { gap: toUnit(USER_INFO_CARD_HEADER_GAP_PX) }
-const AVATAR_STYLE = {
-  width: toUnit(USER_INFO_CARD_AVATAR_PX),
-  height: toUnit(USER_INFO_CARD_AVATAR_PX),
-}
+/// 头像盒子结构只住在 spec 出口里(方档 + overflow + 居中),端内不得再摆一遍
+const AVATAR_STYLE = userInfoCardAvatarStyle(toUnit)
 const NAME_FONT_STYLE = { fontSize: toUnit(USER_INFO_CARD_NAME_FONT_PX) }
 const SMALL_FONT_STYLE = { fontSize: toUnit(USER_INFO_CARD_SMALL_FONT_PX) }
 const TOKEN_FONT_STYLE = { fontSize: toUnit(USER_INFO_CARD_TOKEN_FONT_PX) }
@@ -129,10 +129,13 @@ export default function UserInfoCard({
 
   return (
     <View className={cn('rounded-lg bg-card border border-border', className)} style={PAD_STYLE}>
-      {/* ===== 未登录态:一键登录按钮(对齐原项目 login-btn-new)===== */}
+      {/* ===== 未登录态:一键登录按钮(对齐原项目 login-btn-new)=====
+          上下内边距 = spec LOGIN_PADDING_Y(14);`py-3.5` 是它的等值 Tailwind 整档书写形态
+          (此前写 `py-3` = 12,与 RN 端的 14 分叉)。全宽条形态是本端与 RN 胶囊的机制差异,
+          按 spec 文件末差异登记第 1 条保持不动。 */}
       {!isLogged && onLogin ? (
         <View
-          className="flex items-center justify-center w-full py-3 rounded-md"
+          className="flex items-center justify-center w-full py-3.5 rounded-md"
           style={{ background: 'var(--color-primary)' }}
           hoverClass="opacity-85"
           onClick={onLogin}
@@ -176,10 +179,11 @@ export default function UserInfoCard({
                     </View>
                   ) : null}
                 </View>
-                {/* 操盘手身份标识(对齐原项目 identityType=2,不同身份显示不同徽标) */}
+                {/* 操盘手身份标识(对齐原项目 identityType=2,不同身份显示不同徽标)
+                    徽章内边距与等级徽章同档:spec BADGE_PADDING_X 8 = `px-2` / Y 2 = `py-0.5` */}
                 {identityType === 2 ? (
                   <View
-                    className="px-1 py-0.5 rounded-sm flex-shrink-0"
+                    className="px-2 py-0.5 rounded-sm flex-shrink-0"
                     style={{ background: 'var(--color-warning-tint-strong)' }}
                   >
                     <Text
@@ -263,6 +267,8 @@ export default function UserInfoCard({
                       {growthValue} / {growthMax}
                     </Text>
                   </View>
+                  {/* 进度条粗细 = spec USER_INFO_CARD_GROWTH_BAR_HEIGHT_PX(8);`h-2` 是它的等值
+                      Tailwind 整档书写形态,RN 端原写 4 已收口到同一档,改这里必须同批改 spec。 */}
                   <View className="w-full h-2 rounded bg-muted overflow-hidden">
                     <View
                       className="h-full rounded"
