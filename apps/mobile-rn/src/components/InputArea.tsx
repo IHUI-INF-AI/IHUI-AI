@@ -78,6 +78,30 @@ import {
   INPUT_AREA_INPUT_PADDING_TOP_PX,
   INPUT_AREA_DOC_NAME_FONT_PX,
   INPUT_AREA_ATTACHMENT_CLOSE_GLYPH_PX,
+  // 票④:本文件剩余的可见几何档(裁决依据与"单端档"理由逐条写在 spec 的常数注释里)
+  INPUT_AREA_DOC_NAME_STRIP_PX,
+  INPUT_AREA_INPUT_FONT_PX,
+  INPUT_AREA_CONTAINER_PADDING_X_PX,
+  INPUT_AREA_CONTAINER_PADDING_V_PX,
+  INPUT_AREA_INPUT_PADDING_X_PX,
+  INPUT_AREA_STACK_GAP_PX,
+  INPUT_AREA_CONTROL_RIGHT_PX,
+  INPUT_AREA_SECONDARY_FONT_PX,
+  INPUT_AREA_GLYPH_LG_PX,
+  INPUT_AREA_THUMB_GLYPH_PX,
+  INPUT_AREA_CONTROL_GLYPH_PX,
+  INPUT_AREA_VOICE_BTN_WIDTH_PX,
+  INPUT_AREA_INPUT_MIN_HEIGHT_PX,
+  INPUT_AREA_INPUT_MAX_HEIGHT_PX,
+  INPUT_AREA_VOICE_BARS_HEIGHT_PX,
+  INPUT_AREA_VOICE_BAR_BASE_PX,
+  INPUT_AREA_CLOSE_HIT_SLOP_PX,
+  INPUT_AREA_PARAM_FIELD_MIN_HEIGHT_PX,
+  INPUT_AREA_IN_SHELL_BTN_PX,
+  INPUT_AREA_IN_SHELL_EXPAND_RIGHT_PX,
+  INPUT_AREA_THUMB_PX,
+  INPUT_AREA_LEGACY_SHADOW_OFFSET_PX,
+  INPUT_AREA_LEGACY_GLYPH_LINE_PX,
 } from '@ihui/shared/ui/input-area-spec'
 
 /** 图片/视频/文档列表项。对应原 uniapp imgs_list 项(imgUrl / fileType / filename / video_url) */
@@ -194,8 +218,10 @@ export interface InputAreaProps {
 
 const DEFAULT_MAX_LENGTH = 500
 const WARNING_RATIO = 0.9
-const MIN_INPUT_HEIGHT = 48
-const MAX_INPUT_HEIGHT = 120
+// 输入框自动撑高的上下限:唯一源在 @ihui/shared/ui/input-area-spec(小程序 ai-home 的
+// 对应档是 250,变体分叉的理由写在 INPUT_AREA_INPUT_MAX_HEIGHT_PX 注释里)。
+const MIN_INPUT_HEIGHT = INPUT_AREA_INPUT_MIN_HEIGHT_PX
+const MAX_INPUT_HEIGHT = INPUT_AREA_INPUT_MAX_HEIGHT_PX
 const VOICE_BAR_COUNT = 30
 
 /** 语音激活时的 30 线动画条(对应原 voice-bar-animation,纯前端 UI) */
@@ -226,7 +252,7 @@ function VoiceWave() {
     <View style={styles.voiceBars}>
       {bars.map((v, i) => {
         const scaleY = v.interpolate({ inputRange: [0, 1], outputRange: [0.25, 1] })
-        const baseHeight = 8 + (i % 6) * 4
+        const baseHeight = INPUT_AREA_VOICE_BAR_BASE_PX + (i % 6) * 4
         return (
           <Animated.View
             key={i}
@@ -392,7 +418,7 @@ export function InputArea({
           accessibilityLabel={collapsedFabLabel ?? '展开提问输入'}
           accessibilityState={{ expanded: false }}
         >
-          <Plus size={26} color={tokens.brand.ctaForeground} />
+          <Plus size={INPUT_AREA_GLYPH_LG_PX} color={tokens.brand.ctaForeground} />
         </Pressable>
       </View>
     )
@@ -405,7 +431,8 @@ export function InputArea({
       <View key={item.id ?? index} style={styles.thumbWrap}>
         {isDoc ? (
           <View style={[styles.thumb, styles.thumbDoc]}>
-            <FileText size={26} color={tokens.text.secondary} />
+            {/* 与同行 Film/ImageIcon 占位图标同墨迹档(收编前是 26,同一行两种缩略图不齐) */}
+            <FileText size={INPUT_AREA_THUMB_GLYPH_PX} color={tokens.text.secondary} />
             {item.filename ? <FilenameMarquee text={item.filename} /> : null}
           </View>
         ) : (
@@ -432,7 +459,12 @@ export function InputArea({
         <TouchableOpacity
           style={styles.thumbClose}
           onPress={() => onImageRemove?.(index)}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          hitSlop={{
+            top: INPUT_AREA_CLOSE_HIT_SLOP_PX,
+            bottom: INPUT_AREA_CLOSE_HIT_SLOP_PX,
+            left: INPUT_AREA_CLOSE_HIT_SLOP_PX,
+            right: INPUT_AREA_CLOSE_HIT_SLOP_PX,
+          }}
           accessibilityRole="button"
           accessibilityLabel="删除附件"
         >
@@ -781,8 +813,10 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    // 横向 10 = compact 定档(RN 原 12 vs 小程序 .input-area 左右 20rpx=10);纵向 8 是单端档,
+    // 小程序那一处底部留白走 CSS calc(20rpx + safe-area),不具名 —— 依据见 spec 两条注释
+    paddingHorizontal: INPUT_AREA_CONTAINER_PADDING_X_PX,
+    paddingVertical: INPUT_AREA_CONTAINER_PADDING_V_PX,
     backgroundColor: tokens.surface.card,
     borderTopWidth: 1,
     borderTopColor: tokens.border.light,
@@ -797,21 +831,21 @@ const styles = StyleSheet.create({
   },
   thumbsList: {
     flexDirection: 'row',
-    gap: 8,
-    paddingBottom: 8,
+    gap: INPUT_AREA_STACK_GAP_PX,
+    paddingBottom: INPUT_AREA_STACK_GAP_PX,
     paddingTop: 2,
     borderBottomWidth: 1,
     borderBottomColor: tokens.border.light,
-    marginBottom: 8,
+    marginBottom: INPUT_AREA_STACK_GAP_PX,
   },
   thumbWrap: {
     position: 'relative',
-    width: 72,
-    height: 72,
+    width: INPUT_AREA_THUMB_PX,
+    height: INPUT_AREA_THUMB_PX,
   },
   thumb: {
-    width: 72,
-    height: 72,
+    width: INPUT_AREA_THUMB_PX,
+    height: INPUT_AREA_THUMB_PX,
     borderRadius: rnRadius.lg,
     overflow: 'hidden',
   },
@@ -840,7 +874,8 @@ const styles = StyleSheet.create({
     fontSize: 24,
   },
   docIcon: {
-    fontSize: 26,
+    // 遗留样式条目(未被渲染引用):与折叠 FAB 加号同墨迹档,数值入表以免端内抄裸数字
+    fontSize: INPUT_AREA_GLYPH_LG_PX,
     marginBottom: 2,
   },
   docMarquee: {
@@ -848,7 +883,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: 16,
+    height: INPUT_AREA_DOC_NAME_STRIP_PX,
     overflow: 'hidden',
     backgroundColor: tokens.surface.muted,
     justifyContent: 'center',
@@ -877,7 +912,8 @@ const styles = StyleSheet.create({
   thumbCloseIcon: {
     fontSize: INPUT_AREA_ATTACHMENT_CLOSE_GLYPH_PX,
     color: tokens.text.secondary,
-    lineHeight: 12,
+    // 遗留样式条目(当前无渲染点):行盒入表只为端内不再抄裸数字,清理遗留样式另计一票
+    lineHeight: INPUT_AREA_LEGACY_GLYPH_LINE_PX,
   },
   videoBadge: {
     position: 'absolute',
@@ -892,7 +928,8 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: tokens.surface.light,
     textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 0, height: 1 },
+    // 绘制细节(文字阴影偏移),小程序端同类角标是实底色块、无阴影通道 —— 单端档,非取值分叉
+    textShadowOffset: { width: 0, height: INPUT_AREA_LEGACY_SHADOW_OFFSET_PX },
     textShadowRadius: 2,
   },
   // 输入行
@@ -912,8 +949,10 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   micInShell: {
+    // 36 = rnGeometry.tapBox 同档,且小程序端 `w-9` 也是 36:两端共享这一档,收进表反而会把
+    // 它变成"仅小程序档"(台账 23→24 那一型)—— 刻意保留字面量,依据见 spec 头注"刻意不入表"清单
     width: 36,
-    height: 40,
+    height: INPUT_AREA_IN_SHELL_BTN_PX,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -921,12 +960,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     paddingTop: INPUT_AREA_INPUT_PADDING_TOP_PX,
     paddingBottom: 24,
-    fontSize: 14,
+    fontSize: INPUT_AREA_INPUT_FONT_PX,
     color: tokens.text.primary,
   },
   voiceAreaInShell: {
     flex: 1,
-    minHeight: 48,
+    minHeight: INPUT_AREA_INPUT_MIN_HEIGHT_PX,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
@@ -935,14 +974,14 @@ const styles = StyleSheet.create({
   transcribingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: INPUT_AREA_STACK_GAP_PX,
   },
   voiceAreaText: {
-    fontSize: 12,
+    fontSize: INPUT_AREA_SECONDARY_FONT_PX,
     color: tokens.text.secondary,
   },
   voiceAreaDuration: {
-    fontSize: 12,
+    fontSize: INPUT_AREA_SECONDARY_FONT_PX,
     color: tokens.danger.DEFAULT,
     fontWeight: '500',
   },
@@ -957,7 +996,8 @@ const styles = StyleSheet.create({
   },
   expandBtnInShell: {
     position: 'absolute',
-    right: 52,
+    // 派生自同一表:发送钮盒 + 其左间距 + 让位档,改钮宽时不会忘了改让位
+    right: INPUT_AREA_IN_SHELL_EXPAND_RIGHT_PX,
     top: 4,
     width: 22,
     height: 22,
@@ -966,8 +1006,8 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   sendInShell: {
-    width: 40,
-    height: 40,
+    width: INPUT_AREA_IN_SHELL_BTN_PX,
+    height: INPUT_AREA_IN_SHELL_BTN_PX,
     borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
     marginLeft: 4,
     alignItems: 'center',
@@ -979,8 +1019,10 @@ const styles = StyleSheet.create({
   },
 
   voiceBtn: {
-    width: 32,
-    height: 48,
+    width: INPUT_AREA_VOICE_BTN_WIDTH_PX,
+    // 与输入行最小高同档(两者同排,上缘要对齐);小程序端这一处是原项目 50×44rpx,
+    // 行高由端内 CSS 80rpx 定,扩到本档会撑破那一行 —— 单端档,依据见 spec 注释
+    height: INPUT_AREA_INPUT_MIN_HEIGHT_PX,
     marginRight: INPUT_AREA_VOICE_BTN_GAP_PX,
     alignItems: 'center',
     justifyContent: 'center',
@@ -994,14 +1036,14 @@ const styles = StyleSheet.create({
   },
   input: {
     minHeight: MIN_INPUT_HEIGHT,
-    paddingHorizontal: 12,
+    paddingHorizontal: INPUT_AREA_INPUT_PADDING_X_PX,
     paddingTop: INPUT_AREA_INPUT_PADDING_TOP_PX,
     paddingBottom: 24,
     borderRadius: rnRadius.xl,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
-    fontSize: 14,
+    fontSize: INPUT_AREA_INPUT_FONT_PX,
     color: tokens.text.primary,
   },
   voiceWaveWrap: {
@@ -1018,7 +1060,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    height: 32,
+    height: INPUT_AREA_VOICE_BARS_HEIGHT_PX,
     justifyContent: 'center',
   },
   voiceBar: {
@@ -1027,14 +1069,15 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.danger.DEFAULT,
   },
   voiceHint: {
-    fontSize: 14,
+    fontSize: INPUT_AREA_INPUT_FONT_PX,
     color: tokens.text.secondary,
   },
   counter: {
     position: 'absolute',
-    right: 8,
+    right: INPUT_AREA_CONTROL_RIGHT_PX,
     bottom: INPUT_AREA_COUNTER_BOTTOM_PX,
-    fontSize: 11,
+    // 收编前是 11 —— 不在 design-tokens 字号档上,按裁决规则 4 就近吸附到 12
+    fontSize: INPUT_AREA_SECONDARY_FONT_PX,
     color: tokens.text.tertiary,
     marginTop: 4,
     textAlign: 'right',
@@ -1044,7 +1087,7 @@ const styles = StyleSheet.create({
   },
   expandBtn: {
     position: 'absolute',
-    right: 8,
+    right: INPUT_AREA_CONTROL_RIGHT_PX,
     top: INPUT_AREA_FANGDA_TOP_PX,
     width: 20,
     height: 20,
@@ -1052,15 +1095,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   expandBtnIcon: {
-    fontSize: 15,
+    // 收编前是 15 —— 不在字号档上,规则 4 就近取小档 14
+    fontSize: INPUT_AREA_CONTROL_GLYPH_PX,
     color: tokens.text.secondary,
   },
 
   // 参数变量区
   paramsList: {
     flexDirection: 'row',
-    gap: 8,
-    paddingTop: 8,
+    gap: INPUT_AREA_STACK_GAP_PX,
+    paddingTop: INPUT_AREA_STACK_GAP_PX,
     paddingBottom: 2,
   },
   paramItem: {
@@ -1069,22 +1113,22 @@ const styles = StyleSheet.create({
     minWidth: 100,
   },
   paramTitle: {
-    fontSize: 12,
+    fontSize: INPUT_AREA_SECONDARY_FONT_PX,
     color: tokens.text.secondary,
   },
   paramInput: {
-    minHeight: 32,
-    paddingHorizontal: 8,
+    minHeight: INPUT_AREA_PARAM_FIELD_MIN_HEIGHT_PX,
+    paddingHorizontal: INPUT_AREA_STACK_GAP_PX,
     paddingVertical: INPUT_AREA_PARAM_FIELD_PADDING_V_PX,
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
-    fontSize: 12,
+    fontSize: INPUT_AREA_SECONDARY_FONT_PX,
     color: tokens.text.primary,
   },
   paramAddBtn: {
-    minHeight: 32,
+    minHeight: INPUT_AREA_PARAM_FIELD_MIN_HEIGHT_PX,
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
@@ -1104,7 +1148,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.xl,
     // 同 sendInShell:主 CTA 实底走 brand.cta,不得取端内自造的 gray[900]
     backgroundColor: tokens.brand.cta, // 图标钮,前景在同一元素的 <Send color={tokens.brand.ctaForeground}/>
-    marginLeft: 8,
+    marginLeft: INPUT_AREA_STACK_GAP_PX,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1151,7 +1195,7 @@ const styles = StyleSheet.create({
   collapseBtn: {
     position: 'absolute',
     top: 4,
-    right: 8,
+    right: INPUT_AREA_CONTROL_RIGHT_PX,
     width: 24,
     height: 24,
     borderRadius: rnRadius.xl,

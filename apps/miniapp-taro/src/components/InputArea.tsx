@@ -16,6 +16,25 @@ import { cn, rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'
 import {
   INPUT_AREA_FANGDA_TOP_PX,
   INPUT_AREA_VOICE_BTN_GAP_PX,
+  // 票④:ai-home 一侧剩余的可见几何档(逐条裁决依据与"单端档"理由写在 spec 常数注释里)
+  INPUT_AREA_DOC_NAME_STRIP_PX,
+  INPUT_AREA_AI_HOME_OVERLAY_TOP_PX,
+  INPUT_AREA_AI_HOME_OVERLAY_BOTTOM_WITH_PANEL_PX,
+  INPUT_AREA_AI_HOME_SEND_ICON_MARGIN_PX,
+  INPUT_AREA_AI_HOME_INPUT_MAX_HEIGHT_PX,
+  INPUT_AREA_AI_HOME_ICON_BOX_PX,
+  INPUT_AREA_AI_HOME_INLINE_GAP_PX,
+  INPUT_AREA_AI_HOME_EMOJI_PANEL_H_PX,
+  INPUT_AREA_AI_HOME_EMOJI_CELL_PX,
+  INPUT_AREA_AI_HOME_VOICE_BTN_W_PX,
+  INPUT_AREA_AI_HOME_VOICE_GLYPH_TEXT_W_PX,
+  INPUT_AREA_AI_HOME_VOICE_GLYPH_TEXT_H_PX,
+  INPUT_AREA_AI_HOME_VOICE_GLYPH_VOICE_W_PX,
+  INPUT_AREA_AI_HOME_VOICE_GLYPH_VOICE_H_PX,
+  INPUT_AREA_ATTACHMENT_BADGE_FONT_PX,
+  INPUT_AREA_ATTACHMENT_BADGE_LINE_PX,
+  INPUT_AREA_VIDEO_THUMB_W_PX,
+  INPUT_AREA_VIDEO_THUMB_H_PX,
 } from '@ihui/shared/ui/input-area-spec'
 // ai-home 模式图标(对齐原项目 InputArea.vue):
 // search-hua(文字模式切语音)/ input_qie(语音模式切文字)/ search-add(附件)/ sand_msg(发送)
@@ -30,6 +49,12 @@ const suoxiaoPng = aizhsUrl('remote-images/suoxiao.png')
 const closeInputPng = aizhsUrl('remote-images/close_input.png')
 const filePng = aizhsUrl('remote-images/file.png')
 import { rpx } from '@/utils/rpx'
+
+/**
+ * 几何档 → 本平台数值的唯一换算点(形状同 `components/IntelligentAssistant.tsx`):
+ * spec 只存逻辑 px,2 倍 rpx 换算只发生在这一处。
+ */
+const toUnit = (px: number) => rpx(px * TARO_RPX_PER_PX)
 
 export interface InputFileItem {
   imgUrl: string
@@ -244,14 +269,15 @@ export default function InputArea({
   )
 
   // 全屏放大样式(对齐原项目 .input_area_active:top:120rpx bottom:112rpx)
-  // 放大态 + isShowIcon 时 bottom:292rpx(对齐 .textarea_input_isShowIcon)
+  // 放大态 + isShowIcon 时底偏移走 spec(=292rpx);基础那支 rpx(112) 留在端内做字面量 ——
+  // 56 这一档两端共享(RN 折叠 FAB 盒同为 56),收编它会把共用档变成"仅 RN 档",台账不减反增。
   const fangdaStyle: CSSProperties = isFangdaActive
     ? {
         position: 'fixed',
-        top: rpx(120),
+        top: toUnit(INPUT_AREA_AI_HOME_OVERLAY_TOP_PX),
         left: 0,
         right: 0,
-        bottom: isShowIcon ? rpx(292) : rpx(112),
+        bottom: isShowIcon ? toUnit(INPUT_AREA_AI_HOME_OVERLAY_BOTTOM_WITH_PANEL_PX) : rpx(112),
         zIndex: 999,
         background: 'var(--color-card)',
         padding: '0',
@@ -378,7 +404,7 @@ export default function InputArea({
                           right: 0,
                           zIndex: 1,
                           overflow: 'hidden',
-                          height: rpx(32),
+                          height: toUnit(INPUT_AREA_DOC_NAME_STRIP_PX),
                           display: 'flex',
                           alignItems: 'center',
                         }}
@@ -393,7 +419,13 @@ export default function InputArea({
                       </View>
                     ) : null}
                     {item.fileType === 'video' || item.video_url ? (
-                      <View style={{ position: 'relative', width: rpx(213), height: rpx(120) }}>
+                      <View
+                        style={{
+                          position: 'relative',
+                          width: toUnit(INPUT_AREA_VIDEO_THUMB_W_PX),
+                          height: toUnit(INPUT_AREA_VIDEO_THUMB_H_PX),
+                        }}
+                      >
                         <Video
                           src={item.video_url || ''}
                           poster={item.imgUrl}
@@ -404,7 +436,11 @@ export default function InputArea({
                           autoplay={false}
                           showFullscreenBtn={false}
                           objectFit="contain"
-                          style={{ width: rpx(213), height: rpx(120), borderRadius: rnRadius.lg }}
+                          style={{
+                            width: toUnit(INPUT_AREA_VIDEO_THUMB_W_PX),
+                            height: toUnit(INPUT_AREA_VIDEO_THUMB_H_PX),
+                            borderRadius: rnRadius.lg,
+                          }}
                         />
                       </View>
                     ) : (
@@ -422,8 +458,8 @@ export default function InputArea({
                           right: 0,
                           bottom: 0,
                           padding: '2rpx 10rpx',
-                          fontSize: rpx(18),
-                          lineHeight: rpx(26),
+                          fontSize: toUnit(INPUT_AREA_ATTACHMENT_BADGE_FONT_PX),
+                          lineHeight: toUnit(INPUT_AREA_ATTACHMENT_BADGE_LINE_PX),
                           background: 'var(--color-scrim)',
                           color: 'var(--color-scrim-foreground)',
                           borderRadius: `${rpx(8)} 0 0 0`,
@@ -445,14 +481,27 @@ export default function InputArea({
             {showEmoji ? (
               <ScrollView
                 scrollY
-                style={{ height: rpx(180), marginBottom: rpx(10), flexBasis: '100%' }}
+                style={{
+                  height: toUnit(INPUT_AREA_AI_HOME_EMOJI_PANEL_H_PX),
+                  marginBottom: toUnit(INPUT_AREA_AI_HOME_INLINE_GAP_PX),
+                  flexBasis: '100%',
+                }}
               >
-                <View className="flex flex-wrap" style={{ padding: rpx(10) }}>
+                <View
+                  className="flex flex-wrap"
+                  style={{ padding: toUnit(INPUT_AREA_AI_HOME_INLINE_GAP_PX) }}
+                >
                   {EMOJI_LIST.map((e, i) => (
                     <View
                       key={i}
                       className="flex items-center justify-center"
-                      style={{ width: rpx(60), height: rpx(60), fontSize: rpx(32) }}
+                      // 字级 rpx(32) 留在端内:16 这一档两端共享(RN 图标墨迹同为 16),
+                      // 收进表会把共用档变成"仅 RN 档"(台账不减反增)
+                      style={{
+                        width: toUnit(INPUT_AREA_AI_HOME_EMOJI_CELL_PX),
+                        height: toUnit(INPUT_AREA_AI_HOME_EMOJI_CELL_PX),
+                        fontSize: rpx(32),
+                      }}
                       onClick={() => handleEmojiPick(e)}
                       hoverClass="opacity-60"
                     >
@@ -481,13 +530,13 @@ export default function InputArea({
               <View
                 className={cn('search-box1', mode === 'voice' ? 'active' : '')}
                 style={{
-                  width: rpx(50),
+                  width: toUnit(INPUT_AREA_AI_HOME_VOICE_BTN_W_PX),
+                  // 高度 44rpx(=22)留在端内:22 这一档两端共享(RN 框内放大钮盒同为 22)
                   height: rpx(44),
                   display: 'flex',
                   alignItems: 'center',
                   flex: 'none',
-                  marginRight:
-                    mode === 'voice' ? '0' : rpx(INPUT_AREA_VOICE_BTN_GAP_PX * TARO_RPX_PER_PX),
+                  marginRight: mode === 'voice' ? '0' : toUnit(INPUT_AREA_VOICE_BTN_GAP_PX),
                 }}
                 onClick={toggleMode}
                 hoverClass="opacity-60"
@@ -495,9 +544,16 @@ export default function InputArea({
                 <Image
                   className="search-box1-img"
                   src={mode === 'voice' ? inputQiePng : searchHuaPng}
+                  // 原项目两张 PNG 的墨迹比(38×40 / 50×30 rpx):素材固有尺寸,非布局档
                   style={{
-                    width: mode === 'voice' ? rpx(50) : rpx(38),
-                    height: mode === 'voice' ? rpx(30) : rpx(40),
+                    width:
+                      mode === 'voice'
+                        ? toUnit(INPUT_AREA_AI_HOME_VOICE_GLYPH_VOICE_W_PX)
+                        : toUnit(INPUT_AREA_AI_HOME_VOICE_GLYPH_TEXT_W_PX),
+                    height:
+                      mode === 'voice'
+                        ? toUnit(INPUT_AREA_AI_HOME_VOICE_GLYPH_VOICE_H_PX)
+                        : toUnit(INPUT_AREA_AI_HOME_VOICE_GLYPH_TEXT_H_PX),
                   }}
                   mode="widthFix"
                 />
@@ -519,8 +575,13 @@ export default function InputArea({
                     right: 0,
                     bottom: 0,
                     zIndex: mode === 'voice' ? -1 : 1,
-                    maxHeight: isFangdaActive ? 'none' : rpx(500),
+                    maxHeight: isFangdaActive
+                      ? 'none'
+                      : toUnit(INPUT_AREA_AI_HOME_INPUT_MAX_HEIGHT_PX),
                     padding: textareaPadding,
+                    // 字号 36rpx(=18)与行高 40rpx(=20)留在端内:两档都两端共享(RN 框外发送钮
+                    // 字形/删除角标盒取 18,图标墨迹取 20),把小程序这一侧收进表会把共用档翻成
+                    // "仅 RN 档"(台账 23→24 那一型);ai-home 18 与 RN 卡片 14 的字号分叉待裁决
                     fontSize: rpx(36),
                     color: 'var(--color-foreground)',
                     lineHeight: rpx(40),
@@ -571,7 +632,7 @@ export default function InputArea({
                     position: 'absolute',
                     justifyContent: 'flex-end',
                     right: 0,
-                    top: rpx(INPUT_AREA_FANGDA_TOP_PX * TARO_RPX_PER_PX),
+                    top: toUnit(INPUT_AREA_FANGDA_TOP_PX),
                     width: rpx(40),
                     height: rpx(40),
                     zIndex: 2,
@@ -598,7 +659,7 @@ export default function InputArea({
                     position: 'absolute',
                     justifyContent: 'flex-end',
                     right: 0,
-                    top: rpx(INPUT_AREA_FANGDA_TOP_PX * TARO_RPX_PER_PX),
+                    top: toUnit(INPUT_AREA_FANGDA_TOP_PX),
                     width: rpx(40),
                     height: rpx(40),
                     zIndex: 2,
@@ -631,7 +692,11 @@ export default function InputArea({
                   <Image
                     className="search-box3-img"
                     src={sandMsgPng}
-                    style={{ width: rpx(50), height: rpx(50), marginLeft: rpx(18) }}
+                    style={{
+                      width: toUnit(INPUT_AREA_AI_HOME_ICON_BOX_PX),
+                      height: toUnit(INPUT_AREA_AI_HOME_ICON_BOX_PX),
+                      marginLeft: toUnit(INPUT_AREA_AI_HOME_SEND_ICON_MARGIN_PX),
+                    }}
                     mode="widthFix"
                   />
                 </View>
@@ -665,7 +730,11 @@ export default function InputArea({
                     <Image
                       className="search-box3-img"
                       src={closeChatPng}
-                      style={{ width: rpx(50), height: rpx(50), marginRight: rpx(10) }}
+                      style={{
+                        width: toUnit(INPUT_AREA_AI_HOME_ICON_BOX_PX),
+                        height: toUnit(INPUT_AREA_AI_HOME_ICON_BOX_PX),
+                        marginRight: toUnit(INPUT_AREA_AI_HOME_INLINE_GAP_PX),
+                      }}
                       onClick={handleClear}
                     />
                   ) : null}
@@ -674,7 +743,11 @@ export default function InputArea({
                   <Image
                     className="search-box3-img"
                     src={sandMsgPng}
-                    style={{ width: rpx(50), height: rpx(50), marginLeft: rpx(18) }}
+                    style={{
+                      width: toUnit(INPUT_AREA_AI_HOME_ICON_BOX_PX),
+                      height: toUnit(INPUT_AREA_AI_HOME_ICON_BOX_PX),
+                      marginLeft: toUnit(INPUT_AREA_AI_HOME_SEND_ICON_MARGIN_PX),
+                    }}
                     mode="widthFix"
                     onClick={handleSend}
                   />
