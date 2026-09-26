@@ -58,7 +58,11 @@ import {
 } from './cards/types'
 import { toolActivityText } from './cards/tool-line'
 import { ModelDrawer, AgentDrawer, HistoryDrawer, type ChatHistoryEntry } from './ChatDrawers'
-import { replayServerConversation } from './server-chat-replay'
+import {
+  replayServerConversation,
+  fetchEarlierPage,
+  prependEarlierMessages,
+} from './server-chat-replay'
 import AgentTipDialog from './AgentTipDialog'
 import './chat.css'
 import ThemeRoot from '@/components/ThemeRoot'
@@ -99,6 +103,16 @@ export default function ChatPage() {
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [sessionId, setSessionId] = useState('')
+  // D20 留尾2:超长会话向前翻页。cursor 走 ref(不驱动渲染);hasMore/loading 走 state(驱动顶部入口)
+  const [earlierHasMore, setEarlierHasMore] = useState(false)
+  const [loadingEarlier, setLoadingEarlier] = useState(false)
+  const earlierCursorRef = useRef<string | null>(null)
+  /** 会话切换/清空/本机快照恢复时重置向前翻页态 —— 防旧会话游标把别的会话的消息前插进来 */
+  const resetEarlierPaging = useCallback(() => {
+    setEarlierHasMore(false)
+    setLoadingEarlier(false)
+    earlierCursorRef.current = null
+  }, [])
   const [currentModel, setCurrentModel] = useState('')
   const [currentModelName, setCurrentModelName] = useState('')
   const [modelDrawerVisible, setModelDrawerVisible] = useState(false)
@@ -338,11 +352,16 @@ export default function ChatPage() {
   const runServerReplay = useCallback(() => {
     if (!routeSessionId || replayedSessionRef.current === routeSessionId) return
     replayedSessionRef.current = routeSessionId
+    // 新会话回放前先清掉上一会话的翻页游标(防串会话前插)
+    resetEarlierPaging()
     void replayServerConversation({
       fetchMessages: () => getMessages(routeSessionId, { direction: 'initial', pageSize: 100 }),
     }).then((outcome) => {
       if (outcome.ok) {
         setMessages(outcome.messages)
+        // D20 留尾2:首页响应自带头部分页游标 —— hasMore=true 才亮「加载更早消息」入口
+        setEarlierHasMore(outcome.hasMore)
+        earlierCursorRef.current = outcome.nextCursor
         setImgsList([])
         setInputValue('')
         setSelectedMaterial(null)
@@ -361,7 +380,34 @@ export default function ChatPage() {
         },
       })
     })
-  }, [routeSessionId, scrollToBottom, t])
+  }, [routeSessionId, scrollToBottom, t, resetEarlierPaging])
+
+  /**
+   * D20 留尾2:加载更早一页(向前翻)。
+   *
+   * - 只在服务端回放态可用:cursor 由首页响应原样带回,`hist_` 本机快照没有分页;
+   * - 成功 → 前插(按 id 去重)+ 推进游标;失败 → **不清已回放内容**,toast 后入口仍在,可点重试;
+   * - 刻意**不调用 scrollToBottom**:前插发生在视口上方,强制滚底会把用户的阅读位置拽走。
+   *   (像素级锚点保持需要量内容高度,Taro ScrollView 无可靠测量口,本票如实不做。)
+   */
+  const handleLoadEarlier = useCallback(async () => {
+    if (loadingEarlier || !earlierHasMore) return
+    const cursor = earlierCursorRef.current
+    if (!cursor || !routeSessionId || routeSessionId.startsWith('hist_')) return
+    setLoadingEarlier(true)
+    const outcome = await fetchEarlierPage({
+      fetchMessages: () =>
+        getMessages(routeSessionId, { cursor, direction: 'older', pageSize: 100 }),
+    })
+    setLoadingEarlier(false)
+    if (!outcome.ok) {
+      Taro.showToast({ title: t('ai.chat.earlierLoadFailed'), icon: 'none' })
+      return
+    }
+    setMessages((prev) => prependEarlierMessages(prev, outcome.messages))
+    earlierCursorRef.current = outcome.nextCursor
+    setEarlierHasMore(outcome.hasMore)
+  }, [loadingEarlier, earlierHasMore, routeSessionId, t])
 
   useDidHide(() => {
     try {
@@ -405,6 +451,8 @@ export default function ChatPage() {
             // (live 已写的不覆盖;无 metadata 不写空数组,不渲染空态)
             setMessages(backfillSteerNoticesFromMetadata(target.messages))
             setSessionId('')
+            // 本机快照没有服务端分页,旧会话游标必须清掉
+            resetEarlierPaging()
             setImgsList([])
             setInputValue('')
             setSelectedMaterial(null)
@@ -851,10 +899,11 @@ export default function ChatPage() {
           }
           setMessages([])
           setSessionId('')
+          resetEarlierPaging()
         }
       },
     })
-  }, [t, messages])
+  }, [t, messages, resetEarlierPaging])
 
   const selectModel = useCallback((m: ModelItem) => {
     setCurrentModel(m.id)
@@ -877,6 +926,7 @@ export default function ChatPage() {
             if (!res.confirm) return
             setMessages([])
             setSessionId('')
+            resetEarlierPaging()
             setCurrentAgentId(a.id)
             setSkillsPopupVisible(false)
             setAgent({
@@ -902,7 +952,7 @@ export default function ChatPage() {
       })
       loadAgent()
     },
-    [loadAgent, messages.length, activeAgentId, t],
+    [loadAgent, messages.length, activeAgentId, t, resetEarlierPaging],
   )
 
   const openSkillsPopup = useCallback(() => {
@@ -1035,13 +1085,15 @@ export default function ChatPage() {
       // D106 收尾:同上,历史恢复链路统一走 metadata.steerApplied 读回
       setMessages(backfillSteerNoticesFromMetadata(h.messages || []))
       setSessionId('')
+      // 本机快照没有服务端分页,旧会话游标必须清掉
+      resetEarlierPaging()
       setImgsList([])
       setInputValue('')
       setSelectedMaterial(null)
       setHistoryDrawerVisible(false)
       scrollToBottom()
     },
-    [scrollToBottom],
+    [scrollToBottom, resetEarlierPaging],
   )
 
   /** 清空所有历史对话(对标原 ai_assistant.vue clearHistory) */
@@ -1161,6 +1213,15 @@ export default function ChatPage() {
       ) : null}
 
       <ScrollView className="msg-list" scrollY scrollTop={scrollTop} scrollWithAnimation>
+        {/* D20 留尾2:加载更早消息入口(仅服务端回放且首页 hasMore=true 时出现;
+            失败不清已回放内容,入口保留可重试;前插后不强制滚底,不拽走阅读位置) */}
+        {earlierHasMore ? (
+          <View className="load-earlier" onClick={handleLoadEarlier} hoverClass="opacity-60">
+            <Text className="load-earlier-text">
+              {loadingEarlier ? t('ai.chat.earlierLoading') : t('ai.chat.loadEarlier')}
+            </Text>
+          </View>
+        ) : null}
         {/* 智能体引导说明(对标原 ai_assistant.vue tishi_block + tishi_box,仅选中智能体时显示) */}
         {agent ? (
           <View
