@@ -301,8 +301,8 @@ export const searchRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    await deleteHotWord(parsed.data.id)
-    return reply.send(success({ id: parsed.data.id, deleted: true }))
+    const removed = await deleteHotWord(parsed.data.id)
+    return reply.send(success({ id: parsed.data.id, deleted: removed.length > 0 }))
   })
 
   // ===== D 盘 search 微服务 P0 补齐端点(迁移自 cloud-learning-search-service) =====

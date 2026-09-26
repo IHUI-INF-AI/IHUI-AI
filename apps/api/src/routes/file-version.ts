@@ -357,8 +357,11 @@ export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
         /* ignore */
       }
     }
-    await db.delete(fileVersions).where(eq(fileVersions.id, versionId))
-    return reply.send(success({ versionId, deleted: true }))
+    const removed = await db
+      .delete(fileVersions)
+      .where(eq(fileVersions.id, versionId))
+      .returning({ id: fileVersions.id })
+    return reply.send(success({ versionId, deleted: removed.length > 0 }))
   })
 
   // GET /file-versions/compare/:fileId?v1=&v2= — 对比两个版本

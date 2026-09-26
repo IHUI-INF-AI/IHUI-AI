@@ -423,8 +423,8 @@ const webhookTriggerRoutes: FastifyPluginAsync = async (server) => {
     if (!triggerStore.has(id)) {
       return reply.status(404).send(error(404, '触发器不存在'))
     }
-    triggerStore.delete(id)
-    return reply.send(success({ deleted: true }))
+    const deleted = triggerStore.delete(id)
+    return reply.send(success({ deleted }))
   })
 
   // GET /webhooks/events — 列出触发事件(支持 triggerId / status 过滤)

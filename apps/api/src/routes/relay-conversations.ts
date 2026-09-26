@@ -137,8 +137,8 @@ const relayConversationsRoutes: FastifyPluginAsync = async (server) => {
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
 
     try {
-      await deleteConversation(p.data.id, userId)
-      return reply.send(success({ id: p.data.id, deleted: true }))
+      const removed = await deleteConversation(p.data.id, userId)
+      return reply.send(success({ id: p.data.id, deleted: removed.length > 0 }))
     } catch (e) {
       const msg = e instanceof Error ? e.message : '删除会话失败'
       const status = msg.includes('无权') || msg.includes('不存在') ? 404 : 500

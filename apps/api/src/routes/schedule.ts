@@ -241,8 +241,8 @@ export const scheduleRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    await deleteScheduleTask(parsed.data.id)
-    return reply.send(success({ deleted: true }))
+    const removed = await deleteScheduleTask(parsed.data.id)
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // POST /schedule/:id/complete - 标记任务完成（复用 runScheduleTaskNow 并置 success）
@@ -376,8 +376,8 @@ export const adminScheduleRoutes: FastifyPluginAsync = async (server) => {
       if (!existing) {
         return reply.status(404).send(error(404, '任务不存在'))
       }
-      await deleteScheduleTask(parsed.data.id)
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
+      const removed = await deleteScheduleTask(parsed.data.id)
+      return reply.send(success({ id: parsed.data.id, deleted: removed.length > 0 }))
     },
   )
 
