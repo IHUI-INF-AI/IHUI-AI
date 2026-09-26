@@ -250,6 +250,54 @@ describe('fetch_url 工具接入前后的行为对照(未桩真链路:本票的�
   });
 });
 
+describe('自托管信任(user-settings)· 成对正反例', () => {
+  const trust = (configuredEndpoint: string) => ({
+    source: 'user-settings' as const,
+    settingsKey: 'mcpServers[].url',
+    configuredEndpoint,
+  });
+
+  it('默认档零变化:无声明时回环地址照旧拒(补参数不得把守卫放宽)', async () => {
+    const v = await assertSafeFetchUrl('http://127.0.0.1:8803/mcp');
+    expect(v.safe).toBe(false);
+    expect(v.code).toBe('direct-ip-denied');
+  });
+
+  it('带声明且端点逐字同条 ⇒ 放行(证明这条判据真在生效,不是一句"全拒")', async () => {
+    const url = 'http://127.0.0.1:8803/mcp';
+    const v = await assertSafeFetchUrl(url, { selfHosted: trust(url) });
+    expect(v.safe).toBe(true);
+  });
+
+  it('信任不可复用:同主机换一条 path 就落回默认档(远端下发端点走不到信任)', async () => {
+    const v = await assertSafeFetchUrl('http://127.0.0.1:8803/admin', {
+      selfHosted: trust('http://127.0.0.1:8803/mcp'),
+    });
+    expect(v.safe).toBe(false);
+    expect(v.code).toBe('direct-ip-denied');
+  });
+
+  it('元数据与链路本地:即使逐字匹配也永不放行', async () => {
+    const imds = 'http://169.254.169.254/latest/meta-data/';
+    expect((await assertSafeFetchUrl(imds, { selfHosted: trust(imds) })).safe).toBe(false);
+    const named = 'http://metadata/computeMetadata/v1/';
+    expect((await assertSafeFetchUrl(named, { selfHosted: trust(named) })).safe).toBe(false);
+  });
+
+  it('被拒主机名(localhost)声明后可用,未声明仍拒', async () => {
+    const url = 'http://localhost:8803/mcp';
+    expect((await assertSafeFetchUrl(url)).safe).toBe(false);
+    expect((await assertSafeFetchUrl(url, { selfHosted: trust(url) })).safe).toBe(true);
+  });
+
+  it('协议不同不算同条:https 的配置不背书 http 请求', async () => {
+    const v = await assertSafeFetchUrl('http://127.0.0.1:8803/mcp', {
+      selfHosted: trust('https://127.0.0.1:8803/mcp'),
+    });
+    expect(v.safe).toBe(false);
+  });
+});
+
 // 接线自检:确保本文件真的在测共享实现,而不是测到一个同名端内副本。
 describe('守卫实现归属', () => {
   it('共享守卫是唯一实现源,且其导出可被 CLI 直接解析', async () => {

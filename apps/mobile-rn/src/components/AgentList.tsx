@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
   },
   rowActive: {
-    borderColor: tokens.brand.DEFAULT,
+    borderColor: tokens.brandAccent.deep,
   },
   rowLeft: {
     flexDirection: 'row',

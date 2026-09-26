@@ -218,7 +218,72 @@ function decision(block: Omit<SsrfDecision, 'safe'>): SsrfDecision {
  * 记录仍可能被改。彻底闭合要把连接钉到已解析的 IP(undici 需自定义 connector),
  * 属另一票。调用方须配合「每跳重定向都重新过一次本函数」,那是真实存在的那一半攻击面。
  */
-export async function assertSafeFetchUrl(rawUrl: string): Promise<SsrfDecision> {
+/**
+ * 「这条出站 URL 出自用户自己写的配置」的声明。
+ *
+ * 为什么必须带基准(`configuredEndpoint`)而不是一个布尔:布尔只能表达"调用方说可以",
+ * 而调用方会在 SSE 回调、重定向、元数据发现里把**远端下发的 URL** 也带进同一层 ——
+ * 那正是 SSRF 的入口。基准把信任钉在"用户亲手配置的那一条端点"上,逐字匹配才生效。
+ */
+export interface SelfHostedTrust {
+  /** 信任的来源种类;当前只有用户配置文件一档(远端下发一律不得声明) */
+  readonly source: 'user-settings'
+  /** 人读定位:配置文件里的哪一条(如 `mcpServers[].url`) */
+  readonly settingsKey: string
+  /** 基准端点:只有与它同协议/主机/端口/路径的请求 URL 才享受信任 */
+  readonly configuredEndpoint: string
+}
+
+export interface SsrfGuardOptions {
+  readonly selfHosted?: SelfHostedTrust
+}
+
+/** 信任**永不**放行的主机名(云元数据服务与链路本地发现域) */
+const NEVER_TRUSTED_HOST_NAMES = ['metadata', 'metadata.google.internal', 'instance-data'] as const
+
+/** 信任永不放行的网段:链路本地(含 IMDS 169.254.169.254)与 IPv6 链路本地/唯一本地 */
+function isNeverTrustedAddress(text: string): boolean {
+  const num = parseIpv4ToNumber(text)
+  if (num !== null) {
+    // 169.254.0.0/16
+    return num >>> 16 === 0xa9fe
+  }
+  const big = parseIpv6ToBigInt(text)
+  if (big === null) return false
+  const top = Number(big >> 112n)
+  // fe80::/10 链路本地、fc00::/7 唯一本地(私网性质,自配端点无需它)
+  return (top & 0xffc0) === 0xfe80 || (top & 0xfe00) === 0xfc00
+}
+
+function isNeverTrustedHostname(host: string): boolean {
+  return (NEVER_TRUSTED_HOST_NAMES as readonly string[]).includes(host)
+}
+
+/** 请求 URL 是否与用户自配的基准端点同一条(协议/主机/端口/路径逐项等值,忽略 query 与 hash) */
+function endpointMatches(requestUrl: string, configuredEndpoint: string): boolean {
+  let a: URL
+  let b: URL
+  try {
+    a = new URL(requestUrl)
+    b = new URL(configuredEndpoint)
+  } catch {
+    return false
+  }
+  const normHost = (u: URL) => u.hostname.toLowerCase().replace(/^\[(.*)\]$/, '$1')
+  const portOf = (u: URL) => u.port || (u.protocol === 'https:' ? '443' : '80')
+  const pathOf = (u: URL) => (u.pathname === '' ? '/' : u.pathname)
+  return (
+    a.protocol === b.protocol &&
+    normHost(a) === normHost(b) &&
+    portOf(a) === portOf(b) &&
+    pathOf(a) === pathOf(b)
+  )
+}
+
+export async function assertSafeFetchUrl(
+  rawUrl: string,
+  options?: SsrfGuardOptions,
+): Promise<SsrfDecision> {
   if (!rawUrl || typeof rawUrl !== 'string') {
     return decision({ code: 'empty-url', reason: 'URL 为空' })
   }
@@ -231,6 +296,23 @@ export async function assertSafeFetchUrl(rawUrl: string): Promise<SsrfDecision> 
   }
 
   const host = parsed.hostname.toLowerCase().replace(/^\[(.*)\]$/, '$1')
+
+  /**
+   * 信任能否覆盖这一目标。三个条件同时成立才放行,缺任一即回落原判定:
+   * ① 调用方显式声明了 user-settings 来源;② 请求 URL 与自配基准端点逐字同条;
+   * ③ 目标不在"永不放行"集(元数据主机名 / 链路本地与唯一本地地址)。
+   */
+  const trustedFor = (targetHost: string, address?: string): boolean => {
+    const trust = options?.selfHosted
+    if (!trust || trust.source !== 'user-settings') return false
+    if (typeof trust.configuredEndpoint !== 'string' || !trust.configuredEndpoint.trim())
+      return false
+    if (!endpointMatches(rawUrl, trust.configuredEndpoint)) return false
+    if (isNeverTrustedHostname(targetHost)) return false
+    if (isNeverTrustedAddress(targetHost)) return false
+    if (address && address !== targetHost && isNeverTrustedAddress(address)) return false
+    return true
+  }
   if (!(ALLOWED_FETCH_PROTOCOLS as readonly string[]).includes(parsed.protocol)) {
     return decision({
       code: 'protocol-denied',
@@ -242,12 +324,14 @@ export async function assertSafeFetchUrl(rawUrl: string): Promise<SsrfDecision> 
     return decision({ code: 'host-missing', reason: 'URL 无主机名' })
   }
   if (isDeniedHostname(host)) {
+    if (trustedFor(host)) return { safe: true, host }
     return decision({ code: 'host-denied', host, deniedTarget: host, reason: '主机名在拒绝名单内' })
   }
 
   const directIp = parseIp(host)
   if (directIp) {
     if (isPrivateOrReservedIp(host)) {
+      if (trustedFor(host, host)) return { safe: true, host, resolvedIps: [host] }
       return decision({
         code: 'direct-ip-denied',
         host,
@@ -272,6 +356,7 @@ export async function assertSafeFetchUrl(rawUrl: string): Promise<SsrfDecision> 
   }
   const hit = ips.find((ip) => isPrivateOrReservedIp(ip))
   if (hit) {
+    if (trustedFor(host, hit)) return { safe: true, host, resolvedIps: ips }
     return decision({
       code: 'resolved-denied',
       host,
