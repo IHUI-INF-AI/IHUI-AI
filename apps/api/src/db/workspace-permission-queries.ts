@@ -95,7 +95,16 @@ export async function touchLastAccessed(userId: string, workspacePath: string): 
     )
 }
 
-export async function deletePermission(userId: string, workspacePath: string): Promise<void> {
+/**
+ * 级联删除权限(规则 + 审计日志 + 主记录),回报**主记录那一行是否真被删掉**的 id 集合。
+ * 2026-09-27 修「deleted:true 是代码常量而非数据库答复」:原来返回 void,调用方只能事后
+ * 写死 true。这里刻意只以主记录的命中集为准 —— 规则/审计日志是附属清理,它们为 0 而主记录
+ * 在位才是"没删掉";反之主记录删掉了这一路就是成功的。
+ */
+export async function deletePermission(
+  userId: string,
+  workspacePath: string,
+): Promise<string[]> {
   // 级联清理:规则 + 审计日志 + 主记录
   await db
     .delete(workspacePermissionRules)
@@ -113,7 +122,7 @@ export async function deletePermission(userId: string, workspacePath: string): P
         eq(workspacePermissionAuditLogs.workspacePath, workspacePath),
       ),
     )
-  await db
+  const rows = await db
     .delete(workspacePermissions)
     .where(
       and(
@@ -121,6 +130,8 @@ export async function deletePermission(userId: string, workspacePath: string): P
         eq(workspacePermissions.workspacePath, workspacePath),
       ),
     )
+    .returning({ id: workspacePermissions.id })
+  return rows.map((r) => r.id)
 }
 
 // =============================================================================
@@ -182,10 +193,17 @@ export async function updateRule(
   return rows[0]
 }
 
-export async function deleteRule(id: string, userId: string): Promise<void> {
-  await db
+/**
+ * 删除白名单规则,回报**库侧确认删掉的那批 id**。
+ * 2026-09-27:原返回 void,而 where 带 userId 归属过滤 ⇒ "这条规则不是你的/本就不存在"
+ * 与"删掉了"在调用方那里完全同形。
+ */
+export async function deleteRule(id: string, userId: string): Promise<string[]> {
+  const rows = await db
     .delete(workspacePermissionRules)
     .where(and(eq(workspacePermissionRules.id, id), eq(workspacePermissionRules.userId, userId)))
+    .returning({ id: workspacePermissionRules.id })
+  return rows.map((r) => r.id)
 }
 
 export async function createRulesBulk(

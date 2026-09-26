@@ -229,8 +229,13 @@ export async function updateTicket(
   return rows[0]
 }
 
-export async function deleteTicket(id: string): Promise<void> {
-  await db.delete(customerServiceTickets).where(eq(customerServiceTickets.id, id))
+/** 撤销工单。返回库确认已删除的 id 集合(未命中为空数组,调用方据此判 deleted 真假)。 */
+export async function deleteTicket(id: string): Promise<string[]> {
+  const rows = await db
+    .delete(customerServiceTickets)
+    .where(eq(customerServiceTickets.id, id))
+    .returning({ id: customerServiceTickets.id })
+  return rows.map((r) => r.id)
 }
 
 // =============================================================================
