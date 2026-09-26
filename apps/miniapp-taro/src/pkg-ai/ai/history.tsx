@@ -116,9 +116,7 @@ const FILTERS = (
  * (服务端 chat_messages 无类型列,本机快照写入也不设 type),恒空芯片是死 UI。
  * 只有当前列表真存在该类型时才渲染对应芯片;无 type 的行归 'chat'。
  */
-export function availableFilterTypes(
-  items: ReadonlyArray<{ type?: FilterType }>,
-): Set<FilterType> {
+export function availableFilterTypes(items: ReadonlyArray<{ type?: FilterType }>): Set<FilterType> {
   const s = new Set<FilterType>(['all', 'chat'])
   for (const x of Array.isArray(items) ? items : []) s.add(x.type || 'chat')
   return s
@@ -238,6 +236,70 @@ export async function deleteServerConversation(deps: {
 }
 
 /**
+ * 服务端源「清空全部」的并发上界(D20 留尾)。3 路够快又不至于把删除接口打成洪峰。
+ * 逐条走单条删除端点 —— 后端没有批量端点,不新增接口,批量语义由端内工作池拼出来。
+ */
+export const SERVER_CLEAR_CONCURRENCY = 3
+
+/** clearServerConversations 的执行结果:成功/失败按会话 id 分桶(失败桶原样保留、可重试) */
+export interface ServerClearOutcome {
+  okIds: string[]
+  failedIds: string[]
+}
+
+/**
+ * 服务端源「清空全部」:逐条删除、并发有界、进度可回吐。
+ *
+ * 每一条的成败都按 deleteServerConversation 的同一判序落桶
+ * (不抛 ∧ success===true ∧ data.deleted===true),拒绝"发了请求就当删掉了"。
+ * onProgress 每落定一条回吐 (done, total),调用方拿去刷新 showLoading 计数;
+ * 全部落定后按 okIds / failedIds 分桶交给调用方做诚实交代。
+ */
+export async function clearServerConversations(deps: {
+  ids: readonly string[]
+  remove: (id: string) => Promise<ApiResult<{ deleted: boolean }>>
+  onProgress?: (done: number, total: number) => void
+  concurrency?: number
+}): Promise<ServerClearOutcome> {
+  const total = deps.ids.length
+  const okIds: string[] = []
+  const failedIds: string[] = []
+  let done = 0
+  let cursor = 0
+  const width = Math.max(1, Math.min(deps.concurrency ?? SERVER_CLEAR_CONCURRENCY, total || 1))
+  const worker = async () => {
+    while (cursor < total) {
+      const id = deps.ids[cursor]
+      cursor += 1
+      if (id === undefined) break
+      const outcome = await deleteServerConversation({ remove: () => deps.remove(id) })
+      if (outcome.ok) okIds.push(id)
+      else failedIds.push(id)
+      done += 1
+      deps.onProgress?.(done, total)
+    }
+  }
+  await Promise.all(Array.from({ length: width }, () => worker()))
+  return { okIds, failedIds }
+}
+
+/**
+ * 把「清空全部」的执行结果落回列表:成功删掉的行摘除,失败的行原样保留
+ * (长按行可单条重试),幸存行保持原有相对顺序。全失败 ⇒ 列表一字不动 ——
+ * 不得把"没删掉"渲染成"已清空"。
+ */
+export function applyServerClearResult(
+  prev: readonly HistoryItem[],
+  result: ServerClearOutcome,
+): { items: HistoryItem[]; allCleared: boolean } {
+  const removed = new Set(result.okIds)
+  return {
+    items: prev.filter((x) => !removed.has(x.id)),
+    allCleared: result.failedIds.length === 0,
+  }
+}
+
+/**
  * 取列表:服务端优先,取不到才回落本机快照。
  *
  * 判序是 fail-closed 的,三条都要成立才算「拿到服务端数据」
@@ -325,6 +387,8 @@ export default function HistoryPage() {
   const [serverPage, setServerPage] = useState(1)
   const [serverHasMore, setServerHasMore] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
+  // 服务端「清空全部」在途锁:批量删除进行中不得二次触发(防止并发出两轮删除)
+  const [clearingAll, setClearingAll] = useState(false)
 
   const load = useCallback(async () => {
     const result = await loadHistoryRows({
@@ -448,15 +512,7 @@ export default function HistoryPage() {
     if (action === 'advance-page') setPage((p) => p + 1)
     else if (action === 'fetch-server') void fetchNextServerPage()
     else if (action === 'finish') setHasMore(false)
-  }, [
-    hasMore,
-    loadingMore,
-    source,
-    serverHasMore,
-    page,
-    filtered.length,
-    fetchNextServerPage,
-  ])
+  }, [hasMore, loadingMore, source, serverHasMore, page, filtered.length, fetchNextServerPage])
 
   const goChat = useCallback((h?: HistoryItem) => {
     Taro.navigateTo({ url: `/pkg-ai/ai/chat${h ? `?sessionId=${h.id}` : ''}` })
@@ -488,10 +544,9 @@ export default function HistoryPage() {
     [list, source, tt],
   )
 
-  // 「清空全部」只写本机快照 ⇒ 仅兜底态给这个动作;行级删除在两个来源下各有出口
-  // (本机快照走 setStorageSync,服务端会话走 api-client deleteConversation)。
-  const canManageLocal = source === 'local'
-
+  // 「清空全部」在两个来源下各有出口(D20 留尾:此前服务端源没有清空能力):
+  // 兜底态只写本机快照(setStorageSync);服务端源逐条走 api-client deleteConversation
+  // (有界并发 + 进度反馈,不新增端点)。入口按 source 分发,两路互不越界。
   const onDeleteOne = useCallback(
     (h: HistoryItem) => {
       Taro.showModal({
@@ -567,6 +622,66 @@ export default function HistoryPage() {
     })
   }, [list.length, t, tt])
 
+  /**
+   * 服务端源「清空全部」(D20 留尾:此前服务端来源下没有清空能力)。
+   *
+   * 确认语义如实:服务端可能有未加载完的更多页(serverHasMore),这个动作只删
+   * **当前已加载**的 N 条、不翻页续删 —— 确认框写明条数与"不可恢复",
+   * 不把"已加载"谎报成"全部"。
+   * 执行:逐条走 deleteConversation(唯一出口,复用 deleteServerConversation 判序),
+   * 3 路有界并发,showLoading 按 (done/total) 刷新进度。
+   * 结果诚实:全成 ⇒ 清列表;有失败 ⇒ 失败行原样保留(长按行可单条重试),
+   * toast 点名成功/失败条数。本机快照一律不写(服务端会话 id ≠ 快照的 hist_*)。
+   */
+  const onClearServerAll = useCallback(async () => {
+    if (source !== 'server' || clearingAll) return
+    const snapshot = list
+    const total = snapshot.length
+    if (total === 0) return
+    const confirmed = await new Promise<boolean>((resolve) => {
+      Taro.showModal({
+        title: tt('ai.historyPage.clearAll', '清空全部'),
+        content: t('ai.historyPage.clearServerConfirm', { n: total }),
+        confirmText: t('common.confirm'),
+        cancelText: t('common.cancel'),
+        success: (res) => resolve(res.confirm === true),
+        fail: () => resolve(false),
+      })
+    })
+    if (!confirmed) return
+    setClearingAll(true)
+    Taro.showLoading({ title: t('ai.historyPage.clearServerProgress', { done: 0, n: total }) })
+    const result = await clearServerConversations({
+      ids: snapshot.map((x) => x.id),
+      remove: (id) => deleteConversation(id),
+      onProgress: (done) => {
+        Taro.showLoading({ title: t('ai.historyPage.clearServerProgress', { done, n: total }) })
+      },
+    })
+    Taro.hideLoading()
+    setClearingAll(false)
+    if (result.failedIds.length === 0) {
+      // 全成:清列表并把翻页游标归零。若服务端还有未加载的更多页,下拉刷新会如实取回,
+      // 这里不主动续取 —— 用户确认删的就是"当前已加载的 N 条"。
+      setList([])
+      setPage(1)
+      setServerPage(1)
+      setServerHasMore(false)
+      Taro.showToast({ title: t('ai.historyPage.clearServerDone', { n: total }), icon: 'none' })
+      return
+    }
+    // 有失败:失败行原样保留(长按可单条重试),toast 点名 X/Y,不谎报清空。
+    // 函数式更新基于当前列表摘掉成功行,中途被刷新改写过的列表也不会被旧快照整表盖回。
+    setList((prev) => applyServerClearResult(prev, result).items)
+    Taro.showToast({
+      title: t('ai.historyPage.clearServerPartial', {
+        ok: result.okIds.length,
+        fail: result.failedIds.length,
+      }),
+      icon: 'none',
+    })
+  }, [source, clearingAll, list, t, tt])
+
   const isFiltered = keyword.trim() || filter !== 'all'
   const iconFor = (h: HistoryItem) =>
     FILTERS(tt).find((f) => f.key === (h.type || 'chat'))?.icon || ICONS.message
@@ -586,8 +701,11 @@ export default function HistoryPage() {
           }}
           onClear={() => setKeyword('')}
         />
-        {canManageLocal && list.length > 0 ? (
-          <Text className="text-[length:26rpx] text-destructive flex-shrink-0" onClick={onClearAll}>
+        {list.length > 0 ? (
+          <Text
+            className="text-[length:26rpx] text-destructive flex-shrink-0"
+            onClick={source === 'server' ? () => void onClearServerAll() : onClearAll}
+          >
             {tt('ai.historyPage.clearAll', '清空全部')}
           </Text>
         ) : null}
@@ -619,17 +737,17 @@ export default function HistoryPage() {
             <View
               key={f.key}
               className={`inline-flex items-center gap-[6rpx] py-[8rpx] px-[24rpx] bg-background rounded-sm flex-shrink-0 ${activeFilter === f.key ? 'bg-primary text-foreground' : 'text-muted-foreground'}`}
-            onClick={() => {
-              setFilter(f.key)
-              setPage(1)
-              setHasMore(true)
-            }}
-            hoverClass="opacity-60"
-          >
-            <Image src={f.icon} className="w-[28rpx] h-[28rpx]" mode="aspectFit" />
-            <Text className="text-[length:24rpx]">{tt(f.labelKey, f.fallback)}</Text>
-          </View>
-        ))}
+              onClick={() => {
+                setFilter(f.key)
+                setPage(1)
+                setHasMore(true)
+              }}
+              hoverClass="opacity-60"
+            >
+              <Image src={f.icon} className="w-[28rpx] h-[28rpx]" mode="aspectFit" />
+              <Text className="text-[length:24rpx]">{tt(f.labelKey, f.fallback)}</Text>
+            </View>
+          ))}
       </View>
 
       <ScrollView

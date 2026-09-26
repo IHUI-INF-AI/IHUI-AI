@@ -63,6 +63,28 @@
  *       页内未写 `navigationStyle` 则继承 `app.config.ts` 的全局 window(两处都取不到 ⇒ **未判定**,
  *       既不记绿也不冒红)。渲染 `<NavBar/>` 的页一并纳入 —— 它按胶囊按钮算状态栏高度,本就是为
  *       custom 页写的,挂原生栏等于双层 chrome(实测 `pages/community`、`pages/distribution` 正是配置错页)。
+ *  GA7  RN/共享屏层同屏**双份返回 affordance / 双层页头**(2026-09-26 立,把 GA6 的同一语义扩到
+ *       RN 侧;起因:实拍 phone-set2.png —— RN 设置页顶上一条「设置 + 菜单」栏(NavBar 带 onBack
+ *       即自绘 ChevronLeft,apps/mobile-rn/src/components/NavBar.tsx:79 实测),下面又一条「< 设置」
+ *       = 共享屏层自带的 <BackChevron/>(packages/app/src/features/settings/SettingsScreen.tsx:98);
+ *       wrapper 把 onBack 传给共享屏、共享屏再画自己的返回键 ⇒ 同屏两个返回箭头。
+ *       **这一型在 RN 侧此前零判据** —— GA6 只判小程序「页内返回键 × 微信原生导航栏」,这里却是
+ *       「页内返回键 × 页内返回键」,同一条"chrome 拥有唯一返回键"规矩的另一半。
+ *       三信号(全静态、宁漏不误报,只判屏目录 `packages/app/src/features/` + `apps/mobile-rn/src/screens/`):
+ *       H1 同一 return 分支 ≥2 处页头返回键(`<BackChevron` / 带 onBack 的 `<NavBar` 任一组合)⇒ 判第二处
+ *       —— 互斥分支(loading/错误态/正常态)各画一套是正当形态,按整文件计数会产假阳;
+ *       H2 本文件有页头返回键、且把 `onBack=` 传给的组件经**一跳解析**(相对路径直解;`@ihui/rn-app`
+ *       经 barrel `packages/app/src/index.ts` 的命名再导出解析)落在屏目录、其内容又自绘页头返回键
+ *       ⇒ 判在传 onBack 那一行;解析不出/barrel 或目标取不到 ⇒ **未判定**点名(不记绿);目标可读而
+ *       子屏不画返回键 ⇒ 正当放行(子屏作纯内容托管合法,这正是"宁漏"的那一侧)。
+ *       H3 `headerShown: true` 在 RN 面(`apps/mobile-rn/src` + `packages/app/src`)复现 —— 两个导航栈
+ *       已全局 false(RootNavigator.tsx:502/602 实测),翻 true 即原生标题条与自绘页头同屏;
+ *       HEAD 存量 0 ⇒ 新增即红。
+ *       豁免**复用 GA6 的文件级 `nav-chrome-exempt`**(带原因):GA7 的错同样是"页面组合 × 页面渲染"
+ *       的产物,不落在某一行上;语义与 GA6 同族(同屏双层 chrome),开第四通道只会稀释现有三条。
+ *       已知边界如实登记:别名导入使子屏以 `<MyChevron/>` 这类非 BackChevron/NavBar 名义渲染返回键时,
+ *       H2 会读成"子屏无返回键"而放行(收窄面以免假阳)。H1/H2/H3 不依赖 walkAffordanceChildren 的
+ *       祖先栈 ⇒ GA4/GA5 那条"跨行自闭合标签致栈失配"的已知盲区不传染本判据。
  *
  * 泄压阀:行内 `glyph-arrow-exempt: <一句话原因>`(GA1/GA2)与
  * `back-label-exempt: <一句话原因>`(GA4/GA5,可写在命中行、可点元素起始行或其紧邻上行)——
@@ -232,7 +254,7 @@ const BACK_TEXT_LITERAL_RE = /^[「『]?返回[」』]?$/
  * 没覆盖**键名形态**,所以它一路绿灯地看着这个洞存在。
  */
 const PREFILTER =
-  '›|»|→|》|‹|←|«|返回|fontSize|font-size|\'>\'|">"|BackChevron|NavBar|navigationStyle|[bB]ack[0-9]*["\']'
+  '›|»|→|》|‹|←|«|返回|fontSize|font-size|\'>\'|">"|BackChevron|NavBar|navigationStyle|[bB]ack[0-9]*["\']|headerShown|onBack'
 
 const git = (args, cwd = ROOT) => gitRaw(args, cwd, { timeout: GIT_TIMEOUT })
 
@@ -1030,9 +1052,284 @@ export function withPageConfigs(files) {
   return [...files, ...extra]
 }
 
+// ── GA7:RN/共享屏层 同屏双份返回 affordance / 双层页头(2026-09-26 立) ─────────────────
+/** 屏目录 = 会作为"一整屏"被挂载的组件所在处;components/ 是机制文件,不作屏判(与 GA6 同理)。 */
+const RN_SCREEN_PREFIXES = ['packages/app/src/features/', 'apps/mobile-rn/src/screens/']
+/** RN 面的两个包前缀(H3 与依赖枚举的射程;不含 extension/desktop/web —— 它们没有 RN chrome) */
+const RN_FACE_PREFIXES = ['packages/app/src', 'apps/mobile-rn/src']
+const RN_APP_BARREL = 'packages/app/src/index.ts'
+const RN_HEADER_GREP_DIRS = ['packages/app/src', 'apps/mobile-rn/src']
+const HEADER_SHOWN_TRUE_RE = /headerShown\s*:\s*true/
+
+/**
+ * 标签属性里是否真有 onBack。`onBack={undefined}` 形态不算 —— NavBar 只在 onBack 存在时
+ * 画 ChevronLeft(NavBar.tsx:79 `{onBack ? ... : null}` 实测),传 undefined 等于没画。
+ */
+export function tagHasOnBack(attrs) {
+  const total = (attrs.match(/\bonBack\b/g) || []).length
+  if (total === 0) return false
+  const undef = (attrs.match(/onBack\s*=\s*\{\s*undefined\s*\}/g) || []).length
+  return total > undef
+}
+
+/** 扁平收一遍所有非闭合标签(不建祖先栈 —— GA7 不需要 affordance 证据,也因此不继承栈失配盲区) */
+function collectTags(code, strMask) {
+  const tags = []
+  for (let i = 0; i < code.length; i++) {
+    if (code[i] !== '<') continue
+    const t = parseTagAt(code, i, strMask)
+    if (!t) continue
+    if (t.kind !== 'close')
+      tags.push({ name: t.name, attrs: t.attrs, pos: t.start, line: lineOf(code, t.start) })
+    i = t.end - 1
+  }
+  return tags
+}
+
+/**
+ * "分支"= 紧邻其前的 `return` 关键字把文件切成的段(段号 = 之前 return 的个数)。
+ * 立门的实证依据(2026-09-26,HEAD 面 12 处首跑读数里 9 处是这个形态):屏文件常有
+ * **互斥的多个 return 分支**(loading / 错误态 / 正常态,如 ActivityDetailScreen 的
+ * returns@26,40,57,84 各带一套页头),它们**从不同时出现在同一屏**。按整文件计数会把
+ * 这一族全判成"双层页头" —— 那是假阳,而假阳指使人去"修"没坏的东西(门 118 的教训)。
+ * 嵌套函数(如 .map 回调)的 return 也会切段:切多了只会**漏判**,与"宁漏不误报"同向。
+ */
+function branchOf(pos, returnOffsets) {
+  let b = 0
+  for (const r of returnOffsets) {
+    if (r < pos) b++
+    else break
+  }
+  return b
+}
+
+/** 页头级返回键渲染点:<BackChevron> 或 带 onBack 的 <NavBar>(NavBar 无 onBack 不画箭头) */
+function headerRenders(tags) {
+  return tags.filter((t) => t.name === 'BackChevron' || (t.name === 'NavBar' && tagHasOnBack(t.attrs)))
+}
+
+const IMPORT_RE =
+  /import\s+(?:type\s+)?([\w$]+|\*\s+as\s+[\w$]+|\{[^}]*\})\s*(?:,[\s\S]{0,400}?)?from\s*['"]([^'"]+)['"]/g
+
+/** 本地名 → { spec(模块说明符), exported(源侧名) }。多行具名导入按 `[^}]*` 吃到闭合。 */
+export function importsOf(code) {
+  const map = new Map()
+  for (const m of code.matchAll(IMPORT_RE)) {
+    const clause = m[1].trim()
+    const spec = m[2]
+    if (clause.startsWith('{')) {
+      for (const raw of clause.slice(1, -1).split(',')) {
+        const part = raw.trim().replace(/^type\s+/, '')
+        if (!part) continue
+        const asM = part.match(/^([\w$]+)\s+as\s+([\w$]+)$/)
+        if (asM) map.set(asM[2], { spec, exported: asM[1] })
+        else if (/^[\w$]+$/.test(part)) map.set(part, { spec, exported: part })
+      }
+    } else if (/^[\w$]+$/.test(clause)) map.set(clause, { spec, exported: 'default' })
+    else {
+      const nsM = clause.match(/\*\s+as\s+([\w$]+)/)
+      if (nsM) map.set(nsM[1], { spec, exported: '*' })
+    }
+  }
+  return map
+}
+
+/** barrel 的命名再导出:消费侧可见名 → './rel'。export * 存在时表可能不全 ⇒ 带旗,查不到就判未判定。 */
+export function barrelExportMap(barrelText) {
+  const map = new Map()
+  for (const m of barrelText.matchAll(/export\s*\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g)) {
+    for (const raw of m[1].split(',')) {
+      const part = raw.trim().replace(/^type\s+/, '')
+      if (!part) continue
+      const asM = part.match(/^([\w$]+)\s+as\s+([\w$]+)$/)
+      map.set(asM ? asM[2] : part, m[2])
+    }
+  }
+  return { map, star: /export\s*\*\s*from/.test(barrelText) }
+}
+
+/** 仓内 POSIX 风格的相对路径解算(不经 node:path,避免 Windows 反斜杠把仓库路径打歪) */
+export function resolveRelPath(fromRel, spec) {
+  const segs = fromRel.split('/').slice(0, -1)
+  for (const p of spec.split('/')) {
+    if (p === '' || p === '.') continue
+    else if (p === '..') segs.pop()
+    else segs.push(p)
+  }
+  return segs.join('/')
+}
+
+/** TS 解析顺序的同形探针:原样 → .tsx → .ts → .js → /index.tsx → /index.ts;ENOENT=null,其它异常照抛 */
+function probeExt(base, read) {
+  for (const cand of [base, `${base}.tsx`, `${base}.ts`, `${base}.js`, `${base}/index.tsx`, `${base}/index.ts`]) {
+    let v
+    try {
+      v = read(cand)
+    } catch (e) {
+      if (e && e.code === 'ENOENT') continue
+      throw e
+    }
+    if (v !== null && v !== undefined) return cand
+  }
+  return null
+}
+
+/**
+ * H2 的依赖批次(GA6 的 config 批次同型):凡含 `<BackChevron`/`<NavBar` 的 RN 面文件 + barrel,
+ * 必须进**同一个 catBatch 同面**预读,否则 --staged 只含 wrapper 时子屏永远"取不到"⇒ 整条判据
+ * 在提交链上失明(判不出被洗成没命中,正是本仓"看起来全绿"那一型)。
+ * grep 失败 ⇒ 返回 [] —— 效果是 H2 全部计未判定并在报告点名,绝不静默放行。
+ */
+export function headerBackFiles(cwd, face) {
+  const pat = '<BackChevron|<NavBar'
+  const args =
+    face === 'head'
+      ? ['grep', '-l', '-I', '-E', pat, 'HEAD', '--', ...RN_HEADER_GREP_DIRS]
+      : face === 'index'
+        ? ['grep', '--cached', '-l', '-I', '-E', pat, '--', ...RN_HEADER_GREP_DIRS]
+        : ['grep', '-l', '-I', '-E', pat, '--', ...RN_HEADER_GREP_DIRS]
+  try {
+    return gitGrep(args, cwd)
+      .split('\n')
+      .filter(Boolean)
+      .map((l) => l.replace(/^HEAD:/, '').replaceAll('\\', '/'))
+  } catch {
+    return []
+  }
+}
+
+/**
+ * GA7 主判据(纯函数:与屏文件同一个 readFile,自检直接喂内存 map)。
+ * 返回 { findings, undetermined } —— findings 全带 rule:'GA7'。
+ */
+export function findRnDoubleHeaders(readFile, files) {
+  const findings = []
+  const undetermined = []
+  const read = (p) => {
+    try {
+      return readFile(p)
+    } catch (e) {
+      if (e && e.code === 'ENOENT') return null
+      throw e
+    }
+  }
+  let barrelCache
+  for (const rel of files) {
+    const src = read(rel)
+    if (src === null) continue
+    if (NAV_CHROME_EXEMPT_RE.test(src)) continue
+    const isRnFace = RN_FACE_PREFIXES.some((p) => rel.startsWith(p + '/'))
+    if (!isRnFace) continue
+    const isTsx = TSX_RE.test(rel)
+    const isScreen = isTsx && RN_SCREEN_PREFIXES.some((p) => rel.startsWith(p))
+    const { code, strMask } = stripCommentsKeepStrings(src)
+    // H3:屏目录/导航面任何文件把原生 header 翻回来(RootNavigator 两栈已全局 false,实测 :502/:602)
+    if (isTsx || rel.endsWith('.ts')) {
+      const hm = code.match(HEADER_SHOWN_TRUE_RE)
+      if (hm) {
+        findings.push({
+          rule: 'GA7',
+          file: rel,
+          line: lineOf(code, code.indexOf(hm[0])),
+          msg: `headerShown:true 在 RN 面复现 —— apps/mobile-rn 的 RootStack 与 MainTabs 两个栈都写了 headerShown:false(RootNavigator.tsx:502/602),而屏目录的屏一律自绘页头;翻回 true 即原生标题条 + 自绘页头 = 同屏双层 chrome。确有屏要用原生 header,就不该再自绘页头,并写 nav-chrome-exempt: <为什么破全局-off 设计>`,
+        })
+      }
+    }
+    if (!isScreen) continue
+    const tags = collectTags(code, strMask)
+    const returnOffsets = []
+    for (const m of code.matchAll(/\breturn\b/g)) returnOffsets.push(m.index)
+    const own = headerRenders(tags)
+    const ownBranches = own.map((h) => branchOf(h.pos, returnOffsets))
+    // H1:**同一 return 分支**里两套页头返回键。互斥分支各画一套(loading/错误态/正常态)是正当形态
+    // —— 首跑 12 处读数里 9 处即此型(ActivityDetailScreen returns@26,40,57 各带一套),按整文件
+    // 计数会把它判成假阳;假阳指使人去"修"没坏的东西(门 118 教训)。
+    const perBranch = new Map()
+    own.forEach((h, i) => {
+      const b = ownBranches[i]
+      if (!perBranch.has(b)) perBranch.set(b, [])
+      perBranch.get(b).push(h)
+    })
+    for (const [, hs] of perBranch) {
+      if (hs.length < 2) continue
+      findings.push({
+        rule: 'GA7',
+        file: rel,
+        line: hs[1].line,
+        msg: `同一 return 分支出现 ${hs.length} 处页头返回键(${hs.map((h) => `<${h.name}> L${h.line}`).join(' + ')})⇒ 同屏两个返回 affordance / 双层页头。页头只留一处:chrome 的返回交给 NavBar(onBack),页内 <BackChevron/> 删掉(标题行留着)`,
+      })
+    }
+    // H2:自带页头返回键 × **同分支**把 onBack 传给"自己也画页头"的子屏
+    const childTags = tags.filter(
+      (t) =>
+        /^[A-Z]/.test(t.name) &&
+        t.name !== 'NavBar' &&
+        t.name !== 'BackChevron' &&
+        tagHasOnBack(t.attrs) &&
+        ownBranches.includes(branchOf(t.pos, returnOffsets)),
+    )
+    if (own.length >= 1 && childTags.length > 0) {
+      const imap = importsOf(code)
+      if (barrelCache === undefined) {
+        const b = read(RN_APP_BARREL)
+        barrelCache = b === null ? null : barrelExportMap(b)
+      }
+      for (const t of childTags) {
+        // 本文件自己定义的组件不算"跨文件子屏":同文件里的 <BackChevron> 无论写在哪个子渲染函数,
+        // collectTags 都已计入 own ⇒ 双份由 H1 负责;在这里再判会产出"本地组件解不出 import"的假未判定噪声。
+        if (new RegExp(`(?:function|const|class)\\s+${t.name}\\b`).test(code)) continue
+        const imp = imap.get(t.name)
+        if (!imp) {
+          undetermined.push(`${rel}:<${t.name}> 传了 onBack 但本文件解不出它的 import 来源 ⇒ 子屏是否自绘页头未判定`)
+          continue
+        }
+        let target = null
+        if (imp.spec === '@ihui/rn-app') {
+          if (!barrelCache) {
+            undetermined.push(`${rel}:${RN_APP_BARREL} 在所选取材面取不到 ⇒ barrel 解不出(不记绿)`)
+            continue
+          }
+          const spec = barrelCache.map.get(imp.exported)
+          if (!spec) {
+            undetermined.push(
+              `${rel}:${RN_APP_BARREL} 的命名再导出里找不到 ${imp.exported}${barrelCache.star ? '(且 barrel 有 export *,表可能不全)' : ''} ⇒ 未判定`,
+            )
+            continue
+          }
+          target = probeExt(resolveRelPath(RN_APP_BARREL, spec), read)
+        } else if (imp.spec.startsWith('.')) {
+          target = probeExt(resolveRelPath(rel, imp.spec), read)
+        } else continue // npm 包的组件不是自家屏,不判
+        if (!target) {
+          undetermined.push(`${rel}:<${t.name}> 的 import(${imp.spec})在本面解析不到文件 ⇒ 未判定`)
+          continue
+        }
+        // 子组件不是屏目录(drawer/dialog/基础件都可以合法带自己的 onBack)⇒ 不判
+        if (!RN_SCREEN_PREFIXES.some((p) => target.startsWith(p))) continue
+        const dep = read(target)
+        if (dep === null) {
+          undetermined.push(`${rel}:子屏 ${target} 取不到内容 ⇒ 未判定`)
+          continue
+        }
+        const d = stripCommentsKeepStrings(dep)
+        if (headerRenders(collectTags(d.code, d.strMask)).length >= 1) {
+          findings.push({
+            rule: 'GA7',
+            file: rel,
+            line: t.line,
+            msg: `本屏自带页头返回键(${own.map((h) => `<${h.name}>`).join('/')}),又把 onBack 传给 <${t.name}> —— 它解析到 ${target},其内容**又**自绘页头返回键 ⇒ 同屏两个返回箭头(phone-set2.png 的「设置+菜单」栏下再来一条「< 设置」正是这一型)。改法:组合层别把 chrome 的 onBack 喂给自带页头的子屏,或子屏删自绘画头、标题/返回统一由外层 NavBar`,
+          })
+        }
+      }
+    }
+  }
+  return { findings, undetermined }
+}
+
+
 // ── 扫描(纯函数:自检直接喂内存 reader,不做任何 git 写) ──────────────────────────────
 export function scan(readFile, files, opts = {}) {
-  const v = { s0: [], ga1: [], ga2: [], ga4: [], ga5: [], ga6: [] }
+  const v = { s0: [], ga1: [], ga2: [], ga4: [], ga5: [], ga6: [], ga7: [] }
   const notes = {
     totalFiles: files.length,
     scanned: 0,
@@ -1043,6 +1340,7 @@ export function scan(readFile, files, opts = {}) {
     backExempt: 0,
     undetermined: [],
     chromeUndetermined: [],
+    rnDoubleUndetermined: [],
     backBlind: [],
     wiringSkipped: !opts.checkWiring,
   }
@@ -1075,6 +1373,11 @@ export function scan(readFile, files, opts = {}) {
     if (h.undetermined) notes.chromeUndetermined.push(h)
     else v.ga6.push(h)
   }
+  // GA7 与屏文件走**同一个 readFile**(同面同轮,守门 77/83 纪律):它要读的 barrel 与子屏文件
+  // 已由 scanRepo 的 headerBackFiles 批次补进 —— 漏补会让 --staged 只含 wrapper 时整条失明。
+  const rn = findRnDoubleHeaders(readFile, files)
+  for (const f of rn.findings) v.ga7.push(f)
+  for (const u of rn.undetermined) notes.rnDoubleUndetermined.push(u)
   // S0 与屏文件走同一个取材面 —— 否则 --root/工作树通道下发的是 worktree,
   // 而 S1 偷读 HEAD,结论会自相矛盾。机制文件自身不算"消费者"(它们互相含名字,会假接线)。
   const mechSet = new Set(MECHANISMS.map((m) => m.file))
@@ -1154,6 +1457,8 @@ export function scanRepo(root, face, explicitFiles, opts = {}) {
   const reader = makeReader(root, face, [
     ...new Set([
       ...withPageConfigs(files),
+      ...headerBackFiles(root, face),
+      RN_APP_BARREL,
       ...MECHANISMS.map((m) => m.file),
       GLOBAL_APP_CONFIG,
     ]),
@@ -1164,7 +1469,7 @@ export function scanRepo(root, face, explicitFiles, opts = {}) {
   }
 }
 
-/** 每个文件的违规条数(GA1+GA2+GA4+GA5+GA6),用于棘轮锚点 */
+/** 每个文件的违规条数(GA1+GA2+GA4+GA5+GA6+GA7),用于棘轮锚点 */
 function countsByFile(result) {
   const per = new Map()
   for (const arr of [
@@ -1173,6 +1478,7 @@ function countsByFile(result) {
     result.violations.ga4,
     result.violations.ga5,
     result.violations.ga6,
+    result.violations.ga7,
   ])
     for (const f of arr) per.set(f.file, (per.get(f.file) || 0) + 1)
   return per
@@ -1203,7 +1509,9 @@ function report(res, meta) {
   const filesGA4 = new Set(v.ga4.map((f) => f.file)).size
   const filesGA5 = new Set(v.ga5.map((f) => f.file)).size
   const filesGA6 = new Set(v.ga6.map((f) => f.file)).size
-  const total = v.s0.length + v.ga1.length + v.ga2.length + v.ga4.length + v.ga5.length + v.ga6.length
+  const filesGA7 = new Set(v.ga7.map((f) => f.file)).size
+  const total =
+    v.s0.length + v.ga1.length + v.ga2.length + v.ga4.length + v.ga5.length + v.ga6.length + v.ga7.length
   const lines = [
     `文本箭头/文字返回对账(GA)|面=${meta.faceLabel}`,
     `  实读 ${notes.scanned} 个源文件(预筛后候选 ${notes.totalFiles},受管面共 ${meta.surface};S0 机制文件 ${MECHANISMS.length} 个恒实读)${meta.anchorLabel ? ` | ${meta.anchorLabel}` : ''}`,
@@ -1213,6 +1521,7 @@ function report(res, meta) {
     `  GA4  文字「返回」当返回箭头 ${v.ga4.length ? `${meta.verdictLabel} ${v.ga4.length} 处 / ${filesGA4} 文件` : '✅ 0'}`,
     `  GA5  字形+「返回」混合写法 ${v.ga5.length ? `${meta.verdictLabel} ${v.ga5.length} 处 / ${filesGA5} 文件` : '✅ 0'}`,
     `  GA6  页内返回键与原生导航栏同屏 ${v.ga6.length ? `${meta.verdictLabel} ${v.ga6.length} 处 / ${filesGA6} 文件` : '✅ 0'}`,
+    `  GA7  RN/共享层同屏双返回·双层页头 ${v.ga7.length ? `${meta.verdictLabel} ${v.ga7.length} 处 / ${filesGA7} 文件` : '✅ 0'}`,
     `  自豁免(门自身与其测试必含被判据字面量):${notes.selfExempt} 个文件${notes.skipped ? `;非受管扩展名跳过 ${notes.skipped} 个` : ''}`,
   ]
   if (notes.exempt) lines.push(`  行内豁免 glyph-arrow-exempt 放过:${notes.exempt} 处`)
@@ -1230,6 +1539,13 @@ function report(res, meta) {
     lines.push(
       `  ⚠️ GA6 导航栏形态未判定:${notes.chromeUndetermined.length} 个页面(页面 config 与 app.config 都取不到 ⇒ 这一型本轮没看守,不是通过):${notes.chromeUndetermined.map((h) => h.file).slice(0, 6).join(', ')}`,
     )
+  if (notes.rnDoubleUndetermined.length)
+    lines.push(
+      `  ⚠️ GA7 子屏来源未判定:${notes.rnDoubleUndetermined.length} 处(import/barrel/目标在所选面取不到 ⇒ 这些组合本轮没看守,不是通过):`,
+    )
+  for (const u of notes.rnDoubleUndetermined.slice(0, 8)) lines.push(`      · ${u}`)
+  if (notes.rnDoubleUndetermined.length > 8)
+    lines.push(`      …另有 ${notes.rnDoubleUndetermined.length - 8} 处(--json 看全量)`)
   if (notes.wiringSkipped)
     lines.push('  S0 的"是否被 import"一侧:本轮按文件自验,未判定(不静默当作通过)')
   for (const x of fmt(v.s0)) lines.push(`  ✗ ${x}`)
@@ -1238,6 +1554,7 @@ function report(res, meta) {
   for (const x of fmt(v.ga4)) lines.push(`  ✗ ${x}`)
   for (const x of fmt(v.ga5)) lines.push(`  ✗ ${x}`)
   for (const x of fmt(v.ga6)) lines.push(`  ✗ ${x}`)
+  for (const x of fmt(v.ga7)) lines.push(`  ✗ ${x}`)
   return { lines, total }
 }
 
@@ -1263,10 +1580,12 @@ check-glyph-arrow-icon.mjs — 文本箭头当图标 / 「箭头比标签还大�
   - GA5  「返回」与字形**混写成整格**(\`← 返回\` / \`‹ 返回\`)—— GA1 只看整格字形、GA4 只看整格文案,这一型两条都不纳
   - GA6  小程序页面渲染页内返回键(BackChevron / NavBar)却是**原生导航栏** ⇒ 同屏两个返回箭头
          (判 Taro 页面 config,页内没写则继承 app.config.ts;两处都取不到 ⇒ 未判定,不记绿)
+  - GA7  RN/共享屏层同屏双返回 · 双层页头(屏目录 H1 同文件两套页头返回键 / H2 onBack 传给
+         一跳解析后自绘页头的子屏 / H3 headerShown:true 在 RN 面回潮;解析不出 ⇒ 未判定点名)
 
 豁免:行内 \`glyph-arrow-exempt: <一句话原因>\`(GA1/GA2)
       行内 \`back-label-exempt: <一句话原因>\`(GA4/GA5,写在命中行、可点元素起始行或其紧邻上行)
-      文件级 \`nav-chrome-exempt: <一句话原因>\`(GA6,页面级配置与渲染的组合不在某一行上)
+      文件级 \`nav-chrome-exempt: <一句话原因>\`(GA6/GA7,页面级配置/组合与渲染不在某一行上)
       前两者是逐行通道、裸标记不生效;裸 nav-chrome-exempt 不带原因同样不生效
 退出码:0=通过/无新增 1=有违规 2=无法判定(git 失败 / 取材面取不到 / 扫描面为空)
 紧急跳过:HUSKY_SKIP_GLYPH_ARROW_ICON=1 git commit ...
@@ -1458,6 +1777,7 @@ function selfTest() {
       ga4: violations.ga4,
       ga5: violations.ga5,
       ga6: violations.ga6,
+      ga7: violations.ga7,
       s0: violations.s0,
       notes,
       n1: violations.ga1.length,
@@ -1465,7 +1785,9 @@ function selfTest() {
       n4: violations.ga4.length,
       n5: violations.ga5.length,
       n6: violations.ga6.length,
+      n7: violations.ga7.length,
       ncu: notes.chromeUndetermined.length,
+      nru: notes.rnDoubleUndetermined.length,
       blind: notes.backBlind.length,
       n0: violations.s0.length,
     }
@@ -1800,8 +2122,10 @@ function selfTest() {
     }).n5 === 0,
   )
   t(
-    '预筛必须是判据字面量的超集:GA5 的 « 与 GA6 的三个标识符少一个,门就在自己立项的那一型上失明',
-    ['«', 'BackChevron', 'NavBar', 'navigationStyle'].every((lit) => PREFILTER.includes(lit)),
+    '预筛必须是判据字面量的超集:GA5 的 « 与 GA6 的三个标识符少一个,门就在自己立项的那一型上失明;GA7 同 —— headerShown/onBack 漏一个,H3 整型隐身、H2 候选全被筛掉',
+    ['«', 'BackChevron', 'NavBar', 'navigationStyle', 'headerShown', 'onBack'].every((lit) =>
+      PREFILTER.includes(lit),
+    ),
   )
   // 2026-09-26 补的锁 —— 上面那条**只查字符集与标识符**,所以它一路绿灯地放过了下面这个洞:
   // GA4 的 i18n 形态 `{t('common.back')}` 里**没有中文「返回」二字**(键名才是 back),
@@ -1885,6 +2209,106 @@ function selfTest() {
         [PCFG]: NATIVE_CFG,
         'apps/miniapp-taro/src/app.config.ts': APP_CFG,
       }).n6 === 1,
+  )
+
+  // GA7:RN/共享层 同屏双返回 · 双层页头(2026-09-26 立)
+  const WRAP = 'apps/mobile-rn/src/screens/g7/WrapperScreen.tsx'
+  const CHILD = 'packages/app/src/features/g7/G7ChildScreen.tsx'
+  const BARREL_TXT = "export { G7ChildScreen } from './features/g7/G7ChildScreen'\n"
+  const NAVBAR_TXT = "export const NavBar = 1\n"
+  const WRAP_NAVBAR_BACK =
+    "import { NavBar } from '../../components/NavBar'\nimport { G7ChildScreen } from '@ihui/rn-app'\nexport default function W() {\n  return <View><NavBar title=\"设置\" onBack={go} rightActions={ra}><G7ChildScreen onBack={go} /></NavBar></View>\n}\n"
+  const CHILD_WITH_HEADER =
+    "import { BackChevron } from '../../components/BackChevron'\nexport function G7ChildScreen({ onBack }) {\n  return <View><BackChevron onPress={onBack} /><Text>设置</Text></View>\n}\n"
+  const CHILD_NO_HEADER =
+    "export function G7ChildScreen({ onBack }) {\n  return <View><FlatList data={rows} /></View>\n}\n"
+  const G7_FIX = {
+    [WRAP]: WRAP_NAVBAR_BACK,
+    [CHILD]: CHILD_WITH_HEADER,
+    [RN_APP_BARREL]: BARREL_TXT,
+    'apps/mobile-rn/src/components/NavBar.tsx': NAVBAR_TXT,
+  }
+  t(
+    'GA7-H2 阳性对照:wrapper 自绘 NavBar(onBack)+ 把 onBack 传给经 barrel 一跳解析后自绘 <BackChevron/> 的子屏 ⇒ 判红(phone-set2.png 那一型)',
+    only(G7_FIX).n7 === 1 && only(G7_FIX).ga7.some((f) => f.file === WRAP && /G7ChildScreen/.test(f.msg)),
+  )
+  t(
+    'GA7-H2 反向:子屏可读且**不画**页头返回键 ⇒ 正当放行(子屏作纯内容托管;判红就是假阳)',
+    only({ ...G7_FIX, [CHILD]: CHILD_NO_HEADER }).n7 === 0,
+  )
+  t(
+    'GA7-H2 未判定:barrel 在所选取材面取不到 ⇒ 不记绿也不冒红,必须计 rnDoubleUndetermined 点名(静默成 0 就是洞)',
+    (() => {
+      const r = only({ [WRAP]: WRAP_NAVBAR_BACK, 'apps/mobile-rn/src/components/NavBar.tsx': NAVBAR_TXT })
+      return r.n7 === 0 && r.nru === 1
+    })(),
+  )
+  t(
+    'GA7-H2 NavBar 无 onBack ⇒ 它没画返回箭头,不构成"自带页头返回键",不得判(宁漏不误报的"漏"侧)',
+    only({
+      ...G7_FIX,
+      [WRAP]:
+        "import { NavBar } from '../../components/NavBar'\nimport { G7ChildScreen } from '@ihui/rn-app'\nexport default function W() {\n  return <View><NavBar title=\"首页\" leftActions={la}><G7ChildScreen onBack={go} /></NavBar></View>\n}\n",
+    }).n7 === 0,
+  )
+  t(
+    'GA7-H2 onBack={undefined} 不算画了返回键(NavBar 的 {onBack ? ... : null} 语义,NavBar.tsx:79 实测)',
+    only({
+      ...G7_FIX,
+      [WRAP]:
+        "import { NavBar } from '../../components/NavBar'\nimport { G7ChildScreen } from '@ihui/rn-app'\nexport default function W() {\n  return <View><NavBar title=\"设置\" onBack={undefined}><G7ChildScreen onBack={go} /></NavBar></View>\n}\n",
+    }).n7 === 0,
+  )
+  t(
+    'GA7-H1:同一屏文件两套页头返回键(NavBar+BackChevron)⇒ 判第二处(不需要跨文件)',
+    only({
+      [WRAP]:
+        "import { NavBar } from '../../components/NavBar'\nimport { BackChevron } from '../../components/BackChevron'\nexport default function W() {\n  return <View><NavBar title=\"设置\" onBack={go} /><BackChevron onPress={go} /></View>\n}\n",
+      'apps/mobile-rn/src/components/NavBar.tsx': NAVBAR_TXT,
+      'apps/mobile-rn/src/components/BackChevron.tsx': 'export const BackChevron = 1\n',
+    }).n7 === 1,
+  )
+  t(
+    'GA7-H3:headerShown:true 在 RN 面回潮 ⇒ 判红;headerShown:false 不判;web 面同字面量不判(射程只 RN)',
+    only({ 'apps/mobile-rn/src/navigation/G7Probe.tsx': 'export const O = { headerShown: true }\n' }).n7 === 1 &&
+      only({ 'apps/mobile-rn/src/navigation/G7Probe.tsx': 'export const O = { headerShown: false }\n' }).n7 === 0 &&
+      only({ 'apps/web/src/g7.tsx': 'export const O = { headerShown: true }\n' }).n7 === 0,
+  )
+  t(
+    'GA7 豁免复用文件级 nav-chrome-exempt(带原因才生效;不开第四通道)',
+    only({ ...G7_FIX, [WRAP]: "// nav-chrome-exempt: 双栈迁移过渡期,子屏页头暂留\n" + WRAP_NAVBAR_BACK }).n7 === 0 &&
+      only({ ...G7_FIX, [WRAP]: '// nav-chrome-exempt\n' + WRAP_NAVBAR_BACK }).n7 === 1,
+  )
+  t(
+    'GA7 只在屏目录判:packages/app/src/components/ 不算屏(机制/共享组件文件不自判)',
+    only({ 'packages/app/src/components/G7Widget.tsx': CHILD_WITH_HEADER, [RN_APP_BARREL]: BARREL_TXT }).n7 === 0,
+  )
+  t(
+    'GA7 不继承 GA4/GA5 的跨行自闭合栈失配盲区:同文件双返回键写成跨多行自闭合标签仍要判到',
+    only({
+      [CHILD]:
+        "import { BackChevron } from '../../../components/BackChevron'\nexport function G7ChildScreen({ onBack }) {\n  return (\n    <View>\n      <BackChevron\n        onPress={onBack}\n        colorScheme=\"light\"\n      />\n      <BackChevron onPress={onBack} />\n    </View>\n  )\n}\n",
+      'packages/app/src/components/BackChevron.tsx': 'export const BackChevron = 1\n',
+    }).n7 === 1,
+  )
+
+  t(
+    'GA7-H1 反向:互斥 return 分支各画一套页头(loading/错误态/正常态)⇒ **不是**同屏双返回,不得判 —— HEAD 面 9 处此型(ActivityDetail/Income/QrCode 等 returns@26,40,57 各带一套),首版按整文件计数全判成假阳,这条锁钉死分支口径',
+    only({
+      [CHILD]:
+        "import { BackChevron } from '../../../components/BackChevron'\nexport function G7ChildScreen({ onBack, loading, err }) {\n  if (loading) return <View><BackChevron onPress={onBack} /><Spinner /></View>\n  if (err) return <View><BackChevron onPress={onBack} /><Text>出错</Text></View>\n  return <View><BackChevron onPress={onBack} /><Content /></View>\n}\n",
+      'packages/app/src/components/BackChevron.tsx': 'export const BackChevron = 1\n',
+    }).n7 === 0,
+  )
+  t(
+    'GA7-H2 同分支约束:NavBar 与子屏 onBack 分属**互斥分支**(错误态有 NavBar、正常态挂子屏)⇒ 不同屏,不得判',
+    only({
+      [WRAP]:
+        "import { NavBar } from '../../components/NavBar'\nimport { G7ChildScreen } from '@ihui/rn-app'\nexport default function W({ bad }) {\n  if (bad) return <View><NavBar title=\"设置\" onBack={go} /></View>\n  return <View><G7ChildScreen onBack={go} /></View>\n}\n",
+      [CHILD]: CHILD_WITH_HEADER,
+      [RN_APP_BARREL]: BARREL_TXT,
+      'apps/mobile-rn/src/components/NavBar.tsx': NAVBAR_TXT,
+    }).n7 === 0,
   )
 
   // GA6 的取材批次:config 路径必须补进 reader,否则"没读"会被当成"没有"
@@ -2138,6 +2562,16 @@ export const __test__ = {
   findChromeDuplicates,
   withPageConfigs,
   navStyleOf,
+  findRnDoubleHeaders,
+  headerBackFiles,
+  importsOf,
+  barrelExportMap,
+  resolveRelPath,
+  tagHasOnBack,
+  RN_SCREEN_PREFIXES,
+  RN_FACE_PREFIXES,
+  RN_APP_BARREL,
+  HEADER_SHOWN_TRUE_RE,
   walkAffordanceChildren,
   classifyGlyph,
   classifyBackLabel,

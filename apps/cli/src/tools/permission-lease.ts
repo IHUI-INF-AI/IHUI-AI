@@ -53,12 +53,20 @@ export interface PermissionLease {
   /** 撤销时刻;null 表示未撤销。 */
   revokedAt: string | null;
   /** 摘要绑定的工作区身份(仅当授予时给了 `digestDeclarations` 才存在)。
-   *  缺省 ⇒ 本租约没有摘要维度,判定逐字同旧语义(默认档不变的构造保证)。 */
+   *  缺省 ⇒ 本租约没有摘要维度,判定逐字同旧语义(默认档不变的构造保证)。
+   *  **只能在构造时定死,此后不可重绑** —— 身份是摘要 key 的一半,可事后改写等于把一条租约
+   *  悄悄搬到另一个工作区名下(那既是"每次批准都漂移"的死锁形,也是冒充已批准的越权形)。 */
   readonly workspaceId?: string;
   /** 槽位指纹:工具名 → 授予时刻声明内容摘要集合(sha256 hex)。持久信任键 = 工作区身份 × 声明摘要。
    *  出现在这里的 capability 受摘要治理:运行期每次比对调用内容,**内容变了旧批准即失效**,
-   *  并落单列的待再审态(见 `LeaseRelaxationDetail.contentDrifted`),不是压回"从未批准"。 */
-  readonly slotDigests?: Readonly<Record<string, readonly string[]>>;
+   *  并落单列的待再审态(见 `LeaseRelaxationDetail.contentDrifted`),不是压回"从未批准"。
+   *  写入只有两处:① 授予时的 `digestDeclarations`;② 批准时刻的 `recordApprovedInvocation()`。
+   *  外层不 freeze(② 要追加),每个值数组仍冻结 —— 逐槽不可原地篡改,增槽只经那一个出口。 */
+  readonly slotDigests?: Record<string, readonly string[]>;
+  /** 摘要维度的取用档位:true = 能力清单里的工具**先要一次真人批准来建立内容绑定**,之后按内容钉住
+   *  (bind-on-first-approval)。缺省 false ⇒ 逐字旧语义(能力名匹配即放宽,不存在内容绑定)。
+   *  它解开的正是"要批准才有绑定 / 有绑定才要批准"的死循环 —— 没有这一档,批准时刻永远成不了摘要的数据源。 */
+  readonly digestTrackOnApproval?: boolean;
   /** 已推进轮次(内部可变计数,到期判据读它)。 */
   turnsUsed: number;
   /** 已放宽次数(内部可变计数)。 */
@@ -80,6 +88,9 @@ export interface GrantLeaseInput {
   /** 按摘要钉住的内容声明:工具名 → 授予时被批准的完整命令/声明文本。键必须是 capabilities 的子集。
    *  不在此表的 capability 继续按工具名精确匹配的旧语义放宽(未启用摘要维度 ⇒ 既有链路行为不变)。 */
   digestDeclarations?: Readonly<Record<string, readonly string[]>>;
+  /** true = 本租约的能力在拿到**第一次真人批准**之前不放宽(bind-on-first-approval,见 `recordApprovedInvocation`)。
+   *  开启必须同时给 `workspaceId`:没有身份就没有可比的摘要 key,这一档只会变成"永远要批准"。 */
+  digestTrackOnApproval?: boolean;
 }
 
 /** 租约不成立时的错误类型(调用方必须把它当缺陷处理,不得吞掉)。 */
@@ -131,6 +142,143 @@ export function slotDigest(workspaceId: string, declaration: string): string {
   return createHash('sha256').update(`${workspaceId}\u0000${declaration}`, 'utf8').digest('hex')
 }
 
+// ==================== 摘要维度的开关与"批准时刻"的数据源 ====================
+
+/** 单个槽位最多留几条"被批准过的内容"摘要(超出按 FIFO 丢最旧)—— 没有上限就是无界增长。 */
+export const MAX_DIGESTS_PER_SLOT = 8;
+
+/**
+ * 摘要维度的**显式关闭出口**(环境变量,缺省 = 启用)。
+ * 为什么默认启用而不是默认关闭:一旦某个槽位被摘要治理,校验不过就必须不放宽(fail-closed),
+ * 这是本维度存在的唯一理由;默认关闭等于把"内容变了旧批准仍生效"重新请回来。
+ * 为什么仍要给出路:启用后未提供调用内容的消费点一律不放宽(见 `resolveLeaseRelaxation` 那条旧入口),
+ * 对已经写了 `digestDeclarations` 的调用方是**行为收紧**,必须有一条不改动代码就能退回旧语义的口。
+ * 取值:`0` / `false` / `off`(大小写不敏感、去空白)视为关闭;其余一律视为启用。
+ */
+export const LEASE_DIGEST_SWITCH_ENV = 'IHUI_LEASE_SLOT_DIGEST';
+
+/** 读摘要维度是否在位(唯一出口,判定与登记都只问这一处,不在两处各读一遍 env)。 */
+export function isLeaseDigestDimensionEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const raw = (env[LEASE_DIGEST_SWITCH_ENV] ?? '').trim().toLowerCase();
+  return !(raw === '0' || raw === 'false' || raw === 'off');
+}
+
+/** 登记失败的成因(全部如实回传,调用方不得吞 —— 吞掉就等于"批准过了"的假账)。 */
+export type RecordApprovedInvocationFailure =
+  | 'digest-dimension-disabled'
+  | 'no-active-lease'
+  | 'lease-not-live'
+  | 'lease-has-no-workspace-identity'
+  | 'workspace-identity-mismatch'
+  | 'dangerous-tool'
+  | 'tool-not-in-lease'
+  | 'empty-invocation-content'
+  | 'unbound-slot-not-tracked'
+  | 'lease-has-no-slot-ledger';
+
+export type RecordApprovedInvocationResult =
+  | {
+      readonly recorded: true;
+      readonly auditRef: string;
+      readonly tool: string;
+      readonly digest: string;
+      readonly slotSize: number;
+      /** true = 这是该槽位的第一次绑定(此前它不受摘要治理)。 */
+      readonly firstBinding: boolean;
+    }
+  | { readonly recorded: false; readonly reason: RecordApprovedInvocationFailure };
+
+export interface RecordApprovedInvocationInput {
+  /** 被批准的那一次调用的工具名(必须是本租约能力清单里的名字)。 */
+  toolName: string;
+  /** **被批准的内容原文**:与执行侧喂进判定的同一份序列化口径(同一 stringify,不得两边各拼一遍)。 */
+  invocationContent: string | null | undefined;
+  /** 危险档一律不登记 —— 危险确认从来不受租约影响,给它建槽位等于把危险操作塞进"以后免批"。 */
+  dangerLevel: 'read' | 'write' | 'dangerous';
+  /** 工作区身份:必须与租约构造时定死的那一份同值(见 `PermissionLease.workspaceId`)。 */
+  workspaceId: string;
+  /** 审计说明(为什么这次批准要落成绑定)。 */
+  reason?: string;
+  nowMs?: number;
+}
+
+/**
+ * 向**当前生效**的租约登记"用户在交互批准那一刻批准过的命令内容"。
+ *
+ * 这一格补的是时序缺口:租约在运行开始时授予、批准发生在其后,而 `PermissionLease` 的字段是
+ * readonly、构造器还把"叠加授予"判死 —— 所以"把摘要补进去"**不能**用再 grant 一次来表达,
+ * 也不能造第二套批准流。这里给的是一个显式、带审计、单一写入点的登记出口,四条判死照旧不动:
+ *  1. 无到期 / 通配 / 危险档不受影响三条构造判死一个都没松(本函数根本不构造租约);
+ *  2. 只能给**已在能力清单里**的名字建槽位 —— 否则登记即静默扩大作用域(与构造器同一条理由);
+ *  3. 身份不同源即拒:租约没定死 workspaceId ⇒ 无从可比,直接拒(不补绑、不猜);
+ *  4. 空内容即拒(空摘要使漂移判定失效,构造器里同一条)。
+ *
+ * 未绑定过的新名字只有在 `digestTrackOnApproval` 在位时才允许首次绑定 —— 那正是"第一次批准"
+ * 换到绑定、之后的同内容调用才享受放宽的闭环(见该字段注释)。
+ */
+export function recordApprovedInvocation(
+  input: RecordApprovedInvocationInput,
+): RecordApprovedInvocationResult {
+  const nowMs = input.nowMs ?? Date.now();
+  const lease = activeLease;
+  if (!lease) return { recorded: false, reason: 'no-active-lease' };
+  if (!isLeaseDigestDimensionEnabled()) return { recorded: false, reason: 'digest-dimension-disabled' };
+  if (!isPermissionLeaseLive(lease, nowMs)) return { recorded: false, reason: 'lease-not-live' };
+  if (input.dangerLevel === 'dangerous') return { recorded: false, reason: 'dangerous-tool' };
+  const tool = (input.toolName ?? '').trim();
+  if (!leaseCovers(lease, tool)) return { recorded: false, reason: 'tool-not-in-lease' };
+  // 身份同源:租约的 workspaceId 在构造时定死,登记侧只能"对上",不能"改成手上这份"。
+  const identity = (lease.workspaceId ?? '').trim();
+  if (identity.length === 0) return { recorded: false, reason: 'lease-has-no-workspace-identity' };
+  if ((input.workspaceId ?? '').trim() !== identity) {
+    auditLog({
+      timestamp: new Date(nowMs).toISOString(),
+      tool: 'permission_lease_slot_digest_refused',
+      input: { auditRef: lease.auditRef, scope: lease.scope, capability: tool, reason: 'workspace-identity-mismatch' },
+      success: false,
+      error: '登记被批准内容时工作区身份与租约构造时定死的那一份不一致,已拒绝(不重绑、不猜)',
+    });
+    return { recorded: false, reason: 'workspace-identity-mismatch' };
+  }
+  const content = input.invocationContent;
+  if (content == null || content.length === 0) return { recorded: false, reason: 'empty-invocation-content' };
+
+  const ledger = lease.slotDigests;
+  // 有身份、有登记意图,却没有台账 ⇒ 构造侧漏建(不该发生)。判死而不是就地补一张:补就等于把
+  // "登记能否生效"变成运行期悄悄造字段,而字段是否在被审的构造路径上建立是这条链唯一的凭据。
+  if (!ledger) return { recorded: false, reason: 'lease-has-no-slot-ledger' };
+  const existing = ledger[tool] ?? [];
+  const firstBinding = existing.length === 0;
+  // 未绑定过的名字:只有显式开了 bind-on-first-approval 的租约才允许在此建立第一格绑定。
+  if (firstBinding && lease.digestTrackOnApproval !== true) {
+    return { recorded: false, reason: 'unbound-slot-not-tracked' };
+  }
+  const digest = slotDigest(identity, content);
+  if (existing.includes(digest)) {
+    return { recorded: true, auditRef: lease.auditRef, tool, digest, slotSize: existing.length, firstBinding: false };
+  }
+  // FIFO 封顶:保留最近 MAX_DIGESTS_PER_SLOT 条被批准过的内容(最旧的先掉)。
+  const next = [...existing, digest].slice(-MAX_DIGESTS_PER_SLOT);
+  ledger[tool] = Object.freeze(next);
+  auditLog({
+    timestamp: new Date(nowMs).toISOString(),
+    tool: 'permission_lease_slot_digest_recorded',
+    input: {
+      auditRef: lease.auditRef,
+      scope: lease.scope,
+      grantor: lease.grantor,
+      capability: tool,
+      // 只落指纹,不落命令明文(审计流水是明文盘,内容原文可能含凭据 —— 与守门 67 同一条取向)
+      digest,
+      slotSize: next.length,
+      firstBinding,
+      reason: input.reason ?? '用户在交互批准那一刻批准了本次调用内容',
+    },
+    success: true,
+  });
+  return { recorded: true, auditRef: lease.auditRef, tool, digest, slotSize: next.length, firstBinding };
+}
+
 /** 租约放宽明细判定的结果:`contentDrifted` 把"曾批准、内容已变、待再审"与"从未批准"分开。 */
 export interface LeaseRelaxationDetail {
   readonly lease: PermissionLease
@@ -157,8 +305,32 @@ export function resolveLeaseRelaxationDetail(
   if (dangerLevel === 'dangerous') return null;
   if (!isPermissionLeaseLive(lease, nowMs)) return null;
   if (!leaseCovers(lease, toolName)) return null;
+  // 关闭出口在位 ⇒ 摘要维度整体退场,逐字回到"按工具名精确匹配即放宽"的旧语义(不静默改判据,
+  // 结论行由 `IHUI_LEASE_SLOT_DIGEST` 决定并在 `describePermissionLease` 之外可回读)。
+  if (!isLeaseDigestDimensionEnabled()) return { lease, contentDrifted: false }
   const bound = lease.slotDigests?.[toolName]
-  if (!bound || bound.length === 0) return { lease, contentDrifted: false }
+  if (!bound || bound.length === 0) {
+    // 该名字还没有绑定。两种正当情形在这里分岔:
+    //  - 租约开了 bind-on-first-approval ⇒ **不放宽**,让人先批准一次,批准内容由
+    //    `recordApprovedInvocation()` 落成绑定(这就是"批准那一刻的内容"成为数据源的那一步);
+    //  - 未开 ⇒ 逐字旧语义(能力名匹配即放宽,不存在内容绑定)。
+    if (lease.digestTrackOnApproval === true) {
+      auditLog({
+        timestamp: new Date(nowMs).toISOString(),
+        tool: 'permission_lease_content_drift',
+        input: {
+          auditRef: lease.auditRef,
+          scope: lease.scope,
+          capability: toolName,
+          reason: '该能力按"先批准一次建立内容绑定"档位纳管,尚无绑定 ⇒ 不放宽(非"从未批准",是"还没批准过")',
+        },
+        success: false,
+        error: '内容绑定尚未建立,需用户首次批准',
+      });
+      return { lease, contentDrifted: true };
+    }
+    return { lease, contentDrifted: false };
+  }
   const digest = invocationContent == null ? null : slotDigest(lease.workspaceId ?? '', invocationContent)
   const drifted = digest === null || !bound.includes(digest)
   if (drifted) {
@@ -271,6 +443,13 @@ export function grantPermissionLease(input: GrantLeaseInput): PermissionLease {
   const boundTools = Object.keys(digestDecls);
   let workspaceId: string | undefined;
   let slotDigests: Record<string, readonly string[]> | undefined;
+  // 内容绑定档位(bind-on-first-approval):没有显式声明也要把身份定死 —— 没有身份就没有可比的
+  // 摘要 key,这一档只会退化成"永远要批准"(死锁形),所以在这里判死而不是等运行期一直问人。
+  if (input.digestTrackOnApproval === true && boundTools.length === 0) {
+    const trackWsId = requireText(input.workspaceId, 'workspaceId(内容绑定档位)');
+    workspaceId = trackWsId;
+    slotDigests = {};
+  }
   if (boundTools.length > 0) {
     // const 捕获:闭包里读 let 变量会被 TS 收窄回 string|undefined,摘要入口要的是 string
     const wsId = requireText(input.workspaceId, 'workspaceId(摘要绑定)');
@@ -301,7 +480,8 @@ export function grantPermissionLease(input: GrantLeaseInput): PermissionLease {
     auditRef: `lease-${nowMs.toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     revokedAt: null,
     ...(workspaceId !== undefined ? { workspaceId } : {}),
-    ...(slotDigests !== undefined ? { slotDigests: Object.freeze(slotDigests) } : {}),
+    ...(slotDigests !== undefined ? { slotDigests } : {}),
+    ...(input.digestTrackOnApproval === true ? { digestTrackOnApproval: true } : {}),
     turnsUsed: 0,
     callsUsed: 0,
   };
@@ -321,6 +501,8 @@ export function grantPermissionLease(input: GrantLeaseInput): PermissionLease {
       maxCalls: lease.maxCalls ?? null,
       // 记账哪些槽位受摘要治理(只记键名与指纹存在性;摘要不可逆,不落命令明文)
       digestBoundCapabilities: lease.slotDigests ? Object.keys(lease.slotDigests) : [],
+      // 档位是否在位要能在审计里回读:它决定"这份租约的能力在第一次真人批准前不放宽"
+      digestTrackOnApproval: lease.digestTrackOnApproval === true,
     },
     success: true,
   });

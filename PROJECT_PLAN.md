@@ -9401,6 +9401,7 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
     **面板内视图回退**唯一入口(原生栏只退整页,退不了局部 state)。批量删除时被一起带走 ⇒ 重建
     `backToIncome` 并在明细视图内放文字回退钮 + `back-label-exempt: … until 2026-12-31`。
   - **GA5 两处真站点(落地形态按 HEAD 现读更正,2026-09-26 复验)**:`ModelConfigDialog.tsx` **保留 `←` 并带原因 `back-label-exempt`**(实测 `←`=1 / 豁免=1 / 无 `ChevronLeft`)—— 矢量化要动 `RatioSelector` 的组件签名,而该作用域里没有 `t` 也没有 `tokens`,不得为消红去改别人组件的 API;
+  - **GA5 两处真站点**:`ModelConfigDialog.tsx` 删 `←` 改矢量 `ChevronLeft size=12` + `t('common.back')` + 带原因豁免;
     `Selecter.tsx` 实测该文件 i18n 与矢量图标通道**双缺**(grep `useTranslation|const tt|lucide|<svg` 零命中,
     消费方只有 barrel)⇒ 按"不为消红塞新依赖"处置:删 `←` 留文字 + 豁免注明通道缺失原因。
   - **RN/共享层 GA4 存量 8 处**清零:全部换 `<BackChevron onPress label colorScheme/>`(照抄已收口屏的写法),
@@ -9413,6 +9414,8 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
     CI 的 i18n Dead Key Audit 已 success。删除按"键路径栈只摘匹配行"执行,7 枚键 × 5 语 = 35 行,
     每轮带阳性对照(`common.back`、`ai.historyPage.pin/pinned` 必须存活),并对"父提交↔提交后"做键集合差
     自审(每份恰好只减预期数,零附带回滚)。配套:重复键 0 / 五语 parity 0 / 守门 105 0。
+  - 遗留(已量化,须改语言包故不在本票授权面):`aiGroup.back` / `aigcCover.back` / `aigcPublish.back`
+    三键现全仓零引用 —— 清理属 i18n 死键票,不得为消红留孤儿键。
 - **验证(全部实跑,读数即现值)**:守门 102 全量面 exit 0,HEAD 存量 GA1 70/31、GA4 8/8、GA5 2/2、GA6 31/31
   (工作树面 GA4/GA5/GA6 分别 0/0/0 ⇒ 提交后即落);`--staged` 面 exit 0;门 108 登记 `nav-chrome-exempt` 族
   (365 天,与 `back-label-exempt` 同一理由:结构性定性而非待偿债务)+ 门自身文档提及数并入存量账
@@ -9964,6 +9967,7 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   - **落地五票（每票由主会话或代理独立复跑权威入口，退出码进 commit）**：
     1. `6bda46b3aca` + `173d0cd20e2` **目标级限时权限租约**（吸收自"把更宽权限只开给本目标、不放全局后门"）—— `apps/cli/src/tools/permission-lease.ts` 构造器判死（无到期 / 通配 / 空清单 / 空作用域 / 叠加授予**无法构造**），放宽只落在 `permissions.ts:applyLeaseToDecision` **一处**且只把 `'ask'` 翻放行，`'deny'` 与 `dangerLevel==='dangerous'` 结构上碰不到；无租约时返回体逐字同改造前（"默认关闭"是实测事实不是承诺）；授予/使用/轮次/撤销四类行同 `auditRef` 落既有 `audit.ts`（未另立第二份真相）。回归 18 例 + 变异 A（摘到期⇒4 红）/ B（覆盖高危⇒1 红）；守门 `check-permission-lease-bounded.mjs` 自检 7 例 + 镜像 4 例（**未进 runner**，注册表当日在飞）。**遗留**：`agent.ts:1238/1605/1723` 三处尚未消费租约（该文件被并发会话持有）、CLI flag `--permission-lease` 未接（前置是 5 语言 i18n 键）。**该票的一处断链已收(2026-09-26)**:它把必填档 dangerLevel 接到可选的 Tool.dangerLevel 上,apps/cli 的 typecheck 当场断在 tools/index.ts:678(CI 的 Smoke New Modules 一路红,而提交者当时走了跳门);修法是「无 dangerLevel 声明的工具不走租约分支,回到租约之前的 checkPermission」—— 替它编一个默认档等于凭空放宽或凭空新增批准,而 16 个待补档工具由守门 111 的 flip-audit 记着账。**该收法已让位(2026-09-26 收敛时定)**:持票人随后把同一条断链收成另一种形态 —— `checkRulesWithLease` 加第 5 形参把「执行内容」喂进判定、未声明档取 `dangerLevel ?? "write"` 并在行内写明理由(undefined 在既有语义里等同非危险);合并时这一格取对侧(§12b 不重写他人主体逻辑),我这版回落分支不再在 HEAD 里。两条路的共同点是都不凭空放宽 'ask' 之外的判定,差别只在「未声明」落哪一档 —— 该判断属持票人,不属顺手修红的人。
 - [ ] P1 **`check-auth-refresh-singleton`(hook 批外步骤)按磁盘遍历客户端源码,一个未跟踪的构建副本就让全队每次提交被迫跳门(2026-09-26 实测)**:它 `readdirSync` 走文件系统(第 47 行),于是并发会话留在 `apps/miniapp-taro/.tmp-twq-fix/` 的**未跟踪**旧构建产物(5.4 MB,`common.js` 里含裸 `refreshAccessToken`)被判成违规;而它跑在守门批**之外**,161 道门全绿也照样 exit 1 —— 实测连续两枚提交因此走 `--no-verify`(归因层量到"红在批外"),一次跳门等于该枚提交上全部守门作废(§12e 同型)。当场处置是把副本**移出**到 `.ihui-agent/tmp/quarantine-2026-09-26/`(未删除,可回读),该步现 exit 0。**根因未修**:判据应判仓库内容而非共享工作树快照(门 57 已确立该口径),且改它必须同笔迁到 `scripts/lib/face-reader.mjs` 的 `catBatch`(门 118 对"本次改动动过的门"按取材面判,仍按磁盘读会被判半接线红)。
+    1. `6bda46b3aca` + `173d0cd20e2` **目标级限时权限租约**（吸收自"把更宽权限只开给本目标、不放全局后门"）—— `apps/cli/src/tools/permission-lease.ts` 构造器判死（无到期 / 通配 / 空清单 / 空作用域 / 叠加授予**无法构造**），放宽只落在 `permissions.ts:applyLeaseToDecision` **一处**且只把 `'ask'` 翻放行，`'deny'` 与 `dangerLevel==='dangerous'` 结构上碰不到；无租约时返回体逐字同改造前（"默认关闭"是实测事实不是承诺）；授予/使用/轮次/撤销四类行同 `auditRef` 落既有 `audit.ts`（未另立第二份真相）。回归 18 例 + 变异 A（摘到期⇒4 红）/ B（覆盖高危⇒1 红）；守门 `check-permission-lease-bounded.mjs` 自检 7 例 + 镜像 4 例（**未进 runner**，注册表当日在飞）。**遗留**：`agent.ts:1238/1605/1723` 三处尚未消费租约（该文件被并发会话持有）、CLI flag `--permission-lease` 未接（前置是 5 语言 i18n 键）。
     2. `18793d76a73` **并发预算收成单一出口** —— 票面给的两个路径**都不存在**，按磁盘重量到 5 处写死（`subagents/worker-pool.ts:42`、`commands/subagent-collab.ts:850/739`、`commands/subagent-parallel.ts:109`、`tools/subagent.ts:596`），且比票面更糟两条：上下限钳制**全仓不存在**、CPU 推导**零命中**（从来没有，不是"只用于够不够用"）。新建 `subagents/concurrency-budget.ts`（`MAX/MIN_CONCURRENCY` 只此一档），五处全改走它；关键一处是 `defaultWorkerPoolConfig` 的 `maxWorkers` 必须移到 `...overrides` **之后**，否则调用方传的 999 会在最后一刻盖掉钳制。5 例 + 变异（删钳制⇒2 红）。**pool 复用未做**（shutdown 会 resolve pending 任务，共享池要重做生命周期语义），只把"并发总量可观测"做掉 ⇒ "两个并发 fan-out = 2×maxWorkers"现在**可看见**但仍不约束。
     3. `ee5a6537704` **调试会话回收接线**（票面原描述的 `mcpHubSessions`/"上限 20" 经实测均不存在，真缺陷在另一格：`tools/debug.ts` 的 `cleanupIdleSessions()` 导出零调用方 ⇒ "30 分钟自动清理"只是注释）—— launch/attach/list 单一摘除出口 + 删 list 内联的第二条写路径 + 回收计数摊进输出；4 例走生产入口 + 变异（摘回收⇒2 红）。**刻意不加条数上限**：唯一能被挤掉的是用户正在用的会话，杀比留更坏（解阻需先定"超限挤掉谁"的用户语义）。
     4. `2930556319f` **cloud-run 台账失败不再静默** —— 生产调用 1 处、静默吞失败出口 4 处；复用 `util/inflight-ledger` 的原因码词表基底（不扩其封闭集、不复用 `run()` 固化 —— 云写入每次新 runId，跨 run 固化等于再造一层静默），失败落 `getCloudRunDegradeFacts()`，首次立即喊话 + 60s 节流复读；分档 network/auth/timeout/cancelled/server。17/17 绿 + 变异（摘两处 recordDegrade⇒4 红、成功回归锁仍绿）。
@@ -9986,12 +9990,6 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
     - ② 第十二批那格写"遗留:`agent.ts:1238/1605/1723` 三处尚未消费租约"。**现值不是三处**:HEAD 面 `activePermissionLease` 的读侧只有 `tools/index.ts:691` 一处(已在 `ee353308241` 消费),那三个行号是当时那份**尚未被并发会话推进过**的 `agent.ts` 快照。⇒ 行号派单前必须重新 `grep`,不得沿用台账里的坐标(本节多条"现值以实测为准"就是这个意思)。
   - **本批最重要的一条新事实(比任何一票都值得留)**:`grantPermissionLease()` 在 `apps/cli/src` **生产面零调用点**(实测 `grep -rn "grantPermissionLease" apps/cli/src --include=*.ts` = 0)。所以"租约 + 槽位指纹"整条机制今天是**默认关闭且不可达** —— 我上面那票把**消费侧**装上了车,但**授予侧仍空**,这不是"已交付"。已派单补 `--permission-lease <工具名,…>`(操作员显式、默认不给即逐字不变,`grantor:'cli-flag'` 走既有构造器,禁止新增第二放宽开关),落地票行随下一格补登记。
   - **两格判为"不立门"并留下否证**(免得后人重复裁决):① "禁止裸 `getCacheKey(provider)`"**不进门 116** —— 判据已在自然归属处(上述测试⑤),且全仓 `getCacheKey(` 只有 1 个调用点,在门 116 再抄一份就是第二个真相源;② `slotDigest` **不另立"名单正向证明"门** —— 正证已在 `permission-approval-digest.test.ts` B2(内容改动 ⇒ 落 `content-drifted` 单列态)与 B7(同输入同摘要 / 换工作区不同 / 内容 +1 字符即不同),两条方向都有,门只会复制它们。
-
-
-
-
-
-
 - **第十四批 ZCode 吸收线(2026-09-26 午):把"机制在库"补成"机制可达"—— `--permission-lease` 授予路径(`731536a8258`,承第十三批那格"生产面零调用点")**。
   - 交付:`apps/cli/src/utils/permission-lease-flag.ts`(新建) = 解析 + 封顶 + 授予的**唯一出口**,`grantor` 写死 `cli-flag`,ttl 默认 10 分钟 / 硬封顶 60、轮次默认 1 / 硬封顶 25、工具数上限 32;判不下来返回 `invalid` 由命令层**失败关闭 exit 1**(静默回落成"没给 flag 继续跑"等于把操作员要的放宽换成另一套语义)。`index.ts` 在运行开始时授予、**`finally` 撤销**(崩溃后遗留放宽正是该模块立论要排除的"永久放宽"形态);`settings.ts` 只透传不解析,且**刻意只有 CLI 一层** —— `settings.json` 若能表达"长期放宽某几个工具",就是造出一条无需操作员在场的放宽通道。
   - 复验(主会话独立复跑,不采信代理自陈):`pnpm --filter @ihui/cli typecheck` 0 错;4 文件 **53 例全绿**(新票 17 例 6 组:默认档逐字不变 / 授予生效 / 到期与轮次 / 封顶 / 失败关闭 / **结构锁**——非测试面必须真有 `grantPermissionLease(` 调用点,代理以"把调用点改名 ⇒ 该例红"变异自证);`--help` 三档文案**实跑渲染**通过(补掉代理如实登记的未做项);五语言 `cliEntry` 键集同形(各 127)、新 5 键占位符逐语言等值、`i18n-diff --target=cli` 无 pending、**全部 locale 改动 numstat 为纯新增 0 删除**。
@@ -10000,7 +9998,30 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   - 一句话:第十三批把**消费侧**装上车、本批把**授予侧**装上车 —— 租约机制从"默认关闭且不可达"变成"默认关闭、操作员可显式启用、限时限量可撤销",而"更强那一半(内容指纹)"仍是有主有判据的账。
   - **本票落地形态如实登记**(不是"正常提交"):首次 commit 在守门批**之前**的那一步失败,`safe-commit` 按 §12 归因铰链**自己复跑了守门批 —— 161 道全跑、blocking 失败 0、无一门点名本票 9 个路径**,据此走应急跳门落地。主会话另做三件独立复验:提交后 `git status` 对本票 9 路径**全清**(工作树==HEAD,lint 副作用未改内容)、`pnpm --filter @ihui/cli typecheck` 0 错、4 文件 **53 例在落盘内容上重跑全绿**。⇒ 跳门的依据是**量出来的批内 0 失败**,不是"别人的红"这句套话。
   - 顺带否证一条派单口径:`node scripts/safe-commit.mjs -F <消息文件>` **不存在这个开关**,它只打一句 `未知参数: -F` 就 **exit 0** 什么都没做(我第一次提交就是这样空转的)—— 与 §"未知 CLI 参数静默掉进默认分支"同型,已在交付侧改为 `-m` 并把消息写进提交正文。本票不顺手修该工具(注册/工具面另有持有者),此格即出口。
+- **第十五批 ZCode 吸收线尾格(2026-09-26 午,`0ed3cf378eb`):把"状态字典"从注释换成代码 —— `checksum_mismatch` 不再是只有代码知道的第五态**。
+  - 成因(第十四批登记过的遗留):合并校验失败终态 `checksum_mismatch` 由 `chunked-upload.ts` **写**、由 `upload-integrity.ts` 的 `TERMINAL_STATUSES` **判**,而"状态字典"当时只是 `packages/database/src/schema/upload-sessions.ts` 里的一句**注释**,那句注释列了四态、漏第五态。**typecheck 看不见注释**,所以这个分叉可以无限期存在 —— 与守门 72/78/121 同族("本地全绿、出事的是别人/运行时")。
+  - 处置:字典落成 `UPLOAD_SESSION_STATUS` + 两个子集(`…TERMINAL_STATUSES` / `…REAPABLE_STATUSES`),两处消费方改取子集,注释不再重列清单而改为指向导出。回归 `apps/api/tests/upload-status-vocabulary.test.ts` 4 例:V1 分档完备且不相交、V2 第五态在词表且在终态侧、V3 **结构锁**(两个消费文件不得再出现 `status: '…'` / `.status !== '…'` 裸字面量,也不得再 `new Set(['…'])` 就地列清单)、V4 变异对照。
+  - 判据有牙是**变异量出来的**,不是写出来的:把一处改回 `status: 'merging'` ⇒ 仅 V3 红且断言原文点名该字面量(`expected [ 'status: 'merging'', …(3) ] to deeply equal []`),还原后 4/4 绿。另 `pnpm --filter @ihui/database typecheck` 与 `pnpm --filter @ihui/api typecheck` 均 0 错,`upload-integrity.test.ts` **15 例**同轮全绿(第一版这里我写的 18 是把"两文件合计 19"心算错的,已按单文件实跑改成正测值 —— 登记数字必须量,不得推算)。
+  - **写测试时自己踩到的一条,值得留**:仓库根第一版用 `process.cwd()` + 三个候选路径 `try/catch` 兜底 ⇒ 在 `apps/api` 下跑时**三个候选全失败**,红在"取不到文件"而不是判据上。改成由 `import.meta.url` 推导(本仓守门 70 的"13/14 例恒红因为 ROOT 忽略 cwd"是同一条教训的反面形态:**根要么按文件位置推,要么显式注入,不得靠调用者站哪**)。
+  - 本批仍**未做**的一格(有主有判据,不读成已收口):`maxConcurrentUploads` 仍**刻意不声明** —— 声明而无消费者正好会被守门 121 判红,而真正的并发上限需要信号量/队列语义,属另一票。
+  - **落地形态与自己犯的一格都如实登记**(不是"正常提交"):① 同一改动在 `safe-commit` 下把 161 道门**完整跑到结束、blocking 失败 0**,却在更新 HEAD 时连撞并发 CAS(本仓 HEAD 每 1-2 分钟推进),每轮重试要再花 10 分钟 ⇒ 改走临时索引 `commit-tree` + 紧循环 CAS + **逐路径 clobber 护栏**(若 HEAD 上目标路径已被别人改动立即放弃而非覆盖),第 1 次即成功;门禁结论取自那两轮的实测。② 我在准备临时索引时有一条 `git read-tree HEAD` **漏带 `GIT_INDEX_FILE`**,等价于一次 `git reset` ⇒ 把别人当时挂在索引里的暂存态整批 unstage(工作树未损、无内容丢进提交,但"别人暂存了什么"这一状态被我抹掉,属 §12 明令禁止的那一型)。已当场盘点并按"索引只是缓存、worktree 完好 ⇒ 由持有者重新 add"处置;此格即出口,不靠沉默带过。教训与 [[one-shot-git-scripts-must-check-index-target-per-call]] 同条,再犯一次就该按红线处理。
 
+
+
+
+
+
+
+
+
+
+
+- **第十六批 ZCode 吸收线(2026-09-26 午,三路并行 + 主会话复验):把"租约能构造"推到"租约能被人真的用、且知道被谁用了什么"**。
+  - **A 内容指纹接上真实数据源**(`c6295221a92`):新增 `recordApprovedInvocation()`(唯一写入点、只落指纹不落命令明文、四条构造判死一条没松:无到期即拒 / 通配即拒 / **dangerous 一律不登记** / 登记不得扩大能力清单)+ `slotDigests` 改可累积台账 + 授予档位 `digestTrackOnApproval`(开启必须给身份,否则构造器判死)+ `IHUI_LEASE_SLOT_DIGEST` 关闭出口。**最后一行接线由主会话亲接**(`tools/index.ts` 批准放行处,代理如实回报"落点在清单外";档位未开或无生效租约 ⇒ 出口内部拒收并给原因,不抛不改判定 ⇒ 既有 `--permission-lease` 使用者**行为零变化**)。身份**实测**只有一份:`ToolContext.workspacePath`(台账里那个 `workspaceIdentity` 全仓**零命中**,只存在于 gitignored 的第三方规约文本里 —— 又一枚"票面名字未取证"型幻影,已按 [[presence-claims-need-entrypoint-proof]] 处理)。
+  - **B REPL `/lease` 三态**(`721d0b9108f`):第二档授予来源 `grantor:'repl-command'`,scope 前缀 `cli-repl:` 与 `cli-agent:` 可区分;解析/封顶**复用** cli-flag 那份出口不另写第二把尺子;非法输入 ⇒ 一行拒因且**原租约逐字段不变、审计零增长**;集中 help 出口 `slash-registry.ts` 同步登记;9 个 `replLease*` 键五语言纯新增。
+  - **C 先否证后定性**:第十二批我登记的"守门 121 对 `cleanupIdleSessions` 报假数"**不成立** —— 门的同文件传递闭包是**不动点扩张**且 `--self-test` 22 例含变异,它没看错;真事实层级更高一层:**`apps/cli/src/tools/debug.ts` 在生产面没有任何 importer**(全树 `git grep` 实测只命中自身定义与两个测试文件),所以 10 枚 DAP 工具对模型根本不可达,那句"30 分钟自动清理"至今是纸面能力。门侧**零改动**;挂载动作留给决策(**是否向模型暴露 10 枚 `dangerLevel:'dangerous'` 工具属新增对外能力,按 §24 不自行动**)。
+  - **复验口径**:六文件 **87 例全绿**(代理各自报数之外主会话独立复跑);A 的变异对照①(内容换常量 ⇒ 7 红)已捕获,②(换身份键)**代理未捕获读数 ⇒ 按"未取证"登记,不冒充已证**;B 的语言包三项自验(键集同形 / 占位符等值 / 纯新增 0 删除)由主会话另行按工作树面复核通过。`pnpm --filter @ihui/cli typecheck` 现有一枚红在 `packages/shared/src/chat/index.ts`(**他人未提交的在飞编辑**,HEAD 面正常),非本批引入,已留在原主。
+  - **本批仍未闭环(有主有判据)**:① `digestTrackOnApproval` 的授予侧入口目前只能由代码调用(命令行/REPL 都还没暴露该档位)⇒ 端到端"同内容不再问人"在生产链路上仍不可达,已登记不读成生效;② debug 族挂载(待 §24 决策);③ hub 六支柱、`maxConcurrentUploads` 两条维持"不实现"原判,理由未变。
 
 
 ### 第五十波·续末② —— 守门 102 的 HEAD 存量清到 0,并把"全端已覆盖"这句话换成实测(2026-09-26)
@@ -10117,7 +10138,7 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   - 现在经 `@ihui/api-client` 的 `listConversations` 取服务端列表(端内已有 20+ 处 `from '@ihui/api-client'` 先例,transport 在 `app.tsx` 全局注册;未新增端内出口、未裸 fetch,门 73 无新增命中);置顶一律走共享出口 `togglePinnedItem`,**端内零排序实现**(全文件 `.sort(` 出现 1 次,由测试的源码级反向锁钉住,写第二处即红);服务端列表本就按 pinned 优先排(`apps/api/src/db/chat-queries.ts`)。
   - **fail-closed 判序**:不抛 ∧ `success===true` ∧ `rows` 是数组,三条同时成立才算"拿到服务端数据",否则整表回落本机快照并记 `degraded` ⇒ 页面渲染**可见**兜底条 + 重试出口;`onRefresh` 只在 server 源才报"刷新成功"(兜底态报成功 = 对失败作假交代)。服务端源下**收掉「删除/清空」两个可用位** —— 那两动作本来只写本机快照,点了必是假成功;这不是删功能,是不再伪装成能删。新组件 `ConversationHistoryItem.tsx` 把可点正文与置顶胶囊做成兄弟节点(小程序 tap 会冒泡双触发)。本机 localStorage 选为「兜底副本」而非「读缓存」:两源 id 空间不同(`hist_*` vs UUID),混进同一 list 会让 `togglePinnedItem` 命中错行;代价如实登记 —— 首帧到结果之间是 `loading` 态,不再"秒出旧列表"。
   - 回归:`apps/miniapp-taro/tests/conversation-history-server.test.tsx` 16 例绿、端内 typecheck 0 错;语言包 `ai.historyPage` 6 键 × 5 语按 §19 先包后码,落地前用**叶子级双向对账**复验(`.ihui-agent/tmp/verify-locale-additive.mjs`:HEAD 3382 → 3388 叶子/语言,丢键 0、改值 0)—— 起因是实测 `i18n-apply.mjs` 会整文件重排 + 展开数组(一次"只加 5 键"把 ja/zh-TW 各回写 681/702 行),**diff 行数不表征改了什么**;该工具行为本身值得另立一票。
-  - **残余四格(不是已做完)**:① 点开服务端会话不能回放消息(`chat.tsx` 只从 localStorage 恢复,`?sessionId=<UUID>` 进去是新会话)⇒ 需 `getConversation/getMessages` 水合,另票;② 服务端源下删除未接线(`deleteConversation`);③ 一次取 50、未接服务端翻页;④ `image/voice/agent` 筛选在服务端源恒空(HEAD 亦如此:`chat.tsx` 写条目从不设 `type` 字段,非回归)。**运行时未取证**:本机无微信开发者工具、未起端内 dev/build ⇒ 界面观感无证据。**§21 README 走「单端内部优化(不改变跨端契约)」豁免**(消费既有跨端出口,未新增契约)。〔进行中@2026-09-26/主会话第九批续:残余四格由主会话接管实施(用户指令"做彻底"),含 org 常量分叉归一(以 utils 64/24/8 为准,chat 深路径同源化)与端内 build 级取证〕〔**✅2026-09-26 收口**:①回放+②删除+③翻页 `cfbb7f6cbd4`(server-chat-replay fail-closed 三判序+乐观删除回滚+续页双源判序,顺带修掉 onLoadMore 恒假尽头的 HEAD 真 bug;47 例);④筛选芯片由数据派生 `744a6c48f75`(image/voice/agent 从无写入方=恒空死 UI,芯片只随真实类型出现+失效回落全部,37/37);常量分叉归一 `dd7e3884216`(chat 版 178 行整体改同源 re-export,6 处行为分叉逐一归一,49/49+变异演练 2 守卫红);尾票打磨 930a6481/618bc9f8。**如实留尾**:续写不回同一 DB 会话(chatStream 不发 conversationId,src/api/index.ts 被并发持有)、超长会话向前翻、清空全部仍本机、真机观感(本机无微信开发者工具)——均已在案,勿当已完成〕
+  - **残余四格(不是已做完)**:① 点开服务端会话不能回放消息(`chat.tsx` 只从 localStorage 恢复,`?sessionId=<UUID>` 进去是新会话)⇒ 需 `getConversation/getMessages` 水合,另票;② 服务端源下删除未接线(`deleteConversation`);③ 一次取 50、未接服务端翻页;④ `image/voice/agent` 筛选在服务端源恒空(HEAD 亦如此:`chat.tsx` 写条目从不设 `type` 字段,非回归)。**运行时未取证**:本机无微信开发者工具、未起端内 dev/build ⇒ 界面观感无证据。**§21 README 走「单端内部优化(不改变跨端契约)」豁免**(消费既有跨端出口,未新增契约)。〔进行中@2026-09-26/主会话第九批续:残余四格由主会话接管实施(用户指令"做彻底"),含 org 常量分叉归一(以 utils 64/24/8 为准,chat 深路径同源化)与端内 build 级取证〕〔**✅2026-09-26 收口**:①回放+②删除+③翻页 `cfbb7f6cbd4`(server-chat-replay fail-closed 三判序+乐观删除回滚+续页双源判序,顺带修掉 onLoadMore 恒假尽头的 HEAD 真 bug;47 例);④筛选芯片由数据派生 `744a6c48f75`(image/voice/agent 从无写入方=恒空死 UI,芯片只随真实类型出现+失效回落全部,37/37);常量分叉归一 `dd7e3884216`(chat 版 178 行整体改同源 re-export,6 处行为分叉逐一归一,49/49+变异演练 2 守卫红);尾票打磨 930a6481/618bc9f8。**如实留尾**:续写不回同一 DB 会话(chatStream 不发 conversationId,src/api/index.ts 被并发持有)、超长会话向前翻、清空全部仍本机、真机观感(本机无微信开发者工具)——均已在案,勿当已完成〕〔**留尾进展 2026-09-26 续**:向前翻 `950a32faf98`(parseEarlierPage/fetchEarlierPage/prependEarlierMessages+顶部入口+5 处 resetEarlierPaging 防串会话,53/53)+ 服务端清空全部 `9d767921362`(有界并发逐条删+进度+部分失败诚实保留可重试,24/24,tsc 0)两格收口;**续写回写 DB 会话裁决=需 api/index.ts 侧另票**(该文件持续被并发持有):①`MiniappStreamOptions` 增 `conversationId?`;②`buildBody()` 增 `metadata:{conversationId}`;③chat.tsx 回放成功 `setSessionId(routeSessionId)` 并透传——apps/api 无需改,三步就绪待文件冷却;真机观感仍待微信开发者工具装包验证〕
 - [x] ✅(2026-09-26) **第十三批(波次 11·其一)—— O14 的 `@ihui/api-client` 两条发布 blocker 清零(`ca93dd962e1`)**:
 - [x] ✅(2026-09-26) **第十四批(波次 11·其二)—— O13 第二格:RLS 运行时逐表验证器落地(`packages/database/scripts/tenant-rls-live-check.mjs` + `-fixture.mjs` + `-selftest.mjs` + `tests/tenant-rls-live.test.ts`)**,真跑结论 **PASS 110 / FAIL 0 / P0 0 / SKIP 0 / INFO 1(共 111 条)**:
   - 为什么必须真库:静态判据看不见 ① 策略图自引用 → `infinite recursion`;② `current_setting('app.user_id')` 未设时到底是 fail-open 还是 fail-closed;③ `FORCE` 是否真对**表属主**生效;④ 跨租户 `UPDATE/DELETE` 是否真 0 行。这四条只有跑起来才知道。
@@ -10932,3 +10953,14 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   - **D20 小程序端三格全部接通(`82a0…`→实测 sha 见 `git log --oneline -- apps/miniapp-taro/src/pkg-ai/ai/server-chat-replay.ts`)**：新建唯一回放出口 `server-chat-replay.ts`(fail-closed 三条:不抛 ∧ `success===true` ∧ `messages` 是数组；"空会话"与"取不到"走不同出口；脏行逐条丢弃不整表作废；`truncated/totalChars` 必须随消息带回；五族卡片全空时不挂 `aiCards`)；`chat.tsx` 回放只跑一次、失败先清"已试"标记再 `showModal` 让用户决定重试(不动消息区 = 不把"取不到"显示成"没有数据"，`hist_` 前缀不发请求也不弹错)；`history.tsx` 删除走"乐观移除 + 失败整表回滚 + 失败必响"且判据要 `data.deleted===true`，续页先本机展示页再服务端下一页、兜底态结构上不打服务端、追加按 id 去重。**顺带改掉 HEAD 一处真 bug**：旧 `onLoadMore` 用 `next*PAGE_SIZE>=filtered.length` 判尽头，51 条时**永不展示第 21–51 条**就报"没有更多了"。47 例绿(本票 31 + 既有 16 无回退)、语言包 3 键 × 5 语叶子对账 3384→3387 丢键 0。**仍未闭环**：续写不回同一 DB 会话(端内 `chatStream` 不发 `metadata.conversationId`，修它要动被并发会话持有的 `src/api/index.ts`)、只取最新 100 条未接向前翻、"清空全部"仍只本机、运行时未取证。
   - **D64① 是幽灵待办**：代理逐条现读 HEAD 证伪"待后端日聚合"—— 路由 `GET /api/credits/usage/daily`(`a39fce9112d`) + UTC 分桶补零 + `api-client getDailyCreditsUsage` + `credits-heatmap-card`(热力/会话切换) + api 9 例/web 6 例/api-client 2 例**全部已在库**。真实缺口只有票面括号里那半句"必要索引"⇒ 补 `point_transactions (user_id, created_at)` 复合索引(journal **idx=294**，写前实测 B10 空闲、写后 B1 294↔294)。取舍写在头注：不加 `type` 档，否则流水端点失去共用。**未重复实现任何已存在的件**(再"实现"一遍＝造第二真相)。
   - **O13 第三格的门已建好并验死(`914bb5d68fc`)**：新出口 `apps/api/src/db/background-context.ts`(`runWithOpsBypass`)委托既有 `withBypassRls`，**不新建第三个 pool、不加第二条 set_config 通路**；复位点=**事务边界**(`is_local=true`)⇒ 绕开"`db/index.ts:204` drizzle 不暴露 release 钩子"这个死结。"为什么不是后门"：守卫判**任何 principal scope** 即拒(只认 `store.request` 会被"路由里套一层 `runWithPrincipal`"洗成后台)。真库实测(临时集群 54320、复刻 `rolsuper=false|rolbypassrls=false`，未触 8810/8811/5432)：基线 0 行 → runner 内 2 行且 GUC='true' → **结束后同池回到 0 行** → 请求上下文拒发；假池 7 例钉语句序列与未知 reason 零 SQL。两条真库量出来的形态坑已写进判据：`SET LOCAL` 后 `current_setting(...,true)` 返回**空串**不是 NULL；`notes` 有"公开笔记可读"分支**不能**当无上下文基线探针(第一轮踩中，换 `user_memories`)。
+## O82补 登记正文重登（2026-09-26，带主键前缀以进门 71 保护面）
+
+- **O82 登记** 根因一句话：计划文档被当台账用却**没有主键约束** —— 同一任务编号被不同批次各登记一份，做完通常只翻自己那一批那份，其余副本永久烂成"未勾选"；而既有防护链（门 71 防丢行 / 84 防写回旧版 / 100 防合并吞文件 / 工作区自愈）**全部单向防丢**，没有一道判"状态分叉"，并集合并又是"每行重数取 max"，所以改写必然产出两份 —— 每天在产，账面全绿。
+- **O82 登记** 三条判据（都不依赖行号顺序、不依赖相似度）：F1 复合主键（编号 + 标题前缀逐字等值）下 `- [x]` 与 `- [ ]` 并存；F2 行首未勾选但正文自带"判:已完成/裸副本/读数过期/勿照本行派单"这类闭合或作废声明；F3 证据写成 `存活于 L<数字>` 而被指行已不是那条正题。
+- **O82 登记** 归并动作：`scripts/plan-tasks-merge.mjs` 按行号精确 splice，副本行行首翻成已完成并就地写明与哪条同题（内容锚点）。**一行不删一行不加**，未参与改写的行逐字不变，由机器对账；§1「禁止无声删除」与门 71 防丢面都不被绕过。
+- **O82 登记** 本条正文曾被一次"旧计划文档整文件回写"吞掉（自愈层只重放了复选框行、没恢复登记正文），故此处为**二次登记**：这恰好是本票存在的理由 —— 回写是真实在发生的，判据只能拦住"新增"，正文级内容仍需人复核。
+- **O82 登记** 现存三层：① 守门 130（提交链差值棘轮 + 基线棘轮）；② `union-converge` 落地自证（合并提交不跑 pre-commit，判据搬进门禁本身）；③ post-commit 自愈（被回写后自动再归并一次）。
+- **O82 登记** 口径修正（同日补）：**派单口径必须扣掉已带租约的行**。第一版 `--open` 只减分叉副本与作废声明，HEAD 面实测把 44 条 `（进行中@日期/持有者）` 也算成"无人认领" —— 照那个数派单就是把别人正在做的事再派一遍，而这正是 §1 认领标记要防的事。现口径 = 未勾选 − 已认领 − 分叉副本 − 作废声明。
+- **O82 登记** 数字一律现读，勿引用本条：`node scripts/plan-tasks.mjs`（三条判据 + 派单口径）、`--open`（真·无人认领清单）、`--forks/--void/--pointers`（逐条定位）。归并前 HEAD 面是 F1 37 组 / F2 43 行 / F3 26 处，归并 118 行后为 **0 / 0 / 0**；这是当次读数，下一次提交后请重跑。
+- **O82 登记** 已知边界（不是漏项）：① 同主键多行且**同态**的重复登记（open 11 组 / done 73 组量级）本工具按定义不动，那是"重复但不矛盾"，清理需逐条判断是否同一件事；② 下次真归档需人工 `--allow-mass`（识别扩到 `##` 级后搬运集从 0 涨到 82 块量级，超大批量阀门是有意的）。
+
