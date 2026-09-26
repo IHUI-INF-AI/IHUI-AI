@@ -168,6 +168,21 @@ async function main() {
     // 存量双引号 id 行(别人欠的债)只登记基线数 —— 判据是"我没新加",不是"整文件为零";
     // 按"为零"判会把不相干的历史存量变成对本人提交的恒红拦阻(§12e 同型)。
     dblBefore = baseLines.filter((l) => l.includes('id: "')).length
+    // 同一道门不得注册两次:runner 会对同一个 script 跑两遍(双份耗时 + 失败清单重复),
+    // 而守门 89 的 R5 把"同一 id 多道门"判红。实测本仓两次因"并发会话各插一块"造出 id 136 撞号
+    // (一块手写、一块用本工具),而本工具原先只验"插入后在位"、不验"插入前是否已有"⇒ 它自己会产出重复。
+    const already = baseLines
+      .map((l, i) => ({ l, i }))
+      .filter(({ l }) => l.trim() === `script: ${jsQ(script)},`)
+      .map(({ i }) => baseLines.slice(0, i).reverse().find((l) => /^\s*id: '?\d+'?,\s*$/.test(l)))
+    if (already.length > 0) {
+      console.error(
+        `❌ ${script} 已在注册表里(${already.length} 处,现有 id:${already.map((s) => s.trim()).join(' / ')})⇒ 不得重复注册\n` +
+          '   要改它的字段(label / stagedTriggers / onFailHint)请直接改那一块,或先删后插;\n' +
+          '   若两块确属不同判据,那说明 script 名该分家,不是再插一块。',
+      )
+      process.exit(1)
+    }
     const taken = nextIdOf(baseLines.join('\n'))
     newId = taken.nextId
     if (taken.dupes.length > 0) {
