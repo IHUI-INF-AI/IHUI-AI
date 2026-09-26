@@ -17,12 +17,14 @@
  *     范围保持 apps/mobile-rn/src(基线按此口径建立,扩范围会误伤存量)。
  *  R3 品牌实底填充 ratchet(2026-09-23 立,2026-09-24 扩面):
  *     `(backgroundColor|borderColor): (tokens|tk).brand.(DEFAULT|cta)` —— DEFAULT 在深色档案下是**纯白**
- *     (实测压 #1A1A1A 卡面 17.4:1 = 用户报的"刺眼");`brand.cta` 是随后立的明暗同值主 CTA 档(#4A7A96)。
+ *     (实测压 #1A1A1A 卡面 17.4:1 = 用户报的"刺眼");`brand.cta` 是主 CTA 独立档
+ *     (2026-09-26 用户定稿回翻:亮=纯黑底/白字,暗=纯白底/黑字,与 DEFAULT 同一明暗行为)。
  *     **判据必须覆盖门自己产出的形态**:全仓"品牌实底+其上文字"已按 AGENTS §4 迁到 brand.cta,
  *     R1_BG 同日扩认 DEFAULT|cta,而 R3 若不同形扩面,那 235 处实底就整片搬进门盲区
  *     (实测:迁移前 R3 存量 235 → 迁移后"掉"到 87,不是债变少,是形态进了盲区)。
  *     成对即合规、不计债,但**按档配对**:DEFAULT 底 ↔ brand.foreground、cta 底 ↔ brand.ctaForeground
- *     (同块或 R4 同一套兄弟命名);跨档配对(如 DEFAULT 底 × ctaForeground,深色档案下=白底白字)仍计。
+ *     (同块或 R4 同一套兄弟命名);跨档配对(如 DEFAULT 底 × ctaForeground)虽在现行档值下
+ *     恰好同色不可辨差异,但仍破坏"底与字同档成对"的唯一写法,照计 —— 档位法则不随取值巧合松动。
  *     本条不拦存量(基线冻结),只拦"新增/回潮"。范围含 packages/app。
  *  R4 跨 key 品牌底白字(2026-09-24 立,补 R1 的结构性盲区):
  *     R1 只在**同一个 style 块**内配对背景与前景,而真实的 RN `StyleSheet.create` 把按钮的
@@ -52,8 +54,8 @@
  *     **建门当日并行会话把这 22 处迁完了**(commit `4e0b24689a` "剩余 22 处品牌实底迁到 cta 档"),
  *     所以基线的 `webClassPairCounts` 现为**空对象 = 零容忍**:这是比锁 22 更强的结果,
  *     任何**新写**的 `bg-primary`+`text-primary-foreground` 同行配对当场判红。
- *     正解写法:`bg-cta` + `text-cta-foreground`(+ `hover:bg-cta/90`)—— 该档明暗同值,
- *     正是为消除"浅色一大片黑 / 深色一大片白"而立的(`--color-cta` #4a7a96 / #FFFFFF)。
+ *     正解写法:`bg-cta` + `text-cta-foreground`(+ `hover:bg-cta/90`)—— 该档 2026-09-26 用户定稿
+ *     回翻为黑/白反转(亮=纯黑底/白字,暗=纯白底/黑字),与 --color-primary 同一明暗行为。
  *     ⚠️ 已知限制(如实登记,不假装覆盖):
  *      1) **同一行**才算一对。className 字符串在本仓就写在同一行,故对存量 22/22 全覆盖;
  *         把 `bg-primary` 与 `text-primary-foreground` 拆到两行(数组形态 / `cn()` 分行 /
@@ -487,17 +489,19 @@ export function extractNamedStyleChunks(lines) {
 
 /**
  * **跨档矩阵**(与 AGENTS §4 的 rn-tokens 实测值一一对应,不得凭感觉扩):
- *   brand.cta      = #4A7A96 / #4A7A96(明暗同值,不反转)
+ *   brand.cta      = #000000 / #ffffff(2026-09-26 回翻,与 DEFAULT 同一明暗反转)
  *   brand.DEFAULT  = #000000 / #FFFFFF(与页面反极)
  *   surface.light  = #FFFFFF / #262626   text.primary = #0A0A0A / #FAFAFA
  *   surface.card   = #FFFFFF / (深色另档)
  *
- *  - cta 底:前景若取 `surface.light`,**深色档案**下是 #262626 压 #4A7A96 = 3.25:1,掉出 AA。
- *    `text.primary` / `surface.card` 同理属"另一档前景",§4 的正配只有 brand.ctaForeground。
+ *  - cta 底:`surface.light` / `text.primary` / `surface.card` 都不是它的配对前景档
+ *    (§4 唯一正配 = brand.ctaForeground)。对比度上 `text.primary` 两态都与底同色
+ *    (黑压黑 / 白压白)纯隐形;另两档虽在现行黑/白取值下碰巧可读,但按"底与字同档成对"
+ *    的档位法则照判 —— 否则换回中间调底色时这些配对会静默掉出 AA。
  *  - DEFAULT 底:`surface.light` **两态都可见**(#FFF 压 #000 / #262626 压 #FFF)⇒ 不算债
  *    (R4 建门时 127 处存量全是这一型,已按"合法兄弟对"入基线,此处必须同口径)。
- *    而 `text.primary` 两态都与底同色(黑压黑 / 白压白),`brand.ctaForeground` 与
- *    常量白在**深色档案**下是 #FFF 压 #FFF ⇒ 判错配。
+ *    而 `text.primary` 两态都与底同色(黑压黑 / 白压白),`brand.ctaForeground` 与常量白
+ *    同判 —— 它在两态下取值与 brand.foreground 全等,写它等于把唯一写法搅成两套。
  */
 const R7_BAD_ON_CTA = new Set(['surface.light', 'text.primary', 'surface.card'])
 const R7_BAD_ON_DEFAULT = new Set(['text.primary', 'brand.ctaForeground'])
@@ -1420,7 +1424,7 @@ function run(options) {
       '   底取 brand.cta 时文字**只能**取 brand.ctaForeground;底取 brand.DEFAULT 时只能取 brand.foreground。',
     )
     console.error(
-      '   surface.light / text.primary / surface.card 都是另一档(深色档案下 surface.light=#262626 压 #4A7A96 = 3.25:1,掉出 AA)。',
+      '   surface.light / text.primary / surface.card 都不是品牌底的配对前景档(§4 唯一正配 = 同档 foreground;黑/白反转下 text.primary 更是两态纯隐形)。',
     )
     console.error(
       '   确属合法(文字实际压在图片/渐变图上,不压在该底色上)时:在容器 style 行或前景行写 `r7-nest-exempt: <原因>`。',
@@ -1784,7 +1788,7 @@ function selfTest() {
   )
   // ═══ 2026-09-24 补盲:brand.cta 是主 CTA 改档后的**唯一实底写法**(AGENTS §4),
   //     R1/R3/R4 必须能看见它 —— 判据必须覆盖门自己产出的形态(教训同守门 77 B6 括号盲区)。═══
-  // F1 R1 坏例子:cta 实底 + 同块 surface.light → 必红(深色档案 #262626 压 #4A7A96 仅 3.25:1,掉出 AA)
+  // F1 R1 坏例子:cta 实底 + 同块 surface.light → 必红(surface.light 非配对前景档;档位法则判,不靠对比度巧合)
   assert(
     findR1Violations([
       '  btn: {',

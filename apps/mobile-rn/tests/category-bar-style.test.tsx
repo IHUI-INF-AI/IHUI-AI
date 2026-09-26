@@ -84,7 +84,7 @@ describe('CategoryInlineBar 选中态配色真的落到元素上', () => {
     expect(idle).not.toBe(rgbOf(tk.surface.card))
   })
 
-  it('浅色档同样成对,且 cta 档明暗同值(不随主题翻成纯白底纯白字)', () => {
+  it('浅色档同样成对,且 cta 档黑/白反转(亮=纯黑底/白字,暗=纯白底/黑字)', () => {
     const tk = getTokens('light')
     const { container } = render(
       <CategoryInlineBar
@@ -96,12 +96,15 @@ describe('CategoryInlineBar 选中态配色真的落到元素上', () => {
     )
     expect(bgColors(container)).toContain(rgbOf(tk.brand.cta))
     expect(textColors(container)).toContain(rgbOf(tk.brand.ctaForeground))
-    // "不随主题反转"是 cta 档的定义(§4:明暗同值 #4A7A96 / #FFFFFF),旧档 brand.DEFAULT 恰恰
-    // 会反转(亮=纯黑/暗=纯白)。把它写成判据:谁给某一侧单独改色,这里当场红 ——
-    // 否则"浅色一大片黑 / 深色一大片白"那笔账会被重新记回主 CTA。
+    // "黑/白反转"是 cta 档的定义(§4 2026-09-26 用户定稿回翻:亮=纯黑底/白字,暗=纯白底/黑字,
+    // 与 brand.DEFAULT 同一明暗行为)。2026-09-24 的"明暗同值 #4A7A96"已废。逐位钉死取值:
+    // 谁给某一端单独改色、或把反转改回同值,这里当场红。
+    expect(tk.brand.cta.toLowerCase()).toBe('#000000')
+    expect(tk.brand.ctaForeground.toLowerCase()).toBe('#ffffff')
     const dark = getTokens('dark')
-    expect(rgbOf(dark.brand.cta)).toBe(rgbOf(tk.brand.cta))
-    expect(rgbOf(dark.brand.ctaForeground)).toBe(rgbOf(tk.brand.ctaForeground))
+    expect(dark.brand.cta.toLowerCase()).toBe('#ffffff')
+    expect(dark.brand.ctaForeground.toLowerCase()).toBe('#000000')
+    expect(rgbOf(dark.brand.cta)).not.toBe(rgbOf(tk.brand.cta))
     expect(rgbOf(tk.brand.cta)).not.toBe(rgbOf(tk.surface.bg))
   })
 
