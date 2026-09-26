@@ -269,6 +269,9 @@ export function specTiers(sources) {
   for (const [k, v] of geom) tiers[`geometry.${k}`] = v
   for (const [rel, src] of Object.entries(sources)) {
     if (/[\\/]geometry\.[jt]s$/.test(rel)) continue
+    // `.d.ts` 是**声明**不是第二份档表:它的键集由 G 维单独与运行时表对账,
+    // 混进这里会让"类型说了而表没有"的档被当成真档喂给判据。
+    if (/\.d\.[jt]s$/.test(rel)) continue
     const code = stripComments(src)
     for (const m of code.matchAll(
       /export const ([A-Z][A-Z0-9_]*_PX)\s*=\s*(?:(\d+(?:\.\d+)?)(?![\w.])|(?:GEOMETRY_PX|rnGeometry|taroGeometry)\.([A-Za-z_$][\w$]*))/g,
@@ -444,6 +447,52 @@ export function specLegAudit(pairs, text, tiers) {
     out.push({ name: p.name, onlyMiniapp, onlyRn })
   }
   return out
+}
+
+/**
+ * G —— 几何表与**它自己的类型声明**对账。
+ *
+ * 为什么归本门:上一维(SL/具名档)的全部判据都建立在"`GEOMETRY_PX` 里的数就是两端该取的数"
+ * 之上,而这张表有**两份真相**:运行时的 `geometry.js` 与手写的 `geometry.d.ts`
+ * (`export type GeometryStep = …`,三个出口都标成 `Record<GeometryStep, number>`)。
+ * 两者一旦不同名,失效方式取决于有没有人引用新档:
+ *  - 有引用 ⇒ `tsc` 报 TS2339(吵,当场就能看见);
+ *  - **没引用 ⇒ 两边都不红**:类型说这张表只有 2 档,运行时 `Object.keys()` 给出 4 档,
+ *    而本门正是按运行时键集读档表的 —— 于是判据信任了一个类型层根本不承认的档位。
+ * 2026-09-27 实测到前者正在工作树上发生(`geometry.js` 加 `controlBox`/`controlGlyph`,
+ * `.d.ts` 没跟,消费方 8 条 TS2339)。这条判据把它从"要靠有人去跑 typecheck"变成提交链上拦。
+ *
+ * 判据两侧都判(JS 有而 d.ts 无 / d.ts 有而 JS 无),因为反向漂移同样致命:类型承认一档、
+ * 表里没有 ⇒ 消费方写 `rnGeometry.<那档>` 编译过而运行时取到 `undefined`。
+ */
+export function geometryDeclCheck(jsSrc, dtsSrc) {
+  if (typeof jsSrc !== 'string' || typeof dtsSrc !== 'string')
+    return { problem: '取不到几何表或其类型声明 ⇒ 未判定', undetermined: true }
+  const body = jsSrc.match(/GEOMETRY_PX\s*=\s*\{([\s\S]*?)\n\}/)
+  const union = dtsSrc.match(/export\s+type\s+GeometryStep\s*=\s*([^;]*?)(?:;|$)/m)
+  if (!body || !union)
+    return {
+      problem: `解析不出几何表${body ? '' : '(GEOMETRY_PX 体)'}或 GeometryStep 联合${union ? '' : '(声明式)'} ⇒ 未判定`,
+      undetermined: true,
+    }
+  const steps = [...body[1].matchAll(/^\s*([A-Za-z_$][\w$]*)\s*:\s*\d+(?:\.\d+)?\s*,?\s*$/gm)].map(
+    (m) => m[1],
+  )
+  const declared = [...union[1].matchAll(/'([^']+)'/g)].map((m) => m[1])
+  const missingInDts = steps.filter((s) => !declared.includes(s))
+  const missingInJs = declared.filter((s) => !steps.includes(s))
+  if (missingInDts.length + missingInJs.length === 0) return { steps, declared }
+  const bits = []
+  if (missingInDts.length)
+    bits.push(
+      `表里有档而类型不认:${missingInDts.join('/')}` +
+        `(改 ` +
+        'geometry.d.ts' +
+        ' 的 GeometryStep;只加表不改类型 ⇒ 消费方 TS2339 或运行时 undefined)',
+    )
+  if (missingInJs.length)
+    bits.push(`类型承认而表里没有:${missingInJs.join('/')} ⇒ 删该档名或把档位补回表`)
+  return { steps, declared, missingInDts, missingInJs, problem: bits.join(' | ') }
 }
 
 /* ───────────────── 端入口可达性:什么才算"一条腿" ───────────────── */
@@ -1094,9 +1143,18 @@ export function collect(repoRoot, face, { pairAll = false } = {}) {
    * 这一档 —— 与"目录清单为空却记绿"同型,必须喊死。
    */
   const geoPath = 'packages/design-tokens/src/geometry.js'
+  const geoDtsPath = 'packages/design-tokens/src/geometry.d.ts'
   const geoList = listFace(repoRoot, face, 'packages/design-tokens/src')
   const hasGeo = geoList === null ? false : geoList.includes(geoPath)
-  const tierPaths = hasGeo ? [...specFiles, geoPath] : [...specFiles]
+  // 表在而它的类型声明不在 ⇒ 不是"没有第二份真相",而是这份真相取不到 —— 按未判定喊死,
+  // 不得因为"表本身读到了"就当对账通过(那正是本维要防的那一型)。
+  const hasGeoDts = geoList === null ? false : geoList.includes(geoDtsPath)
+  if (hasGeo && !hasGeoDts)
+    throw new Undetermined(`${FACE_TXT[face]}有 ${geoPath} 而无 ${geoDtsPath} ⇒ 几何表无从对账`)
+  const tierPaths = [
+    ...specFiles,
+    ...(hasGeo ? [geoPath, geoDtsPath] : []),
+  ]
   const tierSpecs = tierPaths.map((rel) => (face === 'staged' ? ':' : 'HEAD:') + rel)
   const tierGot = catBatch(repoRoot, tierSpecs, { maxBuffer: 1 << 26 })
   const specSources = {}
@@ -1109,10 +1167,14 @@ export function collect(repoRoot, face, { pairAll = false } = {}) {
   if (!hasGeo && need.some((rel) => /\b(?:rnGeometry|taroGeometry|GEOMETRY_PX)\./.test(text[rel])))
     throw new Undetermined(`${FACE_TXT[face]}取不到 ${geoPath},而配对组件在引用几何表 ⇒ 判据失明`)
   const tiers = specTiers(specSources)
+  const geoDecl = hasGeo
+    ? geometryDeclCheck(specSources[geoPath], specSources[geoDtsPath])
+    : { skipped: true }
   return {
     pairs,
     text,
     tiers,
+    geoDecl,
     unreachableLegs: unreachable,
     undeterminedEdges,
     coverageNote,
@@ -1379,7 +1441,26 @@ export function main(argv, repoRoot = ROOT) {
       )
     }
   }
-  return res.red.length + icRed.length + slRed.length ? 1 : 0
+  /*
+   * ── G 几何表与其类型声明对账 ────────────────────────────────────
+   * 两侧都判:表有档而类型不认 / 类型承认而表里没有。零容忍是安全的:
+   * HEAD 现测两份同名(2 档),所以本维不存在"存量当场判红 = 恒红门"的问题(§12e 那一型),
+   * 而它拦下的正是工作树上刚刚发生过的一次漂移(geometry.js +2 档、.d.ts 未跟 ⇒ 8 条 TS2339)。
+   */
+  let geoRed = false
+  if (!argv.includes('--json')) {
+    const g = collected.geoDecl ?? {}
+    if (g.skipped) console.log('  ⊘ G 几何表不在本面(夹具/该面无该文件)⇒ 本维未参与判定')
+    else if (g.undetermined) console.log(`  ? G 未判定:${g.problem}`)
+    else if (g.problem) {
+      geoRed = true
+      console.log(`  × G 几何表与 geometry.d.ts 不同名:${g.problem}`)
+    } else
+      console.log(
+        `  · G 几何表 ${g.steps.length} 档与 GeometryStep ${g.declared.length} 档同名(表↔类型一致)`,
+      )
+  }
+  return res.red.length + icRed.length + slRed.length + (geoRed ? 1 : 0) ? 1 : 0
 }
 
 /**
@@ -1908,6 +1989,55 @@ function runSelfTest() {
       const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
       return /audit\(\s*collected\.pairs,\s*collected\.text,\s*baseline,\s*collected\.tiers\s*\)/.test(
         src,
+      )
+    })(),
+  )
+  t(
+    '㊶ G:表里加一档而 `GeometryStep` 不跟 ⇒ 必须点名该档(正反对照:同名 ⇒ 无话)',
+    (() => {
+      const drift = geometryDeclCheck(
+        'export const GEOMETRY_PX = {\n  tapBox: 36,\n  controlBox: 32,\n}\n',
+        "export type GeometryStep = 'tapBox'\n",
+      )
+      const same = geometryDeclCheck(
+        'export const GEOMETRY_PX = {\n  tapBox: 36,\n  glyphMd: 20,\n}\n',
+        "export type GeometryStep = 'tapBox' | 'glyphMd'\n",
+      )
+      return (
+        !!drift.problem &&
+        drift.problem.includes('controlBox') &&
+        !same.problem &&
+        same.steps.length === 2 &&
+        same.declared.length === 2
+      )
+    })(),
+  )
+  t(
+    '㊷ G 反向漂移同样判红:类型承认一档而表里没有(消费方编译过、运行时取到 undefined)',
+    (() => {
+      const r = geometryDeclCheck(
+        'export const GEOMETRY_PX = {\n  tapBox: 36,\n}\n',
+        "export type GeometryStep = 'tapBox' | 'glyphSm'\n",
+      )
+      return !!r.problem && r.problem.includes('glyphSm') && r.missingInJs.join() === 'glyphSm'
+    })(),
+  )
+  t(
+    '㊸ G 取不到两份之一 ⇒ 判"未判定"而不是"一致"(把判据失明写成通过是本仓最高频失效型)',
+    (() => {
+      const noTable = geometryDeclCheck('export const OTHER = {}\n', "type X = 'a'\n")
+      const noSrc = geometryDeclCheck(undefined, "type X = 'a'\n")
+      return noTable.undetermined === true && noSrc.undetermined === true
+    })(),
+  )
+  t(
+    '㊹ G 装车锁:main 必须读 collected.geoDecl 并把它折进退出码(否则本维只是自检里的摆设)',
+    (() => {
+      const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+      return (
+        /geometryDeclCheck\(specSources\[geoPath\],\s*specSources\[geoDtsPath\]\)/.test(src) &&
+        /collected\.geoDecl/.test(src) &&
+        /\+ \(geoRed \? 1 : 0\)\s*\?\s*1\s*:\s*0/.test(src)
       )
     })(),
   )
