@@ -132,7 +132,10 @@ test('CLI: --help 不崩溃(脚本未实现 --help,按默认运行)', () => {
   try {
     const r = runScript(['--help'], { cwd: dir })
     // 无 origin → exit 2,但不应 crash
-    assert.ok(r.status === 2 || r.status === 0 || r.status === 1, `--help 不应 crash,实际 exit ${r.status}`)
+    assert.ok(
+      r.status === 2 || r.status === 0 || r.status === 1,
+      `--help 不应 crash,实际 exit ${r.status}`,
+    )
     assert.ok(!r.stderr.includes('Error:'), `--help 不应产生未捕获 Error`)
   } finally {
     rmScratch(dir)
@@ -251,7 +254,11 @@ test('AGENT_SCOPE_OVERRIDE=1: 越界但强制推送 → push 成功 exit 0', () 
       env: { AGENT_SCOPE: 'apps/api', AGENT_SCOPE_OVERRIDE: '1' },
     })
     // 强制推送 → push 成功 → 验证 local == remote → exit 0
-    assert.equal(r.status, 0, `AGENT_SCOPE_OVERRIDE=1 + push 成功应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.equal(
+      r.status,
+      0,
+      `AGENT_SCOPE_OVERRIDE=1 + push 成功应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`,
+    )
     assert.match(r.stdout, /强制推送|FORCE|override/i)
   } finally {
     rmScratch(work)
@@ -298,7 +305,11 @@ test('AUTO_PUSH_CONFIRM=1: 跳过 JSON 截断预检 → push 成功 exit 0', () 
       cwd: work,
       env: { AUTO_PUSH_CONFIRM: '1' },
     })
-    assert.equal(r.status, 0, `AUTO_PUSH_CONFIRM=1 + push 成功应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.equal(
+      r.status,
+      0,
+      `AUTO_PUSH_CONFIRM=1 + push 成功应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`,
+    )
     assert.match(r.stdout, /AUTO_PUSH_CONFIRM|跳过完整性预检|强制推送/i)
   } finally {
     rmScratch(work)
@@ -346,9 +357,16 @@ test('partial-clone: promisor=true + ahead → exit 1 且点名修复配方(不�
   const { work, origin } = createAheadRepoWithPartialClone()
   try {
     execSync('git config --local remote.origin.promisor true', { cwd: work, stdio: 'pipe' })
-    execSync('git config --local remote.origin.partialclonefilter blob:none', { cwd: work, stdio: 'pipe' })
+    execSync('git config --local remote.origin.partialclonefilter blob:none', {
+      cwd: work,
+      stdio: 'pipe',
+    })
     const r = runScript([], { cwd: work })
-    assert.equal(r.status, 1, `partial-clone 应被预检拦下 exit 1,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.equal(
+      r.status,
+      1,
+      `partial-clone 应被预检拦下 exit 1,实际 ${r.status}\nstdout: ${r.stdout}`,
+    )
     assert.match(r.stdout, /partial-clone/)
     assert.match(r.stdout, /fetch --refetch/)
     assert.match(r.stdout, /GUARD_SKIP_PARTIAL_CLONE_CHECK/)
@@ -368,7 +386,11 @@ test('partial-clone 逃生舱: GUARD_SKIP_PARTIAL_CLONE_CHECK=1 → 预检让位
     execSync('git config --local remote.origin.promisor true', { cwd: work, stdio: 'pipe' })
     const r = runScript([], { cwd: work, env: { GUARD_SKIP_PARTIAL_CLONE_CHECK: '1' } })
     assert.doesNotMatch(r.stdout, /partial-clone/, '逃生舱生效后不应再出现预检文案')
-    assert.equal(r.status, 0, `逃生舱应让主流程继续并推送成功,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.equal(
+      r.status,
+      0,
+      `逃生舱应让主流程继续并推送成功,实际 ${r.status}\nstdout: ${r.stdout}`,
+    )
   } finally {
     forceRemove(work)
     forceRemove(origin)
@@ -405,7 +427,11 @@ test('skipPush 语义: HUSKY_SKIP_PUSH=1 优先于异步分叉 → 不写 runnin
     const stateFile = join(work, '.workbuddy', 'push-state.json')
     if (existsSync(stateFile)) {
       const st = JSON.parse(readFileSync(stateFile, 'utf8'))
-      assert.notEqual(st.status, 'running', `skipPush 下绝不能留下 running(那意味着后台真在推):${JSON.stringify(st)}`)
+      assert.notEqual(
+        st.status,
+        'running',
+        `skipPush 下绝不能留下 running(那意味着后台真在推):${JSON.stringify(st)}`,
+      )
     }
     // 且远端确实没被推动
     const localHead = execSync('git rev-parse HEAD', { cwd: work, encoding: 'utf8' }).trim()
@@ -429,7 +455,7 @@ test('skipPush 语义: HUSKY_SKIP_PUSH=1 优先于异步分叉 → 不写 runnin
 //   · HOOK_SUMMARY_STDERR ← scripts/guardian-runner.mjs(:3873/:3877)+ .husky/pre-push(:101)
 //   · SECRET_SCAN_STDERR ← GitHub push protection 的远端回显
 const NFF_STDERR = [
-  "To https://github.com/example/repo.git",
+  'To https://github.com/example/repo.git',
   ' ! [rejected]        main -> main (non-fast-forward)',
   "error: failed to push some refs to 'https://github.com/example/repo.git'",
   'hint: Updates were rejected because the tip of your current branch is behind',
@@ -447,7 +473,7 @@ const HOOK_SUMMARY_STDERR = [
 ].join('\n')
 
 const SECRET_SCAN_STDERR = [
-  "To https://github.com/example/repo.git",
+  'To https://github.com/example/repo.git',
   ' ! [remote rejected] main -> main (push declined due to repository rule violations)',
   'error: failed to push some refs',
 ].join('\n')
@@ -459,7 +485,10 @@ const FIXTURES_BY_KIND = {
   'non-fast-forward': { status: 1, stderr: NFF_STDERR },
   'secret-scan-blocked': { status: 1, stderr: SECRET_SCAN_STDERR },
   'hook-failed': { status: 1, stderr: HOOK_SUMMARY_STDERR },
-  other: { status: 1, stderr: 'fatal: unable to access https://example.com: Could not resolve host' },
+  other: {
+    status: 1,
+    stderr: 'fatal: unable to access https://example.com: Could not resolve host',
+  },
 }
 
 test('分诊:每个 PUSH_TRIAGE_KINDS 成员都有命中它的输入(死表即红)', () => {
@@ -493,11 +522,19 @@ test('分诊·成对:真守门批汇总必判 hook-failed 且保留原重试链'
 })
 
 test('分诊·成对:Everything up-to-date 只在验证确实相等时才配 done', () => {
-  const ok = triagePushAttempt({ status: 0, stdout: 'Everything up-to-date', remoteEqualsLocal: true })
+  const ok = triagePushAttempt({
+    status: 0,
+    stdout: 'Everything up-to-date',
+    remoteEqualsLocal: true,
+  })
   assert.equal(ok.kind, 'up-to-date')
   assert.equal(ok.pushedNothing, true)
   assert.equal(ok.terminalStatus, 'done')
-  const bad = triagePushAttempt({ status: 0, stdout: 'Everything up-to-date', remoteEqualsLocal: false })
+  const bad = triagePushAttempt({
+    status: 0,
+    stdout: 'Everything up-to-date',
+    remoteEqualsLocal: false,
+  })
   assert.equal(bad.terminalStatus, 'failed', '什么都没推 + 验证不等 ⇒ 不得记成功')
   const unknown = triagePushAttempt({ status: 0, stdout: 'Everything up-to-date' })
   assert.equal(unknown.terminalStatus, 'failed', '验证未判定 ⇒ 不得记成功(未判定 ≠ 通过)')
@@ -517,7 +554,11 @@ test('分诊·成对:secret-scan 不得被并进 hook-failed;other 保持改动�
 
 test('装车反向锁:guard 必须真的调用分诊,且 --no-verify 只活在受分诊放行的分支里', () => {
   // 本仓最高频失效型:函数在、判据过、主流程没用它(守门 102 的 GA5/GA6 同一教训)。
-  assert.match(GUARD_SRC, /from '\.\/lib\/push-attempt-triage\.mjs'/, 'guard 未引用分诊模块 ⇒ 判据失明')
+  assert.match(
+    GUARD_SRC,
+    /from '\.\/lib\/push-attempt-triage\.mjs'/,
+    'guard 未引用分诊模块 ⇒ 判据失明',
+  )
   assert.ok(
     GUARD_SRC.includes('triagePushAttempt('),
     'guard 里没有 triagePushAttempt( 调用 ⇒ 分诊被摘线,门又会一路绿灯',
@@ -545,15 +586,37 @@ test('装车反向锁:guard 必须真的调用分诊,且 --no-verify 只活在�
 test('装车反向锁:push-state 新增的 diverged 必须被三处读取方各自认下', () => {
   const hits = {}
   for (const [name, p] of Object.entries(READER_PATHS)) hits[name] = readFileSync(p, 'utf8')
-  assert.match(hits['check-push-sync.mjs'], /st\.status === 'diverged'/, 'check-push-sync 不认识 diverged ⇒ 会落到"已过期"的错文案')
-  assert.match(hits['git-push-converge.mjs'], /status === 'diverged'/, 'converge 不认识 diverged ⇒ 只读核验会把分叉报成普通 DIVERGED')
+  assert.match(
+    hits['check-push-sync.mjs'],
+    /st\.status === 'diverged'/,
+    'check-push-sync 不认识 diverged ⇒ 会落到"已过期"的错文案',
+  )
+  assert.match(
+    hits['git-push-converge.mjs'],
+    /status === 'diverged'/,
+    'converge 不认识 diverged ⇒ 只读核验会把分叉报成普通 DIVERGED',
+  )
   assert.match(
     hits['git-sync-converge.mjs'],
     /s\.status === 'diverged'/,
     'sync-converge 的终态集合漏了 diverged ⇒ 每轮白等 8 分钟才判 timeout',
   )
   // 向后兼容:三处都不得把"不认识的值"读成已推成功(fallthrough 一律是拦/未判定)
-  assert.match(hits['check-push-sync.mjs'], /return \{ pass: false, why: `push-state status=/, '未知态必须回到阻塞,不得默认放行')
+  assert.match(
+    hits['check-push-sync.mjs'],
+    /return \{ pass: false, why: `push-state status=/,
+    '未知态必须回到阻塞,不得默认放行',
+  )
+})
+
+test('装车锁:死 worker 的终态自愈必须带来源落盘(2026-09-26 守门 29 假红的真凶)', () => {
+  // 拦的是这一型:那记 failed 写的是**死 worker 的 headSha**,与本次提交没有因果关系
+  // (实测累计 353 次),却不带任何来源标记 ⇒ 下游只能把它读成"这次推送失败了"⇒ 每次提交被逼跳门。
+  assert.match(
+    GUARD_SRC,
+    /writePushState\('failed',\s*existingState\.headSha,\s*\{[\s\S]{0,200}?kind:\s*'dead-worker-self-heal'/,
+    '死 worker 自愈写 failed 时必须落 kind,否则 check-push-sync 分不清"真失败"与"别人没写完终态"',
+  )
 })
 
 // ─── 端到端①:真 non-fast-forward ⇒ 绝不跳门、远端 tip 必须一动没动 ─────────
@@ -607,7 +670,11 @@ test('e2e:真分叉(远端被并发会话推进)→ exit 1 + 点名 converge + �
     // 关键反证(本票存在的理由):绝不允许出现跳门那一趟与"成功"字样
     assert.doesNotMatch(r.stdout, /--no-verify 重试成功/, '分叉型绝不能走 --no-verify')
     assert.doesNotMatch(r.stdout, /push 成功 \+ 验证通过/, '什么都没推成功却报成功 = 合格证造假')
-    assert.doesNotMatch(r.stdout, /按用户规则"hook 失败因其他 agent 代码/, '错归因文案不得再出现在这一型')
+    assert.doesNotMatch(
+      r.stdout,
+      /按用户规则"hook 失败因其他 agent 代码/,
+      '错归因文案不得再出现在这一型',
+    )
     // 且远端确实一动没动(只有 converge 能改它)
     const remoteAfter = sh('git ls-remote origin refs/heads/main', work).split('\t')[0].trim()
     assert.equal(remoteAfter, remoteSha, 'guard 在分叉下不得改动远端 tip(未推任何东西)')
@@ -619,7 +686,10 @@ test('e2e:真分叉(远端被并发会话推进)→ exit 1 + 点名 converge + �
     const st = JSON.parse(readFileSync(join(work, '.workbuddy', 'push-state.json'), 'utf8'))
     assert.equal(st.status, 'diverged', `应落具名终态 diverged:${JSON.stringify(st)}`)
     assert.equal(st.headSha, localSha)
-    assert.ok(String(st.nextCommand).includes('git-sync-converge.mjs'), '状态里要带出路,converge 才接得住')
+    assert.ok(
+      String(st.nextCommand).includes('git-sync-converge.mjs'),
+      '状态里要带出路,converge 才接得住',
+    )
   } finally {
     rmScratch(peer)
     rmScratch(work)
@@ -651,7 +721,11 @@ test('e2e:真 pre-push 钩子失败 → 原有"带 hook 重试 → --no-verify �
 
     const r = runScript([], { cwd: work })
     assert.match(r.stdout, /分诊=hook-failed/, `应被分诊成 hook-failed:${r.stdout}`)
-    assert.match(r.stdout, /--no-verify 重试成功/, '真钩子失败必须仍按用户规则兜底(修复不得堵死这条路)')
+    assert.match(
+      r.stdout,
+      /--no-verify 重试成功/,
+      '真钩子失败必须仍按用户规则兜底(修复不得堵死这条路)',
+    )
     assert.equal(r.status, 0, `兜底成功应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
     const localSha = sh('git rev-parse HEAD', work).trim()
     const remoteSha = sh('git ls-remote origin refs/heads/main', work).split('\t')[0].trim()
