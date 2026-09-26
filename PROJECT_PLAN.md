@@ -11017,6 +11017,50 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 ## O82续三 本会话清账与落地（2026-09-26，三路守门票 + 两波功能票 + F4 新判据）
 - [x] ✅(2026-09-26) **O82续三 落账** 三路守门票全部入库：守门 8 前端调用面从 apps/web 扩到 mobile-rn/miniapp-taro/extension（`1e7ed628e9b`，死调用首现判据；新增 `OPAQUE_MOUNT_PREFIXES` 把 ai-service `mount_to_app` 那两条按守门 127 同一口径计「未判定」，web 侧此前把它们误报成死调用）；auth refresh 单例守门改判受审面（`1b5b10b4c1e`，默认 HEAD blob / `--staged` 索引 blob / 两面旗同给 exit 2，并给 `pre-commit-hook.js` 调用点补 `--staged` —— 门收口到判 HEAD 而钩子不传面旗，等于在审上一提交态）；守门 102 新增 GA7「同屏双返回 · 双层页头」（`3c9e3c7ec09`，H1 按紧邻 return 切段 / H2 跨文件一跳 / H3 `headerShown` 回潮，HEAD 存量 3 处按文件棘轮只报数）。
 - 〔O81 票④ 七族收编 2026-09-26(续末):台账 7 键 95 档 → 4 键 29 档;并登记三条新暴露的判据缺陷〕
+- 〔O81 续记 2026-09-26 深夜:三族收口 + 死副本摘除落地;并更正本会话自己报错过的一次余量读数〕
+  - **先更正一条我自己给出的错数**:本会话早前按**工作树**那份 `check-cross-end-ui-parity.mjs`
+    跑出"账面能收的是 4 族 / 29 档",并据此派过单。那次读数是**旧判据**的产物 —— 当时工作树副本
+    比 HEAD 多 752 行(一份未提交的渲染腿前置),而台账已按它下调,于是"4 族 29 档"描述的是一个
+    **还不存在的判据**。同刻用 HEAD 版判据现读是另一组数。**教训与前夜"按磁盘读会得出相反结论"
+    同型:台账/派单口径必须与被审的那份判据同批产生,不能各取一个面。**
+  - **已落地(四枚)**:① `e79ec9f6a2` + `a8fa63d1f6` 守门 83 R8 三块书写形态盲区
+    (单边方向中缀 `border-t-primary` / 类名 `foreground` 档 / CSS 声明 `var(--color-foreground)`)
+    —— 立门前该门自报"候选 1、存量 0、零容忍通过",而 HEAD 面实有 **9 文件 11 处**;
+    判据与 `git grep` 预筛**同批**扩(只改判据则新形态文件在候选阶段即被筛掉),自检补 M8d–M8g
+    四条(阳性对照逐字取自真文件),三条变异对照各自精确翻红,存量 7 处并回既有档、
+    4 处挂带到期日豁免;基线 `inkBorderCounts` **仍为空**。`a8fa63d1f6` 是收自己造的红:
+    同行豁免写在 JSX children 位会被 prettier 拆到下一行而失效(类名面只认同行,只有 RN style
+    面认"上一行纯注释"),故这两处改为直接取档。② `c96d8840d0` NavBar / Carousel / UserInfoCard
+    三族几何档收口到 `packages/shared/ui/*-spec` 共同锚(改后门读数与两票自报逐值吻合:
+    NavBar 9→5、Carousel RN 侧独有档清空)。③ `99586bdb4c` 摘除 `packages/app` 四枚零消费者
+    DOM 死副本(NavBar/Carousel/PayButton/ColorfulLoader)+ 两层 barrel 出口 + 台账重锚。
+    **`UserInfoCard` 经同一把尺子量出有 1 枚真消费者**(`SharedDemoScreen` 从 `@ihui/rn-app`
+    具名取用)故**未删** —— 它反过来证明门当时会把"有真实消费者的件"判成端入口不可达。
+    ④ 一枚 `check-stale-revert`(门 84)出口修正:它原本无条件建议
+    `git restore --source=HEAD --worktree`,而"索引==祖先 / 工作树是一份不等于任何祖先的真新内容"
+    那一格照做就是替别人抹掉未提交的工作(本会话当场遇到,被点名的是 `PROJECT_PLAN.md`)。
+    现按 `classifyWorktree()` 四态分流,`self-test` 12→16 例,两条变异各自精确翻红并校验还原哈希。
+  - **一条操作教训**:删跟踪文件**必须 `git rm` 落索引**。本会话第一轮只做了物理删除,
+    结果 `heal-worktree-tracked` 按它自己的三条判据(盘上缺 + 索引==HEAD + HEAD 存在)
+    把这四个文件判定为"被宿主清理层删掉的跟踪文件"**自动恢复**回来 —— 自愈逻辑没错,
+    错在用了它无法区分的删除方式。
+  - **剩余三格判据待办(2026-09-26 深夜现读,不在台账任何票面上,且全部落在门本体 = 并发会话持有)**:
+    **T-a 配对宽度**:`normKey` 仍按**文件名**配对(`pairs.push` 用同名键),于是"同一元素两端不同名/
+    不同路径"结构性配不上 —— 实测确证样本:`loading-spec` 的小程序腿 `components/Loading.tsx` ↔
+    RN 活腿 `apps/mobile-rn/src/components/common/Loading.tsx`(路径异名);`back-chevron-spec` 在
+    RN 侧有一条渲染腿是**把箭头内联进** `apps/mobile-rn/src/components/NavBar.tsx`(1↔2 关系)。
+    **T-b 几何读取形态**:`toUnit(<SPEC常量>)` 这类"实参非字面量"的取数读不到(实测配对组件内
+    **128 处**),且 spec 文件本身不在 `SIDES` 面内 ⇒ 该型既看不见分叉也看不见"已同源";
+    引号串形态 `width:'118rpx'`(实测 249 处)、typed 任意值 `text-[length:18rpx]`、负偏移
+    (`toPx` 对 `v<=0` 直接丢弃)同样在射程外。**T-c 覆盖面**:`SIDES` 仍是三个 `**/components`
+    ⇒ `packages/ui-native/src`(17 文件,其中 4 个产品面在用、10 个零消费者)与
+    `apps/mobile-rn/src/screens`(`rpx(` 实测 736 处)、各端 `.css` 边车(小程序 6 个)
+    全部在门外。**扩面必须同批改两半**(内容判据 + 枚举/预筛),这是圆角门与 83 R8 今天各记过一次的同一个坑。
+  - **让位声明**:门 128 本体与台账由 `（进行中@2026-09-26/O81票）` 持有者推进(今晚已自行提交
+    `269dc757bb` 修掉"首选层是不可达死副本时不回落"那一格,与本会话三票独立取证到的同一结论一致);
+    本会话不再改该文件。门现于 HEAD 上报 **4 处超锚点红**(Carousel 6 档 / InputArea 3 档 /
+    ModelConfigDialog / VideoPlayer),其中两族属**图标载体 IC 线**、InputArea 的 spec 工作树已脏
+    (他人持有)—— **本会话未调台账消红**,那属"为让门变绿而改台账数字"的禁止动作。
   **七族结果**(门 128 `--staged` 面主会话实测,非代理自陈):InputArea **23→1**、BottomActionBar **19→16**、
   LoginPopUp **17→0**、ModelConfigDialog **10→0**、IntelligentAssistant **8→0**、ModelList **12→10**、
   FloatBox **6→2**。出账三族**删键**不保留 0(镜像 T8 有一条「台账挂着已不存在的账=清单腐烂」,
