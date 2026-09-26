@@ -44,6 +44,7 @@ export type ScheduledJobName =
   | 'budget-alert-check'
   | 'edu-arrear-remind-daily'
   | 'llm-call-log-purge-daily'
+  | 'upload-session-reap-hourly'
 
 export interface ScheduledJobDef {
   name: ScheduledJobName
@@ -170,6 +171,14 @@ export const SCHEDULED_JOBS: ScheduledJobDef[] = [
     name: 'llm-call-log-purge-daily',
     pattern: '15 4 * * *',
     description: 'llm_call_logs 到期原文清除（每日04:15）',
+  },
+  // A9R12-G1(2026-09-26)分片上传会话 TTL 回收:半途而废的 uploads/chunks/<id>/ 目录
+  // 与 upload_sessions 行此前无任何回收路径(只有显式 DELETE /cancel),磁盘与表双面
+  // 无界增长。取每时 45 分,错开 file-cleanup-hourly(0 分)。
+  {
+    name: 'upload-session-reap-hourly',
+    pattern: '45 * * * *',
+    description: '过期分片上传会话回收（每小时45分）',
   },
 ]
 
