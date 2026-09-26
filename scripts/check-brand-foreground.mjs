@@ -245,15 +245,28 @@ const R5_EXEMPT = /r5-cta-exempt:/
  * 且 R3 已经把 `(backgroundColor|borderColor): *.brand.cta` 计入自己的计数面
  * (见 R3_FILL_CTA)—— 再算一次就是同一笔债两道门重复计账。
  *
- * 类名面只拦**满不透明**的 `border-primary` / `ring-primary`:`border-primary/20` 是染色,
- * 不是这一型;`border-primary-foreground` 是另一个键名,靠尾部字符类排除。
+ * 类名面只拦**满不透明**的 `border-…-primary` / `ring-primary` / 同形的 `…-foreground`:
+ * `border-primary/20` 与 `border-foreground/60` 是染色,不是这一型;`border-primary-foreground`
+ * 是另一个键名,靠尾部字符类排除。单边方向中缀(`border-t-` 等)与 `foreground` 档名于
+ * 2026-09-26 补入 —— 详见下方 R8_CLASS_BORDER 的注释。
  */
 const BASELINE_R8_KEY = 'inkBorderCounts'
 const R8_INK_TIER = '(?:brand\\.DEFAULT|brand\\.foreground|brand\\.ctaForeground|text\\.primary)'
 /** RN style 对象面:任何 `border*: <expr>` 的值里出现墨档即债 */
 const R8_RN_BORDER = new RegExp(`\\bborder\\w*\\s*:\\s*[^\\n]*?${TKS}\\.(${R8_INK_TIER})\\b`)
-/** 类名面:满不透明 border-primary / ring-primary(后面不能是 - / 或单词字符) */
-const R8_CLASS_BORDER = /(^|[^A-Za-z0-9_-])(?:border|ring)-primary(?![-/\w])/g
+/** 类名面:满不透明的 `border-…-primary` / `ring-primary` / 同形 `…-foreground`
+ *  (后面不能是 - / 或单词字符)。方向中缀 `-t- -b- -l- -r- -x- -y- -s- -e-` 于 2026-09-26 补入:
+ *  本条正则原写作 `(?:border|ring)-primary`,要求档名**紧跟**在 border 之后,于是 Tailwind 的
+ *  单边描边形态整族隐身 —— HEAD 面实测 3 处 `border-t-primary` / `border-l-primary` 一路报绿,
+ *  而 spinner 的"一圈灰边 + 一段黑边"正是这一型(黑的那段就是 `border-t-`)。同理 `foreground`
+ *  原先完全不在类名档名表里,`border-t-foreground` 与 `border-foreground` 均零判据。
+ *  仍然排除:`border-primary-foreground`(另一个键名)与 `border-primary/20`(染色)—— 靠同一个尾部字符类。 */
+const R8_CLASS_DIR = '(?:-[xysteblr])?'
+const R8_CLASS_TIER = '(?:primary|foreground)'
+const R8_CLASS_BORDER = new RegExp(
+  `(^|[^A-Za-z0-9_-])(?:border${R8_CLASS_DIR}|ring)-${R8_CLASS_TIER}(?![-/\\w])`,
+  'g',
+)
 /**
  * CSS 声明面(2026-09-26 补,与类名面同一条判据的第三种书写形态):`border*: … var(--color-primary)`。
  * 立项时 R8 只认 RN style 对象与 Tailwind 类名两种形态,**整面 CSS 声明不在射程里** ——
@@ -261,9 +274,13 @@ const R8_CLASS_BORDER = /(^|[^A-Za-z0-9_-])(?:border|ring)-primary(?![-/\w])/g
  * 另 1 处是 TSX 内联字符串形态。同一句话("本项目没有纯黑描边")按书写形态被切成三块盲区,
  * 是 §22c 记过的那一型:**判据覆盖面不等于规则覆盖面**。
  */
-const R8_CSS_BORDER = /\bborder[a-z-]*\s*:\s*[^;\n]*var\(\s*--color-primary\s*\)/
-/** 预筛用的 git grep -P 模式:必须是上面判据的超集(不看注释/豁免,只认类名出现) */
-const R8_CLASS_GREP_PATTERN = '(border|ring)-primary(?![-/\\w])|border[a-z-]*:[^;]*var\\(\\s*--color-primary\\s*\\)'
+const R8_CSS_BORDER =
+  /\bborder[a-z-]*\s*:\s*[^;\n]*var\(\s*--color-(?:primary|foreground)\s*\)/
+/** 预筛用的 git grep -P 模式:必须是上面判据的**超集**(不看注释行/豁免,也不带尾部断言,
+ *  所以只会多带文件、绝不漏带)。方向中缀与 foreground 两档必须与判据同批扩 —— 只改判据
+ *  不改这条,预筛会先把带 `border-t-primary` 的文件筛掉,门对新形态照样全盲(§4 圆角门记过同型)。 */
+const R8_CLASS_GREP_PATTERN =
+  '(border(-[xysteblr])?|ring)-(primary|foreground)|border[a-z-]*:[^;]*var\\(\\s*--color-(primary|foreground)\\s*\\)'
 const R8_EXEMPT = /border-ink-exempt:/
 /** R8 注释行不判(与 R5_COMMENT_LINE 同一条理由:零容忍门不得被叙述行钉红) */
 const R8_COMMENT_LINE = /^\s*(?:\/\/|\/\*|\*)/
@@ -2688,6 +2705,36 @@ function selfTest() {
     'R8-M8b border-primary/20 是染色、border-primary-foreground 是另一键,都不属这一型',
   )
   assert(countInkBorderClasses(['  // border-primary 是已废档']) === 0, 'R8-M8c 类名面注释行不判')
+  /**
+   * M8d–M8g:2026-09-26 扩面的**验收**。原判据 `(?:border|ring)-primary` 要求档名紧跟在
+   * border 之后,于是 Tailwind 的单边形态整族隐身;`foreground` 更是从未进过类名档名表。
+   * 三条真实存量行(逐字取自 HEAD 面,非自造夹具 —— §22c:镜像判据的输入必须来自真文件,
+   * 否则测试只是复读实现)扩面前判 0、扩面后必须判到;拿它们做"判据有牙"的阳性对照。
+   */
+  assert(
+    countInkBorderClasses([
+      '        className={`${sizeClass} mr-2 rounded-full border-2 border-border border-t-primary animate-spin`}',
+      '              <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-muted border-t-foreground" />',
+    ]) === 2,
+    'R8-M8d 单边方向中缀(border-t-*)必须判到:原正则要求档名紧跟 border,这一族整族隐身',
+  )
+  assert(
+    countInkBorderClasses([
+      "          'border-[1.5px] border-foreground bg-background',",
+      "          'data-[state=checked]:bg-[var(--color-brand-accent)] data-[state=checked]:border-foreground',",
+    ]) === 2,
+    'R8-M8e foreground 作描边同样算墨档债(它原先根本不在类名档名表里)',
+  )
+  assert(
+    countInkBorderClasses([
+      "  return <div className='border-t-primary/20 border-t-brand-accent-deep border-t-transparent' />",
+    ]) === 0,
+    'R8-M8f 反向锁:方向中缀 + 染色(/20)与两条合法出路(brand-accent-deep / transparent)不得误伤',
+  )
+  assert(
+    countInkBorderClasses(['  border-color: var(--color-foreground);']) === 1,
+    'R8-M8g CSS 声明面同批认 foreground(与类名面同一条判据,只扩一半就是没扩)',
+  )
   // (M9) 预筛必须是判据的严格超集:真仓上"预筛候选" ⊇ "实际命中",
   //      否则 git grep 的 `-P` 一旦失效(shell 历史展开把 `(?!` 变成 `\(!` 那类),
   //      门会安静地零命中而报告全绿 —— 本会话实测被骗过一次。
