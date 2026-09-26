@@ -705,8 +705,11 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, '文件未在回收站中'))
     }
 
-    await restoreFile(id)
-    return reply.send(success({ restored: true }))
+    // 2026-09-27 修「恢复了 0 行也回成功」:上面的存在性 / 归属 / 回收站三道闸只防住
+    // "根本没执行写",防不住"写了但命中 0 行"(并发永久删除即此) —— ack 改由 UPDATE 自己的
+    // RETURNING 命中集合派生,键名与状态码逐字不变。
+    const restoredIds = await restoreFile(id)
+    return reply.send(success({ restored: restoredIds.length > 0 }))
   })
 
   // ===========================================================================

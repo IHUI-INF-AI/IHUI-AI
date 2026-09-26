@@ -245,9 +245,18 @@ export async function softDeleteFile(id: string, userId: string): Promise<string
 
 /**
  * 恢复单个文件（移出回收站）。
+ * 2026-09-27 修「恢复了 0 行与恢复成功同形」：返回值由 void 改为 UPDATE ... RETURNING 命中的
+ * id 集合 —— 路由侧的存在性/归属预查询与这次写不发生在同一瞬间（并发永久删除、并发已恢复
+ * 都会让 UPDATE 命中 0 行），只能由这次写自己回报。与同文件 softDeleteFile / batchRestore
+ * 及 utils/batch-outcome.ts 同一口径；调用方不得再用「查到了」代替「改到了」。
  */
-export async function restoreFile(id: string): Promise<void> {
-  await db.update(files).set({ deletedAt: null, deletedBy: null }).where(eq(files.id, id))
+export async function restoreFile(id: string): Promise<string[]> {
+  const rows = await db
+    .update(files)
+    .set({ deletedAt: null, deletedBy: null })
+    .where(eq(files.id, id))
+    .returning({ id: files.id })
+  return rows.map((r) => r.id)
 }
 
 /**

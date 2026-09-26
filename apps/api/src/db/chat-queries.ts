@@ -1084,14 +1084,20 @@ export async function deleteMessage(id: string): Promise<string[]> {
  * D35 删除段:清空后现存轮次为 0,旧断点指向一批已不存在的行 ⇒ 必须 reset,
  * 且"无收口轮次"这里是要落库的结论(断点写回 null),不是可以跳过的写入。
  */
-export async function clearMessages(conversationId: string): Promise<void> {
-  await db.transaction(async (tx) => {
-    await tx.delete(chatMessages).where(eq(chatMessages.conversationId, conversationId))
+export async function clearMessages(conversationId: string): Promise<string[]> {
+  return db.transaction(async (tx) => {
+    // 第二十八批(布尔 ack 族):删除段带 .returning 回报实际删掉的行,
+    // 路由侧的确认由该集合派生 —— 写链自身不回报就是没证据(0 行与成功同形)。
+    const removed = await tx
+      .delete(chatMessages)
+      .where(eq(chatMessages.conversationId, conversationId))
+      .returning({ id: chatMessages.id })
     await tx
       .update(chatConversations)
       .set({ lastMessageAt: null, updatedAt: new Date() })
       .where(eq(chatConversations.id, conversationId))
     await rollHistoryProjection(tx, conversationId, { reset: true })
+    return removed.map((r) => r.id)
   })
 }
 
