@@ -89,8 +89,11 @@ export const addressRoutes: FastifyPluginAsync = async (server) => {
     if (!existing) return reply.status(404).send(error(404, '地址不存在'))
     if (existing.userId !== request.userId)
       return reply.status(403).send(error(403, '无权删除此地址'))
-    await db.delete(userAddresses).where(eq(userAddresses.id, id))
-    return reply.send(success({ deleted: true }))
+    const removed = await db
+      .delete(userAddresses)
+      .where(eq(userAddresses.id, id))
+      .returning({ id: userAddresses.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // POST /addresses/:id/default — 设为默认(事务取消其他默认)

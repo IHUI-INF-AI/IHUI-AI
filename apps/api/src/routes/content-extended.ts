@@ -207,7 +207,7 @@ export const contentExtendedRoutes: FastifyPluginAsync = async (server) => {
       if ((rows as Record<string, unknown>[]).length === 0) {
         return reply.status(404).send(error(404, '活动不存在'))
       }
-      return reply.send(success({ id, deleted: true }))
+      return reply.send(success({ id, deleted: (rows as Record<string, unknown>[]).length > 0 }))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '删除活动失败'))
@@ -360,7 +360,9 @@ export const contentExtendedRoutes: FastifyPluginAsync = async (server) => {
       )
       const row = (rows as Record<string, unknown>[])[0]
       if (!row) return reply.status(404).send(error(404, '文件不存在'))
-      return reply.send(success({ id, deleted: true, ...row }))
+      return reply.send(
+        success({ id, deleted: (rows as Record<string, unknown>[]).length > 0, ...row }),
+      )
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '删除文件失败'))

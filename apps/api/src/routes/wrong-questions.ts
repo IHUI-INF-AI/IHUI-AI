@@ -87,7 +87,7 @@ const wrongQuestionRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(examWrongQuestion.id, parsed.data.id), eq(examWrongQuestion.userId, userId)))
       .returning()
     if (!deleted) return reply.status(404).send(error(404, '错题不存在或无权删除'))
-    return reply.send(success({ id: deleted.id, deleted: true }))
+    return reply.send(success({ id: deleted.id, deleted: Boolean(deleted) }))
   })
 
   // GET / — 获取错题列表(Java: GET /auth-api/wrong-question/list)

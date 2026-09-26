@@ -679,8 +679,8 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
       if (!isAdmin && existingTitle.userId !== request.userId) {
         return reply.status(403).send(error(403, '无权操作'))
       }
-      await deleteInvoiceTitle(parsed.data.id)
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
+      const removed = await deleteInvoiceTitle(parsed.data.id)
+      return reply.send(success({ id: parsed.data.id, deleted: removed.length > 0 }))
     },
   )
 
@@ -779,8 +779,8 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
       const existing = await findInvoiceApplicationById(parsed.data.id)
       if (!existing) return reply.status(404).send(error(404, '发票申请不存在'))
       if (existing.userId !== request.userId) return reply.status(403).send(error(403, '无权操作'))
-      await deleteInvoiceApplication(parsed.data.id)
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
+      const removed = await deleteInvoiceApplication(parsed.data.id)
+      return reply.send(success({ id: parsed.data.id, deleted: removed.length > 0 }))
     },
   )
 }

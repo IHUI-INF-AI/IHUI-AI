@@ -102,8 +102,11 @@ const authSmsTempRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(messageTemplates.id, p.data.id))
       .limit(1)
     if (existing.length === 0) return reply.status(404).send(error(404, '记录不存在'))
-    await db.delete(messageTemplates).where(eq(messageTemplates.id, p.data.id))
-    return reply.send(success({ id: p.data.id, deleted: true }))
+    const removed = await db
+      .delete(messageTemplates)
+      .where(eq(messageTemplates.id, p.data.id))
+      .returning({ id: messageTemplates.id })
+    return reply.send(success({ id: p.data.id, deleted: removed.length > 0 }))
   })
 }
 

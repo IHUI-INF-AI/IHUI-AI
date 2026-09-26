@@ -495,7 +495,9 @@ describe('message routes', () => {
 
     it('批量删除成功返回 200', async () => {
       authAs()
-      enqueue([]) // db.delete
+      // DELETE ... RETURNING 的命中集(旧写法 enqueue([]) 只服务"不看库侧返回值"的旧代码;
+      // 现在 deleted 由该集合经 batchWriteOutcome 推出 ⇒ 夹具必须交出真被删掉的那一行)
+      enqueue([{ id: UUID }]) // db.delete().returning({ id })
       const res = await app.inject({
         method: 'DELETE',
         url: '/api/messages/batch-delete',
