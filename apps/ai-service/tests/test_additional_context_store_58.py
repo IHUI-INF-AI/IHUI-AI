@@ -6,10 +6,10 @@
 from __future__ import annotations
 
 from app.core.additional_context_store import (
-    AdditionalContextEntry,
-    AdditionalContextStore,
     KIND_APPLICATION,
     KIND_UNTRUSTED,
+    AdditionalContextEntry,
+    AdditionalContextStore,
     additional_context_body,
     additional_context_developer_body,
     approx_bytes_for_tokens,
@@ -40,7 +40,7 @@ def test_truncate_returns_original_token_count_when_truncated() -> None:
     out, removed = truncate_middle_with_token_budget(value, 1000)
     assert removed == 1250
     assert out != value
-    assert "tokens truncated" not in out  # middle marker 是 chars 版?否—token 版保留首尾,无 markers in value? 
+    assert "tokens truncated" not in out  # middle marker 是 chars 版?否—token 版保留首尾,无 markers in value?
     # 注:token 版输出 = prefix + "…N chars truncated…" + suffix? Rust 用 chars 标记在 chars 截断;token 版在 assemble 时用 tokens 标记。
     # 我们的实现:_truncate_middle_chars 使用 chars 标记。codex token 版使用 "…N tokens truncated…"。
 

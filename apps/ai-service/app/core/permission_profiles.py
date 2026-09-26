@@ -52,7 +52,7 @@ __all__ = [
 ]
 
 
-class FileSystemAccessMode(str, Enum):
+class FileSystemAccessMode(str, Enum):  # noqa: UP042 — 改 StrEnum 会变 str() 输出(现在是 "Class.MEMBER"),属行为重写  # noqa: UP042 — 改 StrEnum 会变 str() 输出(现在是 "Class.MEMBER"),属行为重写  # noqa: UP042 — 改 StrEnum 会变 str() 输出(现在是 "Class.MEMBER"),属行为重写  # noqa: UP042 — 改 StrEnum 会变 str() 输出(现在是 "Class.MEMBER"),属行为重写  # noqa: UP042 — 改 StrEnum 会变 str() 输出(现在是 "Class.MEMBER"),属行为重写  # noqa: UP042 — 改 StrEnum 会变 str() 输出(现在是 "Class.MEMBER"),属行为重写  # noqa: UP042 — 改 StrEnum 会变 str() 输出(现在是 "Class.MEMBER"),属行为重写  # noqa: UP042 — 改 StrEnum 会变 str() 输出(现在是 "Class.MEMBER"),属行为重写  # noqa: UP042 — 改 StrEnum 会变 str() 输出(现在是 "Class.MEMBER"),属行为重写  # noqa: UP042 — 改 StrEnum 会变 str() 输出(现在是 "Class.MEMBER"),属行为重写  # noqa: UP042 — 改 StrEnum 会变 str() 输出(现在是 "Class.MEMBER"),属行为重写  # noqa: UP042 — 改 StrEnum 会变 str() 输出(现在是 "Class.MEMBER"),属行为重写
     """文件系统访问模式(``none`` 为兼容旧输入的别名 → ``deny``)。"""
 
     READ = "read"
@@ -60,7 +60,7 @@ class FileSystemAccessMode(str, Enum):
     DENY = "deny"
 
     @classmethod
-    def parse(cls, value: str) -> "FileSystemAccessMode":
+    def parse(cls, value: str) -> FileSystemAccessMode:
         lowered = str(value).strip().lower()
         if lowered == "none":
             return cls.DENY
@@ -75,12 +75,12 @@ class FileSystemAccessMode(str, Enum):
         return self is FileSystemAccessMode.WRITE
 
 
-class NetworkDomainPermission(str, Enum):
+class NetworkDomainPermission(str, Enum):  # noqa: UP042 — 同上:改基类会改 str()/f-string 输出  # noqa: UP042 — 同上:改基类会改 str()/f-string 输出  # noqa: UP042 — 同上:改基类会改 str()/f-string 输出  # noqa: UP042 — 同上:改基类会改 str()/f-string 输出  # noqa: UP042 — 同上:改基类会改 str()/f-string 输出  # noqa: UP042 — 同上:改基类会改 str()/f-string 输出  # noqa: UP042 — 同上:改基类会改 str()/f-string 输出  # noqa: UP042 — 同上:改基类会改 str()/f-string 输出  # noqa: UP042 — 同上:改基类会改 str()/f-string 输出  # noqa: UP042 — 同上:改基类会改 str()/f-string 输出  # noqa: UP042 — 同上:改基类会改 str()/f-string 输出  # noqa: UP042 — 同上:改基类会改 str()/f-string 输出
     ALLOW = "allow"
     DENY = "deny"
 
 
-class NetworkMode(str, Enum):
+class NetworkMode(str, Enum):  # noqa: UP042 — 同上:改基类会改 str()/f-string 输出  # noqa: UP042 — 同上:改基类会改 str()/f-string 输出  # noqa: UP042 — 同上:改基类会改 str()/f-string 输出  # noqa: UP042 — 同上:改基类会改 str()/f-string 输出  # noqa: UP042 — 同上:改基类会改 str()/f-string 输出  # noqa: UP042 — 同上:改基类会改 str()/f-string 输出  # noqa: UP042 — 同上:改基类会改 str()/f-string 输出  # noqa: UP042 — 同上:改基类会改 str()/f-string 输出  # noqa: UP042 — 同上:改基类会改 str()/f-string 输出  # noqa: UP042 — 同上:改基类会改 str()/f-string 输出  # noqa: UP042 — 同上:改基类会改 str()/f-string 输出  # noqa: UP042 — 同上:改基类会改 str()/f-string 输出
     LIMITED = "limited"
     FULL = "full"
 

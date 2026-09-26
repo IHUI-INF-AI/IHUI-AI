@@ -20,10 +20,10 @@ from app.core import executor_switch as es
 from app.core.executor_switch import (
     DEFAULT_MODE,
     EXECUTOR_ENV,
-    LoopV2ConvergencePilotError,
     PILOT_ERROR_MARKER,
     SESSIONS_ENV,
     TENANTS_ENV,
+    LoopV2ConvergencePilotError,
     guard_loop_v2_pilot,
     parse_allowlist,
     parse_convergence_mode,
