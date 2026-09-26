@@ -13,6 +13,11 @@ import { success, error } from '../utils/response.js'
 import { config } from '../config/index.js'
 import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
 import { generateCompactId } from '../utils/crypto-random.js'
+import {
+  removeIfSame,
+  removeIfDead,
+  releaseUserConnectionSlots,
+} from '../utils/connection-registry.js'
 import { toUserFriendlyMessage } from '@ihui/shared'
 
 declare module 'fastify' {
@@ -56,6 +61,12 @@ const send = (socket: WebSocket, obj: unknown): void => {
     /* 连接已关闭 */
   }
 }
+
+/** ws readyState:0 CONNECTING / 1 OPEN / 2 CLOSING / 3 CLOSED(与 ws-auto-recovery 的僵尸判据同值) */
+const WS_READYSTATE_CLOSING = 2
+const WS_READYSTATE_CLOSED = 3
+const isSocketUnusable = (s: WebSocket): boolean =>
+  s.readyState === WS_READYSTATE_CLOSING || s.readyState === WS_READYSTATE_CLOSED
 
 /**
  * WebSocket 聊天室插件:房间维度实时消息广播.
@@ -142,7 +153,8 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
       try {
         m.socket.send(msg)
       } catch {
-        members.delete(m)
+        // 迟到清理走注册表出口:按成员对象身份移除,集合空了才摘 key
+        removeIfSame(rooms, roomId, m)
       }
     }
   }
@@ -579,11 +591,9 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
           return
         }
         member.rooms.delete(targetRoom)
-        const members = rooms.get(targetRoom)
-        if (members) {
-          members.delete(member)
-          if (members.size === 0) rooms.delete(targetRoom)
-        }
+        // 2026-09-26 竞态根治:统一走 removeIfSame(身份判等 + 空集才摘 key),
+        // 与 close 回调共享同一份不变量,不再各处手抄 if(size===0) 判序
+        removeIfSame(rooms, targetRoom, member)
         // 同步移除 Redis 成员关系
         const r = getRedis()
         if (r) {
@@ -706,11 +716,8 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
         // 清理该成员所在的所有房间(支持中途加入的多个房间)
         const joinedRooms = Array.from(member.rooms)
         for (const targetRoom of joinedRooms) {
-          const members = rooms.get(targetRoom)
-          if (members) {
-            members.delete(member)
-            if (members.size === 0) rooms.delete(targetRoom)
-          }
+          // 迟到 close:只能按"我这个成员对象"删,不得按房间 key 整删替代品
+          removeIfSame(rooms, targetRoom, member)
           publish(targetRoom, { type: 'room', event: 'member_leave', user: userId, nickname })
         }
         member.rooms.clear()
@@ -727,8 +734,14 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
           }
         }
         // 2026-08-02 P1 安全审计:释放连接槽位 + 清除速率窗口
-        userConnectionLimiter.release(userId)
-        messageRateLimiter.reset(userId)
+        // 2026-09-26 竞态根治:reset 是按 userId 删的,而该键被这个用户的**所有**连接共享 ——
+        // 旧连接迟到的 close 若无条件 reset,会把重连后新连接正在累积的防洪窗口整桶抹掉
+        // (限流退化成"断线重连即重置")。故仅当该用户在本插件已无活跃连接时才清窗口。
+        releaseUserConnectionSlots({
+          limiter: userConnectionLimiter,
+          rateLimiter: messageRateLimiter,
+          userId,
+        })
       })
     })()
   })
@@ -746,7 +759,11 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
       return m
     },
     removeConnection: async (roomId) => {
-      rooms.delete(roomId)
+      // 2026-09-26 竞态根治:不得 rooms.delete(roomId) 整删。本回调由监控层按**快照**
+      // (getConnections 复制出的成员集)判僵尸后触发,执行到这行时房间里可能已有新成员
+      // ——按 key 整删会把活连接从会话表拆掉,症状即"连上了却收不到推送"且不报错。
+      // 只摘当下确实死亡的成员,集合空了才删 key(removeIfDead 内建该不变量)。
+      removeIfDead(rooms, roomId, (m) => isSocketUnusable(m.socket))
     },
   })
 
