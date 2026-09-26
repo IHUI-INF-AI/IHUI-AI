@@ -13,7 +13,7 @@
  * RN 与浏览器均原生支持 FormData + multipart 自动 boundary。
  */
 import type { ApiResult, ApiResponse } from '@ihui/types'
-import { fetchApi, getToken, normalizeUrlPublic } from '../client'
+import { fetchApi, getToken, normalizeUrlPublic } from '../client.js'
 
 /** 后端 /api/files/upload/form 返回的文件信息 */
 export interface UploadedFile {
