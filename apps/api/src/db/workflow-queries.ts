@@ -95,8 +95,13 @@ export async function updateWorkflow(
   return rows[0]
 }
 
-export async function deleteWorkflow(id: string): Promise<void> {
-  await db.delete(workflows).where(eq(workflows.id, id))
+// 2026-09-27 布尔删除 ack 清账:回报 RETURNING 命中集合(路由层据此派生 deleted,不再是常量)
+export async function deleteWorkflow(id: string): Promise<string[]> {
+  const rows = await db
+    .delete(workflows)
+    .where(eq(workflows.id, id))
+    .returning({ id: workflows.id })
+  return rows.map((r) => r.id)
 }
 
 // =============================================================================

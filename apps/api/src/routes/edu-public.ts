@@ -463,8 +463,8 @@ export const eduPublicRoutes: FastifyPluginAsync = async (server) => {
     const existing = await findNoteById(paramsParsed.data.id)
     if (!existing) return reply.status(404).send(error(404, '笔记不存在'))
     if (existing.userId !== request.userId!) return reply.status(403).send(error(403, '无权操作'))
-    await deleteNote(paramsParsed.data.id)
-    return reply.send(success({ deleted: true }))
+    const removed = await deleteNote(paramsParsed.data.id)
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // ----- 我的证书 -----
@@ -504,8 +504,8 @@ export const eduPublicRoutes: FastifyPluginAsync = async (server) => {
     const existing = await findUploadedCertById(paramsParsed.data.id)
     if (!existing) return reply.status(404).send(error(404, '记录不存在'))
     if (existing.userId !== request.userId!) return reply.status(403).send(error(403, '无权操作'))
-    await deleteUploadedCert(paramsParsed.data.id)
-    return reply.send(success({ deleted: true }))
+    const removed = await deleteUploadedCert(paramsParsed.data.id)
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // ----- 线下学习记录 -----
@@ -551,8 +551,8 @@ export const eduPublicRoutes: FastifyPluginAsync = async (server) => {
     const existing = await findOfflineRecordById(paramsParsed.data.id)
     if (!existing) return reply.status(404).send(error(404, '记录不存在'))
     if (existing.userId !== request.userId!) return reply.status(403).send(error(403, '无权操作'))
-    await deleteOfflineRecord(paramsParsed.data.id)
-    return reply.send(success({ deleted: true }))
+    const removed = await deleteOfflineRecord(paramsParsed.data.id)
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // ----- 论文/作业上传 -----
@@ -582,8 +582,8 @@ export const eduPublicRoutes: FastifyPluginAsync = async (server) => {
     const existing = await findUploadedPaperById(paramsParsed.data.id)
     if (!existing) return reply.status(404).send(error(404, '记录不存在'))
     if (existing.userId !== request.userId!) return reply.status(403).send(error(403, '无权操作'))
-    await deleteUploadedPaper(paramsParsed.data.id)
-    return reply.send(success({ deleted: true }))
+    const removed = await deleteUploadedPaper(paramsParsed.data.id)
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // ----- 错题本（聚合我的所有考试错题）-----

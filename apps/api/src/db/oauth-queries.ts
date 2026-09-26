@@ -158,8 +158,16 @@ export async function listUserSessions(userId: string) {
     .orderBy(desc(oauthSessions.createdAt))
 }
 
-export async function deleteSession(id: string) {
-  await db.delete(oauthSessions).where(eq(oauthSessions.id, id))
+/**
+ * 删除 OAuth 会话,回报**库侧确认删掉的那批 id**(2026-09-27:原返回 void,
+ * 调用方只能事后写死 deleted:true,"0 行变更"与"删成了"同形)。
+ */
+export async function deleteSession(id: string): Promise<string[]> {
+  const rows = await db
+    .delete(oauthSessions)
+    .where(eq(oauthSessions.id, id))
+    .returning({ id: oauthSessions.id })
+  return rows.map((r) => r.id)
 }
 
 // ============================================================================
@@ -240,11 +248,18 @@ export async function createThirdPartyBinding(input: {
   return binding
 }
 
-export async function removeBinding(id: string, userId: string) {
-  await db
+/**
+ * 解绑第三方账号(软删),回报**库侧确认改动的那批 id**。
+ * 2026-09-27:where 除主键外还带 userId 归属过滤,所以"这行不是你的"与"解绑成功了"
+ * 在旧形态(返回 void)下完全同形 —— returning 的空集就是唯一的反证。
+ */
+export async function removeBinding(id: string, userId: string): Promise<string[]> {
+  const rows = await db
     .update(userThirdPartyAccounts)
     .set({ deletedAt: new Date() })
     .where(and(eq(userThirdPartyAccounts.id, id), eq(userThirdPartyAccounts.userId, userId)))
+    .returning({ id: userThirdPartyAccounts.id })
+  return rows.map((r) => r.id)
 }
 
 export async function removeBindingByPlatform(userId: string, platform: string) {
@@ -289,8 +304,16 @@ export async function updateUserSk(id: string, userId: string, status: number) {
     .where(and(eq(userSk.id, id), eq(userSk.userId, userId)))
 }
 
-export async function deleteUserSk(id: string, userId: string) {
-  await db.delete(userSk).where(and(eq(userSk.id, id), eq(userSk.userId, userId)))
+/**
+ * 删除用户 SK,回报**库侧确认删掉的那批 id**(2026-09-27:原返回 void;where 带 userId
+ * 归属过滤 ⇒ 删别人的 id 与删成功了同形)。
+ */
+export async function deleteUserSk(id: string, userId: string): Promise<string[]> {
+  const rows = await db
+    .delete(userSk)
+    .where(and(eq(userSk.id, id), eq(userSk.userId, userId)))
+    .returning({ id: userSk.id })
+  return rows.map((r) => r.id)
 }
 
 // ============================================================================

@@ -440,8 +440,9 @@ export const adminVipRoutes: FastifyPluginAsync = async (server) => {
 
   server.delete('/vip/levels/:id', async (request, reply) => {
     const { id } = idParam.parse(request.params)
-    await deleteVipLevel(id)
-    return reply.send(success({ deleted: true }))
+    // 2026-09-27 布尔删除 ack 清账:deleted 由库侧 RETURNING 命中集派生,不得再回常量 true
+    const removed = await deleteVipLevel(id)
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // 用户 VIP 管理

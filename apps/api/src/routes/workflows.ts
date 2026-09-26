@@ -391,8 +391,9 @@ export const workflowRoutes: FastifyPluginAsync = async (server) => {
     if (existing.createdBy !== request.userId) {
       return reply.status(403).send(error(403, '无权删除该工作流'))
     }
-    await deleteWorkflow(parsed.data.id)
-    return reply.send(success({ deleted: true }))
+    // 2026-09-27 布尔删除 ack 清账:deleted 由库侧 RETURNING 命中集派生,不得再回常量 true
+    const removed = await deleteWorkflow(parsed.data.id)
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // POST /workflows/:id/trigger - 手动触发工作流，创建 instance + 按步骤派发任务
