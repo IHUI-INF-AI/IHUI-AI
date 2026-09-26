@@ -10418,6 +10418,12 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
+    "budgetBar": {
+      "title": "Today's AI budget",
+      "critical": "nearly exhausted",
+      "tokens": "{used} of {limit} used",
+      "resetAt": "resets at {time}"
+    },
     "voiceNote": {
       "title": "Voice note",
       "phase": {

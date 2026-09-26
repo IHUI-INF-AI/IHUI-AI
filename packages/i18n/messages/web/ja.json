@@ -10408,6 +10408,12 @@
     "expiryDate": "有効期限"
   },
   "chat": {
+    "budgetBar": {
+      "title": "本日の AI クォータ",
+      "critical": "もうすぐ上限",
+      "tokens": "{used} / {limit} を使用",
+      "resetAt": "{time} にリセット"
+    },
     "voiceNote": {
       "title": "ボイスメモ",
       "phase": {

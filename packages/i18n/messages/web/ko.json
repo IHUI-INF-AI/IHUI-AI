@@ -10408,6 +10408,12 @@
     "expiryDate": "만료 날짜"
   },
   "chat": {
+    "budgetBar": {
+      "title": "오늘 AI 사용량",
+      "critical": "곧 한도 도달",
+      "tokens": "{used} / {limit} 사용",
+      "resetAt": "{time}에 초기화"
+    },
     "voiceNote": {
       "title": "음성 메모",
       "phase": {
