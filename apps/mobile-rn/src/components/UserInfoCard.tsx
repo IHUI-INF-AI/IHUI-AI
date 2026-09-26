@@ -25,7 +25,20 @@ import { DEFAULT_AVATAR_URL } from '@ihui/shared/constants'
 import { formatTokenValue } from '@ihui/shared/utils'
 import { getRoleLabel } from '@ihui/shared/utils'
 import type { UserInfo } from '@ihui/types'
-import { rpx } from '../utils/rpx'
+import {
+  USER_INFO_CARD_ACTION_PADDING_X_PX,
+  USER_INFO_CARD_ACTION_PADDING_Y_PX,
+  USER_INFO_CARD_AVATAR_PX,
+  USER_INFO_CARD_BADGE_PADDING_X_PX,
+  USER_INFO_CARD_BADGE_PADDING_Y_PX,
+  USER_INFO_CARD_HEADER_GAP_PX,
+  USER_INFO_CARD_LOGIN_FONT_PX,
+  USER_INFO_CARD_NAME_FONT_PX,
+  USER_INFO_CARD_PADDING_PX,
+  USER_INFO_CARD_ROW_MARGIN_TOP_PX,
+  USER_INFO_CARD_SMALL_FONT_PX,
+  USER_INFO_CARD_TOKEN_FONT_PX,
+} from '@ihui/shared/ui/user-info-card-spec'
 
 import { rnRadius } from '@ihui/design-tokens'
 
@@ -306,13 +319,14 @@ const newStyles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   loginBtnText: {
-    fontSize: 16,
+    // 字号唯一源 user-info-card-spec(与小程序端同档)
+    fontSize: USER_INFO_CARD_LOGIN_FONT_PX,
     fontWeight: '600',
     color: tokens.brand.ctaForeground,
   },
   card: {
     marginTop: 8,
-    padding: 8,
+    padding: USER_INFO_CARD_PADDING_PX,
     borderRadius: rnRadius.xl,
     borderWidth: 1,
     borderColor: tokens.border.light,
@@ -324,9 +338,10 @@ const newStyles = StyleSheet.create({
     padding: 8,
   },
   avatarWrap: {
-    // 对齐 Uniapp pages/table/user/UserInfoCard.vue .avatar-img:163rpx(≈82dp) 圆角 15rpx 白底
-    width: rpx(163),
-    height: rpx(163),
+    // 头像档唯一源 user-info-card-spec(48dp:≥44 命中块 + Tailwind 整档,与小程序端同值;
+    // 原 rpx(163)≈81.5 是 Uniapp 旧稿换算 hack,非注册档,已收口)
+    width: USER_INFO_CARD_AVATAR_PX,
+    height: USER_INFO_CARD_AVATAR_PX,
     borderRadius: rnRadius.lg,
     overflow: 'hidden',
     backgroundColor: tokens.surface.card,
@@ -334,14 +349,14 @@ const newStyles = StyleSheet.create({
     borderColor: tokens.brandAccent.light,
   },
   avatar: {
-    width: rpx(163),
-    height: rpx(163),
+    width: USER_INFO_CARD_AVATAR_PX,
+    height: USER_INFO_CARD_AVATAR_PX,
     resizeMode: 'cover',
   },
   // 无头像 URL 时的 initials 兜底:品牌色底 + 深色文字,深/浅色模式均可见
   avatarFallback: {
-    width: rpx(163),
-    height: rpx(163),
+    width: USER_INFO_CARD_AVATAR_PX,
+    height: USER_INFO_CARD_AVATAR_PX,
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.brandAccent.DEFAULT,
     alignItems: 'center',
@@ -354,7 +369,7 @@ const newStyles = StyleSheet.create({
   },
   infoWrap: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: USER_INFO_CARD_HEADER_GAP_PX,
   },
   nameRow: {
     flexDirection: 'row',
@@ -363,7 +378,7 @@ const newStyles = StyleSheet.create({
   },
   name: {
     flex: 1,
-    fontSize: 18,
+    fontSize: USER_INFO_CARD_NAME_FONT_PX,
     fontWeight: '600',
     color: tokens.text.primary,
   },
@@ -375,11 +390,11 @@ const newStyles = StyleSheet.create({
   roleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 6,
+    marginTop: USER_INFO_CARD_ROW_MARGIN_TOP_PX,
   },
   roleBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingHorizontal: USER_INFO_CARD_BADGE_PADDING_X_PX,
+    paddingVertical: USER_INFO_CARD_BADGE_PADDING_Y_PX,
     backgroundColor: tokens.surface.muted,
     borderRadius: rnRadius.xs,
   },
@@ -387,7 +402,7 @@ const newStyles = StyleSheet.create({
     backgroundColor: tokens.warning.light,
   },
   roleText: {
-    fontSize: 11,
+    fontSize: USER_INFO_CARD_SMALL_FONT_PX,
     fontWeight: '500',
     color: tokens.text.secondary,
   },
@@ -398,7 +413,7 @@ const newStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 8,
+    marginTop: USER_INFO_CARD_ROW_MARGIN_TOP_PX,
     paddingHorizontal: 8,
     paddingVertical: 6,
     backgroundColor: tokens.surface.muted,
@@ -409,42 +424,42 @@ const newStyles = StyleSheet.create({
     alignItems: 'center',
   },
   tokenLabel: {
-    fontSize: 12,
+    fontSize: USER_INFO_CARD_TOKEN_FONT_PX,
     color: tokens.brandAccent.deep,
   },
   tokenValue: {
-    fontSize: 12,
+    fontSize: USER_INFO_CARD_TOKEN_FONT_PX,
     fontWeight: '700',
     color: tokens.brandAccent.deep,
     marginLeft: 4,
   },
   rechargeBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: USER_INFO_CARD_ACTION_PADDING_X_PX,
+    paddingVertical: USER_INFO_CARD_ACTION_PADDING_Y_PX,
     backgroundColor: tokens.brandAccent.DEFAULT,
     borderRadius: rnRadius.md,
   },
   rechargeBtnText: {
-    fontSize: 12,
+    fontSize: USER_INFO_CARD_SMALL_FONT_PX,
     color: tokens.brandAccent.foreground,
     fontWeight: '500',
   },
   unsubscribeBtn: {
     alignSelf: 'flex-end',
     marginTop: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: USER_INFO_CARD_ACTION_PADDING_X_PX,
+    paddingVertical: USER_INFO_CARD_ACTION_PADDING_Y_PX,
     borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.text.tertiary,
   },
   unsubscribeText: {
-    fontSize: 11,
+    fontSize: USER_INFO_CARD_SMALL_FONT_PX,
     color: tokens.text.tertiary,
   },
   // 成长值进度条
   growthRow: {
-    marginTop: 8,
+    marginTop: USER_INFO_CARD_ROW_MARGIN_TOP_PX,
     paddingHorizontal: 8,
     paddingVertical: 6,
     backgroundColor: tokens.surface.muted,
@@ -457,11 +472,11 @@ const newStyles = StyleSheet.create({
     marginBottom: 4,
   },
   growthLabel: {
-    fontSize: 11,
+    fontSize: USER_INFO_CARD_SMALL_FONT_PX,
     color: tokens.text.secondary,
   },
   growthValue: {
-    fontSize: 11,
+    fontSize: USER_INFO_CARD_SMALL_FONT_PX,
     fontWeight: '600',
     color: tokens.brandAccent.deep,
   },

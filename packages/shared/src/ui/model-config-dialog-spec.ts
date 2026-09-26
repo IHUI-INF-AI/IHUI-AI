@@ -2,90 +2,44 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useTt } from '@/i18n'
-import { View, Text } from '@tarojs/components'
-import type { ReactNode } from 'react'
-import { TARO_RPX_PER_PX } from '@ihui/design-tokens'
-import {
-  SECTION_HEADER_ARROW_MARGIN_LEFT_PX,
-  SECTION_HEADER_MORE_MARGIN_LEFT_PX,
-  SECTION_HEADER_SUBTITLE_FONT_PX,
-  SECTION_HEADER_SUBTITLE_GAP_PX,
-  SECTION_HEADER_TITLE_FONT_PX,
-} from '@ihui/shared/ui/section-header-spec'
-import { rpx } from '@/utils/rpx'
-import LineIcon from '@/components/LineIcon'
+// 跨端模型配置弹窗几何档:值取"两端现档 + 裁决规则",两端组件文件不再各自抄数字。
+//
+// 两端现值分叉且属设计/机制差异的档未收进来:上传按钮体(小程序 74rpx=37 图块 vs RN
+// w-[80px] 虚线卡)、自绘开关轨道(小程序无原生档可套,RN 用原生 Switch)、录音弹窗按钮
+// (RN 独有 24/32/64)、输入行高(RN h-10=40)—— 清单见交付报告待裁决。
 
-/// 标题区字号/间距唯一源在 @ihui/shared/ui/section-header-spec(与 RN 端 packages/app 同表);
-/// 「更多」入口字号/箭头按 §4 定档(12px / 24rpx),已由 MoreLink 与 LineIcon 体系单源,不在本表重复。
-const toUnit = (logicalPx: number) => rpx(logicalPx * TARO_RPX_PER_PX)
-const TITLE_FONT = toUnit(SECTION_HEADER_TITLE_FONT_PX)
-const SUBTITLE_FONT = toUnit(SECTION_HEADER_SUBTITLE_FONT_PX)
+/** 每端注入的单位换算(一个逻辑 px 到该平台数值);泛型把单位类型带出来。 */
+export type GeometryUnit<U extends string | number> = (px: number) => U
 
 /**
- * 通用"标题 + 更多"区块头部组件。
- * 对齐原项目 components/MoreTitles/index.vue:左侧标题(可选副标题)+ 右侧「更多 + chevron-right 矢量」。
- *
- * 箭头必须是矢量(LineIcon chevron-right),不得用 `>` / `›` 字符:字符箭头与标签字号
- * 不同时必上下错位,且与 RN 侧 MoreLink、web 侧 ViewMore 不同形。
+ * 附件删除角标 20:小程序 `w-4 h-4` = 16 / RN `h-5 w-5` = 20。
+ * 裁决规则 2(两端分叉取更稳的一档,角标取大不取小,点击命中不缩水)→ 20。
  */
-export interface SectionHeaderProps {
-  title: string
-  subtitle?: string
-  moreText?: string
-  showMore?: boolean
-  onMore?: () => void
-  extra?: ReactNode
-  className?: string
+export const MODEL_CONFIG_DELETE_BADGE_PX = 20
+
+/**
+ * 音色菜单行前图标块 40:小程序 `w-[40rpx] h-[40rpx]` = 20 / RN `h-10 w-10` = 40。
+ * 裁决规则 2 取大 → 40(行内文字 12/双行,图标块小于行高会把行拉歪)。
+ */
+export const MODEL_CONFIG_AUDIO_MENU_ICON_PX = 40
+
+/** 角标盒子结构:正方块 + 居中内容(定位/圆角通道各端保留,这里只统一几何)。 */
+export function modelConfigDeleteBadgeStyle<U extends string | number>(
+  toUnit: GeometryUnit<U>,
+): { width: U; height: U } {
+  return {
+    width: toUnit(MODEL_CONFIG_DELETE_BADGE_PX),
+    height: toUnit(MODEL_CONFIG_DELETE_BADGE_PX),
+  }
 }
 
-export default function SectionHeader({
-  title,
-  subtitle,
-  moreText,
-  showMore = true,
-  onMore,
-  extra,
-  className = '',
-}: SectionHeaderProps) {
-  const tt = useTt()
-  const moreLabel = moreText ?? tt('common.more', '更多')
-
-  return (
-    <View className={`flex items-center justify-between ${className}`}>
-      <View className="flex items-center min-w-0 flex-1">
-        <Text className="font-bold text-foreground truncate" style={{ fontSize: TITLE_FONT }}>
-          {title}
-        </Text>
-        {subtitle && (
-          <Text
-            className="text-muted-foreground truncate"
-            style={{ fontSize: SUBTITLE_FONT, marginLeft: toUnit(SECTION_HEADER_SUBTITLE_GAP_PX) }}
-          >
-            {subtitle}
-          </Text>
-        )}
-      </View>
-      <View className="flex items-center flex-shrink-0">
-        {extra}
-        {showMore && (
-          <View
-            className="flex items-center"
-            style={{ marginLeft: toUnit(SECTION_HEADER_MORE_MARGIN_LEFT_PX) }}
-            onClick={onMore}
-            hoverClass="opacity-60"
-          >
-            <Text className="text-[length:24rpx] text-muted-foreground">{moreLabel}</Text>
-            <LineIcon
-              name="chevron-right"
-              size={24}
-              color="var(--color-muted-foreground)"
-              style={{ marginLeft: toUnit(SECTION_HEADER_ARROW_MARGIN_LEFT_PX) }}
-            />
-          </View>
-        )}
-      </View>
-    </View>
-  )
+/** 音色菜单图标块盒子:正方形(排布 flex 由端内挂自己的原语)。 */
+export function modelConfigAudioMenuIconStyle<U extends string | number>(
+  toUnit: GeometryUnit<U>,
+): { width: U; height: U } {
+  return {
+    width: toUnit(MODEL_CONFIG_AUDIO_MENU_ICON_PX),
+    height: toUnit(MODEL_CONFIG_AUDIO_MENU_ICON_PX),
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

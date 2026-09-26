@@ -2,106 +2,73 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+// 跨端轮播几何档:值取"两端现档 + 裁决规则",两端组件文件不再各自抄数字。
+
+/** 每端注入的单位换算(一个逻辑 px 到该平台数值);泛型把单位类型带出来。 */
+export type GeometryUnit<U extends string | number> = (px: number) => U
+
 /**
- * ColorfulLoader 彩色加载动画(mobile-rn 端)
- *
- * 对齐历史 Uniapp components/colorful_loader.vue(72 彩点 hue 旋转 + scale 动画)。
- * RN 简化实现:旋转环 + 脉冲缩放,用 Animated + useNativeDriver 跑原生动画。
- *
- * 圆角守门(AGENTS.md §4):spinner 必须为圆形才能形成旋转环,但禁用 9999px / 50% 字面量,
- * 故 borderRadius 用动态数值 size/2(inline style,非字面量,守门脚本不命中)。
- * 彩色高亮:purple.DEFAULT(#7B61FF)顶部边 + border.light 底环,旋转产生彩色 loading 视觉。
+ * 默认高度 160:两端现值已同(小程序 prop `height = 160` / RN `DEFAULT_HEIGHT = 160`),
+ * 收一处防分叉。小程序端那个裸 160 会被守门 128 按端量纲折成 80px,与 RN 侧 160 造出
+ * 一对假差异 —— 收成函数调用后两侧文件都无字面量,假差异随之消失。
  */
-import { useEffect, useRef } from 'react'
-import { Animated, Easing, StyleSheet, View } from 'react-native'
-import { tokens } from '../theme/active-tokens'
-import {
-  COLORFUL_LOADER_DEFAULT_SIZE_PX,
-  COLORFUL_LOADER_SPIN_MS,
-  colorfuleLoaderRingBorderPx,
-} from '@ihui/shared/ui/colorful-loader-spec'
-
-/// 默认尺寸与周期不在本文件取数 —— 唯一源是 @ihui/shared/ui/colorful-loader-spec(与小程序端同档);
-/// 形态本身是平台机制差异(小程序 72 点 CSS 环,RN 单环 Animated),对齐的是数值不是通道。
-export interface ColorfulLoaderProps {
-  /** 加载器尺寸(px),默认取共享档 */
-  size?: number
-  /** 单圈旋转时长(ms),默认取共享档 */
-  duration?: number
+export function carouselDefaultHeightPx(): number {
+  return 160
 }
 
-export function ColorfulLoader({
-  size = COLORFUL_LOADER_DEFAULT_SIZE_PX,
-  duration = COLORFUL_LOADER_SPIN_MS,
-}: ColorfulLoaderProps): React.JSX.Element {
-  const rotate = useRef(new Animated.Value(0)).current
-  const scale = useRef(new Animated.Value(0.8)).current
+/** 指示器距底边 12:RN 现值 12,小程序端 `bottom-2` = 8。裁决规则 2(间距取两端较大者)→ 12。 */
+export const CAROUSEL_INDICATOR_BOTTOM_PX = 12
 
-  useEffect(() => {
-    const rotateAnim = Animated.loop(
-      Animated.timing(rotate, {
-        toValue: 1,
-        duration,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
-    )
-    const scaleAnim = Animated.loop(
-      Animated.sequence([
-        Animated.timing(scale, {
-          toValue: 1.1,
-          duration: duration / 2,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scale, {
-          toValue: 0.8,
-          duration: duration / 2,
-          useNativeDriver: true,
-        }),
-      ]),
-    )
-    rotateAnim.start()
-    scaleAnim.start()
-    return () => {
-      rotateAnim.stop()
-      scaleAnim.stop()
-    }
-  }, [rotate, scale, duration])
+/** 指示点间距 6:两端现值已同(小程序 `gap-1.5` / RN `gap: 6`)。 */
+export const CAROUSEL_INDICATOR_GAP_PX = 6
 
-  const spin = rotate.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  })
+/** 指示点高度 6:两端现值已同(小程序 `h-1.5` / RN `height: 6`)。 */
+export const CAROUSEL_DOT_HEIGHT_PX = 6
 
-  return (
-    <View style={[styles.container, { width: size, height: size }]}>
-      <Animated.View
-        style={[
-          styles.spinner,
-          {
-            width: size,
-            height: size,
-            borderRadius: size / 2, // radius-exempt: 装饰加载圆点几何正圆,恒取直径一半
-            borderWidth: colorfuleLoaderRingBorderPx(size),
-            borderColor: tokens.border.light,
-            borderTopColor: tokens.brandAccent.deep,
-          },
-          { transform: [{ rotate: spin }, { scale }] },
-        ]}
-      />
-    </View>
-  )
-}
+/** 未激活指示点宽度 6(正圆):两端现值已同(小程序 `w-1.5` / RN 三元里的 6)。 */
+export const CAROUSEL_DOT_INACTIVE_WIDTH_PX = 6
 
-const styles = StyleSheet.create({
-  container: {
+/** 激活指示点宽度 16(胶囊):两端现值已同(小程序 `w-4` / RN 三元里的 16)。 */
+export const CAROUSEL_DOT_ACTIVE_WIDTH_PX = 16
+
+/** 指示器容器结构:底部居中一行,等距排点;只在这一处排,端内不再重摆。 */
+export function carouselIndicatorWrapStyle<U extends string | number>(
+  toUnit: GeometryUnit<U>,
+): {
+  position: 'absolute'
+  left: 0
+  right: 0
+  bottom: U
+  display: 'flex'
+  flexDirection: 'row'
+  alignItems: 'center'
+  justifyContent: 'center'
+  gap: U
+} {
+  return {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: toUnit(CAROUSEL_INDICATOR_BOTTOM_PX),
+    display: 'flex',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  spinner: {
-    // 尺寸 / 圆角 / 边框由 inline style 动态注入(size/2 避免 9999 字面量)
-  },
-})
+    gap: toUnit(CAROUSEL_INDICATOR_GAP_PX),
+  }
+}
 
-export default ColorfulLoader
+/**
+ * 指示点几何(宽/高;颜色与圆角留在端内 —— 圆角归守门 77,配色归 tokens 派生链)。
+ * 三元式在 spec 内部完成,端内 JSX 不再出现裸 6/16 字面量。
+ */
+export function carouselDotStyle<U extends string | number>(
+  toUnit: GeometryUnit<U>,
+  active: boolean,
+): { width: U; height: U } {
+  return {
+    width: toUnit(active ? CAROUSEL_DOT_ACTIVE_WIDTH_PX : CAROUSEL_DOT_INACTIVE_WIDTH_PX),
+    height: toUnit(CAROUSEL_DOT_HEIGHT_PX),
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

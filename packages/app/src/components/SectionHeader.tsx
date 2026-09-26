@@ -4,6 +4,12 @@
 
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native'
 import type { ReactNode } from 'react'
+import {
+  SECTION_HEADER_SUBTITLE_FONT_PX,
+  SECTION_HEADER_SUBTITLE_GAP_PX,
+  SECTION_HEADER_TITLE_FONT_PX,
+  SECTION_HEADER_TITLE_FONT_WEIGHT,
+} from '@ihui/shared/ui/section-header-spec'
 import { getTokens, type AppThemeMode } from '../theme/tokens'
 import { MoreLink } from './MoreLink'
 
@@ -81,12 +87,13 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   title: {
-    fontSize: 16,
-    fontWeight: '700',
+    // 字号/字重唯一源在 @ihui/shared/ui/section-header-spec(与小程序端两条腿同表)
+    fontSize: SECTION_HEADER_TITLE_FONT_PX,
+    fontWeight: SECTION_HEADER_TITLE_FONT_WEIGHT,
   },
   subtitle: {
-    marginLeft: 8,
-    fontSize: 12,
+    marginLeft: SECTION_HEADER_SUBTITLE_GAP_PX,
+    fontSize: SECTION_HEADER_SUBTITLE_FONT_PX,
   },
 })
 
