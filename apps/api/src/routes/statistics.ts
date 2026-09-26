@@ -36,6 +36,10 @@ import {
   getUserCenterStatistics,
   findVisitLogList,
 } from '../db/statistics-queries.js'
+// 个人口径的三个计数复用社交域既有出口(不在本文件重算一遍 count,那是第二把尺子)
+import { getUserCenterStats } from '../db/statistics-queries.js'
+import { countFavorites, countFollowers, countFollowing } from '../db/social-queries.js'
+import { findUserPoints } from '../db/gamification-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 
 // =============================================================================
@@ -81,6 +85,35 @@ const agentHeatRefreshSchema = z.object({
 export const statisticsRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
     if (!(await checkAuth(request, reply))) return
+  })
+
+  // GET /statistics/user-center — **当前登录用户**的个人中心统计
+  // 立因:api-client 的 getUserStatistics() 自写下起就打这条,而它从未存在(实测 404);
+  // 唯一同名的真实路由在 adminStatisticsRoutes(前缀 /api/admin)⇒ 普通用户即便改对路径也是 403。
+  // 响应形状与 `packages/api-client/src/endpoints/user.ts` 的 UserStatistics 逐字段对齐,
+  // 并按本仓刚立的"批量写/读计数诚实性"口径**不返回请求侧自报身份**(userId 只取令牌主体)。
+  server.get('/statistics/user-center', async (request, reply) => {
+    const userId = request.userId
+    if (!userId) {
+      return reply.status(401).send(error(401, '请先登录'))
+    }
+    const [personal, followingCount, followersCount, favoritesCount, pointsRow] = await Promise.all([
+      getUserCenterStats(userId),
+      countFollowing(userId),
+      countFollowers(userId),
+      countFavorites(userId),
+      findUserPoints(userId),
+    ])
+    return reply.send(
+      success({
+        courseCount: personal.courseCount,
+        favoriteCount: favoritesCount,
+        followingCount,
+        fansCount: followersCount,
+        studyHours: personal.studyHours,
+        points: pointsRow?.points ?? 0,
+      }),
+    )
   })
 
   // GET /statistics/learn - 学习统计
