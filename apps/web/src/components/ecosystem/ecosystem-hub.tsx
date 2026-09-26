@@ -3,45 +3,34 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 平台特有:web 端生态统一入口聚合页(D17),依赖 next/link 与 next-intl,不适合共享层
+
 'use client'
 
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import { Boxes, Library, Rocket, Sparkles, Store, Wand2, Wrench } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 
-/** 五个并列市场入口(D17:由顶栏分散收敛到本页分组导航) */
-type MarketKey = 'aiSkills' | 'mcpStore' | 'capabilityMarket' | 'skillsMarket' | 'connectors'
+import { ViewMoreLink } from '@/components/common/view-more-link'
 
-const MARKETS: Record<MarketKey, { href: string; icon: LucideIcon }> = {
-  aiSkills: { href: '/ai-skills', icon: Sparkles },
-  mcpStore: { href: '/mcp-store', icon: Store },
-  capabilityMarket: { href: '/capability-market', icon: Boxes },
-  skillsMarket: { href: '/skills-market', icon: Wand2 },
-  connectors: { href: '/connectors', icon: Library },
-}
+import { CountBadge } from './count-badge'
+import {
+  EXPERT_PACKS,
+  MARKETS,
+  MARKET_ORDER,
+  connectorAuthDetailHref,
+  expertPackDetailHref,
+  expertPackListHref,
+  skillDetailHref,
+} from './expert-packs'
+import { useEcosystemOverview } from './use-ecosystem-overview'
 
-const MARKET_ORDER: MarketKey[] = [
-  'aiSkills',
-  'mcpStore',
-  'capabilityMarket',
-  'skillsMarket',
-  'connectors',
-]
-
-/** 专家包 = 跨多个既有市场的能力组合(纯导航聚合,不新增数据实体) */
-const BUNDLES: Record<
-  'contentCreator' | 'developerExtension',
-  { icon: LucideIcon; includes: MarketKey[] }
-> = {
-  contentCreator: { icon: Rocket, includes: ['aiSkills', 'skillsMarket', 'connectors'] },
-  developerExtension: { icon: Wrench, includes: ['mcpStore', 'capabilityMarket'] },
-}
-
-const BUNDLE_ORDER = Object.keys(BUNDLES) as (keyof typeof BUNDLES)[]
+const CARD_CLASS =
+  'flex items-start gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:bg-accent'
 
 export function EcosystemHub() {
   const t = useTranslations('ecosystem')
+  const tc = useTranslations('connectors')
+  const more = useTranslations('common')
+  const { counts, connectors, skills } = useEcosystemOverview()
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-6">
@@ -49,6 +38,120 @@ export function EcosystemHub() {
         <h1 className="text-lg font-semibold">{t('title')}</h1>
         <p className="mt-1 text-xs text-muted-foreground">{t('description')}</p>
       </header>
+
+      <section aria-labelledby="ecosystem-packs" className="mb-8">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h2 id="ecosystem-packs" className="text-sm font-medium">
+            {t('bundlesSection')}
+          </h2>
+          <ViewMoreLink label={more('more')} href={expertPackListHref()} />
+        </div>
+        <p className="mb-2 text-xs text-muted-foreground">{t('bundlesHint')}</p>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {EXPERT_PACKS.map((pack) => {
+            const Icon = pack.icon
+            return (
+              <Link
+                key={pack.slug}
+                href={expertPackDetailHref(pack.slug)}
+                className={`${CARD_CLASS} flex-col items-stretch gap-0`}
+              >
+                <span className="flex items-center gap-2">
+                  <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span className="text-sm font-medium">{t(`bundles.${pack.titleKey}.title`)}</span>
+                </span>
+                <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
+                  {t(`bundles.${pack.titleKey}.desc`)}
+                </span>
+                <span className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <span className="text-[10px] text-muted-foreground">
+                    {t('packMembers', { count: pack.members.length })}
+                  </span>
+                  {pack.members.map((marketKey) => (
+                    <span
+                      key={marketKey}
+                      className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground"
+                    >
+                      {t(`cards.${marketKey}.title`)}
+                    </span>
+                  ))}
+                </span>
+              </Link>
+            )
+          })}
+        </div>
+      </section>
+
+      <section aria-labelledby="ecosystem-skills" className="mb-8">
+        <div className="mb-2 flex items-center gap-2">
+          <h2 id="ecosystem-skills" className="text-sm font-medium">
+            {t('skillsSection')}
+          </h2>
+          <CountBadge count={counts.skillsMarket} />
+          <ViewMoreLink
+            label={more('more')}
+            href={MARKETS.skillsMarket.href}
+            className="ms-auto"
+          />
+        </div>
+        {skills.status === 'ready' && skills.items.length === 0 ? (
+          <p className="text-xs text-muted-foreground">{t('emptySkills')}</p>
+        ) : (
+          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {skills.items.map((item) => (
+              <li key={item.name}>
+                <Link href={skillDetailHref(item.name)} className={CARD_CLASS}>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">{item.name}</span>
+                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                      {item.description}
+                    </span>
+                  </span>
+                  <span className="text-[10px] text-muted-foreground tabular-nums">
+                    {t('skillInstalls', { count: item.installCount })}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section aria-labelledby="ecosystem-connectors" className="mb-8">
+        <div className="mb-2 flex items-center gap-2">
+          <h2 id="ecosystem-connectors" className="text-sm font-medium">
+            {t('connectorsSection')}
+          </h2>
+          <CountBadge count={counts.connectors} />
+          <ViewMoreLink
+            label={more('more')}
+            href={MARKETS.connectors.href}
+            className="ms-auto"
+          />
+        </div>
+        <p className="mb-2 text-xs text-muted-foreground">{t('connectorsHint')}</p>
+        {connectors.status === 'ready' && connectors.entries.length === 0 ? (
+          <p className="text-xs text-muted-foreground">{t('emptyConnectors')}</p>
+        ) : (
+          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {connectors.entries.map((entry) => (
+              <li key={entry.key}>
+                <Link href={connectorAuthDetailHref(entry.key)} className={CARD_CLASS}>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">{entry.name}</span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">
+                      {tc(entry.configured ? 'configured' : 'notConfigured')}
+                    </span>
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {t('connectorAuthDetail')}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section aria-labelledby="ecosystem-markets">
         <h2 id="ecosystem-markets" className="mb-2 text-sm font-medium">
@@ -59,14 +162,13 @@ export function EcosystemHub() {
             const market = MARKETS[key]
             const Icon = market.icon
             return (
-              <Link
-                key={key}
-                href={market.href}
-                className="flex items-start gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:bg-accent"
-              >
+              <Link key={key} href={market.href} className={CARD_CLASS}>
                 <Icon className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium">{t(`cards.${key}.title`)}</span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-sm font-medium">{t(`cards.${key}.title`)}</span>
+                    <CountBadge count={counts[key]} />
+                  </span>
                   <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
                     {t(`cards.${key}.desc`)}
                   </span>
@@ -76,42 +178,6 @@ export function EcosystemHub() {
           })}
         </div>
       </section>
-
-      <section aria-labelledby="ecosystem-bundles" className="mt-8">
-        <h2 id="ecosystem-bundles" className="text-sm font-medium">
-          {t('bundlesSection')}
-        </h2>
-        <p className="mt-1 text-xs text-muted-foreground">{t('bundlesHint')}</p>
-        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {BUNDLE_ORDER.map((key) => {
-            const bundle = BUNDLES[key]
-            const Icon = bundle.icon
-            return (
-              <div key={key} className="rounded-xl border border-border bg-card p-3">
-                <div className="flex items-center gap-2">
-                  <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  <span className="text-sm font-medium">{t(`bundles.${key}.title`)}</span>
-                </div>
-                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                  {t(`bundles.${key}.desc`)}
-                </p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {bundle.includes.map((marketKey) => (
-                    <Link
-                      key={marketKey}
-                      href={MARKETS[marketKey].href}
-                      className="rounded-md bg-muted px-2 py-1 text-xs transition-colors hover:bg-accent"
-                    >
-                      {t(`cards.${marketKey}.title`)}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </section>
     </div>
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
