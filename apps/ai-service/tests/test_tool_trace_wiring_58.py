@@ -18,7 +18,6 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-import app.services.agent_loop_v2 as alv
 from app.services.agent_loop_v2 import AgentLoopV2, ToolDefinition
 
 
@@ -165,7 +164,7 @@ def test_executed_off_no_metadata(monkeypatch):
     # 第一轮触发工具调用,第二轮带 metadata 回灌
     async def two_round_llm(messages, tools_schema, **kw):
         seen_kwargs.append(kw)
-        has_tool_msg = any(
+        _has_tool_msg = any(  # 计算保留但当前无断言引用该变量:该分支尚未被这条用例判过(如实登记,勿读成已覆盖)
             m.get("role") == "tool" or (isinstance(m.get("content"), list))
             for m in messages
         )
