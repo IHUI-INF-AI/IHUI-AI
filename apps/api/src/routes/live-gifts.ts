@@ -66,8 +66,21 @@ const sendGiftSchema = z.object({
 // =============================================================================
 
 export const liveGiftsRoutes: FastifyPluginAsync = async (server) => {
-  // 幂等建表(测试环境 db 被 mock,execute 直接放行)
-  await db.execute(CREATE_CATALOG_SQL)
+  // 幂等建表(测试环境 db 被 mock,execute 直接放行)。
+  // 失败**不得**向上抛:2026-09-26 07:58 线上哑火就是这句在 PG 崩溃恢复窗口
+  // ("the database system is starting up")抛错,而它跑在 avvio 注册期 ——
+  // 注册期抛错 = 整棵插件树 boot 失败 = server.listen() 永不 bind,
+  // 进程却被 unhandledRejection 处理器留下,于是"RUNNING + 端口没人听"46 分钟。
+  // 建表只是兜底(真表已在共享 schema / migration 里),读写路径自带错误,
+  // 所以这里只留痕、不打断启动。
+  try {
+    await db.execute(CREATE_CATALOG_SQL)
+  } catch (err) {
+    server.log.warn(
+      { err },
+      '[live-gifts] live_gift_catalog 兜底建表未执行完(依赖未就绪?),跳过 —— 不影响启动',
+    )
+  }
 
   // ----- 礼物列表(默认只返回上架 status=1;管理端可传 status=0 或 all=1) -----
   server.get('/live-gifts', async (request: FastifyRequest, reply: FastifyReply) => {
