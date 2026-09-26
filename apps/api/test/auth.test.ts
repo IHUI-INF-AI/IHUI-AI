@@ -577,20 +577,27 @@ describe('auth routes', () => {
         url: '/api/auth/logout',
         payload: { refreshToken: 'unknown-token' },
       })
+      // 2026-09-27 期望值翻转(第二十八批):`revoked` 现由 revokeRefreshToken 的库侧命中集合派生。
+      // 本用例下一行就断言 `not.toHaveBeenCalled()` —— 既然一次吊销都没发出,
+      // 旧断言 `revoked:true` 是把"什么都没撤销"与"撤销成功"钉成同形的那份契约,正是本批要消灭的形状。
+      // 幂等性体现在**状态码 200**(未变),不在布尔值上。
       expect(res.statusCode).toBe(200)
-      expect(res.json().data.revoked).toBe(true)
+      expect(res.json().data.revoked).toBe(false)
       expect(mockRevokeRefreshToken).not.toHaveBeenCalled()
     })
 
     it('有效 token 吊销成功返回 200', async () => {
       mockFindRefreshToken.mockResolvedValueOnce({ revokedAt: null })
-      mockRevokeRefreshToken.mockResolvedValueOnce(undefined)
+      // 委托改为回报**库侧确认吊销的令牌集合**(旧契约是 void);给空集合就等于宣称"库里没吊销任何行"。
+      mockRevokeRefreshToken.mockResolvedValueOnce(['valid-token'])
       const res = await app.inject({
         method: 'POST',
         url: '/api/auth/logout',
         payload: { refreshToken: 'valid-token' },
       })
       expect(res.statusCode).toBe(200)
+      // 正向对照:命中集合非空 ⇒ revoked 必须为 true(与上一例的 false 成对,防"恒 false"式假修)
+      expect(res.json().data.revoked).toBe(true)
       expect(mockRevokeRefreshToken).toHaveBeenCalledWith('valid-token')
     })
   })

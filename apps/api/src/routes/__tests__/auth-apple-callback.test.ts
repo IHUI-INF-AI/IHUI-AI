@@ -44,7 +44,7 @@ vi.mock('../../db/queries.js', () => ({
   cancelUserAccount: vi.fn().mockResolvedValue(undefined),
   saveRefreshToken: vi.fn().mockResolvedValue(undefined),
   findRefreshToken: vi.fn().mockResolvedValue(null),
-  revokeRefreshToken: vi.fn().mockResolvedValue(undefined),
+  revokeRefreshToken: vi.fn().mockResolvedValue([]),
 }))
 
 vi.mock('@ihui/auth', () => ({
