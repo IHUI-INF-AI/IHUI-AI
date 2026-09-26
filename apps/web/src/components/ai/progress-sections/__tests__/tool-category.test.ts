@@ -102,9 +102,10 @@ describe('D58 同类连续聚合(aggregateCategoryRuns)', () => {
       { toolName: 'read_file', count: 2 },
     ])
     expect(runs).toHaveLength(1)
-    expect(runs[0].categoryKey).toBe('file_read')
-    expect(runs[0].totalCount).toBe(4)
-    expect(runs[0].tools).toHaveLength(3)
+    // ?. 取值:元素缺失时得 undefined,对下列具体期望值断言照样失败(不削弱断言)
+    expect(runs[0]?.categoryKey).toBe('file_read')
+    expect(runs[0]?.totalCount).toBe(4)
+    expect(runs[0]?.tools).toHaveLength(3)
   })
 
   it('被其他类目打断则不聚合(断成两张卡,且保持时序)', () => {
@@ -117,8 +118,8 @@ describe('D58 同类连续聚合(aggregateCategoryRuns)', () => {
     expect(runs).toHaveLength(3)
     // 时序优先:file_read → file_modify → file_read(全局按 order 重排会破坏此语义)
     expect(runs.map((r) => r.categoryKey)).toEqual(['file_read', 'file_modify', 'file_read'])
-    expect(runs[0].totalCount).toBe(2)
-    expect(runs[2].totalCount).toBe(1)
+    expect(runs[0]?.totalCount).toBe(2)
+    expect(runs[2]?.totalCount).toBe(1)
   })
 
   it('不同工具的同类连续同样合并(edit_file 与 file_edit 同属 file_modify)', () => {
@@ -127,9 +128,9 @@ describe('D58 同类连续聚合(aggregateCategoryRuns)', () => {
       { toolName: 'file_edit', count: 3 },
     ])
     expect(runs).toHaveLength(1)
-    expect(runs[0].categoryKey).toBe('file_modify')
-    expect(runs[0].totalCount).toBe(4)
-    expect(runs[0].tools).toHaveLength(2)
+    expect(runs[0]?.categoryKey).toBe('file_modify')
+    expect(runs[0]?.totalCount).toBe(4)
+    expect(runs[0]?.tools).toHaveLength(2)
   })
 
   it('跨类目多段混合:run 数等于同类连续段数(且保持时序)', () => {
@@ -196,9 +197,9 @@ describe('D58 countable 语义', () => {
   it('countable=false 的 run 在卡片上不展示 ×N(以 count 字段为契约)', () => {
     // 纯函数侧:只断言聚合结果携带正确的 countable 标记,渲染侧据此决定是否显示 ×N
     const runs = aggregateCategoryRuns([{ toolName: 'think', count: 3 }])
-    expect(runs[0].categoryKey).toBe('thinking')
-    expect(runs[0].countable).toBe(false)
-    expect(runs[0].totalCount).toBe(3)
+    expect(runs[0]?.categoryKey).toBe('thinking')
+    expect(runs[0]?.countable).toBe(false)
+    expect(runs[0]?.totalCount).toBe(3)
   })
 })
 
@@ -233,8 +234,12 @@ describe('D58 无顺序聚合(summarizeCategoriesByTool)', () => {
   it('summarize 与 aggregate 同一映射入口(禁止第二套分组逻辑)', () => {
     const agg = aggregateCategoryRuns([{ toolName: 'read_file', count: 2 }])
     const sum = summarizeCategoriesByTool({ read_file: 2 })
-    expect(sum[0].categoryKey).toBe(agg[0].categoryKey)
-    expect(sum[0].totalCount).toBe(agg[0].totalCount)
+    // 先钉死两侧各恰有一张卡:否则下面 sum vs agg 的相等断言在"两侧都是 undefined"
+    // 时会空对空通过,?. 化就会削弱本用例
+    expect(agg).toHaveLength(1)
+    expect(sum).toHaveLength(1)
+    expect(sum[0]?.categoryKey).toBe(agg[0]?.categoryKey)
+    expect(sum[0]?.totalCount).toBe(agg[0]?.totalCount)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
