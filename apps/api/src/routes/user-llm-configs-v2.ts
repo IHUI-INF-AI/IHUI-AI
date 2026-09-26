@@ -862,7 +862,7 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
       if (!parent) return reply.status(404).send(error(404, 'provider 不存在或无权限'))
 
       try {
-        await db.transaction(async (tx) => {
+        const updated = await db.transaction(async (tx) => {
           if (body.data.isDefault === true) {
             await tx.execute(sql`
               UPDATE ai_model_config_models
@@ -887,14 +887,24 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
           if (body.data.extraMetadata !== undefined)
             sets.push(sql`extra_metadata = ${JSON.stringify(body.data.extraMetadata)}::jsonb`)
           sets.push(sql`updated_at = NOW()`)
-          if (sets.length === 1) return
-          await tx.execute(sql`
+          // 改真(守门 134 的"裸 SQL 写链"普查):本 UPDATE 原先**不带 RETURNING**,而响应无条件
+          // 回 `updated: true` —— ① 只有 `updated_at` 一列时这里直接 return,整趟事务没发任何写;
+          // ② `WHERE id = … AND config_id = …` 零命中(model 不存在或不属于该 provider)时事务照样提交。
+          // 两种情况与"真改了一行"在响应上完全同形,故补 `RETURNING id` 并按库答复取值;
+          // 取值的归一形态沿用本文件既有写法(见 POST /llm-providers/:id/models 的 res→rows 归一)。
+          if (sets.length === 1) return false
+          const res = await tx.execute(sql`
             UPDATE ai_model_config_models
             SET ${sql.join(sets, sql`, `)}
             WHERE id = ${p.data.mid} AND config_id = ${p.data.pid}
+            RETURNING id
           `)
+          const rows = Array.isArray(res)
+            ? (res as unknown as Array<{ id: number }>)
+            : ((res as { rows?: Array<{ id: number }> }).rows ?? [])
+          return rows.length > 0
         })
-        return reply.send(success({ id: p.data.mid, updated: true }))
+        return reply.send(success({ id: p.data.mid, updated }))
       } catch (e) {
         if (isSchemaMissingError(e)) {
           return reply.status(503).send(error(503, SCHEMA_NOT_READY_MSG))
