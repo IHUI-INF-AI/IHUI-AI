@@ -22,6 +22,8 @@ import { backChevronBoxStyle, backChevronGlyphPx } from '@ihui/shared/ui/back-ch
 import {
   NAVBAR_ACTION_GLYPH_PX,
   NAVBAR_ACTION_LABEL_FONT_PX,
+  NAVBAR_ACTION_LABEL_MAX_WIDTH_PX,
+  NAVBAR_CENTER_MIN_WIDTH_PX,
   NAVBAR_ROW_HEIGHT_PX,
   NAVBAR_ROW_HEIGHT_SUBTITLE_PX,
   NAVBAR_SIDE_PADDING_PX,
@@ -29,6 +31,7 @@ import {
   NAVBAR_SUBTITLE_FONT_PX,
   NAVBAR_SUBTITLE_MARGIN_TOP_PX,
   NAVBAR_TITLE_FONT_PX,
+  NAVBAR_TITLE_MAX_WIDTH_PX,
   navbarActionBoxStyle,
 } from '@ihui/shared/ui/navbar-spec'
 
@@ -110,8 +113,10 @@ export function NavBar({
 
         {/* 中间:title + subtitle(flex 居中)。
             2026-09-23 修复 P1:两侧功能图标过多压缩标题空间,"智汇AI" 4 字在 18px 下被截断为"智汇..."。
-            方案 B+C:center 加 minWidth:80 确保标题区至少容纳 4 个中文字 + title 字号 18→16 释放横向空间。 */}
-        <View style={[styles.center, { minWidth: 80 }]}>
+            方案 B+C:center 加下限确保标题区至少容纳 4 个中文字 + title 字号 18→16 释放横向空间。
+            下限与截断上限都不再写在本文件:唯一源是 navbar-spec 的
+            NAVBAR_CENTER_MIN_WIDTH_PX / NAVBAR_TITLE_MAX_WIDTH_PX,小程序端取的是同一对档。 */}
+        <View style={styles.center}>
           {title ? (
             <Text style={styles.title} numberOfLines={1}>
               {title}
@@ -196,10 +201,14 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    // 标题区下限唯一源 navbar-spec(2026-09-23 P1 定格 80);小程序端标题容器取同一档的 rpx 投影
+    minWidth: NAVBAR_CENTER_MIN_WIDTH_PX,
   },
   title: {
     // 字号唯一源 navbar-spec(2026-09-23 P1 定格 16,防"智汇AI"截断;与小程序端同档)
     fontSize: NAVBAR_TITLE_FONT_PX,
+    // 截断上限唯一源 navbar-spec:小程序 ai-home 标题就是这一档(原 rpx(300) = 150px)
+    maxWidth: NAVBAR_TITLE_MAX_WIDTH_PX,
     fontWeight: '600',
     color: tokens.text.primary,
   },
@@ -240,7 +249,8 @@ const styles = StyleSheet.create({
   actionLabel: {
     fontSize: NAVBAR_ACTION_LABEL_FONT_PX,
     color: tokens.text.primary,
-    maxWidth: 60,
+    // 侧按钮文字宽度上限唯一源 navbar-spec;小程序端的 rightText 取同一档(不再是"只有 RN 有上限")
+    maxWidth: NAVBAR_ACTION_LABEL_MAX_WIDTH_PX,
   },
 })
 
