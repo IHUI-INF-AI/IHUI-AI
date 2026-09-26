@@ -6,7 +6,10 @@
  * scripts/tests/sync-extension-tokens.test.mjs — §22c 镜像测试。
  *
  * 装的是三件事:
- *  1. **判据有牙**:拿真仓 HEAD 那份**已知落后**的副本喂判据必须报红(否则"0 处"只是探针没响);
+ *  1. **判据有牙**:在 HEAD 副本上**构造**一处可派生档的错值,同一条判据必须报 D1 并点名修复出口。
+ *     (原写法钉的是"真仓 HEAD 那份已知落后的副本必须报红"——那 4 档漂移是本门落地提交
+ *     c73c05dc9b 自己写回对齐的,从它入库那刻起"HEAD 落后"永远是假命题;阳性对照若建立在
+ *     仓库瞬态上,它红绿与否取决于谁在什么时候提交,而不是判据本身——§"别把移动量钉成健康期望"。)
  *  2. **判据不恒红**:拿派生态喂同一条判据必须零红(恒红门 = 逼人 --no-verify = 全部守门作废);
  *  3. **写回不吞内容**:相对 HEAD 逐位比受管键的**名字序列**,少一个 / 多一个 / 改序都判失败。
  *
@@ -36,15 +39,20 @@ const SELF_REL = 'scripts/sync-extension-tokens.mjs'
 const SOURCE_REL = 'packages/design-tokens/src/styles/tokens.css'
 // T1 的前提:先抓磁盘快照,再 import,证明 import 不写盘(§22d)
 const pre = {
-  'apps/extension/entrypoints/content.ts': readFileSync(join(ROOT, 'apps/extension/entrypoints/content.ts'), 'utf8'),
+  'apps/extension/entrypoints/content.ts': readFileSync(
+    join(ROOT, 'apps/extension/entrypoints/content.ts'),
+    'utf8',
+  ),
   'apps/extension/entrypoints/content/content-toolbar.tsx': readFileSync(
     join(ROOT, 'apps/extension/entrypoints/content/content-toolbar.tsx'),
-    'utf8'
+    'utf8',
   ),
   [SOURCE_REL]: readFileSync(join(ROOT, SOURCE_REL), 'utf8'),
 }
 const S = (await import('../sync-extension-tokens.mjs')).__test__
-const post = Object.fromEntries(Object.keys(pre).map((rel) => [rel, readFileSync(join(ROOT, rel), 'utf8')]))
+const post = Object.fromEntries(
+  Object.keys(pre).map((rel) => [rel, readFileSync(join(ROOT, rel), 'utf8')]),
+)
 
 test('T1 import 本脚本不得有写盘副作用(§22d isDirectRun)', () => {
   assert.equal(typeof S, 'object', '__test__ 必须是对象')
@@ -80,29 +88,66 @@ test('T3 单一实现:取值只能走 scripts/lib/design-token-blocks.mjs', () =
   assert.ok(!/\/@theme/.test(src), '不得出现自写的 @theme 取块正则(取值只能有一份实现)')
   assert.ok(!/extractAllBlocks\s*\(\s*[^,]+,\s*'@theme/.test(src), '@theme 块只能由 lib 解析')
   // 尺子自己要有牙:上面两条若写成恒真,留着的只是安慰剂。用构造文本各证一次"这种写法会被抓到"。
-  const forbidden = "const re = /@theme\\s*\\{([\\s\\S]*?)\\}/\ncall(extractAllBlocks(css, '@theme'))"
+  const forbidden =
+    "const re = /@theme\\s*\\{([\\s\\S]*?)\\}/\ncall(extractAllBlocks(css, '@theme'))"
   assert.ok(/\/@theme/.test(forbidden), 'T3 第 1 条尺子失效(样例没被抓到)')
-  assert.ok(/extractAllBlocks\s*\(\s*[^,]+,\s*'@theme/.test(forbidden), 'T3 第 2 条尺子失效(样例没被抓到)')
+  assert.ok(
+    /extractAllBlocks\s*\(\s*[^,]+,\s*'@theme/.test(forbidden),
+    'T3 第 2 条尺子失效(样例没被抓到)',
+  )
 })
 
-test('T4 阳性对照:真仓 HEAD 那份落后的副本必须被判出漂移', () => {
-  const head = S.planRewrites
-  assert.ok(typeof head === 'function')
-  const tables = S.sourceTables(pre[SOURCE_REL])
+test('T4 阳性对照:判据有牙 —— 在 HEAD 副本上构造一处派生档错值,必须报 D1 并点名修复出口', () => {
+  assert.equal(typeof S.planRewrites, 'function')
+  // 同面同轮:源与副本都取 HEAD blob。旧写法吃"磁盘 tokens.css × HEAD 副本"两个面 ——
+  // 并行会话改一半 tokens.css 就能左右这条阳性对照的结论,而它声称判的是仓库内容。
+  const tables = S.sourceTables(GIT(`HEAD:${SOURCE_REL}`))
   const texts = S.COPY_FILES.map((rel) => [rel, GIT(`HEAD:${rel}`)])
-  const r = S.checkCopies({ texts, tables })
+  const derivedKeys = texts.flatMap(([rel, t]) =>
+    S.derivableDecls(t, tables).map((d) => ({ rel, name: d.name })),
+  )
+  assert.ok(
+    derivedKeys.length > 0,
+    'HEAD 上没有任何"归本门派生"的档 ⇒ 阳性对照失去对象(必须重估覆盖面,不得静默通过)',
+  )
+  // 哨兵值 #ff00fe 与 tokens.css 任何一档真值都远过 ±1 通道容差:注入后该档必被判漂移。
+  const target = derivedKeys[0]
+  const declRe = new RegExp(`(${target.name.replace(/-/g, '\\-')}\\s*:\\s*)[^;{}]+`, 'g')
+  let injected = 0
+  const mutated = texts.map(([rel, t]) => {
+    if (rel !== target.rel) return [rel, t]
+    return [rel, t.replace(declRe, (_m, p1) => (injected++, `${p1}#ff00fe`))]
+  })
+  assert.ok(
+    injected > 0,
+    `注入失败:在 ${target.rel} 里找不到 ${target.name} 的声明(判据覆盖面变了要同步改这里)`,
+  )
+  const r = S.checkCopies({ texts: mutated, tables })
   const d1 = r.failures.filter((f) => f.tag.startsWith('D1'))
-  assert.ok(d1.length >= 1, `HEAD 副本已知落后(4 档未对齐),判据必须报红,实得 ${d1.length} 条`)
-  assert.ok(d1.every((f) => f.detail.includes('sync-extension-tokens')), '每条漂移必须给出可执行的修复出口')
+  assert.ok(
+    d1.length >= 1,
+    `把 ${target.name} 改成错值后判据必须报红,实得 ${d1.length} 条(0 = 探针没响)`,
+  )
+  assert.ok(
+    d1.some((f) => `${f.tag} ${f.detail}`.includes(target.name)),
+    `漂移必须点名被注入的档 ${target.name}`,
+  )
+  assert.ok(
+    d1.every((f) => f.detail.includes('sync-extension-tokens')),
+    '每条漂移必须给出可执行的修复出口',
+  )
 })
 
 test('T5 反向对照:同一份判据吃派生态必须零红(证明它不是恒红门)', () => {
   const tables = S.sourceTables(post[SOURCE_REL])
-  const r = S.checkCopies({ texts: Object.entries(post).filter(([rel]) => S.COPY_FILES.includes(rel)), tables })
+  const r = S.checkCopies({
+    texts: Object.entries(post).filter(([rel]) => S.COPY_FILES.includes(rel)),
+    tables,
+  })
   assert.deepEqual(
     r.failures.map((f) => f.tag),
     [],
-    '工作树(已派生)必须零红,否则接线当天所有人的提交都会被拦'
+    '工作树(已派生)必须零红,否则接线当天所有人的提交都会被拦',
   )
   assert.ok(r.counts.derived > 0, '至少要真的比对了派生档(0 = 判据没跑起来)')
 })
@@ -117,7 +162,7 @@ test('T6 不吞内容:相对 HEAD,受管键的名字序列与条数必须逐位�
     assert.equal(
       S.otherCustomProps(post[rel]).length,
       S.otherCustomProps(GIT(`HEAD:${rel}`)).length,
-      `${rel}: 非 --color- 自定义属性(如 --shadow-*)条数变了`
+      `${rel}: 非 --color- 自定义属性(如 --shadow-*)条数变了`,
     )
   }
 })
@@ -140,13 +185,27 @@ test('T8 影子面:登记表逐条命中真文件,且 deriveFrom 指向的源头
   const rels = [...new Set(S.SHADOW_BLOCKS.map((b) => b.rel))]
   const texts = new Map(rels.map((rel) => [rel, post[rel] ?? GIT(`HEAD:${rel}`)]))
   const r = S.checkShadow({ texts, tables })
-  assert.deepEqual(r.failures.map((f) => f.tag), [], `影子面必须零红,实得 ${JSON.stringify(r.failures.map((f) => f.tag))}`)
-  assert.equal(r.counts.hit, Object.keys(S.SHADOW_DIVERGENCE).length, '每条登记都必须在这两个块里被找到(防腐烂)')
+  assert.deepEqual(
+    r.failures.map((f) => f.tag),
+    [],
+    `影子面必须零红,实得 ${JSON.stringify(r.failures.map((f) => f.tag))}`,
+  )
+  assert.equal(
+    r.counts.hit,
+    Object.keys(S.SHADOW_DIVERGENCE).length,
+    '每条登记都必须在这两个块里被找到(防腐烂)',
+  )
   for (const [id, e] of Object.entries(S.SHADOW_DIVERGENCE)) {
-    assert.ok(typeof e.reason === 'string' && e.reason.length > 20, `${id}: 登记必须写依据,不得空口径`)
+    assert.ok(
+      typeof e.reason === 'string' && e.reason.length > 20,
+      `${id}: 登记必须写依据,不得空口径`,
+    )
     if (e.deriveFrom) {
       const prof = id.startsWith('.dark') ? 'dark' : 'light'
-      assert.ok(tables[prof].has(e.deriveFrom), `${id} 的 deriveFrom 指向 ${e.deriveFrom},源头取不到 = 空头依据`)
+      assert.ok(
+        tables[prof].has(e.deriveFrom),
+        `${id} 的 deriveFrom 指向 ${e.deriveFrom},源头取不到 = 空头依据`,
+      )
     }
   }
   for (const [k, e] of Object.entries(S.DECLARED_DIVERGENCE))
@@ -156,14 +215,17 @@ test('T8 影子面:登记表逐条命中真文件,且 deriveFrom 指向的源头
 test('T9 可选项未做必须可复核:门 93 没被本票顺手改动', () => {
   const g93Rel = 'scripts/check-cross-end-tokens.mjs'
   const now = readFileSync(join(ROOT, g93Rel), 'utf8')
-  assert.ok(!/sync-extension-tokens/.test(now), `本票未把判据塞进 ${g93Rel}(若将来塞了,请删掉这条并改判方向)`)
+  assert.ok(
+    !/sync-extension-tokens/.test(now),
+    `本票未把判据塞进 ${g93Rel}(若将来塞了,请删掉这条并改判方向)`,
+  )
 })
 
 test('T10 取不到判定面一律"无法判定",不冒红也不记绿', () => {
   assert.throws(
     () => S.checkShadow({ texts: new Map(), tables: S.sourceTables(pre[SOURCE_REL]) }),
     (e) => e instanceof S.Undetermined,
-    '影子文件缺失必须抛 Undetermined(exit 2 路径),不得当成"无需判定"'
+    '影子文件缺失必须抛 Undetermined(exit 2 路径),不得当成"无需判定"',
   )
 })
 
