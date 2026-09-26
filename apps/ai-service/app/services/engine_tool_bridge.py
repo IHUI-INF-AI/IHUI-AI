@@ -23,65 +23,105 @@ B `AgentLoopV2` / C `AgentEngine` Codex JSON-RPC 移植)。C 自带的 14 个
 高危与角色的判定本身仍归 `_DEFAULT_HIGH_RISK_TOOLS` / `_ADMIN_ONLY_TOOLS` 那一份真相 ——
 这里不放第二份名单(放了两份就会漂移,与本仓「两处算同一件事必须共用一份实现」同一条禁令)。
 
+V3 #47 第二格(2026-09-26 收口)加了三件事,都是「映射」从注释变成可执行路径:
+1. 每条第三个字段是**处置结论** `mode`(封闭集 `BRIDGE_MODES`):
+   - `"port"` —— 引擎侧执行体**就是**注册表那一份(只剩协议适配:事件对、参数改名、结果裁剪);
+   - `"map"`  —— 名字与授权归口到注册表能力,执行体因线程/会话耦合仍留在引擎侧
+                  (持久 shell、code-mode 常驻会话、v4a patch 解析、引擎线程树派生 —— 移植会
+                  掉能力,受 §7 删除安全约束,故如实登记而不是"顺手统一");
+   - `"local"` —— 注册表确实没有该能力(纯引擎/协议专有,必须带理由)。
+2. `resolve_engine_tool(name)` 是**唯一解析出口**:先看注册表本身,再经本表回查。
+   三条内核的执行都经 `mcp_server.call_tool`,那里只认这一个解析入口 —— 于是
+   「C 自带的名字在 A/B 里一个都调不到」这一格被填上:内置名到达主链路时落到
+   注册表的同一能力上(且随后按解析出的正式名过角色矩阵),不再是「未知工具」。
+3. 本表**不自带注册表名字清单**:"某个名字是否已注册"一律现读 `mcp_server._TOOL_HANDLERS`。
+   抄一份清单就是第二份真相,而第二份真相在本仓的失效形态永远是"安静"。
+
 形态约束:表必须是**纯字面量 dict**。守门
-`scripts/check-tool-registry-integrity.mjs` 的 J8/J9/J10 与 Python 侧测试读同一张表;
+`scripts/check-tool-registry-integrity.mjs` 的 J8/J9/J10/J12/J13/J14 与 Python 侧测试读同一张表;
 改成 dataclass / 构造调用会让门的正则读空,而「读空」在门上表现为 0 处违规 = 假绿。
-覆盖关系由门咬住:新增内置名而无桥条目即红;条目声明的等价物必须真在注册表里。
+覆盖关系由门咬住:新增内置名而无桥条目即红;条目声明的等价物必须真在注册表里;
+`resolve_engine_tool` 被摘线(即"造好没装车")同样即红。
 """
 
 from __future__ import annotations
 
-# 引擎内置名 -> (注册表里拥有同一能力的工具名 | None, 无等价物时的理由 | None)
+from typing import Final
+
+# 处置结论的封闭集(不是工具名清单,所以不构成第二份真相)。
+BRIDGE_MODES: Final[tuple[str, str, str]] = ("port", "map", "local")
+
+# 引擎内置名 -> (注册表里拥有同一能力的工具名 | None, 无等价物时的理由 | None, 处置结论)
 #
 # 等价物一栏按 2026-09-26 实测填写:逐个在 `mcp_server._TOOL_HANDLERS` 的 86 个键里核对,
 # 不是按名字相似度猜的。V3 文档初稿写的几处指向(apply_patch→patch_diff)里,
 # `patch_diff` 是 HTTP 路由而非注册表工具,已按实测改回 file_edit。
-ENGINE_TOOL_BRIDGE: dict[str, tuple[str | None, str | None]] = {
-    "unified_exec": ("run_command", None),
-    "run_code": ("run_command", None),
-    # 引擎侧的 apply_patch 自带 v4a/unified 解析并真实落盘;主聊天链(A 内核)那边
-    # apply_patch 是「委托专有」(仅带 workspace_context 时由前端执行)。同一个名字
-    # 两种可达面,本行记的是「能力归口」,委托语义见 llm.py 的 _DELEGATE_ONLY_TOOLS。
-    "apply_patch": ("file_edit", None),
-    "view_image": ("vision_analyze", None),
-    "spawn_subagent": ("dispatch_subagent", None),
-    # 同名且注册表确有:今天由内置定义把注册表那条静默遮蔽(routers/engine.py 用
-    # host_names 剔除同名注册表工具),声明出来是为了让「遮蔽」成为被审过的形态。
-    "web_search": ("web_search", None),
+# 第三格 mode 的取值依据同一次取证(读的是引擎侧执行体到底做了什么)。
+ENGINE_TOOL_BRIDGE: dict[str, tuple[str | None, str | None, str]] = {
+    # 引擎侧起**持久 shell**(同一 shell 跨调用保留 cwd/环境变量),注册表 run_command 是一次性
+    # 执行;能力同源(任意命令执行)故归口授权,执行体保留 → map。
+    "unified_exec": ("run_command", None, "map"),
+    # 引擎侧是 code-mode 常驻 Python 会话(tools.call 桥回引擎工具、全局状态跨 cell 持久),
+    # 移植到 run_command 会掉"会话持久"这一层 → map。
+    "run_code": ("run_command", None, "map"),
+    # 引擎侧自带 v4a/unified 解析并真实落盘;主聊天链(A 内核)那边 apply_patch 是「委托专有」
+    # (仅带 workspace_context 时由前端执行)。同一个名字两种可达面,本行记的是「能力归口」,
+    # 委托语义见 llm.py 的 _DELEGATE_ONLY_TOOLS。
+    "apply_patch": ("file_edit", None, "map"),
+    # 引擎侧读工作区内图片并做越界拦截;注册表 vision_analyze 同样支持本地路径 + 白名单,
+    # 且多出"交给视觉模型分析"一层 → 能力同源,执行体保留 → map。
+    "view_image": ("vision_analyze", None, "map"),
+    # 引擎侧派生的是**引擎线程**(带 depth 上限、角色模板、Subagent 钩子、线程树回收),
+    # 注册表 dispatch_subagent 派生的是 orchestrator 子代理;两者是同一能力的两个宿主 → map。
+    "spawn_subagent": ("dispatch_subagent", None, "map"),
+    # 唯一的 port:引擎侧执行体直接 `from .mcp_server import _tool_web_search` 调注册表那一份,
+    # 自己只保留 WebSearchBegin/End 事件对与域名白名单过滤(协议适配)。
+    "web_search": ("web_search", None, "port"),
     "update_plan": (
         None,
         "Codex plan tool 的协议对位件:写 thread.plan 并发 plan.update 事件;"
         "注册表无 plan 类工具(2026-09-26 关键字扫描零命中)",
+        "local",
     ),
     "request_permissions": (
         None,
         "JSON-RPC 审批往返(approval/request kind=permissions);注册表无同名能力。"
         "已知缺陷:它授予的 scope(sandbox_full_access / network / elevated_exec)在 app/ 内"
         "没有任何消费方,即「有仪式、无效力」—— 归 #47 后续票,本表不代裁",
+        "local",
     ),
     "request_user_input": (
         None,
         "elicitation 语义,等客户端应答且超时 fail-closed;注册表无 user_input / question 类工具",
+        "local",
     ),
     "request_user_input_async": (
         None,
         "同 request_user_input 但只发不等(立即回 accepted);注册表无对应能力",
+        "local",
     ),
     "send_message_to_user_async": (
         None,
         "单向 user_message_async 通知,回复靠 thread.enqueue;注册表无消息推送类工具",
+        "local",
     ),
     "new_context": (
         None,
         "仅置 loop._new_context_window_requested 标志位,由 AgentLoopV2 压缩分支消费;"
         "注册表无 context 重置类工具",
+        "local",
     ),
     "clock_sleep": (
         None,
         "纯 asyncio.sleep 并回 slept_ms;无外部副作用,注册表无对位件。"
         "已知缺陷:提前唤醒读的 loop.steer_wake_event 全仓无赋值方,故恒走普通 sleep",
+        "local",
     ),
-    "clock_curr_time": (None, "datetime.now(utc) 格式化输出;无外部副作用,注册表无对位件"),
+    "clock_curr_time": (
+        None,
+        "datetime.now(utc) 格式化输出;无外部副作用,注册表无对位件",
+        "local",
+    ),
 }
 
 
@@ -89,6 +129,48 @@ def capability_equivalent(engine_name: str) -> str | None:
     """该引擎内置名在注册表里的同一能力拥有者;未登记或登记为「仅引擎本地」时返回 None。"""
     entry = ENGINE_TOOL_BRIDGE.get(engine_name)
     return entry[0] if entry is not None else None
+
+
+def execution_mode(engine_name: str) -> str | None:
+    """该内置名的处置结论(port/map/local);未登记返回 None(门会把它读成缺条目)。"""
+    entry = ENGINE_TOOL_BRIDGE.get(engine_name)
+    return entry[2] if entry is not None else None
+
+
+def _registered_tool_names() -> set[str]:
+    """现读注册表 —— 本模块**不得**自带一份已注册工具清单(那正是本票要消除的第二份真相)。
+
+    懒加载 import 与 `agent_loop_v2._admin_only_name` 同形态(避免模块级循环导入:
+    mcp_server 在导入期就用到若干 service,而本模块被 agent_loop_v2 模块级引用)。
+    """
+    from .mcp_server import _TOOL_HANDLERS
+
+    return set(_TOOL_HANDLERS)
+
+
+def resolve_engine_tool(
+    name: str,
+    *,
+    registered: set[str] | frozenset[str] | None = None,
+) -> str | None:
+    """把任意内核送来的工具名解析成**注册表里的正式名**;解析不到返回 None。
+
+    解析次序(先查主注册表,再落引擎本地能力归口)是 #47 方案定的,不是审美:
+      1. `name` 本身已注册 → 原样返回(注册表永远优先,内置名不得遮蔽已注册工具);
+      2. 否则经本表回查同一能力的拥有者,且该拥有者**确实注册在案**才返回 ——
+         登记表写了一个注册表里没有的名字,宁可解析不到(交回引擎本地执行),
+         也不要把它当成"已归一"而静默往下走;
+      3. 否则返回 None(确属引擎专有,由内核自己那份实现执行)。
+
+    `registered` 参数只是给单测/纯函数取证用的注入通道;生产面一律现读注册表。
+    """
+    known = _registered_tool_names() if registered is None else set(registered)
+    if name in known:
+        return name
+    equivalent = capability_equivalent(name)
+    if equivalent is not None and equivalent in known:
+        return equivalent
+    return None
 
 
 def uncovered(names: list[str] | tuple[str, ...] | frozenset[str]) -> list[str]:
