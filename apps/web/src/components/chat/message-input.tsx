@@ -19,6 +19,7 @@ import { ContextUsageRing } from '@/components/ai/context-usage-ring'
 import { FileMentionPopover } from '@/components/ai/file-mention-popover'
 import { SelectedToolsPanel, type SelectedToolItem } from '@/components/chat/selected-tools-panel'
 import { MentionChips } from '@/components/chat/mention-popover'
+import { useMentionWiring } from '@/hooks/use-mention-wiring'
 // D68 统一多源建议面板(2026-09-26):六源聚合 + 逐源来源标注 + 部分失败三句降级 +
 // 粘贴引用有效性预览;"旧三浮层入口不回归"为硬验收,FileMentionPopover /
 // ContextSelectorPopover / SlashCommandPalette 的挂载与触发一律原样保留。
@@ -57,11 +58,11 @@ import { useSlashCommands } from '@/hooks/use-slash-commands'
 import { usePermissionModeCycle } from '@/hooks/use-permission-mode-cycle'
 import { useSlashAction } from '@/hooks/use-slash-action'
 import { useMessageReferences } from '@/hooks/use-message-references'
-import { useContextSelector, type ContextSelectorCategory } from '@/hooks/use-context-selector'
-import {
-  ContextSelectorPopover,
-  ContextSelectorChips,
-} from '@/components/ai/context-selector-popover'
+import { useContextSelector } from '@/hooks/use-context-selector'
+// V3 第 61 票:`@` 与 `#` 的「有哪些维度」与「触发符怎么解」都归到引擎那一份表,
+// 本组件不再自写触发正则、不再自持九类目表、也不再自持一份 # 侧 chip 局部 state。
+import { parseMentionTrigger } from '@ihui/shared/chat/mention-engine'
+import { ContextSelectorPopover } from '@/components/ai/context-selector-popover'
 import { useAgentMdReference, AGENT_REF_PREFIX } from '@/hooks/use-agent-md-reference'
 import { useMessageSend } from '@/hooks/use-message-send'
 import { usePromptHistory } from '@/hooks/use-prompt-history'
@@ -291,20 +292,9 @@ export function MessageInput({
   const [unifiedCapRejected, setUnifiedCapRejected] = React.useState(false)
   const [pastedRefPreviews, setPastedRefPreviews] = React.useState<PastedReferencePreview[]>([])
   const unifiedAddedIdsRef = React.useRef<Set<string>>(new Set())
-  // W20 九类 # 上下文选择器(2026-09-14 立,对标 Trae):
-  // - 正文行首/空格后 `#` 触发浮层(open 状态由 value 派生,见 use-context-selector.ts)
-  // - 选中类目 → 正文尾部 `#query` 替换为类目 token(如 `#Problems `)随消息发送
-  // - chips 仅作类型徽章展示,去重添加;移除时同步删掉正文中的 token
-  const [contextChips, setContextChips] = React.useState<ContextSelectorCategory[]>([])
-  const addContextChip = React.useCallback((category: ContextSelectorCategory) => {
-    setContextChips((prev) =>
-      prev.some((c) => c.token === category.token) ? prev : [...prev, category],
-    )
-  }, [])
-  const removeContextChip = React.useCallback((token: string) => {
-    setContextChips((prev) => prev.filter((c) => c.token !== token))
-    setValue((prev) => prev.replace(`${token} `, '').replace(token, ''))
-  }, [])
+  // V3 第 61 票(2026-09-27):`@` 与 `#` 的提及状态与正文落点都收进 useMentionWiring(下方,
+  // 需在 inputCoreRef 之后构造)—— 这里原先是一份 contextChips 局部 state + addContextChip +
+  // removeContextChip,与 stores/context-mention 并存的第二份提及状态,正是票面「两套引擎」的一半。
   // references 状态管理(2026-07-29 提取到 useMessageReferences hook):
   // - addFileReference / addTextReference / addCodeReference 三种类型添加
   // - removeReference 移除 + 释放 objectURL
@@ -335,6 +325,9 @@ export function MessageInput({
   }, [agentMdRefs, dismissedAgentIds, references])
   // 共享层 WebInputCore 内部托管 textarea ref + 自动高度(forwardRef 暴露 focus/setSelectionRange/resize)
   const inputCoreRef = React.useRef<WebInputCoreHandle>(null)
+  // V3 第 61 票:`@` / `#` 提及的唯一落点(写那份 store + 把 insertText 顶进正文 + 摘 chip 删正文)。
+  // 判定的那一份实现在 @ihui/shared/chat/mention-engine,这里只是接线(可被 renderHook 直接验)。
+  const mentionWiring = useMentionWiring({ setValue, inputRef: inputCoreRef })
   // D36 会话内输入历史栈接线(纯逻辑在 @ihui/shared/chat,本组件只做 DOM 接线):
   // - getHistoryKey 按 conversationId 分桶(chat:prompt-history:{id}),未持久化会话共用 chat:prompt-history
   // - applyHistoryText 仅回填文本并把光标移到行尾,绝不触碰 references(附件保持不动)
@@ -394,13 +387,13 @@ export function MessageInput({
     draftKey,
     onSent: promptHistory.pushSent,
   })
-  // W20 九类 # 上下文选择器(2026-09-14 立,对标 Trae):键盘导航在 textarea 层拦截,
-  // 选中类目 → 正文尾部插入 #token 并渲染类型徽章 chip
+  // W20 九类 # 上下文选择器(键盘导航在 textarea 层拦截);
+  // V3 第 61 票:选中结果的落点从局部 chip state 改成那份唯一的 mention engine store。
   const contextSelector = useContextSelector({
     value,
     setValue,
     inputRef: inputCoreRef,
-    onAddChip: addContextChip,
+    onSelect: mentionWiring.addMention,
   })
   // AI Skills 列表 + @ 提及文件列表:懒加载逻辑已提取到 use-lazy-resource-hooks(2026-07-30)
   const { aiSkills, skillsLoading } = useAiSkills(slashOpen)
@@ -662,21 +655,14 @@ export function MessageInput({
     if (next === '/' && !slashOpen) {
       setSlashOpen(true)
     }
-    // @ 触发文件提及
-    if (next.endsWith('@') && !mentionOpen) {
+    // V3 第 61 票:`@` / `#` 的触发态一律问引擎(parseMentionTrigger),本文件不再自写正则。
+    // 行为与收口前逐字一致:光杆 `@` 才打开文件浮层,`@` 触发态消失才关。
+    const trigger = parseMentionTrigger(next)
+    if (trigger?.sigil === '@' && trigger.bare && !mentionOpen) {
       setMentionOpen(true)
-    } else if (mentionOpen && !next.match(/@[\w./-]*$/)) {
+    } else if (mentionOpen && trigger?.sigil !== '@') {
       setMentionOpen(false)
     }
-  }
-
-  const handleMentionSelect = (file: { id: string; name: string; path: string }) => {
-    setValue((prev) => prev.replace(/@$/, `\`${file.path}\` `).slice(0, MAX_LENGTH))
-    setMentionOpen(false)
-    requestAnimationFrame(() => {
-      inputCoreRef.current?.focus()
-      inputCoreRef.current?.resize()
-    })
   }
 
   // D68 建议面板选中:引用上限判定(拒收必须可见回显,不静默丢)+ 按源插入形态。
@@ -1011,15 +997,9 @@ export function MessageInput({
             </button>
           </div>
         )}
-        {/* 多维 @ 提及 chips(2026-07-22 立,对标 Qoder Context Engineering) */}
-        <MentionChips />
-        {/* W20 九类 # 上下文选择器 chips(2026-09-14 立,对标 Trae Context Engineering):
-            选中类目的类型徽章行,token 已随正文发送,chips 仅作可视化展示 */}
-        {contextChips.length > 0 && (
-          <div className="mb-2">
-            <ContextSelectorChips chips={contextChips} onRemove={removeContextChip} />
-          </div>
-        )}
+        {/* 多维提及 chips(V3 第 61 票收口):`@` 与 `#` 两条路的已选提及都在
+            stores/context-mention 那一份状态里,由这一个面渲染;摘 chip 同步删正文。 */}
+        <MentionChips onRemove={mentionWiring.removeSelection} />
         {/* W27 输入队列(2026-09-14,对标 Codex/Cursor 多条排队):流式期间排队的消息
             逐条显示,每次流式结束自动出队发送队首;点「取消」把该条文本退回主输入框 */}
         {pendingMessages.length > 0 && (
@@ -1083,7 +1063,7 @@ export function MessageInput({
             files={mentionFiles}
             open={mentionOpen}
             anchorRef={inputAreaRef}
-            onSelect={handleMentionSelect}
+            onSelect={mentionWiring.applyAtSelection}
             onClose={() => setMentionOpen(false)}
           />
           {/* W20 九类 # 上下文选择器浮层(2026-09-14 立,对标 Trae):键盘导航在 textarea 层 */}
@@ -1399,7 +1379,6 @@ export function MessageInput({
                 <ModelSelector
                   value={model}
                   onChange={onModelChange}
-                  disabled={isStreaming}
                   label={modelLabel}
                 />
                 {/* 语音入口整合:单一 Mic 按钮直接触发语音转文字,挨着发送键 */}
