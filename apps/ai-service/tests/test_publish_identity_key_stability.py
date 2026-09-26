@@ -79,6 +79,27 @@ def test_legacy_key_changes_when_credentials_rotate() -> None:
     assert k1 != k2
 
 
+def test_detection_key_and_registration_key_share_one_source() -> None:
+    """调度器的联动检测键 必须与 browser_factory 登记绑定用的键**逐字同形**。
+
+    此前一处传数据库行 id(`"12"`)、一处传适配器派生键(`csdn_db12`)⇒ 两个键空间永不相交,
+    联动检测对被检账号永远查不到它自己的绑定,这道防护在正常发布路径上等于没生效。
+    行 id 已是稳定锚点,所以"带不带凭证"都该算出同一个键 —— 这条就是那两个调用点的公共地基。
+    """
+    for platform in ("csdn", "zhihu", "juejin", "xiaohongshu"):
+        assert resolve_account_id(platform, {"UserName": "whoever"}, 12) == resolve_account_id(
+            platform, {}, 12
+        ), f"{platform}: 检测键与登记键不同源 = 联动判定形同虚设"
+
+
+def test_scheduler_uses_identity_key_for_linkage_check() -> None:
+    """源码锁:调度器不得再把行 id 字符串直接喂给联动检测(那是上面那条分裂的另一半)。"""
+    root = pathlib.Path(__file__).resolve().parents[1] / "app" / "services" / "publish"
+    src = (root / "scheduler.py").read_text(encoding="utf-8")
+    assert "async_check_device_linkage(identity_key)" in src
+    assert "async_check_device_linkage(account_id_str)" not in src
+
+
 def test_no_second_implementation_left_in_publish_package() -> None:
     """禁止第二份真相:发布包内不得再出现"首个凭证值哈希"这种键算法。
 
