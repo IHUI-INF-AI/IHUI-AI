@@ -119,6 +119,17 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
     },
     # ============ 开关类(默认关,移植完成待放量)============
     {
+        # V3 #52:RRF 融合常数 k —— 唯一真实 env 读取点在 rag.py:76
+        # (二段重排在实现里是构造入参 `rag_llm_rerank_enabled` 而非 env,故不登记成 env 条目)。
+        "key": "rag_rrf_k",
+        "env": "RAG_RRF_K",
+        "default": "60",
+        "category": "开关类",
+        "owner_module": "app.services.rag",
+        "doc_ref": "app/services/rag.py:76",
+        "reason_if_off": "非开关而是融合常数:未设置即用论文默认 60,非法/非正数回退默认",
+    },
+    {
         "key": "agent_budget",
         "env": "AGENT_BUDGET_ENABLED",
         "default": "false",
