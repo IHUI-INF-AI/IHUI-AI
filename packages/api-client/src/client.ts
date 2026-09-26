@@ -443,13 +443,19 @@ async function fetchOnce<T>(
   if (!response.ok) {
     const text = await response.text().catch(() => '')
     let errorCode: string | undefined
-    let message = text || `请求失败（${response.status}）`
+    // `.trim()` 不是风格问题:响应体是一个空格时(nginx 空 404、被裁过的错误页),
+    // `text || 兜底` 判真,error 就带着"可见长度为 0"的字符串回到调用方;调用方普遍写
+    // `showToast(res.error || t('…'))`,同一个 `||` 也兜不住 ⇒ 渲染成只有图标、没有文字的
+    // 深色方块(真机实测约 57×63dp)。修在出口而不是逐个调用方:这是所有端共用的派生点。
+    let message = text.trim() || `请求失败（${response.status}）`
     try {
       const parsed = JSON.parse(text)
-      if (parsed && typeof parsed.message === 'string') message = parsed.message
+      if (parsed && typeof parsed.message === 'string' && parsed.message.trim())
+        message = parsed.message
       // FastAPI 的错误体是 {detail:"..."}(api 原样透传 ai-service 的 4xx 全属此类);
       // 只认 message 会让调用方 toast 直接显示整段原始 JSON 文本。
-      else if (parsed && typeof parsed.detail === 'string') message = parsed.detail
+      else if (parsed && typeof parsed.detail === 'string' && parsed.detail.trim())
+        message = parsed.detail
       if (parsed && typeof parsed.errorCode === 'string') errorCode = parsed.errorCode
     } catch {
       // 非 JSON 响应,保留 text 作为 message
@@ -493,7 +499,7 @@ async function fetchOnce<T>(
   if (json.code !== 0) {
     return {
       success: false,
-      error: json.message || '请求失败',
+      error: json.message?.trim() || '请求失败',
       status: response.status,
       errorCode: json.errorCode,
     }
@@ -832,12 +838,15 @@ export async function fetchAiServiceJson<T>(
 
     if (!response.ok) {
       const text = await response.text().catch(() => '')
-      let message = text || `请求失败(${response.status})`
+      // 同 fetchApiOnce 里那条注释:空白 body 必须走兜底文案,不能当有效 error 返回。
+      let message = text.trim() || `请求失败(${response.status})`
       let errorCode: string | undefined
       try {
         const parsed = JSON.parse(text)
-        if (parsed && typeof parsed.message === 'string') message = parsed.message
-        if (parsed && typeof parsed.detail === 'string') message = parsed.detail
+        if (parsed && typeof parsed.message === 'string' && parsed.message.trim())
+          message = parsed.message
+        if (parsed && typeof parsed.detail === 'string' && parsed.detail.trim())
+          message = parsed.detail
         if (parsed && typeof parsed.errorCode === 'string') errorCode = parsed.errorCode
       } catch {
         // 非 JSON 响应,保留 text 作为 message
