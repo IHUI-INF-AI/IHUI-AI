@@ -685,7 +685,7 @@ if (process.env.HUSKY_SKIP_TOOL_REGISTRY_INTEGRITY !== '1') {
   if (
     !run(
       '🔧 工具注册表完整性守门(工具可达面 ↔ 本地注册表 ↔ 前端委托实现)...',
-      'node scripts/check-tool-registry-integrity.mjs --quiet',
+      'node scripts/check-tool-registry-integrity.mjs --quiet --staged',
     )
   ) {
     console.error('❌ 工具注册表完整性守门失败,提交已阻止')
