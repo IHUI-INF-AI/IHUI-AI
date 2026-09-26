@@ -98,7 +98,7 @@ const adminRelayErrorRulesRoutes: FastifyPluginAsync = async (server) => {
     try {
       const okDeleted = await deleteErrorPassthroughRule(idParsed.data.id)
       if (!okDeleted) return reply.status(404).send(error(404, '规则不存在'))
-      return reply.send(success({ deleted: true }))
+      return reply.send(success({ deleted: okDeleted }))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '删除错误透传规则失败'))
