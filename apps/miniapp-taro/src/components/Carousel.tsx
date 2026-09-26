@@ -5,9 +5,20 @@
 import { useTt } from '@/i18n'
 import { View, ScrollView, Image, Text } from '@tarojs/components'
 import { useCallback } from 'react'
-import { cn } from '@ihui/design-tokens'
+import { cn, TARO_RPX_PER_PX } from '@ihui/design-tokens'
+import {
+  carouselDefaultHeightPx,
+  carouselIndicatorWrapStyle,
+  carouselDotStyle,
+} from '@ihui/shared/ui/carousel-spec'
 import { useAutoPlay } from '@ihui/shared'
 import type { CarouselItem } from '@ihui/types'
+import { rpx } from '@/utils/rpx'
+
+/// 指示点几何/默认高度不在本文件取数 —— 唯一源是 @ihui/shared/ui/carousel-spec(与 RN 端同档);
+/// 本文件只做 rpx 换算 + 挂 Taro 原语。数字类名(bottom-2/gap-1.5/h-1.5/w-1.5/w-4)已撤,
+/// 否则端内既定档就是第二份真相(守门 128 立项量出的 174 处差异档即此型)。
+const toUnit = (px: number) => rpx(px * TARO_RPX_PER_PX)
 
 // 共享类型 CarouselItem + 共享 hook useAutoPlay 已下沉到 packages,
 // 消除 mobile-rn / miniapp-taro 两端类型与自动播放逻辑重复。
@@ -47,7 +58,7 @@ export default function Carousel({
   items = [],
   autoplay = true,
   interval = 3000,
-  height = 160,
+  height = carouselDefaultHeightPx(),
   onItemClick,
   className = '',
   variant = 'default',
@@ -166,14 +177,15 @@ export default function Carousel({
         </View>
       </ScrollView>
       {total > 1 && (
-        <View className="absolute bottom-2 left-0 right-0 flex items-center justify-center gap-1.5">
+        <View style={carouselIndicatorWrapStyle(toUnit)}>
           {items.map((_, index) => (
             <View
               key={index}
               onClick={() => goTo(index)}
+              style={carouselDotStyle(toUnit, current === index)}
               className={cn(
-                'h-1.5 rounded-sm transition-all',
-                current === index ? 'w-4 bg-foreground/80' : 'w-1.5 bg-foreground/30',
+                'rounded-sm transition-all',
+                current === index ? 'bg-foreground/80' : 'bg-foreground/30',
               )}
             />
           ))}

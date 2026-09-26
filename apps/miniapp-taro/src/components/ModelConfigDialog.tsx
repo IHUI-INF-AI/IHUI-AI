@@ -9,9 +9,19 @@ import { useUiField } from '@/lib/ui-field-registry'
 import { View, Text, Input, Switch, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { ModelConfigType } from '@ihui/types'
+import { TARO_RPX_PER_PX } from '@ihui/design-tokens'
+import {
+  modelConfigDeleteBadgeStyle,
+  modelConfigAudioMenuIconStyle,
+} from '@ihui/shared/ui/model-config-dialog-spec'
+import { rpx } from '@/utils/rpx'
 import { Selecter } from './adapters/Selecter.taro'
 import './ModelConfigDialog.css'
 import LineIcon from '@/components/LineIcon'
+
+/// 删除角标 / 音色菜单图标块尺寸不在本文件取数 —— 唯一源是
+/// @ihui/shared/ui/model-config-dialog-spec(与 RN 端同档);本文件只做 rpx 换算。
+const toUnit = (px: number) => rpx(px * TARO_RPX_PER_PX)
 
 // aigc variant 上传按钮图标(对齐原项目 ModelConfigDialog/indexa.vue):
 // icon-album(首帧/尾帧空)/ icon-yinpin(音频空 + 克隆音色行)/ icon-audio-success(音频成功)/
@@ -529,7 +539,8 @@ export default function ModelConfigDialog({
                   )}
                   {it.url && (
                     <View
-                      className="absolute -top-1 -right-1 w-4 h-4 bg-destructive rounded-full flex items-center justify-center"
+                      className="absolute -top-1 -right-1 bg-destructive rounded-full flex items-center justify-center"
+                      style={modelConfigDeleteBadgeStyle(toUnit)}
                       onClick={(e) => {
                         e.stopPropagation()
                         deleteUpload(it.key)
@@ -599,7 +610,8 @@ export default function ModelConfigDialog({
                 >
                   <Image
                     src={iconYinpinPng}
-                    className="w-[40rpx] h-[40rpx] mr-2"
+                    className="mr-2"
+                    style={modelConfigAudioMenuIconStyle(toUnit)}
                     mode="aspectFit"
                   />
                   <View className="flex-1">
