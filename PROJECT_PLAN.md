@@ -11182,7 +11182,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 
 ### 第一梯队 P0:地基正确性(不修会持续误导)
 
-- [ ] 47. 三套执行内核工具集归一(A/B/C → 唯一工具注册表 `mcp_server._TOOLS`;AgentEngine 15 个工具映射或移植;JSON-RPC 只留协议适配层;CI parity 断言 `BUILTIN_ENGINE_TOOLS` ⊆ `_TOOLS` 映射完整)
+- [ ]（进行中@2026-09-26/v3wave1）47. 三套执行内核工具集归一(A/B/C → 唯一工具注册表 `mcp_server._TOOLS`;AgentEngine 15 个工具映射或移植;JSON-RPC 只留协议适配层;CI parity 断言 `BUILTIN_ENGINE_TOOLS` ⊆ `_TOOLS` 映射完整)
 - [x] 48. ✅(2026-09-26)SSE 契约真相化 —— **两处初版判断被取证推翻并更正**:① `budget` **不是幽灵**,生产点在 apps/api 网关 `ai-chat-stream.ts:776/1039`(`checkTokenBudget` 三态,block→429 / warning,critical→流首命名帧),消费在 `client.ts:2858`,契约注释原文「网关发」字面正确,初版只查 ai-service 没查网关层(教训:**跨端事件先查网关**);② 「9 个漂移事件」中 `message_*`/`content_block_*` 6 个是 llm.py **Anthropic 兼容端点**产物非对话流事件,`form_request` 是**前端死消费**(client.ts:3160 解析了一个后端从不发的帧,归 #63 处置)。落地:契约双端删 `token`(确认全仓零生产,真正在用的是 chunk)、补 `terminal_delta`/`start`(生产一直在、契约漏登,此前 parity 门只扫 `_sse(...)`/`event:` 形态,dict 形态漏网假绿)、新增 `SSE_COMPAT_EVENTS` 单列 6 个兼容面事件;parity 门新增对账 0b-2(兼容面双端一致)+ 0b-3(`agent_events.py` 29 个 `SSE_*` 常量值域 ⊆ 契约∪兼容面,豁免兜底别名 `SSE_MESSAGE`);parity 门 1h 扫描器补**注释剥离**(施工中真抓到:新契约注释里带引号的 `"task_id"` 等被旧正则吸进集合造成假漂移,与 #49 守门取材铁律同型);`contract.test.ts` 编译期穷尽映射同步。验收:parity 门 rc=0(错 0/警 6 既有不阻断),兼容面 TS(6)=PY(6),常量 29/29 落契约
 - [x] 49. ✅(2026-09-26)工具可达面显式化 + 别名表扩充 + 新守门 —— **原判断已被取证推翻并更正**:这 4 个名字不是「谎言」,`apps/web/src/lib/workspace-tool-executor.ts` 有完整实现,只在**浏览器委托面**(`workspace_context`)可达;本地工作区模式下会因**不在 `_TOOL_HANDLERS`** 而报模糊的「未知工具」,模型只能原地重试到迭代打满。落地:① `llm.py` 新增 `_DELEGATE_ONLY_TOOLS`(4 项)+ `_DELEGATE_ONLY_HINTS`(本地等价建议);② tool loop 加可用性拦截,非委托模式返回 `TOOL_MODE_UNAVAILABLE` + 「请勿重试,改用 XXX」;③ `_TOOL_ALIASES` 2 → **26** 条(命令/目录/读取/内容搜索/语义检索/网页抓取六类,**不收写操作别名**,避免「新建」被静默变成「覆盖」);④ 新守门 `scripts/check-tool-registry-integrity.mjs` 已接 `pre-commit-hook.js`(J1–J7 七面互咬,`--self-test` ✅ 10/10 含变异验证,真仓 `--quiet` rc=0:fs 11 / 委托专有 4 / 别名 26 / 本地注册 86 / 前端实现 12),AGENTS.md + README.md 已点名满足 `check-gate-wiring` R4
 - [x] 50. `generate_test` / `analyze_code`(前者 LLM 生成 + 真跑 + 自愈回放,后者接 AST + lint;非真实产物必须 `ok:False` 或带 `stub:true`) ✅(2026-09-26,五路并行)generate_test:LLM 真生成 → pytest 子进程真跑(--junit-xml 计数+失败明细进返回体)→ 网关 stub 响应 ok:False 杜绝假产物;analyze_code:ast 六项真检查(未使用 import/裸 except/圈复杂度/超长函数/可变默认参数/TODO),非 Python 诚实降级 line-stats;返回体带 analysis_depth/executed;单测 12(含「错误断言被 pytest 真实抓出」反向验证)
@@ -11193,19 +11193,19 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 
 ### 第二梯队 P1:对等性与体验
 
-- [ ] 52. RAG 真重排(RRF 多源融合 + 可选 cross-encoder/LLM 二段;`_keyword_fallback` 从兜底升为融合源)
+- [ ]（进行中@2026-09-26/v3wave1）52. RAG 真重排(RRF 多源融合 + 可选 cross-encoder/LLM 二段;`_keyword_fallback` 从兜底升为融合源)
 - [ ] 53. 计划模式硬约束下放到主聊天流(主链路从纯提示词注入改为 `tools ∩ READONLY_TOOLS` 硬收窄;mode × permission_mode 笛卡尔矩阵单一真源;ModeSwitcher 补 `ask` 态)
 - [ ] 54. 工具连续失败反思 / 卡死检测上提到主链路(failure-streak ≥3 换策略 + stuck 检测;CLI `doom-loop-detector` 逻辑抽共享层 + Python 等价实现 + parity 守门)
 - [x] 57.(capability matrix 端点 + 管理端开关页 + 禁止新增默认关 env) ✅(2026-09-26)capability_matrix.py 76 env 台账(开关 56/灰度 7/门控 13,逐条 grep 实证非凭记忆)+ main.py 启动自检 + GET /api/admin/capabilities(role_id≥1,403/200 测试)+ 守门 check-capability-matrix.mjs(剥注释取材,self-test 红绿咬合,真跑 553py 对账一致;J1 幽灵条目/J2 台账逃逸断言)已接 pre-commit;单测 7
 - [ ] 59. 消息级版本切换 ← 1/3 →(regenerate 改为新增 sibling 而非物理删除;共用 `CanvasVersionMenu` 交互)
 - [ ] 60. 真并行多窗格(store 从 `conversationId` 单例改为 `Map<paneId, State>`;独立 SSE/abort;服务端 fork 路由下放)
 - [ ] 61. `@` 多维提及接线(`useSearchMentions` 与 `addMention` 当前零调用 → `MentionChips` 恒 null;`@` 与 `#` 统一到一个 mention engine)
-- [ ] 63. `form_request` SSE 帧 UI(`send-message.ts` 无 `onFormRequest`;`BusinessFormCard` 只在派发事件未在对话流消费)
+- [ ]（进行中@2026-09-26/v3wave1）63. `form_request` SSE 帧 UI(`send-message.ts` 无 `onFormRequest`;`BusinessFormCard` 只在派发事件未在对话流消费)
 - [ ] 65. 暂停 / 继续生成(后端 `AgentLoopV2._pause_requested` + `execute/resume` 已有,前端只暴露 Stop)
-- [ ] 66. side-by-side diff 切换 + 三方合并视图(现仅 unified 行级 + hunk 勾选)
+- [ ]（进行中@2026-09-26/v3wave1）66. side-by-side diff 切换 + 三方合并视图(现仅 unified 行级 + hunk 勾选)
 - [x] 67.(`TerminalSection` 现直接把 `\x1b[31m` 之类转义序列显示给用户) ✅(2026-09-26)取证:后端只脱敏不剥 ANSI,前端是唯一渲染面;src/lib/ansi.ts 零依赖解析器(SGR 8/16/256/truecolor + 粗斜下删反显;结构化 span 不拼 HTML=XSS 硬防线;不完整 CSI 按文本渲染下帧自愈);terminal-section 输出切换(无 ANSI 走原路径零回归),复制剥离转义;vitest 34/34
-- [ ] 69. 会话窗口额度实时进度条 —— **2026-09-26 更正:`budget` 帧并非幽灵**(生产在网关 `ai-chat-stream.ts` `checkTokenBudget` 三态,`client.ts:2858` 已解析),工作量骤降为**纯前端**:消费已解析的 budget 帧 → 输入框上方进度条(warning 琥珀/critical 红),与 43 联动;429 时错误卡显示「额度已用尽」
-- [ ] 70. PDF/CSV/表格富预览(**V2 #32 未交付,本轮重列**;注意 CSP `connect-src`/`frame-src` 同步放行)
+- [ ]（进行中@2026-09-26/v3wave1）69. 会话窗口额度实时进度条 —— **2026-09-26 更正:`budget` 帧并非幽灵**(生产在网关 `ai-chat-stream.ts` `checkTokenBudget` 三态,`client.ts:2858` 已解析),工作量骤降为**纯前端**:消费已解析的 budget 帧 → 输入框上方进度条(warning 琥珀/critical 红),与 43 联动;429 时错误卡显示「额度已用尽」
+- [ ]（进行中@2026-09-26/v3wave1）70. PDF/CSV/表格富预览(**V2 #32 未交付,本轮重列**;注意 CSP `connect-src`/`frame-src` 同步放行)
 - [ ] 71. chat 多端/多标签实时同步(**V2 #23 未交付,本轮重列**;先定 SSE 与 WS 双通道的「同一消息 patch 幂等」契约)
 - [ ] 72. `apps/desktop` 从薄壳到本地能力端点(本地 workspace 通道 + 增量索引 + 本地 git/diff + 离线降级;**保留前端单一事实源在 web,不复制 UI**)
 - [ ] 73. `apps/miniapp-taro` AI 对话页(移植 `packages/app/src/features/agent-chat`;小程序用分块 `wx.request` 而非 stream)
