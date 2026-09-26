@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTranslations } from 'next-intl'
-import { Check, ChevronDown, Eye, FileText, Hammer, ClipboardList, Wrench } from 'lucide-react'
+import { Check, ChevronDown, Eye, FileText, Hammer, ClipboardList, Wrench, MessageCircleQuestion } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,8 +19,9 @@ import { cn } from '@/lib/utils'
  * 对话模式切换器(2026-09-13 矩阵 A #24):同会话模式切换的可见控件,
  * 与 / 命令、Ctrl+1-5、AI 自动判断三通道共用 useModeStore 单一状态源。
  *
- * 四态语义见 stores/mode.ts(build/plan/review/spec)。
- * 文案复用 chat.modeBuild/modePlan/modeReview/modeSpec 现有 i18n 键,不新增键。
+ * 五态语义见 stores/mode.ts(ask/build/plan/review/spec)。
+ * 文案复用 chat.modeBuild/modePlan/modeReview/modeSpec/modeAsk 现有 i18n 键,不新增键。
+ * V3 #53(2026-09-26)补 ask 态:此前 Ctrl+5 能切但 UI 不可见(切换器只列 4 态)。
  *
  * 2026-09-14 合并收口:额外保留「工具面板」入口(menu-tools-panel),见下方注释。
  */
@@ -31,6 +32,7 @@ const MODE_ITEMS: Array<{
   descKey: string
   icon: typeof Hammer
 }> = [
+  { mode: 'ask', labelKey: 'modeAsk', descKey: 'modeAskDesc', icon: MessageCircleQuestion },
   { mode: 'build', labelKey: 'modeBuild', descKey: 'modeBuildDesc', icon: Hammer },
   { mode: 'plan', labelKey: 'modePlan', descKey: 'modePlanDesc', icon: ClipboardList },
   { mode: 'review', labelKey: 'modeReview', descKey: 'modeReviewDesc', icon: Eye },
