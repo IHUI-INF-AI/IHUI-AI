@@ -578,9 +578,12 @@ export const agentsKanbanRoutes: FastifyPluginAsync = async (server) => {
       // dispatch 写入的终态行可能残留 lockedBy/payload token;无锁时仅停心跳,幂等。
       await releaseTaskLockByTaskId(id)
 
-      const [row] = await db.delete(agentTasks).where(eq(agentTasks.id, id)).returning()
-      if (!row) return reply.status(404).send(error(404, '任务不存在'))
-      return reply.send(success({ id, deleted: true }))
+      const removed = await db
+        .delete(agentTasks)
+        .where(eq(agentTasks.id, id))
+        .returning({ id: agentTasks.id })
+      if (removed.length === 0) return reply.status(404).send(error(404, '任务不存在'))
+      return reply.send(success({ id, deleted: removed.length > 0 }))
     },
   )
 }
