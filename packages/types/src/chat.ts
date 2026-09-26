@@ -174,8 +174,19 @@ export interface StreamRunnerCallbacks {
   onError: (err: unknown) => void
   /** 流完成 */
   onDone: () => void
-  /** 上下文压缩通知(各端按需实现,如 miniapp-taro 用 Taro.showToast) */
-  onCompaction?: (info: { tokensBefore: number; tokensAfter: number; removedCount: number }) => void
+  /** 上下文压缩通知(各端按需实现,如 miniapp-taro 用 Taro.showToast)。
+   *  载荷字段与 SSE `compaction` 帧同名(`packages/shared/src/sse/contract.ts`)。
+   *  - `removedCount`:被折进摘要而**移出上下文**的整条消息数;
+   *  - `truncatedCount`(A10B-8,2026-09-26 立):被**内容级截断**、仍留在上下文里的消息数。
+   *    两者不可互相代替:截断兜底在"只剩一个配对组"时 removedCount=0 而内容确实被切过,
+   *    只报其中一个数就会要么说谎("已省略 0 条")要么沉默。
+   *    可选 ⇒ 旧帧缺席读作"未知",消费侧不得把它当 0(向后兼容硬要求)。 */
+  onCompaction?: (info: {
+    tokensBefore: number
+    tokensAfter: number
+    removedCount: number
+    truncatedCount?: number
+  }) => void
   /** 中途引导注入确认(2026-09-19 立,Steer 全链路):
    *  用户经 steer 端点中途注入引导文本,ai-service 在 tool loop 边界将其注入
    *  messages 后下发 steer SSE 事件,api-client streamChat 解析为 onSteer 回调。

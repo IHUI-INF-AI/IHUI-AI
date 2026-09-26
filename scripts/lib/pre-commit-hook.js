@@ -684,7 +684,9 @@ if (process.env.HUSKY_SKIP_DESKTOP_EVENT_WIRING !== '1') {
   if (
     !run(
       '🖥️ 桌面端事件链路接线守门(Rust emit → 桥接 → 前端消费方, 2026-09-22 立)...',
-      'node scripts/check-desktop-event-wiring.mjs',
+      // 必须带 --staged:本门不走 guardian-runner,拿不到它统一追加的面旗。
+      // 不带时它判的是 HEAD blob ⇒ 提交链上审的是**上一提交态**,本次刚改的接线看不见。
+      'node scripts/check-desktop-event-wiring.mjs --staged',
     )
   ) {
     console.error('❌ 桌面端事件链路接线守门失败,提交已阻止')
