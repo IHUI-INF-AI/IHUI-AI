@@ -178,9 +178,24 @@ class JuejinAdapter(BasePlatformAdapter):
                     except Exception as e:
                         logger.warning("juejin.publish Markdown tab click 失败: %s", e, exc_info=True)
 
-                    # 填正文(人类化分段输入)
+                    # 填正文:掘金编辑器是 CodeMirror,其 .CodeMirror-line 覆盖层会拦截
+                    # textarea 的 pointer 事件(实测 Locator.click 30s 超时后整单失败),
+                    # 所以优先取页面上的 CodeMirror 实例直接 setValue,不走点击+键入。
                     editor_selector = 'textarea.editor, .CodeMirror textarea, [mode="markdown"] textarea'
-                    if await page.locator(editor_selector).count() > 0:
+                    set_via_instance = await page.evaluate(
+                        """(text) => {
+                            const node = document.querySelector('.CodeMirror');
+                            const cm = node && node.CodeMirror;
+                            if (!cm || typeof cm.setValue !== 'function') return false;
+                            cm.setValue(text);
+                            if (typeof cm.save === 'function') cm.save();
+                            return cm.getValue().length === text.length;
+                        }""",
+                        md_text,
+                    )
+                    if set_via_instance:
+                        await human_pause(0.5, 1.0)
+                    elif await page.locator(editor_selector).count() > 0:
                         await page.locator(editor_selector).first.click()
                         paragraphs = md_text.split("\n\n")
                         for i, para in enumerate(paragraphs):

@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "//": "发布产物专用构建配置(与 typecheck 分开):本包是纯类型 + 少量运行期谓词/投影器,基础 tsconfig 的 typecheck 面保持不动,本配置只产出可发布的 dist —— 开 declaration(发布门判据 2 要 dist/index.d.ts)、排除测试面(src 内 *.test.ts 与 tests/ 目录),避免测试代码随 tarball 发出去。",
+  "compilerOptions": {
+    "declaration": true,
+    "noEmit": false,
+    "composite": false,
+    "incremental": false
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "tests", "src/**/*.test.ts", "src/**/__tests__/**"]
+}
