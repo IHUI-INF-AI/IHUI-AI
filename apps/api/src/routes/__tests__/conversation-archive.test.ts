@@ -106,7 +106,7 @@ vi.mock('../../db/chat-queries.js', () => ({
 
 import { chatRoutes } from '../chat.js'
 import { db } from '../../db/index.js'
-import { findConversationById } from '../../db/chat-queries.js'
+import { findConversationById, clearMessages } from '../../db/chat-queries.js'
 import { persistMessageArchive } from '../../utils/conversation-archive.js'
 import { conversationMessageArchives } from '@ihui/database'
 
@@ -325,6 +325,52 @@ describe('GET /api/chat/conversations/:id/archives/:archiveId — 归档详情',
     expect(body.data.archive.id).toBe(ARCHIVE_ID)
     expect(body.data.archive.messageCount).toBe(2)
     expect(body.data.archive.messages).toEqual(archivedMessages)
+  })
+})
+
+describe('POST /api/chat/conversations/:id/clear — 清空确认由库侧命中集合派生(第二十八批)', () => {
+  let app: FastifyInstance
+
+  beforeAll(async () => {
+    app = Fastify({ logger: false })
+    await app.register(chatRoutes, { prefix: '/api/chat' })
+    await app.ready()
+  })
+
+  afterAll(async () => {
+    await app.close()
+  })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockSelectResult.mockResolvedValue([])
+    mockAuth()
+    vi.mocked(findConversationById).mockResolvedValue({
+      id: CONV_ID,
+      userId: USER_A,
+    } as never)
+  })
+
+  it('删除链命中 N 行 ⇒ 报清成功', async () => {
+    vi.mocked(clearMessages).mockResolvedValue(['msg-1', 'msg-2'])
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/chat/conversations/${CONV_ID}/clear`,
+      headers: AUTH_HEADERS,
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data.cleared).toBe(true)
+  })
+
+  it('删除链命中 0 行(会话存在但本无消息)⇒ 不得报清成功', async () => {
+    vi.mocked(clearMessages).mockResolvedValue([])
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/chat/conversations/${CONV_ID}/clear`,
+      headers: AUTH_HEADERS,
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data.cleared).toBe(false)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

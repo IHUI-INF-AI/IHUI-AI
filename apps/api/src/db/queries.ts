@@ -214,12 +214,16 @@ export async function findRefreshToken(token: string): Promise<RefreshToken | un
 
 /**
  * 吊销 refresh token（设置 revokedAt）。
+ * 2026-09-27:回报**库侧确认改动的那批 id**。旧形态 Promise&lt;void&gt; 让调用方(如
+ * /auth/logout)只能在写链之外猜布尔 —— "UPDATE 命中 0 行"与"吊销成功"在响应上同形。
  */
-export async function revokeRefreshToken(token: string): Promise<void> {
-  await db
+export async function revokeRefreshToken(token: string): Promise<string[]> {
+  const rows = await db
     .update(refreshTokens)
     .set({ revokedAt: new Date() })
     .where(eq(refreshTokens.token, token))
+    .returning({ id: refreshTokens.id })
+  return rows.map((r) => r.id)
 }
 
 /**
