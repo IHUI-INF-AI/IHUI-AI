@@ -43,10 +43,11 @@ vi.mock('next-intl', () => ({
 }))
 
 // ─── next/image mock:测试环境不加载 Next 图片 loader ──
+// 用 React.createElement 渲染真实 <img>(同 media/__tests__ 三处既有 mock 形态):
+// 规则只解析 JSX 元素,这里既不触碰 @next/next/no-img-element,DOM 语义与旧写法逐字节等值。
 vi.mock('next/image', () => ({
-  default: ({ alt, src }: { alt?: string; src: string }) => (
-    <img alt={alt ?? ''} src={typeof src === 'string' ? src : ''} />
-  ),
+  default: ({ alt, src }: { alt?: string; src: string }) =>
+    React.createElement('img', { alt: alt ?? '', src: typeof src === 'string' ? src : '' }),
 }))
 
 // ─── @ihui/ui-react mock:全屏遮罩里的 CloseButton ──

@@ -53,6 +53,19 @@ export function selfTest(ctx) {
   rec('S2c 拒家目录', rejects(() => assertDataDirAllowed(join(process.env.USERPROFILE || process.env.HOME || 'C:\\Users\\x', '.ihui-rls'))) !== null, '')
   rec('S2d 收仓库内 .ihui-agent/tmp/**', rejects(() => assertDataDirAllowed(join(ctx.repoRoot, '.ihui-agent', 'tmp', 'o13-cluster', 'data'))) === null, '')
   rec('S2e 收同盘 DevEnv\\Temp\\**', rejects(() => assertDataDirAllowed(`${ctx.driveOf(ctx.repoRoot)}:\\DevEnv\\Temp\\ihui-rls`)) === null, '')
+  // S2f/S2g:**Linux CI 的检出本身就在 $HOME 之下**(/home/runner/work/...),旧判序先拒家目录,
+  // 于是"仓库内 .ihui-agent/tmp/**"这个明令允许的落点在 CI 上被判违规 —— 开发机(仓在 D:、家在 C:)
+  // 结构上测不出这一型。成对写:仓库内必须收,家目录里别的位置仍必须拒。
+  {
+    const HOME = process.env.USERPROFILE || process.env.HOME || 'C:\\Users\\x'
+    const fakeRepo = join(HOME, 'runner-work', 'IHUI-AI')
+    rec(
+      'S2f 家目录之内的仓库根:其 .ihui-agent/tmp/** 仍必须收(CI 形态)',
+      rejects(() => assertDataDirAllowed(join(fakeRepo, '.ihui-agent', 'tmp', 'o13-cluster', 'data'), fakeRepo)) === null,
+      '',
+    )
+    rec('S2g 同一个家目录里、仓库之外的落点仍必须拒(证明 S2f 不是把禁令放宽掉了)', rejects(() => assertDataDirAllowed(join(HOME, 'elsewhere'), fakeRepo)) !== null, '')
+  }
 
   // S3 角色 DDL:超级用户 / BYPASSRLS 主体跑出来的绿是假的
   const subjectIsBound = (ddlText) => (ddlText.match(/NOSUPERUSER/g) || []).length === 2 && (ddlText.match(/NOBYPASSRLS/g) || []).length === 2
