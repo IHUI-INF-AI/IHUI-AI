@@ -5,8 +5,9 @@
 """RAG(Retrieval-Augmented Generation)service。
 
 完整 RAG 流程:
-1. retrieve: 向量检索(从 vector_memory + memory_store 找 top-k 相关文档)
-2. rerank:   可选 rerank(基于 score 阈值过滤 + 去重)
+1. retrieve: 双路召回 + RRF 融合(V3 #52:向量路 + 关键词路并行召回,
+   Reciprocal Rank Fusion 合并;向量不可用时关键词单路降级)
+2. rerank:   可选 LLM 重排(默认关,失败降级现排序)+ 阈值过滤 + 去重
 3. context:  拼接 context(模板化 system prompt 注入)
 4. generate: LLM 生成(基于 context + 用户问题)
 5. cite:     返回 sources(供前端展示引用)
@@ -22,6 +23,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 import uuid as _uuid
@@ -30,6 +32,7 @@ from typing import Any
 
 from ..core.llm_gateway import llm_gateway
 from .memory import memory_store
+from .reranker import rrf_fuse, rerank_with_fallback
 from .vector_memory import vector_memory
 
 logger = logging.getLogger(__name__)
@@ -37,13 +40,21 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class RAGSource:
-    """RAG 检索来源。"""
+    """RAG 检索来源。
+
+    score 保留原始语义分(cosine / 关键词分),供阈值过滤与前端展示;
+    融合链路新增字段(均带默认值,旧构造点不受影响):
+    - fused_from: 来源路标签(如 "vector" / "vector+keyword"),单路时为该路名
+    - rrf_score:  RRF 融合分(单路降级时为 0.0),仅供 debug / trace
+    """
 
     session_id: str
     role: str
     content: str
     score: float
     timestamp: str = ""
+    fused_from: str = ""
+    rrf_score: float = 0.0
 
 
 @dataclass
@@ -118,12 +129,15 @@ class RAGService:
 
         # 2. 重排/过滤
         t0 = time.monotonic()
-        filtered = self._rerank(raw_sources, score_threshold=score_threshold)
+        filtered, llm_rerank_used = await self._rerank_with_llm(
+            question, raw_sources, score_threshold=score_threshold
+        )
         trace.append({
             "node": "rerank",
             "duration_ms": round((time.monotonic() - t0) * 1000, 2),
             "filtered_count": len(filtered),
             "score_threshold": score_threshold,
+            "llm_rerank": llm_rerank_used,
         })
 
         # 3. 拼接 context
@@ -216,36 +230,81 @@ class RAGService:
         top_k: int = 5,
         session_id: str | None = None,
     ) -> list[RAGSource]:
-        """向量检索,失败 fallback 关键词检索。"""
+        """双路召回 + RRF 融合(V3 #52「RAG 真重排」)。
+
+        行为(与旧版 fallback 关系的差异):
+        - 向量可用(embed 成功且有结果)→ 向量路 + 关键词路**并行**召回,
+          Reciprocal Rank Fusion 合并。RRF 只看名次不看原始分,因为两路
+          分数量纲不可比(cosine ∈ [0,1] vs 关键词命中数/sqrt(长度)),
+          线性加权会失真。
+        - 向量不可用(embed 异常或零结果)→ 关键词单路降级,与旧行为一致。
+        """
+        recall_k = max(top_k * 2, 10)
+        # 双路并行启动:向量成功则两路融合,失败则关键词路独扛(任务已并行,零等待浪费)
+        vec_task = asyncio.create_task(
+            self._vector_retrieve(query, top_k=recall_k, session_id=session_id)
+        )
+        kw_task = asyncio.create_task(
+            self._keyword_fallback(query, top_k=recall_k, session_id=session_id)
+        )
+        vec_sources = await vec_task
+        if not vec_sources:
+            # 向量单路降级:关键词路结果截到 top_k,行为与旧 fallback 一致
+            kw_sources = await kw_task
+            return kw_sources[:top_k]
+
+        kw_sources = await kw_task
+        rankings: list[list[RAGSource]] = [vec_sources]
+        labels: list[str] = ["vector"]
+        if kw_sources:
+            rankings.append(kw_sources)
+            labels.append("keyword")
+        fused = rrf_fuse(rankings, labels=labels)
+
+        out: list[RAGSource] = []
+        for f in fused:
+            s = f.item
+            # 标注来源路与 RRF 分(score 保留原始语义分,供阈值过滤/前端展示)
+            s.fused_from = "+".join(f.fused_from)
+            s.rrf_score = round(f.score, 6)
+            out.append(s)
+            if len(out) >= top_k:
+                break
+        return out
+
+    async def _vector_retrieve(
+        self,
+        query: str,
+        top_k: int = 10,
+        session_id: str | None = None,
+    ) -> list[RAGSource]:
+        """向量路召回(embed/检索失败降级返回 [],不抛,由 _retrieve 决定融合策略)。"""
         try:
             query_embedding = await vector_memory.embed(query)
             results = await vector_memory.search(
                 query_embedding=query_embedding,
-                top_k=max(top_k * 2, 10),
+                top_k=top_k,
                 threshold=0.0,
             )
         except Exception as e:
-            logger.warning("rag._retrieve 向量检索失败: %s", e, exc_info=True)
-            results = []
-        if results:
-            sources: list[RAGSource] = []
-            for _entry_id, entry, score in results:
-                if session_id is not None and entry.get("session_id") != session_id:
-                    continue
-                sources.append(
-                    RAGSource(
-                        session_id=str(entry.get("session_id", "")),
-                        role=str(entry.get("role", "")),
-                        content=str(entry.get("content", "")),
-                        score=float(score),
-                        timestamp=str(entry.get("timestamp", "")),
-                    )
+            logger.warning("rag._vector_retrieve 向量检索失败: %s", e, exc_info=True)
+            return []
+        sources: list[RAGSource] = []
+        for _entry_id, entry, score in results:
+            if session_id is not None and entry.get("session_id") != session_id:
+                continue
+            sources.append(
+                RAGSource(
+                    session_id=str(entry.get("session_id", "")),
+                    role=str(entry.get("role", "")),
+                    content=str(entry.get("content", "")),
+                    score=float(score),
+                    timestamp=str(entry.get("timestamp", "")),
                 )
-                if len(sources) >= top_k:
-                    break
-            return sources
-        # Fallback: 关键词检索 memory_store
-        return await self._keyword_fallback(query, top_k=top_k, session_id=session_id)
+            )
+            if len(sources) >= top_k:
+                break
+        return sources
 
     async def _keyword_fallback(
         self,
@@ -308,23 +367,62 @@ class RAGService:
     # 私有:重排
     # =========================================================================
 
-    @staticmethod
+    @classmethod
     def _rerank(
+        cls,
         sources: list[RAGSource],
         score_threshold: float = 0.0,
     ) -> list[RAGSource]:
-        """重排 + 阈值过滤 + 去重(基于内容)。"""
+        """按 score 降序排序 + 阈值过滤 + 内容去重(LLM 重排未启用/失败时的兼容路径)。
+
+        V3 #52 后排序职责上移:多路名次由 retrieve 阶段 RRF 融合决定,
+        可选 LLM 重排由 _rerank_with_llm 处理;本方法保留旧的「按分排序」
+        语义,仅作为无 LLM 重排时的兜底(行为与旧版逐零差异)。
+        """
         if not sources:
             return []
-        # 按 score 排序(降序)
         sorted_sources = sorted(sources, key=lambda x: x.score, reverse=True)
-        # 阈值过滤
+        return cls._filter_dedup(sorted_sources, score_threshold=score_threshold)
+
+    async def _rerank_with_llm(
+        self,
+        query: str,
+        sources: list[RAGSource],
+        score_threshold: float = 0.0,
+    ) -> tuple[list[RAGSource], bool]:
+        """V3 #52 重排入口:可选 LLM 重排 → 阈值过滤 + 去重。
+
+        - LLM 重排(env AGENT_RERANK_LLM_ENABLED,默认关)启用且成功:
+          按 LLM 相关性分定名次,后续只做过滤去重(**不**再按 score 排序,
+          否则会破坏 LLM 名次;score 仅剩阈值过滤语义)。
+        - 未启用/失败:降级 _rerank(按原始 score 排序),行为与旧版一致。
+
+        Returns:
+            (过滤去重后的 sources, 是否实际使用了 LLM 重排)。
+        """
+        if not sources:
+            return [], False
+        ordered, used_llm = await rerank_with_fallback(query, sources)
+        if used_llm:
+            return self._filter_dedup(ordered, score_threshold=score_threshold), True
+        return self._rerank(ordered, score_threshold=score_threshold), False
+
+    @staticmethod
+    def _filter_dedup(
+        sources: list[RAGSource],
+        score_threshold: float = 0.0,
+    ) -> list[RAGSource]:
+        """阈值过滤 + 内容去重,**保持传入顺序**(LLM/RRF 名次不被打乱)。"""
+        if not sources:
+            return []
+        # 阈值过滤(score 保留原始语义分,阈值语义不变)
+        out = list(sources)
         if score_threshold > 0:
-            sorted_sources = [s for s in sorted_sources if s.score >= score_threshold]
-        # 内容去重(保留首个)
+            out = [s for s in out if s.score >= score_threshold]
+        # 内容去重(保留首个,即名次最高者;前 200 字符口径与旧版一致)
         seen: set[str] = set()
         deduped: list[RAGSource] = []
-        for s in sorted_sources:
+        for s in out:
             key = s.content.strip()[:200]
             if key in seen:
                 continue
@@ -415,6 +513,8 @@ class RAGService:
                     "content": s.content[:500],
                     "score": s.score,
                     "timestamp": s.timestamp,
+                    # V3 #52:来源路标注("vector"/"keyword"/"vector+keyword")
+                    "fused_from": s.fused_from,
                 }
                 for s in result.sources
             ],
