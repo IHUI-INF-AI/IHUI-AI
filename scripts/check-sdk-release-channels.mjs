@@ -119,9 +119,19 @@ export function validateStructure(manifest) {
  * `version` 仍是占位的 `0.0.0`。`check-pkg-installable.mjs` 头注写着"本脚本正是去 private
  * 之前必须通过的自检",但没有任何东西在那个时刻执行它 ⇒ 散文。本函数把那句话说成代码。
  *
+ * **2026-09-26 收窄:只看会发布的那三个字段,不看 devDependencies。** 首版把 devDependencies
+ * 一起扫了,那是判据错不是世界错 —— npm 发布时会**整个剥掉 devDependencies**,workspace 协议
+ * 写在那里根本进不了 tarball。不收窄的后果可实测且是恒红:本仓每个包都带 workspace 形态的内部
+ * devDeps(如 `@ihui/eslint-config`/`@ihui/tsconfig`),而**已经摘了 private 的 `@ihui/sdk`**
+ * 清单里就有两条 —— 按旧判据它从"摘 private 那一刻"起永远红,唯一出路是把内部依赖从 devDeps 里
+ * 删掉,而删掉就打不到类型 ⇒ 逼人跳门。正确姿势正是本次 api-client 收口走的那条:内部包留在
+ * devDependencies(供类型面 import type),运行时自实现/自带,于是 dependencies 为空。
+ * 与 `scripts/check-pkg-installable.mjs` 判据 5 的字段口径**逐字同一组**,两把尺子不得各量一段。
+ *
  * @param {{private?:unknown, version?:unknown,
  *          dependencies?:Record<string,string>, devDependencies?:Record<string,string>,
- *          peerDependencies?:Record<string,string>}} pkg 包清单(已 parse)
+ *          peerDependencies?:Record<string,string>}} pkg 包清单(已 parse);
+ *          devDependencies 刻意不参与 —— 它不随包发布
  * @returns {string[]} 空数组 = 无欠账;每条点名一个可修的字段
  */
 export function publishPreconditionFailures(pkg) {
@@ -133,13 +143,13 @@ export function publishPreconditionFailures(pkg) {
   }
   const all = {
     ...(pkg.dependencies ?? {}),
-    ...(pkg.devDependencies ?? {}),
     ...(pkg.peerDependencies ?? {}),
+    ...(pkg.optionalDependencies ?? {}),
   }
   const ws = Object.entries(all)
     .filter(([, v]) => typeof v === 'string' && v.startsWith('workspace:'))
     .map(([k, v]) => `${k}=${v}`)
-  if (ws.length > 0) red.push(`带 workspace: 依赖 ⇒ 发出去即装不到:${ws.join(', ')}`)
+  if (ws.length > 0) red.push(`发布面依赖含 workspace: ⇒ 发出去即装不到:${ws.join(', ')}`)
   return red
 }
 

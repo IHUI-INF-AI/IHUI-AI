@@ -10,7 +10,7 @@
  * 徽章按当前模型查表计费;未收录、币种非 CNY 或接口不可用时返回 null,由调用方降级为「不显示 ¥」。
  * 注意:响应字段用后端别名 inputPrice/outputPrice,规避 response-sanitizer 对含 "token" 字段名的脱敏。
  */
-import { fetchApi } from '../client'
+import { fetchApi } from '../client.js'
 
 /** 单条模型定价(单位:分/千 token) */
 export interface AiPricingItem {
