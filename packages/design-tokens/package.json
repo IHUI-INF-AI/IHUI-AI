@@ -28,7 +28,8 @@
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
     "typescript": "catalog:",
-    "rimraf": "catalog:"
+    "rimraf": "catalog:",
+    "tailwindcss": "^3.4.17"
   },
   "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
   "homepage": "https://aizhs.top",
