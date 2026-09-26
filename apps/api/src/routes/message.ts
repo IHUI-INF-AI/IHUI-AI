@@ -29,6 +29,7 @@ import {
 } from '../db/message-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { booleanStringSchemaOptional } from '../utils/parse-boolean.js'
+import { turnOrdinalForRole } from '../services/turn-ordinal.js'
 
 // =============================================================================
 // Zod schemas
@@ -518,9 +519,23 @@ export const messageRoutes: FastifyPluginAsync = async (server) => {
         .where(and(eq(chatConversations.id, conversationId), eq(chatConversations.userId, userId)))
         .limit(1)
       if (conv.length === 0) return reply.status(404).send(error(404, '会话不存在'))
+      // D35(2026-09-26 第三段):本路径绕过 chat-queries 直插,必须自己补齐 turn_ordinal。
+      // user 消息开启新轮(max + 1),规则一律取 services/turn-ordinal.js 这个唯一出口,
+      // 不得在此重写 role 判断或 +1 语义(与 patrol-scheduler 的补齐同形)。
+      // 同会话并发插入时 max+1 为"尽力而为":顺序双插得到两个不同序号,撞号时序号相等
+      // 但按写入序仍单调不降 —— 由 apps/api/tests/message-send-turn-ordinal.test.ts 证明。
+      const turnRows = await db
+        .select({ maxTurn: sql<number | null>`max(${chatMessages.turnOrdinal})` })
+        .from(chatMessages)
+        .where(eq(chatMessages.conversationId, conversationId))
       const [created] = await db
         .insert(chatMessages)
-        .values({ conversationId, role: 'user', content })
+        .values({
+          conversationId,
+          role: 'user',
+          content,
+          turnOrdinal: turnOrdinalForRole(Number(turnRows[0]?.maxTurn ?? 0), 'user'),
+        })
         .returning()
       if (!created) return reply.status(500).send(error(500, '消息发送失败'))
       await db
