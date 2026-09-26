@@ -32,8 +32,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 from ..core.llm_gateway import llm_gateway
 
@@ -224,7 +225,7 @@ async def llm_rerank_scores(
             ),
             timeout=LLM_RERANK_TIMEOUT_S,
         )
-    except (asyncio.TimeoutError, Exception) as e:  # noqa: BLE001 - 降级语义:rerank 失败绝不抛
+    except (TimeoutError, Exception) as e:  # noqa: BLE001 - 降级语义:rerank 失败绝不抛
         logger.warning("reranker.llm_rerank_scores 失败(降级原排序): %s", e)
         return None
 
