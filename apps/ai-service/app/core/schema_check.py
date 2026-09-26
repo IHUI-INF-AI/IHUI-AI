@@ -141,6 +141,24 @@ _SQL_TABLE_RE = re.compile(
     re.IGNORECASE,
 )
 
+# CTE 名不得被当表(2026-09-26):`WITH del AS (DELETE FROM rag_chunks RETURNING 1)
+# SELECT count(*)::int FROM del` 是真实 Postgres 查询,而 `FROM del` 会被上面的正则
+# 抓成表名 `del`,在 CI 里报"表不存在 — 数据孤岛"。手工再排一个名字就是本病的根因,
+# 所以按语法结构提取:WITH 后紧跟的标识符,以及 `,` / `)` 之后形如 `x AS (` 的名字。
+_CTE_HEAD_RE = re.compile(r"\bWITH\s+(\w+)\s+AS\s*\(", re.IGNORECASE)
+_CTE_NEXT_RE = re.compile(r"[,)\s](\w+)\s+AS\s*\(\s*(?:WITH|SELECT|INSERT|UPDATE|DELETE)\b", re.IGNORECASE)
+
+
+def _cte_names(sql: str) -> set:
+    """提取该段 SQL 里所有 CTE 别名(小写),供表名判定排除。"""
+    names = {m.lower() for m in _CTE_HEAD_RE.findall(sql)}
+    names |= {m.lower() for m in _CTE_NEXT_RE.findall(sql)}
+    return names
+
+
+# SQLite 驱动的直接/缩进导入(函数内 import 也算 —— browser_hub.py 就是函数内连库)
+_SQLITE_DRIVER_RE = re.compile(r"^\s*(?:import\s+sqlite3\b|from\s+sqlite3\s+import\b)", re.MULTILINE)
+
 # 常见非表词(注释/伪代码/日志中的占位符,非真实表引用)— 启发式扫描误报过滤
 _NON_TABLE_WORDS = frozenset({
     "redis", "sql", "summary", "n", "content", "credentials",
@@ -338,20 +356,23 @@ def scan_ai_service_sql_tables(app_dir: Path = _APP_DIR) -> set[str]:
         re.IGNORECASE,
     )
     tables: set[str] = set()
-    # 2026-09-10 修复:排除 SQLite 实现。session_store.py 自述"纯标准库 sqlite3 实现",
-    # 其 items / items_fts / meta / relay_summaries / rollbacks / schema_version /
-    # threads / turns 都是 SQLite 表,与 Postgres schema 无关 —— 之前被当成本服务
-    # 依赖的 Postgres 表,在 CI 里恒报"表不存在 — 数据孤岛"。
-    # 2026-09-15 补:memory_sweeper.py 同为"纯标准库 sqlite3 实现"(schema_version /
-    # memories / sweep_logs 是 SQLite 表),与 session_store.py 同理排除 —— 否则被当成
-    # 本服务依赖的 Postgres 表,在 CI 里恒报"表不存在"。
-    _SQLITE_FILES = {"session_store.py", "memory_sweeper.py"}
+    # SQLite 实现必须排除,但**按驱动事实判,不按文件名清单判**。
+    # 旧写法是一张手工名单 `_SQLITE_FILES = {"session_store.py", "memory_sweeper.py"}`
+    # (2026-09-10 / 09-15 各补一次),后果是清单腐烂:名单之后入库的
+    # approval_persistence.py / sso_identity_store.py / browser_hub.py / importers/cursor.py
+    # 里的 SQLite 表(approval_grants、sso_identities、cookies、sqlite_master)被当成本服务的
+    # Postgres 表,在 CI 里连红四十多次,报的全是"表不存在 — 数据孤岛"。
+    # 现判据:文件里 import 了 sqlite3 **且**没引 asyncpg ⇒ 它不是 Postgres 侧的实现,整文件跳过。
+    # 安全性(实测 app/ 全量):引 sqlite3 的文件共 6 个,其中同时引 asyncpg 的 **0 个**
+    # ⇒ 按驱动排除不损失任何 Postgres 覆盖面,且原有两个名字被自然包含。
     for py_file in app_dir.rglob("*.py"):
-        if py_file.name.startswith("_") or py_file.name in _SQLITE_FILES | {"schema_check.py"}:
+        if py_file.name.startswith("_") or py_file.name == "schema_check.py":
             continue
         try:
             content = py_file.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
+            continue
+        if _SQLITE_DRIVER_RE.search(content) and "asyncpg" not in content:
             continue
         # 只在字符串字面量中匹配 SQL 表名(避免 FROM __future__ import 误匹配)
         for str_match in _STRING_LITERAL_RE.finditer(content):
@@ -370,8 +391,11 @@ def scan_ai_service_sql_tables(app_dir: Path = _APP_DIR) -> set[str]:
             # 这些在 CI 全部被当成"数据孤岛",schema_check 恒红。
             if not (_sql_statement.search(inner) and _sql_structure.search(inner)):
                 continue
+            cte = _cte_names(inner)
             for match in _SQL_TABLE_RE.finditer(inner):
                 table = match.group(1).lower()
+                if table in cte:
+                    continue
                 # 过滤 SQL 关键字 + 系统表(information_schema / pg_*)
                 if table in _SQL_KEYWORDS:
                     continue

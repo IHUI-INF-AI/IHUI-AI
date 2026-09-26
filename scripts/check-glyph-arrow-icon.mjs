@@ -83,8 +83,9 @@
  *       豁免**复用 GA6 的文件级 `nav-chrome-exempt`**(带原因):GA7 的错同样是"页面组合 × 页面渲染"
  *       的产物,不落在某一行上;语义与 GA6 同族(同屏双层 chrome),开第四通道只会稀释现有三条。
  *       已知边界如实登记:别名导入使子屏以 `<MyChevron/>` 这类非 BackChevron/NavBar 名义渲染返回键时,
- *       H2 会读成"子屏无返回键"而放行(收窄面以免假阳)。H1/H2/H3 不依赖 walkAffordanceChildren 的
- *       祖先栈 ⇒ GA4/GA5 那条"跨行自闭合标签致栈失配"的已知盲区不传染本判据。
+ *       H2 会读成"子屏无返回键"而放行(收窄面以免假阳)。H1/H2/H3 不建祖先栈(走扁平 collectTags)
+ *       ⇒ GA4/GA5 那条"跨行自闭合标签致栈失配"的盲区不传染本判据 —— GA4/GA5 那一侧已于
+ *       2026-09-26 由属性区下探收口,collectTags 对 prop 体的覆盖仍是另一格账。
  *
  * 泄压阀:行内 `glyph-arrow-exempt: <一句话原因>`(GA1/GA2)与
  * `back-label-exempt: <一句话原因>`(GA4/GA5,可写在命中行、可点元素起始行或其紧邻上行)——
@@ -252,6 +253,9 @@ const BACK_TEXT_LITERAL_RE = /^[「『]?返回[」』]?$/
  * 的那一个(它在 HEAD 上就有一处真违规,而全量面报 0、把同一文件喂门却报 1 —— 两个面结论相反
  * 就是判据失效的指纹)。自检里"预筛必须是判据字面量超集"那条锁只覆盖了**字形字符集**,
  * 没覆盖**键名形态**,所以它一路绿灯地看着这个洞存在。
+ * 2026-09-26 的**属性区下探**(`walkJsxRange`)不新增字面量 —— 它的键是"attrs 里有没有 `<`",
+ * 结构性判据进不了筛串(`<` 每个 TSX 都有,加进去等于取消预筛);它新够到的格子仍由上面这些
+ * 字面量决定在不在候选里,所以超集锁不受影响,也不得为它把筛串放宽。
  */
 const PREFILTER =
   '›|»|→|》|‹|←|«|返回|fontSize|font-size|\'>\'|">"|BackChevron|NavBar|navigationStyle|[bB]ack[0-9]*["\']|headerShown|onBack'
@@ -640,10 +644,31 @@ function affordanceEvidence(tag, ancestors) {
  */
 export function walkAffordanceChildren(text, strMask) {
   const out = []
-  const stack = []
-  let i = 0
-  const n = text.length
-  while (i < n) {
+  walkJsxRange(text, strMask, 0, text.length, [], out)
+  return out
+}
+
+/** 该开标签的整格子内容是否处在可证 affordance 语境,是则产出一条 */
+function consultLoneChild(text, strMask, t, stack, out) {
+  const lone = loneChildText(text, strMask, t)
+  if (!lone) return
+  const ev = affordanceEvidence(t, stack.slice(-MAX_ANCESTORS))
+  if (ev) out.push({ tag: t, via: ev.reason, anchorLine: lineOf(text, ev.anchor.start), ...lone })
+}
+
+/**
+ * 属性表达式里带 JSX 的标签(`<X prop={<Y/>} …>`、跨行自闭合 `<FlatList … />`)会被 parseTagAt
+ * 当作**一个** token 消费到它自己的 `>` / `/>` 为止 —— 于是元素体里的渲染位一个都不会被咨询
+ * (CourseScreen:113 的盲区即此型:自闭合 `/>` 落在另一行,整段 70 行 prop 体被跳过)。
+ * 这里对该属性区间再走一遍同一判据,祖先栈**从空开始**:外层是 prop 宿主而不是渲染父级,
+ * 把它算作祖先会让另一个 prop 里的 `onPress=`(如 `renderItem={() => <T onPress=…>}`)
+ * 给整棵 prop 子树伪造可点证据 —— 那是假阳,而假阳指使人去"修"没坏的东西。
+ * 递归区间严格小于父区间(不含标签名与收尾 `>`),故必然收敛;`<` 只在属性区里才触发,
+ * 比较运算符(`page <= 1`)那一支走不进任何判据。
+ */
+function walkJsxRange(text, strMask, from, to, stack, out) {
+  let i = from
+  while (i < to) {
     if (text[i] !== '<') {
       i++
       continue
@@ -663,17 +688,14 @@ export function walkAffordanceChildren(text, strMask) {
       i = t.end
       continue
     }
-    if (t.kind === 'open') {
-      const lone = loneChildText(text, strMask, t)
-      if (lone) {
-        const ev = affordanceEvidence(t, stack.slice(-MAX_ANCESTORS))
-        if (ev) out.push({ tag: t, via: ev.reason, anchorLine: lineOf(text, ev.anchor.start), ...lone })
-      }
-      stack.push(t)
-    }
+    if (t.kind === 'open') consultLoneChild(text, strMask, t, stack, out)
+    const regionStart = t.start + 1 + t.name.length
+    const regionEnd = t.end - 1
+    if (t.attrs.includes('<') && regionEnd > regionStart)
+      walkJsxRange(text, strMask, regionStart, regionEnd, [], out)
+    if (t.kind === 'open') stack.push(t)
     i = t.end
   }
-  return out
 }
 
 /** GA1:整格子内容恰为一个箭头字形 */
@@ -1528,12 +1550,14 @@ function report(res, meta) {
   if (notes.backExempt) lines.push(`  行内豁免 back-label-exempt 放过:${notes.backExempt} 处`)
   if (notes.undetermined.length)
     lines.push(`  GA2 单位不一致、判不出:${notes.undetermined.length} 对(不判红,如实计数)`)
-  if (notes.backBlind.length)
-    lines.push(
-      `  ⚠️ GA4/GA5 遍历盲区:${notes.backBlind.length} 处渲染位「返回」被宽松正则看到、而栈遍历一个都没咨询过(= 本门对这些格子**没有判据覆盖**,不是"通过"):`,
-    )
-    for (const b of notes.backBlind.slice(0, 12))
-      lines.push(`      · ${b.file}:${b.line}`)
+  // 盲区读数**恒打印**(0 也打印):只在出事时才出声,读报告的人就分不清"量到 0"与"这一层根本没量"
+  // —— 而后者正是本门反复踩的那一型(判据失效的表现永远是安静)。
+  lines.push(
+    notes.backBlind.length
+      ? `  ⚠️ GA4/GA5 遍历盲区:${notes.backBlind.length} 处渲染位「返回」被宽松正则看到、而栈遍历一个都没咨询过(= 本门对这些格子**没有判据覆盖**,不是"通过"):`
+      : '  GA4/GA5 遍历盲区:✅ 0 处(被宽松正则看到的渲染位都被栈咨询过)',
+  )
+  for (const b of notes.backBlind.slice(0, 12)) lines.push(`      · ${b.file}:${b.line}`)
     if (notes.backBlind.length > 12) lines.push(`      …另有 ${notes.backBlind.length - 12} 处`)
   if (notes.chromeUndetermined.length)
     lines.push(
@@ -1829,6 +1853,50 @@ function selfTest() {
       'packages/app/src/features/probe/B.tsx':
         'export const P = ({ go }) => (\n  <Pressable onPress={go}>\n    <Text>\n      {t(\'common.back\')}\n    </Text>\n  </Pressable>\n)\n',
     }).blind === 0,
+  )
+  // ── 跨行自闭合标签的属性区必须被咨询(CourseScreen:113 那一型,2026-09-26 修)──────────────
+  // parseTagAt 把 `<FlatList … />` 当作**一个** token 消费到 `/>` 为止,旧遍历因此跳过了整段
+  // prop 体(70 行)—— 症状是"GA4 报 0 而这一格真的在那"。下面五条钉住修复的五个方向:
+  // ① 属性区里的返回渲染位现在判得到(阳性);② 得到的是**该格自己的**可点证据,不是 prop 宿主
+  // 伪造的祖先(反向 —— 放开成"外层也算祖先"就会红);③ 同一个字形态在 GA1 也必须判到
+  // (GA1/GA4 共用这一遍,只修一半就是换个地方失明);④ 开标签的**子内容**不得因下探而失去
+  // 外层祖先(那是改前已有的行为,回归它等于把修好的一半弄坏);⑤ 下探是结构性分支(键 =
+  // attrs 里有没有 `<`,进不了筛串),所以它新够到的格子必须仍被 PREFILTER 收进候选 ——
+  // 否则判据修好了,文件却在预筛那一步就被丢掉,等于没修。
+  const DESCEND_BACK =
+    'export const P = ({ go, page }) => (\n  <FlatList\n    data={items}\n    renderItem={() => <TouchableOpacity onPress={go} />}\n    ListFooterComponent={\n      <Pressable onPress={() => onPage(page - 1)}>\n        <Text>\n          {t(\'common.back\')}\n        </Text>\n      </Pressable>\n    }\n  />\n)\n'
+  t(
+    '阳性对照:跨行自闭合标签的 prop 体里,整格「返回」渲染位现在判得到(旧遍历在此失明)',
+    only({ 'packages/app/src/features/probe/D1.tsx': DESCEND_BACK }).n4 === 1,
+  )
+  t(
+    '阳性对照:同一形态的 prop 体里整格 › 也必须判到(GA1/GA4 共用一遍,只修 GA4 就是换个地方失明)',
+    only({
+      'packages/app/src/features/probe/D2.tsx':
+        'export const P = ({ go }) => (\n  <FlatList\n    renderItem={() => <View />}\n    ListFooterComponent={<Pressable onPress={go}><Text>›</Text></Pressable>}\n  />\n)\n',
+    }).n1 === 1,
+  )
+  t(
+    '反向对照:prop 宿主不得算作 prop 体的祖先 —— 唯一的 onPress 在**另一个 prop** 里(renderItem)⇒ 不得判(算上外层就是假阳回流)',
+    only({
+      'packages/app/src/features/probe/D3.tsx':
+        'export const P = ({ go }) => (\n  <FlatList\n    renderItem={() => <TouchableOpacity onPress={go} />}\n    ListFooterComponent={<View><Text>{t(\'common.back\')}</Text></View>}\n  />\n)\n',
+    }).n4 === 0,
+  )
+  t(
+    '回归:开标签的属性里带 JSX 时,它自己的**子内容**仍按外层祖先取证(下探不得把已有行为弄坏)',
+    only({
+      'packages/app/src/features/probe/D4.tsx':
+        'export const P = ({ go }) => (\n  <TouchableOpacity onPress={go} icon={<Icon />}>\n    <Text>\n      {t(\'common.back\')}\n    </Text>\n  </TouchableOpacity>\n)\n',
+    }).n4 === 1,
+  )
+  t(
+    '盲区探针在修好后不得再点名该形态:同一条 DESCEND_BACK 被咨询过 ⇒ backBlind 必须为 0(只判红不喊失明,和只喊失明不判红,都是半修)',
+    only({ 'packages/app/src/features/probe/D1.tsx': DESCEND_BACK }).blind === 0,
+  )
+  t(
+    '预筛对下探新够到的格子仍必须是超集:该形态里只有一个 back 键名,筛串漏掉键名档 ⇒ 判据修好了也永远扫不到这个文件',
+    new RegExp(PREFILTER).test(DESCEND_BACK) === true,
   )
   t(
     '扩展名对账:同一违规在 .jsx 上必须与 .tsx 同判(TSX_RE/SRC_RE 若退回只认 .tsx,本条即红)',
