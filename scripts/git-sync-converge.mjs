@@ -201,6 +201,29 @@ function isAncestor(a, b) {
   }
 }
 
+/**
+ * 远端 sha 的对象存在性核验 —— ls-remote / FETCH_HEAD 只回一个 sha 字符串,**不保证提交对象
+ * 已下载到本地对象库**;并发会话刚 push 时这正是常态(2026-09-27 上午两轮收敛皆在此裸栈:
+ * `merge-base` 报 `Not a valid commit name`,`git()` 包装器抛、main 无 catch)。
+ * 缺失时 isAncestor 还会**静默返回 false**(把"本地纯领先"判错方向),比抛异常更阴。
+ * 所以核验放在解析出远端 sha 之后的**唯一一处**、任何需要对象的命令之前;缺失先定向 fetch
+ * 自愈,仍补不到 ⇒ 判"无法判定"交调用方干净跳过本轮。
+ * **不得**退化成读跟踪 ref 残值当替代(§5b:残值会合出过期结果,比不合更糟)。
+ * @param run 可注入 git 执行器(失败返回 null,与 git() 包装器的 allowFail 同形)——
+ *            自检/镜像测试要在临时仓构造"缺失/可补回"现场,不赌网络。
+ */
+export function ensureCommitObjectPresent(sha, branch, { run } = {}) {
+  const exec = run ?? ((args) => git(args, { allowFail: true }))
+  if (exec(['cat-file', '-e', `${sha}^{commit}`]) !== null) return { ok: true }
+  exec(['fetch', 'origin', branch])
+  if (exec(['cat-file', '-e', `${sha}^{commit}`]) !== null)
+    return { ok: true, recoveredByFetch: true }
+  return {
+    ok: false,
+    reason: `本地对象库无提交对象 ${sha.slice(0, 11)},定向 fetch origin ${branch} 后复核仍缺失`,
+  }
+}
+
 // ─── 静默回退守门(纯函数,可单测;见文件头 2026-09-23 节) ──
 
 /** 解析 `git ls-tree -r -z` 输出为 path → "mode blob" */
@@ -489,6 +512,106 @@ function selfTest() {
       r8.sha === null && r8.stale === C && /不足以判定/.test(r8.reason),
       JSON.stringify(r8).slice(0, 140),
     )
+    // 用例 9-12:远端 sha 的**对象**不在本地(ls-remote 只回字符串;2026-09-27 上午两轮收敛
+    // 都在这上面裸栈退出)。核验必须先定向 fetch 自愈、补不到判"无法判定",任何一态都不得抛。
+    const calls9 = []
+    const r9 = ensureCommitObjectPresent('d'.repeat(40), 'main', {
+      run: (args) => {
+        calls9.push(args[0])
+        return args[0] === 'cat-file' ? null : ''
+      },
+    })
+    ok(
+      '用例 9:对象始终缺失 ⇒ 判"无法判定"、点名 sha、不抛(次序必为 cat-file→fetch→cat-file)',
+      r9.ok === false &&
+        r9.reason.includes('d'.repeat(11)) &&
+        calls9.join(',') === 'cat-file,fetch,cat-file',
+      JSON.stringify(r9).slice(0, 120),
+    )
+    // 用例 10:对象在位 ⇒ 一次 cat-file 即过,不发多余 fetch;缺失而 fetch 补回 ⇒ recoveredByFetch
+    const r9b = (() => {
+      let fetches = 0
+      const r = ensureCommitObjectPresent('a'.repeat(40), 'main', {
+        run: (args) => {
+          if (args[0] === 'fetch') fetches++
+          return ''
+        },
+      })
+      return r.ok === true && !r.recoveredByFetch && fetches === 0
+    })()
+    const r9c = (() => {
+      let probes = 0
+      return ensureCommitObjectPresent('b'.repeat(40), 'main', {
+        run: (args) => (args[0] === 'cat-file' ? (probes++ === 0 ? null : '') : ''),
+      })
+    })()
+    ok(
+      '用例 10:核验通过(对象在位)不发多余 fetch;fetch 补回必须带 recoveredByFetch 标记',
+      r9b && r9c.ok === true && r9c.recoveredByFetch === true,
+    )
+    // 真临时仓现场(参照上方构造式夹具的落点,全在 gitignore 的 .ihui-agent/tmp 下):
+    // "服务器已前移而本地无对象"必须用另一台机真的推一枚来造,只测注入会退化成把假设写成断言。
+    const dir10 = resolve(tmp, 'obj-face')
+    mkdirSync(dir10, { recursive: true })
+    const bg = (cwd, args) =>
+      execFileSync(
+        'git',
+        ['-c', 'user.name=ihui-test', '-c', 'user.email=t@t.local', ...args],
+        {
+          encoding: 'utf8',
+          cwd,
+          windowsHide: true,
+          timeout: 60_000,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        },
+      ).trim()
+    const bare10 = resolve(dir10, 'origin.git')
+    mkdirSync(bare10, { recursive: true })
+    bg(dir10, ['init', '-q', '--bare', '-b', 'main', bare10])
+    // 首枚 clone 不带 -b(空裸仓上 `clone -b main` 报 "Remote branch main not found");
+    // 推送用显式 refspec 落 main,第二枚 clone 时 main 已存在才带 -b(remote-head 镜像测试同法)
+    bg(dir10, ['clone', '-q', bare10, 'work'])
+    const work10 = resolve(dir10, 'work')
+    writeFileSync(resolve(work10, 'a.txt'), 'one\n')
+    bg(work10, ['add', '-A'])
+    bg(work10, ['commit', '-qm', 'one'])
+    bg(work10, ['push', '-q', 'origin', 'HEAD:refs/heads/main'])
+    bg(dir10, ['clone', '-q', '-b', 'main', bare10, 'other'])
+    const other10 = resolve(dir10, 'other')
+    writeFileSync(resolve(other10, 'b.txt'), 'two\n')
+    bg(other10, ['add', '-A'])
+    bg(other10, ['commit', '-qm', 'two'])
+    bg(other10, ['push', '-q', 'origin', 'HEAD:refs/heads/main'])
+    const runW = (args) => {
+      try {
+        return bg(work10, args)
+      } catch {
+        return null
+      }
+    }
+    const tip10 = bg(work10, ['ls-remote', 'origin', 'refs/heads/main']).split('\t')[0]
+    ok(
+      '用例 11 阳性对照:ls-remote 的值确实在 work 仓解不出对象(否则下面整组用例无牙)',
+      /^[0-9a-f]{40}$/.test(tip10) && runW(['cat-file', '-e', `${tip10}^{commit}`]) === null,
+      tip10.slice(0, 11),
+    )
+    const r10 = ensureCommitObjectPresent(tip10, 'main', { run: runW })
+    ok(
+      '用例 11:对象缺失 ⇒ 定向 fetch 后复核补齐(ok + recoveredByFetch,自愈而非崩或谎报)',
+      r10.ok === true && r10.recoveredByFetch === true,
+      JSON.stringify(r10).slice(0, 120),
+    )
+    // 补不到的那一半同样用真 git:other 上造一枚**从未推送**的提交,fetch 结构上带不回它
+    writeFileSync(resolve(other10, 'c.txt'), 'three\n')
+    bg(other10, ['add', '-A'])
+    bg(other10, ['commit', '-qm', 'three unpushed'])
+    const ghost10 = bg(other10, ['rev-parse', 'HEAD'])
+    const r11 = ensureCommitObjectPresent(ghost10, 'main', { run: runW })
+    ok(
+      '用例 12:定向 fetch 补不到(该提交从未上过服务器)⇒ 判"无法判定"且不抛',
+      r11.ok === false && r11.reason.includes(ghost10.slice(0, 11)),
+      JSON.stringify(r11).slice(0, 140),
+    )
   } catch (e) {
     console.log(`❌ 自检异常:${e?.message ?? e}\n${e?.stack ?? ''}`)
     console.log(`   临时仓库保留在 ${tmp}(供排查,下次自检会清掉)`)
@@ -601,6 +724,19 @@ function main() {
     if (rHead.source !== 'ls-remote(当次服务器真值)')
       log(C.yellow, `  ⚠️ 远端值取自 ${rHead.source}(ls-remote 不可达),结论按此面给出`)
     const remoteHead = rHead.sha
+    // 对象存在性核验的唯一一道闸:放在解析出远端 sha 之后、一切需要对象的消费者
+    // (isAncestor / merge-base / merge-tree / commit-tree -p / ls-tree)之前,
+    // 各调用点不得再各写一份(必然漂移)。
+    const obj = ensureCommitObjectPresent(remoteHead, branch)
+    if (!obj.ok) {
+      log(
+        C.red,
+        `❌ 无法判定远端提交:${obj.reason}(远端值取自 ${rHead.source})⇒ 本轮不合并、不推送,转下一轮`,
+      )
+      continue
+    }
+    if (obj.recoveredByFetch)
+      log(C.yellow, '  远端提交对象曾缺失,已由定向 fetch 补齐(继续收敛)')
     const localHead = git(['rev-parse', 'HEAD'])
 
     if (remoteHead === localHead) {
@@ -639,6 +775,8 @@ function main() {
         log(C.yellow, `  合并前复核远端失败(${freshR.reason.slice(0, 90)})⇒ 不合并不推送,转下一轮`)
         continue
       }
+      // freshRemote 只有与 remoteHead 相等才会往下走合并(不等即 continue),
+      // 而 remoteHead 的对象存在性已在轮首核过 ⇒ 这一处不需要、也不得再核一遍。
       const freshRemote = freshR.sha
       if (freshLocal !== localHead || freshRemote !== remoteHead) {
         log(C.yellow, '  本轮内引用已前移,重读输入后转下一轮(不合并不推送)')
@@ -816,6 +954,7 @@ export const __test__ = {
   assertNoSilentRevert,
   resolveRemoteHead,
   alignFailureNote,
+  ensureCommitObjectPresent,
   readAlignState,
   writeAlignState,
   nextAlignState,
@@ -829,7 +968,10 @@ if (isDirectRun) {
   try {
     main()
   } catch (e) {
-    console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
+    // 未预期路径也要留一行可读原因:execFileSync 的 e.message 只有 `Command failed: <argv>`,
+    // 真因在 e.stderr(今早的崩溃账面只剩栈,起因 `Not a valid commit name` 要人去猜)。
+    // 不再打印裸栈 —— 收敛器是并行会话的公共通道,"崩了"必须读得出"为什么"。
+    console.error(`❌ 收敛器异常中断:${alignFailureNote(e)}`)
     process.exit(2)
   }
 }
