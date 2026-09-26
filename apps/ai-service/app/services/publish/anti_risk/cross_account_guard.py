@@ -121,9 +121,14 @@ class _AccountSession:
 
 
 def _fingerprint_hash(fp: BrowserFingerprint) -> str:
-    """计算指纹哈希(用于快速比较)。
+    """计算指纹哈希(SHA-256 摘要,用于快速比较)。
 
-    基于 8 维指纹的核心字段,同指纹同哈希。
+    基于 8 维指纹的核心字段,同指纹同哈希、不同指纹不同哈希。
+
+    摘要前的拼接串(``"|".join(parts)``)就是设备图谱的**比较基准**:
+    - parts 的**字段集合与顺序不得改动** —— 落盘的绑定以此串的摘要为键,
+      改动即让存量绑定变成不可比(迁移判据见 device_graph_guard._migrate_fingerprint_hash);
+    - 返回值恒为 64 位十六进制小写,该形态同时是"已是摘要、无需迁移"的判据。
     """
     parts = [
         fp.user_agent,
@@ -135,7 +140,7 @@ def _fingerprint_hash(fp: BrowserFingerprint) -> str:
         fp.platform,
         fp.sec_ch_ua,
     ]
-    return "|".join(parts)
+    return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
 
 
 def _calculate_fingerprint_similarity(fp_a: BrowserFingerprint, fp_b: BrowserFingerprint) -> float:
@@ -400,8 +405,12 @@ class CrossAccountGuard:
         fp_hash = _fingerprint_hash(fingerprint)
         proxy_ip = proxy.server if proxy else "direct"
         ua_hash = hashlib.sha256(fingerprint.user_agent.encode("utf-8")).hexdigest()[:16]
-        # Canvas 哈希由 stealth_advanced 运行时注入,此处用指纹种子作占位
-        canvas_hash = f"seed:{fingerprint.fingerprint_seed}"
+        # canvas 维度**未采集**,留空串而非 seed:`fingerprint_seed` 是按 account_id 生成的
+        # Canvas/AudioContext 噪声种子(用于扰动输出,不是被测出的 canvas 值),同一账号恒定、
+        # 跨账号必不同;写进这张表就等于给 detect_linkage 的 canvas 比较装一个永不相等的反向信号
+        # —— 数据看着有值,判据结构上永不命中。空串在 `if target.canvas_hash and ...` 处显式跳过。
+        # 接真 canvas 摘要会新启用一个关联维度(命中即自动冷却 1h),属改变生产行为,需 owner 拍板。
+        canvas_hash = ""
 
         guard = get_device_graph_guard()
         await guard.record_binding(
