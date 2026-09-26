@@ -73,6 +73,8 @@ export * from './rules'
 export * from './hooks'
 // Plan/Spec 模式( Plan/Spec)
 export * from './spec'
+// ChatMode × 工具可用性策略唯一真源(V3 #53):收窄矩阵 + 只读白名单快照
+export * from './chat-mode-policy'
 // Context Engineering(对标 Qoder)
 export * from './context-mention'
 

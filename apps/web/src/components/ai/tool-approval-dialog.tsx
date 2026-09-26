@@ -20,7 +20,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { AlertTriangle, Check, Loader2, ShieldAlert } from 'lucide-react'
-import { sendToolApprovalResponse } from '@ihui/api-client'
+import { postToolApprovalResponse, sendToolApprovalResponse } from '@ihui/api-client'
 import type { ToolApprovalRequest, ToolApprovalScope } from '@ihui/types'
 import { AGENT_TASK_EVENTS, parseToolApprovalEvent } from '@ihui/shared'
 import { Modal } from '@/components/feedback'
@@ -28,8 +28,23 @@ import { Modal } from '@/components/feedback'
 /** 全局审批请求事件名(executeAgentStream 等消费方收到 SSE tool-approval 后可派发)。 */
 export const TOOL_APPROVAL_EVENT = 'ihui:tool-approval'
 
-/** 派发审批请求到全局弹窗(供 executeAgentStream / executeAgentRuntimeStream 消费方桥接)。 */
-export function dispatchToolApprovalRequest(req: ToolApprovalRequest): void {
+/**
+ * V3 #58(2026-09-26 立):主对话流审批请求在通用 ToolApprovalRequest 上附加的路由标记。
+ * 两条审批链路的决策回传端点不同,弹窗必须按 channel 分流:
+ * - channel='chat-stream' → 主对话流(llm.py _approval_sessions),决策经
+ *   postToolApprovalResponse 直连 ai-service `/llm/complete/stream/{id}/approval-response`;
+ * - 无 channel(agent 任务流)→ agent_loop_v2 审批注册表,走既有
+ *   sendToolApprovalResponse(网关 /agent/approval-response 代理)。
+ * 两套注册表互不相通,回错端点会让等待方 120s 超时 —— 这是路由标记存在的理由。
+ */
+export interface ChatStreamToolApprovalRequest extends ToolApprovalRequest {
+  channel: 'chat-stream'
+}
+
+/** 派发审批请求到全局弹窗(供 executeAgentStream / send-message 等消费方桥接)。 */
+export function dispatchToolApprovalRequest(
+  req: ToolApprovalRequest | ChatStreamToolApprovalRequest,
+): void {
   if (typeof window === 'undefined') return
   window.dispatchEvent(new CustomEvent(TOOL_APPROVAL_EVENT, { detail: req }))
 }
@@ -70,14 +85,31 @@ export function ToolApprovalDialog() {
       if (!current || stateRef.current.sending) return
       setState((prev) => ({ ...prev, sending: true }))
       try {
-        await sendToolApprovalResponse({
-          approvalId: current.approvalId,
-          decision,
-          // 作用域仅在批准时有意义(拒绝不落任何授权);once 显式传,防旧默认(session)意外放大授权
-          ...(decision === 'approve' ? { scope } : {}),
-          // 空原因不携带(与后端"空值不写 key"语义一致)
-          ...(reason.trim() !== '' ? { reason: reason.trim() } : {}),
-        })
+        // V3 #58(2026-09-26 立):按 channel 分流决策回传端点(见类型注释)。
+        if ((current as ChatStreamToolApprovalRequest).channel === 'chat-stream') {
+          // 主对话流:直连 ai-service 流级审批端点(与 postToolResult 同族通道)。
+          // sessionId 缺失时回传必然失败 —— 走 catch 关闭弹窗,后端按超时兜底,
+          // 与"响应失败不阻塞后续"的既有策略一致。
+          await postToolApprovalResponse({
+            sessionId: current.sessionId ?? '',
+            approvalId: current.approvalId,
+            decision,
+            // 作用域仅在批准时有意义(拒绝不落任何授权);once 显式传,防后端缺省意外放大
+            ...(decision === 'approve' ? { scope } : {}),
+            // 空原因不携带(与后端"空值不写 key"语义一致)
+            ...(reason.trim() !== '' ? { reason: reason.trim() } : {}),
+          })
+        } else {
+          // agent 任务流:既有通道(网关 /agent/approval-response → ai-service 注册表)
+          await sendToolApprovalResponse({
+            approvalId: current.approvalId,
+            decision,
+            // 作用域仅在批准时有意义(拒绝不落任何授权);once 显式传,防旧默认(session)意外放大授权
+            ...(decision === 'approve' ? { scope } : {}),
+            // 空原因不携带(与后端"空值不写 key"语义一致)
+            ...(reason.trim() !== '' ? { reason: reason.trim() } : {}),
+          })
+        }
       } catch (e) {
         // 响应失败不阻塞后续:关闭当前审批,让后端按超时处理(安全兜底)
         console.error('[tool-approval] 审批响应失败', e)
