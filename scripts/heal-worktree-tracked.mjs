@@ -754,6 +754,22 @@ function selfTestRun() {
     check('⑳ 锁竞争降级为延后而非抛出', r20.done.length === 0 && r20.deferred.length === 2)
     const r20b = restoreToHead(boom, [])
     check('⑳b 空清单不产生假延后', r20b.done.length === 0 && r20b.deferred.length === 0)
+    /**
+     * ㉑ 源码级反向锁:打印"✅ …存续正常"的那个分支必须把 deferred 一起判掉。
+     * 2026-09-26 实测缺陷就是这条:10 个跟踪文件因 native index.lock 长期被占而全部延后,
+     * 而普通档照样回一句"存续正常"。这类失效无法用行为断言长期守住(要造真锁竞争),
+     * 但"判据的分支条件里有没有 deferred"是形状,形状锁不会被重构悄悄改掉。
+     */
+    const selfSrc = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+    const allClear = selfSrc.match(/if \(([^)]*?)\) \{\s*\n\s*console\.log\('✅ 工作区已跟踪文件存续正常'/)
+    check(
+      '㉑ "存续正常"判据必须含 deferred 守卫(反向锁:延后≠正常)',
+      !!allClear && /deferred/.test(allClear[1]),
+    )
+    check(
+      '㉑b 延后必须有名册与出口(不得只报数不指路)',
+      selfSrc.includes('本轮未恢复') && selfSrc.includes('cat-file blob HEAD:'),
+    )
     // ⑧ 暂存后工作区又有新改动(判据③不成立)⇒ 绝不刷新、绝不对齐(protect 现场)
     writeFileSync(join(tmp, 'keep.ts'), 'v1\n')
     g(['add', 'keep.ts']) // index = v1(祖先版本)
@@ -914,8 +930,24 @@ async function main() {
     console.log(JSON.stringify(res))
     return checkOnly && (res.paths.length || res.orphanIndex) ? 1 : 0
   }
-  if (!res.restored && !res.paths.length && !res.held && !res.orphanIndex) {
+  if (!res.restored && !res.paths.length && !res.held && !res.orphanIndex && !res.deferred?.length) {
     console.log('✅ 工作区已跟踪文件存续正常')
+    return 0
+  }
+  /**
+   * 延后 ≠ 正常。2026-09-26 实测:10 个跟踪文件(含 8 张 tabbar 位图 + 两份测试)被外部删除,
+   * `restoreToHead()` 因 native `index.lock` 被并发会话长期持有而把它们记成 deferred,
+   * 而普通档那句"✅ 工作区已跟踪文件存续正常"照样打印 —— 判据失效的表现又是安静,与 §22c
+   * 记过的"门报 0 而其实没跑"同型。故此处必须点名"未恢复"并给出出口,不得回平安。
+   * 退出码仍取 0:持锁不是本脚本的故障,而非零退出会让 git-guardian 每 2 分钟对同一件事重复喊人。
+   */
+  if (!res.restored && !res.paths.length && res.deferred?.length) {
+    console.log(
+      `⚠️ ${res.deferred.length} 个被外部删除的跟踪文件**本轮未恢复**(git 写锁竞争,已延后):` +
+        '下一次不带 pathspec 的普通提交就会把它们从版本树里抹掉。',
+    )
+    for (const p of res.deferred.slice(0, 10)) console.log('   - 待恢复 ' + p)
+    console.log('   出口:等锁释放后重跑本脚本,或直接 `git cat-file blob HEAD:<path> > <path>`(回写工作树不需要索引)')
     return 0
   }
   console.log(
