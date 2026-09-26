@@ -276,7 +276,10 @@ export function parseImports(text) {
     const fm = /from\s*['"]([^'"]+)['"]/.exec(stmt)
     if (!fm) continue
     const spec = fm[1]
-    if (!spec.startsWith('./') && !spec.startsWith('../')) continue // 只判仓内相对路径
+    // 相对路径恒发;别名(`@/…`)也发 —— 由 auditFile 决定它是否落在某份 tsconfig paths 的射程里。
+    // 旧写法在这里就把非相对 spec 全部丢掉 ⇒ 别名指向不存在的模块**结构上不可能被发现**
+    // (2026-09-25 生产构建被这一格卡住:HEAD 里 import 了一个从未写过的 store,154 道门全绿)。
+    if (!spec.startsWith('./') && !spec.startsWith('../') && !spec.includes('/')) continue
     const braces = /\{([\s\S]*)\}/.exec(stmt)
     const named = braces
       ? braces[1]
@@ -337,16 +340,141 @@ export function parseExports(text) {
   return { names, opaque }
 }
 
+/** tsconfig 的 `compilerOptions.paths` ⇒ 前缀映射表。
+ *  只认**尾随 `*` 的键与值**(`"@/*": ["./src/*"]`),精确键(`"@plugins-data"`)不参与 ——
+ *  那一型要的是"别名→具体文件"的完整 resolver,不在本判据射程。
+ *  解析失败 ⇒ 返回 null,调用方计入"判不出",绝不猜成"没有别名"。 */
+export function aliasEntries(tsRel, tsText) {
+  if (typeof tsText !== 'string') return null
+  let parsed
+  try {
+    parsed = JSON.parse(stripJsonc(tsText))
+  } catch {
+    return null
+  }
+  return aliasFromParsed(tsRel, parsed)
+}
+
+/**
+ * 剥 jsonc 注释与尾随逗号 —— **必须是字符级扫描,不能是正则**。
+ * 第一版用"斜杠星 … 星斜杠"的正则剥块注释,而 tsconfig 里必然有 include 列表,里面是
+ * 双星号 + 斜杠 + 星号 + `.ts` 这种 glob:那串里就同时含着这两个两字符序列 ——
+ * 于是**整段 JSON 被当作注释吃掉**,解析失败 ⇒ 别名表为空 ⇒ D3 变成一条
+ * "永远不报"的判据,而输出照写"悬空 0 处"。这一型缺陷的共同点是:失效与合规长得一模一样。
+ * (本注释刻意不把那两个序列原样写出来 —— 它会把这个块注释提前关掉,`node --check` 当场炸,
+ *  而那正是本函数要修的那个 bug 的自画像。第一次提交就炸在这里,别指望下一次。)
+ */
+function stripJsonc(text) {
+  let out = ''
+  let i = 0
+  let inStr = false
+  let quote = ''
+  while (i < text.length) {
+    const c = text[i]
+    if (inStr) {
+      out += c
+      if (c === '\\' && i + 1 < text.length) {
+        out += text[i + 1]
+        i += 2
+        continue
+      }
+      if (c === quote) inStr = false
+      i++
+      continue
+    }
+    if (c === '"' || c === "'") {
+      inStr = true
+      quote = c
+      out += c
+      i++
+      continue
+    }
+    if (c === '/' && text[i + 1] === '/') {
+      while (i < text.length && text[i] !== '\n') i++
+      continue
+    }
+    if (c === '/' && text[i + 1] === '*') {
+      i += 2
+      while (i < text.length && !(text[i] === '*' && text[i + 1] === '/')) i++
+      i += 2
+      continue
+    }
+    out += c
+    i++
+  }
+  return out.replace(/,(\s*[}\]])/g, '$1')
+}
+
+/** 从已解析的 tsconfig 对象里取出前缀映射(与 stripJsonc 分成两个函数,便于单测各自成立)。 */
+function aliasFromParsed(tsRel, parsed) {
+  const paths = parsed && parsed.compilerOptions && parsed.compilerOptions.paths
+  if (!paths || typeof paths !== 'object') return []
+  const base = tsRel.includes('/') ? tsRel.slice(0, tsRel.lastIndexOf('/')) : ''
+  const out = []
+  for (const [key, vals] of Object.entries(paths)) {
+    if (!key.endsWith('*') || !Array.isArray(vals) || typeof vals[0] !== 'string') continue
+    if (!vals[0].endsWith('*')) continue
+    const dir = join(base, vals[0].slice(0, -1)).replace(/\\/g, '/').replace(/\/+$/, '')
+    if (!dir || dir === '.' || dir.startsWith('..')) continue // 跑出仓库外的映射:判不了,不猜
+    out.push({ prefix: key.slice(0, -1), dir })
+  }
+  return out
+}
+
+/** 一个文件应当用哪一份别名表:取**目录最深**的那份 tsconfig(端内 tsconfig 覆盖根 tsconfig)。 */
+function aliasesFor(relPath, aliasIndex) {
+  let best = null
+  let bestDepth = -1
+  for (const [dir, entries] of aliasIndex) {
+    if (relPath.startsWith(`${dir}/`) && dir.split('/').length > bestDepth) {
+      best = entries
+      bestDepth = dir.split('/').length
+    }
+  }
+  return best
+}
+
+/** 别名 spec ⇒ 仓库内相对路径(未判存在性)。不匹配任何前缀 ⇒ null(= 本判据不参与)。 */
+export function resolveAliasSpec(relPath, rawSpec, aliasIndex) {
+  const spec = rawSpec.split('?')[0]
+  if (!spec || spec.startsWith('./') || spec.startsWith('../') || spec.startsWith('/')) return null
+  const entries = aliasesFor(relPath, aliasIndex)
+  if (!entries || !entries.length) return null
+  const hit = entries
+    .filter((e) => spec.startsWith(e.prefix) && e.prefix.length > 0)
+    .sort((a, b) => b.prefix.length - a.prefix.length)[0]
+  if (!hit) return null
+  const rest = spec.slice(hit.prefix.length)
+  if (!rest || rest.startsWith('/')) return null // `@/` 裸写法与尾斜杠形态:交给人工,不猜文件名
+  return `${hit.dir}/${rest}`
+}
+
 /** 一个文件的违规清单。
  *  readFile(path) → 文本 | null;**只对源码建批量读取通道**,资源/JSON 走 hasPath(全量跟踪
- *  路径集合)判存在性 —— 否则会把 `./logo.svg` 这类合法资源导入误判成"D2 解析不到"。 */
-export function auditFile(relPath, readFile, hasPath) {
+ *  路径集合)判存在性 —— 否则会把 `./logo.svg` 这类合法资源导入误判成"D2 解析不到"。
+ *  `aliasIndex`(Map<pkgDir, entries[]>)为 null/空 ⇒ 别名导入一律不参与(与旧行为逐字相同)。 */
+export function auditFile(relPath, readFile, hasPath, aliasIndex) {
   const exists = hasPath || ((p) => readFile(p) !== null && readFile(p) !== undefined)
   const text = readFile(relPath)
   if (text === null || text === undefined) return []
   const bad = []
   for (const imp of parseImports(text)) {
-    const cands = resolveSpec(relPath, imp.spec)
+    const isRel = imp.spec.startsWith('./') || imp.spec.startsWith('../')
+    const aliasRel =
+      !isRel && aliasIndex && aliasIndex.size ? resolveAliasSpec(relPath, imp.spec, aliasIndex) : null
+    /**
+     * 只有"仓内相对路径"与"某份 tsconfig paths 真能接住的别名"进判据。
+     * 裸包名 / `node:` 内建 / 未映射的 `@scoped/…` 一律放过 —— 第一版我把所有含 `/` 的
+     * spec 都放进来,结果 `node:assert/strict` 被当成相对路径解析,一次跑出数百处假红:
+     * **判据扩大射程时,必须同时给出"这一格不判"的出口**,否则新射程就是新的恒红源。
+     */
+    if (!isRel && !aliasRel) continue
+    const cands = aliasRel
+      ? resolveCands(aliasRel)
+      : (() => {
+          const r = resolveSpec(relPath, imp.spec)
+          return r === null ? [] : r
+        })()
     let target = null
     for (const c of cands) {
       if (exists(c)) {
@@ -355,11 +483,14 @@ export function auditFile(relPath, readFile, hasPath) {
       }
     }
     if (!target) {
+      const viaAlias = !!aliasRel
       bad.push({
         line: imp.line,
-        rule: 'D2',
+        rule: viaAlias ? 'D3' : 'D2',
         raw: imp.spec,
-        hint: '相对导入解析不到任何文件(路径已改/文件已删/大小写不符)',
+        hint: viaAlias
+          ? `别名导入解析不到任何文件(tsconfig paths 指向 ${aliasRel}.* 不存在)—— 模块被引用但从未写下`
+          : '相对导入解析不到任何文件(路径已改/文件已删/大小写不符)',
       })
       continue
     }
@@ -396,11 +527,49 @@ export function auditFile(relPath, readFile, hasPath) {
   return bad
 }
 
+/**
+ * D3 的**待偿台账**(与守门 13c 的 LOST_ANCHOR_LEDGER 同一条设计:登记必须会过期)。
+ * 全量口径对 D1/D2 仍是零容忍(2026-09-24 已清零);D3 是新射程,立项当天 HEAD 上就有
+ * 一处真实违规 —— 那是 G-195 登记的"消费者已入库、被调用方从未写下",它让生产构建死。
+ * 把它写成红等于把一台与别人的半成品相关的门钉成恒红(§12e 那一型:唯一结局是各会话
+ * 跳门、约 154 道守门同时作废);所以这里**只登记不定免**:它仍被打印、仍被计数,
+ * 只是不进退出码。**G-195 修好后必须删掉这一行**,否则它替人做出"还欠着"的判断。
+ */
+export const KNOWN_ALIAS_LEDGER = [
+  'apps/web/src/components/sidebar-chat-history.tsx|@/stores/conversation-org',
+]
+
+/** tsconfig / jsconfig 的形状:本门只读它的 `compilerOptions.paths`,不解释 extends。 */
+const TSCONFIG_RE = /(^|\/)(tsconfig[\w.-]*\.json|jsconfig\.json)$/
+
+/**
+ * 建别名表:`tsconfig.json` 们在**同一个取材面**上读(清单与内容不许分两面,见 77/101 同型教训)。
+ * 解析不出来的文件 ⇒ 跳过并计入 `unparsed`,由调用方如实报数(绝不把"读不懂"当成"没有别名")。
+ */
+export function buildAliasIndex(readFile, paths) {
+  const index = new Map()
+  let unparsed = 0
+  for (const p of paths) {
+    if (!TSCONFIG_RE.test(p)) continue
+    const text = readFile(p)
+    if (text === null || text === undefined) continue
+    const entries = aliasEntries(p, text)
+    if (entries === null) {
+      unparsed++
+      continue
+    }
+    const dir = p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : ''
+    if (!entries.length) continue
+    index.set(dir, entries)
+  }
+  return { index, unparsed, seen: paths.filter((p) => TSCONFIG_RE.test(p)).length }
+}
+
 /** 按文件聚合 */
-export function auditTree(readFile, files, hasPath) {
+export function auditTree(readFile, files, hasPath, aliasIndex) {
   const byFile = new Map()
   for (const f of files) {
-    const v = auditFile(f, readFile, hasPath)
+    const v = auditFile(f, readFile, hasPath, aliasIndex)
     if (v.length) byFile.set(f, v)
   }
   return byFile
@@ -454,7 +623,17 @@ async function main() {
   const trackedAll = new Set(treePaths('HEAD'))
   const hasPath = (p) => trackedAll.has(p) || existsSync(join(ROOT, p))
   const scanSet = FILES_MODE ? FILES_MODE.filter((p) => readHead(p) !== null) : headFiles
-  const byHead = auditTree(readHead, scanSet, hasPath)
+  /**
+   * 别名表必须**单独开一次取材**:上面的 `readHead` 是按 `headFiles`(只有源文件)建的批量读,
+   * 拿它读 `tsconfig.json` 恒返回 null ⇒ 别名表为空 ⇒ D3 变成一条"永远不报"的判据,
+   * 而输出照样写"悬空 0 处"。这就是本仓反复记过的那一型:**判据失效的样子和"没有问题"完全一样**。
+   * (第一次自跑就是在真 HEAD 上报 0,而 D20 那处 `@/stores/conversation-org` 明明还在。)
+   */
+  const TS_PATHS = treePaths('HEAD').filter((p) => TSCONFIG_RE.test(p) && !SKIP_DIR.test(p))
+  const readTsHead = mkRead('HEAD', TS_PATHS)
+  const aliasHead = buildAliasIndex(readTsHead, TS_PATHS)
+  const ALIAS_UNPARSED = aliasHead.unparsed
+  const byHead = auditTree(readHead, scanSet, hasPath, aliasHead.index)
   const headCountOf = (p) => (byHead.get(p) || []).length
 
   let byPending
@@ -469,7 +648,13 @@ async function main() {
       .filter((p) => SRC_RE.test(p) && !SKIP_DIR.test(p) && !FIXTURE_ROOT.test(p))
     stagedCount = staged.length
     const readIdx = mkRead('', staged)
-    byPending = auditTree((p) => (staged.includes(p) ? readIdx(p) : readHead(p)), staged, hasPath)
+    // 暂存面里若有人改了 tsconfig paths,别名表必须跟着这一面走 —— 别名一改,一批合法导入
+    // 立刻变悬空,而"改了映射的那枚提交"恰恰是本门最该审的那一枚。
+    const tsIdx = treePaths('').filter((p) => TSCONFIG_RE.test(p) && !SKIP_DIR.test(p))
+    const readTsIdx = mkRead('', tsIdx)
+    const anyTs = (p) => readTsIdx(p) ?? readTsHead(p)
+    const aliasStaged = buildAliasIndex(anyTs, tsIdx.length ? tsIdx : TS_PATHS)
+    byPending = auditTree((p) => (staged.includes(p) ? readIdx(p) : readHead(p)), staged, hasPath, aliasStaged.index)
   } else if (FILES_MODE) {
     contentMode = `工作区内容(--files ${FILES_MODE.length} 个,仅供自验,不作结论)`
     const wread = (p) => {
@@ -479,7 +664,7 @@ async function main() {
         return null
       }
     }
-    byPending = auditTree(wread, FILES_MODE, (p) => wread(p) !== null)
+    byPending = auditTree(wread, FILES_MODE, (p) => wread(p) !== null, aliasHead.index)
   } else {
     byPending = byHead
   }
@@ -491,13 +676,30 @@ async function main() {
   const { fresh, tolerated } = splitFresh(byPending, tolOf)
   const total = [...byPending.values()].reduce((s, v) => s + v.length, 0)
   console.log(`[dangling-imports] 内容口径:${contentMode}`)
+  // 别名表规模必须打印:没有它,"悬空 0 处"和"D3 根本没上岗"长得一模一样(本门第一次自跑就是这样)。
+  const ai = isStaged ? byPending && aliasHead : aliasHead
+  console.log(
+    `[dangling-imports] 别名表:${TS_PATHS.length} 份 tsconfig / 生效映射 ${ai ? ai.index.size : 0} 个包目录` +
+      (ALIAS_UNPARSED ? ` / 解析失败 ${ALIAS_UNPARSED} 份(那一格的别名判据未生效)` : ''),
+  )
   console.log(
     `[dangling-imports] 扫描 ${isStaged ? `${stagedCount} 个暂存源文件(锚点面 ${scanSet.length})` : `${scanSet.length} 文件`} | 悬空 ${total} 处(HEAD 存量容忍 ${tolerated} / 新增 ${fresh.length} 文件)`,
   )
   //  **全量审计零容忍**(2026-09-24 存量清零后钉死):HEAD 普查必须为 0。
   //    为什么不放在 `--staged`:那会因别人未入库的回归拦住无关提交(= 逼人绕过,连带废掉全部守门);
   //    全量模式只跑在 check:all / CI,正适合当"合并把已修好的悬空导入带回来"的哨兵。
-  if (!isStaged && !FILES_MODE && total > 0) {
+  //    唯一例外是 `KNOWN_ALIAS_LEDGER`(D3 是新射程,立项当天 HEAD 上就有一处真违规,已登记 G-195):
+  //    它照样被打印、照样被计数,只是不进退出码 —— 与改动无关的恒红门只会逼人绕过钩子。
+  const d3All = []
+  for (const [f, list] of byPending)
+    for (const v of list) if (v.rule === 'D3') d3All.push({ ...v, file: f, key: `${f}|${v.raw}` })
+  const d3Ledgered = d3All.filter((v) => KNOWN_ALIAS_LEDGER.includes(v.key))
+  if (d3Ledgered.length)
+    console.log(
+      `ℹ️ D3 有 ${d3Ledgered.length} 处已在待偿台账(不计入退出码,修好后必须删台账行):` +
+        d3Ledgered.map((v) => `\n   ${v.file}:${v.line} ${v.raw}`).join(''),
+    )
+  if (!isStaged && !FILES_MODE && total - d3Ledgered.length > 0) {
     console.log(`❌ 全量口径为零容忍:HEAD 上仍有 ${total} 处悬空具名导入(存量已于 2026-09-24 清零)`)
     for (const [f, list] of byPending)
       for (const v of list) console.log(`   ${f}:${v.line} [${v.rule}] ${v.raw}  → ${v.hint}`)
@@ -698,15 +900,89 @@ function selfTest() {
       },
       red: 0,
     },
+    // ── D3:别名指向不存在的模块(G-195 那一型的结构性补口)────────────────
+    {
+      name: 'D3 别名导入解析不到文件必拦(@/stores/x 从未写下 ⇒ 生产构建死,而旧射程看不见)',
+      files: {
+        'apps/web/tsconfig.json': '{"compilerOptions":{"paths":{"@/*":["./src/*"]}}}',
+        'apps/web/src/i.ts': "import { A } from '@/stores/conversation-org'\nexport const B = A",
+      },
+      red: 1,
+    },
+    {
+      name: 'D3 反向对照:别名指向真实存在的文件必须放行(不得把 @/ 一律当悬空)',
+      files: {
+        'apps/web/tsconfig.json': '{"compilerOptions":{"paths":{"@/*":["./src/*"]}}}',
+        'apps/web/src/i.ts': "import { A } from '@/stores/ok'\nexport const B = A",
+        'apps/web/src/stores/ok.ts': 'export const A = 1',
+      },
+      red: 0,
+    },
+    {
+      name: 'D3 边界:没有映射的裸包名 / node: 内建 / @scope 包一律不判(第一版在这里造出数百处假红)',
+      files: {
+        'apps/web/tsconfig.json': '{"compilerOptions":{"paths":{"@/*":["./src/*"]}}}',
+        'apps/web/src/i.ts':
+          "import assert from 'node:assert/strict'\nimport fs from 'node:fs'\nimport { x } from '@ihui/shared'\nimport P from '@pnpm/error'\nexport const B = [assert, fs, x, P]",
+      },
+      red: 0,
+    },
+    {
+      name: 'D3 精确键(无尾随 *)不参与存在性判定 —— 认它就要完整 resolver,不猜',
+      files: {
+        'apps/web/tsconfig.json':
+          '{"compilerOptions":{"paths":{"@plugins-data":["./app/plugins/data"]}}}',
+        'apps/web/src/i.ts': "import { A } from '@plugins-data'\nexport const B = A",
+      },
+      red: 0,
+    },
+    {
+      name: 'D3 带注释的 tsconfig 仍要能解析(jsonc,不是 JSON)',
+      files: {
+        'apps/web/tsconfig.json':
+          '{\n  // paths 决定 @/ 落在哪儿\n  "compilerOptions": { "paths": { "@/*": ["./src/*"] } }\n}',
+        'apps/web/src/i.ts': "import { A } from '@/nope'\nexport const B = A",
+      },
+      red: 1,
+    },
+    {
+      // 这一例是**本门自己踩出来的**那条:include 里的 glob 同时含着块注释的两个分隔序列,
+      // 用正则剥注释会把整段 JSON 吞掉 ⇒ 别名表空 ⇒ D3 一路"0 处"。真 tsconfig 逐字形态。
+      name: 'D3 真 tsconfig 形态(include 里是 glob 列表)必须仍解析得出映射(正则剥注释的翻车现场)',
+      files: {
+        'apps/web/tsconfig.json':
+          '{\n  "extends": "../../tsconfig.base.json",\n  "compilerOptions": { "paths": { "@/*": ["./src/*"] } },\n  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],\n  "exclude": ["node_modules", ".next*", "e2e"]\n}',
+        'apps/web/src/i.ts': "import { A } from '@/stores/never-written'\nexport const B = A",
+      },
+      red: 1,
+    },
   ]
   let fail = 0
   for (const c of cases) {
     const read = (p) => (p in c.files ? c.files[p] : null)
     const has = (p) => p in c.files
-    const n = Object.keys(c.files).reduce((s, p) => s + auditFile(p, read, has).length, 0)
+    // 别名表由**同一份生产实现**建,不在自检里抄一份(§22c:抄出去的判据只会与实现漂移)
+    const { index } = buildAliasIndex(read, Object.keys(c.files))
+    const n = Object.keys(c.files).reduce((s, p) => s + auditFile(p, read, has, index).length, 0)
     const ok = n === c.red
     if (!ok) fail++
     console.log(`${ok ? '✅' : '❌'} ${c.name} (${n} 处,期望 ${c.red})`)
+  }
+  {
+    // 纯函数侧:映射形态与"读不懂 ≠ 没有别名"的三态
+    const okShape =
+      JSON.stringify(aliasEntries('apps/web/tsconfig.json', '{"compilerOptions":{"paths":{"@/*":["./src/*"]}}}')) ===
+      JSON.stringify([{ prefix: '@/', dir: 'apps/web/src' }])
+    const okNoPaths = JSON.stringify(aliasEntries('a/tsconfig.json', '{"compilerOptions":{}}')) === '[]'
+    const badIsNotSilent = aliasEntries('a/tsconfig.json', '{"compilerOptions": {"paths": ') === null
+    const unparsedCounted = buildAliasIndex((p) => (p === 'a/tsconfig.json' ? '{ oops' : null), [
+      'a/tsconfig.json',
+    ]).unparsed === 1
+    const ok = okShape && okNoPaths && badIsNotSilent && unparsedCounted
+    if (!ok) fail++
+    console.log(
+      `${ok ? '✅' : '❌'} aliasEntries 三态:有映射建表 / 无 paths 返回 [] / 解析失败返回 null 且被计入 unparsed`,
+    )
   }
   // 真仓对照:HEAD 上这一类的真实存量必须是**已知且有限**的,判据不得凭空放大
   const real = trackedSourceFiles('HEAD')
@@ -722,12 +998,38 @@ function selfTest() {
     cache.set(p, v)
     return v
   }
-  const found = auditTree(read, real, (p) => trackedAll.has(p) || existsSync(join(ROOT, p)))
+  // 别名表必须一起喂进来:不带它,"真仓 HEAD 实测 0 处"这句话只证明了 D1/D2 干净,
+  //  而 D3 根本没上岗 —— 报告读起来像"全都查过了",这正是本门最反对的那种绿。
+  const tsPaths = treePaths('HEAD').filter((p) => TSCONFIG_RE.test(p) && !SKIP_DIR.test(p))
+  const tsBlobs = catBatch(
+    ROOT,
+    tsPaths.map((p) => `HEAD:${p}`),
+    { timeout: GIT_TIMEOUT },
+  )
+  const aliasReal = buildAliasIndex((p) => tsBlobs.get(`HEAD:${p}`) ?? null, tsPaths)
+  const found = auditTree(
+    read,
+    real,
+    (p) => trackedAll.has(p) || existsSync(join(ROOT, p)),
+    aliasReal.index,
+  )
   const total = [...found.values()].reduce((s, v) => s + v.length, 0)
-  console.log(`\n📎 真仓 HEAD 实测:${real.length} 个跟踪源文件,悬空 ${total} 处`)
+  const d3n = [...found.values()].flat().filter((v) => v.rule === 'D3').length
+  console.log(
+    `\n📎 真仓 HEAD 实测:${real.length} 个跟踪源文件,悬空 ${total} 处(其中 D3 ${d3n} 处;别名表 ${aliasReal.index.size} 个包目录、${aliasReal.unparsed} 份解析失败)`,
+  )
   for (const [f, list] of found)
     for (const v of list) console.log(`   ${f}:${v.line} [${v.rule}] ${v.raw}`)
-  if (total > 0) {
+  // 与主判据**共用同一份表**:台账内的 D3(G-195)只报数不计红。两处各写一遍必然漂移,
+  // 而漂移的表现是"自检与审计给出两个结论"—— 本仓为这句话付过很多次学费。
+  const d3RealAll = [...found.entries()].flatMap(([f, list]) =>
+    list.filter((v) => v.rule === 'D3').map((v) => `${f}|${v.raw}`),
+  )
+  const d3RealLedgered = d3RealAll.filter((k) => KNOWN_ALIAS_LEDGER.includes(k)).length
+  const d3RealUnledgered = d3RealAll.filter((k) => !KNOWN_ALIAS_LEDGER.includes(k))
+  if (d3RealUnledgered.length)
+    console.log(`❗ 未登记的 D3(这些会让 --staged 判红):${d3RealUnledgered.join(', ')}`)
+  if (total - d3RealLedgered > 0) {
     console.log(
       `❌ 存量已清零后本门零容忍 —— HEAD 上仍有 ${total} 处,说明有回归(多半是合并把已修好的导出又吞了)`,
     )
