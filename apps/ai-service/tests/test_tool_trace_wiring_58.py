@@ -69,8 +69,17 @@ def _tool_calling_llm_factory(seen: list[dict[str, Any]]):
     return two_round_llm
 
 
+_LOOP: asyncio.AbstractEventLoop | None = None
+
+
 def _run(coro: Any) -> Any:
-    return asyncio.get_event_loop().run_until_complete(coro)
+    # 与 test_mainwire_wiring_58.py 同一条修复:全量跑时别的用例 teardown 会把当前循环
+    # 置 None,已废弃的 asyncio.get_event_loop() 随即抛 "no current event loop"。
+    # 复用模块级同一个循环(同套件里有用例在同一函数内多次驱动同一 engine 状态)。
+    global _LOOP
+    if _LOOP is None or _LOOP.is_closed():
+        _LOOP = asyncio.new_event_loop()
+    return _LOOP.run_until_complete(coro)
 
 
 # ---------------------------------------------------------------------------
