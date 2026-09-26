@@ -934,6 +934,19 @@ test('本门只读:源码里不得存在写向 产物/端源码/门自身 的调
   assert.equal(judge(`writeFileSync(join(ROOT, 'apps/miniapp-taro/dist/app.wxss'), '')`), 1, '阳性对照:写仓库路径必须判红,量到 0 ⇒ 本条尺子没有牙')
 })
 
+/* ── 报告面形状锁:C6 与 C7 必须是**两次**独立打印(2026-09-26 实测过一次的缺陷形态) ── */
+test('report() 里 C6/C7 的 console.log 必须各自闭合 —— 少一个闭括号不会报错,只会把 C7 变成 C6 的参数', () => {
+  const src = readFileSync(join(ROOT, 'scripts', 'check-miniapp-css-landing.mjs'), 'utf8')
+  // 形状锁一律先归一化空白:prettier 一折行,按原样缩进写的锁就会造出与正确性无关的假红
+  const flat = src.replace(/\s+/g, ' ')
+  const SHAPE = /C6 CSS 腿:\$\{r\.cssLeg\.verdict\}[\s\S]*?已被排除`\), \) console\.log\( `C7 spacing/
+  const brokenText = flat.replace('已被排除`), ) console.log( `C7 spacing', '已被排除`), console.log( `C7 spacing')
+  assert.ok(SHAPE.test(flat), 'C6 的 console.log 必须在下一次 console.log 之前闭合(实测旧形态少一个 `)`,于是打印顺序倒过来、尾部拖 `undefined`)')
+  // 反向对照:把源码改成缺陷形态,上面那条判据必须翻红 —— 否则它是一条恒真断言
+  assert.notEqual(brokenText, flat, '变异夹具没生效 ⇒ 锚点文本漂了,本条锁正在失去判别力')
+  assert.equal(SHAPE.test(brokenText), false, '变异后仍判通过 ⇒ 本条尺子没有牙')
+})
+
 /* ── 夹具:一份最小可枚举的假端目录(不含 tailwind,故参考层必然判不出) ── */
 function mkFakeApp(base) {
   const app = join(base, 'apps', 'miniapp-taro')
