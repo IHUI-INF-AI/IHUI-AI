@@ -27,7 +27,6 @@
 /** SSE 事件名常量(单一事实源)。值即实际 wire 上的事件判别名。 */
 export const SSE_EVENTS = {
   CHUNK: 'chunk',
-  TOKEN: 'token',
   REASONING: 'reasoning',
   TOOL_CALL_START: 'tool-call-start',
   TOOL_RESULT: 'tool-result',
@@ -43,6 +42,9 @@ export const SSE_EVENTS = {
   PLAN_UPDATED: 'plan_updated',
   TERMINAL_START: 'terminal_start',
   TERMINAL_END: 'terminal_end',
+  // V3 #48(2026-09-26)补登:终端命令逐行增量。生产在 mcp_server._emit_terminal_delta
+  // (dict 形态 {"type": "terminal_delta"}),此前 parity 门只扫 _sse(...)/event: 形态漏网。
+  TERMINAL_DELTA: 'terminal_delta',
   DONE: 'done',
   ERROR: 'error',
   FALLBACK: 'fallback',
@@ -57,6 +59,28 @@ export const SSE_EVENTS = {
   // 理由见 sse_contract.py 的"收回记录"注释与 PROJECT_PLAN.md D34 段。
   INJECTION_APPLIED: 'injection_applied',
   RETRY_SCHEDULED: 'retry_scheduled',
+  // V3 #48(2026-09-26)补登:agent 流执行开始(agents.py:1011,断点续跑带 resume_from)。
+  START: 'start',
+  // V3 #58(2026-09-26):主聊天流工具审批帧(llm.py 工具执行前拦截,决策回传
+  // POST /llm/complete/stream/{session_id}/approval-response;payload 与 agent
+  // 任务流 tool-approval 同形,前端 ToolApprovalDialog 同一弹窗消费)。
+  TOOL_APPROVAL: 'tool-approval',
+} as const
+
+/**
+ * V3 #48(2026-09-26):Anthropic Messages API 兼容面事件,单列不入对话流契约。
+ * 由 apps/ai-service llm.py 的 Anthropic 兼容端点产出(常量事实源:
+ * agent_events.py:88-93 SSE_MESSAGE_START 等),wire 形态与 Anthropic 官方一致;
+ * 不是对话流 UI 事件,混进 SSE_EVENTS 会让前端监听对账与文档失真。
+ * 与 Python 侧 sse_contract.py 的 SSE_COMPAT_EVENTS 由 parity 门做双端一致断言。
+ */
+export const SSE_COMPAT_EVENTS = {
+  MESSAGE_START: 'message_start',
+  CONTENT_BLOCK_START: 'content_block_start',
+  CONTENT_BLOCK_DELTA: 'content_block_delta',
+  CONTENT_BLOCK_STOP: 'content_block_stop',
+  MESSAGE_DELTA: 'message_delta',
+  MESSAGE_STOP: 'message_stop',
 } as const
 
 /** 全部 SSE 事件名的联合类型。 */
@@ -76,9 +100,9 @@ export type SSEEventWithMeta<T extends Record<string, unknown>> = T & SSEEventMe
  * 待收紧字段用 `Record<string, unknown>` + 注释标注;禁用 `any`。
  */
 export type SSEEventPayload =
-  // 增量 token / 文本片段(chunk 与 token 为同一语义的两种命名)
+  // 增量文本片段(V3 #48 收回 token:全仓零生产点,真正在用的是 chunk;两者曾是
+  // "同一语义的两种命名"双写,现只保留 chunk)
   | SSEEventWithMeta<{ type: 'chunk'; content: string }>
-  | SSEEventWithMeta<{ type: 'token'; content: string }>
   // 思维链增量
   | SSEEventWithMeta<{ type: 'reasoning'; content: string }>
   // 思考增量(部分模型/适配器)
@@ -202,6 +226,32 @@ export type SSEEventPayload =
        */
       exitCode?: number
       messageId?: string
+    }>
+  // 终端命令逐行增量(V3 #48 补登:实时 stdout/stderr,terminal_start 与 terminal_end 之间)
+  | SSEEventWithMeta<{
+      type: 'terminal_delta'
+      terminalId: string
+      /** 输出流:stdout / stderr */
+      stream: 'stdout' | 'stderr'
+      text: string
+    }>
+  // agent 流执行开始(V3 #48 补登:agents.py,断点续跑时 resume_from 指向续传位点)
+  | SSEEventWithMeta<{
+      type: 'start'
+      task_id: string
+      session_id?: string
+      resume_from?: string
+    }>
+  // 主聊天流工具审批(V3 #58:llm.py 工具执行前拦截;前端 ToolApprovalDialog 消费,
+  // decision 经 approval-response 端点回传;payload 与 agent 任务流 tool-approval 同形)
+  | SSEEventWithMeta<{
+      type: 'tool-approval'
+      approval_id: string
+      tool_name: string
+      tool_call_id: string
+      args_preview?: string
+      danger_level: 'low' | 'medium' | 'high'
+      session_id?: string
     }>
   // 流结束(含 usage)
   | SSEEventWithMeta<{
