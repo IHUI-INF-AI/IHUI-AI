@@ -11,6 +11,12 @@
 import { tokens } from '../theme/active-tokens'
 import { FlatList, Image, StyleSheet, Text, TouchableOpacity } from 'react-native'
 import type { MenuItem } from '@ihui/ui-native'
+import {
+  MENU_DEFAULT_COLUMNS,
+  MENU_LABEL_FONT_PX,
+  menuItemStyle,
+  menuTileStyle,
+} from '@ihui/shared/ui/menu-spec'
 
 export interface MenuProps {
   items?: MenuItem[]
@@ -61,7 +67,11 @@ const DEFAULT_ITEMS: MenuItem[] = [
   },
 ]
 
-export default function Menu({ items = DEFAULT_ITEMS, onPress, columns = 4 }: MenuProps) {
+export default function Menu({
+  items = DEFAULT_ITEMS,
+  onPress,
+  columns = MENU_DEFAULT_COLUMNS,
+}: MenuProps) {
   return (
     <FlatList
       data={items}
@@ -83,24 +93,21 @@ export default function Menu({ items = DEFAULT_ITEMS, onPress, columns = 4 }: Me
   )
 }
 
+/// RN 单位是 dp,与逻辑 px 1:1,故换算取恒等;格结构与图块盒在 @ihui/shared/ui/menu-spec
+const toUnit = (px: number) => px
+
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 8,
+    paddingVertical: 8, // 仅 RN 侧有这一档(小程序端网格容器无整块留白)——差异已登记,待裁决
   },
-  item: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-  },
+  item: menuItemStyle(toUnit),
   icon: {
-    width: 40,
-    height: 44,
+    ...menuTileStyle(toUnit),
     resizeMode: 'contain',
   },
   name: {
-    fontSize: 12,
+    fontSize: MENU_LABEL_FONT_PX,
     color: tokens.text.primary,
-    marginTop: 8,
   },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
