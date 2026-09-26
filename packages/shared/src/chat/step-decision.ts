@@ -18,6 +18,7 @@
 export const STEP_DECISIONS = [
   'plan_blocked',
   'security_blocked',
+  'role_denied',
   'rejected_by_user',
   'approval_timeout',
   'tool_missing',
@@ -43,6 +44,7 @@ const DECISION_SET: ReadonlySet<string> = new Set<string>(STEP_DECISIONS)
 const DECISION_WORD_KEY: Record<StepDecision, string> = {
   plan_blocked: 'decision.planBlocked',
   security_blocked: 'decision.securityBlocked',
+  role_denied: 'decision.roleDenied',
   rejected_by_user: 'decision.rejectedByUser',
   approval_timeout: 'decision.approvalTimeout',
   tool_missing: 'decision.toolMissing',
@@ -61,6 +63,7 @@ const DECISION_WORD_KEY: Record<StepDecision, string> = {
 const DECISION_STATE: Record<StepDecision, StepDecisionState> = {
   plan_blocked: 'rejected',
   security_blocked: 'rejected',
+  role_denied: 'rejected',
   rejected_by_user: 'rejected',
   approval_timeout: 'needsUser',
   tool_missing: 'rejected',
