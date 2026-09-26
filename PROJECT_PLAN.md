@@ -10640,3 +10640,25 @@ HEAD 第 21 行 import 块与 234-258 行 PushBanner 自身样式上),故**只�
   却因**祖先栈把已闭合的 `<a>` 继续当祖先**而判红。⇒ 真正要修的是 `walkAffordanceChildren` 的出栈时机
   (兄弟节点不得继承前一个锚点),而不是白名单。**已 `git checkout --` 撤回扩面**(自检回到 85/85、GA1=0),
   这条保持"已知未覆盖 + 有生产证据 + 有明确修法",**不得用行内豁免遮掉**。
+<!-- 已归档(2026-09-26):O36 追加(同日):对账门 5 枚红点全部判明,并把"对账门自己也没装车"这条钉上(2026-09-24 立并完成 ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次1:考勤管理(P0) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次2:家长端(P0) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次3:成绩管理(P1) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次4:智能排课(P1) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次5:作业管理(P2) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次6:招生管理(P2) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次7:财务管理(P3) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):批次8:现有功能优化 ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O36 追加(同日):对账门 5 枚红点全部判明,并把"对账门自己也没装车"这条钉上(2026-09-24 立并完成 ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60 未认领票全量 HEAD 对账(2026-09-25 完成 ✅):53 张票三态判定 + 台账漂移量化 + 三处代,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60c D17 入库 + 同一机制的第二条成因被当场逮到(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):第五十批(2026-09-25,✅ 已闭环,用户指令"我需要所有都做到自动同步 以 web app 为主"),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60d 第二波并行编码落地(2026-09-25 完成 ✅):6 票入库 + 1 票按住 + 两处 HEAD 级恒红当,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60e 收尾三件:收敛器落地闸的"搬家≠吞并"、一批 HEAD 级红的逐条归因、六路报告转正(2026-09-25 完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60f D19 解锁入库 + 一次"上一票的按住结论会不会过期"的实战(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60g 我自己那张"未开工清单"里有两处过期判定 —— 复测更正,并给出剩下真未开工的门槛(2026-09-25 完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60h 第三波:9 路并行取证与清理的双态行收口、清单更正,以及量出来的 12 条新敞口(2026-09-25 完成 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60i D94 交接单接进对话流失败位，并自曝一条"装车"判据的漏洞（2026-09-25 完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O60j 失败卡两份实现合一（任务 #10 收口），并更正我 O60i 里一句过强的话（2026-09-25 完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):O71 取材层收口的最后一跳:守门 93 自带的那份 `cat-file --batch` 归一(2026-09-25 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
+<!-- 已归档(2026-09-26):小程序端页头返回键收编到矢量单一源头 + 守门 102 扩 GA4(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-26_auto-archive.md -->
