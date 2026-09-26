@@ -144,6 +144,19 @@ const FS_LOOSE_RE = /readFileSync\s*\(/
  * 代价如实登记:锚在路径函数上的写法(join(pathmod, ROOT) 之后自己拼)会落到 `unknown`。
  */
 const REPO_ANCHOR_RE = /(?:join|resolve|normalize|dirname|isAbsolute)\s*\([^)]{0,40}\bROOT\b/
+/**
+ * 曾在本票里试过给上面那条合取加一道"内容限定"否决(只有当文件里的路径字面量**全部**指向
+ * 未跟踪位置时才免判)。现读数据否决了它,两种错都犯:
+ *  - **该否决的没否决**:`check-artifact-budget.mjs`(唯一真正的产物门)里有一条 `app.json`,
+ *    它按根级被跟踪文件的形状被判成"指向被跟踪内容"⇒ 门照常红;
+ *  - **不该否决的全否决**:`check-no-divider` / `check-file-size` / `check-pwsh-version` /
+ *    `check-portal-fixed` 等 **14 道**盘判的门,其路径全部动态拼(`join(ROOT, rel)`,清单来自
+ *    `git ls-files`),字面量里只剩 `.tsx`/`.css` 这类扩展名 ⇒ 被判成"只读未跟踪位置"⇒ 红没了。
+ * 教训:**"读被审内容 vs 读机器态"不能靠字面量猜** —— 这条判据要成立必须认识 gitignore 语义
+ * (参照 `check-prod-bundle-shadow` 的 S2:哪一侧按设计只存在于部署机),那不是一行正则的事。
+ * 因此本文件维持原判据形状,并把那一格**如实登记为已知假阳**(见 classify 的 `loose-fs` 一行),
+ * 不拿一台会误伤 14 处的尺子去修一处。
+ */
 
 // ─── 预拼常量形态(2026-09-26 补;此前本门对这一型是**漏报**)───────────────────
 /**
@@ -160,8 +173,11 @@ const REPO_ANCHOR_RE = /(?:join|resolve|normalize|dirname|isAbsolute)\s*\([^)]{0
  * `blankStrings` 不认正则字面量,`const re = /:\s*(["'])…/g` 里那个单引号被当成字符串开头,一路找
  * 不到配对 ⇒ 后半份文件被吞进一个永不闭合的串 ⇒ `readFileSync(` 这个 token 在遮噪后的文本里一个
  * 不剩(实测那道门原文 4 处 → 遮噪后 0 处;HEAD 面共 **24 道门**中招)。归因错了,修法就会错 ——
- * 只补"常量→读取"这一型的话,尺子本身还是盲的。所以本规则**自带一遍认正则的遮噪**(scanLiterals),
- * 顺带让这一型在失明文件上也能被判出来。旧判据与其遮噪层本票**一字未动**(改动面与爆炸半径见镜像 T19)。
+ * 只补"常量→读取"这一型的话,尺子本身还是盲的。
+ * **2026-09-26 本票已把遮噪层收成一份**:`blankStrings` 现在是 `scanLiterals` 的投影,
+ * `maskComments` 与它共用同一个 `scanSpans`(见下方遮噪层头注),所以这一型由**两条** loose-fs
+ * 现场同时可见:旧合取与预拼常量规则各都能判出来。旧的"新判据自带第二遍遮噪"那种绕法
+ * 已删除 —— 两条实现一条规则正是本仓记的最多的漂移成因(§22c)。
  *
  * 判据三条**同时**成立才算:
  *   ① 模块作用域(第 0 列)的 `const <UPPER_SNAKE> = <初值>`:初值按括号深度走到表达式结束,故跨行的
@@ -213,23 +229,26 @@ const FS_READ_FNS = ['readFileSync', 'readFile', 'openSync', 'createReadStream']
 const PREJOINED_DECL_RE = /^(?:export\s+)?const\s+([A-Z][A-Z0-9_]*)\s*=/gm
 
 /**
- * 字面量扫描器(遮注释之后的第二遍):产出「该字符是否在**字面量体内**」的掩码,外加字符串字面量
- * 的原文(供首段判据用)。
+ * ─── 遮噪层:**一份**分词器,两个投影 ────────────────────────────────────────────
+ * 本文件只有一台字面量/注释扫描器 `scanSpans`。两层遮噪都是它的投影:
+ *  - `maskComments` 只把注释换掉(字符串原文必须保留 —— 模块说明符与 git 动词本身就是字符串);
+ *  - `blankStrings` 清空字符串与正则字面量的**体**(标识符还在,串内假调用不可见)。
  *
- * 这一遍**必须认正则字面量**,因为 `blankStrings` 那台朴素状态机不认 —— 实测这就是被判成
- * `no-content` 的那道门(`check-tool-activity-coverage.mjs` 迁移前)真正失效的原因:
- * 它第 75 行写着 `const re = /:\s*(["'])((?:tool|action)[A-Za-z0-9_]*)\1/gu`,
- * 那个 `'` 被当成**字符串开头**,于是整份文件后半截被吞进一个永不闭合的串里,
- * `readFileSync(` 这个 token 在遮噪后的文本里**一个都不剩**(实测:原文 4 处 → 遮噪后 0 处)。
- * 票面把它归因成"readFileSync 旁边没有锚点",那条只是次要 —— 锚点判据本来就是**整文件合取**
- * (任一处 readFileSync + 任一处 join(ROOT ⇒ loose-fs),不做就近配对),所以只要读取 token
- * 还在,这一型本来就会被旧判据抓到。真正让它沉默的是遮噪层。
- * ⇒ 新判据不能建在那台盲掉的尺子上,否则它对**自己立项要防的那一型**依然全盲。
+ * 为什么必须收成一份(2026-09-26 实测缺陷,本票的立项理由):此前这里是**两台机器**,朴素那台
+ * `blankStrings` 不认正则字面量 —— 实测 `check-tool-activity-coverage.mjs` 第 75 行写着
+ * `const re = /:\s*(["'])((?:tool|action)[A-Za-z0-9_]*)\1/gu`,那个 `'` 被当成字符串开头,
+ * 一路找不到配对 ⇒ 后半份文件被吞进一个永不闭合的串 ⇒ `readFileSync(` 这个 token 在遮噪后的文本里
+ * **一个都不剩**(原文 4 处 → 遮噪后 0 处;HEAD 面共 **24 道门**中招,全被判成 no-content)。
+ * 上一版新判据**自带**一遍认正则的遮噪来绕开它,于是"引了层 / 散写"那一侧仍用着盲掉的尺子 ——
+ * 两条实现一条规则 = 本仓记录最多的漂移成因(见 §22c、守门 103 的"取源只能有一份实现")。
+ * 现在所有判定都跑在同一台机器上,不存在"这半边看见、那半边瞎"的可能。
  *
- * 判正则的方式只看"上一个有效字符":落在 `( , = : ; [ ! & | ? { } + - * % ~ ^ < >` 或行首时才可能是
- * 正则;其余(`)` / 标识符 / `]` 之后)按除法处理。**误判方向是安全的**:把除法错认成正则只会多遮
- * 一些字符 ⇒ 漏报(与改动前同形),不会凭空造出一个 loose-fs。
- * 单引号/双引号串**不许跨行**(JS 里非法):遇换行就当作没开,免得一个奇数 apostrophe 吞掉半份文件。
+ * 判"这个 `/` 是正则还是除法"的方式只看**上一个有效 token**:
+ * 落在 `( , = : ; [ ! & | ? { } + - * % ~ ^ < >` 或文首,或刚写完 `return/typeof/case/…` 这类
+ * 关键字时才算正则起始;其余(`)` / 标识符 / 字面量之后)按除法处理。字符类 `[...]` 里的 `/`
+ * 不闭合(所以 `/[/"']/` 这种形态能正确识别)。**认不出(跨行没闭合)就当除法,且什么都不清** ——
+ * 误判方向因此只会是"少遮"(可能多报),绝不会是"把真调用吞掉"。
+ * 单引号/双引号串**不许跨行**(JS 里非法):遇换行即当作没开,免得一个奇数 apostrophe 吞掉半份文件。
  */
 const REGEX_ALLOWED_AFTER = new Set([
   '(',
@@ -254,78 +273,168 @@ const REGEX_ALLOWED_AFTER = new Set([
   '>',
   '',
 ])
-export function scanLiterals(text) {
-  const mask = new Uint8Array(text.length)
-  const strings = []
+/**
+ * 关键字之后 `/` 必为正则(`return /x/`、`case '/':` 除外 —— 后者先被字符串判据接走)。
+ * 只看"上一个有效字符"会把 `return /x/` 认成除法(上一字符是 `n`),那不是保守而是**看不见**;
+ * 这一小张表是纯语法事实,不是豁免清单(它不描述任何被审内容,不会腐烂成"某个门在名单里")。
+ */
+const REGEX_ALLOWED_KEYWORDS = new Set([
+  'return',
+  'typeof',
+  'instanceof',
+  'in',
+  'of',
+  'new',
+  'delete',
+  'void',
+  'case',
+  'do',
+  'else',
+  'yield',
+  'await',
+])
+function isBlankish(c) {
+  return c === ' ' || c === '\t' || c === '\n' || c === '\r'
+}
+/** 纯函数(导出给镜像测试,§22c 禁止在测试里再抄一份判据):该 token 位置上 `/` 是否可为正则起始 */
+export function regexCanStart(lastSig, lastWord) {
+  return REGEX_ALLOWED_AFTER.has(lastSig) || REGEX_ALLOWED_KEYWORDS.has(lastWord)
+}
+
+/** 字符串字面量:从起始引号 i 走到闭合(或换行/EOF)。bodyStart..bodyEnd 是**内部**区间。 */
+function readStringSpan(text, i) {
+  const q = text[i]
+  let j = i + 1
+  let body = ''
+  while (j < text.length) {
+    if (text[j] === '\\') {
+      body += text[j] + (text[j + 1] ?? '')
+      j += 2
+      continue
+    }
+    if (text[j] === q)
+      return { bodyStart: i + 1, bodyEnd: j, end: j + 1, body, closed: true, isTemplate: q === '`' }
+    // 非模板串不跨行:判到这里说明引号不成对,宁可放过也不吞掉后半份文件
+    if (text[j] === '\n' && q !== '`')
+      return { bodyStart: i + 1, bodyEnd: j, end: j, body, closed: false, isTemplate: false }
+    body += text[j]
+    j += 1
+  }
+  return { bodyStart: i + 1, bodyEnd: j, end: j, body, closed: false, isTemplate: q === '`' }
+}
+
+/** 正则字面量:从起始 `/` 走到闭合 `/` + flags。认不出(closed:false)由调用方按除法处理。 */
+function readRegexSpan(text, i) {
+  let j = i + 1
+  let inClass = false
+  while (j < text.length) {
+    const d = text[j]
+    if (d === '\n') break
+    if (d === '\\') {
+      j += 2
+      continue
+    }
+    if (inClass) {
+      if (d === ']') inClass = false
+    } else if (d === '[') inClass = true
+    else if (d === '/') {
+      j += 1
+      let k = j
+      while (k < text.length && /[dgimsuvyx]/i.test(text[k])) k += 1
+      return { bodyStart: i + 1, bodyEnd: k, end: k, closed: true }
+    }
+    j += 1
+  }
+  return { bodyStart: i + 1, bodyEnd: j, end: j, closed: false }
+}
+
+/**
+ * 单遍分词:产出注释 / 字符串 / 正则三类 span(区间语义统一:`start` 含定界符,
+ * `bodyStart..bodyEnd` 是需要清空或需要判定的内部区间)。
+ * `//` 与块注释开栏 **无条件**当注释,不受 token 位置影响 —— JS 词法本身如此:空正则必须写成
+ * `/(?:)/`,而"`/*` 再补一个斜杠"在 JS 里是未闭合的块注释而不是正则。
+ * (这一句本身踩过坑:注释里逐字写出那三个字符会**提前终结本块注释**,于是说明文字变成代码。)
+ * 所以注释判定不受 lastSig 影响;正则判定只在字符串之外才问。
+ */
+export function scanSpans(text) {
+  const spans = []
   let i = 0
   let lastSig = ''
+  let lastWord = ''
   while (i < text.length) {
     const c = text[i]
+    if (c === '/' && text[i + 1] === '/') {
+      let j = i
+      while (j < text.length && text[j] !== '\n') j += 1
+      spans.push({ kind: 'line', start: i, end: j, bodyStart: i, bodyEnd: j })
+      i = j
+      continue
+    }
+    if (c === '/' && text[i + 1] === '*') {
+      let j = i + 2
+      while (j < text.length && !text.startsWith('*/', j)) j += 1
+      const end = Math.min(j + 2, text.length)
+      spans.push({ kind: 'block', start: i, end, bodyStart: i, bodyEnd: end })
+      i = end
+      continue
+    }
     if (c === "'" || c === '"' || c === '`') {
-      let j = i + 1
-      let body = ''
-      let closed = false
-      while (j < text.length) {
-        if (text[j] === '\\') {
-          body += text[j] + (text[j + 1] ?? '')
-          mask[j] = 1
-          if (j + 1 < text.length) mask[j + 1] = 1
-          j += 2
-          continue
-        }
-        if (text[j] === c) {
-          closed = true
-          break
-        }
-        // 非模板串不跨行:判到这里说明引号不成对,宁可放过也不吞掉后半份文件
-        if (text[j] === '\n' && c !== '`') break
-        mask[j] = 1
-        body += text[j]
-        j += 1
-      }
-      strings.push({ start: i, end: closed ? j + 1 : j, body, closed, isTemplate: c === '`' })
-      i = closed ? j + 1 : j
+      const r = readStringSpan(text, i)
+      spans.push({ kind: 'string', start: i, ...r })
+      i = r.end
       lastSig = c
+      lastWord = ''
       continue
     }
     if (
       c === '/' &&
-      REGEX_ALLOWED_AFTER.has(lastSig) &&
+      regexCanStart(lastSig, lastWord) &&
       text[i + 1] !== undefined &&
       text[i + 1] !== ' '
     ) {
-      let j = i + 1
-      let inClass = false
-      let closed = false
-      while (j < text.length) {
-        const d = text[j]
-        if (d === '\n') break
-        mask[j] = 1
-        if (d === '\\') {
-          if (j + 1 < text.length) mask[j + 1] = 1
-          j += 2
-          continue
-        }
-        if (inClass) {
-          if (d === ']') inClass = false
-        } else if (d === '[') inClass = true
-        else if (d === '/') {
-          closed = true
-          j += 1
-          break
-        }
-        j += 1
+      const r = readRegexSpan(text, i)
+      if (r.closed) {
+        spans.push({ kind: 'regex', start: i, ...r })
+        i = r.end
+        lastSig = '/'
+        lastWord = ''
+        continue
       }
-      while (j < text.length && /[dgimsuvyx]/i.test(text[j])) {
-        mask[j] = 1
-        j += 1
-      }
-      i = closed ? j : i + 1
+      // 闭合不了 ⇒ 按除法,且**不清任何东西**(宁可少遮,绝不吞掉真 token)
+      i += 1
       lastSig = '/'
+      lastWord = ''
       continue
     }
-    if (c !== ' ' && c !== '\t' && c !== '\n' && c !== '\r') lastSig = c
+    if (!isBlankish(c)) {
+      lastSig = c
+      lastWord = /[\w$]/.test(c) ? lastWord + c : ''
+    }
     i += 1
+  }
+  return spans
+}
+
+/**
+ * 字面量掩码(遮注释之后的那一遍):产出「该字符是否在**字面量体内**」的掩码,外加字符串原文
+ * (供首段白名单判据用)。正则字面量的体同样计入掩码 —— 正则里的 `readFileSync(` 是模式不是调用。
+ */
+export function scanLiterals(text) {
+  const mask = new Uint8Array(text.length)
+  const strings = []
+  for (const s of scanSpans(text)) {
+    if (s.kind === 'string') {
+      for (let j = s.bodyStart; j < s.bodyEnd; j++) mask[j] = 1
+      strings.push({
+        start: s.start,
+        end: s.end,
+        body: s.body,
+        closed: s.closed,
+        isTemplate: s.isTemplate,
+      })
+    } else if (s.kind === 'regex') {
+      for (let j = s.bodyStart; j < s.bodyEnd; j++) mask[j] = 1
+    }
   }
   return { mask, strings, blanked: blankByMask(text, mask) }
 }
@@ -420,93 +529,40 @@ export function readsPrejoinedConst(text, names) {
  * 直接套 `markHidden` 的结果是第一版自检 F1/F2 双双假绿:合规的门被读成"没导入",
  * 散写的门被读成"没读 git"。两处判的不是同一件事,所以各有一层遮噪,`markHidden`
  * 仍用于"是否真的读了文件"那一半(见 classify 里的 noStrings)。
+ *
+ * **注释区间取自 `scanSpans`(与 `blankStrings` 同一台机器)**,不是另写一遍状态机。
+ * 这件事本身修掉一个真实缺陷:旧实现自己追引号且**不认正则字面量**,于是
+ * `const re = /["']/g` 里那个 `"` 被当成字符串开头,一路找到下一个真正的 `"` 才罢休 ——
+ * 中间那段里的 `//` 注释**不会被遮掉**,而是逐字留在"代码面"上。也就是说,一句写在
+ * 注释里的 `execFileSync(GIT_BIN, ['show', …])` 或 `from './lib/face-reader.mjs'` 能让
+ * 一道不合规的门被判成合规(**放行方向**,比漏报更贵:它替人做出"这层已经走了"的判断)。
+ * 现在两个方向都收在同一份分词结果上。
  */
 export function maskComments(src) {
-  const out = []
-  let i = 0
-  let inBlock = false
-  while (i < src.length) {
-    if (inBlock) {
-      if (src.startsWith('*/', i)) {
-        inBlock = false
-        i += 2
-        out.push('  ')
-      } else {
-        out.push(src[i] === '\n' ? '\n' : ' ')
-        i += 1
-      }
-      continue
-    }
-    if (src.startsWith('//', i)) {
-      while (i < src.length && src[i] !== '\n') i += 1
-      continue
-    }
-    if (src.startsWith('/*', i)) {
-      inBlock = true
-      i += 2
-      out.push('  ')
-      continue
-    }
-    const q = src[i]
-    if (q === "'" || q === '"' || q === '`') {
-      out.push(q)
-      i += 1
-      while (i < src.length) {
-        if (src[i] === '\\') {
-          out.push(src[i], src[i + 1] ?? '')
-          i += 2
-          continue
-        }
-        if (src[i] === q) {
-          out.push(q)
-          i += 1
-          break
-        }
-        out.push(src[i])
-        i += 1
-      }
-      continue
-    }
-    out.push(q)
-    i += 1
+  let out = ''
+  let pos = 0
+  for (const s of scanSpans(src)) {
+    if (s.kind !== 'line' && s.kind !== 'block') continue
+    out += src.slice(pos, s.start)
+    // 行注释整段删掉(与旧实现同形);块注释逐字符换空白但保住换行,列位与行号不漂
+    const body = src.slice(s.start, s.end)
+    out += s.kind === 'line' ? '' : body.replace(/[^\n]/g, ' ')
+    pos = s.end
   }
-  return out.join('')
+  return out + src.slice(pos)
 }
 
 /**
- * 在已遮注释的文本上再把三类引号-span 清空。
- * `markHidden` 那一档**刻意保留模板字符串**(守门 112 需要看见模板里的标识符),
- * 而本门要挡的恰恰是"文档串/夹具串里写着 readFileSync(join(ROOT…))"这种假调用(F15),
- * 所以这里自己清 —— 顺序也固定:先遮注释再清字符串,反过来会让注释里的引号把状态机带偏。
+ * 在已遮注释的文本上再把**字符串与正则字面量的体**清空(保留引号本身与换行)。
+ * 用于"标识符还在、串内假调用不可见"的那一遍。
+ *
+ * 这一层**以前是另一台不认正则的朴素状态机**,`const re = /["']/g` 会让它把后半份文件吞进
+ * 一个永不闭合的串,`readFileSync(` 这种 token 在遮噪后的文本里一个不剩(HEAD 面实测 24 道门
+ * 因此被判成 no-content)。现在它是 `scanLiterals` 的一行投影 —— **本文件只剩一台分词器**,
+ * 不存在"这一半判定看得见、那一半看不见"的可能(§22c / 守门 103 的"取源只能有一份实现")。
  */
 export function blankStrings(text) {
-  const out = []
-  let i = 0
-  while (i < text.length) {
-    const q = text[i]
-    if (q !== "'" && q !== '"' && q !== '`') {
-      out.push(q)
-      i += 1
-      continue
-    }
-    out.push(q)
-    i += 1
-    while (i < text.length) {
-      if (text[i] === '\\') {
-        out.push(' ', text[i + 1] === '\n' ? '\n' : ' ')
-        i += 2
-        continue
-      }
-      if (text[i] === q) {
-        out.push(q)
-        i += 1
-        break
-      }
-      out.push(text[i] === '\n' ? '\n' : ' ')
-      i += 1
-    }
-  }
-  return out.join('')
+  return scanLiterals(text).blanked
 }
 
 /**
@@ -520,6 +576,14 @@ export function blankStrings(text) {
  *                  (a) readFileSync 旁边就有仓库锚点(join/resolve(ROOT))——原判据;
  *                  (b) **预拼常量**(绝对路径在模块作用域拼好一次,调用现场没有锚点)——2026-09-26 补,
  *                      见上方 prejoinedRepoConsts;判不出首段是否属仓库内容时一律不判(退回 unknown)
+ *                  ⚠️ **已知假阳(2026-09-26 现读登记,不是本票新增)**:(a) 那条合取**整文件**成立,
+ *                  既不做就近配对、也不看白名单 ⇒ 一道只读构建产物 / 只读 gitignore 运行台账的门
+ *                  (实测 `check-artifact-budget.mjs`:全部磁盘读都在各端 dist 里,那些路径既不在
+ *                  HEAD 也不在索引)也会被记成 loose-fs。它**不是**新出现的形状 —— 拿遮噪修复前的
+ *                  分类器跑一份不带那行致盲正则的同型夹具,结论同样是 loose-fs。给合取加"字面量
+ *                  内容限定"的窄判据已被数据否决(见 REPO_ANCHOR_RE 之后那段:漏判目标、误伤 14 道
+ *                  真盘判门),要收这一格必须认识 gitignore 语义(`check-prod-bundle-shadow` 的 S2
+ *                  那一族),那是另一票。**不得**为此放宽合取,也不得拿豁免清单冒充修好。
  *  - `no-content`  根本不读仓库内容 ⇒ 不适用(不计违规也不计数)
  *  - `unknown`     读文件但找不到仓库锚点 ⇒ 只报数(临时夹具这一型结构上判不了)
  */
@@ -531,16 +595,17 @@ export function classify(rel, src) {
   // 顺序反了就会把 half-wired 吞进 face —— 那正是旧版行为:FACE_IMPORT_RE 一刀命中即放行。
   const usesLayer = usesLayerRead(code)
   const selfServesGit = (GIT_SPAWN_RE.test(code) || GIT_RAW_RE.test(code)) && gitContentReads(code)
-  const noStrings = blankStrings(code)
+  // **一次**扫描喂全部判定:所有判据(散写 git / 磁盘 readFileSync / 预拼常量 / no-content)
+  // 都跑在同一份遮噪上。旧写法在这里另起一台不认正则的机器,于是同一份文件"这半边看得见、
+  // 那半边看不见",而看不见的那半边恰好是本票立项要抓的那一型。
+  const scanned = scanLiterals(code)
+  const noStrings = scanned.blanked
   const looseFs = FS_LOOSE_RE.test(noStrings) && REPO_ANCHOR_RE.test(noStrings)
-  // 预拼常量:与 looseFs 平行的第二条 loose-fs 现场。looseFs 已命中就无需再算(结论同形,省一遍扫描)。
-  // 它跑在**自己那一遍遮噪**上(scanLiterals 认正则字面量),因为旧那台机器遇 `/(["'])/` 会把后半份
-  // 文件吞进一个永不闭合的串 —— 立项那一型被判成 no-content 的真实成因正是它,不是锚点(见 scanLiterals 头注)。
+  // 预拼常量:与 looseFs 平行的第二条 loose-fs 现场。looseFs 已命中就无需再算(结论同形,省一遍匹配)。
   let constReads = []
   if (!looseFs) {
-    const scanned = scanLiterals(code)
     const names = prejoinedRepoConsts(code, scanned)
-    if (names.size) constReads = readsPrejoinedConst(scanned.blanked, names)
+    if (names.size) constReads = readsPrejoinedConst(noStrings, names)
   }
   if (usesLayer)
     return { kind: 'face', why: '调用取材层的读取入口(catBatch / readWorktreeFile)取内容' }
@@ -881,47 +946,59 @@ function selfTest() {
     ).kind,
     'loose-fs',
   )
-  // P5–P8:白名单边界的四条反向锁(全是 §118 记过的假阳型:运行台账 / 只在部署机的忽略副本 /
-  // CI tee 产物 / 跳出仓库根的父目录)。期望 no-content 而不是 loose-fs。
+  // P5–P8 / P20:白名单边界的反向锁。**这两条必须一起读,而且方向要说清**:
+  //  ① 预拼常量规则(它才是本票要测的那条)对这些形态**必须一条都不 qualify** —— 由 `pre` 计数钉死;
+  //  ② `classify` 的最终档在遮噪修复之后是 **loose-fs**,因为**旧的那条整文件合取**
+  //     (`readFileSync(` 任一处 × `join(ROOT` 任一处,不做就近配对)本来就不看白名单。
+  // 这不是本票新引入的假阳:用 HEAD 那版分类器跑**不带 BLIND**的同一份夹具,结论同样是
+  //  loose-fs(实测 A/B:OLD 无 BLIND=loose-fs / OLD 带 BLIND=no-content / NEW 两种都 loose-fs)。
+  // BLIND 那行过去只是**碰巧**把合取的两半一起吞掉了,所以这些夹具测到的一直是遮噪机的失明,
+  // 而不是白名单在守门 —— 把它当白名单的胜利会替一个潜在假阳背书。那一格的真正出口是
+  // **认识 gitignore 语义**的窄判据(参照 `check-prod-bundle-shadow` 的 S2),已按现读数据登记在
+  // REPO_ANCHOR_RE 的头注里,不得用"给白名单再加几个名字"冒充修好它。
+  const pShape = (body) => {
+    const code = maskComments(PJ_HEAD + body)
+    const scanned = scanLiterals(code)
+    const names = prejoinedRepoConsts(code, scanned)
+    return {
+      kind: classify('scripts/p.mjs', PJ_HEAD + body).kind,
+      // qual = 预拼规则**登记到**的仓库常量名个数;read = 这些常量真出现在某次读取的**实参**里
+      qual: names.size,
+      read: readsPrejoinedConst(scanned.blanked, names).length,
+    }
+  }
+  // 阳性对照:同一台 pShape 在"白名单内 + 直接读取"的形态上必须报 qual:1 / read:1。
+  // 没有这条,下面那一排 read:0 完全可能只是"helper 根本没跑"(§22c 的复读机教训)。
   eq(
-    'P5 .workbuddy 运行台账 ⇒ 不得判成按磁盘判仓库内容',
-    classify(
-      'scripts/check-p5.mjs',
-      PJ_HEAD +
-        BLIND +
-        "const LEDGER = join(ROOT, '.workbuddy', 'push-state.json')\nreadFileSync(LEDGER, 'utf8')\n",
-    ).kind,
-    'no-content',
+    'P4b pShape 阳性对照(白名单内 + 直接读取 ⇒ qual 1 / read 1)',
+    pShape("const PLAN_FILE = join(ROOT, 'PROJECT_PLAN.md')\nreadFileSync(PLAN_FILE, 'utf8')\n"),
+    { kind: 'loose-fs', qual: 1, read: 1 },
   )
   eq(
-    'P6 deploy/prod-bundle(按设计只存在于部署机)⇒ 不得判红',
-    classify(
-      'scripts/check-p6.mjs',
-      PJ_HEAD +
-        BLIND +
-        "const RUNNING = join(ROOT, 'deploy', 'prod-bundle', 'monitor.ps1')\nreadFileSync(RUNNING, 'utf8')\n",
-    ).kind,
-    'no-content',
+    'P5 .workbuddy 运行台账 ⇒ 预拼规则不 qualify(合取仍判 loose-fs,见上)',
+    pShape(
+      "const LEDGER = join(ROOT, '.workbuddy', 'push-state.json')\nreadFileSync(LEDGER, 'utf8')\n",
+    ),
+    { kind: 'loose-fs', qual: 0, read: 0 },
   )
   eq(
-    'P7 CI tee 产物 __gate_result.txt ⇒ 不得判红',
-    classify(
-      'scripts/check-p7.mjs',
-      PJ_HEAD +
-        BLIND +
-        "const RESULT_FILE = join(ROOT, '__gate_result.txt')\nreadFileSync(RESULT_FILE, 'utf8')\n",
-    ).kind,
-    'no-content',
+    'P6 deploy/prod-bundle(按设计只存在于部署机)⇒ 预拼规则不 qualify',
+    pShape(
+      "const RUNNING = join(ROOT, 'deploy', 'prod-bundle', 'monitor.ps1')\nreadFileSync(RUNNING, 'utf8')\n",
+    ),
+    { kind: 'loose-fs', qual: 0, read: 0 },
   )
   eq(
-    'P8 dirname(ROOT) 逃到父目录(污染面)⇒ 不得判红',
-    classify(
-      'scripts/check-p8.mjs',
-      PJ_HEAD +
-        BLIND +
-        "const PARENT = dirname(ROOT)\nreadFileSync(join(PARENT, 'x.txt'), 'utf8')\n",
-    ).kind,
-    'no-content',
+    'P7 CI tee 产物 __gate_result.txt ⇒ 预拼规则不 qualify',
+    pShape(
+      "const RESULT_FILE = join(ROOT, '__gate_result.txt')\nreadFileSync(RESULT_FILE, 'utf8')\n",
+    ),
+    { kind: 'loose-fs', qual: 0, read: 0 },
+  )
+  eq(
+    'P8 dirname(ROOT) 逃到父目录(ROOT 不是基参数)⇒ 预拼规则不 qualify',
+    pShape("const PARENT = dirname(ROOT)\nreadFileSync(join(PARENT, 'x.txt'), 'utf8')\n"),
+    { kind: 'loose-fs', qual: 0, read: 0 },
   )
   eq(
     'P9 路径来自 argv ⇒ 不得 loose-fs(提交者结构上满足不了)',
@@ -998,26 +1075,37 @@ function selfTest() {
       ).kind,
       'loose-fs',
     )
-  eq(
-    'P16 常量名前缀不得误伤 TOOLX(\\b 有牙)',
-    classify(
-      'scripts/check-p16.mjs',
-      PJ_HEAD +
-        BLIND +
-        "const TOOL = join(ROOT, 'packages', 'a.ts')\nreadFileSync(TOOLX, 'utf8')\n",
-    ).kind,
-    'no-content',
-  )
+  // P16 的 `\b` 牙齿现在**必须在单元层测**:classify 的档位由整文件合取给出(文件里同时有
+  // `join(ROOT` 与 `readFileSync(`),预拼规则有没有把 TOOLX 误认成 TOOL,合取一点也看不见。
+  // 把它留在 classify 层,等于让一条不参与该结论的判据拿合取产出的红去发合格证。
+  {
+    const body = "const TOOL = join(ROOT, 'packages', 'a.ts')\nreadFileSync(TOOLX, 'utf8')\n"
+    const code = maskComments(PJ_HEAD + body)
+    const names = prejoinedRepoConsts(code)
+    eq('P16a 声明侧认出的常量名恰为 TOOL', [...names].sort(), ['TOOL'])
+    eq(
+      'P16b 前缀不得误伤 TOOLX(\\b 有牙,单元层证明)',
+      readsPrejoinedConst(scanLiterals(code).blanked, names),
+      [],
+    )
+    eq(
+      'P16c 同一份文本最终由**合取**判 loose-fs(与预拼规则无关,故牙齿不得放这层)',
+      classify('scripts/check-p16.mjs', PJ_HEAD + BLIND + body).kind,
+      'loose-fs',
+    )
+  }
   // P17:反向锁 —— 这条规则**不是**把锚点判据放宽了。REPO_ANCHOR_RE 的源码形态必须逐字未动。
+  // 档位由 no-content 变 **unknown**:遮噪修好后 `readFileSync(` 这个 token 回来了,"读文件但找不到
+  // 仓库锚点"被如实命中;unknown **不进判红集**,所以"小写 root 不当锚点"这条锁的强度一字未变。
   eq(
-    'P17 小写 root 仍不被当锚点(票面"不得放宽 REPO_ANCHOR_RE"的锁)',
+    'P17 小写 root 仍不被当锚点(票面"不得放宽 REPO_ANCHOR_RE";落 unknown,不判红)',
     classify(
       'scripts/check-p17.mjs',
       "const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')\n" +
         BLIND +
         "const TOOL_FILE = join(root, 'packages', 'a.ts')\nreadFileSync(TOOL_FILE, 'utf8')\n",
     ).kind,
-    'no-content',
+    'unknown',
   )
   eq(
     'P18 REPO_ANCHOR_RE 源码未被改写',
@@ -1035,33 +1123,77 @@ function selfTest() {
     ).kind,
     'loose-fs',
   )
-  // P20/P21 是**已知漏报**,如实钉住并写明理由,不让它读成"这一族都已被看过":
-  //  P20 点开头的根级文件被 FILE_RE 挡在外面 —— 点前缀在本仓正是机器态的标记(`.workbuddy/`、
-  //     `.ihui-agent/`、`.deploy.lock/`、`.env*`),而判据不认识 gitignore 就分不开。现读实测这一条
-  //     排除**今天不损失覆盖**:唯一这么写的 `check-api-routes.mjs`(读 `.check-api-routes-ignore.json`)
-  //     已被旧合取判成 loose-fs(镜像 T22 把这条前提钉成断言 —— 前提变了测试就红,提醒重估)。
-  //  P21 常量喂给目录遍历器、真正的读取发生在遍历里(两跳)⇒ 本规则不追数据流。实测 HEAD 面 2 道门
-  //     属于这一型(check-tagsview-visual / check-i18n-namespace-passing)。
+  // P20/P21 记的是**预拼规则自己的两格看不见**,不是"classify 不判红":
+  //  遮噪修好后 `readFileSync(` 这个 token 一直在场,而合取判据本来就不看白名单、不做配对,
+  //  所以这两格的 classify 终态是 loose-fs。**这两条必须读成"白名单在此不参与"** ——
+  //  否则会把合取顺手接住的一格,误记成预拼规则赢下的一格(§22c 的复读机正是这个形状)。
+  //  P20 点开头的根级文件被 FILE_RE 挡在外面:点前缀在本仓是机器态的标记(`.workbuddy/`、
+  //     `.ihui-agent/`、`.deploy.lock/`、`.env*`),判据不认识 gitignore 就分不开 ⇒ qual 0。
+  //     现读实测这一条排除**今天不损失覆盖**:唯一这么写的 `check-api-routes.mjs`(读
+  //     `.check-api-routes-ignore.json`)由合取兜住(镜像 T22 把这条前提钉成断言 —— 前提一变就红)。
+  //  P21 常量喂给遍历器、真正的读取发生在遍历里(两跳)⇒ 常量**在册**(qual 1)但读取实参里
+  //     找不到它(read 0):本规则不追数据流。HEAD 面这两跳门(check-tagsview-visual /
+  //     check-i18n-namespace-passing)现在**由合取**判红,所以这一格不再是"整道门看不见",
+  //     只是"这一条规则不追"。
   eq(
-    'P20 点开头根级文件 ⇒ 不判(已知漏报,理由见注释)',
-    classify(
-      'scripts/check-p20.mjs',
-      PJ_HEAD +
-        BLIND +
-        "const IGNORE_FILE = join(ROOT, '.x-ignore.json')\nreadFileSync(IGNORE_FILE, 'utf8')\n",
-    ).kind,
-    'no-content',
+    'P20 点开头根级文件 ⇒ qual 0(已知漏报,理由见注释;终态由合取给)',
+    pShape("const IGNORE_FILE = join(ROOT, '.x-ignore.json')\nreadFileSync(IGNORE_FILE, 'utf8')\n"),
+    { kind: 'loose-fs', qual: 0, read: 0 },
   )
   eq(
-    'P21 两跳(常量→walker→局部变量)⇒ 不判(已知漏报,不做数据流)',
+    'P21 两跳(常量→walker→局部变量)⇒ qual 1 但 read 0(本规则不追数据流)',
+    pShape(
+      "const WEB_ROOT = resolve(ROOT, 'apps/web')\nwalkFiles(WEB_ROOT, files)\nfor (const file of files) readFileSync(file, 'utf8')\n",
+    ),
+    { kind: 'loose-fs', qual: 1, read: 0 },
+  )
+  // ─── R 系列:本票的核心缺陷(遮噪不认正则字面量)───────────────────────────
+  // R1 阳性对子:**唯一**一处内容读取藏在一行正则字面量之后。修遮噪之前这里是 no-content
+  // (朴素机器把 `'` 当字符串开栏,后半份文件整片被吞),修之后必须是 loose-fs。
+  // 这一条就是"24 道门被误判"那一型的最小复现,不得用"给白名单加名字"之类的旁路消掉。
+  eq(
+    'R1 正则字面量之后的唯一读取 ⇒ loose-fs(修遮噪前 = no-content)',
     classify(
-      'scripts/check-p21.mjs',
-      PJ_HEAD +
-        BLIND +
-        "const WEB_ROOT = resolve(ROOT, 'apps/web')\nwalkFiles(WEB_ROOT, files)\nfor (const file of files) readFileSync(file, 'utf8')\n",
+      'scripts/check-r1.mjs',
+      "import { readFileSync } from 'node:fs'\nconst re = /[\"']/g\nreadFileSync(join(ROOT, 'apps/web/src/x.ts'), 'utf8')\n",
     ).kind,
+    'loose-fs',
+  )
+  // R1b 遮噪**仍然有效**的反向对照:同一个 token 写在正则**体内**时不得被当成调用。
+  // 没有这条,R1 的红可能只是"遮噪被整体关掉"的假象(判据失效的表现永远是安静)。
+  eq(
+    'R1b 正则体内写着 readFileSync(join(ROOT 不算读取 ⇒ no-content',
+    classify('scripts/check-r1b.mjs', 'const re = /readFileSync\\(join\\(ROOT/g\nconst n = 1\n')
+      .kind,
     'no-content',
   )
+  // R2 阴性对子:**真除法**不得开正则状态。`width / height` 之后同行还有一个字符串字面量,
+  // 若那个 `/` 被误认成正则起始,扫描器会把一路到行尾(或到下一个 `/`)都当成正文清掉,
+  // `'apps/web'` 就从 strings 清单里消失 —— 消失即"首段白名单再也看不见",判据会静默变宽。
+  {
+    const div =
+      "const ratio = width / height\nconst note = 'apps/web'\nreadFileSync(join(ROOT, note), 'utf8')\n"
+    const { strings } = scanLiterals(maskComments(div))
+    eq(
+      'R2 除法不开正则状态(同行的字符串仍然在册)',
+      strings.some((s) => s.body === 'apps/web'),
+      true,
+    )
+    eq(
+      'R2b 同份文本仍判 loose-fs(阴性对子不得把真读取也一起吞掉)',
+      classify('scripts/check-r2.mjs', div).kind,
+      'loose-fs',
+    )
+    // R2c:除法链不能被当成正则(两个 `/` 都不闭合 ⇒ 任何东西都不许被清)
+    eq(
+      'R2c 连续除法不误开正则状态',
+      scanSpans('const q = a / b / c\n').filter((s) => s.kind === 'regex').length,
+      0,
+    )
+  }
+  // R3(不在这里,刻意留空):"只剩一台遮噪机"这件事**不能**用 blankStrings 与
+  // scanLiterals 的输出等值来证明 —— 前者本就是后者的投影,那是条恒真式(§22c:测试只复读
+  // 实现就是复读机)。锁放在镜像测试里按**源码形状**判(mirror T24)。
 
   eq('F6 非门脚本文件名不参与 glob', GATE_GLOB.test('apps/cli/src/tools/memory.ts'), false)
   eq(
@@ -1150,7 +1282,11 @@ export const __test__ = {
   prejoinedRepoConsts,
   readsPrejoinedConst,
   scanLiterals,
+  scanSpans,
+  regexCanStart,
   blankByMask,
+  blankStrings,
+  maskComments,
   REPO_CONTENT_DIR_RE,
   REPO_CONTENT_DIRS,
   REPO_CONTENT_FILE_RE,
