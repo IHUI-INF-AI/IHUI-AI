@@ -41,6 +41,9 @@ import { applyParamOpsToBody } from '../services/relay-param-ops-config.js'
 import { error } from '../utils/response.js'
 // /v1 网关专用:ai-service 调用注入系统 access token(2026-09-13 修 jwt_auth 401)
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
+// 格②(2026-09-26):耗时一律走单调钟出口,落库形态经唯一适配器投影
+import { startStopwatch, type ElapsedSample, type Stopwatch } from '../utils/elapsed-ms.js'
+import { persistableLatency } from '../utils/latency-persistence.js'
 
 /** 鉴权后注入 request 的 API Key 上下文(与 v1-public.ts ApiKeyContext 结构一致) */
 interface ApiKeyContext {
@@ -256,7 +259,8 @@ async function streamResponses(
     apiKeyId?: string
     userId?: string
     promptText: string
-    startTime: number
+    /** 格②(2026-09-26):由 handler 起表后传入的单调钟(替代原墙钟 epoch startTime) */
+    sw: Stopwatch
     providerCode?: string
     clientIp?: string
   },
@@ -274,7 +278,8 @@ async function streamResponses(
   /** 累计响应文本用于估算 token(流式无准确 usage) */
   let responseText = ''
   let streamError: string | null = null
-  let firstTokenTime: number | null = null
+  /** 格②(2026-09-26):首 token 处再取一次样本(原为墙钟 epoch firstTokenTime) */
+  let ttftSample: ElapsedSample | null = null
   let upstreamHttpStatus: number | null = null
 
   /** 发送 SSE 事件(OpenAI Responses API 流式格式:event + data 双行) */
@@ -332,7 +337,7 @@ async function streamResponses(
       const processLine = (line: string): void => {
         const text = extractStreamText(line)
         if (text) {
-          if (firstTokenTime === null) firstTokenTime = Date.now()
+          if (ttftSample === null) ttftSample = opts.sw.stop()
           responseText += text
           writeEvent('response.output_text.delta', {
             type: 'response.output_text.delta',
@@ -407,6 +412,9 @@ async function streamResponses(
       const promptTokens = Math.ceil(opts.promptText.length / 4)
       const completionTokens = Math.ceil(responseText.length / 4)
       const totalTokens = promptTokens + completionTokens
+      // 格②(2026-09-26):总耗时与 TTFT 各取一次独立样本、各自交叉校验;不可信样本落 0 并随行标真
+      const latency = persistableLatency(opts.sw.stop())
+      const ttft = ttftSample === null ? null : persistableLatency(ttftSample)
       void recordCall({
         apiKeyId: opts.apiKeyId,
         userId: opts.userId,
@@ -416,14 +424,19 @@ async function streamResponses(
         promptTokens,
         completionTokens,
         totalTokens,
-        latencyMs: Date.now() - opts.startTime,
+        latencyMs: latency.latencyMs,
         status: streamError ? 'error' : 'success',
         errorMessage: streamError,
-        metadata: { stream: true, protocol: 'responses' },
+        metadata: {
+          stream: true,
+          protocol: 'responses',
+          latencyTrusted: latency.latencyTrusted,
+          ...(ttft ? { ttftTrusted: ttft.latencyTrusted } : {}),
+        },
         providerCode: opts.providerCode,
         clientIp: opts.clientIp,
         httpStatus: upstreamHttpStatus ?? undefined,
-        ttftMs: firstTokenTime !== null ? firstTokenTime - opts.startTime : undefined,
+        ttftMs: ttft ? ttft.latencyMs : undefined,
       }).catch(() => {})
     }
   }
@@ -506,7 +519,8 @@ const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
 
       // 计费:调用前检查 API Key 余额
       const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
-      const startTime = Date.now()
+      // 格②(2026-09-26):原 `const startTime = Date.now()` 是墙钟 epoch,换成单调钟表
+      const sw = startStopwatch()
       const messages = responsesInputToMessages(input, instructions)
       const promptText = messages.map((m) => `${m.role}: ${m.content}`).join('\n')
 
@@ -546,7 +560,7 @@ const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
           apiKeyId: apiKey?.id,
           userId: apiKey?.userId,
           promptText,
-          startTime,
+          sw,
           providerCode: modelToProviderCode(model),
           clientIp: request.ip,
         })
@@ -562,6 +576,7 @@ const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
 
         if (!resp.ok) {
           if (apiKey) {
+            const latency = persistableLatency(sw.stop())
             void recordCall({
               apiKeyId: apiKey.id,
               userId: apiKey.userId,
@@ -571,10 +586,10 @@ const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
               promptTokens: 0,
               completionTokens: 0,
               totalTokens: 0,
-              latencyMs: Date.now() - startTime,
+              latencyMs: latency.latencyMs,
               status: 'error',
               errorMessage: `AI service unavailable (${resp.status})`,
-              metadata: { protocol: 'responses' },
+              metadata: { protocol: 'responses', latencyTrusted: latency.latencyTrusted },
               providerCode: modelToProviderCode(model),
               clientIp: request.ip,
               httpStatus: resp.status,
@@ -594,6 +609,7 @@ const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
 
         if (data.error) {
           if (apiKey) {
+            const latency = persistableLatency(sw.stop())
             void recordCall({
               apiKeyId: apiKey.id,
               userId: apiKey.userId,
@@ -603,10 +619,10 @@ const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
               promptTokens: 0,
               completionTokens: 0,
               totalTokens: 0,
-              latencyMs: Date.now() - startTime,
+              latencyMs: latency.latencyMs,
               status: 'error',
               errorMessage: data.error_message ?? 'AI service error',
-              metadata: { protocol: 'responses' },
+              metadata: { protocol: 'responses', latencyTrusted: latency.latencyTrusted },
               providerCode: modelToProviderCode(model),
               clientIp: request.ip,
               httpStatus: resp.status,
@@ -659,6 +675,7 @@ const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
 
         // 计费:调用成功,记录流水 + 扣减余额
         if (apiKey) {
+          const latency = persistableLatency(sw.stop())
           recordCall({
             apiKeyId: apiKey.id,
             userId: apiKey.userId,
@@ -668,9 +685,9 @@ const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
             promptTokens,
             completionTokens,
             totalTokens,
-            latencyMs: Date.now() - startTime,
+            latencyMs: latency.latencyMs,
             status: 'success',
-            metadata: { protocol: 'responses' },
+            metadata: { protocol: 'responses', latencyTrusted: latency.latencyTrusted },
             providerCode: modelToProviderCode(model),
             clientIp: request.ip,
             httpStatus: resp.status,
@@ -682,6 +699,7 @@ const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
         return reply.send(result)
       } catch (e) {
         if (apiKey) {
+          const latency = persistableLatency(sw.stop())
           void recordCall({
             apiKeyId: apiKey.id,
             userId: apiKey.userId,
@@ -691,10 +709,10 @@ const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
             promptTokens: 0,
             completionTokens: 0,
             totalTokens: 0,
-            latencyMs: Date.now() - startTime,
+            latencyMs: latency.latencyMs,
             status: 'error',
             errorMessage: (e as Error).message || 'AI service unavailable',
-            metadata: { protocol: 'responses' },
+            metadata: { protocol: 'responses', latencyTrusted: latency.latencyTrusted },
             providerCode: modelToProviderCode(model),
             clientIp: request.ip,
           }).catch(() => {})
