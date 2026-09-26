@@ -2,6 +2,7 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+#requires -Version 7
 # =============================================================================
 # ihui-deploy-loop.ps1 — push→自动部署的调度入口
 #
@@ -12,7 +13,11 @@
 #   ② 单次形态(兼容/手工验收): 不带 -Daemon,执行一轮后退出。
 #
 # 职责:
-#   1. 并发锁(带 PID 存活检测):避免 daemon 与手工运行重叠
+#   1. 并发锁(2026-09-26 重写判据):避免 daemon 与手工运行重叠。**不再只问"pid 在不在"**
+#      —— 那一条在 2026-09-26 早上把这台机冻了 46 分钟(锁写下时的 pid 8052 重启后被
+#      postgres.exe 复用 ⇒ `Get-Process -Id 8052` 恒真 ⇒ 每轮 return,零次部署)。
+#      现判据四条同时成立才算"仍被持有",实现唯一出口在 `deploy-lock-common.ps1`
+#      (与 ihui-deploy.ps1 共用同一份,禁止两处各写一遍 Get-Process)。
 #   2. 调用 ihui-deploy.ps1(幂等:behind=0 直接优雅退出,不部署)
 #   3. 全量输出落盘 deploy-loop.log,便于回看失败原因
 #   4. **每轮墙钟预算($RunBudgetMin,默认 45 分钟)**:超预算即 taskkill /T 整树并按
@@ -53,6 +58,17 @@ $WinDir   = Join-Path $Root 'deploy\win'
 $LockFile = Join-Path $WinDir '.deploy-loop.lock'
 $LogFile  = Join-Path $WinDir 'deploy-loop.log'
 
+# ── 并发锁判据:与 ihui-deploy.ps1 **共用同一份实现**(deploy-lock-common.ps1)。
+#    两处各写一遍 Get-Process 必然漂移,而漂移的代价就是再冻一次生产(AGENTS §12e 同型)。
+#    找不到就大声死,不得退回"只看 pid 在不在"的旧判据继续跑 —— 那等于把本票的修复
+#    变成一个静默失效的选项。$ErrorActionPreference 在本文件是 Continue,故必须显式判定。
+$LockCommon = Join-Path $PSScriptRoot 'deploy-lock-common.ps1'
+if (-not (Test-Path -LiteralPath $LockCommon)) {
+    Write-Host "FAIL  缺少并发锁判据:$LockCommon(部署环拒绝启动,不退回旧判据)"
+    exit 1
+}
+. $LockCommon
+
 # ── 日志时间戳带时区(2026-09-21 根治):生产机时钟为 UTC,裸时间曾导致人工误判
 #    「日志停更 7.5 小时」(实为 UTC)。一律带 +偏移,人眼可辨时区。
 function LogLine { param([string]$m) ("[{0}] {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz'), $m) }
@@ -92,15 +108,22 @@ if (-not $PwshExe) {
 }
 
 function Invoke-PollOnce {
-    # ---- 1) 并发锁(带 PID 存活性检测,防悬挂锁) ----
-    if (Test-Path $LockFile) {
-        $pidIn = (Get-Content $LockFile -Raw -ErrorAction SilentlyContinue).Trim()
-        $alive = $false
-        if ($pidIn -match '^\d+$') { $alive = $null -ne (Get-Process -Id ([int]$pidIn) -ErrorAction SilentlyContinue) }
-        if ($alive) { Log "跳过:检测到进行中的部署 loop(pid=$pidIn)"; return }
-        Remove-Item $LockFile -Force -ErrorAction SilentlyContinue   # 悬挂锁清理
+    # ---- 1) 并发锁(四条判据同时成立才算持有;见 deploy-lock-common.ps1) ----
+    # 旧实现在这里只有一句 `Get-Process -Id $pidIn` 的存活判断,pid 复用即恒真。
+    $lockState = Resolve-IhuiDeployLockState -Path $LockFile -OwnerKind 'loop'
+    if ($lockState.LockExists) {
+        if ($lockState.ShouldHold) {
+            # held 与 undetermined 都让路:后者是"判不出",抢锁的代价是并发构建,
+            # 而让路的代价只是一轮不部署(下一轮再判,且锁龄超绝对上限后会自行清理)。
+            Log "跳过:锁仍被持有或判不出,本轮让路 —— $(Format-IhuiDeployLockState -State $lockState)"
+            return
+        }
+        Clear-IhuiDeployLockStale -Path $LockFile -State $lockState -Logger { param($m) Log $m }
     }
-    $PID | Set-Content -Path $LockFile
+    if (-not (Write-IhuiDeployLock -Path $LockFile -OwnerKind 'loop')) {
+        Log "FAIL  并发锁写下失败($LockFile),本轮不部署(宁可漏一轮,不可并发构建)"
+        return
+    }
     try {
         # ---- 2) 调真实部署脚本(不带 -deployLatest:落后才部署,behind=0 优雅退出) ----
         Log "———— 部署轮询开始 ————"
@@ -145,6 +168,11 @@ function Invoke-PollOnce {
                     } catch { Start-Sleep -Milliseconds 300 }   # 子进程正在写:下一轮再读
                 }
                 if ($child.HasExited) { break }
+                # 心跳:判据 C4 要求持有者在长任务里持续续心跳,否则 45 分钟后锁会被
+                # 下一轮(或手工部署)判陈旧并抢占。构建一轮实测 2-3 分钟、门禁曾阻塞 20 分钟,
+                # 上限 45 分钟的推导见 deploy-lock-common.ps1 头注。函数内部按 15s 节流,
+                # 所以这里每拍(≈700ms)调用只多做一次"要不要写盘"的判断。
+                Update-IhuiDeployLockHeartbeat -Path $LockFile -OwnerKind 'loop' | Out-Null
                 if ((Get-Date) -gt $deadline) {
                     $timedOut = $true
                     Log "FAIL  本轮超墙钟预算 $RunBudgetMin 分钟,判挂死 → taskkill /T 整树(pid=$($child.Id))"
@@ -158,14 +186,21 @@ function Invoke-PollOnce {
         } catch {
             Log "Start-Process 调起子部署脚本异常($($_.Exception.Message)),回退直调"
             & $PwshExe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $WinDir 'ihui-deploy.ps1') 2>&1 |
-                ForEach-Object { Log "[deploy] $_" }
+                ForEach-Object {
+                    # 这一支是无界等待(异常兜底路径),更要保持心跳:它可能长时间只有零星
+                    # 输出行,不续心跳就会被 C4 判陈旧 ⇒ 与正常轮并发构建。
+                    Update-IhuiDeployLockHeartbeat -Path $LockFile -OwnerKind 'loop' | Out-Null
+                    Log "[deploy] $_"
+                }
         } finally {
             # §26:临时物用完必须删 —— 部署环每 60 秒一轮,不清就是每天数千个文件
             Remove-Item $runOut, $runErr -Force -ErrorAction SilentlyContinue
         }
         Log "———— 部署轮询结束(exit=$LASTEXITCODE) ————"
     } finally {
-        Remove-Item $LockFile -Force -ErrorAction SilentlyContinue
+        # 只删自己那把(pid 对得上才删)。旧写法无条件 Remove-Item 会在"上一轮的锁被判
+        # 陈旧清掉、新持有者刚写下锁"的窗口里替别人放锁 ⇒ 两个构建并发。
+        Remove-IhuiDeployLock -Path $LockFile -OwnerKind 'loop' | Out-Null
     }
 }
 
