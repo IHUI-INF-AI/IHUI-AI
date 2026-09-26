@@ -650,12 +650,18 @@
       "cleared": "已清空",
       "deleteOne": "删除该对话",
       "empty": "暂无历史记录",
+      "fallbackNotice": "服务端会话加载失败,当前显示本机历史记录",
       "msgCount": "{n} 条消息",
       "noMore": "没有更多了",
       "noResult": "未找到相关对话",
+      "pin": "置顶",
+      "pinFailed": "置顶失败,请重试",
+      "pinned": "已置顶",
       "refreshSuccess": "刷新成功",
       "searchPlaceholder": "搜索对话历史",
-      "startNew": "开始新对话"
+      "startNew": "开始新对话",
+      "unpin": "取消置顶",
+      "unpinFailed": "取消置顶失败,请重试"
     },
     "image": {
       "download": "下载",
