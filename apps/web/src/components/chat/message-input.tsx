@@ -74,6 +74,8 @@ import { answerSideQuestion } from '@/hooks/use-chat/slash-commands'
 // D38 队列语义完整交互(G-42):交互条只做展示与回调上抛,许可判定一律走 D69 的
 // queueInteractionPerms(与本文件下方 queueCtx 同一对象),动作落 store 的四个新 action。
 import { QueueInteractionBar } from '@/components/chat/queue-interaction-bar'
+// V3 #69(2026-09-27):输入框上方的会话窗口额度实时进度条(budget 帧驱动,与压缩状态条同族同位)
+import { ContextBudgetBar } from '@/components/chat/context-budget-bar'
 import { queueInteractionPerms } from '@ihui/shared/chat/input-notices'
 import type { FollowUpMode } from '@ihui/shared/chat/queue-interactions'
 import { useAiPanelStore } from '@/stores/ai-panel'
@@ -1069,6 +1071,8 @@ export function MessageInput({
           onModeChange={(mode: FollowUpMode) => useChatStore.getState().setFollowUpQueueMode(mode)}
           onInterruptAndRun={handleInterruptAndRun}
         />
+        {/* V3 #69:额度实时进度条(warning 琥珀 / critical 红);未收到 budget 帧时整条不渲染不占位 */}
+        <ContextBudgetBar />
         {/* D68 粘贴引用有效性预览条(可见、可关闭;无可预览引用时不渲染不占位) */}
         <UnifiedPasteReferencePreview
           previews={pastedRefPreviews}

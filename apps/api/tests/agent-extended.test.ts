@@ -29,6 +29,7 @@ const {
   mockInsertReturning,
   mockUpdateReturning,
   mockDeleteWhere,
+  mockDeleteReturning,
 } = vi.hoisted(() => ({
   mockAuthenticate: vi.fn(),
   mockCheckPermission: vi.fn().mockResolvedValue(false),
@@ -36,7 +37,9 @@ const {
   mockSelectResult: vi.fn().mockResolvedValue([]),
   mockInsertReturning: vi.fn().mockResolvedValue([{ id: 'mock-id' }]),
   mockUpdateReturning: vi.fn().mockResolvedValue([{ id: 'mock-id' }]),
-  mockDeleteWhere: vi.fn().mockResolvedValue(undefined),
+  mockDeleteReturning: vi.fn().mockResolvedValue([{ id: 'mock-id' }]),
+  // delete 链与真 drizzle 同形:db.delete(T).where(cond).returning(...) → 库确认的行数组
+  mockDeleteWhere: vi.fn(() => ({ returning: mockDeleteReturning })),
 }))
 
 vi.mock('../src/plugins/auth.js', () => ({
@@ -121,7 +124,7 @@ describe('agent-extended routes — 路由层 mock 测试', () => {
     mockSelectResult.mockResolvedValue([])
     mockInsertReturning.mockResolvedValue([{ id: 'mock-id' }])
     mockUpdateReturning.mockResolvedValue([{ id: 'mock-id' }])
-    mockDeleteWhere.mockResolvedValue(undefined)
+    mockDeleteReturning.mockResolvedValue([{ id: 'mock-id' }])
     mockAuthenticate.mockReset()
     mockAdmin()
     mockCheckPermission.mockResolvedValue(false)
@@ -177,7 +180,9 @@ describe('agent-extended routes — 路由层 mock 测试', () => {
     })
 
     it('DELETE /need-task/:id 删除返回 200 + deleted:true', async () => {
-      mockDbExecute.mockResolvedValueOnce([{ id: '1', user_id: ADMIN_USER }])
+      mockDbExecute
+        .mockResolvedValueOnce([{ id: '1', user_id: ADMIN_USER }])
+        .mockResolvedValueOnce([{ id: '1' }])
       const res = await server.inject({ method: 'DELETE', url: `${PREFIX}/need-task/1` })
       expect(res.statusCode).toBe(200)
       const body = res.json()
@@ -193,7 +198,9 @@ describe('agent-extended routes — 路由层 mock 测试', () => {
   describe('upload 软删除', () => {
     it('DELETE /upload/:id 软删除调用 db.execute(UPDATE status=0)而非 db.delete', async () => {
       mockDbExecute.mockClear()
-      mockDbExecute.mockResolvedValueOnce([{ id: '1', user_id: ADMIN_USER }])
+      mockDbExecute
+        .mockResolvedValueOnce([{ id: '1', user_id: ADMIN_USER }])
+        .mockResolvedValueOnce([{ id: '1' }])
       const res = await server.inject({ method: 'DELETE', url: `${PREFIX}/upload/1` })
       expect(res.statusCode).toBe(200)
       const body = res.json()

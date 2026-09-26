@@ -10408,6 +10408,15 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "filePreviewEmpty": "文件没有可预览的数据行",
+    "filePreviewTypeMismatch": "文件内容与 {ext} 格式不符",
+    "filePreviewCorrupt": "文件无法解析，可能已损坏",
+    "budgetBar": {
+      "title": "今日 AI 额度",
+      "critical": "即将用尽",
+      "tokens": "已用 {used} / {limit}",
+      "resetAt": "{time} 重置"
+    },
     "voiceNote": {
       "title": "语音笔记",
       "phase": {
@@ -15328,6 +15337,32 @@
       "unified": "合并"
     },
     "diffViewer": {
+      "copyMergedFailed": "复制失败",
+      "copyMergedToast": "合并结果已复制",
+      "copyMerged": "复制合并结果",
+      "mergedResult": "合并结果",
+      "unresolvedConflicts": "还有 {count} 处未选择来源,暂不产出合并结果",
+      "theirsOnlyCount": "{count} 处仅传入侧改动",
+      "oursOnlyCount": "{count} 处仅当前侧改动",
+      "conflictCount": "{count} 处冲突",
+      "sideEmpty": "(这一侧没有内容)",
+      "conflictTitle": "需人工选择来源",
+      "autoTaken": "自动取",
+      "useBoth": "双方保留",
+      "useTheirs": "采用传入",
+      "useOurs": "采用当前",
+      "bothSameLabel": "两侧一致",
+      "theirsLabel": "传入版本",
+      "oursLabel": "当前版本",
+      "baseLabel": "共同祖先",
+      "threeWayNoConflictSource": "未处于冲突态:祖先=HEAD,当前=工作区,传入=祖先",
+      "threeWayFromStages": "取自冲突索引(stage 1/2/3)",
+      "threeWayView": "三方合并",
+      "collapseContext": "收起上下文",
+      "foldedLines": "已折叠 {count} 行未改动内容",
+      "viewMode": "视图模式",
+      "newVersion": "新版本",
+      "oldVersion": "旧版本",
       "addPct": "{pct}% 新增",
       "changeBlocks": "{count} 个变更块",
       "selectFile": "选择文件",

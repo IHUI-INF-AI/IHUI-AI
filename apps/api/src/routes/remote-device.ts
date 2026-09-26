@@ -154,8 +154,11 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const { id } = idParam.parse(request.params)
-    await db.delete(remoteDevices).where(eq(remoteDevices.id, id))
-    return reply.send(success({ deleted: true }))
+    const removed = await db
+      .delete(remoteDevices)
+      .where(eq(remoteDevices.id, id))
+      .returning({ id: remoteDevices.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   server.post('/remote-devices/:id/heartbeat', async (request, reply) => {
@@ -259,8 +262,11 @@ export const remoteDeviceRoutes: FastifyPluginAsync = async (server) => {
     await requireAdmin(request, reply)
     if (reply.sent) return
     const { taskId } = taskIdParam.parse(request.params)
-    await db.delete(remoteDeviceTasks).where(eq(remoteDeviceTasks.id, taskId))
-    return reply.send(success({ deleted: true }))
+    const removed = await db
+      .delete(remoteDeviceTasks)
+      .where(eq(remoteDeviceTasks.id, taskId))
+      .returning({ id: remoteDeviceTasks.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   server.post('/remote-device-tasks/:taskId/retry', async (request, reply) => {

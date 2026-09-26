@@ -109,7 +109,7 @@ export const eduRoutes: FastifyPluginAsync = async (server) => {
       if (!row) {
         return reply.status(404).send(error(404, '成员不存在'))
       }
-      return reply.send(success({ deleted: true, id: row.id }))
+      return reply.send(success({ deleted: Boolean(row), id: row.id }))
     },
   )
   server.post(

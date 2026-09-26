@@ -10,6 +10,7 @@ import type { DiffFileStatus, DiffFile } from '@ihui/types'
 import { getFileIcon, getFileColor } from './file-icons'
 import type { DiffFilterType } from './diff-stats-bar'
 import { cn } from '@/lib/utils'
+import { useDiffViewModeStore } from '@/lib/diff-view-mode'
 import { Tooltip } from '@/components/feedback'
 import { useClipboard } from '@/hooks/use-clipboard'
 import { useToast } from '@/hooks/use-toast'
@@ -297,7 +298,8 @@ function FileRow({
   const t = useTranslations('ide')
   const clipboard = useClipboard()
   const { success } = useToast()
-  const setDiffViewMode = useIDEWorkspace((s) => s.setDiffViewMode)
+  // V3 #66:右键「打开方式」写唯一真相源(@/lib/diff-view-mode),与 chat 内联 diff 同一份
+  const setDiffViewMode = useDiffViewModeStore((s) => s.setMode)
   const setActiveTopTab = useIDEWorkspace((s) => s.setActiveTopTab)
   const openFile = useIDEWorkspace((s) => s.openFile)
   const fetchDiffFiles = useIDEWorkspace((s) => s.fetchDiffFiles)

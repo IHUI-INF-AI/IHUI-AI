@@ -95,8 +95,11 @@ const authTokensRoutes: FastifyPluginAsync = async (server) => {
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
     const existing = await db.select().from(userSk).where(eq(userSk.id, p.data.id)).limit(1)
     if (existing.length === 0) return reply.status(404).send(error(404, '记录不存在'))
-    await db.delete(userSk).where(eq(userSk.id, p.data.id))
-    return reply.send(success({ id: p.data.id, deleted: true }))
+    const removed = await db
+      .delete(userSk)
+      .where(eq(userSk.id, p.data.id))
+      .returning({ id: userSk.id })
+    return reply.send(success({ id: p.data.id, deleted: removed.length > 0 }))
   })
 }
 

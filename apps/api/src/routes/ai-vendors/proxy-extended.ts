@@ -723,8 +723,8 @@ export const extendedVendorRoutes: FastifyPluginAsync = async (server) => {
       if (!timbre) return reply.status(404).send(error(404, '音色不存在'))
       if (timbre.userId !== request.userId)
         return reply.status(403).send(error(403, '无权删除该音色'))
-      timbreStore.delete(timbreId)
-      return reply.send(success({ timbreId, deleted: true }))
+      const timbreRemoved = timbreStore.delete(timbreId)
+      return reply.send(success({ timbreId, deleted: timbreRemoved }))
     },
   )
 
@@ -906,8 +906,8 @@ export const extendedVendorRoutes: FastifyPluginAsync = async (server) => {
       if (!record) return reply.status(404).send(error(404, '记录不存在'))
       if (record.userId !== request.userId)
         return reply.status(403).send(error(403, '无权删除该记录'))
-      aigcStore.delete(recordId)
-      return reply.send(success({ recordId, deleted: true }))
+      const recordRemoved = aigcStore.delete(recordId)
+      return reply.send(success({ recordId, deleted: recordRemoved }))
     },
   )
 

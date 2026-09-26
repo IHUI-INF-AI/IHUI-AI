@@ -143,7 +143,7 @@ export const teamMemoryRoutes: FastifyPluginAsync = async (app) => {
     if (!ok) {
       return reply.status(404).send(error(404, '记忆不存在'))
     }
-    return reply.send(success({ deleted: true }))
+    return reply.send(success({ deleted: ok }))
   })
 }
 

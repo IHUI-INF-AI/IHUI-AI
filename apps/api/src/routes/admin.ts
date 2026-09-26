@@ -633,8 +633,8 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
     }
     const existing = await findProjectByIdWithOwner(paramParsed.data.id)
     if (!existing) return reply.status(404).send(error(404, '项目不存在'))
-    await deleteProjectAdmin(paramParsed.data.id)
-    return reply.send(success({ id: paramParsed.data.id, deleted: true }))
+    const removed = await deleteProjectAdmin(paramParsed.data.id)
+    return reply.send(success({ id: paramParsed.data.id, deleted: removed }))
   })
 
   // ============================================================================

@@ -362,7 +362,7 @@ const automationsRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(userAutomations.id, parsed.data.id), eq(userAutomations.userId, userId)))
       .returning({ id: userAutomations.id })
     if (deleted.length === 0) return reply.status(404).send(error(404, '自动化不存在'))
-    return reply.send(success({ id: parsed.data.id, deleted: true }))
+    return reply.send(success({ id: parsed.data.id, deleted: deleted.length > 0 }))
   })
 
   // POST /:id/run-now — 立即执行一次(复用调度器执行函数)

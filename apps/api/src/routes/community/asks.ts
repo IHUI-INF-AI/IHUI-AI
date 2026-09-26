@@ -257,8 +257,8 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
     if (existing.userId !== request.userId) {
       return reply.status(403).send(error(403, '只能删除自己的问题'))
     }
-    await deleteAsk(parsed.data.id, request.userId!)
-    return reply.send(success({ id: parsed.data.id, deleted: true }))
+    const removed = await deleteAsk(parsed.data.id, request.userId!)
+    return reply.send(success({ id: parsed.data.id, deleted: removed }))
   })
 
   // GET /asks/:id/answers - 回答列表
@@ -1047,12 +1047,15 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
     if (existing.userId !== userId) {
       return reply.status(403).send(error(403, '只能删除自己的评论'))
     }
-    await db.delete(circlePostComments).where(eq(circlePostComments.id, commentId))
+    const removed = await db
+      .delete(circlePostComments)
+      .where(eq(circlePostComments.id, commentId))
+      .returning({ id: circlePostComments.id })
     await db
       .update(circlePosts)
       .set({ replyCount: sql`GREATEST(${circlePosts.replyCount} - 1, 0)`, updatedAt: new Date() })
       .where(eq(circlePosts.id, existing.postId))
-    return reply.send(success({ id: commentId, deleted: true }))
+    return reply.send(success({ id: commentId, deleted: removed.length > 0 }))
   })
 }
 export default asksRoutes

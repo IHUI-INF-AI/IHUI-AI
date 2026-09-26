@@ -1430,7 +1430,15 @@ export interface RetryScheduledEvent {
 /**
  * D77 对话流业务表单请求帧(2026-09-25 立,G-106)。
  *
- * SSE 事件格式(与 packages/shared/src/sse/contract.ts 的 form_request 成员逐字段同形):
+ * ⚠️ V3 #63 现读结论(2026-09-27):本帧**当前无任何后端生产点** ——
+ *   `apps/api/src` 与 `apps/ai-service/app` 全量 grep `form_request` 均 0 命中,
+ *   `packages/shared/src/sse/contract.ts` 也未登记 form_request 成员(旧注释声称
+ *   "与 contract.ts 逐字段同形"不实,已就地更正)。本解析分支保留的唯一理由是
+ *   D77 在飞的对话流宿主(business-form-section / stores/business-forms)以
+ *   `onFormRequest` 为装车落点;契约登记 + 生产者 + form_response 接收端补齐归
+ *   D77/#63 后续票,**在生产点落地前,不得让任何端把业务逻辑挂在这条恒不命中的帧上**。
+ *
+ * SSE 事件格式(目标形态,尚未生产):
  *   event: form_request
  *   data: {"type":"form_request","requestId":"frm-1","sessionId":"s-1",
  *          "kind":"email","fields":[{"key":"to","type":"email","required":true}],
@@ -2971,7 +2979,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
        * 三态分档下发提醒帧(80%~95% warning / 95%~100% critical,均放行不中断流):
        *   event: budget → data: { type:'budget', level:'warning'|'critical', percent?,
        *                            usedTokens?, limitTokens?, tier?, resetAt? }
-       * 前端 onBudget 据此 toast 提示用量进度。 */
+       * 前端消费(V3 #69 起):onBudget → 写 budget-state 落点渲染输入框上方进度条 + toast 提示。 */
       const tryParseBudget = (line: string): void => {
         if (!hasBudget) return
         if (!line || line.startsWith(':')) return

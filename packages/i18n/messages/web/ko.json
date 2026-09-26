@@ -10408,6 +10408,15 @@
     "expiryDate": "만료 날짜"
   },
   "chat": {
+    "filePreviewEmpty": "미리 볼 수 있는 데이터 행이 없습니다.",
+    "filePreviewTypeMismatch": "파일 내용이 {ext} 형식과 일치하지 않습니다.",
+    "filePreviewCorrupt": "파일을 해석할 수 없습니다. 손상되었을 수 있습니다.",
+    "budgetBar": {
+      "title": "오늘 AI 사용량",
+      "critical": "곧 한도 도달",
+      "tokens": "{used} / {limit} 사용",
+      "resetAt": "{time}에 초기화"
+    },
     "voiceNote": {
       "title": "음성 메모",
       "phase": {
@@ -15328,6 +15337,32 @@
       "unified": "통합"
     },
     "diffViewer": {
+      "copyMergedFailed": "복사에 실패했습니다",
+      "copyMergedToast": "병합 결과를 복사했습니다",
+      "copyMerged": "병합 결과 복사",
+      "mergedResult": "병합 결과",
+      "unresolvedConflicts": "{count}개 블록의 출처가 미선택이므로 병합 결과를 만들지 않습니다",
+      "theirsOnlyCount": "수신 쪽만 변경 {count}건",
+      "oursOnlyCount": "현재 쪽만 변경 {count}건",
+      "conflictCount": "충돌 {count}건",
+      "sideEmpty": "(이쪽에 내용 없음)",
+      "conflictTitle": "출처 선택이 필요합니다",
+      "autoTaken": "자동 채택:",
+      "useBoth": "둘 다 유지",
+      "useTheirs": "수신 사용",
+      "useOurs": "현재 사용",
+      "bothSameLabel": "양쪽 동일",
+      "theirsLabel": "수신",
+      "oursLabel": "현재",
+      "baseLabel": "공통 조상",
+      "threeWayNoConflictSource": "충돌 상태 아님: 공통 조상=HEAD, 현재=작업 트리, 수신=공통 조상",
+      "threeWayFromStages": "충돌 인덱스에서(stage 1/2/3)",
+      "threeWayView": "3-way 병합",
+      "collapseContext": "컨텍스트 접기",
+      "foldedLines": "변경 없는 {count}줄 접힘",
+      "viewMode": "보기 모드",
+      "newVersion": "새 버전",
+      "oldVersion": "이전 버전",
       "addPct": "{pct}% 추가",
       "changeBlocks": "{count} 개 변경 블록",
       "selectFile": "파일 선택",
