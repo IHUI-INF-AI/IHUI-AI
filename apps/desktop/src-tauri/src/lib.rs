@@ -12,7 +12,7 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use std::io::Cursor;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, Instant};
 use base64::Engine;
@@ -1752,6 +1752,400 @@ async fn clipboard_set(
     Ok(OkResult { ok: true })
 }
 
+// ================== 深链就绪闸门(2026-09-26 立 · A10C-1「未就绪不丢,就绪后补投」)==================
+//
+// 立因(冷启动必丢登录码,用户表现"从浏览器/IM 点链接回 App,登录转圈或无反应"):
+// 外部协议 `ihui://sso?sso_code=…` 抵达 Rust 的时刻,早于 webview 里
+// `listen('desktop-deep-link')` 注册的时刻 —— Tauri 先按 tauri.conf.json 建好 main 窗口,
+// 再派发 on_open_url,而前端要等页面加载 + hydration + 动态 chunk 才订阅。
+// 旧实现是 `if let Some(window) = … { emit(…) }`(无 else)且只取 `urls().first()`,于是:
+//   ① 窗口不存在 ⇒ 整条回调静默蒸发,连一行日志都没有(违 §5e「失败必须响」同一条禁令);
+//   ② 窗口在但渲染端还没订阅 ⇒ emit 返回 Ok 而无人接收,同样蒸发(emit 成功不等于送达);
+//   ③ 一批多条 URL ⇒ 第 2 条起无人认领,既不投递也不计数。
+// 机制(三条硬要求对应下面三处):未投递出去的 URL 一律进**有上限、按 URL 去重**的 pending
+// 队列并打日志;渲染端注册完监听后调 `take_pending_deep_links` 一次性取回(取即清 ⇒ 同一个
+// code 不会被换两次 token),这次调用同时把闸门标成"已就绪",此后抵达才走直投;
+// 溢出丢弃必须 warn + 计数,目标窗口销毁必须清账(不得留跨会话残留把旧码投给下一次冷启动)。
+// 与 `chain: continuous` 的分界:队列住在 Rust 侧且**上限/去重/丢弃/清账四处都喊**,
+// 不是往实时链里塞"看不见补发"—— 那正是 scripts/check-desktop-event-wiring.mjs 规则 E1 拦的形态。
+
+/// 深链的唯一投递目标窗口 label。take 命令按它绑定,别的窗口取不走(防串号)。
+const DEEP_LINK_TARGET_LABEL: &str = "main";
+/// 事件名 —— 与 use-desktop.ts 的 `listen('desktop-deep-link')` 逐字同名,守门 G 组按字面量对账。
+const DEEP_LINK_EVENT: &str = "desktop-deep-link";
+/// 前端取回积压的命令名 —— 与 `invoke_handler!` 注册项、use-desktop.ts 的 `invoke(...)` 逐字同名。
+const DEEP_LINK_TAKE_COMMAND: &str = "take_pending_deep_links";
+/// pending 队列上限。溢出丢最旧并计数:SSO code 是一次性凭据,留着的最有用的是最新那条。
+const DEEP_LINK_PENDING_CAP: usize = 8;
+/// 进日志前必须掩掉取值的查询键 —— 深链本体就是一次性登录凭据,不得原样落进日志(§5e 同族要求)。
+const DEEP_LINK_SENSITIVE_KEYS: [&str; 4] = ["sso_code", "auth_code", "code", "token"];
+
+/// 日志形态的 URL:结构保留、敏感参数的**取值**换成 `***`。
+/// 只掩值不掩键,是因为排查时"带没带 code、还带了哪些参数"正是需要的信息。
+fn deep_link_log_form(url: &str) -> String {
+    let (head, query) = match url.split_once('?') {
+        Some((h, q)) => (h, Some(q)),
+        None => (url, None),
+    };
+    let Some(query) = query else {
+        return head.to_string();
+    };
+    let masked: Vec<String> = query
+        .split('&')
+        .map(|pair| {
+            let (key, value) = pair.split_once('=').unwrap_or((pair, ""));
+            if value.is_empty() || !DEEP_LINK_SENSITIVE_KEYS.contains(&key.to_ascii_lowercase().as_str())
+            {
+                pair.to_string()
+            } else {
+                format!("{}=***", key)
+            }
+        })
+        .collect();
+    format!("{}?{}", head, masked.join("&"))
+}
+
+/// 一条 URL 抵达时的去向 —— 刻意只有两个出口,"什么都不做"不是一种出口。
+#[derive(Debug, PartialEq, Eq)]
+enum DeepLinkDelivery {
+    /// 渲染端已就绪:直接 emit
+    Emit(String),
+    /// 窗口不在 / 渲染端未就绪 / 直投失败回填:暂存等前端取回
+    Queue(String),
+}
+
+/// 纯函数:由闸门状态决定去向。契约是**输入 N 条 ⇒ 输出必 N 条**(既不丢也不复制)。
+/// 变异对照:把"未就绪 ⇒ Queue"改回"未就绪 ⇒ 丢弃",`未就绪时每条都必须入队` 那条用例即红 ——
+/// 判据有牙的证明落在这里,而不是"运行时恰好没丢"。
+fn decide_deep_link_deliveries(target_ready: bool, urls: &[String]) -> Vec<DeepLinkDelivery> {
+    urls
+        .iter()
+        .map(|url| {
+            if target_ready {
+                DeepLinkDelivery::Emit(url.clone())
+            } else {
+                DeepLinkDelivery::Queue(url.clone())
+            }
+        })
+        .collect()
+}
+
+/// 有上限、按 URL 去重的待补投队列。两个计数器都存在的意义:丢弃与去重都是"少做了事",
+/// 不数出来的话,下游读到的队列长度就无法区分"没有新链接"与"链接被扔了"。
+#[derive(Default)]
+struct DeepLinkPending {
+    urls: VecDeque<String>,
+    /// 因重复(已在队里)被跳过的条数
+    deduped: usize,
+    /// 因溢出被丢弃的条数 —— 静默变短等于伪造完整性
+    dropped: usize,
+}
+
+impl DeepLinkPending {
+    /// 入队:同 URL 去重、超上限丢最旧。返回 true 表示这次真的收下了。
+    fn push(&mut self, url: &str) -> bool {
+        if self.urls.iter().any(|existing| existing == url) {
+            self.deduped += 1;
+            log::info!("[deep-link] 同一 URL 已在 pending 队列中,跳过重复入队(累计去重 {} 次)", self.deduped);
+            return false;
+        }
+        self.urls.push_back(url.to_string());
+        while self.urls.len() > DEEP_LINK_PENDING_CAP {
+            // 只可能弹出刚入队之外的那一条(队首 = 最旧),不存在"把刚收到的丢掉"
+            let lost = self.urls.pop_front().unwrap_or_default();
+            self.dropped += 1;
+            log::warn!(
+                "[deep-link] pending 超上限 {} ⇒ 丢弃最旧一条(累计丢弃 {} 条): {}",
+                DEEP_LINK_PENDING_CAP,
+                self.dropped,
+                deep_link_log_form(&lost)
+            );
+        }
+        true
+    }
+
+    /// 取回并清空。取即清是幂等的来源:同一条 URL 结构上不可能被补投两次。
+    fn take_all(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.urls).into_iter().collect()
+    }
+
+    /// 清账(目标窗口销毁时调用),返回清掉的条数。
+    fn clear(&mut self) -> usize {
+        let n = self.urls.len();
+        self.urls.clear();
+        n
+    }
+}
+
+#[derive(Default)]
+struct DeepLinkGateState {
+    /// 渲染端是否已注册监听 —— 由 take_pending_deep_links 置真,目标窗口销毁时复位。
+    /// 在第一次 take 之前,任何抵达的 URL 都只进队列,不做"发了就当作收到了"的假设。
+    target_ready: bool,
+    pending: DeepLinkPending,
+}
+
+static DEEP_LINK_GATE: LazyLock<Mutex<DeepLinkGateState>> =
+    LazyLock::new(|| Mutex::new(DeepLinkGateState::default()));
+
+/// 取闸门。投递路径上不得因锁中毒而 panic —— 那会把"这一次抵达"变成真的丢掉,
+/// 正是本机制要修的那一型;中毒后继续用同一份内容,并把中毒本身喊出来。
+fn deep_link_gate() -> std::sync::MutexGuard<'static, DeepLinkGateState> {
+    match DEEP_LINK_GATE.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            log::warn!("[deep-link] 闸门锁中毒(前一持有者 panic),仍取回其内容继续投递");
+            poisoned.into_inner()
+        }
+    }
+}
+
+/// on_open_url 的唯一投递入口:逐条按闸门状态决定去向。绝不只取 first,绝不静默返回。
+fn dispatch_deep_links(app: &tauri::AppHandle, urls: &[String]) {
+    if urls.is_empty() {
+        log::warn!("[deep-link] on_open_url 抵达但 URL 列表为空 —— 无内容可投递,留这一行而不是静默返回");
+        return;
+    }
+    if urls.len() > 1 {
+        log::info!(
+            "[deep-link] 一次抵达 {} 条 URL,逐条走闸门(旧实现只取 first,其余静默丢弃)",
+            urls.len()
+        );
+    }
+
+    let window = app.get_webview_window(DEEP_LINK_TARGET_LABEL);
+    // 先只读判据、马上放锁:emit 会同步派发 IPC,若在前端回调里再 invoke take,
+    // 持锁跨 emit 就是一次自死锁(std Mutex 不可重入)。
+    let target_ready = { deep_link_gate().target_ready && window.is_some() };
+    let block_reason = match (window.is_some(), target_ready) {
+        (false, _) => Some("main 窗口尚未创建"),
+        (true, false) => Some("渲染端尚未注册监听(冷启动窗口期)"),
+        (true, true) => None,
+    };
+
+    let mut emitted = 0usize;
+    let mut queued = 0usize;
+    let mut deduped = 0usize;
+    for delivery in decide_deep_link_deliveries(target_ready, urls) {
+        match delivery {
+            DeepLinkDelivery::Emit(url) => {
+                let Some(w) = window.as_ref() else {
+                    // 结构上不可达(target_ready 已含 window.is_some()),仍转入队而不是 panic
+                    let mut gate = deep_link_gate();
+                    if gate.pending.push(&url) {
+                        queued += 1;
+                    }
+                    continue;
+                };
+                match w.emit(DEEP_LINK_EVENT, &url) {
+                    Ok(_) => emitted += 1,
+                    Err(e) => {
+                        log::warn!(
+                            "[deep-link] emit 失败 ⇒ 回填 pending 等前端取回(不丢弃): {} —— {}",
+                            deep_link_log_form(&url),
+                            e
+                        );
+                        let mut gate = deep_link_gate();
+                        if gate.pending.push(&url) {
+                            queued += 1;
+                        } else {
+                            deduped += 1;
+                        }
+                    }
+                }
+            }
+            DeepLinkDelivery::Queue(url) => {
+                log::warn!(
+                    "[deep-link] {} ⇒ 暂存待补投(未就绪不丢,前端就绪后经 {} 取回): {}",
+                    block_reason.unwrap_or("投递条件不成立"),
+                    DEEP_LINK_TAKE_COMMAND,
+                    deep_link_log_form(&url)
+                );
+                let mut gate = deep_link_gate();
+                if gate.pending.push(&url) {
+                    queued += 1;
+                } else {
+                    deduped += 1;
+                }
+            }
+        }
+    }
+
+    let pending_now = deep_link_gate().pending.urls.len();
+    log::info!(
+        "[deep-link] 本次 {} 条:直投 {} / 入队 {} / 重复跳过 {} / 队列现有 {}",
+        urls.len(),
+        emitted,
+        queued,
+        deduped,
+        pending_now
+    );
+
+    // 唤起动作与投递解耦:即便全部进了 pending,窗口该露脸还是要露脸(用户点了链接就该看到 App)
+    if let Some(w) = window {
+        let _ = w.show();
+        let _ = w.set_focus();
+    }
+}
+
+/// 前端在 `listen('desktop-deep-link')` 注册成功之后立刻调用:一次性取回积压并清账,
+/// 同时把闸门标为"已就绪"(此后抵达才允许直投)。
+/// 语义:①**取即清** ⇒ 同一 URL 结构上不会被补投两次(第二次取回为空);
+/// ②按 label 绑定 ⇒ 非目标窗口(admin)一律空手而归,不会把别人的登录码取走。
+#[tauri::command]
+fn take_pending_deep_links(window: tauri::WebviewWindow) -> Vec<String> {
+    let mut gate = deep_link_gate();
+    if window.label() != DEEP_LINK_TARGET_LABEL {
+        log::warn!(
+            "[deep-link] 窗口 {} 试图取回目标窗口 {} 的深链积压 —— 已拒绝(防投错窗口)",
+            window.label(),
+            DEEP_LINK_TARGET_LABEL
+        );
+        return Vec::new();
+    }
+    let first_take = !gate.target_ready;
+    gate.target_ready = true;
+    let backlog = gate.pending.take_all();
+    log::info!(
+        "[deep-link] 渲染端就绪(首次取回: {}) —— 补投 {} 条,队列已清空",
+        first_take,
+        backlog.len()
+    );
+    backlog
+}
+
+/// 目标窗口销毁 ⇒ 闸门清账并复位就绪标记。
+/// 不清的后果就是本机制立项时的那一型:残留的 sso_code 活到下一次冷启动,
+/// 被投给"另一次会话的渲染端"(凭据串到别人的会话里)。
+fn reset_deep_link_gate_on_destroy(label: &str) {
+    if label != DEEP_LINK_TARGET_LABEL {
+        return;
+    }
+    let mut gate = deep_link_gate();
+    let cleared = gate.pending.clear();
+    gate.target_ready = false;
+    if cleared > 0 {
+        log::warn!(
+            "[deep-link] {} 窗口销毁:清掉 {} 条未消费的深链积压(不留跨会话残留),就绪标记已复位",
+            DEEP_LINK_TARGET_LABEL,
+            cleared
+        );
+    }
+}
+
+#[cfg(test)]
+mod deep_link_gate_tests {
+    use super::{
+        decide_deep_link_deliveries, deep_link_log_form, DeepLinkDelivery, DeepLinkPending,
+        DEEP_LINK_PENDING_CAP,
+    };
+
+    fn urls(n: usize) -> Vec<String> {
+        (0..n).map(|i| format!("ihui://sso?sso_code=c{}", i)).collect()
+    }
+
+    /// 核心不变量:决策函数不得让任何一条 URL 蒸发 —— 输入 N 条 ⇒ 输出 N 条去向。
+    /// 变异对照:把"未就绪 ⇒ Queue"改回"未就绪 ⇒ 丢弃",下面三条用例立刻红(0 条去向)。
+    #[test]
+    fn 未就绪时每条都必须有去向且一律入队() {
+        for n in 1..=4usize {
+            let got = decide_deep_link_deliveries(false, &urls(n));
+            assert_eq!(got.len(), n, "{} 条输入必须产出 {} 条去向,少一条就是静默丢弃", n, n);
+            assert!(
+                got.iter().all(|d| matches!(d, DeepLinkDelivery::Queue(_))),
+                "未就绪时不允许出现直投: {:?}",
+                got
+            );
+        }
+    }
+
+    #[test]
+    fn 就绪时每条都走直投且条数守恒() {
+        let got = decide_deep_link_deliveries(true, &urls(3));
+        assert_eq!(got.len(), 3);
+        assert!(got
+            .iter()
+            .all(|d| matches!(d, DeepLinkDelivery::Emit(_))));
+    }
+
+    #[test]
+    fn 空批次不伪造去向() {
+        assert!(decide_deep_link_deliveries(false, &[]).is_empty());
+    }
+
+    #[test]
+    fn 入队顺序保持原始到达顺序() {
+        let mut q = DeepLinkPending::default();
+        for u in urls(3) {
+            assert!(q.push(&u));
+        }
+        assert_eq!(q.take_all(), urls(3));
+    }
+
+    /// 取即清 = 补投幂等的来源:同一批积压不可能被前端取到第二次
+    /// (否则同一个一次性 sso_code 会被拿去换两次 token)。
+    #[test]
+    fn 取回即清空_第二次取回必须为空() {
+        let mut q = DeepLinkPending::default();
+        q.push("ihui://sso?sso_code=only");
+        assert_eq!(q.take_all(), vec!["ihui://sso?sso_code=only".to_string()]);
+        assert!(q.take_all().is_empty(), "取回后仍留条目 ⇒ 补投会重复消费同一个 code");
+    }
+
+    #[test]
+    fn 同一链接重复入队只留一份并计数() {
+        let mut q = DeepLinkPending::default();
+        assert!(q.push("ihui://sso?sso_code=dup"));
+        assert!(!q.push("ihui://sso?sso_code=dup"), "重复入队必须返回 false");
+        assert_eq!(q.urls.len(), 1);
+        assert_eq!(q.deduped, 1, "去重必须计数,否则队列长度读不出'少了'");
+    }
+
+    /// 溢出必须"丢最旧 + 计数 + 不静默":丢弃计数是这条路径唯一的可见出口。
+    #[test]
+    fn 超上限丢最旧并计数_保留的是最新几条() {
+        let mut q = DeepLinkPending::default();
+        for u in urls(DEEP_LINK_PENDING_CAP + 2) {
+            q.push(&u);
+        }
+        assert_eq!(q.urls.len(), DEEP_LINK_PENDING_CAP);
+        assert_eq!(q.dropped, 2, "溢出丢弃必须计数(累计 2 条)");
+        // 丢的是最旧两条(c0、c1),队首应为 c2
+        let kept = q.take_all();
+        assert_eq!(kept.first().map(|s| s.as_str()), Some("ihui://sso?sso_code=c2"));
+        assert_eq!(kept.last().map(|s| s.as_str()), Some("ihui://sso?sso_code=c9"));
+    }
+
+    #[test]
+    fn 清账返回被清条数且不留残留() {
+        let mut q = DeepLinkPending::default();
+        q.push("ihui://sso?sso_code=a");
+        q.push("ihui://sso?sso_code=b");
+        assert_eq!(q.clear(), 2);
+        assert_eq!(q.clear(), 0, "已空的队列再清不得报数,否则'清账'读起来像一直在丢");
+        assert!(q.take_all().is_empty());
+    }
+
+    /// 深链本体就是一次性登录凭据:日志只留结构,掩掉敏感参数的取值(键名保留以便排查)。
+    #[test]
+    fn 日志形态掩掉凭据取值但保留结构与键名() {
+        assert_eq!(
+            deep_link_log_form("ihui://sso?sso_code=secret123&from=im"),
+            "ihui://sso?sso_code=***&from=im"
+        );
+        assert_eq!(deep_link_log_form("ihui://sso/callback"), "ihui://sso/callback");
+        assert_eq!(
+            deep_link_log_form("ihui://oauth?AUTH_CODE=abc"),
+            "ihui://oauth?AUTH_CODE=***",
+            "大小写不同的敏感键同样要掩"
+        );
+        assert!(
+            !deep_link_log_form("ihui://sso?sso_code=secret123").contains("secret123"),
+            "掩完不得残留原取值"
+        );
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // 2026-09-02 修复:显式固定进程级 AppUserModelID,使 Windows 通知区(系统托盘)
@@ -1896,6 +2290,9 @@ pub fn run() {
                     let app = window.app_handle().clone();
                     let _ = save_window_state(Some(label.clone()), app);
                 }
+                // 2026-09-26 A10C-1:深链闸门的目标窗口销毁 ⇒ 清账 + 复位就绪标记,
+                // 否则积压的 sso_code 会活到下一次冷启动、被投给另一次会话的渲染端。
+                reset_deep_link_gate_on_destroy(&label);
             }
         })
         .setup(|app| {
@@ -1919,17 +2316,14 @@ pub fn run() {
             app.deep_link().on_open_url({
                 let app = app.handle().clone();
                 move |event| {
-                    if let Some(window) = app.get_webview_window("main") {
-                        if let Some(first_url) = event.urls().first() {
-                            let url_str = first_url.as_str().to_string();
-                            log::info!("[desktop] deep-link received: {}", url_str);
-                            if let Err(e) = window.emit("desktop-deep-link", url_str) {
-                                log::warn!("[desktop-event] emit desktop-deep-link failed: {}", e);
-                            }
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
-                    }
+                    // 2026-09-26 A10C-1:整批 URL 交给闸门逐条决定去向(旧实现在这里
+                    // `if let Some(window)` + 只取 first,窗口未就绪/不存在时静默吞掉整条回调)。
+                    let urls: Vec<String> = event
+                        .urls()
+                        .iter()
+                        .map(|url| url.as_str().to_string())
+                        .collect();
+                    dispatch_deep_links(&app, &urls);
                 }
             });
             // 2026-07-25 修订:不再调用 build_app_menu(已删除),菜单全部走 web 端 HTML 顶栏
@@ -2033,7 +2427,8 @@ pub fn run() {
             clear_webview_cache,
             set_tray_status,
             get_tray_always_visible,
-            set_tray_always_visible
+            set_tray_always_visible,
+            take_pending_deep_links
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {
