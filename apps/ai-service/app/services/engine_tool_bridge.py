@@ -58,7 +58,8 @@ V3 #47 末格(2026-09-27 收口「JSON-RPC 只留协议适配层」)加了**定�
 
 from __future__ import annotations
 
-from typing import Any, Callable, Final
+from collections.abc import Callable
+from typing import Any, Final
 
 # 处置结论的封闭集(不是工具名清单,所以不构成第二份真相)。
 BRIDGE_MODES: Final[tuple[str, str, str]] = ("port", "map", "local")

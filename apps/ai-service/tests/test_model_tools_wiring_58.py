@@ -8,8 +8,6 @@ from __future__ import annotations
 
 import asyncio
 
-import pytest
-
 from app.services import agent_engine as engine_mod
 
 
@@ -26,7 +24,7 @@ def test_new_tools_registered_in_builtin_list() -> None:
 
 def test_builders_dict_has_all_builtin_names() -> None:
     # builders dict 在 _builtin_tool_definitions 内构造;用最小 thread 桩逐个构造
-    eng = engine_mod.AgentEngine.__new__(engine_mod.AgentEngine)
+    _eng = engine_mod.AgentEngine.__new__(engine_mod.AgentEngine)  # 构造即断言:该用例的判据在后续 thread 侧
     thread = engine_mod.EngineThread.__new__(engine_mod.EngineThread)
     thread.thread_id = "t"
     thread.deny_tools = set()

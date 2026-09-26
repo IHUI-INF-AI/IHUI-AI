@@ -33,9 +33,8 @@ const {
   appendAuditLog,
   clearUserRules,
   createRulesBulk,
-  // 2026-09-27 删掉这两个解构名:它们在本文件从未被引用(用户偏好桩由下面
-  // vi.mock('../src/db/user-preferences-queries.js') 各自新建 vi.fn()),留着会让
-  // @typescript-eslint/no-unused-vars 在任何一次触碰本文件的提交上把 lint-staged 判红。
+  // findUserPreferences / upsertUserPreference 仍留在下面的 hoisted 工厂里(生产码要用),
+  // 但本文件的用例不直接断言它们 ⇒ 不再解构绑定(consistent no-unused-vars)。
   storedPrefs,
 } = vi.hoisted(() => ({
   upsertPermission: vi.fn(),

@@ -7,14 +7,8 @@
 # thread.start 预热 → unified_exec 消费 → thread.close 清理。
 
 import asyncio
-import contextlib
-import os
-import shutil
-import sys
 from pathlib import Path
 from unittest.mock import patch
-
-import pytest
 
 from app.core.shell_snapshot import ShellSnapshotData, ShellSnapshotFile
 from app.services.agent_engine import AgentEngine, EngineThread
@@ -148,7 +142,6 @@ class TestTakeAndDrop:
         Path(tmp_path / "sess-55.tmp-42").write_text("partial", encoding="utf-8")
         eng._shell_snapshots[thr.session_id] = snap
 
-        import asyncio
 
         # 无事件循环环境下构造"已完成任务"替身(drop 只调 done()/cancel())
         class _DoneTask:

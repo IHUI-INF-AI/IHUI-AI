@@ -26,7 +26,7 @@ approx_token_count / _truncate_text_to_tokens 的语义)。
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 __all__ = [
     "COMPLETION_MESSAGE_MAX_TOKENS",
@@ -79,7 +79,7 @@ def truncate_utf8_bytes(text: str, max_bytes: int) -> str:
     return ""
 
 
-def format_subagent_context_line(agent_reference: str, agent_nickname: Optional[str] = None) -> str:
+def format_subagent_context_line(agent_reference: str, agent_nickname: str | None = None) -> str:
     """子代理上下文行:有昵称 "- {ref}: {nick}",否则 "- {ref}"(空昵称视同 None)。"""
     if agent_nickname:
         return f"- {agent_reference}: {agent_nickname}"
@@ -101,8 +101,8 @@ def format_inter_agent_completion_message(
     task_name: str,
     sender: str,
     status: str,
-    message: Optional[str] = None,
-) -> Optional[str]:
+    message: str | None = None,
+) -> str | None:
     """按 AgentStatus 产出 inter-agent 完成消息文本(逐字对齐 codex session_prefix.rs)。
 
     status ∈ completed/errored/shutdown/not_found/pending_init/running/interrupted。
@@ -140,7 +140,7 @@ def build_inter_agent_completion_fragment(
     task_name: str,
     sender: str,
     status: str,
-    message: Optional[str] = None,
+    message: str | None = None,
 ) -> dict[str, Any]:
     """返回 OpenAI 消息 dict(风格对齐 rollout_budget.build_rollout_budget_fragment)。
 
