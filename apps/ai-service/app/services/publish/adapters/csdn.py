@@ -86,18 +86,6 @@ class CsdnAdapter(BasePlatformAdapter):
             },
         ]
 
-    def _extract_account_key(self, credentials: dict[str, Any]) -> str:
-        """从凭证中提取账号唯一标识(用于反风控画像持久化)。
-
-        优先级:UserName > UserToken 前 16 位 > UserSecret 前 16 位
-        确保:同账号跨会话 account_id 稳定 → 同账号指纹/代理固定不变
-        """
-        for key in ("UserName", "UserToken", "UserSecret"):
-            val = credentials.get(key, "")
-            if val:
-                return str(val)[:16]
-        return "default"
-
     async def verify_credentials(self, credentials: dict[str, Any]) -> tuple[bool, str]:
         if not _HAS_PLAYWRIGHT:
             return False, "Playwright not installed. Run: pip install playwright && playwright install chromium"
@@ -105,7 +93,7 @@ class CsdnAdapter(BasePlatformAdapter):
         if not username:
             return False, "missing UserName cookie"
 
-        account_id = credentials.get("account_id") or f"{self.platform_id}_{self._extract_account_key(credentials)}"
+        account_id = self.account_identity(credentials)
         try:
             async with async_playwright() as p:
                 browser, context = await create_stealth_browser_context(
@@ -163,7 +151,7 @@ class CsdnAdapter(BasePlatformAdapter):
         category = platform_config.get("category", "")
         content.cover_path or platform_config.get("cover", "")
 
-        account_id = credentials.get("account_id") or f"{self.platform_id}_{self._extract_account_key(credentials)}"
+        account_id = self.account_identity(credentials)
         try:
             async with async_playwright() as p:
                 browser, context = await create_stealth_browser_context(
