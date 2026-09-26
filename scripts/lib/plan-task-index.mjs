@@ -174,6 +174,28 @@ export function findForks(content) {
   }
 }
 
+/**
+ * F4:同一复合主键下 **≥2 条未勾选** —— 同一件事被两批各登记一次,派单会把同一件活派两遍。
+ * 这与 F1 是两种病:F1 是"做完了还挂着",F4 是"一件事两个待办"。此前只有 `dupOpenGroups`
+ * 一个组数在报告里飘,没有任何判据拿它当账,`claimable` 还把副本各算一条 —— 用户问的
+ * "怎么还有重复的"正是这一格,而它一直在读数里、无人判。
+ * 幸存者取正文最长者(承载信息最多的一条),等长则取行号靠后者(较新的措辞);
+ * 其余副本由 `plan-tasks-merge.mjs` 就地写明"与哪条同题",**一行不删**(§1 禁止无声删除)。
+ */
+export const DUP_POINTER_RE = /【归并】重复登记副本/
+export function findDupOpenCopies(dupOpen) {
+  const copies = []
+  for (const g of dupOpen) {
+    const live = g.open.filter((r) => !DUP_POINTER_RE.test(r.raw))
+    if (live.length < 2) continue
+    const best = live.reduce((a, b) =>
+      a.raw.length === b.raw.length ? (a.line > b.line ? a : b) : a.raw.length > b.raw.length ? a : b,
+    )
+    for (const r of live) if (r.line !== best.line) copies.push({ row: r, survivor: best, key: g.key })
+  }
+  return copies
+}
+
 /** F2:正文自带的"闭合/作废声明"字面。窄集合,宁漏不误伤 —— 见门 120 的"名单要有正向证明"。 */
 export const VOID_MARK_RE =
   /\[[A-Za-z]{1,3}\d+[a-z]*\s*判[:：][^\]]*(?:已完成|已闭环|已收口|已清偿|读数过期|裸副本)|勿照本行派单/
@@ -218,6 +240,16 @@ export function auditPlan(content) {
   // 混着 44 条别人已认领的活(门 109 的租约形 `（进行中@日期/持有者）` 与裸标记都算)。
   // 派单人拿这个数去派,就会把别人正在做的事再派一遍 —— 正是 §1 认领标记要防的那件事。
   const unclaimedRows = openRows.filter((r) => !r.claim)
+  const dupCopies = findDupOpenCopies(dupOpen)
+  const dupCopyLines = new Set(dupCopies.map((c) => c.row.line))
+  // 已写明"重复登记副本、不再单独派单"的行**也不进派单口径** —— 它由同题的幸存者代表。
+  // 只把"当次算出来的副本"扣掉是不够的:归并动作跑完那一刻,被标注的行如果还算一条活,
+  // 派单人就会照着虚高的数字把同一件活再派一遍(而账面看起来已经处理过了)。
+  const isClaimable = (r) =>
+    !forkOpenLines.has(r.line) &&
+    !voidLines.has(r.line) &&
+    !dupCopyLines.has(r.line) &&
+    !DUP_POINTER_RE.test(r.raw)
   return {
     rows: rows.length,
     openRows: openRows.length,
@@ -230,10 +262,12 @@ export function auditPlan(content) {
     dupDone,
     voidRows,
     rotated,
-    /** 派单口径 = 未勾选 ∧ **未带租约** ∧ 不是"与已完成同题的分叉副本" ∧ 不自带作废声明。
+    dupCopies,
+    /** 派单口径 = 未勾选 ∧ **未带租约** ∧ 不是"与已完成同题的分叉副本" ∧ 不是"同一件事的第二条待办"(F4)∧ 不自带作废声明。
      *  租约这一维是第一版的漏口:146 条"无人认领"里混着 44 条别人已认领的活,
-     *  照那个数派单就是把正在做的事再派一遍(§1 认领标记存在的理由)。 */
-    claimableRows: unclaimedRows.filter((r) => !forkOpenLines.has(r.line) && !voidLines.has(r.line)),
+     *  照那个数派单就是把正在做的事再派一遍(§1 认领标记存在的理由)。
+     *  F4 这一维是第二版才补上的:副本行各算一条 ⇒ 同一件活被派两遍,而报告里只飘着一个组数。 */
+    claimableRows: unclaimedRows.filter(isClaimable),
     counts: {
       open: openRows.length,
       claimed: openRows.filter((r) => r.claim).length,
@@ -243,8 +277,9 @@ export function auditPlan(content) {
       voidRows: voidRows.length,
       rotatedPointers: rotated.length,
       dupOpenGroups: dupOpen.length,
+      dupOpenCopies: dupCopies.length,
       dupDoneGroups: dupDone.length,
-      claimable: unclaimedRows.filter((r) => !forkOpenLines.has(r.line) && !voidLines.has(r.line)).length,
+      claimable: unclaimedRows.filter(isClaimable).length,
     },
   }
 }

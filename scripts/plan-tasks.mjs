@@ -83,8 +83,13 @@ function report(a, face) {
   console.log(`  F1 同主键两态并存 : ${c.forks} 组 / 涉及未勾选行 ${c.forkOpenLines}`)
   console.log(`  F2 带作废声明未落账: ${c.voidRows} 行`)
   console.log(`  F3 行号指针已腐烂  : ${c.rotatedPointers} 处`)
-  console.log(`  重复登记(同主键多行且同态): open ${c.dupOpenGroups} 组 / done ${c.dupDoneGroups} 组`)
-  console.log(`派单口径 —— 真·无人认领: ${c.claimable} 行(= 未勾选 ${c.open} − 已认领 ${c.claimed} − 分叉副本 − 作废声明)`)
+  console.log(
+    `  F4 同一件事多条待办: ${c.dupOpenGroups} 组 / 副本 ${c.dupOpenCopies} 行(不进派单口径)`,
+  )
+  console.log(`  同态重复(done 侧只报数): done ${c.dupDoneGroups} 组`)
+  console.log(
+    `派单口径 —— 真·无人认领: ${c.claimable} 行(= 未勾选 ${c.open} − 已认领 ${c.claimed} − 分叉副本 − 作废声明 − 同题待办副本)`,
+  )
 }
 
 function listRows(rows, face) {
@@ -110,6 +115,7 @@ const probe = (a) => [
   ['F1', '同主键两态并存(组)', a.counts.forks],
   ['F2', '带作废声明未落账(行)', a.counts.voidRows],
   ['F3', '行号指针已腐烂(处)', a.counts.rotatedPointers],
+  ['F4', '同一件事多条待办(副本行)', a.counts.dupOpenCopies],
 ]
 
 /** 棘轮纯函数:基线里没有某项 ⇒ 不判该项(既不"0 容忍"也不"通过")。 */
@@ -195,6 +201,10 @@ const FIXTURE = [
   '- [ ] **D97 作废声明**:〔本行判:已完成,勿照本行派单〕—— 该被 F2 点名。',
   '- [ ] **D96 指针**:本行正题逐字存活于 L1 的同编号登记 —— L1 不是条目行,该被 F3 点名。',
   '- [ ]（进行中@2026-09-26/someone） **D94 别人已认领**:必须**不进**派单口径(第一版把它算进去了)。',
+  // F4 夹具:两条都是未勾选、主键同题 ⇒ 副本那条不得进派单口径(同一件活不能派两遍)
+  '- [ ] **D93 重复待办**:第一条登记。',
+  '- [ ] **D93 重复待办**:与上一条同主键的第二次登记。',
+  // F4 夹具:两条都是未勾选、主键同题 ⇒ 副本那条不得进派单口径(同一件活不能派两遍)
   '- [x] ✅(2026-09-26) **D95 重复登记已完成**:两行逐字同态。',
   '- [x] ✅(2026-09-26) **D95 重复登记已完成**:两行逐字同态。',
   '',
@@ -213,17 +223,28 @@ function selfTest() {
   }
   const a = auditPlan(FIXTURE)
   const c = a.counts
-  ok(a.rows === 8, `条目行数应为 8,实测 ${a.rows}`)
+  ok(a.rows === 10, `条目行数应为 10(含 F4 那一对同题待办),实测 ${a.rows}`)
   ok(c.forks === 1 && a.forks[0].key.startsWith('D99'), `F1 应恰好点到 D99,实测 ${a.forks.map((f) => f.key).join(',')}`)
   ok(a.forks[0].done.length === 1 && a.forks[0].open.length === 1, 'F1 组内应各一态一行')
   ok(a.voidRows.length === 1 && a.voidRows[0].raw.includes('D97'), 'F2 应点到带作废声明的那一行')
   ok(a.rotated.length === 1 && a.rotated[0].target === 1, `F3 应点到腐烂指针 L1,实测 ${JSON.stringify(a.rotated.map((r) => r.target))}`)
-  ok(c.dupDoneGroups === 1 && c.dupOpenGroups === 0, `同态重复应只计 done,实测 open=${c.dupOpenGroups} done=${c.dupDoneGroups}`)
+  ok(
+    c.dupDoneGroups === 1 && c.dupOpenGroups === 1,
+    `done 侧同态重复只报数、open 侧由 F4 判:实测 open=${c.dupOpenGroups} done=${c.dupDoneGroups}`,
+  )
   // 派单口径:未勾选 5 行(D99 副本 / D98 / D97 / D96 / D94 已认领),
   // 扣掉 F1 分叉行、F2 作废行与**带租约的 D94** ⇒ 只剩 D98 与 D96
-  ok(c.open === 5, `夹具应有 5 行未勾选,实测 ${c.open}`)
-  ok(c.claimed === 1 && c.unclaimed === 4, `租约计数应为 1/4,实测 ${c.claimed}/${c.unclaimed}`)
-  ok(c.claimable === 2, `派单口径应为 2(D98 + D96),实测 ${c.claimable}`)
+  ok(c.open === 7, `夹具应有 7 行未勾选,实测 ${c.open}`)
+  ok(c.claimed === 1 && c.unclaimed === 6, `租约计数应为 1/6,实测 ${c.claimed}/${c.unclaimed}`)
+  ok(c.claimable === 3, `派单口径应为 3(D98 + D96 + D93 幸存者),实测 ${c.claimable}`)
+  ok(
+    c.dupOpenGroups === 1 && c.dupOpenCopies === 1,
+    `F4 应计 1 组 1 副本,实测 ${c.dupOpenGroups}/${c.dupOpenCopies}`,
+  )
+  ok(
+    !a.claimableRows.some((r) => r.raw.includes('第一条登记')),
+    'F4 的副本行不得进派单口径 —— 同一件活被派两遍,正是"计划里怎么还有重复的"那一格',
+  )
   ok(
     !a.claimableRows.some((r) => r.raw.includes('D94')),
     '已带租约的行不得进派单口径 —— 否则 §1 的认领标记形同虚设,别人正在做的事会被再派一遍',
@@ -290,7 +311,16 @@ function main() {
       console.log('❌ --update-baseline 只允许在全量档(HEAD blob)执行,不得从索引/工作树面刷基线')
       return 2
     }
-    const body = JSON.stringify({ F1: a.counts.forks, F2: a.counts.voidRows, F3: a.counts.rotatedPointers }, null, 2)
+    const body = JSON.stringify(
+      {
+        F1: a.counts.forks,
+        F2: a.counts.voidRows,
+        F3: a.counts.rotatedPointers,
+        F4: a.counts.dupOpenCopies,
+      },
+      null,
+      2,
+    )
     writeFileSync(path.join(o.root, BASELINE_REL), body + '\n', 'utf8')
     console.log(`已写下棘轮基线(${LABEL[o.face]} 现读):${body.replace(/\s+/g, ' ')}`)
     console.log('基线只许下调。为过门而调高 = 关掉这一维的看守,与"为消红削判据"同罪。')

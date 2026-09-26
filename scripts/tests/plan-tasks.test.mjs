@@ -103,4 +103,22 @@ test('M7 主键收窄:行文引用不得算第二次登记', () => {
   if (a.counts.forks !== 0) throw new Error(`引用被误算成分叉:${JSON.stringify(a.forks.map((f) => f.key))}`)
   if (a.counts.claimable !== 1) throw new Error('D11 应留在派单口径里')
 })
+
+test('M8 F4 同题待办:两条只算一条活,已标副本的行不重复计(幂等)', () => {
+  const pair = ['- [ ] **D12 同一件事**:短。', '- [ ] **D12 同一件事**:长一些的那条登记。'].join('\n')
+  const a = auditPlan(pair)
+  if (a.counts.dupOpenCopies !== 1) throw new Error(`一对同题待办应计 1 副本,实测 ${a.counts.dupOpenCopies}`)
+  if (a.counts.claimable !== 1) throw new Error(`派单口径应只留 1 行,实测 ${a.counts.claimable}`)
+  if (a.dupCopies[0].row.raw.length >= a.dupCopies[0].survivor.raw.length)
+    throw new Error('幸存者必须是正文更长的那条(承载信息最多)')
+  // 反向:副本已被写明"与哪条同题"之后,不得再被算成待清偿副本(否则归并动作永不收敛、每次都喊)
+  const marked = [
+    pair.split('\n')[0],
+    `${pair.split('\n')[1]} 〔【归并】重复登记副本:同题正文以另一条为准(2026-09-26)。〕`,
+  ].join('\n')
+  const b = auditPlan(marked)
+  if (b.counts.dupOpenCopies !== 0) throw new Error(`已标副本仍在计债:${b.counts.dupOpenCopies}`)
+  if (b.counts.voidRows !== 0) throw new Error('副本指针不得被 F2 当作废声明(F2 与 F4 判据不串门)')
+  if (b.counts.claimable !== 1) throw new Error(`标记后派单口径仍应为 1,实测 ${b.counts.claimable}`)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
