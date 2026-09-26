@@ -30,11 +30,13 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { Undetermined, catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 import { auditPlan, compositeKeyOf, parseTaskRows } from './lib/plan-task-index.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PLAN_REL = 'PROJECT_PLAN.md'
+/** 真实形态样本钉在"首次归并的前一版"上 —— 清偿之后当前 HEAD 不再含那批行(见 selfTest 注释)。 */
+const SAMPLE_REV = '0bc0af653df^'
 const LABEL = { head: 'HEAD blob', staged: '索引 blob', worktree: '工作树(人工逃生舱)' }
 
 function parseArgs(argv) {
@@ -225,9 +227,17 @@ function selfTest() {
   ok(clean.counts.claimable === 1, `干净文档派单口径应为 1,实测 ${clean.counts.claimable}`)
   // 空面不得记绿(§门 118/126 同一条禁令)
   ok(auditPlan('').rows === 0, '空文档应零条目')
-  // 逐字取自真实文档的一批:判据必须认得现实写法,而不是只认夹具(§22c)
-  const real = parseTaskRows(readPlan(ROOT, 'head')).filter((r) => r.state === 'open' && /判:裸副本/.test(r.raw))
-  ok(real.length > 0, '真实文档里应还能读到"判:裸副本"的未勾选行(否则本条正向证明失效)')
+  // 真实形态样本取自**固定的历史 blob**(`0bc0af653df^` = 首次归并的前一版),不取当前 HEAD:
+  // 清偿之后 HEAD 上就没有"判:裸副本"的未勾选行了,拿 HEAD 当夹具的断言会在成功那一轮变红。
+  // 读不到该历史版本必须失败 —— 静默跳过等于把"没判"写成"判过了"。
+  let sample = ''
+  try {
+    sample = gitRaw(['show', `${SAMPLE_REV}:PROJECT_PLAN.md`], ROOT)
+  } catch (e) {
+    ok(false, `样本历史版本取不到(${SAMPLE_REV}):${String(e?.message ?? e).split('\n')[0]}`)
+  }
+  const real = parseTaskRows(sample).filter((r) => r.state === 'open' && /判:裸副本/.test(r.raw))
+  ok(real.length > 0, `${SAMPLE_REV} 里应读到"判:裸副本"的未勾选行,否则本条正向证明失去载体`)
   const realAudit = auditPlan(real.map((r) => r.raw).join('\n'))
   ok(realAudit.voidRows.length === real.length, `真实样本 F2 应全中:${realAudit.voidRows.length}/${real.length}`)
   ok(compositeKeyOf(real[0]?.raw ?? '') !== null, '真实行应能算出复合主键')
