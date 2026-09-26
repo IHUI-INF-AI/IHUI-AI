@@ -20,6 +20,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from ..core.tunables import GOAL_VERIFICATION_MAX_CONSECUTIVE_FAILURES
 from ..services.completion_verification import (
     EvidenceRecord,
     HardCriterion,
@@ -82,6 +83,12 @@ class VerifyOut(BaseModel):
     unavailable_reason: str | None = None
     independence_warnings: list[str] = Field(default_factory=list)
     executor_claim: str = ""
+    #: 收口阈值的**权威值随响应下发**(真源 = `core/tunables.py`)。调用方(如 CLI)跑的是
+    #: 它自己的循环,计数只能在端内做,但阈值不得在端内另立一份真相 —— 端内那份只是
+    #: "服务端没给"时的兜底。两端各抄一份数字正是本仓反复踩过的第二真相形态。
+    max_consecutive_failures: int = GOAL_VERIFICATION_MAX_CONSECUTIVE_FAILURES
+    #: 本端点无状态,恒 0;留给带会话计数的调用方回显,缺省即"这一问没带着账本来"
+    consecutive_failures: int = 0
 
 
 @router.post("/api/agent/goal-verify", response_model=VerifyOut)

@@ -2050,6 +2050,10 @@
     "title": "ライブ予告"
   },
   "messageCenter": {
+    "pin": "ピン留め",
+    "unpin": "ピン留めを解除",
+    "pinFailed": "ピン留めに失敗しました。再試行してください",
+    "unpinFailed": "ピン留め解除に失敗しました。再試行してください",
     "conversations": "会話",
     "empty": "メッセージなし",
     "title": "メッセージ",
