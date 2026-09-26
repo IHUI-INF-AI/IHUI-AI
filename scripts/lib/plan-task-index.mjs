@@ -214,6 +214,10 @@ export function auditPlan(content) {
   const openRows = rows.filter((r) => r.state === 'open')
   const forkOpenLines = new Set(forks.flatMap((g) => g.open.map((r) => r.line)))
   const voidLines = new Set(voidRows.map((r) => r.line))
+  // "真·无人认领"必须**同时**扣掉带租约的行 —— 第一版没扣,于是 146 条"无人认领"里
+  // 混着 44 条别人已认领的活(门 109 的租约形 `（进行中@日期/持有者）` 与裸标记都算)。
+  // 派单人拿这个数去派,就会把别人正在做的事再派一遍 —— 正是 §1 认领标记要防的那件事。
+  const unclaimedRows = openRows.filter((r) => !r.claim)
   return {
     rows: rows.length,
     openRows: openRows.length,
@@ -226,18 +230,21 @@ export function auditPlan(content) {
     dupDone,
     voidRows,
     rotated,
-    /** 派单口径:未勾选 ∧ 不带作废声明 ∧ 不是"与已完成同题的分叉 open 行" */
-    claimableRows: openRows.filter((r) => !forkOpenLines.has(r.line) && !voidLines.has(r.line)),
+    /** 派单口径 = 未勾选 ∧ **未带租约** ∧ 不是"与已完成同题的分叉副本" ∧ 不自带作废声明。
+     *  租约这一维是第一版的漏口:146 条"无人认领"里混着 44 条别人已认领的活,
+     *  照那个数派单就是把正在做的事再派一遍(§1 认领标记存在的理由)。 */
+    claimableRows: unclaimedRows.filter((r) => !forkOpenLines.has(r.line) && !voidLines.has(r.line)),
     counts: {
       open: openRows.length,
       claimed: openRows.filter((r) => r.claim).length,
+      unclaimed: unclaimedRows.length,
       forks: forks.length,
       forkOpenLines: forkOpenLines.size,
       voidRows: voidRows.length,
       rotatedPointers: rotated.length,
       dupOpenGroups: dupOpen.length,
       dupDoneGroups: dupDone.length,
-      claimable: openRows.filter((r) => !forkOpenLines.has(r.line) && !voidLines.has(r.line)).length,
+      claimable: unclaimedRows.filter((r) => !forkOpenLines.has(r.line) && !voidLines.has(r.line)).length,
     },
   }
 }
