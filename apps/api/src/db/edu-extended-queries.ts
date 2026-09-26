@@ -100,8 +100,10 @@ export async function updateNote(id: string, data: UpdateNoteInput): Promise<Edu
   return rows[0]
 }
 
-export async function deleteNote(id: string): Promise<void> {
-  await db.delete(eduNotes).where(eq(eduNotes.id, id))
+/** 删除笔记。返回库确认已删除的 id 集合(未命中为空数组,调用方据此判 deleted 真假)。 */
+export async function deleteNote(id: string): Promise<string[]> {
+  const rows = await db.delete(eduNotes).where(eq(eduNotes.id, id)).returning({ id: eduNotes.id })
+  return rows.map((r) => r.id)
 }
 
 // =============================================================================
@@ -204,8 +206,13 @@ export async function updateOfflineRecord(
   return rows[0]
 }
 
-export async function deleteOfflineRecord(id: string): Promise<void> {
-  await db.delete(eduOfflineRecords).where(eq(eduOfflineRecords.id, id))
+/** 删除线下学习记录。返回库确认已删除的 id 集合(未命中为空数组,调用方据此判 deleted 真假)。 */
+export async function deleteOfflineRecord(id: string): Promise<string[]> {
+  const rows = await db
+    .delete(eduOfflineRecords)
+    .where(eq(eduOfflineRecords.id, id))
+    .returning({ id: eduOfflineRecords.id })
+  return rows.map((r) => r.id)
 }
 
 // =============================================================================
@@ -294,8 +301,13 @@ export async function updateUploadedCert(
   return rows[0]
 }
 
-export async function deleteUploadedCert(id: string): Promise<void> {
-  await db.delete(eduUploadedCerts).where(eq(eduUploadedCerts.id, id))
+/** 删除上传的证书材料。返回库确认已删除的 id 集合(未命中为空数组,调用方据此判 deleted 真假)。 */
+export async function deleteUploadedCert(id: string): Promise<string[]> {
+  const rows = await db
+    .delete(eduUploadedCerts)
+    .where(eq(eduUploadedCerts.id, id))
+    .returning({ id: eduUploadedCerts.id })
+  return rows.map((r) => r.id)
 }
 
 export async function verifyUploadedCert(
@@ -406,8 +418,13 @@ export async function updateUploadedPaper(
   return rows[0]
 }
 
-export async function deleteUploadedPaper(id: string): Promise<void> {
-  await db.delete(eduUploadedPapers).where(eq(eduUploadedPapers.id, id))
+/** 删除上传的论文/作业。返回库确认已删除的 id 集合(未命中为空数组,调用方据此判 deleted 真假)。 */
+export async function deleteUploadedPaper(id: string): Promise<string[]> {
+  const rows = await db
+    .delete(eduUploadedPapers)
+    .where(eq(eduUploadedPapers.id, id))
+    .returning({ id: eduUploadedPapers.id })
+  return rows.map((r) => r.id)
 }
 
 export async function verifyUploadedPaper(
