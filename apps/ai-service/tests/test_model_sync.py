@@ -1655,7 +1655,7 @@ class TestUpsertLowerIdDedup:
             self._existing = existing_rows
             self.executed: list[tuple[str, tuple[Any, ...]]] = []
 
-        def transaction(self) -> "TestUpsertLowerIdDedup._FakeTx":
+        def transaction(self) -> TestUpsertLowerIdDedup._FakeTx:
             return TestUpsertLowerIdDedup._FakeTx()
 
         async def fetch(self, query: str, *args: Any) -> list[dict[str, Any]]:
@@ -1665,20 +1665,20 @@ class TestUpsertLowerIdDedup:
             self.executed.append((query, args))
 
     class _FakeAcquire:
-        def __init__(self, conn: "TestUpsertLowerIdDedup._FakeConn") -> None:
+        def __init__(self, conn: TestUpsertLowerIdDedup._FakeConn) -> None:
             self._conn = conn
 
-        async def __aenter__(self) -> "TestUpsertLowerIdDedup._FakeConn":
+        async def __aenter__(self) -> TestUpsertLowerIdDedup._FakeConn:
             return self._conn
 
         async def __aexit__(self, *args: Any) -> bool:
             return False
 
     class _FakePool:
-        def __init__(self, conn: "TestUpsertLowerIdDedup._FakeConn") -> None:
+        def __init__(self, conn: TestUpsertLowerIdDedup._FakeConn) -> None:
             self._conn = conn
 
-        def acquire(self) -> "TestUpsertLowerIdDedup._FakeAcquire":
+        def acquire(self) -> TestUpsertLowerIdDedup._FakeAcquire:
             return TestUpsertLowerIdDedup._FakeAcquire(self._conn)
 
     @staticmethod
@@ -1686,13 +1686,13 @@ class TestUpsertLowerIdDedup:
         monkeypatch: pytest.MonkeyPatch,
         existing_rows: list[dict[str, Any]],
         upstream_models: list[dict[str, Any]],
-    ) -> tuple[Any, "TestUpsertLowerIdDedup._FakeConn"]:
+    ) -> tuple[Any, TestUpsertLowerIdDedup._FakeConn]:
         """跑一次 _upsert_models_to_db(全程零真实 DB 连接)。"""
         import app.services.model_sync as ms
 
         conn = TestUpsertLowerIdDedup._FakeConn(existing_rows)
 
-        async def _fake_get_shared_pool() -> "TestUpsertLowerIdDedup._FakePool":
+        async def _fake_get_shared_pool() -> TestUpsertLowerIdDedup._FakePool:
             return TestUpsertLowerIdDedup._FakePool(conn)
 
         async def _cfg(self: Any, _conn: Any, _code: str) -> int:
@@ -1702,7 +1702,7 @@ class TestUpsertLowerIdDedup:
             return False
 
         async def _cols(self: Any, _conn: Any, names: list[str]) -> dict[str, bool]:
-            return {n: False for n in names}
+            return dict.fromkeys(names, False)
 
         monkeypatch.setattr(ms, "get_shared_pool", _fake_get_shared_pool)
         monkeypatch.setattr(ModelSyncService, "_ensure_provider_config", _cfg)
@@ -1713,11 +1713,11 @@ class TestUpsertLowerIdDedup:
         return result, conn
 
     @staticmethod
-    def _inserts(conn: "TestUpsertLowerIdDedup._FakeConn") -> list[tuple[Any, ...]]:
+    def _inserts(conn: TestUpsertLowerIdDedup._FakeConn) -> list[tuple[Any, ...]]:
         return [c for c in conn.executed if c[0].lstrip().upper().startswith("INSERT")]
 
     @staticmethod
-    def _updates(conn: "TestUpsertLowerIdDedup._FakeConn") -> list[tuple[Any, ...]]:
+    def _updates(conn: TestUpsertLowerIdDedup._FakeConn) -> list[tuple[Any, ...]]:
         return [c for c in conn.executed if c[0].lstrip().upper().startswith("UPDATE")]
 
     @pytest.mark.asyncio

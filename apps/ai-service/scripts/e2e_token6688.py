@@ -49,13 +49,17 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 # token6688 依赖 httpx→llm_gateway 重链;--free 模式不 import(惰性加载,见 main)
 ROOT = Path(__file__).resolve().parents[1]
 ENV_PATH = ROOT / ".env"
+
+
+if TYPE_CHECKING:  # 只为静态解析存在:运行时该名字由 main() 内的函数级 import 提供(绕开 provider 聚合链)
+    from app.providers.token6688_provider import Token6688Provider
 
 
 def _load_key_from_env_file() -> str:

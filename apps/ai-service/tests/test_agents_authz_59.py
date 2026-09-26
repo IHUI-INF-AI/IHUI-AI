@@ -353,8 +353,8 @@ async def test_request_approval_registers_owner_from_run_user_id(
     from app.services import agent_loop_v2 as alv
     from app.services import approval_persistence as ap
     from app.services.agent_loop_v2 import (
-        ApprovalOutcome,
         AgentLoopV2,
+        ApprovalOutcome,
         ToolCall,
         ToolDefinition,
         resolve_approval_for_requester,
