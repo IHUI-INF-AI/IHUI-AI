@@ -377,7 +377,7 @@ async function runAgentAndExit(
       );
       // 档位开着时把"这是收紧"说清楚:生效值沿用上面那行的 ttl/轮次/到期,这里补语义与关闭出口。
       if (isDigestTrackedLease(leaseOutcome.lease)) {
-        console.info(chalk.yellow(t('cliEntry.permissionLeaseDigestOn')));
+        console.info(chalk.yellow(t('cliEntry.permissionLeaseDigestGranted')));
       }
     }
     // H4 云会话写入:CLI agent 运行记录写 ai-service(/api/cloud-runs,session_alias 绑定本会话),

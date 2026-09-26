@@ -99,6 +99,12 @@ describe('权限决策徽章端接线证据(miniapp-taro 源码)', () => {
   const panel = readFileSync(join(__dirname, '../AgentRuntimePanel.tsx'), 'utf8')
   const i18nEntry = readFileSync(join(__dirname, '../../i18n/index.tsx'), 'utf8')
   const oneLine = (src: string): string => src.replace(/\s+/g, ' ')
+  /**
+   * 排版无关的比较:去掉换行缩进与 prettier 的尾逗号,只留实参顺序与身份。
+   * 逐字含空格断言会在任何人跑一次格式化时红 —— 那与正确性无关(实测本仓 prettier 会折行并补 `,`)。
+   */
+  const stripFormat = (src: string): string =>
+    src.replace(/,*(\s*[)\]])/g, '$1').replace(/\s+/g, '')
 
   it('组件从 @ihui/shared 引 permissionDecisionWord,并以 stepDecision 命名空间取词', () => {
     expect(/import\s*{[^}]*permissionDecisionWord[^}]*}\s*from\s*'@ihui\/shared'/.test(panel)).toBe(
@@ -115,11 +121,13 @@ describe('权限决策徽章端接线证据(miniapp-taro 源码)', () => {
 
   it('端 i18n 必须以 shared 为 base 做深合并(否则上面的合并视图与运行时不一致)', () => {
     expect(i18nEntry).toContain('@ihui/i18n/messages/shared/zh-CN.json')
-    expect(oneLine(i18nEntry)).toContain(
-      'mergeMessages(sharedZhCN as Messages, miniappZhCN as Messages)',
+    // 比的是**实参顺序与身份**,不是排版:prettier 把超过 80 列的调用折成多行并补尾逗号,
+    // 逐字含空格的断言会在任何人跑一次格式化的时候变红(与正确性无关的假红)。
+    expect(stripFormat(i18nEntry)).toContain(
+      stripFormat('mergeMessages(sharedZhCN as Messages, miniappZhCN as Messages)'),
     )
-    expect(oneLine(i18nEntry)).toContain(
-      'translate(getMessages(locale), key, { fallback: zhCNMessages, params })',
+    expect(stripFormat(i18nEntry)).toContain(
+      stripFormat('translate(getMessages(locale), key, { fallback: zhCNMessages, params })'),
     )
   })
 })
