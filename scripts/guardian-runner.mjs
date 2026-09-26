@@ -3553,6 +3553,22 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- background-task-type-parity(1 项,blocking)---
+  {
+    id: '135',
+    label:
+      '后台任务类型声明↔实现↔接线三面 parity(V3 #51:六类 executor 不得回到 sleep/echo 回显)',
+    script: 'check-background-task-type-parity.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_BG_TASK_TYPE_PARITY',
+    stagedTriggers: ['apps/ai-service/app/services/', 'apps/ai-service/app/api/'],
+    onFailHint: [
+      '',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
