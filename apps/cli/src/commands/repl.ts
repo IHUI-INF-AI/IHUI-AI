@@ -1541,9 +1541,17 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
         if (!id) { console.info(chalk.red('缺少 task_id')); break; }
         console.info(chalk.dim(`等待 ${id} (超时 ${timeoutMs}ms)...`));
         const result = await waitForTask(id, timeoutMs);
-        if (!result) { console.info(chalk.red('任务不存在')); break; }
-        console.info(chalk.cyan(`任务 ${result.id}  状态: ${result.status}  exit: ${result.exitCode ?? '-'}`));
-        if (result.stdoutBuf) console.info(result.stdoutBuf.trimEnd().slice(-2000));
+        if (!result.snapshot) { console.info(chalk.red('任务不存在或已被清理')); break; }
+        const snap = result.snapshot;
+        // 超时不等于已结束:这一行必须自己说清楚它是"结论"还是"该时刻的观测",
+        // 否则用户读到 running 会以为命令自己卡住了,而不是我们没等到。
+        const verdictLabel =
+          result.state === 'settled' ? '状态' :
+          result.state === 'timed-out-unknown' ? '此刻状态(未等到终态)' :
+          result.state === 'still-running' ? '此刻状态(仍在运行)' : '状态';
+        console.info(chalk.cyan(`任务 ${snap.id}  ${verdictLabel}: ${snap.status}  exit: ${snap.exitCode ?? '-'}`));
+        if (result.state === 'timed-out-unknown') console.info(chalk.yellow(`等待 ${timeoutMs}ms 用尽,未观察到终态(不等于已结束)`));
+        if (snap.stdoutBuf) console.info(snap.stdoutBuf.trimEnd().slice(-2000));
       } else if (sub === 'kill') {
         const id = args[1] ?? '';
         if (!id) { console.info(chalk.red('缺少 task_id')); break; }
