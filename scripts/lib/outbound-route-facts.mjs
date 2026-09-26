@@ -511,6 +511,13 @@ export function extractDeclarations(files, opts = {}) {
     const externalNames = externalNamesByFile.get(rel) || EMPTY_SET
     if (TEST_FILE_RE.test(rel) || TEST_DIR_RE.test(rel)) continue
     const lines = src.split('\n')
+    /**
+     * 豁免标记**必须从原文取**:声明面走 maskComments 是对的(注释里的路径字面量不算出站点),
+     * 但 `route-declare-exempt: <原因>` 按本仓惯例就写在注释里(同行尾或上一行)——
+     * 若也去掩码后的面上找,这个豁免出口结构上永远命中不了,等于门只留了一条"禁止豁免"的死路
+     * (实测:第三方 Prometheus 查询行带因豁免后,`豁免命中 0` 且仍计未匹配)。
+     */
+    const rawLines = srcRaw.split('\n')
     const tables = collectPathTables(lines)
     const tableLines = new Map()
     for (const [name, rows] of tables) {
@@ -542,8 +549,13 @@ export function extractDeclarations(files, opts = {}) {
         }
         decls.push({ path: lit.path, file: rel, line: idx + 1, evidence, segs: lit.segs })
       })
-      const mark = /route-declare-exempt:\s*(\S.*)/.exec(line)
-      if (mark) exempted.push({ file: rel, line: idx + 1, reason: mark[1].trim(), literals: lits.length })
+      const mark =
+        /route-declare-exempt:\s*(\S[^\r]*)/.exec(rawLines[idx] ?? '') ||
+        /route-declare-exempt:\s*(\S[^\r]*)/.exec(rawLines[idx - 1] ?? '')
+      // 只救"这一行确有出站点声明"的情形:豁免标记单独占一行不得凭空造免(否则一行标记
+      // 可以往上下各救一片,与本仓 radius-exempt / back-label-exempt 同一条宽严口径)
+      if (mark && lits.length)
+        exempted.push({ file: rel, line: idx + 1, reason: mark[1].trim(), literals: lits.length })
     })
   }
   return { decls, exempted, ignoredNonEgress, externalBase, skippedRegistration, wrappers }
