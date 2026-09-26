@@ -469,7 +469,18 @@ export default function ModelList({
 
   if (!models.length) {
     return (
-      <View className="flex items-center justify-center py-12">
+      // 空态纵向留白与 popup 变体、RN 端同取 spec 档 —— 此前这一支写 `py-12`(=48),而 popup 变体
+      // 与 RN `empty.paddingVertical` 都是 MODEL_LIST_EMPTY_PADDING_Y_PX(=20):同一组件的两枚空态
+      // 不该有两种留白(与 MODEL_LIST_EMPTY_FONT_PX 那条"两枚空态不该有两种字号"是同一条裁决;
+      // 该档取值依据 = 规则 2 取紧凑档,空态盒上下无贴边/裁切风险)。
+      // 形态沿用 popup 变体:className 只留布局,留白走 inline 函数形态(不用 '40rpx' 字符串字面量)。
+      <View
+        className="flex items-center justify-center"
+        style={{
+          paddingTop: toUnit(MODEL_LIST_EMPTY_PADDING_Y_PX),
+          paddingBottom: toUnit(MODEL_LIST_EMPTY_PADDING_Y_PX),
+        }}
+      >
         {/* 空态字号与 popup 变体、RN 端同档 —— 同一组件的两枚空态不该有两种字号 */}
         <Text
           className="text-muted-foreground"
