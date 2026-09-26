@@ -22,6 +22,7 @@
 // (实测 import('@ihui/types') → ERR_MODULE_NOT_FOUND './user'),而本文件所在包
 // 需要**运行时值**导入。permission-mode.ts 零依赖,可被 node 直接加载(已实测)。
 import { normalizePermissionMode, type PermissionModeId } from '@ihui/types/permission-mode'
+import { noteLeaseCall, resolveLeaseRelaxation, type PermissionLease } from './permission-lease.js';
 
 /** 5 种权限模式:取值以 @ihui/types 的唯一真源为准(G-161 前本文件自抄了一份字面量联合)。 */
 export type PermissionMode = PermissionModeId
@@ -155,6 +156,88 @@ export function checkPermission(
     };
   }
   return { allowed: true };
+}
+
+/**
+ * 租约放宽的**唯一落点**(强制:任何消费点都不得自己写 `if (lease) return 'allow'`)。
+ *
+ * 三条判序按安全性排序,顺序本身是判据:
+ *  1. 只有 `'ask'` 可能被放宽 —— `'deny'`(黑名单 / 不在白名单)**永远**赢,
+ *     所以租约放宽的是"是否还要人批准",结构上放宽不了"能不能做";
+ *  2. `dangerLevel === 'dangerous'` 一律不放宽(AGENTS §8 高危清单仍在);
+ *  3. 到期/撤销/轮次/次数/能力覆盖的判定全部委托给 `resolveLeaseRelaxation`
+ *     —— 一份实现,不在这里再算一遍时间比较。
+ *
+ * `lease` 为 null/undefined 时**逐字返回原 decision**,即默认档行为不变。
+ */
+function applyLeaseToDecision(
+  decision: PermissionDecision,
+  toolName: string,
+  dangerLevel: 'read' | 'write' | 'dangerous',
+  lease?: PermissionLease | null,
+): PermissionDecision {
+  if (decision !== 'ask') return decision;
+  const applied = resolveLeaseRelaxation(lease ?? null, toolName, dangerLevel);
+  if (!applied) return decision;
+  noteLeaseCall(applied, toolName);
+  return 'allow';
+}
+
+/**
+ * 带租约的 mode-aware 判定(与 `checkPermission` 4 参重载同一份 `decideWithMode`,
+ * 只是把结果再交给 `applyLeaseToDecision`)。无租约时与旧实现等价。
+ */
+export function checkPermissionWithLease(
+  toolName: string,
+  rules: PermissionRules | undefined,
+  mode: PermissionMode,
+  dangerLevel: 'read' | 'write' | 'dangerous',
+  lease?: PermissionLease | null,
+): PermissionDecision {
+  return applyLeaseToDecision(
+    decideWithMode(toolName, rules, mode, dangerLevel),
+    toolName,
+    dangerLevel,
+    lease,
+  );
+}
+
+/**
+ * 带租约的"仅规则"判定 —— 执行漏斗(`executeToolCall`)用它,因为该处**同时**知道
+ * 工具清单判定与 dangerLevel,而这两者在旧 2 参重载里拿不到一起。
+ * 无租约 ⇒ 走 `matchRulesOnly` 原路径(返回体逐字同旧实现)。
+ */
+export interface LeaseAwareCheckResult extends PermissionCheckResult {
+  /** true = 这一格仍需人来批准(租约没覆盖到 / 已到期 / 属高危) */
+  requiresApproval?: boolean;
+  /** true = 本次放行来自租约(审计与 UI 披露读它,不读它 = 来自旧语义) */
+  viaLease?: boolean;
+}
+
+export function checkRulesWithLease(
+  toolName: string,
+  rules: PermissionRules | undefined,
+  dangerLevel: 'read' | 'write' | 'dangerous',
+  lease?: PermissionLease | null,
+): LeaseAwareCheckResult {
+  // 无租约 ⇒ 直接交回旧实现,返回体形状与改造前逐字相同(默认档不变的第一道保证)
+  if (!lease) return checkPermission(toolName, rules);
+  const base = matchRulesOnly(toolName, rules);
+  const decision = applyLeaseToDecision(base, toolName, dangerLevel, lease);
+  if (decision === 'deny') {
+    return {
+      allowed: false,
+      requiresApproval: false,
+      reason: rules?.deny?.includes(toolName)
+        ? `工具 ${toolName} 在 --disallowed-tools 黑名单中`
+        : `工具 ${toolName} 不在 --tools 白名单中`,
+    };
+  }
+  return {
+    allowed: true,
+    requiresApproval: decision === 'ask',
+    viaLease: base === 'ask' && decision === 'allow',
+  };
 }
 
 /** 合并 PermissionRules(后者覆盖前者,deny/ask 取并集,mode 后者覆盖) */

@@ -43,15 +43,15 @@ interface KnownUnboundSite {
   unblock: string
 }
 
-const KNOWN_UNBOUND: readonly KnownUnboundSite[] = [
-  {
-    file: 'routes/message.ts',
-    reason:
-      'POST /messages 直插 role=user 消息未带 turnOrdinal。该文件不在 D35 第二段(本票)允许的改动清单内,补它属越权。',
-    unblock:
-      '另计一格:取 services/turn-ordinal.js 的 turnOrdinalForRole(maxTurn, role) 补齐,并把本条从清单删除(不删本门会判"清单腐烂"红)。',
-  },
-]
+/**
+ * 现值为空 = 服务端所有 chat_messages 直插均已产出 turn_ordinal,任何新增未登记
+ * 站点会被"违规站点必须逐条落在已知清单内"当场判红。
+ * 历史上唯一一条(routes/message.ts 的 POST /messages/send 直插)已于
+ * 2026-09-26 第三段补齐(turnOrdinalForRole(max,'user'))并按规矩从此删除。
+ * 结构(KnownUnboundSite / 两条对照判据)刻意保留 —— 它是"带理由暂挂"的唯一通道,
+ * 删掉它等于把将来的合法豁免通道也摘线。
+ */
+const KNOWN_UNBOUND: readonly KnownUnboundSite[] = []
 
 function listTsFiles(dir: string): string[] {
   const out: string[] = []
