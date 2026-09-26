@@ -45,19 +45,63 @@
  */
 
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
-import { readFileSync, mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { join, resolve as resolvePath } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { COLORS as C } from './lib/logger.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { Undetermined, catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 
 const ROOT_DEFAULT = join(fileURLToPath(import.meta.url), '..', '..')
 const args = process.argv.slice(2)
 const quiet = args.includes('--quiet')
 const selfTest = args.includes('--self-test')
 const rootFlagIdx = args.indexOf('--root')
-const ROOT = rootFlagIdx >= 0 && args[rootFlagIdx + 1] ? resolvePath(args[rootFlagIdx + 1]) : ROOT_DEFAULT
+const HAS_ROOT_FLAG = rootFlagIdx >= 0 && Boolean(args[rootFlagIdx + 1])
+const ROOT = HAS_ROOT_FLAG ? resolvePath(args[rootFlagIdx + 1]) : ROOT_DEFAULT
+
+/**
+ * 判定面(2026-09-26 收口)。原来三份被审文件是 readFileSync(join(ROOT, …)) 按**磁盘**读的,
+ * 于是并发会话手里一份未提交的 llm.py(整个 _DELEGATE_ONLY_TOOLS 字面量被删)会把**无关**提交
+ * 判成"无法判定"并 exit 1 —— 实测今晚连挡两枚提交,而守门批 162 道全绿、红在批外那一步,
+ * 唯一出路被写成跳门(一次跳门≈全部守门对该提交作废,§12e 同型)。
+ * 现:默认判 HEAD blob、--staged 判索引 blob、--worktree 只作人工逃生舱,两面旗同给判死;
+ * --root 只在 --worktree 档有效(换根却按 HEAD/索引读 = 双根分裂)。
+ * 面取不到 ⇒ exit 2「无法判定」,不冒红也不记绿;而"面里真没有那个字面量"仍是判据红(exit 1)。
+ */
+export function pickFace(argv) {
+  return selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree'), def: 'head' })
+}
+
+/** 三份被审文件按同一个面、同一轮读满;取不到一律抛 Undetermined(绝不回落另一个面)。 */
+function inputRels() {
+  // 不在模块顶层求值:PY_LLM/PY_MCP/TS_EXEC 声明在本函数之后,顶层数组会撞 TDZ。
+  return [PY_LLM, PY_MCP, TS_EXEC]
+}
+function readInputs(root, face) {
+  const rels = inputRels()
+  if (face === 'worktree') {
+    const out = {}
+    for (const rel of rels) {
+      const text = readWorktreeFile(root, rel)
+      if (text === null || text === undefined) throw new Undetermined(rel + ' 在磁盘上不存在(工作树档)')
+      out[rel] = text
+    }
+    return out
+  }
+  const prefix = face === 'staged' ? ':' : 'HEAD:'
+  const specs = rels.map((rel) => prefix + rel)
+  const got = catBatch(root, specs, { maxBuffer: 1 << 28 })
+  const out = {}
+  for (let i = 0; i < rels.length; i++) {
+    const text = got.get(specs[i])
+    if (text === null || text === undefined)
+      throw new Undetermined((face === 'staged' ? '索引' : 'HEAD') + ' 取不到 ' + rels[i])
+    out[rels[i]] = text
+  }
+  return out
+}
 
 const PY_LLM = 'apps/ai-service/app/routers/llm.py'
 const PY_MCP = 'apps/ai-service/app/services/mcp_server.py'
@@ -157,22 +201,20 @@ function dictMap(fileAbs, src, varName) {
 }
 
 /** 前端 switch-case 里实现了的工具名。 */
-function frontendCases(root) {
-  const src = readFileSync(join(root, TS_EXEC), 'utf8')
+function frontendCases(texts) {
+  const src = texts[TS_EXEC]
   const names = new Set()
   for (const m of src.matchAll(/^\s*case '([A-Za-z0-9_]+)':/gm)) names.add(m[1])
   return names
 }
 
 /** Python 侧本地注册的工具名:`_TOOL_HANDLERS` 的 key。 */
-function localRegistry(root) {
-  const fileAbs = join(root, PY_MCP)
-  return dictKeySet(fileAbs, readFileSync(fileAbs, 'utf8'), '_TOOL_HANDLERS')
+function localRegistry(texts) {
+  return dictKeySet(PY_MCP, texts[PY_MCP], '_TOOL_HANDLERS')
 }
 
-function collect(root) {
-  const llmAbs = join(root, PY_LLM)
-  const llm = readFileSync(llmAbs, 'utf8')
+function collect(texts) {
+  const llm = texts[PY_LLM]
   const take = (name) => {
     const lit = pyCollection(llm, name)
     if (lit === null) throw new Error(`${PY_LLM}: 未找到 ${name} 的字面量赋值`)
@@ -181,10 +223,10 @@ function collect(root) {
   return {
     fs: setMembers(take('_FS_DEPENDENT_TOOLS')),
     delegateOnly: setMembers(take('_DELEGATE_ONLY_TOOLS')),
-    hints: dictKeySet(llmAbs, llm, '_DELEGATE_ONLY_HINTS'),
-    aliases: dictMap(llmAbs, llm, '_TOOL_ALIASES'),
-    local: localRegistry(root),
-    frontend: frontendCases(root),
+    hints: dictKeySet(PY_LLM, llm, '_DELEGATE_ONLY_HINTS'),
+    aliases: dictMap(PY_LLM, llm, '_TOOL_ALIASES'),
+    local: localRegistry(texts),
+    frontend: frontendCases(texts),
   }
 }
 
@@ -369,7 +411,7 @@ function runSelfTest() {
     const dir = buildFixture(files)
     let fails = []
     try {
-      fails = check(collect(dir))
+      fails = check(collect(readInputs(dir, 'worktree')))
     } catch (e) {
       fails = [`抛出: ${e.message}`]
     } finally {
@@ -392,19 +434,42 @@ function runSelfTest() {
 if (selfTest) runSelfTest()
 
 // --- 实跑 -------------------------------------------------------------------
+const FACE_SEL = pickFace(args)
+if (FACE_SEL.error) {
+  console.log(`${C.red}${C.bold}❌ 判定面自相矛盾${C.reset} — ${FACE_SEL.error}`)
+  process.exit(2)
+}
+if (HAS_ROOT_FLAG && FACE_SEL.face !== 'worktree') {
+  console.log(
+    `${C.red}${C.bold}❌ --root 只在 --worktree 档有效${C.reset} — 换根却按 HEAD/索引读 = 双根分裂`,
+  )
+  process.exit(2)
+}
+const FACE_TXT = {
+  head: 'HEAD blob(全量审计)',
+  staged: '索引 blob(本次提交会带走的那一份)',
+  worktree: '工作树(人工逃生舱,提交链不走这档)',
+}
+let texts
 let failures
 try {
-  failures = check(collect(ROOT))
+  texts = readInputs(ROOT, FACE_SEL.face)
+  failures = check(collect(texts))
 } catch (e) {
+  if (e instanceof Undetermined) {
+    // "面取不到"与"面里没有那个字面量"是两件事:前者无法判定,后者是判据红。
+    console.log(`${C.red}${C.bold}❌ 工具注册表完整性无法判定(不冒红也不记绿)${C.reset} — ${e.message}`)
+    process.exit(2)
+  }
   console.log(`${C.red}${C.bold}❌ 工具注册表完整性无法判定${C.reset} — ${e.message}`)
   process.exit(1)
 }
 
 if (failures.length === 0) {
   if (!quiet) {
-    const d = collect(ROOT)
+    const d = collect(texts)
     console.log(
-      `${C.green}✅ 工具注册表完整性通过${C.reset} — fs 委托集 ${d.fs.size} / 委托专有 ${d.delegateOnly.size} / 别名 ${Object.keys(d.aliases).length} 条 / 本地注册 ${d.local.size} / 前端实现 ${d.frontend.size}`,
+      `${C.green}✅ 工具注册表完整性通过${C.reset} — 判定面 ${FACE_TXT[FACE_SEL.face]} / fs 委托集 ${d.fs.size} / 委托专有 ${d.delegateOnly.size} / 别名 ${Object.keys(d.aliases).length} 条 / 本地注册 ${d.local.size} / 前端实现 ${d.frontend.size}`,
     )
   }
   process.exit(0)
