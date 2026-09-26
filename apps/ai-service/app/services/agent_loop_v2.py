@@ -64,7 +64,13 @@ from ..core.permission_mode import (
     PermissionModeId as _PermissionModeId,
 )
 from ..core.permission_mode import (
-    is_readonly_permission_mode as _is_readonly_mode,
+    ModePolicy,
+)
+from ..core.permission_mode import (
+    allowed_tool_names as _allowed_tool_names,
+)
+from ..core.permission_mode import (
+    blocked_tool_message as _blocked_tool_message,
 )
 from ..core.permission_mode import (
     normalize_permission_mode as _normalize_permission_mode,
@@ -73,7 +79,13 @@ from ..core.permission_mode import (
     permission_mode_error as _permission_mode_error,
 )
 from ..core.permission_mode import (
+    resolve_mode_policy as _resolve_mode_policy,
+)
+from ..core.permission_mode import (
     skips_approval_permission_mode as _skips_approval_mode,
+)
+from ..core.permission_mode import (
+    tool_allowed_by_policy as _tool_allowed_by_policy,
 )
 from ..core.usage_cache import normalize_usage
 from .agent_checkpoint import (
@@ -109,7 +121,10 @@ from .llm_budget_governor import (
     BudgetExceededError,
     llm_budget_governor,
 )
-from .plan_mode import READONLY_TOOLS, is_readonly_tool
+# V3 #53(2026-09-27):工具集的**收窄**已由 core/permission_mode 的矩阵出口承担
+# (交集只算一次);此处只保留"某工具是否只读"这一谓词 —— 它服务的是 acceptEdits
+# 的免审批分支(4846 行),不是可用性判定。
+from .plan_mode import is_readonly_tool
 from .security_config import get_security_config
 
 logger = logging.getLogger(__name__)
@@ -1655,9 +1670,17 @@ class AgentLoopV2:
 
         # plan 模式:循环入口强制收窄工具集为「传入 tools ∩ READONLY_TOOLS」,
         # LLM schema 也仅暴露只读工具(双保险:既收窄可见工具,又在执行入口做防御性再校验)。
-        if _is_readonly_mode(self._permission_mode):
+        # V3 #53(2026-09-27):交集**只有 core/permission_mode.allowed_tool_names 一处实现**
+        # —— 引擎侧没有 chat_mode 概念,故 chat 轴传 None(= 'build' 语义),
+        # 收窄完全由 permission_mode 轴决定,与此处逐字等值。
+        _mode_policy = _resolve_mode_policy(None, self._permission_mode)
+        # 存成实例属性:执行入口(见 _execute_tool_call 的硬收窄再校验)复用同一份判定,
+        # 不在两处各算一次矩阵。
+        self._mode_policy: ModePolicy = _mode_policy
+        _allowed_names = _allowed_tool_names(_mode_policy, self._tools.keys())
+        if len(_allowed_names) != len(self._tools):
             self._tools = {
-                name: td for name, td in self._tools.items() if name in READONLY_TOOLS
+                name: td for name, td in self._tools.items() if name in _allowed_names
             }
 
         # 1-6 token 治理:预算硬约束开关/支柱/粗估 token(2026-09-02 立)。
@@ -4773,8 +4796,10 @@ class AgentLoopV2:
 
         # plan 模式:白名单外工具防御性拦截(不执行、不进审批流、直接 error 回填)。
         # 构造期已将工具集收窄为「传入 tools ∩ READONLY_TOOLS」,此处为双保险再校验。
-        if _is_readonly_mode(self._permission_mode) and not is_readonly_tool(tc.name):
-            msg = f"permission_mode=plan:工具 {tc.name} 不在只读白名单"
+        # V3 #53(2026-09-27):判定与文案都取自 core/permission_mode 的唯一出口 ——
+        # 交集不在这里再算一遍,被拦文案也不在这里各写一份(V3 #49 口径:原因 + 替代建议)。
+        if not _tool_allowed_by_policy(self._mode_policy, tc.name):
+            msg = _blocked_tool_message(self._mode_policy, tc.name)
             logger.info(
                 "plan 模式拦截工具 %s(不在只读白名单), session=%s",
                 tc.name,
