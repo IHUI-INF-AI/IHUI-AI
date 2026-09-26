@@ -78,13 +78,6 @@ const FAMILY_LIFETIME_DAYS = {
   'statusbar-exempt': 30,
   'glyph-arrow-exempt': 30,
   'alpha-plugin-exempt': 30,
-  /**
-   * 守门「批量写计数诚实性对账」的行内例外通道(该门第四条放过通道)。取 **30 天**,与
-   * `glyph-arrow-exempt` / `statusbar-exempt` 同档:它是**待偿的迁移债**(把 handler 改到
-   * `.returning` + `utils/batch-outcome.ts` 唯一出口即可消掉),不是结构性定性 ——
-   * 不给到期日就等于让"这一处先记着"永远留在提交树里。
-   */
-  'batch-count-exempt': 30,
   'r5-cta-exempt': 60,
   'r3-cta-exempt': 60,
   'r7-nest-exempt': 60,
@@ -96,6 +89,17 @@ const FAMILY_LIFETIME_DAYS = {
    * (那种取 365,短到期只会逼人删标记、删了又被原判据红,两道门互咬)。
    */
   'handcopy-token-exempt': 60,
+  /**
+   * 守门 83 R8(描边不得取墨档)的合法例外通道。取 **30 天**,与 `glyph-arrow-exempt` /
+   * `statusbar-exempt` 同档 —— 这一族的典型用法是**待偿**:该处确实要留一道墨色边,但要改成
+   * `border.*` / `brandAccent.*` 或干脆删掉(零消费者死件),所以短周期逼办。
+   * 2026-09-26 之前它一直是**未登记族**(走 90 天默认值)—— 不是没人用它,是它从没被策略化。
+   * 登记时 HEAD 面实有 4 处:2 处属零消费者死件(30 天等删除票),2 处属 Switch 新拟态定稿
+   * (框与 3px 硬投影同色才成立体感,改档即破定稿)—— 后者按 `back-label-exempt` 的同一道理
+   * 显式写 365 天:**结构性定性**给短周期,只会逼人删标记、删了又被 R8 判红,两道门互咬。
+   * 族值管"新增时建议多久",显式 `until` 管"这一处实际到什么时候"。
+   */
+  'border-ink-exempt': 30,
   /**
    * 守门 131(RN 函数形态 style 被 cssInterop 吃掉)的合法例外通道。取 **30 天**,与
    * `glyph-arrow-exempt` / `statusbar-exempt` 同档 —— 它是**待偿的迁移债**(改回数组形态
