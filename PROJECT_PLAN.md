@@ -11904,3 +11904,34 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   `ihui-download-verify`、`chat-mode-badge`、`footer-regression`、`phase-21-timeline-sse` 各自另有成因,
   且日志里同时出现 api 侧 `FST_UNDER_PRESSURE`(503)与 `会话清单应为 200(实际 500)` ⇒
   这一族要先判"是不是 CI 资源压力下的过载",不得当成代码缺陷盲修。
+
+- **`test-python` 的 52 例红做了逐簇归因(Mypy 先红把它整批遮住了,修完 Mypy 才露出来)**——
+  读数取自 `40513b2558` 那次运行的 step 级日志(`= 52 failed, 14612 passed, 18 skipped =`):
+  - **22 例是我的两个 58 号接线套件**(`test_engine_context_wiring_58` 15 + `test_tool_trace_wiring_58` 7):
+    `asyncio.get_event_loop()` 在 3.12 的"无当前循环"语义下抛 `There is no current event loop`,
+    而**只要全量跑里有别的 pytest-asyncio 用例先 teardown 就会触发** ⇒ 单跑绿、全量红;
+    已改接仓内既有的模块级共享循环出口(`test_mainwire_wiring_58.py:50-60` 早就为同一件事写好了),
+    **没有另造第三份**;
+  - **5 例 `test_usage.py`** 是我自己那刀鉴权收紧的欠账(旧用例把"自报 user_id 优先 / 缺身份 400"当契约),
+    已改按收紧后断言(401 / dev 降级单一身份 / 非管理员代查 403 / 管理员仍可代查),
+    `30 passed` 与 `test_usage_authz.py` 同跑;
+  - **7 例 `test_file_search_ripgrep_v75`**:CI runner 里没有 `rg`,而这些用例**刻意拒绝在降级时出合格证**
+    ("ripgrep 不可用(解析结果 source=none),本结果不可用于对账")。已在 `ci-monorepo.yml` 的
+    `test-python` 里 Pytest 之前装 ripgrep + `rg --version` 留证;本机装有 rg 时同一套是
+    `12 passed / 3 failed`,那 3 条(`collect_code_files_with_provenance`、`traversal_engine` 两个
+    AttributeError + 真仓耗时对账)是装完 rg 之后**仍要单独归因的存量**,不在本票冒充已修;
+  - 余下 **18 例是别的服务/工具的代码↔测试漂移,逐条带错误原文登记为待办,不盲修**:
+    `test_parallel_tool_abort_54` 4 例(`'AgentLoopV2' object has no attribute '_mode_policy' /
+    '_executed_tool_calls'` —— 测试按一版未落地的重构属性写)、
+    `test_permission_modes` 4 例(3 例 "mock awaited 0 times" + 1 例
+    `assert 'role_denied' == 'bypass_skip_approval'`,后者是**角色矩阵在 bypass 档之前就把工具拒了**,
+    属产品语义待定,不是测试写错)、
+    `test_mcp_server` 3 例(`KeyError: 'metrics' / 'test_code'` —— 工具输出结构变了)、
+    `test_model_tools_wiring_58` 1 例(`builder missing for update_plan`)、
+    `test_sse_contract` 1 例(`assert 28 == 26`,事件数与契约清单对不上)、
+    `test_complete_stream_question` 1 例(`assert [] == ['run_command']`)、
+    `test_llm_tool_persistence` 1 例(`'str' object has no attribute 'get'`)、
+    `test_engine_harness_settings_48` 1 例(拒 `permission_mode: 'always'`,归一表不认这个别名)、
+    `test_shell_detect_56` 与 `test_patch_safety_56` 各 1 例(**在 Linux runner 上断言 Windows 语义**:
+    `'/bin/sh' == 'cmd.exe'`、`'reject' == 'auto_approve'`)—— 最后这两型的正确修法是让用例
+    自己 monkeypatch 平台输入而不是按宿主跳,别用 skipif 把覆盖面跳没。
