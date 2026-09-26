@@ -3210,14 +3210,6 @@
     "streaming": "流式输出",
     "empty": "暂无模型"
   },
-  "verify": {
-    "getCode": "获取验证码",
-    "phoneEmpty": "手机号为空",
-    "phoneInvalid": "请输入正确手机号",
-    "codeSent": "验证码已发送",
-    "codeIncomplete": "请输入完整验证码",
-    "verifySuccess": "验证成功"
-  },
   "notification": {
     "settings": "通知设置"
   },
@@ -3701,9 +3693,6 @@
     "d7": "赛道七",
     "d8": "赛道八"
   },
-  "Menu": {
-    "d1": "音乐"
-  },
   "PhoneAreaCodePicker": {
     "d1": "中国"
   },
@@ -3928,11 +3917,9 @@
   "tail": {
     "6": "暂无数据",
     "7": "重试",
-    "8": "加载中...",
     "9": "请输入描述",
     "10": "暂无提现记录",
     "11": "已选模型: {m}",
-    "12": "验证码已发送至 {m}",
     "13": "加入于 {m}",
     "14": "选择感兴趣的赛道,获取个性化推荐",
     "15": "默认模型",
@@ -4044,18 +4031,11 @@
   "TeamManager": {
     "p1": "不活跃"
   },
-  "VerifyCodeModal": {
-    "p2": "重新发送",
-    "p3": "验证中…"
-  },
   "VideoInfo": {
     "p1": "视频详情"
   },
   "VideoPlayer": {
     "p1": "播放错误"
-  },
-  "VoiceInput": {
-    "p1": "录音启动失败"
   },
   "shareInformationItem": {
     "z1": "浏览"
