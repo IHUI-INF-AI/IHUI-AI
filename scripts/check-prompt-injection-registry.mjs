@@ -217,7 +217,16 @@ export function usesOutlet(strictCode) {
 
 export function countBarePrefix(code) {
   let hits = 0
-  for (const line of code.split('\n')) if (BARE_PREFIX_RE.test(line)) hits++
+  for (const line of code.split('\n')) {
+    if (!BARE_PREFIX_RE.test(line)) continue
+    // **逐行**免,不按文件免:旧写法只要该文件别处调过任一出口(哪怕只是
+    // `neutralizeBoundaries(` 用在别的语句里),整个文件的裸宿主前缀就一起不算旁路 ——
+    // 实测 `commands/agent.ts` 就是这样被放过的:它有 2 处真旁路(:679 fs 事件、:1861 工具失败反思),
+    // 却在别处调用 neutralizeBoundaries ⇒ 门打印"已接出口,不计旁路"、R3 存量报 0。
+    // 文件级豁免把"这个文件懂规矩"当成"这一行走了出口",正是本门要防的那一型判据失效。
+    if (usesOutlet(line)) continue
+    hits++
+  }
   return hits
 }
 
@@ -299,14 +308,11 @@ export function decide({ registryText, boundaryText, files, headCounts }) {
     const cur = countBarePrefix(maskCode(rec.text, { strings: false }))
     if (cur === 0) continue
     const anchor = headCounts.get(rel) ?? 0
-    if (usesOutlet(maskCode(rec.text, { strings: true }))) {
-      notices.push(`${rel}:自带 ${cur} 处前缀文本但已接出口,不计旁路`)
-      continue
-    }
     if (cur > anchor) {
       red.R3.push(`[R3] ${rel}: 裸宿主前缀 ${cur} 处 > HEAD 自身 ${anchor} 处 ⇒ 新增未走出口`)
     } else {
       legacyHits += cur
+      if (cur > 0) notices.push(`${rel}: HEAD 自身已有 ${cur} 处裸宿主前缀(锚点自持,只报数不判红)⇒ 改接出口需与"扩反第二真相锁的字面量集合同批"`)
     }
   }
   return {
@@ -445,6 +451,34 @@ export function build() { return renderInjectionNotice(); }
   const bypassFiles = new Map([...files, ['apps/cli/src/commands/z.ts', bare]])
   r = decide({ ...base(), files: bypassFiles, headCounts: new Map([['apps/cli/src/commands/z.ts', 0]]) })
   ok('C9 阳性对照:裸 [系统提示] 旁路必判 R3 红', r.red.R3.length === 1 && r.red.R3[0].includes('commands/z.ts'), JSON.stringify(r.red.R3))
+
+  // C9b —— 反向锁:出口调用**在别的行**不得替本行的裸前缀免(旧判据按文件级豁免,
+  // 实测 commands/agent.ts 两处真旁路就是这样被一句"已接出口,不计旁路"放过的)
+  const excuseFile = {
+    text:
+      "import { neutralizeBoundaries } from '../utils/prompt-boundary.js'\n" +
+      'export function f(x) { return neutralizeBoundaries(x) }\n' +
+      'export const g = `[系统提示] 这段没有走出口`\n',
+  }
+  r = decide({ ...base(), files: new Map([...files, ['apps/cli/src/commands/e.ts', excuseFile]]), headCounts: new Map() })
+  ok(
+    'C9b 同文件别处有出口 ⇒ 本行裸前缀仍必判 R3 红',
+    r.red.R3.length === 1 && r.red.R3[0].includes('commands/e.ts'),
+    JSON.stringify(r.red.R3),
+  )
+  r = decide({
+    ...base(),
+    files: new Map([
+      ...files,
+      ['apps/cli/src/commands/e.ts', { text: 'export const g = `[系统提示] x` ${injectHostSection("a","b")}\n' }],
+    ]),
+    headCounts: new Map(),
+  })
+  ok(
+    'C9c 出口与本行同处一行才算真接线(免判方向必须是"这一行走过出口")',
+    r.red.R3.length === 0,
+    JSON.stringify(r.red.R3),
+  )
 
   r = decide({ ...base(), files: bypassFiles, headCounts: new Map([['apps/cli/src/commands/z.ts', 2]]) })
   ok('C10 反向锁:HEAD 存量同样两处不得判红(否则就是恒红门)', r.red.R3.length === 0 && r.counted.legacyHits === 2, JSON.stringify(r.red.R3))
