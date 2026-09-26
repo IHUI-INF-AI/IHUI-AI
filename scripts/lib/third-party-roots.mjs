@@ -37,9 +37,10 @@
  *   由 provenance-ledger 的 P1/P2 与人工 review 共同守着,不在本层自立第二套判据。
  */
 
-import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+
+import { gitRaw } from './face-reader.mjs'
 
 /** 台账目录与四本账(相对仓库根,`/` 分隔)。provenance-ledger.mjs 从这里取,不再自持一份。 */
 export const LEDGER_DIR = 'config/third-party-provenance'
@@ -50,7 +51,6 @@ export const LEDGER_FILES = [
   { file: 'mechanisms.json', kind: 'mechanism' },
 ]
 
-const GIT = 'git'
 const GIT_TIMEOUT_MS = 30000
 
 /** 台账读不了 / git 问不到 —— 上层必须"无法判定"，不得按"没有第三方"继续跑。 */
@@ -134,14 +134,8 @@ export function thirdPartyExcludedPaths(repoRoot, trackedFiles) {
   } else {
     try {
       // -z:默认输出会按 core.quotePath 把非 ASCII 文件名转义成八进制串,那种路径永远对不上
-      files = execFileSync(GIT, ['-c', 'safe.directory=*', 'ls-files', '-z'], {
-        cwd: repoRoot,
-        encoding: 'utf8',
-        timeout: GIT_TIMEOUT_MS,
-        maxBuffer: 64 * 1024 * 1024,
-        windowsHide: true,
-        stdio: ['ignore', 'pipe', 'ignore'],
-      })
+      // (gitRaw 已统一带 `core.quotepath=false`,故这里不再自己拼 `-c`)
+      files = gitRaw(['ls-files', '-z'], repoRoot, { timeout: GIT_TIMEOUT_MS, maxBuffer: 64 * 1024 * 1024 })
         .split('\0')
         .map((s) => s.trim())
         .filter(Boolean)

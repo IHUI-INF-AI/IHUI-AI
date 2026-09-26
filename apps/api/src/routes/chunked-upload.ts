@@ -21,7 +21,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { success, error } from '../utils/response.js'
 import { checkAuth } from '../plugins/auth.js'
-import { uploadSessions } from '@ihui/database'
+import { uploadSessions, UPLOAD_SESSION_STATUS, type UploadSessionStatus } from '@ihui/database'
 import {
   PROTOCOL_UPLOAD_LIMITS,
   countUniqueReceivedChunks,
@@ -31,8 +31,10 @@ import {
   listReceivedChunkNumbers,
 } from '../services/upload-integrity.js'
 
-/** 校验和失败后的会话终态:不再接受分片、不再产出 url、由 reaper 到期收目录。 */
-const STATUS_CHECKSUM_MISMATCH = 'checksum_mismatch'
+/** 校验和失败后的会话终态:不再接受分片、不再产出 url、由 reaper 到期收目录。
+ *  取值取自 `@ihui/database` 的词表 —— 本文件不得再自拼状态字面量(那正是
+ *  `checksum_mismatch` 曾长期不在"状态字典"里的原因:字典只是另一处的注释)。 */
+const STATUS_CHECKSUM_MISMATCH: UploadSessionStatus = UPLOAD_SESSION_STATUS.checksumMismatch
 
 function expiresAtFrom(now: Date): Date {
   return new Date(now.getTime() + PROTOCOL_UPLOAD_LIMITS.ttlMs)
@@ -131,7 +133,7 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
         uploadedChunks: 0,
         chunkSize,
         mimeType,
-        status: 'uploading',
+        status: UPLOAD_SESSION_STATUS.uploading,
         userId: request.userId,
         // TTL 回收的读侧在 services/upload-integrity.ts 的 cleanupExpiredUploadSessions
         expiresAt: expiresAtFrom(now),
@@ -190,7 +192,7 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
     if (!session) {
       return reply.status(404).send(error(404, '上传会话不存在'))
     }
-    if (session.status !== 'uploading') {
+    if (session.status !== UPLOAD_SESSION_STATUS.uploading) {
       return reply.status(400).send(error(400, `上传会话状态为 ${session.status}，无法继续上传`))
     }
 
@@ -276,18 +278,20 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
       session.totalChunks,
     )
     if (missingChunks.length > 0) {
-      return reply.status(400).send(
-        error(
-          400,
-          `分片未收齐:缺第 ${missingChunks.join('、')} 片(共 ${session.totalChunks} 片,实收 ${session.totalChunks - missingChunks.length} 片)`,
-        ),
-      )
+      return reply
+        .status(400)
+        .send(
+          error(
+            400,
+            `分片未收齐:缺第 ${missingChunks.join('、')} 片(共 ${session.totalChunks} 片,实收 ${session.totalChunks - missingChunks.length} 片)`,
+          ),
+        )
     }
 
     // 更新 status=merging
     await db
       .update(uploadSessions)
-      .set({ status: 'merging', updatedAt: new Date() })
+      .set({ status: UPLOAD_SESSION_STATUS.merging, updatedAt: new Date() })
       .where(eq(uploadSessions.uploadId, uploadId))
 
     const fileId = randomUUID()
@@ -343,12 +347,14 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
           },
           '分片合并结果与声明校验和不符,已拒绝交付',
         )
-        return reply.status(400).send(
-          error(
-            400,
-            `校验和不符:声明 md5=${session.fileMd5 ?? '(未声明)'} 实算 md5=${digests.md5}(sha256=${digests.sha256}, ${actualSize} 字节),已拒绝并清理合并文件`,
-          ),
-        )
+        return reply
+          .status(400)
+          .send(
+            error(
+              400,
+              `校验和不符:声明 md5=${session.fileMd5 ?? '(未声明)'} 实算 md5=${digests.md5}(sha256=${digests.sha256}, ${actualSize} 字节),已拒绝并清理合并文件`,
+            ),
+          )
       }
 
       // 校验通过才清理 chunks 目录
@@ -362,7 +368,7 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
     await db
       .update(uploadSessions)
       .set({
-        status: 'completed',
+        status: UPLOAD_SESSION_STATUS.completed,
         filePath: finalPath,
         updatedAt: new Date(),
       })
@@ -400,7 +406,7 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
     // 更新 status=cancelled
     await db
       .update(uploadSessions)
-      .set({ status: 'cancelled', updatedAt: new Date() })
+      .set({ status: UPLOAD_SESSION_STATUS.cancelled, updatedAt: new Date() })
       .where(eq(uploadSessions.uploadId, uploadId))
 
     return reply.send(success({ uploadId, cancelled: true }))
