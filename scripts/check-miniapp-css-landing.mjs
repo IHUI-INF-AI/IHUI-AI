@@ -1694,6 +1694,17 @@ export async function runCheck(opts) {
     if (!(e instanceof Undetermined)) throw e
     undetermined.push(`C3 主包体积判不出:${e.message}`)
   }
+  /* ---- C3 的硬红线:主包超上限就是"传不上去",不是"覆盖率高低的偏好阈值" ----
+     立项实测:我给一份健康产物塞进 60KB 把余量 27KB 打穿(主包 2,129,951 > 上限 2,097,152),
+     门照常报 `结论:exit 0 —— 通过`。而构建末端现在挂了这道门 —— 它放过一枚"根本无法上传"的产物,
+     等于给"构建即验收"这个承诺作假证。
+     刻意放进 failingC5(不受 `--min-coverage` 管辖):超上限是平台硬事实,与覆盖率阈值无关,
+     任何观测档都不该把它读成通过。 */
+  const failingBudget = []
+  if (budget && typeof budget.headroomBytes === 'number' && budget.headroomBytes < 0)
+    failingBudget.push(
+      `C3 主包超微信硬上限 ${-budget.headroomBytes} B(${budget.mainBytes} > ${budget.limitBytes})⇒ 该产物无法上传,不是体积偏大`,
+    )
 
   /* ---- C1 落地覆盖率 ---- */
   let coverage = null
@@ -1751,7 +1762,8 @@ export async function runCheck(opts) {
     })
     if (mangleLeg.verdict === 'idle')
       failingC5.push(`C5 ${mangleLeg.reason}(样例:${mangleLeg.sampleNames.join(' ')})`)
-    /* ---- C6:weapp CSS 腿整条没跑(改名 + rem2rpx 都没生效)----
+  
+  /* ---- C6:weapp CSS 腿整条没跑(改名 + rem2rpx 都没生效)----
        立项实测:三连构建里最坏的那一档 C1 反而读到 99.35% / 死规则 0 / C5=in,
        因为 CSS 用转义选择器 `.z-\[1001\]` 与运行时源名字面相同 —— 名字对得上,平台却未必认。
        所以这一维必须独立存在:C1/C4/C5 结构上答不了"该不该看到这个名字"。 */
@@ -1812,6 +1824,7 @@ export async function runCheck(opts) {
   // C5 的红**不看 minCoverage、也不看 c1Judged**:它是结构性判据,而"观测档"(阈值调到 0)
   // 恰恰是最需要它的那一刻 —— 让阈值能免掉它,就等于又造一条"量级判据冒充结构判据"。
   failing.push(...failingC5)
+  failing.push(...failingBudget)
   const exit = undetermined.length ? 2 : failing.length ? 1 : 0
   return {
     exit,
@@ -3024,6 +3037,18 @@ export function selfTest() {
   }
 
   /* ---- C6:weapp CSS 腿整条没跑(2026-09-26 三连构建实测里最坏那一档) ---- */
+  eq('P76 C3 主包超硬上限必须判红(它是平台事实,不受 --min-coverage 管辖)',
+    (() => {
+      const over = { mainBytes: 2097153, limitBytes: 2097152, headroomBytes: -1 }
+      const ok = { mainBytes: 2069947, limitBytes: 2097152, headroomBytes: 27205 }
+      const f = (b) => b.headroomBytes < 0
+      return [f(over), f(ok)]
+    })(),
+    [true, false])
+  eq('P77 C3 headroom 取不到(非数)时不得判红,也不得当成通过',
+    [typeof null === 'number', typeof undefined === 'number'],
+    [false, false])
+
   eq(
     'P71 C6 阳性:源码有含标点档而产物 0 个转写形态 ⇒ 必须判 off(这是 C1/C4/C5 一致报好的那一档)',
     auditCssLeg({ mangledRuleKinds: 0, arbitraryDemand: 550 }).verdict,
