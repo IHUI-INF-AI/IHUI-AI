@@ -291,8 +291,11 @@ export const themeRoutes: FastifyPluginAsync = async (server) => {
     { preHandler: requireAdmin },
     async (request, reply) => {
       const { id } = parseOrThrow(idParamSchema, request.params)
-      await db.delete(themeColors).where(eq(themeColors.id, id))
-      return reply.send(success({ deleted: true }))
+      const removed = await db
+        .delete(themeColors)
+        .where(eq(themeColors.id, id))
+        .returning({ id: themeColors.id })
+      return reply.send(success({ deleted: removed.length > 0 }))
     },
   )
 
@@ -338,8 +341,11 @@ export const themeRoutes: FastifyPluginAsync = async (server) => {
 
   server.delete('/admin/themes/fonts/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const { id } = parseOrThrow(idParamSchema, request.params)
-    await db.delete(themeFonts).where(eq(themeFonts.id, id))
-    return reply.send(success({ deleted: true }))
+    const removed = await db
+      .delete(themeFonts)
+      .where(eq(themeFonts.id, id))
+      .returning({ id: themeFonts.id })
+    return reply.send(success({ deleted: removed.length > 0 }))
   })
 
   // --- Theme assets routes (3) ---
@@ -375,8 +381,11 @@ export const themeRoutes: FastifyPluginAsync = async (server) => {
     { preHandler: requireAdmin },
     async (request, reply) => {
       const { id } = parseOrThrow(idParamSchema, request.params)
-      await db.delete(themeAssets).where(eq(themeAssets.id, id))
-      return reply.send(success({ deleted: true }))
+      const removed = await db
+        .delete(themeAssets)
+        .where(eq(themeAssets.id, id))
+        .returning({ id: themeAssets.id })
+      return reply.send(success({ deleted: removed.length > 0 }))
     },
   )
 
@@ -505,7 +514,7 @@ export const themeRoutes: FastifyPluginAsync = async (server) => {
     const { id } = parseOrThrow(idParamSchema, request.params)
     const [deleted] = await db.delete(themes).where(eq(themes.id, id)).returning()
     if (!deleted) return reply.status(404).send(error(404, '主题不存在'))
-    return reply.send(success({ deleted: true }))
+    return reply.send(success({ deleted: Boolean(deleted) }))
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -203,10 +203,12 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     try {
-      await db.execute(sql`
+      const rows = await db.execute(sql`
         DELETE FROM system_configs WHERE id::text = ${parsed.data.id} AND category = 'remote_proxy'
+        RETURNING id
       `)
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
+      const removed = (rows as Record<string, unknown>[]).length > 0
+      return reply.send(success({ id: parsed.data.id, deleted: removed }))
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '删除远程代理失败'))
@@ -360,8 +362,11 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const numId = Number(parsed.data.id)
     if (!Number.isFinite(numId)) return reply.status(400).send(error(400, '无效的 ID'))
     try {
-      await db.delete(zhsUserAgentContext).where(eq(zhsUserAgentContext.id, numId))
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
+      const removed = await db
+        .delete(zhsUserAgentContext)
+        .where(eq(zhsUserAgentContext.id, numId))
+        .returning({ id: zhsUserAgentContext.id })
+      return reply.send(success({ id: parsed.data.id, deleted: removed.length > 0 }))
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '删除用户 Agent 上下文失败'))

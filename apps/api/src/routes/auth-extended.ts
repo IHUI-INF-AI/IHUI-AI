@@ -1633,8 +1633,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     if (existing.ownerUuid !== request.userId) {
       return reply.status(403).send(error(403, '无权删除此应用'))
     }
-    await deleteOAuthApp(clientId, request.userId!)
-    return reply.send(success({ deleted: true, clientId }))
+    const removedIds = await deleteOAuthApp(clientId, request.userId!)
+    return reply.send(success({ deleted: removedIds.length > 0, clientId }))
   })
 
   // 已授权应用

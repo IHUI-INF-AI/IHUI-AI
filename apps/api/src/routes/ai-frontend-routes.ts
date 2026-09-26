@@ -253,12 +253,13 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
     const parsed = idParam.safeParse(request.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     try {
-      const [row] = await db
+      const removed = await db
         .delete(mcpServers)
         .where(eq(mcpServers.id, parsed.data.id))
         .returning({ id: mcpServers.id })
+      const [row] = removed
       if (!row) return reply.status(404).send(error(404, 'MCP 服务器不存在'))
-      return reply.send(success({ id: row.id, deleted: true }))
+      return reply.send(success({ id: row.id, deleted: removed.length > 0 }))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '删除 MCP 服务器失败'))

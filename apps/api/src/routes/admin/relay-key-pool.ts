@@ -236,12 +236,13 @@ const relayKeyPoolRoutes: FastifyPluginAsync = async (server) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
     try {
-      const [row] = await db
+      const removed = await db
         .delete(aiRelayKeyPool)
         .where(eq(aiRelayKeyPool.id, p.data.id))
         .returning({ id: aiRelayKeyPool.id })
+      const [row] = removed
       if (!row) return reply.status(404).send(error(404, 'Key 不存在'))
-      return reply.send(success({ id: row.id, deleted: true }))
+      return reply.send(success({ id: row.id, deleted: removed.length > 0 }))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '删除 Key 失败'))

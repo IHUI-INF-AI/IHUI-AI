@@ -107,8 +107,11 @@ const authAccountsRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(userThirdPartyAccounts.id, p.data.id))
       .limit(1)
     if (existing.length === 0) return reply.status(404).send(error(404, '记录不存在'))
-    await db.delete(userThirdPartyAccounts).where(eq(userThirdPartyAccounts.id, p.data.id))
-    return reply.send(success({ id: p.data.id, deleted: true }))
+    const removed = await db
+      .delete(userThirdPartyAccounts)
+      .where(eq(userThirdPartyAccounts.id, p.data.id))
+      .returning({ id: userThirdPartyAccounts.id })
+    return reply.send(success({ id: p.data.id, deleted: removed.length > 0 }))
   })
 }
 

@@ -151,9 +151,9 @@ export const tenantRoutes: FastifyPluginAsync = async (server) => {
       reply.status(403).send(error(403, '仅租户所有者可删除'))
       return
     }
-    await db.delete(tenants).where(eq(tenants.id, id))
+    const removed = await db.delete(tenants).where(eq(tenants.id, id)).returning({ id: tenants.id })
     clearTenantCache()
-    return success({ deleted: true })
+    return success({ deleted: removed.length > 0 })
   })
 
   // ---- 成员管理 ----
