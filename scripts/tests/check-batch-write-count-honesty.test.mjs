@@ -13,8 +13,10 @@
  *  3. **反向锁(源码级)**:不得回到 `process.cwd()` 定根、不得回到"内容按磁盘读"、
  *     默认档不得变成 worktree。这类失效只有源码锁能防 —— 行为断言会跟着实现一起漂绿。
  *
- * 判据本体的正反成对用例住在 `--self-test`(现测 33 条 = 构造面 25 + 临时 git 仓端到面 8),
- * 这里刻意不重跑一遍:重跑就是把测试变成实现的复读机。
+ * 判据本体的正反成对用例住在 `--self-test`(现测例数与分档一律以该命令末行为准,不在这里钉数字 ——
+ * 钉死了它下次收紧就变成假账),这里刻意不重跑一遍:重跑就是把测试变成实现的复读机。
+ * 本轮为两份"惯例存量"计数(booleanAck / readQueryCount)补的是 **M10–M13**:CLI 契约、真仓阳性对照、
+ * 以及三条源码级反向锁(计数不得进 decide / 结论行不得少掉它 / 两个计数器不得各写一遍 send 扫描)。
  */
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -135,7 +137,8 @@ test('M1 --root 换仓取证:夹具仓的存量被点名,且 --json 可 parse', 
     writeRepo(dir)
     const j = json(run(dir, ['--root', dir, '--json']))
     if (j.face !== 'head') throw new Error(`默认档必须是 HEAD,实得 ${j.face}`)
-    if (j.counts.violations !== 1) throw new Error(`夹具 HEAD 必须点名 1 处,实得 ${j.counts.violations}`)
+    if (j.counts.violations !== 1)
+      throw new Error(`夹具 HEAD 必须点名 1 处,实得 ${j.counts.violations}`)
     if (!j.violations.some((v) => v.file === REL && v.key === 'deleted'))
       throw new Error(`必须点名文件与键:${JSON.stringify(j.violations)}`)
     if (j.counts.files !== 1 || j.counts.enumerated !== 1)
@@ -154,7 +157,11 @@ test('M2 三面互异:默认判 HEAD、--staged 判索引、--worktree 判磁盘
     // HEAD 干净;索引改成脏版本;磁盘再改成第三份(布尔确认 ⇒ 既不是脏也不是干净)
     put(dir, REL, BAD)
     gitIn(dir, ['add', REL])
-    put(dir, REL, 'server.delete(async (req, reply) => {\n  return reply.send(success({ deleted: true }))\n})\n')
+    put(
+      dir,
+      REL,
+      'server.delete(async (req, reply) => {\n  return reply.send(success({ deleted: true }))\n})\n',
+    )
     const h = parse(run(dir, ['--root', dir, '--json']))
     const s = parse(run(dir, ['--root', dir, '--staged', '--json']))
     const w = parse(run(dir, ['--root', dir, '--worktree', '--json']))
@@ -164,7 +171,9 @@ test('M2 三面互异:默认判 HEAD、--staged 判索引、--worktree 判磁盘
       throw new Error(`--staged 必须判索引里那份脏的 ⇒ 应 1,实得 ${s.j.counts.violations}`)
     // 索引那份相对 HEAD 是**净新增**(HEAD 已修好)⇒ 差值棘轮必须红:这正是本门要拦的那一次提交
     if (s.code !== 1 || !s.j.ratcheted?.length)
-      throw new Error(`净新增必须 exit 1 并给出锚点,实得 exit ${s.code}:${JSON.stringify(s.j.ratcheted)}`)
+      throw new Error(
+        `净新增必须 exit 1 并给出锚点,实得 exit ${s.code}:${JSON.stringify(s.j.ratcheted)}`,
+      )
     if (w.j.counts.candidates !== 0 || w.j.counts.violations !== 0)
       throw new Error(`磁盘面是第三份(布尔确认)⇒ 双 0,实得 ${JSON.stringify(w.j.counts)}`)
   } finally {
@@ -182,7 +191,11 @@ test('M2b 差值棘轮:存量与索引持平时不拦,加回来才判红(防恒�
     if (same.exit !== 0)
       throw new Error(`与改动无关的存量不得判红(唯一结局是逼人 --no-verify),实得 exit ${same.exit}`)
     // 再加一处同型自算 ⇒ 净新增 1 ⇒ 必须红,且锚点必须是该文件 HEAD 自身计数
-    put(dir, REL, `${BAD}\nserver.put(async (request, reply) => {\n  await db.update(table).set({ a: 1 }).where(inArray(table.id, idList2))\n  return reply.send(success({ affected: idList2.length }))\n})\n`)
+    put(
+      dir,
+      REL,
+      `${BAD}\nserver.put(async (request, reply) => {\n  await db.update(table).set({ a: 1 }).where(inArray(table.id, idList2))\n  return reply.send(success({ affected: idList2.length }))\n})\n`,
+    )
     gitIn(dir, ['add', REL])
     const moreR = run(dir, ['--root', dir, '--staged', '--json'])
     if (moreR.code !== 1)
@@ -267,7 +280,8 @@ test('M7 反向锁:定根与取材面不得回到旧写法(门 70 / 门 118 同�
     throw new Error('未引 face-reader ⇒ 等于自己派生 git 取内容')
   if (!/catBatch\(/.test(SRC)) throw new Error('未走层的读取入口 catBatch ⇒ 属门 118 说的半接线')
   if (/git show|execSync\(/.test(SRC)) throw new Error('不得自己拼 git show / execSync 取内容')
-  if (!/def: 'head'/.test(SRC)) throw new Error('默认档必须是 head(改成磁盘就是恒红与假绿来回跳那一型)')
+  if (!/def: 'head'/.test(SRC))
+    throw new Error('默认档必须是 head(改成磁盘就是恒红与假绿来回跳那一型)')
   if (/readFileSync\([^)]*(?:REL|SCAN_DIRS)/.test(SRC))
     throw new Error('判据不得按磁盘读被审文件(共享工作树常年滞后 HEAD)')
 })
@@ -279,17 +293,186 @@ test('M8 判据只此一份实现:__test__ 必须把核心函数交出去,测试
   const i = SRC.indexOf('export const __test__')
   if (i < 0) throw new Error('源脚本必须 export __test__ —— 否则判据不可被直接复用,只能被复读')
   const block = SRC.slice(i)
-  for (const k of ['maskText', 'findWriteChains', 'findCountSends', 'scanFileText', 'decide', 'analyze'])
+  // findBooleanAckSends 也在这张清单里:惯例计数的出口被摘掉一个,测试就会拿 undefined 跑出一片绿。
+  for (const k of [
+    'maskText',
+    'findWriteChains',
+    'findCountSends',
+    'findBooleanAckSends',
+    'scanFileText',
+    'decide',
+    'analyze',
+  ])
     if (!new RegExp(`[\\s,{]${k}\\s*[,}:]`).test(block))
       throw new Error(`__test__ 少了 ${k}(门被摘掉一个出口,测试就会拿 undefined 跑)`)
+})
+
+test('M10 --json 只新增不改动:四个判据数字段与既有形态逐字在位,新计数为非负整数', () => {
+  const dir = mkScratch('bch-json-')
+  try {
+    // 夹具里同时放一份"只有布尔 ack"的文件 ⇒ 新旧字段必须同时有值,才谈得上"只新增"
+    writeRepo(dir, {
+      body: `${BAD}\nserver.delete(async (request, reply) => {\n  return reply.send(success({ id, deleted: true }))\n})\n`,
+    })
+    const j = json(run(dir, ['--root', dir, '--json']))
+    for (const k of [
+      'files',
+      'enumerated',
+      'candidates',
+      'violations',
+      'undetermined',
+      'exempt',
+      'bareExempt',
+    ])
+      if (!Number.isInteger(j.counts[k]))
+        throw new Error(`既有 counts.${k} 形态变了(实得 ${JSON.stringify(j.counts[k])})`)
+    for (const k of ['returning', 'db', 'outlet', 'marker'])
+      if (!Number.isInteger(j.exempt[k])) throw new Error(`既有 exempt.${k} 形态变了`)
+    for (const k of [
+      'gate',
+      'root',
+      'face',
+      'strict',
+      'counts',
+      'exempt',
+      'violations',
+      'undetermined',
+      'ratcheted',
+      'exit',
+    ])
+      if (!(k in j)) throw new Error(`顶层既有字段 ${k} 不见了 —— 追加只许往末尾加键`)
+    for (const k of [
+      'booleanAckSites',
+      'booleanAckFiles',
+      'readQueryCountSites',
+      'readQueryCountFiles',
+    ])
+      if (!Number.isInteger(j.counts[k]) || j.counts[k] < 0)
+        throw new Error(`新计数字段 ${k} 缺失或为负:${JSON.stringify(j.counts)}`)
+    if (j.counts.booleanAckSites !== 1 || j.counts.booleanAckFiles !== 1)
+      throw new Error(
+        `夹具那份只有一处布尔 ack,实得 ${j.counts.booleanAckSites}/${j.counts.booleanAckFiles}`,
+      )
+    if (j.counts.candidates !== 1 || j.counts.violations !== 1)
+      throw new Error(
+        `惯例计数不得顶动判据数:夹具仍是候选 1 违规 1,实得 ${j.counts.candidates}/${j.counts.violations}`,
+      )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('M11 真仓 HEAD 阳性对照(两把互相独立的尺子,不只量下限)', () => {
+  const r = run(resolve(SCRIPTS_DIR, '..'), ['--json'])
+  if (r.code !== 0)
+    throw new Error(
+      `真仓默认档应当退出 0(全量档只报数),实得 ${r.code}:${String(r.out).slice(0, 200)}`,
+    )
+  const j = JSON.parse(r.out)
+  /*
+   * 结构计数之外必须有第二把**异形**尺子:只量下限的门,把判据放宽成一锅粥照样绿
+   * (变异① 把布尔正则换成 /deleted/ 后,真仓读数从 237 涨到 282,而任何"≥ 某值"的断言都还在通过)。
+   * 上界不是猜的,是可证的:每个被数到的落点都**必须含** `deleted : true` 这段文本,
+   * 所以 结构计数 ≤ 同一覆盖面内该字面量的出现数。字面量计数用 `git grep -o` 独立取,
+   * 不复用本门任何判据(否则就是让被判据自己给自己发合格证)。
+   */
+  const raw = execFileSync(
+    GIT,
+    [
+      '-c',
+      'safe.directory=*',
+      'grep',
+      '-o',
+      '-E',
+      'deleted[[:space:]]*:[[:space:]]*true',
+      'HEAD',
+      '--',
+      'apps/api/src/routes',
+      'apps/api/src/db',
+    ],
+    {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 180_000,
+      maxBuffer: 64 << 20,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  )
+  const literal = raw
+    .split('\n')
+    .filter(Boolean)
+    // 注意版式:`git grep -o`(不带 -n)打的是 `HEAD:<path>:<匹配内容>`,**没有行号段** ——
+    // 按 `:行号:` 去解会得到 0 条,而 0 在这把尺子上的表现是"取证失效",不是"存量掉了"。
+    .map((l) => /^HEAD:(.+?):/.exec(l))
+    .filter(Boolean)
+    .map((m) => m[1])
+    .filter((p) => !/(^|\/)(?:tests?|__tests__|e2e)\//.test(p)).length
+  if (literal < 150)
+    throw new Error(`第二把尺子自己只读到 ${literal} ⇒ 取证失效,不能拿它去证 237 那一侧`)
+  console.log(
+    `    · 现读:布尔 ack ${j.counts.booleanAckSites} 处 / ${j.counts.booleanAckFiles} 文件;读查询 count ${j.counts.readQueryCountSites} 处 / ${j.counts.readQueryCountFiles} 文件;字面量独立计数 ${literal}`,
+  )
+  if (j.counts.booleanAckSites < 150)
+    throw new Error(
+      `布尔 ack 现读只有 ${j.counts.booleanAckSites} 处 ⇒ 判据对这一型近乎失明,先查锚点与遮蔽面`,
+    )
+  if (j.counts.booleanAckSites > literal)
+    throw new Error(
+      `布尔 ack ${j.counts.booleanAckSites} > 覆盖面内字面量 ${literal} ⇒ 判据被放宽到"含 deleted 就算"那一型(混计)`,
+    )
+  if (j.counts.booleanAckFiles < 50)
+    throw new Error(
+      `布尔 ack 只落在 ${j.counts.booleanAckFiles} 个文件 ⇒ 与"全 API 惯例"的定性不符,先怀疑判据`,
+    )
+  if (j.counts.readQueryCountSites < 1)
+    throw new Error(
+      `读查询 count 族现读 ${j.counts.readQueryCountSites} 处:HEAD 面上这一族并非零,数到 0 就是判据空转`,
+    )
+  // 两型必须各计各的:一个都为零而另一个很大,通常是把两族并进了同一个数。
+  if (j.counts.booleanAckSites === j.counts.readQueryCountSites)
+    throw new Error(
+      `两型读数完全相同(${j.counts.booleanAckSites})⇒ 疑似混计或其中一族恒等于另一族的复制`,
+    )
+})
+
+test('M12 真仓结论行必须点名两份惯例存量(不得被 ✅ 替它们说话)', () => {
+  const r = run(resolve(SCRIPTS_DIR, '..'), [])
+  if (r.code !== 0) throw new Error(`真仓默认档退出码应为 0,实得 ${r.code}`)
+  if (!/布尔 ack 惯例\(不计红,仅现读计数\): \d+ 处 \/ \d+ 文件/.test(r.out))
+    throw new Error(`结论行少了布尔 ack 的现读数:${String(r.out).split('\n').pop()}`)
+  if (!/读查询 count 惯例\(不计红,仅现读计数\): \d+ 处 \/ \d+ 文件/.test(r.out))
+    throw new Error('结论行少了读查询 count 的现读数')
+  const line = r.out.split('\n').find((l) => l.includes('候选 ')) || ''
+  if (!/候选 \d+ \/ 违规 \d+ \/ 未判定 \d+ \/ 豁免 \d+/.test(line))
+    throw new Error(`既有四个判据数的形态被改动(只许追加):${line}`)
+})
+
+test('M13 反向锁:惯例计数不得进退出码、两个计数器不得各写一遍 send 扫描', () => {
+  const body = /export function decide\([\s\S]*?\n\}/.exec(SRC)
+  if (!body) throw new Error('decide 找不到 ⇒ 无法验证"惯例计数不进退出码"这条锁')
+  if (/booleanAck|readQueryCount/.test(body[0]))
+    throw new Error(
+      'decide 里出现了惯例计数标识符 ⇒ 可见性数被接进了退出码,那就是把惯例当债问责(恒红门之始)',
+    )
+  const n = SRC.split('[Ss]uccess').length - 1
+  if (n !== 1)
+    throw new Error(
+      `.send(<X>success({ 的扫描式出现 ${n} 次(应为 1)⇒ 违规判据与惯例计数各写一遍必然漂移(§22c)`,
+    )
+  if (!/for \(const \{ objOpen, objText \} of sendSuccessObjects\(code\)\)/.test(SRC))
+    throw new Error('两个计数器不得绕过共用取材 sendSuccessObjects,自己再走一遍 code')
 })
 
 test('M9 接线成套性:未接线则放过;一旦接入提交链,必须 blocking + skipEnv 同时在位', () => {
   const runner = readFileSync(join(SCRIPTS_DIR, 'guardian-runner.mjs'), 'utf8')
   if (!runner.includes(GATE_REL)) return
-  const block = new RegExp(`${GATE_REL.replace(/\./g, '\\.')}[\\s\\S]{0,900}?mode: 'blocking'`).test(runner)
+  const block = new RegExp(
+    `${GATE_REL.replace(/\./g, '\\.')}[\\s\\S]{0,900}?mode: 'blocking'`,
+  ).test(runner)
   const skip = runner.includes('HUSKY_SKIP_BATCH_WRITE_COUNT_HONESTY')
   if (!block || !skip)
-    throw new Error(`接线不完整: blocking=${block} skipEnv=${skip}(半接线比不接更危险:判据红时没人能正当脱身)`)
+    throw new Error(
+      `接线不完整: blocking=${block} skipEnv=${skip}(半接线比不接更危险:判据红时没人能正当脱身)`,
+    )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
