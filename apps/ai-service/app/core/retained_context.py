@@ -20,8 +20,9 @@ from __future__ import annotations
 
 import json
 from collections import deque
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Any, Iterator
+from typing import Any
 
 MAX_FAMILY_RECORDS = 8
 MAX_RECORD_BYTES = 16_384
