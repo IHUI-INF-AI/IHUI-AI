@@ -212,8 +212,11 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/auth-find-info/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    await db.delete(userAuthInfo).where(eq(userAuthInfo.userUuid, p.data.id))
-    return reply.send(success({ id: p.data.id, deleted: true }))
+    const removed = await db
+      .delete(userAuthInfo)
+      .where(eq(userAuthInfo.userUuid, p.data.id))
+      .returning({ userUuid: userAuthInfo.userUuid })
+    return reply.send(success({ id: p.data.id, deleted: removed.length > 0 }))
   })
 
   // 2. /auth-user-margin — userMargins 表 CRUD
@@ -345,8 +348,11 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
         )
     }
 
-    await db.delete(userMargins).where(eq(userMargins.userId, p.data.id))
-    return reply.send(success({ id: p.data.id, deleted: true }))
+    const removed = await db
+      .delete(userMargins)
+      .where(eq(userMargins.userId, p.data.id))
+      .returning({ userId: userMargins.userId })
+    return reply.send(success({ id: p.data.id, deleted: removed.length > 0 }))
   })
 
   // 3. /auth-veri-codes — captchas 表（查询为主）
@@ -411,8 +417,11 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/auth-veri-codes/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    await db.delete(captchas).where(eq(captchas.id, p.data.id))
-    return reply.send(success({ id: p.data.id, deleted: true }))
+    const removed = await db
+      .delete(captchas)
+      .where(eq(captchas.id, p.data.id))
+      .returning({ id: captchas.id })
+    return reply.send(success({ id: p.data.id, deleted: removed.length > 0 }))
   })
 
   // 4. /member/blacklist — systemConfigs 表（category='member-blacklist'）
@@ -549,8 +558,11 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/member/blacklist/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    await db.delete(systemConfigs).where(eq(systemConfigs.id, p.data.id))
-    return reply.send(success({ id: p.data.id, deleted: true }))
+    const removed = await db
+      .delete(systemConfigs)
+      .where(eq(systemConfigs.id, p.data.id))
+      .returning({ id: systemConfigs.id })
+    return reply.send(success({ id: p.data.id, deleted: removed.length > 0 }))
   })
 
   server.post('/member/blacklist/:id/remove', async (request, reply) => {
@@ -706,8 +718,11 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/edu/classes/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    await db.delete(lessons).where(eq(lessons.id, p.data.id))
-    return reply.send(success({ id: p.data.id, deleted: true }))
+    const removed = await db
+      .delete(lessons)
+      .where(eq(lessons.id, p.data.id))
+      .returning({ id: lessons.id })
+    return reply.send(success({ id: p.data.id, deleted: removed.length > 0 }))
   })
 
   // 7. /edu/classes/schedules — lessonChapters 表 CRUD
@@ -805,8 +820,11 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/edu/classes/schedules/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    await db.delete(lessonChapters).where(eq(lessonChapters.id, p.data.id))
-    return reply.send(success({ id: p.data.id, deleted: true }))
+    const removed = await db
+      .delete(lessonChapters)
+      .where(eq(lessonChapters.id, p.data.id))
+      .returning({ id: lessonChapters.id })
+    return reply.send(success({ id: p.data.id, deleted: removed.length > 0 }))
   })
 
   // 8. /learn/materials — resources 表 CRUD
@@ -909,8 +927,11 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/learn/materials/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    await db.delete(resources).where(eq(resources.id, p.data.id))
-    return reply.send(success({ id: p.data.id, deleted: true }))
+    const removed = await db
+      .delete(resources)
+      .where(eq(resources.id, p.data.id))
+      .returning({ id: resources.id })
+    return reply.send(success({ id: p.data.id, deleted: removed.length > 0 }))
   })
 
   // 9. /learn/plans — learnMaps 表 CRUD
@@ -1006,8 +1027,11 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/learn/plans/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    await db.delete(learnMaps).where(eq(learnMaps.id, p.data.id))
-    return reply.send(success({ id: p.data.id, deleted: true }))
+    const removed = await db
+      .delete(learnMaps)
+      .where(eq(learnMaps.id, p.data.id))
+      .returning({ id: learnMaps.id })
+    return reply.send(success({ id: p.data.id, deleted: removed.length > 0 }))
   })
 
   // 10. /learn/reminds — eduNotification 表 CRUD
@@ -1115,8 +1139,11 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/learn/reminds/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    await db.delete(eduNotification).where(eq(eduNotification.id, Number(p.data.id)))
-    return reply.send(success({ id: p.data.id, deleted: true }))
+    const removed = await db
+      .delete(eduNotification)
+      .where(eq(eduNotification.id, Number(p.data.id)))
+      .returning({ id: eduNotification.id })
+    return reply.send(success({ id: p.data.id, deleted: removed.length > 0 }))
   })
 
   // 11. /auth-dept — tDepartment 表 CRUD
@@ -1192,8 +1219,11 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/auth-dept/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    await db.delete(tDepartment).where(eq(tDepartment.id, Number(p.data.id)))
-    return reply.send(success({ id: p.data.id, deleted: true }))
+    const removed = await db
+      .delete(tDepartment)
+      .where(eq(tDepartment.id, Number(p.data.id)))
+      .returning({ id: tDepartment.id })
+    return reply.send(success({ id: p.data.id, deleted: removed.length > 0 }))
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
