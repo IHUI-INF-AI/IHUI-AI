@@ -674,9 +674,13 @@ export async function executeToolCall(
   // 放宽成放行 —— 'deny'(黑名单/不在白名单)与下方 `dangerous` 确认闸都不受影响。
   if (ctx.permissions) {
     const lease = activePermissionLease();
-    const perm = lease
-      ? checkRulesWithLease(call.name, ctx.permissions, tool.dangerLevel, lease)
-      : checkPermission(call.name, ctx.permissions);
+    // 没有 dangerLevel 声明的工具(守门 111 的 flip-audit 存量)不走租约路径 ——
+    // 替它补一个默认档就是在替"批准边界"做默认决策(凭空放宽或凭空新增批准),
+    // 而租约票自己的承诺是"默认关闭不改变现有判定"。缺声明 ⇒ 回到租约之前的 checkPermission。
+    const perm =
+      lease && tool.dangerLevel
+        ? checkRulesWithLease(call.name, ctx.permissions, tool.dangerLevel, lease)
+        : checkPermission(call.name, ctx.permissions);
     if (!perm.allowed) {
       return {
         success: false,
