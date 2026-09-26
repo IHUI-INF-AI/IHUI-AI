@@ -7295,6 +7295,19 @@
           "submit": "送出",
           "dismiss": "略過",
           "submitted": "已收到，感謝回饋"
+        },
+        "imagePreview": {
+          "prev": "上一張",
+          "next": "下一張",
+          "zoomIn": "放大",
+          "zoomOut": "縮小",
+          "save": "儲存圖片",
+          "copy": "複製圖片",
+          "counter": "第 {index} · {total} 張",
+          "saveSuccess": "儲存成功",
+          "saveFailed": "儲存失敗",
+          "copySuccess": "複製成功",
+          "copyFailed": "複製失敗"
         }
       },
       "hookSummary": {
