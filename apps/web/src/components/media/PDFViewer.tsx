@@ -92,7 +92,9 @@ export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps
     return () => {
       cancelled = true
     }
-  }, [url])
+    // t 来自 use-intl 的 React.useMemo 翻译器,重渲染间引用稳定,本 effect 不会因此多跑;
+    // 仅当 locale/messages 真变化时重载文档,错误文案随之取新词。
+  }, [url, t])
 
   React.useEffect(() => {
     if (!docRef.current || !canvasRef.current) return
@@ -134,7 +136,9 @@ export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps
       cancelled = true
       renderTask?.cancel()
     }
-  }, [page, scale])
+    // t 引用稳定(见上方同一说明),本 effect 不会因加入依赖而多跑;
+    // 换语言时重渲染当前页,失败文案取新词。
+  }, [page, scale, t])
 
   if (loading) {
     return (
