@@ -16,10 +16,21 @@
  */
 
 /**
- * @param {{ ci: boolean, dirtyCount: number | null }} input
+ * @param {{ ci: boolean, dirtyCount: number | null, insideRepo?: boolean | null }} input
+ *   `insideRepo` = `git rev-parse --is-inside-work-tree` 是否成功。**必须是三态**:
+ *   `null` 表示 git 本身问不到(锁/超时/坏配置),那才是"无法判定";
+ *   `false` 表示这里根本不是一个 git 检出 —— 本仓做 HEAD 干净检出验证用的就是
+ *   `git archive` 出去的隔离树(见 AGENTS §"隔离 HEAD 检出"那条实测),那棵树的内容
+ *   就是被量面,把它判成"不可比/无法判定"会让这道闸门恰好挡住唯一正确的记录方式。
  * @returns {{ verdict: 'comparable'|'incomparable'|'undetermined', reason: string }}
  */
-export function classifyFace({ ci, dirtyCount }) {
+export function classifyFace({ ci, dirtyCount, insideRepo = true }) {
+  if (insideRepo === false) {
+    return {
+      verdict: 'comparable',
+      reason: '非 git 检出(git archive 出的隔离 HEAD 树)⇒ 树内容即被量面,与 CI 同形',
+    }
+  }
   if (dirtyCount === null || dirtyCount === undefined) {
     return {
       verdict: 'undetermined',
@@ -43,9 +54,10 @@ export function classifyFace({ ci, dirtyCount }) {
 /**
  * 写基线时的出处标注 —— 人工在脏树上下意识要放行,那就**把这件事写进文件**,
  * 让下一个读基线的人知道这个数是从哪份内容量出来的(禁静默)。
- * @param {{ comparable: boolean, dirtyCount: number | null, forced: boolean }} input
+ * @param {{ comparable: boolean, dirtyCount: number | null, forced: boolean, isolated?: boolean }} input
  */
-export function provenanceNote({ comparable, dirtyCount, forced }) {
+export function provenanceNote({ comparable, dirtyCount, forced, isolated = false }) {
+  if (isolated) return 'recordedFrom: isolated HEAD checkout(git archive 出的干净树,无 .git)—— 与 CI 同形'
   if (comparable) return 'recordedFrom: clean face (工作树 == HEAD 或 CI 干净检出)'
   const n = dirtyCount === null ? '?' : dirtyCount
   return forced
