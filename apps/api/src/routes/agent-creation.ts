@@ -370,8 +370,11 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
           .where(eq(zhsAgentCategory.id, idNum))
           .limit(1)
         if (!existing[0]) return reply.status(404).send(error(404, '收费配置不存在'))
-        await db.delete(zhsAgentCategory).where(eq(zhsAgentCategory.id, idNum))
-        return reply.send(success({ id: parsed.data.id, deleted: true }))
+        const removed = await db
+          .delete(zhsAgentCategory)
+          .where(eq(zhsAgentCategory.id, idNum))
+          .returning({ id: zhsAgentCategory.id })
+        return reply.send(success({ id: parsed.data.id, deleted: removed.length > 0 }))
       } catch (e) {
         req.log.error(e)
         return reply.status(500).send(error(500, '删除收费配置失败'))
