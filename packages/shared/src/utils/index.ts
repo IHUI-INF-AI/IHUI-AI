@@ -10,6 +10,8 @@ export * from './async'
 export * from './base64'
 // 上下文占用归因分解(按构成来源,而非只报总量)
 export * from './context-attribution'
+// D20 会话组织(文件夹/标签)的归一化、回收与筛选规则唯一实现(端内不得再建第二套)
+export * from './conversation-org'
 export * from './dangerous-command-detector'
 export * from './date-utils'
 export * from './error-messages'
