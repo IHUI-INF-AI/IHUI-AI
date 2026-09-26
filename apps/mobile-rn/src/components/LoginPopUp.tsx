@@ -29,6 +29,45 @@
  */
 import { tokens } from '../theme/active-tokens'
 import { withAlpha, rnRadius } from '@ihui/design-tokens'
+import {
+  LOGIN_POPUP_AVATAR_BOX_PX,
+  LOGIN_POPUP_AVATAR_HINT_GAP_PX,
+  LOGIN_POPUP_BUTTON_FONT_PX,
+  LOGIN_POPUP_BUTTON_HEIGHT_PX,
+  LOGIN_POPUP_CARD_PADDING_BOTTOM_PX,
+  LOGIN_POPUP_CARD_PADDING_X_PX,
+  LOGIN_POPUP_CHANGE_HINT_FONT_PX,
+  LOGIN_POPUP_CHECKBOX_SIZE_PX,
+  LOGIN_POPUP_CLOSE_BUTTON_SIZE_PX,
+  LOGIN_POPUP_CLOSE_ICON_FONT_PX,
+  LOGIN_POPUP_CLOSE_ICON_LINE_HEIGHT_PX,
+  LOGIN_POPUP_CLOSE_INSET_PX,
+  LOGIN_POPUP_DESC_MARGIN_BOTTOM_PX,
+  LOGIN_POPUP_DRAG_BAR_HEIGHT_PX,
+  LOGIN_POPUP_DRAG_BAR_MARGIN_BOTTOM_PX,
+  LOGIN_POPUP_DRAG_BAR_WIDTH_PX,
+  LOGIN_POPUP_FOOTER_GAP_PX,
+  LOGIN_POPUP_FOOTER_MARGIN_TOP_PX,
+  LOGIN_POPUP_ICON_BADGE_MARGIN_RIGHT_PX,
+  LOGIN_POPUP_ICON_BADGE_SIZE_PX,
+  LOGIN_POPUP_ICON_GLYPH_FONT_PX,
+  LOGIN_POPUP_AGREEMENT_FONT_PX,
+  LOGIN_POPUP_AGREEMENT_GAP_PX,
+  LOGIN_POPUP_AGREEMENT_MARK_PX,
+  LOGIN_POPUP_NOTE_FONT_PX,
+  LOGIN_POPUP_NOTE_MARGIN_TOP_PX,
+  LOGIN_POPUP_PILL_FONT_PX,
+  LOGIN_POPUP_PILL_HEIGHT_PX,
+  LOGIN_POPUP_PILL_PADDING_X_PX,
+  LOGIN_POPUP_ROW_HEIGHT_PX,
+  LOGIN_POPUP_ROW_PADDING_X_PX,
+  LOGIN_POPUP_BODY_FONT_PX,
+  LOGIN_POPUP_SECTION_GAP_PX,
+  LOGIN_POPUP_SECONDARY_BUTTON_MARGIN_BOTTOM_PX,
+  LOGIN_POPUP_SHEET_PADDING_TOP_PX,
+  LOGIN_POPUP_TITLE_FONT_PX,
+  LOGIN_POPUP_TITLE_MARGIN_BOTTOM_PX,
+} from '@ihui/shared/ui/login-popup-spec'
 import { Check } from 'lucide-react-native'
 import {
   ActivityIndicator,
@@ -78,48 +117,10 @@ export interface LoginPopUpProps {
   onUpgradeTrader?: () => void
 }
 
-// ============ 通用授权卡尺寸 ============
-const CARD_PADDING_TOP = 8
-const CARD_PADDING_HORIZONTAL = 16
-const CARD_PADDING_BOTTOM = 24
-const DRAG_BAR_WIDTH = 36
-const DRAG_BAR_HEIGHT = 4
-const DRAG_BAR_MARGIN_BOTTOM = 12
-const TITLE_FONT_SIZE = 16
-const TITLE_MARGIN_BOTTOM = 8
-const DESCRIPTION_FONT_SIZE = 14
-const DESCRIPTION_MARGIN_BOTTOM = 24
-const BUTTON_HEIGHT = 48
-const BUTTON_FONT_SIZE = 15
-const PRIMARY_BUTTON_MARGIN_BOTTOM = 12
-const SECONDARY_BUTTON_MARGIN_BOTTOM = 24
-const AGREEMENT_FONT_SIZE = 11
-const AGREEMENT_GAP = 4
-const CHECKBOX_SIZE = 16
-const CLOSE_BUTTON_SIZE = 32
-const CLOSE_ICON_SIZE = 18
-const CLOSE_BUTTON_TOP = 8
-const CLOSE_BUTTON_RIGHT = 8
-
-// ============ 资料编辑卡尺寸(rpx→dp 2:1) ============
-const AVATAR_SIZE = 72
+// 可见几何数字唯一源在 @ihui/shared/ui/login-popup-spec(与小程序端同表,逐档裁决见该文件注释);
+// RN 单位是 dp,与逻辑 px 1:1,故本文件直接取用。
+// 头像描边环宽度 3dp:RN 独有形态(小程序端头像是 1px border 类,不走本档),不属跨端对账几何。
 const AVATAR_BORDER_WIDTH = 3
-const AVATAR_MARGIN_BOTTOM = 6
-const CHANGE_AVATAR_FONT_SIZE = 12
-const ROW_HEIGHT = 44
-const ROW_MARGIN_BOTTOM = 12
-const ROW_PADDING_HORIZONTAL = 12
-const ICON_SIZE = 20
-const ICON_MARGIN_RIGHT = 10
-const BODY_FONT_SIZE = 14
-const ACTION_FONT_SIZE = 16
-const UPGRADE_HEIGHT = 24
-const UPGRADE_PADDING_HORIZONTAL = 10
-const HINT_FONT_SIZE = 11
-const ERROR_FONT_SIZE = 11
-const FOOTER_MARGIN_TOP = 8
-const FOOTER_GAP = 10
-const FOOTER_BUTTON_HEIGHT = 46
 
 /** 中英文校验:汉字计 1 单位,字母/数字计 0.5 单位,上限 3 单位(对齐原 vue onInput)。 */
 function filterNickname(raw: string): string {
@@ -251,7 +252,12 @@ export function LoginPopUp({
               {showAgreementRow ? (
                 <Pressable style={styles.agreementRow} onPress={handleAgreeToggle}>
                   <View style={[styles.checkbox, agreeChecked ? styles.checkboxChecked : null]}>
-                    {agreeChecked ? <Check size={11} color={tokens.brand.ctaForeground} /> : null}
+                    {agreeChecked ? (
+                      <Check
+                        size={LOGIN_POPUP_AGREEMENT_MARK_PX}
+                        color={tokens.brand.ctaForeground}
+                      />
+                    ) : null}
                   </View>
                   <Text style={styles.agreementText}>
                     <Text style={styles.agreementLink}>《用户协议》</Text>
@@ -493,80 +499,80 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     borderTopLeftRadius: rnRadius['2xl'],
     borderTopRightRadius: rnRadius['2xl'],
-    paddingTop: CARD_PADDING_TOP,
-    paddingHorizontal: CARD_PADDING_HORIZONTAL,
-    paddingBottom: CARD_PADDING_BOTTOM,
+    paddingTop: LOGIN_POPUP_SHEET_PADDING_TOP_PX,
+    paddingHorizontal: LOGIN_POPUP_CARD_PADDING_X_PX,
+    paddingBottom: LOGIN_POPUP_CARD_PADDING_BOTTOM_PX,
   },
   dragBar: {
     alignSelf: 'center',
-    width: DRAG_BAR_WIDTH,
-    height: DRAG_BAR_HEIGHT,
-    borderRadius: DRAG_BAR_HEIGHT / 2, // radius-exempt: 拖拽把手胶囊(高 4dp/2)
+    width: LOGIN_POPUP_DRAG_BAR_WIDTH_PX,
+    height: LOGIN_POPUP_DRAG_BAR_HEIGHT_PX,
+    borderRadius: LOGIN_POPUP_DRAG_BAR_HEIGHT_PX / 2, // radius-exempt: 拖拽把手胶囊(高 4dp/2)
     backgroundColor: tokens.border.light,
-    marginBottom: DRAG_BAR_MARGIN_BOTTOM,
+    marginBottom: LOGIN_POPUP_DRAG_BAR_MARGIN_BOTTOM_PX,
   },
   closeButton: {
     position: 'absolute',
-    top: CLOSE_BUTTON_TOP,
-    right: CLOSE_BUTTON_RIGHT,
-    width: CLOSE_BUTTON_SIZE,
-    height: CLOSE_BUTTON_SIZE,
-    borderRadius: CLOSE_BUTTON_SIZE / 2, // radius-exempt: 关闭按钮几何正圆(32dp 直径/2)
+    top: LOGIN_POPUP_CLOSE_INSET_PX,
+    right: LOGIN_POPUP_CLOSE_INSET_PX,
+    width: LOGIN_POPUP_CLOSE_BUTTON_SIZE_PX,
+    height: LOGIN_POPUP_CLOSE_BUTTON_SIZE_PX,
+    borderRadius: LOGIN_POPUP_CLOSE_BUTTON_SIZE_PX / 2, // radius-exempt: 关闭按钮几何正圆(32dp 直径/2)
     alignItems: 'center',
     justifyContent: 'center',
   },
   closeIcon: {
-    fontSize: CLOSE_ICON_SIZE,
-    lineHeight: CLOSE_ICON_SIZE + 4,
+    fontSize: LOGIN_POPUP_CLOSE_ICON_FONT_PX,
+    lineHeight: LOGIN_POPUP_CLOSE_ICON_LINE_HEIGHT_PX,
     color: tokens.text.secondary,
     fontWeight: '500',
     textAlign: 'center',
   },
   title: {
-    fontSize: TITLE_FONT_SIZE,
+    fontSize: LOGIN_POPUP_TITLE_FONT_PX,
     fontWeight: '600',
     color: tokens.text.primary,
     textAlign: 'center',
-    marginBottom: TITLE_MARGIN_BOTTOM,
+    marginBottom: LOGIN_POPUP_TITLE_MARGIN_BOTTOM_PX,
   },
   description: {
-    fontSize: DESCRIPTION_FONT_SIZE,
+    fontSize: LOGIN_POPUP_BODY_FONT_PX,
     color: tokens.text.secondary,
     textAlign: 'center',
-    marginBottom: DESCRIPTION_MARGIN_BOTTOM,
+    marginBottom: LOGIN_POPUP_DESC_MARGIN_BOTTOM_PX,
   },
   primaryButton: {
-    height: BUTTON_HEIGHT,
+    height: LOGIN_POPUP_BUTTON_HEIGHT_PX,
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: PRIMARY_BUTTON_MARGIN_BOTTOM,
+    marginBottom: LOGIN_POPUP_SECTION_GAP_PX,
   },
   primaryButtonPressed: {
     opacity: 0.8,
   },
   primaryButtonLabel: {
-    fontSize: BUTTON_FONT_SIZE,
+    fontSize: LOGIN_POPUP_BUTTON_FONT_PX,
     fontWeight: '500',
     color: tokens.brand.ctaForeground,
     textAlign: 'center',
   },
   secondaryButton: {
-    height: BUTTON_HEIGHT,
+    height: LOGIN_POPUP_BUTTON_HEIGHT_PX,
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: SECONDARY_BUTTON_MARGIN_BOTTOM,
+    marginBottom: LOGIN_POPUP_SECONDARY_BUTTON_MARGIN_BOTTOM_PX,
   },
   secondaryButtonPressed: {
     opacity: 0.8,
   },
   secondaryButtonLabel: {
-    fontSize: BUTTON_FONT_SIZE,
+    fontSize: LOGIN_POPUP_BUTTON_FONT_PX,
     color: tokens.text.primary,
     textAlign: 'center',
   },
@@ -576,27 +582,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkbox: {
-    width: CHECKBOX_SIZE,
-    height: CHECKBOX_SIZE,
+    width: LOGIN_POPUP_CHECKBOX_SIZE_PX,
+    height: LOGIN_POPUP_CHECKBOX_SIZE_PX,
     borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.border.light,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: AGREEMENT_GAP,
+    marginRight: LOGIN_POPUP_AGREEMENT_GAP_PX,
   },
   checkboxChecked: {
     backgroundColor: tokens.brand.cta,
     borderColor: tokens.brandAccent.deep,
   },
   checkboxMark: {
-    fontSize: 11,
-    lineHeight: 12,
+    fontSize: LOGIN_POPUP_AGREEMENT_MARK_PX,
+    lineHeight: LOGIN_POPUP_AGREEMENT_MARK_PX,
     color: tokens.brand.ctaForeground,
     fontWeight: '700',
   },
   agreementText: {
-    fontSize: AGREEMENT_FONT_SIZE,
+    fontSize: LOGIN_POPUP_AGREEMENT_FONT_PX,
     color: tokens.text.secondary,
   },
   agreementLink: {
@@ -608,12 +614,12 @@ const styles = StyleSheet.create({
   // ===== 资料编辑卡 =====
   avatarWrap: {
     alignItems: 'center',
-    marginBottom: ROW_MARGIN_BOTTOM,
+    marginBottom: LOGIN_POPUP_SECTION_GAP_PX,
   },
   avatar: {
-    width: AVATAR_SIZE,
-    height: AVATAR_SIZE,
-    borderRadius: AVATAR_SIZE / 2, // radius-exempt: 头像几何正圆(72dp 直径/2)
+    width: LOGIN_POPUP_AVATAR_BOX_PX,
+    height: LOGIN_POPUP_AVATAR_BOX_PX,
+    borderRadius: LOGIN_POPUP_AVATAR_BOX_PX / 2, // radius-exempt: 头像几何正圆(70dp 直径/2)
     borderWidth: AVATAR_BORDER_WIDTH,
     borderColor: tokens.border.medium,
     backgroundColor: tokens.surface.card,
@@ -629,59 +635,59 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   avatarPlaceholder: {
-    fontSize: BODY_FONT_SIZE,
+    fontSize: LOGIN_POPUP_BODY_FONT_PX,
     fontWeight: '600',
     color: tokens.text.secondary,
   },
   changeAvatar: {
-    marginTop: AVATAR_MARGIN_BOTTOM,
-    fontSize: CHANGE_AVATAR_FONT_SIZE,
+    marginTop: LOGIN_POPUP_AVATAR_HINT_GAP_PX,
+    fontSize: LOGIN_POPUP_CHANGE_HINT_FONT_PX,
     color: tokens.brand.DEFAULT,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: ROW_HEIGHT,
+    height: LOGIN_POPUP_ROW_HEIGHT_PX,
     borderRadius: rnRadius.lg,
-    paddingHorizontal: ROW_PADDING_HORIZONTAL,
+    paddingHorizontal: LOGIN_POPUP_ROW_PADDING_X_PX,
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    marginBottom: ROW_MARGIN_BOTTOM,
+    marginBottom: LOGIN_POPUP_SECTION_GAP_PX,
   },
   roleRow: {
     justifyContent: 'flex-start',
   },
   iconBadge: {
-    width: ICON_SIZE,
-    height: ICON_SIZE,
-    borderRadius: ICON_SIZE / 2, // radius-exempt: 行首图标徽标几何正圆(20dp 直径/2)
+    width: LOGIN_POPUP_ICON_BADGE_SIZE_PX,
+    height: LOGIN_POPUP_ICON_BADGE_SIZE_PX,
+    borderRadius: LOGIN_POPUP_ICON_BADGE_SIZE_PX / 2, // radius-exempt: 行首图标徽标几何正圆(20dp 直径/2)
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.border.medium,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: ICON_MARGIN_RIGHT,
+    marginRight: LOGIN_POPUP_ICON_BADGE_MARGIN_RIGHT_PX,
   },
   iconGlyph: {
-    fontSize: 11,
+    fontSize: LOGIN_POPUP_ICON_GLYPH_FONT_PX,
     color: tokens.text.secondary,
   },
   input: {
     flex: 1,
     height: '100%',
-    fontSize: BODY_FONT_SIZE,
+    fontSize: LOGIN_POPUP_BODY_FONT_PX,
     color: tokens.text.primary,
     padding: 0,
   },
   roleText: {
     flex: 1,
-    fontSize: BODY_FONT_SIZE,
+    fontSize: LOGIN_POPUP_BODY_FONT_PX,
     fontWeight: '600',
   },
   upgradeButton: {
-    height: UPGRADE_HEIGHT,
-    paddingHorizontal: UPGRADE_PADDING_HORIZONTAL,
+    height: LOGIN_POPUP_PILL_HEIGHT_PX,
+    paddingHorizontal: LOGIN_POPUP_PILL_PADDING_X_PX,
     borderRadius: rnRadius.md,
     backgroundColor: tokens.warning.amber,
     alignItems: 'center',
@@ -691,13 +697,13 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   upgradeLabel: {
-    fontSize: HINT_FONT_SIZE,
+    fontSize: LOGIN_POPUP_PILL_FONT_PX,
     fontWeight: '700',
     color: tokens.danger.DEFAULT,
   },
   bindButton: {
-    height: UPGRADE_HEIGHT,
-    paddingHorizontal: UPGRADE_PADDING_HORIZONTAL,
+    height: LOGIN_POPUP_PILL_HEIGHT_PX,
+    paddingHorizontal: LOGIN_POPUP_PILL_PADDING_X_PX,
     borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',
@@ -707,30 +713,30 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   bindLabel: {
-    fontSize: HINT_FONT_SIZE,
+    fontSize: LOGIN_POPUP_PILL_FONT_PX,
     fontWeight: '600',
     color: tokens.brand.ctaForeground,
   },
   hintText: {
-    fontSize: HINT_FONT_SIZE,
+    fontSize: LOGIN_POPUP_NOTE_FONT_PX,
     color: tokens.text.tertiary,
-    marginTop: -ROW_MARGIN_BOTTOM + 6,
-    marginBottom: ROW_MARGIN_BOTTOM,
+    marginTop: LOGIN_POPUP_NOTE_MARGIN_TOP_PX,
+    marginBottom: LOGIN_POPUP_SECTION_GAP_PX,
   },
   errorText: {
-    fontSize: ERROR_FONT_SIZE,
+    fontSize: LOGIN_POPUP_NOTE_FONT_PX,
     color: tokens.danger.DEFAULT,
-    marginTop: -ROW_MARGIN_BOTTOM + 6,
-    marginBottom: ROW_MARGIN_BOTTOM,
+    marginTop: LOGIN_POPUP_NOTE_MARGIN_TOP_PX,
+    marginBottom: LOGIN_POPUP_SECTION_GAP_PX,
   },
   footer: {
     flexDirection: 'row',
-    gap: FOOTER_GAP,
-    marginTop: FOOTER_MARGIN_TOP,
+    gap: LOGIN_POPUP_FOOTER_GAP_PX,
+    marginTop: LOGIN_POPUP_FOOTER_MARGIN_TOP_PX,
   },
   footerButton: {
     flex: 1,
-    height: FOOTER_BUTTON_HEIGHT,
+    height: LOGIN_POPUP_BUTTON_HEIGHT_PX,
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.brandAccent.deep,
@@ -746,7 +752,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.danger.DEFAULT,
   },
   footerLabel: {
-    fontSize: ACTION_FONT_SIZE,
+    fontSize: LOGIN_POPUP_BUTTON_FONT_PX,
     fontWeight: '600',
     color: tokens.brand.DEFAULT,
   },
