@@ -15,17 +15,24 @@
 import { useEffect, useRef } from 'react'
 import { Animated, Easing, StyleSheet, View } from 'react-native'
 import { tokens } from '../theme/active-tokens'
+import {
+  COLORFUL_LOADER_DEFAULT_SIZE_PX,
+  COLORFUL_LOADER_SPIN_MS,
+  colorfuleLoaderRingBorderPx,
+} from '@ihui/shared/ui/colorful-loader-spec'
 
+/// 默认尺寸与周期不在本文件取数 —— 唯一源是 @ihui/shared/ui/colorful-loader-spec(与小程序端同档);
+/// 形态本身是平台机制差异(小程序 72 点 CSS 环,RN 单环 Animated),对齐的是数值不是通道。
 export interface ColorfulLoaderProps {
-  /** 加载器尺寸(px),默认 40 */
+  /** 加载器尺寸(px),默认取共享档 */
   size?: number
-  /** 单圈旋转时长(ms),默认 1200 */
+  /** 单圈旋转时长(ms),默认取共享档 */
   duration?: number
 }
 
 export function ColorfulLoader({
-  size = 40,
-  duration = 1200,
+  size = COLORFUL_LOADER_DEFAULT_SIZE_PX,
+  duration = COLORFUL_LOADER_SPIN_MS,
 }: ColorfulLoaderProps): React.JSX.Element {
   const rotate = useRef(new Animated.Value(0)).current
   const scale = useRef(new Animated.Value(0.8)).current
@@ -75,7 +82,7 @@ export function ColorfulLoader({
             width: size,
             height: size,
             borderRadius: size / 2, // radius-exempt: 装饰加载圆点几何正圆,恒取直径一半
-            borderWidth: Math.max(2, size / 12),
+            borderWidth: colorfuleLoaderRingBorderPx(size),
             borderColor: tokens.border.light,
             borderTopColor: tokens.brandAccent.deep,
           },
